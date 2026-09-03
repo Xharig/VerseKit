@@ -729,6 +729,8 @@ TEXTE = {
     's_al_oft':        ('%d× gespielt · %d abgeschlossen',
                           'played %d× · %d completed'),
     's_al_anzahl':     ('%d Aufträge', '%d missions'),
+    's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
+    's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
     # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:
     # „da fehlt auch die Beschreibung, für was der Ordner ist, der Name sagt
     # nichts aus." Und der zweite Teil fehlte ganz: Dieser eine Ordner ist

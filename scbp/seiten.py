@@ -2128,6 +2128,17 @@ def _auftragslog(fenster, rahmen):
                          bg=FLAECHE, fg=SUB, font=fenster.f_klein,
                          anchor='w').pack(fill='x')
 
+            # ⭐ Was dabei herauskam. Das ist der Grund, warum jemand nach einem
+            # Auftrag sucht — „welcher war das nochmal, bei dem der Helm kam?".
+            # In der Markenfarbe, damit es beim Ueberfliegen auffaellt.
+            bps = eintrag.get('bauplaene') or []
+            if bps:
+                tk.Label(mitte,
+                         text=t('s_al_bp' if len(bps) == 1 else 's_al_bp_mehr',
+                                ' · '.join(bps)),
+                         bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
+                         anchor='w', justify='left').pack(fill='x')
+
     suche.trace_add('write', zeichnen)
     zeichnen()
 

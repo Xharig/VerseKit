@@ -9904,6 +9904,35 @@ def main():
         pruefe(len(_ml113.suchen(_gespeichert113, 'testauf')) == 2
                and not _ml113.suchen(_gespeichert113, 'gibtsnicht'),
                'die Suche findet ueber den Auftragsnamen')
+
+        # ⭐ Der Bauplan gehoert an den Auftrag, bei dem er herauskam.
+        #
+        # ⚠ **Die Belohnung faellt NACH dem Abgeben.** Gemessen am 29.08.2026:
+        # Auftrag endete 17:42:00, der Bauplan kam 17:42:54. Wer nur waehrend
+        # des Auftrags sucht, findet keinen einzigen — deshalb der Nachlauf.
+        _log4 = _log113('d.log', [
+            _zeile113('2026-09-01T10:00:00.000',
+                      'Auftrag angenommen: Beuteauftrag', 1),
+            _zeile113('2026-09-01T10:30:00.000',
+                      'Auftrag abgeschlossen: Beuteauftrag', 2),
+            # 54 Sekunden nach dem Ende — genau der gemessene Abstand.
+            _zeile113('2026-09-01T10:30:54.000',
+                      'Bauplan erhalten: Testhelm', 3),
+            # Und einer, der VIEL zu spaet kommt: Der gehoert zu keinem Auftrag
+            # mehr, sonst saugt ein alter Auftrag jeden spaeteren Fund an.
+            _zeile113('2026-09-01T18:00:00.000',
+                      'Bauplan erhalten: Spaetzuender', 4),
+        ])
+        os.utime(_log4, (1750000000, 1750000000))
+        _beute113 = [e for e in _ml113.aus_dateien([_log4])
+                     if e['name'] == 'Beuteauftrag']
+        pruefe(len(_beute113) == 1 and _beute113[0].get('bauplaene') ==
+               ['Testhelm'],
+               'der Bauplan haengt am Auftrag, bei dem er herauskam (%s)'
+               % (_beute113[0].get('bauplaene') if _beute113 else 'kein Auftrag'))
+        pruefe(all('Spaetzuender' not in (e.get('bauplaene') or [])
+                   for e in _ml113.aus_dateien([_log4])),
+               'ein Fund lange nach dem Ende wird keinem Auftrag angehaengt')
     finally:
         if _altheim113 is None:
             os.environ.pop('SC_BP_HOME', None)

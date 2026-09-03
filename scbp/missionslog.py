@@ -81,12 +81,60 @@ def _zeit(zeile):
     return m.group(1) if m else ''
 
 
+# Wie lange nach dem Abgeben ein Bauplan noch zum Auftrag gezaehlt wird.
+#
+# ⚠ Die Belohnung faellt NACH dem Ende, nicht davor. Gemessen am 29.08.2026:
+# Auftrag „Retake Platforms From Nine Tails" endete 17:42:00, der Bauplan
+# „H4-PBF Ammo Carrier" kam 17:42:54 — 54 Sekunden spaeter. Ohne Nachlauf
+# stuende er bei keinem Auftrag. Fuenf Minuten sind grosszuegig genug fuer eine
+# lahme Serververbindung und kurz genug, dass er nicht beim naechsten Auftrag
+# landet; laeuft ohnehin schon der naechste, gewinnt der (siehe `_bp_zuordnen`).
+BP_NACHLAUF_SEK = 300
+
+
 def _eintrag(titel, wann, quelle):
     return {'name': titel, 'wann': wann, 'zustand': LAEUFT,
-            'ziele_fertig': 0, 'ziele_gesamt': 0, 'quelle': quelle}
+            'ziele_fertig': 0, 'ziele_gesamt': 0, 'bauplaene': [],
+            'quelle': quelle}
 
 
-def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus):
+def _sekunden(stempel):
+    """Ein Zeitstempel als Zahl — fuer den Abstand zwischen zwei Ereignissen."""
+    try:
+        import calendar
+        import time as _t
+        return calendar.timegm(_t.strptime(stempel[:19], '%Y-%m-%dT%H:%M:%S'))
+    except Exception:
+        return None
+
+
+def _bp_zuordnen(name, wann, offen, fertig):
+    """Einen gefundenen Bauplan dem Auftrag zuschreiben, zu dem er gehoert.
+
+    ⚠ **Laufender Auftrag zuerst, erst dann der gerade beendete.** Wer einen
+    Auftrag abgibt und sofort den naechsten annimmt, bekommt die Belohnung des
+    alten — waehrend der neue schon laeuft. Andersherum gepruefte Reihenfolge
+    haette sie dem neuen zugeschrieben.
+    """
+    if offen:
+        ziel = offen[-1]
+        if name not in ziel['bauplaene']:
+            ziel.setdefault('bauplaene', []).append(name)
+        return True
+    jetzt = _sekunden(wann)
+    if jetzt is None:
+        return False
+    for eintrag in reversed(fertig):
+        ende = _sekunden(eintrag.get('bis') or '')
+        if ende is not None and 0 <= jetzt - ende <= BP_NACHLAUF_SEK:
+            if name not in eintrag.setdefault('bauplaene', []):
+                eintrag['bauplaene'].append(name)
+            return True
+    return False
+
+
+def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
+           bp_muster=None):
     """Ein Log lesen und die Buchfuehrung fortschreiben.
 
     `offen` und `fertig` werden ueber Dateigrenzen hinweg weitergereicht —
@@ -109,6 +157,23 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus):
                 for zust in auftraege.ziel_ereignisse_aus_text(zeile):
                     if zust and zust[0] == 'zustand':
                         ziele.setdefault(zust[1], {})[zust[2]] = zust[3]
+
+                # ⭐ Welcher Bauplan bei welchem Auftrag herauskam. Erkannt wird
+                # er mit demselben Muster wie im Bestand (`phrasen.py`) — die
+                # Formulierung steht in der `global.ini` des Spielers, nicht
+                # hier. Die Zuordnung macht der Zeitpunkt: Ein Bauplan faellt
+                # waehrend eines Auftrags oder kurz nach dem Abgeben.
+                if bp_muster is not None:
+                    for treffer in bp_muster.finditer(zeile):
+                        roh_bp = next((g for g in treffer.groups() if g), '')
+                        name_bp = auftraege.sauber(roh_bp)
+                        if not name_bp:
+                            continue
+                        bp_wann = _zeit(zeile)
+                        if (bp_wann, name_bp, 'bp') in gesehen:
+                            continue    # dieselbe Doppelmeldung wie oben
+                        gesehen.add((bp_wann, name_bp, 'bp'))
+                        _bp_zuordnen(name_bp, bp_wann, offen, fertig)
 
                 ereignisse = auftraege.ereignisse_aus_text(
                     zeile, muster_an, muster_aus)
@@ -234,8 +299,19 @@ def aus_dateien(pfade):
     # Annahme — laut Messung dort 62 von 362 Faellen.
     offen, fertig, gesehen, kennung = [], [], set(), {}
     muster_an, muster_aus = auftraege.muster(), auftraege.ende_muster()
+    # ⚠ Dasselbe Muster wie im Bauplan-Bestand — die Formulierung steht in der
+    # `global.ini` des Spielers. Faellt es aus, laeuft das Protokoll weiter, nur
+    # ohne die Bauplan-Zeilen: Ein Auftrags-Protokoll ohne Belohnungen ist
+    # brauchbar, gar keines waere es nicht.
+    try:
+        from . import phrasen
+        bp_muster = phrasen.muster()
+    except Exception as ausnahme:
+        fehler.merken('missionslog.bp_muster', ausnahme)
+        bp_muster = None
     for pfad in pfade:
-        _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus)
+        _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
+               bp_muster)
     return sorted(fertig + offen, key=lambda e: e.get('wann') or '',
                   reverse=True)
 
