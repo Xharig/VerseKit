@@ -1300,6 +1300,20 @@ class Watcher(threading.Thread):
         in die Liste — sonst stünden nach jedem Start hunderte Zeilen da. Nur
         die Zahl kommt in die Statuszeile, und eine verbleibende Lücke wird
         deutlich gesagt, damit niemand seinen Bestand für vollständig hält."""
+        # ⚠ Dasselbe fuer das Auftrags-Protokoll: Wer den Watcher zum ersten Mal
+        # startet, soll es gefuellt vorfinden — seine `logbackups/` reichen ja
+        # Wochen zurueck. Steht bewusst VOR der Bauplan-Nachlese und in einem
+        # eigenen `try`: Geht hier etwas schief, darf der Bestand trotzdem
+        # nachgelesen werden.
+        try:
+            from scbp import missionslog as _ml
+            _gesamt, _dazu = _ml.nachlese()
+            if _dazu:
+                fehler.spur('Auftrags-Protokoll: %d neu, %d gesamt'
+                            % (_dazu, _gesamt))
+        except Exception as ausnahme:
+            fehler.merken('watcher.auftragsprotokoll', ausnahme)
+
         try:
             funde, bericht = logquelle.nachlesen(self.stand)
         except Exception:

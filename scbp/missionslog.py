@@ -397,6 +397,79 @@ def nachtragen(ordner=None, laufende=None):
     return len(zusammen), dazu
 
 
+def nachlese():
+    """Beim Start: die aufgehobenen Logs des Spielers durchsehen.
+
+    Genau wie beim Bauplan-Bestand — wer den Watcher zum ersten Mal startet,
+    findet sein Protokoll **gefuellt** vor statt leer, denn seine `logbackups/`
+    reichen ja Wochen zurueck.
+
+    ⚠ **Nur einmal je Logdatei.** Die Sicherungen sind zusammen leicht ein
+    halbes Gigabyte; sie bei jedem Start komplett neu zu lesen, wuerde den Start
+    spuerbar bremsen — und seit die Sicherung auf der NAS 100 statt 10 Dateien
+    aufhebt, waere es noch mehr. Gemerkt wird Name und Groesse: Waechst eine
+    Datei (die laufende `Game.log` tut das staendig), wird sie erneut gelesen.
+    Dubletten entstehen dabei nicht, dafuer sorgt `zusammenfuehren()`.
+    """
+    try:
+        sicherungen = list(pfade.log_sicherungen() or [])
+    except Exception as ausnahme:
+        fehler.merken('missionslog.nachlese', ausnahme)
+        return 0, 0
+
+    laufende = None
+    spiel = pfade.spiel_ordner()
+    if spiel:
+        kandidat = os.path.join(spiel, 'Game.log')
+        if os.path.isfile(kandidat):
+            laufende = kandidat
+
+    gelesen = _gelesene_laden()
+    offen_dateien = []
+    for pfad_log in sicherungen + ([laufende] if laufende else []):
+        try:
+            marke = '%d' % os.path.getsize(pfad_log)
+        except OSError:
+            continue
+        if gelesen.get(os.path.basename(pfad_log)) != marke:
+            offen_dateien.append((pfad_log, marke))
+
+    if not offen_dateien:
+        return len(laden()), 0
+
+    alt = laden()
+    bekannt = {_schluessel(e) for e in alt}
+    # ⚠ Chronologisch, sonst bekommt ein Auftrag das Ende eines fremden
+    # Durchlaufs — siehe `_spielzeit`.
+    neu = aus_dateien(sorted((p for p, _m in offen_dateien), key=_spielzeit))
+    zusammen = zusammenfuehren(alt, neu)
+    dazu = sum(1 for e in zusammen if _schluessel(e) not in bekannt)
+    if sichern(zusammen):
+        for pfad_log, marke in offen_dateien:
+            gelesen[os.path.basename(pfad_log)] = marke
+        _gelesene_sichern(gelesen)
+    return len(zusammen), dazu
+
+
+def _gelesene_laden():
+    try:
+        with open(pfad(), encoding='utf-8') as f:
+            return json.load(f).get('gelesen') or {}
+    except Exception:
+        return {}
+
+
+def _gelesene_sichern(gelesen):
+    """Den Lesestand neben das Protokoll schreiben — in dieselbe Datei."""
+    try:
+        with open(pfad(), encoding='utf-8') as f:
+            daten = json.load(f)
+        daten['gelesen'] = gelesen
+        pfade.json_sichern(pfad(), daten)
+    except Exception as ausnahme:
+        fehler.merken('missionslog.lesestand', ausnahme)
+
+
 # ------------------------------------------------------------------- Ausgeben
 
 
