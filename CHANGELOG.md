@@ -6,6 +6,32 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc1 - 2026-09-04
+
+> **Testfassung.** Neu ist das Auftrags-Protokoll: Es zeigt dir, welche
+> Aufträge du wann gespielt hast, wie oft — und welcher Bauplan dabei
+> herauskam. Rückmeldung gern über den Fehlerbericht im Programm.
+
+### Neu
+
+- **Auftrags-Protokoll** (neuer Reiter unter „Baupläne"). Der neueste Auftrag
+  steht oben, ein Suchfeld findet über den Namen. Laufende Aufträge zeigen
+  ihren Stand („3 von 5 Zielen"), beendete stehen in einer Zeile. Kam bei einem
+  Auftrag ein Bauplan heraus, steht er darunter — die Antwort auf „welcher
+  Auftrag war das nochmal, bei dem der Helm kam?".
+- **Es ist beim ersten Start schon gefüllt.** Die aufgehobenen Protokolle des
+  Spiels werden einmal durchgesehen; du siehst also sofort die letzten Wochen.
+  Danach wächst es mit und bleibt stehen, auch wenn das Spiel seine
+  Protokolle längst gelöscht hat.
+- **Das Protokoll wandert in die Ablage** — neben Bestand und den übrigen
+  Listen. Wer seine Daten sichert, hat es dabei.
+
+### Behoben
+
+- **Die Bauplan-Liste geht schneller auf.** Betrifft alle, bei denen es beim
+  Öffnen spürbar gehakt hat.
+  Gemeldet von Haldjas
+
 ## v3.11.1-rc2 - 2026-09-03
 
 > **Testfassung.** Die Bauplan-Liste soll schneller aufgehen — geprüft ist das

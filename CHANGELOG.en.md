@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc1 - 2026-09-04
+
+> **Test build.** New is the mission log: it shows which missions you played
+> when, how often — and which blueprint came out of it. Feedback is welcome
+> through the error report inside the program.
+
+### New
+
+- **Mission log** (new tab under "Blueprints"). The most recent mission sits on
+  top, a search field finds them by name. Missions in progress show how far they
+  are ("3 of 5 objectives"), finished ones take a single line. If a blueprint
+  came out of a mission, it is listed underneath — the answer to "which mission
+  was it again that dropped the helmet?".
+- **It is already filled on first start.** The game's kept logs are read once,
+  so you see the past weeks right away. From then on the log grows with you and
+  stays, long after the game has dropped its own.
+- **The log goes into the export folder** — next to your inventory and the other
+  lists. Whoever backs up their data has it along.
+
+### Fixed
+
+- **The blueprint list opens faster.** Affects everyone for whom opening it felt
+  sluggish.
+  Reported by Haldjas
+
 ## v3.11.1-rc2 - 2026-09-03
 
 > **Test build.** The blueprint list should open faster — that is not verified
