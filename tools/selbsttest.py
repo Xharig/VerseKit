@@ -876,7 +876,11 @@ def main():
                 # **Bauplan-Bestand** ist hinter „Fuer Fortgeschrittene"
                 # gewandert, weil die Seite am eigenen Bestand schreibt und im
                 # Vorbeigehen angeklickt wurde.
-                pruefe(len(hf.knoepfe) == 15, 'alle Reiter sind wieder da')
+                #
+                # ⚠ Am 04.09.2026 von 15 auf 16: das **Auftrags-Protokoll**
+                # unter „Baupläne". Auftraege sind die Quelle der Bauplaene —
+                # deshalb dort und nicht in einer eigenen Gruppe.
+                pruefe(len(hf.knoepfe) == 16, 'alle Reiter sind wieder da')
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung

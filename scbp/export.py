@@ -165,7 +165,9 @@ def schreiben(pfad, art='basetool', bestand=None, katalog=None, version=''):
             from . import missionslog
             eintraege = missionslog.laden()
             if not eintraege:
-                return False, 'noch keine Auftraege'
+                # ⚠ Knapp wie „leerer Bestand" unten, kein ganzer Satz: Diese
+                # Rueckmeldungen gehen ins Protokoll, nicht auf die Seite.
+                return False, 'leeres Protokoll'
             ordner = os.path.dirname(os.path.abspath(pfad))
             if ordner:
                 os.makedirs(ordner, exist_ok=True)

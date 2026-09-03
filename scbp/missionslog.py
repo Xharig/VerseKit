@@ -50,7 +50,7 @@ mit verschiedener Nummer in den eckigen Klammern:
     <2026-08-29T16:02:14.792Z> [41] Auftrag angenommen: Retake Platforms …
     <2026-08-29T16:02:14.792Z> [44] Auftrag angenommen: Retake Platforms …
 
-Gemessen an echten Sicherungen: Ohne Gegenmassnahme steht jeder Auftrag
+An echten Sitzungen gemessen: Ohne Gegenmassnahme steht jeder Auftrag
 doppelt im Protokoll. Entdoppelt wird ueber **(Zeitpunkt, Titel, Art)** — die
 Nummer taugt dafuer nicht, und zwei echte Annahmen desselben Auftrags in
 derselben Millisekunde gibt es nicht.
