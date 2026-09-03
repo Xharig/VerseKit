@@ -157,6 +157,23 @@ def vollstaendig(bestand=None, katalog=None):
 def schreiben(pfad, art='basetool', bestand=None, katalog=None, version=''):
     """Eine Version in eine Datei schreiben. (Erfolg, Meldung)."""
     try:
+        # ⚠ Das Auftrags-Protokoll ist kein Bauplan-Bestand: eigene Struktur,
+        # eigene Leer-Pruefung. Es faellt deshalb VOR der gemeinsamen Zaehlung
+        # heraus — sonst gaelte es als „leerer Bestand" und wuerde nie
+        # geschrieben.
+        if art == 'auftraege':
+            from . import missionslog
+            eintraege = missionslog.laden()
+            if not eintraege:
+                return False, 'noch keine Auftraege'
+            ordner = os.path.dirname(os.path.abspath(pfad))
+            if ordner:
+                os.makedirs(ordner, exist_ok=True)
+            with open(pfad + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
+                f.write(missionslog.als_json(eintraege))
+            os.replace(pfad + '.tmp', pfad)
+            return True, str(len(eintraege))
+
         if art == 'basetool':
             doc = fuer_basetool(bestand)
         elif art == 'scmdb':
@@ -181,6 +198,7 @@ DATEINAMEN = {
     'basetool': 'SC-Blueprints-Basetool-%s.json',
     'scmdb':    'scmdb-import-%s.json',
     'voll':     'SC-BP-Watcher-Bestand-%s.json',
+    'auftraege': 'SC-BP-Watcher-Auftraege-%s.json',
 }
 
 
@@ -276,7 +294,10 @@ def ablegen(bestand=None, katalog=None, version=''):
     ordner = ablage_ordner()
     _altbestand_wegraeumen(ordner)
     geschrieben = []
-    for art in ('basetool', 'scmdb', 'voll'):
+    # ⚠ Das Auftrags-Protokoll gehoert mit in die Ablage: Es ist eine eigene
+    # Liste wie der Bestand, und wer seine Daten sichert, meint alle. Fehlt es
+    # hier, merkt das niemand — bis der Rechner neu aufgesetzt ist.
+    for art in ('basetool', 'scmdb', 'voll', 'auftraege'):
         ziel = os.path.join(ordner, vorschlag(art, mit_datum=False))
         ok, _meldung = schreiben(ziel, art, bestand, katalog, version)
         if ok:

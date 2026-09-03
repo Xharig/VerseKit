@@ -92,6 +92,10 @@ UNTERORDNER = {
     'watchlist.json':    'Bauplaene',
     'catalog-seen.json': 'Bauplaene',
     'bp-overrides.json': 'Bauplaene',
+    # Das Auftrags-Protokoll wird fortgeschrieben, nicht neu gebaut: Die
+    # Game-Logs reichen nur wenige Sitzungen zurueck, das Protokoll soll bleiben.
+    'auftragslog.json':     'Intern',
+    'auftragslog.bak.json': 'Intern',
     'einstellungen.json': 'Einstellungen',
     'phrasen.json':       'Einstellungen',
     'gesehen.json':       'Einstellungen',

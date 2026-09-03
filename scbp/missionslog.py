@@ -55,10 +55,14 @@ doppelt im Protokoll. Entdoppelt wird ueber **(Zeitpunkt, Titel, Art)** — die
 Nummer taugt dafuer nicht, und zwei echte Annahmen desselben Auftrags in
 derselben Millisekunde gibt es nicht.
 """
+import json
 import os
 import re
 
-from . import auftraege, fehler
+from . import auftraege, fehler, pfade
+
+DATEI = 'auftragslog.json'
+FORMAT = 1
 
 # Der Zeitstempel am Zeilenanfang: <2026-08-29T16:02:14.792Z>
 _ZEIT = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
@@ -299,3 +303,124 @@ def zusammenfassen(eintraege):
                               fertig + (1 if e['zustand'] == ABGESCHLOSSEN
                                         else 0))
     return zaehler
+
+
+# --------------------------------------------------------------- Fortschreiben
+#
+# ⚠⚠ **Das Protokoll lebt laenger als die Logs.** Star Citizen behaelt nur eine
+# Handvoll `logbackups`, und auch die Sicherung auf die NAS haelt eine feste
+# Zahl. Wer das Protokoll bei jedem Start allein aus den Logs baut, verliert
+# jeden Auftrag, dessen Log inzwischen weggeraeumt wurde — genau die Rueckschau,
+# um die es hier geht. Deshalb wird die Datei **fortgeschrieben**, so wie der
+# Bauplan-Bestand auch.
+
+
+def pfad():
+    return pfade.app_datei(DATEI)
+
+
+def laden():
+    """Das gespeicherte Protokoll — oder eine leere Liste."""
+    try:
+        with open(pfad(), encoding='utf-8') as f:
+            daten = json.load(f)
+        if daten.get('format') == FORMAT:
+            return daten.get('auftraege') or []
+    except Exception:
+        pass
+    return []
+
+
+def sichern(eintraege):
+    """Das Protokoll schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
+
+    ⚠ `pfade.json_sichern` legt die Vorgaengerfassung (`.bak.json`) an. Ein
+    Protokoll laesst sich nicht neu aufbauen, sobald die Logs fort sind — hier
+    waere ein leer geschriebener Stand endgueltig.
+    """
+    try:
+        return pfade.json_sichern(pfad(), {'format': FORMAT,
+                                           'auftraege': eintraege})
+    except Exception as ausnahme:
+        fehler.merken('missionslog.sichern', ausnahme)
+        return False
+
+
+def _schluessel(e):
+    """Was einen Auftragsdurchlauf eindeutig macht: Name plus Startzeitpunkt."""
+    return ((e.get('name') or ''), (e.get('wann') or ''))
+
+
+def zusammenfuehren(alt, neu):
+    """Gespeichertes und frisch Gelesenes vereinen — ohne etwas zu verlieren.
+
+    ⚠ **Der neue Stand gewinnt nur, wenn er mehr weiss.** Ein Auftrag, der
+    gespeichert schon „abgeschlossen" ist, darf nicht wieder auf „laeuft"
+    zurueckfallen, bloss weil in einem noch vorhandenen Log nur sein Anfang
+    steht. Umgekehrt soll ein Ende, das erst jetzt im Log auftaucht, den alten
+    Eintrag ergaenzen.
+    """
+    zusammen = {}
+    for e in list(alt) + list(neu):
+        s = _schluessel(e)
+        vorher = zusammen.get(s)
+        if vorher is None:
+            zusammen[s] = dict(e)
+            continue
+        # Ein beendeter Zustand sticht „laeuft" — egal aus welcher Quelle.
+        if vorher.get('zustand') == LAEUFT and e.get('zustand') != LAEUFT:
+            vorher.update({k: v for k, v in e.items() if v not in (None, '')})
+        elif e.get('zustand') == LAEUFT:
+            # Nur fehlende Felder auffuellen, den Zustand nicht anfassen.
+            for k, v in e.items():
+                if k != 'zustand' and not vorher.get(k) and v:
+                    vorher[k] = v
+        else:
+            vorher.update({k: v for k, v in e.items() if v not in (None, '')})
+    return sorted(zusammen.values(), key=lambda e: e.get('wann') or '',
+                  reverse=True)
+
+
+def nachtragen(ordner=None, laufende=None):
+    """Logs lesen, ins gespeicherte Protokoll einpflegen, sichern.
+
+    Gibt `(gesamt, neu_dazugekommen)` zurueck.
+    """
+    alt = laden()
+    neu = aus_ordner(ordner, laufende) if (ordner or laufende) else []
+    if not neu:
+        return len(alt), 0
+    bekannt = {_schluessel(e) for e in alt}
+    zusammen = zusammenfuehren(alt, neu)
+    dazu = sum(1 for e in zusammen if _schluessel(e) not in bekannt)
+    sichern(zusammen)
+    return len(zusammen), dazu
+
+
+# ------------------------------------------------------------------- Ausgeben
+
+
+def als_csv(eintraege=None):
+    """Das Protokoll als Tabelle — oeffnet sich in jedem Tabellenprogramm.
+
+    Dieselbe Bauform wie beim Handelslager: Semikolon als Trenner, damit
+    deutsche Excel-Fassungen die Spalten von allein trennen.
+    """
+    eintraege = laden() if eintraege is None else eintraege
+    zeilen = ['Auftrag;Angenommen;Beendet;Zustand;Ziele erledigt;Ziele gesamt']
+    for e in eintraege:
+        zeilen.append(';'.join((
+            (e.get('name') or '').replace(';', ','),
+            (e.get('wann') or '').replace('T', ' '),
+            (e.get('bis') or '').replace('T', ' '),
+            e.get('zustand') or '',
+            str(e.get('ziele_fertig') or ''),
+            str(e.get('ziele_gesamt') or ''))))
+    return '\n'.join(zeilen) + '\n'
+
+
+def als_json(eintraege=None):
+    """Das Protokoll als JSON-Text — fuer die Sicherung neben den anderen Listen."""
+    eintraege = laden() if eintraege is None else eintraege
+    return json.dumps({'format': FORMAT, 'auftraege': eintraege},
+                      ensure_ascii=False, indent=2) + '\n'
