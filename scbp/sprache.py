@@ -705,6 +705,30 @@ TEXTE = {
                           'Reading from "%s" from now on.'),
     's_kn_spaeter':    ('Jetzt nicht',
                           'Not now'),
+    # Das Auftrags-Protokoll — welche Auftraege wann gespielt wurden.
+    'hf_auftragslog':  ('Auftrags-Protokoll', 'Mission log'),
+    's_al_lead':       ('Welche Aufträge du wann gespielt hast — und wie oft.',
+                          'Which missions you played when — and how often.'),
+    's_al_hinweis':    ('Gelesen wird, was in den Protokollen des Spiels steht. '
+                        'Das Spiel hebt nur wenige Sitzungen auf; hier bleiben '
+                        'sie stehen, auch wenn das Spiel sie längst gelöscht hat.',
+                          'Built from the game\'s own logs. The game keeps only a '
+                          'few sessions; here they stay, long after the game has '
+                          'dropped them.'),
+    's_al_suche':      ('Auftrag suchen', 'Search missions'),
+    's_al_leer':       ('Noch kein Auftrag aufgezeichnet. Sobald du einen '
+                        'annimmst, steht er hier.',
+                          'No missions recorded yet. As soon as you accept one, '
+                          'it shows up here.'),
+    's_al_nichts':     ('Kein Auftrag passt zu deiner Suche.',
+                          'No mission matches your search.'),
+    's_al_laeuft':     ('läuft', 'in progress'),
+    's_al_fertig':     ('abgeschlossen', 'completed'),
+    's_al_abbruch':    ('abgebrochen', 'abandoned'),
+    's_al_ziele':      ('%d von %d Zielen', '%d of %d objectives'),
+    's_al_oft':        ('%d× gespielt · %d abgeschlossen',
+                          'played %d× · %d completed'),
+    's_al_anzahl':     ('%d Aufträge', '%d missions'),
     # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:
     # „da fehlt auch die Beschreibung, für was der Ordner ist, der Name sagt
     # nichts aus." Und der zweite Teil fehlte ganz: Dieser eine Ordner ist

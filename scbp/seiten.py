@@ -59,6 +59,7 @@ def _bauer_tabelle():
     return {
         'liste':       _liste,
         'fortschritt': _fortschritt,
+        'auftragslog': _auftragslog,
         'allgemein':   _allgemein,
         'anzeige':     _anzeige,
         'ordner':      _ordner,
@@ -2034,6 +2035,119 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     k2 = _knopf(fenster, reihe, t('abbrechen'), innen.halter.destroy)
     k2.configure(bg=FLAECHE)
     k2.pack(side='left', padx=8)
+
+
+def _auftragslog(fenster, rahmen):
+    """Welche Aufträge wann gespielt wurden — die Rückschau.
+
+    ⚠ **Bewusst eine Liste und sonst nichts.** Keine Auswertung, keine
+    Belohnungen, keine Kategorie — das steht schlicht nicht in den Protokollen
+    des Spiels. Was drinsteht, ist: welcher Auftrag, wann, wie oft.
+
+    Zwei Zeilenformen, wie beim Bauplan-Bestand:
+
+    * **Läuft noch** → mit Stand, wenn er sich eindeutig zuordnen lässt.
+    * **Beendet** → eine Zeile, mehr braucht es nicht.
+    """
+    from . import missionslog
+
+    _ueberschrift(fenster, rahmen, t('hf_auftragslog'), t('s_al_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_al_hinweis'), fenster.f_klein, fill='x')
+
+    try:
+        alle = missionslog.laden()
+    except Exception:
+        alle = []
+
+    if not alle:
+        tk.Label(innen, text=t('s_al_leer'), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w', justify='left',
+                 wraplength=560).pack(fill='x', padx=24, pady=(16, 0))
+        return
+
+    suche = tk.StringVar()
+    liste_rahmen = tk.Frame(innen, bg=BG)
+
+    block = tk.Frame(innen, bg=BG)
+    block.pack(fill='x', padx=24, pady=(14, 0))
+    tk.Label(block, text=t('s_al_suche'), bg=BG, fg=FG, font=fenster.f_fett,
+             anchor='w').pack(fill='x')
+    from .hauptfenster import rundes_feld
+    feld = rundes_feld(block, suche, fenster.f_klein, '#0c1017', LINIE,
+                       ACCENT, FG)
+    feld.halter.pack(fill='x', pady=(4, 0))
+
+    kopf = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                    anchor='w')
+    kopf.pack(fill='x', padx=24, pady=(12, 0))
+    liste_rahmen.pack(fill='both', expand=True, padx=24, pady=(4, 12))
+
+    farben = {missionslog.ABGESCHLOSSEN: ACCENT,
+              missionslog.ABGEBROCHEN: SUB,
+              missionslog.LAEUFT: GOLD}
+    worte = {missionslog.ABGESCHLOSSEN: 's_al_fertig',
+             missionslog.ABGEBROCHEN: 's_al_abbruch',
+             missionslog.LAEUFT: 's_al_laeuft'}
+
+    def zeichnen(*_):
+        for kind in liste_rahmen.winfo_children():
+            kind.destroy()
+        treffer = missionslog.suchen(alle, suche.get())
+        kopf.configure(text=t('s_al_anzahl', len(treffer)))
+        if not treffer:
+            tk.Label(liste_rahmen, text=t('s_al_nichts'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
+            return
+        # ⚠ Nicht alles auf einmal: Wer hundert Auftraege gespielt hat, wartet
+        # sonst beim Oeffnen. Dieselbe Grenze wie in der Bauplan-Liste.
+        for eintrag in treffer[:200]:
+            zustand = eintrag.get('zustand') or missionslog.LAEUFT
+            zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
+            zeile.pack(fill='x', pady=1)
+
+            tk.Label(zeile, text=(eintrag.get('wann') or '')[:10],
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein, width=11,
+                     anchor='w', padx=10, pady=7).pack(side='left')
+            tk.Label(zeile, text=t(worte.get(zustand, 's_al_laeuft')),
+                     bg=FLAECHE, fg=farben.get(zustand, SUB),
+                     font=fenster.f_klein, width=14,
+                     anchor='w').pack(side='left')
+
+            mitte = tk.Frame(zeile, bg=FLAECHE)
+            mitte.pack(side='left', fill='x', expand=True)
+            tk.Label(mitte, text=eintrag.get('name') or '', bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, anchor='w').pack(fill='x')
+            # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
+            # beendeten waere er Ballast — er ist ja fertig.
+            if (zustand == missionslog.LAEUFT
+                    and eintrag.get('ziele_gesamt')):
+                tk.Label(mitte,
+                         text=t('s_al_ziele', eintrag.get('ziele_fertig') or 0,
+                                eintrag['ziele_gesamt']),
+                         bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                         anchor='w').pack(fill='x')
+
+    suche.trace_add('write', zeichnen)
+    zeichnen()
+
+    # Wie oft welcher Auftrag lief — die Antwort auf „mache ich den staendig?".
+    zaehler = missionslog.zusammenfassen(alle)
+    if len(zaehler) < len(alle):        # nur wenn sich etwas wiederholt hat
+        tk.Label(innen, text=t('hf_auftragslog'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
+                                                       pady=(14, 4))
+        for name, (gesamt, fertig) in sorted(zaehler.items(),
+                                             key=lambda x: -x[1][0]):
+            if gesamt < 2:
+                continue
+            reihe = tk.Frame(innen, bg=BG)
+            reihe.pack(fill='x', padx=24)
+            tk.Label(reihe, text=name, bg=BG, fg=FG, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
+            tk.Label(reihe, text='  ' + t('s_al_oft', gesamt, fertig), bg=BG,
+                     fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
 
 
 def _wasistneu(fenster, rahmen):

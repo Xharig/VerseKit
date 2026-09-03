@@ -1772,6 +1772,10 @@ class Hauptfenster:
         g_bp = self._gruppe(t('hf_gruppe_bp'), 'bauplaene')
         self._reiter('liste', 'liste', t('hf_liste'), g_bp)
         self._reiter('fortschritt', 'fortschritt', t('hf_fortschritt'), g_bp)
+        # ⚠ Hier und nicht in einer eigenen Gruppe: Auftraege sind die Quelle
+        # der Baupläne — wer wissen will, woher seine kommen, sucht sie neben
+        # der Bauplan-Liste, nicht in einem eigenen Bereich.
+        self._reiter('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
 
         # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die beiden Seiten
         # beantworten eine andere Frage („was brauche ich / wo hole ich es")
