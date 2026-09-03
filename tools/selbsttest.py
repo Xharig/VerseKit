@@ -9863,8 +9863,12 @@ def main():
         # spaetere Durchlauf das Ende des frueheren.
         for _e113 in _alle113:
             if _e113.get('bis'):
+                # ⚠ Kein Pfeil und keine Anfuehrungszeichen in der Begruendung:
+                # Unter Windows laeuft die Ausgabe ueber cp1252 und bricht bei
+                # jedem Zeichen ab, das dort fehlt — der Selbsttest stirbt dann
+                # mitten im Lauf, statt einen Fehler zu melden.
                 pruefe(_e113['bis'] > _e113['wann'],
-                       'kein Ende steht vor seinem Anfang (%s → %s)'
+                       'kein Ende steht vor seinem Anfang (%s bis %s)'
                        % (_e113['wann'][:16], _e113['bis'][:16]))
 
         # Gegenprobe: Ohne das Putzen der Marken zerfaellt derselbe Auftrag in
