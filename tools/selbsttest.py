@@ -9765,6 +9765,153 @@ def main():
             pass
 
     print()
+    print('113. Das Auftrags-Protokoll zaehlt jeden Durchlauf genau einmal')
+    # ⚠⚠ **Fuenf Anlaeufe, jeder an echten Sicherungen widerlegt.** Die Zahl in
+    # Klammern ist, was „Retake Platforms From Nine Tails" jeweils faelschlich
+    # zeigte — richtig waren fuenf Durchlaeufe:
+    #
+    #   1. Jede Logdatei fuer sich ausgewertet (32) — ein Auftrag ueber zwei
+    #      Abende steht in zwei Dateien.
+    #   2. Ueber die Meldungsnummer entdoppelt (35) — das Spiel schickt
+    #      dieselbe Annahme zweimal in derselben Millisekunde mit
+    #      verschiedenen Nummern.
+    #   3. Marken nicht geputzt (3 + 2 getrennt) — derselbe Auftrag mal mit,
+    #      mal ohne die eingespielte Bauplan-Marke im Titel.
+    #   4. Zwischenziele als Auftraege gezaehlt (8 fuer „Obere Plattform
+    #      erreichen") — das ist ein Ziel innerhalb des Auftrags.
+    #   5. Nach Dateidatum sortiert — auf einer Sicherung tragen alle Kopien
+    #      den Zeitpunkt des Kopierens, die Reihenfolge war zufaellig und ein
+    #      Auftrag bekam das Ende eines fremden Durchlaufs.
+    #
+    # Jede dieser fuenf Fallen hat hier ihren eigenen Fall. Ohne sie faellt
+    # niemandem auf, wenn eine davon zurueckkommt: Das Protokoll sieht immer
+    # plausibel aus, es zaehlt nur falsch.
+    from scbp import missionslog as _ml113
+
+    _wiese113 = tempfile.mkdtemp(prefix='sc-bp-protokoll-')
+    _altheim113 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(_wiese113, 'ablage')
+    os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
+    try:
+        def _zeile113(zeit, text, nr):
+            return ('<%sZ> [Notice] <SHUDEvent_OnNotification> '
+                    'Added notification "%s: " [%d] [Team_Missions]'
+                    % (zeit, text, nr))
+
+        def _log113(name, zeilen):
+            p = os.path.join(_wiese113, name)
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write(chr(10).join(zeilen) + chr(10))
+            return p
+
+        # Sitzung 1: angenommen — mit der Doppelmeldung (Falle 2) und der
+        # eigenen Bauplan-Marke im Titel (Falle 3).
+        _log1 = _log113('a.log', [
+            _zeile113('2026-08-01T10:00:00.100',
+                      'Auftrag angenommen: Testauftrag <EM4>[BP!]</EM4>', 41),
+            _zeile113('2026-08-01T10:00:00.100',
+                      'Auftrag angenommen: Testauftrag <EM4>[BP!]</EM4>', 44),
+            # Ein Zwischenziel — darf NIE als eigener Auftrag zaehlen (Falle 4).
+            _zeile113('2026-08-01T10:05:00.000',
+                      'Neuer Auftrag: Obere Plattform erreichen', 45),
+        ])
+        # Sitzung 2: Wiederaufnahme beim Einloggen (kein neuer Durchlauf),
+        # danach abgeschlossen — und der Titel traegt jetzt die ANDERE
+        # Markenform.
+        _log2 = _log113('b.log', [
+            _zeile113('2026-08-02T09:00:00.000',
+                      'Auftrag angenommen: '
+                      'Testauftrag[SCBPW] <EM4>[BP 0/3]</EM4>[/SCBPW]', 12),
+            _zeile113('2026-08-02T11:30:00.000',
+                      'Auftrag abgeschlossen: Testauftrag', 13),
+        ])
+        # Sitzung 3: derselbe Auftrag noch einmal — DAS ist ein zweiter
+        # Durchlauf und muss zaehlen.
+        _log3 = _log113('c.log', [
+            _zeile113('2026-08-03T20:00:00.000',
+                      'Auftrag angenommen: Testauftrag', 7),
+        ])
+
+        # ⚠ Falle 5: Alle drei Dateien bekommen DIESELBE Aenderungszeit — so
+        # sieht eine Sicherung aus, die in einem Rutsch kopiert wurde. Wer
+        # danach sortiert, bekommt eine zufaellige Reihenfolge.
+        for _p113 in (_log1, _log2, _log3):
+            os.utime(_p113, (1750000000, 1750000000))
+
+        _alle113 = _ml113.aus_ordner(_wiese113)
+        _namen113 = [e['name'] for e in _alle113]
+
+        pruefe(all(n == 'Testauftrag' for n in _namen113),
+               'die eigenen Marken sind aus jedem Titel heraus (%s)'
+               % ', '.join(sorted(set(_namen113))))
+        pruefe('Obere Plattform erreichen' not in _namen113,
+               'ein Zwischenziel gilt nicht als Auftrag')
+        pruefe(len(_alle113) == 2,
+               'zwei Durchlaeufe, nicht mehr (%d) — Doppelmeldung und '
+               'Wiederaufnahme zaehlen nicht mit' % len(_alle113))
+
+        _zustaende113 = {e['wann'][:10]: e['zustand'] for e in _alle113}
+        pruefe(_zustaende113.get('2026-08-01') == _ml113.ABGESCHLOSSEN,
+               'der erste Durchlauf ist abgeschlossen')
+        pruefe(_zustaende113.get('2026-08-03') == _ml113.LAEUFT,
+               'der zweite laeuft noch')
+        # Falle 5 schlaegt genau hier zu: Bei falscher Reihenfolge bekommt der
+        # spaetere Durchlauf das Ende des frueheren.
+        for _e113 in _alle113:
+            if _e113.get('bis'):
+                pruefe(_e113['bis'] > _e113['wann'],
+                       'kein Ende steht vor seinem Anfang (%s → %s)'
+                       % (_e113['wann'][:16], _e113['bis'][:16]))
+
+        # Gegenprobe: Ohne das Putzen der Marken zerfaellt derselbe Auftrag in
+        # mehrere. Wenn die Wache das NICHT bemerkt, prueft sie nichts.
+        _echt113 = _ml113.auftraege.sauber
+        _ml113.auftraege.sauber = lambda t: (t or '').strip()
+        try:
+            _roh113 = _ml113.aus_ordner(_wiese113)
+            pruefe(len({e['name'] for e in _roh113}) > 1,
+                   'Gegenprobe: ohne Putzen zerfaellt der Auftrag in mehrere '
+                   '(%d Namen)' % len({e['name'] for e in _roh113}))
+        finally:
+            _ml113.auftraege.sauber = _echt113
+
+        # Fortschreiben: Das Protokoll muss stehen bleiben, wenn die Logs fort
+        # sind — genau dafuer gibt es die Datei.
+        _ml113.nachtragen(_wiese113)
+        _gespeichert113 = _ml113.laden()
+        pruefe(len(_gespeichert113) == 2,
+               'das Protokoll steht in der eigenen Datei (%d)'
+               % len(_gespeichert113))
+        _ml113.nachtragen(_wiese113)
+        pruefe(len(_ml113.laden()) == 2,
+               'ein zweiter Lauf legt nichts doppelt an (%d)'
+               % len(_ml113.laden()))
+        _ml113.nachtragen(os.path.join(_wiese113, 'gibtsnicht'))
+        pruefe(len(_ml113.laden()) == 2,
+               'ohne Logs bleibt das Protokoll erhalten (%d)'
+               % len(_ml113.laden()))
+
+        # Ein abgeschlossener Auftrag darf nicht zurueckfallen, bloss weil in
+        # einem noch vorhandenen Log nur sein Anfang steht.
+        _zurueck113 = _ml113.zusammenfuehren(
+            [{'name': 'X', 'wann': '2026-01-01T10:00',
+              'zustand': _ml113.ABGESCHLOSSEN, 'bis': '2026-01-01T11:00'}],
+            [{'name': 'X', 'wann': '2026-01-01T10:00',
+              'zustand': _ml113.LAEUFT}])
+        pruefe(_zurueck113[0]['zustand'] == _ml113.ABGESCHLOSSEN,
+               'ein abgeschlossener Auftrag faellt nicht auf „laeuft" zurueck')
+
+        pruefe(len(_ml113.suchen(_gespeichert113, 'testauf')) == 2
+               and not _ml113.suchen(_gespeichert113, 'gibtsnicht'),
+               'die Suche findet ueber den Auftragsnamen')
+    finally:
+        if _altheim113 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim113
+        shutil.rmtree(_wiese113, ignore_errors=True)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:
