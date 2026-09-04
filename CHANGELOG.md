@@ -6,6 +6,32 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc17 - 2026-09-04
+
+> Eine Route sagt jetzt nicht nur, was du verdienst, sondern auch was du dafür
+> hinlegen musst — und woran die Menge hängt. Bei 69 von 120 SCU ist das der
+> Unterschied zwischen „größeres Schiff kaufen" und „mehr Geld mitbringen".
+
+### Neu
+
+- **Der Einsatz steht bei jeder Fahrt.** Was du an Einkauf vorstrecken musst,
+  und wie viel an dem Ort überhaupt liegt.
+- **Woran die Menge hängt.** Statt nur „69 SCU" steht jetzt dabei, ob mehr
+  Geld, ein größeres Schiff oder schlicht der Vorrat vor Ort die Grenze ist.
+
+### Verbessert
+
+- **Die Spalten sind beschriftet.** Die große Zahl ist der Gewinn — das stand
+  nirgends und ließ sich leicht für den Einkaufspreis halten.
+- **„Kaufen ab …" statt nur „ab …"**, damit klar ist, welcher der beiden Orte
+  der Einkauf ist.
+
+### Behoben
+
+- **Es stand „187 von 184 Handelsposten" da** — mehr, als es gibt. Gezählt
+  wurden auch Orte, die seit einer früheren Fassung im Zwischenspeicher lagen
+  und gar keine Handelsposten sind.
+
 ## v3.14.0-rc16 - 2026-09-04
 
 > Die Suche nach der besten Route zeigt ihr Ergebnis jetzt auch an — bisher

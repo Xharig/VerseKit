@@ -2210,7 +2210,25 @@ TEXTE = {
                            '„Beste Routen überall suchen".',
                              'No runs collected yet — press "Find the best '
                              'routes anywhere" above.'),
-    's_rt_ab':           ('ab %s', 'from %s'),
+    # ⚠ „ab X" heißt: **dort kaufst du**. Kurz genug für die Zeile, und mit
+    # dem Ziel dahinter eindeutig.
+    's_rt_ab':           ('kaufen ab %s', 'buy at %s'),
+    's_rt_einsatz':      ('Einsatz: %s aUEC', 'Outlay: %s aUEC'),
+    's_rt_vorrat':       ('dort liegen %d SCU', '%d SCU available there'),
+    # Spaltennamen — ohne sie ist die größte Zahl mehrdeutig.
+    's_rt_sp_gewinn':    ('Gewinn', 'Profit'),
+    's_rt_sp_menge':     ('Menge', 'Amount'),
+    's_rt_sp_weg':       ('Ware · wo kaufen → wo verkaufen',
+                            'Goods · buy where → sell where'),
+    # ⚠ Sagt, was zu ÄNDERN wäre — nicht nur, was der Engpass ist.
+    's_rt_grenze_geld':  ('mehr Geld → mehr Gewinn',
+                            'more money → more profit'),
+    's_rt_grenze_frachtraum': ('größeres Schiff → mehr Gewinn',
+                                 'bigger ship → more profit'),
+    's_rt_grenze_vorrat': ('mehr gibt es dort nicht',
+                             'there is no more there'),
+    's_rt_grenze_bedarf': ('mehr nimmt das Ziel nicht ab',
+                             'the destination takes no more'),
     # ⚠ Reihenfolge: Nummer, WOHER, Menge, Ware, WOHIN. Der Einkaufsort stand
     # vorher gar nicht da — man sah „120 SCU Copper → Rat's Nest" und musste
     # sich denken, wo man das Copper herbekommt.

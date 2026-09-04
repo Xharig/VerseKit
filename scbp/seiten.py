@@ -5555,6 +5555,8 @@ def _routen(fenster, rahmen):
                             fenster.f_klein, fill='x')
                 return
             for nummer, e in enumerate(beste):
+                if nummer == 0:
+                    _routen_kopfzeile(fenster, ergebnis)
                 _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0),
                               mit_start=True)
             return
@@ -5584,6 +5586,8 @@ def _routen(fenster, rahmen):
         tk.Label(ergebnis, text=t('s_rt_einzeln'), bg=BG, fg=SUB,
                  font=fenster.f_klein, anchor='w').pack(fill='x', pady=(4, 4))
         for nummer, e in enumerate(einzeln[:6]):
+            if nummer == 0:
+                _routen_kopfzeile(fenster, ergebnis)
             _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0))
 
         ketten = routen_modul.kette(zustand['start'], scu, geld,
@@ -5764,6 +5768,27 @@ def _routen(fenster, rahmen):
     fenster.beim_zeigen['routen'] = _beim_zeigen
 
 
+def _routen_kopfzeile(fenster, eltern):
+    """Die Spaltenüberschrift über der ersten Fahrt.
+
+    ⚠⚠ **Ohne sie ist die größte Zahl mehrdeutig.** Am 04.09.2026 stand da
+    „1.917.234 aUEC · 69 SCU Atlasium" — und die Frage kam: „EK sind fast 2
+    Mio, aber wieviel Gewinn macht man?" Es *war* der Gewinn (der Einsatz lag
+    bei 4.982.766). Eine Zahl ohne Spaltennamen lädt zum Falschlesen ein.
+
+    ⚠ Nur **über der ersten** Fahrt — in jeder Zeile wiederholt wäre sie
+    Lärm. Dieselbe Regel wie im Verkaufs-Reiter.
+    """
+    kopf = tk.Frame(eltern, bg=BG)
+    kopf.pack(fill='x', pady=(0, 3))
+    tk.Label(kopf, text=t('s_rt_sp_gewinn'), bg=BG, fg=SUB,
+             font=fenster.f_klein, width=16, anchor='w').pack(side='left')
+    tk.Label(kopf, text=t('s_rt_sp_menge'), bg=BG, fg=SUB,
+             font=fenster.f_klein, width=8, anchor='w').pack(side='left')
+    tk.Label(kopf, text=t('s_rt_sp_weg'), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(side='left')
+
+
 def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
     """Eine Einzelfahrt: Gewinn, Menge, Ware, Ziel, Strecke.
 
@@ -5790,6 +5815,34 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
                  anchor='w').pack(side='left')
     tk.Label(zeile, text='  →  ' + (fahrt.get('zielname') or '?'), bg=FLAECHE,
              fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
+
+    # ⭐⭐ **Der Einsatz gehört dazu — ohne ihn ist der Gewinn eine Behauptung.**
+    # Am 04.09.2026 stand da „586.500 aUEC · 1 SCU Osoian Hides", und die
+    # Frage kam sofort: „Bringt da 1 SCU wirklich über 500k?" Die Zahl stimmte
+    # (Einkauf 283.500, Verkauf 870.000 je SCU) — aber dass man dafür erst
+    # **283.500 aUEC hinlegen** muss, stand nirgends.
+    #
+    # Genau das trennt eine Auskunft von einer Zahl: Ein Gewinn ohne Einsatz
+    # sagt nicht, ob man ihn sich leisten kann.
+    einsatz = (fahrt.get('ek') or 0) * fahrt['menge']
+    if einsatz:
+        zweite = tk.Frame(kasten, bg=FLAECHE)
+        zweite.pack(fill='x', padx=12, pady=(0, 6))
+        tk.Label(zweite, text=t('s_rt_einsatz') % _geld(einsatz), bg=FLAECHE,
+                 fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
+        # Wieviel dort überhaupt liegt — die häufigste Enttäuschung: Man fliegt
+        # hin und es sind zwei Kisten.
+        if fahrt.get('vorrat'):
+            tk.Label(zweite,
+                     text='   ' + t('s_rt_vorrat') % fahrt['vorrat'],
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
+        # ⭐ Woran die Menge hängt. „69 von 120 SCU" sagt noch nicht, ob ein
+        # größeres Schiff hilft — „begrenzt durch dein Geld" schon.
+        if fahrt.get('grenze'):
+            tk.Label(zweite, text='   ' + t(fahrt['grenze']), bg=FLAECHE,
+                     fg=GOLD, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
     if fahrt.get('strecke'):
         tk.Label(zeile, text=t('s_rt_strecke') % int(fahrt['strecke']),
                  bg=FLAECHE, fg=SUB, font=fenster.f_klein,

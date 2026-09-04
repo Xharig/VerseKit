@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc17 - 2026-09-04
+
+> A route now tells you not only what you earn but what you have to put down —
+> and what caps the amount. At 69 of 120 SCU that is the difference between
+> "buy a bigger ship" and "bring more money".
+
+### Added
+
+- **The outlay is shown for every run.** What you have to pay up front, and how
+  much is actually available at that place.
+- **What caps the amount.** Instead of just "69 SCU" it now says whether more
+  money, a bigger ship or simply the stock on site is the limit.
+
+### Improved
+
+- **The columns are labelled.** The big number is the profit — that was written
+  nowhere and was easy to mistake for the purchase price.
+- **"Buy at …" instead of just "from …"**, so it is clear which of the two
+  places is where you buy.
+
+### Fixed
+
+- **It said "187 of 184 trade posts"** — more than there are. Places left in
+  the cache from an earlier version, which are not trade posts at all, were
+  counted too.
+
 ## v3.14.0-rc16 - 2026-09-04
 
 > The search for the best route now actually shows its result — until now it

@@ -202,6 +202,34 @@ def menge_und_gewinn(fahrt, scu_frei, geld):
     return menge, menge * fahrt['gewinn_scu']
 
 
+def was_begrenzt(fahrt, scu_frei, geld):
+    """Woran hängt die Menge — Frachtraum, Vorrat, Bedarf oder Geld?
+
+    ⭐ **Die nützlichste Auskunft der ganzen Zeile.** „69 von 120 SCU" sagt
+    noch nicht, ob ein größeres Schiff hilft. Steht dort „begrenzt durch Geld",
+    weiß man: mehr Kapital, mehr Gewinn — ein größerer Frachter brächte nichts.
+    Am 04.09.2026 aufgefallen, weil bei 120 SCU Frachtraum und 70 SCU Vorrat
+    nur 69 mitkamen und der Grund nirgends stand (das Geld reichte nicht).
+
+    Gibt einen Sprachschlüssel zurück, oder `''`, wenn nichts begrenzt.
+    """
+    menge, _gewinn = menge_und_gewinn(fahrt, scu_frei, geld)
+    if not menge:
+        return ''
+    # ⚠ Reihenfolge nach Ärgerlichkeit: Was der Spieler ändern **kann**
+    # (Geld, Schiff) zuerst — der Vorrat am Terminal ist nicht seine Sache.
+    if fahrt.get('ek') and menge == int((geld or 0) // fahrt['ek']) \
+            and menge < int(scu_frei or 0):
+        return 's_rt_grenze_geld'
+    if menge == int(scu_frei or 0):
+        return 's_rt_grenze_frachtraum'
+    if menge == int(fahrt.get('vorrat') or 0):
+        return 's_rt_grenze_vorrat'
+    if fahrt.get('bedarf') and menge == int(fahrt['bedarf']):
+        return 's_rt_grenze_bedarf'
+    return ''
+
+
 def einzelfahrten(start, scu, geld, hoechstens=20):
     """Die lohnendsten Einzelfahrten ab einem Ort, beste zuerst.
 
@@ -214,6 +242,7 @@ def einzelfahrten(start, scu, geld, hoechstens=20):
         if menge > 0 and gewinn > 0:
             eintrag = dict(f)
             eintrag['menge'], eintrag['gewinn'] = menge, gewinn
+            eintrag['grenze'] = was_begrenzt(f, scu, geld)
             raus.append(eintrag)
     raus.sort(key=lambda e: -e['gewinn'])
     return raus[:hoechstens]
@@ -358,6 +387,7 @@ def beste_ueberall(scu, geld, hoechstens=15):
                 continue
             e = dict(f)
             e['menge'], e['gewinn'] = menge, gewinn
+            e['grenze'] = was_begrenzt(f, scu, geld)
             e['startname'] = namen.get(kennung, '?')
             raus.append(e)
     raus.sort(key=lambda e: -e['gewinn'])
@@ -365,8 +395,20 @@ def beste_ueberall(scu, geld, hoechstens=15):
 
 
 def bekannte_starts():
-    """Wieviele Startorte schon abgelegt sind — für die Anzeige."""
-    return len(_alle() or {})
+    """Wieviele **Handelsposten** schon abgelegt sind — für die Anzeige.
+
+    ⚠⚠ **Nur die, die auch in der Postenliste stehen.** Vorher wurde einfach
+    die Ablage gezählt — und die enthält noch Startorte aus der Zeit vor dem
+    Handelsfilter (Läden, Tankstellen). In der Anzeige stand deshalb
+    „187 von 184 Handelsposten": mehr, als es gibt.
+
+    Eine Zahl, die größer ist als ihr Nenner, macht die ganze Anzeige
+    unglaubwürdig — auch die Teile, die stimmen.
+    """
+    kennungen = {k for k, _n in handelsposten()}
+    if not kennungen:
+        return len(_alle() or {})
+    return sum(1 for k in (_alle() or {}) if k in kennungen)
 
 
 def vergessen():
