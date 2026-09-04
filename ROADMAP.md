@@ -50,7 +50,11 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Handelslager**: was zum Verkauf im Laderaum liegt — getrennt vom Werkstatt-Lager, mit Kennzeichen für als gestohlen markierte Ladung |
 | ✅ | **Beide Lager sichern und zurückholen** (.json), als Tabelle ausgeben (.csv) und nach einem Patch-Wisch in einem Zug leeren |
 | ✅ | Das Fenster **behält die Größe**, die du eingestellt hast |
-| ✅ | **Verkauf**: wo du deine Ware los wirst und was sie je SCU bringt — für mehrere Waren auf einmal, sortiert danach, wie viele ein Ort abnimmt |
+| ✅ | **Verkauf**: wo du deine Ware los wirst und was sie je SCU bringt — für mehrere Waren auf einmal, sortiert danach, wie viele ein Ort abnimmt, mit Ampel für Orte, die schon voll sind |
+| ✅ | **Läden**: wo ein fertiges Teil im Regal steht und was es dort kostet — die Gegenprobe zu „lohnt Selberbauen?" |
+| ✅ | **Routen**: Handelsrouten mit Einkauf, Verkauf und echtem Gewinn — über mehrere Stationen, als Rundreise, oder die beste Route im ganzen Verse |
+| ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
+| ✅ | **Belegungen mitsichern**: Tastatur- und Joystick-Belegung gehen mit in die Sicherung und lassen sich als benanntes Profil dort ablegen, wo Star Citizen sie findet |
 
 ## Woran gearbeitet wird
 

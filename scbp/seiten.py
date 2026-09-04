@@ -6006,6 +6006,25 @@ def _laeden(fenster, rahmen):
         for kind in wo.winfo_children():
             kind.destroy()
 
+    def _liste_leeren():
+        """Die Vorschlagsliste wegräumen — **ausgepackt**, nicht nur geleert.
+
+        ⚠⚠ **Ein geleerter Rahmen behält seine Höhe.** Gemessen am 04.09.2026:
+        Nach dem Klick auf ein Teil hatte dieser Rahmen **null Kinder und
+        weiterhin 920 px**. Die Läden darunter landeten damit bei y=1135 in
+        einem 1000 px hohen Fenster — gezeichnet, aber außerhalb der Sicht.
+        Der Reiter wirkte leer, obwohl elf Läden bereitstanden: „klickt man
+        diese an, sieht man keinen Verkaufsort."
+
+        `pack_forget()` ist der einzige Weg, der die Höhe zuverlässig abgibt.
+        """
+        _leeren(vorschlag_rahmen)
+        vorschlag_rahmen.pack_forget()
+
+    def _liste_zeigen():
+        """Die Vorschlagsliste wieder einhängen — immer über dem Ergebnis."""
+        vorschlag_rahmen.pack(fill='x', padx=24, before=ergebnis_rahmen)
+
     def _ergebnis_zeichnen():
         _leeren(ergebnis_rahmen)
         if not gewaehlt['kennung']:
@@ -6062,8 +6081,12 @@ def _laeden(fenster, rahmen):
     def _waehlen(name, kennung):
         gewaehlt['name'], gewaehlt['kennung'] = name, kennung
         suche.set('')
-        _leeren(vorschlag_rahmen)
+        _liste_leeren()
         _ergebnis_zeichnen()
+        # ⚠ Wer aus einer langen Liste auswählt, steht weit unten. Die Antwort
+        # erscheint oben — ohne diesen Sprung sieht er weiter die Stelle, an
+        # der eben noch seine Auswahl stand.
+        _nach_oben(innen)
         if laden_modul.bekannt(kennung) or laeuft['ja']:
             return
         laeuft['ja'] = True
@@ -6089,7 +6112,7 @@ def _laeden(fenster, rahmen):
         threading.Thread(target=arbeit, daemon=True).start()
 
     def _vorschlaege(*_a):
-        _leeren(vorschlag_rahmen)
+        _liste_leeren()
         text = suche.get().strip().lower()
         # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
         # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
@@ -6113,9 +6136,11 @@ def _laeden(fenster, rahmen):
             if len(treffer) >= 40:
                 break
         if not treffer:
+            _liste_zeigen()
             _fliesstext(vorschlag_rahmen, t('s_ld_nichts_gefunden'),
                         fenster.f_klein, fill='x')
             return
+        _liste_zeigen()
         for name, kennung in treffer:
             zeile = tk.Label(vorschlag_rahmen, text='  ' + name, bg=FLAECHE,
                              fg=FG, font=fenster.f_klein, anchor='w',
@@ -6140,13 +6165,17 @@ def _laeden(fenster, rahmen):
             return
         zustand_katalog['laeuft'] = True
         stand_zeile.configure(text=t('s_ld_katalog_laeuft'))
-        # ⚠⚠ **`before=` — sonst landet der Hinweis unter der Liste.** Ein
-        # `pack()` ohne Angabe hängt sich ans Ende; bei 168 Zeilen darüber
-        # sieht ihn niemand. Am 04.09.2026 genau so passiert: Die Liste war
-        # ungefiltert, der Grund stand außer Sicht, und das Werkzeug wirkte
-        # schlicht kaputt.
+        # ⚠⚠ **Fest hinter der Filterleiste — sonst landet der Hinweis unter
+        # der Liste.** Ein `pack()` ohne Angabe hängt sich ans Ende; bei 168
+        # Zeilen darüber sieht ihn niemand. Am 04.09.2026 genau so passiert:
+        # Die Liste war ungefiltert, der Grund stand außer Sicht, und das
+        # Werkzeug wirkte schlicht kaputt.
+        # ⚠ `after=filter_rahmen`, **nicht** `before=vorschlag_rahmen`: Die
+        # Vorschlagsliste wird ausgepackt, wenn sie leer ist (siehe
+        # `_liste_leeren`) — ein `before=` auf einen nicht gepackten Rahmen
+        # wirft.
         stand_zeile.pack(fill='x', padx=24, pady=(6, 0),
-                         before=vorschlag_rahmen)
+                         after=filter_rahmen)
 
         def arbeit():
             def melden(fertig, gesamt):
@@ -6219,7 +6248,7 @@ def _laeden(fenster, rahmen):
     # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
     def _beim_zeigen():
         suche.set('')
-        _leeren(vorschlag_rahmen)
+        _liste_leeren()
         _katalog_anstossen()
     fenster.beim_zeigen['laeden'] = _beim_zeigen
     _katalog_anstossen()

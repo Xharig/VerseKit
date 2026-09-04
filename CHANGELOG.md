@@ -6,6 +6,62 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0 - 2026-09-04
+
+> Die größte Version bisher. Deine **Steuerung** gehört jetzt ins Werkzeug:
+> Belegungen ansehen, ändern, als Profil speichern — und die Sicherung nimmt
+> sie endlich mit. Dazu vier neue Antworten rund um Geld: was ein Teil im Laden
+> kostet, ob Selberbauen sich lohnt, welche Handelsroute am meisten einbringt,
+> und wo dein nächstes Schiff steht.
+>
+> Und über allem eine Regel, die vorher fehlte: Das Werkzeug sagt jetzt dazu,
+> wenn es etwas nicht sicher weiß — nach einem Patch, bei alten Preisen, bei
+> Lücken in den Daten.
+
+### Neu
+
+- **Steuerung im Werkzeug.** Welcher Stick welche Nummer hat, was darauf liegt,
+  was noch frei ist — mit Klarnamen statt `v_eject`. Belegen per Knopfdruck,
+  Konfliktwarnung, Zurücksetzen auf Werkseinstellung.
+- **Belegung als Profil speichern.** Unter einem Namen, den du wählst, dort wo
+  Star Citizen es sucht — im Spiel ladbar mit `pp_rebindkeys load <Name>`.
+  Einspielen geht aus derselben Liste, ohne Dateisuche.
+- **Die Sicherung nimmt deine Steuerung mit.** Aktive Belegung und alle
+  Profile. Zurückgespielt wird nur, wenn du es verlangst.
+- **Reiter „Läden".** Wo ein fertiges Teil im Regal steht und was es kostet,
+  gezeigt wird nur, was irgendwo verkauft wird. In der Herstellung steht der
+  Ladenpreis neben den Zutatenkosten — damit beantwortet sich „lohnt Bauen?"
+  von selbst.
+- **Reiter „Routen".** Standort, Frachtraum und Geld angeben und die
+  lohnendsten Fahrten bekommen — einzeln, als Kette über bis zu vier Stationen
+  oder als Rundreise. Wahlweise nach Gewinn oder kurzer Strecke. Vorgeschlagen
+  von **YoshimitsuDE**.
+- **Schiff statt Zahl.** Wähl dein Schiff und der Frachtraum trägt sich ein;
+  dazu siehst du, wo es zu kaufen und zu mieten ist.
+- **Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance im Auftragstext.**
+  Die Angaben lagen in den Daten, standen aber nirgends im Spiel.
+  Vorgeschlagen von **Bushwick4712**.
+- **Warnung nach einem Patch.** Stammen die Preise noch aus der Version davor,
+  steht das dabei — mit beiden Versionsnummern.
+- **Volle Lager werden angezeigt.** Ein Terminal ohne Bedarf nimmt deine
+  Ladung nicht ab, auch wenn der Preis noch dransteht.
+
+### Verbessert
+
+- **Jede Zahl sagt, was sie ist.** Gewinn, Einsatz, verfügbare Menge — und
+  woran die Menge hängt: mehr Geld, größeres Schiff oder schlicht der Vorrat
+  vor Ort.
+- **Auswahlmenüs überall gleich.** Suchfeld mit Vorschlägen ab zwei Buchstaben,
+  Dropdowns nach Größe sortiert.
+
+### Behoben
+
+- **Text neben einem Symbol war schwarz auf dunklem Grund.**
+- **Ausgegebene Belegungen ließen sich im Spiel nicht laden** — sie hatten
+  nicht das Format, das Star Citizen für Profile erwartet.
+- **Für viele Teile fehlten die Ladenpreise**, obwohl es sie im Spiel gibt.
+- **Das Fehlerprotokoll meldete zwei Probleme, die es nicht gab.**
+
 ## v3.14.0-rc20 - 2026-09-04
 
 > „Zeigt nur noch, was kaufbar ist" — und dann standen doch alle Teile da. Der

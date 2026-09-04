@@ -6,6 +6,58 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0 - 2026-09-04
+
+> The biggest release so far. Your **controls** now belong in the tool: view
+> your bindings, change them, save them as a profile — and the backup finally
+> takes them along. Plus four new answers about money: what a part costs in a
+> shop, whether building it yourself pays off, which trade route earns most,
+> and where your next ship is parked.
+>
+> And above all a rule that was missing before: the tool now says so when it is
+> not sure — after a patch, with ageing prices, where the data has gaps.
+
+### Added
+
+- **Controls in the tool.** Which stick has which number, what is bound to it,
+  what is still free — with readable names instead of `v_eject`. Bind by
+  pressing the button, conflict warnings, reset to defaults.
+- **Save bindings as a profile.** Under a name you choose, right where Star
+  Citizen looks for it — loadable in game with `pp_rebindkeys load <name>`.
+  Importing works from the same list, no file hunting.
+- **The backup takes your controls along.** Active bindings and every profile.
+  They are only restored when you ask for it.
+- **"Shops" tab.** Where a finished part sits on the shelf and what it costs,
+  listing only what is sold somewhere. In crafting the shop price stands next
+  to the ingredient costs — so "is building it worth it?" answers itself.
+- **"Routes" tab.** Enter your location, cargo hold and money and get the runs
+  that pay off — single, chained across up to four stations, or as a round
+  trip. Sorted by profit or by short distance. Suggested by **YoshimitsuDE**.
+- **A ship instead of a number.** Pick your ship and the cargo hold fills
+  itself in; you also see where to buy and rent one.
+- **Reputation points, cooldown, shareability and blueprint chance in the
+  mission text.** The figures were in the data but appeared nowhere in game.
+  Suggested by **Bushwick4712**.
+- **Warning after a patch.** If the prices still come from the version before,
+  it says so — with both version numbers.
+- **Full stock is shown.** A terminal with no demand will not take your cargo,
+  even though the price is still listed.
+
+### Improved
+
+- **Every figure says what it is.** Profit, outlay, available amount — and what
+  caps the amount: more money, a bigger ship, or simply the stock on site.
+- **The pickers work the same everywhere.** Search field with suggestions from
+  two letters, dropdowns sorted by size.
+
+### Fixed
+
+- **Text next to an icon was black on a dark background.**
+- **Exported bindings could not be loaded in game** — they did not have the
+  format Star Citizen expects for profiles.
+- **Shop prices were missing for many parts** although the game sells them.
+- **The error log reported two problems that did not exist.**
+
 ## v3.14.0-rc20 - 2026-09-04
 
 > "Only lists what is for sale" — and then every item was there anyway. The

@@ -50,7 +50,11 @@ Four things are deliberate and will stay that way:
 | ✅ | **Cargo hold**: what you carry to sell — kept apart from the workshop stock, with a marker for cargo flagged as stolen |
 | ✅ | **Back up and restore both storages** (.json), export them as a spreadsheet (.csv) and clear them in one go after a patch wipe |
 | ✅ | The window **keeps the size** you set |
-| ✅ | **Selling**: where to offload your goods and what they pay per SCU — for several commodities at once, sorted by how many a place takes |
+| ✅ | **Selling**: where to offload your goods and what they pay per SCU — for several commodities at once, sorted by how many a place takes, with a signal for places that are already full |
+| ✅ | **Shops**: where a finished part sits on the shelf and what it costs there — the counter-check to "is building it worth it?" |
+| ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
+| ✅ | **Ship data**: cargo capacity, purchase and rental price — pick your ship in the route planner and the cargo hold fills itself in |
+| ✅ | **Bindings included in backups**: keyboard and joystick bindings go into the backup file and can be saved as a named profile where Star Citizen finds it |
 
 ## What is being worked on
 
