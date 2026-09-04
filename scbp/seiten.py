@@ -70,6 +70,7 @@ def _bauer_tabelle():
         'serverstatus': _serverstatus,
         'danke':       _danke,
         'erkennung':   _erkennung,
+        'joysticks':   _joysticks,
         'diagnose':    _diagnose,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
@@ -2215,6 +2216,222 @@ def _auftragslog(fenster, rahmen):
     # ⚠ Bei jedem Öffnen frisch laden — siehe oben. Ohne das bleibt eine Seite,
     # die während der Nachlese gebaut wurde, für immer leer.
     fenster.beim_zeigen['auftragslog'] = _auffrischen
+
+
+def _joysticks(fenster, rahmen):
+    """Welcher Stick welche Nummer hat — und was darauf liegt.
+
+    Zwei Fragen, zwei Blöcke:
+
+    1. **Stimmt die Zuordnung noch?** Star Citizen hängt Belegungen an einer
+       Nummer (`js1`), nicht am Gerät. Ändert sich die Kennung eines Geräts,
+       zeigt die alte Belegung ins Leere.
+    2. **Was liegt eigentlich drauf?** Die `actionmaps.xml` weiß das für jeden
+       Stick — ganz ohne Gerätevorlagen.
+
+    ⚠ **Umgeschrieben wird nur auf Knopfdruck.** Ein Automatismus, der die
+    Belegungsdatei des Spielers im Hintergrund anfasst, ist das Letzte, was
+    ein Overlay tun sollte — zumal der Fall, in dem er hülfe, selten ist.
+    """
+    from . import joysticks
+
+    _ueberschrift(fenster, rahmen, t('hf_joysticks'), t('s_js_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_js_hinweis'), fenster.f_klein, fill='x')
+
+    daten = {}
+    suche = tk.StringVar()
+    nur = {'nummer': 0}          # 0 = alle Geräte
+    oben = tk.Frame(innen, bg=BG)
+    oben.pack(fill='x', padx=24, pady=(14, 0))
+    unten = tk.Frame(innen, bg=BG)
+    unten.pack(fill='both', expand=True, padx=24, pady=(4, 12))
+
+    def _kennung_kurz(k):
+        """Nur der vordere, unterscheidende Teil der Kennung.
+
+        Der Rest (`-0000-0000-0000-504944564944`) ist bei allen Geräten
+        gleich — er sagt nur „das ist ein DirectInput-Gerät" und macht die
+        Zeile doppelt so lang.
+        """
+        return (k or '').split('-')[0]
+
+    def zeichnen(*_):
+        for kind in list(oben.winfo_children()) + list(unten.winfo_children()):
+            kind.destroy()
+        v = daten.get('vergleich') or {}
+        geraete = v.get('geraete') or []
+        belegt = v.get('zuordnung') or []
+        zustand = v.get('zustand') or joysticks.LEER
+
+        if not geraete:
+            tk.Label(oben, text=t('s_js_leer'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w', justify='left',
+                     wraplength=560).pack(fill='x', pady=8)
+            return
+
+        # --- Zustandszeile: die eine Aussage, wegen der man hier nachsieht ---
+        farbe = {joysticks.PASST: ACCENT, joysticks.ERSETZT: GOLD,
+                 joysticks.FEHLT: ROT}.get(zustand, SUB)
+        if zustand == joysticks.PASST:
+            satz = t('s_js_passt')
+        elif zustand == joysticks.ERSETZT:
+            satz = t('s_js_ersetzt')
+        elif zustand == joysticks.FEHLT:
+            satz = t('s_js_fehlt', len(v.get('fehlende') or []))
+        else:
+            satz = t('s_js_keine_datei')
+        tk.Label(oben, text=satz, bg=BG, fg=farbe, font=fenster.f_fett,
+                 anchor='w', justify='left', wraplength=560).pack(fill='x')
+
+        # --- Der eine reparierbare Fall: Gerät unter neuer Kennung ---
+        if zustand == joysticks.ERSETZT and v.get('ersatz'):
+            alt, neu = v['ersatz'][0]
+            tk.Label(oben, text=t('s_js_ersatz_frage', alt['name'],
+                                  neu['name']),
+                     bg=BG, fg=SUB, font=fenster.f_klein, anchor='w',
+                     justify='left', wraplength=560).pack(fill='x', pady=(6, 0))
+            tk.Label(oben, text=t('s_js_spiel_zu'), bg=BG, fg=GOLD,
+                     font=fenster.f_klein, anchor='w', justify='left',
+                     wraplength=560).pack(fill='x', pady=(4, 0))
+            _knopf(fenster, oben, t('s_js_uebernehmen'),
+                   lambda: _uebernehmen(alt, neu), stark=True).pack(
+                       anchor='w', pady=(8, 0))
+
+        # --- Block 1: was verbunden ist ---
+        tk.Label(oben, text=t('s_js_geraete'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(16, 4))
+        nach_kennung = {z['kennung']: z for z in belegt if z['kennung']}
+        for g in geraete:
+            zeile = tk.Frame(oben, bg=FLAECHE)
+            zeile.pack(fill='x', pady=1)
+            tk.Label(zeile, text=t('s_js_platz', g['platz']), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein, width=9, anchor='w',
+                     padx=10, pady=7).pack(side='left')
+            zu = nach_kennung.get(g['kennung'])
+            tk.Label(zeile, text=('js%d' % zu['nummer']) if zu
+                     else t('s_js_ohne'),
+                     bg=FLAECHE, fg=ACCENT if zu else GOLD,
+                     font=fenster.f_klein, width=13, anchor='w').pack(
+                         side='left')
+            tk.Label(zeile, text=g['name'], bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+            tk.Label(zeile, text=_kennung_kurz(g['kennung']), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein, anchor='e',
+                     padx=10).pack(side='right')
+
+        # Belegte Geräte, die gerade fehlen — sonst sieht man nur, was da ist.
+        for z in (v.get('fehlende') or []):
+            zeile = tk.Frame(oben, bg=FLAECHE)
+            zeile.pack(fill='x', pady=1)
+            tk.Label(zeile, text='—', bg=FLAECHE, fg=ROT,
+                     font=fenster.f_klein, width=9, anchor='w', padx=10,
+                     pady=7).pack(side='left')
+            tk.Label(zeile, text='js%d' % z['nummer'], bg=FLAECHE, fg=ROT,
+                     font=fenster.f_klein, width=13, anchor='w').pack(
+                         side='left')
+            tk.Label(zeile, text=z['name'], bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+
+        # --- Block 2: was auf den Geräten liegt ---
+        alle = daten.get('belegungen') or {}
+        if not alle:
+            return
+        tk.Label(unten, text=t('s_js_belegt'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(16, 4))
+
+        # Ein Knopf je Gerät plus „Alle" — kein Aufklappmenü, weil es selten
+        # mehr als vier Geräte sind und ein Klick weniger ist als zwei.
+        wahl = tk.Frame(unten, bg=BG)
+        wahl.pack(fill='x', pady=(0, 6))
+
+        def _waehlen(nummer):
+            nur['nummer'] = nummer
+            zeichnen()
+
+        knoepfe = [(t('s_js_alle'), 0)]
+        for z in belegt:
+            if alle.get(z['nummer']):
+                knoepfe.append(('js%d' % z['nummer'], z['nummer']))
+        for text, nummer in knoepfe:
+            _knopf(fenster, wahl, text,
+                   (lambda n=nummer: _waehlen(n)),
+                   stark=(nur['nummer'] == nummer)).pack(side='left',
+                                                         padx=(0, 6))
+
+        feld_block = tk.Frame(unten, bg=BG)
+        feld_block.pack(fill='x', pady=(2, 6))
+        from .hauptfenster import rundes_feld
+        feld = rundes_feld(feld_block, suche, fenster.f_klein, '#0c1017',
+                           LINIE, ACCENT, FG)
+        feld.halter.pack(fill='x')
+
+        begriff = (suche.get() or '').strip().lower()
+        gezeigt = []
+        for nummer in sorted(alle):
+            if nur['nummer'] and nummer != nur['nummer']:
+                continue
+            for e in alle[nummer]:
+                if begriff and begriff not in ('%s %s %s' % (
+                        e['eingabe'], e['aktion'], e['bereich'])).lower():
+                    continue
+                gezeigt.append((nummer, e))
+
+        tk.Label(unten, text=t('s_js_bindungen', len(gezeigt)), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                        pady=(0, 4))
+        if not gezeigt:
+            tk.Label(unten, text=t('s_js_nichts'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
+            return
+        # ⚠ Dieselbe Grenze wie in der Bauplan-Liste: Wer alle Geräte auf
+        # einmal zeigt, hat schnell dreihundert Zeilen und wartet beim Öffnen.
+        for nummer, e in gezeigt[:200]:
+            zeile = tk.Frame(unten, bg=FLAECHE)
+            zeile.pack(fill='x', pady=1)
+            tk.Label(zeile, text='js%d' % nummer, bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, width=6, anchor='w', padx=10,
+                     pady=6).pack(side='left')
+            tk.Label(zeile, text=e['eingabe'], bg=FLAECHE, fg=ACCENT,
+                     font=fenster.f_klein, width=13, anchor='w').pack(
+                         side='left')
+            tk.Label(zeile, text=e['aktion'], bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+            tk.Label(zeile, text=e['bereich'], bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, anchor='e', padx=10).pack(
+                         side='right')
+
+    def _uebernehmen(alt, neu):
+        from tkinter import messagebox
+        erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
+                                                        neu['kennung'],
+                                                        neu['name'])
+        if erfolg:
+            messagebox.showinfo(t('hf_joysticks'), t('s_js_fertig', meldung))
+        else:
+            # ⚠ `meldung` ist ein Sprachschlüssel, kein fertiger Satz — sonst
+            # stünde in der englischen Oberfläche deutscher Text.
+            messagebox.showwarning(t('hf_joysticks'),
+                                   t('s_js_schief', t(meldung)))
+        _auffrischen()
+
+    def _auffrischen():
+        try:
+            daten['vergleich'] = joysticks.vergleich()
+            daten['belegungen'] = joysticks.belegungen()
+        except Exception as ausnahme:
+            fehler.merken('seiten.joysticks', ausnahme)
+            daten['vergleich'] = {}
+            daten['belegungen'] = {}
+        zeichnen()
+
+    suche.trace_add('write', zeichnen)
+    _auffrischen()
+    # ⚠ Bei jedem Öffnen frisch: Zwischen zwei Besuchen kann ein Gerät
+    # abgezogen oder das Spiel gelaufen sein. Eine Seite, die einmal gebaut
+    # wird und dann steht, zeigt bei genau der Frage „ist noch alles da?"
+    # eine veraltete Antwort — das wäre schlimmer als keine.
+    fenster.beim_zeigen['joysticks'] = _auffrischen
 
 
 def _wasistneu(fenster, rahmen):

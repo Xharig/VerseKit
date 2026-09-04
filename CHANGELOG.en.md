@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc1 - 2026-09-04
+
+> New in this one: a page for your joysticks. It shows which stick has which
+> number, whether your bindings still point at a device that is actually
+> there — and what is bound to which button. All straight from the game's own
+> files, for any stick, with no device profile to install first.
+
+### New
+
+- **Joysticks** — a new tab under "Settings". Three things on one page:
+  - **Which stick is which number.** Star Citizen ties bindings to a number
+    (`js1`, `js2`), not to a device. The page puts both side by side: what the
+    game last connected, and what your `actionmaps.xml` says.
+  - **Is everything still there?** A bound device that is missing shows up in
+    red. If one reports under a new identifier — different port, new firmware,
+    replacement unit — its old bindings can be carried over with one click. A
+    backup is always written next to the original file first.
+  - **What is bound to which button.** Your complete binding list, searchable
+    and filterable by device. This works for **any** stick, pedal or gamepad —
+    no device needs to be known in advance.
+
+### Improved
+
+- The device list comes from the game's own startup log instead of a system
+  device query. That makes it identical on Windows and Linux, and it needs no
+  extra packages at all.
+
 ## v3.13.3 - 2026-09-04
 
 > Two things that get in the way day to day: missions that stayed listed as

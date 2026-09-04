@@ -1813,6 +1813,11 @@ class Hauptfenster:
         self._reiter('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
         self._reiter('anzeige', 'anzeige', t('hf_anzeige'), g_einst)
         self._reiter('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
+        # ⚠ Unter „Einstellungen" und nicht bei den Bauplänen: Die Seite sagt,
+        # wie der eigene Aufbau aussieht — welcher Stick welche Nummer hat und
+        # was darauf liegt. Das ist dieselbe Sorte Frage wie „welcher Ordner,
+        # welche Sprache", nur für die Steuerung.
+        self._reiter('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.

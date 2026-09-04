@@ -6,6 +6,36 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc1 - 2026-09-04
+
+> Neu dabei: eine Seite für deine Joysticks. Sie zeigt, welcher Stick welche
+> Nummer hat, ob deine Belegung noch auf ein Gerät zeigt, das wirklich da ist —
+> und was eigentlich auf welchem Knopf liegt. Alles direkt aus den Dateien des
+> Spiels, für jeden Stick, ohne dass irgendein Gerät vorher eingepflegt werden
+> muss.
+
+### Neu
+
+- **Joysticks** — neuer Reiter unter „Einstellungen". Drei Dinge auf einer
+  Seite:
+  - **Welcher Stick ist welche Nummer.** Star Citizen merkt sich Belegungen an
+    einer Nummer (`js1`, `js2`), nicht am Gerät. Die Seite stellt beides
+    nebeneinander: was das Spiel zuletzt verbunden hat, und was in deiner
+    `actionmaps.xml` steht.
+  - **Ist noch alles da?** Fehlt ein belegtes Gerät, steht es rot in der Liste.
+    Meldet sich eines unter neuer Kennung — anderer Anschluss, neue Firmware,
+    Austauschgerät —, lässt sich seine alte Belegung auf Knopfdruck übernehmen.
+    Vorher entsteht immer eine Sicherung neben der Originaldatei.
+  - **Was liegt auf welchem Knopf.** Die komplette Belegung als durchsuchbare
+    Liste, nach Gerät filterbar. Das geht für **jeden** Stick, jedes Pedal,
+    jedes Gamepad — es muss kein Gerät vorher bekannt sein.
+
+### Verbessert
+
+- Die Geräteliste kommt aus dem Startprotokoll des Spiels statt aus einer
+  Geräteabfrage des Systems. Damit stimmt sie unter Windows und Linux
+  gleichermaßen und braucht kein einziges Zusatzpaket.
+
 ## v3.13.3 - 2026-09-04
 
 > Zwei Dinge, die im Alltag stören: Aufträge, die als laufend stehen blieben

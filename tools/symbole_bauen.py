@@ -174,6 +174,9 @@ KNOPF_SYMBOLE = {
     'serverstatus': 'server',
     'ordner':       'folder',
     'erkennung':    'scan-search',
+    # ⚠ `gamepad-2` und nicht `joystick`: Lucide fuehrt keinen Joystick, und
+    # der Reiter meint ohnehin alle Eingabegeraete — Sticks, Pedale, Gamepads.
+    'joysticks':    'gamepad-2',
     'diagnose':     'stethoscope',
     'quellen':      'heart-handshake',   # fremde Arbeit + Lizenzen
     # --- nur für die Anleitung (README-Merkmalstabelle) ---

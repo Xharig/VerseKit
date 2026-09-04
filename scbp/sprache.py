@@ -735,6 +735,80 @@ TEXTE = {
     's_al_oft_kopf':   ('Mehrfach gespielt', 'Played more than once'),
     's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
+    # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
+    'hf_joysticks':    ('Joysticks', 'Joysticks'),
+    's_js_lead':       ('Welcher Stick welche Nummer hat — und was darauf liegt.',
+                          'Which stick has which number — and what is bound to it.'),
+    's_js_hinweis':    ('Star Citizen merkt sich Tastenbelegungen an einer '
+                        'Nummer (js1, js2 …), nicht am Gerät. Beide Angaben '
+                        'stammen aus den Dateien des Spiels: die Geräte aus '
+                        'dem Startprotokoll, die Belegung aus deiner '
+                        'actionmaps.xml.',
+                          'Star Citizen ties key bindings to a number (js1, js2 …), '
+                          'not to a device. Both lists come from the game\'s own '
+                          'files: the devices from the startup log, the bindings '
+                          'from your actionmaps.xml.'),
+    's_js_geraete':    ('Verbundene Geräte', 'Connected devices'),
+    's_js_belegt':     ('Belegung in der actionmaps.xml', 'Bindings in actionmaps.xml'),
+    's_js_leer':       ('Noch keine Geräte gefunden. Starte Star Citizen '
+                        'einmal — danach steht hier, was das Spiel erkannt hat.',
+                          'No devices found yet. Start Star Citizen once — after '
+                          'that this shows what the game detected.'),
+    's_js_keine_datei': ('Keine actionmaps.xml gefunden. Sie entsteht, sobald '
+                         'du im Spiel eine Taste belegst.',
+                           'No actionmaps.xml found. It appears once you bind a '
+                           'key inside the game.'),
+    's_js_passt':      ('Alles in Ordnung — jedes belegte Gerät ist verbunden.',
+                          'All good — every bound device is connected.'),
+    's_js_fehlt':      ('%d belegte(s) Gerät(e) sind gerade nicht verbunden. '
+                        'Solange das so ist, kann das Spiel die Belegung neu '
+                        'vergeben.',
+                          '%d bound device(s) are not connected right now. While '
+                          'that is the case, the game may reassign the bindings.'),
+    's_js_ersetzt':    ('Ein Gerät meldet sich unter einer neuen Kennung. Die '
+                        'alte Belegung hängt dadurch ins Leere.',
+                          'A device reports under a new identifier. Its old '
+                          'bindings now point nowhere.'),
+    's_js_ersatz_frage': ('„%s" durch „%s" ersetzen? Die Belegung wird '
+                          'übernommen; vorher entsteht eine Sicherung.',
+                            'Replace "%s" with "%s"? The bindings are carried '
+                            'over; a backup is written first.'),
+    's_js_uebernehmen': ('Belegung übernehmen', 'Carry bindings over'),
+    's_js_spiel_zu':   ('⚠ Nur bei geschlossenem Spiel — Star Citizen '
+                        'schreibt die Datei beim Beenden selbst.',
+                          '⚠ Only while the game is closed — Star Citizen writes '
+                          'the file itself when it exits.'),
+    's_js_fertig':     ('Übernommen. Sicherung: %s',
+                          'Done. Backup: %s'),
+    's_js_schief':     ('Nicht übernommen: %s', 'Not carried over: %s'),
+    's_js_platz':      ('Platz %d', 'Slot %d'),
+    's_js_ohne':       ('keine Belegung', 'no bindings'),
+    's_js_bindungen':  ('%d Belegungen', '%d bindings'),
+    's_js_suche':      ('Belegung suchen', 'Search bindings'),
+    's_js_nichts':     ('Keine Belegung passt zu deiner Suche.',
+                          'No binding matches your search.'),
+    's_js_alle':       ('Alle Geräte', 'All devices'),
+    # Die Gründe, warum ein Übernehmen nicht geklappt hat. `joysticks.py` gibt
+    # diese Schlüssel zurück, keine fertigen Sätze — sonst stünde deutscher
+    # Text in der englischen Oberfläche.
+    's_js_f_datei':    ('Es wurde keine actionmaps.xml gefunden.',
+                          'No actionmaps.xml was found.'),
+    's_js_f_nichts':   ('Es gibt nichts zu übernehmen.',
+                          'There is nothing to carry over.'),
+    's_js_f_unbekannt': ('Die alte Kennung steht nicht in der Datei.',
+                           'The old identifier is not in the file.'),
+    's_js_f_gleich':   ('Die Datei ist bereits auf diesem Stand.',
+                          'The file is already up to date.'),
+    's_js_f_sicherung': ('Die Sicherung ließ sich nicht schreiben — es wurde '
+                         'nichts geändert.',
+                           'The backup could not be written — nothing was '
+                           'changed.'),
+    's_js_f_schreiben': ('Die Datei ließ sich nicht schreiben. Der alte Stand '
+                         'wurde zurückgeholt.',
+                           'The file could not be written. The previous state '
+                           'was restored.'),
+    's_js_f_lesen':    ('Die Datei ließ sich nicht lesen.',
+                          'The file could not be read.'),
     # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:
     # „da fehlt auch die Beschreibung, für was der Ordner ist, der Name sagt
     # nichts aus." Und der zweite Teil fehlte ganz: Dieser eine Ordner ist

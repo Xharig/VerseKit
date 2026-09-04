@@ -248,7 +248,8 @@ KNOPF_NAMEN = (
     'starten', 'glocke', 'liste', 'einstellungen', 'einklappen', 'ausklappen',
     'leeren', 'schliessen', 'ziehgriff', 'fortschritt', 'anzeige',
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
-    'erkennung', 'diagnose', 'einrichtung', 'neustart', 'herunterladen',
+    'erkennung', 'joysticks', 'diagnose', 'einrichtung', 'neustart',
+    'herunterladen',
     'zurueck', 'ausblenden', 'sicherung',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
