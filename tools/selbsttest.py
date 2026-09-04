@@ -1950,8 +1950,23 @@ def main():
             start27, seiten27 = fe26.spur_geteilt()
             pruefe(len(start27) == 3,
                    'der Startverlauf ueberlebt das Kuerzen')
-            pruefe(len(seiten27) == fe26.SPUR_REST,
-                   'gekuerzt wird nur der Bedienteil (%d Zeilen)' % len(seiten27))
+            # ⚠⚠ **Dieselbe Sporadik wie oben — hier war sie nur nicht behoben.**
+            # Der `after()`-Rueckruf aus einer frueheren Pruefung kann auch
+            # NACH dem Kuerzen noch eine Zeile hineinschreiben; dann sind es
+            # SPUR_REST + 1, und die Pruefung faellt, ohne dass am Programm
+            # etwas falsch waere. Am 04.09.2026 zweimal gemessen: derselbe
+            # Code, ein Lauf rot, einer gruen.
+            #
+            # Gezaehlt wird deshalb auch hier nur, was diese Pruefung selbst
+            # geschrieben hat. Die Zahl aufzuweichen waere der falsche Ausweg —
+            # dann bemerkte sie eine echte Kuerzung nicht mehr.
+            _eigene27 = [z for z in seiten27 if 'Seite liste:' in z]
+            _fremd27 = [z for z in seiten27 if 'Seite liste:' not in z]
+            pruefe(len(_eigene27) == fe26.SPUR_REST,
+                   'gekuerzt wird nur der Bedienteil (%d%s)'
+                   % (len(_eigene27),
+                      '' if not _fremd27
+                      else '; dazu %d fremde Zeile(n)' % len(_fremd27)))
 
             # Der Absturzfaenger legt einen vorigen Lauf beiseite.
             with open(pf26.app_datei(fe26.ABSTURZ_DATEI), 'w', encoding='utf-8') as f26:

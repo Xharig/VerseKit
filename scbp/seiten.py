@@ -7268,9 +7268,20 @@ def _verkauf(fenster, rahmen):
         else:
             knopf.beschriften(t('s_vk_holen'), None)
         alter = preisdaten.alter()
-        stand_label.configure(
-            text=(t('s_vk_stand').format(alter=_alterstext(alter))
-                  if alter is not None else t('s_vk_kein_stand')))
+        # ⚠⚠ **Ein Patch zählt mehr als das Alter.** Die Zahlen können eine
+        # Stunde alt und trotzdem überholt sein, wenn dazwischen ein Patch lag —
+        # CIG wirft dabei regelmäßig Preise um. Wer das nicht sagt, behauptet
+        # etwas Falsches mit derselben Bestimmtheit wie etwas Richtiges.
+        from . import spielstand
+        veraltet, damals, jetzt = spielstand.ueberholt(preisdaten._ablage)
+        if veraltet:
+            stand_label.configure(text=t('s_vk_patch').format(
+                alt=damals, neu=jetzt), fg=GOLD)
+        elif alter is not None:
+            stand_label.configure(
+                text=t('s_vk_stand').format(alter=_alterstext(alter)), fg=SUB)
+        else:
+            stand_label.configure(text=t('s_vk_kein_stand'), fg=SUB)
         knopf.after(1000, _ticker)
 
     # ------------------------------------------------------- Warenauswahl
@@ -7469,8 +7480,19 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
         menge = lagermengen.get(treffer['ware'])
         summe = (menge or 0) * treffer['preis']
         erloes += summe
+        # ⭐ Der Füllstand steht **am Warennamen**, weil er dorthin gehört:
+        # Dasselbe Terminal kann bei einer Ware randvoll und bei der nächsten
+        # leer sein. Und er erscheint nur, wenn er etwas ändert — der
+        # Normalfall (über 90 %) bleibt stumm, sonst liest ihn niemand mehr.
+        stand = treffer.get('fuellstand')
+        warentext = treffer['ware']
+        warenfarbe = SUB
+        if stand:
+            schluessel, ist_warnung = stand
+            warentext = '%s  %s' % (treffer['ware'], t(schluessel))
+            warenfarbe = ROT if ist_warnung else GOLD
         felder = (
-            (treffer['ware'], SUB, 'w'),
+            (warentext, warenfarbe, 'w'),
             (_menge_text(menge) if menge else '', FG, 'e'),
             (_geld(treffer['preis']), FG, 'e'),
             (_geld(summe) if menge else '', FG, 'e'),

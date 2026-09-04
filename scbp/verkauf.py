@@ -97,8 +97,33 @@ from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
-FORMAT = 1
+# ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam. Eine alte Ablage hätte das
+# Feld nicht — ein höherer Formatstand holt sie einmal neu, statt die Ampel
+# einen Tag lang leer zu lassen. Ein Abruf mehr, dafür sofort vollständig.
+FORMAT = 2
 ZEITLIMIT = 30
+
+# ⭐⭐ **Beim Verkauf ist „voll" das Schlechte.** Das ist der Punkt, an dem die
+# Ampel überhaupt nützt: Ein Terminal mit vollem Lager hat keinen Bedarf mehr
+# und nimmt die Ladung nicht — obwohl der Preis noch dransteht. Wer das erst
+# nach dem Anflug merkt, hat die Strecke umsonst gemacht.
+#
+# ⚠⚠ **Gemessen am 04.09.2026 über alle 1.880 Ankaufzeilen: 90,2 % stehen auf
+# Stufe 1** (leer, nimmt alles). Eine Ampel, die zu neun Zehnteln grün leuchtet,
+# ist keine Ampel, sondern Farbe. Deshalb bleiben die unauffälligen Stufen
+# **stumm** — angezeigt wird nur, was eine Entscheidung ändert:
+#
+# | Stufe | Lager | wird gezeigt |
+# |---|---|---|
+# | 1–2 | leer bis sehr wenig (92,5 %) | nichts — der Normalfall |
+# | 3–4 | mittel (4,8 %) | nichts |
+# | 5 | füllt sich (1,7 %) | Hinweis in Gold |
+# | 6–7 | fast voll / voll (1,0 %) | Warnung in Rot |
+#
+# Ein Zeichen, das fast immer da ist, wird übersehen. Eines, das selten kommt,
+# wird gelesen.
+FUELLT_SICH = 5
+KEIN_BEDARF = 6
 
 # Ein Tag. Preise ändern sich im Spiel laufend, aber nicht im Minutentakt —
 # dieselbe Überlegung wie in `preise.py`.
@@ -264,6 +289,10 @@ def aktualisieren(erzwingen=False, fortschritt=None):
             'p': preis,
             'd': int(x.get('date_modified') or 0),
             'k': x.get('container_sizes') or '',
+            # ⭐ Wie voll das Lager dort ist, in UEX' eigenen sieben Stufen.
+            # Beim **Verkauf** ist voll das Schlechte: Ein randvolles Terminal
+            # hat keinen Bedarf mehr und nimmt die Ladung nicht.
+            'z': int(x.get('status_sell') or 0),
         })
     if not waren:
         return False, 'leer'
@@ -273,6 +302,27 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     # ohne Leerzeichen zwischen den Feldern spart das spürbar Platz.
     _ablage.sichern({'terminals': terminals, 'waren': waren}, kompakt=True)
     return True, ''
+
+
+def fuellstand(zeile):
+    """Was der Füllstand einer Verkaufsstelle bedeutet — oder `None`.
+
+    Gibt `(schluessel, ist_warnung)` zurück: den Sprachschlüssel für den Text
+    und ob es eine Warnung ist (rot) oder ein Hinweis (gold).
+
+    ⚠ **`None` heisst „nichts sagen"** — nicht „alles in Ordnung". Beides
+    sieht in der Anzeige gleich aus, und das ist Absicht: Der Normalfall
+    braucht kein Zeichen. Siehe `FUELLT_SICH` oben.
+
+    ⚠ Ältere Ablagen kennen das Feld nicht (`z` fehlt). Dann wird ebenfalls
+    geschwiegen — eine Warnung aus fehlenden Daten wäre geraten.
+    """
+    stufe = (zeile or {}).get('z') or 0
+    if stufe >= KEIN_BEDARF:
+        return 's_vk_voll', True
+    if stufe == FUELLT_SICH:
+        return 's_vk_fuellt', False
+    return None
 
 
 def waren():
@@ -341,6 +391,10 @@ def orte_fuer(namen, nur_nqa=False):
                 # Alter in Sekunden. `None`, wenn die Meldung kein Datum hat —
                 # dann wird in der Anzeige nichts behauptet.
                 'alter': (jetzt - zeile['d']) if zeile.get('d') else None,
+                # ⚠ Der Füllstand gehört an die **Ware**, nicht an den Ort:
+                # Dasselbe Terminal kann bei Gold randvoll und bei Iron leer
+                # sein. Ein Zeichen am Ort wäre für die halbe Ladung falsch.
+                'fuellstand': fuellstand(zeile),
             })
 
     ergebnis = []

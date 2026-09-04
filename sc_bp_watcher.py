@@ -51,15 +51,15 @@ from scbp import (
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, hinweis, injektion,
                   katalog as katalog_modul, logquelle, merkliste,
-                  pfade, phrasen, titelleiste, ton, uebersetzung, verkauf,
-                  hotkey as hotkey_modul)
+                  pfade, phrasen, spielstand, titelleiste, ton, uebersetzung,
+                  verkauf, hotkey as hotkey_modul)
 
 try:
     import winsound                      # nur Windows; unter Linux übernimmt tkinter
 except ImportError:
     winsound = None
 
-__version__ = '3.14.0-rc8'
+__version__ = '3.14.0-rc9'
 
 
 def _mitgeliefert(name):
@@ -753,6 +753,14 @@ class Watcher(threading.Thread):
         Preisangabe still — die Herstellung funktioniert ohne sie genauso wie
         vorher. Es gibt keine Meldung darueber, weil es keine braucht.
         """
+        # ⚠⚠ **Der Spielstand zuerst, und das ist kein Zufall.** Jede Ablage
+        # wird mit dem Stand gestempelt, der beim Sichern bekannt ist. Käme er
+        # nach den Preisen, trüge eine frisch geholte Ablage den Stand von
+        # **vor** dem Patch — und wäre damit genau falsch gekennzeichnet.
+        try:
+            spielstand.aktualisieren()
+        except Exception as ausnahme:
+            fehler.merken('watcher.spielstand', ausnahme)
         try:
             preise.aktualisieren()
         except Exception as ausnahme:

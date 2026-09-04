@@ -6,6 +6,28 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc9 - 2026-09-04
+
+> Der Verkaufs-Reiter sagt jetzt dazu, was er nicht weiß. Nach einem Patch
+> siehst du auf einen Blick, dass die Preise noch aus der Version davor
+> stammen — und ein Terminal, dessen Lager volläuft, sagt es dir, bevor du
+> hinfliegst.
+
+### Neu
+
+- **Warnung nach einem Spiel-Patch.** Star Citizen wirft mit jedem Patch
+  Preise um. Stammen die Zahlen noch aus der Version davor, steht das jetzt
+  dabei — mit beiden Versionsnummern, statt nur „veraltet".
+- **Volle Lager werden angezeigt.** Ein Terminal, dessen Lager sich füllt oder
+  schon voll ist, nimmt deine Ladung schlecht oder gar nicht mehr ab — obwohl
+  der Preis noch dransteht. Das steht jetzt an der betroffenen Ware.
+
+### Verbessert
+
+- **Die Anzeige bleibt ruhig, wenn es nichts zu sagen gibt.** Über neun
+  Zehntel aller Ankaufstellen haben Platz — dort erscheint bewusst kein
+  Zeichen. Ein Hinweis, der immer da ist, wird nicht gelesen.
+
 ## v3.14.0-rc8 - 2026-09-04
 
 > Der Weg zu deinen Profilen ist jetzt kurz: Beim Speichern siehst du, was

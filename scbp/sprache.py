@@ -2111,6 +2111,14 @@ TEXTE = {
     's_vk_kein_netz_aus': ('Netzzugriff ist abgeschaltet (SC_BP_NO_NET).',
                            'Network access is switched off (SC_BP_NO_NET).'),
     's_vk_stand':        ('Stand: {alter}', 'Updated: {alter}'),
+    # ⚠ Nennt beide Nummern. „Veraltet" allein lässt offen, wie schlimm es ist —
+    # wer sieht, dass zwischen 4.10.0 und 4.11.0 ein Patch liegt, weiß es.
+    's_vk_patch':        ('Zahlen aus {alt} — im Spiel läuft {neu}',
+                            'Numbers from {alt} — the game is on {neu}'),
+    # ⚠ Der Füllstand sagt, was zu TUN ist, nicht was gemessen wurde. „Stufe 6
+    # von 7" hilft niemandem am Terminal; „nimmt kaum noch ab" schon.
+    's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),
+    's_vk_voll':         ('· nimmt kaum noch ab', '· barely buying'),
     's_vk_kein_stand':   ('Noch keine Preise geholt.', 'No prices fetched yet.'),
     's_vk_nur_nqa':      ('nur Orte ohne Fragen (gestohlene Ware)',
                           'only no-questions-asked places (stolen cargo)'),

@@ -74,7 +74,7 @@ FORMAT = 1
 # abends spielt, soll den Freitags-Patch nicht erst am Samstag bemerken.
 HALTBAR = uex.TAG // 2
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR, stempeln=False)
 
 
 def laden():

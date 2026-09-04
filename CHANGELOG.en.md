@@ -6,6 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc9 - 2026-09-04
+
+> The sell tab now tells you what it does not know. After a patch you can see
+> at a glance that the prices still come from the version before — and a
+> terminal whose stock is filling up says so before you fly there.
+
+### Added
+
+- **Warning after a game patch.** Star Citizen shuffles prices with every
+  patch. If the numbers still come from the version before, it now says so —
+  with both version numbers, instead of just "outdated".
+- **Full stock is shown.** A terminal whose stock is filling up, or already
+  full, takes your cargo badly or not at all — even though the price is still
+  listed. That now appears next to the affected commodity.
+
+### Improved
+
+- **The display stays quiet when there is nothing to say.** More than nine out
+  of ten buyers have room — no marker appears there on purpose. A hint that is
+  always present does not get read.
+
 ## v3.14.0-rc8 - 2026-09-04
 
 > Getting to your profiles is short now: when saving you see what is already

@@ -143,10 +143,13 @@ class Ablage:
     Ein Fachmodul legt sich davon **eine** an und behält sie als Modulvariable.
     """
 
-    def __init__(self, dateiname, format_nr, haltbar):
+    def __init__(self, dateiname, format_nr, haltbar, stempeln=True):
         self.dateiname = dateiname
         self.format_nr = format_nr
         self.haltbar = haltbar
+        # ⚠ `stempeln=False` nur für die Ablage des Spielstands selbst — sie
+        # würde sich sonst mit ihrem eigenen alten Wert stempeln.
+        self.stempeln = stempeln
         # Zuletzt gelesener Inhalt, damit nicht bei jedem Zugriff die Datei
         # neu geparst wird. Der Schlüssel ist (Änderungszeit, Größe): Ändert
         # eine andere Stelle die Datei, fällt das auf und es wird neu gelesen.
@@ -204,6 +207,18 @@ class Ablage:
         daten = dict(felder)
         daten['format'] = self.format_nr
         daten['geholt'] = time.time()
+        if self.stempeln:
+            # ⚠⚠ **Unter welchem Spielstand wurde das geholt?** Ohne diese
+            # Zeile ist eine Ablage einen Tag lang „frisch" — auch wenn
+            # zwischendurch ein Patch die halben Preise umgeworfen hat. Der
+            # Zeitstempel allein sagt nichts darüber, ob die Zahlen noch
+            # gelten. Siehe `scbp/spielstand.py`.
+            #
+            # Lokal importiert: `spielstand` hängt seinerseits an diesem Modul.
+            from . import spielstand
+            stand = spielstand.live()
+            if stand:
+                daten['spielstand'] = stand
         ziel = self.pfad()
         trenner = (',', ':') if kompakt else None
         try:
