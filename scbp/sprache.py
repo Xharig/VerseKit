@@ -2181,6 +2181,18 @@ TEXTE = {
     # die Regel aus, und die nächste Zeile ist dann keine Einheit mehr.
     's_rt_scu_menge':    ('%d SCU', '%d SCU'),
     's_auec':            ('%s aUEC', '%s aUEC'),
+    's_rt_schiff':       ('Schiff', 'Ship'),
+    's_rt_schiff_waehlen': ('auswählen …', 'choose …'),
+    's_rt_schiff_frage': ('Welches Schiff fliegst du? Der Frachtraum wird '
+                          'dann von selbst eingetragen.',
+                            'Which ship are you flying? The cargo hold is then '
+                            'filled in for you.'),
+    's_rt_keine_schiffe': ('Die Schiffsliste ist noch nicht da — sie wird beim '
+                           'nächsten Abruf geholt.',
+                             'The ship list is not here yet — it will be '
+                             'fetched on the next update.'),
+    's_rt_kaufen':       ('Kaufen ab', 'Buy from'),
+    's_rt_mieten':       ('Mieten ab', 'Rent from'),
     's_rt_schritt':      ('   %d)  %d SCU %s  →  %s',
                             '   %d)  %d SCU %s  →  %s'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),

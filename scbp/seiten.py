@@ -5236,6 +5236,76 @@ def _routen(fenster, rahmen):
                  highlightthickness=1, highlightbackground=LINIE,
                  highlightcolor=ACCENT).pack(ipady=4)
 
+    # ⭐ **Schiff wählen statt Zahl tippen.** Wer sein Schiff kennt, kennt
+    # selten dessen SCU-Zahl auswendig — und eine falsch geratene macht die
+    # ganze Rechnung falsch.
+    #
+    # ⚠ Der Knopf steht nur da, wenn die Schiffsliste vorliegt. Ohne Netz oder
+    # beim ersten Start fehlt sie; dann bleibt das Eingabefeld daneben der Weg
+    # und niemand sieht einen Knopf, der nichts tut.
+    schiff_spalte = tk.Frame(zahlen, bg=BG)
+    schiff_spalte.pack(side='left')
+    tk.Label(schiff_spalte, text=t('s_rt_schiff'), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(fill='x')
+    schiff_knopf = tk.Label(schiff_spalte, text=t('s_rt_schiff_waehlen'),
+                            bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                            cursor='hand2', padx=10)
+    schiff_knopf.pack(ipady=5)
+
+    def _schiff_waehlen(_=None):
+        from .hauptfenster import auswahl_stellen
+        namen = schiff_modul.alle()
+        if not namen:
+            fenster.sagen(t('s_rt_keine_schiffe'))
+            return
+        # ⚠ Die Liste zeigt den Frachtraum gleich mit — sonst wählt man nach
+        # dem Namen und weiß hinterher nicht, was man bekommen hat.
+        beschriftet = ['%s  ·  %d SCU' % (n, schiff_modul.scu(n))
+                       for n in namen]
+        gewaehlt_text = auswahl_stellen(fenster.root, t('s_rt_schiff'),
+                                        t('s_rt_schiff_frage'), beschriftet)
+        if not gewaehlt_text:
+            return
+        name = gewaehlt_text.split('  ·  ')[0]
+        zustand['schiff'] = name
+        scu_var.set(str(schiff_modul.scu(name)))
+        schiff_knopf.configure(text=name, fg=ACCENT)
+        _schiff_zeigen()
+
+    schiff_knopf.bind('<Button-1>', _schiff_waehlen)
+    schiff_knopf.bind('<Enter>',
+                      lambda _=None: schiff_knopf.configure(fg=ACCENT))
+    schiff_knopf.bind(
+        '<Leave>',
+        lambda _=None: schiff_knopf.configure(
+            fg=ACCENT if zustand['schiff'] else SUB))
+
+    # Wo es das gewählte Schiff gibt — steht unter den Eingaben, nicht im
+    # Ergebnis: Es gehört zur Ausrüstung, nicht zur Route.
+    schiff_info = tk.Frame(kopf, bg=BG)
+    schiff_info.pack(fill='x', pady=(8, 0))
+
+    def _schiff_zeigen():
+        for kind in schiff_info.winfo_children():
+            kind.destroy()
+        name = zustand['schiff']
+        if not name:
+            return
+        for schluessel, stellen in ((t('s_rt_kaufen'),
+                                     schiff_modul.kaufen(name)),
+                                    (t('s_rt_mieten'),
+                                     schiff_modul.mieten(name))):
+            if not stellen:
+                continue
+            billig = stellen[0]
+            wo = ' · '.join(x for x in (billig.get('stelle'),
+                                        billig.get('system')) if x)
+            tk.Label(schiff_info,
+                     text='%s  %s  ·  %s' % (schluessel,
+                                             _auec(billig['preis']), wo),
+                     bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(fill='x')
+
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
 

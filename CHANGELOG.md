@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc13 - 2026-09-04
+
+> Wähl einfach dein Schiff — der Frachtraum trägt sich dann von selbst ein.
+> Und wenn du es noch nicht hast, siehst du gleich, wo es zu kaufen oder zu
+> mieten ist.
+
+### Neu
+
+- **Schiff auswählen statt Frachtraum tippen.** 134 Schiffe mit Laderaum, die
+  SCU-Zahl steht in der Liste gleich dabei. Nach der Wahl siehst du außerdem,
+  wo dieses Schiff am günstigsten zu kaufen und zu mieten ist.
+
 ## v3.14.0-rc12 - 2026-09-04
 
 > Routen können jetzt über drei oder vier Stationen gehen — und auf Wunsch

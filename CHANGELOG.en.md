@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc13 - 2026-09-04
+
+> Just pick your ship — the cargo hold fills itself in. And if you do not own
+> it yet, you see right away where to buy or rent one.
+
+### Added
+
+- **Pick a ship instead of typing the cargo hold.** 134 ships with a hold, the
+  SCU figure right there in the list. Once chosen, you also see where that ship
+  is cheapest to buy and to rent.
+
 ## v3.14.0-rc12 - 2026-09-04
 
 > Routes can now run across three or four stations — and, if you like, lead

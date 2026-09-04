@@ -51,15 +51,15 @@ from scbp import (
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, hinweis, injektion,
                   katalog as katalog_modul, logquelle, merkliste,
-                  pfade, phrasen, spielstand, titelleiste, ton, uebersetzung,
-                  verkauf, hotkey as hotkey_modul)
+                  pfade, phrasen, schiffe, spielstand, titelleiste, ton,
+                  uebersetzung, verkauf, hotkey as hotkey_modul)
 
 try:
     import winsound                      # nur Windows; unter Linux übernimmt tkinter
 except ImportError:
     winsound = None
 
-__version__ = '3.14.0-rc12'
+__version__ = '3.14.0-rc13'
 
 
 def _mitgeliefert(name):
@@ -778,6 +778,12 @@ class Watcher(threading.Thread):
             verkauf.aktualisieren()
         except Exception as ausnahme:
             fehler.merken('watcher.verkauf', ausnahme)
+        # Und die Schiffsliste — höchstens einmal pro Woche, siehe
+        # `scbp/schiffe.py`. Sie liefert den Frachtraum für den Routen-Reiter.
+        try:
+            schiffe.aktualisieren()
+        except Exception as ausnahme:
+            fehler.merken('watcher.schiffe', ausnahme)
 
     # ---- Bauplan-Katalog holen und frisch halten ----
     def _katalog_tick(self):
