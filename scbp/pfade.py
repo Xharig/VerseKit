@@ -465,12 +465,65 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
         raise
 
 
+def zeiger_datei():
+    """Die Datei, aus der der Ablage-Ort gelesen wird — immer am Standardort.
+
+    ⚠ Sie ist NICHT dieselbe wie die Einstellungsdatei in der Ablage, sobald
+    ein eigener Ablage-Ort gesetzt ist. `_ablage_aus_datei()` liest ausschliesslich
+    hier; alles andere steht in der Ablage selbst.
+    """
+    return os.path.join(_dokumente(), ORDNERNAME, 'Einstellungen',
+                        EINSTELLUNGEN)
+
+
+def _ablage_ordner_setzen(wert):
+    """Den Ablage-Ort in die Zeiger-Datei schreiben — nicht in die Ablage.
+
+    ⚠⚠ **Sonst merkt sich das Programm den neuen Ort an einer Stelle, die es
+    nie wieder liest.** `einstellung_setzen()` schreibt ueber `app_datei()`,
+    und das zeigt in den **aktuellen** Ablage-Ordner. Der neue Ort landete
+    damit in der Einstellungsdatei des ALTEN Ordners, waehrend
+    `_ablage_aus_datei()` weiter den unveraenderten Zeiger unter Dokumente las.
+    Ergebnis: Die Umstellung liess sich speichern, war aber nach jedem Neustart
+    wieder weg — gemeldet am 04.09.2026, „bei jedem Neustart ist der alte Pfad
+    wieder drin".
+
+    In der Zeiger-Datei steht **nur** dieses eine Feld. Zwei befuellte
+    Einstellungsdateien wuerden garantiert auseinanderlaufen, und gelesen wird
+    hier ohnehin nichts anderes.
+    """
+    ziel = zeiger_datei()
+    vorhanden = {}
+    try:
+        with open(ziel, encoding='utf-8') as f:
+            geladen = json.load(f)
+        if isinstance(geladen, dict):
+            vorhanden = geladen
+    except Exception:
+        pass
+    vorhanden['ablage_ordner'] = wert
+    temp = ziel + '.tmp'
+    try:
+        os.makedirs(os.path.dirname(ziel), exist_ok=True)
+        with open(temp, 'w', encoding='utf-8') as f:
+            json.dump(vorhanden, f, ensure_ascii=False, indent=2)
+        os.replace(temp, ziel)
+        return True
+    except OSError as ausnahme:
+        _melden('pfade.ablage_ordner_setzen', ausnahme)
+        return False
+
+
 def einstellung_setzen(name, wert):
     """Einen Pfad dauerhaft merken — ohne die Erklärzeilen zu verlieren.
 
     Gelesen wird die vorhandene Datei (oder die Vorlage), geändert nur das eine
     Feld. So bleiben die Hinweise mit den Suchorten stehen, auch wenn das
     Programm die Datei schreibt."""
+    if name == 'ablage_ordner':
+        # ⚠ Sonderweg, siehe `_ablage_ordner_setzen`: Dieses eine Feld gehoert
+        # in die Zeiger-Datei, sonst wirkt die Umstellung nur bis zum Neustart.
+        return _ablage_ordner_setzen(wert)
     daten = einstellungen() or _vorlage()
     daten[name] = wert
     ziel = app_datei(EINSTELLUNGEN)

@@ -768,6 +768,61 @@ def main():
         pruefe(vorher['bauplaene']['attrition-5 repeater']['quelle'] == 'log',
                'ein Import überschreibt keine bessere Quelle')
 
+        # ----------------------------------------------------------------- 13b
+        # Der Ablage-Ort muss einen Neustart ueberleben. Gemeldet am
+        # 04.09.2026: „bei jedem Neustart ist der alte Pfad wieder drin".
+        #
+        # ⚠ Der Fehler zeigt sich NUR, wenn bereits ein eigener Ort gesetzt
+        # ist. Dann schreibt `einstellung_setzen` ueber `app_datei()` in den
+        # ALTEN Ordner, waehrend `_ablage_aus_datei()` weiter den unveraenderten
+        # Zeiger unter Dokumente liest. Ein Test, der bei Standard-Ablage
+        # anfaengt, laeuft gruen durch und beweist nichts — dort sind Zeiger
+        # und Ablage dieselbe Datei.
+        print()
+        print('13b. Der gewaehlte Ablage-Ort ueberlebt den Neustart')
+        _pf13b = importlib.import_module('scbp.pfade')
+        _dok13b = os.path.join(basis, 'dokumente13b')
+        _alt13b = os.path.join(basis, 'ablage_alt13b')
+        _neu13b = os.path.join(basis, 'ablage_neu13b')
+        for _o in (_dok13b, _alt13b, _neu13b):
+            os.makedirs(_o, exist_ok=True)
+        _home13b = os.environ.pop('SC_BP_HOME', None)   # sonst sticht sie alles
+        _echt13b = _pf13b._dokumente
+        _pf13b._dokumente = lambda: _dok13b
+        try:
+            # Ausgangslage: ein eigener Ort ist bereits gesetzt.
+            _zeiger13b = _pf13b.zeiger_datei()
+            os.makedirs(os.path.dirname(_zeiger13b), exist_ok=True)
+            with open(_zeiger13b, 'w', encoding='utf-8') as _f13b:
+                json.dump({'ablage_ordner': _alt13b}, _f13b)
+            pruefe(_pf13b.app_ordner() == _alt13b,
+                   'Ausgangslage: der Watcher liegt im alten Ordner')
+
+            # Der Nutzer stellt um.
+            _pf13b.einstellung_setzen('ablage_ordner', _neu13b)
+
+            with open(_zeiger13b, encoding='utf-8') as _f13b:
+                _steht13b = json.load(_f13b).get('ablage_ordner')
+            pruefe(_steht13b == _neu13b,
+                   'der neue Ort steht in der Zeiger-Datei')
+            pruefe(_pf13b.app_ordner() == _neu13b,
+                   'nach dem Neustart gilt der neue Ort')
+
+            # ⚠ Und er darf NICHT zusaetzlich im alten Ordner liegen — zwei
+            # befuellte Einstellungsdateien laufen garantiert auseinander.
+            _altdatei13b = os.path.join(_alt13b, 'Einstellungen',
+                                        'einstellungen.json')
+            _rest13b = {}
+            if os.path.isfile(_altdatei13b):
+                with open(_altdatei13b, encoding='utf-8') as _f13b:
+                    _rest13b = json.load(_f13b)
+            pruefe('ablage_ordner' not in _rest13b,
+                   'der alte Ordner behaelt keinen zweiten Ablage-Ort')
+        finally:
+            _pf13b._dokumente = _echt13b
+            if _home13b is not None:
+                os.environ['SC_BP_HOME'] = _home13b
+
         # ------------------------------------------------------------------ 14
         # "Neu"-Marken. Der ganze Nutzen haengt daran, dass sie wieder
         # verschwinden — sonst ist nach drei Versionen alles markiert.
