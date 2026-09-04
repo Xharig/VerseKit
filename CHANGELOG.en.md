@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.13.0 - 2026-09-04
+
+> The most requested button is here: **Backup**. Everything only you have, in a
+> single file — and back again with the same button. Meant for moving to
+> another PC: file onto a stick, read it in on the new machine, keep playing.
 
 ### New
 

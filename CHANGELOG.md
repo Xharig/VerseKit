@@ -6,7 +6,12 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.13.0 - 2026-09-04
+
+> Der meistgewünschte Knopf ist da: **Sicherung**. Alles, was nur du hast, in
+> eine einzige Datei — und mit demselben Knopf wieder zurück. Gedacht für den
+> Rechnerwechsel: Datei auf den Stick, am neuen Rechner einlesen,
+> weiterspielen.
 
 ### Neu
 
