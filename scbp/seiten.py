@@ -5476,6 +5476,15 @@ def _routen(fenster, rahmen):
         stellen = (preisdaten.laden() or {}).get('terminals') or {}
         treffer = []
         for kennung, stelle in stellen.items():
+            # ⚠⚠ **Nur Terminals, die mit Ware handeln.** Von 826 sind es 184;
+            # der Rest sind Läden, Tankstellen und Mietstationen. Wer die
+            # mitanbietet, gibt keine Routen, sondern eine Ladenliste — und
+            # Seraphim Station stand mit 16 Zeilen da, von denen 15 nichts
+            # taugten. Ältere Ablagen kennen die Art noch nicht; dort bleibt
+            # alles stehen, statt die Liste leer zu lassen.
+            art = stelle.get('t')
+            if art is not None and art not in preisdaten.HANDELSARTEN:
+                continue
             ort = stelle.get('o') or ''
             # ⚠⚠ **Gesucht wird in BEIDEN Namen.** Eine Station hat viele
             # Terminals; wer „Seraphim" tippt, meint die Station, wer „TDD"

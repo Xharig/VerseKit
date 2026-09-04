@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc14 - 2026-09-04
+
+> Die Ortsauswahl bei den Routen zeigt jetzt nur noch Stellen, an denen
+> wirklich mit Ware gehandelt wird. Seraphim Station stand vorher mit sechzehn
+> Zeilen da — fünfzehn davon waren Klamottenläden, Imbisse und Tankstellen.
+
+### Behoben
+
+- **In der Ortsauswahl standen Läden, Imbisse und Tankstellen.** Wer sie
+  auswählte, bekam keine Route — dort gibt es nichts zu handeln. Angeboten
+  werden jetzt nur noch die Stellen, die tatsächlich Ware kaufen und
+  verkaufen: 184 statt 826.
+
 ## v3.14.0-rc13 - 2026-09-04
 
 > Wähl einfach dein Schiff — der Frachtraum trägt sich dann von selbst ein.

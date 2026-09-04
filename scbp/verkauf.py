@@ -98,10 +98,14 @@ from .katalog import AUS
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
 # ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam, auf 3 mit dem Terminalnamen
-# (`n`). Eine alte Ablage hätte die Felder nicht — ein höherer Formatstand holt
-# sie einmal neu, statt die Anzeige einen Tag lang lückenhaft zu lassen. Ein
-# Abruf mehr, dafür sofort vollständig.
-FORMAT = 3
+# (`n`), auf 4 mit der Terminal-Art (`t`). Eine alte Ablage hätte die Felder
+# nicht — ein höherer Formatstand holt sie einmal neu, statt die Anzeige einen
+# Tag lang lückenhaft zu lassen. Ein Abruf mehr, dafür sofort vollständig.
+FORMAT = 4
+
+# Welche Terminal-Arten mit **Ware** handeln. Alles andere taugt für eine
+# Handelsroute nicht — siehe die Begründung bei `'t'` weiter unten.
+HANDELSARTEN = ('commodity', 'commodity_raw')
 ZEITLIMIT = 30
 
 # ⭐⭐ **Beim Verkauf ist „voll" das Schlechte.** Das ist der Punkt, an dem die
@@ -271,6 +275,17 @@ def aktualisieren(erzwingen=False, fortschritt=None):
             # Läden), und die verkaufen Verschiedenes. Wer auswählen soll,
             # muss unterscheiden können. Gemeldet am 04.09.2026.
             'n': (x.get('name') or '').strip(),
+            # ⚠⚠ **Die Art des Terminals — und die entscheidet, ob es für
+            # Handel überhaupt taugt.** Gemessen am 04.09.2026 über alle 826:
+            # nur **161 `commodity`** und **23 `commodity_raw`**; die übrigen
+            # 642 sind Läden (`item`, 481), Tankstellen (`fuel`, 99),
+            # Miet- und Kaufstationen für Schiffe.
+            #
+            # Xharig dazu: „Wer kauft Schiffswaffen und verkauft die? Wir
+            # wollen den Leuten sinnvolle Routen geben, nicht die komplette
+            # Liste aller Shops." Seraphim Station hat 16 Terminals — und
+            # **genau eines** davon handelt mit Ware.
+            't': (x.get('type') or '').strip(),
         }
 
     # ⚠⚠ **Nur Zeilen mit echtem Ankaufgebot behalten.** `price_sell = 0` heisst

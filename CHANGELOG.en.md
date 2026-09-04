@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc14 - 2026-09-04
+
+> The location picker for routes now only lists places that actually trade in
+> goods. Seraphim Station used to fill sixteen rows — fifteen of them were
+> clothing shops, food stands and fuel points.
+
+### Fixed
+
+- **The location picker listed shops, food stands and fuel points.** Picking
+  one gave you no route — there is nothing to trade there. Only places that
+  really buy and sell goods are offered now: 184 instead of 826.
+
 ## v3.14.0-rc13 - 2026-09-04
 
 > Just pick your ship — the cargo hold fills itself in. And if you do not own
