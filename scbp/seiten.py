@@ -2442,6 +2442,46 @@ def _joysticks(fenster, rahmen):
             messagebox.showwarning(t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
 
+    def _profil_speichern():
+        """Die Belegung als Profil ablegen, das Star Citizen selbst kennt.
+
+        ⚠ Der Unterschied zu „Belegung sichern": Eine Sicherung ist eine Datei
+        irgendwo, ein Profil liegt **im Mappings-Ordner des Spiels** und lässt
+        sich dort unter seinem Namen laden. Das ist der Weg, den man sonst nur
+        über die Spielkonsole hat.
+        """
+        from tkinter import messagebox, simpledialog
+        vorhandene = joysticks.profile()
+        # ⚠ **Kein `parent=`.** Eingebettet ist das Fenster ein Rahmen, der nie
+        # gepackt wird — der Dialog erschiene dann gar nicht („beim Klick
+        # passiert nichts"). Dieselbe Falle steht bei `spiel_waehlen()`.
+        name = simpledialog.askstring(
+            t('s_js_profil'),
+            t('s_js_profil_frage',
+              ', '.join(vorhandene) if vorhandene else t('s_js_profil_keine')))
+        if name is None:
+            return                       # abgebrochen, nicht leer bestätigt
+        ok, meldung = joysticks.name_pruefen(name)
+        if not ok:
+            messagebox.showwarning(t('hf_joysticks'), t(meldung))
+            return
+        name = name.strip()
+        erfolg, meldung = joysticks.profil_speichern(name)
+        # Ein vorhandenes Profil wird nicht stillschweigend überschrieben —
+        # dahinter kann die Belegung eines ganzen Abends stecken.
+        if not erfolg and meldung == 's_js_f_name_belegt':
+            if not messagebox.askyesno(t('s_js_profil'),
+                                       t('s_js_profil_ersetzen', name),
+                                       icon='warning', default='no'):
+                return
+            erfolg, meldung = joysticks.profil_speichern(
+                name, ueberschreiben=True)
+        if erfolg:
+            messagebox.showinfo(t('hf_joysticks'),
+                                t('s_js_profil_ok', name, name))
+        else:
+            messagebox.showwarning(t('hf_joysticks'), t(meldung))
+
     def _einlesen():
         from tkinter import messagebox
         from . import dateiwahl
@@ -2466,6 +2506,11 @@ def _joysticks(fenster, rahmen):
         """Sichern, Einspielen, Zurücksetzen — einmal gebaut, bleibt stehen."""
         for kind in werkzeugleiste.winfo_children():
             kind.destroy()
+        # ⚠ Steht **vor** „Belegung sichern": Das Profil ist der Weg, den die
+        # meisten wollen — es liegt im Spiel und ist dort ladbar. Die Sicherung
+        # als lose Datei ist der Sonderfall (weitergeben, aufheben).
+        _knopf(fenster, werkzeugleiste, t('s_js_profil'),
+               _profil_speichern).pack(side='left', padx=(0, 6))
         _knopf(fenster, werkzeugleiste, t('s_js_ausgeben'),
                lambda: _ausgeben(False)).pack(side='left', padx=(0, 6))
         _knopf(fenster, werkzeugleiste, t('s_js_ausgeben_csv'),

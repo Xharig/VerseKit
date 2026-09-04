@@ -816,6 +816,19 @@ TEXTE = {
                            'was restored.'),
     's_js_f_lesen':    ('Die Datei ließ sich nicht lesen.',
                           'The file could not be read.'),
+    # Der Profilname wird zum Dateinamen — und zu dem, was der Spieler im
+    # Spiel eintippt (`pp_rebindkeys load <Name>`). Deshalb die Grenzen.
+    's_js_f_name_leer': ('Gib dem Profil einen Namen.',
+                           'Give the profile a name.'),
+    's_js_f_name_zeichen': ('Im Namen sind nur Buchstaben, Ziffern, '
+                            'Bindestrich und Unterstrich erlaubt — keine '
+                            'Leerzeichen.',
+                              'The name may only contain letters, digits, '
+                              'hyphens and underscores — no spaces.'),
+    's_js_f_name_lang': ('Der Name ist zu lang.',
+                           'The name is too long.'),
+    's_js_f_name_belegt': ('Ein Profil mit diesem Namen gibt es schon.',
+                             'A profile with this name already exists.'),
     # Die drei Sichten auf die Belegung — dieselbe Einteilung, die auch das
     # Spiel selbst kennt.
     's_js_a_tastatur': ('Tastatur', 'Keyboard'),
@@ -897,6 +910,26 @@ TEXTE = {
     's_js_ausgeben_csv': ('Als Liste (CSV)', 'As a list (CSV)'),
     's_js_einlesen':   ('Belegung einspielen', 'Import bindings'),
     's_js_ausgabe_ok': ('Gesichert: %s', 'Exported: %s'),
+    # Ein Profil ist etwas anderes als eine gesicherte Datei: Es liegt dort, wo
+    # das Spiel es sucht, und laesst sich dort unter seinem Namen laden.
+    's_js_profil':     ('Als Profil speichern', 'Save as profile'),
+    's_js_profil_frage': ('Name für das Profil — Buchstaben, Ziffern, '
+                          'Bindestrich und Unterstrich, keine Leerzeichen.\n'
+                          'Im Spiel lädst du es dann mit:\n'
+                          '  pp_rebindkeys load NAME\n\n'
+                          'Schon vorhanden: %s',
+                            'Name for the profile — letters, digits, hyphens '
+                            'and underscores, no spaces.\n'
+                            'In game you then load it with:\n'
+                            '  pp_rebindkeys load NAME\n\n'
+                            'Already there: %s'),
+    's_js_profil_keine': ('noch keine', 'none yet'),
+    's_js_profil_ersetzen': ('Es gibt schon ein Profil „%s". Ersetzen?',
+                               'A profile "%s" already exists. Replace it?'),
+    's_js_profil_ok':  ('Gespeichert als „%s".\n\nIm Spiel laden mit:\n'
+                        '  pp_rebindkeys load %s',
+                          'Saved as "%s".\n\nLoad it in game with:\n'
+                          '  pp_rebindkeys load %s'),
     's_js_einlesen_ok': ('Eingespielt — %d Gruppen. Sicherung: %s',
                            'Imported — %d groups. Backup: %s'),
     's_js_f_fremd':    ('Das sieht nicht nach einer Belegungsdatei von Star '
@@ -2716,13 +2749,33 @@ TEXTE = {
                           'Everything only you have, in one file — and back again.'),
     'sich_was':          ('Mit dabei sind dein Bauplan-Bestand, das Lager der '
                           'Werkstatt, das Handelslager, das Auftrags-Protokoll, '
-                          'die Merkliste und deine Einstellungen. Die '
-                          'heruntergeladenen Nachschlagewerke bleiben draußen — '
-                          'die holt sich das Programm von allein zurück.',
+                          'die Merkliste, deine Einstellungen und deine '
+                          'Steuerung — die aktive Belegung und alle '
+                          'gespeicherten Profile. Die heruntergeladenen '
+                          'Nachschlagewerke bleiben draußen — die holt sich '
+                          'das Programm von allein zurück.',
                           'Included are your blueprint inventory, the workshop '
-                          'stock, the trade hold, the mission log, your watchlist '
-                          'and your settings. The downloaded reference data stays '
-                          'out — the program fetches that on its own.'),
+                          'stock, the trade hold, the mission log, your watchlist, '
+                          'your settings and your controls — the active bindings '
+                          'and every saved profile. The downloaded reference data '
+                          'stays out — the program fetches that on its own.'),
+    # ⚠ Die Steuerung wird getrennt gefragt: Sie liegt im Spielordner, nicht in
+    # unserer Ablage — und eine falsch zurückgespielte Belegung setzt jemanden
+    # vor ein Schiff, das auf nichts mehr reagiert.
+    'sich_belegung_frage': ('In der Sicherung steckt auch deine Steuerung: %s.'
+                            '\n\nDie gespeicherten Profile zurücklegen?',
+                            'The backup also holds your controls: %s.\n\n'
+                            'Put the saved profiles back?'),
+    'sich_belegung_aktiv': ('Auch die AKTIVE Belegung ersetzen?\n\nDeine '
+                            'jetzige wird vorher zur Seite gelegt — aber im '
+                            'Spiel gilt danach die aus der Sicherung.',
+                            'Replace the ACTIVE bindings as well?\n\nYour '
+                            'current ones are set aside first — but in game '
+                            'the ones from the backup will apply.'),
+    'sich_belegung_ok':  ('Steuerung zurückgelegt: %d Dateien.',
+                          'Controls restored: %d files.'),
+    'sich_belegung_keine': ('In dieser Sicherung ist keine Steuerung.',
+                            'This backup holds no controls.'),
     'sich_schreiben':    ('Sicherung erstellen', 'Create backup'),
     'sich_lesen':        ('Sicherung einspielen', 'Restore backup'),
     'sich_fertig':       ('Gesichert: %d Dateien in %s',

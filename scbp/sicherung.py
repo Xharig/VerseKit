@@ -69,6 +69,7 @@ NACHLADBAR = (
     'Intern/serverstatus.json',         # Statusmeldungen von CIG
     'Intern/uebersetzung.json',         # aus der global.ini des Spiels
     'Intern/verkauf.json',              # Verkaufsorte, vom Netz
+    'Intern/aktionsnamen.json',         # Aktionsnamen, aus dem Spielarchiv
     # ⚠ Der Lesestand gehört ausdrücklich NICHT mit: Er zeigt auf Logdateien
     # des alten Rechners. Am neuen wäre er falsch und würde die Nachlese
     # überspringen — das Auftrags-Protokoll bliebe leer.
@@ -80,6 +81,57 @@ NACHLADBARE_ORDNER = (
     'export',       # wird bei jedem Fund neu geschrieben
     'Diagnose',     # Fehlerprotokolle des alten Rechners
 )
+
+
+# ⚠⚠ **Die Belegung liegt NICHT in unserer Ablage, sondern im Spielordner.**
+# Bis v3.14 fiel sie deshalb durch jedes Raster: Der Knopf hiess „Sicherung",
+# nahm aber ausgerechnet das nicht mit, was am schwersten wiederzubeschaffen
+# ist — eine verlorene HOTAS-Belegung sind Stunden.
+#
+# Sie kommt unter einem eigenen Vorsatz ins Archiv, damit beim Zurueckholen
+# klar zu trennen ist, was in die Ablage gehoert und was ins Spiel.
+STEUERUNG = 'Steuerung/'
+
+
+def _belegung_dateien(ordner=None):
+    """Die Belegungsdateien des Spielers — (voller Pfad, Name im Archiv).
+
+    Zwei Sorten, beide noetig:
+
+    | Was | Wo | Warum |
+    |---|---|---|
+    | die **aktive** Belegung | `Profiles/default/actionmaps.xml` | was gerade im Spiel gilt |
+    | die **gespeicherten Profile** | `controls/mappings/*.xml` | Kampf, Bergbau, Frachtflug — wer sie sich angelegt hat, verliert sonst alles ausser dem zuletzt geladenen |
+
+    ⚠ Den Mappings-Ordner gibt es in mehreren Schreibweisen (siehe
+    `joysticks.MAPPING_ORDNER`). Gleichnamige Dateien werden **entdoppelt**,
+    die neuere gewinnt — sonst laege dieselbe Belegung zweimal im Archiv, und
+    beim Zurueckholen entschiede der Zufall.
+    """
+    from . import joysticks
+    gefunden = {}
+    aktiv = joysticks._pfad_actionmaps(ordner)
+    if aktiv and os.path.isfile(aktiv):
+        gefunden['actionmaps.xml'] = aktiv
+    # ⚠ Ueber **alle** Schreibweisen des Ordners sammeln, nicht nur ueber den,
+    # in den geschrieben wuerde. Beim Sichern zaehlt Vollstaendigkeit.
+    for mappings in joysticks.alle_mapping_ordner(ordner):
+        try:
+            for name in os.listdir(mappings):
+                if not name.lower().endswith('.xml'):
+                    continue
+                voll = os.path.join(mappings, name)
+                if not os.path.isfile(voll):
+                    continue
+                schluessel = 'mappings/' + name
+                vorher = gefunden.get(schluessel)
+                if vorher and os.path.getmtime(vorher) >= os.path.getmtime(voll):
+                    continue
+                gefunden[schluessel] = voll
+        except OSError:
+            continue
+    return sorted(((voll, STEUERUNG + rel)
+                   for rel, voll in gefunden.items()), key=lambda x: x[1])
 
 
 def _mitnehmen(rel):
@@ -112,16 +164,23 @@ def vorschlag():
     return 'SC-BP-Watcher-Sicherung-%s.zip' % time.strftime('%Y-%m-%d')
 
 
-def schreiben(ziel, version=''):
+def schreiben(ziel, version='', spielordner=None):
     """Alles Eigene in eine ZIP-Datei schreiben.
 
     Gibt `(ok, meldung, anzahl)` zurück. Die Meldung ist für den Spieler
     gedacht und nennt im Fehlerfall den Grund — ein stilles `False` hilft
     niemandem.
+
+    ⚠ `spielordner` ist für Prüfläufe da. Ohne ihn wird der eingerichtete
+    Spielordner genommen — und ein Prüflauf, der ihn vergisst, schreibt in die
+    **echte** Steuerung des Spielers. Genau das ist am 04.09.2026 passiert.
     """
     dateien = _dateien()
     if not dateien:
         return False, 'leer', 0
+    # Die Belegung kommt aus dem Spielordner dazu. Fehlt das Spiel (noch nicht
+    # eingerichtet), bleibt die Liste leer — das ist kein Fehler.
+    dateien = dateien + _belegung_dateien(spielordner)
     # ⚠ Erst neben das Ziel schreiben, dann umbenennen. Bricht das Schreiben ab
     # (Stick abgezogen, Platte voll), steht sonst eine halbe Sicherung da, die
     # aussieht wie eine ganze.
@@ -214,6 +273,13 @@ def zurueckholen(quelle):
             for name in z.namelist():
                 if name.endswith('/') or name == INFODATEI:
                     continue
+                # ⚠⚠ **Die Belegung wird hier ausdruecklich NICHT eingespielt.**
+                # Sie gehoert ins Spiel, nicht in unsere Ablage — und eine
+                # falsch zurueckgespielte `actionmaps.xml` kostet den Spieler
+                # seine komplette Steuerung. Dafuer gibt es
+                # `belegung_zurueckholen()`, das der Spieler eigens ausloest.
+                if name.startswith(STEUERUNG):
+                    continue
                 # ⚠ Kein Pfad darf aus der Ablage herausfuehren. Eine ZIP kann
                 # `../../` enthalten (bekannt als „Zip Slip"); ohne diese
                 # Pruefung schreibt eine praeparierte Datei irgendwohin.
@@ -229,6 +295,81 @@ def zurueckholen(quelle):
 
     _fremde_pfade_leeren(wurzel)
     return True, (rueckfall if vorher_ok else ''), anzahl
+
+
+def belegung_im_archiv(quelle):
+    """Was an Belegung in dieser Sicherung steckt — Namen, nicht Pfade.
+
+    Damit der Spieler **vorher** sieht, was er einspielen wuerde. Gibt
+    `(aktiv_dabei, [Profilnamen])` zurueck.
+    """
+    aktiv = False
+    profile = []
+    try:
+        with zipfile.ZipFile(quelle) as z:
+            for name in z.namelist():
+                if not name.startswith(STEUERUNG) or name.endswith('/'):
+                    continue
+                rest = name[len(STEUERUNG):]
+                if rest == 'actionmaps.xml':
+                    aktiv = True
+                elif rest.startswith('mappings/') and rest.endswith('.xml'):
+                    profile.append(os.path.basename(rest)[:-4])
+    except (OSError, zipfile.BadZipFile) as ausnahme:
+        fehler.merken('sicherung.belegung_im_archiv', ausnahme)
+        return False, []
+    return aktiv, sorted(profile, key=str.lower)
+
+
+def belegung_zurueckholen(quelle, mit_aktiver=False, spielordner=None):
+    """Die gesicherte Belegung ins Spiel zurueckspielen.
+
+    ⚠⚠ **Getrennt vom uebrigen Zurueckholen, und mit Absicht umstaendlicher.**
+    Die gespeicherten Profile dazuzulegen ist harmlos — sie liegen nur herum,
+    bis der Spieler eines laedt. Die **aktive** Belegung zu ueberschreiben ist
+    es nicht: Wer sich vergreift, sitzt vor einem Schiff, das auf nichts mehr
+    reagiert. Deshalb kommt sie nur mit, wenn `mit_aktiver` ausdruecklich
+    gesetzt ist — und die alte wird vorher zur Seite gelegt.
+
+    Gibt `(ok, meldung, anzahl)` zurueck.
+    """
+    from . import joysticks
+    ok, _anzahl, _wann = pruefen(quelle)
+    if not ok:
+        return False, 'ungueltig', 0
+
+    ziel_ordner = joysticks._pfad_mappings(spielordner, anlegen=True)
+    aktiv_ziel = joysticks._pfad_actionmaps(spielordner)
+    geschrieben = 0
+    rueckfall = ''
+    try:
+        with zipfile.ZipFile(quelle) as z:
+            for name in z.namelist():
+                if not name.startswith(STEUERUNG) or name.endswith('/'):
+                    continue
+                rest = name[len(STEUERUNG):]
+                if rest == 'actionmaps.xml':
+                    if not (mit_aktiver and aktiv_ziel):
+                        continue
+                    rueckfall = '%s.scbpw-%s' % (
+                        aktiv_ziel, time.strftime('%Y%m%d-%H%M%S'))
+                    with open(aktiv_ziel, 'rb') as her, \
+                            open(rueckfall, 'wb') as hin:
+                        hin.write(her.read())
+                    ziel = aktiv_ziel
+                elif rest.startswith('mappings/') and ziel_ordner:
+                    # ⚠ Nur der reine Dateiname. Ein Pfad aus dem Archiv duerfte
+                    # sonst aus dem Mappings-Ordner herausfuehren.
+                    ziel = os.path.join(ziel_ordner, os.path.basename(rest))
+                else:
+                    continue
+                with z.open(name) as her, open(ziel, 'wb') as hin:
+                    hin.write(her.read())
+                geschrieben += 1
+    except (OSError, zipfile.BadZipFile) as ausnahme:
+        fehler.merken('sicherung.belegung_zurueckholen', ausnahme)
+        return False, str(ausnahme), geschrieben
+    return True, rueckfall, geschrieben
 
 
 # Einstellungen, die einen Ort auf der Platte nennen. Beim Rechnerwechsel sind

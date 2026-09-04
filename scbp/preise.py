@@ -67,14 +67,7 @@ Getrennt bleiben die beiden trotzdem, und zwar an der Bedeutung von
 `price_buy` und `price_sell` (siehe `KAUF_QUALITAET` weiter unten): Hier zählt,
 was das Terminal **verlangt**, dort, was es **zahlt**.
 """
-import json
-import os
-import time
-import urllib.error
-import urllib.request
-
-from . import fehler, pfade
-from .katalog import AUS, KENNUNG
+from . import uex
 from .herstellung import norm_rohstoff
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
@@ -83,7 +76,10 @@ FORMAT = 1
 ZEITLIMIT = 20
 
 # Wie lange eine Ablage als frisch gilt. Ein Tag — siehe Kopf.
-HALTBAR = 24 * 60 * 60
+HALTBAR = uex.TAG
+
+# Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 
 # ⭐⭐ **Am Terminal gekaufte Ware hat immer Qualität 500.**
 #
@@ -117,34 +113,14 @@ HALTBAR = 24 * 60 * 60
 # bestätigt.
 KAUF_QUALITAET = 500
 
-_gemerkt = {'stand': None, 'daten': None}
-
-
 def laden():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    pfad = pfade.app_datei(CACHE)
-    try:
-        st = os.stat(pfad)
-        kennung = (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return {}
-    if _gemerkt['stand'] == kennung:
-        return _gemerkt['daten']
-    try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            _gemerkt['stand'], _gemerkt['daten'] = kennung, daten
-            return daten
-    except Exception:
-        pass
-    return {}
+    return _ablage.laden()
 
 
 def alter():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    geholt = (laden() or {}).get('geholt')
-    return (time.time() - float(geholt)) if geholt else None
+    return _ablage.alter()
 
 
 def aktualisieren(fortschritt=None):
@@ -153,22 +129,12 @@ def aktualisieren(fortschritt=None):
     Gibt `(Erfolg, Meldung)` zurück. **Sparsam**: Ist die Ablage frisch, wird
     gar nichts abgerufen.
     """
-    if AUS:
-        return False, ''
-    a = alter()
-    if a is not None and a < HALTBAR:
+    if not _ablage.veraltet():
         return True, ''
     if fortschritt:
         fortschritt('')
-    try:
-        req = urllib.request.Request(QUELLE, headers={'User-Agent': KENNUNG})
-        with urllib.request.urlopen(req, timeout=ZEITLIMIT) as r:
-            roh = json.loads(r.read().decode('utf-8'))
-    except Exception as ausnahme:
-        # ⚠ Kein lautes Scheitern. Ohne Preise laeuft alles weiter wie vorher.
-        fehler.merken('preise.holen', ausnahme)
-        return False, ''
-    liste = roh.get('data') or []
+    # ⚠ Kein lautes Scheitern. Ohne Preise laeuft alles weiter wie vorher.
+    liste = uex.holen(QUELLE, 'preise', zeitlimit=ZEITLIMIT)
     if not liste:
         return False, ''
     # Nur die drei Felder behalten, die gebraucht werden — aus 134 KB werden so
@@ -192,22 +158,8 @@ def aktualisieren(fortschritt=None):
             'kauf': float(x.get('price_buy') or 0),
             'verkauf': float(x.get('price_sell') or 0),
         })
-    _sichern({'format': FORMAT, 'geholt': time.time(), 'waren': schlank})
+    _ablage.sichern({'waren': schlank})
     return True, ''
-
-
-def _sichern(daten):
-    ziel = pfade.app_datei(CACHE)
-    try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
-        _gemerkt['stand'] = None
-        return True
-    except Exception as ausnahme:
-        fehler.merken('preise._sichern', ausnahme)
-        return False
 
 
 def preis(rohstoff):

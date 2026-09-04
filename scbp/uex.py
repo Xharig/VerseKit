@@ -1,0 +1,226 @@
+# -*- coding: utf-8 -*-
+#
+# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# Copyright (C) 2026 Xharig
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Der gemeinsame Unterbau für alle Abrufe bei [UEX Corp](https://uexcorp.space).
+
+Holen, ablegen, Alter bestimmen — das ist bei jeder Liste dasselbe. Was sich
+unterscheidet, ist nur, **was** aus der Antwort behalten wird. Genau diese
+Trennung macht dieses Modul: Es kennt den Abruf und die Ablage, nicht die
+Bedeutung der Daten. Die bleibt im jeweiligen Fachmodul.
+
+## Warum es das gibt
+
+`preise.py`, `orte.py` und `verkauf.py` trugen bis v3.15 **jeweils dieselbe**
+Maschinerie: `QUELLE`, `CACHE`, `FORMAT`, `ZEITLIMIT`, `HALTBAR` und dazu
+`laden()`, `alter()`, `_holen()`, `_sichern()`. Dreimal derselbe Code, und mit
+jedem weiteren Endpunkt eine Kopie mehr.
+
+Das ist nicht nur Schreibarbeit. An jeder Kopie hängen **Regeln, die niemand
+sieht**: höchstens einmal am Tag holen, ohne Netz nicht krachen, bei
+`SC_BP_NO_NET` gar nichts tun, die Ablage atomar schreiben. Bei sieben Kopien
+wird eine davon vergessen — und zwar die, an die niemand denkt.
+
+## Wie ein Fachmodul es benutzt
+
+Eine `Ablage` je Endpunkt, als Modulvariable::
+
+    from . import uex
+
+    _ablage = uex.Ablage('preise.json', format_nr=1, haltbar=uex.TAG)
+    QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
+
+    def laden():
+        return _ablage.laden()
+
+    def alter():
+        return _ablage.alter()
+
+    def aktualisieren():
+        if not _ablage.veraltet():
+            return True
+        liste = uex.holen(QUELLE, 'preise')
+        if not liste:
+            return False
+        _ablage.sichern({'waren': _auswerten(liste)})
+        return True
+
+`sichern()` setzt `format` und `geholt` selbst — das Fachmodul gibt nur seine
+eigenen Felder mit.
+
+## ⚠ Was hier bewusst NICHT hineingehört
+
+**Die Auswertung.** Jedes Fachmodul weiß selbst, welche Felder es braucht und
+welche Fallen darin stecken — dass bei UEX jedes Material zweimal steht
+(veredelt und als Erz), dass Namen nur **exakt** verglichen werden dürfen, dass
+Zeilen ohne Ankaufgebot wegfallen. Käme das hierher, entstünde ein Modul, das
+alles ein bisschen kann und nichts richtig.
+
+## ⚠⚠ Zwei Eigenheiten der Schnittstelle, die hier festgehalten sind
+
+**1. Ohne Kennung antwortet UEX mit HTTP 403.** Ein blanker Abruf ohne
+`User-Agent` wird abgewiesen. Gemessen am 04.09.2026.
+
+**2. Eine Antwort ist bei 500 Zeilen abgeschnitten.** Kein Fehler, keine
+Meldung — die Liste hört einfach auf. Wer einen zu weiten Zuschnitt wählt,
+bekommt stillschweigend ein Bruchstück und merkt es nie. `holen()` meldet
+deshalb einen Verdacht ins Fehlerprotokoll, sobald genau `DECKEL` Zeilen
+zurückkommen. Der richtige Umgang ist **enger zuschneiden**, nicht mehr
+abrufen.
+"""
+import json
+import os
+import time
+import urllib.error
+import urllib.request
+
+from . import fehler, pfade
+from .katalog import AUS, KENNUNG
+
+# Die übliche Frist zwischen zwei Abrufen derselben Liste.
+TAG = 24 * 60 * 60
+WOCHE = 7 * TAG
+
+# Wie lange auf eine Antwort gewartet wird.
+ZEITLIMIT = 30
+
+# ⚠ Ab so vielen Zeilen ist die Antwort vermutlich abgeschnitten. Gemessen am
+# 04.09.2026: `commodities_routes?id_planet_origin=…` lieferte bei 7 von 10
+# Planeten **exakt** 500 Zeilen. Das ist keine Zufallszahl, das ist der Deckel.
+DECKEL = 500
+
+
+def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
+    """Eine UEX-Liste abrufen.
+
+    Gibt die Datenliste zurück, oder `None`, wenn der Abruf scheitert —
+    **nie eine Ausnahme**. Ohne Netz läuft alles weiter wie vorher; das ist der
+    Grund, warum hier so großzügig gefangen wird.
+
+    `stelle` ist der Name fürs Fehlerprotokoll, etwa `'preise'`.
+    """
+    if AUS:
+        return None
+    try:
+        anfrage = urllib.request.Request(
+            adresse, headers={'User-Agent': KENNUNG})
+        with urllib.request.urlopen(anfrage, timeout=zeitlimit) as antwort:
+            roh = json.loads(antwort.read().decode('utf-8'))
+    except Exception as ausnahme:
+        fehler.merken('uex.holen.' + stelle, ausnahme)
+        return None
+    liste = roh.get('data')
+    if liste is None:
+        return []
+    # ⚠ Siehe `DECKEL` oben: Abgeschnitten wird still. Wer es nicht merkt,
+    # rechnet mit einem Bruchstück weiter und hält es für das Ganze.
+    if isinstance(liste, list) and len(liste) >= DECKEL:
+        fehler.merken(
+            'uex.holen.' + stelle,
+            RuntimeError('Antwort bei %d Zeilen — vermutlich abgeschnitten, '
+                         'Abruf enger zuschneiden: %s' % (len(liste), adresse)))
+    return liste
+
+
+class Ablage:
+    """Eine abgelegte UEX-Liste auf der Platte, mit Alter und Formatstand.
+
+    Ein Fachmodul legt sich davon **eine** an und behält sie als Modulvariable.
+    """
+
+    def __init__(self, dateiname, format_nr, haltbar):
+        self.dateiname = dateiname
+        self.format_nr = format_nr
+        self.haltbar = haltbar
+        # Zuletzt gelesener Inhalt, damit nicht bei jedem Zugriff die Datei
+        # neu geparst wird. Der Schlüssel ist (Änderungszeit, Größe): Ändert
+        # eine andere Stelle die Datei, fällt das auf und es wird neu gelesen.
+        self._gemerkt = {'stand': None, 'daten': None}
+
+    def pfad(self):
+        return pfade.app_datei(self.dateiname)
+
+    def laden(self):
+        """Der abgelegte Stand — oder `{}`, wenn keiner (brauchbar) da ist.
+
+        Ein anderer Formatstand gilt als „nicht da": Lieber einmal neu holen
+        als eine alte Struktur falsch deuten.
+        """
+        pfad = self.pfad()
+        try:
+            st = os.stat(pfad)
+            kennung = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            return {}
+        if self._gemerkt['stand'] == kennung:
+            return self._gemerkt['daten']
+        try:
+            with open(pfad, encoding='utf-8') as f:
+                daten = json.load(f)
+            if daten.get('format') == self.format_nr:
+                self._gemerkt['stand'] = kennung
+                self._gemerkt['daten'] = daten
+                return daten
+        except Exception:
+            pass
+        return {}
+
+    def alter(self):
+        """Wie alt die Ablage ist, in Sekunden — oder `None`, wenn keine da ist."""
+        geholt = (self.laden() or {}).get('geholt')
+        try:
+            return (time.time() - float(geholt)) if geholt else None
+        except (TypeError, ValueError):
+            return None
+
+    def veraltet(self):
+        """Muss neu geholt werden? Ohne Ablage: ja."""
+        a = self.alter()
+        return a is None or a >= self.haltbar
+
+    def sichern(self, felder, kompakt=False):
+        """Die eigenen Felder ablegen; `format` und `geholt` kommen von hier.
+
+        ⚠ Geschrieben wird über eine `.tmp` und `os.replace()` — **atomar**.
+        Bricht der Vorgang ab, liegt entweder der alte oder der neue Stand da,
+        nie eine halbe Datei. Genau die wäre beim nächsten Start eine kaputte
+        Ablage, die niemand einem abgebrochenen Schreibvorgang zuordnet.
+        """
+        daten = dict(felder)
+        daten['format'] = self.format_nr
+        daten['geholt'] = time.time()
+        ziel = self.pfad()
+        trenner = (',', ':') if kompakt else None
+        try:
+            os.makedirs(os.path.dirname(ziel), exist_ok=True)
+            with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
+                if trenner:
+                    json.dump(daten, f, ensure_ascii=False, separators=trenner)
+                else:
+                    json.dump(daten, f, ensure_ascii=False)
+            os.replace(ziel + '.tmp', ziel)
+            self._gemerkt['stand'] = None
+            return True
+        except Exception as ausnahme:
+            fehler.merken('uex.sichern.' + self.dateiname, ausnahme)
+            return False
+
+    def vergessen(self):
+        """Den gemerkten Inhalt verwerfen — die Datei bleibt liegen."""
+        self._gemerkt['stand'] = None
+        self._gemerkt['daten'] = None

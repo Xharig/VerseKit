@@ -50,48 +50,25 @@ benutzt. Liegt gar keine da, bleibt der Lagerort ein freiwilliges Feld ohne
 Prüfung — lieber ohne Vorschlagsliste weiterarbeiten als gar nichts eintragen
 können.
 """
-import json
-import os
-import time
-import urllib.error
-import urllib.request
-
-from . import fehler, pfade
-from .katalog import AUS, KENNUNG
+from . import uex
 
 QUELLE = 'https://api.uexcorp.uk/2.0/terminals'
 CACHE = 'orte.json'
 FORMAT = 1
-ZEITLIMIT = 30
 
 # Eine Woche. Stationen kommen mit einem Patch, nicht über Nacht.
-HALTBAR = 7 * 24 * 60 * 60
+HALTBAR = uex.WOCHE
 
 # Aus diesen Feldern wird der Ortsname gezogen — in dieser Reihenfolge.
 FELDER = ('space_station_name', 'city_name', 'outpost_name')
 
-_gemerkt = {'stand': None, 'daten': None}
+# Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 
 
 def laden():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    pfad = pfade.app_datei(CACHE)
-    try:
-        st = os.stat(pfad)
-        kennung = (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return {}
-    if _gemerkt['stand'] == kennung:
-        return _gemerkt['daten']
-    try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            _gemerkt['stand'], _gemerkt['daten'] = kennung, daten
-            return daten
-    except Exception:
-        pass
-    return {}
+    return _ablage.laden()
 
 
 def alle():
@@ -101,49 +78,25 @@ def alle():
 
 def alter():
     """Wie alt die Ablage ist, in Sekunden — oder None."""
-    geholt = (laden() or {}).get('geholt')
-    return (time.time() - float(geholt)) if geholt else None
+    return _ablage.alter()
 
 
 def aktualisieren():
     """Die Ortsliste holen, wenn sie fehlt oder älter als eine Woche ist."""
-    if AUS:
-        return False
-    a = alter()
-    if a is not None and a < HALTBAR:
+    if not _ablage.veraltet():
         return True
-    try:
-        req = urllib.request.Request(QUELLE, headers={'User-Agent': KENNUNG})
-        with urllib.request.urlopen(req, timeout=ZEITLIMIT) as r:
-            roh = json.loads(r.read().decode('utf-8'))
-    except Exception as ausnahme:
-        fehler.merken('orte.holen', ausnahme)
+    roh = uex.holen(QUELLE, 'orte')
+    if not roh:
         return False
     namen = set()
-    for x in roh.get('data') or []:
+    for x in roh:
         for feld in FELDER:
             n = (x.get(feld) or '').strip()
             if n:
                 namen.add(n)
     if not namen:
         return False
-    _sichern({'format': FORMAT, 'geholt': time.time(),
-              'orte': sorted(namen, key=str.lower)})
-    return True
-
-
-def _sichern(daten):
-    ziel = pfade.app_datei(CACHE)
-    try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
-        _gemerkt['stand'] = None
-        return True
-    except Exception as ausnahme:
-        fehler.merken('orte._sichern', ausnahme)
-        return False
+    return _ablage.sichern({'orte': sorted(namen, key=str.lower)})
 
 
 def kennt(name):

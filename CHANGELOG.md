@@ -6,6 +6,40 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc7 - 2026-09-04
+
+> Deine Belegung bleibt jetzt bei dir. Du kannst sie unter einem eigenen Namen
+> als Profil speichern — dort, wo Star Citizen es sucht, und im Spiel mit einer
+> Zeile wieder ladbar. Und die große Sicherung nimmt sie endlich mit: die
+> aktive Belegung und jedes gespeicherte Profil.
+
+### Neu
+
+- **Belegung als Profil speichern, mit eigenem Namen.** Das Profil landet dort,
+  wo Star Citizen es sucht — im Spiel zu laden mit `pp_rebindkeys load <Name>`.
+  Bisher entstand nur eine Kopie, die man von Hand zurückschieben musste.
+
+### Verbessert
+
+- **Die Sicherung nimmt jetzt auch deine Steuerung mit** — die aktive Belegung
+  und alle gespeicherten Profile. Zurückgespielt wird sie nur, wenn du es
+  ausdrücklich verlangst; die aktive Belegung sogar nur auf gesonderte
+  Nachfrage, und der alte Stand wird vorher zur Seite gelegt.
+
+### Behoben
+
+- **Eine ausgegebene Belegung ließ sich im Spiel nicht laden.** Die Datei hatte
+  nicht das Format, das Star Citizen für Profile erwartet. Umgekehrt wird eine
+  eingelesene Belegung jetzt ebenfalls richtig umgesetzt.
+- **Belegungsprofile wurden übersehen, wenn der Ordner in zwei Schreibweisen
+  vorlag.** Auf manchen Installationen gibt es `controls` und `Controls`
+  nebeneinander; die Profile aus beiden werden jetzt zusammengeführt.
+
+- **Text neben einem Symbol war schwarz auf dunklem Grund und dadurch kaum zu
+  lesen.** Sichtbar im Herkunfts-Block eines Bauplans an der Zeile „n weitere
+  Wege zu diesem Bauplan". Betroffen war jede Zeile, die ein Symbol mit einem
+  Wort daneben zeigt.
+
 ## v3.14.0-rc6 - 2026-09-04
 
 > Ein Fehler, der die halbe Werkseinstellung verschluckt hat: Wer eine Aktion

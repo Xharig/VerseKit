@@ -6,6 +6,39 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc7 - 2026-09-04
+
+> Your bindings stay yours now. Save them as a profile under a name you pick —
+> right where Star Citizen looks for it, and loadable in game with a single
+> line. And the big backup finally takes them along: the active bindings and
+> every saved profile.
+
+### Added
+
+- **Save your bindings as a named profile.** The profile lands where Star
+  Citizen looks for it — load it in game with `pp_rebindkeys load <name>`.
+  Previously you only got a copy you had to move back by hand.
+
+### Improved
+
+- **The backup now includes your controls** — the active bindings and every
+  saved profile. They are only restored when you ask for it, and the active
+  bindings only on a separate confirmation, with the previous state set aside
+  first.
+
+### Fixed
+
+- **An exported binding could not be loaded in game.** The file did not have
+  the format Star Citizen expects for profiles. Importing a binding is
+  converted correctly now as well.
+- **Binding profiles were missed when the folder existed in two spellings.**
+  Some installations have both `controls` and `Controls`; profiles from both
+  are now merged.
+
+- **Text next to an icon was black on a dark background and barely readable.**
+  Visible in a blueprint's source block on the line "n more ways to this
+  blueprint". Every row showing an icon with a word beside it was affected.
+
 ## v3.14.0-rc6 - 2026-09-04
 
 > A bug that swallowed half the defaults: binding an action to your stick made

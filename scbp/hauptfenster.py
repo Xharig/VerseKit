@@ -2726,6 +2726,33 @@ class Hauptfenster:
         else:
             self.sagen(t('sich_fehler', meldung))
 
+    def _belegung_anbieten(self, quelle, sicherung):
+        """Die gesicherte Steuerung anbieten — zwei Fragen, nicht eine.
+
+        Die erste betrifft die **Profile**: Sie kommen nur dazu, es geht nichts
+        verloren. Die zweite betrifft die **aktive** Belegung, und die ist eine
+        andere Größenordnung — deshalb wird sie einzeln gestellt und steht
+        voreingestellt auf Nein.
+        """
+        try:
+            aktiv_dabei, profile = sicherung.belegung_im_archiv(quelle)
+            if not (aktiv_dabei or profile):
+                return
+            was = ', '.join(profile) if profile else t('sich_belegung_keine')
+            if not frage_stellen(self.root, t('sich_titel'),
+                                 t('sich_belegung_frage', was)):
+                return
+            mit_aktiver = aktiv_dabei and frage_stellen(
+                self.root, t('sich_titel'), t('sich_belegung_aktiv'))
+            ok, _meldung, geschrieben = sicherung.belegung_zurueckholen(
+                quelle, mit_aktiver=mit_aktiver)
+            if ok:
+                self.sagen(t('sich_belegung_ok', geschrieben))
+        except Exception as ausnahme:
+            # ⚠ Ein Fehler hier darf das Einspielen nicht mitreißen — der
+            # Bestand ist zu diesem Zeitpunkt bereits zurück.
+            fehler.merken('hauptfenster.belegung_anbieten', ausnahme)
+
     def _sicherung_lesen(self, dateiwahl, sicherung):
         quelle = dateiwahl.datei_oeffnen(t('sich_lesen'),
                                          muster=(('ZIP', '*.zip'),))
@@ -2744,6 +2771,12 @@ class Hauptfenster:
         if not ok:
             self.sagen(t('sich_fehler', meldung))
             return
+        # ⚠⚠ **Die Steuerung kommt getrennt und nur auf Nachfrage.** Sie liegt
+        # im Spielordner, nicht in unserer Ablage — und wer die aktive Belegung
+        # aus einer fremden Sicherung bekommt, sitzt vor einem Schiff, das auf
+        # nichts mehr reagiert. Profile dazuzulegen ist dagegen harmlos: Sie
+        # liegen nur herum, bis jemand eines lädt.
+        self._belegung_anbieten(quelle, sicherung)
         self.sagen(t('sich_zurueck_ok', anzahl))
         # ⚠⚠ Neustart ist Pflicht, keine Hoeflichkeit: Bestand, Lager und
         # Protokoll liegen im Arbeitsspeicher und wuerden beim naechsten

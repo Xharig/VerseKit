@@ -114,6 +114,31 @@ JS_VORSILBE = re.compile(r'\bjs(\d+)_')
 # selbst als Grenzfall; die `actionmaps.xml` legt acht leere Plaetze an.
 PLAETZE = 8
 
+# ⚠⚠ **Der Mappings-Ordner heisst in beiden Schreibweisen** — genau wie
+# `USER`/`user` weiter oben. Am 04.09.2026 lagen auf einem Linux-Rechner
+# `controls/mappings` **und** `Controls/mappings` nebeneinander, mit
+# verschiedenen Dateien darin (verschiedene Inodes). Deshalb wird auch hier
+# gesucht statt geraten — und beim Auflisten nach Namen entdoppelt.
+MAPPING_ORDNER = (('controls', 'mappings'), ('Controls', 'mappings'),
+                  ('controls', 'Mappings'), ('Controls', 'Mappings'))
+
+# Die Rubriken im Kopfblock eines Profils. Sie stammen aus einer echten Ausgabe
+# des Spiels (Alpha 4.10) — es sind Sprachschluessel des Spiels, keine
+# eigenen Erfindungen.
+#
+# ⚠ Kommen mit einem Patch Rubriken dazu, gehoert die Liste nachgezogen. Sie
+# beschreibt, was im Belegungs-Bildschirm als Abschnitt auftaucht.
+PROFIL_RUBRIKEN = (
+    '@ui_CCSeatGeneral', '@ui_CCSpaceFlight', '@ui_CGLightControllerDesc',
+    '@ui_CCFPS', '@ui_CCEVA', '@ui_CCVehicle', '@ui_CGEASpectator',
+    '@ui_CGUIGeneral', '@ui_CGOpticalTracking', '@ui_CGInteraction',
+    '@ui_CCCamera',
+)
+
+# Was in einem Profilnamen nichts zu suchen hat. Der Name wird zum Dateinamen,
+# und ueber ihn laedt das Spiel das Profil (`pp_rebindkeys load <Name>`).
+NAME_VERBOTEN = re.compile(r'[^A-Za-z0-9_\-]')
+
 
 def _pfad_actionmaps(ordner=None):
     """Wo die Belegungsdatei des Spielers liegt.
@@ -133,6 +158,198 @@ def _pfad_actionmaps(ordner=None):
         if os.path.isfile(weg):
             return weg
     return None
+
+
+def alle_mapping_ordner(ordner=None):
+    """**Alle** vorhandenen Mappings-Ordner, neuester zuerst.
+
+    ⚠⚠ Auf einem Linux-Rechner lagen am 04.09.2026 `controls/mappings` **und**
+    `Controls/mappings` nebeneinander — mit **verschiedenen** Dateien darin.
+
+    Deshalb zwei verschiedene Fragen, die nicht dieselbe Antwort haben:
+
+    | Frage | Antwort |
+    |---|---|
+    | „Wohin schreibe ich ein Profil?" | **einer** — `_pfad_mappings()` |
+    | „Was ist an Profilen da?" | **alle** — diese Funktion |
+
+    Wer beim Sichern nur einen Ordner liest, laesst die Profile des anderen
+    zurueck, ohne dass es auffaellt.
+    """
+    basis = ordner or pfade.spiel_ordner()
+    if not basis:
+        return []
+    gefunden = []
+    for oben in ('USER', 'user'):
+        for mitte in ('Client', 'client'):
+            for teile in MAPPING_ORDNER:
+                weg = os.path.join(basis, oben, mitte, '0', *teile)
+                if os.path.isdir(weg) and weg not in gefunden:
+                    gefunden.append(weg)
+    try:
+        gefunden.sort(key=os.path.getmtime, reverse=True)
+    except OSError:
+        pass
+    return gefunden
+
+
+def _pfad_mappings(ordner=None, anlegen=False):
+    """Wohin ein neues Profil geschrieben wird — **ein** Ordner oder `None`.
+
+    ⚠ Gibt es ihn mehrfach (siehe `alle_mapping_ordner`), gewinnt der **zuletzt
+    geaenderte**: Das ist der, in den das Spiel selbst zuletzt geschrieben hat,
+    und damit der, in dem es auch sucht.
+    """
+    gefunden = alle_mapping_ordner(ordner)
+    if gefunden:
+        return gefunden[0]
+    if not anlegen:
+        return None
+    # Noch keiner da — dann neben der `actionmaps.xml` anlegen, damit die
+    # Gross- und Kleinschreibung zur vorhandenen Installation passt.
+    aktiv = _pfad_actionmaps(ordner)
+    if not aktiv:
+        return None
+    # …/<USER>/<client>/0/Profiles/default/actionmaps.xml -> …/<client>/0
+    null = os.path.dirname(os.path.dirname(os.path.dirname(aktiv)))
+    weg = os.path.join(null, 'controls', 'mappings')
+    try:
+        os.makedirs(weg, exist_ok=True)
+    except OSError:
+        return None
+    return weg
+
+
+def profile(ordner=None):
+    """Die gespeicherten Profile, alphabetisch — nur die ladbaren.
+
+    ⚠ Star Citizen legt beim eigenen Export **zwei** Dateien an: `<Name>.xml`
+    und `layout_<Name>_exported.xml`. Geladen wird ueber die erste; die zweite
+    ist eine Zweitschrift und wuerde die Liste nur verdoppeln.
+    """
+    namen = set()
+    # ⚠ Ueber **alle** Ordner, nicht nur den, in den geschrieben wuerde —
+    # sonst fehlen dem Spieler in der Liste Profile, die er sehr wohl hat.
+    for weg in alle_mapping_ordner(ordner):
+        try:
+            for datei in os.listdir(weg):
+                if not datei.lower().endswith('.xml'):
+                    continue
+                if datei.lower().startswith('layout_'):
+                    continue
+                namen.add(datei[:-4])
+        except OSError:
+            continue
+    return sorted(namen, key=str.lower)
+
+
+def name_pruefen(name):
+    """Taugt der Name als Profilname? Gibt `(ok, Meldungsschluessel)`.
+
+    Er wird zum Dateinamen und ist zugleich das, was der Spieler im Spiel
+    eintippt — deshalb keine Leerzeichen und keine Sonderzeichen.
+    """
+    name = (name or '').strip()
+    if not name:
+        return False, 's_js_f_name_leer'
+    if NAME_VERBOTEN.search(name):
+        return False, 's_js_f_name_zeichen'
+    if len(name) > 60:
+        return False, 's_js_f_name_lang'
+    return True, ''
+
+
+def als_profil(name, datei=None, ordner=None):
+    """Aus der aktiven Belegung einen Baum im **Profil-Format** des Spiels.
+
+    ⚠⚠ **Die beiden Formate sind nicht dasselbe** — gemessen am 04.09.2026 an
+    einer echten Ausgabe des Spiels:
+
+    | | aktive `actionmaps.xml` | Profil im Mappings-Ordner |
+    |---|---|---|
+    | Wurzel | `<ActionMaps>` **ohne Attribute** | `<ActionMaps version=… profileName=…>` |
+    | darunter | ein `<ActionProfiles>`, das alles traegt | dieselben Bloecke **direkt** an der Wurzel |
+    | Kopf | keiner | `<CustomisationUIHeader>` mit `<devices>` und `<categories>` |
+
+    Wer die aktive Datei bloss kopiert, bekommt **kein ladbares Profil**. Genau
+    das tat die Ausgabe bis v3.14.
+
+    Liefert `(baum, None)` oder `(None, Meldungsschluessel)`.
+    """
+    weg = datei or _pfad_actionmaps(ordner)
+    if not weg or not os.path.isfile(weg):
+        return None, 's_js_f_datei'
+    try:
+        wurzel = ET.parse(weg).getroot()
+    except Exception:
+        return None, 's_js_f_fremd'
+    profile_knoten = wurzel.find('ActionProfiles')
+    if profile_knoten is None:
+        # Schon im Profil-Format (jemand hat eine Ausgabe uebergeben).
+        profile_knoten = wurzel
+
+    neu = ET.Element('ActionMaps')
+    for schluessel in ('version', 'optionsVersion', 'rebindVersion'):
+        wert = profile_knoten.get(schluessel)
+        if wert is not None:
+            neu.set(schluessel, wert)
+    neu.set('profileName', name)
+
+    kopf = ET.SubElement(neu, 'CustomisationUIHeader',
+                         {'label': name, 'description': '', 'image': ''})
+    geraete_knoten = ET.SubElement(kopf, 'devices')
+    ET.SubElement(geraete_knoten, 'keyboard', {'instance': '1'})
+    ET.SubElement(geraete_knoten, 'mouse', {'instance': '1'})
+    # ⚠ **Nur Plaetze mit `Product`.** Die `actionmaps.xml` legt acht
+    # Joystick-Plaetze an, auch leere; eine Messung fand fuenf davon unbelegt.
+    # Leere Plaetze im Kopf wuerden Geraete versprechen, die es nicht gibt.
+    for wahl in profile_knoten.findall('options'):
+        if wahl.get('type') == 'joystick' and wahl.get('Product'):
+            ET.SubElement(geraete_knoten, 'joystick',
+                          {'instance': wahl.get('instance') or '1'})
+    rubriken = ET.SubElement(kopf, 'categories')
+    for label in PROFIL_RUBRIKEN:
+        ET.SubElement(rubriken, 'category', {'label': label})
+
+    # Alles Uebrige unveraendert eine Ebene hoeher haengen — die Belegung
+    # selbst wird **nicht** angefasst.
+    for kind in list(profile_knoten):
+        neu.append(kind)
+    return ET.ElementTree(neu), None
+
+
+def profil_speichern(name, datei=None, ordner=None, ueberschreiben=False):
+    """Die aktive Belegung als ladbares Profil ablegen.
+
+    Danach kennt das Spiel sie unter diesem Namen — im Spiel zu laden mit
+    `pp_rebindkeys load <Name>`.
+
+    Liefert `(erfolg, Meldung_oder_Pfad)`.
+    """
+    from . import fehler
+    ok, meldung = name_pruefen(name)
+    if not ok:
+        return False, meldung
+    name = name.strip()
+    ziel_ordner = _pfad_mappings(ordner, anlegen=True)
+    if not ziel_ordner:
+        return False, 's_js_f_datei'
+    ziel = os.path.join(ziel_ordner, name + '.xml')
+    if os.path.exists(ziel) and not ueberschreiben:
+        return False, 's_js_f_name_belegt'
+    baum, meldung = als_profil(name, datei, ordner)
+    if baum is None:
+        return False, meldung
+    try:
+        # Erst daneben schreiben, dann umlegen: Bricht es ab, steht kein
+        # halbes Profil im Ordner, das das Spiel zu laden versucht.
+        vorlaeufig = ziel + '.tmp'
+        baum.write(vorlaeufig, encoding='utf-8', xml_declaration=False)
+        os.replace(vorlaeufig, ziel)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.profil_speichern', ausnahme)
+        return False, 's_js_f_schreiben'
+    return True, ziel
 
 
 def geraete_aus_text(text):
@@ -1087,8 +1304,41 @@ def ausgeben(ziel, sprache='de', datei=None, ordner=None):
     return True, ziel
 
 
+def _als_aktive_form(wurzel):
+    """Ein Profil zurueck in die Form der `actionmaps.xml` bringen.
+
+    ⚠⚠ **Der Rueckweg gehoert zum Hinweg.** Ein Profil aus dem Mappings-Ordner
+    traegt seine Angaben an der Wurzel und hat einen `CustomisationUIHeader`;
+    die aktive Datei hat ein `<ActionProfiles>` und keinen Kopf. Wer ein Profil
+    einfach ueber die aktive Datei kopiert, legt die falsche Form dorthin —
+    derselbe Fehler wie beim Ausgeben, nur andersherum.
+
+    Steckt die Datei schon in der aktiven Form, wird sie unveraendert
+    zurueckgegeben.
+    """
+    if wurzel.find('ActionProfiles') is not None:
+        return wurzel
+    neu = ET.Element('ActionMaps')
+    profile_knoten = ET.SubElement(neu, 'ActionProfiles')
+    for schluessel in ('version', 'optionsVersion', 'rebindVersion'):
+        wert = wurzel.get(schluessel)
+        if wert is not None:
+            profile_knoten.set(schluessel, wert)
+    # ⚠ Die aktive Belegung heisst im Spiel immer `default` — der Profilname
+    # aus der Datei gilt nur fuer das Profil, nicht fuer die aktive Steuerung.
+    profile_knoten.set('profileName', 'default')
+    for kind in list(wurzel):
+        if kind.tag == 'CustomisationUIHeader':
+            continue          # der Kopf gehoert nur ins Profil
+        profile_knoten.append(kind)
+    return neu
+
+
 def einlesen(quelle, datei=None, ordner=None):
-    """Eine zuvor ausgegebene `actionmaps.xml` wieder einspielen.
+    """Eine zuvor ausgegebene Belegung wieder einspielen.
+
+    Nimmt **beide** Formen an: die Kopie einer `actionmaps.xml` und ein Profil
+    aus dem Mappings-Ordner (siehe `_als_aktive_form`).
 
     ⚠ Es wird geprueft, ob die Datei ueberhaupt danach aussieht — sonst
     landet irgendeine XML-Datei als Steuerung im Spiel. Und auch hier gilt:
@@ -1111,7 +1361,8 @@ def einlesen(quelle, datei=None, ordner=None):
     try:
         sicherung = '%s.scbpw-%s' % (ziel, time.strftime('%Y%m%d-%H%M%S'))
         shutil.copy2(ziel, sicherung)
-        shutil.copy2(quelle, ziel)
+        ET.ElementTree(_als_aktive_form(wurzel)).write(
+            ziel, encoding='utf-8', xml_declaration=False)
     except Exception as ausnahme:
         fehler.merken('joysticks.einlesen', ausnahme)
         return False, 's_js_f_schreiben', 0
