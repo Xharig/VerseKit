@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc3 - 2026-09-04
+
+> Now you can rebind as well: click a row, press the button or key, apply.
+> Stick, keyboard and mouse alike — and if the input is already taken, you see
+> that beforehand instead of mid-fight.
+
+### New
+
+- **Rebinding by pressing.** Click a row in the list, then press the key or
+  button you want — no need to know its number. Joystick buttons and axes,
+  keyboard, mouse and mouse wheel are all recognised.
+- **Warning on double bindings.** If something else already sits on that
+  input, the window says so **before** you apply. You may still double-bind —
+  sometimes that is what you want.
+- **Remove a binding.** The game treats this as its own state: a removed
+  binding stays removed and is not replaced by the default.
+
+### Improved
+
+- A backup is written next to the binding file before every change. The way
+  back is a rename, not rebuilding your whole control setup.
+
 ## v3.14.0-rc2 - 2026-09-04
 
 > The joystick page now speaks plain language: instead of `v_eject` it says

@@ -2467,7 +2467,9 @@ def _joysticks(fenster, rahmen):
                         continue
                     gezeigt.append((kennzeichen, e, klar))
 
-        zaehler.configure(text=t('s_js_bindungen', len(gezeigt)))
+        zaehler.configure(text='%s   ·   %s' % (t('s_js_bindungen',
+                                                  len(gezeigt)),
+                                                t('s_js_b_hinweis')))
         if not gezeigt:
             tk.Label(liste_rahmen, text=t('s_js_nichts'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
@@ -2477,6 +2479,18 @@ def _joysticks(fenster, rahmen):
         for kennzeichen, e, klar in gezeigt[:200]:
             zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
             zeile.pack(fill='x', pady=1)
+
+            # ⚠ Die Bindung muss auf **jedes** Kind gelegt werden, nicht nur
+            # auf den Rahmen: Ein Klick landet auf der Beschriftung, die
+            # darüberliegt, und der Rahmen bekommt ihn nie zu sehen.
+            def _klick(_ereignis=None, kz=kennzeichen, eintrag=e, name=klar):
+                _neu_belegen(kz, eintrag, name)
+
+            def _anfassen(kind):
+                kind.bind('<Button-1>', _klick)
+                kind.configure(cursor='hand2')
+
+            _anfassen(zeile)
             tk.Label(zeile, text=_geraetename(kennzeichen), bg=FLAECHE,
                      fg=SUB, font=fenster.f_klein, width=9, anchor='w',
                      padx=10, pady=6).pack(side='left')
@@ -2495,6 +2509,8 @@ def _joysticks(fenster, rahmen):
                 tk.Label(zeile, text=t('s_js_q_meine'), bg=FLAECHE, fg=ACCENT,
                          font=fenster.f_klein, anchor='e', padx=10).pack(
                              side='right')
+            for kind in zeile.winfo_children():
+                _anfassen(kind)
 
     def _uebernehmen(alt, neu):
         from tkinter import messagebox
@@ -2509,6 +2525,39 @@ def _joysticks(fenster, rahmen):
             messagebox.showwarning(t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
         _auffrischen()
+
+    def _neu_belegen(kennzeichen, eintrag, klar):
+        """Das Fenster zum Neubelegen öffnen — Klick auf eine Zeile.
+
+        ⚠ Der `bereich` muss mit: Star Citizen sortiert Aktionen in Gruppen
+        (`spaceship_movement`, `player`), und dieselbe Aktion kann in
+        mehreren stecken. Ohne die Gruppe landet die Belegung woanders als
+        gedacht. Aus der Werkseinstellung kommt sie nicht mit — dann wird die
+        Gruppe aus der eigenen Datei gesucht.
+        """
+        from .belegenfenster import Belegenfenster
+        bereich = eintrag.get('bereich') or _bereich_suchen(eintrag['aktion'])
+        try:
+            Belegenfenster(fenster.root, eintrag['aktion'], bereich,
+                           kennzeichen, klarname=klar,
+                           bisher=eintrag.get('eingabe', ''),
+                           fertig=_auffrischen)
+        except Exception as ausnahme:
+            fehler.merken('seiten.joysticks_belegen', ausnahme)
+
+    def _bereich_suchen(aktion):
+        """Zu welcher Gruppe gehört eine Aktion?
+
+        Die Werkseinstellung nennt die Gruppe nicht mit — sie steht nur in
+        der eigenen `actionmaps.xml`. Findet sich dort nichts, bleibt die
+        Gruppe leer, und `joysticks.belegen()` legt sie unter der
+        gebräuchlichsten an.
+        """
+        for liste in (joysticks.belegungen() or {}).values():
+            for e in liste:
+                if e['aktion'] == aktion and e.get('bereich'):
+                    return e['bereich']
+        return ''
 
     def _laden():
         """Die Belegungen in der gewählten Sicht holen."""

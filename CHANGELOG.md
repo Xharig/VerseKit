@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc3 - 2026-09-04
+
+> Jetzt kannst du auch belegen: Zeile anklicken, Knopf oder Taste drücken,
+> übernehmen. Stick, Tastatur und Maus gleichermaßen — und wenn die Eingabe
+> schon vergeben ist, steht das vorher da statt hinterher im Gefecht.
+
+### Neu
+
+- **Belegen per Knopfdruck.** Eine Zeile in der Liste anklicken, dann die
+  Taste oder den Knopf drücken, den du haben willst — die Nummer musst du
+  nicht kennen. Erkannt werden Joystick-Knöpfe und -Achsen, Tastatur, Maus
+  und Mausrad.
+- **Warnung bei doppelter Belegung.** Liegt auf der Eingabe schon etwas
+  anderes, steht das im Fenster, **bevor** du übernimmst. Doppelt belegen
+  darfst du trotzdem — es ist manchmal gewollt.
+- **Belegung entfernen.** Auch das kennt das Spiel als eigenen Zustand: Eine
+  entfernte Belegung bleibt entfernt und wird nicht durch die
+  Werkseinstellung ersetzt.
+
+### Verbessert
+
+- Vor jeder Änderung an der Belegungsdatei entsteht eine Sicherung daneben.
+  Der Rückweg ist ein Umbenennen, kein Neuaufbau der ganzen Steuerung.
+
 ## v3.14.0-rc2 - 2026-09-04
 
 > Die Joystick-Seite spricht jetzt Klartext: Statt `v_eject` steht dort

@@ -45,6 +45,9 @@ GRAU, GRUEN, HELL = 'grau', 'gruen', 'hell'
 # Die beiden Zustandsfarben der Bauplanzeilen — Gelb heißt „aus der Game.log,
 # noch nicht vom Launcher bestätigt", Blau „neu im Spiel craftbar".
 GELB, BLAU = 'gelb', 'blau'
+# Die Schriftfarbe für Wörter, die **neben** einem Symbol stehen. Tk faerbt
+# Text sonst schwarz — auf dunklem Grund ist er damit unlesbar.
+SCHRIFT = '#8b98a5'
 # Rot ist keine Zustandsfarbe, sondern ein Wegweiser: Der Reiter „Fehler
 # melden“ traegt sie, damit ihn niemand sucht, wenn gerade etwas klemmt.
 ROT = 'rot'
@@ -166,14 +169,19 @@ def _bauen(eltern, name, satz, tat, farbe, grund, ersatz, text, schrift):
     else:
         # Notnagel: Fehlt die Bilddatei, steht wenigstens ein Zeichen da, statt
         # einer leeren Lücke, die niemand als Knopf erkennt.
-        w = tk.Label(eltern, text=ersatz, fg='#8b98a5', **gemeinsam)
+        w = tk.Label(eltern, text=ersatz, fg=SCHRIFT, **gemeinsam)
         if schrift is not None:
             w.configure(font=schrift)
 
     if text:
         # Bild **und** Wort — ein Symbol allein erklärt sich nur dem, der es
         # gebaut hat. Tk kann beides in einem Label, das spart einen Rahmen.
-        w.configure(text=text, compound='left', padx=4)
+        #
+        # ⚠ `fg` gehört hierher, nicht nur in den Notnagel oben. Lädt das Bild
+        # normal, bekam das Label bis 04.09.2026 **nie** eine Vordergrundfarbe —
+        # Tk nahm seinen Standard, und der ist Schwarz. Auf dem dunklen Grund
+        # war „n weitere Wege zu diesem Bauplan" dadurch kaum zu lesen.
+        w.configure(text=text, compound='left', padx=4, fg=SCHRIFT)
         if schrift is not None:
             w.configure(font=schrift)
 

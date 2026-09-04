@@ -690,6 +690,148 @@ def vergessen():
     _KLARNAMEN.clear()
 
 
+def _actionmap_finden(wurzel, bereich):
+    """Den `<actionmap>`-Block einer Gruppe holen oder anlegen."""
+    for knoten in wurzel.iter('actionmap'):
+        if (knoten.get('name') or '') == bereich:
+            return knoten
+    neu = ET.SubElement(wurzel, 'actionmap')
+    neu.set('name', bereich)
+    return neu
+
+
+def belegen(aktion, bereich, kennzeichen, eingabe, datei=None, ordner=None):
+    """Eine Aktion auf eine Eingabe legen — in der `actionmaps.xml` des Spielers.
+
+    | | |
+    |---|---|
+    | `aktion` | `v_eject` |
+    | `bereich` | `spaceship_general` — die Gruppe, in der die Aktion lebt |
+    | `kennzeichen` | `js2`, `kb1`, `mo1` |
+    | `eingabe` | `button10`, `f5`, `lalt+y` — **ohne** Vorsilbe |
+
+    Eine **leere** `eingabe` loescht die Belegung: Das Spiel versteht
+    `input=""` als „bewusst nicht belegt" und nimmt dann auch nicht die
+    Werkseinstellung. Genau so macht es das Spiel selbst.
+
+    ⚠⚠ **Es wird immer nur EIN `rebind` je Aktion und Geraet geschrieben.**
+    Star Citizen erlaubt mehrere, aber eine zweite Belegung derselben Aktion
+    auf demselben Geraet ist fast nie gewollt — und wer sie unbemerkt anlegt,
+    bekommt zwei Zeilen, von denen nur eine wirkt. Bestehende Eintraege
+    desselben Geraets werden deshalb ersetzt, nicht ergaenzt. Belegungen auf
+    **anderen** Geraeten bleiben unangetastet.
+
+    ⚠ **Nur bei geschlossenem Spiel aufrufen** — Star Citizen schreibt die
+    Datei beim Beenden selbst und wuerde die Aenderung ueberschreiben.
+
+    Liefert `(erfolg, meldung, anzahl)`; `meldung` ist bei Erfolg der Pfad der
+    Sicherung, sonst ein Sprachschluessel.
+    """
+    from . import fehler
+
+    weg = datei or _pfad_actionmaps(ordner)
+    if not weg or not os.path.isfile(weg):
+        return False, 's_js_f_datei', 0
+    if not aktion or not kennzeichen:
+        return False, 's_js_f_nichts', 0
+    treffer = re.match(r'^([a-z]+)(\d+)$', kennzeichen)
+    if not treffer:
+        return False, 's_js_f_nichts', 0
+    vorsilbe = treffer.group(1)
+
+    try:
+        baum = ET.parse(weg)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.belegen_lesen', ausnahme)
+        return False, 's_js_f_lesen', 0
+    wurzel = baum.getroot()
+
+    # Das Spiel legt die Aktionen unter `<ActionProfiles>` ab, nicht direkt
+    # unter der Wurzel. Fehlt der Block, ist die Datei nicht die, für die wir
+    # sie halten — dann lieber abbrechen.
+    eltern = wurzel.find('ActionProfiles')
+    if eltern is None:
+        eltern = wurzel
+    gruppe = _actionmap_finden(eltern, bereich or 'spaceship_general')
+
+    ziel = None
+    for knoten in gruppe.findall('action'):
+        if (knoten.get('name') or '') == aktion:
+            ziel = knoten
+            break
+    if ziel is None:
+        ziel = ET.SubElement(gruppe, 'action')
+        ziel.set('name', aktion)
+
+    voll = ('%s_%s' % (kennzeichen, eingabe)) if eingabe else (kennzeichen + '_')
+    ersetzt = False
+    for bindung in list(ziel.findall('rebind')):
+        vorhanden = (bindung.get('input') or '').strip()
+        art = VORSILBE.match(vorhanden)
+        # Nur Eintraege desselben Geraetetyps anfassen — eine Tastenbelegung
+        # darf beim Setzen einer Stick-Belegung nicht verschwinden.
+        if art and art.group(1) == vorsilbe:
+            if ersetzt:
+                ziel.remove(bindung)
+            else:
+                bindung.set('input', voll)
+                ersetzt = True
+        elif not vorhanden and not art:
+            ziel.remove(bindung)
+    if not ersetzt:
+        neu = ET.SubElement(ziel, 'rebind')
+        neu.set('input', voll)
+
+    return _schreiben(weg, baum, 1)
+
+
+def _schreiben(weg, baum, anzahl):
+    """Den geaenderten Baum sichern und zurueckschreiben.
+
+    ⚠ Hier **muss** ueber den XML-Baum geschrieben werden — anders als beim
+    Kennungstausch, der eine reine Textersetzung ist. Deshalb entsteht vorher
+    immer eine Sicherung: Geht etwas schief, ist der Rueckweg ein Umbenennen.
+    """
+    from . import fehler
+    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    try:
+        shutil.copy2(weg, sicherung)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.sicherung', ausnahme)
+        return False, 's_js_f_sicherung', 0
+    try:
+        baum.write(weg, encoding='utf-8', xml_declaration=False)
+    except Exception as ausnahme:
+        try:
+            shutil.copy2(sicherung, weg)
+        except Exception:
+            pass
+        fehler.merken('joysticks.schreiben', ausnahme)
+        return False, 's_js_f_schreiben', 0
+    return True, sicherung, anzahl
+
+
+def konflikte(aktion, kennzeichen, eingabe, datei=None, ordner=None):
+    """Wer sitzt schon auf dieser Eingabe? Liefert die betroffenen Aktionen.
+
+    ⭐ **Wird VOR dem Belegen gefragt.** Eine Taste doppelt zu belegen ist in
+    Star Citizen erlaubt und manchmal gewollt (verschiedene Fahrzeugarten),
+    aber meistens ein Versehen — und eines, das man erst im Gefecht merkt.
+    Deshalb wird es gezeigt und der Spieler entscheidet, statt dass das
+    Programm heimlich etwas wegnimmt.
+    """
+    if not eingabe:
+        return []
+    heraus = []
+    for kz, liste in (sicht(ALLES, datei, ordner) or {}).items():
+        if kz != kennzeichen:
+            continue
+        for e in liste:
+            if e['eingabe'] == eingabe and e['aktion'] != aktion:
+                heraus.append(e)
+    return heraus
+
+
 def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
     """Ein Geraet unter neuer Kennung an seine alte Belegung anschliessen.
 

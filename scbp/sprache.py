@@ -736,7 +736,11 @@ TEXTE = {
     's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
     # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
-    'hf_joysticks':    ('Joysticks', 'Joysticks'),
+    # ⚠ „Steuerung", nicht „Joysticks": Auf der Seite stehen auch Tastatur,
+    # Maus und Gamepad. Wer sucht, wo seine Tastenbelegung ist, klickt keinen
+    # Reiter namens „Joysticks" an. Der Schlüssel heißt aus Bestandsgründen
+    # weiter `hf_joysticks`.
+    'hf_joysticks':    ('Steuerung', 'Controls'),
     's_js_lead':       ('Welcher Stick welche Nummer hat — und was auf '
                         'welcher Taste liegt.',
                           'Which stick has which number — and what is bound to '
@@ -822,6 +826,27 @@ TEXTE = {
     's_js_s_standard': ('Werkseinstellung', 'Default'),
     's_js_sicht':      ('Anzeigen', 'Show'),
     's_js_q_meine':    ('geändert', 'changed'),
+    # Das Fenster zum Neubelegen.
+    's_js_b_titel':    ('Neu belegen', 'Rebind'),
+    's_js_b_druecke':  ('Drücke jetzt die Taste, den Knopf oder die Maustaste, '
+                        'die du haben willst.',
+                          'Now press the key, button or mouse button you want.'),
+    's_js_b_nochmal':  ('Vertippt? Einfach nochmal drücken.',
+                          'Wrong one? Just press again.'),
+    's_js_b_nur_tastatur': ('Es wurde kein Joystick gefunden — Tastatur und '
+                            'Maus gehen trotzdem.',
+                              'No joystick found — keyboard and mouse still work.'),
+    's_js_b_fremd':    ('Dieses Gerät steht in keiner Belegung. Starte Star '
+                        'Citizen einmal damit, dann kennt das Spiel es.',
+                          'This device is not in any binding yet. Start Star '
+                          'Citizen once with it, then the game knows it.'),
+    's_js_b_bisher':   ('Bisher: %s', 'Currently: %s'),
+    's_js_b_konflikt': ('⚠ Liegt schon auf: %s', '⚠ Already used by: %s'),
+    's_js_b_uebernehmen': ('Übernehmen', 'Apply'),
+    's_js_b_loeschen': ('Belegung entfernen', 'Remove binding'),
+    's_js_b_abbruch':  ('Abbrechen', 'Cancel'),
+    's_js_b_hinweis':  ('Eine Zeile anklicken, um sie neu zu belegen.',
+                          'Click a row to rebind it.'),
     's_js_keine_namen': ('Die Bezeichnungen des Spiels ließen sich nicht '
                          'lesen — es stehen die technischen Namen da.',
                            'The game\'s wording could not be read — technical '

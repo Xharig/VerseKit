@@ -10339,6 +10339,100 @@ def main():
     # wenn der alte Rechner schon neu aufgesetzt ist. Deshalb wird hier der
     # ganze Weg gegangen: schreiben, einspielen, Inhalte vergleichen.
     print()
+    # --------------------------------------------------------------------- 115
+    # ⚠⚠ Hier wird in die Datei geschrieben, an der die **komplette Steuerung**
+    # des Spielers haengt. Ein Fehler kostet ihn seine Belegung — deshalb wird
+    # jeder Schritt geprueft, und zwar an einer selbst hingelegten Datei, nie
+    # an einer echten (siehe die Regel „Pruefungen nie in Livedaten").
+    print()
+    print('115. Belegen: nur das Gemeinte anfassen')
+    _js115 = importlib.import_module('scbp.joysticks')
+    _wiese115 = tempfile.mkdtemp(prefix='sc-bp-belegen-')
+    try:
+        _datei115 = os.path.join(_wiese115, 'actionmaps.xml')
+        # Ein Minimalbeispiel im Code der Pruefung — keine Nutzerdatei, kein
+        # Abruf. Es enthaelt genau die Faelle, die schiefgehen koennen:
+        # dieselbe Aktion auf Stick UND Tastatur, und eine zweite Aktion.
+        with open(_datei115, 'w', encoding='utf-8') as _f115:
+            _f115.write(
+                '<ActionMaps>' + chr(10) +
+                ' <ActionProfiles version="1" profileName="default">' + chr(10) +
+                '  <options type="joystick" instance="1" Product="Stick '
+                '{AAAA1111-0000-0000-0000-504944564944}"/>' + chr(10) +
+                '  <actionmap name="spaceship_general">' + chr(10) +
+                '   <action name="v_eject">' + chr(10) +
+                '    <rebind input="js1_button5"/>' + chr(10) +
+                '    <rebind input="kb1_f5"/>' + chr(10) +
+                '   </action>' + chr(10) +
+                '   <action name="v_lights">' + chr(10) +
+                '    <rebind input="js1_button9"/>' + chr(10) +
+                '   </action>' + chr(10) +
+                '  </actionmap>' + chr(10) +
+                ' </ActionProfiles>' + chr(10) +
+                '</ActionMaps>' + chr(10))
+
+        _vorher115 = _js115.belegungen(datei=_datei115)
+        pruefe(len(_vorher115.get('js1', [])) == 2
+               and len(_vorher115.get('kb1', [])) == 1,
+               'die Ausgangslage wird richtig gelesen')
+
+        # 1. Eine Stick-Belegung aendern.
+        _ok115, _m115, _ = _js115.belegen('v_eject', 'spaceship_general',
+                                          'js1', 'button22',
+                                          datei=_datei115)
+        _nach115 = _js115.belegungen(datei=_datei115)
+        _eject_js = [e for e in _nach115.get('js1', [])
+                     if e['aktion'] == 'v_eject']
+        pruefe(_ok115 and len(_eject_js) == 1
+               and _eject_js[0]['eingabe'] == 'button22',
+               'die Stick-Belegung wird gesetzt')
+        # ⚠⚠ Der eigentliche Fallstrick: Die Tastenbelegung DERSELBEN Aktion
+        # darf dabei nicht verschwinden. Ein Filter, der nur nach der Aktion
+        # geht statt nach Aktion UND Geraeteart, loescht sie stillschweigend.
+        _eject_kb = [e for e in _nach115.get('kb1', [])
+                     if e['aktion'] == 'v_eject']
+        pruefe(len(_eject_kb) == 1 and _eject_kb[0]['eingabe'] == 'f5',
+               'die Tastenbelegung derselben Aktion bleibt stehen')
+        pruefe(len([e for e in _nach115.get('js1', [])
+                    if e['aktion'] == 'v_lights']) == 1,
+               'eine andere Aktion bleibt unangetastet')
+
+        # 2. Eine Sicherung muss entstanden sein — sonst gibt es keinen Rueckweg.
+        pruefe(any(n.startswith('actionmaps.xml.scbpw-')
+                   for n in os.listdir(_wiese115)),
+               'vor dem Schreiben entsteht eine Sicherung')
+
+        # 3. Konflikte werden gemeldet, BEVOR etwas passiert.
+        _konflikt115 = _js115.konflikte('v_eject', 'js1', 'button9',
+                                        datei=_datei115)
+        pruefe(any(k['aktion'] == 'v_lights' for k in _konflikt115),
+               'eine doppelte Belegung wird vorher gemeldet')
+
+        # 4. Loeschen heisst leere Eingabe — nicht Eintrag weg. Nur so laesst
+        #    das Spiel die Werkseinstellung ebenfalls aus.
+        _js115.belegen('v_eject', 'spaceship_general', 'js1', '',
+                       datei=_datei115)
+        with open(_datei115, encoding='utf-8') as _f115:
+            _roh115 = _f115.read()
+        pruefe('js1_"' in _roh115 or 'js1_' in _roh115,
+               'das Entfernen schreibt eine leere Eingabe')
+        _leer115 = _js115.belegungen(datei=_datei115)
+        pruefe(not [e for e in _leer115.get('js1', [])
+                    if e['aktion'] == 'v_eject' and e['eingabe']],
+               'die entfernte Belegung erscheint nicht mehr als belegt')
+
+        # 5. Die Datei muss lesbares XML geblieben sein.
+        _heil115 = True
+        try:
+            __import__('xml.etree.ElementTree',
+                       fromlist=['ElementTree']).parse(_datei115)
+        except Exception:
+            _heil115 = False
+        pruefe(_heil115, 'die Datei ist gueltiges XML geblieben')
+    finally:
+        shutil.rmtree(_wiese115, ignore_errors=True)
+
+    print()
     print('114. Sicherung: alles Eigene rein, alles wieder raus')
     _sich = importlib.import_module('scbp.sicherung')
     _altheim114 = os.environ.get('SC_BP_HOME')
