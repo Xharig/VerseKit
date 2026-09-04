@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc10 - 2026-09-04
+
+> Build it or buy it? The watcher now answers that itself. Open a blueprint and
+> you see what the same part costs finished in a shop — and the new **Shops**
+> tab tells you where it sits on the shelf.
+
+### Added
+
+- **"Buy it finished" in crafting.** Above the ingredients you now see what the
+  part costs in a shop and where it is cheapest. Together with the ingredient
+  costs below, that answers by itself whether the effort is worth it.
+- **New "Shops" tab.** Type a name, click the part — and you see every outlet
+  with price, location and the condition of the goods. The cheapest is on top.
+
+### Improved
+
+- **Matching goes by the item's identifier, not by its name.** No similarly
+  named part can slip in that way.
+
 ## v3.14.0-rc9 - 2026-09-04
 
 > The sell tab now tells you what it does not know. After a patch you can see

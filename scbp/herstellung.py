@@ -326,6 +326,42 @@ def alle():
 _einordnung_gemerkt = {'stand': None, 'daten': None}
 
 
+# Name -> Entitäts-Kennung, einmal gebaut. Der Schlüssel ist der Formatstand
+# der Rezeptdaten: Werden die neu geholt, fällt das auf und die Tabelle wird
+# neu aufgebaut.
+_kennungen = {'stand': None, 'tabelle': {}}
+
+
+def entity_von(name):
+    """Die Entitäts-Kennung zu einem Bauplan — oder `''`.
+
+    ⭐ Das ist die Brücke zu den Ladenpreisen: Dieselbe Kennung führt UEX als
+    `uuid` (siehe `scbp/laeden.py`). **Zugeordnet wird darüber, nie über den
+    Namen** — über Namen ist es hier schon einmal schiefgegangen.
+
+    ⚠ Gemerkt, nicht gesucht: Ohne Tabelle liefe bei jedem Aufklappen eine
+    Schleife über rund 1.600 Baupläne.
+    """
+    if not name:
+        return ''
+    # Der Build der Rezeptdaten. Wird neu geholt, ändert er sich — und die
+    # Tabelle wird von selbst neu gebaut.
+    stand_jetzt = stand()
+    if _kennungen['stand'] != stand_jetzt:
+        tabelle = {}
+        for b in alle():
+            kennung = b.get('entity') or ''
+            if not kennung:
+                continue
+            # Beide Schreibweisen: Die Oberfläche kennt mal den Grundnamen,
+            # mal den mit Unterscheider in Klammern.
+            tabelle[b.get('basis') or ''] = kennung
+            tabelle[b.get('name') or ''] = kennung
+        tabelle.pop('', None)
+        _kennungen['stand'], _kennungen['tabelle'] = stand_jetzt, tabelle
+    return _kennungen['tabelle'].get(name, '')
+
+
 def _schluessel(name):
     """Namen vergleichbar machen — nur Buchstaben und Ziffern, klein."""
     return re.sub(r'[^a-z0-9]+', '', (name or '').lower())

@@ -939,7 +939,13 @@ def main():
                 # ⚠ Am 04.09.2026 von 16 auf 17: **Joysticks** unter
                 # „Einstellungen" — welcher Stick welche Nummer hat und was
                 # darauf liegt.
-                pruefe(len(hf.knoepfe) == 17, 'alle Reiter sind wieder da')
+                #
+                # ⚠ Am 04.09.2026 von 17 auf 18: **Läden** unter „Werkstatt".
+                # Dort und nicht bei „Handel": Die Kette der Werkstatt endet
+                # bei „wo hole ich das", und ein fertig gekauftes Teil ist die
+                # Antwort auf dieselbe Frage — nur der andere Weg. Bei „Handel"
+                # geht es um Ware, die man loswerden will.
+                pruefe(len(hf.knoepfe) == 18, 'alle Reiter sind wieder da')
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
@@ -1960,13 +1966,23 @@ def main():
             # Gezaehlt wird deshalb auch hier nur, was diese Pruefung selbst
             # geschrieben hat. Die Zahl aufzuweichen waere der falsche Ausweg —
             # dann bemerkte sie eine echte Kuerzung nicht mehr.
-            _eigene27 = [z for z in seiten27 if 'Seite liste:' in z]
+            # ⚠⚠ **Gezaehlt wird die GESAMTZAHL, nicht nur die eigenen Zeilen.**
+            # Genau das ist die Eigenschaft, um die es geht: Nach dem Kuerzen
+            # stehen SPUR_REST Zeilen da — wer sie geschrieben hat, ist dafuer
+            # gleichgueltig.
+            #
+            # Der erste Anlauf zaehlte nur die eigenen und schlug deshalb
+            # weiterhin fehl, sobald der `after()`-Rueckruf einer frueheren
+            # Pruefung eine Zeile beisteuerte: 59 eigene + 1 fremde = 60
+            # gekuerzte, und die Pruefung sah 59. Die Meldung nennt die fremden
+            # trotzdem — sonst waere nicht zu erkennen, woher eine Abweichung
+            # kaeme.
             _fremd27 = [z for z in seiten27 if 'Seite liste:' not in z]
-            pruefe(len(_eigene27) == fe26.SPUR_REST,
-                   'gekuerzt wird nur der Bedienteil (%d%s)'
-                   % (len(_eigene27),
+            pruefe(len(seiten27) == fe26.SPUR_REST,
+                   'gekuerzt wird nur der Bedienteil (%d Zeilen%s)'
+                   % (len(seiten27),
                       '' if not _fremd27
-                      else '; dazu %d fremde Zeile(n)' % len(_fremd27)))
+                      else ', davon %d fremde' % len(_fremd27)))
 
             # Der Absturzfaenger legt einen vorigen Lauf beiseite.
             with open(pf26.app_datei(fe26.ABSTURZ_DATEI), 'w', encoding='utf-8') as f26:

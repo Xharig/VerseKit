@@ -210,6 +210,10 @@ KNOPF_SYMBOLE = {
     # demselben Bild sind in einer Leiste nicht auseinanderzuhalten.
     'verkauf':      'coins',
     'handelslager': 'warehouse',
+    # Der Laden, in dem ein fertiges Teil im Regal steht — die Gegenrichtung
+    # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
+    # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.
+    'laeden':       'store',
 }
 
 ZEILEN_SYMBOLE = {

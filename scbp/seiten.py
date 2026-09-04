@@ -30,6 +30,7 @@ zeichnen, statt ein eigenes Fenster aufzumachen.
 """
 import os
 import sys
+import threading
 import time
 import tkinter as tk
 
@@ -77,6 +78,7 @@ def _bauer_tabelle():
         'lager':       _lager,
         'verkauf':     _verkauf,
         'handelslager': _handelslager,
+        'laeden':      _laeden,
     }
 
 
@@ -5166,6 +5168,235 @@ def _zum_bauplan(fenster, name):
         fenster.sagen(t('s_he_woher_nichts'))
 
 
+def _laeden(fenster, rahmen):
+    """Der Reiter „Läden": Wo bekomme ich ein fertiges Teil, und was kostet es?
+
+    ⚠ **Die Gegenrichtung zum Verkaufs-Reiter.** Dort geht es um Ware, die man
+    loswerden will; hier um ein Teil, das man haben will. Und die Ergänzung zur
+    Herstellung: Dort steht „lohnt Bauen?", hier „wo krieg ich's fertig?".
+
+    ⚠⚠ **Gesucht wird über den Bauplan-Namen, zugeordnet über die
+    Entitäts-Kennung.** Der Name ist das, was der Spieler kennt; die Kennung
+    ist das, worüber es keine Verwechslung gibt. Ein Namensvergleich gegen UEX
+    hat hier schon einmal `Golden Medmon` als Goldpreis geliefert.
+    """
+    from . import herstellung as herst_modul, laeden as laden_modul
+
+    _ueberschrift(fenster, rahmen, t('hf_laeden'), t('s_ld_lead'))
+    innen = _rollflaeche(rahmen)
+
+    suche = tk.StringVar()
+    gewaehlt = {'name': '', 'kennung': ''}
+    laeuft = {'ja': False}
+
+    such_rahmen = tk.Frame(innen, bg=BG)
+    such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
+    feld = tk.Entry(such_rahmen, textvariable=suche, font=fenster.f_grund,
+                    bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
+                    highlightthickness=1, highlightbackground=LINIE,
+                    highlightcolor=ACCENT)
+    feld.pack(fill='x', ipady=5)
+
+    vorschlag_rahmen = tk.Frame(innen, bg=BG)
+    vorschlag_rahmen.pack(fill='x', padx=24)
+    ergebnis_rahmen = tk.Frame(innen, bg=BG)
+    ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
+
+    def _leeren(wo):
+        for kind in wo.winfo_children():
+            kind.destroy()
+
+    def _ergebnis_zeichnen():
+        _leeren(ergebnis_rahmen)
+        if not gewaehlt['kennung']:
+            return
+        liste = laden_modul.laeden(gewaehlt['kennung'])
+        if liste is None:
+            _fliesstext(ergebnis_rahmen, t('s_ld_sucht'), fenster.f_klein,
+                        fill='x')
+            return
+        if not liste:
+            # ⚠ **Nicht „gibt es nirgends".** UEX hat Lücken (gemessen: 435 von
+            # 1.604 Bauplänen). Eine Lücke in fremden Daten ist keine Aussage
+            # über das Spiel — das wäre eine Behauptung, die wir nicht belegen
+            # können.
+            _fliesstext(ergebnis_rahmen, t('s_ld_unbekannt'), fenster.f_klein,
+                        fill='x')
+            return
+
+        kopf = tk.Frame(ergebnis_rahmen, bg=BG)
+        kopf.pack(fill='x', pady=(0, 6))
+        tk.Label(kopf, text=gewaehlt['name'], bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(side='left')
+        a = laden_modul.alter(gewaehlt['kennung'])
+        if a is not None:
+            tk.Label(kopf, text=t('s_vk_stand').format(alter=_alterstext(a)),
+                     bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+
+        for nummer, z in enumerate(liste):
+            kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
+                              highlightthickness=1, highlightbackground=LINIE)
+            kasten.pack(fill='x', pady=(0, 4))
+            zeile = tk.Frame(kasten, bg=FLAECHE)
+            zeile.pack(fill='x', padx=12, pady=6)
+            # ⭐ Der billigste steht oben und wird als einziger hervorgehoben.
+            # Zwei grüne Zeilen wären keine Empfehlung mehr.
+            tk.Label(zeile, text=_geld(z['preis']), bg=FLAECHE,
+                     fg=ACCENT if nummer == 0 else FG, font=fenster.f_klein,
+                     width=12, anchor='w').pack(side='left')
+            tk.Label(zeile, text=z.get('laden') or '?', bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+            beiwerk = ' · '.join(x for x in (z.get('ort'), z.get('system'))
+                                 if x)
+            if beiwerk:
+                tk.Label(zeile, text='  ' + beiwerk, bg=FLAECHE, fg=SUB,
+                         font=fenster.f_klein, anchor='w').pack(side='left')
+            # ⚠ Der Zustand gehört dazu: Gebrauchte Ware ist billiger **und**
+            # weniger wert. Ein Preis ohne diese Zahl wäre die halbe Wahrheit.
+            if z.get('zustand') and z['zustand'] < 100:
+                tk.Label(zeile, text=t('s_ld_zustand') % z['zustand'],
+                         bg=FLAECHE, fg=GOLD, font=fenster.f_klein,
+                         anchor='e').pack(side='right')
+
+    def _waehlen(name, kennung):
+        gewaehlt['name'], gewaehlt['kennung'] = name, kennung
+        suche.set('')
+        _leeren(vorschlag_rahmen)
+        _ergebnis_zeichnen()
+        if laden_modul.bekannt(kennung) or laeuft['ja']:
+            return
+        laeuft['ja'] = True
+
+        def arbeit():
+            try:
+                laden_modul.holen(kennung)
+            except Exception as ausnahme:
+                fehler.merken('seiten.laeden.holen', ausnahme)
+
+            def fertig():
+                laeuft['ja'] = False
+                try:
+                    if ergebnis_rahmen.winfo_exists():
+                        _ergebnis_zeichnen()
+                except tk.TclError:
+                    pass
+            try:
+                ergebnis_rahmen.after(0, fertig)
+            except tk.TclError:
+                laeuft['ja'] = False
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def _vorschlaege(*_a):
+        _leeren(vorschlag_rahmen)
+        text = suche.get().strip().lower()
+        if len(text) < 2:
+            return
+        # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
+        # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
+        treffer = []
+        try:
+            for b in herst_modul.alle():
+                if not b.get('entity'):
+                    continue
+                if text in (b.get('name') or '').lower():
+                    treffer.append((b['name'], b['entity']))
+                if len(treffer) >= 8:
+                    break
+        except Exception as ausnahme:
+            fehler.merken('seiten.laeden.suche', ausnahme)
+            return
+        for name, kennung in treffer:
+            zeile = tk.Label(vorschlag_rahmen, text='  ' + name, bg=FLAECHE,
+                             fg=FG, font=fenster.f_klein, anchor='w',
+                             cursor='hand2')
+            zeile.pack(fill='x', pady=1)
+            zeile.bind('<Button-1>',
+                       lambda _=None, n=name, k=kennung: _waehlen(n, k))
+            zeile.bind('<Enter>',
+                       lambda _=None, w=zeile: w.configure(fg=ACCENT))
+            zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+
+    suche.trace_add('write', _vorschlaege)
+
+    # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
+    # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
+    def _beim_zeigen():
+        suche.set('')
+        _leeren(vorschlag_rahmen)
+    fenster.beim_zeigen['laeden'] = _beim_zeigen
+
+
+def _laden_zeile(fenster, eltern, bauplan):
+    """„Fertig kaufen: X aUEC bei Y" — oder gar nichts.
+
+    ⚠⚠ **Der Abruf läuft im Hintergrund, nicht im Klick.** Wer einen Bauplan
+    aufklappt, wartet sonst auf eine fremde Schnittstelle — und bei
+    ausgefallenem Netz volle 30 Sekunden auf ein Zeitlimit. Die Zeile erscheint
+    einfach nach, wenn die Antwort da ist.
+
+    ⚠ **Drei verschiedene Zustände, drei verschiedene Anzeigen:**
+
+    | Lage | was steht da |
+    |---|---|
+    | noch nicht nachgesehen | nichts (die Zeile kommt nach) |
+    | UEX kennt das Teil nicht | nichts — es gibt nichts zu sagen |
+    | Läden bekannt | der billigste, mit Ort |
+
+    „Nirgends im Handel" wird **nicht** behauptet: UEX hat Lücken (gemessen:
+    435 von 1.604 Bauplänen), und eine Lücke in fremden Daten ist keine
+    Aussage über das Spiel.
+    """
+    from . import herstellung as herst_modul, laeden
+    try:
+        kennung = herst_modul.entity_von(bauplan)
+    except Exception as ausnahme:
+        fehler.merken('seiten.laden_zeile.kennung', ausnahme)
+        return
+    if not kennung:
+        return
+
+    lbl = tk.Label(eltern, text='', bg='#0c1017', fg=SUB,
+                   font=fenster.f_klein, anchor='w')
+
+    def zeigen():
+        bester = laeden.guenstigster(kennung)
+        if not bester:
+            return
+        preis, laden, ort = bester
+        wo = ' · '.join(x for x in (laden, ort) if x)
+        lbl.configure(text=t('s_he_fertig_kaufen') % (_geld(preis), wo))
+        lbl.pack(fill='x', padx=12, pady=(6, 0))
+
+    if laeden.bekannt(kennung):
+        zeigen()
+        return
+
+    # Noch nichts da — im Hintergrund nachschlagen und dann nachtragen.
+    def arbeit():
+        try:
+            laeden.holen(kennung)
+        except Exception as ausnahme:
+            fehler.merken('seiten.laden_zeile.holen', ausnahme)
+            return
+        # ⚠ Zurück in den Oberflächen-Faden: Tk verträgt keine Zugriffe aus
+        # einem fremden Thread. Und das Etikett kann inzwischen zerstört sein,
+        # wenn jemand die Seite gewechselt hat.
+        def nachtragen():
+            try:
+                if lbl.winfo_exists():
+                    zeigen()
+            except tk.TclError:
+                pass
+        try:
+            lbl.after(0, nachtragen)
+        except tk.TclError:
+            pass
+
+    threading.Thread(target=arbeit, daemon=True).start()
+
+
 def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     """Eine Zeile der Herstellungs-Liste, auf Klick klappt das Rezept auf."""
     from . import herstellung as herst_modul
@@ -5238,6 +5469,15 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         _knopf(fenster, block, t('s_he_woher_bp'),
                lambda n=eintrag.get('basis'): _zum_bauplan(fenster, n)).pack(
                    anchor='w', padx=12, pady=(8, 0))
+    # ⭐⭐ **„Lohnt sich das Bauen überhaupt?"** Die Zutatenkosten stehen
+    # unten schon Stück für Stück da — was fehlte, war die andere Hälfte:
+    # Was kostet dasselbe Teil fertig im Regal?
+    #
+    # ⚠ Zugeordnet wird über die **Entitäts-Kennung**, nie über den Namen.
+    # Über Namen ist es hier schon einmal schiefgegangen (`Gold` lieferte
+    # `Golden Medmon` mit). Siehe `scbp/laeden.py`.
+    _laden_zeile(fenster, block, eintrag.get('basis'))
+
     rez = herst_modul.rezept(eintrag['basis'])
     from . import rohstoffe as lager
     from . import preise as preis_modul

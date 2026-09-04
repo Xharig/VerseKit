@@ -2117,6 +2117,26 @@ TEXTE = {
                             'Numbers from {alt} — the game is on {neu}'),
     # ⚠ Der Füllstand sagt, was zu TUN ist, nicht was gemessen wurde. „Stufe 6
     # von 7" hilft niemandem am Terminal; „nimmt kaum noch ab" schon.
+    # ⚠ „Fertig kaufen" nennt Preis **und** Ort. Ein Preis ohne Ort lässt die
+    # Frage offen, die als Nächstes kommt — und der Weg gehört zur Rechnung.
+    's_he_fertig_kaufen': ('Fertig kaufen: %s  ·  %s',
+                             'Buy it finished: %s  ·  %s'),
+    # --- Reiter „Läden" ---
+    'hf_laeden':         ('Läden', 'Shops'),
+    's_ld_lead':         ('Wo ein fertiges Teil im Regal steht — und was es '
+                          'dort kostet.',
+                            'Where a finished part sits on the shelf — and '
+                            'what it costs there.'),
+    's_ld_sucht':        ('Wird nachgeschlagen …', 'Looking it up …'),
+    # ⚠ „Nirgends im Handel" wäre eine Behauptung über das Spiel. Wir wissen
+    # nur, dass unsere Quelle es nicht führt — und die hat Lücken.
+    's_ld_unbekannt':    ('Zu diesem Teil liegen keine Ladenpreise vor. Das '
+                          'heißt nicht, dass es niemand verkauft — unsere '
+                          'Preisquelle kennt es nur nicht.',
+                            'No shop prices are available for this part. That '
+                            'does not mean nobody sells it — our price source '
+                            'simply does not list it.'),
+    's_ld_zustand':      ('Zustand %d %%', 'Condition %d%%'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),
     's_vk_voll':         ('· nimmt kaum noch ab', '· barely buying'),
     's_vk_kein_stand':   ('Noch keine Preise geholt.', 'No prices fetched yet.'),

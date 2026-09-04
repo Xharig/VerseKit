@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc10 - 2026-09-04
+
+> Bauen oder kaufen? Diese Frage beantwortet der Watcher jetzt selbst. Beim
+> Aufklappen eines Bauplans steht dabei, was dasselbe Teil fertig im Laden
+> kostet — und der neue Reiter **Läden** sagt dir, wo es im Regal liegt.
+
+### Neu
+
+- **„Fertig kaufen" in der Herstellung.** Über den Zutaten steht jetzt, was
+  das Teil im Laden kostet und wo es am billigsten ist. Zusammen mit den
+  Zutatenkosten darunter beantwortet sich damit von selbst, ob sich der
+  Aufwand lohnt.
+- **Neuer Reiter „Läden".** Namen eintippen, Teil anklicken — und du siehst
+  alle Verkaufsstellen mit Preis, Ort und Zustand der Ware. Der günstigste
+  steht oben.
+
+### Verbessert
+
+- **Zugeordnet wird über die Kennung des Gegenstands, nicht über den Namen.**
+  Damit kann kein ähnlich heißendes Teil dazwischenrutschen.
+
 ## v3.14.0-rc9 - 2026-09-04
 
 > Der Verkaufs-Reiter sagt jetzt dazu, was er nicht weiß. Nach einem Patch

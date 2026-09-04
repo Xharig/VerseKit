@@ -1795,6 +1795,11 @@ class Hauptfenster:
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)
         self._reiter('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._reiter('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
+        # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet bei
+        # „wo hole ich das" — und ein fertig gekauftes Teil ist die Antwort auf
+        # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"
+        # ginge es um Ware, die man **loswerden** will; das ist etwas anderes.
+        self._reiter('laeden', 'laeden', t('hf_laeden'), g_werk)
 
         # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
         # endet beim Bauen („was habe ich → was brauche ich → wo hole ich es").
