@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc20 - 2026-09-04
+
+> "Only lists what is for sale" — and then every item was there anyway. The
+> filter worked correctly but needed a minute, and meanwhile nothing said it
+> was still running.
+
+### Fixed
+
+- **"Shops" still listed items that are sold nowhere.** The watcher checks
+  this once on first opening and that takes about a minute — until then the
+  full list stayed, with no visible sign why. The notice now sits above the
+  list instead of below it, and the counts in the dropdowns are corrected
+  afterwards.
+
 ## v3.14.0-rc19 - 2026-09-04
 
 > Two errors that were not errors: the error log reported two made-up problems

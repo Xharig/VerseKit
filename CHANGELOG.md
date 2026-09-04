@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc20 - 2026-09-04
+
+> „Zeigt nur noch, was kaufbar ist" — und dann standen doch alle Teile da. Der
+> Filter arbeitete richtig, brauchte aber eine Minute, und in der Zwischenzeit
+> sagte nichts, dass er noch läuft.
+
+### Behoben
+
+- **In „Läden" standen weiter Teile, die nirgends verkauft werden.** Der
+  Watcher sieht das beim ersten Öffnen einmal nach, und das dauert etwa eine
+  Minute — bis dahin blieb die vollständige Liste stehen, ohne dass ein
+  Hinweis darauf zu sehen war. Der Hinweis steht jetzt oben statt unter der
+  Liste, und die Zahlen in den Auswahlmenüs werden danach berichtigt.
+
 ## v3.14.0-rc19 - 2026-09-04
 
 > Zwei Fehler, die keine waren: Das Fehlerprotokoll meldete bei jedem Abruf

@@ -6140,7 +6140,13 @@ def _laeden(fenster, rahmen):
             return
         zustand_katalog['laeuft'] = True
         stand_zeile.configure(text=t('s_ld_katalog_laeuft'))
-        stand_zeile.pack(fill='x', padx=24, pady=(6, 0))
+        # ⚠⚠ **`before=` — sonst landet der Hinweis unter der Liste.** Ein
+        # `pack()` ohne Angabe hängt sich ans Ende; bei 168 Zeilen darüber
+        # sieht ihn niemand. Am 04.09.2026 genau so passiert: Die Liste war
+        # ungefiltert, der Grund stand außer Sicht, und das Werkzeug wirkte
+        # schlicht kaputt.
+        stand_zeile.pack(fill='x', padx=24, pady=(6, 0),
+                         before=vorschlag_rahmen)
 
         def arbeit():
             def melden(fertig, gesamt):
@@ -6165,6 +6171,9 @@ def _laeden(fenster, rahmen):
                 try:
                     if stand_zeile.winfo_exists():
                         stand_zeile.pack_forget()
+                    # ⚠ Auch die Menüs neu bauen — ihre Zahlen stammen von
+                    # vor dem Abruf. Siehe `_filter_bauen`.
+                    _filter_bauen()
                     _vorschlaege()
                 except tk.TclError:
                     pass
@@ -6184,11 +6193,27 @@ def _laeden(fenster, rahmen):
         _leeren(ergebnis_rahmen)
         _vorschlaege()
 
-    _filterleiste(fenster, filter_rahmen,
-                  [('art', t('s_ld_alle_arten'), _mit_zahl('art')),
-                   ('hersteller', t('ff_alle_hersteller'),
-                    _mit_zahl('hersteller'))],
-                  _filter_gewechselt, wahl)
+    def _filter_bauen():
+        """Die Auswahlmenüs (neu) aufbauen.
+
+        ⚠⚠ **Muss nach dem Katalog-Abruf noch einmal laufen.** Die Zahlen in
+        den Menüs entstehen aus der gefilterten Liste — vor dem Abruf steht
+        dort „FPS-Waffen (168)", danach sind es 60. Ohne diesen zweiten
+        Aufbau bleibt die alte Zahl stehen, und das Werkzeug behauptet etwas,
+        das es selbst schon besser weiß.
+
+        Am 04.09.2026 genau so aufgefallen: Seite geöffnet, während der Abruf
+        noch lief, ungefilterte Liste gesehen — und der Changelog behauptete
+        das Gegenteil.
+        """
+        _leeren(filter_rahmen)
+        _filterleiste(fenster, filter_rahmen,
+                      [('art', t('s_ld_alle_arten'), _mit_zahl('art')),
+                       ('hersteller', t('ff_alle_hersteller'),
+                        _mit_zahl('hersteller'))],
+                      _filter_gewechselt, wahl)
+
+    _filter_bauen()
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
     # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
