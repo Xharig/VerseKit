@@ -1654,6 +1654,12 @@ class Hauptfenster:
                                           t('hf_hinweis_neu'), self._was_ist_neu)
         self._titelknopf(bar, 'einrichtung', t('hf_einrichtung'),
                          t('hf_hinweis_einr'), self._einrichtung)
+        # ⚠ Gehoert hier oben hin, nicht in die Einstellungen: Wer den Rechner
+        # wechselt, sucht nicht erst in Untermenues — und wer eine Sicherung
+        # nie gesehen hat, macht auch keine. Ein sichtbarer Knopf ist der
+        # Unterschied zwischen „gibt es" und „wird benutzt".
+        self._titelknopf(bar, 'sicherung', t('hf_sicherung'),
+                         t('hf_hinweis_sich'), self._sicherung)
 
     def _titelknopf(self, eltern, symbol, wort, erklaerung, tat):
         rahmen = tk.Frame(eltern, bg=BAR, cursor='hand2')
@@ -2680,6 +2686,80 @@ class Hauptfenster:
         except Exception as ausnahme:
             fehler.merken('hauptfenster.assistent', ausnahme)
 
+    def _sicherung(self):
+        """Alles Eigene in eine Datei — oder eine solche Datei einspielen.
+
+        ⚠ **Zwei Wege hinter einem Knopf.** Sichern ist der haeufige Fall,
+        Einspielen der seltene (Rechnerwechsel, neu aufgesetzt) — aber genau
+        dafuer sichert man ueberhaupt. Ein Knopf, der nur schreiben kann,
+        loest das halbe Problem und laesst den Spieler beim anderen allein.
+        """
+        from . import dateiwahl, sicherung
+        try:
+            wahl = wahl_stellen(
+                self.root, t('sich_titel'),
+                t('sich_lead') + '\n\n' + t('sich_was'),
+                t('sich_schreiben'), t('sich_lesen'))
+            if wahl == 'a':
+                self._sicherung_schreiben(dateiwahl, sicherung)
+            elif wahl == 'b':
+                self._sicherung_lesen(dateiwahl, sicherung)
+        except Exception as ausnahme:
+            fehler.merken('hauptfenster.sicherung', ausnahme)
+
+    def _sicherung_schreiben(self, dateiwahl, sicherung):
+        ziel = dateiwahl.datei_speichern(
+            t('sich_schreiben'), vorschlag=sicherung.vorschlag(),
+            endung='.zip', muster=(('ZIP', '*.zip'),))
+        if not ziel:
+            return
+        ok, meldung, anzahl = sicherung.schreiben(ziel, self.version)
+        if ok:
+            self.sagen(t('sich_fertig', anzahl, os.path.basename(meldung)))
+        elif meldung == 'leer':
+            self.sagen(t('sich_leer'))
+        else:
+            self.sagen(t('sich_fehler', meldung))
+
+    def _sicherung_lesen(self, dateiwahl, sicherung):
+        quelle = dateiwahl.datei_oeffnen(t('sich_lesen'),
+                                         muster=(('ZIP', '*.zip'),))
+        if not quelle:
+            return
+        # ⚠ Erst nachsehen, dann fragen, dann erst schreiben. Wer sich in der
+        # Datei vergreift, soll das erfahren, BEVOR sein Bestand weg ist.
+        gueltig, anzahl, wann = sicherung.pruefen(quelle)
+        if not gueltig:
+            self.sagen(t('sich_ungueltig'))
+            return
+        if not frage_stellen(self.root, t('sich_titel'),
+                             t('sich_frage', wann or '?', anzahl)):
+            return
+        ok, meldung, anzahl = sicherung.zurueckholen(quelle)
+        if not ok:
+            self.sagen(t('sich_fehler', meldung))
+            return
+        self.sagen(t('sich_zurueck_ok', anzahl))
+        # ⚠⚠ Neustart ist Pflicht, keine Hoeflichkeit: Bestand, Lager und
+        # Protokoll liegen im Arbeitsspeicher und wuerden beim naechsten
+        # Speichern ueber die gerade eingespielten Dateien geschrieben.
+        #
+        # ⚠ Aus dem Quellcode heraus kann sich das Programm nicht selbst
+        # ersetzen (`neu_starten` meldet dann False) — dann bleibt nur der
+        # ehrliche Hinweis. Stillschweigend weiterlaufen waere das Schlimmste:
+        # Der Spieler sieht seinen alten Stand und haelt das Einspielen fuer
+        # gescheitert, waehrend die Dateien laengst da sind.
+        def _neustart():
+            from . import aktualisierung
+            try:
+                if not aktualisierung.neu_starten():
+                    self.sagen(t('sich_neustart_selbst'))
+            except Exception as ausnahme:
+                fehler.merken('hauptfenster.sicherung_neustart', ausnahme)
+                self.sagen(t('sich_neustart_selbst'))
+
+        self.root.after(1200, _neustart)
+
     def _groesse_beobachten(self, ereignis):
         """Auf Groessenaenderungen horchen — aber nicht bei jedem Pixel schreiben.
 
@@ -2805,6 +2885,73 @@ def _dialog_knopf(eltern, text, tat, schrift, stark=False):
                                       c.itemconfigure(beschriftung, fill=farbe)))
     c.bind('<Button-1>', lambda _=None: tat())
     return c
+
+
+def wahl_stellen(eltern, titel, text, knopf_a, knopf_b):
+    """Zwei Wege zur Auswahl stellen. Gibt `'a'`, `'b'` oder `''` zurueck.
+
+    ⚠ **Warum nicht `frage_stellen`.** Dort bedeutet Escape „nein" — bei einer
+    Ja/Nein-Frage ist das richtig. Stehen aber zwei gleichwertige Handlungen zur
+    Wahl, waere „nein" die zweite davon: Wer den Dialog wegklickt, haette
+    ungewollt eine Sicherung eingespielt. Hier bricht Escape deshalb ab, ohne
+    etwas zu tun, und beide Knoepfe muessen bewusst getroffen werden.
+    """
+    antwort = {'wert': ''}
+    try:
+        top = tk.Toplevel(eltern)
+        top.title(titel)
+        top.configure(bg=BG)
+        top.resizable(False, False)
+        top.transient(eltern)
+        top.configure(highlightthickness=1, highlightbackground=LINIE,
+                      highlightcolor=LINIE)
+
+        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        schrift_text = tkfont.Font(family='Segoe UI', size=10)
+        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+
+        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen.pack(fill='both', expand=True)
+        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+                 anchor='w', justify='left').pack(fill='x')
+        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+                 anchor='w', justify='left',
+                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+
+        def schliessen(wert):
+            antwort['wert'] = wert
+            try:
+                top.grab_release()
+            except tk.TclError:
+                pass
+            top.destroy()
+
+        reihe = tk.Frame(rahmen, bg=BG)
+        reihe.pack(anchor='e', pady=(20, 0))
+        _dialog_knopf(reihe, knopf_b, lambda: schliessen('b'),
+                      schrift_knopf).pack(side='right', padx=(8, 0))
+        _dialog_knopf(reihe, knopf_a, lambda: schliessen('a'),
+                      schrift_knopf, stark=True).pack(side='right')
+
+        top.bind('<Escape>', lambda _=None: schliessen(''))
+        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(''))
+
+        top.update_idletasks()
+        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
+        hoehe = top.winfo_reqheight()
+        try:
+            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
+            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+        except tk.TclError:
+            x = y = 200
+        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+
+        top.grab_set()
+        top.focus_set()
+        eltern.wait_window(top)
+    except Exception as ausnahme:
+        fehler.merken('hauptfenster.wahl_stellen', ausnahme)
+    return antwort['wert']
 
 
 def frage_stellen(eltern, titel, text, ja=None, nein=None,

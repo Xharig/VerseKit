@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Sicherung** (neuer Knopf oben, neben „Einrichtung starten"). Alles, was nur
+  du hast, in **eine Datei**: Bauplan-Bestand, Werkstatt-Lager, Handelslager,
+  Auftrags-Protokoll, Merkliste und Einstellungen. Derselbe Knopf spielt eine
+  solche Datei auch wieder ein — gedacht für den Rechnerwechsel: Datei auf den
+  Stick, am neuen Rechner einlesen, weiterspielen.
+  Die heruntergeladenen Nachschlagewerke bleiben draußen, die holt sich das
+  Programm von allein zurück; die Sicherung bleibt dadurch klein.
+  Beim Einspielen wird der bisherige Stand vorher zur Seite gelegt, und Pfade
+  des alten Rechners werden geleert, damit das Programm am neuen Ort selbst
+  sucht statt ins Leere zu zeigen.
+
 ## v3.12.0 - 2026-09-04
 
 > Neu ist das **Auftrags-Protokoll**: Es zeigt dir, welche Aufträge du wann

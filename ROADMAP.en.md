@@ -27,6 +27,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **When you accept a contract**: does it carry blueprints, and which are you missing? |
 | ✅ | **What to do next** — the open objectives are listed under their contract |
 | ✅ | **Mission log** — which missions were played when, how often, and which blueprint came out of it |
+| ✅ | **Backup** — everything of yours into one file and back again, for moving to another PC |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |
 | ✅ | **Pin the overlay to a screen corner** — required in pop-up mode where it cannot be dragged; collapsed it shrinks to strip width |
 | ✅ | Catalogue watch: reports what becomes **newly craftable** in the game, plus a watchlist |

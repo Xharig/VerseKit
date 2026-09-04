@@ -27,6 +27,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Beim Annehmen eines Auftrags**: bringt er Baupläne, und welche fehlen dir noch? |
 | ✅ | **Was gerade zu tun ist** — die offenen Zwischenziele stehen unter ihrem Auftrag |
 | ✅ | **Auftrags-Protokoll** — welche Aufträge wann gespielt wurden, wie oft, und welcher Bauplan dabei herauskam |
+| ✅ | **Sicherung** — alles Eigene in eine Datei und wieder zurück, für den Rechnerwechsel |
 | ✅ | **Tastenkombination** — holt die Bauplan-Liste aus dem laufenden Spiel nach vorn (Windows und Linux/X11) |
 | ✅ | **Overlay in eine Bildschirmecke legen** — nötig im Pop-up-Betrieb, wo es sich nicht ziehen lässt; eingeklappt schrumpft es auf Streifenbreite |
 | ✅ | Katalog-Wache: meldet, was im Spiel **neu craftbar** wird, dazu eine Merkliste |

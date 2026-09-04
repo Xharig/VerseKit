@@ -2498,6 +2498,69 @@ TEXTE = {
     'hf_schliessen':     ('Schließen', 'Close'),
     'hf_einrichtung':    ('Einrichtung starten', 'Run setup'),
     'hf_wasistneu':      ('Was ist neu', "What's new"),
+    'hf_sicherung':      ('Sicherung', 'Backup'),
+    'hf_hinweis_sich':   ('Alles Eigene in eine Datei — Baupläne, beide Lager, '
+                          'Auftrags-Protokoll und Einstellungen. Für den '
+                          'Rechnerwechsel, und zum Zurückholen',
+                          'Everything of yours in one file — blueprints, both '
+                          'inventories, mission log and settings. For moving to '
+                          'another PC, and to restore'),
+    # --- Der Sicherungs-Dialog ---
+    'sich_titel':        ('Sicherung', 'Backup'),
+    'sich_lead':         ('Alles, was nur du hast, in einer Datei — und wieder '
+                          'zurück.',
+                          'Everything only you have, in one file — and back again.'),
+    'sich_was':          ('Mit dabei sind dein Bauplan-Bestand, das Lager der '
+                          'Werkstatt, das Handelslager, das Auftrags-Protokoll, '
+                          'die Merkliste und deine Einstellungen. Die '
+                          'heruntergeladenen Nachschlagewerke bleiben draußen — '
+                          'die holt sich das Programm von allein zurück.',
+                          'Included are your blueprint inventory, the workshop '
+                          'stock, the trade hold, the mission log, your watchlist '
+                          'and your settings. The downloaded reference data stays '
+                          'out — the program fetches that on its own.'),
+    'sich_schreiben':    ('Sicherung erstellen', 'Create backup'),
+    'sich_lesen':        ('Sicherung einspielen', 'Restore backup'),
+    'sich_fertig':       ('Gesichert: %d Dateien in %s',
+                          'Saved: %d files in %s'),
+    'sich_leer':         ('Es gibt noch nichts zu sichern.',
+                          'There is nothing to back up yet.'),
+    'sich_fehler':       ('Sicherung fehlgeschlagen: %s',
+                          'Backup failed: %s'),
+    'sich_ungueltig':    ('Das ist keine Sicherung des SC BP Watchers.',
+                          'That is not an SC BP Watcher backup.'),
+    'sich_frage':        ('Sicherung vom %s mit %d Dateien einspielen?\n\n'
+                          'Dein jetziger Stand wird dabei überschrieben — eine '
+                          'Kopie davon wird vorher neben der Ablage abgelegt.\n\n'
+                          'Danach startet das Programm neu.',
+                          'Restore backup from %s with %d files?\n\n'
+                          'Your current data will be overwritten — a copy of it '
+                          'is put next to the data folder first.\n\n'
+                          'The program restarts afterwards.'),
+    'sich_zurueck_ok':   ('%d Dateien eingespielt. Das Programm startet neu.',
+                          '%d files restored. The program is restarting.'),
+    'sich_neustart_selbst': ('Eingespielt. Bitte das Programm einmal neu '
+                             'starten — dann ist alles da.',
+                             'Restored. Please restart the program once — then '
+                             'everything is in place.'),
+    # Die Beilage IN der Sicherungsdatei — wer sie in einem Jahr findet, soll
+    # ohne das Programm erkennen, was er da hat.
+    'sich_datei_info':   ('Erstellt am %s mit SC BP Watcher %s.\n'
+                          'Enthaelt %d Dateien: Bauplan-Bestand, Lager,\n'
+                          'Auftrags-Protokoll, Merkliste und Einstellungen.\n'
+                          '\n'
+                          'Zurueckholen: im Programm oben auf "Sicherung"\n'
+                          'klicken und diese Datei auswaehlen. Die Ordner\n'
+                          'darin entsprechen dem Ablage-Ordner des Programms;\n'
+                          'im Notfall reicht auch Entpacken von Hand.',
+                          'Created on %s with SC BP Watcher %s.\n'
+                          'Contains %d files: blueprint inventory, stock,\n'
+                          'mission log, watchlist and settings.\n'
+                          '\n'
+                          'To restore: click "Backup" at the top of the\n'
+                          'program and pick this file. The folders inside\n'
+                          'match the program data folder; in an emergency,\n'
+                          'unpacking by hand works too.'),
     'hf_hinweis_einr':   ('Einrichtung wiederholen — führt dich noch einmal durch '
                           'Sprache, Spielordner und Bestand',
                           'Repeat setup — walks you through language, game folder '

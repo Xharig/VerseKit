@@ -10067,6 +10067,119 @@ def main():
             os.environ['SC_BP_HOME'] = _altheim113
         shutil.rmtree(_wiese113, ignore_errors=True)
 
+    # --------------------------------------------------------------------- 114
+    # Die Sicherung. ⚠⚠ Ein kaputtes Backup faellt erst im Ernstfall auf — dann,
+    # wenn der alte Rechner schon neu aufgesetzt ist. Deshalb wird hier der
+    # ganze Weg gegangen: schreiben, einspielen, Inhalte vergleichen.
+    print()
+    print('114. Sicherung: alles Eigene rein, alles wieder raus')
+    _sich = importlib.import_module('scbp.sicherung')
+    _altheim114 = os.environ.get('SC_BP_HOME')
+    _wiese114 = tempfile.mkdtemp(prefix='sc-bp-sicherung-')
+    try:
+        _quell114 = os.path.join(_wiese114, 'quelle')
+        _ziel114 = os.path.join(_wiese114, 'ziel')
+        for _o in (_quell114, _ziel114):
+            os.makedirs(os.path.join(_o, 'Bauplaene'), exist_ok=True)
+            os.makedirs(os.path.join(_o, 'Intern'), exist_ok=True)
+        os.environ['SC_BP_HOME'] = _quell114
+        importlib.reload(_sich)
+
+        # Eigene Daten …
+        with open(os.path.join(_quell114, 'Bauplaene', 'bestand.json'),
+                  'w', encoding='utf-8') as _f:
+            json.dump({'bauplaene': {'testhelm': {}}}, _f)
+        with open(os.path.join(_quell114, 'Intern', 'handelslager.json'),
+                  'w', encoding='utf-8') as _f:
+            json.dump([{'ware': 'Gold'}], _f)
+        # … und eine Datei, die es neu gibt und die NIEMAND aufgezaehlt hat.
+        # ⚠ Genau daran ist die frühere Liste gescheitert: Das Auftrags-
+        # Protokoll kam dazu und fiel stillschweigend heraus.
+        with open(os.path.join(_quell114, 'Intern', 'ganz-neu.json'),
+                  'w', encoding='utf-8') as _f:
+            json.dump({'kommt': 'spaeter dazu'}, _f)
+        # … und ein Zwischenspeicher, der draussen bleiben soll.
+        with open(os.path.join(_quell114, 'Intern', 'preise.json'),
+                  'w', encoding='utf-8') as _f:
+            json.dump({'gross': 'x' * 5000}, _f)
+
+        _datei114 = os.path.join(_wiese114, 'sicherung.zip')
+        _ok114, _m114, _n114 = _sich.schreiben(_datei114, '9.9.9')
+        pruefe(_ok114, 'die Sicherung wird geschrieben')
+
+        import zipfile as _zip114
+        with _zip114.ZipFile(_datei114) as _z:
+            _drin114 = set(_z.namelist())
+        pruefe('Bauplaene/bestand.json' in _drin114, 'der Bestand ist dabei')
+        pruefe('Intern/handelslager.json' in _drin114,
+               'das Handelslager ist dabei')
+        pruefe('Intern/ganz-neu.json' in _drin114,
+               'eine NEUE eigene Datei ist ohne Zutun dabei')
+        pruefe('Intern/preise.json' not in _drin114,
+               'der nachladbare Zwischenspeicher bleibt draussen')
+
+        _g114, _anz114, _wann114 = _sich.pruefen(_datei114)
+        pruefe(_g114 and _wann114, 'die eigene Datei wird als gueltig erkannt')
+
+        # Einspielen in eine LEERE Ablage — der Rechnerwechsel.
+        os.environ['SC_BP_HOME'] = _ziel114
+        importlib.reload(_sich)
+        _ok114, _m114, _n114 = _sich.zurueckholen(_datei114)
+        pruefe(_ok114, 'die Sicherung laesst sich einspielen')
+        with open(os.path.join(_ziel114, 'Bauplaene', 'bestand.json'),
+                  encoding='utf-8') as _f:
+            pruefe('testhelm' in json.load(_f).get('bauplaene', {}),
+                   'der Bestand ist nach dem Einspielen da')
+        pruefe(os.path.isfile(os.path.join(_ziel114, 'Intern',
+                                           'ganz-neu.json')),
+               'auch die neue Datei kam mit')
+
+        # ⚠ Gegenprobe 1: Eine fremde ZIP darf NICHTS ueberschreiben.
+        _fremd114 = os.path.join(_wiese114, 'fremd.zip')
+        with _zip114.ZipFile(_fremd114, 'w') as _z:
+            _z.writestr('beliebig.txt', 'nicht von uns')
+        pruefe(_sich.zurueckholen(_fremd114)[0] is False,
+               'eine fremde Datei wird abgelehnt')
+
+        # ⚠ Gegenprobe 2: Ein Pfad, der aus der Ablage herausfuehrt („Zip
+        # Slip"). Ohne Abwehr schreibt eine praeparierte Datei irgendwohin.
+        _boese114 = os.path.join(_wiese114, 'boese.zip')
+        with _zip114.ZipFile(_boese114, 'w') as _z:
+            _z.writestr(_sich.INFODATEI,
+                        _sich.KENNUNG + '\nErstellt am 01.01.2026 mit x')
+            _z.writestr('../entkommen.txt', 'darf nicht landen')
+        _sich.zurueckholen(_boese114)
+        pruefe(not os.path.exists(os.path.join(_wiese114, 'entkommen.txt')),
+               'ein Pfad aus der Ablage heraus wird abgewehrt')
+
+        # ⚠ Gegenprobe 3: Pfade des alten Rechners werden geleert — sonst
+        # sucht das Programm am neuen Ort ins Leere.
+        os.makedirs(os.path.join(_quell114, 'Einstellungen'), exist_ok=True)
+        with open(os.path.join(_quell114, 'Einstellungen',
+                               'einstellungen.json'), 'w',
+                  encoding='utf-8') as _f:
+            json.dump({'spiel_ordner': '/gibt/es/hier/nicht',
+                       'ablage_ordner': '/alter/rechner'}, _f)
+        os.environ['SC_BP_HOME'] = _quell114
+        importlib.reload(_sich)
+        _sich.schreiben(_datei114, '9.9.9')
+        os.environ['SC_BP_HOME'] = _ziel114
+        importlib.reload(_sich)
+        _sich.zurueckholen(_datei114)
+        with open(os.path.join(_ziel114, 'Einstellungen',
+                               'einstellungen.json'), encoding='utf-8') as _f:
+            _e114 = json.load(_f)
+        pruefe(_e114.get('spiel_ordner') == '',
+               'ein Spielordner, den es hier nicht gibt, wird geleert')
+        pruefe('ablage_ordner' not in _e114,
+               'der Ablage-Ort des alten Rechners kommt NICHT mit')
+    finally:
+        if _altheim114 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim114
+        shutil.rmtree(_wiese114, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

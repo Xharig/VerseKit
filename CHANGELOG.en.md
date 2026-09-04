@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### New
+
+- **Backup** (new button at the top, next to "Run setup"). Everything only you
+  have, in **one file**: blueprint inventory, workshop stock, trade hold,
+  mission log, watchlist and settings. The same button restores such a file —
+  meant for moving to another PC: file onto a stick, read it in on the new
+  machine, keep playing.
+  The downloaded reference data stays out, the program fetches that on its own;
+  this keeps the backup small.
+  When restoring, your current data is put aside first, and paths from the old
+  machine are cleared so the program searches on the new one instead of
+  pointing nowhere.
+
 ## v3.12.0 - 2026-09-04
 
 > New is the **mission log**: it shows which missions you played when, how often

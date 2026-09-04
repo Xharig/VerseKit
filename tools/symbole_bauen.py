@@ -194,6 +194,12 @@ KNOPF_SYMBOLE = {
                                          # übliche Bild für „führt dich durch".
     'neustart':     'rotate-cw',
     'herunterladen': 'download',
+    # ⚠ Nicht `download` mitbenutzen: Der Pfeil steht im Programm schon für
+    # „neue Version holen". Ein Schild sagt „in Sicherheit gebracht", und das
+    # ist es, was der Knopf tut. Dieselbe Vorlage steht bereits unter
+    # `nurlesend` — die taucht aber nur in der Anleitung auf, nie in der
+    # Leiste, also gibt es nichts zu verwechseln.
+    'sicherung':    'shield-check',
     'zurueck':      'undo-2',            # auf eine ältere Version zurück
     # --- Gruppe „Handel" (v3.4.0) ---
     # Münzen für den Verkauf, Lagerhalle für den Handelsbestand. Bewusst
