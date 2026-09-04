@@ -372,6 +372,73 @@ def belegungen(datei=None, ordner=None):
     return heraus
 
 
+# Tastennamen des Spiels, die als Kuerzel nicht zu verstehen sind. Was hier
+# nicht steht, wird gross geschrieben durchgereicht (`f5` → `F5`, `a` → `A`).
+TASTE_LESBAR = {
+    'lshift': 's_js_t_lshift', 'rshift': 's_js_t_rshift',
+    'lctrl': 's_js_t_lctrl', 'rctrl': 's_js_t_rctrl',
+    'lalt': 's_js_t_lalt', 'ralt': 's_js_t_ralt',
+    'space': 's_js_t_space', 'enter': 's_js_t_enter',
+    'escape': 's_js_t_escape', 'backspace': 's_js_t_backspace',
+    'tab': 's_js_t_tab', 'comma': 's_js_t_comma', 'period': 's_js_t_period',
+    'slash': 's_js_t_slash', 'minus': 's_js_t_minus',
+    'equals': 's_js_t_equals', 'up': 's_js_t_up', 'down': 's_js_t_down',
+    'left': 's_js_t_left', 'right': 's_js_t_right', 'home': 's_js_t_home',
+    'end': 's_js_t_end', 'pgup': 's_js_t_pgup', 'pgdn': 's_js_t_pgdn',
+    'insert': 's_js_t_insert', 'delete': 's_js_t_delete',
+    'pause': 's_js_t_pause', 'lbracket': 's_js_t_lbracket',
+    'rbracket': 's_js_t_rbracket',
+    'mouse1': 's_js_t_mouse1', 'mouse2': 's_js_t_mouse2',
+    'mouse3': 's_js_t_mouse3', 'mwheel_up': 's_js_t_mwheel_up',
+    'mwheel_down': 's_js_t_mwheel_down',
+}
+
+ACHSEN_LESBAR = {'x': 'X', 'y': 'Y', 'z': 'Z'}
+DREHACHSEN = {'rotx': 'X', 'roty': 'Y', 'rotz': 'Z'}
+
+
+def eingabe_lesbar(eingabe, art=''):
+    """Aus `x` wird „Achse X", aus `button12` „Knopf 12".
+
+    ⚠⚠ **Warum das noetig ist:** In der Spalte stand nur `x` — und `x` ist
+    auf einer Tastatur ein Buchstabe. Wer die Zeile eines Sticks las, konnte
+    denken, dort sei die Taste X gemeint. Dasselbe gilt fuer `y` und `z`.
+
+    Zweisprachig ueber die Sprachdatei; was dort nicht steht, wird gross
+    geschrieben durchgereicht, statt einen huebschen Namen zu erfinden.
+    """
+    from .sprache import t
+    if not eingabe:
+        return ''
+    # Zusammengesetzte Eingaben: `ralt+y` → „Alt rechts + Y"
+    if '+' in eingabe:
+        return ' + '.join(eingabe_lesbar(teil, art)
+                          for teil in eingabe.split('+') if teil)
+    if art in ('tastatur', 'maus') or eingabe in TASTE_LESBAR:
+        schluessel = TASTE_LESBAR.get(eingabe)
+        if schluessel:
+            return t(schluessel)
+        if eingabe.startswith('np_'):
+            return t('s_js_t_np', eingabe[3:].upper())
+        return eingabe.upper()
+    if eingabe in ACHSEN_LESBAR:
+        return t('s_js_e_achse', ACHSEN_LESBAR[eingabe])
+    if eingabe in DREHACHSEN:
+        return t('s_js_e_drehachse', DREHACHSEN[eingabe])
+    treffer = re.match(r'^button(\d+)$', eingabe)
+    if treffer:
+        return t('s_js_e_knopf', int(treffer.group(1)))
+    treffer = re.match(r'^slider(\d+)$', eingabe)
+    if treffer:
+        return t('s_js_e_schieber', int(treffer.group(1)))
+    treffer = re.match(r'^hat(\d+)_(\w+)$', eingabe)
+    if treffer:
+        richtungen = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
+        pfeil = richtungen.get(treffer.group(2), treffer.group(2))
+        return t('s_js_e_hut', int(treffer.group(1)), pfeil)
+    return eingabe
+
+
 def art_von(kennzeichen):
     """Aus `js1` wird `joystick`, aus `kb1` `tastatur`."""
     for art, kuerzel in ARTEN:
@@ -384,10 +451,52 @@ def art_von(kennzeichen):
 STANDARD_FELD = {'keyboard': 'kb1', 'joystick': 'js1', 'mouse': 'mo1',
                  'gamepad': 'gp1'}
 
-# Die drei Sichten, die es zu sehen gibt.
+# Die vier Sichten, die es zu sehen gibt.
 MEINE    = 'meine'     # nur, was der Spieler selbst geaendert hat
 STANDARD = 'standard'  # nur die Werkseinstellung des Spiels
 ALLES    = 'alles'     # beides zusammengefuehrt — die wirkliche Belegung
+FREI     = 'frei'      # Aktionen, auf die noch gar nichts zeigt
+
+
+def gruppe_von(aktion, spielordner=None):
+    """In welchem `actionmap` lebt eine Aktion?
+
+    Wird beim Neubelegen gebraucht: Star Citizen sortiert Aktionen in
+    Gruppen, und eine Belegung in der falschen Gruppe findet das Spiel nicht.
+    """
+    return ((_profil(spielordner) or {}).get('gruppen') or {}).get(aktion, '')
+
+
+def unbelegte(spielordner=None, datei=None):
+    """Aktionen, auf die weder eigene noch Werksbelegung zeigt.
+
+    ⭐ **Ohne diese Liste kaeme man an sie gar nicht heran.** Die Belegungs-
+    ansicht zeigt, was belegt ist — eine Aktion ohne jede Belegung taucht dort
+    naturgemaess nicht auf, und der Spieler koennte sie nie anklicken, um sie
+    zu belegen. Am 04.09.2026 gemessen: **411 von 646** benannten Aktionen
+    sind ab Werk unbelegt (Emotes, Bergbau-Feinheiten, Notfallbefehle).
+
+    Liefert dieselbe Form wie `sicht()`, unter dem Schluessel `frei`, mit
+    leerer `eingabe`.
+    """
+    profil = _profil(spielordner) or {}
+    benannt = profil.get('etiketten') or {}
+    belegt = set()
+    for liste in (sicht(ALLES, datei, spielordner) or {}).values():
+        for e in liste:
+            belegt.add(e['aktion'])
+    gruppen = profil.get('gruppen') or {}
+    heraus = []
+    for aktion, paar in benannt.items():
+        if aktion in belegt or not (paar or [''])[0]:
+            continue
+        heraus.append({'eingabe': '', 'aktion': aktion,
+                       'bereich': gruppen.get(aktion, ''),
+                       'art': '', 'quelle': FREI})
+    # Nach Gruppe, dann nach Name — so stehen zusammengehoerige Aktionen
+    # beieinander (alle Emotes, alle Bergbau-Befehle).
+    heraus.sort(key=lambda e: (e['bereich'], e['aktion']))
+    return {FREI: heraus} if heraus else {}
 
 
 def standardbelegungen(spielordner=None):
@@ -449,6 +558,8 @@ def sicht(welche=ALLES, datei=None, ordner=None):
     Spieler hat die Werksvorgabe bewusst entfernt. Sie verdraengt den
     Standard, erscheint aber selbst nicht in der Liste — genau wie im Spiel.
     """
+    if welche == FREI:
+        return unbelegte(ordner, datei)
     eigene = belegungen(datei, ordner)
     if welche == MEINE:
         for liste in eigene.values():
@@ -540,7 +651,7 @@ _KLARNAMEN = {}          # {sprache: {aktion: (name, beschreibung)}}
 
 # ⚠ Aendert sich, was `_profil()` merkt, muss diese Zahl hoch — sonst liest
 # eine neue Fassung den Merker der alten und findet die neuen Felder nicht.
-MERK_FASSUNG = 2
+MERK_FASSUNG = 3
 
 
 def _profil(spielordner=None):
@@ -564,7 +675,7 @@ def _profil(spielordner=None):
     einem Spiel-Patch.
     """
     from . import fehler
-    leer = {'etiketten': {}, 'standard': {}}
+    leer = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
     merk = pfade.app_datei('aktionsnamen.json')
     stand = ''
     try:
@@ -587,7 +698,7 @@ def _profil(spielordner=None):
 
     from . import cryxml, spieltexte
     heraus = {'fassung': MERK_FASSUNG, 'stand': stand,
-              'etiketten': {}, 'standard': {}}
+              'etiketten': {}, 'standard': {}, 'gruppen': {}}
     try:
         p4k = spieltexte.p4k_pfad(spielordner)
         with open(p4k, 'rb') as f:
@@ -599,6 +710,19 @@ def _profil(spielordner=None):
         daten = (spieltexte.entpacke_zstd(roh, rs)[0] if methode == 100
                  else __import__('zlib').decompress(roh, -15))
         wurzel = cryxml.lesen(daten)
+        # ⚠ Über die **Gruppen** gehen, nicht flach über alle `action`-Knoten:
+        # Nur so kommt mit, in welchem `actionmap` eine Aktion lebt. Ohne die
+        # Gruppe landet eine neu angelegte Belegung in der falschen Sektion,
+        # und das Spiel findet sie nicht.
+        for gruppe in cryxml.alle(wurzel, 'actionmap'):
+            bereich = (gruppe.get('attribute') or {}).get('name', '')
+            for knoten in (gruppe.get('kinder') or []):
+                if knoten.get('name') != 'action':
+                    continue
+                at = knoten.get('attribute') or {}
+                name = at.get('name')
+                if name and bereich:
+                    heraus.setdefault('gruppen', {})[name] = bereich
         for knoten in cryxml.alle(wurzel, 'action'):
             at = knoten.get('attribute') or {}
             name = at.get('name')
@@ -673,16 +797,48 @@ def klarnamen(sprache='de', spielordner=None):
         return merk
     etiketten = (_profil(spielordner) or {}).get('etiketten') or {}
     texte = _ini_texte(sprache, spielordner)
+    # ⚠ Rueckfall auf Englisch: Wo CIG keinen deutschen Text hinterlegt hat,
+    # ist der englische immer noch besser als ein technisches Kuerzel.
+    ersatz = (_ini_texte('en', spielordner) if sprache != 'en' else {})
     heraus = {}
-    if etiketten and texte:
-        for aktion, paar in etiketten.items():
-            label, beschreibung = (paar + ['', ''])[:2]
-            name = texte.get((label or '').lstrip('@'), '')
-            hinweis = texte.get((beschreibung or '').lstrip('@'), '')
-            if name:
-                heraus[aktion] = (name, hinweis)
+    for aktion, paar in (etiketten or {}).items():
+        label, beschreibung = ((paar or []) + ['', ''])[:2]
+        schluessel = (label or '').lstrip('@')
+        name = texte.get(schluessel) or ersatz.get(schluessel) or ''
+        h_schluessel = (beschreibung or '').lstrip('@')
+        hinweis = texte.get(h_schluessel) or ersatz.get(h_schluessel) or ''
+        if not name:
+            # ⚠⚠ **Dritte Stufe, und sie ist noetig.** Gemessen am 04.09.2026:
+            # 314 Aktionen haben gar kein Etikett, bei weiteren 68 zeigt es
+            # ins Leere — dafuer gibt es auch im Spiel selbst keinen Namen.
+            # In der Liste stand dann `v_ads_stable_max_zoom_hold`.
+            #
+            # Aufbereitet wird **rein mechanisch**: Vorsilbe ab, Unterstriche
+            # zu Leerzeichen, Wortanfaenge gross. Das ist Formatierung, kein
+            # Erfinden — und die Oberflaeche zeigt solche Namen grau, damit
+            # der Unterschied zu einer echten Bezeichnung sichtbar bleibt.
+            name = _technisch_lesbar(aktion)
+            heraus[aktion] = (name, hinweis, False)
+            continue
+        heraus[aktion] = (name, hinweis, True)
     _KLARNAMEN[sprache] = heraus
     return heraus
+
+
+# Die Vorsilben, mit denen das Spiel seine Aktionen sortiert. Sie sagen nur,
+# in welchem Zusammenhang die Aktion steht, und stehen in der Anzeige im Weg.
+VORSILBEN_AKTION = ('v_', 'pl_', 'ui_', 'mg_', 'ca_', 'sc_')
+
+
+def _technisch_lesbar(aktion):
+    """`v_ads_stable_max_zoom_hold` → `Ads Stable Max Zoom Hold`."""
+    rest = aktion
+    for v in VORSILBEN_AKTION:
+        if rest.startswith(v):
+            rest = rest[len(v):]
+            break
+    rest = rest.replace('_', ' ').strip()
+    return ' '.join(w[:1].upper() + w[1:] for w in rest.split()) or aktion
 
 
 def vergessen():

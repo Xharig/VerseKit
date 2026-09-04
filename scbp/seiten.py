@@ -2289,17 +2289,30 @@ def _joysticks(fenster, rahmen):
         """
         return (k or '').split('-')[0]
 
-    def _geraetename(kennzeichen):
-        """`kb1` heißt „Tastatur", `js2` bleibt `js2`.
+    def _geraetename(kennzeichen, lang=False):
+        """Der Name, den ein Mensch versteht — nicht `js1`.
 
-        Bei Sticks ist die Nummer die eigentliche Information — sie steht ja
-        auch in der Belegungsdatei. Bei Tastatur und Maus gibt es nur eine,
-        da wäre „kb1" nur Fachsprache ohne Zusatznutzen.
+        ⚠⚠ **`js1` sagt niemandem etwas.** Es ist die Nummer, unter der das
+        Spiel das Gerät führt, und sie steht so auch in der Belegungsdatei —
+        aber wer vor der Liste sitzt, will wissen, ob das der linke oder der
+        rechte Stick ist. Deshalb steht hier der **Produktname**, so wie ihn
+        das Spiel selbst kennt; die Nummer wandert in Klammern dahinter, wo
+        sie beim Vergleich mit anderen Werkzeugen noch nützlich ist.
+
+        Ist das Gerät unbekannt (kommt in keiner Belegung vor), bleibt die
+        Nummer stehen — falsch raten wäre schlechter als technisch wirken.
         """
         art = joysticks.art_von(kennzeichen)
         if art in ('tastatur', 'maus', 'gamepad'):
             return t('s_js_a_' + art)
-        return kennzeichen
+        name = (daten.get('geraetenamen') or {}).get(kennzeichen, '')
+        if not name:
+            return kennzeichen
+        if lang:
+            return '%s (%s)' % (name, kennzeichen)
+        # In der Liste ist die Spalte schmal; der Anfang des Namens trägt die
+        # Unterscheidung („LEFT …" / „RIGHT …").
+        return name if len(name) <= 20 else (name[:19] + '…')
 
     def kopf_zeichnen():
         """Zustand und Geräteliste — nur beim Auffrischen, nicht beim Tippen."""
@@ -2402,7 +2415,13 @@ def _joysticks(fenster, rahmen):
 
         for schluessel, welche in ((('s_js_s_meine'), joysticks.MEINE),
                                    ('s_js_s_alles', joysticks.ALLES),
-                                   ('s_js_s_standard', joysticks.STANDARD)):
+                                   ('s_js_s_standard', joysticks.STANDARD),
+                                   # ⭐ Ohne diese Sicht käme man an 411
+                                   # Aktionen gar nicht heran: Was nirgends
+                                   # belegt ist, steht in keiner Liste — und
+                                   # was in keiner Liste steht, kann man auch
+                                   # nicht anklicken, um es zu belegen.
+                                   ('s_js_s_frei', joysticks.FREI)):
             _knopf(fenster, sicht_rahmen, t(schluessel),
                    (lambda w=welche: _waehlen(w)),
                    stark=(nur['sicht'] == welche)).pack(side='left',
@@ -2450,33 +2469,47 @@ def _joysticks(fenster, rahmen):
         begriff = (suche.get() or '').strip().lower()
         namen = daten.get('namen') or {}
         gezeigt = []
-        for art, kuerzel in joysticks.ARTEN:
+        gesehen = set()
+        arten = list(joysticks.ARTEN) + [('frei', joysticks.FREI)]
+        for _art, kuerzel in arten:
             for kennzeichen in sorted(k for k in alle
                                       if k.startswith(kuerzel)):
                 if nur['geraet'] and kennzeichen != nur['geraet']:
                     continue
                 for e in alle[kennzeichen]:
-                    klar, hinweis = namen.get(e['aktion'], ('', ''))
-                    # ⚠ Gesucht wird über **alles**, was der Spieler sehen
+                    klar, hinweis, echt = (namen.get(e['aktion'])
+                                           or ('', '', False))
+                    lesbar = joysticks.eingabe_lesbar(e['eingabe'],
+                                                      e.get('art', ''))
+                    # ⚠ Dieselbe Aktion steht in mehreren Gruppen der
+                    # Spieldatei. Ohne Entdoppelung erschien sie doppelt in
+                    # der Liste — mit identischer Zeile, was wie ein Fehler
+                    # aussieht.
+                    marke = (kennzeichen, e['eingabe'], e['aktion'])
+                    if marke in gesehen:
+                        continue
+                    gesehen.add(marke)
+                    # Gesucht wird über **alles**, was der Spieler sehen
                     # kann — den lesbaren Namen zuerst. Wer „Aussteigen"
                     # tippt, denkt nicht an `v_eject`; wer aus einer Anleitung
                     # `v_eject` kopiert, soll es trotzdem finden.
-                    if begriff and begriff not in ('%s %s %s %s %s' % (
-                            e['eingabe'], klar, hinweis, e['aktion'],
+                    if begriff and begriff not in ('%s %s %s %s %s %s' % (
+                            lesbar, e['eingabe'], klar, hinweis, e['aktion'],
                             e['bereich'])).lower():
                         continue
-                    gezeigt.append((kennzeichen, e, klar))
+                    gezeigt.append((kennzeichen, e, klar, lesbar, echt))
 
-        zaehler.configure(text='%s   ·   %s' % (t('s_js_bindungen',
-                                                  len(gezeigt)),
-                                                t('s_js_b_hinweis')))
+        zaehler.configure(text='%s   ·   %s' % (
+            t('s_js_bindungen', len(gezeigt)),
+            t('s_js_frei_hinweis') if nur['sicht'] == joysticks.FREI
+            else t('s_js_b_hinweis')))
         if not gezeigt:
             tk.Label(liste_rahmen, text=t('s_js_nichts'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
             return
         # ⚠ Dieselbe Grenze wie in der Bauplan-Liste: Wer alle Geräte auf
         # einmal zeigt, hat schnell dreihundert Zeilen und wartet beim Öffnen.
-        for kennzeichen, e, klar in gezeigt[:200]:
+        for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
             zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
             zeile.pack(fill='x', pady=1)
 
@@ -2492,15 +2525,16 @@ def _joysticks(fenster, rahmen):
 
             _anfassen(zeile)
             tk.Label(zeile, text=_geraetename(kennzeichen), bg=FLAECHE,
-                     fg=SUB, font=fenster.f_klein, width=9, anchor='w',
+                     fg=SUB, font=fenster.f_klein, width=21, anchor='w',
                      padx=10, pady=6).pack(side='left')
-            tk.Label(zeile, text=e['eingabe'], bg=FLAECHE, fg=ACCENT,
-                     font=fenster.f_klein, width=15, anchor='w').pack(
+            tk.Label(zeile, text=(lesbar or t('s_js_ohne_eingabe')),
+                     bg=FLAECHE, fg=(ACCENT if lesbar else SUB),
+                     font=fenster.f_klein, width=17, anchor='w').pack(
                          side='left')
-            # Der lesbare Name führt; nur wenn es keinen gibt, steht der
-            # technische da — dann aber grau, damit der Unterschied auffällt.
+            # ⚠ Grau heißt „das ist keine Bezeichnung des Spiels, sondern der
+            # aufbereitete technische Name" — 382 Aktionen haben keine.
             tk.Label(zeile, text=(klar or e['aktion']), bg=FLAECHE,
-                     fg=(FG if klar else SUB), font=fenster.f_klein,
+                     fg=(FG if echt else SUB), font=fenster.f_klein,
                      anchor='w').pack(side='left')
             # Was der Spieler selbst geändert hat, wird gekennzeichnet —
             # sonst sieht man in der Gesamtsicht nicht, was von einem selbst
@@ -2536,7 +2570,13 @@ def _joysticks(fenster, rahmen):
         Gruppe aus der eigenen Datei gesucht.
         """
         from .belegenfenster import Belegenfenster
-        bereich = eintrag.get('bereich') or _bereich_suchen(eintrag['aktion'])
+        bereich = (eintrag.get('bereich')
+                   or joysticks.gruppe_von(eintrag['aktion'])
+                   or _bereich_suchen(eintrag['aktion']))
+        if kennzeichen == joysticks.FREI:
+            # Eine unbelegte Aktion gehört noch zu keinem Gerät — welches es
+            # wird, entscheidet der Knopf, den der Spieler gleich drückt.
+            kennzeichen = ''
         try:
             Belegenfenster(fenster.root, eintrag['aktion'], bereich,
                            kennzeichen, klarname=klar,
@@ -2571,9 +2611,15 @@ def _joysticks(fenster, rahmen):
         from .sprache import aktuelle
         try:
             daten['vergleich'] = joysticks.vergleich()
+            # Nummer → Produktname, damit in der Liste nicht `js1` steht.
+            daten['geraetenamen'] = {
+                'js%d' % z['nummer']: z['name']
+                for z in (daten['vergleich'].get('zuordnung') or [])
+                if z.get('name')}
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks', ausnahme)
             daten['vergleich'] = {}
+            daten['geraetenamen'] = {}
         try:
             # ⚠ Die Klarnamen richten sich nach der **Programmsprache**, nicht
             # nach der Spielsprache: Wer den englischen Client fährt, aber die

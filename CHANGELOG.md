@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc4 - 2026-09-04
+
+> Die Liste liest sich jetzt wie ein Satz statt wie ein Datenauszug: Statt
+> `js2 · x · v_boost` steht dort der Name deines Sticks, „Achse X" und
+> „Boost". Und die 444 Aktionen, für die es ab Werk keine Taste gibt, sind
+> jetzt überhaupt erreichbar.
+
+### Neu
+
+- **Aktionen ohne jede Belegung** haben eine eigene Ansicht bekommen — *Noch
+  nicht belegt*. Ohne sie kam man an sie nicht heran: Was nirgends belegt ist,
+  stand in keiner Liste, und was in keiner Liste steht, kann man auch nicht
+  anklicken, um es zu belegen. Betrifft **444 Aktionen** — Emotes, Bergbau-
+  Feinheiten, Notfallbefehle.
+
+### Verbessert
+
+- **Der Gerätename steht in der Liste, nicht `js1`.** Die Nummer sagt nur dem
+  Spiel etwas; wer davorsitzt, will wissen, ob das der linke oder der rechte
+  Stick ist.
+- **Eingaben im Klartext.** Aus `x` wird „Achse X", aus `button23` „Knopf 23",
+  aus `hat1_up` „Hut 1 ↑", aus `lshift` „Umschalt links". Wichtig bei den
+  Achsen: `x` allein las sich wie die Taste X.
+- **Mehr Aktionen mit Namen.** Fehlt die deutsche Bezeichnung, wird jetzt die
+  englische genommen statt gar keine. Für die 382 Aktionen, denen das Spiel
+  selbst keinen Namen gibt, steht ein aufbereiteter Name da (`v_boost` →
+  „Boost") — grau, damit der Unterschied zu einer echten Bezeichnung sichtbar
+  bleibt.
+- Dieselbe Belegung erscheint nicht mehr doppelt, wenn die Aktion in mehreren
+  Gruppen des Spiels steht.
+
 ## v3.14.0-rc3 - 2026-09-04
 
 > Jetzt kannst du auch belegen: Zeile anklicken, Knopf oder Taste drücken,

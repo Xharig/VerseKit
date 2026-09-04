@@ -6,6 +6,34 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc4 - 2026-09-04
+
+> The list now reads like a sentence instead of a data dump: instead of
+> `js2 · x · v_boost` you get your stick's name, "Axis X" and "Boost". And the
+> 444 actions that have no key at all are finally reachable.
+
+### New
+
+- **Actions with no binding at all** got their own view — *Not bound yet*.
+  Without it you could not get at them: what is bound nowhere appears in no
+  list, and what appears in no list cannot be clicked to bind it. That covers
+  **444 actions** — emotes, mining details, emergency commands.
+
+### Improved
+
+- **The device name is in the list, not `js1`.** The number only means
+  something to the game; whoever sits in front of the list wants to know
+  whether that is the left or the right stick.
+- **Inputs in plain language.** `x` becomes "Axis X", `button23` "Button 23",
+  `hat1_up` "Hat 1 ↑", `lshift` "Left Shift". This matters most for axes: `x`
+  on its own read like the X key.
+- **More actions with names.** Where the German wording is missing, the
+  English one is used instead of none. For the 382 actions the game itself
+  gives no name to, a tidied-up name is shown (`v_boost` → "Boost") — in grey,
+  so the difference from a real name stays visible.
+- The same binding no longer appears twice when the action sits in several of
+  the game's groups.
+
 ## v3.14.0-rc3 - 2026-09-04
 
 > Now you can rebind as well: click a row, press the button or key, apply.
