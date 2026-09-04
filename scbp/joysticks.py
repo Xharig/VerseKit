@@ -988,6 +988,123 @@ def konflikte(aktion, kennzeichen, eingabe, datei=None, ordner=None):
     return heraus
 
 
+def zuruecksetzen(datei=None, ordner=None):
+    """Alle eigenen Belegungen verwerfen — zurueck auf Werkseinstellung.
+
+    ⚠⚠ **Das ist der Knopf, der am meisten kaputtmachen kann.** Er wirft die
+    komplette Arbeit weg, die jemand in seine Steuerung gesteckt hat. Deshalb:
+
+    * Die Oberflaeche fragt vorher **ausdruecklich** nach.
+    * Vorher entsteht eine Sicherung neben der Datei — der Rueckweg ist ein
+      Umbenennen.
+    * Entfernt werden **nur die Tastenbelegungen** (`<actionmap>`). Was an
+      den Geraeten eingestellt ist — Totzonen, Kurven, Empfindlichkeit
+      (`<deviceoptions>`, `<options>`) — bleibt stehen. Das sind
+      Geraeteeinstellungen, keine Belegung, und wer „Belegung zuruecksetzen"
+      drueckt, will seine Totzonen nicht neu einmessen.
+
+    Liefert `(erfolg, meldung, anzahl geloeschter Gruppen)`.
+    """
+    from . import fehler
+    weg = datei or _pfad_actionmaps(ordner)
+    if not weg or not os.path.isfile(weg):
+        return False, 's_js_f_datei', 0
+    try:
+        baum = ET.parse(weg)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.zuruecksetzen_lesen', ausnahme)
+        return False, 's_js_f_lesen', 0
+
+    wurzel = baum.getroot()
+    eltern = wurzel.find('ActionProfiles')
+    if eltern is None:
+        eltern = wurzel
+    weggeworfen = 0
+    for gruppe in list(eltern.findall('actionmap')):
+        eltern.remove(gruppe)
+        weggeworfen += 1
+    if not weggeworfen:
+        return False, 's_js_f_gleich', 0
+    return _schreiben(weg, baum, weggeworfen)
+
+
+def ausgeben(ziel, sprache='de', datei=None, ordner=None):
+    """Die Belegung als lesbare Datei ausgeben.
+
+    Zwei Formate, am Dateinamen erkannt:
+
+    | Endung | Was drin steht |
+    |---|---|
+    | `.xml` | die `actionmaps.xml` **unveraendert** — zum Sichern und Teilen |
+    | `.csv` | Geraet, Eingabe, Aktion, Gruppe — zum Nachschlagen und Drucken |
+
+    ⭐ **Die XML-Kopie ist der Weg, den man sonst nur im Spiel hat**
+    (`pp_rebindkeys export …` in der Konsole). Wer seine Belegung sichern oder
+    einem Staffelkameraden geben will, muss dafuer jetzt nicht mehr ins Spiel.
+
+    Liefert `(erfolg, meldung)`.
+    """
+    from . import fehler
+    quelle = datei or _pfad_actionmaps(ordner)
+    if not quelle or not os.path.isfile(quelle):
+        return False, 's_js_f_datei'
+    try:
+        if ziel.lower().endswith('.csv'):
+            namen = klarnamen(sprache, ordner)
+            zeilen = ['Geraet;Eingabe;Aktion;Bezeichnung;Gruppe;Quelle']
+            for kennzeichen, liste in sorted(sicht(ALLES, datei,
+                                                   ordner).items()):
+                for e in liste:
+                    klar = (namen.get(e['aktion']) or ('', '', False))[0]
+                    zeilen.append(';'.join(
+                        # ⚠ Semikolon im Text wuerde die Spalten zerreissen —
+                        # es kommt in Bezeichnungen des Spiels tatsaechlich vor.
+                        (feld or '').replace(';', ',')
+                        for feld in (kennzeichen, e['eingabe'], e['aktion'],
+                                     klar, e['bereich'], e.get('quelle', ''))))
+            with open(ziel, 'w', encoding='utf-8-sig', newline='') as f:
+                # ⚠ `utf-8-sig`: Excel liest UTF-8 ohne Vorspann als
+                # Windows-1252 und macht aus „Schleudersitz" Buchstabensalat.
+                f.write(chr(10).join(zeilen) + chr(10))
+        else:
+            shutil.copy2(quelle, ziel)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.ausgeben', ausnahme)
+        return False, 's_js_f_schreiben'
+    return True, ziel
+
+
+def einlesen(quelle, datei=None, ordner=None):
+    """Eine zuvor ausgegebene `actionmaps.xml` wieder einspielen.
+
+    ⚠ Es wird geprueft, ob die Datei ueberhaupt danach aussieht — sonst
+    landet irgendeine XML-Datei als Steuerung im Spiel. Und auch hier gilt:
+    erst Sicherung, dann schreiben.
+    """
+    from . import fehler
+    ziel = datei or _pfad_actionmaps(ordner)
+    if not ziel or not os.path.isfile(ziel):
+        return False, 's_js_f_datei', 0
+    if not quelle or not os.path.isfile(quelle):
+        return False, 's_js_f_datei', 0
+    try:
+        baum = ET.parse(quelle)
+    except Exception:
+        return False, 's_js_f_fremd', 0
+    wurzel = baum.getroot()
+    if wurzel.tag != 'ActionMaps':
+        return False, 's_js_f_fremd', 0
+    anzahl = len(list(wurzel.iter('actionmap')))
+    try:
+        sicherung = '%s.scbpw-%s' % (ziel, time.strftime('%Y%m%d-%H%M%S'))
+        shutil.copy2(ziel, sicherung)
+        shutil.copy2(quelle, ziel)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.einlesen', ausnahme)
+        return False, 's_js_f_schreiben', 0
+    return True, sicherung, anzahl
+
+
 def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
     """Ein Geraet unter neuer Kennung an seine alte Belegung anschliessen.
 

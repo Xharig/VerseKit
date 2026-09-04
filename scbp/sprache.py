@@ -828,8 +828,10 @@ TEXTE = {
     's_js_q_meine':    ('geändert', 'changed'),
     # Eingaben im Klartext. ⚠ „Achse X" statt „x": Auf einer Tastatur ist `x`
     # ein Buchstabe — in der Liste eines Sticks las sich die Zeile falsch.
-    's_js_e_achse':     ('Achse %s', 'Axis %s'),
-    's_js_e_drehachse': ('Drehachse %s', 'Rotation %s'),
+    # ⚠ Im Deutschen heißt es „X-Achse", nicht „Achse X" — im Englischen
+    # umgekehrt „Axis X". Deshalb zwei verschiedene Satzstellungen.
+    's_js_e_achse':     ('%s-Achse', 'Axis %s'),
+    's_js_e_drehachse': ('%s-Drehachse', 'Rotation %s'),
     's_js_e_knopf':     ('Knopf %d', 'Button %d'),
     's_js_e_schieber':  ('Schieber %d', 'Slider %d'),
     's_js_e_hut':       ('Hut %d %s', 'Hat %d %s'),
@@ -875,6 +877,36 @@ TEXTE = {
                             'These actions have no key yet. Click a row and '
                             'press whatever you want for it.'),
     's_js_ohne_eingabe': ('—', '—'),
+    # Zurücksetzen, Ausgeben, Einlesen.
+    's_js_zurueck':    ('Auf Werkseinstellung zurücksetzen',
+                          'Reset to defaults'),
+    's_js_zurueck_frage': ('Wirklich alle eigenen Tastenbelegungen '
+                           'verwerfen?\n\nDanach gilt überall wieder die '
+                           'Werkseinstellung des Spiels — deine %d eigenen '
+                           'Belegungen sind weg.\n\nTotzonen, Kurven und '
+                           'Empfindlichkeit bleiben unangetastet. Eine '
+                           'Sicherung wird vorher angelegt.',
+                             'Really discard all your own key bindings?\n\nThe '
+                             'game\'s defaults apply everywhere afterwards — '
+                             'your %d own bindings will be gone.\n\nDeadzones, '
+                             'curves and sensitivity stay untouched. A backup '
+                             'is written first.'),
+    's_js_zurueck_ok': ('Zurückgesetzt. Sicherung: %s',
+                          'Reset. Backup: %s'),
+    's_js_ausgeben':   ('Belegung sichern', 'Export bindings'),
+    's_js_ausgeben_csv': ('Als Liste (CSV)', 'As a list (CSV)'),
+    's_js_einlesen':   ('Belegung einspielen', 'Import bindings'),
+    's_js_ausgabe_ok': ('Gesichert: %s', 'Exported: %s'),
+    's_js_einlesen_ok': ('Eingespielt — %d Gruppen. Sicherung: %s',
+                           'Imported — %d groups. Backup: %s'),
+    's_js_f_fremd':    ('Das sieht nicht nach einer Belegungsdatei von Star '
+                        'Citizen aus.',
+                          'That does not look like a Star Citizen bindings '
+                          'file.'),
+    's_js_einlesen_frage': ('Deine jetzige Belegung wird dabei ersetzt. Eine '
+                            'Sicherung wird vorher angelegt. Fortfahren?',
+                              'Your current bindings will be replaced. A backup '
+                              'is written first. Continue?'),
     # Das Fenster zum Neubelegen.
     's_js_b_titel':    ('Neu belegen', 'Rebind'),
     's_js_b_druecke':  ('Drücke jetzt die Taste, den Knopf oder die Maustaste, '

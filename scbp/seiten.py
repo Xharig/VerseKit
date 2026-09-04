@@ -2268,6 +2268,7 @@ def _joysticks(fenster, rahmen):
 
     kopfzeile = tk.Label(unten, text=t('s_js_belegt'), bg=BG, fg=FG,
                          font=fenster.f_fett, anchor='w')
+    werkzeugleiste = tk.Frame(unten, bg=BG)
     sicht_rahmen = tk.Frame(unten, bg=BG)
     filter_rahmen = tk.Frame(unten, bg=BG)
     werkzeug = tk.Frame(unten, bg=BG)
@@ -2391,6 +2392,86 @@ def _joysticks(fenster, rahmen):
                          side='left')
             tk.Label(zeile, text=z['name'], bg=FLAECHE, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(side='left')
+
+    def _zuruecksetzen():
+        """Alle eigenen Belegungen verwerfen — mit ausdrücklicher Rückfrage.
+
+        ⚠⚠ Der gefährlichste Knopf auf der Seite: Er wirft weg, woran jemand
+        einen Abend gesessen hat. Deshalb nennt die Frage die **Anzahl** der
+        betroffenen Belegungen — „alles zurücksetzen?" ist zu abstrakt, um
+        eine Entscheidung darauf zu stützen.
+        """
+        from tkinter import messagebox
+        eigene = 0
+        for liste in (joysticks.sicht(joysticks.MEINE) or {}).values():
+            eigene += len(liste)
+        if not messagebox.askyesno(t('s_js_zurueck'),
+                                   t('s_js_zurueck_frage', eigene),
+                                   icon='warning', default='no'):
+            return
+        erfolg, meldung, _ = joysticks.zuruecksetzen()
+        if erfolg:
+            messagebox.showinfo(t('hf_joysticks'),
+                                t('s_js_zurueck_ok', meldung))
+        else:
+            messagebox.showwarning(t('hf_joysticks'),
+                                   t('s_js_schief', t(meldung)))
+        _auffrischen()
+
+    def _ausgeben(als_csv=False):
+        """Die Belegung als Datei sichern — ohne Umweg über die Spielkonsole."""
+        from tkinter import messagebox
+        from . import dateiwahl
+        from .sprache import aktuelle
+        endung = '.csv' if als_csv else '.xml'
+        ziel = dateiwahl.datei_speichern(
+            t('s_js_ausgeben'),
+            vorschlag='actionmaps' + endung, endung=endung)
+        if not ziel:
+            return
+        erfolg, meldung = joysticks.ausgeben(ziel, aktuelle())
+        if erfolg:
+            messagebox.showinfo(t('hf_joysticks'),
+                                t('s_js_ausgabe_ok', meldung))
+        else:
+            messagebox.showwarning(t('hf_joysticks'),
+                                   t('s_js_schief', t(meldung)))
+
+    def _einlesen():
+        from tkinter import messagebox
+        from . import dateiwahl
+        quelle = dateiwahl.datei_oeffnen(t('s_js_einlesen'),
+                                         muster=(('XML', '*.xml'),))
+        if not quelle:
+            return
+        if not messagebox.askyesno(t('s_js_einlesen'),
+                                   t('s_js_einlesen_frage'),
+                                   icon='warning', default='no'):
+            return
+        erfolg, meldung, anzahl = joysticks.einlesen(quelle)
+        if erfolg:
+            messagebox.showinfo(t('hf_joysticks'),
+                                t('s_js_einlesen_ok', anzahl, meldung))
+        else:
+            messagebox.showwarning(t('hf_joysticks'),
+                                   t('s_js_schief', t(meldung)))
+        _auffrischen()
+
+    def werkzeug_zeichnen():
+        """Sichern, Einspielen, Zurücksetzen — einmal gebaut, bleibt stehen."""
+        for kind in werkzeugleiste.winfo_children():
+            kind.destroy()
+        _knopf(fenster, werkzeugleiste, t('s_js_ausgeben'),
+               lambda: _ausgeben(False)).pack(side='left', padx=(0, 6))
+        _knopf(fenster, werkzeugleiste, t('s_js_ausgeben_csv'),
+               lambda: _ausgeben(True)).pack(side='left', padx=(0, 6))
+        _knopf(fenster, werkzeugleiste, t('s_js_einlesen'),
+               _einlesen).pack(side='left', padx=(0, 6))
+        # ⚠ `gefahr=True` färbt dauerhaft rot, nicht erst beim Überfahren —
+        # ein Knopf, der erst warnt, wenn die Maus schon darauf steht, warnt
+        # niemanden.
+        _knopf(fenster, werkzeugleiste, t('s_js_zurueck'), _zuruecksetzen,
+               gefahr=True).pack(side='right')
 
     def sicht_zeichnen():
         """Die drei Sichten: was ich geändert habe · alles · Werkseinstellung.
@@ -2635,15 +2716,17 @@ def _joysticks(fenster, rahmen):
         # ein Suchfeld über einer leeren Liste ist nur Ballast.
         if daten.get('belegungen') or nur['sicht'] != joysticks.ALLES:
             kopfzeile.pack(fill='x', pady=(16, 4))
+            werkzeugleiste.pack(fill='x', pady=(0, 10))
             sicht_rahmen.pack(fill='x', pady=(0, 6))
             filter_rahmen.pack(fill='x', pady=(0, 6))
             werkzeug.pack(fill='x', pady=(2, 6))
             zaehler.pack(fill='x', pady=(0, 4))
             liste_rahmen.pack(fill='both', expand=True)
         else:
-            for teil in (kopfzeile, sicht_rahmen, filter_rahmen, werkzeug,
-                         zaehler, liste_rahmen):
+            for teil in (kopfzeile, werkzeugleiste, sicht_rahmen,
+                         filter_rahmen, werkzeug, zaehler, liste_rahmen):
                 teil.pack_forget()
+        werkzeug_zeichnen()
         sicht_zeichnen()
         filter_zeichnen()
         liste_zeichnen()

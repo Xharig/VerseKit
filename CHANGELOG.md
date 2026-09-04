@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc5 - 2026-09-04
+
+> Sichern, einspielen, zurücksetzen: Deine Belegung lässt sich jetzt als Datei
+> wegschreiben und wieder einlesen — den Umweg über die Spielkonsole brauchst
+> du dafür nicht mehr.
+
+### Neu
+
+- **Belegung sichern und einspielen.** Als `actionmaps.xml` zum Aufheben oder
+  Weitergeben, oder als **CSV-Liste** zum Nachschlagen und Ausdrucken. Bisher
+  ging das nur über `pp_rebindkeys export` in der Spielkonsole.
+- **Auf Werkseinstellung zurücksetzen.** Ein Knopf, rot und mit ausdrücklicher
+  Rückfrage, die auch sagt, wie viele eigene Belegungen betroffen sind.
+  Totzonen, Kurven und Empfindlichkeit bleiben dabei unangetastet — das sind
+  Geräteeinstellungen, keine Belegung. Vorher entsteht eine Sicherung.
+
+### Verbessert
+
+- **„X-Achse" statt „Achse X"** — im Deutschen herum, wie man es sagt.
+
 ## v3.14.0-rc4 - 2026-09-04
 
 > Die Liste liest sich jetzt wie ein Satz statt wie ein Datenauszug: Statt

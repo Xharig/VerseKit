@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc5 - 2026-09-04
+
+> Export, import, reset: your bindings can now be written to a file and read
+> back — no detour through the game console needed.
+
+### New
+
+- **Export and import bindings.** As `actionmaps.xml` to keep or pass on, or
+  as a **CSV list** to look up and print. Until now that only worked via
+  `pp_rebindkeys export` in the game console.
+- **Reset to defaults.** One button, red and with an explicit confirmation
+  that also says how many of your own bindings are affected. Deadzones, curves
+  and sensitivity stay untouched — those are device settings, not bindings. A
+  backup is written first.
+
+### Improved
+
+- Axis wording now follows each language's own habit.
+
 ## v3.14.0-rc4 - 2026-09-04
 
 > The list now reads like a sentence instead of a data dump: instead of

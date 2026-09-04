@@ -10429,6 +10429,51 @@ def main():
         except Exception:
             _heil115 = False
         pruefe(_heil115, 'die Datei ist gueltiges XML geblieben')
+
+        # 6. Sichern und wieder einspielen — der Weg, den man sonst nur ueber
+        #    die Spielkonsole hat.
+        _kopie115 = os.path.join(_wiese115, 'gesichert.xml')
+        _ok115, _ = _js115.ausgeben(_kopie115, 'de', datei=_datei115)
+        pruefe(_ok115 and os.path.isfile(_kopie115),
+               'die Belegung laesst sich als Datei sichern')
+        _liste115 = os.path.join(_wiese115, 'liste.csv')
+        _js115.ausgeben(_liste115, 'de', datei=_datei115)
+        with open(_liste115, encoding='utf-8-sig') as _f115:
+            _csv115 = _f115.read()
+        pruefe(_csv115.startswith('Geraet;') and 'v_lights' in _csv115,
+               'die Liste als CSV enthaelt die Belegungen')
+        # ⚠ Eine fremde XML-Datei darf NICHT als Belegung durchgehen — sonst
+        # landet irgendetwas als Steuerung im Spiel.
+        _fremd115 = os.path.join(_wiese115, 'fremd.xml')
+        with open(_fremd115, 'w', encoding='utf-8') as _f115:
+            _f115.write('<Etwas><Anderes/></Etwas>')
+        _ok115, _, _ = _js115.einlesen(_fremd115, datei=_datei115)
+        pruefe(not _ok115, 'eine fremde XML-Datei wird abgelehnt')
+
+        # 7. ⚠⚠ Zuruecksetzen wirft die Belegungen weg — aber NICHT die
+        #    Geraeteeinstellungen. Wer „Belegung zuruecksetzen" drueckt, will
+        #    seine Totzonen nicht neu einmessen.
+        with open(_datei115, encoding='utf-8') as _f115:
+            _vor115 = _f115.read()
+        _dev115 = ('<deviceoptions name="Stick">' + chr(10) +
+                   '   <option input="x" deadzone="0.1"/>' + chr(10) +
+                   '  </deviceoptions>' + chr(10) + '  ')
+        with open(_datei115, 'w', encoding='utf-8') as _f115:
+            _f115.write(_vor115.replace('  <actionmap', '  ' + _dev115
+                                        + '<actionmap', 1))
+        _ok115, _m115, _n115 = _js115.zuruecksetzen(datei=_datei115)
+        with open(_datei115, encoding='utf-8') as _f115:
+            _nach115 = _f115.read()
+        pruefe(_ok115 and _n115 >= 1, 'das Zuruecksetzen entfernt die Gruppen')
+        pruefe(not _js115.belegungen(datei=_datei115),
+               'danach ist keine eigene Belegung mehr da')
+        pruefe('deadzone' in _nach115,
+               'Totzonen und Kurven bleiben beim Zuruecksetzen stehen')
+
+        # 8. Und die Sicherung von vorhin laesst sich wieder einspielen.
+        _ok115, _m115, _n115 = _js115.einlesen(_kopie115, datei=_datei115)
+        pruefe(_ok115 and _js115.belegungen(datei=_datei115),
+               'die gesicherte Belegung laesst sich zurueckholen')
     finally:
         shutil.rmtree(_wiese115, ignore_errors=True)
 
