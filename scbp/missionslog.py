@@ -62,7 +62,13 @@ import re
 from . import auftraege, fehler, pfade
 
 DATEI = 'auftragslog.json'
-FORMAT = 1
+# ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
+# sich nicht nachtraeglich glattziehen lassen — Auftraege, die ewig „laeuft"
+# blieben, und Bauplaene, die dadurch am falschen Auftrag haengen. Beides
+# entsteht beim Lesen, also wird beim Formatwechsel **komplett neu gelesen**
+# statt repariert. Das kostet einmalig ein paar Sekunden beim Start und ist
+# der einzige Weg zu sauberen Daten.
+FORMAT = 2
 
 # Der Zeitstempel am Zeilenanfang: <2026-08-29T16:02:14.792Z>
 _ZEIT = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
@@ -74,6 +80,10 @@ _ENDE_ART = re.compile(r'<EndMission>.*?MissionId\[(?P<mid>[^\]]*)\]'
 ABGESCHLOSSEN = 'abgeschlossen'
 ABGEBROCHEN = 'abgebrochen'
 LAEUFT = 'laeuft'
+# ⚠ Kein Ende im Log, aber sicher nicht mehr offen — siehe `_verfallene_schliessen`.
+# Bewusst NICHT als „abgebrochen" gefuehrt: Wir wissen nur, dass er nicht mehr
+# laeuft, nicht warum. Eine Behauptung waere schlimmer als eine ehrliche Luecke.
+VERFALLEN = 'verfallen'
 
 
 def _zeit(zeile):
@@ -108,27 +118,56 @@ def _sekunden(stempel):
         return None
 
 
-def _bp_zuordnen(name, wann, offen, fertig):
+def _bp_zuordnen(name, wann, offen, fertig, gemeldet=None):
     """Einen gefundenen Bauplan dem Auftrag zuschreiben, zu dem er gehoert.
 
     ⚠ **Laufender Auftrag zuerst, erst dann der gerade beendete.** Wer einen
     Auftrag abgibt und sofort den naechsten annimmt, bekommt die Belohnung des
     alten — waehrend der neue schon laeuft. Andersherum gepruefte Reihenfolge
     haette sie dem neuen zugeschrieben.
+
+    ⚠⚠ **Ein Auftrag gibt hoechstens EINEN Bauplan her.** Das ist eine Regel
+    des Spiels, keine Annahme. Wer sie nicht kennt, baut genau den Fehler, der
+    hier lange drinsteckte: Ein Auftrag, der faelschlich als „laeuft" stehen
+    blieb, sammelte jeden spaeter gefundenen Bauplan ein — gemessen am
+    04.09.2026 hingen an einem Auftrag vom 23.06. **zwoelf** Stueck, an einem
+    vom 07.08. sieben, darunter Teile, die es dort gar nicht gibt.
+
+    Wer schon einen hat, scheidet deshalb aus. Bleibt niemand uebrig, wird der
+    Bauplan **keinem** Auftrag zugeschrieben: Er kann aus der Herstellung
+    stammen oder aus einem Auftrag, dessen Annahme in keinem noch vorhandenen
+    Log steht. Lieber keine Zuordnung als eine erfundene.
+
+    ⚠⚠ **`gemeldet` sind die Auftraege DIESER Sitzung.** Ein offener Auftrag
+    aus einer frueheren Sitzung, den das Spiel hier nicht mehr nennt, laeuft
+    nicht mehr — er darf nichts bekommen. Das Aufraeumen in
+    `_verfallene_schliessen()` allein genuegt dafuer nicht: Es kann erst
+    greifen, wenn die Datei durch ist, waehrend der Bauplan mittendrin faellt.
+
+    Gemessen am 04.09.2026: „Willkommen im System" endete um 07:21:55, eine
+    Sekunde spaeter fiel „Clearcut Module" — zugeschrieben wurde es einem
+    Auftrag vom **31.08.**, der nur deshalb noch offen schien.
+
+    Verlassen kann man sich darauf, weil das Spiel beim Einloggen jeden
+    laufenden Auftrag erneut meldet, also am ANFANG der Datei — lange vor
+    jedem Bauplan-Fund darin.
     """
-    if offen:
-        ziel = offen[-1]
-        if name not in ziel['bauplaene']:
-            ziel.setdefault('bauplaene', []).append(name)
+    for ziel in reversed(offen):
+        if ziel.get('bauplaene'):
+            continue            # hat seinen Bauplan schon — Spielregel
+        if gemeldet is not None and ziel['name'] not in gemeldet:
+            continue            # laeuft in dieser Sitzung gar nicht
+        ziel.setdefault('bauplaene', []).append(name)
         return True
     jetzt = _sekunden(wann)
     if jetzt is None:
         return False
     for eintrag in reversed(fertig):
+        if eintrag.get('bauplaene'):
+            continue
         ende = _sekunden(eintrag.get('bis') or '')
         if ende is not None and 0 <= jetzt - ende <= BP_NACHLAUF_SEK:
-            if name not in eintrag.setdefault('bauplaene', []):
-                eintrag['bauplaene'].append(name)
+            eintrag.setdefault('bauplaene', []).append(name)
             return True
     return False
 
@@ -139,10 +178,14 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
 
     `offen` und `fertig` werden ueber Dateigrenzen hinweg weitergereicht —
     ein Auftrag kann in einer spaeteren Sitzung enden als er begann.
+
+    Gibt die Titel zurueck, die diese Sitzung als angenommen gemeldet hat —
+    **auch die Wiederaufnahmen**. `_verfallene_schliessen()` braucht genau das.
     """
     quelle = os.path.basename(pfad)
     enden = {}          # mission_id -> 'Complete' | 'Abandon'
     ziele = {}          # mission_id -> {objective_id: zustand}
+    gemeldet = set()    # welche Auftraege diese Sitzung ueberhaupt nennt
 
     try:
         with open(pfad, encoding='utf-8', errors='replace') as f:
@@ -173,7 +216,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         if (bp_wann, name_bp, 'bp') in gesehen:
                             continue    # dieselbe Doppelmeldung wie oben
                         gesehen.add((bp_wann, name_bp, 'bp'))
-                        _bp_zuordnen(name_bp, bp_wann, offen, fertig)
+                        _bp_zuordnen(name_bp, bp_wann, offen, fertig, gemeldet)
 
                 ereignisse = auftraege.ereignisse_aus_text(
                     zeile, muster_an, muster_aus)
@@ -218,6 +261,10 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         # derselbe mit aufgeloestem Rang („NEULING").
                         if not titel or '~mission(' in titel:
                             continue
+                        # ⚠ VOR der Wiederaufnahme-Pruefung merken: Gerade die
+                        # Wiederaufnahme ist der Beweis, dass der Auftrag in
+                        # dieser Sitzung noch lief.
+                        gemeldet.add(titel)
                         # ⚠⚠ **Wiederaufnahme ist keine neue Annahme.** Beim
                         # Einloggen meldet das Spiel jeden laufenden Auftrag
                         # erneut als angenommen. Ohne diese Pruefung stand
@@ -275,7 +322,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                             break
     except OSError as ausnahme:
         fehler.merken('missionslog.lesen', ausnahme)
-        return
+        return gemeldet
 
     # Fortschritt nur, wo die Zuordnung eindeutig ist: Das Log verbindet Titel
     # und Missionskennung nirgends. Bei genau einem offenen Auftrag und genau
@@ -290,6 +337,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
             offen[0]['ziele_gesamt'] = len(echte)
             offen[0]['ziele_fertig'] = sum(
                 1 for v in echte.values() if str(v).upper().endswith('COMPLETED'))
+    return gemeldet
 
 
 def aus_dateien(pfade):
@@ -310,10 +358,52 @@ def aus_dateien(pfade):
         fehler.merken('missionslog.bp_muster', ausnahme)
         bp_muster = None
     for pfad in pfade:
-        _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
-               bp_muster)
+        gemeldet = _lesen(pfad, offen, fertig, gesehen, kennung, muster_an,
+                          muster_aus, bp_muster)
+        _verfallene_schliessen(offen, fertig, gemeldet, _spielzeit(pfad))
     return sorted(fertig + offen, key=lambda e: e.get('wann') or '',
                   reverse=True)
+
+
+def _verfallene_schliessen(offen, fertig, gemeldet, sitzung):
+    """Auftraege beenden, die eine spaetere Sitzung nicht mehr kennt.
+
+    ⚠⚠ **Das ist die Obergrenze, die dem Protokoll gefehlt hat.** Ausloggen
+    beendet keinen Auftrag (siehe `_lesen`) — aber irgendwann ist er trotzdem
+    vorbei, und ohne diese Regel stand er fuer immer auf „laeuft". Gemessen am
+    04.09.2026: **43** solcher Karteileichen, die aelteste vom 23.06., und sie
+    richteten Folgeschaden an — ein scheinbar laufender Auftrag sammelt jeden
+    spaeter gefundenen Bauplan ein (siehe `_bp_zuordnen`).
+
+    Die Regel kommt aus dem Spiel selbst, nicht aus einer Zeitschaetzung:
+    **Beim Einloggen meldet Star Citizen jeden noch laufenden Auftrag erneut
+    als angenommen.** Wird ein Auftrag in einer spaeteren Sitzung also nicht
+    mehr genannt, kann er dort nicht mehr offen gewesen sein. An 181 echten
+    Sicherungen loeste das alle 43 Faelle auf, ohne einen einzigen Zweifelsfall.
+
+    ⚠ **Eine stumme Sitzung beweist nichts.** Wer sich einloggt und ohne
+    Auftrag herumfliegt (oder wessen Log nach einem Absturz abbricht), meldet
+    gar nichts — daraus zu schliessen, alle Auftraege seien vorbei, waere
+    falsch. Deshalb greift die Regel nur, wenn die Sitzung ueberhaupt einen
+    Auftrag genannt hat.
+
+    ⚠ Der Zustand heisst `VERFALLEN`, nicht `ABGEBROCHEN`: Ob der Auftrag
+    abgegeben oder aufgegeben wurde, steht in keinem vorhandenen Log.
+    """
+    if not gemeldet or not offen:
+        return
+    for eintrag in list(offen):
+        if eintrag['name'] in gemeldet:
+            continue
+        # ⚠ Nur was VOR dieser Sitzung begann. Ein Auftrag, der in genau
+        # dieser Sitzung angenommen wurde, steht ohnehin in `gemeldet` — und
+        # ohne diese Grenze wuerde die Reihenfolge innerhalb einer Datei
+        # zaehlen statt der Sitzungswechsel.
+        if (eintrag.get('wann') or '') >= (sitzung or ''):
+            continue
+        eintrag['zustand'] = VERFALLEN
+        offen.remove(eintrag)
+        fertig.append(eintrag)
 
 
 def aus_ordner(ordner, laufende=None):
@@ -557,9 +647,19 @@ def nachlese():
 
 
 def _gelesene_laden():
+    """Welche Logs schon gelesen wurden — leer bei veraltetem Format.
+
+    ⚠⚠ **Der Lesestand muss mit dem Format mitziehen.** Sonst passiert beim
+    Formatwechsel das Schlimmste von beidem: `laden()` verwirft das alte
+    Protokoll, der Lesestand haelt aber alle 181 Logs fuer erledigt — und der
+    Nutzer steht vor einem **leeren** Protokoll ohne jede Fehlermeldung.
+    """
     try:
         with open(pfad(), encoding='utf-8') as f:
-            return json.load(f).get('gelesen') or {}
+            daten = json.load(f)
+        if daten.get('format') != FORMAT:
+            return {}
+        return daten.get('gelesen') or {}
     except Exception:
         return {}
 

@@ -2082,9 +2082,13 @@ def _auftragslog(fenster, rahmen):
 
     farben = {missionslog.ABGESCHLOSSEN: ACCENT,
               missionslog.ABGEBROCHEN: SUB,
+              missionslog.VERFALLEN: SUB,
               missionslog.LAEUFT: GOLD}
     worte = {missionslog.ABGESCHLOSSEN: 's_al_fertig',
              missionslog.ABGEBROCHEN: 's_al_abbruch',
+             # Zurueckhaltend in Grau: Es ist keine Leistung und kein Abbruch,
+             # nur das Ende der Spur.
+             missionslog.VERFALLEN: 's_al_verfallen',
              missionslog.LAEUFT: 's_al_laeuft'}
 
     def zeichnen(*_, neu_laden=False):
@@ -2120,9 +2124,11 @@ def _auftragslog(fenster, rahmen):
             tk.Label(zeile, text=(eintrag.get('wann') or '')[:10],
                      bg=FLAECHE, fg=SUB, font=fenster.f_klein, width=11,
                      anchor='w', padx=10, pady=7).pack(side='left')
+            # ⚠ Breit genug fuer den laengsten Zustand — „nicht mehr offen"
+            # hat 16 Zeichen, bei 14 stand dort ein Stumpf.
             tk.Label(zeile, text=t(worte.get(zustand, 's_al_laeuft')),
                      bg=FLAECHE, fg=farben.get(zustand, SUB),
-                     font=fenster.f_klein, width=14,
+                     font=fenster.f_klein, width=17,
                      anchor='w').pack(side='left')
 
             mitte = tk.Frame(zeile, bg=FLAECHE)

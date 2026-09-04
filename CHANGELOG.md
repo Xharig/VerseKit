@@ -6,6 +6,28 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc4 - 2026-09-04
+
+> **Testfassung.** Das Auftrags-Protokoll zeigte Aufträge als laufend an, die
+> längst vorbei waren — und weil sie scheinbar liefen, sammelten sie jeden
+> später gefundenen Bauplan ein. Beides ist behoben, das Protokoll wird beim
+> ersten Start einmal neu aufgebaut.
+
+### Behoben
+
+- **Aufträge blieben für immer auf „läuft".** Ein Auftrag ohne Ende im
+  Protokoll stand dort dauerhaft als laufend, teils seit Monaten. Er gilt jetzt
+  als **nicht mehr offen**, sobald eine spätere Spielsitzung ihn nicht mehr
+  kennt — das Spiel meldet beim Einloggen jeden noch laufenden Auftrag erneut.
+- **Baupläne hingen am falschen Auftrag.** Ein Auftrag gibt höchstens einen
+  Bauplan her; die scheinbar laufenden alten Aufträge zogen trotzdem jeden
+  neuen Fund an sich. Ein Bauplan geht jetzt nur noch an einen Auftrag, der in
+  derselben Sitzung wirklich lief und noch keinen hat — und lieber an gar
+  keinen als an den falschen.
+- **Das Protokoll wird einmalig neu aufgebaut**, damit die alten
+  Falschzuordnungen verschwinden. Das dauert beim ersten Start ein paar
+  Sekunden länger.
+
 ## v3.12.0-rc3 - 2026-09-04
 
 > **Testfassung.** Das Auftrags-Protokoll liest sich jetzt sauber: Fremde

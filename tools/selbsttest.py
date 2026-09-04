@@ -10005,6 +10005,61 @@ def main():
         pruefe(all('Spaetzuender' not in (e.get('bauplaene') or [])
                    for e in _ml113.aus_dateien([_log4])),
                'ein Fund lange nach dem Ende wird keinem Auftrag angehaengt')
+
+        # ⭐⭐ Ein Auftrag gibt HOECHSTENS EINEN Bauplan her — Spielregel.
+        # Ohne diese Grenze sammelt ein Auftrag, der faelschlich offen bleibt,
+        # jeden spaeteren Fund ein: gemessen zwoelf Stueck an einem einzigen.
+        _log5 = _log113('e.log', [
+            _zeile113('2026-09-02T10:00:00.000',
+                      'Auftrag angenommen: Sammelauftrag', 1),
+            _zeile113('2026-09-02T10:05:00.000',
+                      'Bauplan erhalten: Erster', 2),
+            _zeile113('2026-09-02T10:06:00.000',
+                      'Bauplan erhalten: Zweiter', 3),
+        ])
+        os.utime(_log5, (1750000100, 1750000100))
+        _sammel113 = [e for e in _ml113.aus_dateien([_log5])
+                      if e['name'] == 'Sammelauftrag']
+        pruefe(_sammel113 and len(_sammel113[0].get('bauplaene') or []) == 1,
+               'ein Auftrag bekommt hoechstens EINEN Bauplan (%d)'
+               % len(_sammel113[0].get('bauplaene') or []) if _sammel113 else 0)
+
+        # ⭐⭐ Ein Auftrag, den eine spaetere Sitzung nicht mehr nennt, ist
+        # vorbei. Ohne das stand der aelteste seit ueber zwei Monaten auf
+        # „laeuft" — und sammelte dabei fremde Bauplaene ein.
+        _log6a = _log113('f1.log', [
+            _zeile113('2026-09-03T10:00:00.000',
+                      'Auftrag angenommen: Vergessener', 1),
+        ])
+        _log6b = _log113('f2.log', [
+            # Naechste Sitzung: ein anderer Auftrag, der alte kommt nicht vor.
+            _zeile113('2026-09-04T10:00:00.000',
+                      'Auftrag angenommen: Ganz anderer', 1),
+            _zeile113('2026-09-04T10:20:00.000',
+                      'Bauplan erhalten: Beute des Neuen', 2),
+        ])
+        os.utime(_log6a, (1750000200, 1750000200))
+        os.utime(_log6b, (1750000300, 1750000300))
+        _spaet113 = {e['name']: e for e in _ml113.aus_dateien([_log6a, _log6b])}
+        pruefe(_spaet113.get('Vergessener', {}).get('zustand')
+               == _ml113.VERFALLEN,
+               'ein Auftrag, den die naechste Sitzung nicht kennt, gilt als '
+               'nicht mehr offen')
+        pruefe(not (_spaet113.get('Vergessener', {}).get('bauplaene')),
+               'und er saugt den Fund der naechsten Sitzung NICHT an')
+        pruefe(_spaet113.get('Ganz anderer', {}).get('bauplaene')
+               == ['Beute des Neuen'],
+               'der Fund gehoert dem Auftrag, der wirklich lief')
+
+        # ⚠ Gegenprobe: Eine Sitzung OHNE jede Auftragsmeldung beweist nichts.
+        # Wer sich einloggt und herumfliegt, beendet damit keinen Auftrag.
+        _log6c = _log113('f3.log', [
+            _zeile113('2026-09-05T10:00:00.000', 'Nichts von Belang', 1),
+        ])
+        os.utime(_log6c, (1750000400, 1750000400))
+        _stumm113 = {e['name']: e for e in _ml113.aus_dateien([_log6a, _log6c])}
+        pruefe(_stumm113.get('Vergessener', {}).get('zustand') == _ml113.LAEUFT,
+               'eine stumme Sitzung beendet keinen Auftrag')
     finally:
         if _altheim113 is None:
             os.environ.pop('SC_BP_HOME', None)

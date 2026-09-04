@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc4 - 2026-09-04
+
+> **Test build.** The mission log listed missions as in progress that were long
+> over — and because they looked active, they collected every blueprint found
+> later. Both are fixed, and the log is rebuilt once on first start.
+
+### Fixed
+
+- **Missions stayed on "in progress" forever.** A mission with no recorded
+  ending stayed listed as running, in some cases for months. It is now marked
+  **no longer open** as soon as a later play session no longer knows it — the
+  game re-reports every running mission when you log in.
+- **Blueprints hung on the wrong mission.** A mission yields at most one
+  blueprint; the seemingly running old ones pulled in every new find anyway. A
+  blueprint now only goes to a mission that actually ran in the same session
+  and has none yet — and rather to none at all than to the wrong one.
+- **The log is rebuilt once** so the old mis-assignments disappear. This makes
+  the first start take a few seconds longer.
+
 ## v3.12.0-rc3 - 2026-09-04
 
 > **Test build.** The mission log reads cleanly now: foreign markers are gone

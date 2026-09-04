@@ -725,6 +725,9 @@ TEXTE = {
     's_al_laeuft':     ('läuft', 'in progress'),
     's_al_fertig':     ('abgeschlossen', 'completed'),
     's_al_abbruch':    ('abgebrochen', 'abandoned'),
+    # Kein Ende im Log, aber eine spätere Sitzung kannte ihn nicht mehr.
+    # Bewusst nicht „abgebrochen“ — warum er endete, steht nirgends.
+    's_al_verfallen':  ('nicht mehr offen', 'no longer open'),
     's_al_ziele':      ('%d von %d Zielen', '%d of %d objectives'),
     's_al_oft':        ('%d× gespielt · %d abgeschlossen',
                           'played %d× · %d completed'),
