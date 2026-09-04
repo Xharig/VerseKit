@@ -1864,8 +1864,30 @@ def main():
             start26, seiten26 = fe26.spur_geteilt()
             pruefe(len(start26) == 3,
                    'Start und Bedienung werden getrennt (%d Startzeilen)' % len(start26))
-            pruefe(len(seiten26) == 80,
-                   'die Seitenwechsel stehen vollstaendig da (%d)' % len(seiten26))
+            # ⚠⚠ **Nur die eigenen Zeilen zaehlen.** Diese Pruefung schrieb
+            # bis zum 04.09.2026 gegen `len(seiten26) == 80` — und schlug
+            # sporadisch mit 81 fehl, ohne dass sich am Programm etwas
+            # geaendert haette.
+            #
+            # Ursache: `Hauptfenster._seiten_vorbauen` laeuft **400 ms nach dem
+            # Oeffnen** ueber `after()` und schreibt dann `Vorbau xy: N ms` in
+            # die Spur. Hat eine fruehere Pruefung ein Fenster gebaut, faellt
+            # dieser Rueckruf mitten in diese hier — und landet in der Datei,
+            # auf die `app_datei` gerade umgebogen ist. Ob er trifft, haengt am
+            # Zeitpunkt; deshalb mal 80, mal 81.
+            #
+            # Die Zahl aufzuweichen (`>= 80`) waere der falsche Ausweg: Dann
+            # wuerde die Pruefung eine echte Kuerzung nicht mehr bemerken.
+            # Gezaehlt wird stattdessen, was diese Pruefung selbst geschrieben
+            # hat — das ist genau die Frage, um die es geht.
+            _eigene26 = [z for z in seiten26 if 'Seite liste:' in z]
+            _fremd26 = [z for z in seiten26 if 'Seite liste:' not in z]
+            pruefe(len(_eigene26) == 80,
+                   'die Seitenwechsel stehen vollstaendig da (%d%s)'
+                   % (len(_eigene26),
+                      '' if not _fremd26
+                      else '; dazu %d fremde Zeile(n): %s'
+                           % (len(_fremd26), _fremd26[0][:50])))
 
             # Und jetzt der Punkt, der in rc74 fehlte.
             fe26._spur_kuerzen(pf26.app_datei(fe26.SPUR_DATEI))
@@ -9716,6 +9738,18 @@ def main():
 
     _wiese111 = tempfile.mkdtemp(prefix='sc-bp-kanal-')
     _altordner111 = _pf111.einstellung('spiel_ordner')
+    # ⚠⚠ **Nur im Wegwerf-Ordner suchen — sonst zaehlt das echte Spiel mit.**
+    # `kanaele_vorhanden()` geht die ueblichen Installationsorte ab. Auf einem
+    # Rechner, auf dem Star Citizen liegt, findet es dort LIVE und PTU — und
+    # diese Pruefung, die genau eine Liste erwartet, war damit **auf dem
+    # Entwicklungsrechner nie gruen zu bekommen**. Im Bau-Lauf lief sie durch,
+    # weil dort kein Spiel installiert ist: zwei verschiedene Wahrheiten ueber
+    # dieselbe Frage, und die roten Zeilen standen wochenlang im Protokoll.
+    #
+    # Eine Pruefung darf sich nicht darauf verlassen, dass etwas NICHT auf dem
+    # Rechner ist. Sie schneidet die Suche deshalb auf ihren eigenen Ordner zu —
+    # so wie sie es mit `KANAELE` weiter unten ohnehin schon tut.
+    _altbasen111 = _pf111._kanal_basen
     try:
         def _kanal111(name):
             _o = os.path.join(_wiese111, 'Roberts Space Industries',
@@ -9727,6 +9761,9 @@ def main():
 
         _live111 = _kanal111('LIVE')
         _pf111.einstellung_setzen('spiel_ordner', _live111)
+        # Ab hier sucht `kanaele_vorhanden()` ausschliesslich hier.
+        _basis111 = os.path.dirname(_live111)
+        _pf111._kanal_basen = lambda: [_basis111]
 
         # a) Solange LIVE steht, darf nichts gemeldet werden — eine Wache, die
         #    im Normalfall anschlaegt, wird weggeklickt.
@@ -9764,6 +9801,7 @@ def main():
         pruefe(_neu111 and _neu111[0][0] == 'PTU',
                'der zuletzt bespielte Kanal steht oben (PTU vor altem HOTFIX)')
     finally:
+        _pf111._kanal_basen = _altbasen111
         _pf111.einstellung_setzen('spiel_ordner', _altordner111 or '')
         _sh111.rmtree(_wiese111, ignore_errors=True)
 
