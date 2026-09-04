@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc2 - 2026-09-04
+
+> **Testfassung.** Nachbesserung an rc1: Das Auftrags-Protokoll blieb leer,
+> wenn man es gleich nach dem Start öffnete.
+
+### Behoben
+
+- **Das Auftrags-Protokoll blieb leer.** Beim Start werden die aufgehobenen
+  Protokolle des Spiels erst eingelesen — wer die Seite in diesem Moment
+  öffnete, sah „noch kein Auftrag" und danach nie wieder etwas anderes. Sie
+  frischt sich jetzt bei jedem Öffnen auf.
+  Betrifft alle, die rc1 ausprobiert haben.
+
 ## v3.12.0-rc1 - 2026-09-04
 
 > **Testfassung.** Neu ist das Auftrags-Protokoll: Es zeigt dir, welche

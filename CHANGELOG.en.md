@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc2 - 2026-09-04
+
+> **Test build.** A fix for rc1: the mission log stayed empty when you opened
+> it right after startup.
+
+### Fixed
+
+- **The mission log stayed empty.** On startup the game's kept logs are read
+  first — anyone opening the page during that moment saw "no missions recorded"
+  and never anything else, because the page stayed as it was built. It now
+  refreshes every time you open it.
+  Affects everyone who tried rc1.
+
 ## v3.12.0-rc1 - 2026-09-04
 
 > **Test build.** New is the mission log: it shows which missions you played
