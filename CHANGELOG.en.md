@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc1 - 2026-09-04
+
+> The **Shops** tab used to list only parts that have a blueprint. Anyone
+> looking for missiles, bombs or railgun ammo faced an empty list — even though
+> the shops were known all along. Now it lists what is actually sold: **1,528
+> parts instead of 893**, sorted by section and item group.
+
+### New
+
+- **Shops lists everything you can buy, not just what you can craft.** Missiles,
+  torpedo tubes, bombs, weapon attachments, ammunition — 1,528 parts across 38
+  item groups. The Boomtube Rocket now shows up with its 19 shops in Pyro, right
+  where you look for it.
+- **Two dropdowns instead of one**: first the section (Armor, Ship weapons,
+  Systems …), then the item group within it. Largest group first.
+- Below the filter it now says **how many parts are available** — instead of an
+  empty area that looks like something went wrong.
+
+### Fixed
+
+- **Shops: clicking a part left the screen blank.** The suggestion list did not
+  release its space, so the shops were drawn below it — outside the window. The
+  view now jumps back to the top after you pick a part.
+- **Parts without an entity ID are reachable.** About a third of the catalogue
+  has none; for those there were never any shop prices at all.
+
 ## v3.14.0 - 2026-09-04
 
 > The biggest release so far. Your **controls** now belong in the tool: view

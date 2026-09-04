@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc1 - 2026-09-04
+
+> Der Reiter **Läden** zeigte bisher nur Teile, für die es einen Bauplan gibt.
+> Wer wissen wollte, wo es Raketen, Bomben oder Railgun-Munition gibt, stand vor
+> einer leeren Liste — obwohl die Läden längst bekannt waren. Jetzt steht dort,
+> was tatsächlich verkauft wird: **1.528 Teile statt 893**, sortiert nach
+> Bereich und Warengruppe.
+
+### Neu
+
+- **Läden zeigt alles Kaufbare, nicht nur Craftbares.** Raketen, Torpedorohre,
+  Bomben, Waffenaufsätze, Munition — 1.528 Teile aus 38 Warengruppen. Der
+  Boomtube Rocket steht jetzt mit seinen 19 Läden in Pyro da, wo man ihn sucht.
+- **Zwei Auswahlmenüs statt einem**: erst der Bereich (Rüstung, Schiffswaffen,
+  Systeme …), dann die Warengruppe darin. Beide auf Deutsch, größte Gruppe oben.
+- Unter dem Filter steht, **wie viele Teile bereitstehen** — statt einer leeren
+  Fläche, die nach einem Fehler aussieht.
+
+### Behoben
+
+- **Läden: Nach dem Klick auf ein Teil blieb der Bildschirm leer.** Die
+  Vorschlagsliste gab ihren Platz nicht frei, die Läden wurden darunter
+  gezeichnet — außerhalb des Fensters. Jetzt springt die Ansicht nach der
+  Auswahl an den Anfang.
+- **Teile ohne Entitäts-Kennung sind erreichbar.** Rund ein Drittel des
+  Katalogs hat keine; für die gab es vorher grundsätzlich keine Ladenpreise.
+
 ## v3.14.0 - 2026-09-04
 
 > Die größte Version bisher. Deine **Steuerung** gehört jetzt ins Werkzeug:

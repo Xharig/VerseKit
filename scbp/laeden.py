@@ -84,6 +84,18 @@ CACHE = 'laeden.json'
 KATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
 
+# ⚠ Eigene Formatnummer für den Katalog. Er hat seit v3.15.0 eine andere
+# Struktur (er führt die kaufbaren Teile selbst); der Preis-Zwischenspeicher
+# daneben ist unverändert und soll deshalb nicht mit weggeworfen werden.
+FORMAT_KATALOG = 2
+
+# ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
+# Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
+# Rocket Launcher, nach dem am 04.09.2026 gefragt wurde. Für die wäre `holen()`
+# ohne diesen Umweg blind. Der Schlüssel `id:123` unterscheidet sich von jeder
+# echten Kennung, also bleiben Ablage, Alter und Nachschlagen unverändert.
+ID_PRAEFIX = 'id:'
+
 # ⚠⚠ **Die Kennung trägt nicht überall — gemeldet und nachgemessen 04.09.2026.**
 #
 # Xharig: „CF-Repeater sind nicht alle in den Läden abrufbar, da sollten aber
@@ -126,7 +138,8 @@ _ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 
 # Der Namens-Katalog. Eigene Ablage, eigene Frist: Er ändert sich mit einem
 # Patch, nicht mit dem Tag.
-_katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT, haltbar=uex.WOCHE)
+_katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT_KATALOG,
+                      haltbar=uex.WOCHE)
 
 
 def _katalog_sichern(fortschritt=None):
@@ -156,35 +169,54 @@ def _katalog_sichern(fortschritt=None):
     gewaehlt = [k for k in kats if k.get('section') in ABSCHNITTE]
     namen = {}
     doppelt = set()
-    # ⚠ Zwei Listen: `kaufbar_id` für die UEX-Kennung, `kaufbar_uuid` für die
-    # Entitäts-Kennung aus dem Spiel. Ein Teil kann über den einen Weg bekannt
-    # sein und über den anderen nicht — beide Wege müssen antworten können.
-    kaufbar_id, kaufbar_uuid = set(), set()
     id_zu_uuid = {}
+    # ⭐⭐ **Die kaufbaren Teile werden mitgeschrieben, nicht nur gezählt.**
+    # Bis v3.14.0 speiste sich die Ladenliste aus den **Bauplänen** — sie
+    # zeigte also nur, was man auch herstellen kann. Am 04.09.2026 gefragt:
+    # „Wie soll man da wissen, wo es Boomtube-Raketen gibt?" Gar nicht: Der
+    # Boomtube Rocket Launcher ist nicht craftbar und stand deshalb nirgends,
+    # obwohl UEX seine Läden kennt.
+    #
+    # Gemessen über die 38 Kategorien unserer Abschnitte: **3.958 Teile,
+    # davon 1.528 mit Kaufpreis** — gegenüber 893 craftbaren. Die Abrufe
+    # dafür laufen ohnehin schon; bisher wurde das Ergebnis weggeworfen.
+    kategorien = []
+    teile_raus = []
     for nummer, k in enumerate(gewaehlt, start=1):
+        kat_index = len(kategorien)
+        kategorien.append([k.get('section') or '', k.get('name') or ''])
         teile = uex.holen(QUELLE_TEILE % k['id'], 'laeden.katalog')
+        roh = {}
         for x in teile or []:
-            name = (x.get('name') or '').strip().lower()
+            name = (x.get('name') or '').strip()
             kennung = x.get('id')
             if not kennung:
                 continue
             uuid = (x.get('uuid') or '').strip()
             if uuid:
                 id_zu_uuid[str(kennung)] = uuid
-            if not name:
+            roh[str(kennung)] = name
+            klein = name.lower()
+            if not klein:
                 continue
-            if name in namen and namen[name] != kennung:
-                doppelt.add(name)
-            namen[name] = kennung
+            if klein in namen and namen[klein] != kennung:
+                doppelt.add(klein)
+            namen[klein] = kennung
         preise = uex.holen(QUELLE_PREISE_KATEGORIE % k['id'], 'laeden.kaufbar')
+        gesehen = set()
         for x in preise or []:
             if (x.get('price_buy') or 0) <= 0:
                 continue
             teil = str(x.get('id_item') or '')
-            if teil:
-                kaufbar_id.add(teil)
-                if teil in id_zu_uuid:
-                    kaufbar_uuid.add(id_zu_uuid[teil])
+            if not teil:
+                continue
+            # Ein Teil steht in vielen Terminals — hier zählt es einmal.
+            if teil in gesehen or teil not in roh:
+                continue
+            gesehen.add(teil)
+            teile_raus.append({'n': roh[teil],
+                               's': id_zu_uuid.get(teil) or ID_PRAEFIX + teil,
+                               'k': kat_index})
         if fortschritt:
             fortschritt(nummer, len(gewaehlt))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
@@ -192,15 +224,21 @@ def _katalog_sichern(fortschritt=None):
         namen.pop(name, None)
     if not namen:
         return False
+    teile_raus.sort(key=lambda x: x['n'].lower())
     return _katalog.sichern({'namen': namen,
-                             'kaufbar_id': sorted(kaufbar_id),
-                             'kaufbar_uuid': sorted(kaufbar_uuid)},
+                             'kategorien': kategorien,
+                             'teile': teile_raus},
                             kompakt=True)
 
 
 def katalog_da():
-    """Liegt der Katalog vor? Ohne ihn lässt sich nicht filtern."""
-    return bool((_katalog.laden() or {}).get('kaufbar_uuid') is not None)
+    """Liegt der Katalog vor? Ohne ihn gibt es keine Ladenliste.
+
+    ⚠ Geprüft wird auf `teile` — die Liste, aus der der Reiter lebt. Ein
+    Katalog im alten Format (nur Kennungen, keine Teile) zählt nicht als da;
+    er wird über `FORMAT_KATALOG` ohnehin verworfen.
+    """
+    return bool((_katalog.laden() or {}).get('teile'))
 
 
 def katalog_holen(fortschritt=None):
@@ -208,26 +246,91 @@ def katalog_holen(fortschritt=None):
     return _katalog_sichern(fortschritt)
 
 
-def ist_kaufbar(kennung, name=''):
-    """Wird dieses Teil irgendwo verkauft? `None` heißt „nicht bekannt".
+# ⚠ **UEX-Name → Sprachschlüssel.** Die Namen kommen englisch aus der Quelle
+# und stehen in den Auswahlmenüs — also gehören sie übersetzt. Ein Name, der
+# hier fehlt (UEX legt eine Warengruppe nach), bleibt englisch stehen: besser
+# ein englisches Wort als ein geratenes deutsches.
+#
+# ⚠ Zwei Namen kommen doppelt vor — `Personal Weapons` und `Undersuits` sind
+# zugleich Bereich **und** Warengruppe. Deshalb zwei Tabellen statt einer.
+BEREICH_TEXTE = {
+    'Armor': 's_uk_armor',
+    'Avionics': 's_uk_avionics',
+    'Personal Weapons': 's_uk_personal_weapons_s',
+    'Propulsion': 's_uk_propulsion',
+    'Systems': 's_uk_systems',
+    'Undersuits': 's_uk_undersuits_s',
+    'Utility': 's_uk_utility',
+    'Vehicle Weapons': 's_uk_vehicle_weapons_s',
+}
 
-    ⚠ **Der Unterschied zwischen `False` und `None` ist wichtig.** `False`
-    heißt: Wir haben die Preisliste der ganzen Kategorie geholt und das Teil
-    kam darin nicht vor — es ist wirklich nirgends im Handel. `None` heißt:
-    Wir haben noch nie nachgesehen. Nur beim ersten darf gefiltert werden.
+GRUPPE_TEXTE = {
+    'Arms': 's_uk_arms',
+    'Attachments': 's_uk_attachments',
+    'Backpacks': 's_uk_backpacks',
+    'Batteries': 's_uk_batteries',
+    'Bomb Racks': 's_uk_bomb_racks',
+    'Bombs': 's_uk_bombs',
+    'Container': 's_uk_container',
+    'Coolers': 's_uk_coolers',
+    'Docking Collars': 's_uk_docking_collars',
+    'External Fuel Tanks': 's_uk_external_fuel_tanks',
+    'Fabricator': 's_uk_fabricator',
+    'Flight Blade': 's_uk_flight_blade',
+    'Fuel Nozzle': 's_uk_fuel_nozzle',
+    'Full Set': 's_uk_full_set',
+    'Gadgets': 's_uk_gadgets',
+    'Gravity Generator': 's_uk_gravity_generator',
+    'Guns': 's_uk_guns',
+    'Helmets': 's_uk_helmets',
+    'Jump Modules': 's_uk_jump_modules',
+    'Legs': 's_uk_legs',
+    'Life Support Generator': 's_uk_life_support_generator',
+    'Mining Laser Heads': 's_uk_mining_laser_heads',
+    'Mining Modules': 's_uk_mining_modules',
+    'Missile Racks': 's_uk_missile_racks',
+    'Missiles': 's_uk_missiles',
+    'Personal Weapons': 's_uk_personal_weapons',
+    'Point Defense Cannon': 's_uk_point_defense_cannon',
+    'Power Plants': 's_uk_power_plants',
+    'Quantum Drives': 's_uk_quantum_drives',
+    'Radar': 's_uk_radar',
+    'Salvage Beams': 's_uk_salvage_beams',
+    'Scraper Beams': 's_uk_scraper_beams',
+    'Shield Generators': 's_uk_shield_generators',
+    'Torpedo Tubes': 's_uk_torpedo_tubes',
+    'Torso': 's_uk_torso',
+    'Tractor Beams': 's_uk_tractor_beams',
+    'Turrets': 's_uk_turrets',
+    'Undersuits': 's_uk_undersuits',
+}
+
+
+def katalog_teile():
+    """Alles, was UEX in unseren Abschnitten **verkauft** — oder leere Liste.
+
+    Je Eintrag: `name`, `kennung` (Entitäts-Kennung oder `id:…`),
+    `kategorie` und `abschnitt` als englische UEX-Namen. Übersetzt wird erst
+    in der Anzeige — hier bleibt stehen, was die Quelle sagt.
+
+    ⚠ **Das ist die Liste für den Laden-Reiter**, nicht `herstellung.alle()`.
+    Der Unterschied ist der Zweck: Die Herstellung fragt „was kann ich
+    bauen", der Laden „was kann ich kaufen". Das zweite ist die größere
+    Menge — und die, nach der jemand sucht, der ein Teil braucht.
     """
     daten = _katalog.laden() or {}
-    ids = daten.get('kaufbar_id')
-    uuids = daten.get('kaufbar_uuid')
-    if ids is None or uuids is None:
-        return None
-    if kennung and kennung in set(uuids):
-        return True
-    if name:
-        uex_kennung = (daten.get('namen') or {}).get(name.strip().lower())
-        if uex_kennung is not None and str(uex_kennung) in set(ids):
-            return True
-    return False
+    kats = daten.get('kategorien') or []
+    raus = []
+    for x in daten.get('teile') or []:
+        nr = x.get('k')
+        paar = kats[nr] if isinstance(nr, int) and 0 <= nr < len(kats) else ['', '']
+        raus.append({'name': x.get('n') or '',
+                     'kennung': x.get('s') or '',
+                     'abschnitt': paar[0],
+                     'kategorie': paar[1]})
+    return raus
+
+
 
 
 def _uex_id(name):
@@ -301,7 +404,14 @@ def holen(kennung, name='', erzwingen=False):
     a = alter(kennung)
     if not erzwingen and a is not None and a < HALTBAR:
         return True
-    roh = uex.holen(QUELLE % kennung, 'laeden')
+    # ⚠ Ein Teil ohne Entitäts-Kennung wird über seine UEX-Nummer geholt —
+    # siehe `ID_PRAEFIX`. Ohne diesen Zweig bliebe ein Drittel des Katalogs
+    # stumm, darunter jeder Boomtube-Werfer.
+    if kennung.startswith(ID_PRAEFIX):
+        roh = uex.holen(QUELLE_UEBER_ID % kennung[len(ID_PRAEFIX):],
+                        'laeden.id')
+    else:
+        roh = uex.holen(QUELLE % kennung, 'laeden')
     if roh is None:
         return False
     # ⚠ Erst wenn die Kennung leer ausgeht, wird der Name bemüht — und auch

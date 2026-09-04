@@ -5880,7 +5880,7 @@ def _laeden(fenster, rahmen):
     suche = tk.StringVar()
     gewaehlt = {'name': '', 'kennung': ''}
     laeuft = {'ja': False}
-    wahl = {'art': '', 'hersteller': ''}
+    wahl = {'bereich': '', 'gruppe': ''}
 
     such_rahmen = tk.Frame(innen, bg=BG)
     such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
@@ -5907,33 +5907,42 @@ def _laeden(fenster, rahmen):
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
 
     def _teile():
-        """Die Teile, die es **wirklich zu kaufen gibt**.
+        """Was es **wirklich zu kaufen gibt** — einheitlich aufbereitet.
 
-        ⚠⚠ **Nicht kaufbare Teile gehören nicht in diese Liste.** Xharig am
-        04.09.2026: „Alles, was nicht kaufbar ist, macht in der Liste keinen
-        Sinn — wenn die Info ‚nicht kaufbar' ist, dann soll es nicht
-        auftauchen." Richtig: Ein Reiter, der zeigt, wo etwas im Regal steht,
-        darf nicht mit 910 Rüstungsteilen anfangen, von denen die meisten
-        nirgends verkauft werden.
+        Je Eintrag `name`, `kennung`, `bereich` und `gruppe`. Bereich und
+        Gruppe sind die **englischen** Werte aus der Quelle; übersetzt wird
+        erst beim Anzeigen (`_gruppenname`). So bleibt eine getroffene Auswahl
+        gültig, auch wenn jemand die Sprache umstellt.
 
-        ⚠ **Gefiltert wird nur, wenn wir es wissen.** Solange der Katalog
-        fehlt (erster Start, kein Netz), bleibt alles stehen — lieber zu viel
-        zeigen als eine leere Seite, die nach einem kaputten Werkzeug aussieht.
+        ⚠⚠ **Die Quelle ist der UEX-Katalog, nicht die Bauplanliste.** Bis
+        v3.14.0 kam die Liste aus `herstellung.alle()` — sie zeigte also nur,
+        was man auch **bauen** kann. Am 04.09.2026 gefragt: „Wie soll man da
+        wissen, wo es Boomtube-Raketen gibt?" Gar nicht: Der Boomtube Rocket
+        Launcher ist nicht craftbar und stand deshalb nirgends, obwohl UEX
+        seine Läden kennt. Gemessen: **1.528 kaufbare Teile** statt 893
+        craftbaren, darunter Raketen, Bomben, Torpedorohre und
+        Railgun-Munition.
+
+        ⚠ **Der Rückfall bleibt.** Solange der Katalog fehlt (erster Start,
+        kein Netz), stehen die Baupläne da — lieber zu wenig als eine leere
+        Seite, die nach einem kaputten Werkzeug aussieht.
         """
+        try:
+            katalog = laden_modul.katalog_teile()
+        except Exception as ausnahme:
+            fehler.merken('seiten.laeden.katalog_teile', ausnahme)
+            katalog = []
+        if katalog:
+            return [{'name': x['name'], 'kennung': x['kennung'],
+                     'bereich': x['abschnitt'], 'gruppe': x['kategorie']}
+                    for x in katalog if x['name'] and x['kennung']]
         try:
             alle = [b for b in herst_modul.alle() if b.get('entity')]
         except Exception as ausnahme:
             fehler.merken('seiten.laeden.teile', ausnahme)
             return []
-        if not laden_modul.katalog_da():
-            return alle
-        raus = []
-        for b in alle:
-            kaufbar = laden_modul.ist_kaufbar(b.get('entity') or '',
-                                              b.get('basis') or b.get('name'))
-            if kaufbar is not False:
-                raus.append(b)
-        return raus
+        return [{'name': b.get('name') or '', 'kennung': b.get('entity') or '',
+                 'bereich': '', 'gruppe': _art_von(b)} for b in alle]
 
     def _art_von(b):
         """Die Art eines Bauplans — Waffen aufgeteilt nach Schiff und Mann.
@@ -5973,6 +5982,23 @@ def _laeden(fenster, rahmen):
         from . import herstellung as hm
         return hm.artname(wert)
 
+    def _gruppenname(wert):
+        """Warengruppe lesbar — aus dem Katalog oder aus den Bauplan-Arten.
+
+        ⚠ Kennt die Tabelle den Namen nicht (UEX legt eine Gruppe nach),
+        bleibt der englische stehen. Ein geratenes deutsches Wort wäre
+        schlechter als ein ehrliches englisches.
+        """
+        schluessel = laden_modul.GRUPPE_TEXTE.get(wert)
+        if schluessel:
+            return t(schluessel)
+        return _artname(wert) if wert else wert
+
+    def _bereichsname(wert):
+        """Bereich lesbar — sonst wie `_gruppenname`."""
+        schluessel = laden_modul.BEREICH_TEXTE.get(wert)
+        return t(schluessel) if schluessel else wert
+
     def _mit_zahl(feld):
         """Werte eines Feldes mit ihrer Anzahl — „Kühler (74)".
 
@@ -5989,12 +6015,13 @@ def _laeden(fenster, rahmen):
         """
         zaehler = {}
         for b in _teile():
-            wert = _art_von(b) if feld == 'art' else (b.get(feld) or '').strip()
+            wert = (b.get(feld) or '').strip()
             if wert:
                 zaehler[wert] = zaehler.get(wert, 0) + 1
         raus = []
         for wert, anzahl in zaehler.items():
-            lesbar = _artname(wert) if feld == 'art' else wert
+            lesbar = (_bereichsname(wert) if feld == 'bereich'
+                      else _gruppenname(wert))
             raus.append((anzahl, wert, '%s (%d)' % (lesbar or wert, anzahl),
                          (lesbar or wert)))
         # Größte zuerst; bei Gleichstand alphabetisch, damit die Reihenfolge
@@ -6093,7 +6120,10 @@ def _laeden(fenster, rahmen):
 
         def arbeit():
             try:
-                laden_modul.holen(kennung)
+                # ⚠ Der Name ist der Rückfall, falls die Kennung leer ausgeht
+                # — siehe Kopf von `laeden.py`. Er hat dort 375 Teile mehr
+                # zugeordnet.
+                laden_modul.holen(kennung, name)
             except Exception as ausnahme:
                 fehler.merken('seiten.laeden.holen', ausnahme)
 
@@ -6117,22 +6147,19 @@ def _laeden(fenster, rahmen):
         # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
         # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
         # etwas. Jetzt füllt die Auswahl oben die Liste.
-        if len(text) < 2 and not (wahl['art'] or wahl['hersteller']):
+        if len(text) < 2 and not (wahl['bereich'] or wahl['gruppe']):
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
         treffer = []
         for b in _teile():
-            # ⚠ Über `_art_von`, nicht über das rohe Feld — sonst greift die
-            # Trennung in Schiffs- und FPS-Waffen im Filter nicht.
-            if wahl['art'] and _art_von(b) != wahl['art']:
+            if wahl['bereich'] and b.get('bereich') != wahl['bereich']:
                 continue
-            if wahl['hersteller'] and \
-                    (b.get('hersteller') or '') != wahl['hersteller']:
+            if wahl['gruppe'] and b.get('gruppe') != wahl['gruppe']:
                 continue
             if text and text not in (b.get('name') or '').lower():
                 continue
-            treffer.append((b['name'], b['entity']))
+            treffer.append((b['name'], b['kennung']))
             if len(treffer) >= 40:
                 break
         if not treffer:
@@ -6160,11 +6187,21 @@ def _laeden(fenster, rahmen):
     stand_zeile = tk.Label(innen, text='', bg=BG, fg=GOLD,
                            font=fenster.f_klein, anchor='w')
 
+    def _stand_melden():
+        """Sagen, wie viele Teile bereitstehen — statt einer leeren Fläche."""
+        anzahl = len(_teile())
+        if not anzahl:
+            stand_zeile.pack_forget()
+            return
+        stand_zeile.configure(text=t('s_ld_nur_kaufbar') % anzahl, fg=SUB)
+        stand_zeile.pack(fill='x', padx=24, pady=(6, 0), after=filter_rahmen)
+
     def _katalog_anstossen():
         if laden_modul.katalog_da() or zustand_katalog['laeuft']:
+            _stand_melden()
             return
         zustand_katalog['laeuft'] = True
-        stand_zeile.configure(text=t('s_ld_katalog_laeuft'))
+        stand_zeile.configure(text=t('s_ld_katalog_laeuft'), fg=GOLD)
         # ⚠⚠ **Fest hinter der Filterleiste — sonst landet der Hinweis unter
         # der Liste.** Ein `pack()` ohne Angabe hängt sich ans Ende; bei 168
         # Zeilen darüber sieht ihn niemand. Am 04.09.2026 genau so passiert:
@@ -6198,8 +6235,11 @@ def _laeden(fenster, rahmen):
             def fertig():
                 zustand_katalog['laeuft'] = False
                 try:
-                    if stand_zeile.winfo_exists():
-                        stand_zeile.pack_forget()
+                    # ⭐ Die Zeile verschwindet nicht, sie sagt jetzt etwas
+                    # anderes: wie viele Teile bereitstehen. Eine Seite, auf
+                    # der man erst etwas auswählen muss, sieht sonst leer aus
+                    # — und leer wirkt kaputt.
+                    _stand_melden()
                     # ⚠ Auch die Menüs neu bauen — ihre Zahlen stammen von
                     # vor dem Abruf. Siehe `_filter_bauen`.
                     _filter_bauen()
@@ -6237,9 +6277,9 @@ def _laeden(fenster, rahmen):
         """
         _leeren(filter_rahmen)
         _filterleiste(fenster, filter_rahmen,
-                      [('art', t('s_ld_alle_arten'), _mit_zahl('art')),
-                       ('hersteller', t('ff_alle_hersteller'),
-                        _mit_zahl('hersteller'))],
+                      [('bereich', t('s_ld_alle_bereiche'),
+                        _mit_zahl('bereich')),
+                       ('gruppe', t('s_ld_alle_arten'), _mit_zahl('gruppe'))],
                       _filter_gewechselt, wahl)
 
     _filter_bauen()
