@@ -2241,11 +2241,44 @@ def _joysticks(fenster, rahmen):
 
     daten = {}
     suche = tk.StringVar()
-    nur = {'nummer': 0}          # 0 = alle Geräte
+    nur = {'geraet': '', 'sicht': joysticks.ALLES}
+
+    # ⚠⚠ **Das Suchfeld wird EINMAL gebaut und danach nie wieder angefasst.**
+    #
+    # Die erste Fassung baute bei jedem Tastendruck die ganze Seite neu — also
+    # auch das Feld, in das der Spieler gerade tippte. Ergebnis: Nach jedem
+    # Buchstaben war der Eingabezeiger weg und man musste neu hineinklicken.
+    # Genau so gemeldet, und es ist im Projekt nicht das erste Mal passiert.
+    #
+    # Die Aufteilung dagegen:
+    #
+    # | Rahmen | Wird neu gebaut |
+    # |---|---|
+    # | `oben` (Zustand, Geräteliste) | nur bei `_auffrischen()` |
+    # | `werkzeug` (Suchfeld) | **nie** — es hält den Eingabezeiger |
+    # | `filter_rahmen` (Geräteknöpfe) | bei `_auffrischen()` |
+    # | `liste_rahmen` (die Treffer) | bei jedem Tastendruck, nur die Kinder |
+    #
+    # **Regel für jede weitere Seite mit Suchfeld:** Was Eingaben entgegennimmt,
+    # steht ausserhalb dessen, was die Suche neu zeichnet.
     oben = tk.Frame(innen, bg=BG)
     oben.pack(fill='x', padx=24, pady=(14, 0))
     unten = tk.Frame(innen, bg=BG)
     unten.pack(fill='both', expand=True, padx=24, pady=(4, 12))
+
+    kopfzeile = tk.Label(unten, text=t('s_js_belegt'), bg=BG, fg=FG,
+                         font=fenster.f_fett, anchor='w')
+    sicht_rahmen = tk.Frame(unten, bg=BG)
+    filter_rahmen = tk.Frame(unten, bg=BG)
+    werkzeug = tk.Frame(unten, bg=BG)
+    zaehler = tk.Label(unten, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                       anchor='w')
+    liste_rahmen = tk.Frame(unten, bg=BG)
+
+    from .hauptfenster import rundes_feld
+    feld = rundes_feld(werkzeug, suche, fenster.f_klein, '#0c1017', LINIE,
+                       ACCENT, FG)
+    feld.halter.pack(fill='x')
 
     def _kennung_kurz(k):
         """Nur der vordere, unterscheidende Teil der Kennung.
@@ -2256,8 +2289,21 @@ def _joysticks(fenster, rahmen):
         """
         return (k or '').split('-')[0]
 
-    def zeichnen(*_):
-        for kind in list(oben.winfo_children()) + list(unten.winfo_children()):
+    def _geraetename(kennzeichen):
+        """`kb1` heißt „Tastatur", `js2` bleibt `js2`.
+
+        Bei Sticks ist die Nummer die eigentliche Information — sie steht ja
+        auch in der Belegungsdatei. Bei Tastatur und Maus gibt es nur eine,
+        da wäre „kb1" nur Fachsprache ohne Zusatznutzen.
+        """
+        art = joysticks.art_von(kennzeichen)
+        if art in ('tastatur', 'maus', 'gamepad'):
+            return t('s_js_a_' + art)
+        return kennzeichen
+
+    def kopf_zeichnen():
+        """Zustand und Geräteliste — nur beim Auffrischen, nicht beim Tippen."""
+        for kind in oben.winfo_children():
             kind.destroy()
         v = daten.get('vergleich') or {}
         geraete = v.get('geraete') or []
@@ -2333,73 +2379,122 @@ def _joysticks(fenster, rahmen):
             tk.Label(zeile, text=z['name'], bg=FLAECHE, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(side='left')
 
-        # --- Block 2: was auf den Geräten liegt ---
+    def sicht_zeichnen():
+        """Die drei Sichten: was ich geändert habe · alles · Werkseinstellung.
+
+        Dieselbe Einteilung, die das Spiel in seinen Optionen benutzt — und
+        die Antwort auf zwei verschiedene Fragen: „was habe ich umgestellt"
+        und „was tut diese Taste eigentlich".
+        """
+        for kind in sicht_rahmen.winfo_children():
+            kind.destroy()
+        tk.Label(sicht_rahmen, text=t('s_js_sicht'), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left',
+                                                        padx=(0, 8))
+
+        def _waehlen(welche):
+            nur['sicht'] = welche
+            nur['geraet'] = ''         # die Geräte unterscheiden sich je Sicht
+            _laden()
+            sicht_zeichnen()
+            filter_zeichnen()
+            liste_zeichnen()
+
+        for schluessel, welche in ((('s_js_s_meine'), joysticks.MEINE),
+                                   ('s_js_s_alles', joysticks.ALLES),
+                                   ('s_js_s_standard', joysticks.STANDARD)):
+            _knopf(fenster, sicht_rahmen, t(schluessel),
+                   (lambda w=welche: _waehlen(w)),
+                   stark=(nur['sicht'] == welche)).pack(side='left',
+                                                        padx=(0, 6))
+
+    def filter_zeichnen():
+        """Die Geräteknöpfe — ein Knopf je Gerät plus „Alle".
+
+        Kein Aufklappmenü: Es sind selten mehr als fünf Geräte, und ein Klick
+        ist weniger als zwei. Wird beim Auffrischen neu bestückt, weil ein
+        Gerät dazukommen oder wegfallen kann — das Suchfeld bleibt davon
+        unberührt, es liegt in einem eigenen Rahmen.
+        """
+        for kind in filter_rahmen.winfo_children():
+            kind.destroy()
+        alle = daten.get('belegungen') or {}
+
+        def _waehlen(kennzeichen):
+            nur['geraet'] = kennzeichen
+            filter_zeichnen()
+            liste_zeichnen()
+
+        knoepfe = [(t('s_js_alle'), '')]
+        # Nach Art gruppiert, damit Tastatur und Maus nicht zwischen den
+        # Sticks stehen — die Reihenfolge kommt aus `joysticks.ARTEN`.
+        for art, kuerzel in joysticks.ARTEN:
+            for kennzeichen in sorted(k for k in alle
+                                      if k.startswith(kuerzel)):
+                knoepfe.append((_geraetename(kennzeichen), kennzeichen))
+        for text, kennzeichen in knoepfe:
+            _knopf(fenster, filter_rahmen, text,
+                   (lambda k=kennzeichen: _waehlen(k)),
+                   stark=(nur['geraet'] == kennzeichen)).pack(side='left',
+                                                              padx=(0, 6))
+
+    def liste_zeichnen(*_):
+        """Die Trefferliste — das Einzige, was beim Tippen neu entsteht."""
+        for kind in liste_rahmen.winfo_children():
+            kind.destroy()
         alle = daten.get('belegungen') or {}
         if not alle:
+            zaehler.configure(text='')
             return
-        tk.Label(unten, text=t('s_js_belegt'), bg=BG, fg=FG,
-                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(16, 4))
-
-        # Ein Knopf je Gerät plus „Alle" — kein Aufklappmenü, weil es selten
-        # mehr als vier Geräte sind und ein Klick weniger ist als zwei.
-        wahl = tk.Frame(unten, bg=BG)
-        wahl.pack(fill='x', pady=(0, 6))
-
-        def _waehlen(nummer):
-            nur['nummer'] = nummer
-            zeichnen()
-
-        knoepfe = [(t('s_js_alle'), 0)]
-        for z in belegt:
-            if alle.get(z['nummer']):
-                knoepfe.append(('js%d' % z['nummer'], z['nummer']))
-        for text, nummer in knoepfe:
-            _knopf(fenster, wahl, text,
-                   (lambda n=nummer: _waehlen(n)),
-                   stark=(nur['nummer'] == nummer)).pack(side='left',
-                                                         padx=(0, 6))
-
-        feld_block = tk.Frame(unten, bg=BG)
-        feld_block.pack(fill='x', pady=(2, 6))
-        from .hauptfenster import rundes_feld
-        feld = rundes_feld(feld_block, suche, fenster.f_klein, '#0c1017',
-                           LINIE, ACCENT, FG)
-        feld.halter.pack(fill='x')
 
         begriff = (suche.get() or '').strip().lower()
+        namen = daten.get('namen') or {}
         gezeigt = []
-        for nummer in sorted(alle):
-            if nur['nummer'] and nummer != nur['nummer']:
-                continue
-            for e in alle[nummer]:
-                if begriff and begriff not in ('%s %s %s' % (
-                        e['eingabe'], e['aktion'], e['bereich'])).lower():
+        for art, kuerzel in joysticks.ARTEN:
+            for kennzeichen in sorted(k for k in alle
+                                      if k.startswith(kuerzel)):
+                if nur['geraet'] and kennzeichen != nur['geraet']:
                     continue
-                gezeigt.append((nummer, e))
+                for e in alle[kennzeichen]:
+                    klar, hinweis = namen.get(e['aktion'], ('', ''))
+                    # ⚠ Gesucht wird über **alles**, was der Spieler sehen
+                    # kann — den lesbaren Namen zuerst. Wer „Aussteigen"
+                    # tippt, denkt nicht an `v_eject`; wer aus einer Anleitung
+                    # `v_eject` kopiert, soll es trotzdem finden.
+                    if begriff and begriff not in ('%s %s %s %s %s' % (
+                            e['eingabe'], klar, hinweis, e['aktion'],
+                            e['bereich'])).lower():
+                        continue
+                    gezeigt.append((kennzeichen, e, klar))
 
-        tk.Label(unten, text=t('s_js_bindungen', len(gezeigt)), bg=BG, fg=SUB,
-                 font=fenster.f_klein, anchor='w').pack(fill='x',
-                                                        pady=(0, 4))
+        zaehler.configure(text=t('s_js_bindungen', len(gezeigt)))
         if not gezeigt:
-            tk.Label(unten, text=t('s_js_nichts'), bg=BG, fg=SUB,
+            tk.Label(liste_rahmen, text=t('s_js_nichts'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
             return
         # ⚠ Dieselbe Grenze wie in der Bauplan-Liste: Wer alle Geräte auf
         # einmal zeigt, hat schnell dreihundert Zeilen und wartet beim Öffnen.
-        for nummer, e in gezeigt[:200]:
-            zeile = tk.Frame(unten, bg=FLAECHE)
+        for kennzeichen, e, klar in gezeigt[:200]:
+            zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
             zeile.pack(fill='x', pady=1)
-            tk.Label(zeile, text='js%d' % nummer, bg=FLAECHE, fg=SUB,
-                     font=fenster.f_klein, width=6, anchor='w', padx=10,
-                     pady=6).pack(side='left')
+            tk.Label(zeile, text=_geraetename(kennzeichen), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein, width=9, anchor='w',
+                     padx=10, pady=6).pack(side='left')
             tk.Label(zeile, text=e['eingabe'], bg=FLAECHE, fg=ACCENT,
-                     font=fenster.f_klein, width=13, anchor='w').pack(
+                     font=fenster.f_klein, width=15, anchor='w').pack(
                          side='left')
-            tk.Label(zeile, text=e['aktion'], bg=FLAECHE, fg=FG,
-                     font=fenster.f_klein, anchor='w').pack(side='left')
-            tk.Label(zeile, text=e['bereich'], bg=FLAECHE, fg=SUB,
-                     font=fenster.f_klein, anchor='e', padx=10).pack(
-                         side='right')
+            # Der lesbare Name führt; nur wenn es keinen gibt, steht der
+            # technische da — dann aber grau, damit der Unterschied auffällt.
+            tk.Label(zeile, text=(klar or e['aktion']), bg=FLAECHE,
+                     fg=(FG if klar else SUB), font=fenster.f_klein,
+                     anchor='w').pack(side='left')
+            # Was der Spieler selbst geändert hat, wird gekennzeichnet —
+            # sonst sieht man in der Gesamtsicht nicht, was von einem selbst
+            # stammt und was ab Werk so ist.
+            if e.get('quelle') == joysticks.MEINE:
+                tk.Label(zeile, text=t('s_js_q_meine'), bg=FLAECHE, fg=ACCENT,
+                         font=fenster.f_klein, anchor='e', padx=10).pack(
+                             side='right')
 
     def _uebernehmen(alt, neu):
         from tkinter import messagebox
@@ -2415,17 +2510,52 @@ def _joysticks(fenster, rahmen):
                                    t('s_js_schief', t(meldung)))
         _auffrischen()
 
+    def _laden():
+        """Die Belegungen in der gewählten Sicht holen."""
+        try:
+            daten['belegungen'] = joysticks.sicht(nur['sicht'])
+        except Exception as ausnahme:
+            fehler.merken('seiten.joysticks_sicht', ausnahme)
+            daten['belegungen'] = {}
+
     def _auffrischen():
+        from .sprache import aktuelle
         try:
             daten['vergleich'] = joysticks.vergleich()
-            daten['belegungen'] = joysticks.belegungen()
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks', ausnahme)
             daten['vergleich'] = {}
-            daten['belegungen'] = {}
-        zeichnen()
+        try:
+            # ⚠ Die Klarnamen richten sich nach der **Programmsprache**, nicht
+            # nach der Spielsprache: Wer den englischen Client fährt, aber die
+            # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
+            joysticks.vergessen()
+            daten['namen'] = joysticks.klarnamen(aktuelle())
+        except Exception as ausnahme:
+            fehler.merken('seiten.joysticks_namen', ausnahme)
+            daten['namen'] = {}
+        _laden()
+        kopf_zeichnen()
+        # Die feste Hülle erst zeigen, wenn es wirklich Belegungen gibt —
+        # ein Suchfeld über einer leeren Liste ist nur Ballast.
+        if daten.get('belegungen') or nur['sicht'] != joysticks.ALLES:
+            kopfzeile.pack(fill='x', pady=(16, 4))
+            sicht_rahmen.pack(fill='x', pady=(0, 6))
+            filter_rahmen.pack(fill='x', pady=(0, 6))
+            werkzeug.pack(fill='x', pady=(2, 6))
+            zaehler.pack(fill='x', pady=(0, 4))
+            liste_rahmen.pack(fill='both', expand=True)
+        else:
+            for teil in (kopfzeile, sicht_rahmen, filter_rahmen, werkzeug,
+                         zaehler, liste_rahmen):
+                teil.pack_forget()
+        sicht_zeichnen()
+        filter_zeichnen()
+        liste_zeichnen()
 
-    suche.trace_add('write', zeichnen)
+    # ⚠ Hier hängt die Suche NUR an der Liste, nicht am Seitenaufbau — sonst
+    # verschwände mit jedem Buchstaben das Feld, in das getippt wird.
+    suche.trace_add('write', liste_zeichnen)
     _auffrischen()
     # ⚠ Bei jedem Öffnen frisch: Zwischen zwei Besuchen kann ein Gerät
     # abgezogen oder das Spiel gelaufen sein. Eine Seite, die einmal gebaut

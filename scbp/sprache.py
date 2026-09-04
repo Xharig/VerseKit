@@ -737,17 +737,20 @@ TEXTE = {
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
     # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
     'hf_joysticks':    ('Joysticks', 'Joysticks'),
-    's_js_lead':       ('Welcher Stick welche Nummer hat — und was darauf liegt.',
-                          'Which stick has which number — and what is bound to it.'),
-    's_js_hinweis':    ('Star Citizen merkt sich Tastenbelegungen an einer '
-                        'Nummer (js1, js2 …), nicht am Gerät. Beide Angaben '
-                        'stammen aus den Dateien des Spiels: die Geräte aus '
-                        'dem Startprotokoll, die Belegung aus deiner '
-                        'actionmaps.xml.',
-                          'Star Citizen ties key bindings to a number (js1, js2 …), '
-                          'not to a device. Both lists come from the game\'s own '
-                          'files: the devices from the startup log, the bindings '
-                          'from your actionmaps.xml.'),
+    's_js_lead':       ('Welcher Stick welche Nummer hat — und was auf '
+                        'welcher Taste liegt.',
+                          'Which stick has which number — and what is bound to '
+                          'which key.'),
+    's_js_hinweis':    ('Alles hier kommt aus den Dateien des Spiels: die '
+                        'Geräte aus dem Startprotokoll, deine Änderungen aus '
+                        'der actionmaps.xml, die Werkseinstellung und die '
+                        'Bezeichnungen aus dem Spiel selbst. Joystick, '
+                        'Tastatur, Maus und Gamepad — alles in einer Liste.',
+                          'Everything here comes from the game\'s own files: the '
+                          'devices from the startup log, your changes from '
+                          'actionmaps.xml, the defaults and the wording from the '
+                          'game itself. Joystick, keyboard, mouse and gamepad — '
+                          'all in one list.'),
     's_js_geraete':    ('Verbundene Geräte', 'Connected devices'),
     's_js_belegt':     ('Belegung in der actionmaps.xml', 'Bindings in actionmaps.xml'),
     's_js_leer':       ('Noch keine Geräte gefunden. Starte Star Citizen '
@@ -809,6 +812,20 @@ TEXTE = {
                            'was restored.'),
     's_js_f_lesen':    ('Die Datei ließ sich nicht lesen.',
                           'The file could not be read.'),
+    # Die drei Sichten auf die Belegung — dieselbe Einteilung, die auch das
+    # Spiel selbst kennt.
+    's_js_a_tastatur': ('Tastatur', 'Keyboard'),
+    's_js_a_maus':     ('Maus', 'Mouse'),
+    's_js_a_gamepad':  ('Gamepad', 'Gamepad'),
+    's_js_s_meine':    ('Von mir geändert', 'Changed by me'),
+    's_js_s_alles':    ('Alles', 'Everything'),
+    's_js_s_standard': ('Werkseinstellung', 'Default'),
+    's_js_sicht':      ('Anzeigen', 'Show'),
+    's_js_q_meine':    ('geändert', 'changed'),
+    's_js_keine_namen': ('Die Bezeichnungen des Spiels ließen sich nicht '
+                         'lesen — es stehen die technischen Namen da.',
+                           'The game\'s wording could not be read — technical '
+                           'names are shown instead.'),
     # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:
     # „da fehlt auch die Beschreibung, für was der Ordner ist, der Name sagt
     # nichts aus." Und der zweite Teil fehlte ganz: Dieser eine Ordner ist
@@ -1332,10 +1349,12 @@ TEXTE = {
                               '**Your own resource stock** — enter it instead of doing the'
                               'maths; crafting deducts the ingredients for you.'),
     's_dk_morkhan_idee':     ('**Angaben am Gegenstand im Spiel**, **Star Citizen aus '
-                              'dem Werkzeug starten** — und seit v3.4.0 der '
-                              '**Verkaufs-Reiter**.',
+                              'dem Werkzeug starten**, seit v3.4.0 der '
+                              '**Verkaufs-Reiter** — und dass auf der '
+                              'Joystick-Seite auch die **Tastatur** steht.',
                               '**Item details in game**, **launching Star Citizen from '
-                              'the tool** — and since v3.4.0 the **selling tab**.'),
+                              'the tool**, since v3.4.0 the **selling tab** — and '
+                              'having the **keyboard** on the joystick page too.'),
     's_dk_morkhan_bugs':     ('Dazu über zwanzig Funde, darunter 797 Baupläne, die '
                               'niemand zu sehen bekam, ein Fenster, das nicht mehr auf '
                               'den Bildschirm passte, und der abgebrochene Auftrag, der '

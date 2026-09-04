@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc2 - 2026-09-04
+
+> The joystick page now speaks plain language: instead of `v_eject` it says
+> "Eject", in whichever language you run the tool in. Keyboard, mouse and
+> gamepad are included, and you can switch between your own changes, the
+> defaults, and both together.
+
+### New
+
+- **Actions in plain language, German and English.** The binding list no
+  longer shows `v_eject` but "Eject" or "Schleudersitz" — depending on the
+  language set in the tool (not in the game). The wording comes from the game
+  itself; nothing is translated and nothing is guessed: where the game gives
+  no name, the technical one stays. Search covers both.
+- **Keyboard, mouse and gamepad in the same list.** Look up what a key does
+  without switching to the game. *Requested by Morkhan.*
+- **Three views to switch between** — *Changed by me* · *Everything* ·
+  *Default*. That answers two different questions: "what did I change" and
+  "what does this key actually do". Your own bindings are marked as such in
+  the combined view.
+
+### Fixed
+
+- **The search field lost the cursor after every character** — you had to
+  click back in for each further letter. The page rebuilt itself completely on
+  every keystroke, including the field being typed into.
+
 ## v3.14.0-rc1 - 2026-09-04
 
 > New in this one: a page for your joysticks. It shows which stick has which

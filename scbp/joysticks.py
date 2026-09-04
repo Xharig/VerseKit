@@ -86,6 +86,7 @@ Ebenfalls nicht: die Datei sperren, damit das Spiel sie nicht ueberschreibt.
 Das tun andere Werkzeuge; es ist genau die Sorte Verhalten, bei der
 Virenscanner anschlagen.
 """
+import json
 import os
 import re
 import shutil
@@ -311,8 +312,15 @@ def vergleich(ordner=None, datei=None):
     return ergebnis
 
 
+# Jede Geraeteart, die in der `actionmaps.xml` vorkommt, mit ihrer Vorsilbe.
+# ⚠ Die Reihenfolge ist die, in der die Geraete in der Oberflaeche erscheinen.
+ARTEN = (('joystick', 'js'), ('tastatur', 'kb'), ('maus', 'mo'),
+         ('gamepad', 'gp'))
+VORSILBE = re.compile(r'^(js|kb|mo|gp)(\d+)_')
+
+
 def belegungen(datei=None, ordner=None):
-    """Was auf den Joysticks liegt — je Nummer eine Liste von Belegungen.
+    """Was auf den Geraeten liegt — je Geraet eine Liste von Belegungen.
 
     ⭐ **Das geht fuer JEDES Geraet, ohne eine einzige Geraetevorlage.** Die
     `actionmaps.xml` sagt selbst, welcher Knopf welche Aktion ausloest; ob der
@@ -320,17 +328,17 @@ def belegungen(datei=None, ordner=None):
     niemand kennt, spielt keine Rolle. Vorlagen braucht erst, wer die Knoepfe
     auf einem **Bild** zeigen will.
 
-    Liefert `{nummer: [{'eingabe':…, 'aktion':…, 'bereich':…}, …]}`.
+    **Tastatur und Maus sind mit dabei** (Wunsch von Morkhan, 04.09.2026) —
+    sie stehen in derselben Datei und unterscheiden sich nur in der Vorsilbe.
+    Wer nachsehen will, welche Taste was tut, muss dafuer nicht ins Spiel.
 
-    * `eingabe` — was gedrueckt wird, ohne Vorsilbe: `button10`, `x`, `hat1_up`
+    Liefert `{kennzeichen: [{…}, …]}` mit `kennzeichen` wie `js1`, `kb1`, `mo1`.
+    Je Eintrag:
+
+    * `eingabe` — was gedrueckt wird, ohne Vorsilbe: `button10`, `x`, `f5`
     * `aktion` — der Name, den das Spiel vergibt: `v_eject`
     * `bereich` — die Gruppe drumherum: `spaceship_movement`
-
-    ⚠ Die Aktionsnamen bleiben vorerst so, wie das Spiel sie schreibt. Die
-    lesbaren Bezeichnungen („Aussteigen") stehen nicht in dieser Datei,
-    sondern in der `defaultProfile.xml` im `Data.p4k` (Feld `UILabel`), die
-    von dort auf die `global.ini` zeigt. Beides kann der Watcher bereits
-    lesen — es ist der naechste Schritt, nicht dieser.
+    * `art` — `joystick`, `tastatur`, `maus` oder `gamepad`
     """
     weg = datei or _pfad_actionmaps(ordner)
     if not weg or not os.path.isfile(weg):
@@ -339,6 +347,7 @@ def belegungen(datei=None, ordner=None):
         baum = ET.parse(weg)
     except Exception:
         return {}
+    nach_vorsilbe = {kuerzel: art for art, kuerzel in ARTEN}
     heraus = {}
     for gruppe in baum.getroot().iter('actionmap'):
         bereich = gruppe.get('name') or ''
@@ -346,18 +355,128 @@ def belegungen(datei=None, ordner=None):
             name = aktion.get('name') or ''
             for bindung in aktion.iter('rebind'):
                 eingabe = (bindung.get('input') or '').strip()
-                treffer = JS_VORSILBE.match(eingabe)
+                treffer = VORSILBE.match(eingabe)
                 if not treffer:
                     continue
-                nummer = int(treffer.group(1))
-                heraus.setdefault(nummer, []).append({
+                kennzeichen = treffer.group(1) + treffer.group(2)
+                heraus.setdefault(kennzeichen, []).append({
                     'eingabe': eingabe[treffer.end():],
                     'aktion': name,
                     'bereich': bereich,
+                    'art': nach_vorsilbe.get(treffer.group(1), ''),
                 })
     for liste in heraus.values():
         # Achsen zuerst, dann Knoepfe nach Nummer, dann der Rest — dieselbe
-        # Reihenfolge, in der man einen Stick auch anschaut.
+        # Reihenfolge, in der man ein Geraet auch anschaut.
+        liste.sort(key=_sortierschluessel)
+    return heraus
+
+
+def art_von(kennzeichen):
+    """Aus `js1` wird `joystick`, aus `kb1` `tastatur`."""
+    for art, kuerzel in ARTEN:
+        if kennzeichen.startswith(kuerzel):
+            return art
+    return ''
+
+
+# Welches Feld der `defaultProfile.xml` zu welcher Vorsilbe gehoert.
+STANDARD_FELD = {'keyboard': 'kb1', 'joystick': 'js1', 'mouse': 'mo1',
+                 'gamepad': 'gp1'}
+
+# Die drei Sichten, die es zu sehen gibt.
+MEINE    = 'meine'     # nur, was der Spieler selbst geaendert hat
+STANDARD = 'standard'  # nur die Werkseinstellung des Spiels
+ALLES    = 'alles'     # beides zusammengefuehrt — die wirkliche Belegung
+
+
+def standardbelegungen(spielordner=None):
+    """Die Werkseinstellung des Spiels, im Format von `belegungen()`.
+
+    ⚠ Der Standard kennt nur **ein** Geraet je Art (`js1`, `kb1` …) — das
+    Spiel legt seine Vorgaben nicht je angeschlossenem Stick ab. Wer zwei
+    Sticks fliegt, findet die Vorgaben deshalb komplett unter `js1`.
+    """
+    profil = _profil(spielordner) or {}
+    standard = profil.get('standard') or {}
+    # ⚠ **Nur Aktionen, die das Spiel selbst benennt.** Ohne `UILabel` taucht
+    # eine Aktion auch in den Spieloptionen nicht auf — es sind interne und
+    # Entwickler-Befehle (`retry`, `flycam_play`, `hacking_minigame_abort`).
+    # Sie mit anzuzeigen blaeht die Liste um rund 180 Zeilen auf, die niemand
+    # belegen kann. Eigene Belegungen bleiben davon unberuehrt: Was der
+    # Spieler selbst eingetragen hat, wird immer gezeigt.
+    benannt = profil.get('etiketten') or {}
+    heraus = {}
+    for aktion, felder in standard.items():
+        if not (benannt.get(aktion) or [''])[0]:
+            continue
+        for feld, eingabe in felder.items():
+            kennzeichen = STANDARD_FELD.get(feld)
+            if not kennzeichen or not eingabe:
+                continue
+            # Im Standard steht die Eingabe teils mit, teils ohne Vorsilbe.
+            treffer = VORSILBE.match(eingabe)
+            rein = eingabe[treffer.end():] if treffer else eingabe
+            if treffer:
+                kennzeichen = treffer.group(1) + treffer.group(2)
+            heraus.setdefault(kennzeichen, []).append({
+                'eingabe': rein,
+                'aktion': aktion,
+                'bereich': '',
+                'art': art_von(kennzeichen),
+                'quelle': STANDARD,
+            })
+    for liste in heraus.values():
+        liste.sort(key=_sortierschluessel)
+    return heraus
+
+
+def sicht(welche=ALLES, datei=None, ordner=None):
+    """Die Belegungen in einer der drei Sichten.
+
+    | Sicht | Was drinsteht |
+    |---|---|
+    | `meine` | nur die eigene `actionmaps.xml` — was der Spieler umgestellt hat |
+    | `standard` | nur die Werkseinstellung aus der `defaultProfile.xml` |
+    | `alles` | beides zusammen; eigene Aenderungen **ersetzen** den Standard |
+
+    ⚠⚠ **Beim Zusammenfuehren gewinnt der Spieler, und zwar je Aktion.**
+    Hat er eine Aktion selbst belegt, faellt die Werksvorgabe dafuer weg —
+    sonst staende dieselbe Aktion zweimal da, einmal richtig und einmal
+    falsch, und niemand wuesste welche gilt.
+
+    ⚠ Eine eigene Belegung mit **leerer** Eingabe ist eine geloeschte: Der
+    Spieler hat die Werksvorgabe bewusst entfernt. Sie verdraengt den
+    Standard, erscheint aber selbst nicht in der Liste — genau wie im Spiel.
+    """
+    eigene = belegungen(datei, ordner)
+    if welche == MEINE:
+        for liste in eigene.values():
+            for e in liste:
+                e['quelle'] = MEINE
+        return {k: [e for e in v if e['eingabe']] for k, v in eigene.items()}
+    if welche == STANDARD:
+        return standardbelegungen(ordner)
+
+    # Zusammenfuehren: erst merken, welche Aktionen der Spieler angefasst hat.
+    angefasst = set()
+    for liste in eigene.values():
+        for e in liste:
+            angefasst.add(e['aktion'])
+
+    heraus = {}
+    for kennzeichen, liste in standardbelegungen(ordner).items():
+        rest = [dict(e) for e in liste if e['aktion'] not in angefasst]
+        if rest:
+            heraus[kennzeichen] = rest
+    for kennzeichen, liste in eigene.items():
+        for e in liste:
+            if not e['eingabe']:
+                continue           # geloeschte Belegung — nichts anzuzeigen
+            neu = dict(e)
+            neu['quelle'] = MEINE
+            heraus.setdefault(kennzeichen, []).append(neu)
+    for liste in heraus.values():
         liste.sort(key=_sortierschluessel)
     return heraus
 
@@ -367,8 +486,15 @@ def _sortierschluessel(eintrag):
 
     Ohne das steht `button10` vor `button2`, was beim Nachschlagen jedes Mal
     stolpern laesst.
+
+    ⚠ **Nur bei Sticks.** Auf einer Tastatur sind `x`, `y` und `z` schlicht
+    Buchstaben — die als Achsen nach vorn zu sortieren, stellt die halbe
+    Tastatur an den Anfang. Tastatur und Maus werden deshalb alphabetisch
+    sortiert.
     """
     e = eintrag['eingabe']
+    if eintrag.get('art') in ('tastatur', 'maus'):
+        return (0, 0, e)
     achsen = ('x', 'y', 'z', 'rotx', 'roty', 'rotz')
     if e in achsen:
         return (0, achsen.index(e), '')
@@ -382,6 +508,186 @@ def _sortierschluessel(eintrag):
 def _zahl_am_ende(text):
     treffer = re.search(r'(\d+)', text)
     return int(treffer.group(1)) if treffer else 0
+
+
+# ---------------------------------------------------------------- Klarnamen
+#
+# `v_eject` sagt niemandem etwas. „Aussteigen" schon. Die Kette dorthin ist
+# dreistufig und fuehrt ausschliesslich ueber Dateien, die auf dem Rechner des
+# Spielers ohnehin liegen:
+#
+#     actionmaps.xml     v_eject
+#       └─ defaultProfile.xml   UILabel="@ui_CIEject"
+#            └─ global.ini      ui_CIEject=Aussteigen   (bzw. Eject)
+#
+# ⭐ **Und damit ist es zweisprachig, ohne dass wir etwas uebersetzen.** Die
+# `global.ini` liegt je Sprache einmal im Spielordner; welche gelesen wird,
+# richtet sich nach der eingestellten Programmsprache — nicht nach der
+# Spielsprache. Wer den englischen Client fährt, aber die Oberflaeche auf
+# Deutsch hat, bekommt deutsche Aktionsnamen.
+#
+# ⚠ Die `defaultProfile.xml` steckt im `Data.p4k` und ist **CryXmlB**, kein
+# Klartext-XML (siehe `scbp/cryxml.py`). Das Verzeichnis des Archivs ist
+# 442 MB gross — deshalb wird das Ergebnis in der Ablage gemerkt und nur neu
+# geholt, wenn der Spielstand sich geaendert hat.
+
+# Welcher Ordner der Lokalisierung zu welcher Programmsprache gehoert.
+# ⚠ Deutsch heisst dort `german_(germany)`, mit Unterstrichen und Klammern.
+INI_ORDNER = {'de': ('german_(germany)', 'german'), 'en': ('english',)}
+
+_KLARNAMEN = {}          # {sprache: {aktion: (name, beschreibung)}}
+
+
+# ⚠ Aendert sich, was `_profil()` merkt, muss diese Zahl hoch — sonst liest
+# eine neue Fassung den Merker der alten und findet die neuen Felder nicht.
+MERK_FASSUNG = 2
+
+
+def _profil(spielordner=None):
+    """Alles, was in der `defaultProfile.xml` des Spiels steht.
+
+    Zwei Dinge in einem Durchgang, weil beide aus derselben Datei kommen:
+
+    | Schluessel | Inhalt |
+    |---|---|
+    | `etiketten` | Aktion → `[UILabel, UIDescription]` — die Klarnamen |
+    | `standard` | Aktion → `{'keyboard': 'ralt+y', 'joystick': …}` |
+
+    ⭐ **`standard` ist der Grund, warum die Liste ueberhaupt vollstaendig
+    sein kann.** Die `actionmaps.xml` des Spielers enthaelt naemlich nur seine
+    **Abweichungen** vom Standard — wer nichts umgestellt hat, hat dort auch
+    nichts stehen, und eine Liste allein daraus waere fast leer. Erst beide
+    zusammen ergeben „was tut welche Taste".
+
+    Gemerkt wird das Ergebnis in `Intern/aktionsnamen.json`: Das Archiv
+    einmal aufzuschlagen dauert spuerbar, und die Daten aendern sich nur mit
+    einem Spiel-Patch.
+    """
+    from . import fehler
+    leer = {'etiketten': {}, 'standard': {}}
+    merk = pfade.app_datei('aktionsnamen.json')
+    stand = ''
+    try:
+        p4k = os.path.join(spielordner or pfade.spiel_ordner() or '',
+                           'Data.p4k')
+        if os.path.isfile(p4k):
+            stand = str(int(os.path.getmtime(p4k)))
+    except Exception:
+        pass
+    try:
+        if os.path.isfile(merk):
+            with open(merk, 'r', encoding='utf-8') as f:
+                gemerkt = json.load(f)
+            if (gemerkt.get('fassung') == MERK_FASSUNG
+                    and gemerkt.get('stand') == stand
+                    and gemerkt.get('etiketten')):
+                return gemerkt
+    except Exception:
+        pass
+
+    from . import cryxml, spieltexte
+    heraus = {'fassung': MERK_FASSUNG, 'stand': stand,
+              'etiketten': {}, 'standard': {}}
+    try:
+        p4k = spieltexte.p4k_pfad(spielordner)
+        with open(p4k, 'rb') as f:
+            verzeichnis, _ = spieltexte.lies_verzeichnis(
+                f, os.path.getsize(p4k))
+            methode, cs, rs, off = spieltexte.suche(
+                verzeichnis, 'Data/Libs/Config/defaultProfile.xml')
+            roh = spieltexte.hole_block(f, off, cs)
+        daten = (spieltexte.entpacke_zstd(roh, rs)[0] if methode == 100
+                 else __import__('zlib').decompress(roh, -15))
+        wurzel = cryxml.lesen(daten)
+        for knoten in cryxml.alle(wurzel, 'action'):
+            at = knoten.get('attribute') or {}
+            name = at.get('name')
+            if not name:
+                continue
+            heraus['etiketten'][name] = [at.get('UILabel', ''),
+                                         at.get('UIDescription', '')]
+            vorgabe = {}
+            for feld in ('keyboard', 'joystick', 'mouse', 'gamepad'):
+                wert = (at.get(feld) or '').strip()
+                # ⚠ Ein leeres Feld heisst „ab Werk nicht belegt" und ist
+                # etwas anderes als „gar kein Feld". Beides kommt vor.
+                if wert:
+                    vorgabe[feld] = wert
+            if vorgabe:
+                heraus['standard'][name] = vorgabe
+    except Exception as ausnahme:
+        # Ohne diese Datei bleibt die Liste benutzbar — dann stehen dort die
+        # technischen Namen und nur die eigenen Aenderungen. Schlechter, aber
+        # nicht kaputt.
+        fehler.merken('joysticks.profil', ausnahme)
+        return leer
+
+    try:
+        pfade.json_sichern(merk, heraus)
+    except Exception:
+        pass
+    return heraus
+
+
+def _ini_texte(sprache, spielordner=None):
+    """Die `ui_…`-Zeilen der `global.ini` in der gewuenschten Sprache.
+
+    Gelesen werden nur Zeilen, die mit `ui_` beginnen — die Datei hat rund
+    12 MB, und alles andere wird hier nicht gebraucht.
+    """
+    basis = os.path.join(spielordner or pfade.spiel_ordner() or '',
+                         'data', 'Localization')
+    if not os.path.isdir(basis):
+        basis = os.path.join(spielordner or pfade.spiel_ordner() or '',
+                             'Data', 'Localization')
+    heraus = {}
+    for ordner in INI_ORDNER.get(sprache, ('english',)):
+        weg = os.path.join(basis, ordner, 'global.ini')
+        if not os.path.isfile(weg):
+            continue
+        try:
+            with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+                for zeile in f:
+                    if not zeile.startswith('ui_'):
+                        continue
+                    schluessel, _, wert = zeile.partition('=')
+                    if wert:
+                        heraus[schluessel.strip()] = wert.strip()
+        except Exception:
+            continue
+        if heraus:
+            break
+    return heraus
+
+
+def klarnamen(sprache='de', spielordner=None):
+    """Aktion → (lesbarer Name, Beschreibung) in der gewuenschten Sprache.
+
+    Fehlt eine der Quellen, kommt ein leeres Woerterbuch zurueck und die
+    Oberflaeche zeigt weiter die technischen Namen. **Kein Raten:** Ein
+    Etikett ohne Eintrag in der `global.ini` bleibt weg, statt aus dem
+    Schluessel einen huebschen Namen zu basteln.
+    """
+    merk = _KLARNAMEN.get(sprache)
+    if merk is not None:
+        return merk
+    etiketten = (_profil(spielordner) or {}).get('etiketten') or {}
+    texte = _ini_texte(sprache, spielordner)
+    heraus = {}
+    if etiketten and texte:
+        for aktion, paar in etiketten.items():
+            label, beschreibung = (paar + ['', ''])[:2]
+            name = texte.get((label or '').lstrip('@'), '')
+            hinweis = texte.get((beschreibung or '').lstrip('@'), '')
+            if name:
+                heraus[aktion] = (name, hinweis)
+    _KLARNAMEN[sprache] = heraus
+    return heraus
+
+
+def vergessen():
+    """Den Merker leeren — nach einem Sprachwechsel."""
+    _KLARNAMEN.clear()
 
 
 def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):

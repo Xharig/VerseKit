@@ -6,6 +6,35 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc2 - 2026-09-04
+
+> Die Joystick-Seite spricht jetzt Klartext: Statt `v_eject` steht dort
+> „Schleudersitz", und zwar in der Sprache, in der du das Werkzeug bedienst.
+> Tastatur, Maus und Gamepad sind mit dabei, und du kannst zwischen deinen
+> eigenen Änderungen, der Werkseinstellung und beidem zusammen umschalten.
+
+### Neu
+
+- **Aktionen im Klartext, deutsch und englisch.** Die Belegungsliste zeigt
+  nicht mehr `v_eject`, sondern „Schleudersitz" bzw. „Eject" — je nachdem,
+  welche Sprache im Werkzeug eingestellt ist (nicht im Spiel). Die
+  Bezeichnungen kommen aus dem Spiel selbst, es wird nichts übersetzt und
+  nichts geraten: Wo das Spiel keinen Namen vergibt, steht weiter der
+  technische. Gesucht wird über beides.
+- **Tastatur, Maus und Gamepad in derselben Liste.** Nachschlagen, welche
+  Taste was tut, ohne ins Spiel zu wechseln. *Gewünscht von Morkhan.*
+- **Drei Ansichten zum Umschalten** — *Von mir geändert* · *Alles* ·
+  *Werkseinstellung*. Das beantwortet zwei verschiedene Fragen: „was habe ich
+  umgestellt" und „was tut diese Taste eigentlich". Eigene Belegungen sind in
+  der Gesamtansicht als solche gekennzeichnet.
+
+### Behoben
+
+- **Im Suchfeld ging nach jedem Buchstaben der Eingabezeiger verloren** — man
+  musste für jeden weiteren Buchstaben neu hineinklicken. Die Seite baute sich
+  bei jedem Tastendruck komplett neu auf, samt des Feldes, in das gerade
+  getippt wurde.
+
 ## v3.14.0-rc1 - 2026-09-04
 
 > Neu dabei: eine Seite für deine Joysticks. Sie zeigt, welcher Stick welche

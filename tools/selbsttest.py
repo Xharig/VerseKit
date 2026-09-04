@@ -1489,6 +1489,58 @@ def main():
                    'kein Schlüsselname als Beschriftung (%d gefunden)'
                    % len(set(_rohe)))
 
+            # ⚠⚠ **Ein Suchfeld darf sich beim Tippen nicht selbst wegbauen.**
+            #
+            # Gemeldet am 04.09.2026 zur Joystick-Seite: „springt die Maus
+            # raus, ich muss immer erneut reinklicken und kann nur einen
+            # Buchstaben eingeben." Ursache war eine Zeichenfunktion, die an
+            # der Suchvariablen hing und dabei die **ganze** Seite neu baute —
+            # samt des Feldes, in das gerade getippt wurde.
+            #
+            # Es ist im Projekt nicht das erste Mal passiert, deshalb wird es
+            # ab jetzt geprüft statt erinnert: Nach einem simulierten
+            # Tastendruck muss das Eingabefeld **dasselbe Objekt** sein.
+            # Gegengeprüft mit eingebautem Fehler — schlägt dann an.
+            _felder_kaputt = []
+            _spr.setzen('de')
+            _f = _hf.Hauptfenster(version='0.0.0-test')
+            _f.root.geometry('900x600+3000+3000')
+            for _seite in ('joysticks',):
+                _rahmen = _tk.Frame(_f.root)
+                try:
+                    _st.bauen(_f, _seite, _rahmen)
+                    _f.root.update()
+
+                    def _eingaben(w, raus):
+                        if w.winfo_class() == 'Entry':
+                            raus.append(w)
+                        for _k in w.winfo_children():
+                            _eingaben(_k, raus)
+
+                    _vor = []
+                    _eingaben(_rahmen, _vor)
+                    if _vor:
+                        _ziel = _vor[0]
+                        _ziel.insert(0, 'a')          # ein Buchstabe
+                        _f.root.update()
+                        _nach = []
+                        _eingaben(_rahmen, _nach)
+                        # Dasselbe Objekt? `winfo_exists` allein genügt nicht:
+                        # Ein neu gebautes Feld existiert auch.
+                        if not _nach or _nach[0] is not _ziel:
+                            _felder_kaputt.append(_seite)
+                except Exception as _fehler:
+                    _felder_kaputt.append('%s: %s' % (_seite,
+                                                      type(_fehler).__name__))
+                _rahmen.destroy()
+            _f.root.destroy()
+            _spr.setzen(_vorher)
+            if _felder_kaputt:
+                print('       Suchfeld wird beim Tippen neu gebaut: %s'
+                      % ', '.join(_felder_kaputt))
+            pruefe(not _felder_kaputt,
+                   'das Suchfeld überlebt einen Tastendruck')
+
         # Und die Gegenrichtung: Ein Schlüssel, den es nur auf Deutsch gibt, ist
         # eine halbe Übersetzung — die wirkt schlechter als gar keine.
         _halbe = [k for k, v in _spr.TEXTE.items()
