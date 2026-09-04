@@ -2303,6 +2303,11 @@ def _joysticks(fenster, rahmen):
         Ist das Gerät unbekannt (kommt in keiner Belegung vor), bleibt die
         Nummer stehen — falsch raten wäre schlechter als technisch wirken.
         """
+        # In der Sicht „noch nicht belegt" gibt es kein Gerät — die Aktion
+        # gehört noch zu keinem. Ein Strich sagt das; „frei" sähe aus wie ein
+        # Gerätename.
+        if kennzeichen == joysticks.FREI:
+            return t('s_js_ohne_eingabe')
         art = joysticks.art_von(kennzeichen)
         if art in ('tastatur', 'maus', 'gamepad'):
             return t('s_js_a_' + art)
