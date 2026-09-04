@@ -10067,6 +10067,55 @@ def main():
             os.environ['SC_BP_HOME'] = _altheim113
         shutil.rmtree(_wiese113, ignore_errors=True)
 
+    # --------------------------------------------------------------------- 113b
+    # ⚠⚠ Der Bestandsabgleich beim Start darf den Katalog nur EINMAL lesen.
+    # Gemessen am 04.09.2026: Er las die 1-MB-Datei einmal je Bauplan und
+    # brauchte bei 406 Stueck **3,6 Sekunden bei jedem Programmstart** — und
+    # berichtigte dabei nichts. Nach dem Fix: 11 ms.
+    #
+    # ⚠ Gezaehlt statt gestoppt: Eine Zeitmessung im Selbsttest wackelt mit der
+    # Maschine und schlaegt irgendwann grundlos an. Die Zahl der Dateizugriffe
+    # ist dagegen eindeutig — und sie ist die Ursache, nicht das Symptom.
+    print()
+    print('113b. Der Bestandsabgleich liest den Katalog nur einmal')
+    _bes113b = importlib.import_module('scbp.bestand')
+    _kat113b = importlib.import_module('scbp.katalog')
+    _zaehler113b = [0]
+    _echt113b = _kat113b.laden
+
+    def _gezaehlt113b(*a, **k):
+        _zaehler113b[0] += 1
+        return _echt113b(*a, **k)
+
+    _kat113b.laden = _gezaehlt113b
+    try:
+        _daten113b = {'bauplaene': {
+            'testhelm %d' % i: {'name': 'Testhelm %d' % i} for i in range(50)}}
+        _bes113b.angleichen(_daten113b)
+        pruefe(_zaehler113b[0] <= 1,
+               'bei 50 Bauplaenen wird der Katalog %dx geladen (erlaubt: 1)'
+               % _zaehler113b[0])
+    finally:
+        _kat113b.laden = _echt113b
+
+    # ⚠⚠ Ein zweites Kuerzel-Muster: MrKraken StarStrings stellt Klasse, Groesse
+    # und Grad VORAN statt sie anzuhaengen (`Ind/2/B Citadel`). Gemessen in der
+    # ausgelieferten Datei: 465 Eintraege. Ohne Angleichung findet keiner davon
+    # seinen Katalog-Eintrag — bei einem Melder vier von 26 Bauplaenen.
+    print()
+    print('113c. Das Kuerzel wird auch vorangestellt erkannt')
+    _pf113c = importlib.import_module('scbp.pfade')
+    for _roh113c, _soll113c in (
+            ('Ind/2/B Citadel', 'citadel'),
+            ('Sth/1/B Zephyr', 'zephyr'),
+            ('Citadel (Ind/2/B)', 'citadel'),      # die alte Form bleibt
+            # ⚠ Gegenproben: Was KEIN Kuerzel ist, bleibt stehen.
+            ('Singe Cannon (S2)', 'singe cannon (s2)'),
+            ('Ind/2/B', 'ind/2/b'),                # nur das Kuerzel, kein Name
+    ):
+        pruefe(_pf113c.namensform(_roh113c) == _soll113c,
+               'Namensform: %r -> %r' % (_roh113c, _soll113c))
+
     # --------------------------------------------------------------------- 114
     # Die Sicherung. ⚠⚠ Ein kaputtes Backup faellt erst im Ernstfall auf — dann,
     # wenn der alte Rechner schon neu aufgesetzt ist. Deshalb wird hier der

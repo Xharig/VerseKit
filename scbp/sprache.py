@@ -1209,7 +1209,10 @@ TEXTE = {
                               'nackten Schlüsselnamen im Einrichtungsassistenten und '
                               'der umbenannte Spielordner, dem HOTFIX seine Erkennung '
                               'verdankt. Und die Bauplan-Liste, die beim Öffnen hakte — '
-                              'sie geht jetzt in einem Drittel der Zeit auf.',
+                              'sie geht jetzt in einem Drittel der Zeit auf. Sein '
+                              'Bericht brachte zuletzt zwei Dinge auf einmal: den '
+                              'trägen Programmstart und die Baupläne, die mit '
+                              'StarStrings nicht mehr zum Katalog fanden.',
                               'Plus a dozen finds around the overlay, setup and updating — '
                               'among them the collapsed overlay hanging off the screen '
                               'edge in three corners out of four, the title bar that '
@@ -1220,7 +1223,9 @@ TEXTE = {
                               'the setup wizard, and the renamed game folder that led to '
                               'HOTFIX being recognised at all. And the blueprint list '
                               'that stuttered when opening — it now comes up in a third '
-                              'of the time.'),
+                              'of the time. His latest report brought two things at '
+                              'once: the sluggish program start, and the blueprints '
+                              'that no longer matched the catalogue with StarStrings.'),
     # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.** Am 27.08.2026 hat
     # Bomb20 an einem Vormittag vier Fehler gefunden, die alle am Samstag jeden
     # Nutzer getroffen hätten — und hier stand weiter nur sein Fund vom 25.08.

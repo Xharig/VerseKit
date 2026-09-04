@@ -1349,6 +1349,28 @@ KUERZEL_RE = re.compile(
     r'|(?:%s)'
     r'|(?:ir|em|cs)\d{1,2})\)\s*$' % (_KLASSEN_KURZ, _KLASSEN_KURZ))
 
+# \u26a0\u26a0 **MrKraken StarStrings stellt dasselbe K\u00fcrzel VORAN \u2014 ohne Klammern.**
+# Wer StarStrings einsetzt, hat im Spiel `Ind/2/B Citadel` stehen, wo der
+# Katalog `Citadel` kennt; die uebliche Schreibweise waere `Citadel (Ind/2/B)`.
+# `KUERZEL_RE` oben faengt nur die Klammerform. Die vorangestellte blieb stehen,
+# der Name fand seinen Katalog-Eintrag nicht und galt als \u201enicht im Katalog".
+#
+# Gemessen am 04.09.2026 in der ausgelieferten StarStrings-Datei: **465**
+# Eintraege in dieser Form \u2014 Kuehler, Schilde, Kraftwerke. Bei einem Melder
+# waren vier von 26 Bauplaenen betroffen, also jeder sechste.
+#
+# \u26a0 Es liegt NICHT an der Spielsprache. Das war der erste Verdacht (der Melder
+# spielt auf Englisch), und er war falsch \u2014 er benutzt StarStrings, und das
+# schreibt die Namen so. Wer hier etwas aendert, prueft es an der echten Datei
+# nach (`tools/starstrings_pruefen.py` zeigt, woher sie kommt).
+#
+# Genauso eng gehalten wie oben: nur die bekannten Kuerzel, nur am Anfang, und
+# es muss ein Leerzeichen samt Namen folgen. `Ind/2/B` allein bleibt stehen \u2014
+# ein Name, der nur aus dem Kuerzel besteht, waere sonst leer.
+KUERZEL_VORN_RE = re.compile(
+    r'^\s*(?:%s)/(?:\d{1,2}|\u2013|-)/(?:[a-d]|\u2013|-)\s+(?=\S)'
+    % _KLASSEN_KURZ)
+
 
 # Die Mengenangabe am Namensende — `(16 cap)`, `(16 Schuss)`, `(40 rounds)`.
 #
@@ -1387,7 +1409,9 @@ def namensform(s):
       `MENGE_RE` oben. Die Zahl bleibt stehen, nur das Wort faellt weg.
     """
     return MENGE_RE.sub(r'(\1)',
-                        KUERZEL_RE.sub('', str(s).lower()
+                        KUERZEL_VORN_RE.sub(
+                            '',
+                            KUERZEL_RE.sub('', str(s).lower()
 .replace('\xa0', ' ')
 .replace('\ufffd', ' ')
-.translate(ANFUEHRUNG)).strip()).strip()
+.translate(ANFUEHRUNG)).strip())).strip()

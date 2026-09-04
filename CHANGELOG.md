@@ -6,6 +6,36 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.1 - 2026-09-04
+
+> Das Werkzeug startet spürbar schneller — je mehr Baupläne du hast, desto
+> deutlicher. Dazu findet es jetzt auch die Baupläne wieder, deren Namen von
+> MrKrakens StarStrings umgeschrieben wurden.
+
+### Verbessert
+
+- **Der Start dauert nicht mehr Sekunden.** Beim Hochfahren wird der Bestand
+  einmal gegen den Katalog geprüft — dabei wurde die Katalogdatei für **jeden
+  einzelnen Bauplan** neu von der Platte gelesen. Bei 406 Bauplänen waren das
+  3,6 Sekunden bei jedem Start, ohne dass sich etwas änderte. Jetzt sind es
+  11 Millisekunden. Wer wenige Baupläne hat, merkt es kaum; wer viele hat,
+  deutlich.
+
+### Behoben
+
+- **Baupläne galten als „nicht im Katalog", wenn StarStrings im Einsatz ist.**
+  MrKrakens Übersetzung stellt Klasse, Größe und Gütegrad vor den Namen
+  (`Ind/2/B Citadel`), während der Katalog `Citadel` kennt — der Bauplan fand
+  sich dann nicht wieder. Betrifft 465 Gegenstände: Kühler, Schilde und
+  Kraftwerke.
+  Gemeldet von Haldjas
+
+### Dank
+
+- **Haldjas** — für den Bericht, aus dem beide Punkte kamen. Der zweite hätte
+  ohne seinen Hinweis, dass er StarStrings benutzt, eine falsche Ursache
+  bekommen.
+
 ## v3.13.0 - 2026-09-04
 
 > Der meistgewünschte Knopf ist da: **Sicherung**. Alles, was nur du hast, in

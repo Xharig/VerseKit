@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.13.0'
+__version__ = '3.13.1'
 
 
 def _mitgeliefert(name):
@@ -698,7 +698,15 @@ class Watcher(threading.Thread):
         # ob Bauplaene drin sind — das Ziel sagt, wofuer man gerade fliegt.**
         # Beides steht im Protokoll; die Buchfuehrung dazu in `auftraege.Ziele`.
         self._ziele = auftraege.Ziele()
+        # ⚠ Messpunkte im Startverlauf. Zwischen „Overlay wird gebaut" und
+        # „Overlay steht" lagen bei einem Nutzer **vier Sekunden**, bei einem
+        # anderen eine — und dazwischen stand nichts, woran man das haette
+        # festmachen koennen. Ein Bericht, der nur Anfang und Ende kennt, sagt
+        # bei genau der Frage nichts, fuer die man ihn braucht.
+        fehler.spur('Overlay: Bestand wird geladen')
         self.bestand = bestand_datei.laden()   # der eigene, dauerhafte Bestand
+        fehler.spur('Overlay: Bestand geladen (%d Bauplaene)'
+                    % len(self.bestand.get('bauplaene') or {}))
         # ⚠ Einmal beim Start die Namen an den Katalog angleichen. Was der
         # Watcher vor v3.3.3 aus dem Log gelesen hat, trägt womöglich die
         # Angaben aus dem Spiel im Namen („Balandin (S3 B Military)") und galt
@@ -712,6 +720,7 @@ class Watcher(threading.Thread):
                             % berichtigt)
         except Exception as ausnahme:
             fehler.merken('watcher.bestand_angleichen', ausnahme)
+        fehler.spur('Overlay: Bestand am Katalog geprueft')
         self._neu_einlesen = False            # Auftrag von außen, siehe unten
         self.running = True
         self.cat_next = 0.0     # nächster Katalog-Check (Zeitstempel)

@@ -254,8 +254,16 @@ def _ablage_nachziehen(daten):
 ANHANG_RE = __import__('re').compile(r'\s*\([^()]*\)\s*$')
 
 
-def katalogname(name):
+def katalogname(name, bekannt=None):
     """Den Namen so, wie ihn der Katalog kennt — ohne angehängte Angaben.
+
+    ⚠⚠ **`bekannt` durchreichen, wenn viele Namen hintereinander laufen.**
+    Ohne den Parameter holt sich diese Funktion den Katalog selbst — und
+    `katalog.laden()` liest jedes Mal die ganze Datei (rund 1 MB). Bei einem
+    Aufruf faellt das nicht auf, bei 406 hintereinander schon: Gemessen am
+    04.09.2026 brauchte `angleichen()` dadurch **3,6 Sekunden** bei jedem
+    Programmstart — und berichtigte dabei null Eintraege. Wer 26 Bauplaene hat,
+    merkt nichts; wer 400 hat, wartet.
 
     ⚠⚠ **Warum das nötig ist: Wir vergiften uns die eigene Erkennung.** Das
     Werkzeug (und der SC Deutsch Launcher) schreiben Klasse, Größe und Gütegrad
@@ -276,11 +284,12 @@ def katalogname(name):
     """
     if not name:
         return name
-    from . import katalog
-    try:
-        bekannt = katalog.laden().get('bauplaene') or {}
-    except Exception:
-        return name
+    if bekannt is None:
+        from . import katalog
+        try:
+            bekannt = katalog.laden().get('bauplaene') or {}
+        except Exception:
+            return name
     if not bekannt or norm(name) in bekannt:
         return name
     ohne = ANHANG_RE.sub('', name).strip()
@@ -329,11 +338,20 @@ def angleichen(daten):
     Für alles, was vor dieser Berichtigung schon mit Anhang abgelegt wurde.
     Gibt die Zahl der berichtigten Einträge zurück; `0` heißt „nichts zu tun".
     """
+    # ⚠ Den Katalog EINMAL holen und durchreichen — nicht je Bauplan neu.
+    # Siehe `katalogname`: Ohne das las diese Schleife die 1-MB-Katalogdatei
+    # einmal pro Eintrag und brauchte bei 406 Bauplaenen 3,6 Sekunden.
+    from . import katalog
+    try:
+        bekannt = katalog.laden().get('bauplaene') or {}
+    except Exception:
+        return 0
+
     berichtigt = 0
     for schluessel in list(daten['bauplaene']):
         eintrag = daten['bauplaene'][schluessel]
         alt_name = eintrag.get('name') or schluessel
-        neu_name = katalogname(alt_name)
+        neu_name = katalogname(alt_name, bekannt)
         if neu_name == alt_name:
             continue
         daten['bauplaene'].pop(schluessel)

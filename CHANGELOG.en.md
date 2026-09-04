@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.1 - 2026-09-04
+
+> The tool starts noticeably faster — the more blueprints you have, the more
+> so. It also finds blueprints again whose names were rewritten by MrKraken's
+> StarStrings.
+
+### Improved
+
+- **Startup no longer takes seconds.** On start, your inventory is checked
+  against the catalogue once — and the catalogue file was re-read from disk for
+  **every single blueprint**. With 406 blueprints that meant 3.6 seconds on
+  every start, without anything changing. It is 11 milliseconds now. With few
+  blueprints you hardly notice; with many, clearly.
+
+### Fixed
+
+- **Blueprints counted as "not in the catalogue" when StarStrings is in use.**
+  MrKraken's translation puts class, size and grade in front of the name
+  (`Ind/2/B Citadel`), while the catalogue knows `Citadel` — so the blueprint
+  was not found. Affects 465 items: coolers, shields and power plants.
+  Reported by Haldjas
+
+### Thanks
+
+- **Haldjas** — for the report both points came out of. Without his note that
+  he uses StarStrings, the second one would have been given the wrong cause.
+
 ## v3.13.0 - 2026-09-04
 
 > The most requested button is here: **Backup**. Everything only you have, in a
