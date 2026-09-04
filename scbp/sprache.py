@@ -729,6 +729,7 @@ TEXTE = {
     's_al_oft':        ('%d× gespielt · %d abgeschlossen',
                           'played %d× · %d completed'),
     's_al_anzahl':     ('%d Aufträge', '%d missions'),
+    's_al_oft_kopf':   ('Mehrfach gespielt', 'Played more than once'),
     's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
     # ⚠⚠ **„Eigene Dateien" sagte niemandem etwas.** Am 31.08.2026 gemeldet:

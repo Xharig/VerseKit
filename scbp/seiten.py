@@ -2055,16 +2055,13 @@ def _auftragslog(fenster, rahmen):
     innen = _rollflaeche(rahmen)
     _fliesstext(innen, t('s_al_hinweis'), fenster.f_klein, fill='x')
 
-    try:
-        alle = missionslog.laden()
-    except Exception:
-        alle = []
-
-    if not alle:
-        tk.Label(innen, text=t('s_al_leer'), bg=BG, fg=SUB,
-                 font=fenster.f_klein, anchor='w', justify='left',
-                 wraplength=560).pack(fill='x', padx=24, pady=(16, 0))
-        return
+    # ⚠⚠ **Die Daten werden bei JEDEM Zeigen neu geholt, nicht nur beim Bauen.**
+    # Die Nachlese der alten Protokolle läuft kurz nach dem Start in einem
+    # eigenen Faden. Wer die Seite in dieser Sekunde öffnet, sah bis
+    # 04.09.2026 „Noch kein Auftrag aufgezeichnet" — und danach nie wieder
+    # etwas anderes, weil die Seite gebaut blieb. Genau so gemeldet, mit acht
+    # Aufträgen in der Datei.
+    daten = {'alle': []}
 
     suche = tk.StringVar()
     liste_rahmen = tk.Frame(innen, bg=BG)
@@ -2090,9 +2087,23 @@ def _auftragslog(fenster, rahmen):
              missionslog.ABGEBROCHEN: 's_al_abbruch',
              missionslog.LAEUFT: 's_al_laeuft'}
 
-    def zeichnen(*_):
+    def zeichnen(*_, neu_laden=False):
+        if neu_laden or not daten['alle']:
+            try:
+                daten['alle'] = missionslog.laden()
+            except Exception:
+                daten['alle'] = []
+        alle = daten['alle']
         for kind in liste_rahmen.winfo_children():
             kind.destroy()
+        if not alle:
+            # Noch gar nichts aufgezeichnet — das ist etwas anderes als „die
+            # Suche findet nichts" und braucht deshalb einen eigenen Satz.
+            kopf.configure(text='')
+            tk.Label(liste_rahmen, text=t('s_al_leer'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w', justify='left',
+                     wraplength=560).pack(fill='x', pady=8)
+            return
         treffer = missionslog.suchen(alle, suche.get())
         kopf.configure(text=t('s_al_anzahl', len(treffer)))
         if not treffer:
@@ -2139,26 +2150,32 @@ def _auftragslog(fenster, rahmen):
                          bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
                          anchor='w', justify='left').pack(fill='x')
 
+        # Wie oft welcher Auftrag lief — die Antwort auf „mache ich den
+        # ständig?". Steht mit in `zeichnen()`, damit es beim Auffrischen
+        # mitwächst statt einen alten Stand zu zeigen.
+        zaehler = missionslog.zusammenfassen(alle)
+        if len(zaehler) < len(alle):    # nur wenn sich etwas wiederholt hat
+            tk.Label(liste_rahmen, text=t('s_al_oft_kopf'), bg=BG, fg=FG,
+                     font=fenster.f_fett, anchor='w').pack(fill='x',
+                                                           pady=(16, 4))
+            for name, (gesamt, fertig) in sorted(zaehler.items(),
+                                                 key=lambda x: -x[1][0]):
+                if gesamt < 2:
+                    continue
+                reihe = tk.Frame(liste_rahmen, bg=BG)
+                reihe.pack(fill='x')
+                tk.Label(reihe, text=name, bg=BG, fg=FG, font=fenster.f_klein,
+                         anchor='w').pack(side='left')
+                tk.Label(reihe, text='  ' + t('s_al_oft', gesamt, fertig),
+                         bg=BG, fg=SUB, font=fenster.f_klein,
+                         anchor='w').pack(side='left')
+
     suche.trace_add('write', zeichnen)
     zeichnen()
 
-    # Wie oft welcher Auftrag lief — die Antwort auf „mache ich den staendig?".
-    zaehler = missionslog.zusammenfassen(alle)
-    if len(zaehler) < len(alle):        # nur wenn sich etwas wiederholt hat
-        tk.Label(innen, text=t('hf_auftragslog'), bg=BG, fg=FG,
-                 font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
-                                                       pady=(14, 4))
-        for name, (gesamt, fertig) in sorted(zaehler.items(),
-                                             key=lambda x: -x[1][0]):
-            if gesamt < 2:
-                continue
-            reihe = tk.Frame(innen, bg=BG)
-            reihe.pack(fill='x', padx=24)
-            tk.Label(reihe, text=name, bg=BG, fg=FG, font=fenster.f_klein,
-                     anchor='w').pack(side='left')
-            tk.Label(reihe, text='  ' + t('s_al_oft', gesamt, fertig), bg=BG,
-                     fg=SUB, font=fenster.f_klein,
-                     anchor='w').pack(side='left')
+    # ⚠ Bei jedem Öffnen frisch laden — siehe oben. Ohne das bleibt eine Seite,
+    # die während der Nachlese gebaut wurde, für immer leer.
+    fenster.beim_zeigen['auftragslog'] = lambda: zeichnen(neu_laden=True)
 
 
 def _wasistneu(fenster, rahmen):
