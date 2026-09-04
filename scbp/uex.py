@@ -129,7 +129,21 @@ def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
         return []
     # ⚠ Siehe `DECKEL` oben: Abgeschnitten wird still. Wer es nicht merkt,
     # rechnet mit einem Bruchstück weiter und hält es für das Ganze.
-    if isinstance(liste, list) and len(liste) >= DECKEL:
+    #
+    # ⚠⚠ **`==`, nicht `>=`** — und der Unterschied ist der ganze Sinn der
+    # Prüfung. Mit `>=` schlug sie bei **jeder vollständigen** Antwort an, die
+    # zufällig groß ist: `terminals` liefert 826 Zeilen, `commodities_prices_all`
+    # 2.593 — beides ungekürzt, beides täglich als Fehler ins Protokoll.
+    #
+    # Am 04.09.2026 im Fehlerbericht aufgefallen. Der Schaden ist nicht die
+    # falsche Zeile, sondern die Gewöhnung: Ein Protokoll, in dem jeden Tag
+    # zwei erfundene Fehler stehen, liest bald niemand mehr — und der echte
+    # geht darin unter.
+    #
+    # Abgeschnitten ist eine Antwort **genau dann**, wenn sie exakt auf dem
+    # Deckel sitzt. Alles darüber beweist, dass es für diese Abfrage keinen
+    # gibt.
+    if isinstance(liste, list) and len(liste) == DECKEL:
         fehler.merken(
             'uex.holen.' + stelle,
             RuntimeError('Antwort bei %d Zeilen — vermutlich abgeschnitten, '

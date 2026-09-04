@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc19 - 2026-09-04
+
+> Two errors that were not errors: the error log reported two made-up problems
+> on every price fetch. A log full of false alarms soon goes unread — and the
+> real error disappears in it.
+
+### Fixed
+
+- **The error log reported two problems that did not exist.** Every fetch of
+  the sell data added two entries about supposedly truncated responses — they
+  were complete all along.
+
 ## v3.14.0-rc18 - 2026-09-04
 
 > The mission text in game now tells you what a mission pays and when it is

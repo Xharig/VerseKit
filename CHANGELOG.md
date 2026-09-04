@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc19 - 2026-09-04
+
+> Zwei Fehler, die keine waren: Das Fehlerprotokoll meldete bei jedem Abruf
+> der Preisdaten zwei erfundene Probleme. Ein Protokoll voller falscher Alarme
+> liest bald niemand mehr — und der echte Fehler geht darin unter.
+
+### Behoben
+
+- **Das Fehlerprotokoll meldete zwei Probleme, die es nicht gab.** Bei jedem
+  Abruf der Verkaufsdaten standen dort zwei Einträge über angeblich
+  abgeschnittene Antworten — tatsächlich waren sie vollständig.
+
 ## v3.14.0-rc18 - 2026-09-04
 
 > Der Auftragstext im Spiel verrät jetzt, was eine Mission einbringt und wann
