@@ -10474,6 +10474,52 @@ def main():
         _ok115, _m115, _n115 = _js115.einlesen(_kopie115, datei=_datei115)
         pruefe(_ok115 and _js115.belegungen(datei=_datei115),
                'die gesicherte Belegung laesst sich zurueckholen')
+
+        # 9. ⚠⚠ **Eigene Belegung verdraengt den Standard nur auf DEM GERAET.**
+        #
+        # Am 04.09.2026 gemeldet: In „noch nicht belegt" standen Scheinwerfer,
+        # Hocken, Respawn und die linke Maustaste — alles Aktionen, die ab Werk
+        # laengst eine Taste haben. Ursache war ein Zusammenfuehren, das die
+        # Werksvorgabe fuer **alle** Geraete wegwarf, sobald die Aktion
+        # irgendwo eigen belegt war. Wer „Respawn" auf den Stick legte, verlor
+        # in der Anzeige die Taste `F` — die im Spiel weiter funktioniert.
+        #
+        # Der Standard kommt sonst aus dem `Data.p4k`, das hier nicht liegt.
+        # Deshalb wird er fuer diese Pruefung untergeschoben — kein Abruf,
+        # keine Nutzerdatei.
+        _echt115 = _js115._profil
+        try:
+            _js115._profil = lambda *a, **k: {
+                'etiketten': {'v_lights': ['@ui_x', ''],
+                              'crouch': ['@ui_y', '']},
+                'standard': {'v_lights': {'keyboard': 'l', 'joystick': 'button3'},
+                             'crouch': {'keyboard': 'c'}},
+                'gruppen': {}}
+            # Eigene Datei: `v_lights` NUR auf dem Stick umbelegt.
+            with open(_datei115, 'w', encoding='utf-8') as _f115:
+                _f115.write(
+                    '<ActionMaps><ActionProfiles profileName="default">'
+                    '<actionmap name="spaceship_general">'
+                    '<action name="v_lights">'
+                    '<rebind input="js1_button31"/>'
+                    '</action></actionmap>'
+                    '</ActionProfiles></ActionMaps>')
+            _alles115 = _js115.sicht(_js115.ALLES, datei=_datei115)
+            _wo115 = [(k, e['eingabe']) for k, li in _alles115.items()
+                      for e in li if e['aktion'] == 'v_lights']
+            pruefe(('js1', 'button31') in _wo115,
+                   'die eigene Stick-Belegung steht in der Gesamtsicht')
+            pruefe(('kb1', 'l') in _wo115,
+                   'die Werks-TASTE derselben Aktion bleibt trotzdem stehen')
+            pruefe(('js1', 'button3') not in _wo115,
+                   'die Werks-STICK-Belegung wird dagegen verdraengt')
+            _frei115 = _js115.sicht(_js115.FREI, datei=_datei115)
+            _freinamen = {e['aktion'] for li in _frei115.values() for e in li}
+            pruefe('v_lights' not in _freinamen and 'crouch' not in _freinamen,
+                   'was ab Werk belegt ist, steht nicht unter „nicht belegt"')
+        finally:
+            _js115._profil = _echt115
+            _js115.vergessen()
     finally:
         shutil.rmtree(_wiese115, ignore_errors=True)
 

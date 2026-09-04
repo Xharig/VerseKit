@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc6 - 2026-09-04
+
+> Ein Fehler, der die halbe Werkseinstellung verschluckt hat: Wer eine Aktion
+> auf den Stick legte, verlor in der Anzeige ihre Taste. Scheinwerfer,
+> Respawn, Hocken und die linke Maustaste standen dadurch unter „noch nicht
+> belegt", obwohl sie längst belegt sind.
+
+### Behoben
+
+- **Eine eigene Belegung verdrängte die Werkseinstellung auf allen Geräten
+  statt nur auf dem eigenen.** Das Spiel macht es anders: Legst du „Respawn"
+  auf einen Stick-Knopf, bleibt die Taste `F` trotzdem aktiv. Jetzt auch hier.
+  Die Gesamtansicht zeigt dadurch **572 statt 326** Belegungen, und die Liste
+  „noch nicht belegt" ist von 444 auf 310 geschrumpft — der Rest war nie frei.
+
 ## v3.14.0-rc5 - 2026-09-04
 
 > Sichern, einspielen, zurücksetzen: Deine Belegung lässt sich jetzt als Datei

@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc6 - 2026-09-04
+
+> A bug that swallowed half the defaults: binding an action to your stick made
+> its key disappear from the list. Headlights, respawn, crouch and left mouse
+> button ended up under "not bound yet" although they have been bound all
+> along.
+
+### Fixed
+
+- **Your own binding pushed the default off every device instead of just its
+  own.** The game does it differently: put "respawn" on a stick button and the
+  `F` key still works. Now it does here too. The combined view therefore shows
+  **572 instead of 326** bindings, and the "not bound yet" list shrank from 444
+  to 310 — the rest was never free.
+
 ## v3.14.0-rc5 - 2026-09-04
 
 > Export, import, reset: your bindings can now be written to a file and read

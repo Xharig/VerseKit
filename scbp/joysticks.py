@@ -549,10 +549,19 @@ def sicht(welche=ALLES, datei=None, ordner=None):
     | `standard` | nur die Werkseinstellung aus der `defaultProfile.xml` |
     | `alles` | beides zusammen; eigene Aenderungen **ersetzen** den Standard |
 
-    ⚠⚠ **Beim Zusammenfuehren gewinnt der Spieler, und zwar je Aktion.**
-    Hat er eine Aktion selbst belegt, faellt die Werksvorgabe dafuer weg —
-    sonst staende dieselbe Aktion zweimal da, einmal richtig und einmal
-    falsch, und niemand wuesste welche gilt.
+    ⚠⚠ **Beim Zusammenfuehren gewinnt der Spieler — aber nur auf DEM GERAET,
+    das er angefasst hat.**
+
+    Der erste Entwurf warf die Werksvorgabe fuer **alle** Geraete weg, sobald
+    eine Aktion irgendwo eigen belegt war. Ergebnis: Wer „Respawn" auf einen
+    Stick legt, sah die Taste `F` nicht mehr — obwohl sie im Spiel weiter
+    funktioniert. Gemeldet am 04.09.2026, und zwar zu Recht: In der Liste
+    „noch nicht belegt" standen Scheinwerfer, Hocken, Respawn und die linke
+    Maustaste, die alle laengst eine Taste haben.
+
+    **So macht es das Spiel:** Eine eigene Stick-Belegung ersetzt die
+    Stick-Vorgabe. Tastatur, Maus und Gamepad bleiben davon unberuehrt.
+    Deshalb wird nach **(Aktion, Geraeteart)** verdraengt, nicht nach Aktion.
 
     ⚠ Eine eigene Belegung mit **leerer** Eingabe ist eine geloeschte: Der
     Spieler hat die Werksvorgabe bewusst entfernt. Sie verdraengt den
@@ -569,15 +578,19 @@ def sicht(welche=ALLES, datei=None, ordner=None):
     if welche == STANDARD:
         return standardbelegungen(ordner)
 
-    # Zusammenfuehren: erst merken, welche Aktionen der Spieler angefasst hat.
+    # Zusammenfuehren: erst merken, welche Aktion der Spieler auf welcher
+    # **Geraeteart** angefasst hat — siehe die Warnung oben.
     angefasst = set()
-    for liste in eigene.values():
+    for kennzeichen, liste in eigene.items():
+        art = art_von(kennzeichen)
         for e in liste:
-            angefasst.add(e['aktion'])
+            angefasst.add((e['aktion'], art))
 
     heraus = {}
     for kennzeichen, liste in standardbelegungen(ordner).items():
-        rest = [dict(e) for e in liste if e['aktion'] not in angefasst]
+        art = art_von(kennzeichen)
+        rest = [dict(e) for e in liste
+                if (e['aktion'], art) not in angefasst]
         if rest:
             heraus[kennzeichen] = rest
     for kennzeichen, liste in eigene.items():
