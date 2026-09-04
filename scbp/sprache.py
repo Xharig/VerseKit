@@ -1481,6 +1481,12 @@ TEXTE = {
                               'server.'),
     # ⚠ Ein Geschenk, kein Fund — und trotzdem hierhin. Wer ein kostenloses
     # Werkzeug testet UND dem Autor etwas schenkt, gehört genannt.
+    's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
+                              'den Laderaum passt, und das Werkzeug rechnet, '
+                              'womit sich die nächste Fahrt lohnt.',
+                              '**Trade routes** — say where you are and what '
+                              'fits in your hold, and the tool works out what '
+                              'the next run is worth.'),
     's_dk_bushwick_idee':    ('**Von der Herstellung direkt zum Bauplan** — und der '
                               'Knopf dorthin heißt jetzt „Woher?", statt nur '
                               'ein Symbol zu sein.',
@@ -2137,6 +2143,36 @@ TEXTE = {
                             'does not mean nobody sells it — our price source '
                             'simply does not list it.'),
     's_ld_zustand':      ('Zustand %d %%', 'Condition %d%%'),
+    # --- Reiter „Routen" ---
+    'hf_routen':         ('Routen', 'Routes'),
+    's_rt_lead':         ('Sag, wo du stehst und was reinpasst — dann rechne '
+                          'ich, was sich lohnt.',
+                            'Tell me where you are and what fits — then I work '
+                            'out what pays off.'),
+    's_rt_wo':           ('Wo stehst du gerade?', 'Where are you right now?'),
+    's_rt_scu':          ('Frachtraum (SCU)', 'Cargo hold (SCU)'),
+    's_rt_geld':         ('Geld (aUEC)', 'Money (aUEC)'),
+    's_rt_kein_ort':     ('Tippe oben ein, wo du gerade bist — dann siehst du, '
+                          'was sich von dort aus lohnt.',
+                            'Type where you are above — then you will see what '
+                            'pays off from there.'),
+    's_rt_rechnet':      ('Wird nachgeschlagen …', 'Looking it up …'),
+    's_rt_nichts':       ('Von hier aus lohnt sich gerade nichts — jedenfalls '
+                          'nicht mit diesem Frachtraum und diesem Geld.',
+                            'Nothing pays off from here right now — at least '
+                            'not with this cargo hold and this money.'),
+    's_rt_einzeln':      ('Eine Fahrt', 'A single run'),
+    's_rt_ketten':       ('Zwei Fahrten hintereinander',
+                            'Two runs in a row'),
+    's_rt_nach_gewinn':  ('bester Gewinn', 'best profit'),
+    's_rt_nach_strecke': ('kurze Strecke', 'short distance'),
+    's_rt_strecke':      ('%d Gm', '%d Gm'),
+    # ⚠ Auch „SCU" läuft durch `t()`. Die Einheit heißt zwar in beiden
+    # Sprachen gleich — aber eine Ausnahme „das ist doch international" hebelt
+    # die Regel aus, und die nächste Zeile ist dann keine Einheit mehr.
+    's_rt_scu_menge':    ('%d SCU', '%d SCU'),
+    's_rt_schritt':      ('   %d)  %d SCU %s  →  %s',
+                            '   %d)  %d SCU %s  →  %s'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),
     's_vk_voll':         ('· nimmt kaum noch ab', '· barely buying'),
     's_vk_kein_stand':   ('Noch keine Preise geholt.', 'No prices fetched yet.'),

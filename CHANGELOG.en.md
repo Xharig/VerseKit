@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc11 - 2026-09-04
+
+> Tell the watcher where you are and what fits in your hold — and it tells you
+> what the next run is worth. Over two stations if you like, sorted either by
+> best profit or by short distance.
+
+### Added
+
+- **New "Routes" tab.** Enter your location, your cargo hold and your money,
+  and you get the runs that pay off — single, or chained across two stations.
+  Switch between best profit and short distance. Suggested by **YoshimitsuDE**.
+- **The maths uses what is actually possible.** Not only your hold limits the
+  amount, but also the stock at the buying end and your money — otherwise you
+  would see a profit for a load that cannot be bought at all.
+
 ## v3.14.0-rc10 - 2026-09-04
 
 > Build it or buy it? The watcher now answers that itself. Open a blueprint and

@@ -945,7 +945,11 @@ def main():
                 # bei „wo hole ich das", und ein fertig gekauftes Teil ist die
                 # Antwort auf dieselbe Frage — nur der andere Weg. Bei „Handel"
                 # geht es um Ware, die man loswerden will.
-                pruefe(len(hf.knoepfe) == 18, 'alle Reiter sind wieder da')
+                #
+                # ⚠ Am 04.09.2026 von 18 auf 19: **Routen** unter „Handel",
+                # hinter „Verkauf". Dort geht es um Ware, die man schon hat —
+                # hier um die Fahrt, die man erst plant.
+                pruefe(len(hf.knoepfe) == 19, 'alle Reiter sind wieder da')
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung

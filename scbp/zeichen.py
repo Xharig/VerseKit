@@ -258,7 +258,7 @@ KNOPF_NAMEN = (
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
     'erkennung', 'joysticks', 'diagnose', 'einrichtung', 'neustart',
     'herunterladen',
-    'zurueck', 'ausblenden', 'sicherung', 'laeden',
+    'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',

@@ -79,6 +79,7 @@ def _bauer_tabelle():
         'verkauf':     _verkauf,
         'handelslager': _handelslager,
         'laeden':      _laeden,
+        'routen':      _routen,
     }
 
 
@@ -4302,7 +4303,11 @@ def _danke(fenster, rahmen):
             ('Morkhan', 'KRT', t('s_dk_morkhan_idee'),
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
-            ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'), '')):
+            ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'), ''),
+            # ⚠ Ohne Gruppe: Er hat den Vorschlag im Discord gemacht, seine
+            # Orga steht dort nicht dabei. Lieber keine Angabe als eine
+            # geratene.
+            ('YoshimitsuDE', '', t('s_dk_yoshimitsu_idee'), '')):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -5166,6 +5171,238 @@ def _zum_bauplan(fenster, name):
     except Exception as ausnahme:
         fehler.merken('seiten.zum_bauplan', ausnahme)
         fenster.sagen(t('s_he_woher_nichts'))
+
+
+def _routen(fenster, rahmen):
+    """Der Reiter „Routen": Wo stehe ich, wieviel passt rein — was lohnt sich?
+
+    Gewünscht von **YoshimitsuDE** (04.09.2026).
+
+    ⚠⚠ **Drei Eingaben, keine Automatik.** Das Spiel verrät nicht, wo der
+    Spieler steht, was in seinem Laderaum liegt oder wieviel Geld er hat —
+    nichts davon steht in der `Game.log`. Also wird gefragt, statt geraten.
+    """
+    from . import routen as routen_modul, verkauf as preisdaten
+
+    _ueberschrift(fenster, rahmen, t('hf_routen'), t('s_rt_lead'))
+    innen = _rollflaeche(rahmen)
+
+    zustand = {'start': '', 'startname': '', 'laeuft': False, 'kurz': False}
+    scu_var = tk.StringVar(value='96')
+    geld_var = tk.StringVar(value='500000')
+    ortsuche = tk.StringVar()
+
+    kopf = tk.Frame(innen, bg=BG)
+    kopf.pack(fill='x', padx=24, pady=(4, 0))
+
+    # ---------------------------------------------------- Wo stehe ich?
+    tk.Label(kopf, text=t('s_rt_wo'), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(fill='x')
+    ortfeld = tk.Entry(kopf, textvariable=ortsuche, font=fenster.f_grund,
+                       bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
+                       highlightthickness=1, highlightbackground=LINIE,
+                       highlightcolor=ACCENT)
+    ortfeld.pack(fill='x', ipady=5)
+    ortvorschlag = tk.Frame(kopf, bg=BG)
+    ortvorschlag.pack(fill='x')
+
+    # ------------------------------------------- Frachtraum und Kapital
+    zahlen = tk.Frame(kopf, bg=BG)
+    zahlen.pack(fill='x', pady=(10, 0))
+    for beschriftung, var, breite in ((t('s_rt_scu'), scu_var, 8),
+                                      (t('s_rt_geld'), geld_var, 14)):
+        spalte = tk.Frame(zahlen, bg=BG)
+        spalte.pack(side='left', padx=(0, 18))
+        tk.Label(spalte, text=beschriftung, bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x')
+        tk.Entry(spalte, textvariable=var, font=fenster.f_grund, width=breite,
+                 bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
+                 highlightthickness=1, highlightbackground=LINIE,
+                 highlightcolor=ACCENT).pack(ipady=4)
+
+    ergebnis = tk.Frame(innen, bg=BG)
+    ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
+
+    def _zahl(var, ersatz):
+        """Eine Eingabe als Zahl — Unsinn wird zum Standard, nicht zum Absturz."""
+        try:
+            return max(0, int(float((var.get() or '').replace('.', '')
+                                    .replace(' ', ''))))
+        except (TypeError, ValueError):
+            return ersatz
+
+    def _leeren(wo):
+        for kind in wo.winfo_children():
+            kind.destroy()
+
+    def _zeichnen():
+        _leeren(ergebnis)
+        if not zustand['start']:
+            _fliesstext(ergebnis, t('s_rt_kein_ort'), fenster.f_klein,
+                        fill='x')
+            return
+        if zustand['laeuft']:
+            _fliesstext(ergebnis, t('s_rt_rechnet'), fenster.f_klein, fill='x')
+            return
+        scu, geld = _zahl(scu_var, 96), _zahl(geld_var, 500000)
+
+        kopfzeile = tk.Frame(ergebnis, bg=BG)
+        kopfzeile.pack(fill='x', pady=(0, 8))
+        tk.Label(kopfzeile, text=zustand['startname'], bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(side='left')
+        a = routen_modul.alter(zustand['start'])
+        if a is not None:
+            tk.Label(kopfzeile,
+                     text=t('s_vk_stand').format(alter=_alterstext(a)),
+                     bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+
+        # Umschalter Gewinn / kurze Strecke
+        wahl = tk.Frame(ergebnis, bg=BG)
+        wahl.pack(fill='x', pady=(0, 8))
+        for kurz, text in ((False, t('s_rt_nach_gewinn')),
+                           (True, t('s_rt_nach_strecke'))):
+            aktiv = zustand['kurz'] == kurz
+            k = tk.Label(wahl, text='  %s  ' % text, bg=FLAECHE,
+                         fg=ACCENT if aktiv else SUB, font=fenster.f_klein,
+                         cursor='hand2')
+            k.pack(side='left', padx=(0, 6), ipady=3)
+
+            def um(_=None, w=kurz):
+                zustand['kurz'] = w
+                _zeichnen()
+            k.bind('<Button-1>', um)
+
+        einzeln = routen_modul.einzelfahrten(zustand['start'], scu, geld,
+                                             hoechstens=8)
+        if not einzeln:
+            _fliesstext(ergebnis, t('s_rt_nichts'), fenster.f_klein, fill='x')
+            return
+
+        tk.Label(ergebnis, text=t('s_rt_einzeln'), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x', pady=(4, 4))
+        for nummer, e in enumerate(einzeln[:6]):
+            _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0))
+
+        ketten = routen_modul.kette(zustand['start'], scu, geld,
+                                    kurz=zustand['kurz'], hoechstens=3)
+        if ketten:
+            tk.Label(ergebnis, text=t('s_rt_ketten'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                            pady=(12, 4))
+            for nummer, (gesamt, erste, zweite) in enumerate(ketten):
+                kasten = tk.Frame(ergebnis, bg=FLAECHE, highlightthickness=1,
+                                  highlightbackground=LINIE)
+                kasten.pack(fill='x', pady=(0, 6))
+                oben = tk.Frame(kasten, bg=FLAECHE)
+                oben.pack(fill='x', padx=12, pady=(6, 2))
+                tk.Label(oben, text=_geld(gesamt), bg=FLAECHE,
+                         fg=ACCENT if nummer == 0 else FG,
+                         font=fenster.f_klein, anchor='w').pack(side='left')
+                strecke = (erste.get('strecke') or 0) + (zweite.get('strecke')
+                                                         or 0)
+                if strecke:
+                    tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
+                             bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                             anchor='e').pack(side='right')
+                for schritt, f in ((1, erste), (2, zweite)):
+                    tk.Label(kasten,
+                             text=t('s_rt_schritt') % (schritt, f['menge'],
+                                                       f['ware'],
+                                                       f['zielname']),
+                             bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                             anchor='w').pack(fill='x', padx=12, pady=(0, 4))
+
+    def _start_waehlen(kennung, name):
+        zustand['start'], zustand['startname'] = kennung, name
+        ortsuche.set('')
+        _leeren(ortvorschlag)
+        if routen_modul.fahrten(kennung) is not None:
+            _zeichnen()
+            return
+        zustand['laeuft'] = True
+        _zeichnen()
+
+        def arbeit():
+            try:
+                routen_modul.holen(kennung)
+            except Exception as ausnahme:
+                fehler.merken('seiten.routen.holen', ausnahme)
+
+            def fertig():
+                zustand['laeuft'] = False
+                try:
+                    if ergebnis.winfo_exists():
+                        _zeichnen()
+                except tk.TclError:
+                    pass
+            try:
+                ergebnis.after(0, fertig)
+            except tk.TclError:
+                zustand['laeuft'] = False
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def _ortvorschlaege(*_a):
+        _leeren(ortvorschlag)
+        text = ortsuche.get().strip().lower()
+        if len(text) < 2:
+            return
+        # ⚠ Die Terminal-Liste liegt bereits in der Verkaufs-Ablage — 826
+        # Stück mit Namen und System. Kein eigener Abruf nötig.
+        stellen = (preisdaten.laden() or {}).get('terminals') or {}
+        treffer = []
+        for kennung, stelle in stellen.items():
+            name = stelle.get('o') or ''
+            if name and text in name.lower():
+                treffer.append((kennung, name, stelle.get('s') or ''))
+            if len(treffer) >= 8:
+                break
+        for kennung, name, system in sorted(treffer, key=lambda x: x[1]):
+            beschriftung = '  %s  ·  %s' % (name, system) if system \
+                else '  ' + name
+            zeile = tk.Label(ortvorschlag, text=beschriftung, bg=FLAECHE,
+                             fg=FG, font=fenster.f_klein, anchor='w',
+                             cursor='hand2')
+            zeile.pack(fill='x', pady=1)
+            zeile.bind('<Button-1>',
+                       lambda _=None, k=kennung, n=name: _start_waehlen(k, n))
+            zeile.bind('<Enter>',
+                       lambda _=None, w=zeile: w.configure(fg=ACCENT))
+            zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+
+    ortsuche.trace_add('write', _ortvorschlaege)
+    for var in (scu_var, geld_var):
+        var.trace_add('write', lambda *_a: _zeichnen())
+    _zeichnen()
+
+    def _beim_zeigen():
+        ortsuche.set('')
+        _leeren(ortvorschlag)
+    fenster.beim_zeigen['routen'] = _beim_zeigen
+
+
+def _routen_zeile(fenster, eltern, fahrt, hervor=False):
+    """Eine Einzelfahrt: Gewinn, Menge, Ware, Ziel, Strecke."""
+    kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
+                      highlightbackground=LINIE)
+    kasten.pack(fill='x', pady=(0, 4))
+    zeile = tk.Frame(kasten, bg=FLAECHE)
+    zeile.pack(fill='x', padx=12, pady=6)
+    tk.Label(zeile, text=_geld(fahrt['gewinn']), bg=FLAECHE,
+             fg=ACCENT if hervor else FG, font=fenster.f_klein,
+             width=12, anchor='w').pack(side='left')
+    tk.Label(zeile, text=t('s_rt_scu_menge') % fahrt['menge'], bg=FLAECHE,
+             fg=SUB, font=fenster.f_klein, width=8, anchor='w').pack(
+                 side='left')
+    tk.Label(zeile, text=fahrt['ware'], bg=FLAECHE, fg=FG,
+             font=fenster.f_klein, anchor='w').pack(side='left')
+    tk.Label(zeile, text='  →  ' + (fahrt.get('zielname') or '?'), bg=FLAECHE,
+             fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
+    if fahrt.get('strecke'):
+        tk.Label(zeile, text=t('s_rt_strecke') % int(fahrt['strecke']),
+                 bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                 anchor='e').pack(side='right')
 
 
 def _laeden(fenster, rahmen):

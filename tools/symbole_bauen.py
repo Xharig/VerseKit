@@ -214,6 +214,10 @@ KNOPF_SYMBOLE = {
     # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.
     'laeden':       'store',
+    # Die Route: zwei Punkte, ein Weg dazwischen. Nicht `compass` (das trägt
+    # `herkunft`) — dort geht es um „wo kommt es her", hier um „in welcher
+    # Reihenfolge fahre ich".
+    'routen':       'route',
 }
 
 ZEILEN_SYMBOLE = {

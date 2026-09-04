@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc11 - 2026-09-04
+
+> Sag dem Watcher, wo du stehst und was in deinen Laderaum passt — und er
+> sagt dir, womit sich die nächste Fahrt lohnt. Auf Wunsch gleich über zwei
+> Stationen, wahlweise nach bestem Gewinn oder nach kurzer Strecke.
+
+### Neu
+
+- **Neuer Reiter „Routen".** Du gibst deinen Standort, deinen Frachtraum und
+  dein Geld an und bekommst die lohnendsten Fahrten — einzeln oder als Kette
+  über zwei Stationen. Umschaltbar zwischen bestem Gewinn und kurzer Strecke.
+  Vorgeschlagen von **YoshimitsuDE**.
+- **Gerechnet wird mit dem, was wirklich geht.** Nicht nur der Laderaum
+  begrenzt die Menge, sondern auch der Vorrat am Kaufort und dein Geld — sonst
+  stünde da ein Gewinn für eine Ladung, die es gar nicht zu kaufen gibt.
+
 ## v3.14.0-rc10 - 2026-09-04
 
 > Bauen oder kaufen? Diese Frage beantwortet der Watcher jetzt selbst. Beim

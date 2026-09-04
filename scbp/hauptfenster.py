@@ -1813,6 +1813,11 @@ class Hauptfenster:
         self._reiter('handelslager', 'handelslager', t('hf_handelslager'),
                      g_handel)
         self._reiter('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
+        # ⚠ Nach „Verkauf", weil es die größere Frage ist: Dort geht es um
+        # Ware, die man **schon hat**; hier um die Fahrt, die man erst plant.
+        # Wer den Laderaum voll hat, will „wohin damit" — wer ihn leer hat,
+        # „was soll ich überhaupt laden".
+        self._reiter('routen', 'routen', t('hf_routen'), g_handel)
 
         g_einst = self._gruppe(t('hf_gruppe_einst'), 'einstellungen')
         self._reiter('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
