@@ -6,6 +6,34 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc18 - 2026-09-04
+
+> Der Auftragstext im Spiel verrät jetzt, was eine Mission einbringt und wann
+> sie wieder verfügbar ist. Und der Reiter „Läden" zeigt nur noch, was es
+> wirklich zu kaufen gibt — mit Schiffswaffen und FPS-Waffen als getrennte
+> Gruppen.
+
+### Neu
+
+- **Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance stehen jetzt im
+  Auftragstext.** Die Angaben lagen längst in den Daten, standen aber nirgends
+  im Spiel — du siehst jetzt vor dem Annehmen, was die Mission einbringt, wann
+  sie wieder verfügbar ist, ob sie geteilt werden kann und wie
+  wahrscheinlich ein Bauplan fällt. Vorgeschlagen von **Bushwick4712**.
+- **Schiffswaffen und FPS-Waffen sind getrennte Gruppen.** Vorher standen 270
+  Stück in einem Topf „Waffen" — wer ein Geschütz fürs Schiff sucht, sucht
+  nicht dieselbe Liste wie jemand, der ein Gewehr braucht.
+
+### Verbessert
+
+- **„Läden" zeigt nur noch, was irgendwo verkauft wird.** Von 1.597 Teilen
+  bleiben 893 — der Rest ist nirgends im Handel und hätte dich nur ins Leere
+  klicken lassen. Beim ersten Öffnen sieht der Watcher dafür einmal nach; das
+  dauert etwa eine Minute und zeigt seinen Fortschritt.
+- **Die Auswahlmenüs sind nach Größe sortiert.** Die größten Gruppen standen
+  alphabetisch ganz hinten und waren nur durch Rollen erreichbar — man hielt
+  sie für nicht vorhanden.
+
 ## v3.14.0-rc17 - 2026-09-04
 
 > Eine Route sagt jetzt nicht nur, was du verdienst, sondern auch was du dafür

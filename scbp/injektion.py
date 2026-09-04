@@ -752,6 +752,64 @@ def _kaestchen_setzen(text, habe):
     return '\\n'.join(zeilen), meine, gesamt
 
 
+def _auftragsangaben(block, eintrag):
+    """Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance einsetzen.
+
+    ⚠⚠ **Gewünscht von Bushwick4712 (KRT) am 04.09.2026:** „XP und Abklingzeit
+    fehlen in den Questtexten, der SC Deutsch Launcher liefert diese wohl, dann
+    brauchen wir das auch."
+
+    Er hat recht, und die Daten lagen längst vor — wir haben sie nur nicht
+    benutzt. Gemessen über alle 367 Aufträge mit Beschreibung:
+
+    | Angabe | stand im Spiel | liegt in der Quelle |
+    |---|---|---|
+    | Zu erwartende Rufpunkte | **0** | 311 |
+    | Abklingzeit | **0** | 367 |
+    | Mission teilbar | **0** | 367 |
+    | Chance auf Bauplan | **0** | 367 |
+
+    Eingesetzt wird **direkt vor der Bauplan-Überschrift** — dort stehen schon
+    die Reputationszeilen im selben `#`-Stil, und wer die Liste liest, hat die
+    Rahmenbedingungen dann darüber statt irgendwo darunter.
+
+    ⚠⚠ **Die Zeilen werden mit LITERALEM `\\n` getrennt, nicht mit einem echten
+    Zeilenumbruch.** Die `global.ini` des Spiels führt Umbrüche als zwei
+    Zeichen (Backslash + n); ein echter Umbruch zerreißt den Eintrag und das
+    Spiel zeigt den Rest gar nicht mehr. Der ganze Block wird deshalb überall
+    mit `'\\n'` zerlegt und wieder zusammengesetzt.
+
+    ⚠ **Nichts doppelt einsetzen.** Steht eine Angabe schon da (weil ein
+    anderes Werkzeug sie geschrieben hat oder wir selbst beim letzten Lauf),
+    bleibt sie stehen — dieselbe Regel wie bei den Marken.
+    """
+    zusatz = []
+    for feld in ('contractInfo', 'dropChance'):
+        for zeile in (eintrag.get(feld) or '').split('\\n'):
+            zeile = zeile.strip()
+            if zeile and zeile not in block:
+                zusatz.append(zeile)
+    if not zusatz:
+        return block
+
+    zeilen = block.split('\\n')
+    # Vor die Bauplan-Überschrift, sonst ans Ende der Kopfzeilen.
+    stelle = None
+    for i, zeile in enumerate(zeilen):
+        if BP_UEBERSCHRIFT.match(zeile):
+            stelle = i
+            break
+    if stelle is None:
+        return '\\n'.join(zeilen + [''] + zusatz)
+    # Eine Leerzeile davor, wenn dort nicht schon eine steht — sonst kleben
+    # die neuen Zeilen an der Reputationsangabe.
+    davor = zusatz + ['']
+    if stelle > 0 and zeilen[stelle - 1].strip():
+        davor = [''] + davor
+    zeilen[stelle:stelle] = davor
+    return '\\n'.join(zeilen)
+
+
 def _stamm(schluessel):
     """Der Namensanfang, den Titel und Beschreibungen eines Auftrags teilen.
 
@@ -837,6 +895,9 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         if not block:
             continue
         block, meine, gesamt = _kaestchen_setzen(block, habe)
+        # ⭐ Rufpunkte, Abklingzeit, Teilbarkeit, Bauplan-Chance — sie standen
+        # in der Quelle, aber nicht im Spiel. Siehe `_auftragsangaben`.
+        block = _auftragsangaben(block, e)
         if e.get('descriptionLocKey'):
             text_an[e['descriptionLocKey']] = block
         if e.get('titleLocKey'):

@@ -78,6 +78,8 @@ QUELLE = 'https://api.uexcorp.uk/2.0/items_prices?uuid=%s'
 QUELLE_UEBER_ID = 'https://api.uexcorp.uk/2.0/items_prices?id_item=%s'
 QUELLE_KATEGORIEN = 'https://api.uexcorp.uk/2.0/categories'
 QUELLE_TEILE = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
+QUELLE_PREISE_KATEGORIE = ('https://api.uexcorp.uk/2.0/'
+                           'items_prices?id_category=%d')
 CACHE = 'laeden.json'
 KATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
@@ -127,39 +129,105 @@ _ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 _katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT, haltbar=uex.WOCHE)
 
 
-def _katalog_sichern():
-    """Den Namens-Katalog aufbauen — **nur wenn er wirklich gebraucht wird**.
+def _katalog_sichern(fortschritt=None):
+    """Den Katalog aufbauen: Namen **und** wer überhaupt kaufbar ist.
 
-    ⚠ Das kostet rund 30 Abrufe (einen je Kategorie). Deshalb passiert es
-    **nicht** beim Start, sondern erst, wenn eine Zuordnung über die Kennung
-    leer ausgeht — und dann höchstens einmal pro Woche. Wer nur Teile
-    anschaut, die UEX ordentlich führt, löst das nie aus.
+    ⚠ Das kostet rund 76 Abrufe (zwei je Kategorie) und dauert gemessen etwa
+    **70 Sekunden**. Deshalb passiert es **nicht** beim Programmstart, sondern
+    höchstens einmal pro Woche — und nur, wenn jemand die Ladenliste öffnet
+    oder eine Zuordnung über die Kennung leer ausgeht.
+
+    ⭐⭐ **Warum die zweite Hälfte dazugehört.** Xharig am 04.09.2026: „FPS-
+    Waffen, die gar nicht kaufbar sind, machen in der Liste auch keinen Sinn —
+    bzw. alles, was nicht kaufbar ist." Er hat recht: Ein Reiter, der zeigt, wo
+    ein Teil im Regal steht, darf nicht mit 910 Rüstungsteilen anfangen, von
+    denen die meisten nirgends verkauft werden. Man wählt aus, klickt, und
+    bekommt „dazu liegen keine Preise vor" — jedes Mal.
+
+    Ein Abruf **je Kategorie** liefert alle Preiszeilen darin auf einmal
+    (gemessen: 4.282 Zeilen in sechs Kategorien, davon 710 kaufbare Teile).
+    Das ist unvergleichlich billiger, als 1.597 Teile einzeln zu fragen.
     """
     if not _katalog.veraltet():
         return True
     kats = uex.holen(QUELLE_KATEGORIEN, 'laeden.kategorien')
     if not kats:
         return False
+    gewaehlt = [k for k in kats if k.get('section') in ABSCHNITTE]
     namen = {}
     doppelt = set()
-    for k in kats:
-        if k.get('section') not in ABSCHNITTE:
-            continue
+    # ⚠ Zwei Listen: `kaufbar_id` für die UEX-Kennung, `kaufbar_uuid` für die
+    # Entitäts-Kennung aus dem Spiel. Ein Teil kann über den einen Weg bekannt
+    # sein und über den anderen nicht — beide Wege müssen antworten können.
+    kaufbar_id, kaufbar_uuid = set(), set()
+    id_zu_uuid = {}
+    for nummer, k in enumerate(gewaehlt, start=1):
         teile = uex.holen(QUELLE_TEILE % k['id'], 'laeden.katalog')
         for x in teile or []:
             name = (x.get('name') or '').strip().lower()
             kennung = x.get('id')
-            if not name or not kennung:
+            if not kennung:
+                continue
+            uuid = (x.get('uuid') or '').strip()
+            if uuid:
+                id_zu_uuid[str(kennung)] = uuid
+            if not name:
                 continue
             if name in namen and namen[name] != kennung:
                 doppelt.add(name)
             namen[name] = kennung
+        preise = uex.holen(QUELLE_PREISE_KATEGORIE % k['id'], 'laeden.kaufbar')
+        for x in preise or []:
+            if (x.get('price_buy') or 0) <= 0:
+                continue
+            teil = str(x.get('id_item') or '')
+            if teil:
+                kaufbar_id.add(teil)
+                if teil in id_zu_uuid:
+                    kaufbar_uuid.add(id_zu_uuid[teil])
+        if fortschritt:
+            fortschritt(nummer, len(gewaehlt))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
     for name in doppelt:
         namen.pop(name, None)
     if not namen:
         return False
-    return _katalog.sichern({'namen': namen}, kompakt=True)
+    return _katalog.sichern({'namen': namen,
+                             'kaufbar_id': sorted(kaufbar_id),
+                             'kaufbar_uuid': sorted(kaufbar_uuid)},
+                            kompakt=True)
+
+
+def katalog_da():
+    """Liegt der Katalog vor? Ohne ihn lässt sich nicht filtern."""
+    return bool((_katalog.laden() or {}).get('kaufbar_uuid') is not None)
+
+
+def katalog_holen(fortschritt=None):
+    """Den Katalog von außen anstoßen — für die Ladenliste."""
+    return _katalog_sichern(fortschritt)
+
+
+def ist_kaufbar(kennung, name=''):
+    """Wird dieses Teil irgendwo verkauft? `None` heißt „nicht bekannt".
+
+    ⚠ **Der Unterschied zwischen `False` und `None` ist wichtig.** `False`
+    heißt: Wir haben die Preisliste der ganzen Kategorie geholt und das Teil
+    kam darin nicht vor — es ist wirklich nirgends im Handel. `None` heißt:
+    Wir haben noch nie nachgesehen. Nur beim ersten darf gefiltert werden.
+    """
+    daten = _katalog.laden() or {}
+    ids = daten.get('kaufbar_id')
+    uuids = daten.get('kaufbar_uuid')
+    if ids is None or uuids is None:
+        return None
+    if kennung and kennung in set(uuids):
+        return True
+    if name:
+        uex_kennung = (daten.get('namen') or {}).get(name.strip().lower())
+        if uex_kennung is not None and str(uex_kennung) in set(ids):
+            return True
+    return False
 
 
 def _uex_id(name):

@@ -5849,6 +5849,17 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
                  anchor='e').pack(side='right')
 
 
+# ⚠⚠ Die Unterarten, die eine **Schiffswaffe** ausmachen, und die einer
+# **Handfeuerwaffe**. Beides steckt in den Rezeptdaten unter derselben Art
+# `weapons` — 270 Stück, die niemand zusammen durchsucht.
+#
+# Gemessen am 04.09.2026: Schiffswaffen 96, FPS-Waffen 168, dazu 6 ohne
+# Unterart. Die sechs bleiben schlicht „Waffen" — geraten wird nicht.
+SCHIFFSWAFFEN = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
+                           'tachyon'))
+FPS_WAFFEN = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
+
+
 def _laeden(fenster, rahmen):
     """Der Reiter „Läden": Wo bekomme ich ein fertiges Teil, und was kostet es?
 
@@ -5896,28 +5907,100 @@ def _laeden(fenster, rahmen):
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
 
     def _teile():
-        """Alle Baupläne mit Entitäts-Kennung — nur die können Läden haben."""
+        """Die Teile, die es **wirklich zu kaufen gibt**.
+
+        ⚠⚠ **Nicht kaufbare Teile gehören nicht in diese Liste.** Xharig am
+        04.09.2026: „Alles, was nicht kaufbar ist, macht in der Liste keinen
+        Sinn — wenn die Info ‚nicht kaufbar' ist, dann soll es nicht
+        auftauchen." Richtig: Ein Reiter, der zeigt, wo etwas im Regal steht,
+        darf nicht mit 910 Rüstungsteilen anfangen, von denen die meisten
+        nirgends verkauft werden.
+
+        ⚠ **Gefiltert wird nur, wenn wir es wissen.** Solange der Katalog
+        fehlt (erster Start, kein Netz), bleibt alles stehen — lieber zu viel
+        zeigen als eine leere Seite, die nach einem kaputten Werkzeug aussieht.
+        """
         try:
-            return [b for b in herst_modul.alle() if b.get('entity')]
+            alle = [b for b in herst_modul.alle() if b.get('entity')]
         except Exception as ausnahme:
             fehler.merken('seiten.laeden.teile', ausnahme)
             return []
+        if not laden_modul.katalog_da():
+            return alle
+        raus = []
+        for b in alle:
+            kaufbar = laden_modul.ist_kaufbar(b.get('entity') or '',
+                                              b.get('basis') or b.get('name'))
+            if kaufbar is not False:
+                raus.append(b)
+        return raus
+
+    def _art_von(b):
+        """Die Art eines Bauplans — Waffen aufgeteilt nach Schiff und Mann.
+
+        ⚠⚠ **„Waffen" ist keine brauchbare Gruppe.** 270 Stück, und darin
+        steckt Grundverschiedenes: Schiffsgeschütze und Handfeuerwaffen. Wer
+        einen Kühler fürs Schiff sucht, sucht nicht dieselbe Liste wie jemand,
+        der ein Gewehr braucht. Am 04.09.2026: „Aber Waffen und Schiffswaffen
+        gehört trotzdem getrennt."
+
+        Die Trennung steckt schon in den Daten — in der **Unterart**:
+
+        | | Unterarten | Anzahl |
+        |---|---|---|
+        | Schiffswaffen | laser, ballistic, distortion, neutron, tachyon | 96 |
+        | FPS-Waffen | pistol, rifle, sniper, smg, shotgun, lmg | 168 |
+
+        ⚠ Was in keine der beiden Listen fällt (6 ohne Unterart), bleibt
+        schlicht „Waffen" — geraten wird nicht.
+        """
+        art = (b.get('art') or '').strip()
+        if art != 'weapons':
+            return art
+        unterart = (b.get('unterart') or '').strip().lower()
+        if unterart in SCHIFFSWAFFEN:
+            return 'weapons_schiff'
+        if unterart in FPS_WAFFEN:
+            return 'weapons_fps'
+        return art
+
+    def _artname(wert):
+        """Der lesbare Name einer Art — auch für die beiden neuen."""
+        if wert == 'weapons_schiff':
+            return t('s_ld_art_schiffswaffen')
+        if wert == 'weapons_fps':
+            return t('s_ld_art_fpswaffen')
+        from . import herstellung as hm
+        return hm.artname(wert)
 
     def _mit_zahl(feld):
-        """Werte eines Feldes mit ihrer Anzahl — „Cooler (75)"."""
+        """Werte eines Feldes mit ihrer Anzahl — „Kühler (74)".
+
+        ⚠⚠ **Sortiert nach Anzahl, nicht alphabetisch.** Am 04.09.2026
+        gemeldet: „Da fehlen noch Schiffswaffen und FPS-Waffen." Sie fehlten
+        nicht — sie standen alphabetisch an Position 11 und 14, und die
+        aufgeklappte Liste zeigt rund zehn Zeilen. Die Rollleiste ist da und
+        bekommt ihre 10 px (nachgemessen, in beiden Pack-Reihenfolgen), aber
+        ein dunkler Streifen auf dunklem Grund fällt nicht auf: „sieht aber
+        keine Sau, weil kein Balken da ist."
+
+        Ein Auswahlmenü, dessen zwei größte Gruppen man erst erscrollen muss,
+        ist **falsch sortiert** — nicht zu kurz.
+        """
         zaehler = {}
         for b in _teile():
-            wert = (b.get(feld) or '').strip()
+            wert = _art_von(b) if feld == 'art' else (b.get(feld) or '').strip()
             if wert:
                 zaehler[wert] = zaehler.get(wert, 0) + 1
-        from . import herstellung as hm
         raus = []
         for wert, anzahl in zaehler.items():
-            lesbar = hm.artname(wert) if feld == 'art' else wert
-            raus.append((wert, '%s (%d)' % (lesbar or wert, anzahl),
+            lesbar = _artname(wert) if feld == 'art' else wert
+            raus.append((anzahl, wert, '%s (%d)' % (lesbar or wert, anzahl),
                          (lesbar or wert)))
-        raus.sort(key=lambda p: p[2].lower())
-        return [(w, b) for w, b, _s in raus]
+        # Größte zuerst; bei Gleichstand alphabetisch, damit die Reihenfolge
+        # nicht von Lauf zu Lauf springt.
+        raus.sort(key=lambda p: (-p[0], p[3].lower()))
+        return [(w, b) for _n, w, b, _s in raus]
 
     def _leeren(wo):
         for kind in wo.winfo_children():
@@ -6017,7 +6100,9 @@ def _laeden(fenster, rahmen):
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
         treffer = []
         for b in _teile():
-            if wahl['art'] and (b.get('art') or '') != wahl['art']:
+            # ⚠ Über `_art_von`, nicht über das rohe Feld — sonst greift die
+            # Trennung in Schiffs- und FPS-Waffen im Filter nicht.
+            if wahl['art'] and _art_von(b) != wahl['art']:
                 continue
             if wahl['hersteller'] and \
                     (b.get('hersteller') or '') != wahl['hersteller']:
@@ -6042,6 +6127,56 @@ def _laeden(fenster, rahmen):
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
 
+    # ⚠⚠ **Der Katalog wird beim Öffnen der Seite geholt, nicht beim Start.**
+    # Er kostet rund 76 Abrufe und eine knappe Minute (gemessen: 57 s) — das
+    # gehört nicht in den Programmstart, wo es niemand angefordert hat. Wer
+    # diese Seite öffnet, will genau diese Auskunft; solange sie fehlt, steht
+    # die ungefilterte Liste da und ein Hinweis darüber.
+    stand_zeile = tk.Label(innen, text='', bg=BG, fg=GOLD,
+                           font=fenster.f_klein, anchor='w')
+
+    def _katalog_anstossen():
+        if laden_modul.katalog_da() or zustand_katalog['laeuft']:
+            return
+        zustand_katalog['laeuft'] = True
+        stand_zeile.configure(text=t('s_ld_katalog_laeuft'))
+        stand_zeile.pack(fill='x', padx=24, pady=(6, 0))
+
+        def arbeit():
+            def melden(fertig, gesamt):
+                def zeigen():
+                    try:
+                        if stand_zeile.winfo_exists():
+                            stand_zeile.configure(
+                                text=t('s_ld_katalog_stand') % (fertig, gesamt))
+                    except tk.TclError:
+                        pass
+                try:
+                    stand_zeile.after(0, zeigen)
+                except tk.TclError:
+                    pass
+            try:
+                laden_modul.katalog_holen(fortschritt=melden)
+            except Exception as ausnahme:
+                fehler.merken('seiten.laeden.katalog', ausnahme)
+
+            def fertig():
+                zustand_katalog['laeuft'] = False
+                try:
+                    if stand_zeile.winfo_exists():
+                        stand_zeile.pack_forget()
+                    _vorschlaege()
+                except tk.TclError:
+                    pass
+            try:
+                stand_zeile.after(0, fertig)
+            except tk.TclError:
+                zustand_katalog['laeuft'] = False
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    zustand_katalog = {'laeuft': False}
+
     suche.trace_add('write', _vorschlaege)
 
     def _filter_gewechselt():
@@ -6060,7 +6195,9 @@ def _laeden(fenster, rahmen):
     def _beim_zeigen():
         suche.set('')
         _leeren(vorschlag_rahmen)
+        _katalog_anstossen()
     fenster.beim_zeigen['laeden'] = _beim_zeigen
+    _katalog_anstossen()
 
 
 def _laden_zeile(fenster, eltern, bauplan):

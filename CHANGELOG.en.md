@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc18 - 2026-09-04
+
+> The mission text in game now tells you what a mission pays and when it is
+> available again. And the "Shops" tab only lists what is genuinely for sale —
+> with ship weapons and FPS weapons as separate groups.
+
+### Added
+
+- **Reputation points, cooldown, shareability and blueprint chance now appear
+  in the mission text.** The figures were in the data all along but showed up
+  nowhere in game — before accepting you now see what the mission pays, when it
+  is available again, whether it can be shared and how likely a blueprint
+  drops. Suggested by **Bushwick4712**.
+- **Ship weapons and FPS weapons are separate groups.** Before, 270 items sat
+  in one bucket called "Weapons" — someone looking for a ship gun is not
+  browsing the same list as someone after a rifle.
+
+### Improved
+
+- **"Shops" only lists what is sold somewhere.** Of 1,597 items, 893 remain —
+  the rest is not traded anywhere and would only have sent you clicking into
+  nothing. On first opening, the watcher checks once; that takes about a minute
+  and shows its progress.
+- **The dropdowns are sorted by size.** The largest groups were last
+  alphabetically and only reachable by scrolling — so they looked missing.
+
 ## v3.14.0-rc17 - 2026-09-04
 
 > A route now tells you not only what you earn but what you have to put down —

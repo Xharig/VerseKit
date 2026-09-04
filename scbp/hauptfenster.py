@@ -1301,6 +1301,17 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         if gebraucht_hoehe > sicht:
             # ⚠ Gleiche Breite wie auf den Seiten. Acht Pixel waren schmaler
             # als alles andere im Fenster und dadurch noch schwerer zu sehen.
+            #
+            # ⚠⚠ **Und sie reicht trotzdem nicht.** Am 04.09.2026: „sieht aber
+            # keine Sau, weil kein Balken da ist … ah, man muss scrollen." Die
+            # Leiste ist da und **bekommt ihre 10 px** (nachgemessen, in beiden
+            # Pack-Reihenfolgen) — nur sieht man einen dunklen Streifen auf
+            # dunklem Grund nicht.
+            #
+            # Die Lehre daraus gehört nicht hierher, sondern in die Listen
+            # selbst: **Was wichtig ist, gehört nach oben.** Standen die zwei
+            # größten Gruppen (Rüstung 910, Waffen 270) alphabetisch an Position
+            # 11 und 14, half auch der beste Balken nicht.
             leiste = rundleiste(aussen, leinwand, grund=FLAECHE, breite=10)
             leiste.pack(side='right', fill='y')
             leinwand.configure(yscrollcommand=leiste.set)

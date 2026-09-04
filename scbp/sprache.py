@@ -1491,10 +1491,14 @@ TEXTE = {
                               'the next run is worth.'),
     's_dk_bushwick_idee':    ('**Von der Herstellung direkt zum Bauplan** — und der '
                               'Knopf dorthin heißt jetzt „Woher?", statt nur '
-                              'ein Symbol zu sein.',
+                              'ein Symbol zu sein. Dazu **Rufpunkte und '
+                              'Abklingzeit im Auftragstext**: Die Angaben lagen '
+                              'in den Daten, standen aber nirgends im Spiel.',
                               '**From crafting straight to the blueprint** — and '
                               'the button there now reads "Where from?" instead '
-                              'of being just a symbol.'),
+                              'of being just a symbol. Plus **reputation points '
+                              'and cooldown in the mission text**: the figures '
+                              'were in the data but appeared nowhere in game.'),
     's_dk_horthy_idee':      ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
@@ -2146,6 +2150,17 @@ TEXTE = {
                             'simply does not list it.'),
     's_ld_zustand':      ('Zustand %d %%', 'Condition %d%%'),
     's_ld_alle_arten':   ('Alle Arten', 'All types'),
+    's_ld_art_schiffswaffen': ('Schiffswaffen', 'Ship weapons'),
+    's_ld_art_fpswaffen': ('FPS-Waffen', 'FPS weapons'),
+    # ⚠ Sagt, was gerade passiert UND was es bringt — sonst wirkt eine Minute
+    # Wartezeit wie ein Hänger.
+    's_ld_katalog_laeuft': ('Ich sehe nach, was überhaupt verkauft wird — das '
+                            'dauert etwa eine Minute. Solange steht hier alles.',
+                              'Checking what is actually sold anywhere — this '
+                              'takes about a minute. Until then everything is '
+                              'listed.'),
+    's_ld_katalog_stand': ('… %d von %d Warengruppen',
+                             '… %d of %d item groups'),
     's_ld_nichts_gefunden': ('Dazu ist nichts da — tipp einen Namen oder wähl '
                              'oben eine Art.',
                                'Nothing here for that — type a name or pick a '
