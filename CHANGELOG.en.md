@@ -6,6 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.3 - 2026-09-04
+
+> Two things that get in the way day to day: missions that stayed listed as
+> running long after they were gone, and an overlay that got smaller with every
+> start.
+
+### Fixed
+
+- **Missions stayed listed as running when they were already gone.** If another
+  player takes a mission you just accepted, the game reports no completion — it
+  only writes the ending into a technical line. The watcher did not count that
+  as an ending, so the mission stayed in the overlay for the rest of the
+  session. Such silent endings are now recognised, via the mission's id.
+- **The mission log now tells completed and abandoned apart.** Because the
+  silent endings carry the reason as well, an abandoned mission no longer shows
+  as "in progress" or "no longer open" but as **abandoned**. In a real log with
+  400 runs this corrected 60 entries.
+- **The overlay got smaller with every start.** With a fixed screen corner set,
+  it was squeezed to the minimum size on startup — 620×316 became 564×150. Your
+  remembered size applies again.
+
 ## v3.13.2 - 2026-09-04
 
 > Two places where the tool quietly stopped being up to date: the check marks

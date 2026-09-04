@@ -6,6 +6,29 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.3 - 2026-09-04
+
+> Zwei Dinge, die im Alltag stören: Aufträge, die als laufend stehen blieben
+> obwohl sie längst weg waren, und ein Overlay, das bei jedem Start kleiner
+> wurde.
+
+### Behoben
+
+- **Aufträge blieben als laufend stehen, obwohl sie weg waren.** Nimmt ein
+  anderer Spieler einen Auftrag weg, den du gerade angenommen hast, meldet das
+  Spiel dazu keinen Abschluss — es schreibt das Ende nur in eine technische
+  Zeile. Der Watcher hat sie bisher nicht als Ende gewertet, und der Auftrag
+  stand für den Rest der Sitzung im Overlay. Solche stillen Enden werden jetzt
+  erkannt, über die Kennung des Auftrags.
+- **Das Auftrags-Protokoll unterscheidet jetzt abgeschlossen und abgebrochen.**
+  Weil die stillen Enden auch den Grund mitbringen, steht bei einem
+  abgebrochenen Auftrag nicht mehr „läuft" oder „nicht mehr offen", sondern
+  **abgebrochen**. An einem echten Protokoll mit 400 Durchläufen wurden dadurch
+  60 Einträge richtiggestellt.
+- **Das Overlay wurde bei jedem Start kleiner.** Wer eine feste Bildschirmecke
+  eingestellt hat, bekam es beim Start auf die Mindestgröße gestaucht — aus
+  620×316 wurden 564×150. Die gemerkte Größe gilt wieder.
+
 ## v3.13.2 - 2026-09-04
 
 > Zwei Stellen, an denen das Werkzeug stillschweigend aufhörte, aktuell zu

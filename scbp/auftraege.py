@@ -290,6 +290,25 @@ def ende_muster():
 # Mission danach nachweislich weiter.
 ZUSATZ = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\]')
 
+# ⚠⚠ **Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.**
+# Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier Sekunden
+# spaeter wieder weg, weil ein anderer Spieler schneller war. Im Protokoll
+# steht dazu **keine** „Auftrag abgeschlossen"-Meldung, nur diese Zeile:
+#
+#   <EndMission> … MissionId[e0b968d5-…] … CompletionType[Abandon]
+#                                          Reason[Player left]
+#
+# Wer nur auf die Meldungen hoert, fuehrt so einen Auftrag fuer immer als
+# laufend — im Overlay standen zwei, im Spiel war einer.
+#
+# ⚠ Die Kennung steht hier **ohne** Doppelpunkt und ohne ObjectiveId daneben,
+# `ZUSATZ` greift also nicht. Sie wird deshalb gleich hier mitgelesen.
+#
+# ⚠ Bewusst ohne Blick auf `CompletionType`: Ob abgeschlossen oder abgebrochen
+# — beides heisst, dass der Auftrag nicht mehr laeuft. Fuer die Live-Anzeige
+# ist das die ganze Frage.
+ENDMISSION = re.compile(r'<EndMission>[^\n]*?MissionId\[([^\]]*)\]')
+
 
 # ⚠⚠ **Wer die Spielwelt verlässt, verliert seine Aufträge — lautlos.**
 # Star Citizen meldet beim Ausloggen **kein einziges** Auftrags-Ende. Im
@@ -351,15 +370,27 @@ def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
     muster_aus = muster_aus or ende_muster()
     gefunden = []
     for m in muster_an.finditer(text):
-        gefunden.append((m.start(), True, m.group(1)))
+        gefunden.append((m.start(), True, m.group(1), None))
     for m in muster_aus.finditer(text):
-        gefunden.append((m.start(), False, m.group(1)))
+        gefunden.append((m.start(), False, m.group(1), None))
     for m in VERLASSEN.finditer(text):
-        gefunden.append((m.start(), None, ''))
+        gefunden.append((m.start(), None, '', None))
+    # ⚠ Das stille Ende — siehe `ENDMISSION`. Ohne Titel, dafuer mit der
+    # Kennung: `beendet_welchen` findet den Auftrag ueber sie (Schritt 3 dort).
+    for m in ENDMISSION.finditer(text):
+        gefunden.append((m.start(), False, '', m.group(1).strip()))
     # Die Fundstelle ist die Wahrheit: Sie sagt, was im Spiel zuerst geschah.
     gefunden.sort(key=lambda e: e[0])
-    return [(ist_annahme, titel) + kennungen(text, stelle)
-            for stelle, ist_annahme, titel in gefunden]
+    ergebnis = []
+    for stelle, ist_annahme, titel, mid in gefunden:
+        if mid is None:
+            ergebnis.append((ist_annahme, titel) + kennungen(text, stelle))
+        else:
+            # ⚠ Keine ObjectiveId: Ein `EndMission` beendet den ganzen Auftrag,
+            # nie ein Zwischenziel. Stuende hier eine, wuerde
+            # `beendet_welchen` das Ende als Zwischenziel abtun.
+            ergebnis.append((ist_annahme, titel, mid, ''))
+    return ergebnis
 
 
 def beendet_welchen(rein, mission_id, objective_id, offen, missionen):
@@ -403,7 +434,13 @@ def stand_aus_text(text, muster_an=None, muster_aus=None):
             missionen.clear()
             continue
         rein = sauber(titel)
-        if not rein:
+        # ⚠⚠ **Ein Ende darf titellos sein, eine Annahme nicht.** Das stille
+        # Ende aus `<EndMission>` (siehe `ENDMISSION`) traegt nur die Kennung —
+        # und genau die genuegt, `beendet_welchen` findet den Auftrag darueber.
+        # Stand hier bis zum 04.09.2026 ein pauschales `if not rein: continue`,
+        # wurde es verworfen, bevor es zum Zuge kam: Ein Auftrag, den ein
+        # anderer Spieler wegschnappte, blieb fuer immer als laufend stehen.
+        if not rein and not (mid and not ist_annahme):
             continue
         if ist_annahme:
             offen.setdefault(rein, titel)

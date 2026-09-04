@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.13.2'
+__version__ = '3.13.3'
 
 
 def _mitgeliefert(name):
@@ -1987,6 +1987,27 @@ class Overlay:
         # das am 31.08.2026 gemeldet: „stoert mich irgendwie, dass es nicht
         # komplett in der Ecke sitzt."
         self.breite_offen = None     # Fensterbreite vor dem Einklappen
+        # ⚠⚠ **Aus der gemerkten Lage vorbelegen — sonst schrumpft das Overlay
+        # bei jedem Start.** `klappzustand_setzen(False)` rechnet die offene
+        # Groesse als `max(hoehe_offen, Leiste + 120)`. Stehen die beiden Werte
+        # auf None, kommt dabei die Mindestgroesse heraus: Aus 620x316 wurden
+        # rund 146 px Hoehe.
+        #
+        # Getroffen hat es jeden, der eine feste Ecke eingestellt hat — nur
+        # dann wird `klappzustand_setzen` beim Start ueberhaupt gerufen (siehe
+        # `ecke_beim_start`). Wer sein Overlay frei stehen laesst, merkte
+        # nichts; deshalb fiel es lange nicht auf. Gemeldet am 04.09.2026:
+        # „das overlay startet bei mir immer in klein, das merkt sich seine
+        # groesse grad nicht."
+        #
+        # ⚠ Nur wenn das Fenster offen gespeichert wurde. War es eingeklappt,
+        # ist die gemerkte Groesse die des Streifens — die als „offen" zu
+        # uebernehmen hiesse, es liesse sich nie wieder richtig aufklappen.
+        if not pfade.einstellung_wahrheit('eingeklappt', False):
+            _m_lage = GEOM_RE.match(load_geometry() or '')
+            if _m_lage:
+                self.breite_offen = int(_m_lage.group(1))
+                self.hoehe_offen = int(_m_lage.group(2))
         if pfade.einstellung_wahrheit('eingeklappt', False):
             # Zustand **setzen**, nicht umschalten — siehe `klappzustand_setzen`.
             # `merken=False`: Es ist genau der Zustand, der schon gespeichert

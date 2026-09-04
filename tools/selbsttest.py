@@ -10191,6 +10191,93 @@ def main():
     pruefe(_ges113e == 2 and _meine113e == 1,
            'was fehlt, bleibt ungehakt (%d von %d)' % (_meine113e, _ges113e))
 
+    # --------------------------------------------------------------------- 113f
+    # ⚠⚠ Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.
+    # Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier
+    # Sekunden spaeter weg, weil ein anderer Spieler schneller war. Dazu steht
+    # im Protokoll nur `<EndMission> … CompletionType[Abandon]` — keine
+    # „Auftrag abgeschlossen"-Meldung. Im Overlay standen daraufhin zwei
+    # laufende Auftraege, im Spiel war einer.
+    print()
+    print('113f. Ein Auftrag endet auch ohne Meldung')
+    _au113f = importlib.import_module('scbp.auftraege')
+    _mid113f = 'e0b968d5-7575-48b6-9a50-5eaa1ad96745'
+    _log113f = (
+        '<2026-09-04T11:27:47.000Z> [Notice] <SHUDEvent_OnNotification> Added '
+        'notification "Auftrag angenommen: Recover Vanduul Tech: " [4] to '
+        'queue. New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        '<2026-09-04T11:27:51.878Z> [Notice] <EndMission> Ending mission for '
+        'player. MissionId[%s] Player[Spieler] CompletionType[Abandon] '
+        'Reason[Player left] [Team_MissionFeatures][Missions]\n'
+        % (_mid113f, _mid113f))
+    _offen113f, _ = _au113f.stand_aus_text(_log113f)
+    pruefe(_offen113f == [],
+           'ein stilles Ende raeumt den Auftrag weg (offen: %r)'
+           % [_au113f.sauber(t) for t in _offen113f])
+
+    # ⚠ Gegenprobe 1: OHNE das Ende muss er stehen bleiben — sonst raeumt die
+    # Regel Auftraege weg, die wirklich laufen.
+    _nur_an113f = _log113f.split(chr(10))[0] + chr(10)
+    _offen113g, _ = _au113f.stand_aus_text(_nur_an113f)
+    pruefe(len(_offen113g) == 1,
+           'ohne das Ende bleibt der Auftrag offen (%d)' % len(_offen113g))
+
+    # ⚠ Gegenprobe 2: Ein Ende mit FREMDER Kennung darf nichts wegnehmen.
+    _fremd113f = _nur_an113f + (
+        '<2026-09-04T11:30:00.000Z> [Notice] <EndMission> Ending mission for '
+        'player. MissionId[11111111-2222-3333-4444-555555555555] '
+        'CompletionType[Complete]\n')
+    _offen113h, _ = _au113f.stand_aus_text(_fremd113f)
+    pruefe(len(_offen113h) == 1,
+           'ein fremdes Ende laesst den Auftrag in Ruhe (%d)'
+           % len(_offen113h))
+
+    # --------------------------------------------------------------------- 113e
+    # ⚠⚠ Das Overlay muss seine Groesse ueber den Neustart behalten.
+    # Bis zum 04.09.2026 schrumpfte es bei jedem Start auf die Mindestgroesse:
+    # `klappzustand_setzen(False)` rechnet `max(hoehe_offen, Leiste + 120)`,
+    # und `hoehe_offen` stand beim Start auf None. Aus 620x316 wurden 564x150.
+    #
+    # ⚠ Getroffen hat es nur, wer eine feste Ecke eingestellt hat — sonst wird
+    # `klappzustand_setzen` beim Start gar nicht gerufen. Deshalb setzt diese
+    # Pruefung die Ecke ausdruecklich.
+    print()
+    print('113e. Das Overlay behaelt seine Groesse ueber den Neustart')
+    _alt113e = os.environ.get('SC_BP_HOME')
+    _wiese113e = tempfile.mkdtemp(prefix='sc-bp-olgroesse-')
+    try:
+        os.environ['SC_BP_HOME'] = _wiese113e
+        with open(os.path.join(_wiese113e, 'einstellungen.json'), 'w',
+                  encoding='utf-8') as _f:
+            json.dump({'eingeklappt': False, 'overlay_ecke': 'unten-links',
+                       'overlay_modus': 'immer'}, _f)
+        with open(os.path.join(_wiese113e, 'watcher.json'), 'w',
+                  encoding='utf-8') as _f:
+            json.dump({'geometry': '620x316+100+100'}, _f)
+
+        _w113e = importlib.import_module('sc_bp_watcher')
+        importlib.reload(_w113e)
+        _ol113e = _w113e.Overlay()
+        try:
+            _ol113e.root.update_idletasks()
+            pruefe(_ol113e.hoehe_offen == 316 and _ol113e.breite_offen == 620,
+                   'die gemerkte Groesse steht beim Start bereit (%sx%s)'
+                   % (_ol113e.breite_offen, _ol113e.hoehe_offen))
+            # Genau der Aufruf, den der Start ausloest.
+            _ol113e.klappzustand_setzen(False, merken=False)
+            _ol113e.root.update_idletasks()
+            _h113e = _ol113e.root.winfo_height()
+            pruefe(_h113e >= 300,
+                   'nach dem Aufklappen steht die alte Hoehe (%d px)' % _h113e)
+        finally:
+            _ol113e.root.destroy()
+    finally:
+        if _alt113e is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt113e
+        shutil.rmtree(_wiese113e, ignore_errors=True)
+
     # --------------------------------------------------------------------- 114
     # Die Sicherung. ⚠⚠ Ein kaputtes Backup faellt erst im Ernstfall auf — dann,
     # wenn der alte Rechner schon neu aufgesetzt ist. Deshalb wird hier der
