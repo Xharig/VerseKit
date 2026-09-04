@@ -51,6 +51,7 @@ Prüfung — lieber ohne Vorschlagsliste weiterarbeiten als gar nichts eintragen
 können.
 """
 from . import uex
+from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/terminals'
 CACHE = 'orte.json'
@@ -83,6 +84,10 @@ def alter():
 
 def aktualisieren():
     """Die Ortsliste holen, wenn sie fehlt oder älter als eine Woche ist."""
+    # ⚠ Wie in `preise.py`: Die Abfrage bleibt hier, damit der Rückgabewert
+    # bei abgeschaltetem Netz derselbe ist wie vor dem Umbau.
+    if AUS:
+        return False
     if not _ablage.veraltet():
         return True
     roh = uex.holen(QUELLE, 'orte')

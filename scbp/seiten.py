@@ -2450,15 +2450,16 @@ def _joysticks(fenster, rahmen):
         sich dort unter seinem Namen laden. Das ist der Weg, den man sonst nur
         über die Spielkonsole hat.
         """
-        from tkinter import messagebox, simpledialog
+        from tkinter import messagebox
+        from .hauptfenster import text_stellen
         vorhandene = joysticks.profile()
-        # ⚠ **Kein `parent=`.** Eingebettet ist das Fenster ein Rahmen, der nie
-        # gepackt wird — der Dialog erschiene dann gar nicht („beim Klick
-        # passiert nichts"). Dieselbe Falle steht bei `spiel_waehlen()`.
-        name = simpledialog.askstring(
-            t('s_js_profil'),
-            t('s_js_profil_frage',
-              ', '.join(vorhandene) if vorhandene else t('s_js_profil_keine')))
+        # ⚠ **Nicht `simpledialog.askstring`.** Der Systemdialog kommt grau, in
+        # der Systemschrift und mit englischem „Cancel" — auf dem dunklen Grund
+        # ein Fremdkörper. `text_stellen()` ist derselbe Dialog im Programmstil.
+        name = text_stellen(
+            fenster.root, t('s_js_profil'), t('s_js_profil_frage'),
+            liste=vorhandene,
+            listentitel=t('s_js_profil_liste') if vorhandene else '')
         if name is None:
             return                       # abgebrochen, nicht leer bestätigt
         ok, meldung = joysticks.name_pruefen(name)
@@ -2485,8 +2486,33 @@ def _joysticks(fenster, rahmen):
     def _einlesen():
         from tkinter import messagebox
         from . import dateiwahl
-        quelle = dateiwahl.datei_oeffnen(t('s_js_einlesen'),
-                                         muster=(('XML', '*.xml'),))
+        from .hauptfenster import auswahl_stellen, wahl_stellen
+        # ⚠ Erst die eigenen Profile anbieten, dann den Dateiwähler. Der
+        # Spieler kennt seine Belegung am **Namen**, nicht am Pfad — und der
+        # Mappings-Ordner liegt auf jedem Rechner woanders. Wer eine
+        # zugeschickte Datei hat, nimmt weiter den zweiten Weg.
+        quelle = None
+        vorhandene = joysticks.profile()
+        if vorhandene:
+            wahl = wahl_stellen(fenster.root, t('s_js_einlesen'),
+                                t('s_js_einlesen_woher'),
+                                t('s_js_einlesen_profil'),
+                                t('s_js_einlesen_datei'))
+            if wahl == 'a':
+                name = auswahl_stellen(fenster.root, t('s_js_einlesen'),
+                                       t('s_js_einlesen_waehlen'), vorhandene)
+                if not name:
+                    return
+                quelle = joysticks.profil_datei(name)
+                if not quelle:
+                    messagebox.showwarning(t('hf_joysticks'),
+                                           t('s_js_f_datei'))
+                    return
+            elif wahl != 'b':
+                return                   # abgebrochen
+        if not quelle:
+            quelle = dateiwahl.datei_oeffnen(t('s_js_einlesen'),
+                                             muster=(('XML', '*.xml'),))
         if not quelle:
             return
         if not messagebox.askyesno(t('s_js_einlesen'),

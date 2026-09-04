@@ -68,6 +68,7 @@ Getrennt bleiben die beiden trotzdem, und zwar an der Bedeutung von
 was das Terminal **verlangt**, dort, was es **zahlt**.
 """
 from . import uex
+from .katalog import AUS
 from .herstellung import norm_rohstoff
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
@@ -129,6 +130,12 @@ def aktualisieren(fortschritt=None):
     Gibt `(Erfolg, Meldung)` zurück. **Sparsam**: Ist die Ablage frisch, wird
     gar nichts abgerufen.
     """
+    # ⚠ Die Abfrage steht hier, obwohl `uex.holen()` sie auch kennt: Sonst
+    # käme bei abgeschaltetem Netz und frischer Ablage ein `True` zurück, wo
+    # vorher ein `False` stand. Ein Umbau soll die Struktur ändern, nicht das
+    # Verhalten — auch wenn den Wert hier gerade niemand auswertet.
+    if AUS:
+        return False, ''
     if not _ablage.veraltet():
         return True, ''
     if fortschritt:

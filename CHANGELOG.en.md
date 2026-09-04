@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc8 - 2026-09-04
+
+> Getting to your profiles is short now: when saving you see what is already
+> there, and one click reuses the name. When importing you pick your profile
+> from a list instead of hunting for it in the file system.
+
+### Added
+
+- **Import a profile without hunting for it.** When importing you can pick from
+  your saved profiles — one click is enough. For bindings someone sent you, the
+  file picker is still right there.
+
+### Improved
+
+- **The name prompt now matches the program.** It used to appear as a grey
+  system dialog with English labels. Now it has the same colours as everything
+  else — and existing profiles are listed one per line instead of a single row
+  that ran off the edge of the window. Clicking a name reuses it.
+
 ## v3.14.0-rc7 - 2026-09-04
 
 > Your bindings stay yours now. Save them as a profile under a name you pick —

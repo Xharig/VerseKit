@@ -7012,8 +7012,9 @@ def main():
     from scbp import verkauf as _vk84
     from scbp import handelslager as _hl84
 
-    _vk84._sichern({
-        'format': _vk84.FORMAT, 'geholt': _zeit.time(),
+    # ⚠ `format` und `geholt` setzt die Ablage selbst (siehe `scbp/uex.py`) —
+    # hier stehen nur die eigenen Felder.
+    _vk84._ablage.sichern({
         'terminals': {'1': {'o': 'Area 18', 's': 'Stanton', 'q': 0},
                       '2': {'o': 'GrimHEX', 's': 'Stanton', 'q': 1},
                       '3': {'o': 'Ashland', 's': 'Pyro', 'q': 0}},
@@ -7078,19 +7079,24 @@ def main():
     # ⚠⚠ **Mit Gegenprobe.** Im Selbsttest ist der Netzzugriff abgeschaltet
     # (`AUS`) — die Pruefung waere also auch dann gruen gewesen, wenn die
     # Sperre gar nicht griffe, nur eben mit dem Grund `'aus'`. Deshalb wird
-    # `AUS` hier abgeschaltet und `_holen` durch eine Falle ersetzt: Kommt die
+    # `AUS` hier abgeschaltet und der Abruf durch eine Falle ersetzt: Kommt die
     # Anfrage trotz Sperre durch, fliegt sie und die Pruefung faellt durch.
+    #
+    # ⚠ Seit dem gemeinsamen Unterbau haengt der Abruf an `uex.holen` — die
+    # Falle gehoert also dorthin, nicht mehr an ein `_holen` in `verkauf`.
+    from scbp import uex as _uex84
+
     def _falle84(*_a, **_k):
         raise AssertionError('trotz Sperre ins Netz gegriffen')
 
-    _aus84, _echt84 = _vk84.AUS, _vk84._holen
-    _vk84.AUS, _vk84._holen = False, _falle84
+    _aus84, _echt84 = _vk84.AUS, _uex84.holen
+    _vk84.AUS, _uex84.holen = False, _falle84
     try:
         _ergebnis84 = _vk84.aktualisieren(erzwingen=True)
     except AssertionError:
         _ergebnis84 = ('ins Netz gegriffen',)
     finally:
-        _vk84.AUS, _vk84._holen = _aus84, _echt84
+        _vk84.AUS, _uex84.holen = _aus84, _echt84
     pruefe(_ergebnis84 == (False, 'gesperrt'),
            'der Knopf laesst sich nicht zweimal druecken (%s)' % (_ergebnis84,))
 

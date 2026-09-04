@@ -2899,6 +2899,11 @@ def _mitgeliefert(name):
 # beiden Sprachen richtig beschriftet.
 FRAGE_BREITE = 620          # bewusst breit: Am 28.08.: "eher breiter statt hoch"
 
+# Wieviele Eintraege eine Auswahlliste im Dialog zeigt, bevor sie abkuerzt.
+# ⚠ Sieben, damit der Dialog nicht ueber den Bildschirmrand waechst und die
+# Knoepfe unten erreichbar bleiben — dieselbe Falle wie beim Overlay.
+LISTE_SICHTBAR = 7
+
 
 def _dialog_knopf(eltern, text, tat, schrift, stark=False):
     """Knopf im Programmstil — dieselbe Machart wie `seiten._knopf`.
@@ -2990,6 +2995,234 @@ def wahl_stellen(eltern, titel, text, knopf_a, knopf_b):
     except Exception as ausnahme:
         fehler.merken('hauptfenster.wahl_stellen', ausnahme)
     return antwort['wert']
+
+
+def text_stellen(eltern, titel, text, vorgabe='', ja=None, nein=None,
+                 liste=(), listentitel=''):
+    """Nach einem kurzen Text fragen — im Programmstil. Gibt den Text oder `None`.
+
+    `None` heisst **abgebrochen**, `''` heisst „nichts eingetippt". Der
+    Unterschied zaehlt: Beim Abbruch soll gar nichts passieren, bei einer
+    leeren Eingabe eine Meldung kommen.
+
+    `liste` sind vorhandene Eintraege, die zur Auswahl stehen — **untereinander**,
+    nicht als Aufzaehlung im Fliesstext.
+
+    ⚠ Warum untereinander: In den Fliesstext gequetscht laufen sechs Namen
+    rechts aus dem Fenster, und abgeschnitten ist ein Name unbrauchbar — man
+    kann ihn weder lesen noch abtippen. Untereinander ist jeder ganz da, die
+    Liste bleibt ueberschaubar, und ein Klick uebernimmt den Namen ins Feld
+    (dann ersetzt man ein Profil, statt sich am Namen zu vertippen).
+
+    ⚠⚠ **Ersatz fuer `simpledialog.askstring`, und zwar aus gutem Grund.** Der
+    Systemdialog kommt grau, in der Systemschrift und mit einem englischen
+    „Cancel" daher — auf dem dunklen Grund des Programms ein Fremdkoerper, und
+    ein Regelverstoss gleich doppelt: Jeder sichtbare Text gehoert nach
+    `sprache.py`, und gleiche Dinge sehen ueberall gleich aus.
+
+    Aufgebaut wie `frage_stellen()` — dieselben Farben, dieselbe Kante,
+    dieselben Tasten (Eingabe = uebernehmen, Escape = abbrechen).
+    """
+    try:
+        ja = ja or t('e_speichern')
+        nein = nein or t('e_abbrechen')
+        top = tk.Toplevel(eltern)
+        top.title(titel)
+        top.configure(bg=BG)
+        top.resizable(False, False)
+        top.transient(eltern)
+        top.configure(highlightthickness=1, highlightbackground=LINIE,
+                      highlightcolor=LINIE)
+
+        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        schrift_text = tkfont.Font(family='Segoe UI', size=10)
+        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+        schrift_klein = tkfont.Font(family='Segoe UI', size=9)
+        # ⚠ Feste Breite fuer das Eingabefeld: Ein Profilname ist kurz, aber
+        # der Hinweistext darueber ist breit. Ohne eigene Schrift erbt das
+        # Feld die des Systems und faellt aus dem Bild.
+        schrift_feld = tkfont.Font(family='Segoe UI', size=11)
+
+        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen.pack(fill='both', expand=True)
+        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+                 anchor='w', justify='left').pack(fill='x')
+        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+                 anchor='w', justify='left',
+                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+
+        wert = tk.StringVar(value=vorgabe)
+
+        if liste:
+            if listentitel:
+                tk.Label(rahmen, text=listentitel, bg=BG, fg=SUB,
+                         font=schrift_klein, anchor='w').pack(
+                             fill='x', pady=(14, 4))
+            kasten = tk.Frame(rahmen, bg=FLAECHE, highlightthickness=1,
+                              highlightbackground=LINIE)
+            kasten.pack(fill='x')
+            # ⚠ Ab sieben Eintraegen rollt der Kasten, statt den Dialog ueber
+            # den Bildschirmrand wachsen zu lassen. Wer zwanzig Profile hat,
+            # soll trotzdem an die Knoepfe kommen.
+            for eintrag in liste[:LISTE_SICHTBAR]:
+                zeile = tk.Label(kasten, text='  ' + eintrag, bg=FLAECHE,
+                                 fg=FG, font=schrift_text, anchor='w',
+                                 cursor='hand2')
+                zeile.pack(fill='x', pady=1)
+
+                def uebernehmen(_=None, name=eintrag):
+                    wert.set(name)
+                zeile.bind('<Button-1>', uebernehmen)
+                # Ein Klickziel muss sich als solches zeigen — sonst probiert
+                # es niemand aus.
+                zeile.bind('<Enter>',
+                           lambda _=None, w=zeile: w.configure(fg=ACCENT))
+                zeile.bind('<Leave>',
+                           lambda _=None, w=zeile: w.configure(fg=FG))
+            wenn_mehr = len(liste) - LISTE_SICHTBAR
+            if wenn_mehr > 0:
+                tk.Label(kasten, text=t('e_liste_mehr', wenn_mehr), bg=FLAECHE,
+                         fg=SUB, font=schrift_klein, anchor='w').pack(
+                             fill='x', pady=(2, 3))
+
+        feld = tk.Entry(rahmen, textvariable=wert, font=schrift_feld,
+                        bg=FLAECHE, fg=FG, insertbackground=FG,
+                        relief='flat', highlightthickness=1,
+                        highlightbackground=LINIE, highlightcolor=ACCENT)
+        feld.pack(fill='x', pady=(14, 0), ipady=5)
+
+        antwort = {'wert': None}
+
+        def schliessen(uebernehmen):
+            antwort['wert'] = wert.get().strip() if uebernehmen else None
+            try:
+                top.grab_release()
+            except tk.TclError:
+                pass
+            top.destroy()
+
+        reihe = tk.Frame(rahmen, bg=BG)
+        reihe.pack(anchor='e', pady=(20, 0))
+        _dialog_knopf(reihe, nein, lambda: schliessen(False),
+                      schrift_knopf).pack(side='right', padx=(8, 0))
+        _dialog_knopf(reihe, ja, lambda: schliessen(True),
+                      schrift_knopf, stark=True).pack(side='right')
+
+        top.bind('<Return>', lambda _=None: schliessen(True))
+        top.bind('<Escape>', lambda _=None: schliessen(False))
+        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
+
+        top.update_idletasks()
+        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
+        hoehe = top.winfo_reqheight()
+        try:
+            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
+            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+        except tk.TclError:
+            x = y = 200
+        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+
+        top.grab_set()
+        # Der Mauszeiger steht schon im Feld — wer tippen soll, soll tippen
+        # koennen, ohne vorher zu klicken.
+        feld.focus_set()
+        feld.selection_range(0, 'end')
+        eltern.wait_window(top)
+        return antwort['wert']
+    except Exception as ausnahme:
+        fehler.merken('hauptfenster.text_stellen', ausnahme)
+        from tkinter import simpledialog
+        return simpledialog.askstring(titel, text, initialvalue=vorgabe)
+
+
+def auswahl_stellen(eltern, titel, text, eintraege, nein=None):
+    """Einen Eintrag aus einer Liste waehlen. Gibt den Eintrag oder `None`.
+
+    ⚠ **Wozu, wenn es doch einen Dateiwaehler gibt:** Weil der Spieler seine
+    Profile am **Namen** kennt, nicht am Pfad. Wer „Virpil_Kampf" einspielen
+    will, soll ihn anklicken — und nicht erst durch `USER/client/0/controls/
+    mappings/` navigieren, einen Ordner, den er nie selbst angelegt hat und
+    der auf jedem Rechner woanders liegt.
+
+    Der Dateiwaehler bleibt daneben bestehen: Fuer eine Datei, die jemand
+    zugeschickt bekommen hat, ist er der richtige Weg.
+    """
+    try:
+        nein = nein or t('e_abbrechen')
+        top = tk.Toplevel(eltern)
+        top.title(titel)
+        top.configure(bg=BG)
+        top.resizable(False, False)
+        top.transient(eltern)
+        top.configure(highlightthickness=1, highlightbackground=LINIE,
+                      highlightcolor=LINIE)
+
+        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        schrift_text = tkfont.Font(family='Segoe UI', size=10)
+        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+        schrift_klein = tkfont.Font(family='Segoe UI', size=9)
+
+        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen.pack(fill='both', expand=True)
+        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+                 anchor='w', justify='left').pack(fill='x')
+        if text:
+            tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+                     anchor='w', justify='left',
+                     wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+
+        antwort = {'wert': None}
+
+        def schliessen(wert):
+            antwort['wert'] = wert
+            try:
+                top.grab_release()
+            except tk.TclError:
+                pass
+            top.destroy()
+
+        kasten = tk.Frame(rahmen, bg=FLAECHE, highlightthickness=1,
+                          highlightbackground=LINIE)
+        kasten.pack(fill='x', pady=(14, 0))
+        for eintrag in list(eintraege)[:LISTE_SICHTBAR]:
+            zeile = tk.Label(kasten, text='  ' + eintrag, bg=FLAECHE, fg=FG,
+                             font=schrift_text, anchor='w', cursor='hand2')
+            zeile.pack(fill='x', pady=2)
+            zeile.bind('<Button-1>',
+                       lambda _=None, n=eintrag: schliessen(n))
+            zeile.bind('<Enter>',
+                       lambda _=None, w=zeile: w.configure(fg=ACCENT))
+            zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+        mehr = len(list(eintraege)) - LISTE_SICHTBAR
+        if mehr > 0:
+            tk.Label(kasten, text=t('e_liste_mehr', mehr), bg=FLAECHE, fg=SUB,
+                     font=schrift_klein, anchor='w').pack(fill='x', pady=(2, 3))
+
+        reihe = tk.Frame(rahmen, bg=BG)
+        reihe.pack(anchor='e', pady=(20, 0))
+        _dialog_knopf(reihe, nein, lambda: schliessen(None),
+                      schrift_knopf).pack(side='right')
+
+        top.bind('<Escape>', lambda _=None: schliessen(None))
+        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
+
+        top.update_idletasks()
+        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
+        hoehe = top.winfo_reqheight()
+        try:
+            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
+            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+        except tk.TclError:
+            x = y = 200
+        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+
+        top.grab_set()
+        top.focus_set()
+        eltern.wait_window(top)
+        return antwort['wert']
+    except Exception as ausnahme:
+        fehler.merken('hauptfenster.auswahl_stellen', ausnahme)
+        return None
 
 
 def frage_stellen(eltern, titel, text, ja=None, nein=None,

@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc8 - 2026-09-04
+
+> Der Weg zu deinen Profilen ist jetzt kurz: Beim Speichern siehst du, was
+> schon da ist, und ein Klick übernimmt den Namen. Beim Einspielen wählst du
+> dein Profil aus einer Liste, statt es im Dateisystem zu suchen.
+
+### Neu
+
+- **Profil einspielen ohne Suchen.** Beim Einspielen kannst du zwischen deinen
+  gespeicherten Profilen wählen — anklicken genügt. Für eine Belegung, die dir
+  jemand geschickt hat, bleibt der Dateiwähler daneben stehen.
+
+### Verbessert
+
+- **Die Namensabfrage passt jetzt zum Programm.** Sie kam vorher als grauer
+  Systemdialog mit englischer Beschriftung. Jetzt hat sie dieselben Farben wie
+  alles andere — und die vorhandenen Profile stehen untereinander statt in
+  einer Zeile, die rechts aus dem Fenster lief. Ein Klick auf einen Namen
+  übernimmt ihn.
+
 ## v3.14.0-rc7 - 2026-09-04
 
 > Deine Belegung bleibt jetzt bei dir. Du kannst sie unter einem eigenen Namen

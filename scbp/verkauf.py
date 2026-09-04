@@ -90,14 +90,10 @@ Wunsch auf diese Auswahl ein.
 
 Die Idee zu diesem Reiter stammt von **Morkhan (KRT)** (30.08.2026).
 """
-import json
-import os
 import time
-import urllib.error
-import urllib.request
 
-from . import fehler, orte, pfade
-from .katalog import AUS, KENNUNG
+from . import orte, uex
+from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
@@ -106,7 +102,7 @@ ZEITLIMIT = 30
 
 # Ein Tag. Preise ändern sich im Spiel laufend, aber nicht im Minutentakt —
 # dieselbe Überlegung wie in `preise.py`.
-HALTBAR = 24 * 60 * 60
+HALTBAR = uex.TAG
 
 # Ab wann eine Meldung als alt gilt und in der Anzeige abgesetzt wird.
 # Gemessen am 30.08.2026 über alle 1.880 Ankauf-Einträge: 98,5 % waren jünger
@@ -125,7 +121,8 @@ ALT = 7 * 24 * 60 * 60
 # wieder versuchen dürfen und nicht für einen fremden Ausfall bestraft werden.
 FEHLERSPERRE = 60
 
-_gemerkt = {'stand': None, 'daten': None}
+# Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 
 # Wann zuletzt vergeblich angefragt wurde. Bewusst nur im Arbeitsspeicher: Nach
 # einem Neustart des Werkzeugs darf man es sofort wieder versuchen.
@@ -155,29 +152,12 @@ QUELLE_TERMINALS = 'https://api.uexcorp.uk/2.0/terminals'
 
 def laden():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    pfad = pfade.app_datei(CACHE)
-    try:
-        st = os.stat(pfad)
-        kennung = (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return {}
-    if _gemerkt['stand'] == kennung:
-        return _gemerkt['daten']
-    try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            _gemerkt['stand'], _gemerkt['daten'] = kennung, daten
-            return daten
-    except Exception:
-        pass
-    return {}
+    return _ablage.laden()
 
 
 def alter():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    geholt = (laden() or {}).get('geholt')
-    return (time.time() - float(geholt)) if geholt else None
+    return _ablage.alter()
 
 
 def wartezeit():
@@ -216,15 +196,14 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     """
     if AUS:
         return False, 'aus'
-    a = alter()
     if erzwingen:
         if wartezeit():
             return False, 'gesperrt'
-    elif a is not None and a < HALTBAR:
+    elif not _ablage.veraltet():
         return True, ''
     if fortschritt:
         fortschritt('')
-    preise = _holen(QUELLE)
+    preise = uex.holen(QUELLE, 'verkauf', zeitlimit=ZEITLIMIT)
     if preise is None:
         _letzter_fehlversuch['zeit'] = time.time()
         return False, 'netz'
@@ -234,7 +213,8 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     # Die Terminal-Liste darf fehlschlagen, ohne dass alles scheitert: Ohne sie
     # kennen wir System und `is_nqa` nicht, aber der Terminal-Name steht in den
     # Preisdaten selbst. Lieber eine Liste ohne Systemspalte als gar keine.
-    stellen = _holen(QUELLE_TERMINALS) or []
+    stellen = uex.holen(QUELLE_TERMINALS, 'verkauf.terminals',
+                        zeitlimit=ZEITLIMIT) or []
 
     # ⚠⚠ **Hier steht mit Absicht KEIN Spielstand.**
     #
@@ -289,36 +269,10 @@ def aktualisieren(erzwingen=False, fortschritt=None):
         return False, 'leer'
     for zeilen in waren.values():
         zeilen.sort(key=lambda z: -z['p'])
-    _sichern({'format': FORMAT, 'geholt': time.time(),
-              'terminals': terminals, 'waren': waren})
+    # ⚠ `kompakt`: Diese Ablage ist mit rund 75 KB die grösste der drei —
+    # ohne Leerzeichen zwischen den Feldern spart das spürbar Platz.
+    _ablage.sichern({'terminals': terminals, 'waren': waren}, kompakt=True)
     return True, ''
-
-
-def _holen(adresse):
-    """Eine UEX-Liste holen. `None` bei Fehlschlag, sonst die Datenliste."""
-    try:
-        req = urllib.request.Request(adresse, headers={'User-Agent': KENNUNG})
-        with urllib.request.urlopen(req, timeout=ZEITLIMIT) as r:
-            roh = json.loads(r.read().decode('utf-8'))
-    except Exception as ausnahme:
-        # ⚠ Kein lautes Scheitern. Ohne neue Preise läuft alles weiter wie vorher.
-        fehler.merken('verkauf.holen', ausnahme)
-        return None
-    return roh.get('data') or []
-
-
-def _sichern(daten):
-    ziel = pfade.app_datei(CACHE)
-    try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, separators=(',', ':'))
-        os.replace(ziel + '.tmp', ziel)
-        _gemerkt['stand'] = None
-        return True
-    except Exception as ausnahme:
-        fehler.merken('verkauf._sichern', ausnahme)
-        return False
 
 
 def waren():

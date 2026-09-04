@@ -243,6 +243,23 @@ def profile(ordner=None):
     return sorted(namen, key=str.lower)
 
 
+def profil_datei(name, ordner=None):
+    """Der Pfad zu einem gespeicherten Profil — oder `None`.
+
+    ⚠ Gesucht wird in **allen** Schreibweisen des Mappings-Ordners, neuester
+    zuerst. Liegt derselbe Name mehrfach, gewinnt der zuletzt geaenderte —
+    dieselbe Regel wie beim Sichern.
+    """
+    if not (name or '').strip():
+        return None
+    gesucht = name.strip() + '.xml'
+    for weg in alle_mapping_ordner(ordner):
+        voll = os.path.join(weg, gesucht)
+        if os.path.isfile(voll):
+            return voll
+    return None
+
+
 def name_pruefen(name):
     """Taugt der Name als Profilname? Gibt `(ok, Meldungsschluessel)`.
 

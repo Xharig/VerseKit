@@ -913,17 +913,21 @@ TEXTE = {
     # Ein Profil ist etwas anderes als eine gesicherte Datei: Es liegt dort, wo
     # das Spiel es sucht, und laesst sich dort unter seinem Namen laden.
     's_js_profil':     ('Als Profil speichern', 'Save as profile'),
-    's_js_profil_frage': ('Name für das Profil — Buchstaben, Ziffern, '
-                          'Bindestrich und Unterstrich, keine Leerzeichen.\n'
-                          'Im Spiel lädst du es dann mit:\n'
-                          '  pp_rebindkeys load NAME\n\n'
-                          'Schon vorhanden: %s',
-                            'Name for the profile — letters, digits, hyphens '
-                            'and underscores, no spaces.\n'
-                            'In game you then load it with:\n'
-                            '  pp_rebindkeys load NAME\n\n'
-                            'Already there: %s'),
+    's_js_profil_frage': ('Buchstaben, Ziffern, Bindestrich und Unterstrich — '
+                          'keine Leerzeichen.\nIm Spiel lädst du das Profil '
+                          'dann mit:  pp_rebindkeys load NAME',
+                            'Letters, digits, hyphens and underscores — no '
+                            'spaces.\nIn game you then load the profile with:  '
+                            'pp_rebindkeys load NAME'),
+    's_js_profil_liste': ('Vorhanden — anklicken übernimmt den Namen:',
+                            'Existing — click one to reuse its name:'),
     's_js_profil_keine': ('noch keine', 'none yet'),
+    's_js_einlesen_woher': ('Woher soll die Belegung kommen?',
+                              'Where should the bindings come from?'),
+    's_js_einlesen_profil': ('Aus meinen Profilen', 'From my profiles'),
+    's_js_einlesen_datei': ('Aus einer Datei', 'From a file'),
+    's_js_einlesen_waehlen': ('Welches Profil soll ins Spiel?',
+                                'Which profile should go into the game?'),
     's_js_profil_ersetzen': ('Es gibt schon ein Profil „%s". Ersetzen?',
                                'A profile "%s" already exists. Replace it?'),
     's_js_profil_ok':  ('Gespeichert als „%s".\n\nIm Spiel laden mit:\n'
@@ -2857,6 +2861,11 @@ TEXTE = {
     'e_ja':              ('Ja', 'Yes'),
     'e_ok':              ('Alles klar', 'Got it'),
     'e_nein':            ('Nein', 'No'),
+    # ⚠ Für einen Eingabe-Dialog taugt „Alles klar" nicht: Dort wird etwas
+    # getan, nicht etwas zur Kenntnis genommen. Der Knopf sagt, was passiert.
+    'e_abbrechen':       ('Abbrechen', 'Cancel'),
+    'e_speichern':       ('Speichern', 'Save'),
+    'e_liste_mehr':      ('  … und %d weitere', '  … and %d more'),
     'e_an':              ('an', 'on'),
     'e_aus':             ('aus', 'off'),
     'e_durchsuchen':     ('Suchen …', 'Browse …'),
