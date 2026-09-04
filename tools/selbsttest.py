@@ -585,6 +585,26 @@ def main():
                     os.path.join(WURZEL, 'scbp', name))
         pruefe(not feste,
                'jeder sichtbare Text der Oberfläche läuft durch t()')
+
+        # ⚠⚠ **Kein Schlüssel darf zweimal vergeben sein.** Ein Wörterbuch
+        # nimmt das klaglos hin: Der zweite Eintrag verdrängt den ersten, und
+        # niemand merkt es — bis eine Stelle mit `%s` rechnet, während der
+        # gewinnende Eintrag `{preis}` benutzt. Genau so ist am 04.09.2026 die
+        # Bestenliste im Verkaufs-Reiter stumm geblieben: Überschrift da,
+        # Liste leer, kein Hinweis worauf.
+        #
+        # Gefunden wurden dabei **drei** Doppelungen, eine davon Monate alt.
+        import re as _re_dop
+        _sprachdatei = os.path.join(WURZEL, 'scbp', 'sprache.py')
+        with open(_sprachdatei, encoding='utf-8') as _f_dop:
+            _roh_dop = _f_dop.read()
+        _schluessel = _re_dop.findall(r"^    '([a-z0-9_]+)':", _roh_dop,
+                                      _re_dop.M)
+        _doppelt = sorted({s for s in _schluessel
+                           if _schluessel.count(s) > 1})
+        pruefe(not _doppelt,
+               'kein Sprachschlüssel ist doppelt vergeben (%s)'
+               % (', '.join(_doppelt) if _doppelt else 'keiner'))
         # ⚠ Nicht `zeile` als Schleifenvariable — so heißt weiter oben eine
         # Hilfsfunktion, und Python macht daraus für die ganze Funktion eine
         # lokale Variable. Der Selbsttest stirbt dann Hunderte Zeilen früher.

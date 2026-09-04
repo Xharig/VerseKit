@@ -450,7 +450,9 @@ TEXTE = {
     # -- Einstellungsfenster --
     'titel_einstellungen': ('SC BP Watcher — Einstellungen',
                             'SC BP Watcher — Settings'),
-    'einstellungen':     ('Einstellungen', 'Settings'),
+    # ⚠ `einstellungen` steht schon weiter oben unter „Einstellungen" — der
+    # zweite Eintrag war identisch und damit wirkungslos, aber er hätte beim
+    # nächsten Ändern eine der beiden Stellen still übergangen.
     'hinweis_einstellungen': ('Einstellungen öffnen', 'Open settings'),
     'e_sprache':         ('Sprache', 'Language'),
     'e_sprache_hilfe':   ('Sprache dieses Fensters und aller Meldungen. Nicht zu '
@@ -2155,6 +2157,7 @@ TEXTE = {
                             'Tell me where you are and what fits — then I work '
                             'out what pays off.'),
     's_rt_wo':           ('Wo stehst du gerade?', 'Where are you right now?'),
+    's_rt_alle_systeme': ('Alle Systeme', 'All systems'),
     's_rt_scu':          ('Frachtraum (SCU)', 'Cargo hold (SCU)'),
     's_rt_geld':         ('Geld (aUEC)', 'Money (aUEC)'),
     's_rt_kein_ort':     ('Tippe oben ein, wo du gerade bist — dann siehst du, '
@@ -2186,12 +2189,10 @@ TEXTE = {
     # die Regel aus, und die nächste Zeile ist dann keine Einheit mehr.
     's_rt_scu_menge':    ('%d SCU', '%d SCU'),
     's_auec':            ('%s aUEC', '%s aUEC'),
-    's_rt_schiff':       ('Schiff', 'Ship'),
-    's_rt_schiff_waehlen': ('auswählen …', 'choose …'),
-    's_rt_schiff_frage': ('Welches Schiff fliegst du? Der Frachtraum wird '
-                          'dann von selbst eingetragen.',
-                            'Which ship are you flying? The cargo hold is then '
-                            'filled in for you.'),
+    # ⚠ Die Beschriftung sagt, was das Feld TUT. „Schiff" allein ließ offen,
+    # wozu man dort etwas einträgt.
+    's_rt_schiff':       ('Schiff — trägt den Frachtraum ein',
+                            'Ship — fills in the cargo hold'),
     's_rt_keine_schiffe': ('Die Schiffsliste ist noch nicht da — sie wird beim '
                            'nächsten Abruf geholt.',
                              'The ship list is not here yet — it will be '
@@ -2225,7 +2226,6 @@ TEXTE = {
                           'Nothing in the cargo hold has known prices.'),
     's_vk_spitze':       ('Was gerade am besten zahlt — anklicken übernimmt es',
                             'What pays best right now — click to pick it'),
-    's_vk_je_scu':       ('%s aUEC je SCU', '%s aUEC per SCU'),
     's_vk_leer_hinweis': ('Such oben eine Ware — oder übernimm gleich alles '
                           'aus deinem Handelslager.',
                           'Search for a commodity above — or take everything '
@@ -2972,8 +2972,8 @@ TEXTE = {
     'e_nein':            ('Nein', 'No'),
     # ⚠ Für einen Eingabe-Dialog taugt „Alles klar" nicht: Dort wird etwas
     # getan, nicht etwas zur Kenntnis genommen. Der Knopf sagt, was passiert.
+    # ⚠ `e_speichern` gibt es weiter unten schon — nicht noch einmal anlegen.
     'e_abbrechen':       ('Abbrechen', 'Cancel'),
-    'e_speichern':       ('Speichern', 'Save'),
     'e_liste_mehr':      ('  … und %d weitere', '  … and %d more'),
     'e_an':              ('an', 'on'),
     'e_aus':             ('aus', 'off'),

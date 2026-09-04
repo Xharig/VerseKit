@@ -6,6 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc16 - 2026-09-04
+
+> Die Suche nach der besten Route zeigt ihr Ergebnis jetzt auch an — bisher
+> lief sie durch und danach stand die Seite unverändert da. Dazu ein
+> Systemauswahl-Menü bei den Routen, das Schiff als Suchfeld statt als
+> Extrafenster, und eine Bestenliste im Verkauf, die nicht mehr leer bleibt.
+
+### Neu
+
+- **Systemauswahl bei „Wo stehst du gerade?".** Klapp Stanton, Pyro oder Nyx
+  auf und du siehst die Handelsposten darin, ohne etwas tippen zu müssen.
+
+### Verbessert
+
+- **Das Schiff wählst du jetzt im Suchfeld**, nicht mehr in einem eigenen
+  Fenster — mit Vorschlägen ab zwei Buchstaben, wie überall sonst im Werkzeug.
+  Der Frachtraum steht in jeder Vorschlagszeile.
+- **Die Umschalter für Gewinn, Stationen und Rundreise sind von Anfang an
+  sichtbar.** Vorher erschienen sie erst, wenn schon ein Ort gewählt war — wer
+  die Seite zum ersten Mal öffnete, sah nie, dass es sie gibt.
+
+### Behoben
+
+- **Die Suche nach der besten Route zeigte nichts an.** Sie sammelte alle
+  Handelsposten ein und danach stand weiter „Tippe oben ein, wo du gerade
+  bist" da.
+- **Im Verkauf blieb die Liste „Was gerade am besten zahlt" leer.** Die
+  Überschrift war da, die Zeilen fehlten.
+- **Das Schiff-Fenster zeigte nur sieben von 134 Schiffen** und verschwieg den
+  Rest.
+
 ## v3.14.0-rc15 - 2026-09-04
 
 > Eine Route sagt jetzt, wo du was einkaufst — vorher stand nur das Ziel da

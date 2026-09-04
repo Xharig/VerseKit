@@ -5233,7 +5233,8 @@ def _routen(fenster, rahmen):
     innen = _rollflaeche(rahmen)
 
     zustand = {'start': '', 'startname': '', 'laeuft': False, 'kurz': False,
-               'schiff': '', 'stumm': False, 'stopps': 2, 'rund': False}
+               'schiff': '', 'stumm': False, 'stopps': 2, 'rund': False,
+               'stumm_schiff': False, 'modus': 'ab_hier'}
     # ⚠ 120 statt 96: Das ist der Laderaum der Freelancer MAX, gemessen am
     # 04.09.2026. Ein Standardwert soll einem echten Schiff entsprechen und
     # nicht geraten sein.
@@ -5247,13 +5248,51 @@ def _routen(fenster, rahmen):
     # ---------------------------------------------------- Wo stehe ich?
     tk.Label(kopf, text=t('s_rt_wo'), bg=BG, fg=SUB,
              font=fenster.f_klein, anchor='w').pack(fill='x')
-    ortfeld = tk.Entry(kopf, textvariable=ortsuche, font=fenster.f_grund,
+
+    # ⭐ **Dropdown UND Suchfeld — wie überall im Werkzeug.** Wer den Namen
+    # weiß, tippt; wer ihn nicht weiß, klappt das System auf und sieht alle
+    # Handelsposten darin. Gewünscht am 04.09.2026: „mach noch Dropdown zum
+    # Auswahlfeld bei ‚Wo stehst du gerade' bei Routen."
+    ortzeile = tk.Frame(kopf, bg=BG)
+    ortzeile.pack(fill='x')
+    ortfeld = tk.Entry(ortzeile, textvariable=ortsuche, font=fenster.f_grund,
                        bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
                        highlightthickness=1, highlightbackground=LINIE,
                        highlightcolor=ACCENT)
-    ortfeld.pack(fill='x', ipady=5)
+    ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
     ortvorschlag = tk.Frame(kopf, bg=BG)
     ortvorschlag.pack(fill='x')
+
+    def _systeme():
+        """Die Systeme, in denen es Handelsposten gibt — mit Anzahl."""
+        stellen = (preisdaten.laden() or {}).get('terminals') or {}
+        zaehler = {}
+        for stelle in stellen.values():
+            art = stelle.get('t')
+            if art is not None and art not in preisdaten.HANDELSARTEN:
+                continue
+            system = (stelle.get('s') or '').strip()
+            if system:
+                zaehler[system] = zaehler.get(system, 0) + 1
+        return [(s, '%s (%d)' % (s, n))
+                for s, n in sorted(zaehler.items(),
+                                   key=lambda p: (-p[1], p[0]))]
+
+    def _system_gewechselt(wert):
+        zustand['system'] = wert
+        # ⚠ Das Feld leeren: Sonst filtert der alte Suchtext gegen das neue
+        # System und die Liste bliebe leer, ohne dass man wüsste warum.
+        zustand['stumm'] = True
+        ortsuche.set('')
+        zustand['stumm'] = False
+        _ortvorschlaege()
+
+    from .hauptfenster import rundwahl
+    systeme = _systeme()
+    if systeme:
+        rundwahl(ortzeile, [('', t('s_rt_alle_systeme'))] + systeme,
+                 zustand.get('system', ''), _system_gewechselt,
+                 fenster.f_klein).pack(side='left', padx=(8, 0))
 
     # ------------------------------------------- Frachtraum und Kapital
     zahlen = tk.Frame(kopf, bg=BG)
@@ -5269,54 +5308,77 @@ def _routen(fenster, rahmen):
                  highlightthickness=1, highlightbackground=LINIE,
                  highlightcolor=ACCENT).pack(ipady=4)
 
-    # ⭐ **Schiff wählen statt Zahl tippen.** Wer sein Schiff kennt, kennt
-    # selten dessen SCU-Zahl auswendig — und eine falsch geratene macht die
-    # ganze Rechnung falsch.
+    # ⭐⭐ **Schiff wählen statt Zahl tippen — als Suchfeld, nicht als Fenster.**
     #
-    # ⚠ Der Knopf steht nur da, wenn die Schiffsliste vorliegt. Ohne Netz oder
-    # beim ersten Start fehlt sie; dann bleibt das Eingabefeld daneben der Weg
-    # und niemand sieht einen Knopf, der nichts tut.
-    schiff_spalte = tk.Frame(zahlen, bg=BG)
-    schiff_spalte.pack(side='left')
-    tk.Label(schiff_spalte, text=t('s_rt_schiff'), bg=BG, fg=SUB,
+    # ⚠ Der erste Anlauf war ein Knopf, der einen Auswahl-Dialog öffnete. Zwei
+    # Fehler auf einmal, am 04.09.2026 gemeldet: Der Dialog zeigte nur sieben
+    # von 134 Schiffen („leer und nur wenige auswählbar"), und ein eigenes
+    # Fenster passt nicht zum Rest.
+    #
+    # Xharig dazu: „Suchfeld immer mit Auswahl-Dropdown bei 2 Buchstaben oder
+    # so, so machen wir es auch in anderen Menüs im Tool." Genau so ist es
+    # jetzt — dasselbe Muster wie beim Ortsfeld darüber.
+    schiff_rahmen = tk.Frame(kopf, bg=BG)
+    schiff_rahmen.pack(fill='x', pady=(10, 0))
+    tk.Label(schiff_rahmen, text=t('s_rt_schiff'), bg=BG, fg=SUB,
              font=fenster.f_klein, anchor='w').pack(fill='x')
-    schiff_knopf = tk.Label(schiff_spalte, text=t('s_rt_schiff_waehlen'),
-                            bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-                            cursor='hand2', padx=10)
-    schiff_knopf.pack(ipady=5)
-
-    def _schiff_waehlen(_=None):
-        from .hauptfenster import auswahl_stellen
-        namen = schiff_modul.alle()
-        if not namen:
-            fenster.sagen(t('s_rt_keine_schiffe'))
-            return
-        # ⚠ Die Liste zeigt den Frachtraum gleich mit — sonst wählt man nach
-        # dem Namen und weiß hinterher nicht, was man bekommen hat.
-        beschriftet = ['%s  ·  %d SCU' % (n, schiff_modul.scu(n))
-                       for n in namen]
-        gewaehlt_text = auswahl_stellen(fenster.root, t('s_rt_schiff'),
-                                        t('s_rt_schiff_frage'), beschriftet)
-        if not gewaehlt_text:
-            return
-        name = gewaehlt_text.split('  ·  ')[0]
-        zustand['schiff'] = name
-        scu_var.set(str(schiff_modul.scu(name)))
-        schiff_knopf.configure(text=name, fg=ACCENT)
-        _schiff_zeigen()
-
-    schiff_knopf.bind('<Button-1>', _schiff_waehlen)
-    schiff_knopf.bind('<Enter>',
-                      lambda _=None: schiff_knopf.configure(fg=ACCENT))
-    schiff_knopf.bind(
-        '<Leave>',
-        lambda _=None: schiff_knopf.configure(
-            fg=ACCENT if zustand['schiff'] else SUB))
+    schiffsuche = tk.StringVar()
+    schifffeld = tk.Entry(schiff_rahmen, textvariable=schiffsuche,
+                          font=fenster.f_grund, bg=FLAECHE, fg=FG,
+                          insertbackground=FG, relief='flat',
+                          highlightthickness=1, highlightbackground=LINIE,
+                          highlightcolor=ACCENT)
+    schifffeld.pack(fill='x', ipady=5)
+    schiffvorschlag = tk.Frame(schiff_rahmen, bg=BG)
+    schiffvorschlag.pack(fill='x')
 
     # Wo es das gewählte Schiff gibt — steht unter den Eingaben, nicht im
     # Ergebnis: Es gehört zur Ausrüstung, nicht zur Route.
     schiff_info = tk.Frame(kopf, bg=BG)
     schiff_info.pack(fill='x', pady=(8, 0))
+
+    def _schiff_waehlen(name):
+        zustand['schiff'] = name
+        zustand['stumm_schiff'] = True
+        schiffsuche.set(name)
+        zustand['stumm_schiff'] = False
+        for kind in schiffvorschlag.winfo_children():
+            kind.destroy()
+        scu_var.set(str(schiff_modul.scu(name)))
+        _schiff_zeigen()
+
+    def _schiffvorschlaege(*_a):
+        if zustand.get('stumm_schiff'):
+            return
+        for kind in schiffvorschlag.winfo_children():
+            kind.destroy()
+        text = schiffsuche.get().strip().lower()
+        if len(text) < 2:
+            return
+        if text == (zustand.get('schiff') or '').lower():
+            return
+        namen = schiff_modul.alle()
+        if not namen:
+            _fliesstext(schiffvorschlag, t('s_rt_keine_schiffe'),
+                        fenster.f_klein, fill='x')
+            return
+        # ⚠ Der Frachtraum steht in der Zeile — sonst wählt man nach dem Namen
+        # und weiß hinterher nicht, was man bekommen hat.
+        treffer = [n for n in namen if text in n.lower()][:10]
+        for n in treffer:
+            zeile = tk.Label(schiffvorschlag,
+                             text='  %s  ·  %s' % (n, t('s_rt_scu_menge')
+                                                   % schiff_modul.scu(n)),
+                             bg=FLAECHE, fg=FG, font=fenster.f_klein,
+                             anchor='w', cursor='hand2')
+            zeile.pack(fill='x', pady=1)
+            zeile.bind('<Button-1>',
+                       lambda _=None, x=n: _schiff_waehlen(x))
+            zeile.bind('<Enter>',
+                       lambda _=None, w=zeile: w.configure(fg=ACCENT))
+            zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+
+    schiffsuche.trace_add('write', _schiffvorschlaege)
 
     def _schiff_zeigen():
         for kind in schiff_info.winfo_children():
@@ -5413,6 +5475,18 @@ def _routen(fenster, rahmen):
     ueberall_knopf.bind('<Leave>',
                         lambda _=None: ueberall_knopf.configure(fg=SUB))
 
+    # ⚠⚠ **Die Umschalter stehen oben, nicht im Ergebnis.** Sie lagen zuerst
+    # unter der Ortswahl und erschienen deshalb erst, wenn schon ein Ort
+    # gewählt war — wer die Seite zum ersten Mal öffnete, sah sie nie und
+    # wusste nicht, dass es sie gibt. Am 04.09.2026 gesucht und nicht
+    # gefunden: „Da wolltest du doch was bauen, beste Route, schnellste Route
+    # oder so."
+    #
+    # Es sind **Einstellungen**, keine Ergebnisse. Sie gehören dorthin, wo man
+    # etwas einstellt.
+    schalter_rahmen = tk.Frame(kopf, bg=BG)
+    schalter_rahmen.pack(fill='x', pady=(10, 0))
+
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
 
@@ -5428,16 +5502,67 @@ def _routen(fenster, rahmen):
         for kind in wo.winfo_children():
             kind.destroy()
 
+    def _schalter_zeichnen():
+        """Die drei Umschalter-Reihen — sichtbar ab dem ersten Öffnen."""
+        _leeren(schalter_rahmen)
+
+        def reihe_bauen(eintraege, schluessel):
+            reihe = tk.Frame(schalter_rahmen, bg=BG)
+            reihe.pack(fill='x', pady=(0, 4))
+            for wert, beschriftung in eintraege:
+                aktiv = zustand[schluessel] == wert
+                k = tk.Label(reihe, text='  %s  ' % beschriftung, bg=FLAECHE,
+                             fg=ACCENT if aktiv else SUB,
+                             font=fenster.f_klein, cursor='hand2')
+                k.pack(side='left', padx=(0, 6), ipady=3)
+
+                def um(_=None, s=schluessel, w=wert):
+                    zustand[s] = w
+                    _schalter_zeichnen()
+                    _zeichnen()
+                k.bind('<Button-1>', um)
+
+        reihe_bauen(((False, t('s_rt_nach_gewinn')),
+                     (True, t('s_rt_nach_strecke'))), 'kurz')
+        # ⚠ Wieviele Stationen — gewünscht am 04.09.2026: „bei Tools im
+        # Internet bekommt man Routen von A nach B, von B weiter nach C, von C
+        # nach A". Genau das sind diese beiden Reihen.
+        reihe_bauen(((2, t('s_rt_stopps') % 2),
+                     (3, t('s_rt_stopps') % 3),
+                     (4, t('s_rt_stopps') % 4)), 'stopps')
+        reihe_bauen(((False, t('s_rt_offen')),
+                     (True, t('s_rt_rund'))), 'rund')
+
     def _zeichnen():
         _leeren(ergebnis)
-        if not zustand['start']:
-            _fliesstext(ergebnis, t('s_rt_kein_ort'), fenster.f_klein,
-                        fill='x')
-            return
         if zustand['laeuft']:
             _fliesstext(ergebnis, t('s_rt_rechnet'), fenster.f_klein, fill='x')
             return
         scu, geld = _zahl(scu_var, 96), _zahl(geld_var, 500000)
+
+        # ⚠⚠ **Die globale Bestenliste.** Sie fehlte: Der Knopf sammelte alle
+        # 184 Handelsposten ein — und danach stand weiter „Tippe oben ein, wo
+        # du gerade bist" da, weil `_zeichnen()` ohne gewählten Ort abbrach.
+        # Anderthalb Minuten Abruf für nichts. Am 04.09.2026 gemeldet: „Beste
+        # Route lädt 187 Handelsposten, zeigt dann aber nichts an."
+        if zustand.get('modus') == 'ueberall':
+            beste = routen_modul.beste_ueberall(scu, geld, hoechstens=15)
+            tk.Label(ergebnis, text=t('s_rt_ueberall_titel'), bg=BG, fg=FG,
+                     font=fenster.f_fett, anchor='w').pack(fill='x',
+                                                           pady=(0, 6))
+            if not beste:
+                _fliesstext(ergebnis, t('s_rt_ueberall_leer'),
+                            fenster.f_klein, fill='x')
+                return
+            for nummer, e in enumerate(beste):
+                _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0),
+                              mit_start=True)
+            return
+
+        if not zustand['start']:
+            _fliesstext(ergebnis, t('s_rt_kein_ort'), fenster.f_klein,
+                        fill='x')
+            return
 
         kopfzeile = tk.Frame(ergebnis, bg=BG)
         kopfzeile.pack(fill='x', pady=(0, 8))
@@ -5449,33 +5574,6 @@ def _routen(fenster, rahmen):
                      text=t('s_vk_stand').format(alter=_alterstext(a)),
                      bg=BG, fg=SUB, font=fenster.f_klein,
                      anchor='e').pack(side='right')
-
-        def _schalter(eltern, eintraege, schluessel):
-            """Eine Reihe Umschalter — überall gleich gebaut."""
-            reihe = tk.Frame(eltern, bg=BG)
-            reihe.pack(fill='x', pady=(0, 6))
-            for wert, beschriftung in eintraege:
-                aktiv = zustand[schluessel] == wert
-                k = tk.Label(reihe, text='  %s  ' % beschriftung, bg=FLAECHE,
-                             fg=ACCENT if aktiv else SUB,
-                             font=fenster.f_klein, cursor='hand2')
-                k.pack(side='left', padx=(0, 6), ipady=3)
-
-                def um(_=None, s=schluessel, w=wert):
-                    zustand[s] = w
-                    _zeichnen()
-                k.bind('<Button-1>', um)
-
-        _schalter(ergebnis, ((False, t('s_rt_nach_gewinn')),
-                             (True, t('s_rt_nach_strecke'))), 'kurz')
-        # ⚠ Wieviele Stationen — gewünscht am 04.09.2026: „bei Tools im
-        # Internet bekommt man Routen von A nach B, von B weiter nach C, von C
-        # nach A". Genau das sind diese beiden Reihen.
-        _schalter(ergebnis, ((2, t('s_rt_stopps') % 2),
-                             (3, t('s_rt_stopps') % 3),
-                             (4, t('s_rt_stopps') % 4)), 'stopps')
-        _schalter(ergebnis, ((False, t('s_rt_offen')),
-                             (True, t('s_rt_rund'))), 'rund')
 
         einzeln = routen_modul.einzelfahrten(zustand['start'], scu, geld,
                                              hoechstens=8)
@@ -5544,6 +5642,9 @@ def _routen(fenster, rahmen):
 
     def _start_waehlen(kennung, name):
         zustand['start'], zustand['startname'] = kennung, name
+        # ⚠ Wer einen Ort wählt, will Fahrten **von dort** — nicht weiter die
+        # globale Liste. Sonst klickt man einen Ort an und nichts ändert sich.
+        zustand['modus'] = 'ab_hier'
         # ⚠⚠ **Der gewählte Ort bleibt im Feld stehen.** Vorher wurde es
         # geleert — dann stand oben „Wo stehst du gerade?" über einem leeren
         # Kasten, und es sah aus, als sei nichts ausgewählt. Am 04.09.2026
@@ -5589,11 +5690,13 @@ def _routen(fenster, rahmen):
             return
         _leeren(ortvorschlag)
         text = ortsuche.get().strip().lower()
-        if len(text) < 2:
+        # ⚠ **Ohne Eingabe gilt das System-Dropdown.** Vorher passierte unter
+        # zwei Zeichen gar nichts — wer nur klicken wollte, kam nicht weiter.
+        if len(text) < 2 and not zustand.get('system'):
             return
         # Steht im Feld genau der schon gewählte Ort, gibt es nichts
         # vorzuschlagen — sonst klappt die Liste beim Zurückkommen wieder auf.
-        if text == (zustand.get('startname') or '').lower():
+        if text and text == (zustand.get('startname') or '').lower():
             return
         # ⚠ Die Terminal-Liste liegt bereits in der Verkaufs-Ablage — 826
         # Stück mit Namen und System. Kein eigener Abruf nötig.
@@ -5616,11 +5719,17 @@ def _routen(fenster, rahmen):
             terminal = stelle.get('n') or ''
             if not (ort or terminal):
                 continue
-            if text not in ort.lower() and text not in terminal.lower():
+            if zustand.get('system') and \
+                    (stelle.get('s') or '') != zustand['system']:
+                continue
+            if text and text not in ort.lower() \
+                    and text not in terminal.lower():
                 continue
             treffer.append((kennung, terminal or ort, ort,
                             stelle.get('s') or ''))
-            if len(treffer) >= 8:
+            # ⚠ Mehr Zeilen, wenn nur nach System gefiltert wird — Stanton hat
+            # 128 Handelsposten, acht davon zu zeigen wäre eine Andeutung.
+            if len(treffer) >= (25 if not text else 8):
                 break
         # ⚠ Angezeigt wird der **Terminalname**, dahinter Station und System.
         # Vorher stand achtmal „Seraphim Station · Stanton" untereinander und
@@ -5644,6 +5753,8 @@ def _routen(fenster, rahmen):
     ortsuche.trace_add('write', _ortvorschlaege)
     for var in (scu_var, geld_var):
         var.trace_add('write', lambda *_a: _zeichnen())
+    _schalter_zeichnen()
+    _stand_zeigen()
     _zeichnen()
 
     def _beim_zeigen():
@@ -5653,8 +5764,13 @@ def _routen(fenster, rahmen):
     fenster.beim_zeigen['routen'] = _beim_zeigen
 
 
-def _routen_zeile(fenster, eltern, fahrt, hervor=False):
-    """Eine Einzelfahrt: Gewinn, Menge, Ware, Ziel, Strecke."""
+def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
+    """Eine Einzelfahrt: Gewinn, Menge, Ware, Ziel, Strecke.
+
+    `mit_start=True` nennt zusätzlich den **Einkaufsort** — nötig in der
+    globalen Bestenliste, wo jede Zeile woanders beginnt. Ohne ihn stünde da
+    ein Gewinn ohne Angabe, wo man ihn holt.
+    """
     kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
                       highlightbackground=LINIE)
     kasten.pack(fill='x', pady=(0, 4))
@@ -5668,6 +5784,10 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False):
                  side='left')
     tk.Label(zeile, text=fahrt['ware'], bg=FLAECHE, fg=FG,
              font=fenster.f_klein, anchor='w').pack(side='left')
+    if mit_start and fahrt.get('startname'):
+        tk.Label(zeile, text='  ' + t('s_rt_ab') % fahrt['startname'],
+                 bg=FLAECHE, fg=FG, font=fenster.f_klein,
+                 anchor='w').pack(side='left')
     tk.Label(zeile, text='  →  ' + (fahrt.get('zielname') or '?'), bg=FLAECHE,
              fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
     if fahrt.get('strecke'):
@@ -8204,9 +8324,17 @@ def _verkauf(fenster, rahmen):
                 zeile.pack(fill='x', padx=12, pady=5)
                 for w in (kasten, zeile):
                     w.configure(cursor='hand2')
-                p = tk.Label(zeile, text=t('s_vk_je_scu') % _geld(preis),
+                # ⚠ `s_vk_je_scu` gab es **schon** — mit `{preis}` statt `%s`.
+                # Ein zweiter Eintrag desselben Namens hat den alten still
+                # verdrängt, und `% _geld(...)` flog auf die Nase: „Text da,
+                # aber zeigt nichts an" (04.09.2026). Ein doppelter Schlüssel
+                # fällt in einem Wörterbuch nicht auf — deshalb prüft der
+                # Selbsttest das jetzt.
+                p = tk.Label(zeile,
+                             text=t('s_vk_je_scu').format(
+                                 preis=_auec(preis)),
                              bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
-                             width=18, anchor='w')
+                             width=20, anchor='w')
                 p.pack(side='left')
                 n = tk.Label(zeile, text=ware, bg=FLAECHE, fg=FG,
                              font=fenster.f_klein, anchor='w', cursor='hand2')

@@ -6,6 +6,35 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc16 - 2026-09-04
+
+> The search for the best route now actually shows its result — until now it
+> ran through and left the page unchanged. Plus a system picker for routes, the
+> ship as a search field instead of a separate window, and a top list under
+> Sell that no longer stays empty.
+
+### Added
+
+- **System picker for "Where are you right now?".** Open Stanton, Pyro or Nyx
+  and you see the trade posts inside, without typing anything.
+
+### Improved
+
+- **You now pick your ship in a search field**, no longer in a separate window
+  — with suggestions from two letters, like everywhere else in the tool. The
+  cargo hold is shown on every suggestion.
+- **The switches for profit, stops and round trip are visible from the
+  start.** They used to appear only once a location was picked, so anyone
+  opening the page for the first time never saw they existed.
+
+### Fixed
+
+- **The search for the best route showed nothing.** It collected every trade
+  post and afterwards still said "Type where you are above".
+- **Under Sell, the "what pays best" list stayed empty.** The heading was
+  there, the rows were not.
+- **The ship window only showed seven of 134 ships** and silently hid the rest.
+
 ## v3.14.0-rc15 - 2026-09-04
 
 > A route now tells you where to buy what — before it only named the
