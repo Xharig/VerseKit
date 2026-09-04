@@ -89,6 +89,11 @@ HOECHSTENS = 25
 # eigenen Abruf — bei 69 Fahrten je Startort wären es sonst 69.
 KETTEN_KANDIDATEN = 5
 
+# ⚠ Wieviele Fahrten eine Route höchstens hat. Jede Stufe kostet Abrufe, und
+# eine Route über sechs Stationen plant ohnehin niemand: Bis man beim letzten
+# Stopp ist, sind die Preise vom Anfang alt.
+MAX_STOPPS = 4
+
 _ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 
 
@@ -207,37 +212,69 @@ def einzelfahrten(start, scu, geld, hoechstens=20):
     return raus[:hoechstens]
 
 
-def kette(start, scu, geld, kurz=False, hoechstens=5):
-    """Zwei Fahrten hintereinander: Ziel der ersten ist Start der zweiten.
+def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
+          rundreise=False):
+    """Mehrere Fahrten hintereinander: Ziel der einen ist Start der nächsten.
+
+    `stopps` sagt, über wie viele Fahrten geplant wird (2 bis `MAX_STOPPS`).
+    `rundreise=True` verlangt, dass die letzte Fahrt **zurück zum Startort**
+    führt — A → B → C → A.
 
     `kurz=True` sortiert nach **Gesamtstrecke** statt nach Gewinn — für den
     Abend, an dem man nicht quer durchs System fliegen will.
 
-    ⚠ Holt für die `KETTEN_KANDIDATEN` besten Ziele die Anschlussfahrten nach.
-    Das sind ein paar Abrufe, keine siebzig.
+    ⚠⚠ **Warum die Rundreise mehr ist als Bequemlichkeit.** Ohne sie steht man
+    am Ende irgendwo mit leerem Laderaum und muss die Rückfahrt leer fliegen —
+    die zählt in der Rechnung nicht, kostet aber dieselbe Zeit. Eine Route, die
+    dort endet, wo sie anfing, lässt sich **wiederholen**.
 
-    Gibt eine Liste von `(gesamtgewinn, erste, zweite)` zurück.
+    ⚠ Jede weitere Stufe kostet Abrufe: je Kandidat einen. Deshalb wird der
+    Baum bei jeder Stufe auf `KETTEN_KANDIDATEN` beschnitten — sonst wären es
+    bei drei Stopps schon einige hundert.
+
+    Gibt eine Liste von `(gesamtgewinn, [fahrten])` zurück.
     """
-    erste = einzelfahrten(start, scu, geld, hoechstens=KETTEN_KANDIDATEN)
-    ketten = []
-    for a in erste:
-        if not a.get('ziel'):
-            continue
-        if fahrten(a['ziel']) is None:
-            holen(a['ziel'])
-        # Nach der ersten Fahrt ist mehr Geld da — das darf die zweite nutzen.
-        for b in einzelfahrten(a['ziel'], scu, (geld or 0) + a['gewinn'],
-                               hoechstens=3):
-            ketten.append((a['gewinn'] + b['gewinn'], a, b))
+    stopps = max(2, min(int(stopps or 2), MAX_STOPPS))
+    # Ein Zweig ist (Gewinn bisher, Ort jetzt, Liste der Fahrten).
+    zweige = [(0.0, str(start), [])]
+    for stufe in range(stopps):
+        naechste = []
+        letzte_stufe = (stufe == stopps - 1)
+        for gewinn_bisher, ort, bisher in zweige:
+            if fahrten(ort) is None and not holen(ort):
+                continue
+            # Nach jeder Fahrt ist mehr Geld da — das darf die nächste nutzen.
+            for f in einzelfahrten(ort, scu, (geld or 0) + gewinn_bisher,
+                                   hoechstens=KETTEN_KANDIDATEN):
+                if not f.get('ziel'):
+                    continue
+                # ⚠ Denselben Ort nicht zweimal anfahren — außer als Rückkehr
+                # zum Start, und das nur auf der letzten Stufe.
+                schon = {b['ziel'] for b in bisher} | {str(start)}
+                if f['ziel'] in schon:
+                    if not (rundreise and letzte_stufe
+                            and f['ziel'] == str(start)):
+                        continue
+                naechste.append((gewinn_bisher + f['gewinn'], f['ziel'],
+                                 bisher + [f]))
+        # Nur die besten Zweige weiterverfolgen, sonst explodiert der Baum.
+        naechste.sort(key=lambda z: -z[0])
+        zweige = naechste[:KETTEN_KANDIDATEN]
+        if not zweige:
+            return []
+
+    fertige = [(g, weg) for g, ort, weg in zweige
+               if len(weg) == stopps
+               and (not rundreise or ort == str(start))]
     if kurz:
-        # ⚠ Fahrten ohne Streckenangabe fliegen hier heraus statt als „0 Gm"
-        # ganz nach oben zu rutschen — das wäre eine erfundene Nähe.
-        ketten = [k for k in ketten
-                  if k[1].get('strecke') and k[2].get('strecke')]
-        ketten.sort(key=lambda k: (k[1]['strecke'] + k[2]['strecke'], -k[0]))
+        # ⚠ Fahrten ohne Streckenangabe fliegen heraus, statt als „0 Gm" ganz
+        # nach oben zu rutschen — das wäre eine erfundene Nähe.
+        fertige = [(g, w) for g, w in fertige
+                   if all(f.get('strecke') for f in w)]
+        fertige.sort(key=lambda p: (sum(f['strecke'] for f in p[1]), -p[0]))
     else:
-        ketten.sort(key=lambda k: -k[0])
-    return ketten[:hoechstens]
+        fertige.sort(key=lambda p: -p[0])
+    return fertige[:hoechstens]
 
 
 def vergessen():

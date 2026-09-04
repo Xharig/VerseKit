@@ -97,10 +97,11 @@ from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
-# ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam. Eine alte Ablage hätte das
-# Feld nicht — ein höherer Formatstand holt sie einmal neu, statt die Ampel
-# einen Tag lang leer zu lassen. Ein Abruf mehr, dafür sofort vollständig.
-FORMAT = 2
+# ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam, auf 3 mit dem Terminalnamen
+# (`n`). Eine alte Ablage hätte die Felder nicht — ein höherer Formatstand holt
+# sie einmal neu, statt die Anzeige einen Tag lang lückenhaft zu lassen. Ein
+# Abruf mehr, dafür sofort vollständig.
+FORMAT = 3
 ZEITLIMIT = 30
 
 # ⭐⭐ **Beim Verkauf ist „voll" das Schlechte.** Das ist der Punkt, an dem die
@@ -264,6 +265,12 @@ def aktualisieren(erzwingen=False, fortschritt=None):
             'o': ort,
             's': x.get('star_system_name') or '',
             'q': 1 if x.get('is_nqa') else 0,
+            # ⚠⚠ **Der Terminalname gehört dazu.** Ohne ihn standen im
+            # Routen-Reiter acht Zeilen „Seraphim Station · Stanton"
+            # untereinander — eine Station hat viele Terminals (Admin, TDD,
+            # Läden), und die verkaufen Verschiedenes. Wer auswählen soll,
+            # muss unterscheiden können. Gemeldet am 04.09.2026.
+            'n': (x.get('name') or '').strip(),
         }
 
     # ⚠⚠ **Nur Zeilen mit echtem Ankaufgebot behalten.** `price_sell = 0` heisst

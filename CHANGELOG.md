@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc12 - 2026-09-04
+
+> Routen können jetzt über drei oder vier Stationen gehen — und auf Wunsch
+> dorthin zurückführen, wo du gestartet bist. Dazu vier Nachbesserungen an
+> Stellen, die im ersten Anlauf zu wenig verrieten.
+
+### Neu
+
+- **Routen über mehrere Stationen, auch als Rundreise.** Wähle zwei, drei oder
+  vier Stationen — und ob die Route dort enden soll, wo sie anfing. Eine
+  Rundreise lässt sich wiederholen, statt dich mit leerem Laderaum irgendwo
+  stehen zu lassen.
+
+### Verbessert
+
+- **Beträge stehen jetzt mit ihrer Einheit da.** Vorher war es eine nackte
+  Zahl zwischen SCU-Mengen und Entfernungen — man konnte nur raten, was
+  gemeint war.
+- **Ankaufstellen sind unterscheidbar.** Eine Station hat viele Terminals, und
+  die handeln mit Verschiedenem. Vorher stand achtmal derselbe Stationsname
+  untereinander; jetzt steht das Terminal davor. Gesucht wird in beidem.
+- **Der gewählte Ort bleibt stehen.** Er verschwand vorher aus dem Feld,
+  sobald man ihn angeklickt hatte.
+
+### Behoben
+
+- **Für viele Teile fehlten die Ladenpreise, obwohl es sie im Spiel gibt.**
+  Unsere Preisquelle führt manche Gegenstände unter einer anderen Kennung als
+  das Spiel — für die wird jetzt zusätzlich über den vollständigen Namen
+  gesucht. Bei den CF-Repeatern etwa haben statt zwei nun sechs von neun einen
+  Preis.
+
 ## v3.14.0-rc11 - 2026-09-04
 
 > Sag dem Watcher, wo du stehst und was in deinen Laderaum passt — und er

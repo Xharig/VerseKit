@@ -75,8 +75,41 @@ from . import uex
 from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/items_prices?uuid=%s'
+QUELLE_UEBER_ID = 'https://api.uexcorp.uk/2.0/items_prices?id_item=%s'
+QUELLE_KATEGORIEN = 'https://api.uexcorp.uk/2.0/categories'
+QUELLE_TEILE = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
 CACHE = 'laeden.json'
+KATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
+
+# ⚠⚠ **Die Kennung trägt nicht überall — gemeldet und nachgemessen 04.09.2026.**
+#
+# Xharig: „CF-Repeater sind nicht alle in den Läden abrufbar, da sollten aber
+# alle Größen kaufbar sein." Stimmt: Von neun CF-Teilen hatten nur zwei einen
+# Ladenpreis. Nachgegangen, statt es auf UEX zu schieben:
+#
+# | Befund | Anzahl |
+# |---|---|
+# | UEX kennt das Teil gar nicht | 4 |
+# | **UEX führt es unter einer ANDEREN Kennung** | **3** |
+# | ordentlich zugeordnet | 2 |
+#
+# Die drei mittleren waren **unser** Fehler. Über alle Baupläne gerechnet:
+# über die Kennung 1.167 von 1.599 (73,0 %), mit Namens-Rückfall **1.542
+# (96,4 %)** — 375 Teile mehr, davon rund ein Drittel mit echten Kaufpreisen.
+#
+# ⚠ **Der Rückfall vergleicht den GANZEN Namen, nie einen Teiltext.** Die
+# Teiltext-Suche ist die Falle, an der es hier schon einmal schiefging: `Gold`
+# liefert `Golden Medmon` mit. Gleichheit hat dieses Problem nicht.
+#
+# ⚠ **Und die Kennung bleibt zuerst dran.** Bei 6 Teilen zeigen Kennung und
+# Name auf **verschiedene** UEX-Einträge — dort gewinnt die Kennung, weil sie
+# aus der Spieldatei stammt und der Name nur eine Beschriftung ist.
+#
+# ⚠ Ein Name, den UEX **mehrfach** führt, wird gar nicht zugeordnet: Eine
+# geratene Zuordnung wäre schlimmer als keine.
+ABSCHNITTE = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
+              'Armor', 'Avionics', 'Undersuits', 'Propulsion')
 
 # Ein Tag, wie bei den Rohstoffpreisen. Ladenpreise sind stabiler als
 # Warenpreise — sie ändern sich mit dem Patch, nicht mit der Tageszeit.
@@ -88,6 +121,57 @@ HALTBAR = uex.TAG
 HOECHSTENS = 400
 
 _ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+
+# Der Namens-Katalog. Eigene Ablage, eigene Frist: Er ändert sich mit einem
+# Patch, nicht mit dem Tag.
+_katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT, haltbar=uex.WOCHE)
+
+
+def _katalog_sichern():
+    """Den Namens-Katalog aufbauen — **nur wenn er wirklich gebraucht wird**.
+
+    ⚠ Das kostet rund 30 Abrufe (einen je Kategorie). Deshalb passiert es
+    **nicht** beim Start, sondern erst, wenn eine Zuordnung über die Kennung
+    leer ausgeht — und dann höchstens einmal pro Woche. Wer nur Teile
+    anschaut, die UEX ordentlich führt, löst das nie aus.
+    """
+    if not _katalog.veraltet():
+        return True
+    kats = uex.holen(QUELLE_KATEGORIEN, 'laeden.kategorien')
+    if not kats:
+        return False
+    namen = {}
+    doppelt = set()
+    for k in kats:
+        if k.get('section') not in ABSCHNITTE:
+            continue
+        teile = uex.holen(QUELLE_TEILE % k['id'], 'laeden.katalog')
+        for x in teile or []:
+            name = (x.get('name') or '').strip().lower()
+            kennung = x.get('id')
+            if not name or not kennung:
+                continue
+            if name in namen and namen[name] != kennung:
+                doppelt.add(name)
+            namen[name] = kennung
+    # Mehrdeutige Namen fliegen raus — siehe Kopf.
+    for name in doppelt:
+        namen.pop(name, None)
+    if not namen:
+        return False
+    return _katalog.sichern({'namen': namen}, kompakt=True)
+
+
+def _uex_id(name):
+    """Die UEX-Kennung zu einem Namen — oder `None`. Baut den Katalog bei Bedarf."""
+    if not (name or '').strip():
+        return None
+    tabelle = (_katalog.laden() or {}).get('namen') or {}
+    if not tabelle:
+        if not _katalog_sichern():
+            return None
+        tabelle = (_katalog.laden() or {}).get('namen') or {}
+    return tabelle.get(name.strip().lower())
 
 
 def _alle():
@@ -133,8 +217,12 @@ def guenstigster(kennung):
     return bester['preis'], bester.get('laden') or '?', bester.get('ort') or ''
 
 
-def holen(kennung, erzwingen=False):
+def holen(kennung, name='', erzwingen=False):
     """Die Ladenpreise zu einem Gegenstand nachschlagen.
+
+    `name` ist der **Rückfall**: Kommt über die Kennung nichts, wird der
+    ganze Name im UEX-Katalog gesucht (siehe `ABSCHNITTE` im Kopf). Ohne
+    `name` bleibt es beim alten Verhalten.
 
     Gibt `True` zurück, wenn danach ein Stand vorliegt — auch ein leerer
     („UEX kennt es nicht" ist ein gültiges Ergebnis und wird gemerkt, sonst
@@ -148,6 +236,14 @@ def holen(kennung, erzwingen=False):
     roh = uex.holen(QUELLE % kennung, 'laeden')
     if roh is None:
         return False
+    # ⚠ Erst wenn die Kennung leer ausgeht, wird der Name bemüht — und auch
+    # dann nur der ganze, nie ein Teiltext. Begründung im Kopf des Moduls.
+    if not roh and name:
+        uex_kennung = _uex_id(name)
+        if uex_kennung:
+            ueber_id = uex.holen(QUELLE_UEBER_ID % uex_kennung, 'laeden.name')
+            if ueber_id:
+                roh = ueber_id
 
     zeilen = []
     for x in roh:

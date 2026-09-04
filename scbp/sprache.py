@@ -2162,8 +2162,17 @@ TEXTE = {
                             'Nothing pays off from here right now — at least '
                             'not with this cargo hold and this money.'),
     's_rt_einzeln':      ('Eine Fahrt', 'A single run'),
-    's_rt_ketten':       ('Zwei Fahrten hintereinander',
-                            'Two runs in a row'),
+    's_rt_ketten':       ('%d Fahrten hintereinander', '%d runs in a row'),
+    's_rt_stopps':       ('%d Stationen', '%d stops'),
+    's_rt_offen':        ('einfache Strecke', 'one way'),
+    's_rt_rund':         ('Rundreise', 'round trip'),
+    's_rt_rundreise_titel': ('Rundreise — zurück, wo du gestartet bist',
+                               'Round trip — back where you started'),
+    's_rt_zurueck':      ('%s (zurück am Start)', '%s (back at the start)'),
+    's_rt_keine_kette':  ('Dafür findet sich gerade keine Route — versuch es '
+                          'mit weniger Stationen oder ohne Rundreise.',
+                            'No route fits that right now — try fewer stops or '
+                            'drop the round trip.'),
     's_rt_nach_gewinn':  ('bester Gewinn', 'best profit'),
     's_rt_nach_strecke': ('kurze Strecke', 'short distance'),
     's_rt_strecke':      ('%d Gm', '%d Gm'),
@@ -2171,6 +2180,7 @@ TEXTE = {
     # Sprachen gleich — aber eine Ausnahme „das ist doch international" hebelt
     # die Regel aus, und die nächste Zeile ist dann keine Einheit mehr.
     's_rt_scu_menge':    ('%d SCU', '%d SCU'),
+    's_auec':            ('%s aUEC', '%s aUEC'),
     's_rt_schritt':      ('   %d)  %d SCU %s  →  %s',
                             '   %d)  %d SCU %s  →  %s'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),

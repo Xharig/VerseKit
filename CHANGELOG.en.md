@@ -6,6 +6,35 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc12 - 2026-09-04
+
+> Routes can now run across three or four stations — and, if you like, lead
+> back to where you started. Plus four fixes to places that gave away too
+> little on the first attempt.
+
+### Added
+
+- **Routes across several stations, round trips included.** Pick two, three or
+  four stations — and whether the route should end where it began. A round
+  trip can be repeated instead of leaving you somewhere with an empty hold.
+
+### Improved
+
+- **Amounts now come with their unit.** Before it was a bare number between
+  SCU amounts and distances — you could only guess what was meant.
+- **Buyers can be told apart.** A station has many terminals, and they trade in
+  different things. Before, the same station name appeared eight times in a
+  row; now the terminal comes first. Both are searched.
+- **The chosen location stays put.** It used to vanish from the field the
+  moment you clicked it.
+
+### Fixed
+
+- **Shop prices were missing for many parts although the game sells them.** Our
+  price source lists some items under a different identifier than the game —
+  for those we now also search by the full name. For the CF repeaters, six of
+  nine now have a price instead of two.
+
 ## v3.14.0-rc11 - 2026-09-04
 
 > Tell the watcher where you are and what fits in your hold — and it tells you
