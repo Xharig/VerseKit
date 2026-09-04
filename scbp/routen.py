@@ -81,9 +81,16 @@ FORMAT = 1
 # Beständen, und die ändern sich im Lauf eines Abends.
 HALTBAR = 6 * 60 * 60
 
-# Wieviele Startorte die Ablage behält. Mehr als eine Handvoll fährt niemand
-# an einem Abend an.
-HOECHSTENS = 25
+# Wieviele Startorte die Ablage behält.
+#
+# ⚠⚠ **Muss über der Zahl der Handelsposten liegen (184).** Stand hier vorher
+# auf 25 — mit dem Rundumlauf aus `alle_holen()` hätte sich die Ablage dabei
+# selbst leergeräumt: Ab dem 26. Posten wäre bei jedem weiteren der älteste
+# hinausgeflogen, und am Ende stünden 25 zufällige statt aller 184 da. Der
+# Fehler wäre nicht aufgefallen — die Liste hätte einfach weniger gezeigt.
+#
+# 200 deckt alle Posten ab und bleibt bei rund 2 MB.
+HOECHSTENS = 200
 
 # ⚠ Wieviele Ziele für eine Kette weiterverfolgt werden. Jeder kostet einen
 # eigenen Abruf — bei 69 Fahrten je Startort wären es sonst 69.
@@ -275,6 +282,91 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
     else:
         fertige.sort(key=lambda p: -p[0])
     return fertige[:hoechstens]
+
+
+def handelsposten():
+    """Alle Terminals, die mit Ware handeln — `[(kennung, name)]`.
+
+    Kommt aus der Verkaufs-Ablage; ein eigener Abruf wäre Verschwendung.
+    """
+    from . import verkauf
+    stellen = (verkauf.laden() or {}).get('terminals') or {}
+    raus = []
+    for kennung, stelle in stellen.items():
+        art = stelle.get('t')
+        # Ältere Ablagen kennen die Art nicht — dann lieber mitnehmen als
+        # eine leere Liste liefern.
+        if art is not None and art not in verkauf.HANDELSARTEN:
+            continue
+        raus.append((kennung, stelle.get('n') or stelle.get('o') or '?'))
+    return raus
+
+
+def alle_holen(fortschritt=None, abbruch=None):
+    """Die Fahrten **aller** Handelsposten holen — für „beste Route überhaupt".
+
+    ⚠⚠ **Das ist der teuerste Abruf im ganzen Werkzeug, und deshalb kein
+    Automatismus.** Gemessen am 04.09.2026: 184 Handelsposten, rund **0,5 s je
+    Abruf** — zusammen **92 Sekunden** und rund **1,9 MB** Ablage bei etwa
+    11.000 Fahrten.
+
+    Er läuft nur, wenn der Spieler ihn ausdrücklich anstößt. Beim Start
+    ungefragt anderthalb Minuten lang eine fremde Schnittstelle abzugrasen wäre
+    unhöflich — gegenüber UEX und gegenüber dem Spieler, der davon nichts hat,
+    solange er nicht danach fragt.
+
+    ⚠ **Warum es keinen billigeren Weg gibt** (beides gemessen): Ein Abruf je
+    Planet ist bei 500 Zeilen gedeckelt, und die Antwort ist **unsortiert** —
+    bei ArcCorp stand die größte Spanne (26,1 Mio.) nicht in den ersten
+    Zeilen. Der Deckel schneidet also willkürlich ab; die zehn Planet-Abrufe
+    lieferten ein Bruchstück, das man für das Ganze halten würde.
+
+    `fortschritt(fertig, gesamt)` wird nach jedem Posten gerufen, `abbruch()`
+    kann den Lauf beenden.
+    """
+    if AUS:
+        return 0
+    posten = handelsposten()
+    fertig = 0
+    for kennung, _name in posten:
+        if abbruch and abbruch():
+            break
+        holen(kennung)
+        fertig += 1
+        if fortschritt:
+            fortschritt(fertig, len(posten))
+    return fertig
+
+
+def beste_ueberall(scu, geld, hoechstens=15):
+    """Die lohnendsten Einzelfahrten über **alle** bekannten Startorte.
+
+    ⚠ Rechnet nur mit dem, was schon abgelegt ist — sie holt **nichts** nach.
+    Wer noch keinen Rundumlauf gemacht hat, sieht eben nur seine bisherigen
+    Startorte. Das ist ehrlicher, als beim Öffnen einer Seite anderthalb
+    Minuten ins Netz zu greifen.
+
+    Je Eintrag zusätzlich `startname` — sonst wüsste niemand, wo die Fahrt
+    beginnt.
+    """
+    namen = dict(handelsposten())
+    raus = []
+    for kennung, eintrag in (_alle() or {}).items():
+        for f in eintrag.get('fahrten') or []:
+            menge, gewinn = menge_und_gewinn(f, scu, geld)
+            if menge <= 0 or gewinn <= 0:
+                continue
+            e = dict(f)
+            e['menge'], e['gewinn'] = menge, gewinn
+            e['startname'] = namen.get(kennung, '?')
+            raus.append(e)
+    raus.sort(key=lambda e: -e['gewinn'])
+    return raus[:hoechstens]
+
+
+def bekannte_starts():
+    """Wieviele Startorte schon abgelegt sind — für die Anzeige."""
+    return len(_alle() or {})
 
 
 def vergessen():

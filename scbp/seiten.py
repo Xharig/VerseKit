@@ -151,6 +151,39 @@ def _rollflaeche(rahmen, rand=24):
     return innen_ziel
 
 
+def _nach_oben(widget):
+    """Die Rollfläche wieder an den Anfang setzen.
+
+    ⚠⚠ **Nicht dasselbe wie `_rollstelle_halten`.** Der Helfer dort merkt sich
+    den **Anteil** und stellt ihn wieder her — richtig, solange der Inhalt
+    ungefähr gleich lang bleibt. Schrumpft er stark (eine aufgeklappte
+    Vorschlagsliste verschwindet), führt derselbe Anteil hinter das Ende: Oben
+    steht dann eine leere Fläche, und der Inhalt fehlt scheinbar.
+
+    Am 04.09.2026 gemeldet: „Wieso ist da so viel leerer Raum … verschenkter
+    Platz." Genau dieser Fall.
+    """
+    leinwand = None
+    lauf = widget
+    while lauf is not None and leinwand is None:
+        leinwand = getattr(lauf, 'leinwand', None)
+        lauf = getattr(lauf, 'master', None)
+    if leinwand is None:
+        return
+
+    def hoch():
+        try:
+            if leinwand.winfo_exists():
+                leinwand.yview_moveto(0.0)
+        except Exception:
+            pass
+
+    try:
+        leinwand.after_idle(hoch)
+    except Exception:
+        pass
+
+
 def _rollstelle_halten(widget, tat):
     """Etwas neu zeichnen, ohne dass die Seite nach oben springt.
 
@@ -5306,6 +5339,80 @@ def _routen(fenster, rahmen):
                      bg=BG, fg=SUB, font=fenster.f_klein,
                      anchor='w').pack(fill='x')
 
+    # ⭐⭐ **„Die beste Route überhaupt, egal von wo nach wo."** Gewünscht am
+    # 04.09.2026. Das braucht die Fahrten **aller** 184 Handelsposten — rund
+    # 92 Sekunden. Deshalb ein Knopf und kein Automatismus: Beim Öffnen der
+    # Seite ungefragt anderthalb Minuten ins Netz zu greifen wäre unhöflich
+    # gegenüber der fremden Schnittstelle und dem Spieler.
+    ueberall = tk.Frame(kopf, bg=BG)
+    ueberall.pack(fill='x', pady=(10, 0))
+    ueberall_knopf = tk.Label(ueberall, text=t('s_rt_ueberall_suchen'),
+                              bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                              cursor='hand2', padx=10)
+    ueberall_knopf.pack(side='left', ipady=5)
+    ueberall_stand = tk.Label(ueberall, text='', bg=BG, fg=SUB,
+                              font=fenster.f_klein, anchor='w')
+    ueberall_stand.pack(side='left', padx=(10, 0))
+
+    def _stand_zeigen():
+        bekannt = routen_modul.bekannte_starts()
+        gesamt = len(routen_modul.handelsposten())
+        if bekannt and gesamt:
+            ueberall_stand.configure(
+                text=t('s_rt_ueberall_stand') % (bekannt, gesamt))
+        else:
+            ueberall_stand.configure(text='')
+
+    def _ueberall_suchen(_=None):
+        if zustand['laeuft']:
+            return
+        zustand['laeuft'] = True
+        zustand['modus'] = 'ueberall'
+        ueberall_knopf.configure(text=t('s_rt_ueberall_laeuft'), fg=GOLD)
+
+        def arbeit():
+            def melden(fertig, gesamt):
+                def zeigen():
+                    try:
+                        if ueberall_stand.winfo_exists():
+                            ueberall_stand.configure(
+                                text=t('s_rt_ueberall_stand')
+                                % (fertig, gesamt))
+                    except tk.TclError:
+                        pass
+                try:
+                    ueberall_stand.after(0, zeigen)
+                except tk.TclError:
+                    pass
+            try:
+                routen_modul.alle_holen(fortschritt=melden)
+            except Exception as ausnahme:
+                fehler.merken('seiten.routen.alle_holen', ausnahme)
+
+            def fertig():
+                zustand['laeuft'] = False
+                try:
+                    if ueberall_knopf.winfo_exists():
+                        ueberall_knopf.configure(
+                            text=t('s_rt_ueberall_suchen'), fg=SUB)
+                    if ergebnis.winfo_exists():
+                        _stand_zeigen()
+                        _zeichnen()
+                except tk.TclError:
+                    pass
+            try:
+                ergebnis.after(0, fertig)
+            except tk.TclError:
+                zustand['laeuft'] = False
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    ueberall_knopf.bind('<Button-1>', _ueberall_suchen)
+    ueberall_knopf.bind('<Enter>',
+                        lambda _=None: ueberall_knopf.configure(fg=ACCENT))
+    ueberall_knopf.bind('<Leave>',
+                        lambda _=None: ueberall_knopf.configure(fg=SUB))
+
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
 
@@ -5409,17 +5516,31 @@ def _routen(fenster, rahmen):
                 tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
                          bg=FLAECHE, fg=SUB, font=fenster.f_klein,
                          anchor='e').pack(side='right')
+            # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
+            # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
+            # wo man dafür einkauft. Xharig am 04.09.2026: „Wie fliegt man
+            # hier? Ich versteh es nicht, User also auch nicht."
+            weg_orte = [zustand['startname']] + [f['zielname'] for f in weg]
+            tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=FLAECHE,
+                     fg=FG, font=fenster.f_klein, anchor='w',
+                     wraplength=760, justify='left').pack(
+                         fill='x', padx=12, pady=(0, 6))
+
             for schritt, f in enumerate(weg, start=1):
-                # Die Rückkehr zum Start wird als solche benannt — sonst sieht
-                # sie aus wie irgendein weiterer Ort.
-                ziel = f['zielname']
+                # ⚠ **Jeder Schritt nennt beide Orte.** „Kaufe X in A, verkaufe
+                # in B" ist eine Anweisung; „X → B" war ein Rätsel. Der
+                # Einkaufsort ist das Ziel des vorigen Schritts — beim ersten
+                # der gewählte Startort.
+                woher = weg_orte[schritt - 1]
+                wohin = f['zielname']
                 if zustand['rund'] and schritt == len(weg):
-                    ziel = t('s_rt_zurueck') % ziel
+                    wohin = t('s_rt_zurueck') % wohin
                 tk.Label(kasten,
-                         text=t('s_rt_schritt') % (schritt, f['menge'],
-                                                   f['ware'], ziel),
+                         text=t('s_rt_schritt') % (schritt, woher, f['menge'],
+                                                   f['ware'], wohin),
                          bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-                         anchor='w').pack(fill='x', padx=12, pady=(0, 4))
+                         anchor='w', wraplength=760, justify='left').pack(
+                             fill='x', padx=12, pady=(0, 4))
 
     def _start_waehlen(kennung, name):
         zustand['start'], zustand['startname'] = kennung, name
@@ -5434,6 +5555,9 @@ def _routen(fenster, rahmen):
         ortsuche.set(name)
         zustand['stumm'] = False
         _leeren(ortvorschlag)
+        # ⚠ Die Vorschlagsliste war eben noch acht Zeilen hoch; ohne das hier
+        # bleibt die Rollfläche stehen, wo sie war, und oben klafft eine Lücke.
+        _nach_oben(ergebnis)
         if routen_modul.fahrten(kennung) is not None:
             _zeichnen()
             return
@@ -5572,6 +5696,7 @@ def _laeden(fenster, rahmen):
     suche = tk.StringVar()
     gewaehlt = {'name': '', 'kennung': ''}
     laeuft = {'ja': False}
+    wahl = {'art': '', 'hersteller': ''}
 
     such_rahmen = tk.Frame(innen, bg=BG)
     such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
@@ -5581,10 +5706,45 @@ def _laeden(fenster, rahmen):
                     highlightcolor=ACCENT)
     feld.pack(fill='x', ipady=5)
 
+    # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
+    # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah
+    # eine leere Seite. Xharig am 04.09.2026: „bei Läden gähnende Leere, kann
+    # man da nicht ein Menü mit Dropdowns bauen … gleiches Bild und Bedienung
+    # wie im restlichen Tool?"
+    #
+    # Genau dafür gibt es `_filterleiste` — sie trägt in ihrem eigenen Kopf
+    # den Satz „das Bedienkonzept sollte nicht jedes Mal ändern".
+    filter_rahmen = tk.Frame(innen, bg=BG)
+    filter_rahmen.pack(fill='x', padx=24, pady=(8, 0))
+
     vorschlag_rahmen = tk.Frame(innen, bg=BG)
     vorschlag_rahmen.pack(fill='x', padx=24)
     ergebnis_rahmen = tk.Frame(innen, bg=BG)
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
+
+    def _teile():
+        """Alle Baupläne mit Entitäts-Kennung — nur die können Läden haben."""
+        try:
+            return [b for b in herst_modul.alle() if b.get('entity')]
+        except Exception as ausnahme:
+            fehler.merken('seiten.laeden.teile', ausnahme)
+            return []
+
+    def _mit_zahl(feld):
+        """Werte eines Feldes mit ihrer Anzahl — „Cooler (75)"."""
+        zaehler = {}
+        for b in _teile():
+            wert = (b.get(feld) or '').strip()
+            if wert:
+                zaehler[wert] = zaehler.get(wert, 0) + 1
+        from . import herstellung as hm
+        raus = []
+        for wert, anzahl in zaehler.items():
+            lesbar = hm.artname(wert) if feld == 'art' else wert
+            raus.append((wert, '%s (%d)' % (lesbar or wert, anzahl),
+                         (lesbar or wert)))
+        raus.sort(key=lambda p: p[2].lower())
+        return [(w, b) for w, b, _s in raus]
 
     def _leeren(wo):
         for kind in wo.winfo_children():
@@ -5675,21 +5835,28 @@ def _laeden(fenster, rahmen):
     def _vorschlaege(*_a):
         _leeren(vorschlag_rahmen)
         text = suche.get().strip().lower()
-        if len(text) < 2:
+        # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
+        # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
+        # etwas. Jetzt füllt die Auswahl oben die Liste.
+        if len(text) < 2 and not (wahl['art'] or wahl['hersteller']):
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
         treffer = []
-        try:
-            for b in herst_modul.alle():
-                if not b.get('entity'):
-                    continue
-                if text in (b.get('name') or '').lower():
-                    treffer.append((b['name'], b['entity']))
-                if len(treffer) >= 8:
-                    break
-        except Exception as ausnahme:
-            fehler.merken('seiten.laeden.suche', ausnahme)
+        for b in _teile():
+            if wahl['art'] and (b.get('art') or '') != wahl['art']:
+                continue
+            if wahl['hersteller'] and \
+                    (b.get('hersteller') or '') != wahl['hersteller']:
+                continue
+            if text and text not in (b.get('name') or '').lower():
+                continue
+            treffer.append((b['name'], b['entity']))
+            if len(treffer) >= 40:
+                break
+        if not treffer:
+            _fliesstext(vorschlag_rahmen, t('s_ld_nichts_gefunden'),
+                        fenster.f_klein, fill='x')
             return
         for name, kennung in treffer:
             zeile = tk.Label(vorschlag_rahmen, text='  ' + name, bg=FLAECHE,
@@ -5703,6 +5870,17 @@ def _laeden(fenster, rahmen):
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
 
     suche.trace_add('write', _vorschlaege)
+
+    def _filter_gewechselt():
+        gewaehlt['name'], gewaehlt['kennung'] = '', ''
+        _leeren(ergebnis_rahmen)
+        _vorschlaege()
+
+    _filterleiste(fenster, filter_rahmen,
+                  [('art', t('s_ld_alle_arten'), _mit_zahl('art')),
+                   ('hersteller', t('ff_alle_hersteller'),
+                    _mit_zahl('hersteller'))],
+                  _filter_gewechselt, wahl)
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
     # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
@@ -7995,6 +8173,47 @@ def _verkauf(fenster, rahmen):
         if not auswahl:
             _fliesstext(ergebnis_rahmen, t('s_vk_leer_hinweis'),
                         fenster.f_klein, fill='x')
+            # ⭐⭐ **Statt einer leeren Seite: Was zahlt gerade am besten?**
+            # Xharig am 04.09.2026: „ist einfach nur leer, und ein Suchfeld,
+            # ist langweilig — was kann man da hinbauen?"
+            #
+            # Die Antwort lag schon da: Die Ablage kennt 114 Waren mit
+            # Ankaufgeboten. Daraus eine Bestenliste zu bauen kostet **keinen
+            # einzigen Abruf** — und beantwortet die Frage, die man vor dem
+            # Suchfeld überhaupt hat: „Wonach soll ich suchen?"
+            #
+            # ⚠ Anklickbar, nicht nur zum Anschauen. Eine Liste, aus der man
+            # nichts übernehmen kann, ist eine Tapete.
+            spitze = []
+            for ware in preisdaten.waren():
+                preis = preisdaten.bester_preis(ware)
+                if preis:
+                    spitze.append((preis, ware))
+            spitze.sort(reverse=True)
+            if not spitze:
+                return
+            tk.Label(ergebnis_rahmen, text=t('s_vk_spitze'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                            pady=(14, 4))
+            for preis, ware in spitze[:12]:
+                kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
+                                  highlightthickness=1,
+                                  highlightbackground=LINIE)
+                kasten.pack(fill='x', pady=(0, 3))
+                zeile = tk.Frame(kasten, bg=FLAECHE)
+                zeile.pack(fill='x', padx=12, pady=5)
+                for w in (kasten, zeile):
+                    w.configure(cursor='hand2')
+                p = tk.Label(zeile, text=t('s_vk_je_scu') % _geld(preis),
+                             bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
+                             width=18, anchor='w')
+                p.pack(side='left')
+                n = tk.Label(zeile, text=ware, bg=FLAECHE, fg=FG,
+                             font=fenster.f_klein, anchor='w', cursor='hand2')
+                n.pack(side='left')
+                for w in (kasten, zeile, p, n):
+                    w.bind('<Button-1>',
+                           lambda _=None, x=ware: waehlen(x))
             return
         orte = preisdaten.orte_fuer(auswahl, nur_nqa=nur_nqa[0])
         if not orte:

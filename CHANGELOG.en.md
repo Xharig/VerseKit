@@ -6,6 +6,34 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc15 - 2026-09-04
+
+> A route now tells you where to buy what — before it only named the
+> destination and you had to work out the rest. Plus a search for the best
+> route anywhere, and two pages that no longer start out empty.
+
+### Added
+
+- **The best route anywhere, no matter where from or to.** One button collects
+  the runs from every trade post and shows the most rewarding ones. It takes
+  about a minute and a half and only runs when you start it — with progress.
+- **The "Shops" tab now has dropdowns** for type and manufacturer, the same
+  ones you know from the blueprint list. Without a search term they fill the
+  list.
+- **"Sell" now shows what pays best when nothing is picked** — the twelve
+  best-paying goods, click to select.
+
+### Improved
+
+- **Every step of a route names both places.** "At Seraphim: buy 120 SCU
+  Copper → sell at Rat's Nest" instead of just "Copper → Rat's Nest". The whole
+  path is shown above the route as well.
+
+### Fixed
+
+- **A gap appeared at the top after picking a location.** The suggestion list
+  vanished but the view stayed where it was.
+
 ## v3.14.0-rc14 - 2026-09-04
 
 > The location picker for routes now only lists places that actually trade in

@@ -2143,6 +2143,11 @@ TEXTE = {
                             'does not mean nobody sells it — our price source '
                             'simply does not list it.'),
     's_ld_zustand':      ('Zustand %d %%', 'Condition %d%%'),
+    's_ld_alle_arten':   ('Alle Arten', 'All types'),
+    's_ld_nichts_gefunden': ('Dazu ist nichts da — tipp einen Namen oder wähl '
+                             'oben eine Art.',
+                               'Nothing here for that — type a name or pick a '
+                               'type above.'),
     # --- Reiter „Routen" ---
     'hf_routen':         ('Routen', 'Routes'),
     's_rt_lead':         ('Sag, wo du stehst und was reinpasst — dann rechne '
@@ -2193,8 +2198,23 @@ TEXTE = {
                              'fetched on the next update.'),
     's_rt_kaufen':       ('Kaufen ab', 'Buy from'),
     's_rt_mieten':       ('Mieten ab', 'Rent from'),
-    's_rt_schritt':      ('   %d)  %d SCU %s  →  %s',
-                            '   %d)  %d SCU %s  →  %s'),
+    # ⚠ Der Knopf sagt, was er kostet. „Beste Route suchen" allein verschweigt,
+    # dass danach anderthalb Minuten lang abgerufen wird.
+    's_rt_ueberall_suchen': ('Beste Routen überall suchen (dauert ~1½ Min)',
+                               'Find the best routes anywhere (takes ~1½ min)'),
+    's_rt_ueberall_laeuft': ('sucht …', 'searching …'),
+    's_rt_ueberall_stand': ('%d von %d Handelsposten', '%d of %d trade posts'),
+    's_rt_ueberall_titel': ('Beste Fahrten überall', 'Best runs anywhere'),
+    's_rt_ueberall_leer': ('Noch keine Fahrten gesammelt — drück oben auf '
+                           '„Beste Routen überall suchen".',
+                             'No runs collected yet — press "Find the best '
+                             'routes anywhere" above.'),
+    's_rt_ab':           ('ab %s', 'from %s'),
+    # ⚠ Reihenfolge: Nummer, WOHER, Menge, Ware, WOHIN. Der Einkaufsort stand
+    # vorher gar nicht da — man sah „120 SCU Copper → Rat's Nest" und musste
+    # sich denken, wo man das Copper herbekommt.
+    's_rt_schritt':      ('   %d)  In %s:  %d SCU %s kaufen  →  verkaufen in %s',
+                            '   %d)  At %s:  buy %d SCU %s  →  sell at %s'),
     's_vk_fuellt':       ('· Lager füllt sich', '· stock filling up'),
     's_vk_voll':         ('· nimmt kaum noch ab', '· barely buying'),
     's_vk_kein_stand':   ('Noch keine Preise geholt.', 'No prices fetched yet.'),
@@ -2203,6 +2223,9 @@ TEXTE = {
     's_vk_aus_lager':    ('Aus meinem Handelslager', 'From my cargo hold'),
     's_vk_lager_leer':   ('Im Handelslager liegt nichts, wofür es Preise gibt.',
                           'Nothing in the cargo hold has known prices.'),
+    's_vk_spitze':       ('Was gerade am besten zahlt — anklicken übernimmt es',
+                            'What pays best right now — click to pick it'),
+    's_vk_je_scu':       ('%s aUEC je SCU', '%s aUEC per SCU'),
     's_vk_leer_hinweis': ('Such oben eine Ware — oder übernimm gleich alles '
                           'aus deinem Handelslager.',
                           'Search for a commodity above — or take everything '

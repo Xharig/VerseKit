@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.14.0-rc15 - 2026-09-04
+
+> Eine Route sagt jetzt, wo du was einkaufst — vorher stand nur das Ziel da
+> und man musste sich den Rest denken. Dazu die Suche nach der besten Route
+> überhaupt, und zwei Seiten, die nicht mehr leer beginnen.
+
+### Neu
+
+- **Die beste Route überhaupt, egal von wo nach wo.** Ein Knopf sammelt die
+  Fahrten aller Handelsposten ein und zeigt die lohnendsten. Das dauert rund
+  anderthalb Minuten und läuft nur, wenn du es anstößt — mit Fortschritt.
+- **Der Reiter „Läden" hat jetzt Auswahlmenüs** für Art und Hersteller, wie du
+  sie aus der Bauplan-Liste kennst. Ohne Suchbegriff füllen sie die Liste.
+- **„Verkauf" zeigt ohne Auswahl, was gerade am besten zahlt** — die zwölf
+  bestbezahlten Waren, anklickbar zum Übernehmen.
+
+### Verbessert
+
+- **Jeder Schritt einer Route nennt beide Orte.** „In Seraphim: 120 SCU Copper
+  kaufen → verkaufen in Rat's Nest" statt nur „Copper → Rat's Nest". Über der
+  Route steht zusätzlich der ganze Weg.
+
+### Behoben
+
+- **Nach der Ortswahl klaffte oben eine Lücke.** Die Vorschlagsliste
+  verschwand, die Ansicht blieb aber stehen, wo sie war.
+
 ## v3.14.0-rc14 - 2026-09-04
 
 > Die Ortsauswahl bei den Routen zeigt jetzt nur noch Stellen, an denen
