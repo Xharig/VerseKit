@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc3 - 2026-09-04
+
+> **Test build.** The mission log reads cleanly now: foreign markers are gone
+> from the names, and long mission names are no longer cut off at the right
+> edge.
+
+### Fixed
+
+- **The mission log showed markers inside mission names** — such as
+  `Blackbox Retrieval <EM4>[BP]?</EM4>`. They come from other translation tools
+  that flag the same missions. They are now stripped, including retroactively in
+  a log that already exists.
+- **Long mission names were cut off on the right.** Names like "Verified Bounty:
+  … | HRT (Large multi-crew ship, medium support)" now wrap, as does the
+  blueprint line below when a mission dropped several. Both follow the window
+  width.
+
 ## v3.12.0-rc2 - 2026-09-04
 
 > **Test build.** A fix for rc1: the mission log stayed empty when you opened

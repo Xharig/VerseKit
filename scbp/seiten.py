@@ -2127,8 +2127,14 @@ def _auftragslog(fenster, rahmen):
 
             mitte = tk.Frame(zeile, bg=FLAECHE)
             mitte.pack(side='left', fill='x', expand=True)
-            tk.Label(mitte, text=eintrag.get('name') or '', bg=FLAECHE, fg=FG,
-                     font=fenster.f_klein, anchor='w').pack(fill='x')
+            # ⚠ Lange Namen brechen um, statt rechts abgeschnitten zu werden.
+            # Das Spiel liefert bis zu 109 Zeichen („Verified Bounty: … | HRT
+            # (Großes Mehrbesatzungsschiff, mittlere Unterstützung)").
+            name_lab = tk.Label(mitte, text=eintrag.get('name') or '',
+                                bg=FLAECHE, fg=FG, font=fenster.f_klein,
+                                anchor='w', justify='left')
+            name_lab.pack(fill='x')
+            _umbruch(name_lab)
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
             if (zustand == missionslog.LAEUFT
@@ -2144,11 +2150,15 @@ def _auftragslog(fenster, rahmen):
             # In der Markenfarbe, damit es beim Ueberfliegen auffaellt.
             bps = eintrag.get('bauplaene') or []
             if bps:
-                tk.Label(mitte,
-                         text=t('s_al_bp' if len(bps) == 1 else 's_al_bp_mehr',
-                                ' · '.join(bps)),
-                         bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
-                         anchor='w', justify='left').pack(fill='x')
+                bp_lab = tk.Label(
+                    mitte,
+                    text=t('s_al_bp' if len(bps) == 1 else 's_al_bp_mehr',
+                           ' · '.join(bps)),
+                    bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
+                    anchor='w', justify='left')
+                bp_lab.pack(fill='x')
+                # Bei mehreren Funden wird diese Zeile laenger als der Name.
+                _umbruch(bp_lab)
 
         # Wie oft welcher Auftrag lief — die Antwort auf „mache ich den
         # ständig?". Steht mit in `zeichnen()`, damit es beim Auffrischen

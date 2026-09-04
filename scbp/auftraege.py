@@ -127,11 +127,23 @@ TABELLE_ENDE = {
 # zufällig entstünde.
 RAHMEN = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 
-# Unsere eigenen Marken im Titel. `injektion.py` schreibt sie, hier müssen sie
-# vor jedem Vergleich wieder weg.
+# Bauplan-Marken im Titel — vor jedem Vergleich weg, sonst gilt derselbe
+# Auftrag als zwei verschiedene.
+#
+# ⚠ Nicht nur unsere eigenen. Dieselbe Marke setzen auch MrKraken StarStrings
+# und der SC Deutsch Launcher, und zwar in Formen, die `injektion.py` längst
+# kennt (`TITELMARKE`) — hier fehlten sie:
+#
+#   `<EM4>[BP]?</EM4>`            Zusatz HINTER der Klammer, nicht darin
+#   `<EM4>[150 Rep] [BP]*</EM4>`  Vorspann davor, Zeichen dahinter
+#
+# Die alte Fassung erlaubte nur `!` INNERHALB der Klammer und liess deshalb
+# 103 von 347 Titeln ungeputzt stehen. Bewusst dieselbe Form wie
+# `injektion.TITELMARKE`: zwei Verstaendnisse derselben Marke laufen
+# auseinander, sobald jemand nur eines von beiden pflegt.
 _MARKEN = re.compile(
     r'\[SCBPW\].*?\[/SCBPW\]'                       # der ganze eingefügte Block
-    r'|<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+)?!?\]</EM4>'   # nur die Blase
+    r'|<EM4>[^<>]*\[(?:BP|Bauplan)[^\]]*\][^<>]*</EM4>'   # nur die Blase
 )
 _PLATZHALTER = re.compile(r'~mission\([^)]*\)')
 

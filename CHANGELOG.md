@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0-rc3 - 2026-09-04
+
+> **Testfassung.** Das Auftrags-Protokoll liest sich jetzt sauber: Fremde
+> Kennzeichen verschwinden aus den Namen, und lange Auftragsnamen werden nicht
+> mehr am rechten Rand abgeschnitten.
+
+### Behoben
+
+- **Im Auftrags-Protokoll standen Kennzeichen mitten im Auftragsnamen** — etwa
+  `Blackbox Retrieval <EM4>[BP]?</EM4>`. Sie stammen von anderen
+  Übersetzungswerkzeugen, die dieselben Aufträge markieren. Sie werden jetzt
+  entfernt, auch rückwirkend in einem bereits geführten Protokoll.
+- **Lange Auftragsnamen wurden rechts abgeschnitten.** Namen wie „Verified
+  Bounty: … | HRT (Großes Mehrbesatzungsschiff, mittlere Unterstützung)" brechen
+  jetzt um, ebenso die Bauplan-Zeile darunter, wenn bei einem Auftrag mehrere
+  Baupläne herauskamen. Beides passt sich der Fensterbreite an.
+
 ## v3.12.0-rc2 - 2026-09-04
 
 > **Testfassung.** Nachbesserung an rc1: Das Auftrags-Protokoll blieb leer,

@@ -401,10 +401,39 @@ def laden():
         with open(pfad(), encoding='utf-8') as f:
             daten = json.load(f)
         if daten.get('format') == FORMAT:
-            return daten.get('auftraege') or []
+            return _titel_nachputzen(daten.get('auftraege') or [])
     except Exception:
         pass
     return []
+
+
+def _titel_nachputzen(eintraege):
+    """Marken aus Titeln holen, die vor dem Putz-Fix gespeichert wurden.
+
+    ⚠ **Ohne das bliebe der Fix unsichtbar.** Die Titel werden beim Lesen
+    geputzt (`_lesen`), nicht beim Anzeigen — was einmal mit Marke im Protokoll
+    steht, behaelt sie. Und neu gelesen wird eine Logdatei nie wieder: Der
+    Lesestand merkt sie sich (siehe `nachlese`). Ein Protokoll, das vor dem Fix
+    entstand, zeigte die Marken also dauerhaft weiter.
+
+    Laeuft bei jedem Laden, macht aber nur beim ersten Mal Arbeit — danach
+    findet sie nichts mehr und gibt die Liste unveraendert zurueck.
+    """
+    geputzt, veraendert = [], False
+    for e in eintraege:
+        name = e.get('name') or ''
+        rein = auftraege.sauber(name)
+        if rein and rein != name:
+            e = dict(e, name=rein)
+            veraendert = True
+        geputzt.append(e)
+    if not veraendert:
+        return eintraege
+    # ⚠ Ueber `zusammenfuehren`, nicht roh zurueck: Zwei Eintraege koennen nach
+    # dem Putzen denselben Schluessel tragen (gleicher Auftrag, einmal mit und
+    # einmal ohne Marke). Sie gehoeren dann zusammen — und ein abgeschlossener
+    # darf dabei nicht auf „laeuft" zurueckfallen.
+    return zusammenfuehren(geputzt, [])
 
 
 def sichern(eintraege):

@@ -3811,6 +3811,15 @@ def main():
         ('Retake Platforms From Nine Tails <EM4>[BP!]</EM4>',
          'Retake Platforms From Nine Tails'),
         ('Retake Platforms[SCBPW] <EM4>[BP 4/8]</EM4>[/SCBPW]', 'Retake Platforms'),
+        # ⚠ Das Zeichen steht HINTER der eckigen Klammer, nicht darin. Beide
+        # Formen blieben in gespeicherten Protokollen stehen, weil die Regel
+        # nur `[BP!]` kannte — also nur das Zeichen INNEN.
+        ('Blackbox Retrieval <EM4>[BP]?</EM4>', 'Blackbox Retrieval'),
+        ('Verified Bounty: Chen Bey <EM4>[BP]*</EM4>', 'Verified Bounty: Chen Bey'),
+        # Fremde Marken mit Vorspann — `injektion.py` kennt sie laengst.
+        ('Bounty <EM4>[10 Rep] [BP]</EM4>', 'Bounty'),
+        # ⚠ Gegenprobe: Was KEIN Bauplan-Zusatz ist, muss stehen bleiben.
+        ('Auftrag <EM4>[x]</EM4>', 'Auftrag <EM4>[x]</EM4>'),
         ('Ganz normaler Titel', 'Ganz normaler Titel'),
     ]
     for _roh51, _soll51 in _faelle51:
