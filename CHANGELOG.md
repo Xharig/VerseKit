@@ -6,6 +6,55 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0 - 2026-09-04
+
+> Neu ist das **Auftrags-Protokoll**: Es zeigt dir, welche Aufträge du wann
+> gespielt hast, wie oft — und welcher Bauplan dabei herauskam. Damit ist die
+> Frage beantwortet, die sich irgendwann jeder stellt: Welcher Auftrag war das
+> nochmal, bei dem der Helm kam? Es ist beim ersten Start schon gefüllt, denn
+> die aufgehobenen Protokolle des Spiels reichen Wochen zurück.
+>
+> Dazu geht die Bauplan-Liste jetzt deutlich schneller auf.
+
+### Neu
+
+- **Auftrags-Protokoll** (neuer Reiter unter „Baupläne"). Der neueste Auftrag
+  steht oben, ein Suchfeld findet über den Namen. Kam bei einem Auftrag ein
+  Bauplan heraus, steht er darunter. Am Ende siehst du, wie oft du denselben
+  Auftrag schon gefahren bist.
+- **Beim ersten Start schon gefüllt.** Die aufgehobenen Protokolle des Spiels
+  werden einmal durchgesehen — du siehst also sofort die letzten Wochen. Danach
+  wächst es mit und bleibt stehen, auch wenn das Spiel seine eigenen Protokolle
+  längst gelöscht hat.
+- **Das Protokoll wandert in die Ablage** — neben Bestand und den übrigen
+  Listen. Wer seine Daten sichert, hat es dabei.
+
+### Verbessert
+
+- **Die Bauplan-Liste geht schneller auf** — spürbar bei großen Beständen.
+  Gemeldet von Haldjas
+
+### Behoben
+
+- **Aufträge blieben für immer auf „läuft".** Sie gelten jetzt als **nicht mehr
+  offen**, sobald eine spätere Spielsitzung sie nicht mehr kennt.
+- **Baupläne hingen am falschen Auftrag.** Ein Auftrag gibt höchstens einen
+  Bauplan her; scheinbar laufende alte Aufträge zogen trotzdem jeden neuen Fund
+  an sich. Ein Bauplan geht jetzt nur noch an einen Auftrag, der in derselben
+  Sitzung wirklich lief — und lieber an gar keinen als an den falschen.
+- **Fremde Kennzeichen standen mitten im Auftragsnamen.** Sie stammen von
+  anderen Übersetzungswerkzeugen und werden jetzt entfernt.
+- **Lange Auftragsnamen wurden rechts abgeschnitten** — sie brechen jetzt um,
+  ebenso die Bauplan-Zeile darunter.
+- **Ein selbst gewählter Ablage-Ordner ging beim Neustart verloren.** Die
+  Umstellung wurde gespeichert, aber an einer Stelle, die beim Start nicht
+  gelesen wird.
+
+### Dank
+
+- **Haldjas** — für den Hinweis auf die hakende Bauplan-Liste, aus dem am Ende
+  dieser ganze Bereich entstanden ist.
+
 ## v3.12.0-rc4 - 2026-09-04
 
 > **Testfassung.** Das Auftrags-Protokoll zeigte Aufträge als laufend an, die

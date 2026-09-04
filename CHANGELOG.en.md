@@ -6,6 +6,52 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.12.0 - 2026-09-04
+
+> New is the **mission log**: it shows which missions you played when, how often
+> — and which blueprint came out of it. That answers the question everyone ends
+> up asking: which mission was it again that dropped the helmet? It is already
+> filled on first start, because the game's kept logs reach back weeks.
+>
+> On top of that, the blueprint list opens noticeably faster now.
+
+### New
+
+- **Mission log** (new tab under "Blueprints"). The most recent mission sits on
+  top, a search field finds them by name. If a blueprint came out of a mission,
+  it is listed underneath. At the end you see how often you ran the same
+  mission.
+- **Already filled on first start.** The game's kept logs are read once, so you
+  see the past weeks right away. From then on the log grows with you and stays,
+  long after the game has dropped its own.
+- **The log goes into the export folder** — next to your inventory and the other
+  lists. Whoever backs up their data has it along.
+
+### Improved
+
+- **The blueprint list opens faster** — noticeable with large inventories.
+  Reported by Haldjas
+
+### Fixed
+
+- **Missions stayed on "in progress" forever.** They are now marked **no longer
+  open** as soon as a later play session no longer knows them.
+- **Blueprints hung on the wrong mission.** A mission yields at most one
+  blueprint; seemingly running old ones pulled in every new find anyway. A
+  blueprint now only goes to a mission that actually ran in the same session —
+  and rather to none at all than to the wrong one.
+- **Foreign markers appeared inside mission names.** They come from other
+  translation tools and are now stripped.
+- **Long mission names were cut off on the right** — they now wrap, as does the
+  blueprint line below them.
+- **A self-chosen data folder was lost on restart.** The change was saved, but
+  to a place that is not read at startup.
+
+### Thanks
+
+- **Haldjas** — for pointing out the stuttering blueprint list, which is where
+  this whole section ended up coming from.
+
 ## v3.12.0-rc4 - 2026-09-04
 
 > **Test build.** The mission log listed missions as in progress that were long
