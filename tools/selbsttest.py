@@ -10154,6 +10154,43 @@ def main():
         pruefe(_pf113c.namensform(_roh113c) == _soll113c,
                'Namensform: %r -> %r' % (_roh113c, _soll113c))
 
+    # --------------------------------------------------------------------- 113d
+    # ⚠⚠ Die Kaestchen in den Auftragstexten muessen dem Bestand folgen.
+    # Bis zum 04.09.2026 wurde nur bei FREMDEN Aenderungen neu geschrieben
+    # (neue Uebersetzung, neue Vertragsdaten, Auszeichnung weg) — der eigene
+    # Bestand stand nicht auf der Liste. Damit hoerten die Kaestchen still auf
+    # zu stimmen, sobald ein Bauplan dazukam: Gemeldet mit zwei Bauplaenen, die
+    # seit zehn Tagen im Bestand lagen und im Spiel ungehakt blieben.
+    print()
+    print('113d. Die Kaestchen folgen dem eigenen Bestand')
+    _inj113d = importlib.import_module('scbp.injektion')
+    _a113d = {'bauplaene': {'marlin': {'name': 'Marlin'}}}
+    _b113d = {'bauplaene': {'marlin': {'name': 'Marlin'},
+                            'rn-7s': {'name': 'RN-7s'}}}
+    # ⚠ Gleiche Anzahl, andere Namen — genau das erzeugt `bestand.angleichen`
+    # beim Umbenennen. Eine Marke ueber die Anzahl wuerde das nicht bemerken.
+    _c113d = {'bauplaene': {'marlin (ind/1/a)': {'name': 'Marlin (Ind/1/A)'}}}
+    pruefe(_inj113d.bestand_marke(_a113d) == _inj113d.bestand_marke(_a113d),
+           'derselbe Bestand ergibt dieselbe Marke')
+    pruefe(_inj113d.bestand_marke(_a113d) != _inj113d.bestand_marke(_b113d),
+           'ein neuer Bauplan aendert die Marke')
+    pruefe(_inj113d.bestand_marke(_a113d) != _inj113d.bestand_marke(_c113d),
+           'ein umbenannter Bauplan aendert die Marke (gleiche Anzahl)')
+
+    # ⚠ Und die Kaestchen selbst: Was im Bestand liegt, wird angekreuzt.
+    _block113d = ('# Baupläne:' + chr(92) + 'n'
+                  '    - Marlin' + chr(92) + 'n'
+                  '    - RN-7s' + chr(92) + 'n')
+    _neu113d, _meine113d, _ges113d = _inj113d._kaestchen_setzen(
+        _block113d, set(_b113d['bauplaene']))
+    pruefe(_ges113d == 2 and _meine113d == 2,
+           'beide Bauplaene werden als vorhanden erkannt (%d von %d)'
+           % (_meine113d, _ges113d))
+    _neu113e, _meine113e, _ges113e = _inj113d._kaestchen_setzen(
+        _block113d, set(_a113d['bauplaene']))
+    pruefe(_ges113e == 2 and _meine113e == 1,
+           'was fehlt, bleibt ungehakt (%d von %d)' % (_meine113e, _ges113e))
+
     # --------------------------------------------------------------------- 114
     # Die Sicherung. ⚠⚠ Ein kaputtes Backup faellt erst im Ernstfall auf — dann,
     # wenn der alte Rechner schon neu aufgesetzt ist. Deshalb wird hier der

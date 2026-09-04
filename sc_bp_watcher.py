@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.13.1'
+__version__ = '3.13.2'
 
 
 def _mitgeliefert(name):
@@ -885,10 +885,42 @@ class Watcher(threading.Thread):
         if not neu_noetig and not injektion.ist_drin(ziel):
             neu_noetig = True
 
+        # 4. ⚠⚠ **Hat sich der eigene Bestand geändert?** Bis zum 04.09.2026
+        #    fehlte genau diese Bedingung — und damit hörten die Kästchen im
+        #    Spiel still auf zu stimmen, sobald ein Bauplan dazukam.
+        #
+        #    Die Punkte 1 bis 3 fragen alle nach FREMDEN Änderungen. Die
+        #    Kästchen sind aber unsere eigene Zutat und hängen am Bestand des
+        #    Spielers: Wer einen Bauplan freischaltet, sieht ihn im
+        #    Auftragstext trotzdem weiter als fehlend — bis zufällig eine
+        #    Übersetzung oder ein Patch die Datei anfasst. Gemeldet mit zwei
+        #    Bauplänen, die seit dem 25.08. im Bestand lagen und im Spiel
+        #    ungehakt blieben: „ich dachte wir machen die Kästen?"
+        #
+        #    ⚠ Verglichen wird ein Fingerabdruck, nicht die Anzahl. Der
+        #    Bestandsabgleich beim Start benennt Einträge um (`angleichen`);
+        #    dabei bleibt die Zahl gleich, die Namen ändern sich — und genau
+        #    die stehen in den Kästchen.
+        marke = None
+        if not neu_noetig:
+            try:
+                marke = injektion.bestand_marke()
+                if marke != pfade.einstellung('inj_bestand'):
+                    neu_noetig = True
+            except Exception as ausnahme:
+                fehler.merken('watcher.inj_bestandsmarke', ausnahme)
+
         if neu_noetig and os.path.isfile(ziel):
             ok, anzahl, _meldung = injektion.einrichten(ziel, sprache_ordner)
             if ok:
                 self.q.put(('status', sprache.Satz('inj_aktiv', anzahl)))
+                # Erst nach dem Schreiben merken: Scheitert das Einrichten,
+                # soll es beim nächsten Durchlauf erneut versucht werden.
+                try:
+                    pfade.einstellung_setzen(
+                        'inj_bestand', marke or injektion.bestand_marke())
+                except Exception as ausnahme:
+                    fehler.merken('watcher.inj_marke_merken', ausnahme)
 
     # ---- Katalog-Wache: was ist NEU craftbar im Spiel? ----
     def _catalog_tick(self):

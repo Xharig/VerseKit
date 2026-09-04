@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.2 - 2026-09-04
+
+> Zwei Stellen, an denen das Werkzeug stillschweigend aufhörte, aktuell zu
+> sein: Die Häkchen in den Auftragstexten folgen jetzt deinem Bestand, und das
+> Auftrags-Protokoll wächst mit, statt nur beim Programmstart zu wachsen.
+
+### Behoben
+
+- **Die Häkchen in den Auftragstexten blieben stehen, wenn dein Bestand
+  wuchs.** Neu geschrieben wurde bisher nur bei einer neuen Übersetzung, neuen
+  Vertragsdaten oder wenn ein Spiel-Patch die Datei ersetzt hat — dein eigener
+  Bestand stand nicht auf der Liste. Ab dem ersten Bauplan, den du danach
+  freigeschaltet hast, zeigte das Spiel also zu wenige Häkchen, ohne dass etwas
+  darauf hingewiesen hätte. Jetzt merkt sich das Werkzeug den Stand deines
+  Bestands und schreibt neu, sobald er sich ändert.
+  ⚠ Damit die neuen Häkchen im Spiel ankommen, musst du dich einmal neu
+  einloggen — Star Citizen liest die Texte nur beim Anmelden.
+- **Das Auftrags-Protokoll wuchs nur beim Programmstart.** Wer den Watcher
+  morgens startet und mittags einen Auftrag abgibt, fand ihn dort nicht. Die
+  Seite liest jetzt bei jedem Öffnen nach.
+
 ## v3.13.1 - 2026-09-04
 
 > Das Werkzeug startet spürbar schneller — je mehr Baupläne du hast, desto

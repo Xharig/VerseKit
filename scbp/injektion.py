@@ -696,6 +696,27 @@ def _name_mit_angabe(text, kuerzel):
     return '%s %s' % (angaben_modul.zusatz_entfernen(text).rstrip(), kuerzel)
 
 
+def bestand_marke(bestand=None):
+    """Ein kurzer Fingerabdruck des eigenen Bestands.
+
+    ⚠ Wozu: Die Kästchen in den Auftragstexten zeigen, was der Spieler schon
+    hat. Ändert sich sein Bestand, müssen sie neu geschrieben werden — sonst
+    stimmen sie ab dem nächsten Fund nicht mehr. Ein Vergleich dieser Marke
+    beantwortet die Frage „hat sich seit dem letzten Einspielen etwas getan?"
+    ohne die Texte jedes Mal neu zu bauen.
+
+    ⚠ Über die **Namen**, nicht über die Anzahl: `bestand.angleichen()` benennt
+    beim Start Einträge um, ohne dass die Zahl sich ändert — und genau die
+    Namen stehen in den Kästchen.
+    """
+    import hashlib
+    from . import bestand as bestand_datei
+    namen = bestand_datei.schluessel(
+        bestand if bestand is not None else bestand_datei.laden())
+    roh = '\n'.join(sorted(namen)).encode('utf-8', 'replace')
+    return '%d-%s' % (len(namen), hashlib.sha1(roh).hexdigest()[:12])
+
+
 def _kaestchen_setzen(text, habe):
     """In einem fertigen SCDL-Block die Bauplan-Zeilen ankreuzen.
 

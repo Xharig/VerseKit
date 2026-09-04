@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.13.2 - 2026-09-04
+
+> Two places where the tool quietly stopped being up to date: the check marks
+> in the mission texts now follow your inventory, and the mission log grows
+> along instead of only growing at startup.
+
+### Fixed
+
+- **The check marks in mission texts stayed put when your inventory grew.**
+  They were only rewritten for a new translation, new contract data, or when a
+  game patch replaced the file — your own inventory was not on that list. From
+  the first blueprint you unlocked afterwards, the game showed too few check
+  marks with nothing pointing at it. The tool now remembers the state of your
+  inventory and rewrites as soon as it changes.
+  ⚠ For the new check marks to show up in game you have to log in again — Star
+  Citizen only reads the texts when you sign in.
+- **The mission log only grew at startup.** Anyone starting the watcher in the
+  morning and finishing a mission at noon did not find it there. The page now
+  re-reads every time you open it.
+
 ## v3.13.1 - 2026-09-04
 
 > The tool starts noticeably faster — the more blueprints you have, the more
