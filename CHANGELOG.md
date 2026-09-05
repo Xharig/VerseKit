@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc8 - 2026-09-05
+
+> **Namen mit Apostroph stehen wieder richtig da.** Aus „Grey&apos;s Market"
+> ist wieder „Grey's Market" geworden — überall, wo Namen aus der Preisquelle
+> kommen.
+
+### Behoben
+
+- **HTML-Zeichen in Namen.** Apostrophe, Anführungszeichen und das
+  kaufmännische Und kamen als `&apos;`, `&quot;` und `&amp;` an. Betroffen
+  waren Hersteller, Teile, Terminals und Orte.
+
 ## v3.15.0-rc7 - 2026-09-05
 
 > **Die Schalter gelten jetzt auch für „Beste Routen überall".** Rundreise über

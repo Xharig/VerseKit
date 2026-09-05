@@ -57,8 +57,9 @@ QUELLE_SCHIFFE = 'https://api.uexcorp.uk/2.0/vehicles'
 QUELLE_KAUF = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
 QUELLE_MIETE = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
-# 2 seit v3.15.0 — der Datensatz führt jetzt auch die Werft.
-FORMAT = 2
+# 2 seit v3.15.0 (die Werft kam dazu), 3 seit dem Entschlüsseln der
+# HTML-Zeichen — sonst bliebe „Grey&apos;s Market" in der alten Ablage stehen.
+FORMAT = 3
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
 HALTBAR = 30 * uex.TAG

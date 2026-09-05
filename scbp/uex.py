@@ -83,6 +83,7 @@ deshalb einen Verdacht ins Fehlerprotokoll, sobald genau `DECKEL` Zeilen
 zurückkommen. Der richtige Umgang ist **enger zuschneiden**, nicht mehr
 abrufen.
 """
+import html
 import json
 import os
 import time
@@ -105,6 +106,22 @@ ZEITLIMIT = 30
 DECKEL = 500
 
 
+def _entschluesseln(wert):
+    """`&apos;` → `'`, rekursiv durch Listen und Wörterbücher.
+
+    ⚠ Nur Zeichenketten werden angefasst; Zahlen und `None` bleiben, wie sie
+    sind. Ein Wert ohne `&` wird unverändert zurückgegeben, damit der
+    Durchlauf über zehntausende Felder nichts kostet.
+    """
+    if isinstance(wert, str):
+        return html.unescape(wert) if '&' in wert else wert
+    if isinstance(wert, list):
+        return [_entschluesseln(x) for x in wert]
+    if isinstance(wert, dict):
+        return dict((k, _entschluesseln(v)) for k, v in wert.items())
+    return wert
+
+
 def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
     """Eine UEX-Liste abrufen.
 
@@ -120,13 +137,26 @@ def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
         anfrage = urllib.request.Request(
             adresse, headers={'User-Agent': KENNUNG})
         with urllib.request.urlopen(anfrage, timeout=zeitlimit) as antwort:
-            roh = json.loads(antwort.read().decode('utf-8'))
+            rohtext = antwort.read().decode('utf-8')
+        roh = json.loads(rohtext)
     except Exception as ausnahme:
         fehler.merken('uex.holen.' + stelle, ausnahme)
         return None
     liste = roh.get('data')
     if liste is None:
         return []
+    # ⚠⚠ **HTML-Zeichen aus den Daten holen.** UEX liefert Apostrophe als
+    # `&apos;` — im Werkzeug stand deshalb „Grey&apos;s Market" statt „Grey's
+    # Market" (gemeldet 05.09.2026). Das betrifft jeden Namen aus der Quelle,
+    # nicht nur Hersteller: Terminals, Orte, Waren, Teile.
+    #
+    # Deshalb hier zentral und nicht in fünf Modulen einzeln — sonst taucht
+    # derselbe Fehler beim nächsten neuen Feld wieder auf.
+    #
+    # ⚠ Der Vortest auf `&` spart den Durchlauf bei den allermeisten Antworten:
+    # Wo kein `&` im Rohtext steht, gibt es auch nichts zu entschlüsseln.
+    if '&' in rohtext:
+        liste = _entschluesseln(liste)
     # ⚠ Siehe `DECKEL` oben: Abgeschnitten wird still. Wer es nicht merkt,
     # rechnet mit einem Bruchstück weiter und hält es für das Ganze.
     #

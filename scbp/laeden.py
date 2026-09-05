@@ -94,7 +94,7 @@ FORMAT = 1
 # Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
 # Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
 # nicht mit weggeworfen werden.
-FORMAT_KATALOG = 4
+FORMAT_KATALOG = 5
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube

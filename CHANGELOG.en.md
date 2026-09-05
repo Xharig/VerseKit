@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc8 - 2026-09-05
+
+> **Names with apostrophes read properly again.** "Grey&apos;s Market" is back
+> to "Grey's Market" — everywhere names come from the price source.
+
+### Fixed
+
+- **HTML entities in names.** Apostrophes, quotation marks and ampersands
+  arrived as `&apos;`, `&quot;` and `&amp;`. This affected manufacturers,
+  items, terminals and locations.
+
 ## v3.15.0-rc7 - 2026-09-05
 
 > **The switches now apply to "find best routes anywhere" too.** Round trip
