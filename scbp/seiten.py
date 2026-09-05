@@ -2209,6 +2209,28 @@ def _auftragslog(fenster, rahmen):
              missionslog.VERFALLEN: 's_al_verfallen',
              missionslog.LAEUFT: 's_al_laeuft'}
 
+    def _wort_laufend():
+        """„läuft" nur, solange das Spiel wirklich schreibt.
+
+        ⚠⚠ **Gemeldet am 05.09.2026:** „Spiel ist aus, und die Quest die da
+        auf läuft steht ist von gestern nacht, da bin ich ohne ab zu brechen
+        ausgeloggt weil ich zu müde war."
+
+        Ausloggen beendet keinen Auftrag — das Spiel schreibt dafür nichts ins
+        Protokoll. Aufgeräumt wird so ein Fall erst, wenn eine **spätere**
+        Sitzung ihn nicht mehr nennt (`_verfallene_schliessen`); beim letzten
+        Auftrag vor dem Ausloggen gibt es die noch nicht. Gemessen an 381
+        Aufträgen: 68 waren so bereits aufgelöst, genau einer blieb übrig —
+        der jüngste.
+
+        ⚠ **Der Zustand bleibt richtig, nur das Wort war es nicht.** Der
+        Auftrag ist im Spiel weiter angenommen; beim nächsten Einloggen meldet
+        Star Citizen ihn erneut. Ihn zu beenden wäre gelogen. „läuft"
+        behauptet aber „jetzt gerade" — und das stimmt bei geschlossenem Spiel
+        nicht. „Noch offen" stimmt in beiden Fällen.
+        """
+        return 's_al_laeuft' if pfade.spiel_laeuft() else 's_al_offen'
+
     def zeichnen(*_, neu_laden=False):
         if neu_laden or not daten['alle']:
             try:
@@ -2216,6 +2238,9 @@ def _auftragslog(fenster, rahmen):
             except Exception:
                 daten['alle'] = []
         alle = daten['alle']
+        # ⚠ Einmal je Durchlauf, nicht je Zeile: `spiel_laeuft()` sieht auf
+        # die Datei, und die Liste hat hunderte Zeilen.
+        wort_laufend = _wort_laufend()
         for kind in liste_rahmen.winfo_children():
             kind.destroy()
         if not alle:
@@ -2244,7 +2269,12 @@ def _auftragslog(fenster, rahmen):
                      anchor='w', padx=10, pady=7).pack(side='left')
             # ⚠ Breit genug fuer den laengsten Zustand — „nicht mehr offen"
             # hat 16 Zeichen, bei 14 stand dort ein Stumpf.
-            tk.Label(zeile, text=t(worte.get(zustand, 's_al_laeuft')),
+            # ⚠ Der laufende Zustand heisst je nach Lage anders — siehe
+            # `_wort_laufend`. Einmal je Durchlauf gefragt, nicht je Zeile:
+            # Das ist ein Dateizugriff, und die Liste hat hunderte Zeilen.
+            schluessel = (wort_laufend if zustand == missionslog.LAEUFT
+                          else worte.get(zustand, 's_al_laeuft'))
+            tk.Label(zeile, text=t(schluessel),
                      bg=FLAECHE, fg=farben.get(zustand, SUB),
                      font=fenster.f_klein, width=17,
                      anchor='w').pack(side='left')

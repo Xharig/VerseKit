@@ -11206,6 +11206,79 @@ def main():
                 _pf122.einstellung_setzen('gruppe_zu_%s' % _k122, _v122)
 
     print()
+    print('123. „laeuft" nur, solange das Spiel wirklich schreibt')
+    # ⚠⚠ **Gemeldet am 05.09.2026:** „Spiel ist aus, und die Quest die da auf
+    # laeuft steht ist von gestern nacht, da bin ich ohne ab zu brechen
+    # ausgeloggt weil ich zu muede war."
+    #
+    # Ausloggen beendet keinen Auftrag — das Spiel schreibt dafuer nichts.
+    # Aufgeraeumt wird so ein Fall erst, wenn eine SPAETERE Sitzung ihn nicht
+    # mehr nennt (`_verfallene_schliessen`); beim letzten Auftrag vor dem
+    # Ausloggen gibt es die noch nicht. Gemessen an 381 echten Auftraegen:
+    # 68 waren so bereits aufgeloest, genau einer blieb uebrig — der juengste.
+    #
+    # ⚠ Der Zustand bleibt richtig, nur das Wort war es nicht: Der Auftrag ist
+    # im Spiel weiter angenommen, beim naechsten Einloggen meldet SC ihn
+    # erneut. Ihn zu beenden waere gelogen. „laeuft" behauptet aber „jetzt
+    # gerade" — „noch offen" stimmt in beiden Faellen.
+    import time as _t123
+    from scbp import pfade as _pf123
+
+    _wiese123 = tempfile.mkdtemp(prefix='sc-bp-laeuft-')
+    _altordner123 = _pf123.einstellung('spiel_ordner')
+    try:
+        _spiel123 = os.path.join(_wiese123, 'StarCitizen', 'LIVE')
+        os.makedirs(_spiel123)
+        _log123 = os.path.join(_spiel123, 'Game.log')
+        with open(_log123, 'w', encoding='utf-8') as _d123:
+            _d123.write('<2026-09-04T20:31:27.000Z> Probe\n')
+        _pf123.einstellung_setzen('spiel_ordner', _spiel123)
+
+        os.utime(_log123, None)
+        pruefe(_pf123.spiel_laeuft(),
+               'ein gerade geschriebenes Log heisst: das Spiel laeuft')
+
+        _alt123 = _t123.time() - 1800
+        os.utime(_log123, (_alt123, _alt123))
+        pruefe(not _pf123.spiel_laeuft(),
+               'ein 30 Minuten stilles Log heisst: das Spiel ist aus')
+
+        # ⚠ Der Grenzfall gehoert dazu: Ein haengender Ladebildschirm darf
+        # nicht schon als „Spiel aus" durchgehen.
+        _knapp123 = _t123.time() - (_pf123.SPIEL_STILL_SEK - 30)
+        os.utime(_log123, (_knapp123, _knapp123))
+        pruefe(_pf123.spiel_laeuft(),
+               'ein kurzer Haenger gilt noch nicht als „Spiel aus"')
+
+        _pf123.einstellung_setzen('spiel_ordner',
+                                  os.path.join(_wiese123, 'gibtsnicht'))
+        pruefe(not _pf123.spiel_laeuft(),
+               'ohne Spielordner wird nichts behauptet')
+    finally:
+        if _altordner123 is not None:
+            _pf123.einstellung_setzen('spiel_ordner', _altordner123)
+        shutil.rmtree(_wiese123, ignore_errors=True)
+
+    # Die beiden Woerter muessen in die Spalte passen — sie ist 17 Zeichen
+    # breit, und ein laengeres Wort stuende dort als Stumpf.
+    for _k123 in ('s_al_laeuft', 's_al_offen'):
+        pruefe(_k123 in sprache.TEXTE, 'es gibt den Text %s' % _k123)
+        if _k123 in sprache.TEXTE:
+            for _sp123 in (0, 1):
+                pruefe(len(sprache.TEXTE[_k123][_sp123]) <= 17,
+                       '%s passt in die Spalte (%d Zeichen)'
+                       % (_k123, len(sprache.TEXTE[_k123][_sp123])))
+
+    # Und die Anzeige muss die Unterscheidung wirklich benutzen — sonst steht
+    # die Funktion da und keiner ruft sie.
+    _sei123 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                   encoding='utf-8').read()
+    pruefe('spiel_laeuft()' in _sei123,
+           'die Auftragsliste fragt nach, ob das Spiel laeuft')
+    pruefe("'s_al_offen'" in _sei123,
+           'und benutzt dafuer das andere Wort')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

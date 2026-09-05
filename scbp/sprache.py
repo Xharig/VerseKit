@@ -735,6 +735,11 @@ TEXTE = {
     's_al_nichts':     ('Kein Auftrag passt zu deiner Suche.',
                           'No mission matches your search.'),
     's_al_laeuft':     ('läuft', 'in progress'),
+    # ⚠ Derselbe Zustand, anderes Wort — je nachdem, ob das Spiel gerade
+    # laeuft. „laeuft" behauptet „jetzt gerade"; bei geschlossenem Spiel
+    # stimmt daran nur die Haelfte: Der Auftrag ist angenommen und hat kein
+    # Ende, aktiv ist er nicht.
+    's_al_offen':      ('noch offen', 'still open'),
     's_al_fertig':     ('abgeschlossen', 'completed'),
     's_al_abbruch':    ('abgebrochen', 'abandoned'),
     # Kein Ende im Log, aber eine spätere Sitzung kannte ihn nicht mehr.

@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.7 - 2026-09-05
+
+> **No more "in progress" while the game is closed.** Log out without handing
+> in or abandoning, and your last contract stayed marked as running forever.
+> Now it reads "still open" — which is still true the next morning.
+
+### Fixed
+
+- **The last contract before logging out stayed on "in progress" for good.**
+  The game writes no ending to the log when you log out, and such a case is
+  only cleared up once a later session no longer mentions the contract — which
+  never happens for the last one. While the game is not running it now reads
+  **"still open"**.
+
+  The contract is deliberately **not** closed: it is still accepted in game,
+  and Star Citizen reports it again next time you log in. Only the wording was
+  wrong — "in progress" claims "right now".
+
 ## v3.15.6 - 2026-09-05
 
 > **The report page is made for writing now.** The field for your description

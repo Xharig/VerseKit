@@ -1147,6 +1147,46 @@ def game_log(ordner=None):
     return p if os.path.isfile(p) else None
 
 
+# Wie lange die `Game.log` still sein darf, bevor das Spiel als beendet gilt.
+#
+# ⚠ Star Citizen schreibt im Sekundentakt — auch im Hauptmenü, auch beim
+# Herumstehen. Fünf Minuten sind deshalb sehr großzügig gewählt: Sie decken
+# einen hängenden Ladebildschirm ab und liegen trotzdem weit unter der Zeit,
+# nach der ein Mensch fragt „warum steht da noch läuft?".
+SPIEL_STILL_SEK = 300
+
+
+def spiel_laeuft(ordner=None):
+    """Schreibt das Spiel gerade noch — läuft es also?
+
+    ⚠⚠ **Wozu das gebraucht wird (05.09.2026).** Das Auftrags-Protokoll führte
+    einen Auftrag als „läuft", während das Spiel längst geschlossen war: Wer
+    sich ausloggt, ohne abzugeben oder abzubrechen, hinterlässt kein
+    Ende-Ereignis im Log. Gemeldet mit „Spiel ist aus, und die Quest die da
+    auf läuft steht ist von gestern nacht".
+
+    ⚠ **Der Zustand ist trotzdem richtig, nur das Wort war es nicht.** Der
+    Auftrag ist im Spiel weiter angenommen — beim nächsten Einloggen meldet
+    Star Citizen ihn erneut. Ihn zu beenden wäre also falsch. Falsch war
+    „läuft": Das behauptet „jetzt gerade". Mit dieser Auskunft heißt derselbe
+    Zustand bei geschlossenem Spiel „noch offen", und das stimmt in beiden
+    Fällen.
+
+    ⚠ Bewusst über die Schreibzeit der Datei und nicht über die Prozessliste:
+    Das ist auf jedem System gleich, braucht keine Sonderrechte und geht
+    niemanden etwas an außer dem Spiel selbst. Ein Irrtum kostet hier auch
+    nichts — es hängt nur ein Wort daran.
+    """
+    import time
+    try:
+        datei = game_log(ordner)
+        if not datei:
+            return False
+        return (time.time() - os.path.getmtime(datei)) < SPIEL_STILL_SEK
+    except Exception:
+        return False
+
+
 def log_sicherungen(ordner=None):
     """Die aufgehobenen Logs vergangener Sitzungen, älteste zuerst.
 

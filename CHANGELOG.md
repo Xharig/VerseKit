@@ -6,6 +6,24 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.7 - 2026-09-05
+
+> **Kein „läuft" mehr bei geschlossenem Spiel.** Wer sich ausloggt, ohne
+> abzugeben oder abzubrechen, sah seinen letzten Auftrag für immer als laufend.
+> Jetzt heißt er „noch offen" — das stimmt auch am nächsten Morgen.
+
+### Behoben
+
+- **Der letzte Auftrag vor dem Ausloggen stand dauerhaft auf „läuft".** Das
+  Spiel schreibt beim Ausloggen kein Ende ins Protokoll, und aufgeräumt wird so
+  ein Fall erst, wenn eine spätere Sitzung den Auftrag nicht mehr nennt — die
+  gibt es beim letzten aber nicht mehr. Solange das Spiel nicht läuft, steht
+  dort jetzt **„noch offen"**.
+
+  Beendet wird der Auftrag dabei ausdrücklich **nicht**: Er ist im Spiel weiter
+  angenommen, und beim nächsten Einloggen meldet Star Citizen ihn erneut. Nur
+  das Wort war falsch — „läuft" behauptet „jetzt gerade".
+
 ## v3.15.6 - 2026-09-05
 
 > **Die Melde-Seite ist zum Schreiben da.** Das Feld für deine Beschreibung ist
