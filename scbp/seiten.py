@@ -47,6 +47,9 @@ ACCENT  = '#9ce430'
 LINIE   = '#232c3d'
 GOLD    = '#e8c353'
 ROT     = '#e05252'
+# Fuer Zustaende, die schiefgingen, ohne eine Stoerung zu sein (abgebrochen,
+# fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
+ROT_BLASS = '#c98a8a'
 
 
 def _bauer_tabelle():
@@ -2242,12 +2245,22 @@ def _auftragslog(fenster, rahmen):
     kopf.pack(fill='x', padx=24, pady=(12, 0))
     liste_rahmen.pack(fill='both', expand=True, padx=24, pady=(4, 12))
 
+    # ⚠ **Drei Aussagen, drei Farben** (06.09.2026): Gruen fuer die Leistung,
+    # blasses Rot fuer das, was schiefging, Grau fuer das, worueber wir nichts
+    # behaupten. Abgebrochen und fehlgeschlagen standen vorher beide in Grau
+    # und waren dadurch von „nicht mehr offen" nicht zu unterscheiden.
+    #
+    # ⚠ Blass, nicht `ROT`: Das kraeftige Rot gehoert den echten Fehlern
+    # („Fehler melden"). Ein aufgegebener Auftrag ist eine Notiz, keine
+    # Stoerung — er soll auffallen, ohne wie ein Alarm auszusehen.
     farben = {missionslog.ABGESCHLOSSEN: ACCENT,
-              missionslog.ABGEBROCHEN: SUB,
+              missionslog.ABGEBROCHEN: ROT_BLASS,
+              missionslog.FEHLGESCHLAGEN: ROT_BLASS,
               missionslog.VERFALLEN: SUB,
               missionslog.LAEUFT: GOLD}
     worte = {missionslog.ABGESCHLOSSEN: 's_al_fertig',
              missionslog.ABGEBROCHEN: 's_al_abbruch',
+             missionslog.FEHLGESCHLAGEN: 's_al_fehl',
              # Zurueckhaltend in Grau: Es ist keine Leistung und kein Abbruch,
              # nur das Ende der Spur.
              missionslog.VERFALLEN: 's_al_verfallen',

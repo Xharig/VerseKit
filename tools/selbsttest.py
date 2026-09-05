@@ -12001,6 +12001,112 @@ def main():
            'ohne Rezeptdaten laeuft der Export trotzdem durch')
 
     print()
+    print('133. Ein Auftrags-Ende ohne Titel wird nicht weggeworfen')
+    # ⚠⚠ Am 06.09.2026 gemeldet: Ein abgebrochener Auftrag stand im
+    # Auftrags-Protokoll richtig als „abgebrochen" und im Overlay weiter als
+    # laufend. Beim Abbruch schreibt das Spiel nur:
+    #
+    #     <EndMission> … MissionId[7dc679f3-…] CompletionType[Abandon]
+    #
+    # Kein Titel. Der Watcher warf jedes titellose Ereignis weg, bevor
+    # `beendet_welchen` gefragt wurde — und deren dritter Schritt haette es
+    # ueber die MissionId aufgeloest.
+    from scbp import auftraege as _au133
+
+    _echt133 = (
+        '<2026-09-05T22:20:29.057Z> [Notice] <SHUDEvent_OnNotification> Added'
+        ' notification "Auftrag angenommen: Bounty Assignment: Kosami Nordquist'
+        ' (HRT) <EM4>[BP!]</EM4>: " [2] to queue. New queue size: 1, MissionId:'
+        ' [7dc679f3-cb7b-4d86-b579-57f2aaad6a42], ObjectiveId: []'
+        ' [Team_CoreGameplayFeatures][Missions][Comms]\n'
+        '<2026-09-05T22:20:35.430Z> [Notice] <EndMission> Ending mission for'
+        ' player. MissionId[7dc679f3-cb7b-4d86-b579-57f2aaad6a42]'
+        ' Player[Xharig] PlayerId[207671730209] CompletionType[Abandon]'
+        ' Reason[Player left] [Team_MissionFeatures][Missions]\n')
+
+    _ev133 = list(_au133.ereignisse_aus_text(_echt133))
+    pruefe(len(_ev133) == 2, 'beide Ereignisse werden gelesen')
+    pruefe(_ev133[1][1] == '' and _ev133[1][2],
+           'das Ende kommt titellos, aber mit MissionId')
+
+    def _lauf133(wirft_titellose_weg):
+        """Der Ablauf aus `sc_bp_watcher`, auf das Noetige eingedampft."""
+        offen, missionen = {}, {}
+        for _annahme, _titel, _mid, _oid in _ev133:
+            _rein = _au133.sauber(_titel)
+            if _annahme:
+                if not _rein:
+                    continue
+                offen[_rein] = _titel
+                if _mid:
+                    missionen[_mid] = _rein
+                continue
+            if wirft_titellose_weg:
+                if not _rein:
+                    continue
+            elif not _rein and not _mid:
+                continue
+            _weg = _au133.beendet_welchen(_rein, _mid, _oid, offen, missionen)
+            if _weg is not None:
+                offen.pop(_weg, None)
+        return offen
+
+    pruefe(not _lauf133(False),
+           'der abgebrochene Auftrag verschwindet aus der Leiste')
+    # ⚠ Gegenprobe: Mit dem alten Verhalten muss er stehenbleiben — sonst
+    # prueft die Zeile darueber nichts.
+    pruefe(bool(_lauf133(True)),
+           'Gegenprobe: alt blieb er als laufend stehen')
+
+    # ⚠ Und es wird nichts geraten: ohne Titel UND ohne Kennung passiert nichts.
+    _blind133 = list(_ev133)
+    _blind133[1] = (False, '', '', '')
+    _offen133 = {'Irgendein Auftrag': 'Irgendein Auftrag'}
+    for _a, _t, _m, _o in _blind133[1:]:
+        _r = _au133.sauber(_t)
+        if not _r and not _m:
+            continue
+        _offen133.pop(_au133.beendet_welchen(_r, _m, _o, _offen133, {}), None)
+    pruefe(len(_offen133) == 1,
+           'ohne Titel und ohne Kennung wird nichts geraeumt')
+
+    print()
+    print('134. Ein gescheiterter Auftrag gilt nicht als abgeschlossen')
+    # ⚠⚠ Am 06.09.2026 aufgefallen: Das Spiel kennt vier Ausgaenge, der Watcher
+    # wertete nur `Abandon` aus — `Fail` und `Deactivate` fielen unter
+    # „abgeschlossen". An einem gewachsenen Protokoll waren das **52**
+    # gescheiterte Auftraege, die gruen als Erfolg dastanden.
+    from scbp import missionslog as _ml134
+
+    pruefe(_ml134._zustand_zu('Complete') == _ml134.ABGESCHLOSSEN,
+           'Complete bleibt abgeschlossen')
+    pruefe(_ml134._zustand_zu('Abandon') == _ml134.ABGEBROCHEN,
+           'Abandon bleibt abgebrochen')
+    pruefe(_ml134._zustand_zu('Fail') == _ml134.FEHLGESCHLAGEN,
+           'Fail ist fehlgeschlagen — nicht abgeschlossen')
+    pruefe(_ml134._zustand_zu('Deactivate') == _ml134.VERFALLEN,
+           'Deactivate ist verfallen — das Spiel zog ihn selbst zurueck')
+    # ⚠ Ein unbekannter oder fehlender Ausgang faellt auf den alten Stand
+    # zurueck. Ein Ende ohne <EndMission> steht nur als Mitteilung im Log.
+    pruefe(_ml134._zustand_zu('') == _ml134.ABGESCHLOSSEN,
+           'ohne Angabe gilt weiter abgeschlossen')
+    pruefe(_ml134._zustand_zu('WasGanzNeues') == _ml134.ABGESCHLOSSEN,
+           'ein unbekannter Ausgang faellt nicht durch')
+
+    # ⚠ Und die Anzeige muss den neuen Zustand kennen — ein Zustand ohne Farbe
+    # und ohne Wort waere im Protokoll eine leere Zelle.
+    _quelle134 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                      encoding='utf-8').read()
+    pruefe('missionslog.FEHLGESCHLAGEN: ROT_BLASS' in _quelle134,
+           'fehlgeschlagen hat eine Farbe')
+    pruefe("missionslog.FEHLGESCHLAGEN: 's_al_fehl'" in _quelle134,
+           'fehlgeschlagen hat ein Wort')
+    pruefe('missionslog.ABGEBROCHEN: ROT_BLASS' in _quelle134,
+           'abgebrochen steht in blassem Rot, nicht mehr in Grau')
+    pruefe('missionslog.VERFALLEN: SUB' in _quelle134,
+           'nicht mehr offen bleibt grau')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

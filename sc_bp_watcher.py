@@ -1273,12 +1273,33 @@ class Watcher(threading.Thread):
                     del self._auftrag_missionen[kennung]
                 continue
             rein = auftraege.sauber(titel)
-            if not rein:
-                continue
             if ist_annahme:
+                # Eine Annahme ohne Titel ist wertlos — sie soll ja einen
+                # Auftrag in die Leiste setzen.
+                if not rein:
+                    continue
                 offen_jetzt[rein] = titel
                 if mission_id:
                     self._auftrag_missionen[mission_id] = rein
+                continue
+            # ⚠⚠ **Ein Ende darf titellos sein — gemeldet 06.09.2026.** Bricht
+            # man einen Auftrag ab, schreibt das Spiel nur:
+            #
+            #     <EndMission> … MissionId[7dc679f3-…] CompletionType[Abandon]
+            #
+            # Kein Titel, nur die Kennung. Bis hierher galt fuer JEDES Ereignis
+            # „ohne Titel kein Auftrag" — damit flog genau dieses Ende heraus,
+            # bevor `beendet_welchen` ueberhaupt gefragt wurde. Die Funktion
+            # haette es gekonnt: Ihr dritter Schritt loest ueber die MissionId
+            # auf, und die stand die ganze Zeit daneben.
+            #
+            # Sichtbar wurde es daran, dass ein abgebrochener Auftrag im
+            # Auftrags-Protokoll richtig als „abgebrochen" stand (anderer Weg,
+            # ueber `missionslog`) und im Overlay trotzdem weiter als laufend.
+            #
+            # ⚠ Ohne Titel UND ohne Kennung wird nichts geraten. Pauschal zu
+            # raeumen hat in v3.4.4 laufende Auftraege mitgerissen.
+            if not rein and not mission_id:
                 continue
             # ⚠⚠ **Nicht jedes Ende meint den Auftrag.** Traegt die Meldung
             # eine ObjectiveId, endet nur ein Zwischenziel — der Auftrag

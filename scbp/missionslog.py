@@ -84,6 +84,40 @@ LAEUFT = 'laeuft'
 # Bewusst NICHT als „abgebrochen" gefuehrt: Wir wissen nur, dass er nicht mehr
 # laeuft, nicht warum. Eine Behauptung waere schlimmer als eine ehrliche Luecke.
 VERFALLEN = 'verfallen'
+# ⚠⚠ **Neu am 06.09.2026 — vorher galt Scheitern als Erfolg.** Das Spiel kennt
+# vier Ausgaenge, ausgewertet wurde nur einer davon:
+#
+#     Complete     316   abgeschlossen
+#     Abandon      110   abgebrochen
+#     Fail          57   fiel unter „abgeschlossen" — falsch
+#     Deactivate     2   fiel unter „abgeschlossen" — falsch
+#
+# 57 gescheiterte Auftraege standen gruen im Protokoll. Wer nachsieht, wie oft
+# ihm ein Auftrag misslungen ist, bekam die falsche Antwort.
+FEHLGESCHLAGEN = 'fehlgeschlagen'
+
+
+def _zustand_zu(art):
+    """Aus `CompletionType[…]` den Zustand — der Ausgang steht im Log.
+
+    ⚠ `Deactivate` (2 von 485) heisst, dass das Spiel den Auftrag selbst
+    zurueckgezogen hat. Weder Leistung noch Aufgabe des Spielers, deshalb
+    `VERFALLEN`: Die Spur endet, ueber das Warum wird nichts behauptet —
+    dieselbe Zurueckhaltung wie bei `VERFALLEN` selbst.
+
+    ⚠ Ein unbekannter oder fehlender Ausgang gilt weiter als abgeschlossen.
+    Das ist der Stand von vorher und deckt jedes Ende ab, das ohne
+    `<EndMission>` nur als Mitteilung im Log steht.
+    """
+    art = (art or '').lower()
+    if art.startswith('abandon'):
+        return ABGEBROCHEN
+    if art.startswith('fail'):
+        return FEHLGESCHLAGEN
+    if art.startswith('deactivate'):
+        return VERFALLEN
+    return ABGESCHLOSSEN
+
 
 # Woran man erkennt, dass der Spieler wirklich im Spiel angekommen ist.
 # ⚠ An 188 echten Protokollen gemessen (05.09.2026): In 187 kommt diese Zeile
@@ -356,9 +390,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         [e['name'] for e in offen], kennung)
                     if not treffer:
                         continue
-                    art = enden.get(mission_id, '')
-                    zustand = (ABGEBROCHEN if art.lower().startswith('abandon')
-                               else ABGESCHLOSSEN)
+                    zustand = _zustand_zu(enden.get(mission_id, ''))
                     # ⚠ Den AELTESTEN passenden schliessen, nicht den juengsten.
                     # Sonst bekommt ein Auftrag das Ende eines spaeteren
                     # Durchlaufs und im Protokoll steht ein Ende vor seinem

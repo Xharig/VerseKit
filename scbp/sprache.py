@@ -742,6 +742,10 @@ TEXTE = {
     's_al_offen':      ('noch offen', 'still open'),
     's_al_fertig':     ('abgeschlossen', 'completed'),
     's_al_abbruch':    ('abgebrochen', 'abandoned'),
+    # Der Auftrag ist gescheitert — Zeit abgelaufen, Ziel verloren, gestorben.
+    # Das Spiel unterscheidet das vom Aufgeben; bis 06.09.2026 tat der Watcher
+    # das nicht und zeigte beides als Erfolg.
+    's_al_fehl':       ('fehlgeschlagen', 'failed'),
     # Kein Ende im Log, aber eine spätere Sitzung kannte ihn nicht mehr.
     # Bewusst nicht „abgebrochen“ — warum er endete, steht nirgends.
     's_al_verfallen':  ('nicht mehr offen', 'no longer open'),
