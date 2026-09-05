@@ -1249,13 +1249,14 @@ TEXTE = {
                             'No destination is built into this version.'),
     'm_bericht_weg':   ('keine Verbindung', 'no connection'),
     's_di_kopieren':   ('Angaben kopieren', 'Copy details'),
-    's_di_speichern':  ('Als Datei speichern …', 'Save as a file …'),
-    's_di_ordner':     ('Eigenen Ordner öffnen', 'Open own folder'),
+    # ⚠ „Als Datei speichern …" und „Eigenen Ordner öffnen" sind am 05.09.2026
+    # gestrichen worden — in über einem Jahr hat sie niemand benutzt. Beide
+    # erzeugten Arbeit, statt sie abzunehmen: Wer den Bericht als Datei ablegt,
+    # muss ihn danach noch irgendwohin bringen. Kopieren tut dasselbe in einem
+    # Schritt weniger.
     's_di_browser_ok': ('Formular im Browser geöffnet', 'Form opened in the browser'),
     's_di_browser_weg': ('Browser ließ sich nicht öffnen', 'The browser would not open'),
     's_di_kopiert':    ('Angaben kopiert', 'Details copied'),
-    's_di_gespeichert': ('Gespeichert: %s', 'Saved: %s'),
-    's_di_speich_weg': ('Speichern ging nicht', 'Saving did not work'),
     's_di_sicher':     ('Du siehst vorher genau, was du verschickst.',
                           'You see exactly what you send before you send it.'),
     's_di_sicher_h':   ('Der Block oben ist der ganze Inhalt — nichts wird im Hintergrund übertragen, und Pfade sind gekürzt, damit kein Benutzername in einem öffentlichen Issue landet.',
@@ -2904,6 +2905,19 @@ TEXTE = {
     'b_n_orte':          ('%d Orte · Stand %s', '%d locations · build %s'),
     'b_nicht_geladen':   ('noch nicht geladen', 'not loaded yet'),
     'b_melder':          ('Von', 'From'),
+    # ⚠ Die Meldung steht im Bericht ganz oben, direkt unter dem Namen — was
+    # der Mensch schreibt, ist der Anfang jeder Diagnose.
+    'b_meldung':         ('Was passiert ist', 'What happened'),
+    's_meldung':         ('Was ist passiert? (freiwillig)',
+                            'What happened? (optional)'),
+    's_meldung_h':       ('Ein Satz genügt — „Auftrags-Protokoll aktualisiert '
+                          'sich nicht". Er steht dann oben im Bericht, statt '
+                          'dass du ihn woanders hinschreiben musst. Wird nicht '
+                          'gespeichert: Er gehört zu diesem einen Bericht.',
+                            'One sentence is enough — "mission log does not '
+                            'update". It then appears at the top of the '
+                            'report instead of having to go somewhere else. '
+                            'Not stored: it belongs to this one report.'),
     's_melder':          ('Dein Name (freiwillig)', 'Your name (optional)'),
     's_melder_h':        ('Steht im Fehlerbericht, damit sich Rückfragen '
                           'zuordnen lassen. Am besten der Discord-Name. Leer '

@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.3 - 2026-09-05
+
+> **Say what happened in the error report.** Next to your name there is now a
+> field for one sentence — it appears at the top of the report, where it
+> belongs.
+
+### New
+
+- **"What happened?" field** on the *Report a problem* page. One sentence is
+  enough; it lands at the very top of the report, ahead of all the technical
+  details. Not stored — it belongs to this one report.
+  Idea by **Bushwick4712**.
+
+### Improved
+
+- **Two buttons removed** from the report page: "Save as a file" and "Open own
+  folder". Nobody has used them in over a year, and both created work instead
+  of saving it. "Copy details" does the same in one step less.
+
+### Fixed
+
+- **The mission log did not refresh when opened for the first time.** Start the
+  watcher in the morning, hand in contracts at noon, then switch here for the
+  first time — you saw the state from startup.
+  Reported by **Bushwick4712**.
+
 ## v3.15.2 - 2026-09-05
 
 > **Routes: the inputs stay put when you scroll down to the runs.** Starting

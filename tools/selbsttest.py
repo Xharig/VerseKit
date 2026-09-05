@@ -6651,8 +6651,13 @@ def main():
         else:
             _falsch77.append('%s(...) in Zeile %d' % (_k77.func.attr,
                                                       _k77.lineno))
-    pruefe(_richtig77 >= 4,
-           'alle vier Knoepfe holen den Text aus dem Kasten (%d gefunden)'
+    # ⚠ Drei seit dem 05.09.2026: „Als Datei speichern" und „Eigenen Ordner
+    # oeffnen" sind gestrichen — in ueber einem Jahr hat sie niemand benutzt.
+    # Uebrig sind Absenden, Melden und Kopieren, und jeder von ihnen muss den
+    # Text weiterhin FRISCH aus dem Kasten holen: Sonst verschickt jemand einen
+    # Bericht ohne den Satz, den er gerade eingetippt hat.
+    pruefe(_richtig77 >= 3,
+           'alle Knoepfe holen den Text aus dem Kasten (%d gefunden)'
            % _richtig77)
     pruefe(not _falsch77,
            'keiner nimmt eine aeltere Fassung (%s)'

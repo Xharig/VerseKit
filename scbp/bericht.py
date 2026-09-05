@@ -70,6 +70,26 @@ def _sicher(f, standard='—'):
         return standard
 
 
+def _umbrechen(text, breite):
+    """Einen Satz auf mehrere Zeilen verteilen, ohne Wörter zu zerschneiden.
+
+    ⚠ Kein `textwrap`: Der Bericht soll auch dann noch stehen, wenn jemand
+    eine einzelne Zeile ohne Leerzeichen einträgt (ein Pfad zum Beispiel) —
+    die bleibt hier ganz, statt hart getrennt zu werden. Lieber eine zu lange
+    Zeile als ein zerschnittener Dateiname.
+    """
+    zeilen, laufend = [], ''
+    for wort in (text or '').split():
+        if laufend and len(laufend) + 1 + len(wort) > breite:
+            zeilen.append(laufend)
+            laufend = wort
+        else:
+            laufend = (laufend + ' ' + wort) if laufend else wort
+    if laufend:
+        zeilen.append(laufend)
+    return zeilen or ['']
+
+
 def _gedraengt(eintraege):
     """Gleiche Zeilen hintereinander zu einer zusammenfassen.
 
@@ -428,7 +448,7 @@ def _injektionslage():
     return ' · '.join(x for x in teile if x)
 
 
-def bauen(version='', wurzel=None, fehleranzahl=8):
+def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     """Den Bericht als Text zusammensetzen."""
     zeilen = []
 
@@ -450,6 +470,23 @@ def bauen(version='', wurzel=None, fehleranzahl=8):
     # die einzige Angabe, die der Nutzer BEWUSST macht, verschwand dadurch.
     # Aufgefallen am 29.08.2026 auf einem Bildschirmfoto, nicht im Test.
     zeilen.append('%-18s%s' % (t('b_melder'), melder or t('s_melder_leer')))
+    # ⭐⭐ **Was ist passiert — in eigenen Worten, ganz oben.** Ohne dieses Feld
+    # landete die Meldung im Namen: „BUSHWICK mission log updated niocht"
+    # (05.09.2026). Der Hinweis war da, nur an der falschen Stelle.
+    #
+    # ⚠ Steht **vor** allen technischen Angaben. Was der Mensch schreibt, ist
+    # der Anfang jeder Diagnose — die Zahlen darunter belegen oder widerlegen
+    # es. Umgekehrt sucht man erst in 60 Zeilen Technik nach dem Grund, warum
+    # jemand überhaupt geschrieben hat.
+    #
+    # ⚠ Mehrzeilig eingerückt, damit ein langer Satz die Spaltenform nicht
+    # sprengt — und durch `kuerzen()`, denn hier kann ein Pfad drinstehen.
+    hinweis = (meldung or '').strip()
+    if hinweis:
+        zeilen.append('')
+        zeilen.append(t('b_meldung'))
+        for stueck in _umbrechen(pfade.kuerzen(hinweis), 76):
+            zeilen.append('  ' + stueck)
     zeilen.append('')
 
     uebersicht = _sicher(pfade.uebersicht, {})

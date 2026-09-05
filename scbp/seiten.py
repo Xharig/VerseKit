@@ -2328,6 +2328,17 @@ def _auftragslog(fenster, rahmen):
     # die während der Nachlese gebaut wurde, für immer leer.
     fenster.beim_zeigen['auftragslog'] = _auffrischen
 
+    # ⚠⚠ **Und beim ERSTEN Öffnen auch.** `beim_zeigen` feuert nur, wenn die
+    # Seite bereits gebaut war (`if kennung in self.gezeichnet`) — beim ersten
+    # Besuch also nicht. Wer den Watcher morgens startet, mittags einen Auftrag
+    # abgibt und dann zum ersten Mal hierher wechselt, sah den Stand vom
+    # Programmstart. Am 05.09.2026 gemeldet von **Bushwick4712**: „mission log
+    # updated nicht."
+    #
+    # ⚠ Der Aufruf steht am Ende, nachdem alles gebaut ist — vorher gäbe es
+    # nichts zu zeichnen.
+    _auffrischen()
+
 
 def _joysticks(fenster, rahmen):
     """Welcher Stick welche Nummer hat — und was darauf liegt.
@@ -4771,6 +4782,22 @@ def _diagnose(fenster, rahmen):
                               '#0c1017', LINIE, ACCENT, FG)
     melder_feld.halter.pack(fill='x', pady=(8, 0))
 
+    # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.**
+    # Am 05.09.2026 schrieb Bushwick4712 seine Meldung („mission log updated
+    # nicht") in das **Namensfeld**, weil es das einzige war, in das man etwas
+    # tippen konnte. Der Bericht kam damit als „BUSHWICK mission log updated
+    # niocht" an — der Hinweis war da, aber an der falschen Stelle, und wäre
+    # bei einem längeren Satz abgeschnitten worden.
+    #
+    # ⚠ **Nicht gespeichert.** Anders als der Name gehört ein Satz zu *einem*
+    # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
+    # versehentlich zu einer zweiten Meldung mitgeschickt.
+    meldung_var = tk.StringVar()
+    ziel_meldung = _feld(fenster, innen, t('s_meldung'), t('s_meldung_h'))
+    meldung_feld = rundes_feld(ziel_meldung, meldung_var, fenster.f_klein,
+                               '#0c1017', LINIE, ACCENT, FG)
+    meldung_feld.halter.pack(fill='x', pady=(8, 0))
+
     text = ''
     try:
         text = bericht.bauen(version=fenster.version, wurzel=fenster.root)
@@ -4790,18 +4817,16 @@ def _diagnose(fenster, rahmen):
     feld.insert('1.0', text)
     feld.configure(state='disabled')
 
-    def melder_uebernehmen(*_):
-        """Namen sichern und den Bericht neu aufbauen.
+    def _bericht_neu():
+        """Den Bericht neu aufbauen — mit dem, was gerade in den Feldern steht.
 
         ⚠ Der Bericht wird beim Öffnen der Seite EINMAL gebaut. Ohne dieses
-        Auffrischen stünde der eben eingetippte Name nicht darin — man sähe
+        Auffrischen stünde der eben eingetippte Text nicht darin — man sähe
         „nicht angegeben" und hielte das Feld für kaputt."""
-        neu_wert = melder_var.get().strip()
-        if neu_wert == (pfade.einstellung('melder_name') or ''):
-            return
-        pfade.einstellung_setzen('melder_name', neu_wert)
         try:
-            frisch = bericht.bauen(version=fenster.version, wurzel=fenster.root)
+            frisch = bericht.bauen(version=fenster.version,
+                                   wurzel=fenster.root,
+                                   meldung=meldung_var.get().strip())
         except Exception as ausnahme:
             fehler.merken('seiten.diagnose_melder', ausnahme)
             return
@@ -4810,8 +4835,19 @@ def _diagnose(fenster, rahmen):
         feld.insert('1.0', frisch)
         feld.configure(state='disabled')
 
+    def melder_uebernehmen(*_):
+        """Den Namen sichern — er gilt dauerhaft, anders als die Meldung."""
+        neu_wert = melder_var.get().strip()
+        if neu_wert != (pfade.einstellung('melder_name') or ''):
+            pfade.einstellung_setzen('melder_name', neu_wert)
+        _bericht_neu()
+
     melder_feld.bind('<FocusOut>', melder_uebernehmen)
     melder_feld.bind('<Return>', melder_uebernehmen)
+    # ⚠ Die Meldung wird **nicht** gespeichert — sie gehört zu diesem einen
+    # Bericht. Deshalb nur den Text neu bauen, nichts ablegen.
+    meldung_feld.bind('<FocusOut>', lambda _=None: _bericht_neu())
+    meldung_feld.bind('<Return>', lambda _=None: _bericht_neu())
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(12, 0))
@@ -4846,11 +4882,6 @@ def _diagnose(fenster, rahmen):
         if bericht.in_die_ablage(aktueller_bericht(), fenster.root):
             fenster.sagen(t('s_di_kopiert'))
 
-    def speichern():
-        ziel_datei = bericht.speichern(aktueller_bericht())
-        fenster.sagen(t('s_di_gespeichert') % os.path.basename(ziel_datei)
-                      if ziel_datei else t('s_di_speich_weg'))
-
     def absenden():
         """Auf Knopfdruck an den Entwickler — mit vorheriger Rückfrage.
 
@@ -4881,13 +4912,20 @@ def _diagnose(fenster, rahmen):
     # Quellcode, also den Entwickler selbst. am 28.08.2026 gemeldet vor der
     # Diagnose-Seite: „nicht mal ICH finde den." Ein Knopf, der fehlt, sieht aus
     # wie ein Fehler; einer, der beim Drücken sagt, was ihm fehlt, erklärt sich.
+    # ⚠ **Drei Knöpfe, nicht fünf.** „Als Datei speichern" und „Eigenen Ordner
+    # öffnen" sind am 05.09.2026 gestrichen worden: In über einem Jahr hat sie
+    # niemand benutzt. Beide erzeugen Arbeit statt sie abzunehmen — wer den
+    # Bericht abschickt oder kopiert, ist fertig; wer ihn als Datei ablegt,
+    # muss ihn danach noch irgendwohin bringen.
+    #
+    # ⚠ Der Bericht ist damit **nicht** unerreichbar: „In die Ablage kopieren"
+    # gibt denselben Text, und wer ihn wirklich als Datei braucht, fügt ihn ein
+    # und speichert dort. Ein Knopf für einen Zwischenschritt, den niemand geht,
+    # ist Ballast auf einer Seite, auf der man ohnehin schon Ärger hat.
     _knopfreihe(reihe, [
         _knopf(fenster, reihe, t('s_di_absenden'), absenden, gefahr=True),
         _knopf(fenster, reihe, t('s_di_melden'), melden, stark=True),
         _knopf(fenster, reihe, t('s_di_kopieren'), kopieren),
-        _knopf(fenster, reihe, t('s_di_speichern'), speichern),
-        _knopf(fenster, reihe, t('s_di_ordner'),
-               lambda: _ordner_zeigen(pfade.app_ordner())),
     ])
 
     _status(fenster, innen, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))

@@ -6,6 +6,32 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.3 - 2026-09-05
+
+> **Sag im Fehlerbericht, was passiert ist.** Neben deinem Namen gibt es jetzt
+> ein Feld für einen Satz — er steht oben im Bericht, wo er hingehört.
+
+### Neu
+
+- **Feld „Was ist passiert?"** auf der Seite *Fehler melden*. Ein Satz genügt;
+  er landet ganz oben im Bericht, noch vor allen technischen Angaben. Wird
+  nicht gespeichert — er gehört zu diesem einen Bericht.
+  Idee von **Bushwick4712**.
+
+### Verbessert
+
+- **Zwei Knöpfe weniger** auf der Melde-Seite: „Als Datei speichern" und
+  „Eigenen Ordner öffnen". Beide hat in über einem Jahr niemand benutzt, und
+  beide erzeugten Arbeit statt sie abzunehmen. „Angaben kopieren" tut dasselbe
+  in einem Schritt weniger.
+
+### Behoben
+
+- **Das Auftrags-Protokoll frischte beim ersten Öffnen nicht auf.** Wer den
+  Watcher morgens startet, mittags Aufträge abgibt und dann zum ersten Mal
+  hierher wechselt, sah den Stand vom Programmstart.
+  Gemeldet von **Bushwick4712**.
+
 ## v3.15.2 - 2026-09-05
 
 > **Routen: Die Eingaben bleiben stehen, wenn du zu den Fahrten rollst.**
