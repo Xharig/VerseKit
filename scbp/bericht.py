@@ -572,7 +572,16 @@ def bauen(version='', wurzel=None, fehleranzahl=8):
     if seiten:
         zeilen.append('')
         zeilen.append(t('b_spur_seiten'))
-        for eintrag in seiten[-12:]:
+        # ⚠⚠ **24 Zeilen, nicht 12 — der Weg zum Bericht frisst die Spur.**
+        # Jede Seite belegt zwei Zeilen; zwölf zeigten also sechs Seiten. Wer
+        # den Bericht holt, klickt sich aber erst durch die Info-Seiten dorthin
+        # — und schob damit genau die Seite hinaus, um die es ging. Am
+        # 05.09.2026 aufgefallen: „Hab Läden geöffnet und auch mal was
+        # gesucht", und im Bericht stand keine Zeile davon.
+        #
+        # Ein Bericht, dessen Beschaffung die Beobachtung zerstört, ist kein
+        # Bericht. `SPUR_REST` hebt 60 Zeilen auf, der Platz war also da.
+        for eintrag in seiten[-24:]:
             zeilen.append('  ' + eintrag)
 
     # ⚠ Und danach der harte Abbruch, falls es einen gab. Er steht **vor** den
