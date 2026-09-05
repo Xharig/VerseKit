@@ -2166,6 +2166,24 @@ TEXTE = {
                                'Nothing here for that — type a name or pick a '
                                'type above.'),
     's_ld_alle_bereiche': ('Alle Bereiche', 'All sections'),
+    's_ld_ber_schiffe':  ('Schiffe', 'Ships'),
+    's_ld_kaufen':       ('Kaufen', 'Buy'),
+    's_ld_mieten':       ('Mieten (pro Tag)', 'Rent (per day)'),
+    's_ld_schiff_nichts': ('Zu diesem Schiff liegen keine Kauf- oder '
+                           'Mietpreise vor.',
+                             'No purchase or rental prices are available for '
+                             'this ship.'),
+    's_ld_scu':          ('%d SCU Laderaum', '%d SCU cargo'),
+    # ⚠ Die Liste gliedert nach Warengruppe — sonst steht bei „Systeme (176)"
+    # eine Namensreihe ohne jede Ordnung, und niemand weiß, was dazugehört.
+    's_ld_weitere':      ('… %d weitere in dieser Gruppe',
+                            '… %d more in this group'),
+    # ⚠ **Eine gedeckelte Liste muss sagen, dass sie gedeckelt ist.** Sonst
+    # sieht das Ende der Liste aus wie das Ende der Ware.
+    's_ld_mehr_da':      ('%d von %d gezeigt — tipp einen Namen oder wähl '
+                          'oben genauer aus.',
+                            '%d of %d shown — type a name or narrow the '
+                            'selection above.'),
     's_ld_nur_kaufbar':  ('%d Teile, die wirklich jemand verkauft',
                             '%d parts that someone actually sells'),
     # ⚠⚠ **Die Bereiche und Warengruppen von UEX — englisch in den Daten.**
@@ -2174,12 +2192,18 @@ TEXTE = {
     # Schlüssel" steht in `scbp/laeden.py`; kennt sie einen Namen nicht,
     # bleibt der englische stehen — geraten wird nicht.
     's_uk_armor':        ('Rüstung', 'Armor'),
-    's_uk_avionics':     ('Avionik', 'Avionics'),
+    # ⚠ „Avionik" ist ein deutsches Wort und sagt trotzdem nichts — am
+    # 04.09.2026 gefragt: „Was ist Avionic überhaupt, ich hab's doch auf
+    # Deutsch gestellt?" Dahinter stehen Radar und Flight Blades, also die
+    # Elektronik an Bord. Ebenso „Ausrüstung" direkt neben „Rüstung": zwei
+    # Wörter, die sich nur durch drei Buchstaben unterscheiden und
+    # Verschiedenes meinen.
+    's_uk_avionics':     ('Bordelektronik', 'Avionics'),
     's_uk_personal_weapons_s': ('Handfeuerwaffen', 'Personal weapons'),
     's_uk_propulsion':   ('Antrieb', 'Propulsion'),
-    's_uk_systems':      ('Systeme', 'Systems'),
+    's_uk_systems':      ('Schiffskomponenten', 'Systems'),
     's_uk_undersuits_s': ('Unteranzüge', 'Undersuits'),
-    's_uk_utility':      ('Ausrüstung', 'Utility'),
+    's_uk_utility':      ('Zubehör', 'Utility'),
     's_uk_vehicle_weapons_s': ('Schiffswaffen', 'Ship weapons'),
     's_uk_arms':         ('Arme', 'Arms'),
     's_uk_backpacks':    ('Rucksäcke', 'Backpacks'),
@@ -2187,7 +2211,7 @@ TEXTE = {
     's_uk_helmets':      ('Helme', 'Helmets'),
     's_uk_legs':         ('Beine', 'Legs'),
     's_uk_torso':        ('Torso', 'Torso'),
-    's_uk_flight_blade': ('Flight Blades', 'Flight blades'),
+    's_uk_flight_blade': ('Flugcomputer', 'Flight blades'),
     's_uk_radar':        ('Radar', 'Radar'),
     's_uk_attachments':  ('Waffenaufsätze', 'Attachments'),
     's_uk_personal_weapons': ('Handfeuerwaffen', 'Personal weapons'),

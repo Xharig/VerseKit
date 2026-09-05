@@ -6,6 +6,41 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc2 - 2026-09-05
+
+> **Läden ist jetzt zu gebrauchen.** Die Liste gliedert sich nach Warengruppe,
+> die Suche findet auch Gruppennamen — tipp „Radar", und du bekommst die Radare,
+> ohne zu wissen, wo sie einsortiert sind. Suchfeld und Auswahl bleiben beim
+> Rollen stehen. Und **Schiffe** sind dazugekommen: Kaufpreis, Mietpreis pro Tag
+> und Laderaum, nach Werft sortiert.
+
+### Neu
+
+- **Schiffe zum Kaufen und Mieten.** 174 Schiffe mit Kaufpreis, Tagesmiete und
+  Laderaum — nach Werft gruppiert, günstigster Anbieter oben.
+- **Die Suche findet auch Warengruppen.** „Radar", „Raketen", „Kühler" — du
+  musst nicht wissen, ob etwas unter Schiffskomponenten oder Schiffswaffen
+  liegt. Deutsche und englische Bezeichnung funktionieren beide.
+
+### Verbessert
+
+- **Die Liste ist nach Warengruppe gegliedert.** Statt 176 Namen am Stück
+  stehen Kühler, Quantenantriebe, Kraftwerke und Schildgeneratoren mit
+  Überschrift und Anzahl untereinander — von jeder Gruppe ein paar Zeilen,
+  darunter wie viele noch folgen.
+- **Suchfeld und Auswahlmenüs bleiben beim Rollen stehen.**
+- **Die Auswahl passt zusammen.** Warengruppen, die es im gewählten Bereich
+  nicht gibt, werden nicht mehr angeboten.
+- **Verständlichere Bereichsnamen**: Bordelektronik statt Avionik,
+  Schiffskomponenten statt Systeme, Zubehör statt Ausrüstung.
+
+### Behoben
+
+- **Beim Tippen verschwindet die vorige Antwort.** Vorher blieb sie stehen, und
+  es sah aus, als reagiere das Suchfeld nicht.
+- **Eine abgeschnittene Liste sagt es jetzt.** Vorher endete sie stumm bei 40
+  Zeilen und wirkte, als gäbe es nicht mehr.
+
 ## v3.15.0-rc1 - 2026-09-04
 
 > Der Reiter **Läden** zeigte bisher nur Teile, für die es einen Bauplan gibt.

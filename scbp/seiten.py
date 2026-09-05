@@ -5859,6 +5859,24 @@ SCHIFFSWAFFEN = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
                            'tachyon'))
 FPS_WAFFEN = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
 
+# ⚠ Wie viele Zeilen die Vorschlagsliste höchstens zeigt. Steht mehr an, sagt
+# sie das am Ende — eine stumm abgeschnittene Liste sieht aus wie das Ende der
+# Ware.
+LISTE_HOECHSTENS = 40
+
+# ⚠⚠ **Wie viele Zeilen je Warengruppe, wenn mehrere nebeneinanderstehen.**
+# Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da nicht
+# durch." Bei 176 Treffern in vier Gruppen füllte allein die erste Gruppe die
+# ganze Liste — die anderen drei sah man nie. Ein Deckel **je Gruppe** zeigt
+# stattdessen von jeder etwas, und darunter steht, wie viele noch folgen.
+JE_GRUPPE = 6
+
+# Kennzeichen für Einträge, die kein Ladenteil sind. Sie müssen sich von jeder
+# echten Kennung unterscheiden — deshalb ein Doppelpunkt, den UUIDs nicht haben.
+SCHIFF_PRAEFIX = 'schiff:'
+WERFT_PRAEFIX = 'werft:'
+BEREICH_SCHIFFE = '__schiffe'
+
 
 def _laeden(fenster, rahmen):
     """Der Reiter „Läden": Wo bekomme ich ein fertiges Teil, und was kostet es?
@@ -5875,14 +5893,24 @@ def _laeden(fenster, rahmen):
     from . import herstellung as herst_modul, laeden as laden_modul
 
     _ueberschrift(fenster, rahmen, t('hf_laeden'), t('s_ld_lead'))
-    innen = _rollflaeche(rahmen)
 
     suche = tk.StringVar()
     gewaehlt = {'name': '', 'kennung': ''}
     laeuft = {'ja': False}
     wahl = {'bereich': '', 'gruppe': ''}
 
-    such_rahmen = tk.Frame(innen, bg=BG)
+    # ⚠⚠ **Suchfeld und Auswahl bleiben stehen, nur die Liste rollt.**
+    # Am 04.09.2026 gemeldet: „Auswahlfelder verschwinden oben beim
+    # Runterscrollen." Wer bei Zeile 30 merkt, dass er die Auswahl ändern
+    # will, muss sonst erst wieder hochrollen — und weiß beim Rollen nicht
+    # mehr, wonach er überhaupt gefiltert hat.
+    #
+    # Genau die Regel aus dem Projekt-Handbuch: Erst alles Feste packen,
+    # **danach** die rollende Fläche mit `expand=True`.
+    kopf = tk.Frame(rahmen, bg=BG)
+    kopf.pack(fill='x', side='top')
+
+    such_rahmen = tk.Frame(kopf, bg=BG)
     such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
     feld = tk.Entry(such_rahmen, textvariable=suche, font=fenster.f_grund,
                     bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
@@ -5898,10 +5926,19 @@ def _laeden(fenster, rahmen):
     #
     # Genau dafür gibt es `_filterleiste` — sie trägt in ihrem eigenen Kopf
     # den Satz „das Bedienkonzept sollte nicht jedes Mal ändern".
-    filter_rahmen = tk.Frame(innen, bg=BG)
+    filter_rahmen = tk.Frame(kopf, bg=BG)
     filter_rahmen.pack(fill='x', padx=24, pady=(8, 0))
 
-    vorschlag_rahmen = tk.Frame(innen, bg=BG)
+    # Die Standzeile gehört zum festen Kopf — sie sagt, worauf sich die Liste
+    # darunter bezieht.
+    stand_zeile = tk.Label(kopf, text='', bg=BG, fg=GOLD,
+                           font=fenster.f_klein, anchor='w')
+
+    # Ab hier rollt es.
+    innen = _rollflaeche(rahmen, rand=0)
+
+    vorschlag_rahmen = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
+                                highlightbackground=LINIE)
     vorschlag_rahmen.pack(fill='x', padx=24)
     ergebnis_rahmen = tk.Frame(innen, bg=BG)
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
@@ -5933,9 +5970,24 @@ def _laeden(fenster, rahmen):
             fehler.merken('seiten.laeden.katalog_teile', ausnahme)
             katalog = []
         if katalog:
-            return [{'name': x['name'], 'kennung': x['kennung'],
+            raus = [{'name': x['name'], 'kennung': x['kennung'],
                      'bereich': x['abschnitt'], 'gruppe': x['kategorie']}
                     for x in katalog if x['name'] and x['kennung']]
+            # ⭐ **Schiffe gehören dazu.** Die Kauf- und Mietpreise lagen seit
+            # v3.14.0 vor, wurden aber nur für den Frachtraum im Routenplaner
+            # benutzt — angezeigt hat sie nie jemand. Ein Reiter „wo bekomme
+            # ich das" ist der Ort dafür. Warengruppe ist die Werft: Wer ein
+            # Schiff sucht, sucht meistens „die Drakes".
+            try:
+                from . import schiffe as schiff_modul
+                for s in schiff_modul.katalog():
+                    raus.append({'name': s['name'],
+                                 'kennung': SCHIFF_PRAEFIX + s['name'],
+                                 'bereich': BEREICH_SCHIFFE,
+                                 'gruppe': WERFT_PRAEFIX + (s['werft'] or '?')})
+            except Exception as ausnahme:
+                fehler.merken('seiten.laeden.schiffe', ausnahme)
+            return raus
         try:
             alle = [b for b in herst_modul.alle() if b.get('entity')]
         except Exception as ausnahme:
@@ -5989,6 +6041,9 @@ def _laeden(fenster, rahmen):
         bleibt der englische stehen. Ein geratenes deutsches Wort wäre
         schlechter als ein ehrliches englisches.
         """
+        if wert.startswith(WERFT_PRAEFIX):
+            # Eine Werft heißt überall gleich — Drake bleibt Drake.
+            return wert[len(WERFT_PRAEFIX):]
         schluessel = laden_modul.GRUPPE_TEXTE.get(wert)
         if schluessel:
             return t(schluessel)
@@ -5996,6 +6051,8 @@ def _laeden(fenster, rahmen):
 
     def _bereichsname(wert):
         """Bereich lesbar — sonst wie `_gruppenname`."""
+        if wert == BEREICH_SCHIFFE:
+            return t('s_ld_ber_schiffe')
         schluessel = laden_modul.BEREICH_TEXTE.get(wert)
         return t(schluessel) if schluessel else wert
 
@@ -6015,6 +6072,16 @@ def _laeden(fenster, rahmen):
         """
         zaehler = {}
         for b in _teile():
+            # ⚠⚠ **Die Warengruppen richten sich nach dem Bereich.** Sonst
+            # lassen sich Dinge zusammenstellen, die es nicht gibt — am
+            # 04.09.2026 gemeldet: „Rüstung (710)" und „Geschütze (87)"
+            # nebeneinander, Ergebnis null. „Geschütze gehören doch nicht zu
+            # Rüstungen." Eine unmögliche Kombination gehört gar nicht erst
+            # angeboten; der Bereich bleibt dagegen immer vollständig, sonst
+            # käme man aus einer engen Auswahl nicht mehr heraus.
+            if feld == 'gruppe' and wahl['bereich'] \
+                    and b.get('bereich') != wahl['bereich']:
+                continue
             wert = (b.get(feld) or '').strip()
             if wert:
                 zaehler[wert] = zaehler.get(wert, 0) + 1
@@ -6049,12 +6116,73 @@ def _laeden(fenster, rahmen):
         vorschlag_rahmen.pack_forget()
 
     def _liste_zeigen():
-        """Die Vorschlagsliste wieder einhängen — immer über dem Ergebnis."""
-        vorschlag_rahmen.pack(fill='x', padx=24, before=ergebnis_rahmen)
+        """Die Vorschlagsliste wieder einhängen — immer über dem Ergebnis.
+
+        ⚠ **Sie bekommt einen Rand.** Ohne den klebt sie als flache Fläche am
+        Text darüber und sieht nach Beschriftung aus, nicht nach Auswahl —
+        am 04.09.2026 genau so missverstanden. Ein Kasten sagt „hier steht
+        etwas zum Anklicken", bevor jemand den Mauszeiger darüber hält.
+        """
+        vorschlag_rahmen.pack(fill='x', padx=24, pady=(6, 0),
+                              before=ergebnis_rahmen)
+
+    def _schiff_zeichnen(schiffsname):
+        """Kauf- und Mietstellen eines Schiffs — zwei Blöcke untereinander.
+
+        ⚠ **Mieten steht dabei, nicht nur Kaufen.** Für die meisten Schiffe
+        ist die Miete die Zahl, die zählt: Wer einmal Fracht fahren will,
+        mietet für einen Tag, statt Millionen auszugeben.
+        """
+        from . import schiffe as schiff_modul
+        kopf = tk.Frame(ergebnis_rahmen, bg=BG)
+        kopf.pack(fill='x', pady=(0, 6))
+        tk.Label(kopf, text=schiffsname, bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(side='left')
+        laderaum = schiff_modul.scu(schiffsname)
+        if laderaum:
+            tk.Label(kopf, text=t('s_ld_scu') % laderaum, bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='e').pack(side='right')
+
+        etwas = False
+        for schluessel, holen in (('s_ld_kaufen', schiff_modul.kaufen),
+                                  ('s_ld_mieten', schiff_modul.mieten)):
+            stellen = holen(schiffsname)
+            if not stellen:
+                continue
+            etwas = True
+            tk.Label(ergebnis_rahmen, text=t(schluessel), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                            pady=(6, 2))
+            for nummer, z in enumerate(stellen):
+                kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
+                                  highlightthickness=1,
+                                  highlightbackground=LINIE)
+                kasten.pack(fill='x', pady=(0, 4))
+                zeile = tk.Frame(kasten, bg=FLAECHE)
+                zeile.pack(fill='x', padx=12, pady=6)
+                tk.Label(zeile, text=_auec(z['preis']), bg=FLAECHE,
+                         fg=ACCENT if nummer == 0 else FG,
+                         font=fenster.f_klein, width=16,
+                         anchor='w').pack(side='left')
+                tk.Label(zeile, text=z.get('stelle') or '?', bg=FLAECHE,
+                         fg=FG, font=fenster.f_klein,
+                         anchor='w').pack(side='left')
+                beiwerk = ' · '.join(x for x in (z.get('ort'), z.get('system'))
+                                     if x)
+                if beiwerk:
+                    tk.Label(zeile, text='  ' + beiwerk, bg=FLAECHE, fg=SUB,
+                             font=fenster.f_klein,
+                             anchor='w').pack(side='left')
+        if not etwas:
+            _fliesstext(ergebnis_rahmen, t('s_ld_schiff_nichts'),
+                        fenster.f_klein, fill='x')
 
     def _ergebnis_zeichnen():
         _leeren(ergebnis_rahmen)
         if not gewaehlt['kennung']:
+            return
+        if gewaehlt['kennung'].startswith(SCHIFF_PRAEFIX):
+            _schiff_zeichnen(gewaehlt['kennung'][len(SCHIFF_PRAEFIX):])
             return
         liste = laden_modul.laeden(gewaehlt['kennung'])
         if liste is None:
@@ -6114,6 +6242,10 @@ def _laeden(fenster, rahmen):
         # erscheint oben — ohne diesen Sprung sieht er weiter die Stelle, an
         # der eben noch seine Auswahl stand.
         _nach_oben(innen)
+        # ⚠ Schiffe liegen schon vollständig vor — ihre Preise kommen aus den
+        # drei Wochenlisten, nicht aus einem Abruf je Gegenstand.
+        if kennung.startswith(SCHIFF_PRAEFIX):
+            return
         if laden_modul.bekannt(kennung) or laeuft['ja']:
             return
         laeuft['ja'] = True
@@ -6144,6 +6276,19 @@ def _laeden(fenster, rahmen):
     def _vorschlaege(*_a):
         _liste_leeren()
         text = suche.get().strip().lower()
+        # ⚠⚠ **Wer tippt, sucht etwas Neues — die alte Antwort muss weg.**
+        # Am 04.09.2026 gemeldet: „Nachdem ich boomtube eingegeben habe,
+        # bleibt das Eingabefeld ohne Funktion, ich kann nach keinem zweiten
+        # Artikel suchen." Es reagierte sehr wohl — nur standen unter dem
+        # neuen Vorschlag weiter die 19 Läden des alten Teils, und die
+        # füllten den Bildschirm. Was sich nicht sichtbar ändert, gilt als
+        # kaputt, und zwar zu Recht.
+        #
+        # `_waehlen` leert das Feld (`suche.set('')`), bevor es zeichnet —
+        # deshalb greift das hier nur beim echten Tippen.
+        if text:
+            gewaehlt['name'], gewaehlt['kennung'] = '', ''
+            _leeren(ergebnis_rahmen)
         # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
         # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
         # etwas. Jetzt füllt die Auswahl oben die Liste.
@@ -6151,41 +6296,99 @@ def _laeden(fenster, rahmen):
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
-        treffer = []
+        # ⭐⭐ **Gesucht wird auch in Bereich und Warengruppe.** Am 04.09.2026
+        # gefragt: „Wenn ich Radar suche — sind es Schiffskomponenten,
+        # Untergruppe Radar, oder Schiffswaffen?" Genau das muss man nicht
+        # wissen müssen: Wer „Radar" tippt, bekommt die Gruppe Radar, egal wo
+        # sie einsortiert ist. Gesucht wird in der deutschen **und** der
+        # englischen Bezeichnung — die Quelle ist englisch, und viele kennen
+        # die Teile nur so.
+        namen_memo = {}
+
+        def _heuhaufen(b):
+            schluessel = (b.get('bereich'), b.get('gruppe'))
+            if schluessel not in namen_memo:
+                namen_memo[schluessel] = (' '.join(
+                    (_bereichsname(schluessel[0] or ''),
+                     _gruppenname(schluessel[1] or ''),
+                     schluessel[0] or '', schluessel[1] or ''))).lower()
+            return (b.get('name') or '').lower() + ' ' + namen_memo[schluessel]
+
+        # Nach Warengruppe gebündelt — die Gliederung steht unten.
+        gruppiert = {}
+        gesamt = 0
         for b in _teile():
             if wahl['bereich'] and b.get('bereich') != wahl['bereich']:
                 continue
             if wahl['gruppe'] and b.get('gruppe') != wahl['gruppe']:
                 continue
-            if text and text not in (b.get('name') or '').lower():
+            if text and text not in _heuhaufen(b):
                 continue
-            treffer.append((b['name'], b['kennung']))
-            if len(treffer) >= 40:
-                break
-        if not treffer:
+            gruppiert.setdefault(b.get('gruppe') or '', []).append(
+                (b['name'], b['kennung']))
+            gesamt += 1
+        if not gesamt:
             _liste_zeigen()
             _fliesstext(vorschlag_rahmen, t('s_ld_nichts_gefunden'),
                         fenster.f_klein, fill='x')
             return
         _liste_zeigen()
-        for name, kennung in treffer:
-            zeile = tk.Label(vorschlag_rahmen, text='  ' + name, bg=FLAECHE,
+
+        def _zeile_bauen(name, kennung):
+            zeile = tk.Label(vorschlag_rahmen, text='   ' + name, bg=FLAECHE,
                              fg=FG, font=fenster.f_klein, anchor='w',
                              cursor='hand2')
-            zeile.pack(fill='x', pady=1)
+            zeile.pack(fill='x', ipady=4)
             zeile.bind('<Button-1>',
                        lambda _=None, n=name, k=kennung: _waehlen(n, k))
             zeile.bind('<Enter>',
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
 
+        # ⚠⚠ **Eine Gruppe → flache Liste. Mehrere → gegliedert.**
+        # Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da
+        # nicht durch — die Auswahl bei der Bauplan-Liste ist deutlich feiner
+        # und besser untergliedert." Stimmt: Dort stehen Zwischenüberschriften
+        # je Art. Ohne sie ist „Systeme (176)" eine Namensreihe, aus der
+        # niemand ablesen kann, was überhaupt dazugehört.
+        #
+        # Der Deckel greift deshalb **je Gruppe**, nicht auf die ganze Liste:
+        # Sonst füllte die erste Gruppe alle 40 Zeilen und die übrigen drei
+        # blieben unsichtbar — genau die, nach denen gefragt wurde.
+        if len(gruppiert) == 1:
+            (nur_gruppe, eintraege), = gruppiert.items()
+            gezeigt = eintraege[:LISTE_HOECHSTENS]
+            for name, kennung in gezeigt:
+                _zeile_bauen(name, kennung)
+            if len(eintraege) > len(gezeigt):
+                tk.Label(vorschlag_rahmen,
+                         text='   ' + t('s_ld_mehr_da') % (len(gezeigt),
+                                                           len(eintraege)),
+                         bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                         anchor='w').pack(fill='x', ipady=5)
+            return
+
+        for gruppe, eintraege in sorted(gruppiert.items(),
+                                        key=lambda p: (-len(p[1]),
+                                                       p[0].lower())):
+            tk.Label(vorschlag_rahmen,
+                     text='  %s (%d)' % (_gruppenname(gruppe), len(eintraege)),
+                     bg=FLAECHE, fg=ACCENT, font=fenster.f_fett,
+                     anchor='w').pack(fill='x', ipady=5)
+            for name, kennung in eintraege[:JE_GRUPPE]:
+                _zeile_bauen(name, kennung)
+            rest = len(eintraege) - JE_GRUPPE
+            if rest > 0:
+                tk.Label(vorschlag_rahmen,
+                         text='   ' + t('s_ld_weitere') % rest, bg=FLAECHE,
+                         fg=SUB, font=fenster.f_klein,
+                         anchor='w').pack(fill='x', ipady=4)
+
     # ⚠⚠ **Der Katalog wird beim Öffnen der Seite geholt, nicht beim Start.**
     # Er kostet rund 76 Abrufe und eine knappe Minute (gemessen: 57 s) — das
     # gehört nicht in den Programmstart, wo es niemand angefordert hat. Wer
     # diese Seite öffnet, will genau diese Auskunft; solange sie fehlt, steht
     # die ungefilterte Liste da und ein Hinweis darüber.
-    stand_zeile = tk.Label(innen, text='', bg=BG, fg=GOLD,
-                           font=fenster.f_klein, anchor='w')
 
     def _stand_melden():
         """Sagen, wie viele Teile bereitstehen — statt einer leeren Fläche."""
@@ -6231,6 +6434,13 @@ def _laeden(fenster, rahmen):
                 laden_modul.katalog_holen(fortschritt=melden)
             except Exception as ausnahme:
                 fehler.merken('seiten.laeden.katalog', ausnahme)
+            # ⚠ Die Schiffsdaten gehören zum selben Aufwasch — ohne sie
+            # fehlte der Bereich „Schiffe" in der Liste.
+            try:
+                from . import schiffe as schiff_modul
+                schiff_modul.aktualisieren()
+            except Exception as ausnahme:
+                fehler.merken('seiten.laeden.schiffe_holen', ausnahme)
 
             def fertig():
                 zustand_katalog['laeuft'] = False
@@ -6260,7 +6470,21 @@ def _laeden(fenster, rahmen):
     def _filter_gewechselt():
         gewaehlt['name'], gewaehlt['kennung'] = '', ''
         _leeren(ergebnis_rahmen)
+        # ⚠ Passt die Warengruppe nicht mehr zum neuen Bereich, fällt sie
+        # weg — sonst bliebe eine Auswahl stehen, die null Treffer hat.
+        if wahl['bereich'] and wahl['gruppe']:
+            passend = {b.get('gruppe') for b in _teile()
+                       if b.get('bereich') == wahl['bereich']}
+            if wahl['gruppe'] not in passend:
+                wahl['gruppe'] = ''
         _vorschlaege()
+        # ⚠ **`after_idle`, nicht sofort.** `_filter_bauen` zerstört genau
+        # die Menüs, aus deren Klick wir gerade kommen — mitten im eigenen
+        # Rückruf ist das ein Griff ins Leere.
+        try:
+            filter_rahmen.after_idle(_filter_bauen)
+        except tk.TclError:
+            pass
 
     def _filter_bauen():
         """Die Auswahlmenüs (neu) aufbauen.

@@ -6,6 +6,39 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc2 - 2026-09-05
+
+> **Shops is actually usable now.** The list is grouped by item group, and the
+> search finds group names too — type "radar" and you get the radars, without
+> knowing where they are filed. Search field and dropdowns stay put while you
+> scroll. And **ships** have arrived: purchase price, daily rental and cargo
+> capacity, sorted by manufacturer.
+
+### New
+
+- **Ships to buy and rent.** 174 ships with purchase price, daily rental rate
+  and cargo capacity — grouped by manufacturer, cheapest seller first.
+- **The search finds item groups too.** "Radar", "missiles", "coolers" — you no
+  longer need to know whether something sits under Systems or Ship weapons.
+  German and English names both work.
+
+### Improved
+
+- **The list is grouped by item group.** Instead of 176 names in a row, coolers,
+  quantum drives, power plants and shield generators each get a heading with a
+  count — a few rows from each, and how many more follow.
+- **Search field and dropdowns stay put while you scroll.**
+- **The selection stays coherent.** Item groups that do not exist in the chosen
+  section are no longer offered.
+- **Clearer section names** throughout.
+
+### Fixed
+
+- **Typing clears the previous answer.** It used to stay on screen, making the
+  search field look unresponsive.
+- **A truncated list says so.** It used to stop silently at 40 rows, looking
+  like there was nothing more.
+
 ## v3.15.0-rc1 - 2026-09-04
 
 > The **Shops** tab used to list only parts that have a blueprint. Anyone

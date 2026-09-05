@@ -57,7 +57,8 @@ QUELLE_SCHIFFE = 'https://api.uexcorp.uk/2.0/vehicles'
 QUELLE_KAUF = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
 QUELLE_MIETE = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
-FORMAT = 1
+# 2 seit v3.15.0 — der Datensatz führt jetzt auch die Werft.
+FORMAT = 2
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
 HALTBAR = uex.WOCHE
@@ -82,6 +83,30 @@ def alle():
     schiffe = laden().get('schiffe') or {}
     return sorted((s.get('name') or '' for s in schiffe.values()
                    if (s.get('scu') or 0) > 0), key=str.lower)
+
+
+def katalog():
+    """Jedes Schiff, das irgendwo **zu kaufen oder zu mieten** ist.
+
+    Je Eintrag `name`, `werft` und `scu`. Gedacht für den Laden-Reiter: Dort
+    geht es um die Frage „wo bekomme ich das", und ein Schiff, das nirgends
+    angeboten wird, hat darauf keine Antwort — genau wie ein Teil ohne
+    Ladenpreis.
+
+    ⚠ **Nicht dasselbe wie `alle()`.** Das liefert die Schiffe mit Laderaum
+    für den Routenplaner; hier zählt der Verkaufstresen, nicht der Frachtraum.
+    """
+    daten = laden()
+    schiffe = daten.get('schiffe') or {}
+    zu_haben = set(daten.get('kauf') or {}) | set(daten.get('miete') or {})
+    raus = []
+    for kennung, s in schiffe.items():
+        if kennung not in zu_haben or not (s.get('name') or ''):
+            continue
+        raus.append({'name': s['name'], 'werft': s.get('werft') or '',
+                     'scu': int(s.get('scu') or 0)})
+    raus.sort(key=lambda x: x['name'].lower())
+    return raus
 
 
 def scu(name):
@@ -150,7 +175,11 @@ def aktualisieren():
         kennung = str(x.get('id') or '')
         name = (x.get('name_full') or x.get('name') or '').strip()
         if kennung and name:
-            schiffe[kennung] = {'name': name, 'scu': int(x.get('scu') or 0)}
+            # ⚠ Der Hersteller kommt seit v3.15.0 mit — im Laden-Reiter sind
+            # die Werften die Warengruppen, nach denen jemand sucht („zeig mir
+            # die Drakes"). Ohne ihn wären 280 Schiffe eine Namensliste.
+            schiffe[kennung] = {'name': name, 'scu': int(x.get('scu') or 0),
+                                'werft': (x.get('company_name') or '').strip()}
 
     # ⚠ Die Preislisten dürfen fehlschlagen, ohne dass alles scheitert: Ohne
     # sie kennt man wenigstens noch die Frachträume, und genau die braucht der
