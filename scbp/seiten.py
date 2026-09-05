@@ -9558,6 +9558,30 @@ def _verkauf(fenster, rahmen):
         such_zeichnen()
         _ergebnis()
 
+    # ⚠⚠ **Ein Klick ins Leere nimmt auch den Schreibcursor mit.** Am
+    # 05.09.2026 gemeldet: „Bei Eingabe der Menge muss der Marker aus dem Feld
+    # auch wieder verschwinden, wenn man ins Leere klickt." Stimmt — ein
+    # blinkender Cursor in einem Feld, das man gar nicht mehr bearbeitet,
+    # behauptet, man sei noch dabei.
+    #
+    # ⚠ Nur, wenn wirklich daneben geklickt wurde: Ein Klick in ein anderes
+    # Eingabefeld gehört dorthin, und ein Klick auf einen Knopf soll dessen
+    # eigene Wirkung behalten.
+    def _fokus_loslassen(ereignis):
+        ziel = getattr(ereignis, 'widget', None)
+        if isinstance(ziel, (tk.Entry, tk.Text)):
+            return
+        try:
+            if rahmen.winfo_exists() and rahmen.focus_get() is not None:
+                rahmen.focus_set()
+        except (tk.TclError, KeyError):
+            pass
+
+    try:
+        rahmen.winfo_toplevel().bind('<Button-1>', _fokus_loslassen, add='+')
+    except tk.TclError:
+        pass
+
     neu_zeichnen()
     _ticker()
 

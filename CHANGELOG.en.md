@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.1 - 2026-09-05
+
+> A small follow-up to v3.15.0.
+
+### Fixed
+
+- **Selling: the text cursor stayed in the amount field** even after clicking
+  elsewhere — as if you were still typing.
+
 ## v3.15.0 - 2026-09-05
 
 > **Shops now lists everything somebody sells — not just what you can craft.**

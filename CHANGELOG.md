@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.1 - 2026-09-05
+
+> Kleiner Nachschlag zu v3.15.0.
+
+### Behoben
+
+- **Verkauf: Der Schreibcursor blieb im Mengenfeld stehen**, auch wenn man
+  danebengeklickt hat — als wäre man noch am Tippen.
+
 ## v3.15.0 - 2026-09-05
 
 > **Läden zeigt jetzt alles, was jemand verkauft — nicht mehr nur, was du
