@@ -6,6 +6,30 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc5 - 2026-09-05
+
+> **Round trips work.** Every stop count used to return "no route" — now you
+> get the run back to your start, with the cargo for it. And the lists only
+> reload when a patch has actually landed, instead of every week.
+
+### Fixed
+
+- **Round trips never found a route.** Whether 2, 3 or 4 stops, it always said
+  "no route found for that". Now it tells you what to buy for the way back.
+- **Routes: the search text stayed put when switching manufacturer** and
+  blocked the new selection.
+- **Shops showed the wrong list during the first fetch** — the old blueprint
+  types instead of item groups, with no ships. Now only the notice is shown
+  until the data has arrived.
+
+### Improved
+
+- **Shops and ships only reload after a patch.** Shop prices, ship prices and
+  the item-group catalogue change with a new game version, not with the
+  calendar — a still-valid copy used to be thrown away every week, costing that
+  minute of waiting for nothing.
+- The ship dropdown is now called "manufacturer", as everywhere else.
+
 ## v3.15.0-rc4 - 2026-09-05
 
 > **Class and grade have arrived — now you can find the part that fits.** Every

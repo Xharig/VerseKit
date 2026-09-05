@@ -96,6 +96,13 @@ HOECHSTENS = 200
 # eigenen Abruf — bei 69 Fahrten je Startort wären es sonst 69.
 KETTEN_KANDIDATEN = 5
 
+# ⚠ Wie viele Fahrten auf der **Rückfahrt** einer Rundreise betrachtet werden.
+# Deutlich mehr als `KETTEN_KANDIDATEN`, weil die Fahrt zurück zum Startort
+# selten zu den gewinnstärksten gehört — sie muss aber gefunden werden, sonst
+# gibt es gar keine Rundreise. Kostet keinen Abruf: Die Fahrten des Ortes
+# liegen bereits in der Ablage.
+RUECKFAHRT_KANDIDATEN = 400
+
 # ⚠ Wieviele Fahrten eine Route höchstens hat. Jede Stufe kostet Abrufe, und
 # eine Route über sechs Stationen plant ohnehin niemand: Bis man beim letzten
 # Stopp ist, sind die Preise vom Anfang alt.
@@ -279,9 +286,24 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
         for gewinn_bisher, ort, bisher in zweige:
             if fahrten(ort) is None and not holen(ort):
                 continue
+            # ⚠⚠ **Auf der Rückfahrt zählen ALLE Fahrten, nicht nur die fünf
+            # besten.** Die Fahrt, die zufällig zum Startort zurückführt,
+            # steht so gut wie nie unter den gewinnstärksten fünf — und wenn
+            # sie nicht dabei ist, gibt es überhaupt keine Rundreise.
+            #
+            # Genau daran ist sie bis v3.15.0-rc4 immer gescheitert: gemessen
+            # ab Nyx Gateway 192 Einzelfahrten, und bei 2, 3 und 4 Stationen
+            # jedes Mal „keine Route". Am 05.09.2026 gefragt: „Wenn ich
+            # Rundreise angebe — was kaufe ich auf dem Rückweg?" Gar nichts,
+            # es kam nie eine zustande.
+            #
+            # Teuer ist das nicht: Die Fahrten dieses Ortes liegen bereits in
+            # der Ablage, es wird nur weniger davon weggeworfen.
+            grenze = (RUECKFAHRT_KANDIDATEN if (rundreise and letzte_stufe)
+                      else KETTEN_KANDIDATEN)
             # Nach jeder Fahrt ist mehr Geld da — das darf die nächste nutzen.
             for f in einzelfahrten(ort, scu, (geld or 0) + gewinn_bisher,
-                                   hoechstens=KETTEN_KANDIDATEN):
+                                   hoechstens=grenze):
                 if not f.get('ziel'):
                     continue
                 # ⚠ Denselben Ort nicht zweimal anfahren — außer als Rückkehr
@@ -293,6 +315,12 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
                         continue
                 naechste.append((gewinn_bisher + f['gewinn'], f['ziel'],
                                  bisher + [f]))
+        # ⚠⚠ **Erst aussortieren, dann kürzen.** Auf der letzten Stufe einer
+        # Rundreise zählen nur Zweige, die wirklich am Start enden. Wer vorher
+        # auf die fünf gewinnstärksten kürzt, wirft genau die weg — und die
+        # Prüfung darunter findet dann nichts mehr vor.
+        if rundreise and letzte_stufe:
+            naechste = [z for z in naechste if z[1] == str(start)]
         # Nur die besten Zweige weiterverfolgen, sonst explodiert der Baum.
         naechste.sort(key=lambda z: -z[0])
         zweige = naechste[:KETTEN_KANDIDATEN]

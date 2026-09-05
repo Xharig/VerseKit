@@ -6,6 +6,31 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc5 - 2026-09-05
+
+> **Die Rundreise funktioniert.** Bisher kam bei jeder Stationszahl „keine
+> Route" — jetzt bekommst du die Fahrt zurück zum Start samt Ware. Und die
+> Listen laden nur noch neu, wenn wirklich ein Patch da war, statt jede Woche.
+
+### Behoben
+
+- **Rundreise fand nie eine Route.** Egal ob 2, 3 oder 4 Stationen: Es kam
+  immer „Dafür findet sich gerade keine Route". Jetzt steht da, was du auf dem
+  Rückweg kaufst.
+- **Routen: Der Suchtext blieb beim Herstellerwechsel stehen** und blockierte
+  die neue Auswahl.
+- **Läden zeigte während des ersten Abrufs die falsche Liste** — die alten
+  Bauplan-Arten statt der Warengruppen, ohne Schiffe. Jetzt steht dort nur der
+  Hinweis, bis die Daten da sind.
+
+### Verbessert
+
+- **Läden und Schiffe laden nur nach einem Patch neu.** Ladenpreise,
+  Schiffspreise und der Warengruppen-Katalog ändern sich mit einer neuen
+  Spielversion, nicht mit dem Kalender — bisher wurde ein noch gültiger Stand
+  jede Woche weggeworfen und die knappe Minute Wartezeit fiel umsonst an.
+- Das Menü beim Schiff heißt jetzt „Hersteller", wie überall sonst.
+
 ## v3.15.0-rc4 - 2026-09-05
 
 > **Klasse und Güte sind da — jetzt findet man das passende Teil.** Jede Zeile

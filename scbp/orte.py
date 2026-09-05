@@ -58,13 +58,16 @@ CACHE = 'orte.json'
 FORMAT = 1
 
 # Eine Woche. Stationen kommen mit einem Patch, nicht über Nacht.
-HALTBAR = uex.WOCHE
+HALTBAR = 30 * uex.TAG
 
 # Aus diesen Feldern wird der Ortsname gezogen — in dieser Reihenfolge.
 FELDER = ('space_station_name', 'city_name', 'outpost_name')
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+# ⚠ An den Patch gebunden: Stationen und Aussenposten kommen mit einer neuen
+# Spielversion dazu, nicht zwischendurch.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
+                     patch_bindet=True)
 
 
 def laden():

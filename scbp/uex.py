@@ -157,13 +157,26 @@ class Ablage:
     Ein Fachmodul legt sich davon **eine** an und behält sie als Modulvariable.
     """
 
-    def __init__(self, dateiname, format_nr, haltbar, stempeln=True):
+    def __init__(self, dateiname, format_nr, haltbar, stempeln=True,
+                 patch_bindet=False):
         self.dateiname = dateiname
         self.format_nr = format_nr
         self.haltbar = haltbar
         # ⚠ `stempeln=False` nur für die Ablage des Spielstands selbst — sie
         # würde sich sonst mit ihrem eigenen alten Wert stempeln.
         self.stempeln = stempeln
+        # ⭐⭐ **`patch_bindet=True`: Der Patch entscheidet, nicht die Uhr.**
+        #
+        # Ladenpreise, Schiffspreise und der Warengruppen-Katalog ändern sich
+        # mit einem Spiel-Patch, nicht mit der Tageszeit — anders als die
+        # Warenpreise im Handel, die täglich schwanken. Eine Wochenfrist warf
+        # deshalb jede Woche einen noch gültigen Stand weg und kostete den
+        # Spieler eine Minute Wartezeit für nichts.
+        #
+        # Mit dieser Bindung bleibt die Ablage stehen, bis CIG wirklich etwas
+        # geändert hat; `haltbar` ist dann nur noch die Notfrist für den Fall,
+        # dass sich die Spielversion gar nicht ermitteln lässt.
+        self.patch_bindet = patch_bindet
         # Zuletzt gelesener Inhalt, damit nicht bei jedem Zugriff die Datei
         # neu geparst wird. Der Schlüssel ist (Änderungszeit, Größe): Ändert
         # eine andere Stelle die Datei, fällt das auf und es wird neu gelesen.
@@ -206,9 +219,25 @@ class Ablage:
             return None
 
     def veraltet(self):
-        """Muss neu geholt werden? Ohne Ablage: ja."""
+        """Muss neu geholt werden? Ohne Ablage: ja.
+
+        ⚠ Bei `patch_bindet=True` zählt zusätzlich der Spielstand: Ein neuer
+        Patch macht die Ablage sofort ungültig, ein gleichbleibender hält sie
+        bis zur Notfrist am Leben.
+        """
         a = self.alter()
-        return a is None or a >= self.haltbar
+        if a is None or a >= self.haltbar:
+            return True
+        if self.patch_bindet:
+            # ⚠ Lokal importiert: `spielstand` benutzt selbst eine `Ablage`.
+            try:
+                from . import spielstand
+                ja, _damals, _jetzt = spielstand.ueberholt(self)
+                return bool(ja)
+            except Exception:
+                # Im Zweifel gilt der abgelegte Stand — siehe `ueberholt`.
+                return False
+        return False
 
     def sichern(self, felder, kompakt=False):
         """Die eigenen Felder ablegen; `format` und `geholt` kommen von hier.

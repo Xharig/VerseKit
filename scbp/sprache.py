@@ -2307,7 +2307,8 @@ TEXTE = {
     's_auec':            ('%s aUEC', '%s aUEC'),
     # ⚠ Die Beschriftung sagt, was das Feld TUT. „Schiff" allein ließ offen,
     # wozu man dort etwas einträgt.
-    's_rt_alle_werften': ('Alle Werften', 'All manufacturers'),
+    # ⚠ „Hersteller", nicht „Werft" — so heißt es überall sonst im Werkzeug.
+    's_rt_alle_werften': ('Alle Hersteller', 'All manufacturers'),
     's_rt_schiff':       ('Schiff — trägt den Frachtraum ein',
                             'Ship — fills in the cargo hold'),
     's_rt_keine_schiffe': ('Die Schiffsliste ist noch nicht da — sie wird beim '

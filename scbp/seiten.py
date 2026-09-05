@@ -5516,7 +5516,16 @@ def _routen(fenster, rahmen):
             return
 
         def _gewechselt():
+            # ⚠⚠ **Das Suchfeld wird mit geleert.** Am 05.09.2026 gemeldet:
+            # „Wenn ich einen anderen Hersteller auswähle, muss sich das Feld
+            # oben leeren — Spieler wissen es nicht, löschen es nicht und
+            # sehen nun keine Auswahl mehr." Genau so: Im Feld stand noch
+            # „Drake Ironclad", die neue Werft war Argo — beides zusammen
+            # ergibt nichts, und die Liste blieb leer.
             zustand['schiff'] = ''
+            zustand['stumm_schiff'] = True
+            schiffsuche.set('')
+            zustand['stumm_schiff'] = False
             _schiffvorschlaege()
 
         _filterleiste(fenster, werft_rahmen,
@@ -6088,6 +6097,9 @@ def _laeden(fenster, rahmen):
     # Größe. Der Hersteller ist eine Angabe zum Lesen, kein Suchweg — er steht
     # an der Zeile und wird von der Suche mit gefunden, hat aber kein Menü.
     FILTER_FOLGE = ('bereich', 'gruppe', 'groesse', 'klasse', 'guete')
+    # ⚠ Muss vor `_teile()` stehen — die Funktion fragt ihn ab, um während des
+    # Katalog-Abrufs nicht die falsche Liste zu zeigen.
+    zustand_katalog = {'laeuft': False}
     wahl = dict((f, '') for f in FILTER_FOLGE)
 
     # ⚠⚠ **Suchfeld und Auswahl bleiben stehen, nur die Liste rollt.**
@@ -6151,10 +6163,19 @@ def _laeden(fenster, rahmen):
         craftbaren, darunter Raketen, Bomben, Torpedorohre und
         Railgun-Munition.
 
-        ⚠ **Der Rückfall bleibt.** Solange der Katalog fehlt (erster Start,
-        kein Netz), stehen die Baupläne da — lieber zu wenig als eine leere
-        Seite, die nach einem kaputten Werkzeug aussieht.
+        ⚠⚠ **Der Rückfall auf die Baupläne gilt nur ohne laufenden Abruf.**
+        Er zeigt eine andere Gliederung (Bauplan-Arten statt UEX-Bereiche) und
+        kennt keine Schiffe — wer ihn während der ersten Minute sieht, hält
+        ihn für das Ergebnis. Am 05.09.2026 genau so gemeldet: „Finde Schiffe
+        nicht mehr in der Auswahl bei Läden", während im Hintergrund noch der
+        Katalog geholt wurde.
+
+        Läuft der Abruf, bleibt die Liste deshalb leer und der Hinweis darüber
+        stehen. Nur wenn gar nichts geht (kein Netz), sind die Baupläne besser
+        als eine leere Seite.
         """
+        if zustand_katalog['laeuft']:
+            return []
         try:
             katalog = laden_modul.katalog_teile()
         except Exception as ausnahme:
@@ -6751,8 +6772,6 @@ def _laeden(fenster, rahmen):
                 zustand_katalog['laeuft'] = False
 
         threading.Thread(target=arbeit, daemon=True).start()
-
-    zustand_katalog = {'laeuft': False}
 
     suche.trace_add('write', _vorschlaege)
 

@@ -61,9 +61,12 @@ CACHE = 'schiffe.json'
 FORMAT = 2
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
-HALTBAR = uex.WOCHE
+HALTBAR = 30 * uex.TAG
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+# ⚠ An den Patch gebunden: Schiffe, ihre Frachträume und ihre Kaufpreise
+# ändern sich mit einer neuen Spielversion, nicht im Wochenrhythmus.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
+                     patch_bindet=True)
 
 
 def laden():

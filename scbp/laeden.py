@@ -132,21 +132,30 @@ ID_PRAEFIX = 'id:'
 ABSCHNITTE = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
               'Armor', 'Avionics', 'Undersuits', 'Propulsion')
 
-# Ein Tag, wie bei den Rohstoffpreisen. Ladenpreise sind stabiler als
-# Warenpreise — sie ändern sich mit dem Patch, nicht mit der Tageszeit.
-HALTBAR = uex.TAG
+# ⭐⭐ **Ladenpreise hängen am Patch, nicht an der Uhr.** Sie ändern sich, wenn
+# CIG etwas ändert — anders als die Warenpreise im Handel, die täglich
+# schwanken. Deshalb `patch_bindet=True` unten und hier nur noch eine
+# Notfrist: Sie greift, wenn sich die Spielversion nicht ermitteln lässt.
+#
+# Am 05.09.2026 angeregt: „Damit die Listen schneller laden — wäre es möglich,
+# die als Datenbank beim Spieler abzulegen und nur bei Bedarf zu
+# aktualisieren? Schiffspreise, Waffenpreise erneuern sich ja nicht so
+# häufig." Die Ablage gab es schon; sie warf ihren Inhalt nur zu oft weg.
+HALTBAR = 30 * uex.TAG
 
 # ⚠ Wieviele Gegenstände die Ablage höchstens behält. Ohne Grenze wüchse sie
 # mit jedem angesehenen Teil weiter; 400 deckt jeden realistischen Bestand ab
 # und bleibt unter 200 KB. Beim Überschreiten fliegt der älteste Eintrag.
 HOECHSTENS = 400
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
+                     patch_bindet=True)
 
-# Der Namens-Katalog. Eigene Ablage, eigene Frist: Er ändert sich mit einem
-# Patch, nicht mit dem Tag.
+# Der Warengruppen-Katalog. Eigene Ablage, dieselbe Regel: Er ändert sich mit
+# einem Patch, nicht mit dem Tag — und sein Aufbau kostet rund 50 Sekunden.
+# Genau der Lauf, der bisher jede Woche umsonst fällig wurde.
 _katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT_KATALOG,
-                      haltbar=uex.WOCHE)
+                      haltbar=90 * uex.TAG, patch_bindet=True)
 
 
 def _katalog_sichern(fortschritt=None):
@@ -170,6 +179,16 @@ def _katalog_sichern(fortschritt=None):
     """
     if not _katalog.veraltet():
         return True
+    # ⚠⚠ **Erst den Spielstand, dann den Katalog.** Gesichert wird mit dem
+    # Stand, der in diesem Augenblick bekannt ist — fehlt er, trägt der
+    # Katalog keinen Stempel, und die Patch-Bindung greift beim nächsten Mal
+    # nicht. Beim Programmstart läuft derselbe Abruf; wer diese Seite sofort
+    # öffnet, ist ihm aber möglicherweise zuvorgekommen.
+    try:
+        from . import spielstand
+        spielstand.aktualisieren()
+    except Exception:
+        pass
     kats = uex.holen(QUELLE_KATEGORIEN, 'laeden.kategorien')
     if not kats:
         return False
