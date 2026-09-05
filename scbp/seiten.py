@@ -4891,15 +4891,36 @@ def _diagnose(fenster, rahmen):
         melder_uebernehmen()
         return feld.get('1.0', 'end-1c')
 
+    def _meldung_verbraucht():
+        """Das Feld „Was ist passiert?" leeren — der Satz ist raus.
+
+        ⚠⚠ **Alle drei Knöpfe, nicht nur „Absenden".** Beim ersten Anlauf hing
+        das nur am Absenden. „Angaben kopieren" und „Melden" geben den Bericht
+        aber genauso weiter — beim einen in die Zwischenablage, beim anderen
+        ins Meldeformular. Wer so meldet, hätte seinen Satz eine Woche später
+        unbemerkt am nächsten Bericht hängen.
+
+        ⚠ **Der Kasten bleibt stehen, wie er ist.** Nur das Eingabefeld wird
+        geleert. Wer zweimal kopiert — erst in den Chat, dann ins Formular —
+        bekommt beide Male denselben vollständigen Bericht; würde der Kasten
+        mitgeleert, fehlte beim zweiten Mal genau der Satz, um den es geht.
+        Beim nächsten Öffnen der Seite baut `beim_zeigen['diagnose']` ihn
+        ohnehin frisch auf, dann ist er auch dort weg.
+        """
+        if meldung_var.get().strip():
+            meldung_var.set('')
+
     def melden():
         if bericht.issue_oeffnen(aktueller_bericht()):
             fenster.sagen(t('s_di_browser_ok'))
+            _meldung_verbraucht()
         else:
             fenster.sagen(t('s_di_browser_weg'))
 
     def kopieren():
         if bericht.in_die_ablage(aktueller_bericht(), fenster.root):
             fenster.sagen(t('s_di_kopiert'))
+            _meldung_verbraucht()
 
     def absenden():
         """Auf Knopfdruck an den Entwickler — mit vorheriger Rückfrage.
@@ -4921,19 +4942,12 @@ def _diagnose(fenster, rahmen):
         geklappt, grund = bericht.absenden(aktueller_bericht(), fenster.version)
         fenster.sagen(t('s_di_ab_ok') if geklappt
                       else t('s_di_ab_weg') % grund)
-        # ⚠ **Nach dem Absenden ist das Feld leer** — die Meldung gehört zu
-        # genau diesem einen Bericht. Bliebe sie stehen, hinge sie am nächsten:
-        # Wer eine Woche später etwas anderes meldet, schickt unbemerkt den
-        # alten Satz mit, und der Entwickler sucht einen Fehler, den es längst
-        # nicht mehr gibt.
-        #
         # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz, Dienst weg —,
         # bleibt der Text stehen. Ihn dann zu löschen hieße, dem Melder seine
         # Arbeit wegzunehmen, genau in dem Moment, in dem er es noch einmal
         # versuchen will.
         if geklappt:
-            meldung_var.set('')
-            _bericht_neu()
+            _meldung_verbraucht()
 
     # ⚠ Ganz vorn und in Rot: Wer hier landet, hat ein Problem und sucht den
     # kürzesten Weg.

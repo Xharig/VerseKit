@@ -6,6 +6,24 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.5 - 2026-09-05
+
+> **Der Fehlerbericht gibt nichts preis, was er nicht darf.** Und das Feld
+> „Was ist passiert?" ist jetzt nach jedem Weg wieder leer, nicht nur nach dem
+> Absenden.
+
+### Behoben
+
+- **Das Meldungsfeld wird auch von „Angaben kopieren" und „Melden" geleert.**
+  Bisher nur beim Absenden — wer anders meldet, hätte seinen Satz von heute
+  unbemerkt am nächsten Bericht hängen gehabt. Scheitert das Senden, bleibt er
+  stehen.
+- **Zugangsdaten verschwinden aus dem Fehlerbericht.** Schlug ein Sendeversuch
+  fehl, konnte die Melde-Adresse über das Fehlerprotokoll im Bericht landen —
+  und der Bericht wird öffentlich geteilt. Dasselbe gilt jetzt für
+  Zugangsschlüssel und Token in Adressen. Die Adressen der Datenabrufe bleiben
+  lesbar: Sie sagen, welcher Abruf schiefging, und genau das braucht man.
+
 ## v3.15.4 - 2026-09-05
 
 > **Bauplan gefunden, Zahl stimmt.** Bisher meldete das Werkzeug den neuen

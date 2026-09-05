@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.5 - 2026-09-05
+
+> **The error report gives away nothing it shouldn't.** And the "What
+> happened?" field is now empty again whichever way you send it, not just after
+> pressing Send.
+
+### Fixed
+
+- **"Copy details" and "Report" clear the message field too.** Previously only
+  Send did — anyone reporting another way would have had today's sentence
+  quietly attached to their next report. If sending fails, it stays put.
+- **Credentials no longer reach the error report.** If sending failed, the
+  reporting address could end up in the report via the error log — and reports
+  get shared publicly. The same now goes for access keys and tokens in
+  addresses. The data lookup addresses stay readable: they tell you which
+  request went wrong, which is exactly what you need.
+
 ## v3.15.4 - 2026-09-05
 
 > **Blueprint found, count right.** The tool announced the new blueprint, but

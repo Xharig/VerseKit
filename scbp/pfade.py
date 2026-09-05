@@ -1266,9 +1266,64 @@ def kuerzen(text):
 
         if name and len(name) > 2:
             text = re.sub(re.escape(name), '<benutzer>', text, flags=re.I)
-        return text
+
+        return _geheimnisse_kuerzen(text)
     except Exception:
         return str(text)
+
+
+# Adressen, die ein Geheimnis IM PFAD tragen. Bei einem Discord-Webhook ist der
+# hintere Teil der Schlüssel: Wer ihn hat, kann in den Melde-Kanal schreiben.
+_WEBHOOK = re.compile(
+    r'https://[\w.-]*discord(?:app)?\.com/api/webhooks/\S+', re.I)
+# Und Parameter, die nach Zugang klingen. ⚠ Bewusst eng: `?id_category=3` und
+# `?uuid=…` bleiben stehen — sie sagen, WELCHER Abruf schiefging, und ohne sie
+# ist ein Netzfehler nicht mehr zu deuten.
+_ZUGANG = re.compile(
+    r'([?&](?:token|key|api[_-]?key|apikey|secret|auth|password|passwd|pw|'
+    r'access[_-]?token|signature|sig)=)[^&\s]+', re.I)
+
+
+def _geheimnisse_kuerzen(text):
+    """Zugangsdaten aus einem Text nehmen, der öffentlich werden kann.
+
+    ⚠⚠ **Warum das nötig ist — gemessen, nicht vermutet (05.09.2026).** Der
+    Fehlerbericht landet in einem öffentlichen Issue. `absenden()` gibt den
+    Grund eines gescheiterten Sendeversuchs bewusst nicht zurück, weil die
+    Adresse geheim ist — schreibt die Ausnahme aber eine Zeile darüber mit
+    `fehler.merken()` ins Protokoll, und das Protokoll steht im Bericht.
+
+    Vier realistische Fehlerfälle durchgespielt: Drei sind harmlos (`urllib`
+    nennt die Adresse nicht), einer nicht — jede Meldung, die eine Adresse
+    selbst in ihren Text schreibt. Genau dieses Muster gibt es bereits: Die
+    Netzabrufe hängen die abgerufene Adresse an ihre Meldung. Dort ist sie
+    öffentlich und nützlich; beim Melde-Kanal wäre sie ein Schlüssel.
+
+    ⚠ **Eng gefasst mit Absicht.** Eine Adresse im Fehlertext ist das
+    Wertvollste am ganzen Eintrag — sie sagt, welcher Abruf schiefging.
+    Gekürzt wird deshalb nur, was ein Zugang IST: der Webhook-Pfad und
+    Parameter, die so heißen. Alles andere bleibt lesbar.
+    """
+    # ⚠⚠ **Zuerst die EIGENE Adresse — sie ist die einzige, die wirklich weh
+    # tut.** Das Muster darunter erkennt Discord-Webhooks; steht in
+    # `SC_BP_BERICHT_ZIEL` aber etwas anderes (ein eigener Dienst, eine
+    # Weiterleitung), greift es nicht. Hier wird ersetzt, was tatsächlich
+    # eingetragen ist, ganz gleich wie es aussieht.
+    #
+    # ⚠ Lokal importiert: `berichtziel` kommt ohne `pfade` aus, aber ein
+    # Import auf Modulebene würde diese Reihenfolge für immer festschreiben.
+    try:
+        from . import berichtziel
+        adresse = berichtziel.ziel()
+        # Die Längenschwelle ist kein Schmuck: Ohne sie würde ein leeres Ziel
+        # jede Stelle im Text treffen und den ganzen Bericht zerlegen.
+        if adresse and len(adresse) > 12:
+            text = text.replace(adresse, '<meldeadresse>')
+    except Exception:
+        pass                    # lieber ungekürzt als gar kein Bericht
+
+    text = _WEBHOOK.sub('<meldeadresse>', text)
+    return _ZUGANG.sub(r'\1<geheim>', text)
 
 
 def uebersicht():

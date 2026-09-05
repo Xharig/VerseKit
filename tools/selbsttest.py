@@ -10836,6 +10836,102 @@ def main():
            'das Signal nach dem Speichern kommt in der Anzeige an')
 
     print()
+    print('118. Jeder Weg aus dem Fehlerbericht leert das Meldungsfeld')
+    # ⚠⚠ Der Satz in „Was ist passiert?" gehoert zu EINEM Bericht. Bleibt er
+    # stehen, haengt er unbemerkt am naechsten — und der Entwickler sucht einen
+    # Fehler, den der Melder vor einer Woche hatte.
+    #
+    # Beim ersten Anlauf am 05.09.2026 hing das Leeren nur am Absenden.
+    # Gemeldet noch am selben Tag: „bei Angaben kopieren wird der text nicht
+    # geloescht" — und beim Melde-Knopf ebenso wenig. Drei Wege aus dem
+    # Bericht heraus, einer davon aufgeraeumt: Das ist kein halber Fix, das
+    # ist ein Fix, der beim naechsten Nutzer wieder auffaellt.
+    #
+    # ⚠ Diese Wache faengt den VIERTEN Weg, den jemand spaeter baut.
+    _sei118 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                   encoding='utf-8').read()
+
+    # Die Diagnose-Seite herausschneiden — `melden` und `kopieren` heissen
+    # anderswo genauso, und ohne den Schnitt zaehlte die Pruefung fremde
+    # Funktionen mit.
+    _start118 = _sei118.find('def _diagnose(')
+    pruefe(_start118 > 0, 'die Diagnose-Seite ist auffindbar')
+    _ende118 = _sei118.find('\ndef ', _sei118.find('def aktueller_bericht'))
+    _block118 = _sei118[_start118:_ende118 if _ende118 > 0 else len(_sei118)]
+
+    pruefe('def _meldung_verbraucht' in _block118,
+           'es gibt eine Stelle, die das Meldungsfeld leert')
+
+    # Jede der drei Knopf-Funktionen muss sie rufen. Der Rumpf reicht bis zur
+    # naechsten Definition auf derselben Einrueckung.
+    for _knopf118 in ('melden', 'kopieren', 'absenden'):
+        _pos118 = _block118.find('\n    def %s():' % _knopf118)
+        if _pos118 < 0:
+            pruefe(False, 'die Funktion %s() ist auffindbar' % _knopf118)
+            continue
+        _naechste118 = _block118.find('\n    def ', _pos118 + 10)
+        _rumpf118 = _block118[_pos118:_naechste118 if _naechste118 > 0
+                              else len(_block118)]
+        pruefe('_meldung_verbraucht()' in _rumpf118,
+               '%s() leert das Meldungsfeld' % _knopf118)
+
+    # ⚠ Und die Gegenrichtung: NUR bei Erfolg. Scheitert das Senden, muss der
+    # Text stehen bleiben — ihn dann zu loeschen naehme dem Melder seine
+    # Arbeit, genau bevor er es noch einmal versucht.
+    _abs118 = _block118.find('\n    def absenden():')
+    if _abs118 > 0:
+        _rumpf118 = _block118[_abs118:_block118.find('\n    def ', _abs118 + 10)]
+        pruefe('if geklappt:' in _rumpf118,
+               'beim Absenden wird nur nach Erfolg geleert')
+
+    print()
+    print('119. Die Melde-Adresse kommt nicht in den oeffentlichen Bericht')
+    # ⚠⚠ **Gemessen am 05.09.2026, nicht vermutet.** `bericht.absenden()` gibt
+    # den Grund eines gescheiterten Sendeversuchs bewusst NICHT zurueck, weil
+    # die Adresse geheim ist — eine Zeile darueber steht aber
+    # `fehler.merken('bericht.absenden', ausnahme)`, und das Fehlerprotokoll
+    # steht im Bericht, und der Bericht landet in einem oeffentlichen Issue.
+    #
+    # Vier realistische Fehlerfaelle durchgespielt: drei harmlos (urllib nennt
+    # die Adresse nicht), einer nicht — jede Meldung, die eine Adresse selbst
+    # in ihren Text schreibt. Genau dieses Muster gibt es im Programm bereits:
+    # Die Netzabrufe haengen die abgerufene Adresse an ihre Meldung.
+    #
+    # Wer den Webhook hat, kann in den Kanal schreiben. Deshalb eine Wache und
+    # nicht nur ein Kommentar.
+    from scbp import pfade as _pf119
+
+    for _name119, _text119, _darf_nicht119 in (
+            ('Discord-Webhook',
+             'Senden an https://discord.com/api/webhooks/123/GeHeIm_xyz weg',
+             'GeHeIm_xyz'),
+            ('discordapp-Schreibweise',
+             'POST https://discordapp.com/api/webhooks/9/ZuGaNg42 -> 404',
+             'ZuGaNg42'),
+            ('Schluessel als Parameter',
+             'https://dienst.de/abruf?api_key=abc123geheim&format=json',
+             'abc123geheim'),
+            ('Token als Parameter',
+             'https://dienst.de/x?token=eyJhbGciOiJIUzI1NiJ9geheim',
+             'eyJhbGciOiJIUzI1NiJ9geheim')):
+        pruefe(_darf_nicht119 not in _pf119.kuerzen(_text119),
+               '%s wird unkenntlich gemacht' % _name119)
+
+    # ⚠⚠ **Und die Gegenrichtung — sonst waere die Wache eine Verschlechterung.**
+    # Die Adresse in einem Netzfehler ist das Wertvollste am ganzen Eintrag:
+    # Sie sagt, WELCHER Abruf schiefging. Eine Wache, die alles schwaerzt,
+    # macht den Bericht wertlos.
+    for _name119, _bleibt119 in (
+            ('UEX-Kategorie', 'https://api.uexcorp.uk/2.0/items?id_category=3'),
+            ('UEX mit uuid',
+             'https://api.uexcorp.uk/2.0/items_prices?uuid=abc-def-123'),
+            ('UEX-Route',
+             'https://api.uexcorp.uk/2.0/commodities_routes'
+             '?id_terminal_origin=42')):
+        pruefe(_pf119.kuerzen(_bleibt119) == _bleibt119,
+               '%s bleibt lesbar' % _name119)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:
