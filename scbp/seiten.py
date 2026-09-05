@@ -2087,8 +2087,31 @@ def _bestand(fenster, rahmen):
 
     def zuruecksetzen():
         from .hauptfenster import frage_stellen
-        if not frage_stellen(fenster.root, t('s_be_reset'),
-                             t('s_be_reset_frage')):
+
+        # ⚠⚠ **Die Zahlen NENNEN, nicht nur warnen.** Am 05.09.2026 hat ein
+        # Melder seinen Bestand von **232 auf 3** zurückgesetzt — die Warnung
+        # sagte zwar „was älter ist als deine Protokolle, kommt nicht zurück",
+        # aber nicht, wie wenig das bei ihm war. Wer „232 → 3" liest, bricht
+        # ab; wer nur einen Satz liest, klickt weiter.
+        #
+        # ⚠ Gerechnet wird aus dem Bestand selbst: Was aus `log` oder
+        # `nachlese` stammt, kommt beim Neuaufbau zurück — alles andere
+        # (Launcher, Import, von Hand) nicht. Kein Durchlauf über 221
+        # Protokolle nötig, die Auskunft liegt schon da.
+        frage = t('s_be_reset_frage')
+        try:
+            daten = bestand_datei.laden()
+            gesamt = len(daten.get('bauplaene') or {})
+            quellen = bestand_datei.nach_quelle(daten)
+            bleibt = quellen.get('log', 0) + quellen.get('nachlese', 0)
+            if gesamt:
+                frage = '%s\n\n%s' % (
+                    t('s_be_reset_zahlen') % (gesamt, bleibt, gesamt - bleibt),
+                    frage)
+        except Exception as ausnahme:
+            fehler.merken('seiten.bestand.reset_zahlen', ausnahme)
+
+        if not frage_stellen(fenster.root, t('s_be_reset'), frage):
             return
         # ⚠⚠ **Jeder Ausgang sagt etwas.** Ein Knopf, der nach der
         # Warnfrage schweigt, ist von einem kaputten nicht zu unterscheiden.

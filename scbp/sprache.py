@@ -1272,6 +1272,13 @@ TEXTE = {
     's_be_reset':      ('Bestand zurücksetzen', 'Reset inventory'),
     's_be_reset_h':    ('Baut den Bauplan-Bestand aus den vorhandenen Spielprotokollen neu auf.',
                           'Rebuilds the blueprint inventory from the game logs you still have.'),
+    # ⚠⚠ Steht VOR der Warnung und nennt Zahlen: „Du hast 232. Zurück kommen
+    # 3. Verloren gehen 229." Ein Satz ohne Zahlen wird überlesen, drei Zahlen
+    # nicht.
+    's_be_reset_zahlen': ('Du hast %d Baupläne.\nAus deinen Protokollen kommen '
+                          '%d zurück — %d gehen verloren.',
+                          'You have %d blueprints.\n%d come back from your '
+                          'logs — %d will be lost.'),
     's_be_reset_frage': ('Dein Bauplan-Stand wird gelöscht und aus den vorhandenen Protokollen neu aufgebaut.\n\nWas älter ist als deine Protokolle, kommt nicht zurück. Fortfahren?',
                           'Your blueprint inventory will be deleted and rebuilt from the logs you still have.\n\nAnything older than your logs will not come back. Continue?'),
     's_be_reset_ok':   ('Bestand zurückgesetzt — beim nächsten Start neu gelesen',

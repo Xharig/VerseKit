@@ -76,6 +76,24 @@ WINDOWS = sys.platform.startswith('win')
 # Game.log und 0 gelesene Protokolle.
 KANAELE = ('LIVE', 'HOTFIX', 'PTU', 'EPTU', 'TECH-PREVIEW')
 
+# ⚠⚠ **Nur diese beiden teilen sich EINEN Bauplan-Bestand.**
+#
+# Am 05.09.2026 richtiggestellt, nachdem der erste Anlauf alle Kanäle
+# einbezogen hatte: „PTU EPTU und TECHNICAL-PREVIEW müssen wir aber ignorieren
+# ausschließen, die BP Bestände sind im LIVE und HOTFIX nicht verfügbar, die
+# sind getrennt davon."
+#
+# Das ist eine Regel des Spiels, keine Vermutung: Die Testumgebungen laufen auf
+# eigenen Spielständen. Wer dort Baupläne freischaltet, hat sie auf LIVE
+# **nicht** — sie mitzulesen würde also einen Bestand behaupten, den es nicht
+# gibt. Und ein zu viel eingetragener Bauplan ist schlimmer als ein fehlender:
+# Man plant damit und steht dann ohne da.
+#
+# HOTFIX ist der Sonderfall, für den es diese Liste überhaupt gibt — er läuft
+# auf demselben Spielstand wie LIVE und wird nur angelegt, wenn eine Ausbesserung
+# neben der laufenden Fassung erscheint.
+KANAELE_EIN_BESTAND = ('LIVE', 'HOTFIX')
+
 # Unterpfad ab dem Wurzelverzeichnis eines Laufwerks bis zum Spielkanal.
 SC_UNTERPFAD = os.path.join('Roberts Space Industries', 'StarCitizen')
 
@@ -1192,7 +1210,28 @@ def log_sicherungen(ordner=None):
 
     Star Citizen legt bei jedem Spielstart die vorige Game.log unter
     `logbackups/` ab. Daraus lässt sich nachlesen, was ohne laufenden
-    Watcher freigeschaltet wurde."""
+    Watcher freigeschaltet wurde.
+
+    ⚠⚠ **Auch die Protokolle der NACHBARKANÄLE.** Wer von HOTFIX auf LIVE
+    wechselt (oder von PTU zurück), lässt seine ganze Vorgeschichte im anderen
+    Ordner liegen — der Watcher sah davon nichts, obwohl es dieselbe Person mit
+    demselben Spielstand ist.
+
+    Am 05.09.2026 gemeldet: Nach einem Wechsel von HOTFIX auf LIVE kamen aus
+    221 Protokollen nur **drei** Baupläne heraus, weil die übrigen im
+    HOTFIX-Ordner lagen. Dazu: „er hat im HOTFIX noch alle logs liegen … können
+    wir die aus allen Ordner also Live und HOTFIX in die log durchsuchung
+    einbeziehen?"
+
+    ⚠⚠ **Nur LIVE und HOTFIX** — siehe `KANAELE_EIN_BESTAND`. PTU, EPTU und
+    TECH-PREVIEW laufen auf eigenen Spielständen; ihre Baupläne hat man auf
+    LIVE nicht, und sie mitzulesen hieße, einen Bestand zu behaupten, den es
+    nicht gibt.
+
+    ⚠ Es sind **Geschwisterordner**, nicht Unterordner: Neben
+    `…/StarCitizen/LIVE` liegt `HOTFIX`. Doppelt gelesen wird nichts — jeder
+    Kanal hat sein eigenes `logbackups/`.
+    """
     ordner = ordner or spiel_ordner()
     if not ordner:
         return []
@@ -1202,10 +1241,54 @@ def log_sicherungen(ordner=None):
     # Ausgenommen sind nur Dinge, die sicher kein Text sind.
     ausser = ('.zip', '.7z', '.gz', '.rar', '.dmp', '.mdmp', '.png', '.jpg')
     treffer = []
-    for p in glob.glob(os.path.join(ordner, 'logbackups', '*')):
-        if os.path.isfile(p) and not p.lower().endswith(ausser):
+    gesehen = set()
+    for kanal_ordner in _kanal_geschwister(ordner):
+        for p in glob.glob(os.path.join(kanal_ordner, 'logbackups', '*')):
+            if not os.path.isfile(p) or p.lower().endswith(ausser):
+                continue
+            # ⚠ Über den echten Pfad entdoppeln: Ist der eingetragene Ordner
+            # selbst schon ein Kanal, steht er zweimal in der Liste.
+            echt = os.path.realpath(p)
+            if echt in gesehen:
+                continue
+            gesehen.add(echt)
             treffer.append(p)
     return sorted(treffer, key=lambda p: (_mtime(p), p))
+
+
+def _kanal_geschwister(ordner):
+    """Der Ordner selbst und die Kanäle daneben, die denselben Bestand haben.
+
+    ⚠⚠ **Nur `KANAELE_EIN_BESTAND`** — also LIVE und HOTFIX. Ein PTU-Ordner
+    daneben bleibt unangetastet, auch wenn er voller Protokolle steckt: Dort
+    freigeschaltete Baupläne hat man auf LIVE nicht.
+
+    ⚠ Und der eingetragene Ordner selbst kommt IMMER mit, auch wenn er PTU
+    heißt — wer dort spielt, will sein eigenes Protokoll gelesen haben. Nur
+    Nachbarn werden gefiltert.
+
+    ⚠ Kein Raten: Nachbarn werden nur gesucht, wenn der übergeordnete Ordner
+    wirklich `…/StarCitizen` heißt und der eingetragene einer der bekannten
+    Kanäle ist. Wer sein Spiel woanders liegen hat, bekommt genau seinen
+    Ordner — und nichts, was zufällig danebensteht.
+    """
+    raus = [ordner]
+    try:
+        eltern = os.path.dirname(os.path.normpath(ordner))
+        name = os.path.basename(os.path.normpath(ordner)).upper()
+        if name not in KANAELE_EIN_BESTAND:
+            return raus
+        if os.path.basename(eltern).lower() != 'starcitizen':
+            return raus
+        for kanal in KANAELE_EIN_BESTAND:
+            if kanal == name:
+                continue
+            nachbar = os.path.join(eltern, kanal)
+            if os.path.isdir(os.path.join(nachbar, 'logbackups')):
+                raus.append(nachbar)
+    except Exception:
+        pass
+    return raus
 
 
 def _mtime(p):

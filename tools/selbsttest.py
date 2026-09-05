@@ -11799,6 +11799,144 @@ def main():
         shutil.rmtree(_wiese129, ignore_errors=True)
 
     print()
+    print('130. Zuruecksetzen sagt VORHER, was es kostet')
+    # ⚠⚠ **Am 05.09.2026 hat ein Melder seinen Bestand von 232 auf 3 gesetzt.**
+    # Die Warnung war da und sachlich richtig („was aelter ist als deine
+    # Protokolle, kommt nicht zurueck") — sie nannte nur keine Zahlen. Bei ihm
+    # gaben 221 Protokolle ganze 3 Bauplaene her; 229 waren weg.
+    #
+    # Wer „232 → 3" liest, bricht ab. Wer einen Satz liest, klickt weiter.
+    from scbp import bestand as _b130
+
+    _wiese130 = tempfile.mkdtemp(prefix='sc-bp-reset-')
+    _altheim130 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _wiese130
+    try:
+        _d130 = _b130.leer()
+        for _i130 in range(3):
+            _b130.hinzufuegen(_d130, 'Aus Log %d' % _i130, 'log')
+        for _i130 in range(229):
+            _b130.hinzufuegen(_d130, 'Vom Launcher %d' % _i130, 'launcher')
+        _b130.speichern(_d130)
+
+        _g130 = _b130.laden()
+        _q130 = _b130.nach_quelle(_g130)
+        _bleibt130 = _q130.get('log', 0) + _q130.get('nachlese', 0)
+        pruefe(len(_g130['bauplaene']) == 232,
+               'die Lage ist nachgestellt (232 Bauplaene)')
+        # ⚠ Nur was aus Protokollen stammt, kommt beim Neuaufbau zurueck —
+        # Launcher, Import und Handeintraege nicht.
+        pruefe(_bleibt130 == 3,
+               'aus den Protokollen kaemen 3 zurueck (%d)' % _bleibt130)
+
+        pruefe('s_be_reset_zahlen' in sprache.TEXTE,
+               'es gibt einen Text, der die Zahlen nennt')
+        if 's_be_reset_zahlen' in sprache.TEXTE:
+            for _sp130 in (0, 1):
+                pruefe(sprache.TEXTE['s_be_reset_zahlen'][_sp130].count('%d')
+                       == 3,
+                       'er nennt DREI Zahlen (haben, zurueck, verloren) [%d]'
+                       % _sp130)
+
+        # ⚠ Gegenprobe: Ein Bestand nur aus Protokollen verliert nichts —
+        # sonst waere die Warnung eine Panikmache, die man wegklickt.
+        _d130b = _b130.leer()
+        for _i130 in range(5):
+            _b130.hinzufuegen(_d130b, 'Nur Log %d' % _i130, 'log')
+        _b130.speichern(_d130b)
+        _g130b = _b130.laden()
+        _q130b = _b130.nach_quelle(_g130b)
+        pruefe((_q130b.get('log', 0) + _q130b.get('nachlese', 0))
+               == len(_g130b['bauplaene']),
+               'ein reiner Protokoll-Bestand verliert nichts')
+
+        # Und die Anzeige muss die Zahlen wirklich benutzen.
+        _sei130 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                       encoding='utf-8').read()
+        pruefe("s_be_reset_zahlen" in _sei130,
+               'die Warnfrage benutzt den Text')
+    finally:
+        if _altheim130 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim130
+        shutil.rmtree(_wiese130, ignore_errors=True)
+
+    print()
+    print('131. Die Protokolle der Nachbarkanaele kommen mit')
+    # ⚠⚠ **Am 05.09.2026 gemeldet:** Nach einem Wechsel von HOTFIX auf LIVE
+    # gaben 221 Protokolle nur DREI Bauplaene her — die uebrigen lagen im
+    # HOTFIX-Ordner, den der Watcher nie ansah. Dazu: „er hat im HOTFIX noch
+    # alle logs liegen … koennen wir die aus allen Ordner also Live und HOTFIX
+    # in die log durchsuchung einbeziehen?"
+    #
+    # Es ist dieselbe Person mit demselben Spielstand; nur der Kanal ist ein
+    # anderer. Ein Kanalwechsel darf die Vorgeschichte nicht kosten.
+    from scbp import pfade as _pf131
+
+    _wiese131 = tempfile.mkdtemp(prefix='sc-bp-kanal-')
+    try:
+        _sc131 = os.path.join(_wiese131, 'Roberts Space Industries',
+                              'StarCitizen')
+
+        def _kanal131(name, anzahl):
+            ordner = os.path.join(_sc131, name, 'logbackups')
+            os.makedirs(ordner)
+            for i in range(anzahl):
+                with open(os.path.join(ordner, 'G %s %02d.log' % (name, i)),
+                          'w', encoding='utf-8') as d:
+                    d.write('<2026-09-01T10:00:00.000Z> Probe\n')
+            return os.path.join(_sc131, name)
+
+        _live131 = _kanal131('LIVE', 3)
+        _kanal131('HOTFIX', 221)
+        _kanal131('PTU', 7)
+
+        _gefunden131 = _pf131.log_sicherungen(_live131)
+        # ⚠⚠ **PTU bleibt DRAUSSEN** — 224, nicht 231. Die Testumgebungen
+        # laufen auf eigenen Spielstaenden; dort freigeschaltete Bauplaene hat
+        # man auf LIVE nicht. Sie mitzulesen wuerde einen Bestand behaupten,
+        # den es nicht gibt — und ein zu viel eingetragener Bauplan ist
+        # schlimmer als ein fehlender: Man plant damit und steht ohne da.
+        # Am 05.09.2026 richtiggestellt, nachdem der erste Anlauf alle Kanaele
+        # zusammenwarf.
+        pruefe(len(_gefunden131) == 224,
+               'LIVE (3) + HOTFIX (221) = 224, PTU bleibt draussen (%d)'
+               % len(_gefunden131))
+        pruefe(not any(os.sep + 'PTU' + os.sep in p for p in _gefunden131),
+               'kein einziges PTU-Protokoll ist dabei')
+        pruefe(len(set(_gefunden131)) == len(_gefunden131),
+               'und nichts doppelt')
+        # ⚠ Wer SELBST auf PTU spielt, bekommt sein eigenes Protokoll — nur
+        # Nachbarn werden gefiltert, nicht der eingetragene Ordner.
+        _ptu131 = os.path.join(_sc131, 'PTU')
+        pruefe(len(_pf131.log_sicherungen(_ptu131)) == 7,
+               'wer auf PTU spielt, bekommt seine eigenen 7 (%d)'
+               % len(_pf131.log_sicherungen(_ptu131)))
+
+        # ⚠⚠ **Gegenprobe: NICHT wildern.** Ohne sie waere „nimm alles aus der
+        # Nachbarschaft" ebenso gruen — und wer sein Spiel woanders liegen hat,
+        # bekaeme fremde Ordner mitgelesen.
+        _fremd131 = os.path.join(_wiese131, 'IrgendwoAnders')
+        os.makedirs(os.path.join(_fremd131, 'logbackups'))
+        with open(os.path.join(_fremd131, 'logbackups', 'a.log'), 'w') as _d:
+            _d.write('x')
+        pruefe(len(_pf131.log_sicherungen(_fremd131)) == 1,
+               'ein Ordner, der kein Kanal ist, bekommt nur sich selbst')
+
+        # Und ein Ordner, der zwar LIVE heisst, aber nicht unter StarCitizen
+        # liegt — der Name allein reicht nicht.
+        _falsch131 = os.path.join(_wiese131, 'Sonstwo', 'LIVE')
+        os.makedirs(os.path.join(_falsch131, 'logbackups'))
+        with open(os.path.join(_falsch131, 'logbackups', 'a.log'), 'w') as _d:
+            _d.write('x')
+        os.makedirs(os.path.join(_wiese131, 'Sonstwo', 'HOTFIX', 'logbackups'))
+        pruefe(len(_pf131.log_sicherungen(_falsch131)) == 1,
+               'ein LIVE ausserhalb von StarCitizen zieht keine Nachbarn')
+    finally:
+        shutil.rmtree(_wiese131, ignore_errors=True)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

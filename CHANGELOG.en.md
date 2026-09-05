@@ -6,6 +6,34 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.3 - 2026-09-05
+
+> **Switching channels no longer costs you your history.** The watcher now also
+> reads the logs of neighbouring channels — move from HOTFIX to LIVE and you
+> keep everything. And reset tells you what it costs beforehand.
+
+### Fixed
+
+- **Logs from neighbouring channels are now read too.** Moving from HOTFIX to
+  LIVE (or back from PTU) left your entire history in the other folder: one
+  reporter got just **three** blueprints out of 221 logs because the rest sat in
+  the HOTFIX folder.
+
+  It is the same person with the same save — only the channel differs. **Only
+  LIVE and HOTFIX**: PTU, EPTU and Technical Preview run on their own saves, so
+  blueprints unlocked there are not yours on LIVE. The search also only looks
+  beside a real `StarCitizen` folder; if your game lives elsewhere, you still
+  get exactly your folder.
+  Reported by **Zwaersch**.
+
+### Improved
+
+- **The reset warning now states numbers.** One reporter took his inventory
+  from **232 down to 3** this way — the warning was correct but had no figures:
+  his 221 logs held just three blueprints. It now reads "You have 232
+  blueprints. 3 come back from your logs — 229 will be lost."
+  Reported by **Zwaersch**.
+
 ## v3.17.2 - 2026-09-05
 
 > **Stale entries in the mission log now really do clear themselves.** The rule

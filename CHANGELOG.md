@@ -6,6 +6,35 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.3 - 2026-09-05
+
+> **Ein Kanalwechsel kostet dich nicht mehr deine Vorgeschichte.** Der Watcher
+> liest jetzt auch die Protokolle der Nachbarkanäle — wer von HOTFIX auf LIVE
+> wechselt, behält alles. Und Zurücksetzen sagt vorher, was es kostet.
+
+### Behoben
+
+- **Die Protokolle der Nachbarkanäle werden mitgelesen.** Wer von HOTFIX auf
+  LIVE wechselt (oder von PTU zurück), ließ seine ganze Vorgeschichte im
+  anderen Ordner liegen: Bei einem Melder kamen aus 221 Protokollen nur **drei**
+  Baupläne heraus, weil der Rest im HOTFIX-Ordner lag.
+
+  Es ist dieselbe Person mit demselben Spielstand — nur der Kanal ist ein
+  anderer. **Nur LIVE und HOTFIX**: PTU, EPTU und Technical Preview laufen auf
+  eigenen Spielständen, dort freigeschaltete Baupläne hat man auf LIVE nicht.
+  Gesucht wird außerdem nur neben einem echten `StarCitizen`-Ordner; wer sein
+  Spiel woanders liegen hat, bekommt weiterhin genau seinen Ordner.
+  Gemeldet von **Zwaersch**.
+
+### Verbessert
+
+- **Die Warnung vor dem Zurücksetzen nennt Zahlen.** Ein Melder hat seinen
+  Bestand damit von **232 auf 3** gesetzt — die Warnung war richtig, aber ohne
+  Zahlen: Bei ihm gaben 221 Protokolle nur drei Baupläne her. Jetzt steht dort
+  „Du hast 232 Baupläne. Aus deinen Protokollen kommen 3 zurück — 229 gehen
+  verloren."
+  Gemeldet von **Zwaersch**.
+
 ## v3.17.2 - 2026-09-05
 
 > **Karteileichen im Auftrags-Protokoll räumen sich jetzt wirklich ab.** Die
