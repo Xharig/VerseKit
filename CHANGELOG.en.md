@@ -23,6 +23,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **The note "You see exactly what you send" now sits above the buttons**
   instead of below them. It answers the question you ask yourself before
   clicking — and it can no longer drop off the bottom edge.
+- **The "Info" group can no longer be collapsed.** That is where "Report a
+  problem" lives — collapse it and you hide the way to get a problem off your
+  hands, then go looking for it exactly when something is already wrong. Every
+  other group stays collapsible. If you had it collapsed, it is back.
 
 ## v3.15.5 - 2026-09-05
 

@@ -2122,6 +2122,19 @@ class Hauptfenster:
         if not ok:
             self.sagen(t('s_sp_start_nein', grund))
 
+    # ⚠⚠ **Diese Gruppen lassen sich NICHT zuklappen** (05.09.2026).
+    # In „Info" steht „Fehler melden". Wer die Gruppe zuklappt, blendet damit
+    # den Weg aus, auf dem er ein Problem loswird — und sucht ihn genau dann,
+    # wenn etwas klemmt und die Geduld ohnehin am Ende ist. Gemeldet mit dem
+    # Satz: „Info sollte auch nicht einklappbar sein, sonst blendet jemand
+    # Fehler melden aus, und findet es nicht mehr."
+    #
+    # ⚠ Warum nicht einfach alle festnageln: Das Zuklappen gibt es aus einem
+    # guten Grund — die Seitenleiste bestimmt die Mindesthöhe des Fensters,
+    # und zugeklappte Gruppen sparen rund 400 px. Festgenagelt wird deshalb
+    # nur, was im Notfall auffindbar bleiben muss.
+    IMMER_OFFEN = ('info',)
+
     def _gruppe(self, text, kennung=None):
         """Eine Gruppenüberschrift — anklicken klappt ihre Reiter weg.
 
@@ -2142,9 +2155,18 @@ class Hauptfenster:
         der man gerade steht, aus der Leiste, und das sieht nach kaputt aus.
         """
         kennung = kennung or text
-        offen = not pfade.einstellung_wahrheit('gruppe_zu_%s' % kennung, False)
+        fest = kennung in self.IMMER_OFFEN
+        # ⚠ Eine festgenagelte Gruppe steht offen, auch wenn in den
+        # Einstellungen noch ein „zu" von früher liegt. Sonst bliebe sie bei
+        # allen zu, die sie einmal zugeklappt hatten — also genau bei denen,
+        # um die es hier geht.
+        offen = fest or not pfade.einstellung_wahrheit(
+            'gruppe_zu_%s' % kennung, False)
 
-        kopf = tk.Frame(self.leiste, bg=FLAECHE, cursor='hand2')
+        # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
+        # der wie ein Knopf aussieht und nicht reagiert, wirkt kaputt.
+        kopf = tk.Frame(self.leiste, bg=FLAECHE,
+                        cursor='' if fest else 'hand2')
         kopf.pack(fill='x', pady=(10, 0))
         # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Zuerst standen
         # hier Textpfeile (`⌄`/`⌃`) — die sehen je nach Systemschrift anders aus
@@ -2153,7 +2175,11 @@ class Hauptfenster:
         # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
         pfeil = zeichen.zeile(kopf, 'zuklappen' if offen else 'aufklappen',
                               grund=FLAECHE, schrift=self.f_klein)
-        pfeil.pack(side='right', padx=(0, 12))
+        # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil ist ein
+        # Versprechen („hier lässt sich klappen"); eines, das nicht eingelöst
+        # wird, ist schlimmer als keines.
+        if not fest:
+            pfeil.pack(side='right', padx=(0, 12))
         beschriftung = tk.Label(kopf, text=text.upper(), bg=FLAECHE, fg=SUB,
                                 font=self.f_klein, anchor='w', padx=16, pady=6)
         beschriftung.pack(side='left', fill='x', expand=True)
@@ -2166,8 +2192,10 @@ class Hauptfenster:
                                  'pfeil': pfeil, 'offen': offen,
                                  'reiter': []}
 
-        for teil in (kopf, beschriftung, pfeil):
-            teil.bind('<Button-1>', lambda _e, k=kennung: self._gruppe_um(k))
+        if not fest:
+            for teil in (kopf, beschriftung, pfeil):
+                teil.bind('<Button-1>',
+                          lambda _e, k=kennung: self._gruppe_um(k))
         return inhalt
 
     def _gruppe_um(self, kennung, auf=None):
@@ -2175,7 +2203,15 @@ class Hauptfenster:
         g = self.gruppen.get(kennung)
         if not g:
             return
+        # ⚠ **Der Riegel gehört hierher, nicht nur an den Mausklick.** Diese
+        # Funktion wird auch von `_gruppe_von_reiter_oeffnen` gerufen. Wer die
+        # Sperre allein an die Bindung hängt, hat sie beim nächsten Aufrufer
+        # nicht mehr — und der kommt bestimmt.
+        if kennung in self.IMMER_OFFEN and not (auf is True or auf is None):
+            return
         neu_offen = (not g['offen']) if auf is None else bool(auf)
+        if kennung in self.IMMER_OFFEN and not neu_offen:
+            return
         if neu_offen == g['offen']:
             return
         g['offen'] = neu_offen

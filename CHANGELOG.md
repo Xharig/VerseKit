@@ -23,6 +23,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Der Hinweis „Du siehst vorher genau, was du verschickst" steht jetzt vor
   den Knöpfen**, nicht dahinter. Er beantwortet die Frage, die man sich stellt,
   bevor man klickt — und kann am unteren Rand nicht mehr wegfallen.
+- **Die Gruppe „Info" lässt sich nicht mehr zuklappen.** Dort steht „Fehler
+  melden" — wer sie wegklappt, blendet den Weg aus, auf dem er ein Problem
+  loswird, und sucht ihn dann, wenn ohnehin etwas klemmt. Alle anderen Gruppen
+  bleiben klappbar. Hattest du sie zugeklappt, ist sie ab jetzt wieder da.
 
 ## v3.15.5 - 2026-09-05
 

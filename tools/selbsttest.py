@@ -11035,6 +11035,177 @@ def main():
             pass
 
     print()
+    print('121. Eingeklapptes Overlay: ein Fund holt es kurz heraus')
+    # ⚠⚠ **Die Funktion gab es, bewacht war sie nicht.** Am 05.09.2026
+    # nachgefragt — und beim Nachsehen stand im Selbsttest zu
+    # `bei_fund_zeigen` und `_wieder_zuklappen` keine Zeile. Eine Funktion
+    # ohne Wache ist eine Funktion auf Zeit: Der naechste Umbau am Klappen
+    # nimmt sie mit, und gemerkt wird es erst, wenn jemand im Kampf einen
+    # Bauplan verpasst.
+    #
+    # Worum es geht: Wer „Immer sichtbar" gewaehlt und die Leiste zugeklappt
+    # hat, bekam frueher nur den Signalton. Mit durchgereichten Mausklicks
+    # war das doppelt aergerlich — man hoert etwas, kann aber nichts
+    # anklicken. Ein zugeklapptes Overlay schaltete damit genau die Funktion
+    # ab, fuer die es da ist.
+    import tkinter as tk121
+    from scbp import pfade as _pf121
+
+    _alt121 = {
+        'sek': _pf121.einstellung('popup_sekunden'),
+        'modus': _pf121.einstellung('overlay_modus'),
+    }
+    try:
+        # Kurze Zeit, damit die Pruefung nicht sekundenlang dasteht.
+        _pf121.einstellung_setzen('popup_sekunden', 2)
+        _pf121.einstellung_setzen('overlay_modus', 'immer')
+
+        import sc_bp_watcher as _w121
+        _ov121 = _w121.Overlay()
+        _ov121.root.update_idletasks()
+
+        pruefe(_ov121.anzeigeart != 'popup',
+               'die Pruefung laeuft im Dauerbetrieb, nicht im Aufblenden')
+
+        _ov121.klappzustand_setzen(True)
+        _ov121.root.update_idletasks()
+        pruefe(_ov121.eingeklappt, 'das Overlay laesst sich einklappen')
+        pruefe(_pf121.einstellung_wahrheit('eingeklappt', False),
+               'der Wunsch „zugeklappt" wird gemerkt')
+
+        _ov121.add_new('Pruef-Bauplan', 'WeaponGun', '', '12:00:00')
+        _ov121.root.update_idletasks()
+        pruefe(not _ov121.eingeklappt,
+               'ein Fund holt das eingeklappte Overlay heraus')
+        pruefe(_ov121._zuklapp_uhr is not None,
+               'und stellt eine Uhr, damit es nicht offen stehen bleibt')
+        # ⚠ Der Blick darf den gemerkten Wunsch NICHT umschreiben — sonst
+        # staende das Overlay beim naechsten Start offen, obwohl der Spieler
+        # es zugeklappt haben wollte.
+        pruefe(_pf121.einstellung_wahrheit('eingeklappt', False),
+               'der gemerkte Wunsch bleibt trotzdem „zugeklappt"')
+
+        # ⚠⚠ **Der Mauszeiger muss festgehalten werden.** Unter Xvfb steht er
+        # bei (0,0); das aufklappende Overlay landet genau dort, loest
+        # `<Enter>` aus und setzt `_maus_drauf` — dann WARTET das Zuklappen,
+        # zu Recht, und die Pruefung misst ihre eigene Umgebung statt des
+        # Programms. Genau so meldete der erste Anlauf einen Fehler, den es
+        # nicht gab.
+        _ov121._maus_drauf = False
+
+        class _Fern121(object):
+            def __get__(self, _o, _t=None):
+                return False
+
+            def __set__(self, _o, _w):
+                pass
+
+        type(_ov121)._maus_drauf = _Fern121()
+        try:
+            _ov121.root.after(2400, _ov121.root.quit)
+            _ov121.root.mainloop()
+            pruefe(_ov121.eingeklappt,
+                   'nach der eingestellten Zeit geht es zurueck in die Leiste')
+        finally:
+            del type(_ov121)._maus_drauf
+
+        # Und die Ruecksicht: Wer gerade liest, dem klappt nichts unter dem
+        # Zeiger weg.
+        _ov121.klappzustand_setzen(True)
+        _ov121.add_new('Zweiter Pruef-Bauplan', 'WeaponGun', '', '12:00:05')
+        _ov121._maus_drauf = True
+        _ov121.root.after(2400, _ov121.root.quit)
+        _ov121.root.mainloop()
+        pruefe(not _ov121.eingeklappt,
+               'mit der Maus darauf bleibt es offen, statt wegzuklappen')
+
+        try:
+            _ov121.root.destroy()
+        except tk121.TclError:
+            pass
+    finally:
+        for _s121, _wert121 in (('popup_sekunden', _alt121['sek']),
+                                ('overlay_modus', _alt121['modus'])):
+            if _wert121 is not None:
+                _pf121.einstellung_setzen(_s121, _wert121)
+
+    print()
+    print('122. „Info" laesst sich nicht zuklappen — dort steht Fehler melden')
+    # ⚠⚠ **Gemeldet am 05.09.2026:** „Info sollte auch nicht einklappbar sein,
+    # sonst blendet jemand Fehler melden aus, und findet es nicht mehr."
+    #
+    # Genau so: Wer die Gruppe zuklappt, blendet den Weg aus, auf dem er ein
+    # Problem loswird — und sucht ihn dann, wenn etwas klemmt und die Geduld
+    # ohnehin am Ende ist.
+    #
+    # ⚠ Die uebrigen Gruppen bleiben klappbar, und das gehoert mitgeprueft:
+    # Das Zuklappen gibt es aus einem guten Grund — die Seitenleiste bestimmt
+    # die Mindesthoehe des Fensters, zugeklappte Gruppen sparen rund 400 px.
+    # Wer hier alles festnagelt, holt den alten Fehler zurueck.
+    import tkinter as tk122
+    from scbp import pfade as _pf122, hauptfenster as _hf122
+
+    _alt122 = {k: _pf122.einstellung('gruppe_zu_%s' % k)
+               for k in ('info', 'werkstatt')}
+    _w122 = _wurzel()
+    try:
+        # ⚠ Der harte Fall: Jemand hatte die Gruppe FRUEHER zugeklappt. Genau
+        # bei dem muss sie jetzt wieder aufgehen — sonst hilft die Aenderung
+        # niemandem, den sie betrifft.
+        _pf122.einstellung_setzen('gruppe_zu_info', 'ja')
+        _pf122.einstellung_setzen('gruppe_zu_werkstatt', 'ja')
+
+        _w122.deiconify()
+        _w122.geometry('1200x900')
+        _f122 = _hf122.Hauptfenster(_w122, version='0.0.0-pruefung')
+        _w122.update_idletasks()
+
+        pruefe('info' in _hf122.Hauptfenster.IMMER_OFFEN,
+               '„info" steht in der Liste der festen Gruppen')
+
+        _gi122 = _f122.gruppen.get('info')
+        _gw122 = _f122.gruppen.get('werkstatt')
+        pruefe(bool(_gi122 and _gi122['offen']),
+               'Info steht offen, auch mit einem alten „zu" in den '
+               'Einstellungen')
+        pruefe(bool(_gw122 and not _gw122['offen']),
+               'eine gewoehnliche Gruppe bleibt dagegen zugeklappt')
+
+        if _gi122:
+            pruefe(not _gi122['pfeil'].winfo_manager(),
+                   'Info zeigt keinen Klapp-Pfeil (ein Pfeil ist ein '
+                   'Versprechen)')
+            pruefe(not _gi122['kopf'].cget('cursor'),
+                   'und keinen Zeigefinger, wo nichts zu klicken ist')
+
+        # ⚠ Der Riegel muss in `_gruppe_um` sitzen, nicht nur an der Bindung:
+        # Die Funktion wird auch von `_gruppe_von_reiter_oeffnen` gerufen.
+        _f122._gruppe_um('info')
+        _w122.update_idletasks()
+        pruefe(_f122.gruppen['info']['offen'],
+               'auch ein Aufruf von _gruppe_um klappt Info nicht zu')
+        _f122._gruppe_um('info', auf=False)
+        _w122.update_idletasks()
+        pruefe(_f122.gruppen['info']['offen'],
+               'und ein erzwungenes Zuklappen ebenso wenig')
+
+        # Gegenprobe: Die uebrigen lassen sich weiterhin klappen.
+        _f122._gruppe_um('werkstatt', auf=True)
+        _w122.update_idletasks()
+        _f122._gruppe_um('werkstatt')
+        _w122.update_idletasks()
+        pruefe(not _f122.gruppen['werkstatt']['offen'],
+               'die uebrigen Gruppen lassen sich weiterhin zuklappen')
+    finally:
+        try:
+            _w122.destroy()
+        except tk122.TclError:
+            pass
+        for _k122, _v122 in _alt122.items():
+            if _v122 is not None:
+                _pf122.einstellung_setzen('gruppe_zu_%s' % _k122, _v122)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

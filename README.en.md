@@ -425,10 +425,15 @@ From then on the tool also reports test versions (recognisable by the `rc` in th
 - **Without this setting you never see a test version.** If you want peace and quiet,
   do nothing — that is the default.
 
-Found something? An [issue](../../issues) helps more than any guess — or the **Report a bug**
-forum on [Discord](https://discord.gg/g2E7e6XxZC), if a screenshot is quicker than a description. Under
-**For advanced users → Diagnostics** there is "Copy details" — that block holds everything
-needed to track a problem down, without any personal information.
+Found something? The quickest way is **Info → Report a problem**: there is a field
+"What happened?" for one sentence, the finished report below it — and the red
+**Send report** button sends it straight off. That is all you need to do. The report
+holds everything needed to track a problem down and no personal information; you see
+all of it beforehand.
+
+Prefer to do it yourself? An [issue](../../issues) works just as well — the **GitHub
+issue …** button on the same page fills the report in for you. Or the **Report a bug**
+forum on [Discord](https://discord.gg/g2E7e6XxZC), if a screenshot is quicker than a description.
 
 ## Passing it on
 

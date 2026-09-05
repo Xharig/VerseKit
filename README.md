@@ -469,10 +469,15 @@ dieselbe Update-Meldung wie sonst. Nichts von Hand herunterladen, nichts suchen.
 - **Ohne diese Einstellung merkst du von Testversionen nichts.** Wer Ruhe will, muss
   nichts tun — das ist die Voreinstellung.
 
-Etwas gefunden? Ein [Issue](../../issues) hilft mehr als jede Vermutung — oder das Forum
-**Fehler-Melden** im [Discord](https://discord.gg/g2E7e6XxZC), wenn ein Bildschirmfoto schneller geht als eine
-Beschreibung. Unter **Für Fortgeschrittene → Diagnose** gibt es „Angaben kopieren" — der
-Textblock enthält alles, was zur Fehlersuche gebraucht wird, ohne persönliche Angaben.
+Etwas gefunden? Der schnellste Weg ist **Info → Fehler melden**: Dort steht ein Feld
+„Was ist passiert?" für einen Satz, darunter der fertige Bericht — und der rote Knopf
+**Fehlerbericht absenden** schickt ihn direkt. Mehr musst du nicht tun. Der Bericht
+enthält alles, was zur Fehlersuche gebraucht wird, und keine persönlichen Angaben;
+du siehst ihn vorher vollständig.
+
+Lieber selbst? Ein [Issue](../../issues) geht genauso — der Knopf **GitHub Issue …** auf
+derselben Seite legt den Bericht schon hinein. Oder das Forum **Fehler-Melden** im
+[Discord](https://discord.gg/g2E7e6XxZC), wenn ein Bildschirmfoto schneller geht als eine Beschreibung.
 
 ## Weitergeben
 
