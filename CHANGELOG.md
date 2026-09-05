@@ -6,6 +6,39 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc3 - 2026-09-05
+
+> **Jetzt findet man auch, was man nicht beim Namen kennt.** An jeder Zeile
+> stehen Größe und Hersteller, es gibt einen Größen-Filter, und eine gewählte
+> Warengruppe wird vollständig gezeigt statt bei 40 Zeilen abzubrechen. Dazu
+> zwei Ecken im Steuerungs-Reiter, an denen Knöpfe abgeschnitten wurden.
+
+### Neu
+
+- **Größe und Hersteller stehen an jeder Zeile.** Eine Liste aus 44
+  Fantasienamen sagt niemandem etwas — „Größe 1 · Wen-Cassel" schon. So findet
+  man den Quantenantrieb, der ins eigene Schiff passt.
+- **Filter nach Größe.** Geschütze Größe 3, Kühler Größe 1 — was nicht
+  hineinpasst, steht gar nicht erst da.
+
+### Verbessert
+
+- **Eine gewählte Warengruppe wird vollständig gezeigt.** Alle 87 Geschütze,
+  alle 201 Helme — kein Abbruch bei 40 Zeilen mehr.
+- **„… 38 weitere in dieser Gruppe" ist anklickbar** und öffnet die Gruppe.
+- **Zwölf Zeilen je Gruppe** in der Übersicht statt sechs.
+- Kein Hersteller-Menü mehr — der Hersteller steht an der Zeile, und die Suche
+  findet ihn.
+
+### Behoben
+
+- **Steuerung: „Auf Werkseinstellung zurücksetzen" wurde abgeschnitten.** Der
+  Knopf steht jetzt allein in einer eigenen Zeile — sichtbar, und nicht mehr
+  direkt neben vier harmlosen Knöpfen.
+- **Steuerung: Maus, Tastatur und Gamepad verschwanden, wenn man das Fenster
+  kleiner zog.** Die Knopfreihen brechen jetzt um, statt rechts abgeschnitten
+  zu werden.
+
 ## v3.15.0-rc2 - 2026-09-05
 
 > **Läden ist jetzt zu gebrauchen.** Die Liste gliedert sich nach Warengruppe,

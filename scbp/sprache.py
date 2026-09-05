@@ -2167,6 +2167,8 @@ TEXTE = {
                                'type above.'),
     's_ld_alle_bereiche': ('Alle Bereiche', 'All sections'),
     's_ld_ber_schiffe':  ('Schiffe', 'Ships'),
+    's_ld_alle_groessen': ('Alle Größen', 'All sizes'),
+    's_ld_groesse':      ('Größe %s', 'Size %s'),
     's_ld_kaufen':       ('Kaufen', 'Buy'),
     's_ld_mieten':       ('Mieten (pro Tag)', 'Rent (per day)'),
     's_ld_schiff_nichts': ('Zu diesem Schiff liegen keine Kauf- oder '

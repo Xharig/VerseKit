@@ -699,6 +699,70 @@ def _knopfreihe(eltern, knoepfe, abstand=8):
     return eltern
 
 
+def _gitter_ordnen(eltern):
+    """Die Knöpfe eines `_knopfgitter` auf so viele Zeilen verteilen wie nötig."""
+    zustand = getattr(eltern, '_gitter', None)
+    if zustand is None:
+        return
+    knoepfe = zustand['knoepfe']
+    try:
+        if not eltern.winfo_exists() or \
+                not all(k.winfo_exists() for k in knoepfe):
+            return
+    except tk.TclError:
+        return
+    platz = eltern.winfo_width()
+    if platz <= 1 or platz == zustand['breite']:
+        return
+    zustand['breite'] = platz
+    abstand = zustand['abstand']
+    zeile = spalte = 0
+    breit = 0
+    for knopf in knoepfe:
+        noetig = knopf.winfo_reqwidth() + abstand
+        if spalte and breit + noetig > platz:
+            zeile += 1
+            spalte = 0
+            breit = 0
+        knopf.grid(row=zeile, column=spalte, sticky='w',
+                   padx=(0, abstand), pady=(0, 4))
+        breit += noetig
+        spalte += 1
+
+
+def _knopfgitter(eltern, knoepfe, abstand=6):
+    """Knöpfe nebeneinander — und in einer zweiten Zeile, wenn es eng wird.
+
+    ⚠⚠ **Nicht dasselbe wie `_knopfreihe`.** Die kennt nur zwei Zustände,
+    alle nebeneinander oder alle untereinander, und fordert vorher Platz beim
+    Fenster an. Für vier Knöpfe ist das richtig; für sieben Geräteknöpfe wäre
+    „alle untereinander" eine Wand, und Platz anzufordern geht an der Sache
+    vorbei, wenn jemand sein Fenster **absichtlich** klein zieht.
+
+    Am 05.09.2026 gemeldet: „Werkseinstellung zurücksetzen wird abgeschnitten"
+    und „Maus, Tastatur und Gamepad werden auch abgeschnitten beim
+    Kleinerziehen". Tk schneidet eine zu breite Reihe wortlos ab — was rechts
+    nicht mehr hinpasst, ist einfach weg, ohne Rollbalken und ohne Hinweis.
+
+    ⚠ Der Rahmen gehört **allein** dem Gitter: `grid` und `pack` vertragen
+    sich im selben Behälter nicht.
+    """
+    zustand = getattr(eltern, '_gitter', None)
+    if zustand is None:
+        eltern._gitter = {'knoepfe': list(knoepfe), 'breite': 0,
+                          'abstand': abstand}
+        # ⚠ Nur EINMAL binden. Diese Reihen werden neu bestückt, sobald sich
+        # ein Gerät ändert — bei jedem Mal neu zu binden häufte die Rückrufe
+        # an, bis dasselbe Ordnen zwanzigfach liefe.
+        eltern.bind('<Configure>', lambda _=None: _gitter_ordnen(eltern),
+                    add='+')
+    else:
+        zustand['knoepfe'] = list(knoepfe)
+        zustand['breite'] = 0
+    eltern.after(0, lambda: _gitter_ordnen(eltern))
+    return eltern
+
+
 def _fliesstext(eltern, text, schrift, farbe=SUB, grund=BG, abzug=0, **pack):
     """Ein Absatz, der mit dem Fenster mitgeht.
 
@@ -2305,6 +2369,8 @@ def _joysticks(fenster, rahmen):
     kopfzeile = tk.Label(unten, text=t('s_js_belegt'), bg=BG, fg=FG,
                          font=fenster.f_fett, anchor='w')
     werkzeugleiste = tk.Frame(unten, bg=BG)
+    # Eigene Zeile nur für das Zurücksetzen — siehe `werkzeug_zeichnen`.
+    gefahrleiste = tk.Frame(unten, bg=BG)
     sicht_rahmen = tk.Frame(unten, bg=BG)
     filter_rahmen = tk.Frame(unten, bg=BG)
     werkzeug = tk.Frame(unten, bg=BG)
@@ -2568,21 +2634,32 @@ def _joysticks(fenster, rahmen):
         """Sichern, Einspielen, Zurücksetzen — einmal gebaut, bleibt stehen."""
         for kind in werkzeugleiste.winfo_children():
             kind.destroy()
+        for kind in gefahrleiste.winfo_children():
+            kind.destroy()
         # ⚠ Steht **vor** „Belegung sichern": Das Profil ist der Weg, den die
         # meisten wollen — es liegt im Spiel und ist dort ladbar. Die Sicherung
         # als lose Datei ist der Sonderfall (weitergeben, aufheben).
-        _knopf(fenster, werkzeugleiste, t('s_js_profil'),
-               _profil_speichern).pack(side='left', padx=(0, 6))
-        _knopf(fenster, werkzeugleiste, t('s_js_ausgeben'),
-               lambda: _ausgeben(False)).pack(side='left', padx=(0, 6))
-        _knopf(fenster, werkzeugleiste, t('s_js_ausgeben_csv'),
-               lambda: _ausgeben(True)).pack(side='left', padx=(0, 6))
-        _knopf(fenster, werkzeugleiste, t('s_js_einlesen'),
-               _einlesen).pack(side='left', padx=(0, 6))
-        # ⚠ `gefahr=True` färbt dauerhaft rot, nicht erst beim Überfahren —
+        _knopfgitter(werkzeugleiste, [
+            _knopf(fenster, werkzeugleiste, t('s_js_profil'),
+                   _profil_speichern),
+            _knopf(fenster, werkzeugleiste, t('s_js_ausgeben'),
+                   lambda: _ausgeben(False)),
+            _knopf(fenster, werkzeugleiste, t('s_js_ausgeben_csv'),
+                   lambda: _ausgeben(True)),
+            _knopf(fenster, werkzeugleiste, t('s_js_einlesen'), _einlesen),
+        ])
+        # ⚠⚠ **Der gefährliche Knopf steht allein, in einer eigenen Zeile.**
+        # Am 05.09.2026 gemeldet: „Wird abgeschnitten. Willst du den Knopf
+        # nicht besser platzieren, wo er nicht abgeschnitten wird und nicht
+        # aus Versehen gedrückt wird?" Beides richtig — er stand als fünfter
+        # in einer Reihe, die nicht mehr hinpasste, direkt neben vier
+        # harmlosen. Ein Knopf, der die ganze Belegung wegwirft, gehört nicht
+        # dorthin, wo die Hand ohnehin gerade ist.
+        #
+        # `gefahr=True` färbt ihn dauerhaft rot, nicht erst beim Überfahren —
         # ein Knopf, der erst warnt, wenn die Maus schon darauf steht, warnt
         # niemanden.
-        _knopf(fenster, werkzeugleiste, t('s_js_zurueck'), _zuruecksetzen,
+        _knopf(fenster, gefahrleiste, t('s_js_zurueck'), _zuruecksetzen,
                gefahr=True).pack(side='right')
 
     def sicht_zeichnen():
@@ -2594,9 +2671,8 @@ def _joysticks(fenster, rahmen):
         """
         for kind in sicht_rahmen.winfo_children():
             kind.destroy()
-        tk.Label(sicht_rahmen, text=t('s_js_sicht'), bg=BG, fg=SUB,
-                 font=fenster.f_klein, anchor='w').pack(side='left',
-                                                        padx=(0, 8))
+        beschriftung = tk.Label(sicht_rahmen, text=t('s_js_sicht'), bg=BG,
+                                fg=SUB, font=fenster.f_klein, anchor='w')
 
         def _waehlen(welche):
             nur['sicht'] = welche
@@ -2606,6 +2682,7 @@ def _joysticks(fenster, rahmen):
             filter_zeichnen()
             liste_zeichnen()
 
+        knoepfe = [beschriftung]
         for schluessel, welche in ((('s_js_s_meine'), joysticks.MEINE),
                                    ('s_js_s_alles', joysticks.ALLES),
                                    ('s_js_s_standard', joysticks.STANDARD),
@@ -2615,10 +2692,10 @@ def _joysticks(fenster, rahmen):
                                    # was in keiner Liste steht, kann man auch
                                    # nicht anklicken, um es zu belegen.
                                    ('s_js_s_frei', joysticks.FREI)):
-            _knopf(fenster, sicht_rahmen, t(schluessel),
-                   (lambda w=welche: _waehlen(w)),
-                   stark=(nur['sicht'] == welche)).pack(side='left',
-                                                        padx=(0, 6))
+            knoepfe.append(_knopf(fenster, sicht_rahmen, t(schluessel),
+                                  (lambda w=welche: _waehlen(w)),
+                                  stark=(nur['sicht'] == welche)))
+        _knopfgitter(sicht_rahmen, knoepfe)
 
     def filter_zeichnen():
         """Die Geräteknöpfe — ein Knopf je Gerät plus „Alle".
@@ -2644,11 +2721,14 @@ def _joysticks(fenster, rahmen):
             for kennzeichen in sorted(k for k in alle
                                       if k.startswith(kuerzel)):
                 knoepfe.append((_geraetename(kennzeichen), kennzeichen))
-        for text, kennzeichen in knoepfe:
-            _knopf(fenster, filter_rahmen, text,
-                   (lambda k=kennzeichen: _waehlen(k)),
-                   stark=(nur['geraet'] == kennzeichen)).pack(side='left',
-                                                              padx=(0, 6))
+        # ⚠ Umbrechend statt abgeschnitten — bei sieben Geräten passt die
+        # Reihe in ein kleiner gezogenes Fenster sonst nicht mehr, und Tk
+        # schneidet den Rest wortlos ab (Maus, Tastatur, Gamepad waren weg).
+        _knopfgitter(filter_rahmen,
+                     [_knopf(fenster, filter_rahmen, text,
+                             (lambda k=kennzeichen: _waehlen(k)),
+                             stark=(nur['geraet'] == kennzeichen))
+                      for text, kennzeichen in knoepfe])
 
     def liste_zeichnen(*_):
         """Die Trefferliste — das Einzige, was beim Tippen neu entsteht."""
@@ -2828,7 +2908,8 @@ def _joysticks(fenster, rahmen):
         # ein Suchfeld über einer leeren Liste ist nur Ballast.
         if daten.get('belegungen') or nur['sicht'] != joysticks.ALLES:
             kopfzeile.pack(fill='x', pady=(16, 4))
-            werkzeugleiste.pack(fill='x', pady=(0, 10))
+            werkzeugleiste.pack(fill='x', pady=(0, 2))
+            gefahrleiste.pack(fill='x', pady=(0, 10))
             sicht_rahmen.pack(fill='x', pady=(0, 6))
             filter_rahmen.pack(fill='x', pady=(0, 6))
             werkzeug.pack(fill='x', pady=(2, 6))
@@ -5859,17 +5940,17 @@ SCHIFFSWAFFEN = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
                            'tachyon'))
 FPS_WAFFEN = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
 
-# ⚠ Wie viele Zeilen die Vorschlagsliste höchstens zeigt. Steht mehr an, sagt
-# sie das am Ende — eine stumm abgeschnittene Liste sieht aus wie das Ende der
-# Ware.
-LISTE_HOECHSTENS = 40
+# ⚠ Notdeckel für eine einzelne Warengruppe. Sie wird sonst **vollständig**
+# gezeigt — die größte echte Gruppe hat 201 Einträge. Die Zahl schützt nur
+# davor, dass ein Ausreißer in fremden Daten Tausende Zeilen baut.
+NOTDECKEL = 400
 
 # ⚠⚠ **Wie viele Zeilen je Warengruppe, wenn mehrere nebeneinanderstehen.**
 # Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da nicht
 # durch." Bei 176 Treffern in vier Gruppen füllte allein die erste Gruppe die
 # ganze Liste — die anderen drei sah man nie. Ein Deckel **je Gruppe** zeigt
 # stattdessen von jeder etwas, und darunter steht, wie viele noch folgen.
-JE_GRUPPE = 6
+JE_GRUPPE = 12
 
 # Kennzeichen für Einträge, die kein Ladenteil sind. Sie müssen sich von jeder
 # echten Kennung unterscheiden — deshalb ein Doppelpunkt, den UUIDs nicht haben.
@@ -5897,7 +5978,20 @@ def _laeden(fenster, rahmen):
     suche = tk.StringVar()
     gewaehlt = {'name': '', 'kennung': ''}
     laeuft = {'ja': False}
-    wahl = {'bereich': '', 'gruppe': ''}
+    # ⚠⚠ **Die Reihenfolge ist die Kaskade.** Jedes Menü zeigt nur, was zur
+    # Auswahl in den Menüs **davor** passt — und beim Wechsel fällt weg, was
+    # danach nicht mehr passt. Am 04.09.2026 verlangt: „Wenn mehr Filter nötig
+    # sind, damit man findet was man sucht, dann musst du die bauen." Vier
+    # Ebenen decken die Frage „Radar — Schiffskomponenten oder Schiffswaffen,
+    # welche Größe, welcher Hersteller?" vollständig ab.
+    # ⚠⚠ **Drei Menüs, und der Hersteller ist keins davon.** Am 05.09.2026:
+    # „Nach Hersteller sucht eigentlich niemand, wenn er Teile sucht, die in
+    # sein Schiff passen" — und: „Hersteller muss grau hinter dem Namen
+    # stehen, das reicht." Stimmt beides: Was hineinpasst, entscheidet die
+    # Größe. Der Hersteller ist eine Angabe zum Lesen, kein Suchweg — er steht
+    # an der Zeile und wird von der Suche mit gefunden, hat aber kein Menü.
+    FILTER_FOLGE = ('bereich', 'gruppe', 'groesse')
+    wahl = dict((f, '') for f in FILTER_FOLGE)
 
     # ⚠⚠ **Suchfeld und Auswahl bleiben stehen, nur die Liste rollt.**
     # Am 04.09.2026 gemeldet: „Auswahlfelder verschwinden oben beim
@@ -5971,7 +6065,9 @@ def _laeden(fenster, rahmen):
             katalog = []
         if katalog:
             raus = [{'name': x['name'], 'kennung': x['kennung'],
-                     'bereich': x['abschnitt'], 'gruppe': x['kategorie']}
+                     'bereich': x['abschnitt'], 'gruppe': x['kategorie'],
+                     'hersteller': x.get('hersteller') or '',
+                     'groesse': x.get('groesse') or ''}
                     for x in katalog if x['name'] and x['kennung']]
             # ⭐ **Schiffe gehören dazu.** Die Kauf- und Mietpreise lagen seit
             # v3.14.0 vor, wurden aber nur für den Frachtraum im Routenplaner
@@ -5984,7 +6080,8 @@ def _laeden(fenster, rahmen):
                     raus.append({'name': s['name'],
                                  'kennung': SCHIFF_PRAEFIX + s['name'],
                                  'bereich': BEREICH_SCHIFFE,
-                                 'gruppe': WERFT_PRAEFIX + (s['werft'] or '?')})
+                                 'gruppe': WERFT_PRAEFIX + (s['werft'] or '?'),
+                                 'hersteller': '', 'groesse': ''})
             except Exception as ausnahme:
                 fehler.merken('seiten.laeden.schiffe', ausnahme)
             return raus
@@ -6056,6 +6153,16 @@ def _laeden(fenster, rahmen):
         schluessel = laden_modul.BEREICH_TEXTE.get(wert)
         return t(schluessel) if schluessel else wert
 
+    def _wertname(feld, wert):
+        """Ein Filterwert, wie er im Menü steht."""
+        if feld == 'bereich':
+            return _bereichsname(wert)
+        if feld == 'gruppe':
+            return _gruppenname(wert)
+        if feld == 'groesse':
+            return t('s_ld_groesse') % wert
+        return wert
+
     def _mit_zahl(feld):
         """Werte eines Feldes mit ihrer Anzahl — „Kühler (74)".
 
@@ -6070,30 +6177,41 @@ def _laeden(fenster, rahmen):
         Ein Auswahlmenü, dessen zwei größte Gruppen man erst erscrollen muss,
         ist **falsch sortiert** — nicht zu kurz.
         """
+        # ⚠⚠ **Jedes Menü richtet sich nach den Menüs davor.** Sonst lassen
+        # sich Dinge zusammenstellen, die es nicht gibt — am 04.09.2026
+        # gemeldet: „Rüstung (710)" und „Geschütze (87)" nebeneinander,
+        # Ergebnis null. „Geschütze gehören doch nicht zu Rüstungen." Eine
+        # unmögliche Kombination gehört gar nicht erst angeboten.
+        #
+        # ⚠ Das **erste** Menü bleibt immer vollständig — sonst käme man aus
+        # einer engen Auswahl nicht mehr heraus.
+        vorher = FILTER_FOLGE[:FILTER_FOLGE.index(feld)]
         zaehler = {}
         for b in _teile():
-            # ⚠⚠ **Die Warengruppen richten sich nach dem Bereich.** Sonst
-            # lassen sich Dinge zusammenstellen, die es nicht gibt — am
-            # 04.09.2026 gemeldet: „Rüstung (710)" und „Geschütze (87)"
-            # nebeneinander, Ergebnis null. „Geschütze gehören doch nicht zu
-            # Rüstungen." Eine unmögliche Kombination gehört gar nicht erst
-            # angeboten; der Bereich bleibt dagegen immer vollständig, sonst
-            # käme man aus einer engen Auswahl nicht mehr heraus.
-            if feld == 'gruppe' and wahl['bereich'] \
-                    and b.get('bereich') != wahl['bereich']:
+            if any(wahl[f] and b.get(f) != wahl[f] for f in vorher):
                 continue
             wert = (b.get(feld) or '').strip()
             if wert:
                 zaehler[wert] = zaehler.get(wert, 0) + 1
         raus = []
         for wert, anzahl in zaehler.items():
-            lesbar = (_bereichsname(wert) if feld == 'bereich'
-                      else _gruppenname(wert))
+            lesbar = _wertname(feld, wert)
             raus.append((anzahl, wert, '%s (%d)' % (lesbar or wert, anzahl),
                          (lesbar or wert)))
-        # Größte zuerst; bei Gleichstand alphabetisch, damit die Reihenfolge
-        # nicht von Lauf zu Lauf springt.
-        raus.sort(key=lambda p: (-p[0], p[3].lower()))
+        if feld == 'groesse':
+            # ⚠ Größen gehören in ihre eigene Ordnung, nicht nach Häufigkeit:
+            # 1, 2, 3 … 10. Nach Anzahl sortiert stünde Größe 4 vor Größe 1,
+            # und niemand fände die Zeile, die er sucht.
+            def _zahl(paar):
+                try:
+                    return (0, float(paar[1]))
+                except ValueError:
+                    return (1, 0.0)
+            raus.sort(key=_zahl)
+        else:
+            # Größte zuerst; bei Gleichstand alphabetisch, damit die
+            # Reihenfolge nicht von Lauf zu Lauf springt.
+            raus.sort(key=lambda p: (-p[0], p[3].lower()))
         return [(w, b) for _n, w, b, _s in raus]
 
     def _leeren(wo):
@@ -6273,6 +6391,11 @@ def _laeden(fenster, rahmen):
 
         threading.Thread(target=arbeit, daemon=True).start()
 
+    def _gruppe_aufklappen(gruppe):
+        """Auf „… 38 weitere" geklickt: genau diese Warengruppe filtern."""
+        wahl['gruppe'] = gruppe
+        _filter_gewechselt()
+
     def _vorschlaege(*_a):
         _liste_leeren()
         text = suche.get().strip().lower()
@@ -6292,7 +6415,7 @@ def _laeden(fenster, rahmen):
         # ⚠ **Ohne Suchtext gilt der Filter.** Vorher passierte unter zwei
         # Zeichen gar nichts — und wer nur klickte statt zu tippen, sah nie
         # etwas. Jetzt füllt die Auswahl oben die Liste.
-        if len(text) < 2 and not (wahl['bereich'] or wahl['gruppe']):
+        if len(text) < 2 and not any(wahl[f] for f in FILTER_FOLGE):
             return
         # ⚠ **Teiltext, nicht nur Wortanfang** — wer „chill" tippt, meint
         # `BlastChill`. Dieselbe Überlegung wie bei den Lagerorten.
@@ -6312,20 +6435,19 @@ def _laeden(fenster, rahmen):
                     (_bereichsname(schluessel[0] or ''),
                      _gruppenname(schluessel[1] or ''),
                      schluessel[0] or '', schluessel[1] or ''))).lower()
-            return (b.get('name') or '').lower() + ' ' + namen_memo[schluessel]
+            return ((b.get('name') or '') + ' '
+                    + (b.get('hersteller') or '')).lower() + ' ' \
+                + namen_memo[schluessel]
 
         # Nach Warengruppe gebündelt — die Gliederung steht unten.
         gruppiert = {}
         gesamt = 0
         for b in _teile():
-            if wahl['bereich'] and b.get('bereich') != wahl['bereich']:
-                continue
-            if wahl['gruppe'] and b.get('gruppe') != wahl['gruppe']:
+            if any(wahl[f] and b.get(f) != wahl[f] for f in FILTER_FOLGE):
                 continue
             if text and text not in _heuhaufen(b):
                 continue
-            gruppiert.setdefault(b.get('gruppe') or '', []).append(
-                (b['name'], b['kennung']))
+            gruppiert.setdefault(b.get('gruppe') or '', []).append(b)
             gesamt += 1
         if not gesamt:
             _liste_zeigen()
@@ -6334,16 +6456,42 @@ def _laeden(fenster, rahmen):
             return
         _liste_zeigen()
 
-        def _zeile_bauen(name, kennung):
-            zeile = tk.Label(vorschlag_rahmen, text='   ' + name, bg=FLAECHE,
-                             fg=FG, font=fenster.f_klein, anchor='w',
+        def _zeile_bauen(b):
+            """Eine Zeile: Name links, Größe und Hersteller rechts.
+
+            ⚠⚠ **Die Größe gehört an die Zeile, nicht nur ins Filtermenü.**
+            Am 05.09.2026 gefragt: „Ein Spieler, der nicht alle
+            Quantenantriebe kennt — wie findet er einen für sein Schiff
+            passenden?" Über die Größe. Die nützt ihm aber nur, wenn sie
+            dasteht: Eine Liste aus 44 Fantasienamen (Erebos, Flash, Goliath)
+            sagt ihm nichts, dieselbe Liste mit „Größe 1 · Wen-Cassel" schon.
+            """
+            name, kennung = b['name'], b['kennung']
+            kasten = tk.Frame(vorschlag_rahmen, bg=FLAECHE, cursor='hand2')
+            kasten.pack(fill='x')
+            zeile = tk.Label(kasten, text='   ' + name, bg=FLAECHE, fg=FG,
+                             font=fenster.f_klein, anchor='w',
                              cursor='hand2')
-            zeile.pack(fill='x', ipady=4)
-            zeile.bind('<Button-1>',
-                       lambda _=None, n=name, k=kennung: _waehlen(n, k))
-            zeile.bind('<Enter>',
-                       lambda _=None, w=zeile: w.configure(fg=ACCENT))
-            zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+            zeile.pack(side='left', ipady=4)
+            beiwerk = ' · '.join(x for x in (
+                t('s_ld_groesse') % b['groesse'] if b.get('groesse') else '',
+                b.get('hersteller') or '') if x)
+            teile_der_zeile = [kasten, zeile]
+            if beiwerk:
+                rechts = tk.Label(kasten, text=beiwerk + '   ', bg=FLAECHE,
+                                  fg=SUB, font=fenster.f_klein, anchor='e',
+                                  cursor='hand2')
+                rechts.pack(side='right', ipady=4)
+                teile_der_zeile.append(rechts)
+            # ⚠ Jedes Stück der Zeile hört auf denselben Klick — sonst trifft
+            # man neben dem Namen ins Leere.
+            for stueck in teile_der_zeile:
+                stueck.bind('<Button-1>',
+                            lambda _=None, n=name, k=kennung: _waehlen(n, k))
+                stueck.bind('<Enter>',
+                            lambda _=None: zeile.configure(fg=ACCENT))
+                stueck.bind('<Leave>',
+                            lambda _=None: zeile.configure(fg=FG))
 
         # ⚠⚠ **Eine Gruppe → flache Liste. Mehrere → gegliedert.**
         # Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da
@@ -6356,10 +6504,20 @@ def _laeden(fenster, rahmen):
         # Sonst füllte die erste Gruppe alle 40 Zeilen und die übrigen drei
         # blieben unsichtbar — genau die, nach denen gefragt wurde.
         if len(gruppiert) == 1:
-            (nur_gruppe, eintraege), = gruppiert.items()
-            gezeigt = eintraege[:LISTE_HOECHSTENS]
-            for name, kennung in gezeigt:
-                _zeile_bauen(name, kennung)
+            # ⚠⚠ **Eine Gruppe wird VOLLSTÄNDIG gezeigt — kein Deckel.**
+            # Am 05.09.2026: „Entweder komplette Liste, und Size dabei, oder
+            # der User braucht keine Liste — er findet eh nichts, und wenn er
+            # keine Namen kennt, bringt ihm die Liste nichts." Genau so: Wer
+            # sich bis auf eine Warengruppe durchgeklickt hat, will sie ganz
+            # sehen. Bei 87 Geschützen 40 zu zeigen und auf „tipp genauer" zu
+            # verweisen, hilft niemandem, der die Namen nicht kennt.
+            #
+            # ⚠ Der Notdeckel bleibt, damit ein Ausreißer in fremden Daten
+            # nicht Tausende Zeilen baut. Die größte echte Gruppe hat 201.
+            (_nur_gruppe, eintraege), = gruppiert.items()
+            gezeigt = eintraege[:NOTDECKEL]
+            for b in gezeigt:
+                _zeile_bauen(b)
             if len(eintraege) > len(gezeigt):
                 tk.Label(vorschlag_rahmen,
                          text='   ' + t('s_ld_mehr_da') % (len(gezeigt),
@@ -6375,14 +6533,26 @@ def _laeden(fenster, rahmen):
                      text='  %s (%d)' % (_gruppenname(gruppe), len(eintraege)),
                      bg=FLAECHE, fg=ACCENT, font=fenster.f_fett,
                      anchor='w').pack(fill='x', ipady=5)
-            for name, kennung in eintraege[:JE_GRUPPE]:
-                _zeile_bauen(name, kennung)
+            for b in eintraege[:JE_GRUPPE]:
+                _zeile_bauen(b)
             rest = len(eintraege) - JE_GRUPPE
             if rest > 0:
-                tk.Label(vorschlag_rahmen,
-                         text='   ' + t('s_ld_weitere') % rest, bg=FLAECHE,
-                         fg=SUB, font=fenster.f_klein,
-                         anchor='w').pack(fill='x', ipady=4)
+                # ⚠⚠ **Anklickbar, nicht nur eine Feststellung.** Am
+                # 05.09.2026: „Gruppen zeigen zu wenig." Der Weg zum Rest war
+                # da — man musste ihn nur oben im Menü suchen. Ein Klick auf
+                # die Zeile, die den Rest ankündigt, ist der kürzere: Er setzt
+                # genau diese Warengruppe als Filter.
+                mehr = tk.Label(vorschlag_rahmen,
+                                text='   ' + t('s_ld_weitere') % rest,
+                                bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                                anchor='w', cursor='hand2')
+                mehr.pack(fill='x', ipady=4)
+                mehr.bind('<Button-1>',
+                          lambda _=None, g=gruppe: _gruppe_aufklappen(g))
+                mehr.bind('<Enter>',
+                          lambda _=None, w=mehr: w.configure(fg=ACCENT))
+                mehr.bind('<Leave>',
+                          lambda _=None, w=mehr: w.configure(fg=SUB))
 
     # ⚠⚠ **Der Katalog wird beim Öffnen der Seite geholt, nicht beim Start.**
     # Er kostet rund 76 Abrufe und eine knappe Minute (gemessen: 57 s) — das
@@ -6470,13 +6640,18 @@ def _laeden(fenster, rahmen):
     def _filter_gewechselt():
         gewaehlt['name'], gewaehlt['kennung'] = '', ''
         _leeren(ergebnis_rahmen)
-        # ⚠ Passt die Warengruppe nicht mehr zum neuen Bereich, fällt sie
-        # weg — sonst bliebe eine Auswahl stehen, die null Treffer hat.
-        if wahl['bereich'] and wahl['gruppe']:
-            passend = {b.get('gruppe') for b in _teile()
-                       if b.get('bereich') == wahl['bereich']}
-            if wahl['gruppe'] not in passend:
-                wahl['gruppe'] = ''
+        # ⚠ Was nach der Änderung nicht mehr passt, fällt weg — sonst bliebe
+        # eine Auswahl stehen, die null Treffer hat. Von vorn nach hinten
+        # durch die Kaskade, damit sich die Prüfungen aufeinander stützen.
+        for stelle, feld in enumerate(FILTER_FOLGE):
+            if not wahl[feld]:
+                continue
+            vorher = FILTER_FOLGE[:stelle]
+            passend = {b.get(feld) for b in _teile()
+                       if all(not wahl[f] or b.get(f) == wahl[f]
+                              for f in vorher)}
+            if wahl[feld] not in passend:
+                wahl[feld] = ''
         _vorschlaege()
         # ⚠ **`after_idle`, nicht sofort.** `_filter_bauen` zerstört genau
         # die Menüs, aus deren Klick wir gerade kommen — mitten im eigenen
@@ -6500,10 +6675,14 @@ def _laeden(fenster, rahmen):
         das Gegenteil.
         """
         _leeren(filter_rahmen)
+        # ⚠ Ein Menü ohne echte Auswahl lässt `_filterleiste` selbst weg — so
+        # verschwindet „Größe" bei Rüstung von allein, wo die Angabe fehlt.
         _filterleiste(fenster, filter_rahmen,
                       [('bereich', t('s_ld_alle_bereiche'),
                         _mit_zahl('bereich')),
-                       ('gruppe', t('s_ld_alle_arten'), _mit_zahl('gruppe'))],
+                       ('gruppe', t('s_ld_alle_arten'), _mit_zahl('gruppe')),
+                       ('groesse', t('s_ld_alle_groessen'),
+                        _mit_zahl('groesse'))],
                       _filter_gewechselt, wahl)
 
     _filter_bauen()

@@ -6,6 +6,37 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc3 - 2026-09-05
+
+> **Now you can find things you do not know by name.** Every row shows size and
+> manufacturer, there is a size filter, and a chosen item group is listed in
+> full instead of stopping at 40 rows. Plus two spots in the Controls tab where
+> buttons were being cut off.
+
+### New
+
+- **Size and manufacturer on every row.** A list of 44 invented names tells
+  nobody anything — "Size 1 · Wen-Cassel" does. That is how you find the quantum
+  drive that fits your ship.
+- **Filter by size.** Size 3 guns, size 1 coolers — what does not fit is not
+  listed in the first place.
+
+### Improved
+
+- **A chosen item group is shown in full.** All 87 guns, all 201 helmets — no
+  more cut-off at 40 rows.
+- **"… 38 more in this group" is clickable** and opens the group.
+- **Twelve rows per group** in the overview instead of six.
+- No manufacturer dropdown any more — it sits on the row, and the search finds
+  it.
+
+### Fixed
+
+- **Controls: "Reset to default" was cut off.** The button now sits alone on its
+  own line — visible, and no longer right next to four harmless ones.
+- **Controls: mouse, keyboard and gamepad disappeared when the window was made
+  smaller.** The button rows now wrap instead of being cut off on the right.
+
 ## v3.15.0-rc2 - 2026-09-05
 
 > **Shops is actually usable now.** The list is grouped by item group, and the

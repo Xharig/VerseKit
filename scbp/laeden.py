@@ -85,9 +85,10 @@ KATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
 
 # ⚠ Eigene Formatnummer für den Katalog. Er hat seit v3.15.0 eine andere
-# Struktur (er führt die kaufbaren Teile selbst); der Preis-Zwischenspeicher
-# daneben ist unverändert und soll deshalb nicht mit weggeworfen werden.
-FORMAT_KATALOG = 2
+# Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
+# Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
+# nicht mit weggeworfen werden.
+FORMAT_KATALOG = 3
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
@@ -195,7 +196,16 @@ def _katalog_sichern(fortschritt=None):
             uuid = (x.get('uuid') or '').strip()
             if uuid:
                 id_zu_uuid[str(kennung)] = uuid
-            roh[str(kennung)] = name
+            # ⭐ Hersteller und Größe kommen mit — sie sind die zwei weiteren
+            # Auswahlmenüs im Laden-Reiter. Gemessen: `company_name` ist bei
+            # Geschützen 143 von 154 gefüllt, `size` 150 von 154 (Größe 1–10);
+            # bei Rüstung dagegen fast leer, dort fällt das Menü von selbst
+            # weg (`_filterleiste` lässt ein Feld ohne Auswahl aus).
+            roh[str(kennung)] = {
+                'n': name,
+                'h': (x.get('company_name') or '').strip(),
+                'g': str(x.get('size') or '').strip(),
+            }
             klein = name.lower()
             if not klein:
                 continue
@@ -214,9 +224,12 @@ def _katalog_sichern(fortschritt=None):
             if teil in gesehen or teil not in roh:
                 continue
             gesehen.add(teil)
-            teile_raus.append({'n': roh[teil],
+            eintrag = roh[teil]
+            teile_raus.append({'n': eintrag['n'],
                                's': id_zu_uuid.get(teil) or ID_PRAEFIX + teil,
-                               'k': kat_index})
+                               'k': kat_index,
+                               'h': eintrag['h'],
+                               'g': eintrag['g']})
         if fortschritt:
             fortschritt(nummer, len(gewaehlt))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
@@ -327,7 +340,9 @@ def katalog_teile():
         raus.append({'name': x.get('n') or '',
                      'kennung': x.get('s') or '',
                      'abschnitt': paar[0],
-                     'kategorie': paar[1]})
+                     'kategorie': paar[1],
+                     'hersteller': x.get('h') or '',
+                     'groesse': x.get('g') or ''})
     return raus
 
 
