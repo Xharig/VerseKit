@@ -85,6 +85,41 @@ LAEUFT = 'laeuft'
 # laeuft, nicht warum. Eine Behauptung waere schlimmer als eine ehrliche Luecke.
 VERFALLEN = 'verfallen'
 
+# Woran man erkennt, dass der Spieler wirklich im Spiel angekommen ist.
+# ⚠ An 188 echten Protokollen gemessen (05.09.2026): In 187 kommt diese Zeile
+# vor, und in KEINEM einzigen wurde ein Auftrag genannt, ohne dass sie davor
+# stand. Sie ist damit die verlaessliche Grenze zwischen „Spiel gestartet" und
+# „Spieler ist drin".
+SPAWN_MARKE = 'OnClientSpawned'
+
+# Wie lange eine Sitzung gelaufen sein muss, damit ihr SCHWEIGEN etwas beweist.
+#
+# ⚠⚠ **Warum es diese Zahl gibt (05.09.2026).** Wer sich ausloggt, ohne
+# abzugeben oder abzubrechen, hinterlaesst kein Ende im Log; aufgeraeumt wurde
+# so ein Auftrag nur, wenn eine spaetere Sitzung ihn nicht mehr nannte. Eine
+# Sitzung ganz OHNE Auftrag galt dabei als aussagelos — zu Recht, denn ein
+# abgebrochener Start nennt auch keinen.
+#
+# Gemeldet wurde genau der Fall dazwischen: eine vollstaendige Sitzung von
+# 162 Minuten, in der kein einziger Auftrag vorkam, und trotzdem stand die
+# Karteileiche vom Vortag weiter da.
+#
+# ⚠ **Der erste Anlauf war falsch und wurde durch Messung widerlegt.** „Spawn
+# vorhanden, kein Auftrag" allein haette an 188 Protokollen **acht** Auftraege
+# geschlossen, die kurz danach wieder auftauchten — kurze Fehlstarts nennen
+# den Auftrag eben doch nicht immer. Mit der Mindestdauer durchgespielt:
+#
+#     ohne Grenze  95 geschlossen, 8 davon falsch
+#     30 Minuten   83 geschlossen, 2 davon falsch
+#     60 Minuten   81 geschlossen, 0 davon falsch
+#     90 Minuten   80 geschlossen, 0 davon falsch
+#
+# Genommen sind 90 Minuten: Das kostet gegenueber 60 genau EINEN aufgeraeumten
+# Auftrag und verdoppelt den Abstand zur Fehlergrenze. Eine ehrliche
+# Karteileiche ist besser als ein faelschlich geschlossener Auftrag — dieselbe
+# Abwaegung wie bei `VERFALLEN` selbst.
+SITZUNG_ZAEHLT_SEK = 90 * 60
+
 
 def _zeit(zeile):
     m = _ZEIT.search(zeile)
@@ -179,17 +214,32 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
     `offen` und `fertig` werden ueber Dateigrenzen hinweg weitergereicht —
     ein Auftrag kann in einer spaeteren Sitzung enden als er begann.
 
-    Gibt die Titel zurueck, die diese Sitzung als angenommen gemeldet hat —
-    **auch die Wiederaufnahmen**. `_verfallene_schliessen()` braucht genau das.
+    Gibt `(gemeldet, aussagekraeftig)` zurueck:
+
+    - `gemeldet` sind die Titel, die diese Sitzung als angenommen gemeldet hat
+      — **auch die Wiederaufnahmen**. `_verfallene_schliessen()` braucht das.
+    - `aussagekraeftig` sagt, ob man einer Sitzung OHNE jeden Auftrag glauben
+      darf, dass wirklich keiner mehr offen war. Siehe `SITZUNG_ZAEHLT_SEK`.
     """
     quelle = os.path.basename(pfad)
     enden = {}          # mission_id -> 'Complete' | 'Abandon'
     ziele = {}          # mission_id -> {objective_id: zustand}
     gemeldet = set()    # welche Auftraege diese Sitzung ueberhaupt nennt
+    # Fuer die Frage, ob eine stumme Sitzung etwas beweist: War der Spieler
+    # ueberhaupt im Spiel, und wie lange lief es?
+    spawn = False
+    erste_zeit = letzte_zeit = None
 
     try:
         with open(pfad, encoding='utf-8', errors='replace') as f:
             for zeile in f:
+                if not spawn and SPAWN_MARKE in zeile:
+                    spawn = True
+                _t = _ZEIT.search(zeile)
+                if _t:
+                    if erste_zeit is None:
+                        erste_zeit = _t.group(1)
+                    letzte_zeit = _t.group(1)
                 # Die Art des Endes merken, bevor das Ereignis selbst kommt —
                 # im Log steht EndMission vor der Mitteilung.
                 a = _ENDE_ART.search(zeile)
@@ -337,7 +387,12 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
             offen[0]['ziele_gesamt'] = len(echte)
             offen[0]['ziele_fertig'] = sum(
                 1 for v in echte.values() if str(v).upper().endswith('COMPLETED'))
-    return gemeldet
+
+    dauer = 0
+    a, b = _sekunden(erste_zeit or ''), _sekunden(letzte_zeit or '')
+    if a and b:
+        dauer = b - a
+    return gemeldet, (spawn and dauer >= SITZUNG_ZAEHLT_SEK)
 
 
 def aus_dateien(pfade):
@@ -358,14 +413,16 @@ def aus_dateien(pfade):
         fehler.merken('missionslog.bp_muster', ausnahme)
         bp_muster = None
     for pfad in pfade:
-        gemeldet = _lesen(pfad, offen, fertig, gesehen, kennung, muster_an,
-                          muster_aus, bp_muster)
-        _verfallene_schliessen(offen, fertig, gemeldet, _spielzeit(pfad))
+        gemeldet, zaehlt = _lesen(pfad, offen, fertig, gesehen, kennung,
+                                  muster_an, muster_aus, bp_muster)
+        _verfallene_schliessen(offen, fertig, gemeldet, _spielzeit(pfad),
+                               stumm_zaehlt=zaehlt)
     return sorted(fertig + offen, key=lambda e: e.get('wann') or '',
                   reverse=True)
 
 
-def _verfallene_schliessen(offen, fertig, gemeldet, sitzung):
+def _verfallene_schliessen(offen, fertig, gemeldet, sitzung,
+                           stumm_zaehlt=False):
     """Auftraege beenden, die eine spaetere Sitzung nicht mehr kennt.
 
     ⚠⚠ **Das ist die Obergrenze, die dem Protokoll gefehlt hat.** Ausloggen
@@ -381,16 +438,37 @@ def _verfallene_schliessen(offen, fertig, gemeldet, sitzung):
     mehr genannt, kann er dort nicht mehr offen gewesen sein. An 181 echten
     Sicherungen loeste das alle 43 Faelle auf, ohne einen einzigen Zweifelsfall.
 
-    ⚠ **Eine stumme Sitzung beweist nichts.** Wer sich einloggt und ohne
-    Auftrag herumfliegt (oder wessen Log nach einem Absturz abbricht), meldet
-    gar nichts — daraus zu schliessen, alle Auftraege seien vorbei, waere
-    falsch. Deshalb greift die Regel nur, wenn die Sitzung ueberhaupt einen
-    Auftrag genannt hat.
+    ⚠ **Eine stumme Sitzung beweist meistens nichts.** Wer sich einloggt und
+    ohne Auftrag herumfliegt (oder wessen Log nach einem Absturz abbricht),
+    meldet gar nichts — daraus zu schliessen, alle Auftraege seien vorbei,
+    waere falsch.
+
+    ⚠⚠ **Mit EINER Ausnahme, seit 05.09.2026: einer langen Sitzung.** Gemeldet
+    wurde der Fall, der bis dahin durchs Raster fiel — nach dem Ausloggen ohne
+    Abgabe blieb der letzte Auftrag fuer immer auf „laeuft", auch nachdem
+    danach 162 Minuten lang gespielt worden war, ohne dass ein einziger
+    Auftrag vorkam. Dazu: „er wurde nicht wieder gemeldet, kann er auch nicht
+    da er weg ist."
+
+    Wer 90 Minuten im Spiel ist und in dieser ganzen Zeit keinen Auftrag im
+    Journal hat, hat keinen — anders als bei einem Fehlstart nach zwei
+    Minuten. Wo die Grenze liegt und warum genau dort, steht bei
+    `SITZUNG_ZAEHLT_SEK`; sie ist gemessen, nicht geschaetzt.
 
     ⚠ Der Zustand heisst `VERFALLEN`, nicht `ABGEBROCHEN`: Ob der Auftrag
     abgegeben oder aufgegeben wurde, steht in keinem vorhandenen Log.
     """
-    if not gemeldet or not offen:
+    if not offen:
+        return
+    if not gemeldet:
+        # Nur eine lange, vollstaendige Sitzung darf aus ihrem Schweigen
+        # etwas folgern.
+        if not stumm_zaehlt:
+            return
+        for eintrag in list(offen):
+            eintrag['zustand'] = VERFALLEN
+            offen.remove(eintrag)
+            fertig.append(eintrag)
         return
     for eintrag in list(offen):
         if eintrag['name'] in gemeldet:

@@ -11279,6 +11279,104 @@ def main():
            'und benutzt dafuer das andere Wort')
 
     print()
+    print('124. Eine LANGE stumme Sitzung raeumt auf — eine kurze nicht')
+    # ⚠⚠ **Gemeldet am 05.09.2026:** Nach dem Ausloggen ohne Abgabe stand der
+    # letzte Auftrag fuer immer auf „laeuft" — auch nachdem danach 162 Minuten
+    # gespielt worden war, ohne dass ein einziger Auftrag vorkam. Dazu: „er
+    # wurde nicht wieder gemeldet, kann er auch nicht da er weg ist."
+    #
+    # ⚠⚠ **Der erste Loesungsversuch war FALSCH und wurde gemessen widerlegt.**
+    # „Spieler war im Spiel, nannte aber keinen Auftrag" allein haette an 188
+    # echten Protokollen ACHT Auftraege geschlossen, die kurz danach wieder
+    # auftauchten — kurze Fehlstarts nennen den Auftrag eben doch nicht immer.
+    # Erst die Mindestdauer macht die Regel sicher (0 Fehlschliessungen ab
+    # einer Stunde, genommen sind 90 Minuten).
+    #
+    # Diese Pruefung haelt BEIDE Seiten fest. Ohne die zweite waere der alte
+    # Fehler nur gegen einen schlimmeren getauscht: Ein faelschlich
+    # geschlossener Auftrag ist schlimmer als eine ehrliche Karteileiche.
+    import importlib as _il124
+    _ml124 = _il124.import_module('scbp.missionslog')
+
+    _wiese124 = tempfile.mkdtemp(prefix='sc-bp-stumm-')
+    _altheim124 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _wiese124
+    try:
+        def _log124(name, zeilen):
+            pfad = os.path.join(_wiese124, name)
+            with open(pfad, 'w', encoding='utf-8') as d:
+                d.write(''.join(zeilen))
+            return pfad
+
+        def _zeile124(zeit, text):
+            return '<%s.000Z> %s\n' % (zeit, text)
+
+        # Sitzung 1: ein Auftrag wird angenommen und NICHT beendet — genau der
+        # Fall „ausgeloggt, ohne abzugeben".
+        _annahme124 = _zeile124(
+            '2026-09-04T20:31:27',
+            '[42] <SHUDEvent_OnNotification> Added notification '
+            '"Contract Accepted: Retake Platforms From Nine Tails: "')
+        _s1 = _log124('s1.log', [
+            _zeile124('2026-09-04T20:00:00',
+                      '[CSessionManager::OnClientSpawned] Spawned!'),
+            _annahme124,
+            _zeile124('2026-09-04T23:00:00', 'Ende der Sitzung'),
+        ])
+        os.utime(_s1, (1750000000, 1750000000))
+
+        # Sitzung 2a: KURZ (2 Minuten) und ohne Auftrag — ein Fehlstart.
+        _kurz = _log124('s2a.log', [
+            _zeile124('2026-09-05T10:00:00',
+                      '[CSessionManager::OnClientSpawned] Spawned!'),
+            _zeile124('2026-09-05T10:02:00', 'Nichts von Belang'),
+        ])
+        os.utime(_kurz, (1750000400, 1750000400))
+
+        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _kurz])}
+        pruefe(stand.get('Retake Platforms From Nine Tails', {})
+               .get('zustand') == _ml124.LAEUFT,
+               'ein kurzer Fehlstart beendet KEINEN Auftrag')
+
+        # Sitzung 2b: LANG (3 Stunden) und ohne Auftrag — hier zaehlt das
+        # Schweigen.
+        _lang = _log124('s2b.log', [
+            _zeile124('2026-09-05T10:00:00',
+                      '[CSessionManager::OnClientSpawned] Spawned!'),
+            _zeile124('2026-09-05T13:00:00', 'Nichts von Belang'),
+        ])
+        os.utime(_lang, (1750000400, 1750000400))
+
+        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _lang])}
+        pruefe(stand.get('Retake Platforms From Nine Tails', {})
+               .get('zustand') == _ml124.VERFALLEN,
+               'eine lange Sitzung ohne Auftrag raeumt die Karteileiche ab')
+
+        # ⚠ Und ohne Spawn zaehlt auch eine lange Datei nicht: Ein Log, das
+        # weiterlief, ohne dass jemand ins Spiel kam, beweist gar nichts.
+        _ohne_spawn = _log124('s2c.log', [
+            _zeile124('2026-09-05T10:00:00', 'Start'),
+            _zeile124('2026-09-05T13:00:00', 'Nichts von Belang'),
+        ])
+        os.utime(_ohne_spawn, (1750000400, 1750000400))
+        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _ohne_spawn])}
+        pruefe(stand.get('Retake Platforms From Nine Tails', {})
+               .get('zustand') == _ml124.LAEUFT,
+               'ohne Spawn beweist auch eine lange Datei nichts')
+
+        # Die Grenze selbst — sie ist gemessen, nicht geschaetzt, und darf
+        # nicht unbemerkt unter eine Stunde rutschen.
+        pruefe(_ml124.SITZUNG_ZAEHLT_SEK >= 3600,
+               'die Mindestdauer bleibt bei mindestens einer Stunde (%d s)'
+               % _ml124.SITZUNG_ZAEHLT_SEK)
+    finally:
+        if _altheim124 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim124
+        shutil.rmtree(_wiese124, ignore_errors=True)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

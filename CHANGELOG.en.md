@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.8 - 2026-09-05
+
+> **Stale entries now clear themselves even without a new contract.** Log out
+> without handing in, then fly a session with no contracts at all, and the old
+> entry used to sit in your log forever. Not any more.
+
+### Fixed
+
+- **A contract that was long gone stayed marked as open.** Until now such an
+  entry was only cleared once a later session mentioned *other* contracts. Play
+  a long session and take on none at all, and that moment never came.
+
+  Now the silence counts too: if you are **in game for an hour and a half** and
+  have no contract in your journal that whole time, you have none.
+
+  A short failed start deliberately does **not** count — those often mention no
+  contract even though one is still running. The threshold is measured against
+  every log on file: from one hour onward no contract is ever closed wrongly;
+  an hour and a half is what we use, for margin.
+
 ## v3.15.7 - 2026-09-05
 
 > **No more "in progress" while the game is closed.** Log out without handing

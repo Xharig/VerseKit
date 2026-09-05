@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.8 - 2026-09-05
+
+> **Karteileichen räumen sich jetzt auch ohne neuen Auftrag ab.** Wer sich
+> ausloggt, ohne abzugeben, und danach eine Runde ohne Aufträge fliegt, hatte
+> den alten Eintrag für immer im Protokoll stehen. Das ist vorbei.
+
+### Behoben
+
+- **Ein Auftrag, den es längst nicht mehr gibt, blieb offen stehen.** Bisher
+  wurde so ein Eintrag nur abgeräumt, wenn eine spätere Sitzung *andere*
+  Aufträge nannte. Wer danach lange spielt und dabei gar keinen Auftrag
+  annimmt, kam nie an den Punkt — der Eintrag blieb.
+
+  Jetzt zählt auch das Schweigen: Wer **eineinhalb Stunden im Spiel** ist und
+  in der ganzen Zeit keinen einzigen Auftrag im Journal hat, hat keinen.
+
+  Ein kurzer Fehlstart zählt dabei ausdrücklich **nicht** — der nennt oft keinen
+  Auftrag, obwohl noch einer läuft. Die Grenze ist an allen vorhandenen
+  Protokollen gemessen: Ab einer Stunde wird kein Auftrag mehr fälschlich
+  geschlossen; genommen sind eineinhalb, mit Sicherheitsabstand.
+
 ## v3.15.7 - 2026-09-05
 
 > **Kein „läuft" mehr bei geschlossenem Spiel.** Wer sich ausloggt, ohne
