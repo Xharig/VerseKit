@@ -1737,6 +1737,69 @@ class Hauptfenster:
         # Unterschied zwischen „gibt es" und „wird benutzt".
         self._titelknopf(bar, 'sicherung', t('hf_sicherung'),
                          t('hf_hinweis_sich'), self._sicherung)
+        self._spielzeit_anzeige(bar)
+
+    # Wie oft die Spielzeit oben nachgerechnet wird.
+    # ⚠ Eine Minute ist die feinste Anzeige („3 h 14 min") — oefter zu rechnen
+    # aendert nichts am Bild und liest nur die Dateizeit umsonst.
+    ZEIT_TAKT_MS = 60 * 1000
+
+    def _spielzeit_anzeige(self, bar):
+        """Gesamt- und Sitzungszeit in der Kopfzeile.
+
+        ⚠⚠ **Gewuenscht am 05.09.2026**, zusammen mit der Datenbank dahinter:
+        „so das man einmal pro min oben ne aktuelle Zeit hat, fuer gesamt und
+        Aktuelle sitzung."
+
+        ⚠ **Kein Knopf.** Die drei Nachbarn links tun etwas, wenn man sie
+        anklickt; das hier ist eine Auskunft. Deshalb ohne Zeigefinger und in
+        der ruhigeren Farbe — sonst sucht jemand die Handlung dahinter.
+
+        ⚠ Steht ganz rechts, also am Rand: Sie aendert sich als Einzige
+        staendig, und eine wandernde Zahl zwischen festen Knoepfen laesst die
+        ganze Leiste unruhig wirken.
+        """
+        from . import spielzeit as _sz
+
+        rahmen = tk.Frame(bar, bg=BAR)
+        rahmen.pack(side='right', padx=(0, 14), pady=6)
+        z = zeichen.knopf(rahmen, 'zeit', grund=BAR, schrift=self.f_zeichen)
+        z.pack(side='left')
+        self.zeit_text = tk.Label(rahmen, text='', bg=BAR, fg=SUB,
+                                  font=self.f_klein)
+        self.zeit_text.pack(side='left')
+
+        def erklaerung():
+            ab = _sz.seit()
+            if not ab:
+                return t('hf_zeit_h_leer')
+            import time as _t
+            return t('hf_zeit_h') % _t.strftime('%d.%m.%Y', _t.localtime(ab))
+
+        hinweis.anhaengen(rahmen, erklaerung)
+
+        def nachziehen():
+            try:
+                if not self.zeit_text.winfo_exists():
+                    return
+                gesamt = _sz.gesamt()
+                jetzt = _sz.sitzung_jetzt()
+                # ⚠ Die laufende Sitzung steht nur da, wenn wirklich gespielt
+                # wird. „+ 0 min" waere eine Zeile, die nie etwas sagt.
+                if jetzt:
+                    text = ' %s  (+%s)' % (_sz.als_text(gesamt),
+                                           _sz.als_text(jetzt))
+                else:
+                    text = ' %s' % _sz.als_text(gesamt)
+                self.zeit_text.configure(text=text)
+            except Exception as ausnahme:
+                fehler.merken('hauptfenster.spielzeit', ausnahme)
+            try:
+                self.root.after(self.ZEIT_TAKT_MS, nachziehen)
+            except tk.TclError:
+                pass
+
+        nachziehen()
 
     def _titelknopf(self, eltern, symbol, wort, erklaerung, tat):
         rahmen = tk.Frame(eltern, bg=BAR, cursor='hand2')

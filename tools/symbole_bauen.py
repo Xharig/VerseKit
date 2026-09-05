@@ -203,6 +203,8 @@ KNOPF_SYMBOLE = {
     # `nurlesend` — die taucht aber nur in der Anleitung auf, nie in der
     # Leiste, also gibt es nichts zu verwechseln.
     'sicherung':    'shield-check',
+    # Die Spielzeit in der Kopfzeile (05.09.2026).
+    'zeit':         'clock',
     'zurueck':      'undo-2',            # auf eine ältere Version zurück
     # --- Gruppe „Handel" (v3.4.0) ---
     # Münzen für den Verkauf, Lagerhalle für den Handelsbestand. Bewusst

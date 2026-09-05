@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.9 - 2026-09-05
+
+> **Deine Spielzeit steht jetzt oben in der Leiste** — insgesamt, und während
+> du spielst die laufende Sitzung daneben. Gezählt wird aus den Protokollen des
+> Spiels und dauerhaft festgehalten: Star Citizen räumt seine alten Logs weg,
+> das Gezählte bleibt.
+
+### Neu
+
+- **Spielzeit in der Kopfzeile.** Neben „Sicherung" steht, wie lange du
+  gespielt hast, und beim Spielen dahinter in Klammern die laufende Sitzung.
+  Frischt sich einmal pro Minute auf.
+
+  Gezählt wird jede Sitzung, in der du wirklich im Spiel warst — ein Start, der
+  nie so weit kam, ist keine Spielzeit. Kurze Sitzungen zählen mit; eine Grenze
+  wäre eine Behauptung darüber, was „richtiges" Spielen ist.
+
+  Die Zahl beginnt beim ersten Protokoll, das das Werkzeug findet — bei einer
+  gewachsenen Installation sind das mehrere Wochen. Ab wann gezählt wird, sagt
+  der Hinweis, wenn du mit der Maus darauf zeigst.
+
+- **Eine eigene Datenbank dafür, und sie liegt in der Sicherung.** Star Citizen
+  hebt nur eine begrenzte Zahl Protokolle auf; was daraus verschwindet, bleibt
+  hier stehen. Beim Rechnerwechsel nimmt der Sicherungs-Knopf sie ohne Zutun
+  mit.
+
+### Verbessert
+
+- **README aufgeräumt:** Der Hinweis unter den Bildern behauptete noch v3.0.0,
+  Spielzeit und „Fehler melden" fehlten in der Funktionsliste, und zwei
+  Einträge trugen ein Schriftzeichen statt eines Symbols.
+
 ## v3.15.8 - 2026-09-05
 
 > **Karteileichen räumen sich jetzt auch ohne neuen Auftrag ab.** Wer sich

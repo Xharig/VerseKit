@@ -6,6 +6,35 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.9 - 2026-09-05
+
+> **Your play time now sits in the top bar** — the total, and while you play
+> the current session next to it. Counted from the game's own logs and kept for
+> good: Star Citizen clears out its old logs, the count stays.
+
+### New
+
+- **Play time in the title bar.** Next to "Backup" you now see how long you
+  have played, with the running session in brackets while you play. Refreshes
+  once a minute.
+
+  Every session where you actually made it into the game counts — a start that
+  never got that far is not play time. Short sessions count too; drawing a line
+  there would be a claim about what "real" playing is.
+
+  The count starts with the oldest log the tool can find, which on a grown
+  install is several weeks back. Hover the entry and it tells you since when.
+
+- **Its own database, and it is in the backup.** Star Citizen only keeps a
+  limited number of logs; what disappears from those stays here. Moving to
+  another machine, the backup button takes it along with no extra step.
+
+### Improved
+
+- **README tidied up:** the note under the screenshots still claimed v3.0.0,
+  play time and "report a problem" were missing from the feature list, and two
+  entries carried a text character instead of an icon.
+
 ## v3.15.8 - 2026-09-05
 
 > **Stale entries now clear themselves even without a new contract.** Log out

@@ -3056,6 +3056,19 @@ TEXTE = {
     'hf_einrichtung':    ('Einrichtung starten', 'Run setup'),
     'hf_wasistneu':      ('Was ist neu', "What's new"),
     'hf_sicherung':      ('Sicherung', 'Backup'),
+    # ⚠ Der Hinweis nennt das Anfangsdatum, weil die Zahl sonst mehr
+    # behauptet, als sie weiß: Star Citizen räumt alte Protokolle weg, hier
+    # zählt nur, was das Werkzeug selbst gesehen hat.
+    'hf_zeit_h':         ('Deine Spielzeit, aufgezeichnet seit %s. In Klammern '
+                          'steht die laufende Sitzung. Ältere Protokolle räumt '
+                          'Star Citizen selbst weg — was hier steht, bleibt',
+                          'Your play time, recorded since %s. The current '
+                          'session is in brackets. Star Citizen clears out old '
+                          'logs itself — what is counted here stays'),
+    'hf_zeit_h_leer':    ('Noch keine Spielzeit aufgezeichnet — sie beginnt mit '
+                          'der ersten Sitzung, die das Werkzeug mitbekommt',
+                          'No play time recorded yet — it starts with the first '
+                          'session the tool sees'),
     'hf_hinweis_sich':   ('Alles Eigene in eine Datei — Baupläne, beide Lager, '
                           'Auftrags-Protokoll und Einstellungen. Für den '
                           'Rechnerwechsel, und zum Zurückholen',

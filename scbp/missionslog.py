@@ -707,6 +707,15 @@ def nachlese():
         if gelesen.get(os.path.basename(pfad_log)) != marke:
             offen_dateien.append((pfad_log, marke))
 
+    # ⚠ Die Spielzeit haengt sich hier an, weil an dieser Stelle ohnehin schon
+    # feststeht, welche Protokolle neu oder gewachsen sind. Ein eigener
+    # Durchlauf ueber ein halbes Gigabyte waere die Alternative gewesen.
+    try:
+        from . import spielzeit as _sz
+        _sz.nachtragen([p for p, _m in offen_dateien])
+    except Exception as ausnahme:
+        fehler.merken('missionslog.spielzeit', ausnahme)
+
     if not offen_dateien:
         return len(laden()), 0
 

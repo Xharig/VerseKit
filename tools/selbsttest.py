@@ -2894,11 +2894,18 @@ def main():
             # Dateien, und niemand wuesste, welche die aktuelle ist.
             be22.hinzufuegen(daten22, 'Testbauplan Beta', 'log')
             be22.speichern(daten22)
+            # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
+            # `pfade.app_datei()` ALLES flach in denselben Ordner — im
+            # Normalbetrieb liegen die internen Dateien dagegen unter
+            # `Intern/`. Ohne diese Ausnahme meldet die Pruefung jedes neue
+            # interne Modul als „zweite Garnitur", obwohl es keine ist
+            # (05.09.2026 mit `spielzeit.json` genau so passiert).
+            NICHT_AUSGABE = ('spielzeit.json',)
             json_dateien = [d for d in os.listdir(ordner22)
-                            if d.endswith('.json')]
+                            if d.endswith('.json') and d not in NICHT_AUSGABE]
             pruefe(len(json_dateien) == 4,      # drei Versionen + fremde Datei
-                   'zweimal speichern erzeugt keine zweite Garnitur (%d Dateien)'
-                   % len(json_dateien))
+                   'zweimal speichern erzeugt keine zweite Garnitur (%d Dateien: %s)'
+                   % (len(json_dateien), ', '.join(sorted(json_dateien))))
 
             pruefe(os.path.isfile(os.path.join(ordner22, 'meine-notiz.json')),
                    'eine fremde Datei im Ordner bleibt unangetastet')
@@ -11375,6 +11382,103 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _altheim124
         shutil.rmtree(_wiese124, ignore_errors=True)
+
+    print()
+    print('125. Spielzeit: fortgeschrieben, ohne doppelt zu zaehlen')
+    # ⚠⚠ **Gewuenscht am 05.09.2026**, mitsamt der Begruendung, warum es eine
+    # eigene Datei braucht: „dazu muesste es aber auch eine Datenbank geben die
+    # Fortgeschrieben wird (die muesste dann auch Exportierbar sein bei
+    # Systemumzug oder neuinstallation)".
+    #
+    # Genau so: Star Citizen hebt seine Protokolle nur begrenzt auf — gemessen
+    # decken 188 Sicherungen 88 Tage ab. Wer die Spielzeit allein aus den
+    # vorhandenen Logs rechnet, bekommt jeden Monat eine kleinere
+    # Vergangenheit.
+    import time as _t125
+    from scbp import spielzeit as _sz125
+
+    _wiese125 = tempfile.mkdtemp(prefix='sc-bp-zeit-')
+    _altheim125 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _wiese125
+    try:
+        def _log125(name, von, bis, mit_spawn=True):
+            pfad = os.path.join(_wiese125, name)
+            zeilen = ['<%s.000Z> Start\n' % von]
+            if mit_spawn:
+                zeilen.append('<%s.000Z> [CSessionManager::OnClientSpawned] '
+                              'Spawned!\n' % von)
+            zeilen.append('<%s.000Z> Ende\n' % bis)
+            with open(pfad, 'w', encoding='utf-8') as d:
+                d.write(''.join(zeilen))
+            return pfad
+
+        _a125 = _log125('a.log', '2026-09-01T10:00:00', '2026-09-01T12:00:00')
+        _b125 = _log125('b.log', '2026-09-02T10:00:00', '2026-09-02T11:30:00')
+
+        _sz125.nachtragen([_a125, _b125])
+        pruefe(_sz125.gesamt() == 3600 * 3.5,
+               'zwei Sitzungen ergeben 3 h 30 min (%s)'
+               % _sz125.als_text(_sz125.gesamt()))
+
+        # ⚠ Der zweite Lauf darf NICHTS dazuzaehlen. Sonst waechst die Zahl bei
+        # jedem Programmstart, und niemand merkt es, bis sie absurd ist.
+        _vorher125 = _sz125.gesamt()
+        _neu125 = _sz125.nachtragen([_a125, _b125])
+        pruefe(_neu125 == 0 and _sz125.gesamt() == _vorher125,
+               'ein zweiter Durchlauf zaehlt nichts doppelt')
+
+        # Ein Start, der nie ins Spiel kam, ist keine Spielzeit.
+        _c125 = _log125('c.log', '2026-09-03T10:00:00', '2026-09-03T14:00:00',
+                        mit_spawn=False)
+        _sz125.nachtragen([_c125])
+        pruefe(_sz125.gesamt() == _vorher125,
+               'ein Start ohne Spawn zaehlt nicht als Spielzeit')
+
+        # Kurze Sitzungen zaehlen dagegen mit — eine Grenze waere eine
+        # Behauptung ueber „richtiges" Spielen.
+        _d125 = _log125('d.log', '2026-09-04T10:00:00', '2026-09-04T10:02:00')
+        _sz125.nachtragen([_d125])
+        pruefe(_sz125.gesamt() == _vorher125 + 120,
+               'auch zwei Minuten zaehlen mit')
+
+        # ⚠ Ueberlappungen verschmelzen, statt sich zu addieren. In den echten
+        # Daten gab es genau so einen Fall.
+        _sz125.sichern({'format': _sz125.FORMAT, 'sitzungen': [
+            {'von': 1000, 'bis': 1000 + 3600},
+            {'von': 1000 + 1800, 'bis': 1000 + 7200},
+        ]})
+        pruefe(_sz125.gesamt(mit_laufender=False) == 7200,
+               'ueberlappende Zeitraeume werden zusammengefuehrt (%s)'
+               % _sz125.als_text(_sz125.gesamt(mit_laufender=False)))
+
+        # Ein Ausreisser (verstellte Uhr, zwei Laeufe in einer Datei) darf die
+        # Summe nicht verderben.
+        _e125 = _log125('e.log', '2026-09-05T10:00:00', '2026-09-08T10:00:00')
+        _stand125 = _sz125.gesamt(mit_laufender=False)
+        _sz125.nachtragen([_e125])
+        pruefe(_sz125.gesamt(mit_laufender=False) == _stand125,
+               'eine 72-Stunden-Sitzung wird verworfen statt gezaehlt')
+
+        for _s125, _soll125 in ((0, '0 min'), (59, '0 min'), (60, '1 min'),
+                                (3600, '1 h 00 min'), (3660, '1 h 01 min')):
+            pruefe(_sz125.als_text(_s125) == _soll125,
+                   '%d s steht als „%s"' % (_s125, _soll125))
+
+        # ⚠⚠ **Die Datei darf NICHT auf der Nachladbar-Liste stehen.** Sie
+        # laesst sich nicht neu beschaffen, sobald die Logs rotiert sind —
+        # stuende sie dort, waere die ganze aufgezeichnete Vergangenheit beim
+        # Rechnerwechsel weg, und zwar lautlos.
+        from scbp import sicherung as _si125
+        pruefe(not any(_sz125.DATEI in eintrag
+                       for eintrag in _si125.NACHLADBAR),
+               'die Spielzeit gilt NICHT als nachladbar — sie kommt in die '
+               'Sicherung')
+    finally:
+        if _altheim125 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim125
+        shutil.rmtree(_wiese125, ignore_errors=True)
 
     print()
     if fehler:

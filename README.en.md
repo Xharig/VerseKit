@@ -104,7 +104,7 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 ### The window
 
 > [!NOTE]
-> The screenshots below show **v3.0.0**. In v2.0.0 the window still looks different — if you are looking for something shown here and cannot find it, that is the older version, not a bug.
+> The screenshots show a recent state, not necessarily the very latest version — in places your window now looks slightly different. Conversely, on an older version some of what is shown here does not exist yet.
 
 <table>
 <tr>
@@ -210,7 +210,9 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Tells you about updates** | Notices new versions by itself — with „What's new" to read up on, including older releases |
 | <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Changes nothing in the game — reads `Game.log` and, if present, the launcher files |
 | <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — without the SC Deutsch Launcher |
-| 🕓 **Catch-up** | Reads stored logs of earlier sessions **and the running one** on start, picking up what was unlocked while it wasn't running — finds are reported, not added silently. A **Read the logs again** button (overlay and settings) goes through everything once more on demand |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played** — in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |
+| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Report a problem in one click** | A field for one sentence, the finished report below it, a red button beside it — that is all. The report holds system, packaging, game state and the last errors, but **no names and no paths**, and you see all of it beforehand. Prefer to write it yourself? One button hands you a prepared issue |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Catch-up** | Reads stored logs of earlier sessions **and the running one** on start, picking up what was unlocked while it wasn't running — finds are reported, not added silently. A **Read the logs again** button (overlay and settings) goes through everything once more on demand |
 | 🐧 **Windows and Linux** | One build for both systems, including autostart and log language detection |
 
 ## Requirements

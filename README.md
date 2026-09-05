@@ -104,7 +104,7 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 ### Das Fenster
 
 > [!NOTE]
-> Die folgenden Bilder zeigen **v3.0.0**. In v2.0.0 sieht das Fenster noch anders aus — wer dort etwas sucht, was hier zu sehen ist, findet es nicht. Das ist kein Fehler, sondern die ältere Version.
+> Die Bilder zeigen einen aktuellen Stand, nicht zwingend die allerneueste Version — an einzelnen Stellen sieht dein Fenster inzwischen etwas anders aus. Wer eine ältere Version benutzt, findet umgekehrt manches hier Gezeigte noch nicht.
 
 <table>
 <tr>
@@ -213,7 +213,9 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Sagt Bescheid** | Merkt selbst, wenn es eine neue Version gibt — mit „Was ist neu" zum Nachlesen, auch für ältere Versionen |
 | <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Nur lesend** | Verändert am Spiel nichts — liest die `Game.log` und, falls vorhanden, die Launcher-Dateien |
 | <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Eigener Bestand** | Führt selbst Buch, welche Baupläne du hast — auch ohne den SC Deutsch Launcher |
-| 🕓 **Nachlese** | Liest beim Start die aufgehobenen Logs früherer Sitzungen **und die laufende** und holt nach, was ohne laufenden Watcher freigeschaltet wurde — die Funde werden gemeldet, nicht still eingetragen. Ein Knopf **Protokolle erneut einlesen** (Overlay und Einstellungen) geht auf Wunsch noch einmal alles durch |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Spielzeit** | Oben in der Leiste steht, **wie lange du gespielt hast** — insgesamt und, während du spielst, die laufende Sitzung dahinter. Gezählt wird aus den Protokollen des Spiels, und zwar **fortgeschrieben**: Star Citizen räumt seine alten Logs weg, das Gezählte bleibt. Die Sicherung nimmt es beim Rechnerwechsel mit |
+| <img src="assets/symbole/22/diagnose-gruen.png" width="22" alt=""> **Fehler melden in einem Klick** | Ein Feld für einen Satz, darunter der fertige Bericht, daneben ein roter Knopf — mehr ist nicht zu tun. Der Bericht enthält System, Verpackung, Spielstand und die letzten Fehler, aber **keine Namen und keine Pfade**, und du siehst ihn vorher vollständig. Wer lieber selbst schreibt, bekommt mit einem Knopf ein vorbereitetes Issue |
+| <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Nachlese** | Liest beim Start die aufgehobenen Logs früherer Sitzungen **und die laufende** und holt nach, was ohne laufenden Watcher freigeschaltet wurde — die Funde werden gemeldet, nicht still eingetragen. Ein Knopf **Protokolle erneut einlesen** (Overlay und Einstellungen) geht auf Wunsch noch einmal alles durch |
 | 🐧 **Windows und Linux** | Eine Version für beide Systeme, inklusive Autostart und Spracherkennung im Log |
 
 ## Voraussetzungen
