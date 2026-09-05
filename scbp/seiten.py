@@ -5997,6 +5997,21 @@ def _routen(fenster, rahmen):
     ortfeld.bind('<FocusIn>', _ort_aufklappen, add='+')
     ortfeld.bind('<Button-1>', _ort_aufklappen, add='+')
 
+    # ⚠ Wieder zu, wenn man woanders hinklickt — verzögert, weil der Klick auf
+    # eine Zeile erst nach dem `<FocusOut>` ankommt. Siehe `_auswahlfeld`.
+    def _ort_zumachen():
+        if zustand.get('ort_offen'):
+            zustand['ort_offen'] = False
+            try:
+                if ortvorschlag.winfo_exists():
+                    _ortvorschlaege()
+            except tk.TclError:
+                pass
+
+    ortfeld.bind('<FocusOut>',
+                 lambda _=None: ortfeld.after(200, _ort_zumachen), add='+')
+    ortfeld.bind('<Escape>', lambda _=None: _ort_zumachen(), add='+')
+
     def _alles_zuruecksetzen(_=None):
         """Die Seite auf den Anfangszustand — alle Eingaben und Schalter.
 
@@ -9073,6 +9088,33 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     feld.bind('<FocusIn>', beim_hineinklicken, add='+')
     feld.bind('<Button-1>', beim_hineinklicken, add='+')
 
+    # ⚠⚠ **Und sie geht wieder zu, wenn man woanders hinklickt.** Am
+    # 05.09.2026 gemeldet: „Wenn man dann doch nichts auswählt, bleibt die
+    # einfach offen." Eine Liste, die nur aufgeht, ist eine halbe Bedienung.
+    #
+    # ⚠ **Verzögert um 200 ms** — und das ist kein Schönheitsfehler: Ein Klick
+    # auf einen Listeneintrag löst zuerst `<FocusOut>` am Feld aus und erst
+    # danach den Klick auf die Zeile. Wer sofort zumacht, zerstört die Zeile,
+    # bevor ihr Klick ankommt; die Auswahl ginge nie.
+    def _zumachen():
+        try:
+            if not liste.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        if offen['ja']:
+            offen['ja'] = False
+            zeichnen()
+
+    def beim_verlassen(_=None):
+        try:
+            feld.after(200, _zumachen)
+        except tk.TclError:
+            pass
+
+    feld.bind('<FocusOut>', beim_verlassen, add='+')
+    feld.bind('<Escape>', lambda _=None: _zumachen(), add='+')
+
     # Tippen dampft die Liste auf die Treffer ein — sonst bliebe die volle
     # Liste stehen, während schon gefiltert wird. Ist das Feld wieder leer,
     # bleibt sie offen: Der Spieler sucht dann ja noch.
@@ -9098,6 +9140,10 @@ def _verkauf(fenster, rahmen):
     # Auswahl erhalten bleibt — wer zuerst Gold eintippt, sieht Gold zuerst.
     auswahl = []
     suche = tk.StringVar()
+    # Von Hand eingetragene Mengen — sie ergänzen das Handelslager, ohne dass
+    # etwas eingelagert werden muss. Siehe `waehlen`.
+    menge_var = tk.StringVar()
+    eigene_mengen = {}
     nur_nqa = [False]
     meldung = {'text': '', 'farbe': SUB}
 
@@ -9208,12 +9254,25 @@ def _verkauf(fenster, rahmen):
     def waehlen(name):
         if name not in auswahl:
             auswahl.append(name)
+        # ⭐⭐ **Menge gleich mitnehmen, ohne Umweg übers Lager.** Am
+        # 05.09.2026: „Eine Menge, die man hat, kann man nur über das Lager
+        # eingeben — manchmal will man Ware sofort verkaufen, ohne erst
+        # einzulagern." Richtig: Wer gerade 120 SCU Gold im Laderaum hat und
+        # wissen will, was sie bringen, will sie nicht erst eintragen.
+        try:
+            scu = int(float((menge_var.get() or '0').replace(',', '.')))
+        except (TypeError, ValueError):
+            scu = 0
+        if scu > 0:
+            eigene_mengen[name] = scu
+        menge_var.set('')
         suche.set('')
         neu_zeichnen()
 
     def entfernen(name):
         if name in auswahl:
             auswahl.remove(name)
+        eigene_mengen.pop(name, None)
         neu_zeichnen()
 
     def aus_lager():
@@ -9246,6 +9305,19 @@ def _verkauf(fenster, rahmen):
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
+    # ⭐ Ein Mengenfeld daneben: Was hier steht, gilt für die Ware, die als
+    # Nächstes gewählt wird. Leer lassen ist erlaubt — dann kommt die Menge
+    # wie bisher aus dem Handelslager, wenn dort etwas liegt.
+    mengenzeile = tk.Frame(suchzeile, bg=BG)
+    mengenzeile.pack(fill='x', pady=(6, 0))
+    tk.Label(mengenzeile, text=t('s_vk_menge'), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(side='left',
+                                                    padx=(0, 8))
+    mengenfeld = rundes_feld(mengenzeile, menge_var, fenster.f_klein,
+                             '#0c1017', LINIE, ACCENT, FG)
+    mengenfeld.halter.configure(width=110)
+    mengenfeld.halter.pack(side='left')
+
     def kaestchen_um(an):
         nur_nqa[0] = an
         neu_zeichnen()
@@ -9272,7 +9344,12 @@ def _verkauf(fenster, rahmen):
         reihe = tk.Frame(chip_rahmen, bg=BG)
         reihe.pack(fill='x')
         for name in auswahl:
-            marke = tk.Label(reihe, text=name + '  ×', bg=FLAECHE, fg=FG,
+            # Die eingetragene Menge steht an der Marke — sonst weiß man nach
+            # drei Waren nicht mehr, für welche man welche Zahl gesetzt hat.
+            scu = eigene_mengen.get(name)
+            text = ('%s · %s  ×' % (name, t('s_hl_scu').format(menge=scu))
+                    if scu else name + '  ×')
+            marke = tk.Label(reihe, text=text, bg=FLAECHE, fg=FG,
                              font=fenster.f_klein, padx=8, pady=3,
                              cursor='hand2')
             marke.pack(side='left', padx=(0, 6), pady=2)
@@ -9346,7 +9423,11 @@ def _verkauf(fenster, rahmen):
         # Mengen aus dem Handelslager — nur dann wird ein echter Erlös gezeigt.
         # ⚠ Ohne Mengen **keine Summe**: Sie wäre eine Behauptung über eine
         # Ladung, die das Werkzeug nicht kennt (siehe `orte_fuer`).
-        lagermengen = handelslager.mengen()
+        # ⚠ Von Hand eingetragene Mengen **überschreiben** das Lager: Wer hier
+        # 120 SCU eingibt, meint die Ladung, die er gerade dabei hat — nicht
+        # das, was vor drei Tagen im Lager stand.
+        lagermengen = dict(handelslager.mengen())
+        lagermengen.update(eigene_mengen)
         for nummer, ort in enumerate(orte[:40]):
             # ⚠ Die Spaltenüberschrift steht **nur über dem ersten Kasten**.
             # In jedem zu wiederholen war der erste Bau: Bei 40 Orten stand

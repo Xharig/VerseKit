@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc11 - 2026-09-05
+
+> **„Mein Lager" heißt jetzt „Rohstofflager"** — da liegen Rohstoffe drin, und
+> es passt zum Handelslager daneben. Dazu: Im Verkauf kannst du die Menge
+> direkt eingeben, ohne erst einzulagern.
+
+### Neu
+
+- **Menge direkt im Verkauf eintragen.** Neben dem Suchfeld ein SCU-Feld: Was
+  dort steht, gilt für die Ware, die du als Nächstes wählst. Wer 120 SCU Gold
+  im Laderaum hat, muss sie nicht erst ins Lager eintragen. Leer lassen geht
+  weiter — dann zählt wie bisher das Handelslager.
+
+### Verbessert
+
+- **„Mein Lager" heißt jetzt „Rohstofflager".**
+- **Aufgeklappte Auswahllisten schließen wieder**, wenn du woanders hinklickst
+  oder Escape drückst.
+
 ## v3.15.0-rc10 - 2026-09-05
 
 > **Zurücksetzen für Läden und Routen — und der Laden-Katalog lädt beim Start,

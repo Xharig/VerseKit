@@ -72,8 +72,8 @@ The blueprint is the start. The workshop answers what comes after it: **what do 
 <sub><b>Crafting</b> — ingredients, craft time and what <i>your</i> material does to the stats</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="assets/screenshot-lager-en.png" alt="My stock with recorded resources" width="100%"><br>
-<sub><b>My stock</b> — material, amount, quality and storage location, kept by hand</sub>
+<img src="assets/screenshot-lager-en.png" alt="Material storage with recorded resources" width="100%"><br>
+<sub><b>Material storage</b> — material, amount, quality and storage location, kept by hand</sub>
 </td>
 </tr>
 <tr>
@@ -92,7 +92,7 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-handelslager-en.png" alt="Cargo hold with entered goods" width="100%"><br>
-<sub><b>Cargo hold</b> — what you carry to sell, kept apart from the workshop stock</sub>
+<sub><b>Cargo hold</b> — what you carry to sell, kept apart from your material storage</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-verkauf-en.png" alt="Selling tab with the best buyers" width="100%"><br>
@@ -190,7 +190,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Crafting** | For each of the **1,597** craftable items: the ingredients with amounts and the craft time — and whether you have the blueprint. Clicking a resource jumps to where it can be mined |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Mining** | Both directions in one search: type a resource → its locations (Iron: 27). Type a location → what is found there (Daymar: 14 ores). With mining type FPS · vehicle · ship, a **refinery comparison** per ore (which station gives the best bonus — 18 percentage points apart for Bexalite) and the **scan signature** to recognise it in game |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Which refining method?** | The terminal offers nine methods and shows a single line for each. Tell it what matters to you instead — **yield, cost or speed** — and it names the method. Two of the nine are never worth taking: another one beats them on every count, and the tool says so |
-| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **My stock** | Enter what resources you have — **material, amount, quality, location**. Recipes then show what is missing, and a button subtracts the ingredients when you craft. **And because the recipes carry how material quality changes the item\'s values, you see what *your* material would produce** |
+| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Material storage** | Enter what resources you have — **material, amount, quality, location**. Recipes then show what is missing, and a button subtracts the ingredients when you craft. **And because the recipes carry how material quality changes the item\'s values, you see what *your* material would produce** |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Prices** | What a material costs at the terminal and what it sells for — the numbers come from **[UEX Corp](https://uexcorp.space/)** and refresh daily. That way crafting answers not only "what am I missing" but also "what will it cost me". Without a connection the column simply stays empty |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Where a finished part sits on the shelf — and what it costs there.** The other direction to crafting: instead of "what do I need to build this", the question "is building it worth the effort at all". Pick by type and manufacturer, click a part, and you get every shop with price, location and system — the cheapest one first. Used stock comes with its condition. Anything that is not sold anywhere never shows up |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routes** | **Trade routes with real profit instead of a price list.** Tell it where you are, how much cargo space you have and how much money — and you get the run with buy price, sell price and what is left at the end. Optionally across several stops in a row, sorted by highest profit or shortest hop, and as a round trip back to your start. One button searches the best route **anywhere in the verse**, no starting point needed. Pick your ship and the cargo capacity fills itself in |
@@ -309,7 +309,7 @@ The narrow bar sits above the game and reports new finds. Everything else is beh
 | <img src="assets/symbole/22/einklappen-grau.png" width="22" alt=""> | **Chevron** — fold the overlay down to just its bar |
 | <img src="assets/symbole/22/leeren-grau.png" width="22" alt=""> | **Eraser** — clear the messages on screen. Your blueprints stay |
 | <img src="assets/symbole/22/schliessen-grau.png" width="22" alt=""> | **Cross** — close |
-| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Cargo hold** | What you carry to sell — deliberately kept apart from the workshop stock: one is building material you keep, the other is cargo you want gone. Enter commodity, location and SCU; the amount field does maths (`100+5`). Instead of a quality there is a **"marked as stolen"** tick — quality does not affect selling, and looted cargo is always Q 0 anyway |
+| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Cargo hold** | What you carry to sell — deliberately kept apart from your material storage: one is building material you keep, the other is cargo you want gone. Enter commodity, location and SCU; the amount field does maths (`100+5`). Instead of a quality there is a **"marked as stolen"** tick — quality does not affect selling, and looted cargo is always Q 0 anyway |
 | <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Selling** | Where to offload your goods and what they pay **per SCU** — for **several commodities at once**. Sorted not by the highest price but by **how many of your goods a place takes**: 100 SCU gold, 40 copper and 25 iron pay 3,533,000 aUEC at one place, 3,566,000 spread over three — one percent more for two extra approaches. If the cargo is marked as stolen, the tab narrows down to the 15 terminals that ask no questions |
 
 | Action | How |

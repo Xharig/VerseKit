@@ -980,7 +980,7 @@ TEXTE = {
     's_eigene':        ('Ordner für deine Daten',
                           'Folder for your data'),
     's_eigene_h':      ('Alles, was das Werkzeug über dich weiß, liegt hier: '
-                        'Bauplan-Bestand, Merkliste, Werkstatt-Lager, '
+                        'Bauplan-Bestand, Merkliste, Rohstofflager, '
                         'Handelslager, Einstellungen und die ausgegebenen '
                         'Dateien — in getrennten Unterordnern.\n\n'
                         'Spielst du auf zwei Rechnern? Dann stell hier auf '
@@ -990,7 +990,7 @@ TEXTE = {
                         'kopiert: Sichere deinen bisherigen Stand vorher unter '
                         '„Bauplan-Bestand → Bestand ausgeben".',
                           'Everything the tool knows about you lives here: '
-                          'blueprint inventory, watchlist, workshop stock, '
+                          'blueprint inventory, watchlist, material storage, '
                           'trade stock, settings and exported files — in '
                           'separate subfolders.\n\n'
                           'Playing on two machines? Point both at the same '
@@ -2101,7 +2101,11 @@ TEXTE = {
                           '… and %d more. Narrow your search.'),
     's_he_nichts':       ('Nichts gefunden.', 'Nothing found.'),
     # --- Lager (scbp/rohstoffe.py) ------------------------------------------
-    'hf_lager':          ('Mein Lager', 'My stock'),
+    # ⚠ **„Rohstofflager", nicht „Mein Lager".** Am 05.09.2026: „Da sind ja
+    # Rohstoffe drin, und namentlich passt das zu Handelslager." Beides
+    # richtig — der Name sagt jetzt, was drinliegt, und die zwei Lager im
+    # Werkzeug heißen nach demselben Muster.
+    'hf_lager':          ('Rohstofflager', 'Material storage'),
     # ---------------------------------------------------- Reiter „Verkauf"
     's_vk_lead':         ('Wo du deine Ware los wirst — und was sie je SCU '
                           'bringt. Mehrere Waren auf einmal: Orte, die alles '
@@ -2390,10 +2394,10 @@ TEXTE = {
     's_vk_alter_tage':   ('vor {n} Tagen', '{n}d ago'),
     # ----------------------------------------------- Reiter „Handelslager"
     's_hl_lead':         ('Was du zum Verkauf im Laderaum hast. Getrennt vom '
-                          'Werkstatt-Lager: Das hier willst du loswerden, '
+                          'Rohstofflager: Das hier willst du loswerden, '
                           'nicht verbauen.',
-                          'What you carry to sell. Kept apart from the '
-                          'workshop stock: this is cargo you want to get rid '
+                          'What you carry to sell. Kept apart from your '
+                          'material storage: this is cargo you want to get rid '
                           'of, not to build with.'),
     's_hl_hinweis':      ('Keine Qualität — der Ankaufpreis hängt nicht daran, '
                           'und erbeutete Ware hat ohnehin immer Q 0. Setz '
@@ -2438,6 +2442,11 @@ TEXTE = {
                           'Could not be saved.'),
     's_hl_leer':         ('Noch nichts eingetragen.', 'Nothing entered yet.'),
     's_hl_scu':          ('{menge} SCU', '{menge} SCU'),
+    # ⚠ „Freiwillig": Ohne Angabe kommt die Menge wie bisher aus dem
+    # Handelslager. Am 05.09.2026 gewünscht — manchmal will man Ware sofort
+    # verkaufen, ohne sie erst einzulagern.
+    's_vk_menge':        ('Wie viel SCU hast du davon? (freiwillig)',
+                            'How many SCU do you have? (optional)'),
     'b_fenstermass':     (' · Fenster %d×%d, mindestens %d×%d',
                           ' · window %d×%d, minimum %d×%d'),
     'b_fenster_zu_hoch': (' ⚠ Mindesthöhe größer als der Bildschirm',
@@ -2466,9 +2475,10 @@ TEXTE = {
     # falsche Sicherung waehlt, soll erfahren, welche hier hingehoert — sonst
     # sucht er den Fehler in der Datei.
     's_hl_datei_falsch': ('Das ist keine Handelslager-Sicherung. Die Sicherung '
-                          'vom Werkstatt-Lager gehört unter „Mein Lager“.',
+                          'vom Rohstofflager gehört unter „Rohstofflager“.',
                           'That is not a cargo backup. A backup from your '
-                          'workshop stock belongs under “My stock”.'),
+                          'material storage belongs under “Material '
+                          'storage”.'),
     's_hl_leeren_frage_t': ('Wirklich das ganze Handelslager löschen?',
                             'Really clear the whole cargo?'),
     's_hl_leeren_frage': ('%d Posten werden entfernt. Das lässt sich nicht '
@@ -2756,10 +2766,10 @@ TEXTE = {
     # die man auf scmdb.net von Hand stellt, nur mit dem eigenen Lager als
     # Ausgangspunkt.
     's_he_kein_lager':   ('Zieh am Regler, um zu sehen, was eine bestimmte '
-                          'Qualität bringt — oder trag unter „Mein Lager" ein, '
-                          'was du hast.',
+                          'Qualität bringt — oder trag unter „Rohstofflager" '
+                          'ein, was du hast.',
                           'Drag the slider to see what a given quality yields — '
-                          'or add what you have under "My stock".'),
+                          'or add what you have under "Material storage".'),
     's_he_durchspielen': ('Durchspielen', 'Try a quality'),
     's_he_q_lager':      ('dein Lager', 'your stock'),
     's_he_q_gesetzt':    ('angenommen: Q %d — nicht dein Lagerstand',
@@ -2864,7 +2874,7 @@ TEXTE = {
     # Zeilen liesse sich eine Meldung wie "bei mir ist das Lager leer" nicht
     # beurteilen: Man wuesste weder, ob Posten da sind, noch ob die Rezept- und
     # Bergbaudaten ueberhaupt geladen wurden.
-    'b_lager':           ('Mein Lager', 'My stock'),
+    'b_lager':           ('Rohstofflager', 'Material storage'),
     'b_n_posten':        ('%d Posten · %d Materialien',
                           '%d entries · %d materials'),
     'b_rezepte':         ('Rezepte', 'Recipes'),

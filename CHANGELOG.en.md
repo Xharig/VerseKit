@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc11 - 2026-09-05
+
+> **"My stock" is now "Material storage"** — that is what is in it, and it
+> matches the cargo hold next to it. Plus: in Selling you can enter the amount
+> directly, without storing anything first.
+
+### New
+
+- **Enter the amount right in Selling.** An SCU field next to the search box:
+  whatever is in it applies to the commodity you pick next. If you have 120 SCU
+  of gold in your hold, you no longer have to record it first. Leaving it empty
+  still works — then the cargo hold counts as before.
+
+### Improved
+
+- **"My stock" is now called "Material storage".**
+- **Open picker lists close again** when you click elsewhere or press Escape.
+
 ## v3.15.0-rc10 - 2026-09-05
 
 > **Reset buttons for Shops and Routes — and the shop catalogue loads at

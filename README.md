@@ -72,8 +72,8 @@ Der Bauplan ist der Anfang. Die Werkstatt beantwortet, was danach kommt: **was b
 <sub><b>Herstellung</b> — Zutaten, Herstellzeit und was <i>dein</i> Material aus den Werten macht</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="assets/screenshot-lager.png" alt="Mein Lager mit eingetragenen Rohstoffen" width="100%"><br>
-<sub><b>Mein Lager</b> — Material, Menge, Qualität und Lagerort, von Hand gepflegt</sub>
+<img src="assets/screenshot-lager.png" alt="Rohstofflager mit eingetragenen Rohstoffen" width="100%"><br>
+<sub><b>Rohstofflager</b> — Material, Menge, Qualität und Lagerort, von Hand gepflegt</sub>
 </td>
 </tr>
 <tr>
@@ -92,7 +92,7 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 <tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-handelslager.png" alt="Handelslager mit eingetragener Ladung" width="100%"><br>
-<sub><b>Handelslager</b> — was zum Verkauf im Laderaum liegt, getrennt vom Werkstatt-Lager</sub>
+<sub><b>Handelslager</b> — was zum Verkauf im Laderaum liegt, getrennt vom Rohstofflager</sub>
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-verkauf.png" alt="Verkauf mit den besten Ankaufsorten" width="100%"><br>
@@ -191,9 +191,9 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Herstellung** | Zu jedem der **1.597** herstellbaren Gegenstände die Zutaten mit Menge und die Herstellzeit — und ob du den Bauplan dafür hast. Ein Klick auf einen Rohstoff springt zu seinen Fundorten |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Bergbau** | Beide Richtungen in einer Suche: Rohstoff eintippen → seine Fundorte (Iron: 27 Orte). Ort eintippen → was es dort gibt (Daymar: 14 Erze). Mit Abbauart FPS · Fahrzeug · Schiff, **Raffinerie-Vergleich** je Erz (welche Station den besten Bonus gibt — bei Bexalite liegen 18 Prozentpunkte dazwischen) und der **Scan-Signatur** zum Wiedererkennen im Spiel |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Welche Verarbeitungsmethode?** | Das Terminal bietet neun Methoden an und zeigt zu jeder nur eine Zeile. Sag stattdessen, was dir wichtig ist — **Ertrag, Kosten oder Geschwindigkeit** — und du bekommst die Methode dazu. Zwei der neun lohnen sich übrigens nie: Sie werden von einer anderen in jeder Hinsicht geschlagen, und das steht dann auch da |
-| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Mein Lager** | Trag ein, was du an Rohstoffen hast — **Material, Menge, Qualität, Lagerort**. Im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab, wenn du etwas herstellst. **Und weil die Rezepte mittragen, wie die Materialqualität die Werte des Produkts verändert, siehst du, was mit *deinem* Material herauskäme** |
+| <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Rohstofflager** | Trag ein, was du an Rohstoffen hast — **Material, Menge, Qualität, Lagerort**. Im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab, wenn du etwas herstellst. **Und weil die Rezepte mittragen, wie die Materialqualität die Werte des Produkts verändert, siehst du, was mit *deinem* Material herauskäme** |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Preise** | Was ein Rohstoff am Terminal kostet und was er einbringt — die Zahlen kommen von **[UEX Corp](https://uexcorp.space/)** und frischen sich täglich auf. Damit beantwortet die Herstellung nicht nur „was fehlt mir", sondern auch „was kostet mich das". Ohne Netz bleibt das Feld einfach leer |
-| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Handelslager** | Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Werkstatt-Lager: Das eine ist Baumaterial, das du behältst, das andere Ladung, die du loswerden willst. Ware, Ort und SCU eintragen; im Mengenfeld darfst du rechnen (`100+5`). Statt einer Güte gibt es den Haken **„als gestohlen markiert"** — beim Verkauf zählt die Qualität nicht, und erbeutete Ware hat ohnehin immer Q 0 |
+| <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Handelslager** | Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Rohstofflager: Das eine ist Baumaterial, das du behältst, das andere Ladung, die du loswerden willst. Ware, Ort und SCU eintragen; im Mengenfeld darfst du rechnen (`100+5`). Statt einer Güte gibt es den Haken **„als gestohlen markiert"** — beim Verkauf zählt die Qualität nicht, und erbeutete Ware hat ohnehin immer Q 0 |
 | <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Verkauf** | Wo du deine Ware los wirst und was sie **je SCU** bringt — für **mehrere Waren auf einmal**. Sortiert wird nicht nach dem höchsten Preis, sondern danach, **wie viele deiner Waren ein Ort abnimmt**: 100 SCU Gold, 40 Copper und 25 Iron bringen an einem Ort 3.533.000 aUEC, verteilt auf drei Orte 3.566.000 — ein Prozent mehr für zwei zusätzliche Anflüge. Ist die Ladung als gestohlen markiert, blendet der Reiter auf die 15 Terminals ein, die keine Fragen stellen |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Läden** | **Wo steht das fertige Teil im Regal — und was kostet es dort?** Die Gegenrichtung zur Herstellung: Statt „was brauche ich zum Bauen" die Frage „lohnt der Aufwand überhaupt". Nach Art und Hersteller auswählen, Teil anklicken, und du bekommst jeden Laden mit Preis, Ort und System — der günstigste steht oben. Gebrauchte Ware kommt mit ihrem Zustand dazu. Was nirgends verkauft wird, taucht gar nicht erst auf |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routen** | **Handelsrouten mit echtem Gewinn statt einer Preisliste.** Sag, wo du stehst, wie viel Frachtraum du hast und wie viel Geld — und du bekommst die Fahrt samt Einkauf, Verkauf und dem, was am Ende übrig bleibt. Auf Wunsch über mehrere Stationen hintereinander, wahlweise auf den höchsten Gewinn oder den kürzesten Weg sortiert, auch als Rundreise zurück zum Start. Ein Knopf sucht die beste Route **im ganzen Verse**, ohne dass du einen Startort angibst. Dein Schiff kannst du auswählen, der Frachtraum kommt dann von selbst |
