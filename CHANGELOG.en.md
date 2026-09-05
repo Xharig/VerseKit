@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.2 - 2026-09-05
+
+> **Routes: the inputs stay put when you scroll down to the runs.** Starting
+> point, cargo space and ship used to scroll out of view — on smaller windows
+> immediately.
+
+### Fixed
+
+- **Routes: starting point, cargo space and ship scrolled away.** They now stay
+  fixed; only the runs below them scroll. Reported by **Morkhan**.
+- **Routes: both ends of a run are now named in the row** — "Aluminum · buy at
+  Nyx Gateway → sell at Terra Gateway". It used to show only the destination
+  behind an arrow; where to buy followed from the heading above it alone.
+- **Nothing was shown next to "Find best routes anywhere"** while no trade posts
+  had been collected. It now reads "0 of 184 trade posts" — so it is at least
+  visible that the button collects something.
+- **The error report shows more pages** (24 lines instead of 12): fetching the
+  report means clicking through the info pages first, which pushed out exactly
+  the page in question.
+
 ## v3.15.1 - 2026-09-05
 
 > A small follow-up to v3.15.0.

@@ -2344,7 +2344,13 @@ TEXTE = {
                              'routes anywhere" above.'),
     # ⚠ „ab X" heißt: **dort kaufst du**. Kurz genug für die Zeile, und mit
     # dem Ziel dahinter eindeutig.
+    # ⚠⚠ **Beide Orte benannt, nicht nur einer.** Bis v3.15.1 stand in der
+    # Zeile allein das Ziel hinter einem Pfeil; wo eingekauft wird, ergab sich
+    # nur aus der Überschrift darüber. Am 05.09.2026 gemeldet: „Der Startpunkt
+    # und das Ziel sind nicht eindeutig genug erkennbar." Ein Pfeil zwischen
+    # einem genannten und einem ungenannten Ort ist keine Angabe.
     's_rt_ab':           ('kaufen ab %s', 'buy at %s'),
+    's_rt_nach':         ('verkaufen in %s', 'sell at %s'),
     's_rt_einsatz':      ('Einsatz: %s aUEC', 'Outlay: %s aUEC'),
     # ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Über einer Kette stand nur
     # „177.960 aUEC" — am 05.09.2026 gefragt: „Was ist das? Gewinn, oder was

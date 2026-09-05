@@ -5324,7 +5324,6 @@ def _routen(fenster, rahmen):
     from . import verkauf as preisdaten
 
     _ueberschrift(fenster, rahmen, t('hf_routen'), t('s_rt_lead'))
-    innen = _rollflaeche(rahmen)
 
     zustand = {'start': '', 'startname': '', 'laeuft': False, 'kurz': False,
                'schiff': '', 'stumm': False, 'stopps': 2, 'rund': False,
@@ -5336,8 +5335,17 @@ def _routen(fenster, rahmen):
     geld_var = tk.StringVar(value='500000')
     ortsuche = tk.StringVar()
 
-    kopf = tk.Frame(innen, bg=BG)
-    kopf.pack(fill='x', padx=24, pady=(4, 0))
+    # ⚠⚠ **Die Eingaben bleiben stehen, nur das Ergebnis rollt.** Sie lagen
+    # bis v3.15.1 **in** der Rollfläche — wer zu den Fahrten hinunterrollte,
+    # verlor Startort, Frachtraum und Schiff aus dem Bild. Auf einem kleineren
+    # Fenster fällt das sofort auf: Morkhan schickte am 05.09.2026 ein Bild,
+    # auf dem die ganze Zeile „Wo stehst du gerade?" fehlte.
+    #
+    # ⚠ Derselbe Fehler war im Laden-Reiter schon behoben — und hier
+    # übersehen. Wo eine Seite eine feste Kopfzone hat, brauchen die anderen
+    # sie auch: Erst alles Feste packen, **danach** die rollende Fläche.
+    kopf = tk.Frame(rahmen, bg=BG)
+    kopf.pack(fill='x', side='top', padx=24, pady=(4, 0))
 
     # ---------------------------------------------------- Wo stehe ich?
     tk.Label(kopf, text=t('s_rt_wo'), bg=BG, fg=SUB,
@@ -5611,7 +5619,12 @@ def _routen(fenster, rahmen):
     def _stand_zeigen():
         bekannt = routen_modul.bekannte_starts()
         gesamt = len(routen_modul.handelsposten())
-        if bekannt and gesamt:
+        # ⚠ **Auch die Null wird genannt.** Vorher blieb die Zeile leer,
+        # solange noch nichts gesammelt war — und damit stand neben dem Knopf
+        # gar nichts, wo bei anderen „184 von 184 Handelsposten" steht. Wer
+        # zwei Bildschirmfotos vergleicht, hält das für einen Fehler; wer
+        # allein davor sitzt, weiß nicht, dass der Knopf etwas sammelt.
+        if gesamt:
             ueberall_stand.configure(
                 text=t('s_rt_ueberall_stand') % (bekannt, gesamt))
         else:
@@ -5679,6 +5692,8 @@ def _routen(fenster, rahmen):
     schalter_rahmen = tk.Frame(kopf, bg=BG)
     schalter_rahmen.pack(fill='x', pady=(10, 0))
 
+    # Ab hier rollt es — der Kopf darüber steht fest.
+    innen = _rollflaeche(rahmen, rand=0)
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
 
@@ -5800,6 +5815,11 @@ def _routen(fenster, rahmen):
         for nummer, e in enumerate(einzeln[:6]):
             if nummer == 0:
                 _routen_kopfzeile(fenster, ergebnis)
+            # ⚠ Der Startort steht sonst nur in der Überschrift — in der Zeile
+            # bliebe ein Pfeil ohne Anfang. `einzelfahrten` kennt ihn nicht,
+            # er kommt aus der Auswahl darüber.
+            e = dict(e)
+            e['startname'] = zustand['startname']
             _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0))
 
         ketten = routen_modul.kette(zustand['start'], scu, geld,
@@ -6173,11 +6193,16 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
                  side='left')
     tk.Label(zeile, text=fahrt['ware'], bg=FLAECHE, fg=FG,
              font=fenster.f_klein, anchor='w').pack(side='left')
-    if mit_start and fahrt.get('startname'):
+    # ⚠⚠ **Beide Orte, beide beschriftet.** „→ Terra Gateway" allein sagt
+    # nicht, wo man einkauft — das stand nur in der Überschrift darüber. Wer
+    # die Zeile für sich liest (und das tut man in einer Tabelle), sah einen
+    # Pfeil ins Nichts.
+    if fahrt.get('startname'):
         tk.Label(zeile, text='  ' + t('s_rt_ab') % fahrt['startname'],
                  bg=FLAECHE, fg=FG, font=fenster.f_klein,
                  anchor='w').pack(side='left')
-    tk.Label(zeile, text='  →  ' + (fahrt.get('zielname') or '?'), bg=FLAECHE,
+    tk.Label(zeile, text='  →  ' + t('s_rt_nach')
+             % (fahrt.get('zielname') or '?'), bg=FLAECHE,
              fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
 
     # ⭐⭐ **Der Einsatz gehört dazu — ohne ihn ist der Gewinn eine Behauptung.**

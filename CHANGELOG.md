@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.2 - 2026-09-05
+
+> **Routen: Die Eingaben bleiben stehen, wenn du zu den Fahrten rollst.**
+> Bisher verschwanden Startort, Frachtraum und Schiff nach oben aus dem Bild —
+> auf kleineren Fenstern sofort.
+
+### Behoben
+
+- **Routen: Startort, Frachtraum und Schiff rollten mit weg.** Sie stehen
+  jetzt fest, nur die Fahrten darunter rollen. Gemeldet von **Morkhan**.
+- **Neben „Beste Routen überall suchen" stand nichts**, solange noch keine
+  Handelsposten gesammelt waren. Jetzt steht dort „0 von 184 Handelsposten" —
+  so ist überhaupt erkennbar, dass der Knopf etwas sammelt.
+- **Routen: Start und Ziel stehen jetzt beide in der Zeile** — „Aluminum ·
+  kaufen ab Nyx Gateway → verkaufen in Terra Gateway". Bisher stand dort nur
+  das Ziel hinter einem Pfeil, der Einkaufsort ergab sich allein aus der
+  Überschrift darüber.
+- **Der Fehlerbericht zeigt mehr Seiten** (24 statt 12 Zeilen): Wer den Bericht
+  holt, klickt sich vorher durch die Info-Seiten und schob damit genau die
+  Seite hinaus, um die es ging.
+
 ## v3.15.1 - 2026-09-05
 
 > Kleiner Nachschlag zu v3.15.0.
