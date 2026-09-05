@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc7 - 2026-09-05
+
+> **The switches now apply to "find best routes anywhere" too.** Round trip
+> across three stops, short hops — it works that out across every trade post
+> instead of still showing the single runs from before.
+
+### New
+
+- **Best chains anywhere in the verse.** Stop count, round trip and "short
+  distance" apply after the full sweep as well. Calculated from what has
+  already been collected — in under a second.
+
+### Fixed
+
+- **The location list appeared at the bottom instead of under the search
+  field.** Typing "sera" put the suggestion far away from the input.
+- **The location field opens the trade post list when you click into it** — no
+  need to pick a system on the right first.
+
 ## v3.15.0-rc6 - 2026-09-05
 
 > **Click the field and the list opens.** Until now you had to find the small

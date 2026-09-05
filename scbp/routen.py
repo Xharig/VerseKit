@@ -256,7 +256,7 @@ def einzelfahrten(start, scu, geld, hoechstens=20):
 
 
 def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
-          rundreise=False):
+          rundreise=False, nachholen=True):
     """Mehrere Fahrten hintereinander: Ziel der einen ist Start der nächsten.
 
     `stopps` sagt, über wie viele Fahrten geplant wird (2 bis `MAX_STOPPS`).
@@ -284,7 +284,11 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
         naechste = []
         letzte_stufe = (stufe == stopps - 1)
         for gewinn_bisher, ort, bisher in zweige:
-            if fahrten(ort) is None and not holen(ort):
+            # ⚠ `nachholen=False` rechnet **nur** mit dem, was schon abgelegt
+            # ist. Für „beste Route überall" ist das Pflicht: Dort werden 184
+            # Startorte durchgerechnet, und jeder fehlende Zwischenstopp wäre
+            # ein Netzabruf — Minuten statt Sekunden.
+            if fahrten(ort) is None and (not nachholen or not holen(ort)):
                 continue
             # ⚠⚠ **Auf der Rückfahrt zählen ALLE Fahrten, nicht nur die fünf
             # besten.** Die Fahrt, die zufällig zum Startort zurückführt,
@@ -419,6 +423,38 @@ def beste_ueberall(scu, geld, hoechstens=15):
             e['startname'] = namen.get(kennung, '?')
             raus.append(e)
     raus.sort(key=lambda e: -e['gewinn'])
+    return raus[:hoechstens]
+
+
+def beste_ketten_ueberall(scu, geld, kurz=False, stopps=2, rundreise=False,
+                          hoechstens=15):
+    """Die besten **Ketten** über alle abgelegten Startorte.
+
+    ⚠⚠ **Die Schalter mussten auch hier gelten.** Am 05.09.2026 gemeldet:
+    „Ich möchte eine Rundreise über 3 Stationen, kurze Strecken — die Anzeige
+    bleibt aber so wie am Anfang geladen." Zu Recht: `beste_ueberall` kannte
+    nur Einzelfahrten, die Schalter darüber färbten sich und bewirkten nichts.
+    Ein Bedienelement, das sich einschalten lässt und nichts tut, ist
+    schlimmer als keins.
+
+    ⚠ **Holt nichts nach** — dieselbe Regel wie bei `beste_ueberall`. Gerechnet
+    wird mit dem, was der Rundumlauf gesammelt hat; gemessen bleibt das nach
+    einem vollen Lauf unter einer Sekunde.
+
+    Gibt `[(gewinn, startname, [fahrten])]` zurück.
+    """
+    namen = dict(handelsposten())
+    raus = []
+    for kennung in list(_alle() or {}):
+        for gewinn, weg in kette(kennung, scu, geld, kurz=kurz,
+                                 hoechstens=3, stopps=stopps,
+                                 rundreise=rundreise, nachholen=False):
+            raus.append((gewinn, namen.get(kennung, '?'), weg))
+    if kurz:
+        raus.sort(key=lambda p: (sum(f.get('strecke') or 0 for f in p[2]),
+                                 -p[0]))
+    else:
+        raus.sort(key=lambda p: -p[0])
     return raus[:hoechstens]
 
 

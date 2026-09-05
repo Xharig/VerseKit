@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc7 - 2026-09-05
+
+> **Die Schalter gelten jetzt auch für „Beste Routen überall".** Rundreise über
+> drei Stationen, kurze Strecke — das rechnet er jetzt über alle Handelsposten,
+> statt weiter die Einzelfahrten von vorhin zu zeigen.
+
+### Neu
+
+- **Beste Ketten im ganzen Verse.** Stationszahl, Rundreise und „kurze
+  Strecke" wirken auch nach dem Rundumlauf. Gerechnet wird mit dem, was schon
+  gesammelt ist — in unter einer Sekunde.
+
+### Behoben
+
+- **Die Ortsliste stand ganz unten statt unter dem Suchfeld.** Wer „sera"
+  tippte, fand den Vorschlag weit weg von der Eingabe.
+- **Das Ortsfeld öffnet beim Hineinklicken die Handelsposten** — ohne dass man
+  vorher rechts ein System wählen muss.
+
 ## v3.15.0-rc6 - 2026-09-05
 
 > **Ein Klick ins Feld, und die Auswahl klappt auf.** Bisher musste man den

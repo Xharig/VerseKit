@@ -5312,7 +5312,7 @@ def _routen(fenster, rahmen):
 
     zustand = {'start': '', 'startname': '', 'laeuft': False, 'kurz': False,
                'schiff': '', 'stumm': False, 'stopps': 2, 'rund': False,
-               'stumm_schiff': False, 'modus': 'ab_hier'}
+               'stumm_schiff': False, 'modus': 'ab_hier', 'ort_offen': False}
     # ⚠ 120 statt 96: Das ist der Laderaum der Freelancer MAX, gemessen am
     # 04.09.2026. Ein Standardwert soll einem echten Schiff entsprechen und
     # nicht geraten sein.
@@ -5350,7 +5350,13 @@ def _routen(fenster, rahmen):
         ortvorschlag.pack_forget()
 
     def _ortliste_zeigen():
-        ortvorschlag.pack(fill='x')
+        # ⚠⚠ **`after=` — sonst landet die Liste ganz unten.** Ein `pack()`
+        # ohne Angabe hängt sich ans Ende des Rahmens; seit die Liste beim
+        # Leeren ausgepackt wird, ist das nicht mehr ihr alter Platz. Am
+        # 05.09.2026 gemeldet: „Oben kommt keine Auswahl mehr, wo ich Seraphim
+        # Station auswählen könnte" — sie stand unter den Schaltern, weit weg
+        # vom Suchfeld.
+        ortvorschlag.pack(fill='x', after=ortzeile)
 
     def _systeme():
         """Die Systeme, in denen es Handelsposten gibt — mit Anzahl."""
@@ -5440,7 +5446,8 @@ def _routen(fenster, rahmen):
         schiffvorschlag.pack_forget()
 
     def _schiffliste_zeigen():
-        schiffvorschlag.pack(fill='x')
+        # ⚠ Direkt unter das Hersteller-Menü — siehe `_ortliste_zeigen`.
+        schiffvorschlag.pack(fill='x', after=werft_rahmen)
 
     def _schiff_waehlen(name):
         zustand['schiff'] = name
@@ -5700,10 +5707,30 @@ def _routen(fenster, rahmen):
         # Anderthalb Minuten Abruf für nichts. Am 04.09.2026 gemeldet: „Beste
         # Route lädt 187 Handelsposten, zeigt dann aber nichts an."
         if zustand.get('modus') == 'ueberall':
-            beste = routen_modul.beste_ueberall(scu, geld, hoechstens=15)
             tk.Label(ergebnis, text=t('s_rt_ueberall_titel'), bg=BG, fg=FG,
                      font=fenster.f_fett, anchor='w').pack(fill='x',
                                                            pady=(0, 6))
+            # ⚠⚠ **Die Schalter gelten auch hier.** Bis v3.15.0-rc6 zeigte
+            # dieser Zweig immer nur Einzelfahrten: „Ich möchte eine Rundreise
+            # über 3 Stationen, kurze Strecken — die Anzeige bleibt aber so
+            # wie am Anfang geladen" (05.09.2026). Die Schalter färbten sich
+            # und bewirkten nichts, und das ist schlimmer als kein Schalter.
+            #
+            # Gerechnet wird nur mit dem, was der Rundumlauf gesammelt hat —
+            # nach einem vollen Lauf gemessen unter einer Sekunde.
+            stopps = int(zustand.get('stopps') or 1)
+            if stopps > 1:
+                ketten = routen_modul.beste_ketten_ueberall(
+                    scu, geld, kurz=bool(zustand.get('kurz')), stopps=stopps,
+                    rundreise=bool(zustand.get('rund')), hoechstens=8)
+                if not ketten:
+                    _fliesstext(ergebnis, t('s_rt_keine_kette'),
+                                fenster.f_klein, fill='x')
+                    return
+                for gewinn, startname, weg in ketten:
+                    _kette_zeichnen(ergebnis, gewinn, weg, startname)
+                return
+            beste = routen_modul.beste_ueberall(scu, geld, hoechstens=15)
             if not beste:
                 _fliesstext(ergebnis, t('s_rt_ueberall_leer'),
                             fenster.f_klein, fill='x')
@@ -5759,44 +5786,57 @@ def _routen(fenster, rahmen):
             _fliesstext(ergebnis, t('s_rt_keine_kette'), fenster.f_klein,
                         fill='x')
         for nummer, (gesamt, weg) in enumerate(ketten):
-            kasten = tk.Frame(ergebnis, bg=FLAECHE, highlightthickness=1,
-                              highlightbackground=LINIE)
-            kasten.pack(fill='x', pady=(0, 6))
-            oben = tk.Frame(kasten, bg=FLAECHE)
-            oben.pack(fill='x', padx=12, pady=(6, 2))
-            tk.Label(oben, text=_auec(gesamt), bg=FLAECHE,
-                     fg=ACCENT if nummer == 0 else FG,
-                     font=fenster.f_klein, anchor='w').pack(side='left')
-            strecke = sum(f.get('strecke') or 0 for f in weg)
-            if strecke:
-                tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
-                         bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-                         anchor='e').pack(side='right')
-            # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
-            # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
-            # wo man dafür einkauft. Xharig am 04.09.2026: „Wie fliegt man
-            # hier? Ich versteh es nicht, User also auch nicht."
-            weg_orte = [zustand['startname']] + [f['zielname'] for f in weg]
-            tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=FLAECHE,
-                     fg=FG, font=fenster.f_klein, anchor='w',
-                     wraplength=760, justify='left').pack(
-                         fill='x', padx=12, pady=(0, 6))
+            _kette_zeichnen(ergebnis, gesamt, weg, zustand['startname'],
+                            hervor=(nummer == 0),
+                            rund=bool(zustand['rund']))
 
-            for schritt, f in enumerate(weg, start=1):
-                # ⚠ **Jeder Schritt nennt beide Orte.** „Kaufe X in A, verkaufe
-                # in B" ist eine Anweisung; „X → B" war ein Rätsel. Der
-                # Einkaufsort ist das Ziel des vorigen Schritts — beim ersten
-                # der gewählte Startort.
-                woher = weg_orte[schritt - 1]
-                wohin = f['zielname']
-                if zustand['rund'] and schritt == len(weg):
-                    wohin = t('s_rt_zurueck') % wohin
-                tk.Label(kasten,
-                         text=t('s_rt_schritt') % (schritt, woher, f['menge'],
-                                                   f['ware'], wohin),
-                         bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-                         anchor='w', wraplength=760, justify='left').pack(
-                             fill='x', padx=12, pady=(0, 4))
+    def _kette_zeichnen(eltern, gesamt, weg, startname, hervor=False,
+                        rund=False):
+        """Eine Fahrtenkette als Kasten — Gewinn, Weg, Schritte.
+
+        ⚠ Eigene Funktion, weil beide Modi sie brauchen: die Ketten ab einem
+        gewählten Ort und die besten Ketten überall. Vorher stand der Code nur
+        im ersten Zweig, und der zweite konnte deshalb gar keine Ketten
+        zeigen.
+        """
+        kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
+                          highlightbackground=LINIE)
+        kasten.pack(fill='x', pady=(0, 6))
+        oben = tk.Frame(kasten, bg=FLAECHE)
+        oben.pack(fill='x', padx=12, pady=(6, 2))
+        tk.Label(oben, text=_auec(gesamt), bg=FLAECHE,
+                 fg=ACCENT if hervor else FG,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+        strecke = sum(f.get('strecke') or 0 for f in weg)
+        if strecke:
+            tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+        # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
+        # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
+        # wo man dafür einkauft. Am 04.09.2026: „Wie fliegt man hier? Ich
+        # versteh es nicht, User also auch nicht."
+        weg_orte = [startname] + [f['zielname'] for f in weg]
+        tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=FLAECHE,
+                 fg=FG, font=fenster.f_klein, anchor='w',
+                 wraplength=760, justify='left').pack(
+                     fill='x', padx=12, pady=(0, 6))
+
+        for schritt, f in enumerate(weg, start=1):
+            # ⚠ **Jeder Schritt nennt beide Orte.** „Kaufe X in A, verkaufe
+            # in B" ist eine Anweisung; „X → B" war ein Rätsel. Der
+            # Einkaufsort ist das Ziel des vorigen Schritts — beim ersten
+            # der gewählte Startort.
+            woher = weg_orte[schritt - 1]
+            wohin = f['zielname']
+            if rund and schritt == len(weg):
+                wohin = t('s_rt_zurueck') % wohin
+            tk.Label(kasten,
+                     text=t('s_rt_schritt') % (schritt, woher, f['menge'],
+                                               f['ware'], wohin),
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                     anchor='w', wraplength=760, justify='left').pack(
+                         fill='x', padx=12, pady=(0, 4))
 
     def _start_waehlen(kennung, name):
         zustand['start'], zustand['startname'] = kennung, name
@@ -5813,6 +5853,8 @@ def _routen(fenster, rahmen):
         zustand['stumm'] = True
         ortsuche.set(name)
         zustand['stumm'] = False
+        # ⚠ Aufgeklappt bleibt sie nur, bis etwas gewählt ist.
+        zustand['ort_offen'] = False
         _ortliste_leeren()
         # ⚠ Die Vorschlagsliste war eben noch acht Zeilen hoch; ohne das hier
         # bleibt die Rollfläche stehen, wo sie war, und oben klafft eine Lücke.
@@ -5848,9 +5890,13 @@ def _routen(fenster, rahmen):
             return
         _ortliste_leeren()
         text = ortsuche.get().strip().lower()
-        # ⚠ **Ohne Eingabe gilt das System-Dropdown.** Vorher passierte unter
-        # zwei Zeichen gar nichts — wer nur klicken wollte, kam nicht weiter.
-        if len(text) < 2 and not zustand.get('system'):
+        # ⚠⚠ **Ohne Eingabe reicht ein Klick ins Feld.** Vorher passierte
+        # unter zwei Zeichen nur etwas, wenn rechts ein System gewählt war —
+        # am 05.09.2026 gemeldet: „Muss rechts System auswählen, dann klappt
+        # die Eingrenzung … das erwartet so kein User." Stimmt: Wer ein
+        # Auswahlfeld anklickt, erwartet eine Auswahl, kein Vorbedingung.
+        if len(text) < 2 and not zustand.get('system') \
+                and not zustand.get('ort_offen'):
             return
         # Steht im Feld genau der schon gewählte Ort, gibt es nichts
         # vorzuschlagen — sonst klappt die Liste beim Zurückkommen wieder auf.
@@ -5909,6 +5955,17 @@ def _routen(fenster, rahmen):
             zeile.bind('<Enter>',
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
+
+    # ⭐ Ein Klick ins Ortsfeld zeigt die Handelsposten — ohne dass vorher ein
+    # System gewählt sein muss. Dasselbe Verhalten wie bei den Auswahlfeldern
+    # im Handelslager.
+    def _ort_aufklappen(_=None):
+        if not zustand.get('ort_offen'):
+            zustand['ort_offen'] = True
+            _ortvorschlaege()
+
+    ortfeld.bind('<FocusIn>', _ort_aufklappen, add='+')
+    ortfeld.bind('<Button-1>', _ort_aufklappen, add='+')
 
     ortsuche.trace_add('write', _ortvorschlaege)
     for var in (scu_var, geld_var):
