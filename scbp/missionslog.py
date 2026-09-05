@@ -720,6 +720,50 @@ def zusammenfuehren(alt, neu):
                   reverse=True)
 
 
+def neu_bewerten(ordner=None, laufende=None):
+    """Alle Protokolle noch einmal auswerten — auch die schon gelesenen.
+
+    Gibt `(gesamt, neu_dazu, berichtigt)` zurueck.
+
+    ⚠⚠ **Warum es das braucht (06.09.2026).** Ein gespeicherter Auftrag wird
+    nie wieder angefasst: `nachlese()` liest nur Dateien hinter dem Lesestand.
+    Wird die Auswertung verbessert — an dem Tag lernte sie, `Fail` von
+    `Complete` zu unterscheiden —, wirkt das ausschliesslich auf kuenftige
+    Auftraege. Die 52 bereits falsch einsortierten blieben falsch, fuer immer.
+
+    Ein Fix, der den Altbestand nicht erreicht, ist ein halber Fix. Deshalb
+    gibt es diesen Weg: alles noch einmal lesen und die Zustaende berichtigen.
+
+    ⚠ **Zusammenfuehren, nicht ersetzen.** Auftraege aus Protokollen, die das
+    Spiel laengst geloescht hat, stehen nur noch hier — ein Neuaufbau wuerde
+    sie verlieren. Genau dieser Unterschied hat am 05.09.2026 einem Melder
+    seinen Bestand von 232 auf 3 gebracht.
+    """
+    alt = laden()
+    vorher = {_schluessel(e): e.get('zustand') for e in alt}
+    # ⚠⚠ **Nicht `aus_ordner`.** Das sieht nur direkt in den uebergebenen
+    # Ordner — die aufgehobenen Sitzungen liegen aber eine Ebene tiefer in
+    # `logbackups/`. Damit fand der erste Anlauf genau EINE Datei statt 199
+    # und berichtigte nichts. `pfade.log_sicherungen` kennt den richtigen Ort
+    # und nimmt seit v3.17.3 auch die Nachbarkanaele mit.
+    dateien = list(pfade.log_sicherungen(ordner) if ordner else [])
+    if laufende and os.path.isfile(laufende):
+        dateien.append(laufende)
+    neu = aus_dateien(sorted(set(dateien), key=_spielzeit)) if dateien else []
+    if not neu:
+        return len(alt), 0, 0
+    zusammen = zusammenfuehren(alt, neu)
+    dazu = beric = 0
+    for e in zusammen:
+        s = _schluessel(e)
+        if s not in vorher:
+            dazu += 1
+        elif e.get('zustand') != vorher[s]:
+            beric += 1
+    sichern(zusammen)
+    return len(zusammen), dazu, beric
+
+
 def nachtragen(ordner=None, laufende=None):
     """Logs lesen, ins gespeicherte Protokoll einpflegen, sichern.
 

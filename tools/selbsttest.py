@@ -12107,6 +12107,52 @@ def main():
            'nicht mehr offen bleibt grau')
 
     print()
+    print('135. Jeder Zustand hat einen Filterknopf in seiner Farbe')
+    # Gewuenscht am 06.09.2026: „Buttons wie bei was ist neu in den farben ob
+    # abgeschlossen, abgebrochen, fehlgeschlagen, das man dann nur die art
+    # sieht."
+    #
+    # ⚠ Geprueft wird die KOPPLUNG, nicht das Aussehen. Dass die Knoepfe
+    # klicken und filtern, ist am gebauten Fenster nachgemessen (sechs
+    # Knoepfe, Farben auf den Hex-Wert, Trefferzahlen passend). Was dabei
+    # NICHT auffaellt und spaeter still bricht: Ein neuer Zustand bekommt eine
+    # Farbe in der Liste, aber keinen Knopf — dann gibt es Zeilen, die durch
+    # keinen Filter zu erreichen sind. Genau das faengt diese Pruefung.
+    _fa135 = re.search(r'farben = \{(.*?)\}', _quelle134, re.S)
+    _sc135 = re.search(r'schalter = \[(.*?)\]', _quelle134, re.S)
+    pruefe(bool(_fa135 and _sc135),
+           'Farbtabelle und Knopfliste sind beide da')
+    if _fa135 and _sc135:
+        _zust135 = dict(re.findall(r'missionslog\.(\w+):\s*(\w+)',
+                                   _fa135.group(1)))
+        _knopf135 = dict((k, f) for k, _w, f in
+                         re.findall(r'missionslog\.(\w+),\s*\'([^\']+)\',\s*(\w+)',
+                                    _sc135.group(1)))
+        _ohne = sorted(set(_zust135) - set(_knopf135))
+        pruefe(not _ohne,
+               'jeder Zustand der Liste hat einen Knopf (ohne: %s)' % _ohne)
+        _falsch135 = sorted(k for k in _knopf135
+                            if k in _zust135 and _knopf135[k] != _zust135[k])
+        pruefe(not _falsch135,
+               'jeder Knopf traegt die Farbe seines Zustands (falsch: %s)'
+               % _falsch135)
+        # ⚠ Gegenprobe: Wuerde sie auch anschlagen? Ein erfundener Zustand
+        # ohne Knopf muss auffallen — sonst prueft die Zeile darueber nichts.
+        _probe135 = dict(_zust135)
+        _probe135['ERFUNDEN'] = 'GOLD'
+        pruefe(bool(set(_probe135) - set(_knopf135)),
+               'Gegenprobe: ein Zustand ohne Knopf faellt auf')
+
+    # ⚠⚠ **Die Reihenfolge in `zeichnen` ist entscheidend.** Die Meldung „Noch
+    # kein Auftrag aufgezeichnet" darf NUR beim wirklich leeren Protokoll
+    # kommen. Stuende sie hinter dem Filter, hiesse ein sauberes Konto ohne
+    # Fehlschlaege „du hast noch nie einen Auftrag gespielt" — schlicht falsch.
+    _leer135 = _quelle134.find("t('s_al_leer')")
+    _filter135 = _quelle134.find("stand['art'] != 'alle'")
+    pruefe(_leer135 > 0 and _filter135 > _leer135,
+           'die Leer-Meldung wird vor dem Filtern entschieden')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

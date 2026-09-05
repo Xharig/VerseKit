@@ -6,7 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.18.0 - 2026-09-06
+
+> **Your contract log finally tells the truth.** Until now every contract you
+> did not explicitly abandon counted as completed — failed ones included. Now
+> you see at a glance how it ended: green for completed, red for abandoned and
+> failed. Six filter buttons show you each kind on its own. And an abandoned
+> contract disappears from the overlay right away instead of lingering there.
+
+> [!important]
+> **One click worth making:** Under *Advanced → Blueprint collection* there is
+> "Read logs again". That run now re-evaluates your contract log as well — the
+> only way the improvements reach what is already in there. On a grown log it
+> corrected **102 contracts**.
 
 ### Fixed
 
@@ -22,6 +34,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   watcher was still writing the old one, so uploads no longer reached your
   collection there. Every entry now carries the identifier scmdb uses for its
   blueprints. Spotted in an export file from Zwaersch (KRT).
+
+- **"Read logs again" only did half the job.** The run added missing
+  blueprints but left the contract log untouched. Any improvement to the
+  evaluation therefore only reached future contracts — whatever was already
+  stored stayed wrong. Both are covered now, and the message tells you how
+  many contracts were added and how many were corrected.
+
+### Added
+
+- **Six filter buttons in the contract log.** All · in progress · completed ·
+  abandoned · failed · no longer open. Each button carries the colour of its
+  contracts, the same one they have in the list.
 
 ### Improved
 

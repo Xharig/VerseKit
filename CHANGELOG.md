@@ -6,7 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.18.0 - 2026-09-06
+
+> **Dein Auftrags-Protokoll sagt endlich die Wahrheit.** Bisher galt jeder
+> Auftrag, den du nicht ausdrücklich aufgegeben hast, als geschafft — auch die
+> gescheiterten. Jetzt siehst du auf einen Blick, wie es ausgegangen ist: grün
+> für geschafft, rot für aufgegeben und misslungen. Sechs Filterknöpfe zeigen
+> dir jede Art einzeln. Und abgebrochene Aufträge verschwinden sofort aus dem
+> Overlay, statt dort weiterzulaufen.
+
+> [!important]
+> **Ein Klick, der sich lohnt:** Unter *Für Fortgeschrittene → Bauplan-Bestand*
+> gibt es „Protokolle erneut einlesen". Der Lauf bewertet jetzt auch dein
+> Auftrags-Protokoll neu — nur so wirken die Verbesserungen auf das, was schon
+> drinsteht. Bei einem gewachsenen Protokoll wurden dabei **102 Aufträge**
+> berichtigt.
 
 ### Behoben
 
@@ -24,6 +38,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   gewechselt — der Watcher schrieb noch das alte, und beim Hochladen kam der
   Bestand dort nicht mehr an. Jede Zeile trägt jetzt die Kennung, mit der
   scmdb seine Baupläne führt. Aufgefallen an der Exportdatei von Zwaersch (KRT).
+
+- **„Protokolle erneut einlesen" räumte nur die halbe Stube auf.** Der Lauf
+  trug Baupläne nach, ließ das Auftrags-Protokoll aber unberührt. Damit wirkte
+  jede Verbesserung an der Auswertung nur auf künftige Aufträge — was schon
+  eingetragen war, blieb falsch. Jetzt werden beide erfasst, und die Meldung
+  nennt für Aufträge, wie viele neu dazukamen und wie viele berichtigt wurden.
+
+### Neu
+
+- **Sechs Filterknöpfe im Auftrags-Protokoll.** Alle · läuft · abgeschlossen ·
+  abgebrochen · fehlgeschlagen · nicht mehr offen. Jeder Knopf trägt die Farbe
+  seiner Aufträge, so wie sie in der Liste stehen.
 
 ### Verbessert
 

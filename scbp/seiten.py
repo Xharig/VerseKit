@@ -2227,6 +2227,7 @@ def _auftragslog(fenster, rahmen):
     # etwas anderes, weil die Seite gebaut blieb. Genau so gemeldet, mit acht
     # Aufträgen in der Datei.
     daten = {'alle': []}
+    stand = {'art': 'alle'}
 
     suche = tk.StringVar()
     liste_rahmen = tk.Frame(innen, bg=BG)
@@ -2239,6 +2240,12 @@ def _auftragslog(fenster, rahmen):
     feld = rundes_feld(block, suche, fenster.f_klein, '#0c1017', LINIE,
                        ACCENT, FG)
     feld.halter.pack(fill='x', pady=(4, 0))
+
+    # ⚠ Die Filterleiste wird weiter unten befuellt — die Farben und Woerter
+    # dazu stehen erst danach. Gepackt wird sie hier, damit sie zwischen
+    # Suchfeld und Liste sitzt.
+    filterleiste = tk.Frame(innen, bg=BG)
+    filterleiste.pack(fill='x', padx=24, pady=(10, 0))
 
     kopf = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
                     anchor='w')
@@ -2303,11 +2310,20 @@ def _auftragslog(fenster, rahmen):
         if not alle:
             # Noch gar nichts aufgezeichnet — das ist etwas anderes als „die
             # Suche findet nichts" und braucht deshalb einen eigenen Satz.
+            # ⚠ Gegen `daten['alle']` gefragt, VOR dem Filtern: Ein Filter,
+            # der nichts findet, ist kein leeres Protokoll. Sonst stuende bei
+            # „fehlgeschlagen" auf einem sauberen Konto „Noch kein Auftrag
+            # aufgezeichnet" — und das waere schlicht gelogen.
             kopf.configure(text='')
             tk.Label(liste_rahmen, text=t('s_al_leer'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w', justify='left',
                      wraplength=560).pack(fill='x', pady=8)
             return
+        # ⚠ **Erst filtern, dann suchen.** Der Kopf zaehlt, was am Ende
+        # dasteht — sonst meldet er 386 und zeigt 62.
+        if stand['art'] != 'alle':
+            alle = [e for e in alle
+                    if (e.get('zustand') or missionslog.LAEUFT) == stand['art']]
         treffer = missionslog.suchen(alle, suche.get())
         kopf.configure(text=t('s_al_anzahl', len(treffer)))
         if not treffer:
@@ -2390,6 +2406,36 @@ def _auftragslog(fenster, rahmen):
                 tk.Label(reihe, text='  ' + t('s_al_oft', gesamt, fertig),
                          bg=BG, fg=SUB, font=fenster.f_klein,
                          anchor='w').pack(side='left')
+
+    # ⚠⚠ **Die Filterknoepfe tragen die Farbe ihres Zustands** (06.09.2026):
+    # Wer „abgebrochen" sucht, drueckt einen Knopf im selben blassen Rot, in
+    # dem die Zeilen danach dastehen. Ohne diese Kopplung waeren es sechs
+    # gleich aussehende Knoepfe, und die Farben in der Liste haetten keine
+    # Entsprechung in der Bedienung.
+    #
+    # ⚠ Die Reihenfolge folgt dem Ausgang, nicht dem Alphabet: erst alles,
+    # dann was laeuft, dann was geschafft ist, dann was schiefging, zuletzt
+    # das Ungewisse.
+    chips = {}
+    schalter = [('alle', 's_al_f_alle', ACCENT),
+                (missionslog.LAEUFT, 's_al_laeuft', GOLD),
+                (missionslog.ABGESCHLOSSEN, 's_al_fertig', ACCENT),
+                (missionslog.ABGEBROCHEN, 's_al_abbruch', ROT_BLASS),
+                (missionslog.FEHLGESCHLAGEN, 's_al_fehl', ROT_BLASS),
+                (missionslog.VERFALLEN, 's_al_verfallen', SUB)]
+
+    def waehlen(art):
+        stand['art'] = art
+        for kennung, k in chips.items():
+            k.setzen(kennung == art)
+        zeichnen()
+
+    for kennung, schluessel, farbe in schalter:
+        knopf = _chip(fenster, filterleiste, t(schluessel),
+                      kennung == 'alle', farbe)
+        knopf.pack(side='left', padx=(0, 6))
+        knopf.bind('<Button-1>', lambda ev, s=kennung: waehlen(s))
+        chips[kennung] = knopf
 
     suche.trace_add('write', zeichnen)
     zeichnen()
@@ -3114,9 +3160,16 @@ def _wasistneu(fenster, rahmen):
     zeichnen()
 
 
-def _chip(fenster, eltern, text, an):
-    """Ein anklickbarer Filter — abgerundet, Rand in Akzentfarbe wenn gewählt."""
+def _chip(fenster, eltern, text, an, farbe=None):
+    """Ein anklickbarer Filter — abgerundet, Rand in Akzentfarbe wenn gewählt.
+
+    ⚠ `farbe` gibt dem Knopf die Farbe des Zustands, den er filtert — im
+    Auftrags-Protokoll steht „abgebrochen" damit im selben blassen Rot wie die
+    Zeilen, die er zeigt. Ohne Angabe bleibt es beim Grün, so wie auf der Seite
+    „Was ist neu", wo alle Filter gleichrangig sind.
+    """
     from .hauptfenster import _rundes_rechteck
+    farbe = farbe or ACCENT
     schrift = fenster.f_klein
     hoehe = schrift.metrics('linespace') + 12
     breite = schrift.measure(text) + 26
@@ -3124,13 +3177,13 @@ def _chip(fenster, eltern, text, an):
                   highlightthickness=0, bd=0, cursor='hand2')
     blase = _rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1,
                              radius=max(5, hoehe // 3),
-                             fill=FLAECHE, outline=ACCENT if an else LINIE, width=1)
+                             fill=FLAECHE, outline=farbe if an else LINIE, width=1)
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0 + 1, text=text,
-                                 fill=ACCENT if an else SUB, font=schrift)
+                                 fill=farbe if an else SUB, font=schrift)
 
     def setzen(gewaehlt):
-        c.itemconfigure(blase, outline=ACCENT if gewaehlt else LINIE)
-        c.itemconfigure(beschriftung, fill=ACCENT if gewaehlt else SUB)
+        c.itemconfigure(blase, outline=farbe if gewaehlt else LINIE)
+        c.itemconfigure(beschriftung, fill=farbe if gewaehlt else SUB)
 
     c.setzen = setzen
     return c

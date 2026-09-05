@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.17.3'
+__version__ = '3.18.0'
 
 
 def _mitgeliefert(name):
@@ -1450,11 +1450,26 @@ class Watcher(threading.Thread):
         if dazu:
             self._bestand_sichern()
             self.seen = set(bestand_datei.schluessel(self.bestand))
+        # ⚠⚠ **Das Auftrags-Protokoll gehoert mit dazu (06.09.2026).** Bis
+        # hierher fasste dieser Lauf nur den Bauplan-Bestand an — gemeldet
+        # wurde er als „Protokolle erneut einlesen", raeumte aber nur eine
+        # Haelfte auf. Wer die Auswertung verbessert, erreicht damit nur
+        # kuenftige Auftraege; die schon eingetragenen bleiben, wie sie sind.
+        # Begruendung und Vorsichtsmassnahmen: `missionslog.neu_bewerten`.
+        from scbp import missionslog as _ml
+        a_neu = a_ber = 0
+        try:
+            _, a_neu, a_ber = _ml.neu_bewerten(pfade.spiel_ordner())
+        except Exception as ausnahme:
+            # ⚠ Kein Abbruch: Die Bauplaene sind zu diesem Zeitpunkt schon
+            # gesichert, und der Spieler soll seine Zahl bekommen.
+            fehler.merken('watcher.neu_einlesen_auftraege', ausnahme)
         # ⚠ Als Bescheid, nicht nur als Zeile: Wer diesen Lauf anstoesst,
         # wartet auf genau diese Zahl.
         self.q.put(('bescheid', sprache.Satz('s_be_neu'),
                     sprache.Satz('neu_gelesen',
-                                 bericht.get('dateien', 0), len(dazu))))
+                                 bericht.get('dateien', 0), len(dazu),
+                                 a_neu, a_ber)))
         # ⚠ Hier erst recht: Wer den Knopf drückt, will das Ergebnis sehen und
         # nicht nur eine Zahl in der Leiste.
         self._nachgelesenes_melden(dazu)

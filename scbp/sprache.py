@@ -360,9 +360,14 @@ TEXTE = {
     'craftdaten_neu':    ('scmdb-Craftdaten aktualisiert (%s, %d Gegenst\u00e4nde)',
                           'scmdb crafting data updated (%s, %d items)'),
     'ohne_launcher':     ('ohne Launcher', 'no launcher'),
-    'neu_gelesen':       ('%d Protokolle noch einmal gelesen, %d Baupläne '
-                          'dazugekommen.',
-                          '%d logs read again, %d blueprints added.'),
+    # ⚠ Vier Zahlen, weil der Lauf zwei Dinge tut: Baupläne nachtragen und das
+    # Auftrags-Protokoll neu bewerten. Bis 06.09.2026 stand hier nur die
+    # Bauplan-Zahl — der Lauf hieß „Protokolle erneut einlesen" und räumte
+    # sichtbar nur die eine Hälfte auf.
+    'neu_gelesen':       ('%d Protokolle noch einmal gelesen. Baupläne: %d '
+                          'dazugekommen. Aufträge: %d neu, %d berichtigt.',
+                          '%d logs read again. Blueprints: %d added. '
+                          'Contracts: %d new, %d corrected.'),
     'neu_gelesen_fehler': ('Das erneute Einlesen hat nicht geklappt.',
                            'Reading the logs again did not work.'),
     'hinweis_neulesen':  ('Protokolle erneut einlesen — für den Fall, dass ein '
@@ -746,6 +751,7 @@ TEXTE = {
     # Das Spiel unterscheidet das vom Aufgeben; bis 06.09.2026 tat der Watcher
     # das nicht und zeigte beides als Erfolg.
     's_al_fehl':       ('fehlgeschlagen', 'failed'),
+    's_al_f_alle':     ('alle', 'all'),
     # Kein Ende im Log, aber eine spätere Sitzung kannte ihn nicht mehr.
     # Bewusst nicht „abgebrochen“ — warum er endete, steht nirgends.
     's_al_verfallen':  ('nicht mehr offen', 'no longer open'),
@@ -1545,12 +1551,15 @@ TEXTE = {
                               'refreshing the first time you opened it. And the '
                               'idea of a field for your message in the error '
                               'report.'),
-    's_dk_zwaersch_bugs':    ('Dass der Bestands-Import die neuere Ausfuhr von '
-                              'scmdb.net nicht kannte und sie abwies — seine '
-                              'Datei hat es ans Licht gebracht.',
-                              'That the inventory import did not know the newer '
-                              'scmdb.net export and rejected it — his file '
-                              'brought it to light.'),
+    's_dk_zwaersch_bugs':    ('Dass Ein- **und** Ausfuhr das neuere Format von '
+                              'scmdb.net nicht kannten, und dass ein '
+                              'Kanalwechsel die ganze Vorgeschichte kostete — '
+                              'eine einzige Datei hat alles drei ans Licht '
+                              'gebracht.',
+                              'That both import **and** export did not know the '
+                              'newer scmdb.net format, and that switching '
+                              'channels cost you your whole history — one '
+                              'single file brought all three to light.'),
     's_dk_horthy_idee':      ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
