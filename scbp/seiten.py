@@ -6023,6 +6023,24 @@ def _routen(fenster, rahmen):
                  lambda _=None: ortfeld.after(200, _ort_zumachen), add='+')
     ortfeld.bind('<Escape>', lambda _=None: _ort_zumachen(), add='+')
 
+    # ⚠ Und jeder Klick woandershin — `<FocusOut>` allein greift nicht, wenn
+    # das Ziel gar nicht fokussierbar ist. Siehe `_auswahlfeld`.
+    def _ort_klick_im_fenster(ereignis):
+        if not zustand.get('ort_offen'):
+            return
+        w = getattr(ereignis, 'widget', None)
+        while w is not None:
+            if w in (ortfeld, ortvorschlag, ortzeile):
+                return
+            w = getattr(w, 'master', None)
+        _ort_zumachen()
+
+    try:
+        rahmen.winfo_toplevel().bind('<Button-1>', _ort_klick_im_fenster,
+                                     add='+')
+    except tk.TclError:
+        pass
+
     def _alles_zuruecksetzen(_=None):
         """Die Seite auf den Anfangszustand — alle Eingaben und Schalter.
 
@@ -9126,6 +9144,33 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     feld.bind('<FocusOut>', beim_verlassen, add='+')
     feld.bind('<Escape>', lambda _=None: _zumachen(), add='+')
 
+    # ⚠⚠ **Ein Klick irgendwohin schließt die Liste — auch ins Leere.**
+    # `<FocusOut>` allein reicht **nicht**: Es feuert nur, wenn ein anderes
+    # **fokussierbares** Element den Fokus übernimmt. Wer auf eine
+    # Beschriftung oder freie Fläche klickt, lässt den Fokus im Eingabefeld —
+    # und die Liste blieb offen. Am 05.09.2026: „Klicken im selben Fenster ins
+    # Leere blendet das Dropdown auch nicht aus, ist in jedem Programm so, nur
+    # bei mir nicht."
+    #
+    # Deshalb hängt die Prüfung am Fenster, nicht am Feld: Jeder Klick wird
+    # daraufhin angesehen, ob er innerhalb von Feld, Pfeil oder Liste lag.
+    def _klick_im_fenster(ereignis):
+        if not offen['ja']:
+            return
+        w = getattr(ereignis, 'widget', None)
+        # Nach oben durchhangeln: Ein Klick auf eine Zeile IN der Liste ist
+        # ein Klick auf die Liste.
+        while w is not None:
+            if w in (feld, liste, pfeil, zeile):
+                return
+            w = getattr(w, 'master', None)
+        _zumachen()
+
+    try:
+        eltern.winfo_toplevel().bind('<Button-1>', _klick_im_fenster, add='+')
+    except tk.TclError:
+        pass
+
     # ⭐⭐ **Enter übernimmt, was dasteht.** Am 05.09.2026 gemeldet: „Gebe ich
     # Gold fertig ein und wähle es nicht aus der Liste, übernimmt er Gold auch
     # nicht." Wer den Namen kennt und ihn zu Ende tippt, hat die Liste nicht
@@ -9180,11 +9225,10 @@ def _verkauf(fenster, rahmen):
     suche = tk.StringVar()
     # Von Hand eingetragene Mengen — sie ergänzen das Handelslager, ohne dass
     # etwas eingelagert werden muss. Siehe `waehlen`.
-    menge_var = tk.StringVar()
+    # Von Hand eingetragene Mengen je Ware — sie ergänzen das Handelslager,
+    # ohne dass etwas eingelagert werden muss. Eingetippt wird an der Marke
+    # der jeweiligen Ware (siehe `_chips`).
     eigene_mengen = {}
-    # Verhindert, dass das Umschreiben des Feldes (beim Warenwechsel) sofort
-    # wieder als Eingabe gilt.
-    zustand_menge = {'stumm': False}
     nur_nqa = [False]
     meldung = {'text': '', 'farbe': SUB}
 
@@ -9300,19 +9344,6 @@ def _verkauf(fenster, rahmen):
         # eingeben — manchmal will man Ware sofort verkaufen, ohne erst
         # einzulagern." Richtig: Wer gerade 120 SCU Gold im Laderaum hat und
         # wissen will, was sie bringen, will sie nicht erst eintragen.
-        # ⚠ Steht schon eine Zahl im Feld, gilt sie für die neu gewählte Ware
-        # — wer erst tippt und dann aussucht, meint genau das. Danach zeigt
-        # das Feld die Menge **dieser** Ware; ein Wechsel darf sie nicht
-        # unbemerkt auf die vorige umschreiben.
-        try:
-            scu = int(float((menge_var.get() or '0').replace(',', '.')))
-        except (TypeError, ValueError):
-            scu = 0
-        if scu > 0:
-            eigene_mengen[name] = scu
-        zustand_menge['stumm'] = True
-        menge_var.set(str(eigene_mengen.get(name) or ''))
-        zustand_menge['stumm'] = False
         suche.set('')
         neu_zeichnen()
 
@@ -9353,41 +9384,12 @@ def _verkauf(fenster, rahmen):
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
-    # ⭐ Ein Mengenfeld daneben: Was hier steht, gilt für die Ware, die als
-    # Nächstes gewählt wird. Leer lassen ist erlaubt — dann kommt die Menge
-    # wie bisher aus dem Handelslager, wenn dort etwas liegt.
-    mengenzeile = tk.Frame(suchzeile, bg=BG)
-    mengenzeile.pack(fill='x', pady=(6, 0))
-    mengen_beschriftung = tk.Label(mengenzeile, text=t('s_vk_menge'), bg=BG,
-                                   fg=SUB, font=fenster.f_klein, anchor='w')
-    mengen_beschriftung.pack(side='left', padx=(0, 8))
-    mengenfeld = rundes_feld(mengenzeile, menge_var, fenster.f_klein,
-                             '#0c1017', LINIE, ACCENT, FG)
-    mengenfeld.halter.configure(width=110)
-    mengenfeld.halter.pack(side='left')
-
-    def _menge_getippt(*_a):
-        """Die Zahl gilt **sofort** für die zuletzt gewählte Ware.
-
-        ⚠⚠ **Nicht erst beim Wählen.** Genau so war es zuerst gebaut, und
-        genau daran ist es gescheitert: Wer die Ware schon ausgewählt hat und
-        danach die Menge eintippt — der Normalfall — sah nichts passieren.
-        Am 05.09.2026 gemeldet: „Der übernimmt die 100 SCU nicht."
-        """
-        if zustand_menge['stumm'] or not auswahl:
-            return
-        ware = auswahl[-1]
-        try:
-            scu = int(float((menge_var.get() or '0').replace(',', '.')))
-        except (TypeError, ValueError):
-            return
-        if scu > 0:
-            eigene_mengen[ware] = scu
-        else:
-            eigene_mengen.pop(ware, None)
-        neu_zeichnen()
-
-    menge_var.trace_add('write', _menge_getippt)
+    # ⚠ Hier stand bis v3.15.0-rc12 ein einzelnes Mengenfeld für „die zuletzt
+    # gewählte Ware". Es ist weg: Die Menge steht jetzt an der Marke der Ware
+    # selbst (siehe `_chips`), und zwei Wege für dieselbe Sache waren genau
+    # der Grund, warum sich die Zahlen gegenseitig überschrieben.
+    tk.Label(suchzeile, text=t('s_vk_menge_hinweis'), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(fill='x', pady=(6, 0))
 
     def kaestchen_um(an):
         nur_nqa[0] = an
@@ -9408,23 +9410,62 @@ def _verkauf(fenster, rahmen):
             kind.destroy()
 
     def _chips():
-        """Die gewählten Waren als anklickbare Marken — Klick entfernt sie."""
+        """Die gewählten Waren — je eine Marke mit **eigenem** Mengenfeld.
+
+        ⚠⚠ **Die Menge gehört an die Ware, nicht an ein Feld daneben.**
+        Zuerst gab es ein einziges Mengenfeld, das für „die zuletzt gewählte
+        Ware" galt. Das muss raten — und rät falsch, sobald jemand die Zahl
+        eintippt, **bevor** er die Ware wählt. Am 05.09.2026 gemeldet: „Wenn
+        ich eine Menge eingebe, wird die nicht übernommen, erst wenn ich den
+        zweiten Artikel eingebe — und dann ändert sich die Zahl wieder."
+        Genau das: Die Zahl landete bei der vorigen Ware und wanderte dann mit.
+
+        Mit einem Feld je Marke gibt es nichts mehr zu raten.
+        """
         _leeren(chip_rahmen)
         if not auswahl:
             return
         reihe = tk.Frame(chip_rahmen, bg=BG)
         reihe.pack(fill='x')
         for name in auswahl:
-            # Die eingetragene Menge steht an der Marke — sonst weiß man nach
-            # drei Waren nicht mehr, für welche man welche Zahl gesetzt hat.
-            scu = eigene_mengen.get(name)
-            text = ('%s · %s  ×' % (name, t('s_hl_scu').format(menge=scu))
-                    if scu else name + '  ×')
-            marke = tk.Label(reihe, text=text, bg=FLAECHE, fg=FG,
-                             font=fenster.f_klein, padx=8, pady=3,
-                             cursor='hand2')
+            marke = tk.Frame(reihe, bg=FLAECHE)
             marke.pack(side='left', padx=(0, 6), pady=2)
-            marke.bind('<Button-1>', lambda e, n=name: entfernen(n))
+            tk.Label(marke, text=name, bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, padx=8, pady=3).pack(side='left')
+
+            var = tk.StringVar(value=str(eigene_mengen.get(name) or ''))
+            feld = tk.Entry(marke, textvariable=var, width=5,
+                            font=fenster.f_klein, bg='#0c1017', fg=FG,
+                            insertbackground=FG, relief='flat',
+                            highlightthickness=1, highlightbackground=LINIE,
+                            highlightcolor=ACCENT, justify='right')
+            feld.pack(side='left', pady=3)
+            tk.Label(marke, text=t('s_vk_scu_kurz'), bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, padx=4).pack(side='left')
+
+            def _getippt(*_a, _n=name, _v=var):
+                # ⚠ **Nur das Ergebnis neu zeichnen, nicht die Marken.** Wer
+                # `_chips()` mitzieht, zerstört genau das Feld, in das gerade
+                # getippt wird — nach jedem Zeichen wäre der Fokus weg.
+                try:
+                    scu = int(float((_v.get() or '0').replace(',', '.')))
+                except (TypeError, ValueError):
+                    return
+                if scu > 0:
+                    eigene_mengen[_n] = scu
+                else:
+                    eigene_mengen.pop(_n, None)
+                _ergebnis()
+
+            var.trace_add('write', _getippt)
+
+            weg = tk.Label(marke, text='×', bg=FLAECHE, fg=SUB,
+                           font=fenster.f_klein, padx=8, pady=3,
+                           cursor='hand2')
+            weg.pack(side='left')
+            weg.bind('<Button-1>', lambda e, n=name: entfernen(n))
+            weg.bind('<Enter>', lambda e, w=weg: w.configure(fg=ROT))
+            weg.bind('<Leave>', lambda e, w=weg: w.configure(fg=SUB))
 
     def _ergebnis():
         _leeren(ergebnis_rahmen)
@@ -9508,15 +9549,6 @@ def _verkauf(fenster, rahmen):
                            lagermengen, mit_kopf=(nummer == 0))
 
     def neu_zeichnen():
-        # ⚠ Die Beschriftung nennt die Ware, für die die Zahl gilt — sonst
-        # weiß bei mehreren Waren niemand, worauf sie sich bezieht.
-        try:
-            if mengen_beschriftung.winfo_exists():
-                mengen_beschriftung.configure(
-                    text=(t('s_vk_menge_fuer').format(ware=auswahl[-1])
-                          if auswahl else t('s_vk_menge')))
-        except tk.TclError:
-            pass
         _chips()
         such_zeichnen()
         _ergebnis()

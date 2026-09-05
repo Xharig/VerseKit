@@ -2455,12 +2455,13 @@ TEXTE = {
     # ⚠ „Freiwillig": Ohne Angabe kommt die Menge wie bisher aus dem
     # Handelslager. Am 05.09.2026 gewünscht — manchmal will man Ware sofort
     # verkaufen, ohne sie erst einzulagern.
-    's_vk_menge':        ('Wie viel SCU hast du davon? (freiwillig)',
-                            'How many SCU do you have? (optional)'),
-    # ⚠ Sobald eine Ware gewählt ist, nennt die Beschriftung sie — sonst weiß
-    # niemand, worauf sich die Zahl bezieht.
-    's_vk_menge_fuer':   ('Wie viel SCU {ware} hast du? (freiwillig)',
-                            'How many SCU of {ware} do you have? (optional)'),
+    # ⚠ Die Menge wird an der Marke der Ware eingetippt, nicht in einem Feld
+    # daneben — siehe `_chips`. Dieser Satz sagt, wo.
+    's_vk_scu_kurz':     ('SCU', 'SCU'),
+    's_vk_menge_hinweis': ('Trag deine Menge direkt an der Ware unten ein — '
+                           'oder lass sie leer, dann zählt dein Handelslager.',
+                             'Enter your amount right on the commodity below — '
+                             'or leave it empty and your cargo hold counts.'),
     'b_fenstermass':     (' · Fenster %d×%d, mindestens %d×%d',
                           ' · window %d×%d, minimum %d×%d'),
     'b_fenster_zu_hoch': (' ⚠ Mindesthöhe größer als der Bildschirm',

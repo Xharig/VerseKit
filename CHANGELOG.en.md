@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc13 - 2026-09-05
+
+> **The amount now sits on the commodity itself.** Every picked commodity has
+> its own SCU field — nothing left to mix up.
+
+### Fixed
+
+- **Amounts jumped between commodities.** A single amount field had to guess
+  which one you meant, and guessed wrong as soon as you typed the number
+  before picking. Every chip now has its own field.
+- **Clicking empty space closes the picker list.** It used to close only when
+  you clicked into another input field.
+- **A test build appeared in the change history** (v3.11.1-rc2) even though
+  that version never existed. Its content is in v3.12.0.
+
 ## v3.15.0-rc12 - 2026-09-05
 
 > **The amount in Selling now takes effect immediately** — even when you type
@@ -939,18 +954,6 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   stays, long after the game has dropped its own.
 - **The log goes into the export folder** — next to your inventory and the other
   lists. Whoever backs up their data has it along.
-
-### Fixed
-
-- **The blueprint list opens faster.** Affects everyone for whom opening it felt
-  sluggish.
-  Reported by Haldjas
-
-## v3.11.1-rc2 - 2026-09-03
-
-> **Test build.** The blueprint list should open faster — that is not verified
-> yet. If you open it: do you notice a difference? Feedback is welcome through
-> the error report inside the program.
 
 ### Fixed
 

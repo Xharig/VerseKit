@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc13 - 2026-09-05
+
+> **Die Menge steht jetzt an der Ware selbst.** Jede gewählte Ware hat ihr
+> eigenes SCU-Feld — damit gibt es nichts mehr zu verwechseln.
+
+### Behoben
+
+- **Mengen sprangen zwischen den Waren.** Ein einziges Mengenfeld musste
+  raten, welche Ware gemeint ist, und riet falsch, sobald du die Zahl vor der
+  Ware eingetippt hast. Jetzt hat jede Marke ihr eigenes Feld.
+- **Ein Klick ins Leere schließt die Auswahlliste.** Bisher ging sie nur zu,
+  wenn du in ein anderes Eingabefeld geklickt hast.
+- **Eine Testfassung stand im Änderungsverlauf** (v3.11.1-rc2), obwohl es die
+  Version nie gab. Ihr Inhalt steht in v3.12.0.
+
 ## v3.15.0-rc12 - 2026-09-05
 
 > **Die Menge im Verkauf wirkt jetzt sofort** — auch wenn du sie nach der Ware
@@ -991,18 +1006,6 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Protokolle längst gelöscht hat.
 - **Das Protokoll wandert in die Ablage** — neben Bestand und den übrigen
   Listen. Wer seine Daten sichert, hat es dabei.
-
-### Behoben
-
-- **Die Bauplan-Liste geht schneller auf.** Betrifft alle, bei denen es beim
-  Öffnen spürbar gehakt hat.
-  Gemeldet von Haldjas
-
-## v3.11.1-rc2 - 2026-09-03
-
-> **Testfassung.** Die Bauplan-Liste soll schneller aufgehen — geprüft ist das
-> noch nicht. Wer sie öffnet: Fällt dir ein Unterschied auf? Rückmeldung gern
-> über den Fehlerbericht im Programm.
 
 ### Behoben
 
