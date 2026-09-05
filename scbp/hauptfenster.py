@@ -502,6 +502,72 @@ def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
 
 
 
+def rundes_textfeld(eltern, schrift, grund, rand, akzent, fg, zeilen=4, **kw):
+    """Das mehrzeilige Gegenstück zu `rundes_feld` — gleiche Optik.
+
+    ⚠⚠ **Wofür.** Ein `Entry` zeigt immer nur einen Ausschnitt: Wer zwei Sätze
+    tippt, sieht das Ende und nicht mehr, was er geschrieben hat. Für eine
+    Fehlerbeschreibung ist genau das falsch — man will beim Absenden noch
+    einmal lesen können, was man da meldet. Am 05.09.2026 gemeldet:
+    „macht es nicht Sinn das Fenster … größer und unter den Text zu machen,
+    das der Melder das was er eintippt auch noch selber lesen kann?"
+
+    ⚠ **Warum eine eigene Funktion und kein `Text` an Ort und Stelle.**
+    Gleiche Dinge sehen im Programm gleich aus (Projektregel „Symmetrie"). Ein
+    nacktes `Text` hätte eckige Ecken und einen anderen Rand als jedes andere
+    Eingabefeld — auf derselben Seite, direkt unter einem runden Namensfeld.
+    Der Rand wird deshalb genauso gemalt und wechselt beim Hineinklicken
+    ebenso auf die Akzentfarbe.
+
+    Rückgabe ist das `Text` selbst; die Leinwand hängt als `.halter` daran —
+    dieselbe Verabredung wie bei `rundes_feld`, damit beide sich gleich
+    einbauen lassen.
+    """
+    schrift = _als_schrift(schrift)
+    radius = 8
+    polster = 8
+    hoehe = schrift.metrics('linespace') * zeilen + polster * 2
+    leinwand = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
+                         highlightthickness=0, bd=0)
+    form = _rundes_rechteck(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
+                            fill=grund, outline=rand, width=1)
+    feld = tk.Text(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
+                   bd=0, highlightthickness=0, insertbackground=fg,
+                   height=zeilen, wrap='word', padx=0, pady=0, **kw)
+    fenster_id = leinwand.create_window(polster + 2, polster, window=feld,
+                                        anchor='nw')
+
+    def nachziehen(_=None):
+        # ⚠ Wie bei `rundes_feld`: Der Rückruf aus `after(0, …)` kann
+        # drankommen, wenn die Leinwand beim Seitenwechsel längst weg ist.
+        try:
+            if not leinwand.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        b = leinwand.winfo_width()
+        if b < 10:
+            b = leinwand.winfo_reqwidth()
+        if b < 10:
+            return
+        try:
+            leinwand.coords(form, *ecken(1, 1, b - 1, hoehe - 1, radius))
+            leinwand.itemconfigure(fenster_id, width=b - (polster + 2) * 2,
+                                   height=hoehe - polster * 2)
+        except tk.TclError:
+            pass
+
+    leinwand.bind('<Configure>', nachziehen)
+    leinwand.bind('<Map>', nachziehen)
+    feld.halter = leinwand
+    leinwand.after(0, nachziehen)
+    feld.bind('<FocusIn>',
+              lambda e: leinwand.itemconfigure(form, outline=akzent), add='+')
+    feld.bind('<FocusOut>',
+              lambda e: leinwand.itemconfigure(form, outline=rand), add='+')
+    return feld
+
+
 def _als_schrift(schrift):
     """Eine Schrift als messbares Objekt.
 

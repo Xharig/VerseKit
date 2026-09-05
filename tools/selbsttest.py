@@ -10932,6 +10932,109 @@ def main():
                '%s bleibt lesbar' % _name119)
 
     print()
+    print('120. Melde-Seite: Feld gross genug, Zusicherung vor dem Klick')
+    # ⚠⚠ Zwei Meldungen vom 05.09.2026, beide zur selben Seite:
+    #
+    # a) Das Meldungsfeld war ein einzeiliges `Entry` rechts neben dem Text —
+    #    halb so breit wie die Seite. Wer zwei Saetze tippte, sah nur das Ende
+    #    und konnte vor dem Absenden nicht nachlesen, was er meldet.
+    # b) Die Zusicherung „Du siehst vorher genau, was du verschickst" stand
+    #    UNTER der Knopfreihe, also hinter dem Klick — und konnte am unteren
+    #    Rand wegfallen.
+    #
+    # ⚠ Nach OBEN gehoert sie trotzdem nicht: Ihr Text lautet „Der Block oben
+    # ist der ganze Inhalt". Ueber dem Bericht stimmte der Bezug nicht mehr.
+    # Die Pruefung haelt deshalb BEIDE Grenzen fest — hinter dem Bericht,
+    # vor den Knoepfen.
+    import tkinter as tk
+    _w120 = _wurzel()
+    try:
+        _w120.deiconify()
+        _w120.geometry('1200x900')
+        from scbp import hauptfenster as _hf120
+        _f120 = _hf120.Hauptfenster(_w120, version='0.0.0-pruefung')
+        _f120.oeffnen('diagnose')
+        _w120.update_idletasks()
+
+        _alle120 = []
+
+        def _sammeln120(knoten):
+            for kind in knoten.winfo_children():
+                _alle120.append(kind)
+                _sammeln120(kind)
+
+        _sammeln120(_f120.seiten['diagnose'])
+
+        _texte120 = [w for w in _alle120 if isinstance(w, tk.Text)]
+        _eingabe120 = [w for w in _texte120 if int(w.cget('height')) == 4]
+        _kasten120 = [w for w in _texte120 if w not in _eingabe120]
+
+        pruefe(bool(_eingabe120),
+               'das Meldungsfeld ist mehrzeilig (ein Text, kein Entry)')
+        if _eingabe120:
+            _b120 = _eingabe120[0].winfo_width()
+            _seite120 = _f120.seiten['diagnose'].winfo_width()
+            pruefe(_b120 > _seite120 * 0.6,
+                   'das Meldungsfeld nimmt die volle Breite (%d von %d px)'
+                   % (_b120, _seite120))
+
+        # Die Zusicherung ueber ihren Text finden.
+        _sicher120 = None
+        _gesucht120 = sprache.t('s_di_sicher')
+        for _w in _alle120:
+            try:
+                if isinstance(_w, tk.Label) and _w.cget('text') == _gesucht120:
+                    _sicher120 = _w
+                    break
+            except tk.TclError:
+                pass
+        pruefe(_sicher120 is not None, 'die Zusicherung ist auf der Seite')
+
+        # ⚠ NICHT ueber y-Koordinaten messen: Die Zusicherung enthaelt selbst
+        # eine Leinwand (das Haekchen), und die sieht wie ein Knopf aus — der
+        # erste Anlauf dieser Pruefung meldete deshalb einen Fehler, den es
+        # nicht gab. Gemessen wird die Aufbaureihenfolge im gemeinsamen
+        # Rahmen, also genau das, was `pack` untereinander setzt.
+        def _vorfahr120(widget, eltern):
+            lauf = widget
+            while lauf is not None and lauf.master is not eltern:
+                lauf = lauf.master
+            return lauf
+
+        if _sicher120 is not None and _kasten120:
+            _innen120 = _sicher120.master
+            while _innen120 is not None:
+                if _vorfahr120(_kasten120[0], _innen120) is not None:
+                    break
+                _innen120 = _innen120.master
+            pruefe(_innen120 is not None,
+                   'Bericht und Zusicherung stehen im selben Rahmen')
+            if _innen120 is not None:
+                _folge120 = _innen120.pack_slaves()
+                _i_kasten120 = _folge120.index(
+                    _vorfahr120(_kasten120[0], _innen120))
+                _i_sicher120 = _folge120.index(
+                    _vorfahr120(_sicher120, _innen120))
+                pruefe(_i_sicher120 > _i_kasten120,
+                       'die Zusicherung steht HINTER dem Bericht '
+                       '(ihr Text sagt „der Block oben")')
+                _knopf120 = None
+                for _n120 in range(_i_sicher120 + 1, len(_folge120)):
+                    _lein120 = [k for k in _folge120[_n120].winfo_children()
+                                if isinstance(k, tk.Canvas)]
+                    if len(_lein120) >= 3:
+                        _knopf120 = _n120
+                        break
+                pruefe(_knopf120 is not None,
+                       'die Knopfreihe kommt NACH der Zusicherung '
+                       '(sonst steht sie hinter dem Klick)')
+    finally:
+        try:
+            _w120.destroy()
+        except Exception:
+            pass
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

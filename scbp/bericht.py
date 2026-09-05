@@ -77,17 +77,42 @@ def _umbrechen(text, breite):
     eine einzelne Zeile ohne Leerzeichen einträgt (ein Pfad zum Beispiel) —
     die bleibt hier ganz, statt hart getrennt zu werden. Lieber eine zu lange
     Zeile als ein zerschnittener Dateiname.
+
+    ⚠⚠ **Eigene Zeilenumbrüche bleiben stehen.** Bis zum 05.09.2026 zerlegte
+    ein einzelnes `.split()` den ganzen Text an jedem Leerraum — auch an
+    `\\n`. Solange das Eingabefeld einzeilig war, fiel das nicht auf; seit es
+    vier Zeilen hat, tippen Leute Aufzählungen:
+
+        1. Läden öffnen
+        2. Auf einen Radar klicken
+        3. nichts passiert
+
+    Daraus wurde eine einzige Zeile — aus drei Schritten ein Klumpen, und
+    genau die Abfolge ist das, was eine Meldung brauchbar macht. Umbrochen
+    wird deshalb **je Zeile**; leere Zeilen bleiben als Absatztrenner.
     """
-    zeilen, laufend = [], ''
-    for wort in (text or '').split():
-        if laufend and len(laufend) + 1 + len(wort) > breite:
-            zeilen.append(laufend)
-            laufend = wort
-        else:
-            laufend = (laufend + ' ' + wort) if laufend else wort
-    if laufend:
-        zeilen.append(laufend)
-    return zeilen or ['']
+    ergebnis = []
+    for absatz in (text or '').split('\n'):
+        if not absatz.strip():
+            # Eine Leerzeile trennt Absätze. Nicht mehrere hintereinander —
+            # wer dreimal Enter drückt, soll den Bericht nicht auseinander
+            # ziehen.
+            if ergebnis and ergebnis[-1] != '':
+                ergebnis.append('')
+            continue
+        laufend = ''
+        for wort in absatz.split():
+            if laufend and len(laufend) + 1 + len(wort) > breite:
+                ergebnis.append(laufend)
+                laufend = wort
+            else:
+                laufend = (laufend + ' ' + wort) if laufend else wort
+        if laufend:
+            ergebnis.append(laufend)
+    # Ein Absatztrenner ganz am Ende wäre nur eine Leerzeile im Bericht.
+    while ergebnis and ergebnis[-1] == '':
+        ergebnis.pop()
+    return ergebnis or ['']
 
 
 def _gedraengt(eintraege):

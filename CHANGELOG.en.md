@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.6 - 2026-09-05
+
+> **The report page is made for writing now.** The field for your description
+> is four lines tall and spans the full width, so you can read back what you
+> are reporting before you send it. Paragraphs are kept.
+
+### Improved
+
+- **A proper text box for "What happened?"** — four lines, full width, below
+  the description instead of squeezed in beside it. Before, you only saw a
+  snippet while typing.
+- **Lists stay lists.** Write three steps on separate lines and they appear on
+  separate lines in the report — previously they were run together into one
+  paragraph, and the sequence is exactly what makes them useful.
+- **The note "You see exactly what you send" now sits above the buttons**
+  instead of below them. It answers the question you ask yourself before
+  clicking — and it can no longer drop off the bottom edge.
+
 ## v3.15.5 - 2026-09-05
 
 > **The error report gives away nothing it shouldn't.** And the "What

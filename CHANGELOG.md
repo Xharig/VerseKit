@@ -6,6 +6,24 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.6 - 2026-09-05
+
+> **Die Melde-Seite ist zum Schreiben da.** Das Feld für deine Beschreibung ist
+> jetzt vier Zeilen hoch und geht über die ganze Breite — du kannst also
+> nachlesen, was du meldest, bevor du es abschickst. Absätze bleiben erhalten.
+
+### Verbessert
+
+- **Ein richtiges Textfeld für „Was ist passiert?"** — vier Zeilen, volle
+  Breite, unter der Beschreibung statt schmal daneben. Vorher sah man beim
+  Tippen nur einen Ausschnitt.
+- **Aufzählungen bleiben Aufzählungen.** Wer drei Schritte untereinander
+  schreibt, findet sie im Bericht auch untereinander wieder — vorher wurde
+  daraus ein Fließtext, und genau die Abfolge ist das Nützliche daran.
+- **Der Hinweis „Du siehst vorher genau, was du verschickst" steht jetzt vor
+  den Knöpfen**, nicht dahinter. Er beantwortet die Frage, die man sich stellt,
+  bevor man klickt — und kann am unteren Rand nicht mehr wegfallen.
+
 ## v3.15.5 - 2026-09-05
 
 > **Der Fehlerbericht gibt nichts preis, was er nicht darf.** Und das Feld

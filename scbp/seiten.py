@@ -4799,11 +4799,40 @@ def _diagnose(fenster, rahmen):
     # ⚠ **Nicht gespeichert.** Anders als der Name gehört ein Satz zu *einem*
     # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
     # versehentlich zu einer zweiten Meldung mitgeschickt.
-    meldung_var = tk.StringVar()
-    ziel_meldung = _feld(fenster, innen, t('s_meldung'), t('s_meldung_h'))
-    meldung_feld = rundes_feld(ziel_meldung, meldung_var, fenster.f_klein,
-                               '#0c1017', LINIE, ACCENT, FG)
+    # ⚠⚠ **Mehrzeilig und über die volle Breite, unter der Erklärung.** Der
+    # erste Anlauf setzte ein einzeiliges Feld rechts neben den Text — halb so
+    # breit wie die Seite, eine Zeile hoch. Wer zwei Sätze tippte, sah nur das
+    # Ende und konnte vor dem Absenden nicht mehr nachlesen, was er meldet.
+    # Am 05.09.2026 gemeldet: „Wir haben da ja noch ne Menge Platz, macht es
+    # nicht Sinn das Fenster … größer und unter den Text zu machen, das der
+    # Melder das was er eintippt auch noch selber lesen kann?"
+    #
+    # Genau dafür ist `breit=True` da (siehe `_feld`): unter die Beschreibung
+    # statt daneben, volle Breite. Der Name bleibt bewusst einzeilig rechts —
+    # ein Name ist kurz, und ein vierzeiliges Feld dafür sähe albern aus.
+    #
+    # ⚠ **Nicht gespeichert.** Anders als der Name gehört ein Satz zu *einem*
+    # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
+    # versehentlich zu einer zweiten Meldung mitgeschickt.
+    from .hauptfenster import rundes_textfeld
+    ziel_meldung = _feld(fenster, innen, t('s_meldung'), t('s_meldung_h'),
+                         breit=True)
+    meldung_feld = rundes_textfeld(ziel_meldung, fenster.f_klein,
+                                   '#0c1017', LINIE, ACCENT, FG, zeilen=4)
     meldung_feld.halter.pack(fill='x', pady=(8, 0))
+
+    def meldung_text():
+        """Was gerade im Feld steht — ohne den Zeilenumbruch am Ende.
+
+        ⚠ Ein `Text` hängt immer ein `\\n` an. Ohne das Abschneiden stünde im
+        Bericht eine Leerzeile mehr, und `strip()` an fünf Aufrufstellen zu
+        wiederholen ist genau die Sorte Wissen, die beim sechsten vergessen
+        wird.
+        """
+        try:
+            return meldung_feld.get('1.0', 'end-1c').strip()
+        except Exception:
+            return ''
 
     text = ''
     try:
@@ -4833,7 +4862,7 @@ def _diagnose(fenster, rahmen):
         try:
             frisch = bericht.bauen(version=fenster.version,
                                    wurzel=fenster.root,
-                                   meldung=meldung_var.get().strip())
+                                   meldung=meldung_text())
         except Exception as ausnahme:
             fehler.merken('seiten.diagnose_melder', ausnahme)
             return
@@ -4853,8 +4882,15 @@ def _diagnose(fenster, rahmen):
     melder_feld.bind('<Return>', melder_uebernehmen)
     # ⚠ Die Meldung wird **nicht** gespeichert — sie gehört zu diesem einen
     # Bericht. Deshalb nur den Text neu bauen, nichts ablegen.
+    # ⚠ **Kein `<Return>` mehr.** Im einzeiligen Feld war die Eingabetaste das
+    # Bestätigen; in einem mehrzeiligen Feld ist sie der Zeilenumbruch. Wer
+    # hier bindet, nimmt dem Melder die Absätze weg — bei einer
+    # Fehlerbeschreibung genau das Falsche.
+    #
+    # Gebraucht wird sie auch nicht: `<FocusOut>` feuert, sobald man irgendwo
+    # hin klickt, und jeder der drei Knöpfe holt sich den Text ohnehin frisch
+    # über `aktueller_bericht()`.
     meldung_feld.bind('<FocusOut>', lambda _=None: _bericht_neu())
-    meldung_feld.bind('<Return>', lambda _=None: _bericht_neu())
 
     # ⚠⚠ **Beim erneuten Öffnen den Bericht neu bauen.** Er enthält die eigene
     # Bauplan-Zahl, und die ändert sich beim Spielen. Ohne das stünde in einem
@@ -4867,6 +4903,23 @@ def _diagnose(fenster, rahmen):
     # kurz auf eine andere Seite, um etwas nachzusehen, und der Text ist weg.
     # Genau auf dieser Seite darf das am wenigsten passieren.
     fenster.beim_zeigen['diagnose'] = _bericht_neu
+
+    # ⭐ **Die Zusicherung steht zwischen Bericht und Knöpfen** — genau dort,
+    # wo die Entscheidung fällt. Sie stand bis zum 05.09.2026 *unter* der
+    # Knopfreihe, also hinter dem Klick, und konnte am unteren Rand
+    # wegfallen. Gemeldet mit der Frage, ob sie nicht besser nach oben
+    # gehöre, „damit sie nicht aus Versehen abgeschnitten wird".
+    #
+    # ⚠ **Nach oben aber nicht.** Ihr eigener Text lautet „Der Block **oben**
+    # ist der ganze Inhalt" — über dem Bericht stimmte der Bezug nicht mehr.
+    # Und die Knöpfe gehören hinter den Bericht: Erst sehen, was rausgeht,
+    # dann der Knopf. Ein Absende-Knopf über dem Inhalt lädt zum blinden
+    # Klicken ein, und das ist bei einem Knopf, der etwas ins Netz schickt,
+    # das Letzte, was man will.
+    #
+    # Hier kann sie auch nicht mehr abgeschnitten werden, ohne dass die
+    # Knöpfe gleich mit verschwinden — und die sucht jeder.
+    _status(fenster, innen, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(12, 0))
@@ -4907,8 +4960,11 @@ def _diagnose(fenster, rahmen):
         Beim nächsten Öffnen der Seite baut `beim_zeigen['diagnose']` ihn
         ohnehin frisch auf, dann ist er auch dort weg.
         """
-        if meldung_var.get().strip():
-            meldung_var.set('')
+        if meldung_text():
+            try:
+                meldung_feld.delete('1.0', 'end')
+            except Exception as ausnahme:
+                fehler.merken('seiten.diagnose_meldung_leeren', ausnahme)
 
     def melden():
         if bericht.issue_oeffnen(aktueller_bericht()):
@@ -4973,8 +5029,6 @@ def _diagnose(fenster, rahmen):
         _knopf(fenster, reihe, t('s_di_melden'), melden, stark=True),
         _knopf(fenster, reihe, t('s_di_kopieren'), kopieren),
     ])
-
-    _status(fenster, innen, 'haken', t('s_di_sicher'), t('s_di_sicher_h'))
 
     ziel = _feld(fenster, innen, t('s_di_mit'), t('s_di_mit_h'))
 
