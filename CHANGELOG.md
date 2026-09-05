@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.1 - 2026-09-05
+
+> **Die Daten kommen jetzt von dem Weg, der dafür gedacht ist** — und der
+> Mensch dahinter wird endlich genannt.
+
+### Verbessert
+
+- **Geholt wird vom GitHub-Spiegel**, den **Krovax** eigens für Programme
+  angelegt hat, statt direkt von der Webseite. Ist dort etwas nicht zu finden,
+  wird weiterhin die Webseite gefragt — beides ist ausdrücklich erlaubt.
+- **Krovax steht jetzt auf der Danke-Seite.** Er hat die Nutzung erlaubt und
+  die Daten dafür bereitgestellt; bisher stand dort nur die nackte Lizenz, als
+  hätten wir uns bedient.
+
 ## v3.17.0 - 2026-09-05
 
 > **Im Auftragstext steht jetzt, WEM der Ruf gutgeschrieben wird — und welcher

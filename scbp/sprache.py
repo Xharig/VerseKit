@@ -1382,14 +1382,23 @@ TEXTE = {
                         'Separate projects with their own licences. They are '
                         'fetched from their own addresses when needed — bundling a '
                         'copy would count as redistribution and is not allowed.'),
-    's_dk_scmdb':      ('Art, Größe, Gütegrad, Klasse und Herkunft je Bauplan. Ein '
-                        'Hobbyprojekt, das die Spieldaten aufbereitet und frei '
-                        'zugänglich macht. Abgerufen wird sparsam: nur bei einer '
-                        'neuen Spielversion.',
-                        'Type, size, grade, class and source for each blueprint. A '
-                        'hobby project that prepares the game data and makes it '
-                        'freely available. Fetched sparingly: only when a new game '
-                        'version appears.'),
+    # ⚠⚠ **Krovax hat die Nutzung ausdrücklich erlaubt** und die Daten eigens
+    # bereitgestellt. Das gehört hierher, nicht nur in eine Notiz: Die Lizenz
+    # allein (CC BY-NC-ND) sähe aus, als hätten wir uns bedient — richtig ist,
+    # dass jemand die Tür aufgemacht hat. Wer hilft, wird genannt.
+    's_dk_scmdb':      ('Art, Größe, Gütegrad, Klasse und Herkunft je Bauplan — '
+                        'dazu, wem ein Auftrag Ruf gutschreibt und welcher Art. '
+                        'Ein Hobbyprojekt, das die Spieldaten aufbereitet und '
+                        'frei zugänglich macht. **Krovax** hat die Nutzung '
+                        'ausdrücklich erlaubt und die Daten dafür bereitgestellt. '
+                        'Abgerufen wird sparsam: nur bei einer neuen '
+                        'Spielversion.',
+                        'Type, size, grade, class and source for each blueprint — '
+                        'plus who a contract credits reputation to, and of what '
+                        'kind. A hobby project that prepares the game data and '
+                        'makes it freely available. **Krovax** expressly gave '
+                        'permission and provided the data for it. Fetched '
+                        'sparingly: only when a new game version appears.'),
     # ⚠⚠ **Wer eine Quelle benutzt, nennt sie.** Die Rohstoffpreise kamen
     # ab v3.3.0-rc39 von UEX Corp, standen aber nirgends auf dieser Seite.
     # Am 30.08.2026 gemeldet: „UEX Corp liefert uns nun auch Daten. Sieht

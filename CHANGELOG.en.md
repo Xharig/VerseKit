@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.1 - 2026-09-05
+
+> **The data now comes by the route meant for it** — and the person behind it
+> finally gets named.
+
+### Improved
+
+- **Fetched from the GitHub mirror** that **Krovax** set up specifically for
+  programs, instead of straight from the website. If something is not there,
+  the website is still asked — both are expressly permitted.
+- **Krovax is now on the thanks page.** He gave permission and provided the
+  data for it; until now only the bare licence was listed, as if we had helped
+  ourselves.
+
 ## v3.17.0 - 2026-09-05
 
 > **The contract text now says WHO the reputation goes to — and of what kind.**

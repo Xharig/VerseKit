@@ -60,7 +60,23 @@ from . import fehler, pfade
 DATEI = 'auftragsruf.json'
 FORMAT = 1
 
-BASIS = 'https://scmdb.net/data'
+# ⚠⚠ **Geholt wird vom GitHub-Spiegel, nicht von scmdb.net.** Krovax hat ihn
+# eigens für Programme angelegt und dazu gesagt: „Ich habs gemirrored, keine
+# Lust was bei CF falsch einzustellen und dann passieren unerwartete Dinge."
+# Wer eine fremde Quelle benutzt, benutzt den Weg, den ihr Betreiber dafür
+# vorgesehen hat — sonst hängt man an einer Einstellung, die jederzeit anders
+# gemeint sein kann.
+BASIS = ('https://raw.githubusercontent.com/KrovaxCode/SCMDB_DATA/main/data')
+# ⚠ Beim Spiegel heißt die Übersicht `game-versions.json`, auf der Webseite
+# `versions.json`. Inhalt und Aufbau sind gleich.
+VERSIONSDATEI = 'game-versions.json'
+
+# ⚠ **Nur als Rückfall.** Krovax hat die Nutzung seiner Webseite ausdrücklich
+# erlaubt, für den Fall, dass am Spiegel etwas fehlt. Der Spiegel bleibt
+# trotzdem der erste Weg: Er ist der, den er dafür gebaut hat.
+RUECKFALL = 'https://scmdb.net/data'
+RUECKFALL_VERSIONSDATEI = 'versions.json'
+
 ZEITGRENZE = 30
 
 # ⚠ Wer den Netzzugriff abschaltet, meint auch diesen. Der Selbsttest haelt
@@ -182,7 +198,15 @@ def auffrischen(spielversion=''):
         return len(alt['auftraege'])
 
     try:
-        versionen = _holen(BASIS + '/versions.json')
+        # ⚠ Spiegel zuerst, Webseite nur wenn dort etwas fehlt. Beide Wege
+        # sind erlaubt — der Spiegel ist der vorgesehene.
+        basis = BASIS
+        try:
+            versionen = _holen('%s/%s' % (BASIS, VERSIONSDATEI))
+        except Exception:
+            basis = RUECKFALL
+            versionen = _holen('%s/%s' % (RUECKFALL,
+                                          RUECKFALL_VERSIONSDATEI))
         datei = None
         # ⚠ Die zum Spielstand passende Fassung, nicht blind die erste: Die
         # Liste beginnt mit der PTU, und wer auf LIVE spielt, bekaeme sonst
@@ -201,7 +225,13 @@ def auffrischen(spielversion=''):
         if not datei:
             return len(alt['auftraege'])
 
-        roh = _holen('%s/%s' % (BASIS, datei))
+        try:
+            roh = _holen('%s/%s' % (basis, datei))
+        except Exception:
+            # Die Übersicht kam durch, die Datei selbst nicht — dann den
+            # anderen Weg versuchen, statt ganz aufzugeben.
+            anderer = RUECKFALL if basis == BASIS else BASIS
+            roh = _holen('%s/%s' % (anderer, datei))
         auftraege = aufbereiten(roh)
         if not auftraege:
             return len(alt['auftraege'])
