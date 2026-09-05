@@ -3059,6 +3059,19 @@ TEXTE = {
     # ⚠ Der Hinweis nennt das Anfangsdatum, weil die Zahl sonst mehr
     # behauptet, als sie weiß: Star Citizen räumt alte Protokolle weg, hier
     # zählt nur, was das Werkzeug selbst gesehen hat.
+    's_zeit':            ('Spielzeit oben anzeigen',
+                          'Show play time at the top'),
+    's_zeit_h':          ('Zeigt in der Kopfzeile, wie lange du gespielt hast — '
+                          'insgesamt und, während du spielst, die laufende '
+                          'Sitzung. Gezählt wird von Anfang an, auch wenn die '
+                          'Anzeige aus ist: Star Citizen räumt seine alten '
+                          'Protokolle weg, und was weg ist, lässt sich nicht '
+                          'nachholen',
+                          'Shows in the title bar how long you have played — '
+                          'in total and, while you play, the current session. '
+                          'Counting happens from the start either way: Star '
+                          'Citizen clears out its old logs, and what is gone '
+                          'cannot be recovered'),
     'hf_zeit_h':         ('Deine Spielzeit, aufgezeichnet seit %s. In Klammern '
                           'steht die laufende Sitzung. Ältere Protokolle räumt '
                           'Star Citizen selbst weg — was hier steht, bleibt',

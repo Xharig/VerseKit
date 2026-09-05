@@ -1149,6 +1149,24 @@ def _allgemein(fenster, rahmen):
     schiebeschalter(ziel, pfade.einstellung_wahrheit('signalton', True),
                     ton_um).pack()
 
+    # ⚠ Standardmaessig AUS (Wunsch 05.09.2026). Gezaehlt wird trotzdem von
+    # Anfang an — sonst begaenne die Zaehlung erst beim Einschalten, und die
+    # Protokolle davor haette Star Citizen dann laengst weggeraeumt. Was nichts
+    # kostet und sich nicht nachholen laesst, sammelt man besser mit.
+    ziel = _feld(fenster, innen, t('s_zeit'), t('s_zeit_h'))
+
+    def zeit_um():
+        neu_wert = not pfade.einstellung_wahrheit('spielzeit_zeigen', False)
+        pfade.einstellung_setzen('spielzeit_zeigen', neu_wert)
+        # ⚠ Die Kopfzeile wird beim Fensterbau EINMAL zusammengesetzt. Ohne
+        # Neuaufbau bliebe der Schalter wirkungslos, bis das Programm neu
+        # startet — und das sieht aus, als tue er nichts.
+        fenster.root.after(60, fenster.neu_aufbauen)
+        return neu_wert
+
+    schiebeschalter(ziel, pfade.einstellung_wahrheit('spielzeit_zeigen', False),
+                    zeit_um).pack()
+
     ziel = _feld(fenster, innen,
                  t('autostart_win') if sys.platform.startswith('win')
                  else t('autostart_linux'),

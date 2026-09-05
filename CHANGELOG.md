@@ -6,6 +6,31 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.10 - 2026-09-05
+
+> **Ein Klick neben ein Eingabefeld beendet die Eingabe** — überall im
+> Programm, nicht nur dort, wo es gerade auffiel. Und die Spielzeit zeigt jetzt
+> wirklich deine alten Protokolle statt „0 min".
+
+### Behoben
+
+- **Die Spielzeit stand auf „0 min", obwohl Protokolle da waren.** Sie bekam
+  nur die Dateien zu sehen, die das Auftrags-Protokoll noch nicht kannte — und
+  das kennt auf einem gewachsenen Rechner längst alle. Jetzt liest sie selbst
+  nach und merkt sich, was sie hatte.
+- **Ein Klick ins Leere beendet die Eingabe.** Bisher blinkte der Cursor
+  weiter im Feld, und der eingetippte Text kam nicht im Fehlerbericht an —
+  betroffen waren Name und Beschreibung. Das ist jetzt eine Regel des ganzen
+  Fensters: Wer neben ein Eingabefeld klickt, ist mit der Eingabe fertig, egal
+  welches Feld es war.
+
+### Neu
+
+- **Schalter für die Spielzeit** unter *Einstellungen → Allgemein*, ab Werk
+  **aus**. Gezählt wird trotzdem von Anfang an — Star Citizen räumt seine alten
+  Protokolle weg, und was weg ist, lässt sich nicht nachholen. Wer die Anzeige
+  später einschaltet, hat die Zeit also trotzdem.
+
 ## v3.15.9 - 2026-09-05
 
 > **Deine Spielzeit steht jetzt oben in der Leiste** — insgesamt, und während

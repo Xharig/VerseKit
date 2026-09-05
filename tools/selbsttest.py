@@ -11257,10 +11257,17 @@ def main():
         pruefe(_pf123.spiel_laeuft(),
                'ein kurzer Haenger gilt noch nicht als „Spiel aus"')
 
-        _pf123.einstellung_setzen('spiel_ordner',
-                                  os.path.join(_wiese123, 'gibtsnicht'))
-        pruefe(not _pf123.spiel_laeuft(),
-               'ohne Spielordner wird nichts behauptet')
+        # ⚠⚠ **Den Ordner ausdruecklich uebergeben, nicht eintragen.**
+        # `pfade.spiel_ordner()` faellt auf eine SUCHE zurueck, wenn der
+        # eingetragene Pfad nichts hergibt — auf einem Rechner mit Star
+        # Citizen findet es dann das echte Spiel, und die Pruefung misst
+        # dessen Zustand statt des Programms. Zweimal genau so fehlgeschlagen:
+        # erst mit einem erfundenen Pfad, dann mit geloeschter `Game.log`.
+        # Mit `ordner=` wird die Suche gar nicht erst gefragt.
+        _leer123 = os.path.join(_wiese123, 'ohne-spiel')
+        os.makedirs(_leer123)
+        pruefe(not _pf123.spiel_laeuft(ordner=_leer123),
+               'ohne Game.log im Ordner wird nichts behauptet')
     finally:
         if _altordner123 is not None:
             _pf123.einstellung_setzen('spiel_ordner', _altordner123)
@@ -11416,29 +11423,37 @@ def main():
         _b125 = _log125('b.log', '2026-09-02T10:00:00', '2026-09-02T11:30:00')
 
         _sz125.nachtragen([_a125, _b125])
-        pruefe(_sz125.gesamt() == 3600 * 3.5,
+        # ⚠⚠ **`mit_laufender=False`, sonst misst die Pruefung den Rechner,
+        # auf dem sie laeuft.** `pfade.spiel_ordner()` faellt auf eine Suche
+        # zurueck, wenn kein gueltiger Pfad eingetragen ist — auf einem
+        # Rechner MIT Star Citizen findet es das echte Spiel, und wenn dort
+        # gerade gespielt wird, zaehlt die laufende Sitzung mit. Genau so
+        # meldete diese Pruefung „3 h 31 min statt 3 h 30 min": ein Fehler in
+        # der Pruefung, nicht im Programm.
+        pruefe(_sz125.gesamt(mit_laufender=False) == 3600 * 3.5,
                'zwei Sitzungen ergeben 3 h 30 min (%s)'
-               % _sz125.als_text(_sz125.gesamt()))
+               % _sz125.als_text(_sz125.gesamt(mit_laufender=False)))
 
         # ⚠ Der zweite Lauf darf NICHTS dazuzaehlen. Sonst waechst die Zahl bei
         # jedem Programmstart, und niemand merkt es, bis sie absurd ist.
-        _vorher125 = _sz125.gesamt()
+        _vorher125 = _sz125.gesamt(mit_laufender=False)
         _neu125 = _sz125.nachtragen([_a125, _b125])
-        pruefe(_neu125 == 0 and _sz125.gesamt() == _vorher125,
+        pruefe(_neu125 == 0
+               and _sz125.gesamt(mit_laufender=False) == _vorher125,
                'ein zweiter Durchlauf zaehlt nichts doppelt')
 
         # Ein Start, der nie ins Spiel kam, ist keine Spielzeit.
         _c125 = _log125('c.log', '2026-09-03T10:00:00', '2026-09-03T14:00:00',
                         mit_spawn=False)
         _sz125.nachtragen([_c125])
-        pruefe(_sz125.gesamt() == _vorher125,
+        pruefe(_sz125.gesamt(mit_laufender=False) == _vorher125,
                'ein Start ohne Spawn zaehlt nicht als Spielzeit')
 
         # Kurze Sitzungen zaehlen dagegen mit — eine Grenze waere eine
         # Behauptung ueber „richtiges" Spielen.
         _d125 = _log125('d.log', '2026-09-04T10:00:00', '2026-09-04T10:02:00')
         _sz125.nachtragen([_d125])
-        pruefe(_sz125.gesamt() == _vorher125 + 120,
+        pruefe(_sz125.gesamt(mit_laufender=False) == _vorher125 + 120,
                'auch zwei Minuten zaehlen mit')
 
         # ⚠ Ueberlappungen verschmelzen, statt sich zu addieren. In den echten
@@ -11479,6 +11494,133 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _altheim125
         shutil.rmtree(_wiese125, ignore_errors=True)
+
+    print()
+    print('126. Ein Klick ins Leere beendet die Eingabe — ueberall')
+    # ⚠⚠ **Gemeldet am 05.09.2026, mit dem entscheidenden Zusatz:** „das
+    # vergisst du jedesmal aufs neue wo man text eingeben kann." Zu Recht:
+    # Erst blieb das Auswahlfeld beim Klick ins Leere offen, dann uebernahm
+    # das Meldungsfeld seinen Text nicht, dann das Namensfeld. Dreimal
+    # dieselbe Ursache, dreimal einzeln geflickt.
+    #
+    # Die Ursache: Tk gibt den Fokus nur ab, wenn ihn ein anderes
+    # FOKUSSIERBARES Bedienelement uebernimmt. Ein Klick auf eine Flaeche
+    # oder Beschriftung tut das nicht — der Zeiger blinkt weiter im Feld, und
+    # jedes `<FocusOut>`, das den Text uebernehmen soll, feuert nie.
+    #
+    # Diese Pruefung haelt die Loesung am FENSTER fest, nicht an einer Seite.
+    # Sonst gilt sie beim naechsten neuen Eingabefeld wieder nicht.
+    import tkinter as tk126
+    _w126 = _wurzel()
+    try:
+        _w126.deiconify()
+        _w126.geometry('1200x900')
+        from scbp import hauptfenster as _hf126
+        _f126 = _hf126.Hauptfenster(_w126, version='0.0.0-pruefung')
+        _f126.oeffnen('diagnose')
+        _w126.update_idletasks()
+
+        pruefe(hasattr(_hf126.Hauptfenster, '_klick_ins_leere_einrichten'),
+               'das Fenster kennt die Regel (und nicht nur eine Seite)')
+
+        _alle126 = []
+
+        def _sammeln126(knoten):
+            for kind in knoten.winfo_children():
+                _alle126.append(kind)
+                _sammeln126(kind)
+
+        _sammeln126(_f126.seiten['diagnose'])
+        _texte126 = [w for w in _alle126 if isinstance(w, tk126.Text)]
+        _eingabe126 = [w for w in _texte126 if int(w.cget('height')) == 4]
+        _kasten126 = [w for w in _texte126 if w not in _eingabe126]
+        _namen126 = [w for w in _alle126 if isinstance(w, tk126.Entry)]
+        _label126 = [w for w in _alle126 if isinstance(w, tk126.Label)]
+
+        pruefe(bool(_eingabe126 and _kasten126 and _namen126),
+               'Meldungsfeld, Namensfeld und Berichtskasten sind da')
+
+        if _eingabe126 and _kasten126 and _namen126:
+            def _ins_leere126():
+                ziel = _label126[0] if _label126 else _f126.seiten['diagnose']
+                ziel.event_generate('<Button-1>', x=2, y=2)
+                _w126.update()
+                _w126.update_idletasks()
+
+            # ⚠ Der Fokus muss ERZWUNGEN werden. Unter Xvfb vergibt kein
+            # Fenstermanager ihn, `focus_get()` gibt dann None — und die
+            # Pruefung wuerde „nicht im Feld" melden, ohne je drin gewesen zu
+            # sein. Genau so lief der erste Anlauf ins Leere.
+            _w126.focus_force()
+            _w126.update()
+            _eingabe126[0].focus_set()
+            _eingabe126[0].delete('1.0', 'end')
+            _eingabe126[0].insert('1.0', 'Pruefsatz eins')
+            _w126.update_idletasks()
+            pruefe(_w126.focus_get() is _eingabe126[0],
+                   'der Fokus laesst sich ins Meldungsfeld setzen')
+
+            _ins_leere126()
+            pruefe(_w126.focus_get() is not _eingabe126[0],
+                   'ein Klick ins Leere nimmt den Fokus aus dem Meldungsfeld')
+            pruefe('Pruefsatz eins' in _kasten126[0].get('1.0', 'end-1c'),
+                   'und der eingetippte Satz steht danach im Bericht')
+
+            _w126.focus_force()
+            _w126.update()
+            _namen126[0].focus_set()
+            _namen126[0].delete(0, 'end')
+            _namen126[0].insert(0, 'PruefMelder')
+            # ⚠⚠ **Ein voller `update()`, nicht nur `update_idletasks()`.**
+            # Der Fokuswechsel ist ein Ereignis; ohne Durchlauf sitzt er noch
+            # nicht, und der Klick danach nimmt einen Fokus weg, der nie da
+            # war — dann feuert auch kein `<FocusOut>`, und der Name bleibt
+            # draussen. Genau daran scheiterte der erste Anlauf dieser
+            # Pruefung, waehrend das Programm richtig arbeitete.
+            _w126.update()
+            pruefe(_w126.focus_get() is _namen126[0],
+                   'der Fokus laesst sich ins Namensfeld setzen')
+            _ins_leere126()
+            pruefe(_w126.focus_get() is not _namen126[0],
+                   'ein Klick ins Leere nimmt den Fokus aus dem Namensfeld')
+
+            # ⚠⚠ **Warum hier NICHT geprueft wird, ob der Name im Bericht
+            # landet.** Nicht aus Bequemlichkeit — die Ursache ist gemessen:
+            # Das Namensfeld haengt an einer `tk.StringVar()` ohne
+            # ausdrueckliche Wurzel, und die bindet sich an die ERSTE
+            # Tk-Instanz des Prozesses. Im Selbsttest ist die laengst
+            # zerstoert (jede Pruefung baut ihr eigenes Fenster), also liefert
+            # `.get()` dort nichts, und `melder_uebernehmen` schreibt eine
+            # leere Zeichenkette.
+            #
+            # Im Programm gibt es genau EINE Wurzel; dort tritt das nicht auf.
+            # In einem eigenen Lauf am 05.09.2026 gegengeprueft, mit echtem
+            # Klick auf eine Beschriftung, in beiden Reihenfolgen — der Name
+            # kam jedes Mal im Bericht an.
+            #
+            # Der Meldungstext oben deckt dieselbe Kette ab (er haengt nicht
+            # an einer StringVar). Eine Zeile, die je nach Wurzel gruen oder
+            # rot ist, waere schlimmer als keine: Sie wuerde irgendwann
+            # ignoriert.
+            pruefe('<FocusOut>' in (_namen126[0].bind() or ()),
+                   'am Namensfeld haengt die Uebernahme am Fokusverlust')
+
+            # ⚠ Gegenprobe: Ein Klick INS Feld darf den Fokus nicht nehmen.
+            # Ohne sie waere die Regel „Fokus immer weg" ebenso gruen — und
+            # tippen unmoeglich.
+            _w126.focus_force()
+            _w126.update()
+            _eingabe126[0].focus_set()
+            _w126.update_idletasks()
+            _eingabe126[0].event_generate('<Button-1>', x=5, y=5)
+            _w126.update()
+            pruefe(_w126.focus_get() is _eingabe126[0],
+                   'ein Klick ins Feld selbst laesst den Fokus dort')
+    finally:
+        try:
+            _w126.destroy()
+        except tk126.TclError:
+            pass
 
     print()
     if fehler:

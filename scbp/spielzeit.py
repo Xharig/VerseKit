@@ -172,21 +172,47 @@ def _zusammenfuehren(spannen):
 
 
 def nachtragen(dateien):
-    """Neue Protokolle einlesen und die Datenbank fortschreiben.
+    """Protokolle einlesen und die Datenbank fortschreiben.
 
     Gibt die Zahl der neu dazugekommenen Sitzungen zurueck. Bereits bekannte
     werden am Startzeitpunkt erkannt und nicht doppelt gezaehlt — der
     **Dateiname** taugt dafuer nicht: Die laufende `Game.log` wird beim
     naechsten Spielstart zu einer `logbackups/…`-Datei umbenannt und waere
     dann ein zweites Mal „neu".
+
+    ⚠⚠ **Uebergeben werden ALLE Protokolle, nicht nur die frisch
+    hinzugekommenen.** Der erste Anlauf am 05.09.2026 bekam nur die Dateien,
+    die das Auftrags-Protokoll noch nicht kannte — und das kannte auf einem
+    gewachsenen Rechner laengst alle. Ergebnis: Die Anzeige stand auf
+    „0 min", obwohl 188 Protokolle mit 286 Stunden dalagen. Gemeldet mit „ich
+    dachte er liest die alten logs und zaehlt zusammen".
+
+    Damit das nicht jeden Start eine Sekunde kostet, hat diese Datei ihren
+    **eigenen** Lesestand: Dateiname und Groesse. Waechst eine Datei (die
+    laufende `Game.log` tut das staendig), wird sie erneut gelesen.
     """
     daten = laden()
     bekannt = {}
     for eintrag in daten['sitzungen']:
         bekannt[eintrag.get('von')] = eintrag
+    gelesen = daten.get('gelesen')
+    if not isinstance(gelesen, dict):
+        gelesen = {}
+        daten['gelesen'] = gelesen
 
     neu = 0
     for dateipfad in (dateien or []):
+        # ⚠ Vor dem Lesen fragen, ob es noetig ist: 188 Dateien sind zusammen
+        # leicht ein halbes Gigabyte.
+        try:
+            marke = os.path.getsize(dateipfad)
+        except OSError:
+            continue
+        name = os.path.basename(dateipfad)
+        if gelesen.get(name) == marke:
+            continue
+        gelesen[name] = marke
+
         spanne = spanne_aus_log(dateipfad)
         if not spanne:
             continue
@@ -203,11 +229,8 @@ def nachtragen(dateien):
             # heutige Sitzung fuer immer auf ihrem ersten Stand stehen.
             vorhanden['bis'] = bis
 
-    if neu or daten.get('format') != FORMAT:
-        daten['sitzungen'].sort(key=lambda e: e.get('von') or 0)
-        sichern(daten)
-    else:
-        sichern(daten)
+    daten['sitzungen'].sort(key=lambda e: e.get('von') or 0)
+    sichern(daten)
     return neu
 
 

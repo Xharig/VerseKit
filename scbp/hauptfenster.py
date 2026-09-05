@@ -1622,6 +1622,7 @@ class Hauptfenster:
         self._titelleiste()
         self._fusszeile()         # ⚠ vor dem Inhalt — sonst rutscht sie hinaus
         self._korpus()
+        self._klick_ins_leere_einrichten()
 
         # ⚠⚠ **Die gewuenschte Seite, nicht fest die Liste.** Bis zum 02.09.2026
         # stand hier `self.oeffnen('liste')`, und der Aufrufer oeffnete die
@@ -1699,6 +1700,49 @@ class Hauptfenster:
 
         self.root.after(0, nachziehen)
 
+    def _klick_ins_leere_einrichten(self):
+        """Ein Klick neben ein Eingabefeld beendet die Eingabe — überall.
+
+        ⚠⚠ **Das ist eine Regel des ganzen Fensters, keine Einzellösung.**
+        Am 05.09.2026 gemeldet, und zwar mit dem entscheidenden Zusatz: „das
+        vergisst du jedesmal aufs neue wo man text eingeben kann." Zu Recht —
+        vorher war schon das Auswahlfeld betroffen (blieb beim Klick ins Leere
+        offen), dann das Meldungsfeld, dann das Namensfeld. Dreimal dieselbe
+        Ursache, dreimal einzeln geflickt. Das hier fasst es an der Wurzel.
+
+        ⚠ **Warum `<FocusOut>` allein nicht reicht.** Tk gibt den Fokus nur
+        ab, wenn ihn ein anderes **fokussierbares** Bedienelement übernimmt.
+        Ein Klick auf eine Fläche, eine Beschriftung oder den freien Bereich
+        darunter tut das nicht — der Mauszeiger blinkt weiter im Feld, und
+        jedes `<FocusOut>`, das den Text übernehmen soll, feuert nie.
+
+        Deshalb hier: Trifft ein Klick kein Eingabefeld, bekommt das Fenster
+        selbst den Fokus. Damit feuert `<FocusOut>` ganz normal, und alles,
+        was daran hängt, läuft von allein — ohne dass eine einzelne Seite
+        etwas davon wissen muss.
+
+        ⚠ `add='+'`, damit bestehende Klick-Bindungen erhalten bleiben.
+        """
+        def ins_leere(ereignis):
+            try:
+                ziel = ereignis.widget
+                # In ein Eingabefeld geklickt: alles in Ordnung, Finger weg.
+                if isinstance(ziel, (tk.Entry, tk.Text, tk.Spinbox,
+                                     tk.Listbox)):
+                    return
+                fokus = self.root.focus_get()
+                if isinstance(fokus, (tk.Entry, tk.Text, tk.Spinbox)):
+                    self.root.focus_set()
+            except (tk.TclError, KeyError):
+                # `focus_get()` wirft, wenn der Fokus bei einem Fenster liegt,
+                # das Tk nicht kennt (anderes Programm, gerade zerstoert).
+                pass
+
+        try:
+            self.root.bind('<Button-1>', ins_leere, add='+')
+        except tk.TclError:
+            pass
+
     # ------------------------------------------------------------ Titelleiste
     def _titelleiste(self):
         bar = tk.Frame(self.root, bg=BAR)
@@ -1760,6 +1804,19 @@ class Hauptfenster:
         ganze Leiste unruhig wirken.
         """
         from . import spielzeit as _sz
+
+        # ⚠⚠ **Standardmaessig AUS** (Wunsch vom 05.09.2026). Nicht jeder will
+        # wissen, wie viel Zeit er in einem Spiel verbracht hat — und eine
+        # Zahl, die das ungefragt vorrechnet, ist schwer wieder loszuwerden.
+        # Wer sie will, schaltet sie unter Anzeige ein.
+        #
+        # ⚠ Die Datenbank laeuft trotzdem mit: Sonst faenge die Zaehlung erst
+        # beim Einschalten an, und die Protokolle davor waeren dann laengst
+        # weggeraeumt. Was nichts kostet und sich nicht nachholen laesst,
+        # sammelt man besser mit.
+        if not pfade.einstellung_wahrheit('spielzeit_zeigen', False):
+            self.zeit_text = None
+            return
 
         rahmen = tk.Frame(bar, bg=BAR)
         rahmen.pack(side='right', padx=(0, 14), pady=6)

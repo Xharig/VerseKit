@@ -707,12 +707,14 @@ def nachlese():
         if gelesen.get(os.path.basename(pfad_log)) != marke:
             offen_dateien.append((pfad_log, marke))
 
-    # ⚠ Die Spielzeit haengt sich hier an, weil an dieser Stelle ohnehin schon
-    # feststeht, welche Protokolle neu oder gewachsen sind. Ein eigener
-    # Durchlauf ueber ein halbes Gigabyte waere die Alternative gewesen.
+    # ⚠⚠ **ALLE Protokolle, nicht nur die hier offenen.** Der erste Anlauf gab
+    # `offen_dateien` weiter — und auf einem Rechner, dessen Auftrags-Protokoll
+    # schon eingelesen war, ist die Liste leer. Die Spielzeit stand dadurch auf
+    # „0 min", obwohl 188 Protokolle dalagen. `spielzeit` hat einen eigenen
+    # Lesestand und ueberspringt selbst, was es kennt.
     try:
         from . import spielzeit as _sz
-        _sz.nachtragen([p for p, _m in offen_dateien])
+        _sz.nachtragen(sicherungen + ([laufende] if laufende else []))
     except Exception as ausnahme:
         fehler.merken('missionslog.spielzeit', ausnahme)
 

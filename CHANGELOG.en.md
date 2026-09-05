@@ -6,6 +6,30 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.10 - 2026-09-05
+
+> **Clicking next to a text field ends the entry** — everywhere in the program,
+> not just where it happened to come up. And play time now really shows your
+> old logs instead of "0 min".
+
+### Fixed
+
+- **Play time showed "0 min" even though logs were there.** It only got to see
+  the files the mission log did not already know — and on a grown install that
+  is none of them. It now looks for itself and remembers what it had.
+- **A click into empty space ends the entry.** The cursor used to keep blinking
+  in the field and what you typed never reached the error report — both the
+  name and the description were affected. This is now a rule of the whole
+  window: click next to a text field and you are done typing, whichever field
+  it was.
+
+### New
+
+- **A switch for play time** under *Settings → General*, **off** by default.
+  Counting happens from the start either way — Star Citizen clears out its old
+  logs, and what is gone cannot be recovered. Turn the display on later and the
+  time is still there.
+
 ## v3.15.9 - 2026-09-05
 
 > **Your play time now sits in the top bar** — the total, and while you play
