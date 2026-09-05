@@ -803,6 +803,46 @@ def _blau(zeile):
     return '%s%s%s' % (FARBE_AUF, zeile, FARBE_ZU)
 
 
+RUF_WORTE = ('reputation', 'rufpunkte')
+
+
+def _ruf_einfaerben(block):
+    """Die Ruf-Zeilen im eigenen Block blau setzen.
+
+    ⚠⚠ **Warum das noetig ist (06.09.2026).** Die Rohdaten liefern zwei
+    getrennte Felder: `contractInfo` (Rufpunkte, Abklingzeit, Teilbarkeit) und
+    `description` (der Bauplan-Block). Die Zeilen aus `contractInfo` faerben
+    wir seit v3.17.0 blau — in `description` stehen aber ZWEI WEITERE
+    Ruf-Zeilen, und die uebernahmen wir unveraendert, also ungefaerbt:
+
+        # Min. Reputation: Auftragnehmer Junior (800 XP)
+        # Max. Reputation: Auftragnehmer Elite (95.250 XP)
+
+    Gemessen in einer echten `global.ini`: 435 Zeilen `# Min. Reputation`,
+    435 `# Max. Reputation`, 129 `# Min. / Max. Reputation` — alle in Weiss,
+    mitten zwischen unseren blauen. Genau das war gemeldet worden: „da ist
+    keine Reputation in den Questtexten", weil sie im uebrigen Text unterging.
+
+    ⚠ **Das ist kein Eingriff in fremde Arbeit.** Diese Zeilen stehen in dem
+    Block, den der Watcher selbst einsetzt; sie stammen aus derselben Quelle
+    wie der Rest. Wo ein anderes Werkzeug seinen eigenen Block geschrieben hat
+    (erkennbar an fehlenden Kaestchen), wird hier nichts angefasst — der
+    Aufrufer setzt die Kaestchen unmittelbar davor.
+
+    ⚠ Nur Ruf-Zeilen. `# Baupläne:` und `# Region:` bleiben schwarz: Sie
+    gliedern den Block, sie sind keine Angabe. Waere alles blau, waere nichts
+    hervorgehoben.
+    """
+    zeilen = (block or '').split('\\n')
+    for i, zeile in enumerate(zeilen):
+        nackt = zeile.strip()
+        if not nackt.startswith('#') or FARBE_AUF in zeile:
+            continue
+        if any(w in nackt.lower() for w in RUF_WORTE):
+            zeilen[i] = _blau(nackt)
+    return '\\n'.join(zeilen)
+
+
 def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     """Die Angabezeilen eines Auftrags — hervorgehoben und ohne Dubletten.
 
@@ -1026,6 +1066,9 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         if not block:
             continue
         block, meine, gesamt = _kaestchen_setzen(block, habe)
+        # ⚠ Erst jetzt einfaerben: Die Kaestchen sind gesetzt, der Block ist
+        # damit nachweislich unserer. Siehe `_ruf_einfaerben`.
+        block = _ruf_einfaerben(block)
         # ⭐ Rufpunkte, Abklingzeit, Teilbarkeit, Bauplan-Chance — sie standen
         # in der Quelle, aber nicht im Spiel. Siehe `_auftragsangaben`.
         block = _auftragsangaben(block, e, worte, ruftabelle)

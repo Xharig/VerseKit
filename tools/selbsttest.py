@@ -12153,6 +12153,54 @@ def main():
            'die Leer-Meldung wird vor dem Filtern entschieden')
 
     print()
+    print('136. Auch die Ruf-Zeilen im Bauplan-Block sind blau')
+    # ⚠⚠ Gemeldet am 06.09.2026, nachdem die Angabe zweimal als „fehlt"
+    # durchgegangen war: „da ist keine Reputation in den Questtexten."
+    #
+    # Sie WAR da — nur nicht hervorgehoben. Die Rohdaten liefern zwei Felder:
+    # `contractInfo` (wird seit v3.17.0 blau eingesetzt) und `description`,
+    # der Bauplan-Block. In letzterem stehen zwei weitere Ruf-Zeilen, die
+    # unveraendert uebernommen wurden — also schwarz, mitten zwischen den
+    # blauen. Gemessen in einer echten global.ini: 435 + 435 + 129 Zeilen.
+    from scbp import injektion as _in136
+
+    _block136 = ('MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP\\n'
+                 '# Min. Reputation: Auftragnehmer Junior (800 XP)\\n'
+                 '# Max. Reputation: Auftragnehmer Elite (95.250 XP)\\n'
+                 '# Baupläne:\\n'
+                 '    [  ] Atzkav Sniper Rifle\\n'
+                 '# Region: Stanton-System - Gefahr 4-6/10')
+    _neu136 = _in136._ruf_einfaerben(_block136)
+
+    pruefe(_neu136.count(_in136.FARBE_AUF) == 2,
+           'beide Ruf-Zeilen sind blau (gefunden: %d)'
+           % _neu136.count(_in136.FARBE_AUF))
+    pruefe('<EM4># Min. Reputation: Auftragnehmer Junior (800 XP)</EM4>'
+           in _neu136, 'die Min-Zeile steht vollstaendig in Blau')
+
+    # ⚠ Nur Ruf-Zeilen. Gliederung bleibt schwarz — waere alles blau, waere
+    # nichts hervorgehoben.
+    for _wort136 in ('# Baupläne:', '# Region:'):
+        _zeile136 = [z for z in _neu136.split('\\n') if z.startswith(_wort136)]
+        pruefe(_zeile136 and _in136.FARBE_AUF not in _zeile136[0],
+               '%s bleibt schwarz' % _wort136)
+
+    # ⚠ Die Bauplan-Zeile darf sich nicht veraendern — an ihrem Kaestchen
+    # haengt die Erkennung, welcher Block uns gehoert.
+    pruefe('    [  ] Atzkav Sniper Rifle' in _neu136,
+           'die Bauplan-Zeile bleibt unangetastet')
+
+    # ⚠ Nichts doppelt: Ein zweiter Lauf darf nicht `<EM4><EM4>` erzeugen —
+    # das zeigt das Spiel als sichtbaren Text an.
+    pruefe(_in136._ruf_einfaerben(_neu136) == _neu136,
+           'ein zweiter Lauf aendert nichts mehr')
+
+    # ⚠ Gegenprobe: Ohne den Aufruf bliebe alles schwarz — sonst prueft die
+    # erste Zeile nichts.
+    pruefe(_in136.FARBE_AUF not in _block136,
+           'Gegenprobe: der Ausgangsblock ist schwarz')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:
