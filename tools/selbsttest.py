@@ -11937,6 +11937,70 @@ def main():
         shutil.rmtree(_wiese131, ignore_errors=True)
 
     print()
+    print('132. Der scmdb-Export hat das Format, das scmdb heute schreibt')
+    # ⚠⚠ Am 06.09.2026 aufgefallen, waehrend am IMPORT gearbeitet wurde:
+    # scmdb.net exportiert inzwischen `version: 3` mit `tag`/`name`/`url`/
+    # `completed`/`favorite`. Unser Export schrieb weiter `exportSchemaVersion:
+    # 1` mit `productName` und `ts` — abgelesen an ihrem alten Log-Watcher
+    # v0.1.9. Der Import wurde angepasst, der Export nicht: eine Richtung
+    # angefasst, die andere vergessen.
+    #
+    # Der TAG ist bei ihnen der Schluessel, nicht der Name. Ein Export ohne
+    # Tags waere syntaktisch richtig und trotzdem wertlos.
+    from scbp import export as _ex132
+
+    # ⚠ Eigene Minimaldaten statt der echten Rezeptdaten: Die liegen im
+    # Ablageordner und fehlen im Wegwerf-Ordner des Selbsttests. Eine
+    # Pruefung, die sich dann ueberspringt, prueft nichts (siehe Pruefung 67).
+    _tags132 = {'omnisky vi cannon': 'BP_CRAFT_AMRS_LaserCannon_S2'}
+    _bestand132 = {'bauplaene': {
+        'a': {'name': 'Omnisky VI Cannon'},
+        'b': {'name': 'Kennt-scmdb-nicht'},
+    }}
+    _doc132 = _ex132.fuer_scmdb(_bestand132, version='9.9.9', tags=_tags132)
+
+    pruefe(_doc132.get('version') == 3,
+           'der Umschlag traegt version 3 (ist: %r)' % _doc132.get('version'))
+    pruefe('exportSchemaVersion' not in _doc132,
+           'das alte Feld exportSchemaVersion ist weg')
+
+    _bp132 = {b['name']: b for b in _doc132.get('blueprints') or []}
+    pruefe(len(_bp132) == 2, 'beide Bauplaene sind dabei')
+
+    _omni132 = _bp132.get('Omnisky VI Cannon') or {}
+    pruefe(_omni132.get('tag') == 'BP_CRAFT_AMRS_LaserCannon_S2',
+           'der Tag steht am Bauplan (ist: %r)' % _omni132.get('tag'))
+    pruefe(_omni132.get('completed') is True, 'completed ist gesetzt')
+    pruefe(sorted(_omni132) == ['completed', 'favorite', 'name', 'tag', 'url'],
+           'die Felder sind genau die von scmdb (sind: %s)' % sorted(_omni132))
+    pruefe('productName' not in _omni132 and 'ts' not in _omni132,
+           'die alten Felder productName und ts sind weg')
+
+    # ⚠ Wer keinen Tag hat, faellt trotzdem nicht heraus — sonst verschwaenden
+    # vier Bauplaene stillschweigend aus einem Bestand von 413.
+    pruefe('Kennt-scmdb-nicht' in _bp132,
+           'ein Bauplan ohne Tag geht trotzdem mit')
+    pruefe('url' not in (_bp132.get('Kennt-scmdb-nicht') or {}),
+           'ohne Tag wird keine Adresse erfunden')
+
+    # ⚠ Gegenprobe: Wuerde die Pruefung auch anschlagen? Ein Export nach dem
+    # ALTEN Muster muss hier durchfallen — sonst ist alles oben nur Deko.
+    _alt132 = {'exportSchemaVersion': 1,
+               'blueprints': [{'productName': 'Omnisky VI Cannon',
+                               'ts': 1756000000}]}
+    _durchgefallen132 = (_alt132.get('version') != 3
+                         or 'exportSchemaVersion' in _alt132
+                         or 'productName' in (_alt132['blueprints'][0]))
+    pruefe(_durchgefallen132,
+           'Gegenprobe: das alte Format faellt hier durch')
+
+    # ⚠ Und ohne Rezeptdaten? Der Export darf nicht am Netz haengen — er
+    # laeuft dann eben ohne Tags weiter, statt zu scheitern.
+    _leer132 = _ex132.fuer_scmdb(_bestand132, version='9.9.9', tags={})
+    pruefe(len(_leer132.get('blueprints') or []) == 2,
+           'ohne Rezeptdaten laeuft der Export trotzdem durch')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

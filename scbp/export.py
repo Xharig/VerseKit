@@ -79,48 +79,72 @@ def fuer_basetool(bestand=None):
     return {'blueprints': eintraege}
 
 
-def _epoch(zeit_text):
-    """„2026-08-24 07:57:59" -> Epochsekunden, oder None."""
-    if not zeit_text:
-        return None
+SCMDB_URL = 'https://scmdb.net/?page=fab&fab=%s'
+
+
+def _scmdb_tags():
+    """Bauplanname (klein) -> Tag, aus den Rezeptdaten.
+
+    Der Tag (`BP_CRAFT_AMRS_LaserCannon_S2`) ist bei scmdb der Schlüssel — der
+    Name ist nur Beiwerk. `rezept()` gibt ihn nicht heraus, `alle()` schon.
+
+    ⚠ Liegen keine Rezeptdaten vor (frische Installation, kein Netz), ist die
+    Zuordnung leer. Der Export läuft dann trotzdem, nur ohne Tags — er darf
+    nicht am Netz hängen."""
+    tabelle = {}
     try:
-        return time.mktime(time.strptime(str(zeit_text), '%Y-%m-%d %H:%M:%S'))
-    except (ValueError, TypeError, OverflowError):
-        return None
+        from . import herstellung
+        for r in herstellung.alle():
+            tag = (r.get('tag') or '').strip()
+            if not tag:
+                continue
+            for schluessel in (r.get('name'), r.get('basis')):
+                if schluessel:
+                    tabelle.setdefault(schluessel.strip().lower(), tag)
+    except Exception:
+        return {}
+    return tabelle
 
 
-def fuer_scmdb(bestand=None, version=''):
+def fuer_scmdb(bestand=None, version='', tags=None):
     """Die Struktur, die der Import von **scmdb.net** erwartet.
 
-    Abgelesen am `--export` ihres eigenen Log-Watchers (v0.1.9): ein Umschlag
-    mit `exportSchemaVersion`, dazu `blueprints` mit `productName` und `ts`
-    (Epochsekunden). Die Missionsfelder ihres Watchers (`missionGuid` und
-    Verwandte) entstehen aus der zeitlichen Zuordnung zu einer abgeschlossenen
-    Mission — die haben wir nicht und erfinden sie auch nicht.
+    Abgelesen an einer echten Exportdatei von scmdb.net (05.09.2026): ein
+    Umschlag mit `version: 3`, darin `missions` und `blueprints` mit `tag`,
+    `name`, `url`, `completed` und `favorite`.
 
-    ⚠️ **Der Zeitstempel ist bei uns oft nicht der echte Drop-Zeitpunkt.** Wer
-    seinen Bestand aus der Launcher-Datei übernommen hat, trägt für **alle**
-    Einträge denselben Zeitpunkt — nämlich den des Imports. Aus den Logs
-    nachgelesene Einträge haben dagegen den richtigen. Das ist keine
-    Nachlässigkeit, sondern die Datenlage: Wann ein Bauplan ursprünglich fiel,
-    steht in der Launcher-Datei nicht drin."""
+    ⚠⚠ **Der Tag ist der Schlüssel, nicht der Name.** Gemessen an einem
+    gewachsenen Bestand: 409 von 413 Bauplänen finden über die Rezeptdaten
+    ihren Tag. Die vier übrigen sind deutsche Bezeichnungen ohne Gegenstück im
+    Rezeptsatz; sie werden trotzdem mit ausgegeben, damit sie nicht
+    stillschweigend verschwinden — ob scmdb sie ohne Tag zuordnen kann,
+    entscheidet deren Import.
+
+    ⚠ **Das Format hat gewechselt.** Bis v3.17.3 schrieb der Watcher
+    `exportSchemaVersion: 1` mit `productName` und `ts` (Epochsekunden),
+    abgelesen am `--export` ihres alten Log-Watchers v0.1.9. Diese Felder gibt
+    es in Fassung 3 nicht mehr — auch den Zeitstempel nicht, was kein Verlust
+    ist: Wer seinen Bestand aus der Launcher-Datei übernommen hatte, trug
+    ohnehin für **alle** Einträge den Zeitpunkt des Imports.
+
+    `missions` bleibt leer. Ihre Einträge tragen einen `hash` aus dem
+    Auftragssystem von scmdb, den wir nicht haben und nicht erfinden."""
     daten = bestand if bestand is not None else bestand_datei.laden()
+    tabelle = _scmdb_tags() if tags is None else tags
     eintraege = []
     for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue
-        satz = {'productName': name}
-        ts = _epoch(e.get('zeit'))
-        if ts:
-            satz['ts'] = round(ts, 3)
+        satz = {'tag': tabelle.get(name.lower(), ''), 'name': name}
+        if satz['tag']:
+            satz['url'] = SCMDB_URL % satz['tag']
+        satz['completed'] = True
+        satz['favorite'] = False
         eintraege.append(satz)
     return {
-        'exportSchemaVersion': 1,
-        'watcherVersion': 'SC-BP-Watcher/%s' % (version or '2.x'),
-        'channel': 'LIVE',
-        'exportedAt': time.strftime('%Y-%m-%dT%H:%M:%S+00:00', time.gmtime()),
-        'sourceLogs': [],
+        'version': 3,
+        'exportedAt': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
         'missions': [],
         'blueprints': eintraege,
     }

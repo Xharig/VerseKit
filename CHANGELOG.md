@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Der Export für scmdb.net passt wieder.** scmdb hat sein Dateiformat
+  gewechselt — der Watcher schrieb noch das alte, und beim Hochladen kam der
+  Bestand dort nicht mehr an. Jede Zeile trägt jetzt die Kennung, mit der
+  scmdb seine Baupläne führt. Aufgefallen an der Exportdatei von Zwaersch (KRT).
+
 ## v3.17.3 - 2026-09-05
 
 > **Ein Kanalwechsel kostet dich nicht mehr deine Vorgeschichte.** Der Watcher

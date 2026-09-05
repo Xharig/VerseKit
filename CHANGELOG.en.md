@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **The scmdb.net export works again.** scmdb changed its file format — the
+  watcher was still writing the old one, so uploads no longer reached your
+  collection there. Every entry now carries the identifier scmdb uses for its
+  blueprints. Spotted in an export file from Zwaersch (KRT).
+
 ## v3.17.3 - 2026-09-05
 
 > **Switching channels no longer costs you your history.** The watcher now also
