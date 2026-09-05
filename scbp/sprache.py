@@ -650,8 +650,18 @@ TEXTE = {
                           'Pages opened last (the last line without "ready" is where it hung)'),
     'b_absturz':       ('Harter Abbruch beim vorigen Lauf — das Programm wurde mitten im Befehl beendet',
                           'Hard crash during the previous run — the program was killed mid-instruction'),
-    'b_fehler_alt':    ('(aus einer älteren Version — vermutlich längst behoben)',
-                          '(from an older version — most likely fixed since)'),
+    # ⚠⚠ **Nur feststellen, nicht bewerten.** Bis 05.09.2026 stand hier
+    # „vermutlich längst behoben". Das ist eine Behauptung, und sie kann
+    # falsch sein: Wer lange kein Update gemacht hat, meldet aus einer alten
+    # Fassung einen Fehler, den wir noch nie gesehen haben — und die
+    # Bemerkung lädt dazu ein, ihn abzuhaken statt ihn zu lesen.
+    #
+    # Dieselbe Lehre wie beim festgeschriebenen Rückbau weiter oben: Ein
+    # Vermerk ist ein Zeitstempel, keine Wahrheit.
+    'b_fehler_alt':    ('(nicht aus der laufenden Fassung — prüfen, ob es ihn '
+                        'noch gibt)',
+                          '(not from the running version — check whether it '
+                          'still occurs)'),
     's_sp_start_knopf': ('Star Citizen starten', 'Launch Star Citizen'),
     's_sp_start_lauft': ('Star Citizen wird gestartet …', 'Starting Star Citizen …'),
     's_sp_kein_starter': ('kein Starter gefunden', 'no launcher found'),

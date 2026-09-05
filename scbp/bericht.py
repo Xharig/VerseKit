@@ -616,11 +616,16 @@ def bauen(version='', wurzel=None, fehleranzahl=8):
                 gebuendelt.append([kennung, e, 1, e.get('zeit', '—')])
 
         for _kennung, e, wieoft, bis in gebuendelt:
-            # ⚠ Die Version dazuschreiben und Altlasten kennzeichnen. Der Speicher
-            # hebt die letzten zehn Einträge über Programmstarts hinweg auf; nach
-            # einem Update stehen dort Fehler, die längst behoben sind. Ohne
-            # Kennzeichnung sucht der Nächste nach einem Fehler, den es nicht mehr
-            # gibt.
+            # ⚠ Die Version dazuschreiben und kennzeichnen, was **nicht** aus
+            # der laufenden Fassung stammt. Ohne die Angabe sucht der Nächste
+            # nach einem Fehler, den es vielleicht nicht mehr gibt.
+            #
+            # ⚠⚠ **Die Kennzeichnung stellt fest, sie urteilt nicht.** Sie hieß
+            # bis 05.09.2026 „vermutlich längst behoben" — das stimmt aber nur,
+            # wenn der Melder seine Fassung selbst überholt hat. Wer lange kein
+            # Update gemacht hat, schickt aus einer alten Version einen Fehler,
+            # den wir noch nie gesehen haben. Eine Bemerkung, die zum Abhaken
+            # einlädt, ist dann genau das Gegenteil einer Hilfe.
             fassung = e.get('fassung') or '?'
             alt_marke = ''
             if version and fassung not in ('?', '') and fassung != version:
