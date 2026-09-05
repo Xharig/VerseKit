@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc9 - 2026-09-05
+
+> **Chains now say what the number means.** Profit, what you have to put up
+> front, and the outlay for each step.
+
+### Improved
+
+- **Chains show profit and outlay.** A tour used to be headed by a bare number.
+  Now: "Profit 544,620 aUEC" and below it "You need 495,900 aUEC up front" —
+  only the first run comes out of your own pocket, after that you buy from the
+  previous run's proceeds.
+- **Every step states its own outlay** — so you can see which leg ties up the
+  money.
+
 ## v3.15.0-rc8 - 2026-09-05
 
 > **Names with apostrophes read properly again.** "Grey&apos;s Market" is back

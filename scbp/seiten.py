@@ -5804,14 +5804,24 @@ def _routen(fenster, rahmen):
         kasten.pack(fill='x', pady=(0, 6))
         oben = tk.Frame(kasten, bg=FLAECHE)
         oben.pack(fill='x', padx=12, pady=(6, 2))
-        tk.Label(oben, text=_auec(gesamt), bg=FLAECHE,
-                 fg=ACCENT if hervor else FG,
+        tk.Label(oben, text=t('s_rt_kette_gewinn') % _geld(gesamt),
+                 bg=FLAECHE, fg=ACCENT if hervor else FG,
                  font=fenster.f_klein, anchor='w').pack(side='left')
         strecke = sum(f.get('strecke') or 0 for f in weg)
         if strecke:
             tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
                      bg=FLAECHE, fg=SUB, font=fenster.f_klein,
                      anchor='e').pack(side='right')
+        # ⭐⭐ **Was man vorstrecken muss.** Nur die erste Fahrt wird aus
+        # eigener Tasche bezahlt; ab der zweiten kauft man vom Erlös der
+        # vorigen. Diese eine Zahl entscheidet, ob die Tour für einen selbst
+        # überhaupt in Frage kommt.
+        anfangs = (weg[0].get('ek') or 0) * (weg[0].get('menge') or 0) \
+            if weg else 0
+        if anfangs:
+            tk.Label(kasten, text='   ' + t('s_rt_kette_einsatz')
+                     % _geld(anfangs), bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x', padx=12)
         # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
         # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
         # wo man dafür einkauft. Am 04.09.2026: „Wie fliegt man hier? Ich
@@ -5831,9 +5841,14 @@ def _routen(fenster, rahmen):
             wohin = f['zielname']
             if rund and schritt == len(weg):
                 wohin = t('s_rt_zurueck') % wohin
-            tk.Label(kasten,
-                     text=t('s_rt_schritt') % (schritt, woher, f['menge'],
-                                               f['ware'], wohin),
+            text = t('s_rt_schritt') % (schritt, woher, f['menge'],
+                                        f['ware'], wohin)
+            # ⚠ Der Einkauf dieses Schritts gehört dazu — sonst sieht man nur
+            # den Gesamtgewinn und weiß nicht, welcher Schritt das Geld bindet.
+            ek = (f.get('ek') or 0) * (f.get('menge') or 0)
+            if ek:
+                text += '  ·  ' + t('s_rt_schritt_ek') % _auec(ek)
+            tk.Label(kasten, text=text,
                      bg=FLAECHE, fg=SUB, font=fenster.f_klein,
                      anchor='w', wraplength=760, justify='left').pack(
                          fill='x', padx=12, pady=(0, 4))

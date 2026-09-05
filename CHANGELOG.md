@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc9 - 2026-09-05
+
+> **Bei den Ketten steht jetzt dran, was die Zahl bedeutet.** Gewinn, was du
+> am Anfang vorstrecken musst, und je Schritt der Einsatz.
+
+### Verbessert
+
+- **Ketten nennen Gewinn und Einsatz.** Über einer Tour stand nur eine nackte
+  Zahl. Jetzt: „Gewinn 544.620 aUEC" und darunter „Dafür brauchst du am Anfang
+  495.900 aUEC" — nur die erste Fahrt zahlst du aus eigener Tasche, ab der
+  zweiten kaufst du vom Erlös der vorigen.
+- **Jeder Schritt nennt seinen Einsatz** — so siehst du, welcher Schritt das
+  Geld bindet.
+
 ## v3.15.0-rc8 - 2026-09-05
 
 > **Namen mit Apostroph stehen wieder richtig da.** Aus „Grey&apos;s Market"

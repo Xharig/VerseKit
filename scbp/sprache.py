@@ -2332,6 +2332,17 @@ TEXTE = {
     # dem Ziel dahinter eindeutig.
     's_rt_ab':           ('kaufen ab %s', 'buy at %s'),
     's_rt_einsatz':      ('Einsatz: %s aUEC', 'Outlay: %s aUEC'),
+    # ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Über einer Kette stand nur
+    # „177.960 aUEC" — am 05.09.2026 gefragt: „Was ist das? Gewinn, oder was
+    # genau steht da? Und was ist der Einsatz auf einer Tour?" Beide Zahlen
+    # gehören beschriftet, und der Einsatz gehört dazu: Was man nicht
+    # vorstrecken kann, kann man nicht verdienen.
+    's_rt_kette_gewinn': ('Gewinn %s aUEC', 'Profit %s aUEC'),
+    # Nur die erste Fahrt muss man aus eigener Tasche zahlen — danach kauft
+    # man vom Erlös der vorigen.
+    's_rt_kette_einsatz': ('Dafür brauchst du am Anfang %s aUEC',
+                             'You need %s aUEC up front'),
+    's_rt_schritt_ek':   ('Einsatz %s', 'outlay %s'),
     's_rt_vorrat':       ('dort liegen %d SCU', '%d SCU available there'),
     # Spaltennamen — ohne sie ist die größte Zahl mehrdeutig.
     's_rt_sp_gewinn':    ('Gewinn', 'Profit'),
