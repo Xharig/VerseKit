@@ -109,6 +109,24 @@ def katalog():
     return raus
 
 
+def mit_frachtraum():
+    """Alle Schiffe **mit Laderaum**, samt Werft und SCU.
+
+    ⚠ **Nicht auf das Verkaufsangebot beschränkt** — anders als `katalog()`.
+    Wer eine Route plant, fliegt sein eigenes Schiff; ob es gerade irgendwo im
+    Regal steht, ist dafür belanglos.
+    """
+    raus = []
+    for s in (laden().get('schiffe') or {}).values():
+        laderaum = int(s.get('scu') or 0)
+        if laderaum <= 0 or not (s.get('name') or ''):
+            continue
+        raus.append({'name': s['name'], 'werft': s.get('werft') or '',
+                     'scu': laderaum})
+    raus.sort(key=lambda x: x['name'].lower())
+    return raus
+
+
 def scu(name):
     """Der Frachtraum eines Schiffs in SCU — oder `0`."""
     for s in (laden().get('schiffe') or {}).values():

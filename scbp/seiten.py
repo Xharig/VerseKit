@@ -4418,10 +4418,7 @@ def _danke(fenster, rahmen):
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
             ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'), ''),
-            # ⚠ Ohne Gruppe: Er hat den Vorschlag im Discord gemacht, seine
-            # Orga steht dort nicht dabei. Lieber keine Angabe als eine
-            # geratene.
-            ('YoshimitsuDE', '', t('s_dk_yoshimitsu_idee'), '')):
+            ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), '')):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -5341,8 +5338,19 @@ def _routen(fenster, rahmen):
                        highlightthickness=1, highlightbackground=LINIE,
                        highlightcolor=ACCENT)
     ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
+    # ⚠⚠ **Nicht gepackt, solange leer.** Ein geleerter Rahmen behält seine
+    # Höhe — gemessen 920 px bei null Kindern. Am 05.09.2026 im Routen-Reiter
+    # gemeldet: „Oben entsteht mega viel Leerraum, ich scrolle, um nichts zu
+    # sehen wegzubekommen." Genau dieser Rahmen und der für die Schiffe.
     ortvorschlag = tk.Frame(kopf, bg=BG)
-    ortvorschlag.pack(fill='x')
+
+    def _ortliste_leeren():
+        for kind in ortvorschlag.winfo_children():
+            kind.destroy()
+        ortvorschlag.pack_forget()
+
+    def _ortliste_zeigen():
+        ortvorschlag.pack(fill='x')
 
     def _systeme():
         """Die Systeme, in denen es Handelsposten gibt — mit Anzahl."""
@@ -5410,56 +5418,112 @@ def _routen(fenster, rahmen):
                           highlightthickness=1, highlightbackground=LINIE,
                           highlightcolor=ACCENT)
     schifffeld.pack(fill='x', ipady=5)
+    # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Am 05.09.2026: „Dropdown
+    # hast du mir für Schiffe unter Routen versprochen — Spieler kennen ja
+    # nicht alle Schiffe und deren SCU-Kapazität." Richtig: Ein Suchfeld, das
+    # erst ab zwei Zeichen etwas zeigt, setzt voraus, dass man den Namen schon
+    # kennt. Über die Werft kommt man auch ohne hin — dasselbe Muster wie im
+    # Laden-Reiter, wo die Schiffe ebenfalls nach Werft stehen.
+    werft_rahmen = tk.Frame(schiff_rahmen, bg=BG)
+    werft_rahmen.pack(fill='x', pady=(6, 0))
+    # Ebenfalls nur gepackt, wenn etwas darin steht — siehe `ortvorschlag`.
     schiffvorschlag = tk.Frame(schiff_rahmen, bg=BG)
-    schiffvorschlag.pack(fill='x')
 
     # Wo es das gewählte Schiff gibt — steht unter den Eingaben, nicht im
     # Ergebnis: Es gehört zur Ausrüstung, nicht zur Route.
     schiff_info = tk.Frame(kopf, bg=BG)
     schiff_info.pack(fill='x', pady=(8, 0))
 
+    def _schiffliste_leeren():
+        for kind in schiffvorschlag.winfo_children():
+            kind.destroy()
+        schiffvorschlag.pack_forget()
+
+    def _schiffliste_zeigen():
+        schiffvorschlag.pack(fill='x')
+
     def _schiff_waehlen(name):
         zustand['schiff'] = name
         zustand['stumm_schiff'] = True
         schiffsuche.set(name)
         zustand['stumm_schiff'] = False
-        for kind in schiffvorschlag.winfo_children():
-            kind.destroy()
+        _schiffliste_leeren()
         scu_var.set(str(schiff_modul.scu(name)))
         _schiff_zeigen()
+
+    werft_wahl = {'werft': ''}
 
     def _schiffvorschlaege(*_a):
         if zustand.get('stumm_schiff'):
             return
-        for kind in schiffvorschlag.winfo_children():
-            kind.destroy()
+        _schiffliste_leeren()
         text = schiffsuche.get().strip().lower()
-        if len(text) < 2:
+        # ⚠ Ohne Suchtext gilt die Werft — sonst passiert beim Klicken nichts.
+        if len(text) < 2 and not werft_wahl['werft']:
             return
-        if text == (zustand.get('schiff') or '').lower():
+        if text and text == (zustand.get('schiff') or '').lower():
             return
-        namen = schiff_modul.alle()
-        if not namen:
+        flotte = schiff_modul.mit_frachtraum()
+        if not flotte:
+            _schiffliste_zeigen()
             _fliesstext(schiffvorschlag, t('s_rt_keine_schiffe'),
                         fenster.f_klein, fill='x')
             return
+        treffer = [s for s in flotte
+                   if (not werft_wahl['werft']
+                       or s['werft'] == werft_wahl['werft'])
+                   and (not text or text in s['name'].lower())]
+        # ⚠ Wer eine Werft gewählt hat, sieht sie ganz — höchstens 25 Schiffe.
+        # Beim Tippen bleibt es bei zehn, sonst schiebt die Liste die
+        # Ergebnisse darunter aus dem Bild.
+        treffer = treffer[:25 if werft_wahl['werft'] else 10]
+        if not treffer:
+            _schiffliste_zeigen()
+            _fliesstext(schiffvorschlag, t('s_ld_nichts_gefunden'),
+                        fenster.f_klein, fill='x')
+            return
+        _schiffliste_zeigen()
         # ⚠ Der Frachtraum steht in der Zeile — sonst wählt man nach dem Namen
         # und weiß hinterher nicht, was man bekommen hat.
-        treffer = [n for n in namen if text in n.lower()][:10]
-        for n in treffer:
+        for s in treffer:
             zeile = tk.Label(schiffvorschlag,
-                             text='  %s  ·  %s' % (n, t('s_rt_scu_menge')
-                                                   % schiff_modul.scu(n)),
+                             text='  %s  ·  %s' % (s['name'],
+                                                   t('s_rt_scu_menge')
+                                                   % s['scu']),
                              bg=FLAECHE, fg=FG, font=fenster.f_klein,
                              anchor='w', cursor='hand2')
             zeile.pack(fill='x', pady=1)
             zeile.bind('<Button-1>',
-                       lambda _=None, x=n: _schiff_waehlen(x))
+                       lambda _=None, x=s['name']: _schiff_waehlen(x))
             zeile.bind('<Enter>',
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
 
     schiffsuche.trace_add('write', _schiffvorschlaege)
+
+    def _werft_bauen():
+        """Das Werft-Menü — größte Werft oben, mit Anzahl."""
+        for kind in werft_rahmen.winfo_children():
+            kind.destroy()
+        zaehler = {}
+        for s in schiff_modul.mit_frachtraum():
+            if s['werft']:
+                zaehler[s['werft']] = zaehler.get(s['werft'], 0) + 1
+        eintraege = [(w, '%s (%d)' % (w, n)) for w, n in
+                     sorted(zaehler.items(), key=lambda p: (-p[1],
+                                                            p[0].lower()))]
+        if not eintraege:
+            return
+
+        def _gewechselt():
+            zustand['schiff'] = ''
+            _schiffvorschlaege()
+
+        _filterleiste(fenster, werft_rahmen,
+                      [('werft', t('s_rt_alle_werften'), eintraege)],
+                      _gewechselt, werft_wahl)
+
+    _werft_bauen()
 
     def _schiff_zeigen():
         for kind in schiff_info.winfo_children():
@@ -5740,7 +5804,7 @@ def _routen(fenster, rahmen):
         zustand['stumm'] = True
         ortsuche.set(name)
         zustand['stumm'] = False
-        _leeren(ortvorschlag)
+        _ortliste_leeren()
         # ⚠ Die Vorschlagsliste war eben noch acht Zeilen hoch; ohne das hier
         # bleibt die Rollfläche stehen, wo sie war, und oben klafft eine Lücke.
         _nach_oben(ergebnis)
@@ -5773,7 +5837,7 @@ def _routen(fenster, rahmen):
     def _ortvorschlaege(*_a):
         if zustand.get('stumm'):
             return
-        _leeren(ortvorschlag)
+        _ortliste_leeren()
         text = ortsuche.get().strip().lower()
         # ⚠ **Ohne Eingabe gilt das System-Dropdown.** Vorher passierte unter
         # zwei Zeichen gar nichts — wer nur klicken wollte, kam nicht weiter.
@@ -5819,6 +5883,8 @@ def _routen(fenster, rahmen):
         # ⚠ Angezeigt wird der **Terminalname**, dahinter Station und System.
         # Vorher stand achtmal „Seraphim Station · Stanton" untereinander und
         # niemand konnte sagen, welche Zeile welche ist.
+        if treffer:
+            _ortliste_zeigen()
         for kennung, name, ort, system in sorted(treffer,
                                                  key=lambda x: x[1].lower()):
             beiwerk = ' · '.join(x for x in (ort if ort != name else '',
@@ -5845,8 +5911,39 @@ def _routen(fenster, rahmen):
     def _beim_zeigen():
         # ⚠ Der gewählte Ort bleibt — wer zurückkommt, will weiterarbeiten
         # und nicht neu tippen. Nur die offene Vorschlagsliste wird geräumt.
-        _leeren(ortvorschlag)
+        _ortliste_leeren()
+        _schiffe_sicherstellen()
     fenster.beim_zeigen['routen'] = _beim_zeigen
+
+    def _schiffe_sicherstellen():
+        """Die Schiffsdaten holen, falls sie fehlen — und das Werft-Menü füllen.
+
+        ⚠ Beim Aufbau der Seite liegen sie oft noch nicht vor; dann bliebe das
+        Menü leer und der Reiter fragte nach einem Namen, den niemand kennt.
+        """
+        if schiff_modul.mit_frachtraum():
+            return
+
+        def arbeit():
+            try:
+                schiff_modul.aktualisieren()
+            except Exception as ausnahme:
+                fehler.merken('seiten.routen.schiffe', ausnahme)
+
+            def fertig():
+                try:
+                    if werft_rahmen.winfo_exists():
+                        _werft_bauen()
+                except tk.TclError:
+                    pass
+            try:
+                werft_rahmen.after(0, fertig)
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    _schiffe_sicherstellen()
 
 
 def _routen_kopfzeile(fenster, eltern):
@@ -5990,7 +6087,7 @@ def _laeden(fenster, rahmen):
     # stehen, das reicht." Stimmt beides: Was hineinpasst, entscheidet die
     # Größe. Der Hersteller ist eine Angabe zum Lesen, kein Suchweg — er steht
     # an der Zeile und wird von der Suche mit gefunden, hat aber kein Menü.
-    FILTER_FOLGE = ('bereich', 'gruppe', 'groesse')
+    FILTER_FOLGE = ('bereich', 'gruppe', 'groesse', 'klasse', 'guete')
     wahl = dict((f, '') for f in FILTER_FOLGE)
 
     # ⚠⚠ **Suchfeld und Auswahl bleiben stehen, nur die Liste rollt.**
@@ -6067,7 +6164,9 @@ def _laeden(fenster, rahmen):
             raus = [{'name': x['name'], 'kennung': x['kennung'],
                      'bereich': x['abschnitt'], 'gruppe': x['kategorie'],
                      'hersteller': x.get('hersteller') or '',
-                     'groesse': x.get('groesse') or ''}
+                     'groesse': x.get('groesse') or '',
+                     'klasse': x.get('klasse') or '',
+                     'guete': x.get('guete') or ''}
                     for x in katalog if x['name'] and x['kennung']]
             # ⭐ **Schiffe gehören dazu.** Die Kauf- und Mietpreise lagen seit
             # v3.14.0 vor, wurden aber nur für den Frachtraum im Routenplaner
@@ -6081,7 +6180,8 @@ def _laeden(fenster, rahmen):
                                  'kennung': SCHIFF_PRAEFIX + s['name'],
                                  'bereich': BEREICH_SCHIFFE,
                                  'gruppe': WERFT_PRAEFIX + (s['werft'] or '?'),
-                                 'hersteller': '', 'groesse': ''})
+                                 'hersteller': '', 'groesse': '',
+                                 'klasse': '', 'guete': ''})
             except Exception as ausnahme:
                 fehler.merken('seiten.laeden.schiffe', ausnahme)
             return raus
@@ -6153,6 +6253,16 @@ def _laeden(fenster, rahmen):
         schluessel = laden_modul.BEREICH_TEXTE.get(wert)
         return t(schluessel) if schluessel else wert
 
+    # ⚠ Die Klassen heißen bei UEX englisch; im Menü stehen sie übersetzt.
+    KLASSEN_TEXTE = {'Civilian': 's_ld_kl_civilian',
+                     'Military': 's_ld_kl_military',
+                     'Industrial': 's_ld_kl_industrial',
+                     'Stealth': 's_ld_kl_stealth',
+                     'Competition': 's_ld_kl_competition',
+                     'Medical': 's_ld_kl_medical',
+                     'Mining': 's_ld_kl_mining',
+                     'Salvage and Repair': 's_ld_kl_salvage'}
+
     def _wertname(feld, wert):
         """Ein Filterwert, wie er im Menü steht."""
         if feld == 'bereich':
@@ -6161,6 +6271,11 @@ def _laeden(fenster, rahmen):
             return _gruppenname(wert)
         if feld == 'groesse':
             return t('s_ld_groesse') % wert
+        if feld == 'guete':
+            return t('s_ld_guete') % wert
+        if feld == 'klasse':
+            schluessel = KLASSEN_TEXTE.get(wert)
+            return t(schluessel) if schluessel else wert
         return wert
 
     def _mit_zahl(feld):
@@ -6473,8 +6588,12 @@ def _laeden(fenster, rahmen):
                              font=fenster.f_klein, anchor='w',
                              cursor='hand2')
             zeile.pack(side='left', ipady=4)
+            # ⭐ Klasse · Größe · Güte · Hersteller — dieselben vier Angaben,
+            # nach denen auch die Quelle selbst filtert. Was fehlt, fällt weg.
             beiwerk = ' · '.join(x for x in (
+                _wertname('klasse', b['klasse']) if b.get('klasse') else '',
                 t('s_ld_groesse') % b['groesse'] if b.get('groesse') else '',
+                t('s_ld_guete') % b['guete'] if b.get('guete') else '',
                 b.get('hersteller') or '') if x)
             teile_der_zeile = [kasten, zeile]
             if beiwerk:
@@ -6682,7 +6801,10 @@ def _laeden(fenster, rahmen):
                         _mit_zahl('bereich')),
                        ('gruppe', t('s_ld_alle_arten'), _mit_zahl('gruppe')),
                        ('groesse', t('s_ld_alle_groessen'),
-                        _mit_zahl('groesse'))],
+                        _mit_zahl('groesse')),
+                       ('klasse', t('s_ld_alle_klassen'),
+                        _mit_zahl('klasse')),
+                       ('guete', t('s_ld_alle_gueten'), _mit_zahl('guete'))],
                       _filter_gewechselt, wahl)
 
     _filter_bauen()

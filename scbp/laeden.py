@@ -80,6 +80,12 @@ QUELLE_KATEGORIEN = 'https://api.uexcorp.uk/2.0/categories'
 QUELLE_TEILE = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
 QUELLE_PREISE_KATEGORIE = ('https://api.uexcorp.uk/2.0/'
                            'items_prices?id_category=%d')
+# ⭐⭐ **Klasse und Güte je Teil.** Genau die Angaben, nach denen UEX auf
+# seiner eigenen Seite filtert (Class · Grade · Size) — und genau die, die der
+# Watcher bei Bauplänen längst als Kürzel `M/1/A` führt. Ein Abruf je
+# Warengruppe, gemessen 392 Zeilen für Kühler in 0,5 s.
+QUELLE_ATTRIBUTE = ('https://api.uexcorp.uk/2.0/'
+                    'items_attributes?id_category=%d')
 CACHE = 'laeden.json'
 KATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
@@ -88,7 +94,7 @@ FORMAT = 1
 # Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
 # Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
 # nicht mit weggeworfen werden.
-FORMAT_KATALOG = 3
+FORMAT_KATALOG = 4
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
@@ -205,6 +211,8 @@ def _katalog_sichern(fortschritt=None):
                 'n': name,
                 'h': (x.get('company_name') or '').strip(),
                 'g': str(x.get('size') or '').strip(),
+                'c': '',
+                'q': '',
             }
             klein = name.lower()
             if not klein:
@@ -212,6 +220,31 @@ def _katalog_sichern(fortschritt=None):
             if klein in namen and namen[klein] != kennung:
                 doppelt.add(klein)
             namen[klein] = kennung
+        # ⚠ Die Attribute überschreiben die Größe aus der Teileliste: Dort ist
+        # sie nur bei 466 von 1.528 gefüllt, hier bei 70 von 73 (Kühler).
+        merkmale = {}
+        for x in uex.holen(QUELLE_ATTRIBUTE % k['id'], 'laeden.attribute') or []:
+            teil_nr = str(x.get('id_item') or '')
+            feld = (x.get('attribute_name') or '').strip()
+            wert = str(x.get('value') or '').strip()
+            # ⚠⚠ **Die Güte heißt nicht überall gleich.** Bei Kühlern steht
+            # sie als `Grade`, bei Radar als `Grade Letter` (daneben gibt es
+            # dort ein `Grade Numeric`). Wer nur auf `Grade` prüft, bekommt
+            # für Radar gar keine Güte — gemessen: 182 statt der möglichen
+            # Treffer, und das Menü fiel bei Radar ganz weg.
+            if feld in ('Grade', 'Grade Letter'):
+                feld = 'Grade'
+            if not teil_nr or not wert or feld not in ('Size', 'Class',
+                                                       'Grade'):
+                continue
+            merkmale.setdefault(teil_nr, {})[feld] = wert
+        for teil_nr, gefunden in merkmale.items():
+            if teil_nr not in roh:
+                continue
+            roh[teil_nr]['c'] = gefunden.get('Class', '')
+            roh[teil_nr]['q'] = gefunden.get('Grade', '')
+            if gefunden.get('Size'):
+                roh[teil_nr]['g'] = gefunden['Size']
         preise = uex.holen(QUELLE_PREISE_KATEGORIE % k['id'], 'laeden.kaufbar')
         gesehen = set()
         for x in preise or []:
@@ -229,7 +262,9 @@ def _katalog_sichern(fortschritt=None):
                                's': id_zu_uuid.get(teil) or ID_PRAEFIX + teil,
                                'k': kat_index,
                                'h': eintrag['h'],
-                               'g': eintrag['g']})
+                               'g': eintrag['g'],
+                               'c': eintrag['c'],
+                               'q': eintrag['q']})
         if fortschritt:
             fortschritt(nummer, len(gewaehlt))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
@@ -342,7 +377,9 @@ def katalog_teile():
                      'abschnitt': paar[0],
                      'kategorie': paar[1],
                      'hersteller': x.get('h') or '',
-                     'groesse': x.get('g') or ''})
+                     'groesse': x.get('g') or '',
+                     'klasse': x.get('c') or '',
+                     'guete': x.get('q') or ''})
     return raus
 
 

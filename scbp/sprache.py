@@ -2169,6 +2169,19 @@ TEXTE = {
     's_ld_ber_schiffe':  ('Schiffe', 'Ships'),
     's_ld_alle_groessen': ('Alle Größen', 'All sizes'),
     's_ld_groesse':      ('Größe %s', 'Size %s'),
+    # ⚠ Klasse und Güte — dieselben Angaben, nach denen UEX auf seiner Seite
+    # filtert, und dieselben, die der Watcher bei Bauplänen als `M/1/A` führt.
+    's_ld_alle_klassen': ('Alle Klassen', 'All classes'),
+    's_ld_alle_gueten':  ('Alle Güten', 'All grades'),
+    's_ld_guete':        ('Güte %s', 'Grade %s'),
+    's_ld_kl_civilian':  ('Zivil', 'Civilian'),
+    's_ld_kl_military':  ('Militär', 'Military'),
+    's_ld_kl_industrial': ('Industrie', 'Industrial'),
+    's_ld_kl_stealth':   ('Tarnung', 'Stealth'),
+    's_ld_kl_competition': ('Rennsport', 'Competition'),
+    's_ld_kl_medical':   ('Medizin', 'Medical'),
+    's_ld_kl_mining':    ('Bergbau', 'Mining'),
+    's_ld_kl_salvage':   ('Bergung', 'Salvage and repair'),
     's_ld_kaufen':       ('Kaufen', 'Buy'),
     's_ld_mieten':       ('Mieten (pro Tag)', 'Rent (per day)'),
     's_ld_schiff_nichts': ('Zu diesem Schiff liegen keine Kauf- oder '
@@ -2256,10 +2269,17 @@ TEXTE = {
     's_rt_alle_systeme': ('Alle Systeme', 'All systems'),
     's_rt_scu':          ('Frachtraum (SCU)', 'Cargo hold (SCU)'),
     's_rt_geld':         ('Geld (aUEC)', 'Money (aUEC)'),
+    # ⚠ **Nennt beide Wege.** Am 05.09.2026: „Man muss im Werkzeug erst
+    # wissen, dass man ‚Beste Routen überall' klicken muss — das ist nicht
+    # intuitiv." Stimmt: Der Hinweis erwähnte nur das Ortsfeld, obwohl der
+    # Knopf direkt daneben stand.
     's_rt_kein_ort':     ('Tippe oben ein, wo du gerade bist — dann siehst du, '
-                          'was sich von dort aus lohnt.',
+                          'was sich von dort aus lohnt. Oder drück '
+                          '„Beste Routen überall suchen", wenn dir egal ist, '
+                          'wo du startest.',
                             'Type where you are above — then you will see what '
-                            'pays off from there.'),
+                            'pays off from there. Or press "Find best routes '
+                            'anywhere" if it does not matter where you start.'),
     's_rt_rechnet':      ('Wird nachgeschlagen …', 'Looking it up …'),
     's_rt_nichts':       ('Von hier aus lohnt sich gerade nichts — jedenfalls '
                           'nicht mit diesem Frachtraum und diesem Geld.',
@@ -2287,6 +2307,7 @@ TEXTE = {
     's_auec':            ('%s aUEC', '%s aUEC'),
     # ⚠ Die Beschriftung sagt, was das Feld TUT. „Schiff" allein ließ offen,
     # wozu man dort etwas einträgt.
+    's_rt_alle_werften': ('Alle Werften', 'All manufacturers'),
     's_rt_schiff':       ('Schiff — trägt den Frachtraum ein',
                             'Ship — fills in the cargo hold'),
     's_rt_keine_schiffe': ('Die Schiffsliste ist noch nicht da — sie wird beim '

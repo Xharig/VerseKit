@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc4 - 2026-09-05
+
+> **Class and grade have arrived — now you can find the part that fits.** Every
+> row shows class, size, grade and manufacturer, and the first three have their
+> own dropdowns. Plus a manufacturer picker for ships under Routes.
+
+### New
+
+- **Class and grade per item.** Military, civilian, industrial, stealth,
+  competition, medical, mining, salvage — and grades A to D. Both as dropdowns
+  and on every row, alongside size and manufacturer.
+- **Manufacturer picker for ships (Routes).** 134 ships with cargo space across
+  15 manufacturers. If you do not know the name, click your way there; the cargo
+  capacity is on every row and fills itself in when you pick one.
+
+### Fixed
+
+- **Routes: large empty area above the inputs.** The suggestion lists did not
+  release their space when empty.
+- **Routes: the hint now names both ways** — type a starting point *or* press
+  "Find best routes anywhere".
+
 ## v3.15.0-rc3 - 2026-09-05
 
 > **Now you can find things you do not know by name.** Every row shows size and

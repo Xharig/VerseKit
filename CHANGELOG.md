@@ -6,6 +6,28 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc4 - 2026-09-05
+
+> **Klasse und Güte sind da — jetzt findet man das passende Teil.** Jede Zeile
+> zeigt Klasse, Größe, Güte und Hersteller, und für die ersten drei gibt es
+> Auswahlmenüs. Dazu bei Routen ein Werft-Menü fürs Schiff.
+
+### Neu
+
+- **Klasse und Güte je Teil.** Militär, Zivil, Industrie, Tarnung, Rennsport,
+  Medizin, Bergbau, Bergung — und Güte A bis D. Beides als Auswahlmenü und an
+  jeder Zeile, zusammen mit Größe und Hersteller.
+- **Werft-Auswahl beim Schiff (Routen).** 134 Schiffe mit Laderaum, nach 15
+  Werften sortiert. Wer den Namen nicht kennt, klickt sich hin; der Frachtraum
+  steht an jeder Zeile und wird beim Auswählen übernommen.
+
+### Behoben
+
+- **Routen: großer leerer Bereich über den Eingaben.** Die Vorschlagslisten
+  gaben ihren Platz nicht frei, wenn sie leer waren.
+- **Routen: Der Hinweis nennt jetzt beide Wege** — Startort eintippen *oder*
+  „Beste Routen überall suchen" drücken.
+
 ## v3.15.0-rc3 - 2026-09-05
 
 > **Jetzt findet man auch, was man nicht beim Namen kennt.** An jeder Zeile
