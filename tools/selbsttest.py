@@ -11623,6 +11623,52 @@ def main():
             pass
 
     print()
+    print('127. Rufpunkte in JEDEN Auftrag, hervorgehoben')
+    # ⚠⚠ **Gemeldet am 05.09.2026 ueber Bushwick4712:** In einem Auftrag ohne
+    # Bauplaene standen keine Rufpunkte, waehrend eine fremde Uebersetzung sie
+    # dort anzeigte. Nachgemessen an den Vertragsdaten: **816 von 818**
+    # Auftraegen bringen Rufpunkte und Abklingzeit mit — bedient wurden aber
+    # nur die **367** mit eigenem Beschreibungsblock. Die uebrigen **449**
+    # gingen verloren, obwohl die Daten dalagen.
+    #
+    # Dazu die Hervorhebung: „Mach die XP blau geschrieben … damit allgemein
+    # spieler es schneller sehen." Der Melder hatte sie uebersehen, weil sie
+    # unauffaellig mitten im Text standen.
+    from scbp import injektion as _inj127
+
+    pruefe(_inj127.FARBE_AUF == '<EM4>',
+           'die Hervorhebung ist die, die das Spiel benutzt')
+    pruefe(_inj127._blau('# Rufpunkte: 5') ==
+           '<EM4># Rufpunkte: 5</EM4>',
+           'eine Zeile wird hervorgehoben')
+    # ⚠ Doppelte Auszeichnung zeigt das Spiel als TEXT an — aus zwei <EM4>
+    # wird kein kraeftigeres Blau, sondern ein sichtbares „<EM4>".
+    pruefe(_inj127._blau('<EM4>schon da</EM4>') == '<EM4>schon da</EM4>',
+           'und keine zweite darueber')
+
+    # Dubletten: Was schon dasteht, kommt nicht noch einmal — auch dann nicht,
+    # wenn es beim letzten Lauf noch ungefaerbt war.
+    _e127 = {'contractInfo': '# Zu erwartende Rufpunkte: 50 XP'}
+    pruefe(_inj127._angabenzeilen(_e127, '') ==
+           ['<EM4># Zu erwartende Rufpunkte: 50 XP</EM4>'],
+           'in leeren Text wird eingesetzt')
+    pruefe(_inj127._angabenzeilen(
+        _e127, 'Text # Zu erwartende Rufpunkte: 50 XP') == [],
+        'was schon dasteht, kommt nicht doppelt')
+    pruefe(_inj127._angabenzeilen(
+        _e127, 'Text <EM4># Zu erwartende Rufpunkte: 50 XP</EM4>') == [],
+        'auch wenn es bereits hervorgehoben ist')
+
+    # ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
+    # eine eigene Reputationszeile; wo eine steht, kommt keine zweite dazu.
+    pruefe(_inj127._hat_angaben('Reputation Awarded: 50'),
+           'eine fremde Reputationszeile wird erkannt')
+    pruefe(_inj127._hat_angaben('<EM4># Zu erwartende Rufpunkte: 5</EM4>'),
+           'die eigene ebenso')
+    pruefe(not _inj127._hat_angaben('Ein ganz gewoehnlicher Auftragstext'),
+           'ein gewoehnlicher Text gilt NICHT als schon versorgt')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

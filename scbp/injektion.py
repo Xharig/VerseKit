@@ -559,6 +559,25 @@ def _hat_kaestchen(text):
     return '[x]' in text or KASTEN_FEHLT in text
 
 
+def _hat_angaben(text):
+    """Stehen die Auftragsangaben schon im Text?
+
+    ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
+    bei denselben Auftraegen eine eigene Reputationszeile; wo eine steht,
+    kommt keine zweite dazu — dieselbe Regel wie bei der `[BP]`-Marke.
+    Entschieden am 05.09.2026: „Nicht schreiben, wenn MrKraken schon da ist."
+
+    ⚠ Erkannt wird an den Schlagwoertern beider Werkzeuge, nicht an unserem
+    Wortlaut allein: Sonst gaelte fremder Text als „noch nichts da", und der
+    Spieler haette die Angabe zweimal untereinander.
+    """
+    ohne_farbe = (text or '').replace(FARBE_AUF, '').replace(FARBE_ZU, '')
+    klein = ohne_farbe.lower()
+    return any(wort in klein for wort in (
+        'rufpunkte', 'cooldown', 'reputation awarded', 'reputation gain',
+        'abklingzeit'))
+
+
 def _hat_titelmarke(text):
     """Trägt dieser Titel schon eine Bauplan-Marke — von wem auch immer?
 
@@ -752,6 +771,50 @@ def _kaestchen_setzen(text, habe):
     return '\\n'.join(zeilen), meine, gesamt
 
 
+# Die Auszeichnung, mit der das Spiel Text hervorhebt — dasselbe Blau, in dem
+# auch die `[BP!]`-Marke steht.
+#
+# ⚠⚠ **Gewuenscht am 05.09.2026:** „Mach die XP blau geschrieben … damit
+# allgemein spieler es schneller sehen." Der Anlass war ein Melder, der die
+# Rufpunkte uebersah, weil sie mitten im uebrigen Text standen — sie waren da,
+# nur unauffaellig.
+#
+# ⚠ Gemessen in der `global.ini` eines Spielers: `<EM4>` kommt 3.974 Mal vor,
+# die uebrigen Stufen zusammen achtmal. Es ist die Auszeichnung, die das Spiel
+# wirklich benutzt — nicht geraten.
+FARBE_AUF = '<EM4>'
+FARBE_ZU = '</EM4>'
+
+
+def _blau(zeile):
+    """Eine Zeile hervorheben — aber nur, wenn sie es nicht schon ist.
+
+    ⚠ Doppelte Auszeichnung zeigt das Spiel als Text an: Aus zwei `<EM4>`
+    wird kein kraeftigeres Blau, sondern ein sichtbares `<EM4>` im Fenster.
+    """
+    zeile = zeile.strip()
+    if not zeile or FARBE_AUF in zeile:
+        return zeile
+    return '%s%s%s' % (FARBE_AUF, zeile, FARBE_ZU)
+
+
+def _angabenzeilen(eintrag, vorhanden=''):
+    """Die Angabezeilen eines Auftrags — hervorgehoben und ohne Dubletten.
+
+    ⚠ Verglichen wird gegen den Text OHNE Auszeichnung: Sonst gilt eine Zeile
+    als neu, nur weil sie beim letzten Lauf noch ungefaerbt war — und stuende
+    danach zweimal da.
+    """
+    ohne_farbe = (vorhanden or '').replace(FARBE_AUF, '').replace(FARBE_ZU, '')
+    raus = []
+    for feld in ('contractInfo', 'dropChance'):
+        for zeile in (eintrag.get(feld) or '').split('\\n'):
+            zeile = zeile.strip()
+            if zeile and zeile not in ohne_farbe:
+                raus.append(_blau(zeile))
+    return raus
+
+
 def _auftragsangaben(block, eintrag):
     """Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance einsetzen.
 
@@ -783,12 +846,7 @@ def _auftragsangaben(block, eintrag):
     anderes Werkzeug sie geschrieben hat oder wir selbst beim letzten Lauf),
     bleibt sie stehen — dieselbe Regel wie bei den Marken.
     """
-    zusatz = []
-    for feld in ('contractInfo', 'dropChance'):
-        for zeile in (eintrag.get(feld) or '').split('\\n'):
-            zeile = zeile.strip()
-            if zeile and zeile not in block:
-                zusatz.append(zeile)
+    zusatz = _angabenzeilen(eintrag, block)
     if not zusatz:
         return block
 
@@ -890,6 +948,34 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     worte = TEXTE[sprachkuerzel]
 
     titel_an, text_an = {}, {}
+    # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
+    # trotzdem** (05.09.2026). Gemessen an den Vertragsdaten: **816 von 818**
+    # Auftraegen bringen Rufpunkte und Abklingzeit mit, aber nur **367** haben
+    # einen eigenen Beschreibungsblock — und nur die wurden bedient. Die
+    # uebrigen **449** gingen verloren, obwohl die Daten dalagen und ein
+    # Beschreibungs-Schluessel vorhanden ist.
+    #
+    # Genau so gemeldet: Ein Auftrag ohne Bauplaene zeigte nichts, waehrend
+    # eine fremde Uebersetzung dort Rufpunkte anzeigte. „bau es bitte endlich
+    # bei der SC BP Watcher Injektion mit ein … in JEDE quest wie mrkraken."
+    #
+    # ⚠ Der Unterschied zum Fall darunter: Hier gibt es keinen eigenen Block,
+    # den wir setzen koennten — die Zeilen werden an den **vorhandenen
+    # Spieltext angehaengt**. Deshalb eine eigene Tabelle statt `text_an`:
+    # `text_an` ERSETZT, das hier ERGAENZT.
+    angaben_an = {}
+    for e in daten['entries']:
+        if not e.get('description') and e.get('descriptionLocKey'):
+            zeilen_zu = _angabenzeilen(e)
+            if zeilen_zu:
+                # ⚠ **Eine Leerzeile davor.** Ohne sie klebt die erste Angabe
+                # unmittelbar am letzten Satz des Auftragstextes — gemessen
+                # kam „…erinnert daran.# Zu erwartende Rufpunkte: 20 XP"
+                # heraus. Der Block ist eine eigene Auskunft, keine
+                # Fortsetzung des Auftraggeber-Textes.
+                angaben_an[e['descriptionLocKey']] = (
+                    '\\n\\n' + '\\n'.join(zeilen_zu))
+
     for e in daten['entries']:
         block = e.get('description') or ''
         if not block:
@@ -987,6 +1073,15 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
                 sauber, angefasst = grundlage + titel_an[schluessel], True
         elif schluessel in text_an:
             sauber, angefasst = _anhaengen(grundlage, text_an[schluessel]), True
+        elif schluessel in angaben_an:
+            # ⚠ Ein Auftrag ohne eigenen Block: Die Angaben kommen an den
+            # SPIELTEXT, der schon dasteht. Steht die Angabe dort bereits
+            # (weil ein anderes Werkzeug sie geschrieben hat oder wir beim
+            # letzten Lauf), bleibt sie stehen — dieselbe Regel wie bei den
+            # Marken.
+            if not _hat_angaben(grundlage):
+                sauber = _anhaengen(grundlage, angaben_an[schluessel])
+                angefasst = True
         elif schluessel.lower().endswith('_title'):
             # Keine eigene Angabe — aber vielleicht ist es ein SCHRITT einer
             # Reihe, deren Hauptauftrag Baupläne bringt (siehe

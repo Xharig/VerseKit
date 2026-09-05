@@ -6,6 +6,32 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.16.0 - 2026-09-05
+
+> **Rufpunkte und Abklingzeit stehen jetzt in fast jedem Auftrag — und blau.**
+> Bisher bekam sie nur, wer Baupläne im Auftrag hatte; alle anderen gingen leer
+> aus, obwohl die Angaben längst vorlagen.
+
+### Neu
+
+- **Auftragsangaben in fast jedem Auftrag.** Rufpunkte, Abklingzeit und
+  Teilbarkeit standen bisher nur dort, wo der Auftrag auch Baupläne mitbringt.
+  Die Daten liegen aber für **816 von 818** Aufträgen vor — jetzt werden sie
+  auch dort eingesetzt, wo es keinen Bauplan gibt. Gemessen an einer echten
+  Installation: **von 339 auf 659** Aufträge.
+  Gemeldet von **Bushwick4712**.
+
+- **Die Angaben sind hervorgehoben**, in demselben Blau wie die
+  `[BP!]`-Marke — sie standen vorher unauffällig mitten im Fließtext und wurden
+  übersehen.
+
+### Verbessert
+
+- **Fremde Angaben bleiben stehen.** Wer MrKraken StarStrings zusätzlich
+  installiert hat, bekommt seine Reputationszeile nicht doppelt: Wo schon eine
+  steht, schreiben wir keine zweite — dieselbe Regel, die für die
+  `[BP]`-Marke seit jeher gilt.
+
 ## v3.15.10 - 2026-09-05
 
 > **Ein Klick neben ein Eingabefeld beendet die Eingabe** — überall im

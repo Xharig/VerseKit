@@ -6,6 +6,30 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.16.0 - 2026-09-05
+
+> **Reputation and cooldown now appear in almost every contract — and in
+> blue.** Until now only contracts with blueprints got them; everything else
+> came up empty, even though the figures were there all along.
+
+### New
+
+- **Contract details in almost every contract.** Reputation, cooldown and
+  shareability only appeared where the contract also offered blueprints. The
+  data covers **816 of 818** contracts, though — now it is written where there
+  is no blueprint either. Measured on a real install: **from 339 to 659**
+  contracts.
+  Reported by **Bushwick4712**.
+
+- **The figures are highlighted**, in the same blue as the `[BP!]` tag — they
+  used to sit unremarkably in the middle of the text and got overlooked.
+
+### Improved
+
+- **Other tools' figures are left alone.** If you also run MrKraken
+  StarStrings, you will not get its reputation line twice: where one is already
+  there, we add none — the same rule that has always applied to the `[BP]` tag.
+
 ## v3.15.10 - 2026-09-05
 
 > **Clicking next to a text field ends the entry** — everywhere in the program,
