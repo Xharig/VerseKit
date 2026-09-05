@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc10 - 2026-09-05
+
+> **Zurücksetzen für Läden und Routen — und der Laden-Katalog lädt beim Start,
+> nicht beim Hinschauen.** Wer den Reiter aufmacht, findet die Daten vor,
+> statt auf sie zu warten.
+
+### Neu
+
+- **„Zurücksetzen" in Läden und Routen.** Ein Klick, und alle Auswahlmenüs,
+  Suchfelder und Eingaben stehen wieder auf Anfang. Was schon geholt wurde
+  (Katalog, gesammelte Handelsposten), bleibt — das wegzuwerfen hieße
+  Wartezeit für nichts.
+
+### Verbessert
+
+- **Der Laden-Katalog wird beim Programmstart im Hintergrund geholt.** Bisher
+  lief der Abruf erst, wenn man den Reiter öffnete — und dann stand man eine
+  Minute vor einer leeren Liste. Dank der Patch-Bindung passiert das höchstens
+  einmal je Spielversion.
+
 ## v3.15.0-rc9 - 2026-09-05
 
 > **Bei den Ketten steht jetzt dran, was die Zahl bedeutet.** Gewinn, was du

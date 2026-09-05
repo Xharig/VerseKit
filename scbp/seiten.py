@@ -5384,10 +5384,14 @@ def _routen(fenster, rahmen):
 
     from .hauptfenster import rundwahl
     systeme = _systeme()
+    # ⚠ Gemerkt, damit „Zurücksetzen" die Anzeige mitnehmen kann — ohne das
+    # stünde dort weiter „Stanton (128)", während intern schon alles offen ist.
+    system_menue = [None]
     if systeme:
-        rundwahl(ortzeile, [('', t('s_rt_alle_systeme'))] + systeme,
-                 zustand.get('system', ''), _system_gewechselt,
-                 fenster.f_klein).pack(side='left', padx=(8, 0))
+        system_menue[0] = rundwahl(
+            ortzeile, [('', t('s_rt_alle_systeme'))] + systeme,
+            zustand.get('system', ''), _system_gewechselt, fenster.f_klein)
+        system_menue[0].pack(side='left', padx=(8, 0))
 
     # ------------------------------------------- Frachtraum und Kapital
     zahlen = tk.Frame(kopf, bg=BG)
@@ -5576,6 +5580,17 @@ def _routen(fenster, rahmen):
     ueberall_stand = tk.Label(ueberall, text='', bg=BG, fg=SUB,
                               font=fenster.f_klein, anchor='w')
     ueberall_stand.pack(side='left', padx=(10, 0))
+
+    # ⭐ **Zurücksetzen.** Gewünscht am 05.09.2026: „Routen braucht auch einen
+    # Reset-Button." Nach ein paar Versuchen stehen hier Startort, System,
+    # Schiff, Hersteller, Frachtraum, Geld und drei Umschalter — von Hand
+    # zurückzustellen ist das ein halbes Dutzend Klicks.
+    #
+    # ⚠ Er steht **rechts** und abgesetzt, nicht neben der Suche: Ein Knopf,
+    # der alles wegwirft, gehört nicht dorthin, wo die Hand ohnehin ist.
+    reset_knopf = tk.Label(ueberall, text=t('s_zuruecksetzen'), bg=BG, fg=SUB,
+                           font=fenster.f_klein, cursor='hand2', padx=10)
+    reset_knopf.pack(side='right')
 
     def _stand_zeigen():
         bekannt = routen_modul.bekannte_starts()
@@ -5982,6 +5997,47 @@ def _routen(fenster, rahmen):
     ortfeld.bind('<FocusIn>', _ort_aufklappen, add='+')
     ortfeld.bind('<Button-1>', _ort_aufklappen, add='+')
 
+    def _alles_zuruecksetzen(_=None):
+        """Die Seite auf den Anfangszustand — alle Eingaben und Schalter.
+
+        ⚠ **Der gesammelte Rundumlauf bleibt.** Zurückgesetzt wird, was man
+        eingestellt hat, nicht was man geholt hat: Die 184 Handelsposten
+        wegzuwerfen hieße anderthalb Minuten Abruf für nichts.
+        """
+        zustand['start'] = zustand['startname'] = ''
+        zustand['system'] = ''
+        zustand['schiff'] = ''
+        zustand['modus'] = 'ab_hier'
+        zustand['kurz'] = False
+        zustand['stopps'] = 2
+        zustand['rund'] = False
+        zustand['ort_offen'] = False
+        werft_wahl['werft'] = ''
+        zustand['stumm'] = zustand['stumm_schiff'] = True
+        ortsuche.set('')
+        schiffsuche.set('')
+        zustand['stumm'] = zustand['stumm_schiff'] = False
+        scu_var.set('120')
+        geld_var.set('500000')
+        if system_menue[0] is not None:
+            try:
+                system_menue[0].stumm_setzen('')
+            except Exception:
+                pass
+        _ortliste_leeren()
+        _schiffliste_leeren()
+        _werft_bauen()
+        _schiff_zeigen()
+        _schalter_zeichnen()
+        _zeichnen()
+        _nach_oben(innen)
+
+    reset_knopf.bind('<Button-1>', _alles_zuruecksetzen)
+    reset_knopf.bind('<Enter>',
+                     lambda _=None: reset_knopf.configure(fg=ROT))
+    reset_knopf.bind('<Leave>',
+                     lambda _=None: reset_knopf.configure(fg=SUB))
+
     ortsuche.trace_add('write', _ortvorschlaege)
     for var in (scu_var, geld_var):
         var.trace_add('write', lambda *_a: _zeichnen())
@@ -6205,9 +6261,17 @@ def _laeden(fenster, rahmen):
     filter_rahmen.pack(fill='x', padx=24, pady=(8, 0))
 
     # Die Standzeile gehört zum festen Kopf — sie sagt, worauf sich die Liste
-    # darunter bezieht.
-    stand_zeile = tk.Label(kopf, text='', bg=BG, fg=GOLD,
+    # darunter bezieht. Rechts daneben der Reset: Bei fünf Auswahlmenüs plus
+    # Suchfeld ist „alles wieder offen" sonst ein halbes Dutzend Klicks.
+    # Gewünscht am 05.09.2026: „Läden braucht auch einen Reset-Button."
+    stand_rahmen = tk.Frame(kopf, bg=BG)
+    stand_rahmen.pack(fill='x', padx=24, pady=(6, 0))
+    stand_zeile = tk.Label(stand_rahmen, text='', bg=BG, fg=GOLD,
                            font=fenster.f_klein, anchor='w')
+    ld_reset = tk.Label(stand_rahmen, text=t('s_zuruecksetzen'), bg=BG,
+                        fg=SUB, font=fenster.f_klein, cursor='hand2',
+                        padx=10)
+    ld_reset.pack(side='right')
 
     # Ab hier rollt es.
     innen = _rollflaeche(rahmen, rand=0)
@@ -6779,7 +6843,7 @@ def _laeden(fenster, rahmen):
             stand_zeile.pack_forget()
             return
         stand_zeile.configure(text=t('s_ld_nur_kaufbar') % anzahl, fg=SUB)
-        stand_zeile.pack(fill='x', padx=24, pady=(6, 0), after=filter_rahmen)
+        stand_zeile.pack(side='left')
 
     def _katalog_anstossen():
         if laden_modul.katalog_da() or zustand_katalog['laeuft']:
@@ -6787,17 +6851,11 @@ def _laeden(fenster, rahmen):
             return
         zustand_katalog['laeuft'] = True
         stand_zeile.configure(text=t('s_ld_katalog_laeuft'), fg=GOLD)
-        # ⚠⚠ **Fest hinter der Filterleiste — sonst landet der Hinweis unter
-        # der Liste.** Ein `pack()` ohne Angabe hängt sich ans Ende; bei 168
-        # Zeilen darüber sieht ihn niemand. Am 04.09.2026 genau so passiert:
-        # Die Liste war ungefiltert, der Grund stand außer Sicht, und das
-        # Werkzeug wirkte schlicht kaputt.
-        # ⚠ `after=filter_rahmen`, **nicht** `before=vorschlag_rahmen`: Die
-        # Vorschlagsliste wird ausgepackt, wenn sie leer ist (siehe
-        # `_liste_leeren`) — ein `before=` auf einen nicht gepackten Rahmen
-        # wirft.
-        stand_zeile.pack(fill='x', padx=24, pady=(6, 0),
-                         after=filter_rahmen)
+        # ⚠ Die Zeile sitzt im festen Kopf, neben dem Reset — nicht in der
+        # Rollfläche. Bei 168 Zeilen darüber sähe den Hinweis sonst niemand;
+        # am 04.09.2026 genau so passiert: Die Liste war ungefiltert, der
+        # Grund stand außer Sicht, und das Werkzeug wirkte schlicht kaputt.
+        stand_zeile.pack(side='left')
 
         def arbeit():
             def melden(fertig, gesamt):
@@ -6899,6 +6957,27 @@ def _laeden(fenster, rahmen):
                       _filter_gewechselt, wahl)
 
     _filter_bauen()
+
+    def _ld_zuruecksetzen(_=None):
+        """Alle fünf Menüs, das Suchfeld und das gewählte Teil zurück.
+
+        ⚠ **Der Katalog bleibt.** Zurückgesetzt wird, was man eingestellt hat
+        — nicht, was das Werkzeug geholt hat. Ihn wegzuwerfen hieße eine
+        Minute Abruf für nichts.
+        """
+        for feld in FILTER_FOLGE:
+            wahl[feld] = ''
+        gewaehlt['name'], gewaehlt['kennung'] = '', ''
+        suche.set('')
+        _liste_leeren()
+        _leeren(ergebnis_rahmen)
+        _filter_bauen()
+        _stand_melden()
+        _nach_oben(innen)
+
+    ld_reset.bind('<Button-1>', _ld_zuruecksetzen)
+    ld_reset.bind('<Enter>', lambda _=None: ld_reset.configure(fg=ROT))
+    ld_reset.bind('<Leave>', lambda _=None: ld_reset.configure(fg=SUB))
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
     # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).

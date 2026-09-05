@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc10 - 2026-09-05
+
+> **Reset buttons for Shops and Routes — and the shop catalogue loads at
+> startup, not when you look.** Open the tab and the data is already there.
+
+### New
+
+- **"Reset" in Shops and Routes.** One click and every dropdown, search field
+  and input is back to its starting state. What has already been fetched (the
+  catalogue, collected trade posts) stays — throwing that away would mean
+  waiting for nothing.
+
+### Improved
+
+- **The shop catalogue is fetched in the background at startup.** It used to
+  run only when you opened the tab, leaving you a minute in front of an empty
+  list. Thanks to the patch binding this happens at most once per game version.
+
 ## v3.15.0-rc9 - 2026-09-05
 
 > **Chains now say what the number means.** Profit, what you have to put up

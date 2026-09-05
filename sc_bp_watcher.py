@@ -50,7 +50,7 @@ from scbp import (
                   bildschirm, overlay,
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, hinweis, injektion,
-                  katalog as katalog_modul, logquelle, merkliste,
+                  katalog as katalog_modul, laeden, logquelle, merkliste,
                   pfade, phrasen, schiffe, spielstand, titelleiste, ton,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
 
@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.15.0-rc9'
+__version__ = '3.15.0-rc10'
 
 
 def _mitgeliefert(name):
@@ -784,6 +784,22 @@ class Watcher(threading.Thread):
             schiffe.aktualisieren()
         except Exception as ausnahme:
             fehler.merken('watcher.schiffe', ausnahme)
+        # ⭐⭐ **Und der Warengruppen-Katalog für den Laden-Reiter — zuletzt.**
+        #
+        # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s) und
+        # stand deshalb lange nur beim Öffnen der Seite. Genau das war das
+        # Problem: Wer den Reiter aufmacht, wartet dann eine Minute vor einer
+        # leeren Liste. Am 05.09.2026: „Bei Läden ist die lange Ladezeit echt
+        # störend."
+        #
+        # Hier läuft er im Hintergrund-Thread, während der Spieler etwas
+        # anderes tut — und dank der Patch-Bindung höchstens einmal je
+        # Spielversion. Er steht **hinter** den anderen, damit die schnellen
+        # Abrufe nicht auf ihn warten.
+        try:
+            laeden.katalog_holen()
+        except Exception as ausnahme:
+            fehler.merken('watcher.laeden_katalog', ausnahme)
 
     # ---- Bauplan-Katalog holen und frisch halten ----
     def _katalog_tick(self):
