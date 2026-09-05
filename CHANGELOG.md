@@ -6,6 +6,34 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.4 - 2026-09-05
+
+> **Bauplan gefunden, Zahl stimmt.** Bisher meldete das Werkzeug den neuen
+> Bauplan zwar — in der Liste stand aber weiter die alte Anzahl, ohne grünen
+> Haken. Das ist behoben, und die Kästchen im Spiel ziehen jetzt auch beim
+> Spielen mit statt erst Stunden später.
+
+### Behoben
+
+- **Ein neuer Bauplan steht sofort in der Liste** — mit der richtigen Anzahl
+  und dem grünen Haken. Bisher zeigte die Liste den Stand von dem Moment, in
+  dem du sie zum ersten Mal geöffnet hattest, und auch das Wechseln auf eine
+  andere Seite und zurück half nicht.
+  Gemeldet von **Bushwick4712**.
+- **Vier weitere Seiten zogen ebenso wenig nach**: „Wie weit bin ich",
+  „Herstellung", „Sichern & Übertragen" und „Über" zeigten Bauplan-Zahlen vom
+  Programmstart. Auch der Fehlerbericht — dort stand der Bestand von damals.
+- **Die Kästchen im Spiel hinken nicht mehr hinterher.** Sie wurden nur alle
+  sechs Stunden nachgezogen, zusammen mit den Netzabfragen. Wer eine Runde
+  spielte und aufhörte, sah einen frisch erhaltenen Bauplan im Auftragstext
+  weiter als fehlend. Jetzt wird alle 30 Sekunden geschaut.
+
+### Verbessert
+
+- **Das Feld „Was ist passiert?" ist nach dem Absenden wieder leer.** Sonst
+  hinge dein Satz von heute am nächsten Bericht in einer Woche. Scheitert das
+  Senden, bleibt er stehen.
+
 ## v3.15.3 - 2026-09-05
 
 > **Sag im Fehlerbericht, was passiert ist.** Neben deinem Namen gibt es jetzt

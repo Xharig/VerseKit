@@ -6,6 +6,32 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.4 - 2026-09-05
+
+> **Blueprint found, count right.** The tool announced the new blueprint, but
+> the list kept showing the old number without a green tick. Fixed — and the
+> checkboxes in game now keep up while you play instead of hours later.
+
+### Fixed
+
+- **A new blueprint appears in the list straight away** — with the right count
+  and the green tick. Until now the list showed the state from the moment you
+  first opened it, and switching to another page and back did not help either.
+  Reported by **Bushwick4712**.
+- **Four more pages were just as stale**: "How far am I", "Crafting", "Backup &
+  transfer" and "About" showed blueprint counts from startup. So did the error
+  report — it carried the inventory from back then.
+- **The checkboxes in game no longer lag behind.** They were only refreshed
+  every six hours, together with the network lookups. Play a session and stop,
+  and a blueprint you had just received still showed as missing in the mission
+  text. Now it is checked every 30 seconds.
+
+### Improved
+
+- **The "What happened?" field is empty again after sending.** Otherwise your
+  sentence from today would hang on next week's report. If sending fails, it
+  stays put.
+
 ## v3.15.3 - 2026-09-05
 
 > **Say what happened in the error report.** Next to your name there is now a

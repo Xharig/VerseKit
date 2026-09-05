@@ -1248,6 +1248,41 @@ class Bestandsfenster:
         if self.suche.get():
             self.suche.set('')
 
+    def neu_laden(self, auch_katalog=False):
+        """Den Bestand frisch von der Platte lesen und die Liste neu zeichnen.
+
+        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026.** Was jeder erwartet:
+        Ein Bauplan fällt, das Werkzeug meldet ihn — und in der Liste steht
+        sofort die neue Anzahl und der grüne Haken daneben. Tatsächlich stand
+        dort der Stand von dem Moment, in dem die Seite zum ersten Mal geöffnet
+        worden war.
+
+        Der Grund war, dass `self.bestand` **nur** im `__init__` gelesen wurde.
+        Die Seite wird einmal gebaut und danach nur ein- und ausgeblendet
+        (dieselbe Falle wie beim Auftrags-Protokoll), also blieben die Daten
+        von damals stehen — auch beim erneuten Öffnen. Der Fund lag längst in
+        `bestand.json`, nur las ihn niemand mehr.
+
+        ⚠ **Der Katalog bleibt standardmäßig, wie er ist.** Er ändert sich
+        nicht dadurch, dass ich einen Bauplan freischalte, und ihn mitzulesen
+        kostet mehr als alles andere hier zusammen (gemessen: Bestand 1 ms,
+        Katalog 9 ms, Stempeln 12 ms). Beim Seitenwechsel wird er trotzdem
+        mitgenommen — dort ist Zeit dafür, und ein Patch kann zwischendurch
+        neue Baupläne gebracht haben.
+
+        ⚠ Suche und Filter bleiben stehen. Wer gerade nach etwas sucht und
+        dabei einen Bauplan bekommt, will nicht seine Eingabe verlieren —
+        er will den Haken auftauchen sehen.
+        """
+        try:
+            self.bestand = bestand_datei.laden()
+            if auch_katalog:
+                katalog_modul.stempel_nachziehen()
+                self.katalog = katalog_modul.laden()
+            self._zeichnen()
+        except Exception as ausnahme:
+            fehler.merken('bestandsfenster.neu_laden', ausnahme)
+
     def _loeschkreuz_zeigen(self):
         """Das ✕ nur zeigen, wenn es etwas zu löschen gibt."""
         if self.suche.get():

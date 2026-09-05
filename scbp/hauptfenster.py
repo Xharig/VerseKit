@@ -2537,6 +2537,63 @@ class Hauptfenster:
                         font=self.f_fett if (an or rot) else self.f_grund)
             strich.configure(bg=ACCENT if an else FLAECHE)
 
+    # Die Seiten, auf denen der eigene Bauplan-Bestand steht. Ändert er sich,
+    # sind ihre Zahlen falsch — und zwar still, ohne dass irgendetwas darauf
+    # hinweist.
+    # ⚠ Nachgeprüft, nicht geraten: Genau diese vier lesen `bestand_datei` beim
+    # Bauen — „Wie weit bin ich", „Herstellung", „Sichern & Übertragen" (die
+    # Zahl über den Ausgabe-Knöpfen) und „Über". `allgemein` und `erkennung`
+    # stehen bewusst NICHT hier: Sie zeigen nur Katalogzahlen, und die ändern
+    # sich durch einen eigenen Fund nicht.
+    BESTANDSSEITEN = ('fortschritt', 'herstellung', 'bestand', 'ueber')
+
+    def bestand_geaendert(self):
+        """Sagt allen Seiten Bescheid, die den eigenen Bestand anzeigen.
+
+        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026** für die Bauplan-Liste.
+        Beim Nachsehen hatten vier weitere Seiten denselben Fehler: Sie lesen
+        den Bestand beim Bauen, werden danach nur ein- und ausgeblendet und
+        zeigen deshalb für den Rest der Sitzung den Stand von damals. Wer
+        einen Bauplan bekommt, sieht auf „Wie weit bin ich" weiter die alte
+        Zahl — auch nach dem Wechseln auf eine andere Seite und zurück.
+
+        **Zwei verschiedene Wege, mit Absicht:**
+
+        - Die **Liste** frischt sich sofort auf. Sie kann das verlustfrei:
+          Suche, Filter und Ausklapp-Zustände bleiben, nur die Daten sind neu.
+          Genau dort schaut man hin, wenn ein Bauplan fällt.
+        - Die **übrigen** werden nur verworfen und beim nächsten Öffnen neu
+          gebaut. Sie unter den Händen des Nutzers neu aufzubauen würde
+          aufgeklappte Bereiche zuklappen und die Rollposition verlieren — für
+          eine Zahl, die er in dem Moment gar nicht ansieht.
+
+        ⚠ Die gerade sichtbare Seite bleibt deshalb stehen, wie sie ist. Sie
+        ist beim nächsten Öffnen frisch, und das ist der Moment, in dem
+        jemand hinschaut.
+        """
+        seite = getattr(self, 'bestandsseite', None)
+        if seite is not None:
+            try:
+                seite.neu_laden()
+            except Exception as ausnahme:
+                from . import fehler
+                fehler.merken('hauptfenster.bestand_liste', ausnahme)
+
+        for kennung in self.BESTANDSSEITEN:
+            if kennung == self.aktuell or kennung not in self.gezeichnet:
+                continue
+            try:
+                rahmen = self.seiten.get(kennung)
+                if rahmen is None:
+                    continue
+                for kind in rahmen.winfo_children():
+                    kind.destroy()
+                self.gezeichnet.discard(kennung)
+            except Exception as ausnahme:
+                from . import fehler
+                fehler.merken('hauptfenster.bestand_verwerfen:%s' % kennung,
+                              ausnahme)
+
     def neu_aufbauen(self):
         """Alles neu zeichnen — nach einem Sprachwechsel.
 

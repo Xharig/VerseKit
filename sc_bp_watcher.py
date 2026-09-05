@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.15.3'
+__version__ = '3.15.4'
 
 
 def _mitgeliefert(name):
@@ -154,6 +154,17 @@ SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion 
 # Übersetzung und Bauplan-Angaben: beim Start und danach alle sechs Stunden.
 # Häufiger bringt nichts — die Quellen aktualisieren im Tagesrhythmus.
 TEXTE_POLL_SEC = 6 * 3600
+# ⚠ Der EIGENE Bestand hat einen ganz anderen Takt und darf nicht an diesem
+# hängen: Er ändert sich, während der Spieler spielt. Bis zum 05.09.2026 hing
+# beides zusammen — wer einen Bauplan freischaltete, sah das Kästchen im Spiel
+# frühestens sechs Stunden später, und wer das Werkzeug vorher beendete, nie.
+# Gemeldet mit einem Lauf von 20 Minuten: 304 Baupläne im Bestand, 303 in der
+# eingetragenen Liste.
+#
+# Das kostet nichts: Der Fingerabdruck des Bestands ist in 0,4 ms gebaut
+# (gemessen mit 407 Bauplänen), also 0,013 % eines Drei-Sekunden-Takts.
+# Geschrieben wird weiterhin nur, wenn er sich WIRKLICH geändert hat.
+BESTAND_POLL_SEC = 30
 SCMDB_TIMEOUT  = 30
 # Wer die Netzabfrage nicht will, setzt SC_BP_NO_NET=1 — dann bleibt alles beim
 # Launcher-Katalog wie bisher.
@@ -715,7 +726,7 @@ class Watcher(threading.Thread):
         try:
             berichtigt = bestand_datei.angleichen(self.bestand)
             if berichtigt:
-                bestand_datei.speichern(self.bestand)
+                self._bestand_sichern()
                 fehler.spur('Bestand: %d Namen an den Katalog angeglichen'
                             % berichtigt)
         except Exception as ausnahme:
@@ -729,6 +740,7 @@ class Watcher(threading.Thread):
         self.kat_next = 0.0     # nächster Blick auf den Bauplan-Katalog
         self.kat_laeuft = False  # holt gerade ein Nebenthread den Katalog?
         self.texte_next = 0.0   # nächster Blick auf Übersetzung und Injektion
+        self.bestand_next = 0.0  # nächster Blick auf den EIGENEN Bestand
         self.texte_laeuft = False
 
     # ---- scmdb-Craftdaten frisch halten (ab v1.5.0) ----
@@ -853,7 +865,7 @@ class Watcher(threading.Thread):
 
         Läuft im **eigenen** Thread — es sind mehrere Megabyte, und die
         Log-Erkennung darf dafür nicht stehenbleiben."""
-        if SCMDB_AUS or self.texte_laeuft or time.time() < self.texte_next:
+        if SCMDB_AUS or self.texte_laeuft:
             return
         # ⚠ Zwei Schalter, und beide müssen hier gelten:
         #   `inj_an`   — schreibt das Werkzeug überhaupt in die Auftragstexte?
@@ -868,24 +880,69 @@ class Watcher(threading.Thread):
         if not pfade.einstellung_wahrheit('inj_auto', True):
             self.texte_next = time.time() + TEXTE_POLL_SEC
             return
+
+        # ⚠ Zwei Anlässe mit sehr verschiedenen Takten — deshalb getrennt:
+        #
+        #   `faellig`     alle sechs Stunden. Fragt bei FREMDEN Quellen nach
+        #                 (neue Übersetzung, neue Vertragsdaten) — Netz, teuer.
+        #   `bestand_neu` alle 30 Sekunden. Fragt nur die eigene Bestandsdatei,
+        #                 kostet 0,4 ms und braucht kein Netz.
+        #
+        # Sie hingen bis zum 05.09.2026 zusammen, und damit hing der eigene
+        # Fund am Takt der fremden Quellen. Falsch herum: Was der Spieler
+        # gerade selbst tut, ist das Schnellste im Spiel, nicht das Langsamste.
+        jetzt = time.time()
+        faellig = jetzt >= self.texte_next
+        bestand_neu = False
+        if not faellig and jetzt >= self.bestand_next:
+            self.bestand_next = jetzt + BESTAND_POLL_SEC
+            bestand_neu = self._bestandsmarke_neu()
+        if not faellig and not bestand_neu:
+            return
+
         quelle = next((q for q in uebersetzung.QUELLEN
                        if uebersetzung.installiert(q)), None)
         eigene_texte = bool(uebersetzung.installiert('original'))
         if not quelle and not eigene_texte:
             return                      # nie eingerichtet — Finger weg
-        self.texte_next = time.time() + TEXTE_POLL_SEC
+        # ⚠ Nur der Sechs-Stunden-Lauf schiebt seinen eigenen Termin. Täte das
+        # auch der Bestands-Lauf, verschöbe jeder gefundene Bauplan die
+        # Netzabfrage um weitere sechs Stunden — wer viel spielt, bekäme die
+        # neue Übersetzung nie.
+        if faellig:
+            self.texte_next = jetzt + TEXTE_POLL_SEC
         self.texte_laeuft = True
 
         def arbeit():
             try:
-                self._texte_abgleichen(quelle)
+                self._texte_abgleichen(quelle, nur_bestand=not faellig)
             finally:
                 self.texte_laeuft = False
 
         threading.Thread(target=arbeit, daemon=True).start()
 
-    def _texte_abgleichen(self, quelle):
-        """Der eigentliche Abgleich. Meldet nur, wenn sich etwas geändert hat."""
+    def _bestandsmarke_neu(self):
+        """Hat sich der eigene Bestand seit dem letzten Einspielen geändert?
+
+        Bewusst still bei einem Fehler: Diese Frage wird alle 30 Sekunden
+        gestellt: Eine kaputte Bestandsdatei würde das Fehlerprotokoll sonst in
+        einer halben Stunde mit 60 gleichen Einträgen füllen und die 50
+        aufgehobenen Plätze verdrängen — genau die, die eine Meldung brauchbar
+        machen. Gemeldet wird sie im Sechs-Stunden-Lauf, dort stört sie nicht.
+        """
+        try:
+            return injektion.bestand_marke() != pfade.einstellung('inj_bestand')
+        except Exception:
+            return False
+
+    def _texte_abgleichen(self, quelle, nur_bestand=False):
+        """Der eigentliche Abgleich. Meldet nur, wenn sich etwas geändert hat.
+
+        `nur_bestand` überspringt die drei Prüfungen, die nach FREMDEN
+        Änderungen sehen — zwei davon gehen ins Netz, die dritte liest die
+        mehrere Megabyte große `global.ini`. Für einen frisch gefundenen
+        Bauplan ist keine davon nötig: Da steht schon fest, was zu tun ist.
+        """
         sprache_ordner = (uebersetzung.QUELLEN[quelle]['sprache'] if quelle
                           else 'english')
         ziel = uebersetzung.ziel_ini(sprache_ordner)
@@ -896,7 +953,7 @@ class Watcher(threading.Thread):
 
         # 1. Neue Version der Übersetzung? Die schreibt die Datei komplett neu,
         #    danach ist die Injektion in jedem Fall weg.
-        if quelle:
+        if quelle and not nur_bestand:
             da, kennung = uebersetzung.update_da(quelle)
             if da:
                 ok, meldung = uebersetzung.holen(quelle)
@@ -905,14 +962,16 @@ class Watcher(threading.Thread):
                     neu_noetig = True
 
         # 2. Neue Vertragsdaten? Nach einem Patch geben Missionen anderes aus.
-        da, kennung = injektion.scdl_update_da(kuerzel)
-        if da:
-            self.q.put(('status', sprache.Satz('bpdaten_erneuert', kennung)))
-            neu_noetig = True
+        if not nur_bestand:
+            da, kennung = injektion.scdl_update_da(kuerzel)
+            if da:
+                self.q.put(('status',
+                            sprache.Satz('bpdaten_erneuert', kennung)))
+                neu_noetig = True
 
         # 3. Ist die Auszeichnung überhaupt noch drin? Ein Spiel-Patch ersetzt
         #    die Datei, ohne dass jemand etwas davon merkt.
-        if not neu_noetig and not injektion.ist_drin(ziel):
+        if not neu_noetig and not nur_bestand and not injektion.ist_drin(ziel):
             neu_noetig = True
 
         # 4. ⚠⚠ **Hat sich der eigene Bestand geändert?** Bis zum 04.09.2026
@@ -931,6 +990,14 @@ class Watcher(threading.Thread):
         #    Bestandsabgleich beim Start benennt Einträge um (`angleichen`);
         #    dabei bleibt die Zahl gleich, die Namen ändern sich — und genau
         #    die stehen in den Kästchen.
+        #
+        #    ⚠⚠ Am 05.09.2026 nachgebessert: Die Bedingung war da, hing aber im
+        #    Sechs-Stunden-Takt der Punkte 1 bis 3 — also im Takt der fremden
+        #    Quellen. Wer 20 Minuten spielte und aufhörte, kam nie hierher.
+        #    Der Auslöser sitzt jetzt in `_bestandsmarke_neu` und fragt alle 30
+        #    Sekunden; diese Stelle hier bleibt trotzdem die maßgebliche —
+        #    zwischen Auslösen und Schreiben liegt ein Thread-Wechsel, in dem
+        #    sich der Bestand erneut ändern kann.
         marke = None
         if not neu_noetig:
             try:
@@ -1274,6 +1341,30 @@ class Watcher(threading.Thread):
             # dann kann sie nicht auseinanderlaufen.
             self.q.put(('auftraege', self._auftragsstand()))
 
+    def _bestand_sichern(self):
+        """Bestand schreiben — und die Liste im Hauptfenster nachziehen lassen.
+
+        ⚠⚠ **Warum das eine Methode ist und kein Signal an sieben Stellen.**
+        Der Bestand wird an sieben Stellen geschrieben: Live-Fund, Nachlese,
+        Launcher, Startabgleich, Angleichen. Jede davon muss die Liste
+        auffrischen, und die achte, die jemand später hinzufügt, würde es
+        vergessen — genau so entstehen die Fehler, bei denen „bei mir geht es"
+        und bei einem anderen nicht. Wer speichert, meldet. Ohne Ausnahme.
+
+        ⚠ **Gemeldet, NACHDEM geschrieben wurde.** Die Liste liest die Datei
+        neu; meldete man vorher, könnte sie den Stand von davor erwischen. Das
+        wäre ein Wettlauf, der einmal unter hundert Malen zuschlägt — und dann
+        fehlt genau ein Bauplan, bis zufällig der nächste kommt.
+
+        ⚠ **Ein Signal je Durchlauf, nicht je Bauplan.** Beim Nachlesen der
+        Protokolle kommen Dutzende Funde auf einmal; die Liste einmal neu zu
+        zeichnen reicht. Deshalb hängt es hier und nicht in `_emit`.
+        """
+        bestand_datei.speichern(self.bestand)
+        schlange = getattr(self, 'q', None)
+        if schlange is not None:
+            schlange.put(('liste_frisch',))
+
     def _emit(self, key, log_meta=None):
         # log_meta = Kürzel aus dem Log-Zusatz; wird nur genommen, wenn der
         # Launcher-Katalog nichts hergibt (brandneues Item nach einem SC-Patch).
@@ -1336,7 +1427,7 @@ class Watcher(threading.Thread):
             if bestand_datei.hinzufuegen(self.bestand, name, 'nachlese'):
                 dazu.append(name)
         if dazu:
-            bestand_datei.speichern(self.bestand)
+            self._bestand_sichern()
             self.seen = set(bestand_datei.schluessel(self.bestand))
         # ⚠ Als Bescheid, nicht nur als Zeile: Wer diesen Lauf anstoesst,
         # wartet auf genau diese Zahl.
@@ -1394,7 +1485,7 @@ class Watcher(threading.Thread):
             if bestand_datei.hinzufuegen(self.bestand, name, 'nachlese'):
                 dazu.append(name)
         if dazu:
-            bestand_datei.speichern(self.bestand)
+            self._bestand_sichern()
             self.q.put(('status', sprache.Satz('nachgelesen', len(dazu),
                                             bericht['dateien'])))
             self._nachgelesenes_melden(dazu)
@@ -1412,7 +1503,7 @@ class Watcher(threading.Thread):
             if bestand_datei.hinzufuegen(self.bestand, k, 'launcher'):
                 neu += 1
         if neu:
-            bestand_datei.speichern(self.bestand)
+            self._bestand_sichern()
         return neu
 
     def _startbauplaene_eintragen(self):
@@ -1432,7 +1523,7 @@ class Watcher(threading.Thread):
                 if name and bestand_datei.hinzufuegen(self.bestand, name, 'start'):
                     neu += 1
             if neu:
-                bestand_datei.speichern(self.bestand)
+                self._bestand_sichern()
                 self.q.put(('status', sprache.Satz('start_eingetragen', neu)))
         except Exception:
             pass          # ein Fehler hier darf den Start nicht aufhalten
@@ -1540,7 +1631,7 @@ class Watcher(threading.Thread):
                 self._emit(name, kuerzel_aus_zusatz(zusatz))
                 self._merkliste_erledigen(name)
             if geaendert:
-                bestand_datei.speichern(self.bestand)
+                self._bestand_sichern()
 
             # 1b) Angenommene Auftraege: bringt der etwas, das noch fehlt?
             #     Bewusst NACH den Bauplaenen — ein frisch erhaltener Bauplan
@@ -1561,7 +1652,7 @@ class Watcher(threading.Thread):
                     if not dup:
                         self._emit(k)
                 if zuwachs:
-                    bestand_datei.speichern(self.bestand)
+                    self._bestand_sichern()
                 self.known = cur
 
             # 3) Katalog-Wache (selten, die Datei ändert sich nur bei SC-Patches)
@@ -2494,6 +2585,33 @@ class Overlay:
         # meldete gar nichts — siehe `bei_fund_zeigen`.
         self.bei_fund_zeigen()
 
+    def _liste_nachziehen(self):
+        """Die Seiten im Hauptfenster auf den neuen Bestand bringen.
+
+        ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026.** Bis hierher meldete ein
+        Fund sich nur im Overlay. Die Liste im Hauptfenster las ihren Bestand
+        einmal beim Bauen und danach nie wieder — wer sie offen hatte, sah
+        beim nächsten Bauplan weder die neue Anzahl noch den grünen Haken, und
+        beim Wechseln auf eine andere Seite und zurück ebenso wenig.
+
+        Erwartet wird das Gegenteil, und zwar von jedem: Bauplan fällt,
+        Werkzeug meldet ihn, Liste stimmt. Sofort.
+
+        Gerufen aus `_poll_queue` auf das Signal, das `_bestand_sichern()`
+        absetzt — also erst, wenn der Fund wirklich auf der Platte steht.
+
+        ⚠ Nur, wenn die Liste schon gebaut ist. Sie von hier aus zu erzeugen
+        wäre falsch — der Aufbau dauert eine knappe Sekunde und gehört in den
+        Moment, in dem jemand die Seite tatsächlich öffnet.
+        """
+        fenster = getattr(self, '_fenster', None)
+        if fenster is None:
+            return
+        try:
+            fenster.bestand_geaendert()
+        except Exception as ausnahme:
+            fehler.merken('oberflaeche.liste_nachziehen', ausnahme)
+
     def auftraege_zeigen(self, paare):
         """Die laufenden Auftraege setzen — die Leiste zeigt immer den Stand.
 
@@ -2739,6 +2857,8 @@ class Overlay:
                     self.hinweis_entfernen(msg[1])
                 elif msg[0] == 'new':
                     self.add_new(*msg[1:])
+                elif msg[0] == 'liste_frisch':
+                    self._liste_nachziehen()
                 elif msg[0] == 'catalog':
                     self.add_catalog(msg[1], msg[2], msg[3], msg[4])
         except queue.Empty:

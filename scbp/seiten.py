@@ -895,6 +895,12 @@ def _liste(fenster, rahmen):
             return
         seite._fein_leeren()
         seite._suche_leeren()
+        # ⚠⚠ **Und die Daten selbst.** Filter zu leeren nützt nichts, wenn
+        # darunter der Bestand von vorhin liegt: Ein Bauplan, der seit dem
+        # ersten Öffnen dazukam, fehlte in der Anzahl und hatte keinen Haken.
+        # Der Katalog kommt hier mit — ein Patch kann zwischendurch neue
+        # Baupläne gebracht haben, und beim Seitenwechsel ist Zeit dafür.
+        seite.neu_laden(auch_katalog=True)
 
     fenster.beim_zeigen['liste'] = _frisch
 
@@ -4444,7 +4450,8 @@ def _danke(fenster, rahmen):
             ('Morkhan', 'KRT', t('s_dk_morkhan_idee'),
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
-            ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'), ''),
+            ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'),
+             t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), '')):
         _person(fenster, innen, name, gruppe, idee, funde)
 
@@ -4849,6 +4856,18 @@ def _diagnose(fenster, rahmen):
     meldung_feld.bind('<FocusOut>', lambda _=None: _bericht_neu())
     meldung_feld.bind('<Return>', lambda _=None: _bericht_neu())
 
+    # ⚠⚠ **Beim erneuten Öffnen den Bericht neu bauen.** Er enthält die eigene
+    # Bauplan-Zahl, und die ändert sich beim Spielen. Ohne das stünde in einem
+    # Bericht vom Abend der Bestand vom Morgen — und der Entwickler sucht einen
+    # Fehler an einer Zahl, die längst anders ist.
+    #
+    # ⚠ **Diese Seite wird bewusst NICHT verworfen** wie die übrigen Seiten mit
+    # Bestandszahlen (`hauptfenster.BESTANDSSEITEN`). Ein Neubau würde das
+    # Meldungsfeld leeren — jemand tippt seine Fehlerbeschreibung, wechselt
+    # kurz auf eine andere Seite, um etwas nachzusehen, und der Text ist weg.
+    # Genau auf dieser Seite darf das am wenigsten passieren.
+    fenster.beim_zeigen['diagnose'] = _bericht_neu
+
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(12, 0))
 
@@ -4902,6 +4921,19 @@ def _diagnose(fenster, rahmen):
         geklappt, grund = bericht.absenden(aktueller_bericht(), fenster.version)
         fenster.sagen(t('s_di_ab_ok') if geklappt
                       else t('s_di_ab_weg') % grund)
+        # ⚠ **Nach dem Absenden ist das Feld leer** — die Meldung gehört zu
+        # genau diesem einen Bericht. Bliebe sie stehen, hinge sie am nächsten:
+        # Wer eine Woche später etwas anderes meldet, schickt unbemerkt den
+        # alten Satz mit, und der Entwickler sucht einen Fehler, den es längst
+        # nicht mehr gibt.
+        #
+        # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz, Dienst weg —,
+        # bleibt der Text stehen. Ihn dann zu löschen hieße, dem Melder seine
+        # Arbeit wegzunehmen, genau in dem Moment, in dem er es noch einmal
+        # versuchen will.
+        if geklappt:
+            meldung_var.set('')
+            _bericht_neu()
 
     # ⚠ Ganz vorn und in Rot: Wer hier landet, hat ein Problem und sucht den
     # kürzesten Weg.

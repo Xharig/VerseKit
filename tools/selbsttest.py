@@ -10699,6 +10699,143 @@ def main():
         shutil.rmtree(_wiese114, ignore_errors=True)
 
     print()
+    print('116. Der eigene Bestand haengt NICHT am Takt der fremden Quellen')
+    # ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026** — sichtbar an zwei Zahlen
+    # in seinem Bericht: `Bestand 304`, `inj_bestand=303-…`. Die Kaestchen im
+    # Spiel hinkten also einen Bauplan hinterher, obwohl das automatische
+    # Auffrischen eingeschaltet war.
+    #
+    # Die Bedingung „hat sich der Bestand geaendert?" gab es seit dem
+    # 04.09.2026 — sie hing nur im selben Sechs-Stunden-Takt wie die
+    # Netzabfragen nach neuer Uebersetzung und neuen Vertragsdaten. Sein Lauf
+    # dauerte 20 Minuten. Nach dem Durchlauf beim Start wurde nie wieder
+    # geschaut, und beim naechsten Start stand dieselbe Wartezeit erneut an.
+    #
+    # ⚠ Was diese Pruefung wirklich festhaelt, ist nicht die Zahl 30, sondern
+    # das VERHAELTNIS: Der eigene Bestand aendert sich, waehrend gespielt wird;
+    # fremde Quellen aendern sich im Tagesrhythmus. Wer die beiden Takte
+    # wieder zusammenlegt, faellt hier auf.
+    _quelle116 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                      encoding='utf-8').read()
+
+    def _takt116(name):
+        treffer = re.search(
+            r'^%s\s*=\s*([0-9]+)\s*(?:\*\s*([0-9]+))?' % name,
+            _quelle116, re.M)
+        if not treffer:
+            return None
+        wert = int(treffer.group(1))
+        return wert * int(treffer.group(2)) if treffer.group(2) else wert
+
+    _eigen116 = _takt116('BESTAND_POLL_SEC')
+    _fremd116 = _takt116('TEXTE_POLL_SEC')
+    pruefe(_eigen116 is not None,
+           'es gibt einen eigenen Takt fuer den Bestand')
+    pruefe(_fremd116 is not None,
+           'es gibt einen Takt fuer die fremden Quellen')
+    if _eigen116 and _fremd116:
+        pruefe(_eigen116 < _fremd116,
+               'der Bestand wird oefter geprueft als die fremden Quellen '
+               '(%ds gegen %ds)' % (_eigen116, _fremd116))
+        # Eine Viertelstunde ist die Grenze, ab der es sich wie „kaputt“
+        # anfuehlt: So lange spielt man mit falschen Kaestchen weiter.
+        pruefe(_eigen116 <= 900,
+               'der Bestand wird mindestens alle 15 Minuten geprueft '
+               '(%ds)' % _eigen116)
+
+    # Und die zweite Haelfte: Ein gefundener Bauplan darf die Netzabfrage
+    # NICHT verschieben — sonst bekaeme ein Vielspieler die neue Uebersetzung
+    # nie. `texte_next` wird deshalb nur im faelligen Lauf neu gesetzt.
+    _tick116 = re.search(r'def _texte_tick\(self\):(.*?)\n    def ',
+                         _quelle116, re.S)
+    pruefe(bool(_tick116), 'der Takt-Abschnitt ist auffindbar')
+    if _tick116:
+        _rumpf116 = _tick116.group(1)
+        pruefe('if faellig:' in _rumpf116,
+               'die Netzabfrage schiebt ihren Termin nur im faelligen Lauf')
+        pruefe('nur_bestand=not faellig' in _rumpf116.replace(' ', '')
+               .replace('nur_bestand=notfaellig', 'nur_bestand=not faellig'),
+               'ein reiner Bestands-Lauf ueberspringt die fremden Pruefungen')
+
+    print()
+    print('117. Jede Seite mit Bestandszahlen zieht nach')
+    # ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026:** Bauplan faellt, Werkzeug
+    # meldet ihn — und in der Liste stand weiter die alte Anzahl, ohne gruenen
+    # Haken. Der Bestand wurde beim Bauen der Seite gelesen und danach nie
+    # wieder; die Seite selbst wird nur ein- und ausgeblendet.
+    #
+    # Vier weitere Seiten hatten denselben Fehler. Sie stehen jetzt in
+    # `BESTANDSSEITEN` und werden bei einer Bestandsaenderung verworfen.
+    #
+    # ⚠ Diese Pruefung haelt die LISTE vollstaendig: Wer morgen eine Seite
+    # baut, die `bestand_datei` liest, faellt hier auf, statt es niemandem zu
+    # sagen. Genau so ist der gemeldete Fehler entstanden — die Seiten kamen
+    # nach und nach dazu, und niemand ging die alten noch einmal durch.
+    from scbp.hauptfenster import Hauptfenster as _HF117
+
+    _seiten117 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                      encoding='utf-8').read()
+    # Jede Seitenfunktion heisst `_<kennung>(fenster, rahmen)` — der Rumpf
+    # reicht bis zur naechsten Funktion auf Modulebene.
+    _stellen117 = [m.start() for m in
+                   re.finditer(r'^def _[a-z_]+\(fenster, rahmen\)',
+                               _seiten117, re.M)]
+    _stellen117.append(len(_seiten117))
+    _liest117 = set()
+    for _i117 in range(len(_stellen117) - 1):
+        _stueck117 = _seiten117[_stellen117[_i117]:_stellen117[_i117 + 1]]
+        _name117 = re.match(r'^def _([a-z_]+)\(', _stueck117).group(1)
+        if 'bestand_datei.laden()' in _stueck117 or '_zahl_bestand()' in _stueck117:
+            _liest117.add(_name117)
+
+    pruefe(bool(_liest117),
+           'die Seiten mit Bestandszahlen sind auffindbar (%d gefunden)'
+           % len(_liest117))
+    # `liste` geht einen eigenen Weg (`neu_laden`) und steht deshalb nicht in
+    # der Menge — sie liest den Bestand im Bestandsfenster, nicht hier.
+    #
+    # ⚠ **`diagnose` ist eine bewusste Ausnahme.** Sie zeigt die Bestandszahl
+    # im Fehlerbericht, darf aber nicht verworfen werden: Ein Neubau leerte das
+    # Feld „Was ist passiert?" — jemand tippt seine Beschreibung, sieht kurz
+    # woanders nach, und der Text waere weg. Sie frischt stattdessen ueber
+    # `beim_zeigen['diagnose']` nur den Berichtstext auf. Wer diese Zeile
+    # entfernt, muss dort einen anderen Weg bauen, nicht die Seite verwerfen.
+    _ausnahmen117 = {'diagnose'}
+    pruefe("beim_zeigen['diagnose']" in _seiten117,
+           'die Diagnose-Seite frischt ihren Bericht beim Oeffnen auf')
+    _fehlt117 = sorted(_liest117 - set(_HF117.BESTANDSSEITEN) - _ausnahmen117)
+    pruefe(not _fehlt117,
+           'jede Seite mit Bestandszahlen steht in BESTANDSSEITEN '
+           '(fehlt: %s)' % (', '.join(_fehlt117) or 'keine'))
+    # Und andersherum: Kein Eintrag, den es gar nicht gibt — ein Tippfehler
+    # dort waere still, die Seite zoege einfach nie nach.
+    _reiter117 = set(re.findall(r"_reiter\('([a-z_]+)'",
+                                open(os.path.join(WURZEL, 'scbp',
+                                                  'hauptfenster.py'),
+                                     encoding='utf-8').read()))
+    _tot117 = sorted(set(_HF117.BESTANDSSEITEN) - _reiter117)
+    pruefe(not _tot117,
+           'kein Eintrag in BESTANDSSEITEN ohne Seite (tot: %s)'
+           % (', '.join(_tot117) or 'keine'))
+
+    # Die Liste selbst muss den eigenen Weg wirklich haben.
+    from scbp import bestandsfenster as _bf117
+    pruefe(hasattr(_bf117.Bestandsfenster, 'neu_laden'),
+           'die Bauplan-Liste kann sich ohne Neubau auffrischen')
+
+    # Und der Weg dorthin: Wer speichert, meldet. Sonst bleibt der Fehler
+    # bestehen, auch wenn alle Seiten eingetragen sind.
+    _wq117 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                  encoding='utf-8').read()
+    _direkt117 = len(re.findall(r'bestand_datei\.speichern\(self\.bestand\)',
+                                _wq117))
+    pruefe(_direkt117 == 1,
+           'der Bestand wird nur ueber _bestand_sichern() geschrieben '
+           '(%d direkte Aufrufe, erlaubt ist 1)' % _direkt117)
+    pruefe("'liste_frisch'" in _wq117,
+           'das Signal nach dem Speichern kommt in der Anzeige an')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

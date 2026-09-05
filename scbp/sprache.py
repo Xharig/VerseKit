@@ -1510,6 +1510,16 @@ TEXTE = {
                               'of being just a symbol. Plus **reputation points '
                               'and cooldown in the mission text**: the figures '
                               'were in the data but appeared nowhere in game.'),
+    's_dk_bushwick_bugs':    ('Dazu, dass ein frisch erhaltener Bauplan nicht sofort in '
+                              'der Liste stand, und dass das Auftrags-Protokoll '
+                              'beim ersten Öffnen nicht auffrischte. Und die '
+                              'Idee, im Fehlerbericht ein Feld für die Meldung '
+                              'einzubauen.',
+                              'Plus a freshly received blueprint not showing up '
+                              'in the list right away, and the mission log not '
+                              'refreshing the first time you opened it. And the '
+                              'idea of a field for your message in the error '
+                              'report.'),
     's_dk_horthy_idee':      ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
