@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.0 - 2026-09-05
+
+> **The contract text now says WHO the reputation goes to — and of what kind.**
+> Not just "150 XP" any more, but `Headhunters +150 Standing`. Contracts that
+> pay two parties list both.
+
+### New
+
+- **Reputation by party and kind.** Star Citizen has six kinds — **Standing**,
+  Affinity, Bounty Hunting, Hauling, Security and Barter & Trade — and one
+  contract can credit several organisations at once. That is what you now see:
+
+  ```
+  # Reputation: Citizens For Prosperity +100 Standing, Citizens For Prosperity +50 Affinity
+  ```
+
+  Measured on a real install: **661 contracts** get the line, 102 of them with
+  more than one party.
+  Suggested by **Bushwick4712**.
+
+- **The figures come from a second source**, because the existing one does not
+  have them: it knows the reputation only as a number, without party or kind.
+  It is fetched once per game version and leaves 71 KB behind instead of
+  12.5 MB. With no network it simply keeps the last state.
+
 ## v3.16.0 - 2026-09-05
 
 > **Reputation and cooldown now appear in almost every contract — and in

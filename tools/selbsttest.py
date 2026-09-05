@@ -11669,6 +11669,86 @@ def main():
            'ein gewoehnlicher Text gilt NICHT als schon versorgt')
 
     print()
+    print('128. Wem der Auftrag Ruf bringt — und welcher Art')
+    # ⚠⚠ **Gewuenscht am 05.09.2026:** „auf SCMDB sieht man auch ob es Standing
+    # oder Rep bekommt, das muss auf jeden fall mit in den Questtext." Als
+    # Beispiele genannt: Headhunters und Citizens For Prosperity, „da gibt es
+    # beides".
+    #
+    # Die Vertragsdaten geben das NICHT her — gemessen an allen 818 Eintraegen
+    # kennen sie die Rufpunkte nur als Zahl, ohne Partei und ohne Art. Deshalb
+    # eine zweite Quelle (scmdb.net) und ein eigenes Modul.
+    from scbp import auftragsruf as _ar128
+
+    # ⚠ Der Schluesselvergleich ist der Angelpunkt: scmdb schreibt `@` davor
+    # und eine andere Gross-/Kleinschreibung. Ohne Angleichung gibt es NULL
+    # Treffer — gemessen, bevor es gebaut wurde.
+    pruefe(_ar128._schluessel('@Shubin_Nyx_M_Title_001') ==
+           'shubin_nyx_m_title_001',
+           'der scmdb-Schluessel wird angeglichen')
+
+    _roh128 = {
+        'contracts': [
+            {'titleLocKey': '@Headhunters_Test_title_001',
+             'factionRewardsIndex': 0},
+            {'titleLocKey': '@CFP_Test_title_001',
+             'factionRewardsIndex': 1},
+            {'titleLocKey': '@Ohne_Test_title_001',
+             'factionRewardsIndex': 2},
+        ],
+        'factionRewardsPools': [
+            [{'factionGuid': 'f1', 'scopeGuid': 's1', 'amount': 150}],
+            # ⚠ Zwei Parteien in EINEM Auftrag — genau der genannte Fall.
+            [{'factionGuid': 'f2', 'scopeGuid': 's1', 'amount': 100},
+             {'factionGuid': 'f2', 'scopeGuid': 's2', 'amount': 50}],
+            [],
+        ],
+        'factions': {'f1': {'name': 'Headhunters'},
+                     'f2': {'name': 'Citizens For Prosperity'}},
+        'scopes': {'s1': {'displayName': 'Standing'},
+                   's2': {'displayName': 'Affinity'}},
+    }
+    _tab128 = {'format': _ar128.FORMAT, 'version': 'probe',
+               'auftraege': _ar128.aufbereiten(_roh128)}
+
+    pruefe(len(_tab128['auftraege']) == 2,
+           'nur Auftraege mit Rufeintrag kommen in die Tabelle (%d)'
+           % len(_tab128['auftraege']))
+
+    _z128 = _ar128.zeile('headhunters_test_title_001', 'Ruf', _tab128)
+    pruefe(_z128 == '# Ruf: Headhunters +150 Standing',
+           'eine Partei: %r' % _z128)
+
+    _z128 = _ar128.zeile('cfp_test_title_001', 'Ruf', _tab128)
+    pruefe(_z128 == ('# Ruf: Citizens For Prosperity +100 Standing, '
+                     'Citizens For Prosperity +50 Affinity'),
+           'zwei Parteien in einem Auftrag: %r' % _z128)
+
+    pruefe(_ar128.zeile('ohne_test_title_001', 'Ruf', _tab128) == '',
+           'ohne Rufeintrag bleibt die Zeile leer')
+    pruefe(_ar128.zeile('gibtesnicht', 'Ruf', _tab128) == '',
+           'ein unbekannter Auftrag bekommt nichts erfunden')
+
+    # ⚠ Und die Verbindung zur Injektion: Ohne sie stuende das Modul da und
+    # niemand riefe es.
+    from scbp import injektion as _inj128
+    _e128 = {'titleLocKey': 'headhunters_test_title_001',
+             'contractInfo': '# Zu erwartende Rufpunkte: 150 XP'}
+    _zeilen128 = _inj128._angabenzeilen(_e128, '', {'ruf_bei': 'Ruf'},
+                                        _tab128)
+    pruefe(any('Headhunters +150 Standing' in z for z in _zeilen128),
+           'die Injektion setzt die Ruf-Zeile ein')
+    pruefe(all(z.startswith(_inj128.FARBE_AUF) for z in _zeilen128),
+           'und hebt sie hervor wie die uebrigen Angaben')
+    # Dublettenschutz: Steht schon eine Ruf-Zeile da, kommt keine zweite —
+    # auch wenn sich die Zahl geaendert hat.
+    _zeilen128 = _inj128._angabenzeilen(
+        _e128, '# Ruf: Headhunters +99 Standing',
+        {'ruf_bei': 'Ruf'}, _tab128)
+    pruefe(not any('# Ruf:' in z for z in _zeilen128),
+           'eine vorhandene Ruf-Zeile wird nicht verdoppelt')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

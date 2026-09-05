@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.0 - 2026-09-05
+
+> **Im Auftragstext steht jetzt, WEM der Ruf gutgeschrieben wird — und welcher
+> Art.** Nicht mehr nur „150 XP", sondern
+> `Headhunters +150 Standing`. Bei Aufträgen, die zwei Parteien bedienen,
+> stehen beide da.
+
+### Neu
+
+- **Ruf nach Partei und Art.** Star Citizen kennt sechs Arten — **Standing**,
+  Affinity, Bounty Hunting, Hauling, Security und Barter & Trade —, und ein
+  Auftrag kann mehreren Organisationen gleichzeitig etwas gutschreiben. Genau
+  das steht jetzt im Text:
+
+  ```
+  # Ruf: Citizens For Prosperity +100 Standing, Citizens For Prosperity +50 Affinity
+  ```
+
+  Gemessen an einer echten Installation: **661 Aufträge** bekommen die Zeile,
+  102 davon mit mehr als einer Partei.
+  Angeregt von **Bushwick4712**.
+
+- **Die Angaben kommen aus einer zweiten Quelle**, weil die bisherige sie nicht
+  hat: Sie kennt die Rufpunkte nur als Zahl, ohne Partei und ohne Art. Geholt
+  wird einmal je Spielversion; beim Spieler bleiben davon 71 KB statt 12,5 MB
+  liegen. Ohne Netz bleibt es einfach beim letzten Stand.
+
 ## v3.16.0 - 2026-09-05
 
 > **Rufpunkte und Abklingzeit stehen jetzt in fast jedem Auftrag — und blau.**

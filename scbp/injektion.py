@@ -231,6 +231,10 @@ TEXTE = {
         'rep_max':   'Max. Reputation',
         'lohn':      'Belohnung',
         'ruf':       'Rufpunkte',
+        # ⚠ Kurz halten: Die Zeile traegt schon Fraktionsnamen und Art
+        # („Citizens For Prosperity +100 Standing"), und sie steht in einer
+        # Spalte, die das Spiel nicht umbricht.
+        'ruf_bei':   'Ruf',
         'cooldown':  'Wartezeit',
         'minuten':   'Minuten',
         'teilbar':   'Mission teilbar',
@@ -250,6 +254,7 @@ TEXTE = {
         'rep_max':   'Max. reputation',
         'lohn':      'Payout',
         'ruf':       'Reputation gain',
+        'ruf_bei':   'Reputation',
         'cooldown':  'Cooldown',
         'minuten':   'minutes',
         'teilbar':   'Shareable',
@@ -798,12 +803,19 @@ def _blau(zeile):
     return '%s%s%s' % (FARBE_AUF, zeile, FARBE_ZU)
 
 
-def _angabenzeilen(eintrag, vorhanden=''):
+def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     """Die Angabezeilen eines Auftrags — hervorgehoben und ohne Dubletten.
 
     ⚠ Verglichen wird gegen den Text OHNE Auszeichnung: Sonst gilt eine Zeile
     als neu, nur weil sie beim letzten Lauf noch ungefaerbt war — und stuende
     danach zweimal da.
+
+    ⚠⚠ **Die Ruf-Zeile kommt aus einer ANDEREN Quelle** (`auftragsruf`). Die
+    Vertragsdaten nennen die Rufpunkte nur als Zahl; bei WEM sie anfallen und
+    ob es Standing, Affinity oder Bounty Hunting ist, steht dort in keinem
+    einzigen Feld — gemessen an allen 818 Eintraegen. Gewuenscht wurde genau
+    diese Unterscheidung: „auf SCMDB sieht man auch ob es Standing oder Rep
+    bekommt, das muss auf jeden fall mit in den Questtext."
     """
     ohne_farbe = (vorhanden or '').replace(FARBE_AUF, '').replace(FARBE_ZU, '')
     raus = []
@@ -812,10 +824,24 @@ def _angabenzeilen(eintrag, vorhanden=''):
             zeile = zeile.strip()
             if zeile and zeile not in ohne_farbe:
                 raus.append(_blau(zeile))
+
+    if ruftabelle is not None:
+        try:
+            from . import auftragsruf
+            zeile = auftragsruf.zeile(
+                eintrag.get('titleLocKey') or '',
+                (worte or {}).get('ruf_bei') or 'Ruf', ruftabelle)
+            # ⚠ Der Dublettenschutz vergleicht nur den ANFANG bis zum
+            # Doppelpunkt: Der Rest wechselt mit den Zahlen, und nach einem
+            # Patch stuenden sonst zwei Ruf-Zeilen untereinander.
+            if zeile and zeile.split(':')[0] not in ohne_farbe:
+                raus.append(_blau(zeile))
+        except Exception as ausnahme:
+            fehler.merken('injektion.ruf_zeile', ausnahme)
     return raus
 
 
-def _auftragsangaben(block, eintrag):
+def _auftragsangaben(block, eintrag, worte=None, ruftabelle=None):
     """Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance einsetzen.
 
     ⚠⚠ **Gewünscht von Bushwick4712 (KRT) am 04.09.2026:** „XP und Abklingzeit
@@ -846,7 +872,7 @@ def _auftragsangaben(block, eintrag):
     anderes Werkzeug sie geschrieben hat oder wir selbst beim letzten Lauf),
     bleibt sie stehen — dieselbe Regel wie bei den Marken.
     """
-    zusatz = _angabenzeilen(eintrag, block)
+    zusatz = _angabenzeilen(eintrag, block, worte, ruftabelle)
     if not zusatz:
         return block
 
@@ -947,6 +973,25 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
                                     else bestand_datei.laden())
     worte = TEXTE[sprachkuerzel]
 
+    # ⚠⚠ **Wem der Auftrag Ruf bringt — aus einer eigenen Quelle.** Die
+    # Vertragsdaten kennen nur die Zahl („150 XP"), nicht die Partei und nicht
+    # die Art. Beides kommt von scmdb.net; das Modul holt es einmal je
+    # Spielversion und legt eine kleine Tabelle an (71 KB statt 12,5 MB).
+    #
+    # ⚠ Scheitert der Abruf, laeuft alles Uebrige weiter: Eine fehlende
+    # Ruf-Zeile ist ein Verlust, ein abgebrochener Einbau waere ein Schaden.
+    ruftabelle = None
+    try:
+        from . import auftragsruf, spielstand
+        try:
+            version = spielstand.live() or ''
+        except Exception:
+            version = ''
+        auftragsruf.auffrischen(version)
+        ruftabelle = auftragsruf.laden()
+    except Exception as ausnahme:
+        fehler.merken('injektion.auftragsruf', ausnahme)
+
     titel_an, text_an = {}, {}
     # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
     # trotzdem** (05.09.2026). Gemessen an den Vertragsdaten: **816 von 818**
@@ -966,7 +1011,7 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     angaben_an = {}
     for e in daten['entries']:
         if not e.get('description') and e.get('descriptionLocKey'):
-            zeilen_zu = _angabenzeilen(e)
+            zeilen_zu = _angabenzeilen(e, '', worte, ruftabelle)
             if zeilen_zu:
                 # ⚠ **Eine Leerzeile davor.** Ohne sie klebt die erste Angabe
                 # unmittelbar am letzten Satz des Auftragstextes — gemessen
@@ -983,7 +1028,7 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         block, meine, gesamt = _kaestchen_setzen(block, habe)
         # ⭐ Rufpunkte, Abklingzeit, Teilbarkeit, Bauplan-Chance — sie standen
         # in der Quelle, aber nicht im Spiel. Siehe `_auftragsangaben`.
-        block = _auftragsangaben(block, e)
+        block = _auftragsangaben(block, e, worte, ruftabelle)
         if e.get('descriptionLocKey'):
             text_an[e['descriptionLocKey']] = block
         if e.get('titleLocKey'):
