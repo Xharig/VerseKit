@@ -6,6 +6,40 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.2 - 2026-09-05
+
+> **Karteileichen im Auftrags-Protokoll räumen sich jetzt wirklich ab.** Die
+> Regel dafür gab es seit v3.15.8 — ihr Ergebnis kam nur nie in der Datei an.
+> Und die Bauplan-Liste sagt jetzt, was sie nicht wissen kann.
+
+### Behoben
+
+- **Ein Auftrag, den es längst nicht mehr gibt, blieb trotzdem auf „läuft".**
+  Die Aufräumregel arbeitete richtig, wurde aber nur auf frisch gelesene
+  Protokolle angewandt — wer alle längst gelesen hat (also jeder im Alltag),
+  kam nie dorthin. Gemessen: gespeichert 3 offen, frisch eingelesen nur 2.
+
+  Jetzt wird der gespeicherte Stand bei jedem Start noch einmal gegen die
+  jüngsten Protokolle geprüft.
+
+- **Der Bestands-Import kannte die neuere Ausfuhr von scmdb.net nicht** und
+  wies sie mit „Diese Datei kenne ich nicht" ab. Die Seite hat ihr Format
+  gewechselt; beide werden jetzt gelesen. Übernommen wird nur, was dort als
+  erledigt markiert ist.
+  Gemeldet von **Zwaersch**.
+
+### Neu
+
+- **Hinweis auf die Grenze der Aufzeichnung** in der Bauplan-Liste. Der Watcher
+  kennt nur, was seit seiner Einrichtung im Protokoll stand; Star Citizen
+  löscht ältere selbst. Wer vorher gespielt hat, hat Baupläne, von denen das
+  Werkzeug nichts weiß.
+
+  Das ist kein Fehler und lässt sich nicht beheben — an 194 Protokollen
+  geprüft: **jede** Bauplan-Meldung, die darin stand, ist auch im Bestand
+  gelandet. Deshalb steht dort jetzt, was hilft: einmal mit dem Fabricator im
+  Spiel abgleichen und von Hand anhaken.
+
 ## v3.17.1 - 2026-09-05
 
 > **Die Daten kommen jetzt von dem Weg, der dafür gedacht ist** — und der

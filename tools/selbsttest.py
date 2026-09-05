@@ -11749,6 +11749,56 @@ def main():
            'eine vorhandene Ruf-Zeile wird nicht verdoppelt')
 
     print()
+    print('129. Die neuere Ausfuhr von scmdb.net wird erkannt')
+    # ⚠⚠ **Gemeldet am 05.09.2026:** Eine Datei von einem Mitspieler wurde mit
+    # „Diese Datei kenne ich nicht" abgewiesen. Zu Recht — scmdb hat das Format
+    # gewechselt, und wir kannten nur das alte:
+    #
+    #     alt:  {"exportSchemaVersion": …, "blueprints": [{"productName", "ts"}]}
+    #     neu:  {"version": 3, "blueprints": [{"tag", "name", "completed"}]}
+    #
+    # An der echten Datei gemessen: 349 Eintraege, 348 davon im Katalog
+    # wiedergefunden.
+    from scbp import importieren as _imp129
+
+    _neu129 = {'version': 3, 'blueprints': [
+        {'tag': 'BP_CRAFT_X', 'name': 'Omnisky VI Cannon', 'completed': True},
+        {'tag': 'BP_CRAFT_Y', 'name': 'Nur beobachtet', 'completed': False},
+    ], 'missions': [{'hash': 'a', 'name': 'Auftrag', 'completed': True}]}
+    pruefe(_imp129.erkennen(_neu129) == 'scmdb2',
+           'das neue Format wird erkannt')
+
+    # ⚠ Das ALTE Format darf dabei nicht verloren gehen — es gibt Nutzer mit
+    # aelteren Ausfuhren, und eine Erkennung, die das eine gegen das andere
+    # tauscht, verschiebt den Fehler nur.
+    pruefe(_imp129.erkennen(
+        {'exportSchemaVersion': 1,
+         'blueprints': [{'productName': 'Alt', 'ts': 1}]}) == 'scmdb',
+        'das alte scmdb-Format weiterhin auch')
+    pruefe(_imp129.erkennen(
+        {'blueprints': [{'productName': 'B', 'receivedAt': 1}]}) == 'basetool',
+        'und das Basetool-Format')
+    pruefe(_imp129.erkennen(
+        {'blueprints': [{'key': 'irgendwas'}]}) == 'launcher',
+        'und das des Launchers')
+
+    _wiese129 = tempfile.mkdtemp(prefix='sc-bp-imp-')
+    try:
+        _datei129 = os.path.join(_wiese129, 'scmdb-tracking.json')
+        with open(_datei129, 'w', encoding='utf-8') as _d129:
+            json.dump(_neu129, _d129)
+        _art129, _eintraege129 = _imp129.lesen(_datei129)
+        pruefe(_art129 == 'scmdb2', 'die Datei wird als solche gelesen')
+        # ⚠⚠ **Nur `completed` zaehlt.** Die Ausfuhr enthaelt auch Bauplaene,
+        # die jemand nur beobachtet — waeren die dabei, staende die halbe
+        # Datenbank im Bestand und das Werkzeug meldete nie wieder einen Fund.
+        pruefe([e['name'] for e in _eintraege129] == ['Omnisky VI Cannon'],
+               'nur erledigte Bauplaene kommen mit (%r)'
+               % [e['name'] for e in _eintraege129])
+    finally:
+        shutil.rmtree(_wiese129, ignore_errors=True)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

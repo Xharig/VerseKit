@@ -6,6 +6,38 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.17.2 - 2026-09-05
+
+> **Stale entries in the mission log now really do clear themselves.** The rule
+> for it has been there since v3.15.8 — its result just never reached the file.
+> And the blueprint list now says what it cannot know.
+
+### Fixed
+
+- **A contract that was long gone still sat there as "in progress".** The
+  clean-up rule worked correctly, but was only applied to freshly read logs —
+  and anyone who has read them all already (that is everyone, day to day) never
+  got there. Measured: 3 open in the saved state, only 2 when read fresh.
+
+  The saved state is now checked against the most recent logs on every start.
+
+- **The inventory import did not know the newer scmdb.net export** and rejected
+  it with "I do not know this file". The site changed its format; both are read
+  now. Only what is marked as completed there is taken over.
+  Reported by **Zwaersch**.
+
+### New
+
+- **A note about the limits of the recording.** The watcher only knows what
+  appeared in the logs since it was set up; Star Citizen deletes older ones
+  itself. Anyone who played before that has blueprints the tool knows nothing
+  about.
+
+  This is not a bug and cannot be fixed — checked against 194 logs: **every**
+  blueprint message they contained did end up in the inventory. The gap comes
+  from before. So the line says what actually helps: compare once with the
+  fabricator in game and tick them off by hand.
+
 ## v3.17.1 - 2026-09-05
 
 > **The data now comes by the route meant for it** — and the person behind it

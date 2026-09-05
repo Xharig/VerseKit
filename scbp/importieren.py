@@ -31,7 +31,8 @@ stammt, erkennt das Programm am Inhalt:
   | Format | Erkennungsmerkmal |
   |---|---|
   | eigene Sicherung | `werkzeug: "SC BP Watcher"`, Liste `bauplaene` |
-  | scmdb.net | `exportSchemaVersion`, `blueprints[].productName` + `ts` |
+  | scmdb.net (älter) | `exportSchemaVersion`, `blueprints[].productName` + `ts` |
+  | scmdb.net (neuer) | `blueprints[].tag` + `name`, nur `completed: true` |
   | KRT Profit Basetool | `blueprints[].productName` (+ `receivedAt`) |
   | SC Deutsch Launcher | `blueprints[].key` |
 
@@ -81,6 +82,18 @@ def erkennen(daten):
             return 'scmdb'
         if 'productName' in erster:
             return 'basetool'
+        # ⚠⚠ **Die neuere Ausfuhr von scmdb.net** (dort „Tracking-Export").
+        # Am 05.09.2026 gemeldet: Eine Datei von einem Mitspieler wurde mit
+        # „Diese Datei kenne ich nicht" abgewiesen — zu Recht, denn scmdb hat
+        # das Format gewechselt und wir kannten nur das alte:
+        #
+        #     alt:  {"exportSchemaVersion": …, "blueprints": [{"productName": …, "ts": …}]}
+        #     neu:  {"version": 3, "blueprints": [{"tag": …, "name": …, "completed": true}]}
+        #
+        # ⚠ Erkannt wird an `tag` + `name`, nicht an `version`: Die Zahl waere
+        # beim naechsten Formatwechsel wieder eine andere, die Felder bleiben.
+        if 'tag' in erster and 'name' in erster:
+            return 'scmdb2'
     return None
 
 
@@ -121,6 +134,18 @@ def lesen(pfad):
             if isinstance(e, dict) and e.get('productName'):
                 eintraege.append({'name': e['productName'],
                                   'zeit': _zeit_aus(e.get('ts') or e.get('receivedAt'))})
+    elif art == 'scmdb2':
+        # ⚠⚠ **Nur, was als erledigt markiert ist.** Die Ausfuhr enthaelt auch
+        # Bauplaene, die jemand nur beobachtet oder angesehen hat; `completed`
+        # ist das Feld, das „habe ich" bedeutet. Ohne diese Bedingung waere
+        # jeder Bauplan der Datenbank im Bestand — und das Werkzeug meldete
+        # nie wieder einen Fund.
+        #
+        # ⚠ Einen Zeitpunkt gibt es in diesem Format nicht. Lieber keiner als
+        # ein erfundener: Der Bestand kommt damit zurecht.
+        for e in daten.get('blueprints') or []:
+            if isinstance(e, dict) and e.get('name') and e.get('completed'):
+                eintraege.append({'name': e['name'], 'zeit': None})
     elif art == 'launcher':
         for e in daten.get('blueprints') or []:
             if isinstance(e, dict) and e.get('key'):

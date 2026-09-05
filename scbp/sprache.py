@@ -1534,6 +1534,12 @@ TEXTE = {
                               'refreshing the first time you opened it. And the '
                               'idea of a field for your message in the error '
                               'report.'),
+    's_dk_zwaersch_bugs':    ('Dass der Bestands-Import die neuere Ausfuhr von '
+                              'scmdb.net nicht kannte und sie abwies — seine '
+                              'Datei hat es ans Licht gebracht.',
+                              'That the inventory import did not know the newer '
+                              'scmdb.net export and rejected it — his file '
+                              'brought it to light.'),
     's_dk_horthy_idee':      ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
@@ -3068,6 +3074,20 @@ TEXTE = {
     # ⚠ Der Hinweis nennt das Anfangsdatum, weil die Zahl sonst mehr
     # behauptet, als sie weiß: Star Citizen räumt alte Protokolle weg, hier
     # zählt nur, was das Werkzeug selbst gesehen hat.
+    # ⚠⚠ **Sagt, was das Werkzeug NICHT wissen kann.** Star Citizen löscht
+    # seine alten Protokolle laufend; was vor der Installation freigeschaltet
+    # wurde, steht in keinem mehr. Gemessen an 194 Protokollen: Jede Meldung,
+    # die darin stand, ist auch im Bestand — die Lücke stammt aus der Zeit
+    # davor und lässt sich nicht schließen. Wer das nicht weiß, hält eine
+    # unvollständige Liste für vollständig.
+    'bp_grenze':         ('Gezählt wird, was seit der Einrichtung im Protokoll '
+                          'stand — Star Citizen löscht ältere selbst. Fehlt '
+                          'etwas, gleich einmal mit dem Fabricator im Spiel ab '
+                          'und hak es hier an.',
+                          'Counted is what appeared in the logs since setup — '
+                          'Star Citizen deletes older ones itself. If something '
+                          'is missing, compare once with the fabricator in game '
+                          'and tick it here.'),
     's_zeit':            ('Spielzeit oben anzeigen',
                           'Show play time at the top'),
     's_zeit_h':          ('Zeigt in der Kopfzeile, wie lange du gespielt hast — '

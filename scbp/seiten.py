@@ -2130,6 +2130,9 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
              fg=FG, font=fenster.f_fett).pack(side='left')
     blase(kopf, {'eigen': t('s_be_eigen'), 'basetool': 'KRT Profit Basetool',
                  'scmdb': 'scmdb.net',
+                 # ⚠ Beide scmdb-Formate heißen für den Nutzer gleich — ihn
+                 # geht nicht an, welche Fassung der Ausfuhr er erwischt hat.
+                 'scmdb2': 'scmdb.net',
                  'launcher': 'SC Deutsch Launcher'}.get(art, art),
           ACCENT, fenster.f_klein).pack(side='right')
 
@@ -4500,7 +4503,8 @@ def _danke(fenster, rahmen):
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
             ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'),
              t('s_dk_bushwick_bugs')),
-            ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), '')):
+            ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
+            ('Zwaersch', 'KRT', '', t('s_dk_zwaersch_bugs'))):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---

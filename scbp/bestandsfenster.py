@@ -343,6 +343,7 @@ class Bestandsfenster:
         _ms_kopf = (time.perf_counter() - _t_rahmen) * 1000
         _t_wz = time.perf_counter()
         self._werkzeugleiste()
+        self._grenze_zeigen()
         _ms_wz = (time.perf_counter() - _t_wz) * 1000
         # ⚠ Reihenfolge: erst der feste Block unten, dann die rollende Liste.
         # Wer die Liste zuerst packt, schiebt den Block aus dem Fenster.
@@ -437,6 +438,49 @@ class Bestandsfenster:
         # Nach ein paar Sekunden wieder wegnehmen — eine Erfolgsmeldung, die
         # stehen bleibt, wird zur Beschriftung und sagt dann nichts mehr.
         self.root.after(6000, lambda: self.export_meldung.configure(text=''))
+
+    def _grenze_zeigen(self):
+        """Sagen, was das Werkzeug NICHT wissen kann.
+
+        ⚠⚠ **Die ehrlichste Zeile im ganzen Programm.** Der Watcher kennt nur,
+        was seit seiner Installation im Protokoll stand — und Star Citizen
+        loescht seine alten Protokolle laufend weg. Wer vorher gespielt hat,
+        hat Bauplaene, von denen das Werkzeug nichts weiss.
+
+        ⚠ Das ist **kein Fehler und laesst sich nicht beheben**: Gemessen am
+        05.09.2026 an 194 Protokollen — jede Bauplan-Meldung, die darin stand,
+        ist auch im Bestand gelandet. Die Luecke stammt aus der Zeit davor.
+        Und der Fabricator hilft nicht weiter: Das Spiel schreibt seine Liste
+        nirgends ins Protokoll, nur die Verbindung zum Dienst.
+
+        Also bleibt der Abgleich von Hand — und wer das nicht weiss, haelt
+        eine unvollstaendige Liste fuer vollstaendig. Genau so aufgefallen:
+        „habe meine BP Liste mit dem Fabricator Ingame abgeglichen und mir
+        hatten noch welche gefehlt."
+
+        ⚠ Steht **unter** der Werkzeugleiste, nicht als Kasten oben: Es ist
+        eine einmalige Auskunft, keine Warnung. Wer sie gelesen hat, soll
+        nicht jedes Mal daran vorbeischauen muessen.
+        """
+        zeile = tk.Label(self.root, text=t('bp_grenze'), bg=BG, fg=SUB,
+                         font=schrift(9), anchor='w', justify='left')
+        zeile.pack(fill='x', padx=14, pady=(0, 6))
+
+        # ⚠⚠ **Der Satz muss umbrechen, sonst schiebt er das Fenster breiter.**
+        # Die Randprüfung hat genau das gemeldet: „+8 px" auf Englisch bei
+        # 1100 px Breite — dort ist der Text länger. Ein `wraplength`, das mit
+        # der Fensterbreite mitzieht, statt einer festen Zahl: Wer das Fenster
+        # schmaler zieht, bekäme sonst denselben Fehler zurück.
+        def _umbrechen(_ereignis=None):
+            try:
+                breite = self.root.winfo_width() - 2 * 14 - 8
+                if breite > 80:
+                    zeile.configure(wraplength=breite)
+            except tk.TclError:
+                pass
+
+        self.root.bind('<Configure>', _umbrechen, add='+')
+        self.root.after(0, _umbrechen)
 
     def _werkzeugleiste(self):
         leiste = tk.Frame(self.root, bg=BG)

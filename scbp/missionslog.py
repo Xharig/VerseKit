@@ -421,6 +421,40 @@ def aus_dateien(pfade):
                   reverse=True)
 
 
+def _gemeldete_titel(pfad_log):
+    """`(gemeldete Titel, zaehlt ihr Schweigen)` — ohne die volle Auswertung.
+
+    ⚠ Wird gebraucht, um den **gespeicherten** Bestand nachzubewerten. Die
+    volle Auswertung (`_lesen`) schreibt dabei in `offen`/`fertig` und
+    verdoppelte Eintraege; hier geht es nur um die zwei Fragen, die
+    `_verfallene_schliessen()` stellt: Welche Auftraege nennt diese Sitzung,
+    und darf ihr Schweigen etwas beweisen?
+    """
+    gemeldet = set()
+    spawn = False
+    erste = letzte = None
+    muster_an, muster_aus = auftraege.muster(), auftraege.ende_muster()
+    with open(pfad_log, encoding='utf-8', errors='replace') as f:
+        for zeile in f:
+            if not spawn and SPAWN_MARKE in zeile:
+                spawn = True
+            treffer = _ZEIT.search(zeile)
+            if treffer:
+                if erste is None:
+                    erste = treffer.group(1)
+                letzte = treffer.group(1)
+            for muster in (muster_an, muster_aus):
+                t = muster.search(zeile)
+                if t:
+                    gemeldet.add(auftraege.sauber(t.group(1)))
+                    break
+    dauer = 0
+    a, b = _sekunden(erste or ''), _sekunden(letzte or '')
+    if a and b:
+        dauer = b - a
+    return gemeldet, (spawn and dauer >= SITZUNG_ZAEHLT_SEK)
+
+
 def _verfallene_schliessen(offen, fertig, gemeldet, sitzung,
                            stumm_zaehlt=False):
     """Auftraege beenden, die eine spaetere Sitzung nicht mehr kennt.
@@ -718,15 +752,42 @@ def nachlese():
     except Exception as ausnahme:
         fehler.merken('missionslog.spielzeit', ausnahme)
 
-    if not offen_dateien:
-        return len(laden()), 0
-
     alt = laden()
+
+    # ⚠⚠ **Die Nachbewertung läuft AUCH, wenn nichts Neues da ist.** Genau
+    # das war der Fehler im ersten Anlauf: Sie stand hinter dem frühen
+    # Rücksprung — und wer alle Protokolle längst gelesen hat (also jeder im
+    # Alltag), kam nie dorthin. Gemessen: 3 Karteileichen vorher, 3 nachher.
+    #
+    # Herangezogen werden die **jüngsten** Protokolle, nicht die neuen: Was
+    # noch offen ist, entscheidet die letzte Sitzung, nicht die zuletzt
+    # gelesene Datei. Drei reichen und kosten fast nichts; alle 195 zu lesen
+    # wäre bei jedem Start eine Sekunde für nichts.
+    _kandidaten = sorted(sicherungen + ([laufende] if laufende else []),
+                         key=_spielzeit)[-3:]
+    _offen_jetzt = [e for e in alt if e.get('zustand') == LAEUFT]
+    if _offen_jetzt:
+        _erledigt = []
+        for _pfad in _kandidaten:
+            try:
+                _gemeldet, _zaehlt = _gemeldete_titel(_pfad)
+            except Exception as ausnahme:
+                fehler.merken('missionslog.nachbewerten', ausnahme)
+                continue
+            _verfallene_schliessen(_offen_jetzt, _erledigt, _gemeldet,
+                                   _spielzeit(_pfad), stumm_zaehlt=_zaehlt)
+        if _erledigt:
+            sichern(alt)
+
+    if not offen_dateien:
+        return len(alt), 0
     bekannt = {_schluessel(e) for e in alt}
     # ⚠ Chronologisch, sonst bekommt ein Auftrag das Ende eines fremden
     # Durchlaufs — siehe `_spielzeit`.
-    neu = aus_dateien(sorted((p for p, _m in offen_dateien), key=_spielzeit))
+    frische = sorted((p for p, _m in offen_dateien), key=_spielzeit)
+    neu = aus_dateien(frische)
     zusammen = zusammenfuehren(alt, neu)
+
     dazu = sum(1 for e in zusammen if _schluessel(e) not in bekannt)
     if sichern(zusammen):
         for pfad_log, marke in offen_dateien:
