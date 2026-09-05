@@ -8907,10 +8907,26 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     pfeil.pack(side='right')
     feld.halter.pack(side='left', fill='both', expand=True)
 
-    # Tippen schliesst das Aufklappen wieder — sonst bliebe die volle Liste
-    # stehen, während schon gefiltert wird.
+    # ⭐⭐ **Ein Klick ins Feld klappt die Liste auf.** Am 05.09.2026 gemeldet:
+    # „Erwarte, dass ich ins Feld klicke, was eingeben kann und auch vor der
+    # Eingabe schon das Dropdown aufgeht — das Dropdown ist aber rechts
+    # versteckt, da sucht es niemand." Beides stimmt: Der Pfeil ist ein
+    # 16-Pixel-Symbol am rechten Rand, und wer ein Auswahlfeld anklickt,
+    # erwartet eine Auswahl. Der Pfeil bleibt trotzdem — er zeigt an, dass da
+    # etwas zum Aufklappen ist, und schliesst die Liste wieder.
+    def beim_hineinklicken(_=None):
+        if not offen['ja']:
+            offen['ja'] = True
+            zeichnen()
+
+    feld.bind('<FocusIn>', beim_hineinklicken, add='+')
+    feld.bind('<Button-1>', beim_hineinklicken, add='+')
+
+    # Tippen dampft die Liste auf die Treffer ein — sonst bliebe die volle
+    # Liste stehen, während schon gefiltert wird. Ist das Feld wieder leer,
+    # bleibt sie offen: Der Spieler sucht dann ja noch.
     def beim_tippen(*_):
-        offen['ja'] = False
+        offen['ja'] = not (var.get() or '').strip()
         zeichnen()
 
     var.trace_add('write', beim_tippen)

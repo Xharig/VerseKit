@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc6 - 2026-09-05
+
+> **Ein Klick ins Feld, und die Auswahl klappt auf.** Bisher musste man den
+> kleinen Pfeil am rechten Rand finden — den sucht niemand.
+
+### Verbessert
+
+- **Auswahlfelder öffnen sich beim Hineinklicken.** Handelslager (Ware,
+  Lagerort) und Verkauf: erst die ganze Liste, beim Tippen auf die Treffer
+  eingedampft, und wenn du das Feld wieder leerst, steht sie wieder ganz da.
+
 ## v3.15.0-rc5 - 2026-09-05
 
 > **Die Rundreise funktioniert.** Bisher kam bei jeder Stationszahl „keine

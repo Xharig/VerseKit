@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc6 - 2026-09-05
+
+> **Click the field and the list opens.** Until now you had to find the small
+> arrow on the right — nobody looks there.
+
+### Improved
+
+- **Picker fields open when you click into them.** Cargo hold (commodity,
+  location) and Selling: the full list first, narrowed down as you type, and
+  back in full when you clear the field.
+
 ## v3.15.0-rc5 - 2026-09-05
 
 > **Round trips work.** Every stop count used to return "no route" — now you
