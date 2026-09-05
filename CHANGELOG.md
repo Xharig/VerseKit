@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc12 - 2026-09-05
+
+> **Die Menge im Verkauf wirkt jetzt sofort** — auch wenn du sie nach der Ware
+> eintippst. Und die Auswahlmenüs brechen um, statt rechts abgeschnitten zu
+> werden.
+
+### Behoben
+
+- **Die eingetippte SCU-Menge wurde nicht übernommen**, wenn die Ware schon
+  gewählt war — also im Normalfall. Jetzt zählt sie sofort: Die Marke zeigt
+  „Gold · 100 SCU", und die Tabelle rechnet mit 100 statt mit 1.
+- **Ware zu Ende tippen und Enter drücken übernimmt sie** — man muss sie nicht
+  aus der Liste anklicken.
+- **Auswahlmenüs werden nicht mehr abgeschnitten.** Bei fünf Menüs stand rechts
+  „Alle Gü…"; jetzt rutscht das letzte in die zweite Zeile. Gilt überall, wo
+  es Filtermenüs gibt.
+
+### Verbessert
+
+- Die Beschriftung am Mengenfeld nennt die Ware: „Wie viel SCU Gold hast du?"
+
 ## v3.15.0-rc11 - 2026-09-05
 
 > **„Mein Lager" heißt jetzt „Rohstofflager"** — da liegen Rohstoffe drin, und

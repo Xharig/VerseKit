@@ -282,6 +282,7 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
     links.pack(side='left', fill='x', expand=True)
 
     gebaut = {}
+    reihenfolge = []
     for schluessel, beschriftung, eintraege in felder:
         if len(eintraege) <= 1:
             continue
@@ -290,8 +291,18 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
                      lambda wert, s=schluessel: (zustand.__setitem__(s, wert),
                                                  beim_wechsel()),
                      fenster.f_klein)
-        w.pack(side='left', padx=(0, 8), pady=2)
         gebaut[schluessel] = w
+        reihenfolge.append(w)
+    # ⚠⚠ **Umbrechend, nicht abgeschnitten.** Tk schneidet eine zu breite
+    # Reihe wortlos rechts ab — bei fünf Menüs im Laden-Reiter stand dort
+    # „Alle Gü…", und das fünfte war nicht mehr bedienbar. Am 05.09.2026
+    # gemeldet: „Kein Umbruch bei den Dropdowns."
+    #
+    # Derselbe Helfer wie bei den Geräteknöpfen der Steuerung. Er wirkt hier
+    # auf **alle** Seiten mit Filterleiste — die Bauplan-Liste hat sechs
+    # Felder und lief in dieselbe Grenze.
+    if reihenfolge:
+        _knopfgitter(links, reihenfolge, abstand=8)
 
     def zuruecksetzen():
         for schluessel, w in gebaut.items():
@@ -8967,7 +8978,7 @@ def _alterstext(sekunden):
 
 
 def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
-                 beim_waehlen=None):
+                 beim_waehlen=None, beim_bestaetigen=None):
     """Ein Eingabefeld mit Aufklappliste — tippen **oder** aussuchen.
 
     Gibt `(rahmen, listen_rahmen, neu_zeichnen)` zurück. Der Aufrufer packt
@@ -9115,6 +9126,33 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     feld.bind('<FocusOut>', beim_verlassen, add='+')
     feld.bind('<Escape>', lambda _=None: _zumachen(), add='+')
 
+    # ⭐⭐ **Enter übernimmt, was dasteht.** Am 05.09.2026 gemeldet: „Gebe ich
+    # Gold fertig ein und wähle es nicht aus der Liste, übernimmt er Gold auch
+    # nicht." Wer den Namen kennt und ihn zu Ende tippt, hat die Liste nicht
+    # nötig — und drückt Enter.
+    #
+    # ⚠ Der Aufrufer entscheidet, was gültig ist (`beim_bestaetigen`): Im
+    # Verkauf muss die Ware in den Preisdaten stehen, sonst käme ein Name in
+    # die Auswahl, zu dem es nie ein Ergebnis geben kann.
+    def _bestaetigen(_=None):
+        if beim_bestaetigen is None:
+            return
+        text = (var.get() or '').strip()
+        if not text:
+            return
+        # Genau ein passender Eintrag? Dann ist die Sache eindeutig, auch
+        # wenn nur ein Teil getippt wurde.
+        alle = eintraege_holen()
+        genau = [e for e in alle if e.lower() == text.lower()]
+        teil = [e for e in alle if text.lower() in e.lower()]
+        ziel = genau[0] if genau else (teil[0] if len(teil) == 1 else '')
+        if ziel:
+            offen['ja'] = False
+            beim_bestaetigen(ziel)
+
+    feld.bind('<Return>', _bestaetigen, add='+')
+    feld.bind('<KP_Enter>', _bestaetigen, add='+')
+
     # Tippen dampft die Liste auf die Treffer ein — sonst bliebe die volle
     # Liste stehen, während schon gefiltert wird. Ist das Feld wieder leer,
     # bleibt sie offen: Der Spieler sucht dann ja noch.
@@ -9144,6 +9182,9 @@ def _verkauf(fenster, rahmen):
     # etwas eingelagert werden muss. Siehe `waehlen`.
     menge_var = tk.StringVar()
     eigene_mengen = {}
+    # Verhindert, dass das Umschreiben des Feldes (beim Warenwechsel) sofort
+    # wieder als Eingabe gilt.
+    zustand_menge = {'stumm': False}
     nur_nqa = [False]
     meldung = {'text': '', 'farbe': SUB}
 
@@ -9259,13 +9300,19 @@ def _verkauf(fenster, rahmen):
         # eingeben — manchmal will man Ware sofort verkaufen, ohne erst
         # einzulagern." Richtig: Wer gerade 120 SCU Gold im Laderaum hat und
         # wissen will, was sie bringen, will sie nicht erst eintragen.
+        # ⚠ Steht schon eine Zahl im Feld, gilt sie für die neu gewählte Ware
+        # — wer erst tippt und dann aussucht, meint genau das. Danach zeigt
+        # das Feld die Menge **dieser** Ware; ein Wechsel darf sie nicht
+        # unbemerkt auf die vorige umschreiben.
         try:
             scu = int(float((menge_var.get() or '0').replace(',', '.')))
         except (TypeError, ValueError):
             scu = 0
         if scu > 0:
             eigene_mengen[name] = scu
-        menge_var.set('')
+        zustand_menge['stumm'] = True
+        menge_var.set(str(eigene_mengen.get(name) or ''))
+        zustand_menge['stumm'] = False
         suche.set('')
         neu_zeichnen()
 
@@ -9301,7 +9348,8 @@ def _verkauf(fenster, rahmen):
     # heisst, klappt die Liste auf und sucht sie aus.
     feldzeile, feldliste, such_zeichnen = _auswahlfeld(
         fenster, suchzeile, suche, preisdaten.waren,
-        beim_waehlen=lambda name: waehlen(name))
+        beim_waehlen=lambda name: waehlen(name),
+        beim_bestaetigen=lambda name: waehlen(name))
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
@@ -9310,13 +9358,36 @@ def _verkauf(fenster, rahmen):
     # wie bisher aus dem Handelslager, wenn dort etwas liegt.
     mengenzeile = tk.Frame(suchzeile, bg=BG)
     mengenzeile.pack(fill='x', pady=(6, 0))
-    tk.Label(mengenzeile, text=t('s_vk_menge'), bg=BG, fg=SUB,
-             font=fenster.f_klein, anchor='w').pack(side='left',
-                                                    padx=(0, 8))
+    mengen_beschriftung = tk.Label(mengenzeile, text=t('s_vk_menge'), bg=BG,
+                                   fg=SUB, font=fenster.f_klein, anchor='w')
+    mengen_beschriftung.pack(side='left', padx=(0, 8))
     mengenfeld = rundes_feld(mengenzeile, menge_var, fenster.f_klein,
                              '#0c1017', LINIE, ACCENT, FG)
     mengenfeld.halter.configure(width=110)
     mengenfeld.halter.pack(side='left')
+
+    def _menge_getippt(*_a):
+        """Die Zahl gilt **sofort** für die zuletzt gewählte Ware.
+
+        ⚠⚠ **Nicht erst beim Wählen.** Genau so war es zuerst gebaut, und
+        genau daran ist es gescheitert: Wer die Ware schon ausgewählt hat und
+        danach die Menge eintippt — der Normalfall — sah nichts passieren.
+        Am 05.09.2026 gemeldet: „Der übernimmt die 100 SCU nicht."
+        """
+        if zustand_menge['stumm'] or not auswahl:
+            return
+        ware = auswahl[-1]
+        try:
+            scu = int(float((menge_var.get() or '0').replace(',', '.')))
+        except (TypeError, ValueError):
+            return
+        if scu > 0:
+            eigene_mengen[ware] = scu
+        else:
+            eigene_mengen.pop(ware, None)
+        neu_zeichnen()
+
+    menge_var.trace_add('write', _menge_getippt)
 
     def kaestchen_um(an):
         nur_nqa[0] = an
@@ -9437,6 +9508,15 @@ def _verkauf(fenster, rahmen):
                            lagermengen, mit_kopf=(nummer == 0))
 
     def neu_zeichnen():
+        # ⚠ Die Beschriftung nennt die Ware, für die die Zahl gilt — sonst
+        # weiß bei mehreren Waren niemand, worauf sie sich bezieht.
+        try:
+            if mengen_beschriftung.winfo_exists():
+                mengen_beschriftung.configure(
+                    text=(t('s_vk_menge_fuer').format(ware=auswahl[-1])
+                          if auswahl else t('s_vk_menge')))
+        except tk.TclError:
+            pass
         _chips()
         such_zeichnen()
         _ergebnis()

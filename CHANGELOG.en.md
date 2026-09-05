@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0-rc12 - 2026-09-05
+
+> **The amount in Selling now takes effect immediately** — even when you type
+> it after picking the commodity. And the dropdowns wrap instead of being cut
+> off on the right.
+
+### Fixed
+
+- **The SCU amount was ignored** when the commodity had already been picked —
+  the normal case. It now counts right away: the chip reads "Gold · 100 SCU"
+  and the table calculates with 100 instead of 1.
+- **Typing a commodity in full and pressing Enter picks it** — no need to click
+  it in the list.
+- **Dropdowns are no longer cut off.** With five of them the last one read
+  "All gra…"; now it moves to a second row. Applies everywhere there are
+  filter dropdowns.
+
+### Improved
+
+- The label on the amount field names the commodity: "How many SCU of Gold do
+  you have?"
+
 ## v3.15.0-rc11 - 2026-09-05
 
 > **"My stock" is now "Material storage"** — that is what is in it, and it

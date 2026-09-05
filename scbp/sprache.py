@@ -2447,6 +2447,10 @@ TEXTE = {
     # verkaufen, ohne sie erst einzulagern.
     's_vk_menge':        ('Wie viel SCU hast du davon? (freiwillig)',
                             'How many SCU do you have? (optional)'),
+    # ⚠ Sobald eine Ware gewählt ist, nennt die Beschriftung sie — sonst weiß
+    # niemand, worauf sich die Zahl bezieht.
+    's_vk_menge_fuer':   ('Wie viel SCU {ware} hast du? (freiwillig)',
+                            'How many SCU of {ware} do you have? (optional)'),
     'b_fenstermass':     (' · Fenster %d×%d, mindestens %d×%d',
                           ' · window %d×%d, minimum %d×%d'),
     'b_fenster_zu_hoch': (' ⚠ Mindesthöhe größer als der Bildschirm',
