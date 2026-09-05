@@ -98,6 +98,22 @@ def _vorab_nummer(version):
     return int(m.group(1)) if m.group(1) else 0
 
 
+def _fassungsschluessel(version):
+    """Eindeutig **je Fassung** — `-rc1` und `-rc13` sind nicht dasselbe.
+
+    ⚠⚠ **Nicht `_teile` benutzen, wo Fassungen unterschieden werden müssen.**
+    `_teile('v3.15.0-rc13')` ergibt `(3, 15, 0)` — genau wie `-rc1`. Im
+    Änderungsverlauf galten dadurch alle dreizehn Testfassungen als dieselbe
+    Version, und zwölf davon flogen als Doppelung heraus. Am 05.09.2026
+    gemeldet: „Dann müsste man auch jeden rc anzeigen, nicht nur den letzten."
+
+    Die fertige Version steht über ihren Vorabfassungen — deshalb `9999`.
+    """
+    gross, klein, patch = _teile(version)
+    stufe = _vorab_nummer(version) if _vorab(version) else 9999
+    return (gross, klein, patch, stufe)
+
+
 def ist_neuer(fremd, eigen):
     """Ist `fremd` eine höhere Version als `eigen`?
 
@@ -413,9 +429,11 @@ def protokoll():
         for block in re.split(r'^## ', roh, flags=re.M)[1:]:
             kopf, _, rest = block.partition('\n')
             version = kopf.split('—')[0].split(' - ')[0].strip()
-            schluessel = _teile(version)
-            if schluessel == (0, 0, 0):
+            if _teile(version) == (0, 0, 0):
                 continue        # „Unveröffentlicht" ist nichts für Nutzer
+            # ⚠ Je **Fassung**, nicht je Versionsnummer — sonst gilt rc1 als
+            # dasselbe wie rc13. Siehe `_fassungsschluessel`.
+            schluessel = _fassungsschluessel(version)
             datum = ''
             m = re.search(r'(\d{4}-\d{2}-\d{2})', kopf)
             if m:
@@ -430,7 +448,7 @@ def protokoll():
     # Und nun alles, was der mitgelieferte Changelog noch nicht kennt — das sind
     # die Versionen, die nach dieser hier erschienen sind.
     for f in freigaben():
-        schluessel = _teile(f.get('version'))
+        schluessel = _fassungsschluessel(f.get('version'))
         if schluessel in gesehen or not f.get('version'):
             continue
         eintrag = {'version': f.get('version'),
@@ -440,8 +458,61 @@ def protokoll():
         gesehen[schluessel] = eintrag
         eintraege.append(eintrag)
 
-    eintraege.sort(key=lambda e: (_teile(e['version']), e['datum']), reverse=True)
+    # ⚠ Nach der **Fassung** sortieren, sonst stünden rc1 bis rc13 in
+    # zufälliger Reihenfolge — sie tragen alle dasselbe Datum.
+    eintraege.sort(key=lambda e: (_fassungsschluessel(e['version']),
+                                  e['datum']), reverse=True)
     return eintraege
+
+
+def protokoll_gebuendelt():
+    """Dasselbe wie `protokoll()`, aber Patch-Versionen unter ihrer Reihe.
+
+    ⭐⭐ **Aus v3.13.0, .1, .2 und .3 wird ein Eintrag „v3.13".** Am 05.09.2026
+    gefragt: „Ist es nicht sinnvoller, 3.13.x, 3.14.x zusammenzufassen?" Ja —
+    die vier standen alle vom selben Tag untereinander, zusammen neun Punkte.
+    Vier Zeilen für das, was eine Sache ist, ist Buchführung, kein
+    Änderungsprotokoll; und niemand denkt in „3.13.2", sondern in „3.13".
+
+    ⚠ **Vorabversionen bleiben einzeln.** Wer eine Testfassung fährt, will
+    sehen, was **diese** gebracht hat — gebündelt stünden dreizehn rc als ein
+    Klumpen da, und die Rückmeldung „was ist seit gestern anders?" wäre nicht
+    mehr zu beantworten. Sobald die fertige Version erscheint, verschwinden
+    sie ohnehin aus der Liste.
+
+    ⚠ Der Vorspann kommt von der **neuesten** Fassung der Reihe; die Punkte
+    aller Fassungen stehen darunter, in derselben Reihenfolge wie bisher.
+    """
+    alle = protokoll()
+    # ⚠⚠ **Eine Testfassung verschwindet, sobald ihre fertige Version da ist.**
+    # Sonst stünden 91 rc-Blöcke im Verlauf und verdrängten alles andere. Am
+    # 05.09.2026: „Sobald es live ist, kommen die eh weg." Genau so — und
+    # solange es die fertige noch nicht gibt, ist jede einzelne sichtbar, denn
+    # dann testet gerade jemand und will wissen, was seine Fassung gebracht hat.
+    fertig_da = set(_teile(e['version']) for e in alle
+                    if not _vorab(e.get('version') or ''))
+    raus, nach_reihe = [], {}
+    for e in alle:
+        version = e.get('version') or ''
+        if _vorab(version):
+            if _teile(version) in fertig_da:
+                continue
+            raus.append(e)
+            continue
+        gross, klein, _patch = _teile(version)
+        reihe = (gross, klein)
+        vorhanden = nach_reihe.get(reihe)
+        if vorhanden is None:
+            gebuendelt = dict(e)
+            gebuendelt['version'] = 'v%d.%d' % (gross, klein)
+            nach_reihe[reihe] = gebuendelt
+            raus.append(gebuendelt)
+            continue
+        # Ältere Fassung derselben Reihe: nur ihre Punkte anhängen. Vorspann
+        # und Datum bleiben die der neuesten — `protokoll()` liefert absteigend.
+        vorhanden['text'] = (vorhanden.get('text') or '') + '\n\n' \
+            + (e.get('text') or '')
+    return raus
 
 
 # ------------------------------------------------------------------- Holen

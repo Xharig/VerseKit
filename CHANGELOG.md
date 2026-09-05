@@ -6,6 +6,77 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0 - 2026-09-05
+
+> **Läden zeigt jetzt alles, was jemand verkauft — nicht mehr nur, was du
+> bauen kannst.** 1.528 Teile statt 893: Raketen, Bomben, Munition,
+> Waffenaufsätze, dazu 174 Schiffe zum Kaufen und Mieten. An jeder Zeile
+> stehen Klasse, Größe, Güte und Hersteller, und du filterst danach — so
+> findest du den Quantenantrieb, der in dein Schiff passt, auch ohne die
+> 44 Namen zu kennen.
+>
+> Bei den Routen funktioniert endlich die Rundreise, und die besten Ketten
+> lassen sich über alle Handelsposten suchen. Dazu ein Dutzend Kleinigkeiten,
+> die im Alltag mehr ausmachen als sie klingen: Listen, die sich wieder
+> schließen, Menüs, die umbrechen statt abzuschneiden, und Daten, die nur noch
+> nach einem Patch neu geladen werden statt jede Woche.
+
+### Neu
+
+- **Läden zeigt alles Kaufbare, nicht nur Craftbares.** 1.528 Teile aus 38
+  Warengruppen — Raketen, Torpedorohre, Bomben, Waffenaufsätze, Munition. Der
+  Boomtube Rocket steht mit seinen 19 Läden in Pyro da, wo man ihn sucht.
+- **Schiffe zum Kaufen und Mieten.** 174 Schiffe mit Kaufpreis, Tagesmiete und
+  Laderaum, nach Hersteller gruppiert, günstigster Anbieter oben.
+- **Klasse, Größe und Güte je Teil.** Militär, Zivil, Industrie, Tarnung,
+  Rennsport, Medizin, Bergbau, Bergung — und Güte A bis D. Als Auswahlmenü und
+  an jeder Zeile, zusammen mit dem Hersteller.
+- **Die Suche findet auch Warengruppen.** „Radar", „Raketen", „Kühler" — du
+  musst nicht wissen, ob etwas unter Schiffskomponenten oder Schiffswaffen
+  liegt. Deutsche und englische Bezeichnung funktionieren beide.
+- **Beste Ketten im ganzen Verse.** Stationszahl, Rundreise und „kurze Strecke"
+  wirken auch nach dem Rundumlauf über alle Handelsposten.
+- **Hersteller-Auswahl beim Schiff (Routen).** 134 Schiffe mit Laderaum; wer
+  den Namen nicht kennt, klickt sich hin, und der Frachtraum kommt von selbst.
+- **Menge direkt im Verkauf eintragen.** Jede gewählte Ware hat ihr eigenes
+  SCU-Feld — kein Umweg mehr über das Handelslager, wenn du gerade etwas im
+  Laderaum hast.
+- **„Zurücksetzen" in Läden und Routen.** Ein Klick, und alle Auswahlmenüs,
+  Suchfelder und Eingaben stehen wieder auf Anfang.
+
+### Verbessert
+
+- **Die Liste ist nach Warengruppe gegliedert** — Kühler, Quantenantriebe,
+  Kraftwerke und Schildgeneratoren mit Überschrift und Anzahl, statt 176 Namen
+  am Stück. Eine gewählte Gruppe wird vollständig gezeigt.
+- **„Mein Lager" heißt jetzt „Rohstofflager"** — passend zum Handelslager.
+- **Läden und Schiffe laden nur nach einem Patch neu**, nicht mehr jede Woche.
+  Der Katalog wird beim Programmstart im Hintergrund geholt, damit niemand vor
+  einer leeren Liste wartet.
+- **Auswahlfelder öffnen sich beim Hineinklicken** und schließen wieder, wenn
+  du woanders hinklickst oder Escape drückst.
+- **Suchfeld und Auswahlmenüs bleiben beim Rollen stehen.**
+- **Ketten nennen Gewinn und Einsatz** — und was du am Anfang vorstrecken musst.
+- **Verständlichere Bereichsnamen**: Bordelektronik statt Avionik,
+  Schiffskomponenten statt Systeme, Zubehör statt Ausrüstung.
+- **Der Änderungsverlauf fasst Patch-Versionen zusammen** — v3.13.0 bis .3
+  stehen als eine Reihe „v3.13".
+
+### Behoben
+
+- **Rundreise fand nie eine Route.** Egal ob 2, 3 oder 4 Stationen: Es kam
+  immer „keine Route". Jetzt steht da, was du auf dem Rückweg kaufst.
+- **Auswahlmenüs werden nicht mehr abgeschnitten**, sondern brechen um.
+- **HTML-Zeichen in Namen** — aus „Grey&apos;s Market" ist wieder „Grey's
+  Market" geworden.
+- **Steuerung: „Auf Werkseinstellung zurücksetzen" wurde abgeschnitten** und
+  stand neben vier harmlosen Knöpfen. Jetzt allein in einer eigenen Zeile.
+- **Steuerung: Maus, Tastatur und Gamepad verschwanden**, wenn man das Fenster
+  kleiner zog.
+- **Routen: großer leerer Bereich über den Eingaben**, und die Ortsliste stand
+  ganz unten statt unter dem Suchfeld.
+- **Läden: Nach dem Klick auf ein Teil blieb der Bildschirm leer.**
+
 ## v3.15.0-rc13 - 2026-09-05
 
 > **Die Menge steht jetzt an der Ware selbst.** Jede gewählte Ware hat ihr

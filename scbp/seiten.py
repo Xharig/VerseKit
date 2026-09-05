@@ -2957,7 +2957,9 @@ def _wasistneu(fenster, rahmen):
 
     from . import aktualisierung
     try:
-        eintraege = aktualisierung.protokoll()
+        # ⚠ Gebündelt: v3.13.0 bis .3 stehen als **eine** Reihe „v3.13" da.
+        # Siehe `aktualisierung.protokoll_gebuendelt`.
+        eintraege = aktualisierung.protokoll_gebuendelt()
     except Exception as ausnahme:
         fehler.merken('seiten.wasistneu', ausnahme)
         eintraege = []
@@ -2974,7 +2976,10 @@ def _wasistneu(fenster, rahmen):
         for kind in behaelter.winfo_children():
             kind.destroy()
         gezeigt = 0
-        for nummer, e in enumerate(eintraege[:15]):
+        # ⚠ 25 statt 15, seit die Fassungen gebündelt sind: Eine laufende
+        # Testreihe kann ein Dutzend Einträge stellen, und die verdrängten die
+        # fertigen Versionen darunter aus der Liste.
+        for nummer, e in enumerate(eintraege[:25]):
             punkte = aktualisierung.punkte_nach_art(e.get('text') or '')
             if stand['art'] != 'alle':
                 punkte = [p for p in punkte if p[0] == stand['art']]

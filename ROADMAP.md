@@ -52,6 +52,9 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | Das Fenster **behält die Größe**, die du eingestellt hast |
 | ✅ | **Verkauf**: wo du deine Ware los wirst und was sie je SCU bringt — für mehrere Waren auf einmal, sortiert danach, wie viele ein Ort abnimmt, mit Ampel für Orte, die schon voll sind |
 | ✅ | **Läden**: wo ein fertiges Teil im Regal steht und was es dort kostet — die Gegenprobe zu „lohnt Selberbauen?" |
+| ✅ | **Alles Kaufbare, nicht nur Craftbares**: 1.528 Teile aus 38 Warengruppen, dazu 174 Schiffe zum Kaufen und Mieten |
+| ✅ | **Klasse, Größe, Güte und Hersteller** an jeder Zeile — und als Auswahlmenü, damit man das passende Teil auch ohne Namenskenntnis findet |
+| ✅ | **Rohstofflager** heißt, was es ist — passend zum Handelslager daneben |
 | ✅ | **Routen**: Handelsrouten mit Einkauf, Verkauf und echtem Gewinn — über mehrere Stationen, als Rundreise, oder die beste Route im ganzen Verse |
 | ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
 | ✅ | **Belegungen mitsichern**: Tastatur- und Joystick-Belegung gehen mit in die Sicherung und lassen sich als benanntes Profil dort ablegen, wo Star Citizen sie findet |

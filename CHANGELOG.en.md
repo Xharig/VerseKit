@@ -6,6 +6,70 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.15.0 - 2026-09-05
+
+> **Shops now lists everything somebody sells — not just what you can craft.**
+> 1,528 parts instead of 893: missiles, bombs, ammunition, weapon attachments,
+> plus 174 ships to buy or rent. Every row shows class, size, grade and
+> manufacturer, and you can filter by them — so you find the quantum drive that
+> fits your ship without knowing all 44 names.
+>
+> Round trips finally work in Routes, and the best chains can be searched across
+> every trade post. Plus a dozen small things that matter more day to day than
+> they sound: lists that close again, dropdowns that wrap instead of being cut
+> off, and data that only reloads after a patch instead of every week.
+
+### New
+
+- **Shops lists everything you can buy, not just what you can craft.** 1,528
+  parts across 38 item groups — missiles, torpedo tubes, bombs, attachments,
+  ammunition. The Boomtube Rocket shows up with its 19 shops in Pyro.
+- **Ships to buy and rent.** 174 ships with purchase price, daily rental and
+  cargo capacity, grouped by manufacturer, cheapest first.
+- **Class, size and grade per item.** Military, civilian, industrial, stealth,
+  competition, medical, mining, salvage — and grades A to D. As dropdowns and
+  on every row, alongside the manufacturer.
+- **The search finds item groups too.** "Radar", "missiles", "coolers" — no need
+  to know whether something sits under Systems or Ship weapons.
+- **Best chains anywhere in the verse.** Stop count, round trip and "short
+  distance" apply after the full sweep across every trade post.
+- **Manufacturer picker for ships (Routes).** 134 ships with cargo space; if you
+  do not know the name, click your way there and the capacity fills itself in.
+- **Enter the amount right in Selling.** Every picked commodity has its own SCU
+  field — no detour through the cargo hold.
+- **"Reset" in Shops and Routes.** One click and every dropdown, search field
+  and input is back to its starting state.
+
+### Improved
+
+- **The list is grouped by item group** — coolers, quantum drives, power plants
+  and shield generators with a heading and a count, instead of 176 names in a
+  row. A chosen group is shown in full.
+- **"My stock" is now "Material storage"** — matching the cargo hold.
+- **Shops and ships only reload after a patch**, not every week. The catalogue
+  is fetched in the background at startup so nobody waits on an empty list.
+- **Picker fields open when you click into them** and close again when you click
+  elsewhere or press Escape.
+- **Search field and dropdowns stay put while you scroll.**
+- **Chains show profit and outlay** — and what you need up front.
+- **Clearer section names** throughout.
+- **The change history groups patch versions** — v3.13.0 to .3 appear as one
+  entry "v3.13".
+
+### Fixed
+
+- **Round trips never found a route.** Whether 2, 3 or 4 stops, it always said
+  "no route". Now it tells you what to buy for the way back.
+- **Dropdowns are no longer cut off** — they wrap instead.
+- **HTML entities in names** — "Grey&apos;s Market" is back to "Grey's Market".
+- **Controls: "Reset to default" was cut off** and sat next to four harmless
+  buttons. It now has its own line.
+- **Controls: mouse, keyboard and gamepad disappeared** when the window was made
+  smaller.
+- **Routes: large empty area above the inputs**, and the location list appeared
+  at the bottom instead of under the search field.
+- **Shops: clicking a part left the screen blank.**
+
 ## v3.15.0-rc13 - 2026-09-05
 
 > **The amount now sits on the commodity itself.** Every picked commodity has
