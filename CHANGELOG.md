@@ -10,10 +10,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **Ein abgebrochener Auftrag verschwindet jetzt aus dem Overlay.** Brichst du
+  einen Auftrag ab, meldet das Spiel das ohne den Namen — nur mit einer
+  Kennung. Genau diese Meldung hat der Watcher übersehen, und der Auftrag stand
+  weiter als laufend da, obwohl das Auftrags-Protokoll ihn längst als
+  abgebrochen führte.
+- **Gescheiterte Aufträge galten als abgeschlossen.** Star Citizen
+  unterscheidet zwischen aufgegeben, gescheitert und geschafft — der Watcher
+  kannte nur „aufgegeben" und zählte alles andere als Erfolg. In einem
+  gewachsenen Protokoll waren das **52** Aufträge, die grün dastanden, obwohl
+  sie fehlgeschlagen sind.
 - **Der Export für scmdb.net passt wieder.** scmdb hat sein Dateiformat
   gewechselt — der Watcher schrieb noch das alte, und beim Hochladen kam der
   Bestand dort nicht mehr an. Jede Zeile trägt jetzt die Kennung, mit der
   scmdb seine Baupläne führt. Aufgefallen an der Exportdatei von Zwaersch (KRT).
+
+### Verbessert
+
+- **Der Ausgang eines Auftrags ist an der Farbe zu sehen.** Grün für
+  geschafft, blasses Rot für abgebrochen und fehlgeschlagen, Grau für „nicht
+  mehr offen". Vorher standen abgebrochen und nicht mehr offen beide in Grau
+  und waren nicht auseinanderzuhalten.
 
 ## v3.17.3 - 2026-09-05
 

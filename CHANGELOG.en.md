@@ -10,10 +10,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **An abandoned contract now disappears from the overlay.** When you abandon a
+  contract, the game reports it without the name — only with an identifier.
+  That was exactly the message the watcher ignored, so the contract stayed
+  listed as running even though the contract log already had it as abandoned.
+- **Failed contracts counted as completed.** Star Citizen tells apart
+  abandoned, failed and completed — the watcher only knew "abandoned" and
+  counted everything else as a success. In a grown log that was **52**
+  contracts shown in green although they had failed.
 - **The scmdb.net export works again.** scmdb changed its file format — the
   watcher was still writing the old one, so uploads no longer reached your
   collection there. Every entry now carries the identifier scmdb uses for its
   blueprints. Spotted in an export file from Zwaersch (KRT).
+
+### Improved
+
+- **How a contract ended is now visible at a glance.** Green for completed,
+  pale red for abandoned and failed, grey for "no longer open". Before,
+  abandoned and no longer open were both grey and impossible to tell apart.
 
 ## v3.17.3 - 2026-09-05
 
