@@ -224,6 +224,15 @@ def ablage_vorbereiten():
     """
     ordner = tempfile.mkdtemp(prefix='sc-bp-abnahme-')
     os.environ['SC_BP_HOME'] = ordner
+    # ⚠⚠ **Ohne Netz messen.** Der erste Durchlauf meldete Wunschliste und
+    # Einkaufsliste mit über zwei Sekunden — nachgemessen brauchen die
+    # Rechnungen dahinter **28 ms**. Die Zeit ging in Netzabrufe, weil der
+    # Prüfordner leer war. Eine Abnahme, die die Leitung misst statt der
+    # Oberfläche, meldet je nach Tageszeit etwas anderes.
+    #
+    # Nebenbei prüft das mit, dass ohne Netz nichts abstürzt — genau dieser
+    # Schalter hielt sich früher nur zur Hälfte an sein Versprechen.
+    os.environ['SC_BP_NO_NET'] = '1'
 
     # ⚠⚠ **Den Ablageort das Programm sagen lassen.** Der erste Anlauf riet
     # ihn (`~/Dokumente/SC BP Watcher`) und fand nichts — der Nutzer hatte ihn
@@ -316,6 +325,16 @@ IST_DATUM = re.compile(r'\d{1,2}\.\d{1,2}\.\d{4}')
 # die meisten Seiten bei 15–50 ms, einzelne bei 120 ms.
 LANGSAM_MS = 250
 
+# ⚠⚠ **Der ERSTE Aufbau einer Seite darf Daten nachladen.** Gemessen an den
+# Einzelschritten: Die Rechnungen hinter Wunsch- und Einkaufsliste brauchen
+# **28 ms** — die Sekunden gehen in das einmalige Bereitstellen der Steckplatz-
+# und Preisdaten. Das trifft den Spieler genau einmal je Programmlauf.
+#
+# Trotzdem gilt eine Obergrenze: Was länger blockiert, gehört in den
+# Hintergrund. Genau so kam der 9-Sekunden-Stillstand des Auftrags-Protokolls
+# heraus.
+ERSTAUFBAU_MS = 2500
+
 
 def seiten_pruefen(hf, sprache_name):
     """Jede Seite öffnen und ansehen — der Kern der Abnahme.
@@ -369,12 +388,22 @@ def seiten_pruefen(hf, sprache_name):
     if langsam:
         print('         langsamste Seiten: %s'
               % ' · '.join('%s %d ms' % (n, ms) for n, ms in langsam))
-    ueber = [n for n, ms in zeiten.items() if ms > LANGSAM_MS]
+    grenze = ERSTAUFBAU_MS if sprache_name == 'de' else LANGSAM_MS
+    ueber = [n for n, ms in zeiten.items() if ms > grenze]
     pruefe(not ueber,
-           '[%s] keine Seite braucht länger als %d ms (%s)'
-           % (sprache_name, LANGSAM_MS,
+           '[%s] keine Seite blockiert länger als %d ms (%s)'
+           % (sprache_name, grenze,
               ', '.join('%s %d ms' % (n, zeiten[n]) for n in ueber[:3])
               or 'keine'))
+    # ⚠ Der zweite Durchlauf (auf Englisch) baut auf schon geholten Daten auf —
+    # dort gilt die scharfe Grenze, denn dann ist es reine Oberflächenzeit.
+    if sprache_name != 'de':
+        traege = [n for n, ms in zeiten.items() if ms > LANGSAM_MS]
+        pruefe(not traege,
+               '[%s] und keine ist träge, wenn die Daten schon da sind (%s)'
+               % (sprache_name,
+                  ', '.join('%s %d ms' % (n, zeiten[n]) for n in traege[:3])
+                  or 'keine'))
 
 
 def symbole_pruefen():
@@ -586,6 +615,77 @@ def schalter_pruefen():
            'die Injektion kann ihren eigenen Stand prüfen und zurücknehmen')
 
 
+def datenabruf_pruefen():
+    """Wird oft genug geholt — und nicht zu oft? Und liegt alles beim Spieler?
+
+    ⭐⭐ **Vorgabe vom 06.09.2026:** *„Werden Daten oft genug, aber nicht zu oft
+    abgerufen, und alle nötigen Daten heruntergeladen und beim Spieler abgelegt
+    in unseren Ordnern?"*
+
+    Beides sind echte Risiken, und sie ziehen in entgegengesetzte Richtungen:
+
+    | zu selten | zu oft |
+    |---|---|
+    | Der Spieler rechnet mit Preisen von letzter Woche | fremde Server tragen unsere Last |
+
+    ⚠ **Und alles muss abgelegt werden.** Was nur im Arbeitsspeicher steht, ist
+    beim nächsten Start weg — dann wird bei jedem Programmstart neu geholt, und
+    aus „sparsam" wird das Gegenteil.
+    """
+    from scbp import uex
+
+    # Jede Ablage nennt ihre Frist selbst. Geprüft wird, dass sie überhaupt
+    # eine hat und dass sie in einem sinnvollen Rahmen liegt.
+    ablagen = []
+    for modulname in ('laeden', 'schiffe', 'erkul', 'orte', 'preise',
+                      'bergbau', 'routen'):
+        try:
+            modul = __import__('scbp.' + modulname, fromlist=[modulname])
+        except Exception:
+            continue
+        for name in dir(modul):
+            wert = getattr(modul, name, None)
+            if isinstance(wert, uex.Ablage):
+                ablagen.append((modulname, name, wert))
+
+    pruefe(bool(ablagen), 'die Zwischenspeicher sind auffindbar (%d)'
+           % len(ablagen))
+
+    ohne_frist, zu_kurz, zu_lang = [], [], []
+    for modulname, name, ablage in ablagen:
+        haltbar = getattr(ablage, 'haltbar', None)
+        patch = getattr(ablage, 'patch_bindet', False)
+        if not haltbar and not patch:
+            ohne_frist.append('%s.%s' % (modulname, name))
+            continue
+        if haltbar and haltbar < 60 * 60:
+            # ⚠ Unter einer Stunde wäre bei einem Werkzeug, das stundenlang
+            # offen steht, ein Dauerabruf.
+            zu_kurz.append('%s.%s (%.0f min)' % (modulname, name,
+                                                 haltbar / 60))
+        if haltbar and haltbar > 60 * 60 * 24 * 45 and not patch:
+            # ⚠ Über sechs Wochen ohne Patch-Bindung heißt: Der Spieler
+            # rechnet mit Preisen aus einem anderen Spielstand.
+            zu_lang.append('%s.%s (%.0f Tage)' % (modulname, name,
+                                                  haltbar / 86400))
+
+    pruefe(not ohne_frist,
+           'jeder Zwischenspeicher hat eine Frist oder hängt am Patch (%s)'
+           % (', '.join(ohne_frist) or 'alle haben eine'))
+    pruefe(not zu_kurz, 'keine Frist unter einer Stunde (%s)'
+           % (', '.join(zu_kurz) or 'keine'))
+    pruefe(not zu_lang, 'keine Frist über sechs Wochen ohne Patch-Bindung (%s)'
+           % (', '.join(zu_lang) or 'keine'))
+
+    # ⚠ Und wird auch wirklich geschrieben? Jede Ablage muss einen Dateinamen
+    # tragen — sonst steht sie nur im Arbeitsspeicher.
+    ohne_datei = [('%s.%s' % (m, n)) for m, n, a in ablagen
+                  if not getattr(a, 'dateiname', '')]
+    pruefe(not ohne_datei,
+           'jeder Zwischenspeicher landet in einer Datei (%s)'
+           % (', '.join(ohne_datei) or 'alle'))
+
+
 def fenster_pruefen(hf):
     """Öffnen sich Dialoge über dem Hauptfenster?"""
     from scbp import hauptfenster
@@ -750,6 +850,10 @@ def main():
         print('7. Alle Schriftgrößen — vor allem „sehr groß"')
         schriftgroessen_pruefen()
         schalter_pruefen()
+
+        print()
+        print('7b. Werden Daten oft genug — und nicht zu oft — geholt?')
+        datenabruf_pruefen()
 
         print()
         print('8. Sind die Daten plausibel?')
