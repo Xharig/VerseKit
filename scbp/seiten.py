@@ -11540,6 +11540,22 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             beim_waehlen(name)
         else:
             var.set(name)
+        # ⚠⚠ **Der Rückruf kann dieses Feld zerstört haben.** Bei der
+        # Teileauswahl im Warenkorb zeichnet `beim_waehlen` die ganze
+        # Steckplatz-Liste neu — und die Auswahlliste hängt darin. Danach
+        # arbeitete `zeichnen()` auf einem Widget weiter, das es nicht mehr
+        # gibt: `TclError: bad window path name`, acht Stück in einem
+        # Fehlerbericht vom 06.09.2026.
+        #
+        # ⚠ Und **warum das erst jetzt auffiel**: Solange der Klick gar nichts
+        # bewirkte (der Name kam nie an, siehe `uebernehmen`), wurde auch
+        # nichts neu gezeichnet. Ein behobener Fehler hat den zweiten
+        # freigelegt — nicht verursacht.
+        try:
+            if not liste.winfo_exists():
+                return
+        except tk.TclError:
+            return
         zeichnen()
 
     def umschalten(_=None):
