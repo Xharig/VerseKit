@@ -4590,7 +4590,8 @@ def _danke(fenster, rahmen):
             ('Morkhan', 'KRT', t('s_dk_morkhan_idee'),
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
-            ('Bushwick4712', 'KRT', t('s_dk_bushwick_idee'),
+            ('Bushwick4712', 'KRT',
+             t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2'),
              t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', '', t('s_dk_zwaersch_bugs'))):

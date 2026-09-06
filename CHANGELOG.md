@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.18.1 - 2026-09-06
+
+> **Die Rufpunkte springen dir jetzt ins Auge.** Sie standen schon länger in
+> den Auftragstexten — nur in derselben Farbe wie alles andere, und damit
+> übersah man sie. Jetzt sind sie blau wie die übrigen Angaben. Und wo das
+> Spiel keine Rufwerte kennt, steht das auch da, statt dass die Zeile einfach
+> fehlt.
+
+### Verbessert
+
+- **Auch die Rufpunkte im Bauplan-Block sind blau.** Abklingzeit und
+  Teilbarkeit waren es schon, die beiden Reputationszeilen darüber nicht —
+  in einem echten Spielstand waren das rund tausend Zeilen, die zwischen den
+  hervorgehobenen untergingen. Gemeldet von Bushwick4712 (KRT).
+- **„Keine Angaben" statt einer fehlenden Zeile.** Für 109 Aufträge führt die
+  Datenquelle keine Rufwerte. Bisher fehlte die Zeile dort ganz, und das sah
+  aus wie ein Aussetzer des Werkzeugs. Jetzt steht da, dass es nichts zu
+  holen gibt — nachgesehen wurde trotzdem.
+
 ## v3.18.0 - 2026-09-06
 
 > **Dein Auftrags-Protokoll sagt endlich die Wahrheit.** Bisher galt jeder

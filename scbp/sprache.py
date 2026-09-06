@@ -1551,6 +1551,12 @@ TEXTE = {
                               'refreshing the first time you opened it. And the '
                               'idea of a field for your message in the error '
                               'report.'),
+    's_dk_bushwick_idee2':   ('**Rufpunkte und Abklingzeit in den Auftragstexten** '
+                              '— zweimal hartnäckig nachgehakt, bis sie nicht nur '
+                              'dastanden, sondern auch ins Auge sprangen.',
+                              '**Reputation and cooldown in the contract texts** — '
+                              'asked twice, persistently, until they were not just '
+                              'there but actually noticeable.'),
     's_dk_zwaersch_bugs':    ('Dass Ein- **und** Ausfuhr das neuere Format von '
                               'scmdb.net nicht kannten, und dass ein '
                               'Kanalwechsel die ganze Vorgeschichte kostete — '

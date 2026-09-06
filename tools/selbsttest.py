@@ -12201,6 +12201,55 @@ def main():
            'Gegenprobe: der Ausgangsblock ist schwarz')
 
     print()
+    print('137. Ohne Rufwerte steht „Keine Angaben" statt gar nichts')
+    # ⚠⚠ Am 06.09.2026 gemessen: 109 Auftraege bekamen ueberhaupt keine
+    # Ruf-Zeile, weil die Quelle fuer sie keine Rufwerte fuehrt. Im Spiel
+    # standen dort nur Abklingzeit und Teilbarkeit — und die Luecke sah aus
+    # wie ein Aussetzer des Werkzeugs statt wie fehlende Daten.
+    _worte137 = _in136.TEXTE['de']
+
+    # Ein Auftrag, dessen Quelle keine Rufangabe hat.
+    _leer137 = {'titleLocKey': 'probe_ohne_ruf',
+                'contractInfo': '# Cooldown für Mission: 1 Minute\\n'
+                                '# Mission kann geteilt werden? Ja'}
+    _z137 = _in136._angabenzeilen(_leer137, '', _worte137, None)
+    _ruf137 = [z for z in _z137
+               if any(w in z.lower() for w in _in136.RUF_WORTE)]
+    pruefe(len(_ruf137) == 1,
+           'genau eine Ruf-Zeile kommt dazu (gefunden: %d)' % len(_ruf137))
+    pruefe(_ruf137 and 'Keine Angaben' in _ruf137[0],
+           'sie sagt „Keine Angaben"')
+    pruefe(_ruf137 and _ruf137[0].startswith(_in136.FARBE_AUF),
+           'auch der Platzhalter ist blau')
+    # ⚠ Er steht OBEN, bei den anderen Angaben — nicht unten angehaengt.
+    pruefe(_z137 and _z137[0] is _ruf137[0] if _ruf137 else False,
+           'der Platzhalter steht bei den uebrigen Angaben')
+
+    # ⚠⚠ Kein Platzhalter, wo schon eine Rufangabe steht — weder eine eigene…
+    _hat137 = {'titleLocKey': 'probe_mit_ruf',
+               'contractInfo': '# Zu erwartende Rufpunkte: 150 XP\\n'
+                               '# Cooldown für Mission: 1 Minute'}
+    _z137b = _in136._angabenzeilen(_hat137, '', _worte137, None)
+    _ruf137b = [z for z in _z137b
+                if any(w in z.lower() for w in _in136.RUF_WORTE)]
+    pruefe(len(_ruf137b) == 1 and 'Keine Angaben' not in _ruf137b[0],
+           'wo Rufwerte da sind, kommt kein Platzhalter dazu')
+
+    # …noch eine, die schon im Text des Spiels steht (anderes Werkzeug).
+    _z137c = _in136._angabenzeilen(
+        _leer137, '# Min. Reputation: Auftragnehmer Junior', _worte137, None)
+    _ruf137c = [z for z in _z137c
+                if any(w in z.lower() for w in _in136.RUF_WORTE)]
+    pruefe(not _ruf137c,
+           'steht schon eine Rufangabe im Text, kommt keine zweite')
+
+    # ⚠ Gegenprobe: Ohne die Ergaenzung waere die Liste ruflos — sonst
+    # prueft die erste Zeile nichts.
+    pruefe(not [z for z in (_leer137['contractInfo'] or '').split('\\n')
+                if any(w in z.lower() for w in _in136.RUF_WORTE)],
+           'Gegenprobe: die Quelle selbst nennt keinen Ruf')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

@@ -235,6 +235,11 @@ TEXTE = {
         # („Citizens For Prosperity +100 Standing"), und sie steht in einer
         # Spalte, die das Spiel nicht umbricht.
         'ruf_bei':   'Ruf',
+        # ⚠ Wortgleich mit dem, was die Quelle selbst schreibt („# Zu
+        # erwartende Rufpunkte: 150 XP") — sonst stuenden im Spiel zwei
+        # verschiedene Bezeichnungen fuer dieselbe Angabe.
+        'ruf_erwartet': 'Zu erwartende Rufpunkte',
+        'keine_angabe': 'Keine Angaben',
         'cooldown':  'Wartezeit',
         'minuten':   'Minuten',
         'teilbar':   'Mission teilbar',
@@ -255,6 +260,8 @@ TEXTE = {
         'lohn':      'Payout',
         'ruf':       'Reputation gain',
         'ruf_bei':   'Reputation',
+        'ruf_erwartet': 'Expected reputation',
+        'keine_angabe': 'No data',
         'cooldown':  'Cooldown',
         'minuten':   'minutes',
         'teilbar':   'Shareable',
@@ -878,6 +885,27 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
                 raus.append(_blau(zeile))
         except Exception as ausnahme:
             fehler.merken('injektion.ruf_zeile', ausnahme)
+
+    # ⚠⚠ **Lieber „keine Angaben" als gar nichts (06.09.2026).** 109 Auftraege
+    # bekamen ueberhaupt keine Ruf-Zeile — die Quelle fuehrt fuer sie keine
+    # Rufwerte (CleanAir-Kurierfahrten und aehnliche). Im Spiel stand dort
+    # dann nur Abklingzeit und Teilbarkeit, und die Luecke sah aus wie ein
+    # Aussetzer des Werkzeugs. Genau diese Frage kam auf: „da ist keine
+    # Reputation in den Questtexten."
+    #
+    # Eine fehlende Zeile und eine leere Angabe sehen gleich aus, meinen aber
+    # Verschiedenes. Steht sie da, weiss der Spieler: nachgesehen wurde, es
+    # gibt schlicht nichts. Dieselbe Zurueckhaltung wie beim Zustand
+    # `VERFALLEN` — feststellen, nicht behaupten.
+    #
+    # ⚠ Nur wenn WIRKLICH keine steht — weder eine eigene noch eine, die
+    # schon im Text ist. Sonst stuenden zwei Ruf-Zeilen untereinander, eine
+    # davon leer.
+    _hat_ruf = any(any(w in z.lower() for w in RUF_WORTE) for z in raus)
+    if not _hat_ruf and not any(w in ohne_farbe.lower() for w in RUF_WORTE):
+        raus.insert(0, _blau('# %s: %s' % (
+            (worte or {}).get('ruf_erwartet') or 'Zu erwartende Rufpunkte',
+            (worte or {}).get('keine_angabe') or 'Keine Angaben')))
     return raus
 
 

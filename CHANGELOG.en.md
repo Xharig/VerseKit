@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.18.1 - 2026-09-06
+
+> **Reputation now catches your eye.** It had been in the contract texts for a
+> while — just in the same colour as everything else, which is why people kept
+> missing it. Now it is blue like the other details. And where the game has no
+> reputation values, it says so instead of leaving the line out.
+
+### Improved
+
+- **Reputation inside the blueprint block is highlighted too.** Cooldown and
+  shareability already were, the two reputation lines above them were not — in
+  a real installation that came to roughly a thousand lines lost among the
+  highlighted ones. Reported by Bushwick4712 (KRT).
+- **"No data" instead of a missing line.** For 109 contracts the data source
+  has no reputation values. Until now the line was simply absent, which looked
+  like the tool skipping them. Now it says there is nothing to find — it did
+  look.
+
 ## v3.18.0 - 2026-09-06
 
 > **Your contract log finally tells the truth.** Until now every contract you
