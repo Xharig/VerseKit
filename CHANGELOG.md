@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.20.0 - 2026-09-06
+
+> **Dein Datenordner kann nicht mehr lautlos verlorengehen.** Er hing bisher an
+> einer einzigen unscheinbaren Datei unter Dokumente. Wer die beim Aufräumen
+> mit wegwarf, bekam beim nächsten Start einen leeren Bestand — ohne jeden
+> Hinweis, dass die Daten noch da sind.
+
+### Neu
+
+- **Der Ordner wird an zwei Stellen gemerkt.** Die zweite liegt dort, wo
+  niemand mit dem Dateimanager aufräumt. Fehlt eine, wird sie aus der anderen
+  wiederhergestellt — beide heilen einander.
+- **Weniger Baupläne als je zuvor? Dann steht das jetzt da**, ganz oben bei
+  „Bauplan-Fortschritt", samt dem Ordner, in dem sie zuletzt lagen, und dem,
+  der gerade gelesen wird. Baupläne verschwinden nicht von selbst — wenn die
+  Zahl fällt, stimmt etwas mit dem Ort nicht, und man soll es sofort sehen.
+  Ein bewusstes Zurücksetzen löst die Meldung nicht aus.
+
+### Behoben
+
+- **Ein Stick mit zwei Namen ergab zwei Reiter.** Nach dem Wechsel von Windows
+  zu Linux nennt das Spiel dieselben Geräte anders (`L-VPC Stick` statt
+  `LEFT VPC Stick`) — beide standen mit derselben Kennung nebeneinander, mit
+  verschiedenen Werten darin. Wer etwas einstellte, traf womöglich den toten
+  Eintrag. Jetzt zählt der Name, den das Spiel gerade führt; der andere landet
+  bei den wirkungslosen Alteinträgen.
+
 ## v3.19.3 - 2026-09-06
 
 > **Der Watcher las unter Linux die falsche Belegungsdatei.** Er zeigte

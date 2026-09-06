@@ -263,9 +263,81 @@ def geraete_achsen(datei=None, ordner=None):
             'mehrfach': sorted(mehrfach),
             'roh': block,
         })
+    _nur_der_gefuehrte_bleibt(heraus, weg)
     _widersprueche_ueber_bloecke(heraus)
     _leichen_einordnen(heraus)
     return heraus
+
+
+def _gefuehrte_namen(weg):
+    """{Kennung: Name}, wie das Spiel die Geraete **gerade** nennt.
+
+    Gelesen aus den `<options type="joystick" Product="…">`-Koepfen — dort
+    steht der Name, den das Spiel beim letzten Schreiben benutzt hat.
+    """
+    raus = {}
+    try:
+        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except Exception:
+        return raus
+    for kopf in re.finditer(r'<options\b[^>]*>', text):
+        roh = kopf.group(0)
+        if 'type="joystick"' not in roh:
+            continue
+        name = re.search(r'Product="([^"]*)"', roh)
+        if not name:
+            continue
+        kennung = _kennung_aus(name.group(1))
+        if kennung:
+            raus[kennung] = _name_ohne_kennung(name.group(1))
+    return raus
+
+
+def _nur_der_gefuehrte_bleibt(bloecke, weg):
+    """Bei mehreren Bloecken einer Kennung ist nur **einer** aktiv.
+
+    ⚠⚠⚠ **Sonst steht dasselbe Geraet zweimal in der Leiste.** Am 06.09.2026
+    zeigte die Seite fuenf Reiter fuer drei Sticks:
+
+        L-VPC Stick WarBRD-D      <- so nennt das Linux-Spiel ihn
+        LEFT VPC Stick WarBRD-D   <- so hiess er unter Windows
+        R-VPC Stick WarBRD-D
+        RIGHT VPC Stick WarBRD-D
+        VPC Rudder Pedals
+
+    Beide Namen tragen **dieselbe Kennung** — es ist ein Stick, mit einem
+    alten und einem neuen Namen. `aktiv` haengt aber nur an der Kennung, und
+    die stimmt bei beiden. Also galten beide als lebendig, mit
+    verschiedenen Werten darin. Der Spieler stellte etwas ein und traf dabei
+    womoeglich den toten Eintrag: *„kuemmer dich mal um die falschen Sticks,
+    die nerven."*
+
+    **Es gewinnt der Name, den das Spiel gerade fuehrt.** Steht kein
+    gefuehrter Name zur Verfuegung (aeltere Datei, fremder Aufbau), bleibt
+    alles wie es war — lieber einen Reiter zuviel als den richtigen
+    weggeraeumt.
+    """
+    gefuehrt = _gefuehrte_namen(weg)
+    if not gefuehrt:
+        return
+    je_kennung = {}
+    for block in bloecke:
+        if block['kennung']:
+            je_kennung.setdefault(block['kennung'], []).append(block)
+    for kennung, gruppe in je_kennung.items():
+        if len(gruppe) < 2:
+            continue
+        name = gefuehrt.get(kennung)
+        if not name:
+            continue
+        # ⚠ Nur eingreifen, wenn der gefuehrte Name wirklich dabei ist. Passt
+        # keiner, weiss niemand, welcher gilt — dann lieber nichts tun.
+        treffer = [b for b in gruppe if b['name'] == name]
+        if not treffer:
+            continue
+        for block in gruppe:
+            block['aktiv'] = block is treffer[0]
 
 
 def _widersprueche_ueber_bloecke(bloecke):

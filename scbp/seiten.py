@@ -965,6 +965,44 @@ def _fortschritt(fenster, rahmen):
         fehler.merken('seiten.fortschritt', ausnahme)
         return
 
+    # ⚠⚠⚠ **Sind es weniger Baupläne als je zuvor?** Dann steht das hier —
+    # oben, wo die Zahl steht, über die man stolpert. Am 06.09.2026 zeigte
+    # der Watcher nach einem Neustart 406 statt 413, weil die Zeiger-Datei
+    # auf den Datenordner beim Aufräumen im Dateimanager mit weggeworfen
+    # worden war. Er nahm still den Standardordner. Zurück blieb eine
+    # kleinere Zahl und die Frage „wieso ändert sich immer wieder der
+    # Ordner, die ganze Zeit hat es doch geklappt?"
+    #
+    # ⚠ `schwund_stand()` und nicht `schwund_pruefen()`: Letzteres würde beim
+    # Hinsehen den kleineren Stand als neuen Höchstwert festschreiben, und die
+    # Meldung wäre nach einmal Ansehen für immer weg.
+    schwund = bestand_datei.schwund_stand()
+    if schwund:
+        jetzt_da, hoechst, frueher = schwund
+        kasten = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
+                          highlightbackground=GOLD)
+        kasten.pack(fill='x', pady=(0, 10))
+        tk.Label(kasten, text=t('s_schwund_titel'), bg=FLAECHE, fg=GOLD,
+                 font=fenster.f_fett).pack(anchor='w', padx=12, pady=(10, 2))
+        tk.Label(kasten, text=t('s_schwund_text') % (jetzt_da, hoechst),
+                 bg=FLAECHE, fg=FG, font=fenster.f_klein, justify='left',
+                 wraplength=720).pack(anchor='w', padx=12)
+        # ⚠ Beide Pfade im Klartext — die Frage ist ja gerade „welcher Ordner
+        # denn nun". Ohne sie ist die Meldung eine Feststellung ohne Ausweg.
+        for beschriftung, ort in ((t('s_schwund_wo'), frueher),
+                                  (t('s_schwund_jetzt'), pfade.app_ordner())):
+            if not ort:
+                continue
+            tk.Label(kasten, text=beschriftung, bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein).pack(anchor='w', padx=12,
+                                                pady=(6, 0))
+            tk.Label(kasten, text=ort, bg=FLAECHE, fg=ACCENT,
+                     font=fenster.f_klein, justify='left',
+                     wraplength=720).pack(anchor='w', padx=24)
+        tk.Label(kasten, text=t('s_schwund_tipp'), bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, justify='left',
+                 wraplength=720).pack(anchor='w', padx=12, pady=(8, 10))
+
     bp = katalog.get('bauplaene') or {}
     habe = set(bestand.get('bauplaene') or {})
     # Je Bereich: Liste von (Kategorie, gesamt, meine)

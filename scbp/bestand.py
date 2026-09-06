@@ -157,6 +157,100 @@ def laden():
     return daten
 
 
+def _hochwasser_datei():
+    """Wo die groesste je gesehene Bauplan-Zahl steht — NEBEN der Ablage.
+
+    ⚠ Bewusst nicht IM Datenordner: Genau der ist ja weg, wenn es darauf
+    ankommt. Die Marke liegt im Konfigurationsordner, dort, wo auch der
+    Zweitzeiger sitzt.
+    """
+    return os.path.join(os.path.dirname(pfade._zweitzeiger()), 'hochwasser.json')
+
+
+def schwund_pruefen(daten):
+    """Sind ploetzlich Bauplaene weniger als je zuvor? Dann melden.
+
+    ⚠⚠⚠ **Der Fall, aus dem das entstand.** Am 06.09.2026 zeigte der Watcher
+    nach einem Neustart 406 statt 413 Bauplaenen. Verloren war nichts — er
+    schaute nur in einen anderen Ordner, weil die Zeiger-Datei beim Aufraeumen
+    im Dateimanager mit weggeworfen worden war. Er nahm den leeren Standardort,
+    legte dort einen Bestand an und sagte **kein Wort** dazu.
+
+    Zurueck blieb eine Zahl, die kleiner war als gestern, und keine Erklaerung:
+    *„wieso aendert sich immer wieder der Ordner, die ganze Zeit hat es doch
+    geklappt?"*
+
+    ⚠ Geprueft wird gegen den **Hoechststand**, nicht gegen den letzten Lauf.
+    Ein Bestand wird nie kleiner: Bauplaene verschwinden nicht von selbst. Wird
+    er es doch, stimmt etwas mit dem ORT nicht — und genau das soll dastehen,
+    solange der Spieler es noch mit dem Neustart in Verbindung bringt.
+
+    ⚠ Ein bewusstes Zuruecksetzen ist kein Schwund: `zuruecksetzen()` setzt die
+    Marke mit zurueck, sonst meldete das Programm hinterher ewig einen Verlust,
+    den der Spieler selbst gewollt hat.
+
+    Zurueck kommt `None`, wenn alles stimmt — sonst `(jetzt, hoechststand,
+    ordner)` fuer die Meldung.
+    """
+    jetzt = len(daten.get('bauplaene') or {})
+    weg = _hochwasser_datei()
+    hoechst, ordner = 0, None
+    try:
+        if os.path.isfile(weg):
+            gemerkt = json.load(open(weg, encoding='utf-8'))
+            hoechst = int(gemerkt.get('bauplaene') or 0)
+            ordner = gemerkt.get('ordner')
+    except Exception:
+        hoechst, ordner = 0, None
+
+    if jetzt >= hoechst:
+        # Neuer Hoechststand — merken, samt Ordner, damit die Meldung spaeter
+        # sagen kann, WO die Bauplaene zuletzt lagen.
+        try:
+            os.makedirs(os.path.dirname(weg), exist_ok=True)
+            temp = weg + '.tmp'
+            with open(temp, 'w', encoding='utf-8') as f:
+                json.dump({'bauplaene': jetzt, 'ordner': pfade.app_ordner(),
+                           'stand': _jetzt()}, f, ensure_ascii=False,
+                          indent=2)
+            os.replace(temp, weg)
+        except Exception:
+            pass
+        return None
+
+    return (jetzt, hoechst, ordner)
+
+
+def schwund_stand():
+    """Dasselbe wie `schwund_pruefen`, aber **ohne** die Marke zu veraendern.
+
+    ⚠ Fuer die Oberflaeche. Wuerde eine Seite `schwund_pruefen` aufrufen, wuerde
+    sie beim ersten Blick den aktuellen (kleineren) Stand als neuen Hoechstwert
+    festschreiben — und die Meldung waere nach einmal Hinsehen fuer immer weg.
+    """
+    try:
+        daten = laden()
+        jetzt = len(daten.get('bauplaene') or {})
+        weg = _hochwasser_datei()
+        if not os.path.isfile(weg):
+            return None
+        gemerkt = json.load(open(weg, encoding='utf-8'))
+        hoechst = int(gemerkt.get('bauplaene') or 0)
+        if jetzt >= hoechst:
+            return None
+        return (jetzt, hoechst, gemerkt.get('ordner'))
+    except Exception:
+        return None
+
+
+def hochwasser_zuruecksetzen():
+    """Die Marke loeschen — nach einem gewollten Zuruecksetzen."""
+    try:
+        os.remove(_hochwasser_datei())
+    except OSError:
+        pass
+
+
 def zuruecksetzen():
     """Den Bauplan-Bestand von der Platte nehmen.
 
@@ -178,6 +272,11 @@ def zuruecksetzen():
     ⚠ Hier und nicht in der Oberfläche, damit es sich prüfen lässt — ohne
     Fenster, auf jedem System.
     """
+    # ⚠⚠ **Die Hochwasser-Marke muss mit.** Sonst meldet `schwund_pruefen`
+    # nach einem gewollten Zuruecksetzen bei jedem Start einen Verlust, den
+    # der Spieler selbst ausgeloest hat — und eine Warnung, die immer kommt,
+    # liest nach dem dritten Mal niemand mehr.
+    hochwasser_zuruecksetzen()
     try:
         os.remove(pfad())
     except FileNotFoundError:

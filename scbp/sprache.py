@@ -882,6 +882,35 @@ TEXTE = {
     # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
     # Wer aus einer Windows-Installation herüberzieht, hat danach beide und
     # merkt nichts davon. Deshalb steht es jetzt auf der Seite.
+    # ⚠⚠⚠ **Die Meldung, die am 06.09.2026 gefehlt hat.** Der Watcher zeigte
+    # nach einem Neustart 406 statt 413 Bauplaenen, weil die Zeiger-Datei auf
+    # den Datenordner beim Aufraeumen im Dateimanager mit weggeworfen worden
+    # war. Er nahm still den leeren Standardordner. Zurueck blieb eine
+    # kleinere Zahl ohne jede Erklaerung.
+    #
+    # ⚠ Kein Alarmton, keine rote Wand: Es ist meistens KEIN Verlust, sondern
+    # der falsche Ordner — und genau das soll dastehen, samt dem Ort, an dem
+    # die Bauplaene zuletzt lagen. Wer das liest, weiss sofort, was zu tun
+    # ist.
+    's_schwund_titel':  ('Weniger Baupläne als sonst',
+                          'Fewer blueprints than before'),
+    's_schwund_text':   ('Gerade sind es %d Baupläne, vorher waren es schon '
+                         'einmal %d. Baupläne verschwinden nicht von selbst — '
+                         'wahrscheinlich wird gerade ein anderer Ordner '
+                         'gelesen.',
+                          'Right now there are %d blueprints, and there were '
+                          'already %d before. Blueprints do not disappear on '
+                          'their own — most likely a different folder is '
+                          'being read.'),
+    's_schwund_wo':     ('Zuletzt lagen sie hier:',
+                          'They were last stored here:'),
+    's_schwund_jetzt':  ('Gelesen wird gerade:',
+                          'Currently being read:'),
+    's_schwund_tipp':   ('Unter Einstellungen kannst du den Ordner wieder '
+                         'umstellen. Deine Daten liegen noch dort, wo sie '
+                         'waren.',
+                          'You can point the folder back under Settings. Your '
+                          'data is still where it was.'),
     's_ac_doppelt':    ('Es liegen mehrere Belegungsdateien nebeneinander. '
                         'Gelesen wird die zuletzt geänderte — das ist die, '
                         'mit der das Spiel arbeitet. Die anderen sind '

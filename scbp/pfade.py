@@ -173,6 +173,65 @@ def alter_app_ordner():
     return os.path.join(basis, 'sc-bp-watcher')
 
 
+def _zweitzeiger():
+    """Der Ablage-Ort ein zweites Mal — dort, wo niemand aufraeumt.
+
+    ⚠⚠⚠ **Warum es diese Datei gibt.** Der Ablage-Ort haengt an einer einzigen
+    Datei mit einer einzigen Zeile, sichtbar unter Dokumente. Am 06.09.2026
+    wurde sie beim Aufraeumen im Dateimanager mit weggeworfen — zusammen mit
+    zwei danebenliegenden Altstaenden, die wirklich Muell waren und fast
+    genauso hiessen:
+
+        SC BP Watcher                        <- der aktive Zeiger
+        SC BP Watcher (vor Umzug 2026-08-31) <- Altlast
+        SC-BP-Watcher-SICHERUNG-vor-v2-test  <- Altlast
+
+    Danach schaute das Programm wieder in den Standardordner, legte dort einen
+    leeren Bestand an und zeigte statt 413 Bauplaenen nur noch die 406, die es
+    zufaellig vorfand — **ohne ein Wort**. Der Spieler sah nur eine kleinere
+    Zahl und konnte sich nicht erklaeren, wieso: *„wieso aendert sich immer
+    wieder der Ordner, die ganze Zeit hat es doch geklappt?"*
+
+    Der zweite Zeiger liegt im Konfigurationsordner (`~/.config` bzw.
+    `%APPDATA%`) — dort raeumt niemand mit dem Dateimanager auf, und er faellt
+    beim Sortieren von Dokumenten nicht ins Auge. **Beide Dateien heilen
+    einander:** Fehlt eine, wird sie aus der anderen wieder angelegt.
+    """
+    if os.name == 'nt':
+        basis = os.environ.get('APPDATA') or os.path.expanduser('~')
+    else:
+        basis = (os.environ.get('XDG_CONFIG_HOME')
+                 or os.path.join(os.path.expanduser('~'), '.config'))
+    return os.path.join(basis, 'sc-bp-watcher', 'ablage.json')
+
+
+def _ort_lesen(weg):
+    """Den Ablage-Ort aus einer Zeiger-Datei holen, oder `None`."""
+    try:
+        if not os.path.isfile(weg):
+            return None
+        with open(weg, encoding='utf-8') as f:
+            wert = json.load(f).get('ablage_ordner')
+        if not isinstance(wert, str) or not wert.strip():
+            return None
+        return wert.strip()
+    except Exception:
+        return None
+
+
+def _ort_schreiben(weg, wert):
+    """Einen Zeiger anlegen — still, denn er ist nur die Zweitschrift."""
+    try:
+        os.makedirs(os.path.dirname(weg), exist_ok=True)
+        temp = weg + '.tmp'
+        with open(temp, 'w', encoding='utf-8') as f:
+            json.dump({'ablage_ordner': wert}, f, ensure_ascii=False, indent=2)
+        os.replace(temp, weg)
+        return True
+    except Exception:
+        return False
+
+
 def _ablage_aus_datei():
     """Einen selbst gewählten Ablage-Ort lesen — **ohne** `einstellung()`.
 
@@ -181,17 +240,32 @@ def _ablage_aus_datei():
     normale Einstellungs-Funktion benutzt, baut eine Endlosrekursion — die
     obendrein unsichtbar bleibt, weil ringsherum `try/except` steht. Deshalb
     wird die Datei hier am Standardort direkt gelesen.
+
+    ⚠⚠ **Zwei Zeiger, und sie heilen einander** (siehe `_zweitzeiger`). Gelesen
+    wird zuerst der unter Dokumente, weil der Spieler ihn dort auch von Hand
+    aendern kann. Fehlt er, springt der zweite ein — und legt den ersten
+    wieder an. Der Ordner muss dabei **existieren**: Ein Zeiger auf einen Ort,
+    den es nicht mehr gibt, ist schlimmer als keiner, denn er wuerde einen
+    leeren Ordner an falscher Stelle erzeugen.
     """
-    try:
-        standard = os.path.join(_dokumente(), ORDNERNAME, 'Einstellungen',
-                                EINSTELLUNGEN)
-        if not os.path.isfile(standard):
-            return None
-        with open(standard, encoding='utf-8') as f:
-            wert = json.load(f).get('ablage_ordner')
-        return wert.strip() if isinstance(wert, str) and wert.strip() else None
-    except Exception:
-        return None
+    erst = zeiger_datei()
+    zweit = _zweitzeiger()
+    a, b = _ort_lesen(erst), _ort_lesen(zweit)
+
+    for wert, fehlt_bei in ((a, zweit), (b, erst)):
+        if wert is None:
+            continue
+        if not os.path.isdir(os.path.expanduser(wert)):
+            # ⚠ Zeigt ins Leere — etwa weil eine externe Platte nicht
+            # eingehaengt ist. Dann lieber den anderen fragen.
+            continue
+        if _ort_lesen(fehlt_bei) != wert:
+            _ort_schreiben(fehlt_bei, wert)
+        return wert
+
+    # Keiner von beiden taugt: den ersten unveraendert zurueckgeben, damit
+    # eine Platte, die gerade nicht da ist, nicht stillschweigend verfaellt.
+    return a or b
 
 
 def app_ordner():
@@ -649,6 +723,12 @@ def _ablage_ordner_setzen(wert):
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(vorhanden, f, ensure_ascii=False, indent=2)
         os.replace(temp, ziel)
+        # ⚠⚠ **Immer beide schreiben** (siehe `_zweitzeiger`). Wuerde nur der
+        # sichtbare gepflegt, waere die Zweitschrift nach der ersten Umstellung
+        # veraltet — und wenn sie dann einspringt, landet der Spieler in einem
+        # Ordner, den er vor Wochen verlassen hat. Ein falscher Zeiger ist
+        # schlimmer als keiner.
+        _ort_schreiben(_zweitzeiger(), wert)
         return True
     except OSError as ausnahme:
         _melden('pfade.ablage_ordner_setzen', ausnahme)

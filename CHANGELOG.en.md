@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.20.0 - 2026-09-06
+
+> **Your data folder can no longer go missing silently.** Until now it hung on
+> a single inconspicuous file under Documents. Anyone who threw that away while
+> tidying up got an empty inventory on the next start — with no hint that the
+> data was still there.
+
+### New
+
+- **The folder is remembered in two places.** The second one sits where nobody
+  tidies up with a file manager. If one goes missing, it is restored from the
+  other — they heal each other.
+- **Fewer blueprints than ever before? That is now stated**, right at the top
+  of "Blueprint progress", together with the folder they were last stored in
+  and the one being read right now. Blueprints do not disappear on their own —
+  if the number drops, something is wrong with the location, and you should see
+  it immediately. A deliberate reset does not trigger the message.
+
+### Fixed
+
+- **One stick with two names produced two tabs.** After moving from Windows to
+  Linux the game names the same devices differently (`L-VPC Stick` instead of
+  `LEFT VPC Stick`) — both sat side by side under the same identifier, holding
+  different values. Anyone changing a setting might have hit the dead entry.
+  Now the name the game currently uses counts; the other one moves to the
+  ineffective leftovers.
+
 ## v3.19.3 - 2026-09-06
 
 > **On Linux the watcher read the wrong mapping file.** It showed sensitivity

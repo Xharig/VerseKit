@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.19.3'
+__version__ = '3.20.0'
 
 
 def _mitgeliefert(name):
@@ -732,6 +732,24 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             fehler.merken('watcher.bestand_angleichen', ausnahme)
         fehler.spur('Overlay: Bestand am Katalog geprueft')
+        # ⚠⚠⚠ **Ist der Bestand kleiner als je zuvor?** Dann stimmt etwas mit
+        # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Am
+        # 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413,
+        # weil die Zeiger-Datei auf den Datenordner beim Aufraeumen im
+        # Dateimanager mit weggeworfen worden war. Er nahm den leeren
+        # Standardort und sagte kein Wort dazu.
+        #
+        # ⚠ Nur vermerken, nicht hier melden: Zu diesem Zeitpunkt steht noch
+        # kein Fenster. Die Oberflaeche fragt es ab und zeigt es an.
+        try:
+            self.schwund = bestand_datei.schwund_pruefen(self.bestand)
+            if self.schwund:
+                jetzt, hoechst, wo = self.schwund
+                fehler.spur('Bestand: SCHWUND %d statt %d (frueher in %s)'
+                            % (jetzt, hoechst, wo or '?'))
+        except Exception as ausnahme:
+            self.schwund = None
+            fehler.merken('watcher.schwund_pruefen', ausnahme)
         self._neu_einlesen = False            # Auftrag von außen, siehe unten
         self.running = True
         self.cat_next = 0.0     # nächster Katalog-Check (Zeitstempel)

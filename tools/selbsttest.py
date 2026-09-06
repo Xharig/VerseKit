@@ -1034,6 +1034,16 @@ def main():
         os.makedirs(alt_ordner, exist_ok=True)
         os.makedirs(neu_ordner, exist_ok=True)
         os.environ.pop('SC_BP_HOME', None)
+        # ⚠⚠ **Auch den Zweitzeiger stilllegen.** Seit dem 06.09.2026 liest
+        # `app_ordner()` einen zweiten Zeiger im Konfigurationsordner (siehe
+        # `pfade._zweitzeiger`). Auf einem Rechner, auf dem der gesetzt ist,
+        # zog der Umzug sonst in den ECHTEN Ablageordner des Benutzers statt
+        # in den Testordner — die Pruefung fiel um und hatte recht damit.
+        _kon3 = tempfile.mkdtemp(prefix='umzug-konf-')
+        _sicher3 = {k: os.environ.get(k)
+                    for k in ('XDG_CONFIG_HOME', 'APPDATA')}
+        os.environ['XDG_CONFIG_HOME'] = _kon3
+        os.environ['APPDATA'] = _kon3
         echte_alt, echte_dok = pf3.alter_app_ordner, pf3._dokumente
         pf3.alter_app_ordner = lambda: alt_ordner
         pf3._dokumente = lambda: neu_ordner
@@ -1072,6 +1082,12 @@ def main():
                 sys.setrecursionlimit(grenze)
         finally:
             pf3.alter_app_ordner, pf3._dokumente = echte_alt, echte_dok
+            for _k3, _v3 in _sicher3.items():
+                if _v3 is None:
+                    os.environ.pop(_k3, None)
+                else:
+                    os.environ[_k3] = _v3
+            shutil.rmtree(_kon3, ignore_errors=True)
             os.environ['SC_BP_HOME'] = os.path.join(basis, 'eigene')
 
         # Der Klammer-Abgleich: (12 Schuss) gegen (12 cap) — derselbe Bauplan.
@@ -14810,6 +14826,189 @@ def main():
                'und eine leere Liste')
     finally:
         shutil.rmtree(_leer, ignore_errors=True)
+
+    # ------------------------------------------------------------------
+    # 167. Ein Geraet mit zwei Namen ist EIN Reiter
+    #
+    # ⚠⚠⚠ Am 06.09.2026 zeigte „Achsen & Kurven" fuenf Reiter fuer drei
+    # Sticks: `L-VPC Stick` (Linux-Name) und `LEFT VPC Stick` (alter
+    # Windows-Name) standen beide da — dieselbe Kennung, verschiedene Werte.
+    # Wer etwas einstellte, traf womoeglich den toten Eintrag.
+    print()
+    print('167. Ein Geraet mit zwei Namen ist EIN Reiter')
+    from scbp import kurven as _kv167
+
+    _bloecke = [
+        {'name': 'L-VPC Stick', 'kennung': '{AAA}', 'aktiv': True},
+        {'name': 'LEFT VPC Stick', 'kennung': '{AAA}', 'aktiv': True},
+        {'name': 'VPC Rudder Pedals', 'kennung': '{BBB}', 'aktiv': True},
+    ]
+    _echt167 = _kv167._gefuehrte_namen
+    try:
+        _kv167._gefuehrte_namen = lambda weg: {'{AAA}': 'L-VPC Stick',
+                                               '{BBB}': 'VPC Rudder Pedals'}
+        _kv167._nur_der_gefuehrte_bleibt(_bloecke, 'egal')
+        pruefe([b['aktiv'] for b in _bloecke] == [True, False, True],
+               'der gefuehrte Name bleibt, der alte wird zur Leiche')
+
+        # Gegenprobe: Kennt das Spiel den Namen nicht, wird NICHTS weggeraeumt.
+        _zwei = [{'name': 'A', 'kennung': '{X}', 'aktiv': True},
+                 {'name': 'B', 'kennung': '{X}', 'aktiv': True}]
+        _kv167._gefuehrte_namen = lambda weg: {'{X}': 'ganz was anderes'}
+        _kv167._nur_der_gefuehrte_bleibt(_zwei, 'egal')
+        pruefe(all(b['aktiv'] for b in _zwei),
+               'Gegenprobe: passt kein Name, bleibt alles stehen')
+
+        # Gegenprobe: ohne gefuehrte Namen ebenso.
+        _drei = [{'name': 'A', 'kennung': '{Y}', 'aktiv': True},
+                 {'name': 'B', 'kennung': '{Y}', 'aktiv': True}]
+        _kv167._gefuehrte_namen = lambda weg: {}
+        _kv167._nur_der_gefuehrte_bleibt(_drei, 'egal')
+        pruefe(all(b['aktiv'] for b in _drei),
+               'Gegenprobe: ohne Angabe des Spiels bleibt alles stehen')
+
+        # Ein einzelner Block darf nie deaktiviert werden.
+        _einer = [{'name': 'Nur ich', 'kennung': '{Z}', 'aktiv': True}]
+        _kv167._gefuehrte_namen = lambda weg: {'{Z}': 'anders'}
+        _kv167._nur_der_gefuehrte_bleibt(_einer, 'egal')
+        pruefe(_einer[0]['aktiv'],
+               'ein einzelnes Geraet bleibt aktiv, auch bei anderem Namen')
+    finally:
+        _kv167._gefuehrte_namen = _echt167
+
+    # ------------------------------------------------------------------
+    # 168. Weniger Bauplaene als je zuvor faellt auf
+    #
+    # ⚠⚠⚠ Am 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413
+    # Bauplaenen — er las stillschweigend einen anderen Ordner, weil die
+    # Zeiger-Datei beim Aufraeumen im Dateimanager mit weggeworfen worden war.
+    # Kein Wort dazu; zurueck blieb nur eine kleinere Zahl.
+    print()
+    print('168. Weniger Bauplaene als je zuvor faellt auf')
+    from scbp import bestand as _bs168
+
+    _heim = _tf166.mkdtemp(prefix='schwund-')
+    _konf = _tf166.mkdtemp(prefix='schwund-konf-')
+    _alt_home = os.environ.get('SC_BP_HOME')
+    _alt_konf = os.environ.get('XDG_CONFIG_HOME')
+    _alt_appdata = os.environ.get('APPDATA')
+    try:
+        os.environ['SC_BP_HOME'] = _heim
+        os.environ['XDG_CONFIG_HOME'] = _konf
+        os.environ['APPDATA'] = _konf          # damit es auch auf Windows greift
+
+        def _lege(n):
+            with io.open(_bs168.pfad(), 'w', encoding='utf-8') as _f:
+                json.dump({'bauplaene': {'t%03d' % i: {'name': 'T%d' % i}
+                                         for i in range(n)},
+                           'stand': 'x', 'version': 2}, _f)
+
+        _lege(413)
+        pruefe(_bs168.schwund_pruefen(_bs168.laden()) is None,
+               'ein voller Bestand meldet nichts und setzt die Marke')
+
+        _lege(406)
+        _fund = _bs168.schwund_stand()
+        pruefe(_fund is not None and _fund[0] == 406 and _fund[1] == 413,
+               'ein geschrumpfter Bestand wird gemeldet (406 statt 413)')
+
+        # ⚠⚠ Das Ansehen darf die Marke NICHT verstellen — sonst waere die
+        # Meldung nach einmal Hinsehen fuer immer weg.
+        _bs168.schwund_stand()
+        pruefe(_bs168.schwund_stand() is not None,
+               'Gegenprobe: Ansehen loescht die Meldung nicht')
+
+        _lege(413)
+        pruefe(_bs168.schwund_stand() is None,
+               'ist alles wieder da, verschwindet die Meldung')
+
+        # ⚠ Ein GEWOLLTES Zuruecksetzen ist kein Verlust.
+        _bs168.schwund_pruefen(_bs168.laden())
+        _bs168.zuruecksetzen()
+        _lege(0)
+        pruefe(_bs168.schwund_stand() is None,
+               'Gegenprobe: nach bewusstem Zuruecksetzen keine Warnung')
+    finally:
+        for _name, _wert in (('SC_BP_HOME', _alt_home),
+                             ('XDG_CONFIG_HOME', _alt_konf),
+                             ('APPDATA', _alt_appdata)):
+            if _wert is None:
+                os.environ.pop(_name, None)
+            else:
+                os.environ[_name] = _wert
+        shutil.rmtree(_heim, ignore_errors=True)
+        shutil.rmtree(_konf, ignore_errors=True)
+
+    # ------------------------------------------------------------------
+    # 169. Zwei Zeiger auf den Datenordner — und sie heilen einander
+    #
+    # ⚠⚠⚠ **Der ganze Datenbestand hing an einer Datei mit einer Zeile.** Am
+    # 06.09.2026 wurde sie beim Aufraeumen im Dateimanager mit weggeworfen —
+    # zusammen mit zwei fast gleich heissenden Altstaenden daneben, die
+    # wirklich Muell waren. Danach schaute das Programm in den Standardordner
+    # und zeigte einen kleineren Bestand, ohne ein Wort dazu.
+    #
+    # Der zweite Zeiger liegt im Konfigurationsordner, wo niemand mit dem
+    # Dateimanager aufraeumt. Fehlt einer, wird er aus dem anderen wieder
+    # angelegt.
+    print()
+    print('169. Zwei Zeiger auf den Datenordner heilen einander')
+    from scbp import pfade as _pf169
+
+    _daten = _tf166.mkdtemp(prefix='ablage-')
+    _dok = _tf166.mkdtemp(prefix='dokumente-')
+    _kon = _tf166.mkdtemp(prefix='konfig-')
+    _sicher = {k: os.environ.get(k) for k in
+               ('SC_BP_HOME', 'XDG_CONFIG_HOME', 'APPDATA', 'HOME')}
+    _echt_dok = _pf169._dokumente
+    try:
+        os.environ.pop('SC_BP_HOME', None)     # sonst gewinnt die Umgebung
+        os.environ['XDG_CONFIG_HOME'] = _kon
+        os.environ['APPDATA'] = _kon
+        _pf169._dokumente = lambda: _dok
+
+        erst = _pf169.zeiger_datei()
+        zweit = _pf169._zweitzeiger()
+        pruefe(os.path.dirname(erst) != os.path.dirname(zweit),
+               'die beiden Zeiger liegen an verschiedenen Orten')
+
+        # 1. Nur der erste ist da -> der zweite entsteht von selbst.
+        os.makedirs(os.path.dirname(erst), exist_ok=True)
+        with io.open(erst, 'w', encoding='utf-8') as _f:
+            json.dump({'ablage_ordner': _daten}, _f)
+        pruefe(_pf169._ablage_aus_datei() == _daten,
+               'der sichtbare Zeiger wird gelesen')
+        pruefe(os.path.isfile(zweit),
+               'und legt dabei die Zweitschrift an')
+
+        # 2. ⚠⚠ Der Fall, um den es geht: der sichtbare wird weggeraeumt.
+        shutil.rmtree(os.path.dirname(erst), ignore_errors=True)
+        pruefe(_pf169._ablage_aus_datei() == _daten,
+               'nach dem Loeschen des sichtbaren springt die Zweitschrift ein')
+        pruefe(os.path.isfile(erst),
+               'und stellt den sichtbaren wieder her')
+
+        # 3. Gegenprobe: Ein Zeiger auf einen Ordner, den es NICHT gibt, darf
+        #    nicht gewinnen — sonst entsteht ein leerer Bestand am falschen Ort.
+        with io.open(erst, 'w', encoding='utf-8') as _f:
+            json.dump({'ablage_ordner': os.path.join(_daten, 'gibtsnicht')}, _f)
+        pruefe(_pf169._ablage_aus_datei() == _daten,
+               'Gegenprobe: ein Zeiger ins Leere verliert gegen den gueltigen')
+
+        # 4. Gar kein Zeiger -> None, und der Standardordner greift.
+        shutil.rmtree(os.path.dirname(erst), ignore_errors=True)
+        os.remove(zweit)
+        pruefe(_pf169._ablage_aus_datei() is None,
+               'ohne jeden Zeiger kommt None zurueck')
+    finally:
+        _pf169._dokumente = _echt_dok
+        for _k, _v in _sicher.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        for _o in (_daten, _dok, _kon):
+            shutil.rmtree(_o, ignore_errors=True)
 
     print()
     if fehler:
