@@ -9896,8 +9896,11 @@ def _zerlegen(fenster, rahmen):
         # ⭐ Die Kurzfassung unter dem Strich: Lohnt es sich überhaupt?
         verloren = [z for z in zeilen if z['verloren']]
         if verloren:
+            # ⚠ Eigene Fassung für die Einzahl — „1 Rohstoffe" liest sich
+            # nach einem Fehler.
             _fliesstext(ergebnis,
-                        t('s_zl_verloren').format(
+                        t('s_zl_verloren_1' if len(verloren) == 1
+                          else 's_zl_verloren').format(
                             n=len(verloren),
                             stoffe=', '.join(z['rohstoff'] for z in verloren)),
                         fenster.f_klein, farbe=GOLD, fill='x', pady=(10, 0))
@@ -10069,18 +10072,26 @@ def _farm_zeile(fenster, eltern, eintrag, fehlend):
 
 
 def _zahl(wert):
-    """Eine Menge lesbar — ganze Zahlen ohne Komma, sonst eine Nachkommastelle.
+    """Eine Menge lesbar — ganze Zahlen ohne Komma, kleine Mengen genauer.
 
     ⚠ `4.4000000000000004` ist dieselbe Zahl wie `4,4`, sieht aber nach einem
     Fehler aus. Und `4,0` neben `4` in derselben Spalte liest sich, als wären
     es zwei verschiedene Angaben.
+
+    ⚠⚠ **Unter 1 braucht es zwei Stellen.** Die erste Fassung rundete immer
+    auf eine — beim Durchklicken des Zerlege-Rechners am 06.09.2026 wurde
+    daraus aus 0,64 ein „0,6" und aus 0,32 ein „0,3". Bei Rohstoffmengen, die
+    fast alle unter eins liegen, ist das keine Rundung mehr, sondern eine
+    andere Zahl: Wer 0,32 zurückbekommt, hat nicht 0,3.
     """
     try:
         z = float(wert or 0)
     except (TypeError, ValueError):
         return '0'
-    if abs(z - round(z)) < 0.05:
+    if abs(z - round(z)) < 0.005:
         return str(int(round(z)))
+    if abs(z) < 10:
+        return ('%.2f' % z).rstrip('0').rstrip('.').replace('.', ',')
     return ('%.1f' % z).replace('.', ',')
 
 

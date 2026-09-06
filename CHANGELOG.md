@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc24 - 2026-09-06
+
+> **Kleine Mengen standen falsch da.** Aus 0,64 wurde „0,6", aus 0,32 ein
+> „0,3" — bei Rohstoffmengen, die fast alle unter eins liegen, ist das keine
+> Rundung mehr, sondern eine andere Zahl.
+
+### Behoben
+
+- **Mengen unter zehn werden auf zwei Stellen genau angezeigt.** Betrifft den
+  Zerlege-Rechner und die Farmliste.
+- „1 Rohstoffe bekommst du nicht zurück" heißt jetzt „Riccite bekommst du
+  nicht zurück."
+
 ## v3.19.0-rc23 - 2026-09-06
 
 > **Lohnt sich das Zerlegen?** Ein neuer Reiter unter Bergung sagt dir vor dem

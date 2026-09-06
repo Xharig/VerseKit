@@ -3276,6 +3276,8 @@ TEXTE = {
     's_zl_nichts':       ('kommt nicht zurück', 'not returned'),
     's_zl_verloren':     ('{n} Rohstoffe bekommst du nicht zurück: {stoffe}',
                           '{n} materials are not returned: {stoffe}'),
+    's_zl_verloren_1':   ('{stoffe} bekommst du nicht zurück.',
+                          '{stoffe} is not returned.'),
     's_zl_alles_zurueck': ('Bei diesem Teil geht nichts verloren — die Hälfte '
                            'von allem kommt zurück.',
                            'Nothing is lost on this part — half of everything '

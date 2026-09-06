@@ -6,6 +6,18 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc24 - 2026-09-06
+
+> **Small amounts were shown wrong.** 0.64 became "0.6", 0.32 became "0.3" —
+> with material amounts that almost all sit below one, that is not rounding
+> any more, it is a different number.
+
+### Fixed
+
+- **Amounts below ten are shown to two decimals.** Affects the dismantling
+  calculator and the farming list.
+- "1 materials are not returned" now reads "Riccite is not returned."
+
 ## v3.19.0-rc23 - 2026-09-06
 
 > **Is it worth dismantling?** A new tab under Salvage tells you before you cut
