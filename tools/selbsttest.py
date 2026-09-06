@@ -13433,6 +13433,111 @@ def main():
            'Gegenprobe: ein Wunsch im Hangar wuerde als Ueberschneidung '
            'auffallen')
 
+    # ------------------------------------------------------------------
+    # 150. Der Geräte-Hub: drei Sichten auf dasselbe Gerät
+    #
+    # ⚠ Die Quellen werden **gestellt**, nicht gelesen. `eingabe.geraete()`
+    # fragt das echte System ab — auf dem Bau-Rechner hängt kein Joystick,
+    # und auf dem Entwicklerrechner hingen am Prüftag drei. Beides taugt
+    # nicht als Grundlage für eine Prüfung, die überall dasselbe sagen soll.
+    print()
+    print('150. Geräte-Hub: System, Protokoll und Belegung zusammenführen')
+    from scbp import eingabe as _ei150
+    from scbp import geraetehub as _hub150
+    from scbp import joysticks as _js150
+
+    _A150 = 'AAAA1111-0000-0000-0000-504944564944'
+    _B150 = 'BBBB2222-0000-0000-0000-504944564944'
+    _C150 = 'CCCC3333-0000-0000-0000-504944564944'
+    _D150 = 'DDDD4444-0000-0000-0000-504944564944'
+
+    _echt150 = (_ei150.geraete, _js150.geraete, _js150.zuordnung)
+    try:
+        # ⭐ Der Aufbau bildet genau die vier Lagen ab, die es geben kann:
+        #   A — angesteckt, bekannt, hat eine Nummer        → bereit
+        #   B — in der Belegung, aber nicht angesteckt      → abgesteckt
+        #   C — angesteckt und bekannt, ohne Nummer         → ohne_nummer
+        #   D — angesteckt, das Spiel kennt es gar nicht    → unbekannt
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
+            {'pfad': '/dev/input/js1', 'name': 'System C', 'kennung': _C150},
+            {'pfad': '/dev/input/js2', 'name': 'System D', 'kennung': _D150},
+        ]
+        _js150.geraete = lambda ordner=None: [
+            {'name': 'Log A', 'kennung': _A150},
+            {'name': 'Log B', 'kennung': _B150},
+            {'name': 'Log C', 'kennung': _C150},
+        ]
+        _js150.zuordnung = lambda datei=None, ordner=None: [
+            {'nummer': 2, 'name': 'Belegung A', 'kennung': _A150},
+            {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
+        ]
+
+        _u150 = {g['kennung']: g for g in _hub150.uebersicht()}
+        pruefe(len(_u150) == 4,
+               'alle vier Geräte tauchen genau einmal auf (sind: %d)'
+               % len(_u150))
+        pruefe(_u150[_A150]['zustand'] == _hub150.BEREIT,
+               'angesteckt + bekannt + Nummer = bereit')
+        pruefe(_u150[_B150]['zustand'] == _hub150.ABGESTECKT,
+               '* die Belegung erwartet es, es ist nicht da = abgesteckt')
+        pruefe(_u150[_C150]['zustand'] == _hub150.OHNE_NUMMER,
+               '* angesteckt, aber ohne Nummer in der Belegung')
+        pruefe(_u150[_D150]['zustand'] == _hub150.UNBEKANNT,
+               '* angesteckt, dem Spiel noch nie begegnet')
+
+        # ⚠ Der Name der BELEGUNG gewinnt — den hat der Spieler zuletzt
+        # gesehen, und oft selbst vergeben.
+        pruefe(_u150[_A150]['name'] == 'Belegung A',
+               'der Name aus der Belegung hat Vorrang')
+        pruefe(_u150[_C150]['name'] == 'Log C',
+               'ohne Belegung gilt der Name aus dem Protokoll')
+        pruefe(_u150[_D150]['name'] == 'System D',
+               'ohne beides der Name des Systems')
+
+        # ⭐ Der eigentliche Zweck: Die Nummern der beiden Welten sind
+        # verschieden, und der Hub hält beide nebeneinander.
+        pruefe(_u150[_A150]['nummer'] == 2
+               and _u150[_A150]['systempfad'] == '/dev/input/js0',
+               '* Spiel-Nummer und System-Pfad stehen nebeneinander')
+
+        _z150 = _hub150.zusammenfassung()
+        pruefe((_z150['bereit'], _z150['abgesteckt'], _z150['ohne_nummer'],
+                _z150['unbekannt']) == (1, 1, 1, 1),
+               'die Zusammenfassung zählt richtig')
+        pruefe(not _z150['alles_gut'],
+               'mit fehlendem Gerät ist nicht alles gut')
+
+        # Sortierung: was eine Nummer hat, steht vorn und nach Nummer.
+        _liste150 = _hub150.uebersicht()
+        _nummern150 = [g['nummer'] for g in _liste150 if g['nummer']]
+        pruefe(_nummern150 == sorted(_nummern150),
+               'die Geräte mit Nummer stehen der Reihe nach vorn')
+
+        # --- Die Wache ---
+        _wache150 = _hub150.Wache()
+        pruefe(_wache150.pruefen() == ([], []),
+               '* der erste Blick meldet nichts (sonst Fehlalarm beim Start)')
+        pruefe(_wache150.pruefen() == ([], []),
+               'ohne Änderung bleibt es dabei')
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
+        ]
+        _dazu150, _weg150 = _wache150.pruefen()
+        pruefe(not _dazu150 and len(_weg150) == 2,
+               '* zwei abgezogene Geräte werden gemeldet (%d)' % len(_weg150))
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
+            {'pfad': '/dev/input/js9', 'name': 'Neu', 'kennung': _D150},
+        ]
+        _dazu150, _weg150 = _wache150.pruefen()
+        pruefe(len(_dazu150) == 1 and not _weg150,
+               '* ein neu angestecktes Gerät wird gemeldet')
+        pruefe(_wache150.pruefen(mindestabstand=60) == ([], []),
+               'der Mindestabstand bremst die Abfrage')
+    finally:
+        _ei150.geraete, _js150.geraete, _js150.zuordnung = _echt150
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

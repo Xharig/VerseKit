@@ -128,6 +128,77 @@ def _linux_geraete():
     return heraus
 
 
+def _windows_geraete():
+    """Die Joysticks des Systems unter Windows, ueber `winmm`.
+
+    Dasselbe Ergebnis wie `_linux_geraete()`: `[{'pfad', 'name', 'kennung'}]`.
+    `pfad` ist hier keine Datei, sondern die Nummer, unter der `winmm` das
+    Geraet fuehrt (`joy0`, `joy1`, …) — es gibt unter Windows keinen Pfad,
+    und die Nummer ist das Einzige, was ein Geraet dort identifiziert.
+
+    ⚠ **Das ist NICHT die Nummer, die Star Citizen benutzt.** Wie unter Linux
+    auch: Die Reihenfolge des Systems und die des Spiels sind zwei
+    verschiedene Dinge (gemessen 06.09.2026 — derselbe Stick war unter Linux
+    `js0` und im Spiel `js2`). Verbunden werden beide ueber die Kennung.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    class JOYCAPS(ctypes.Structure):
+        _fields_ = [('wMid', wintypes.WORD), ('wPid', wintypes.WORD),
+                    ('szPname', wintypes.WCHAR * 32),
+                    ('wXmin', wintypes.UINT), ('wXmax', wintypes.UINT),
+                    ('wYmin', wintypes.UINT), ('wYmax', wintypes.UINT),
+                    ('wZmin', wintypes.UINT), ('wZmax', wintypes.UINT),
+                    ('wNumButtons', wintypes.UINT),
+                    ('wPeriodMin', wintypes.UINT),
+                    ('wPeriodMax', wintypes.UINT),
+                    ('wRmin', wintypes.UINT), ('wRmax', wintypes.UINT),
+                    ('wUmin', wintypes.UINT), ('wUmax', wintypes.UINT),
+                    ('wVmin', wintypes.UINT), ('wVmax', wintypes.UINT),
+                    ('wCaps', wintypes.UINT),
+                    ('wMaxAxes', wintypes.UINT),
+                    ('wNumAxes', wintypes.UINT),
+                    ('wMaxButtons', wintypes.UINT),
+                    ('szRegKey', wintypes.WCHAR * 32),
+                    ('szOEMVxD', wintypes.WCHAR * 260)]
+
+    heraus = []
+    try:
+        winmm = ctypes.WinDLL('winmm')
+        for nummer in range(winmm.joyGetNumDevs()):
+            caps = JOYCAPS()
+            if winmm.joyGetDevCapsW(nummer, ctypes.byref(caps),
+                                    ctypes.sizeof(caps)) != 0:
+                # Kein Geraet auf diesem Platz — das ist der Normalfall,
+                # `joyGetNumDevs()` meldet die Zahl der Plaetze, nicht der
+                # angeschlossenen Geraete.
+                continue
+            heraus.append({'pfad': 'joy%d' % nummer,
+                           'name': caps.szPname,
+                           'kennung': kennung_aus_ids(caps.wMid, caps.wPid)})
+    except Exception:
+        return []
+    return heraus
+
+
+def geraete():
+    """Die angeschlossenen Joysticks — auf beiden Systemen gleich.
+
+    ⭐ **Das ist die dritte Sicht auf dieselben Geraete.** Die anderen beiden
+    stehen in `joysticks.py`: was das Spiel zuletzt verbunden hatte
+    (`Game.log`) und was in der Belegung eine Nummer hat (`actionmaps.xml`).
+    Erst zusammen ergeben sie ein Bild — und nur diese hier weiss, was
+    **jetzt gerade** angesteckt ist.
+
+    Liefert `[{'pfad', 'name', 'kennung'}, …]`, leer bei einem System ohne
+    Joystick oder wenn die Abfrage nicht geht.
+    """
+    if sys.platform == 'win32':
+        return _windows_geraete()
+    return _linux_geraete()
+
+
 def _linux_warten(dauer, abbruch=None):
     """Auf den ersten echten Knopfdruck warten (Linux).
 
