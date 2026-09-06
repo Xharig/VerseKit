@@ -208,6 +208,33 @@ def erledigen(name):
     return titel
 
 
+def aufraeumen(bestand_namen):
+    """Merkposten austragen, die schon im Bestand stehen. Gibt die Anzahl zurück.
+
+    ⚠⚠⚠ **`erledigen()` greift nur beim FUND.** Wer einen Bauplan merkt, den er
+    längst hat — oder ihn zwischen zwei Programmstarts über eine andere Quelle
+    bekommt —, behält den Merkposten für immer. Am 06.09.2026 stand
+    `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste ein
+    Häkchen trug: *„da wird einer beobachtet, den ich schon habe."*
+
+    Eine Beobachtungsliste, auf der Erledigtes stehen bleibt, wird mit jeder
+    Woche unbrauchbarer — genau wie eine Aufgabenliste ohne Abhaken.
+
+    ⚠ Nur `namen` werden aufgeräumt, **nicht** die Muster-Einträge: Ein Muster
+    wie „Morozov" steht für mehrere Teile, von denen erst eines da sein kann.
+    """
+    daten = laden()
+    habe = {_norm(n) for n in (bestand_namen or ())}
+    if not habe:
+        return 0
+    bleibt = [n for n in daten['namen'] if _norm(n) not in habe]
+    weg = len(daten['namen']) - len(bleibt)
+    if weg:
+        daten['namen'] = bleibt
+        speichern(daten)
+    return weg
+
+
 def alle(daten=None):
     """Alles, worauf gewartet wird — für die Anzeige. Namen zuerst."""
     daten = daten or laden()

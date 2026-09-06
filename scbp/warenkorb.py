@@ -660,7 +660,7 @@ def kaufweg(ref, name=''):
             'ort': ort}
 
 
-def bauweg(ref, verzeichnis=None):
+def bauweg(ref, verzeichnis=None, name=''):
     """Was der Posten an Material kostet, wenn er selbst hergestellt wird.
 
     Gibt `{'zustand', 'material', 'dauer', 'bauplan', 'ohne_preis'}` zurück.
@@ -670,14 +670,29 @@ def bauweg(ref, verzeichnis=None):
     Materialsumme ist dann eine **Untergrenze**, und wer das nicht dazusagt,
     lässt Selberbauen billiger aussehen, als es ist. Dieselbe Falle wie bei den
     Ankaufgeboten in `verkauf.py`.
+
+    ⚠⚠⚠ **`ref` ist die Entitäts-Kennung, NICHT der Name.** Merkzettel-Posten
+    kommen aus der Herstellungsliste, und die kennt nur den Bauplannamen — beim
+    ersten Anlauf am 06.09.2026 landete der Name im `ref`-Feld, `verzeichnis`
+    fand nichts, und der Posten fiel stillschweigend auf „kaufen" zurück. Auf
+    „Was ich farmen muss" stand daraufhin „Nichts auf selbst herstellen
+    gestellt", obwohl zwei Waffen vorgemerkt waren.
+
+    Deshalb der zweite Weg über `name`: Findet die Kennung nichts, wird der
+    **Bauplanname** direkt genommen — `herstellung.rezept()` sucht ohnehin über
+    ihn.
     """
     from . import herstellung, preise
     leer = {'zustand': KEIN_REZEPT, 'material': None, 'dauer': None,
             'bauplan': '', 'ohne_preis': []}
-    if not ref:
+    if not ref and not name:
         return leer
     verzeichnis = _bauplan_verzeichnis() if verzeichnis is None else verzeichnis
-    bauplan = verzeichnis.get(ref) or ''
+    bauplan = (verzeichnis.get(ref) or '') if ref else ''
+    if not bauplan and name:
+        # ⚠ Der Rückweg für Posten ohne Kennung. `rezept()` nimmt den Namen,
+        # also reicht er — geprüft wird gleich unten, ob wirklich einer kommt.
+        bauplan = name
     if not bauplan:
         return leer
     try:
@@ -1013,7 +1028,11 @@ def rechnung(daten=None):
              'weg': eintrag.get('weg') or BAUEN,
              'erledigt': bool(eintrag.get('erledigt'))}
         p['kauf'] = kaufweg(ref, name)
-        p['bau'] = bauweg(ref, verzeichnis)
+        # ⚠ **Mit `name`**, denn ein Merkzettel-Posten hat oft keine
+        # Entitäts-Kennung: Er entsteht in der Herstellungsliste, und die kennt
+        # nur den Bauplannamen. Ohne diesen zweiten Weg fällt jeder vorgemerkte
+        # Gegenstand auf „kaufen" zurück, und die Materialliste bleibt leer.
+        p['bau'] = bauweg(ref, verzeichnis, name=name)
         # ⚠ Dieselbe Regel wie bei den Schiffsteilen: Ohne Rezept ist „bauen"
         # keine Wahl, sondern eine leere Behauptung.
         if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
@@ -1133,7 +1152,15 @@ def farmliste(daten=None):
         except (TypeError, ValueError):
             stueck = 1
         gebaut += stueck
+        # ⚠⚠ **Auch hier der Rückweg über den Namen** — dieselbe Falle wie in
+        # `bauweg()`. Ein Merkzettel-Posten hat keine Entitäts-Kennung: Er
+        # entsteht in der Herstellungsliste, und die kennt nur den
+        # Bauplannamen. Ohne diese Zeile meldete die Seite „2 Teile konnten
+        # nicht gerechnet werden" und darunter „Alles da" — bei null Erz im
+        # Lager. Zwei Sätze, die sich widersprechen, und beide falsch.
         bauplan = verzeichnis.get(p.get('ref') or '') or ''
+        if not bauplan:
+            bauplan = p.get('name') or ''
         rez = None
         if bauplan:
             try:

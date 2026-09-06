@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.0 - 2026-09-06
+
+> **What you marked now shows what you have to farm for it.** Until now the
+> material total sat at the bottom of the page only — which weapon needed which
+> ore was impossible to tell.
+
+### New
+
+- **Every marked blueprint now lists its raw materials** — multiplied by the
+  quantity and weighed against your stock. Gold means "short", green means
+  "enough". Reported by Haldjas.
+
+### Fixed
+
+- **Marked items were not counted as "build yourself".** The page said "no
+  blueprint available" and "Everything in stock — you can start right away" at
+  the same time, with an empty warehouse. The reason: a marked entry only knows
+  the blueprint name, but an identifier was being looked up.
+- **A marked item stayed on the list although the blueprint had long arrived.**
+  It used to be removed only on a fresh find; now the watcher tidies up on
+  every start.
+
 ## v3.21.0 - 2026-09-06
 
 > **Farm blueprints without the detour through a ship.** Until now every

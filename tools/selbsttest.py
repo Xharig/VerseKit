@@ -15074,6 +15074,80 @@ def main():
     pruefe(abs(_wk170.summe(_posten)['kaufen'] - 50.0) < 0.01,
            'Gegenprobe: ohne Stueckzahl bleibt es bei einfach')
 
+    # ⚠⚠⚠ **Ein Merkzettel-Posten hat KEINE Entitaets-Kennung.** Er entsteht in
+    # der Herstellungsliste, und die kennt nur den Bauplannamen. Beim ersten
+    # Anlauf landete der Name im `ref`-Feld, das Bauplan-Verzeichnis fand
+    # nichts — und der Posten fiel stillschweigend auf „kaufen" zurueck.
+    #
+    # Auf „Was ich farmen muss" stand daraufhin gleichzeitig „2 Teile konnten
+    # nicht gerechnet werden" UND „Alles da — du kannst sofort loslegen", bei
+    # null Erz im Lager. Zwei Saetze, die sich widersprechen, und beide falsch.
+    # Gemeldet am 06.09.2026: „Man sieht da aber kein Material, was man farmen
+    # muss."
+    _echt_rez = None
+    try:
+        from scbp import herstellung as _hs170
+        _echt_rez = _hs170.rezept
+        _hs170.rezept = lambda name: (
+            {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
+            if name == 'Testwaffe' else None)
+
+        _bau = _wk170.bauweg('gibtsnicht', {}, name='Testwaffe')
+        pruefe(_bau['zustand'] == _wk170.BEKANNT,
+               'ohne Kennung findet der Bauweg das Rezept ueber den NAMEN')
+        pruefe(_bau['bauplan'] == 'Testwaffe',
+               'und nennt den Bauplan beim Namen')
+
+        # Gegenprobe: Ein Name, zu dem es kein Rezept gibt, darf NICHT als
+        # bekannt gelten — sonst behauptet die Seite eine Materialliste, die
+        # es nicht gibt.
+        _leer = _wk170.bauweg('', {}, name='Gibtsnichtwaffe')
+        pruefe(_leer['zustand'] != _wk170.BEKANNT,
+               'Gegenprobe: ohne Rezept bleibt es beim Zustand KEIN_REZEPT')
+        pruefe(_wk170.bauweg('', {}, name='')['zustand'] != _wk170.BEKANNT,
+               'Gegenprobe: ganz ohne Angabe ebenso')
+    finally:
+        if _echt_rez is not None:
+            _hs170.rezept = _echt_rez
+
+    # ------------------------------------------------------------------
+    # 171. Erledigte Merkposten fliegen beim Start raus
+    #
+    # ⚠⚠ **`erledigen()` greift nur beim FUND.** Wer einen Bauplan merkt, den
+    # er laengst hat, behaelt den Merkposten fuer immer. Am 06.09.2026 stand
+    # `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste
+    # ein Haekchen trug: „da wird einer beobachtet, den ich schon habe."
+    print()
+    print('171. Erledigte Merkposten fliegen beim Start raus')
+    from scbp import merkliste as _mk171
+
+    _heim171 = _tf166.mkdtemp(prefix='merk-')
+    _alt171 = os.environ.get('SC_BP_HOME')
+    try:
+        os.environ['SC_BP_HOME'] = _heim171
+        _mk171.speichern({'namen': ['Habe Ich', 'Fehlt Mir'],
+                          'eintraege': [{'titel': 'Muster',
+                                         'muster': ['morozov']}]})
+        _weg = _mk171.aufraeumen(['habe ich'])
+        pruefe(_weg == 1, 'genau ein erledigter Posten wird ausgetragen')
+        _jetzt = _mk171.laden()
+        pruefe(_jetzt['namen'] == ['Fehlt Mir'],
+               'der noch fehlende bleibt stehen')
+        # ⚠ Muster bleiben unangetastet: „Morozov" steht fuer mehrere Teile,
+        # von denen erst eines da sein kann.
+        pruefe(len(_jetzt['eintraege']) == 1,
+               'Muster-Eintraege bleiben unberuehrt')
+        pruefe(_mk171.aufraeumen([]) == 0,
+               'Gegenprobe: ohne Bestand wird nichts ausgetragen')
+        pruefe(_mk171.aufraeumen(['gibtsnicht']) == 0,
+               'Gegenprobe: ein fremder Name traegt nichts aus')
+    finally:
+        if _alt171 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt171
+        shutil.rmtree(_heim171, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.0 - 2026-09-06
+
+> **Beim Vorgemerkten steht jetzt, was du dafür farmen musst.** Bisher stand
+> die Materialsumme nur unten auf der Seite — welche Waffe welches Erz braucht,
+> war daraus nicht zu erkennen.
+
+### Neu
+
+- **Unter jedem vorgemerkten Bauplan stehen seine Rohstoffe** — mit der
+  Stückzahl multipliziert und gegen dein Lager gehalten. Gold heißt „fehlt",
+  Grün „reicht". Gemeldet von Haldjas.
+
+### Behoben
+
+- **Vorgemerktes wurde nicht als „selbst herstellen" gerechnet.** Die Seite
+  meldete gleichzeitig „kein Bauplan vorliegt" und „Alles da — du kannst
+  sofort loslegen", bei leerem Lager. Der Grund: Ein Merkzettel-Eintrag kennt
+  nur den Bauplannamen, gesucht wurde aber eine Kennung.
+- **Ein Merkposten blieb stehen, obwohl der Bauplan längst da war.** Ausgetragen
+  wurde bisher nur beim Fund; jetzt räumt der Watcher bei jedem Start auf.
+
 ## v3.21.0 - 2026-09-06
 
 > **Baupläne farmen, ohne den Umweg über ein Schiff.** Bisher führte jede

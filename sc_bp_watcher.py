@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.21.0'
+__version__ = '3.22.0'
 
 
 def _mitgeliefert(name):
@@ -732,6 +732,17 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             fehler.merken('watcher.bestand_angleichen', ausnahme)
         fehler.spur('Overlay: Bestand am Katalog geprueft')
+        # ⚠⚠ **Merkposten austragen, die längst im Bestand stehen.**
+        # `_merkliste_erledigen` greift nur beim FUND — wer etwas merkt, das er
+        # schon hat, behält den Posten für immer. Gemeldet am 06.09.2026: „da
+        # wird einer beobachtet, den ich schon habe."
+        try:
+            _weg = merkliste.aufraeumen(
+                (self.bestand.get('bauplaene') or {}).keys())
+            if _weg:
+                fehler.spur('Merkliste: %d erledigte Posten ausgetragen' % _weg)
+        except Exception as ausnahme:
+            fehler.merken('watcher.merkliste_aufraeumen', ausnahme)
         # ⚠⚠⚠ **Ist der Bestand kleiner als je zuvor?** Dann stimmt etwas mit
         # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Am
         # 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413,

@@ -3959,6 +3959,14 @@ TEXTE = {
                           'weapons too, not only ship parts.'),
     's_mz_weg':          ('Streichen', 'Remove'),
     's_mz_stueck':       ('Stück', 'Qty'),
+    # ⚠ **Das Material gehört an den Eintrag.** Gemeldet am 06.09.2026: „Man
+    # sieht da aber kein Material, was man farmen muss — unter den Waffen würde
+    # es Sinn machen, dass man das zu farmende Material sieht." Die Summe unten
+    # sagt, wie viel Erz insgesamt fehlt; hier steht, wofür.
+    's_mz_braucht':      ('braucht %.2f · hast %.2f',
+                          'needs %.2f · you have %.2f'),
+    's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
+                          'No recipe available for this blueprint.'),
     's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt der Watcher die Zutaten '
                           'aus deinem Lager.',
                           'Built it? Then the watcher takes the ingredients out '

@@ -10189,9 +10189,16 @@ def _farmliste(fenster, rahmen):
             meine.speichern(stand)
             neu_zeichnen()
 
+        # ⚠⚠ **Das Material gehört an den Eintrag, nicht nur in die Summe
+        # unten.** Am 06.09.2026 gemeldet: „Man sieht da aber kein Material,
+        # was man farmen muss — unter den Waffen würde es Sinn machen, dass man
+        # das zu farmende Material sieht." Genau so: Die Summe unten beantwortet
+        # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
+        from . import herstellung as _mz_herst, rohstoffe as _mz_lager
+
         for e in eintraege:
             zeile = tk.Frame(rahmen_mz, bg=BG)
-            zeile.pack(fill='x', pady=1)
+            zeile.pack(fill='x', pady=(6, 0))
             # ⚠ Der Streichen-Knopf zuerst, dann der Name mit `expand` —
             # sonst schiebt ein langer Bauplanname ihn aus dem Fenster.
             # Dieselbe Packreihenfolge-Falle, die hier schon zweimal zugeschlagen
@@ -10208,6 +10215,49 @@ def _farmliste(fenster, rahmen):
                      font=fenster.f_grund, anchor='w').pack(side='left',
                                                             fill='x',
                                                             expand=True)
+
+            # Die Zutaten darunter — mit der Stückzahl multipliziert und
+            # gegen das Lager gehalten.
+            try:
+                rez = _mz_herst.rezept(e.get('name') or '')
+            except Exception:
+                rez = None
+            if not rez or not rez.get('stufen'):
+                # ⚠ Kein Rezept ist eine Aussage, kein Grund zu schweigen —
+                # sonst steht der Eintrag ohne Erklärung nackt da.
+                tk.Label(rahmen_mz, text=t('s_mz_kein_rezept'), bg=BG, fg=SUB,
+                         font=fenster.f_klein,
+                         anchor='w').pack(fill='x', padx=(18, 0))
+                continue
+            for stufe in rez['stufen']:
+                for _slot, rohstoff, einzeln, guete in (stufe.get('zutaten')
+                                                        or []):
+                    if not rohstoff:
+                        continue
+                    braucht = float(einzeln or 0) * menge
+                    # ⚠ **Mit Mindestgüte fragen.** Erz mit Q 200 in einem
+                    # Rezept, das Q 500 verlangt, ist für diesen Bauplan
+                    # nichts wert — `menge_von()` würde es mitzählen und
+                    # „reicht" behaupten.
+                    try:
+                        da = float(_mz_lager.menge_mit_guete(
+                            rohstoff, float(guete or 0)) or 0)
+                    except Exception:
+                        da = 0.0
+                    fehlt_hier = braucht - da
+                    zutat = tk.Frame(rahmen_mz, bg=BG)
+                    zutat.pack(fill='x', padx=(18, 0))
+                    tk.Label(zutat, text=rohstoff, bg=BG, fg=SUB,
+                             font=fenster.f_klein, anchor='w',
+                             width=20).pack(side='left')
+                    # ⚠ Grün heißt „reicht", Gold „fehlt" — dieselbe Sprache
+                    # wie überall im Werkzeug. Grau wäre hier falsch: Es ist
+                    # eine Antwort, keine Nebensache.
+                    tk.Label(zutat,
+                             text=t('s_mz_braucht') % (braucht, da),
+                             bg=BG, fg=GOLD if fehlt_hier > 0.001 else ACCENT,
+                             font=fenster.f_klein,
+                             anchor='w').pack(side='left')
 
     def _aufbauen():
         werte = warenkorb.farmliste(meine.laden())
