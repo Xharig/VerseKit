@@ -262,20 +262,32 @@ def bildschirmbreite_mm(pixelbreite, mm_je_pixel):
     return pixelbreite * mm_je_pixel
 
 
+SCHLUESSEL = ('fov_mm_je_pixel', 'fov_pixelbreite', 'fov_abstand_mm')
+
+
 def gespeichert():
-    """Die zuletzt gespeicherte Kalibrierung, falls es eine gibt."""
+    """Die zuletzt gespeicherte Kalibrierung, falls es eine gibt.
+
+    ⚠⚠ **Gelesen wird direkt aus dem Wörterbuch, nicht über die Helfer.**
+    `pfade.einstellung()` ist für **Pfade** gedacht und gibt bei allem, was
+    kein Text ist, `None` zurück — die Kalibrierung war damit nach jedem
+    Neustart weg, ohne eine einzige Fehlermeldung. `einstellung_zahl()`
+    wiederum liefert `int`, und „0,2330 mm je Pixel" ist keine ganze Zahl.
+    Für Fließkommawerte gibt es hier keinen passenden Helfer.
+    """
+    try:
+        alle = pfade.einstellungen() or {}
+    except Exception:
+        return {}
     daten = {}
-    for schluessel in ('fov_mm_je_pixel', 'fov_pixelbreite',
-                       'fov_abstand_mm'):
+    for schluessel in SCHLUESSEL:
+        wert = alle.get(schluessel)
+        if wert is None:
+            continue
         try:
-            wert = pfade.einstellung(schluessel)
-        except Exception:
-            wert = None
-        if wert is not None:
-            try:
-                daten[schluessel] = float(wert)
-            except (TypeError, ValueError):
-                pass
+            daten[schluessel] = float(wert)
+        except (TypeError, ValueError):
+            pass
     return daten
 
 

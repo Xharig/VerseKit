@@ -82,12 +82,14 @@ class Kalibrierfenster:
         # ⚠ Erst anzeigen, dann Vollbild — sonst misst sich das Fenster unter
         # manchen Fensterverwaltungen noch in seiner Ausgangsgröße.
         self.fenster.update_idletasks()
+        self.vollbild = False
         try:
             self.fenster.attributes('-fullscreen', True)
+            self.vollbild = True
         except tk.TclError:
             # Nicht jede Umgebung kann das. Dann ein großes Fenster — die
-            # Messung stimmt trotzdem, nur die Bildschirmbreite muss der
-            # Aufrufer dann anders bestimmen.
+            # Messung der Karte stimmt trotzdem, nur die Bildschirmbreite
+            # lässt sich daraus nicht ablesen.
             self.fenster.geometry('1200x800')
         self.fenster.bind('<Escape>', lambda _e: self.schliessen())
 
@@ -185,12 +187,39 @@ class Kalibrierfenster:
                 text=t('s_fv_stand').format(int(karte_breite),
                                             (gesamt or 0) / 10.0))
 
+    def _wirklich_vollbild(self):
+        """Steht das Fenster wirklich über den ganzen Bildschirm?
+
+        ⚠⚠ **Das muss geprüft werden, nicht angenommen.** Der Vollbildmodus
+        kann fehlschlagen, ohne einen Fehler zu werfen — unter einer nackten
+        X-Sitzung ohne Fensterverwaltung blieb das Fenster bei **394 × 276**
+        stehen, während `attributes('-fullscreen', True)` klaglos durchlief.
+
+        Die Kartenmessung stimmt dann trotzdem (die Karte liegt ja auf dem
+        Bildschirm), aber die **Bildschirmbreite** wäre die Fensterbreite —
+        und damit wäre die ganze Rechnung falsch, ohne dass es jemand merkt.
+        Lieber nichts speichern als einen falschen Wert.
+        """
+        try:
+            gesetzt = bool(self.fenster.attributes('-fullscreen'))
+        except tk.TclError:
+            gesetzt = False
+        breite = self.leinwand.winfo_width()
+        # Zweite Sicherung: Ein „Vollbild", das schmaler ist als die Hälfte
+        # dessen, was Tk als Bildschirm meldet, ist keines.
+        try:
+            genug = breite >= self.fenster.winfo_screenwidth() * 0.5
+        except tk.TclError:
+            genug = False
+        return gesetzt and genug
+
     def _fertig(self):
         breite_px = self.leinwand.winfo_width()
         karte = float(self.breite.get())
+        vollbild = self._wirklich_vollbild()
         self.schliessen()
         if self.beim_fertig:
-            self.beim_fertig(karte, breite_px)
+            self.beim_fertig(karte, breite_px, vollbild)
 
     def schliessen(self):
         try:

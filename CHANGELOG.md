@@ -14,6 +14,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **Der Selbsttest zählt Reiter nicht mehr von Hand.** Eine notierte Zahl
+  musste bei jedem neuen Bereich nachgepflegt werden und schlug an, obwohl
+  nichts kaputt war. Jetzt wird verglichen, was der Sprachwechsel wirklich
+  prüfen soll: dass danach kein Reiter fehlt.
 - **Der Bau lief unter Windows nicht durch.** Ein Pfeilzeichen in einem
   Prüftext ließ den Selbsttest dort mit einer Ausnahme abbrechen — die
   Windows-Konsole kann es nicht ausgeben, unter Linux fällt das nie auf. Eine

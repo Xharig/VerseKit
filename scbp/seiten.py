@@ -11733,9 +11733,16 @@ def _blickwinkel(fenster, rahmen):
         return (daten.get('fov_mm_je_pixel'), daten.get('fov_pixelbreite'),
                 daten.get('fov_abstand_mm'))
 
-    def _fertig_gemessen(karte_px, bildschirm_px):
+    def _fertig_gemessen(karte_px, bildschirm_px, vollbild=True):
         mm_je_pixel = fov_modul.mm_pro_pixel(karte_px)
         if not mm_je_pixel:
+            return
+        # ⚠ Ohne echtes Vollbild ist `bildschirm_px` die FENSTERbreite, nicht
+        # die des Bildschirms — die ganze Rechnung wäre falsch. Dann lieber
+        # nichts speichern und es sagen.
+        if not vollbild:
+            messagebox.showwarning(t('hf_blickwinkel'),
+                                   t('s_fv_kein_vollbild'))
             return
         fov_modul.merken(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
         breite = fov_modul.bildschirmbreite_mm(bildschirm_px, mm_je_pixel)

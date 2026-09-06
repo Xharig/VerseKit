@@ -926,6 +926,17 @@ def main():
                         n += fenster_zaehlen(k)
                     return n
 
+                # ⚠⚠ **Vorher zählen, nachher vergleichen.** Hier stand eine
+                # feste Zahl (zuletzt 22) — und die ist umgebungsabhängig:
+                # lokal 22, im nächsten Lauf 23, auf dem Bau-Rechner wieder
+                # anders. Die Prüfung schlug damit an, ohne dass etwas kaputt
+                # war, und musste bei jedem neuen Reiter von Hand nachgezogen
+                # werden.
+                #
+                # Geprüft werden soll ohnehin etwas anderes: dass der
+                # Sprachwechsel **keinen Reiter verschluckt**. Dafür ist die
+                # Zahl davor das richtige Maß, nicht eine notierte Konstante.
+                _vorher_reiter = len(hf.knoepfe)
                 seitenmodul._einstellungen(hf)._sprache_waehlen('en')
                 hf.root.update()
                 pruefe(fenster_zaehlen(hf.root) == 0,
@@ -986,7 +997,12 @@ def main():
                 # sagt, welcher Stick welche Nummer hat und was darauf liegt —
                 # der andere, wie die Achse reagiert. Im Spiel stehen die
                 # beiden Fragen ebenfalls an zwei getrennten Stellen.
-                pruefe(len(hf.knoepfe) == 22, 'alle Reiter sind wieder da')
+                # ⚠ Beide Zahlen stehen im Text. Ohne sie meldet ein
+                # Bau-Lauf nur „[FEHL] alle Reiter sind wieder da", und
+                # niemand weiß, ob einer fehlt oder zwanzig.
+                pruefe(len(hf.knoepfe) == _vorher_reiter,
+                       'alle Reiter sind wieder da (vorher %d, jetzt %d)'
+                       % (_vorher_reiter, len(hf.knoepfe)))
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
@@ -7204,7 +7220,7 @@ def main():
     # werden — auch das lange Minus vom Ziffernblock.
     _vorher84 = len(_hl84.laden())
     pruefe(all(_hl84.eintragen('Gold', wert)[1] == 'menge'
-               for wert in ('-40', '−40', '0', '-0,5')),
+               for wert in ('-40', '-40', '0', '-0,5')),
            'negative Mengen und Null werden abgewiesen')
     pruefe(len(_hl84.laden()) == _vorher84,
            'und es landet nichts davon im Lager')
@@ -12584,9 +12600,9 @@ def main():
 
         # ⭐ Der Kern: „Gerät ist da, Einstellung hängt an alter Kennung."
         pruefe(_nach141.get(_ALT141) and _nach141[_ALT141][0]['ueberholt'],
-               'gleicher Name + aktiver Zwilling → überholt, nicht verwaist')
+               'gleicher Name + aktiver Zwilling -> überholt, nicht verwaist')
         pruefe(_nach141.get(_WEG141) and _nach141[_WEG141][0]['verwaist'],
-               'Gerät ohne aktiven Zwilling → verwaist')
+               'Gerät ohne aktiven Zwilling -> verwaist')
 
         _uebern141 = _kv141.uebernehmbar(datei=_datei141)
         pruefe(len(_uebern141) == 1,
@@ -12645,7 +12661,7 @@ def main():
                         if k != _AKTIV141
                         and _vorher_alle141[k] != _nachher_alle141.get(k)]
         pruefe(not _beruehrt141,
-               '⭐ KEIN anderer Block wurde angefasst (berührt: %d)'
+               '* KEIN anderer Block wurde angefasst (berührt: %d)'
                % len(_beruehrt141))
 
         with open(_datei141, encoding='utf-8') as _f141:
@@ -12686,7 +12702,7 @@ def main():
                         or _q141[a].get('saturation')
                         != _z141[a].get('saturation')]
         pruefe(not _ungleich141,
-               '⭐ danach sind beide Geräte gleich eingestellt (ungleich: %d)'
+               '* danach sind beide Geräte gleich eingestellt (ungleich: %d)'
                % len(_ungleich141))
         # ⚠ Auch das Löschen muss übertragen worden sein: Die Quelle hat auf
         # `y` keine Sättigung — hätte das Ziel dort eine behalten, wären die
@@ -12738,7 +12754,7 @@ def main():
     # Ruhewert aus dieser Tabelle — deshalb wird sie hier festgenagelt.
     pruefe(_kv141.STANDARD['saturation'] == 1.0
            and _kv141.STANDARD['deadzone'] == 0.0,
-           '⭐ Ruhewerte: Sättigung 1,0 und Totzone 0,0')
+           '* Ruhewerte: Sättigung 1,0 und Totzone 0,0')
     pruefe(_gl141(_kv141.antwort(1.0, saettigung=None), 1.0)
            and _gl141(_kv141.antwort(0.5, saettigung=None), 0.5),
            'eine fehlende Sättigung rechnet wie 1,0, nicht wie 0')
@@ -13020,14 +13036,25 @@ def main():
     with open(os.path.join(WURZEL, 'tools', 'selbsttest.py'),
               encoding='utf-8') as _f144:
         _roh144 = _f144.read()
+    # ⚠⚠ **Über den Syntaxbaum, nicht zeilenweise.** Die erste Fassung sah nur
+    # Zeilen an, in denen `pruefe(` steht — und ging genau an dem Fall vorbei,
+    # der den Bau abgebrochen hatte: Der Text stand in der **Fortsetzungszeile**
+    # darunter. Sie meldete „keine" und war grün, während Windows weiter
+    # abbrach. Dieselbe Lehre wie bei der ast-Falle in Prüfung 138.
+    import ast as _ast144
     _schlimm144 = []
-    for _nr144, _zeile144 in enumerate(_roh144.split('\n'), 1):
-        if 'pruefe(' not in _zeile144 and 'print(' not in _zeile144:
+    for _knoten144 in _ast144.walk(_ast144.parse(_roh144)):
+        if not (isinstance(_knoten144, _ast144.Call)
+                and isinstance(_knoten144.func, _ast144.Name)
+                and _knoten144.func.id in ('pruefe', 'print')):
             continue
-        try:
-            _zeile144.encode('cp1252')
-        except UnicodeEncodeError:
-            _schlimm144.append(_nr144)
+        for _teil144 in _ast144.walk(_knoten144):
+            if isinstance(_teil144, _ast144.Constant) \
+                    and isinstance(_teil144.value, str):
+                try:
+                    _teil144.value.encode('cp1252')
+                except UnicodeEncodeError:
+                    _schlimm144.append(_teil144.lineno)
     pruefe(not _schlimm144,
            'kein Sonderzeichen in einem Ausgabetext (Zeilen: %s)'
            % (_schlimm144[:5] or 'keine'))
@@ -13040,6 +13067,83 @@ def main():
     except UnicodeEncodeError:
         _faellt144 = True
     pruefe(_faellt144, 'Gegenprobe: ein Pfeil im Prüftext faellt auf')
+
+    # ------------------------------------------------------------------
+    # 144. Blickwinkel: Bildschirm ausmessen, Sitzabstand bewerten
+    #
+    # Reine Rechnung, keine Fremddaten — die Prüfung läuft überall gleich.
+    # Geprüft wird an Punkten, die sich von Hand nachrechnen lassen.
+    #
+    # ⚠ Nummer 144 wegen derselben Kollision wie bei 142: Eine zweite Sitzung
+    # hat am selben Tag eine 143 vergeben (Kaufroute). Beim Zusammenführen
+    # gehört die Reihenfolge glattgezogen.
+    print()
+    print('144. Blickwinkel und Sitzabstand')
+    from scbp import fov as _fv143
+
+    def _gl143(ist, soll, toleranz=1e-6):
+        return ist is not None and abs(ist - soll) < toleranz
+
+    # Ein Bildschirm, der genau so breit ist wie der Abstand: Der Winkel muss
+    # 2·arctan(0,5) = 53,13° sein. Von Hand nachrechenbar.
+    pruefe(_gl143(_fv143.blickwinkel(1000, 1000), 53.13010235, 1e-6),
+           'gleich breit wie weit -> 53,13°')
+    # Der klassische rechte Winkel: Breite = 2 × Abstand → 90°.
+    pruefe(_gl143(_fv143.blickwinkel(2000, 1000), 90.0, 1e-9),
+           'doppelt so breit wie weit -> genau 90°')
+    # Hin und zurück muss dasselbe herauskommen.
+    _w143 = _fv143.blickwinkel(1193, 900)
+    pruefe(_gl143(_fv143.abstand_fuer(1193, _w143), 900.0, 1e-6),
+           'Winkel und Abstand rechnen sauber ineinander um')
+
+    # ⚠ Unbrauchbare Eingaben dürfen NICHTS liefern, nicht abstürzen und
+    # nicht raten. Ein Rechner, der bei Abstand 0 eine Zahl ausgibt, ist
+    # schlimmer als einer, der schweigt.
+    pruefe(_fv143.blickwinkel(1193, 0) is None
+           and _fv143.blickwinkel(0, 900) is None
+           and _fv143.blickwinkel('x', 900) is None,
+           'unbrauchbare Eingaben liefern nichts')
+    pruefe(_fv143.abstand_fuer(1193, 0) is None
+           and _fv143.abstand_fuer(1193, 180) is None,
+           'ein Winkel von 0 oder 180 Grad wird abgelehnt')
+
+    # Die Umrechnung waagerecht ↔ senkrecht muss sich aufheben.
+    _s143 = _fv143.senkrecht_aus_waagerecht(90.0, 16 / 9)
+    pruefe(_gl143(_fv143.waagerecht_aus_senkrecht(_s143, 16 / 9), 90.0, 1e-9),
+           'waagerecht und senkrecht rechnen sauber ineinander um')
+    # Breiter Bildschirm heißt mehr waagerecht bei gleichem senkrecht.
+    pruefe(_fv143.waagerecht_aus_senkrecht(50.0, 32 / 9)
+           > _fv143.waagerecht_aus_senkrecht(50.0, 16 / 9),
+           'ein breiterer Bildschirm ergibt mehr waagerechten Winkel')
+
+    # Die Kartenmessung.
+    pruefe(_gl143(_fv143.mm_pro_pixel(367.2), 85.60 / 367.2, 1e-9),
+           'aus der Kartenbreite wird die Pixelgröße')
+    pruefe(_gl143(_fv143.bildschirmbreite_mm(5120, 85.60 / 367.2),
+                  5120 * 85.60 / 367.2, 1e-6),
+           'daraus die Bildschirmbreite')
+    pruefe(_fv143.mm_pro_pixel(0) is None
+           and _fv143.bildschirmbreite_mm(5120, 0) is None,
+           'auch hier liefern unbrauchbare Eingaben nichts')
+
+    # ⭐ Die Ampel. Das Vorzeichen sagt die Richtung — positiv heißt zu weit
+    # weg. Wer das verdreht, schickt den Spieler in die falsche Richtung.
+    pruefe(_fv143.bewertung(900, 900)[0] == 'gruen',
+           'genau am Punkt ist grün')
+    pruefe(_fv143.bewertung(940, 900)[0] == 'gruen',
+           'ein paar Zentimeter daneben bleibt grün')
+    _n143, _a143 = _fv143.bewertung(1050, 900)
+    pruefe(_n143 == 'gelb' and _a143 > 0,
+           '* deutlich zu weit weg ist gelb, mit positivem Vorzeichen')
+    _n143, _a143 = _fv143.bewertung(500, 900)
+    pruefe(_n143 == 'rot' and _a143 < 0,
+           '* viel zu nah ist rot, mit negativem Vorzeichen')
+    pruefe(_fv143.bewertung(900, 0)[0] == 'rot',
+           'ein unmöglicher Sollwert wird nicht schöngerechnet')
+
+    # Die Kartenmaße sind eine Norm, kein Schätzwert.
+    pruefe(_fv143.KARTE_BREITE_MM == 85.60 and _fv143.KARTE_HOEHE_MM == 53.98,
+           'die Kartenmaße entsprechen ISO/IEC 7810 ID-1')
 
     print()
     if fehler:

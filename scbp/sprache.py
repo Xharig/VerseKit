@@ -1032,6 +1032,15 @@ TEXTE = {
                                'neutral angle above holds regardless.'),
     's_fv_gespeichert': ('Ausgemessen: {:.1f} cm breit.',
                            'Measured: {:.1f} cm wide.'),
+    's_fv_kein_vollbild': ('Das Messfenster ging nicht auf volle '
+                           'Bildschirmgröße. Damit lässt sich die Breite des '
+                           'Bildschirms nicht bestimmen, und es wurde nichts '
+                           'gespeichert. Versuch es noch einmal, ohne das '
+                           'Fenster zwischendurch zu verschieben.',
+                             'The measuring window did not go to full screen '
+                             'size. The screen width cannot be determined that '
+                             'way, so nothing was saved. Try again without '
+                             'moving the window in between.'),
     # Der Profilname wird zum Dateinamen — und zu dem, was der Spieler im
     # Spiel eintippt (`pp_rebindkeys load <Name>`). Deshalb die Grenzen.
     's_js_f_name_leer': ('Gib dem Profil einen Namen.',

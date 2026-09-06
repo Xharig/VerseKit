@@ -14,6 +14,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **The self-test no longer counts tabs by hand.** A written-down number had
+  to be updated for every new section and failed even though nothing was
+  broken. It now compares what the language switch is meant to check: that
+  no tab is missing afterwards.
 - **The build did not complete on Windows.** An arrow character in a test
   message made the self-test abort there with an exception — the Windows
   console cannot print it, and on Linux it never shows. A new check catches
