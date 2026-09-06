@@ -10502,10 +10502,21 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
 
         if angabe.get('zustand') == warenkorb.BEKANNT:
             if weg == warenkorb.KAUFEN:
-                wo = ' · '.join(x for x in (angabe.get('laden'),
-                                            angabe.get('ort')) if x)
+                # ⚠⚠ **Der Ort steht oft schon im Ladennamen.** UEX schreibt
+                # ihn dort mit hinein: Laden „Ship Weapons - Pyro Gateway
+                # (Stanton)", Ort „Pyro Gateway (Stanton)". Beides
+                # aneinandergehängt ergab „… bei Ship Weapons - Pyro Gateway
+                # (Stanton) · Pyro Gateway (Stanton)" — derselbe Ort zweimal,
+                # und die Zeile so lang, dass sie den Knopf daneben aus dem
+                # Fenster geschoben hat.
+                laden = (angabe.get('laden') or '').strip()
+                ort = (angabe.get('ort') or '').strip()
+                stellen = [laden] if laden else []
+                if ort and ort.lower() not in laden.lower():
+                    stellen.append(ort)
                 text = t('s_wk_kauf_preis').format(
-                    preis=_geld(angabe.get('preis')), laden=wo or '?', ort='')
+                    preis=_geld(angabe.get('preis')),
+                    laden=' · '.join(stellen) or '?', ort='')
                 text = text.rstrip(' ·')
             else:
                 text = t('s_wk_bau_kosten').format(
@@ -10518,9 +10529,6 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
             text, farbe = t('s_wk_kein_preis'), SUB
         else:
             text, farbe = t('s_wk_nicht_geprueft'), SUB
-        tk.Label(zeile, text=text, bg='#0c1017', fg=farbe,
-                 font=fenster.f_klein, anchor='w').pack(side='left')
-
         # ⚠⚠ **Ein fehlender Preis ist kein fehlender Weg.** Bis zum 06.09.2026
         # stand der Knopf nur bei `BEKANNT` — wer einmal auf „Selbst
         # herstellen" gewechselt hatte, kam nicht mehr zurück, solange UEX
@@ -10535,9 +10543,24 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
         #
         # Der Unterschied ist derselbe wie überall hier: Eine Aussage über
         # **fremde Daten** darf nie zu einer Aussage über das Spiel werden.
+        #
+        # ⚠⚠ **Der Knopf wird VOR dem Text gepackt — das ist kein Stil, sondern
+        # der Fehler selbst.** In `tkinter` bekommt das zuerst gepackte Element
+        # seinen Platz; ein langer Text mit `side='left'` schiebt einen später
+        # gepackten `side='right'`-Knopf schlicht aus dem Fenster. Genau das ist
+        # passiert: Bei einem Laden mit langem Namen war der Knopf „Kaufen"
+        # unsichtbar, und wer einmal auf „Selbst herstellen" gewechselt hatte,
+        # kam nicht zurück. Am 06.09.2026 gemeldet — und dieselbe Falle steht
+        # schon zweimal in den Projektregeln.
         if not aktiv and angabe.get('zustand') != warenkorb.KEIN_REZEPT:
             _knopf(fenster, zeile, t(schluessel),
-                   waehlen(weg)).pack(side='right')
+                   waehlen(weg)).pack(side='right', padx=(8, 0))
+
+        # ⚠ Der Text kommt zuletzt und darf schrumpfen: Was nicht passt, wird
+        # abgeschnitten — der Knopf daneben bleibt.
+        tk.Label(zeile, text=text, bg='#0c1017', fg=farbe,
+                 font=fenster.f_klein, anchor='w').pack(side='left',
+                                                        fill='x', expand=True)
 
         # ⚠⚠ Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
         # kaufbar. Ohne diesen Satz sieht Selberbauen billiger aus, als es ist.
