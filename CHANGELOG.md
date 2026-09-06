@@ -6,6 +6,16 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc19 - 2026-09-06
+
+> **Ein Kristall für die Farmliste.** Der neue Werkstatt-Reiter hatte noch kein
+> eigenes Bild und zeigte deshalb nur ein Ersatzzeichen.
+
+### Verbessert
+
+- **„Was ich farmen muss" hat jetzt ein Symbol** — ein Kristall, passend zum
+  Erz, um das es dort geht.
+
 ## v3.19.0-rc18 - 2026-09-06
 
 > **Abhaken, was erledigt ist — und sehen, was noch im Boden liegt.** Das

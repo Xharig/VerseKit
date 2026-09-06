@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc19 - 2026-09-06
+
+> **A crystal for the farming list.** The new workshop tab had no icon of its
+> own yet and showed a placeholder character instead.
+
+### Improved
+
+- **"What to farm" now has an icon** — a crystal, fitting the ore it is about.
+
 ## v3.19.0-rc18 - 2026-09-06
 
 > **Tick off what is done — and see what is still in the ground.** The tool
