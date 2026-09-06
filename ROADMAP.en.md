@@ -61,6 +61,8 @@ Four things are deliberate and will stay that way:
 | ✅ | **Fits your ship**: every blueprint tells you which of your ships the part belongs in, and how many slots it has there |
 | ✅ | **Ship data**: cargo capacity, purchase and rental price — pick your ship in the route planner and the cargo hold fills itself in |
 | ✅ | **Bindings included in backups**: keyboard and joystick bindings go into the backup file and can be saved as a named profile where Star Citizen finds it |
+| ✅ | **Axes & curves**: dead zone, saturation and sensitivity per axis with the curve alongside; set up two sticks alike, swap bindings across, save whole setups under a name |
+| ✅ | **Field of view**: measure the screen with a bank card, get the neutral field of view and the viewing distance that matches your own setting |
 
 ## What is being worked on
 
