@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.18.2 - 2026-09-06
+
+> **Ein Knopf, der sagt, was er tut.** „Jetzt auffrischen" hieß er — dabei holt
+> er die Daten und schreibt die Angaben komplett neu ins Spiel. Jetzt heißt er
+> „Neu einsetzen".
+
+### Verbessert
+
+- **„Neu einsetzen" statt „Jetzt auffrischen".** Der Knopf unter *Texte im
+  Spiel → Von Hand* holt die Vertragsdaten **und** trägt den ganzen Block neu
+  ein. „Auffrischen" beschrieb nur die halbe Arbeit und klang nach
+  Nachsehen. Die Erwähnung im Hinweis darunter zieht mit.
+
 ## v3.18.1 - 2026-09-06
 
 > **Die Rufpunkte springen dir jetzt ins Auge.** Sie standen schon länger in

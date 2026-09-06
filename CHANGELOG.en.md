@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.18.2 - 2026-09-06
+
+> **A button that says what it does.** It read "Refresh now" — but it fetches
+> the data and writes the whole block back into the game. It now reads "Insert
+> again".
+
+### Improved
+
+- **"Insert again" instead of "Refresh now".** The button under *In-game texts
+  → By hand* fetches the contract data **and** writes the entire block back in.
+  "Refresh" described only half the work and sounded like a look-up. The
+  mention in the note below it follows suit.
+
 ## v3.18.1 - 2026-09-06
 
 > **Reputation now catches your eye.** It had been in the contract texts for a
