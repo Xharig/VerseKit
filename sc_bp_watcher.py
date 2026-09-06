@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.22.2'
+__version__ = '3.23.0'
 
 
 def _mitgeliefert(name):
@@ -4327,5 +4327,65 @@ if __name__ == '__main__':
         fehler.spur('Bauplan-Liste wird geöffnet')
         fenster.liste_oeffnen()
         fehler.spur('Bauplan-Liste steht')
+    # ⚠⚠⚠ **Die Steckplatz-Daten JETZT holen, nicht beim ersten Seitenaufruf.**
+    #
+    # Bis v3.22.2 stieß erst „Mein Hangar" den Abruf an. Der lief zwar im
+    # Hintergrund — sein Ergebnis wurde aber über `after()` ins Zeichnen
+    # gegeben, und das schlug beim nächsten Seitenwechsel zu. Gemessen mit
+    # frischen Daten: Hangar **1053 ms**, „Was noch fehlt" **2053 ms**, in der
+    # Abnahme bis zu **7,5 Sekunden** auf der Wunschliste.
+    #
+    # ⚠ Es ist **keine Rechenlast**: Der Profiler zählt 64 ms eigenen Code.
+    # Es sind Netzabrufe, die zum falschen Zeitpunkt eingelöst werden. Wer
+    # schon alles beisammen hat, merkte davon nichts — deshalb fiel es hier
+    # nie auf und wurde erst von einem Tester mit frischer Installation
+    # gemeldet: *„Geschwindigkeit scheint in manchen Tabs wieder bisschen
+    # langsam zu sein."*
+    #
+    # Jetzt läuft der Abruf, während der Spieler noch das Overlay ansieht.
+    # Öffnet er später eine Seite, ist alles da.
+    #
+    # ⚠ Als Thread und mit `try` drumherum: Ein Netzfehler beim Start darf das
+    # Programm nicht aufhalten — ohne die Daten läuft alles wie bisher, nur
+    # eben langsamer beim ersten Blick.
+    def _steckplaetze_vorladen():
+        try:
+            from scbp import hangar as _hg
+            anzahl = _hg.daten_nachziehen() or 0
+            if anzahl:
+                fehler.spur('Vorladen: Steckplaetze fuer %d Schiffe geholt'
+                            % anzahl)
+        except Exception as ausnahme:
+            fehler.merken('watcher.steckplaetze_vorladen', ausnahme)
+            return
+        # ⚠⚠ **Und danach die Preise** — sonst wandert die Wartezeit nur
+        # weiter. Nach dem ersten Fix stand „Was noch fehlt" bei 14 ms, dafür
+        # brauchte „Was ich farmen muss" plötzlich **3355 ms**: Die Rechnung
+        # holt für jeden Posten den Ladenpreis, und das lief wieder erst beim
+        # Öffnen.
+        #
+        # ⚠ Erst die Steckplätze, dann die Preise — vorher weiß niemand,
+        # welche Teile überhaupt gebraucht werden.
+        try:
+            # ⚠ **Zuerst die Rohstoffpreise**, denn ohne sie kann die
+            # Materialrechnung nichts sagen — und „Was ich farmen muss" holte
+            # sie sonst beim Öffnen nach (gemessen: bis 4,7 Sekunden).
+            # `aktualisieren()` ist von sich aus sparsam: Ist die Ablage
+            # frisch, geht kein einziger Abruf hinaus.
+            from scbp import preise as _pr
+            _pr.aktualisieren()
+        except Exception as ausnahme:
+            fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
+        try:
+            from scbp import warenkorb as _wk, hangar as _hg2, laeden as _ld
+            offen = _wk.fehlende_preise(_wk.rechnung(_hg2.laden())['posten'])
+            for kennung in offen:
+                _ld.holen(kennung)
+            if offen:
+                fehler.spur('Vorladen: %d Preise geholt' % len(offen))
+        except Exception as ausnahme:
+            fehler.merken('watcher.preise_vorladen', ausnahme)
+
+    threading.Thread(target=_steckplaetze_vorladen, daemon=True).start()
     fehler.spur('Hauptschleife läuft')
     fenster.run()

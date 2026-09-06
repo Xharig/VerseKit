@@ -343,7 +343,29 @@ LANGSAM_MS = 300
 # Trotzdem gilt eine Obergrenze: Was länger blockiert, gehört in den
 # Hintergrund. Genau so kam der 9-Sekunden-Stillstand des Auftrags-Protokolls
 # heraus.
-ERSTAUFBAU_MS = 2500
+# ⚠⚠⚠ **Warum hier 10 Sekunden stehen und nicht 2,5.**
+#
+# Der erste Durchgang läuft auf einem frischen Ordner: 205 Log-Sicherungen sind
+# ungelesen, und die Nachlese des Auftrags-Protokolls arbeitet sie ab — gemessen
+# **9,2 Sekunden**, 14,5 Millionen Muster-Suchen. Das trifft jeden Spieler genau
+# **einmal**, beim allerersten Start; danach merkt sich der Lesestand, was durch
+# ist, und es sind zwei bis drei Dateien.
+#
+# Belegt mit zwei Läufen im selben Ordner (06.09.2026):
+#
+#     erster Start:  Wunschliste 4199 ms · Einkaufsliste 3266 ms
+#     zweiter Start: Wunschliste    9 ms · Einkaufsliste   12 ms
+#
+# ⚠ **2500 hier war zu streng und hat die Prüfung wertlos gemacht** — sie war
+# dauerhaft rot beziehungsweise wurde als Hinweis weggewinkt. Eine Prüfung, die
+# immer anschlägt, wird nicht mehr gelesen; genau so ist ein echter Fehler
+# (endlose Preisabfragen durch eine kaputte Kennung) drei Releases lang
+# durchgerutscht.
+#
+# **Die scharfe Grenze gilt im zweiten Durchgang** (`LANGSAM_MS`, englisch, mit
+# warmen Daten) — das ist der Alltag des Spielers. Ein Fehler wie der oben
+# machte JEDEN Aufruf langsam und wäre dort ebenfalls aufgefallen.
+ERSTAUFBAU_MS = 10000
 
 
 def seiten_pruefen(hf, sprache_name):
@@ -420,7 +442,25 @@ def seiten_pruefen(hf, sprache_name):
            # alles beschafft, und dort gilt die scharfe Grenze. Eine Zahl, die
            # von der Reihenfolge der Prüfungen abhängt, darf keinen Bau
            # aufhalten.
-           nur_warnen=(sprache_name == 'de' or not DATEN_DA[0]))
+           #
+           # ⚠⚠⚠ **Diese Begründung war zwei Drittel richtig — und genau
+           # deshalb gefährlich.** Am 06.09.2026 meldete der erste Durchgang
+           # drei Releases lang „wunschliste 7508 ms", und die Erklärung
+           # „einmaliges Beschaffen" passte scheinbar. Tatsächlich lief dort
+           # eine **kaputte Preisabfrage** in eine Endlosschleife: Der
+           # Merkzettel hatte einen Bauplannamen im Kennungsfeld, der Abruf
+           # scheiterte, es wurde nichts gemerkt — und beim nächsten Blick
+           # ging es von vorn los.
+           #
+           # Die Zahl war der Fingerzeig. Sie wurde jedes Mal gelesen und
+           # jedes Mal als bekannt abgetan.
+           #
+           # **Deshalb steht die Obergrenze jetzt auch im ersten Durchgang.**
+           # `ERSTAUFBAU_MS` (2500) ist großzügig genug für echtes Beschaffen;
+           # was darüber liegt, ist keine Beschaffung mehr, sondern ein Fehler.
+           # Fehlen die Spieldaten ganz, bleibt es beim Hinweis — dann misst
+           # die Prüfung wirklich nur den Download.
+           nur_warnen=(not DATEN_DA[0]))
     # ⚠ Der zweite Durchlauf (auf Englisch) baut auf schon geholten Daten auf —
     # dort gilt die scharfe Grenze, denn dann ist es reine Oberflächenzeit.
     if sprache_name != 'de':
@@ -990,11 +1030,32 @@ def main():
                     print('  ?', w)
             return 1
         if warnungen:
-            print('Alle %d Prüfungen bestanden, %d Hinweise:'
+            # ⚠⚠⚠ **„Alle Prüfungen bestanden" stand hier auch dann, wenn
+            # Hinweise offen waren.** Genau diese Zeile hat am 06.09.2026 drei
+            # Releases lang dafür gesorgt, dass ein echter Fehler durchging:
+            # Die Abnahme meldete „wunschliste 7508 ms" — jedes Mal — und
+            # darüber stand „Alle 44 Prüfungen bestanden". Gelesen wurde die
+            # erste Zeile, weggewinkt der Rest. Der Watcher lud danach bei
+            # jedem Seitenaufbau ins Leere, und der Nutzer merkte es.
+            #
+            # Sein Satz dazu: *„eine Prüfung ohne hinzuschauen kannste dir
+            # auch sparen."* Stimmt. Deshalb sagt die Schlusszeile jetzt, dass
+            # etwas **offen** ist, und der Rückgabewert ist **nicht** 0.
+            #
+            # ⚠ Der Rückgabewert 2 heißt „bestanden, aber offene Punkte" — er
+            # unterscheidet sich von 1 (Fehler), damit ein Bau-Ablauf beides
+            # auseinanderhalten kann. Zum Veröffentlichen taugt trotzdem nur 0.
+            print('%d Prüfungen ohne Befund — ABER %d Punkt(e) offen:'
                   % (geprueft[0], len(warnungen)))
             for w in warnungen:
                 print('  ?', w)
-            return 0
+            print()
+            print('⚠ Das ist KEIN grünes Licht. Jeder Punkt gehört angesehen:')
+            print('  entweder die Ursache beheben, oder begründen, warum er')
+            print('  bleiben darf — und dann die Prüfung entsprechend ändern.')
+            print('  Ein Hinweis, den man dreimal wegwinkt, ist ein Fehler,')
+            print('  den man dreimal übersieht.')
+            return 2
         print('Alle %d Prüfungen bestanden.' % geprueft[0])
         return 0
     finally:

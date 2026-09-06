@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.23.0 - 2026-09-06
+
+> **Pages are there instantly again.** Hardpoints and prices are now fetched in
+> the background at startup, while you are still looking at the overlay —
+> instead of when you open a page.
+
+### Improved
+
+- **Preloading happens at startup, not on the first click.** Measured on a
+  set-up watcher: "Still missing" **2053 → 12 ms**, "My hangar"
+  **1053 → 13 ms**, wishlist **9 ms**. Reported by Haldjas.
+- "What to farm" calculated the material list **twice** — once for the display,
+  once for the colours. Now once.
+
+### Fixed
+
+- A marked blueprint without a shop price triggered a lookup on every page
+  build that could not succeed.
+
 ## v3.22.2 - 2026-09-06
 
 > **Pages load instantly again.** A marked blueprint triggered a price lookup

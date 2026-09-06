@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.23.0 - 2026-09-06
+
+> **Die Seiten sind wieder sofort da.** Steckplätze und Preise werden jetzt
+> beim Start im Hintergrund geholt, während du noch das Overlay ansiehst —
+> statt erst dann, wenn du eine Seite öffnest.
+
+### Verbessert
+
+- **Vorgeladen wird beim Start, nicht beim ersten Klick.** Gemessen an einem
+  eingerichteten Watcher: „Was noch fehlt" **2053 → 12 ms**, „Mein Hangar"
+  **1053 → 13 ms**, Wunschliste **9 ms**. Gemeldet von Haldjas.
+- „Was ich farmen muss" rechnete die Materialliste **zweimal** — einmal für
+  die Anzeige, einmal für die Farben. Jetzt einmal.
+
+### Behoben
+
+- Ein vorgemerkter Bauplan ohne Ladenpreis löste bei jedem Seitenaufbau eine
+  Abfrage aus, die nicht gelingen konnte.
+
 ## v3.22.2 - 2026-09-06
 
 > **Seiten laden wieder sofort.** Ein vorgemerkter Bauplan löste bei jedem

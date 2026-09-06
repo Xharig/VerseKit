@@ -817,6 +817,26 @@ def nachlese():
         if gelesen.get(os.path.basename(pfad_log)) != marke:
             offen_dateien.append((pfad_log, marke))
 
+    # ⚠⚠⚠ **Hier stand einmal eine Begrenzung auf die neuesten 20 Protokolle
+    # — und sie war falsch.** Gemessen am 06.09.2026:
+    #
+    #     erster Lauf (20 Protokolle):    423 ms
+    #     zweiter Lauf (die übrigen 185): 7226 ms
+    #
+    # Die Arbeit war nicht weg, nur verschoben — und beim zweiten Start
+    # bekäme der Spieler sie ungebremst ab, ohne zu wissen warum. Der Autor
+    # brachte es auf den Punkt: *„einmal beim Start, sonst die letzten 3?"*
+    #
+    # **Genau so läuft es, und zwar schon immer:** Der Lesestand oben sorgt
+    # dafür, dass nach dem ersten Mal nur noch die gewachsenen Dateien
+    # drankommen — im Alltag zwei bis drei. Die einmaligen neun Sekunden beim
+    # allerersten Start sind der Preis für ein Protokoll, das rückwirkend
+    # gefüllt ist; sie laufen im Hintergrund und treffen jeden Spieler genau
+    # einmal.
+    #
+    # ⚠ Wer hier wieder begrenzen will, muss zuerst den **zweiten** Start
+    # messen, nicht nur den ersten.
+
     # ⚠⚠ **ALLE Protokolle, nicht nur die hier offenen.** Der erste Anlauf gab
     # `offen_dateien` weiter — und auf einem Rechner, dessen Auftrags-Protokoll
     # schon eingelesen war, ist die Liste leer. Die Spielzeit stand dadurch auf

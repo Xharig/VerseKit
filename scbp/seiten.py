@@ -10170,7 +10170,7 @@ def _farmliste(fenster, rahmen):
             kind.destroy()
         _aufbauen()
 
-    def _merkzettel_block():
+    def _merkzettel_block(werte):
         """Was von Hand vorgemerkt wurde — mit Stückzahl und Streichen.
 
         ⭐⭐ **Der einzige Weg hierher, der ohne Schiff auskommt.** Alles andere
@@ -10220,13 +10220,15 @@ def _farmliste(fenster, rahmen):
         # Der Einzelposten sagt jetzt nur noch, **was er braucht**; ob es
         # reicht, sagt die Farbe, und die stammt aus der Gesamtrechnung. Eine
         # Seite, eine Wahrheit.
+        # ⚠⚠⚠ **Die Rechnung wird ÜBERGEBEN, nicht neu angestellt.** Der erste
+        # Anlauf rief hier `warenkorb.farmliste()` ein zweites Mal — dieselbe
+        # Rechnung über alle Schiffe und Rezepte, nur damit die Farbe stimmt.
+        # Gemessen: Die Seite brauchte dadurch **3937 ms** statt 60.
+        #
+        # Eine teure Rechnung gehört einmal gemacht und weitergereicht.
         _fehlt_gesamt = set()
-        try:
-            for _e in (warenkorb.farmliste(meine.laden()).get('fehlt') or []):
-                _fehlt_gesamt.add(
-                    (_e.get('rohstoff') or '').strip().lower())
-        except Exception as _ausnahme:
-            fehler.merken('seiten.merkzettel_fehlmengen', _ausnahme)
+        for _e in ((werte or {}).get('fehlt') or []):
+            _fehlt_gesamt.add((_e.get('rohstoff') or '').strip().lower())
 
         for e in eintraege:
             zeile = tk.Frame(rahmen_mz, bg=BG)
@@ -10292,7 +10294,7 @@ def _farmliste(fenster, rahmen):
         reicht = werte.get('vollstaendig') or []
         anzahl = werte.get('posten') or 0
 
-        _merkzettel_block()
+        _merkzettel_block(werte)
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall hier:
         # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich
