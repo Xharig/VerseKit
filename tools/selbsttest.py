@@ -13820,11 +13820,20 @@ def main():
     # zurueck auf „Kaufen" — ohne Fehlermeldung, der Knopf war schlicht nicht
     # zu sehen. Am 06.09.2026 gemeldet.
     #
-    # Gemessen wird an einem echten Fenster unter Xvfb, bei zwei Breiten. Ein
-    # Blick auf den Quelltext haette hier nichts gebracht: Die Reihenfolge sah
-    # in beiden Faellen plausibel aus.
+    # ⚠⚠ **Geprueft wird die PACK-REIHENFOLGE, nicht die Pixellage.** Die
+    # erste Fassung dieser Pruefung mass die rechte Kante des Knopfes in einem
+    # echten Fenster. Lokal unter Linux war sie gruen, im Bau-Lauf unter
+    # Windows fiel sie mit „rechte Kante None" um: Dort war zum Messzeitpunkt
+    # nichts gemappt, der Knopf also gar nicht auffindbar — und die
+    # Folgepruefungen fielen mit.
+    #
+    # Eine Pruefung, die auf einer Plattform falsch rot ist, blockiert den Bau
+    # und sagt trotzdem nichts. Die Ursache war ohnehin nie eine Pixelzahl,
+    # sondern die Reihenfolge in `pack()`: Der Knopf muss VOR dem Textlabel
+    # kommen. Genau das steht in `pack_slaves()` — plattformunabhaengig, ohne
+    # sichtbares Fenster.
     print()
-    print('155. Der Warenkorb-Knopf bleibt sichtbar')
+    print('155. Der Warenkorb-Knopf steht vor dem Preistext')
     import tkinter as _tk155
     from tkinter import font as _fo155
     from scbp import seiten as _st155
@@ -13833,49 +13842,41 @@ def main():
     class _F155:
         pass
 
-    _posten155 = {
-        'pfad': 'p1', 'name': 'M6A Cannon', 'ref': 'r1',
-        'werk_name': 'CF-447 Rhino Repeater', 'weg': _wk155.BAUEN,
-        'kauf': {'zustand': _wk155.BEKANNT, 'preis': 160626,
-                 'laden': 'Ship Weapons - Pyro Gateway (Stanton)',
-                 'ort': 'Pyro Gateway (Stanton)'},
-        'bau': {'zustand': _wk155.BEKANNT, 'material': 17120, 'dauer': 2940},
-    }
-
-    def _messen155(breite):
-        """Baut den Posten in einem Fenster dieser Breite aus und misst.
-
-        Gibt `(knopf_sichtbar, knopf_rechts, texte)` zurueck.
-        """
-        top = _tk155.Toplevel(wurzel155)
-        top.geometry('%dx400' % breite)
-        rahmen = _tk155.Frame(top, bg='#0d1117')
-        rahmen.pack(fill='both', expand=True)
+    def _bauen155(kauf):
+        """Baut einen Warenkorb-Posten auf und gibt (zeilen, texte) zurueck."""
+        rahmen = _tk155.Frame(wurzel155, bg='#0d1117')
+        posten = {'pfad': 'p1', 'name': 'M6A Cannon', 'ref': 'r1',
+                  'werk_name': 'CF-447 Rhino Repeater', 'weg': _wk155.BAUEN,
+                  'kauf': kauf,
+                  'bau': {'zustand': _wk155.BEKANNT, 'material': 17120,
+                          'dauer': 2940}}
         _st155._warenkorb_posten(_f155, rahmen, {'name': 'T', 'belegung': {}},
-                                 dict(_posten155), lambda: None)
-        top.update_idletasks()
-        gefunden = [None]
+                                 posten, lambda: None)
+        wurzel155.update_idletasks()
         texte = []
+        zeilen = []
 
         def geh(w):
-            for k in w.winfo_children():
-                if not k.winfo_ismapped():
-                    geh(k)
-                    continue
-                rechts = k.winfo_rootx() - top.winfo_rootx() + k.winfo_width()
-                if k.winfo_class() == 'Canvas':
-                    gefunden[0] = rechts
-                else:
-                    try:
-                        if k.cget('text'):
-                            texte.append(k.cget('text'))
-                    except Exception:
-                        pass
+            kinder = w.winfo_children()
+            # Eine „Zeile" ist ein Rahmen, in dem ein Canvas (der Knopf) und
+            # ein Label nebeneinander liegen.
+            arten = [k.winfo_class() for k in kinder]
+            if 'Canvas' in arten and 'Label' in arten:
+                # ⚠ Die Klassen SOFORT einsammeln, nicht die Widgets aufheben:
+                # Der Rahmen wird gleich zerstoert, und ein `winfo_class()`
+                # danach wirft `bad window path name`.
+                zeilen.append([s.winfo_class() for s in w.pack_slaves()])
+            for k in kinder:
+                try:
+                    if k.cget('text'):
+                        texte.append(k.cget('text'))
+                except Exception:
+                    pass
                 geh(k)
 
         geh(rahmen)
-        top.destroy()
-        return gefunden[0], texte
+        rahmen.destroy()
+        return zeilen, texte
 
     wurzel155 = _tk155.Tk()
     wurzel155.withdraw()
@@ -13884,33 +13885,222 @@ def main():
     _f155.f_fett = _fo155.Font(family='Calibri', size=10, weight='bold')
     _f155.beim_zeigen = {}
     try:
-        for _b155 in (980, 760):
-            _rechts155, _texte155 = _messen155(_b155)
-            pruefe(_rechts155 is not None,
-                   'bei %d px ist der Knopf ueberhaupt da' % _b155)
-            pruefe(_rechts155 is not None and _rechts155 <= _b155,
-                   '* und steht im Fenster (rechte Kante %s von %d)'
-                   % (_rechts155, _b155))
+        _lang155 = {'zustand': _wk155.BEKANNT, 'preis': 160626,
+                    'laden': 'Ship Weapons - Pyro Gateway (Stanton)',
+                    'ort': 'Pyro Gateway (Stanton)'}
+        _zeilen155, _texte155 = _bauen155(_lang155)
+
+        pruefe(len(_zeilen155) == 1,
+               'die Zeile mit dem Knopf wird gefunden (bekam: %d)'
+               % len(_zeilen155))
+        if _zeilen155:
+            _arten155 = _zeilen155[0]
+            # Erwartet: Label (Beschriftung) · Canvas (Knopf) · Label (Preis)
+            pruefe('Canvas' in _arten155,
+                   'der Knopf ist in der Zeile (Reihenfolge: %s)'
+                   % ' '.join(_arten155))
+            if 'Canvas' in _arten155:
+                _k155 = _arten155.index('Canvas')
+                _spaeter155 = _arten155[_k155 + 1:]
+                pruefe('Label' in _spaeter155,
+                       '* und wird VOR dem Preistext gepackt — sonst schiebt '
+                       'der Text ihn aus dem Fenster')
 
         # Der Ort darf nur einmal vorkommen.
-        _rechts155, _texte155 = _messen155(980)
         _kauf155 = [x for x in _texte155 if 'aUEC bei' in x]
         pruefe(len(_kauf155) == 1, 'die Kaufzeile steht genau einmal da')
-        pruefe(_kauf155 and _kauf155[0].count('Pyro Gateway') == 1,
+        pruefe(bool(_kauf155) and _kauf155[0].count('Pyro Gateway') == 1,
                'der Ort steht einmal im Text, nicht zweimal (bekam: %d)'
                % (_kauf155[0].count('Pyro Gateway') if _kauf155 else -1))
 
         # Gegenprobe: Ein Ort, der NICHT im Ladennamen steckt, muss dazu.
-        _posten155['kauf'] = {'zustand': _wk155.BEKANNT, 'preis': 1000,
-                              'laden': 'Platinum Bay', 'ort': 'Area18'}
-        _rechts155, _texte155 = _messen155(980)
+        _eigen155 = {'zustand': _wk155.BEKANNT, 'preis': 1000,
+                     'laden': 'Platinum Bay', 'ort': 'Area18'}
+        _zeilen155, _texte155 = _bauen155(_eigen155)
         _kauf155 = [x for x in _texte155 if 'aUEC bei' in x]
-        pruefe(_kauf155 and 'Area18' in _kauf155[0],
+        pruefe(bool(_kauf155) and 'Area18' in _kauf155[0],
                'Gegenprobe: ein eigenstaendiger Ort wird weiter genannt')
-        pruefe(_kauf155 and 'Platinum Bay' in _kauf155[0],
+        pruefe(bool(_kauf155) and 'Platinum Bay' in _kauf155[0],
                '* und der Laden ebenso')
     finally:
         wurzel155.destroy()
+
+    print()
+    print('156. Die Teileauswahl kennt auch Herstellbares')
+    # ⚠⚠ **Militaer ist nicht kaufbar, aber herstellbar.** Bis zum 06.09.2026
+    # speiste sich die Auswahl nur aus UEX — und UEX fuehrt Ladenware. Bei den
+    # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
+    # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
+    from scbp import warenkorb as _wk156, laeden as _ld156
+    from scbp import herstellung as _he156, katalog as _kt156
+
+    _echt156 = (_ld156.katalog_teile, _he156.alle, _kt156.laden)
+    try:
+        # Zwei kaufbare Teile, davon eines auch herstellbar; dazu ein rein
+        # herstellbares Militaer-Teil, das UEX gar nicht kennt.
+        _ld156.katalog_teile = lambda: [
+            {'name': 'Civi-QD', 'kennung': 'ref-civi', 'kategorie':
+             'Quantum Drives', 'abschnitt': 'Propulsion', 'hersteller': 'Acme',
+             'groesse': '2', 'klasse': 'Civilian', 'guete': 'A'},
+            {'name': 'Doppel-QD', 'kennung': 'ref-doppel', 'kategorie':
+             'Quantum Drives', 'abschnitt': 'Propulsion', 'hersteller': 'Acme',
+             'groesse': '2', 'klasse': 'Industrial', 'guete': 'B'},
+        ]
+        _he156.alle = lambda: [
+            {'basis': 'Doppel-QD', 'name': 'Doppel-QD', 'entity': 'ref-doppel',
+             'hersteller': 'Acme', 'art': 'quantumdrive', 'unterart': 'size2'},
+            {'basis': 'Militaer-QD', 'name': 'Militaer-QD',
+             'entity': 'ref-mil', 'hersteller': 'Wei-Tek',
+             'art': 'quantumdrive', 'unterart': 'size2'},
+            # Falsche Groesse — darf NICHT erscheinen.
+            {'basis': 'Gross-QD', 'name': 'Gross-QD', 'entity': 'ref-gross',
+             'hersteller': 'Acme', 'art': 'quantumdrive', 'unterart': 'size4'},
+        ]
+        # Der Katalog kennt nur eines der drei — die anderen muessen ueber den
+        # Rueckfall aus den Rezeptdaten kommen.
+        # ⚠ Der Schluessel muss durch `katalog._norm()` gegangen sein.
+        # Beim ersten Anlauf stand hier `militaerqd` ohne Bindestrich — `_norm`
+        # macht aber `militaer-qd` daraus, die Merkmale wurden nicht gefunden,
+        # und die Pruefung meldete einen Fehler im Code, den es nicht gab.
+        _kt156.laden = lambda: {'bauplaene': {
+            'militaer-qd': {'n': 'Militaer-QD', 'a': 'QuantumDrive', 's': 2,
+                            'g': 1, 'c': 'Military', 'm': 'Wei-Tek'}}}
+
+        _a156 = _wk156.auswahl('QuantumDrive', 2)
+        _namen156 = sorted(x['name'] for x in _a156)
+        pruefe(_namen156 == ['Civi-QD', 'Doppel-QD', 'Militaer-QD'],
+               'kaufbare UND herstellbare Teile stehen zur Wahl (bekam: %s)'
+               % (_namen156,))
+
+        # ⚠⚠ Der Kern: das Militaer-Teil, das UEX nicht fuehrt.
+        _mil156 = [x for x in _a156 if x['name'] == 'Militaer-QD']
+        pruefe(_mil156 and _mil156[0]['klasse'] == 'Military',
+               'das nur herstellbare Militaer-Teil ist dabei, mit Klasse')
+        pruefe(_mil156 and _mil156[0]['herkunft'] == _wk156.HERSTELLBAR,
+               'und ist als herstellbar gekennzeichnet')
+
+        # ⚠ Ein Teil aus beiden Quellen steht EINMAL da, nicht zweimal.
+        _dop156 = [x for x in _a156 if x['name'] == 'Doppel-QD']
+        pruefe(len(_dop156) == 1,
+               'ein Teil aus beiden Quellen steht einmal da (bekam: %d)'
+               % len(_dop156))
+        pruefe(_dop156 and _dop156[0]['herkunft'] == _wk156.BEIDES,
+               'und traegt die Herkunft „beides"')
+        pruefe(len(set(x['kennung'] for x in _a156)) == len(_a156),
+               'jede Kennung kommt genau einmal vor')
+
+        # ⚠ Die Groesse wird auch im Rueckfall geprueft.
+        pruefe(not any(x['name'] == 'Gross-QD' for x in _a156),
+               'ein Teil der falschen Groesse bleibt draussen')
+
+        # ⚠ GEGENPROBE 1: Ohne die Craft-Quelle waeren es nur die zwei
+        # kaufbaren — und Militaer fehlte, genau wie vor dem 06.09.2026.
+        _ohne156 = [x for x in _a156 if x['herkunft'] != _wk156.HERSTELLBAR]
+        pruefe(len(_ohne156) == 2,
+               'Gegenprobe: nur aus dem Laden waeren es 2 statt 3 (bekam: %d)'
+               % len(_ohne156))
+
+        # ⚠ GEGENPROBE 2: Eine Art, die keine Quelle kennt, gibt eine LEERE
+        # Liste — nicht wahllos den halben Katalog.
+        pruefe(_wk156.auswahl('GibtsNicht', 2) == [],
+               'Gegenprobe: eine unbekannte Art liefert nichts')
+    finally:
+        _ld156.katalog_teile, _he156.alle, _kt156.laden = _echt156
+
+    print()
+    print('157. Die Farmliste zaehlt ueber ALLE Posten zusammen')
+    # ⚠⚠ **Die Falle, gegen die diese Pruefung geschrieben ist:**
+    # `rohstoffe.pruefen()` rechnet EIN Rezept gegen das Lager. Bei zwei
+    # Posten mit je 2 Iron und 3 Iron im Lager meldet es zweimal „reicht" —
+    # zusammen fehlt aber eines. Wer die Fehlmengen einzeln addiert, rechnet
+    # dasselbe Erz mehrfach an und schickt den Spieler mit zu wenig Material
+    # los.
+    from scbp import erkul as _erk157, rohstoffe as _ro157
+    from scbp import preise as _pr157
+
+    _slots157 = [
+        {'pfad': 'a', 'art': 'Cooler', 'groesse': 2,
+         'werk': {'ref': 'ref-werk', 'name': 'Werk'}},
+        {'pfad': 'b', 'art': 'Cooler', 'groesse': 2,
+         'werk': {'ref': 'ref-werk', 'name': 'Werk'}},
+    ]
+    _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
+                _ld156.guenstigster, _wk156._bauplan_verzeichnis,
+                _he156.rezept, _pr157.preis, _ro157.laden)
+    try:
+        _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
+                                 'schiffe': {'probe': {
+                                     'name': 'Probe', 'id': 'probe',
+                                     'plaetze': [], 'slots': _slots157}}}
+        _ld156.bekannt = lambda k: False
+        _ld156.laeden = lambda k: None
+        _ld156.guenstigster = lambda k: None
+        _wk156._bauplan_verzeichnis = lambda: {'ref-blast': 'BlastChill'}
+        _pr157.preis = lambda r: (2643.0, 2000.0, 'Iron')
+        _he156.rezept = lambda n: ({'name': 'BlastChill', 'stufen': [
+            {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
+            if n == 'BlastChill' else None)
+        # 3 Iron im Lager — reicht fuer EINEN der beiden Posten.
+        _ro157.laden = lambda: [{'material': 'Iron', 'menge': 3.0,
+                                 'qualitaet': 500, 'ort': ''}]
+
+        _mein157 = {'name': 'Probe', 'hersteller': '', 'kurz': '',
+                    'hkurz': '', 'belegung': {}}
+        _wk156.setzen(_mein157, 'a', 'ref-blast', 'Blast', _wk156.BAUEN)
+        _wk156.setzen(_mein157, 'b', 'ref-blast', 'Blast', _wk156.BAUEN)
+        _daten157 = {'format': 1, 'schiffe': [_mein157], 'wunsch': []}
+
+        _f157 = _wk156.farmliste(_daten157)
+        pruefe(_f157['posten'] == 2,
+               'beide Posten stehen auf bauen (bekam: %d)' % _f157['posten'])
+        pruefe(len(_f157['fehlt']) == 1
+               and _f157['fehlt'][0]['benoetigt'] == 4.0,
+               'der Bedarf beider Posten wird addiert (bekam: %s)'
+               % ([z['benoetigt'] for z in _f157['fehlt']],))
+        pruefe(_f157['fehlt'] and _f157['fehlt'][0]['differenz'] == 1.0,
+               'es fehlt genau 1 (bekam: %s)'
+               % (_f157['fehlt'][0]['differenz'] if _f157['fehlt'] else None))
+
+        # ⚠ GEGENPROBE: Einzeln gerechnet meldet `pruefen()` „nichts fehlt" —
+        # genau der Fehler, den die Farmliste vermeiden muss.
+        _einzeln157 = _ro157.pruefen([('Frame', 'Iron', 2.0, 0)], 1)
+        pruefe(_einzeln157[0][3] == 0.0,
+               'Gegenprobe: einzeln gerechnet faellt der Mangel NICHT auf')
+
+        # ⚠ Erz, das die geforderte Guete nicht erreicht, zaehlt nicht als
+        # Bestand — wird aber ausgewiesen statt verschwiegen.
+        _ro157.laden = lambda: [{'material': 'Iron', 'menge': 10.0,
+                                 'qualitaet': 100, 'ort': ''}]
+        _he156.rezept = lambda n: ({'name': 'BlastChill', 'stufen': [
+            {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 500)]}]}
+            if n == 'BlastChill' else None)
+        _g157 = _wk156.farmliste(_daten157)
+        pruefe(_g157['fehlt'] and _g157['fehlt'][0]['vorhanden'] == 0.0,
+               'zu schlechtes Erz zaehlt nicht als Bestand')
+        pruefe(_g157['fehlt'] and _g157['fehlt'][0]['zu_gering'] == 10.0,
+               'es wird aber als „zu geringe Guete" ausgewiesen (bekam: %s)'
+               % (_g157['fehlt'][0]['zu_gering'] if _g157['fehlt'] else None))
+
+        # ⚠⚠ **Ein Posten ohne Rezept steht gar nicht erst auf „bauen".**
+        # `rechnung()` setzt den Weg auf „kaufen" zurueck, sobald kein Rezept
+        # vorliegt — die Farmliste sieht ihn deshalb nie. Beim ersten Anlauf
+        # erwartete diese Pruefung ihn unter `ohne_rezept` und war rot, obwohl
+        # der Code sich richtig verhielt.
+        #
+        # Geprueft wird deshalb das **tatsaechliche** Verhalten: Er erzeugt
+        # keinen Materialbedarf und wird nicht als Bau-Posten gezaehlt.
+        _he156.rezept = lambda n: None
+        _wk156._bauplan_verzeichnis = lambda: {}
+        _h157 = _wk156.farmliste(_daten157)
+        pruefe(_h157['fehlt'] == [] and _h157['vollstaendig'] == [],
+               'ohne Rezept entsteht kein erfundener Materialbedarf')
+        pruefe(_h157['posten'] == 0,
+               'und der Posten zaehlt nicht als Bau-Posten (bekam: %d)'
+               % _h157['posten'])
+    finally:
+        (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
+         _wk156._bauplan_verzeichnis, _he156.rezept, _pr157.preis,
+         _ro157.laden) = _echt157
 
     print()
     if fehler:

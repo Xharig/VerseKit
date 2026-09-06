@@ -83,6 +83,8 @@ meisten offenen Posten deckt, bei Gleichstand der billigere. Das ist dieselbe
 Auskunft, die erkul als „1 shop · 1 stop" zeigt.
 """
 
+import re
+
 from . import erkul, fehler
 
 # Zustände eines ganzen Warenkorbs.
@@ -161,6 +163,43 @@ GRUPPE_ZU_ART = {
 }
 
 
+# ⚠⚠ **Rezept-Art → Steckplatz-Art, der Rückfall wenn der Katalog schweigt.**
+#
+# Der Bauplan-Katalog kennt nur **738** der 1.597 herstellbaren Dinge — er
+# entsteht aus den Belohnungs-Töpfen, und was in keiner Mission steckt, steht
+# dort nicht. Gemessen am 06.09.2026 fiel dadurch der Militär-Quantenantrieb
+# **Crossfield** aus der Auswahl, obwohl es einen Bauplan dafür gibt.
+#
+# Die Rezeptdaten selbst tragen die Angabe aber mit: `type` sagt die Gattung
+# (`quantumdrive`), `subtype` bei Komponenten die Größe (`size2`).
+#
+# ⚠ Bei **Waffen** steht in `subtype` die Waffenart (`laser`, `ballistic`),
+# keine Größe — dort trägt nur der Katalog. Das ist die verbleibende Lücke und
+# kein Fehler: Lieber ein Teil weniger anbieten als eines in der falschen
+# Größe.
+REZEPT_ZU_ART = {
+    'quantumdrive': 'QuantumDrive',
+    'cooler': 'Cooler',
+    'powerplant': 'PowerPlant',
+    'shield': 'Shield',
+    'radar': 'Radar',
+    'mininglaser': 'WeaponMining',
+    'tractorbeam': 'TractorBeam',
+}
+
+# `size2` → 2. Nur diese Form, nichts geraten.
+_GROESSE_AUS_UNTERART = re.compile(r'^size(\d+)$')
+
+
+def _aus_rezept(eintrag):
+    """Art und Größe aus den Rezeptdaten — oder `(None, None)`."""
+    art = REZEPT_ZU_ART.get((eintrag.get('art') or '').lower())
+    if not art:
+        return None, None
+    treffer = _GROESSE_AUS_UNTERART.match((eintrag.get('unterart') or '').lower())
+    return art, (int(treffer.group(1)) if treffer else None)
+
+
 def _herstellbare(art, groesse):
     """Alle **herstellbaren** Teile dieser Art und Größe — Kennung → Angaben.
 
@@ -203,12 +242,19 @@ def _herstellbare(art, groesse):
             if not kennung:
                 continue
             merkmale = werte.get(katalog._norm(eintrag.get('basis') or '')) or {}
-            if (merkmale.get('a') or '') != art:
+            eigene_art = merkmale.get('a') or ''
+            eigene = merkmale.get('s')
+            if not eigene_art:
+                # Der Katalog kennt dieses Teil nicht — dann sagen es die
+                # Rezeptdaten selbst. Siehe `REZEPT_ZU_ART`.
+                eigene_art, aus_rezept = _aus_rezept(eintrag)
+                if eigene is None:
+                    eigene = aus_rezept
+            if (eigene_art or '') != art:
                 continue
             # ⚠ Größe nur vergleichen, wenn beide Seiten eine haben — sonst
             # fällt ein Teil heraus, weil eine Angabe fehlt, nicht weil es
             # nicht passt.
-            eigene = merkmale.get('s')
             if groesse is not None and eigene is not None:
                 try:
                     if int(eigene) != int(groesse):
@@ -823,7 +869,7 @@ def farmliste(daten=None):
                             'differenz', 'mindestguete', 'zu_gering'}, …],
          'vollstaendig':  [dieselbe Form],
          'posten':        4,        # wie viele Posten gebaut werden
-         'ohne_rezept':   ['…']}    # sollte leer sein, siehe unten
+         'ohne_rezept':   ['…']}    # Sicherheitsnetz, siehe unten
 
     ⭐ Die Gegenrichtung zur Einkaufsliste: Dort steht, was Geld kostet, hier,
     was Zeit kostet. Zusammen beantworten sie *„was muss ich noch tun, bis mein
@@ -846,6 +892,13 @@ def farmliste(daten=None):
     ⚠ Ohne Netz, ohne Schätzen: Ein Posten, dessen Rezept sich nicht lesen
     lässt, steht unter `ohne_rezept` und wird **nicht** stillschweigend mit
     null Materialbedarf verrechnet.
+
+    ⚠ `ohne_rezept` bleibt im Regelfall **leer**, und das ist richtig so:
+    `rechnung()` setzt den Weg schon auf „kaufen" zurück, sobald zu einem
+    Posten kein Rezept vorliegt — hier kommt er dann gar nicht mehr an. Das
+    Feld ist ein **Sicherheitsnetz** für den Fall, dass sich das einmal ändert
+    oder ein Rezept zwischen den beiden Schritten wegfällt. Lieber ein Feld,
+    das meistens leer ist, als ein stiller Verlust.
     """
     from . import herstellung, rohstoffe
 
