@@ -200,6 +200,29 @@ def _aus_rezept(eintrag):
     return art, (int(treffer.group(1)) if treffer else None)
 
 
+def _guete_buchstabe(wert):
+    """Die Güte als Buchstabe — `2` wird zu `B`.
+
+    ⚠⚠ **Der Bauplan-Katalog führt die Güte als Zahl, das Spiel als
+    Buchstabe.** Ungewandelt stand in der Auswahlliste „2 · Tarnung" statt
+    „B · Tarnung", und zwar bei **224 von 304** Teilen — gemischt mit denen,
+    die ihren Buchstaben aus UEX bekamen. Zwei Schreibweisen für dieselbe
+    Angabe in einer Liste sind schlimmer als eine fehlende: Wer „A" und „1"
+    nebeneinander sieht, hält es für zwei verschiedene Dinge.
+
+    Die Zuordnung ist an echten Daten abgelesen, nicht angenommen: `Bolt`
+    stand vor der Umstellung als **B** da und kommt aus dem Katalog als **2**,
+    `Huracan` ebenso. Also 1=A, 2=B, 3=C, 4=D.
+
+    ⚠ Alles andere geht **unverändert** durch. Steht dort schon ein Buchstabe,
+    bleibt er; steht etwas Unerwartetes darin, wird es gezeigt und nicht
+    stillschweigend verworfen — eine Zahl 7 wäre ein Hinweis darauf, dass sich
+    die Quelle geändert hat, und den will man sehen.
+    """
+    text = str(wert or '').strip()
+    return {'1': 'A', '2': 'B', '3': 'C', '4': 'D'}.get(text, text)
+
+
 def _herstellbare(art, groesse):
     """Alle **herstellbaren** Teile dieser Art und Größe — Kennung → Angaben.
 
@@ -266,7 +289,7 @@ def _herstellbare(art, groesse):
                 'kennung': kennung,
                 'hersteller': (merkmale.get('m')
                                or eintrag.get('hersteller') or ''),
-                'guete': str(merkmale.get('g') or ''),
+                'guete': _guete_buchstabe(merkmale.get('g')),
                 'klasse': merkmale.get('c') or '',
             }
     except Exception as ausnahme:
@@ -332,12 +355,20 @@ def auswahl(art, groesse):
         schon = gefunden.get(kennung)
         if schon is not None:
             schon['herkunft'] = BEIDES
-            # UEX' Angaben gewinnen, wo sie da sind: Klasse und Güte pflegt es
-            # für seine Ladenware gründlicher als der Bauplan-Katalog.
+            # ⚠⚠ **UEX' Angaben gewinnen wirklich — nicht nur bei einer Lücke.**
+            # Bis zum 06.09.2026 stand hier `if wert and not schon.get(feld)`:
+            # Die Angabe aus dem Bauplan-Katalog blieb stehen, sobald sie
+            # irgendetwas enthielt. Und weil der Katalog die Güte als **Zahl**
+            # führt, stand bei `Bolt` plötzlich „2 · Tarnung", wo vorher
+            # richtig „B · Tarnung" stand — gemessen an 137 Teilen mit
+            # Herkunft „beides".
+            #
+            # UEX pflegt Klasse und Güte für seine Ladenware gründlicher; wo
+            # es etwas führt, gilt das. Der Katalog füllt nur die Lücken.
             for feld, wert in (('klasse', teil.get('klasse')),
                                ('guete', teil.get('guete')),
                                ('hersteller', teil.get('hersteller'))):
-                if wert and not schon.get(feld):
+                if wert:
                     schon[feld] = wert
             continue
         raus.append({'name': teil.get('name') or '',
@@ -400,6 +431,45 @@ def weg_setzen(eintrag, pfad, weg):
     if not eintrag_platz or eintrag_platz.get('weg') == weg:
         return False
     eintrag_platz['weg'] = weg
+    return True
+
+
+def erledigt(eintrag, pfad):
+    """Ist dieser Posten abgehakt?"""
+    return bool((belegung(eintrag).get(pfad) or {}).get('erledigt'))
+
+
+def erledigt_setzen(eintrag, pfad, ja=True):
+    """Einen Posten abhaken oder den Haken wieder wegnehmen.
+
+    ⭐⭐ **Warum es das braucht — das Werkzeug kann es nicht selbst merken.**
+    Am 06.09.2026 gefragt: *„wenn etwas von der Liste gekauft wurde, und im
+    Schiff eingebaut ist, wie erfährt die Einkaufsliste davon, dass das Teil
+    nun eingebaut ist?"* Die ehrliche Antwort ist: **gar nicht.**
+
+    Das Spiel schreibt nicht in die `Game.log`, was in einem Schiff steckt. Der
+    Watcher kennt zwei Dinge: was ab Werk verbaut ist (aus erkul) und was der
+    Spieler hier eingetragen hat. Was davon im Hangar Wirklichkeit geworden
+    ist, weiß nur er selbst.
+
+    Also wird nichts erraten — es wird abgehakt, wie auf jedem Einkaufszettel.
+    Und **genauso beim Selbstherstellen**: Auch dort merkt das Werkzeug nicht,
+    dass der Bauauftrag fertig und das Teil eingebaut ist. Ein Haken für beide
+    Wege, nicht zwei verschiedene Mechanismen.
+
+    ⚠ Der Haken sitzt **in** der Auslegung, wie schon die Kauf/Bau-Wahl —
+    nicht in einer zweiten Liste daneben, die über dieselben Schlüssel läuft
+    und irgendwann auseinanderdriftet.
+    """
+    platz = belegung(eintrag).get(pfad)
+    if not platz:
+        return False
+    if bool(platz.get('erledigt')) == bool(ja):
+        return False
+    if ja:
+        platz['erledigt'] = True
+    else:
+        platz.pop('erledigt', None)
     return True
 
 
@@ -481,6 +551,10 @@ def posten(eintrag):
             'werk_ref': werk.get('ref') or '',
             'werk_name': werk.get('name') or '',
             'weg': teil.get('weg') or KAUFEN,
+            # ⚠ Ein abgehakter Posten bleibt in der Liste — er wird nur nicht
+            # mehr mitgerechnet. Ihn verschwinden zu lassen hiesse, dass
+            # niemand einen falsch gesetzten Haken zuruecknehmen kann.
+            'erledigt': bool(teil.get('erledigt')),
         })
     raus.sort(key=lambda p: (p['art'], p['pfad']))
     return (OFFEN if raus else NICHTS_OFFEN), raus
@@ -608,6 +682,13 @@ def summe(liste):
     offen = 0
     unvollstaendig = False
     for p in liste:
+        # ⚠⚠ **Abgehaktes kostet nichts mehr.** Wer ein Teil gekauft und
+        # eingebaut hat, will nicht, dass es weiter in der Summe steht — sonst
+        # bleibt die Zahl gleich, egal wie viel man schon erledigt hat, und
+        # die Liste verliert ihren Zweck. Es zaehlt aber auch nicht als
+        # „fehlender Preis": Es fehlt nichts, es ist fertig.
+        if p.get('erledigt'):
+            continue
         if p.get('weg') == BAUEN:
             bau = p.get('bau') or {}
             if bau.get('zustand') != BEKANNT or bau.get('material') is None:

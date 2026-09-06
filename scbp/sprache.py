@@ -3170,10 +3170,12 @@ TEXTE = {
                           'Nothing on the list yet. Add a ship and you will '
                           'see what it costs and where it is sold.'),
     # --- Einkaufsliste: der Warenkorb über alle Schiffe (v3.19.0)
-    's_ek_lead':         ('Alles, was noch zu besorgen ist — über alle deine '
-                          'Schiffe zusammen, mit Einzelaufstellung und Summe.',
-                          'Everything still to get — across all your ships, '
-                          'itemised and totalled.'),
+    's_ek_lead':         ('Alles, was deinen Schiffen noch fehlt — gekauft '
+                          'oder selbst gebaut, mit Einzelaufstellung und '
+                          'Summe. Abgehaktes zählt nicht mehr mit.',
+                          'Everything your ships still need — bought or built '
+                          'yourself, itemised and totalled. Ticked-off items '
+                          'no longer count.'),
     's_ek_kopf':         ('{n} Positionen aus {schiffe} Schiffen',
                           '{n} items from {schiffe} ships'),
     's_ek_aus_hangar':   ('hast du', 'you own it'),
@@ -3182,6 +3184,10 @@ TEXTE = {
     # ⚠ Kein „0 aUEC": Ohne Preis ist der Posten nicht kostenlos, sondern
     # unbekannt. Dieselbe Regel wie im Warenkorb.
     's_ek_kein_betrag':  ('kein Preis bekannt', 'no price known'),
+    # ⚠ Das Werkzeug kann nicht sehen, was im Schiff steckt — der Spieler hakt
+    # ab. Gilt für gekauft **und** selbst gebaut.
+    's_ek_erledigt':     ('erledigt', 'done'),
+    's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
                           'Schiffe ein oder setz eines auf die Wunschliste — '
                           'dann steht hier, was du dafür brauchst.',
@@ -3880,7 +3886,15 @@ TEXTE = {
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
     'hf_wunschliste':    ('Wunschliste', 'Wishlist'),
-    'hf_einkaufsliste':  ('Einkaufsliste', 'Shopping list'),
+    # ⚠ **Nicht „Einkaufsliste".** Der Reiter führt beide Wege — kaufen UND
+    # selbst herstellen. Am 06.09.2026 dazu: „Einkaufsliste trifft ja nicht zu,
+    # wenn Herstellungsliste und Einkaufsliste eins ist." Stimmt. Der Name
+    # folgt jetzt dem Muster der anderen Reiter („Was steckt drin?", „Was ist
+    # neu") und sagt, welche Frage die Seite beantwortet.
+    'hf_einkaufsliste':  ('Was noch fehlt', 'Still missing'),
+    # ⚠ Kurz, weil es hinter Güte und Klasse in einer Listenzeile steht. Die
+    # Aussage ist „in keinem Laden zu haben" — bei Militärteilen der Regelfall.
+    's_wk_nur_bauplan':  ('nur über Bauplan', 'blueprint only'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),
     'hf_bergbau':        ('Bergbau', 'Mining'),
     # --- Gruppe „Handel" (v3.4.0) ---

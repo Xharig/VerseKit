@@ -14102,6 +14102,70 @@ def main():
          _wk156._bauplan_verzeichnis, _he156.rezept, _pr157.preis,
          _ro157.laden) = _echt157
 
+    # ------------------------------------------------------------------
+    # 158. Guete als Buchstabe, und was ohne Klasse dasteht
+    #
+    # ⚠⚠ Zwei Fehler an derselben Angabe, beide am 06.09.2026 gemessen:
+    #
+    # 1. Der Bauplan-Katalog fuehrt die Guete als **Zahl**, das Spiel als
+    #    Buchstabe. Ungewandelt standen 224 von 304 Teilen mit `1`-`4` in der
+    #    Liste, gemischt mit denen, die ihr `A`-`D` aus UEX hatten.
+    # 2. Beim Zusammenfuehren gewann die Katalog-Angabe, sobald sie irgendetwas
+    #    enthielt. `Bolt` stand dadurch als „2 · Tarnung" da, wo vorher richtig
+    #    „B · Tarnung" stand — eine Verschlechterung durch eine Erweiterung.
+    #
+    # Dazu die dritte Frage: Was steht da, wenn die Klasse fehlt? Geraten wird
+    # nichts (der Katalog fuehrt sie nur bei 240 von 738 Eintraegen) — dafuer
+    # sagt die Herkunft, dass es das Teil in keinem Laden gibt.
+    print()
+    print('158. Guete als Buchstabe, Klasse nie geraten')
+    from scbp import seiten as _st158
+    from scbp import sprache as _sp158
+    from scbp import warenkorb as _wk158
+
+    pruefe(_wk158._guete_buchstabe('2') == 'B',
+           'die Zahl 2 wird zum Buchstaben B')
+    pruefe(_wk158._guete_buchstabe(1) == 'A', '* auch als Zahl statt Text')
+    pruefe(_wk158._guete_buchstabe('4') == 'D', '* und 4 zu D')
+    pruefe(_wk158._guete_buchstabe('C') == 'C',
+           'ein vorhandener Buchstabe bleibt unangetastet')
+    pruefe(_wk158._guete_buchstabe('') == '', 'nichts bleibt nichts')
+    # ⚠ Gegenprobe: Etwas Unerwartetes wird gezeigt, nicht verschluckt — eine
+    # 7 waere der Hinweis, dass sich die Quelle geaendert hat.
+    pruefe(_wk158._guete_buchstabe('7') == '7',
+           'Gegenprobe: ein unerwarteter Wert wird nicht verworfen')
+
+    _alt158 = _sp158.aktuelle()
+    _vorher158 = _st158._TEIL_VERZEICHNIS[0]
+    _st158._TEIL_VERZEICHNIS[0] = {}
+    try:
+        _sp158.setzen('de')
+        pruefe(_st158._teil_kennzeichen(
+            {'guete': 'A', 'klasse': 'Military',
+             'herkunft': _wk158.HERSTELLBAR}) == 'A · Militär · nur über Bauplan',
+               'ein Militaerteil zeigt Guete, Klasse und die Herkunft')
+        # ⭐ Der Fall Crossfield: keine Klasse, aber eine nuetzliche Auskunft.
+        pruefe(_st158._teil_kennzeichen(
+            {'guete': '', 'klasse': '',
+             'herkunft': _wk158.HERSTELLBAR}) == 'nur über Bauplan',
+               'ohne Klasse steht die Herkunft da, keine geratene Klasse')
+        pruefe('Zivil' not in _st158._teil_kennzeichen(
+            {'guete': '', 'klasse': '', 'herkunft': _wk158.HERSTELLBAR}),
+               'Gegenprobe: es wird KEINE Standardklasse eingesetzt')
+        # Der Normalfall bekommt keinen Zusatz — sonst staende an jedem
+        # zweiten Teil dasselbe Wort.
+        pruefe(_st158._teil_kennzeichen(
+            {'guete': 'B', 'klasse': 'Civilian',
+             'herkunft': _wk158.BEIDES}) == 'B · Zivil',
+               'ein auch kaufbares Teil bekommt keinen Herkunfts-Zusatz')
+        pruefe(_st158._teil_kennzeichen(
+            {'guete': 'B', 'klasse': 'Civilian',
+             'herkunft': _wk158.KAUFBAR}) == 'B · Zivil',
+               '* und ein nur kaufbares ebenso wenig')
+    finally:
+        _st158._TEIL_VERZEICHNIS[0] = _vorher158
+        _sp158.setzen(_alt158)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

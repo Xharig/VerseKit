@@ -9730,6 +9730,7 @@ def _einkaufsliste(fenster, rahmen):
 
     _ueberschrift(fenster, rahmen, t('hf_einkaufsliste'), t('s_ek_lead'))
     innen = _rollflaeche(rahmen)
+    daten = {'stand': None}
 
     koerper = tk.Frame(innen, bg=BG)
     koerper.pack(fill='x', padx=24, pady=(10, 20))
@@ -9742,6 +9743,7 @@ def _einkaufsliste(fenster, rahmen):
     def _aufbauen():
         stand = meine.laden()
         werte = warenkorb.rechnung(stand)
+        daten['stand'] = stand
         posten = werte.get('posten') or []
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall in diesem
@@ -9767,12 +9769,37 @@ def _einkaufsliste(fenster, rahmen):
                  anchor='w').pack(fill='x', pady=(0, 8))
 
         # Nach Schiff gruppieren — die Reihenfolge kommt schon sortiert an.
+        def abhaken(posten_eintrag, ja):
+            """Einen Posten als erledigt markieren — und sofort speichern.
+
+            ⚠ Gesucht wird das Schiff über Name **und** Herkunft: Ein Schiff
+            kann gleichzeitig im Hangar und auf der Wunschliste stehen (etwa
+            ein zweites Exemplar), und der Haken gehört genau an eines davon.
+            """
+            quelle = (stand.get('wunsch') if posten_eintrag.get('quelle')
+                      == warenkorb.WUNSCH else stand.get('schiffe')) or []
+            for schiff in quelle:
+                if (schiff.get('name') or '') == posten_eintrag.get('schiff'):
+                    if warenkorb.erledigt_setzen(schiff,
+                                                 posten_eintrag.get('pfad'),
+                                                 ja):
+                        meine.speichern(stand)
+                    break
+            neu_zeichnen()
+
         aktuelles = None
         for eintrag in posten:
             if eintrag.get('schiff') != aktuelles:
                 aktuelles = eintrag.get('schiff')
                 _einkauf_schiffkopf(fenster, koerper, eintrag)
-            _einkauf_zeile(fenster, koerper, eintrag)
+            _einkauf_zeile(fenster, koerper, eintrag, abhaken=abhaken)
+
+        # Wie viel schon erledigt ist — sonst sieht eine halb abgearbeitete
+        # Liste aus wie eine unangetastete.
+        fertig = sum(1 for x in posten if x.get('erledigt'))
+        if fertig:
+            _fliesstext(koerper, t('s_ek_abgehakt').format(n=fertig),
+                        fenster.f_klein, farbe=ACCENT, fill='x', pady=(6, 0))
 
         _warenkorb_summe(fenster, koerper, posten)
         _ohne_daten_hinweis(fenster, koerper, werte)
@@ -9818,22 +9845,45 @@ def _einkauf_schiffkopf(fenster, eltern, eintrag):
              anchor='w').pack(side='left', padx=(10, 0))
 
 
-def _einkauf_zeile(fenster, eltern, eintrag):
-    """Eine Rechnungsposition: wo, was, wie, wie viel."""
+def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
+    """Eine Rechnungsposition: wo, was, wie, wie viel — und ein Haken davor."""
     from . import warenkorb
 
+    fertig = bool(eintrag.get('erledigt'))
     zeile = tk.Frame(eltern, bg=FLAECHE)
     zeile.pack(fill='x', pady=(0, 2))
+
+    # ⭐⭐ **Der Haken ist die einzige Möglichkeit, das zu wissen.** Am
+    # 06.09.2026 gefragt: „wenn etwas von der Liste gekauft wurde, und im
+    # Schiff eingebaut ist, wie erfährt die Einkaufsliste davon?" Gar nicht —
+    # das Spiel schreibt nicht in die Game.log, was in einem Schiff steckt.
+    # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
+    # Beim Selbstherstellen genauso: ein Haken für beide Wege.
+    if abhaken is not None and eintrag.get('sorte') == warenkorb.TEIL:
+        haken = zeichen.zeile(zeile, 'haken', grund=FLAECHE,
+                              farbe=zeichen.GRUEN if fertig else zeichen.GRAU,
+                              schrift=fenster.f_klein)
+        haken.configure(cursor='hand2')
+        haken.pack(side='left', padx=(12, 8), pady=4)
+        haken.bind('<Button-1>', lambda _e: abhaken(eintrag, not fertig))
+        rand = (0, 0)
+    else:
+        rand = (12, 0)
+
+    # ⚠ Erledigtes bleibt lesbar, tritt aber zurück: Es ist erledigt, nicht
+    # ungültig. Wer den Haken versehentlich setzt, muss die Zeile wiederfinden.
+    haupt = SUB if fertig else FG
+    neben = LINIE if fertig else SUB
 
     # Position (Steckplatz) — bei einem Schiff steht dort, dass es das Schiff
     # selbst ist, damit die Spalte nie leer bleibt.
     pos = eintrag.get('position') or ''
     if eintrag.get('sorte') == warenkorb.SCHIFF:
         pos = t('s_ek_das_schiff')
-    tk.Label(zeile, text=pos, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-             anchor='w', width=22).pack(side='left', padx=(12, 0), pady=4)
+    tk.Label(zeile, text=pos, bg=FLAECHE, fg=neben, font=fenster.f_klein,
+             anchor='w', width=22).pack(side='left', padx=rand, pady=4)
 
-    tk.Label(zeile, text=eintrag.get('name') or '', bg=FLAECHE, fg=FG,
+    tk.Label(zeile, text=eintrag.get('name') or '', bg=FLAECHE, fg=haupt,
              font=fenster.f_klein, anchor='w').pack(side='left')
 
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
@@ -9841,7 +9891,7 @@ def _einkauf_zeile(fenster, eltern, eintrag):
     kennzeichen = (_teil_kennzeichen({'kennung': eintrag.get('ref')})
                    if eintrag.get('sorte') == warenkorb.TEIL else '')
     if kennzeichen:
-        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=SUB,
+        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=neben,
                  font=fenster.f_klein, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
@@ -9849,7 +9899,11 @@ def _einkauf_zeile(fenster, eltern, eintrag):
     weg = eintrag.get('weg')
     angabe = (eintrag.get('kauf') if weg == warenkorb.KAUFEN
               else eintrag.get('bau')) or {}
-    if angabe.get('zustand') == warenkorb.BEKANNT:
+    if fertig:
+        # ⚠ Kein Betrag mehr, sondern das Wort: Ein abgehakter Posten kostet
+        # nichts mehr, und eine durchgestrichene Zahl waere nur Ballast.
+        betrag, farbe = t('s_ek_erledigt'), ACCENT
+    elif angabe.get('zustand') == warenkorb.BEKANNT:
         betrag = _geld(angabe.get('preis') if weg == warenkorb.KAUFEN
                        else angabe.get('material'))
         farbe = FG
@@ -9861,7 +9915,7 @@ def _einkauf_zeile(fenster, eltern, eintrag):
              anchor='e').pack(side='right', padx=(0, 12))
     tk.Label(zeile, text=t('s_wk_kaufen') if weg == warenkorb.KAUFEN
              else t('s_wk_bauen'),
-             bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             bg=FLAECHE, fg=neben, font=fenster.f_klein,
              anchor='e').pack(side='right', padx=(0, 16))
 
 
@@ -10181,6 +10235,20 @@ def _teil_kennzeichen(teil):
     if klasse:
         schluessel = KLASSEN_TEXTE.get(klasse)
         teile.append(t(schluessel) if schluessel else klasse)
+    # ⚠⚠ **Eine fehlende Klasse wird NICHT geraten.** Der Bauplan-Katalog
+    # führt sie nur bei 240 von 738 Einträgen — der Militär-Antrieb Crossfield
+    # steht ganz ohne da. „Civilian" als Standardwert wäre bei einem
+    # Militärteil schlicht falsch, und niemand könnte es merken. Also lieber
+    # eine Angabe weniger.
+    #
+    # ⭐ Dafür sagt die **Herkunft** an dieser Stelle oft mehr: Dass ein Teil
+    # nur über einen Bauplan zu bekommen ist, ist genau die Auskunft, wegen
+    # der jemand hier hinsieht — es steht in keinem Laden, egal wie lange man
+    # sucht. Umgekehrt braucht „auch kaufbar" keinen Hinweis: Das ist der
+    # Normalfall, und an jedem zweiten Teil stünde dasselbe Wort.
+    from . import warenkorb as _wk
+    if (teil.get('herkunft') or '') == _wk.HERSTELLBAR:
+        teile.append(t('s_wk_nur_bauplan'))
     return ' · '.join(teile)
 
 
