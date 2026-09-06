@@ -224,6 +224,14 @@ KNOPF_SYMBOLE = {
     # dasselbe Bild tragen. Auch nicht `warehouse`: Die Halle steht schon für
     # den Handelsbestand. Ein Fluggerät ist das, was hier drinsteht.
     'hangar':       'plane',
+    # Die Wunschliste. Der Stern ist das Bild, das überall für „vorgemerkt"
+    # steht — und er ist im Programm noch frei: Die Beobachtungsliste bei den
+    # Bauplänen malt kein Symbol, sie färbt ihre Zeile golden.
+    #
+    # ⚠ Bewusst **nicht** `heart`: Ein Herz heißt „gefällt mir", ein Stern
+    # „will ich haben". Auf einer Liste, die Kaufpreise trägt, ist der
+    # Unterschied nicht bloß Geschmack.
+    'wunschliste':  'star',
     # Der Laden, in dem ein fertiges Teil im Regal steht — die Gegenrichtung
     # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.

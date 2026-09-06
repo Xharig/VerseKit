@@ -1054,6 +1054,42 @@ TEXTE = {
                               'gemeinsam.',
                                 'These two devices have no axis in common.'),
 
+    # -- Geräte-Hub: alle Eingabegeräte an einem Ort --
+    's_gh_titel':      ('Deine Geräte', 'Your devices'),
+    's_gh_lead':       ('Was gerade angesteckt ist, und welche Nummer Star '
+                        'Citizen ihm gibt. Die beiden stimmen fast nie '
+                        'überein — das System zählt anders als das Spiel.',
+                          'What is plugged in right now, and which number '
+                          'Star Citizen gives it. The two almost never match — '
+                          'the system counts differently from the game.'),
+    's_gh_bereit':     ('bereit', 'ready'),
+    's_gh_ohne_nummer': ('ohne Nummer', 'no number'),
+    's_gh_abgesteckt': ('nicht angesteckt', 'not connected'),
+    's_gh_unbekannt':  ('dem Spiel unbekannt', 'unknown to the game'),
+    's_gh_bereit_hilfe': ('Angesteckt, dem Spiel bekannt, hat eine Nummer.',
+                            'Connected, known to the game, has a number.'),
+    's_gh_ohne_nummer_hilfe': ('Angesteckt, aber in der Belegung steht nichts '
+                               'dazu — im Spiel tut das Gerät nichts.',
+                                 'Connected, but the bindings say nothing '
+                                 'about it — it does nothing in the game.'),
+    's_gh_abgesteckt_hilfe': ('Die Belegung erwartet dieses Gerät, es ist '
+                              'aber nicht da.',
+                                'The bindings expect this device, but it is '
+                                'not present.'),
+    's_gh_unbekannt_hilfe': ('Angesteckt, aber Star Citizen hat es noch nie '
+                             'gesehen — starte das Spiel einmal damit.',
+                               'Connected, but Star Citizen has never seen it '
+                               '— start the game once with it plugged in.'),
+    's_gh_alles_gut':  ('Alle Geräte sind da und haben ihre Nummer.',
+                          'All devices are present and have their number.'),
+    's_gh_spalte_spiel': ('im Spiel', 'in game'),
+    's_gh_spalte_system': ('am System', 'on the system'),
+    's_gh_kein_geraet': ('Es ist kein Eingabegerät zu finden. Steckt ein '
+                         'Stick an?',
+                           'No input device found. Is a stick plugged in?'),
+    's_gh_neu':        ('Neu angesteckt: {}', 'Just connected: {}'),
+    's_gh_weg':        ('Abgezogen: {}', 'Disconnected: {}'),
+
     # -- Bindings tauschen und Gerätesätze --
     # ⚠ Jede Knopfreihe bekommt eine Überschrift und einen Satz dazu. Ohne
     # das stand dort nur „Auf »RIGHT VPC Stick WarBRD-D« übertragen" — und
@@ -3081,6 +3117,16 @@ TEXTE = {
                           'Ships and vehicles you want to earn or buy. Next to '
                           'them you see what they cost and where to get them.'),
     's_hg_wunsch_eintragen': ('Auf die Wunschliste', 'Add to wishlist'),
+    # Seit v3.19.0 ein eigener Reiter — die Wunschliste stand vorher unten auf
+    # der Hangar-Seite und war dort nicht zu finden.
+    's_wl_lead':         ('Was du dir vornimmst — mit Preis, Ort und der '
+                          'Ausstattung, die du schon vorher planen kannst.',
+                          'What you are aiming for — with price, location and '
+                          'the loadout you can plan before you own it.'),
+    's_wl_leer':         ('Noch nichts vorgemerkt. Trag ein Schiff ein, dann '
+                          'siehst du hier, was es kostet und wo es steht.',
+                          'Nothing on the list yet. Add a ship and you will '
+                          'see what it costs and where it is sold.'),
     's_hg_wunsch_streichen': ('Streichen', 'Remove'),
     's_hg_wunsch_meine': ('Mein Wunschzettel ({n})', 'My wishlist ({n})'),
     's_hg_wunsch_notiert': ('{name} steht auf deiner Wunschliste.',
@@ -3764,6 +3810,7 @@ TEXTE = {
     'hf_gruppe_schiffe': ('Schiffe', 'Ships'),
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
+    'hf_wunschliste':    ('Wunschliste', 'Wishlist'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),
     'hf_bergbau':        ('Bergbau', 'Mining'),
     # --- Gruppe „Handel" (v3.4.0) ---

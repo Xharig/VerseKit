@@ -109,6 +109,7 @@ def _bauer_tabelle():
         'blickwinkel': _blickwinkel,
         'diagnose':    _diagnose,
         'hangar':      _hangar,
+        'wunschliste': _wunschliste,
         'bergung':     _bergung,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
@@ -2590,6 +2591,116 @@ def _auftragslog(fenster, rahmen):
     _auffrischen()
 
 
+def _geraete_hub(fenster, eltern):
+    """Alle Eingabegeräte an einem Ort — mit laufender Überwachung.
+
+    ## Warum das oben auf der Steuerungsseite steht
+
+    Die Seite darunter beantwortet „was liegt auf welcher Taste". Davor steht
+    aber eine Frage, die sonst niemand beantwortet: **welches Gerät ist
+    überhaupt welches?** Über einen Stick gibt es drei Aussagen — was das
+    System sieht, was das Spiel zuletzt sah, und was in der Belegung steht —
+    und ihre Nummern stimmen nicht überein. Gemessen am 06.09.2026: Derselbe
+    Stick war am System `js0` und im Spiel `js2`.
+
+    ## ⚠ Die Überwachung fragt ab, sie horcht nicht
+
+    Alle drei Sekunden wird die Geräteliste gelesen und mit der vorigen
+    verglichen — kein Systemdienst, kein Fremdpaket, auf beiden Systemen
+    derselbe Weg. Das kostet unter Linux ein `listdir`.
+
+    ⚠ Der Takt haengt am Fenster (`after`), nicht an einem Faden: Wird die
+    Seite zerstört, hört er von selbst auf. Ein Faden müsste dafür eigens
+    beendet werden, und genau das wird beim nächsten Umbau vergessen.
+    """
+    from . import geraetehub
+
+    kopf = tk.Label(eltern, text=t('s_gh_titel'), bg=BG, fg=FG,
+                    font=fenster.f_fett, anchor='w')
+    kopf.pack(fill='x', pady=(6, 0))
+    _fliesstext(eltern, t('s_gh_lead'), fenster.f_klein, fill='x')
+
+    tafel = tk.Frame(eltern, bg=BG)
+    tafel.pack(fill='x', pady=(8, 0))
+    meldung = tk.Label(eltern, text='', bg=BG, fg=GOLD,
+                       font=fenster.f_klein, anchor='w')
+    meldung.pack(fill='x')
+
+    wache = geraetehub.Wache()
+    farben = {geraetehub.BEREIT: ACCENT, geraetehub.OHNE_NUMMER: GOLD,
+              geraetehub.ABGESTECKT: ROT, geraetehub.UNBEKANNT: GOLD}
+
+    def _zeichnen():
+        for kind in list(tafel.winfo_children()):
+            kind.destroy()
+        ueberblick = geraetehub.zusammenfassung()
+        if not ueberblick['geraete']:
+            tk.Label(tafel, text=t('s_gh_kein_geraet'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x')
+            return
+
+        for geraet in ueberblick['geraete']:
+            zeile = tk.Frame(tafel, bg=FLAECHE)
+            zeile.pack(fill='x', pady=(0, 2))
+            streifen = tk.Frame(zeile, bg=farben.get(geraet['zustand'], SUB),
+                                width=3)
+            streifen.pack(side='left', fill='y')
+
+            # ⚠ Die Spiel-Nummer zuerst und in der Markenfarbe: Das ist die
+            # Zahl, mit der der Spieler es im Spiel und in Anleitungen zu tun
+            # hat. Der Systempfad steht daneben, damit man beide auseinander
+            # halten kann — genau daran scheitern sonst alle Anleitungen.
+            nummer = ('js%d' % geraet['nummer']) if geraet['nummer'] else '—'
+            tk.Label(zeile, text=nummer, bg=FLAECHE,
+                     fg=ACCENT if geraet['nummer'] else SUB,
+                     font=fenster.f_fett, width=5,
+                     anchor='w', padx=8).pack(side='left', pady=6)
+            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=FLAECHE,
+                     fg=FG, font=fenster.f_klein,
+                     anchor='w').pack(side='left', fill='x', expand=True)
+            tk.Label(zeile, text=geraet['systempfad'] or '—', bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein,
+                     anchor='e', padx=10).pack(side='right')
+            tk.Label(zeile, text=t('s_gh_' + geraet['zustand']), bg=FLAECHE,
+                     fg=farben.get(geraet['zustand'], SUB),
+                     font=fenster.f_klein, anchor='e',
+                     padx=10).pack(side='right')
+
+        # Ein Satz zur Lage — und nur dann einer, wenn er etwas sagt.
+        if ueberblick['alles_gut']:
+            hinweis, farbe = t('s_gh_alles_gut'), ACCENT
+        else:
+            for zustand in (geraetehub.ABGESTECKT, geraetehub.OHNE_NUMMER,
+                            geraetehub.UNBEKANNT):
+                if ueberblick[zustand]:
+                    hinweis = t('s_gh_%s_hilfe' % zustand)
+                    farbe = farben[zustand]
+                    break
+        tk.Label(tafel, text=hinweis, bg=BG, fg=farbe, font=fenster.f_klein,
+                 anchor='w').pack(fill='x', pady=(6, 0))
+
+    def _takt():
+        # ⚠ `winfo_exists()` prüfen: Der Takt läuft weiter, während die Seite
+        # längst zerstört sein kann (Sprachwechsel, Neuaufbau). Ohne die
+        # Prüfung wirft der nächste Zugriff eine Ausnahme in einem Rückruf —
+        # und die sieht in einer `.exe` niemand.
+        if not tafel.winfo_exists():
+            return
+        dazu, weg = wache.pruefen()
+        if dazu or weg:
+            namen = [g.get('name', '?') for g in (dazu or weg)]
+            meldung.configure(
+                text=(t('s_gh_neu') if dazu else t('s_gh_weg')).format(
+                    ', '.join(namen)))
+            _zeichnen()
+        tafel.after(3000, _takt)
+
+    wache.pruefen()          # Grundlage setzen, ohne zu melden
+    _zeichnen()
+    tafel.after(3000, _takt)
+    return _zeichnen
+
+
 def _joysticks(fenster, rahmen):
     """Welcher Stick welche Nummer hat — und was darauf liegt.
 
@@ -2610,6 +2721,11 @@ def _joysticks(fenster, rahmen):
     _ueberschrift(fenster, rahmen, t('hf_joysticks'), t('s_js_lead'))
     innen = _rollflaeche(rahmen)
     _fliesstext(innen, t('s_js_hinweis'), fenster.f_klein, fill='x')
+
+    # ⭐ Der Geräte-Hub steht GANZ OBEN, vor allem anderen. Bevor jemand
+    # fragt „was liegt auf welcher Taste", muss klar sein, welches Gerät
+    # überhaupt welches ist — und dass System und Spiel verschieden zählen.
+    _geraete_hub(fenster, innen)
 
     daten = {}
     suche = tk.StringVar()
@@ -9289,66 +9405,6 @@ def _hangar(fenster, rahmen):
                        anchor='w')
     hinweis.pack(fill='x', padx=24, pady=(10, 0))
 
-    # ------------------------------------------------------- Wunschliste
-    # ⭐ Vorschlag von Zwaersch (KRT): „Also Unterpunkt könnte man noch ne
-    # Wishlist-Option anbieten. Für, ich nenn's mal allgemein Vehikel, die man
-    # sich erspielen/kaufen möchte."
-    #
-    # ⚠ **Getrennt vom Hangar geführt.** Ein Wunsch ist kein Besitz — was hier
-    # steht, darf nie in „passt in dein Schiff" auftauchen. Sonst beantwortet
-    # das Werkzeug eine Frage über ein Schiff, das niemand hat.
-    tk.Label(innen, text=t('s_hg_wunsch_titel'), bg=BG, fg=FG,
-             font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
-                                                   pady=(20, 2))
-    _fliesstext(innen, t('s_hg_wunsch_text'), fenster.f_klein, fill='x',
-                padx=24, abzug=48)
-
-    wunsch = tk.StringVar()
-    wunsch_block = tk.Frame(innen, bg=BG)
-    wunsch_block.pack(fill='x', padx=24, pady=(6, 0))
-    w_zeile, w_auswahl, _ = _auswahlfeld(fenster, wunsch_block, wunsch,
-                                         alle_schiffe.namen_alle,
-                                         leer_text=t('s_hg_nichts_gefunden'),
-                                         rollbar=200)
-    w_zeile.pack(fill='x')
-    w_auswahl.pack(fill='x')
-    wunsch_rahmen = tk.Frame(innen, bg=BG)
-
-    def _wunsch_eintragen():
-        name = (wunsch.get() or '').strip()
-        if not alle_schiffe.kennt(name):
-            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
-            neu_zeichnen()
-            return
-        # ⚠ Was man hat, wünscht man sich nicht — und das wird gesagt, nicht
-        # stillschweigend verschluckt.
-        if meine.enthaelt(daten['stand'], name):
-            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), ROT
-            neu_zeichnen()
-            return
-        # ⚠ **Den Hersteller gleich mitspeichern.** Ohne ihn findet `erkul`
-        # einen Teil der Schiffe nicht (bei der Prospector gemessen) — und dann
-        # ließe sich ein Wunschschiff nicht ausstatten. Auf der Wunschliste
-        # gibt es keinen Pledge-Export, aus dem er käme; UEX führt ihn im
-        # Namen mit, also wird er dort geholt.
-        if meine.wunsch_hinzufuegen(daten['stand'], name,
-                                    alle_schiffe.hersteller(name)):
-            meine.speichern(daten['stand'])
-            meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
-            meldung['farbe'] = ACCENT
-            wunsch.set('')
-        else:
-            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), ROT
-        neu_zeichnen()
-
-    reihe_wunsch = tk.Frame(innen, bg=BG)
-    reihe_wunsch.pack(fill='x', padx=24, pady=(10, 0))
-    _knopfreihe(reihe_wunsch, [
-        _knopf(fenster, reihe_wunsch, t('s_hg_wunsch_eintragen'),
-               _wunsch_eintragen),
-    ])
-    wunsch_rahmen.pack(fill='x', padx=24, pady=(10, 0))
-
     # ----------------------------------------------------------- Die Liste
     liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
 
@@ -9382,20 +9438,6 @@ def _hangar(fenster, rahmen):
             _fliesstext(liste_rahmen,
                         t('s_hg_ohne_erklaert').format(n=ohne),
                         fenster.f_klein, fill='x', pady=(10, 0))
-        _wunsch_fuellen()
-
-    def _wunsch_fuellen():
-        for kind in wunsch_rahmen.winfo_children():
-            kind.destroy()
-        liste = meine.wunsch_liste(daten['stand'])
-        if not liste:
-            return
-        tk.Label(wunsch_rahmen, text=t('s_hg_wunsch_meine').format(n=len(liste)),
-                 bg=BG, fg=FG, font=fenster.f_fett,
-                 anchor='w').pack(fill='x', pady=(0, 6))
-        for eintrag in liste:
-            _wunsch_zeile(fenster, wunsch_rahmen, eintrag, daten, meldung,
-                          neu_zeichnen)
 
     _liste_fuellen()
 
@@ -9435,6 +9477,118 @@ def _hangar(fenster, rahmen):
         threading.Thread(target=arbeit, daemon=True).start()
 
     _nachziehen_im_hintergrund()
+
+
+def _wunschliste(fenster, rahmen):
+    """Schiffe, die man sich vornimmt — mit Preis, Ort und planbarer Ausstattung.
+
+    ⭐ Vorschlag von Zwaersch (KRT) am 06.09.2026: „Also Unterpunkt könnte man
+    noch ne Wishlist-Option anbieten. Für, ich nenn's mal allgemein Vehikel,
+    die man sich erspielen/kaufen möchte."
+
+    ⚠⚠ **Eigener Reiter, nicht mehr unten am Hangar.** Am selben Tag gemeldet:
+    „wird sonst unübersichtlich und niemand findet es auf Anhieb." Das stimmt —
+    die Wunschliste stand hinter einer Liste, die bei vierzig Schiffen über
+    mehrere Bildschirmhöhen ging, und jedes davon klappt seine Ausstattung auf.
+    Was hinter etwas Wachsendem steht, ist irgendwann nicht mehr da.
+
+    ⚠ **Getrennt vom Hangar geführt.** Ein Wunsch ist kein Besitz — was hier
+    steht, darf nie in „passt in dein Schiff" auftauchen. Sonst beantwortet das
+    Werkzeug eine Frage über ein Schiff, das niemand hat. Gespeichert wird
+    trotzdem in derselben Datei: Es ist dieselbe Sammlung, nur ein anderes Fach.
+    """
+    from . import hangar as meine, schiffe as alle_schiffe
+
+    _ueberschrift(fenster, rahmen, t('hf_wunschliste'), t('s_wl_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_hg_wunsch_text'), fenster.f_klein, fill='x')
+
+    daten = {'stand': meine.laden()}
+    meldung = {'text': '', 'farbe': SUB}
+    wunsch = tk.StringVar()
+
+    block = tk.Frame(innen, bg=BG)
+    block.pack(fill='x', padx=24, pady=(14, 0))
+    w_zeile, w_auswahl, _ = _auswahlfeld(fenster, block, wunsch,
+                                         alle_schiffe.namen_alle,
+                                         leer_text=t('s_hg_nichts_gefunden'),
+                                         rollbar=200)
+    w_zeile.pack(fill='x')
+    w_auswahl.pack(fill='x')
+
+    hinweis = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                       anchor='w', justify='left')
+    liste_rahmen = tk.Frame(innen, bg=BG)
+
+    def neu_zeichnen():
+        _fuellen()
+
+    def eintragen():
+        name = (wunsch.get() or '').strip()
+        if not alle_schiffe.kennt(name):
+            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
+            neu_zeichnen()
+            return
+        # ⚠ Was man hat, wünscht man sich nicht — und das wird gesagt, nicht
+        # stillschweigend verschluckt.
+        if meine.enthaelt(daten['stand'], name):
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), ROT
+            neu_zeichnen()
+            return
+        # ⚠ **Den Hersteller gleich mitspeichern.** Ohne ihn findet `erkul`
+        # einen Teil der Schiffe nicht (bei der Prospector gemessen) — und dann
+        # ließe sich ein Wunschschiff nicht ausstatten. Auf der Wunschliste
+        # gibt es keinen Pledge-Export, aus dem er käme; UEX führt ihn im
+        # Namen mit, also wird er dort geholt.
+        if meine.wunsch_hinzufuegen(daten['stand'], name,
+                                    alle_schiffe.hersteller(name)):
+            meine.speichern(daten['stand'])
+            meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
+            meldung['farbe'] = ACCENT
+            wunsch.set('')
+            # Die Steckplätze des neuen Wunschschiffs im Hintergrund holen —
+            # sonst steht die Ausstattung beim ersten Aufklappen leer da.
+            _steckplaetze_nachziehen(innen)
+        else:
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), ROT
+        neu_zeichnen()
+
+    reihe = tk.Frame(innen, bg=BG)
+    reihe.pack(fill='x', padx=24, pady=(10, 0))
+    _knopfreihe(reihe, [
+        _knopf(fenster, reihe, t('s_hg_wunsch_eintragen'), eintragen),
+    ])
+    hinweis.pack(fill='x', padx=24, pady=(10, 0))
+    liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
+
+    def _fuellen():
+        for kind in liste_rahmen.winfo_children():
+            kind.destroy()
+        hinweis.configure(text=meldung['text'], fg=meldung['farbe'])
+        liste = meine.wunsch_liste(daten['stand'])
+        tk.Label(liste_rahmen, text=t('s_hg_wunsch_meine').format(n=len(liste)),
+                 bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 6))
+        if not liste:
+            _fliesstext(liste_rahmen, t('s_wl_leer'), fenster.f_klein,
+                        fill='x')
+            return
+        for eintrag in liste:
+            _wunsch_zeile(fenster, liste_rahmen, eintrag, daten, meldung,
+                          neu_zeichnen)
+
+    # ⚠ Beim erneuten Öffnen frisch laden: Die Seite wird nur **einmal** gebaut
+    # (siehe `oeffnen()`), und wer inzwischen im Hangar ein Wunschschiff
+    # gekauft hat, fände hier sonst den alten Stand.
+    def _beim_zeigen():
+        daten['stand'] = meine.laden()
+        meldung['text'] = ''
+        wunsch.set('')
+        _fuellen()
+
+    fenster.beim_zeigen['wunschliste'] = _beim_zeigen
+    _steckplaetze_nachziehen(innen)
+    _fuellen()
 
 
 def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
@@ -9634,6 +9788,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
         return
 
     warenkorb.anreichern(liste)
+    _warenkorb_preise_holen(liste, eltern, neu_zeichnen)
 
     tk.Label(eltern, text=t('s_wk_posten').format(n=len(liste)), bg=FLAECHE,
              fg=FG, font=fenster.f_fett, anchor='w').pack(
@@ -9644,6 +9799,50 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
 
     _warenkorb_summe(fenster, eltern, liste)
     _warenkorb_route(fenster, eltern, liste)
+
+
+def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
+    """Fehlende Ladenpreise im Hintergrund nachholen, dann neu zeichnen.
+
+    ⚠⚠ **Ohne das steht „wird nachgeschlagen …" für immer da.** Der Zustand
+    `NICHT_GEPRUEFT` heißt wörtlich „noch niemand hat nachgesehen" — aber
+    nachgesehen hat auch niemand, weil der Warenkorb den Abruf nie ausgelöst
+    hat. Der Satz war also wahr und trotzdem eine Sackgasse: Am 06.09.2026
+    gemeldet mit „kaufen lädt keinen Preis". Die Bergungs-Seite holt ihre
+    Preise seit jeher selbst nach; hier fehlte genau dieser Schritt.
+
+    ⚠ Im **Hintergrund**, nicht im Zeichnen. Jeder unbekannte Posten ist ein
+    Netzabruf; bei zwölf Posten stünde die Oberfläche sonst sekundenlang. Erst
+    wenn wirklich etwas dazukam, wird neu gezeichnet — sonst flackert die
+    Liste bei jedem Aufklappen ohne Grund.
+    """
+    from . import laeden, warenkorb
+
+    offen = [p for p in liste
+             if (p.get('kauf') or {}).get('zustand') == warenkorb.NICHT_GEPRUEFT
+             and p.get('ref')]
+    if not offen:
+        return
+
+    def arbeit():
+        geholt = False
+        for posten in offen:
+            try:
+                if not laeden.bekannt(posten['ref']):
+                    laeden.holen(posten['ref'], name=posten.get('name') or '')
+                    geholt = True
+            except Exception as ausnahme:
+                fehler.merken('seiten.warenkorb.preis', ausnahme)
+        if geholt:
+            # ⚠ Zurück in den Oberflächen-Faden. Tk aus einem Thread heraus
+            # anzufassen ist der Weg in Abstürze, die sich nicht nachstellen
+            # lassen.
+            try:
+                widget.after(0, neu_zeichnen)
+            except Exception:
+                pass
+
+    threading.Thread(target=arbeit, daemon=True).start()
 
 
 def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
@@ -9944,8 +10143,21 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
         tk.Label(zeile, text=text, bg='#0c1017', fg=farbe,
                  font=fenster.f_klein, anchor='w').pack(side='left')
 
-        # Nur ein Weg, den es wirklich gibt, lässt sich wählen.
-        if angabe.get('zustand') == warenkorb.BEKANNT and not aktiv:
+        # ⚠⚠ **Ein fehlender Preis ist kein fehlender Weg.** Bis zum 06.09.2026
+        # stand der Knopf nur bei `BEKANNT` — wer einmal auf „Selbst
+        # herstellen" gewechselt hatte, kam nicht mehr zurück, solange UEX
+        # keinen Preis führte. Gefragt wurde: „wie wähle ich Kaufen
+        # überhaupt aus?" Die richtige Antwort war: gar nicht.
+        #
+        # | Zustand | heißt | Knopf |
+        # |---|---|---|
+        # | `KEIN_REZEPT` | du hast den Bauplan nicht | **nein** — harte Tatsache über dein Lager |
+        # | `KEIN_PREIS` | UEX führt keinen Preis | ja — im Spiel kaufbar bleibt es trotzdem |
+        # | `NICHT_GEPRUEFT` | niemand hat nachgesehen | ja — Nichtwissen verbietet nichts |
+        #
+        # Der Unterschied ist derselbe wie überall hier: Eine Aussage über
+        # **fremde Daten** darf nie zu einer Aussage über das Spiel werden.
+        if not aktiv and angabe.get('zustand') != warenkorb.KEIN_REZEPT:
             _knopf(fenster, zeile, t(schluessel),
                    waehlen(weg)).pack(side='right')
 
@@ -12787,6 +12999,16 @@ def _achsen(fenster, rahmen):
             _empf_zeile(eltern, nummer, eintrag, bild, anzeigen)
 
     def _empf_zeile(eltern, nummer, eintrag, bild, anzeigen):
+        """Ein Regler je Flugfunktion — im selben Sammelbecken wie die anderen.
+
+        ⚠⚠ **Kein eigener Speichern-Knopf je Zeile.** Die erste Fassung hatte
+        einen, und das war gleich doppelt falsch: Totzone und Sättigung
+        sammelt man und schreibt sie mit **einem** Knopf — plötzlich je Zeile
+        einzeln zu speichern ist ein Bruch. Und der Knopf fraß so viel Platz,
+        dass vom Regler zwei kurze Balken übrig blieben, die niemand als
+        Regler erkennt. Gemeldet am 06.09.2026: „Empfindlichkeit kann ich
+        nicht einstellen oder ich checks einfach nicht."
+        """
         # ⚠ Ein fehlender Klarname wird NICHT verschwiegen: Dann steht der
         # technische Name da. Lieber „flight_move_pitch" als eine leere Zeile,
         # bei der niemand weiß, was er gerade verstellt.

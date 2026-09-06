@@ -1999,6 +1999,17 @@ class Hauptfenster:
         # sie kommt vor „woraus baue ich das".
         g_schiff = self._gruppe(t('hf_gruppe_schiffe'), 'schiffe')
         self._reiter('hangar', 'hangar', t('hf_hangar'), g_schiff)
+        # ⚠ **Eigener Reiter seit v3.19.0** — vorher stand die Wunschliste
+        # unten auf der Hangar-Seite. Am 06.09.2026 gemeldet: „wird sonst
+        # unübersichtlich und niemand findet es auf Anhieb." Über einer Liste
+        # von vierzig Schiffen, von denen jedes seine Ausstattung aufklappt,
+        # verschwindet alles, was darunter steht.
+        #
+        # ⚠ Und in derselben Gruppe, nicht in einer eigenen: „die Reiter können
+        # unter Schiffe bleiben, weil es ja Schiffe betrifft." Eine Gruppe je
+        # Reiter wäre keine Gliederung mehr.
+        self._reiter('wunschliste', 'wunschliste', t('hf_wunschliste'),
+                     g_schiff)
 
         g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)

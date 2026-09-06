@@ -44,6 +44,10 @@ DATEI = 'gesehen.json'
 # Welcher Bereich kam mit welcher Version? Beim Bauen eines neuen Bereichs hier
 # **eine Zeile ergänzen** — mehr ist nicht zu tun.
 NEU_SEIT = {
+    # Die Schiffs-Gruppe, alle drei aus v3.19.0
+    'hangar':      '3.19.0',   # Mein Hangar: welche Schiffe mir gehören
+    'wunschliste': '3.19.0',   # was ich mir vornehme, mit Preis und Ort
+    'bergung':     '3.19.0',   # was in einem Wrack steckt und was es wert ist
     'auftragslog': '3.12.0',   # Auftrags-Protokoll: was wann gespielt wurde
     'herstellung': '3.3.0',
     'bergbau': '3.3.0',
