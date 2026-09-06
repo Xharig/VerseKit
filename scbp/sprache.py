@@ -3210,6 +3210,9 @@ TEXTE = {
     # sondern „steckt im Schiff". Das ist die Aussage, um die es geht.
     's_wk_eingebaut':    ('ist eingebaut', 'is fitted'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
+    's_ek_alles_erledigt': ('Alles erledigt — die {n} Positionen unten sind '
+                            'abgehakt.',
+                            'All done — the {n} items below are ticked off.'),
     # --- Farmliste: was an Rohstoffen fehlt (v3.19.0)
     # ⚠ In der WERKSTATT, nicht bei den Schiffen: „schiebt man
     # Herstellungsliste nicht eher unten in die Werkstatt?" — dort geht es um

@@ -9760,11 +9760,22 @@ def _einkaufsliste(fenster, rahmen):
                         fill='x')
             _ohne_daten_hinweis(fenster, koerper, werte)
             return
+        # ⚠ Alles abgehakt ist etwas anderes als „nie etwas geplant" — und der
+        # Unterschied gehört gesagt, sonst wirkt eine fertige Liste wie eine
+        # leere.
+        if all(x.get('erledigt') for x in posten):
+            _fliesstext(koerper, t('s_ek_alles_erledigt').format(n=len(posten)),
+                        fenster.f_klein, farbe=ACCENT, fill='x', pady=(0, 8))
 
         _einkauf_preise_holen(posten, koerper, neu_zeichnen)
 
+        # ⚠⚠ **Der Kopf zählt, was noch zu tun ist — nicht, was einmal
+        # geplant war.** Bis zum 06.09.2026 stand „8 Positionen aus 2
+        # Schiffen" da, obwohl zwei davon abgehakt waren. Eine Überschrift,
+        # die sich beim Abarbeiten nicht ändert, ist keine Auskunft.
+        noch_offen = sum(1 for x in posten if not x.get('erledigt'))
         tk.Label(koerper,
-                 text=t('s_ek_kopf').format(n=len(posten),
+                 text=t('s_ek_kopf').format(n=noch_offen,
                                             schiffe=werte.get('schiffe') or 0),
                  bg=BG, fg=FG, font=fenster.f_fett,
                  anchor='w').pack(fill='x', pady=(0, 8))
@@ -10228,30 +10239,50 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # in dein Schiff" — „in Grau nimmt es keiner wahr und fragt sich dann, wo
     # er die Info findet".
     from . import warenkorb as _wk_marke
-    offen = _wk_marke.offene_anzahl(eintrag)
-    if offen:
-        tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
-                 fg=ACCENT, font=fenster.f_klein,
-                 anchor='w').pack(side='left', padx=(12, 0))
-    elif _wk_marke.fertig_gefittet(eintrag):
-        # ⚠⚠ **Diese Marke ist eine Warnung, keine Auszeichnung.** Ein neu
-        # geclaimtes Schiff kommt in seiner Werksausstattung zurück: Wer ein
-        # aufgerüstetes Schiff ohne die passende Versicherung claimt, verliert
-        # alles Eingebaute. Deshalb steht sie in **Gold** wie die übrigen
-        # Vorsichtshinweise, nicht in der Markenfarbe wie eine Erfolgsmeldung.
-        _fertig = zeichen.zeile(unten, 'haken', grund=FLAECHE,
-                                farbe=zeichen.GELB, schrift=fenster.f_klein)
-        _fertig.pack(side='left', padx=(12, 4))
-        tk.Label(unten, text=t('s_hg_fertig'), bg=FLAECHE, fg=GOLD,
-                 font=fenster.f_klein, anchor='w').pack(side='left')
+    # ⚠ Ein eigener Rahmen, damit sich die Marke nachziehen lässt, ohne die
+    # ganze Zeile neu zu bauen — beim Abhaken darf die aufgeklappte
+    # Ausstattung nicht zuklappen.
+    marke_rahmen = tk.Frame(unten, bg=FLAECHE)
+    marke_rahmen.pack(side='left')
 
+    def marke_setzen():
+        for kind in marke_rahmen.winfo_children():
+            kind.destroy()
+        _zeichne_marke(fenster, marke_rahmen, eintrag)
+
+    marke_setzen()
+    offen = _wk_marke.offene_anzahl(eintrag)
     # Ausstattung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
     # Schiffen eine Liste bleibt und keine Bleiwüste wird.
-    _warenkorb_block(fenster, karte, eintrag, daten)
+    _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=marke_setzen)
     return 0 if plaetze else 1
 
 
-def _warenkorb_block(fenster, karte, eintrag, daten):
+def _zeichne_marke(fenster, eltern, eintrag):
+    """Die Marke an einer Schiffszeile: offene Posten oder „fertig gefittet".
+
+    ⚠⚠ **Die Fertig-Marke ist eine Warnung, keine Auszeichnung.** Ein neu
+    geclaimtes Schiff kommt in seiner Werksausstattung zurück: Wer ein
+    aufgerüstetes Schiff ohne die passende Versicherung claimt, verliert alles
+    Eingebaute. Deshalb steht sie in **Gold** wie die übrigen
+    Vorsichtshinweise, nicht in der Markenfarbe wie eine Erfolgsmeldung.
+    """
+    from . import warenkorb
+
+    offen = warenkorb.offene_anzahl(eintrag)
+    if offen:
+        tk.Label(eltern, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
+                 fg=ACCENT, font=fenster.f_klein,
+                 anchor='w').pack(side='left', padx=(12, 0))
+    elif warenkorb.fertig_gefittet(eintrag):
+        haken = zeichen.zeile(eltern, 'haken', grund=FLAECHE,
+                              farbe=zeichen.GELB, schrift=fenster.f_klein)
+        haken.pack(side='left', padx=(12, 4))
+        tk.Label(eltern, text=t('s_hg_fertig'), bg=FLAECHE, fg=GOLD,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
+
+def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     """„Ausstattung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
 
     ⚠ Gebaut wird der Inhalt **beim ersten Aufklappen**, nicht beim Zeichnen
@@ -10275,10 +10306,19 @@ def _warenkorb_block(fenster, karte, eintrag, daten):
     koerper = tk.Frame(kasten, bg=FLAECHE)
 
     def neu():
-        """Den Block neu aufbauen — nach jeder Änderung an der Ausstattung."""
+        """Den Block neu aufbauen — nach jeder Änderung an der Ausstattung.
+
+        ⚠⚠ **Und die Zeile darüber mitziehen.** Der Block kennt nur sich
+        selbst; die Marke „4 noch zu besorgen" steht aber in der Schiffszeile,
+        eine Ebene höher. Ohne diesen Rückruf hakte man alle vier Posten ab und
+        die Zeile behauptete weiter, es seien vier offen. Am 06.09.2026
+        gemeldet: „habe die angehakt, aber steht immer noch 4 zu besorgen."
+        """
         for kind in koerper.winfo_children():
             kind.destroy()
         _warenkorb_inhalt(fenster, koerper, eintrag, daten, neu)
+        if beim_aendern is not None:
+            beim_aendern()
 
     def umschalten(_=None):
         if koerper.winfo_ismapped():
@@ -10333,7 +10373,12 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     warenkorb.anreichern(liste)
     _warenkorb_preise_holen(liste, eltern, neu_zeichnen)
 
-    tk.Label(eltern, text=t('s_wk_posten').format(n=len(liste)), bg=FLAECHE,
+    # ⚠ **Zählt, was noch zu tun ist.** Derselbe Fehler wie im Kopf der
+    # Sammelliste: „Warenkorb (2)" blieb bei zwei stehen, obwohl beide Posten
+    # abgehakt waren. Beim Durchklicken am 06.09.2026 aufgefallen — die Marke
+    # in der Zeile zog schon mit, diese Überschrift nicht.
+    noch_offen = sum(1 for x in liste if not x.get('erledigt'))
+    tk.Label(eltern, text=t('s_wk_posten').format(n=noch_offen), bg=FLAECHE,
              fg=FG, font=fenster.f_fett, anchor='w').pack(
                  fill='x', padx=(46, 16), pady=(8, 4))
 

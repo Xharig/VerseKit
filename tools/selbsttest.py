@@ -14240,6 +14240,110 @@ def main():
     pruefe(not _s159.get('offen'),
            '* und zaehlt es nicht als Posten ohne Preis')
 
+    # ------------------------------------------------------------------
+    # 160. Ein Klick auf den Haken — und was die Anzeige danach sagt
+    #
+    # ⚠⚠⚠ **Diese Pruefung gibt es, weil drei Fehler durchgerutscht sind, die
+    # alle sichtbar gewesen waeren.** Am 06.09.2026 gefragt: „testest du deine
+    # Funktionen gar nicht mehr in echt, oder machst du das immer erst nachdem
+    # ich Fehler gefunden habe?" Die ehrliche Antwort war: Die Datenschicht
+    # war gemessen (Abhaken senkte die Summe von 540.540 auf 405.405), die
+    # **Oberflaeche nach einem Klick** aber nie.
+    #
+    # Genau dort lagen alle drei:
+    #
+    # | Fehler | was zu sehen war |
+    # |---|---|
+    # | Marke zog nicht mit | alle vier abgehakt, Zeile sagte „4 noch zu besorgen" |
+    # | Kopf zaehlte Erledigtes | „8 Positionen", zwei davon fertig |
+    # | Farmliste zaehlte Erledigtes | „fuer 8 Bauteile", vier schon gebaut |
+    #
+    # Eine Pruefung, die nur Funktionen aufruft, findet so etwas nie: Jede
+    # einzelne Funktion war richtig. Falsch war, **wer nach einer Aenderung
+    # neu zeichnet**. Deshalb wird hier wirklich geklickt und danach der Text
+    # der Widgets gelesen.
+    print()
+    print('160. Ein Klick auf den Haken zieht die Anzeige nach')
+    import tkinter as _tk160
+    from tkinter import font as _fo160
+    from scbp import seiten as _st160
+    from scbp import warenkorb as _wk160
+
+    class _F160:
+        pass
+
+    def _texte160(w, raus=None):
+        """Alle sichtbaren Beschriftungen unterhalb eines Widgets."""
+        raus = [] if raus is None else raus
+        for k in w.winfo_children():
+            try:
+                if k.cget('text'):
+                    raus.append(k.cget('text'))
+            except Exception:
+                pass
+            _texte160(k, raus)
+        return raus
+
+    _wurzel160 = _tk160.Tk()
+    _wurzel160.withdraw()
+    _f160 = _F160()
+    _f160.f_klein = _fo160.Font(family='Calibri', size=10)
+    _f160.f_fett = _fo160.Font(family='Calibri', size=10, weight='bold')
+    _f160.beim_zeigen = {}
+    try:
+        # Zwei Posten, beide offen — die Marke muss „2" sagen.
+        _schiff160 = {'name': 'Testschiff', 'hersteller': 'X',
+                      'belegung': {
+                          'p1': {'ref': 'r1', 'name': 'Teil A',
+                                 'weg': _wk160.KAUFEN},
+                          'p2': {'ref': 'r2', 'name': 'Teil B',
+                                 'weg': _wk160.KAUFEN}}}
+        _rahmen160 = _tk160.Frame(_wurzel160, bg='#0d1117')
+        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _wurzel160.update_idletasks()
+        _vorher160 = ' '.join(_texte160(_rahmen160))
+        pruefe('2' in _vorher160,
+               'die Marke nennt zwei offene Posten (steht da: %r)'
+               % _vorher160)
+
+        # Jetzt einen abhaken und die Marke neu zeichnen — wie es der
+        # Rueckruf tut.
+        _wk160.erledigt_setzen(_schiff160, 'p1', True)
+        for _k160 in _rahmen160.winfo_children():
+            _k160.destroy()
+        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _wurzel160.update_idletasks()
+        _nachher160 = ' '.join(_texte160(_rahmen160))
+        pruefe('1' in _nachher160 and '2' not in _nachher160,
+               'nach einem Haken nennt sie einen (steht da: %r)'
+               % _nachher160)
+
+        # Beide abgehakt: aus der Zaehlung wird die Claim-Warnung.
+        _wk160.erledigt_setzen(_schiff160, 'p2', True)
+        for _k160 in _rahmen160.winfo_children():
+            _k160.destroy()
+        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _wurzel160.update_idletasks()
+        _fertig160 = ' '.join(_texte160(_rahmen160))
+        pruefe('Claim' in _fertig160 or 'claim' in _fertig160,
+               'ist alles abgehakt, steht die Claim-Warnung da (%r)'
+               % _fertig160)
+        # ⚠⚠ Die Gegenprobe, die den gemeldeten Fehler gefunden haette.
+        pruefe('besorgen' not in _fertig160,
+               'Gegenprobe: „noch zu besorgen" steht NICHT mehr da, wenn '
+               'alles abgehakt ist')
+
+        # Und ein unberuehrtes Schiff bekommt gar keine Marke.
+        _leer160 = {'name': 'Leer', 'belegung': {}}
+        for _k160 in _rahmen160.winfo_children():
+            _k160.destroy()
+        _st160._zeichne_marke(_f160, _rahmen160, _leer160)
+        _wurzel160.update_idletasks()
+        pruefe(not _texte160(_rahmen160),
+               'ein Schiff ohne Planung bekommt keine Marke')
+    finally:
+        _wurzel160.destroy()
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

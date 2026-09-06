@@ -1048,6 +1048,18 @@ def farmliste(daten=None):
     for p in fertig['posten']:
         if p.get('weg') != BAUEN:
             continue
+        # ⚠⚠ **Was gebaut UND eingebaut ist, braucht kein Material mehr.**
+        # Bis zum 06.09.2026 zählte die Farmliste auch abgehakte Posten mit:
+        # Vier von acht Schilden waren fertig, und trotzdem stand „für 8
+        # geplante Bauteile · fehlt 8,8 Stileron" da. Dazu die Rückmeldung:
+        # „der Wert ändert sich auch nicht, wenn ich Sachen als eingebaut
+        # markiert habe — das erwartet aber jeder User, denn wenn ich es
+        # hergestellt habe, dann brauch ich das Material ja nicht mehr."
+        #
+        # Genau so. Eine Farmliste, die nach getaner Arbeit dieselbe Zahl
+        # zeigt, schickt den Spieler ein zweites Mal in denselben Asteroiden.
+        if p.get('erledigt'):
+            continue
         gebaut += 1
         bauplan = verzeichnis.get(p.get('ref') or '') or ''
         rez = None
