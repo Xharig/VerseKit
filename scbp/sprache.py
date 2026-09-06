@@ -3195,8 +3195,12 @@ TEXTE = {
                           'Everything your ships still need — bought or built '
                           'yourself, itemised and totalled. Ticked-off items '
                           'no longer count.'),
+    # ⚠ Eigene Fassung für die Einzahl: „1 Positionen aus 1 Schiffen" liest
+    # sich nach einem Fehler, auch wenn die Zahl stimmt.
     's_ek_kopf':         ('{n} Positionen aus {schiffe} Schiffen',
                           '{n} items from {schiffe} ships'),
+    's_ek_kopf_1':       ('Eine Position an {schiffe} Schiff',
+                          'One item on {schiffe} ship'),
     's_ek_aus_hangar':   ('hast du', 'you own it'),
     's_ek_aus_wunsch':   ('Wunschliste', 'wishlist'),
     's_ek_das_schiff':   ('Das Schiff', 'The ship'),
@@ -3213,9 +3217,12 @@ TEXTE = {
     # zurück, falls ein Haken versehentlich gesetzt wurde.
     's_wk_eingebaut_n':  ('{n} bereits eingebaut', '{n} already fitted'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
-    's_ek_alles_erledigt': ('Alles erledigt — die {n} Positionen unten sind '
-                            'abgehakt.',
-                            'All done — the {n} items below are ticked off.'),
+    # ⚠ Nicht mehr „die Positionen unten": Sie stehen seit rc22 gar nicht
+    # mehr da. Ein Satz, der auf etwas Unsichtbares zeigt, verwirrt mehr, als
+    # er erklärt.
+    's_ek_alles_erledigt': ('Alles erledigt — {n} Positionen sind abgehakt '
+                            'und eingebaut.',
+                            'All done — {n} items ticked off and fitted.'),
     # --- Farmliste: was an Rohstoffen fehlt (v3.19.0)
     # ⚠ In der WERKSTATT, nicht bei den Schiffen: „schiebt man
     # Herstellungsliste nicht eher unten in die Werkstatt?" — dort geht es um

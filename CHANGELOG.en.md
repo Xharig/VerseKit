@@ -6,6 +6,26 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc22 - 2026-09-06
+
+> **A bug deleted the wishlist.** As soon as you added a component to any ship,
+> it was gone — the file was only half written. Fixed, and a check now guards
+> it.
+
+### Fixed
+
+- **⚠ The wishlist disappeared** whenever anything on a ship was changed. The
+  file holds two lists and only one was written — the other was erased.
+  Changes to a wishlist ship were lost for the same reason.
+- **The "Still missing" page failed with an error** as soon as a wishlist ship
+  was involved: the shopping route expected a slot, which a whole ship does
+  not have.
+- **Three confirmation prompts raised an error** instead of asking.
+- **Fitted parts no longer clutter the lists.** Neither in the cart under the
+  ship nor under "Still missing" — both show what is left to do. The number of
+  finished items is noted below; in the cart a click brings them back.
+- "1 items from 1 ships" now reads "One item on 1 ship".
+
 ## v3.19.0-rc21 - 2026-09-06
 
 > **Windows now open where you are looking.** Every window centres itself over

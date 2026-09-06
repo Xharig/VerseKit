@@ -2986,8 +2986,7 @@ def _joysticks(fenster, rahmen):
         for liste in (joysticks.sicht(joysticks.MEINE) or {}).values():
             eigene += len(liste)
         if not _fragen(fenster, t('s_js_zurueck'),
-                                   t('s_js_zurueck_frage', eigene),
-                                   icon='warning', default='no'):
+                                   t('s_js_zurueck_frage', eigene)):
             return
         erfolg, meldung, _ = joysticks.zuruecksetzen()
         if erfolg:
@@ -3045,8 +3044,7 @@ def _joysticks(fenster, rahmen):
         # dahinter kann die Belegung eines ganzen Abends stecken.
         if not erfolg and meldung == 's_js_f_name_belegt':
             if not _fragen(fenster, t('s_js_profil'),
-                                       t('s_js_profil_ersetzen', name),
-                                       icon='warning', default='no'):
+                                       t('s_js_profil_ersetzen', name)):
                 return
             erfolg, meldung = joysticks.profil_speichern(
                 name, ueberschreiben=True)
@@ -3088,8 +3086,7 @@ def _joysticks(fenster, rahmen):
         if not quelle:
             return
         if not _fragen(fenster, t('s_js_einlesen'),
-                                   t('s_js_einlesen_frage'),
-                                   icon='warning', default='no'):
+                                   t('s_js_einlesen_frage')):
             return
         erfolg, meldung, anzahl = joysticks.einlesen(quelle)
         if erfolg:
@@ -9754,12 +9751,22 @@ def _einkaufsliste(fenster, rahmen):
                         fill='x')
             _ohne_daten_hinweis(fenster, koerper, werte)
             return
+        # ⚠⚠ **Die Seite heißt „Was noch fehlt" — dann steht hier auch nur
+        # das.** Am 06.09.2026: „hier kann, was eingebaut ist, auch raus, ist
+        # ja Unfug." Stimmt: Unter der Überschrift „0 Positionen" standen
+        # trotzdem vier abgehakte Zeilen.
+        #
         # ⚠ Alles abgehakt ist etwas anderes als „nie etwas geplant" — und der
         # Unterschied gehört gesagt, sonst wirkt eine fertige Liste wie eine
         # leere.
-        if all(x.get('erledigt') for x in posten):
-            _fliesstext(koerper, t('s_ek_alles_erledigt').format(n=len(posten)),
+        fertige = [x for x in posten if x.get('erledigt')]
+        posten = [x for x in posten if not x.get('erledigt')]
+        if not posten:
+            _fliesstext(koerper,
+                        t('s_ek_alles_erledigt').format(n=len(fertige)),
                         fenster.f_klein, farbe=ACCENT, fill='x', pady=(0, 8))
+            _ohne_daten_hinweis(fenster, koerper, werte)
+            return
 
         _einkauf_preise_holen(posten, koerper, neu_zeichnen)
 
@@ -9767,10 +9774,10 @@ def _einkaufsliste(fenster, rahmen):
         # geplant war.** Bis zum 06.09.2026 stand „8 Positionen aus 2
         # Schiffen" da, obwohl zwei davon abgehakt waren. Eine Überschrift,
         # die sich beim Abarbeiten nicht ändert, ist keine Auskunft.
-        noch_offen = sum(1 for x in posten if not x.get('erledigt'))
         tk.Label(koerper,
-                 text=t('s_ek_kopf').format(n=noch_offen,
-                                            schiffe=werte.get('schiffe') or 0),
+                 text=t('s_ek_kopf_1' if len(posten) == 1
+                        else 's_ek_kopf').format(
+                            n=len(posten), schiffe=werte.get('schiffe') or 0),
                  bg=BG, fg=FG, font=fenster.f_fett,
                  anchor='w').pack(fill='x', pady=(0, 8))
 
@@ -9802,9 +9809,11 @@ def _einkaufsliste(fenster, rahmen):
 
         # Wie viel schon erledigt ist — sonst sieht eine halb abgearbeitete
         # Liste aus wie eine unangetastete.
-        fertig = sum(1 for x in posten if x.get('erledigt'))
-        if fertig:
-            _fliesstext(koerper, t('s_ek_abgehakt').format(n=fertig),
+        # ⚠ Nicht verschweigen, nur nicht auflisten: Wer weiß, dass vier
+        # Posten erledigt sind, versteht auch, warum die Summe niedriger ist
+        # als erwartet.
+        if fertige:
+            _fliesstext(koerper, t('s_ek_abgehakt').format(n=len(fertige)),
                         fenster.f_klein, farbe=ACCENT, fill='x', pady=(6, 0))
 
         _warenkorb_summe(fenster, koerper, posten)
@@ -10672,8 +10681,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
                                                         padx=(10, 0))
 
     def speichern():
-        meine.speichern({'format': meine.FORMAT,
-                         'schiffe': _hangar_liste(eintrag)})
+        _eintrag_speichern(eintrag)
 
     if eigenes.get('ref'):
         # ⚠⚠ **Diese Funktion darf nicht schlicht „zurücksetzen" heißen.**
@@ -10769,21 +10777,41 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     zeile.bind('<Button-1>', umschalten)
 
 
-def _hangar_liste(eintrag):
-    """Die ganze Hangar-Liste, mit diesem Eintrag auf aktuellem Stand.
+def _eintrag_speichern(eintrag):
+    """Diesen Eintrag in die Datei zurückschreiben — Hangar **oder** Wunsch.
 
-    ⚠ Gespeichert wird immer die **ganze** Datei — der Eintrag ist ein Stück
-    davon, und wer nur ihn schreibt, wirft die übrigen Schiffe weg.
+    ⚠⚠⚠ **Der Vorgänger hat Daten vernichtet.** `_hangar_liste()` gab nur die
+    Schiffsliste zurück, und gespeichert wurde damit
+    `{'format': …, 'schiffe': …}` — **ohne `wunsch`**. Jedes Mal, wenn jemand
+    an der Ausstattung eines Schiffs etwas änderte, war die komplette
+    Wunschliste weg. Am 06.09.2026 gemeldet: „gebe ich ein Schiff auf der
+    Wunschliste ein, bleibt es nur so lange stehen, bis ich Komponenten dazu
+    eintrage."
+
+    Dazu kam der zweite Teil desselben Fehlers: Ein **Wunsch**-Eintrag wurde in
+    `schiffe` gesucht, dort nie gefunden — seine Änderung ging also ebenfalls
+    verloren.
+
+    ⚠ Gespeichert wird deshalb der **geladene Gesamtstand** mit dem
+    ausgetauschten Eintrag. Wer eine Teilmenge schreibt, löscht den Rest; das
+    ist bei einer Datei, in der zwei Listen stehen, keine Frage des Stils.
     """
     from . import hangar as meine
     stand = meine.laden()
-    schiffe = stand.get('schiffe') or []
-    for i, s in enumerate(schiffe):
-        if (s.get('name') == eintrag.get('name')
-                and s.get('hersteller') == eintrag.get('hersteller')):
-            schiffe[i] = eintrag
+    name = eintrag.get('name')
+    hersteller = eintrag.get('hersteller')
+    gefunden = False
+    for schluessel in ('schiffe', 'wunsch'):
+        for i, s in enumerate(stand.get(schluessel) or []):
+            if (s.get('name') == name
+                    and s.get('hersteller') == hersteller):
+                stand[schluessel][i] = eintrag
+                gefunden = True
+                break
+        if gefunden:
             break
-    return schiffe
+    meine.speichern(stand)
+    return gefunden
 
 
 def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
@@ -10851,8 +10879,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
     def abhaken(_e=None):
         if warenkorb.erledigt_setzen(eintrag, posten['pfad'], not fertig):
-            meine.speichern({'format': meine.FORMAT,
-                             'schiffe': _hangar_liste(eintrag)})
+            _eintrag_speichern(eintrag)
             neu_zeichnen()
 
     haken = zeichen.zeile(kopf, 'haken', grund='#0c1017',
@@ -10890,8 +10917,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     def waehlen(weg):
         def tat():
             if warenkorb.weg_setzen(eintrag, posten['pfad'], weg):
-                meine.speichern({'format': meine.FORMAT,
-                                 'schiffe': _hangar_liste(eintrag)})
+                _eintrag_speichern(eintrag)
                 neu_zeichnen()
         return tat
 

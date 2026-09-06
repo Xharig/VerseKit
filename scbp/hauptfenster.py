@@ -2554,6 +2554,17 @@ class Hauptfenster:
         im ersten Anlauf kam so eine Mindesthöhe von 1418 Pixeln heraus. Ist sie noch
         nicht so weit, wird es kurz darauf noch einmal versucht.
         """
+        # ⚠⚠ **Erst nachsehen, ob es das Fenster noch gibt.** Diese Funktion
+        # wird per `after(30, …)` eingeplant — wird das Fenster in dieser Zeit
+        # geschlossen, läuft sie ins Leere und Tk meldet `bad window path
+        # name`. Abgestürzt ist dabei nie etwas (der Haken in `fehler.py`
+        # fängt es), es füllte nur das Fehlerprotokoll des Nutzers. Beim
+        # Durchklicken am 06.09.2026 aufgefallen.
+        try:
+            if not self.root.winfo_exists():
+                return
+        except Exception:
+            return
         try:
             if self.leisten_flaeche.winfo_height() < 50:
                 if versuch < 10:

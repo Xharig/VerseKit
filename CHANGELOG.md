@@ -6,6 +6,28 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc22 - 2026-09-06
+
+> **Ein Fehler hat die Wunschliste gelöscht.** Sobald du an irgendeinem Schiff
+> eine Komponente eingetragen hast, war sie weg — die Datei wurde nur zur
+> Hälfte geschrieben. Behoben, und eine Prüfung wacht darüber.
+
+### Behoben
+
+- **⚠ Die Wunschliste verschwand**, sobald an einem Schiff etwas geändert
+  wurde. In der Datei stehen zwei Listen, geschrieben wurde nur eine — die
+  andere war damit gelöscht. Änderungen an einem Wunschschiff gingen aus
+  demselben Grund verloren.
+- **Die Seite „Was noch fehlt" brach mit einem Fehler ab**, sobald ein
+  Wunschschiff dabei war: Die Einkaufsroute erwartete einen Steckplatz, den
+  ein ganzes Schiff nicht hat.
+- **Drei Sicherheitsabfragen lösten einen Fehler aus** statt zu fragen.
+- **Eingebautes steht nicht mehr in den Listen.** Weder im Warenkorb unter dem
+  Schiff noch unter „Was noch fehlt" — beide zeigen, was noch zu tun ist. Die
+  Zahl der erledigten Posten steht darunter, im Warenkorb holt ein Klick sie
+  zurück.
+- Aus „1 Positionen aus 1 Schiffen" wird „Eine Position an 1 Schiff".
+
 ## v3.19.0-rc21 - 2026-09-06
 
 > **Fenster gehen jetzt dort auf, wo du hinsiehst.** Alle Fenster des Programms

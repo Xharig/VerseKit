@@ -805,9 +805,12 @@ def route(liste):
     mit „1 shop · 1 stop" trifft.
     """
     angebote = _angebote(liste)
-    nach_pfad = dict((p['pfad'], p) for p in liste)
+    # ⚠ Nur Posten mit Steckplatz — ein ganzes Schiff hat keinen, und
+    # Abgehaktes muss man nicht mehr abholen (siehe `_angebote`).
+    kaufbar = [p for p in liste if p.get('pfad') and not p.get('erledigt')]
+    nach_pfad = dict((p['pfad'], p) for p in kaufbar)
     offen = set(angebote)
-    ohne = [p['pfad'] for p in liste
+    ohne = [p['pfad'] for p in kaufbar
             if p.get('weg') == KAUFEN and p['pfad'] not in angebote]
 
     # Ort → {Pfad → billigste Zeile dort}

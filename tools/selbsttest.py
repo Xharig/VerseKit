@@ -14473,6 +14473,88 @@ def main():
     pruefe(callable(getattr(_hf162, 'mittig_ueber', None)),
            '`mittig_ueber` steht als gemeinsamer Standard bereit')
 
+    # ------------------------------------------------------------------
+    # 163. Speichern wirft nichts weg
+    #
+    # ⚠⚠⚠ **Der einzige Datenverlust dieses Projekts.** Am 06.09.2026 gemeldet:
+    # „Gebe ich ein Schiff auf der Wunschliste ein, bleibt es nur so lange
+    # stehen, bis ich Komponenten dazu eintrage." Die Ursache war eine Zeile:
+    #
+    #     meine.speichern({'format': …, 'schiffe': _hangar_liste(eintrag)})
+    #
+    # Die Datei enthaelt zwei Listen — `schiffe` UND `wunsch`. Wer nur eine
+    # davon schreibt, loescht die andere. Jede Aenderung an der Ausstattung
+    # irgendeines Schiffs hat die komplette Wunschliste vernichtet.
+    #
+    # Dazu der zweite Teil: Ein Wunsch-Eintrag wurde in `schiffe` gesucht,
+    # dort nie gefunden — seine Aenderung ging ebenfalls verloren.
+    #
+    # ⚠ Eine Pruefung, die nur `speichern()` aufruft, findet das nicht: Die
+    # Funktion war richtig. Falsch war, WAS ihr uebergeben wurde. Geprueft
+    # wird deshalb der Weg ueber `_eintrag_speichern`, so wie die Oberflaeche
+    # ihn geht.
+    print()
+    print('163. Speichern wirft weder Schiffe noch Wuensche weg')
+    import json as _js163
+    import shutil as _sh163
+    import tempfile as _tf163
+    from scbp import seiten as _st163
+    from scbp import warenkorb as _wk163
+
+    _ordner163 = _tf163.mkdtemp(prefix='sc-bp-speichern-')
+    _altheim163 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _ordner163
+    try:
+        from scbp import hangar as _hg163
+        _hg163.vergessen() if hasattr(_hg163, 'vergessen') else None
+        with open(os.path.join(_ordner163, 'hangar.json'), 'w',
+                  encoding='utf-8') as _f163:
+            _js163.dump({'format': _hg163.FORMAT,
+                         'schiffe': [{'name': 'Cutlass Black',
+                                      'hersteller': 'Drake',
+                                      'belegung': {}}],
+                         'wunsch': [{'name': 'Avenger Warlock',
+                                     'hersteller': 'Aegis',
+                                     'belegung': {}}]}, _f163)
+
+        _stand163 = _hg163.laden()
+        pruefe(len(_stand163.get('schiffe') or []) == 1
+               and len(_stand163.get('wunsch') or []) == 1,
+               'Ausgangslage: ein Schiff, ein Wunsch')
+
+        # An einem HANGAR-Schiff etwas aendern.
+        _schiff163 = _stand163['schiffe'][0]
+        _wk163.setzen(_schiff163, 'p1', 'ref-1', 'BlastChill')
+        _st163._eintrag_speichern(_schiff163)
+        _neu163 = _hg163.laden()
+        pruefe(len(_neu163.get('wunsch') or []) == 1,
+               'die Wunschliste ueberlebt eine Aenderung am Hangar-Schiff')
+        pruefe(len(_wk163.belegung(_neu163['schiffe'][0])) == 1,
+               '* und die Aenderung selbst ist gespeichert')
+
+        # An einem WUNSCH-Schiff etwas aendern.
+        _wunsch163 = _neu163['wunsch'][0]
+        _wk163.setzen(_wunsch163, 'p9', 'ref-2', 'FR-66')
+        _st163._eintrag_speichern(_wunsch163)
+        _zuletzt163 = _hg163.laden()
+        pruefe(len(_zuletzt163.get('schiffe') or []) == 1,
+               'der Hangar ueberlebt eine Aenderung am Wunschschiff')
+        pruefe(len(_wk163.belegung(_zuletzt163['wunsch'][0])) == 1,
+               '* und die Aenderung am Wunschschiff ist gespeichert')
+        pruefe(len(_wk163.belegung(_zuletzt163['schiffe'][0])) == 1,
+               '* die des Hangar-Schiffs steht auch noch da')
+
+        # Gegenprobe: Ein Eintrag, den es nirgends gibt, wird gemeldet.
+        pruefe(not _st163._eintrag_speichern({'name': 'Gibt es nicht',
+                                              'hersteller': 'X'}),
+               'Gegenprobe: ein unbekannter Eintrag meldet, dass er fehlt')
+    finally:
+        if _altheim163 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim163
+        _sh163.rmtree(_ordner163, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
