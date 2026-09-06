@@ -90,7 +90,17 @@ class Kalibrierfenster:
             # Nicht jede Umgebung kann das. Dann ein großes Fenster — die
             # Messung der Karte stimmt trotzdem, nur die Bildschirmbreite
             # lässt sich daraus nicht ablesen.
-            self.fenster.geometry('1200x800')
+            # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
+            # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
+            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
+            # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
+            # weil es modal war, ließ sich das Programm nicht einmal beenden.
+            #
+            # `mittig_ueber` setzt beides und fällt auf die reine Größe
+            # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
+            from .hauptfenster import mittig_ueber
+            if eltern is None or not mittig_ueber(self.fenster, eltern, 1200, 800):
+                self.fenster.geometry('1200x800')
         self.fenster.bind('<Escape>', lambda _e: self.schliessen())
 
         self.leinwand = tk.Canvas(self.fenster, bg=BG, highlightthickness=0,

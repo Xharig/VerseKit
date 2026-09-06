@@ -10371,13 +10371,28 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     # Sammelliste: „Warenkorb (2)" blieb bei zwei stehen, obwohl beide Posten
     # abgehakt waren. Beim Durchklicken am 06.09.2026 aufgefallen — die Marke
     # in der Zeile zog schon mit, diese Überschrift nicht.
-    noch_offen = sum(1 for x in liste if not x.get('erledigt'))
-    tk.Label(eltern, text=t('s_wk_posten').format(n=noch_offen), bg=FLAECHE,
-             fg=FG, font=fenster.f_fett, anchor='w').pack(
+    noch_offen = [x for x in liste if not x.get('erledigt')]
+    fertig = [x for x in liste if x.get('erledigt')]
+
+    # ⚠⚠ **Eingebautes steht nicht mehr im Warenkorb.** Am 06.09.2026: „wenn
+    # etwas eingebaut ist, muss es auch nicht mehr im Warenkorb unter dem
+    # Schiff stehen, das ist verschenkter Platz." Stimmt — unter der
+    # Überschrift „Warenkorb (0)" standen trotzdem vier Karten, jede mit dem
+    # Vermerk, dass sie erledigt ist. Ein Korb zeigt, was noch hineingehört.
+    #
+    # ⚠ Aber **nicht spurlos**: Eine Zeile nennt die Zahl, und ein Klick holt
+    # sie zurück. Wer einen Haken versehentlich setzt, muss ihn wiederfinden —
+    # „Zurücksetzen" wäre der falsche Weg zurück, das wirft auch die getroffene
+    # Auswahl weg und stellt die Werksausstattung wieder her.
+    tk.Label(eltern, text=t('s_wk_posten').format(n=len(noch_offen)),
+             bg=FLAECHE, fg=FG, font=fenster.f_fett, anchor='w').pack(
                  fill='x', padx=(46, 16), pady=(8, 4))
 
-    for posten in liste:
+    for posten in noch_offen:
         _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen)
+
+    if fertig:
+        _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen)
 
     _warenkorb_summe(fenster, eltern, liste)
     _warenkorb_route(fenster, eltern, liste)
@@ -10771,7 +10786,46 @@ def _hangar_liste(eintrag):
     return schiffe
 
 
-def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
+def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
+    """Was eingebaut ist: eine Zeile, auf Klick die Liste.
+
+    ⚠ Zugeklappt, weil es die häufigere Lage ist — wer am Schiff arbeitet,
+    will sehen, was noch fehlt. Aufgeklappt steht jeder Posten mit seinem
+    Haken da und lässt sich wieder öffnen.
+    """
+    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten.pack(fill='x', padx=(46, 16), pady=(6, 0))
+
+    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf.pack(fill='x')
+    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
+                          schrift=fenster.f_klein)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t('s_wk_eingebaut_n').format(n=len(fertig)),
+             bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
+             anchor='w').pack(side='left')
+
+    koerper = tk.Frame(kasten, bg=FLAECHE)
+
+    def umschalten(_=None):
+        if koerper.winfo_ismapped():
+            koerper.pack_forget()
+            pfeil.symbol_tauschen('aufklappen')
+        else:
+            for kind in koerper.winfo_children():
+                kind.destroy()
+            for posten in fertig:
+                _warenkorb_posten(fenster, koerper, eintrag, posten,
+                                  neu_zeichnen, eingerueckt=False)
+            koerper.pack(fill='x', after=kopf)
+            pfeil.symbol_tauschen('zuklappen')
+
+    for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+
+
+def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
+                      eingerueckt=True):
     """Ein Posten mit **beiden** Wegen nebeneinander — kaufen und bauen.
 
     ⭐⭐ **Das ist der Punkt, an dem dieses Werkzeug mehr kann als jede
@@ -10783,7 +10837,8 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
     from . import hangar as meine, warenkorb
 
     karte = tk.Frame(eltern, bg='#0c1017')
-    karte.pack(fill='x', padx=(46, 16), pady=(0, 6))
+    karte.pack(fill='x', padx=((46, 16) if eingerueckt else (0, 0)),
+               pady=(0, 6))
 
     fertig = bool(posten.get('erledigt'))
     kopf = tk.Frame(karte, bg='#0c1017')

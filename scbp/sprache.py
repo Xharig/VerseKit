@@ -3209,6 +3209,9 @@ TEXTE = {
     # ⚠ Am Posten selbst steht, was der Haken bedeutet: nicht „abgehakt",
     # sondern „steckt im Schiff". Das ist die Aussage, um die es geht.
     's_wk_eingebaut':    ('ist eingebaut', 'is fitted'),
+    # Die zugeklappte Zeile über den erledigten Posten — ein Klick holt sie
+    # zurück, falls ein Haken versehentlich gesetzt wurde.
+    's_wk_eingebaut_n':  ('{n} bereits eingebaut', '{n} already fitted'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
     's_ek_alles_erledigt': ('Alles erledigt — die {n} Positionen unten sind '
                             'abgehakt.',

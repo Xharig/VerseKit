@@ -6,6 +6,29 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc21 - 2026-09-06
+
+> **Fenster gehen jetzt dort auf, wo du hinsiehst.** Alle Fenster des Programms
+> setzen sich mittig über das Hauptfenster — vorher entschied das der
+> Fenstermanager, und auf mehreren Bildschirmen ging das schief. Dazu klappt
+> der Warenkorb weg, was schon eingebaut ist.
+
+### Neu
+
+- **Ein Klick ins Leere nimmt den Cursor aus dem Eingabefeld** — wie überall
+  sonst auch.
+
+### Verbessert
+
+- **Eingebautes verschwindet aus dem Warenkorb.** Eine Zeile nennt die Zahl,
+  ein Klick holt es zurück. Ein Korb zeigt, was noch hineingehört.
+
+### Behoben
+
+- **Sechs Fenster hatten keine Position**, nur eine Größe: Belegung,
+  Assistent, Bestand, Einstellungen, Blickwinkel und Versionen. Sie gehen
+  jetzt mittig über dem Hauptfenster auf.
+
 ## v3.19.0-rc20 - 2026-09-06
 
 > **Ein Dialog konnte das Programm unbedienbar machen.** Er erschien außerhalb

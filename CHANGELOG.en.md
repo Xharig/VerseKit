@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc21 - 2026-09-06
+
+> **Windows now open where you are looking.** Every window centres itself over
+> the main window — previously the window manager decided, and with several
+> screens that went wrong. Plus the cart hides what is already fitted.
+
+### New
+
+- **Clicking empty space releases the cursor from a text field** — as it works
+  everywhere else.
+
+### Improved
+
+- **Fitted parts disappear from the cart.** One line gives the count, a click
+  brings them back. A cart shows what still belongs in it.
+
+### Fixed
+
+- **Six windows had no position**, only a size: bindings, wizard, inventory,
+  settings, field of view and versions. They now open centred over the main
+  window.
+
 ## v3.19.0-rc20 - 2026-09-06
 
 > **A dialog could render the program unusable.** It appeared off-screen, held

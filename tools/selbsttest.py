@@ -14415,6 +14415,64 @@ def main():
                               'x = messagebox.showinfo(a, b)')),
            'Gegenprobe: das Muster erkennt einen echten Aufruf')
 
+    # ------------------------------------------------------------------
+    # 162. Jedes Fenster sagt, WO es steht — nicht nur wie gross es ist
+    #
+    # ⚠⚠⚠ **Der Standard, statt sechsmal derselbe Fehler.** Am 06.09.2026:
+    # „kannst du da nicht im Programm einen Standard festlegen?" — nachdem ein
+    # Fenster ausserhalb aller Bildschirme aufgegangen war und das Programm
+    # unbedienbar machte.
+    #
+    # Ursache war jedes Mal dieselbe Zeile: `geometry('520x340')` ohne `+x+y`.
+    # Wer nur eine Groesse setzt, ueberlaesst die Platzierung dem
+    # Fenstermanager — und der weiss nichts vom Hauptfenster. Auf einem
+    # Arbeitsplatz mit drei Bildschirmen ist das ein Gluecksspiel.
+    #
+    # Diese Pruefung ist der Standard: Sie geht jedes `geometry(` im Programm
+    # durch und verlangt entweder eine Position im Aufruf oder `mittig_ueber`
+    # in der Naehe. Eine Regel, die man an jeder Stelle einzeln befolgen muss,
+    # wird irgendwo nicht befolgt — deshalb prueft es der Selbsttest.
+    print()
+    print('162. Jedes Fenster wird auch positioniert')
+    import re as _re162
+
+    _fund162 = []
+    for _datei162 in sorted(_versionierte_dateien(WURZEL, ('.py',))):
+        if not _datei162.startswith('scbp/'):
+            continue
+        with open(os.path.join(WURZEL, _datei162), 'r',
+                  encoding='utf-8') as _f162:
+            _zeilen162 = _f162.read().split('\n')
+        for _nr162, _z162 in enumerate(_zeilen162):
+            _m162 = _re162.search(r"\.geometry\(['\"](\d+)x(\d+)['\"]\)",
+                                  _z162)
+            if not _m162 or _z162.strip().startswith('#'):
+                continue
+            # Steht in den drei Zeilen davor ein `mittig_ueber`, ist es der
+            # Rueckfall fuer den Start ohne Elternfenster — das ist richtig so.
+            _umfeld162 = '\n'.join(_zeilen162[max(0, _nr162 - 4):_nr162 + 2])
+            if 'mittig_ueber' in _umfeld162:
+                continue
+            _fund162.append('%s:%d' % (_datei162, _nr162 + 1))
+
+    pruefe(not _fund162,
+           'kein `geometry` ohne Position und ohne `mittig_ueber` '
+           '(gefunden: %s)'
+           % (', '.join(_fund162[:4]) if _fund162 else 'keine'))
+
+    # Gegenprobe: Das Muster muss so eine Zeile auch wirklich erkennen.
+    pruefe(bool(_re162.search(r"\.geometry\(['\"](\d+)x(\d+)['\"]\)",
+                              "        self.root.geometry('520x340')")),
+           'Gegenprobe: das Muster erkennt eine Groesse ohne Position')
+    pruefe(not _re162.search(r"\.geometry\(['\"](\d+)x(\d+)['\"]\)",
+                             "top.geometry('%dx%d+%d+%d' % (b, h, x, y))"),
+           'Gegenprobe: eine Zeile MIT Position schlaegt nicht an')
+
+    # Und die Funktion selbst rechnet richtig.
+    from scbp import hauptfenster as _hf162
+    pruefe(callable(getattr(_hf162, 'mittig_ueber', None)),
+           '`mittig_ueber` steht als gemeinsamer Standard bereit')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

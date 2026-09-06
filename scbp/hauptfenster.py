@@ -1640,7 +1640,45 @@ class Hauptfenster:
         # bewusst als letzte Zeile: Was danach noch dazukaeme, saehe der Nutzer
         # wieder entstehen. (Im Pruefbetrieb legt `tools/unsichtbar.py`
         # `deiconify` stumm, dort bleibt das Fenster also verborgen.)
+        # ⭐⭐ **Ein Klick ins Leere nimmt den Cursor aus dem Eingabefeld.**
+        # Vorschlag vom 06.09.2026: „kannst du da nicht im Programm einen
+        # Standard festlegen, so wie auch, wenn man ins Leere klickt, dass der
+        # Cursor dann nicht in einem Eingabefeld bleibt?"
+        #
+        # Das ist überall sonst so — in jedem Browser, in jeder App. Bleibt
+        # der Cursor stehen, tippt man weiter in ein Feld, das man längst
+        # verlassen glaubt, und wundert sich, warum die Suche nicht reagiert.
+        #
+        # ⚠ **Auf dem Fenster, nicht auf jedem Feld einzeln.** Genau das war
+        # die Bitte: ein Standard, nicht dieselbe Zeile an fünfzig Stellen.
+        # `bind_all` mit `add='+'`, damit vorhandene Klick-Bindungen weiter
+        # feuern — ohne das `+` würde jedes andere `<Button-1>` überschrieben.
+        self.root.bind_all('<Button-1>', self._klick_ins_leere, add='+')
+
         self.root.deiconify()
+
+    def _klick_ins_leere(self, ereignis=None):
+        """Wird irgendwo geklickt, das kein Eingabefeld ist: Fokus abgeben.
+
+        ⚠ **Nur Text-Eingaben behalten den Fokus.** Ein Klick auf einen Knopf
+        oder eine Liste soll den Cursor nicht in einem Suchfeld stehen lassen;
+        ein Klick INS Feld natürlich schon.
+        """
+        try:
+            ziel = ereignis.widget if ereignis is not None else None
+            if ziel is not None and ziel.winfo_class() in ('Entry', 'Text',
+                                                           'TEntry', 'Spinbox'):
+                return
+            # ⚠ Nur wegnehmen, wenn er auch wirklich in einem Feld steht —
+            # sonst wandert der Fokus bei jedem Klick durchs Fenster und die
+            # Tastatursteuerung (Tab, Escape) verliert ihren Bezugspunkt.
+            jetzt = self.root.focus_get()
+            if jetzt is not None and jetzt.winfo_class() in ('Entry', 'Text',
+                                                             'TEntry',
+                                                             'Spinbox'):
+                self.root.focus_set()
+        except Exception:
+            pass                 # ein Klick darf nie einen Fehler auslösen
 
     # ------------------------------------------------------------- Schriften
     def _schriften_anlegen(self):
@@ -3597,6 +3635,40 @@ def auswahl_stellen(eltern, titel, text, eintraege, nein=None):
     except Exception as ausnahme:
         fehler.merken('hauptfenster.auswahl_stellen', ausnahme)
         return None
+
+
+def mittig_ueber(fenster, eltern, breite=None, hoehe=None):
+    """Ein Fenster mittig über sein Elternfenster setzen.
+
+    ⚠⚠⚠ **Warum das keine Kosmetik ist.** Ein `Toplevel`, das nur eine Größe
+    bekommt (`geometry('520x340')`) und keine Position, wird vom Fenstermanager
+    platziert — und der weiß nichts vom Hauptfenster. Auf einem
+    Mehrschirm-Arbeitsplatz landet es dadurch irgendwo, im schlimmsten Fall
+    außerhalb des sichtbaren Bereichs.
+
+    Am 06.09.2026 ist genau das passiert: Ein Fenster erschien „außerhalb
+    meiner Bildschirme", war modal, und das Programm ließ sich danach nicht
+    einmal mehr beenden. Auf die Frage, ob alle Fenster geprüft seien, war die
+    ehrliche Antwort nein — sechs weitere setzten ebenfalls nur eine Größe:
+    Belegungsfenster, Assistent, Bestand, Einstellungen, Blickwinkel und
+    Versionen.
+
+    ⚠ **Nie über den linken oder oberen Rand hinaus** (`max(0, …)`): Ist das
+    Elternfenster kleiner als das Kind, käme sonst eine negative Position
+    heraus — und die Titelleiste läge außerhalb des Bildschirms, also genau
+    dort, wo man das Fenster nicht mehr greifen kann.
+    """
+    try:
+        fenster.update_idletasks()
+        b = breite or fenster.winfo_width() or fenster.winfo_reqwidth()
+        h = hoehe or fenster.winfo_height() or fenster.winfo_reqheight()
+        x = eltern.winfo_rootx() + (eltern.winfo_width() - b) // 2
+        y = eltern.winfo_rooty() + (eltern.winfo_height() - h) // 3
+        fenster.geometry('%dx%d+%d+%d' % (b, h, max(0, x), max(0, y)))
+        return True
+    except Exception as ausnahme:
+        fehler.merken('hauptfenster.mittig_ueber', ausnahme)
+        return False
 
 
 def frage_stellen(eltern, titel, text, ja=None, nein=None,

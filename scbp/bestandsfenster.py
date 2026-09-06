@@ -290,7 +290,17 @@ class Bestandsfenster:
             self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
             self.root.title(fenstertitel(t('titel_bauplaene')))
             self.root.configure(bg=BG)
-            self.root.geometry('720x780')
+            # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
+            # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
+            # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
+            # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
+            # weil es modal war, ließ sich das Programm nicht einmal beenden.
+            #
+            # `mittig_ueber` setzt beides und fällt auf die reine Größe
+            # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
+            from .hauptfenster import mittig_ueber
+            if eltern is None or not mittig_ueber(self.root, eltern, 720, 780):
+                self.root.geometry('720x780')
 
         # ⚠⚠ **Die Lücke, die der Bericht bisher nicht kannte.** Zwischen
         # „Seite liste: bauen beginnt" und „Liste: zeichnen beginnt" lag alles

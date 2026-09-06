@@ -98,7 +98,17 @@ class Versionsfenster:
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
         self.root.title(fenstertitel('SC BP Watcher — ' + t('was_ist_neu')))
         self.root.configure(bg=BG)
-        self.root.geometry('700x740')
+        # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
+        # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
+        # weiß nichts vom Hauptfenster. Auf mehreren Bildschirmen landete
+        # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
+        # weil es modal war, ließ sich das Programm nicht einmal beenden.
+        #
+        # `mittig_ueber` setzt beides und fällt auf die reine Größe
+        # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
+        from .hauptfenster import mittig_ueber
+        if eltern is None or not mittig_ueber(self.root, eltern, 700, 740):
+            self.root.geometry('700x740')
         self.root.protocol('WM_DELETE_WINDOW', self.schliessen)
 
         kopf = tk.Frame(self.root, bg=BAR)
