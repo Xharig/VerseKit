@@ -6,6 +6,49 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### New
+
+- **Swap the bindings of two sticks.** If the whole set of bindings ends up on
+  the wrong hand after a restart, one button swaps which stick has which
+  number. Not a single binding line is touched, and dead zone and saturation
+  stay with their device.
+- **Device sets.** A whole setup under one name — say “with pedals” and
+  “without pedals”. Dead zone, saturation and sensitivity are stored; if a
+  device is missing when applying, it is skipped and named.
+
+### Fixed
+
+- **Values arrived differently in the file than they were set.** The slider
+  snapped every value to its own step size the moment the page opened — so it
+  read “unsaved change” straight away, and saving wrote values into the
+  bindings file that nobody had set.
+- **The dialogs on “Axes & curves” and “Field of view” looked like the
+  operating system’s** — a white box with grey buttons in the middle of a dark
+  window, and they opened near the bottom instead of centred.
+- **Buttons with long device names were cut off.** They now wrap instead of
+  running out of the window.
+- **The page jumped to the top when an axis was clicked.** The scroll position
+  now stays put.
+- **“Dead zone: was 0.1 → now 0.1”** appeared in the findings where there was
+  no difference at all: two values less than a thousandth apart look identical
+  on screen and now count as identical.
+- **The transfer and swap buttons now say what they do.**
+
+## v3.19.0-rc13 - 2026-09-06
+
+> **The loadout list fits on a screen again.** Sixteen identical missile slots
+> in a row were not a list but a wall.
+
+### Improved
+
+- **Identical slots share one row**, with the count in front: 46 rows on a
+  Cutlass Black become 18. What you pick there applies to every slot in the
+  row — with "16 x Missile S2" you mean all sixteen.
+- ⚠ If you fit a single slot differently, it leaves the group and stands on its
+  own. Otherwise your change would disappear behind a "16 x".
+
 ## v3.19.0-rc12 - 2026-09-06
 
 > **A wishlist for ships you still have your eye on.** Note down what you want

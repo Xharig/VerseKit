@@ -6,6 +6,51 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Belegungen zweier Sticks tauschen.** Sitzt nach einem Neustart die ganze
+  Belegung auf der falschen Hand, tauscht ein Knopf, welcher Stick welche
+  Nummer hat. Keine einzige Belegungszeile wird dabei angefasst, und Totzone
+  und Sättigung bleiben beim jeweiligen Gerät.
+- **Gerätesätze.** Eine ganze Einrichtung unter einem Namen — etwa „mit
+  Pedalen" und „ohne Pedale". Gespeichert werden Totzone, Sättigung und
+  Empfindlichkeit; fehlt beim Anwenden ein Gerät, wird es übersprungen und
+  gesagt, welches.
+
+### Behoben
+
+- **Eingestellte Werte kamen anders in der Datei an.** Der Regler zog jeden
+  Wert auf sein Raster, schon beim Öffnen der Seite — dadurch stand dort
+  sofort „Ungespeicherte Änderung", und beim Speichern landeten Werte in der
+  Belegungsdatei, die niemand eingestellt hatte.
+- **Die Dialoge auf „Achsen & Kurven" und „Blickwinkel" sahen aus wie vom
+  Betriebssystem** — weißer Kasten mit grauen Knöpfen mitten im dunklen
+  Fenster, und sie gingen unten statt in der Fenstermitte auf.
+- **Knöpfe mit langen Gerätenamen wurden abgeschnitten.** Sie brechen jetzt
+  um, statt aus dem Fenster zu laufen.
+- **Die Seite sprang beim Anklicken einer Achse nach oben.** Die Rollstelle
+  bleibt jetzt stehen.
+- **„Totzone: war 0.1 → jetzt 0.1"** stand im Befund, wo es gar keinen
+  Unterschied gab: Zwei Werte, die sich um weniger als ein Tausendstel
+  unterscheiden, sehen in der Anzeige gleich aus und gelten jetzt auch als
+  gleich.
+- **Die Knöpfe zum Übertragen und Tauschen sagen jetzt, was sie tun.**
+
+## v3.19.0-rc13 - 2026-09-06
+
+> **Die Ausstattungsliste passt wieder auf einen Bildschirm.** Sechzehn
+> identische Raketenplätze untereinander waren keine Liste, sondern eine Wand.
+
+### Verbessert
+
+- **Gleiche Steckplätze stehen in einer Zeile**, mit Anzahl davor: aus 46
+  Zeilen bei einer Cutlass Black werden 18. Was du dort auswählst, gilt für
+  alle Plätze der Zeile — bei „16 x Missile S2" meinst du alle sechzehn.
+- ⚠ Belegst du einen einzelnen Platz anders, löst er sich aus der Gruppe und
+  steht für sich. Sonst verschwände deine Änderung hinter einem „16 x".
+
 ## v3.19.0-rc12 - 2026-09-06
 
 > **Eine Wunschliste für Schiffe, die du dir noch vornimmst.** Trag ein, was du

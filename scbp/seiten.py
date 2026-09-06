@@ -9644,13 +9644,45 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
              font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
                                                    pady=(0, 4))
 
+    # ⚠⚠ **Gleiche Plätze werden gebündelt.** Eine Cutlass Black hat sechzehn
+    # Raketenplätze, alle mit derselben Ignite II ab Werk — sechzehn identische
+    # Zeilen untereinander sind keine Liste, sondern eine Wand. Rückmeldung am
+    # 06.09.2026: „gleiche Raketen kann man zusammenfassen, sonst wird die
+    # Liste zu lang."
+    #
+    # Gebündelt wird nur, was wirklich gleich ist: gleiche Art, gleiche Größe,
+    # gleiches Teil ab Werk **und** dieselbe eigene Wahl. Sobald jemand einen
+    # einzelnen Platz anders belegt, löst er sich aus der Gruppe und steht für
+    # sich — sonst verschwände seine Abweichung hinter einem „16x".
+    for gruppe in _plaetze_buendeln(plaetze, gewaehlt):
+        _steckplatz_zeile(fenster, eltern, eintrag, gruppe[0], gewaehlt,
+                          neu_zeichnen, gruppe=gruppe)
+
+
+def _plaetze_buendeln(plaetze, gewaehlt):
+    """Gleichartige Steckplätze zusammenfassen; gibt Gruppen zurück.
+
+    Die Reihenfolge bleibt erhalten: Die Gruppe steht dort, wo ihr erster Platz
+    stand. Wer die Liste zweimal öffnet, findet dieselbe Anordnung.
+    """
+    gruppen = []
+    nach_schluessel = {}
     for platz in plaetze:
-        _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
-                          neu_zeichnen)
+        werk = platz.get('werk') or {}
+        eigen = gewaehlt.get(platz.get('pfad') or '') or {}
+        schluessel = (platz.get('art'), platz.get('groesse'),
+                      werk.get('ref'), eigen.get('ref'))
+        if schluessel in nach_schluessel:
+            nach_schluessel[schluessel].append(platz)
+        else:
+            neue = [platz]
+            nach_schluessel[schluessel] = neue
+            gruppen.append(neue)
+    return gruppen
 
 
 def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
-                      neu_zeichnen):
+                      neu_zeichnen, gruppe=None):
     """Ein Steckplatz — anklickbar, die Teileauswahl klappt darunter auf.
 
     ⚠ Kein eigenes Fenster für die Auswahl: Wer vier Plätze nacheinander
@@ -9660,6 +9692,12 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     from . import hangar as meine, warenkorb
 
     pfad = platz.get('pfad') or ''
+    # ⚠⚠ **Eine Wahl gilt für die ganze Gruppe.** Die Zeile vertritt bei
+    # gebündelten Plätzen mehrere — wer bei „16 x Missile S2" ein Teil wählt,
+    # meint alle sechzehn. Würde nur der erste belegt, zerfiele die Gruppe beim
+    # nächsten Zeichnen in „1 x geändert" und „15 x ab Werk", und niemand
+    # verstünde, warum.
+    alle_pfade = [(g.get('pfad') or '') for g in (gruppe or [platz])]
     zeile = tk.Frame(eltern, bg=FLAECHE, cursor='hand2')
     zeile.pack(fill='x', padx=(46, 16), pady=1)
 
@@ -9669,6 +9707,11 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     art_text = platz.get('art') or ''
     if platz.get('groesse') is not None:
         art_text = '%s S%s' % (art_text, platz['groesse'])
+    # Die Anzahl steht vorn, nicht hinten: So sieht man beim Überfliegen der
+    # linken Spalte sofort, wie viele Plätze eine Zeile vertritt.
+    anzahl = len(gruppe) if gruppe else 1
+    if anzahl > 1:
+        art_text = '%d x %s' % (anzahl, art_text)
     tk.Label(zeile, text=art_text, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
              anchor='w', width=22).pack(side='left')
 
@@ -9700,7 +9743,11 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         # Kommentar mit dem Suchmuster darin löst sie genauso aus. Beim ersten
         # Anlauf hat genau die Warnung vor der Falle die Falle ausgelöst.
         def platz_zuruecksetzen():
-            if warenkorb.loeschen(eintrag, pfad):
+            geaendert = False
+            for einer in alle_pfade:
+                if warenkorb.loeschen(eintrag, einer):
+                    geaendert = True
+            if geaendert:
                 speichern()
                 neu_zeichnen()
         _knopf(fenster, zeile, t('s_wk_zuruecksetzen'),
@@ -9728,7 +9775,11 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             m = nach_name.get((gewaehlt_var.get() or '').strip())
             if not m:
                 return
-            if warenkorb.setzen(eintrag, pfad, m['kennung'], m['name']):
+            geaendert = False
+            for einer in alle_pfade:
+                if warenkorb.setzen(eintrag, einer, m['kennung'], m['name']):
+                    geaendert = True
+            if geaendert:
                 speichern()
                 neu_zeichnen()
 
@@ -11830,9 +11881,38 @@ def _blickwinkel(fenster, rahmen):
     Eine Bankkarte anzuhalten dauert zehn Sekunden, stimmt überall und
     braucht keine einzige systemabhängige Zeile.
     """
-    from tkinter import messagebox
-
     from . import fov as fov_modul
+
+    # ⚠⚠ **Kein `messagebox`.** Der Dialog des Betriebssystems ist ein weißer
+    # Kasten mit grauen Knöpfen mitten in einem dunklen Fenster — er sieht
+    # nicht nach diesem Programm aus. `frage_stellen()` gibt es genau dafür,
+    # und es war schon da: Für die Bergung wurde derselbe Fehler bereits
+    # einmal behoben. Wer ein neues Fenster baut, benutzt die Vorgabe.
+    class messagebox:
+        """Dieselben Aufrufe wie `tkinter.messagebox`, nur im Programmstil."""
+
+        @staticmethod
+        def showinfo(titel, text):
+            from .hauptfenster import frage_stellen
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
+            # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
+            # landete dadurch unten rechts statt in der Fenstermitte.
+            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def showwarning(titel, text):
+            from .hauptfenster import frage_stellen
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
+            # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
+            # landete dadurch unten rechts statt in der Fenstermitte.
+            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def askyesno(titel, text):
+            from .hauptfenster import frage_stellen
+            return frage_stellen(rahmen.winfo_toplevel(), titel, text)
 
     _ueberschrift(fenster, rahmen, t('hf_blickwinkel'), t('s_fv_lead'))
     innen = _rollflaeche(rahmen)
@@ -11889,6 +11969,11 @@ def _blickwinkel(fenster, rahmen):
         _auffrischen()
 
     def _auffrischen():
+        # Dieselbe Begründung wie auf der Achsen-Seite: Ein Neuaufbau darf
+        # die Rollstelle nicht verlieren.
+        _rollstelle_halten(inhalt, _neu_bauen)
+
+    def _neu_bauen():
         for kind in list(inhalt.winfo_children()):
             kind.destroy()
 
@@ -12022,10 +12107,36 @@ def _achsen(fenster, rahmen):
 
     ⚠ **Geschrieben wird nur auf Knopfdruck** — wie im ganzen Joystick-Teil.
     """
-    from tkinter import messagebox
-
     from . import kurven
     from .kurvenbild import Kurvenbild
+
+    # ⚠⚠ **Kein `messagebox`** — siehe die Begründung auf der Seite
+    # „Blickwinkel". Jedes Fenster sieht aus wie das Programm, auch ein neues.
+    class messagebox:
+        """Dieselben Aufrufe wie `tkinter.messagebox`, nur im Programmstil."""
+
+        @staticmethod
+        def showinfo(titel, text):
+            from .hauptfenster import frage_stellen
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
+            # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
+            # landete dadurch unten rechts statt in der Fenstermitte.
+            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def showwarning(titel, text):
+            from .hauptfenster import frage_stellen
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
+            # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
+            # landete dadurch unten rechts statt in der Fenstermitte.
+            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def askyesno(titel, text):
+            from .hauptfenster import frage_stellen
+            return frage_stellen(rahmen.winfo_toplevel(), titel, text)
 
     _ueberschrift(fenster, rahmen, t('hf_achsen'), t('s_ac_lead'))
     innen = _rollflaeche(rahmen)
@@ -12047,6 +12158,17 @@ def _achsen(fenster, rahmen):
         return ('%.2f' % wert).rstrip('0').rstrip('.') or '0'
 
     def _auffrischen():
+        """Neu zeichnen, ohne dass die Seite nach oben springt.
+
+        ⚠ Der Inhalt wird bei jedem Geräte- und Achsenwechsel komplett neu
+        gebaut — danach steht die Rollfläche wieder bei null, und wer unten
+        bei den Reglern war, landet oben. Gemeldet 06.09.2026: „beim
+        Anklicken einer Option springt das Fenster immer nach oben."
+        `_rollstelle_halten` gibt es im Projekt genau dafür.
+        """
+        _rollstelle_halten(inhalt, _neu_bauen)
+
+    def _neu_bauen():
         for kind in list(inhalt.winfo_children()):
             kind.destroy()
 
@@ -12204,15 +12326,29 @@ def _achsen(fenster, rahmen):
             anzeige = tk.Label(zeile, text=_zahl(ist), bg=BG, fg=ACCENT,
                                font=fenster.f_klein, width=5, anchor='e')
             anzeige.pack(side='right', padx=(8, 0))
-            schieber = tk.Scale(zeile, from_=0.0, to=1.0, resolution=0.005,
+            schieber = tk.Scale(zeile, from_=0.0, to=1.0, resolution=0.001,
                                 orient='horizontal', variable=var,
                                 command=_vorschau, showvalue=False,
                                 bg=BG, fg=FG, troughcolor=FLAECHE,
                                 activebackground=ACCENT, highlightthickness=0,
                                 bd=0, sliderrelief='flat', length=200)
             schieber.pack(side='left', fill='x', expand=True)
+            # ⚠⚠ **Den Ausgangswert NACH dem Rastern lesen.**
+            #
+            # `tk.Scale` zieht jeden Wert auf sein Raster: Aus dem echten
+            # 0.098999992 wurde beim Aufbau 0.099 — und die Seite hielt das
+            # für eine Änderung, die niemand gemacht hatte. Die Folge war
+            # sichtbar: „Ungespeicherte Änderung" stand sofort beim Öffnen da,
+            # und beim Speichern landeten Werte in der Datei, die der Spieler
+            # nie angefasst hatte (gemeldet 06.09.2026: „die Werte sind immer
+            # wieder die alten").
+            #
+            # Verglichen wird deshalb gegen den **gerasterten** Startwert.
+            # Fasst niemand den Regler an, gibt es keine Änderung — und der
+            # krumme Originalwert bleibt unangetastet in der Datei stehen.
             anzeigen[eigenschaft] = {'var': var, 'anzeige': anzeige,
-                                     'ist': ist, 'ruhe': ruhe}
+                                     'ist': ist, 'ruhe': ruhe,
+                                     'start': var.get()}
 
         _reglerzeile('deadzone', t('s_kv_totzone'), werte.get('deadzone'))
         _reglerzeile('saturation', t('s_kv_saettigung'),
@@ -12235,11 +12371,10 @@ def _achsen(fenster, rahmen):
             heraus = {}
             for eigenschaft, teil in anzeigen.items():
                 neu = round(teil['var'].get(), 4)
-                alt = teil['ist']
-                if alt is None:
-                    if abs(teil['ruhe'] - neu) > 1e-4:
-                        heraus[eigenschaft] = neu
-                elif abs(alt - neu) > 1e-4:
+                # ⚠ Gegen den GERASTERTEN Startwert vergleichen, nicht gegen
+                # den Wert aus der Datei — sonst gilt der Regler als bewegt,
+                # sobald der echte Wert nicht auf sein Raster passt.
+                if abs(teil['start'] - neu) > 1e-6:
                     heraus[eigenschaft] = neu
             return heraus
 
@@ -12248,11 +12383,13 @@ def _achsen(fenster, rahmen):
                             fg=GOLD)
 
         def _speichern():
-            # ⚠ Lokaler Import: Beim Zusammenführen zweier Zweige ist der
-            # Modul-Import verlorengegangen, und `messagebox` war an sechs
-            # Stellen undefiniert. Der Selbsttest hat es gefangen — im Betrieb
-            # wäre es erst beim Klick aufgefallen.
-            from tkinter import messagebox
+            # ⚠ Hier stand einmal ein lokaler Import des Tk-Dialogs. Er war
+            # nötig, weil der Import beim Zusammenführen zweier Zweige
+            # verlorengegangen war — inzwischen verdeckte er den Dialog im
+            # Programmstil, der weiter oben in dieser Funktion definiert ist,
+            # und holte den weißen System-Kasten zurück.
+            # (Der Aufruf steht hier bewusst nicht ausgeschrieben: Die Wache
+            # im Selbsttest sucht nach dem Wortlaut und schlüge sonst an.)
             aenderungen = _offen()
             if not aenderungen:
                 messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
@@ -12284,10 +12421,22 @@ def _achsen(fenster, rahmen):
         # es erst im Gefecht auf. Übertragen wird **alles auf einmal**, aber
         # nur für Achsen, die es auf beiden Geräten gibt: Ein Pedalsatz hat
         # kein `rotx`, und ein erfundener Wert wäre schlimmer als keiner.
+        # ⚠⚠ **Gitter, keine Reihe.** Zwei Knöpfe mit vollem Gerätenamen sind
+        # breiter als das Fenster, und Tk schneidet eine zu breite Reihe
+        # **wortlos** ab — auf einem Bildschirmfoto stand rechts „RIGHT VPC
+        # Stick WarBRD-D« übert…" und lief aus dem Fenster. `_knopfgitter`
+        # bricht stattdessen um; es gibt es im Projekt genau dafür.
         andere = [b for b in aktive if b['kennung'] != gewaehlter['kennung']]
         if andere:
+            tk.Frame(links, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+            tk.Label(links, text=t('s_ac_kopf_angleichen'), bg=BG, fg=FG,
+                     font=fenster.f_fett, anchor='w').pack(fill='x',
+                                                           pady=(14, 0))
+            _fliesstext(links, t('s_ac_lead_angleichen'), fenster.f_klein,
+                        fill='x')
             reihe2 = tk.Frame(links, bg=BG)
-            reihe2.pack(fill='x', pady=(12, 0))
+            reihe2.pack(fill='x', pady=(8, 0))
+            gitter2 = []
             for ziel in andere:
                 def _angleichen(z=ziel):
                     # ⚠ Die Arbeit macht `kurven.angleichen()` — hier steht
@@ -12309,9 +12458,138 @@ def _achsen(fenster, rahmen):
                         t('s_ac_angeglichen').format(anzahl))
                     _auffrischen()
 
-                _knopf(fenster, reihe2,
-                       t('s_ac_angleichen').format(ziel['name']),
-                       _angleichen).pack(side='left', padx=(0, 8))
+                gitter2.append(_knopf(
+                    fenster, reihe2,
+                    t('s_ac_angleichen').format(ziel['name']), _angleichen))
+            _knopfgitter(reihe2, gitter2)
+
+        # --- 6. Belegungen über Kreuz tauschen -------------------------
+        #
+        # ⭐ Der Fall: Nach einem Neustart hat das Spiel die Nummern anders
+        # vergeben, und die komplette Belegung sitzt auf der falschen Hand.
+        # Getauscht wird nur, welche Kennung welche Nummer hat — die 400
+        # Belegungszeilen bleiben unangetastet.
+        if andere:
+            tk.Label(links, text=t('s_ac_kopf_tauschen'), bg=BG, fg=FG,
+                     font=fenster.f_fett, anchor='w').pack(fill='x',
+                                                           pady=(16, 0))
+            _fliesstext(links, t('s_ac_lead_tauschen'), fenster.f_klein,
+                        fill='x')
+            reihe3 = tk.Frame(links, bg=BG)
+            reihe3.pack(fill='x', pady=(8, 0))
+            gitter3 = []
+            for ziel in andere:
+                def _tauschen(z=ziel):
+                    if not messagebox.askyesno(
+                            t('hf_achsen'),
+                            t('s_ac_tausch_frage').format(gewaehlter['name'],
+                                                          z['name'])
+                            + '\n\n' + t('s_ac_spiel_zu')):
+                        return
+                    from . import joysticks
+                    erfolg, meldung, _ = joysticks.belegungen_tauschen(
+                        gewaehlter['kennung'], z['kennung'])
+                    if not erfolg:
+                        messagebox.showwarning(t('hf_achsen'), t(meldung))
+                        return
+                    messagebox.showinfo(t('hf_achsen'), t('s_ac_getauscht'))
+                    _auffrischen()
+
+                gitter3.append(_knopf(
+                    fenster, reihe3,
+                    t('s_ac_tauschen').format(ziel['name']), _tauschen))
+            _knopfgitter(reihe3, gitter3)
+
+        # --- 7. Gerätesätze --------------------------------------------
+        _saetze_block(links)
+
+    def _saetze_block(eltern):
+        """Ganze Einrichtungen unter einem Namen — „mit/ohne Pedale"."""
+        from . import geraetesatz
+
+        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+        tk.Label(eltern, text=t('s_gs_titel'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(14, 0))
+        _fliesstext(eltern, t('s_gs_lead'), fenster.f_klein, fill='x')
+
+        vorhandene = geraetesatz.saetze()
+        if not vorhandene:
+            tk.Label(eltern, text=t('s_gs_keine'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                            pady=(6, 0))
+        for satz in vorhandene:
+            _satz_zeile(eltern, satz, geraetesatz)
+
+        # Neuen Satz anlegen: Feld und Knopf in einer Zeile.
+        neu = tk.Frame(eltern, bg=BG)
+        neu.pack(fill='x', pady=(12, 0))
+        name = tk.StringVar()
+        feld = tk.Entry(neu, textvariable=name, bg=FLAECHE, fg=FG,
+                        insertbackground=FG, font=fenster.f_klein,
+                        relief='flat', width=22)
+        feld.pack(side='left', ipady=4, padx=(0, 8))
+
+        def _sichern():
+            ok, meldung, wieviele = geraetesatz.speichern(name.get())
+            if not ok and meldung == 's_gs_f_name_belegt':
+                if not messagebox.askyesno(t('hf_achsen'), t(meldung)):
+                    return
+                ok, meldung, wieviele = geraetesatz.speichern(
+                    name.get(), ueberschreiben=True)
+            if not ok:
+                messagebox.showwarning(t('hf_achsen'), t(meldung))
+                return
+            _auffrischen()
+
+        _knopf(fenster, neu, t('s_gs_speichern'), _sichern).pack(side='left')
+
+    def _satz_zeile(eltern, satz, geraetesatz):
+        zeile = tk.Frame(eltern, bg=FLAECHE)
+        zeile.pack(fill='x', pady=(6, 0))
+        links_teil = tk.Frame(zeile, bg=FLAECHE)
+        links_teil.pack(side='left', fill='x', expand=True, padx=10, pady=8)
+        tk.Label(links_teil, text=satz['name'], bg=FLAECHE, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x')
+        tk.Label(links_teil,
+                 text='%s  ·  %s' % (
+                     t('s_gs_geraete').format(len(satz.get('geraete') or {})),
+                     t('s_gs_stand').format(satz.get('stand', '—'))),
+                 bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                 anchor='w').pack(fill='x')
+
+        def _anwenden(n=satz['name']):
+            schreibt, fehlt = geraetesatz.vorschau(n)
+            frage = t('s_gs_frage').format(n, len(schreibt))
+            if fehlt:
+                frage += '\n\n' + t('s_gs_fehlt').format(', '.join(fehlt))
+            frage += '\n\n' + t('s_ac_spiel_zu')
+            if not messagebox.askyesno(t('hf_achsen'), frage):
+                return
+            erfolg, meldung, anzahl = geraetesatz.anwenden(n)
+            if not erfolg:
+                messagebox.showwarning(t('hf_achsen'), t(meldung))
+                return
+            messagebox.showinfo(t('hf_achsen'),
+                                t('s_gs_angewendet').format(anzahl))
+            _auffrischen()
+
+        def _weg(n=satz['name']):
+            if not messagebox.askyesno(t('hf_achsen'),
+                                       t('s_gs_loeschen_frage').format(n)):
+                return
+            geraetesatz.loeschen(n)
+            _auffrischen()
+
+        # ⚠ Die Knöpfe stehen außerhalb des `FLAECHE`-Kastens nicht zur
+        # Verfügung — hier sind es einfache Beschriftungen im Kastenton,
+        # damit kein Farbklotz entsteht (`_knopf` zeichnet fest auf `BG`).
+        for text, tat, farbe in ((t('s_gs_anwenden'), _anwenden, ACCENT),
+                                 (t('s_gs_loeschen'), _weg, SUB)):
+            knopf = tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe,
+                             font=fenster.f_klein, padx=12, pady=6,
+                             cursor='hand2')
+            knopf.pack(side='right', padx=(0, 8))
+            knopf.bind('<Button-1>', lambda _e, f=tat: f())
 
     def _exponent_fuer(ueberblick, block, achse):
         """Der Exponent, der auf dieser physischen Achse landet.

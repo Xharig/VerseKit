@@ -944,6 +944,87 @@ TEXTE = {
                               'gemeinsam.',
                                 'These two devices have no axis in common.'),
 
+    # -- Bindings tauschen und Gerätesätze --
+    # ⚠ Jede Knopfreihe bekommt eine Überschrift und einen Satz dazu. Ohne
+    # das stand dort nur „Auf »RIGHT VPC Stick WarBRD-D« übertragen" — und
+    # die Frage dazu lautete wörtlich: „was machen die Buttons überhaupt?"
+    's_ac_einrichtung': ('Geräte-Einrichtung', 'Device setup'),
+    's_ac_kopf_angleichen': ('Beide Sticks gleich einstellen',
+                               'Set up both sticks alike'),
+    's_ac_lead_angleichen': ('Kopiert Totzone und Sättigung aller Achsen auf '
+                             'das andere Gerät. Was dort eingestellt war, '
+                             'wird überschrieben.',
+                               'Copies dead zone and saturation of every axis '
+                               'to the other device. Whatever was set there '
+                               'is overwritten.'),
+    's_ac_kopf_tauschen': ('Belegung sitzt auf der falschen Hand?',
+                             'Bindings on the wrong hand?'),
+    's_ac_lead_tauschen': ('Vertauscht, welcher Stick welche Nummer hat — '
+                           'damit wandert die komplette Belegung auf das '
+                           'jeweils andere Gerät. Totzone und Sättigung '
+                           'bleiben, wo sie sind.',
+                             'Swaps which stick has which number — the whole '
+                             'set of bindings moves to the other device. Dead '
+                             'zone and saturation stay where they are.'),
+    's_ac_tauschen':   ('Belegungen mit »{}« tauschen',
+                          'Swap bindings with “{}”'),
+    's_ac_tausch_frage': ('Die Belegungen von »{}« und »{}« über Kreuz '
+                          'tauschen?\n\nWas auf dem einen lag, liegt danach '
+                          'auf dem anderen. Getauscht wird nur, welches Gerät '
+                          'welche Nummer hat — keine einzige Belegungszeile '
+                          'wird angefasst, und Totzone und Sättigung bleiben '
+                          'beim jeweiligen Gerät.',
+                            'Swap the bindings of “{}” and “{}”?\n\nWhatever '
+                            'was on one will be on the other. Only which '
+                            'device has which number is swapped — not a single '
+                            'binding line is touched, and dead zone and '
+                            'saturation stay with their device.'),
+    's_ac_getauscht':  ('Getauscht. Eine Sicherung liegt daneben.',
+                          'Swapped. A backup was placed alongside.'),
+    's_gs_titel':      ('Gerätesätze', 'Device sets'),
+    's_gs_lead':       ('Eine ganze Einrichtung unter einem Namen — etwa »mit '
+                        'Pedalen« und »ohne Pedale«. Gespeichert werden '
+                        'Totzone, Sättigung und Empfindlichkeit, nicht die '
+                        'Tastenbelegung.',
+                          'A whole setup under one name — say “with pedals” '
+                          'and “without pedals”. Dead zone, saturation and '
+                          'sensitivity are stored, not the key bindings.'),
+    's_gs_speichern':  ('Aktuellen Stand sichern', 'Save current state'),
+    's_gs_name':       ('Name für den Satz', 'Name for the set'),
+    's_gs_anwenden':   ('Anwenden', 'Apply'),
+    's_gs_loeschen':   ('Löschen', 'Delete'),
+    's_gs_keine':      ('Noch kein Satz gespeichert.', 'No set saved yet.'),
+    's_gs_stand':      ('gesichert {}', 'saved {}'),
+    's_gs_geraete':    ('{} Geräte', '{} devices'),
+    's_gs_angewendet': ('{} Werte gesetzt. Eine Sicherung liegt daneben.',
+                          '{} values set. A backup was placed alongside.'),
+    's_gs_frage':      ('Den Satz »{}« anwenden?\n\n{} Werte werden '
+                        'geschrieben.',
+                          'Apply the set “{}”?\n\n{} values will be written.'),
+    's_gs_fehlt':      ('Diese Geräte sind gerade nicht da und werden '
+                        'übersprungen: {}',
+                          'These devices are not present and will be skipped: '
+                          '{}'),
+    's_gs_loeschen_frage': ('Den Satz »{}« löschen?',
+                              'Delete the set “{}”?'),
+    's_gs_f_name_leer': ('Gib dem Satz einen Namen.', 'Give the set a name.'),
+    's_gs_f_name_lang': ('Der Name ist zu lang.', 'The name is too long.'),
+    's_gs_f_name_zeichen': ('Im Namen stehen unerlaubte Zeichen.',
+                              'The name contains characters that are not '
+                              'allowed.'),
+    's_gs_f_name_belegt': ('Ein Satz mit diesem Namen gibt es schon.',
+                             'A set with this name already exists.'),
+    's_gs_f_unbekannt': ('Diesen Satz gibt es nicht.',
+                           'There is no such set.'),
+    's_gs_f_nichts':   ('Es ist kein Gerät da, das sich sichern ließe.',
+                          'There is no device that could be saved.'),
+    's_gs_f_nichts_zu_tun': ('Es gibt nichts zu ändern — der Satz ist bereits '
+                             'eingestellt.',
+                               'Nothing to change — the set is already '
+                               'applied.'),
+    's_gs_f_schreiben': ('Die Sätze ließen sich nicht speichern.',
+                           'The sets could not be saved.'),
+
     # -- Seite „Blickwinkel" + Kalibrierfenster --
     'hf_blickwinkel':  ('Blickwinkel', 'Field of view'),
     's_fv_lead':       ('Welcher Blickwinkel zu deinem Bildschirm passt — und '

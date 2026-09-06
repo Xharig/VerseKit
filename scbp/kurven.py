@@ -483,6 +483,14 @@ def uebernehmbar(datei=None, ordner=None, bloecke=None):
                 if alt is None:
                     continue
                 jetzt = (ziel['achsen'].get(achse) or {}).get(name)
+                # ⚠⚠ **Mit Toleranz vergleichen.** Das Spiel schreibt
+                # `0.098999992`, das Werkzeug `0.099` — zwei Zahlen, die in
+                # der Anzeige beide als „0.1" erscheinen. Ohne Toleranz stand
+                # deshalb „Totzone: war 0.1 → jetzt 0.1" im Befund: ein
+                # Unterschied, den niemand sehen kann und der keiner ist.
+                # Ein Tausendstel Totzone spürt kein Mensch.
+                if jetzt is not None and abs(jetzt - alt) < 1e-3:
+                    continue
                 if jetzt != alt:
                     unterschiede.append((achse, name, alt, jetzt))
         if unterschiede:
@@ -694,9 +702,19 @@ def setzen(kennung, achse, eigenschaft, wert, datei=None, ordner=None):
             if not [k for k in behalten.attrib if k != 'input']:
                 ziel.remove(behalten)
     else:
-        # Das Spiel schreibt die volle Fließkommabreite. Wir schreiben, was
-        # eingestellt wurde — ohne die Zahl aufzublähen.
-        text = ('%g' % wert)
+        # ⚠⚠ **`repr()`, nicht `%g`.**
+        #
+        # Das Spiel schreibt die volle Fließkommabreite (`0.098999992`).
+        # `'%g'` kürzt auf sechs Stellen und machte daraus `0.099` — ein
+        # anderer Wert, obwohl der Spieler diese Achse gar nicht angefasst
+        # hatte. Aufgefallen beim Anwenden eines Gerätesatzes: Die Vorschau
+        # kündigte **eine** Änderung an, geschrieben wurden **zehn**, weil
+        # jeder unveränderte Wert durch das Runden zur Änderung wurde.
+        #
+        # Der Modulkopf sagt das für das Lesen bereits ausdrücklich — beim
+        # Schreiben gilt es genauso. `repr()` liefert die kürzeste
+        # Darstellung, die exakt wieder eingelesen wird.
+        text = repr(float(wert))
         if behalten is None:
             behalten = ET.SubElement(ziel, 'option')
             behalten.set('input', achse)
@@ -809,10 +827,16 @@ def angleichen(von_kennung, nach_kennung, datei=None, ordner=None):
     if not gemeinsam:
         return False, 's_ac_nichts_gemeinsam', 0
 
+    # ⚠ Nur schreiben, was sich unterscheidet. `setzen()` legt bei jedem
+    # Aufruf eine Sicherung an — zwölf blinde Schreibvorgänge hinterließen
+    # zwölf Sicherungsdateien für meist zwei echte Änderungen.
     anzahl = 0
     for achse in gemeinsam:
         for eigenschaft in EIGENSCHAFTEN:
             wert = quelle['achsen'][achse].get(eigenschaft)
+            ist = ziel['achsen'][achse].get(eigenschaft)
+            if ist == wert:
+                continue
             erfolg, meldung, _ = setzen(nach_kennung, achse, eigenschaft,
                                         wert, datei, ordner)
             if not erfolg:

@@ -13069,6 +13069,171 @@ def main():
     pruefe(_faellt144, 'Gegenprobe: ein Pfeil im Prüftext faellt auf')
 
     # ------------------------------------------------------------------
+    # 145. Zwei Sticks über Kreuz tauschen, und Gerätesätze
+    #
+    # Baut sich die Datei selbst — dieselbe Begründung wie bei 142.
+    print()
+    print('145. Bindings tauschen und Gerätesätze')
+    import shutil as _sh145
+    import tempfile as _tf145
+    from scbp import geraetesatz as _gs145
+    from scbp import joysticks as _js145
+    from scbp import kurven as _kv145
+
+    _A145 = 'AAAA1111-0000-0000-0000-504944564944'
+    _B145 = 'BBBB2222-0000-0000-0000-504944564944'
+    _xml145 = (
+        '<ActionMaps version="1" optionsVersion="2" rebindVersion="2" '
+        'profileName="default">\n'
+        ' <CustomisationUIHeader label="test">\n'
+        '  <deviceoptions name="Links  {%s}">\n'
+        '   <option input="x" deadzone="0.1"/>\n'
+        '   <option input="x" saturation="0.8"/>\n'
+        '  </deviceoptions>\n'
+        '  <deviceoptions name="Rechts  {%s}">\n'
+        '   <option input="x" deadzone="0.2"/>\n'
+        '  </deviceoptions>\n'
+        ' </CustomisationUIHeader>\n'
+        ' <options type="joystick" instance="1" Product="Links  {%s}">\n'
+        '  <flight_move_pitch exponent="1.5"/>\n'
+        ' </options>\n'
+        ' <options type="joystick" instance="2" Product="Rechts  {%s}"/>\n'
+        ' <ActionProfiles>\n'
+        '  <actionmap name="spaceship_general">\n'
+        '   <action name="v_eject"><rebind input="js1_button1"/></action>\n'
+        '   <action name="v_brake"><rebind input="js2_button2"/></action>\n'
+        '  </actionmap>\n'
+        ' </ActionProfiles>\n'
+        '</ActionMaps>\n'
+    ) % (_A145, _B145, _A145, _B145)
+
+    _o145 = _tf145.mkdtemp(prefix='scbp-tausch-')
+    _d145 = os.path.join(_o145, 'actionmaps.xml')
+    _heim145 = os.environ.get('SC_BP_HOME')
+    try:
+        with open(_d145, 'w', encoding='utf-8') as _f145:
+            _f145.write(_xml145)
+        # ⚠ Die Gerätesätze landen in einer eigenen Datei im Ablageordner.
+        # Ohne eigenes `SC_BP_HOME` schriebe die Prüfung in die echten
+        # Einstellungen des Entwicklers — genau das darf ein Selbsttest nie.
+        os.environ['SC_BP_HOME'] = _o145
+
+        def _produkte145():
+            with open(_d145, encoding='utf-8') as _f:
+                _t = _f.read()
+            _h = {}
+            for _m in re.finditer(
+                    r'<options\b[^>]*type="joystick"[^>]*instance="(\d+)"'
+                    r'[^>]*Product="([^"]*)"', _t):
+                _k = re.search(r'\{([0-9A-Fa-f-]+)\}', _m.group(2))
+                _h[int(_m.group(1))] = _k.group(1).upper() if _k else ''
+            return _h
+
+        def _totzone145(kennung):
+            for _b in _kv145.geraete_achsen(datei=_d145):
+                if _b['kennung'] == kennung:
+                    return (_b['achsen'].get('x') or {}).get('deadzone')
+            return None
+
+        _vor145 = _produkte145()
+        _tz_a145, _tz_b145 = _totzone145(_A145), _totzone145(_B145)
+        _ok145, _m145, _n145 = _js145.belegungen_tauschen(_A145, _B145,
+                                                          datei=_d145)
+        pruefe(_ok145, 'Tausch gelingt (%s)' % ('ok' if _ok145 else _m145))
+        _nach145 = _produkte145()
+        pruefe(_nach145.get(1) == _B145 and _nach145.get(2) == _A145,
+               '*die Kennungen stehen über Kreuz')
+        with open(_d145, encoding='utf-8') as _f145:
+            _inh145 = _f145.read()
+        pruefe(_inh145.count('<rebind') == 2
+               and 'js1_button1' in _inh145 and 'js2_button2' in _inh145,
+               '*KEINE Belegungszeile wurde angefasst')
+        pruefe(_totzone145(_A145) == _tz_a145
+               and _totzone145(_B145) == _tz_b145,
+               '*die Totzonen blieben beim physischen Gerät')
+        _js145.belegungen_tauschen(_A145, _B145, datei=_d145)
+        pruefe(_produkte145() == _vor145,
+               'zweimal tauschen ergibt wieder den Anfang')
+        pruefe(not _js145.belegungen_tauschen(_A145, _A145, datei=_d145)[0],
+               'ein Gerät mit sich selbst wird abgelehnt')
+        pruefe(not _js145.belegungen_tauschen(_A145, 'FFFF9999',
+                                              datei=_d145)[0],
+               'eine unbekannte Kennung wird abgelehnt')
+
+        # --- Gerätesätze ---
+        pruefe(_gs145.speichern('Satz', datei=_d145)[0], 'ein Satz lässt sich anlegen')
+        pruefe(not _gs145.speichern('Satz', datei=_d145)[0],
+               'derselbe Name nicht zweimal')
+        pruefe(_gs145.speichern('Satz', ueberschreiben=True, datei=_d145)[0],
+               'mit ausdrücklicher Erlaubnis schon')
+        pruefe(not _gs145.speichern('', datei=_d145)[0],
+               'ein leerer Name wird abgelehnt')
+
+        _kv145.setzen(_A145, 'x', 'deadzone', 0.5, datei=_d145)
+        _schreibt145, _fehlt145 = _gs145.vorschau('Satz', datei=_d145)
+        pruefe(len(_schreibt145) == 1,
+               'die Vorschau kündigt genau eine Änderung an (sind: %d)'
+               % len(_schreibt145))
+        pruefe(not _fehlt145, 'kein Gerät fehlt')
+        _ok145, _m145, _n145 = _gs145.anwenden('Satz', datei=_d145)
+        pruefe(_ok145 and _totzone145(_A145) == 0.1,
+               '*der Satz stellt den alten Wert wieder her')
+
+        # ⭐ Ein Satz muss auch LÖSCHEN: Ein Wert, den er nicht kennt, darf
+        # nach dem Anwenden nicht stehenbleiben — sonst sind zwei Zustände,
+        # die gleich heißen, eben nicht gleich.
+        _kv145.setzen(_B145, 'x', 'saturation', 0.66, datei=_d145)
+        _gs145.anwenden('Satz', datei=_d145)
+        _satB145 = None
+        for _b in _kv145.geraete_achsen(datei=_d145):
+            if _b['kennung'] == _B145:
+                _satB145 = (_b['achsen'].get('x') or {}).get('saturation')
+        pruefe(_satB145 is None,
+               '*ein fremder Wert wird entfernt (ist: %r)' % _satB145)
+
+        # ⚠ Werte dürfen sich beim Schreiben NICHT verändern. `%g` kürzte
+        # 0.098999992 auf 0.099 — ein anderer Wert an einer Achse, die
+        # niemand angefasst hat.
+        _kv145.setzen(_A145, 'x', 'deadzone', 0.098999992, datei=_d145)
+        pruefe(_totzone145(_A145) == 0.098999992,
+               '*ein geschriebener Wert kommt unverändert zurück (ist: %r)'
+               % _totzone145(_A145))
+
+        _fehlend145 = _gs145.satz('Satz')
+        pruefe(_fehlend145 and len(_fehlend145.get('geraete') or {}) == 2,
+               'der Satz kennt beide Geräte')
+        pruefe(_gs145.loeschen('Satz')[0] and not _gs145.saetze(),
+               'löschen räumt den Satz weg')
+        pruefe(not _gs145.anwenden('Gibt es nicht', datei=_d145)[0],
+               'ein unbekannter Satz wird abgelehnt')
+
+        # ⚠⚠ **Kein Dialog des Betriebssystems in den neuen Seiten.**
+        #
+        # `tkinter.messagebox` öffnet einen weißen Kasten mit grauen Knöpfen
+        # mitten in einem dunklen, deutschen Fenster. Für die Bergung wurde
+        # das schon einmal behoben; beim Bau der Achsen- und
+        # Blickwinkel-Seite ist es trotzdem wieder hineingerutscht und fiel
+        # erst auf einem Bildschirmfoto auf: *„ALLE Fenster müssen IMMER so
+        # aussehen wie das Design, das das Tool hat."*
+        #
+        # `frage_stellen()` gibt es genau dafür. Diese Wache hält fest, dass
+        # die neuen Seiten es auch benutzen.
+        import inspect as _ins145
+        from scbp import seiten as _st145
+        for _name145 in ('_achsen', '_blickwinkel'):
+            _quelle145 = _ins145.getsource(getattr(_st145, _name145))
+            pruefe('from tkinter import messagebox' not in _quelle145,
+                   '*%s öffnet keinen System-Dialog' % _name145)
+            pruefe('frage_stellen' in _quelle145,
+                   '%s benutzt den Dialog im Programmstil' % _name145)
+    finally:
+        if _heim145 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _heim145
+        _sh145.rmtree(_o145, ignore_errors=True)
+
+    # ------------------------------------------------------------------
     # 144. Blickwinkel: Bildschirm ausmessen, Sitzabstand bewerten
     #
     # Reine Rechnung, keine Fremddaten — die Prüfung läuft überall gleich.
