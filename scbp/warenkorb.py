@@ -112,6 +112,13 @@ SCHIFF = 'schiff'
 HANGAR = 'hangar'
 WUNSCH = 'wunsch'
 
+# Woher ein Teil überhaupt zu bekommen ist. ⚠ Das ist keine Feinheit: Militär
+# ist **nicht kaufbar, aber herstellbar** — wer nur die Ladenware zeigt, lässt
+# genau die Teile weg, für die man Baupläne sammelt.
+KAUFBAR = 'kaufbar'
+HERSTELLBAR = 'herstellbar'
+BEIDES = 'beides'
+
 
 # ⚠⚠ **UEX-Warengruppe → Steckplatz-Art. Die einzige Übersetzungstabelle hier
 # — und sie ist leider nötig.**
@@ -154,30 +161,105 @@ GRUPPE_ZU_ART = {
 }
 
 
-def auswahl(art, groesse):
-    """Welche kaufbaren Teile in einen Steckplatz dieser Art und Größe passen.
+def _herstellbare(art, groesse):
+    """Alle **herstellbaren** Teile dieser Art und Größe — Kennung → Angaben.
 
-    Gibt eine Liste `{'name', 'kennung', 'hersteller', 'guete'}` zurück,
-    alphabetisch.
+    ⭐⭐ **Ohne diese Quelle fehlt dem Spieler die halbe Welt, und zwar
+    ausgerechnet die interessante Hälfte.** Die Auswahl speiste sich bis zum
+    06.09.2026 nur aus UEX — und UEX führt **Ladenware**. Militärkomponenten
+    gibt es im Laden nicht, also standen sie nirgends. Gemessen an den
+    Quantenantrieben der Größe 2:
+
+    | | UEX (kaufbar) | Spieldaten (herstellbar) |
+    |---|---|---|
+    | Civilian | 9 | 9 |
+    | Industrial | 3 | 3 |
+    | Stealth | 2 | 3 |
+    | Competition | 2 | 2 |
+    | **Military** | **0** | **3** |
+
+    Der Hinweis dazu: *„ich weiß Militär ist nicht kaufbar, aber herstellbar
+    ist es."* Genau so ist es — und wer Baupläne sammelt, will die zuerst
+    sehen.
+
+    ⚠ **Verknüpft wird über den Namen — hier ausnahmsweise zu Recht.** Die
+    „nie über Namen"-Regel gilt für Zuordnungen über **Quellengrenzen**
+    hinweg (dort holte `Gold` einmal `Golden Medmon` mit). Rezeptdaten und
+    Katalog stammen dagegen beide aus derselben Quelle und benutzen dieselbe
+    Namensform; `einordnung()` verknüpft sie längst genauso. Gemessen am
+    06.09.2026: **1.592 von 1.597 (99,7 %)** finden ihre Angaben, alle davon
+    mit Art und Größe.
+
+    ⚠ Die **Kennung** bleibt trotzdem der Schlüssel des Ergebnisses. Über sie
+    hängen später Ladenpreis und Rezept am Teil — der Name ist nur die
+    Beschriftung.
+    """
+    from . import herstellung, katalog
+    raus = {}
+    try:
+        werte = (katalog.laden() or {}).get('bauplaene') or {}
+        for eintrag in herstellung.alle():
+            kennung = eintrag.get('entity') or ''
+            if not kennung:
+                continue
+            merkmale = werte.get(katalog._norm(eintrag.get('basis') or '')) or {}
+            if (merkmale.get('a') or '') != art:
+                continue
+            # ⚠ Größe nur vergleichen, wenn beide Seiten eine haben — sonst
+            # fällt ein Teil heraus, weil eine Angabe fehlt, nicht weil es
+            # nicht passt.
+            eigene = merkmale.get('s')
+            if groesse is not None and eigene is not None:
+                try:
+                    if int(eigene) != int(groesse):
+                        continue
+                except (TypeError, ValueError):
+                    pass
+            raus[kennung] = {
+                'name': eintrag.get('basis') or eintrag.get('name') or '',
+                'kennung': kennung,
+                'hersteller': (merkmale.get('m')
+                               or eintrag.get('hersteller') or ''),
+                'guete': str(merkmale.get('g') or ''),
+                'klasse': merkmale.get('c') or '',
+            }
+    except Exception as ausnahme:
+        fehler.merken('warenkorb.herstellbare', ausnahme)
+    return raus
+
+
+def auswahl(art, groesse):
+    """Welche Teile in einen Steckplatz dieser Art und Größe passen.
+
+    Gibt eine Liste `{'name', 'kennung', 'hersteller', 'guete', 'klasse',
+    'herkunft'}` zurück, alphabetisch. `herkunft` ist `KAUFBAR`,
+    `HERSTELLBAR` oder `BEIDES` — die Anzeige kann das kennzeichnen.
+
+    ⚠⚠ **Zwei Quellen, weil keine allein reicht:** UEX kennt nur, was im Laden
+    steht (kein Militär), die Spieldaten kennen nur, was herstellbar ist. Erst
+    zusammen ergibt das die Welt, in der der Spieler sein Schiff ausstattet.
+    Zusammengeführt wird über die **Entitäts-Kennung**, nicht über den Namen.
 
     ⚠⚠ **Geschlossene Liste, kein Freitext** — dieselbe Regel wie beim
-    Lagerort und beim Handelslager. Angenommen wird nur, was UEX kennt; sonst
-    steht am Ende ein ausgedachter oder beleidigender Name im Werkzeug, und ein
-    Bildschirmfoto davon macht die Runde.
+    Lagerort und beim Handelslager. Angenommen wird nur, was eine der beiden
+    Quellen kennt; sonst steht am Ende ein ausgedachter oder beleidigender
+    Name im Werkzeug, und ein Bildschirmfoto davon macht die Runde.
 
-    ⚠ Kennt die Tabelle die Art nicht, kommt eine **leere** Liste zurück — und
-    die Anzeige sagt das, statt wahllos den halben Katalog anzubieten. Ein
-    Kühler, der in einem Waffenplatz zur Auswahl steht, ist schlimmer als gar
-    keine Auswahl.
+    ⚠ Kennt keine Quelle die Art, kommt eine **leere** Liste zurück — und die
+    Anzeige sagt das, statt wahllos den halben Katalog anzubieten. Ein Kühler,
+    der in einem Waffenplatz zur Auswahl steht, ist schlimmer als gar keine
+    Auswahl.
     """
     from . import laeden
     if not art:
         return []
+    gefunden = _herstellbare(art, groesse)
+    for eintrag in gefunden.values():
+        eintrag['herkunft'] = HERSTELLBAR
+
     gruppen = [g for g, a in GRUPPE_ZU_ART.items() if a == art]
-    if not gruppen:
-        return []
     raus = []
-    for teil in laeden.katalog_teile():
+    for teil in (laeden.katalog_teile() if gruppen else []):
         if teil.get('kategorie') not in gruppen:
             continue
         # ⚠ Die Größe wird nur geprüft, wenn beide Seiten eine haben. UEX
@@ -197,12 +279,29 @@ def auswahl(art, groesse):
         # Niemand kennt 1.500 Teile auswendig. Gemessen an den Kraftwerken der
         # Größe 1: 20 Civilian, 13 Industrial, 5 Competition, 3 Stealth, keine
         # Lücke — das Feld trägt also wirklich.
+        kennung = teil.get('kennung') or ''
+        # ⚠ Ist das Teil auch herstellbar, wird der vorhandene Eintrag
+        # **ergänzt** statt ein zweiter angelegt — sonst stünde dasselbe Teil
+        # zweimal in der Liste, einmal aus jeder Quelle.
+        schon = gefunden.get(kennung)
+        if schon is not None:
+            schon['herkunft'] = BEIDES
+            # UEX' Angaben gewinnen, wo sie da sind: Klasse und Güte pflegt es
+            # für seine Ladenware gründlicher als der Bauplan-Katalog.
+            for feld, wert in (('klasse', teil.get('klasse')),
+                               ('guete', teil.get('guete')),
+                               ('hersteller', teil.get('hersteller'))):
+                if wert and not schon.get(feld):
+                    schon[feld] = wert
+            continue
         raus.append({'name': teil.get('name') or '',
-                     'kennung': teil.get('kennung') or '',
+                     'kennung': kennung,
                      'hersteller': teil.get('hersteller') or '',
                      'guete': teil.get('guete') or '',
-                     'klasse': teil.get('klasse') or ''})
-    raus.sort(key=lambda x: x['name'].lower())
+                     'klasse': teil.get('klasse') or '',
+                     'herkunft': KAUFBAR})
+    raus.extend(gefunden.values())
+    raus.sort(key=lambda x: (x['name'] or '').lower())
     return raus
 
 
@@ -713,6 +812,115 @@ def fehlende_preise(posten_liste):
             gesehen.add(kennung)
             raus.append((kennung, p.get('name') or ''))
     return raus
+
+
+def farmliste(daten=None):
+    """Was noch zu farmen ist — Material für **alle** Posten auf „bauen".
+
+    Gibt zurück::
+
+        {'fehlt':         [{'rohstoff', 'benoetigt', 'vorhanden',
+                            'differenz', 'mindestguete', 'zu_gering'}, …],
+         'vollstaendig':  [dieselbe Form],
+         'posten':        4,        # wie viele Posten gebaut werden
+         'ohne_rezept':   ['…']}    # sollte leer sein, siehe unten
+
+    ⭐ Die Gegenrichtung zur Einkaufsliste: Dort steht, was Geld kostet, hier,
+    was Zeit kostet. Zusammen beantworten sie *„was muss ich noch tun, bis mein
+    Schiff so aussieht, wie ich es will?"*
+
+    ⚠⚠ **Zusammengezählt wird ÜBER alle Posten, nicht Posten für Posten.**
+    Das ist die Falle, die `rohstoffe.pruefen()` allein nicht abfängt: Es
+    rechnet **ein** Rezept gegen das Lager. Bei zwei Posten mit je 2 Iron und
+    3 Iron im Lager meldet es zweimal „reicht" — zusammen fehlt aber eines.
+    Wer die Fehlmengen einzeln addiert, bekommt dasselbe Erz mehrfach
+    angerechnet und sagt dem Spieler, er könne losbauen.
+
+    ⚠ **Die Mindestgüte gehört mit in die Rechnung.** Erz mit Q 200 in einem
+    Rezept, das Q 500 verlangt, ist für diesen Bauplan nichts wert. Fordern
+    mehrere Posten dasselbe Material in verschiedenen Güten, wird der Bestand
+    von der **anspruchsvollsten Anforderung abwärts** zugeteilt — sonst
+    verbraucht ein anspruchsloser Posten das gute Erz, und der anspruchsvolle
+    steht ohne da.
+
+    ⚠ Ohne Netz, ohne Schätzen: Ein Posten, dessen Rezept sich nicht lesen
+    lässt, steht unter `ohne_rezept` und wird **nicht** stillschweigend mit
+    null Materialbedarf verrechnet.
+    """
+    from . import herstellung, rohstoffe
+
+    fertig = rechnung(daten)
+    verzeichnis = _bauplan_verzeichnis()
+
+    # 1. Bedarf einsammeln: (Rohstoff, Mindestgüte) -> Menge
+    bedarf = {}
+    ohne_rezept = []
+    gebaut = 0
+    for p in fertig['posten']:
+        if p.get('weg') != BAUEN:
+            continue
+        gebaut += 1
+        bauplan = verzeichnis.get(p.get('ref') or '') or ''
+        rez = None
+        if bauplan:
+            try:
+                rez = herstellung.rezept(bauplan)
+            except Exception as ausnahme:
+                fehler.merken('warenkorb.farmliste.rezept', ausnahme)
+        if not rez or not rez.get('stufen'):
+            ohne_rezept.append(p.get('name') or '')
+            continue
+        for stufe in rez['stufen']:
+            for _slot, rohstoff, menge, guete in (stufe.get('zutaten') or []):
+                schluessel = (herstellung.norm_rohstoff(rohstoff),
+                              float(guete or 0))
+                eintrag = bedarf.setdefault(schluessel,
+                                            {'name': rohstoff, 'menge': 0.0})
+                eintrag['menge'] += float(menge or 0)
+
+    # 2. Je Rohstoff den Bestand zuteilen — anspruchsvollste Güte zuerst.
+    nach_rohstoff = {}
+    for (norm, guete), eintrag in bedarf.items():
+        nach_rohstoff.setdefault(norm, []).append(
+            (guete, eintrag['name'], eintrag['menge']))
+
+    fehlt, vollstaendig = [], []
+    for norm, gruppen in nach_rohstoff.items():
+        # ⚠ Absteigend: Wer die höchste Güte verlangt, bekommt zuerst — und
+        # nimmt dabei das **gerade noch ausreichende** Erz, damit das bessere
+        # für nichts verschwendet wird, das es nicht braucht.
+        gruppen.sort(reverse=True)
+        posten = [dict(p) for p in rohstoffe.laden()
+                  if herstellung.norm_rohstoff(p.get('material')) == norm]
+        for guete, name, menge in gruppen:
+            passend = sorted(
+                (p for p in posten
+                 if float(p.get('qualitaet') or 0) >= guete
+                 and float(p.get('menge') or 0) > 0),
+                key=lambda p: float(p.get('qualitaet') or 0))
+            genommen = 0.0
+            for p in passend:
+                if genommen >= menge:
+                    break
+                da = float(p.get('menge') or 0)
+                nimm = min(da, menge - genommen)
+                p['menge'] = da - nimm
+                genommen += nimm
+            # Was zwar da ist, aber die Güte nicht schafft — als Hinweis, nicht
+            # als Bestand. Das Lager wird von Hand gepflegt und kann hinterher
+            # hinken; behauptet wird deshalb nichts.
+            zu_gering = sum(float(p.get('menge') or 0) for p in posten
+                            if float(p.get('qualitaet') or 0) < guete)
+            zeile = {'rohstoff': name, 'benoetigt': menge,
+                     'vorhanden': genommen,
+                     'differenz': max(0.0, menge - genommen),
+                     'mindestguete': guete, 'zu_gering': zu_gering}
+            (fehlt if zeile['differenz'] > 0 else vollstaendig).append(zeile)
+
+    fehlt.sort(key=lambda z: (-z['differenz'], z['rohstoff'].lower()))
+    vollstaendig.sort(key=lambda z: z['rohstoff'].lower())
+    return {'fehlt': fehlt, 'vollstaendig': vollstaendig, 'posten': gebaut,
+            'ohne_rezept': sorted(set(x for x in ohne_rezept if x))}
 
 
 def route_summe(stopps):
