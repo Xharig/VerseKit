@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc7 - 2026-09-06
+
+> **Vor dir treibt ein Wrack — lohnt das Aussteigen?** Der neue Bereich
+> *Bergung* sagt, was ab Werk in einem Schiff steckt und was die Teile im Laden
+> wert sind. Und er sagt dazu, wann die Zahl **nicht** gilt.
+
+### Neu
+
+- **Bergung: „Was steckt drin?"** Schiff aussuchen, und du siehst die
+  Werksausstattung — Kühler, Schilde, Triebwerke, Waffen, jeweils mit Größe,
+  Güte und Ladenwert, dazu die Summe. Einmal nachgeschlagene Schiffe stehen
+  beim nächsten Mal sofort da.
+- ⚠ **Der Hinweis steht ganz oben, nicht im Kleingedruckten:** Die Zahlen
+  gelten für **NPC-Wracks**. Ein Spielerschiff wird zum Brikett, sobald sein
+  Besitzer die Versicherung beansprucht — ausgebaute Teile sind dann wertlos,
+  und nur das Abkratzen der Hülle lohnt. Vorschlag von Zwaersch (KRT).
+
+### Verbessert
+
+- **Festverbautes wird nicht mitgerechnet.** Panzerung und Strukturteile lassen
+  sich nicht ausbauen; sie würden einen Wert ausweisen, den niemand aus dem
+  Wrack bekommt. Turmwaffen bleiben dabei erhalten — der Turm ist fest, die
+  Waffen darin sind es nicht.
+
 ## v3.19.0-rc6 - 2026-09-06
 
 > **Der Rat, der auf den Umzug gewartet hat.** Wer denselben Rechner mal unter

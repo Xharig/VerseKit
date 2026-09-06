@@ -107,6 +107,7 @@ def _bauer_tabelle():
         'joysticks':   _joysticks,
         'diagnose':    _diagnose,
         'hangar':      _hangar,
+        'bergung':     _bergung,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
         'lager':       _lager,
@@ -8303,6 +8304,191 @@ def _art_text(arten):
     return ' · '.join(t('s_bg_art_' + a) for a in reihenfolge if a in arten)
 
 
+def _bergung(fenster, rahmen):
+    """Was in einem Wrack steckt — und ob sich das Aussteigen lohnt.
+
+    Der Wunsch kam von **Zwaersch (KRT)**; er ist der Grund, warum das
+    Werkzeug überhaupt an die Schiffsdaten angeschlossen wurde.
+
+    ⚠ **Eigene Schiffsauswahl, nicht der Hangar.** Ein Wrack ist nicht das
+    eigene Schiff — hier geht es um jeden Rumpf, der einem begegnet. Deshalb
+    sitzt die Seite auch nicht bei „Mein Hangar".
+    """
+    from . import bergung as bg, erkul, laeden, schiffe as alle_schiffe
+
+    _ueberschrift(fenster, rahmen, t('hf_bergung'), t('s_wr_lead'))
+    innen = _rollflaeche(rahmen)
+
+    # ⚠⚠ **Die NPC-Warnung steht GANZ OBEN**, nicht unter der Liste. Wer vor
+    # einem Spielerwrack steht, muss das lesen, **bevor** er eine Zahl sieht —
+    # danach ist die Zahl schon im Kopf. Ein Spielerschiff wird zum Brikett,
+    # sobald die Versicherung beansprucht wird; ausgebaute Teile sind dann
+    # wertlos, und nur das Abkratzen der Hülle lohnt.
+    warnung = _karte(innen, rand=GOLD, pady=(0, 14))
+    _fliesstext(warnung, _ohne_marken(t('s_wr_npc_warnung')), fenster.f_klein,
+                farbe=GOLD, grund=FLAECHE, fill='x', padx=16, pady=12,
+                abzug=56)
+
+    schiff = tk.StringVar()
+    ergebnis = tk.Frame(innen, bg=BG)
+    meldung = {'text': '', 'farbe': SUB}
+
+    tk.Label(innen, text=t('s_wr_schiff'), bg=BG, fg=FG, font=fenster.f_fett,
+             anchor='w').pack(fill='x', padx=24)
+    _fliesstext(innen, t('s_wr_such_hilfe'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
+
+    block = tk.Frame(innen, bg=BG)
+    block.pack(fill='x', padx=24, pady=(6, 0))
+    zeile, auswahl, _ = _auswahlfeld(fenster, block, schiff,
+                                     alle_schiffe.namen_alle,
+                                     leer_text=t('s_hg_nichts_gefunden'),
+                                     rollbar=200)
+    zeile.pack(fill='x')
+    auswahl.pack(fill='x')
+
+    hinweis = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                       anchor='w')
+
+    def _zeigen(name, teile, stand=''):
+        for kind in ergebnis.winfo_children():
+            kind.destroy()
+        if not teile:
+            _fliesstext(ergebnis, t('s_wr_unbekannt'), fenster.f_klein,
+                        farbe=GOLD, fill='x')
+            return
+        tk.Label(ergebnis, text=t('s_wr_ueberschrift') % name, bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(0, 2))
+        _fliesstext(ergebnis, _ohne_marken(t('s_wr_werk_hinweis')),
+                    fenster.f_klein, fill='x', pady=(0, 8))
+
+        def preis_von(ref):
+            if not laeden.bekannt(ref):
+                return None            # nichts nachladen beim Zeichnen
+            bester = laeden.guenstigster(ref)
+            return bester[0] if bester else None
+
+        summe, _mit, ohne = bg.wert(teile, preis_von)
+        tk.Label(ergebnis, text=t('s_wr_wert') % _geld(summe), bg=BG,
+                 fg=ACCENT, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 2))
+        # ⚠ Die Einordnung steht **an** der Zahl, nicht in einer Fußnote:
+        # Es ist der Ladenwert, kein Verkaufserlös. Verkaufspreise für
+        # Schiffsteile führt kaum ein Händler (gemessen 06.09.2026: drei von
+        # vier Werksteilen ohne jedes Ankaufgebot).
+        _fliesstext(ergebnis, _ohne_marken(t('s_wr_wert_hinweis')),
+                    fenster.f_klein, fill='x', pady=(0, 6))
+        if ohne:
+            _fliesstext(ergebnis, t('s_wr_ohne_preis') % ohne,
+                        fenster.f_klein, farbe=GOLD, fill='x', pady=(0, 6))
+
+        for teil in teile:
+            karte = _karte(ergebnis, pady=(0, 4))
+            kopf = tk.Frame(karte, bg=FLAECHE)
+            kopf.pack(fill='x', padx=16, pady=(8, 8))
+            tk.Label(kopf, text=t('s_wr_stueck') % teil['anzahl'], bg=FLAECHE,
+                     fg=ACCENT, font=fenster.f_fett, width=4,
+                     anchor='w').pack(side='left')
+            tk.Label(kopf, text=teil['name'], bg=FLAECHE, fg=FG,
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+            merkmale = [teil['art']]
+            if teil.get('groesse'):
+                merkmale.append('S%s%s' % (teil['groesse'], teil.get('guete') or ''))
+            preis = preis_von(teil['ref'])
+            rechts = (_geld(preis * teil['anzahl']) + ' aUEC' if preis
+                      else t('s_wr_kein_preis'))
+            tk.Label(kopf, text=rechts, bg=FLAECHE,
+                     fg=FG if preis else SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+            tk.Label(kopf, text='  ·  '.join(merkmale), bg=FLAECHE, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(side='left',
+                                                            padx=(12, 0))
+        if stand:
+            _fliesstext(ergebnis, t('s_wr_stand') % stand, fenster.f_klein,
+                        fill='x', pady=(8, 0))
+
+    def nachsehen():
+        name = (schiff.get() or '').strip()
+        if not alle_schiffe.kennt(name):
+            hinweis.configure(text=t('s_wr_kein_schiff'), fg=ROT)
+            return
+        kennung = erkul.kennung(name, '', '', '')
+        gespeichert = bg.gemerkt(kennung) if kennung else None
+        if gespeichert:
+            hinweis.configure(text='', fg=SUB)
+            _zeigen(name, gespeichert['teile'])
+            return
+
+        hinweis.configure(text=t('s_wr_hole'), fg=SUB)
+
+        # ⚠ In einem eigenen Faden: Ein Schiff holen sind mehrere Abrufe, und
+        # die Ladenpreise kommen einzeln nach. Tk verträgt keine Zugriffe aus
+        # fremden Fäden — zurück geht es über `after(0, …)`.
+        def arbeit():
+            try:
+                teile, gefunden = _bergung_holen(name)
+            except Exception as ausnahme:
+                fehler.merken('seiten.bergung.holen', ausnahme)
+                teile, gefunden = [], ''
+            def fertig():
+                try:
+                    if not ergebnis.winfo_exists():
+                        return
+                except tk.TclError:
+                    return
+                hinweis.configure(text='', fg=SUB)
+                if gefunden:
+                    bg.schiff_merken(gefunden, name, teile)
+                _zeigen(name, teile)
+            try:
+                ergebnis.after(0, fertig)
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    reihe = tk.Frame(innen, bg=BG)
+    reihe.pack(fill='x', padx=24, pady=(10, 0))
+    _knopfreihe(reihe, [
+        _knopf(fenster, reihe, t('s_wr_nachsehen'), nachsehen, stark=True),
+    ])
+    hinweis.pack(fill='x', padx=24, pady=(8, 0))
+    ergebnis.pack(fill='x', padx=24, pady=(14, 20))
+
+
+def _bergung_holen(name):
+    """Die Werksausstattung eines Schiffs holen — samt Ladenpreisen.
+
+    Läuft **außerhalb** des Oberflächen-Fadens. Gibt `(teile, kennung)` zurück.
+    """
+    from . import bergung as bg, erkul, laeden
+    kat = erkul.katalog()
+    if not isinstance(kat, dict):
+        return [], ''
+    verzeichnis = {}
+    for gruppe in (kat.get('groups') or []):
+        pfad = gruppe.get('indexPath')
+        if not pfad:
+            continue
+        index = erkul._holen('%s/%s' % (erkul.ZWEIG, pfad), 'bergung.index')
+        for eintrag in ((index or {}).get('blobs') or []):
+            if eintrag.get('id') and eintrag.get('path'):
+                verzeichnis[eintrag['id']] = eintrag['path']
+
+    treffer = erkul._wortweise_suchen(verzeichnis, name, '', '', '')
+    if not treffer:
+        return [], ''
+    teile = bg.werksausstattung(treffer, verzeichnis[treffer])
+    # Preise nachladen, damit die Anzeige sie schon hat.
+    for teil in teile:
+        if not laeden.bekannt(teil['ref']):
+            try:
+                laeden.holen(teil['ref'], name=teil['name'])
+            except Exception as ausnahme:
+                fehler.merken('seiten.bergung.preis', ausnahme)
+    return teile, treffer
+
+
 def _bergbau(fenster, rahmen):
     """Wo welches Erz abzubauen ist — **beide** Richtungen in einer Suche.
 
@@ -8313,7 +8499,7 @@ def _bergbau(fenster, rahmen):
     oder nicht.
     """
     from . import bergbau as berg_modul
-    _ueberschrift(fenster, rahmen, t('hf_bergbau'), t('s_bg_lead'))
+    _ueberschrift(fenster, rahmen, t('hf_bergbau'), t('s_wr_lead'))
     innen = _rollflaeche(rahmen)
 
     try:

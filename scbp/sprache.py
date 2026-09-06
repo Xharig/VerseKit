@@ -2506,6 +2506,63 @@ TEXTE = {
     's_vk_alter_stunden': ('vor {n} Std.', '{n}h ago'),
     's_vk_alter_tage':   ('vor {n} Tagen', '{n}d ago'),
     # ----------------------------------------------- Reiter „Mein Hangar"
+    # ----------------------------------------------------- Reiter „Bergung"
+    'hf_gruppe_bergung': ('Bergung', 'Salvage'),
+    'hf_bergung':        ('Was steckt drin?', "What's inside?"),
+    's_wr_lead':         ('Vor dir treibt ein Wrack. Aussteigen kostet Zeit und '
+                          'ist gefährlich, der Laderaum ist begrenzt — lohnt es '
+                          'sich?',
+                          'A wreck is drifting in front of you. Getting out '
+                          'costs time and is dangerous, and your hold is '
+                          'limited — is it worth it?'),
+    # ⚠⚠ **Der wichtigste Satz der Seite.** Ohne ihn schickt das Werkzeug
+    # jemanden für 400.000 aUEC ins Feuer, die es nicht gibt.
+    's_wr_npc_warnung':  ('⚠ Das gilt für **NPC-Wracks**. Ein Spielerschiff '
+                          'wird zum Brikett, sobald der Besitzer die '
+                          'Versicherung beansprucht — ausgebaute Teile sind '
+                          'dann wertlos. Dort lohnt nur das Abkratzen der '
+                          'Hülle.',
+                          '⚠ This applies to **NPC wrecks**. A player ship '
+                          'turns into a brick as soon as its owner claims the '
+                          'insurance — parts taken out of it are worthless '
+                          'then. There, only scraping the hull pays off.'),
+    's_wr_schiff':       ('Welches Schiff treibt da?', 'Which ship is it?'),
+    's_wr_such_hilfe':   ('Tipp ein paar Buchstaben oder klapp die Liste mit '
+                          'dem Pfeil auf. Punkte und Bindestriche kannst du '
+                          'weglassen.',
+                          'Type a few letters or open the list with the arrow. '
+                          'You can leave out dots and hyphens.'),
+    's_wr_nachsehen':    ('Nachsehen', 'Look it up'),
+    's_wr_kein_schiff':  ('Such dir ein Schiff aus der Liste aus.',
+                          'Pick a ship from the list.'),
+    's_wr_unbekannt':    ('Zu diesem Schiff gibt es keine Bestückungsdaten — '
+                          'meist heißt das, dass es im Spiel noch nicht fliegt.',
+                          'There is no loadout data for this ship — usually '
+                          'that means it is not flying in the game yet.'),
+    's_wr_hole':         ('Wird nachgeschlagen …', 'Looking it up …'),
+    's_wr_ueberschrift': ('Ab Werk verbaut in %s', 'Factory loadout of %s'),
+    's_wr_wert':         ('Ladenwert zusammen: %s aUEC', 'Shop value in total: %s aUEC'),
+    # ⚠ Die Zahl bekommt ihre Einordnung mit, nicht in einer Fußnote.
+    's_wr_wert_hinweis': ('Das ist, was du für dieselben Teile im Laden '
+                          'bezahlen müsstest — **kein Verkaufserlös.** '
+                          'Verkaufspreise für Schiffsteile führt kaum ein '
+                          'Händler; die Zahl sagt, was sich lohnt '
+                          'mitzunehmen, nicht was du dafür bekommst.',
+                          'That is what you would pay for the same parts in a '
+                          'shop — **not a resale value.** Hardly any trader '
+                          'lists sell prices for ship parts; the number tells '
+                          'you what is worth taking, not what you would get.'),
+    's_wr_ohne_preis':   ('%d Teile ohne bekannten Preis — sie fehlen in der '
+                          'Summe.',
+                          '%d parts with no known price — they are missing '
+                          'from the total.'),
+    's_wr_werk_hinweis': ('Das ist die Bestückung **ab Werk**. Was der '
+                          'Vorbesitzer eingebaut hat, weiß niemand.',
+                          'This is the **factory** loadout. What the previous '
+                          'owner fitted, nobody knows.'),
+    's_wr_stueck':       ('%d ×', '%d ×'),
+    's_wr_kein_preis':   ('kein Preis bekannt', 'no price known'),
+    's_wr_stand':        ('Stand %s', 'Data from %s'),
     # ------------------------------------------- Ablage-Ordner wechseln
     's_ab_titel':        ('Ablage-Ordner wechseln', 'Change storage folder'),
     's_ab_nicht_schreibbar': ('Dorthin lässt sich nichts schreiben — der Ordner '

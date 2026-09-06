@@ -2018,6 +2018,14 @@ class Hauptfenster:
         #
         # Reihenfolge wie in der Werkstatt-Gruppe: erst der Bestand, dann was
         # man damit tut.
+        # ⚠ **Eigene Gruppe, nicht bei „Bergbau".** Bergbau ist Erz aus
+        # Felsen, Bergung ist ein Wrack ausschlachten — zwei Spielarten, die
+        # nur im deutschen Wort nah beieinander liegen. Der Wunsch dazu war
+        # ausdrücklich: „dafür machen wir einen Salvage-Abschnitt, zumindest
+        # würde man da suchen."
+        g_bergung = self._gruppe(t('hf_gruppe_bergung'), 'bergung')
+        self._reiter('bergung', 'sicherung', t('hf_bergung'), g_bergung)
+
         g_handel = self._gruppe(t('hf_gruppe_handel'), 'handel')
         self._reiter('handelslager', 'handelslager', t('hf_handelslager'),
                      g_handel)

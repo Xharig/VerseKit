@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc7 - 2026-09-06
+
+> **A wreck is drifting in front of you — is getting out worth it?** The new
+> *Salvage* section shows what a ship carries from the factory and what those
+> parts are worth in a shop. And it says when the number does **not** apply.
+
+### New
+
+- **Salvage: "What's inside?"** Pick a ship and you see its factory loadout —
+  coolers, shields, drives, weapons, each with size, grade and shop value, plus
+  the total. Ships you looked up once are there instantly next time.
+- ⚠ **The warning is at the top, not in the small print:** the numbers apply to
+  **NPC wrecks**. A player ship turns into a brick as soon as its owner claims
+  the insurance — parts taken out of it are worthless then, and only scraping
+  the hull pays off. Suggested by Zwaersch (KRT).
+
+### Improved
+
+- **Fixed parts are left out of the total.** Armour and structural parts cannot
+  be removed; counting them would show a value nobody can get out of the wreck.
+  Turret weapons stay in — the turret is fixed, the guns inside it are not.
+
 ## v3.19.0-rc6 - 2026-09-06
 
 > **The advice that was waiting for the move.** If you boot the same machine

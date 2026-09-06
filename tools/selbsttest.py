@@ -970,13 +970,17 @@ def main():
                 # hinter „Verkauf". Dort geht es um Ware, die man schon hat —
                 # hier um die Fahrt, die man erst plant.
                 #
+                # ⚠ Am 06.09.2026 von 20 auf 21: **Bergung** in einer
+                # eigenen Gruppe. Bergbau ist Erz aus Felsen, Bergung ist ein
+                # Wrack ausschlachten — im Werkzeug zwei verschiedene Fragen.
+                #
                 # ⚠ Am 06.09.2026 von 19 auf 20: **Mein Hangar** unter
                 # „Werkstatt", noch vor dem Lager. Die Kette dort beginnt bei
                 # „was habe ich", und das sind zwei Dinge — die Schiffe und
                 # das Material. Die Schiffe zuerst, weil sie die Frage
                 # beantworten, die auf einen neuen Bauplan sofort folgt:
                 # passt das überhaupt irgendwo hinein?
-                pruefe(len(hf.knoepfe) == 20, 'alle Reiter sind wieder da')
+                pruefe(len(hf.knoepfe) == 21, 'alle Reiter sind wieder da')
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
