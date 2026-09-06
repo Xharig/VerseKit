@@ -1167,13 +1167,18 @@ TEXTE = {
     's_sp_hand':       ('Von Hand', 'By hand'),
     's_sp_hand_h':     ('Alles Eingefügte steht zwischen Marken und lässt sich auf den Buchstaben genau wieder entfernen.',
                           'Everything inserted sits between markers and can be removed again to the letter.'),
-    's_sp_jetzt':      ('Jetzt auffrischen', 'Refresh now'),
+    # ⚠ **„Neu einsetzen", nicht „auffrischen" (06.09.2026).** Der Knopf holt
+    # die Vertragsdaten UND schreibt den ganzen Block neu ins Spiel — die
+    # Funktion dahinter heisst intern schon „neu eintragen". „Auffrischen"
+    # beschreibt nur das Holen und klingt nach „nachsehen, ob was fehlt";
+    # der Nutzer will aber das Ergebnis benannt haben.
+    's_sp_jetzt':      ('Neu einsetzen', 'Insert again'),
     's_sp_pruefen':    ('Übersetzung prüfen', 'Check translation'),
     's_sp_weg':        ('Wieder entfernen', 'Remove again'),
     's_sp_warn':       ('Jedes Übersetzungs-Update und jeder Spiel-Patch löscht die Angaben.',
                           'Every translation update and every game patch wipes the details.'),
-    's_sp_warn_h':     ('Beide schreiben die Textdatei neu. Deshalb gibt es „Jetzt auffrischen" und die Prüfung — ohne das denkt man, es funktioniere, und es ist längst weg.',
-                          'Both rewrite the text file. That is why there is "Refresh now" and the check — without them you believe it works while it has long been gone.'),
+    's_sp_warn_h':     ('Beide schreiben die Textdatei neu. Deshalb gibt es „Neu einsetzen" und die Prüfung — ohne das denkt man, es funktioniere, und es ist längst weg.',
+                          'Both rewrite the text file. That is why there is "Insert again" and the check — without them you believe it works while it has long been gone.'),
 
     # -- Seite „Bestand" (ausgeben und einlesen) --
     's_be_lead':       ('Deinen Bauplan-Stand ausgeben — oder einen vorhandenen einlesen.',
@@ -3324,7 +3329,7 @@ TEXTE = {
     'inj_steht_nicht':   ('Bauplan-Angaben sind nicht eingetragen',
                           'Blueprint notes are not in place'),
     'inj_entfernen':     ('Angaben wieder entfernen', 'Remove the notes again'),
-    'inj_erneuern':      ('Angaben auffrischen', 'Refresh the notes'),
+    'inj_erneuern':      ('Angaben neu einsetzen', 'Insert the notes again'),
     'inj_update_da':     ('Neue Version verfügbar: %s', 'New version available: %s'),
     'inj_aktuell':       ('Ist auf dem neuesten Stand', 'Up to date'),
     'inj_pruefen':       ('Auf Updates prüfen', 'Check for updates'),
