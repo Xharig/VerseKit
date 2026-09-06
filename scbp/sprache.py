@@ -2590,10 +2590,8 @@ TEXTE = {
                            'No slot data for {n} ships. These are almost always '
                            'ships not yet in the game — once they fly, the data '
                            'arrives on its own.'),
-    's_hg_holen':        ('Steckplätze holen', 'Fetch slots'),
     's_hg_geholt':       ('Steckplätze für {n} Schiffe geholt.',
                           'Fetched slots for {n} ships.'),
-    's_hg_aktuell':      ('Alles auf dem neuesten Stand.', 'Everything up to date.'),
     's_hg_quelle':       ('Steckplätze von erkul.games, Spielstand {version}.',
                           'Slot data from erkul.games, game build {version}.'),
     's_hg_keine_daten':  ('Noch keine Steckplatz-Daten geholt.',

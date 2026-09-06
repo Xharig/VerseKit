@@ -61,6 +61,19 @@ Der Watcher schreibt in die Auftragstexte des Spiels, **welche** Baupläne ein A
 </tr>
 </table>
 
+### Meine Schiffe
+
+Ein neuer Bauplan wirft sofort die nächste Frage auf: **passt das Teil überhaupt in eines meiner Schiffe?** Dafür muss das Werkzeug wissen, was in deinem Hangar steht — das Spiel schreibt es nirgends auf.
+
+<table>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-hangar.png" alt="Mein Hangar mit vier eingetragenen Schiffen" width="100%"><br>
+<sub><b>Mein Hangar</b> — in einem Zug aus dem Pledge-Store geholt oder von Hand eingetragen; danach steht in der Herstellung, in welche deiner Schiffe ein Bauplan passt</sub>
+</td>
+</tr>
+</table>
+
 ### Die Werkstatt
 
 Der Bauplan ist der Anfang. Die Werkstatt beantwortet, was danach kommt: **was brauche ich, habe ich das, und was wird daraus?**

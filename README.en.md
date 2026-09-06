@@ -61,6 +61,19 @@ The watcher writes into the game's mission text **which** blueprints a contract 
 </tr>
 </table>
 
+### My ships
+
+A new blueprint immediately raises the next question: **does this part even fit any of my ships?** For that the tool has to know what is in your hangar — the game records it nowhere.
+
+<table>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-hangar-en.png" alt="My hangar with four ships added" width="100%"><br>
+<sub><b>My hangar</b> — pulled from the pledge store in one go or added by hand; after that, crafting tells you which of your ships a blueprint fits</sub>
+</td>
+</tr>
+</table>
+
 ### The workshop
 
 The blueprint is the start. The workshop answers what comes after it: **what do I need, do I have it, and what will it turn into?**

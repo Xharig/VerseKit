@@ -8815,26 +8815,32 @@ def _hangar(fenster, rahmen):
             meldung['text'], meldung['farbe'] = t('s_hg_schon_da'), ROT
         neu_zeichnen()
 
-    def _steckplaetze_holen(still=False):
+    def _steckplaetze_holen(still=True):
         """Die Steckplätze der Hangar-Schiffe holen, soweit sie fehlen.
 
-        ⚠ `still=True` nach Import und Handeintrag: Dort ist das Holen eine
-        Folge der eigentlichen Tat, und eine zweite Meldung würde die erste
-        überschreiben („5 Schiffe übernommen" wäre nach einer Zehntelsekunde
-        durch „Steckplätze für 5 Schiffe geholt" ersetzt).
+        ⚠⚠ **Dafür gab es einmal einen Knopf — er ist raus.** „Steckplätze
+        holen" stand neben „Eintragen", und die Rückmeldung dazu lautete: *„was
+        macht Steckplätze holen denn? ich verstehe den Knopf nicht."* Zu Recht:
+        Er holte nach, was nach Import und Handeintrag ohnehin schon geholt
+        wird. Ein Knopf, der eine Arbeit anbietet, die das Programm längst
+        erledigt hat, erklärt sich nie — er wirft nur die Frage auf, was er
+        soll.
+
+        Geholt wird jetzt an drei Stellen von selbst: nach dem Import, nach
+        einem Handeintrag, und **beim Öffnen der Seite**, wenn etwas fehlt.
         """
         geholt = meine.daten_nachziehen(daten['stand'])
-        if not still:
-            meldung['text'] = (t('s_hg_geholt').format(n=geholt) if geholt
-                               else t('s_hg_aktuell'))
+        if not still and geholt:
+            meldung['text'] = t('s_hg_geholt').format(n=geholt)
             meldung['farbe'] = ACCENT
+        if geholt:
             neu_zeichnen()
+        return geholt
 
     reihe_hand = tk.Frame(innen, bg=BG)
     reihe_hand.pack(fill='x', padx=24, pady=(10, 0))
     _knopfreihe(reihe_hand, [
         _knopf(fenster, reihe_hand, t('s_hg_eintragen'), von_hand),
-        _knopf(fenster, reihe_hand, t('s_hg_holen'), _steckplaetze_holen),
     ])
 
     hinweis = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
@@ -8876,6 +8882,43 @@ def _hangar(fenster, rahmen):
                         fenster.f_klein, fill='x', pady=(10, 0))
 
     _liste_fuellen()
+
+    # ⭐ **Fehlendes wird beim Öffnen nachgeholt, ohne dass jemand etwas
+    # drücken muss.** Der Regelfall ist, dass nichts fehlt — dann kostet es
+    # einen Abruf von 2,7 KB (den Katalog), und der sagt sofort, dass sich
+    # nichts geändert hat.
+    #
+    # ⚠ In einem eigenen Faden: Bei dreißig fehlenden Schiffen wären das
+    # dreißig Abrufe, und das Fenster stünde so lange. Tk verträgt keine
+    # Zugriffe aus fremden Fäden — deshalb kommt die Anzeige über `after(0, …)`
+    # zurück in den Oberflächen-Faden.
+    def _nachziehen_im_hintergrund():
+        try:
+            if not meine.unbekannt(daten['stand']):
+                return
+        except Exception:
+            return
+        def arbeit():
+            try:
+                geholt = meine.daten_nachziehen(daten['stand'])
+            except Exception as ausnahme:
+                fehler.merken('seiten.hangar.nachziehen', ausnahme)
+                return
+            if not geholt:
+                return
+            def zeigen():
+                try:
+                    if liste_rahmen.winfo_exists():
+                        neu_zeichnen()
+                except tk.TclError:
+                    pass
+            try:
+                liste_rahmen.after(0, zeigen)
+            except tk.TclError:
+                pass
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    _nachziehen_im_hintergrund()
 
 
 def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):

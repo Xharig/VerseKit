@@ -6,6 +6,29 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc4 - 2026-09-06
+
+> **Von Hand eingetragene Schiffe finden ihre Steckplätze.** Und ein Knopf ist
+> verschwunden, den niemand brauchte.
+
+### Verbessert
+
+- **Der Knopf „Steckplätze holen" ist weg.** Er holte nach, was nach Import und
+  Handeintrag ohnehin geholt wird — und warf damit nur die Frage auf, wozu er
+  gut sei. Fehlendes wird jetzt beim Öffnen der Seite nachgezogen, im
+  Hintergrund und ohne Zutun.
+- Die Anleitung hat ein Bild von **Mein Hangar**.
+
+### Behoben
+
+- **„Anvil Arrow" fand seine Daten nicht.** Wer ein Schiff von Hand einträgt,
+  hat kein Herstellerkürzel dabei — und `anvl` ist kein Anfang von „Anvil",
+  sondern eine Zusammenziehung. Die Zuordnung kennt jetzt alle 152
+  Herstellernamen und ihre Kürzel.
+- **Steckplätze aus einer älteren Testfassung werden neu geholt.** Ihnen fehlte
+  eine Angabe, mit der die Zuordnung arbeitet; ohne sie sah ein Hangar aus, als
+  hätte er keine Daten.
+
 ## v3.19.0-rc3 - 2026-09-06
 
 > **Zwei Nachbesserungen an der Schiffserkennung.** Namen, die zusammen-

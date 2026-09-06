@@ -6,6 +6,27 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc4 - 2026-09-06
+
+> **Ships added by hand now find their slots.** And one button is gone that
+> nobody needed.
+
+### Improved
+
+- **The "Fetch slots" button is gone.** It fetched what is already fetched
+  after an import or a manual entry — and so only raised the question what it
+  was for. Missing data is now pulled in when the page opens, in the
+  background and without being asked.
+- The manual has a picture of **My hangar**.
+
+### Fixed
+
+- **"Anvil Arrow" did not find its data.** Adding a ship by hand brings no
+  manufacturer code — and `anvl` is not the start of "Anvil" but a
+  contraction. Matching now knows all 152 manufacturer names and their codes.
+- **Slot data from an earlier test build is fetched again.** It lacked a field
+  the matching relies on; without it a hangar looked as if it had no data.
+
 ## v3.19.0-rc3 - 2026-09-06
 
 > **Two touch-ups to ship matching.** Names written as one word were not

@@ -113,6 +113,9 @@ if sys.platform != 'win32':
 SEITEN = {
     'liste':        'screenshot-liste',
     'fortschritt':  'screenshot-fortschritt',
+    # ⚠ Diese Seite zeigt **erfundene** Daten, nicht den kopierten Stand —
+    # siehe `beispiel_hangar()`. Der echte Hangar verriete Pledge-Pakete.
+    'hangar':       'screenshot-hangar',
     'herstellung':  'screenshot-herstellung',
     'bergbau':      'screenshot-bergbau',
     'lager':        'screenshot-lager',
@@ -214,6 +217,56 @@ def _gefaehrliches_abschalten(ordner):
             json.dump(daten, datei, ensure_ascii=False, indent=1)
     except Exception:
         pass
+
+
+def beispiel_hangar():
+    """Einen **erfundenen** Hangar in die Wegwerf-Kopie legen.
+
+    ⚠⚠ **Der echte Hangar darf NICHT ins Bild.** Alle anderen Seiten zeigen
+    den kopierten Datenstand des Autors, und das ist unbedenklich: ein
+    Bauplan-Fortschritt oder ein Erzlager verrät nichts über die Person. Der
+    Hangar schon — dort stehen die **Pledge-Pakete** und LTI-Markierungen, also
+    was jemand ausgegeben hat. Das gehört in kein öffentliches Repo (siehe
+    „Nichts Privates ins Projekt").
+
+    Deshalb wird die Datei in der Kopie **überschrieben**, nicht ergänzt. Der
+    echte Hangar liegt woanders und wird nur gelesen.
+
+    ⚠ Die vier Schiffe sind mit Bedacht gewählt: je eines für Kampf, Bergbau,
+    Bergung und Fracht — das Bild soll zeigen, wofür die Seite gut ist, nicht
+    eine Sammlung. Zwei aus dem Pledge-Store, zwei im Spiel gekauft, damit man
+    beide Herkünfte sieht. **Kein `paket`, kein `preis`** — genau die Felder,
+    um die es oben geht.
+    """
+    import json
+    beispiele = [
+        {'name': 'Anvil Arrow', 'hersteller': 'Anvil Aerospace',
+         'herkunft': 'pledge', 'lti': True, 'belegung': {}},
+        {'name': 'MISC Prospector', 'hersteller': 'Musashi Industrial & '
+         'Starflight Concern', 'herkunft': 'ingame', 'belegung': {}},
+        {'name': 'Drake Vulture', 'hersteller': 'Drake Interplanetary',
+         'herkunft': 'ingame', 'belegung': {}},
+        {'name': 'Drake Cutlass Black', 'hersteller': 'Drake Interplanetary',
+         'herkunft': 'pledge', 'belegung': {}},
+    ]
+    from scbp import hangar
+    daten = {'format': hangar.FORMAT, 'schiffe': beispiele}
+    ziel = os.path.join(os.environ['SC_BP_HOME'], hangar.DATEI)
+    try:
+        with open(ziel, 'w', encoding='utf-8') as f:
+            json.dump(daten, f, ensure_ascii=False, indent=1)
+    except Exception as ausnahme:
+        print('  Hinweis: Beispiel-Hangar misslungen (%s)' % ausnahme)
+        return
+    # ⚠ Die Steckplätze müssen dazu passen, sonst steht auf dem Bild viermal
+    # „keine Steckplatz-Daten" — ein Bild, das das Gegenteil dessen zeigt, was
+    # die Seite kann. Vier Abrufe bei erkul, und nur beim Bilderbau.
+    try:
+        geholt = hangar.daten_nachziehen(daten)
+        if geholt:
+            print('  Steckplätze für %d Beispielschiffe geholt' % geholt)
+    except Exception as ausnahme:
+        print('  Hinweis: Steckplätze fehlen (%s)' % ausnahme)
 
 
 def marken_loeschen():
@@ -530,6 +583,13 @@ def main():
         return 2
 
     os.environ['SC_BP_HOME'] = datenstand_kopieren()
+    # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
+    # seiner vier Schiffe, und dafür braucht er das Netz — `katalog.AUS` liest
+    # die Sperre beim Import und behält sie danach. Wer die Reihenfolge dreht,
+    # bekommt viermal „keine Steckplatz-Daten" ins Bild, also ausgerechnet das
+    # Gegenteil dessen, was die Seite zeigen soll.
+    if 'hangar' in gewuenscht:
+        beispiel_hangar()
     os.environ['SC_BP_NO_NET'] = '1'
     marken_loeschen()
 

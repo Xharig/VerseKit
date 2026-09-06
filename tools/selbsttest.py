@@ -12333,8 +12333,10 @@ def main():
     # Alle 32 Bilder der Anleitung sind da — 16 Seiten in zwei Sprachen.
     _bilder138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))
                   if n.startswith('screenshot-') and n.endswith('.png')]
-    pruefe(len(_bilder138) == 32,
-           'die Anleitung hat ihre 32 Bilder (gefunden: %d)' % len(_bilder138))
+    # ⚠ 34 seit v3.19.0: „Mein Hangar" kam dazu (16 Seiten + Overlay, je
+    # Sprache). Wer eine Seite in `SEITEN` einträgt, zieht diese Zahl mit.
+    pruefe(len(_bilder138) == 34,
+           'die Anleitung hat ihre 34 Bilder (gefunden: %d)' % len(_bilder138))
     _paare138 = sorted(n[:-4].replace('-en', '') for n in _bilder138)
     pruefe(all(_paare138.count(n) == 2 for n in set(_paare138)),
            'zu jedem deutschen Bild gibt es das englische')

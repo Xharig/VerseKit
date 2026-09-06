@@ -100,7 +100,13 @@ ZWEIG = 'LIVE'
 BASIS = 'https://cdn.erkul.games'
 
 CACHE = 'erkul-schiffe.json'
-FORMAT = 1
+# ⚠ 2 seit v3.19.0-rc4: Jeder Eintrag trägt jetzt seine **Original-Kennung**
+# (`id`, z. B. `anvl_arrow`). Ohne sie kennt die Ablage nur den geschliffenen
+# Schlüssel `anvlarrow` — ein einziges Wort, in dem die wortweise Zuordnung
+# keine Wortgrenzen mehr findet. Eine Ablage aus rc1–rc3 sieht deshalb aus wie
+# „keine Steckplatz-Daten", obwohl die Daten da sind. Aufgefallen ist das am
+# Anleitungsbild, das mit einer kopierten alten Ablage lief.
+FORMAT = 2
 
 # Notfrist. Maßgeblich ist die Spielversion aus `catalog.bin` — diese Frist
 # greift nur, falls sich die gar nicht ermitteln lässt.
@@ -179,6 +185,34 @@ def katalog():
     return _holen('%s/catalog.bin' % ZWEIG, 'katalog')
 
 
+def _hersteller_tabelle(kat):
+    """Ausgeschriebener Herstellername → erkuls Kürzel.
+
+    ⭐⭐ **Erkul liefert diese Tabelle selbst mit** (152 Einträge in
+    `manufacturers.<hash>.bin`, Feld `className` neben dem Klarnamen). Ohne sie
+    bleibt ein Handeintrag wie „Anvil Arrow" ohne Steckplätze: Die Kennung
+    heißt `anvl_arrow`, und `anvl` ist **kein Präfix** von „Anvil" — der Vokal
+    fehlt in der Mitte. Dieselbe Zusammenziehung bei `aegs` (Aegis) und `misc`.
+
+    ⚠ Aufgefallen ist das erst am **Anleitungsbild**: Dort stand bei vier
+    erfundenen Beispielschiffen „keine Steckplatz-Daten", während der echte
+    Hangar sauber aussah — weil dort das Herstellerkürzel aus dem Pledge-Export
+    mitkommt. Von Hand eingetragene Schiffe haben es nicht.
+    """
+    pfad = next((f.get('path') for f in (kat.get('families') or [])
+                 if (f.get('path') or '').startswith('manufacturers')), '')
+    if not pfad:
+        return {}
+    liste = _holen('%s/%s' % (ZWEIG, pfad), 'hersteller')
+    raus = {}
+    for eintrag in (liste or []):
+        kuerzel = (eintrag.get('className') or '').strip()
+        klar = ((eintrag.get('i18n') or {}).get('name') or '').strip()
+        if kuerzel and klar:
+            raus[_schlank(klar)] = kuerzel
+    return raus
+
+
 def laden():
     return _ablage.laden() or {}
 
@@ -229,7 +263,12 @@ def kennung(name, hersteller='', kurz='', hkurz=''):
     etwas mehr, greift aber genau dort, wo die ersten beiden scheitern — und
     das ist bei jedem vierten Schiff der Fall.
     """
-    bekannt = laden().get('schiffe') or {}
+    abgelegt = laden()
+    bekannt = abgelegt.get('schiffe') or {}
+    # ⚠ Auch hier: „Anvil Aerospace" muss zu `anvl` werden, sonst findet ein
+    # von Hand eingetragenes Schiff seine eigenen Daten nicht wieder.
+    hkurz = hkurz or (abgelegt.get('hersteller') or {}).get(
+        _schlank(hersteller), '')
     for schlank in kandidaten(name, hersteller, kurz, hkurz):
         if schlank in bekannt:
             return schlank
@@ -449,6 +488,10 @@ def nachtragen(saetze):
     # (`drak_ironclad_assault`), weil die wortweise Suche die **Wortgrenzen**
     # braucht. Beim ersten Anlauf gab es nur die erste Sicht — die wortweise
     # Stufe lief damit gegen ein einziges langes Wort und traf nie etwas.
+    # ⚠ Einmal je Lauf geholt, dann abgelegt — siehe `_hersteller_tabelle`.
+    hersteller_kuerzel = (daten.get('hersteller')
+                          if daten.get('spielversion') == version
+                          else None) or _hersteller_tabelle(kat)
     verzeichnis = {}
     roh_ids = {}
     for gruppe in (kat.get('groups') or []):
@@ -464,6 +507,8 @@ def nachtragen(saetze):
     geholt = 0
     for satz in saetze:
         name, hersteller, kurz, hkurz = (list(satz) + ['', '', ''])[:4]
+        # Der ausgeschriebene Hersteller wird zum Kürzel, wenn keines dabei ist.
+        hkurz = hkurz or hersteller_kuerzel.get(_schlank(hersteller), '')
         moegliche = kandidaten(name, hersteller, kurz, hkurz)
         if any(k in bekannt for k in moegliche):
             continue
@@ -488,7 +533,11 @@ def nachtragen(saetze):
             geholt += 1
 
     if geholt or daten.get('spielversion') != version:
-        _ablage.sichern({'spielversion': version, 'schiffe': bekannt})
+        # ⚠ `hersteller_kuerzel`, **nicht** `hersteller` — das ist die
+        # Schleifenvariable aus dem Schiffs-Tupel und wäre hier eine
+        # Zeichenkette, wo ein Wörterbuch erwartet wird.
+        _ablage.sichern({'spielversion': version, 'schiffe': bekannt,
+                         'hersteller': hersteller_kuerzel})
     return geholt
 
 
