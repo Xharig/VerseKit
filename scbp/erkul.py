@@ -279,7 +279,7 @@ def _woerter(text):
     return raus
 
 
-def _passt_wortweise(erkul_id, gesucht):
+def _passt_wortweise(erkul_id, gesucht, kette=''):
     """Deckt `gesucht` alle Wörter dieser erkul-Kennung ab? Gibt die Güte zurück.
 
     ⭐ **Die dritte Zuordnungsstufe** — sie fängt genau die Fälle, an denen
@@ -302,8 +302,17 @@ def _passt_wortweise(erkul_id, gesucht):
     guete = 0
     for wort in eigene:
         if wort in gesucht:
-            guete += 2
+            guete += 3
         elif any(g.startswith(wort) for g in gesucht):
+            # Herstellerkürzel: `drak` steht für „Drake", `aegs` für „Aegis".
+            guete += 2
+        elif kette and wort in kette:
+            # ⚠ Der umgekehrte Fall: erkul schreibt `alphawolf` **zusammen**,
+            # der Hangar führt „L-22 Alpha Wolf" getrennt. Dafür braucht es die
+            # Wörter in ihrer **Reihenfolge** — aus einer Menge verkettet käme
+            # „alphakrigl22wolf" heraus, und darin steht `alphawolf` nicht.
+            # Genau daran ist der erste Anlauf gescheitert, und Prüfung 139 hat
+            # es gefangen.
             guete += 1
         else:
             return 0
@@ -323,12 +332,16 @@ def _wortweise_suchen(verzeichnis, name, hersteller='', kurz='', hkurz=''):
     # `mk1` **und** `mk2` in der Suchmenge, und `anvl_hornet_f7c_mk2` wird
     # genauso gut bewertet wie `anvl_hornet_f7cm_mk2` — Gleichstand, also gar
     # keine Zuordnung. Der angezeigte Name ist die verlässlichere Angabe.
-    gesucht = set(_woerter(' '.join(x for x in (hkurz, hersteller, name) if x)))
+    folge = _woerter(' '.join(x for x in (hkurz, hersteller, name) if x))
+    gesucht = set(folge)
     if not gesucht:
         return ''
+    # ⚠ Die Wörter **in ihrer Reihenfolge** aneinandergehängt — nur so findet
+    # sich `alphawolf` in „Alpha Wolf" wieder.
+    kette = ''.join(folge)
     bewertet = []
     for kennung_ in verzeichnis:
-        guete = _passt_wortweise(kennung_, gesucht)
+        guete = _passt_wortweise(kennung_, gesucht, kette)
         if guete:
             bewertet.append((guete, kennung_))
     if not bewertet:

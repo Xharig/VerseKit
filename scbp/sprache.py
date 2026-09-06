@@ -2567,8 +2567,14 @@ TEXTE = {
     # sicher weiß, ist nur: es hat keine Daten. Die Aussage „Konzept" gibt es
     # daneben, sie stützt sich aber auf UEX und nicht auf unser Nichtwissen.
     's_hg_ohne_daten':   ('keine Steckplatz-Daten', 'no slot data'),
-    's_hg_konzept':      ('Konzept — noch nicht im Spiel',
-                          'Concept — not in the game yet'),
+    # ⚠⚠ **Die Quelle steht dabei — weil sie irren kann.** UEX führt das
+    # A.T.L.S. IKTI als Konzept, obwohl es im Spiel geflogen wird (gemessen
+    # 06.09.2026). Ohne den Zusatz behauptet das Werkzeug etwas über das Spiel,
+    # was es nicht weiß; mit ihm gibt es eine Fremdangabe weiter und sagt, von
+    # wem sie stammt. Dieselbe Linie wie überall hier: lieber eine unbequeme
+    # Auskunft als eine schöne Zahl, auf die kein Verlass ist.
+    's_hg_konzept':      ('Konzept, noch nicht im Spiel (laut UEX)',
+                          'Concept, not in the game yet (per UEX)'),
     's_hg_nichts_gefunden': ('Kein Schiff mit diesem Namen.',
                              'No ship by that name.'),
     's_hg_such_hilfe':   ('Tipp ein paar Buchstaben, um zu suchen — oder klapp '

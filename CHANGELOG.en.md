@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc3 - 2026-09-06
+
+> **Two touch-ups to ship matching.** Names written as one word were not
+> found — and where a concept note appears, it now says where it comes from.
+
+### Fixed
+
+- **Names written as one word now find their ship.** "L-22 Alpha Wolf" was not
+  recognised because the slot data spells `alphawolf` as a single word.
+- **"Concept" now names its source.** That information comes from UEX and is
+  not always current — the A.T.L.S. IKTI is listed there as a concept although
+  it is flown in the game. Instead of a claim about the game, it is now a
+  third-party note with an attribution.
+
 ## v3.19.0-rc2 - 2026-09-06
 
 > **The hangar now finds its ships.** Fighters, racers and exosuits could not

@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc3 - 2026-09-06
+
+> **Zwei Nachbesserungen an der Schiffserkennung.** Namen, die zusammen-
+> geschrieben werden, wurden nicht gefunden — und wo eine Konzept-Angabe steht,
+> steht jetzt auch, woher sie kommt.
+
+### Behoben
+
+- **Zusammengeschriebene Namen finden ihr Schiff.** „L-22 Alpha Wolf" wurde
+  nicht erkannt, weil die Steckplatz-Daten `alphawolf` in einem Wort führen.
+- **Bei „Konzept" steht jetzt die Quelle dabei.** Die Angabe kommt von UEX und
+  ist nicht immer aktuell — das A.T.L.S. IKTI wird dort als Konzept geführt,
+  obwohl es im Spiel geflogen wird. Statt einer Behauptung über das Spiel steht
+  dort nun eine Fremdangabe mit Absender.
+
 ## v3.19.0-rc2 - 2026-09-06
 
 > **Der Hangar findet jetzt seine Schiffe.** Jäger, Renner und Exo-Anzüge

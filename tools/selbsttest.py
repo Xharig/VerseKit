@@ -12340,6 +12340,73 @@ def main():
            'zu jedem deutschen Bild gibt es das englische')
 
     print()
+    print('139. Schiffe finden ihre Steckplätze — auch bei krummen Namen')
+    # ⚠⚠ **Diese Prüfung gibt es, weil die Zuordnung STILL falsch war.**
+    # Sie hat nicht gekracht und nichts gemeldet — sie hat nur nichts gefunden,
+    # und die Anzeige machte daraus „noch nicht im Spiel". Zwei Schiffe, die
+    # längst fliegen, standen so als Konzept da (gemeldet 06.09.2026).
+    #
+    # ⚠ Sie **legt sich ihre Daten selbst hin**: ein Dutzend erkul-Kennungen im
+    # Code, kein Abruf, keine Nutzerdatei. Sonst wäre sie eine Prüfung, die
+    # sich im Wegwerf-Ordner selbst überspringt — und damit keine.
+    from scbp import erkul as _erk139
+
+    _ids139 = {
+        'anvl_arrow': 1, 'anvl_hornet_f7cm': 1, 'anvl_hornet_f7cm_mk2': 1,
+        'anvl_hornet_f7c_mk2': 1, 'anvl_hornet_f7cm_mk2_heartseeker': 1,
+        'drak_ironclad': 1, 'drak_ironclad_assault': 1,
+        'aegs_gladius': 1, 'aegs_gladius_valiant': 1,
+        'krig_l22_alphawolf': 1, 'rsi_ursa_rover': 1, 'rsi_ursa_medivac': 1,
+    }
+    # (Name, Hersteller ausgeschrieben, Herstellerkürzel) -> erwartete Kennung
+    _faelle139 = [
+        # Der Hersteller steht ausgeschrieben da, erkul kürzt ihn.
+        (('Drake Ironclad Assault', '', ''), 'drak_ironclad_assault'),
+        # Römische Zahl gegen Ziffer — und die Mk I darf NICHT gewinnen.
+        (('F7C-M Super Hornet Mk II', 'Anvil Aerospace', 'ANVL'),
+         'anvl_hornet_f7cm_mk2'),
+        # Kürzel statt ausgeschriebenem Hersteller.
+        (('Ursa Medivac', 'Roberts Space Industries', 'RSI'),
+         'rsi_ursa_medivac'),
+        # Unterstriche und Ziffern verklebt.
+        (('L-22 Alpha Wolf', '', 'KRIG'), 'krig_l22_alphawolf'),
+        (('Gladius Valiant', 'Aegis Dynamics', 'AEGS'), 'aegs_gladius_valiant'),
+        (('Arrow', 'Anvil Aerospace', 'ANVL'), 'anvl_arrow'),
+    ]
+    _daneben139 = []
+    for (_n139, _h139, _hk139), _soll139 in _faelle139:
+        _ist139 = _erk139._wortweise_suchen(_ids139, _n139, _h139, '', _hk139)
+        if _ist139 != _soll139:
+            _daneben139.append('%s -> %s statt %s' % (_n139, _ist139 or '—',
+                                                      _soll139))
+    # ⭐ **Die Trefferquote steht im Text, nicht nur im Ergebnis.** Eine
+    # Zuordnung, die „alles in Ordnung" meldet, ohne dass jemand die Zahl
+    # gesehen hat, ist dieselbe stille Falle noch einmal.
+    pruefe(not _daneben139,
+           'alle %d krummen Namen finden ihr Schiff (daneben: %s)'
+           % (len(_faelle139), _daneben139 or 'keiner'))
+
+    # ⚠ Gegenprobe: Ein Name, der auf zwei Kennungen gleich gut passt, darf
+    # **keine** liefern. Raten ist schlimmer als „keine Daten" — sonst zeigt
+    # das Werkzeug die Steckplätze des falschen Schiffs, und das merkt niemand.
+    _zwei139 = _erk139._wortweise_suchen({'aegs_gladius': 1, 'aegs_gladius_pirat': 1},
+                                         'Gladius', 'Aegis Dynamics', '', 'AEGS')
+    pruefe(_zwei139 == 'aegs_gladius',
+           'bei einem klaren Sieger wird zugeordnet')
+    _patt139 = _erk139._wortweise_suchen({'anvl_hornet_f7c': 1, 'anvl_hornet_f7a': 1},
+                                         'Hornet', '', '', 'ANVL')
+    pruefe(_patt139 == '',
+           'bei Gleichstand wird NICHT geraten (bekam: %r)' % _patt139)
+
+    # ⚠ Und die Falle, die den halben Tag gekostet hat: Wortgrenzen. Läuft die
+    # Suche gegen geschliffene Schlüssel (`drakironcladassault`), gibt es nur
+    # noch ein einziges Wort — sie findet dann nie etwas und sagt nicht warum.
+    _geschliffen139 = {'drakironcladassault': 1}
+    pruefe(_erk139._wortweise_suchen(_geschliffen139, 'Drake Ironclad Assault',
+                                     '', '', '') == '',
+           'Gegenprobe: ohne Wortgrenzen findet die Suche nichts')
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:
