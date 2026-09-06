@@ -13802,6 +13802,116 @@ def main():
         _st153._TEIL_VERZEICHNIS[0] = _vorher153
         _sp153.setzen(_alt153)
 
+    # ------------------------------------------------------------------
+    # 155. Der Warenkorb-Knopf bleibt sichtbar, und der Ort steht einmal
+    #
+    # ⚠⚠ Zwei Fehler, die zusammen auftraten und einander verstaerkt haben:
+    #
+    # 1. Der Preistext wurde VOR dem Knopf gepackt. In tkinter bekommt das
+    #    zuerst gepackte Element seinen Platz — ein langer Text mit
+    #    `side='left'` schiebt einen spaeter gepackten `side='right'`-Knopf aus
+    #    dem Fenster. Der Knopf war da, nur unerreichbar.
+    # 2. Der Ort stand doppelt im Text: UEX schreibt ihn schon in den
+    #    Ladennamen („Ship Weapons - Pyro Gateway (Stanton)"), und daneben
+    #    stand er noch einmal. Das machte den Text erst lang genug, damit der
+    #    erste Fehler zuschlug.
+    #
+    # Folge: Wer einmal auf „Selbst herstellen" gewechselt hatte, kam nie
+    # zurueck auf „Kaufen" — ohne Fehlermeldung, der Knopf war schlicht nicht
+    # zu sehen. Am 06.09.2026 gemeldet.
+    #
+    # Gemessen wird an einem echten Fenster unter Xvfb, bei zwei Breiten. Ein
+    # Blick auf den Quelltext haette hier nichts gebracht: Die Reihenfolge sah
+    # in beiden Faellen plausibel aus.
+    print()
+    print('155. Der Warenkorb-Knopf bleibt sichtbar')
+    import tkinter as _tk155
+    from tkinter import font as _fo155
+    from scbp import seiten as _st155
+    from scbp import warenkorb as _wk155
+
+    class _F155:
+        pass
+
+    _posten155 = {
+        'pfad': 'p1', 'name': 'M6A Cannon', 'ref': 'r1',
+        'werk_name': 'CF-447 Rhino Repeater', 'weg': _wk155.BAUEN,
+        'kauf': {'zustand': _wk155.BEKANNT, 'preis': 160626,
+                 'laden': 'Ship Weapons - Pyro Gateway (Stanton)',
+                 'ort': 'Pyro Gateway (Stanton)'},
+        'bau': {'zustand': _wk155.BEKANNT, 'material': 17120, 'dauer': 2940},
+    }
+
+    def _messen155(breite):
+        """Baut den Posten in einem Fenster dieser Breite aus und misst.
+
+        Gibt `(knopf_sichtbar, knopf_rechts, texte)` zurueck.
+        """
+        top = _tk155.Toplevel(wurzel155)
+        top.geometry('%dx400' % breite)
+        rahmen = _tk155.Frame(top, bg='#0d1117')
+        rahmen.pack(fill='both', expand=True)
+        _st155._warenkorb_posten(_f155, rahmen, {'name': 'T', 'belegung': {}},
+                                 dict(_posten155), lambda: None)
+        top.update_idletasks()
+        gefunden = [None]
+        texte = []
+
+        def geh(w):
+            for k in w.winfo_children():
+                if not k.winfo_ismapped():
+                    geh(k)
+                    continue
+                rechts = k.winfo_rootx() - top.winfo_rootx() + k.winfo_width()
+                if k.winfo_class() == 'Canvas':
+                    gefunden[0] = rechts
+                else:
+                    try:
+                        if k.cget('text'):
+                            texte.append(k.cget('text'))
+                    except Exception:
+                        pass
+                geh(k)
+
+        geh(rahmen)
+        top.destroy()
+        return gefunden[0], texte
+
+    wurzel155 = _tk155.Tk()
+    wurzel155.withdraw()
+    _f155 = _F155()
+    _f155.f_klein = _fo155.Font(family='Calibri', size=10)
+    _f155.f_fett = _fo155.Font(family='Calibri', size=10, weight='bold')
+    _f155.beim_zeigen = {}
+    try:
+        for _b155 in (980, 760):
+            _rechts155, _texte155 = _messen155(_b155)
+            pruefe(_rechts155 is not None,
+                   'bei %d px ist der Knopf ueberhaupt da' % _b155)
+            pruefe(_rechts155 is not None and _rechts155 <= _b155,
+                   '* und steht im Fenster (rechte Kante %s von %d)'
+                   % (_rechts155, _b155))
+
+        # Der Ort darf nur einmal vorkommen.
+        _rechts155, _texte155 = _messen155(980)
+        _kauf155 = [x for x in _texte155 if 'aUEC bei' in x]
+        pruefe(len(_kauf155) == 1, 'die Kaufzeile steht genau einmal da')
+        pruefe(_kauf155 and _kauf155[0].count('Pyro Gateway') == 1,
+               'der Ort steht einmal im Text, nicht zweimal (bekam: %d)'
+               % (_kauf155[0].count('Pyro Gateway') if _kauf155 else -1))
+
+        # Gegenprobe: Ein Ort, der NICHT im Ladennamen steckt, muss dazu.
+        _posten155['kauf'] = {'zustand': _wk155.BEKANNT, 'preis': 1000,
+                              'laden': 'Platinum Bay', 'ort': 'Area18'}
+        _rechts155, _texte155 = _messen155(980)
+        _kauf155 = [x for x in _texte155 if 'aUEC bei' in x]
+        pruefe(_kauf155 and 'Area18' in _kauf155[0],
+               'Gegenprobe: ein eigenstaendiger Ort wird weiter genannt')
+        pruefe(_kauf155 and 'Platinum Bay' in _kauf155[0],
+               '* und der Laden ebenso')
+    finally:
+        wurzel155.destroy()
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
