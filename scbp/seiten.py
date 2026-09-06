@@ -9845,6 +9845,68 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
+def _teil_kennzeichen(teil):
+    """„C · Industrie" — Güte und Klasse eines Teils, kurz.
+
+    ⭐⭐ **Das ist die Angabe, nach der ausgesucht wird.** Ein Schiff wird auf
+    einen Zweck hin gebaut: Tarnung, Kampf, Bergbau. Wer die Namen nicht
+    auswendig kennt — und das tut fast niemand —, sieht in einer reinen
+    Namensliste nicht, was er da anklickt. Am 06.09.2026 gemeldet: „man sollte
+    in der Liste sehen ob es grade A B oder C ist und ob Military oder was
+    anderes."
+
+    ⚠ **Die Klasse wird nachgeschlagen, wenn sie fehlt.** `warenkorb.auswahl()`
+    reichte sie bis v3.19.0 nicht durch; UEX führt sie neben der Güte. Sobald
+    sie mitkommt, greift der direkte Weg und der Nachschlag entfällt von
+    selbst — er steht hier, damit nicht zwei Stellen dieselbe Filterung
+    doppeln.
+
+    ⚠ Übersetzt wird über `KLASSEN_TEXTE`, wie überall sonst. Die **Güte**
+    bleibt `A`/`B`/`C`/`D` — das ist im Spiel ein Buchstabe, kein Wort.
+    """
+    if not teil:
+        return ''
+    guete = (teil.get('guete') or '').strip()
+    klasse = (teil.get('klasse') or '').strip()
+    if (not guete or not klasse) and teil.get('kennung'):
+        nach = _teil_nachschlagen(teil['kennung'])
+        guete = guete or nach.get('guete') or ''
+        klasse = klasse or nach.get('klasse') or ''
+    teile = [guete] if guete else []
+    if klasse:
+        schluessel = KLASSEN_TEXTE.get(klasse)
+        teile.append(t(schluessel) if schluessel else klasse)
+    return ' · '.join(teile)
+
+
+def _teil_nachschlagen(kennung):
+    """Güte und Klasse eines Teils aus dem Laden-Katalog — über die Kennung.
+
+    ⚠ Einmal je Programmlauf gebaut, nicht je Zeile: Der Katalog hat über
+    1.600 Einträge, und die Auswahlliste zeichnet sich bei jedem Tastendruck
+    neu. Ohne das Verzeichnis wäre jeder Buchstabe ein Durchlauf über alles.
+
+    ⚠ **Beide Werte, nicht nur die Klasse.** In der Steckplatz-Zeile ist von
+    einem Teil nur die Kennung bekannt (`werk.ref`) — dort fehlte sonst genau
+    die Güte, die den Vergleich mit der Auswahl trägt.
+    """
+    if _TEIL_VERZEICHNIS[0] is None:
+        from . import laeden
+        try:
+            _TEIL_VERZEICHNIS[0] = dict(
+                (x.get('kennung'), {'guete': x.get('guete') or '',
+                                    'klasse': x.get('klasse') or ''})
+                for x in laeden.katalog_teile() if x.get('kennung'))
+        except Exception as ausnahme:
+            fehler.merken('seiten.teil_nachschlagen', ausnahme)
+            _TEIL_VERZEICHNIS[0] = {}
+    return _TEIL_VERZEICHNIS[0].get(kennung) or {}
+
+
+# Kennung -> {guete, klasse}, einmal je Programmlauf aufgebaut.
+_TEIL_VERZEICHNIS = [None]
+
+
 def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Die Steckplätze des Schiffs, jeder mit dem, was darin sitzt.
 
@@ -9949,13 +10011,23 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     eigenes = gewaehlt.get(pfad) or {}
     werk = platz.get('werk') or {}
     if eigenes.get('ref') and eigenes['ref'] != werk.get('ref'):
-        text, farbe = eigenes.get('name') or '', ACCENT
+        text, farbe, kennung = eigenes.get('name') or '', ACCENT, eigenes['ref']
     elif werk.get('name'):
-        text, farbe = werk['name'], SUB
+        text, farbe, kennung = werk['name'], SUB, werk.get('ref') or ''
     else:
-        text, farbe = t('s_wk_ab_werk_leer'), SUB
+        text, farbe, kennung = t('s_wk_ab_werk_leer'), SUB, ''
     tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
+
+    # ⚠ **Auch hier Güte und Klasse** — nicht nur in der Auswahlliste. Sonst
+    # sieht man zwar, dass die Auswahl ein „A · Tarnung" anbietet, aber nicht,
+    # dass ab Werk längst ein A drinsteckt. Ohne den Vergleich ist die eine
+    # Angabe die Hälfte einer Auskunft.
+    kennzeichen = _teil_kennzeichen({'kennung': kennung}) if kennung else ''
+    if kennzeichen:
+        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left',
+                                                        padx=(10, 0))
 
     def speichern():
         meine.speichern({'format': meine.FORMAT,
@@ -10031,7 +10103,8 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             fenster, auswahl_rahmen, gewaehlt_var,
             lambda: sorted(nach_name),
             beim_waehlen=uebernehmen, beim_bestaetigen=uebernehmen,
-            leer_text=t('s_hg_nichts_gefunden'), rollbar=200)
+            leer_text=t('s_hg_nichts_gefunden'), rollbar=200,
+            zusatz=lambda n: _teil_kennzeichen(nach_name.get(n)))
         feld.pack(fill='x', padx=(22, 0))
         liste.pack(fill='x', padx=(22, 0))
 
@@ -10960,7 +11033,7 @@ def _ohne_trenner(text):
 
 def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
                  beim_waehlen=None, beim_bestaetigen=None, leer_text=None,
-                 rollbar=0):
+                 rollbar=0, zusatz=None):
     """Ein Eingabefeld mit Aufklappliste — tippen **oder** aussuchen.
 
     Gibt `(rahmen, listen_rahmen, neu_zeichnen)` zurück. Der Aufrufer packt
@@ -10986,6 +11059,17 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     ⚠ Es werden **höchstens zehn** Einträge gezeigt, sonst schiebt eine Liste
     mit 114 Waren alles andere aus dem Bild. Darunter steht, wie viele noch
     kommen — verschwiegen wäre schlimmer als abgeschnitten.
+
+    ⭐⭐ **`zusatz`: was rechts neben dem Namen steht** — eine Funktion
+    `name -> text` oder ein Wörterbuch. Bei der Teileauswahl sind das Güte und
+    Klasse, und die entscheiden dort alles: Man baut ein Schiff auf einen Zweck
+    hin. Am 06.09.2026 dazu: „man sollte in der Liste sehen ob es grade A B
+    oder C ist und ob Military oder was anderes … nicht jeder weiß alle
+    Komponenten auswendig."
+
+    ⚠ **Der Zusatz wird mitgesucht.** Wer `stealth` tippt, meint die
+    Tarn-Komponenten und nicht ein Teil namens Stealth — eine Liste, die den
+    Text zeigt, aber nicht darauf reagiert, wirkt kaputt.
     """
     from .hauptfenster import rundes_feld
 
@@ -11006,6 +11090,16 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
         for w in liste.winfo_children():
             w.destroy()
 
+    def _zusatz_text(name):
+        """Was rechts neben diesem Namen steht — oder ''."""
+        if zusatz is None:
+            return ''
+        try:
+            return (zusatz(name) if callable(zusatz)
+                    else zusatz.get(name) or '')
+        except Exception:
+            return ''
+
     def zeichnen():
         _leeren()
         text = (var.get() or '').strip().lower()
@@ -11025,8 +11119,16 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
         # UEX schreibt „Argo ATLS IKTI", und beide sind dasselbe Ding.
         # Gemeldet am 06.09.2026 beim Handeintrag im Hangar.
         schlank = _ohne_trenner(text)
-        treffer = ([e for e in alle if schlank in _ohne_trenner(e)]
-                   if text else list(alle))
+
+        def _passt(name):
+            if schlank in _ohne_trenner(name):
+                return True
+            # Der Zusatz zaehlt mit: „stealth" findet die Tarn-Teile, „a"
+            # allein nicht (ein einzelner Buchstabe traefe jede Guete).
+            bei = _zusatz_text(name)
+            return len(schlank) > 1 and bei and schlank in _ohne_trenner(bei)
+
+        treffer = [e for e in alle if _passt(e)] if text else list(alle)
         pfeil.symbol_tauschen('zuklappen' if offen['ja'] else 'aufklappen')
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
@@ -11066,13 +11168,35 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
 
         zeigen = treffer if rollbar else treffer[:hoechstens]
         for name in zeigen:
-            eintrag = tk.Label(halter, text=name, bg=BG, fg=FG,
-                               font=fenster.f_klein, anchor='w',
-                               cursor='hand2', padx=8, pady=3)
+            bei = _zusatz_text(name)
+            if not bei:
+                eintrag = tk.Label(halter, text=name, bg=BG, fg=FG,
+                                   font=fenster.f_klein, anchor='w',
+                                   cursor='hand2', padx=8, pady=3)
+                mitfaerben = (eintrag,)
+            else:
+                # ⚠ Zwei Beschriftungen in einer Zeile, **nicht** ein Text mit
+                # Trennzeichen: Der Zusatz steht rechts und in gedaempfter
+                # Farbe, damit die Namensspalte beim Ueberfliegen eine Spalte
+                # bleibt. Zusammengeklebt („Fortitude · C · Industrial")
+                # franst die linke Kante bei jeder Zeile anders aus.
+                eintrag = tk.Frame(halter, bg=BG, cursor='hand2')
+                links = tk.Label(eintrag, text=name, bg=BG, fg=FG,
+                                 font=fenster.f_klein, anchor='w',
+                                 cursor='hand2', padx=8, pady=3)
+                links.pack(side='left')
+                rechts = tk.Label(eintrag, text=bei, bg=BG, fg=SUB,
+                                  font=fenster.f_klein, anchor='e',
+                                  cursor='hand2', padx=8, pady=3)
+                rechts.pack(side='right')
+                mitfaerben = (eintrag, links, rechts)
             eintrag.pack(fill='x')
-            eintrag.bind('<Button-1>', lambda _e, n=name: waehlen(n))
-            eintrag.bind('<Enter>', lambda _e, w=eintrag: w.configure(bg=FLAECHE))
-            eintrag.bind('<Leave>', lambda _e, w=eintrag: w.configure(bg=BG))
+            for teil in mitfaerben:
+                teil.bind('<Button-1>', lambda _e, n=name: waehlen(n))
+                teil.bind('<Enter>', lambda _e, w=mitfaerben: [
+                    x.configure(bg=FLAECHE) for x in w])
+                teil.bind('<Leave>', lambda _e, w=mitfaerben: [
+                    x.configure(bg=BG) for x in w])
         rest = 0 if rollbar else len(treffer) - hoechstens
         if rest > 0:
             tk.Label(halter, text=t('s_af_weitere').format(n=rest), bg=BG,
