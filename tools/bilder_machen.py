@@ -102,6 +102,12 @@ BREITE, HOEHE = 1400, 860
 # jemand es beim Umschalten sehen.
 WEIT_WEG = (9000, 9000)
 
+# ⚠ Unter Linux ist der ganze Schirm virtuell (`xvfb-run`), dort gibt es kein
+# „ausserhalb" — und ein Fenster bei 9000,9000 waere schlicht nicht abgreifbar.
+# Es steht deshalb bei 0,0; gesehen wird es trotzdem von niemandem.
+if sys.platform != 'win32':
+    WEIT_WEG = (0, 0)
+
 # Welche Seite unter welchem Namen abgelegt wird. Die Kennungen sind die aus
 # `scbp/seiten.py`.
 SEITEN = {
@@ -121,6 +127,17 @@ SEITEN = {
     'ueber':        'screenshot-ueber',
     'danke':        'screenshot-danke',
 }
+
+# ⚠⚠ **Das Overlay ist keine Seite.** Es ist ein eigenes Fenster einer eigenen
+# Klasse und braucht deshalb eine eigene Tk-Instanz — die Seiten teilen sich
+# eine, und zwei `tk.Tk()` in einem Prozess vertraegt Tk nicht verlaesslich
+# (siehe den Kommentar in `Overlay.__init__`, ein Tester bekam dadurch
+# reproduzierbar SIGSEGV). Es laeuft deshalb in einem EIGENEN PROZESS.
+#
+# Genau weil es nicht in diese Tabelle passte, fiel es aus dem Werkzeug heraus
+# und blieb als einziges von Hand gemacht — mit dem Ergebnis, dass sein Bild
+# eineinhalb Wochen alt war und eine Fassung von vor 18 Versionen zeigte.
+OVERLAY_NAME = 'screenshot-overlay'
 
 
 def io_lesen(pfad):
@@ -165,7 +182,38 @@ def datenstand_kopieren():
                              os.path.join(ziel, name))
             except Exception:
                 pass
+    _gefaehrliches_abschalten(ziel)
     return ziel
+
+
+def _gefaehrliches_abschalten(ordner):
+    """In der Kopie alles ausschalten, was ausserhalb der Kopie wirkt.
+
+    ⚠⚠ **Die Kopie schuetzt die eigenen Daten, nicht das Spiel.** `SC_BP_HOME`
+    lenkt Bestand, Einstellungen und Zwischenspeicher in den Wegwerf-Ordner —
+    die `global.ini` von Star Citizen liegt aber woanders, und `inj_auto`
+    („Selbst aktuell halten") schreibt beim Start hinein. Ein Werkzeug, das
+    fuer ein Bildschirmfoto die Spieldateien anfasst, ist ein Werkzeug zu viel.
+
+    ⚠ Ebenso der Autostart: Er traegt sich in Registry bzw. `.desktop` ein,
+    beides ausserhalb jeder Kopie.
+    """
+    import json
+    pfad = os.path.join(ordner, 'einstellungen.json')
+    try:
+        with open(pfad, encoding='utf-8') as datei:
+            daten = json.load(datei)
+    except Exception:
+        daten = {}
+    if not isinstance(daten, dict):
+        daten = {}
+    daten['inj_auto'] = False
+    daten['autostart'] = False
+    try:
+        with open(pfad, 'w', encoding='utf-8', newline='\n') as datei:
+            json.dump(daten, datei, ensure_ascii=False, indent=1)
+    except Exception:
+        pass
 
 
 def marken_loeschen():
@@ -262,6 +310,51 @@ def neu_zeichnen(fenster):
         pass
 
 
+def abgreifen_x11(fenster, ziel):
+    """Dasselbe unter Linux — vom unsichtbaren Bildschirm.
+
+    ⚠⚠ **Warum es diesen zweiten Weg gibt (06.09.2026).** Das Werkzeug konnte
+    nur unter Windows arbeiten (`PrintWindow`) und brach sonst mit
+    „braucht Windows" ab. Auf dem Rechner, auf dem entwickelt wird, laeuft
+    Linux — die Bilder der Anleitung waren deshalb vom 31.08.2026 und zeigten
+    eine Oberflaeche von vor drei Wochen. Genau der Zustand, gegen den dieses
+    Werkzeug gebaut wurde: Was von Hand gemacht wird, verrottet. Ein Werkzeug,
+    das auf dem Hauptsystem nicht laeuft, verrottet mit.
+
+    ⚠ **Der Bildschirm des Nutzers wird nicht angefasst.** Der ganze Lauf
+    startet sich unter `xvfb-run` neu (`unsichtbar.sicherstellen`); das Fenster
+    steht auf einem Schirm, den es nur im Speicher gibt. Deshalb darf es hier
+    — anders als unter Windows — ganz normal an Position 0,0 stehen: Sichtbar
+    ist dort ohnehin niemand.
+
+    Abgegriffen wird der Schirm und auf das Fenster zugeschnitten. Unter Xvfb
+    liegt nichts anderes darauf, es kann also nichts Fremdes ins Bild geraten.
+    """
+    from PIL import ImageGrab
+
+    # ⚠ `fenster` ist hier das Tk-Fenster selbst (der Aufrufer uebergibt
+    # `fenster.root`), nicht das Hauptfenster-Objekt.
+    fenster.update_idletasks()
+    x, y = fenster.winfo_rootx(), fenster.winfo_rooty()
+    breite, hoehe = fenster.winfo_width(), fenster.winfo_height()
+    if breite < 100 or hoehe < 100:
+        return False
+
+    schirm = os.environ.get('DISPLAY')
+    if not schirm:
+        raise RuntimeError('Kein DISPLAY — bitte unter xvfb-run starten.')
+    bild = ImageGrab.grab(xdisplay=schirm)
+    bild = bild.crop((x, y, x + breite, y + hoehe))
+
+    # ⚠ Dieselbe Wache wie unter Windows: Ein leeres Bild heisst, dass das
+    # Fenster nicht gezeichnet hat. Lieber nichts ablegen als ein schwarzes
+    # Rechteck in der Anleitung.
+    if not bild.getbbox():
+        return False
+    bild.convert('RGB').save(ziel)
+    return True
+
+
 def abgreifen(fenster, ziel):
     """Das Fenster in eine PNG-Datei zeichnen lassen. Gibt True bei Erfolg.
 
@@ -270,9 +363,10 @@ def abgreifen(fenster, ziel):
     """
     from PIL import Image
 
-    hwnd = int(fenster.wm_frame(), 16) if sys.platform == 'win32' else None
-    if hwnd is None:
-        raise RuntimeError('Dieses Werkzeug braucht Windows (PrintWindow).')
+    if sys.platform != 'win32':
+        return abgreifen_x11(fenster, ziel)
+
+    hwnd = int(fenster.wm_frame(), 16)
 
     user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
 
@@ -334,9 +428,99 @@ def abgreifen(fenster, ziel):
     return bool(geglueckt)
 
 
+def overlay_bild(ziel, englisch=False):
+    """Das Overlay selbst fotografieren — es ist kein Seiten-Fenster.
+
+    ⚠⚠ **Warum es hier fehlte (06.09.2026).** `SEITEN` kennt nur die Seiten des
+    Hauptfensters; das Overlay ist eine eigene Klasse mit eigenem Fenster. Es
+    fiel dadurch aus dem Werkzeug heraus und blieb als einziges von Hand
+    gemacht — mit dem Ergebnis, dass sein Bild vom 27.08.2026 stammte und
+    **v3.0.0-rc58** zeigte, mit gelben „vorlaeufig"-Eintraegen und „mit
+    Launcher" als Autoritaet. Beides gibt es seit rc95 nicht mehr. Ein Bild,
+    das ein Verhalten zeigt, das es nicht mehr gibt, ist schlimmer als ein
+    altes: Es verspricht etwas Falsches.
+
+    ⚠ **Der Watcher-Thread laeuft dabei mit** — er gehoert zur Klasse. Was er
+    anfassen koennte, ist vorher abgeschaltet (`_gefaehrliches_abschalten`);
+    seine Daten liegen ohnehin in der Wegwerf-Kopie.
+
+    Die Zeilen werden von Hand gesetzt statt abgewartet: Ein echter Fund
+    braucht ein laufendes Spiel, und ein leeres Overlay erklaert niemandem,
+    wozu das Werkzeug gut ist.
+    """
+    from scbp import sprache
+    import sc_bp_watcher
+
+    sprache.setzen('en' if englisch else 'de')
+    # ⚠ **Keine eigene `tk.Tk()`.** `Overlay` legt selbst eine an und haelt sie
+    # in `.root` — eine zweite waere genau der Fall, den Tk nicht vertraegt.
+    overlay = sc_bp_watcher.Overlay()
+    fenster = overlay.root
+
+    # ⚠⚠ **`deiconify()` nicht vergessen.** Das Overlay startet versteckt und
+    # zeigt sich erst, wenn alles bereit ist. Ohne diesen Aufruf misst Tk
+    # **1x1 Pixel** und der Abgriff liefert ein leeres Bild — der Grund, warum
+    # der erste Anlauf wortlos „FEHL" meldete.
+    fenster.deiconify()
+    # ⚠ Knapp gehalten. Das alte Bild war 1240x888 und bestand zu zwei Dritteln
+    # aus leerer Flaeche — das Overlay ist im Betrieb schmal und niedrig, so
+    # soll es auch aussehen.
+    fenster.geometry('%dx%d+%d+%d' % (760, 300, WEIT_WEG[0], WEIT_WEG[1]))
+
+    # ⚠ Dem Watcher-Faden Zeit lassen: Die Kopfzeile („413 Bauplaene · Log ✓")
+    # entsteht erst, wenn er den Bestand gelesen hat. Wer zu frueh abgreift,
+    # fotografiert „Starte ...".
+    ende_zeit = time.time() + 4.0
+    while time.time() < ende_zeit:
+        fenster.update()
+        fenster.update_idletasks()
+        time.sleep(0.02)
+
+    # Ein glaubwuerdiger Stand: zwei eigene Funde, ein Katalog-Zuwachs. Von
+    # Hand gesetzt — ein echter Fund braucht ein laufendes Spiel.
+    jetzt = time.strftime('%H:%M:%S')
+    overlay.add_new('Arclight "Midnight" Pistol', 'FPS, Pistol', '–/A/1', jetzt)
+    overlay.add_new('CF-337 Panther Repeater', 'Laser Repeater', '–/–/3', jetzt)
+    overlay.add_catalog('Zephyr', 'Quantum Drive', jetzt, '')
+    for _ in range(14):
+        fenster.update()
+        fenster.update_idletasks()
+        time.sleep(0.02)
+
+    geglueckt = abgreifen(fenster, ziel)
+    try:
+        fenster.destroy()
+    except Exception:
+        pass
+    return geglueckt
+
+
 def main():
+    # ⚠⚠ **Zuerst, vor jedem Tk-Fenster.** Unter Windows genuegte es, das
+    # Fenster weit ausserhalb aufzubauen; unter Linux haengt die Shell an
+    # `DISPLAY=:0`, also am echten Monitor — ein Fenster blitzt dort auf und
+    # reisst den Tastaturfokus mit. Wer gerade Star Citizen fliegt, landet im
+    # Desktop und stirbt (am 29.08.2026 rund zwanzig Mal passiert).
+    #
+    # ⚠ Der Schirm muss groesser sein als das Fenster, sonst schneidet Xvfb ab.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import unsichtbar
+    unsichtbar.sicherstellen(BREITE + 100, HOEHE + 90)
+
     argumente = [a for a in sys.argv[1:] if not a.startswith('--')]
     englisch = '--en' in sys.argv
+
+    # ⚠ Der eigene Prozess fuer das Overlay — siehe `OVERLAY_NAME`.
+    if '--nur-overlay' in sys.argv:
+        os.environ['SC_BP_HOME'] = datenstand_kopieren()
+        os.environ['SC_BP_NO_NET'] = '1'
+        marken_loeschen()
+        ziel = os.path.join(HIER, 'assets',
+                            OVERLAY_NAME + ('-en' if englisch else '') + '.png')
+        ok = overlay_bild(ziel, englisch)
+        print('  [%s]   %s' % ('ok' if ok else 'FEHL', os.path.basename(ziel)))
+        return 0 if ok else 1
+
     gewuenscht = argumente or list(SEITEN)
 
     unbekannt = [s for s in gewuenscht if s not in SEITEN]
