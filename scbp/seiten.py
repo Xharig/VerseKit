@@ -13525,6 +13525,42 @@ def _achsen(fenster, rahmen):
     innen = _rollflaeche(rahmen)
     _fliesstext(innen, t('s_ac_hinweis'), fenster.f_klein, fill='x')
 
+    # ⚠⚠⚠ **Liegen mehrere Belegungsdateien da, muss man das sehen.** Am
+    # 06.09.2026 las der Watcher die falsche von zweien und zeigte eine
+    # Empfindlichkeit von 2, während im Spiel überall 1,00 stand — und weil
+    # in der alten Datei die Geräte anders durchnummeriert waren, die Werte
+    # des falschen Sticks dazu. Nichts davon war zu sehen.
+    #
+    # Gelesen wird jetzt die zuletzt geänderte (`joysticks.alle_actionmaps`).
+    # Das allein reicht aber nicht: Solange die Karteileiche danebenliegt,
+    # kann sie beim nächsten Kopiervorgang wieder die jüngere sein. Deshalb
+    # steht hier, was gefunden wurde — und welche davon zählt.
+    from . import joysticks as _js_dateien
+    _dateien = _js_dateien.alle_actionmaps()
+    if len(_dateien) > 1:
+        _kasten = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
+                           highlightbackground=GOLD)
+        _kasten.pack(fill='x', padx=24, pady=(8, 4))
+        tk.Label(_kasten, text=t('s_ac_doppelt'), bg=FLAECHE, fg=FG,
+                 font=fenster.f_klein, justify='left',
+                 wraplength=760).pack(anchor='w', padx=12, pady=(10, 6))
+        for _nr, _weg in enumerate(_dateien):
+            try:
+                _zeit = time.strftime(
+                    '%d.%m.%Y %H:%M', time.localtime(os.path.getmtime(_weg)))
+            except OSError:
+                _zeit = '—'
+            # ⚠ Der volle Pfad, nicht nur der Dateiname — die Dateien heißen
+            # alle gleich, sie unterscheiden sich nur im Ordner davor. Genau
+            # diese Unterscheidung ist der ganze Punkt.
+            tk.Label(_kasten,
+                     text='%s  ·  %s  ·  %s'
+                          % (t('s_ac_gelesen') if _nr == 0
+                             else t('s_ac_liegt'), _zeit, _weg),
+                     bg=FLAECHE, fg=ACCENT if _nr == 0 else SUB,
+                     font=fenster.f_klein, justify='left',
+                     wraplength=760).pack(anchor='w', padx=12, pady=(0, 6))
+
     # ⚠ Wie bei den Joysticks: Was neu gezeichnet wird, steht in einem eigenen
     # Rahmen. Der Kopftext darüber bleibt stehen.
     inhalt = tk.Frame(innen, bg=BG)

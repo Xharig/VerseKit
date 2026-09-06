@@ -6,6 +6,30 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.3 - 2026-09-06
+
+> **On Linux the watcher read the wrong mapping file.** It showed sensitivity
+> and dead zone values that were never set in the game — and because the sticks
+> are numbered differently in the old file, those values belonged to the wrong
+> device on top of that.
+
+### Fixed
+
+- **There can be several `actionmaps.xml` files, and the watcher picked the
+  wrong one.** On Windows the folders `USER` and `user` are the same; on Linux
+  they are two separate ones. Anyone moving over from a Windows install ends up
+  with both — holding different content. The watcher always tried `USER` first,
+  regardless of age. Now the **most recently changed** one wins: the one the
+  game actually works with.
+- This affected everything coming from that file: sensitivity, dead zone,
+  saturation, the device numbers and which function sits on which axis.
+
+### New
+
+- **If several mapping files sit side by side, "Axes & curves" now says so** —
+  with the full path, the change date, and which one is being read. Until now
+  this happened silently.
+
 ## v3.19.2 - 2026-09-06
 
 > **The curve showed a sensitivity that did not exist on that axis.** An axis

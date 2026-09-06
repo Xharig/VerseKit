@@ -871,6 +871,27 @@ TEXTE = {
                         'überhaupt noch gilt.',
                           'How sharply your sticks respond — and which of '
                           'those settings still apply.'),
+    # ⚠⚠⚠ **Sichtbarkeit für einen Fehler, der still zuschlug.** Am
+    # 06.09.2026 lagen in EINER Installation zwei Belegungsdateien
+    # nebeneinander: `LIVE/user/client/…` (das Spiel) und `LIVE/USER/client/…`
+    # (eine Karteileiche aus der Windows-Installation). Der Watcher las die
+    # falsche und zeigte eine Empfindlichkeit von 2, während im Spiel überall
+    # 1,00 stand — und weil dort auch die Gerätereihenfolge anders war, die
+    # Werte des falschen Sticks dazu.
+    #
+    # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
+    # Wer aus einer Windows-Installation herüberzieht, hat danach beide und
+    # merkt nichts davon. Deshalb steht es jetzt auf der Seite.
+    's_ac_doppelt':    ('Es liegen mehrere Belegungsdateien nebeneinander. '
+                        'Gelesen wird die zuletzt geänderte — das ist die, '
+                        'mit der das Spiel arbeitet. Die anderen sind '
+                        'Überbleibsel und wirken nicht mehr:',
+                          'Several mapping files sit side by side. The most '
+                          'recently changed one is used — that is the one the '
+                          'game works with. The others are leftovers and no '
+                          'longer take effect:'),
+    's_ac_gelesen':    ('wird gelesen', 'in use'),
+    's_ac_liegt':      ('liegt nur herum', 'leftover'),
     's_ac_hinweis':    ('Star Citizen speichert Totzone und Sättigung an der '
                         'Kennung des Geräts, nicht an seinem Namen. Bekommt '
                         'ein Stick eine neue Kennung — anderer USB-Anschluss, '

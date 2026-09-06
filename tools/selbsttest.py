@@ -33,6 +33,7 @@ hier als Fälle drin, damit ein Umbau sie nicht unbemerkt wieder einreißt.
 """
 import importlib
 import json
+import io
 import os
 import re
 import shutil
@@ -14715,6 +14716,74 @@ def main():
            'bei Exponent 1 ist die Kurve eine Gerade')
     pruefe(abs(_kv165.antwort(0.25, 0.0, 1.0, 2.0) - 0.0625) < 0.001,
            'bei Exponent 2 liegt Viertelausschlag bei 6,25 %% (gebogen)')
+
+    # ------------------------------------------------------------------
+    # 166. Bei mehreren Belegungsdateien gewinnt die juengste
+    #
+    # ⚠⚠⚠ **Der Fehler, der alles andere wertlos machte.** Am 06.09.2026 lagen
+    # in EINER Installation zwei `actionmaps.xml` nebeneinander:
+    # `LIVE/user/client/…` (dort schreibt das Spiel) und `LIVE/USER/client/…`
+    # (eine Karteileiche aus der Windows-Installation). Der Watcher nahm stur
+    # die erste Schreibweise, die es gab — `USER` — und zeigte damit eine
+    # Empfindlichkeit von 2, waehrend im Spiel ueberall 1,00 stand.
+    #
+    # ⚠ Schlimmer noch: In der alten Datei waren die Geraete anders
+    # durchnummeriert (`instance=1` war der rechte Stick statt des linken).
+    # Der Watcher zeigte also nicht nur alte Werte, sondern die des falschen
+    # Geraets — und das sah aus wie ein Bedienfehler des Spielers.
+    #
+    # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
+    # Die Lehre stand zu dem Zeitpunkt schon im Code: `_pfad_mappings` nimmt
+    # seit dem 04.09.2026 den zuletzt geaenderten Ordner, aus genau diesem
+    # Grund. Bei den Belegungsdateien war sie nicht gezogen worden.
+    # **Eine Lehre, die nur an einer von zwei Stellen sitzt, ist keine.**
+    print()
+    print('166. Bei mehreren Belegungsdateien gewinnt die juengste')
+    import tempfile as _tf166
+    from scbp import joysticks as _js166
+
+    _ordner166 = _tf166.mkdtemp(prefix='actionmaps-')
+    try:
+        # Zwei Dateien anlegen, wie sie unter Linux nebeneinander liegen.
+        _wege = {}
+        for _oben, _mitte in (('USER', 'client'), ('user', 'client')):
+            _ordner = os.path.join(_ordner166, _oben, _mitte, '0', 'Profiles',
+                                   'default')
+            os.makedirs(_ordner)
+            _weg = os.path.join(_ordner, 'actionmaps.xml')
+            with io.open(_weg, 'w', encoding='utf-8') as _f:
+                _f.write('<ActionMaps/>')
+            _wege[_oben] = _weg
+
+        # ⚠ Die GROSSE aelter machen — sie steht in der Suchreihenfolge vorn.
+        # Genau das war der Fehler: Reihenfolge schlug Alter.
+        os.utime(_wege['USER'], (1000, 1000))
+        os.utime(_wege['user'], (2000, 2000))
+        pruefe(_js166._pfad_actionmaps(_ordner166) == _wege['user'],
+               'die juengere (klein geschrieben) gewinnt gegen die '
+               'zuerst gesuchte')
+
+        # Gegenprobe: umgekehrt muss die andere gewinnen.
+        os.utime(_wege['USER'], (3000, 3000))
+        pruefe(_js166._pfad_actionmaps(_ordner166) == _wege['USER'],
+               'Gegenprobe: ist die grosse juenger, gewinnt sie')
+
+        pruefe(len(_js166.alle_actionmaps(_ordner166)) == 2,
+               'beide Dateien werden gefunden, nicht nur eine')
+        pruefe(_js166.alle_actionmaps(_ordner166)[0] == _wege['USER'],
+               'die Liste kommt sortiert, neueste zuerst')
+    finally:
+        shutil.rmtree(_ordner166, ignore_errors=True)
+
+    # ⚠ Und ohne jede Datei darf es nicht knallen, sondern `None` geben.
+    _leer = _tf166.mkdtemp(prefix='actionmaps-leer-')
+    try:
+        pruefe(_js166._pfad_actionmaps(_leer) is None,
+               'ohne Datei kommt None zurueck, kein Absturz')
+        pruefe(_js166.alle_actionmaps(_leer) == [],
+               'und eine leere Liste')
+    finally:
+        shutil.rmtree(_leer, ignore_errors=True)
 
     print()
     if fehler:

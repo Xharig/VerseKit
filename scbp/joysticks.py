@@ -140,24 +140,77 @@ PROFIL_RUBRIKEN = (
 NAME_VERBOTEN = re.compile(r'[^A-Za-z0-9_\-]')
 
 
-def _pfad_actionmaps(ordner=None):
-    """Wo die Belegungsdatei des Spielers liegt.
+def alle_actionmaps(ordner=None):
+    """**Alle** vorhandenen Belegungsdateien, neueste zuerst.
 
-    ⚠ Der Ordner heisst je nach Installation `USER` oder `user` — unter Linux
-    (Wine, Dateisystem unterscheidet Gross- und Kleinschreibung) sind beide
-    Formen schon aufgetreten, teilweise nebeneinander. Deshalb wird gesucht
-    statt geraten.
+    ⚠⚠⚠ **Es kann mehrere geben, und sie haben verschiedene Inhalte.** Unter
+    Windows sind `USER` und `user` derselbe Ordner; unter Linux (Wine, das
+    Dateisystem unterscheidet Gross- und Kleinschreibung) sind es **zwei**.
+    Wer aus einer Windows-Installation herueberzieht, hat danach beide — und
+    merkt nichts davon.
+
+    Gemessen am 06.09.2026 auf einem Linux-Rechner, in **einer**
+    Installation:
+
+    | Ordner | geaendert | Inhalt |
+    |---|---|---|
+    | `LIVE/user/client/…` | 17:19 — **das Spiel** | keine Exponenten |
+    | `LIVE/USER/client/…` | 17:13 — die Karteileiche | 22 Exponenten |
+
+    Die Karteileiche stammte erkennbar von Windows: Sie nannte die Geraete
+    „RIGHT VPC Stick" und „Tastatur", waehrend das Linux-Spiel „R-VPC Stick"
+    und „Wine Keyboard" schreibt. **Und sie hatte eine andere Reihenfolge** —
+    `instance=1` war dort der rechte Stick, im Spiel ist es der linke. Wer sie
+    liest, zeigt dem Spieler also nicht nur veraltete Werte, sondern die Werte
+    des **falschen Geraets**.
     """
     basis = ordner or pfade.spiel_ordner()
     if not basis:
-        return None
-    unten = os.path.join('Client', '0', 'Profiles', 'default',
-                         'actionmaps.xml')
+        return []
+    gefunden = []
     for oben in ('USER', 'user'):
-        weg = os.path.join(basis, oben, unten)
-        if os.path.isfile(weg):
-            return weg
-    return None
+        for mitte in ('Client', 'client'):
+            weg = os.path.join(basis, oben, mitte, '0', 'Profiles', 'default',
+                               'actionmaps.xml')
+            if not os.path.isfile(weg):
+                continue
+            # ⚠ Auf einem Dateisystem, das Gross-/Kleinschreibung NICHT
+            # unterscheidet, zeigen mehrere Schreibweisen auf **dieselbe**
+            # Datei. Ueber die Inode entdoppeln, nicht ueber den Namen.
+            try:
+                kennung = os.stat(weg).st_ino
+            except OSError:
+                continue
+            if kennung not in [k for k, _ in gefunden]:
+                gefunden.append((kennung, weg))
+    wege = [w for _, w in gefunden]
+    try:
+        wege.sort(key=os.path.getmtime, reverse=True)
+    except OSError:
+        pass
+    return wege
+
+
+def _pfad_actionmaps(ordner=None):
+    """Wo die Belegungsdatei liegt, **mit der das Spiel wirklich arbeitet**.
+
+    ⚠⚠⚠ **Die erste Fassung nahm stur `USER` zuerst** — die erste Schreibweise,
+    die es gab, unabhaengig vom Alter. Am 06.09.2026 war das die falsche: Der
+    Watcher zeigte 22 Exponenten und eine Empfindlichkeit von 2, waehrend im
+    Spiel ueberall 1,00 stand — gemeldet mit einem berechtigten „mir reicht
+    es langsam".
+
+    Dabei stand die Loesung schon im selben Modul — `_pfad_mappings()` nimmt
+    seit dem 04.09.2026 den **zuletzt geaenderten** Ordner, aus genau diesem
+    Grund. Hier wurde sie nicht angewendet. Eine Lehre, die nur an einer von
+    zwei Stellen gezogen wird, ist keine.
+
+    **Die juengste gewinnt.** Sobald das Spiel schreibt, ist seine Datei die
+    juengste — die Wahl korrigiert sich damit von selbst und bleibt richtig,
+    auch wenn der Spieler die Installation wechselt.
+    """
+    wege = alle_actionmaps(ordner)
+    return wege[0] if wege else None
 
 
 def alle_mapping_ordner(ordner=None):

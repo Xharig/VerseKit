@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.3 - 2026-09-06
+
+> **Der Watcher las unter Linux die falsche Belegungsdatei.** Er zeigte
+> Empfindlichkeiten und Totzonen, die im Spiel gar nicht eingestellt waren —
+> und weil in der alten Datei die Sticks anders durchnummeriert sind, dazu die
+> Werte des falschen Geräts.
+
+### Behoben
+
+- **Es kann mehrere `actionmaps.xml` geben, und der Watcher nahm die falsche.**
+  Unter Windows sind die Ordner `USER` und `user` derselbe; unter Linux sind es
+  zwei getrennte. Wer aus einer Windows-Installation herüberzieht, hat danach
+  beide — mit verschiedenen Inhalten. Der Watcher nahm stur `USER` zuerst,
+  unabhängig vom Alter. Jetzt gewinnt die **zuletzt geänderte**: die, mit der
+  das Spiel wirklich arbeitet.
+- Betroffen war alles, was aus dieser Datei kommt: Empfindlichkeit, Totzone,
+  Sättigung, die Gerätenummern und was auf welcher Achse liegt.
+
+### Neu
+
+- **Liegen mehrere Belegungsdateien nebeneinander, steht das jetzt auf
+  „Achsen & Kurven"** — mit vollem Pfad und Änderungsdatum, und welche davon
+  gelesen wird. Vorher passierte das lautlos.
+
 ## v3.19.2 - 2026-09-06
 
 > **Die Kurve zeigte eine Empfindlichkeit, die es auf dieser Achse gar nicht
