@@ -86,6 +86,7 @@ abrufen.
 import html
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -294,18 +295,35 @@ class Ablage:
                 daten['spielstand'] = stand
         ziel = self.pfad()
         trenner = (',', ':') if kompakt else None
+        # ⚠⚠ **Ein eigener Zwischenname je Schreibvorgang.** Bis zum
+        # 06.09.2026 hieß die Datei fest `<ziel>.tmp` — schreiben zwei Fäden
+        # gleichzeitig dieselbe Ablage (etwa zwei Abrufe der Steckplatzdaten),
+        # legen beide dieselbe `.tmp` an, der erste benennt sie um, und dem
+        # zweiten fehlt sie: `No such file or directory: …tmp -> …json`.
+        #
+        # Der Schreibvorgang war also atomar, aber nicht nebenläufig-sicher.
+        # Mit Prozess- und Faden-Nummer im Namen stören sie sich nicht mehr;
+        # das abschließende `os.replace` bleibt atomar wie zuvor.
+        zwischen = '%s.%d.%d.tmp' % (ziel, os.getpid(),
+                                     threading.get_ident() % 100000)
         try:
             os.makedirs(os.path.dirname(ziel), exist_ok=True)
-            with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
+            with open(zwischen, 'w', encoding='utf-8') as f:
                 if trenner:
                     json.dump(daten, f, ensure_ascii=False, separators=trenner)
                 else:
                     json.dump(daten, f, ensure_ascii=False)
-            os.replace(ziel + '.tmp', ziel)
+            os.replace(zwischen, ziel)
             self._gemerkt['stand'] = None
             return True
         except Exception as ausnahme:
             fehler.merken('uex.sichern.' + self.dateiname, ausnahme)
+            # ⚠ Die halbe Datei nicht liegen lassen — sie hieße sonst für immer
+            # `…12345.tmp` im Ablageordner des Nutzers.
+            try:
+                os.remove(zwischen)
+            except OSError:
+                pass
             return False
 
     def vergessen(self):

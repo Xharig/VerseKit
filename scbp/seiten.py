@@ -2570,13 +2570,37 @@ def _auftragslog(fenster, rahmen):
         Gemessen an 183 Sicherungen: **20 ms**, wenn sie gewachsen ist, und
         3 ms, wenn sich nichts getan hat.
         """
-        try:
-            missionslog.nachlese()
-        except Exception as ausnahme:
-            # Ein fehlgeschlagenes Nachlesen darf die Seite nicht leer lassen —
-            # der gespeicherte Stand ist immer noch besser als nichts.
-            fehler.merken('seiten.auftragslog_nachlese', ausnahme)
+        # ⚠⚠⚠ **Im Hintergrund, nicht im Seitenaufbau.** Der Kommentar oben
+        # nennt 20 ms — das gilt, wenn der Lesestand gefüllt ist und nur die
+        # laufende `Game.log` neu gelesen wird. Beim **ersten** Mal ist er
+        # leer, und dann werden alle Sicherungen durchgegangen: Beim
+        # Abnahme-Durchlauf am 06.09.2026 gemessen **9.003 ms** für diese eine
+        # Seite. Neun Sekunden, in denen das Fenster steht und auf keinen
+        # Klick reagiert — genau das, was in den Startverläufen als lange
+        # Ladezeit auffiel.
+        #
+        # Gezeigt wird sofort der gespeicherte Stand; was dazukommt, kommt
+        # nach. Ein Protokoll, das eine Sekunde später vollständig wird, ist
+        # besser als eines, für das man neun Sekunden wartet.
         zeichnen(neu_laden=True)
+
+        def nachlesen():
+            try:
+                missionslog.nachlese()
+            except Exception as ausnahme:
+                # Ein fehlgeschlagenes Nachlesen darf die Seite nicht leer
+                # lassen — der gespeicherte Stand ist besser als nichts.
+                fehler.merken('seiten.auftragslog_nachlese', ausnahme)
+                return
+            # ⚠ Zurück in den Oberflächen-Faden; und nur zeichnen, wenn es die
+            # Seite noch gibt.
+            try:
+                if rahmen.winfo_exists():
+                    rahmen.after(0, lambda: zeichnen(neu_laden=True))
+            except Exception:
+                pass
+
+        threading.Thread(target=nachlesen, daemon=True).start()
 
     # ⚠ Bei jedem Öffnen frisch laden — siehe oben. Ohne das bleibt eine Seite,
     # die während der Nachlese gebaut wurde, für immer leer.
@@ -7528,7 +7552,13 @@ def _laeden(fenster, rahmen):
                         pass
                 try:
                     stand_zeile.after(0, zeigen)
-                except tk.TclError:
+                except Exception:
+                    # ⚠⚠ **`Exception`, nicht nur `tk.TclError`.** Wird das
+                    # Fenster geschlossen, während dieser Faden noch lädt,
+                    # wirft Tk `RuntimeError: main thread is not in main
+                    # loop` — eine andere Ausnahme, die hier durchrutschte
+                    # und im Fehlerprotokoll des Nutzers landete. Beim
+                    # Abnahme-Durchlauf am 06.09.2026 gefunden.
                     pass
             try:
                 laden_modul.katalog_holen(fortschritt=melden)
