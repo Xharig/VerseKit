@@ -1988,14 +1988,19 @@ class Hauptfenster:
         # Was habe ich → was brauche ich dafür → wo hole ich das. So hat es
         # Xharig am 29.08.2026 selbst beschrieben, und so liest sich die
         # Leiste von oben nach unten wie ein Ablauf statt wie eine Sammlung.
+        # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt** (entschieden
+        # 06.09.2026). Die Werkstatt-Kette lautet „was habe ich an Material →
+        # was baue ich → wo hole ich es"; ein Schiff ist keine Zutat. Und der
+        # Bereich wächst: Auslegung und Bergung gehören später hierher, nicht
+        # zwischen Rohstoffe und Rezepte.
+        #
+        # **Zwischen Bauplänen und Werkstatt**, weil „passt der Bauplan in mein
+        # Schiff?" die unmittelbare Anschlussfrage an einen neuen Fund ist —
+        # sie kommt vor „woraus baue ich das".
+        g_schiff = self._gruppe(t('hf_gruppe_schiffe'), 'schiffe')
+        self._reiter('hangar', 'hangar', t('hf_hangar'), g_schiff)
+
         g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
-        # ⚠ **Vor dem Lager, nicht dahinter.** Die Kette der Werkstatt beginnt
-        # bei „was habe ich" — und das sind zwei Dinge: die Schiffe und das
-        # Material. Der Hangar steht zuerst, weil er die Frage beantwortet, die
-        # auf einen neuen Bauplan sofort folgt („passt das überhaupt irgendwo
-        # rein?"); das Material kommt erst, wenn man sich fürs Bauen entschieden
-        # hat.
-        self._reiter('hangar', 'hangar', t('hf_hangar'), g_werk)
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)
         self._reiter('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._reiter('bergbau', 'herkunft', t('hf_bergbau'), g_werk)

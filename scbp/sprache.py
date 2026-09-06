@@ -2554,14 +2554,29 @@ TEXTE = {
     's_hg_meine':        ('Meine Schiffe ({n})', 'My ships ({n})'),
     's_hg_leer':         ('Noch kein Schiff eingetragen.', 'No ship added yet.'),
     's_hg_pledge':       ('gekauft', 'pledged'),
-    's_hg_ingame':       ('im Spiel', 'in-game'),
+    's_hg_ingame':       ('im Spiel gekauft', 'bought in-game'),
     's_hg_lti':          ('LTI', 'LTI'),
     's_hg_plaetze':      ('{n} Steckplätze', '{n} slots'),
     's_hg_entfernen':    ('Austragen', 'Remove'),
     # ⚠ Kein „unbekannt": Erkul führt nur Schiffe, die im Spiel flugfähig sind.
     # Ein Treffer hier heißt fast immer „gibt es noch nicht" — das ist eine
     # Auskunft, keine Panne, und wird auch so gesagt.
-    's_hg_ohne_daten':   ('noch nicht im Spiel', 'not in the game yet'),
+    # ⚠ **Neutral, keine Behauptung.** Hier stand bis zum 06.09.2026 „noch
+    # nicht im Spiel" — und das war falsch, sobald die Zuordnung danebenlag
+    # (Ironclad Assault, Super Hornet Mk II fliegen längst). Was das Werkzeug
+    # sicher weiß, ist nur: es hat keine Daten. Die Aussage „Konzept" gibt es
+    # daneben, sie stützt sich aber auf UEX und nicht auf unser Nichtwissen.
+    's_hg_ohne_daten':   ('keine Steckplatz-Daten', 'no slot data'),
+    's_hg_konzept':      ('Konzept — noch nicht im Spiel',
+                          'Concept — not in the game yet'),
+    's_hg_nichts_gefunden': ('Kein Schiff mit diesem Namen.',
+                             'No ship by that name.'),
+    's_hg_such_hilfe':   ('Tipp ein paar Buchstaben, um zu suchen — oder klapp '
+                          'die Liste mit dem Pfeil auf und roll durch alle '
+                          'Schiffe. Punkte und Bindestriche kannst du weglassen.',
+                          'Type a few letters to search — or open the list with '
+                          'the arrow and scroll through every ship. You can '
+                          'leave out dots and hyphens.'),
     's_hg_ohne_erklaert': ('Für {n} Schiffe gibt es keine Steckplatz-Daten. Das '
                            'sind fast immer Schiffe, die es im Spiel noch gar '
                            'nicht gibt — sobald sie fliegen, kommen die Daten '
@@ -3110,6 +3125,7 @@ TEXTE = {
     # Hiess frueher Herstellung & Bergbau. Das deckte das Lager nicht ab,
     # das seit v3.3.0 in derselben Gruppe sitzt; drei Woerter waeren als
     # Ueberschrift zu lang geworden.
+    'hf_gruppe_schiffe': ('Schiffe', 'Ships'),
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),

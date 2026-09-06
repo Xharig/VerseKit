@@ -59,7 +59,8 @@ QUELLE_MIETE = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
 # 2 seit v3.15.0 (die Werft kam dazu), 3 seit dem Entschlüsseln der
 # HTML-Zeichen — sonst bliebe „Grey&apos;s Market" in der alten Ablage stehen.
-FORMAT = 3
+# 4 seit v3.19.0: `konzept` kam dazu (siehe `aktualisieren`).
+FORMAT = 4
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
 HALTBAR = 30 * uex.TAG
@@ -129,6 +130,60 @@ def mit_frachtraum():
                      'scu': laderaum})
     raus.sort(key=lambda x: x['name'].lower())
     return raus
+
+
+def namen_alle():
+    """**Alle** Schiffe und Fahrzeuge, alphabetisch — auch ohne Frachtraum.
+
+    ⚠⚠ **Nicht mit `alle()` verwechseln.** Das dort filtert auf Laderaum und
+    liefert 134 von 280 — richtig für den Routenplaner, falsch überall sonst.
+    Im Hangar war es ein Fehler: Wer einen Arrow, einen Gladius oder ein
+    A.T.L.S. IKTI besitzt, konnte ihn **gar nicht eintragen**, weil kein Jäger
+    und kein Exo-Anzug Laderaum hat. Gemeldet am 06.09.2026.
+    """
+    schiffe = laden().get('schiffe') or {}
+    return sorted((s.get('name') or '' for s in schiffe.values()
+                   if s.get('name')), key=str.lower)
+
+
+def _finden(name):
+    """Der UEX-Eintrag zu einem Schiffsnamen — oder `None`.
+
+    ⚠⚠ **UEX führt den Hersteller im Namen mit** (`name_full`): „RSI Galaxy",
+    „Drake Ironclad Assault". Der Pledge-Export schreibt dagegen nur „Galaxy".
+    Ein Vergleich auf Gleichheit findet deshalb **nichts** — und genau daran
+    ist die Konzept-Erkennung beim ersten Anlauf gescheitert.
+
+    Deshalb zwei Stufen: erst gleich, dann als **Ende** des UEX-Namens. Der
+    zweite Weg zählt nur bei einem **einzigen** Treffer; „Galaxy" darf nicht
+    versehentlich das „Galaxy Cargo Module" erwischen.
+    """
+    gesucht = (name or '').strip().lower()
+    if not gesucht:
+        return None
+    alle_e = list((laden().get('schiffe') or {}).values())
+    for s in alle_e:
+        if (s.get('name') or '').lower() == gesucht:
+            return s
+    endet = [s for s in alle_e
+             if (s.get('name') or '').lower().endswith(' ' + gesucht)]
+    return endet[0] if len(endet) == 1 else None
+
+
+def kennt(name):
+    """Führt UEX ein Schiff dieses Namens?"""
+    return _finden(name) is not None
+
+
+def ist_konzept(name):
+    """Ist das Schiff laut UEX ein Konzept — also noch nicht im Spiel?
+
+    ⚠ **Fremdangabe, keine eigene Feststellung.** UEX pflegt das Feld von
+    Hand; steht dort nichts, kommt `False` zurück. Die Anzeige darf daraus
+    also „Konzept" folgern, aber niemals aus dem Fehlen von Steckplatz-Daten.
+    """
+    eintrag = _finden(name)
+    return bool(eintrag and eintrag.get('konzept'))
 
 
 def scu(name):
@@ -202,6 +257,15 @@ def aktualisieren():
             # die Drakes"). Ohne ihn wären 280 Schiffe eine Namensliste.
             schiffe[kennung] = {'name': name, 'scu': int(x.get('scu') or 0),
                                 'werft': (x.get('company_name') or '').strip()}
+            # ⭐⭐ **`is_concept` beantwortet eine Frage, die wir sonst raten
+            # müssten:** Gibt es das Schiff im Spiel schon? Der Hangar zeigt zu
+            # jedem Schiff ohne Steckplatz-Daten, woran das liegt — und ohne
+            # dieses Feld stand dort „noch nicht im Spiel" auch bei Schiffen,
+            # die längst fliegen (gemeldet 06.09.2026: Ironclad Assault,
+            # Super Hornet Mk II). Eine Behauptung, die man nicht belegen kann,
+            # gehört nicht ins Werkzeug.
+            if x.get('is_concept'):
+                schiffe[kennung]['konzept'] = 1
 
     # ⚠ Die Preislisten dürfen fehlschlagen, ohne dass alles scheitert: Ohne
     # sie kennt man wenigstens noch die Frachträume, und genau die braucht der

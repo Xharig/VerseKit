@@ -6,6 +6,39 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc2 - 2026-09-06
+
+> **The hangar now finds its ships.** Fighters, racers and exosuits could not
+> be added at all, and ships that have been flying for ages were listed as "not
+> in the game yet". Both are fixed; the hangar also moved out of the workshop
+> into its own *Ships* section.
+
+### New
+
+- **Its own *Ships* section** in the sidebar, between blueprints and workshop.
+  A hangar is not an ingredient for crafting, and the section will grow.
+
+### Improved
+
+- **Every ship is offered, not just the ones with cargo space.** The list had
+  134 out of 280 — Arrow, Gladius and A.T.L.S. IKTI were missing entirely.
+- **The picker scrolls.** Instead of ten names and "124 more" you see every
+  ship and can browse; a line above explains how the field works.
+- **Dots and hyphens no longer matter when searching.** "ATLS" finds
+  "A.T.L.S." and the other way round.
+
+### Fixed
+
+- **"Not in the game yet" showed for ships that have long been flying** — the
+  Ironclad Assault and the F7C-M Super Hornet Mk II simply were not recognised.
+  Matching now understands spelled-out manufacturers ("Drake" ↔ `drak`) and
+  roman numerals ("Mk II" ↔ `mk2`). Where nothing is really known it says "no
+  slot data"; "Concept — not in the game yet" only when that is actually
+  backed up.
+- **"In-game" now reads "bought in-game"** — it describes where a ship came
+  from, not where it is.
+- The no-results message talked about commodities instead of ships.
+
 ## v3.19.0-rc1 - 2026-09-06
 
 > **Your hangar joins in — and with it the question that follows every new

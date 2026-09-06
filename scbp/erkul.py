@@ -222,12 +222,22 @@ def kandidaten(name, hersteller='', kurz='', hkurz=''):
 
 
 def kennung(name, hersteller='', kurz='', hkurz=''):
-    """Ein Schiff → erkuls Kennung, oder `''`."""
+    """Ein Schiff → erkuls Kennung, oder `''`.
+
+    Drei Stufen, in dieser Reihenfolge: Buchstabenvergleich über den Kurznamen,
+    dann über den angezeigten Namen, dann **wortweise**. Die dritte kostet
+    etwas mehr, greift aber genau dort, wo die ersten beiden scheitern — und
+    das ist bei jedem vierten Schiff der Fall.
+    """
     bekannt = laden().get('schiffe') or {}
     for schlank in kandidaten(name, hersteller, kurz, hkurz):
         if schlank in bekannt:
             return schlank
-    return ''
+    # ⚠ Wortweise wird gegen die **Original-Kennungen** gesucht (`id`), nicht
+    # gegen die geschliffenen Schlüssel — sonst fehlen die Wortgrenzen.
+    nach_id = dict((v.get('id') or k, k) for k, v in bekannt.items())
+    treffer = _wortweise_suchen(nach_id, name, hersteller, kurz, hkurz)
+    return nach_id.get(treffer, '') if treffer else ''
 
 
 def _schlank(text):
@@ -238,6 +248,95 @@ def _schlank(text):
     Schreibweisen derselben Sache und findet nichts.
     """
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
+# Römische Zahlen, wie sie in Schiffsnamen vorkommen. Weiter als V geht es
+# nicht — es gibt kein „Mk VI".
+_ROEMISCH = {'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5'}
+
+
+def _woerter(text):
+    """Ein Name → seine Wörter, mit `Mk II` zu `mk2` vereinheitlicht.
+
+    ⚠ Punkte und Bindestriche fallen **vor** dem Zerlegen weg, nicht danach:
+    Aus `F7C-M` wird `f7cm` (ein Wort, wie bei erkul), nicht `f7c` + `m`.
+    """
+    t = (text or '').lower().replace('.', '').replace('-', '')
+    raus = []
+    for wort in re.split(r'[^a-z0-9]+', t):
+        if not wort:
+            continue
+        treffer = re.fullmatch(r'mk\s*([ivx]+|\d+)', wort)
+        if treffer:
+            zahl = treffer.group(1)
+            raus.append('mk' + _ROEMISCH.get(zahl, zahl))
+            continue
+        # „Mk" und „II" getrennt geschrieben — zusammenziehen.
+        if wort in _ROEMISCH and raus and raus[-1] == 'mk':
+            raus[-1] = 'mk' + _ROEMISCH[wort]
+            continue
+        raus.append(wort)
+    return raus
+
+
+def _passt_wortweise(erkul_id, gesucht):
+    """Deckt `gesucht` alle Wörter dieser erkul-Kennung ab? Gibt die Güte zurück.
+
+    ⭐ **Die dritte Zuordnungsstufe** — sie fängt genau die Fälle, an denen
+    Buchstabenvergleich scheitert, und das sind keine Ausnahmen:
+
+    | im Hangar | bei erkul | woran es scheiterte |
+    |---|---|---|
+    | `Drake Ironclad Assault` | `drak_ironclad_assault` | Hersteller ausgeschrieben |
+    | `F7C-M Super Hornet Mk II` | `anvl_hornet_f7cm_mk2` | römische Zahl, andere Wortfolge |
+
+    ⚠ **Ein erkul-Wort darf auch Anfang eines gesuchten Worts sein** — genau so
+    verhält sich jedes Herstellerkürzel (`drak` → Drake, `aegs` → Aegis,
+    `anvl` → Anvil). Ohne das bleibt der halbe Hangar ohne Zuordnung.
+
+    ⚠ Und **umgekehrt gilt es nicht**: `gesucht` darf mehr Wörter haben als
+    erkul (`Super` steht nur im Hangar-Namen), aber jedes erkul-Wort muss
+    vorkommen. Sonst würde `anvl_hornet_f7cm` auch auf eine Mk II passen.
+    """
+    eigene = _woerter(erkul_id)
+    guete = 0
+    for wort in eigene:
+        if wort in gesucht:
+            guete += 2
+        elif any(g.startswith(wort) for g in gesucht):
+            guete += 1
+        else:
+            return 0
+    return guete
+
+
+def _wortweise_suchen(verzeichnis, name, hersteller='', kurz='', hkurz=''):
+    """Die beste wortweise Zuordnung — oder `''`, wenn sie nicht eindeutig ist.
+
+    ⚠ **Bei Gleichstand wird nichts zurückgegeben.** Zwei gleich gute Treffer
+    heißen, dass die Angabe nicht ausreicht; irgendeinen davon zu nehmen wäre
+    geraten. Lieber „keine Daten" sagen als das falsche Schiff zeigen.
+    """
+    # ⚠⚠ **Der Kurzcode bleibt hier draußen** — anders als in den Stufen davor.
+    # Er kann veraltet sein: Der Pledge-Export führt die „F7C-M Super Hornet
+    # Mk II" unter `ANVL_F7C_M_Super_Hornet_Mk_I`. Nimmt man ihn mit, stehen
+    # `mk1` **und** `mk2` in der Suchmenge, und `anvl_hornet_f7c_mk2` wird
+    # genauso gut bewertet wie `anvl_hornet_f7cm_mk2` — Gleichstand, also gar
+    # keine Zuordnung. Der angezeigte Name ist die verlässlichere Angabe.
+    gesucht = set(_woerter(' '.join(x for x in (hkurz, hersteller, name) if x)))
+    if not gesucht:
+        return ''
+    bewertet = []
+    for kennung_ in verzeichnis:
+        guete = _passt_wortweise(kennung_, gesucht)
+        if guete:
+            bewertet.append((guete, kennung_))
+    if not bewertet:
+        return ''
+    bewertet.sort(reverse=True)
+    if len(bewertet) > 1 and bewertet[0][0] == bewertet[1][0]:
+        return ''
+    return bewertet[0][1]
 
 
 def _plaetze_sammeln(knoten, raus):
@@ -331,7 +430,14 @@ def nachtragen(saetze):
                else dict(daten.get('schiffe') or {}))
 
     # Der Index nennt jedes Schiff mit seiner aktuellen Datei.
+    # ⚠⚠ **Zwei Sichten auf dasselbe Verzeichnis, und beide werden gebraucht.**
+    # `verzeichnis` hat den geschliffenen Schlüssel (`drakironcladassault`) für
+    # den Buchstabenvergleich; `roh_ids` behält die Original-Kennung
+    # (`drak_ironclad_assault`), weil die wortweise Suche die **Wortgrenzen**
+    # braucht. Beim ersten Anlauf gab es nur die erste Sicht — die wortweise
+    # Stufe lief damit gegen ein einziges langes Wort und traf nie etwas.
     verzeichnis = {}
+    roh_ids = {}
     for gruppe in (kat.get('groups') or []):
         pfad = gruppe.get('indexPath')
         if not pfad:
@@ -340,6 +446,7 @@ def nachtragen(saetze):
         for eintrag in ((index or {}).get('blobs') or []):
             if eintrag.get('id') and eintrag.get('path'):
                 verzeichnis[_schlank(eintrag['id'])] = eintrag
+                roh_ids[eintrag['id']] = eintrag
 
     geholt = 0
     for satz in saetze:
@@ -348,11 +455,23 @@ def nachtragen(saetze):
         if any(k in bekannt for k in moegliche):
             continue
         treffer = next((k for k in moegliche if k in verzeichnis), '')
+        quelle = verzeichnis
         if not treffer:
+            treffer = _wortweise_suchen(roh_ids, name, hersteller, kurz, hkurz)
+            quelle = roh_ids
+            # Abgelegt wird immer unter dem geschliffenen Schlüssel, damit
+            # `kennung()` beide Wege gleich behandelt.
+            schluessel = _schlank(treffer) if treffer else ''
+        else:
+            schluessel = treffer
+        if not treffer or schluessel in bekannt:
             continue
-        eins = schiff_holen(treffer, verzeichnis[treffer]['path'])
+        eins = schiff_holen(schluessel, quelle[treffer]['path'])
         if eins:
-            bekannt[treffer] = eins
+            # ⚠ Die Original-Kennung bleibt am Eintrag: `kennung()` braucht sie
+            # für dieselbe wortweise Suche gegen die Ablage.
+            eins['id'] = treffer
+            bekannt[schluessel] = eins
             geholt += 1
 
     if geholt or daten.get('spielversion') != version:

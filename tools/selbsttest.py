@@ -12276,8 +12276,27 @@ def main():
     # Claudes Shell haengt an `DISPLAY=:0`, also am Monitor des Nutzers — ohne
     # diesen Aufruf blitzt das Fenster dort auf und reisst den Tastaturfokus
     # mit. Wer gerade Star Citizen fliegt, landet im Desktop und stirbt.
-    pruefe('unsichtbar.sicherstellen(' in _bm138,
+    #
+    # ⚠⚠ **Gefragt wird der SYNTAXBAUM, nicht der Text.** Die erste Fassung
+    # dieser Zeile suchte schlicht nach `'unsichtbar.sicherstellen(' in …` —
+    # und blieb gruen, als der Aufruf zum Ausprobieren auskommentiert wurde:
+    # In `# unsichtbar.sicherstellen(...)` steht der gesuchte Text ja weiter
+    # drin. Eine Pruefung, die eine auskommentierte Sicherung fuer vorhanden
+    # haelt, prueft genau das Gegenteil von dem, wofuer sie gebaut wurde.
+    import ast as _ast138
+    _baum138 = _ast138.parse(_bm138)
+    _rufe138 = set()
+    for _k138 in _ast138.walk(_baum138):
+        if isinstance(_k138, _ast138.Call):
+            _f138 = _k138.func
+            if isinstance(_f138, _ast138.Attribute):
+                _rufe138.add(_f138.attr)
+            elif isinstance(_f138, _ast138.Name):
+                _rufe138.add(_f138.id)
+    pruefe('sicherstellen' in _rufe138,
            'das Werkzeug startet sich unsichtbar neu')
+    pruefe('deiconify' in _rufe138,
+           'das versteckte Overlay wird sichtbar gemacht (echter Aufruf)')
 
     # Beide Wege muessen da sein — sonst faellt ein System wieder heraus.
     pruefe('def abgreifen_x11(' in _bm138, 'es gibt einen Linux-Abgriff')
@@ -12290,11 +12309,6 @@ def main():
     pruefe('def overlay_bild(' in _bm138, 'das Overlay hat einen eigenen Weg')
     pruefe("'--nur-overlay'" in _bm138,
            'und einen eigenen Prozess (zwei tk.Tk() vertraegt Tk nicht)')
-    # ⚠ Ohne `deiconify` misst Tk 1x1 Pixel und der Abgriff liefert nichts —
-    # daran scheiterte der erste Anlauf, und zwar wortlos.
-    pruefe('deiconify()' in _bm138,
-           'das versteckte Overlay wird vorher sichtbar gemacht')
-
     # ⚠⚠ Und die Kopie muss auch das SPIEL schuetzen, nicht nur die eigenen
     # Daten: `SC_BP_HOME` lenkt Bestand und Einstellungen um, die `global.ini`
     # liegt woanders — `inj_auto` schreibt beim Start hinein.
@@ -12303,11 +12317,18 @@ def main():
     pruefe("daten['inj_auto'] = False" in _bm138,
            'die Auto-Injektion ist dabei ausgeschaltet')
 
-    # ⚠ Gegenprobe: Wuerde die Pruefung anschlagen? Ein Quelltext ohne diese
-    # Stellen muss durchfallen — sonst prueft alles darueber nichts.
-    _ohne138 = _bm138.replace('unsichtbar.sicherstellen(', 'pass  # (')
-    pruefe('unsichtbar.sicherstellen(' not in _ohne138,
-           'Gegenprobe: ein Werkzeug ohne den Aufruf faellt durch')
+    # ⚠⚠ **Gegenprobe am selben Weg, nicht an einem bequemeren.** Der Aufruf
+    # wird auskommentiert und der Baum neu gelesen: Genau so wurde die erste
+    # Fassung dieser Pruefung ueberfuehrt, die den Text durchsucht hatte.
+    _kaputt138 = _bm138.replace('    unsichtbar.sicherstellen(',
+                                '    pass  # unsichtbar.sicherstellen(')
+    _rufe_kaputt138 = set()
+    for _k138 in _ast138.walk(_ast138.parse(_kaputt138)):
+        if isinstance(_k138, _ast138.Call) and isinstance(
+                _k138.func, _ast138.Attribute):
+            _rufe_kaputt138.add(_k138.func.attr)
+    pruefe('sicherstellen' not in _rufe_kaputt138,
+           'Gegenprobe: ein auskommentierter Aufruf gilt NICHT als vorhanden')
 
     # Alle 32 Bilder der Anleitung sind da — 16 Seiten in zwei Sprachen.
     _bilder138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))

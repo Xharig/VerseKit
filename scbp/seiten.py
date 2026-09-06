@@ -29,6 +29,7 @@ Die großen Seiten leihen sich die vorhandenen Fenster: `bestandsfenster` und
 zeichnen, statt ein eigenes Fenster aufzumachen.
 """
 import os
+import re
 import sys
 import threading
 import time
@@ -8771,6 +8772,11 @@ def _hangar(fenster, rahmen):
                                                    pady=(18, 2))
     _fliesstext(innen, t('s_hg_hand_text'), fenster.f_klein, fill='x',
                 padx=24, abzug=48)
+    # ⚠ Sagt, wie das Feld benutzt wird. Ohne diesen Satz haelt man die
+    # sichtbare Liste fuer das ganze Angebot — genau das war die Rueckmeldung
+    # vom 06.09.2026.
+    _fliesstext(innen, t('s_hg_such_hilfe'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(8, 0))
@@ -8778,14 +8784,24 @@ def _hangar(fenster, rahmen):
     # Handelslager und beim Lagerort. Angenommen wird nur, was die Schiffsliste
     # kennt; sonst steht am Ende ein ausgedachter oder beleidigender Name im
     # Werkzeug, und ein Bildschirmfoto davon macht die Runde.
+    # ⚠⚠ **`namen_alle`, nicht `alle`** — das dort liefert nur Schiffe **mit
+    # Laderaum** (134 von 280). Damit liessen sich Jaeger, Renner und Exo-
+    # Anzuege gar nicht eintragen: Arrow, Gladius, A.T.L.S. IKTI. Gemeldet am
+    # 06.09.2026.
     zeile, auswahl, _ = _auswahlfeld(fenster, block, schiff,
-                                     alle_schiffe.alle)
+                                     alle_schiffe.namen_alle,
+                                     leer_text=t('s_hg_nichts_gefunden'),
+                                     rollbar=200)
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
     def von_hand():
         name = (schiff.get() or '').strip()
-        if not name or not alle_schiffe.scu(name) and name not in alle_schiffe.alle():
+        # ⚠⚠ **Geschlossene Liste** — dieselbe Regel wie beim Lagerort und
+        # beim Handelslager: Angenommen wird nur, was UEX kennt. Sonst steht am
+        # Ende ein ausgedachter oder beleidigender Name im Werkzeug, und ein
+        # Bildschirmfoto davon macht die Runde.
+        if not alle_schiffe.kennt(name):
             meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
             neu_zeichnen()
             return
@@ -8890,15 +8906,37 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              else t('s_hg_ingame')]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
+
+    # ⚠⚠ **Drei Zustände, nicht zwei** — und der Unterschied ist der ganze
+    # Punkt. Bis zum 06.09.2026 stand bei jedem Schiff ohne Steckplatz-Daten
+    # „noch nicht im Spiel". Das war schlicht **falsch**: Die Ironclad Assault
+    # und die Super Hornet Mk II fliegen längst, sie waren nur nicht zugeordnet.
+    # Aus einer fehlenden Zuordnung eine Aussage über das Spiel zu machen, ist
+    # genau die Sorte Behauptung, die dieses Werkzeug nicht aufstellt.
+    #
+    # | Lage | was dasteht |
+    # |---|---|
+    # | Steckplätze vorhanden | „N Steckplätze" |
+    # | UEX sagt `is_concept` | „Konzept — noch nicht im Spiel" |
+    # | sonst nichts bekannt | „keine Steckplatz-Daten" |
+    #
+    # Der mittlere Fall stützt sich auf eine **Fremdangabe** (UEX pflegt das
+    # Feld), nicht auf unser eigenes Nichtwissen.
+    from . import schiffe as alle_schiffe
     if plaetze:
         teile.append(t('s_hg_plaetze').format(
             n=sum(int(p.get('anzahl') or 0) for p in plaetze)))
+        farbe = SUB
+    elif alle_schiffe.ist_konzept(name):
+        teile.append(t('s_hg_konzept'))
+        farbe = GOLD
     else:
         teile.append(t('s_hg_ohne_daten'))
+        farbe = SUB
     unten = tk.Frame(karte, bg=FLAECHE)
     unten.pack(fill='x', padx=16, pady=(0, 10))
     tk.Label(unten, text='  ·  '.join(teile), bg=FLAECHE,
-             fg=SUB if plaetze else GOLD, font=fenster.f_klein,
+             fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
     return 0 if plaetze else 1
 
@@ -9594,8 +9632,19 @@ def _alterstext(sekunden):
     return t('s_vk_alter_tage').format(n=int(stunden / 24))
 
 
+def _ohne_trenner(text):
+    """Kleinschreibung ohne Punkte, Bindestriche und Leerzeichen.
+
+    Damit findet „ATLS" auch „A.T.L.S.", und „F7C-M" auch „F7CM". Dieselbe
+    Schreibweise, verschiedene Quellen — das ist bei Schiffsnamen der Normalfall
+    und kein Sonderfall.
+    """
+    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
 def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
-                 beim_waehlen=None, beim_bestaetigen=None):
+                 beim_waehlen=None, beim_bestaetigen=None, leer_text=None,
+                 rollbar=0):
     """Ein Eingabefeld mit Aufklappliste — tippen **oder** aussuchen.
 
     Gibt `(rahmen, listen_rahmen, neu_zeichnen)` zurück. Der Aufrufer packt
@@ -9654,25 +9703,63 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             liste.pack_forget()
             pfeil.symbol_tauschen('aufklappen')
             return
-        treffer = [e for e in alle if text in e.lower()] if text else list(alle)
+        # ⚠⚠ **Punkte und Bindestriche zaehlen beim Suchen nicht.** Wer „ATLS"
+        # tippt, meint „A.T.L.S." — und umgekehrt. Ohne diese Zeile findet das
+        # Feld sein eigenes Schiff nicht: Der Pledge-Store schreibt „A.T.L.S.",
+        # UEX schreibt „Argo ATLS IKTI", und beide sind dasselbe Ding.
+        # Gemeldet am 06.09.2026 beim Handeintrag im Hangar.
+        schlank = _ohne_trenner(text)
+        treffer = ([e for e in alle if schlank in _ohne_trenner(e)]
+                   if text else list(alle))
         pfeil.symbol_tauschen('zuklappen' if offen['ja'] else 'aufklappen')
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
-            tk.Label(liste, text=t('s_vk_nichts_gefunden'), bg=BG, fg=SUB,
+            tk.Label(liste, text=leer_text or t('s_vk_nichts_gefunden'),
+                     bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x', pady=3)
             return
         liste.pack(fill='x', pady=(4, 0))
-        for name in treffer[:hoechstens]:
-            eintrag = tk.Label(liste, text=name, bg=BG, fg=FG,
+        # ⭐ **`rollbar`: alle Treffer, in einer Flaeche fester Hoehe.**
+        # Ohne das zeigt die Liste zehn Namen und sagt „und 124 weitere" — wer
+        # nicht weiterliest, haelt die zehn fuer das ganze Angebot. Gemeldet am
+        # 06.09.2026 zum Hangar: „sonst sieht er die Liste und denkt sich, dass
+        # nicht alle Schiffe eintragbar sind."
+        #
+        # ⚠ Die Hoehe ist **fest**, nicht mitwachsend: 280 Schiffe untereinander
+        # wuerden die ganze Seite zuschuetten und den Knopf darunter
+        # unerreichbar machen.
+        halter = liste
+        if rollbar:
+            leinwand = tk.Canvas(liste, bg=BG, highlightthickness=0,
+                                 height=rollbar)
+            from .hauptfenster import rundleiste, rad_anschliessen
+            balken = rundleiste(liste, leinwand, grund=BG)
+            halter = tk.Frame(leinwand, bg=BG)
+            halter.bind('<Configure>', lambda _e: leinwand.configure(
+                scrollregion=leinwand.bbox('all')))
+            fenster_id = leinwand.create_window((0, 0), window=halter,
+                                                anchor='nw')
+            leinwand.bind('<Configure>', lambda e: leinwand.itemconfigure(
+                fenster_id, width=e.width))
+            leinwand.configure(yscrollcommand=balken.set)
+            balken.pack(side='right', fill='y')
+            leinwand.pack(side='left', fill='both', expand=True)
+            # ⚠ Ueber die vorhandene Stelle, nie selbst gebaut — sie kennt die
+            # Fallen (Trackpad, macOS, `bind_all` ohne `add='+'`).
+            rad_anschliessen(leinwand)
+
+        zeigen = treffer if rollbar else treffer[:hoechstens]
+        for name in zeigen:
+            eintrag = tk.Label(halter, text=name, bg=BG, fg=FG,
                                font=fenster.f_klein, anchor='w',
                                cursor='hand2', padx=8, pady=3)
             eintrag.pack(fill='x')
             eintrag.bind('<Button-1>', lambda _e, n=name: waehlen(n))
             eintrag.bind('<Enter>', lambda _e, w=eintrag: w.configure(bg=FLAECHE))
             eintrag.bind('<Leave>', lambda _e, w=eintrag: w.configure(bg=BG))
-        rest = len(treffer) - hoechstens
+        rest = 0 if rollbar else len(treffer) - hoechstens
         if rest > 0:
-            tk.Label(liste, text=t('s_af_weitere').format(n=rest), bg=BG,
+            tk.Label(halter, text=t('s_af_weitere').format(n=rest), bg=BG,
                      fg=SUB, font=fenster.f_klein, anchor='w',
                      padx=8).pack(fill='x', pady=(2, 0))
 

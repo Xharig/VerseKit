@@ -6,6 +6,40 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc2 - 2026-09-06
+
+> **Der Hangar findet jetzt seine Schiffe.** Jäger, Renner und Exo-Anzüge
+> ließen sich gar nicht eintragen, und Schiffe, die längst fliegen, standen als
+> „noch nicht im Spiel" da. Beides ist behoben; dazu ist der Hangar aus der
+> Werkstatt in einen eigenen Bereich *Schiffe* umgezogen.
+
+### Neu
+
+- **Eigener Bereich *Schiffe*** in der Leiste, zwischen Bauplänen und
+  Werkstatt. Der Hangar ist keine Zutat zum Bauen, und der Bereich wächst noch.
+
+### Verbessert
+
+- **Alle Schiffe stehen zur Auswahl, nicht nur die mit Laderaum.** Die Liste
+  bot 134 von 280 an — Arrow, Gladius und A.T.L.S. IKTI fehlten darin komplett.
+- **Die Auswahlliste rollt.** Statt zehn Namen und „und 124 weitere" siehst du
+  alle Schiffe und kannst durchblättern; darüber steht, wie das Feld benutzt
+  wird.
+- **Punkte und Bindestriche zählen beim Suchen nicht mehr.** „ATLS" findet
+  „A.T.L.S." und umgekehrt.
+
+### Behoben
+
+- **„noch nicht im Spiel" stand bei Schiffen, die längst fliegen** — die
+  Ironclad Assault und die F7C-M Super Hornet Mk II wurden nur nicht erkannt.
+  Die Zuordnung versteht jetzt ausgeschriebene Hersteller („Drake" ↔ `drak`)
+  und römische Zahlen („Mk II" ↔ `mk2`). Wo wirklich nichts vorliegt, steht
+  „keine Steckplatz-Daten"; „Konzept — noch nicht im Spiel" nur dann, wenn es
+  auch belegt ist.
+- **„im Spiel" heißt jetzt „im Spiel gekauft"** — es beschreibt die Herkunft,
+  nicht den Aufenthaltsort.
+- Die Meldung bei erfolgloser Suche sprach von Waren statt von Schiffen.
+
 ## v3.19.0-rc1 - 2026-09-06
 
 > **Dein Hangar kommt dazu — und damit die Frage, die auf jeden neuen Bauplan
