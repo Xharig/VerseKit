@@ -15010,6 +15010,70 @@ def main():
         for _o in (_daten, _dok, _kon):
             shutil.rmtree(_o, ignore_errors=True)
 
+    # ------------------------------------------------------------------
+    # 170. Der Merkzettel — Bauplaene farmen ohne Umweg ueber ein Schiff
+    #
+    # ⭐⭐ Bis v3.20.0 fuehrte jede Materialliste ueber die Wunschliste: erst ein
+    # Schiff eintragen, dann Steckplaetze belegen. Fuer einen Helm, eine
+    # Ruestung oder eine FPS-Waffe gab es diesen Weg **gar nicht**, obwohl das
+    # genauso Bauplaene mit Rohstoffbedarf sind.
+    #
+    # Gemeldet von Haldjas am 06.09.2026: „‚What to farm' ist irgendwie bisschen
+    # unnoetig komplex — man geht da rein, wird dann zu ‚still missing'
+    # geschickt und weiss dann aber nicht so genau, was man machen soll. […] Es
+    # waere naemlich auch ganz nuetzlich, wenn man nicht nur Schiffsteile,
+    # sondern auch Ruestungen/Waffen fuer FPS hinzufuegen koennte zum Workshop."
+    print()
+    print('170. Der Merkzettel — farmen ohne Umweg ueber ein Schiff')
+    from scbp import hangar as _hg170
+
+    _stand = {'format': 1, 'schiffe': []}
+    pruefe(_hg170.merkzettel(_stand) == [],
+           'ein Stand ohne Merkzettel-Feld gilt als leere Liste')
+    pruefe(_hg170.merkzettel_hinzufuegen(_stand, 'BUL-H4 Helmet',
+                                         ref='abc', anzahl=2) is True,
+           'ein Gegenstand laesst sich vormerken')
+    # ⚠⚠ Zweimal dasselbe darf KEINE zweite Zeile geben — sonst zaehlt die
+    # Materialliste doppelt und die Anzeige ist unbrauchbar.
+    pruefe(_hg170.merkzettel_hinzufuegen(_stand, 'BUL-H4 Helmet',
+                                         anzahl=1) is False,
+           'derselbe Gegenstand legt keine zweite Zeile an')
+    pruefe(_hg170.merkzettel(_stand)[0]['anzahl'] == 3,
+           'sondern erhoeht die Stueckzahl (2 + 1 = 3)')
+    # ⚠ Gross-/Kleinschreibung darf keinen zweiten Eintrag erzeugen.
+    _hg170.merkzettel_hinzufuegen(_stand, 'bul-h4 helmet', anzahl=1)
+    pruefe(len(_hg170.merkzettel(_stand)) == 1,
+           'Gegenprobe: andere Schreibweise ist derselbe Gegenstand')
+    pruefe(_hg170.merkzettel_anzahl_setzen(_stand, 'BUL-H4 Helmet', 5) is True,
+           'die Stueckzahl laesst sich setzen')
+    pruefe(_hg170.merkzettel(_stand)[0]['anzahl'] == 5, 'und steht dann da')
+    pruefe(_hg170.merkzettel_anzahl_setzen(_stand, 'BUL-H4 Helmet', 0) is True,
+           'Stueckzahl 0 streicht den Eintrag')
+    pruefe(_hg170.merkzettel(_stand) == [], 'und er ist weg')
+    pruefe(_hg170.merkzettel_hinzufuegen(_stand, '   ') is False,
+           'Gegenprobe: ein leerer Name wird nicht aufgenommen')
+
+    # ⚠⚠ **Die Stueckzahl muss bis ins Material durchschlagen.** Genau daran
+    # haengt der Nutzen: „drei Helme" heisst dreifaches Erz, nicht dreimal
+    # dieselbe Zeile.
+    from scbp import warenkorb as _wk170
+    _posten = [{'sorte': _wk170.TEIL, 'weg': _wk170.BAUEN, 'anzahl': 3,
+                'bau': {'zustand': _wk170.BEKANNT, 'material': 100.0,
+                        'dauer': 60, 'ohne_preis': []},
+                'kauf': {'zustand': _wk170.BEKANNT, 'preis': 50.0}}]
+    _summe = _wk170.summe(_posten)
+    pruefe(abs(_summe['bauen'] - 300.0) < 0.01,
+           'drei Stueck kosten dreimal so viel Material (100 -> 300)')
+    pruefe(_summe['dauer'] == 180,
+           'und dauern dreimal so lange (60 -> 180)')
+    _posten[0]['weg'] = _wk170.KAUFEN
+    pruefe(abs(_wk170.summe(_posten)['kaufen'] - 150.0) < 0.01,
+           'beim Kaufen ebenso (50 -> 150)')
+    # Gegenprobe: Ein Schiffsteil OHNE `anzahl` bleibt bei einfach.
+    del _posten[0]['anzahl']
+    pruefe(abs(_wk170.summe(_posten)['kaufen'] - 50.0) < 0.01,
+           'Gegenprobe: ohne Stueckzahl bleibt es bei einfach')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

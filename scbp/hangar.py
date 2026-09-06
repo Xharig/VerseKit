@@ -211,6 +211,94 @@ def wunsch_entfernen(daten, name):
     return len(daten['wunsch']) != vorher
 
 
+def merkzettel(daten=None):
+    """Einzelne Gegenstände, die man bauen oder kaufen will — alphabetisch.
+
+    ⭐⭐ **Der Weg zum Farmen ohne Umweg über ein Schiff.** Bis v3.20.0 führte
+    jede Materialliste über die Wunschliste: erst ein Schiff eintragen, dann
+    Steckplätze belegen, dann stand das Material da. Für einen Helm, eine Waffe
+    oder ein Rüstungsteil gab es diesen Weg **gar nicht** — obwohl sie genauso
+    Baupläne mit Rohstoffbedarf sind.
+
+    Gemeldet von **Haldjas** am 06.09.2026: *„‚What to farm' ist irgendwie
+    bisschen unnötig komplex — man geht da rein, wird dann zu ‚still missing'
+    geschickt und weiß dann aber nicht so genau, was man machen soll. […]
+    Eventuell wäre es sinnvoll, direkt unter Crafting Buttons hinzuzufügen, die
+    dann die entsprechenden Blueprints auf die Wishlist / zu What to farm
+    hinzufügen. Es wäre nämlich auch ganz nützlich, wenn man nicht nur
+    Schiffsteile, sondern auch Rüstungen/Waffen für FPS hinzufügen könnte zum
+    Workshop, sind ja immerhin auch Blueprints, die Ressourcen brauchen."*
+
+    ⚠ Ein fehlendes Feld gilt als leere Liste — alte Dateien bleiben gültig,
+    es braucht keinen Formatwechsel. Dieselbe Entscheidung wie bei
+    `wunsch_liste()`.
+    """
+    liste = (daten or laden()).get('merkzettel') or []
+    return sorted((m for m in liste if isinstance(m, dict) and m.get('name')),
+                  key=lambda m: (m.get('name') or '').lower())
+
+
+def merkzettel_enthaelt(daten, name):
+    suche = _schlank(name)
+    return any(_schlank(m.get('name')) == suche
+               for m in (daten.get('merkzettel') or []))
+
+
+def merkzettel_hinzufuegen(daten, name, ref='', anzahl=1):
+    """Einen Gegenstand auf den Merkzettel setzen. Gibt zurück, ob er neu war.
+
+    ⚠ `ref` ist die Kennung aus den Rezeptdaten. Ohne sie ließe sich später
+    weder Preis noch Rezept nachschlagen — der Eintrag wäre ein Name ohne
+    Anschluss. Sie darf leer bleiben (dann sucht die Rechnung über den Namen),
+    aber sie wird mitgegeben, wo sie vorliegt.
+
+    ⚠ Steht der Gegenstand schon drauf, wird **die Anzahl erhöht** statt eine
+    zweite Zeile anzulegen. Zwei Zeilen mit demselben Helm wären in der
+    Materialliste doppelt gezählt und in der Anzeige verwirrend.
+    """
+    name = (name or '').strip()
+    if not name:
+        return False
+    try:
+        anzahl = max(1, int(anzahl))
+    except (TypeError, ValueError):
+        anzahl = 1
+    suche = _schlank(name)
+    for eintrag in (daten.get('merkzettel') or []):
+        if _schlank(eintrag.get('name')) == suche:
+            eintrag['anzahl'] = int(eintrag.get('anzahl') or 1) + anzahl
+            return False
+    daten.setdefault('merkzettel', []).append(
+        {'name': name, 'ref': (ref or '').strip(), 'anzahl': anzahl,
+         'weg': 'bauen'})
+    return True
+
+
+def merkzettel_entfernen(daten, name):
+    """Einen Gegenstand vom Merkzettel streichen. Gibt zurück, ob einer wegfiel."""
+    suche = _schlank(name)
+    vorher = len(daten.get('merkzettel') or [])
+    daten['merkzettel'] = [m for m in (daten.get('merkzettel') or [])
+                           if _schlank(m.get('name')) != suche]
+    return len(daten['merkzettel']) != vorher
+
+
+def merkzettel_anzahl_setzen(daten, name, anzahl):
+    """Wie oft der Gegenstand gebaut werden soll. `0` streicht ihn."""
+    try:
+        anzahl = int(anzahl)
+    except (TypeError, ValueError):
+        return False
+    if anzahl <= 0:
+        return merkzettel_entfernen(daten, name)
+    suche = _schlank(name)
+    for eintrag in (daten.get('merkzettel') or []):
+        if _schlank(eintrag.get('name')) == suche:
+            eintrag['anzahl'] = anzahl
+            return True
+    return False
+
+
 def enthaelt(daten, name, hersteller=''):
     """Steht dieses Schiff schon drin?
 

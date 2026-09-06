@@ -346,11 +346,29 @@ def _widersprueche_ueber_bloecke(bloecke):
     Gemessen: Ein Gerät stand **zweimal mit derselben Kennung** in der Datei,
     einmal mit x-Totzone 0,297 und einmal mit 0,099. Innerhalb eines Blocks
     fällt das nicht auf — dafür muss man die Blöcke zusammenlegen.
+
+    ⚠⚠⚠ **Verglichen wird nur innerhalb desselben Zustands** — aktive gegen
+    aktive, tote gegen tote. Ein toter Block wirkt nicht; was dort steht, kann
+    dem, was gilt, gar nicht widersprechen.
+
+    Seit `_nur_der_gefuehrte_bleibt` denselben Stick unter altem und neuem
+    Namen auseinanderhält, stand sonst an **jeder** Achse ein Warndreieck: Der
+    aktive Block trug die eingestellten Werte, der alte Windows-Block die
+    Werksangaben — beide zusammen ergaben einen Widerspruch, der keiner war.
+    Gemeldet am 06.09.2026 mit der Frage, was die gelben Dreiecke überhaupt
+    bedeuten. Eine Warnung, die überall steht, sagt nichts mehr.
+
+    ⚠ **Nicht einfach die toten weglassen.** Der erste Versuch tat genau das
+    und brach die ältere Prüfung: Zwei **tote** Blöcke derselben Kennung mit
+    verschiedenen Werten sind sehr wohl ein Widerspruch — er gehört nur in die
+    Liste der Alteinträge, nicht an eine gültige Achse. Nach Zustand gruppieren
+    hält beides auseinander.
     """
     nach_kennung = {}
     for block in bloecke:
         if block['kennung']:
-            nach_kennung.setdefault(block['kennung'], []).append(block)
+            schluessel = (block['kennung'], bool(block.get('aktiv')))
+            nach_kennung.setdefault(schluessel, []).append(block)
 
     for gruppe in nach_kennung.values():
         if len(gruppe) < 2:

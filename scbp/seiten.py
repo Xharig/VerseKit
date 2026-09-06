@@ -8166,8 +8166,57 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         _anzahl_feld.halter.configure(width=70)
         _anzahl_feld.halter.pack(side='left')
         rueck.pack(side='left', padx=(10, 0))
+
+        # ⭐⭐ **Vormerken — der kurze Weg zur Materialliste.** Bis v3.20.0
+        # führte er nur über ein Schiff: erst auf die Wunschliste, dann
+        # Steckplätze belegen, dann stand das Material da. Für einen Helm,
+        # eine Rüstung oder eine FPS-Waffe gab es ihn **gar nicht**, obwohl
+        # das genauso Baupläne mit Rohstoffbedarf sind.
+        #
+        # Gemeldet von Haldjas am 06.09.2026: „‚What to farm' ist irgendwie
+        # bisschen unnötig komplex — man geht da rein, wird dann zu ‚still
+        # missing' geschickt und weiß dann aber nicht so genau, was man machen
+        # soll." Genau hier, wo das Rezept steht, ist die Stelle, an der man es
+        # sich vornimmt.
+        #
+        # ⚠ Die Stückzahl daneben wird mitgenommen: Wer drei Helme bauen will,
+        # braucht dreifaches Material.
+        from . import hangar as _mz_hangar
+
+        # ⚠ Der Name kommt aus dem Eintrag der Herstellungsliste — `bauplan`
+        # gibt es in dieser Funktion nicht, das ist die Nachbarfunktion
+        # `_passt_zeile`.
+        _mz_name = eintrag.get('name') or ''
+        _mz_ref = eintrag.get('ref') or eintrag.get('basis') or ''
+
+        def _vormerken():
+            stand = _mz_hangar.laden()
+            try:
+                wieviel = max(1, int(anzahl_var.get() or 1))
+            except (TypeError, ValueError):
+                wieviel = 1
+            _mz_hangar.merkzettel_hinzufuegen(
+                stand, _mz_name, ref=_mz_ref, anzahl=wieviel)
+            # ⚠ Der Gesamtstand wird gespeichert, nicht eine Teilmenge —
+            # dieselbe Falle, die einmal die komplette Wunschliste gelöscht
+            # hat (siehe `_eintrag_speichern`).
+            _mz_hangar.speichern(stand)
+            # ⚠ Der Knopf ist eine Leinwand mit gezeichnetem Text und lässt
+            # sich nicht umbeschriften. Die Rückmeldung steht deshalb daneben —
+            # sichtbar, ohne den Knopf neu zu bauen.
+            merk_stand.configure(text=t('s_mz_drauf'), fg=ACCENT)
+
+        _knopf(fenster, reihe, t('s_mz_knopf'),
+               _vormerken).pack(side='left', padx=(12, 0))
+        merk_stand = tk.Label(
+            reihe, bg='#0c1017', fg=ACCENT, font=fenster.f_klein,
+            text=(t('s_mz_drauf') if _mz_hangar.merkzettel_enthaelt(
+                _mz_hangar.laden(), _mz_name) else ''))
+        merk_stand.pack(side='left', padx=(8, 0))
+
         # Eine Zeile, die sagt, was der Knopf tut — sonst rät man.
         _fliesstext(block, t('s_lg_bauen_hilfe'), fenster.f_klein, fill='x')
+        _fliesstext(block, t('s_mz_hilfe'), fenster.f_klein, fill='x')
 
         # ⚠⚠ **Die Zutatenzeilen werden EINMAL gebaut, danach nur neu
         # beschriftet.** Sie hängen an der Stückzahl, und die ändert sich beim
@@ -10106,11 +10155,67 @@ def _farmliste(fenster, rahmen):
             kind.destroy()
         _aufbauen()
 
+    def _merkzettel_block():
+        """Was von Hand vorgemerkt wurde — mit Stückzahl und Streichen.
+
+        ⭐⭐ **Der einzige Weg hierher, der ohne Schiff auskommt.** Alles andere
+        auf dieser Seite kommt aus den Schiffen: Hangar oder Wunschliste, über
+        belegte Steckplätze. Ein Helm, eine Rüstung, eine FPS-Waffe hat keinen
+        Steckplatz — vorgemerkt wird sie in der Herstellung, und hier steht
+        sie dann.
+
+        Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie
+        bisschen unnötig komplex — man geht da rein, wird dann zu ‚still
+        missing' geschickt und weiß dann aber nicht so genau, was man machen
+        soll."* Der Umweg über die Wunschliste war nirgends erklärt, und für
+        FPS-Ausrüstung gab es ihn gar nicht.
+
+        ⚠ **Auch bei leerem Merkzettel wird der Satz gezeigt** — er sagt, wo
+        der Knopf sitzt. Ein leerer Bereich ohne Erklärung wirft genau die
+        Frage auf, die diese Rückmeldung ausgelöst hat.
+        """
+        eintraege = meine.merkzettel()
+        rahmen_mz = tk.Frame(koerper, bg=BG)
+        rahmen_mz.pack(fill='x', pady=(0, 14))
+        tk.Label(rahmen_mz, text=t('s_mz_titel'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x')
+        if not eintraege:
+            _fliesstext(rahmen_mz, t('s_mz_leer'), fenster.f_klein, fill='x')
+            return
+
+        def _streichen(name):
+            stand = meine.laden()
+            meine.merkzettel_entfernen(stand, name)
+            meine.speichern(stand)
+            neu_zeichnen()
+
+        for e in eintraege:
+            zeile = tk.Frame(rahmen_mz, bg=BG)
+            zeile.pack(fill='x', pady=1)
+            # ⚠ Der Streichen-Knopf zuerst, dann der Name mit `expand` —
+            # sonst schiebt ein langer Bauplanname ihn aus dem Fenster.
+            # Dieselbe Packreihenfolge-Falle, die hier schon zweimal zugeschlagen
+            # hat (Kaufen-Knopf, „geändert"-Marke).
+            _knopf(fenster, zeile, t('s_mz_weg'),
+                   lambda n=e.get('name'): _streichen(n)).pack(side='right',
+                                                               padx=(8, 0))
+            menge = int(e.get('anzahl') or 1)
+            if menge > 1:
+                tk.Label(zeile, text='%d× %s' % (menge, t('s_mz_stueck')),
+                         bg=BG, fg=SUB, font=fenster.f_klein,
+                         anchor='e').pack(side='right', padx=(8, 0))
+            tk.Label(zeile, text=e.get('name') or '', bg=BG, fg=FG,
+                     font=fenster.f_grund, anchor='w').pack(side='left',
+                                                            fill='x',
+                                                            expand=True)
+
     def _aufbauen():
         werte = warenkorb.farmliste(meine.laden())
         fehlt = werte.get('fehlt') or []
         reicht = werte.get('vollstaendig') or []
         anzahl = werte.get('posten') or 0
+
+        _merkzettel_block()
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall hier:
         # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich

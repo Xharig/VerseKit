@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.21.0 - 2026-09-06
+
+> **Baupläne farmen, ohne den Umweg über ein Schiff.** Bisher führte jede
+> Materialliste über die Wunschliste: erst ein Schiff eintragen, dann
+> Steckplätze belegen. Für einen Helm, eine Rüstung oder eine FPS-Waffe gab es
+> diesen Weg gar nicht — obwohl das genauso Baupläne mit Rohstoffbedarf sind.
+
+### Neu
+
+- **»Zum Farmen vormerken«** steht jetzt direkt beim Rezept in der Herstellung.
+  Ein Klick, und der Bauplan landet mit seinem Material unter »Was ich farmen
+  muss« — mit der Stückzahl, die daneben steht. Auch für Rüstung und
+  FPS-Waffen. Vorgeschlagen von Haldjas.
+- Das Vorgemerkte steht oben auf »Was ich farmen muss«, mit Stückzahl und einem
+  Knopf zum Streichen. Ist nichts vorgemerkt, sagt die Seite, wo der Knopf
+  sitzt.
+
+### Behoben
+
+- **Gelbe Warndreiecke standen an jeder Achse**, seit der Watcher denselben
+  Stick unter altem und neuem Namen auseinanderhält: Der gültige Eintrag wurde
+  gegen den wirkungslosen Alteintrag gehalten, und das ergab einen Widerspruch,
+  der keiner war. Verglichen wird jetzt nur noch, was auch gilt.
+
 ## v3.20.0 - 2026-09-06
 
 > **Dein Datenordner kann nicht mehr lautlos verlorengehen.** Er hing bisher an

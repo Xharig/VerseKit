@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.21.0 - 2026-09-06
+
+> **Farm blueprints without the detour through a ship.** Until now every
+> material list went through the wishlist: add a ship first, then fill its
+> slots. For a helmet, a piece of armour or an FPS weapon that route did not
+> exist at all — even though those are blueprints needing raw materials too.
+
+### New
+
+- **"Add to farming list"** now sits right next to the recipe in Crafting. One
+  click and the blueprint lands under "What to farm" with its material — using
+  the quantity shown beside it. Armour and FPS weapons included. Suggested by
+  Haldjas.
+- What you marked appears at the top of "What to farm", with quantity and a
+  button to remove it. With nothing marked, the page says where the button is.
+
+### Fixed
+
+- **Yellow warning triangles appeared on every axis** ever since the watcher
+  started telling the same stick apart under its old and new name: the valid
+  entry was compared against the ineffective leftover, which produced a
+  contradiction that was none. Only what actually applies is compared now.
+
 ## v3.20.0 - 2026-09-06
 
 > **Your data folder can no longer go missing silently.** Until now it hung on

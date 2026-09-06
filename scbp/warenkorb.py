@@ -114,6 +114,23 @@ SCHIFF = 'schiff'
 HANGAR = 'hangar'
 WUNSCH = 'wunsch'
 
+# ⭐⭐ **Der Merkzettel: Einzelteile ohne Schiff.** Bis v3.20.0 fuehrte jeder Weg
+# zum Farmen ueber ein Schiff — man legte eines auf die Wunschliste, waehlte
+# Steckplaetze, und daraus entstand die Materialliste. Fuer einen Helm, eine
+# Waffe oder ein Ruestungsteil gab es diesen Weg **gar nicht**.
+#
+# Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie bisschen
+# unnoetig komplex — man geht da rein, wird dann zu ‚still missing' geschickt
+# und weiss dann aber nicht so genau, was man machen soll. […] Es waere naemlich
+# auch ganz nuetzlich, wenn man nicht nur Schiffsteile, sondern auch
+# Ruestungen/Waffen fuer FPS hinzufuegen koennte zum Workshop, sind ja immerhin
+# auch Blueprints, die Ressourcen brauchen."*
+#
+# Ein Merkzettel-Posten hat kein Schiff und keine Position — er ist einfach
+# etwas, das man bauen oder kaufen will. Alles andere (Preis, Material, Route)
+# rechnet sich genauso wie bei einem Schiffsteil.
+MERKZETTEL = 'merkzettel'
+
 # Woher ein Teil überhaupt zu bekommen ist. ⚠ Das ist keine Feinheit: Militär
 # ist **nicht kaufbar, aber herstellbar** — wer nur die Ladenware zeigt, lässt
 # genau die Teile weg, für die man Baupläne sammelt.
@@ -744,14 +761,22 @@ def summe(liste):
         # „fehlender Preis": Es fehlt nichts, es ist fertig.
         if p.get('erledigt'):
             continue
+        # ⚠ **Die Anzahl zählt mit.** Merkzettel-Posten dürfen mehrfach geplant
+        # sein („drei Helme") — dann kosten sie auch dreimal so viel und
+        # brauchen dreimal so lange. Ein Schiffsteil hat kein `anzahl`; dort
+        # bleibt es bei 1, weil ein Steckplatz genau ein Teil aufnimmt.
+        try:
+            stueck = max(1, int(p.get('anzahl') or 1))
+        except (TypeError, ValueError):
+            stueck = 1
         if p.get('weg') == BAUEN:
             bau = p.get('bau') or {}
             if bau.get('zustand') != BEKANNT or bau.get('material') is None:
                 offen += 1
                 continue
-            bauteil += bau['material']
-            gesamt += bau['material']
-            dauer += int(bau.get('dauer') or 0)
+            bauteil += bau['material'] * stueck
+            gesamt += bau['material'] * stueck
+            dauer += int(bau.get('dauer') or 0) * stueck
             if bau.get('ohne_preis'):
                 unvollstaendig = True
         else:
@@ -759,8 +784,8 @@ def summe(liste):
             if kauf.get('zustand') != BEKANNT or kauf.get('preis') is None:
                 offen += 1
                 continue
-            kaufteil += kauf['preis']
-            gesamt += kauf['preis']
+            kaufteil += kauf['preis'] * stueck
+            gesamt += kauf['preis'] * stueck
     return {'gesamt': gesamt, 'kaufen': kaufteil, 'bauen': bauteil,
             'dauer': dauer, 'offen': offen,
             'unvollstaendig': unvollstaendig}
@@ -963,8 +988,44 @@ def rechnung(daten=None):
                       'position': position})
             raus.append(p)
 
+    # 3. Der Merkzettel — Einzelteile, die zu keinem Schiff gehören.
+    #
+    # ⭐⭐ **Helm, Waffe, Rüstung: Baupläne wie jeder andere.** Sie haben nur
+    # keinen Steckplatz, an dem sie hängen könnten. Deshalb tragen sie kein
+    # Schiff und keine Position — alles andere (Preis, Rezept, Material,
+    # Route) rechnet sich genauso.
+    #
+    # ⚠ Die `anzahl` gehört an den Posten, nicht in mehrere Zeilen: Drei
+    # gleiche Helme sollen einmal dastehen und dreifaches Material fordern,
+    # nicht dreimal untereinander stehen.
+    for eintrag in hangar.merkzettel(daten):
+        name = eintrag.get('name') or ''
+        if not name:
+            continue
+        ref = eintrag.get('ref') or ''
+        try:
+            menge = max(1, int(eintrag.get('anzahl') or 1))
+        except (TypeError, ValueError):
+            menge = 1
+        p = {'sorte': TEIL, 'schiff': '', 'quelle': MERKZETTEL,
+             'position': '', 'name': name, 'ref': ref,
+             'anzahl': menge,
+             'weg': eintrag.get('weg') or BAUEN,
+             'erledigt': bool(eintrag.get('erledigt'))}
+        p['kauf'] = kaufweg(ref, name)
+        p['bau'] = bauweg(ref, verzeichnis)
+        # ⚠ Dieselbe Regel wie bei den Schiffsteilen: Ohne Rezept ist „bauen"
+        # keine Wahl, sondern eine leere Behauptung.
+        if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
+            p['weg'] = KAUFEN
+        raus.append(p)
+
     # Schiffe zuerst, dann ihre Teile — wie auf einer Rechnung, auf der die
     # Hauptposition über dem Zubehör steht.
+    #
+    # ⚠ Merkzettel-Posten haben kein Schiff und landen dadurch von selbst
+    # ganz oben. Das ist gewollt: Sie sind eine eigene kleine Liste und sollen
+    # nicht zwischen den Schiffsteilen verschwinden.
     raus.sort(key=lambda p: ((p['schiff'] or '').lower(),
                              0 if p['sorte'] == SCHIFF else 1,
                              (p.get('position') or ''),
@@ -1063,7 +1124,15 @@ def farmliste(daten=None):
         # zeigt, schickt den Spieler ein zweites Mal in denselben Asteroiden.
         if p.get('erledigt'):
             continue
-        gebaut += 1
+        # ⚠ **Die Anzahl zählt mit.** Merkzettel-Posten dürfen mehrfach
+        # geplant sein („drei Helme") — dann ist auch dreifaches Material
+        # nötig. Schiffsteile haben kein `anzahl`; für sie bleibt es bei 1,
+        # weil ein Steckplatz genau ein Teil aufnimmt.
+        try:
+            stueck = max(1, int(p.get('anzahl') or 1))
+        except (TypeError, ValueError):
+            stueck = 1
+        gebaut += stueck
         bauplan = verzeichnis.get(p.get('ref') or '') or ''
         rez = None
         if bauplan:
@@ -1080,7 +1149,7 @@ def farmliste(daten=None):
                               float(guete or 0))
                 eintrag = bedarf.setdefault(schluessel,
                                             {'name': rohstoff, 'menge': 0.0})
-                eintrag['menge'] += float(menge or 0)
+                eintrag['menge'] += float(menge or 0) * stueck
 
     # 2. Je Rohstoff den Bestand zuteilen — anspruchsvollste Güte zuerst.
     nach_rohstoff = {}

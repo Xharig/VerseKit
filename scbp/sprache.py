@@ -2023,9 +2023,15 @@ TEXTE = {
     's_dk_aufklappen': ('Klick auf einen Namen zeigt, was daraus geworden ist.',
                         'Click a name to see what came of it.'),
     's_dk_haldjas_idee':     ('**Aufblend-Betrieb und durchgereichte Mausklicks** — damit ein '
-                              'Overlay im Kampf hilft statt zu stören.',
+                              'Overlay im Kampf hilft statt zu stören. Dazu der '
+                              '**Merkzettel**: Baupläne direkt aus der Herstellung '
+                              'zum Farmen vormerken, auch Rüstung und FPS-Waffen — '
+                              'vorher führte jeder Weg dorthin über ein Schiff.',
                               '**Fade mode and click-through** — so an overlay helps in a '
-                              'fight instead of getting in the way.'),
+                              'fight instead of getting in the way. Plus the '
+                              '**farming list**: mark blueprints for farming straight '
+                              'from Crafting, armour and FPS weapons included — before, '
+                              'every route there went through a ship.'),
     's_dk_haldjas_bugs':     ('Dazu ein Dutzend Funde rund um Overlay, Einrichtung und '
                               'Update — darunter das eingeklappte Overlay, das in drei '
                               'von vier Ecken über den Bildschirmrand hinausstand, die '
@@ -3926,6 +3932,33 @@ TEXTE = {
     # stand nirgends. Xharig hat ihn am 29.08.2026 selbst nicht gefunden.
     's_lg_bauen':        ('Hergestellt — vom Lager abziehen',
                           'Crafted — deduct from stock'),
+    # ⭐⭐ **Der Weg von einem Bauplan zur Materialliste — ohne Umweg über ein
+    # Schiff.** Bis v3.20.0 führte jede Materialliste über die Wunschliste:
+    # erst ein Schiff eintragen, dann Steckplätze belegen. Für einen Helm, eine
+    # Waffe oder ein Rüstungsteil gab es diesen Weg gar nicht.
+    #
+    # Gemeldet von Haldjas am 06.09.2026: *„‚What to farm' ist irgendwie
+    # bisschen unnötig komplex — man geht da rein, wird dann zu ‚still missing'
+    # geschickt und weiß dann aber nicht so genau, was man machen soll. […]
+    # Eventuell wäre es sinnvoll, direkt unter Crafting Buttons hinzuzufügen,
+    # die dann die entsprechenden Blueprints auf die Wishlist / zu What to farm
+    # hinzufügen."*
+    's_mz_knopf':        ('Zum Farmen vormerken', 'Add to farming list'),
+    's_mz_drauf':        ('Vorgemerkt ✓', 'On the list ✓'),
+    's_mz_hilfe':        ('Landet unter »Was ich farmen muss« — mit dem '
+                          'Material, das dafür nötig ist. Auch für Rüstung '
+                          'und FPS-Waffen.',
+                          'Goes to "What to farm" — with the material needed '
+                          'for it. Works for armour and FPS weapons too.'),
+    's_mz_titel':        ('Vorgemerkt', 'On your list'),
+    's_mz_leer':         ('Noch nichts vorgemerkt. In der Herstellung legst '
+                          'du mit »Zum Farmen vormerken« etwas hierher — auch '
+                          'Rüstung und Waffen, nicht nur Schiffsteile.',
+                          'Nothing on the list yet. In Crafting, use "Add to '
+                          'farming list" to put something here — armour and '
+                          'weapons too, not only ship parts.'),
+    's_mz_weg':          ('Streichen', 'Remove'),
+    's_mz_stueck':       ('Stück', 'Qty'),
     's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt der Watcher die Zutaten '
                           'aus deinem Lager.',
                           'Built it? Then the watcher takes the ingredients out '
