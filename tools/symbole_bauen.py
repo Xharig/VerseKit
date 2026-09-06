@@ -232,6 +232,16 @@ KNOPF_SYMBOLE = {
     # „will ich haben". Auf einer Liste, die Kaufpreise trägt, ist der
     # Unterschied nicht bloß Geschmack.
     'wunschliste':  'star',
+    # Die Farmliste: was noch im Boden liegt. Ein Kristall ist das Nächste am
+    # Erz, was der Satz hergibt.
+    #
+    # ⚠ `diamond` trägt bereits das **Zeilen**-Symbol `standard` (die kleine
+    # Raute in einer Bestandszeile). Das ist hier unbedenklich: Die beiden
+    # Sätze sind getrennt, und ein 14-px-Zeichen mitten in einer Textzeile
+    # steht nie neben einem 22-px-Reitersymbol. Die Regel „zwei verschiedene
+    # Dinge, zwei verschiedene Bilder" zielt auf **eine** Leiste — dort kommt
+    # die Raute genau einmal vor.
+    'farmliste':    'diamond',
     # Der Laden, in dem ein fertiges Teil im Regal steht — die Gegenrichtung
     # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.
