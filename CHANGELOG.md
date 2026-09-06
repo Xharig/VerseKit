@@ -6,6 +6,24 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.2 - 2026-09-06
+
+> **Seiten laden wieder sofort.** Ein vorgemerkter Bauplan löste bei jedem
+> Seitenaufbau eine Preisabfrage aus, die gar nicht gelingen konnte — und weil
+> nichts zurückkam, wurde sie immer wieder versucht.
+
+### Behoben
+
+- **„Was noch fehlt" blieb leer und lud endlos**, sobald etwas vorgemerkt war.
+  Der Merkzettel legte den Bauplannamen als Kennung ab, daraus wurde eine
+  ungültige Abfrage. Gemessen: Die Wunschliste brauchte **7,5 Sekunden**, jetzt
+  sind es **11 Millisekunden**. Gemeldet von Haldjas.
+- Vorhandene Merkzettel reparieren sich beim Öffnen von selbst — es muss nichts
+  neu eingetragen werden.
+- Eine Kennung mit Leerzeichen wird gar nicht mehr abgefragt, sondern
+  protokolliert. Damit fällt so etwas künftig sofort auf, statt still zu
+  bremsen.
+
 ## v3.22.1 - 2026-09-06
 
 > **Nachbesserung an der Materialanzeige von v3.22.0.** Sie zeigte für denselben

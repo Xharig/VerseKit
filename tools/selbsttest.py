@@ -15211,6 +15211,42 @@ def main():
                'Summe (%.1f) = Einzelmengen (%.1f)' % (_gesamt, _einzeln))
         pruefe((_liste.get('posten') or 0) == 6,
                'sechs geplante Bauteile (4 + 2), nicht zwei Zeilen')
+
+        # ⚠⚠⚠ **Ein Name im Kennungsfeld darf NIE zu einer Abfrage werden.**
+        # Am 06.09.2026 speicherte der Merkzettel den Bauplannamen als
+        # Kennung. Daraus wurde:
+        #
+        #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
+        #     InvalidURL: URL can't contain control characters
+        #
+        # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts
+        # gemerkt war, versuchte es die Seite sofort wieder. „Was noch fehlt"
+        # blieb leer und lud endlos.
+        from scbp import laeden as _ld172, fehler as _fe172
+        _fe172.leeren()
+        pruefe(_ld172.holen('CF-447 Rhino Repeater') is False,
+               'ein NAME im Kennungsfeld wird nicht abgefragt')
+        pruefe(_ld172.holen('Teil "mit Anfuehrung"') is False,
+               'auch Anfuehrungszeichen werden abgefangen')
+        pruefe(len(_fe172.letzte()) == 2,
+               'und beide landen im Fehlerprotokoll, statt still zu scheitern')
+        # ⚠ Gegenprobe: Eine echte Kennung darf die Wache NICHT anfassen.
+        _fe172.leeren()
+        _ld172.holen('94ea5bb5-0000-0000-0000-000000000000')
+        pruefe(len(_fe172.letzte()) == 0,
+               'Gegenprobe: eine echte Kennung wird durchgelassen')
+
+        # Und der Merkzettel selbst repariert alte Eintraege beim Lesen.
+        _kaputt = {'format': 1, 'schiffe': [],
+                   'merkzettel': [{'name': 'Waffe A', 'ref': 'Waffe A',
+                                   'anzahl': 1}]}
+        pruefe(_hg172.merkzettel(_kaputt)[0]['ref'] == '',
+               'ein alter Eintrag mit Namen als Kennung heilt beim Lesen')
+        _heil = {'format': 1, 'schiffe': [],
+                 'merkzettel': [{'name': 'Waffe A', 'ref': 'abc-123',
+                                 'anzahl': 1}]}
+        pruefe(_hg172.merkzettel(_heil)[0]['ref'] == 'abc-123',
+               'Gegenprobe: eine echte Kennung bleibt stehen')
     finally:
         _hs170.rezept = _echt_rez172
         _wk170._bauplan_verzeichnis = _echt_bp172

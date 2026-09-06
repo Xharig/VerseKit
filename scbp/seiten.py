@@ -8187,7 +8187,22 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         # gibt es in dieser Funktion nicht, das ist die Nachbarfunktion
         # `_passt_zeile`.
         _mz_name = eintrag.get('name') or ''
-        _mz_ref = eintrag.get('ref') or eintrag.get('basis') or ''
+        # ⚠⚠⚠ **NUR eine echte Entitäts-Kennung, niemals der Name.** Hier
+        # stand `eintrag.get('ref') or eintrag.get('basis')` — und `basis` ist
+        # der Bauplanname. Der landete als `uuid` in der Preisabfrage und
+        # erzeugte eine kaputte Adresse:
+        #
+        #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
+        #     InvalidURL: URL can't contain control characters
+        #
+        # Die Seite „Was noch fehlt" blieb daraufhin leer und versuchte es
+        # endlos weiter. Gemeldet am 06.09.2026: „der sucht als was und will
+        # was laden, hört aber nicht auf."
+        #
+        # Ohne Kennung ist der Posten trotzdem vollständig: Das Rezept findet
+        # `bauweg()` über den Namen, und ein Ladenpreis steht eben nicht dabei.
+        # Lieber keine Angabe als eine erfundene Abfrage.
+        _mz_ref = (eintrag.get('ref') or '').strip()
 
         def _vormerken():
             stand = _mz_hangar.laden()

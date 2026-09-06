@@ -470,7 +470,38 @@ def holen(kennung, name='', erzwingen=False):
     („UEX kennt es nicht" ist ein gültiges Ergebnis und wird gemerkt, sonst
     fragt das Werkzeug bei jedem Blick erneut nach).
     """
-    if AUS or not kennung:
+    if not kennung:
+        return False
+    # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung.** Am 06.09.2026
+    # landete ein Bauplan**name** im Kennungsfeld eines Merkzettel-Postens, und
+    # daraus wurde eine kaputte Adresse:
+    #
+    #     /2.0/items_prices?uuid=CF-447 Rhino Repeater
+    #     InvalidURL: URL can't contain control characters
+    #
+    # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts gemerkt
+    # war, versuchte es die Seite beim nächsten Blick sofort wieder. „Was noch
+    # fehlt" blieb leer und lud endlos: *„der sucht als was und will was
+    # laden, hört aber nicht auf."*
+    #
+    # ⚠ Die Wache steht HIER und nicht nur an der Fundstelle: Sie fängt jede
+    # künftige Stelle mit, die versehentlich einen Namen weiterreicht. Ein
+    # falscher Aufruf soll gar nicht erst hinausgehen.
+    if any(z.isspace() for z in kennung) or '"' in kennung:
+        # ⚠ `fehler` lokal importieren — auf Modulebene wäre es ein
+        # Zirkelbezug (`fehler.py` importiert selbst `pfade`). Steht so in den
+        # Projektregeln; beim ersten Anlauf stand der Aufruf hier ohne jeden
+        # Import und hätte beim ersten Auslösen einen `NameError` geworfen.
+        from . import fehler as _f
+        _f.merken('laeden.holen',
+                  ValueError('keine Kennung, sondern ein Name: %r'
+                             % kennung[:60]))
+        return False
+    # ⚠ **Die Netz-Abschaltung steht NACH der Wache.** Eine kaputte Kennung
+    # ist kaputt, ob das Netz an ist oder nicht — und im Prüflauf ist es aus.
+    # Stand die Prüfung `AUS` davor, lief die Wache dort nie und hätte
+    # unbemerkt verrotten können.
+    if AUS:
         return False
     a = alter(kennung)
     if not erzwingen and a is not None and a < HALTBAR:

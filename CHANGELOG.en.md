@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.2 - 2026-09-06
+
+> **Pages load instantly again.** A marked blueprint triggered a price lookup
+> on every page build that could never succeed — and because nothing came back,
+> it was tried again and again.
+
+### Fixed
+
+- **"Still missing" stayed empty and loaded forever** as soon as anything was
+  marked. The farming list stored the blueprint name as an identifier, which
+  produced an invalid request. Measured: the wishlist took **7.5 seconds**, now
+  it takes **11 milliseconds**. Reported by Haldjas.
+- Existing farming lists repair themselves on opening — nothing has to be
+  entered again.
+- An identifier containing spaces is no longer requested at all, it is logged
+  instead. Anything like this now shows up immediately instead of quietly
+  slowing things down.
+
 ## v3.22.1 - 2026-09-06
 
 > **A fix for the material display from v3.22.0.** It showed two different

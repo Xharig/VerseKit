@@ -234,8 +234,25 @@ def merkzettel(daten=None):
     `wunsch_liste()`.
     """
     liste = (daten or laden()).get('merkzettel') or []
-    return sorted((m for m in liste if isinstance(m, dict) and m.get('name')),
-                  key=lambda m: (m.get('name') or '').lower())
+    raus = []
+    for m in liste:
+        if not isinstance(m, dict) or not m.get('name'):
+            continue
+        # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung, sondern ein
+        # Name.** v3.21.0 und v3.22.0 haben genau das gespeichert; daraus wurde
+        # eine kaputte Preisabfrage (`items_prices?uuid=CF-447 Rhino Repeater`),
+        # die Seite „Was noch fehlt" blieb leer und lud endlos.
+        #
+        # Hier wird es beim Lesen stillschweigend verworfen — so heilen sich
+        # vorhandene Merkzettel von selbst, ohne dass jemand etwas neu eintragen
+        # muss. Der Posten bleibt vollstaendig: Das Rezept findet `bauweg()`
+        # ueber den Namen.
+        ref = (m.get('ref') or '').strip()
+        if ref and (any(z.isspace() for z in ref) or '"' in ref):
+            m = dict(m)
+            m['ref'] = ''
+        raus.append(m)
+    return sorted(raus, key=lambda m: (m.get('name') or '').lower())
 
 
 def merkzettel_enthaelt(daten, name):
