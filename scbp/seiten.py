@@ -3296,18 +3296,32 @@ def _joysticks(fenster, rahmen):
                      bg=FLAECHE, fg=(ACCENT if lesbar else SUB),
                      font=fenster.f_klein, width=17, anchor='w').pack(
                          side='left')
-            # ⚠ Grau heißt „das ist keine Bezeichnung des Spiels, sondern der
-            # aufbereitete technische Name" — 382 Aktionen haben keine.
-            tk.Label(zeile, text=(klar or e['aktion']), bg=FLAECHE,
-                     fg=(FG if echt else SUB), font=fenster.f_klein,
-                     anchor='w').pack(side='left')
-            # Was der Spieler selbst geändert hat, wird gekennzeichnet —
-            # sonst sieht man in der Gesamtsicht nicht, was von einem selbst
-            # stammt und was ab Werk so ist.
+            # ⚠⚠ **Die Marke rechts wird ZUERST gepackt.** In `tkinter`
+            # bekommt das zuerst gepackte Element seinen Platz; ein langer
+            # Aktionsname mit `side='left'` schiebt eine später gepackte
+            # `side='right'`-Beschriftung aus dem Fenster. Beim
+            # Abnahme-Durchlauf am 06.09.2026 gemessen: „geändert" brauchte
+            # 82 px und bekam 43 — es stand also „geänd…" da, bei manchen
+            # Zeilen nur 6 px.
+            #
+            # Derselbe Fehler steckte am selben Tag im Warenkorb, wo er den
+            # Knopf „Kaufen" unerreichbar machte. Die Regel steht seit
+            # Langem in den Projektnotizen — sie greift nur, wenn man beim
+            # Schreiben daran denkt, deshalb prüft die Abnahme jetzt die
+            # Textbreiten.
             if e.get('quelle') == joysticks.MEINE:
                 tk.Label(zeile, text=t('s_js_q_meine'), bg=FLAECHE, fg=ACCENT,
                          font=fenster.f_klein, anchor='e', padx=10).pack(
                              side='right')
+            # ⚠ Grau heißt „das ist keine Bezeichnung des Spiels, sondern der
+            # aufbereitete technische Name" — 382 Aktionen haben keine.
+            #
+            # ⚠ `expand=True`: Der Name darf schrumpfen, die Marke daneben
+            # nicht — was nicht passt, wird beim Namen abgeschnitten, und der
+            # steht immerhin am Anfang lesbar da.
+            tk.Label(zeile, text=(klar or e['aktion']), bg=FLAECHE,
+                     fg=(FG if echt else SUB), font=fenster.f_klein,
+                     anchor='w').pack(side='left', fill='x', expand=True)
             for kind in zeile.winfo_children():
                 _anfassen(kind)
 
@@ -9493,7 +9507,20 @@ def _hangar(fenster, rahmen):
             meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
             neu_zeichnen()
             return
-        if meine.hinzufuegen(daten['stand'], name, herkunft=meine.INGAME):
+        # ⚠⚠ **Die Herkunft ist wählbar, nicht geraten.** Bis zum 06.09.2026
+        # bekam jedes von Hand eingetragene Schiff „im Spiel gekauft" —
+        # verpflichtend, ohne Wahl. Gefragt wurde: „wie tragen User per
+        # Echtgeld gekaufte Schiffe ein, die nicht den Hangar XPLORer nutzen
+        # wollen?" Die ehrliche Antwort war: gar nicht.
+        #
+        # Der Unterschied ist keine Nebensache: An der Herkunft hängt, ob ein
+        # Schiff dauerhaft versichert ist (LTI kommt nur mit Echtgeld-Käufen)
+        # — und genau das entscheidet beim Claimen, ob die eingebauten Teile
+        # überleben.
+        if meine.hinzufuegen(daten['stand'], name,
+                             herkunft=(meine.PLEDGE if echtgeld[0]
+                                       else meine.INGAME),
+                             lti=echtgeld[0] and lti[0]):
             meine.speichern(daten['stand'])
             meldung['text'] = t('s_hg_getragen').format(name=name)
             meldung['farbe'] = ACCENT
@@ -9524,6 +9551,31 @@ def _hangar(fenster, rahmen):
         if geholt:
             neu_zeichnen()
         return geholt
+
+    # ⚠ Die Wahl steht **über** dem Knopf, nicht daneben: Wer eintragen will,
+    # liest von oben nach unten und soll die Frage vorher sehen, nicht danach.
+    echtgeld = [False]
+    lti = [False]
+    wahl_reihe = tk.Frame(innen, bg=BG)
+    wahl_reihe.pack(fill='x', padx=24, pady=(8, 0))
+
+    def _lti_zeigen():
+        # LTI gibt es nur bei Echtgeld-Käufen — die Frage ergibt sonst keinen
+        # Sinn und würde nur verwirren.
+        if echtgeld[0]:
+            lti_kasten.pack(side='left', padx=(20, 0))
+        else:
+            lti[0] = False
+            lti_kasten.pack_forget()
+
+    def _echtgeld_um(an):
+        echtgeld[0] = an
+        _lti_zeigen()
+
+    _kaestchen(wahl_reihe, t('s_hg_mit_echtgeld'), echtgeld, _echtgeld_um,
+               fenster.f_klein).pack(side='left')
+    lti_kasten = _kaestchen(wahl_reihe, t('s_hg_hat_lti'), lti,
+                            lambda an: lti.__setitem__(0, an), fenster.f_klein)
 
     reihe_hand = tk.Frame(innen, bg=BG)
     reihe_hand.pack(fill='x', padx=24, pady=(10, 0))

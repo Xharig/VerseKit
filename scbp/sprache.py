@@ -3163,6 +3163,10 @@ TEXTE = {
                           'Ships and vehicles you want to earn or buy. Next to '
                           'them you see what they cost and where to get them.'),
     's_hg_wunsch_eintragen': ('Auf die Wunschliste', 'Add to wishlist'),
+    # ⚠ Ohne diese Wahl bekam jedes von Hand eingetragene Schiff „im Spiel
+    # gekauft" — und damit nie LTI, obwohl genau das beim Claimen zählt.
+    's_hg_mit_echtgeld': ('mit Echtgeld gekauft', 'bought with real money'),
+    's_hg_hat_lti':      ('hat LTI', 'has LTI'),
     # ⚠ Steht in der Schiffszeile, damit man offene Posten sieht, ohne die
     # Ausstattung aufzuklappen — in der Markenfarbe, nicht in Grau.
     's_hg_offen':        ('{n} noch zu besorgen', '{n} still to get'),

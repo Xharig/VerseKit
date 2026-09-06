@@ -12356,13 +12356,27 @@ def main():
     pruefe('sicherstellen' not in _rufe_kaputt138,
            'Gegenprobe: ein auskommentierter Aufruf gilt NICHT als vorhanden')
 
-    # Alle 32 Bilder der Anleitung sind da — 16 Seiten in zwei Sprachen.
+    import re as _re138
+
+    # Zu jeder Seite in `bilder_machen.SEITEN` muss ein Bild vorliegen.
     _bilder138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))
                   if n.startswith('screenshot-') and n.endswith('.png')]
-    # ⚠ 34 seit v3.19.0: „Mein Hangar" kam dazu (16 Seiten + Overlay, je
-    # Sprache). Wer eine Seite in `SEITEN` einträgt, zieht diese Zahl mit.
-    pruefe(len(_bilder138) == 34,
-           'die Anleitung hat ihre 34 Bilder (gefunden: %d)' % len(_bilder138))
+    # ⚠⚠ **Keine feste Zahl mehr.** Bis zum 06.09.2026 stand hier
+    # `len(...) == 34` — und wer eine Seite dazunahm, bekam eine rote Prüfung,
+    # obwohl er alles richtig gemacht hatte. Dasselbe Muster wie bei der
+    # Prüfung, die einmal den falschen Aufruf **festgeschrieben** hat:
+    # Geprüft gehört die **Wirkung** („zu jeder Seite gibt es ein Bild"), nicht
+    # eine Zahl, die jemand nachpflegen muss.
+    _erwartet138 = set()
+    for _z138 in _bm138.split('\n'):
+        _m138 = _re138.match(r"\s*'([a-z]+)':\s*'(screenshot-[a-z-]+)'", _z138)
+        if _m138:
+            _erwartet138.add(_m138.group(2))
+    _fehlt138 = sorted(n for n in _erwartet138
+                       if '%s.png' % n not in _bilder138)
+    pruefe(not _fehlt138,
+           'zu jeder Seite gibt es ein Bild (fehlt: %s)'
+           % (', '.join(_fehlt138[:4]) if _fehlt138 else 'keins'))
     _paare138 = sorted(n[:-4].replace('-en', '') for n in _bilder138)
     pruefe(all(_paare138.count(n) == 2 for n in set(_paare138)),
            'zu jedem deutschen Bild gibt es das englische')
