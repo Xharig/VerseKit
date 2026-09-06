@@ -240,6 +240,19 @@ KNOPF_SYMBOLE = {
     # `herkunft`) — dort geht es um „wo kommt es her", hier um „in welcher
     # Reihenfolge fahre ich".
     'routen':       'route',
+    # Die Einkaufsliste über alle Schiffe — Teile und Wunschschiffe mit
+    # Gesamtpreis und Einzelaufstellung.
+    #
+    # ⚠ Bewusst **nicht** `clipboard-list`: Das trägt schon `liste` (die
+    # Bauplan-Liste). Zwei verschiedene Dinge dürfen nicht dasselbe Bild
+    # haben — dieselbe Überlegung wie bei `hangar` gegen `rocket` weiter oben.
+    # Auch nicht `coins` (`verkauf`, Geld einnehmen) oder `store` (`laeden`,
+    # wo ein Teil im Regal steht).
+    #
+    # Ein Kassenbon ist das Bild, das die Sache trifft: eine Aufstellung mit
+    # Summe darunter. Der Wunsch war wörtlich „eine Einzelaufstellung, so wie
+    # jede Rechnung die man bekommen würde".
+    'einkaufsliste': 'receipt',
 }
 
 ZEILEN_SYMBOLE = {
