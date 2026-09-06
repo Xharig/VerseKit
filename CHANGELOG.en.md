@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc20 - 2026-09-06
+
+> **A dialog could render the program unusable.** It appeared off-screen, held
+> everything as a modal window — and since you could not see it, it looked as
+> if the controls were broken. All 46 such windows have been replaced.
+
+### Fixed
+
+- **A window off-screen.** Saving the joystick bindings opened a system window
+  somewhere at the edge that could not be reached. The program could not even
+  be closed afterwards.
+- **The sidebar groups could not be expanded or collapsed** — it was the same
+  invisible dialog holding the interface.
+- **Messages now appear in the program's own style**, centred over the window
+  and in the chosen language rather than the system's.
+- **Ticked-off items drop out everywhere**: from the "still to get" count, the
+  cart heading, the total and the farming list. What is built and fitted needs
+  no more material.
+
 ## v3.19.0-rc19 - 2026-09-06
 
 > **A crystal for the farming list.** The new workshop tab had no icon of its

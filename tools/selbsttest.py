@@ -14344,6 +14344,77 @@ def main():
     finally:
         _wurzel160.destroy()
 
+    # ------------------------------------------------------------------
+    # 161. Kein System-Dialog im Programm
+    #
+    # ⚠⚠⚠ **Das war der schlimmste Fehler des Tages.** Am 06.09.2026 erschien
+    # beim Speichern der Joystick-Belegung ein `messagebox`-Fenster
+    # **ausserhalb aller Bildschirme**. Weil es modal ist, war das Programm
+    # danach unbedienbar — es liess sich nicht einmal mehr beenden. Vorher
+    # hatte derselbe Dialog schon dafuer gesorgt, dass sich die Gruppen in der
+    # Seitenleiste nicht mehr auf- und zuklappen liessen: Er stand unsichtbar
+    # am unteren Rand und hielt die Oberflaeche fest.
+    #
+    # Dazu die beiden aelteren Beschwerden ueber denselben Dialog: heller
+    # Kasten im dunklen Programm („sieht kacke aus") und Knoepfe in der
+    # Systemsprache statt der eingestellten („der Dialog zeigt im Deutschen
+    # englische Woerter").
+    #
+    # Es gab bereits drei oertliche Ersatzklassen — und fuenf Stellen, die
+    # sich den echten mit `from tkinter import messagebox` zurueckgeholt
+    # haben. Eine Regel, die man an jeder Stelle einzeln befolgen muss, wird
+    # irgendwo nicht befolgt. Deshalb prueft das hier den ganzen Quelltext.
+    #
+    # ⚠ Die **eine** erlaubte Stelle ist der Notnagel in `hauptfenster.py`:
+    # Scheitert `frage_stellen` selbst, ist ein haesslicher Dialog besser als
+    # gar keiner.
+    print()
+    print('161. Kein System-Dialog im Programm')
+    import re as _re161
+
+    _erlaubt161 = 'scbp/hauptfenster.py'
+    _fund161 = []
+    for _datei161 in sorted(_versionierte_dateien(WURZEL, ('.py',))):
+        if not _datei161.startswith('scbp/'):
+            continue
+        with open(os.path.join(WURZEL, _datei161), 'r',
+                  encoding='utf-8') as _f161:
+            _text161 = _f161.read()
+        for _nr161, _zeile161 in enumerate(_text161.split('\n'), 1):
+            # Kommentare und Doku zaehlen nicht — dort steht die Begruendung.
+            _blank161 = _zeile161.strip()
+            if _blank161.startswith('#') or _blank161.startswith('⚠'):
+                continue
+            if _re161.search(r'messagebox\.(show\w+|ask\w+)\(', _zeile161):
+                if _datei161 == _erlaubt161:
+                    continue
+                _fund161.append('%s:%d' % (_datei161, _nr161))
+
+    pruefe(not _fund161,
+           'kein `messagebox` ausserhalb des Notnagels (gefunden: %s)'
+           % (', '.join(_fund161[:4]) if _fund161 else 'keine'))
+
+    # ⚠ Und der Import zaehlt mit: Er ist es, der die oertliche Ersatzklasse
+    # ueberschreibt. Genau so kamen die fuenf Stellen zurueck.
+    _importe161 = []
+    for _datei161 in sorted(_versionierte_dateien(WURZEL, ('.py',))):
+        if not _datei161.startswith('scbp/') or _datei161 == _erlaubt161:
+            continue
+        with open(os.path.join(WURZEL, _datei161), 'r',
+                  encoding='utf-8') as _f161:
+            for _nr161, _zeile161 in enumerate(_f161, 1):
+                if _re161.match(r'\s*from tkinter import messagebox',
+                                _zeile161):
+                    _importe161.append('%s:%d' % (_datei161, _nr161))
+    pruefe(not _importe161,
+           'und kein `from tkinter import messagebox` (gefunden: %s)'
+           % (', '.join(_importe161[:4]) if _importe161 else 'keine'))
+
+    # Gegenprobe: Das Muster muss so eine Zeile auch wirklich finden.
+    pruefe(bool(_re161.search(r'messagebox\.(show\w+|ask\w+)\(',
+                              'x = messagebox.showinfo(a, b)')),
+           'Gegenprobe: das Muster erkennt einen echten Aufruf')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

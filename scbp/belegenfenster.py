@@ -270,17 +270,25 @@ class Belegenfenster:
         self._schreiben(self.kennzeichen, '')
 
     def _schreiben(self, kennzeichen, name):
-        from tkinter import messagebox
+        # ⚠⚠ **Kein `messagebox`.** Der System-Dialog von Tk landet nicht
+        # zuverlässig über dem Elternfenster: Am 06.09.2026 erschien er beim
+        # Speichern der Belegung **außerhalb aller Bildschirme** — und weil er
+        # modal ist, war das Programm damit unbedienbar und ließ sich nicht
+        # einmal mehr beenden. Dazu kommen die bekannten Punkte: heller Kasten
+        # im dunklen Programm, Knöpfe in der Systemsprache.
+        #
+        # `frage_stellen` setzt sich mittig über das Elternfenster und wird
+        # mit ihm geschlossen.
+        from .hauptfenster import frage_stellen
         erfolg, meldung, _ = joysticks.belegen(self.aktion, self.bereich,
                                                kennzeichen, name)
         if erfolg:
-            messagebox.showinfo(t('s_js_b_titel'), t('s_js_fertig', meldung),
-                                parent=self.root)
+            frage_stellen(self.root, t('s_js_b_titel'),
+                          t('s_js_fertig', meldung), nur_ok=True)
             self.schliessen(True)
         else:
-            messagebox.showwarning(t('s_js_b_titel'),
-                                   t('s_js_schief', t(meldung)),
-                                   parent=self.root)
+            frage_stellen(self.root, t('s_js_b_titel'),
+                          t('s_js_schief', t(meldung)), nur_ok=True)
 
     def schliessen(self, geaendert=False):
         self._laeuft = False

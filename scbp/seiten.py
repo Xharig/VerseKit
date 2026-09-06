@@ -2732,7 +2732,7 @@ def _geraete_hub(fenster, eltern):
             def _umhaengen(neu=geraet, vorher=alt):
                 from . import joysticks
                 zeilen = len(joysticks.belegungen() or {})
-                if not messagebox.askyesno(
+                if not _fragen(fenster, 
                         t('hf_joysticks'),
                         t('s_gh_tausch_frage').format(
                             vorher['name'] or vorher['kurz'],
@@ -2742,9 +2742,9 @@ def _geraete_hub(fenster, eltern):
                 erfolg, meldung, _ = geraetehub.umhaengen(
                     vorher['kennung'], neu['kennung'])
                 if not erfolg:
-                    messagebox.showwarning(t('hf_joysticks'), t(meldung))
+                    _hinweis(fenster, t('hf_joysticks'), t(meldung))
                     return
-                messagebox.showinfo(t('hf_joysticks'), t('s_gh_umgehaengt'))
+                _hinweis(fenster, t('hf_joysticks'), t('s_gh_umgehaengt'))
                 _zeichnen()
 
             # ⚠ Der Knopf steht UNTER dem Kasten: `_knopf` zeichnet fest auf
@@ -2982,26 +2982,24 @@ def _joysticks(fenster, rahmen):
         betroffenen Belegungen — „alles zurücksetzen?" ist zu abstrakt, um
         eine Entscheidung darauf zu stützen.
         """
-        from tkinter import messagebox
         eigene = 0
         for liste in (joysticks.sicht(joysticks.MEINE) or {}).values():
             eigene += len(liste)
-        if not messagebox.askyesno(t('s_js_zurueck'),
+        if not _fragen(fenster, t('s_js_zurueck'),
                                    t('s_js_zurueck_frage', eigene),
                                    icon='warning', default='no'):
             return
         erfolg, meldung, _ = joysticks.zuruecksetzen()
         if erfolg:
-            messagebox.showinfo(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                 t('s_js_zurueck_ok', meldung))
         else:
-            messagebox.showwarning(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
         _auffrischen()
 
     def _ausgeben(als_csv=False):
         """Die Belegung als Datei sichern — ohne Umweg über die Spielkonsole."""
-        from tkinter import messagebox
         from . import dateiwahl
         from .sprache import aktuelle
         endung = '.csv' if als_csv else '.xml'
@@ -3012,10 +3010,10 @@ def _joysticks(fenster, rahmen):
             return
         erfolg, meldung = joysticks.ausgeben(ziel, aktuelle())
         if erfolg:
-            messagebox.showinfo(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                 t('s_js_ausgabe_ok', meldung))
         else:
-            messagebox.showwarning(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
 
     def _profil_speichern():
@@ -3026,7 +3024,6 @@ def _joysticks(fenster, rahmen):
         sich dort unter seinem Namen laden. Das ist der Weg, den man sonst nur
         über die Spielkonsole hat.
         """
-        from tkinter import messagebox
         from .hauptfenster import text_stellen
         vorhandene = joysticks.profile()
         # ⚠ **Nicht `simpledialog.askstring`.** Der Systemdialog kommt grau, in
@@ -3040,27 +3037,26 @@ def _joysticks(fenster, rahmen):
             return                       # abgebrochen, nicht leer bestätigt
         ok, meldung = joysticks.name_pruefen(name)
         if not ok:
-            messagebox.showwarning(t('hf_joysticks'), t(meldung))
+            _hinweis(fenster, t('hf_joysticks'), t(meldung))
             return
         name = name.strip()
         erfolg, meldung = joysticks.profil_speichern(name)
         # Ein vorhandenes Profil wird nicht stillschweigend überschrieben —
         # dahinter kann die Belegung eines ganzen Abends stecken.
         if not erfolg and meldung == 's_js_f_name_belegt':
-            if not messagebox.askyesno(t('s_js_profil'),
+            if not _fragen(fenster, t('s_js_profil'),
                                        t('s_js_profil_ersetzen', name),
                                        icon='warning', default='no'):
                 return
             erfolg, meldung = joysticks.profil_speichern(
                 name, ueberschreiben=True)
         if erfolg:
-            messagebox.showinfo(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                 t('s_js_profil_ok', name, name))
         else:
-            messagebox.showwarning(t('hf_joysticks'), t(meldung))
+            _hinweis(fenster, t('hf_joysticks'), t(meldung))
 
     def _einlesen():
-        from tkinter import messagebox
         from . import dateiwahl
         from .hauptfenster import auswahl_stellen, wahl_stellen
         # ⚠ Erst die eigenen Profile anbieten, dann den Dateiwähler. Der
@@ -3081,7 +3077,7 @@ def _joysticks(fenster, rahmen):
                     return
                 quelle = joysticks.profil_datei(name)
                 if not quelle:
-                    messagebox.showwarning(t('hf_joysticks'),
+                    _hinweis(fenster, t('hf_joysticks'),
                                            t('s_js_f_datei'))
                     return
             elif wahl != 'b':
@@ -3091,16 +3087,16 @@ def _joysticks(fenster, rahmen):
                                              muster=(('XML', '*.xml'),))
         if not quelle:
             return
-        if not messagebox.askyesno(t('s_js_einlesen'),
+        if not _fragen(fenster, t('s_js_einlesen'),
                                    t('s_js_einlesen_frage'),
                                    icon='warning', default='no'):
             return
         erfolg, meldung, anzahl = joysticks.einlesen(quelle)
         if erfolg:
-            messagebox.showinfo(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                 t('s_js_einlesen_ok', anzahl, meldung))
         else:
-            messagebox.showwarning(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
         _auffrischen()
 
@@ -3294,16 +3290,15 @@ def _joysticks(fenster, rahmen):
                 _anfassen(kind)
 
     def _uebernehmen(alt, neu):
-        from tkinter import messagebox
         erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
                                                         neu['kennung'],
                                                         neu['name'])
         if erfolg:
-            messagebox.showinfo(t('hf_joysticks'), t('s_js_fertig', meldung))
+            _hinweis(fenster, t('hf_joysticks'), t('s_js_fertig', meldung))
         else:
             # ⚠ `meldung` ist ein Sprachschlüssel, kein fertiger Satz — sonst
             # stünde in der englischen Oberfläche deutscher Text.
-            messagebox.showwarning(t('hf_joysticks'),
+            _hinweis(fenster, t('hf_joysticks'),
                                    t('s_js_schief', t(meldung)))
         _auffrischen()
 
@@ -4044,8 +4039,7 @@ def _fassung_holen(fenster, mit_vorab):
 
                 def bescheid_geben():
                     try:
-                        from tkinter import messagebox
-                        messagebox.showinfo(t('s_ub_hinweis_titel'),
+                        _hinweis(fenster, t('s_ub_hinweis_titel'),
                                             t('s_ub_hinweis_neustart'))
                     finally:
                         gelesen.set()
@@ -10433,6 +10427,37 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
+def _hinweis(fenster, titel, text):
+    """Ein Hinweis im Programmstil — **nie** der System-Dialog von Tk.
+
+    ⚠⚠ **Warum das keine Stilfrage ist.** Ein `messagebox.showinfo` bringt
+    zwei Fehler auf einmal mit, und beide sind am 06.09.2026 aufgetreten:
+
+    1. **Er sieht fremd aus** — heller Kasten mit Systemschrift mitten in einem
+       dunklen Programm, und seine Knöpfe kommen in der Systemsprache, nicht in
+       der eingestellten. („sieht kacke aus", „der Dialog zeigt im Deutschen
+       englische Wörter")
+    2. **Er erscheint irgendwo** — Tk setzt ihn nicht über das Elternfenster.
+       Er landete unten am Bildschirmrand, wo niemand hinsieht, und weil er
+       **modal** ist, nahm er die ganze Oberfläche mit: Die Gruppen in der
+       Seitenleiste ließen sich nicht mehr auf- und zuklappen. Der Fehler sah
+       nach einem kaputten Menü aus und war ein unsichtbares Fenster.
+       („Fenster spawnt irgendwo unten, wo niemand hinschaut, was genau zu
+       diesem Fehler geführt hat")
+
+    `frage_stellen` steht mittig über dem Elternfenster, trägt die Farben des
+    Programms und benutzt die eingestellte Sprache.
+    """
+    from .hauptfenster import frage_stellen
+    frage_stellen(fenster.root, titel, text, nur_ok=True)
+
+
+def _fragen(fenster, titel, text):
+    """Eine Ja/Nein-Frage im Programmstil — siehe `_hinweis`."""
+    from .hauptfenster import frage_stellen
+    return frage_stellen(fenster.root, titel, text)
+
+
 def _teil_kennzeichen(teil):
     """„C · Industrie" — Güte und Klasse eines Teils, kurz.
 
@@ -12997,12 +13022,12 @@ def _blickwinkel(fenster, rahmen):
         # die des Bildschirms — die ganze Rechnung wäre falsch. Dann lieber
         # nichts speichern und es sagen.
         if not vollbild:
-            messagebox.showwarning(t('hf_blickwinkel'),
+            _hinweis(fenster, t('hf_blickwinkel'),
                                    t('s_fv_kein_vollbild'))
             return
         fov_modul.merken(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
         breite = fov_modul.bildschirmbreite_mm(bildschirm_px, mm_je_pixel)
-        messagebox.showinfo(
+        _hinweis(fenster, 
             t('hf_blickwinkel'),
             t('s_fv_gespeichert').format((breite or 0) / 10.0))
         _auffrischen()
@@ -13379,7 +13404,7 @@ def _achsen(fenster, rahmen):
             """
             aenderungen = _offen()
             if not aenderungen:
-                messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
+                _hinweis(fenster, t('hf_achsen'), t('s_ac_nichts_offen'))
                 return
             for schluessel, neu in aenderungen.items():
                 teil = anzeigen[schluessel]
@@ -13391,9 +13416,9 @@ def _achsen(fenster, rahmen):
                     erfolg, meldung, _ = kurven.setzen(
                         gewaehlter['kennung'], wahl['achse'], schluessel, neu)
                 if not erfolg:
-                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
-            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
+            _hinweis(fenster, t('hf_achsen'), t('s_ac_gespeichert'))
             _auffrischen()
 
         def _reglerzeile(eigenschaft, beschriftung, ist):
@@ -13537,7 +13562,7 @@ def _achsen(fenster, rahmen):
                     # ⚠ Die Arbeit macht `kurven.angleichen()` — hier steht
                     # nur die Rückfrage. Logik in einem Rückruf der Oberfläche
                     # lässt sich nicht prüfen; im Modul hat sie eine Prüfung.
-                    if not messagebox.askyesno(
+                    if not _fragen(fenster, 
                             t('hf_achsen'),
                             t('s_ac_angleichen_frage').format(
                                 gewaehlter['name'], z['name'])
@@ -13546,9 +13571,9 @@ def _achsen(fenster, rahmen):
                     erfolg, meldung, anzahl = kurven.angleichen(
                         gewaehlter['kennung'], z['kennung'])
                     if not erfolg:
-                        messagebox.showwarning(t('hf_achsen'), t(meldung))
+                        _hinweis(fenster, t('hf_achsen'), t(meldung))
                         return
-                    messagebox.showinfo(
+                    _hinweis(fenster, 
                         t('hf_achsen'),
                         t('s_ac_angeglichen').format(anzahl))
                     _auffrischen()
@@ -13575,7 +13600,7 @@ def _achsen(fenster, rahmen):
             gitter3 = []
             for ziel in andere:
                 def _tauschen(z=ziel):
-                    if not messagebox.askyesno(
+                    if not _fragen(fenster, 
                             t('hf_achsen'),
                             t('s_ac_tausch_frage').format(gewaehlter['name'],
                                                           z['name'])
@@ -13585,9 +13610,9 @@ def _achsen(fenster, rahmen):
                     erfolg, meldung, _ = joysticks.belegungen_tauschen(
                         gewaehlter['kennung'], z['kennung'])
                     if not erfolg:
-                        messagebox.showwarning(t('hf_achsen'), t(meldung))
+                        _hinweis(fenster, t('hf_achsen'), t(meldung))
                         return
-                    messagebox.showinfo(t('hf_achsen'), t('s_ac_getauscht'))
+                    _hinweis(fenster, t('hf_achsen'), t('s_ac_getauscht'))
                     _auffrischen()
 
                 gitter3.append(_knopf(
@@ -13661,17 +13686,17 @@ def _achsen(fenster, rahmen):
             def _aufraeumen():
                 ok2, meldung, wieviele = kurven.aufraeumen(nur_zaehlen=True)
                 if not ok2:
-                    messagebox.showinfo(t('hf_achsen'), t(meldung))
+                    _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
-                if not messagebox.askyesno(
+                if not _fragen(fenster, 
                         t('hf_achsen'),
                         t('s_ac_aufraeumen_frage').format(wieviele)):
                     return
                 ok2, meldung, wieviele = kurven.aufraeumen()
                 if not ok2:
-                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
-                messagebox.showinfo(t('hf_achsen'),
+                _hinweis(fenster, t('hf_achsen'),
                                     t('s_ac_aufgeraeumt').format(wieviele))
                 _auffrischen()
 
@@ -13715,12 +13740,12 @@ def _achsen(fenster, rahmen):
         def _sichern():
             ok, meldung, wieviele = geraetesatz.speichern(name.get())
             if not ok and meldung == 's_gs_f_name_belegt':
-                if not messagebox.askyesno(t('hf_achsen'), t(meldung)):
+                if not _fragen(fenster, t('hf_achsen'), t(meldung)):
                     return
                 ok, meldung, wieviele = geraetesatz.speichern(
                     name.get(), ueberschreiben=True)
             if not ok:
-                messagebox.showwarning(t('hf_achsen'), t(meldung))
+                _hinweis(fenster, t('hf_achsen'), t(meldung))
                 return
             _auffrischen()
 
@@ -13746,18 +13771,18 @@ def _achsen(fenster, rahmen):
             if fehlt:
                 frage += '\n\n' + t('s_gs_fehlt').format(', '.join(fehlt))
             frage += '\n\n' + t('s_ac_spiel_zu')
-            if not messagebox.askyesno(t('hf_achsen'), frage):
+            if not _fragen(fenster, t('hf_achsen'), frage):
                 return
             erfolg, meldung, anzahl = geraetesatz.anwenden(n)
             if not erfolg:
-                messagebox.showwarning(t('hf_achsen'), t(meldung))
+                _hinweis(fenster, t('hf_achsen'), t(meldung))
                 return
-            messagebox.showinfo(t('hf_achsen'),
+            _hinweis(fenster, t('hf_achsen'),
                                 t('s_gs_angewendet').format(anzahl))
             _auffrischen()
 
         def _weg(n=satz['name']):
-            if not messagebox.askyesno(t('hf_achsen'),
+            if not _fragen(fenster, t('hf_achsen'),
                                        t('s_gs_loeschen_frage').format(n)):
                 return
             geraetesatz.loeschen(n)
@@ -13980,7 +14005,7 @@ def _achsen(fenster, rahmen):
             sieht vorher, was passiert; die Sicherung entsteht ohnehin bei
             jedem Schreibvorgang.
             """
-            if not messagebox.askyesno(
+            if not _fragen(fenster, 
                     t('hf_achsen'),
                     '%s\n\n%s' % (t('s_ac_uebernehmen'), t('s_ac_spiel_zu'))):
                 return
@@ -13988,9 +14013,9 @@ def _achsen(fenster, rahmen):
                 erfolg, meldung, _ = kurven.setzen(
                     f['neu']['kennung'], achse, eigenschaft, alt)
                 if not erfolg:
-                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
-            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
+            _hinweis(fenster, t('hf_achsen'), t('s_ac_gespeichert'))
             _auffrischen()
 
         tk.Frame(kasten, bg=FLAECHE, height=8).pack(fill='x')

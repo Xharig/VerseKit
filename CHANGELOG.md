@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc20 - 2026-09-06
+
+> **Ein Dialog konnte das Programm unbedienbar machen.** Er erschien außerhalb
+> der Bildschirme, hielt als modales Fenster alles fest — und weil man ihn
+> nicht sah, wirkte es, als sei die Bedienung kaputt. Alle 46 solcher Fenster
+> sind ersetzt.
+
+### Behoben
+
+- **Fenster außerhalb des Bildschirms.** Beim Speichern der Joystick-Belegung
+  öffnete sich ein System-Fenster irgendwo am Rand, an das man nicht herankam.
+  Das Programm ließ sich danach nicht einmal mehr beenden.
+- **Die Gruppen der Seitenleiste ließen sich nicht auf- und zuklappen** — es
+  war derselbe unsichtbare Dialog, der die Oberfläche festhielt.
+- **Meldungen erscheinen jetzt im Programmstil**, mittig über dem Fenster und
+  in der eingestellten Sprache statt der des Systems.
+- **Abgehaktes fällt überall heraus**: aus der Zählung „noch zu besorgen", aus
+  der Warenkorb-Überschrift, aus der Summe und aus der Farmliste. Was gebaut
+  und eingebaut ist, braucht kein Material mehr.
+
 ## v3.19.0-rc19 - 2026-09-06
 
 > **Ein Kristall für die Farmliste.** Der neue Werkstatt-Reiter hatte noch kein
