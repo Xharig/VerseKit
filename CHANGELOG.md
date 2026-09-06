@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc5 - 2026-09-06
+
+> **Der Ablage-Ordner nimmt jetzt deine Daten mit.** Bisher setzte das
+> Umstellen nur den Pfad — die Baupläne blieben liegen, und nach dem Neustart
+> sah das Werkzeug leer aus. Dazu steht in der Herstellung endlich, welche
+> Größe, Güte und Klasse ein Bauplan hat.
+
+### Neu
+
+- **Größe, Güte und Klasse in der Herstellung.** Beim aufgeklappten Bauplan
+  steht jetzt neben dem Hersteller „Militär · Größe 4 · Güte A". Bei Rüstung
+  und Handfeuerwaffen steht dort nichts — dort bedeuten diese Werte nichts.
+
+### Verbessert
+
+- **Der Ablage-Ordner zieht um.** Beim Umstellen fragt das Werkzeug, ob die
+  vorhandenen Daten mitkommen sollen, prüft vorher, ob sich am neuen Ort
+  überhaupt schreiben lässt, und vergleicht jede kopierte Datei mit dem
+  Original. **Der alte Ordner bleibt vollständig liegen** — nichts wird
+  gelöscht. Liegt am Ziel schon eine Ablage, wird sie nicht angerührt; du wirst
+  gefragt, ob du sie benutzen willst.
+- **„Passt in dein Schiff" ist nicht mehr zu übersehen** — die Zeile steht fett
+  und farbig statt grau.
+
+### Behoben
+
+- **„Passt in keines deiner Schiffe" stand auch dann da, wenn schlicht die
+  Daten fehlten.** Beides sah im Programm gleich aus und bedeutet das
+  Gegenteil. Jetzt sagt es, dass die Daten noch geholt werden — und holt sie.
+- Rüstungsteile und Handfeuerwaffen bekamen eine Größe und eine Güte
+  angedichtet, die sie nicht haben.
+
 ## v3.19.0-rc4 - 2026-09-06
 
 > **Von Hand eingetragene Schiffe finden ihre Steckplätze.** Und ein Knopf ist

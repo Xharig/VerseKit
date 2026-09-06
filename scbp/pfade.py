@@ -295,6 +295,129 @@ def umziehen():
     return kopiert
 
 
+# ------------------------------------------- Ablage-Ordner wechseln (v3.19.0)
+
+# Was beim Wechsel mitkommt. Alles andere im Ordner geht uns nichts an — wer
+# seinen Ablage-Ordner auf einen Ordner legt, in dem noch etwas anderes liegt,
+# soll das behalten dürfen.
+UMZUG_ENDUNGEN = ('.json', '.txt')
+
+
+def _dateien_der_ablage(ordner):
+    """Alle eigenen Dateien eines Ablage-Ordners, mit ihrem Unterordner.
+
+    Gibt Paare `(voller Pfad, Name)` zurück — **rekursiv**, weil die Ablage
+    seit v3.0.0 nach `Bauplaene/`, `Einstellungen/`, `Diagnose/` und `Intern/`
+    sortiert. Ein flacher Durchlauf fände dort **nichts** und meldete „nichts zu
+    tun", während der ganze Bestand danebenliegt.
+    """
+    raus = []
+    if not os.path.isdir(ordner):
+        return raus
+    for wurzel, _unter, dateien in os.walk(ordner):
+        for name in dateien:
+            if name.endswith(UMZUG_ENDUNGEN):
+                raus.append((os.path.join(wurzel, name), name))
+    return raus
+
+
+def ablage_lage(ziel):
+    """Was am Zielort los ist — bevor irgendetwas angefasst wird.
+
+    Gibt `(schreibbar, eigene_dateien, grund)` zurück:
+
+    | | |
+    |---|---|
+    | `schreibbar` | lässt sich dort überhaupt etwas anlegen |
+    | `eigene_dateien` | wie viele Dateien dort schon liegen (also ein Bestand) |
+    | `grund` | Klartext, warum nicht schreibbar — sonst `''` |
+
+    ⚠ **Vorher prüfen, nicht beim Scheitern.** Ein Wechsel, der auf halber
+    Strecke an den Rechten hängenbleibt, hinterlässt die Hälfte am neuen und
+    die Hälfte am alten Ort — und der Nutzer weiß von beidem nichts.
+    """
+    try:
+        os.makedirs(ziel, exist_ok=True)
+    except OSError as ausnahme:
+        return False, 0, str(ausnahme)
+    probe = os.path.join(ziel, '.schreibprobe')
+    try:
+        with open(probe, 'w', encoding='utf-8') as f:
+            f.write('x')
+        os.remove(probe)
+    except OSError as ausnahme:
+        # ⚠ Der häufigste Fall bei Doppelstart: eine Systemplatte, die im
+        # anderen System **nur lesend** eingehängt ist. Sie sieht aus wie ein
+        # gültiger Ordner, lässt sich auswählen — und nimmt nichts an.
+        return False, 0, str(ausnahme)
+    return True, len(_dateien_der_ablage(ziel)), ''
+
+
+def _pruefsumme(pfad):
+    """SHA-256 einer Datei — oder `''`, wenn sie sich nicht lesen lässt."""
+    import hashlib
+    haken = hashlib.sha256()
+    try:
+        with open(pfad, 'rb') as f:
+            for block in iter(lambda: f.read(65536), b''):
+                haken.update(block)
+    except OSError:
+        return ''
+    return haken.hexdigest()
+
+
+def ablage_umziehen(von, nach):
+    """Die eigenen Dateien in den neuen Ablage-Ordner kopieren — geprüft.
+
+    Gibt `(kopiert, uebersprungen, misslungen)` zurück.
+
+    ⚠⚠ **Kopieren, nicht verschieben, und nichts löschen.** Der alte Ordner
+    bleibt vollständig liegen. Er kostet ein paar hundert Kilobyte und ist der
+    einzige Rückweg, wenn beim Wechsel etwas schiefgeht — ein Bauplan-Bestand
+    ist Monate an Spielzeit, kein Zwischenspeicher. Dieselbe Überlegung wie bei
+    `umziehen()` weiter oben.
+
+    ⚠⚠ **Jede Datei wird nach dem Kopieren gegengeprüft** (SHA-256). Ohne das
+    heißt „kopiert" nur „`copy2` hat nicht geworfen" — bei einer vollen Platte
+    oder einer Netzfreigabe, die mittendrin abbricht, liegt am Ziel eine halbe
+    Datei, und niemand merkt es. Eine kaputte `bestand.json` fällt erst beim
+    nächsten Start auf, und dann ist der alte Ordner vielleicht schon weg.
+
+    ⚠ **Vorhandenes am Ziel wird NICHT überschrieben.** Wer auf einen Ordner
+    wechselt, in dem schon ein Bestand liegt (der zweite Rechner beim
+    Doppelstart), will dessen Daten behalten — das Zusammenführen ist ein
+    eigener Vorgang, kein Nebeneffekt eines Pfadwechsels.
+    """
+    import shutil
+    kopiert = uebersprungen = misslungen = 0
+    if not os.path.isdir(von) or os.path.abspath(von) == os.path.abspath(nach):
+        return 0, 0, 0
+    for quelle, name in _dateien_der_ablage(von):
+        unter = UNTERORDNER.get(name, 'Intern')
+        ziel = os.path.join(nach, unter, name)
+        if os.path.exists(ziel):
+            uebersprungen += 1
+            continue
+        try:
+            os.makedirs(os.path.dirname(ziel), exist_ok=True)
+            shutil.copy2(quelle, ziel)
+        except OSError as ausnahme:
+            _melden('pfade.ablage_umziehen.' + name, ausnahme)
+            misslungen += 1
+            continue
+        # Die Gegenprobe. Stimmt sie nicht, gilt die Datei als misslungen und
+        # die halbe Kopie wird weggeräumt — sie wäre schlimmer als keine.
+        if _pruefsumme(quelle) != _pruefsumme(ziel):
+            misslungen += 1
+            try:
+                os.remove(ziel)
+            except OSError:
+                pass
+            continue
+        kopiert += 1
+    return kopiert, uebersprungen, misslungen
+
+
 # ------------------------------------------------------- Selbst gesetzte Pfade
 
 def gesuchte_spielorte(hoechstens=6):

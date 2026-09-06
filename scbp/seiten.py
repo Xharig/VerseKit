@@ -52,6 +52,22 @@ ROT     = '#e05252'
 # fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
 ROT_BLASS = '#c98a8a'
 
+# ⚠ Die Klassen heißen in den Daten englisch; angezeigt werden sie übersetzt.
+#
+# ⚠⚠ **Hier auf Modulebene und nicht in der Funktion, die sie zuerst
+# brauchte.** Sie stand bis zum 06.09.2026 lokal in der Läden-Seite; als die
+# Herstellung dieselbe Übersetzung brauchte, wäre die naheliegende Lösung eine
+# zweite Kopie gewesen. Genau so ist `namensform()` einmal dreifach im Programm
+# gelandet und auseinandergelaufen.
+KLASSEN_TEXTE = {'Civilian': 's_ld_kl_civilian',
+                 'Military': 's_ld_kl_military',
+                 'Industrial': 's_ld_kl_industrial',
+                 'Stealth': 's_ld_kl_stealth',
+                 'Competition': 's_ld_kl_competition',
+                 'Medical': 's_ld_kl_medical',
+                 'Mining': 's_ld_kl_mining',
+                 'Salvage and Repair': 's_ld_kl_salvage'}
+
 # Die Browser-Erweiterung, aus der der Hangar-Import kommt. Fremde Arbeit,
 # freiwillig gepflegt — sie wird genannt und verlinkt, nicht stillschweigend
 # vorausgesetzt. Ein Import, dessen Quelle man nicht findet, ist kein Angebot.
@@ -1483,9 +1499,7 @@ def _ordner(fenster, rahmen):
         gewaehlt = ordner_waehlen(t('s_eigene'), ablage.get())
         if not gewaehlt:
             return
-        pfade.einstellung_setzen('ablage_ordner', gewaehlt)
-        ablage.set(gewaehlt)
-        fenster.sagen(t('e_neustart_noetig'))
+        _ablage_wechseln(fenster, ablage, gewaehlt)
 
     _pfadfeld(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen)
 
@@ -1503,6 +1517,85 @@ def _ordner(fenster, rahmen):
               platzhalter=t('s_or_leer'))
 
     _startbefehl_feld(fenster, innen)
+
+
+def _ablage_wechseln(fenster, ablage, ziel):
+    """Den Ablage-Ordner umstellen — **und die Daten mitnehmen**.
+
+    ⚠⚠ **Bis v3.19.0 setzte der Knopf nur die Einstellung.** Verschoben wurde
+    nichts; gemeldet wurde „Neustart nötig". Wer umstellte, startete neu und
+    sah ein leeres Programm — Bestand, Merkliste, Auftrags-Protokoll lagen noch
+    im alten Ordner, aber das sagte ihm niemand. Für den Nutzer sieht das nicht
+    nach einem halben Umzug aus, sondern nach Datenverlust.
+
+    Das war der Grund, warum der eigentlich beste Rat für Doppelstart-Nutzer
+    nicht gegeben werden konnte: „Leg die Ablage auf eine Platte, die beide
+    Systeme sehen" wäre mit diesem Knopf eine Falle gewesen.
+
+    **Vier Lagen, vier Antworten** — sie unterscheiden sich, und keine darf
+    stillschweigend passieren:
+
+    | Lage | was geschieht |
+    |---|---|
+    | Ziel nicht beschreibbar | abbrechen, Grund nennen — nichts wird gesetzt |
+    | Ziel leer, altes voll | fragen „mitnehmen?", dann kopieren |
+    | Ziel hat schon Dateien | fragen „die dort benutzen?" — nichts überschreiben |
+    | nichts zu kopieren | still umstellen, es gibt nichts zu erzählen |
+    """
+    from .hauptfenster import frage_stellen
+    alt = pfade.app_ordner()
+    if os.path.abspath(alt) == os.path.abspath(ziel):
+        return
+
+    schreibbar, fremde, grund = pfade.ablage_lage(ziel)
+    if not schreibbar:
+        # ⚠ Genau hier landet eine nur lesend eingehängte Windows-Platte. Ohne
+        # diese Prüfung stünde der neue Pfad in den Einstellungen, und beim
+        # nächsten Start wäre der Ordner unbrauchbar.
+        fenster.sagen(t('s_ab_nicht_schreibbar') % pfade.kuerzen(grund))
+        return
+
+    eigene = len(pfade._dateien_der_ablage(alt))
+
+    if fremde:
+        # Am Ziel liegt schon eine Ablage — der zweite Rechner beim
+        # Doppelstart. Seine Daten gehören ihm; wir fassen sie nicht an.
+        if not frage_stellen(fenster.root, t('s_ab_titel'),
+                             t('s_ab_belegt') % fremde,
+                             ja=t('s_ab_belegt_ja'), nein=t('e_abbrechen')):
+            return
+        _ablage_setzen(fenster, ablage, ziel)
+        fenster.sagen(t('s_ab_uebernommen'))
+        return
+
+    if not eigene:
+        _ablage_setzen(fenster, ablage, ziel)
+        fenster.sagen(t('e_neustart_noetig'))
+        return
+
+    if not frage_stellen(fenster.root, t('s_ab_titel'),
+                         t('s_ab_mitnehmen') % eigene,
+                         ja=t('s_ab_mitnehmen_ja'), nein=t('s_ab_ohne')):
+        # Bewusst ohne Daten umstellen — auch das ist eine gültige Wahl.
+        _ablage_setzen(fenster, ablage, ziel)
+        fenster.sagen(t('e_neustart_noetig'))
+        return
+
+    kopiert, uebersprungen, misslungen = pfade.ablage_umziehen(alt, ziel)
+    if misslungen:
+        # ⚠⚠ **Bei einem Fehler wird NICHT umgestellt.** Sonst zeigt die
+        # Einstellung auf einen Ordner mit lückenhaftem Bestand, und der
+        # vollständige liegt am alten Ort, den niemand mehr ansieht.
+        fenster.sagen(t('s_ab_misslungen') % (misslungen, kopiert))
+        return
+    _ablage_setzen(fenster, ablage, ziel)
+    fenster.sagen(t('s_ab_fertig') % (kopiert, pfade.kuerzen(alt)))
+
+
+def _ablage_setzen(fenster, ablage, ziel):
+    """Die Einstellung schreiben und das Feld nachziehen."""
+    pfade.einstellung_setzen('ablage_ordner', ziel)
+    ablage.set(ziel)
 
 
 def _overlay_ecke(fenster, wahl, kennung):
@@ -6790,16 +6883,6 @@ def _laeden(fenster, rahmen):
         schluessel = laden_modul.BEREICH_TEXTE.get(wert)
         return t(schluessel) if schluessel else wert
 
-    # ⚠ Die Klassen heißen bei UEX englisch; im Menü stehen sie übersetzt.
-    KLASSEN_TEXTE = {'Civilian': 's_ld_kl_civilian',
-                     'Military': 's_ld_kl_military',
-                     'Industrial': 's_ld_kl_industrial',
-                     'Stealth': 's_ld_kl_stealth',
-                     'Competition': 's_ld_kl_competition',
-                     'Medical': 's_ld_kl_medical',
-                     'Mining': 's_ld_kl_mining',
-                     'Salvage and Repair': 's_ld_kl_salvage'}
-
     def _wertname(feld, wert):
         """Ein Filterwert, wie er im Menü steht."""
         if feld == 'bereich':
@@ -7441,6 +7524,73 @@ def _laden_zeile(fenster, eltern, bauplan):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
+def _bauplan_angaben(bauplan):
+    """Klasse, Größe und Güte eines Bauplans, ausgeschrieben — oder `''`.
+
+    Beispiel: `Militär · Größe 4 · Güte A`
+
+    ⚠ **Was fehlt, fällt weg — es wird nichts erfunden.** Bei Rüstung und
+    FPS-Waffen stehen Größe und Güte zwar in den Rohdaten, bedeuten dort aber
+    nichts (siehe `katalog._werte`). Wo der Katalog keine Klasse führt, gibt es
+    auch keine; ein „–" an dieser Stelle wäre eine Angabe, die keine ist.
+    """
+    from . import katalog as kat_daten
+    from .bestandsfenster import GRAD_BUCHSTABE
+    eintrag = (kat_daten.laden().get('bauplaene') or {}).get(
+        pfade.namensform(bauplan or ''))
+    if not eintrag:
+        return ''
+    # ⚠⚠ **Bei Rüstung und FPS-Waffen wird NICHTS gezeigt.** In den Rohdaten
+    # trägt jeder Helm brav eine Größe und eine Güte — sie bedeuten dort aber
+    # nichts. Gemessen am 06.09.2026: Das „A03 Sniper Rifle" kam als „Größe 3 ·
+    # Güte A" heraus, was frei erfunden ist. Dieselbe Falle steht in
+    # `reference_scmdb_craftdaten` und in `katalog._werte`: Werte nur zeigen,
+    # wo sie eine Bedeutung haben.
+    art = eintrag.get('a') or ''
+    if art.startswith('Char_') or art in ('WeaponPersonal', 'WeaponAttachment'):
+        return ''
+    teile = []
+    schluessel = KLASSEN_TEXTE.get(eintrag.get('c'))
+    if schluessel:
+        teile.append(t(schluessel))
+    if eintrag.get('s'):
+        teile.append(t('s_ld_groesse') % eintrag['s'])
+    grad = GRAD_BUCHSTABE.get(eintrag.get('g'))
+    if grad:
+        teile.append(t('s_ld_guete') % grad.upper())
+    return '  ·  '.join(teile)
+
+
+def _steckplaetze_nachziehen(widget):
+    """Fehlende Steckplatz-Daten im Hintergrund holen.
+
+    ⚠ Nicht nur auf der Hangar-Seite: Wer nach einem Update zuerst die
+    Herstellung öffnet, bekäme sonst bei jedem Bauplan „noch keine Daten" und
+    müsste erst erraten, dass ein Besuch im Hangar hilft. Die Daten fehlen —
+    also werden sie geholt, egal von wo aus jemand fragt.
+
+    ⚠ Höchstens **einmal je Programmlauf**: Bei Konzeptschiffen gibt es dauerhaft
+    nichts zu holen, und ein Bauplan-Klick soll keinen Abruf auslösen, der beim
+    letzten Mal schon nichts brachte.
+    """
+    if _NACHGEZOGEN[0]:
+        return
+    _NACHGEZOGEN[0] = True
+
+    def arbeit():
+        try:
+            from . import hangar as meine
+            meine.daten_nachziehen()
+        except Exception as ausnahme:
+            fehler.merken('seiten.steckplaetze_nachziehen', ausnahme)
+
+    threading.Thread(target=arbeit, daemon=True).start()
+
+
+# Ob in diesem Programmlauf schon einmal nachgezogen wurde.
+_NACHGEZOGEN = [False]
+
+
 def _passt_zeile(fenster, eltern, bauplan):
     """„Passt in dein Schiff" — die Antwort auf die Frage nach dem Bauplan.
 
@@ -7481,6 +7631,26 @@ def _passt_zeile(fenster, eltern, bauplan):
                                                         pady=(6, 0))
         return
 
+    # ⚠⚠ **Schiffe im Hangar heißen nicht, dass ihre Steckplätze da sind.**
+    # Genau diese Verwechslung hat am 06.09.2026 eine falsche Auskunft erzeugt:
+    # Nach dem Umstieg auf ein neues Ablage-Format war die Steckplatz-Datei
+    # ungültig und wurde verworfen — die Herstellung meldete daraufhin bei
+    # **jedem** Bauplan „passt in keines deiner Schiffe", obwohl eine S4-Waffe
+    # in 48 Plätze gepasst hätte.
+    #
+    # „Keine Daten" und „passt nicht" sehen im Code gleich aus (eine leere
+    # Liste) und bedeuten das Gegenteil voneinander. Wer sie zusammenwirft,
+    # behauptet etwas, das er nicht weiß — und das ist schlimmer, als nichts
+    # zu sagen.
+    if not (erkul.laden().get('schiffe') or {}):
+        lbl = tk.Label(eltern, text=t('s_hg_passt_unbekannt'), bg='#0c1017',
+                       fg=GOLD, font=fenster.f_klein, anchor='w',
+                       justify='left')
+        lbl.pack(fill='x', padx=12, pady=(6, 0))
+        _umbruch(lbl, abzug=36)
+        _steckplaetze_nachziehen(lbl)
+        return
+
     treffer = erkul.passende_schiffe(art, groesse, schiffe)
     if treffer:
         namen = ', '.join(
@@ -7488,10 +7658,19 @@ def _passt_zeile(fenster, eltern, bauplan):
             for n, z in treffer)
         text, farbe = t('s_hg_passt_in').format(schiffe=namen), ACCENT
     else:
-        text, farbe = t('s_hg_passt_nirgends'), SUB
+        text, farbe = t('s_hg_passt_nirgends'), GOLD
+    # ⚠⚠ **Fett und farbig — Grau wird nicht gelesen.** Die Zeile stand hier
+    # zuerst in `SUB` (dem Grau für Nebensächliches) unter einem langen
+    # Rezeptblock. Rückmeldung dazu am 06.09.2026: *„in Grau nimmt es keiner
+    # wahr und fragt sich dann, wo er die Info findet"* — von jemandem, der
+    # wusste, dass es die Auskunft gibt, und sie trotzdem übersah.
+    #
+    # Beide Fälle sind Antworten und beide gehören gesehen: Grün „passt in",
+    # Gold „passt nirgends". `SUB` bleibt dem vorbehalten, was man überlesen
+    # darf.
     lbl = tk.Label(eltern, text=text, bg='#0c1017', fg=farbe,
-                   font=fenster.f_klein, anchor='w', justify='left')
-    lbl.pack(fill='x', padx=12, pady=(6, 0))
+                   font=fenster.f_fett, anchor='w', justify='left')
+    lbl.pack(fill='x', padx=12, pady=(8, 2))
     _umbruch(lbl, abzug=36)
 
 
@@ -7549,6 +7728,20 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     if eintrag['hersteller']:
         tk.Label(_kopf, text='  ·  %s' % eintrag['hersteller'], bg='#0c1017',
                  fg=SUB, font=fenster.f_klein, anchor='w').pack(side='left')
+    # ⭐⭐ **Klasse, Größe und Güte gehören hierher.** Die Bauplan-Liste zeigt
+    # sie als Kürzel („M/1/A"), die Herstellung zeigte sie gar nicht — dabei
+    # ist genau hier die Stelle, an der jemand entscheidet, ob er das Teil
+    # überhaupt bauen will. Gemeldet am 06.09.2026: *„in Herstellung finde ich
+    # auch nicht raus, welche Size etwas hat oder ob es Military ist."*
+    #
+    # ⚠ **Ausgeschrieben, nicht als Kürzel.** In der Liste ist „M/1/A" richtig,
+    # weil dort 738 Zeilen untereinander stehen und jede Spalte zählt. Hier
+    # steht eine einzige Zeile über einem langen Kasten — da hilft „Militär ·
+    # Größe 4 · Güte A" mehr als drei Buchstaben, die man erst übersetzen muss.
+    angaben = _bauplan_angaben(eintrag.get('basis'))
+    if angaben:
+        tk.Label(_kopf, text='  ·  %s' % angaben, bg='#0c1017',
+                 fg=FG, font=fenster.f_klein, anchor='w').pack(side='left')
 
     if eintrag['habe'] is None:
         _fliesstext(block, t('s_he_unklar'), fenster.f_klein, fill='x')

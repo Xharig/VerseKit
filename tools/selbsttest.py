@@ -12409,6 +12409,78 @@ def main():
            'Gegenprobe: ohne Wortgrenzen findet die Suche nichts')
 
     print()
+    print('140. Der Ablage-Ordner nimmt die Daten mit')
+    # ⚠⚠ **Diese Prüfung bewacht einen Datenverlust, keinen Schönheitsfehler.**
+    # Bis v3.19.0 setzte „Ablage-Ordner umstellen" nur die Einstellung — die
+    # Dateien blieben liegen. Wer umstellte, sah nach dem Neustart ein leeres
+    # Programm und hielt seinen Bauplan-Bestand für verloren.
+    import shutil as _sh140
+    import tempfile as _tf140
+    from scbp import pfade as _pf140
+
+    _von140 = _tf140.mkdtemp(prefix='sc-bp-alt-')
+    _nach140 = _tf140.mkdtemp(prefix='sc-bp-neu-')
+    try:
+        os.makedirs(os.path.join(_von140, 'Bauplaene'), exist_ok=True)
+        for _n140 in ('bestand.json', 'watchlist.json'):
+            with open(os.path.join(_von140, 'Bauplaene', _n140), 'w',
+                      encoding='utf-8') as _f140:
+                json.dump({'probe': list(range(50))}, _f140)
+
+        # ⚠ Rekursiv: Die Ablage sortiert seit v3.0.0 in Unterordner. Ein
+        # flacher Durchlauf fände hier **nichts** und meldete „nichts zu tun",
+        # während der ganze Bestand danebenliegt.
+        pruefe(len(_pf140._dateien_der_ablage(_von140)) == 2,
+               'Dateien werden auch in Unterordnern gefunden')
+
+        _schreibbar140, _fremde140, _ = _pf140.ablage_lage(_nach140)
+        pruefe(_schreibbar140 and _fremde140 == 0,
+               'ein leeres, beschreibbares Ziel wird als solches erkannt')
+
+        _kop140, _ueber140, _fehl140 = _pf140.ablage_umziehen(_von140, _nach140)
+        pruefe((_kop140, _ueber140, _fehl140) == (2, 0, 0),
+               'beide Dateien kommen an (bekam: %s)'
+               % ((_kop140, _ueber140, _fehl140),))
+
+        # ⚠⚠ **Der alte Ordner bleibt.** Er ist der einzige Rückweg, wenn beim
+        # Wechsel etwas schiefgeht — ein Bauplan-Bestand sind Monate Spielzeit.
+        pruefe(sorted(os.listdir(os.path.join(_von140, 'Bauplaene'))) ==
+               ['bestand.json', 'watchlist.json'],
+               'der alte Ordner bleibt vollstaendig liegen')
+
+        # ⚠ Zweiter Lauf: Vorhandenes am Ziel wird NICHT ueberschrieben. Wer
+        # auf einen Ordner wechselt, in dem schon ein Bestand liegt, will
+        # dessen Daten behalten.
+        _zweit140 = _pf140.ablage_umziehen(_von140, _nach140)
+        pruefe(_zweit140 == (0, 2, 0),
+               'ein zweiter Lauf ueberschreibt nichts (bekam: %s)' % (_zweit140,))
+
+        _belegt140 = _pf140.ablage_lage(_nach140)
+        pruefe(_belegt140[1] == 2,
+               'ein belegtes Ziel wird als belegt gemeldet')
+
+        # Gegenprobe: Ein Ziel ohne Schreibrecht muss VORHER auffallen, nicht
+        # erst mitten im Kopieren.
+        _ro140 = _tf140.mkdtemp(prefix='sc-bp-ro-')
+        try:
+            os.chmod(_ro140, 0o500)
+            _ok140, _, _grund140 = _pf140.ablage_lage(_ro140)
+            # ⚠ Als root ist jeder Ordner beschreibbar — dann sagt die Probe
+            # nichts aus und wird uebersprungen statt falsch bestanden.
+            if os.name != 'nt' and os.geteuid() != 0:
+                pruefe(not _ok140 and _grund140,
+                       'Gegenprobe: ein gesperrtes Ziel faellt vorher auf')
+        finally:
+            try:
+                os.chmod(_ro140, 0o700)
+            except OSError:
+                pass
+            _sh140.rmtree(_ro140, ignore_errors=True)
+    finally:
+        _sh140.rmtree(_von140, ignore_errors=True)
+        _sh140.rmtree(_nach140, ignore_errors=True)
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

@@ -6,6 +6,38 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc5 - 2026-09-06
+
+> **The storage folder now takes your data with it.** Until now switching only
+> set the path — the blueprints stayed behind, and after a restart the tool
+> looked empty. Crafting also finally shows the size, grade and class of a
+> blueprint.
+
+### New
+
+- **Size, grade and class in crafting.** An expanded blueprint now shows
+  "Military · Size 4 · Grade A" next to the manufacturer. For armour and
+  handheld weapons nothing is shown — those values mean nothing there.
+
+### Improved
+
+- **The storage folder moves.** When switching, the tool asks whether the
+  existing data should come along, checks beforehand whether the new location
+  can be written to at all, and compares every copied file with the original.
+  **The old folder is left completely intact** — nothing is deleted. If there
+  is already a storage folder at the target, it is not touched; you are asked
+  whether you want to use it.
+- **"Fits your ship" can no longer be missed** — the line is bold and coloured
+  instead of grey.
+
+### Fixed
+
+- **"Fits none of your ships" also appeared when the data was simply
+  missing.** Both looked the same in the program and mean the opposite. It now
+  says the data is still being fetched — and fetches it.
+- Armour pieces and handheld weapons were given a size and grade they do not
+  have.
+
 ## v3.19.0-rc4 - 2026-09-06
 
 > **Ships added by hand now find their slots.** And one button is gone that

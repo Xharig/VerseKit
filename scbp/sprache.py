@@ -2494,6 +2494,45 @@ TEXTE = {
     's_vk_alter_stunden': ('vor {n} Std.', '{n}h ago'),
     's_vk_alter_tage':   ('vor {n} Tagen', '{n}d ago'),
     # ----------------------------------------------- Reiter „Mein Hangar"
+    # ------------------------------------------- Ablage-Ordner wechseln
+    's_ab_titel':        ('Ablage-Ordner wechseln', 'Change storage folder'),
+    's_ab_nicht_schreibbar': ('Dorthin lässt sich nichts schreiben — der Ordner '
+                              'bleibt, wie er war. (%s)',
+                              'Nothing can be written there — the folder stays '
+                              'as it was. (%s)'),
+    's_ab_mitnehmen':    ('Im bisherigen Ordner liegen %d Dateien: Bestand, '
+                          'Merkliste, Einstellungen. Sollen sie mitkommen?\n\n'
+                          'Der alte Ordner bleibt unangetastet liegen — nichts '
+                          'wird gelöscht.',
+                          'The current folder holds %d files: your blueprints, '
+                          'watchlist and settings. Take them along?\n\n'
+                          'The old folder is left untouched — nothing is '
+                          'deleted.'),
+    's_ab_mitnehmen_ja': ('Mitnehmen', 'Take along'),
+    's_ab_ohne':         ('Ohne Daten umstellen', 'Switch without data'),
+    's_ab_belegt':       ('Dort liegen schon %d Dateien — offenbar eine Ablage '
+                          'von einem anderen System.\n\nSie werden nicht '
+                          'angerührt. Das Werkzeug benutzt ab dem nächsten '
+                          'Start die Daten, die dort stehen.',
+                          'There are already %d files there — apparently a '
+                          'storage folder from another system.\n\nThey will '
+                          'not be touched. From the next start on, the tool '
+                          'uses the data that is there.'),
+    's_ab_belegt_ja':    ('Die dort benutzen', 'Use those'),
+    's_ab_uebernommen':  ('Umgestellt. Nach einem Neustart gilt der Bestand aus '
+                          'dem neuen Ordner.',
+                          'Switched. After a restart the data in the new folder '
+                          'applies.'),
+    's_ab_fertig':       ('%d Dateien mitgenommen. Nach einem Neustart gilt der '
+                          'neue Ordner; der alte bleibt unter %s liegen.',
+                          '%d files taken along. After a restart the new folder '
+                          'applies; the old one stays at %s.'),
+    's_ab_misslungen':   ('%d Dateien liessen sich nicht sicher kopieren (%d '
+                          'gingen durch) — der Ordner wurde NICHT umgestellt. '
+                          'Dein Bestand liegt unverändert am alten Ort.',
+                          '%d files could not be copied safely (%d went '
+                          'through) — the folder was NOT switched. Your data is '
+                          'unchanged in its old place.'),
     's_hg_lead':         ('Welche Schiffe dir gehören. Damit beantwortet das '
                           'Werkzeug die Frage, die auf jeden neuen Bauplan '
                           'folgt: Passt das Teil überhaupt in eines deiner '
@@ -2602,6 +2641,11 @@ TEXTE = {
     's_hg_passt_nirgends': ('Passt in keines deiner Schiffe.',
                             'Does not fit any of your ships.'),
     's_hg_passt_mehrfach': ('{name} ({n}×)', '{name} ({n}×)'),
+    's_hg_passt_unbekannt': ('Zu deinen Schiffen liegen noch keine '
+                             'Steckplatz-Daten vor — sie werden gerade geholt. '
+                             'Schau gleich noch einmal her.',
+                             'No slot data for your ships yet — it is being '
+                             'fetched right now. Have another look in a moment.'),
     's_hg_passt_leer':   ('Trag deine Schiffe unter „Mein Hangar" ein, dann '
                           'steht hier, wo das Teil hineinpasst.',
                           'Add your ships under „My hangar" and this will tell '
