@@ -6,6 +6,39 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc8 - 2026-09-06
+
+> **Ship matching has been counted through.** Out of 265 ships, **220** now
+> find their loadout data; 35 of the rest are concepts that do not exist in the
+> game. And salvage got a button to discard what it remembered.
+
+### New
+
+- **"Discard remembered wrecks"** in salvage. Ships you looked up are kept so
+  they appear instantly next time — now you can also get rid of them without
+  deleting a file by hand.
+
+### Improved
+
+- **Contracted manufacturer names are recognised.** "Aegis Gladius Valiant" did
+  not find its data because the source lists the manufacturer as `aegs` — not a
+  prefix of "Aegis" but a contraction. Same for `anvl` (Anvil) and `drak`
+  (Drake).
+- **Completely different manufacturer names no longer get in the way.** "C.O.
+  Mustang Alpha" is `cnou_mustang_alpha` in the source, "Greycat PTV" is
+  `gama_ptv` — the manufacturer may now be missing when matching, as long as
+  the rest fits.
+- **Add-on parts are no longer in the ship list.** "Retaliator Cargo Module"
+  and the Endeavor pods are not ships; in salvage they wrongly showed the
+  loadout of the whole parent ship.
+
+### Fixed
+
+- **"Not flying in the game yet" also appeared for ships that do fly** — the
+  Hammerhead and the Idris-P among them. That statement now only appears when
+  UEX really lists the ship as a concept; otherwise it says that no data is
+  available.
+
 ## v3.19.0-rc7 - 2026-09-06
 
 > **A wreck is drifting in front of you — is getting out worth it?** The new

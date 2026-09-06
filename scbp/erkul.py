@@ -318,6 +318,29 @@ def _woerter(text):
     return raus
 
 
+def _ist_kuerzel(kurz, lang):
+    """Ist `kurz` eine Zusammenziehung von `lang`? (`aegs` ↔ `aegis`)
+
+    Geprüft wird, ob die Buchstaben von `kurz` **in dieser Reihenfolge** in
+    `lang` vorkommen — mit Lücken, aber ohne Umsortieren.
+
+    ⚠ **Nur für kurze Kürzel und nur bei gleichem Anfang.** Ohne diese beiden
+    Bremsen wäre fast jedes kurze Wort Teilfolge von fast jedem langen, und
+    die Zuordnung fände überall etwas. `aegs`/`aegis` besteht, `pir`/`pirate`
+    ebenso — `abc`/`aXbXc` in einem beliebigen Schiffsnamen nicht mehr, weil
+    der Anfang stimmen muss.
+    """
+    if not kurz or not lang or len(kurz) > 5 or len(kurz) >= len(lang):
+        return False
+    if kurz[0] != lang[0]:
+        return False
+    stelle = 0
+    for zeichen in lang:
+        if stelle < len(kurz) and zeichen == kurz[stelle]:
+            stelle += 1
+    return stelle == len(kurz)
+
+
 def _passt_wortweise(erkul_id, gesucht, kette=''):
     """Deckt `gesucht` alle Wörter dieser erkul-Kennung ab? Gibt die Güte zurück.
 
@@ -338,13 +361,40 @@ def _passt_wortweise(erkul_id, gesucht, kette=''):
     vorkommen. Sonst würde `anvl_hornet_f7cm` auch auf eine Mk II passen.
     """
     eigene = _woerter(erkul_id)
+    # ⭐⭐ **Das erste Wort darf unerklärt bleiben — es ist das
+    # Herstellerkürzel, und die Namen passen oft schlicht nicht zusammen.**
+    # Gemessen am 06.09.2026 über alle 280 UEX-Schiffe: UEX schreibt „C.O.
+    # Mustang Alpha", erkul `cnou_mustang_alpha`; „Greycat PTV" heißt dort
+    # `gama_ptv`, „Esperia Blade" ist `vncl_blade`. Weder Wortanfang noch
+    # Zusammenziehung greifen da — es sind verschiedene Namen für dieselbe
+    # Firma.
+    #
+    # ⚠ **Nur das erste Wort, und nur eines.** Der Rest muss vollständig
+    # passen, sonst würde `aegs_gladius_valiant` auch auf eine schlichte
+    # Gladius passen. Und weil der Treffer schwächer bewertet wird, gewinnt
+    # bei zwei Kandidaten weiterhin der mit dem passenden Hersteller.
+    ohne_hersteller = False
     guete = 0
-    for wort in eigene:
+    for stelle, wort in enumerate(eigene):
         if wort in gesucht:
             guete += 3
         elif any(g.startswith(wort) for g in gesucht):
-            # Herstellerkürzel: `drak` steht für „Drake", `aegs` für „Aegis".
+            # Herstellerkürzel als Wortanfang: `drak` steht für „Drake".
             guete += 2
+        elif any(_ist_kuerzel(wort, g) for g in gesucht):
+            # ⭐⭐ **Kürzel mit fehlendem Vokal in der Mitte.** Erkul zieht
+            # Herstellernamen zusammen, statt sie abzuschneiden: `aegs` für
+            # „Aegis", `anvl` für „Anvil". Ein Vergleich auf Wortanfang findet
+            # das nie — `aegs` ist kein Anfang von `aegis`, der Buchstabe `i`
+            # fehlt mittendrin.
+            #
+            # ⚠ Eine Hersteller-Tabelle löst das NICHT, obwohl erkul eine
+            # mitliefert: Dort tragen **fünf** verschiedene Kürzel den Namen
+            # „Aegis Dynamics" (`fski`, `mxox`, `prar`, `aeg`, `tras`) — und
+            # `aegs`, das die Schiffe benutzen, ist nicht darunter. Gemessen
+            # am 06.09.2026, nachdem „Aegis Gladius Valiant" als „fliegt im
+            # Spiel noch nicht" gemeldet wurde.
+            guete += 1
         elif kette and wort in kette:
             # ⚠ Der umgekehrte Fall: erkul schreibt `alphawolf` **zusammen**,
             # der Hangar führt „L-22 Alpha Wolf" getrennt. Dafür braucht es die
@@ -353,8 +403,18 @@ def _passt_wortweise(erkul_id, gesucht, kette=''):
             # Genau daran ist der erste Anlauf gescheitert, und Prüfung 139 hat
             # es gefangen.
             guete += 1
+        elif stelle == 0 and len(eigene) > 1 and len(wort) <= 5:
+            # Das Herstellerkürzel passt zu keinem Wort — hingenommen, aber
+            # ohne Punkte. Ein Treffer mit passendem Hersteller schlägt diesen
+            # damit immer.
+            ohne_hersteller = True
         else:
             return 0
+    # ⚠ Ohne den Hersteller muss mindestens **ein** eigenes Wort übrig sein,
+    # das wirklich getroffen hat — sonst passt `gama_ptv` auf jeden Namen mit
+    # drei Buchstaben.
+    if ohne_hersteller and guete < 3:
+        return 0
     return guete
 
 

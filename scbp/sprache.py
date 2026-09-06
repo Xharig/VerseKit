@@ -2535,10 +2535,22 @@ TEXTE = {
     's_wr_nachsehen':    ('Nachsehen', 'Look it up'),
     's_wr_kein_schiff':  ('Such dir ein Schiff aus der Liste aus.',
                           'Pick a ship from the list.'),
-    's_wr_unbekannt':    ('Zu diesem Schiff gibt es keine Bestückungsdaten — '
-                          'meist heißt das, dass es im Spiel noch nicht fliegt.',
-                          'There is no loadout data for this ship — usually '
-                          'that means it is not flying in the game yet.'),
+    # ⚠⚠ **Zwei getrennte Sätze, weil es zwei verschiedene Lagen sind.**
+    # „Fliegt noch nicht" stand hier für beide — und war bei zehn Schiffen
+    # schlicht falsch, darunter Hammerhead und Idris-P. Die Konzept-Aussage
+    # stützt sich auf UEX; wo die nichts sagt, wird auch nichts behauptet.
+    's_wr_unbekannt':    ('Zu diesem Schiff liegen keine Bestückungsdaten vor. '
+                          'Die Quelle führt rund 220 der 265 Schiffe — bei den '
+                          'übrigen weicht die Schreibweise ab.',
+                          'No loadout data is available for this ship. The '
+                          'source covers about 220 of 265 ships — for the rest '
+                          'the spelling differs.'),
+    's_wr_konzept':      ('Dieses Schiff ist laut UEX ein Konzept und fliegt im '
+                          'Spiel noch nicht — deshalb gibt es auch keine '
+                          'Bestückung.',
+                          'According to UEX this ship is a concept and does not '
+                          'fly in the game yet — so there is no loadout '
+                          'either.'),
     's_wr_hole':         ('Wird nachgeschlagen …', 'Looking it up …'),
     's_wr_ueberschrift': ('Ab Werk verbaut in %s', 'Factory loadout of %s'),
     's_wr_wert':         ('Ladenwert zusammen: %s aUEC', 'Shop value in total: %s aUEC'),
@@ -2562,6 +2574,16 @@ TEXTE = {
                           'owner fitted, nobody knows.'),
     's_wr_stueck':       ('%d ×', '%d ×'),
     's_wr_kein_preis':   ('kein Preis bekannt', 'no price known'),
+    's_wr_vergessen':    ('Gemerkte Wracks verwerfen', 'Discard remembered wrecks'),
+    's_wr_vergessen_frage': ('%d nachgeschlagene Schiffe sind gemerkt. Alle '
+                             'verwerfen?\n\nSie werden beim nächsten '
+                             'Nachsehen einfach neu geholt — es geht nichts '
+                             'verloren, was du selbst eingetragen hast.',
+                             '%d looked-up ships are remembered. Discard all '
+                             'of them?\n\nThey are simply fetched again next '
+                             'time — nothing you entered yourself is lost.'),
+    's_wr_vergessen_ok': ('%d Schiffe verworfen.', '%d ships discarded.'),
+    's_wr_nichts_gemerkt': ('Es ist nichts gemerkt.', 'Nothing is remembered.'),
     's_wr_stand':        ('Stand %s', 'Data from %s'),
     # ------------------------------------------- Ablage-Ordner wechseln
     's_ab_titel':        ('Ablage-Ordner wechseln', 'Change storage folder'),

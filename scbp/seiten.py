@@ -8354,7 +8354,10 @@ def _bergung(fenster, rahmen):
         for kind in ergebnis.winfo_children():
             kind.destroy()
         if not teile:
-            _fliesstext(ergebnis, t('s_wr_unbekannt'), fenster.f_klein,
+            # ⚠ „Konzept" nur, wenn UEX es sagt — sonst der neutrale Satz.
+            schluessel = ('s_wr_konzept' if alle_schiffe.ist_konzept(name)
+                          else 's_wr_unbekannt')
+            _fliesstext(ergebnis, t(schluessel), fenster.f_klein,
                         farbe=GOLD, fill='x')
             return
         tk.Label(ergebnis, text=t('s_wr_ueberschrift') % name, bg=BG, fg=FG,
@@ -8447,10 +8450,31 @@ def _bergung(fenster, rahmen):
 
         threading.Thread(target=arbeit, daemon=True).start()
 
+    def _vergessen():
+        """Die gemerkten Wracks verwerfen — mit Rückfrage, die die Zahl nennt.
+
+        ⚠ Ohne diesen Knopf müsste jemand `bergung.json` von Hand löschen. Ein
+        Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
+        """
+        from tkinter import messagebox
+        anzahl = len(bg.laden().get('schiffe') or {})
+        if not anzahl:
+            hinweis.configure(text=t('s_wr_nichts_gemerkt'), fg=SUB)
+            return
+        if not messagebox.askyesno(t('s_wr_vergessen'),
+                                   t('s_wr_vergessen_frage') % anzahl,
+                                   icon='warning', default='no'):
+            return
+        weg = bg.vergessen()
+        for kind in ergebnis.winfo_children():
+            kind.destroy()
+        hinweis.configure(text=t('s_wr_vergessen_ok') % weg, fg=ACCENT)
+
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', padx=24, pady=(10, 0))
     _knopfreihe(reihe, [
         _knopf(fenster, reihe, t('s_wr_nachsehen'), nachsehen, stark=True),
+        _knopf(fenster, reihe, t('s_wr_vergessen'), _vergessen),
     ])
     hinweis.pack(fill='x', padx=24, pady=(8, 0))
     ergebnis.pack(fill='x', padx=24, pady=(14, 20))
@@ -8475,7 +8499,24 @@ def _bergung_holen(name):
             if eintrag.get('id') and eintrag.get('path'):
                 verzeichnis[eintrag['id']] = eintrag['path']
 
-    treffer = erkul._wortweise_suchen(verzeichnis, name, '', '', '')
+    # ⚠⚠ **Das Herstellerkürzel muss mit.** Erkul führt „Aegis Dynamics" als
+    # `aegs` und „Anvil Aerospace" als `anvl` — Zusammenziehungen, keine
+    # Wortanfänge. Ohne die Übersetzung findet „Aegis Gladius Valiant" sein
+    # `aegs_gladius_valiant` nicht, und die Seite meldet „fliegt im Spiel noch
+    # nicht" für ein Schiff, das jeder kennt. Genau so am 06.09.2026 gemeldet.
+    #
+    # Die Werft steht in den UEX-Schiffsdaten, die Kürzel-Tabelle liefert
+    # erkul selbst mit (152 Hersteller).
+    # ⚠ **Kein Herstellerkürzel aus der Tabelle.** Erkuls Herstellerliste führt
+    # fünf verschiedene Kürzel unter dem Namen „Aegis Dynamics", und `aegs`,
+    # das die Schiffe benutzen, ist nicht darunter. Die Zuordnung erkennt
+    # Zusammenziehungen inzwischen selbst (`_ist_kuerzel`); die Werft kommt
+    # trotzdem mit, weil sie bei manchen Namen das entscheidende Wort liefert.
+    from . import schiffe as alle_schiffe
+    eintrag = alle_schiffe._finden(name) or {}
+    werft = eintrag.get('werft') or ''
+
+    treffer = erkul._wortweise_suchen(verzeichnis, name, werft, '', '')
     if not treffer:
         return [], ''
     teile = bg.werksausstattung(treffer, verzeichnis[treffer])

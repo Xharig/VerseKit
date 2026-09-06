@@ -6,6 +6,38 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc8 - 2026-09-06
+
+> **Die Schiffserkennung ist durchgezählt.** Von 265 Schiffen finden jetzt
+> **220** ihre Bestückungsdaten; 35 der übrigen sind Konzepte, die es im Spiel
+> nicht gibt. Und die Bergung hat einen Knopf zum Verwerfen bekommen.
+
+### Neu
+
+- **„Gemerkte Wracks verwerfen"** in der Bergung. Nachgeschlagene Schiffe
+  werden gemerkt, damit sie beim nächsten Mal sofort dastehen — jetzt lassen
+  sie sich auch wieder loswerden, ohne eine Datei von Hand zu löschen.
+
+### Verbessert
+
+- **Zusammengezogene Herstellernamen werden erkannt.** „Aegis Gladius Valiant"
+  fand seine Daten nicht, weil die Quelle den Hersteller als `aegs` führt — das
+  ist kein Wortanfang von „Aegis", sondern eine Zusammenziehung. Dasselbe bei
+  `anvl` für Anvil und `drak` für Drake.
+- **Auch ganz andere Herstellernamen stören nicht mehr.** „C.O. Mustang Alpha"
+  heißt in der Quelle `cnou_mustang_alpha`, „Greycat PTV" heißt `gama_ptv` —
+  der Hersteller darf beim Zuordnen jetzt fehlen, solange der Rest passt.
+- **Anbauteile stehen nicht mehr in der Schiffsliste.** „Retaliator Cargo
+  Module" und die Endeavor-Pods sind keine Schiffe; bei der Bergung zeigten sie
+  fälschlich die Ausstattung des ganzen Hauptschiffs.
+
+### Behoben
+
+- **„Fliegt im Spiel noch nicht" stand auch bei Schiffen, die fliegen** —
+  Hammerhead und Idris-P zum Beispiel. Diese Aussage kommt jetzt nur noch, wenn
+  UEX das Schiff wirklich als Konzept führt; sonst steht dort, dass keine Daten
+  vorliegen.
+
 ## v3.19.0-rc7 - 2026-09-06
 
 > **Vor dir treibt ein Wrack — lohnt das Aussteigen?** Der neue Bereich

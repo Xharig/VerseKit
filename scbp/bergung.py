@@ -274,3 +274,20 @@ def wert(teile, preis_von):
         else:
             ohne += anzahl
     return summe, mit, ohne
+
+
+def vergessen():
+    """Alle gemerkten Wracks verwerfen. Gibt die Zahl der Schiffe zurück.
+
+    ⚠⚠ **Dafür gibt es einen Knopf, weil es sonst Handarbeit wäre.** Ohne ihn
+    müsste jemand `bergung.json` im Ablage-Ordner suchen und löschen — und wer
+    das nicht weiß, sitzt bei einem alten oder falschen Stand fest. Ein
+    Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
+
+    Der Wunsch kam am 06.09.2026, direkt beim Bau: „denk direkt mit an den
+    Reset-Knopf, sonst muss man es per Hand löschen."
+    """
+    daten = laden()
+    anzahl = len(daten.get('schiffe') or {})
+    _sichern({'format': FORMAT, 'schiffe': {}})
+    return anzahl

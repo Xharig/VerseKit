@@ -59,8 +59,8 @@ QUELLE_MIETE = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
 # 2 seit v3.15.0 (die Werft kam dazu), 3 seit dem Entschlüsseln der
 # HTML-Zeichen — sonst bliebe „Grey&apos;s Market" in der alten Ablage stehen.
-# 4 seit v3.19.0: `konzept` kam dazu (siehe `aktualisieren`).
-FORMAT = 4
+# 4 seit v3.19.0: `konzept` kam dazu, 5: `anbau` (siehe `aktualisieren`).
+FORMAT = 5
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
 HALTBAR = 30 * uex.TAG
@@ -143,7 +143,7 @@ def namen_alle():
     """
     schiffe = laden().get('schiffe') or {}
     return sorted((s.get('name') or '' for s in schiffe.values()
-                   if s.get('name')), key=str.lower)
+                   if s.get('name') and not s.get('anbau')), key=str.lower)
 
 
 def _finden(name):
@@ -266,6 +266,13 @@ def aktualisieren():
             # gehört nicht ins Werkzeug.
             if x.get('is_concept'):
                 schiffe[kennung]['konzept'] = 1
+            # ⚠ Anbauteile sind keine Schiffe: „Retaliator Cargo Module",
+            # „Endeavor Medical Bay Pod". In einer Schiffsliste stiften sie nur
+            # Verwirrung — und bei der Zuordnung landeten sie beim Hauptschiff,
+            # wodurch die Bergung für ein Modul die Ausstattung des ganzen
+            # Retaliators zeigte.
+            if x.get('is_addon'):
+                schiffe[kennung]['anbau'] = 1
 
     # ⚠ Die Preislisten dürfen fehlschlagen, ohne dass alles scheitert: Ohne
     # sie kennt man wenigstens noch die Frachträume, und genau die braucht der
