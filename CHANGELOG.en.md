@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.1 - 2026-09-06
+
+> **Ships bought with real money can now be added by hand too.** Anyone not
+> using the browser extension got "bought in game" for every ship — with no
+> choice and no LTI, although that is exactly what counts when claiming.
+
+### New
+
+- **Adding by hand now asks for the origin**: bought in game or with real
+  money. For real money the **LTI** question follows — it decides whether your
+  ship comes back with its loadout after a claim.
+
+### Fixed
+
+- **"changed" was cut off in the controls list** — the long action name beside
+  it pushed it out of the window.
+- The check counting the manual screenshots demanded a fixed number and turned
+  red as soon as a page was added. It now verifies that every page has an image.
+
 ## v3.19.0 - 2026-09-06
 
 > **Your hangar comes to the tool.** Add your ships and the watcher answers the

@@ -6,6 +6,27 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.1 - 2026-09-06
+
+> **Echtgeld-Schiffe lassen sich jetzt auch von Hand eintragen.** Wer die
+> Browser-Erweiterung nicht nutzen will, bekam bisher für jedes Schiff „im
+> Spiel gekauft" — ohne Wahl und ohne LTI, obwohl genau das beim Claimen
+> zählt.
+
+### Neu
+
+- **Beim Eintragen von Hand wählst du die Herkunft**: im Spiel gekauft oder mit
+  Echtgeld. Bei Echtgeld kommt die Frage nach **LTI** dazu — sie entscheidet,
+  ob dein Schiff nach einem Claim mit der Ausstattung zurückkommt.
+
+### Behoben
+
+- **„geändert" wurde in der Steuerungsliste abgeschnitten** — der lange
+  Aktionsname daneben schob es aus dem Fenster.
+- Die Prüfung, die die Anleitungsbilder zählt, verlangte eine feste Zahl und
+  wurde rot, sobald eine Seite dazukam. Sie prüft jetzt, ob zu jeder Seite ein
+  Bild vorliegt.
+
 ## v3.19.0 - 2026-09-06
 
 > **Dein Hangar kommt ins Werkzeug.** Trag deine Schiffe ein, und der Watcher
