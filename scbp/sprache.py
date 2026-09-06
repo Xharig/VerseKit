@@ -1090,6 +1090,48 @@ TEXTE = {
     's_gh_neu':        ('Neu angesteckt: {}', 'Just connected: {}'),
     's_gh_weg':        ('Abgezogen: {}', 'Disconnected: {}'),
 
+    # -- Der Zuordnungs-Assistent --
+    's_gh_was_tun':    ('Was zu tun ist', 'What to do'),
+    's_gh_tausch':     ('»{}« ist wahrscheinlich dein »{}« unter neuer '
+                        'Nummer.',
+                          '“{}” is probably your “{}” under a new number.'),
+    's_gh_tausch_lang': ('Ein Stick bekommt eine neue Kennung, wenn er an '
+                         'einem anderen USB-Anschluss steckt oder neue '
+                         'Firmware hat. Star Citizen hält ihn dann für ein '
+                         'neues Gerät — und deine ganze Belegung hängt noch '
+                         'an der alten Kennung.\n\nDas Umhängen ändert nur '
+                         'diese eine Kennung. Keine einzige Tastenbelegung '
+                         'wird angefasst.',
+                           'A stick gets a new identifier when it sits in a '
+                           'different USB port or has new firmware. Star '
+                           'Citizen then treats it as a new device — and your '
+                           'whole set of bindings still hangs on the old '
+                           'identifier.\n\nRe-linking changes only that one '
+                           'identifier. Not a single binding is touched.'),
+    's_gh_tausch_knopf': ('Belegung übernehmen', 'Re-link the bindings'),
+    's_gh_tausch_frage': ('Die Belegung von »{}« auf »{}« umhängen?\n\n'
+                          'Getauscht wird nur die Kennung im Kopf der Datei. '
+                          'Alle {} Belegungszeilen bleiben, wie sie sind, und '
+                          'eine Sicherung wird vorher angelegt.',
+                            'Re-link the bindings from “{}” to “{}”?\n\nOnly '
+                            'the identifier at the top of the file is '
+                            'swapped. All {} binding lines stay as they are, '
+                            'and a backup is made first.'),
+    's_gh_umgehaengt': ('Umgehängt. Deine Belegung wirkt wieder.',
+                          'Re-linked. Your bindings are in effect again.'),
+    's_gh_starten_rat': ('»{}« ist angesteckt, aber Star Citizen hat es noch '
+                         'nie gesehen. Starte das Spiel einmal damit — danach '
+                         'kannst du es hier belegen.',
+                           '“{}” is connected, but Star Citizen has never seen '
+                           'it. Start the game once with it plugged in — then '
+                           'you can bind it here.'),
+    's_gh_anstecken_rat': ('Für »{}« gibt es eine Belegung, das Gerät ist '
+                           'aber nicht da. Steck es an — oder lass die '
+                           'Belegung liegen, sie schadet nicht.',
+                             'There are bindings for “{}”, but the device is '
+                             'not present. Plug it in — or leave the bindings '
+                             'be, they do no harm.'),
+
     # -- Bindings tauschen und Gerätesätze --
     # ⚠ Jede Knopfreihe bekommt eine Überschrift und einen Satz dazu. Ohne
     # das stand dort nur „Auf »RIGHT VPC Stick WarBRD-D« übertragen" — und

@@ -177,6 +177,88 @@ def zusammenfassung(ordner=None, datei=None):
     }
 
 
+# Was der Assistent vorschlagen kann.
+TAUSCH = 'tausch'        # dasselbe Gerät unter neuer Kennung → umhängen
+STARTEN = 'starten'      # das Spiel kennt es noch nicht → einmal starten
+ANSTECKEN = 'anstecken'  # die Belegung erwartet es → anstecken oder aufräumen
+
+
+def vorschlaege(ordner=None, datei=None):
+    """Was ist zu tun? Konkrete Schritte statt bloßer Zustände.
+
+    ## Der Fall, für den das gebaut ist
+
+    Ein Stick bekommt eine neue Kennung — anderer USB-Anschluss, neue
+    Firmware, Neuinstallation. Danach steht in der Übersicht **zweimal
+    dasselbe Gerät**: einmal als `abgesteckt` (die alte Kennung, an der die
+    ganze Belegung hängt) und einmal als `ohne_nummer` (die neue, die das
+    Spiel noch nicht kennt). Wer das nicht weiß, sieht zwei Probleme, wo
+    eines ist — und die Lösung ist ein einziger Handgriff:
+    `joysticks.kennung_tauschen()` hängt die alte Belegung an die neue
+    Kennung, ohne eine einzige Belegungszeile anzufassen.
+
+    ## ⚠⚠ Geraten wird nicht
+
+    Ein Vorschlag zum Umhängen entsteht **nur**, wenn genau **ein** Gerät
+    fehlt und genau **ein** neues ohne Nummer dasteht. Bei mehreren wäre die
+    Zuordnung Ratearbeit — und ein falsch geratener Ersatz vertauscht zwei
+    Sticks, was man erst im Gefecht merkt. Dieselbe Vorsicht wie in
+    `joysticks.vergleich()`, aus demselben Grund.
+
+    ⚠ Der **Name** spielt dabei keine Rolle, auch wenn er verlockend wäre.
+    Dasselbe Gerät heißt an den drei Stellen verschieden; ein Namensvergleich
+    wäre Ratearbeit mit gutem Gefühl.
+
+    Liefert je Vorschlag:
+
+    | Feld | Bedeutung |
+    |---|---|
+    | `art` | `tausch`, `starten` oder `anstecken` |
+    | `geraet` | das betroffene Gerät aus `uebersicht()` |
+    | `alt` | beim Tausch: der Eintrag, dessen Belegung übernommen wird |
+    """
+    liste = uebersicht(ordner, datei)
+    fehlend = [g for g in liste if g['zustand'] == ABGESTECKT]
+    ohne = [g for g in liste if g['zustand'] == OHNE_NUMMER]
+    neu = [g for g in liste if g['zustand'] == UNBEKANNT]
+
+    heraus = []
+
+    # ⭐ Der eine eindeutige Fall — und nur der.
+    #
+    # ⚠ Auch ein `unbekanntes` Gerät kommt als Kandidat in Frage: Ob das
+    # Spiel die neue Kennung schon einmal gesehen hat, hängt bloß daran, ob
+    # seither eine Runde gespielt wurde. Für die Frage „ist das derselbe
+    # Stick unter neuem Namen" sagt das nichts aus.
+    kandidaten = ohne + neu
+    if len(fehlend) == 1 and len(kandidaten) == 1:
+        heraus.append({'art': TAUSCH, 'geraet': kandidaten[0],
+                       'alt': fehlend[0]})
+        return heraus
+
+    # Sonst: je Gerät der Schritt, der für sich genommen stimmt.
+    for geraet in neu:
+        heraus.append({'art': STARTEN, 'geraet': geraet, 'alt': None})
+    for geraet in fehlend:
+        heraus.append({'art': ANSTECKEN, 'geraet': geraet, 'alt': None})
+    return heraus
+
+
+def umhaengen(alt_kennung, neu_kennung, datei=None, ordner=None):
+    """Die Belegung eines Geräts auf seine neue Kennung umhängen.
+
+    Reicht an `joysticks.kennung_tauschen()` durch — der Schritt, den der
+    Vorschlag `tausch` anbietet. Steht hier, damit die Oberfläche nur ein
+    Modul kennen muss.
+
+    ⚠ **Es wird keine einzige Belegungszeile angefasst.** Getauscht wird die
+    Kennung im Kopf der Datei; alle `js<n>_`-Zeilen zeigen danach wieder auf
+    ein Gerät, das da ist.
+    """
+    return joysticks.kennung_tauschen(alt_kennung, neu_kennung,
+                                      datei=datei, ordner=ordner)
+
+
 class Wache:
     """Merkt, wenn ein Gerät kommt oder geht.
 

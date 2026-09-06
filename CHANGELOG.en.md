@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### New
+
+- **Assignment assistant.** The device hub no longer just says what is going
+  on, it says what to do. The most common case looks like two problems and is
+  one: a stick with a new identifier appears twice — once as missing, once as
+  unknown. One button re-links the bindings without touching a single binding
+  line.
+- **No guessing involved.** The re-link suggestion only appears when exactly
+  one device is missing and exactly one new one is present. With several, the
+  match would be guesswork — and a wrongly guessed replacement swaps two
+  sticks, which you only notice in a fight. Each device then states its own
+  problem instead.
+
 ## v3.19.0-rc16 - 2026-09-06
 
 > **Which stick is js1, actually?** A computer holds three statements about a

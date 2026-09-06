@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Neu
+
+- **Zuordnungs-Assistent.** Der Geräte-Hub sagt jetzt nicht nur, was los ist,
+  sondern was zu tun ist. Der häufigste Fall sieht nach zwei Problemen aus und
+  ist eines: Ein Stick mit neuer Kennung steht zweimal da — einmal als
+  fehlend, einmal als unbekannt. Ein Knopf hängt die Belegung um, ohne eine
+  einzige Belegungszeile anzufassen.
+- **Geraten wird dabei nicht.** Der Vorschlag zum Umhängen entsteht nur, wenn
+  genau ein Gerät fehlt und genau eines neu dasteht. Bei mehreren wäre die
+  Zuordnung Ratearbeit — und ein falsch geratener Ersatz vertauscht zwei
+  Sticks, was man erst im Gefecht merkt. Dann steht bei jedem Gerät einzeln,
+  was ihm fehlt.
+
 ## v3.19.0-rc16 - 2026-09-06
 
 > **Welcher Stick ist eigentlich js1?** Über einen Joystick gibt es im Rechner
