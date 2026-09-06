@@ -100,6 +100,18 @@ NICHT_GEPRUEFT = 'nicht_geprueft'
 KAUFEN = 'kaufen'
 BAUEN = 'bauen'
 
+# Was für ein Posten auf der Rechnung steht — ein Einzelteil oder ein ganzes
+# Schiff. ⚠ Beide brauchen dieselbe Form (`kauf`, `bau`, `weg`), damit `summe()`
+# und `route()` sie ohne Sonderfall verarbeiten.
+TEIL = 'teil'
+SCHIFF = 'schiff'
+
+# Woher ein Schiff kommt: schon im Hangar oder erst auf der Wunschliste. Der
+# Unterschied entscheidet, ob das Schiff selbst als Posten zählt — was man hat,
+# muss man nicht kaufen.
+HANGAR = 'hangar'
+WUNSCH = 'wunsch'
+
 
 # ⚠⚠ **UEX-Warengruppe → Steckplatz-Art. Die einzige Übersetzungstabelle hier
 # — und sie ist leider nötig.**
@@ -179,10 +191,17 @@ def auswahl(art, groesse):
                     continue
             except (TypeError, ValueError):
                 pass
+        # ⭐ **Güte und Klasse gehören beide dazu.** Man stattet ein Schiff für
+        # einen Zweck aus — Kampf, Bergbau, unauffällig fliegen —, und welche
+        # Komponente dazu passt, sagt erst „C · Industrial" statt nur der Name.
+        # Niemand kennt 1.500 Teile auswendig. Gemessen an den Kraftwerken der
+        # Größe 1: 20 Civilian, 13 Industrial, 5 Competition, 3 Stealth, keine
+        # Lücke — das Feld trägt also wirklich.
         raus.append({'name': teil.get('name') or '',
                      'kennung': teil.get('kennung') or '',
                      'hersteller': teil.get('hersteller') or '',
-                     'guete': teil.get('guete') or ''})
+                     'guete': teil.get('guete') or '',
+                     'klasse': teil.get('klasse') or ''})
     raus.sort(key=lambda x: x['name'].lower())
     return raus
 
@@ -557,6 +576,143 @@ def route(liste):
         offen -= deckt
 
     return stopps, ohne
+
+
+def rechnung(daten=None):
+    """Die Einkaufsliste über **alle** Schiffe — wie eine Rechnung.
+
+    Gibt zurück::
+
+        {'posten': [...],          # jeder mit Position, Preis und Weg
+         'summe': {...},           # dieselbe Form wie `summe()`
+         'schiffe': 3,             # wie viele Schiffe beteiligt sind
+         'ohne_steckplatzdaten': ['Galaxy', …]}
+
+    Je Posten:
+
+        {'sorte': TEIL | SCHIFF,
+         'schiff': 'Cutlass Black', 'quelle': HANGAR | WUNSCH,
+         'position': 'Cooler S2',   # wo am Schiff — bei SCHIFF leer
+         'name': 'BlastChill', 'ref': …, 'weg': KAUFEN | BAUEN,
+         'kauf': {...}, 'bau': {...}}
+
+    ⭐⭐ **Ein Schiff ist selbst ein Posten — aber nur, wenn man es noch nicht
+    hat.** Was im Hangar steht, ist bezahlt; dort zählen nur die Teile, die noch
+    fehlen. Ein Wunschschiff dagegen kostet erst einmal sich selbst, und dann
+    noch seine Ausstattung. Beides in einer Rechnung ist genau die Frage, die
+    vor dem Kauf im Kopf steht: *was kostet mich das am Ende?*
+
+    ⚠ **Jeder Posten trägt seine Position.** Eine Rechnung ohne Positionen ist
+    eine Zahl, mit der niemand etwas anfangen kann — bei zwölf Kühlern in vier
+    Schiffen weiß man sonst nicht, welcher wohin gehört.
+
+    ⚠ **Ohne Netzzugriff.** Diese Funktion rechnet nur mit dem, was schon
+    abgelegt ist. Was noch nachzuschlagen wäre, sagt `fehlende_preise()` — das
+    Holen gehört in die Oberfläche, wo es im Hintergrund laufen kann, und nicht
+    in eine Funktion, die beim Aufklappen einer Seite anhält.
+    """
+    from . import hangar, schiffe as alle_schiffe
+
+    daten = daten if daten is not None else hangar.laden()
+    verzeichnis = _bauplan_verzeichnis()
+    raus = []
+    ohne_daten = []
+    beteiligt = set()
+
+    quellen = ([(s, HANGAR) for s in (daten.get('schiffe') or [])]
+               + [(w, WUNSCH) for w in (daten.get('wunsch') or [])])
+
+    for eintrag, quelle in quellen:
+        name = eintrag.get('name') or ''
+        if not name:
+            continue
+
+        # 1. Das Schiff selbst — nur beim Wunsch, siehe oben.
+        if quelle == WUNSCH:
+            beteiligt.add(name)
+            posten_schiff = {
+                'sorte': SCHIFF, 'schiff': name, 'quelle': quelle,
+                'position': '', 'name': name, 'ref': '',
+                'weg': KAUFEN,
+                'bau': {'zustand': KEIN_REZEPT, 'material': None,
+                        'dauer': None, 'bauplan': '', 'ohne_preis': []},
+            }
+            try:
+                stellen = alle_schiffe.kaufen(name)
+            except Exception as ausnahme:
+                fehler.merken('warenkorb.rechnung.schiffspreis', ausnahme)
+                stellen = []
+            if stellen:
+                # ⚠ `kaufen()` gibt eine **Liste** von Verkaufsstellen zurück,
+                # billigste zuerst — kein Tupel wie `laeden.guenstigster()`.
+                bester = stellen[0]
+                posten_schiff['kauf'] = {
+                    'zustand': BEKANNT, 'preis': bester.get('preis'),
+                    'laden': bester.get('stelle') or '',
+                    'ort': bester.get('ort') or ''}
+            else:
+                # ⚠ Kein Preis heißt hier meistens „im Spiel nicht für aUEC zu
+                # haben" (Konzeptschiff, nur gegen Echtgeld). Behauptet wird das
+                # trotzdem nicht — es steht nur kein Preis da.
+                posten_schiff['kauf'] = {'zustand': KEIN_PREIS, 'preis': None,
+                                         'laden': '', 'ort': ''}
+            raus.append(posten_schiff)
+
+        # 2. Die Ausstattung — bei Hangar- und Wunschschiffen gleich.
+        zustand, liste = posten(eintrag)
+        if zustand == KEINE_DATEN:
+            # ⚠ Nur vermerken, wenn jemand am Schiff überhaupt etwas vorhat.
+            # Sonst stünden vierzig Konzeptschiffe als Mangel in der Rechnung.
+            if belegung(eintrag):
+                ohne_daten.append(name)
+            continue
+        for p in liste:
+            beteiligt.add(name)
+            p['kauf'] = kaufweg(p.get('ref'), p.get('name'))
+            p['bau'] = bauweg(p.get('ref'), verzeichnis)
+            if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
+                p['weg'] = KAUFEN
+            position = p.get('art') or ''
+            if p.get('groesse') is not None:
+                position = '%s S%s' % (position, p['groesse'])
+            p.update({'sorte': TEIL, 'schiff': name, 'quelle': quelle,
+                      'position': position})
+            raus.append(p)
+
+    # Schiffe zuerst, dann ihre Teile — wie auf einer Rechnung, auf der die
+    # Hauptposition über dem Zubehör steht.
+    raus.sort(key=lambda p: ((p['schiff'] or '').lower(),
+                             0 if p['sorte'] == SCHIFF else 1,
+                             (p.get('position') or ''),
+                             (p.get('name') or '').lower()))
+    return {'posten': raus, 'summe': summe(raus), 'schiffe': len(beteiligt),
+            'ohne_steckplatzdaten': sorted(set(ohne_daten))}
+
+
+def fehlende_preise(posten_liste):
+    """Zu welchen Posten der Ladenpreis noch nachzuschlagen ist.
+
+    Gibt Paare `(kennung, name)` zurück — genau das, was `laeden.holen()`
+    braucht.
+
+    ⚠⚠ **Ohne diesen Schritt bleibt eine Rechnung auf `NICHT_GEPRUEFT`
+    stehen** und zeigt Posten ohne Preis, obwohl UEX sie kennt. Der Abruf
+    gehört aber nicht hierher: Er dauert je Teil eine Netzrunde, und eine
+    Rechnung mit zwölf Posten würde die Oberfläche zwölf Mal anhalten. Die
+    Anzeige holt sie im Hintergrund nach und zeichnet dann neu.
+    """
+    raus = []
+    gesehen = set()
+    for p in posten_liste or []:
+        if p.get('sorte') == SCHIFF:
+            # Schiffspreise kommen aus `schiffe.py`, nicht aus `laeden.py`.
+            continue
+        kennung = p.get('ref') or ''
+        zustand = (p.get('kauf') or {}).get('zustand')
+        if kennung and kennung not in gesehen and zustand == NICHT_GEPRUEFT:
+            gesehen.add(kennung)
+            raus.append((kennung, p.get('name') or ''))
+    return raus
 
 
 def route_summe(stopps):
