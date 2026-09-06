@@ -106,7 +106,13 @@ CACHE = 'erkul-schiffe.json'
 # keine Wortgrenzen mehr findet. Eine Ablage aus rc1–rc3 sieht deshalb aus wie
 # „keine Steckplatz-Daten", obwohl die Daten da sind. Aufgefallen ist das am
 # Anleitungsbild, das mit einer kopierten alten Ablage lief.
-FORMAT = 2
+#
+# ⚠ 3: Neben der gezählten Übersicht (`plaetze`) liegt jetzt die **einzelne**
+# Steckplatzliste (`slots`) mit dem Teil, das ab Werk darinsteckt. Ohne sie
+# lässt sich weder eine Auslegung speichern noch sagen, was am Schiff *nicht*
+# ab Werk verbaut ist — „zwei Kühlerplätze Größe 2" nennt keinen Platz, dem
+# sich ein Teil zuordnen ließe.
+FORMAT = 3
 
 # Notfrist. Maßgeblich ist die Spielversion aus `catalog.bin` — diese Frist
 # greift nur, falls sich die gar nicht ermitteln lässt.
@@ -155,6 +161,30 @@ INTERESSANT = frozenset((
     # Erzbehälter und Frachtaufsätze — die Ore Pods des Prospectors.
     'Container', 'Cargo',
 ))
+
+# ⚠⚠ **Eine eigene Menge für die Auslegung — und das ist Absicht.**
+# `INTERESSANT` beantwortet „passt mein *Bauplan* hier hinein". Der Warenkorb
+# fragt etwas anderes: „was kann ich in diesen Platz überhaupt einbauen".
+# Beides fällt auseinander, weil man Dinge kaufen kann, für die es keinen
+# Bauplan gibt.
+#
+# Gemessen an der Cutlass Black (06.09.2026): Vier tauschbare Plätze stehen ab
+# Werk leer und fielen durch `INTERESSANT` heraus — Batterie, Bordrechner
+# (`Avionics`), Gravitationsgenerator und der Cockpit-Anhänger. Die ersten drei
+# führt UEX in seinen Warengruppen (`Batteries`, `Avionics`), sie sind also
+# kaufbar und gehören in einen Warenkorb. Ein leerer Platz ist der
+# offensichtlichste Warenkorb-Posten überhaupt: Dort *fehlt* etwas.
+#
+# ⚠ `Flair_Cockpit` bleibt draußen. Zierrat fürs Cockpit ist keine Ausrüstung,
+# und UEX führt dafür keine Warengruppe — es stünde also dauerhaft ein Posten
+# in der Liste, zu dem es nie einen Preis gibt.
+#
+# ⚠⚠ **`INTERESSANT` wird dafür NICHT erweitert.** Das würde `plaetze()` und
+# `passt()` mit ändern, und daran hängt „passt der Bauplan in mein Schiff".
+# Eine Menge, die zwei Fragen zugleich beantworten soll, beantwortet die
+# zweite falsch.
+TAUSCHBAR = frozenset(INTERESSANT | {'Battery', 'Avionics',
+                                     'GravityGenerator'})
 
 
 def _holen(pfad, stelle):
@@ -440,8 +470,125 @@ def _einen_platz(platz, raus):
         raus.append((art, int(groesse)))
 
 
+def _hardpoint_verzeichnis(knoten, raus, pfad=''):
+    """Jeden Steckplatz unter seinem **vollen Pfad** ablegen.
+
+    ⚠⚠ **Der bloße `name` reicht als Schlüssel NICHT.** Bei der Cutlass Black
+    heißt der Waffenplatz in jedem der vier Gimbal-Halter gleich
+    (`hardpoint_class_2`, sechsmal vergeben), und `missile_01_attach` gibt es
+    ebenfalls sechsmal. Wer danach schlüsselt, überschreibt vier Waffen mit
+    einer und merkt es nicht.
+
+    ⚠ Und `portPath` hilft nicht weiter: Gemessen am 06.09.2026 hat es bei
+    **allen 68** Steckplätzen der Cutlass die Länge 1 — die Verschachtelung
+    steht dort gar nicht drin. Der Pfad wird deshalb hier selbst gebaut.
+    """
+    if not isinstance(knoten, list):
+        return
+    for platz in knoten:
+        if not isinstance(platz, dict):
+            continue
+        eigen = platz.get('name') or platz.get('portName') or ''
+        voll = (pfad + '/' + eigen) if pfad else eigen
+        if eigen:
+            raus.setdefault(voll, platz)
+        for feld in ('hardpoints', 'ports', 'children', 'slots'):
+            _hardpoint_verzeichnis(platz.get(feld), raus, voll)
+        teil = platz.get('item')
+        if isinstance(teil, dict):
+            for feld in ('ports', 'hardpoints', 'slots'):
+                _hardpoint_verzeichnis(teil.get(feld), raus, voll)
+
+
+def _ein_slot(slot, hp_index, pfad):
+    """Einen einzelnen Steckplatz in die Ablageform bringen — oder `None`.
+
+    Art und Größe kommen bevorzugt aus dem **Steckplatz** (`hardpoints`), nicht
+    aus dem Teil, das gerade darinsteckt: Der Platz sagt, was hineinpasst, das
+    Teil nur, was zufällig ab Werk gewählt wurde. Erst wenn es zu einem Platz
+    keinen Eintrag gibt — bei 26 der 94 Pfade der Cutlass, weil ein
+    Raketenplatz erst durch das eingebaute Rack entsteht —, muss das Teil
+    aushelfen.
+    """
+    beschreibung = hp_index.get(pfad) or {}
+    arten = [(n or {}).get('type') for n in (beschreibung.get('accepts') or [])]
+    arten = [a for a in arten if a in TAUSCHBAR]
+    teil = slot.get('item') if isinstance(slot.get('item'), dict) else None
+
+    art = arten[0] if arten else ((teil or {}).get('type') or '')
+    if art not in TAUSCHBAR:
+        return None
+
+    groesse = beschreibung.get('maxSize')
+    if groesse is None:
+        groesse = beschreibung.get('minSize')
+    if groesse is None and teil is not None:
+        groesse = teil.get('size')
+    try:
+        groesse = int(groesse)
+    except (TypeError, ValueError):
+        # ⚠ Ein Platz ohne Größe ist keine Panne — Lackierungen haben keine.
+        # Er bleibt trotzdem drin: Auch eine Lackierung wird gekauft.
+        groesse = None
+
+    eintrag = {'pfad': pfad, 'art': art, 'groesse': groesse}
+    if teil is not None and teil.get('ref'):
+        # ⚠⚠ **Die Kennung ist das Entscheidende, nicht der Name.** `ref` ist
+        # dieselbe Entitäts-Kennung wie bei UEX und scmdb — nur über sie hängt
+        # später ein Ladenpreis am Werksteil. Der Name steht daneben, damit
+        # etwas Lesbares angezeigt werden kann, und wird nie zum Zuordnen
+        # benutzt.
+        eintrag['werk'] = {
+            'ref': teil['ref'],
+            'name': ((teil.get('i18n') or {}).get('name')
+                     or teil.get('className') or ''),
+        }
+    return eintrag
+
+
+def _ausstattung_sammeln(knoten, hp_index, raus, pfad=''):
+    """Alle **tauschbaren** Steckplätze samt Werksausstattung, rekursiv.
+
+    ⚠⚠ **Der Filter ist `kind`, nicht die Flaggen.** Erkul sagt an jedem Slot
+    selbst, ob der Spieler ihn tauschen kann: `swappable` oder `fixed`. Bei der
+    Cutlass Black sind das 47 gegen 47 — die festen sind Panzerung und
+    Struktur. In einen festen Platz kommt nie ein anderes Teil, dort gibt es
+    also auch nichts zu kaufen.
+
+    ⚠ **Trotzdem darf bei `fixed` nicht abgebrochen werden.** `hardpoint_turret`
+    ist fest, aber die beiden Gimbal-Halter darin und ihre CF-337 Panther sind
+    tauschbar. Wer die Rekursion an einem festen Platz beendet, verliert genau
+    die Turmwaffen — und das fällt nicht auf, weil eine kürzere Liste immer
+    noch wie eine Liste aussieht.
+    """
+    if not isinstance(knoten, list):
+        return
+    for slot in knoten:
+        if not isinstance(slot, dict):
+            continue
+        eigen = slot.get('portName') or slot.get('name') or ''
+        voll = (pfad + '/' + eigen) if pfad else eigen
+        if eigen and slot.get('kind') == 'swappable':
+            eintrag = _ein_slot(slot, hp_index, voll)
+            if eintrag:
+                raus.append(eintrag)
+        _ausstattung_sammeln(slot.get('children'), hp_index, raus, voll)
+
+
 def schiff_holen(erkul_id, pfad):
-    """Ein einzelnes Schiff holen und auf seine Steckplätze eindampfen."""
+    """Ein einzelnes Schiff holen und auf seine Steckplätze eindampfen.
+
+    Abgelegt werden **zwei** Sichten auf dieselbe Sache, und beide werden
+    gebraucht:
+
+    | Feld | sagt | wofür |
+    |---|---|---|
+    | `plaetze` | „zwei Kühlerplätze Größe 2" | passt mein Bauplan hinein? |
+    | `slots` | „*dieser* Platz trägt ab Werk ColdSnap" | Auslegung und Warenkorb |
+
+    ⚠ Die gezählte Sicht bleibt unverändert erhalten. Sie beantwortet ihre
+    Frage besser als eine Einzelliste, und „passt in mein Schiff" hängt daran.
+    """
     roh = _holen('%s/%s' % (ZWEIG, pfad), 'schiff')
     if not isinstance(roh, dict):
         return None
@@ -455,9 +602,24 @@ def schiff_holen(erkul_id, pfad):
         gezaehlt[(art, groesse)] = gezaehlt.get((art, groesse), 0) + 1
     plaetze = [{'art': a, 'groesse': g, 'anzahl': n}
                for (a, g), n in sorted(gezaehlt.items())]
+
+    # ⚠⚠ **Die Werksausstattung steht in `slots`, NICHT in einem Feld
+    # `default`.** Ein solches Feld gibt es nicht — nachgesehen am 06.09.2026
+    # über die vollständige Struktur (`default`, `defaults`, `installed`,
+    # `loadout`, `equipped`: keines vorhanden). Was drinsteckt, hängt als
+    # `item` am Slot, und die tieferen Ebenen hängen an **`children`**, nicht
+    # an `ports`: `ports` beschreibt wieder nur Plätze. Bei der Cutlass Black
+    # stecken 90 Gegenstände in drei Ebenen — wer nur die oberste liest,
+    # verliert 26 davon, darunter jede Turmwaffe und jede Rakete.
+    hp_index = {}
+    _hardpoint_verzeichnis((roh.get('vehicle') or {}).get('hardpoints'),
+                           hp_index)
+    slots = []
+    _ausstattung_sammeln(roh.get('slots'), hp_index, slots)
+
     name = ((roh.get('vehicle') or {}).get('vehicleDisplayName')
             or (roh.get('i18n') or {}).get('name') or erkul_id)
-    return {'name': name, 'plaetze': plaetze}
+    return {'name': name, 'plaetze': plaetze, 'slots': slots}
 
 
 def nachtragen(saetze):
@@ -547,6 +709,51 @@ def plaetze(name, hersteller='', kurz='', hkurz=''):
     if not schluessel:
         return []
     return ((laden().get('schiffe') or {}).get(schluessel) or {}).get('plaetze') or []
+
+
+def steckplaetze(name, hersteller='', kurz='', hkurz=''):
+    """Die **einzelnen** tauschbaren Steckplätze eines Schiffs.
+
+    Je Eintrag `pfad`, `art`, `groesse` und — wenn ab Werk etwas darinsteckt —
+    `werk` mit `ref` und `name`. Leere Liste heißt „keine Daten"; ob das Schiff
+    überhaupt bekannt ist, sagt `kennt()`.
+
+    ⚠ Das ist **nicht** `plaetze()`. Dort steht die gezählte Übersicht („zwei
+    Kühlerplätze Größe 2"), hier jeder Platz einzeln mit seiner Kennung. Nur
+    hier lässt sich ein Teil einem Platz zuordnen.
+    """
+    schluessel = kennung(name, hersteller, kurz, hkurz)
+    if not schluessel:
+        return []
+    eintrag = (laden().get('schiffe') or {}).get(schluessel) or {}
+    return eintrag.get('slots') or []
+
+
+def werksausstattung(name, hersteller='', kurz='', hkurz=''):
+    """Was ab Werk in diesem Schiff steckt — je Teil einmal, mit Anzahl.
+
+    Zurück kommen Einträge `{'ref', 'name', 'art', 'groesse', 'anzahl'}`,
+    häufigste zuerst. Gezählt wird über die **Kennung**, nicht über den Namen:
+    Vier Gimbal-Halter desselben Typs sind ein Posten mit `anzahl: 4`.
+
+    ⚠ Es ist die **Standard**-Ausstattung. Was in einem angetroffenen Schiff
+    wirklich steckt, kann jemand getauscht haben — die Anzeige sagt deshalb
+    „ab Werk steckt hier … drin", nie „in diesem Schiff liegt …".
+    """
+    gezaehlt = {}
+    for platz in steckplaetze(name, hersteller, kurz, hkurz):
+        werk = platz.get('werk') or {}
+        ref = werk.get('ref')
+        if not ref:
+            continue
+        eintrag = gezaehlt.setdefault(ref, {
+            'ref': ref, 'name': werk.get('name') or '',
+            'art': platz.get('art') or '', 'groesse': platz.get('groesse'),
+            'anzahl': 0})
+        eintrag['anzahl'] += 1
+    raus = list(gezaehlt.values())
+    raus.sort(key=lambda x: (-x['anzahl'], (x['name'] or '').lower()))
+    return raus
 
 
 def passt(art, groesse, name, hersteller='', kurz='', hkurz=''):

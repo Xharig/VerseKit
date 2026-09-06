@@ -6,6 +6,28 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+> **Tell the tool how your ship should look — it tells you what you still
+> need.** Under „My hangar" you can now set what belongs in each slot. Anything
+> that is not stock ends up in a shopping list — and every item shows **both**
+> numbers: what it costs in a shop, and what it costs you in materials if you
+> craft it yourself. Which way you go is your call.
+
+### New
+
+- **Save a loadout.** For every ship in your hangar you can set, slot by slot,
+  which part belongs there. What the ship carries from the factory is always
+  shown next to it.
+- **Shopping list.** Everything that differs from the stock loadout is listed
+  below, with a total.
+- **Buy or craft, per item.** Both costs sit side by side: shop price with
+  location, next to material cost and crafting time. Items without a blueprint
+  say „buy only". If a recipe needs a resource no shop sells, it says so — the
+  material cost is then a lower bound, not a final figure.
+- **Shopping route.** For everything you buy, a route with as few stops as
+  possible, grouped by location. Two shops at the same station are one stop.
+
 ## v3.19.0-rc6 - 2026-09-06
 
 > **The advice that was waiting for the move.** If you boot the same machine

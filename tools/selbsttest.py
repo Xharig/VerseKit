@@ -12481,6 +12481,259 @@ def main():
         _sh140.rmtree(_nach140, ignore_errors=True)
 
     print()
+    print('141. Die Werksausstattung wird vollstaendig gelesen')
+    # ⚠⚠ **Diese Pruefung legt sich ihre Daten selbst hin.** Erkuls Schiffe
+    # liegen als heruntergeladener Zwischenspeicher im Ablageordner; im
+    # Wegwerf-Ordner des Selbsttests gibt es keinen. Eine Pruefung, die sich
+    # dann ueberspringt, prueft nie etwas — genau der Fehler, der bei
+    # Pruefung 67 monatelang unbemerkt blieb.
+    #
+    # Nachgebaut ist der Aufbau der Cutlass Black, gemessen am 06.09.2026:
+    # ein fester Turm mit tauschbaren Kindern, ein Rack mit Raketen, und
+    # zweimal derselbe Steckplatzname auf verschiedenen Ebenen.
+    from scbp import erkul as _erk141
+
+    _schiff141 = {
+        'vehicle': {'hardpoints': [
+            {'name': 'hardpoint_cooler_left', 'minSize': 2, 'maxSize': 2,
+             'accepts': [{'type': 'Cooler'}], 'flags': {}},
+            {'name': 'hardpoint_battery', 'minSize': 1, 'maxSize': 1,
+             'accepts': [{'type': 'Battery'}], 'flags': {}},
+            {'name': 'hardpoint_turret', 'minSize': 5, 'maxSize': 5,
+             'accepts': [{'type': 'TurretBase'}],
+             'flags': {'uneditable': True}},
+        ]},
+        'slots': [
+            {'kind': 'swappable', 'portName': 'hardpoint_cooler_left',
+             'item': {'ref': 'ref-coldsnap', 'type': 'Cooler', 'size': 2,
+                      'i18n': {'name': 'ColdSnap'}}},
+            # Ab Werk leer — und trotzdem ein Steckplatz, in den etwas gehoert.
+            {'kind': 'swappable', 'portName': 'hardpoint_battery'},
+            # ⚠ Fest, aber mit tauschbaren Kindern: die Turmwaffen.
+            {'kind': 'fixed', 'portName': 'hardpoint_turret',
+             'item': {'ref': 'ref-turmbasis', 'type': 'TurretBase', 'size': 5,
+                      'i18n': {'name': 'Manned Turret'}},
+             'children': [
+                 {'kind': 'swappable', 'portName': 'hardpoint_weapon_left',
+                  'item': {'ref': 'ref-gimbal', 'type': 'Turret', 'size': 3,
+                           'i18n': {'name': 'VariPuck'}},
+                  'children': [
+                      {'kind': 'swappable', 'portName': 'hardpoint_class_2',
+                       'item': {'ref': 'ref-panther', 'type': 'WeaponGun',
+                                'size': 3,
+                                'i18n': {'name': 'CF-337 Panther'}}}]},
+                 {'kind': 'swappable', 'portName': 'hardpoint_weapon_right',
+                  'item': {'ref': 'ref-gimbal', 'type': 'Turret', 'size': 3,
+                           'i18n': {'name': 'VariPuck'}},
+                  'children': [
+                      {'kind': 'swappable', 'portName': 'hardpoint_class_2',
+                       'item': {'ref': 'ref-panther', 'type': 'WeaponGun',
+                                'size': 3,
+                                'i18n': {'name': 'CF-337 Panther'}}}]}]},
+        ]}
+
+    _hp141 = {}
+    _erk141._hardpoint_verzeichnis(_schiff141['vehicle']['hardpoints'], _hp141)
+    _slots141 = []
+    _erk141._ausstattung_sammeln(_schiff141['slots'], _hp141, _slots141)
+    _pfade141 = [s['pfad'] for s in _slots141]
+
+    # Kuehler + Batterie + 2 Gimbal + 2 Waffen = 6. Der feste Turm selbst
+    # zaehlt nicht mit.
+    pruefe(len(_slots141) == 6,
+           '6 tauschbare Steckplaetze gefunden (bekam: %d)' % len(_slots141))
+
+    # ⚠⚠ **Der Kern: ein fester Platz darf die Rekursion nicht beenden.**
+    # Genau hier gingen bei der Cutlass Black die Turmwaffen verloren.
+    pruefe('hardpoint_turret/hardpoint_weapon_left/hardpoint_class_2'
+           in _pfade141,
+           'die Waffe im FESTEN Turm wird gefunden')
+
+    # ⚠⚠ **Und der zweite Kern: gleiche Namen duerfen sich nicht ueberschreiben.**
+    pruefe(len([p for p in _pfade141 if p.endswith('hardpoint_class_2')]) == 2,
+           'zweimal derselbe Steckplatzname bleiben zwei Plaetze')
+    pruefe(len(set(_pfade141)) == len(_pfade141),
+           'jeder Pfad kommt genau einmal vor')
+
+    # Ab Werk leer ist ein gueltiger Zustand, kein Grund zum Weglassen.
+    _batterie141 = [s for s in _slots141 if s['pfad'] == 'hardpoint_battery']
+    pruefe(len(_batterie141) == 1 and not _batterie141[0].get('werk'),
+           'ein ab Werk leerer Platz bleibt in der Liste, ohne Werksteil')
+
+    # Zusammengefasste Werksausstattung: 2 Gimbal, 2 Waffen, 1 Kuehler.
+    _werk141 = {}
+    for _s141 in _slots141:
+        _w141 = (_s141.get('werk') or {}).get('ref')
+        if _w141:
+            _werk141[_w141] = _werk141.get(_w141, 0) + 1
+    pruefe(_werk141 == {'ref-coldsnap': 1, 'ref-gimbal': 2, 'ref-panther': 2},
+           'Werksteile werden ueber die Kennung gezaehlt (bekam: %s)'
+           % (_werk141,))
+
+    # ⚠ GEGENPROBE 1 — mit eingebautem Fehler: Bricht die Rekursion an einem
+    # festen Platz ab, muessen die Turmwaffen fehlen. Tut sie es nicht, prueft
+    # die Pruefung oben nichts.
+    _nur_oben141 = []
+    for _s141 in _schiff141['slots']:
+        if _s141.get('kind') == 'swappable':
+            _e141 = _erk141._ein_slot(_s141, _hp141, _s141['portName'])
+            if _e141:
+                _nur_oben141.append(_e141)
+    pruefe(len(_nur_oben141) == 2,
+           'Gegenprobe: ohne Rekursion bleiben nur 2 statt 6 Plaetze '
+           '(bekam: %d)' % len(_nur_oben141))
+
+    # ⚠ GEGENPROBE 2: Nach dem blossen Namen geschluesselt, fallen die beiden
+    # gleichnamigen Waffenplaetze zu einem zusammen.
+    _nach_name141 = {}
+    for _s141 in _slots141:
+        _nach_name141[_s141['pfad'].split('/')[-1]] = _s141
+    pruefe(len(_nach_name141) == 5,
+           'Gegenprobe: nach blossem Namen geschluesselt geht ein Platz '
+           'verloren (bekam: %d)' % len(_nach_name141))
+
+    print()
+    print('142. Der Warenkorb haelt seine vier Zustaende auseinander')
+    # ⚠⚠ **Die teuerste Verwechslung dieses Projekts.** „keine Daten" und
+    # „nichts zu tun" sehen im Code gleich aus — beides ist eine leere Liste.
+    # Am 06.09.2026 stand deshalb bei jedem Bauplan „passt in keines deiner
+    # Schiffe", auch wenn nur die Steckplatz-Daten fehlten.
+    from scbp import warenkorb as _wk142
+
+    _abgelegt142 = {'spielversion': 'probe', 'hersteller': {}, 'schiffe': {
+        'probeschiff': {'name': 'Probeschiff', 'id': 'probe_schiff',
+                        'plaetze': [], 'slots': _slots141}}}
+    _echt142 = _erk141.laden
+    _erk141.laden = lambda: _abgelegt142
+    try:
+        _mein142 = {'name': 'Probeschiff', 'hersteller': '', 'kurz': '',
+                    'hkurz': '', 'belegung': {}}
+
+        # 1. Schiff ohne Steckplatz-Daten -> KEINE_DATEN, niemals NICHTS_OFFEN.
+        _z142, _l142 = _wk142.posten({'name': 'Gibtesnicht'})
+        pruefe(_z142 == _wk142.KEINE_DATEN,
+               'ein unbekanntes Schiff meldet KEINE_DATEN (bekam: %s)' % _z142)
+
+        # 2. Auslegung = Werksausstattung -> NICHTS_OFFEN.
+        _z142, _l142 = _wk142.posten(_mein142)
+        pruefe(_z142 == _wk142.NICHTS_OFFEN,
+               'ohne Aenderung meldet der Korb NICHTS_OFFEN (bekam: %s)'
+               % _z142)
+
+        # ⚠⚠ **Der eigentliche Punkt: die beiden duerfen NICHT gleich sein.**
+        pruefe(_wk142.KEINE_DATEN != _wk142.NICHTS_OFFEN,
+               '„keine Daten" und „nichts offen" sind verschiedene Zustaende')
+
+        # 3. Das Werksteil selbst einlegen ist KEINE Aenderung.
+        _wk142.setzen(_mein142, 'hardpoint_cooler_left', 'ref-coldsnap',
+                      'ColdSnap')
+        _z142, _l142 = _wk142.posten(_mein142)
+        pruefe(_z142 == _wk142.NICHTS_OFFEN and not _l142,
+               'das Werksteil einzulegen erzeugt keinen Posten')
+
+        # 4. Ein anderes Teil -> ein Posten, mit dem Werksteil daneben.
+        _wk142.setzen(_mein142, 'hardpoint_cooler_left', 'ref-blastchill',
+                      'BlastChill')
+        _wk142.setzen(_mein142, 'hardpoint_battery', 'ref-akku', 'Akku')
+        _z142, _l142 = _wk142.posten(_mein142)
+        pruefe(_z142 == _wk142.OFFEN and len(_l142) == 2,
+               'zwei Aenderungen ergeben zwei Posten (bekam: %d)' % len(_l142))
+        _kuehler142 = [p for p in _l142 if p['pfad'] == 'hardpoint_cooler_left']
+        pruefe(_kuehler142 and _kuehler142[0]['werk_name'] == 'ColdSnap',
+               'am Posten steht, was stattdessen ab Werk drinsteckt')
+        _akku142 = [p for p in _l142 if p['pfad'] == 'hardpoint_battery']
+        pruefe(_akku142 and not _akku142[0]['werk_ref'],
+               'ein ab Werk leerer Platz wird zum Posten ohne Werksteil')
+
+        # 5. Ein Steckplatz, den es nicht mehr gibt, wird uebergangen —
+        # nach einem Patch moeglich, und der Spieler kann nichts dafuer.
+        _wk142.setzen(_mein142, 'hardpoint_gibtsnichtmehr', 'ref-x', 'X')
+        _z142, _l142 = _wk142.posten(_mein142)
+        pruefe(len(_l142) == 2,
+               'ein verschwundener Steckplatz erzeugt keinen Posten '
+               '(bekam: %d)' % len(_l142))
+
+        # ⚠ GEGENPROBE: Wuerde `posten()` bei fehlenden Daten eine leere Liste
+        # mit NICHTS_OFFEN zurueckgeben, waere der Unterschied weg — und die
+        # Anzeige saehe fuer beide Faelle gleich aus.
+        _leer142 = _wk142.posten({'name': 'Gibtesnicht'})
+        pruefe(_leer142 == (_wk142.KEINE_DATEN, []),
+               'Gegenprobe: fehlende Daten geben KEINE_DATEN mit leerer Liste')
+    finally:
+        _erk141.laden = _echt142
+
+    print()
+    print('143. Die Kaufroute nimmt Deckung vor Preis')
+    # ⚠⚠ **Wer stur den billigsten Laden je Posten nimmt, schickt den Spieler
+    # durch drei Systeme.** Rechnerisch das Beste, in der Praxis ein verlorener
+    # Abend. Diese Pruefung haelt fest, dass die Route nach Deckung waehlt.
+    _posten143 = [
+        {'pfad': 'a', 'name': 'Teil A', 'weg': _wk142.KAUFEN, 'ref': 'r-a'},
+        {'pfad': 'b', 'name': 'Teil B', 'weg': _wk142.KAUFEN, 'ref': 'r-b'},
+        {'pfad': 'c', 'name': 'Teil C', 'weg': _wk142.KAUFEN, 'ref': 'r-c'},
+        # ⚠ Dieser wird gebaut, gehoert also NICHT auf die Kaufroute.
+        {'pfad': 'd', 'name': 'Teil D', 'weg': _wk142.BAUEN, 'ref': 'r-d'},
+    ]
+    # Ein Ort fuehrt alles (etwas teurer), ein zweiter nur eines (billiger).
+    _regale143 = {
+        'r-a': [{'laden': 'Alles-Laden', 'ort': 'Area18', 'system': 'Stanton',
+                 'preis': 1000.0},
+                {'laden': 'Billig', 'ort': 'Weit weg', 'system': 'Pyro',
+                 'preis': 700.0}],
+        'r-b': [{'laden': 'Alles-Laden', 'ort': 'Area18', 'system': 'Stanton',
+                 'preis': 1000.0}],
+        'r-c': [{'laden': 'Nebenan', 'ort': 'Area18', 'system': 'Stanton',
+                 'preis': 500.0}],
+        'r-d': [{'laden': 'Egal', 'ort': 'Nirgendwo', 'system': 'Pyro',
+                 'preis': 9999.0}],
+    }
+    from scbp import laeden as _ld143
+    _echt143 = _ld143.laeden
+    _ld143.laeden = lambda k: _regale143.get(k)
+    try:
+        _stopps143, _ohne143 = _wk142.route(_posten143)
+        pruefe(len(_stopps143) == 1,
+               'alles an einem Ort ergibt EINEN Stopp (bekam: %d)'
+               % len(_stopps143))
+        pruefe(_stopps143 and _stopps143[0]['ort'] == 'Area18',
+               'gewaehlt wird der Ort mit der groessten Deckung')
+        # ⚠ Ein Stopp, zwei Laeden — genau die Unterscheidung, die erkul mit
+        # „1 shop · 1 stop" trifft.
+        pruefe(_stopps143 and len(_stopps143[0]['laeden']) == 2,
+               'zwei Laeden am selben Ort bleiben EIN Stopp')
+        _summe143 = _wk142.route_summe(_stopps143)
+        pruefe(_summe143['gesamt'] == 2500.0,
+               'die Routensumme rechnet mit den Laeden der Route '
+               '(bekam: %s)' % _summe143['gesamt'])
+
+        # ⚠⚠ **Der zu bauende Posten darf NICHT auf der Kaufroute stehen.**
+        _alle_pfade143 = [e['pfad'] for s in _stopps143 for e in s['posten']]
+        pruefe('d' not in _alle_pfade143,
+               'ein selbst gebauter Posten steht nicht auf der Kaufroute')
+
+        # ⚠ GEGENPROBE: Nach dem billigsten Preis je Posten gewaehlt, waeren es
+        # ZWEI Stopps in zwei Systemen — und in Summe nicht einmal viel
+        # billiger. Genau das soll die Route nicht tun.
+        _billigste143 = set()
+        for _p143 in _posten143:
+            if _p143['weg'] != _wk142.KAUFEN:
+                continue
+            _z143 = min(_regale143[_p143['ref']], key=lambda z: z['preis'])
+            _billigste143.add((_z143['system'], _z143['ort']))
+        pruefe(len(_billigste143) == 2,
+               'Gegenprobe: stur nach Preis waeren es 2 Stopps (bekam: %d)'
+               % len(_billigste143))
+
+        # Ein Posten, den kein Laden fuehrt, wird benannt statt verschwiegen.
+        _ohne_laden143 = [{'pfad': 'x', 'name': 'Teil X',
+                           'weg': _wk142.KAUFEN, 'ref': 'r-unbekannt'}]
+        _s143, _o143 = _wk142.route(_ohne_laden143)
+        pruefe(_s143 == [] and _o143 == ['x'],
+               'ein Posten ohne Laden wird als solcher gemeldet')
+    finally:
+        _ld143.laeden = _echt143
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:

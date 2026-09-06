@@ -9174,7 +9174,410 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     tk.Label(unten, text='  ·  '.join(teile), bg=FLAECHE,
              fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
+
+    # Auslegung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
+    # Schiffen eine Liste bleibt und keine Bleiwüste wird.
+    _warenkorb_block(fenster, karte, eintrag, daten)
     return 0 if plaetze else 1
+
+
+def _warenkorb_block(fenster, karte, eintrag, daten):
+    """„Auslegung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
+
+    ⚠ Gebaut wird der Inhalt **beim ersten Aufklappen**, nicht beim Zeichnen
+    der Liste. Sonst kostet jede Hangar-Seite so viele Steckplatz-Durchläufe,
+    wie der Spieler Schiffe hat — bei vierzig Schiffen wartet er auf etwas,
+    das er gar nicht sehen wollte.
+    """
+    from . import hangar as meine, warenkorb
+
+    kasten = tk.Frame(karte, bg=FLAECHE)
+    kasten.pack(fill='x')
+
+    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf.pack(fill='x', padx=16, pady=(0, 10))
+    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
+                          schrift=fenster.f_klein)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t('s_wk_titel'), bg=FLAECHE, fg=FG,
+             font=fenster.f_klein, anchor='w').pack(side='left')
+
+    koerper = tk.Frame(kasten, bg=FLAECHE)
+
+    def neu():
+        """Den Block neu aufbauen — nach jeder Änderung an der Auslegung."""
+        for kind in koerper.winfo_children():
+            kind.destroy()
+        _warenkorb_inhalt(fenster, koerper, eintrag, daten, neu)
+
+    def umschalten(_=None):
+        if koerper.winfo_ismapped():
+            koerper.pack_forget()
+            pfeil.symbol_tauschen('aufklappen')
+        else:
+            neu()
+            koerper.pack(fill='x', after=kopf)
+            pfeil.symbol_tauschen('zuklappen')
+
+    for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+
+
+def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
+    """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
+    from . import hangar as meine, warenkorb
+
+    zustand, liste = warenkorb.posten(eintrag)
+
+    # ⚠⚠ **Drei Zustände, drei verschiedene Sätze.** „Keine Daten" und „nichts
+    # zu besorgen" sehen im Code gleich aus — beides ist eine leere Liste. Wer
+    # sie gleich behandelt, sagt jemandem mit fehlenden Steckplatz-Daten, an
+    # seinem Schiff sei alles in Ordnung. Genau diese Verwechslung stand am
+    # 06.09.2026 bei jedem Bauplan.
+    if zustand == warenkorb.KEINE_DATEN:
+        _fliesstext(eltern, t('s_wk_keine_daten'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(0, 10),
+                    abzug=78)
+        return
+
+    _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
+
+    if zustand == warenkorb.NICHTS_OFFEN:
+        _fliesstext(eltern, t('s_wk_nichts_offen'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(4, 10),
+                    abzug=78)
+        return
+
+    warenkorb.anreichern(liste)
+
+    tk.Label(eltern, text=t('s_wk_posten').format(n=len(liste)), bg=FLAECHE,
+             fg=FG, font=fenster.f_fett, anchor='w').pack(
+                 fill='x', padx=(46, 16), pady=(8, 4))
+
+    for posten in liste:
+        _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen)
+
+    _warenkorb_summe(fenster, eltern, liste)
+    _warenkorb_route(fenster, eltern, liste)
+
+
+def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
+    """Die Steckplätze des Schiffs, jeder mit dem, was darin sitzt.
+
+    ⚠ Gezeigt wird immer die **Werksausstattung** als Ausgangspunkt, auch wenn
+    nichts geändert wurde. Ohne sie wäre nicht zu sehen, wogegen der Spieler
+    tauscht — und „non-stock" wäre eine Behauptung ohne Bezugsgröße.
+    """
+    from . import erkul, hangar as meine, warenkorb
+
+    plaetze = erkul.steckplaetze(eintrag.get('name') or '',
+                                 eintrag.get('hersteller') or '',
+                                 eintrag.get('kurz') or '',
+                                 eintrag.get('hkurz') or '')
+    gewaehlt = warenkorb.belegung(eintrag)
+
+    tk.Label(eltern, text=t('s_wk_auslegung'), bg=FLAECHE, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
+                                                   pady=(0, 4))
+
+    for platz in plaetze:
+        _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
+                          neu_zeichnen)
+
+
+def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
+                      neu_zeichnen):
+    """Ein Steckplatz — anklickbar, die Teileauswahl klappt darunter auf.
+
+    ⚠ Kein eigenes Fenster für die Auswahl: Wer vier Plätze nacheinander
+    belegt, müsste sonst viermal ein Fenster öffnen und schließen. Aufgeklappt
+    wird dieselbe Formensprache benutzt wie beim Handeintrag darüber.
+    """
+    from . import hangar as meine, warenkorb
+
+    pfad = platz.get('pfad') or ''
+    zeile = tk.Frame(eltern, bg=FLAECHE, cursor='hand2')
+    zeile.pack(fill='x', padx=(46, 16), pady=1)
+
+    # Links: was für ein Platz das ist. Der Pfad wird **nicht** angezeigt — er
+    # ist eine Kennung, keine Beschriftung, und `hardpoint_Left_Pylon_03` sagt
+    # niemandem etwas.
+    art_text = platz.get('art') or ''
+    if platz.get('groesse') is not None:
+        art_text = '%s S%s' % (art_text, platz['groesse'])
+    tk.Label(zeile, text=art_text, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             anchor='w', width=22).pack(side='left')
+
+    eigenes = gewaehlt.get(pfad) or {}
+    werk = platz.get('werk') or {}
+    if eigenes.get('ref') and eigenes['ref'] != werk.get('ref'):
+        text, farbe = eigenes.get('name') or '', ACCENT
+    elif werk.get('name'):
+        text, farbe = werk['name'], SUB
+    else:
+        text, farbe = t('s_wk_ab_werk_leer'), SUB
+    tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe, font=fenster.f_klein,
+             anchor='w').pack(side='left')
+
+    def speichern():
+        meine.speichern({'format': meine.FORMAT,
+                         'schiffe': _hangar_liste(eintrag)})
+
+    if eigenes.get('ref'):
+        # ⚠⚠ **Diese Funktion darf nicht schlicht „zurücksetzen" heißen.**
+        # Prüfung 93 sucht in dieser Datei die **letzte** so benannte Funktion
+        # und erwartet dahinter den Bestand-Knopf mit seinen beiden Meldungen.
+        # Eine gleichnamige Funktion weiter unten übernimmt diese Rolle
+        # stillschweigend, und die Prüfung meldet dann einen Fehler an einer
+        # Stelle, an der niemand etwas geändert hat.
+        #
+        # ⚠ Und der Name darf hier auch nicht als Beispiel ausgeschrieben
+        # stehen: Die Prüfung liest den Quelltext, nicht den Code — ein
+        # Kommentar mit dem Suchmuster darin löst sie genauso aus. Beim ersten
+        # Anlauf hat genau die Warnung vor der Falle die Falle ausgelöst.
+        def platz_zuruecksetzen():
+            if warenkorb.loeschen(eintrag, pfad):
+                speichern()
+                neu_zeichnen()
+        _knopf(fenster, zeile, t('s_wk_zuruecksetzen'),
+               platz_zuruecksetzen).pack(side='right')
+
+    auswahl_rahmen = tk.Frame(eltern, bg=FLAECHE)
+    gebaut = []
+
+    def aufbauen():
+        if gebaut:
+            return
+        gebaut.append(True)
+        moeglich = warenkorb.auswahl(platz.get('art'), platz.get('groesse'))
+        if not moeglich:
+            # ⚠ Ehrlich statt hübsch: Wenn zu diesem Platz keine kaufbaren
+            # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
+            # angeboten, aus dem nichts passt.
+            _fliesstext(auswahl_rahmen, t('s_wk_kein_preis'), fenster.f_klein,
+                        grund=FLAECHE, fill='x', padx=(22, 0), abzug=90)
+            return
+        nach_name = dict((m['name'], m) for m in moeglich)
+        gewaehlt_var = tk.StringVar()
+
+        def uebernehmen(*_a):
+            m = nach_name.get((gewaehlt_var.get() or '').strip())
+            if not m:
+                return
+            if warenkorb.setzen(eintrag, pfad, m['kennung'], m['name']):
+                speichern()
+                neu_zeichnen()
+
+        feld, liste, _ = _auswahlfeld(
+            fenster, auswahl_rahmen, gewaehlt_var,
+            lambda: sorted(nach_name),
+            beim_waehlen=uebernehmen, beim_bestaetigen=uebernehmen,
+            leer_text=t('s_hg_nichts_gefunden'), rollbar=200)
+        feld.pack(fill='x', padx=(22, 0))
+        liste.pack(fill='x', padx=(22, 0))
+
+    def umschalten(_=None):
+        if auswahl_rahmen.winfo_ismapped():
+            auswahl_rahmen.pack_forget()
+        else:
+            aufbauen()
+            auswahl_rahmen.pack(fill='x', padx=(46, 16), pady=(0, 6),
+                                after=zeile)
+
+    for teil in (zeile,) + tuple(zeile.winfo_children()):
+        if isinstance(teil, tk.Label):
+            teil.bind('<Button-1>', umschalten)
+    zeile.bind('<Button-1>', umschalten)
+
+
+def _hangar_liste(eintrag):
+    """Die ganze Hangar-Liste, mit diesem Eintrag auf aktuellem Stand.
+
+    ⚠ Gespeichert wird immer die **ganze** Datei — der Eintrag ist ein Stück
+    davon, und wer nur ihn schreibt, wirft die übrigen Schiffe weg.
+    """
+    from . import hangar as meine
+    stand = meine.laden()
+    schiffe = stand.get('schiffe') or []
+    for i, s in enumerate(schiffe):
+        if (s.get('name') == eintrag.get('name')
+                and s.get('hersteller') == eintrag.get('hersteller')):
+            schiffe[i] = eintrag
+            break
+    return schiffe
+
+
+def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
+    """Ein Posten mit **beiden** Wegen nebeneinander — kaufen und bauen.
+
+    ⭐⭐ **Das ist der Punkt, an dem dieses Werkzeug mehr kann als jede
+    Auslegungs-Seite im Netz:** Es kennt die Baupläne des Spielers. Also steht
+    hier nicht ein Preis, sondern beide Wege — und die Wahl trifft der Spieler,
+    Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
+    Preises; wer Zeit hat, baut.
+    """
+    from . import hangar as meine, warenkorb
+
+    karte = tk.Frame(eltern, bg='#0c1017')
+    karte.pack(fill='x', padx=(46, 16), pady=(0, 6))
+
+    kopf = tk.Frame(karte, bg='#0c1017')
+    kopf.pack(fill='x', padx=12, pady=(8, 2))
+    tk.Label(kopf, text=posten.get('name') or '', bg='#0c1017', fg=FG,
+             font=fenster.f_fett, anchor='w').pack(side='left')
+    # Wogegen getauscht wird — ohne diese Angabe ist „non-stock" eine
+    # Behauptung ohne Bezugsgröße.
+    if posten.get('werk_name'):
+        hinweis = t('s_wk_statt').format(name=posten['werk_name'])
+    else:
+        hinweis = t('s_wk_zusaetzlich')
+    tk.Label(kopf, text=hinweis, bg='#0c1017', fg=SUB, font=fenster.f_klein,
+             anchor='w').pack(side='left', padx=(8, 0))
+
+    def waehlen(weg):
+        def tat():
+            if warenkorb.weg_setzen(eintrag, posten['pfad'], weg):
+                meine.speichern({'format': meine.FORMAT,
+                                 'schiffe': _hangar_liste(eintrag)})
+                neu_zeichnen()
+        return tat
+
+    for weg, schluessel, zustandsfeld in ((warenkorb.KAUFEN, 's_wk_kaufen',
+                                           'kauf'),
+                                          (warenkorb.BAUEN, 's_wk_bauen',
+                                           'bau')):
+        angabe = posten.get(zustandsfeld) or {}
+        zeile = tk.Frame(karte, bg='#0c1017')
+        zeile.pack(fill='x', padx=12, pady=(0, 4))
+
+        # ⚠ Der gewählte Weg ist in der Markenfarbe hervorgehoben — nicht durch
+        # einen Schiebeschalter, der bei zwölf Posten zwölfmal dastünde.
+        aktiv = posten.get('weg') == weg
+        tk.Label(zeile, text=t(schluessel), bg='#0c1017',
+                 fg=ACCENT if aktiv else SUB,
+                 font=fenster.f_fett if aktiv else fenster.f_klein,
+                 anchor='w', width=18).pack(side='left')
+
+        if angabe.get('zustand') == warenkorb.BEKANNT:
+            if weg == warenkorb.KAUFEN:
+                wo = ' · '.join(x for x in (angabe.get('laden'),
+                                            angabe.get('ort')) if x)
+                text = t('s_wk_kauf_preis').format(
+                    preis=_geld(angabe.get('preis')), laden=wo or '?', ort='')
+                text = text.rstrip(' ·')
+            else:
+                text = t('s_wk_bau_kosten').format(
+                    preis=_geld(angabe.get('material')),
+                    dauer=_dauer(angabe.get('dauer')))
+            farbe = FG
+        elif angabe.get('zustand') == warenkorb.KEIN_REZEPT:
+            text, farbe = t('s_wk_kein_rezept'), SUB
+        elif angabe.get('zustand') == warenkorb.KEIN_PREIS:
+            text, farbe = t('s_wk_kein_preis'), SUB
+        else:
+            text, farbe = t('s_wk_nicht_geprueft'), SUB
+        tk.Label(zeile, text=text, bg='#0c1017', fg=farbe,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
+        # Nur ein Weg, den es wirklich gibt, lässt sich wählen.
+        if angabe.get('zustand') == warenkorb.BEKANNT and not aktiv:
+            _knopf(fenster, zeile, t(schluessel),
+                   waehlen(weg)).pack(side='right')
+
+        # ⚠⚠ Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
+        # kaufbar. Ohne diesen Satz sieht Selberbauen billiger aus, als es ist.
+        if weg == warenkorb.BAUEN and angabe.get('ohne_preis'):
+            _fliesstext(karte,
+                        t('s_wk_ohne_preis').format(
+                            rohstoffe=', '.join(angabe['ohne_preis'])),
+                        fenster.f_klein, farbe=GOLD, grund='#0c1017',
+                        fill='x', padx=12, pady=(0, 6), abzug=90)
+
+    tk.Frame(karte, bg='#0c1017', height=4).pack()
+
+
+def _warenkorb_summe(fenster, eltern, liste):
+    """Was der Warenkorb kostet — nach der getroffenen Wahl."""
+    from . import warenkorb
+    zahlen = warenkorb.summe(liste)
+
+    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten.pack(fill='x', padx=(46, 16), pady=(4, 0))
+    tk.Label(kasten, text=t('s_wk_summe').format(
+        preis=_geld(zahlen['gesamt'])), bg=FLAECHE, fg=ACCENT,
+        font=fenster.f_fett, anchor='w').pack(fill='x')
+
+    if zahlen['kaufen'] and zahlen['bauen']:
+        tk.Label(kasten, text=t('s_wk_summe_teil').format(
+            kaufen=_geld(zahlen['kaufen']), bauen=_geld(zahlen['bauen'])),
+            bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+            anchor='w').pack(fill='x')
+    if zahlen['dauer']:
+        tk.Label(kasten, text=t('s_wk_bauzeit').format(
+            dauer=_dauer(zahlen['dauer'])), bg=FLAECHE, fg=SUB,
+            font=fenster.f_klein, anchor='w').pack(fill='x')
+    # ⚠ Eine Summe, der Posten fehlen, sieht aus wie eine vollständige.
+    if zahlen['offen']:
+        tk.Label(kasten, text=t('s_wk_summe_offen').format(n=zahlen['offen']),
+                 bg=FLAECHE, fg=GOLD, font=fenster.f_klein,
+                 anchor='w').pack(fill='x')
+
+
+def _warenkorb_route(fenster, eltern, liste):
+    """Die Einkaufsroute für alles, was gekauft wird."""
+    from . import warenkorb
+    stopps, ohne = warenkorb.route(liste)
+
+    tk.Label(eltern, text=t('s_wk_route'), bg=FLAECHE, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
+                                                   pady=(10, 2))
+    if not stopps:
+        _fliesstext(eltern, t('s_wk_route_leer'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), abzug=78)
+        return
+
+    zahlen = warenkorb.route_summe(stopps)
+    # ⚠⚠ **„Auf dieser Route", nicht „Summe".** Die Zahl oben rechnet mit dem
+    # billigsten Laden im ganzen Verse, diese mit den Läden, die auf der Route
+    # wirklich liegen. Beide sind richtig und meinen Verschiedenes —
+    # unbeschriftet nebeneinander sähe es aus, als rechne das Werkzeug falsch.
+    # ⚠ Läden und Stopps werden **einzeln** gebeugt. Zwei Läden an einem Ort
+    # sind „2 Läden · 1 Stopp" — ein gemeinsamer Mehrzahl-Satz schrieb hier
+    # „1 Stopps".
+    zahl_text = '%s · %s' % (
+        t('s_wk_laden' if zahlen['laeden'] == 1
+          else 's_wk_laeden').format(n=zahlen['laeden']),
+        t('s_wk_stopp' if zahlen['stopps'] == 1
+          else 's_wk_stopps').format(n=zahlen['stopps']))
+    tk.Label(eltern, text='%s  ·  %s' % (
+        t('s_wk_route_summe').format(preis=_geld(zahlen['gesamt'])),
+        zahl_text),
+        bg=FLAECHE, fg=SUB, font=fenster.f_klein, anchor='w').pack(
+            fill='x', padx=(46, 16))
+
+    for stopp in stopps:
+        zeile = tk.Frame(eltern, bg=FLAECHE)
+        zeile.pack(fill='x', padx=(58, 16), pady=(4, 0))
+        wo = ' · '.join(x for x in (stopp['system'], stopp['ort']) if x)
+        tk.Label(zeile, text=wo, bg=FLAECHE, fg=FG, font=fenster.f_klein,
+                 anchor='w').pack(side='left')
+        tk.Label(zeile, text=_auec(stopp['summe']), bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='e').pack(side='right')
+        for eintrag_posten in stopp['posten']:
+            unter = tk.Frame(eltern, bg=FLAECHE)
+            unter.pack(fill='x', padx=(70, 16))
+            tk.Label(unter, text='%s — %s' % (eintrag_posten['name'],
+                                              eintrag_posten['laden']),
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
+            tk.Label(unter, text=_geld(eintrag_posten['preis']), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+
+    if ohne:
+        _fliesstext(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
+                    fenster.f_klein, farbe=GOLD, grund=FLAECHE, fill='x',
+                    padx=(46, 16), pady=(6, 0), abzug=78)
 
 
 def _lager(fenster, rahmen):

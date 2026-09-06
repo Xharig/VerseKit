@@ -2647,6 +2647,78 @@ TEXTE = {
                           'Slot data from erkul.games, game build {version}.'),
     's_hg_keine_daten':  ('Noch keine Steckplatz-Daten geholt.',
                           'No slot data fetched yet.'),
+    # --- Auslegung und Warenkorb
+    's_wk_titel':        ('Auslegung & Warenkorb', 'Loadout & shopping list'),
+    's_wk_auslegung':    ('Auslegung', 'Loadout'),
+    's_wk_ab_werk':      ('ab Werk: {name}', 'stock: {name}'),
+    's_wk_ab_werk_leer': ('ab Werk leer', 'empty from factory'),
+    's_wk_platz_frei':   ('unverändert', 'unchanged'),
+    's_wk_zuruecksetzen': ('Zurücksetzen', 'Reset'),
+    # ⚠ „Keine Daten" ist NICHT „nichts zu besorgen" — die beiden Sätze sagen
+    # Verschiedenes und dürfen nie füreinander einspringen. Genau diese
+    # Verwechslung hat am 06.09.2026 die Auskunft „passt in keines deiner
+    # Schiffe" erzeugt, obwohl nur die Steckplatz-Daten fehlten.
+    's_wk_keine_daten':  ('Für dieses Schiff liegen keine Steckplatz-Daten vor '
+                          '— eine Auslegung lässt sich erst speichern, wenn sie '
+                          'da sind.',
+                          'No slot data for this ship — a loadout can only be '
+                          'saved once it arrives.'),
+    's_wk_nichts_offen': ('Nichts zu besorgen — dein Schiff ist so ausgelegt, '
+                          'wie es ab Werk kommt.',
+                          'Nothing to buy — your ship is set up exactly as it '
+                          'comes from the factory.'),
+    's_wk_posten':       ('Warenkorb ({n})', 'Shopping list ({n})'),
+    's_wk_statt':        ('statt {name}', 'instead of {name}'),
+    's_wk_zusaetzlich':  ('zusätzlich (Platz war leer)',
+                          'additional (slot was empty)'),
+    # --- Die beiden Wege
+    's_wk_kaufen':       ('Kaufen', 'Buy'),
+    's_wk_bauen':        ('Selbst herstellen', 'Craft it yourself'),
+    's_wk_kauf_preis':   ('{preis} aUEC bei {laden} · {ort}',
+                          '{preis} aUEC at {laden} · {ort}'),
+    's_wk_kein_preis':   ('kein Ladenpreis bekannt', 'no shop price known'),
+    's_wk_nicht_geprueft': ('wird nachgeschlagen …', 'looking it up …'),
+    's_wk_kein_rezept':  ('nur kaufbar — dafür gibt es keinen Bauplan',
+                          'buy only — there is no blueprint for this'),
+    's_wk_bau_kosten':   ('{preis} aUEC Material · {dauer}',
+                          '{preis} aUEC materials · {dauer}'),
+    # ⚠⚠ **Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
+    # kaufbar.** Ohne diesen Satz sieht Selberbauen billiger aus, als es ist —
+    # dieselbe Falle wie bei den Ankaufgeboten im Verkauf.
+    's_wk_ohne_preis':   ('Mindestens — {rohstoffe} gibt es in keinem Laden, '
+                          'das musst du abbauen.',
+                          'At least — {rohstoffe} is not sold anywhere, you have '
+                          'to mine it.'),
+    # --- Summe
+    's_wk_summe':        ('Günstigstenfalls {preis} aUEC',
+                          'At best {preis} aUEC'),
+    's_wk_summe_teil':   ('davon {kaufen} aUEC gekauft, {bauen} aUEC Material',
+                          'of which {kaufen} aUEC bought, {bauen} aUEC materials'),
+    's_wk_bauzeit':      ('Bauzeit zusammen {dauer}', 'Total crafting time {dauer}'),
+    # ⚠ Eine Summe, der Posten fehlen, sieht aus wie eine vollständige. Also
+    # steht dabei, wie viele fehlen.
+    's_wk_summe_offen':  ('{n} Posten ohne Preis sind nicht mitgerechnet.',
+                          '{n} items without a price are not included.'),
+    # --- Kaufroute
+    's_wk_route':        ('Einkaufsroute', 'Shopping route'),
+    # ⚠⚠ **Diese Zahl ist NICHT die Summe oben** — hier zählen die Läden auf
+    # der Route, dort der billigste Laden im ganzen Verse. Beide Zahlen sind
+    # richtig und meinen Verschiedenes; unbeschriftet nebeneinander sähe es
+    # aus, als rechne das Werkzeug falsch.
+    's_wk_route_summe':  ('Auf dieser Route {preis} aUEC',
+                          'On this route {preis} aUEC'),
+    # ⚠ **Vier Bausteine statt zwei Sätze.** Die erste Fassung hatte je einen
+    # Satz für „alles Einzahl" und „alles Mehrzahl" — und schrieb bei zwei
+    # Läden an einem Ort „2 Läden · 1 Stopps". Die beiden Zahlen sind
+    # unabhängig, also braucht jede ihre eigene Form.
+    's_wk_laden':        ('{n} Laden', '{n} shop'),
+    's_wk_laeden':       ('{n} Läden', '{n} shops'),
+    's_wk_stopp':        ('{n} Stopp', '{n} stop'),
+    's_wk_stopps':       ('{n} Stopps', '{n} stops'),
+    's_wk_route_ohne':   ('Für {n} Posten ist kein Laden bekannt.',
+                          'No shop known for {n} items.'),
+    's_wk_route_leer':   ('Nichts zu kaufen — du stellst alles selbst her.',
+                          'Nothing to buy — you craft everything yourself.'),
     # --- Passt in mein Schiff
     's_hg_passt_titel':  ('Passt in dein Schiff', 'Fits your ship'),
     's_hg_passt_in':     ('Passt in: {schiffe}', 'Fits: {schiffe}'),
