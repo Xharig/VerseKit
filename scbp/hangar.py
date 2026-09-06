@@ -156,6 +156,57 @@ def kennsaetze(daten=None):
             for s in ((daten or laden()).get('schiffe') or []) if s.get('name')]
 
 
+# ------------------------------------------------------------ Wunschliste
+
+def wunsch_liste(daten=None):
+    """Die Schiffe, die man sich vorgenommen hat — alphabetisch.
+
+    ⚠ **Getrennt vom Hangar, in derselben Datei.** Ein Wunsch ist kein Besitz:
+    Was hier steht, darf nirgends in „passt in dein Schiff" auftauchen, sonst
+    beantwortet das Werkzeug eine Frage über ein Schiff, das der Spieler gar
+    nicht hat. Ein fehlendes Feld gilt als leere Liste — alte Dateien bleiben
+    damit gültig, es braucht keinen Formatwechsel.
+
+    Der Vorschlag kam von **Zwaersch (KRT)** am 06.09.2026: *„Also Unterpunkt
+    könnte man noch ne Wishlist-Option anbieten. Für, ich nenn's mal allgemein
+    Vehikel, die man sich erspielen/kaufen möchte."*
+    """
+    liste = (daten or laden()).get('wunsch') or []
+    return sorted((w for w in liste if isinstance(w, dict) and w.get('name')),
+                  key=lambda w: (w.get('name') or '').lower())
+
+
+def wunsch_enthaelt(daten, name):
+    suche = _schlank(name)
+    return any(_schlank(w.get('name')) == suche
+               for w in (daten.get('wunsch') or []))
+
+
+def wunsch_hinzufuegen(daten, name, hersteller=''):
+    """Ein Schiff auf die Wunschliste setzen. Gibt zurück, ob es neu war.
+
+    ⚠ Was schon im Hangar steht, kommt **nicht** auf die Wunschliste — man
+    wünscht sich nichts, das man hat. Die Anzeige sagt das auch, statt den
+    Eintrag stillschweigend zu schlucken.
+    """
+    if not (name or '').strip():
+        return False
+    if wunsch_enthaelt(daten, name):
+        return False
+    daten.setdefault('wunsch', []).append(
+        {'name': name.strip(), 'hersteller': (hersteller or '').strip()})
+    return True
+
+
+def wunsch_entfernen(daten, name):
+    """Einen Wunsch streichen. Gibt zurück, ob einer wegfiel."""
+    suche = _schlank(name)
+    vorher = len(daten.get('wunsch') or [])
+    daten['wunsch'] = [w for w in (daten.get('wunsch') or [])
+                       if _schlank(w.get('name')) != suche]
+    return len(daten['wunsch']) != vorher
+
+
 def enthaelt(daten, name, hersteller=''):
     """Steht dieses Schiff schon drin?
 

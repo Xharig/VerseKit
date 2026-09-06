@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc12 - 2026-09-06
+
+> **Eine Wunschliste für Schiffe, die du dir noch vornimmst.** Trag ein, was du
+> dir erspielen oder kaufen willst — daneben steht, was es kostet und wo es das
+> gibt.
+
+### Neu
+
+- **Wunschliste** unter „Mein Hangar". Schiffe und Fahrzeuge, die du haben
+  möchtest, mit Kaufpreis und Ort, dazu der Mietpreis, falls es einen gibt. Was
+  im Spiel gar nicht käuflich ist, sagt das auch. Vorschlag von Zwaersch (KRT).
+- ⚠ Was schon in deinem Hangar steht, kommt nicht auf die Wunschliste — und die
+  Wunschliste taucht nirgends bei „passt in dein Schiff" auf. Ein Wunsch ist
+  kein Besitz.
+
+### Verbessert
+
+- **„Ausstattung" statt „Auslegung".** Das zweite war die wörtliche Übersetzung
+  von „loadout" und klang nach etwas, das ein Ingenieur berechnet.
+
 ## v3.19.0-rc11 - 2026-09-06
 
 > **Der Windows-Bau lief nicht mehr durch.** Ein einzelnes Sonderzeichen in
@@ -57,6 +77,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Zwei Sticks gleich einstellen.** Ein Knopf überträgt Totzone und
   Sättigung aller gemeinsamen Achsen auf das andere Gerät — wer HOSAS fliegt,
   tippt sonst ein Dutzend Mal dieselbe Zahl.
+- **Blickwinkel.** Es gibt genau einen Blickwinkel, bei dem das Bild so groß
+  erscheint wie das Gezeigte in Wirklichkeit wäre — dann stimmen Größen und
+  Entfernungen. Der neue Bereich rechnet ihn aus und sagt dazu, wo du dafür
+  sitzen müsstest.
+- **Bildschirm mit einer Bankkarte ausmessen.** Ein Vollbildfenster zeigt ein
+  Rechteck, das auf die Größe der Karte gezogen wird — jede Bankkarte misst
+  85,60 × 53,98 mm. Genauer als jede Geräteabfrage, und bei mehreren
+  Bildschirmen die einzige Angabe, die überhaupt stimmt.
+- **Optimalpunkt und Ampel.** Neben dem eingestellten Wert aus dem Spiel steht,
+  wie weit man dafür sitzen müsste — und ob der eigene Sitzabstand dazu passt.
 - **Auslegung speichern.** Für jedes Schiff im Hangar lässt sich Platz für
   Platz festlegen, welches Teil dort sitzen soll. Daneben steht immer, was ab
   Werk drin ist.

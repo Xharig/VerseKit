@@ -1462,6 +1462,96 @@ def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
     return True, sicherung, treffer
 
 
+def belegungen_tauschen(kennung_a, kennung_b, datei=None, ordner=None):
+    """Zwei Geraete ueber Kreuz: Was auf dem einen lag, liegt danach auf dem anderen.
+
+    Der Fall: Nach einem Neustart oder einem anderen USB-Anschluss hat das
+    Spiel die Nummern anders vergeben — der linke Stick ist jetzt `js1` statt
+    `js2`. Damit sitzt die komplette Belegung auf der falschen Hand.
+
+    ⭐ **Getauscht werden nur die beiden `Product`-Angaben** in den
+    `<options type="joystick">`-Bloecken. Keine einzige der 400 Belegungszeilen
+    wird angefasst: Das Spiel erkennt seine Geraete an der gespeicherten
+    Kennung wieder (gemessen 04.09.2026), also genuegt es zu sagen, welche
+    Kennung nun welche Nummer ist. Danach wirken alle `js1_`-Zeilen auf dem
+    anderen Stick.
+
+    ⚠⚠ **Die `<deviceoptions>` bleiben ausdruecklich unangetastet.** Dort
+    stehen Totzone und Saettigung, und die gehoeren zum **physischen** Geraet,
+    nicht zur Nummer: Ein ausgeleierter Stick braucht seine groessere Totzone
+    weiterhin, egal welche Belegung gerade auf ihm liegt. Wer hier stur die
+    ganze Datei durchtauscht, verschiebt sie auf das falsche Geraet.
+
+    ⚠⚠ **Und es geschieht in EINEM Durchgang.** Zweimal `kennung_tauschen`
+    (A→B, dann B→A) waere falsch: Der zweite Lauf fande auch die gerade
+    geschriebenen B's und drehte alles zurueck. Deshalb ersetzt ein einziger
+    Ausdruck beide Kennungen gleichzeitig.
+
+    Liefert `(erfolg, meldung, anzahl)` wie die Nachbarfunktionen.
+    """
+    from . import fehler
+
+    weg = datei or _pfad_actionmaps(ordner)
+    if not weg or not os.path.isfile(weg):
+        return False, 's_js_f_datei', 0
+    a = (kennung_a or '').strip()
+    b = (kennung_b or '').strip()
+    if not a or not b or a.upper() == b.upper():
+        return False, 's_js_f_nichts', 0
+
+    try:
+        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+            inhalt = f.read()
+    except Exception as ausnahme:
+        fehler.merken('joysticks.tausch_lesen', ausnahme)
+        return False, 's_js_f_lesen', 0
+
+    # Nur die Joystick-Bloecke — `<deviceoptions>` bleiben aussen vor.
+    block_muster = re.compile(
+        r'<options\b[^>]*\btype="joystick"[^>]*/>|'
+        r'<options\b[^>]*\btype="joystick"[^>]*>.*?</options>', re.S)
+    paar = re.compile('(%s|%s)' % (re.escape(a), re.escape(b)),
+                      re.IGNORECASE)
+    getauscht = [0]
+
+    def kreuz(treffer):
+        """Jede gefundene Kennung durch die jeweils andere ersetzen."""
+        gefunden = treffer.group(0)
+        getauscht[0] += 1
+        return b if gefunden.upper() == a.upper() else a
+
+    def block_umschreiben(treffer):
+        return paar.sub(kreuz, treffer.group(0))
+
+    neu = block_muster.sub(block_umschreiben, inhalt)
+
+    if getauscht[0] < 2:
+        # Weniger als zwei Treffer heisst: Mindestens eines der beiden Geraete
+        # hat gar keinen Block — dann gaebe es nichts zu tauschen, und ein
+        # halber Tausch waere schlimmer als keiner.
+        return False, 's_js_f_unbekannt', 0
+    if neu == inhalt:
+        return False, 's_js_f_gleich', 0
+
+    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    try:
+        shutil.copy2(weg, sicherung)
+    except Exception as ausnahme:
+        fehler.merken('joysticks.sicherung', ausnahme)
+        return False, 's_js_f_sicherung', 0
+    try:
+        with open(weg, 'w', encoding='utf-8', newline='') as f:
+            f.write(neu)
+    except Exception as ausnahme:
+        try:
+            shutil.copy2(sicherung, weg)
+        except Exception:
+            pass
+        fehler.merken('joysticks.tausch_schreiben', ausnahme)
+        return False, 's_js_f_schreiben', 0
+    return True, sicherung, getauscht[0]
+
+
 def _doppelten_eintrag_leeren(inhalt, kennung):
     """Steht dieselbe Kennung in zwei `<options>`-Koepfen, bleibt der erste.
 

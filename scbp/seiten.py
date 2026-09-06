@@ -9289,6 +9289,60 @@ def _hangar(fenster, rahmen):
                        anchor='w')
     hinweis.pack(fill='x', padx=24, pady=(10, 0))
 
+    # ------------------------------------------------------- Wunschliste
+    # ⭐ Vorschlag von Zwaersch (KRT): „Also Unterpunkt könnte man noch ne
+    # Wishlist-Option anbieten. Für, ich nenn's mal allgemein Vehikel, die man
+    # sich erspielen/kaufen möchte."
+    #
+    # ⚠ **Getrennt vom Hangar geführt.** Ein Wunsch ist kein Besitz — was hier
+    # steht, darf nie in „passt in dein Schiff" auftauchen. Sonst beantwortet
+    # das Werkzeug eine Frage über ein Schiff, das niemand hat.
+    tk.Label(innen, text=t('s_hg_wunsch_titel'), bg=BG, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
+                                                   pady=(20, 2))
+    _fliesstext(innen, t('s_hg_wunsch_text'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
+
+    wunsch = tk.StringVar()
+    wunsch_block = tk.Frame(innen, bg=BG)
+    wunsch_block.pack(fill='x', padx=24, pady=(6, 0))
+    w_zeile, w_auswahl, _ = _auswahlfeld(fenster, wunsch_block, wunsch,
+                                         alle_schiffe.namen_alle,
+                                         leer_text=t('s_hg_nichts_gefunden'),
+                                         rollbar=200)
+    w_zeile.pack(fill='x')
+    w_auswahl.pack(fill='x')
+    wunsch_rahmen = tk.Frame(innen, bg=BG)
+
+    def _wunsch_eintragen():
+        name = (wunsch.get() or '').strip()
+        if not alle_schiffe.kennt(name):
+            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
+            neu_zeichnen()
+            return
+        # ⚠ Was man hat, wünscht man sich nicht — und das wird gesagt, nicht
+        # stillschweigend verschluckt.
+        if meine.enthaelt(daten['stand'], name):
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), ROT
+            neu_zeichnen()
+            return
+        if meine.wunsch_hinzufuegen(daten['stand'], name):
+            meine.speichern(daten['stand'])
+            meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
+            meldung['farbe'] = ACCENT
+            wunsch.set('')
+        else:
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), ROT
+        neu_zeichnen()
+
+    reihe_wunsch = tk.Frame(innen, bg=BG)
+    reihe_wunsch.pack(fill='x', padx=24, pady=(10, 0))
+    _knopfreihe(reihe_wunsch, [
+        _knopf(fenster, reihe_wunsch, t('s_hg_wunsch_eintragen'),
+               _wunsch_eintragen),
+    ])
+    wunsch_rahmen.pack(fill='x', padx=24, pady=(10, 0))
+
     # ----------------------------------------------------------- Die Liste
     liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
 
@@ -9322,6 +9376,20 @@ def _hangar(fenster, rahmen):
             _fliesstext(liste_rahmen,
                         t('s_hg_ohne_erklaert').format(n=ohne),
                         fenster.f_klein, fill='x', pady=(10, 0))
+        _wunsch_fuellen()
+
+    def _wunsch_fuellen():
+        for kind in wunsch_rahmen.winfo_children():
+            kind.destroy()
+        liste = meine.wunsch_liste(daten['stand'])
+        if not liste:
+            return
+        tk.Label(wunsch_rahmen, text=t('s_hg_wunsch_meine').format(n=len(liste)),
+                 bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 6))
+        for eintrag in liste:
+            _wunsch_zeile(fenster, wunsch_rahmen, eintrag, daten, meldung,
+                          neu_zeichnen)
 
     _liste_fuellen()
 
@@ -9361,6 +9429,53 @@ def _hangar(fenster, rahmen):
         threading.Thread(target=arbeit, daemon=True).start()
 
     _nachziehen_im_hintergrund()
+
+
+def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
+    """Ein Schiff auf der Wunschliste — mit dem, was es kostet und wo es steht.
+
+    ⚠ **Die Preise stehen schon im Werkzeug**, es wird nichts nachgeladen:
+    `schiffe.kaufen()` und `schiffe.mieten()` kommen aus derselben UEX-Ablage,
+    die der Routenplaner ohnehin füllt. Ein Wunsch ohne Preis wäre eine
+    Merkliste; mit Preis ist es eine Entscheidungshilfe.
+    """
+    from . import hangar as meine, schiffe as alle_schiffe
+
+    name = eintrag.get('name') or ''
+    karte = _karte(eltern, pady=(0, 6))
+    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf.pack(fill='x', padx=16, pady=(10, 2))
+    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_fett,
+             anchor='w').pack(side='left')
+
+    def streichen():
+        if meine.wunsch_entfernen(daten['stand'], name):
+            meine.speichern(daten['stand'])
+            meldung['text'], meldung['farbe'] = '', SUB
+        neu_zeichnen()
+
+    _knopf(fenster, kopf, t('s_hg_wunsch_streichen'), streichen).pack(
+        side='right')
+
+    unten = tk.Frame(karte, bg=FLAECHE)
+    unten.pack(fill='x', padx=16, pady=(0, 10))
+    kauf = alle_schiffe.kaufen(name)
+    miete = alle_schiffe.mieten(name)
+    teile = []
+    if kauf:
+        bester = kauf[0]
+        teile.append(t('s_hg_wunsch_kauf') % (_geld(bester.get('preis') or 0),
+                                              bester.get('ort') or '?'))
+    if miete:
+        teile.append(t('s_hg_wunsch_miete')
+                     % _geld(miete[0].get('preis') or 0))
+    # ⚠ **Kein Preis heißt nicht „gibt es nicht".** Viele Schiffe sind im Spiel
+    # gar nicht käuflich, sondern nur über Echtgeld zu haben — das ist eine
+    # Auskunft, keine Lücke.
+    tk.Label(unten, text='  ·  '.join(teile) if teile
+             else t('s_hg_wunsch_kein_preis'),
+             bg=FLAECHE, fg=SUB if teile else GOLD, font=fenster.f_klein,
+             anchor='w').pack(side='left')
 
 
 def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
@@ -9424,14 +9539,14 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
 
-    # Auslegung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
+    # Ausstattung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
     # Schiffen eine Liste bleibt und keine Bleiwüste wird.
     _warenkorb_block(fenster, karte, eintrag, daten)
     return 0 if plaetze else 1
 
 
 def _warenkorb_block(fenster, karte, eintrag, daten):
-    """„Auslegung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
+    """„Ausstattung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
 
     ⚠ Gebaut wird der Inhalt **beim ersten Aufklappen**, nicht beim Zeichnen
     der Liste. Sonst kostet jede Hangar-Seite so viele Steckplatz-Durchläufe,
@@ -9454,7 +9569,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten):
     koerper = tk.Frame(kasten, bg=FLAECHE)
 
     def neu():
-        """Den Block neu aufbauen — nach jeder Änderung an der Auslegung."""
+        """Den Block neu aufbauen — nach jeder Änderung an der Ausstattung."""
         for kind in koerper.winfo_children():
             kind.destroy()
         _warenkorb_inhalt(fenster, koerper, eintrag, daten, neu)
@@ -9660,7 +9775,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
     """Ein Posten mit **beiden** Wegen nebeneinander — kaufen und bauen.
 
     ⭐⭐ **Das ist der Punkt, an dem dieses Werkzeug mehr kann als jede
-    Auslegungs-Seite im Netz:** Es kennt die Baupläne des Spielers. Also steht
+    Ausstattungs-Seite im Netz:** Es kennt die Baupläne des Spielers. Also steht
     hier nicht ein Preis, sondern beide Wege — und die Wahl trifft der Spieler,
     Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
     Preises; wer Zeit hat, baut.

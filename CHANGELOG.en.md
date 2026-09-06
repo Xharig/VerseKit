@@ -6,6 +6,24 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc12 - 2026-09-06
+
+> **A wishlist for ships you still have your eye on.** Note down what you want
+> to earn or buy — next to it you see what it costs and where to get it.
+
+### New
+
+- **Wishlist** under "My hangar". Ships and vehicles you want, with purchase
+  price and location, plus the rental price where there is one. Anything not
+  purchasable in-game says so. Suggested by Zwaersch (KRT).
+- ⚠ Anything already in your hangar cannot go on the wishlist — and the
+  wishlist never shows up under "fits your ship". A wish is not a possession.
+
+### Improved
+
+- **German wording:** "Ausstattung" instead of "Auslegung" for a ship's
+  loadout — the latter was a literal translation that sounded like engineering.
+
 ## v3.19.0-rc11 - 2026-09-06
 
 > **The Windows build stopped completing.** A single special character in a
@@ -55,6 +73,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **Set up two sticks alike.** One button copies dead zone and saturation for
   every shared axis to the other device — flying HOSAS otherwise means typing
   the same number a dozen times.
+- **Field of view.** There is exactly one field of view at which the image
+  appears as large as the real thing would — sizes and distances then match.
+  The new section works it out and tells you where you would have to sit for it.
+- **Measure the screen with a bank card.** A full-screen window shows a
+  rectangle you drag to the size of your card — every bank card measures
+  85.60 × 53.98 mm. More accurate than any device query, and with several
+  screens the only figure that is correct at all.
+- **Sweet spot and traffic light.** Next to the value set in the game it shows
+  how far away you would have to sit for it — and whether your own viewing
+  distance matches.
 - **Save a loadout.** For every ship in your hangar you can set, slot by slot,
   which part belongs there. What the ship carries from the factory is always
   shown next to it.

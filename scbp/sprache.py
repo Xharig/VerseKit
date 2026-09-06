@@ -1018,17 +1018,15 @@ TEXTE = {
                             'Star Citizen einmal.',
                               'No value found in the game yet — start Star '
                               'Citizen once.'),
-    's_fv_hinweis_deutung': ('Star Citizen hält den senkrechten Blickwinkel '
-                             'fest und erweitert waagerecht, wenn der '
-                             'Bildschirm breiter wird. Ob die Zahl im Spiel '
-                             'als waagerechter Wert deiner Auflösung zu lesen '
-                             'ist, ist hier nicht am Spiel nachgemessen — der '
-                             'neutrale Winkel oben stimmt unabhängig davon.',
-                               'Star Citizen keeps the vertical field of view '
-                               'and widens horizontally as the screen gets '
-                               'wider. Whether the number in the game reads as '
-                               'the horizontal value for your resolution has '
-                               'not been verified against the game here — the '
+    's_fv_hinweis_deutung': ('Die Zahl im Spiel wird hier als waagerechter '
+                             'Blickwinkel deiner Auflösung gelesen. Das ist an '
+                             'einem 32:9-Aufbau gegengeprüft, aber nicht im '
+                             'Spiel selbst nachgemessen — der neutrale Winkel '
+                             'oben stimmt unabhängig davon.',
+                               'The number in the game is read here as the '
+                               'horizontal field of view for your resolution. '
+                               'That was cross-checked on a 32:9 setup, but '
+                               'not verified inside the game itself — the '
                                'neutral angle above holds regardless.'),
     's_fv_gespeichert': ('Ausgemessen: {:.1f} cm breit.',
                            'Measured: {:.1f} cm wide.'),
@@ -2884,6 +2882,31 @@ TEXTE = {
     's_hg_getragen':     ('{name} ist jetzt in deinem Hangar.',
                           '{name} is now in your hangar.'),
     # --- Liste
+    # --- Wunschliste (Vorschlag von Zwaersch (KRT), 06.09.2026)
+    's_hg_wunsch_titel': ('Wunschliste', 'Wishlist'),
+    's_hg_wunsch_text':  ('Schiffe und Fahrzeuge, die du dir erspielen oder '
+                          'kaufen möchtest. Daneben steht, was sie kosten und '
+                          'wo es sie gibt.',
+                          'Ships and vehicles you want to earn or buy. Next to '
+                          'them you see what they cost and where to get them.'),
+    's_hg_wunsch_eintragen': ('Auf die Wunschliste', 'Add to wishlist'),
+    's_hg_wunsch_streichen': ('Streichen', 'Remove'),
+    's_hg_wunsch_meine': ('Mein Wunschzettel ({n})', 'My wishlist ({n})'),
+    's_hg_wunsch_notiert': ('{name} steht auf deiner Wunschliste.',
+                            '{name} is on your wishlist.'),
+    's_hg_wunsch_doppelt': ('Das steht schon auf deiner Wunschliste.',
+                            'That is already on your wishlist.'),
+    # ⚠ Eigener Satz, kein „steht schon drin": Der Grund ist ein anderer, und
+    # der Spieler soll ihn erfahren.
+    's_hg_wunsch_schon_da': ('Das Schiff hast du schon — es steht in deinem '
+                             'Hangar.',
+                             'You already own that ship — it is in your '
+                             'hangar.'),
+    's_hg_wunsch_kauf':  ('kaufen: %s aUEC · %s', 'buy: %s aUEC · %s'),
+    's_hg_wunsch_miete': ('mieten: %s aUEC/Tag', 'rent: %s aUEC/day'),
+    's_hg_wunsch_kein_preis': ('im Spiel nicht käuflich — nur über den '
+                               'Pledge-Store',
+                               'not purchasable in-game — pledge store only'),
     's_hg_meine':        ('Meine Schiffe ({n})', 'My ships ({n})'),
     's_hg_leer':         ('Noch kein Schiff eingetragen.', 'No ship added yet.'),
     's_hg_pledge':       ('gekauft', 'pledged'),
@@ -2929,9 +2952,17 @@ TEXTE = {
                           'Slot data from erkul.games, game build {version}.'),
     's_hg_keine_daten':  ('Noch keine Steckplatz-Daten geholt.',
                           'No slot data fetched yet.'),
-    # --- Auslegung und Warenkorb
-    's_wk_titel':        ('Auslegung & Warenkorb', 'Loadout & shopping list'),
-    's_wk_auslegung':    ('Auslegung', 'Loadout'),
+    # --- Ausstattung und Warenkorb
+    # ⚠ „Ausstattung", nicht „Auslegung": Das zweite ist die
+    # wörtliche Übersetzung von „loadout" und klingt im Deutschen nach
+    # Statik — nach etwas, das ein Ingenieur berechnet, nicht nach dem, was
+    # im Schiff steckt. Rückmeldung am 06.09.2026: „Auslegung klingt doof,
+    # Ausstattung wäre eher richtig."
+    #
+    # ⚠ Nur der deutsche Text ändert sich; „Loadout" ist auf Englisch der
+    # eingeführte Begriff und bleibt.
+    's_wk_titel':        ('Ausstattung & Warenkorb', 'Loadout & shopping list'),
+    's_wk_auslegung':    ('Ausstattung', 'Loadout'),
     's_wk_ab_werk':      ('ab Werk: {name}', 'stock: {name}'),
     's_wk_ab_werk_leer': ('ab Werk leer', 'empty from factory'),
     's_wk_platz_frei':   ('unverändert', 'unchanged'),
@@ -2941,11 +2972,11 @@ TEXTE = {
     # Verwechslung hat am 06.09.2026 die Auskunft „passt in keines deiner
     # Schiffe" erzeugt, obwohl nur die Steckplatz-Daten fehlten.
     's_wk_keine_daten':  ('Für dieses Schiff liegen keine Steckplatz-Daten vor '
-                          '— eine Auslegung lässt sich erst speichern, wenn sie '
+                          '— eine Ausstattung lässt sich erst speichern, wenn sie '
                           'da sind.',
                           'No slot data for this ship — a loadout can only be '
                           'saved once it arrives.'),
-    's_wk_nichts_offen': ('Nichts zu besorgen — dein Schiff ist so ausgelegt, '
+    's_wk_nichts_offen': ('Nichts zu besorgen — dein Schiff ist so ausgestattet, '
                           'wie es ab Werk kommt.',
                           'Nothing to buy — your ship is set up exactly as it '
                           'comes from the factory.'),
