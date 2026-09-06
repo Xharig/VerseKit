@@ -3188,6 +3188,38 @@ TEXTE = {
     # ab. Gilt für gekauft **und** selbst gebaut.
     's_ek_erledigt':     ('erledigt', 'done'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
+    # --- Farmliste: was an Rohstoffen fehlt (v3.19.0)
+    # ⚠ In der WERKSTATT, nicht bei den Schiffen: „schiebt man
+    # Herstellungsliste nicht eher unten in die Werkstatt?" — dort geht es um
+    # Material, bei den Schiffen um Geld.
+    's_fl_lead':         ('Was dir an Rohstoffen fehlt, um das Geplante selbst '
+                          'zu bauen — dein Lager gegen alles gerechnet, was '
+                          'du auf „selbst herstellen" gestellt hast.',
+                          'The raw materials you still need to build what you '
+                          'planned — your stock weighed against everything set '
+                          'to "build it yourself".'),
+    's_fl_kopf':         ('Für {n} geplante Bauteile', 'For {n} planned parts'),
+    's_fl_nichts_geplant': ('Nichts auf „selbst herstellen" gestellt. Wähl bei '
+                            'einem Teil unter „Was noch fehlt" das Herstellen, '
+                            'dann steht hier, was du dafür farmen musst.',
+                            'Nothing set to "build it yourself". Choose '
+                            'building for a part under "Still missing" and '
+                            'this page shows what you need to farm.'),
+    's_fl_alles_da':     ('Alles da — du kannst sofort loslegen.',
+                          'Everything in stock — you can start right away.'),
+    's_fl_reicht_kopf':  ('Reicht schon ({n})', 'Already enough ({n})'),
+    's_fl_fehlt':        ('fehlt {menge}', 'short {menge}'),
+    's_fl_genug':        ('reicht', 'enough'),
+    's_fl_stand':        ('brauchst {braucht} · hast {hat}',
+                          'need {braucht} · have {hat}'),
+    # ⚠ Zu geringe Güte zählt nicht als Bestand — aber verschweigen wäre
+    # schlimmer: Der Spieler sieht das Erz ja in seinem Lager liegen.
+    's_fl_zu_gering':    ('({menge} liegen da, aber unter Güte {guete})',
+                          '({menge} in stock, but below quality {guete})'),
+    's_fl_ohne_rezept':  ('{n} Teile konnten nicht gerechnet werden, weil kein '
+                          'Bauplan vorliegt: {teile}',
+                          '{n} parts could not be calculated because no '
+                          'blueprint is available: {teile}'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
                           'Schiffe ein oder setz eines auf die Wunschliste — '
                           'dann steht hier, was du dafür brauchst.',
@@ -3892,6 +3924,7 @@ TEXTE = {
     # folgt jetzt dem Muster der anderen Reiter („Was steckt drin?", „Was ist
     # neu") und sagt, welche Frage die Seite beantwortet.
     'hf_einkaufsliste':  ('Was noch fehlt', 'Still missing'),
+    'hf_farmliste':      ('Was ich farmen muss', 'What to farm'),
     # ⚠ Kurz, weil es hinter Güte und Klasse in einer Listenzeile steht. Die
     # Aussage ist „in keinem Laden zu haben" — bei Militärteilen der Regelfall.
     's_wk_nur_bauplan':  ('nur über Bauplan', 'blueprint only'),

@@ -111,6 +111,7 @@ def _bauer_tabelle():
         'hangar':      _hangar,
         'wunschliste': _wunschliste,
         'einkaufsliste': _einkaufsliste,
+        'farmliste':   _farmliste,
         'bergung':     _bergung,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
@@ -9809,6 +9810,141 @@ def _einkaufsliste(fenster, rahmen):
     # und zwischen zwei Besuchen ändert sich im Hangar fast immer etwas.
     fenster.beim_zeigen['einkaufsliste'] = neu_zeichnen
     _aufbauen()
+
+
+def _farmliste(fenster, rahmen):
+    """Was an Rohstoffen fehlt, um das Geplante selbst zu bauen.
+
+    ⭐⭐ **Die Gegenrichtung zu „Was noch fehlt".** Dort steht, was die Schiffe
+    brauchen und was es kostet; hier steht, was davon noch **im Boden** liegt.
+    Der Vorschlag am 06.09.2026: *„Herstellungswarteliste fällt mir da ein,
+    wäre dann sinnvoll, dann würde man anhand seines Lagers auch sehen was man
+    noch farmen muss."*
+
+    ⚠⚠ **Hier in der Werkstatt und nicht bei den Schiffen** — ebenfalls seine
+    Einordnung: *„schiebt man Herstellungsliste nicht eher unten in die
+    Werkstatt?"* Stimmt. Die Werkstatt-Kette lautet „was habe ich an Material →
+    was baue ich → wo hole ich es", und eine Liste fehlender Rohstoffe ist die
+    Antwort auf genau die erste Frage. Bei den Schiffen ginge es um Geld, hier
+    um Erz.
+
+    ⚠ **Gerechnet wird über ALLE Posten zusammen, nicht Rezept für Rezept.**
+    Zwei Bauteile, die je 2 Iron brauchen, bei 3 Iron im Lager: Einzeln
+    geprüft meldet jedes „reicht", zusammen fehlt eines. Wer die Fehlmengen
+    einzeln addiert, schickt den Spieler mit zu wenig Material los.
+    """
+    from . import hangar as meine, warenkorb
+
+    _ueberschrift(fenster, rahmen, t('hf_farmliste'), t('s_fl_lead'))
+    innen = _rollflaeche(rahmen)
+
+    koerper = tk.Frame(innen, bg=BG)
+    koerper.pack(fill='x', padx=24, pady=(10, 20))
+
+    def neu_zeichnen():
+        for kind in koerper.winfo_children():
+            kind.destroy()
+        _aufbauen()
+
+    def _aufbauen():
+        werte = warenkorb.farmliste(meine.laden())
+        fehlt = werte.get('fehlt') or []
+        reicht = werte.get('vollstaendig') or []
+        anzahl = werte.get('posten') or 0
+
+        # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall hier:
+        # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich
+        # aus. Wer sie zusammenwirft, sagt jemandem ohne Plan, er sei fertig.
+        if not anzahl:
+            _fliesstext(koerper, t('s_fl_nichts_geplant'), fenster.f_klein,
+                        fill='x')
+            return
+
+        tk.Label(koerper, text=t('s_fl_kopf').format(n=anzahl), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(0, 8))
+
+        if not fehlt:
+            _fliesstext(koerper, t('s_fl_alles_da'), fenster.f_klein,
+                        farbe=ACCENT, fill='x')
+        else:
+            for eintrag in fehlt:
+                _farm_zeile(fenster, koerper, eintrag, fehlend=True)
+
+        if reicht:
+            tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(reicht)),
+                     bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(fill='x', pady=(14, 4))
+            for eintrag in reicht:
+                _farm_zeile(fenster, koerper, eintrag, fehlend=False)
+
+        # ⚠ Was gar nicht gerechnet werden konnte, wird genannt — eine Liste,
+        # der stillschweigend Posten fehlen, ist schlimmer als eine kurze.
+        ohne = werte.get('ohne_rezept') or []
+        if ohne:
+            _fliesstext(koerper,
+                        t('s_fl_ohne_rezept').format(n=len(ohne),
+                                                     teile=', '.join(ohne)),
+                        fenster.f_klein, farbe=GOLD, fill='x', pady=(12, 0))
+
+    fenster.beim_zeigen['farmliste'] = neu_zeichnen
+    _aufbauen()
+
+
+def _farm_zeile(fenster, eltern, eintrag, fehlend):
+    """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt."""
+    zeile = tk.Frame(eltern, bg=FLAECHE)
+    zeile.pack(fill='x', pady=(0, 2))
+
+    tk.Label(zeile, text=eintrag.get('rohstoff') or '', bg=FLAECHE,
+             fg=FG if fehlend else SUB, font=fenster.f_klein, anchor='w',
+             width=24).pack(side='left', padx=(12, 0), pady=4)
+
+    # ⚠ **Die Fehlmenge steht rechts und in Farbe** — das ist die Zahl, mit der
+    # man losfliegt. „Brauchst 4,4 · hast 0" daneben sagt, wie sie zustande
+    # kommt; ohne sie wäre die Zahl eine Behauptung.
+    if fehlend:
+        tk.Label(zeile, text=t('s_fl_fehlt').format(
+            menge=_zahl(eintrag.get('differenz'))),
+            bg=FLAECHE, fg=GOLD, font=fenster.f_klein,
+            anchor='e').pack(side='right', padx=(0, 12))
+    else:
+        tk.Label(zeile, text=t('s_fl_genug'), bg=FLAECHE, fg=ACCENT,
+                 font=fenster.f_klein, anchor='e').pack(side='right',
+                                                        padx=(0, 12))
+
+    tk.Label(zeile, text=t('s_fl_stand').format(
+        braucht=_zahl(eintrag.get('benoetigt')),
+        hat=_zahl(eintrag.get('vorhanden'))),
+        bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+        anchor='w').pack(side='left')
+
+    # ⚠ **Zu geringe Güte ist kein Bestand, aber auch kein Nichts.** Wer 20
+    # Stileron mit Q 100 im Lager hat und Q 500 braucht, soll das erfahren —
+    # sonst sucht er im Lager nach etwas, das dort sichtbar liegt, und
+    # versteht die Meldung nicht.
+    zu_gering = eintrag.get('zu_gering') or 0
+    if zu_gering:
+        tk.Label(zeile, text=t('s_fl_zu_gering').format(
+            menge=_zahl(zu_gering),
+            guete=_zahl(eintrag.get('mindestguete'))),
+            bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+            anchor='w').pack(side='left', padx=(10, 0))
+
+
+def _zahl(wert):
+    """Eine Menge lesbar — ganze Zahlen ohne Komma, sonst eine Nachkommastelle.
+
+    ⚠ `4.4000000000000004` ist dieselbe Zahl wie `4,4`, sieht aber nach einem
+    Fehler aus. Und `4,0` neben `4` in derselben Spalte liest sich, als wären
+    es zwei verschiedene Angaben.
+    """
+    try:
+        z = float(wert or 0)
+    except (TypeError, ValueError):
+        return '0'
+    if abs(z - round(z)) < 0.05:
+        return str(int(round(z)))
+    return ('%.1f' % z).replace('.', ',')
 
 
 def _ohne_daten_hinweis(fenster, eltern, werte):

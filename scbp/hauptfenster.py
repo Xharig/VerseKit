@@ -2025,6 +2025,14 @@ class Hauptfenster:
         # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"
         # ginge es um Ware, die man **loswerden** will; das ist etwas anderes.
         self._reiter('laeden', 'laeden', t('hf_laeden'), g_werk)
+        # ⚠ **Hier und nicht bei den Schiffen** (Einordnung vom 06.09.2026:
+        # „schiebt man Herstellungsliste nicht eher unten in die Werkstatt?").
+        # Die Werkstatt-Kette ist „was habe ich an Material → was baue ich → wo
+        # hole ich es" — eine Liste fehlender Rohstoffe ist die Antwort auf die
+        # erste Frage. Bei den Schiffen ginge es um Geld, hier um Erz.
+        #
+        # Zuletzt in der Gruppe, weil sie die anderen drei zusammenfasst.
+        self._reiter('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
 
         # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
         # endet beim Bauen („was habe ich → was brauche ich → wo hole ich es").
