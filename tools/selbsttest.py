@@ -15141,12 +15141,84 @@ def main():
                'Gegenprobe: ohne Bestand wird nichts ausgetragen')
         pruefe(_mk171.aufraeumen(['gibtsnicht']) == 0,
                'Gegenprobe: ein fremder Name traegt nichts aus')
+
     finally:
         if _alt171 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = _alt171
         shutil.rmtree(_heim171, ignore_errors=True)
+
+    # ------------------------------------------------------------------
+    # 172. Die Mengen am Eintrag addieren sich zur Summe darunter
+    #
+    # ⚠⚠⚠ **Zwei Zahlen mit derselben Beschriftung auf einer Seite.** Am
+    # 06.09.2026 stand bei einem Bauteil „hast 0,00" und zehn Zeilen tiefer
+    # „hast 3,44" fuer denselben Rohstoff — Ursache war ein `float()` auf das
+    # TUPEL aus `menge_mit_guete()`, dessen Ausnahme ein `except` daneben
+    # stillschweigend zu `0.00` machte.
+    #
+    # Nach dem Fix stand oben der volle Lagerbestand (8,01) und unten der
+    # zugeteilte Anteil (3,44) — beide richtig gerechnet und trotzdem ein
+    # Widerspruch. Der Eintrag nennt deshalb nur noch den **Bedarf**; ob es
+    # reicht, sagt die Farbe aus derselben Rechnung.
+    #
+    # ⚠ Geprueft wird die Rechenregel: Die Einzelbedarfe muessen sich zum
+    # Gesamtbedarf addieren. Tun sie das nicht, zeigt die Seite zwei
+    # verschiedene Wahrheiten, egal wie sie beschriftet sind.
+    print()
+    print('172. Die Mengen am Eintrag addieren sich zur Summe darunter')
+
+    # ⚠ `menge_mit_guete` gibt ein TUPEL — das ist die Falle von oben.
+    _probe = _mz172 = None
+    from scbp import rohstoffe as _rs172
+    _probe = _rs172.menge_mit_guete('Gibtsnichterz', 0)
+    pruefe(isinstance(_probe, tuple) and len(_probe) == 2,
+           'menge_mit_guete gibt ein Tupel (passend, zu_gering) zurueck')
+    _fehler172 = False
+    try:
+        float(_probe)
+    except TypeError:
+        _fehler172 = True
+    pruefe(_fehler172,
+           'Gegenprobe: float() darauf wirft — genau das war der Fehler')
+
+    _echt_rez172 = _hs170.rezept
+    _echt_bp172 = _wk170._bauplan_verzeichnis
+    _heim172 = _tf166.mkdtemp(prefix='mengen-')
+    _alt172 = os.environ.get('SC_BP_HOME')
+    try:
+        os.environ['SC_BP_HOME'] = _heim172
+        _hs170.rezept = lambda name: (
+            {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
+            if name in ('Waffe A', 'Waffe B') else None)
+        _wk170._bauplan_verzeichnis = lambda: {}
+
+        from scbp import hangar as _hg172
+        _stand172 = {'format': 1, 'schiffe': []}
+        _hg172.merkzettel_hinzufuegen(_stand172, 'Waffe A', anzahl=4)
+        _hg172.merkzettel_hinzufuegen(_stand172, 'Waffe B', anzahl=2)
+
+        # Einzelbedarfe, wie sie am Eintrag stehen: 4 x 2,0 und 2 x 2,0
+        _einzeln = 4 * 2.0 + 2 * 2.0
+        _liste = _wk170.farmliste(_stand172)
+        _gesamt = 0.0
+        for _e in ((_liste.get('fehlt') or [])
+                   + (_liste.get('vollstaendig') or [])):
+            if (_e.get('rohstoff') or '').lower() == 'agricium':
+                _gesamt = float(_e.get('benoetigt') or 0)
+        pruefe(abs(_gesamt - _einzeln) < 0.001,
+               'Summe (%.1f) = Einzelmengen (%.1f)' % (_gesamt, _einzeln))
+        pruefe((_liste.get('posten') or 0) == 6,
+               'sechs geplante Bauteile (4 + 2), nicht zwei Zeilen')
+    finally:
+        _hs170.rezept = _echt_rez172
+        _wk170._bauplan_verzeichnis = _echt_bp172
+        if _alt172 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt172
+        shutil.rmtree(_heim172, ignore_errors=True)
 
     print()
     if fehler:

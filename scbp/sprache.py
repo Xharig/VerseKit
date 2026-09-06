@@ -3963,8 +3963,16 @@ TEXTE = {
     # sieht da aber kein Material, was man farmen muss — unter den Waffen würde
     # es Sinn machen, dass man das zu farmende Material sieht." Die Summe unten
     # sagt, wie viel Erz insgesamt fehlt; hier steht, wofür.
-    's_mz_braucht':      ('braucht %.2f · hast %.2f',
-                          'needs %.2f · you have %.2f'),
+    # ⚠ `%s` und nicht `%.2f` — die Zahl kommt fertig formatiert aus
+    # `_menge_text()`, mit Komma und ohne Nullenschwanz. Ein `%.2f` schrieb
+    # „4.64" mit Punkt, während zehn Zeilen tiefer „8,8" stand.
+    #
+    # ⚠⚠ **Kein „hast" mehr.** Es stand einmal dabei — und zeigte den vollen
+    # Lagerbestand (8,01), während die Summe darunter den für diesen Bedarf
+    # zugeteilten Anteil nannte (3,44). Beide Zahlen waren richtig gerechnet,
+    # aber zwei „hast"-Werte auf einer Seite sind ein Fehler. Was fehlt, sagt
+    # jetzt die Farbe und die Summe darunter.
+    's_mz_braucht':      ('braucht %s', 'needs %s'),
     's_mz_kein_rezept':  ('Zu diesem Bauplan liegt kein Rezept vor.',
                           'No recipe available for this blueprint.'),
     's_lg_bauen_hilfe':  ('Du hast es gebaut? Dann nimmt der Watcher die Zutaten '

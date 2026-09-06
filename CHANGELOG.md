@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.1 - 2026-09-06
+
+> **Nachbesserung an der Materialanzeige von v3.22.0.** Sie zeigte für denselben
+> Rohstoff zwei verschiedene Lagerbestände auf einer Seite — und rechnete oben
+> mit Punkt, unten mit Komma.
+
+### Behoben
+
+- **„hast 0,00" beim Bauteil, „hast 3,44" in der Summe darunter** — für
+  dasselbe Erz. Beim vorgemerkten Bauplan steht jetzt nur noch, **was er
+  braucht**; ob es reicht, sagt die Farbe und die Summe. Eine Seite, eine
+  Zahl. Gemeldet von Haldjas.
+- Mengen werden überall mit Komma geschrieben, nicht mal so, mal so.
+
 ## v3.22.0 - 2026-09-06
 
 > **Beim Vorgemerkten steht jetzt, was du dafür farmen musst.** Bisher stand

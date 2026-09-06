@@ -10194,7 +10194,24 @@ def _farmliste(fenster, rahmen):
         # was man farmen muss — unter den Waffen würde es Sinn machen, dass man
         # das zu farmende Material sieht." Genau so: Die Summe unten beantwortet
         # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
-        from . import herstellung as _mz_herst, rohstoffe as _mz_lager
+        from . import herstellung as _mz_herst
+        # ⚠⚠⚠ **Die Fehlmengen kommen aus DERSELBEN Rechnung wie die Summe
+        # darunter.** Der erste Anlauf fragte hier das Lager direkt und zeigte
+        # „hast 8,01", während zehn Zeilen tiefer „hast 3,44" stand. Beide
+        # Zahlen waren richtig gerechnet — oben der volle Lagerbestand, unten
+        # der Anteil, der für diesen Bedarf zugeteilt wurde — und genau das ist
+        # der Fehler: Zwei Zahlen mit derselben Beschriftung auf einer Seite.
+        #
+        # Der Einzelposten sagt jetzt nur noch, **was er braucht**; ob es
+        # reicht, sagt die Farbe, und die stammt aus der Gesamtrechnung. Eine
+        # Seite, eine Wahrheit.
+        _fehlt_gesamt = set()
+        try:
+            for _e in (warenkorb.farmliste(meine.laden()).get('fehlt') or []):
+                _fehlt_gesamt.add(
+                    (_e.get('rohstoff') or '').strip().lower())
+        except Exception as _ausnahme:
+            fehler.merken('seiten.merkzettel_fehlmengen', _ausnahme)
 
         for e in eintraege:
             zeile = tk.Frame(rahmen_mz, bg=BG)
@@ -10235,27 +10252,22 @@ def _farmliste(fenster, rahmen):
                     if not rohstoff:
                         continue
                     braucht = float(einzeln or 0) * menge
-                    # ⚠ **Mit Mindestgüte fragen.** Erz mit Q 200 in einem
-                    # Rezept, das Q 500 verlangt, ist für diesen Bauplan
-                    # nichts wert — `menge_von()` würde es mitzählen und
-                    # „reicht" behaupten.
-                    try:
-                        da = float(_mz_lager.menge_mit_guete(
-                            rohstoff, float(guete or 0)) or 0)
-                    except Exception:
-                        da = 0.0
-                    fehlt_hier = braucht - da
+                    knapp = (rohstoff or '').strip().lower() in _fehlt_gesamt
                     zutat = tk.Frame(rahmen_mz, bg=BG)
                     zutat.pack(fill='x', padx=(18, 0))
                     tk.Label(zutat, text=rohstoff, bg=BG, fg=SUB,
                              font=fenster.f_klein, anchor='w',
                              width=20).pack(side='left')
                     # ⚠ Grün heißt „reicht", Gold „fehlt" — dieselbe Sprache
-                    # wie überall im Werkzeug. Grau wäre hier falsch: Es ist
-                    # eine Antwort, keine Nebensache.
+                    # wie überall im Werkzeug, und die Farbe stammt aus
+                    # derselben Rechnung wie die Summe darunter.
+                    #
+                    # ⚠ `_menge_text()` statt `%.2f`: Deutsche Zahlen haben
+                    # ein Komma. Sonst stand oben „4.64" und unten „8,8" auf
+                    # derselben Seite.
                     tk.Label(zutat,
-                             text=t('s_mz_braucht') % (braucht, da),
-                             bg=BG, fg=GOLD if fehlt_hier > 0.001 else ACCENT,
+                             text=t('s_mz_braucht') % _menge_text(braucht),
+                             bg=BG, fg=GOLD if knapp else ACCENT,
                              font=fenster.f_klein,
                              anchor='w').pack(side='left')
 

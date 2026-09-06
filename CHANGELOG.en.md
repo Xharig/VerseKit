@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.22.1 - 2026-09-06
+
+> **A fix for the material display from v3.22.0.** It showed two different
+> stock figures for the same raw material on one page — and used a dot above
+> where the total below used a comma.
+
+### Fixed
+
+- **"you have 0.00" next to the part, "you have 3.44" in the total below** —
+  for the same ore. A marked blueprint now only states **what it needs**;
+  whether that is covered is shown by the colour and the total. One page, one
+  number. Reported by Haldjas.
+- Quantities are written with a comma everywhere, not one way here and another
+  way there.
+
 ## v3.22.0 - 2026-09-06
 
 > **What you marked now shows what you have to farm for it.** Until now the
