@@ -14743,35 +14743,61 @@ def main():
     from scbp import joysticks as _js166
 
     _ordner166 = _tf166.mkdtemp(prefix='actionmaps-')
+
+    def _lege_an(oben, mitte='client'):
+        """Eine Belegungsdatei anlegen und ihren Weg zurueckgeben."""
+        _wo = os.path.join(_ordner166, oben, mitte, '0', 'Profiles', 'default')
+        # ⚠ `exist_ok` ist Pflicht: Auf einem Dateisystem ohne Gross-/
+        # Kleinschreibung (Windows) ist `USER` derselbe Ordner wie `user`.
+        os.makedirs(_wo, exist_ok=True)
+        _weg = os.path.join(_wo, 'actionmaps.xml')
+        with io.open(_weg, 'w', encoding='utf-8') as _f:
+            _f.write('<ActionMaps/>')
+        return _weg
+
     try:
-        # Zwei Dateien anlegen, wie sie unter Linux nebeneinander liegen.
-        _wege = {}
-        for _oben, _mitte in (('USER', 'client'), ('user', 'client')):
-            _ordner = os.path.join(_ordner166, _oben, _mitte, '0', 'Profiles',
-                                   'default')
-            os.makedirs(_ordner)
-            _weg = os.path.join(_ordner, 'actionmaps.xml')
-            with io.open(_weg, 'w', encoding='utf-8') as _f:
-                _f.write('<ActionMaps/>')
-            _wege[_oben] = _weg
+        _gross = _lege_an('USER')
+        _klein = _lege_an('user')
 
-        # ⚠ Die GROSSE aelter machen — sie steht in der Suchreihenfolge vorn.
-        # Genau das war der Fehler: Reihenfolge schlug Alter.
-        os.utime(_wege['USER'], (1000, 1000))
-        os.utime(_wege['user'], (2000, 2000))
-        pruefe(_js166._pfad_actionmaps(_ordner166) == _wege['user'],
-               'die juengere (klein geschrieben) gewinnt gegen die '
-               'zuerst gesuchte')
+        # ⚠⚠ **Unterscheidet dieses Dateisystem ueberhaupt?** Unter Linux sind
+        # es zwei Dateien, unter Windows eine. Beides ist gueltig — aber es
+        # sind zwei verschiedene Pruefungen. Gemessen statt angenommen:
+        _getrennt = len(_js166.alle_actionmaps(_ordner166)) == 2
 
-        # Gegenprobe: umgekehrt muss die andere gewinnen.
-        os.utime(_wege['USER'], (3000, 3000))
-        pruefe(_js166._pfad_actionmaps(_ordner166) == _wege['USER'],
-               'Gegenprobe: ist die grosse juenger, gewinnt sie')
+        if _getrennt:
+            # Der Fall, der den Fehler ausgeloest hat: zwei echte Dateien.
+            # ⚠ Die GROSSE aelter machen — sie steht in der Suchreihenfolge
+            # vorn. Genau das war der Fehler: Reihenfolge schlug Alter.
+            os.utime(_gross, (1000, 1000))
+            os.utime(_klein, (2000, 2000))
+            pruefe(_js166._pfad_actionmaps(_ordner166) == _klein,
+                   'die juengere (klein geschrieben) gewinnt gegen die '
+                   'zuerst gesuchte')
 
-        pruefe(len(_js166.alle_actionmaps(_ordner166)) == 2,
-               'beide Dateien werden gefunden, nicht nur eine')
-        pruefe(_js166.alle_actionmaps(_ordner166)[0] == _wege['USER'],
-               'die Liste kommt sortiert, neueste zuerst')
+            os.utime(_gross, (3000, 3000))
+            pruefe(_js166._pfad_actionmaps(_ordner166) == _gross,
+                   'Gegenprobe: ist die grosse juenger, gewinnt sie')
+
+            pruefe(len(_js166.alle_actionmaps(_ordner166)) == 2,
+                   'beide Dateien werden gefunden, nicht nur eine')
+            pruefe(_js166.alle_actionmaps(_ordner166)[0] == _gross,
+                   'die Liste kommt sortiert, neueste zuerst')
+        else:
+            # ⚠⚠ **Windows — und hier zaehlt das Gegenteil.** Dort zeigen alle
+            # vier Schreibweisen auf dieselbe Datei. Wuerde ueber den NAMEN
+            # entdoppelt statt ueber die Datei-Kennung, meldete der Watcher
+            # vier Dateien und einen Hinweis auf ein Problem, das es nicht
+            # gibt. Die Entdopplung ist also nicht Kosmetik.
+            pruefe(len(_js166.alle_actionmaps(_ordner166)) == 1,
+                   'auf diesem Dateisystem ist es EINE Datei — keine '
+                   'Schein-Dubletten durch Schreibweisen')
+            pruefe(_js166._pfad_actionmaps(_ordner166) is not None,
+                   'und sie wird gefunden')
+
+        # Das gilt auf beiden Systemen: aus dem Nichts kommt nichts.
+        pruefe(os.path.basename(_js166._pfad_actionmaps(_ordner166))
+               == 'actionmaps.xml',
+               'zurueck kommt eine actionmaps.xml, kein Ordner')
     finally:
         shutil.rmtree(_ordner166, ignore_errors=True)
 
