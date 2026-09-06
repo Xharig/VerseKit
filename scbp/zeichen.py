@@ -256,7 +256,8 @@ KNOPF_NAMEN = (
     'starten', 'glocke', 'liste', 'einstellungen', 'einklappen', 'ausklappen',
     'leeren', 'schliessen', 'ziehgriff', 'fortschritt', 'anzeige',
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
-    'erkennung', 'joysticks', 'achsen', 'diagnose', 'einrichtung', 'neustart',
+    'erkennung', 'joysticks', 'achsen', 'blickwinkel', 'diagnose',
+    'einrichtung', 'neustart',
     'herunterladen',
     'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen', 'zeit', 'hangar',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das

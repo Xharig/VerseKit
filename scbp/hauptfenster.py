@@ -2050,6 +2050,11 @@ class Hauptfenster:
         # darauf liegt — „Achsen & Kurven" sagt, WIE die Achse reagiert. Im
         # Spiel stehen die beiden Fragen ebenfalls an zwei Stellen.
         self._reiter('achsen', 'achsen', t('hf_achsen'), g_einst)
+        # ⚠ Hinter den Achsen, weil es dieselbe Frage für den Bildschirm ist:
+        # Erst stimmt die Hand, dann das Auge. Beides zusammen ist das, was
+        # ein Spieler „Präzision" nennt.
+        self._reiter('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
+                     g_einst)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.

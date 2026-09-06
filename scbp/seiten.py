@@ -106,6 +106,7 @@ def _bauer_tabelle():
         'erkennung':   _erkennung,
         'joysticks':   _joysticks,
         'achsen':      _achsen,
+        'blickwinkel': _blickwinkel,
         'diagnose':    _diagnose,
         'hangar':      _hangar,
         'bergung':     _bergung,
@@ -11690,6 +11691,188 @@ def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
         kreuz.bind('<Leave>', lambda _e, w=kreuz, f=blass: w.configure(fg=f))
 
     return gesamt
+
+
+def _blickwinkel(fenster, rahmen):
+    """Welcher Blickwinkel passt — und wo müsste man dafür sitzen?
+
+    ## Die Rechnung
+
+    Es gibt genau einen Blickwinkel, bei dem das Bild so groß erscheint wie
+    das Gezeigte in Wirklichkeit wäre — wenn der Bildschirm im Auge denselben
+    Winkel einnimmt wie das, was er darstellt:
+
+        Winkel = 2 · arctan( Bildschirmbreite / (2 · Sitzabstand) )
+
+    ## ⚠ Warum von Hand ausgemessen wird
+
+    Am 06.09.2026 an einem Aufbau mit drei Bildschirmen gemessen: Tk meldet
+    für `winfo_screenmmwidth()` **1640 mm** — das ist der gesamte Desktop über
+    alle drei Geräte, nicht der Bildschirm, auf dem gespielt wird. Die
+    EDID-Angabe des Geräts (1193 mm) wäre richtig, ist aber nur unter X11
+    erreichbar und bei manchen Geräten schlicht falsch.
+
+    Eine Bankkarte anzuhalten dauert zehn Sekunden, stimmt überall und
+    braucht keine einzige systemabhängige Zeile.
+    """
+    from tkinter import messagebox
+
+    from . import fov as fov_modul
+
+    _ueberschrift(fenster, rahmen, t('hf_blickwinkel'), t('s_fv_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_fv_erklaerung'), fenster.f_klein, fill='x')
+
+    inhalt = tk.Frame(innen, bg=BG)
+    inhalt.pack(fill='both', expand=True, padx=24, pady=(4, 12))
+
+    zustand = {'abstand': tk.StringVar(value='')}
+
+    def _gespeichertes():
+        daten = fov_modul.gespeichert()
+        return (daten.get('fov_mm_je_pixel'), daten.get('fov_pixelbreite'),
+                daten.get('fov_abstand_mm'))
+
+    def _fertig_gemessen(karte_px, bildschirm_px):
+        mm_je_pixel = fov_modul.mm_pro_pixel(karte_px)
+        if not mm_je_pixel:
+            return
+        fov_modul.merken(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
+        breite = fov_modul.bildschirmbreite_mm(bildschirm_px, mm_je_pixel)
+        messagebox.showinfo(
+            t('hf_blickwinkel'),
+            t('s_fv_gespeichert').format((breite or 0) / 10.0))
+        _auffrischen()
+
+    def _messen():
+        from . import fovfenster
+        mm_je_pixel, pixelbreite, _abstand = _gespeichertes()
+        start = None
+        if mm_je_pixel:
+            # Dort weitermachen, wo zuletzt aufgehört wurde — wer nachjustiert,
+            # soll nicht wieder bei einer beliebigen Größe anfangen.
+            start = fov_modul.KARTE_BREITE_MM / mm_je_pixel
+        fovfenster.kalibrieren(rahmen, _fertig_gemessen,
+                               schrift=fenster.f_grund, klein=fenster.f_klein,
+                               startbreite=start)
+
+    def _abstand_merken(*_e):
+        text = (zustand['abstand'].get() or '').replace(',', '.').strip()
+        try:
+            zentimeter = float(text)
+        except ValueError:
+            return
+        if zentimeter > 0:
+            fov_modul.merken(abstand_mm=zentimeter * 10.0)
+        _auffrischen()
+
+    def _auffrischen():
+        for kind in list(inhalt.winfo_children()):
+            kind.destroy()
+
+        mm_je_pixel, pixelbreite, abstand_mm = _gespeichertes()
+        breite_mm = (fov_modul.bildschirmbreite_mm(pixelbreite, mm_je_pixel)
+                     if (mm_je_pixel and pixelbreite) else None)
+
+        # --- 1. Ausmessen ----------------------------------------------
+        reihe = tk.Frame(inhalt, bg=BG)
+        reihe.pack(fill='x', pady=(10, 0))
+        _knopf(fenster, reihe,
+               t('s_fv_neu_messen') if breite_mm else t('s_fv_messen'),
+               _messen, stark=not breite_mm).pack(side='left')
+
+        if not breite_mm:
+            _fliesstext(inhalt, t('s_fv_nicht_gemessen'), fenster.f_klein,
+                        fill='x')
+            return
+
+        _wert_zeile(inhalt, t('s_fv_breite'), '%.1f cm' % (breite_mm / 10.0))
+
+        # --- 2. Sitzabstand --------------------------------------------
+        zeile = tk.Frame(inhalt, bg=BG)
+        zeile.pack(fill='x', pady=(12, 0))
+        links = tk.Frame(zeile, bg=BG)
+        links.pack(side='left', fill='x', expand=True)
+        tk.Label(links, text=t('s_fv_abstand'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x')
+        tk.Label(links, text=t('s_fv_abstand_hilfe'), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x')
+        if abstand_mm:
+            zustand['abstand'].set('%g' % round(abstand_mm / 10.0, 1))
+        feld = tk.Entry(zeile, textvariable=zustand['abstand'], width=6,
+                        bg=FLAECHE, fg=FG, insertbackground=FG,
+                        font=fenster.f_grund, relief='flat', justify='right')
+        feld.pack(side='right', padx=(16, 0), ipady=3)
+        feld.bind('<Return>', _abstand_merken)
+        feld.bind('<FocusOut>', _abstand_merken)
+        tk.Frame(inhalt, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
+
+        if not abstand_mm:
+            return
+
+        # --- 3. Das Ergebnis -------------------------------------------
+        neutral = fov_modul.blickwinkel(breite_mm, abstand_mm)
+        if neutral is None:
+            return
+        _wert_zeile(inhalt, t('s_fv_neutral'), '%.1f°' % neutral,
+                    hilfe=t('s_fv_neutral_hilfe'), farbe=ACCENT)
+
+        spiel = fov_modul.spiel_einstellung()
+        if spiel.get('fov') is None:
+            _fliesstext(inhalt, t('s_fv_kein_spielwert'), fenster.f_klein,
+                        fill='x')
+            return
+
+        _wert_zeile(inhalt, t('s_fv_im_spiel'), '%.1f°' % spiel['fov'])
+
+        # ⭐ Der Optimalpunkt: nicht „stell dein Spiel um", sondern „so weit
+        # müsstest du sitzen". Wer sein FOV kennt und mag, will seinen Stuhl
+        # rücken — nicht seine Einstellung.
+        optimal_mm = fov_modul.abstand_fuer(breite_mm, spiel['fov'])
+        if optimal_mm is None:
+            return
+        _wert_zeile(inhalt, t('s_fv_optimalpunkt'),
+                    '%.0f cm' % (optimal_mm / 10.0),
+                    hilfe=t('s_fv_optimalpunkt_hilfe'))
+
+        # --- 4. Rot / Gelb / Grün --------------------------------------
+        note, abweichung = fov_modul.bewertung(abstand_mm, optimal_mm)
+        farbe = {'gruen': ACCENT, 'gelb': GOLD}.get(note, ROT)
+        unterschied_cm = abs(abstand_mm - optimal_mm) / 10.0
+        if note == 'gruen':
+            text = t('s_fv_passt_gut')
+        elif abweichung > 0:
+            text = t('s_fv_zu_weit').format(unterschied_cm)
+        else:
+            text = t('s_fv_zu_nah').format(unterschied_cm)
+
+        kasten = tk.Frame(inhalt, bg=FLAECHE)
+        kasten.pack(fill='x', pady=(16, 0))
+        streifen = tk.Frame(kasten, bg=farbe, width=4)
+        streifen.pack(side='left', fill='y')
+        tk.Label(kasten, text=text, bg=FLAECHE, fg=farbe,
+                 font=fenster.f_fett, anchor='w',
+                 padx=12, pady=10).pack(side='left', fill='x', expand=True)
+
+        _fliesstext(inhalt, t('s_fv_hinweis_deutung'), fenster.f_klein,
+                    fill='x')
+
+    def _wert_zeile(eltern, bezeichnung, wert, hilfe='', farbe=FG):
+        zeile = tk.Frame(eltern, bg=BG)
+        zeile.pack(fill='x', pady=(12, 0))
+        links = tk.Frame(zeile, bg=BG)
+        links.pack(side='left', fill='x', expand=True)
+        tk.Label(links, text=bezeichnung, bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x')
+        if hilfe:
+            tk.Label(links, text=hilfe, bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w', justify='left').pack(fill='x')
+        tk.Label(zeile, text=wert, bg=BG, fg=farbe, font=fenster.f_fett,
+                 anchor='e').pack(side='right', padx=(16, 0))
+        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
+
+    _auffrischen()
+    fenster.beim_zeigen['blickwinkel'] = _auffrischen
 
 
 def _achsen(fenster, rahmen):

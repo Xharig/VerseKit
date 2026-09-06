@@ -182,6 +182,8 @@ KNOPF_SYMBOLE = {
     # Die Vorlage ist ein Achsenkreuz mit geschwungener Linie — genau das,
     # was die Seite tut.
     'achsen':       'chart-spline',
+    # Der Blickwinkel — was das Auge vom Bildschirm sieht.
+    'blickwinkel':  'eye',
     'diagnose':     'stethoscope',
     'quellen':      'heart-handshake',   # fremde Arbeit + Lizenzen
     # --- nur für die Anleitung (README-Merkmalstabelle) ---

@@ -943,6 +943,95 @@ TEXTE = {
     's_ac_nichts_gemeinsam': ('Diese beiden Geräte haben keine Achse '
                               'gemeinsam.',
                                 'These two devices have no axis in common.'),
+
+    # -- Seite „Blickwinkel" + Kalibrierfenster --
+    'hf_blickwinkel':  ('Blickwinkel', 'Field of view'),
+    's_fv_lead':       ('Welcher Blickwinkel zu deinem Bildschirm passt — und '
+                        'wo du dafür sitzen müsstest.',
+                          'Which field of view fits your screen — and where '
+                          'you would have to sit for it.'),
+    's_fv_erklaerung': ('Es gibt genau einen Blickwinkel, bei dem das Bild so '
+                        'groß erscheint wie das Gezeigte in Wirklichkeit '
+                        'wäre. Dann stimmen Größen und Entfernungen: Ein '
+                        'Schiff, das nah aussieht, ist auch nah. Weiter '
+                        'aufgedreht siehst du mehr, aber alles wirkt kleiner '
+                        'und weiter weg.',
+                          'There is exactly one field of view at which the '
+                          'image appears as large as the real thing would. '
+                          'Sizes and distances then match: a ship that looks '
+                          'close is close. Opened up further you see more, '
+                          'but everything looks smaller and further away.'),
+    's_fv_titel':      ('Bildschirm ausmessen', 'Measure the screen'),
+    's_fv_anleitung':  ('Halte eine Bankkarte an den Bildschirm und zieh das '
+                        'Rechteck genau auf ihre Größe.\n\nRegler, Pfeiltasten '
+                        '(mit Umschalt größere Schritte) oder am Rand ziehen. '
+                        'Escape bricht ab.',
+                          'Hold a bank card against the screen and drag the '
+                          'rectangle to match its size exactly.\n\nSlider, '
+                          'arrow keys (hold Shift for bigger steps) or drag '
+                          'at the edge. Escape cancels.'),
+    's_fv_masse':      ('Jede Bankkarte, jeder Führerschein und jeder '
+                        'Personalausweis misst 85,60 × 53,98 mm.',
+                          'Every bank card, driving licence and ID card '
+                          'measures 85.60 × 53.98 mm.'),
+    's_fv_stand':      ('{} px  ·  Bildschirm {:.1f} cm breit',
+                          '{} px  ·  screen {:.1f} cm wide'),
+    's_fv_passt':      ('Passt', 'Matches'),
+    's_fv_abbrechen':  ('Abbrechen', 'Cancel'),
+    's_fv_messen':     ('Bildschirm ausmessen', 'Measure the screen'),
+    's_fv_neu_messen': ('Neu ausmessen', 'Measure again'),
+    's_fv_nicht_gemessen': ('Der Bildschirm ist noch nicht ausgemessen. Ohne '
+                            'das lässt sich nichts rechnen — es dauert zehn '
+                            'Sekunden.',
+                              'The screen has not been measured yet. Nothing '
+                              'can be calculated without it — it takes ten '
+                              'seconds.'),
+    's_fv_breite':     ('Bildschirmbreite', 'Screen width'),
+    's_fv_abstand':    ('Dein Sitzabstand', 'Your viewing distance'),
+    's_fv_abstand_hilfe': ('Von deinen Augen bis zur Bildschirmmitte, in '
+                           'Zentimetern.',
+                             'From your eyes to the middle of the screen, in '
+                             'centimetres.'),
+    's_fv_neutral':    ('Neutraler Blickwinkel', 'Neutral field of view'),
+    's_fv_neutral_hilfe': ('Diesen Wert im Spiel eintragen, wenn Größen und '
+                           'Entfernungen stimmen sollen.',
+                             'Enter this value in the game if sizes and '
+                             'distances should match.'),
+    's_fv_im_spiel':   ('Im Spiel eingestellt', 'Set in the game'),
+    's_fv_optimalpunkt': ('Optimalpunkt', 'Sweet spot'),
+    's_fv_optimalpunkt_hilfe': ('So weit müsstest du sitzen, damit dein '
+                                'eingestellter Wert der neutrale ist.',
+                                  'This is how far away you would have to sit '
+                                  'for your current setting to be the neutral '
+                                  'one.'),
+    's_fv_passt_gut':  ('Passt — du sitzt am richtigen Punkt.',
+                          'Good — you are sitting at the right spot.'),
+    's_fv_zu_weit':    ('Du sitzt {:.0f} cm zu weit weg. Alles wirkt näher, '
+                        'als es ist.',
+                          'You are sitting {:.0f} cm too far away. Everything '
+                          'looks closer than it is.'),
+    's_fv_zu_nah':     ('Du sitzt {:.0f} cm zu nah dran. Alles wirkt weiter '
+                        'weg, als es ist.',
+                          'You are sitting {:.0f} cm too close. Everything '
+                          'looks further away than it is.'),
+    's_fv_kein_spielwert': ('Im Spiel wurde noch kein Wert gefunden — starte '
+                            'Star Citizen einmal.',
+                              'No value found in the game yet — start Star '
+                              'Citizen once.'),
+    's_fv_hinweis_deutung': ('Star Citizen hält den senkrechten Blickwinkel '
+                             'fest und erweitert waagerecht, wenn der '
+                             'Bildschirm breiter wird. Ob die Zahl im Spiel '
+                             'als waagerechter Wert deiner Auflösung zu lesen '
+                             'ist, ist hier nicht am Spiel nachgemessen — der '
+                             'neutrale Winkel oben stimmt unabhängig davon.',
+                               'Star Citizen keeps the vertical field of view '
+                               'and widens horizontally as the screen gets '
+                               'wider. Whether the number in the game reads as '
+                               'the horizontal value for your resolution has '
+                               'not been verified against the game here — the '
+                               'neutral angle above holds regardless.'),
+    's_fv_gespeichert': ('Ausgemessen: {:.1f} cm breit.',
+                           'Measured: {:.1f} cm wide.'),
     # Der Profilname wird zum Dateinamen — und zu dem, was der Spieler im
     # Spiel eintippt (`pp_rebindkeys load <Name>`). Deshalb die Grenzen.
     's_js_f_name_leer': ('Gib dem Profil einen Namen.',

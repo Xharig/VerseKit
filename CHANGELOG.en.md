@@ -8,6 +8,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.19.0-rc11 - 2026-09-06
 
+> **The Windows build stopped completing.** A single special character in a
+> test message was enough — on Linux this never shows, because every character
+> can be printed there.
+
 ### Fixed
 
 - **The build did not complete on Windows.** An arrow character in a test

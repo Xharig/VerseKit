@@ -8,6 +8,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## v3.19.0-rc11 - 2026-09-06
 
+> **Der Windows-Bau lief nicht mehr durch.** Ein einzelnes Sonderzeichen in
+> einer Prüfmeldung hat gereicht — auf Linux fällt so etwas nie auf, weil dort
+> jedes Zeichen ausgegeben werden kann.
+
 ### Behoben
 
 - **Der Bau lief unter Windows nicht durch.** Ein Pfeilzeichen in einem
