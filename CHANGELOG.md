@@ -22,6 +22,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **„Was ich farmen muss"** in der Werkstatt: alle Rohstoffe, die dir für deine
   geplanten Bauteile fehlen, über alle Posten zusammengerechnet. Erz mit zu
   geringer Güte wird genannt statt verschwiegen.
+- **Fertig gefittete Schiffe sind markiert** — mit dem Hinweis, dass ein
+  neu geclaimtes Schiff in der Werksausstattung zurückkommt und ohne die
+  passende Versicherung alles Eingebaute weg ist.
+- **In der Schiffszeile steht, wie viel noch offen ist** — ohne die
+  Ausstattung aufzuklappen.
 - **Militärische Teile stehen jetzt in der Auswahl.** Sie sind nicht kaufbar,
   nur herstellbar — bisher fehlten sie deshalb ganz. Bei einem Quantenantrieb
   der Größe 2 kommen zwei dazu.

@@ -814,6 +814,32 @@ def _achsenname(aktion):
     return aktion
 
 
+def funktionen_je_achse(nummer, achsen, datei=None, ordner=None):
+    """Für mehrere physische Achsen auf einmal: was darauf liegt.
+
+    ⚠ **Eine Dateilesung für alle Achsen, nicht eine je Achse.**
+    `spielachsen_auf()` liest die `actionmaps.xml` bei jedem Aufruf neu — für
+    eine Tabelle mit acht Zeilen wären das acht Lesungen einer Datei, die
+    zwanzigtausend Zeichen hat, und das bei jedem Zeichnen der Seite.
+
+    Gibt `{achse: [funktionen]}` zurück; Achsen ohne Funktion fehlen.
+    """
+    weg = datei or joysticks._pfad_actionmaps(ordner)
+    if not weg:
+        return {}
+    try:
+        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except Exception:
+        return {}
+    raus = {}
+    for achse in achsen:
+        treffer = spielachsen_auf(nummer, achse, datei=weg)
+        if treffer:
+            raus[achse] = treffer
+    return raus
+
+
 def spielachsen_auf(nummer, achse, datei=None, ordner=None):
     """Welche Spielachsen liegen auf dieser physischen Achse?
 

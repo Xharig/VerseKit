@@ -21,6 +21,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **"What to farm"** in the workshop: every raw material missing for your
   planned parts, added up across all items. Ore below the required quality is
   named rather than passed over.
+- **Fully fitted ships are marked** — with the reminder that a newly
+  claimed ship comes back in its factory loadout, and without the right
+  insurance everything you fitted is gone.
+- **The ship row shows how much is still open** — no need to expand the
+  loadout.
 - **Military parts now appear in the picker.** They cannot be bought, only
   built — which is why they were missing entirely. A size 2 quantum drive
   gains two of them.

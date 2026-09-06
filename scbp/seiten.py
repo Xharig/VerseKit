@@ -13279,8 +13279,22 @@ def _achsen(fenster, rahmen):
         _knopf(fenster, schalter, t('s_ac_gross'),
                _gross).pack(side='left', padx=(8, 0))
 
+        # ⚠⚠ **Einmal lesen, nicht je Zeile.** Welche Flugfunktion auf welcher
+        # Achse liegt, steht in der Belegungsdatei; sie für jede der acht
+        # Zeilen neu zu lesen hieße, eine 20-KB-Datei achtmal je Zeichnen
+        # anzufassen.
+        nummer_fuer_liste = None
+        for _spiel in kurven.spielachsen():
+            if (_spiel['art'] == 'joystick'
+                    and _spiel['kennung'] == gewaehlter['kennung']):
+                nummer_fuer_liste = _spiel['nummer']
+                break
+        belegt = ({} if nummer_fuer_liste is None
+                  else kurven.funktionen_je_achse(nummer_fuer_liste,
+                                                  vorhandene))
+
         for achse in vorhandene:
-            _achsenzeile(links, gewaehlter, achse)
+            _achsenzeile(links, gewaehlter, achse, belegt.get(achse) or [])
 
         # --- 4. Die Regler ---------------------------------------------
         #
@@ -13823,7 +13837,7 @@ def _achsen(fenster, rahmen):
             'var': var, 'anzeige': anzeige, 'ist': ist, 'ruhe': ruhe,
             'start': var.get(), 'spiel': (nummer, eintrag['achse'])}
 
-    def _achsenzeile(eltern, block, achse):
+    def _achsenzeile(eltern, block, achse, funktionen=()):
         gewaehlt = achse == wahl['achse']
         werte = block['achsen'].get(achse) or {}
         zeile = tk.Frame(eltern, bg=BAR if gewaehlt else BG, cursor='hand2')
@@ -13843,6 +13857,32 @@ def _achsen(fenster, rahmen):
         wert = tk.Label(zeile, text=text, bg=zeile['bg'], fg=SUB,
                         font=fenster.f_klein, anchor='w')
         wert.pack(side='left', fill='x', expand=True)
+
+        # ⭐⭐ **Was auf dieser Achse liegt — sonst bleibt die Empfindlichkeit
+        # unerklärt.** Am 06.09.2026 gefragt: „Sättigung und Totzone stehen in
+        # ner Art Tabelle, Empfindlichkeit aber nicht dabei, an welchen Achsen
+        # kann man Empfindlichkeit eigentlich einstellen?"
+        #
+        # Die Antwort ließ sich aus der Tabelle nicht ablesen: Totzone und
+        # Sättigung hängen an der **physischen** Achse, die Empfindlichkeit an
+        # der **Flugfunktion**, die darauf liegt. Wo keine Funktion belegt ist,
+        # gibt es auch nichts einzustellen — das steht jetzt in der Zeile.
+        #
+        # ⚠ Bei mehreren Funktionen nur die Zahl: Auf `js2_slider1` liegen
+        # `flight_move_strafe_back` und `flight_move_move_back` gleichzeitig,
+        # ausgeschrieben sprengt das die Zeile.
+        if funktionen:
+            if len(funktionen) == 1:
+                schluessel = 's_ax_' + (funktionen[0].get('achse') or '')
+                klar = t(schluessel)
+                if klar == schluessel:
+                    klar = funktionen[0].get('achse') or ''
+            else:
+                klar = t('s_ac_mehrere_funktionen').format(n=len(funktionen))
+            tk.Label(zeile, text=klar, bg=zeile['bg'],
+                     fg=ACCENT if gewaehlt else SUB, font=fenster.f_klein,
+                     anchor='e', padx=8).pack(side='right')
+
         if achse in block['mehrfach']:
             marke = tk.Label(zeile, text='⚠', bg=zeile['bg'], fg=GOLD,
                              font=fenster.f_klein, padx=8)

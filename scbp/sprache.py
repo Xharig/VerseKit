@@ -995,6 +995,10 @@ TEXTE = {
                                            'Speed limiter'),
     's_ax_flight_move_accel_range_rel': ('Beschleunigungsregler',
                                            'Acceleration limiter'),
+    # ⚠ Steht rechts in der Achsen-Tabelle: welche Flugfunktion auf dieser
+    # Achse liegt. Ohne diese Spalte war nicht zu sehen, wo es überhaupt eine
+    # Empfindlichkeit einzustellen gibt.
+    's_ac_mehrere_funktionen': ('{n} Funktionen', '{n} functions'),
     's_ax_flight_view': ('Umsehen', 'Look around'),
     's_ax_flight_view_pitch': ('Umsehen hoch/runter', 'Look up/down'),
     's_ax_flight_view_yaw': ('Umsehen links/rechts', 'Look left/right'),
