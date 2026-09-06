@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc11 - 2026-09-06
+
+### Fixed
+
+- **The build did not complete on Windows.** An arrow character in a test
+  message made the self-test abort there with an exception — the Windows
+  console cannot print it, and on Linux it never shows. A new check catches
+  this from now on.
+
 ## v3.19.0-rc10 - 2026-09-06
 
 > **Tell the tool how your ship should look — it tells you what you still
@@ -26,6 +35,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### New
 
+- **Axes & curves.** A new section shows how sharply each stick axis responds:
+  dead zone and saturation as a curve, switchable between quadrant and full
+  view, plus a large view in its own window.
+- **Settings that no longer do anything are found.** Star Citizen ties dead
+  zone and saturation to the device identifier. When a stick gets a new one —
+  a different USB port, new firmware — the game treats it as a new device, and
+  the old values stay in the file without any effect. Nothing in the game
+  shows this. The section lists them and restores them at the press of a
+  button.
+- **Set up two sticks alike.** One button copies dead zone and saturation for
+  every shared axis to the other device — flying HOSAS otherwise means typing
+  the same number a dozen times.
 - **Save a loadout.** For every ship in your hangar you can set, slot by slot,
   which part belongs there. What the ship carries from the factory is always
   shown next to it.

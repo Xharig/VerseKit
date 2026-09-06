@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc11 - 2026-09-06
+
+### Behoben
+
+- **Der Bau lief unter Windows nicht durch.** Ein Pfeilzeichen in einem
+  Prüftext ließ den Selbsttest dort mit einer Ausnahme abbrechen — die
+  Windows-Konsole kann es nicht ausgeben, unter Linux fällt das nie auf. Eine
+  neue Prüfung fängt das künftig ab.
+
 ## v3.19.0-rc10 - 2026-09-06
 
 > **Sag dem Werkzeug, wie dein Schiff aussehen soll — es sagt dir, was dir
@@ -28,6 +37,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Neu
 
+- **Achsen & Kurven.** Ein neuer Bereich zeigt, wie scharf jede Stick-Achse
+  reagiert: Totzone und Sättigung als Kurve, umschaltbar zwischen Quadrant
+  und Vollansicht, dazu eine große Ansicht in eigenem Fenster.
+- **Einstellungen, die nichts mehr tun, werden gefunden.** Star Citizen hängt
+  Totzone und Sättigung an die Kennung des Geräts. Bekommt ein Stick eine
+  neue — anderer USB-Anschluss, neue Firmware —, legt das Spiel ihn als neues
+  Gerät an, und die alten Werte bleiben wirkungslos in der Datei stehen. Im
+  Spiel ist das nirgends zu sehen. Der Bereich zeigt sie und holt sie auf
+  Knopfdruck zurück.
+- **Zwei Sticks gleich einstellen.** Ein Knopf überträgt Totzone und
+  Sättigung aller gemeinsamen Achsen auf das andere Gerät — wer HOSAS fliegt,
+  tippt sonst ein Dutzend Mal dieselbe Zahl.
 - **Auslegung speichern.** Für jedes Schiff im Hangar lässt sich Platz für
   Platz festlegen, welches Teil dort sitzen soll. Daneben steht immer, was ab
   Werk drin ist.

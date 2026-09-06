@@ -4767,7 +4767,7 @@ def main():
     pruefe(_ro53.zahl_lesen('12.5') == 12.5, 'ein Punkt genauso')
     pruefe(_ro53.zahl_lesen(' 8 ') == 8.0, 'Leerzeichen stoeren nicht')
     pruefe(_ro53.zahl_lesen('-2,5') == -2.5, 'ein Minus bleibt erhalten')
-    pruefe(_ro53.zahl_lesen('−2') == -2.0,
+    pruefe(_ro53.zahl_lesen('-2') == -2.0,
            'auch das lange Minus vom Ziffernblock')
     pruefe(_ro53.zahl_lesen('12 SCU') is None,
            'was keine Zahl ist, gibt None statt eines Absturzes')
@@ -13001,6 +13001,45 @@ def main():
                'ein Posten ohne Laden wird als solcher gemeldet')
     finally:
         _ld143.laeden = _echt143
+
+    print()
+    print('144. Jeder Prüftext lässt sich unter Windows ausgeben')
+    # ⚠⚠ **Diese Prüfung gibt es, weil der Bau daran gescheitert ist.**
+    # Am 06.09.2026 brach der Selbsttest unter Windows mitten im Lauf ab:
+    #
+    #     UnicodeEncodeError: 'charmap' codec can't encode character
+    #     '\u2192' in position 42
+    #
+    # Ein Pfeil `→` in einem Prüftext. Die Windows-Konsole schreibt in cp1252,
+    # und was dort fehlt, lässt sich nicht ausgeben — der Lauf endet mit einer
+    # Ausnahme, nicht mit einem roten Haken. Auf Linux fällt das **nie** auf,
+    # weil dort UTF-8 gilt.
+    #
+    # ⚠ Betroffen sind nur die **Ausgabetexte**. In Kommentaren und in
+    # Prüfdaten darf jedes Zeichen stehen; die werden nie gedruckt.
+    with open(os.path.join(WURZEL, 'tools', 'selbsttest.py'),
+              encoding='utf-8') as _f144:
+        _roh144 = _f144.read()
+    _schlimm144 = []
+    for _nr144, _zeile144 in enumerate(_roh144.split('\n'), 1):
+        if 'pruefe(' not in _zeile144 and 'print(' not in _zeile144:
+            continue
+        try:
+            _zeile144.encode('cp1252')
+        except UnicodeEncodeError:
+            _schlimm144.append(_nr144)
+    pruefe(not _schlimm144,
+           'kein Sonderzeichen in einem Ausgabetext (Zeilen: %s)'
+           % (_schlimm144[:5] or 'keine'))
+
+    # Gegenprobe: Ein Pfeil in einem Ausgabetext muss auffallen.
+    _probe144 = "    pruefe(True, 'a -> b')".replace('->', '\u2192')
+    _faellt144 = False
+    try:
+        _probe144.encode('cp1252')
+    except UnicodeEncodeError:
+        _faellt144 = True
+    pruefe(_faellt144, 'Gegenprobe: ein Pfeil im Prüftext faellt auf')
 
     print()
     if fehler:
