@@ -47,9 +47,14 @@ Das ist keine Feinheit, sondern entscheidet, ob die ganze Auskunft etwas wert
 ist. Aus dem Spiel, am 06.09.2026:
 
 > NPC-Wracks sind grundsätzlich lootbar, je nach Zustand. Spielerschiffe sind
-> meist Brikett — bzw. werden es, sobald der Spieler die Versicherung
+> meist unbrauchbar — bzw. werden es, sobald der Spieler die Versicherung
 > beansprucht. Damit sind auch ausgebaute Teile wertlos. Bei Spielerschiffen
 > macht deshalb nur Salvagen Sinn.
+
+⚠ **„Unbrauchbar", nicht „Brikett".** Die erste Fassung übersetzte das
+englische „brick" wörtlich. Zwaersch (KRT) dazu am 06.09.2026: *„diese 1-zu-1-
+Übersetzung — ich hätte es als unbrauchbar oder unbenutzbar beschrieben."* Wer
+die Sache kennt, benennt sie anders als ein Wörterbuch.
 
 Ein Werkzeug, das vor einem Spielerwrack „hier liegen 400.000 aUEC" meldet,
 schickt jemanden ins Feuer für nichts. Deshalb steht der Unterschied **auf der

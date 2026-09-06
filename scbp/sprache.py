@@ -864,6 +864,53 @@ TEXTE = {
     's_kv_exponent':   ('Empfindlichkeit', 'sensitivity'),
     's_kv_ganz':       ('Vollansicht', 'full view'),
     's_kv_quadrant':   ('Quadrant', 'quadrant'),
+
+    # -- Seite „Achsen & Kurven" --
+    'hf_achsen':       ('Achsen & Kurven', 'Axes & curves'),
+    's_ac_lead':       ('Wie scharf deine Sticks reagieren — und was davon '
+                        'überhaupt noch gilt.',
+                          'How sharply your sticks respond — and which of '
+                          'those settings still apply.'),
+    's_ac_hinweis':    ('Star Citizen speichert Totzone und Sättigung an der '
+                        'Kennung des Geräts, nicht an seinem Namen. Bekommt '
+                        'ein Stick eine neue Kennung — anderer USB-Anschluss, '
+                        'neue Firmware —, legt das Spiel ihn als neues Gerät '
+                        'an, und die alten Einstellungen bleiben wirkungslos '
+                        'in der Datei stehen.',
+                          'Star Citizen stores dead zone and saturation '
+                          'against the device identifier, not its name. When '
+                          'a stick gets a new identifier — a different USB '
+                          'port, new firmware — the game treats it as a new '
+                          'device, and the old settings stay in the file '
+                          'without any effect.'),
+    's_ac_befund':     ('Diese Einstellungen wirken nicht mehr',
+                          'These settings no longer apply'),
+    's_ac_befund_lead': ('Das Gerät ist da, die Einstellung hängt an seiner '
+                         'alten Kennung.',
+                           'The device is present; the setting is attached to '
+                           'its old identifier.'),
+    's_ac_war':        ('war', 'was'),
+    's_ac_jetzt':      ('jetzt', 'now'),
+    's_ac_fehlt':      ('gar nicht gesetzt', 'not set at all'),
+    's_ac_keine':      ('Es wurde noch keine Belegungsdatei gefunden. Starte '
+                        'Star Citizen einmal, dann steht hier dein Aufbau.',
+                          'No bindings file found yet. Start Star Citizen '
+                          'once and your setup will appear here.'),
+    's_ac_keine_werte': ('Für dieses Gerät ist nichts eingestellt — es läuft '
+                         'mit den Werkseinstellungen.',
+                           'Nothing is configured for this device — it runs '
+                           'with factory settings.'),
+    's_ac_gross':      ('Große Ansicht', 'Large view'),
+    's_ac_widerspruch': ('Für diese Achse stehen mehrere verschiedene Werte '
+                         'in der Datei.',
+                           'Several different values for this axis are in the '
+                           'file.'),
+    's_ac_verwaist':   ('Geräte, die es nicht mehr gibt',
+                          'Devices that are gone'),
+    's_ac_verwaist_lead': ('Ihre Einträge stören nicht, sie sind nur Ballast.',
+                             'Their entries do no harm, they are just '
+                             'ballast.'),
+    's_ac_titel_gross': ('Achsenkurve', 'Axis curve'),
     # Der Profilname wird zum Dateinamen — und zu dem, was der Spieler im
     # Spiel eintippt (`pp_rebindkeys load <Name>`). Deshalb die Grenzen.
     's_js_f_name_leer': ('Gib dem Profil einen Namen.',
@@ -2538,13 +2585,16 @@ TEXTE = {
                           'limited — is it worth it?'),
     # ⚠⚠ **Der wichtigste Satz der Seite.** Ohne ihn schickt das Werkzeug
     # jemanden für 400.000 aUEC ins Feuer, die es nicht gibt.
+    # ⚠ „Brikett" stand hier bis zum 06.09.2026 — eine zu wörtliche
+    # Übersetzung von „brick". Zwaersch (KRT), von dem der Hinweis stammt,
+    # dazu: „ich hätte es als unbrauchbar oder unbenutzbar beschrieben."
     's_wr_npc_warnung':  ('⚠ Das gilt für **NPC-Wracks**. Ein Spielerschiff '
-                          'wird zum Brikett, sobald der Besitzer die '
+                          'wird unbrauchbar, sobald der Besitzer die '
                           'Versicherung beansprucht — ausgebaute Teile sind '
                           'dann wertlos. Dort lohnt nur das Abkratzen der '
                           'Hülle.',
                           '⚠ This applies to **NPC wrecks**. A player ship '
-                          'turns into a brick as soon as its owner claims the '
+                          'becomes unusable as soon as its owner claims the '
                           'insurance — parts taken out of it are worthless '
                           'then. There, only scraping the hull pays off.'),
     's_wr_schiff':       ('Welches Schiff treibt da?', 'Which ship is it?'),

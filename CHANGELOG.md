@@ -70,7 +70,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Güte und Ladenwert, dazu die Summe. Einmal nachgeschlagene Schiffe stehen
   beim nächsten Mal sofort da.
 - ⚠ **Der Hinweis steht ganz oben, nicht im Kleingedruckten:** Die Zahlen
-  gelten für **NPC-Wracks**. Ein Spielerschiff wird zum Brikett, sobald sein
+  gelten für **NPC-Wracks**. Ein Spielerschiff wird unbrauchbar, sobald sein
   Besitzer die Versicherung beansprucht — ausgebaute Teile sind dann wertlos,
   und nur das Abkratzen der Hülle lohnt. Vorschlag von Zwaersch (KRT).
 

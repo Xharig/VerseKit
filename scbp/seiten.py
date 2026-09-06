@@ -8321,7 +8321,7 @@ def _bergung(fenster, rahmen):
 
     # ⚠⚠ **Die NPC-Warnung steht GANZ OBEN**, nicht unter der Liste. Wer vor
     # einem Spielerwrack steht, muss das lesen, **bevor** er eine Zahl sieht —
-    # danach ist die Zahl schon im Kopf. Ein Spielerschiff wird zum Brikett,
+    # danach ist die Zahl schon im Kopf. Ein Spielerschiff wird unbrauchbar,
     # sobald die Versicherung beansprucht wird; ausgebaute Teile sind dann
     # wertlos, und nur das Abkratzen der Hülle lohnt.
     warnung = _karte(innen, rand=GOLD, pady=(0, 14))
