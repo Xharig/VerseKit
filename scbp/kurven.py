@@ -788,6 +788,89 @@ def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
     return joysticks._schreiben(weg, baum, 1)
 
 
+# Wie die Aktion in der Belegung zum Element in `<options>` heißt.
+#
+# ⚠⚠ **Gemessen, nicht geraten** (06.09.2026 an einer echten Datei):
+#
+#     <action name="v_pitch">        <rebind input="js2_y"/>
+#     <options …><flight_move_pitch exponent="1.5"/>
+#
+# Die Belegung nennt die Aktion `v_pitch`, die Einstellung heißt
+# `flight_move_pitch`. Drei Formen kommen vor, und die Reihenfolge zählt:
+# `v_view_pitch` muss VOR `v_pitch` geprüft werden, sonst würde es als
+# „view_pitch" unter `flight_move_` einsortiert.
+AKTION_ZU_ACHSE = (
+    ('v_view_', 'flight_view_'),
+    ('v_mining_', 'mining_'),
+    ('v_', 'flight_move_'),
+)
+
+
+def _achsenname(aktion):
+    """Aus dem Aktionsnamen der Belegung den Namen in `<options>` machen."""
+    for vorn, ersatz in AKTION_ZU_ACHSE:
+        if aktion.startswith(vorn):
+            return ersatz + aktion[len(vorn):]
+    return aktion
+
+
+def spielachsen_auf(nummer, achse, datei=None, ordner=None):
+    """Welche Spielachsen liegen auf dieser physischen Achse?
+
+    ⭐ **Warum das gebraucht wird:** Die Empfindlichkeit (der Exponent) hängt
+    nicht an der physischen Achse `y`, sondern an der Spielachse
+    `flight_move_pitch`. Wer sie einstellen will, muss wissen, welche
+    Spielachse überhaupt auf welchem Stickweg liegt — und das steht nur in
+    der Belegung.
+
+    ⚠ **Es sind oft MEHRERE.** Gemessen lagen auf `js2_y` gleichzeitig
+    `v_pitch` und `v_strafe_vertical`, jede mit eigener Empfindlichkeit. Ein
+    einzelner Regler je physischer Achse wäre also schlicht falsch.
+
+    Liefert je Treffer ein Wörterbuch mit `achse` (Name in `<options>`),
+    `aktion` (Name in der Belegung), `exponent` und `invert`.
+    """
+    weg = datei or joysticks._pfad_actionmaps(ordner)
+    if not weg:
+        return []
+    try:
+        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except Exception:
+        return []
+
+    gesucht = 'js%s_%s' % (nummer, achse)
+    aktionen = []
+    # Jede `<action name="…">` mit ihren `<rebind>`-Kindern durchgehen.
+    for treffer in re.finditer(
+            r'<action\s+name="([^"]*)"\s*>(.*?)</action>', text, re.S):
+        name, inhalt = treffer.group(1), treffer.group(2)
+        for bindung in re.finditer(r'<rebind\s+input="([^"]*)"', inhalt):
+            if bindung.group(1).strip() == gesucht:
+                aktionen.append(name)
+                break
+
+    # Die Einstellungen dieser Nummer dazuholen.
+    werte = {}
+    for block in spielachsen(datei, ordner):
+        if block['art'] == 'joystick' and block['nummer'] == int(nummer):
+            werte = block['achsen']
+            break
+
+    heraus = []
+    gesehen = set()
+    for aktion in aktionen:
+        name = _achsenname(aktion)
+        if name in gesehen:
+            continue
+        gesehen.add(name)
+        eigenschaften = werte.get(name) or {}
+        heraus.append({'achse': name, 'aktion': aktion,
+                       'exponent': eigenschaften.get('exponent'),
+                       'invert': eigenschaften.get('invert')})
+    return heraus
+
+
 def aufraeumen(datei=None, ordner=None, nur_zaehlen=False):
     """Tote `<deviceoptions>`-Blöcke aus der Belegungsdatei entfernen.
 

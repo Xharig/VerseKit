@@ -12367,6 +12367,22 @@ def main():
     pruefe(all(_paare138.count(n) == 2 for n in set(_paare138)),
            'zu jedem deutschen Bild gibt es das englische')
 
+    # ⚠ **Erklaerbilder sind KEINE Bildschirmfotos** und werden oben nicht
+    # mitgezaehlt — der Filter dort greift `screenshot-*`. Sie zeigen keine
+    # Seite, sondern eine Sache: was Totzone, Saettigung und Empfindlichkeit
+    # mit der Kurve machen. Gebaut aus demselben Bauteil, das die Kurve auch
+    # im Programm zeichnet, damit beides nie auseinanderlaeuft.
+    #
+    # Zweisprachig sind sie trotzdem, aus demselben Grund wie alles andere:
+    # Eine halbe Uebersetzung wirkt schlechter als gar keine.
+    _erkl138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))
+                if n.startswith('erklaerung-') and n.endswith('.png')]
+    _erklpaare138 = sorted(n[:-4].replace('-en', '') for n in _erkl138)
+    pruefe(_erkl138 and all(_erklpaare138.count(n) == 2
+                            for n in set(_erklpaare138)),
+           'jedes Erklaerbild gibt es deutsch und englisch (%d)'
+           % len(_erkl138))
+
     print()
     print('139. Schiffe finden ihre Steckplätze — auch bei krummen Namen')
     # ⚠⚠ **Diese Prüfung gibt es, weil die Zuordnung STILL falsch war.**
@@ -12507,7 +12523,7 @@ def main():
         _sh140.rmtree(_nach140, ignore_errors=True)
 
     # ------------------------------------------------------------------
-    # 141. Totzone, Sättigung und Kurve — und was davon überhaupt gilt
+    # 146. Totzone, Sättigung und Kurve — und was davon überhaupt gilt
     #
     # ⚠ Diese Prüfung baut sich ihre `actionmaps.xml` SELBST. Sie darf nicht
     # von der Datei des Entwicklers abhängen: Auf dem Bau-Rechner gibt es
@@ -12519,11 +12535,12 @@ def main():
     # zieht auch die Game.log heran, und die sieht auf jedem Rechner anders
     # aus. Lokal grün, im Bau rot wäre hier besonders tückisch.
     print()
-    # ⚠ Nummer 142, obwohl sie vor 141 steht: Eine zweite Sitzung hat am
-    # selben Tag ebenfalls eine 141 angelegt (Werksausstattung). Zwei
-    # Prüfungen mit derselben Nummer sind schlimmer als eine Lücke in der
-    # Reihenfolge — beim Zusammenführen gehört das glattgezogen.
-    print('142. Achsen: Totzone, Sättigung, tote Kennungen')
+    # ⚠ Nummer 146, obwohl sie weit vor den 140ern steht: Drei Sitzungen
+    # haben am selben Tag Prüfungen angelegt, und 142 wie 144 gab es dadurch
+    # doppelt. Am 06.09.2026 glattgezogen — der Joystick-Strang wanderte ans
+    # Ende (146-148), weil der andere in sich fortlaufend war. Die Nummer sagt,
+    # **wann** eine Prüfung dazukam, nicht wo sie in der Datei steht.
+    print('146. Achsen: Totzone, Sättigung, tote Kennungen')
     import shutil as _sh141
     import tempfile as _tf141
     from scbp import kurven as _kv141
@@ -13069,11 +13086,11 @@ def main():
     pruefe(_faellt144, 'Gegenprobe: ein Pfeil im Prüftext faellt auf')
 
     # ------------------------------------------------------------------
-    # 145. Zwei Sticks über Kreuz tauschen, und Gerätesätze
+    # 147. Zwei Sticks über Kreuz tauschen, und Gerätesätze
     #
     # Baut sich die Datei selbst — dieselbe Begründung wie bei 142.
     print()
-    print('145. Bindings tauschen und Gerätesätze')
+    print('147. Bindings tauschen und Gerätesätze')
     import shutil as _sh145
     import tempfile as _tf145
     from scbp import geraetesatz as _gs145
@@ -13279,16 +13296,14 @@ def main():
         _sh145.rmtree(_o145, ignore_errors=True)
 
     # ------------------------------------------------------------------
-    # 144. Blickwinkel: Bildschirm ausmessen, Sitzabstand bewerten
+    # 148. Blickwinkel: Bildschirm ausmessen, Sitzabstand bewerten
     #
     # Reine Rechnung, keine Fremddaten — die Prüfung läuft überall gleich.
     # Geprüft wird an Punkten, die sich von Hand nachrechnen lassen.
     #
-    # ⚠ Nummer 144 wegen derselben Kollision wie bei 142: Eine zweite Sitzung
-    # hat am selben Tag eine 143 vergeben (Kaufroute). Beim Zusammenführen
-    # gehört die Reihenfolge glattgezogen.
+    # ⚠ Nummer 148 — siehe die Erklärung bei 146.
     print()
-    print('144. Blickwinkel und Sitzabstand')
+    print('148. Blickwinkel und Sitzabstand')
     from scbp import fov as _fv143
 
     def _gl143(ist, soll, toleranz=1e-6):
@@ -13354,6 +13369,69 @@ def main():
     # Die Kartenmaße sind eine Norm, kein Schätzwert.
     pruefe(_fv143.KARTE_BREITE_MM == 85.60 and _fv143.KARTE_HOEHE_MM == 53.98,
            'die Kartenmaße entsprechen ISO/IEC 7810 ID-1')
+
+    # ------------------------------------------------------------------
+    # 149. Ein Wunschschiff laesst sich ausstatten — ohne Besitz zu werden
+    #
+    # Zwei Dinge muessen gleichzeitig gelten, und sie ziehen in
+    # entgegengesetzte Richtungen:
+    #
+    # | Es muss gehen | Es darf NICHT gehen |
+    # |---|---|
+    # | ein Wunschschiff belegen und in den Warenkorb legen | ein Wunschschiff in „passt in dein Schiff" auftauchen |
+    #
+    # Waeren beide Listen zusammengelegt, faellt der zweite Punkt lautlos um:
+    # Das Werkzeug gaebe dann Auskunft ueber ein Schiff, das dem Spieler gar
+    # nicht gehoert — und niemandem faellt es auf, weil die Anzeige richtig
+    # aussieht. Deshalb steht hier eine Gegenprobe fuer die Trennung.
+    #
+    # Baut sich die Daten selbst, kein Netz, keine Nutzerdatei.
+    print()
+    print('149. Wunschschiffe sind ausstattbar, ohne Besitz zu werden')
+    from scbp import hangar as _hg149
+    from scbp import warenkorb as _wk149
+
+    _daten149 = {'schiffe': [{'name': 'Vulture', 'hersteller': 'Drake',
+                              'kurz': 'vulture', 'hkurz': 'DRAK',
+                              'belegung': {}}],
+                 'wunsch': []}
+
+    pruefe(_hg149.wunsch_hinzufuegen(_daten149, 'Prospector', 'MISC'),
+           'ein Wunsch laesst sich eintragen')
+    _w149 = _hg149.wunsch_liste(_daten149)[0]
+    pruefe(_w149.get('hersteller') == 'MISC',
+           'der Hersteller wird mitgespeichert (ohne ihn findet erkul nicht '
+           'jedes Schiff)')
+    pruefe(isinstance(_w149.get('belegung'), dict),
+           'das Feld fuer die Ausstattung liegt leer bereit')
+
+    # Der Warenkorb arbeitet auf dem Wunsch-Eintrag wie auf einem Hangar-Schiff.
+    pruefe(_wk149.setzen(_w149, 'hardpoint_power', 'ref-abc', 'Fortitude'),
+           'ein Teil laesst sich in einen Steckplatz des Wunschschiffs legen')
+    pruefe(_wk149.belegung(_w149).get('hardpoint_power', {}).get('name')
+           == 'Fortitude',
+           '* und steht danach auch drin')
+    pruefe(_wk149.loeschen(_w149, 'hardpoint_power'),
+           '* und laesst sich wieder herausnehmen')
+
+    # Die beiden Listen bleiben getrennt.
+    _hs149 = _hg149.kennsaetze(_daten149)
+    _ws149 = _hg149.wunsch_kennsaetze(_daten149)
+    pruefe([s[0] for s in _hs149] == ['Vulture'],
+           'die Hangar-Liste enthaelt nur, was der Spieler wirklich hat')
+    pruefe([s[0] for s in _ws149] == ['Prospector'],
+           'die Wunsch-Liste steht daneben, nicht darin')
+    pruefe(not (set(s[0] for s in _hs149) & set(s[0] for s in _ws149)),
+           'kein Schiff steht in beiden Listen')
+
+    # Gegenprobe: Waere ein Wunsch faelschlich im Hangar, muesste das auffallen.
+    _falsch149 = dict(_daten149)
+    _falsch149['schiffe'] = _daten149['schiffe'] + [{'name': 'Prospector',
+                                                     'hersteller': 'MISC'}]
+    pruefe(bool(set(s[0] for s in _hg149.kennsaetze(_falsch149))
+                & set(s[0] for s in _ws149)),
+           'Gegenprobe: ein Wunsch im Hangar wuerde als Ueberschneidung '
+           'auffallen')
 
     print()
     if fehler:

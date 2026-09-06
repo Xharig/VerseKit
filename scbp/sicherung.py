@@ -100,19 +100,33 @@ def _belegung_dateien(ordner=None):
 
     | Was | Wo | Warum |
     |---|---|---|
-    | die **aktive** Belegung | `Profiles/default/actionmaps.xml` | was gerade im Spiel gilt |
+    | die **aktive** Belegung | `Profiles/default/actionmaps.xml` | was gerade im Spiel gilt — darin stecken auch Totzone, Saettigung und Empfindlichkeit jeder Achse |
+    | die **Spieleinstellungen** | `Profiles/default/attributes.xml` | Blickwinkel, Aufloesung, Grafik, Lautstaerken |
     | die **gespeicherten Profile** | `controls/mappings/*.xml` | Kampf, Bergbau, Frachtflug — wer sie sich angelegt hat, verliert sonst alles ausser dem zuletzt geladenen |
 
     ⚠ Den Mappings-Ordner gibt es in mehreren Schreibweisen (siehe
     `joysticks.MAPPING_ORDNER`). Gleichnamige Dateien werden **entdoppelt**,
     die neuere gewinnt — sonst laege dieselbe Belegung zweimal im Archiv, und
     beim Zurueckholen entschiede der Zufall.
+
+    ⚠⚠ **Eine Sicherung nimmt alles mit, was erreichbar ist.** Die
+    `attributes.xml` fehlte anfangs — damit waere beim Zurueckholen zwar die
+    Steuerung wieder da gewesen, aber der eingestellte Blickwinkel weg.
+    Wuensch dazu am 06.09.2026: „Sicherung sollte allgemein immer alles
+    verfuegbare sichern, nicht nur einzelne Teile." Kommt eine weitere Datei
+    des Spielers dazu, gehoert sie hierher — nicht in eine zweite Liste.
     """
     from . import joysticks
     gefunden = {}
     aktiv = joysticks._pfad_actionmaps(ordner)
     if aktiv and os.path.isfile(aktiv):
         gefunden['actionmaps.xml'] = aktiv
+        # Die Spieleinstellungen liegen im selben Ordner. Ueber den Pfad der
+        # Belegung gefunden, damit die Gross-/Kleinschreibung stimmt (USER
+        # oder user, Client oder client) — dieselbe Falle wie ueberall hier.
+        nachbar = os.path.join(os.path.dirname(aktiv), 'attributes.xml')
+        if os.path.isfile(nachbar):
+            gefunden['attributes.xml'] = nachbar
     # ⚠ Ueber **alle** Schreibweisen des Ordners sammeln, nicht nur ueber den,
     # in den geschrieben wuerde. Beim Sichern zaehlt Vollstaendigkeit.
     for mappings in joysticks.alle_mapping_ordner(ordner):
@@ -357,6 +371,26 @@ def belegung_zurueckholen(quelle, mit_aktiver=False, spielordner=None):
                             open(rueckfall, 'wb') as hin:
                         hin.write(her.read())
                     ziel = aktiv_ziel
+                elif rest == 'attributes.xml':
+                    # ⚠⚠ **Gehoert zum aktiven Stand, nicht zu den Profilen.**
+                    # Darin steht der Blickwinkel und die Grafik — sie
+                    # zurueckzuspielen aendert, wie das Spiel aussieht.
+                    # Deshalb nur zusammen mit der aktiven Belegung, und mit
+                    # derselben Sicherung daneben.
+                    #
+                    # Ohne diesen Zweig waere sie zwar im Archiv gelandet,
+                    # aber nie wieder herausgekommen — eine Sicherung, die
+                    # nicht zurueckkommt, ist keine.
+                    if not (mit_aktiver and aktiv_ziel):
+                        continue
+                    ziel = os.path.join(os.path.dirname(aktiv_ziel),
+                                        'attributes.xml')
+                    if os.path.isfile(ziel):
+                        with open(ziel, 'rb') as her, \
+                                open('%s.scbpw-%s' % (
+                                    ziel, time.strftime('%Y%m%d-%H%M%S')),
+                                     'wb') as hin:
+                            hin.write(her.read())
                 elif rest.startswith('mappings/') and ziel_ordner:
                     # ⚠ Nur der reine Dateiname. Ein Pfad aus dem Archiv duerfte
                     # sonst aus dem Mappings-Ordner herausfuehren.

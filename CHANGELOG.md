@@ -26,8 +26,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   tun" nie los: Übernahm man den einen, wich der nächste ab. Ein Knopf räumt
   jetzt alles weg, was zu keinem angeschlossenen Gerät mehr gehört.
 
+- **Empfindlichkeit einstellen.** Die Mitte der Kurve — über 1 wird das Zielen
+  feiner, unter 1 direkter. Auf einer Stickachse liegen oft mehrere Funktionen
+  (auf der Y-Achse etwa Nicken **und** Schub hoch/runter), jede mit eigenem
+  Wert; jede bekommt deshalb ihren eigenen Regler.
+
 ### Verbessert
 
+- **„Achsen & Kurven" liegt unter „Für Fortgeschrittene".** Die Seite schreibt
+  in die Datei, an der die komplette Steuerung hängt — wer nicht weiß, was
+  Sättigung ist, macht sich damit den Stick unbrauchbar. „Blickwinkel" bleibt
+  offen: Es schreibt nichts, es rechnet nur.
+- **Der Hinweis auf alten Altbestand steht unten und ist zugeklappt.** Vorher
+  stand er in Gold ganz oben und las sich wie ein Fehler, den man wegklicken
+  muss — mit der Folge, dass man reihum draufdrückt und sich funktionierende
+  Werte mit alten, widersprüchlichen überschreibt. Jetzt steht als Erstes da,
+  dass nichts zu tun ist.
+- **Die Sicherung nimmt auch die Spieleinstellungen mit.** In `attributes.xml`
+  steht der Blickwinkel und die Grafik; bisher wäre nach einem Zurückholen
+  zwar die Steuerung dagewesen, der eingestellte Blickwinkel aber weg.
+- **Die Anleitung zeigt, was die drei Werte bewirken** — vier Kurven
+  nebeneinander, in beiden Sprachen.
 - **Der Hinweis auf alte Einstellungen erklärt sich selbst.** Vorher stand
   dort nur, die Einstellung hänge „an der alten Kennung des Geräts" — richtig,
   aber unverständlich. Jetzt steht da, was das für den Spieler bedeutet und
@@ -51,6 +70,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   unterscheiden, sehen in der Anzeige gleich aus und gelten jetzt auch als
   gleich.
 - **Die Knöpfe zum Übertragen und Tauschen sagen jetzt, was sie tun.**
+
+## v3.19.0-rc15 - 2026-09-06
+
+> **Ausgewählte Teile landen jetzt wirklich im Steckplatz** — und auch ein
+> Schiff auf der Wunschliste lässt sich schon ausstatten. Gerade da ist die
+> Planung am meisten wert: vor dem Kauf, solange die Summe noch eine
+> Entscheidung ist.
+
+### Neu
+
+- **Wunschschiffe lassen sich ausstatten.** Der Block „Ausstattung & Warenkorb"
+  steht jetzt auch unter jedem Schiff auf der Wunschliste — wer sich ein Schiff
+  vornimmt, kann gleich planen, was hineinsoll, und sieht Kaufpreis und
+  Teilekosten zusammen. Was dort geplant wird, bleibt Planung: Ein Wunschschiff
+  taucht nirgends bei „passt in dein Schiff" auf.
+
+### Behoben
+
+- **Ein angeklicktes Teil wurde nicht eingesetzt.** Die Auswahl klappte auf, der
+  Klick tat aber nichts — ohne Meldung, ohne Fehler.
 
 ## v3.19.0-rc14 - 2026-09-06
 

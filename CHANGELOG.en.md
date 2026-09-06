@@ -25,8 +25,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   differs. One button now removes everything that no longer belongs to a
   connected device.
 
+- **Set the sensitivity.** The middle of the curve — above 1 aiming gets
+  finer, below 1 more direct. One stick axis often carries several functions
+  (the Y axis typically pitch **and** vertical strafe), each with its own
+  value; each therefore gets its own slider.
+
 ### Improved
 
+- **“Axes & curves” now sits under “Advanced”.** The page writes to the file
+  the whole control setup depends on — anyone who does not know what
+  saturation is can make their stick unusable with it. “Field of view” stays
+  in plain sight: it writes nothing, it only calculates.
+- **The notice about leftovers sits at the bottom and is collapsed.** It used
+  to be gold and right at the top, reading like an error you have to click
+  away — with the result that people work through the buttons and overwrite
+  working values with old, contradictory ones. Now the first thing it says is
+  that there is nothing to do.
+- **The backup includes the game settings too.** `attributes.xml` holds the
+  field of view and the graphics options; until now a restore would have
+  brought back the controls but lost the field of view.
+- **The manual shows what the three values do** — four curves side by side, in
+  both languages.
 - **The notice about old settings explains itself.** It used to say only that
   the setting was attached to “the device’s old identifier” — correct, but
   meaningless. It now says what that means for the player and what the button
@@ -49,6 +68,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   no difference at all: two values less than a thousandth apart look identical
   on screen and now count as identical.
 - **The transfer and swap buttons now say what they do.**
+
+## v3.19.0-rc15 - 2026-09-06
+
+> **Picking a part now actually puts it in the slot** — and a ship on your
+> wishlist can be kitted out before you own it. That is where planning is worth
+> the most: before the purchase, while the total is still a decision.
+
+### New
+
+- **Wishlist ships can be kitted out.** The "Loadout & shopping cart" block now
+  sits under every ship on the wishlist too — plan what goes in while you are
+  still saving up, and see the ship price and the parts together. It stays
+  planning: a wishlist ship never shows up under "fits your ship".
+
+### Fixed
+
+- **Clicking a part did not insert it.** The picker opened, the click did
+  nothing — no message, no error.
 
 ## v3.19.0-rc14 - 2026-09-06
 

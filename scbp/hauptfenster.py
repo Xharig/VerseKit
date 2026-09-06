@@ -2049,10 +2049,9 @@ class Hauptfenster:
         # ist: „Joysticks" sagt, WELCHER Stick welche Nummer hat und was
         # darauf liegt — „Achsen & Kurven" sagt, WIE die Achse reagiert. Im
         # Spiel stehen die beiden Fragen ebenfalls an zwei Stellen.
-        self._reiter('achsen', 'achsen', t('hf_achsen'), g_einst)
-        # ⚠ Hinter den Achsen, weil es dieselbe Frage für den Bildschirm ist:
-        # Erst stimmt die Hand, dann das Auge. Beides zusammen ist das, was
-        # ein Spieler „Präzision" nennt.
+        # ⚠ „Achsen & Kurven" steht NICHT hier, sondern unter „Für
+        # Fortgeschrittene" — Begründung dort. „Blickwinkel" bleibt offen:
+        # Es schreibt nichts und kann nichts kaputtmachen.
         self._reiter('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
                      g_einst)
 
@@ -2611,6 +2610,27 @@ class Hauptfenster:
                 # Hinter dem zugeklappten „Für Fortgeschrittene" ist sie
                 # weiterhin erreichbar, aber nicht mehr im Vorbeigehen.
                 self._reiter('bestand', 'bestand', t('hf_bestand'),
+                             self.klappinhalt)
+                # ⚠ **„Achsen & Kurven" aus demselben Grund wie der Bestand.**
+                # Die Seite schreibt in die `actionmaps.xml` — die Datei, an
+                # der die komplette Steuerung des Spielers hängt. Wer nicht
+                # weiß, was Sättigung ist, macht sich damit den Stick
+                # unbrauchbar.
+                #
+                # Sie stand zuerst offen zwischen „Steuerung" und
+                # „Blickwinkel" — und genau das ist prompt passiert: Ein
+                # Hinweis, der wie ein Fehler aussieht, wird weggeklickt, und
+                # dabei überschreibt man sich funktionierende Werte. Das ist
+                # kein Vorwurf an irgendwen, sondern der Normalfall: Was oben
+                # steht und dringend aussieht, wird angefasst.
+                #
+                # ⚠ **„Blickwinkel" bleibt dagegen oben.** Die Seite schreibt
+                # **nichts** — sie liest, rechnet und nennt eine Zahl, die der
+                # Spieler selbst im Spiel einträgt. Kein Risiko, und der
+                # Nutzen ist sofort verständlich. Das Kriterium ist nicht,
+                # wie fachlich etwas wirkt, sondern ob es etwas kaputtmachen
+                # kann.
+                self._reiter('achsen', 'achsen', t('hf_achsen'),
                              self.klappinhalt)
             self.klappknopf.configure(text=t('hf_fortgeschritten'))
         else:

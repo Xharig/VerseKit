@@ -175,6 +175,30 @@ def kennt(name):
     return _finden(name) is not None
 
 
+def hersteller(name):
+    """Der Hersteller zu einem Schiffsnamen — oder `''`.
+
+    ⚠ **Warum das nötig ist.** UEX führt den Hersteller im Namen mit („MISC
+    Prospector"), der Spieler tippt aber nur „Prospector". Ohne Hersteller
+    findet `erkul` einen Teil der Schiffe nicht: Gemessen am 06.09.2026 fand es
+    Vulture und Corsair auch ohne, die **Prospector aber nicht**. Auf der
+    Wunschliste gibt es keinen Export, aus dem der Hersteller käme — also wird
+    er hier aus dem UEX-Namen geholt und beim Eintragen mitgespeichert.
+
+    Geliefert wird der Teil **vor** dem gesuchten Namen, nicht bloß das erste
+    Wort: Bei „Mirai Fury LX" heißt der Hersteller „Mirai", bei „Aegis Dynamics
+    Sabre" die vollen zwei Wörter.
+    """
+    eintrag = _finden(name)
+    if not eintrag:
+        return ''
+    voll = (eintrag.get('name') or '').strip()
+    gesucht = (name or '').strip()
+    if voll.lower().endswith(' ' + gesucht.lower()):
+        return voll[:len(voll) - len(gesucht)].strip()
+    return ''
+
+
 def ist_konzept(name):
     """Ist das Schiff laut UEX ein Konzept — also noch nicht im Spiel?
 

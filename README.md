@@ -178,6 +178,23 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 
 </details>
 
+### Was Totzone, Sättigung und Empfindlichkeit bewirken
+
+Unter **Für Fortgeschrittene → Achsen & Kurven** lässt sich einstellen, wie scharf jede Stick-Achse reagiert. Drei Werte, und jeder verbiegt die Kurve anders:
+
+<img src="assets/erklaerung-kurve.png" alt="Vier Kurven: ohne Einstellung, mit Totzone, mit Sättigung, mit Empfindlichkeit" width="100%">
+
+| Wert | Was er macht | Wofür |
+|---|---|---|
+| **Totzone** | Der Anfang des Wegs tut nichts | Gegen zitternde Sticks, die in der Mitte nicht ruhig stehen |
+| **Sättigung** | Vollausschlag schon vor dem Anschlag | Wenn der Stick mechanisch nicht ganz durchgeht oder volle Wirkung früher kommen soll |
+| **Empfindlichkeit** | Über 1 hängt die Kurve durch, unter 1 wölbt sie sich | Über 1: feineres Zielen um die Mitte. Unter 1: direkter, giftiger |
+
+Die gestrichelte Linie zeigt, wie es ohne jede Einstellung liefe. Die dunklen Flächen sind der Weg, auf dem sich nichts mehr ändert.
+
+> [!NOTE]
+> Star Citizen merkt sich diese Werte an einer internen Nummer des Geräts, nicht an seinem Namen. Bekommt ein Stick eine neue Nummer — anderer USB-Anschluss, neue Firmware —, hält das Spiel ihn für ein neues Gerät, und die alten Werte bleiben wirkungslos in der Datei stehen. Der Watcher findet solche Altlasten und räumt sie auf Wunsch weg.
+
 ## Warum dieses Tool
 
 Bauplan-Listen gibt es mehrere. Vier Dinge machen den Unterschied im Alltag:

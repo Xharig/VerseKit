@@ -193,8 +193,12 @@ def wunsch_hinzufuegen(daten, name, hersteller=''):
         return False
     if wunsch_enthaelt(daten, name):
         return False
+    # `belegung` liegt leer bereit, genau wie beim Hangar-Schiff: Auch ein
+    # Wunschschiff lässt sich ausstatten, und so kostet das später keinen
+    # Formatwechsel.
     daten.setdefault('wunsch', []).append(
-        {'name': name.strip(), 'hersteller': (hersteller or '').strip()})
+        {'name': name.strip(), 'hersteller': (hersteller or '').strip(),
+         'belegung': {}})
     return True
 
 
@@ -376,9 +380,42 @@ def unbekannt(daten=None):
     return raus
 
 
+def wunsch_kennsaetze(daten=None):
+    """Dasselbe für die Wunschliste — je Wunsch `(name, hersteller, '', '')`.
+
+    ⚠ **Getrennt von `kennsaetze()`, mit Absicht.** Beide Listen holen dieselbe
+    Art Daten, dürfen aber nie in denselben Topf: `kennsaetze()` speist auch
+    „passt in dein Schiff", und ein Wunschschiff hat man nicht. Wer die Listen
+    hier zusammenlegt, beantwortet dort eine Frage über fremdes Eigentum.
+
+    ⚠ **Ein fehlender Hersteller wird nachgeschlagen.** Wünsche, die vor dem
+    06.09.2026 eingetragen wurden, haben keinen — und ohne ihn findet `erkul`
+    einen Teil der Schiffe nicht. Statt diese Einträge stillschweigend
+    auszulassen, wird der Hersteller bei UEX geholt. Geschrieben wird dabei
+    nichts: Eine Leseabfrage, die nebenbei die Datei ändert, überrascht später
+    an einer Stelle, an der niemand damit rechnet.
+    """
+    from . import schiffe as alle
+    raus = []
+    for w in ((daten or laden()).get('wunsch') or []):
+        if not (isinstance(w, dict) and w.get('name')):
+            continue
+        name = w.get('name') or ''
+        raus.append((name, w.get('hersteller') or alle.hersteller(name),
+                     '', ''))
+    return raus
+
+
 def daten_nachziehen(daten=None):
-    """Die Steckplätze aller Hangar-Schiffe holen, soweit sie fehlen.
+    """Die Steckplätze aller Schiffe holen, soweit sie fehlen.
 
     Gibt zurück, wie viele Schiffe neu geholt wurden.
+
+    ⚠ **Die Wunschliste zählt mit.** Wer sich ein Schiff vornimmt, will oft
+    gleich planen, was hineinsoll — am 06.09.2026 gefragt: „was ist, wenn
+    jemand ein Schiff und dazu ein besseres Fitting bauen oder kaufen will?"
+    Ohne Steckplatz-Daten steht auf der Wunschzeile nur eine Kaufsumme, und
+    die Ausstattung ließe sich erst planen, wenn das Schiff schon gekauft ist.
+    Geholt wird nur — verrechnet werden Wunschschiffe nirgends als Besitz.
     """
-    return erkul.nachtragen(kennsaetze(daten))
+    return erkul.nachtragen(kennsaetze(daten) + wunsch_kennsaetze(daten))

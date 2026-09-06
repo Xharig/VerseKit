@@ -883,8 +883,36 @@ TEXTE = {
                           'port, new firmware — the game treats it as a new '
                           'device, and the old settings stay in the file '
                           'without any effect.'),
-    's_ac_befund':     ('Alte Einstellungen, die nichts mehr tun',
-                          'Old settings that no longer do anything'),
+    # ⚠⚠ **Kein Alarm.** Die erste Fassung hieß „Diese Einstellungen wirken
+    # nicht mehr", stand in Gold ganz oben und hatte drei Knöpfe darunter.
+    # Das las sich wie ein Fehler, der behoben werden muss — mit der Folge,
+    # dass man reihum draufklickt und sich seine funktionierenden Werte mit
+    # alten, widersprüchlichen überschreibt. Genau so ist es passiert:
+    # Ein Hinweis, der wie ein Fehler aussieht, wird weggeklickt — das ist der
+    # Normalfall und kein Vorwurf. Hier führte es dazu, dass man reihum auf
+    # „Übernehmen" drückt und sich funktionierende Werte mit alten,
+    # widersprüchlichen überschreibt.
+    #
+    # Jetzt: neutraler Titel, zugeklappt, unter den Einstellungen statt
+    # darüber, und der erste Satz sagt, dass alles in Ordnung ist.
+    's_ac_befund':     ('Altbestand in der Belegungsdatei',
+                          'Leftovers in the bindings file'),
+    's_ac_befund_kopf': ('{} alte Einträge von früheren Gerätenummern',
+                           '{} old entries from earlier device numbers'),
+    's_ac_befund_ruhig': ('Deine aktuellen Einstellungen sind in Ordnung — '
+                          'hier musst du nichts tun.',
+                            'Your current settings are fine — there is '
+                            'nothing you need to do here.'),
+    's_ac_befund_warnung': ('⚠ »Übernehmen« überschreibt deine jetzigen Werte '
+                            'mit den alten. Mehrere alte Einträge '
+                            'widersprechen sich oft — dann macht der zweite '
+                            'Klick den ersten wieder zunichte. Im Zweifel: '
+                            'nur aufräumen.',
+                              '⚠ “Carry over” overwrites your current values '
+                              'with the old ones. Several old entries often '
+                              'contradict each other — the second click then '
+                              'undoes the first. When in doubt: just clean '
+                              'up.'),
     # ⚠ Der Text erklärt die SACHE, nicht die Technik. Die erste Fassung
     # lautete „Das Gerät ist da, die Einstellung hängt an seiner alten
     # Kennung" — richtig, aber die Frage dazu war: „was heißt das?"
@@ -931,6 +959,46 @@ TEXTE = {
                          'daneben.',
                            '{} old entries removed. A backup was placed '
                            'alongside.'),
+
+    # -- Empfindlichkeit je Spielachse --
+    's_ac_kopf_empf':  ('Empfindlichkeit — die Mitte der Kurve',
+                          'Sensitivity — the middle of the curve'),
+    's_ac_lead_empf':  ('Über 1 hängt die Kurve durch: Kleine Bewegungen um '
+                        'die Mitte wirken schwächer, das Zielen wird feiner. '
+                        'Unter 1 wölbt sie sich nach oben und reagiert '
+                        'giftiger. Bei 1 ist sie gerade.\n\n'
+                        'Auf einer Stickachse liegen oft mehrere Funktionen — '
+                        'jede hat ihre eigene Empfindlichkeit.',
+                          'Above 1 the curve sags: small movements around the '
+                          'centre have less effect and aiming gets finer. '
+                          'Below 1 it bulges upwards and reacts more sharply. '
+                          'At 1 it is straight.\n\n'
+                          'One stick axis often carries several functions — '
+                          'each has its own sensitivity.'),
+    's_ac_keine_funktion': ('Auf dieser Achse liegt keine Flugfunktion.',
+                              'No flight function is bound to this axis.'),
+    # ⚠ Kurz halten: Der Knopf steht am Ende einer Reglerzeile, nicht unter
+    # einem Block. „In die Belegungsdatei schreiben" sprengte die Zeile.
+    's_ac_setzen':     ('Setzen', 'Set'),
+    # Die Spielachsen in verständlichen Worten. ⚠ Die technischen Namen
+    # stammen aus der Belegungsdatei und sind nicht übersetzbar — was hier
+    # fehlt, wird als technischer Name gezeigt statt verschwiegen.
+    's_ax_flight_move_pitch': ('Nicken', 'Pitch'),
+    's_ax_flight_move_yaw': ('Gieren', 'Yaw'),
+    's_ax_flight_move_roll': ('Rollen', 'Roll'),
+    's_ax_flight_move_strafe_vertical': ('Schub hoch/runter',
+                                           'Strafe up/down'),
+    's_ax_flight_move_strafe_lateral': ('Schub seitlich', 'Strafe sideways'),
+    's_ax_flight_move_strafe_longitudinal': ('Schub vor/zurück',
+                                               'Strafe forward/back'),
+    's_ax_flight_move_speed_range_rel': ('Geschwindigkeitsregler',
+                                           'Speed limiter'),
+    's_ax_flight_move_accel_range_rel': ('Beschleunigungsregler',
+                                           'Acceleration limiter'),
+    's_ax_flight_view': ('Umsehen', 'Look around'),
+    's_ax_flight_view_pitch': ('Umsehen hoch/runter', 'Look up/down'),
+    's_ax_flight_view_yaw': ('Umsehen links/rechts', 'Look left/right'),
+    's_ax_mining_throttle': ('Bergbau-Regler', 'Mining throttle'),
     's_ac_war':        ('war', 'was'),
     's_ac_jetzt':      ('jetzt', 'now'),
     's_ac_fehlt':      ('gar nicht gesetzt', 'not set at all'),

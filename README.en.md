@@ -178,6 +178,23 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 
 </details>
 
+### What dead zone, saturation and sensitivity do
+
+Under **Advanced → Axes & curves** you can set how sharply each stick axis responds. Three values, each bending the curve differently:
+
+<img src="assets/erklaerung-kurve-en.png" alt="Four curves: nothing set, with dead zone, with saturation, with sensitivity" width="100%">
+
+| Value | What it does | What for |
+|---|---|---|
+| **Dead zone** | The start of the travel does nothing | Against jittery sticks that will not sit still in the centre |
+| **Saturation** | Full deflection before the mechanical stop | When the stick does not travel all the way, or full effect should come sooner |
+| **Sensitivity** | Above 1 the curve sags, below 1 it bulges | Above 1: finer aiming around the centre. Below 1: more direct, sharper |
+
+The dashed line shows how it would run with nothing set. The dark areas are the travel where nothing changes any more.
+
+> [!NOTE]
+> Star Citizen ties these values to an internal device number, not to its name. When a stick gets a new number — a different USB port, new firmware — the game treats it as a new device, and the old values stay in the file without any effect. The watcher finds such leftovers and clears them out on request.
+
 ## Why this tool
 
 There are several blueprint lists. Four things make the difference day to day:
