@@ -3159,6 +3159,21 @@ TEXTE = {
                           'Ships and vehicles you want to earn or buy. Next to '
                           'them you see what they cost and where to get them.'),
     's_hg_wunsch_eintragen': ('Auf die Wunschliste', 'Add to wishlist'),
+    # ⚠ Steht in der Schiffszeile, damit man offene Posten sieht, ohne die
+    # Ausstattung aufzuklappen — in der Markenfarbe, nicht in Grau.
+    's_hg_offen':        ('{n} noch zu besorgen', '{n} still to get'),
+    # ⚠⚠ **Eine Warnung, keine Auszeichnung.** Ein neu geclaimtes Schiff kommt
+    # in der Werksausstattung zurück — wer ohne passende Versicherung claimt,
+    # verliert alles Eingebaute. Der Satz muss diesen Grund transportieren,
+    # sonst liest sich die Marke wie ein Lob.
+    's_hg_fertig':       ('fertig gefittet — beim Claimen aufpassen',
+                          'fully fitted — careful when claiming'),
+    's_hg_fertig_hilfe': ('Ein neu geclaimtes Schiff kommt so zurück, wie es '
+                          'ab Werk kommt. Ohne die passende Versicherung sind '
+                          'alle eingebauten Teile weg.',
+                          'A newly claimed ship comes back in its factory '
+                          'loadout. Without the right insurance, everything '
+                          'you fitted is gone.'),
     # Seit v3.19.0 ein eigener Reiter — die Wunschliste stand vorher unten auf
     # der Hangar-Seite und war dort nicht zu finden.
     's_wl_lead':         ('Was du dir vornimmst — mit Preis, Ort und der '
@@ -3187,6 +3202,9 @@ TEXTE = {
     # ⚠ Das Werkzeug kann nicht sehen, was im Schiff steckt — der Spieler hakt
     # ab. Gilt für gekauft **und** selbst gebaut.
     's_ek_erledigt':     ('erledigt', 'done'),
+    # ⚠ Am Posten selbst steht, was der Haken bedeutet: nicht „abgehakt",
+    # sondern „steckt im Schiff". Das ist die Aussage, um die es geht.
+    's_wk_eingebaut':    ('ist eingebaut', 'is fitted'),
     's_ek_abgehakt':     ('{n} erledigt', '{n} done'),
     # --- Farmliste: was an Rohstoffen fehlt (v3.19.0)
     # ⚠ In der WERKSTATT, nicht bei den Schiffen: „schiebt man

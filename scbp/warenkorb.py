@@ -434,6 +434,61 @@ def weg_setzen(eintrag, pfad, weg):
     return True
 
 
+def offene_anzahl(eintrag):
+    """Wie viele Plätze an diesem Schiff noch offen sind — **ohne** Netz.
+
+    ⭐⭐ **Damit man es sieht, ohne aufzuklappen.** Am 06.09.2026 gefragt: *„wie
+    sehe ich ohne Aufklappen, dass ich dort noch nicht besorgte Komponenten
+    habe?"* Gar nicht — in der Hangar-Liste stand nur „gekauft · LTI · 39
+    Steckplätze", und bei vierzig Schiffen klappt niemand alle auf.
+
+    ⚠ **Gezählt wird die gespeicherte Auslegung, nicht `posten()`.** Das ist
+    der ganze Sinn: `posten()` braucht die Steckplatz-Daten und läuft je Schiff
+    einmal durch — bei vierzig Schiffen wäre das Zeichnen der Liste ein
+    spürbares Warten, und genau deshalb wird der Warenkorb erst beim Aufklappen
+    gebaut. Hier reicht ein Blick ins eigene Feld.
+
+    ⚠ Die Zahl kann in einem Fall zu hoch sein: wenn jemand genau das Werksteil
+    ausgewählt hat, das ohnehin drinsteckt. Das ist eine seltene Eingabe, und
+    die Marke sagt „hier ist etwas eingetragen" — beim Aufklappen steht dann
+    die genaue Liste. Lieber einmal zu viel hinweisen als einen offenen Posten
+    verschweigen.
+    """
+    return sum(1 for teil in belegung(eintrag).values()
+               if isinstance(teil, dict) and not teil.get('erledigt'))
+
+
+def fertig_gefittet(eintrag):
+    """Steckt an diesem Schiff alles drin, was geplant war?
+
+    ⭐⭐ **Das ist keine Fleißmeldung, sondern eine Warnung.** Am 06.09.2026
+    erklärt: *„ich habe z. B. Super Hornet gefittet und versichert im Spiel,
+    und wenn ich das Schiff ohne Versicherung neu claime, würde ich die
+    Komponenten verlieren — also muss ich wissen, wo ich schon was fertig
+    gefittet habe, nicht nur wo ich noch was kaufen muss."*
+
+    Genau so ist es: Ein neu geclaimtes Schiff kommt in seiner
+    **Werksausstattung** zurück. Wer ein aufgerüstetes Schiff ohne die
+    passende Versicherung claimt, verliert alles, was er eingebaut hat — und
+    das können mehrere hunderttausend aUEC sein. Diese Auskunft ist im Zweifel
+    mehr wert als jede Preisliste in diesem Werkzeug.
+
+    ⚠ **Abgeleitet, nicht abgefragt.** Fertig ist, wo etwas geplant **und**
+    alles davon abgehakt ist. Ein zusätzlicher Schalter „ist fertig" wäre eine
+    zweite Wahrheit neben den Haken — und die beiden liefen früher oder später
+    auseinander.
+
+    ⚠ Ein Schiff ohne jede Planung ist **nicht** fertig gefittet, sondern
+    unberührt. Beides sähe im Code gleich aus (keine offenen Posten), bedeutet
+    aber das Gegenteil: einmal „alles drin", einmal „nie etwas vorgehabt".
+    """
+    werte = belegung(eintrag)
+    if not werte:
+        return False
+    return all(teil.get('erledigt') for teil in werte.values()
+               if isinstance(teil, dict))
+
+
 def erledigt(eintrag, pfad):
     """Ist dieser Posten abgehakt?"""
     return bool((belegung(eintrag).get(pfad) or {}).get('erledigt'))

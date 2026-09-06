@@ -6,6 +6,44 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc18 - 2026-09-06
+
+> **Tick off what is done — and see what is still in the ground.** The tool
+> cannot know whether a part you bought is already fitted; now you tick it off
+> and the total shrinks with it. Plus a new workshop page weighing your stock
+> against everything you want to build yourself.
+
+### New
+
+- **Tick off items.** Whatever you bought or built and fitted, you tick off —
+  it stays in the list but no longer counts towards the total. One tick for
+  both routes.
+- **"What to farm"** in the workshop: every raw material missing for your
+  planned parts, added up across all items. Ore below the required quality is
+  named rather than passed over.
+- **Military parts now appear in the picker.** They cannot be bought, only
+  built — which is why they were missing entirely. A size 2 quantum drive
+  gains two of them.
+- **Grade and class on every part**, in the picker and on the slot:
+  "A · Military · blueprint only". Where the class is unknown it is left out,
+  not guessed.
+
+### Improved
+
+- **The tab is called "Still missing"** instead of "Shopping list" — it covers
+  both routes, buying and building.
+- The part picker can be searched by grade and class too: "stealth" finds the
+  stealth components.
+
+### Fixed
+
+- **The "Buy" button was unreachable** whenever the shop name was long — the
+  price text pushed it out of the window. Anyone who had switched to "build it
+  yourself" could not switch back.
+- The location appeared twice in the price line.
+- **Grade showed as a number instead of a letter** on two parts out of three.
+- A wishlist ship only got its slots after a restart.
+
 ## v3.19.0-rc17 - 2026-09-06
 
 > **The hub now says what to do.** A stick with a new identifier looks like

@@ -14166,6 +14166,80 @@ def main():
         _st158._TEIL_VERZEICHNIS[0] = _vorher158
         _sp158.setzen(_alt158)
 
+    # ------------------------------------------------------------------
+    # 159. Abhaken, offene Posten und „fertig gefittet"
+    #
+    # ⭐⭐ Die wichtigste Pruefung dieses Bereichs, und zwar wegen der
+    # Spielmechanik dahinter: Ein neu geclaimtes Schiff kommt in seiner
+    # **Werksausstattung** zurueck. Wer ein aufgeruestetes Schiff ohne die
+    # passende Versicherung claimt, verliert alles Eingebaute — mehrere
+    # hunderttausend aUEC. Am 06.09.2026 erklaert: „ich habe Super Hornet
+    # gefittet und versichert, und wenn ich das Schiff ohne Versicherung neu
+    # claime, wuerde ich die Komponenten verlieren."
+    #
+    # Deshalb muss „fertig gefittet" zuverlaessig sein — eine falsche Marke
+    # waere hier schlimmer als gar keine.
+    #
+    # ⚠ Und der Fall, der beides auseinanderhaelt: Ein Schiff **ohne jede
+    # Planung** hat ebenfalls keine offenen Posten, ist aber NICHT fertig
+    # gefittet, sondern unberuehrt. Im Code sieht das gleich aus.
+    print()
+    print('159. Abhaken, offene Posten und fertig gefittet')
+    from scbp import warenkorb as _wk159
+
+    _leer159 = {'name': 'Arrow', 'belegung': {}}
+    _offen159 = {'name': 'Cutlass', 'belegung': {
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN},
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN}}}
+    _halb159 = {'name': 'Vulture', 'belegung': {
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN,
+               'erledigt': True},
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN}}}
+    _fertig159 = {'name': 'Super Hornet', 'belegung': {
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN,
+               'erledigt': True},
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN,
+               'erledigt': True}}}
+
+    pruefe(_wk159.offene_anzahl(_offen159) == 2, 'zwei offene Posten')
+    pruefe(_wk159.offene_anzahl(_halb159) == 1, 'einer abgehakt, einer offen')
+    pruefe(_wk159.offene_anzahl(_fertig159) == 0, 'alles abgehakt')
+    pruefe(_wk159.offene_anzahl(_leer159) == 0, 'nichts geplant, nichts offen')
+
+    pruefe(_wk159.fertig_gefittet(_fertig159),
+           'ein durchgehend abgehaktes Schiff gilt als fertig gefittet')
+    pruefe(not _wk159.fertig_gefittet(_halb159),
+           'ein halb erledigtes nicht')
+    pruefe(not _wk159.fertig_gefittet(_offen159), 'ein unberuehrtes nicht')
+    # ⚠⚠ Die Gegenprobe, auf die es ankommt.
+    pruefe(not _wk159.fertig_gefittet(_leer159),
+           'Gegenprobe: ein Schiff OHNE Planung ist nicht fertig gefittet, '
+           'obwohl es auch keine offenen Posten hat')
+
+    # Haken setzen und wieder wegnehmen.
+    pruefe(_wk159.erledigt_setzen(_offen159, 'p1', True), 'abhaken wirkt')
+    pruefe(_wk159.erledigt(_offen159, 'p1'), '* und steht danach drin')
+    pruefe(not _wk159.erledigt_setzen(_offen159, 'p1', True),
+           'zweimal dasselbe abhaken aendert nichts')
+    pruefe(_wk159.erledigt_setzen(_offen159, 'p1', False),
+           'der Haken laesst sich zurueckziehen')
+    pruefe(not _wk159.erledigt(_offen159, 'p1'), '* und ist dann weg')
+    pruefe(not _wk159.erledigt_setzen(_offen159, 'gibt-es-nicht', True),
+           'Gegenprobe: ein unbekannter Platz laesst sich nicht abhaken')
+
+    # Ein abgehakter Posten kostet nichts mehr, zaehlt aber nicht als Luecke.
+    _liste159 = [
+        {'weg': _wk159.KAUFEN, 'erledigt': True,
+         'kauf': {'zustand': _wk159.BEKANNT, 'preis': 1000}},
+        {'weg': _wk159.KAUFEN, 'erledigt': False,
+         'kauf': {'zustand': _wk159.BEKANNT, 'preis': 500}},
+    ]
+    _s159 = _wk159.summe(_liste159)
+    pruefe(abs(float(_s159.get('gesamt') or 0) - 500.0) < 0.01,
+           'die Summe laesst Abgehaktes aus (bekam: %s)' % _s159.get('gesamt'))
+    pruefe(not _s159.get('offen'),
+           '* und zaehlt es nicht als Posten ohne Preis')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

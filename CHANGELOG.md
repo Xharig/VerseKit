@@ -6,6 +6,45 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc18 - 2026-09-06
+
+> **Abhaken, was erledigt ist — und sehen, was noch im Boden liegt.** Das
+> Werkzeug kann nicht wissen, ob ein gekauftes Teil schon im Schiff steckt;
+> jetzt hakst du es ab, und die Summe schrumpft mit. Dazu eine neue Seite in
+> der Werkstatt, die dein Lager gegen alles rechnet, was du selbst bauen
+> willst.
+
+### Neu
+
+- **Posten abhaken.** Was du gekauft oder gebaut und eingebaut hast, hakst du
+  ab — es bleibt in der Liste stehen, zählt aber nicht mehr zur Summe. Ein
+  Haken für beide Wege.
+- **„Was ich farmen muss"** in der Werkstatt: alle Rohstoffe, die dir für deine
+  geplanten Bauteile fehlen, über alle Posten zusammengerechnet. Erz mit zu
+  geringer Güte wird genannt statt verschwiegen.
+- **Militärische Teile stehen jetzt in der Auswahl.** Sie sind nicht kaufbar,
+  nur herstellbar — bisher fehlten sie deshalb ganz. Bei einem Quantenantrieb
+  der Größe 2 kommen zwei dazu.
+- **Güte und Klasse an jedem Teil**, in der Auswahlliste und am Steckplatz:
+  „A · Militär · nur über Bauplan". Wo die Klasse unbekannt ist, wird sie
+  weggelassen und nicht geraten.
+
+### Verbessert
+
+- **Der Reiter heißt „Was noch fehlt"** statt „Einkaufsliste" — er führt beide
+  Wege, kaufen und selbst herstellen.
+- Die Teileauswahl lässt sich auch nach Güte und Klasse durchsuchen: „stealth"
+  findet die Tarn-Komponenten.
+
+### Behoben
+
+- **Der Knopf „Kaufen" war unerreichbar**, sobald der Ladenname lang war — der
+  Preistext hat ihn aus dem Fenster geschoben. Wer einmal auf „Selbst
+  herstellen" gewechselt hatte, kam nicht zurück.
+- Der Verkaufsort stand doppelt in der Preiszeile.
+- **Die Güte stand bei zwei von drei Teilen als Zahl** statt als Buchstabe.
+- Ein Wunschschiff bekam seine Steckplätze erst nach einem Neustart.
+
 ## v3.19.0-rc17 - 2026-09-06
 
 > **Der Hub sagt jetzt, was zu tun ist.** Ein Stick mit neuer Kennung sieht

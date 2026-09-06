@@ -10132,6 +10132,15 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              bg=FLAECHE, fg=SUB if teile else GOLD, font=fenster.f_klein,
              anchor='w').pack(side='left')
 
+    # Dieselbe Marke wie im Hangar — ein geplantes Wunschschiff hat oft mehr
+    # offene Posten als ein fertiges.
+    from . import warenkorb as _wk_marke
+    offen = _wk_marke.offene_anzahl(eintrag)
+    if offen:
+        tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
+                 fg=ACCENT, font=fenster.f_klein,
+                 anchor='w').pack(side='left', padx=(12, 0))
+
     # ⚠⚠ **Auch ein Wunschschiff lässt sich ausstatten.** Am 06.09.2026
     # gefragt: „was ist, wenn jemand ein Schiff und dazu ein besseres Fitting
     # bauen oder kaufen will?" Genau hier ist die Planung am meisten wert — vor
@@ -10209,6 +10218,33 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
 
+    # ⭐⭐ **Offene Posten sieht man, ohne aufzuklappen.** Am 06.09.2026
+    # gefragt: „wie sehe ich ohne Aufklappen, dass ich dort noch nicht
+    # besorgte Komponenten habe?" Gar nicht — bei vierzig Schiffen klappt
+    # niemand alle auf, und was man aufklappen muss, um es zu finden, findet
+    # man nicht.
+    #
+    # ⚠ In der Markenfarbe, nicht in Grau: Dieselbe Rückmeldung wie zu „passt
+    # in dein Schiff" — „in Grau nimmt es keiner wahr und fragt sich dann, wo
+    # er die Info findet".
+    from . import warenkorb as _wk_marke
+    offen = _wk_marke.offene_anzahl(eintrag)
+    if offen:
+        tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
+                 fg=ACCENT, font=fenster.f_klein,
+                 anchor='w').pack(side='left', padx=(12, 0))
+    elif _wk_marke.fertig_gefittet(eintrag):
+        # ⚠⚠ **Diese Marke ist eine Warnung, keine Auszeichnung.** Ein neu
+        # geclaimtes Schiff kommt in seiner Werksausstattung zurück: Wer ein
+        # aufgerüstetes Schiff ohne die passende Versicherung claimt, verliert
+        # alles Eingebaute. Deshalb steht sie in **Gold** wie die übrigen
+        # Vorsichtshinweise, nicht in der Markenfarbe wie eine Erfolgsmeldung.
+        _fertig = zeichen.zeile(unten, 'haken', grund=FLAECHE,
+                                farbe=zeichen.GELB, schrift=fenster.f_klein)
+        _fertig.pack(side='left', padx=(12, 4))
+        tk.Label(unten, text=t('s_hg_fertig'), bg=FLAECHE, fg=GOLD,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
     # Ausstattung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
     # Schiffen eine Liste bleibt und keine Bleiwüste wird.
     _warenkorb_block(fenster, karte, eintrag, daten)
@@ -10277,9 +10313,21 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
 
     if zustand == warenkorb.NICHTS_OFFEN:
-        _fliesstext(eltern, t('s_wk_nichts_offen'), fenster.f_klein,
-                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(4, 10),
-                    abzug=78)
+        # ⚠⚠ **Zwei Gründe für „nichts offen", zwei verschiedene Sätze.**
+        # Entweder war nie etwas geplant (dann steckt die Werksausstattung
+        # drin), oder alles Geplante ist eingebaut — und dann hängt an diesem
+        # Schiff ein echtes Risiko: Ein neu geclaimtes Schiff kommt in der
+        # Werksausstattung zurück, ohne passende Versicherung sind die
+        # eingebauten Teile weg. Beides gleich zu behandeln hieße, die
+        # teuerste Auskunft dieser Seite zu verschweigen.
+        if warenkorb.fertig_gefittet(eintrag):
+            _fliesstext(eltern, t('s_hg_fertig_hilfe'), fenster.f_klein,
+                        farbe=GOLD, grund=FLAECHE, fill='x', padx=(46, 16),
+                        pady=(4, 10), abzug=78)
+        else:
+            _fliesstext(eltern, t('s_wk_nichts_offen'), fenster.f_klein,
+                        grund=FLAECHE, fill='x', padx=(46, 16), pady=(4, 10),
+                        abzug=78)
         return
 
     warenkorb.anreichern(liste)
@@ -10667,18 +10715,52 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
     karte = tk.Frame(eltern, bg='#0c1017')
     karte.pack(fill='x', padx=(46, 16), pady=(0, 6))
 
+    fertig = bool(posten.get('erledigt'))
     kopf = tk.Frame(karte, bg='#0c1017')
     kopf.pack(fill='x', padx=12, pady=(8, 2))
-    tk.Label(kopf, text=posten.get('name') or '', bg='#0c1017', fg=FG,
-             font=fenster.f_fett, anchor='w').pack(side='left')
+
+    # ⭐⭐ **Der Haken sitzt am Posten selbst, nicht nur auf der Sammelliste.**
+    # Am 06.09.2026 dazu: „es muss auch anklickbar sein, ob eine Komponente
+    # schon eingebaut ist oder noch gekauft oder hergestellt werden muss."
+    # Genau hier steht man vor dem Schiff und sieht seine Plätze — hier fällt
+    # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
+    def abhaken(_e=None):
+        if warenkorb.erledigt_setzen(eintrag, posten['pfad'], not fertig):
+            meine.speichern({'format': meine.FORMAT,
+                             'schiffe': _hangar_liste(eintrag)})
+            neu_zeichnen()
+
+    haken = zeichen.zeile(kopf, 'haken', grund='#0c1017',
+                          farbe=zeichen.GRUEN if fertig else zeichen.GRAU,
+                          schrift=fenster.f_klein)
+    haken.configure(cursor='hand2')
+    haken.pack(side='left', padx=(0, 8))
+    haken.bind('<Button-1>', abhaken)
+
+    # ⚠ Erledigtes tritt zurück, bleibt aber lesbar — wer versehentlich
+    # abhakt, muss die Zeile wiederfinden.
+    tk.Label(kopf, text=posten.get('name') or '', bg='#0c1017',
+             fg=SUB if fertig else FG,
+             font=fenster.f_fett, anchor='w', cursor='hand2').pack(side='left')
     # Wogegen getauscht wird — ohne diese Angabe ist „non-stock" eine
     # Behauptung ohne Bezugsgröße.
-    if posten.get('werk_name'):
+    if fertig:
+        hinweis = t('s_wk_eingebaut')
+    elif posten.get('werk_name'):
         hinweis = t('s_wk_statt').format(name=posten['werk_name'])
     else:
         hinweis = t('s_wk_zusaetzlich')
-    tk.Label(kopf, text=hinweis, bg='#0c1017', fg=SUB, font=fenster.f_klein,
+    tk.Label(kopf, text=hinweis, bg='#0c1017',
+             fg=ACCENT if fertig else SUB, font=fenster.f_klein,
              anchor='w').pack(side='left', padx=(8, 0))
+    for teil in kopf.winfo_children():
+        teil.bind('<Button-1>', abhaken)
+
+    # ⚠ Ist der Posten erledigt, stehen die beiden Wege nicht mehr da: Die
+    # Frage „kaufen oder bauen" ist beantwortet, sobald das Teil drin ist.
+    if fertig:
+        tk.Frame(karte, bg='#0c1017', height=6).pack()
+        return
 
     def waehlen(weg):
         def tat():
