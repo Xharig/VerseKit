@@ -6,7 +6,14 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.19.0-rc15 - 2026-09-06
+
+> **Two sticks, one setup.** “Axes & curves” now does everything fine-tuning
+> needs: dead zone, saturation and sensitivity on sliders, with the curve next
+> to them showing what happens as you drag. One button copies it all to the
+> second stick, another swaps the bindings across when they end up on the
+> wrong hand after a restart. And whole setups can be saved under a name —
+> “with pedals” and “without pedals” are two clicks apart.
 
 ### New
 

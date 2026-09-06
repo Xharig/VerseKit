@@ -6,7 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.19.0-rc15 - 2026-09-06
+
+> **Zwei Sticks, eine Einstellung.** „Achsen & Kurven" kann jetzt alles, was
+> die Feinabstimmung braucht: Totzone, Sättigung und Empfindlichkeit an
+> Reglern, mit der Kurve daneben, die sofort zeigt, was passiert. Ein Knopf
+> überträgt alles auf den zweiten Stick, ein anderer tauscht die Belegungen
+> über Kreuz, wenn sie nach einem Neustart auf der falschen Hand sitzen. Und
+> ganze Einrichtungen lassen sich unter einem Namen sichern — „mit Pedalen"
+> und „ohne Pedale" sind zwei Klicks auseinander.
 
 ### Neu
 
