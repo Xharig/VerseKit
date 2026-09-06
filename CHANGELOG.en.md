@@ -26,6 +26,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   compared with the previous one, the same way on Windows and Linux.
 - **The wishlist is a tab of its own** under “Ships”. It used to sit at the
   bottom of the hangar page, unfindable behind forty ships.
+- **Grade and class on the part picker.** You build a ship for a purpose —
+  stealth, combat, mining. A plain list of names says nothing about that, and
+  hardly anyone knows the names by heart. Every part and every slot now says
+  what it is.
+- **Shopping list across all ships.** What to buy for the whole hangar at
+  once, instead of ship by ship.
 
 ### Improved
 

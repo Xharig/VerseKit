@@ -27,6 +27,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   wird gelesen und mit der vorigen verglichen, auf Windows und Linux gleich.
 - **Die Wunschliste ist ein eigener Reiter** unter „Schiffe". Sie stand vorher
   unten auf der Hangar-Seite und war hinter vierzig Schiffen nicht zu finden.
+- **Güte und Klasse an der Teileauswahl.** Man baut ein Schiff auf einen Zweck
+  hin — Tarnung, Kampf, Bergbau. Eine reine Namensliste sagt darüber nichts,
+  und die Namen kennt kaum jemand auswendig. Jetzt steht an jedem Teil und an
+  jedem Steckplatz, worum es sich handelt.
+- **Einkaufsliste über alle Schiffe.** Was für den ganzen Hangar zusammen zu
+  besorgen ist, statt Schiff für Schiff.
 
 ### Verbessert
 
