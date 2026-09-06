@@ -2087,6 +2087,11 @@ class Hauptfenster:
         # würde man da suchen."
         g_bergung = self._gruppe(t('hf_gruppe_bergung'), 'bergung')
         self._reiter('bergung', 'sicherung', t('hf_bergung'), g_bergung)
+        # ⚠ **Zweiter Reiter in dieser Gruppe.** „Was steckt drin?" sagt, was
+        # ein Wrack an Bord hat; hier steht, was davon der Fabricator wieder
+        # herausgibt. Zwei Schritte derselben Arbeit — erst schauen, dann
+        # entscheiden, ob sich das Ausbauen lohnt.
+        self._reiter('zerlegen', 'zerlegen', t('hf_zerlegen'), g_bergung)
 
         g_handel = self._gruppe(t('hf_gruppe_handel'), 'handel')
         self._reiter('handelslager', 'handelslager', t('hf_handelslager'),

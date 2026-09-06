@@ -113,6 +113,7 @@ def _bauer_tabelle():
         'einkaufsliste': _einkaufsliste,
         'farmliste':   _farmliste,
         'bergung':     _bergung,
+        'zerlegen':    _zerlegen,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
         'lager':       _lager,
@@ -9824,6 +9825,128 @@ def _einkaufsliste(fenster, rahmen):
     # und zwischen zwei Besuchen ändert sich im Hangar fast immer etwas.
     fenster.beim_zeigen['einkaufsliste'] = neu_zeichnen
     _aufbauen()
+
+
+def _zerlegen(fenster, rahmen):
+    """Was ein Fabricator aus einem Teil zurückgibt — vor dem Ausbauen wissen.
+
+    ⭐⭐ **Die Frage eines Bergungsspielers, bevor er den Schneidbrenner
+    ansetzt.** Vorschlag vom 06.09.2026: *„unter Bergung ein Extra-Fenster, wo
+    man Waffen, Komponenten etc. prüfen kann, wie viel Material man rausbekommt,
+    wenn man es im Fabricator zerlegt … so kann ein Salvager gleich entscheiden,
+    brauche ich die Komponente evtl. zum Zerlegen."*
+
+    ⚠⚠ **Die halbe Wahrheit wäre hier die gefährlichere.** „Man bekommt 50 %
+    zurück" stimmt — aber sechs Rohstoffe stehen auf der Sperrliste des
+    Fabricators und kommen **gar nicht** wieder, darunter Quantainium und
+    Stileron. Gemessen: Bei **258 von 400** Teilen ist mindestens einer davon
+    dabei. Ein Rechner, der stumpf halbiert, schickt zwei Drittel der Spieler
+    mit falschen Erwartungen los.
+    """
+    from . import bergung as bg, herstellung
+
+    _ueberschrift(fenster, rahmen, t('hf_zerlegen'), t('s_zl_lead'))
+    innen = _rollflaeche(rahmen)
+
+    regeln = bg.zerlege_regeln()
+    _fliesstext(innen,
+                t('s_zl_regel').format(prozent=int(regeln['anteil'] * 100),
+                                       dauer=regeln['dauer'],
+                                       n=len(regeln['gesperrt'])),
+                fenster.f_klein, fill='x')
+
+    gewaehlt = tk.StringVar()
+    block = tk.Frame(innen, bg=BG)
+    block.pack(fill='x', padx=24, pady=(14, 0))
+
+    ergebnis = tk.Frame(innen, bg=BG)
+    ergebnis.pack(fill='x', padx=24, pady=(14, 20))
+
+    def namen():
+        try:
+            return sorted((e.get('basis') or '') for e in herstellung.alle()
+                          if e.get('basis'))
+        except Exception as ausnahme:
+            fehler.merken('seiten.zerlegen.namen', ausnahme)
+            return []
+
+    def zeigen(name=None):
+        for kind in ergebnis.winfo_children():
+            kind.destroy()
+        gesucht = (name or gewaehlt.get() or '').strip()
+        if not gesucht:
+            return
+        zeilen, dauer = bg.zerlegen(gesucht)
+        if not zeilen:
+            # ⚠ Kein Rezept heisst nicht „gibt nichts zurück" — es heisst, dass
+            # wir es nicht wissen. Der Unterschied gehört gesagt.
+            _fliesstext(ergebnis, t('s_zl_kein_rezept').format(name=gesucht),
+                        fenster.f_klein, farbe=GOLD, fill='x')
+            return
+
+        tk.Label(ergebnis, text=gesucht, bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 2))
+        tk.Label(ergebnis, text=t('s_zl_dauer').format(dauer=dauer), bg=BG,
+                 fg=SUB, font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                               pady=(0, 8))
+
+        for zeile in zeilen:
+            _zerlege_zeile(fenster, ergebnis, zeile)
+
+        # ⭐ Die Kurzfassung unter dem Strich: Lohnt es sich überhaupt?
+        verloren = [z for z in zeilen if z['verloren']]
+        if verloren:
+            _fliesstext(ergebnis,
+                        t('s_zl_verloren').format(
+                            n=len(verloren),
+                            stoffe=', '.join(z['rohstoff'] for z in verloren)),
+                        fenster.f_klein, farbe=GOLD, fill='x', pady=(10, 0))
+        else:
+            _fliesstext(ergebnis, t('s_zl_alles_zurueck'), fenster.f_klein,
+                        farbe=ACCENT, fill='x', pady=(10, 0))
+
+    feld, liste, _ = _auswahlfeld(fenster, block, gewaehlt, namen,
+                                  beim_waehlen=zeigen,
+                                  beim_bestaetigen=lambda *_a: zeigen(),
+                                  leer_text=t('s_hg_nichts_gefunden'),
+                                  rollbar=200)
+    feld.pack(fill='x')
+    liste.pack(fill='x')
+
+    # ⚠ Beim erneuten Öffnen leer anfangen: Die Seite wird nur einmal gebaut,
+    # und ein Ergebnis von vorhin gehört nicht zur nächsten Frage.
+    def _beim_zeigen():
+        gewaehlt.set('')
+        for kind in ergebnis.winfo_children():
+            kind.destroy()
+
+    fenster.beim_zeigen['zerlegen'] = _beim_zeigen
+
+
+def _zerlege_zeile(fenster, eltern, zeile):
+    """Ein Rohstoff: was drinsteckt, was zurückkommt."""
+    rahmen = tk.Frame(eltern, bg=FLAECHE)
+    rahmen.pack(fill='x', pady=(0, 2))
+
+    tk.Label(rahmen, text=zeile.get('rohstoff') or '', bg=FLAECHE,
+             fg=SUB if zeile.get('verloren') else FG, font=fenster.f_klein,
+             anchor='w', width=22).pack(side='left', padx=(12, 0), pady=4)
+
+    # ⚠ **Der Rückgabewert steht rechts und in Farbe** — das ist die Zahl, wegen
+    # der jemand diese Seite öffnet. „steckt drin" daneben erklärt sie.
+    if zeile.get('verloren'):
+        tk.Label(rahmen, text=t('s_zl_nichts'), bg=FLAECHE, fg=GOLD,
+                 font=fenster.f_klein, anchor='e').pack(side='right',
+                                                        padx=(0, 12))
+    else:
+        tk.Label(rahmen, text=t('s_zl_zurueck').format(
+            menge=_zahl(zeile.get('zurueck'))),
+            bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
+            anchor='e').pack(side='right', padx=(0, 12))
+
+    tk.Label(rahmen, text=t('s_zl_drin').format(menge=_zahl(zeile.get('drin'))),
+             bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             anchor='w').pack(side='left')
 
 
 def _farmliste(fenster, rahmen):

@@ -6,6 +6,24 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc23 - 2026-09-06
+
+> **Lohnt sich das Zerlegen?** Ein neuer Reiter unter Bergung sagt dir vor dem
+> Ausbauen, welche Rohstoffe der Fabricator zurückgibt — und welche dabei
+> ersatzlos verschwinden. Das ist der Unterschied zwischen einem lohnenden
+> Wrack und einem umsonst geschleppten Bauteil.
+
+### Neu
+
+- **„Lohnt das Zerlegen?"** unter Bergung: Teil aussuchen, und es steht da,
+  was drinsteckt und was du zurückbekommst.
+- **⚠ Sechs Rohstoffe kommen nie zurück** — darunter Quantainium und Stileron.
+  Bei den meisten Teilen ist mindestens einer davon dabei; wer nur wegen des
+  Quantainiums zerlegt, hat umsonst geschleppt. Die Seite sagt es an jedem
+  Rohstoff einzeln.
+- Ausbeute und Dauer kommen aus den Spieldaten, nicht aus dem Programm —
+  ändert CIG sie mit einem Patch, ändert sich die Auskunft mit.
+
 ## v3.19.0-rc22 - 2026-09-06
 
 > **Ein Fehler hat die Wunschliste gelöscht.** Sobald du an irgendeinem Schiff

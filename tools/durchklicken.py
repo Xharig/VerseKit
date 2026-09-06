@@ -215,7 +215,7 @@ def main():
         hf.root.withdraw()
         try:
             for name in ('hangar', 'wunschliste', 'einkaufsliste',
-                         'farmliste'):
+                         'farmliste', 'bergung', 'zerlegen'):
                 hf.oeffnen(name)
                 hf.root.update()
                 gelesen = texte(hf.root)

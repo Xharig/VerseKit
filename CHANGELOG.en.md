@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc23 - 2026-09-06
+
+> **Is it worth dismantling?** A new tab under Salvage tells you before you cut
+> what the fabricator gives back — and what vanishes for good. That is the
+> difference between a worthwhile wreck and a part hauled for nothing.
+
+### New
+
+- **"Worth dismantling?"** under Salvage: pick a part and see what is inside
+  and what you get back.
+- **⚠ Six materials never come back** — Quantainium and Stileron among them.
+  Most parts contain at least one; anyone dismantling just for the Quantainium
+  hauled it for nothing. The page says so per material.
+- Yield and duration come from the game data, not from the program — if CIG
+  changes them in a patch, the answer changes with them.
+
 ## v3.19.0-rc22 - 2026-09-06
 
 > **A bug deleted the wishlist.** As soon as you added a component to any ship,

@@ -258,6 +258,100 @@ def gemerkt(schiff_id):
     return eintrag
 
 
+def zerlege_regeln():
+    """Die Regeln des Fabricators — Ausbeute, Dauer und was verloren geht.
+
+    Gibt `{'anteil', 'dauer', 'gesperrt'}` zurück; `gesperrt` ist eine Menge
+    kleingeschriebener Rohstoffnamen.
+
+    ⚠ **Alles gemessen, nichts angenommen.** Die Werte stehen in den
+    Craftdaten unter `dismantle` und kommen von dort, nicht aus einer Formel:
+    Anteil 0,5 · Dauer 15 s · sechs gesperrte Rohstoffe. Ändert CIG das mit
+    einem Patch, ändert sich diese Auskunft mit — ohne dass jemand eine Zahl
+    im Quelltext nachziehen muss.
+    """
+    from . import herstellung
+    roh = (herstellung.laden() or {}).get('dismantle') or {}
+    # ⚠ Die Feldnamen kommen aus den Craftdaten und werden hier NICHT
+    # übersetzt: `efficiency`, `dismantleTimeSeconds`, `blacklistedResources`.
+    # Wer sie beim Einlesen umbenennt, muss die Umbenennung bei jedem Patch
+    # nachziehen.
+    gesperrt = set()
+    for eintrag in roh.get('blacklistedResources') or []:
+        name = (eintrag or {}).get('name') if isinstance(eintrag, dict)             else eintrag
+        if name:
+            gesperrt.add(str(name).strip().lower())
+    # ⚠ **Auch die gesperrten Gegenstandsklassen zählen mit** — dort stehen
+    # Erze wie „Saldynium (Ore)", die als Rohstoff denselben Namen tragen.
+    for eintrag in roh.get('blacklistedEntityClasses') or []:
+        name = (eintrag or {}).get('name') if isinstance(eintrag, dict)             else eintrag
+        if name:
+            gesperrt.add(str(name).strip().lower())
+            # „Saldynium (Ore)" und „Saldynium" sind dasselbe Erz.
+            kurz = str(name).split('(')[0].strip().lower()
+            if kurz:
+                gesperrt.add(kurz)
+    return {'anteil': float(roh.get('efficiency') or 0.5),
+            'dauer': int(roh.get('dismantleTimeSeconds') or 0),
+            'gesperrt': gesperrt}
+
+
+def zerlegen(bauplan):
+    """Was beim Zerlegen dieses Teils herauskommt.
+
+    Gibt `(zeilen, dauer)` zurück. Je Zeile::
+
+        {'rohstoff', 'drin', 'zurueck', 'verloren'}
+
+    ⭐⭐ **Die Frage eines Bergungsspielers, bevor er ausbaut.** Vorschlag vom
+    06.09.2026: *„unter Bergung ein Extra-Fenster, wo man Waffen, Komponenten
+    etc. prüfen kann, wie viel Material man rausbekommt, wenn man es im
+    Fabricator zerlegt … so kann ein Salvager gleich entscheiden, brauche ich
+    die Komponente evtl. zum Zerlegen."*
+
+    ⚠⚠ **Manche Rohstoffe kommen NIE zurück** — und das ist die eigentliche
+    Auskunft. Sechs stehen auf der Sperrliste des Fabricators, darunter
+    **Quantainium** und **Stileron**. Wer ein Teil nur wegen des Quantainiums
+    zerlegt, hat umsonst geschleppt. Ein Rechner, der stumpf die Hälfte
+    ausweist, würde genau hier in die Irre führen.
+
+    ⚠ Gerechnet wird über **alle Stufen** des Rezepts: Ein mehrstufiges Teil
+    verbraucht auf jeder Stufe Material, und zerlegt wird das fertige Stück.
+    """
+    from . import herstellung
+
+    rezept = herstellung.rezept(bauplan)
+    if not rezept or not rezept.get('stufen'):
+        return [], 0
+
+    regeln = zerlege_regeln()
+    bedarf = {}
+    for stufe in rezept.get('stufen') or []:
+        for eintrag in stufe.get('zutaten') or []:
+            # (Bauteil, Rohstoff, Menge, Güte)
+            if len(eintrag) < 3:
+                continue
+            name = str(eintrag[1] or '').strip()
+            if not name:
+                continue
+            try:
+                menge = float(eintrag[2] or 0)
+            except (TypeError, ValueError):
+                continue
+            bedarf[name] = bedarf.get(name, 0.0) + menge
+
+    zeilen = []
+    for name in sorted(bedarf, key=lambda x: x.lower()):
+        verloren = name.lower() in regeln['gesperrt']
+        zeilen.append({
+            'rohstoff': name,
+            'drin': bedarf[name],
+            'zurueck': 0.0 if verloren else bedarf[name] * regeln['anteil'],
+            'verloren': verloren,
+        })
+    return zeilen, regeln['dauer']
+
+
 def wert(teile, preis_von):
     """Ladenwert der Teile — `(summe, mit_preis, ohne_preis)`.
 

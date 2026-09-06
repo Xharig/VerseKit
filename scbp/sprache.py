@@ -3255,6 +3255,35 @@ TEXTE = {
                           'Bauplan vorliegt: {teile}',
                           '{n} parts could not be calculated because no '
                           'blueprint is available: {teile}'),
+    # --- Zerlege-Rechner (v3.19.0) — Vorschlag aus der Bergungs-Ecke
+    's_zl_lead':         ('Such ein Teil heraus, dann steht hier, welche '
+                          'Rohstoffe der Fabricator dir zurückgibt — und '
+                          'welche dabei verloren gehen.',
+                          'Pick a part and this page shows which materials '
+                          'the fabricator gives back — and which are lost.'),
+    # ⚠ Die Zahlen kommen aus den Spieldaten, nicht aus dem Quelltext: Ändert
+    # CIG die Ausbeute, ändert sich dieser Satz mit.
+    's_zl_regel':        ('Der Fabricator gibt {prozent} % zurück und braucht '
+                          '{dauer} Sekunden. {n} Rohstoffe kommen dabei nie '
+                          'wieder — bei ihnen bringt Zerlegen nichts.',
+                          'The fabricator returns {prozent} % and takes '
+                          '{dauer} seconds. {n} materials never come back — '
+                          'dismantling gains you nothing there.'),
+    's_zl_dauer':        ('Zerlegen dauert {dauer} Sekunden',
+                          'Dismantling takes {dauer} seconds'),
+    's_zl_drin':         ('steckt drin: {menge}', 'contains: {menge}'),
+    's_zl_zurueck':      ('du bekommst {menge}', 'you get {menge}'),
+    's_zl_nichts':       ('kommt nicht zurück', 'not returned'),
+    's_zl_verloren':     ('{n} Rohstoffe bekommst du nicht zurück: {stoffe}',
+                          '{n} materials are not returned: {stoffe}'),
+    's_zl_alles_zurueck': ('Bei diesem Teil geht nichts verloren — die Hälfte '
+                           'von allem kommt zurück.',
+                           'Nothing is lost on this part — half of everything '
+                           'comes back.'),
+    's_zl_kein_rezept':  ('Zu „{name}" liegt kein Bauplan vor. Ohne ihn lässt '
+                          'sich nicht sagen, was darin steckt.',
+                          'No blueprint for "{name}". Without it there is no '
+                          'way to say what is inside.'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
                           'Schiffe ein oder setz eines auf die Wunschliste — '
                           'dann steht hier, was du dafür brauchst.',
@@ -3960,6 +3989,7 @@ TEXTE = {
     # neu") und sagt, welche Frage die Seite beantwortet.
     'hf_einkaufsliste':  ('Was noch fehlt', 'Still missing'),
     'hf_farmliste':      ('Was ich farmen muss', 'What to farm'),
+    'hf_zerlegen':       ('Lohnt das Zerlegen?', 'Worth dismantling?'),
     # ⚠ Kurz, weil es hinter Güte und Klasse in einer Listenzeile steht. Die
     # Aussage ist „in keinem Laden zu haben" — bei Militärteilen der Regelfall.
     's_wk_nur_bauplan':  ('nur über Bauplan', 'blueprint only'),

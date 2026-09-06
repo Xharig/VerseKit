@@ -14555,6 +14555,80 @@ def main():
             os.environ['SC_BP_HOME'] = _altheim163
         _sh163.rmtree(_ordner163, ignore_errors=True)
 
+    # ------------------------------------------------------------------
+    # 164. Der Zerlege-Rechner
+    #
+    # ⭐⭐ Die Frage eines Bergungsspielers vor dem Ausbauen: Was gibt der
+    # Fabricator zurueck? Vorschlag vom 06.09.2026.
+    #
+    # ⚠⚠ **Die halbe Wahrheit waere hier die gefaehrlichere.** „Man bekommt
+    # 50 % zurueck" stimmt — aber sechs Rohstoffe stehen auf der Sperrliste
+    # und kommen GAR NICHT wieder, darunter Quantainium und Stileron.
+    # Gemessen: Bei 258 von 400 Teilen ist mindestens einer davon dabei. Ein
+    # Rechner, der stumpf halbiert, schickt zwei Drittel der Spieler mit
+    # falschen Erwartungen los.
+    #
+    # ⚠ Legt sich die Daten SELBST hin — die Craftdaten sind ein geholter
+    # Zwischenspeicher und liegen im Wegwerf-Ordner nicht.
+    print()
+    print('164. Der Zerlege-Rechner')
+    from scbp import bergung as _bg164
+    from scbp import herstellung as _he164
+
+    _echt164 = (_he164.laden, _he164.rezept)
+    try:
+        _he164.laden = lambda: {'dismantle': {
+            'efficiency': 0.5,
+            'dismantleTimeSeconds': 15,
+            'blacklistedResources': [{'name': 'Quantainium'},
+                                     {'name': 'Riccite'}],
+            'blacklistedEntityClasses': [{'name': 'Saldynium (Ore)'}]}}
+        _he164.rezept = lambda name: {
+            'stufen': [{'zeit': 960,
+                        'zutaten': [['Frame', 'Iron', 0.64, 1],
+                                    ['Cycler', 'Riccite', 0.09, 1],
+                                    ['Barrel', 'Titanium', 0.32, 1]]},
+                       {'zeit': 120,
+                        'zutaten': [['Kern', 'Iron', 0.36, 1]]}]}
+
+        _regeln164 = _bg164.zerlege_regeln()
+        pruefe(abs(_regeln164['anteil'] - 0.5) < 0.001,
+               'der Anteil kommt aus den Spieldaten (%.2f)'
+               % _regeln164['anteil'])
+        pruefe(_regeln164['dauer'] == 15, 'die Dauer ebenso')
+        pruefe('quantainium' in _regeln164['gesperrt'],
+               'die Sperrliste ist da')
+        # ⚠ „Saldynium (Ore)" und „Saldynium" sind dasselbe Erz.
+        pruefe('saldynium' in _regeln164['gesperrt'],
+               'auch die Kurzform eines gesperrten Erzes gilt')
+
+        _zeilen164, _dauer164 = _bg164.zerlegen('Testteil')
+        _nach164 = dict((z['rohstoff'], z) for z in _zeilen164)
+        pruefe(len(_zeilen164) == 3,
+               'drei verschiedene Rohstoffe (bekam: %d)' % len(_zeilen164))
+        # ⚠ Ueber ALLE Stufen: Iron steckt zweimal drin (0,64 + 0,36 = 1,0).
+        pruefe(abs(_nach164['Iron']['drin'] - 1.0) < 0.001,
+               'Mengen aus mehreren Stufen werden addiert (%.2f)'
+               % _nach164['Iron']['drin'])
+        pruefe(abs(_nach164['Iron']['zurueck'] - 0.5) < 0.001,
+               '* und die Haelfte kommt zurueck (%.2f)'
+               % _nach164['Iron']['zurueck'])
+        # ⚠⚠ Der Punkt, um den es geht.
+        pruefe(_nach164['Riccite']['verloren'],
+               'ein gesperrter Rohstoff ist als verloren gekennzeichnet')
+        pruefe(_nach164['Riccite']['zurueck'] == 0,
+               '* und gibt NICHTS zurueck, nicht die Haelfte')
+        pruefe(not _nach164['Titanium']['verloren'],
+               'Gegenprobe: ein nicht gesperrter Rohstoff ist nicht verloren')
+
+        # Ohne Rezept keine Behauptung.
+        _he164.rezept = lambda name: None
+        _leer164, _ = _bg164.zerlegen('Gibt es nicht')
+        pruefe(_leer164 == [],
+               'Gegenprobe: ohne Rezept wird nichts erfunden')
+    finally:
+        _he164.laden, _he164.rezept = _echt164
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

@@ -242,6 +242,12 @@ KNOPF_SYMBOLE = {
     # Dinge, zwei verschiedene Bilder" zielt auf **eine** Leiste — dort kommt
     # die Raute genau einmal vor.
     'farmliste':    'diamond',
+    # Der Zerlege-Rechner: Was gibt der Fabricator zurück? Ein
+    # Schraubenschlüssel steht für „auseinandernehmen" — und ist im Satz noch
+    # frei. Bewusst **nicht** `package` (das trägt das Lager) und nicht
+    # `sicherung` (das ist die Bergungs-Seite daneben; zwei Reiter in
+    # derselben Gruppe müssen unterscheidbar bleiben).
+    'zerlegen':     'wrench',
     # Der Laden, in dem ein fertiges Teil im Regal steht — die Gegenrichtung
     # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.
