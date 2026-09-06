@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc1 - 2026-09-06
+
+> **Your hangar joins in — and with it the question that follows every new
+> blueprint: does this part even fit any of my ships?** Add your ships, and
+> crafting will tell you where the blueprint belongs. You can pull the hangar
+> out of the pledge store in one go; ships bought in-game go in by hand right
+> next to it.
+
+### New
+
+- **My hangar.** A new section under *Workshop*: which ships you own, where
+  they came from, and how many slots they have.
+- **Import from the pledge store.** The browser add-on *Star Citizen Hangar
+  XPLORer* puts your hangar into a file — the watcher reads it and takes over
+  ships along with LTI and pledge names. Use the JSON file; CSV is read as
+  well, but came out incomplete in a real export.
+- **Add by hand.** Ships bought in-game are in no export. Every ship records
+  where it came from.
+- **"Fits your ship".** Crafting now shows, right below the shop price, which
+  of your ships the part fits — and how many slots it has there. With no ships
+  added it points you to where you add them, rather than saying "fits nowhere".
+- Slot data comes from **erkul.games** and is stored on your own machine. Only
+  what you actually have in your hangar is fetched, and only once per game
+  patch. Suggested by Zwaersch (KRT).
+
 ## v3.18.2 - 2026-09-06
 
 > **A button that says what it does.** It read "Refresh now" — but it fetches

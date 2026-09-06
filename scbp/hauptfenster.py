@@ -1989,6 +1989,13 @@ class Hauptfenster:
         # Xharig am 29.08.2026 selbst beschrieben, und so liest sich die
         # Leiste von oben nach unten wie ein Ablauf statt wie eine Sammlung.
         g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
+        # ⚠ **Vor dem Lager, nicht dahinter.** Die Kette der Werkstatt beginnt
+        # bei „was habe ich" — und das sind zwei Dinge: die Schiffe und das
+        # Material. Der Hangar steht zuerst, weil er die Frage beantwortet, die
+        # auf einen neuen Bauplan sofort folgt („passt das überhaupt irgendwo
+        # rein?"); das Material kommt erst, wenn man sich fürs Bauen entschieden
+        # hat.
+        self._reiter('hangar', 'hangar', t('hf_hangar'), g_werk)
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)
         self._reiter('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._reiter('bergbau', 'herkunft', t('hf_bergbau'), g_werk)

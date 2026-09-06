@@ -1466,6 +1466,19 @@ TEXTE = {
                         'finds their way back to the original translation.'),
     's_dk_freiwillig': ('freiwillig', 'optional'),
     's_dk_keine_lizenz': ('keine Lizenzangabe', 'no licence stated'),
+    's_dk_erkul':      ('Welche Steckplätze ein Schiff hat und in welcher '
+                        'Größe. Damit beantwortet das Werkzeug die Frage, die '
+                        'auf jeden neuen Bauplan folgt: Passt das Teil '
+                        'überhaupt in eines deiner Schiffe?',
+                        'Which slots a ship has, and in what size. This lets '
+                        'the tool answer the question that follows every new '
+                        'blueprint: does the part even fit any of your ships?'),
+    's_dk_xplorer':    ('Die Browser-Erweiterung, mit der du deinen Hangar aus '
+                        'dem Pledge-Store holst — sonst müsste jedes Schiff von '
+                        'Hand eingetippt werden.',
+                        'The browser add-on that gets your hangar out of the '
+                        'pledge store — otherwise every ship would have to be '
+                        'typed in by hand.'),
     's_dk_tester':     ('Tester', 'tester'),
     's_dk_leute':      ('Und Danke an', 'And thanks to'),
     's_dk_leute_h':    ('Wer einen Fehler findet oder einen guten Vorschlag macht, '
@@ -1562,6 +1575,16 @@ TEXTE = {
                               '**Reputation and cooldown in the contract texts** — '
                               'asked twice, persistently, until they were not just '
                               'there but actually noticeable.'),
+    's_dk_zwaersch_idee':    ('**Was steckt in einem Wrack?** Der Wunsch, vor '
+                              'dem Aussteigen zu wissen, ob sich das Bergen '
+                              'lohnt — daraus ist der ganze Anschluss an die '
+                              'Schiffsdaten entstanden, und damit auch „passt '
+                              'der Bauplan in mein Schiff".',
+                              '**What is inside a wreck?** Wanting to know '
+                              'whether salvaging is worth it before you get '
+                              'out — that is where the whole ship-data '
+                              'connection came from, and with it „does this '
+                              'blueprint fit my ship".'),
     's_dk_zwaersch_bugs':    ('Dass Ein- **und** Ausfuhr das neuere Format von '
                               'scmdb.net nicht kannten, und dass ein '
                               'Kanalwechsel die ganze Vorgeschichte kostete — '
@@ -2470,6 +2493,100 @@ TEXTE = {
     's_vk_alter_frisch': ('gerade eben', 'just now'),
     's_vk_alter_stunden': ('vor {n} Std.', '{n}h ago'),
     's_vk_alter_tage':   ('vor {n} Tagen', '{n}d ago'),
+    # ----------------------------------------------- Reiter „Mein Hangar"
+    's_hg_lead':         ('Welche Schiffe dir gehören. Damit beantwortet das '
+                          'Werkzeug die Frage, die auf jeden neuen Bauplan '
+                          'folgt: Passt das Teil überhaupt in eines deiner '
+                          'Schiffe?',
+                          'Which ships you own. This lets the tool answer the '
+                          'question that follows every new blueprint: does the '
+                          'part even fit any of your ships?'),
+    's_hg_hinweis':      ('Das Spiel schreibt deinen Hangar nirgends auf — im '
+                          'Protokoll stehen nur Zahlen, keine Namen. Deshalb '
+                          'kommt die Liste von dir: entweder aus dem Export '
+                          'unten oder von Hand.',
+                          'The game does not record your hangar anywhere — its '
+                          'log has numbers, not names. So the list comes from '
+                          'you: either from the export below, or by hand.'),
+    # --- Import
+    's_hg_import_titel': ('Aus dem Pledge-Store holen', 'Import from the pledge store'),
+    's_hg_import_text':  ('Die Browser-Erweiterung Star Citizen Hangar XPLORer '
+                          'setzt auf deiner Pledge-Seite zwei Knöpfe. Lade dort '
+                          '„Download JSON" herunter und wähle die Datei hier '
+                          'aus.',
+                          'The browser add-on Star Citizen Hangar XPLORer adds '
+                          'two buttons to your pledge page. Use „Download JSON" '
+                          'there and pick the file here.'),
+    # ⚠ Der Hinweis auf JSON steht bewusst dabei: Bei einem echten Export vom
+    # 06.09.2026 fehlten der CSV-Fassung drei Schiffe, die in der JSON standen.
+    # Gelesen werden beide — empfohlen wird nur eines.
+    's_hg_import_json':  ('Nimm die JSON-Datei. Die CSV wird auch gelesen, ist '
+                          'aber unvollständig — bei einem echten Export fehlten '
+                          'darin drei Schiffe.',
+                          'Use the JSON file. CSV is read as well but comes out '
+                          'incomplete — in a real export three ships were '
+                          'missing from it.'),
+    's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
+    's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
+                          '{neu} ships added, {alt} were already there.'),
+    's_hg_import_leer':  ('In der Datei stand kein einziges Schiff. Ist das der '
+                          'Export von Hangar XPLORer?',
+                          'There was not a single ship in that file. Is this the '
+                          'Hangar XPLORer export?'),
+    's_hg_import_fehler': ('Die Datei ließ sich nicht lesen.',
+                           'That file could not be read.'),
+    's_hg_erweiterung':  ('Erweiterung holen', 'Get the add-on'),
+    # --- Von Hand
+    's_hg_hand_titel':   ('Von Hand eintragen', 'Add by hand'),
+    's_hg_hand_text':    ('Im Spiel gekaufte Schiffe stehen in keinem Export — '
+                          'die gehören hierher.',
+                          'Ships you bought in-game are in no export — add them '
+                          'here.'),
+    's_hg_schiff':       ('Schiff', 'Ship'),
+    's_hg_eintragen':    ('Eintragen', 'Add'),
+    's_hg_schon_da':     ('Das Schiff steht schon in deinem Hangar.',
+                          'That ship is already in your hangar.'),
+    's_hg_kein_name':    ('Such dir ein Schiff aus der Liste aus.',
+                          'Pick a ship from the list.'),
+    's_hg_getragen':     ('{name} ist jetzt in deinem Hangar.',
+                          '{name} is now in your hangar.'),
+    # --- Liste
+    's_hg_meine':        ('Meine Schiffe ({n})', 'My ships ({n})'),
+    's_hg_leer':         ('Noch kein Schiff eingetragen.', 'No ship added yet.'),
+    's_hg_pledge':       ('gekauft', 'pledged'),
+    's_hg_ingame':       ('im Spiel', 'in-game'),
+    's_hg_lti':          ('LTI', 'LTI'),
+    's_hg_plaetze':      ('{n} Steckplätze', '{n} slots'),
+    's_hg_entfernen':    ('Austragen', 'Remove'),
+    # ⚠ Kein „unbekannt": Erkul führt nur Schiffe, die im Spiel flugfähig sind.
+    # Ein Treffer hier heißt fast immer „gibt es noch nicht" — das ist eine
+    # Auskunft, keine Panne, und wird auch so gesagt.
+    's_hg_ohne_daten':   ('noch nicht im Spiel', 'not in the game yet'),
+    's_hg_ohne_erklaert': ('Für {n} Schiffe gibt es keine Steckplatz-Daten. Das '
+                           'sind fast immer Schiffe, die es im Spiel noch gar '
+                           'nicht gibt — sobald sie fliegen, kommen die Daten '
+                           'von selbst.',
+                           'No slot data for {n} ships. These are almost always '
+                           'ships not yet in the game — once they fly, the data '
+                           'arrives on its own.'),
+    's_hg_holen':        ('Steckplätze holen', 'Fetch slots'),
+    's_hg_geholt':       ('Steckplätze für {n} Schiffe geholt.',
+                          'Fetched slots for {n} ships.'),
+    's_hg_aktuell':      ('Alles auf dem neuesten Stand.', 'Everything up to date.'),
+    's_hg_quelle':       ('Steckplätze von erkul.games, Spielstand {version}.',
+                          'Slot data from erkul.games, game build {version}.'),
+    's_hg_keine_daten':  ('Noch keine Steckplatz-Daten geholt.',
+                          'No slot data fetched yet.'),
+    # --- Passt in mein Schiff
+    's_hg_passt_titel':  ('Passt in dein Schiff', 'Fits your ship'),
+    's_hg_passt_in':     ('Passt in: {schiffe}', 'Fits: {schiffe}'),
+    's_hg_passt_nirgends': ('Passt in keines deiner Schiffe.',
+                            'Does not fit any of your ships.'),
+    's_hg_passt_mehrfach': ('{name} ({n}×)', '{name} ({n}×)'),
+    's_hg_passt_leer':   ('Trag deine Schiffe unter „Mein Hangar" ein, dann '
+                          'steht hier, wo das Teil hineinpasst.',
+                          'Add your ships under „My hangar" and this will tell '
+                          'you where the part fits.'),
     # ----------------------------------------------- Reiter „Handelslager"
     's_hl_lead':         ('Was du zum Verkauf im Laderaum hast. Getrennt vom '
                           'Rohstofflager: Das hier willst du loswerden, '
@@ -2994,6 +3111,7 @@ TEXTE = {
     # das seit v3.3.0 in derselben Gruppe sitzt; drei Woerter waeren als
     # Ueberschrift zu lang geworden.
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
+    'hf_hangar':         ('Mein Hangar', 'My hangar'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),
     'hf_bergbau':        ('Bergbau', 'Mining'),
     # --- Gruppe „Handel" (v3.4.0) ---

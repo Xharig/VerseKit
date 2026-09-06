@@ -57,6 +57,8 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Rohstofflager** heißt, was es ist — passend zum Handelslager daneben |
 | ✅ | **Routen**: Handelsrouten mit Einkauf, Verkauf und echtem Gewinn — über mehrere Stationen, als Rundreise, oder die beste Route im ganzen Verse |
 | ✅ | **Schiffsdaten**: Frachtraum, Kaufpreis und Mietpreis — im Routenplaner wählst du dein Schiff, der Laderaum kommt von selbst |
+| ✅ | **Mein Hangar**: welche Schiffe dir gehören — aus dem Pledge-Store geholt oder von Hand eingetragen, mit Herkunft und Steckplätzen |
+| ✅ | **Passt in dein Schiff**: zu jedem Bauplan steht, in welche deiner Schiffe das Teil hineingehört und in wie viele Steckplätze |
 | ✅ | **Belegungen mitsichern**: Tastatur- und Joystick-Belegung gehen mit in die Sicherung und lassen sich als benanntes Profil dort ablegen, wo Star Citizen sie findet |
 
 ## Woran gearbeitet wird

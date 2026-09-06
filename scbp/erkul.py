@@ -1,0 +1,425 @@
+# -*- coding: utf-8 -*-
+#
+# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# Copyright (C) 2026 Xharig
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Welche Steckplätze ein Schiff hat — die Datenquelle dahinter.
+
+Beantwortet die eine Frage, die zwischen Bauplan und Schiff steht: *Wohin
+gehört das Teil eigentlich, und in welcher Größe?* Ohne diese Angabe ist ein
+frisch freigeschalteter Bauplan eine Zeile ohne Anschluss.
+
+## Woher
+
+[erkul.games](https://erkul.games), das Auslegungs-Werkzeug der Community.
+Seine Daten liegen offen unter `cdn.erkul.games` — Dateiendung `.bin`, innen
+aber ganz normales JSON, nur **raw-deflate** gepackt::
+
+    json.loads(zlib.decompress(rohbytes, -15))
+
+`zlib` gehört zur Standardbibliothek. **Keine neue Abhängigkeit** — das ist die
+wichtigste Regel des Projekts, und sie wird auch hier nicht aufgeweicht.
+
+> **Nichts davon wird mitgeliefert.** Geholt wird zur Laufzeit auf dem Rechner
+> des Nutzers, von der Original-Adresse, und dort abgelegt. Dieselbe Linie wie
+> bei scmdb und UEX.
+
+## ⭐⭐ Warum sich das überhaupt anschließen lässt: dieselbe Kennung
+
+Erkuls Feld `ref` ist **exakt** die Entitäts-Kennung, unter der auch UEX und
+scmdb denselben Gegenstand führen. Gegengeprüft am 06.09.2026::
+
+    BlastChill  →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (in laeden.py dokumentiert)
+                →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (erkul liefert dasselbe)
+
+⚠⚠ **Deshalb wird auch hier NIE über den Namen zugeordnet.** Genau daran ist es
+bei den Ladenpreisen schon einmal schiefgegangen.
+
+## ⚠ Der Sparmechanismus steckt in `catalog.bin`
+
+Die Dateinamen tragen einen Hash, der sich **mit jedem Patch ändert**:
+`coolers.a84a269d.bin`. Ein fest verdrahteter Name wäre nach dem nächsten
+Donnerstag tot.
+
+Deshalb steht am Anfang immer der Katalog (2,7 KB). Er nennt die Spielversion
+und alle aktuellen Dateinamen. Steht dort dieselbe `dataVersion` wie beim
+letzten Mal, ist Schluss — **ein kleiner Abruf, sonst nichts**. Das ist der
+ganze Grund, warum dieses Modul einen Server nicht belastet.
+
+## ⚠ Und es werden nur die Schiffe geholt, die der Spieler wirklich hat
+
+Erkul führt 194 Schiffe und 25 Bodenfahrzeuge, jedes in einer eigenen Datei von
+rund 16 KB. Alle zu holen wären 219 Abrufe für eine Frage, die sich auf drei
+oder dreißig Schiffe bezieht.
+
+Geholt wird deshalb **auf Zuruf**: Steht ein Schiff im Hangar (`hangar.py`) und
+fehlt in der Ablage, wird genau dieses eine geholt. Ein voller Hangar kostet
+einmalig so viele Abrufe, wie er Schiffe hat — danach nie wieder, bis CIG
+patcht.
+
+## Was abgelegt wird — und was nicht
+
+Aus 16 KB Rohdaten je Schiff bleiben ein paar Zeilen übrig: **welche Art
+Steckplatz in welcher Größe, und wie viele davon.** Alles andere (Kennwerte,
+Beschreibungen, Schubwerte) fliegt raus. Es geht um die Frage „passt das
+hinein" — nicht darum, erkul nachzubauen.
+
+    {"drak_cutlass_black": {
+        "name": "Drake Cutlass Black",
+        "plaetze": [{"art": "Cooler", "groesse": 2, "anzahl": 2}, …]}}
+
+⚠ **`api.erkul.games` wird nicht angefasst.** Der Wurzelabruf sagt ausdrücklich,
+dass sie privat ist und Fremdzugriff nicht erlaubt. Dieses Modul spricht
+ausschließlich mit dem CDN.
+"""
+import json
+import re
+import urllib.request
+import zlib
+
+from . import fehler, uex
+from .katalog import AUS, KENNUNG
+
+# Der Zweig, aus dem gelesen wird. PTU führt eigene Daten, die den Spieler auf
+# LIVE nur verwirren würden.
+ZWEIG = 'LIVE'
+BASIS = 'https://cdn.erkul.games'
+
+CACHE = 'erkul-schiffe.json'
+FORMAT = 1
+
+# Notfrist. Maßgeblich ist die Spielversion aus `catalog.bin` — diese Frist
+# greift nur, falls sich die gar nicht ermitteln lässt.
+HALTBAR = 30 * uex.TAG
+
+# ⭐⭐ **`patch_bindet=True`: Der Patch entscheidet, nicht die Uhr.**
+# Steckplätze ändern sich mit einem Spiel-Patch und sonst nie. Eine Zeitfrist
+# würde denselben Stand alle 30 Tage wegwerfen und neu holen — Abrufe, die
+# niemandem nützen und die erkul bezahlt.
+_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
+                     patch_bindet=True)
+
+# ⚠ Steckplätze, die den Spieler nichts angehen. `invisible` und `uneditable`
+# heißt: Das Spiel zeigt sie nicht und lässt sie nicht tauschen — ein Bauplan
+# kann dort also nie landen. Sie trotzdem anzuzeigen hieße, eine Möglichkeit zu
+# behaupten, die es nicht gibt.
+VERBORGEN = ('invisible', 'uneditable')
+
+# Welche Steckplatz-Arten überhaupt interessant sind. Ein Schiff hat auch
+# Plätze für Türen, Sitze und Leuchten; die tauchen in keinem Bauplan auf.
+#
+# ⚠ Die Namen kommen wörtlich aus erkuls Feld `accepts[].type` — nicht
+# übersetzen, nicht schön machen. Übersetzt wird erst in der Anzeige.
+#
+# ⭐⭐ **Und sie sind bei scmdb dieselben.** Gegengeprüft am 06.09.2026 über
+# alle 1.605 Gegenstände aus `crafting_items`: `WeaponGun`, `PowerPlant`,
+# `Cooler`, `Shield`, `Radar`, `QuantumDrive`, `WeaponMining`, `TractorBeam`,
+# `SalvageHead` heißen in beiden Quellen gleich. Deshalb braucht es **keine**
+# Übersetzungstabelle zwischen Bauplan-Art und Steckplatz-Art — und keine, die
+# bei jedem Patch nachgepflegt werden müsste.
+#
+# ⚠ Was scmdb hat und erkul nicht: `Char_Armor_*` und `WeaponPersonal`, also
+# rund 1.100 Rüstungsteile und FPS-Waffen. Für die gibt es hier nie eine
+# Antwort — sie kommen gar nicht erst bis hierher, weil ihnen die Größe fehlt.
+INTERESSANT = frozenset((
+    'Cooler', 'PowerPlant', 'Shield', 'QuantumDrive', 'Radar', 'JumpDrive',
+    'WeaponGun', 'Turret', 'TurretBase', 'MissileLauncher', 'Missile',
+    'BombLauncher', 'Bomb', 'MiningLaser', 'WeaponMining', 'SalvageHead',
+    'TractorBeam', 'TowingBeam', 'QuantumInterdictionGenerator', 'EMP',
+    'FlightController', 'Paints',
+    # ⚠ Die Aufsätze für Bergbau- und Bergungsköpfe. Ihre Steckplätze sitzen
+    # **im Laser**, nicht am Rumpf (`BONE_ItemPort_Consumable_1`) — beim
+    # Prospector drei Ebenen tief. Ohne sie fehlt genau die Sorte Bauplan, die
+    # Bergbau-Spieler zuerst freischalten.
+    'MiningModifier', 'SalvageModifier',
+    # Erzbehälter und Frachtaufsätze — die Ore Pods des Prospectors.
+    'Container', 'Cargo',
+))
+
+
+def _holen(pfad, stelle):
+    """Eine erkul-Datei abrufen und auspacken — oder `None`.
+
+    Wirft **nie**: Ohne Netz läuft das Werkzeug weiter wie vorher, genau wie
+    bei UEX. Der Grund steht dort ausführlich.
+    """
+    if AUS:
+        return None
+    adresse = '%s/%s' % (BASIS, pfad.lstrip('/'))
+    try:
+        anfrage = urllib.request.Request(
+            adresse, headers={'User-Agent': KENNUNG})
+        with urllib.request.urlopen(anfrage, timeout=uex.ZEITLIMIT) as antwort:
+            roh = antwort.read()
+        # ⚠ `-15` = raw deflate, ohne zlib-Kopf. Mit `zlib.decompress(roh)`
+        # allein scheitert es an genau dieser Stelle — der Kopf fehlt, weil
+        # erkul die Dateien schon gepackt ablegt statt sie zu übertragen.
+        return json.loads(zlib.decompress(roh, -15).decode('utf-8'))
+    except Exception as ausnahme:
+        fehler.merken('erkul.holen.' + stelle, ausnahme)
+        return None
+
+
+def katalog():
+    """Das Inhaltsverzeichnis — Spielversion und aktuelle Dateinamen."""
+    return _holen('%s/catalog.bin' % ZWEIG, 'katalog')
+
+
+def laden():
+    return _ablage.laden() or {}
+
+
+def alter():
+    return _ablage.alter()
+
+
+def spielversion():
+    """Die Spielversion, zu der die Ablage gehört — oder `''`."""
+    return laden().get('spielversion') or ''
+
+
+def kandidaten(name, hersteller='', kurz='', hkurz=''):
+    """Alle Schreibweisen, unter denen erkul dieses Schiff führen könnte.
+
+    Die Reihenfolge ist die Trefferquote, gemessen an einem echten
+    Hangar-Export (42 Einträge, 06.09.2026):
+
+    | Stufe | Treffer |
+    |---|---|
+    | Kurzname des Exports (`ANVL_Arrow` → `anvlarrow`) | **33** |
+    | Herstellerkürzel + angezeigter Name | **1** |
+
+    ⚠ Die restlichen acht sind **kein Zuordnungsfehler**: Crucible, Endeavor,
+    Galaxy, Liberator, Merchantman und die beiden ATLS gibt es im Spiel noch
+    gar nicht. Erkul führt nur Flugfähiges — ein Fehltreffer heißt hier also
+    „noch nicht im Spiel", nicht „unbekannt". Das ist eine Auskunft, keine
+    Panne, und wird dem Spieler auch so gesagt.
+    """
+    raus = []
+    # ⚠ Das **Kürzel** des Herstellers vor seinem ausgeschriebenen Namen:
+    # Erkul führt „Roberts Space Industries" als `rsi`. Ohne diese Zeile fand
+    # die Ursa Medivac keinen Anschluss, obwohl `rsi_ursa_medivac` existiert.
+    for versuch in (kurz, '%s %s' % (hkurz, name), name,
+                    '%s %s' % (hersteller, name)):
+        schlank = _schlank(versuch)
+        if schlank and schlank not in raus:
+            raus.append(schlank)
+    return raus
+
+
+def kennung(name, hersteller='', kurz='', hkurz=''):
+    """Ein Schiff → erkuls Kennung, oder `''`."""
+    bekannt = laden().get('schiffe') or {}
+    for schlank in kandidaten(name, hersteller, kurz, hkurz):
+        if schlank in bekannt:
+            return schlank
+    return ''
+
+
+def _schlank(text):
+    """`ANVL_F7C_Hornet` → `anvlf7chornet` — alles weg außer Buchstaben/Ziffern.
+
+    ⚠ Bewusst **ohne** Trennzeichen: Der Export schreibt `L_22_Alpha_Wolf`,
+    erkul `l22alphawolf`. Wer die Unterstriche behält, vergleicht zwei
+    Schreibweisen derselben Sache und findet nichts.
+    """
+    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+
+
+def _plaetze_sammeln(knoten, raus):
+    """Alle nutzbaren Steckplätze einsammeln, rekursiv.
+
+    ⚠⚠ **Die Steckplätze stehen unter `vehicle.hardpoints`, NICHT unter
+    `slots`.** Die beiden sehen sich ähnlich und meinen Verschiedenes:
+    `hardpoints` sagt, *was hineinpasst* (`accepts`, `minSize`, `maxSize`),
+    `slots` nur, *was gerade drinsteckt*. Wer `slots` liest, bekommt für jedes
+    Schiff **null** Steckplätze zurück — kein Fehler, keine Meldung, einfach
+    eine leere Liste. Genau das ist hier beim ersten Anlauf passiert.
+
+    ⚠ Rekursiv bleibt es trotzdem: Bei einem Turm hängen die Waffenplätze am
+    Turm-Bauteil, nicht am Rumpf. Wer nur die oberste Ebene liest, findet bei
+    einem bewaffneten Schiff keine einzige Waffe.
+    """
+    if not isinstance(knoten, list):
+        return
+    for platz in knoten:
+        if not isinstance(platz, dict):
+            continue
+        _einen_platz(platz, raus)
+        for feld in ('hardpoints', 'ports', 'children', 'slots'):
+            _plaetze_sammeln(platz.get(feld), raus)
+        teil = platz.get('item')
+        if isinstance(teil, dict):
+            for feld in ('ports', 'hardpoints', 'slots'):
+                _plaetze_sammeln(teil.get(feld), raus)
+
+
+def _einen_platz(platz, raus):
+    """Einen einzelnen Steckplatz auswerten, wenn er den Spieler angeht."""
+    flaggen = platz.get('flags') or {}
+    if any(flaggen.get(f) for f in VERBORGEN):
+        return
+    arten = []
+    for nimmt in (platz.get('accepts') or []):
+        art = (nimmt or {}).get('type')
+        if art in INTERESSANT:
+            arten.append(art)
+    if not arten:
+        return
+    groesse = platz.get('maxSize')
+    if groesse is None:
+        groesse = platz.get('minSize')
+    if groesse is None:
+        return
+    for art in arten:
+        raus.append((art, int(groesse)))
+
+
+def schiff_holen(erkul_id, pfad):
+    """Ein einzelnes Schiff holen und auf seine Steckplätze eindampfen."""
+    roh = _holen('%s/%s' % (ZWEIG, pfad), 'schiff')
+    if not isinstance(roh, dict):
+        return None
+    gefunden = []
+    _plaetze_sammeln((roh.get('vehicle') or {}).get('hardpoints'), gefunden)
+    # Zusätzlich die belegten Plätze durchgehen: Was in einem Turm steckt,
+    # bringt seine eigenen Waffenplätze mit.
+    _plaetze_sammeln(roh.get('slots'), gefunden)
+    gezaehlt = {}
+    for art, groesse in gefunden:
+        gezaehlt[(art, groesse)] = gezaehlt.get((art, groesse), 0) + 1
+    plaetze = [{'art': a, 'groesse': g, 'anzahl': n}
+               for (a, g), n in sorted(gezaehlt.items())]
+    name = ((roh.get('vehicle') or {}).get('vehicleDisplayName')
+            or (roh.get('i18n') or {}).get('name') or erkul_id)
+    return {'name': name, 'plaetze': plaetze}
+
+
+def nachtragen(saetze):
+    """Die genannten Schiffe holen, soweit sie noch fehlen.
+
+    `saetze` sind Tripel `(name, hersteller, kurz)` aus dem Hangar. Gibt
+    zurück, wie viele wirklich geholt wurden — `0` heißt „alles war schon da"
+    **oder** „kein Netz", und beides ist in Ordnung: Was fehlt, wird beim
+    nächsten Mal nachgeholt.
+    """
+    if AUS or not saetze:
+        return 0
+    kat = katalog()
+    if not isinstance(kat, dict):
+        return 0
+    version = kat.get('dataVersion') or ''
+    daten = laden()
+    # ⚠ Neuer Patch → alles Alte gilt nicht mehr. Steckplätze ändern sich mit
+    # einem Patch, und ein Schiff, das gestern vier Waffenplätze hatte, kann
+    # heute drei haben.
+    bekannt = ({} if daten.get('spielversion') != version
+               else dict(daten.get('schiffe') or {}))
+
+    # Der Index nennt jedes Schiff mit seiner aktuellen Datei.
+    verzeichnis = {}
+    for gruppe in (kat.get('groups') or []):
+        pfad = gruppe.get('indexPath')
+        if not pfad:
+            continue
+        index = _holen('%s/%s' % (ZWEIG, pfad), 'index')
+        for eintrag in ((index or {}).get('blobs') or []):
+            if eintrag.get('id') and eintrag.get('path'):
+                verzeichnis[_schlank(eintrag['id'])] = eintrag
+
+    geholt = 0
+    for satz in saetze:
+        name, hersteller, kurz, hkurz = (list(satz) + ['', '', ''])[:4]
+        moegliche = kandidaten(name, hersteller, kurz, hkurz)
+        if any(k in bekannt for k in moegliche):
+            continue
+        treffer = next((k for k in moegliche if k in verzeichnis), '')
+        if not treffer:
+            continue
+        eins = schiff_holen(treffer, verzeichnis[treffer]['path'])
+        if eins:
+            bekannt[treffer] = eins
+            geholt += 1
+
+    if geholt or daten.get('spielversion') != version:
+        _ablage.sichern({'spielversion': version, 'schiffe': bekannt})
+    return geholt
+
+
+def plaetze(name, hersteller='', kurz='', hkurz=''):
+    """Die Steckplätze eines Schiffs — oder `[]`, wenn es unbekannt ist."""
+    schluessel = kennung(name, hersteller, kurz, hkurz)
+    if not schluessel:
+        return []
+    return ((laden().get('schiffe') or {}).get(schluessel) or {}).get('plaetze') or []
+
+
+def passt(art, groesse, name, hersteller='', kurz='', hkurz=''):
+    """Passt ein Teil dieser Art und Größe in dieses Schiff?
+
+    Gibt die Anzahl passender Steckplätze zurück, `0` wenn keiner passt.
+
+    ⚠ **`0` heißt nicht immer „passt nicht".** Ist das Schiff gar nicht in der
+    Ablage — weil es im Spiel noch nicht existiert oder noch nicht geholt
+    wurde —, kommt ebenfalls `0`. Die Anzeige muss beide Fälle auseinander
+    halten; `kennt()` sagt, welcher vorliegt.
+    """
+    if not art or groesse is None:
+        return 0
+    try:
+        groesse = int(groesse)
+    except (TypeError, ValueError):
+        return 0
+    summe = 0
+    for platz in plaetze(name, hersteller, kurz, hkurz):
+        if platz.get('art') == art and int(platz.get('groesse', -1)) == groesse:
+            summe += int(platz.get('anzahl') or 0)
+    return summe
+
+
+def kennt(name, hersteller='', kurz='', hkurz=''):
+    """Liegen für dieses Schiff überhaupt Steckplatz-Daten vor?"""
+    return bool(kennung(name, hersteller, kurz, hkurz))
+
+
+def passende_schiffe(art, groesse, schiffe):
+    """In welche dieser Schiffe passt ein Teil dieser Art und Größe?
+
+    `schiffe` sind die Einträge aus `hangar.laden()['schiffe']`. Zurück kommen
+    Paare `(Schiffsname, Anzahl Steckplätze)`, die meisten Plätze zuerst.
+
+    ⭐ **Das ist die Auskunft, die keine fremde Seite geben kann** — nicht,
+    weil die Daten geheim wären, sondern weil keine Seite weiß, welche Schiffe
+    *dir* gehören und welche Baupläne *du* hast. Erkul kennt die Schiffe, der
+    Watcher kennt den Spieler; erst zusammen ergibt es eine Antwort.
+
+    ⚠ Eine leere Liste heißt „passt nirgends hinein" — **nicht** „keine Daten".
+    Wer beides gleich behandelt, sagt jemandem mit leerem Hangar, sein Teil
+    sei nutzlos. Die Anzeige prüft deshalb vorher, ob überhaupt ein Schiff
+    eingetragen ist.
+    """
+    if not art or groesse is None:
+        return []
+    raus = []
+    for s in (schiffe or []):
+        anzahl = passt(art, groesse, s.get('name') or '',
+                       s.get('hersteller') or '', s.get('kurz') or '',
+                       s.get('hkurz') or '')
+        if anzahl:
+            raus.append((s.get('name') or '', anzahl))
+    raus.sort(key=lambda x: (-x[1], x[0].lower()))
+    return raus

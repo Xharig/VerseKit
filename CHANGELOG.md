@@ -6,6 +6,32 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc1 - 2026-09-06
+
+> **Dein Hangar kommt dazu — und damit die Frage, die auf jeden neuen Bauplan
+> folgt: Passt das Teil überhaupt in eines meiner Schiffe?** Trag deine Schiffe
+> ein, und in der Herstellung steht künftig, wo der Bauplan hineingehört. Den
+> Hangar holst du dir in einem Zug aus dem Pledge-Store; im Spiel gekaufte
+> Schiffe trägst du daneben von Hand ein.
+
+### Neu
+
+- **Mein Hangar.** Ein neuer Bereich unter *Werkstatt*: welche Schiffe dir
+  gehören, woher sie kommen und wie viele Steckplätze sie haben.
+- **Import aus dem Pledge-Store.** Die Browser-Erweiterung *Star Citizen Hangar
+  XPLORer* legt dir deinen Hangar als Datei hin — der Watcher liest sie und
+  übernimmt Schiffe samt LTI und Paketnamen. Nimm die JSON-Datei; die CSV wird
+  auch gelesen, war bei einem echten Export aber unvollständig.
+- **Von Hand eintragen.** Im Spiel gekaufte Schiffe stehen in keinem Export.
+  Jedes Schiff trägt, woher es kommt.
+- **„Passt in dein Schiff".** In der Herstellung steht jetzt unter dem
+  Ladenpreis, in welche deiner Schiffe das Teil passt — und in wie viele
+  Steckplätze. Ohne eingetragene Schiffe steht dort der Hinweis, wo man sie
+  einträgt, nicht „passt nirgends".
+- Die Steckplatz-Daten kommen von **erkul.games** und werden auf deinem Rechner
+  abgelegt. Geholt wird nur, was du wirklich im Hangar hast, und nur einmal je
+  Spiel-Patch. Vorschlag von Zwaersch (KRT).
+
 ## v3.18.2 - 2026-09-06
 
 > **Ein Knopf, der sagt, was er tut.** „Jetzt auffrischen" hieß er — dabei holt

@@ -969,7 +969,14 @@ def main():
                 # ⚠ Am 04.09.2026 von 18 auf 19: **Routen** unter „Handel",
                 # hinter „Verkauf". Dort geht es um Ware, die man schon hat —
                 # hier um die Fahrt, die man erst plant.
-                pruefe(len(hf.knoepfe) == 19, 'alle Reiter sind wieder da')
+                #
+                # ⚠ Am 06.09.2026 von 19 auf 20: **Mein Hangar** unter
+                # „Werkstatt", noch vor dem Lager. Die Kette dort beginnt bei
+                # „was habe ich", und das sind zwei Dinge — die Schiffe und
+                # das Material. Die Schiffe zuerst, weil sie die Frage
+                # beantworten, die auf einen neuen Bauplan sofort folgt:
+                # passt das überhaupt irgendwo hinein?
+                pruefe(len(hf.knoepfe) == 20, 'alle Reiter sind wieder da')
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
@@ -12248,6 +12255,68 @@ def main():
     pruefe(not [z for z in (_leer137['contractInfo'] or '').split('\\n')
                 if any(w in z.lower() for w in _in136.RUF_WORTE)],
            'Gegenprobe: die Quelle selbst nennt keinen Ruf')
+
+    print()
+    print('138. Das Bilder-Werkzeug ist auf beiden Systemen einsatzbereit')
+    # ⚠⚠ Am 06.09.2026: Die Bilder der Anleitung waren anderthalb Wochen alt,
+    # das Overlay-Bild zeigte eine Fassung von vor 18 Versionen — mit einem
+    # Verhalten, das es seit v3.0.0-rc95 nicht mehr gibt. Der Grund war nicht
+    # Nachlaessigkeit: `bilder_machen.py` lief nur unter Windows und brach hier
+    # mit „braucht Windows" ab. Im Kopf des Werkzeugs steht „Was von Hand
+    # gemacht wird, verrottet" — das galt auch fuer es selbst.
+    #
+    # Diese Pruefung schaut auf den Quelltext, nicht auf einen Lauf: Bilder zu
+    # machen dauert Minuten und braucht einen Bildschirm. Sie faengt die drei
+    # Dinge ab, die still brechen koennen, ohne dass es jemand merkt — bis zum
+    # naechsten Bilderlauf, und der ist selten.
+    _bm138 = open(os.path.join(WURZEL, 'tools', 'bilder_machen.py'),
+                  encoding='utf-8').read()
+
+    # ⚠⚠ Das Wichtigste: Ein Werkzeug mit Fenster MUSS sich unsichtbar machen.
+    # Claudes Shell haengt an `DISPLAY=:0`, also am Monitor des Nutzers — ohne
+    # diesen Aufruf blitzt das Fenster dort auf und reisst den Tastaturfokus
+    # mit. Wer gerade Star Citizen fliegt, landet im Desktop und stirbt.
+    pruefe('unsichtbar.sicherstellen(' in _bm138,
+           'das Werkzeug startet sich unsichtbar neu')
+
+    # Beide Wege muessen da sein — sonst faellt ein System wieder heraus.
+    pruefe('def abgreifen_x11(' in _bm138, 'es gibt einen Linux-Abgriff')
+    pruefe('PrintWindow' in _bm138, 'der Windows-Abgriff ist noch da')
+    pruefe("if sys.platform != 'win32':\n        return abgreifen_x11" in _bm138,
+           'unter Linux wird auf den X11-Weg umgeschaltet')
+
+    # ⚠ Das Overlay ist keine Seite und faellt sonst wieder heraus — genau so
+    # ist sein Bild anderthalb Wochen alt geworden.
+    pruefe('def overlay_bild(' in _bm138, 'das Overlay hat einen eigenen Weg')
+    pruefe("'--nur-overlay'" in _bm138,
+           'und einen eigenen Prozess (zwei tk.Tk() vertraegt Tk nicht)')
+    # ⚠ Ohne `deiconify` misst Tk 1x1 Pixel und der Abgriff liefert nichts —
+    # daran scheiterte der erste Anlauf, und zwar wortlos.
+    pruefe('deiconify()' in _bm138,
+           'das versteckte Overlay wird vorher sichtbar gemacht')
+
+    # ⚠⚠ Und die Kopie muss auch das SPIEL schuetzen, nicht nur die eigenen
+    # Daten: `SC_BP_HOME` lenkt Bestand und Einstellungen um, die `global.ini`
+    # liegt woanders — `inj_auto` schreibt beim Start hinein.
+    pruefe('_gefaehrliches_abschalten' in _bm138,
+           'in der Kopie wird abgeschaltet, was ausserhalb wirkt')
+    pruefe("daten['inj_auto'] = False" in _bm138,
+           'die Auto-Injektion ist dabei ausgeschaltet')
+
+    # ⚠ Gegenprobe: Wuerde die Pruefung anschlagen? Ein Quelltext ohne diese
+    # Stellen muss durchfallen — sonst prueft alles darueber nichts.
+    _ohne138 = _bm138.replace('unsichtbar.sicherstellen(', 'pass  # (')
+    pruefe('unsichtbar.sicherstellen(' not in _ohne138,
+           'Gegenprobe: ein Werkzeug ohne den Aufruf faellt durch')
+
+    # Alle 32 Bilder der Anleitung sind da — 16 Seiten in zwei Sprachen.
+    _bilder138 = [n for n in os.listdir(os.path.join(WURZEL, 'assets'))
+                  if n.startswith('screenshot-') and n.endswith('.png')]
+    pruefe(len(_bilder138) == 32,
+           'die Anleitung hat ihre 32 Bilder (gefunden: %d)' % len(_bilder138))
+    _paare138 = sorted(n[:-4].replace('-en', '') for n in _bilder138)
+    pruefe(all(_paare138.count(n) == 2 for n in set(_paare138)),
+           'zu jedem deutschen Bild gibt es das englische')
 
     print()
     if fehler:

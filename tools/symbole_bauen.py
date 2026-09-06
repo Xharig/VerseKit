@@ -212,6 +212,11 @@ KNOPF_SYMBOLE = {
     # demselben Bild sind in einer Leiste nicht auseinanderzuhalten.
     'verkauf':      'coins',
     'handelslager': 'warehouse',
+    # Der eigene Hangar. Bewusst **nicht** `rocket` — das ist seit v3.0.0 der
+    # Startknopf für das Spiel, und zwei verschiedene Dinge dürfen nicht
+    # dasselbe Bild tragen. Auch nicht `warehouse`: Die Halle steht schon für
+    # den Handelsbestand. Ein Fluggerät ist das, was hier drinsteht.
+    'hangar':       'plane',
     # Der Laden, in dem ein fertiges Teil im Regal steht — die Gegenrichtung
     # zu `verkauf` (Münzen, Ware loswerden) und zu `herkunft` (Kompass, wo
     # kommt der Rohstoff her). Drei verschiedene Fragen, drei Bilder.

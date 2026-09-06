@@ -56,6 +56,8 @@ Four things are deliberate and will stay that way:
 | ✅ | **Class, size, grade and manufacturer** on every row — and as dropdowns, so you find the right part without knowing its name |
 | ✅ | **Material storage** says what it holds — matching the cargo hold next to it |
 | ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
+| ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |
+| ✅ | **Fits your ship**: every blueprint tells you which of your ships the part belongs in, and how many slots it has there |
 | ✅ | **Ship data**: cargo capacity, purchase and rental price — pick your ship in the route planner and the cargo hold fills itself in |
 | ✅ | **Bindings included in backups**: keyboard and joystick bindings go into the backup file and can be saved as a named profile where Star Citizen finds it |
 

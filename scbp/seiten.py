@@ -51,6 +51,19 @@ ROT     = '#e05252'
 # fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
 ROT_BLASS = '#c98a8a'
 
+# Die Browser-Erweiterung, aus der der Hangar-Import kommt. Fremde Arbeit,
+# freiwillig gepflegt — sie wird genannt und verlinkt, nicht stillschweigend
+# vorausgesetzt. Ein Import, dessen Quelle man nicht findet, ist kein Angebot.
+#
+# ⚠ Die Projektseite und **nicht** ein einzelner Store: Welchen Browser der
+# Spieler benutzt, weiß das Werkzeug nicht, und dort stehen alle drei
+# nebeneinander (Chrome, Firefox, Opera).
+XPLORER_SEITE = 'https://github.com/dolkensp/HangarXPLOR'
+XPLORER_FIREFOX = ('https://addons.mozilla.org/en-US/firefox/addon/'
+                   'star-citizen-hangar-xplorer/')
+XPLORER_CHROME = ('https://chrome.google.com/webstore/detail/hangarxplor/'
+                  'bhkgemjdepodofcnmekdobmmbifemhkc/')
+
 
 def _bauer_tabelle():
     """Welche Kennung von welcher Funktion gebaut wird.
@@ -76,6 +89,7 @@ def _bauer_tabelle():
         'erkennung':   _erkennung,
         'joysticks':   _joysticks,
         'diagnose':    _diagnose,
+        'hangar':      _hangar,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
         'lager':       _lager,
@@ -4551,6 +4565,16 @@ def _danke(fenster, rahmen):
     # benutzt, nennt sie — sie stand bis rc40 nirgends.
     _dankblock(fenster, innen, 'UEX Corp',
                t('s_dk_keine_lizenz'), t('s_dk_uex'), 'https://uexcorp.space')
+    # ⚠ Seit v3.19.0 kommen die Steckplätze der Schiffe von hier. Wer eine
+    # Quelle benutzt, nennt sie — und zwar bevor jemand danach fragt.
+    _dankblock(fenster, innen, 'erkul.games',
+               t('s_dk_keine_lizenz'), t('s_dk_erkul'), 'https://erkul.games')
+    # ⚠ Kein Datenlieferant, sondern fremdes **Werkzeug**: Ohne diese
+    # Erweiterung müsste jeder seine vierzig Schiffe von Hand eintippen. Sie
+    # steht hier, weil der Import ohne sie nichts wäre — und damit man sie
+    # findet, ohne im Netz danach suchen zu müssen.
+    _dankblock(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
+               'MIT', t('s_dk_xplorer'), XPLORER_SEITE)
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
     # der readme, GitHub meldet keine (geprueft 29.08.2026). Hier stand
     # 'CC BY-NC-SA 4.0'. Das war geraten, vermutlich von scmdb uebernommen,
@@ -4594,7 +4618,8 @@ def _danke(fenster, rahmen):
              t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2'),
              t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
-            ('Zwaersch', 'KRT', '', t('s_dk_zwaersch_bugs'))):
+            ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
+             t('s_dk_zwaersch_bugs'))):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -7415,6 +7440,60 @@ def _laden_zeile(fenster, eltern, bauplan):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
+def _passt_zeile(fenster, eltern, bauplan):
+    """„Passt in dein Schiff" — die Antwort auf die Frage nach dem Bauplan.
+
+    ⭐⭐ Das ist die Auskunft, die **keine fremde Seite geben kann**: Erkul
+    kennt die Steckplätze jedes Schiffs, aber nicht deinen Hangar; der Watcher
+    kennt deinen Hangar und deine Baupläne, aber nicht die Steckplätze. Erst
+    zusammen wird daraus „der Kühler passt in die Cutlass, nicht in den Arrow".
+
+    ⚠⚠ **Drei Fälle, die auseinandergehalten werden müssen** — sie sehen im
+    Code gleich aus (immer eine leere Liste) und bedeuten Verschiedenes:
+
+    | Lage | was gesagt wird |
+    |---|---|
+    | Hangar leer | „trag deine Schiffe ein" — **kein** „passt nirgends" |
+    | Teil hat keine Größe (Rüstung, FPS-Waffen) | gar nichts |
+    | Hangar voll, nichts passt | „passt in keines deiner Schiffe" |
+
+    Wer den ersten Fall wie den dritten behandelt, sagt jedem Neuling, sein
+    frisch freigeschalteter Bauplan sei nutzlos.
+    """
+    from . import erkul, hangar as meine, katalog as kat_daten
+
+    eintrag = (kat_daten.laden().get('bauplaene') or {}).get(
+        pfade.namensform(bauplan or ''))
+    if not eintrag:
+        return
+    art, groesse = eintrag.get('a'), eintrag.get('s')
+    # ⚠ Ohne Größe keine Aussage. Rüstung, Helme und FPS-Waffen tragen in den
+    # Daten zwar eine — sie bedeutet dort aber nichts, und erkul führt sie
+    # ohnehin nicht. Lieber nichts sagen als etwas Erfundenes.
+    if not art or not groesse:
+        return
+
+    schiffe = (meine.laden().get('schiffe') or [])
+    if not schiffe:
+        tk.Label(eltern, text=t('s_hg_passt_leer'), bg='#0c1017', fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x', padx=12,
+                                                        pady=(6, 0))
+        return
+
+    treffer = erkul.passende_schiffe(art, groesse, schiffe)
+    if treffer:
+        namen = ', '.join(
+            t('s_hg_passt_mehrfach').format(name=n, n=z) if z > 1 else n
+            for n, z in treffer)
+        text, farbe = t('s_hg_passt_in').format(schiffe=namen), ACCENT
+    else:
+        text, farbe = t('s_hg_passt_nirgends'), SUB
+    lbl = tk.Label(eltern, text=text, bg='#0c1017', fg=farbe,
+                   font=fenster.f_klein, anchor='w', justify='left')
+    lbl.pack(fill='x', padx=12, pady=(6, 0))
+    _umbruch(lbl, abzug=36)
+
+
 def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     """Eine Zeile der Herstellungs-Liste, auf Klick klappt das Rezept auf."""
     from . import herstellung as herst_modul
@@ -7495,6 +7574,11 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     # Über Namen ist es hier schon einmal schiefgegangen (`Gold` lieferte
     # `Golden Medmon` mit). Siehe `scbp/laeden.py`.
     _laden_zeile(fenster, block, eintrag.get('basis'))
+    # ⭐⭐ **„Und passt das überhaupt in mein Schiff?"** Die Frage, die auf
+    # jeden neuen Bauplan folgt. Steht direkt unter dem Ladenpreis, weil beide
+    # dieselbe Entscheidung tragen: bauen, kaufen — oder gar nicht, weil es
+    # nirgends hineinpasst.
+    _passt_zeile(fenster, block, eintrag.get('basis'))
 
     rez = herst_modul.rezept(eintrag['basis'])
     from . import rohstoffe as lager
@@ -8612,6 +8696,211 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
 def _menge_text(menge):
     """Eine Menge kurz und ohne Nullen am Ende — 1,88 statt 1,8800."""
     return ('%g' % round(menge, 4)).replace('.', ',')
+
+
+def _hangar(fenster, rahmen):
+    """Meine Schiffe: importieren, von Hand eintragen, ansehen, austragen.
+
+    ⚠ Die Reihenfolge auf der Seite ist Absicht: **erst der Import**, dann der
+    Handeintrag. Wer vierzig Pledges hat, soll nicht vierzig Mal tippen — und
+    wer keinen Export hat, findet den Handeintrag direkt darunter. Umgekehrt
+    wäre der bequeme Weg der versteckte.
+    """
+    from . import hangar as meine, erkul, schiffe as alle_schiffe, dateiwahl
+
+    _ueberschrift(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_hg_hinweis'), fenster.f_klein, fill='x')
+
+    daten = {'stand': meine.laden()}
+    meldung = {'text': '', 'farbe': SUB}
+    liste_rahmen = tk.Frame(innen, bg=BG)
+    schiff = tk.StringVar()
+
+    def neu_zeichnen():
+        _liste_fuellen()
+
+    # ------------------------------------------------------------- Import
+    tk.Label(innen, text=t('s_hg_import_titel'), bg=BG, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
+                                                   pady=(18, 2))
+    _fliesstext(innen, t('s_hg_import_text'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
+    # ⚠ Der Hinweis auf JSON ist kein Geschmack: Bei einem echten Export vom
+    # 06.09.2026 fehlten der CSV drei Schiffe, die in der JSON standen.
+    _fliesstext(innen, t('s_hg_import_json'), fenster.f_klein, farbe=GOLD,
+                fill='x', padx=24, abzug=48)
+
+    def importieren():
+        pfad = dateiwahl.datei_oeffnen(
+            t('s_hg_import_knopf'),
+            # JSON zuerst — das ist der empfohlene Weg. CSV bleibt wählbar.
+            muster=(('JSON', '*.json'), ('CSV', '*.csv')))
+        if not pfad:
+            return
+        eintraege, fehlertext = meine.lesen(pfad)
+        if fehlertext:
+            meldung['text'], meldung['farbe'] = t('s_hg_import_fehler'), ROT
+        elif not eintraege:
+            meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), ROT
+        else:
+            neu, alt = meine.uebernehmen(eintraege, daten['stand'])
+            meldung['text'] = t('s_hg_import_ok').format(neu=neu, alt=alt)
+            meldung['farbe'] = ACCENT
+            _steckplaetze_holen(still=True)
+        neu_zeichnen()
+
+    # ⚠⚠ **Jede Knopfreihe braucht ihren EIGENEN Rahmen** — und die Knöpfe
+    # müssen darin sitzen, nicht in der Rollfläche. `_knopfreihe` packt mit
+    # `side='left'` in ihr `eltern` und merkt sich dort ihren Umbruch-Zustand
+    # (`zuletzt_nebeneinander`). Bekommt sie zweimal dieselbe Fläche, tritt die
+    # zweite Reihe der ersten den Zustand weg — beim ersten Anlauf hier waren
+    # daraufhin **alle vier Knöpfe unsichtbar**, ohne Fehlermeldung.
+    reihe_import = tk.Frame(innen, bg=BG)
+    reihe_import.pack(fill='x', padx=24, pady=(10, 0))
+    _knopfreihe(reihe_import, [
+        _knopf(fenster, reihe_import, t('s_hg_import_knopf'), importieren,
+               stark=True),
+        _knopf(fenster, reihe_import, t('s_hg_erweiterung'),
+               lambda: pfade.im_browser(XPLORER_SEITE)),
+    ])
+
+    # -------------------------------------------------------- Von Hand
+    tk.Label(innen, text=t('s_hg_hand_titel'), bg=BG, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=24,
+                                                   pady=(18, 2))
+    _fliesstext(innen, t('s_hg_hand_text'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
+
+    block = tk.Frame(innen, bg=BG)
+    block.pack(fill='x', padx=24, pady=(8, 0))
+    # ⚠⚠ **Geschlossene Liste, kein Freitext** — dieselbe Regel wie beim
+    # Handelslager und beim Lagerort. Angenommen wird nur, was die Schiffsliste
+    # kennt; sonst steht am Ende ein ausgedachter oder beleidigender Name im
+    # Werkzeug, und ein Bildschirmfoto davon macht die Runde.
+    zeile, auswahl, _ = _auswahlfeld(fenster, block, schiff,
+                                     alle_schiffe.alle)
+    zeile.pack(fill='x')
+    auswahl.pack(fill='x')
+
+    def von_hand():
+        name = (schiff.get() or '').strip()
+        if not name or not alle_schiffe.scu(name) and name not in alle_schiffe.alle():
+            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
+            neu_zeichnen()
+            return
+        if meine.hinzufuegen(daten['stand'], name, herkunft=meine.INGAME):
+            meine.speichern(daten['stand'])
+            meldung['text'] = t('s_hg_getragen').format(name=name)
+            meldung['farbe'] = ACCENT
+            schiff.set('')
+            _steckplaetze_holen(still=True)
+        else:
+            meldung['text'], meldung['farbe'] = t('s_hg_schon_da'), ROT
+        neu_zeichnen()
+
+    def _steckplaetze_holen(still=False):
+        """Die Steckplätze der Hangar-Schiffe holen, soweit sie fehlen.
+
+        ⚠ `still=True` nach Import und Handeintrag: Dort ist das Holen eine
+        Folge der eigentlichen Tat, und eine zweite Meldung würde die erste
+        überschreiben („5 Schiffe übernommen" wäre nach einer Zehntelsekunde
+        durch „Steckplätze für 5 Schiffe geholt" ersetzt).
+        """
+        geholt = meine.daten_nachziehen(daten['stand'])
+        if not still:
+            meldung['text'] = (t('s_hg_geholt').format(n=geholt) if geholt
+                               else t('s_hg_aktuell'))
+            meldung['farbe'] = ACCENT
+            neu_zeichnen()
+
+    reihe_hand = tk.Frame(innen, bg=BG)
+    reihe_hand.pack(fill='x', padx=24, pady=(10, 0))
+    _knopfreihe(reihe_hand, [
+        _knopf(fenster, reihe_hand, t('s_hg_eintragen'), von_hand),
+        _knopf(fenster, reihe_hand, t('s_hg_holen'), _steckplaetze_holen),
+    ])
+
+    hinweis = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                       anchor='w')
+    hinweis.pack(fill='x', padx=24, pady=(10, 0))
+
+    # ----------------------------------------------------------- Die Liste
+    liste_rahmen.pack(fill='x', padx=24, pady=(16, 20))
+
+    def _liste_fuellen():
+        for kind in liste_rahmen.winfo_children():
+            kind.destroy()
+        hinweis.configure(text=meldung['text'], fg=meldung['farbe'])
+
+        stand = daten['stand']
+        schiffsliste = (stand.get('schiffe') or [])
+        tk.Label(liste_rahmen, text=t('s_hg_meine').format(n=len(schiffsliste)),
+                 bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 6))
+
+        if not schiffsliste:
+            _fliesstext(liste_rahmen, t('s_hg_leer'), fenster.f_klein, fill='x')
+            return
+
+        version = erkul.spielversion()
+        _fliesstext(liste_rahmen,
+                    t('s_hg_quelle').format(version=version) if version
+                    else t('s_hg_keine_daten'),
+                    fenster.f_klein, fill='x', pady=(0, 8))
+
+        ohne = 0
+        for eintrag in sorted(schiffsliste,
+                              key=lambda s: (s.get('name') or '').lower()):
+            ohne += _hangar_zeile(fenster, liste_rahmen, eintrag, daten,
+                                  meldung, neu_zeichnen)
+        if ohne:
+            _fliesstext(liste_rahmen,
+                        t('s_hg_ohne_erklaert').format(n=ohne),
+                        fenster.f_klein, fill='x', pady=(10, 0))
+
+    _liste_fuellen()
+
+
+def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
+    """Eine Schiffszeile. Gibt `1` zurück, wenn Steckplätze fehlen."""
+    from . import hangar as meine, erkul
+
+    name = eintrag.get('name') or ''
+    plaetze = erkul.plaetze(name, eintrag.get('hersteller', ''),
+                            eintrag.get('kurz', ''), eintrag.get('hkurz', ''))
+    karte = _karte(eltern, pady=(0, 6))
+
+    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf.pack(fill='x', padx=16, pady=(10, 2))
+    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_fett,
+             anchor='w').pack(side='left')
+
+    def austragen():
+        if meine.entfernen(daten['stand'], name, eintrag.get('hersteller', '')):
+            meine.speichern(daten['stand'])
+            meldung['text'], meldung['farbe'] = '', SUB
+        neu_zeichnen()
+
+    _knopf(fenster, kopf, t('s_hg_entfernen'), austragen).pack(side='right')
+
+    # Zweite Zeile: Herkunft, LTI, Steckplätze — die drei Angaben, die den
+    # Unterschied machen.
+    teile = [t('s_hg_pledge') if eintrag.get('herkunft') == meine.PLEDGE
+             else t('s_hg_ingame')]
+    if eintrag.get('lti'):
+        teile.append(t('s_hg_lti'))
+    if plaetze:
+        teile.append(t('s_hg_plaetze').format(
+            n=sum(int(p.get('anzahl') or 0) for p in plaetze)))
+    else:
+        teile.append(t('s_hg_ohne_daten'))
+    unten = tk.Frame(karte, bg=FLAECHE)
+    unten.pack(fill='x', padx=16, pady=(0, 10))
+    tk.Label(unten, text='  ·  '.join(teile), bg=FLAECHE,
+             fg=SUB if plaetze else GOLD, font=fenster.f_klein,
+             anchor='w').pack(side='left')
+    return 0 if plaetze else 1
 
 
 def _lager(fenster, rahmen):
