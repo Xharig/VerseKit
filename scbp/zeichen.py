@@ -48,6 +48,19 @@ GELB, BLAU = 'gelb', 'blau'
 # Die Schriftfarbe für Wörter, die **neben** einem Symbol stehen. Tk faerbt
 # Text sonst schwarz — auf dunklem Grund ist er damit unlesbar.
 SCHRIFT = '#8b98a5'
+
+# ⚠ **Nur für den Notnagel:** Was jeder Bildsatz als **echte** Farbe bedeutet.
+# Steht kein Bild zur Verfügung, wird ein Zeichen gezeichnet — und das braucht
+# eine Farbe, die Tk kennt. Die Namen oben sind Satznamen (`grau`, `gruen`),
+# keine Farbwerte; sie ungeprüft an Tk zu reichen, hat das Programm beim
+# Aufbau der Reiterleiste abstürzen lassen.
+_SATZ_FARBEN = {
+    'grau':  SCHRIFT,
+    'gruen': '#9ce430',   # die Markenfarbe
+    'hell':  '#e6edf3',
+    'gelb':  '#e3b341',
+    'blau':  '#4a9eff',
+}
 # Rot ist keine Zustandsfarbe, sondern ein Wegweiser: Der Reiter „Fehler
 # melden“ traegt sie, damit ihn niemand sucht, wenn gerade etwas klemmt.
 ROT = 'rot'
@@ -198,9 +211,24 @@ def _bauen(eltern, name, satz, tat, farbe, grund, ersatz, text, schrift):
 
     def faerben(neu):
         """Statt `configure(fg=…)` — ein Bild nimmt keine Vordergrundfarbe an,
-        es muss gegen eine andersfarbige Version getauscht werden."""
+        es muss gegen eine andersfarbige Version getauscht werden.
+
+        ⚠⚠ **Der Notnagel darf nicht schlimmer sein als die Lücke.** Die Namen
+        hier (`grau`, `gruen`, `hell`) benennen **Bildsätze**, keine Farben —
+        Tk kennt sie nicht. Fehlt die Bilddatei, ging genau dieser Name als
+        `fg` an Tk, und das ganze Programm brach beim Aufbau der Reiterleiste
+        ab: `TclError: unknown color name "grau"`.
+
+        Damit war der Fall „Symbol noch nicht gebaut" kein fehlendes Bild,
+        sondern ein Programm, das gar nicht erst startet — und der Notnagel
+        zwei Funktionen weiter oben lief nie. Am 06.09.2026 aufgefallen, als
+        ein neuer Reiter angelegt wurde, bevor sein Bild da war.
+        """
         w.symbol_farbe = neu
-        w.configure(fg=neu if b is None else w.cget('fg'))
+        if b is not None:
+            w.configure(fg=w.cget('fg'))
+        else:
+            w.configure(fg=_SATZ_FARBEN.get(neu, SCHRIFT))
         zeigen()
 
     def tauschen(neuer_name):

@@ -110,6 +110,7 @@ def _bauer_tabelle():
         'diagnose':    _diagnose,
         'hangar':      _hangar,
         'wunschliste': _wunschliste,
+        'einkaufsliste': _einkaufsliste,
         'bergung':     _bergung,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
@@ -9589,6 +9590,197 @@ def _wunschliste(fenster, rahmen):
     fenster.beim_zeigen['wunschliste'] = _beim_zeigen
     _steckplaetze_nachziehen(innen)
     _fuellen()
+
+
+def _einkaufsliste(fenster, rahmen):
+    """Alles, was noch zu besorgen ist — über alle Schiffe, wie eine Rechnung.
+
+    ⭐⭐ **Der Reiter, der die ganze Ausstattungs-Arbeit zusammenführt.** Bis
+    v3.19.0 hing der Warenkorb unter jeder einzelnen Schiffszeile: Wer wissen
+    wollte, was sein nächster Ausflug zum Händler insgesamt kostet, musste
+    vierzig Karten aufklappen und im Kopf addieren. Am 06.09.2026 gefragt:
+    „der Warenkorb braucht auch einen extra Reiter, Einkaufsliste, da können
+    Komponenten oder Schiffe drin sein, wenn Schiffe mit Fitting, dann muss man
+    am Ende auch den Gesamtpreis sehen und eine Einzelaufstellung, so wie jede
+    Rechnung die man bekommen würde."
+
+    ⚠ **Nach Schiff gegliedert, nicht nach Teileart.** Eine Rechnung ordnet
+    nach Position, nicht nach Warengruppe — man will sehen, was *dieses* Schiff
+    kostet, und nicht alle Kühler des Hangars in einer Reihe.
+
+    ⚠ **Das Schiff selbst steht nur drauf, wenn man es noch nicht hat.** Was im
+    Hangar steht, ist bezahlt; dort zählen nur die fehlenden Teile. Ein
+    Wunschschiff kostet erst sich selbst und dann seine Ausstattung — genau die
+    Frage, die vor dem Kauf im Kopf steht.
+    """
+    from . import hangar as meine, warenkorb
+
+    _ueberschrift(fenster, rahmen, t('hf_einkaufsliste'), t('s_ek_lead'))
+    innen = _rollflaeche(rahmen)
+
+    koerper = tk.Frame(innen, bg=BG)
+    koerper.pack(fill='x', padx=24, pady=(10, 20))
+
+    def neu_zeichnen():
+        for kind in koerper.winfo_children():
+            kind.destroy()
+        _aufbauen()
+
+    def _aufbauen():
+        stand = meine.laden()
+        werte = warenkorb.rechnung(stand)
+        posten = werte.get('posten') or []
+
+        # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall in diesem
+        # Bereich: „nichts eingetragen", „nichts zu besorgen" und „keine Daten"
+        # sehen im Code gleich aus und bedeuten Verschiedenes. Wer sie
+        # zusammenwirft, sagt jemandem mit leerem Hangar, er sei fertig.
+        if not (stand.get('schiffe') or stand.get('wunsch')):
+            _fliesstext(koerper, t('s_ek_kein_schiff'), fenster.f_klein,
+                        fill='x')
+            return
+        if not posten:
+            _fliesstext(koerper, t('s_ek_nichts_offen'), fenster.f_klein,
+                        fill='x')
+            _ohne_daten_hinweis(fenster, koerper, werte)
+            return
+
+        _einkauf_preise_holen(posten, koerper, neu_zeichnen)
+
+        tk.Label(koerper,
+                 text=t('s_ek_kopf').format(n=len(posten),
+                                            schiffe=werte.get('schiffe') or 0),
+                 bg=BG, fg=FG, font=fenster.f_fett,
+                 anchor='w').pack(fill='x', pady=(0, 8))
+
+        # Nach Schiff gruppieren — die Reihenfolge kommt schon sortiert an.
+        aktuelles = None
+        for eintrag in posten:
+            if eintrag.get('schiff') != aktuelles:
+                aktuelles = eintrag.get('schiff')
+                _einkauf_schiffkopf(fenster, koerper, eintrag)
+            _einkauf_zeile(fenster, koerper, eintrag)
+
+        _warenkorb_summe(fenster, koerper, posten)
+        _ohne_daten_hinweis(fenster, koerper, werte)
+        _warenkorb_route(fenster, koerper, posten)
+
+    # ⚠ Beim erneuten Öffnen frisch rechnen: Die Seite wird nur einmal gebaut,
+    # und zwischen zwei Besuchen ändert sich im Hangar fast immer etwas.
+    fenster.beim_zeigen['einkaufsliste'] = neu_zeichnen
+    _aufbauen()
+
+
+def _ohne_daten_hinweis(fenster, eltern, werte):
+    """Welche Schiffe gar nicht mitgerechnet werden konnten.
+
+    ⚠ **Verschwiegen wäre schlimmer als unvollständig.** Ohne diesen Satz
+    stünde eine Summe da, die stillschweigend ein paar Schiffe auslässt — und
+    wer danach einkaufen geht, steht mit zu wenig Geld am Terminal.
+    """
+    fehlen = werte.get('ohne_steckplatzdaten') or []
+    if not fehlen:
+        return
+    _fliesstext(eltern,
+                t('s_ek_ohne_daten').format(n=len(fehlen),
+                                            schiffe=', '.join(fehlen)),
+                fenster.f_klein, farbe=GOLD, fill='x', pady=(8, 0))
+
+
+def _einkauf_schiffkopf(fenster, eltern, eintrag):
+    """Die Zwischenüberschrift je Schiff — mit Herkunft."""
+    from . import warenkorb
+
+    zeile = tk.Frame(eltern, bg=BG)
+    zeile.pack(fill='x', pady=(12, 4))
+    tk.Label(zeile, text=eintrag.get('schiff') or '', bg=BG, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(side='left')
+    # ⚠ Woher das Schiff kommt, gehört an die Überschrift: Auf einer Rechnung
+    # mit vierzig Positionen ist der Unterschied zwischen „habe ich" und
+    # „will ich haben" die wichtigste Angabe überhaupt.
+    marke = (t('s_ek_aus_wunsch')
+             if eintrag.get('quelle') == warenkorb.WUNSCH
+             else t('s_ek_aus_hangar'))
+    tk.Label(zeile, text=marke, bg=BG, fg=SUB, font=fenster.f_klein,
+             anchor='w').pack(side='left', padx=(10, 0))
+
+
+def _einkauf_zeile(fenster, eltern, eintrag):
+    """Eine Rechnungsposition: wo, was, wie, wie viel."""
+    from . import warenkorb
+
+    zeile = tk.Frame(eltern, bg=FLAECHE)
+    zeile.pack(fill='x', pady=(0, 2))
+
+    # Position (Steckplatz) — bei einem Schiff steht dort, dass es das Schiff
+    # selbst ist, damit die Spalte nie leer bleibt.
+    pos = eintrag.get('position') or ''
+    if eintrag.get('sorte') == warenkorb.SCHIFF:
+        pos = t('s_ek_das_schiff')
+    tk.Label(zeile, text=pos, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             anchor='w', width=22).pack(side='left', padx=(12, 0), pady=4)
+
+    tk.Label(zeile, text=eintrag.get('name') or '', bg=FLAECHE, fg=FG,
+             font=fenster.f_klein, anchor='w').pack(side='left')
+
+    # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
+    # Rechnung sagt „Fortitude" wenig, „Fortitude · C · Industrie" viel.
+    kennzeichen = (_teil_kennzeichen({'kennung': eintrag.get('ref')})
+                   if eintrag.get('sorte') == warenkorb.TEIL else '')
+    if kennzeichen:
+        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left',
+                                                        padx=(10, 0))
+
+    # Rechts der Betrag, daneben der gewählte Weg.
+    weg = eintrag.get('weg')
+    angabe = (eintrag.get('kauf') if weg == warenkorb.KAUFEN
+              else eintrag.get('bau')) or {}
+    if angabe.get('zustand') == warenkorb.BEKANNT:
+        betrag = _geld(angabe.get('preis') if weg == warenkorb.KAUFEN
+                       else angabe.get('material'))
+        farbe = FG
+    elif angabe.get('zustand') == warenkorb.NICHT_GEPRUEFT:
+        betrag, farbe = t('s_wk_nicht_geprueft'), SUB
+    else:
+        betrag, farbe = t('s_ek_kein_betrag'), GOLD
+    tk.Label(zeile, text=betrag, bg=FLAECHE, fg=farbe, font=fenster.f_klein,
+             anchor='e').pack(side='right', padx=(0, 12))
+    tk.Label(zeile, text=t('s_wk_kaufen') if weg == warenkorb.KAUFEN
+             else t('s_wk_bauen'),
+             bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             anchor='e').pack(side='right', padx=(0, 16))
+
+
+def _einkauf_preise_holen(posten, widget, neu_zeichnen):
+    """Fehlende Ladenpreise der Rechnung im Hintergrund nachholen.
+
+    ⚠ Dieselbe Begründung wie bei `_warenkorb_preise_holen`: `rechnung()`
+    fasst bewusst kein Netz an — zwölf Posten wären zwölf Netzrunden, während
+    die Oberfläche steht. Das Holen gehört hierher.
+    """
+    from . import laeden, warenkorb
+
+    offen = warenkorb.fehlende_preise(posten)
+    if not offen:
+        return
+
+    def arbeit():
+        geholt = False
+        for kennung, name in offen:
+            try:
+                if not laeden.bekannt(kennung):
+                    laeden.holen(kennung, name=name or '')
+                    geholt = True
+            except Exception as ausnahme:
+                fehler.merken('seiten.einkauf.preis', ausnahme)
+        if geholt:
+            try:
+                widget.after(0, neu_zeichnen)
+            except Exception:
+                pass
+
+    threading.Thread(target=arbeit, daemon=True).start()
 
 
 def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):

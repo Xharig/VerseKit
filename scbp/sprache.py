@@ -3127,6 +3127,33 @@ TEXTE = {
                           'siehst du hier, was es kostet und wo es steht.',
                           'Nothing on the list yet. Add a ship and you will '
                           'see what it costs and where it is sold.'),
+    # --- Einkaufsliste: der Warenkorb über alle Schiffe (v3.19.0)
+    's_ek_lead':         ('Alles, was noch zu besorgen ist — über alle deine '
+                          'Schiffe zusammen, mit Einzelaufstellung und Summe.',
+                          'Everything still to get — across all your ships, '
+                          'itemised and totalled.'),
+    's_ek_kopf':         ('{n} Positionen aus {schiffe} Schiffen',
+                          '{n} items from {schiffe} ships'),
+    's_ek_aus_hangar':   ('hast du', 'you own it'),
+    's_ek_aus_wunsch':   ('Wunschliste', 'wishlist'),
+    's_ek_das_schiff':   ('Das Schiff', 'The ship'),
+    # ⚠ Kein „0 aUEC": Ohne Preis ist der Posten nicht kostenlos, sondern
+    # unbekannt. Dieselbe Regel wie im Warenkorb.
+    's_ek_kein_betrag':  ('kein Preis bekannt', 'no price known'),
+    's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
+                          'Schiffe ein oder setz eines auf die Wunschliste — '
+                          'dann steht hier, was du dafür brauchst.',
+                          'No ships yet. Add yours under My hangar or put one '
+                          'on the wishlist — then this page shows what you '
+                          'need for them.'),
+    's_ek_nichts_offen': ('Nichts zu besorgen. Deine Schiffe sind so '
+                          'ausgestattet, wie sie ab Werk kommen.',
+                          'Nothing to get. Your ships carry their factory '
+                          'loadout.'),
+    's_ek_ohne_daten':   ('{n} Schiffe fehlen in dieser Rechnung, weil dazu '
+                          'keine Steckplatz-Daten vorliegen: {schiffe}',
+                          '{n} ships are missing from this total because no '
+                          'slot data is available for them: {schiffe}'),
     's_hg_wunsch_streichen': ('Streichen', 'Remove'),
     's_hg_wunsch_meine': ('Mein Wunschzettel ({n})', 'My wishlist ({n})'),
     's_hg_wunsch_notiert': ('{name} steht auf deiner Wunschliste.',
@@ -3811,6 +3838,7 @@ TEXTE = {
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
     'hf_wunschliste':    ('Wunschliste', 'Wishlist'),
+    'hf_einkaufsliste':  ('Einkaufsliste', 'Shopping list'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),
     'hf_bergbau':        ('Bergbau', 'Mining'),
     # --- Gruppe „Handel" (v3.4.0) ---

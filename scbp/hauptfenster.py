@@ -2010,6 +2010,11 @@ class Hauptfenster:
         # Reiter wäre keine Gliederung mehr.
         self._reiter('wunschliste', 'wunschliste', t('hf_wunschliste'),
                      g_schiff)
+        # ⚠ **Zuletzt in der Gruppe, und das ist die Kette:** was ich habe →
+        # was ich will → was mich das kostet. Die Einkaufsliste ist die Summe
+        # der beiden Reiter über ihr, nicht ein dritter Anfang.
+        self._reiter('einkaufsliste', 'einkaufsliste',
+                     t('hf_einkaufsliste'), g_schiff)
 
         g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)
