@@ -12555,6 +12555,34 @@ def _achsen(fenster, rahmen):
                                                 wahl['achse']))
             _stand_zeigen()
 
+        def _speichern_alles():
+            """Totzone, Sättigung und jede Empfindlichkeit in einem Zug.
+
+            ⚠ Zwei verschiedene Ziele in derselben Schleife: Totzone und
+            Sättigung gehören zur **physischen** Achse und laufen über
+            `kurven.setzen()`, die Empfindlichkeit zur **Spielachse** und über
+            `kurven.spiel_setzen()`. Woran ein Eintrag hängt, sagt sein Feld
+            `spiel` — steht dort etwas, ist es eine Spielachse.
+            """
+            aenderungen = _offen()
+            if not aenderungen:
+                messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
+                return
+            for schluessel, neu in aenderungen.items():
+                teil = anzeigen[schluessel]
+                if teil.get('spiel'):
+                    nummer, achse = teil['spiel']
+                    erfolg, meldung, _ = kurven.spiel_setzen(
+                        nummer, achse, 'exponent', neu)
+                else:
+                    erfolg, meldung, _ = kurven.setzen(
+                        gewaehlter['kennung'], wahl['achse'], schluessel, neu)
+                if not erfolg:
+                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    return
+            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
+            _auffrischen()
+
         def _reglerzeile(eigenschaft, beschriftung, ist):
             """Ein Regler für eine Eigenschaft.
 
@@ -12620,12 +12648,6 @@ def _achsen(fenster, rahmen):
         # falsch; deshalb bekommt jede Funktion ihren eigenen.
         empf_rahmen = tk.Frame(links, bg=BG)
         empf_rahmen.pack(fill='x')
-        # ⚠ `bild` und `anzeigen` werden durchgereicht statt über eine
-        # Closure geholt: Sie entstehen hier drin, die Hilfsfunktionen stehen
-        # eine Ebene höher — ohne Durchreichen gäbe es beim ersten Ziehen
-        # einen Fehler, und zwar erst dann, nicht beim Aufbau.
-        _empfindlichkeit(empf_rahmen, gewaehlter, wahl['achse'],
-                         bild, anzeigen)
 
         def _offen():
             """Was hat der Spieler geändert, ohne zu speichern?
@@ -12651,29 +12673,20 @@ def _achsen(fenster, rahmen):
             stand.configure(text=t('s_ac_geaendert') if _offen() else '',
                             fg=GOLD)
 
-        def _speichern():
-            # ⚠ Hier stand einmal ein lokaler Import des Tk-Dialogs. Er war
-            # nötig, weil der Import beim Zusammenführen zweier Zweige
-            # verlorengegangen war — inzwischen verdeckte er den Dialog im
-            # Programmstil, der weiter oben in dieser Funktion definiert ist,
-            # und holte den weißen System-Kasten zurück.
-            # (Der Aufruf steht hier bewusst nicht ausgeschrieben: Die Wache
-            # im Selbsttest sucht nach dem Wortlaut und schlüge sonst an.)
-            aenderungen = _offen()
-            if not aenderungen:
-                messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
-                return
-            for eigenschaft, neu in aenderungen.items():
-                erfolg, meldung, _ = kurven.setzen(
-                    gewaehlter['kennung'], wahl['achse'], eigenschaft, neu)
-                if not erfolg:
-                    # ⚠ Beim ersten Fehler abbrechen und melden. Weiterschreiben
-                    # hieße, die Datei halb geändert zurückzulassen — und der
-                    # Spieler wüsste nicht, welche Hälfte.
-                    messagebox.showwarning(t('hf_achsen'), t(meldung))
-                    return
-            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
-            _auffrischen()
+        # ⚠ **Erst HIER, nicht weiter oben.** Die Regler der Empfindlichkeit
+        # tragen sich in dasselbe `anzeigen` ein und rufen `_stand_zeigen`
+        # beim Ziehen — beides muss also schon dastehen. Der Aufruf stand
+        # zuerst oben beim Rahmen und lief damit gegen eine Funktion, die es
+        # zu dem Zeitpunkt noch nicht gab.
+        _empfindlichkeit(empf_rahmen, gewaehlter, wahl['achse'],
+                         bild, anzeigen, _stand_zeigen)
+
+        # ⚠ Der frühere lokale Import des Tk-Dialogs ist hier weggefallen: Er
+        # verdeckte den Dialog im Programmstil, der weiter oben in dieser
+        # Funktion definiert ist, und holte den weißen System-Kasten zurück.
+        # (Der Aufruf steht bewusst nicht ausgeschrieben — die Wache im
+        # Selbsttest sucht nach dem Wortlaut und schlüge sonst an.)
+        _speichern = _speichern_alles
 
         knopfreihe = tk.Frame(links, bg=BG)
         knopfreihe.pack(fill='x', pady=(10, 0))
@@ -12967,7 +12980,7 @@ def _achsen(fenster, rahmen):
                     exponenten.add(eigenschaften['exponent'])
         return exponenten.pop() if len(exponenten) == 1 else 1.0
 
-    def _empfindlichkeit(eltern, block, achse, bild, anzeigen):
+    def _empfindlichkeit(eltern, block, achse, bild, anzeigen, stand_zeigen):
         """Je Flugfunktion auf dieser Stickachse ein Regler.
 
         ⚠ Geschrieben wird auch hier erst auf Knopfdruck — jeder Regler hat
@@ -12996,9 +13009,10 @@ def _achsen(fenster, rahmen):
             return
 
         for eintrag in funktionen:
-            _empf_zeile(eltern, nummer, eintrag, bild, anzeigen)
+            _empf_zeile(eltern, nummer, eintrag, bild, anzeigen,
+                        stand_zeigen)
 
-    def _empf_zeile(eltern, nummer, eintrag, bild, anzeigen):
+    def _empf_zeile(eltern, nummer, eintrag, bild, anzeigen, stand_zeigen):
         """Ein Regler je Flugfunktion — im selben Sammelbecken wie die anderen.
 
         ⚠⚠ **Kein eigener Speichern-Knopf je Zeile.** Die erste Fassung hatte
@@ -13033,6 +13047,7 @@ def _achsen(fenster, rahmen):
             bild.zeigen(totzone=anzeigen['deadzone']['var'].get(),
                         saettigung=anzeigen['saturation']['var'].get(),
                         exponent=var.get())
+            stand_zeigen()
 
         # ⚠ Der Bereich ist NICHT 0..1 wie bei Totzone und Sättigung: Ein
         # Exponent unter 1 macht die Mitte gröber, über 1 feiner. Gemessen
@@ -13042,25 +13057,17 @@ def _achsen(fenster, rahmen):
                             command=_gezogen, showvalue=False,
                             bg=BG, fg=FG, troughcolor=FLAECHE,
                             activebackground=ACCENT, highlightthickness=0,
-                            bd=0, sliderrelief='flat', length=160)
+                            bd=0, sliderrelief='flat', length=200)
         schieber.pack(side='left', fill='x', expand=True)
-        start = var.get()
-        anzeige.configure(text=_zahl(start))
+        anzeige.configure(text=_zahl(var.get()))
 
-        def _sichern(n=nummer, a=eintrag['achse']):
-            neu = round(var.get(), 3)
-            if abs(neu - start) < 1e-6:
-                messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
-                return
-            erfolg, meldung, _ = kurven.spiel_setzen(n, a, 'exponent', neu)
-            if not erfolg:
-                messagebox.showwarning(t('hf_achsen'), t(meldung))
-                return
-            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
-            _auffrischen()
-
-        _knopf(fenster, zeile, t('s_ac_setzen'),
-               _sichern).pack(side='right', padx=(8, 0))
+        # ⚠ In DASSELBE Sammelbecken wie Totzone und Sättigung. Der Schlüssel
+        # trägt die Nummer und den Achsennamen, weil auf einer Stickachse
+        # mehrere Funktionen liegen können — sonst überschriebe „Gieren" den
+        # Eintrag von „Schub seitlich".
+        anzeigen['exp:%s:%s' % (nummer, eintrag['achse'])] = {
+            'var': var, 'anzeige': anzeige, 'ist': ist, 'ruhe': ruhe,
+            'start': var.get(), 'spiel': (nummer, eintrag['achse'])}
 
     def _achsenzeile(eltern, block, achse):
         gewaehlt = achse == wahl['achse']

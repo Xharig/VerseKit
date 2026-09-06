@@ -63,6 +63,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Belegungen mitsichern**: Tastatur- und Joystick-Belegung gehen mit in die Sicherung und lassen sich als benanntes Profil dort ablegen, wo Star Citizen sie findet |
 | ✅ | **Achsen & Kurven**: Totzone, Sättigung und Empfindlichkeit je Achse, mit der Kurve daneben; zwei Sticks gleich einstellen, Belegungen über Kreuz tauschen, ganze Einrichtungen unter einem Namen sichern |
 | ✅ | **Blickwinkel**: Bildschirm mit einer Bankkarte ausmessen, daraus der neutrale Blickwinkel und der Sitzabstand, der zur eigenen Einstellung passt |
+| ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
 
 ## Woran gearbeitet wird
 

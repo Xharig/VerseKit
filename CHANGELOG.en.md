@@ -6,6 +6,43 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc16 - 2026-09-06
+
+> **Which stick is js1, actually?** A computer holds three statements about a
+> joystick — what the system sees, what the game last saw, and what the
+> bindings say. Their numbers do not match: the same stick can be `js0` on the
+> system and `js2` in the game. That is where most guides fall apart. Both now
+> stand side by side at the top of the controls page, and when you unplug a
+> stick the tool notices by itself.
+
+### New
+
+- **Device hub.** Every input device in one place: the number Star Citizen
+  uses, the name the system knows it by, and the state. Four cases, each with
+  a sentence saying what is going on — ready, no number in the bindings, not
+  connected, or never seen by the game.
+- **Live monitoring.** Plug a device in or pull it out and it shows within
+  seconds. No system service and no extra package: the device list is read and
+  compared with the previous one, the same way on Windows and Linux.
+- **The wishlist is a tab of its own** under “Ships”. It used to sit at the
+  bottom of the hangar page, unfindable behind forty ships.
+
+### Improved
+
+- **Sensitivity can actually be set now.** The sliders were squeezed between
+  the label, their own save button and the value until two short bars were
+  left that nobody recognises as a slider. They now use the same width and the
+  same save button as dead zone and saturation.
+
+### Fixed
+
+- **The shop price in the shopping list was never looked up** — “looking it
+  up …” stayed there forever and the total stayed at 0 aUEC.
+- **Switching back to “Buy” did not work.** The button only appeared when the
+  price was known; anyone who had switched to “Craft it yourself” was stuck.
+- **“New” markers added** for hangar, wishlist and salvage — all three were
+  missing them.
+
 ## v3.19.0-rc15 - 2026-09-06
 
 > **Two sticks, one setup.** “Axes & curves” now does everything fine-tuning

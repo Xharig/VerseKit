@@ -6,6 +6,45 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc16 - 2026-09-06
+
+> **Welcher Stick ist eigentlich js1?** Über einen Joystick gibt es im Rechner
+> drei Aussagen — was das System sieht, was das Spiel zuletzt sah, und was in
+> der Belegung steht. Ihre Nummern stimmen nicht überein: Derselbe Stick kann
+> am System `js0` sein und im Spiel `js2`. Genau daran scheitern die meisten
+> Anleitungen. Oben auf der Steuerungsseite steht jetzt beides nebeneinander,
+> und wenn du einen Stick absteckst, merkt es das Werkzeug von selbst.
+
+### Neu
+
+- **Geräte-Hub.** Alle Eingabegeräte an einem Ort: die Nummer, die Star
+  Citizen benutzt, der Name, unter dem das System das Gerät führt, und der
+  Zustand. Vier Fälle, jeder mit einem Satz, der sagt was los ist — bereit,
+  ohne Nummer in der Belegung, nicht angesteckt, oder dem Spiel noch nie
+  begegnet.
+- **Laufende Überwachung.** Wird ein Gerät ab- oder angesteckt, steht es
+  binnen Sekunden da. Ohne Systemdienst und ohne Zusatzpaket: Die Geräteliste
+  wird gelesen und mit der vorigen verglichen, auf Windows und Linux gleich.
+- **Die Wunschliste ist ein eigener Reiter** unter „Schiffe". Sie stand vorher
+  unten auf der Hangar-Seite und war hinter vierzig Schiffen nicht zu finden.
+
+### Verbessert
+
+- **Die Empfindlichkeit lässt sich jetzt wirklich einstellen.** Die Regler
+  waren zwischen Beschriftung, eigenem Speichern-Knopf und Zahl so
+  zusammengequetscht, dass zwei kurze Balken übrig blieben, die niemand als
+  Regler erkennt. Sie laufen jetzt über dieselbe Breite und denselben
+  Speichern-Knopf wie Totzone und Sättigung.
+
+### Behoben
+
+- **Der Kaufpreis im Warenkorb wurde nie nachgeschlagen** — „wird
+  nachgeschlagen …" stand für immer da, und die Summe blieb bei 0 aUEC.
+- **Zurück auf „Kaufen" ging nicht.** Der Knopf erschien nur bei bekanntem
+  Preis; wer einmal auf „Selbst herstellen" gewechselt hatte, saß fest.
+- **„Neu"-Marken nachgetragen** bei Hangar, Wunschliste und Bergung — bei
+  allen dreien fehlten sie.
+
 ## v3.19.0-rc15 - 2026-09-06
 
 > **Zwei Sticks, eine Einstellung.** „Achsen & Kurven" kann jetzt alles, was
