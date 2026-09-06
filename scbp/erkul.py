@@ -88,6 +88,7 @@ ausschließlich mit dem CDN.
 """
 import json
 import re
+import unicodedata
 import urllib.request
 import zlib
 
@@ -286,7 +287,12 @@ def _schlank(text):
     erkul `l22alphawolf`. Wer die Unterstriche behält, vergleicht zwei
     Schreibweisen derselben Sache und findet nichts.
     """
-    return re.sub(r'[^a-z0-9]', '', (text or '').lower())
+    # ⚠ **Akzente werden übersetzt, nicht weggeworfen.** Aus „San tok.Yāi"
+    # wurde sonst `santokyi` — das `ā` fiel als Sonderzeichen heraus, und der
+    # Name unterschied sich damit von jedem, der ihn ohne Strich schreibt.
+    zerlegt = unicodedata.normalize('NFKD', text or '')
+    ohne_akzent = ''.join(z for z in zerlegt if not unicodedata.combining(z))
+    return re.sub(r'[^a-z0-9]', '', ohne_akzent.lower())
 
 
 # Römische Zahlen, wie sie in Schiffsnamen vorkommen. Weiter als V geht es
@@ -300,7 +306,14 @@ def _woerter(text):
     ⚠ Punkte und Bindestriche fallen **vor** dem Zerlegen weg, nicht danach:
     Aus `F7C-M` wird `f7cm` (ein Wort, wie bei erkul), nicht `f7c` + `m`.
     """
-    t = (text or '').lower().replace('.', '').replace('-', '')
+    # ⚠ **Akzente werden übersetzt, nicht weggeworfen.** `San tok.Yāi` zerfiel
+    # zu `san toky i`, weil das `ā` als Trennzeichen durchging — erkul schreibt
+    # `santokyai`. Ein Schiff mit diakritischem Zeichen im Namen war damit
+    # nicht auffindbar.
+    import unicodedata
+    zerlegt = unicodedata.normalize('NFKD', text or '')
+    ohne_akzent = ''.join(z for z in zerlegt if not unicodedata.combining(z))
+    t = ohne_akzent.lower().replace('.', '').replace('-', '')
     raus = []
     for wort in re.split(r'[^a-z0-9]+', t):
         if not wort:
@@ -418,6 +431,44 @@ def _passt_wortweise(erkul_id, gesucht, kette=''):
     return guete
 
 
+# ⭐⭐ **Handzuordnungen für die Fälle, die kein Verfahren löst.**
+#
+# Am 06.09.2026 wurden alle 265 Schiffe einzeln durchgeprüft. 220 fanden ihre
+# Daten von selbst, 35 sind Konzepte — von den zehn übrigen ließen sich fünf
+# **nicht** durch bessere Regeln retten, weil die Namen schlicht verschieden
+# sind:
+#
+# | im Werkzeug | bei erkul | woran es liegt |
+# |---|---|---|
+# | Aegis Hammerhead | `aegs_hammerhead_gs` | Zusatz, den es hier nicht gibt |
+# | Aegis Idris-P | `aegs_idris_p` | Bindestrich: `idrisp` gegen `idris`+`p` |
+# | Aopoa San tok.Yāi | `xnaa_santokyai` | anderer Hersteller, zusammengeschrieben |
+#
+# ⚠⚠ **Warum eine Liste und keine klügere Regel.** Zwei Anläufe, das Verfahren
+# zu verallgemeinern, haben mehr zerstört als repariert: Ein Bindestrich, der
+# beide Schreibweisen erzeugt, rettet die Idris — und bricht die F7C-M Super
+# Hornet, weil `f7c_mk2` und `f7cm_mk2` dann gleich gut passen. Gemessen fiel
+# die Trefferquote von 220 auf unter 200, mit Ausfällen bei Aurora, Kruger und
+# Mirai. Danach: zurück auf den funktionierenden Stand, und die Handvoll Reste
+# ausdrücklich benennen.
+#
+# Dasselbe Muster wie bei `bp-overrides.json`: Eine kurze, sichtbare Liste
+# schlägt eine Regel, die niemand mehr durchschaut.
+#
+# ⚠ Ein Eintrag hier ist eine **Behauptung** und wird beim Patch nicht geprüft.
+# Fällt eine Zuordnung auf, gehört sie geändert oder gestrichen — nicht ergänzt.
+HANDZUORDNUNG = {
+    'aegishammerhead': 'aegs_hammerhead_gs',
+    'aegishammerheadbestinshowedition': 'aegs_hammerhead_gs',
+    'aegisidrisp': 'aegs_idris_p',
+    'aegisidrism': 'aegs_idris_m',
+    'aopoasantokyai': 'xnaa_santokyai',
+    # Drei Kandidaten (`rover`, `rover_emerald`, `medivac`) — ohne Zusatz ist
+    # der Rover gemeint, das ist die Grundausführung.
+    'rsiursa': 'rsi_ursa_rover',
+}
+
+
 def _wortweise_suchen(verzeichnis, name, hersteller='', kurz='', hkurz=''):
     """Die beste wortweise Zuordnung — oder `''`, wenn sie nicht eindeutig ist.
 
@@ -431,6 +482,12 @@ def _wortweise_suchen(verzeichnis, name, hersteller='', kurz='', hkurz=''):
     # `mk1` **und** `mk2` in der Suchmenge, und `anvl_hornet_f7c_mk2` wird
     # genauso gut bewertet wie `anvl_hornet_f7cm_mk2` — Gleichstand, also gar
     # keine Zuordnung. Der angezeigte Name ist die verlässlichere Angabe.
+    # ⚠ Die Handzuordnung zuerst — sie ist eine bewusste Entscheidung und
+    # schlägt jedes Verfahren.
+    von_hand = HANDZUORDNUNG.get(_schlank(name))
+    if von_hand and von_hand in verzeichnis:
+        return von_hand
+
     folge = _woerter(' '.join(x for x in (hkurz, hersteller, name) if x))
     gesucht = set(folge)
     if not gesucht:

@@ -6,6 +6,25 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc9 - 2026-09-06
+
+> **Alle 265 Schiffe einzeln durchgeprüft.** 225 finden ihre Bestückungsdaten,
+> 35 sind Konzepte — übrig bleiben fünf, die es in der Quelle schlicht nicht
+> gibt.
+
+### Verbessert
+
+- **Hammerhead, Idris-P und San tok.Yāi werden jetzt gefunden.** Ihre Namen
+  weichen in der Quelle so weit ab, dass keine Regel sie erwischt — sie stehen
+  deshalb in einer kurzen, sichtbaren Zuordnungsliste. Dasselbe Vorgehen wie
+  bei den Bauplan-Korrekturen.
+- **Namen mit Akzenten werden richtig gelesen.** Aus „San tok.Yāi" wurde beim
+  Vergleich `santokyi` — das `ā` fiel heraus, und der Name passte zu nichts
+  mehr.
+- **„RSI Ursa" landet beim Rover.** Ohne Zusatz ist die Grundausführung
+  gemeint; vorher standen drei gleichwertige Kandidaten da und es wurde
+  keiner gewählt.
+
 ## v3.19.0-rc8 - 2026-09-06
 
 > **Die Schiffserkennung ist durchgezählt.** Von 265 Schiffen finden jetzt

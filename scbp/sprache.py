@@ -843,6 +843,27 @@ TEXTE = {
                            'was restored.'),
     's_js_f_lesen':    ('Die Datei ließ sich nicht lesen.',
                           'The file could not be read.'),
+
+    # -- Achsen: Totzone, Sättigung, Kurve --
+    # Dieselbe Regel wie oben: Schlüssel zurückgeben, keine fertigen Sätze.
+    's_kv_f_geraet':   ('Dieses Gerät steht nicht in der Belegungsdatei.',
+                          'This device is not in the bindings file.'),
+    's_kv_f_kennung':  ('Ohne Gerätekennung lässt sich nichts zuordnen.',
+                          'Without a device identifier nothing can be matched.'),
+    's_kv_f_eigenschaft': ('Diese Einstellung gibt es nicht.',
+                             'There is no such setting.'),
+    's_kv_f_wert':     ('Das ist keine Zahl.',
+                          'That is not a number.'),
+    's_kv_f_bereich':  ('Der Wert liegt außerhalb des erlaubten Bereichs.',
+                          'The value is outside the permitted range.'),
+    # Beschriftung im Kurvenbild. Kurz halten — sie steht unter der Fläche.
+    's_kv_achse_ein':  ('Ausschlag am Stick', 'stick deflection'),
+    's_kv_achse_aus':  ('Wirkung im Spiel', 'effect in game'),
+    's_kv_totzone':    ('Totzone', 'dead zone'),
+    's_kv_saettigung': ('Sättigung', 'saturation'),
+    's_kv_exponent':   ('Empfindlichkeit', 'sensitivity'),
+    's_kv_ganz':       ('Vollansicht', 'full view'),
+    's_kv_quadrant':   ('Quadrant', 'quadrant'),
     # Der Profilname wird zum Dateinamen — und zu dem, was der Spieler im
     # Spiel eintippt (`pp_rebindkeys load <Name>`). Deshalb die Grenzen.
     's_js_f_name_leer': ('Gib dem Profil einen Namen.',

@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc9 - 2026-09-06
+
+> **All 265 ships checked one by one.** 225 find their loadout data, 35 are
+> concepts — leaving five that simply do not exist in the source.
+
+### Improved
+
+- **Hammerhead, Idris-P and San tok.Yāi are found now.** Their names differ so
+  much in the source that no rule catches them — they are listed in a short,
+  visible mapping instead. Same approach as the blueprint corrections.
+- **Names with accents are read correctly.** "San tok.Yāi" became `santokyi`
+  when compared — the `ā` fell out and the name matched nothing.
+- **"RSI Ursa" now maps to the Rover.** Without a suffix the base version is
+  meant; before, three equal candidates stood there and none was picked.
+
 ## v3.19.0-rc8 - 2026-09-06
 
 > **Ship matching has been counted through.** Out of 265 ships, **220** now

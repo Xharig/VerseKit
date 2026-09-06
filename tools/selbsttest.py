@@ -12484,6 +12484,209 @@ def main():
         _sh140.rmtree(_von140, ignore_errors=True)
         _sh140.rmtree(_nach140, ignore_errors=True)
 
+    # ------------------------------------------------------------------
+    # 141. Totzone, Sättigung und Kurve — und was davon überhaupt gilt
+    #
+    # ⚠ Diese Prüfung baut sich ihre `actionmaps.xml` SELBST. Sie darf nicht
+    # von der Datei des Entwicklers abhängen: Auf dem Bau-Rechner gibt es
+    # keine, und die Prüfung liefe dort still ins Leere — genau der Fehler,
+    # der Prüfung 67 von ihrem ersten Tag an wertlos gemacht hat.
+    #
+    # Die Kennungen sind frei erfunden (`AAAA1111…`). Damit kann kein echtes
+    # Gerät des laufenden Rechners hineinfunken: `kurven.gueltige_kennungen`
+    # zieht auch die Game.log heran, und die sieht auf jedem Rechner anders
+    # aus. Lokal grün, im Bau rot wäre hier besonders tückisch.
+    print()
+    print('141. Achsen: Totzone, Sättigung, tote Kennungen')
+    import shutil as _sh141
+    import tempfile as _tf141
+    from scbp import kurven as _kv141
+
+    _AKTIV141 = 'AAAA1111-0000-0000-0000-504944564944'
+    _ALT141 = 'BBBB2222-0000-0000-0000-504944564944'
+    _WEG141 = 'CCCC3333-0000-0000-0000-504944564944'
+
+    # Der Aufbau bildet genau die Lagen nach, die an einer echten Datei
+    # gemessen wurden (06.09.2026):
+    #   · ein Gerät mit aktiver UND überholter Kennung (Sättigung verloren)
+    #   · Sättigung doppelt geschrieben — der Normalfall, kein Fehler
+    #   · zwei Blöcke mit DERSELBEN Kennung und widersprüchlichem Wert
+    #   · ein Gerät, das es gar nicht mehr gibt
+    _xml141 = (
+        '<ActionMaps version="1" optionsVersion="2" rebindVersion="2" '
+        'profileName="default">\n'
+        ' <CustomisationUIHeader label="test">\n'
+        '  <deviceoptions name="Testknueppel  {%s}">\n'
+        '   <option input="x" deadzone="0.1"/>\n'
+        '   <option input="y" deadzone="0.1"/>\n'
+        '  </deviceoptions>\n'
+        '  <deviceoptions name="Testknueppel  {%s}">\n'
+        '   <option input="x" deadzone="0.1"/>\n'
+        '   <option input="x" saturation="0.75"/>\n'
+        '   <option input="x" saturation="0.75"/>\n'
+        '  </deviceoptions>\n'
+        '  <deviceoptions name="Altgeraet  {%s}">\n'
+        '   <option input="x" deadzone="0.3"/>\n'
+        '  </deviceoptions>\n'
+        '  <deviceoptions name="Altgeraet  {%s}">\n'
+        '   <option input="x" deadzone="0.4"/>\n'
+        '  </deviceoptions>\n'
+        ' </CustomisationUIHeader>\n'
+        ' <options type="joystick" instance="1" Product="Testknueppel  {%s}">\n'
+        '  <flight_move_pitch exponent="1.5"/>\n'
+        '  <flight_move_yaw invert="1"/>\n'
+        ' </options>\n'
+        ' <options type="joystick" instance="2"/>\n'
+        ' <ActionProfiles>\n'
+        '  <actionmap name="spaceship_general">\n'
+        '   <action name="v_eject"><rebind input="js1_button1"/></action>\n'
+        '  </actionmap>\n'
+        ' </ActionProfiles>\n'
+        '</ActionMaps>\n'
+    ) % (_AKTIV141, _ALT141, _WEG141, _WEG141, _AKTIV141)
+
+    _ordner141 = _tf141.mkdtemp(prefix='scbp-kurven-')
+    _datei141 = os.path.join(_ordner141, 'actionmaps.xml')
+    try:
+        with open(_datei141, 'w', encoding='utf-8') as _f141:
+            _f141.write(_xml141)
+
+        _bloecke141 = _kv141.geraete_achsen(datei=_datei141)
+        _nach141 = {}
+        for _b141 in _bloecke141:
+            _nach141.setdefault(_b141['kennung'], []).append(_b141)
+
+        pruefe(len(_bloecke141) == 4,
+               'alle vier Geräteblöcke gefunden (sind: %d)' % len(_bloecke141))
+
+        # Lebendig ist, was in der Belegung eine Nummer hat.
+        pruefe(_nach141.get(_AKTIV141) and _nach141[_AKTIV141][0]['aktiv'],
+               'der Block mit Nummer im Spiel gilt als aktiv')
+        pruefe(_nach141.get(_ALT141) and not _nach141[_ALT141][0]['aktiv'],
+               'der Block mit unbekannter Kennung gilt als tot')
+
+        # ⭐ Der Kern: „Gerät ist da, Einstellung hängt an alter Kennung."
+        pruefe(_nach141.get(_ALT141) and _nach141[_ALT141][0]['ueberholt'],
+               'gleicher Name + aktiver Zwilling → überholt, nicht verwaist')
+        pruefe(_nach141.get(_WEG141) and _nach141[_WEG141][0]['verwaist'],
+               'Gerät ohne aktiven Zwilling → verwaist')
+
+        _uebern141 = _kv141.uebernehmbar(datei=_datei141)
+        pruefe(len(_uebern141) == 1,
+               'genau ein übernehmbarer Fall (sind: %d)' % len(_uebern141))
+        _verloren141 = [z for z in (_uebern141[0]['werte'] if _uebern141 else [])
+                        if z[1] == 'saturation' and z[3] is None]
+        pruefe(len(_verloren141) == 1,
+               'die verlorene Sättigung wird als solche erkannt')
+
+        # Zwei Blöcke, dieselbe Kennung, verschiedene Werte — der Widerspruch
+        # geht ÜBER die Blöcke und fällt in einem einzelnen nicht auf.
+        pruefe(all('x' in _b141['mehrfach'] for _b141 in _nach141.get(_WEG141, [])),
+               'Widerspruch über zwei Blöcke derselben Kennung erkannt')
+
+        # ⚠ Der Selbsttreffer-Fehler: Ein Kinder-Regex, der das Elternelement
+        # sehen kann, verschlingt den ganzen Block und findet nie eine Achse.
+        # Diese Prüfung ist genau dafür da — sie war bei ihrer Entstehung rot.
+        _spiel141 = [b for b in _kv141.spielachsen(datei=_datei141)
+                     if b['nummer'] == 1 and b['art'] == 'joystick']
+        pruefe(_spiel141 and len(_spiel141[0]['achsen']) == 2,
+               'beide Spielachsen gelesen (sind: %d)'
+               % (len(_spiel141[0]['achsen']) if _spiel141 else 0))
+        pruefe(_spiel141 and _spiel141[0]['achsen'].get(
+            'flight_move_pitch', {}).get('exponent') == 1.5,
+            'der Exponent kommt richtig an')
+
+        # Schreiben: über die Kennung, Doppel einsammeln, Rest heil lassen
+        #
+        # ⚠⚠ Vorher den Zustand ALLER Blöcke festhalten. Die erste Fassung
+        # prüfte nur den einen toten Block, den sie im Verdacht hatte — und
+        # blieb in der Gegenprobe grün: Der eingebaute Fehler (Schreiben ohne
+        # Kennungsprüfung) traf den *letzten* Block der Datei, nicht diesen
+        # einen. Eine Wache, die nur eine Tür bewacht, meldet nichts, wenn
+        # jemand durch die andere geht.
+        _vorher_alle141 = {}
+        for _b141 in _kv141.geraete_achsen(datei=_datei141):
+            _vorher_alle141.setdefault(_b141['kennung'], []).append(
+                {a: dict(w) for a, w in _b141['achsen'].items()})
+
+        _ok141, _meld141, _n141 = _kv141.setzen(
+            _AKTIV141, 'x', 'saturation', 0.6, datei=_datei141)
+        pruefe(_ok141, 'Schreiben gelingt (%s)' % ('ok' if _ok141 else _meld141))
+
+        _nachher_alle141 = {}
+        for _b141 in _kv141.geraete_achsen(datei=_datei141):
+            _nachher_alle141.setdefault(_b141['kennung'], []).append(
+                {a: dict(w) for a, w in _b141['achsen'].items()})
+
+        _jetzt141 = [b for b in _kv141.geraete_achsen(datei=_datei141)
+                     if b['kennung'] == _AKTIV141]
+        pruefe(_jetzt141 and abs((_jetzt141[0]['achsen']['x'].get('saturation')
+                                  or 0) - 0.6) < 1e-6,
+               'der neue Wert steht im richtigen Block')
+
+        _beruehrt141 = [k for k in _vorher_alle141
+                        if k != _AKTIV141
+                        and _vorher_alle141[k] != _nachher_alle141.get(k)]
+        pruefe(not _beruehrt141,
+               '⭐ KEIN anderer Block wurde angefasst (berührt: %d)'
+               % len(_beruehrt141))
+
+        with open(_datei141, encoding='utf-8') as _f141:
+            _inhalt141 = _f141.read()
+        pruefe(_inhalt141.count('<rebind') == 1,
+               'die Belegung hat den Schreibvorgang überlebt')
+        pruefe(_inhalt141.count('saturation="0.6"') == 1,
+               'der Wert steht genau einmal da, nicht doppelt')
+
+        # Ein Wert ausserhalb 0..1 und eine unbekannte Kennung müssen
+        # abgelehnt werden — ohne die Datei anzufassen.
+        _vorher141 = _inhalt141
+        pruefe(not _kv141.setzen(_AKTIV141, 'x', 'deadzone', 2.0,
+                                 datei=_datei141)[0],
+               'ein Wert über 1 wird abgelehnt')
+        pruefe(not _kv141.setzen('FFFF9999', 'x', 'deadzone', 0.2,
+                                 datei=_datei141)[0],
+               'eine unbekannte Kennung wird abgelehnt')
+        with open(_datei141, encoding='utf-8') as _f141:
+            pruefe(_f141.read() == _vorher141,
+                   'nach zwei abgelehnten Versuchen ist die Datei unverändert')
+    finally:
+        _sh141.rmtree(_ordner141, ignore_errors=True)
+
+    # Die Antwortkurve — die Rechnung hinter der gezeichneten Linie.
+    # ⚠ Geprüft werden nur Punkte, deren Wert sich von Hand nachrechnen lässt.
+    # Eine falsch rechnende Kurve sieht immer noch nach einer Kurve aus; das
+    # Bild taugt hier nicht als Beleg.
+    def _gl141(ist, soll):
+        return abs(ist - soll) < 1e-9
+
+    pruefe(_gl141(_kv141.antwort(0.0), 0.0) and _gl141(_kv141.antwort(1.0), 1.0)
+           and _gl141(_kv141.antwort(-1.0), -1.0),
+           'ohne Einstellungen ist die Kurve die Gerade')
+    pruefe(_gl141(_kv141.antwort(0.05, totzone=0.1), 0.0)
+           and _gl141(_kv141.antwort(0.55, totzone=0.1), 0.5),
+           'die Totzone schneidet ab und spannt den Rest neu auf')
+    pruefe(_gl141(_kv141.antwort(0.5, saettigung=0.5), 1.0)
+           and _gl141(_kv141.antwort(0.25, saettigung=0.5), 0.5),
+           'ab der Sättigung gilt Vollausschlag')
+    pruefe(_gl141(_kv141.antwort(0.5, exponent=2.0), 0.25),
+           'der Exponent macht die Mitte feiner')
+    pruefe(_gl141(_kv141.antwort(0.5, 0.1, 0.9, 2.0), 0.25),
+           'alle drei zusammen, von Hand nachgerechnet')
+    pruefe(_gl141(_kv141.antwort(0.95, totzone=0.9, saettigung=0.2), 1.0),
+           'Sättigung unter der Totzone knallt nicht (keine Division durch 0)')
+    pruefe(_gl141(_kv141.antwort(5.0), 1.0),
+           'eine Eingabe über 1 wird begrenzt')
+    _knick141 = [(0.0, 0.0), (0.5, 0.1), (1.0, 1.0)]
+    pruefe(_gl141(_kv141.antwort(0.5, kurve=_knick141), 0.1)
+           and _gl141(_kv141.antwort(0.25, kurve=_knick141), 0.05),
+           'gesetzte Kurvenpunkte gewinnen über den Exponenten')
+    _voll141 = _kv141.verlauf(schritte=10, ganz=True)
+    _quad141 = _kv141.verlauf(schritte=10)
+    pruefe(_gl141(_quad141[0][0], 0.0) and _gl141(_voll141[0][0], -1.0)
+           and _gl141(_voll141[len(_voll141) // 2][1], 0.0),
+           'Quadrant und Vollansicht decken ihren Bereich ab')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

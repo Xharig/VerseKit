@@ -177,6 +177,11 @@ KNOPF_SYMBOLE = {
     # ⚠ `gamepad-2` und nicht `joystick`: Lucide fuehrt keinen Joystick, und
     # der Reiter meint ohnehin alle Eingabegeraete — Sticks, Pedale, Gamepads.
     'joysticks':    'gamepad-2',
+    # ⚠ `chart-spline` und nicht `chart-column`: Das Säulendiagramm gehört
+    # schon dem Fortschritt, und die Seite zeigt eine Kurve, keine Balken.
+    # Die Vorlage ist ein Achsenkreuz mit geschwungener Linie — genau das,
+    # was die Seite tut.
+    'achsen':       'chart-spline',
     'diagnose':     'stethoscope',
     'quellen':      'heart-handshake',   # fremde Arbeit + Lizenzen
     # --- nur für die Anleitung (README-Merkmalstabelle) ---
