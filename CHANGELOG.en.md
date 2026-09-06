@@ -6,10 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.19.0-rc17 - 2026-09-06
+
+> **The hub now says what to do.** A stick with a new identifier looks like
+> two problems and is one — the tool recognises that and offers the single
+> action that fixes it. And when it is not unambiguous, it does not guess: it
+> states what each device is missing, one by one.
 
 ### New
 
+- **Shopping list as a tab of its own.** What to buy for the whole hangar, in
+  one place.
 - **Assignment assistant.** The device hub no longer just says what is going
   on, it says what to do. The most common case looks like two problems and is
   one: a stick with a new identifier appears twice — once as missing, once as
@@ -20,6 +27,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   match would be guesswork — and a wrongly guessed replacement swaps two
   sticks, which you only notice in a fight. Each device then states its own
   problem instead.
+
+### Fixed
+
+- **A missing icon took the whole window down.** If an image file is missing,
+  the affected button now falls back to text instead of aborting the build.
+- **Wishlist ships get their slots right after being added** — they used to
+  stay empty until the window was reopened.
 
 ## v3.19.0-rc16 - 2026-09-06
 

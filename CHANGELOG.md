@@ -6,10 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.19.0-rc17 - 2026-09-06
+
+> **Der Hub sagt jetzt, was zu tun ist.** Ein Stick mit neuer Kennung sieht
+> aus wie zwei Probleme und ist eines — das Werkzeug erkennt das und bietet
+> den einen Handgriff an, der es behebt. Und wenn es nicht eindeutig ist,
+> rät es nicht, sondern sagt bei jedem Gerät einzeln, was ihm fehlt.
 
 ### Neu
 
+- **Einkaufsliste als eigener Reiter.** Was für den ganzen Hangar zu besorgen
+  ist, an einem Ort.
 - **Zuordnungs-Assistent.** Der Geräte-Hub sagt jetzt nicht nur, was los ist,
   sondern was zu tun ist. Der häufigste Fall sieht nach zwei Problemen aus und
   ist eines: Ein Stick mit neuer Kennung steht zweimal da — einmal als
@@ -20,6 +27,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Zuordnung Ratearbeit — und ein falsch geratener Ersatz vertauscht zwei
   Sticks, was man erst im Gefecht merkt. Dann steht bei jedem Gerät einzeln,
   was ihm fehlt.
+
+### Behoben
+
+- **Ein fehlendes Symbol riss das ganze Fenster mit.** Fehlt eine Bilddatei,
+  fällt der betroffene Knopf jetzt auf Text zurück, statt den Aufbau
+  abzubrechen.
+- **Wunschschiffe bekommen ihre Steckplätze auch nach dem Eintragen** — bisher
+  blieben sie leer, bis man das Fenster neu öffnete.
 
 ## v3.19.0-rc16 - 2026-09-06
 
