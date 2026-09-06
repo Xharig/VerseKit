@@ -6,6 +6,22 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.2 - 2026-09-06
+
+> **The curve showed a sensitivity that did not exist on that axis.** An axis
+> with no flight function still drew a clearly bent curve — with the sentence
+> right below it saying no function is mapped there. Both on one page, about
+> the same axis.
+
+### Fixed
+
+- **The curve used the sensitivity of the whole device.** If the other axes of
+  your stick were set to 2, that 2 was drawn even where nothing is mapped at
+  all. Only what actually sits on **this** axis counts now: a straight line
+  without a function, the real value with one.
+- If several functions share an axis and their values disagree, the line stays
+  straight instead of guessing one of them.
+
 ## v3.19.1 - 2026-09-06
 
 > **Ships bought with real money can now be added by hand too.** Anyone not

@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.2 - 2026-09-06
+
+> **Die Kurve zeigte eine Empfindlichkeit, die es auf dieser Achse gar nicht
+> gab.** Auf einer Achse ohne Flugfunktion stand trotzdem eine deutlich
+> gebogene Kurve — und direkt darunter der Satz, dass dort keine Funktion
+> liegt. Beides auf einer Seite, über dieselbe Achse.
+
+### Behoben
+
+- **Die Kurve nahm die Empfindlichkeit des ganzen Geräts.** Standen die anderen
+  Achsen deines Sticks auf 2, wurde die 2 auch dort gezeichnet, wo überhaupt
+  nichts belegt ist. Jetzt zählt nur, was wirklich auf **dieser** Achse liegt:
+  ohne Funktion eine gerade Linie, mit Funktion der echte Wert.
+- Liegen mehrere Funktionen auf einer Achse und sind sich ihre Werte nicht
+  einig, bleibt die Linie gerade — statt einen davon zu raten.
+
 ## v3.19.1 - 2026-09-06
 
 > **Echtgeld-Schiffe lassen sich jetzt auch von Hand eintragen.** Wer die

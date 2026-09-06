@@ -14097,22 +14097,44 @@ def _achsen(fenster, rahmen):
             knopf.bind('<Button-1>', lambda _e, f=tat: f())
 
     def _exponent_fuer(ueberblick, block, achse):
-        """Der Exponent, der auf dieser physischen Achse landet.
+        """Der Exponent, der auf **dieser** physischen Achse gilt.
 
-        ⚠ **Eine Näherung, und zwar bewusst.** Der Exponent hängt an der
-        *Spielachse* (`flight_move_pitch`), die Totzone an der *physischen*
-        (`x`). Welche Spielachse auf welcher physischen liegt, sagt erst die
-        Belegung — und dort kann dieselbe physische Achse mehrfach auftauchen.
-        Gezeigt wird deshalb der Exponent des Geräts, wenn es genau einen gibt,
-        sonst keiner. Lieber nichts anzeigen als das Falsche.
+        ⚠⚠⚠ **Die erste Fassung nahm den Exponenten des ganzen GERÄTS** — wenn
+        es dort genau einen gab, galt er für jede Achse. Sie nannte sich selbst
+        „eine Näherung" und schrieb „lieber nichts anzeigen als das Falsche" —
+        und zeigte dann genau das Falsche:
+
+        Am 06.09.2026 stand am **rechten** Stick auf der Achse `x` eine deutlich
+        gebogene Kurve, während direkt darunter „Auf dieser Achse liegt keine
+        Flugfunktion" stand. Beides auf einer Seite, beides über dieselbe Achse.
+        Die Kurve kam von `z`, `rotx` und `roty` desselben Geräts, die alle auf
+        2 stehen.
+
+        Dazu die Frage, die keine gute Antwort hatte: *„Wie soll ich einem User
+        erklären, dass er da was sieht, was gar nicht stimmt?"*
+
+        **Jetzt wird die Belegung gefragt, nicht das Gerät.** Liegt auf der
+        Achse keine Flugfunktion, ist der Exponent **1** — die Kurve gerade,
+        und das stimmt dann auch: Ohne Funktion wirkt keine Empfindlichkeit.
+
+        ⚠ Liegen **mehrere** Funktionen darauf (bei `x` des linken Sticks sind
+        es zwei) und haben sie **verschiedene** Exponenten, gilt weiter „lieber
+        nichts": Dann steht die gerade Linie da, weil es die eine Wahrheit
+        nicht gibt. Sind sie sich einig, wird ihr Wert gezeigt.
         """
-        exponenten = set()
+        nummer = None
         for spiel in ueberblick['spiel']:
-            if spiel['kennung'] != block['kennung']:
-                continue
-            for eigenschaften in spiel['achsen'].values():
-                if eigenschaften.get('exponent') is not None:
-                    exponenten.add(eigenschaften['exponent'])
+            if (spiel.get('art') == 'joystick'
+                    and spiel.get('kennung') == block.get('kennung')):
+                nummer = spiel.get('nummer')
+                break
+        if nummer is None:
+            return 1.0
+        exponenten = set()
+        for eintrag in kurven.spielachsen_auf(nummer, achse):
+            wert = eintrag.get('exponent')
+            if wert is not None:
+                exponenten.add(wert)
         return exponenten.pop() if len(exponenten) == 1 else 1.0
 
     def _empfindlichkeit(eltern, block, achse, bild, anzeigen, stand_zeigen):

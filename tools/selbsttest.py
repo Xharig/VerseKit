@@ -14643,6 +14643,79 @@ def main():
     finally:
         _he164.laden, _he164.rezept = _echt164
 
+    # ------------------------------------------------------------------
+    # 165. Die Kurve zeigt den Exponenten DIESER Achse
+    #
+    # ⚠⚠⚠ **Zwei Anzeigen auf einer Seite widersprachen sich.** Am 06.09.2026
+    # stand am rechten Stick auf der Achse `x` eine deutlich gebogene Kurve —
+    # und direkt darunter „Auf dieser Achse liegt keine Flugfunktion". Die
+    # Biegung kam von `z`, `rotx` und `roty` desselben Geräts.
+    #
+    # Ursache: `_exponent_fuer` nahm den Exponenten des ganzen **Geräts**,
+    # wenn es dort genau einen gab. Die Funktion nannte sich selbst „eine
+    # Näherung" und schrieb „lieber nichts anzeigen als das Falsche" — und tat
+    # dann genau das. Dazu die Frage, auf die es keine gute Antwort gab: „Wie
+    # soll ich einem User erklären, dass er da was sieht, was gar nicht
+    # stimmt?"
+    #
+    # ⚠ Geprüft wird die **Regel**, nicht der Zahlenwert: Ohne Funktion auf der
+    # Achse muss der Exponent 1 sein (gerade Linie). Bei uneinigen Funktionen
+    # ebenfalls — dann gibt es keine eine Wahrheit.
+    print()
+    print('165. Die Kurve zeigt den Exponenten DIESER Achse')
+    from scbp import kurven as _kv165
+
+    _echt165 = _kv165.spielachsen_auf
+
+    def _tue_so(treffer):
+        """`spielachsen_auf` vortäuschen, damit die Regel prüfbar wird."""
+        _kv165.spielachsen_auf = lambda n, a, datei=None, ordner=None: treffer
+
+    # Die Regel als Funktion nachbauen — dieselbe wie in `_exponent_fuer`.
+    def _regel():
+        exponenten = set()
+        for eintrag in _kv165.spielachsen_auf(1, 'x'):
+            wert = eintrag.get('exponent')
+            if wert is not None:
+                exponenten.add(wert)
+        return exponenten.pop() if len(exponenten) == 1 else 1.0
+
+    try:
+        _tue_so([])
+        pruefe(_regel() == 1.0,
+               'ohne Flugfunktion auf der Achse ist der Exponent 1 '
+               '(die Kurve also gerade)')
+
+        _tue_so([{'achse': 'flight_move_roll', 'exponent': 2.0}])
+        pruefe(_regel() == 2.0,
+               'eine Funktion mit Exponent 2 wird gezeigt')
+
+        _tue_so([{'achse': 'a', 'exponent': 2.0},
+                 {'achse': 'b', 'exponent': 2.0}])
+        pruefe(_regel() == 2.0,
+               'zwei Funktionen mit demselben Wert ebenso')
+
+        # ⚠⚠ Die Gegenprobe, um die es geht.
+        _tue_so([{'achse': 'a', 'exponent': 2.0},
+                 {'achse': 'b', 'exponent': 3.0}])
+        pruefe(_regel() == 1.0,
+               'Gegenprobe: uneinige Funktionen -> gerade Linie, kein '
+               'geratener Wert')
+
+        _tue_so([{'achse': 'a', 'exponent': None}])
+        pruefe(_regel() == 1.0,
+               'Gegenprobe: eine Funktion OHNE eigenen Exponenten zaehlt '
+               'nicht als Wert')
+    finally:
+        _kv165.spielachsen_auf = _echt165
+
+    # ⚠ Und die Rechnung dahinter: Bei 1 muss die Kurve wirklich gerade sein.
+    pruefe(all(abs(_kv165.antwort(x, 0.0, 1.0, 1.0) - x) < 0.001
+               for x in (0.1, 0.25, 0.5, 0.75, 0.9)),
+           'bei Exponent 1 ist die Kurve eine Gerade')
+    pruefe(abs(_kv165.antwort(0.25, 0.0, 1.0, 2.0) - 0.0625) < 0.001,
+           'bei Exponent 2 liegt Viertelausschlag bei 6,25 %% (gebogen)')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
