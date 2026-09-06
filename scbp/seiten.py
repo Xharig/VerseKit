@@ -105,6 +105,7 @@ def _bauer_tabelle():
         'danke':       _danke,
         'erkennung':   _erkennung,
         'joysticks':   _joysticks,
+        'achsen':      _achsen,
         'diagnose':    _diagnose,
         'hangar':      _hangar,
         'bergung':     _bergung,
@@ -8456,14 +8457,20 @@ def _bergung(fenster, rahmen):
         ⚠ Ohne diesen Knopf müsste jemand `bergung.json` von Hand löschen. Ein
         Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
         """
-        from tkinter import messagebox
+        # ⚠⚠ **`frage_stellen`, nicht `messagebox.askyesno`.** Der
+        # System-Dialog sieht auf jedem Schreibtisch anders aus — unter Linux
+        # weißer Kasten mit fetter Schrift und englischen Knöpfen („Yes"/„No")
+        # mitten in einem deutschen, dunklen Programm. Rückmeldung dazu am
+        # 06.09.2026 in zwei Worten: „sieht kacke aus." Der eigene Dialog
+        # steht seit v3.0.0 bereit und wird überall sonst benutzt.
+        from .hauptfenster import frage_stellen
         anzahl = len(bg.laden().get('schiffe') or {})
         if not anzahl:
             hinweis.configure(text=t('s_wr_nichts_gemerkt'), fg=SUB)
             return
-        if not messagebox.askyesno(t('s_wr_vergessen'),
-                                   t('s_wr_vergessen_frage') % anzahl,
-                                   icon='warning', default='no'):
+        if not frage_stellen(fenster.root, t('s_wr_vergessen'),
+                             t('s_wr_vergessen_frage') % anzahl,
+                             ja=t('s_wr_vergessen_ja'), nein=t('e_abbrechen')):
             return
         weg = bg.vergessen()
         for kind in ergebnis.winfo_children():
@@ -8472,8 +8479,22 @@ def _bergung(fenster, rahmen):
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', padx=24, pady=(10, 0))
+    def _feld_leeren():
+        """Suchfeld und Ergebnis zurücksetzen.
+
+        ⚠ Ein Feld, das man nur mit der Rücktaste leerbekommt, ist bei einem
+        Schiffsnamen wie „Anvil F7C-M Super Hornet Mk II" eine Zumutung — und
+        das Ergebnis darunter bleibt sonst zu einem Schiff stehen, das gar
+        nicht mehr im Feld steht.
+        """
+        schiff.set('')
+        hinweis.configure(text='', fg=SUB)
+        for kind in ergebnis.winfo_children():
+            kind.destroy()
+
     _knopfreihe(reihe, [
         _knopf(fenster, reihe, t('s_wr_nachsehen'), nachsehen, stark=True),
+        _knopf(fenster, reihe, t('s_wr_leeren'), _feld_leeren),
         _knopf(fenster, reihe, t('s_wr_vergessen'), _vergessen),
     ])
     hinweis.pack(fill='x', padx=24, pady=(8, 0))
@@ -9401,7 +9422,410 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     tk.Label(unten, text='  ·  '.join(teile), bg=FLAECHE,
              fg=farbe, font=fenster.f_klein,
              anchor='w').pack(side='left')
+
+    # Auslegung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
+    # Schiffen eine Liste bleibt und keine Bleiwüste wird.
+    _warenkorb_block(fenster, karte, eintrag, daten)
     return 0 if plaetze else 1
+
+
+def _warenkorb_block(fenster, karte, eintrag, daten):
+    """„Auslegung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
+
+    ⚠ Gebaut wird der Inhalt **beim ersten Aufklappen**, nicht beim Zeichnen
+    der Liste. Sonst kostet jede Hangar-Seite so viele Steckplatz-Durchläufe,
+    wie der Spieler Schiffe hat — bei vierzig Schiffen wartet er auf etwas,
+    das er gar nicht sehen wollte.
+    """
+    from . import hangar as meine, warenkorb
+
+    kasten = tk.Frame(karte, bg=FLAECHE)
+    kasten.pack(fill='x')
+
+    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf.pack(fill='x', padx=16, pady=(0, 10))
+    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
+                          schrift=fenster.f_klein)
+    pfeil.pack(side='left', padx=(0, 8))
+    tk.Label(kopf, text=t('s_wk_titel'), bg=FLAECHE, fg=FG,
+             font=fenster.f_klein, anchor='w').pack(side='left')
+
+    koerper = tk.Frame(kasten, bg=FLAECHE)
+
+    def neu():
+        """Den Block neu aufbauen — nach jeder Änderung an der Auslegung."""
+        for kind in koerper.winfo_children():
+            kind.destroy()
+        _warenkorb_inhalt(fenster, koerper, eintrag, daten, neu)
+
+    def umschalten(_=None):
+        if koerper.winfo_ismapped():
+            koerper.pack_forget()
+            pfeil.symbol_tauschen('aufklappen')
+        else:
+            neu()
+            koerper.pack(fill='x', after=kopf)
+            pfeil.symbol_tauschen('zuklappen')
+
+    for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+
+
+def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
+    """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
+    from . import hangar as meine, warenkorb
+
+    zustand, liste = warenkorb.posten(eintrag)
+
+    # ⚠⚠ **Drei Zustände, drei verschiedene Sätze.** „Keine Daten" und „nichts
+    # zu besorgen" sehen im Code gleich aus — beides ist eine leere Liste. Wer
+    # sie gleich behandelt, sagt jemandem mit fehlenden Steckplatz-Daten, an
+    # seinem Schiff sei alles in Ordnung. Genau diese Verwechslung stand am
+    # 06.09.2026 bei jedem Bauplan.
+    if zustand == warenkorb.KEINE_DATEN:
+        _fliesstext(eltern, t('s_wk_keine_daten'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(0, 10),
+                    abzug=78)
+        return
+
+    _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
+
+    if zustand == warenkorb.NICHTS_OFFEN:
+        _fliesstext(eltern, t('s_wk_nichts_offen'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(4, 10),
+                    abzug=78)
+        return
+
+    warenkorb.anreichern(liste)
+
+    tk.Label(eltern, text=t('s_wk_posten').format(n=len(liste)), bg=FLAECHE,
+             fg=FG, font=fenster.f_fett, anchor='w').pack(
+                 fill='x', padx=(46, 16), pady=(8, 4))
+
+    for posten in liste:
+        _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen)
+
+    _warenkorb_summe(fenster, eltern, liste)
+    _warenkorb_route(fenster, eltern, liste)
+
+
+def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
+    """Die Steckplätze des Schiffs, jeder mit dem, was darin sitzt.
+
+    ⚠ Gezeigt wird immer die **Werksausstattung** als Ausgangspunkt, auch wenn
+    nichts geändert wurde. Ohne sie wäre nicht zu sehen, wogegen der Spieler
+    tauscht — und „non-stock" wäre eine Behauptung ohne Bezugsgröße.
+    """
+    from . import erkul, hangar as meine, warenkorb
+
+    plaetze = erkul.steckplaetze(eintrag.get('name') or '',
+                                 eintrag.get('hersteller') or '',
+                                 eintrag.get('kurz') or '',
+                                 eintrag.get('hkurz') or '')
+    gewaehlt = warenkorb.belegung(eintrag)
+
+    tk.Label(eltern, text=t('s_wk_auslegung'), bg=FLAECHE, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
+                                                   pady=(0, 4))
+
+    for platz in plaetze:
+        _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
+                          neu_zeichnen)
+
+
+def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
+                      neu_zeichnen):
+    """Ein Steckplatz — anklickbar, die Teileauswahl klappt darunter auf.
+
+    ⚠ Kein eigenes Fenster für die Auswahl: Wer vier Plätze nacheinander
+    belegt, müsste sonst viermal ein Fenster öffnen und schließen. Aufgeklappt
+    wird dieselbe Formensprache benutzt wie beim Handeintrag darüber.
+    """
+    from . import hangar as meine, warenkorb
+
+    pfad = platz.get('pfad') or ''
+    zeile = tk.Frame(eltern, bg=FLAECHE, cursor='hand2')
+    zeile.pack(fill='x', padx=(46, 16), pady=1)
+
+    # Links: was für ein Platz das ist. Der Pfad wird **nicht** angezeigt — er
+    # ist eine Kennung, keine Beschriftung, und `hardpoint_Left_Pylon_03` sagt
+    # niemandem etwas.
+    art_text = platz.get('art') or ''
+    if platz.get('groesse') is not None:
+        art_text = '%s S%s' % (art_text, platz['groesse'])
+    tk.Label(zeile, text=art_text, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+             anchor='w', width=22).pack(side='left')
+
+    eigenes = gewaehlt.get(pfad) or {}
+    werk = platz.get('werk') or {}
+    if eigenes.get('ref') and eigenes['ref'] != werk.get('ref'):
+        text, farbe = eigenes.get('name') or '', ACCENT
+    elif werk.get('name'):
+        text, farbe = werk['name'], SUB
+    else:
+        text, farbe = t('s_wk_ab_werk_leer'), SUB
+    tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe, font=fenster.f_klein,
+             anchor='w').pack(side='left')
+
+    def speichern():
+        meine.speichern({'format': meine.FORMAT,
+                         'schiffe': _hangar_liste(eintrag)})
+
+    if eigenes.get('ref'):
+        # ⚠⚠ **Diese Funktion darf nicht schlicht „zurücksetzen" heißen.**
+        # Prüfung 93 sucht in dieser Datei die **letzte** so benannte Funktion
+        # und erwartet dahinter den Bestand-Knopf mit seinen beiden Meldungen.
+        # Eine gleichnamige Funktion weiter unten übernimmt diese Rolle
+        # stillschweigend, und die Prüfung meldet dann einen Fehler an einer
+        # Stelle, an der niemand etwas geändert hat.
+        #
+        # ⚠ Und der Name darf hier auch nicht als Beispiel ausgeschrieben
+        # stehen: Die Prüfung liest den Quelltext, nicht den Code — ein
+        # Kommentar mit dem Suchmuster darin löst sie genauso aus. Beim ersten
+        # Anlauf hat genau die Warnung vor der Falle die Falle ausgelöst.
+        def platz_zuruecksetzen():
+            if warenkorb.loeschen(eintrag, pfad):
+                speichern()
+                neu_zeichnen()
+        _knopf(fenster, zeile, t('s_wk_zuruecksetzen'),
+               platz_zuruecksetzen).pack(side='right')
+
+    auswahl_rahmen = tk.Frame(eltern, bg=FLAECHE)
+    gebaut = []
+
+    def aufbauen():
+        if gebaut:
+            return
+        gebaut.append(True)
+        moeglich = warenkorb.auswahl(platz.get('art'), platz.get('groesse'))
+        if not moeglich:
+            # ⚠ Ehrlich statt hübsch: Wenn zu diesem Platz keine kaufbaren
+            # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
+            # angeboten, aus dem nichts passt.
+            _fliesstext(auswahl_rahmen, t('s_wk_kein_preis'), fenster.f_klein,
+                        grund=FLAECHE, fill='x', padx=(22, 0), abzug=90)
+            return
+        nach_name = dict((m['name'], m) for m in moeglich)
+        gewaehlt_var = tk.StringVar()
+
+        def uebernehmen(*_a):
+            m = nach_name.get((gewaehlt_var.get() or '').strip())
+            if not m:
+                return
+            if warenkorb.setzen(eintrag, pfad, m['kennung'], m['name']):
+                speichern()
+                neu_zeichnen()
+
+        feld, liste, _ = _auswahlfeld(
+            fenster, auswahl_rahmen, gewaehlt_var,
+            lambda: sorted(nach_name),
+            beim_waehlen=uebernehmen, beim_bestaetigen=uebernehmen,
+            leer_text=t('s_hg_nichts_gefunden'), rollbar=200)
+        feld.pack(fill='x', padx=(22, 0))
+        liste.pack(fill='x', padx=(22, 0))
+
+    def umschalten(_=None):
+        if auswahl_rahmen.winfo_ismapped():
+            auswahl_rahmen.pack_forget()
+        else:
+            aufbauen()
+            auswahl_rahmen.pack(fill='x', padx=(46, 16), pady=(0, 6),
+                                after=zeile)
+
+    for teil in (zeile,) + tuple(zeile.winfo_children()):
+        if isinstance(teil, tk.Label):
+            teil.bind('<Button-1>', umschalten)
+    zeile.bind('<Button-1>', umschalten)
+
+
+def _hangar_liste(eintrag):
+    """Die ganze Hangar-Liste, mit diesem Eintrag auf aktuellem Stand.
+
+    ⚠ Gespeichert wird immer die **ganze** Datei — der Eintrag ist ein Stück
+    davon, und wer nur ihn schreibt, wirft die übrigen Schiffe weg.
+    """
+    from . import hangar as meine
+    stand = meine.laden()
+    schiffe = stand.get('schiffe') or []
+    for i, s in enumerate(schiffe):
+        if (s.get('name') == eintrag.get('name')
+                and s.get('hersteller') == eintrag.get('hersteller')):
+            schiffe[i] = eintrag
+            break
+    return schiffe
+
+
+def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen):
+    """Ein Posten mit **beiden** Wegen nebeneinander — kaufen und bauen.
+
+    ⭐⭐ **Das ist der Punkt, an dem dieses Werkzeug mehr kann als jede
+    Auslegungs-Seite im Netz:** Es kennt die Baupläne des Spielers. Also steht
+    hier nicht ein Preis, sondern beide Wege — und die Wahl trifft der Spieler,
+    Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
+    Preises; wer Zeit hat, baut.
+    """
+    from . import hangar as meine, warenkorb
+
+    karte = tk.Frame(eltern, bg='#0c1017')
+    karte.pack(fill='x', padx=(46, 16), pady=(0, 6))
+
+    kopf = tk.Frame(karte, bg='#0c1017')
+    kopf.pack(fill='x', padx=12, pady=(8, 2))
+    tk.Label(kopf, text=posten.get('name') or '', bg='#0c1017', fg=FG,
+             font=fenster.f_fett, anchor='w').pack(side='left')
+    # Wogegen getauscht wird — ohne diese Angabe ist „non-stock" eine
+    # Behauptung ohne Bezugsgröße.
+    if posten.get('werk_name'):
+        hinweis = t('s_wk_statt').format(name=posten['werk_name'])
+    else:
+        hinweis = t('s_wk_zusaetzlich')
+    tk.Label(kopf, text=hinweis, bg='#0c1017', fg=SUB, font=fenster.f_klein,
+             anchor='w').pack(side='left', padx=(8, 0))
+
+    def waehlen(weg):
+        def tat():
+            if warenkorb.weg_setzen(eintrag, posten['pfad'], weg):
+                meine.speichern({'format': meine.FORMAT,
+                                 'schiffe': _hangar_liste(eintrag)})
+                neu_zeichnen()
+        return tat
+
+    for weg, schluessel, zustandsfeld in ((warenkorb.KAUFEN, 's_wk_kaufen',
+                                           'kauf'),
+                                          (warenkorb.BAUEN, 's_wk_bauen',
+                                           'bau')):
+        angabe = posten.get(zustandsfeld) or {}
+        zeile = tk.Frame(karte, bg='#0c1017')
+        zeile.pack(fill='x', padx=12, pady=(0, 4))
+
+        # ⚠ Der gewählte Weg ist in der Markenfarbe hervorgehoben — nicht durch
+        # einen Schiebeschalter, der bei zwölf Posten zwölfmal dastünde.
+        aktiv = posten.get('weg') == weg
+        tk.Label(zeile, text=t(schluessel), bg='#0c1017',
+                 fg=ACCENT if aktiv else SUB,
+                 font=fenster.f_fett if aktiv else fenster.f_klein,
+                 anchor='w', width=18).pack(side='left')
+
+        if angabe.get('zustand') == warenkorb.BEKANNT:
+            if weg == warenkorb.KAUFEN:
+                wo = ' · '.join(x for x in (angabe.get('laden'),
+                                            angabe.get('ort')) if x)
+                text = t('s_wk_kauf_preis').format(
+                    preis=_geld(angabe.get('preis')), laden=wo or '?', ort='')
+                text = text.rstrip(' ·')
+            else:
+                text = t('s_wk_bau_kosten').format(
+                    preis=_geld(angabe.get('material')),
+                    dauer=_dauer(angabe.get('dauer')))
+            farbe = FG
+        elif angabe.get('zustand') == warenkorb.KEIN_REZEPT:
+            text, farbe = t('s_wk_kein_rezept'), SUB
+        elif angabe.get('zustand') == warenkorb.KEIN_PREIS:
+            text, farbe = t('s_wk_kein_preis'), SUB
+        else:
+            text, farbe = t('s_wk_nicht_geprueft'), SUB
+        tk.Label(zeile, text=text, bg='#0c1017', fg=farbe,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
+        # Nur ein Weg, den es wirklich gibt, lässt sich wählen.
+        if angabe.get('zustand') == warenkorb.BEKANNT and not aktiv:
+            _knopf(fenster, zeile, t(schluessel),
+                   waehlen(weg)).pack(side='right')
+
+        # ⚠⚠ Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
+        # kaufbar. Ohne diesen Satz sieht Selberbauen billiger aus, als es ist.
+        if weg == warenkorb.BAUEN and angabe.get('ohne_preis'):
+            _fliesstext(karte,
+                        t('s_wk_ohne_preis').format(
+                            rohstoffe=', '.join(angabe['ohne_preis'])),
+                        fenster.f_klein, farbe=GOLD, grund='#0c1017',
+                        fill='x', padx=12, pady=(0, 6), abzug=90)
+
+    tk.Frame(karte, bg='#0c1017', height=4).pack()
+
+
+def _warenkorb_summe(fenster, eltern, liste):
+    """Was der Warenkorb kostet — nach der getroffenen Wahl."""
+    from . import warenkorb
+    zahlen = warenkorb.summe(liste)
+
+    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten.pack(fill='x', padx=(46, 16), pady=(4, 0))
+    tk.Label(kasten, text=t('s_wk_summe').format(
+        preis=_geld(zahlen['gesamt'])), bg=FLAECHE, fg=ACCENT,
+        font=fenster.f_fett, anchor='w').pack(fill='x')
+
+    if zahlen['kaufen'] and zahlen['bauen']:
+        tk.Label(kasten, text=t('s_wk_summe_teil').format(
+            kaufen=_geld(zahlen['kaufen']), bauen=_geld(zahlen['bauen'])),
+            bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+            anchor='w').pack(fill='x')
+    if zahlen['dauer']:
+        tk.Label(kasten, text=t('s_wk_bauzeit').format(
+            dauer=_dauer(zahlen['dauer'])), bg=FLAECHE, fg=SUB,
+            font=fenster.f_klein, anchor='w').pack(fill='x')
+    # ⚠ Eine Summe, der Posten fehlen, sieht aus wie eine vollständige.
+    if zahlen['offen']:
+        tk.Label(kasten, text=t('s_wk_summe_offen').format(n=zahlen['offen']),
+                 bg=FLAECHE, fg=GOLD, font=fenster.f_klein,
+                 anchor='w').pack(fill='x')
+
+
+def _warenkorb_route(fenster, eltern, liste):
+    """Die Einkaufsroute für alles, was gekauft wird."""
+    from . import warenkorb
+    stopps, ohne = warenkorb.route(liste)
+
+    tk.Label(eltern, text=t('s_wk_route'), bg=FLAECHE, fg=FG,
+             font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
+                                                   pady=(10, 2))
+    if not stopps:
+        _fliesstext(eltern, t('s_wk_route_leer'), fenster.f_klein,
+                    grund=FLAECHE, fill='x', padx=(46, 16), abzug=78)
+        return
+
+    zahlen = warenkorb.route_summe(stopps)
+    # ⚠⚠ **„Auf dieser Route", nicht „Summe".** Die Zahl oben rechnet mit dem
+    # billigsten Laden im ganzen Verse, diese mit den Läden, die auf der Route
+    # wirklich liegen. Beide sind richtig und meinen Verschiedenes —
+    # unbeschriftet nebeneinander sähe es aus, als rechne das Werkzeug falsch.
+    # ⚠ Läden und Stopps werden **einzeln** gebeugt. Zwei Läden an einem Ort
+    # sind „2 Läden · 1 Stopp" — ein gemeinsamer Mehrzahl-Satz schrieb hier
+    # „1 Stopps".
+    zahl_text = '%s · %s' % (
+        t('s_wk_laden' if zahlen['laeden'] == 1
+          else 's_wk_laeden').format(n=zahlen['laeden']),
+        t('s_wk_stopp' if zahlen['stopps'] == 1
+          else 's_wk_stopps').format(n=zahlen['stopps']))
+    tk.Label(eltern, text='%s  ·  %s' % (
+        t('s_wk_route_summe').format(preis=_geld(zahlen['gesamt'])),
+        zahl_text),
+        bg=FLAECHE, fg=SUB, font=fenster.f_klein, anchor='w').pack(
+            fill='x', padx=(46, 16))
+
+    for stopp in stopps:
+        zeile = tk.Frame(eltern, bg=FLAECHE)
+        zeile.pack(fill='x', padx=(58, 16), pady=(4, 0))
+        wo = ' · '.join(x for x in (stopp['system'], stopp['ort']) if x)
+        tk.Label(zeile, text=wo, bg=FLAECHE, fg=FG, font=fenster.f_klein,
+                 anchor='w').pack(side='left')
+        tk.Label(zeile, text=_auec(stopp['summe']), bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='e').pack(side='right')
+        for eintrag_posten in stopp['posten']:
+            unter = tk.Frame(eltern, bg=FLAECHE)
+            unter.pack(fill='x', padx=(70, 16))
+            tk.Label(unter, text='%s — %s' % (eintrag_posten['name'],
+                                              eintrag_posten['laden']),
+                     bg=FLAECHE, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(side='left')
+            tk.Label(unter, text=_geld(eintrag_posten['preis']), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein,
+                     anchor='e').pack(side='right')
+
+    if ohne:
+        _fliesstext(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
+                    fenster.f_klein, farbe=GOLD, grund=FLAECHE, fill='x',
+                    padx=(46, 16), pady=(6, 0), abzug=78)
 
 
 def _lager(fenster, rahmen):
@@ -11266,3 +11690,436 @@ def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
         kreuz.bind('<Leave>', lambda _e, w=kreuz, f=blass: w.configure(fg=f))
 
     return gesamt
+
+
+def _achsen(fenster, rahmen):
+    """Totzone, Sättigung und Kurve — und was davon überhaupt noch gilt.
+
+    ## Warum diese Seite neben „Joysticks" steht
+
+    Der Nachbarreiter beantwortet „welcher Stick ist js1 und was liegt
+    darauf". Hier geht es um etwas anderes: **wie** die Achse reagiert. Das
+    sind zwei Fragen, die im Spiel auch an zwei verschiedenen Stellen stehen.
+
+    ## ⭐ Der Befund zuerst, die Einstellung danach
+
+    Ganz oben steht, was **nicht mehr wirkt**. Das ist die Auskunft, die es
+    sonst nirgends gibt: Star Citizen hängt Totzone und Sättigung an die
+    Kennung des Geräts. Bekommt ein Stick eine neue (anderer USB-Anschluss,
+    neue Firmware), legt das Spiel ihn als neues Gerät an — die alten Werte
+    bleiben in der Datei stehen und tun nichts. Im Spiel ist das nicht zu
+    sehen, weil dort nur das aktuelle Gerät auftaucht.
+
+    An einem echten Aufbau gemessen (06.09.2026): drei solcher Fälle, darunter
+    eine Sättigung, die der Spieler eingestellt hatte und die seit einem
+    Kennungswechsel wirkungslos war. Beide Sticks liefen dadurch unterschiedlich
+    scharf, bei identischer Beschriftung.
+
+    ⚠ **Geschrieben wird nur auf Knopfdruck** — wie im ganzen Joystick-Teil.
+    """
+    from tkinter import messagebox
+
+    from . import kurven
+    from .kurvenbild import Kurvenbild
+
+    _ueberschrift(fenster, rahmen, t('hf_achsen'), t('s_ac_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_ac_hinweis'), fenster.f_klein, fill='x')
+
+    # ⚠ Wie bei den Joysticks: Was neu gezeichnet wird, steht in einem eigenen
+    # Rahmen. Der Kopftext darüber bleibt stehen.
+    inhalt = tk.Frame(innen, bg=BG)
+    inhalt.pack(fill='both', expand=True, padx=24, pady=(4, 12))
+
+    # Die gewählte Achse — als Wörterbuch, damit die Rückrufe sie ändern
+    # können, ohne `nonlocal` durch drei Ebenen zu reichen.
+    wahl = {'kennung': '', 'achse': '', 'ganz': False}
+
+    def _zahl(wert):
+        """Eine Zahl fürs Auge: zwei Stellen, ohne Nullenschwanz."""
+        if wert is None:
+            return '—'
+        return ('%.2f' % wert).rstrip('0').rstrip('.') or '0'
+
+    def _auffrischen():
+        for kind in list(inhalt.winfo_children()):
+            kind.destroy()
+
+        ueberblick = kurven.zusammenfassung()
+        aktive = [b for b in ueberblick['bloecke']
+                  if b['aktiv'] and b['kennung']]
+
+        if not ueberblick['bloecke']:
+            _fliesstext(inhalt, t('s_ac_keine'), fenster.f_grund, fill='x')
+            return
+
+        # --- 1. Der Befund: was nicht mehr wirkt -----------------------
+        if ueberblick['uebernehmbar']:
+            kopf = tk.Label(inhalt, text=t('s_ac_befund'), bg=BG, fg=GOLD,
+                            font=fenster.f_fett, anchor='w')
+            kopf.pack(fill='x', pady=(6, 0))
+            _fliesstext(inhalt, t('s_ac_befund_lead'), fenster.f_klein,
+                        fill='x')
+            for fall in ueberblick['uebernehmbar']:
+                _befund_block(fall)
+
+        # --- 2. Geräteauswahl ------------------------------------------
+        if not aktive:
+            _fliesstext(inhalt, t('s_ac_keine'), fenster.f_grund, fill='x')
+            return
+        if not wahl['kennung'] or not any(b['kennung'] == wahl['kennung']
+                                          for b in aktive):
+            wahl['kennung'] = aktive[0]['kennung']
+
+        leiste = tk.Frame(inhalt, bg=BG)
+        leiste.pack(fill='x', pady=(16, 0))
+        for block in aktive:
+            gewaehlt = block['kennung'] == wahl['kennung']
+
+            def _waehlen(k=block['kennung']):
+                wahl['kennung'] = k
+                wahl['achse'] = ''
+                _auffrischen()
+
+            knopf = tk.Label(leiste, text=block['name'], bg=BAR if gewaehlt
+                             else FLAECHE, fg=BG if gewaehlt else FG,
+                             font=fenster.f_klein, padx=10, pady=4,
+                             cursor='hand2')
+            if gewaehlt:
+                knopf.configure(bg=ACCENT)
+            knopf.pack(side='left', padx=(0, 6))
+            knopf.bind('<Button-1>', lambda _e, f=_waehlen: f())
+
+        gewaehlter = [b for b in aktive if b['kennung'] == wahl['kennung']][0]
+
+        # --- 3. Die Achsen des gewählten Geräts ------------------------
+        vorhandene = [a for a in kurven.ACHSEN if a in gewaehlter['achsen']]
+        if not vorhandene:
+            _fliesstext(inhalt, t('s_ac_keine_werte'), fenster.f_klein,
+                        fill='x')
+            return
+        if wahl['achse'] not in vorhandene:
+            wahl['achse'] = vorhandene[0]
+
+        unten = tk.Frame(inhalt, bg=BG)
+        unten.pack(fill='both', expand=True, pady=(14, 0))
+
+        # ⚠ Erst das Feste (die Kurve rechts), dann die wachsende Liste —
+        # sonst schiebt die Liste das Bild aus dem Fenster. Dieselbe Falle
+        # wie beim Speichern-Knopf im Einstellungsfenster.
+        rechts = tk.Frame(unten, bg=BG)
+        rechts.pack(side='right', anchor='n', padx=(18, 0))
+        links = tk.Frame(unten, bg=BG)
+        links.pack(side='left', fill='both', expand=True)
+
+        werte = gewaehlter['achsen'].get(wahl['achse']) or {}
+        bild = Kurvenbild(rechts, breite=240, hoehe=240, ganz=wahl['ganz'],
+                          schrift=fenster.f_grund, klein=fenster.f_klein)
+        bild.pack()
+        bild.zeigen(totzone=werte.get('deadzone'),
+                    saettigung=werte.get('saturation'),
+                    exponent=_exponent_fuer(ueberblick, gewaehlter,
+                                            wahl['achse']))
+
+        schalter = tk.Frame(rechts, bg=BG)
+        schalter.pack(fill='x', pady=(8, 0))
+
+        def _umschalten():
+            wahl['ganz'] = not wahl['ganz']
+            _auffrischen()
+
+        def _gross():
+            from .kurvenbild import gross_zeigen
+            gross_zeigen(rahmen, '%s — %s %s' % (t('s_ac_titel_gross'),
+                                                 gewaehlter['name'],
+                                                 wahl['achse']),
+                         totzone=werte.get('deadzone'),
+                         saettigung=werte.get('saturation'),
+                         exponent=_exponent_fuer(ueberblick, gewaehlter,
+                                                 wahl['achse']),
+                         ganz=wahl['ganz'],
+                         schrift=fenster.f_grund, klein=fenster.f_klein)
+
+        _knopf(fenster, schalter,
+               t('s_kv_quadrant') if wahl['ganz'] else t('s_kv_ganz'),
+               _umschalten).pack(side='left')
+        _knopf(fenster, schalter, t('s_ac_gross'),
+               _gross).pack(side='left', padx=(8, 0))
+
+        for achse in vorhandene:
+            _achsenzeile(links, gewaehlter, achse)
+
+        # --- 4. Die Regler ---------------------------------------------
+        #
+        # ⚠⚠ **Der Regler schreibt NICHT.** Er ändert nur die Vorschau; erst
+        # der Knopf darunter fasst die Datei an. Dieselbe Linie wie im
+        # Belegungsfenster: Zwischen „eingestellt" und „geschrieben" gehört
+        # ein Mensch — an dieser Datei hängt die komplette Steuerung, und ein
+        # Regler löst beim Ziehen dutzende Ereignisse aus.
+        regler = tk.Frame(links, bg=BG)
+        regler.pack(fill='x', pady=(16, 0))
+
+        anzeigen = {}
+
+        def _vorschau(_wert=None):
+            """Kurve neu zeichnen — ohne die Seite neu zu bauen.
+
+            ⚠ Hier **nicht** `_auffrischen()` rufen: Das baut die Regler neu,
+            und der Griff, den die Maus gerade hält, wäre weg. Dieselbe Falle
+            wie beim Suchfeld auf der Joystick-Seite.
+            """
+            for name, teil in anzeigen.items():
+                teil['anzeige'].configure(text=_zahl(teil['var'].get()))
+            bild.zeigen(totzone=anzeigen['deadzone']['var'].get(),
+                        saettigung=anzeigen['saturation']['var'].get(),
+                        exponent=_exponent_fuer(ueberblick, gewaehlter,
+                                                wahl['achse']))
+            _stand_zeigen()
+
+        def _reglerzeile(eigenschaft, beschriftung, ist):
+            """Ein Regler für eine Eigenschaft.
+
+            ⚠⚠ **„Nicht gesetzt" ist nicht dasselbe wie 0.** Fehlt die
+            Sättigung in der Datei, gilt im Spiel **1,0** — der volle Weg.
+            Ein Regler, der in diesem Fall links auf 0 stünde, wäre eine
+            Falle: Wer ihn anfasst und speichert, schriebe Sättigung 0 und
+            hätte danach praktisch keine Kontrolle mehr über den Stick.
+            Deshalb hat jede Eigenschaft ihren eigenen Ruhewert.
+            """
+            ruhe = kurven.STANDARD.get(eigenschaft, 0.0)
+            zeile = tk.Frame(regler, bg=BG)
+            zeile.pack(fill='x', pady=(6, 0))
+            tk.Label(zeile, text=beschriftung, bg=BG, fg=FG,
+                     font=fenster.f_klein, anchor='w',
+                     width=14).pack(side='left')
+            var = tk.DoubleVar(value=(ruhe if ist is None else ist))
+            # ⚠ Die Zahl steht RECHTS vom Regler und wird zuerst gepackt —
+            # sonst nimmt der Regler ihr den Platz weg, sobald das Fenster
+            # schmal wird, und der Wert ist nicht mehr zu lesen.
+            anzeige = tk.Label(zeile, text=_zahl(ist), bg=BG, fg=ACCENT,
+                               font=fenster.f_klein, width=5, anchor='e')
+            anzeige.pack(side='right', padx=(8, 0))
+            schieber = tk.Scale(zeile, from_=0.0, to=1.0, resolution=0.005,
+                                orient='horizontal', variable=var,
+                                command=_vorschau, showvalue=False,
+                                bg=BG, fg=FG, troughcolor=FLAECHE,
+                                activebackground=ACCENT, highlightthickness=0,
+                                bd=0, sliderrelief='flat', length=200)
+            schieber.pack(side='left', fill='x', expand=True)
+            anzeigen[eigenschaft] = {'var': var, 'anzeige': anzeige,
+                                     'ist': ist, 'ruhe': ruhe}
+
+        _reglerzeile('deadzone', t('s_kv_totzone'), werte.get('deadzone'))
+        _reglerzeile('saturation', t('s_kv_saettigung'),
+                     werte.get('saturation'))
+
+        stand = tk.Label(links, text='', bg=BG, fg=SUB,
+                         font=fenster.f_klein, anchor='w')
+        stand.pack(fill='x', pady=(10, 0))
+
+        def _offen():
+            """Was hat der Spieler geändert, ohne zu speichern?
+
+            ⚠ Steht ein Regler auf seinem Ruhewert und war die Eigenschaft
+            vorher gar nicht gesetzt, ist das **keine** Änderung. Sonst
+            meldete die Seite bei jedem Öffnen „ungespeichert" und schriebe
+            beim Speichern Werte in die Datei, die der Spieler nie angefasst
+            hat — genau die Sorte stiller Eingriff, die dieses Werkzeug
+            vermeiden soll.
+            """
+            heraus = {}
+            for eigenschaft, teil in anzeigen.items():
+                neu = round(teil['var'].get(), 4)
+                alt = teil['ist']
+                if alt is None:
+                    if abs(teil['ruhe'] - neu) > 1e-4:
+                        heraus[eigenschaft] = neu
+                elif abs(alt - neu) > 1e-4:
+                    heraus[eigenschaft] = neu
+            return heraus
+
+        def _stand_zeigen():
+            stand.configure(text=t('s_ac_geaendert') if _offen() else '',
+                            fg=GOLD)
+
+        def _speichern():
+            # ⚠ Lokaler Import: Beim Zusammenführen zweier Zweige ist der
+            # Modul-Import verlorengegangen, und `messagebox` war an sechs
+            # Stellen undefiniert. Der Selbsttest hat es gefangen — im Betrieb
+            # wäre es erst beim Klick aufgefallen.
+            from tkinter import messagebox
+            aenderungen = _offen()
+            if not aenderungen:
+                messagebox.showinfo(t('hf_achsen'), t('s_ac_nichts_offen'))
+                return
+            for eigenschaft, neu in aenderungen.items():
+                erfolg, meldung, _ = kurven.setzen(
+                    gewaehlter['kennung'], wahl['achse'], eigenschaft, neu)
+                if not erfolg:
+                    # ⚠ Beim ersten Fehler abbrechen und melden. Weiterschreiben
+                    # hieße, die Datei halb geändert zurückzulassen — und der
+                    # Spieler wüsste nicht, welche Hälfte.
+                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    return
+            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
+            _auffrischen()
+
+        knopfreihe = tk.Frame(links, bg=BG)
+        knopfreihe.pack(fill='x', pady=(10, 0))
+        _knopf(fenster, knopfreihe, t('s_ac_speichern'), _speichern,
+               stark=True).pack(side='left')
+        _knopf(fenster, knopfreihe, t('s_ac_verwerfen'),
+               _auffrischen).pack(side='left', padx=(8, 0))
+        _fliesstext(links, t('s_ac_spiel_zu'), fenster.f_klein, fill='x')
+
+        # --- 5. Zwei Sticks gleich einstellen --------------------------
+        #
+        # ⭐ Wer HOSAS fliegt, will auf beiden Seiten dasselbe Gefühl. Von
+        # Hand sind das zwölf Mal dieselbe Zahl — und einmal vertippt fällt
+        # es erst im Gefecht auf. Übertragen wird **alles auf einmal**, aber
+        # nur für Achsen, die es auf beiden Geräten gibt: Ein Pedalsatz hat
+        # kein `rotx`, und ein erfundener Wert wäre schlimmer als keiner.
+        andere = [b for b in aktive if b['kennung'] != gewaehlter['kennung']]
+        if andere:
+            reihe2 = tk.Frame(links, bg=BG)
+            reihe2.pack(fill='x', pady=(12, 0))
+            for ziel in andere:
+                def _angleichen(z=ziel):
+                    # ⚠ Die Arbeit macht `kurven.angleichen()` — hier steht
+                    # nur die Rückfrage. Logik in einem Rückruf der Oberfläche
+                    # lässt sich nicht prüfen; im Modul hat sie eine Prüfung.
+                    if not messagebox.askyesno(
+                            t('hf_achsen'),
+                            t('s_ac_angleichen_frage').format(
+                                gewaehlter['name'], z['name'])
+                            + '\n\n' + t('s_ac_spiel_zu')):
+                        return
+                    erfolg, meldung, anzahl = kurven.angleichen(
+                        gewaehlter['kennung'], z['kennung'])
+                    if not erfolg:
+                        messagebox.showwarning(t('hf_achsen'), t(meldung))
+                        return
+                    messagebox.showinfo(
+                        t('hf_achsen'),
+                        t('s_ac_angeglichen').format(anzahl))
+                    _auffrischen()
+
+                _knopf(fenster, reihe2,
+                       t('s_ac_angleichen').format(ziel['name']),
+                       _angleichen).pack(side='left', padx=(0, 8))
+
+    def _exponent_fuer(ueberblick, block, achse):
+        """Der Exponent, der auf dieser physischen Achse landet.
+
+        ⚠ **Eine Näherung, und zwar bewusst.** Der Exponent hängt an der
+        *Spielachse* (`flight_move_pitch`), die Totzone an der *physischen*
+        (`x`). Welche Spielachse auf welcher physischen liegt, sagt erst die
+        Belegung — und dort kann dieselbe physische Achse mehrfach auftauchen.
+        Gezeigt wird deshalb der Exponent des Geräts, wenn es genau einen gibt,
+        sonst keiner. Lieber nichts anzeigen als das Falsche.
+        """
+        exponenten = set()
+        for spiel in ueberblick['spiel']:
+            if spiel['kennung'] != block['kennung']:
+                continue
+            for eigenschaften in spiel['achsen'].values():
+                if eigenschaften.get('exponent') is not None:
+                    exponenten.add(eigenschaften['exponent'])
+        return exponenten.pop() if len(exponenten) == 1 else 1.0
+
+    def _achsenzeile(eltern, block, achse):
+        gewaehlt = achse == wahl['achse']
+        werte = block['achsen'].get(achse) or {}
+        zeile = tk.Frame(eltern, bg=BAR if gewaehlt else BG, cursor='hand2')
+        zeile.pack(fill='x', pady=(0, 2))
+
+        def _waehlen(_e=None, a=achse):
+            wahl['achse'] = a
+            _auffrischen()
+
+        name = tk.Label(zeile, text=achse, bg=zeile['bg'],
+                        fg=ACCENT if gewaehlt else FG, font=fenster.f_fett,
+                        anchor='w', width=9, padx=8)
+        name.pack(side='left', pady=5)
+        text = '%s %s   ·   %s %s' % (
+            t('s_kv_totzone'), _zahl(werte.get('deadzone')),
+            t('s_kv_saettigung'), _zahl(werte.get('saturation')))
+        wert = tk.Label(zeile, text=text, bg=zeile['bg'], fg=SUB,
+                        font=fenster.f_klein, anchor='w')
+        wert.pack(side='left', fill='x', expand=True)
+        if achse in block['mehrfach']:
+            marke = tk.Label(zeile, text='⚠', bg=zeile['bg'], fg=GOLD,
+                             font=fenster.f_klein, padx=8)
+            marke.pack(side='right')
+        for teil in (zeile, name, wert):
+            teil.bind('<Button-1>', _waehlen)
+
+    def _befund_block(fall):
+        """Ein verlorener Stand — nach Wert zusammengefasst, nicht je Achse.
+
+        ⚠ **Die erste Fassung listete jede Achse einzeln.** An einem echten
+        Aufbau waren das elf Zeilen für einen einzigen Fall und über zwanzig
+        insgesamt — die eigentliche Bedienung stand damit unter der Falzkante.
+        Dabei steht auf allen sechs Achsen fast immer **derselbe** Wert: Wer
+        eine Sättigung einstellt, stellt sie für den ganzen Stick ein. Eine
+        Zeile je Wert sagt dasselbe und passt auf den Bildschirm.
+        """
+        kasten = tk.Frame(inhalt, bg=FLAECHE)
+        kasten.pack(fill='x', pady=(8, 0))
+        tk.Label(kasten, text=fall['name'], bg=FLAECHE, fg=FG,
+                 font=fenster.f_fett, anchor='w', padx=10).pack(fill='x',
+                                                                pady=(8, 0))
+
+        # Nach (Eigenschaft, alter Wert, jetziger Wert) bündeln — die Achsen
+        # sammeln sich als Aufzählung dahinter.
+        buendel = {}
+        for achse, eigenschaft, alt, jetzt in fall['werte']:
+            buendel.setdefault((eigenschaft, alt, jetzt), []).append(achse)
+
+        for (eigenschaft, alt, jetzt), achsen in buendel.items():
+            name = (t('s_kv_totzone') if eigenschaft == 'deadzone'
+                    else t('s_kv_saettigung'))
+            wie = (t('s_ac_fehlt') if jetzt is None
+                   else '%s %s' % (t('s_ac_jetzt'), _zahl(jetzt)))
+            tk.Label(kasten,
+                     text='%s: %s %s → %s' % (name, t('s_ac_war'),
+                                              _zahl(alt), wie),
+                     bg=FLAECHE, fg=FG, font=fenster.f_klein, anchor='w',
+                     padx=10).pack(fill='x')
+            tk.Label(kasten, text='   ' + ', '.join(achsen), bg=FLAECHE,
+                     fg=SUB, font=fenster.f_klein, anchor='w',
+                     padx=10).pack(fill='x')
+
+        def _uebernehmen(f=fall):
+            """Die alten Werte auf die neue Kennung schreiben.
+
+            ⚠ **Erst fragen.** Das schreibt in die Datei, an der die komplette
+            Steuerung hängt — und zwar mehrere Werte auf einmal. Der Spieler
+            sieht vorher, was passiert; die Sicherung entsteht ohnehin bei
+            jedem Schreibvorgang.
+            """
+            if not messagebox.askyesno(
+                    t('hf_achsen'),
+                    '%s\n\n%s' % (t('s_ac_uebernehmen'), t('s_ac_spiel_zu'))):
+                return
+            for achse, eigenschaft, alt, _jetzt in f['werte']:
+                erfolg, meldung, _ = kurven.setzen(
+                    f['neu']['kennung'], achse, eigenschaft, alt)
+                if not erfolg:
+                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    return
+            messagebox.showinfo(t('hf_achsen'), t('s_ac_gespeichert'))
+            _auffrischen()
+
+        tk.Frame(kasten, bg=FLAECHE, height=8).pack(fill='x')
+        # ⚠ Der Knopf steht UNTER dem Kasten, nicht darin: `_knopf` zeichnet
+        # seine Leinwand fest auf `BG`, und in einem `FLAECHE`-Kasten wäre das
+        # ein sichtbarer Farbklotz. Die gemeinsame Funktion dafür umzubauen
+        # wäre der größere Eingriff — an ihr hängen alle anderen Seiten.
+        reihe = tk.Frame(inhalt, bg=BG)
+        reihe.pack(fill='x', pady=(6, 0))
+        _knopf(fenster, reihe, t('s_ac_uebernehmen'),
+               _uebernehmen).pack(side='left')
+
+    _auffrischen()
+    fenster.beim_zeigen['achsen'] = _auffrischen

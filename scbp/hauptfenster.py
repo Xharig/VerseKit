@@ -2045,6 +2045,11 @@ class Hauptfenster:
         # was darauf liegt. Das ist dieselbe Sorte Frage wie „welcher Ordner,
         # welche Sprache", nur für die Steuerung.
         self._reiter('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
+        # ⚠ Direkt darunter, weil es dieselbe Sache aus der anderen Richtung
+        # ist: „Joysticks" sagt, WELCHER Stick welche Nummer hat und was
+        # darauf liegt — „Achsen & Kurven" sagt, WIE die Achse reagiert. Im
+        # Spiel stehen die beiden Fragen ebenfalls an zwei Stellen.
+        self._reiter('achsen', 'achsen', t('hf_achsen'), g_einst)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.

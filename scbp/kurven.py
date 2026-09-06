@@ -101,6 +101,21 @@ EIGENSCHAFTEN = {
     'saturation': (0.0, 1.0),
 }
 
+# ⚠⚠ **Was gilt, wenn nichts in der Datei steht — und das ist NICHT 0.**
+#
+# Fehlt die Sättigung, nutzt das Spiel den vollen Weg: 1,0. Fehlt die
+# Totzone, gibt es keine: 0,0. Wer beide gleich behandelt, baut eine Falle —
+# ein Regler, der bei fehlender Sättigung links auf 0 steht, schreibt beim
+# ersten Anfassen einen Wert, nach dem der Stick fast nicht mehr steuert.
+#
+# Dieselbe Tabelle gilt für die Kurvenrechnung in `antwort()`; die Werte
+# stehen hier, damit Oberfläche und Rechnung nicht auseinanderlaufen.
+STANDARD = {
+    'deadzone':   0.0,
+    'saturation': 1.0,
+    'exponent':   1.0,
+}
+
 # Was an einer Spielachse einstellbar ist.
 # ⚠ `exponent` ist KEIN Anteil — gemessen wurden 1, 1.1, 1.5 und 3. Ein Wert
 # unter 1 macht die Mitte grober, über 1 feiner. Die Grenzen hier sind großzügig
@@ -750,6 +765,60 @@ def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
         knoten.set(eigenschaft, text)
 
     return joysticks._schreiben(weg, baum, 1)
+
+
+def angleichen(von_kennung, nach_kennung, datei=None, ordner=None):
+    """Alle Achsenwerte eines Geräts auf ein anderes übertragen.
+
+    ⭐ **Wofür das da ist:** Wer zwei Sticks fliegt, will auf beiden Seiten
+    dasselbe Gefühl. Von Hand sind das ein Dutzend Mal dieselbe Zahl — und
+    einmal vertippt fällt es erst im Gefecht auf.
+
+    Übertragen werden Totzone und Sättigung **nur für Achsen, die es auf
+    beiden Geräten gibt**. Ein Pedalsatz hat kein `rotx`; einen Wert dafür zu
+    erfinden wäre schlimmer als keiner.
+
+    ⚠ **Auch ein fehlender Wert wird übertragen — als Löschen.** Hat die
+    Quelle keine Sättigung und das Ziel eine, muss sie weg; sonst sind die
+    beiden hinterher eben nicht gleich, und genau das war der Zweck.
+
+    Liefert `(erfolg, meldung, anzahl)`; `anzahl` ist die Zahl der
+    geschriebenen Werte.
+    """
+    von_kennung = (von_kennung or '').upper()
+    nach_kennung = (nach_kennung or '').upper()
+    if not von_kennung or not nach_kennung:
+        return False, 's_kv_f_kennung', 0
+    if von_kennung == nach_kennung:
+        return False, 's_kv_f_geraet', 0
+
+    bloecke = geraete_achsen(datei, ordner)
+    quelle = ziel = None
+    for block in bloecke:
+        # Bei mehreren Blöcken derselben Kennung gewinnt der letzte — dieselbe
+        # Regel wie überall in diesem Modul.
+        if block['kennung'] == von_kennung:
+            quelle = block
+        if block['kennung'] == nach_kennung:
+            ziel = block
+    if quelle is None or ziel is None:
+        return False, 's_kv_f_geraet', 0
+
+    gemeinsam = [a for a in ACHSEN
+                 if a in quelle['achsen'] and a in ziel['achsen']]
+    if not gemeinsam:
+        return False, 's_ac_nichts_gemeinsam', 0
+
+    anzahl = 0
+    for achse in gemeinsam:
+        for eigenschaft in EIGENSCHAFTEN:
+            wert = quelle['achsen'][achse].get(eigenschaft)
+            erfolg, meldung, _ = setzen(nach_kennung, achse, eigenschaft,
+                                        wert, datei, ordner)
+            if not erfolg:
+                return False, meldung, anzahl
+            anzahl += 1
+    return True, '', anzahl
 
 
 def zusammenfassung(datei=None, ordner=None):

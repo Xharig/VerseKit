@@ -6,6 +6,41 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc10 - 2026-09-06
+
+> **Sag dem Werkzeug, wie dein Schiff aussehen soll — es sagt dir, was dir
+> dafür fehlt.** Unter „Mein Hangar" lässt sich jetzt für jeden Steckplatz
+> festlegen, was dort sitzen soll. Alles, was nicht ab Werk verbaut ist, landet
+> in einem Warenkorb — und dort steht bei jedem Posten **beides**: was er im
+> Laden kostet und was er dich an Material kostet, wenn du ihn selbst baust.
+> Was davon du nimmst, entscheidest du.
+
+### Verbessert
+
+- **Der Rückfrage-Dialog sieht aus wie das Programm.** „Gemerkte Wracks
+  verwerfen" öffnete den Dialog des Betriebssystems — weißer Kasten mit
+  englischen Knöpfen mitten in einem deutschen, dunklen Fenster.
+- **„Eingabe leeren" in der Bergung.** Ein Suchfeld, das man nur mit der
+  Rücktaste leerbekommt, ist bei „Anvil F7C-M Super Hornet Mk II" eine
+  Zumutung.
+- **„Unbrauchbar" statt „Brikett".** Die erste Fassung übersetzte das
+  englische Wort zu wörtlich. Gemeldet von Zwaersch (KRT).
+
+### Neu
+
+- **Auslegung speichern.** Für jedes Schiff im Hangar lässt sich Platz für
+  Platz festlegen, welches Teil dort sitzen soll. Daneben steht immer, was ab
+  Werk drin ist.
+- **Warenkorb.** Alles, was von der Werksausstattung abweicht, steht als Liste
+  darunter — mit Summe.
+- **Kaufen oder selbst herstellen, je Posten.** Beide Kosten stehen
+  nebeneinander: Ladenpreis mit Ort, daneben Materialkosten und Bauzeit. Für
+  Teile ohne Bauplan steht dort „nur kaufbar". Braucht ein Rezept einen
+  Rohstoff, den kein Laden führt, wird das gesagt — die Materialkosten sind
+  dann eine Untergrenze, keine Endsumme.
+- **Einkaufsroute.** Für alles Gekaufte eine Route mit möglichst wenigen
+  Stopps, nach Orten gruppiert. Zwei Läden an derselben Station sind ein Stopp.
+
 ## v3.19.0-rc9 - 2026-09-06
 
 > **Alle 265 Schiffe einzeln durchgeprüft.** 225 finden ihre Bestückungsdaten,

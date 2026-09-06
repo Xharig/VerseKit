@@ -70,6 +70,66 @@ ROT     = '#e05252'
 STUETZSTELLEN = 160
 
 
+def gross_zeigen(eltern, titel, totzone=None, saettigung=None, exponent=None,
+                 kurve=None, ganz=False, schrift=None, klein=None):
+    """Die Kurve groß in einem eigenen Fenster — zum genauen Hinsehen.
+
+    Auf der Seite ist das Bild klein, weil daneben die Regler und die
+    Achsenliste stehen. Wer eine Kurve wirklich beurteilen will, braucht
+    Fläche: Ob die Mitte weich oder hart einsetzt, sieht man bei 240 Pixeln
+    schlicht nicht.
+
+    ⚠ **Öffnet sich nur auf Knopfdruck.** Ein Fenster, das von allein
+    aufgeht, reißt den Tastaturfokus mit — wer gerade fliegt, landet im
+    Desktop.
+
+    ⚠ **Die Mindestgröße wird mitgesetzt.** Sonst gilt sie weiter, wenn
+    jemand das Fenster kleiner zieht, und die gesetzte Größe stimmt nicht
+    mehr mit der tatsächlichen überein — im Projekt schon einmal die Ursache
+    dafür, dass ein Fenster aus dem Bildschirm wanderte.
+    """
+    fenster = tk.Toplevel(eltern)
+    fenster.title(titel)
+    fenster.configure(bg=BG)
+    rand = 40
+    seite = 560
+    fenster.geometry('%dx%d' % (seite + rand, seite + rand + 46))
+    fenster.minsize(360, 400)
+
+    kopf = tk.Frame(fenster, bg=BG)
+    kopf.pack(fill='x', side='top')
+
+    bild = Kurvenbild(fenster, breite=seite, hoehe=seite, ganz=ganz,
+                      schrift=schrift, klein=klein)
+    bild.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+    bild.zeigen(totzone=totzone, saettigung=saettigung, exponent=exponent,
+                kurve=kurve)
+
+    zustand = {'ganz': ganz}
+
+    def _umschalten():
+        zustand['ganz'] = bild.umschalten()
+        knopf.configure(text=(t('s_kv_quadrant') if zustand['ganz']
+                              else t('s_kv_ganz')))
+
+    knopf = tk.Label(kopf, text=(t('s_kv_quadrant') if ganz
+                                 else t('s_kv_ganz')),
+                     bg=FLAECHE, fg=FG, font=klein or schrift,
+                     padx=12, pady=6, cursor='hand2')
+    knopf.pack(side='left', padx=20, pady=14)
+    knopf.bind('<Button-1>', lambda _e: _umschalten())
+
+    werte = tk.Label(
+        kopf,
+        text='%s %s   ·   %s %s' % (
+            t('s_kv_totzone'), '—' if totzone is None else ('%g' % totzone),
+            t('s_kv_saettigung'),
+            '—' if saettigung is None else ('%g' % saettigung)),
+        bg=BG, fg=SUB, font=klein or schrift)
+    werte.pack(side='left')
+    return fenster
+
+
 class Kurvenbild:
     """Die Antwortkurve einer Achse auf einer Leinwand.
 
