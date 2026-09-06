@@ -6,6 +6,75 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0 - 2026-09-06
+
+> **Dein Hangar kommt ins Werkzeug.** Trag deine Schiffe ein, und der Watcher
+> beantwortet die Frage, die auf jeden neuen Bauplan folgt: Passt das Teil
+> überhaupt in eines meiner Schiffe? Dazu planst du je Steckplatz, was
+> hineinsoll, siehst was es kostet — gekauft oder selbst gebaut —, was du dafür
+> noch farmen musst, und ob sich das Zerlegen eines Wracks überhaupt lohnt.
+
+### Neu
+
+- **Mein Hangar** — eigene Gruppe „Schiffe". Import aus dem Pledge-Store über
+  die Erweiterung *Hangar XPLORer* oder von Hand; jedes Schiff trägt seine
+  Herkunft (Echtgeld oder im Spiel gekauft).
+- **Passt in dein Schiff** — zu jedem Bauplan steht in der Herstellung, in
+  welche deiner Schiffe das Teil passt und in wie viele Steckplätze.
+- **Ausstattung planen** — je Steckplatz festlegen, was dort sitzen soll, mit
+  Güte und Klasse an jedem Teil („A · Militär · nur über Bauplan"). Auch
+  militärische Teile stehen zur Wahl: nicht kaufbar, aber herstellbar.
+- **Wunschliste** — Schiffe, die du dir vornimmst, mit Kaufpreis und Ort. Die
+  Ausstattung lässt sich planen, bevor du das Schiff besitzt.
+- **Was noch fehlt** — die Rechnung über alle Schiffe: jede Position mit Schiff
+  und Steckplatz, kaufen oder selbst bauen je Posten, Summe und Einkaufsroute.
+  Was du eingebaut hast, hakst du ab.
+- **Was ich farmen muss** — dein Rohstofflager gegen alles gerechnet, was du
+  selbst bauen willst. Erz mit zu geringer Güte wird genannt, nicht
+  verschwiegen.
+- **Was steckt drin?** — was ein Wrack ab Werk an Bord hat und was es im Laden
+  wert ist.
+- **Lohnt das Zerlegen?** — was der Fabricator zurückgibt. Sechs Rohstoffe
+  kommen nie wieder; bei den meisten Teilen ist mindestens einer davon dabei.
+- **Fertig gefittete Schiffe sind markiert** — mit dem Hinweis, dass ein neu
+  geclaimtes Schiff in der Werksausstattung zurückkommt und ohne passende
+  Versicherung alles Eingebaute weg ist.
+- **Geräte-Hub** auf der Steuerungsseite: welches Gerät welche Nummer im Spiel
+  hat, mit laufender Überwachung.
+- **Blickwinkel** — Bildschirm ausmessen und den Sitzabstand bewerten.
+- Ein Klick ins Leere nimmt den Cursor aus dem Eingabefeld.
+
+### Verbessert
+
+- **Der Ablage-Ordner nimmt beim Umstellen die Daten mit** — geprüft kopiert,
+  der alte Ordner bleibt liegen.
+- Die Achsen-Tabelle zeigt, welche Flugfunktion auf welcher Achse liegt — nur
+  dort gibt es eine Empfindlichkeit einzustellen.
+- Die Empfindlichkeit lässt sich einstellen, ohne dass die Regler zu zwei
+  Balken zusammengequetscht werden.
+- Gleiche Steckplätze stehen in einer Zeile: aus 46 Zeilen bei einer Cutlass
+  Black werden 18.
+
+### Behoben
+
+- **Fenster öffneten sich irgendwo** — auf mehreren Bildschirmen auch außerhalb
+  des sichtbaren Bereichs, was das Programm unbedienbar machte. Alle Fenster
+  setzen sich jetzt mittig über das Hauptfenster.
+- **Das Auftrags-Protokoll blockierte beim ersten Aufbau neun Sekunden** — es
+  liest die Logs jetzt im Hintergrund.
+- Die Wunschliste wurde beim Speichern gelöscht, sobald an einem Schiff etwas
+  geändert wurde.
+- Meldungen erscheinen im Programmstil statt als Systemfenster in der Sprache
+  des Betriebssystems.
+- Mengen unter zehn werden auf zwei Stellen genau angezeigt.
+- Zwei gleichzeitige Schreibvorgänge auf dieselbe Ablage stören sich nicht mehr.
+
+### Dank
+
+Für Vorschläge und Rückmeldungen: **Zwaersch (KRT)** für die Bergungs-Idee, die
+Wunschliste und die Korrektur an „unbrauchbar", **Bushwick4712** für den Hinweis
+auf das nicht nachgeführte Auftrags-Protokoll.
+
 ## v3.19.0-rc24 - 2026-09-06
 
 > **Kleine Mengen standen falsch da.** Aus 0,64 wurde „0,6", aus 0,32 ein

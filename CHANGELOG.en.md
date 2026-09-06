@@ -6,6 +6,64 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0 - 2026-09-06
+
+> **Your hangar comes to the tool.** Add your ships and the watcher answers the
+> question that follows every new blueprint: does this part even fit one of my
+> ships? Plan what goes in each slot, see what it costs — bought or built —,
+> what you still need to farm, and whether dismantling a wreck is worth it at
+> all.
+
+### New
+
+- **My hangar** — its own "Ships" group. Import from the pledge store via the
+  *Hangar XPLORer* extension or by hand; every ship carries its origin.
+- **Fits your ship** — every blueprint shows which of your ships it fits and
+  into how many slots.
+- **Plan the loadout** — set what belongs in each slot, with grade and class on
+  every part ("A · Military · blueprint only"). Military parts are included:
+  not purchasable, but craftable.
+- **Wishlist** — ships you are aiming for, with price and location. The loadout
+  can be planned before you own the ship.
+- **Still missing** — the bill across all ships: every item with ship and slot,
+  buy or build per item, total and shopping route. Tick off what you fitted.
+- **What to farm** — your stock weighed against everything you want to build.
+- **What is inside?** — what a wreck carries from the factory and what it is
+  worth in a shop.
+- **Worth dismantling?** — what the fabricator returns. Six materials never
+  come back; most parts contain at least one.
+- **Fully fitted ships are marked** — with the reminder that a newly claimed
+  ship returns in its factory loadout.
+- **Device hub** on the controls page, with live monitoring.
+- **Field of view** — measure your screen and rate your seating distance.
+- Clicking empty space releases the cursor from a text field.
+
+### Improved
+
+- **Moving the storage folder now takes the data along** — verified copy, the
+  old folder stays.
+- The axis table shows which flight function sits on which axis.
+- Sensitivity is adjustable without the sliders being squeezed to two bars.
+- Identical slots share one row: 46 rows on a Cutlass Black become 18.
+
+### Fixed
+
+- **Windows opened anywhere** — with several screens even outside the visible
+  area, which made the program unusable. All windows now centre themselves.
+- **The mission log blocked for nine seconds** on first open — it now reads the
+  logs in the background.
+- The wishlist was deleted whenever anything on a ship was changed.
+- Messages appear in the program's style instead of as system windows in the
+  operating system's language.
+- Amounts below ten are shown to two decimals.
+- Two simultaneous writes to the same cache no longer collide.
+
+### Thanks
+
+For suggestions and reports: **Zwaersch (KRT)** for the salvage idea, the
+wishlist and the wording fix, **Bushwick4712** for pointing out the mission log
+not refreshing.
+
 ## v3.19.0-rc24 - 2026-09-06
 
 > **Small amounts were shown wrong.** 0.64 became "0.6", 0.32 became "0.3" —
