@@ -13535,6 +13535,62 @@ def main():
                '* ein neu angestecktes Gerät wird gemeldet')
         pruefe(_wache150.pruefen(mindestabstand=60) == ([], []),
                'der Mindestabstand bremst die Abfrage')
+
+        # --- Der Zuordnungs-Assistent ---
+        #
+        # ⭐ Der Fall, um den es geht: EIN Gerät fehlt, EIN neues steht ohne
+        # Nummer da. Dann ist es fast immer derselbe Stick mit neuer Kennung,
+        # und ein einziger Handgriff hängt die Belegung um.
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'Neu', 'kennung': _C150},
+        ]
+        _js150.geraete = lambda ordner=None: [
+            {'name': 'Log C', 'kennung': _C150},
+        ]
+        _js150.zuordnung = lambda datei=None, ordner=None: [
+            {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
+        ]
+        _v150 = _hub150.vorschlaege()
+        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.TAUSCH,
+               '* eins fehlt, eins ist neu -> Umhaengen vorgeschlagen')
+        pruefe(_v150 and _v150[0]['alt']['kennung'] == _B150
+               and _v150[0]['geraet']['kennung'] == _C150,
+               'der Vorschlag nennt beide Seiten richtig')
+
+        # ⚠⚠ Die Gegenprobe, auf die es ankommt: Bei ZWEI fehlenden Geräten
+        # darf NICHT geraten werden. Ein falsch geratener Ersatz vertauscht
+        # zwei Sticks, und das merkt man erst im Gefecht.
+        _js150.zuordnung = lambda datei=None, ordner=None: [
+            {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150},
+            {'nummer': 2, 'name': 'Belegung B', 'kennung': _B150},
+        ]
+        _v150 = _hub150.vorschlaege()
+        pruefe(all(v['art'] != _hub150.TAUSCH for v in _v150),
+               '* bei zwei fehlenden Geraeten wird NICHT geraten')
+        pruefe(len(_v150) == 2
+               and all(v['art'] == _hub150.ANSTECKEN for v in _v150),
+               'stattdessen steht bei jedem, dass es fehlt (%d)' % len(_v150))
+
+        # Ein Gerät, das das Spiel noch nie gesehen hat, aber auch nichts
+        # ersetzt: Da hilft nur, einmal damit zu starten.
+        _js150.geraete = lambda ordner=None: []
+        _js150.zuordnung = lambda datei=None, ordner=None: []
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'Frisch', 'kennung': _D150},
+        ]
+        _v150 = _hub150.vorschlaege()
+        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.STARTEN,
+               'ein voellig neues Geraet -> einmal starten')
+
+        # Alles in Ordnung heisst: kein Vorschlag.
+        _js150.geraete = lambda ordner=None: [
+            {'name': 'Log A', 'kennung': _A150}]
+        _js150.zuordnung = lambda datei=None, ordner=None: [
+            {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150}]
+        _ei150.geraete = lambda: [
+            {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150}]
+        pruefe(_hub150.vorschlaege() == [],
+               '* wenn alles passt, schlaegt der Assistent nichts vor')
     finally:
         _ei150.geraete, _js150.geraete, _js150.zuordnung = _echt150
 
@@ -13685,6 +13741,66 @@ def main():
         (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
          _wk151._bauplan_verzeichnis, _he151.rezept, _pr151.preis,
          _sf151.kaufen) = _echt151
+
+    # ------------------------------------------------------------------
+    # 153. Guete und Klasse an der Teileauswahl
+    #
+    # Man baut ein Schiff auf einen Zweck hin — Tarnung, Kampf, Bergbau. Eine
+    # reine Namensliste sagt darueber nichts, und die Namen kennt fast niemand
+    # auswendig. Geprueft wird beides, weil beides einzeln nutzlos ist: die
+    # Guete ohne Klasse und die Klasse ohne Guete.
+    #
+    # ⚠ Legt sich die Daten SELBST hin. Der Laden-Katalog ist ein geholter
+    # Zwischenspeicher und liegt im Wegwerf-Ordner des Pruflaufs nicht — eine
+    # Pruefung, die deshalb ueberspringt, prueft nichts (siehe 67).
+    print()
+    print('153. Guete und Klasse stehen an der Teileauswahl')
+    from scbp import seiten as _st153
+    from scbp import sprache as _sp153
+
+    _alt153 = _sp153.aktuelle()
+    _vorher153 = _st153._TEIL_VERZEICHNIS[0]
+    _st153._TEIL_VERZEICHNIS[0] = {
+        'ref-tarn': {'guete': 'A', 'klasse': 'Stealth'},
+        'ref-ohne': {'guete': '', 'klasse': ''},
+    }
+    try:
+        _sp153.setzen('de')
+        pruefe(_st153._teil_kennzeichen({'guete': 'C', 'klasse': 'Industrial'})
+               == 'C · Industrie',
+               'Guete und Klasse stehen zusammen, Klasse uebersetzt')
+        _sp153.setzen('en')
+        pruefe(_st153._teil_kennzeichen({'guete': 'C', 'klasse': 'Industrial'})
+               == 'C · Industrial',
+               '* und auf Englisch ebenso')
+        _sp153.setzen('de')
+
+        # Nur die Kennung bekannt — so liegt es in der Steckplatz-Zeile vor.
+        pruefe(_st153._teil_kennzeichen({'kennung': 'ref-tarn'})
+               == 'A · Tarnung',
+               'aus der blossen Kennung werden beide Angaben nachgeschlagen')
+
+        # Die Guete bleibt ein Buchstabe — sie wird nicht uebersetzt.
+        pruefe(_st153._teil_kennzeichen({'guete': 'A'}) == 'A',
+               'die Guete allein bleibt der Buchstabe')
+        pruefe(_st153._teil_kennzeichen({'klasse': 'Stealth'}) == 'Tarnung',
+               'die Klasse allein steht auch fuer sich')
+
+        # Gegenproben: Nichts erfinden, wo nichts ist.
+        pruefe(_st153._teil_kennzeichen({'kennung': 'ref-ohne'}) == '',
+               'Gegenprobe: ein Teil ohne beide Angaben liefert nichts')
+        pruefe(_st153._teil_kennzeichen({'kennung': 'gibt-es-nicht'}) == '',
+               'Gegenprobe: eine unbekannte Kennung liefert nichts')
+        pruefe(_st153._teil_kennzeichen(None) == '',
+               'Gegenprobe: gar kein Teil liefert nichts')
+
+        # ⚠ Und die Gegenprobe zur Pruefung selbst: Wuerde die Klasse NICHT
+        # uebersetzt, muesste das hier auffallen.
+        pruefe('Stealth' not in _st153._teil_kennzeichen({'klasse': 'Stealth'}),
+               'Gegenprobe: die englische Klasse steht nicht im deutschen Text')
+    finally:
+        _st153._TEIL_VERZEICHNIS[0] = _vorher153
+        _sp153.setzen(_alt153)
 
     print()
     if fehler:

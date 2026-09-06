@@ -2616,6 +2616,28 @@ def _geraete_hub(fenster, eltern):
     """
     from . import geraetehub
 
+    # ⚠⚠ **Kein `messagebox`** — der Dialog des Betriebssystems ist ein
+    # weißer Kasten mit grauen Knöpfen mitten im dunklen Fenster. Dieselbe
+    # Kapsel wie auf den Achsen- und Blickwinkel-Seiten; `frage_stellen()`
+    # gibt es im Projekt genau dafür.
+    class messagebox:
+        """Dieselben Aufrufe wie `tkinter.messagebox`, nur im Programmstil."""
+
+        @staticmethod
+        def showinfo(titel, text):
+            from .hauptfenster import frage_stellen
+            frage_stellen(eltern.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def showwarning(titel, text):
+            from .hauptfenster import frage_stellen
+            frage_stellen(eltern.winfo_toplevel(), titel, text, nur_ok=True)
+
+        @staticmethod
+        def askyesno(titel, text):
+            from .hauptfenster import frage_stellen
+            return frage_stellen(eltern.winfo_toplevel(), titel, text)
+
     kopf = tk.Label(eltern, text=t('s_gh_titel'), bg=BG, fg=FG,
                     font=fenster.f_fett, anchor='w')
     kopf.pack(fill='x', pady=(6, 0))
@@ -2669,16 +2691,78 @@ def _geraete_hub(fenster, eltern):
 
         # Ein Satz zur Lage — und nur dann einer, wenn er etwas sagt.
         if ueberblick['alles_gut']:
-            hinweis, farbe = t('s_gh_alles_gut'), ACCENT
-        else:
-            for zustand in (geraetehub.ABGESTECKT, geraetehub.OHNE_NUMMER,
-                            geraetehub.UNBEKANNT):
-                if ueberblick[zustand]:
-                    hinweis = t('s_gh_%s_hilfe' % zustand)
-                    farbe = farben[zustand]
-                    break
-        tk.Label(tafel, text=hinweis, bg=BG, fg=farbe, font=fenster.f_klein,
-                 anchor='w').pack(fill='x', pady=(6, 0))
+            tk.Label(tafel, text=t('s_gh_alles_gut'), bg=BG, fg=ACCENT,
+                     font=fenster.f_klein, anchor='w').pack(fill='x',
+                                                            pady=(6, 0))
+            return
+
+        # ⭐ **Der Assistent: nicht was los ist, sondern was zu tun ist.**
+        #
+        # Ein Zustand allein hilft niemandem — „ohne Nummer" sagt nicht, wie
+        # man zu einer kommt. Der häufigste Fall sieht sogar nach zwei
+        # Problemen aus und ist eines: Ein Stick mit neuer Kennung steht
+        # zweimal da, einmal als fehlend und einmal als unbekannt. Ein
+        # Handgriff behebt das.
+        tk.Label(tafel, text=t('s_gh_was_tun'), bg=BG, fg=FG,
+                 font=fenster.f_fett, anchor='w').pack(fill='x', pady=(12, 0))
+
+        for vorschlag in geraetehub.vorschlaege():
+            _vorschlag_zeigen(vorschlag)
+
+    def _vorschlag_zeigen(vorschlag):
+        """Ein Schritt, in einem Satz — und wo möglich mit Knopf."""
+        from . import geraetehub
+
+        geraet = vorschlag['geraet']
+        kasten = tk.Frame(tafel, bg=FLAECHE)
+        kasten.pack(fill='x', pady=(6, 0))
+
+        if vorschlag['art'] == geraetehub.TAUSCH:
+            alt = vorschlag['alt']
+            tk.Label(kasten,
+                     text=t('s_gh_tausch').format(
+                         geraet['name'] or geraet['kurz'],
+                         alt['name'] or alt['kurz']),
+                     bg=FLAECHE, fg=ACCENT, font=fenster.f_fett, anchor='w',
+                     padx=12).pack(fill='x', pady=(10, 0))
+            _fliesstext(kasten, t('s_gh_tausch_lang'), fenster.f_klein,
+                        grund=FLAECHE, fill='x', abzug=24)
+
+            def _umhaengen(neu=geraet, vorher=alt):
+                from . import joysticks
+                zeilen = len(joysticks.belegungen() or {})
+                if not messagebox.askyesno(
+                        t('hf_joysticks'),
+                        t('s_gh_tausch_frage').format(
+                            vorher['name'] or vorher['kurz'],
+                            neu['name'] or neu['kurz'], zeilen)
+                        + '\n\n' + t('s_ac_spiel_zu')):
+                    return
+                erfolg, meldung, _ = geraetehub.umhaengen(
+                    vorher['kennung'], neu['kennung'])
+                if not erfolg:
+                    messagebox.showwarning(t('hf_joysticks'), t(meldung))
+                    return
+                messagebox.showinfo(t('hf_joysticks'), t('s_gh_umgehaengt'))
+                _zeichnen()
+
+            # ⚠ Der Knopf steht UNTER dem Kasten: `_knopf` zeichnet fest auf
+            # `BG`, in einem `FLAECHE`-Kasten wäre das ein Farbklotz.
+            tk.Frame(kasten, bg=FLAECHE, height=10).pack(fill='x')
+            reihe = tk.Frame(tafel, bg=BG)
+            reihe.pack(fill='x', pady=(6, 0))
+            _knopf(fenster, reihe, t('s_gh_tausch_knopf'), _umhaengen,
+                   stark=True).pack(side='left')
+            return
+
+        # Die beiden Fälle ohne Knopf: Da hilft kein Schreibvorgang, sondern
+        # ein Handgriff am Rechner. Ein Knopf, der nur einen Rat wiederholt,
+        # wäre eine Attrappe.
+        rat = (t('s_gh_starten_rat') if vorschlag['art'] == geraetehub.STARTEN
+               else t('s_gh_anstecken_rat'))
+        _fliesstext(kasten, rat.format(geraet['name'] or geraet['kurz']),
+                    fenster.f_klein, grund=FLAECHE, fill='x', abzug=24)
+        tk.Frame(kasten, bg=FLAECHE, height=8).pack(fill='x')
 
     def _takt():
         # ⚠ `winfo_exists()` prüfen: Der Takt läuft weiter, während die Seite
@@ -7681,7 +7765,7 @@ def _bauplan_angaben(bauplan):
     return '  ·  '.join(teile)
 
 
-def _steckplaetze_nachziehen(widget):
+def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
     """Fehlende Steckplatz-Daten im Hintergrund holen.
 
     ⚠ Nicht nur auf der Hangar-Seite: Wer nach einem Update zuerst die
@@ -7692,17 +7776,39 @@ def _steckplaetze_nachziehen(widget):
     ⚠ Höchstens **einmal je Programmlauf**: Bei Konzeptschiffen gibt es dauerhaft
     nichts zu holen, und ein Bauplan-Klick soll keinen Abruf auslösen, der beim
     letzten Mal schon nichts brachte.
+
+    ⚠⚠ **`erzwingen=True`, wenn gerade ein Schiff dazugekommen ist.** Genau
+    daran scheiterte die Wunschliste: Der Hangar hatte beim Programmstart schon
+    einmal nachgezogen, die Sperre stand — und ein frisch eingetragenes
+    Wunschschiff bekam nie seine Daten. Auf der Karte stand dann „Für dieses
+    Schiff liegen keine Steckplatz-Daten vor", und die Ausstattung blieb leer.
+    Am 06.09.2026 gemeldet mit „kann da nichts auswählen".
+
+    Die Sperre bleibt für den Normalfall richtig — sie verhindert einen Abruf
+    bei **jedem** Bauplan-Klick. Sie darf nur nicht gelten, wenn sich die Liste
+    der Schiffe wirklich geändert hat.
+
+    `danach` wird nach dem Holen im Oberflächen-Faden aufgerufen, damit die
+    Seite die frischen Daten auch zeigt.
     """
-    if _NACHGEZOGEN[0]:
+    if _NACHGEZOGEN[0] and not erzwingen:
         return
     _NACHGEZOGEN[0] = True
 
     def arbeit():
+        geholt = 0
         try:
             from . import hangar as meine
-            meine.daten_nachziehen()
+            geholt = meine.daten_nachziehen() or 0
         except Exception as ausnahme:
             fehler.merken('seiten.steckplaetze_nachziehen', ausnahme)
+        if geholt and danach is not None:
+            # ⚠ Zurück in den Oberflächen-Faden — Tk aus einem Thread heraus
+            # anzufassen führt zu Abstürzen, die sich nicht nachstellen lassen.
+            try:
+                widget.after(0, danach)
+            except Exception:
+                pass
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -9547,9 +9653,16 @@ def _wunschliste(fenster, rahmen):
             meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
             meldung['farbe'] = ACCENT
             wunsch.set('')
-            # Die Steckplätze des neuen Wunschschiffs im Hintergrund holen —
-            # sonst steht die Ausstattung beim ersten Aufklappen leer da.
-            _steckplaetze_nachziehen(innen)
+            # ⚠⚠ **Mit `erzwingen`, sonst passiert gar nichts.** Der Hangar
+            # hat beim Programmstart schon einmal nachgezogen und die Sperre
+            # gesetzt; ohne dieses Kennzeichen käme das frisch eingetragene
+            # Schiff nie an seine Daten, und auf der Karte stünde dauerhaft
+            # „keine Steckplatz-Daten". Genau das war am 06.09.2026 der Fall.
+            #
+            # `danach` zeichnet neu, sobald wirklich etwas geholt wurde — sonst
+            # müsste man den Reiter wechseln, damit die Ausstattung erscheint.
+            _steckplaetze_nachziehen(innen, erzwingen=True,
+                                     danach=neu_zeichnen)
         else:
             meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), ROT
         neu_zeichnen()
