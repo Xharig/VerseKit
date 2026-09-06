@@ -9704,6 +9704,17 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # Links: was für ein Platz das ist. Der Pfad wird **nicht** angezeigt — er
     # ist eine Kennung, keine Beschriftung, und `hardpoint_Left_Pylon_03` sagt
     # niemandem etwas.
+    # ⚠⚠ **Ein Pfeil, sonst findet niemand die Funktion.** Die Zeile klappt auf
+    # Klick eine Teileauswahl auf — erkennbar war das nur am Mauszeiger, wenn
+    # man zufällig darüberfuhr. Am 06.09.2026 gefragt: „wo würde man die Plätze
+    # eigentlich belegen?" Wenn der Entwickler die eigene Funktion nicht
+    # findet, findet sie niemand.
+    #
+    # Überall sonst im Programm steht an aufklappbaren Zeilen dieser Pfeil.
+    pfeil = zeichen.zeile(zeile, 'aufklappen', grund=FLAECHE,
+                          schrift=fenster.f_klein)
+    pfeil.pack(side='left', padx=(0, 6))
+
     art_text = platz.get('art') or ''
     if platz.get('groesse') is not None:
         art_text = '%s S%s' % (art_text, platz['groesse'])
@@ -9794,10 +9805,15 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     def umschalten(_=None):
         if auswahl_rahmen.winfo_ismapped():
             auswahl_rahmen.pack_forget()
+            pfeil.symbol_tauschen('aufklappen')
         else:
             aufbauen()
             auswahl_rahmen.pack(fill='x', padx=(46, 16), pady=(0, 6),
                                 after=zeile)
+            # ⚠ Der Pfeil zeigt den **Zustand**, nicht die Tat: nach unten
+            # heißt „ist offen", nach rechts „ist zu". Andersherum gelesen
+            # wäre er eine Aufforderung und damit immer verkehrt herum.
+            pfeil.symbol_tauschen('zuklappen')
 
     for teil in (zeile,) + tuple(zeile.winfo_children()):
         if isinstance(teil, tk.Label):
@@ -12189,6 +12205,38 @@ def _achsen(fenster, rahmen):
                         fill='x')
             for fall in ueberblick['uebernehmbar']:
                 _befund_block(fall)
+
+            # ⭐ Ohne diesen Knopf wird man die Meldung nie los: Star Citizen
+            # räumt alte Geräte-Einträge nie weg, und wenn sich mehrere
+            # widersprechen, weicht nach jedem Übernehmen der nächste ab.
+            # Gefragt am 06.09.2026: „was heißt diese Einstellungen wirken
+            # nicht mehr?" — die ehrliche Antwort war, dass der Hinweis
+            # bleibt, solange die Leichen bleiben.
+            _fliesstext(inhalt, t('s_ac_aufraeumen_lead'), fenster.f_klein,
+                        fill='x')
+
+            def _aufraeumen():
+                ok, meldung, wieviele = kurven.aufraeumen(nur_zaehlen=True)
+                if not ok:
+                    messagebox.showinfo(t('hf_achsen'), t(meldung))
+                    return
+                if not messagebox.askyesno(
+                        t('hf_achsen'),
+                        t('s_ac_aufraeumen_frage').format(wieviele)):
+                    return
+                ok, meldung, wieviele = kurven.aufraeumen()
+                if not ok:
+                    messagebox.showwarning(t('hf_achsen'), t(meldung))
+                    return
+                messagebox.showinfo(
+                    t('hf_achsen'),
+                    t('s_ac_aufgeraeumt').format(wieviele))
+                _auffrischen()
+
+            reihe_auf = tk.Frame(inhalt, bg=BG)
+            reihe_auf.pack(fill='x', pady=(8, 0))
+            _knopf(fenster, reihe_auf, t('s_ac_aufraeumen'),
+                   _aufraeumen).pack(side='left')
 
         # --- 2. Geräteauswahl ------------------------------------------
         if not aktive:

@@ -13218,6 +13218,51 @@ def main():
         #
         # `frage_stellen()` gibt es genau dafür. Diese Wache hält fest, dass
         # die neuen Seiten es auch benutzen.
+        # ⭐ Alte Geräte-Einträge wegräumen. Ohne das wird man den Hinweis
+        # „diese Einstellungen wirken nicht mehr" nie los — Star Citizen legt
+        # bei jeder neuen Kennung einen weiteren Block an und räumt nie auf.
+        # ⚠ Gibt es nichts wegzuräumen, meldet die Funktion das als
+        # „nichts zu tun" — und NICHT als Erfolg mit null Treffern. Die
+        # Oberfläche zeigt daraus einen Hinweis statt einer Rückfrage über
+        # null Einträge.
+        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145,
+                                                    nur_zaehlen=True)
+        pruefe(not _ok145 and _m145 == 's_gs_f_nichts_zu_tun',
+               'ohne tote Eintraege wird "nichts zu tun" gemeldet')
+
+        # Einen toten Block hinzufügen: gleiche Bauart, Kennung kennt niemand.
+        with open(_d145, encoding='utf-8') as _f145:
+            _t145 = _f145.read()
+        _t145 = _t145.replace(
+            ' </CustomisationUIHeader>',
+            '  <deviceoptions name="Altgeraet  {DDDD4444-0000-0000-0000-5049}">\n'
+            '   <option input="x" deadzone="0.9"/>\n'
+            '  </deviceoptions>\n </CustomisationUIHeader>')
+        with open(_d145, 'w', encoding='utf-8') as _f145:
+            _f145.write(_t145)
+
+        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145,
+                                                    nur_zaehlen=True)
+        pruefe(_ok145 and _zahl145 == 1,
+               'der tote Eintrag wird gezählt (%d)' % _zahl145)
+        _lebend145 = [b['kennung'] for b in _kv145.geraete_achsen(datei=_d145)
+                      if b['aktiv']]
+        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145)
+        pruefe(_ok145 and _zahl145 == 1,
+               'aufräumen entfernt genau einen Block (%d)' % _zahl145)
+        _danach145 = _kv145.geraete_achsen(datei=_d145)
+        pruefe([b['kennung'] for b in _danach145 if b['aktiv']] == _lebend145,
+               '* die lebenden Geräte sind alle noch da')
+        pruefe(all('DDDD4444' not in b['kennung'] for b in _danach145),
+               '* der tote Block ist weg')
+        with open(_d145, encoding='utf-8') as _f145:
+            _nach145 = _f145.read()
+        pruefe(_nach145.count('<rebind') == 2,
+               'die Belegungen haben das Aufräumen überlebt')
+        pruefe('</CustomisationUIHeader>' in _nach145
+               and '</ActionMaps>' in _nach145,
+               'die Datei ist noch vollständig')
+
         import inspect as _ins145
         from scbp import seiten as _st145
         for _name145 in ('_achsen', '_blickwinkel'):

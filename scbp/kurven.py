@@ -84,7 +84,10 @@ Es schreibt nichts von allein — wie das ganze Nachbarmodul `joysticks.py`.
 Gelesen wird jederzeit, geschrieben nur auf Knopfdruck, und dann über
 `joysticks._schreiben()`, das vorher eine Sicherung anlegt.
 """
+import os
 import re
+import shutil
+import time
 
 from . import joysticks
 
@@ -783,6 +786,88 @@ def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
         knoten.set(eigenschaft, text)
 
     return joysticks._schreiben(weg, baum, 1)
+
+
+def aufraeumen(datei=None, ordner=None, nur_zaehlen=False):
+    """Tote `<deviceoptions>`-Blöcke aus der Belegungsdatei entfernen.
+
+    ⭐ **Warum das nötig ist:** Star Citizen legt bei jeder neuen
+    Gerätekennung einen weiteren Block an und räumt nie auf. An einem echten
+    Aufbau standen für **einen** Stick drei Blöcke — und weil sie sich
+    untereinander widersprechen, wurde man den Hinweis „diese Einstellungen
+    wirken nicht mehr" nie los: Übernahm man den einen, wich der nächste ab.
+
+    Entfernt werden **nur** Blöcke, deren Kennung zu keinem verbundenen und
+    zu keinem belegten Gerät gehört. Was gerade gilt, bleibt unangetastet.
+
+    ⚠ Über Textausschnitte, nicht über den XML-Baum — wie beim
+    Kennungstausch. Es wird genau der Bereich eines Blocks herausgeschnitten,
+    sonst nichts; Einrückung und Kommentare des Spiels bleiben, wie sie sind.
+
+    Mit `nur_zaehlen=True` wird nichts geschrieben, sondern nur gemeldet, wie
+    viele Blöcke wegfielen — für die Rückfrage vor dem Löschen.
+
+    Liefert `(erfolg, meldung, anzahl)`.
+    """
+    from . import fehler
+
+    weg = datei or joysticks._pfad_actionmaps(ordner)
+    if not weg or not os.path.isfile(weg):
+        return False, 's_js_f_datei', 0
+    try:
+        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+            inhalt = f.read()
+    except Exception as ausnahme:
+        fehler.merken('kurven.aufraeumen_lesen', ausnahme)
+        return False, 's_js_f_lesen', 0
+
+    lebendig = gueltige_kennungen(ordner, datei)
+    schnitte = []
+    for treffer in BLOCK.finditer(inhalt):
+        kopf = re.match(r'<deviceoptions[^>]*>', treffer.group(0))
+        name = re.search(r'name="([^"]*)"', kopf.group(0) if kopf else '')
+        kennung = _kennung_aus(name.group(1) if name else '')
+        # ⚠ Ein Block OHNE Kennung (Maus, Tastatur) ist nicht tot, sondern
+        # nur nicht zuordenbar — der bleibt.
+        if kennung and kennung not in lebendig:
+            schnitte.append((treffer.start(), treffer.end()))
+
+    if not schnitte:
+        return False, 's_gs_f_nichts_zu_tun', 0
+    if nur_zaehlen:
+        return True, '', len(schnitte)
+
+    # Von hinten nach vorn schneiden, sonst verschieben sich die Stellen.
+    neu = inhalt
+    for anfang, ende in reversed(schnitte):
+        # Die Leerzeile mitnehmen, die der Block hinterlässt.
+        nach = ende
+        while nach < len(neu) and neu[nach] in ' \t':
+            nach += 1
+        if nach < len(neu) and neu[nach] == '\n':
+            nach += 1
+        vor = anfang
+        while vor > 0 and neu[vor - 1] in ' \t':
+            vor -= 1
+        neu = neu[:vor] + neu[nach:]
+
+    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    try:
+        shutil.copy2(weg, sicherung)
+    except Exception as ausnahme:
+        fehler.merken('kurven.aufraeumen_sicherung', ausnahme)
+        return False, 's_js_f_sicherung', 0
+    try:
+        with open(weg, 'w', encoding='utf-8', newline='') as f:
+            f.write(neu)
+    except Exception as ausnahme:
+        try:
+            shutil.copy2(sicherung, weg)
+        except Exception:
+            pass
+        fehler.merken('kurven.aufraeumen_schreiben', ausnahme)
+        return False, 's_js_f_schreiben', 0
+    return True, sicherung, len(schnitte)
 
 
 def angleichen(von_kennung, nach_kennung, datei=None, ordner=None):

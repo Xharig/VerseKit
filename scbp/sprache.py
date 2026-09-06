@@ -883,12 +883,54 @@ TEXTE = {
                           'port, new firmware — the game treats it as a new '
                           'device, and the old settings stay in the file '
                           'without any effect.'),
-    's_ac_befund':     ('Diese Einstellungen wirken nicht mehr',
-                          'These settings no longer apply'),
-    's_ac_befund_lead': ('Das Gerät ist da, die Einstellung hängt an seiner '
-                         'alten Kennung.',
-                           'The device is present; the setting is attached to '
-                           'its old identifier.'),
+    's_ac_befund':     ('Alte Einstellungen, die nichts mehr tun',
+                          'Old settings that no longer do anything'),
+    # ⚠ Der Text erklärt die SACHE, nicht die Technik. Die erste Fassung
+    # lautete „Das Gerät ist da, die Einstellung hängt an seiner alten
+    # Kennung" — richtig, aber die Frage dazu war: „was heißt das?"
+    's_ac_befund_lead': ('Star Citizen merkt sich Totzone und Sättigung an '
+                         'einer internen Nummer des Geräts, nicht an seinem '
+                         'Namen. Dein Stick hat im Lauf der Zeit eine neue '
+                         'Nummer bekommen — anderer USB-Anschluss, neue '
+                         'Firmware —, und das Spiel hat ihn seither für ein '
+                         'neues Gerät gehalten. Was du damals eingestellt '
+                         'hast, steht noch in der Datei, aber das Spiel '
+                         'schaut nicht mehr hinein.\n\n'
+                         '»Übernehmen« schreibt diese Werte auf die Nummer, '
+                         'die jetzt gilt — dann wirken sie wieder.',
+                           'Star Citizen ties dead zone and saturation to an '
+                           'internal device number, not to its name. Your '
+                           'stick has been given a new number at some point — '
+                           'a different USB port, new firmware — and the game '
+                           'has treated it as a new device ever since. What '
+                           'you set back then is still in the file, but the '
+                           'game no longer looks at it.\n\n'
+                           '“Carry over” writes those values onto the number '
+                           'that is in use now, so they take effect again.'),
+    's_ac_aufraeumen': ('Alte Einträge entfernen', 'Remove old entries'),
+    's_ac_aufraeumen_lead': ('Die alten Einträge bleiben sonst für immer '
+                             'stehen — auch nachdem du ihre Werte übernommen '
+                             'hast. Widersprechen sich mehrere, verschwindet '
+                             'diese Meldung nie.',
+                               'Otherwise the old entries stay for good — even '
+                               'after you have carried their values over. If '
+                               'several of them disagree, this notice never '
+                               'goes away.'),
+    's_ac_aufraeumen_frage': ('{} alte Einträge aus der Belegungsdatei '
+                              'entfernen?\n\nEs werden nur Einträge von '
+                              'Nummern gelöscht, die kein angeschlossenes '
+                              'Gerät mehr hat. Alles, was gerade gilt, bleibt '
+                              'unangetastet — und eine Sicherung wird vorher '
+                              'angelegt.',
+                                'Remove {} old entries from the bindings '
+                                'file?\n\nOnly entries for numbers that no '
+                                'longer belong to a connected device are '
+                                'deleted. Everything currently in use stays '
+                                'untouched — and a backup is made first.'),
+    's_ac_aufgeraeumt': ('{} alte Einträge entfernt. Eine Sicherung liegt '
+                         'daneben.',
+                           '{} old entries removed. A backup was placed '
+                           'alongside.'),
     's_ac_war':        ('war', 'was'),
     's_ac_jetzt':      ('jetzt', 'now'),
     's_ac_fehlt':      ('gar nicht gesetzt', 'not set at all'),

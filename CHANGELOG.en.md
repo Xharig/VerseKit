@@ -18,6 +18,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   “without pedals”. Dead zone, saturation and sensitivity are stored; if a
   device is missing when applying, it is skipped and named.
 
+- **Remove old device entries.** Star Citizen adds another entry for every new
+  device identifier and never cleans up — a single stick had three of them in
+  the file. Because they contradict each other, the notice “old settings that
+  no longer do anything” never went away: carry one over and the next one
+  differs. One button now removes everything that no longer belongs to a
+  connected device.
+
+### Improved
+
+- **The notice about old settings explains itself.** It used to say only that
+  the setting was attached to “the device’s old identifier” — correct, but
+  meaningless. It now says what that means for the player and what the button
+  next to it does.
+
 ### Fixed
 
 - **Values arrived differently in the file than they were set.** The slider
@@ -35,6 +49,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   no difference at all: two values less than a thousandth apart look identical
   on screen and now count as identical.
 - **The transfer and swap buttons now say what they do.**
+
+## v3.19.0-rc14 - 2026-09-06
+
+> **You can now see that slots are clickable.** They were before — nobody said
+> so.
+
+### Improved
+
+- **An expand arrow on every slot.** Clicking the row opens the part picker;
+  until now the only hint was the mouse cursor, if you happened to pass over
+  it. Every other expandable row in the program has that arrow.
 
 ## v3.19.0-rc13 - 2026-09-06
 

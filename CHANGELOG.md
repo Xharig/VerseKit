@@ -19,6 +19,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Empfindlichkeit; fehlt beim Anwenden ein Gerät, wird es übersprungen und
   gesagt, welches.
 
+- **Alte Geräte-Einträge entfernen.** Star Citizen legt bei jeder neuen
+  Gerätekennung einen weiteren Eintrag an und räumt nie auf — für einen
+  einzigen Stick standen so drei Stück in der Datei. Weil sie sich
+  widersprechen, wurde man den Hinweis „alte Einstellungen, die nichts mehr
+  tun" nie los: Übernahm man den einen, wich der nächste ab. Ein Knopf räumt
+  jetzt alles weg, was zu keinem angeschlossenen Gerät mehr gehört.
+
+### Verbessert
+
+- **Der Hinweis auf alte Einstellungen erklärt sich selbst.** Vorher stand
+  dort nur, die Einstellung hänge „an der alten Kennung des Geräts" — richtig,
+  aber unverständlich. Jetzt steht da, was das für den Spieler bedeutet und
+  was der Knopf daneben tut.
+
 ### Behoben
 
 - **Eingestellte Werte kamen anders in der Datei an.** Der Regler zog jeden
@@ -37,6 +51,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   unterscheiden, sehen in der Anzeige gleich aus und gelten jetzt auch als
   gleich.
 - **Die Knöpfe zum Übertragen und Tauschen sagen jetzt, was sie tun.**
+
+## v3.19.0-rc14 - 2026-09-06
+
+> **Man sieht jetzt, dass die Steckplätze anklickbar sind.** Sie waren es
+> vorher auch — nur sagte es niemand.
+
+### Verbessert
+
+- **Aufklapp-Pfeil an jedem Steckplatz.** Ein Klick auf die Zeile öffnet die
+  Teileauswahl; erkennbar war das bisher nur am Mauszeiger, wenn man zufällig
+  darüberfuhr. Überall sonst im Programm steht an solchen Zeilen ein Pfeil.
 
 ## v3.19.0-rc13 - 2026-09-06
 
