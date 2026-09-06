@@ -72,6 +72,26 @@ A new blueprint immediately raises the next question: **does this part even fit 
 <sub><b>My hangar</b> — pulled from the pledge store in one go or added by hand; after that, crafting tells you which of your ships a blueprint fits</sub>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-wunschliste-en.png" alt="Wishlist with price and planned loadout" width="100%"><br>
+<sub><b>Wishlist</b> — what you are aiming for, with price and location; the loadout can be planned before you own the ship</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-einkaufsliste-en.png" alt="Still missing: the bill across all ships" width="100%"><br>
+<sub><b>Still missing</b> — the bill across all ships: buy or build per item, with total and shopping route</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-bergung-en.png" alt="What is inside a wreck" width="100%"><br>
+<sub><b>What is inside?</b> — what a wreck carries from the factory and what the parts are worth in a shop</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-zerlegen-en.png" alt="Worth dismantling: what the fabricator returns" width="100%"><br>
+<sub><b>Worth dismantling?</b> — what the fabricator returns, and which materials vanish for good</sub>
+</td>
+</tr>
 </table>
 
 ### The workshop
@@ -117,7 +137,7 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 ### The window
 
 > [!NOTE]
-> The screenshots show a recent state, not necessarily the very latest version — in places your window now looks slightly different. Conversely, on an older version some of what is shown here does not exist yet.
+> The screenshots are regenerated before every release and show this version. On an older version some of what is shown here does not exist yet.
 
 <table>
 <tr>
@@ -223,6 +243,12 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Material storage** | Enter what resources you have — **material, amount, quality, location**. Recipes then show what is missing, and a button subtracts the ingredients when you craft. **And because the recipes carry how material quality changes the item\'s values, you see what *your* material would produce** |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Prices** | What a material costs at the terminal and what it sells for — the numbers come from **[UEX Corp](https://uexcorp.space/)** and refresh daily. That way crafting answers not only "what am I missing" but also "what will it cost me". Without a connection the column simply stays empty |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **My hangar** | **Which ships you own — and whether a blueprint even fits in one.** You can pull your hangar out of the pledge store in one go: the browser add-on [Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) puts it into a file, and the watcher reads it along with LTI and pledge names. Ships bought in-game go in by hand right next to it — every ship remembers where it came from. After that, crafting shows under every blueprint **which of your ships the part fits** and how many slots it has there. Slot data comes from [erkul.games](https://erkul.games) and stays on your machine; only what you actually have in your hangar is fetched, and only once per game patch |
+| <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wishlist** | **What you are aiming for — with price, location and a loadout you can plan in advance.** Add a ship and see what it costs in game and where it is sold. The loadout can be planned **before** you own it — while the total is still a decision, not a receipt. Nothing here shows up under "fits your ship": a wish is not a possession |
+| <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Still missing** | **The bill across all your ships.** Set what belongs in each slot — every part shows **grade and class** ("A · Military · blueprint only") so you can build towards a purpose without knowing 1,500 names. **Military parts** are included: no shop sells them, only blueprints. Per item you choose **buy or build**, and below stands the total with a shopping route of as few stops as possible. Tick off what you fitted — it leaves the list and the total |
+| <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **What to farm** | **Your stock weighed against everything you want to build.** Across all items at once, not recipe by recipe: two parts needing 2 Iron each with 3 Iron in stock — checked individually both say "enough", together one is missing. Ore below the required quality does not count as stock but is named rather than passed over |
+| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **What is inside?** | **What a wreck carries from the factory — and what it is worth in a shop.** Type a ship and see every fitted part with its shop value. ⚠ NPC wrecks are lootable; player ships become useless once the insurance is claimed — stripped parts are then worthless too. That warning comes **before** any number |
+| <img src="assets/symbole/22/zerlegen-gruen.png" width="22" alt=""> **Worth dismantling?** | **What the fabricator returns, before you start cutting.** 50 % of the materials — but **six never come back**, Quantainium and Stileron among them. Most parts contain at least one; anyone dismantling just for those hauled it for nothing. The figures come from the game data, not from the program |
+| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Field of view** | **Are you sitting right in front of your screen?** Measure your screen width with a bank card (they are standardised), enter your seating distance — and you get the field of view your setup actually delivers, with a rating |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Where a finished part sits on the shelf — and what it costs there.** The other direction to crafting: instead of "what do I need to build this", the question "is building it worth the effort at all". **1,528 parts across 38 item groups** — not just craftable ones, but missiles, bombs, ammunition and weapon attachments, plus **174 ships to buy or rent**. Every row shows **class, size, grade and manufacturer**, and you can filter by them: that is how you find the quantum drive that fits your ship without knowing all 44 names. Click a part and you get every shop with price, location and system — the cheapest one first, used stock with its condition. Anything that is not sold anywhere never shows up |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routes** | **Trade routes with real profit instead of a price list.** Tell it where you are, how much cargo space you have and how much money — and you get the run with buy price, sell price and what is left at the end. Optionally across several stops in a row, sorted by highest profit or shortest hop, and as a round trip back to your start. One button searches the best route **anywhere in the verse**, no starting point needed. Pick your ship and the cargo capacity fills itself in |
 | <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Controls** | **What is bound to which key — and rebind without switching to the game.** Your complete binding list in plain language ("Eject" instead of `v_eject`, in the tool's own language), joystick, keyboard, mouse and gamepad in one searchable list, switchable between *changed by me*, *everything* and *default*. To **rebind**, click a row and press the button you mean — no need to know its number, and if the input is already taken you see it beforehand. Plus: which stick has which number, and whether your bindings still point at a connected device. Works for **any** device — nothing needs to be set up in advance |
@@ -517,6 +543,10 @@ As a base for the blueprint details you can pick **[StarStrings](https://github.
 **The German translation of the game** is by **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). It is distributed through the SC Deutsch Launcher and also exists in **Swiss German**; the watcher recognises both. The watcher does **not bundle** it and never passes on a modified copy — it only extends the file on your own machine, and the **source note in its first line is left untouched**. **Thanks** to rjcncpt! 🙏
 
 **Resource prices** come from **[UEX Corp](https://uexcorp.space)** — a data project maintained by players. That is what puts a price next to every missing ingredient, or says it cannot be bought at all. These data are **not bundled** either; they are fetched on your machine, at most once a day. **Thanks** to UEX Corp! 🙏
+
+**The ship slots** come from **[erkul.games](https://erkul.games)** — the loadout tool the Star Citizen community has used for years. Without that data the watcher could not answer the question that follows every new blueprint: *does this part even fit one of my ships?* These data are **not bundled** either; they are fetched on your machine — only for the ships you actually added, and only once per game patch. **Thank you** to erkul.games! 🙏
+
+**The hangar import** is made possible by the browser extension **[Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR)** by **dolkensp** (MIT licence): it saves your pledge store as a file the watcher reads. Without it every ship would have to be typed in by hand. **Thank you!** 🙏
 
 The interface symbols come from the **[Lucide](https://lucide.dev)** set (ISC licence) — all drawn on the same grid with the same stroke width, which is why they look identical on Windows, Linux and macOS. **Thanks** to the Lucide community! 🙏 The licence text ships with the tool (`assets/symbole/LIZENZ.txt`) and is shown under **Thanks & Licenses**.
 

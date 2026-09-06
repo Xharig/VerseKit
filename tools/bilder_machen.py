@@ -113,9 +113,19 @@ if sys.platform != 'win32':
 SEITEN = {
     'liste':        'screenshot-liste',
     'fortschritt':  'screenshot-fortschritt',
+    'auftragslog':  'screenshot-auftragslog',
+    'laeden':       'screenshot-laeden',
     # ⚠ Diese Seite zeigt **erfundene** Daten, nicht den kopierten Stand —
     # siehe `beispiel_hangar()`. Der echte Hangar verriete Pledge-Pakete.
     'hangar':       'screenshot-hangar',
+    # ⚠ Dieselbe erfundene Ablage wie beim Hangar — auch hier stünden sonst
+    # die echten Schiffe und Wünsche des Autors im Bild.
+    'wunschliste':  'screenshot-wunschliste',
+    'einkaufsliste': 'screenshot-einkaufsliste',
+    'farmliste':    'screenshot-farmliste',
+    'bergung':      'screenshot-bergung',
+    'zerlegen':     'screenshot-zerlegen',
+    'blickwinkel':  'screenshot-blickwinkel',
     'herstellung':  'screenshot-herstellung',
     'bergbau':      'screenshot-bergbau',
     'lager':        'screenshot-lager',

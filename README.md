@@ -72,6 +72,26 @@ Ein neuer Bauplan wirft sofort die nächste Frage auf: **passt das Teil überhau
 <sub><b>Mein Hangar</b> — in einem Zug aus dem Pledge-Store geholt oder von Hand eingetragen; danach steht in der Herstellung, in welche deiner Schiffe ein Bauplan passt</sub>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-wunschliste.png" alt="Wunschliste mit Preis und planbarer Ausstattung" width="100%"><br>
+<sub><b>Wunschliste</b> — was du dir vornimmst, mit Kaufpreis und Ort; die Ausstattung lässt sich planen, bevor du das Schiff besitzt</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-einkaufsliste.png" alt="Was noch fehlt: Rechnung über alle Schiffe" width="100%"><br>
+<sub><b>Was noch fehlt</b> — die Rechnung über alle Schiffe: kaufen oder selbst bauen je Posten, mit Summe und Einkaufsroute</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-bergung.png" alt="Was steckt in einem Wrack" width="100%"><br>
+<sub><b>Was steckt drin?</b> — was ein Wrack ab Werk an Bord hat und was die Teile im Laden wert sind</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-zerlegen.png" alt="Lohnt das Zerlegen: was der Fabricator zurückgibt" width="100%"><br>
+<sub><b>Lohnt das Zerlegen?</b> — was der Fabricator zurückgibt, und welche Rohstoffe dabei ersatzlos verschwinden</sub>
+</td>
+</tr>
 </table>
 
 ### Die Werkstatt
@@ -117,7 +137,7 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 ### Das Fenster
 
 > [!NOTE]
-> Die Bilder zeigen einen aktuellen Stand, nicht zwingend die allerneueste Version — an einzelnen Stellen sieht dein Fenster inzwischen etwas anders aus. Wer eine ältere Version benutzt, findet umgekehrt manches hier Gezeigte noch nicht.
+> Die Bilder werden vor jeder Veröffentlichung neu erzeugt und zeigen diese Version. Wer eine ältere benutzt, findet manches hier Gezeigte noch nicht.
 
 <table>
 <tr>
@@ -213,7 +233,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 |---|---|
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Sofort-Meldung** | Liest die Star-Citizen-`Game.log` mit → der Bauplan steht **in Sekunden** in der Liste |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Tastenkombination** | **Strg+Alt+B** holt die Bauplan-Liste nach vorn — mitten aus dem Vollbild-Spiel, ohne blind nach dem Fenster zu suchen. Angemeldet wird genau diese eine Kombination; mitgehört wird nichts |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Bauplan-Liste** | Alle Baupläne durchsuchen, nach Art gruppiert, Filter *alle / habe ich / fehlt mir / beobachtet / neu im Spiel*, mit Fortschrittsanzeige. Häkchen per Klick |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Bauplan-Liste** | Alle Baupläne durchsuchen, nach Art gruppiert, Filter *alle / habe ich / fehlt mir / beobachtet / neu im Spiel*. Häkchen per Klick. Der eigene Reiter **Bauplan-Fortschritt** zeigt je Art, wie weit du bist |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Herkunft je Bauplan** | Der Knopf **„Woher?"** zeigt Fraktion, Auftrag, nötigen Rang und Belohnung — für **670 von 738** Bauplänen, sortiert nach dem leichtesten Weg. Aus der **Herstellung** führt ein Knopf direkt dorthin: fehlt dir der Bauplan, siehst du mit einem Klick, welchen Auftrag du dafür machen musst |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Auftrag angenommen** | Nimmst du einen Auftrag an, steht sofort da, ob Baupläne dabei sind — und **welche dir davon noch fehlen**. Kennt der Katalog den Auftrag nicht, wird geschwiegen statt geraten |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Was gerade zu tun ist** | Unter jedem laufenden Auftrag stehen seine **offenen Zwischenziele** — „Hartmoore-Inverter deaktivieren", „Knoten lokalisieren und zurücksetzen". Sie kommen aus demselben Protokoll und wechseln mit, sobald du eines geschafft hast |
@@ -226,6 +246,12 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Handelslager** | Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Rohstofflager: Das eine ist Baumaterial, das du behältst, das andere Ladung, die du loswerden willst. Ware, Ort und SCU eintragen; im Mengenfeld darfst du rechnen (`100+5`). Statt einer Güte gibt es den Haken **„als gestohlen markiert"** — beim Verkauf zählt die Qualität nicht, und erbeutete Ware hat ohnehin immer Q 0 |
 | <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Verkauf** | Wo du deine Ware los wirst und was sie **je SCU** bringt — für **mehrere Waren auf einmal**. Sortiert wird nicht nach dem höchsten Preis, sondern danach, **wie viele deiner Waren ein Ort abnimmt**: 100 SCU Gold, 40 Copper und 25 Iron bringen an einem Ort 3.533.000 aUEC, verteilt auf drei Orte 3.566.000 — ein Prozent mehr für zwei zusätzliche Anflüge. Ist die Ladung als gestohlen markiert, blendet der Reiter auf die 15 Terminals ein, die keine Fragen stellen |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Mein Hangar** | **Welche Schiffe dir gehören — und ob ein Bauplan überhaupt hineinpasst.** Deinen Hangar holst du in einem Zug aus dem Pledge-Store: Die Browser-Erweiterung [Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) legt ihn dir als Datei hin, der Watcher liest sie samt LTI und Paketnamen. Im Spiel gekaufte Schiffe trägst du daneben von Hand ein — jedes Schiff behält, woher es kommt. Danach steht in der Herstellung unter jedem Bauplan, **in welche deiner Schiffe das Teil passt** und in wie viele Steckplätze. Die Steckplatz-Daten kommen von [erkul.games](https://erkul.games) und liegen auf deinem Rechner; geholt wird nur, was du wirklich im Hangar hast, und nur einmal je Spiel-Patch |
+| <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wunschliste** | **Was du dir vornimmst — mit Preis, Ort und der Ausstattung, die du schon vorher planen kannst.** Trag ein Schiff ein, und daneben steht, was es im Spiel kostet und wo es verkauft wird. Die Ausstattung lässt sich planen, **bevor** du das Schiff besitzt — genau dann, wenn die Summe noch eine Entscheidung ist und keine Quittung. Was hier steht, taucht nirgends bei „passt in dein Schiff" auf: Ein Wunsch ist kein Besitz |
+| <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Was noch fehlt** | **Die Rechnung über alle deine Schiffe.** Leg je Steckplatz fest, was dort sitzen soll — an jedem Teil stehen **Güte und Klasse** („A · Militär · nur über Bauplan"), damit du auf einen Zweck hin bauen kannst, ohne 1.500 Namen auswendig zu kennen. Auch **militärische Teile** sind dabei: Die gibt es in keinem Laden, nur über Baupläne. Je Posten wählst du **kaufen oder selbst herstellen**, und darunter steht die Summe samt Einkaufsroute mit möglichst wenigen Stopps. Was du eingebaut hast, hakst du ab — es fällt aus der Liste und aus der Summe |
+| <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **Was ich farmen muss** | **Dein Lager gegen alles gerechnet, was du selbst bauen willst.** Über alle Posten zusammen, nicht Rezept für Rezept: Zwei Bauteile mit je 2 Iron bei 3 Iron im Lager — einzeln geprüft „reicht", zusammen fehlt eines. Erz mit zu geringer Güte zählt nicht als Bestand, wird aber genannt statt verschwiegen |
+| <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Was steckt drin?** | **Was ein Wrack ab Werk an Bord hat — und was es im Laden wert ist.** Schiff eintippen, und du siehst jedes verbaute Teil mit Ladenwert. ⚠ NPC-Wracks sind lootbar; Spielerschiffe werden unbrauchbar, sobald die Versicherung beansprucht wird — dann sind auch ausgebaute Teile wertlos. Der Hinweis steht **vor** jeder Zahl |
+| <img src="assets/symbole/22/zerlegen-gruen.png" width="22" alt=""> **Lohnt das Zerlegen?** | **Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.** 50 % der Materialien — aber **sechs Rohstoffe kommen nie wieder**, darunter Quantainium und Stileron. Bei den meisten Teilen ist mindestens einer davon dabei; wer nur deswegen zerlegt, hat umsonst geschleppt. Die Werte kommen aus den Spieldaten, nicht aus dem Programm |
+| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Blickwinkel** | **Sitzt du richtig vor deinem Bildschirm?** Miss deine Bildschirmbreite mit einer Bankkarte aus (die ist genormt), gib deinen Sitzabstand an — und du bekommst den Blickwinkel, den dein Aufbau wirklich hergibt, samt Bewertung |
 | <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Läden** | **Wo steht das fertige Teil im Regal — und was kostet es dort?** Die Gegenrichtung zur Herstellung: Statt „was brauche ich zum Bauen" die Frage „lohnt der Aufwand überhaupt". **1.528 Teile aus 38 Warengruppen** — nicht nur Craftbares, sondern auch Raketen, Bomben, Munition und Waffenaufsätze, dazu **174 Schiffe zum Kaufen und Mieten**. An jeder Zeile stehen **Klasse, Größe, Güte und Hersteller**, und du filterst danach: So findest du den Quantenantrieb, der in dein Schiff passt, ohne die 44 Namen zu kennen. Teil anklicken, und du bekommst jeden Laden mit Preis, Ort und System — der günstigste oben, gebrauchte Ware mit ihrem Zustand. Was nirgends verkauft wird, taucht gar nicht erst auf |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routen** | **Handelsrouten mit echtem Gewinn statt einer Preisliste.** Sag, wo du stehst, wie viel Frachtraum du hast und wie viel Geld — und du bekommst die Fahrt samt Einkauf, Verkauf und dem, was am Ende übrig bleibt. Auf Wunsch über mehrere Stationen hintereinander, wahlweise auf den höchsten Gewinn oder den kürzesten Weg sortiert, auch als Rundreise zurück zum Start. Ein Knopf sucht die beste Route **im ganzen Verse**, ohne dass du einen Startort angibst. Dein Schiff kannst du auswählen, der Frachtraum kommt dann von selbst |
 | <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Steuerung** | **Was liegt auf welcher Taste — und umbelegen ohne ins Spiel zu wechseln.** Die komplette Belegung im Klartext („Schleudersitz" statt `v_eject`, in der Sprache des Werkzeugs), Joystick, Tastatur, Maus und Gamepad in einer durchsuchbaren Liste, umschaltbar zwischen *von mir geändert*, *alles* und *Werkseinstellung*. Zum **Neubelegen** eine Zeile anklicken und den Knopf drücken, den du meinst — die Nummer musst du nicht kennen, und ist die Eingabe schon vergeben, steht das vorher da. Dazu: welcher Stick welche Nummer hat und ob deine Belegung noch auf ein angeschlossenes Gerät zeigt. Funktioniert für **jedes** Gerät — es muss nichts vorher eingepflegt werden |
@@ -561,6 +587,10 @@ Als Grundlage für die Bauplan-Angaben lässt sich **[StarStrings](https://githu
 **Die deutsche Übersetzung des Spiels** stammt von **rjcncpt** — [StarCitizen-Deutsch-INI](https://github.com/rjcncpt/StarCitizen-Deutsch-INI), lizenziert unter [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.de). Sie wird über den SC Deutsch Launcher verteilt und gibt es auch auf **Schweizerdeutsch**; der Watcher erkennt beide Fassungen. Der Watcher **liefert sie nicht mit** und gibt auch keine veränderte Fassung weiter — er ergänzt die Datei ausschließlich auf deinem Rechner, und die **Quellenangabe in ihrer ersten Zeile bleibt dabei unangetastet**. **Danke** an rjcncpt! 🙏
 
 **Die Rohstoffpreise** kommen von **[UEX Corp](https://uexcorp.space)** — ein von Spielern gepflegtes Datenprojekt. Damit steht neben jeder fehlenden Zutat, was sie kostet, oder dass sie sich gar nicht kaufen lässt. Auch diese Daten **liegen nicht bei**, sondern werden auf deinem Rechner geholt — höchstens einmal am Tag. **Danke** an UEX Corp! 🙏
+
+**Die Steckplätze der Schiffe** kommen von **[erkul.games](https://erkul.games)** — dem Auslegungs-Werkzeug, das die Star-Citizen-Gemeinschaft seit Jahren benutzt. Ohne diese Daten könnte der Watcher die Frage nicht beantworten, die auf jeden neuen Bauplan folgt: *passt das Teil überhaupt in eines meiner Schiffe?* Auch sie **liegen nicht bei**, sondern werden auf deinem Rechner geholt — und zwar nur für die Schiffe, die du wirklich eingetragen hast, und nur einmal je Spiel-Patch. **Danke** an erkul.games! 🙏
+
+**Den Hangar-Import** ermöglicht die Browser-Erweiterung **[Star Citizen Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR)** von **dolkensp** (MIT-Lizenz): Sie legt deinen Pledge-Store als Datei ab, die der Watcher einliest. Ohne sie müsste jedes Schiff von Hand eingetragen werden. **Danke** dafür! 🙏
 
 Die Symbole der Oberfläche stammen aus dem **[Lucide](https://lucide.dev)**-Satz (ISC-Lizenz) — alle auf demselben Raster mit gleicher Strichstärke gezeichnet, weshalb sie unter Windows, Linux und macOS gleich aussehen. **Danke** an die Lucide-Gemeinschaft! 🙏 Der Lizenztext liegt bei (`assets/symbole/LIZENZ.txt`) und steht im Werkzeug unter **Danke & Lizenzen**.
 

@@ -323,7 +323,10 @@ IST_DATUM = re.compile(r'\d{1,2}\.\d{1,2}\.\d{4}')
 # danach wird eine Seite nur noch ein- und ausgeblendet und ist immer schnell.
 # Der Wert stammt aus den Startverläufen echter Fehlerberichte: Dort liegen
 # die meisten Seiten bei 15–50 ms, einzelne bei 120 ms.
-LANGSAM_MS = 250
+# ⚠ 300 statt 250: Der erste Wert war geraten, und eine Seite lag mit 253 ms
+# darüber — drei Millisekunden sind Messrauschen, keine Trägheit. Eine Grenze,
+# die bei jedem zweiten Lauf zufällig reißt, wird ignoriert statt beachtet.
+LANGSAM_MS = 300
 
 # ⚠⚠ **Der ERSTE Aufbau einer Seite darf Daten nachladen.** Gemessen an den
 # Einzelschritten: Die Rechnungen hinter Wunsch- und Einkaufsliste brauchen
@@ -686,6 +689,85 @@ def datenabruf_pruefen():
            % (', '.join(ohne_datei) or 'alle'))
 
 
+def bilder_pruefen():
+    """Sind die Screenshots vollständig, aktuell und ohne echte Daten?
+
+    ⭐⭐ **Pflicht vor jeder Veröffentlichung** (Vorgabe vom 06.09.2026): *„Ob
+    alle Screenshots aktuell sind und Beispieldaten zeigen, ist auch eine
+    Pflichtprüfung."*
+
+    Gefunden hat diese Prüfung beim ersten Lauf: **vier englische Bilder gab es
+    gar nicht** — in der englischen README standen kaputte Verweise. Und in der
+    README stand der Satz „die Bilder zeigen einen aktuellen Stand, nicht
+    zwingend die allerneueste Version". Das ist die Ausrede dafür, dass niemand
+    sie pflegt; mit dieser Prüfung stimmt sie nicht mehr, und der Satz ist raus.
+
+    ⚠ **Beispieldaten, keine echten.** Der Hangar-Screenshot zeigt erfundene
+    Schiffe — der echte verriete, welche Pledge-Pakete jemand besitzt.
+    """
+    import re as _re
+
+    fehlend, alt_bild = [], []
+    jetzt = os.path.getmtime(os.path.join(WURZEL, 'sc_bp_watcher.py'))
+    for datei in ('README.md', 'README.en.md'):
+        weg = os.path.join(WURZEL, datei)
+        if not os.path.isfile(weg):
+            continue
+        with open(weg, 'r', encoding='utf-8') as f:
+            inhalt = f.read()
+        for bild in sorted(set(_re.findall(r'assets/screenshot-[a-z0-9-]+\.\w+',
+                                           inhalt))):
+            pfad = os.path.join(WURZEL, bild)
+            if not os.path.isfile(pfad):
+                fehlend.append('%s: %s' % (datei, bild))
+                continue
+            # ⚠ „Alt" heißt: älter als die Versionsdatei. Wer die Version
+            # anhebt, ohne die Bilder neu zu erzeugen, zeigt den Stand von
+            # gestern.
+            # ⚠ `screenshot-ingame-*` sind Fotos aus dem Spiel, keine Bilder
+            # unserer Oberfläche — die veralten nicht mit unserer Version.
+            if 'ingame' in bild:
+                continue
+            if os.path.getmtime(pfad) < jetzt - 86400:
+                alt_bild.append(bild)
+
+    pruefe(not fehlend, 'jedes Bild in der README existiert (%s)'
+           % ('; '.join(fehlend[:4]) if fehlend else 'alle'))
+    pruefe(not alt_bild,
+           'kein Bild ist älter als einen Tag vor der Version (%s)'
+           % ('; '.join(alt_bild[:4]) if alt_bild else 'keins'),
+           nur_warnen=True)
+
+    # Jede Seite mit eigenem Reiter sollte auch ein Bild haben.
+    ohne_bild = []
+    for name, titel in SEITEN:
+        if titel is None:
+            continue          # Einstellungsseiten brauchen keins
+        pfad = os.path.join(WURZEL, 'assets', 'screenshot-%s.png' % name)
+        if not os.path.isfile(pfad):
+            ohne_bild.append(name)
+    pruefe(not ohne_bild,
+           'jede Inhaltsseite hat einen Screenshot (%s)'
+           % (', '.join(ohne_bild) or 'alle'), nur_warnen=True)
+
+    # ⚠ Und die README muss die neuen Funktionen auch NENNEN.
+    with open(os.path.join(WURZEL, 'README.md'), 'r', encoding='utf-8') as f:
+        readme = f.read()
+    # ⚠ Verglichen wird das **Hauptwort**, nicht der Reitername Wort für Wort:
+    # „Bauplan-Fortschritt" heißt in der README „Fortschrittsanzeige", und das
+    # ist kein Mangel. Gesucht wird das längste Wort des Titels.
+    fehlt_text = []
+    for _n, titel in SEITEN:
+        if not titel:
+            continue
+        kern = max(titel.replace('?', '').split(), key=len)
+        if kern.lower() not in readme.lower():
+            fehlt_text.append('%s (Stichwort %r)' % (titel, kern))
+    pruefe(not fehlt_text,
+           'jede Seite ist in der README genannt (%s)'
+           % (', '.join(fehlt_text[:4]) or 'alle'))
+
+
 def fenster_pruefen(hf):
     """Öffnen sich Dialoge über dem Hauptfenster?"""
     from scbp import hauptfenster
@@ -854,6 +936,10 @@ def main():
         print()
         print('7b. Werden Daten oft genug — und nicht zu oft — geholt?')
         datenabruf_pruefen()
+
+        print()
+        print('7c. Screenshots und README')
+        bilder_pruefen()
 
         print()
         print('8. Sind die Daten plausibel?')

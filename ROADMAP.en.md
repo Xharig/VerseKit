@@ -64,6 +64,10 @@ Four things are deliberate and will stay that way:
 | ✅ | **Axes & curves**: dead zone, saturation and sensitivity per axis with the curve alongside; set up two sticks alike, swap bindings across, save whole setups under a name |
 | ✅ | **Field of view**: measure the screen with a bank card, get the neutral field of view and the viewing distance that matches your own setting |
 | ✅ | **Device hub**: every input device in one place — the number Star Citizen gives it, the name the system knows it by, and whether it is plugged in right now; unplugged devices show up by themselves |
+| ✅ | **Wishlist**: ships you are aiming for — with price, location and a loadout you can plan before you own the ship |
+| ✅ | **Still missing**: the bill across all ships — buy or build per slot, with grade and class on every part, total and shopping route; tick off what you fitted |
+| ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe |
+| ✅ | **Worth dismantling?**: what the fabricator returns — including the six materials that vanish for good |
 
 ## What is being worked on
 
