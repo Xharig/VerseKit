@@ -13539,6 +13539,154 @@ def main():
         _ei150.geraete, _js150.geraete, _js150.zuordnung = _echt150
 
     print()
+    print('151. Die Einkaufsliste rechnet ueber alle Schiffe')
+    # ⚠⚠ **Der Kern: Was man HAT, kostet nichts mehr.** Ein Hangar-Schiff
+    # gehoert dem Spieler — auf die Rechnung kommen nur die Teile, die ihm
+    # fehlen. Ein Wunschschiff kostet dagegen erst sich selbst und dann seine
+    # Ausstattung. Wer das verwechselt, stellt dem Spieler sein eigenes Schiff
+    # noch einmal in Rechnung.
+    from scbp import erkul as _erk151, warenkorb as _wk151
+    from scbp import laeden as _ld151, herstellung as _he151
+    from scbp import preise as _pr151, schiffe as _sf151
+
+    _slots151 = [
+        {'pfad': 'hardpoint_cooler_left', 'art': 'Cooler', 'groesse': 2,
+         'werk': {'ref': 'ref-coldsnap', 'name': 'ColdSnap'}},
+        {'pfad': 'hardpoint_battery', 'art': 'Battery', 'groesse': 1},
+    ]
+    _regale151 = {
+        'ref-blast': [{'laden': 'Depot', 'ort': 'Area18', 'system': 'Stanton',
+                       'preis': 22730.0}],
+    }
+    _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
+                _ld151.guenstigster, _wk151._bauplan_verzeichnis,
+                _he151.rezept, _pr151.preis, _sf151.kaufen)
+    try:
+        _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
+                                 'schiffe': {
+            'cutlassblack': {'name': 'Cutlass Black', 'id': 'drak_cutlass',
+                             'plaetze': [], 'slots': _slots151},
+            'polaris': {'name': 'Polaris', 'id': 'rsi_polaris',
+                        'plaetze': [], 'slots': _slots151}}}
+        _ld151.bekannt = lambda k: k in _regale151
+        _ld151.laeden = lambda k: _regale151.get(k)
+        _ld151.guenstigster = lambda k: (
+            (_regale151[k][0]['preis'], _regale151[k][0]['laden'],
+             _regale151[k][0]['ort']) if _regale151.get(k) else None)
+        _wk151._bauplan_verzeichnis = lambda: {}
+        _he151.rezept = lambda n: None
+        _pr151.preis = lambda r: None
+        # ⚠ `schiffe.kaufen()` gibt eine **Liste** von Verkaufsstellen zurueck,
+        # billigste zuerst — kein Tupel wie `laeden.guenstigster()`. Wer das
+        # verwechselt, liest den Preis aus einem Zeichen statt aus einer Zahl.
+        _sf151.kaufen = lambda n: ([{'stelle': 'Astro Armada', 'ort': 'Area18',
+                                     'system': 'Stanton', 'preis': 20250000.0}]
+                                   if n == 'Polaris' else [])
+
+        _hangar151 = {'name': 'Cutlass Black', 'hersteller': 'Drake',
+                      'kurz': '', 'hkurz': '', 'belegung': {}}
+        _wunsch151 = {'name': 'Polaris', 'hersteller': 'RSI', 'belegung': {}}
+        # Ein Wunschschiff ohne Steckplatzdaten UND ohne Auslegung.
+        _leer151 = {'name': 'Gibtsnochnicht', 'hersteller': '', 'belegung': {}}
+        _wk151.setzen(_hangar151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
+        _wk151.setzen(_wunsch151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
+        _daten151 = {'format': 1, 'schiffe': [_hangar151],
+                     'wunsch': [_wunsch151, _leer151]}
+
+        _r151 = _wk151.rechnung(_daten151)
+        _schiffsposten151 = [p for p in _r151['posten']
+                             if p['sorte'] == _wk151.SCHIFF]
+
+        # ⚠⚠ Das Hangar-Schiff darf NICHT als Posten auftauchen.
+        pruefe(all(p['quelle'] == _wk151.WUNSCH for p in _schiffsposten151),
+               'nur Wunschschiffe stehen selbst auf der Rechnung')
+        pruefe(len(_schiffsposten151) == 2,
+               'beide Wunschschiffe stehen drauf (bekam: %d)'
+               % len(_schiffsposten151))
+        pruefe(not any(p['schiff'] == 'Cutlass Black'
+                       and p['sorte'] == _wk151.SCHIFF
+                       for p in _r151['posten']),
+               'das eigene Schiff wird NICHT noch einmal berechnet')
+
+        # Das Wunschschiff bringt seinen Kaufpreis mit.
+        _pol151 = [p for p in _schiffsposten151 if p['schiff'] == 'Polaris']
+        pruefe(_pol151 and _pol151[0]['kauf']['preis'] == 20250000.0,
+               'der Schiffspreis steht am Posten (bekam: %s)'
+               % (_pol151[0]['kauf']['preis'] if _pol151 else None))
+
+        # ⚠ Jeder Posten muss sagen, wozu er gehoert — eine Rechnung ohne
+        # Position ist eine Zahl.
+        pruefe(all(p.get('schiff') for p in _r151['posten']),
+               'jeder Posten nennt sein Schiff')
+        _teile151 = [p for p in _r151['posten'] if p['sorte'] == _wk151.TEIL]
+        pruefe(_teile151 and all(p.get('position') for p in _teile151),
+               'jedes Teil nennt seinen Steckplatz')
+        pruefe(any(p['position'] == 'Cooler S2' for p in _teile151),
+               'die Position traegt Art UND Groesse')
+
+        # Zwei Schiffe tragen denselben Steckplatz — die Posten duerfen sich
+        # nicht vermischen.
+        _blast151 = [p for p in _teile151 if p['name'] == 'Blast']
+        pruefe(sorted(p['schiff'] for p in _blast151)
+               == ['Cutlass Black', 'Polaris'],
+               'dasselbe Teil an zwei Schiffen bleiben zwei Posten')
+
+        # ⚠ Ein Wunschschiff ohne Auslegung ist kein Mangel.
+        pruefe('Gibtsnochnicht' not in _r151['ohne_steckplatzdaten'],
+               'ein Schiff ohne Auslegung wird nicht als Luecke gemeldet')
+
+        # Summe: 2× Blast (22.730) + Polaris (20.250.000). Das preislose
+        # Wunschschiff zaehlt als offen, nicht als 0.
+        pruefe(_r151['summe']['gesamt'] == 20295460.0,
+               'die Summe stimmt (bekam: %s)' % _r151['summe']['gesamt'])
+        pruefe(_r151['summe']['offen'] == 1,
+               'der Posten ohne Preis wird gezaehlt (bekam: %d)'
+               % _r151['summe']['offen'])
+
+        # ⚠ GEGENPROBE: Wuerde ein Posten ohne Preis als 0 verrechnet, waere
+        # `offen` null — und die Summe saehe vollstaendig aus, obwohl ein
+        # Schiff fehlt.
+        pruefe(_r151['summe']['offen'] > 0,
+               'Gegenprobe: ein preisloser Posten wird NICHT als 0 gerechnet')
+
+        print()
+        print('152. Was der Rechnung an Preisen noch fehlt')
+        # ⚠⚠ **Ohne diesen Schritt bleibt eine Rechnung auf „wird
+        # nachgeschlagen" stehen.** Der Abruf gehoert nicht ins Rechenmodul —
+        # zwoelf Posten waeren zwoelf Netzrunden, waehrend die Oberflaeche
+        # steht. Also sagt das Modul, WAS fehlt, und die Anzeige holt es nach.
+        _offen151 = _wk151.fehlende_preise(_r151['posten'])
+        pruefe(_offen151 == [],
+               'was schon nachgeschlagen ist, wird nicht erneut gemeldet')
+
+        # Jetzt ein Teil, das noch nie nachgeschlagen wurde.
+        _wk151.setzen(_hangar151, 'hardpoint_battery', 'ref-neu', 'Neuteil')
+        _r2_151 = _wk151.rechnung(_daten151)
+        _offen2_151 = _wk151.fehlende_preise(_r2_151['posten'])
+        pruefe([k for k, _n in _offen2_151] == ['ref-neu'],
+               'ein ungeprueftes Teil wird gemeldet (bekam: %s)'
+               % ([k for k, _n in _offen2_151],))
+        pruefe(_offen2_151 and _offen2_151[0][1] == 'Neuteil',
+               'der Name kommt mit — `laeden.holen` braucht ihn als Rueckfall')
+
+        # ⚠ Schiffe gehoeren NICHT dazu: Ihre Preise kommen aus `schiffe.py`,
+        # nicht aus `laeden.py`. Wer sie mitgibt, schlaegt eine Schiffskennung
+        # im Teilekatalog nach und bekommt nie einen Treffer.
+        pruefe(not any(k == 'Polaris' for k, _n in _offen2_151),
+               'Schiffe stehen nicht in der Nachschlage-Liste')
+
+        # ⚠ GEGENPROBE: Ohne den Zustandsfilter kaeme JEDES Teil zurueck, auch
+        # die laengst bekannten — die Anzeige wuerde bei jedem Zeichnen erneut
+        # abrufen.
+        pruefe(len(_offen2_151) == 1,
+               'Gegenprobe: nur das ungepruefte Teil, nicht alle (bekam: %d)'
+               % len(_offen2_151))
+    finally:
+        (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
+         _wk151._bauplan_verzeichnis, _he151.rezept, _pr151.preis,
+         _sf151.kaufen) = _echt151
+
+    print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
         for f in fehler:
