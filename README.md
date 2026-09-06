@@ -399,6 +399,18 @@ In `spiel_ordner` gehört der Ordner, in dem die `Game.log` liegt (meist `LIVE`)
 
 > Findet der Watcher das Spiel nicht, legt er diese Datei beim Start **von selbst** an und sagt dir, wo sie liegt — du musst sie nicht von Hand erzeugen. In der Datei stehen bei jedem Feld die Orte, an denen gesucht wurde; dieselben nennt auch das Fenster. So siehst du, wie so ein Pfad auf deinem System aussieht, statt ihn raten zu müssen.
 
+### Windows und Linux nebeneinander? Ein Ordner für beide
+
+Wer denselben Rechner mal unter Windows und mal unter Linux startet, führt sonst **zwei getrennte Bauplan-Bestände** — und merkt es nicht. Jedes System liest die Spiel-Logs, die es gerade sieht, und schreibt in seinen eigenen Ordner unter *Dokumente*. Erst Monate später fällt auf, dass auf der einen Seite Baupläne fehlen.
+
+**Die Lösung ist eine Einstellung, kein Abgleich:** Leg den Ordner für deine Daten auf eine Platte, die **beide Systeme sehen**, und stell ihn in beiden Systemen auf denselben Pfad — unter *Einstellungen → Pfade → Ordner für deine Daten*. Linux liest NTFS, eine gemeinsame Datenplatte reicht also aus.
+
+Danach gibt es nur **einen** Bestand. Es wird nichts kopiert und nichts abgeglichen, also kann auch nichts auseinanderlaufen oder sich überschreiben.
+
+> Beim Umstellen fragt der Watcher, ob deine bisherigen Daten mitkommen sollen, und prüft jede kopierte Datei gegen das Original. Der alte Ordner bleibt vollständig liegen — gelöscht wird nichts.
+
+Dasselbe funktioniert über **zwei Rechner**, wenn beide denselben Cloud- oder Netzwerkordner benutzen. ⚠️ Dort sollte allerdings immer nur ein Watcher gleichzeitig laufen.
+
 ### Auf bestimmte Gegenstände warten
 
 Wartest du auf einen ganz bestimmten Bauplan, klick in der Bauplan-Liste auf den **Stern** neben seinem Namen. Über das Suchfeld findest du ihn in Sekunden, und der Filter **beobachtet** zeigt dir, worauf du gerade wartest.

@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc6 - 2026-09-06
+
+> **The advice that was waiting for the move.** If you boot the same machine
+> into Windows sometimes and Linux other times, you otherwise keep two separate
+> inventories — without noticing.
+
+### New
+
+- **Guidance for dual-boot players**, in the in-app help and in both READMEs:
+  put the folder for your data on a disk both systems can see, and set it the
+  same way in both. Then there is only one inventory — nothing is synced, so
+  nothing can drift apart.
+
 ## v3.19.0-rc5 - 2026-09-06
 
 > **The storage folder now takes your data with it.** Until now switching only

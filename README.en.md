@@ -396,6 +396,18 @@ If Star Citizen (or the SC Deutsch Launcher) isn't in one of the usual places, y
 
 > If the watcher can't find the game, it creates this file **by itself** on start and tells you where it is — you don't have to create it by hand. The file lists the places that were searched next to each field, as does the window. So you can see what such a path looks like on your system instead of guessing.
 
+### Windows and Linux side by side? One folder for both
+
+If you boot the same machine into Windows sometimes and Linux other times, you otherwise keep **two separate blueprint inventories** — without noticing. Each system reads the game logs it can see and writes into its own folder under *Documents*. You only find out months later, when blueprints are missing on one side.
+
+**The fix is a setting, not a sync:** put the folder for your data on a disk **both systems can see**, and point both systems at the same path — under *Settings → Paths → Folder for your data*. Linux reads NTFS, so a shared data drive is enough.
+
+After that there is only **one** inventory. Nothing is copied and nothing is synced, so nothing can drift apart or overwrite anything.
+
+> When you switch, the watcher asks whether your existing data should come along, and checks every copied file against the original. The old folder is left completely intact — nothing is deleted.
+
+The same works across **two machines** if both use the same cloud or network folder. ⚠️ There, only one watcher should run at a time.
+
 ### Waiting for specific items
 
 Waiting for one particular blueprint? Click the **star** next to its name in the blueprint list. The search box finds it in seconds, and the **watching** filter shows what you're waiting for.

@@ -6,6 +6,19 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.19.0-rc6 - 2026-09-06
+
+> **Der Rat, der auf den Umzug gewartet hat.** Wer denselben Rechner mal unter
+> Windows und mal unter Linux startet, führt sonst zwei getrennte Bestände —
+> ohne es zu merken.
+
+### Neu
+
+- **Anleitung für Doppelstart-Nutzer**, in der Programmhilfe und in beiden
+  READMEs: Ordner für die eigenen Daten auf eine Platte legen, die beide
+  Systeme sehen, und in beiden Systemen gleich einstellen. Dann gibt es nur
+  einen Bestand — nichts wird abgeglichen, also kann nichts auseinanderlaufen.
+
 ## v3.19.0-rc5 - 2026-09-06
 
 > **Der Ablage-Ordner nimmt jetzt deine Daten mit.** Bisher setzte das
