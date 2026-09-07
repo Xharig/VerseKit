@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.24.1 - 2026-09-07
+
+> **A follow-up to "Changed game values".** The area selection now stays put
+> while you scroll through the values, and every change tells you by what
+> percentage it moved.
 
 ### Improved
 

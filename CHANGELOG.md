@@ -6,7 +6,11 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.24.1 - 2026-09-07
+
+> **Nachschlag zu „Geänderte Spielwerte".** Die Bereichsauswahl bleibt jetzt
+> stehen, während du durch die Werte scrollst, und zu jeder Änderung steht
+> dabei, um wie viel Prozent es sich verschoben hat.
 
 ### Verbessert
 
