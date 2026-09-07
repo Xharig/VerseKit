@@ -151,7 +151,7 @@ def _ueberschrift(fenster, rahmen, titel, lead=''):
         _umbruch(einleitung, abzug=48)
 
 
-def _rollflaeche(rahmen, rand=24):
+def _rollflaeche(rahmen, rand=24, hoehe=None):
     """Ein Bereich, der rollt. Leinwand + Balken, wie im Einstellungsfenster.
 
     ⚠ Die Fläche wird **zuletzt** gepackt und bekommt `expand=True` — alles,
@@ -162,9 +162,25 @@ def _rollflaeche(rahmen, rand=24):
     Rand — neben eingerückten Überschriften sahen sie aus, als wären sie
     verrutscht.
     """
+    # ⚠ `hoehe` macht daraus einen Bereich mit **fester** Höhe, der nicht
+    # mitwächst — für Listen, die mit der Zeit länger werden. Ohne das frisst
+    # so eine Liste irgendwann die ganze Seite: Gemessen am 07.09.2026 braucht
+    # eine Patch-Zeile 30 px, und die eigene Patch-Sammlung wächst absichtlich
+    # über die zehn hinaus, die die Quelle vorhält. Bei 30 Patches blieben für
+    # den eigentlichen Inhalt noch 41 px, bei 50 gar nichts mehr.
     aussen = tk.Frame(rahmen, bg=BG)
-    aussen.pack(fill='both', expand=True)
-    leinwand = tk.Canvas(aussen, bg=BG, highlightthickness=0)
+    aussen.pack(fill='both' if hoehe is None else 'x',
+                expand=(hoehe is None))
+    if hoehe:
+        # ⚠ `height` am Canvas allein genügt NICHT: Er ist mit `expand=True`
+        # gepackt und wird von seinem Inhalt gedehnt — gemessen 265 px bei
+        # gesetzten 150, weil der Inhalt 300 px hoch war. Erst wenn der
+        # umgebende Rahmen seine Größe nicht mehr vom Inhalt nimmt, hält die
+        # Grenze.
+        aussen.pack_propagate(False)
+        aussen.configure(height=hoehe)
+    leinwand = tk.Canvas(aussen, bg=BG, highlightthickness=0,
+                         **({'height': hoehe} if hoehe else {}))
     from .hauptfenster import rundleiste
     balken = rundleiste(aussen, leinwand, grund=BG)
     innen = tk.Frame(leinwand, bg=BG)
@@ -14670,6 +14686,17 @@ def _achsen(fenster, rahmen):
 # weitere" darunter; wer mehr sehen will, schränkt den Bereich ein.
 _PA_HOECHSTENS = 60
 
+# ⚠ **Wie hoch die Patch-Liste höchstens wird.** Sie steht fest über dem
+# Inhalt, damit man beim Durchsehen der Werte nicht nach oben zurück muss — und
+# genau deshalb darf sie nicht mitwachsen. Gemessen am 07.09.2026: 30 px je
+# Zeile. 150 px sind genau fünf Zeilen — „5 patches zu sehen reicht"; alles
+# darüber rollt in der Liste selbst.
+#
+# Die Zahl ist bewusst eine Höhe und keine Zeilenzahl: Bei größerer Schrift
+# werden die Zeilen höher, und dann sollen eben vier statt fünf hineinpassen —
+# nicht fünf, die unten abgeschnitten sind.
+_PA_LISTE_HOCH = 150
+
 
 def _pa_zahl(wert, stellen=4):
     """Einen Wert aus den Patch-Daten anzeigbar machen.
@@ -15000,8 +15027,20 @@ def _patchaenderungen(fenster, rahmen):
     stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_klein,
                      anchor='w')
 
-    liste = tk.Frame(rahmen, bg=BG)
-    liste.pack(fill='x', padx=24, pady=(14, 0))
+    # ⚠⚠ **Die Patch-Liste rollt in sich selbst, mit fester Höhe** (07.09.2026):
+    # „wenn viele weitere patches hinzukommen, ist unten dann überhaupt noch was
+    # lesbar?"
+    #
+    # Nein, wäre die Antwort gewesen. Die Liste steht fest über dem Inhalt, und
+    # sie wächst — die eigene Sammlung geht absichtlich über die zehn Patches
+    # hinaus, die die Quelle vorhält. Gemessen: 30 px je Zeile, also blieben
+    # bei 30 Patches noch 41 px für die Werte und bei 50 gar nichts mehr.
+    #
+    # Fünf Zeilen sind sichtbar, der Rest wird gerollt. Das ist genau die Regel
+    # aus der Projekt-Anleitung: Ein fester Bereich mit veränderlichem Inhalt
+    # braucht eine Höhengrenze **und** eine eigene Rollfläche — sonst wird er
+    # irgendwann abgeschnitten, ohne dass es jemand merkt.
+    liste = _rollflaeche(rahmen, hoehe=_PA_LISTE_HOCH)
     bereiche = tk.Frame(rahmen, bg=BG)
     bereiche.pack(fill='x', padx=24, pady=(10, 0))
 

@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.24.2 - 2026-09-07
+
+> **The patch list stays manageable.** It shows five patches and scrolls within
+> itself — otherwise it would have filled half the tab over the years.
+
+### Improved
+
+- **The patch list is capped at five rows and scrolls within itself.** Your own
+  collection deliberately grows beyond the ten patches the source keeps; at 30
+  patches only 41 px would have been left for the values themselves.
+
 ## v3.24.1 - 2026-09-07
 
 > **A follow-up to "Changed game values".** The area selection now stays put

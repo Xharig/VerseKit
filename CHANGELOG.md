@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.24.2 - 2026-09-07
+
+> **Die Patch-Liste bleibt handlich.** Sie zeigt fünf Patches und rollt in sich
+> selbst — sonst hätte sie mit den Jahren den halben Reiter gefüllt.
+
+### Verbessert
+
+- **Die Patch-Liste ist auf fünf Zeilen begrenzt und rollt in sich.** Die eigene
+  Sammlung wächst absichtlich über die zehn Patches hinaus, die die Quelle
+  vorhält; bei 30 Patches wären für die Werte selbst nur noch 41 px geblieben.
+
 ## v3.24.1 - 2026-09-07
 
 > **Nachschlag zu „Geänderte Spielwerte".** Die Bereichsauswahl bleibt jetzt
