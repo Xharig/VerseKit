@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.25.0 - 2026-09-07
+
+> **Der Bauplan-Fortschritt beantwortet jetzt auch die Frage danach.** Ein Klick
+> auf eine Kategorie führt in die Bauplan-Liste, gefiltert auf genau diese
+> Kategorie. „Was bringt am meisten?" lässt sich zuklappen, und die Kategorien
+> stehen wieder dort, wo sie hingehören.
+
+### Neu
+
+- **Klick auf eine Kategorie zeigt ihre Baupläne.** Aus „Helm 47 / 84" wird auf
+  einen Klick die Liste der 84 — mit Haken an dem, was man schon hat.
+  Vorgeschlagen von Zwaersch.
+- **„Was bringt am meisten?" ist auf- und zuklappbar** und startet zugeklappt.
+
+### Verbessert
+
+- **Seiten, deren Inhalt ins Fenster passt, lassen sich nicht mehr verschieben.**
+  Weder mit dem Mausrad noch über die Rollleiste, die dabei ganz verschwindet.
+
+### Behoben
+
+- **Aufgeklappte Kategorien standen am Seitenende** statt unter ihrem eigenen
+  Balken — hinter der Auftragsliste, mehrere Bildschirmhöhen tiefer.
+
 ## v3.24.3 - 2026-09-07
 
 > **Nur noch die Patches, bei denen es etwas zu sehen gibt.** Von zehn Patches

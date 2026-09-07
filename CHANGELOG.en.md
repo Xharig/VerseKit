@@ -6,6 +6,29 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.25.0 - 2026-09-07
+
+> **Blueprint progress now answers the follow-up question too.** Clicking a
+> category takes you to the blueprint list, filtered to exactly that category.
+> “What pays off most?” can be collapsed, and categories are back where they
+> belong.
+
+### New
+
+- **Clicking a category shows its blueprints.** “Helmet 47 / 84” turns into the
+  list of all 84 — ticked for the ones you already own. Suggested by Zwaersch.
+- **“What pays off most?” can be expanded and collapsed**, and starts collapsed.
+
+### Improved
+
+- **Pages whose content fits the window can no longer be shifted.** Neither by
+  the mouse wheel nor via the scrollbar, which now disappears entirely.
+
+### Fixed
+
+- **Expanded categories appeared at the end of the page** instead of under their
+  own bar — behind the contract list, several screen heights further down.
+
 ## v3.24.3 - 2026-09-07
 
 > **Only the patches that actually show something.** Eight out of ten patches

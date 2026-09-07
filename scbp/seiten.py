@@ -1126,17 +1126,58 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
         fehler.merken('seiten.lohnende_auftraege', ausnahme)
         return
 
-    tk.Label(eltern, text=t('s_fo_lohnt'), bg=BG, fg=FG,
-             font=fenster.f_grund, anchor='w').pack(fill='x', pady=(22, 2))
-    _fliesstext(eltern, t('s_fo_lohnt_hilfe'), fenster.f_klein, fill='x')
+    # ⭐ Auf- und zuklappbar wie die Bereiche darüber — gewünscht am
+    # 07.09.2026. Zehn Aufträge mit je vier Zeilen sind der mit Abstand
+    # längste Block der Seite; wer nur wissen will, wie weit er ist, scrollt
+    # sonst an ihm vorbei. **Zugeklappt zu starten ist dieselbe Entscheidung
+    # wie bei den Bereichen:** Der Überblick ist die Antwort auf „wie weit bin
+    # ich", die Aufträge sind die Antwort auf „und was mache ich als
+    # Nächstes".
+    #
+    # ⚠ Kopfaufbau bewusst Zeichen für Zeichen wie in `_fortschritt_bereich`:
+    # Pfeil, Titel, Zahl — gleiche Dinge stehen an der gleichen Stelle.
+    zustand = {'offen': False}
+    kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
+    kopf.pack(fill='x', pady=(22, 2))
+    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=BG,
+                          schrift=fenster.f_klein)
+    pfeil.pack(side='left')
+    tk.Label(kopf, text=t('s_fo_lohnt'), bg=BG, fg=FG,
+             font=fenster.f_grund, anchor='w').pack(side='left')
+    if lohnend:
+        tk.Label(kopf, text='  %d' % len(lohnend[:10]), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
+    koerper = tk.Frame(eltern, bg=BG)
+
+    def umschalten(*_):
+        zustand['offen'] = not zustand['offen']
+        pfeil.symbol_tauschen('zuklappen' if zustand['offen']
+                              else 'aufklappen')
+        if zustand['offen']:
+            # ⚠ `after=kopf`: nachträglich gepackt heißt sonst „ans Ende" —
+            # dieselbe Falle, die die Kategorien hinter diese Liste geschoben
+            # hat.
+            koerper.pack(fill='x', after=kopf)
+        else:
+            koerper.pack_forget()
+
+    for teil in [kopf] + list(kopf.winfo_children()):
+        teil.bind('<Button-1>', umschalten)
+        try:
+            teil.configure(cursor='hand2')
+        except tk.TclError:
+            pass
+
+    _fliesstext(koerper, t('s_fo_lohnt_hilfe'), fenster.f_klein, fill='x')
 
     if not lohnend:
-        _fliesstext(eltern, t('s_fo_lohnt_leer'), fenster.f_klein,
+        _fliesstext(koerper, t('s_fo_lohnt_leer'), fenster.f_klein,
                     fill='x', pady=(8, 0))
         return
 
     from .hauptfenster import rundrahmen
-    kasten = rundrahmen(eltern, FLAECHE, LINIE, radius=8, grundfarbe=BG)
+    kasten = rundrahmen(koerper, FLAECHE, LINIE, radius=8, grundfarbe=BG)
     kasten.halter.pack(fill='x', pady=(10, 0))
     # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre keine
     # Antwort auf „was mache ich als Nächstes", sondern die nächste Suchaufgabe.
@@ -1212,8 +1253,8 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
              font=fenster.f_klein, anchor='w').pack(side='left')
 
     anteil = max(0.0, min(1.0, meine / float(gesamt or 1)))
-    rundbalken(eltern, 9, anteil, BG, '#222b3b', ACCENT).pack(fill='x',
-                                                              pady=(2, 0))
+    balken = rundbalken(eltern, 9, anteil, BG, '#222b3b', ACCENT)
+    balken.pack(fill='x', pady=(2, 0))
 
     koerper = tk.Frame(eltern, bg=BG)
 
@@ -1224,14 +1265,34 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
                                                    key=lambda x: -x[1][0]):
             zeile = tk.Frame(koerper, bg=BG)
             zeile.pack(fill='x', pady=3)
-            tk.Label(zeile, text=art, bg=BG, fg=SUB, font=fenster.f_klein,
-                     width=22, anchor='w').pack(side='left')
+            beschriftung = tk.Label(zeile, text=art, bg=BG, fg=SUB,
+                                    font=fenster.f_klein, width=22,
+                                    anchor='w')
+            beschriftung.pack(side='left')
             teil = max(0.0, min(1.0, art_meine / float(art_gesamt or 1)))
-            rundbalken(zeile, 7, teil, BG, '#222b3b', ACCENT,
-                       breite=260).pack(side='left', padx=8)
-            tk.Label(zeile, text='%d / %d' % (art_meine, art_gesamt), bg=BG,
-                     fg=SUB, font=fenster.f_klein, width=10,
-                     anchor='e').pack(side='right')
+            balken_zeile = rundbalken(zeile, 7, teil, BG, '#222b3b', ACCENT,
+                                      breite=260)
+            balken_zeile.pack(side='left', padx=8)
+            zahl = tk.Label(zeile, text='%d / %d' % (art_meine, art_gesamt),
+                            bg=BG, fg=SUB, font=fenster.f_klein, width=10,
+                            anchor='e')
+            zahl.pack(side='right')
+
+            # ⭐ **Die Zahl ist keine Antwort, sie ist eine Frage** — dieselbe
+            # Überlegung wie bei „Was bringt am meisten?": „38 / 70" sagt
+            # nicht, WELCHE 32 fehlen. Der Klick führt in die Bauplan-Liste,
+            # gefiltert auf genau diese Kategorie. Gewünscht am 07.09.2026
+            # („bei einem Klick auf Cooler, Schild, Radar wird man auf die
+            # Baupläne geschickt und die Vorauswahl getroffen").
+            def hinspringen(_ereignis=None, art=art):
+                _zur_art(fenster, art)
+
+            for teil_widget in (zeile, beschriftung, balken_zeile, zahl):
+                teil_widget.bind('<Button-1>', hinspringen)
+                try:
+                    teil_widget.configure(cursor='hand2')
+                except tk.TclError:
+                    pass
 
     def umschalten(*_):
         zustand['offen'] = not zustand['offen']
@@ -1239,7 +1300,21 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
                              else 'aufklappen')
         if zustand['offen']:
             zeichnen()
-            koerper.pack(fill='x', padx=(18, 0), pady=(6, 0))
+            # ⚠⚠ **`after=balken` ist Pflicht, nicht Kosmetik.** `pack()` ohne
+            # Anker hängt ans ENDE der Elternfläche — und dort steht längst
+            # alles, was nach den Bereichen kommt (die Liste „Was lohnt sich
+            # am meisten", zehn Aufträge mit je vier Zeilen). Die Kategorien
+            # eines Bereichs landeten dadurch ganz unten, hinter dieser Liste,
+            # statt unter ihrem eigenen Balken: Man klappte oben etwas auf und
+            # es erschien nichts — das Aufgeklappte lag mehrere
+            # Bildschirmhöhen tiefer. Gemeldet am 07.09.2026 („die Infos da
+            # ganz unten müssen doch oben hin").
+            #
+            # ⚠ Der Fehler tritt nur auf, weil `koerper` erst beim ERSTEN
+            # Aufklappen gepackt wird. Wer so etwas nachträglich packt, muss
+            # immer sagen, wohin — sonst entscheidet die Reihenfolge der
+            # Klicks über das Layout.
+            koerper.pack(fill='x', padx=(18, 0), pady=(6, 0), after=balken)
         else:
             koerper.pack_forget()
 
@@ -6037,6 +6112,18 @@ def _zum_auftrag(fenster, titel):
         fenster.sagen(t('s_fo_lohnt_nichts'))
     except Exception as ausnahme:
         fehler.merken('seiten.zum_auftrag', ausnahme)
+
+
+def _zur_art(fenster, art):
+    """Vom Bauplan-Fortschritt zur Liste, gefiltert auf diese Kategorie."""
+    try:
+        fenster.oeffnen('liste')
+        seite = getattr(fenster, 'bestandsseite', None)
+        if seite is not None and seite.zur_art(art):
+            return
+        fenster.sagen(t('s_fo_art_nichts') % art)
+    except Exception as ausnahme:
+        fehler.merken('seiten.zur_art', ausnahme)
 
 
 def _zum_bauplan(fenster, name):

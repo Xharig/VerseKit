@@ -155,6 +155,8 @@ TEXTE = {
                          'Click to see which blueprints those are'),
     's_fo_lohnt_nichts': ('Zu diesem Auftrag steht kein Bauplan in der Liste.',
                           'No blueprint in the list names this contract.'),
+    's_fo_art_nichts':  ('Zu „%s" steht kein Bauplan in der Liste.',
+                         'No blueprint in the list belongs to “%s”.'),
     's_fo_lohnt_leer':  ('Kein Auftrag bringt dir noch einen Bauplan, den du '
                          'nicht hast.',
                          'No contract still holds a blueprint you do not have.'),
@@ -1841,8 +1843,8 @@ TEXTE = {
                           'The watcher then rebuilds it from the logs that remain — anything older is gone. Save it above under "Export inventory" first.'),
 
     # -- Seiten „Fortschritt", „Allgemein", „Anzeige", „Ordner" (Reste) --
-    's_fo_lead':       ('Zuerst der Stand je Bereich — klick einen an, um die Kategorien darin zu sehen.',
-                          'The state of each area first — click one to see the categories inside.'),
+    's_fo_lead':       ('Zuerst der Stand je Bereich — klick einen an, um die Kategorien darin zu sehen. Ein Klick auf eine Kategorie zeigt ihre Baupläne.',
+                          'The state of each area first — click one to see the categories inside. Clicking a category shows its blueprints.'),
     's_fo_von':        ('  von %d Bauplänen · %.0f %%',
                           '  of %d blueprints · %.0f %%'),
     's_al_autostart':  ('Autostart: %s', 'Autostart: %s'),

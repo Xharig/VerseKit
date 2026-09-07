@@ -567,6 +567,17 @@ class Bestandsfenster:
         # stammt. Kein Auswahlfeld: Aufträge gibt es hunderte, sie kommen
         # über die Suche und werden dort angeklickt.
         self.auftrag = ''
+        # Eine angeklickte Katalog-Art („Cooler", „Schild", „Helm") — kommt aus
+        # dem Bauplan-Fortschritt, wo jede Kategorie eine eigene Zeile hat.
+        #
+        # ⚠ Bewusst NICHT `fein['art']`: Das sind die Oberkategorien aus
+        # `kategorien.einordnen`, der Fortschritt zählt dagegen nach
+        # `katalog.art_lesbar`. Zwei Zuordnungen, die sich ähneln, aber nicht
+        # deckungsgleich sind — genau daran ging am 29.08.2026 schon einmal
+        # eine Liste leer aus, während im Feld eine Zahl stand. Wer aus dem
+        # Fortschritt springt, muss exakt die Baupläne sehen, die dort gezählt
+        # wurden.
+        self.katalog_art = ''
 
         # ⚠ Eigener Rahmen für die Auswahlfelder. Sie werden per `grid`
         # angeordnet (damit sie umbrechen können), und Tk verträgt `grid` und
@@ -1054,7 +1065,8 @@ class Bestandsfenster:
         gezeigt = sum(len(treffer) for _, treffer in gruppen)
         gesamt = len(self.katalog.get('bauplaene') or {})
         eng = bool(self.suche.get().strip()) or self.filter != 'alle' \
-            or any(self.fein.values()) or bool(self.auftrag)
+            or any(self.fein.values()) or bool(self.auftrag) \
+            or bool(self.katalog_art)
         self.treffer_lbl.configure(
             text=(t('ff_treffer') % (gezeigt, gesamt)) if eng
             else (t('ff_alle_treffer') % gesamt))
@@ -1082,6 +1094,11 @@ class Bestandsfenster:
             namen = {(q.get('auftrag') or '').strip()
                      for q in (e.get('q') or [])}
             if self.auftrag not in namen:
+                return False
+        if self.katalog_art:
+            # Gehört er zu der Kategorie, die im Fortschritt angeklickt wurde?
+            if (katalog_modul.art_lesbar(katalog_modul.art_kennung(e))
+                    != self.katalog_art):
                 return False
         if self.fein.get('art') or self.fein.get('unterart'):
             ober, unter = self._kategorie(e)
@@ -1261,6 +1278,7 @@ class Bestandsfenster:
         self.suche.set('')
         self.filter = 'alle'
         self.auftrag = ''
+        self.katalog_art = ''
         # `_fein_leeren()` zeichnet neu — und dabei werden die Zustandsknöpfe
         # mit eingefärbt. Ein eigener Aufruf dafür wäre doppelt.
         self._fein_leeren()
@@ -2288,6 +2306,44 @@ class Bestandsfenster:
         self.alle_zeigen = False
         self.suche.set('')
         self.auftrag = name
+        self._zeichnen(nach_oben=True)
+        return True
+
+    def zur_art(self, art):
+        """Die Liste auf eine Katalog-Art stellen — „Cooler", „Schild", „Helm".
+
+        Von aussen gerufen: Im Bauplan-Fortschritt steht je Kategorie ein
+        Balken mit „38 / 70" daneben. Die Zahl beantwortet die naechste Frage
+        nicht — **welche** 70 sind das, und welche 32 fehlen mir? Hier stehen
+        sie.
+
+        ⚠⚠ **Erst nachsehen, dann springen** — dieselbe Regel wie bei
+        `zum_auftrag` und `zum_bauplan`: Kennt der Katalog die Art nicht, wird
+        die Liste NICHT umgestellt. Ein Sprung auf eine leere Liste sieht aus,
+        als sei das Werkzeug kaputt.
+
+        ⚠ Gefiltert wird ueber `katalog.art_lesbar` — **dieselbe** Zuordnung,
+        nach der der Fortschritt zaehlt. Wuerde hier der Feinfilter
+        (`fein['art']`, aus `kategorien.einordnen`) benutzt, koennten Zahl und
+        Liste auseinanderlaufen; genau diesen stummen Widerspruch gab es am
+        29.08.2026 schon einmal.
+        """
+        art = (art or '').strip()
+        if not art:
+            return False
+        bekannt = any(
+            katalog_modul.art_lesbar(katalog_modul.art_kennung(e)) == art
+            for e in ((self.katalog or {}).get('bauplaene') or {}).values())
+        if not bekannt:
+            return False
+        # ⚠ Filter auf „alle": Sonst versteckt „fehlt mir" genau die Bauplaene,
+        # die man schon hat — und die Zahl im Fortschritt („38 / 70") zaehlt
+        # beide Seiten.
+        self.filter = 'alle'
+        self.alle_zeigen = False
+        self.suche.set('')
+        self.auftrag = ''
+        self.katalog_art = art
         self._zeichnen(nach_oben=True)
         return True
 

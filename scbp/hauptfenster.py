@@ -730,9 +730,32 @@ def rad_anschliessen(leinwand):
                 unter = getattr(unter, 'master', None)
             return None
 
+        def hat_ueberhang(ziel):
+            """Gibt es überhaupt etwas zu rollen?
+
+            ⚠ **Ohne diese Frage rollt auch eine Seite, die ganz hineinpasst.**
+            `yview_scroll` verschiebt eine Leinwand selbst dann, wenn die
+            Rollfläche kleiner ist als das Sichtfenster — der Inhalt wandert
+            dann einfach nach oben aus dem Bild, und unten bleibt eine leere
+            Fläche stehen. Für den Nutzer sieht das aus, als sei etwas
+            verlorengegangen. Gemeldet am 07.09.2026: „in einigen Fenstern
+            kann man bei so gut wie keinem Inhalt den gesamten Inhalt
+            scrollen, der sollte aber fest sein."
+
+            `yview()` liefert Anfang und Ende des sichtbaren Ausschnitts als
+            Bruchteile. Deckt der Ausschnitt alles ab, gibt es keinen
+            Überhang — dann bleibt die Seite stehen. Der Vergleich lässt eine
+            Winzigkeit Luft, weil hier mit Fließkomma gerechnet wird.
+            """
+            try:
+                anfang, ende = ziel.yview()
+            except (tk.TclError, TypeError, ValueError):
+                return True     # Im Zweifel rollen — nie eine Fläche sperren.
+            return (ende - anfang) < 0.999
+
         def rollen(e):
             ziel = flaeche_unter(e)
-            if ziel is None:
+            if ziel is None or not hat_ueberhang(ziel):
                 return
             schritte = schritte_aus(e)
             if not schritte:
@@ -745,7 +768,9 @@ def rad_anschliessen(leinwand):
         def streichen(e):
             """Trackpad: beide Richtungen stecken gepackt in einer Zahl."""
             ziel = flaeche_unter(e)
-            if ziel is None:
+            # Dieselbe Frage wie beim Rad — sonst schiebt eine Streichgeste
+            # den Inhalt aus einem Fenster, in dem alles hineinpasst.
+            if ziel is None or not hat_ueberhang(ziel):
                 return
             roh = int(getattr(e, 'delta', 0) or 0)
             senkrecht = (roh >> 16) & 0xFFFF
@@ -839,14 +864,24 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
             oben, unten = max(0.0, hoehe - (unten - oben)), hoehe
         return oben, unten, hoehe
 
+    def nichts_zu_rollen():
+        """Passt alles ins Fenster? Dann ist diese Leiste ohne Aufgabe."""
+        return (lage['ende'] - lage['anfang']) >= 0.999
+
     def nachziehen(*_):
         hoehe = c.winfo_height()
         if hoehe < 4:
             return
         c.coords(rille, 0, 0, breite, hoehe)
-        if lage['ende'] - lage['anfang'] >= 0.999:   # nichts zu rollen
+        if nichts_zu_rollen():
             c.itemconfigure(griff, state='hidden')
+            # ⚠ **Auch die Rille verschwindet.** Eine sichtbare Bahn ohne
+            # Griff sagt „hier lässt sich etwas schieben" — und genau das
+            # stimmt dann nicht. Sie bleibt als leerer Streifen stehen, damit
+            # der Inhalt beim Ein- und Ausblenden nicht in der Breite springt.
+            c.itemconfigure(rille, state='hidden')
             return
+        c.itemconfigure(rille, state='normal')
         c.itemconfigure(griff, state='normal')
         oben, unten, _ = griff_lage()
         c.coords(griff, *ecken(0, oben, breite, unten, r))
@@ -857,6 +892,20 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
         nachziehen()
 
     def springen(e):
+        # ⚠⚠ **Ohne diese Frage rollt eine Seite, die ganz hineinpasst.**
+        # `nachziehen` versteckt zwar den Griff, wenn es nichts zu rollen
+        # gibt — die Bahn darunter nahm den Klick aber weiter an. Bei voller
+        # Spanne rechnet die Zeile unten `e.y / hoehe - 0.5`: Ein Klick in
+        # die untere Hälfte schob den Inhalt um eine halbe Fensterhöhe ins
+        # Leere, und es sah aus, als sei etwas verlorengegangen.
+        #
+        # Gemeldet am 07.09.2026 gleich dreifach: „ballistic gatling
+        # ausgewählt, kann man scrollen", „Military als Auswahl, 6 Teile
+        # drin, ist scrollbar", „das ist bei sehr vielen Seiten so". Es traf
+        # jede Seite, deren Inhalt kleiner ist als ihr Fenster — also fast
+        # jede, sobald ein Filter gesetzt war.
+        if nichts_zu_rollen():
+            return
         oben, unten, hoehe = griff_lage()
         spanne = lage['ende'] - lage['anfang']
         if oben <= e.y <= unten:                  # auf dem Griff: ziehen
@@ -875,7 +924,7 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
         Liste unerreichbar: Man zog bis ganz nach unten und war trotzdem nicht am
         Ende.
         """
-        if not lage['zieht']:
+        if not lage['zieht'] or nichts_zu_rollen():
             return
         oben, unten, hoehe = griff_lage()
         weg = max(1.0, hoehe - (unten - oben))
