@@ -52,6 +52,19 @@ ROT     = '#e05252'
 # fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
 ROT_BLASS = '#c98a8a'
 
+# Wie viele Zeilen das Auftrags-Protokoll zuerst zeigt — der Rest kommt auf
+# Klick nach.
+#
+# ⚠ **Die Zahl ist gemessen, nicht geraten.** Am 07.09.2026 brauchte die Seite
+# beim ersten Öffnen **1479 ms**; sie war damit die mit Abstand teuerste im
+# Programm, alle übrigen 29 Seiten standen unter 130 ms. In tkinter kostet
+# jede Zeile echte Bedienelemente — sie im Voraus zu bauen ist die eigentliche
+# Arbeit, nicht das Lesen der Datei.
+#
+# ⚠ 40, wie `ZEILEN_ZUERST` in der Bauplan-Liste. Zwei verschiedene Zahlen für
+# dieselbe Sache wären genau die Art Unterschied, die niemand begründen kann.
+ZEILEN_ZUERST_LOG = 40
+
 # ⚠ Die Klassen heißen in den Daten englisch; angezeigt werden sie übersetzt.
 #
 # ⚠⚠ **Hier auf Modulebene und nicht in der Funktion, die sie zuerst
@@ -2525,6 +2538,18 @@ def _auftragslog(fenster, rahmen):
     # Aufträgen in der Datei.
     daten = {'alle': []}
     stand = {'art': 'alle'}
+    # ⭐ **Wie viele Zeilen zuerst.** Vorgeschlagen von Zwaersch am 07.09.2026:
+    # lange Listen begrenzen und unten nachladen lassen, statt alles im Voraus
+    # zu bauen. Gemessen wurde vorher, wo sich das lohnt — diese Seite war mit
+    # **1479 ms** beim ersten Öffnen die mit Abstand teuerste, alle übrigen
+    # standen unter 130 ms. Eine Grenze überall einzubauen hätte nichts
+    # gebracht.
+    #
+    # ⚠ Vorher stand hier ein hartes `treffer[:200]` — **ohne jeden Hinweis**.
+    # Wer 392 Aufträge gespielt hat, sah 200 und erfuhr nirgends, dass 192
+    # fehlen. Dieselbe Falle wie bei der Patch-Liste: Weggelassen heißt nicht
+    # verschwiegen.
+    gezeigt = {'anzahl': ZEILEN_ZUERST_LOG}
 
     suche = tk.StringVar()
     liste_rahmen = tk.Frame(innen, bg=BG)
@@ -2592,7 +2617,12 @@ def _auftragslog(fenster, rahmen):
         """
         return 's_al_laeuft' if pfade.spiel_laeuft() else 's_al_offen'
 
-    def zeichnen(*_, neu_laden=False):
+    def zeichnen(*_, neu_laden=False, mehr=False):
+        # ⚠ Jede neue Auswahl fängt wieder oben an. Ohne das stünde nach einem
+        # Filterwechsel „… 12 weitere anzeigen" über einer Liste, die längst
+        # vollständig ist.
+        if not mehr:
+            gezeigt['anzahl'] = ZEILEN_ZUERST_LOG
         if neu_laden or not daten['alle']:
             try:
                 daten['alle'] = missionslog.laden()
@@ -2629,7 +2659,7 @@ def _auftragslog(fenster, rahmen):
             return
         # ⚠ Nicht alles auf einmal: Wer hundert Auftraege gespielt hat, wartet
         # sonst beim Oeffnen. Dieselbe Grenze wie in der Bauplan-Liste.
-        for eintrag in treffer[:200]:
+        for eintrag in treffer[:gezeigt['anzahl']]:
             zustand = eintrag.get('zustand') or missionslog.LAEUFT
             zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
             zeile.pack(fill='x', pady=1)
@@ -2684,25 +2714,30 @@ def _auftragslog(fenster, rahmen):
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
                 _umbruch(bp_lab)
 
-        # Wie oft welcher Auftrag lief — die Antwort auf „mache ich den
-        # ständig?". Steht mit in `zeichnen()`, damit es beim Auffrischen
-        # mitwächst statt einen alten Stand zu zeigen.
-        zaehler = missionslog.zusammenfassen(alle)
-        if len(zaehler) < len(alle):    # nur wenn sich etwas wiederholt hat
-            tk.Label(liste_rahmen, text=t('s_al_oft_kopf'), bg=BG, fg=FG,
-                     font=fenster.f_fett, anchor='w').pack(fill='x',
-                                                           pady=(16, 4))
-            for name, (gesamt, fertig) in sorted(zaehler.items(),
-                                                 key=lambda x: -x[1][0]):
-                if gesamt < 2:
-                    continue
-                reihe = tk.Frame(liste_rahmen, bg=BG)
-                reihe.pack(fill='x')
-                tk.Label(reihe, text=name, bg=BG, fg=FG, font=fenster.f_klein,
-                         anchor='w').pack(side='left')
-                tk.Label(reihe, text='  ' + t('s_al_oft', gesamt, fertig),
-                         bg=BG, fg=SUB, font=fenster.f_klein,
-                         anchor='w').pack(side='left')
+        # ⭐ **Was noch fehlt, steht darunter — und lädt auf Klick nach.**
+        # Wortlaut und Verhalten wie in der Bauplan-Liste: gleiche Dinge an der
+        # gleichen Stelle.
+        rest = len(treffer) - gezeigt['anzahl']
+        if rest > 0:
+            def mehr_zeigen(_ereignis=None):
+                gezeigt['anzahl'] += ZEILEN_ZUERST_LOG
+                zeichnen(mehr=True)
+
+            mehr = tk.Label(liste_rahmen, text=t('weitere_anzeigen', rest),
+                            bg=BG, fg=ACCENT, font=fenster.f_klein,
+                            cursor='hand2', pady=10)
+            mehr.pack(fill='x')
+            mehr.bind('<Button-1>', mehr_zeigen)
+
+        # ⚠ **„Mehrfach gespielt" ist am 07.09.2026 entfernt worden.** Der
+        # Block zählte unter der Liste auf, welcher Auftrag wie oft lief.
+        # Begründung: „schaut sich niemand an und bringt einem eh keinen
+        # Mehrwert." Er kostete bei jedem Zeichnen einen Durchlauf über alle
+        # Einträge plus zwei Bedienelemente je Wiederholung — auf einer Seite,
+        # die ohnehin die teuerste im Programm war.
+        #
+        # `missionslog.zusammenfassen()` bleibt bestehen: Die Funktion ist
+        # geprüft und harmlos, sie wird hier nur nicht mehr angezeigt.
 
     # ⚠⚠ **Die Filterknoepfe tragen die Farbe ihres Zustands** (06.09.2026):
     # Wer „abgebrochen" sucht, drueckt einen Knopf im selben blassen Rot, in

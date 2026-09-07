@@ -758,10 +758,7 @@ TEXTE = {
     # Bewusst nicht „abgebrochen“ — warum er endete, steht nirgends.
     's_al_verfallen':  ('nicht mehr offen', 'no longer open'),
     's_al_ziele':      ('%d von %d Zielen', '%d of %d objectives'),
-    's_al_oft':        ('%d× gespielt · %d abgeschlossen',
-                          'played %d× · %d completed'),
     's_al_anzahl':     ('%d Aufträge', '%d missions'),
-    's_al_oft_kopf':   ('Mehrfach gespielt', 'Played more than once'),
     's_al_bp':         ('Bauplan: %s', 'Blueprint: %s'),
     's_al_bp_mehr':    ('Baupläne: %s', 'Blueprints: %s'),
     # Die Joystick-Seite — welcher Stick ist welche Nummer, und was liegt drauf.
