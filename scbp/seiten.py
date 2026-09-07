@@ -37,7 +37,7 @@ import tkinter as tk
 
 from . import bericht, bestand as bestand_datei, fehler, katalog as katalog_modul
 from . import pfade, zeichen
-from .sprache import t
+from .sprache import t, pa_feld
 
 BG      = '#10141c'
 FLAECHE = '#161c28'
@@ -14659,7 +14659,14 @@ def _pa_blaetter(wert, pfad='', aus=None):
 
 
 def _pa_kurzpfad(pfad):
-    """Nur der sprechende Rest eines Blattpfads — `consumes[0].units` → `units`."""
+    """Nur der sprechende Rest eines Blattpfads — `consumes[0].units` → `units`.
+
+    ⚠ Vorher noch in der Feldtabelle nachsehen: Steht der volle Pfad dort, ist
+    der deutsche Name besser als das abgeschnittene englische Ende.
+    """
+    lesbar = pa_feld(pfad)
+    if lesbar != pfad:
+        return lesbar
     letzte = pfad.split('.')[-1] if pfad else pfad
     return letzte or pfad
 
@@ -14711,8 +14718,11 @@ def _pa_feldzeile(fenster, eltern, feld):
     """Eine einzelne Feldänderung: Pfad und was aus dem Wert wurde."""
     zeile = tk.Frame(eltern, bg=BG)
     zeile.pack(fill='x', padx=(18, 0))
-    tk.Label(zeile, text=feld['pfad'], bg=BG, fg=SUB, font=fenster.f_klein,
-             anchor='w').pack(side='left')
+    # ⚠ Über `sprache.pa_feld`, nicht der rohe Pfad. `precomputed.fuel.
+    # hydrogenCapacity` ist ein CIG-Bezeichner und sagt einem Spieler nichts;
+    # was nicht in der Tabelle steht, bleibt bewusst roh stehen.
+    tk.Label(zeile, text=pa_feld(feld['pfad']), bg=BG, fg=SUB,
+             font=fenster.f_klein, anchor='w').pack(side='left')
     # ⚠ Drei Fälle, nicht einer. Fehlt `newValue`, hat der Patch das Feld
     # **weggenommen**; fehlt `oldValue`, ist es **dazugekommen**. Wer stumpf
     # „alt → neu" schreibt, macht daraus „1090 → None" und behauptet einen

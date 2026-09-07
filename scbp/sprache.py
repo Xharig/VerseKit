@@ -4869,6 +4869,112 @@ if __name__ == '__main__':
                                        t('von_gesamt', 3, 714, 0)))
 
 
+# ---------------------------------------------------------------------------
+# Feldnamen aus den Erkul-Diffs — „Was der Patch geändert hat"
+#
+# ⚠⚠ **Warum das hier steht und nicht im Code.** Die Werte-Diffs von erkul
+# tragen die rohen CIG-Bezeichner: `precomputed.fuel.hydrogenCapacity`. Für den
+# Entwickler lesbar, für einen Spieler nicht — und die Seite zeigte 2753 solcher
+# Zeilen. Gemessen am 07.09.2026 über die zwei Patches mit Inhalt: **60**
+# verschiedene Pfade, aber die häufigsten **25 decken 93 %** aller Vorkommen.
+# Ein überschaubares Wörterbuch bringt also fast alles.
+#
+# ⚠ **Unbekanntes bleibt roh stehen** (`_pa_feldname` in seiten.py). Ein Pfad,
+# den hier niemand eingetragen hat, ist immer noch besser als ein geratener
+# deutscher Name — und CIG legt mit jedem Patch neue an.
+#
+# ⚠ **Nichts hineinschreiben, was nicht gemessen ist.** `vehicle.dimensions.x`
+# steht bewusst als „Abmessung (X)" darin und nicht als „Länge": Welche Achse
+# welche Kante ist, war nicht nachgeprüft. Lieber sperrig und richtig.
+PA_FELDER = {
+    # Treibstoff — der ganze Block 4.10.0 (183 Schiffe)
+    'precomputed.fuel.hydrogenCapacity':      ('Wasserstoff-Tank',
+                                               'Hydrogen tank'),
+    'precomputed.fuel.quantumCapacity':       ('Quantum-Tank',
+                                               'Quantum fuel tank'),
+    'precomputed.fuel.burnRate.main':         ('Verbrauch Haupttriebwerk',
+                                               'Burn rate, main'),
+    'precomputed.fuel.burnRate.maneuver':     ('Verbrauch Manövertriebwerke',
+                                               'Burn rate, maneuvering'),
+    'precomputed.fuel.burnRate.retro':        ('Verbrauch Bremstriebwerke',
+                                               'Burn rate, retro'),
+    'precomputed.fuel.usagePerSecond.main':   ('Verbrauch je Sekunde (Haupt)',
+                                               'Usage per second, main'),
+    'precomputed.fuel.usagePerSecond.maneuver': ('Verbrauch je Sekunde (Manöver)',
+                                                 'Usage per second, maneuvering'),
+    'precomputed.fuel.usagePerSecond.retro':  ('Verbrauch je Sekunde (Bremse)',
+                                               'Usage per second, retro'),
+    'fuelPod.capacity':                       ('Tank-Inhalt', 'Tank capacity'),
+    # Quantum
+    'precomputed.quantum.rangeGm':            ('Quantum-Reichweite (Gm)',
+                                               'Quantum range (Gm)'),
+    'qdrive.params.driveSpeed':               ('Quantum-Geschwindigkeit',
+                                               'Quantum speed'),
+    'qdrive.params.cooldownTime':             ('Abkühlzeit', 'Cooldown time'),
+    'qdrive.params.spoolUpTime':              ('Aufladezeit', 'Spool-up time'),
+    'qdrive.params.stageOneAccelRate':        ('Beschleunigung Stufe 1',
+                                               'Acceleration, stage 1'),
+    'qdrive.params.stageTwoAccelRate':        ('Beschleunigung Stufe 2',
+                                               'Acceleration, stage 2'),
+    'qdrive.params.engageSpeed':              ('Startgeschwindigkeit',
+                                               'Engage speed'),
+    'qdrive.params.interdictionEffectTime':   ('Interdiktion (Wirkdauer)',
+                                               'Interdiction effect time'),
+    # Waffen — der Block 4.9.0 (rund 130 Waffen)
+    'weapon.ammo.penetration.base':           ('Durchdringung',
+                                               'Penetration'),
+    'weapon.ammo.penetration.nearRadius':     ('Durchdringung (Nahradius)',
+                                               'Penetration, near radius'),
+    'weapon.ammo.penetration.farRadius':      ('Durchdringung (Fernradius)',
+                                               'Penetration, far radius'),
+    'weapon.ammo.damage.physical':            ('Schaden (physisch)',
+                                               'Damage, physical'),
+    'precomputed.dps.burst':                  ('Schaden je Sekunde (Feuerstoß)',
+                                               'DPS, burst'),
+    'precomputed.dps.pilotBurst':             ('Schaden je Sekunde (Pilotenwaffen)',
+                                               'DPS, pilot burst'),
+    # Schub und Rumpf
+    'precomputed.thrust.total':               ('Schub gesamt', 'Thrust, total'),
+    'precomputed.thrust.main':                ('Schub Haupttriebwerk',
+                                               'Thrust, main'),
+    'precomputed.thrust.maneuver':            ('Schub Manövertriebwerke',
+                                               'Thrust, maneuvering'),
+    'precomputed.thrust.retro':               ('Schub Bremstriebwerke',
+                                               'Thrust, retro'),
+    'precomputed.hp.total':                   ('Trefferpunkte gesamt',
+                                               'Hit points, total'),
+    'vehicle.crewSize':                       ('Besatzung', 'Crew size'),
+    # ⚠ Nicht „Länge/Breite/Höhe" — welche Achse welche Kante ist, ist hier
+    # nicht nachgeprüft.
+    'vehicle.dimensions.x':                   ('Abmessung (X)', 'Dimension (X)'),
+    'vehicle.dimensions.y':                   ('Abmessung (Y)', 'Dimension (Y)'),
+    'vehicle.dimensions.z':                   ('Abmessung (Z)', 'Dimension (Z)'),
+    # Sonstiges
+    'i18n.name':                              ('Name', 'Name'),
+    'craftingBlueprint':                      ('Bauplan', 'Blueprint'),
+    'mining.beams[].damagePerSecond.energy':  ('Bergbaustrahl (Energie/s)',
+                                               'Mining beam, energy per second'),
+    'resource.states[].flows':                ('Energiefluss', 'Power flow'),
+}
+
+
+def pa_feld(pfad):
+    """Der lesbare Name eines Erkul-Feldpfads — oder der Pfad selbst.
+
+    ⚠ Zweistufig: erst genau nachschlagen, dann mit weggelassenen Indizes.
+    `resource.states[0].flows` und `resource.states[1].flows` sind dasselbe
+    Feld an zwei Stellen; ohne den zweiten Schritt bräuchte jede Stelle einen
+    eigenen Eintrag, und beim nächsten Patch fiele die nächste durch.
+    """
+    import re
+    eintrag = PA_FELDER.get(pfad)
+    if eintrag is None:
+        eintrag = PA_FELDER.get(re.sub(r'\[\d+\]', '[]', pfad))
+    if eintrag is None:
+        return pfad
+    return eintrag[SPRACHEN.index(aktuelle())] or eintrag[0]
+
+
 def fenstertitel(text):
     """Der Fenstertitel, bei der Testfassung mit Warnhinweis.
 

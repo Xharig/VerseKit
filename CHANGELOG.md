@@ -18,6 +18,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   statt „Wähl links einen Patch aus" anzubieten, wo es noch nichts zu wählen gibt.
 - Patches ohne Änderungen sind in der Liste zurückgenommen — von zehn sind
   meist acht leer, die zwei mit Inhalt gehen sonst unter.
+- **Die Werte heißen jetzt, wie sie heißen.** Statt `precomputed.fuel.
+  hydrogenCapacity` steht dort „Wasserstoff-Tank". Unbekannte Felder bleiben
+  wie sie sind — geraten wird nicht.
 
 ### Behoben
 
