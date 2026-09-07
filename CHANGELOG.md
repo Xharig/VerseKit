@@ -6,6 +6,33 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.0 - 2026-09-07
+
+> **Kürzere Wege, kürzere Listen.** Ein Klick auf einen Bauplan-Namen zeigt,
+> was zum Bauen nötig ist. Und wo vorher hunderte Zeilen im Voraus standen,
+> steht jetzt das, wonach gefragt wurde.
+
+### Neu
+
+- **Ein Klick auf den Bauplan-Namen zeigt die Zutaten.** Er führt zur
+  Herstellung, den Namen schon eingetragen. Angeregt von Zwaersch.
+
+### Verbessert
+
+- **Das Auftrags-Protokoll zeigt 40 Einträge und lädt auf Klick nach.** Es baut
+  sich dadurch dreimal so schnell auf. Vorgeschlagen von Zwaersch.
+- **Bergbau: die Ortsliste erscheint erst, wenn gesucht oder ausgewählt wird.**
+  Die Rohstoffe stehen weiterhin sofort da.
+- **Herstellung: keine 1597 Zeilen mehr im Leerlauf.** Erst tippen oder oben
+  auswählen, dann steht da, was gemeint war.
+- **„Was bringt am meisten?" und die Kategorien stehen ruhiger da** — der Punkt
+  vor Testversion und stabiler Version ist weg, der grüne Rahmen sagt dasselbe.
+
+### Behoben
+
+- **Das Auftrags-Protokoll verschwieg Einträge.** Es zeigte höchstens 200 und
+  sagte nicht, dass weitere fehlen.
+
 ## v3.25.0 - 2026-09-07
 
 > **Der Bauplan-Fortschritt beantwortet jetzt auch die Frage danach.** Ein Klick

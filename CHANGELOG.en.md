@@ -6,6 +6,33 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.0 - 2026-09-07
+
+> **Shorter paths, shorter lists.** One click on a blueprint name shows what it
+> takes to build it. And where hundreds of rows used to sit waiting, you now
+> get what you actually asked for.
+
+### New
+
+- **Clicking a blueprint name shows its materials.** It takes you to crafting
+  with the name already filled in. Suggested by Zwaersch.
+
+### Improved
+
+- **The mission log shows 40 entries and loads more on click.** It builds three
+  times as fast. Suggested by Zwaersch.
+- **Mining: the location list only appears once you search or pick one.**
+  Materials are still there right away.
+- **Crafting: no more 1597 rows sitting idle.** Type or pick above, and what
+  you meant appears.
+- **“What pays off most?” and the categories sit more calmly** — the dot in
+  front of test and stable version is gone; the green frame already says it.
+
+### Fixed
+
+- **The mission log silently withheld entries.** It showed at most 200 without
+  saying more existed.
+
 ## v3.25.0 - 2026-09-07
 
 > **Blueprint progress now answers the follow-up question too.** Clicking a
