@@ -2346,13 +2346,38 @@ class Bestandsfenster:
         merker = getattr(self, '_baubar_merker', None)
         if merker is None:
             merker = self._baubar_merker = {}
-        if name not in merker:
-            try:
-                from . import herstellung as herst
-                merker[name] = bool(herst.rezept_roh(name))
-            except Exception:
-                merker[name] = False
-        return merker[name]
+        if merker.get(name):
+            return True
+        try:
+            from . import herstellung as herst
+            # ⚠⚠ **Sind die Rezepte ueberhaupt schon da?** Sie werden nach dem
+            # Start nachgeladen. Wer vorher fragt, bekommt fuer JEDEN Bauplan
+            # ein Nein — und dann ist die ganze Liste stumm. Am 08.09.2026
+            # gemeldet: „beim ersten Klick in Bauplan-Liste ist auch gar
+            # nichts anklickbar von den Bauplaenen die vorgeladen sind."
+            #
+            # Solange nichts geladen ist, gilt jeder Name als anklickbar. Der
+            # Sprung selbst faengt den Fall ab: Findet die Herstellung nichts,
+            # steht dort ihr eigener Hinweis — besser als eine Liste, in der
+            # gar nichts geht.
+            if not (herst.laden() or {}).get('blueprints'):
+                return True
+            baubar = bool(herst.rezept_roh(name))
+        except Exception:
+            baubar = False
+        # ⚠⚠ **Nur ein JA wird gemerkt, ein NEIN nicht.** Die Rezeptdaten
+        # werden nachgeladen; wer beim ersten Zeichnen fragt, bekommt für
+        # ALLE Bauplaene ein Nein. Wird das gemerkt, bleibt die ganze Liste
+        # für den Rest der Sitzung unanklickbar — genau so am 08.09.2026
+        # gemeldet: „beim ersten Klick in Bauplan-Liste ist auch gar nichts
+        # anklickbar von den Bauplaenen die vorgeladen sind."
+        #
+        # Ein Nein kostet beim naechsten Zeichnen eine erneute Frage — die
+        # ist billig, `rezept_roh` haelt selbst ein Verzeichnis vor. Ein
+        # falsch gemerktes Nein kostet die Funktion.
+        if baubar:
+            merker[name] = True
+        return baubar
 
     def _zur_herstellung(self, name):
         """Zur Herstellungs-Seite springen, mit diesem Bauplan in der Suche.

@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc2 - 2026-09-08
+
+> **The jump to materials now arrives every time.** Right after startup no
+> blueprint name could be clicked, and the recipe opened collapsed.
+
+### Fixed
+
+- **Right after startup, no blueprint name was clickable.** Recipe data loads
+  in the background; asking before it arrived returned a no for every
+  blueprint — and that stuck for the rest of the session.
+- **The recipe now opens expanded.** It used to take one extra click to see
+  the materials.
+- **A second jump landed on an empty search.** The page tidied up on display
+  and threw away the name that had just been set.
+
 ## v3.26.0 - 2026-09-07
 
 > **Shorter paths, shorter lists.** One click on a blueprint name shows what it

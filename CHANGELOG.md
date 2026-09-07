@@ -6,6 +6,22 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc2 - 2026-09-08
+
+> **Der Sprung zu den Zutaten kommt jetzt überall an.** Kurz nach dem Start
+> ließ sich kein Bauplan-Name anklicken, und das Rezept öffnete sich
+> zugeklappt.
+
+### Behoben
+
+- **Kurz nach dem Start war kein Bauplan-Name anklickbar.** Die Rezeptdaten
+  werden nachgeladen; wer vorher fragte, bekam für jeden Bauplan ein Nein —
+  und das blieb für die ganze Sitzung so.
+- **Das Rezept öffnet sich gleich aufgeklappt.** Vorher war ein zusätzlicher
+  Klick nötig, um die Zutaten zu sehen.
+- **Ein zweiter Sprung führte in eine leere Suche.** Die Seite räumte beim
+  Zeigen auf und warf den gerade gesetzten Namen mit weg.
+
 ## v3.26.0 - 2026-09-07
 
 > **Kürzere Wege, kürzere Listen.** Ein Klick auf einen Bauplan-Namen zeigt,
