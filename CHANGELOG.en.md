@@ -6,56 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.26.1-rc5 - 2026-09-08
+## v3.26.1 - 2026-09-08
 
-> **The mission log leads onward too now.** Clicking a contract shows which
-> blueprints it yields.
+> **Shorter paths, and they actually lead somewhere now.** Clicking a contract
+> in the log shows its blueprints, and the jump to materials works from the
+> very first look.
 
 ### New
 
 - **Clicking a contract in the log shows its blueprints.** The blueprint list
   filters down to that contract.
 
+### Improved
+
+- **The recipe opens expanded when you jump to it** — it used to take one extra
+  click.
+
 ### Fixed
 
+- **Blueprint names were not clickable right after startup.** It only worked
+  once the list had been drawn a second time.
+- **A second jump landed on an empty search.** The crafting page tidied up on
+  display and threw away the name that had just been set.
 - **Contracts without blueprints no longer jump into nothing.** The view used
-  to switch to the list anyway and only report there that nothing was found.
+  to switch anyway and only report there that nothing was found.
 
-## v3.26.1-rc4 - 2026-09-08
-
-> **Now truly from the first look.** The way back to the main window was set
-> one line too late, leaving the list mute on its first draw.
-
-### Fixed
-
-- **Blueprint names are clickable right after startup.** The list is drawn
-  while being built; the reference it needs for the jump only arrived after.
-
-## v3.26.1-rc3 - 2026-09-08
-
-> **Names are clickable from the very first look.** In rc2 it only worked once
-> the crafting page had been opened before.
-
-### Fixed
-
-- **Blueprint names are clickable right away** — including the very first time
-  the list opens. The row used to ask for the recipe first, and that answer
-  depended on what had been loaded so far.
-
-## v3.26.1-rc2 - 2026-09-08
-
-> **The jump to materials now arrives every time.** Right after startup no
-> blueprint name could be clicked, and the recipe opened collapsed.
-
-### Fixed
-
-- **Right after startup, no blueprint name was clickable.** Recipe data loads
-  in the background; asking before it arrived returned a no for every
-  blueprint — and that stuck for the rest of the session.
-- **The recipe now opens expanded.** It used to take one extra click to see
-  the materials.
-- **A second jump landed on an empty search.** The page tidied up on display
-  and threw away the name that had just been set.
 
 ## v3.26.0 - 2026-09-07
 

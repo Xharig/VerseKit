@@ -6,58 +6,31 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.26.1-rc5 - 2026-09-08
+## v3.26.1 - 2026-09-08
 
-> **Auch das Auftrags-Protokoll führt jetzt weiter.** Ein Klick auf einen
-> Auftrag zeigt, welche Baupläne er bringt.
+> **Kürzere Wege, und sie führen jetzt auch wirklich hin.** Ein Klick auf einen
+> Auftrag im Protokoll zeigt seine Baupläne, und der Sprung zu den Zutaten
+> funktioniert ab dem ersten Blick.
 
 ### Neu
 
 - **Ein Klick auf einen Auftrag im Protokoll zeigt seine Baupläne.** Die
   Bauplan-Liste stellt sich auf diesen Auftrag ein.
 
+### Verbessert
+
+- **Das Rezept öffnet sich beim Sprung gleich aufgeklappt** — vorher war ein
+  zusätzlicher Klick nötig.
+
 ### Behoben
 
+- **Bauplan-Namen waren direkt nach dem Start nicht anklickbar.** Es ging erst,
+  nachdem die Liste ein zweites Mal gezeichnet wurde.
+- **Ein zweiter Sprung landete in einer leeren Suche.** Die Herstellungs-Seite
+  räumte beim Zeigen auf und warf den gerade gesetzten Namen mit weg.
 - **Aufträge ohne Baupläne springen nicht mehr ins Leere.** Bisher wechselte
-  die Ansicht trotzdem in die Liste und meldete erst dort, dass es nichts gibt.
+  die Ansicht trotzdem und meldete erst dort, dass es nichts gibt.
 
-## v3.26.1-rc4 - 2026-09-08
-
-> **Jetzt wirklich ab dem ersten Blick.** Der Rückweg zum Hauptfenster wurde
-> eine Zeile zu spät gesetzt — die Liste war beim ersten Zeichnen stumm.
-
-### Behoben
-
-- **Bauplan-Namen sind direkt nach dem Start anklickbar.** Die Liste wird im
-  Aufbau gezeichnet; der Verweis, den sie für den Sprung braucht, kam erst
-  danach.
-
-## v3.26.1-rc3 - 2026-09-08
-
-> **Die Namen sind ab dem ersten Blick anklickbar.** In rc2 ging es erst, wenn
-> die Herstellungs-Seite schon einmal offen war.
-
-### Behoben
-
-- **Bauplan-Namen sind sofort anklickbar** — auch beim allerersten Öffnen der
-  Liste. Die Zeile fragte vorher nach dem Rezept, und die Antwort hing daran,
-  was gerade geladen war.
-
-## v3.26.1-rc2 - 2026-09-08
-
-> **Der Sprung zu den Zutaten kommt jetzt überall an.** Kurz nach dem Start
-> ließ sich kein Bauplan-Name anklicken, und das Rezept öffnete sich
-> zugeklappt.
-
-### Behoben
-
-- **Kurz nach dem Start war kein Bauplan-Name anklickbar.** Die Rezeptdaten
-  werden nachgeladen; wer vorher fragte, bekam für jeden Bauplan ein Nein —
-  und das blieb für die ganze Sitzung so.
-- **Das Rezept öffnet sich gleich aufgeklappt.** Vorher war ein zusätzlicher
-  Klick nötig, um die Zutaten zu sehen.
-- **Ein zweiter Sprung führte in eine leere Suche.** Die Seite räumte beim
-  Zeigen auf und warf den gerade gesetzten Namen mit weg.
 
 ## v3.26.0 - 2026-09-07
 
