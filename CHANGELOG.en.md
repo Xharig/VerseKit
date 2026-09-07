@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc5 - 2026-09-08
+
+> **The mission log leads onward too now.** Clicking a contract shows which
+> blueprints it yields.
+
+### New
+
+- **Clicking a contract in the log shows its blueprints.** The blueprint list
+  filters down to that contract.
+
+### Fixed
+
+- **Contracts without blueprints no longer jump into nothing.** The view used
+  to switch to the list anyway and only report there that nothing was found.
+
 ## v3.26.1-rc4 - 2026-09-08
 
 > **Now truly from the first look.** The way back to the main window was set

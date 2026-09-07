@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc5 - 2026-09-08
+
+> **Auch das Auftrags-Protokoll führt jetzt weiter.** Ein Klick auf einen
+> Auftrag zeigt, welche Baupläne er bringt.
+
+### Neu
+
+- **Ein Klick auf einen Auftrag im Protokoll zeigt seine Baupläne.** Die
+  Bauplan-Liste stellt sich auf diesen Auftrag ein.
+
+### Behoben
+
+- **Aufträge ohne Baupläne springen nicht mehr ins Leere.** Bisher wechselte
+  die Ansicht trotzdem in die Liste und meldete erst dort, dass es nichts gibt.
+
 ## v3.26.1-rc4 - 2026-09-08
 
 > **Jetzt wirklich ab dem ersten Blick.** Der Rückweg zum Hauptfenster wurde

@@ -741,6 +741,8 @@ TEXTE = {
                         'annimmst, steht er hier.',
                           'No missions recorded yet. As soon as you accept one, '
                           'it shows up here.'),
+    's_al_klick':      ('Anklicken zeigt die Baupläne aus diesem Auftrag',
+                          'Click to see the blueprints from this contract'),
     's_al_nichts':     ('Kein Auftrag passt zu deiner Suche.',
                           'No mission matches your search.'),
     's_al_laeuft':     ('läuft', 'in progress'),

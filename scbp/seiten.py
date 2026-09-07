@@ -2697,6 +2697,29 @@ def _auftragslog(fenster, rahmen):
                                 anchor='w', justify='left')
             name_lab.pack(fill='x')
             _umbruch(name_lab)
+
+            # ⭐ **Der Auftragsname führt zu seinen Bauplänen** (08.09.2026,
+            # Drei-Klick-Regel). Das Protokoll sagt bisher nur „diesen Auftrag
+            # hast du gespielt" — die Anschlussfrage ist „und was bringt der
+            # eigentlich?". Der Klick stellt die Bauplan-Liste auf ihn ein.
+            #
+            # ⚠ `_zum_auftrag` sieht vorher nach: Kennt kein Bauplan diesen
+            # Auftrag als Quelle, wird NICHT gesprungen, sondern gemeldet. Das
+            # ist hier der Normalfall — die meisten Aufträge im Protokoll
+            # bringen keinen Bauplan.
+            def zur_bauplanliste(_ereignis=None, titel=eintrag.get('name') or ''):
+                _zum_auftrag(fenster, titel)
+
+            for teil in (name_lab, mitte):
+                teil.bind('<Button-1>', zur_bauplanliste)
+                try:
+                    teil.configure(cursor='hand2')
+                except tk.TclError:
+                    pass
+            name_lab.bind('<Enter>', lambda e, w=name_lab: w.configure(fg=ACCENT))
+            name_lab.bind('<Leave>', lambda e, w=name_lab: w.configure(fg=FG))
+            from . import hinweis as hinweis_modul
+            hinweis_modul.anhaengen(name_lab, lambda: t('s_al_klick'))
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
             if (zustand == missionslog.LAEUFT
@@ -6195,8 +6218,33 @@ def _hat_herkunft(name):
 
 
 def _zum_auftrag(fenster, titel):
-    """Von „Was bringt am meisten?" zur Bauplan-Liste, auf diesen Auftrag."""
+    """Zur Bauplan-Liste, gefiltert auf diesen Auftrag.
+
+    Gerufen von „Was bringt am meisten?" und vom Auftrags-Protokoll.
+
+    ⚠⚠ **Erst nachsehen, DANN die Seite wechseln.** Vorher stand `oeffnen`
+    ganz oben: Wer einen Auftrag ohne Baupläne anklickte, landete trotzdem in
+    der Liste — mit der alten Ansicht und einer Meldung darunter. Aus „Was
+    bringt am meisten?" fiel das nie auf, dort stehen nur Aufträge MIT
+    Bauplänen. Im Auftrags-Protokoll (ab 08.09.2026 anklickbar) sind es
+    **178 von 419**, die keinen bringen — dort wäre es der Normalfall
+    gewesen.
+    """
     try:
+        titel = (titel or '').strip()
+        if not titel:
+            return
+        # Gegen den Katalog fragen, ohne die Seite anzufassen.
+        from . import katalog as kat_modul
+        bekannt = any(
+            titel == (q.get('auftrag') or '').strip()
+            for eintrag in ((kat_modul.laden() or {}).get('bauplaene')
+                            or {}).values()
+            for q in (eintrag.get('q') or []))
+        if not bekannt:
+            fenster.sagen(t('s_fo_lohnt_nichts'))
+            return
+
         fenster.oeffnen('liste')
         seite = getattr(fenster, 'bestandsseite', None)
         if seite is not None and seite.zum_auftrag(titel):
