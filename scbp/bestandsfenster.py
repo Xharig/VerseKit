@@ -2006,8 +2006,35 @@ class Bestandsfenster:
 
         mitte = tk.Frame(zeile, bg=FLAECHE)
         mitte.pack(side='left', fill='x', expand=True)
-        tk.Label(mitte, text=name, bg=FLAECHE, fg=FG if drin else SUB,
-                 font=schrift(11), anchor='w').pack(fill='x')
+        name_lbl = tk.Label(mitte, text=name, bg=FLAECHE,
+                            fg=FG if drin else SUB, font=schrift(11),
+                            anchor='w')
+        name_lbl.pack(fill='x')
+
+        # ⭐ **Der Name führt zu den Zutaten** (07.09.2026). „Woher gibt es den
+        # Bauplan" beantwortete bisher nur die eine Hälfte; „was brauche ich
+        # zum Bauen" stand allein auf der Herstellungs-Seite, erreichbar über
+        # Seitenleiste plus Suchfeld. Nach der Drei-Klick-Regel ein Umweg zu
+        # viel.
+        #
+        # ⚠ Der Name war der einzige freie Platz in der Zeile — Haken, Info
+        # und Stern sind längst belegt. Ein eigener Knopf daneben wäre das
+        # vierte Bedienelement in einer Zeile gewesen.
+        #
+        # ⚠ Nur wo es wirklich ein Rezept gibt: Ein Klick, der auf einer
+        # leeren Seite endet, ist schlimmer als keiner — dieselbe Regel wie
+        # bei `zum_auftrag` und `zur_art`.
+        if getattr(self, 'hauptfenster', None) is not None and self._baubar(name):
+            grundfarbe = FG if drin else SUB
+            name_lbl.configure(cursor='hand2')
+            name_lbl.bind('<Button-1>', lambda e, n=name: self._zur_herstellung(n))
+            # ⚠ Ohne Rückmeldung beim Überfahren sieht man einem Namen nicht
+            # an, dass er mehr ist als Text. Der Zeiger allein verrät es erst,
+            # wenn man schon darauf steht.
+            name_lbl.bind('<Enter>', lambda e, w=name_lbl: w.configure(fg=ACCENT))
+            name_lbl.bind('<Leave>',
+                          lambda e, w=name_lbl, f=grundfarbe: w.configure(fg=f))
+            hinweis.anhaengen(name_lbl, lambda: t('hinweis_zutaten'))
 
         unten = [t for t in (kuerzel(eintrag), eintrag.get('m')) if t]
         if unten:
@@ -2308,6 +2335,39 @@ class Bestandsfenster:
         self.auftrag = name
         self._zeichnen(nach_oben=True)
         return True
+
+    def _baubar(self, name):
+        """Gibt es zu diesem Bauplan ueberhaupt ein Rezept?
+
+        ⚠ Gemerkt, nicht bei jeder Zeile neu gefragt: `rezept_roh` haelt ein
+        Verzeichnis vor, aber der Import kostet trotzdem. Bei 40 Zeilen je
+        Zeichnung faellt das noch nicht auf — bei „alle zeigen" mit 738 schon.
+        """
+        merker = getattr(self, '_baubar_merker', None)
+        if merker is None:
+            merker = self._baubar_merker = {}
+        if name not in merker:
+            try:
+                from . import herstellung as herst
+                merker[name] = bool(herst.rezept_roh(name))
+            except Exception:
+                merker[name] = False
+        return merker[name]
+
+    def _zur_herstellung(self, name):
+        """Zur Herstellungs-Seite springen, mit diesem Bauplan in der Suche.
+
+        ⚠ Derselbe Weg wie beim Rohstoff-Sprung in den Bergbau: Der Name wird
+        am Hauptfenster hinterlegt, die Zielseite liest ihn beim Aufbau aus.
+        """
+        try:
+            hf = getattr(self, 'hauptfenster', None)
+            if hf is None:
+                return
+            hf.herstellung_suche = name
+            hf.oeffnen('herstellung')
+        except Exception as ausnahme:
+            fehler.merken('bestandsfenster.zur_herstellung', ausnahme)
 
     def zur_art(self, art):
         """Die Liste auf eine Katalog-Art stellen — „Cooler", „Schild", „Helm".

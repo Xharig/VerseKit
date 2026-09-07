@@ -444,6 +444,8 @@ TEXTE = {
                           'Where do I get the blueprint?'),
     's_he_woher_nichts': ('Zu diesem Bauplan ist keine Bezugsquelle bekannt.',
                           'No source is known for this blueprint.'),
+    'hinweis_zutaten':   ('Zeigt, was zum Herstellen gebraucht wird',
+                          'Shows what is needed to craft this'),
     'hinweis_quellen':   ('Zeigt, woher es diesen Bauplan gibt',
                           'Shows where this blueprint comes from'),
     'start_eingetragen': ('%d Startbaupläne ergänzt — die hat jeder von Anfang an',
@@ -2731,6 +2733,11 @@ TEXTE = {
     's_he_mehr':         ('… und %d weitere. Grenz die Suche ein.',
                           '… and %d more. Narrow your search.'),
     's_he_nichts':       ('Nichts gefunden.', 'Nothing found.'),
+    's_he_erst_waehlen': ('Tipp einen Bauplan oder Rohstoff ein — oder wähl '
+                          'oben eine Art, einen Hersteller oder ein Material '
+                          'aus.',
+                          'Type a blueprint or material — or pick a type, '
+                          'manufacturer or material above.'),
     # --- Lager (scbp/rohstoffe.py) ------------------------------------------
     # ⚠ **„Rohstofflager", nicht „Mein Lager".** Am 05.09.2026: „Da sind ja
     # Rohstoffe drin, und namentlich passt das zu Handelslager." Beides

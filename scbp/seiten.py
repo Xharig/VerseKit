@@ -1007,6 +1007,9 @@ def _liste(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
     from . import bestandsfenster
     fenster.bestandsseite = bestandsfenster.Bestandsfenster(rahmen=rahmen)
+    # ⭐ Rückweg zum Hauptfenster. Die Liste braucht ihn, um auf andere Seiten
+    # zu springen — bisher ging der Weg nur andersherum (`bestandsseite`).
+    fenster.bestandsseite.hauptfenster = fenster
 
     # ⚠ Beim erneuten Aufrufen ohne Filter anfangen. Die Seite wird nur ein-
     # und ausgeblendet, sonst stünde die Auswahl von vorhin noch da — und wer
@@ -4400,10 +4403,10 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
 
     kopf = tk.Frame(innen, bg=FLAECHE)
     kopf.pack(fill='x', padx=14, pady=(12, 2))
-    zeichen.zeile(kopf, 'punkt',
-                  farbe=zeichen.GRUEN if gewaehlt else zeichen.GRAU,
-                  grund=FLAECHE, schrift=fenster.f_klein
-                  ).pack(side='left', padx=(0, 7))
+    # ⚠ **Kein Punkt vor dem Titel mehr** (07.09.2026). Er zeigte dasselbe wie
+    # der Rahmen des Kastens, der bei der gewählten Fassung grün wird —
+    # zweimal dieselbe Auskunft an derselben Stelle. Gemeldet mit „ist
+    # unnötig, da der Kasten ja schon grün wird".
     tk.Label(kopf, text=titel, bg=FLAECHE, fg=FG,
              font=fenster.f_fett).pack(side='left')
     if marke_text:
@@ -5839,7 +5842,12 @@ def _herstellung(fenster, rahmen):
     # der Diagnose-Seite) — **nicht** das nackte Suchfeld aus der Werkzeugleiste
     # der Bauplan-Liste. Dort gibt die Leiste den Kontext, hier gäbe ein leeres
     # Kästchen mitten auf der Seite keinen Hinweis, wofür es da ist.
-    suche_var = tk.StringVar()
+    # ⭐ Der Sprung aus der Bauplan-Liste setzt hier den Namen hinein — genau
+    # wie `bergbau_suche` beim Rohstoff-Sprung. Danach wieder leeren, sonst
+    # stünde der Begriff beim nächsten Öffnen erneut da.
+    suche_var = tk.StringVar(value=getattr(fenster, 'herstellung_suche', '')
+                             or '')
+    fenster.herstellung_suche = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = rundes_feld(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
                            LINIE, ACCENT, FG)
@@ -6049,6 +6057,19 @@ def _herstellung(fenster, rahmen):
         for w in liste_rahmen.winfo_children():
             w.destroy()
         text = suche_var.get().strip().lower()
+
+        # ⭐ **Ohne Eingabe steht hier keine Liste** (07.09.2026). Vorher
+        # standen 1597 Baupläne untereinander — mit Auswahlfeldern darüber,
+        # die genau dafür da sind. Gemeldet mit „wir haben nen Dropdown, da
+        # kann der Spieler ja schon auswählen, und die Liste scrollt eh
+        # niemand durch".
+        #
+        # ⚠ Der Hinweis darf nicht fehlen: Eine Seite, die leer aufgeht und
+        # nichts sagt, sieht kaputt aus.
+        if not text and not any(wahl.values()):
+            _fliesstext(liste_rahmen, t('s_he_erst_waehlen'), fenster.f_klein,
+                        fill='x')
+            return
 
         # ⭐⭐ **Auch nach der ZUTAT suchen.** Bis v3.3.0-rc40 sah die Suche
         # nur auf Bauplan-Namen. Wer „ric" tippte, um zu sehen, was aus Riccite
@@ -9253,13 +9274,20 @@ def _bergbau(fenster, rahmen):
             if not text or text in e['name'].lower():
                 _berg_erz(fenster, liste_rahmen, e, offen, zeichnen)
         # Orte danach — sie beantworten die zweite Frage („was gibt es hier?").
-        # Ohne Suche stehen sie unter den Rohstoffen, nicht davor.
-        for o in orte:
-            passt = (not text
-                     or text in o['name'].lower()
-                     or text in (o['system'] or '').lower())
-            if passt:
-                _berg_ort(fenster, liste_rahmen, o, offen, zeichnen)
+        #
+        # ⚠ **Ohne Eingabe stehen sie NICHT da** (07.09.2026). Vorher hingen
+        # 48 Ortszeilen unter den Rohstoffen, durch die niemand liest: Wer
+        # einen Ort sucht, tippt ihn oder klappt ihn im Auswahlfeld auf.
+        # Gemeldet mit „Erze sollten wir da anzeigen, Orte reicht wenn der
+        # User das per Textfeld suchen kann oder aus dem Dropdown".
+        #
+        # Die Auswahl schreibt in dasselbe Suchfeld — ein gewählter Ort füllt
+        # `text` also und erscheint dadurch von selbst.
+        if text:
+            for o in orte:
+                if (text in o['name'].lower()
+                        or text in (o['system'] or '').lower()):
+                    _berg_ort(fenster, liste_rahmen, o, offen, zeichnen)
 
         if not liste_rahmen.winfo_children():
             _fliesstext(liste_rahmen, t('s_he_nichts'), fenster.f_klein,
