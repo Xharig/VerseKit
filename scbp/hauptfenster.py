@@ -1673,10 +1673,26 @@ class Hauptfenster:
             # sonst wandert der Fokus bei jedem Klick durchs Fenster und die
             # Tastatursteuerung (Tab, Escape) verliert ihren Bezugspunkt.
             jetzt = self.root.focus_get()
+
+            # ⚠ `focus_get()` antwortet nur, wenn dieses Fenster das AKTIVE des
+            # Betriebssystems ist — sonst `None`, und die Regel griffe nie
+            # (07.09.2026 unter Windows gemessen). Im echten Betrieb ist das
+            # Fenster beim Klick natuerlich aktiv; im Prueflauf steht es
+            # beiseite, und drei Pruefungen liefen deshalb ins Leere.
+            # `focus_lastfor()` beantwortet dieselbe Frage ohne aktives
+            # Fenster: welches Widget den Fokus in diesem Toplevel hat.
+            if jetzt is None and ziel is not None:
+                jetzt = ziel.focus_lastfor()
+
             if jetzt is not None and jetzt.winfo_class() in ('Entry', 'Text',
                                                              'TEntry',
                                                              'Spinbox'):
-                self.root.focus_set()
+                # ⚠ Auf das Toplevel des Klicks, nicht fest auf `self.root`.
+                # Sonst landet der Fokus in der Wurzel, waehrend der Nutzer in
+                # einem eigenen Fenster steht — dort bliebe der Cursor stehen,
+                # also genau der gemeldete Fehler, nur eine Ebene hoeher.
+                (ziel.winfo_toplevel() if ziel is not None
+                 else self.root).focus_set()
         except Exception:
             pass                 # ein Klick darf nie einen Fehler auslösen
 

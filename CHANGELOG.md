@@ -6,6 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- In einem eigenen Fenster nahm ein Klick ins Leere den Cursor nicht zuverlässig
+  aus dem Eingabefeld — der Fokus ging ans Hauptfenster statt an das sichtbare.
+
 ## v3.23.0 - 2026-09-06
 
 > **Die Seiten sind wieder sofort da.** Steckplätze und Preise werden jetzt

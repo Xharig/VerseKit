@@ -48,9 +48,22 @@ sys.path.insert(0, WURZEL)
 
 # Prueflaeufe bauen echte Fenster. Ohne diese Umleitung blitzen sie ueber
 # einem laufenden Spiel auf und reissen den Fokus mit — siehe unsichtbar.py.
+#
+# ⚠ `messend=True` ist hier Pflicht (07.09.2026). Der Selbsttest MISST Layouts:
+# Fensterbreiten, Kastenhoehen, Rollstaende. Ohne die Kennzeichnung nimmt
+# `unsichtbar.py` auf Windows und Mac den Weg `verstecken()` — `withdraw()` —,
+# und ein verstecktes Fenster hat keine Geometrie: `winfo_width()` meldet 1.
+# Unter Linux fiel das nie auf, weil dort vorher Xvfb greift und ein echter
+# (nur unsichtbarer) Bildschirm alles korrekt vermisst.
+#
+# Was das auf Windows angerichtet hat: sieben Pruefungen fielen mit `[1, 1] px`
+# bzw. `0 px` durch, und Pruefung 60 STARB — sie sucht die Rollflaeche ueber
+# `winfo_width() > 20`, fand bei Breite 1 nichts und rief `yview()` auf `None`.
+# Damit endete der Lauf nach 681 von rund 1767 Pruefungen. Der Selbsttest hat
+# auf Windows also nie geprueft, was er soll.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import unsichtbar                                              # noqa: E402
-unsichtbar.sicherstellen()
+unsichtbar.sicherstellen(messend=True)
 
 
 # Die Zeilen, wie Star Citizen sie wirklich schreibt.
@@ -5118,6 +5131,30 @@ def main():
 
             _liste60 = _rollflaeche60(_auf60[0])
             _zeilen60 = _etiketten60(_auf60[0], [])
+
+            # ⚠ Wache statt Absturz (07.09.2026). `_rollflaeche60` sucht ueber
+            # `winfo_width() > 20` und gibt `None` zurueck, wenn kein Fenster
+            # vermessbar ist. Vorher lief das ungeprueft in `_liste60.yview()`
+            # — `AttributeError` auf `None`, und der GANZE Lauf war zu Ende:
+            # unter Windows nach 681 von 1767 Pruefungen, mitten im Abschnitt.
+            # Ein Prueflauf darf an einer fehlenden Voraussetzung scheitern,
+            # aber er darf die 1086 Pruefungen dahinter nicht mitreissen.
+            #
+            # Und er ueberspringt hier NICHT: Findet sich die Rollflaeche
+            # nicht, ist entweder das Fenster nicht vermessbar (Kennzeichnung
+            # `messend` verloren) oder die Klappliste wirklich kaputt. Beides
+            # ist ein Fehler und gehoert rot gemeldet — eine Pruefung, die sich
+            # selbst ueberspringt, prueft nichts.
+            pruefe(_liste60 is not None,
+                   'die Rollflaeche der Klappliste ist auffindbar'
+                   + ('' if _liste60 is not None else
+                      ' (kein Bereich breiter als 20 px — Fenster nicht '
+                      'vermessbar? siehe unsichtbar.sicherstellen(messend=True))'))
+            pruefe(len(_zeilen60) > 3,
+                   'die Klappliste hat genug Zeilen zum Rollen (%d)'
+                   % len(_zeilen60))
+
+        if _auf60 and _liste60 is not None and len(_zeilen60) > 3:
             _ziel60 = _zeilen60[3]
 
             # ⚠ **Das Rad heisst auf jedem System anders.** Linux meldet es
@@ -5157,8 +5194,11 @@ def main():
             pruefe(_liste60.yview()[1] > 0.999,
                    'der letzte Eintrag ist erreichbar (Ende bei %.3f)'
                    % _liste60.yview()[1])
-            for _tl60 in _auf60:
-                _tl60.destroy()
+
+        # Aufraeumen gehoert NACH die Wache, nicht hinein: Scheitert eine
+        # Voraussetzung, blieben die aufgeklappten Fenster sonst stehen.
+        for _tl60 in _auf60:
+            _tl60.destroy()
     finally:
         _w60.destroy()
 
@@ -6575,13 +6615,37 @@ def main():
     import subprocess as _sp75
     _echt75 = _sp75.Popen
     _altumg75 = dict(os.environ)
+
+    # ⚠⚠ **`webbrowser.open` MUSS mit abgefangen werden** (07.09.2026, unter
+    # Windows gemeldet: „bei mir geht ein Browser auf").
+    #
+    # Abgefangen war bis dahin nur `subprocess.Popen` — der Weg, den `im_browser`
+    # unter LINUX geht. Unter Windows liefert `browser_befehle()` bewusst eine
+    # leere Liste (dort macht `webbrowser` es richtig), und `im_browser` faellt
+    # auf `webbrowser.open()` zurueck. Das lief hier ungebremst: Bei jedem
+    # Selbsttest sprang der echte Standardbrowser mit `example.invalid` auf.
+    #
+    # Damit brach ausgerechnet dieser Prueflauf die Regel, fuer die es
+    # `unsichtbar.py` gibt — nichts auf dem Bildschirm des Nutzers, kein
+    # geklauter Fokus. Ein aufspringendes Browserfenster ist schlimmer als ein
+    # aufblitzendes tkinter-Fenster: Es bleibt stehen.
+    #
+    # Aufgefallen ist es erst, als der Selbsttest unter Windows ueberhaupt so
+    # weit kam — vorher starb er in Abschnitt 60.
+    import webbrowser as _wb75
+    _echt_wb75 = _wb75.open
+    _wb75_gerufen = []
+
     try:
         os.environ['LD_LIBRARY_PATH'] = '/pfad/im/appimage'
         os.environ['PYTHONHOME'] = '/pfad/im/appimage'
         _sp75.Popen = _Lauf75
+        _wb75.open = lambda adresse, *a, **k: (_wb75_gerufen.append(adresse),
+                                               True)[1]
         _geklappt75 = _pf75.im_browser('https://example.invalid/x')
     finally:
         _sp75.Popen = _echt75
+        _wb75.open = _echt_wb75
         os.environ.clear()
         os.environ.update(_altumg75)
 
@@ -6592,7 +6656,15 @@ def main():
                'der Öffner bekommt eine saubere Umgebung (%d Variablen, '
                'ohne unsere Pfade)' % len(_umg75))
     else:
-        print('  [–]    Umgebungsprobe nur unter Linux sinnvoll')
+        # ⚠ Hier stand bis zum 07.09.2026 nur „nur unter Linux sinnvoll" —
+        # und damit prüfte der ganze Abschnitt auf Windows und Mac NICHTS.
+        # Die Umgebungsprobe ist tatsächlich linuxeigen (dort wird ein eigener
+        # Prozess gestartet), der Weg zum Browser aber nicht: Auf Windows geht
+        # er über `webbrowser.open()`, und genau das lässt sich prüfen.
+        pruefe(_geklappt75, 'der Aufruf meldet Erfolg')
+        pruefe(_wb75_gerufen == ['https://example.invalid/x'],
+               'die Adresse geht unverändert an webbrowser.open (%s)'
+               % (_wb75_gerufen or 'gar nicht gerufen'))
 
     # ------------------------------------------------------------------
     # 76. „Protokolle neu einlesen" darf nicht die Einrichtung zuruecksetzen
@@ -11597,6 +11669,55 @@ def main():
                 _w126.update()
                 _w126.update_idletasks()
 
+            # ⚠⚠ **`focus_get()` allein reicht auf Windows nicht** (07.09.2026).
+            #
+            # Es beantwortet „welches Widget hat den Tastaturfokus" nur, wenn
+            # das Fenster auch das AKTIVE des Betriebssystems ist. Im Selbsttest
+            # ist es das nicht: Das Fenster steht durchsichtig weit neben dem
+            # Bildschirm (`unsichtbar.py`), und nach 125 Abschnitten voller
+            # gebauter und zerstoerter Fenster hat Windows den Fokus laengst
+            # woanders. `focus_get()` liefert dann schlicht `None`.
+            #
+            # Gemessen, nicht vermutet: Alle drei Setz-Pruefungen meldeten
+            # „Fokus liegt bei KEINEM Widget dieses Fensters" — und die zwei
+            # Gegenpruefungen („Klick ins Leere nimmt den Fokus weg") standen
+            # dabei auf gruen, weil `None is not _feld` zufaellig zutrifft.
+            # Sie haben also nichts geprueft.
+            #
+            # Der Zwang `focus_force()` waere der falsche Ausweg: Er reisst den
+            # Tastaturfokus auf Betriebssystem-Ebene an sich — wer gerade Star
+            # Citizen fliegt, landet im Desktop. Genau davor schuetzt
+            # `unsichtbar.py`.
+            #
+            # `focus_lastfor()` beantwortet dieselbe Frage OHNE aktives
+            # Fenster: Welches Widget bekaeme den Fokus, wenn dieses Fenster
+            # nach vorn kaeme. Es folgt jedem `focus_set()` (gemessen). Genau
+            # das will die Pruefung wissen — ob die Anwendung den Fokus richtig
+            # verteilt, nicht ob Windows gerade hinsieht.
+            #
+            # `focus_get()` bleibt vorn: Unter Xvfb ist es der eingefuehrte Weg
+            # und liefert dort einen Wert. Der Rueckfall greift nur, wo es
+            # nichts zu sagen hat.
+            # ⚠ `bezug` ist noetig, weil `focus_lastfor()` JE TOPLEVEL
+            # antwortet. Auf `_w126` gefragt kommt die Wurzel `.` zurueck —
+            # die Widgets sitzen aber im Toplevel des Hauptfensters. Genau
+            # das meldete der erste Anlauf: „Fokus liegt stattdessen auf .".
+            def _fokus126(bezug):
+                return _w126.focus_get() or bezug.focus_lastfor()
+
+            # Eine fehlgeschlagene Fokus-Pruefung muss sagen, WO der Fokus
+            # stattdessen steht. Vorher stand da nur „laesst sich nicht
+            # setzen" — daraus liest niemand, ob das Feld fehlt, ein anderes
+            # Widget ihn hat oder gar kein Fenster aktiv ist. Genau dieses
+            # Raten hat den Windows-Lauf teuer gemacht.
+            def _wo126(erwartet):
+                ist = _fokus126(erwartet)
+                if ist is erwartet:
+                    return ''
+                if ist is None:
+                    return ' — kein Widget dieses Fensters hat den Fokus'
+                return ' — Fokus liegt stattdessen auf %s' % (ist,)
+
             # ⚠ Der Fokus muss ERZWUNGEN werden. Unter Xvfb vergibt kein
             # Fenstermanager ihn, `focus_get()` gibt dann None — und die
             # Pruefung wuerde „nicht im Feld" melden, ohne je drin gewesen zu
@@ -11607,14 +11728,41 @@ def main():
             _eingabe126[0].delete('1.0', 'end')
             _eingabe126[0].insert('1.0', 'Pruefsatz eins')
             _w126.update_idletasks()
-            pruefe(_w126.focus_get() is _eingabe126[0],
-                   'der Fokus laesst sich ins Meldungsfeld setzen')
+            pruefe(_fokus126(_eingabe126[0]) is _eingabe126[0],
+                   'der Fokus laesst sich ins Meldungsfeld setzen'
+                   + _wo126(_eingabe126[0]))
 
             _ins_leere126()
-            pruefe(_w126.focus_get() is not _eingabe126[0],
+            pruefe(_fokus126(_eingabe126[0]) is not _eingabe126[0],
                    'ein Klick ins Leere nimmt den Fokus aus dem Meldungsfeld')
+
+            # ⚠⚠ **Das `<FocusOut>` wird hier ausdruecklich geschickt** —
+            # gemessen am 07.09.2026, und der Grund ist unangenehm konkret:
+            #
+            # Tk sendet `FocusIn`/`FocusOut` nur, wenn das Toplevel den
+            # Tastaturfokus des BETRIEBSSYSTEMS hat. Im Prueflauf hat es den
+            # nie: Das Fenster steht durchsichtig weit neben dem Bildschirm.
+            # Der Fokus wandert dann zwar intern (die Zeile darueber belegt
+            # es), aber kein Ereignis feuert — und die Uebernahme in den
+            # Bericht haengt genau daran.
+            #
+            # Unter Xvfb feuert es, weil dort ein eigener Bildschirm existiert.
+            # Deshalb fiel es unter Linux nie auf, und unter Windows kam der
+            # Lauf frueher gar nicht bis hierher.
+            #
+            # Erzwingen liesse sich das nur mit `focus_force()` — dem
+            # Fokusklau, den `unsichtbar.py` gerade verhindert. Also wird das
+            # Ereignis geschickt, wie der Klick daneben auch geschickt wird.
+            # Die Kette bleibt dabei vollstaendig geprueft, nur in zwei
+            # Schritten: dass der Klick den Fokus nimmt, steht eine Zeile
+            # hoeher; dass ein Fokusverlust den Bericht auffrischt, hier.
+            # Ein zweites `<FocusOut>` schadet nicht, wo es schon gefeuert hat
+            # — der Bericht wird dann nur noch einmal gebaut.
+            _eingabe126[0].event_generate('<FocusOut>')
+            _w126.update()
+            _w126.update_idletasks()
             pruefe('Pruefsatz eins' in _kasten126[0].get('1.0', 'end-1c'),
-                   'und der eingetippte Satz steht danach im Bericht')
+                   'und ein Fokusverlust traegt den Satz in den Bericht')
 
             _w126.focus_force()
             _w126.update()
@@ -11628,10 +11776,11 @@ def main():
             # draussen. Genau daran scheiterte der erste Anlauf dieser
             # Pruefung, waehrend das Programm richtig arbeitete.
             _w126.update()
-            pruefe(_w126.focus_get() is _namen126[0],
-                   'der Fokus laesst sich ins Namensfeld setzen')
+            pruefe(_fokus126(_namen126[0]) is _namen126[0],
+                   'der Fokus laesst sich ins Namensfeld setzen'
+                   + _wo126(_namen126[0]))
             _ins_leere126()
-            pruefe(_w126.focus_get() is not _namen126[0],
+            pruefe(_fokus126(_namen126[0]) is not _namen126[0],
                    'ein Klick ins Leere nimmt den Fokus aus dem Namensfeld')
 
             # ⚠⚠ **Warum hier NICHT geprueft wird, ob der Name im Bericht
@@ -11664,8 +11813,9 @@ def main():
             _w126.update_idletasks()
             _eingabe126[0].event_generate('<Button-1>', x=5, y=5)
             _w126.update()
-            pruefe(_w126.focus_get() is _eingabe126[0],
-                   'ein Klick ins Feld selbst laesst den Fokus dort')
+            pruefe(_fokus126(_eingabe126[0]) is _eingabe126[0],
+                   'ein Klick ins Feld selbst laesst den Fokus dort'
+                   + _wo126(_eingabe126[0]))
     finally:
         try:
             _w126.destroy()

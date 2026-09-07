@@ -140,8 +140,41 @@ def unsichtbar_machen():
         klasse.__init__ = bauen
         klasse._scbp_beiseite = True
         # Nach vorn holen bleibt auch hier verboten.
-        for name in ('lift', 'focus_force'):
-            setattr(klasse, name, lambda self, *a, **k: None)
+        setattr(klasse, 'lift', lambda self, *a, **k: None)
+
+        # ⚠ `focus_force` wird UMGELEITET, nicht stillgelegt (07.09.2026).
+        #
+        # Stillgelegt war es bis dahin — und damit fielen vier Pruefungen auf
+        # Windows durch, die den Fokus in ein Eingabefeld setzen und danach
+        # nachsehen, ob er dort steht (Abschnitt 126, Fehlerbericht). Ohne
+        # Fokus liefert `focus_get()` None, und die Pruefung meldet „nicht im
+        # Feld", ohne dass am Programm etwas fehlt. Aufgefallen erst, als der
+        # Selbsttest unter Windows ueberhaupt so weit kam.
+        #
+        # Ganz freigeben ist keine Loesung: `focus_force` reisst den
+        # Tastaturfokus auf Betriebssystem-Ebene an sich — wer gerade Star
+        # Citizen fliegt, landet mitten im Kampf auf dem Desktop. Genau davor
+        # schuetzt diese Datei.
+        #
+        # `focus_set` tut das NICHT: Es verteilt den Fokus nur innerhalb der
+        # Anwendung. Gemessen am 07.09.2026 unter Windows an einem
+        # durchsichtigen, weit weggeschobenen Fenster:
+        #   ohne alles          -> focus_get() ist das Fenster
+        #   nur focus_set()     -> focus_get() ist das Widget  ✅
+        #   mit focus_force()   -> dasselbe Ergebnis
+        # Der Zwang bringt hier also nichts, was `focus_set` nicht auch kann.
+        #
+        # Unter Xvfb bleibt der Zwang noetig (kein Fenstermanager vergibt dort
+        # Fokus) — dieser Zweig laeuft dort aber gar nicht: Linux nimmt vorher
+        # den echten unsichtbaren Bildschirm.
+        #
+        # ⚠ `_setzen` als Vorgabewert binden, nicht `klasse` aus der Schleife
+        # greifen: Sonst zeigt die Lambda auf die ZULETZT durchlaufene Klasse
+        # (`Toplevel`), auch wenn sie an `Tk` haengt. Hier faellt das nicht auf,
+        # weil beide `focus_set` von `Misc` erben — genau solche stillen
+        # Zufaelle brechen beim naechsten Umbau.
+        setattr(klasse, 'focus_force',
+                lambda self, *a, _setzen=klasse.focus_set, **k: _setzen(self))
 
 
 def sicherstellen(breite=1400, hoehe=1000, messend=False):

@@ -6,6 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- In a separate window, clicking empty space did not reliably move the cursor
+  out of the input field — focus went to the main window instead of the visible one.
+
 ## v3.23.0 - 2026-09-06
 
 > **Pages are there instantly again.** Hardpoints and prices are now fetched in
