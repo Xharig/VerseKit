@@ -3378,6 +3378,14 @@ TEXTE = {
                           'The source could not be reached. Whatever is '
                           'already stored is still available.'),
     's_pa_leer':         ('nichts geändert', 'nothing changed'),
+    # ⚠ Die Sammelzeile für die ausgeblendeten Patches. Sie muss sein: Ohne
+    # sie sähe die Liste aus, als fehlten Patches — und genau dieser Verdacht
+    # („da sind gar keine Infos drin") war der Anlass, den ganzen Reiter zu
+    # überarbeiten. Weglassen ja, verschweigen nein.
+    's_pa_leere_weg':    ('{n} weitere Patches haben keine Werte geändert '
+                          '— meist Hotfixes',
+                          '{n} more patches changed no values — mostly '
+                          'hotfixes'),
     's_pa_zaehler':      ('{plus} neu · {minus} weg · {tilde} geändert',
                           '{plus} added · {minus} removed · {tilde} changed'),
     # ⚠ Der Fall, für den die lokale Ablage überhaupt gebaut wurde.

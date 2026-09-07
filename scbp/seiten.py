@@ -15193,7 +15193,25 @@ def _patchaenderungen(fenster, rahmen):
 
     def _liste_zeigen():
         _leeren(liste)
-        for eintrag in pa.uebersicht():
+
+        # ⚠⚠ **Patches ohne Werteänderung kommen NICHT in die Liste**
+        # (07.09.2026): „das sind ja nur hotfixes wo nie ne änderung drin ist."
+        #
+        # Stimmt, und die Zahlen geben ihm recht: Von zehn Patches sind **acht**
+        # leer. Sie standen bisher als volle Zeilen dazwischen, drängten die
+        # zwei interessanten nach unten — und wer der Reihe nach von oben
+        # klickte, landete zuerst auf ihnen und hielt den Reiter für kaputt.
+        #
+        # ⚠ Aber nicht spurlos: Darunter steht, **wie viele** weggelassen
+        # wurden. Ohne diese Zeile sähe es aus, als fehlten Patches oder als
+        # sei der Abruf unvollständig — und genau dieser Verdacht („da sind gar
+        # keine Infos drin") war der Anlass, den Reiter zu überarbeiten.
+        # Weglassen ja, verschweigen nein.
+        alle = pa.uebersicht()
+        gezeigt = [e for e in alle if not e['leer']]
+        weggelassen = len(alle) - len(gezeigt)
+
+        for eintrag in gezeigt:
             zeile = tk.Frame(liste, bg=BG, cursor='hand2')
             zeile.pack(fill='x', pady=(0, 4))
             z = eintrag['summary']
@@ -15229,6 +15247,11 @@ def _patchaenderungen(fenster, rahmen):
             for teil in [zeile] + list(zeile.winfo_children()):
                 teil.bind('<Button-1>',
                           lambda _e, v=eintrag['version']: _patch_waehlen(v))
+
+        if weggelassen:
+            tk.Label(liste, text=t('s_pa_leere_weg').format(n=weggelassen),
+                     bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w').pack(fill='x', pady=(6, 0))
 
     # ----------------------------------------------------------- Der Abruf
     def _suchen():

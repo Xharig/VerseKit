@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.24.3 - 2026-09-07
+
+> **Only the patches that actually show something.** Eight out of ten patches
+> change no value at all — those are hotfixes. They no longer sit in the list,
+> just as a line underneath it.
+
+### Improved
+
+- **Patches without value changes are no longer listed.** A line underneath
+  says how many there were — left out is not the same as hidden.
+
 ## v3.24.2 - 2026-09-07
 
 > **The patch list stays manageable.** It shows five patches and scrolls within
