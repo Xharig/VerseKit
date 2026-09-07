@@ -5845,8 +5845,12 @@ def _herstellung(fenster, rahmen):
     # ⭐ Der Sprung aus der Bauplan-Liste setzt hier den Namen hinein — genau
     # wie `bergbau_suche` beim Rohstoff-Sprung. Danach wieder leeren, sonst
     # stünde der Begriff beim nächsten Öffnen erneut da.
-    suche_var = tk.StringVar(value=getattr(fenster, 'herstellung_suche', '')
-                             or '')
+    #
+    # ⚠ `gesprungen` wird weiter unten gebraucht, um die Zeile gleich
+    # aufgeklappt zu zeigen — deshalb hier gemerkt und nicht nur ins Suchfeld
+    # geschrieben.
+    gesprungen = getattr(fenster, 'herstellung_suche', '') or ''
+    suche_var = tk.StringVar(value=gesprungen)
     fenster.herstellung_suche = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = rundes_feld(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
@@ -5863,6 +5867,24 @@ def _herstellung(fenster, rahmen):
         etwas ändert — dieselbe Bremse wie in der Bauplan-Liste
         (`bestandsfenster._fein_leeren`), am 31.08.2026 gemessen und gemeldet.
         """
+        # ⚠⚠ **Ein Sprung aus der Bauplan-Liste darf hier NICHT geleert
+        # werden.** Beim ersten Mal wird die Seite frisch gebaut und nimmt den
+        # Namen im Aufbau entgegen — beim zweiten Mal existiert sie schon, und
+        # dann läuft nur noch dieser Rückruf. Ohne die Abfrage hätte der
+        # Sprung genau einmal funktioniert und danach nie wieder.
+        neuer_sprung = getattr(fenster, 'herstellung_suche', '') or ''
+        if neuer_sprung:
+            fenster.herstellung_suche = ''
+            for schluessel in wahl:
+                wahl[schluessel] = ''
+            _material_merker.clear()
+            # Gleich aufgeklappt zeigen — der Grund des Sprungs sind ja die
+            # Zutaten.
+            offen['name'] = neuer_sprung
+            filter_bauen()
+            suche_var.set(neuer_sprung)      # löst `zeichnen()` über den trace aus
+            return
+
         etwas_gesetzt = bool(suche_var.get() or any(wahl.values())
                              or _material_merker)
         if not etwas_gesetzt:
@@ -5873,6 +5895,7 @@ def _herstellung(fenster, rahmen):
         for schluessel in wahl:
             wahl[schluessel] = ''
         _material_merker.clear()
+        offen['name'] = None
         filter_bauen()
         zeichnen()
 
@@ -6003,7 +6026,15 @@ def _herstellung(fenster, rahmen):
     # Welche Zeile ist gerade aufgeklappt? Eine reicht — zwei offene Rezepte
     # untereinander sind schon wieder die Zettelwirtschaft, die der Umschalter
     # vermeiden soll.
-    offen = {'name': None}
+    # ⭐ **Wer aus der Bauplan-Liste herspringt, will die Zutaten SEHEN** —
+    # nicht erst noch einmal klicken. Gemeldet am 07.09.2026 nach dem Test von
+    # v3.26.0: „das Teil ist zugeklappt, geht es dass das direkt aufgeklappt
+    # ist, damit man nicht einen extra Klick hat?" — mit Verweis auf die
+    # Drei-Klick-Regel.
+    #
+    # ⚠ Nur beim Sprung, nicht beim gewöhnlichen Öffnen der Seite: Dort weiß
+    # niemand, welche der 1597 Zeilen aufgehen sollte.
+    offen = {'name': gesprungen or None}
 
     _material_merker = {}
 
