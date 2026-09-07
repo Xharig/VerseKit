@@ -14836,11 +14836,23 @@ def _pa_feldzeile(fenster, eltern, feld):
                 # ist. Ein Feld, dessen echter Wert 0 ist, wäre davon nicht
                 # mehr zu unterscheiden.
                 #
-                # Der unveränderte Wert selbst löst beides: genauso kurz, und
-                # er sagt zusätzlich, WORAUF der Wert steht. Grau heißt in
-                # dieser Liste ohnehin schon „unverändert" — dieselbe Regel
-                # wie bei den grünen und roten Zeilen, nur ohne Pfeil.
-                text, farbe = vorher, SUB
+                # Vorgeschlagen war weiter ein `→ X`. Dagegen spricht, dass es
+                # sich wie „ist weggefallen" liest — und dafür gibt es bereits
+                # eine eigene Zeile (`1090 → fällt weg`, gold). Zwei Zeichen
+                # für zwei verschiedene Aussagen, die gleich aussehen, sind
+                # schlimmer als eine Zeile mehr Text.
+                #
+                # Beide Werte mit Pfeil, in Grau: Jede Zeile der Liste ist
+                # gleich aufgebaut (`alt → neu`), man sieht die Werte selbst,
+                # und dass beide dieselben sind, ist auf einen Blick klar.
+                # Grau heißt hier ohnehin schon „unverändert" — dieselbe
+                # Regel wie bei den grünen und roten Zeilen.
+                #
+                # ⚠ In den heutigen Daten kommt dieser Fall **nicht** vor:
+                # Nach dem Rundungsfix vom 07.09.2026 sind alle 2652 Posten
+                # sichtbar geändert. Der Zweig bleibt trotzdem — der nächste
+                # Patch kann ein Feld anfassen, ohne den Wert zu ändern.
+                text, farbe = '%s → %s' % (vorher, nachher), SUB
             else:
                 text = '%s → %s' % (vorher, nachher)
                 farbe = {1: ACCENT, -1: ROT}.get(richtung, FG)
