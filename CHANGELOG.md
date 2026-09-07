@@ -10,7 +10,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
-- **„Was der Patch geändert hat" zeigt jetzt, was sich geändert hat.** Bei
+- **Der Reiter heißt jetzt „Geänderte Spielwerte".** Vorher „Was der Patch
+  geändert hat" — direkt unter „Was ist neu", beide mit „Was" beginnend, und
+  keiner sagte, worüber er spricht: dort das Werkzeug, hier das Spiel.
+- **„Geänderte Spielwerte" zeigt jetzt, was sich geändert hat.** Bei
   verschachtelten Werten stand vorher nur `… → …`, bei unveränderten `0 → 0`.
   Jetzt steht der echte Unterschied da — und wo sich nichts geändert hat, steht
   das auch so.

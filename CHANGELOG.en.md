@@ -10,7 +10,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
-- **"What the patch changed" now shows what changed.** Nested values used to
+- **The tab is now called "Changed game values".** It used to be "What the
+  patch changed" — right below "What is new", both starting with "What", and
+  neither said what it was about: one is the tool, the other the game.
+- **"Changed game values" now shows what changed.** Nested values used to
   read `… → …`, unchanged ones `0 → 0`. The real difference is shown now — and
   where nothing changed, it says so.
 - On first open the page says the data still has to be fetched, instead of

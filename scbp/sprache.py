@@ -3347,12 +3347,18 @@ TEXTE = {
                           'No blueprint for "{name}". Without it there is no '
                           'way to say what is inside.'),
     # --- Was hat der Patch geändert (v3.24.0) — Stufe 4 der Erkul-Reihe
-    's_pa_lead':         ('Welcher Patch hat welche Werte verändert — Schiffe, '
-                          'Waffen, Komponenten. Wähl links einen Patch, dann '
-                          'steht rechts, was sich getan hat.',
-                          'Which patch changed which values — ships, weapons, '
-                          'components. Pick a patch on the left and the '
-                          'changes appear on the right.'),
+    # ⚠ Der Vorspann grenzt ausdruecklich gegen „Was ist neu" ab — die beiden
+    # Reiter stehen untereinander und wurden sonst verwechselt.
+    's_pa_lead':         ('Was ein Spiel-Patch an Werten verändert hat — Schiffe, '
+                          'Waffen, Komponenten. Nicht zu verwechseln mit „Was ist '
+                          'neu": dort geht es um das Werkzeug, hier um das Spiel. '
+                          'Wähl links einen Patch, dann steht rechts, was sich '
+                          'getan hat.',
+                          'What a game patch changed about values — ships, weapons, '
+                          'components. Not to be confused with the "What is new" '
+                          'tab: that one is about the tool, this one about the '
+                          'game. Pick a patch on the left and the changes appear '
+                          'on the right.'),
     # ⭐ Der eigentliche Gewinn der eigenen Ablage, deshalb steht er auf der
     # Seite und nicht nur im Quelltext.
     's_pa_sammlung':     ('Die Quelle hebt nur die letzten zehn Patches auf. '
@@ -4289,8 +4295,13 @@ TEXTE = {
     # ⚠ Bewusst nicht „Was ist neu im Patch" — die beiden stünden dann
     # untereinander und ließen sich im Vorbeigehen verwechseln. Hier geht es
     # um das SPIEL, dort um das Werkzeug.
-    'hf_patchaenderungen': ('Was der Patch geändert hat',
-                            'What the patch changed'),
+    # ⚠ Hiess bis zum 07.09.2026 „Was der Patch geändert hat". Zwei Probleme:
+    # Der Reiter steht direkt unter „Was ist neu" — beide fingen mit „Was" an,
+    # beide klangen nach Neuigkeiten, und keiner sagte, WORUEBER er spricht.
+    # Dabei ist genau das der Unterschied: dort das WERKZEUG, hier das SPIEL.
+    # Dazu war er mit 26 Zeichen der mit Abstand laengste Reiter in einer
+    # Leiste, deren andere Eintraege 11 bis 13 Zeichen haben.
+    'hf_patchaenderungen': ('Geänderte Spielwerte', 'Changed game values'),
     'hf_sicherung':      ('Sicherung', 'Backup'),
     # ⚠ Der Hinweis nennt das Anfangsdatum, weil die Zahl sonst mehr
     # behauptet, als sie weiß: Star Citizen räumt alte Protokolle weg, hier
