@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.2-rc1 - 2026-09-08
+
+> **Die Bestenliste zeigt wieder Handelsware.** Zwei Event-Geschenke standen
+> ganz oben und verdrängten alles, womit sich wirklich Geld verdienen lässt.
+
+### Behoben
+
+- **Event-Geschenke stehen nicht mehr in „Was gerade am besten zahlt".** Sie
+  tragen zwar einen Preis, sind aber keine Ladung, die man je SCU verkauft.
+  Wer den Namen sucht, bekommt seine Ortsliste weiterhin.
+- **Ein einzelnes absurdes Ankaufgebot wird verworfen.** Liegt ein Terminal um
+  mehr als das Dreifache über allen anderen, ist das ein Datenfehler und kein
+  Angebot — gemessen an 114 Waren traf das auf genau zwei zu.
+
 ## v3.26.1 - 2026-09-08
 
 > **Kürzere Wege, und sie führen jetzt auch wirklich hin.** Ein Klick auf einen

@@ -6,6 +6,20 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.2-rc1 - 2026-09-08
+
+> **The top list shows tradeable goods again.** Two event gifts sat at the very
+> top, crowding out everything that actually earns money.
+
+### Fixed
+
+- **Event gifts no longer appear in “What pays best right now”.** They carry a
+  price but are not cargo you sell by the SCU. Searching for them still shows
+  their locations.
+- **A single absurd buy offer is discarded.** If one terminal sits more than
+  three times above all others, that is a data error, not an offer — measured
+  across 114 goods, exactly two qualified.
+
 ## v3.26.1 - 2026-09-08
 
 > **Shorter paths, and they actually lead somewhere now.** Clicking a contract

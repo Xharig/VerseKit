@@ -13136,8 +13136,13 @@ def _verkauf(fenster, rahmen):
             #
             # ⚠ Anklickbar, nicht nur zum Anschauen. Eine Liste, aus der man
             # nichts übernehmen kann, ist eine Tapete.
+            # ⚠ Event-Geschenke bleiben draußen, und ein einzelnes absurdes
+            # Gebot wird verworfen — beides steckt in `verkauf.py`, damit es
+            # an einer Stelle steht und nicht in der Anzeige verstreut.
             spitze = []
             for ware in preisdaten.waren():
+                if not preisdaten.in_bestenliste(ware):
+                    continue
                 preis = preisdaten.bester_preis(ware)
                 if preis:
                     spitze.append((preis, ware))

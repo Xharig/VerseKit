@@ -436,10 +436,69 @@ def orte_fuer(namen, nur_nqa=False):
     return ergebnis
 
 
-def bester_preis(name):
+# Waren, die in der Bestenliste nichts zu suchen haben.
+#
+# ⚠⚠ **Das sind Event-Geschenke, keine Handelsware.** Gemeldet am 08.09.2026:
+# „die ersten 2 auf der Liste sind Karten vom Event, die gibt es gar nicht als
+# 1 SCU." Sie tragen einen Preis, weil ein Terminal sie ankauft — aber niemand
+# fliegt eine SCU davon irgendwohin. In der Bestenliste standen sie auf Platz
+# 1 und 2 und verdrängten alles, womit sich wirklich Geld verdienen lässt.
+#
+# ⚠ Ausgeschlossen wird nur die BESTENLISTE. Wer den Namen sucht, bekommt
+# weiterhin seine Ortsliste — die Ware verschwindet nicht aus dem Programm.
+#
+# ⚠ Die Erkennung geht über den Namen, weil die Daten nichts hergeben:
+# `container_sizes` steht bei den Karten auf denselben Werten wie bei Erzen.
+# Kommt ein neues Event dazu, gehört sein Geschenk hier hinein.
+NICHT_IN_BESTENLISTE = (
+    'luminalia gift',
+    'year of the rat envelope',
+)
+
+
+def in_bestenliste(name):
+    """Gehört diese Ware in „Was gerade am besten zahlt"?"""
+    return (name or '').strip().lower() not in NICHT_IN_BESTENLISTE
+
+
+# Ab welchem Vielfachen des zweithöchsten Gebots ein Preis als Ausreißer gilt.
+#
+# ⚠ **Die Zahl ist gemessen, nicht gesetzt.** Am 08.09.2026 über alle 114 Waren
+# geprüft: Genau **zwei** liegen über Faktor 3, und beide sind offensichtlich
+# falsch — „Year of the Rat Envelope" 82.200.000 gegen 2.200.000 sonst
+# (Faktor 37), „Luminalia Gift" 95.500.000 gegen 5.500.000 (Faktor 17), beide
+# am selben Terminal. Das sieht nach einer vorangestellten Ziffer aus. Alle
+# übrigen 112 Waren bleiben unter Faktor 3 — die Grenze trennt also sauber,
+# ohne echte Preisunterschiede wegzuwerfen.
+AUSREISSER_FAKTOR = 3.0
+
+
+def _ohne_ausreisser(zeilen):
+    """Gebote ohne den einen Wert, der aus der Reihe fällt.
+
+    ⚠ Erst ab drei Geboten. Bei zweien lässt sich nicht sagen, welches das
+    falsche ist — und bei einem gibt es nichts zu vergleichen.
+    """
+    preise = sorted((z.get('p') or 0.0) for z in zeilen)
+    if len(preise) < 3 or preise[-2] <= 0:
+        return zeilen
+    if preise[-1] / preise[-2] < AUSREISSER_FAKTOR:
+        return zeilen
+    hoechster = preise[-1]
+    return [z for z in zeilen if (z.get('p') or 0.0) < hoechster]
+
+
+def bester_preis(name, mit_ausreissern=False):
     """Was die Ware höchstens bringt, je SCU — oder `0.0`.
 
     Für die schnelle Angabe im Handelslager, ohne die ganze Ortsliste.
+
+    ⚠ **Ein einzelnes absurdes Gebot wird verworfen.** Sonst steht in der
+    Bestenliste ein Preis, den es nicht gibt, und verdrängt die Waren, mit
+    denen sich wirklich Geld verdienen lässt. `mit_ausreissern=True` gibt den
+    Rohwert zurück — für die Ortsliste, wo jedes Terminal zu sehen sein soll.
     """
     zeilen = ((laden() or {}).get('waren') or {}).get(name) or []
+    if not mit_ausreissern:
+        zeilen = _ohne_ausreisser(zeilen)
     return max((z['p'] for z in zeilen), default=0.0)
