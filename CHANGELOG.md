@@ -18,8 +18,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   statt „Wähl links einen Patch aus" anzubieten, wo es noch nichts zu wählen gibt.
 - Patches ohne Änderungen sind in der Liste zurückgenommen — von zehn sind
   meist acht leer, die zwei mit Inhalt gehen sonst unter.
-- **Unveränderte Werte zeigen jetzt ihren Wert**, grau und ohne Pfeil, statt
-  eines Satzes quer durch die Zeile.
+- ⭐ **Sehr kleine Werte wurden als „unverändert" angezeigt, obwohl sie sich
+  geändert hatten.** Der Treibstoffverbrauch aus 4.10.0 liegt bei 0,00000125 —
+  auf vier Nachkommastellen gerundet sah das aus wie eine glatte Null. Damit
+  standen **557 echte Änderungen** als unverändert da, teils um den Faktor
+  fünf. Die Anzeige wird jetzt so genau, wie sie sein muss.
+- **Unveränderte Werte zeigen ihren Wert**, grau und ohne Pfeil, statt eines
+  Satzes quer durch die Zeile.
 - **Gestiegene Werte stehen grün, gefallene rot, unveränderte grau.** Die
   Farbe zeigt die Richtung, nicht ob es besser wurde — weniger Verbrauch ist
   rot und trotzdem gut für dich.

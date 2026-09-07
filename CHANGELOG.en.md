@@ -17,8 +17,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   offering "Pick a patch on the left" when there is nothing to pick yet.
 - Patches without changes are dimmed in the list — usually eight out of ten are
   empty, and the two with content were lost among them.
-- **Unchanged values now show their value**, grey and without an arrow,
-  instead of a sentence spanning the whole row.
+- ⭐ **Very small values were shown as "unchanged" although they had changed.**
+  Fuel burn rates in 4.10.0 sit around 0.00000125 — rounded to four decimals
+  that looked like a plain zero. **557 real changes** were displayed as
+  unchanged, some by a factor of five. The display is now as precise as it
+  needs to be.
+- **Unchanged values show their value**, grey and without an arrow, instead of
+  a sentence spanning the whole row.
 - **Increased values are green, decreased ones red, unchanged ones grey.**
   The colour shows the direction, not whether it got better — lower fuel usage
   is red and still good for you.

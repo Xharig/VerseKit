@@ -14619,7 +14619,7 @@ def _achsen(fenster, rahmen):
 _PA_HOECHSTENS = 60
 
 
-def _pa_zahl(wert):
+def _pa_zahl(wert, stellen=4):
     """Einen Wert aus den Patch-Daten anzeigbar machen.
 
     ⚠ Es kommen Zahlen, Texte, Wahrheitswerte und verschachtelte Gebilde
@@ -14630,12 +14630,55 @@ def _pa_zahl(wert):
         return 'ja' if wert else 'nein'
     if isinstance(wert, float):
         # `%g` wirft die Nullen weg und macht aus 975.0 wieder 975.
-        return '%g' % round(wert, 4)
+        return '%g' % round(wert, stellen)
     if wert is None:
         return '—'
     if isinstance(wert, (list, dict)):
         return '…'
     return str(wert)
+
+
+def _pa_paar(alt, neu):
+    """Alt und neu so darstellen, dass ein Unterschied auch SICHTBAR ist.
+
+    ⚠⚠ **Das ist keine Kosmetik — ohne das log die Seite** (07.09.2026).
+    `_pa_zahl` rundete fest auf vier Nachkommastellen. Die Treibstoff-Brennraten
+    aus 4.10.0 liegen aber bei `1.25e-06`; alles darunter wurde damit zu `0`,
+    und alt wie neu sahen gleich aus. Die Zeile meldete „unverändert".
+
+    Nachgemessen über beide Patches: **557 Zeilen** standen so da — und
+    **keine einzige** davon war wirklich unverändert. Es waren durchweg echte
+    Änderungen, oft um den Faktor drei bis fünf:
+
+        precomputed.fuel.burnRate.main       1.25e-06 → 2.67e-07
+        precomputed.fuel.burnRate.maneuver   1e-05    → 2.136e-06
+
+    Also genau das Gegenteil dessen, was der Reiter soll: Er versteckte die
+    größten Änderungen des Patches hinter dem Wort „unverändert".
+
+    Deshalb wird die Genauigkeit jetzt so weit erhöht, bis der Unterschied
+    dasteht. Normale Werte bleiben kurz (`110 → 120`), nur die winzigen werden
+    länger — und das ist der Preis dafür, dass sie überhaupt zu sehen sind.
+    """
+    def _verschluckt(roh, gezeigt):
+        """Wird hier eine Zahl zu „0", die in Wirklichkeit keine ist?"""
+        return gezeigt == '0' and isinstance(roh, (int, float)) \
+            and not isinstance(roh, bool) and roh != 0
+
+    for stellen in (4, 6, 8, 10, 12, 14):
+        vorher, nachher = _pa_zahl(alt, stellen), _pa_zahl(neu, stellen)
+        # ⚠ **Unterschiedlich zu sein reicht nicht.** Bei sechs Stellen wurde
+        # aus `1.25e-06 → 2.67e-07` die Zeile „1e-06 → 0" — verschieden, ja,
+        # aber die zweite Zahl war gelogen: Der Wert ist nicht null, er ist
+        # nur kleiner als die Anzeige fassen konnte. Eine falsche 0 an dieser
+        # Stelle ist schlimmer als eine lange Zahl, denn sie liest sich wie
+        # „abgeschaltet".
+        if vorher != nachher \
+                and not _verschluckt(alt, vorher) \
+                and not _verschluckt(neu, nachher):
+            return vorher, nachher
+    # Wirklich gleich — oder so winzig, dass auch vierzehn Stellen nicht reichen.
+    return _pa_zahl(alt), _pa_zahl(neu)
 
 
 def _pa_richtung(alt, neu):
@@ -14760,7 +14803,15 @@ def _pa_feldzeile(fenster, eltern, feld):
             text = _pa_struktur(feld['alt'], feld['neu'])
             farbe = FG
         else:
-            vorher, nachher = _pa_zahl(feld['alt']), _pa_zahl(feld['neu'])
+            # ⚠⚠ **Verglichen wird der ROHWERT, nicht die Anzeige.**
+            # Hier stand bis zum 07.09.2026 das Gegenteil, mit der Begründung
+            # „was für den Leser gleich aussieht, ist für ihn auch gleich".
+            # Das klang vernünftig und war falsch: Wenn die Anzeige zwei
+            # verschiedene Werte gleich aussehen lässt, ist die ANZEIGE das
+            # Problem — dann muss sie genauer werden, nicht die Änderung
+            # verschwinden. `_pa_paar` erhöht die Genauigkeit so weit, bis der
+            # Unterschied dasteht.
+            vorher, nachher = _pa_paar(feld['alt'], feld['neu'])
             richtung = _pa_richtung(feld['alt'], feld['neu'])
             # ⚠ `0 → 0` ist keine Auskunft, sondern Lärm — und davon steht
             # reichlich in den Daten: Erkul führt ein Feld auch dann im Diff,
