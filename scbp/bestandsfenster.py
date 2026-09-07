@@ -2024,7 +2024,19 @@ class Bestandsfenster:
         # ⚠ Nur wo es wirklich ein Rezept gibt: Ein Klick, der auf einer
         # leeren Seite endet, ist schlimmer als keiner — dieselbe Regel wie
         # bei `zum_auftrag` und `zur_art`.
-        if getattr(self, 'hauptfenster', None) is not None and self._baubar(name):
+        # ⚠⚠ **Keine Rezept-Prüfung mehr an dieser Stelle** (08.09.2026).
+        # Zweimal wurde gemeldet, dass beim ersten Öffnen kein Name anklickbar
+        # ist — die Rezepte werden nachgeladen, und jeder Versuch, den
+        # Ladezustand hier abzufragen, traf ihn nur halb: erst wurde ein Nein
+        # gemerkt, dann griff die Abfrage auf `laden()` zu früh. „geht erst
+        # nach dem 2. Laden der Bauplan-Liste."
+        #
+        # Die Prüfung verhindert ohnehin nichts: Gemessen haben **alle 738**
+        # Baupläne ein Rezept. Sie kostete also nur den Fehler. Führt ein
+        # Sprung doch einmal ins Leere, sagt die Herstellungs-Seite das mit
+        # ihrem eigenen Hinweis — besser als eine Liste, in der gar nichts
+        # geht.
+        if getattr(self, 'hauptfenster', None) is not None:
             grundfarbe = FG if drin else SUB
             name_lbl.configure(cursor='hand2')
             name_lbl.bind('<Button-1>', lambda e, n=name: self._zur_herstellung(n))
@@ -2335,49 +2347,6 @@ class Bestandsfenster:
         self.auftrag = name
         self._zeichnen(nach_oben=True)
         return True
-
-    def _baubar(self, name):
-        """Gibt es zu diesem Bauplan ueberhaupt ein Rezept?
-
-        ⚠ Gemerkt, nicht bei jeder Zeile neu gefragt: `rezept_roh` haelt ein
-        Verzeichnis vor, aber der Import kostet trotzdem. Bei 40 Zeilen je
-        Zeichnung faellt das noch nicht auf — bei „alle zeigen" mit 738 schon.
-        """
-        merker = getattr(self, '_baubar_merker', None)
-        if merker is None:
-            merker = self._baubar_merker = {}
-        if merker.get(name):
-            return True
-        try:
-            from . import herstellung as herst
-            # ⚠⚠ **Sind die Rezepte ueberhaupt schon da?** Sie werden nach dem
-            # Start nachgeladen. Wer vorher fragt, bekommt fuer JEDEN Bauplan
-            # ein Nein — und dann ist die ganze Liste stumm. Am 08.09.2026
-            # gemeldet: „beim ersten Klick in Bauplan-Liste ist auch gar
-            # nichts anklickbar von den Bauplaenen die vorgeladen sind."
-            #
-            # Solange nichts geladen ist, gilt jeder Name als anklickbar. Der
-            # Sprung selbst faengt den Fall ab: Findet die Herstellung nichts,
-            # steht dort ihr eigener Hinweis — besser als eine Liste, in der
-            # gar nichts geht.
-            if not (herst.laden() or {}).get('blueprints'):
-                return True
-            baubar = bool(herst.rezept_roh(name))
-        except Exception:
-            baubar = False
-        # ⚠⚠ **Nur ein JA wird gemerkt, ein NEIN nicht.** Die Rezeptdaten
-        # werden nachgeladen; wer beim ersten Zeichnen fragt, bekommt für
-        # ALLE Bauplaene ein Nein. Wird das gemerkt, bleibt die ganze Liste
-        # für den Rest der Sitzung unanklickbar — genau so am 08.09.2026
-        # gemeldet: „beim ersten Klick in Bauplan-Liste ist auch gar nichts
-        # anklickbar von den Bauplaenen die vorgeladen sind."
-        #
-        # Ein Nein kostet beim naechsten Zeichnen eine erneute Frage — die
-        # ist billig, `rezept_roh` haelt selbst ein Verzeichnis vor. Ein
-        # falsch gemerktes Nein kostet die Funktion.
-        if baubar:
-            merker[name] = True
-        return baubar
 
     def _zur_herstellung(self, name):
         """Zur Herstellungs-Seite springen, mit diesem Bauplan in der Suche.

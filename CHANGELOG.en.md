@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc3 - 2026-09-08
+
+> **Names are clickable from the very first look.** In rc2 it only worked once
+> the crafting page had been opened before.
+
+### Fixed
+
+- **Blueprint names are clickable right away** — including the very first time
+  the list opens. The row used to ask for the recipe first, and that answer
+  depended on what had been loaded so far.
+
 ## v3.26.1-rc2 - 2026-09-08
 
 > **The jump to materials now arrives every time.** Right after startup no

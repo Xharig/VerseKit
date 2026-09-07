@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc3 - 2026-09-08
+
+> **Die Namen sind ab dem ersten Blick anklickbar.** In rc2 ging es erst, wenn
+> die Herstellungs-Seite schon einmal offen war.
+
+### Behoben
+
+- **Bauplan-Namen sind sofort anklickbar** — auch beim allerersten Öffnen der
+  Liste. Die Zeile fragte vorher nach dem Rezept, und die Antwort hing daran,
+  was gerade geladen war.
+
 ## v3.26.1-rc2 - 2026-09-08
 
 > **Der Sprung zu den Zutaten kommt jetzt überall an.** Kurz nach dem Start
