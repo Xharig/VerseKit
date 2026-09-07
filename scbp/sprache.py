@@ -3346,6 +3346,55 @@ TEXTE = {
                           'sich nicht sagen, was darin steckt.',
                           'No blueprint for "{name}". Without it there is no '
                           'way to say what is inside.'),
+    # --- Was hat der Patch geändert (v3.24.0) — Stufe 4 der Erkul-Reihe
+    's_pa_lead':         ('Welcher Patch hat welche Werte verändert — Schiffe, '
+                          'Waffen, Komponenten. Wähl links einen Patch, dann '
+                          'steht rechts, was sich getan hat.',
+                          'Which patch changed which values — ships, weapons, '
+                          'components. Pick a patch on the left and the '
+                          'changes appear on the right.'),
+    # ⭐ Der eigentliche Gewinn der eigenen Ablage, deshalb steht er auf der
+    # Seite und nicht nur im Quelltext.
+    's_pa_sammlung':     ('Die Quelle hebt nur die letzten zehn Patches auf. '
+                          'Was hier einmal liegt, bleibt — deine Sammlung '
+                          'wächst mit der Zeit über die Quelle hinaus.',
+                          'The source only keeps the last ten patches. '
+                          'Whatever lands here stays — over time your '
+                          'collection grows beyond the source.'),
+    's_pa_suchen':       ('Nach neuen Patches sehen',
+                          'Check for new patches'),
+    's_pa_laeuft':       ('Wird geholt …', 'Fetching …'),
+    's_pa_neu':          ('{n} neu dazugekommen', '{n} newly added'),
+    's_pa_keine_neuen':  ('Nichts Neues — alles schon da.',
+                          'Nothing new — everything is here already.'),
+    's_pa_kein_netz':    ('Die Quelle war nicht erreichbar. Was schon abgelegt '
+                          'ist, steht trotzdem zur Verfügung.',
+                          'The source could not be reached. Whatever is '
+                          'already stored is still available.'),
+    's_pa_leer':         ('nichts geändert', 'nothing changed'),
+    's_pa_zaehler':      ('{plus} neu · {minus} weg · {tilde} geändert',
+                          '{plus} added · {minus} removed · {tilde} changed'),
+    # ⚠ Der Fall, für den die lokale Ablage überhaupt gebaut wurde.
+    's_pa_nur_hier':     ('nur noch bei dir', 'only in your copy'),
+    's_pa_nicht_da':     ('Dieser Patch ist nicht abgelegt — die Quelle meldet '
+                          'für ihn keine Änderungen.',
+                          'This patch is not stored — the source reports no '
+                          'changes for it.'),
+    's_pa_waehlen':      ('Wähl links einen Patch aus.',
+                          'Pick a patch on the left.'),
+    's_pa_kategorie':    ('Bereich', 'Area'),
+    's_pa_alle':         ('Alle', 'All'),
+    's_pa_zustand_neu':  ('neu', 'added'),
+    's_pa_zustand_weg':  ('entfernt', 'removed'),
+    's_pa_zustand_geae': ('geändert', 'changed'),
+    's_pa_groesse':      ('Größe {n}', 'size {n}'),
+    # ⚠ Ein Feld, das der Patch weggenommen hat — es gibt keinen neuen Wert.
+    # Ohne eigene Fassung stünde da „... → None".
+    's_pa_weggefallen':  ('{alt} → fällt weg', '{alt} → removed'),
+    's_pa_dazugekommen': ('neu: {neu}', 'new: {neu}'),
+    's_pa_mehr':         ('… und {n} weitere', '… and {n} more'),
+    's_pa_nichts_hier':  ('In diesem Bereich hat sich nichts geändert.',
+                          'Nothing changed in this area.'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
                           'Schiffe ein oder setz eines auf die Wunschliste — '
                           'dann steht hier, was du dafür brauchst.',
@@ -4205,6 +4254,11 @@ TEXTE = {
     'hf_schliessen':     ('Schließen', 'Close'),
     'hf_einrichtung':    ('Einrichtung starten', 'Run setup'),
     'hf_wasistneu':      ('Was ist neu', "What's new"),
+    # ⚠ Bewusst nicht „Was ist neu im Patch" — die beiden stünden dann
+    # untereinander und ließen sich im Vorbeigehen verwechseln. Hier geht es
+    # um das SPIEL, dort um das Werkzeug.
+    'hf_patchaenderungen': ('Was der Patch geändert hat',
+                            'What the patch changed'),
     'hf_sicherung':      ('Sicherung', 'Backup'),
     # ⚠ Der Hinweis nennt das Anfangsdatum, weil die Zahl sonst mehr
     # behauptet, als sie weiß: Star Citizen räumt alte Protokolle weg, hier

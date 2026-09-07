@@ -2126,6 +2126,20 @@ class Hauptfenster:
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.
         g_info = self._gruppe(t('hf_gruppe_info'), 'info')
         self._reiter('wasistneu', 'wasistneu', t('hf_wasistneu'), g_info)
+        # ⚠ **Direkt unter „Was ist neu", und das ist die Symmetrie:** Dort
+        # steht, was sich am WERKZEUG geändert hat — hier, was sich am SPIEL
+        # geändert hat. Dieselbe Frage, zwei Gegenstände. Beide erzählen
+        # etwas und stellen nichts ein, gehören also in diese Gruppe und
+        # nicht zu den Einstellungen.
+        #
+        # ⚠ Nicht bei den Schiffen: Ein Patch ändert Schiffe, Waffen,
+        # Komponenten und Lackierungen gleichermaßen — unter „Schiffe" wäre
+        # es zu eng gefasst, und wer wissen will, ob seine Waffe generft
+        # wurde, sucht dort nicht.
+        # Das Symbol `zeit` ist geliehen: Ein eigenes bräuchte eine
+        # Lucide-Vorlage in `tools/symbole_bauen.py`.
+        self._reiter('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
+                     g_info)
         self._reiter('ueber', 'ueber', t('hf_ueber'), g_info)
         # Direkt unter „Update & Über": Wer nicht ins Spiel kommt, sucht den
         # Fehler zuerst bei sich. Ein eigener Reiter beantwortet das, statt die

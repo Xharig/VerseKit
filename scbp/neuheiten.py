@@ -44,6 +44,7 @@ DATEI = 'gesehen.json'
 # Welcher Bereich kam mit welcher Version? Beim Bauen eines neuen Bereichs hier
 # **eine Zeile ergänzen** — mehr ist nicht zu tun.
 NEU_SEIT = {
+    'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0
     'hangar':      '3.19.0',   # Mein Hangar: welche Schiffe mir gehören
     'wunschliste': '3.19.0',   # was ich mir vornehme, mit Preis und Ort

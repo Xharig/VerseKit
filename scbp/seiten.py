@@ -100,6 +100,7 @@ def _bauer_tabelle():
         'spiel':       _spiel,
         'bestand':     _bestand,
         'wasistneu':   _wasistneu,
+        'patchaenderungen': _patchaenderungen,
         'ueber':       _ueber,
         'serverstatus': _serverstatus,
         'danke':       _danke,
@@ -14607,3 +14608,240 @@ def _achsen(fenster, rahmen):
 
     _auffrischen()
     fenster.beim_zeigen['achsen'] = _auffrischen
+
+
+# ------------------------------------------- Was der Patch geändert hat (v3.24)
+# ⚠ **Höchstens so viele Posten auf einmal.** Der Patch vom 26.08.2026 ändert
+# allein bei den Schiffen 184 Einträge, viele davon mit mehreren Feldern —
+# gezeichnet wären das über tausend Etiketten in einem Rutsch. Tk zeichnet
+# einsträngig, das Fenster stünde sekundenlang. Der Rest steht als „… und N
+# weitere" darunter; wer mehr sehen will, schränkt den Bereich ein.
+_PA_HOECHSTENS = 60
+
+
+def _pa_zahl(wert):
+    """Einen Wert aus den Patch-Daten anzeigbar machen.
+
+    ⚠ Es kommen Zahlen, Texte, Wahrheitswerte und verschachtelte Gebilde
+    durcheinander — `weapon.ammo.damage.physical` ist eine Zahl, `i18n.name`
+    ein Text. Und Kommazahlen kommen mit voller Genauigkeit („0.30000000004"),
+    was in einer Liste nur Lärm ist."""
+    if isinstance(wert, bool):
+        return 'ja' if wert else 'nein'
+    if isinstance(wert, float):
+        # `%g` wirft die Nullen weg und macht aus 975.0 wieder 975.
+        return '%g' % round(wert, 4)
+    if wert is None:
+        return '—'
+    if isinstance(wert, (list, dict)):
+        return '…'
+    return str(wert)
+
+
+def _pa_feldzeile(fenster, eltern, feld):
+    """Eine einzelne Feldänderung: Pfad und was aus dem Wert wurde."""
+    zeile = tk.Frame(eltern, bg=BG)
+    zeile.pack(fill='x', padx=(18, 0))
+    tk.Label(zeile, text=feld['pfad'], bg=BG, fg=SUB, font=fenster.f_klein,
+             anchor='w').pack(side='left')
+    # ⚠ Drei Fälle, nicht einer. Fehlt `newValue`, hat der Patch das Feld
+    # **weggenommen**; fehlt `oldValue`, ist es **dazugekommen**. Wer stumpf
+    # „alt → neu" schreibt, macht daraus „1090 → None" und behauptet einen
+    # Wert, den es nicht gibt. Gemessen an der C-788 Cannon (07.09.2026).
+    if feld['hat_alt'] and feld['hat_neu']:
+        text = '%s → %s' % (_pa_zahl(feld['alt']), _pa_zahl(feld['neu']))
+        farbe = FG
+    elif feld['hat_alt']:
+        text = t('s_pa_weggefallen').format(alt=_pa_zahl(feld['alt']))
+        farbe = GOLD
+    else:
+        text = t('s_pa_dazugekommen').format(neu=_pa_zahl(feld['neu']))
+        farbe = ACCENT
+    tk.Label(zeile, text=text, bg=BG, fg=farbe, font=fenster.f_klein,
+             anchor='w').pack(side='left', padx=(10, 0))
+
+
+def _patchaenderungen(fenster, rahmen):
+    """Was ein Spiel-Patch an Werten verändert hat — Stufe 4 der Erkul-Reihe.
+
+    ⭐ **Der Gewinn steckt in der Ablage, nicht im Abruf.** Erkul hält nur die
+    letzten zehn Patches vor. Was hier einmal liegt, bleibt — nach einem Jahr
+    hat der Spieler eine Sammlung, die es sonst nirgends gibt. Deshalb steht
+    der Satz dazu auch auf der Seite und nicht nur im Quelltext.
+
+    ⚠ **Der Abruf läuft im Hintergrund.** Genau an dieser Stelle hing der
+    Vormerken-Knopf: Ein Netzabruf im Oberflächen-Faden hält ohne Netz das
+    ganze Fenster fest, bis das Zeitlimit greift.
+    """
+    from . import patchaenderungen as pa
+
+    _ueberschrift(fenster, rahmen, t('hf_patchaenderungen'), t('s_pa_lead'))
+    innen = _rollflaeche(rahmen)
+
+    _fliesstext(innen, t('s_pa_sammlung'), fenster.f_klein, fill='x',
+                padx=24, abzug=48)
+
+    kopf = tk.Frame(innen, bg=BG)
+    kopf.pack(fill='x', padx=24, pady=(12, 0))
+    stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w')
+
+    liste = tk.Frame(innen, bg=BG)
+    liste.pack(fill='x', padx=24, pady=(14, 0))
+    bereiche = tk.Frame(innen, bg=BG)
+    bereiche.pack(fill='x', padx=24, pady=(10, 0))
+    ergebnis = tk.Frame(innen, bg=BG)
+    ergebnis.pack(fill='x', padx=24, pady=(8, 20))
+
+    zustand = {'patch': '', 'art': None}
+
+    def _leeren(*rahmen_liste):
+        for r in rahmen_liste:
+            for kind in r.winfo_children():
+                kind.destroy()
+
+    # ---------------------------------------------------------- Die Anzeige
+    def _posten_zeigen():
+        _leeren(ergebnis)
+        version = zustand['patch']
+        if not version:
+            _fliesstext(ergebnis, t('s_pa_waehlen'), fenster.f_klein, fill='x')
+            return
+        posten = pa.aenderungen(version, zustand['art'])
+        if not posten:
+            _fliesstext(ergebnis, t('s_pa_nichts_hier'), fenster.f_klein,
+                        fill='x')
+            return
+        for eintrag in posten[:_PA_HOECHSTENS]:
+            kasten = tk.Frame(ergebnis, bg=BG)
+            kasten.pack(fill='x', pady=(0, 8))
+            zeile = tk.Frame(kasten, bg=BG)
+            zeile.pack(fill='x')
+            marke = {'neu': (t('s_pa_zustand_neu'), ACCENT),
+                     'weg': (t('s_pa_zustand_weg'), GOLD),
+                     'geaendert': (t('s_pa_zustand_geae'), SUB)}[eintrag['zustand']]
+            tk.Label(zeile, text=marke[0], bg=BG, fg=marke[1],
+                     font=fenster.f_klein, anchor='w').pack(side='left')
+            tk.Label(zeile, text=eintrag['name'], bg=BG, fg=FG,
+                     font=fenster.f_fett, anchor='w').pack(side='left',
+                                                           padx=(10, 0))
+            if eintrag.get('groesse') is not None:
+                tk.Label(zeile,
+                         text=t('s_pa_groesse').format(n=eintrag['groesse']),
+                         bg=BG, fg=SUB, font=fenster.f_klein,
+                         anchor='w').pack(side='left', padx=(8, 0))
+            for feld in eintrag['felder']:
+                _pa_feldzeile(fenster, kasten, feld)
+        rest = len(posten) - _PA_HOECHSTENS
+        if rest > 0:
+            _fliesstext(ergebnis, t('s_pa_mehr').format(n=rest),
+                        fenster.f_klein, fill='x', pady=(6, 0))
+
+    def _bereiche_zeigen():
+        _leeren(bereiche)
+        version = zustand['patch']
+        if not version or not pa.laden(version):
+            return
+        knoepfe = [(t('s_pa_alle'), lambda: _art_waehlen(None))]
+        for art, anzahl in pa.kategorien(version):
+            knoepfe.append(('%s (%d)' % (art, anzahl),
+                            lambda a=art: _art_waehlen(a)))
+        _knopfgitter(bereiche, knoepfe)
+
+    def _art_waehlen(art):
+        zustand['art'] = art
+        _posten_zeigen()
+
+    def _patch_waehlen(version):
+        zustand['patch'] = version
+        zustand['art'] = None
+        if not pa.laden(version):
+            _leeren(bereiche, ergebnis)
+            _fliesstext(ergebnis, t('s_pa_nicht_da'), fenster.f_klein,
+                        fill='x')
+            return
+        _bereiche_zeigen()
+        _posten_zeigen()
+
+    def _liste_zeigen():
+        _leeren(liste)
+        for eintrag in pa.uebersicht():
+            zeile = tk.Frame(liste, bg=BG, cursor='hand2')
+            zeile.pack(fill='x', pady=(0, 4))
+            z = eintrag['summary']
+            if eintrag['leer']:
+                rechts, farbe = t('s_pa_leer'), SUB
+            else:
+                rechts = t('s_pa_zaehler').format(
+                    plus=z.get('added', 0), minus=z.get('removed', 0),
+                    tilde=z.get('modified', 0))
+                farbe = FG
+            for text, fg, breit in ((eintrag['version'], FG, True),
+                                    (eintrag['datum'], SUB, False),
+                                    (rechts, farbe, False)):
+                tk.Label(zeile, text=text, bg=BG, fg=fg,
+                         font=fenster.f_fett if breit else fenster.f_klein,
+                         anchor='w').pack(side='left', padx=(0, 14))
+            # ⭐ Genau der Fall, für den lokal abgelegt wird: Die Quelle führt
+            # ihn nicht mehr, der Spieler hat ihn trotzdem.
+            if not eintrag['bei_erkul']:
+                tk.Label(zeile, text=t('s_pa_nur_hier'), bg=BG, fg=ACCENT,
+                         font=fenster.f_klein, anchor='w').pack(side='left')
+            # ⚠ Die Bindung muss auf die Zeile UND ihre Etiketten — ein Klick
+            # landet auf dem Etikett unter dem Zeiger, nicht auf dem Rahmen
+            # darunter. Ohne die Schleife reagiert nur der schmale Rand.
+            for teil in [zeile] + list(zeile.winfo_children()):
+                teil.bind('<Button-1>',
+                          lambda _e, v=eintrag['version']: _patch_waehlen(v))
+
+    # ----------------------------------------------------------- Der Abruf
+    def _suchen():
+        stand.configure(text=t('s_pa_laeuft'))
+        stand.pack(side='left', padx=(12, 0))
+
+        def arbeit():
+            try:
+                neu = pa.abgleichen()
+            except Exception as ausnahme:
+                fehler.merken('seiten.patchaenderungen.abgleich', ausnahme)
+                neu = None
+
+            # ⚠ Zurück in den Oberflächen-Faden — Tk verträgt keine Zugriffe
+            # aus einem fremden Strang. Und die Seite kann inzwischen weg
+            # sein, wenn jemand weitergeklickt hat.
+            def nachtragen():
+                try:
+                    if not stand.winfo_exists():
+                        return
+                    if neu is None:
+                        stand.configure(text=t('s_pa_kein_netz'))
+                    elif neu:
+                        stand.configure(text=t('s_pa_neu').format(n=len(neu)))
+                        _liste_zeigen()
+                    else:
+                        stand.configure(text=t('s_pa_keine_neuen'))
+                except tk.TclError:
+                    pass
+            try:
+                stand.after(0, nachtragen)
+            except tk.TclError:
+                pass
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    _knopf(fenster, kopf, t('s_pa_suchen'), _suchen).pack(side='left')
+
+    _liste_zeigen()
+    _fliesstext(ergebnis, t('s_pa_waehlen'), fenster.f_klein, fill='x')
+
+    # ⚠ Beim erneuten Öffnen die Liste auffrischen, aber **nicht** von selbst
+    # ins Netz greifen: Die Seite wird beim Start im Leerlauf vorgebaut (siehe
+    # `_seiten_vorbauen`) — ein Abruf von allein wäre ein Netzzugriff, den
+    # niemand angestoßen hat. Der Knopf ist dafür da.
+    def _beim_zeigen():
+        _liste_zeigen()
+        if zustand['patch']:
+            _bereiche_zeigen()
+            _posten_zeigen()
+
+    fenster.beim_zeigen['patchaenderungen'] = _beim_zeigen

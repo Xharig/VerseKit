@@ -15256,6 +15256,126 @@ def main():
             os.environ['SC_BP_HOME'] = _alt172
         shutil.rmtree(_heim172, ignore_errors=True)
 
+    # ---------------------------------------------------------------- 173
+    print('\n173. Was der Patch geändert hat (Werte-Diffs)')
+    _heim173 = tempfile.mkdtemp(prefix='sc-bp-patch-')
+    _alt173 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim173
+    try:
+        from scbp import patchaenderungen as _pa173
+
+        # --- Die Regel „die leeren wegwerfen" -----------------------------
+        pruefe(not _pa173._hat_inhalt({'added': 0, 'removed': 0,
+                                       'modified': 0, 'unchanged': 2568}),
+               'ein Patch ohne Änderungen gilt als leer')
+        # ⚠ Gegenprobe: `unchanged` allein darf einen Patch NICHT zum Inhalt
+        # machen — sonst wären alle zehn „voll" und würden abgerufen.
+        pruefe(_pa173._hat_inhalt({'added': 0, 'removed': 0, 'modified': 1,
+                                   'unchanged': 0}),
+               'Gegenprobe: eine einzige Änderung reicht als Inhalt')
+
+        # --- Ein Dateiname aus dem Netz darf nicht aus dem Ordner führen ---
+        # ⚠ Die Version kommt von erkul und landet ungefiltert als Dateiname
+        # auf der Platte. Ein `../` darin wäre ein Weg nach draußen.
+        pruefe('/' not in _pa173._sicherer_name('../../etc/passwd')
+               and '\\' not in _pa173._sicherer_name('..\\..\\windows'),
+               'ein Dateiname mit .. führt nicht aus dem Ablageordner heraus')
+        pruefe(_pa173._sicherer_name('4.10.0-LIVE.12519617')
+               == '4.10.0-LIVE.12519617',
+               'Gegenprobe: eine echte Spielversion bleibt unverändert')
+
+        # --- Ablegen und wieder lesen -------------------------------------
+        _probe173 = {
+            'version': '9.9.9-LIVE.1', 'datum': '2026-09-07',
+            'summary': {'added': 1, 'removed': 1, 'modified': 1},
+            'categories': [{
+                'kind': 'weapons', 'unchanged': 133,
+                'added': [{'id': 'a1', 'name': 'Neue Kanone', 'size': 2}],
+                'removed': [{'id': 'r1', 'name': 'Alte Kanone', 'size': 1}],
+                'modified': [{'id': 'm1', 'name': 'C-788 Cannon', 'size': 4,
+                              'changes': [
+                                  {'path': 'schaden', 'oldValue': 1090,
+                                   'newValue': 975},
+                                  # nur alt = das Feld ist weggefallen
+                                  {'path': 'radius', 'oldValue': 5},
+                                  # nur neu = das Feld ist dazugekommen
+                                  {'path': 'streuung', 'newValue': 0.5},
+                              ]}],
+            }],
+        }
+        pruefe(_pa173._schreiben('9.9.9-LIVE.1', _probe173),
+               'eine Patch-Datei lässt sich ablegen')
+        pruefe(_pa173.gespeicherte() == ['9.9.9-LIVE.1'],
+               'und steht danach in der Liste der abgelegten')
+
+        # --- Die drei Zustände ---------------------------------------------
+        _alle173 = _pa173.aenderungen('9.9.9-LIVE.1')
+        _zust173 = sorted(e['zustand'] for e in _alle173)
+        pruefe(_zust173 == ['geaendert', 'neu', 'weg'],
+               'neu, entfernt und geändert werden auseinandergehalten')
+        # ⚠ `unchanged` ist eine ZAHL im selben Feld wie die drei Listen. Wer
+        # darüber iteriert, läuft über eine Zahl und reißt die Seite mit.
+        pruefe(len(_alle173) == 3,
+               'die Zahl unter unchanged wird nicht als Posten gelesen')
+
+        # --- Die Falle: ein Feld ohne Gegenwert ----------------------------
+        _mod173 = [e for e in _alle173 if e['zustand'] == 'geaendert'][0]
+        _felder173 = {f['pfad']: f for f in _mod173['felder']}
+        pruefe(_felder173['schaden']['hat_alt']
+               and _felder173['schaden']['hat_neu'],
+               'ein normal geändertes Feld hat alten und neuen Wert')
+        # ⚠ Der Kern: Ein weggefallenes Feld hat KEINEN neuen Wert. Ohne diese
+        # Unterscheidung stünde in der Anzeige „5 → None".
+        pruefe(_felder173['radius']['hat_alt']
+               and not _felder173['radius']['hat_neu'],
+               'ein weggefallenes Feld wird als solches erkannt')
+        pruefe(not _felder173['streuung']['hat_alt']
+               and _felder173['streuung']['hat_neu'],
+               'und ein neu dazugekommenes Feld ebenso')
+
+        # --- Einschränken auf einen Bereich --------------------------------
+        pruefe(len(_pa173.aenderungen('9.9.9-LIVE.1', 'weapons')) == 3,
+               'die Einschränkung auf einen Bereich liefert dessen Posten')
+        pruefe(_pa173.aenderungen('9.9.9-LIVE.1', 'ships') == [],
+               'Gegenprobe: ein Bereich ohne Änderungen bleibt leer')
+        pruefe(_pa173.kategorien('9.9.9-LIVE.1') == [('weapons', 3)],
+               'die Bereichsliste zählt nur, was sich geändert hat')
+
+        # --- ⭐ Der eigentliche Zweck der lokalen Ablage --------------------
+        # Ohne Netz bietet die Quelle nichts an. Der abgelegte Patch muss
+        # trotzdem erscheinen — sonst wäre die Sammlung wertlos, sobald erkul
+        # ihn fallen lässt.
+        _sicht173 = _pa173.uebersicht()
+        _nur173 = [e for e in _sicht173 if e['version'] == '9.9.9-LIVE.1']
+        pruefe(len(_nur173) == 1,
+               'ein abgelegter Patch steht auch ohne Quelle in der Übersicht')
+        pruefe(_nur173 and not _nur173[0]['bei_erkul']
+               and _nur173[0]['abgelegt'],
+               'und ist als „nur noch bei dir" gekennzeichnet')
+
+        # --- Ohne Netz darf nichts abstürzen -------------------------------
+        pruefe(_pa173.angebotene() == [],
+               'ohne Netz bietet die Quelle nichts an, statt zu scheitern')
+        pruefe(_pa173.abgleichen() == [],
+               'und der Abgleich läuft durch, ohne etwas kaputtzumachen')
+        pruefe(_pa173.laden('gibt-es-nicht') is None,
+               'ein unbekannter Patch liefert None statt eines Fehlers')
+
+        # --- Die Anzeige der Werte ----------------------------------------
+        from scbp import seiten as _se173
+        pruefe(_se173._pa_zahl(975.0) == '975',
+               'eine Kommazahl ohne Nachkommastellen wird ganz angezeigt')
+        pruefe(_se173._pa_zahl(0.30000000000000004) == '0.3',
+               'und eine krumme Kommazahl wird gerundet statt ausgeschrieben')
+        pruefe(_se173._pa_zahl(None) == '—',
+               'ein fehlender Wert wird zum Strich, nicht zu „None"')
+    finally:
+        if _alt173 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt173
+        shutil.rmtree(_heim173, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
