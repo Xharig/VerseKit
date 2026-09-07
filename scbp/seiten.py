@@ -765,22 +765,63 @@ def _gitter_ordnen(eltern):
     except tk.TclError:
         return
     platz = eltern.winfo_width()
-    if platz <= 1 or platz == zustand['breite']:
+
+    # ⚠⚠ **Bei unbekannter Breite NICHT einfach aussteigen** (07.09.2026).
+    # Das war ein Teufelskreis: Ohne Breite wurden die Knöpfe nirgends
+    # platziert, ohne platzierte Kinder blieb der Rahmen 1 px breit, und ohne
+    # Breitenänderung feuerte nie ein `<Configure>`, das es hätte richten
+    # können. Neun Bereichsknöpfe blieben so dauerhaft unsichtbar.
+    #
+    # Vorher fiel das nicht auf, weil dieser Rahmen in einer Rollfläche lag und
+    # deren Breite sofort feststand. Seit die Bereichsauswahl fest über der
+    # Rollfläche sitzt, ist sie beim ersten Ordnen noch nicht vermessen.
+    #
+    # Also: einspaltig setzen — damit der Rahmen überhaupt eine Größe bekommt —
+    # und gleich noch einmal nachfassen, wenn die Breite steht.
+    if platz <= 1:
+        for nummer, knopf in enumerate(knoepfe):
+            knopf.grid(row=nummer, column=0, sticky='w', pady=(0, 4))
+        eltern.after(50, lambda: _gitter_ordnen(eltern))
+        return
+    if platz == zustand['breite']:
         return
     zustand['breite'] = platz
     abstand = zustand['abstand']
-    zeile = spalte = 0
-    breit = 0
-    for knopf in knoepfe:
-        noetig = knopf.winfo_reqwidth() + abstand
-        if spalte and breit + noetig > platz:
-            zeile += 1
-            spalte = 0
-            breit = 0
-        knopf.grid(row=zeile, column=spalte, sticky='w',
-                   padx=(0, abstand), pady=(0, 4))
-        breit += noetig
-        spalte += 1
+
+    # ⚠⚠ **Alle Spalten gleich breit — sonst rechnet der Umbruch am Layout
+    # vorbei** (07.09.2026, gemeldet: „ab mounts ist es auch abgeschnitten bei
+    # den auswahlen").
+    #
+    # Vorher addierte diese Schleife die Breiten der Knöpfe **einer Zeile** und
+    # brach um, wenn die Summe den Platz überschritt. `grid` richtet aber nach
+    # der breitesten Zelle **je Spalte** aus, über alle Zeilen hinweg: Steht in
+    # Spalte 4 irgendeiner Zeile ein breiter Knopf („mininglasers (13)",
+    # 131 px), wird Spalte 4 in JEDER Zeile so breit — und die tatsächlichen
+    # Positionen laufen der Rechnung davon.
+    #
+    # Gemessen bei 892 px Rahmenbreite und 16 Bereichen: „missileracks (5)"
+    # saß bei x=864 und war 120 px breit, ragte also 92 px hinaus. Tk schneidet
+    # das wortlos ab — ohne Rollbalken, ohne Hinweis. Genau die Falle, gegen
+    # die `_knopfgitter` einmal gebaut wurde.
+    #
+    # Die Lösung ist nicht, genauer zu rechnen, sondern dem Layout die Freiheit
+    # zu nehmen: Jede Spalte bekommt dieselbe Breite (die des breitesten
+    # Knopfes). Dann ist die Spaltenzahl eine simple Division, und was gerechnet
+    # wurde, steht auch so da. Es kostet etwas Leerraum hinter den kurzen
+    # Beschriftungen — dafür ist nichts mehr abgeschnitten, und die Knöpfe
+    # stehen sauber untereinander statt in ausgefransten Zeilen.
+    breiteste = max((k.winfo_reqwidth() for k in knoepfe), default=0)
+    spaltenbreite = breiteste + abstand
+    spalten = max(1, platz // spaltenbreite) if spaltenbreite else 1
+
+    for nummer, knopf in enumerate(knoepfe):
+        knopf.grid(row=nummer // spalten, column=nummer % spalten,
+                   sticky='w', padx=(0, abstand), pady=(0, 4))
+    # ⚠ `uniform` ist der Teil, der die Gleichbreite wirklich durchsetzt —
+    # `minsize` allein ließe eine Spalte weiter wachsen.
+    for spalte in range(spalten):
+        eltern.grid_columnconfigure(spalte, uniform='knopf',
+                                    minsize=spaltenbreite)
 
 
 def _knopfgitter(eltern, knoepfe, abstand=6):
@@ -812,6 +853,17 @@ def _knopfgitter(eltern, knoepfe, abstand=6):
     else:
         zustand['knoepfe'] = list(knoepfe)
         zustand['breite'] = 0
+
+    # ⚠⚠ **Die Höhe MUSS hier schon stehen, nicht erst in `_gitter_ordnen`.**
+    # Seit die Knöpfe per `place` sitzen, hat der Rahmen keine Kinder mehr, aus
+    # denen er seine Größe ableiten könnte — er bliebe 1 px hoch. Und
+    # `_gitter_ordnen` steigt aus, solange die Breite noch nicht steht
+    # (`platz <= 1`), setzt die Höhe also unter Umständen nie. Ergebnis:
+    # neun Bereichsknöpfe, alle unsichtbar.
+    #
+    # Deshalb hier eine Höhe aus der Wunschgröße der Knöpfe, bevor überhaupt
+    # etwas gemessen wird. `_gitter_ordnen` korrigiert sie später auf die
+    # tatsächliche Zeilenzahl.
     eltern.after(0, lambda: _gitter_ordnen(eltern))
     return eltern
 
@@ -14629,8 +14681,20 @@ def _pa_zahl(wert, stellen=4):
     if isinstance(wert, bool):
         return 'ja' if wert else 'nein'
     if isinstance(wert, float):
+        gerundet = round(wert, stellen)
+        # ⚠⚠ **Keine Exponentialschreibweise** (07.09.2026, gefragt mit
+        # „1.25e-06 was soll das für nen wert sein?"). Zu Recht: `%g` kippt
+        # unterhalb von 0,0001 auf `1.25e-06` um, und das liest niemand, der
+        # nicht täglich mit Zehnerpotenzen umgeht. Die Zahl war zwar richtig
+        # und sichtbar — nur eben unverständlich, was fast dasselbe ist wie
+        # unsichtbar.
+        #
+        # Also ausgeschrieben: `0.00000125`. Länger, aber jeder sieht sofort,
+        # dass es eine sehr kleine Zahl ist — und wie klein.
+        if gerundet and abs(gerundet) < 1e-4:
+            return ('%.*f' % (stellen, gerundet)).rstrip('0').rstrip('.')
         # `%g` wirft die Nullen weg und macht aus 975.0 wieder 975.
-        return '%g' % round(wert, stellen)
+        return '%g' % gerundet
     if wert is None:
         return '—'
     if isinstance(wert, (list, dict)):
@@ -14679,6 +14743,38 @@ def _pa_paar(alt, neu):
             return vorher, nachher
     # Wirklich gleich — oder so winzig, dass auch vierzehn Stellen nicht reichen.
     return _pa_zahl(alt), _pa_zahl(neu)
+
+
+def _pa_prozent(alt, neu):
+    """Um wie viel Prozent hat sich der Wert verändert — als fertiger Zusatz.
+
+    ⚠⚠ **Das ist bei kleinen Zahlen die einzige lesbare Aussage** (07.09.2026).
+    `0.00000125 → 0.00000036` ist zwar richtig und ausgeschrieben, aber wer das
+    erfassen will, muss Nullen zählen. Was der Spieler wissen will, ist nicht
+    die Zahl, sondern **wie stark** sich etwas geändert hat: „auf ein Drittel
+    gefallen".
+
+    Der Zusatz steht bei jeder Zeile, nicht nur bei den winzigen — auch
+    `110 → 120` gewinnt durch `(+9 %)`, weil man den Anteil sonst im Kopf
+    ausrechnet.
+
+    ⚠ Kein Prozent ohne Bezugsgröße: Ist der alte Wert 0, wäre jede Steigerung
+    unendlich. Dann bleibt der Zusatz weg.
+    """
+    if isinstance(alt, bool) or isinstance(neu, bool):
+        return ''
+    if not isinstance(alt, (int, float)) or not isinstance(neu, (int, float)):
+        return ''
+    if not alt or alt == neu:
+        return ''
+    anteil = (neu - alt) / abs(alt) * 100.0
+    if abs(anteil) < 0.5:                  # unter einem halben Prozent
+        return ''
+    # Grosse Sprünge in Prozent sind unhandlich („+400 %") — ab dem Dreifachen
+    # sagt ein Faktor mehr aus.
+    if anteil >= 200:
+        return '  (×%s)' % _pa_zahl(round(neu / abs(alt), 1))
+    return '  (%+d %%)' % round(anteil)
 
 
 def _pa_richtung(alt, neu):
@@ -14854,7 +14950,8 @@ def _pa_feldzeile(fenster, eltern, feld):
                 # Patch kann ein Feld anfassen, ohne den Wert zu ändern.
                 text, farbe = '%s → %s' % (vorher, nachher), SUB
             else:
-                text = '%s → %s' % (vorher, nachher)
+                text = '%s → %s%s' % (vorher, nachher,
+                                      _pa_prozent(feld['alt'], feld['neu']))
                 farbe = {1: ACCENT, -1: ROT}.get(richtung, FG)
     elif feld['hat_alt']:
         text = t('s_pa_weggefallen').format(alt=_pa_zahl(feld['alt']))
@@ -14881,20 +14978,35 @@ def _patchaenderungen(fenster, rahmen):
     from . import patchaenderungen as pa
 
     _ueberschrift(fenster, rahmen, t('hf_patchaenderungen'), t('s_pa_lead'))
-    innen = _rollflaeche(rahmen)
 
-    _fliesstext(innen, t('s_pa_sammlung'), fenster.f_klein, fill='x',
+    # ⚠⚠ **Patch-Liste und Bereichsknöpfe bleiben STEHEN, nur die Werte rollen**
+    # (07.09.2026): „ab den auswahlen nach unten scrollbar … wenn man durch die
+    # werte schaut ist es mega nervig erst nach oben zu müssen um ne neue
+    # auswahl zu treffen."
+    #
+    # Vorher lag alles in EINER Rollfläche. Wer bei „ships" durch 60 Posten
+    # gescrollt war und dann „weapons" ansehen wollte, musste den ganzen Weg
+    # zurück nach oben — bei jedem Wechsel.
+    #
+    # ⚠ Die Reihenfolge ist dabei die halbe Miete: Erst alles Feste packen,
+    # **danach** die Rollfläche mit `expand=True`. Wird der feste Teil nach dem
+    # wachsenden gepackt, schiebt der Inhalt ihn aus dem Fenster — genau die
+    # Falle, die in diesem Projekt schon zweimal zugeschlagen hat.
+    _fliesstext(rahmen, t('s_pa_sammlung'), fenster.f_klein, fill='x',
                 padx=24, abzug=48)
 
-    kopf = tk.Frame(innen, bg=BG)
+    kopf = tk.Frame(rahmen, bg=BG)
     kopf.pack(fill='x', padx=24, pady=(12, 0))
     stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_klein,
                      anchor='w')
 
-    liste = tk.Frame(innen, bg=BG)
+    liste = tk.Frame(rahmen, bg=BG)
     liste.pack(fill='x', padx=24, pady=(14, 0))
-    bereiche = tk.Frame(innen, bg=BG)
+    bereiche = tk.Frame(rahmen, bg=BG)
     bereiche.pack(fill='x', padx=24, pady=(10, 0))
+
+    # Ab hier rollt es — und nur das.
+    innen = _rollflaeche(rahmen)
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='x', padx=24, pady=(8, 20))
 
@@ -14996,6 +15108,19 @@ def _patchaenderungen(fenster, rahmen):
 
     def _patch_waehlen(version):
         zustand['patch'] = version
+        # ⚠⚠ **Nicht „Alle" vorwählen** (07.09.2026): „Alle ist irgendwie doof,
+        # da sieht man eh nichts mehr."
+        #
+        # Zu Recht. Die Anzeige bricht nach 60 Posten ab, und über alle
+        # Bereiche hinweg stehen die alphabetisch vorn — bei 4.10.0 sind das
+        # 60 Zeilen `blades`, während die 184 Schiffe dahinter nie zu sehen
+        # sind. Man sucht sich also erst durch das Uninteressanteste.
+        #
+        # Vorgewählt wird der GRÖSSTE Bereich, nicht fest `ships`. Bei 4.10.0
+        # ist das dasselbe (ships 184), aber nicht immer: In 4.9.0 sind es
+        # `weapons` mit 135, ships kommt dort nur auf 70. Fest `ships` würde
+        # bei einem Waffen-Patch also wieder am Wesentlichen vorbeizeigen —
+        # und `kategorien()` liefert ohnehin schon nach Größe sortiert.
         zustand['art'] = None
         if not pa.laden(version):
             # ⚠⚠ **Zwei völlig verschiedene Gründe, warum hier nichts liegt** —
@@ -15022,6 +15147,8 @@ def _patchaenderungen(fenster, rahmen):
                 _fliesstext(ergebnis, t('s_pa_leer_klick'), fenster.f_klein,
                             fill='x')
             return
+        bereiche_da = pa.kategorien(version)
+        zustand['art'] = bereiche_da[0][0] if bereiche_da else None
         _bereiche_zeigen()
         _posten_zeigen()
 

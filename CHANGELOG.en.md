@@ -6,6 +6,25 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **The area selection stays put.** The patch list and area buttons no longer
+  scroll away — you no longer have to scroll back up to switch.
+- **Opening a patch preselects the largest area** instead of "All". Across all
+  areas the alphabetically first ones came first, so the interesting part was
+  never visible.
+- **Values now carry the percentage change** — `110 → 120 (+9 %)`. For very
+  small numbers that is the only figure you can actually grasp.
+- **No more scientific notation:** `0.00000125` instead of `1.25e-06`.
+
+### Fixed
+
+- **Area buttons were cut off on the right** — from the eighth button on they
+  silently ran out of the window. This affected every button row in the
+  program, not just this one.
+
 ## v3.24.0 - 2026-09-07
 
 > **You can now see what a game patch changed about your ships.** The new

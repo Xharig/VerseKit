@@ -6,6 +6,26 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Die Bereichsauswahl bleibt stehen.** Patch-Liste und Bereichsknöpfe rollen
+  nicht mehr mit — wer durch die Werte scrollt, muss zum Wechseln nicht mehr
+  nach oben zurück.
+- **Beim Öffnen eines Patches ist gleich der größte Bereich gewählt** statt
+  „Alle". Über alle Bereiche hinweg standen sonst die alphabetisch ersten
+  vorn, und das Interessante war nie zu sehen.
+- **Zu den Werten steht jetzt die prozentuale Änderung** — `110 → 120 (+9 %)`.
+  Bei sehr kleinen Zahlen ist das die einzige Angabe, die man erfassen kann.
+- **Keine Zehnerpotenzen mehr:** statt `1.25e-06` steht dort `0.00000125`.
+
+### Behoben
+
+- **Bereichsknöpfe wurden rechts abgeschnitten** — ab dem achten Knopf ragten
+  sie wortlos aus dem Fenster. Betraf alle Knopfreihen im Programm, nicht nur
+  diese eine.
+
 ## v3.24.0 - 2026-09-07
 
 > **Du siehst jetzt, was ein Spiel-Patch an deinen Schiffen verändert hat.**
