@@ -14638,6 +14638,31 @@ def _pa_zahl(wert):
     return str(wert)
 
 
+def _pa_richtung(alt, neu):
+    """Ist der Wert gestiegen (1), gefallen (-1) oder keins von beidem (0)?
+
+    ⚠ **Die Farbe zeigt die RICHTUNG, nicht ob es besser wurde.** Grün heißt
+    „mehr geworden", nicht „gut": Beim Verbrauch je Sekunde ist ein grüner
+    Pfeil nach oben für den Spieler eine Verschlechterung. Eine Bewertung
+    würde voraussetzen, dass für jedes der 60 Felder feststeht, in welche
+    Richtung „besser" liegt — das steht nirgends und wäre geraten. Die
+    Richtung dagegen ist ablesbar und stimmt immer.
+
+    ⚠ Nur echte Zahlen vergleichen. `True`/`False` sind in Python zwar Zahlen,
+    aber „von nein auf ja" ist kein Anstieg; Texte erst recht nicht. In beiden
+    Fällen kommt 0 zurück, und die Zeile bleibt in der Grundfarbe.
+    """
+    if isinstance(alt, bool) or isinstance(neu, bool):
+        return 0
+    if not isinstance(alt, (int, float)) or not isinstance(neu, (int, float)):
+        return 0
+    if neu > alt:
+        return 1
+    if neu < alt:
+        return -1
+    return 0
+
+
 def _pa_blaetter(wert, pfad='', aus=None):
     """Alle Einzelwerte einer verschachtelten Struktur, mit ihrem Pfad.
 
@@ -14736,6 +14761,7 @@ def _pa_feldzeile(fenster, eltern, feld):
             farbe = FG
         else:
             vorher, nachher = _pa_zahl(feld['alt']), _pa_zahl(feld['neu'])
+            richtung = _pa_richtung(feld['alt'], feld['neu'])
             # ⚠ `0 → 0` ist keine Auskunft, sondern Lärm — und davon steht
             # reichlich in den Daten: Erkul führt ein Feld auch dann im Diff,
             # wenn der Wert derselbe geblieben ist. Gemessen am 07.09.2026:
@@ -14749,7 +14775,8 @@ def _pa_feldzeile(fenster, eltern, feld):
             if vorher == nachher:
                 text, farbe = t('s_pa_gleich'), SUB
             else:
-                text, farbe = '%s → %s' % (vorher, nachher), FG
+                text = '%s → %s' % (vorher, nachher)
+                farbe = {1: ACCENT, -1: ROT}.get(richtung, FG)
     elif feld['hat_alt']:
         text = t('s_pa_weggefallen').format(alt=_pa_zahl(feld['alt']))
         farbe = GOLD

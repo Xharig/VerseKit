@@ -17,6 +17,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   offering "Pick a patch on the left" when there is nothing to pick yet.
 - Patches without changes are dimmed in the list — usually eight out of ten are
   empty, and the two with content were lost among them.
+- **Increased values are green, decreased ones red, unchanged ones grey.**
+  The colour shows the direction, not whether it got better — lower fuel usage
+  is red and still good for you.
 - **Values are named properly now.** Instead of `precomputed.fuel.
   hydrogenCapacity` it reads "Hydrogen tank". Unknown fields are left as they
   are — nothing is guessed.
