@@ -8,8 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **„Was der Patch geändert hat" zeigt jetzt, was sich geändert hat.** Bei
+  verschachtelten Werten stand vorher nur `… → …`, bei unveränderten `0 → 0`.
+  Jetzt steht der echte Unterschied da — und wo sich nichts geändert hat, steht
+  das auch so.
+- Die Seite sagt beim ersten Öffnen, dass die Daten noch geholt werden müssen,
+  statt „Wähl links einen Patch aus" anzubieten, wo es noch nichts zu wählen gibt.
+- Patches ohne Änderungen sind in der Liste zurückgenommen — von zehn sind
+  meist acht leer, die zwei mit Inhalt gehen sonst unter.
+
 ### Behoben
 
+- **Ein Klick auf einen geholten Patch zeigte nichts an.** Die Bereichsknöpfe
+  wurden falsch aufgebaut; der Fehler lief still ins Leere.
+- Ein Patch, der nur noch nicht geholt war, wurde als „keine Änderungen"
+  ausgegeben — auch wenn 352 darin steckten.
 - In einem eigenen Fenster nahm ein Klick ins Leere den Cursor nicht zuverlässig
   aus dem Eingabefeld — der Fokus ging ans Hauptfenster statt an das sichtbare.
 

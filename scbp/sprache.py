@@ -3376,10 +3376,31 @@ TEXTE = {
                           '{plus} added · {minus} removed · {tilde} changed'),
     # ⚠ Der Fall, für den die lokale Ablage überhaupt gebaut wurde.
     's_pa_nur_hier':     ('nur noch bei dir', 'only in your copy'),
-    's_pa_nicht_da':     ('Dieser Patch ist nicht abgelegt — die Quelle meldet '
-                          'für ihn keine Änderungen.',
-                          'This patch is not stored — the source reports no '
-                          'changes for it.'),
+    # ⚠⚠ Bis zum 07.09.2026 gab es hier NUR `s_pa_nicht_da` mit dem Wortlaut
+    # „nicht abgelegt — die Quelle meldet für ihn keine Änderungen". Der zweite
+    # Halbsatz war schlicht falsch: Ein Patch ist auch dann nicht abgelegt,
+    # wenn er 352 Änderungen hat und man nur den Knopf noch nicht gedrückt hat.
+    # Die Seite behauptete also „da ist nichts", wo in Wahrheit „da ist etwas,
+    # es ist nur noch nicht geholt" richtig gewesen wäre — und wirkte dadurch
+    # nutzlos. Deshalb jetzt drei getrennte Fälle.
+    's_pa_leer_klick':   ('Dieser Patch hat keine Werte geändert — das ist bei '
+                          'den meisten so. Nimm einen aus der Liste, bei dem '
+                          'Zahlen stehen.',
+                          'This patch changed no values — most of them do not. '
+                          'Pick one from the list that shows numbers.'),
+    's_pa_nicht_geholt': ('Noch nicht geholt: {plus} neu · {minus} weg · '
+                          '{tilde} geändert warten hier. Ein Druck auf '
+                          '»{knopf}« holt sie — danach bleiben sie dauerhaft '
+                          'bei dir.',
+                          'Not fetched yet: {plus} added · {minus} removed · '
+                          '{tilde} changed are waiting. Press "{knopf}" to '
+                          'fetch them — after that they stay with you.'),
+    's_pa_erst_holen':   ('Noch nichts geholt. Ein Druck auf »{knopf}« lädt, '
+                          'was die Quelle hat — danach bleibt es dauerhaft '
+                          'bei dir, auch wenn sie es längst wieder wegwirft.',
+                          'Nothing fetched yet. Press "{knopf}" to load what '
+                          'the source has — it then stays with you, even once '
+                          'the source has dropped it.'),
     's_pa_waehlen':      ('Wähl links einen Patch aus.',
                           'Pick a patch on the left.'),
     's_pa_kategorie':    ('Bereich', 'Area'),
@@ -3393,6 +3414,14 @@ TEXTE = {
     's_pa_weggefallen':  ('{alt} → fällt weg', '{alt} → removed'),
     's_pa_dazugekommen': ('neu: {neu}', 'new: {neu}'),
     's_pa_mehr':         ('… und {n} weitere', '… and {n} more'),
+    # ⚠ Für verschachtelte Werte, die als Ganzes verglichen werden — siehe
+    # `_pa_struktur` in seiten.py. Ohne sie stand dort nur „… → …".
+    's_pa_feld_weg':     ('{feld} fällt weg', '{feld} removed'),
+    's_pa_feld_neu':     ('{feld} neu: {wert}', '{feld} new: {wert}'),
+    # ⚠ Der ehrliche Fall: Der Patch hat das Feld angefasst, aber kein
+    # einziger Wert darin ist anders. Rund ein Fünftel der Posten.
+    's_pa_gleich':       ('umgebaut, aber kein Wert anders',
+                          'restructured, but no value changed'),
     's_pa_nichts_hier':  ('In diesem Bereich hat sich nichts geändert.',
                           'Nothing changed in this area.'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '

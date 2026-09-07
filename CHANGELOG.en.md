@@ -8,8 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **"What the patch changed" now shows what changed.** Nested values used to
+  read `… → …`, unchanged ones `0 → 0`. The real difference is shown now — and
+  where nothing changed, it says so.
+- On first open the page says the data still has to be fetched, instead of
+  offering "Pick a patch on the left" when there is nothing to pick yet.
+- Patches without changes are dimmed in the list — usually eight out of ten are
+  empty, and the two with content were lost among them.
+
 ### Fixed
 
+- **Clicking a fetched patch showed nothing.** The area buttons were built
+  incorrectly; the error failed silently.
+- A patch that simply had not been fetched yet was reported as "no changes" —
+  even with 352 of them inside.
 - In a separate window, clicking empty space did not reliably move the cursor
   out of the input field — focus went to the main window instead of the visible one.
 

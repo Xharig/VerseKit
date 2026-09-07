@@ -14638,6 +14638,75 @@ def _pa_zahl(wert):
     return str(wert)
 
 
+def _pa_blaetter(wert, pfad='', aus=None):
+    """Alle Einzelwerte einer verschachtelten Struktur, mit ihrem Pfad.
+
+    Aus `[{'consumes': [{'resource': 'Power', 'units': 4}]}]` wird
+    `{'[0].consumes[0].resource': 'Power', '[0].consumes[0].units': 4}`.
+    """
+    aus = {} if aus is None else aus
+    if isinstance(wert, dict):
+        for schluessel, unterwert in wert.items():
+            _pa_blaetter(unterwert,
+                         '%s.%s' % (pfad, schluessel) if pfad else schluessel,
+                         aus)
+    elif isinstance(wert, list):
+        for nummer, unterwert in enumerate(wert):
+            _pa_blaetter(unterwert, '%s[%d]' % (pfad, nummer), aus)
+    else:
+        aus[pfad] = wert
+    return aus
+
+
+def _pa_kurzpfad(pfad):
+    """Nur der sprechende Rest eines Blattpfads — `consumes[0].units` → `units`."""
+    letzte = pfad.split('.')[-1] if pfad else pfad
+    return letzte or pfad
+
+
+def _pa_struktur(alt, neu, hoechstens=3):
+    """Was sich in zwei verschachtelten Werten wirklich unterscheidet.
+
+    ⚠⚠ **Warum es diese Funktion gibt** (07.09.2026, gemeldet als „da sind gar
+    keine Infos drin"): `_pa_zahl` gibt für alles Verschachtelte ein `…`
+    zurück. In der Kategorie `blades` ist **jeder** geänderte Wert eine
+    verschachtelte Struktur (`resource.states[0].flows`) — die Seite zeigte
+    dort also 69 Zeilen `… → …` untereinander. Buchstäblich keine Auskunft,
+    und weil `blades` alphabetisch weit vorn steht, war es das Erste, was man
+    sah.
+
+    Statt den ganzen Wert zu zeigen (der wäre unlesbar lang), wird der
+    **Unterschied** gebildet: beide Seiten in Blattwerte zerlegt, verglichen,
+    und nur die abweichenden benannt.
+
+    Und der ehrlichste Fall zuerst: Unterscheiden sich die Blätter gar nicht,
+    hat der Patch an dieser Stelle nichts geändert — dann sagt das Ergebnis
+    genau das, statt einen Unterschied vorzutäuschen. Gemessen am 07.09.2026
+    trifft das auf rund ein Fünftel der Posten in 4.10.0 zu.
+    """
+    a, b = _pa_blaetter(alt), _pa_blaetter(neu)
+    teile = []
+    for schluessel in sorted(set(a) | set(b)):
+        if a.get(schluessel) == b.get(schluessel):
+            continue
+        kurz = _pa_kurzpfad(schluessel)
+        if schluessel not in b:
+            teile.append(t('s_pa_feld_weg').format(feld=kurz))
+        elif schluessel not in a:
+            teile.append(t('s_pa_feld_neu').format(
+                feld=kurz, wert=_pa_zahl(b[schluessel])))
+        else:
+            teile.append('%s %s → %s' % (kurz, _pa_zahl(a[schluessel]),
+                                         _pa_zahl(b[schluessel])))
+    if not teile:
+        return t('s_pa_gleich')
+    if len(teile) > hoechstens:
+        rest = len(teile) - hoechstens
+        return '%s, %s' % (', '.join(teile[:hoechstens]),
+                           t('s_pa_mehr').format(n=rest))
+    return ', '.join(teile)
+
+
 def _pa_feldzeile(fenster, eltern, feld):
     """Eine einzelne Feldänderung: Pfad und was aus dem Wert wurde."""
     zeile = tk.Frame(eltern, bg=BG)
@@ -14649,8 +14718,28 @@ def _pa_feldzeile(fenster, eltern, feld):
     # „alt → neu" schreibt, macht daraus „1090 → None" und behauptet einen
     # Wert, den es nicht gibt. Gemessen an der C-788 Cannon (07.09.2026).
     if feld['hat_alt'] and feld['hat_neu']:
-        text = '%s → %s' % (_pa_zahl(feld['alt']), _pa_zahl(feld['neu']))
-        farbe = FG
+        # ⚠ Verschachtelte Werte NICHT als „… → …" abtun — dann steht dort
+        # nichts. Bei ihnen zeigt `_pa_struktur` den echten Unterschied.
+        if isinstance(feld['alt'], (list, dict)) \
+                or isinstance(feld['neu'], (list, dict)):
+            text = _pa_struktur(feld['alt'], feld['neu'])
+            farbe = FG
+        else:
+            vorher, nachher = _pa_zahl(feld['alt']), _pa_zahl(feld['neu'])
+            # ⚠ `0 → 0` ist keine Auskunft, sondern Lärm — und davon steht
+            # reichlich in den Daten: Erkul führt ein Feld auch dann im Diff,
+            # wenn der Wert derselbe geblieben ist. Gemessen am 07.09.2026:
+            # rund ein Fünftel der Posten in 4.10.0 ändert keinen einzigen
+            # Wert. Wer zwischen echten Änderungen zehnmal „0 → 0" liest,
+            # hält den ganzen Reiter für kaputt.
+            #
+            # Verglichen wird die ANZEIGE, nicht der Rohwert: Was für den
+            # Leser gleich aussieht, ist für ihn auch gleich — ob dahinter
+            # eine gerundete Winzigkeit steckt, ändert daran nichts.
+            if vorher == nachher:
+                text, farbe = t('s_pa_gleich'), SUB
+            else:
+                text, farbe = '%s → %s' % (vorher, nachher), FG
     elif feld['hat_alt']:
         text = t('s_pa_weggefallen').format(alt=_pa_zahl(feld['alt']))
         farbe = GOLD
@@ -14705,7 +14794,17 @@ def _patchaenderungen(fenster, rahmen):
         _leeren(ergebnis)
         version = zustand['patch']
         if not version:
-            _fliesstext(ergebnis, t('s_pa_waehlen'), fenster.f_klein, fill='x')
+            # ⚠ „Wähl links einen Patch aus" ist nur richtig, wenn links auch
+            # etwas Auswählbares liegt. Solange nichts abgelegt ist, führt der
+            # Satz in die Irre: Man wählt, bekommt nichts, und hält die Seite
+            # für leer — dabei fehlt bloß ein Druck auf den Knopf darüber.
+            if pa.gespeicherte():
+                _fliesstext(ergebnis, t('s_pa_waehlen'), fenster.f_klein,
+                            fill='x')
+            else:
+                _fliesstext(ergebnis,
+                            t('s_pa_erst_holen').format(knopf=t('s_pa_suchen')),
+                            fenster.f_klein, fill='x')
             return
         posten = pa.aenderungen(version, zustand['art'])
         if not posten:
@@ -14742,23 +14841,70 @@ def _patchaenderungen(fenster, rahmen):
         version = zustand['patch']
         if not version or not pa.laden(version):
             return
-        knoepfe = [(t('s_pa_alle'), lambda: _art_waehlen(None))]
+        # ⚠⚠ **`_knopfgitter` will fertige KNÖPFE, keine Beschriftungspaare.**
+        # Hier standen bis zum 07.09.2026 `(Text, Rückruf)`-Tupel, und das ist
+        # kein Schönheitsfehler: `_gitter_ordnen` ruft `winfo_exists()` auf
+        # jedem Eintrag, ein Tupel hat das nicht — beim Klick auf einen
+        # abgelegten Patch flog `AttributeError: 'tuple' object has no
+        # attribute 'winfo_exists'`, und zwar aus einem `after`-Rückruf heraus.
+        # Der Reiter blieb dabei leer, ohne sichtbare Fehlermeldung.
+        #
+        # Aufgefallen ist es erst am 07.09.2026 beim ersten echten Durchklicken:
+        # Der Reiter ist am Mac entstanden, wo Fenster gebaut, aber nicht
+        # gezeigt werden — geklickt hatte ihn vorher niemand. Genau die Lücke,
+        # die auch der Selbsttest nicht schließt.
+        knoepfe = [_knopf(fenster, bereiche, t('s_pa_alle'),
+                          lambda: _art_waehlen(None),
+                          stark=(zustand['art'] is None))]
         for art, anzahl in pa.kategorien(version):
-            knoepfe.append(('%s (%d)' % (art, anzahl),
-                            lambda a=art: _art_waehlen(a)))
+            knoepfe.append(_knopf(fenster, bereiche,
+                                  '%s (%d)' % (art, anzahl),
+                                  (lambda a=art: _art_waehlen(a)),
+                                  stark=(zustand['art'] == art)))
         _knopfgitter(bereiche, knoepfe)
 
     def _art_waehlen(art):
         zustand['art'] = art
+        # ⚠ Die Knopfreihe mit neu bauen, sonst bleibt die Hervorhebung auf
+        # dem zuvor gewählten Bereich stehen — man sieht dann Posten aus
+        # „ships", während „Alle" hervorgehoben ist.
+        _bereiche_zeigen()
         _posten_zeigen()
+
+    def _eintrag_zu(version):
+        """Der Übersichtseintrag zu einer Version — oder None."""
+        for eintrag in pa.uebersicht():
+            if eintrag['version'] == version:
+                return eintrag
+        return None
 
     def _patch_waehlen(version):
         zustand['patch'] = version
         zustand['art'] = None
         if not pa.laden(version):
+            # ⚠⚠ **Zwei völlig verschiedene Gründe, warum hier nichts liegt** —
+            # und bis zum 07.09.2026 bekamen beide denselben Satz zu sehen:
+            # „nicht abgelegt, die Quelle meldet keine Änderungen".
+            #
+            #   1. Der Patch hat wirklich nichts geändert (8 von 10 Patches!)
+            #   2. Der Patch hat 352 Änderungen — sie sind nur noch nicht geholt
+            #
+            # Im zweiten Fall log die Seite den Nutzer an: Sie behauptete, es
+            # gebe nichts, während der Knopf daneben genau das geholt hätte.
+            # Wer zuerst auf die zwei jüngsten Patches klickt — und die sind
+            # leer — hält den ganzen Reiter für kaputt oder nutzlos. Genau so
+            # gemeldet am 07.09.2026: „da sind gar keine Infos drin".
             _leeren(bereiche, ergebnis)
-            _fliesstext(ergebnis, t('s_pa_nicht_da'), fenster.f_klein,
-                        fill='x')
+            eintrag = _eintrag_zu(version)
+            if eintrag is not None and not eintrag['leer']:
+                z = eintrag['summary']
+                _fliesstext(ergebnis, t('s_pa_nicht_geholt').format(
+                    plus=z.get('added', 0), minus=z.get('removed', 0),
+                    tilde=z.get('modified', 0), knopf=t('s_pa_suchen')),
+                    fenster.f_klein, fill='x')
+            else:
+                _fliesstext(ergebnis, t('s_pa_leer_klick'), fenster.f_klein,
+                            fill='x')
             return
         _bereiche_zeigen()
         _posten_zeigen()
@@ -14776,7 +14922,15 @@ def _patchaenderungen(fenster, rahmen):
                     plus=z.get('added', 0), minus=z.get('removed', 0),
                     tilde=z.get('modified', 0))
                 farbe = FG
-            for text, fg, breit in ((eintrag['version'], FG, True),
+            # ⚠ **Auch die Versionsnummer zurücknehmen, nicht nur die Zahl
+            # rechts.** Von zehn Patches sind acht leer; standen alle zehn in
+            # voller Schriftfarbe da, sahen die zwei mit Inhalt aus wie die
+            # anderen — und man klickt der Reihe nach von oben, wo genau die
+            # leeren stehen. Die Liste soll auf einen Blick zeigen, wo etwas
+            # zu holen ist. Weggelassen wird nichts: Ein leerer Patch ist eine
+            # gültige Auskunft („in dieser Woche hat sich nichts geändert").
+            name_farbe = SUB if eintrag['leer'] else FG
+            for text, fg, breit in ((eintrag['version'], name_farbe, True),
                                     (eintrag['datum'], SUB, False),
                                     (rechts, farbe, False)):
                 tk.Label(zeile, text=text, bg=BG, fg=fg,
@@ -14832,7 +14986,12 @@ def _patchaenderungen(fenster, rahmen):
     _knopf(fenster, kopf, t('s_pa_suchen'), _suchen).pack(side='left')
 
     _liste_zeigen()
-    _fliesstext(ergebnis, t('s_pa_waehlen'), fenster.f_klein, fill='x')
+    # ⚠ Über `_posten_zeigen()`, nicht mit einem fest hingeschriebenen Text.
+    # Genau daran ging der Startzustand vorbei: Hier stand `s_pa_waehlen`
+    # direkt, also „Wähl links einen Patch aus" — auch dann, wenn links noch
+    # gar nichts Abgelegtes liegt. Die Fallunterscheidung steckt in
+    # `_posten_zeigen()`; steht sie an zwei Stellen, läuft sie auseinander.
+    _posten_zeigen()
 
     # ⚠ Beim erneuten Öffnen die Liste auffrischen, aber **nicht** von selbst
     # ins Netz greifen: Die Seite wird beim Start im Leerlauf vorgebaut (siehe
