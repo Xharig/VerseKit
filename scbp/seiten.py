@@ -1006,10 +1006,15 @@ def _feld(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
 def _liste(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
     from . import bestandsfenster
-    fenster.bestandsseite = bestandsfenster.Bestandsfenster(rahmen=rahmen)
-    # ⭐ Rückweg zum Hauptfenster. Die Liste braucht ihn, um auf andere Seiten
-    # zu springen — bisher ging der Weg nur andersherum (`bestandsseite`).
-    fenster.bestandsseite.hauptfenster = fenster
+    # ⭐ Rückweg zum Hauptfenster — die Liste braucht ihn, um auf andere Seiten
+    # zu springen (bisher ging der Weg nur andersherum, über `bestandsseite`).
+    #
+    # ⚠⚠ **Als Argument, nicht danach zugewiesen.** Der Konstruktor zeichnet
+    # die Liste bereits; wer den Rückweg erst hinterher setzt, hat beim ersten
+    # Zeichnen keinen — und dann ist kein Name anklickbar, bis zufällig neu
+    # gezeichnet wird. Genau das war der Fehler in v3.26.0 bis rc3.
+    fenster.bestandsseite = bestandsfenster.Bestandsfenster(rahmen=rahmen,
+                                                            hauptfenster=fenster)
 
     # ⚠ Beim erneuten Aufrufen ohne Filter anfangen. Die Seite wird nur ein-
     # und ausgeblendet, sonst stünde die Auswahl von vorhin noch da — und wer

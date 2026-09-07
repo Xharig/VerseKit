@@ -6,6 +6,17 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc4 - 2026-09-08
+
+> **Jetzt wirklich ab dem ersten Blick.** Der Rückweg zum Hauptfenster wurde
+> eine Zeile zu spät gesetzt — die Liste war beim ersten Zeichnen stumm.
+
+### Behoben
+
+- **Bauplan-Namen sind direkt nach dem Start anklickbar.** Die Liste wird im
+  Aufbau gezeichnet; der Verweis, den sie für den Sprung braucht, kam erst
+  danach.
+
 ## v3.26.1-rc3 - 2026-09-08
 
 > **Die Namen sind ab dem ersten Blick anklickbar.** In rc2 ging es erst, wenn

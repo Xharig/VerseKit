@@ -275,12 +275,27 @@ def _dauer_text(minuten):
 class Bestandsfenster:
     """Eigenständiges Fenster. Wird von der Melde-Leiste aus geöffnet."""
 
-    def __init__(self, eltern=None, beim_schliessen=None, rahmen=None):
+    def __init__(self, eltern=None, beim_schliessen=None, rahmen=None,
+                 hauptfenster=None):
         """Ohne `rahmen` ein eigenes Fenster, mit `rahmen` eine Seite im Hauptfenster.
 
         Seit v3.0.0 liegt die Liste im Hauptfenster; der eigenständige Modus
         bleibt, weil er sich einzeln starten und prüfen lässt.
+
+        ⚠⚠ **`hauptfenster` gehört hier hinein und NICHT nachträglich
+        zugewiesen.** Der Rückweg zum Hauptfenster entscheidet, ob ein
+        Bauplan-Name anklickbar ist (Sprung zu den Zutaten) — und diese
+        Entscheidung fällt beim **ersten** Zeichnen, das noch im Konstruktor
+        passiert. Wer ihn erst danach setzt, bekommt eine Liste, in der nichts
+        geht, bis sie zufällig ein zweites Mal gezeichnet wird.
+
+        Am 08.09.2026 dreimal gemeldet — „beim ersten Klick ist gar nichts
+        anklickbar", „geht erst nach dem 2. Laden der Bauplan-Liste",
+        „klicken direkt nach Start geht noch nicht". Zwei Anläufe suchten die
+        Ursache bei den Rezeptdaten; sie lag hier, in der Reihenfolge zweier
+        Zeilen.
         """
+        self.hauptfenster = hauptfenster
         self.beim_schliessen = beim_schliessen
         self.eingebettet = rahmen is not None
         if self.eingebettet:

@@ -6,6 +6,16 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.26.1-rc4 - 2026-09-08
+
+> **Now truly from the first look.** The way back to the main window was set
+> one line too late, leaving the list mute on its first draw.
+
+### Fixed
+
+- **Blueprint names are clickable right after startup.** The list is drawn
+  while being built; the reference it needs for the jump only arrived after.
+
 ## v3.26.1-rc3 - 2026-09-08
 
 > **Names are clickable from the very first look.** In rc2 it only worked once
