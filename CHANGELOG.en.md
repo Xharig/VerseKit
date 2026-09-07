@@ -6,42 +6,35 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.24.0 - 2026-09-07
 
-### Improved
+> **You can now see what a game patch changed about your ships.** The new
+> "Changed game values" tab fetches the value diffs and shows, field by field,
+> what it was and what it is now — increased in green, decreased in red. And
+> since the source only keeps the last ten patches, everything stays with you:
+> after a year you have a collection that exists nowhere else.
 
-- **The tab is now called "Changed game values".** It used to be "What the
-  patch changed" — right below "What is new", both starting with "What", and
-  neither said what it was about: one is the tool, the other the game.
-- **"Changed game values" now shows what changed.** Nested values used to
-  read `… → …`, unchanged ones `0 → 0`. The real difference is shown now — and
-  where nothing changed, it says so.
-- On first open the page says the data still has to be fetched, instead of
-  offering "Pick a patch on the left" when there is nothing to pick yet.
-- Patches without changes are dimmed in the list — usually eight out of ten are
-  empty, and the two with content were lost among them.
-- ⭐ **Very small values were shown as "unchanged" although they had changed.**
-  Fuel burn rates in 4.10.0 sit around 0.00000125 — rounded to four decimals
-  that looked like a plain zero. **557 real changes** were displayed as
-  unchanged, some by a factor of five. The display is now as precise as it
-  needs to be.
-- **Unchanged values show their value**, grey and without an arrow, instead of
-  a sentence spanning the whole row.
-- **Increased values are green, decreased ones red, unchanged ones grey.**
-  The colour shows the direction, not whether it got better — lower fuel usage
-  is red and still good for you.
-- **Values are named properly now.** Instead of `precomputed.fuel.
-  hydrogenCapacity` it reads "Hydrogen tank". Unknown fields are left as they
-  are — nothing is guessed.
+### New
+
+- **"Changed game values"** in the *Update & About* group: which patch changed
+  which values — ships, weapons, quantum drives, components. Press "Look for new
+  patches" to fetch them; after that they stay with you, even once the source
+  has dropped them.
+- Increased values are shown in **green**, decreased ones in **red**, unchanged
+  ones in grey. The colour shows the direction, not whether it got better —
+  lower fuel usage is red and still good for you.
+- Values are named properly: **Hydrogen tank** instead of
+  `precomputed.fuel.hydrogenCapacity`. Unknown fields are left as they are.
 
 ### Fixed
 
-- **Clicking a fetched patch showed nothing.** The area buttons were built
-  incorrectly; the error failed silently.
+- Very small values were shown as unchanged although they had changed — for
+  fuel usage this affected **557 rows**, some by a factor of five.
+- Clicking a fetched patch showed nothing.
 - A patch that simply had not been fetched yet was reported as "no changes" —
   even with 352 of them inside.
 - In a separate window, clicking empty space did not reliably move the cursor
-  out of the input field — focus went to the main window instead of the visible one.
+  out of the input field.
 
 ## v3.23.0 - 2026-09-06
 

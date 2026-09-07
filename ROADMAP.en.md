@@ -67,6 +67,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Wishlist**: ships you are aiming for — with price, location and a loadout you can plan before you own the ship |
 | ✅ | **Still missing**: the bill across all ships — buy or build per slot, with grade and class on every part, total and shopping route; tick off what you fitted |
 | ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe |
+| ✅ | **Changed game values**: what a game patch changed about values — ships, weapons, quantum drives, components. Increased green, decreased red. The source only keeps the last ten patches; here they stay |
 | ✅ | **Worth dismantling?**: what the fabricator returns — including the six materials that vanish for good |
 
 ## What is being worked on

@@ -6,43 +6,37 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.24.0 - 2026-09-07
 
-### Verbessert
+> **Du siehst jetzt, was ein Spiel-Patch an deinen Schiffen verändert hat.**
+> Der neue Reiter „Geänderte Spielwerte" holt sich die Werte-Diffs und zeigt
+> Feld für Feld, was vorher dastand und was jetzt gilt — gestiegen grün,
+> gefallen rot. Und weil die Quelle nur die letzten zehn Patches aufhebt, bleibt
+> alles bei dir liegen: Nach einem Jahr hast du eine Sammlung, die es sonst
+> nirgends gibt.
 
-- **Der Reiter heißt jetzt „Geänderte Spielwerte".** Vorher „Was der Patch
-  geändert hat" — direkt unter „Was ist neu", beide mit „Was" beginnend, und
-  keiner sagte, worüber er spricht: dort das Werkzeug, hier das Spiel.
-- **„Geänderte Spielwerte" zeigt jetzt, was sich geändert hat.** Bei
-  verschachtelten Werten stand vorher nur `… → …`, bei unveränderten `0 → 0`.
-  Jetzt steht der echte Unterschied da — und wo sich nichts geändert hat, steht
-  das auch so.
-- Die Seite sagt beim ersten Öffnen, dass die Daten noch geholt werden müssen,
-  statt „Wähl links einen Patch aus" anzubieten, wo es noch nichts zu wählen gibt.
-- Patches ohne Änderungen sind in der Liste zurückgenommen — von zehn sind
-  meist acht leer, die zwei mit Inhalt gehen sonst unter.
-- ⭐ **Sehr kleine Werte wurden als „unverändert" angezeigt, obwohl sie sich
-  geändert hatten.** Der Treibstoffverbrauch aus 4.10.0 liegt bei 0,00000125 —
-  auf vier Nachkommastellen gerundet sah das aus wie eine glatte Null. Damit
-  standen **557 echte Änderungen** als unverändert da, teils um den Faktor
-  fünf. Die Anzeige wird jetzt so genau, wie sie sein muss.
-- **Unveränderte Werte zeigen ihren Wert**, grau und ohne Pfeil, statt eines
-  Satzes quer durch die Zeile.
-- **Gestiegene Werte stehen grün, gefallene rot, unveränderte grau.** Die
+### Neu
+
+- **„Geänderte Spielwerte"** in der Gruppe *Update & Über*: welcher Patch welche
+  Werte verändert hat — Schiffe, Waffen, Quantum-Antriebe, Komponenten. Ein
+  Druck auf „Nach neuen Patches sehen" holt sie; danach bleiben sie dauerhaft
+  bei dir, auch wenn die Quelle sie längst wieder wegwirft.
+- Gestiegene Werte stehen **grün**, gefallene **rot**, unveränderte grau. Die
   Farbe zeigt die Richtung, nicht ob es besser wurde — weniger Verbrauch ist
   rot und trotzdem gut für dich.
-- **Die Werte heißen jetzt, wie sie heißen.** Statt `precomputed.fuel.
-  hydrogenCapacity` steht dort „Wasserstoff-Tank". Unbekannte Felder bleiben
-  wie sie sind — geraten wird nicht.
+- Die Werte heißen, wie sie heißen: **Wasserstoff-Tank** statt
+  `precomputed.fuel.hydrogenCapacity`. Unbekannte Felder bleiben, wie sie sind.
 
 ### Behoben
 
-- **Ein Klick auf einen geholten Patch zeigte nichts an.** Die Bereichsknöpfe
-  wurden falsch aufgebaut; der Fehler lief still ins Leere.
+- Sehr kleine Werte wurden als unverändert angezeigt, obwohl sie sich geändert
+  hatten — beim Treibstoffverbrauch betraf das **557 Zeilen**, teils um den
+  Faktor fünf.
+- Ein Klick auf einen geholten Patch zeigte nichts an.
 - Ein Patch, der nur noch nicht geholt war, wurde als „keine Änderungen"
-  ausgegeben — auch wenn 352 darin steckten.
-- In einem eigenen Fenster nahm ein Klick ins Leere den Cursor nicht zuverlässig
-  aus dem Eingabefeld — der Fokus ging ans Hauptfenster statt an das sichtbare.
+  gemeldet — auch wenn 352 darin steckten.
+- In einem eigenen Fenster nahm ein Klick ins Leere den Cursor nicht
+  zuverlässig aus dem Eingabefeld.
 
 ## v3.23.0 - 2026-09-06
 
