@@ -18,6 +18,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   statt „Wähl links einen Patch aus" anzubieten, wo es noch nichts zu wählen gibt.
 - Patches ohne Änderungen sind in der Liste zurückgenommen — von zehn sind
   meist acht leer, die zwei mit Inhalt gehen sonst unter.
+- **Unveränderte Werte zeigen jetzt ihren Wert**, grau und ohne Pfeil, statt
+  eines Satzes quer durch die Zeile.
 - **Gestiegene Werte stehen grün, gefallene rot, unveränderte grau.** Die
   Farbe zeigt die Richtung, nicht ob es besser wurde — weniger Verbrauch ist
   rot und trotzdem gut für dich.

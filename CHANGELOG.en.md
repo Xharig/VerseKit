@@ -17,6 +17,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   offering "Pick a patch on the left" when there is nothing to pick yet.
 - Patches without changes are dimmed in the list — usually eight out of ten are
   empty, and the two with content were lost among them.
+- **Unchanged values now show their value**, grey and without an arrow,
+  instead of a sentence spanning the whole row.
 - **Increased values are green, decreased ones red, unchanged ones grey.**
   The colour shows the direction, not whether it got better — lower fuel usage
   is red and still good for you.

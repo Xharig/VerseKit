@@ -14773,7 +14773,23 @@ def _pa_feldzeile(fenster, eltern, feld):
             # Leser gleich aussieht, ist für ihn auch gleich — ob dahinter
             # eine gerundete Winzigkeit steckt, ändert daran nichts.
             if vorher == nachher:
-                text, farbe = t('s_pa_gleich'), SUB
+                # ⚠⚠ **Der WERT selbst, grau — nicht „0" und nicht ein Satz.**
+                #
+                # Vorher stand hier „umgebaut, aber kein Wert anders": richtig,
+                # aber dreimal so lang wie die Zeile daneben, und bei der
+                # Avenger Stalker füllt das 3 von 8 Zeilen.
+                #
+                # Vorgeschlagen war, stattdessen `0` einzutragen. Das wäre
+                # kürzer, aber es LÜGT: Bei „Verbrauch Haupttriebwerk 0" liest
+                # man, der Verbrauch sei null — nicht, dass er gleich geblieben
+                # ist. Ein Feld, dessen echter Wert 0 ist, wäre davon nicht
+                # mehr zu unterscheiden.
+                #
+                # Der unveränderte Wert selbst löst beides: genauso kurz, und
+                # er sagt zusätzlich, WORAUF der Wert steht. Grau heißt in
+                # dieser Liste ohnehin schon „unverändert" — dieselbe Regel
+                # wie bei den grünen und roten Zeilen, nur ohne Pfeil.
+                text, farbe = vorher, SUB
             else:
                 text = '%s → %s' % (vorher, nachher)
                 farbe = {1: ACCENT, -1: ROT}.get(richtung, FG)

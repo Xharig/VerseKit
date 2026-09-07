@@ -3420,8 +3420,11 @@ TEXTE = {
     's_pa_feld_neu':     ('{feld} neu: {wert}', '{feld} new: {wert}'),
     # ⚠ Der ehrliche Fall: Der Patch hat das Feld angefasst, aber kein
     # einziger Wert darin ist anders. Rund ein Fünftel der Posten.
-    's_pa_gleich':       ('umgebaut, aber kein Wert anders',
-                          'restructured, but no value changed'),
+    # ⚠ Nur noch für VERSCHACHTELTE Werte, wo es keinen einzelnen Wert zum
+    # Hinschreiben gibt. Bei einfachen Werten steht seit 07.09.2026 der
+    # unveränderte Wert selbst da (grau) — kürzer und aussagekräftiger.
+    's_pa_gleich':       ('umgebaut, kein Wert anders',
+                          'restructured, no value changed'),
     's_pa_nichts_hier':  ('In diesem Bereich hat sich nichts geändert.',
                           'Nothing changed in this area.'),
     's_ek_kein_schiff':  ('Noch kein Schiff eingetragen. Trag im Hangar deine '
