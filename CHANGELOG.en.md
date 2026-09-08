@@ -13,6 +13,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **The method comparison on the mining page collapses** and starts collapsed.
   The recommendation still sits at the top; the nine methods in detail are
   there for whoever wants them.
+- **Picking a resource or location in mining opens it right away** — the second
+  click on the header is gone.
 
 ### Fixed
 

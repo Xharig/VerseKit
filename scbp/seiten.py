@@ -9324,6 +9324,21 @@ def _bergbau(fenster, rahmen):
         neu = berg_wahl['erz'] or berg_wahl['ort'] or ''
         if neu != berg_letzte['wert']:
             berg_letzte['wert'] = neu
+            # ⭐ **Gewählt heißt aufgeklappt** (08.09.2026): „wenn man eine
+            # Auswahl trifft, machs doch so, dass das betreffende direkt
+            # aufgeklappt ist, und man nicht nochmal extra klicken muss."
+            # Wer einen Namen aus dem Auswahlfeld nimmt, hat sich schon
+            # entschieden — die Kopfzeile danach noch einmal anzuklicken ist
+            # ein Klick, der nichts entscheidet.
+            #
+            # ⚠ Nur bei der Auswahl, nicht beim Tippen: Nach zwei Buchstaben
+            # stehen dort noch zwölf Treffer, und einer davon spränge auf.
+            if berg_wahl['erz']:
+                offen['name'] = 'erz:' + berg_wahl['erz']
+            elif berg_wahl['ort']:
+                offen['name'] = 'ort:' + berg_wahl['ort']
+            else:
+                offen['name'] = None
             suche_var.set(neu)   # zeichnet über `trace_add` von selbst neu
             return
         # ⚠ **Das Gerät ist kein Suchbegriff, sondern ein zweiter Filter.**

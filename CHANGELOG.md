@@ -13,6 +13,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Der Methodenvergleich auf der Bergbau-Seite klappt zu** und startet
   zugeklappt. Die Empfehlung steht weiterhin oben; die neun Methoden im
   Einzelnen sieht, wer sie sehen will.
+- **Wer im Bergbau einen Rohstoff oder Ort auswählt, sieht ihn sofort
+  aufgeklappt** — der zweite Klick auf die Kopfzeile entfällt.
 
 ### Behoben
 
