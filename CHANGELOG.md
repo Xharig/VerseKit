@@ -6,7 +6,7 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.26.2-rc1 - 2026-09-08
+## v3.26.2 - 2026-09-08
 
 > **Die Bestenliste zeigt wieder Handelsware.** Zwei Event-Geschenke standen
 > ganz oben und verdrängten alles, womit sich wirklich Geld verdienen lässt.

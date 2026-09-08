@@ -6,7 +6,7 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## v3.26.2-rc1 - 2026-09-08
+## v3.26.2 - 2026-09-08
 
 > **The top list shows tradeable goods again.** Two event gifts sat at the very
 > top, crowding out everything that actually earns money.
