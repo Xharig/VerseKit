@@ -6,7 +6,11 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.27.1 - 2026-09-08
+
+> **Die Bergbau-Seite wird aufgeräumt.** Der Methodenvergleich klappt zu, ein
+> Klick weniger führt zum Ziel — und über der Erzsuche stand bis eben der Text
+> der Bergungs-Seite.
 
 ### Verbessert
 

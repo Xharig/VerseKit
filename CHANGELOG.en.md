@@ -6,7 +6,11 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.27.1 - 2026-09-08
+
+> **The mining page gets tidied up.** The method comparison collapses, one click
+> less gets you where you are going — and until now the salvage page's intro sat
+> above the ore search.
 
 ### Improved
 
