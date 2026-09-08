@@ -6,6 +6,21 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Verbessert
+
+- **Der Methodenvergleich auf der Bergbau-Seite klappt zu** und startet
+  zugeklappt. Die Empfehlung steht weiterhin oben; die neun Methoden im
+  Einzelnen sieht, wer sie sehen will.
+
+### Behoben
+
+- **Über der Bergbau-Seite stand der Text der Bergungs-Seite** — „Vor dir
+  treibt ein Wrack…" über der Erzsuche.
+- **Der Verweis auf scmdb.net versprach Wahrscheinlichkeiten und einen
+  Raffinerie-Vergleich**, die inzwischen auf der Seite selbst stehen.
+
 ## v3.27.0 - 2026-09-08
 
 > **Der Bergbau sagt jetzt, wie viel von einem Erz an einem Ort liegt.** Bisher

@@ -4152,10 +4152,13 @@ TEXTE = {
                           'The percentage says how much of what you mine here '
                           'with that gear is this ore — not how big the location '
                           'is. Hand, vehicle and ship mining count separately.'),
-    's_bg_mehr_info':    ('Genauer — mit Wahrscheinlichkeiten und Refinery-'
-                          'Vergleich — auf scmdb.net',
-                          'More detail — probabilities and refinery comparison — '
-                          'at scmdb.net'),
+    # ⚠ Bis v3.27.0 stand hier „Genauer — mit Wahrscheinlichkeiten und
+    # Refinery-Vergleich". Beides zeigt der Watcher inzwischen selbst; der Satz
+    # verwies also auf etwas, das eine Seite höher schon dastand.
+    's_bg_mehr_info':    ('Die vollständigen Bergbaudaten und weitere '
+                          'Auswertungen stehen auf scmdb.net',
+                          'The full mining data and further analyses are at '
+                          'scmdb.net'),
     's_bg_keine_daten':  ('Die Bergbau-Daten sind noch nicht geladen. Sie kommen '
                           'beim nächsten Katalog-Abruf dazu.',
                           'The mining data is not loaded yet. It arrives with the '

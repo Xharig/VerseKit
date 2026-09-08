@@ -6,6 +6,21 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Improved
+
+- **The method comparison on the mining page collapses** and starts collapsed.
+  The recommendation still sits at the top; the nine methods in detail are
+  there for whoever wants them.
+
+### Fixed
+
+- **The mining page carried the salvage page's intro** — "A wreck is drifting
+  in front of you…" above the ore search.
+- **The pointer to scmdb.net promised probabilities and a refinery comparison**
+  that the page now shows itself.
+
 ## v3.27.0 - 2026-09-08
 
 > **Mining now tells you how much of an ore sits at a location.** Until now it

@@ -9267,7 +9267,10 @@ def _bergbau(fenster, rahmen):
     oder nicht.
     """
     from . import bergbau as berg_modul
-    _ueberschrift(fenster, rahmen, t('hf_bergbau'), t('s_wr_lead'))
+    # ⚠ **`s_bg_lead`, nicht `s_wr_lead`.** Hier stand der Text der
+    # Bergungs-Seite — „Vor dir treibt ein Wrack…" über der Erzsuche. Der
+    # eigene Satz war die ganze Zeit da und wurde von niemandem gerufen.
+    _ueberschrift(fenster, rahmen, t('hf_bergbau'), t('s_bg_lead'))
     innen = _rollflaeche(rahmen)
 
     try:
@@ -9606,6 +9609,8 @@ def _methodenblock(fenster, eltern):
                   'tempo': t('s_rm_tempo')}
     auswahl = [(a, achsentext[a]) for a in raff.ACHSEN]
     wahl = {'erste': '', 'zweite': ''}
+    # Der Klappzustand des Vergleichs — überlebt das Neuzeichnen, siehe unten.
+    klapp = {'offen': False}
     ergebnis = tk.Frame(block, bg=BG)
 
     def stufentext(kennung):
@@ -9634,10 +9639,50 @@ def _methodenblock(fenster, eltern):
             _fliesstext(ergebnis, t('s_rm_zeit_laeuft'), fenster.f_klein,
                         fill='x')
 
-        tk.Label(ergebnis, text=t('s_rm_alle'), bg=BG, fg=SUB,
-                 font=fenster.f_klein, anchor='w').pack(fill='x', pady=(10, 2))
+        # ⭐ **Der Vergleich klappt zu und startet zugeklappt** (08.09.2026):
+        # „die Info braucht man nur, wenn man sie sehen will." Neun Methoden
+        # mit Bewertung sind zwölf Zeilen über der eigentlichen Liste — die
+        # Empfehlung darüber beantwortet die Frage schon, der Rest ist zum
+        # Nachschlagen. Gleiches Muster wie „Was bringt am meisten?" auf der
+        # Fortschritts-Seite: Pfeil, Titel, Zahl.
+        #
+        # ⚠ Der Klappzustand liegt **außerhalb** von `zeichnen()` — die
+        # Funktion räumt `ergebnis` bei jeder Auswahländerung leer und baut
+        # neu; ein Zustand darin wäre bei jedem Wechsel wieder zu.
+        kopf = tk.Frame(ergebnis, bg=BG, cursor='hand2')
+        kopf.pack(fill='x', pady=(10, 2))
+        pfeil = zeichen.zeile(kopf, 'zuklappen' if klapp['offen']
+                              else 'aufklappen', grund=BG,
+                              schrift=fenster.f_klein)
+        pfeil.pack(side='left')
+        tk.Label(kopf, text=t('s_rm_alle'), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+        tk.Label(kopf, text='  %d' % len(alle), bg=BG, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left')
+
+        koerper = tk.Frame(ergebnis, bg=BG)
+        if klapp['offen']:
+            koerper.pack(fill='x', after=kopf)
+
+        def umschalten(*_):
+            klapp['offen'] = not klapp['offen']
+            pfeil.symbol_tauschen('zuklappen' if klapp['offen']
+                                  else 'aufklappen')
+            if klapp['offen']:
+                # ⚠ `after=kopf` — sonst landet der Block ganz unten.
+                koerper.pack(fill='x', after=kopf)
+            else:
+                koerper.pack_forget()
+
+        for teil in [kopf] + list(kopf.winfo_children()):
+            teil.bind('<Button-1>', umschalten)
+            try:
+                teil.configure(cursor='hand2')
+            except tk.TclError:
+                pass
+
         for kennung in alle:
-            z = tk.Frame(ergebnis, bg=BG)
+            z = tk.Frame(koerper, bg=BG)
             z.pack(fill='x', pady=1)
             tk.Label(z, text=raff.NAMEN[kennung], bg=BG,
                      fg=(ACCENT if kennung == beste else FG),
@@ -9649,11 +9694,11 @@ def _methodenblock(fenster, eltern):
 
         # Methoden, die nichts können, was eine andere nicht besser kann.
         for schlecht, besser in sorted(raff.unterlegen().items()):
-            _fliesstext(ergebnis,
+            _fliesstext(koerper,
                         t('s_rm_unterlegen') % (raff.NAMEN[schlecht],
                                                 raff.NAMEN[besser]),
                         fenster.f_klein, fill='x')
-        _fliesstext(ergebnis, t('s_rm_stand') % (raff.PATCH, raff.ABGELESEN),
+        _fliesstext(koerper, t('s_rm_stand') % (raff.PATCH, raff.ABGELESEN),
                     fenster.f_klein, fill='x')
 
     _filterleiste(fenster, block,
