@@ -412,6 +412,23 @@ MAX_BROCKEN = {'legendary': 2, 'epic': 3, 'rare': 4, 'uncommon': 5,
 GRUND_SIGNATUR = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
 
 
+# ⚠⚠ Das Spiel zeigt die Signatur als `17,200` — mit Tausenderkomma. Bis zum
+# 08.09.2026 machte ein schlichtes `replace(',', '.')` daraus **17,2**, Faktor
+# tausend daneben und ohne eine Zeile Fehlermeldung: Wer genau abschrieb, was
+# im HUD stand, bekam Unsinn vorgesetzt.
+#
+# ⚠ Die Regel wohnt bewusst in `rohstoffe` und nicht hier — dort steht mit
+# `zahl_lesen` seit jeher alles, was eine getippte Zahl entgegennimmt, und zwei
+# Fassungen derselben Regel liefen garantiert auseinander. Der Unterschied
+# steckt allein im Schalter: Hier gilt `ganzzahlig=True`, weil Signaturen ganze
+# Zahlen im Tausenderbereich sind (`8,600` meint 8600, nie 8,6). Bei Mengen ist
+# es umgekehrt, dort sind Kommazahlen der Regelfall.
+def _zahltext(roh):
+    """Abgelesene oder getippte Signatur auf die Punkt-Schreibweise bringen."""
+    from .rohstoffe import trennzeichen_klaeren
+    return trennzeichen_klaeren(roh, ganzzahlig=True)
+
+
 def signatur_suchen(eingabe):
     """Aus einem gescannten Wert den Rohstoff bestimmen.
 
@@ -427,6 +444,7 @@ def signatur_suchen(eingabe):
     | `8600` | genau dieser Wert |
     | `~5000` | ±10 % Spielraum |
     | `4000-9000` | alles dazwischen |
+    | `17,200` / `17.200` | genau wie im HUD abgeschrieben — 17200 |
 
     Gibt `[(Name, Anzahl Brocken, Signatur, Abweichung in Prozent)]`, die
     genaueste Übereinstimmung zuerst.
@@ -435,7 +453,7 @@ def signatur_suchen(eingabe):
     trifft, soll das erfahren und `~8600` versuchen — nicht einen Treffer
     vorgesetzt bekommen, der um 300 danebenliegt.
     """
-    text = (eingabe or '').strip().replace(',', '.')
+    text = _zahltext(eingabe)
     if not text:
         return []
     toleranz, unten, oben = 0.0, None, None

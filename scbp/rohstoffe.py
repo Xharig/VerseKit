@@ -147,6 +147,47 @@ def aus_json(text):
     return sauber
 
 
+# ⚠⚠ Tausendertrennzeichen gegen Dezimalkomma — ein Zeichen, zwei Bedeutungen.
+# `17,200` heisst im Spiel siebzehntausendzweihundert, `12,5` heisst zwoelf
+# Komma fuenf. Bis zum 08.09.2026 machte ein schlichtes `replace(',', '.')`
+# aus beidem eine Kommazahl — bei der Scan-Signatur lag das Ergebnis damit
+# Faktor tausend daneben, ohne eine Zeile Fehlermeldung.
+#
+# ⚠ **Geraten wird nicht.** Aufgeloest wird nur, was eindeutig ist:
+#
+# | Eingabe | Warum eindeutig | Ergebnis |
+# |---|---|---|
+# | `1.234,56` | beide Zeichen — das hintere trennt Dezimalstellen | 1234.56 |
+# | `1,234,567` | dasselbe Zeichen mehrfach — kann nur Tausender sein | 1234567 |
+# | `12,5` | ein Zeichen, keine Dreiergruppe | 12.5 |
+#
+# Bleibt der eine mehrdeutige Fall: EIN Trennzeichen mit GENAU drei Ziffern
+# dahinter (`1,500`). Den entscheidet der Aufrufer ueber `ganzzahlig`:
+#
+# * `ganzzahlig=True` (Scan-Signatur) → 1500. Signaturen sind ganzzahlig und
+#   liegen im Tausenderbereich; eine Signatur von 1,5 gibt es nicht.
+# * `ganzzahlig=False` (Mengen, Standard) → 1,5. Hier sind Kommazahlen der
+#   Regelfall — `12,5 SCU` tippt jeder, `1.500 SCU` fast niemand. Ein falsch
+#   aufgeloester Tausender wuerde hier das Lager um Faktor tausend verbuchen.
+_TAUSENDER = re.compile(r'(\d)[.,](\d{3})(?!\d)')
+
+
+def trennzeichen_klaeren(text, ganzzahlig=False):
+    """Trennzeichen aufloesen und auf die Punkt-Schreibweise bringen."""
+    roh = (text or '').strip()
+    if not roh:
+        return ''
+    kommas, punkte = roh.count(','), roh.count('.')
+    eindeutig = (kommas and punkte) or kommas > 1 or punkte > 1
+    if ganzzahlig or eindeutig:
+        vorher = None
+        # In der Schleife, sonst bliebe bei `1,234,567` die vordere Gruppe stehen.
+        while vorher != roh:
+            vorher = roh
+            roh = _TAUSENDER.sub(r'\1\2', roh)
+    return roh.replace(',', '.')
+
+
 def zahl_lesen(text):
     """Eine getippte Zahl lesen — Komma und Punkt gelten gleich.
 
@@ -154,12 +195,15 @@ def zahl_lesen(text):
     und `float('12,5')` wirft. Ohne diese Stelle haette jeder zweite Nutzer
     beim Eintragen eine Fehlermeldung bekommen und nicht gewusst, warum.
 
+    ⚠ Tausendertrennzeichen werden aufgeloest, aber nur wo es eindeutig ist —
+    `1.234,56` wird 1234.56, `12,5` bleibt 12,5. Siehe `trennzeichen_klaeren`.
+
     Auch das lange Minus vom Ziffernblock (`−`) wird angenommen, sonst
     scheitert das Abbuchen an einem Zeichen, das man nicht sieht.
 
     Gibt `None`, wenn es keine Zahl ist — dann meldet die Oberfläche das.
     """
-    roh = (text or '').strip().replace(',', '.').replace('−', '-')
+    roh = trennzeichen_klaeren(text).replace('−', '-')
     if not roh:
         return None
     try:
@@ -369,8 +413,14 @@ def raffinerie_zeilen(text, einheit='cscu'):
             continue
         name = ' '.join(teile[:-2])
         try:
-            guete = int(float(teile[-2].replace(',', '.')))
-            wert = float(teile[-1].replace(',', '.'))
+            # ⚠ Dieselbe Trennzeichen-Regel wie beim Eintippen (08.09.2026).
+            # Vorher scheiterte eine Zeile mit BEIDEN Zeichen ganz: aus
+            # `1.234,56` wurde `1.234.56`, und das warf — die Zeile landete
+            # unter „keine Zahl", obwohl sie eindeutig lesbar war. Die Menge
+            # kann hier vierstellig sein (cSCU-Ausbeute), das Dezimalkomma
+            # bleibt bei SCU der Regelfall; deshalb ohne `ganzzahlig`.
+            guete = int(float(trennzeichen_klaeren(teile[-2])))
+            wert = float(trennzeichen_klaeren(teile[-1]))
         except ValueError:
             fehler.append((zeile, t('s_rf_keine_zahl')))
             continue

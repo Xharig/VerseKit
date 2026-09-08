@@ -4813,11 +4813,44 @@ def main():
     pruefe(_ro53.zahl_lesen('12.5') == 12.5, 'ein Punkt genauso')
     pruefe(_ro53.zahl_lesen(' 8 ') == 8.0, 'Leerzeichen stoeren nicht')
     pruefe(_ro53.zahl_lesen('-2,5') == -2.5, 'ein Minus bleibt erhalten')
-    pruefe(_ro53.zahl_lesen('-2') == -2.0,
+    # ⚠ Hier stand bis 08.09.2026 `zahl_lesen('-2')` unter der Beschriftung
+    # „auch das lange Minus" — geprueft wurde also das normale Minus ein zweites
+    # Mal, und das lange (U+2212) nie. Eine Pruefung, die etwas anderes tut, als
+    # sie sagt, ist schlimmer als keine: Sie erzeugt Sicherheit, die es nicht gibt.
+    # ⚠ Das lange Minus als `chr()`, nicht als Zeichen im Text: Pruefung 144
+    # verbietet cp1252-fremde Zeichen in `pruefe(...)`, weil der Bau unter
+    # Windows genau daran abgebrochen ist. U+2212 kennt cp1252 nicht — als
+    # Literal waere diese Zeile also selbst der Fehler, den 144 sucht.
+    # (Vermutlich der Grund, warum hier urspruenglich das normale Minus stand.)
+    pruefe(_ro53.zahl_lesen(chr(0x2212) + '2') == -2.0,
            'auch das lange Minus vom Ziffernblock')
     pruefe(_ro53.zahl_lesen('12 SCU') is None,
            'was keine Zahl ist, gibt None statt eines Absturzes')
     pruefe(_ro53.zahl_lesen('') is None, 'und ein leeres Feld ebenso')
+
+    # ⚠⚠ Tausendertrennzeichen — aufloesen, aber NUR wo es eindeutig ist.
+    # Bei Mengen sind Kommazahlen der Regelfall (`12,5 SCU` tippt jeder), also
+    # darf `1.500` NICHT zu 1500 werden: Das wuerde das Lager um Faktor tausend
+    # verbuchen. Umgekehrt ist `1.234,56` eindeutig, weil beide Zeichen
+    # vorkommen — dort trennt das hintere die Dezimalstellen.
+    for _roh53, _soll53 in ((' 1.234,56 ', 1234.56),  # beide Zeichen: eindeutig
+                            ('1,234.56', 1234.56),    # andersherum genauso
+                            ('1,234,567', 1234567.0), # mehrfach: nur Tausender
+                            ('1.500', 1.5),           # mehrdeutig -> Kommazahl
+                            ('1,500', 1.5),           # dito
+                            ('12,5', 12.5),
+                            ('1234', 1234.0)):
+        pruefe(_ro53.zahl_lesen(_roh53) == _soll53,
+               'Menge %r wird %s (bekommen: %s)'
+               % (_roh53, _soll53, _ro53.zahl_lesen(_roh53)))
+
+    # ⭐ Und die Gegenprobe zur Scan-Signatur: DIESELBE Funktion, anderer
+    # Schalter. `17,200` steht so im HUD und meint siebzehntausendzweihundert —
+    # als Menge waere dieselbe Schreibweise dagegen 17,2.
+    pruefe(_ro53.trennzeichen_klaeren('17,200', ganzzahlig=True) == '17200',
+           'als Signatur gelesen wird 17,200 zu 17200')
+    pruefe(_ro53.trennzeichen_klaeren('17,200') == '17.200',
+           'als Menge gelesen bleibt es eine Kommazahl')
 
     # Namensabgleich — der Schluessel zwischen Lager und Rezept.
     # ⚠ Mit eingespeister Namensliste pruefen. Im Wegwerf-Ordner gibt es keine
@@ -5509,6 +5542,31 @@ def main():
     print('64. Scan-Signatur')
     from scbp import bergbau as _bg64
 
+    # ⚠⚠ Diese Gruppe steht VOR der Datenabfrage, mit Absicht. Sie prueft reine
+    # Textumwandlung und braucht keine Stammdaten — stuende sie im `else`, wuerde
+    # sie im Wegwerf-Ordner stillschweigend uebersprungen und pruefte nie etwas.
+    #
+    # Der Fall: Das Spiel zeigt die Signatur als `17,200`. Bis zum 08.09.2026
+    # machte `replace(',', '.')` daraus 17,2 — Faktor tausend daneben, ohne
+    # Fehlermeldung. Wer genau abschrieb, was er sah, bekam Unsinn. Dasselbe bei
+    # `17.200`, wie es ein deutscher Nutzer schreibt.
+    #
+    # ⚠ Geprueft wird die Umwandlung SELBST, nicht nur ein Suchergebnis: Ein
+    # Treffer kann zufaellig passen, die Zahl nicht.
+    for _roh64, _soll64 in (('17,200', '17200'),          # HUD-Schreibweise
+                            ('17.200', '17200'),          # deutsche Schreibweise
+                            ('17200', '17200'),           # blank
+                            ('1,234,567', '1234567'),     # mehrfach getrennt
+                            ('~5,000', '~5000'),          # mit Toleranz
+                            ('4,000-9,000', '4000-9000'), # Bereich
+                            ('8,5', '8.5'),               # echtes Dezimalkomma
+                            ('8.5', '8.5'),
+                            ('  17,200  ', '17200'),      # mit Leerraum
+                            ('', '')):                    # leer bleibt leer
+        pruefe(_bg64._zahltext(_roh64) == _soll64,
+               'aus %r wird %r (bekommen: %r)'
+               % (_roh64, _soll64, _bg64._zahltext(_roh64)))
+
     if not (_bg64.laden().get('elemente') or {}):
         print('  [–]    keine Rohstoff-Stammdaten vorhanden — uebersprungen')
     else:
@@ -5549,6 +5607,13 @@ def main():
         _tr64 = _bg64.signatur_suchen('~8600')
         pruefe(abs(_tr64[0][3]) <= abs(_tr64[-1][3]),
                'die genaueste Uebereinstimmung steht oben')
+
+        # e) Die Probe aufs Ganze — diese eine braucht die Stammdaten und steht
+        #    deshalb hier: Getippt wie im HUD muss dasselbe herauskommen wie
+        #    ohne Trennzeichen. (Die Umwandlung selbst wird oben geprueft,
+        #    ausserhalb dieser Bedingung.)
+        pruefe(_bg64.signatur_suchen('~17,200') == _bg64.signatur_suchen('~17200'),
+               'die HUD-Schreibweise findet dieselben Treffer wie die blanke Zahl')
 
     # Die Stammdaten muessen beim Sichern erhalten bleiben.
     _q64 = open(os.path.join(WURZEL, 'scbp', 'bergbau.py'), encoding='utf-8').read()
