@@ -45,6 +45,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Materialqualität wirkt sich aus** — ein Regler je Zutat zeigt, was mit *deinem* Material herauskäme, und in welcher Spanne der Wert überhaupt liegen kann |
 | ✅ | **Mein Lager**: Material, Menge, Qualität und Lagerort eintragen; im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab |
 | ✅ | **Bergbau** in beide Richtungen: Rohstoff → Fundorte, Ort → was es dort gibt, mit Abbauart, Raffinerie-Vergleich und Scan-Signatur |
+| ✅ | **Wie viel davon** — Konzentration und Stufe je Erz und Fundort, getrennt nach Schiff, Fahrzeug und Handabbau |
 | ✅ | **Verarbeitungsmethode empfehlen** — sag, ob dir Ertrag, Kosten oder Geschwindigkeit wichtiger ist, und du bekommst eine der neun Methoden genannt |
 | ✅ | **Preise** von UEX Corp — was ein Rohstoff kostet und was er einbringt, damit „was fehlt mir" auch „was kostet mich das" beantwortet |
 | ✅ | **Handelslager**: was zum Verkauf im Laderaum liegt — getrennt vom Werkstatt-Lager, mit Kennzeichen für als gestohlen markierte Ladung |

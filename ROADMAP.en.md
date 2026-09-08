@@ -45,6 +45,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Material quality matters** — one slider per ingredient shows what *your* material would yield, and the range the value can reach at all |
 | ✅ | **My storage**: record material, amount, quality and location; the recipe then shows what is missing, and a button deducts the ingredients |
 | ✅ | **Mining** both ways: material → where it is found, location → what is found there, with mining type, refinery comparison and scan signature |
+| ✅ | **How much of it** — concentration and grade per ore and location, kept separate for ship, vehicle and hand mining |
 | ✅ | **Refining method recommendation** — say whether yield, cost or speed matters most and the tool names one of the nine methods |
 | ✅ | **Prices** from UEX Corp — what a material costs and what it sells for, so "what am I missing" also answers "what will it cost me" |
 | ✅ | **Cargo hold**: what you carry to sell — kept apart from the workshop stock, with a marker for cargo flagged as stolen |

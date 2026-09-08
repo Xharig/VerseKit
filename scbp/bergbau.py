@@ -170,37 +170,173 @@ def _sichern(daten):
 
 
 # ------------------------------------------------------------- Auswerten
-def _erze_am_ort(ort, compositions):
-    """{Erzname: {Abbauart, …}} für einen Ort."""
-    raus = {}
+#
+# ⭐ **Wie viel von einem Erz liegt an einem Ort?** „Auf Daymar gibt es
+# Aluminium" beantwortet die Frage nur halb — entscheidend ist, ob jeder
+# zehnte Brocken Aluminium ist oder jeder hundertste. Die Zahl steckt in
+# denselben Bergbaudaten und kostet **keinen zusätzlichen Abruf**:
+#
+#     groups[].groupProbability          wie oft diese Gruppe überhaupt kommt
+#       deposits[].relativeProbability   Gewicht des Vorkommens in der Gruppe
+#         compositions[guid].parts[]
+#           probability · minPercent · maxPercent
+#
+# Das Gewicht eines Erzes an einem Ort ist also
+#
+#     groupProbability × (relativeProbability ÷ Summe der Gruppe)
+#                      × probability × Mittel(minPercent, maxPercent)
+#
+# und der Anteil dieses Gewichts an der Summe aller Erze am Ort ist die
+# **Konzentration**: Welcher Bruchteil der Brocken hier dieses Erz ist.
+#
+# ⚠ **Der Prozentsatz gehört in die Rechnung.** Ohne ihn (nur über
+# `probability`) kam für Beryl am Aaron Halo 12,7 % heraus; mit ihm 18,4 %.
+# Gegengerechnet gegen die Anzeige von strata.celd.space, die dieselben
+# scmdb-Daten auswertet: dort steht 18,0 % — die Restabweichung kommt daher,
+# dass celd den Halo in Segmente zerlegt und wir ihn als einen Ort führen.
+# Aslarite 13,9 zu 14,2 · Copper 9,0 zu 10,3. (Gemessen 08.09.2026.)
+#
+# ⚠ **Es ist ein Anteil, keine Fördermenge.** Ein kleiner Fleck, an dem fast
+# nur Titanium liegt, steht damit genauso gut da wie ein riesiges Feld mit
+# demselben Anteil. Wie groß der Ort ist, sagt die Zahl **nicht**.
+
+# Die sechs Stufen auf denselben Anteil — feste Bänder, keine Rangfolge unter
+# den Orten. Damit heißt „viel" an jedem Ort dasselbe. In Prozent, weil die
+# Stufe zu der Zahl passen muss, die danebensteht (siehe `stufe()`).
+#
+# ⚠ **Höher angesetzt als bei strata.celd.space** (dort 25/15/8/4/1). Die
+# rechnen über alles am Ort, wir je Abbauart — dadurch liegen unsere Anteile
+# durchweg höher, und mit ihren Schwellen stand auf Daymar siebenmal
+# „fast nur das" untereinander: 59, 48, 40, 35, 33, 31, 26 Prozent, alle
+# gleich benannt. Eine Stufe, die für fast jede Zeile dasselbe sagt, sagt
+# nichts. (Gemessen 08.09.2026 am fertigen Bild.)
+STUFEN = ((50, 6), (30, 5), (15, 4), (7, 3), (2, 2))
+
+
+def stufe(anteil):
+    """1 bis 6 — von „kaum etwas" bis „fast nur das".
+
+    ⚠ **Gerechnet wird auf der gerundeten Prozentzahl**, nicht auf dem
+    Rohwert. Sonst steht in der Liste zweimal „25 %" untereinander, einmal
+    mit „sehr viel" und einmal mit „viel" daneben — Titanium liegt am Yela-
+    Gürtel bei 0,2499 und an Lagrange E bei 0,2520. Wer das sieht, hält das
+    Programm für kaputt, und mit Recht: Was gleich aussieht, muss gleich
+    heißen.
+    """
+    prozent = round((anteil or 0.0) * 100)
+    for schwelle, wert in STUFEN:
+        if prozent >= schwelle:
+            return wert
+    return 1
+
+
+def _topf(art):
+    """Womit man hinfährt — `schiff_selten` ist derselbe Prospector."""
+    return 'schiff' if art.startswith('schiff') else art
+
+
+def _am_ort(ort, compositions):
+    """Was an einem Ort liegt — und zu welchem Anteil.
+
+    Gibt `(arten, anteile, je_geraet)`:
+
+    | Feld | Inhalt |
+    |---|---|
+    | `arten` | `{Erzname: {Abbauart, …}}` |
+    | `anteile` | `{Erzname: Anteil 0..1}` — der höchste über alle Geräte |
+    | `je_geraet` | `{Gerät: {Erzname: Anteil}}` — getrennt, wie gerechnet |
+
+    ⚠ **`je_geraet` ist die ehrliche Fassung.** Nur innerhalb eines Geräts
+    sind die Zahlen vergleichbar; `anteile` ist die Kurzform für Stellen, die
+    ohnehin nur eine Zahl je Zeile zeigen können.
+
+    ⚠⚠ **Je Abbauart getrennt gerechnet.** In einem Topf standen auf Daymar
+    34 % Aphorite über 4 % Quartz — und das ist für jeden falsch, der die
+    Zahl liest: Aphorite holt man mit dem Multi-Tool aus einer Höhle, Quartz
+    mit dem Prospector aus einem Felsen. Wer mit dem Schiff kommt, sieht die
+    Handabbau-Vorkommen nie. Deshalb wird je Topf (`fps`, `fahrzeug`,
+    `schiff`) auf 100 % normiert; die Zahl heißt damit „so viel von dem, was
+    du mit **diesem** Gerät hier abbaust".
+
+    Kommt ein Erz in mehreren Töpfen vor (Carinite: Hand und Fahrzeug), zählt
+    der höhere Anteil — sonst stünde an derselben Zeile zweimal etwas anderes.
+    """
+    arten, gewicht = {}, {}
     for g in ort.get('groups') or []:
         art = ARTEN.get(g.get('groupName'))
         if not art:
             continue
-        for d in g.get('deposits') or []:
+        # ⚠ Fehlt die Angabe, zählt die Gruppe voll — sonst fiele ein ganzer
+        # Ort auf 0 und stünde ohne Erze da.
+        gruppe = g.get('groupProbability')
+        gruppe = 1.0 if gruppe is None else gruppe
+        vorkommen = g.get('deposits') or []
+        # Die `relativeProbability` ist **relativ innerhalb der Gruppe** —
+        # erst durch die Summe geteilt wird daraus ein Anteil.
+        summe = sum(d.get('relativeProbability') or 0.0 for d in vorkommen)
+        for d in vorkommen:
             c = compositions.get(d.get('compositionGuid'))
             if not c:
                 continue
+            anteil_vorkommen = ((d.get('relativeProbability') or 0.0) / summe
+                                if summe else 1.0 / max(len(vorkommen), 1))
             for teil in c.get('parts') or []:
                 name = teil.get('elementName')
-                if name:
-                    raus.setdefault(name, set()).add(art)
-    return raus
+                if not name:
+                    continue
+                arten.setdefault(name, set()).add(art)
+                mitte = ((teil.get('minPercent') or 0.0)
+                         + (teil.get('maxPercent') or 0.0)) / 2.0
+                wahrscheinlich = teil.get('probability')
+                wahrscheinlich = (1.0 if wahrscheinlich is None
+                                  else wahrscheinlich)
+                schluessel = (_topf(art), name)
+                gewicht[schluessel] = (gewicht.get(schluessel, 0.0)
+                                       + gruppe * anteil_vorkommen
+                                       * wahrscheinlich * mitte)
+    # Je Topf auf 100 % normieren, dann je Erz den höheren Wert behalten.
+    summen = {}
+    for (topf, _n), w in gewicht.items():
+        summen[topf] = summen.get(topf, 0.0) + w
+    anteile = {n: 0.0 for n in arten}
+    je_geraet = {}
+    for (topf, name), w in gewicht.items():
+        gesamt = summen.get(topf) or 0.0
+        wert = w / gesamt if gesamt else 0.0
+        je_geraet.setdefault(topf, {})[name] = wert
+        anteile[name] = max(anteile.get(name, 0.0), wert)
+    return arten, anteile, je_geraet
+
+
+def _erze_am_ort(ort, compositions):
+    """{Erzname: {Abbauart, …}} für einen Ort."""
+    return _am_ort(ort, compositions)[0]
 
 
 def orte():
-    """Alle Orte mit Erzen: [{name, system, typ, erze:{name:{art}}}]."""
+    """Alle Orte mit Erzen.
+
+    `[{name, system, typ, erze:{name:{art}}, anteile:{name:(Anteil, Stufe)}}]`
+
+    ⚠ `anteile` steht **neben** `erze`, nicht darin: An `erze` hängen der
+    Selbsttest und die Lager-Abbauart, und beides soll von der Konzentration
+    nichts wissen müssen.
+    """
     daten = laden()
     comp = daten.get('compositions') or {}
     raus = []
     for o in daten.get('locations') or []:
-        erze = _erze_am_ort(o, comp)
+        erze, anteile, je_geraet = _am_ort(o, comp)
         if not erze:
             continue
         raus.append({'name': o.get('locationName') or '?',
                      'system': o.get('system') or '',
                      'typ': o.get('locationType') or '',
-                     'erze': erze})
+                     'erze': erze,
+                     'anteile': {n: (a, stufe(a))
+                                 for n, a in anteile.items()},
+                     'je_geraet': {g: {n: (a, stufe(a)) for n, a in werte.items()}
+                                   for g, werte in je_geraet.items()}})
     raus.sort(key=lambda x: x['name'].lower())
     return raus
 
@@ -228,12 +364,37 @@ def abbauart(name):
 
 
 def erze():
-    """Alle Erze: [{name, orte:[(Ort, System, {Art})]}] — die Gegenrichtung."""
+    """Alle Erze: `[{name, orte:[(Ort, System, {Art}, Anteil, Stufe)]}]`.
+
+    Die Gegenrichtung zu `orte()`.
+
+    ⚠ **Die Fundorte stehen nach Konzentration, nicht alphabetisch.** Wer
+    fragt „wo hole ich Titanium?", will den ergiebigsten Ort zuerst sehen —
+    eine alphabetische Liste beantwortet die Frage nicht, sie zeigt nur alle.
+
+    ⚠ Die beiden hinteren Felder kamen später dazu. Wer die Liste auswertet,
+    entpackt sie deshalb nachgiebig (`eintrag[3] if len(eintrag) > 3`) —
+    `abbauart()` unten macht es genauso.
+    """
     sammlung = {}
     for o in orte():
+        je_geraet = o.get('je_geraet') or {}
         for name, arten in o['erze'].items():
-            sammlung.setdefault(name, []).append((o['name'], o['system'], arten))
-    raus = [{'name': n, 'orte': sorted(v)} for n, v in sammlung.items()]
+            anteil, hoehe = (o.get('anteile') or {}).get(name, (0.0, 1))
+            # Sechstes Feld: je Gerät `(Anteil, Stufe, wie viele Erze dieses
+            # Gerät hier überhaupt findet)`. Die letzte Zahl trägt die
+            # Aussage „das ist hier das einzige" — siehe `orte()`.
+            fein = {}
+            for geraet, werte in je_geraet.items():
+                if name in werte:
+                    fein[geraet] = werte[name] + (len(werte),)
+            sammlung.setdefault(name, []).append(
+                (o['name'], o['system'], arten, anteil, hoehe, fein))
+    # ⚠ **Kein blankes `sorted()`.** Sobald zwei Einträge in Ort und System
+    # übereinstimmen, verglich Python die Mengen dahinter — und Mengen haben
+    # keine Reihenfolge. Deshalb ausdrücklich nur über die Zahlen sortieren.
+    raus = [{'name': n, 'orte': sorted(v, key=lambda x: (-x[3], x[0].lower()))}
+            for n, v in sammlung.items()]
     raus.sort(key=lambda x: x['name'].lower())
     return raus
 

@@ -15526,6 +15526,80 @@ def main():
             os.environ['SC_BP_HOME'] = _alt173
         shutil.rmtree(_heim173, ignore_errors=True)
 
+    # ---------------------------------------------------------------- 174
+    print('\n174. Wie viel von einem Erz an einem Ort liegt')
+    from scbp import bergbau as _bg174
+
+    # --- Die sechs Stufen ------------------------------------------------
+    pruefe(_bg174.stufe(0.62) == 6 and _bg174.stufe(0.31) == 5
+           and _bg174.stufe(0.18) == 4 and _bg174.stufe(0.09) == 3
+           and _bg174.stufe(0.03) == 2 and _bg174.stufe(0.004) == 1,
+           'jede der sechs Stufen wird getroffen')
+    # ⚠⚠ **Die Stufe haengt an der GERUNDETEN Prozentzahl.** Sonst stehen
+    # zwei Zeilen mit derselben Zahl da und heissen verschieden — genau der
+    # Fall Titanium: Yela-Guertel 0,2499, Lagrange E 0,2520, beide „25 %".
+    pruefe(_bg174.stufe(0.2951) == _bg174.stufe(0.3004),
+           'was gleich angezeigt wird, bekommt dieselbe Stufe')
+
+    # --- Je Geraet getrennt, auf 100 % ------------------------------------
+    _erfunden174 = {
+        'locationName': 'Testmond', 'system': 'Test', 'locationType': 'moon',
+        'groups': [
+            {'groupName': 'SpaceShip_Mineables', 'groupProbability': 1.0,
+             'deposits': [{'relativeProbability': 1.0, 'compositionGuid': 'a'},
+                          {'relativeProbability': 3.0, 'compositionGuid': 'b'}]},
+            # Das Fahrzeug findet hier nur ein einziges Mineral.
+            {'groupName': 'GroundVehicle_Mineables', 'groupProbability': 1.0,
+             'deposits': [{'relativeProbability': 1.0, 'compositionGuid': 'c'}]},
+            # ⚠ Wracks stehen in derselben Liste und duerfen NICHT mitzaehlen.
+            {'groupName': 'Salvage_BrokenShips_Poor', 'groupProbability': 1.0,
+             'deposits': [{'relativeProbability': 9.0, 'compositionGuid': 'a'}]},
+        ]}
+    _teile174 = {
+        'a': {'parts': [{'elementName': 'Selten', 'probability': 1.0,
+                         'minPercent': 100.0, 'maxPercent': 100.0}]},
+        'b': {'parts': [{'elementName': 'Haeufig', 'probability': 1.0,
+                         'minPercent': 100.0, 'maxPercent': 100.0}]},
+        'c': {'parts': [{'elementName': 'Nur mit ROC', 'probability': 1.0,
+                         'minPercent': 100.0, 'maxPercent': 100.0}]},
+    }
+    _arten174, _anteile174, _je174 = _bg174._am_ort(_erfunden174, _teile174)
+
+    pruefe(set(_arten174) == {'Selten', 'Haeufig', 'Nur mit ROC'},
+           'Wrackgruppen zaehlen nicht als Erz')
+    pruefe(abs(_anteile174['Haeufig'] - 0.75) < 0.001
+           and abs(_anteile174['Selten'] - 0.25) < 0.001,
+           'drei zu eins im Schiffs-Topf ergeben 75 zu 25 Prozent')
+    # ⚠⚠ **Der Kern der Sache.** Wuerde ueber alle Geraete zusammen gerechnet,
+    # stuenden hier 50/16,7/33,3 — und „34 % Aphorite" auf Daymar waere fuer
+    # jeden falsch, der mit dem Prospector kommt.
+    pruefe(abs(_anteile174['Nur mit ROC'] - 1.0) < 0.001,
+           'das einzige Fahrzeug-Erz steht bei 100 %, nicht bei einem Drittel')
+    pruefe(abs(sum(_je174['schiff'].values()) - 1.0) < 0.001
+           and abs(sum(_je174['fahrzeug'].values()) - 1.0) < 0.001,
+           'jeder Topf fuer sich summiert sich auf 100 %')
+    pruefe(len(_je174['fahrzeug']) == 1,
+           'und die Anzahl im Topf traegt das „hier das einzige"')
+
+    # --- Und dasselbe am echten Datenstand --------------------------------
+    _orte174 = _bg174.orte()
+    if not _orte174:
+        print('  [–]    keine Bergbaudaten vorhanden — uebersprungen')
+    else:
+        _mit174 = [o for o in _orte174 if o.get('je_geraet')]
+        pruefe(len(_mit174) == len(_orte174),
+               'jeder Ort bringt seine Anteile je Geraet mit')
+        _summen174 = [round(sum(w[0] for w in werte.values()), 3)
+                      for o in _orte174 for werte in o['je_geraet'].values()]
+        pruefe(all(abs(s - 1.0) < 0.01 for s in _summen174),
+               'auch echt gerechnet ergibt jeder Topf 100 %')
+        # Die Fundorte eines Erzes stehen nach Konzentration, nicht von A–Z.
+        _erze174 = [e for e in _bg174.erze() if len(e['orte']) > 2]
+        pruefe(bool(_erze174) and all(
+            all(a['orte'][i][3] >= a['orte'][i + 1][3] - 0.0001
+                for i in range(len(a['orte']) - 1)) for a in _erze174[:20]),
+               'die Fundorte stehen mit dem ergiebigsten zuerst')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

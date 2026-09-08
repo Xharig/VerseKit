@@ -4130,6 +4130,28 @@ TEXTE = {
     's_bg_art_schiff':   ('Schiff', 'Ship'),
     's_bg_art_schiff_selten': ('Schiff (selten)', 'Ship (rare)'),
     's_bg_art_fahrzeug': ('Fahrzeug', 'Vehicle'),
+    # Wie viel von dem, was hier liegt, dieses Erz ist. Die sechs Stufen
+    # stehen in `bergbau.STUFEN`; die Worte sollen ohne die Zahl daneben
+    # verständlich sein.
+    's_bg_anteil':       ('%d %%', '%d %%'),
+    's_bg_anteil_wenig': ('< 1 %', '< 1 %'),
+    's_bg_alle_geraete': ('Womit?', 'With what?'),
+    # ⚠ Steht statt „100 % · fast nur das", wo das Gerät an diesem Ort nur
+    # dieses eine Erz findet — die Prozentzahl wäre dort keine Aussage.
+    's_bg_einziges':     ('hier das einzige', 'the only one here'),
+    's_bg_st_1':         ('kaum etwas', 'barely any'),
+    's_bg_st_2':         ('eine Spur', 'a trace'),
+    's_bg_st_3':         ('etwas', 'some'),
+    's_bg_st_4':         ('ordentlich', 'a good share'),
+    's_bg_st_5':         ('viel', 'lots'),
+    's_bg_st_6':         ('fast nur das', 'almost all of it'),
+    's_bg_anteil_hilfe': ('Der Prozentwert sagt, wie viel von dem, was du hier '
+                          'mit diesem Gerät abbaust, dieses Erz ist — nicht, wie '
+                          'groß der Ort ist. Handabbau, Fahrzeug und Schiff '
+                          'werden getrennt gerechnet.',
+                          'The percentage says how much of what you mine here '
+                          'with that gear is this ore — not how big the location '
+                          'is. Hand, vehicle and ship mining count separately.'),
     's_bg_mehr_info':    ('Genauer — mit Wahrscheinlichkeiten und Refinery-'
                           'Vergleich — auf scmdb.net',
                           'More detail — probabilities and refinery comparison — '

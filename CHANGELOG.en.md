@@ -6,6 +6,38 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.27.0 - 2026-09-08
+
+> **Mining now tells you how much of an ore sits at a location.** Until now it
+> only said that the ore occurs there — whether every tenth rock is titanium or
+> every hundredth was something you had to look up elsewhere.
+
+### Added
+
+- **Concentration and grade at every location.** Next to each ore you now see
+  what share of the rocks there is that ore — as a percentage and in plain
+  words, from "barely any" to "almost all of it". The lists are ordered by
+  richness instead of alphabetically: looking for titanium shows the best spot
+  first.
+- **A "With what?" selector** — ship, vehicle or hand mining. It filters the
+  whole page down to what you can actually mine with that gear.
+
+### Improved
+
+- **A location lists its ores separately per gear.** Each of the three mining
+  types is calculated to 100 % on its own — comparing across them would be
+  meaningless, since a Prospector never sees what lies in the caves.
+- **Where a gear finds only a single ore at a location**, it now says "the only
+  one here" instead of "100 %". The number would not be information there, only
+  a statement about the length of the list.
+
+### Notes
+
+- The figures come from the same scmdb.net mining data the watcher already
+  downloads — **no extra request and no new data source.**
+- The percentage is a **share, not an amount**: it says how often you run into
+  this ore here, not how large the deposit is overall.
+
 ## v3.26.2 - 2026-09-08
 
 > **The top list shows tradeable goods again.** Two event gifts sat at the very

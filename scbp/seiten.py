@@ -8964,6 +8964,53 @@ def _art_text(arten):
     return ' · '.join(t('s_bg_art_' + a) for a in reihenfolge if a in arten)
 
 
+def _hat_geraet(erz, geraet):
+    """Lässt sich dieses Erz mit dem gewählten Gerät abbauen?"""
+    from .bergbau import _topf
+    for eintrag in erz.get('orte') or []:
+        for art in (eintrag[2] if len(eintrag) > 2 else ()):
+            if _topf(art) == geraet:
+                return True
+    return False
+
+
+def _berg_anteil(fenster, zeile, anteil, stufe, grund, allein=False):
+    """Rechts an eine Bergbau-Zeile: „18 % · viel".
+
+    ⚠ **Erst die Abbauart packen, dann das hier** — bei `side='right'` sitzt
+    das zuerst Gepackte ganz aussen. Andersherum stünde die Prozentzahl mal
+    links und mal rechts von der Art, je nachdem welche Zeile man ansieht.
+
+    Ohne Anteil (alte Ablage, Erz ohne Zusammensetzung) bleibt die Zeile leer
+    statt „0 %" — eine Null ist eine Aussage, und die hätten wir nicht.
+    """
+    if not anteil:
+        return
+    # ⚠⚠ **„100 % · fast nur das" ist an 11 von 26 Fahrzeug-Orten keine
+    # Aussage, sondern ein Rechenartefakt**: Dort kennt der ROC schlicht nur
+    # dieses eine Mineral, also sind es zwangsläufig 100 %. Die Zahl klingt
+    # nach einem Spitzenfundort und ist doch nur eine Feststellung über die
+    # Länge der Liste. Deshalb steht dort, was wirklich gemeint ist.
+    if allein:
+        tk.Label(zeile, text=t('s_bg_einziges'), bg=grund, fg=SUB,
+                 font=fenster.f_klein, anchor='e').pack(side='right',
+                                                        padx=(6, 12))
+        return
+    # Die Stufe färbt mit: Was sich lohnt, soll man sehen, ohne zu rechnen.
+    farbe = ACCENT if stufe >= 5 else FG if stufe >= 3 else SUB
+    # ⚠ **Unter einem halben Prozent steht „<1 %", nicht „0 %".** Eine Null
+    # neben einem Erz, das in der Liste steht, liest sich wie „gibt es hier
+    # nicht" — und dann stimmt die Zeile darüber nicht mehr mit sich selbst
+    # überein. Genau so stand Beryl auf Daymar da (0,4 %).
+    prozent = round(anteil * 100)
+    text = (t('s_bg_anteil_wenig') if prozent < 1
+            else t('s_bg_anteil') % prozent)
+    tk.Label(zeile, text=t('s_bg_st_%d' % stufe), bg=grund, fg=SUB,
+             font=fenster.f_klein, anchor='e').pack(side='right', padx=(6, 12))
+    tk.Label(zeile, text=text, bg=grund,
+             fg=farbe, font=fenster.f_grund, anchor='e').pack(side='right')
+
+
 def _bergung(fenster, rahmen):
     """Was in einem Wrack steckt — und ob sich das Aussteigen lohnt.
 
@@ -9244,6 +9291,10 @@ def _bergbau(fenster, rahmen):
     kopf.pack(fill='x', pady=(0, 10))
     tk.Label(kopf, text=t('s_bg_orte') % (len(orte), len(erze)), bg=BG, fg=SUB,
              font=fenster.f_klein, anchor='w').pack(fill='x')
+    # ⚠ Ein Satz, kein Absatz. Die Prozentzahl in den Zeilen ist ein **Anteil**
+    # und keine Menge — ohne diesen Hinweis liest sie jeder als „so viel liegt
+    # hier", und dann ist ein winziger Fleck plötzlich die beste Adresse.
+    _fliesstext(kopf, t('s_bg_anteil_hilfe'), fenster.f_klein, fill='x')
 
     from .hauptfenster import rundes_feld
     # Der Sprung aus einem Rezept setzt hier den Rohstoff hinein.
@@ -9259,12 +9310,23 @@ def _bergbau(fenster, rahmen):
     # möglich — aber wer die 38 Rohstoffe oder 48 Orte nicht auswendig kann,
     # soll sie aufklappen können, statt zu raten. „egal wo, sollte das
     # Bedienkonzept nicht jedes Mal ändern." (29.08.2026)
-    berg_wahl = {'erz': '', 'ort': ''}
+    berg_wahl = {'erz': '', 'ort': '', 'geraet': ''}
+    # Was zuletzt über Erz oder Ort ins Suchfeld geschrieben wurde. Ohne das
+    # löschte ein Wechsel des Geräte-Feldes die getippte Suche mit.
+    berg_letzte = {'wert': ''}
 
     def berg_gewechselt():
-        # Die Auswahl schreibt in dasselbe Suchfeld — es gibt nur **einen**
+        # Erz und Ort schreiben in dasselbe Suchfeld — es gibt nur **einen**
         # Filter, nicht zwei, die sich gegenseitig widersprechen könnten.
-        suche_var.set(berg_wahl['erz'] or berg_wahl['ort'] or '')
+        neu = berg_wahl['erz'] or berg_wahl['ort'] or ''
+        if neu != berg_letzte['wert']:
+            berg_letzte['wert'] = neu
+            suche_var.set(neu)   # zeichnet über `trace_add` von selbst neu
+            return
+        # ⚠ **Das Gerät ist kein Suchbegriff, sondern ein zweiter Filter.**
+        # Es steht neben der Suche, nicht darin — deshalb hier nur neu
+        # zeichnen, statt das Feld zu überschreiben.
+        zeichnen()
 
     # ⚠ `erze()` und `orte()` liefern **Objekte**, keine Namen — mit ihnen
     # direkt bestückt bliebe das Feld leer.
@@ -9272,9 +9334,19 @@ def _bergbau(fenster, rahmen):
                        key=str.lower)
     _ortnamen = sorted({(o_.get('name') or '') for o_ in orte} - {''},
                        key=str.lower)
+    # ⭐ **„Womit farmst du?"** — der Filter, der die Prozentzahlen erst
+    # ehrlich macht. Handabbau, Fahrzeug und Schiff werden getrennt gerechnet;
+    # untereinander gemischt behauptet die Sortierung eine Vergleichbarkeit,
+    # die es nicht gibt (59 % Aphorite mit dem Multi-Tool sagen nichts über
+    # 33 % Silicon mit dem Prospector). Wer sein Gerät wählt, sieht nur noch
+    # Zahlen, die zueinander passen.
+    _geraete = [('schiff', t('s_bg_art_schiff')),
+                ('fahrzeug', t('s_bg_art_fahrzeug')),
+                ('fps', t('s_bg_art_fps'))]
     _filterleiste(fenster, innen,
                   [('erz', t('s_bg_alle_erze'), [(x, x) for x in _erznamen]),
-                   ('ort', t('s_bg_alle_orte'), [(x, x) for x in _ortnamen])],
+                   ('ort', t('s_bg_alle_orte'), [(x, x) for x in _ortnamen]),
+                   ('geraet', t('s_bg_alle_geraete'), _geraete)],
                   berg_gewechselt, berg_wahl)
     # Beim erneuten Aufrufen des Reiters wieder leer — die Seite wird nur
     # ein- und ausgeblendet, nicht neu gebaut.
@@ -9354,9 +9426,12 @@ def _bergbau(fenster, rahmen):
         # gesucht wird aber mit „wo finde ich Titanium?". Am 29.08.2026:
         # „in der Liste sollten auch nicht die Orte, sondern erst das Mineral
         # stehen, da sucht man als Erstes nach."
+        geraet = berg_wahl['geraet']
         for e in erze:
+            if geraet and not _hat_geraet(e, geraet):
+                continue
             if not text or text in e['name'].lower():
-                _berg_erz(fenster, liste_rahmen, e, offen, zeichnen)
+                _berg_erz(fenster, liste_rahmen, e, offen, zeichnen, geraet)
         # Orte danach — sie beantworten die zweite Frage („was gibt es hier?").
         #
         # ⚠ **Ohne Eingabe stehen sie NICHT da** (07.09.2026). Vorher hingen
@@ -9369,9 +9444,12 @@ def _bergbau(fenster, rahmen):
         # `text` also und erscheint dadurch von selbst.
         if text:
             for o in orte:
+                if geraet and not (o.get('je_geraet') or {}).get(geraet):
+                    continue
                 if (text in o['name'].lower()
                         or text in (o['system'] or '').lower()):
-                    _berg_ort(fenster, liste_rahmen, o, offen, zeichnen)
+                    _berg_ort(fenster, liste_rahmen, o, offen, zeichnen,
+                              geraet)
 
         if not liste_rahmen.winfo_children():
             _fliesstext(liste_rahmen, t('s_he_nichts'), fenster.f_klein,
@@ -9395,8 +9473,14 @@ def _berg_kopfzeile(fenster, eltern, links, rechts, farbe, aufklappen):
     return zeile
 
 
-def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen):
-    """Ein Rohstoff — aufgeklappt stehen seine Fundorte darunter."""
+def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
+    """Ein Rohstoff — aufgeklappt stehen seine Fundorte darunter.
+
+    `geraet` ist die Wahl aus „Womit?" (`''` = alle). Sie entscheidet nicht
+    nur, welche Fundorte gezeigt werden, sondern auch **welche Prozentzahl**:
+    Ein Erz, das man sowohl mit der Hand als auch vom Fahrzeug bekommt, hat
+    je Gerät einen eigenen Anteil.
+    """
     schluessel = 'erz:' + erz['name']
 
     def umschalten(*_):
@@ -9408,14 +9492,40 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen):
     # und die ganze Liste blieb leer. Der Selbsttest sah es nicht, weil er die
     # Seite ohne Suchbegriff baut und dieser Zweig nie lief. Gefunden auf einem
     # Bildschirmfoto (29.08.2026). Jetzt ein eigener Textschlüssel.
+    # ⚠ Bei gewähltem Gerät zählt die Kopfzeile nur die Orte, die dann auch
+    # darunter stehen — sonst verspricht sie 18 Orte und zeigt drei.
+    from .bergbau import _topf
+    fundorte = [e for e in erz['orte']
+                if not geraet
+                or any(_topf(a) == geraet for a in (e[2] if len(e) > 2 else ()))]
     _berg_kopfzeile(fenster, eltern, erz['name'],
-                    t('s_bg_nur_orte') % len(erz['orte']),
+                    t('s_bg_nur_orte') % len(fundorte),
                     ACCENT, umschalten)
     if offen['name'] != schluessel:
         return
     block = tk.Frame(eltern, bg='#0c1017')
     block.pack(fill='x', padx=(24, 0), pady=(2, 8))
-    for ort, system, arten in erz['orte']:
+    # Mit Gerätewahl gilt dessen eigener Anteil — und damit auch dessen
+    # Reihenfolge. Ohne Wahl bleibt es bei der aus `bergbau.erze()`.
+    if geraet:
+        fundorte.sort(key=lambda e: (-((e[5] or {}).get(geraet, (0.0,))[0]
+                                       if len(e) > 5 else 0.0),
+                                     e[0].lower()))
+    for eintrag in fundorte:
+        ort, system, arten = eintrag[0], eintrag[1], eintrag[2]
+        # ⚠ Nachgiebig: Ablagen und Selbsttest-Listen von vor v3.27 haben nur
+        # drei Felder je Fundort.
+        anteil = eintrag[3] if len(eintrag) > 3 else 0.0
+        stufe = eintrag[4] if len(eintrag) > 4 else 1
+        allein = False
+        fein = (eintrag[5] if len(eintrag) > 5 else None) or {}
+        if geraet and geraet in fein:
+            anteil, stufe, wieviele = fein[geraet]
+            allein = wieviele <= 1
+        elif len(fein) == 1:
+            # Ohne Gerätewahl: Steht das Erz an diesem Ort für sein Gerät
+            # allein da, gilt derselbe Hinweis.
+            allein = list(fein.values())[0][2] <= 1
         z = tk.Frame(block, bg='#0c1017')
         z.pack(fill='x', padx=12, pady=1)
         tk.Label(z, text=ort, bg='#0c1017', fg=FG, font=fenster.f_grund,
@@ -9424,6 +9534,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen):
                  anchor='w').pack(side='left', padx=(10, 0))
         tk.Label(z, text=_art_text(arten), bg='#0c1017', fg=SUB,
                  font=fenster.f_klein, anchor='e').pack(side='right', padx=12)
+        _berg_anteil(fenster, z, anteil, stufe, '#0c1017', allein)
 
     # ⭐ **Wohin damit?** Die Frage nach dem Fundort ist nur die halbe. Zwanzig
     # Raffinerien teilen sich zehn Profile, und der Unterschied ist kein
@@ -9553,8 +9664,16 @@ def _methodenblock(fenster, eltern):
     zeichnen()
 
 
-def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen):
-    """Ein Ort — aufgeklappt steht darunter, was es dort gibt."""
+def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
+    """Ein Ort — aufgeklappt steht darunter, was es dort gibt.
+
+    ⚠⚠ **Nach Gerät gruppiert, nicht in einer Liste.** Vorher standen auf
+    Daymar „59 % Aphorite (FPS)", „48 % Beradom (Fahrzeug)" und „33 % Silicon
+    (Schiff)" untereinander, absteigend sortiert — und behaupteten damit, das
+    eine sei ergiebiger als das andere. Das ist falsch: Die drei Zahlen sind
+    je Gerät auf 100 % gerechnet, ein Vergleich über die Blöcke hinweg ergibt
+    keinen Sinn. Wer oben ein Gerät wählt, bekommt nur dessen Block.
+    """
     schluessel = 'ort:' + ort['name']
 
     def umschalten(*_):
@@ -9567,13 +9686,40 @@ def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen):
         return
     block = tk.Frame(eltern, bg='#0c1017')
     block.pack(fill='x', padx=(24, 0), pady=(2, 8))
-    for name in sorted(ort['erze']):
-        z = tk.Frame(block, bg='#0c1017')
-        z.pack(fill='x', padx=12, pady=1)
-        tk.Label(z, text=name, bg='#0c1017', fg=FG, font=fenster.f_grund,
-                 anchor='w').pack(side='left')
-        tk.Label(z, text=_art_text(ort['erze'][name]), bg='#0c1017', fg=SUB,
-                 font=fenster.f_klein, anchor='e').pack(side='right', padx=12)
+
+    je_geraet = ort.get('je_geraet') or {}
+    # Immer dieselbe Reihenfolge der Blöcke — Schiff zuerst, weil die meisten
+    # Orte damit angeflogen werden.
+    bloecke = [g for g in ('schiff', 'fahrzeug', 'fps')
+               if je_geraet.get(g) and (not geraet or g == geraet)]
+    if not bloecke:
+        return
+    for kennung in bloecke:
+        werte = je_geraet[kennung]
+        # Die Überschrift nur, wenn wirklich mehrere Blöcke dastehen — bei
+        # gewähltem Gerät sagt sie nichts, was oben nicht schon steht.
+        if len(bloecke) > 1:
+            tk.Label(block, text=t('s_bg_art_' + kennung), bg='#0c1017',
+                     fg=SUB, font=fenster.f_klein, anchor='w').pack(
+                         fill='x', padx=12, pady=(8, 2))
+        # ⚠ **Nach Konzentration, nicht alphabetisch.** „Was gibt es hier?"
+        # heisst in Wahrheit „was lohnt sich hier?" — eine Liste von A bis Z
+        # beantwortet das nicht. Bei gleichem Anteil entscheidet der Name,
+        # damit die Reihenfolge zwischen zwei Aufrufen dieselbe bleibt.
+        namen = sorted(werte, key=lambda n: (-werte[n][0], n.lower()))
+        for name in namen:
+            anteil, stufe = werte[name]
+            z = tk.Frame(block, bg='#0c1017')
+            z.pack(fill='x', padx=12, pady=1)
+            tk.Label(z, text=name, bg='#0c1017', fg=FG, font=fenster.f_grund,
+                     anchor='w').pack(side='left')
+            # ⚠ **Keine Art-Spalte hier.** Die Überschrift des Blocks sagt
+            # bereits „Fahrzeug"; daneben in jeder Zeile noch einmal
+            # „Fahrzeug" ist Rauschen — und bei einem Erz, das zu zwei Geräten
+            # gehört (Carinite), stünde in beiden Blöcken dasselbe Paar und
+            # damit zweimal etwas Falsches.
+            _berg_anteil(fenster, z, anteil, stufe, '#0c1017',
+                         len(werte) <= 1)
 
 
 # ------------------------------------------------------------------- Lager
