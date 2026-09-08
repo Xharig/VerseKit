@@ -10,32 +10,25 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 > **Der Bergbau sagt jetzt, wie viel von einem Erz an einem Ort liegt.** Bisher
 > stand dort nur, dass es vorkommt — ob jeder zehnte Brocken Titanium ist oder
-> jeder hundertste, musste man woanders nachschlagen.
+> jeder hundertste, musste man woanders nachschlagen. Die Angaben stecken in
+> denselben Bergbaudaten wie bisher; es wird nichts zusätzlich geladen.
 
 ### Neu
 
 - **Konzentration und Stufe an jedem Fundort.** Neben jedem Erz steht, welcher
-  Anteil der Brocken hier dieses Erz ist — als Prozentzahl und als Wort von
+  Anteil der Brocken dort dieses Erz ist — als Prozentzahl und als Wort von
   „kaum etwas" bis „fast nur das". Die Listen stehen damit nach Ergiebigkeit
   statt alphabetisch: Wer nach Titanium sucht, sieht den besten Ort zuerst.
 - **Auswahlfeld „Womit?"** — Schiff, Fahrzeug oder Handabbau. Es filtert die
-  ganze Seite auf das, was man mit diesem Gerät wirklich abbauen kann.
+  ganze Seite auf das, was mit diesem Gerät wirklich abzubauen ist.
 
 ### Verbessert
 
-- **Ein Ort zeigt seine Erze nach Gerät getrennt.** Die drei Abbauarten werden
-  je für sich auf 100 % gerechnet — ein Vergleich über sie hinweg ergäbe keinen
-  Sinn, weil man mit dem Prospector nie sieht, was in den Höhlen liegt.
-- **Wo ein Gerät an einem Ort nur ein einziges Erz findet**, steht „hier das
-  einzige" statt „100 %". Die Zahl wäre dort keine Auskunft, sondern nur eine
-  Feststellung über die Länge der Liste.
-
-### Hinweise
-
-- Die Angaben stammen aus denselben Bergbaudaten von scmdb.net, die der Watcher
-  ohnehin lädt — **kein zusätzlicher Abruf und keine neue Datenquelle.**
-- Die Prozentzahl ist ein **Anteil, keine Fördermenge**: Sie sagt, wie oft man
-  hier auf dieses Erz trifft, nicht wie groß das Vorkommen insgesamt ist.
+- **Ein Ort zeigt seine Erze nach Gerät getrennt**, jede Abbauart für sich auf
+  100 % gerechnet. Mit dem Prospector sieht man nie, was in den Höhlen liegt —
+  also stehen die Zahlen auch nicht nebeneinander.
+- **Findet ein Gerät an einem Ort nur ein einziges Erz**, steht dort „hier das
+  einzige" statt „100 %".
 
 ## v3.26.2 - 2026-09-08
 

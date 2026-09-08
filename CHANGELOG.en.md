@@ -10,7 +10,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 > **Mining now tells you how much of an ore sits at a location.** Until now it
 > only said that the ore occurs there — whether every tenth rock is titanium or
-> every hundredth was something you had to look up elsewhere.
+> every hundredth was something you had to look up elsewhere. The figures come
+> from the same mining data as before; nothing extra is downloaded.
 
 ### Added
 
@@ -24,19 +25,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
-- **A location lists its ores separately per gear.** Each of the three mining
-  types is calculated to 100 % on its own — comparing across them would be
-  meaningless, since a Prospector never sees what lies in the caves.
+- **A location lists its ores separately per gear**, each mining type worked
+  out to 100 % on its own. A Prospector never sees what lies in the caves — so
+  those numbers no longer stand side by side.
 - **Where a gear finds only a single ore at a location**, it now says "the only
-  one here" instead of "100 %". The number would not be information there, only
-  a statement about the length of the list.
-
-### Notes
-
-- The figures come from the same scmdb.net mining data the watcher already
-  downloads — **no extra request and no new data source.**
-- The percentage is a **share, not an amount**: it says how often you run into
-  this ore here, not how large the deposit is overall.
+  one here" instead of "100 %".
 
 ## v3.26.2 - 2026-09-08
 
