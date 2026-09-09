@@ -63,6 +63,7 @@ import time
 import urllib.request
 
 from . import angaben as angaben_modul
+from . import asop as asop_modul
 from . import fehler, bestand as bestand_datei
 from . import katalog as katalog_modul
 from . import pfade
@@ -713,6 +714,18 @@ def _namens_tabelle(zeilen, nur_entfernen=False):
         return {}
 
 
+def _asop_tabelle(zeilen):
+    """Tabelle *Fahrzeugschlüssel → (eigener Name, Stern)* — oder leer.
+
+    Eigene Fehler dürfen die Injektion nicht anhalten: Wer seine Schiffe nicht
+    umbenannt hat, soll trotzdem seine Bauplan-Angaben bekommen."""
+    try:
+        return asop_modul.tabelle_bauen(zeilen)
+    except Exception as ausnahme:
+        fehler.merken('injektion._asop_tabelle', ausnahme)
+        return {}
+
+
 def _name_mit_angabe(text, kuerzel):
     """Den Zusatz an einen Namen hängen — vorhandene Klammer vorher abschneiden.
 
@@ -1289,6 +1302,9 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
     urtext_neu = {}
     notnagel = _notnagel(urtext_alt, ini_pfad)
     namens_zusatz = _namens_tabelle(zeilen, nur_entfernen)
+    # Eigene Schiffsnamen im Fleet Manager. Beim reinen Entfernen bleibt die
+    # Tabelle leer — dann stellt der Urtext-Weg die Werksnamen wieder her.
+    eigene_schiffe = {} if nur_entfernen else _asop_tabelle(zeilen)
 
     # ⚠ Eine Mission hat im Spiel **mehr** Beschreibungen, als der Katalog
     # kennt. Gemessen am 28.08.2026: `Covalex_HaulCargo_SingleToMulti` führt
@@ -1328,7 +1344,15 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
             # Zurücksetzen wieder.
             grundlage, _fremd = _fremdblock_trennen(ur)
             angefasst = False
-            if schluessel in namens_zusatz:
+            if schluessel in eigene_schiffe:
+                # ⚠ `grundlage` ist der **zurückgesetzte** Werksname. Nur so
+                # bleibt ein zweiter Lauf folgenlos; mit dem Wert aus der
+                # laufenden Datei stünde beim nächsten Mal ein Stern vor dem
+                # Stern.
+                eigen, stern = eigene_schiffe[schluessel]
+                sauber = asop_modul.anzeigename(grundlage, eigen, stern)
+                angefasst = sauber != grundlage
+            elif schluessel in namens_zusatz:
                 sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
                 angefasst = True
             elif schluessel in titel_keys:

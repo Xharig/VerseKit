@@ -2118,6 +2118,11 @@ class Hauptfenster:
         # der beiden Reiter über ihr, nicht ein dritter Anfang.
         self._reiter('einkaufsliste', 'einkaufsliste',
                      t('hf_einkaufsliste'), g_schiff)
+        # ⚠ Danach, nicht davor: Namen vergeben ist Feinarbeit an dem, was man
+        # schon hat — die Kette „habe → will → kostet" bleibt vorn. Und es
+        # gehört in diese Gruppe, weil es Schiffe betrifft; eine eigene Gruppe
+        # für einen Reiter wäre keine Gliederung mehr.
+        self._reiter('asop', 'hangar', t('hf_asop'), g_schiff)
 
         g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
         self._reiter('lager', 'bestand', t('hf_lager'), g_werk)

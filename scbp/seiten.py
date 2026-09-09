@@ -124,6 +124,7 @@ def _bauer_tabelle():
         'diagnose':    _diagnose,
         'hangar':      _hangar,
         'wunschliste': _wunschliste,
+        'asop':        _asop,
         'einkaufsliste': _einkaufsliste,
         'farmliste':   _farmliste,
         'bergung':     _bergung,
@@ -10397,6 +10398,163 @@ def _wunschliste(fenster, rahmen):
     fenster.beim_zeigen['wunschliste'] = _beim_zeigen
     _steckplaetze_nachziehen(innen)
     _fuellen()
+
+
+def _asop(fenster, rahmen):
+    """Eigene Namen für die Schiffe im Fleet Manager (ASOP).
+
+    Im Abrufterminal stehen die Werksnamen. Wer drei Abwandlungen derselben
+    Reihe hat, sucht dort jedes Mal — und zwar in dem Moment, in dem er sich
+    entscheiden muss.
+
+    ⚠⚠ **Ein Name gehört zum Muster, nicht zum einzelnen Schiff.** Zwei
+    *gleiche* Hornets bekommen denselben Namen; das Spiel kennt an dieser
+    Stelle keinen Unterschied. Das steht auch auf der Seite, nicht nur hier —
+    wer es erst im Spiel merkt, hält das Werkzeug für kaputt.
+
+    ⚠ Die Liste kommt aus dem eigenen Hangar, nicht aus allen 655 Fahrzeugen
+    des Spiels. Niemand benennt ein Schiff um, das er nicht hat, und eine
+    Liste, die man erst durchsuchen muss, ist ein Bausatz.
+    """
+    from . import asop as asop_modul, hangar as meine, injektion
+
+    _ueberschrift(fenster, rahmen, t('hf_asop'), t('s_as_lead'))
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_as_grenze'), fenster.f_klein, fill='x', abzug=48)
+
+    daten = {'stand': asop_modul.laden()}
+    meldung = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                       anchor='w', justify='left')
+    liste = tk.Frame(innen, bg=BG)
+
+    def zeilen_der_ini():
+        """Die Zeilen der Sprachdatei, die das Spiel gerade lädt — oder nichts."""
+        try:
+            pfad, _sprachordner, _quelle = injektion.ini_datei()
+            if pfad and os.path.isfile(pfad):
+                with open(pfad, encoding='utf-8', errors='ignore') as f:
+                    return f.read().splitlines()
+        except Exception as ausnahme:
+            fehler.merken('seiten._asop.ini', ausnahme)
+        return []
+
+    def sichern():
+        if not asop_modul.speichern(daten['stand']):
+            meldung.configure(text=t('s_as_nicht_gespeichert'), fg=ROT)
+            return False
+        return True
+
+    def _fuellen():
+        for kind in liste.winfo_children():
+            kind.destroy()
+        zeilen = zeilen_der_ini()
+        tabelle = asop_modul.schluessel_lesen(zeilen) if zeilen else {}
+        if not tabelle:
+            # ⚠ Ehrlich statt leer: Ohne Sprachdatei gibt es nichts zu
+            # benennen, und das ist kein Fehler des Nutzers.
+            meldung.configure(text=t('s_as_keine_ini'), fg=SUB)
+            meldung.pack(fill='x', padx=24, pady=(8, 0))
+            return
+        schiffe = (meine.laden().get('schiffe') or [])
+        if not schiffe:
+            meldung.configure(text=t('s_as_kein_hangar'), fg=SUB)
+            meldung.pack(fill='x', padx=24, pady=(8, 0))
+            return
+        zuordnung = asop_modul.zuordnen(schiffe, tabelle)
+        ohne = [e for e in zuordnung if not e['schluessel']]
+        meldung.configure(
+            text=t('s_as_stand') % (len(zuordnung) - len(ohne), len(zuordnung)),
+            fg=SUB)
+        meldung.pack(fill='x', padx=24, pady=(8, 0))
+        liste.pack(fill='x', padx=24, pady=(10, 0))
+
+        for e in zuordnung:
+            _asop_zeile(fenster, liste, e, daten, asop_modul, sichern)
+        if ohne:
+            hinweis_lbl = tk.Label(
+                liste, text=t('s_as_ohne') % ', '.join(x['name'] for x in ohne),
+                bg=BG, fg=SUB, font=fenster.f_klein, anchor='w', justify='left')
+            hinweis_lbl.pack(fill='x', pady=(10, 0))
+            _umbruch(hinweis_lbl, abzug=48)
+
+    def einspielen():
+        """Die Namen in die Sprachdatei schreiben — über den üblichen Weg."""
+        meldung.configure(text=t('s_as_laeuft'), fg=SUB)
+        meldung.update_idletasks()
+        try:
+            pfad, sprachordner, _quelle = injektion.ini_datei()
+            if not pfad:
+                meldung.configure(text=t('s_as_keine_ini'), fg=ROT)
+                return
+            ok, anzahl, text = injektion.aktualisieren(pfad, sprachordner)
+        except Exception as ausnahme:
+            fehler.merken('seiten._asop.einspielen', ausnahme)
+            ok, anzahl, text = False, 0, str(ausnahme)
+        meldung.configure(text=(t('s_as_fertig') % text) if ok
+                          else (t('s_as_schief') % text),
+                          fg=SUB if ok else ROT)
+
+    fuss = tk.Frame(innen, bg=BG)
+    fuss.pack(fill='x', padx=24, pady=(16, 0))
+    _knopf(fenster, fuss, t('s_as_einspielen'), einspielen, stark=True).pack(side='left')
+    _fliesstext(innen, t('s_as_patch_hinweis'), fenster.f_klein, fill='x',
+                abzug=48, pady=(10, 0))
+
+    fenster.beim_zeigen['asop'] = _fuellen
+    _fuellen()
+
+
+def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
+    """Eine Schiffszeile: Werksname, Eingabefeld, Stern.
+
+    ⚠ Die Reihenfolge ist überall dieselbe — Beschriftung links, Bedienelement
+    rechts. Ein Schalter, der auf einer Seite mittig steht und auf der nächsten
+    rechts, sieht nach Zufall aus.
+    """
+    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten.pack(fill='x', pady=(0, 6))
+
+    kopf = tk.Frame(kasten, bg=FLAECHE)
+    kopf.pack(fill='x', padx=12, pady=(8, 2))
+    tk.Label(kopf, text=e['name'], bg=FLAECHE, fg=FG, font=fenster.f_fett,
+             anchor='w').pack(side='left')
+    if e['werksname']:
+        tk.Label(kopf, text=e['werksname'], bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(side='left', padx=(10, 0))
+
+    if not e['schluessel']:
+        tk.Label(kasten, text=t('s_as_zeile_ohne'), bg=FLAECHE, fg=SUB,
+                 font=fenster.f_klein, anchor='w').pack(fill='x', padx=12,
+                                                        pady=(0, 8))
+        return
+
+    eigen, stern = asop_modul.eintrag(daten['stand'], e['schluessel'])
+    wert = tk.StringVar(value=eigen)
+    stern_an = tk.BooleanVar(value=stern)
+
+    reihe = tk.Frame(kasten, bg=FLAECHE)
+    reihe.pack(fill='x', padx=12, pady=(0, 10))
+
+    from .hauptfenster import rundes_feld
+    feld = rundes_feld(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
+    feld.halter.pack(side='left', fill='x', expand=True)
+
+    haken = tk.Checkbutton(
+        reihe, text=t('s_as_stern'), variable=stern_an, bg=FLAECHE, fg=SUB,
+        selectcolor=FLAECHE, activebackground=FLAECHE, activeforeground=FG,
+        font=fenster.f_klein, bd=0, highlightthickness=0, cursor='hand2')
+    haken.pack(side='right', padx=(10, 0))
+
+    def uebernehmen(*_):
+        asop_modul.setzen(daten['stand'], e['schluessel'], wert.get(),
+                          stern_an.get())
+        sichern()
+
+    # ⚠ Beim Verlassen des Feldes sichern, nicht bei jedem Tastendruck: Sonst
+    # schreibt das Werkzeug bei „Mamba-Leitschiff" siebzehn Dateien.
+    feld.bind('<FocusOut>', uebernehmen)
+    feld.bind('<Return>', uebernehmen)
+    haken.configure(command=uebernehmen)
 
 
 def _einkaufsliste(fenster, rahmen):

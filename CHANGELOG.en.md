@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Rename ships** — in the *Ships* group. Give your ships your own names and
+  that is how they appear at the retrieval terminal (ASOP) instead of the
+  factory name. A star in front marks one without renaming it. The list comes
+  from your hangar; writing goes through the same path as the blueprint
+  details, and "Remove again" restores the factory names character for
+  character.
+  ⚠ A name belongs to the model, not to the individual ship: two identical
+  Hornets get the same name. Variants can be told apart.
+  Suggested by Zwaersch (KRT)
+
 ### Fixed
 
 - **The "Thanks & licences" page showed asterisks in the middle of the text.**

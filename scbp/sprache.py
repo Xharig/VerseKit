@@ -4231,6 +4231,62 @@ TEXTE = {
     'hf_gruppe_schiffe': ('Schiffe', 'Ships'),
     'hf_gruppe_herst':   ('Werkstatt', 'Workshop'),
     'hf_hangar':         ('Mein Hangar', 'My hangar'),
+    # --- Eigene Schiffsnamen im Fleet Manager (ASOP) ---
+    # ⚠ „ASOP" steht bewusst NICHT im Reiternamen: Das Kuerzel kennt nur, wer
+    # es schon kennt. Im Spiel heisst das Terminal so, im Werkzeug heisst es,
+    # was es tut.
+    'hf_asop':           ('Schiffe benennen', 'Rename ships'),
+    's_as_lead':         ('Gib deinen Schiffen eigene Namen — so stehen sie im '
+                          'Abrufterminal (ASOP), statt mit dem Werksnamen.',
+                          'Give your ships your own names — that is how they '
+                          'appear at the retrieval terminal (ASOP), instead of '
+                          'the factory name.'),
+    # ⚠⚠ Diese Grenze gehoert auf die Seite, nicht in eine Notiz. Wer sie erst
+    # im Spiel bemerkt, haelt das Werkzeug fuer kaputt.
+    's_as_grenze':       ('Ein Name gehört zum Muster, nicht zum einzelnen '
+                          'Schiff: Zwei gleiche Hornets bekommen denselben '
+                          'Namen. Abwandlungen lassen sich unterscheiden — '
+                          'F7C, F7C-M, Mk I und Mk II sind für das Spiel '
+                          'verschiedene Muster.',
+                          'A name belongs to the model, not to the individual '
+                          'ship: two identical Hornets get the same name. '
+                          'Variants can be told apart — F7C, F7C-M, Mk I and '
+                          'Mk II are different models to the game.'),
+    's_as_stern':        ('Sternchen davor', 'Star in front'),
+    's_as_stand':        ('%d von %d Schiffen lassen sich benennen.',
+                          '%d of %d ships can be renamed.'),
+    's_as_ohne':         ('Ohne Zuordnung: %s — diese Schiffe stehen unter '
+                          'diesem Namen nicht in der Sprachdatei. Das trifft '
+                          'vor allem angekündigte Schiffe, die es im Spiel noch '
+                          'nicht gibt.',
+                          'No match: %s — these ships are not in the language '
+                          'file under this name. That mostly affects announced '
+                          'ships that are not in the game yet.'),
+    's_as_zeile_ohne':   ('In der Sprachdatei nicht gefunden.',
+                          'Not found in the language file.'),
+    's_as_kein_hangar':  ('Dein Hangar ist leer. Trag deine Schiffe unter '
+                          '„Mein Hangar" ein, dann stehen sie hier.',
+                          'Your hangar is empty. Add your ships under "My '
+                          'hangar" and they will show up here.'),
+    's_as_keine_ini':    ('Es ist keine Sprachdatei eingerichtet. Das geht '
+                          'unter Einstellungen → Texte im Spiel.',
+                          'No language file is set up. You can do that under '
+                          'Settings → In-game text.'),
+    's_as_einspielen':   ('Namen ins Spiel schreiben', 'Write names to the game'),
+    's_as_laeuft':       ('Wird geschrieben …', 'Writing …'),
+    's_as_fertig':       ('Geschrieben: %s', 'Written: %s'),
+    's_as_schief':       ('Hat nicht geklappt: %s', 'Did not work: %s'),
+    's_as_nicht_gespeichert': ('Der Name ließ sich nicht speichern.',
+                               'The name could not be saved.'),
+    # ⚠ Derselbe Hinweis steht auf „Texte im Spiel". Er gehoert trotzdem auch
+    # hierher: Wer nur diese Seite benutzt, liest die andere nie.
+    's_as_patch_hinweis': ('Nach jedem Spiel-Patch neu einspielen — ein Patch '
+                           'schreibt die Sprachdatei neu. „Selbst aktuell '
+                           'halten" auf der Seite „Texte im Spiel" nimmt dir '
+                           'das ab.',
+                           'Write again after each game patch — a patch '
+                           'rewrites the language file. "Keep up to date" on '
+                           'the "In-game text" page does that for you.'),
     'hf_wunschliste':    ('Wunschliste', 'Wishlist'),
     # ⚠ **Nicht „Einkaufsliste".** Der Reiter führt beide Wege — kaufen UND
     # selbst herstellen. Am 06.09.2026 dazu: „Einkaufsliste trifft ja nicht zu,

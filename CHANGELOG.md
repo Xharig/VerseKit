@@ -8,6 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Schiffe benennen** — eigene Gruppe *Schiffe*. Gib deinen Schiffen eigene
+  Namen, dann stehen sie so im Abrufterminal (ASOP) statt mit dem Werksnamen.
+  Ein Sternchen davor markiert eines, ohne es umzutaufen. Die Liste kommt aus
+  deinem Hangar; geschrieben wird über denselben Weg wie die Bauplan-Angaben,
+  und „Wieder entfernen" holt die Werksnamen zeichengenau zurück.
+  ⚠ Ein Name gehört zum Muster, nicht zum einzelnen Schiff: Zwei gleiche
+  Hornets bekommen denselben Namen. Abwandlungen lassen sich unterscheiden.
+  Angeregt von Zwaersch (KRT)
+
 ### Behoben
 
 - **Auf der Seite „Danke & Lizenzen" standen Sternchen mitten im Text.** Bei

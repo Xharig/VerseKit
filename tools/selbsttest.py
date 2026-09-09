@@ -15691,6 +15691,79 @@ def main():
                 for i in range(len(a['orte']) - 1)) for a in _erze174[:20]),
                'die Fundorte stehen mit dem ergiebigsten zuerst')
 
+    print('\n175. Eigene Schiffsnamen im Fleet Manager (ASOP)')
+    from scbp import asop as _as175
+
+    # -- Die Zuordnungsleiter. Jede Stufe hat einen echten Fall hinter sich;
+    #    die Zahlen stehen im Kopf von `scbp/asop.py`.
+    _tab175 = {
+        'vehicle_NameANVL_Hornet_F7CM': 'Anvil F7C-M Super Hornet Mk I',
+        'vehicle_NameANVL_Hornet_F7CM_Mk2': 'Anvil F7C-M Super Hornet Mk II',
+        'vehicle_NameRSI_URSA_Medivac': 'RSI Ursa Medivac',
+        'vehicle_NameRSI_Ursa_Rover': 'RSI Ursa',
+        'vehicle_NameXIAN_Railen': 'Gatac Railen',
+        'vehicle_NameANVL_C8R_Pisces_Rescue': 'Anvil C8R Pisces Rescue',
+    }
+    _schiffe175 = [
+        {'name': 'Ursa Medivac', 'kurz': 'RSI_Ursa'},          # Wert endet auf Namen
+        {'name': 'Railen', 'kurz': 'GAMA_Railen'},             # anderer Hersteller
+        {'name': 'C8R Pisces', 'kurz': 'ANVL_C8R_Pisces'},     # Schluessel faengt so an
+        {'name': 'F7C-M Super Hornet Mk II',                   # Kurzname LUEGT (Mk_I)
+         'kurz': 'ANVL_F7C_M_Super_Hornet_Mk_I'},
+        {'name': 'Paladin', 'kurz': 'ANVL_Paladin'},           # gibt es nicht
+    ]
+    _zu175 = {e['name']: e for e in _as175.zuordnen(_schiffe175, _tab175)}
+    pruefe(_zu175['Ursa Medivac']['schluessel'] == 'vehicle_NameRSI_URSA_Medivac',
+           'die Ursa Medivac findet ihren Schluessel, nicht die blosse Ursa')
+    pruefe(_zu175['Railen']['schluessel'] == 'vehicle_NameXIAN_Railen',
+           'ein anderer Herstellerkuerzel im Hangar stoert nicht')
+    pruefe(_zu175['C8R Pisces']['schluessel']
+           == 'vehicle_NameANVL_C8R_Pisces_Rescue',
+           'ein laengerer Schluessel wird ueber den Anfang gefunden')
+    # ⚠⚠ Der wichtigste Fall: Der Kurzname im Hangar sagt Mk_I, das Schiff ist
+    # eine Mk II. Wer nur nachschlaegt, benennt das falsche Schiff um.
+    pruefe(_zu175['F7C-M Super Hornet Mk II']['schluessel']
+           == 'vehicle_NameANVL_Hornet_F7CM_Mk2',
+           'ein falscher Kurzname wird vom Klartextnamen ueberstimmt')
+    pruefe(not _zu175['Paladin']['schluessel'],
+           'was nicht in der Datei steht, bekommt keinen geratenen Schluessel')
+
+    # -- ⚠ Und nie raten: mehrere Kandidaten heisst KEIN Treffer.
+    _mehr175 = _as175.zuordnen([{'name': 'Hornet', 'kurz': ''}], _tab175)
+    pruefe(not _mehr175[0]['schluessel'],
+           'bei mehreren moeglichen Schiffen wird keines gewaehlt')
+
+    # -- Der angezeigte Name
+    pruefe(_as175.anzeigename('Anvil F7C-M', '', True) == '*Anvil F7C-M',
+           'nur ein Stern laesst den Werksnamen stehen')
+    pruefe(_as175.anzeigename('Anvil F7C-M', 'Leitschiff', False) == 'Leitschiff',
+           'ein eigener Name ersetzt den Werksnamen')
+    pruefe(_as175.anzeigename('Anvil F7C-M', '*Leitschiff', True) == '*Leitschiff',
+           'kein zweiter Stern, wenn schon einer davor steht')
+    pruefe(_as175.anzeigename('Anvil F7C-M', '', False) == 'Anvil F7C-M',
+           'ohne alles bleibt der Werksname unveraendert')
+
+    # -- Die Tabelle fuer die Injektion traegt den WUNSCH, nicht den Text.
+    #    ⚠ Stuende hier ein fertiger Wert, kaeme der Werksname aus der
+    #    laufenden Datei — beim zweiten Lauf also unser eigener von vorhin.
+    _zeilen175 = ['%s=%s' % (k, w) for k, w in _tab175.items()]
+    _zeilen175.append('vehicle_NameANVL_Hornet_F7CM_short=F7C-M Mk I')
+    pruefe(_as175.tabelle_bauen(_zeilen175, _as175.leer()) == {},
+           'ohne eigene Namen wird keine einzige Zeile angefasst')
+    _d175 = _as175.setzen(_as175.leer(), 'vehicle_NameXIAN_Railen', 'Packesel', True)
+    pruefe(_as175.tabelle_bauen(_zeilen175, _d175)
+           == {'vehicle_NameXIAN_Railen': ('Packesel', True)},
+           'der Wunsch steht in der Tabelle, nicht der fertige Text')
+    _weg175 = _as175.setzen(_d175, 'vehicle_NameXIAN_Railen', '', False)
+    pruefe(_as175.tabelle_bauen(_zeilen175, _weg175) == {},
+           'ein geleertes Feld nimmt das Schiff wieder heraus')
+
+    # -- Die Kurzfassungen bleiben draussen: sonst waere der Name doppelt zu
+    #    pflegen, und im Fleet Manager steht die lange.
+    pruefe('vehicle_NameANVL_Hornet_F7CM_short'
+           not in _as175.schluessel_lesen(_zeilen175),
+           'die _short-Fassungen werden nicht mitgelesen')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

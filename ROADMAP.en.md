@@ -59,6 +59,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Routes**: trade routes with buy price, sell price and real profit — across several stops, as a round trip, or the best route anywhere in the verse |
 | ✅ | **Salvage**: what a ship carries from the factory and what those parts are worth in a shop — with the note that this applies to NPC wrecks, not to player ships |
 | ✅ | **My hangar**: which ships you own — pulled from the pledge store or added by hand, with origin and slot counts |
+| ✅ | **Rename ships**: your own names at the retrieval terminal (ASOP) instead of the factory ones, a star as a marker — and the factory name comes back character for character |
 | ✅ | **Fits your ship**: every blueprint tells you which of your ships the part belongs in, and how many slots it has there |
 | ✅ | **Ship data**: cargo capacity, purchase and rental price — pick your ship in the route planner and the cargo hold fills itself in |
 | ✅ | **Bindings included in backups**: keyboard and joystick bindings go into the backup file and can be saved as a named profile where Star Citizen finds it |
