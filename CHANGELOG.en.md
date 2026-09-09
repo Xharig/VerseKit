@@ -6,6 +6,23 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.27.2 - 2026-09-09
+
+> **The blueprint list could always do more than it let on.** Its search finds
+> contracts as well as blueprints, and filters the list down to a single one.
+> That was written nowhere, so hardly anyone ever found it. Now the empty search
+> box says so itself, and the tab beside it is named for what it does.
+
+### Improved
+
+- **The blueprint list's search box now says what it finds.** The empty field
+  reads "Search blueprints or contracts". That the list also finds contracts —
+  and can filter down to one of them — was visible nowhere. Reported by
+  Zwaersch (KRT)
+- **The tab is now called "Missions & log".** Under "Mission log" nobody
+  suspected that you can also look up which blueprints a mission gives you.
+  Reported by Zwaersch (KRT)
+
 ## v3.27.1 - 2026-09-08
 
 > **The mining page gets tidied up.** The method comparison collapses, one click

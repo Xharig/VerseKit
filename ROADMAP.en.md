@@ -22,11 +22,11 @@ Four things are deliberate and will stay that way:
 | ✅ | Live detection of new blueprints from the game log, shown in the overlay |
 | ✅ | **Its own blueprint inventory** — the SC Deutsch Launcher is not needed |
 | ✅ | **Catch-up**: earlier play sessions are read on start |
-| ✅ | **Blueprint list** to look up, filter and tick off, with progress |
+| ✅ | **Blueprint list** to look up, filter and tick off, with progress — the search also finds **contracts** and filters the list down to one of them |
 | ✅ | **Where each blueprint drops** — faction, contract, required standing, payout; a button in Crafting leads straight there |
 | ✅ | **When you accept a contract**: does it carry blueprints, and which are you missing? |
 | ✅ | **What to do next** — the open objectives are listed under their contract |
-| ✅ | **Mission log** — which missions were played when, how often, and which blueprint came out of it |
+| ✅ | **Missions & log** — which missions were played when, how often, and which blueprint came out of it; any mission can simply be looked up as well |
 | ✅ | **Backup** — everything of yours into one file and back again, for moving to another PC |
 | ✅ | **Keyboard shortcut** — brings the blueprint list up from inside the running game (Windows and Linux/X11) |
 | ✅ | **Pin the overlay to a screen corner** — required in pop-up mode where it cannot be dragged; collapsed it shrinks to strip width |

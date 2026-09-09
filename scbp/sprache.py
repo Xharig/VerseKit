@@ -727,9 +727,15 @@ TEXTE = {
     's_kn_spaeter':    ('Jetzt nicht',
                           'Not now'),
     # Das Auftrags-Protokoll — welche Auftraege wann gespielt wurden.
-    'hf_auftragslog':  ('Auftrags-Protokoll', 'Mission log'),
-    's_al_lead':       ('Welche Aufträge du wann gespielt hast — und wie oft.',
-                          'Which missions you played when — and how often.'),
+    # ⚠ Der Reiter hiess bis 09.09.2026 nur „Auftrags-Protokoll". Zwaersch
+    # suchte hier vergeblich, weil „Protokoll" nach Vergangenheit klingt und
+    # nicht nach Nachschlagen — dabei findet die Seite jeden Auftrag und zeigt
+    # seine Bauplaene. Der Name nennt jetzt beides.
+    'hf_auftragslog':  ('Aufträge & Protokoll', 'Missions & log'),
+    's_al_lead':       ('Welchen Auftrag du wann gespielt hast — und welche '
+                        'Baupläne er hergibt.',
+                          'Which mission you played when — and which blueprints '
+                          'it gives you.'),
     's_al_hinweis':    ('Gelesen wird, was in den Protokollen des Spiels steht. '
                         'Das Spiel hebt nur wenige Sitzungen auf; hier bleiben '
                         'sie stehen, auch wenn das Spiel sie längst gelöscht hat.',
@@ -2119,12 +2125,16 @@ TEXTE = {
                               'dem Aussteigen zu wissen, ob sich das Bergen '
                               'lohnt — daraus ist der ganze Anschluss an die '
                               'Schiffsdaten entstanden, und damit auch „passt '
-                              'der Bauplan in mein Schiff".',
+                              'der Bauplan in mein Schiff". Und der Hinweis, '
+                              'dass niemand erkennt, wonach die Bauplan-Liste '
+                              'alles sucht — jetzt steht es im Feld.',
                               '**What is inside a wreck?** Wanting to know '
                               'whether salvaging is worth it before you get '
                               'out — that is where the whole ship-data '
                               'connection came from, and with it „does this '
-                              'blueprint fit my ship".'),
+                              'blueprint fit my ship". And the note that nobody '
+                              'can tell what the blueprint list actually '
+                              'searches — now the field says so.'),
     's_dk_zwaersch_bugs':    ('Dass Ein- **und** Ausfuhr das neuere Format von '
                               'scmdb.net nicht kannten, und dass ein '
                               'Kanalwechsel die ganze Vorgeschichte kostete — '
@@ -2665,6 +2675,13 @@ TEXTE = {
     # ⭐ Suche nach dem Auftrag: „Retake" fand nichts, obwohl sechs Bauplaene
     # aus solchen Auftraegen stammen. Wer eine Quest fliegt, will wissen, was
     # dabei herausspringt.
+    # ⚠⚠ Der Platzhalter im leeren Suchfeld — er ist der EINZIGE Hinweis
+    # darauf, dass hier auch Auftraege gefunden werden. Gemeldet von Zwaersch
+    # am 09.09.2026: Die Auftragssuche gab es seit v3.12.0, und niemand hat sie
+    # gesehen, weil das Feld ein leeres Kaestchen war. Nicht kuerzen auf
+    # „Suchen" — dann ist der Hinweis wieder weg.
+    's_bp_suche_platz':  ('Bauplan oder Auftrag suchen',
+                           'Search blueprints or contracts'),
     's_bp_auftrag_kopf': ('Aufträge mit „%s"', 'Contracts matching "%s"'),
     's_bp_auftrag_zeile': ('%s — %d Baupläne', '%s — %d blueprints'),
     # ⚠ Eine Zeile, die aussieht wie eine Antwort, aber nichts tut, ist eine

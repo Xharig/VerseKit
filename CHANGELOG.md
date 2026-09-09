@@ -6,6 +6,23 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.27.2 - 2026-09-09
+
+> **Die Bauplan-Liste konnte immer schon mehr, als sie gezeigt hat.** Ihre Suche
+> findet nicht nur Baupläne, sondern auch Aufträge — und filtert die Liste auf
+> einen davon. Nur stand das nirgends, und so hat es kaum jemand gefunden. Jetzt
+> sagt es das leere Suchfeld selbst, und der Reiter daneben heißt, was er ist.
+
+### Verbessert
+
+- **Das Suchfeld der Bauplan-Liste sagt jetzt, was es findet.** Im leeren Feld
+  steht „Bauplan oder Auftrag suchen". Dass die Liste auch Aufträge findet und
+  sich auf einen davon filtern lässt, war bisher an keiner Stelle zu sehen.
+  Gemeldet von Zwaersch (KRT)
+- **Der Reiter heißt jetzt „Aufträge & Protokoll".** Unter „Auftrags-Protokoll"
+  hat niemand vermutet, dass sich dort auch nachschlagen lässt, welche Baupläne
+  ein Auftrag hergibt. Gemeldet von Zwaersch (KRT)
+
 ## v3.27.1 - 2026-09-08
 
 > **Die Bergbau-Seite wird aufgeräumt.** Der Methodenvergleich klappt zu, ein

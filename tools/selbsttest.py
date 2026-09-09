@@ -8742,6 +8742,32 @@ def main():
         # Zahl auf der Fortschritt-Seite passt nicht mehr zum Bild.
         pruefe(_liste97.filter == 'alle',
                'der Zustandsfilter steht auf „alle", sonst fehlen Zeilen')
+
+    # d) Der Hinweis im leeren Suchfeld — der EINZIGE Ort, an dem steht, dass
+    #    die Liste auch Auftraege findet.
+    #
+    # ⚠⚠ Die Auftragssuche gab es seit v3.12.0, und niemand hat sie gefunden:
+    # Das Feld war ein leeres Kaestchen. Gemeldet von Zwaersch am 09.09.2026,
+    # mit dem Vorschlag, dafuer einen eigenen Reiter zu bauen. Faellt der
+    # Hinweis bei einem Umbau der Werkzeugleiste weg, ist die Funktion wieder
+    # unsichtbar — und das merkt niemand, weil nichts kaputtgeht.
+    #
+    # ⚠ Geprueft wird die **Wirkung** (ist er zu sehen?), nicht die
+    # Schreibweise im Quelltext — eine Pruefung, die einen Aufruf
+    # festschreibt, haelt beim naechsten Mal den Fehler fest (Pruefung 86).
+    # Gegenprobe gemacht: mit dauerhaftem `place()` faellt die zweite Zeile.
+    _liste97.suche.set('')
+    _wz97.update(); _wz97.update_idletasks()
+    pruefe(_liste97.platzhalter_lbl.winfo_ismapped(),
+           'das leere Suchfeld sagt, dass es auch Auftraege findet')
+    _pl97 = _sp97.TEXTE.get('s_bp_suche_platz') or ()
+    pruefe(len(_pl97) == 2 and all(_pl97),
+           'und der Hinweis steht in beiden Sprachen')
+    _liste97.suche.set('titan')
+    _wz97.update(); _wz97.update_idletasks()
+    pruefe(not _liste97.platzhalter_lbl.winfo_ismapped(),
+           'sobald etwas drinsteht, ist der Hinweis weg')
+
     try:
         _liste97.root.destroy()
         _wz97.destroy()

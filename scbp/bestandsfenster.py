@@ -521,6 +521,7 @@ class Bestandsfenster:
                         highlightthickness=0, font=schrift(11))
         feld.pack(side='left', fill='x', expand=True, ipady=6, padx=(8, 0))
         feld.focus_set()
+        self._platzhalter(feld)
         self.loeschen_lbl = zeichen.zeile(kasten, 'schliessen', grund=FLAECHE,
                                           schrift=schrift(10))
         self.loeschen_lbl.configure(padx=8, cursor='hand2')
@@ -1370,8 +1371,47 @@ class Bestandsfenster:
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.neu_laden', ausnahme)
 
+    def _platzhalter(self, feld):
+        """Der graue Hinweis im leeren Suchfeld.
+
+        ⚠⚠ **Warum es das braucht:** Die Liste findet seit v3.12.0 auch
+        *Aufträge* — das Feld sah aber aus wie ein leeres Kästchen und sagte
+        nichts. Zwaersch hat am 09.09.2026 gemeldet, dass man das nicht erkennt,
+        und vorgeschlagen, dafür einen eigenen Reiter zu bauen. Ein Reiter wäre
+        die dritte Stelle für dieselbe Sache gewesen; der Text hier steht
+        genau dort, wohin man beim Tippen ohnehin sieht.
+
+        ⚠ **Nicht über die Textvariable lösen.** `self.suche` hängt an
+        `_zeichnen()` — stünde der Hinweis als Wert im Feld, würde die Liste
+        danach filtern und wäre beim Start leer. Deshalb ein eigenes Label,
+        das über dem Feld liegt und nur vom Inhalt abhängt (nicht vom Fokus:
+        das Feld bekommt ihn beim Aufbau, der Hinweis wäre nie zu sehen).
+        """
+        self.platzhalter_lbl = tk.Label(
+            feld, text=t('s_bp_suche_platz'), bg=FLAECHE, fg=SUB,
+            font=schrift(11), anchor='w')
+        # Ein Klick auf den Hinweis gehört ins Feld darunter — sonst wirkt die
+        # linke Hälfte des Suchfeldes tot.
+        self.platzhalter_lbl.bind('<Button-1>', lambda _e: feld.focus_set())
+        self._platzhalter_zeigen()
+
+    def _platzhalter_zeigen(self):
+        """Den Hinweis nur zeigen, solange nichts im Feld steht."""
+        lbl = getattr(self, 'platzhalter_lbl', None)
+        if lbl is None:
+            return
+        try:
+            if self.suche.get():
+                lbl.place_forget()
+            else:
+                lbl.place(x=1, rely=0.5, anchor='w')
+        except tk.TclError:
+            # Beim Seitenwechsel kann das Feld schon zerstört sein.
+            pass
+
     def _loeschkreuz_zeigen(self):
         """Das ✕ nur zeigen, wenn es etwas zu löschen gibt."""
+        self._platzhalter_zeigen()
         if self.suche.get():
             self.loeschen_lbl.pack(side='right')
         else:
