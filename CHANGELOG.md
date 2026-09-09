@@ -6,6 +6,15 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Auf der Seite „Danke & Lizenzen" standen Sternchen mitten im Text.** Bei
+  der Quelle scmdb.net las man `**Krovax**` statt Krovax. Die Auszeichnung
+  wird jetzt dort entfernt, wo jeder Absatz und jeder Dank-Block entsteht —
+  nicht mehr Text für Text.
+
 ## v3.27.2 - 2026-09-09
 
 > **Die Bauplan-Liste konnte immer schon mehr, als sie gezeigt hat.** Ihre Suche

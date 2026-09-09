@@ -907,8 +907,12 @@ def _fliesstext(eltern, text, schrift, farbe=SUB, grund=BG, abzug=0, **pack):
     `abzug` ist der waagerechte Rand, den der Text nicht benutzen darf —
     üblicherweise das Doppelte des `padx` beim Packen.
     """
-    label = tk.Label(eltern, text=text, bg=grund, fg=farbe, font=schrift,
-                     anchor='w', justify='left')
+    # ⚠ Der Regelweg für Absätze ist auch der Regelweg für die Auszeichnung:
+    # Wer hier einen Text mit `**fett**` hineingibt, soll ihn nicht mit
+    # Sternchen auf dem Bildschirm wiederfinden. Doppelt entschärfen schadet
+    # nicht — `_ohne_marken` auf einem sauberen Text ändert nichts.
+    label = tk.Label(eltern, text=_ohne_marken(text), bg=grund, fg=farbe,
+                     font=schrift, anchor='w', justify='left')
     label.pack(**pack)
     return _umbruch(label, abzug=abzug)
 
@@ -4992,8 +4996,12 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     # Die Lizenz als Blase daneben — sie gehört zum Namen, nicht in den Fließtext.
     blase(kopf, lizenz, ACCENT, fenster.f_klein).pack(side='left', padx=8)
 
-    text = tk.Label(kasten, text=was, bg=FLAECHE, fg=SUB, font=fenster.f_klein,
-                    anchor='w', justify='left')
+    # ⚠ Auch hier durch `_ohne_marken`: Auf der Danke-Seite stand wörtlich
+    # `**Krovax**` auf dem Bildschirm — die Sternchen sind für den Leser der
+    # Sprachdatei gedacht, nicht für den Spieler. Gefunden am 09.09.2026 von
+    # `tools/oberflaeche_pruefen.py`, drin seit die Quelle genannt wird.
+    text = tk.Label(kasten, text=_ohne_marken(was), bg=FLAECHE, fg=SUB,
+                    font=fenster.f_klein, anchor='w', justify='left')
     text.pack(fill='x', padx=16, pady=(0, 10))
     _umbruch(text)
 

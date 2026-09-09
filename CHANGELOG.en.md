@@ -6,6 +6,15 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **The "Thanks & licences" page showed asterisks in the middle of the text.**
+  Next to the scmdb.net source it read `**Krovax**` instead of Krovax. The
+  markup is now stripped where every paragraph and every credit block is
+  built — no longer text by text.
+
 ## v3.27.2 - 2026-09-09
 
 > **The blueprint list could always do more than it let on.** Its search finds
