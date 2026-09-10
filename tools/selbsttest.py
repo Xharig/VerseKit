@@ -4857,6 +4857,20 @@ def main():
     pruefe(_ro53.trennzeichen_klaeren('17,200') == '17.200',
            'als Menge gelesen bleibt es eine Kommazahl')
 
+    # ⚠⚠ **Beide Trennzeichen zusammen — hier lag der Fehler bis 10.09.2026.**
+    # Die Dreiergruppen-Schleife frass bei DREI Nachkommastellen eine Gruppe zu
+    # viel: `1,234.567` wurde ueber `1234.567` zu 1234567, also Faktor tausend
+    # daneben — genau der Schaden, gegen den die Funktion geschrieben wurde.
+    for _roh53, _soll53 in (('1.234,56', '1234.56'),     # deutsche Schreibweise
+                            ('1,234.56', '1234.56'),     # englische
+                            ('1,234.567', '1234.567'),   # der Fehlerfall
+                            ('1.234,567', '1234.567'),   # und andersherum
+                            ('1.234.567,89', '1234567.89'),
+                            ('1,234,567.89', '1234567.89')):
+        pruefe(_ro53.trennzeichen_klaeren(_roh53) == _soll53,
+               '%r wird %s (bekommen: %s)'
+               % (_roh53, _soll53, _ro53.trennzeichen_klaeren(_roh53)))
+
     # Namensabgleich — der Schluessel zwischen Lager und Rezept.
     # ⚠ Mit eingespeister Namensliste pruefen. Im Wegwerf-Ordner gibt es keine
     # Rezeptdaten; ohne diesen Griff pruefte man nur, dass nichts geladen ist.
@@ -15738,6 +15752,30 @@ def main():
     pruefe(not _mehr175[0]['schluessel'],
            'bei mehreren moeglichen Schiffen wird keines gewaehlt')
 
+    # -- ⚠⚠ **Das gilt auch fuer die GENAUEN Stufen** (Befund vom 10.09.2026).
+    #    Bis dahin merkten sich die beiden Nachschlagetabellen ueber
+    #    `setdefault` nur den ERSTEN Schluessel je Schreibweise — die
+    #    Mehrdeutigkeit war weg, bevor die Leiter sie sehen konnte, und der
+    #    eigene Name landete am erstbesten Fahrzeug. Zwei Faelle davon:
+    _doppel175 = {
+        # gleicher Klartextname, zwei Fahrzeuge — im Spiel keine Seltenheit
+        'vehicle_NameDRAK_Cutlass_Black': 'Drake Cutlass Black',
+        'vehicle_NameDRAK_Cutlass_Black_Pirate': 'Drake Cutlass Black',
+        # gleiche Schreibweise nach dem Entschaerfen: beide -> `rsiauroramr`
+        'vehicle_NameRSI_Aurora_MR': 'RSI Aurora MR',
+        'vehicle_NameRSIAuroraMR': 'RSI Aurora MR (Umbau)',
+    }
+    _gleich175 = _as175.zuordnen(
+        [{'name': 'Drake Cutlass Black', 'kurz': ''},
+         {'name': 'Aurora', 'kurz': 'RSI_Aurora_MR'}], _doppel175)
+    _nach175 = {e['name']: e for e in _gleich175}
+    pruefe(not _nach175['Drake Cutlass Black']['schluessel'],
+           'zwei Fahrzeuge mit demselben Klartextnamen ergeben KEINEN Treffer')
+    pruefe(_nach175['Drake Cutlass Black']['weg'] == 'mehrdeutig',
+           'und der Grund heisst mehrdeutig, nicht nichts')
+    pruefe(not _nach175['Aurora']['schluessel'],
+           'zwei Schluessel gleicher Schreibweise ergeben ebenfalls keinen')
+
     # -- Der angezeigte Name
     pruefe(_as175.anzeigename('Anvil F7C-M', '', True) == '*Anvil F7C-M',
            'nur ein Stern laesst den Werksnamen stehen')
@@ -15771,13 +15809,86 @@ def main():
     # bei jedem mit SCDL-Daten wurde der Schiffsname also **nie** geschrieben.
     # Die Probe lief gruen, weil sie `einspielen()` direkt rief.
     #
-    # ⚠ Geprueft wird ueber die Namen im Code-Objekt, nicht ueber eine
-    # Textsuche: Ein Kommentar mit demselben Wort taeuscht das nicht vor.
+    # ⚠⚠ **Und diese Pruefung sah anfangs selbst nur so aus, als pruefe sie.**
+    # Sie sah nach, ob `_asop_tabelle` in `__code__.co_names` vorkommt. Das
+    # beweist nichts: Ein Aufruf, dessen Ergebnis anschliessend verworfen wird,
+    # besteht ihn genauso — und unerreichbarer Code ebenfalls. Seit dem
+    # 10.09.2026 wird deshalb an einer echten Wegwerf-`global.ini` geschrieben
+    # und der Name im Ergebnis **nachgelesen**, einmal ueber jeden Weg.
+    import tempfile as _tf175
     from scbp import injektion as _in175
-    for _weg175 in ('einspielen', 'einspielen_scdl'):
-        _f175 = getattr(_in175, _weg175)
-        pruefe('_asop_tabelle' in _f175.__code__.co_names,
-               'der Schreibweg %s() kennt die eigenen Schiffsnamen' % _weg175)
+
+    _heim175 = _tf175.mkdtemp(prefix='pruefung175-')
+    _altheim175 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim175
+    try:
+        _schl175 = 'vehicle_NameXIAN_Railen'
+        _ini175 = os.path.join(_heim175, 'Localization', 'english', 'global.ini')
+        os.makedirs(os.path.dirname(_ini175), exist_ok=True)
+
+        # ⚠ Die Datei braucht mehr als die Fahrzeugzeile: `einspielen()` bricht
+        #   ohne Missionen im Katalog vorzeitig ab — und haette dann nichts
+        #   geprueft, sondern nur nichts getan.
+        def _ini_frisch175():
+            with open(_ini175, 'w', encoding='utf-8', newline='') as f:
+                f.write('%s=Railen\n'
+                        'mission_desc_T=Ein Auftragstext von CIG.\n'
+                        'mission_title_T=Ein Auftrag\n' % _schl175)
+
+        _kat175 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': ['Testbauplan']}}}
+
+        # Der Wunsch muss in der abgelegten Datei stehen — beide Wege holen ihn
+        # sich von dort, nicht aus einem Aufrufparameter.
+        _as175.speichern(_as175.setzen(_as175.leer(), _schl175, 'Packesel', True))
+        _erwartet175 = '%s=*Packesel' % _schl175
+
+        # -- Weg 1: der Rueckfallweg, ohne Vertragsdaten.
+        _ini_frisch175()
+        _ok1_175, _, _meld1_175 = _in175.einspielen(_ini175, 'english',
+                                                    katalog=_kat175)
+        pruefe(_ok1_175, 'der Rueckfallweg laeuft wirklich an (%s)' % _meld1_175)
+        pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
+               'einspielen() schreibt den eigenen Schiffsnamen wirklich hinein')
+
+        # -- Weg 2: der bevorzugte SCDL-Weg. Ohne Vertragsdaten steigt er
+        #    sofort aus — also legt die Pruefung sich welche hin, statt sich
+        #    selbst zu ueberspringen (dieselbe Lehre wie bei Pruefung 67).
+        _scdl175 = _in175.pfade.app_datei(_in175.SCDL_CACHE % 'en')
+        os.makedirs(os.path.dirname(_scdl175), exist_ok=True)
+        with open(_scdl175, 'w', encoding='utf-8') as _f:
+            json.dump({'entries': [{}]}, _f)
+        _ini_frisch175()
+        _ok175, _, _meld175 = _in175.einspielen_scdl(_ini175, 'en')
+        pruefe(_ok175, 'der SCDL-Weg laeuft in der Pruefung wirklich an (%s)'
+               % _meld175)
+        pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
+               'einspielen_scdl() schreibt ihn ebenso — der Fehler von v3.28.0')
+    finally:
+        if _altheim175 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim175
+        shutil.rmtree(_heim175, ignore_errors=True)
+
+    # -- ⚠⚠ **Der Eilige.** Die Seite sammelt Aenderungen 900 ms lang, bevor
+    #    sie schreibt. Wer einen Namen tippt und sofort zumacht, ist schneller
+    #    als die Drossel: Der Wunsch stuende in `asop.json`, in der
+    #    `global.ini` aber nicht — im Spiel also weiter der Werksname, ohne
+    #    jeden Hinweis. Dasselbe Bild wie beim Fehler von v3.28.0, nur mit
+    #    anderer Ursache. `vor_dem_schliessen` holt den Auftrag nach.
+    from scbp import hauptfenster as _hf175
+    _wz175 = _wurzel()
+    _f175 = _hf175.Hauptfenster(_wz175, version='0.0.0-test')
+    _gelaufen175 = []
+    _f175.vor_dem_schliessen.append(lambda: _gelaufen175.append('geschrieben'))
+    # ⚠ Ein Auftrag, der wirft, darf die uebrigen nicht mitreissen.
+    _f175.vor_dem_schliessen.insert(0, lambda: 1 / 0)
+    _f175.schliessen()
+    pruefe(_gelaufen175 == ['geschrieben'],
+           'ein offener Schreibauftrag wird beim Zumachen nachgeholt')
 
     # -- Die Kurzfassungen bleiben draussen: sonst waere der Name doppelt zu
     #    pflegen, und im Fleet Manager steht die lange.

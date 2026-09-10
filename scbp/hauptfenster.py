@@ -1627,6 +1627,19 @@ class Hauptfenster:
                  beim_schriftwechsel=None, startseite='liste'):
         self.beim_schliessen = beim_schliessen
         self.version = version
+        # ⚠⚠ **Was noch aussteht, wird beim Zumachen nachgeholt.**
+        #
+        # Seiten sammeln Aenderungen ueber `after`, statt bei jedem Tastendruck
+        # zu schreiben — wer fuenf Schiffe benennt, loest einen Schreiblauf aus
+        # und nicht fuenf. Das ist richtig, hat aber ein Loch: Wer unmittelbar
+        # danach das Fenster schliesst, ist schneller als die Drossel. Der
+        # Wunsch steht dann in der eigenen Datei, in der `global.ini` aber
+        # nicht — und im Spiel steht weiter der alte Name, ohne jeden Hinweis.
+        #
+        # Genau dieselbe Falle wie bei der Fenstergroesse ein paar Zeilen
+        # weiter unten, nur mit schlimmerer Wirkung. Eine Seite meldet ihren
+        # offenen Auftrag hier an; `schliessen()` arbeitet ihn ab.
+        self.vor_dem_schliessen = []
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
         # ⚠⚠ **Erst bauen, dann zeigen.** Ein `Toplevel` steht ab der Erzeugung
         # auf dem Bildschirm — Reiterleiste, Fusszeile und die erste Seite
@@ -3359,6 +3372,13 @@ class Hauptfenster:
             self._groesse_merken()
         except Exception as ausnahme:
             fehler.merken('hauptfenster.groesse_merken', ausnahme)
+        # Offene Schreibauftraege der Seiten abarbeiten, bevor das Fenster weg
+        # ist. Einer, der scheitert, darf die uebrigen nicht mitreissen.
+        for auftrag in list(self.vor_dem_schliessen):
+            try:
+                auftrag()
+            except Exception as ausnahme:
+                fehler.merken('hauptfenster.vor_dem_schliessen', ausnahme)
         try:
             if self.beim_schliessen:
                 self.beim_schliessen()
