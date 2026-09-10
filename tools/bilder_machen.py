@@ -289,10 +289,10 @@ def marken_loeschen():
     unterschiedlich breit würden.
     """
     import json
-    from scbp import neuheiten
-    stand = {'bereiche': {b: '999.0.0' for b in neuheiten.NEU_SEIT},
+    from scbp import news
+    stand = {'bereiche': {b: '999.0.0' for b in news.NEW_SINCE},
              'zuletzt': '999.0.0'}
-    ziel = os.path.join(os.environ['SC_BP_HOME'], neuheiten.DATEI)
+    ziel = os.path.join(os.environ['SC_BP_HOME'], news.FILE)
     try:
         with open(ziel, 'w', encoding='utf-8') as f:
             json.dump(stand, f)

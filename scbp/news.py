@@ -34,16 +34,23 @@ Damit das trägt, gelten zwei Regeln:
 
 Gepflegt wird nur die Tabelle unten: Bereich -> in welcher Version kam er dazu.
 Der Rest ergibt sich.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `neuheiten` (Sprachumstellung P3:
+Bezeichner englisch, Kommentare deutsch). **Der Dateiname `gesehen.json`, die
+Schlüssel `zuletzt` und `bereiche` und die Bereichsnamen in `NEW_SINCE` sind
+dabei bewusst gleich geblieben** — sie stehen in der Datei jedes Nutzers.
+Umbenannt, verlöre jeder beim Update seine gesehenen Marken, und alles wäre
+wieder markiert.
 """
 import json
 
 from . import pfade
 
-DATEI = 'gesehen.json'
+FILE = 'gesehen.json'
 
 # Welcher Bereich kam mit welcher Version? Beim Bauen eines neuen Bereichs hier
 # **eine Zeile ergänzen** — mehr ist nicht zu tun.
-NEU_SEIT = {
+NEW_SINCE = {
     'asop':        '3.28.0',   # eigene Schiffsnamen im Fleet Manager
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0
@@ -65,76 +72,76 @@ NEU_SEIT = {
 }
 
 
-def _teile(version):
+def _parts(version):
     """'2.2.0' -> (2, 2, 0); alles Unlesbare wird zu (0, 0, 0)."""
-    zahlen = []
-    for stueck in str(version or '').split('-')[0].split('.'):
+    numbers = []
+    for piece in str(version or '').split('-')[0].split('.'):
         try:
-            zahlen.append(int(stueck))
+            numbers.append(int(piece))
         except ValueError:
-            zahlen.append(0)
-    while len(zahlen) < 3:
-        zahlen.append(0)
-    return tuple(zahlen[:3])
+            numbers.append(0)
+    while len(numbers) < 3:
+        numbers.append(0)
+    return tuple(numbers[:3])
 
 
-def _lesen():
+def _read():
     try:
-        with open(pfade.app_datei(DATEI), encoding='utf-8') as f:
-            daten = json.load(f)
-        return daten if isinstance(daten, dict) else {}
+        with open(pfade.app_datei(FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
 
 
-def _schreiben(daten):
+def _write(data):
     try:
-        with open(pfade.app_datei(DATEI), 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=1)
+        with open(pfade.app_datei(FILE), 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
         return True
-    except Exception as ausnahme:
+    except Exception as exc:
         try:
             from . import fehler
-            fehler.merken('neuheiten.schreiben', ausnahme)
+            fehler.merken('news.write', exc)
         except Exception:
             pass
         return False
 
 
-def erster_start(eigene_version):
+def first_start(own_version):
     """Merkt sich beim allerersten Lauf die Version — ohne Marken zu setzen.
 
     Genau hier entscheidet sich Regel 2: Wer frisch installiert, hat nichts
     verpasst und bekommt deshalb auch nichts markiert.
     """
-    daten = _lesen()
-    if 'zuletzt' not in daten:
-        daten['zuletzt'] = str(eigene_version or '')
-        daten['bereiche'] = {k: str(eigene_version or '') for k in NEU_SEIT}
-        _schreiben(daten)
+    data = _read()
+    if 'zuletzt' not in data:
+        data['zuletzt'] = str(own_version or '')
+        data['bereiche'] = {k: str(own_version or '') for k in NEW_SINCE}
+        _write(data)
         return True
     return False
 
 
-def ist_neu(bereich, eigene_version):
+def is_new(area, own_version):
     """Soll an diesem Bereich eine Marke stehen?"""
-    seit = NEU_SEIT.get(bereich)
-    if not seit:
+    since = NEW_SINCE.get(area)
+    if not since:
         return False
-    if _teile(seit) > _teile(eigene_version):
+    if _parts(since) > _parts(own_version):
         return False          # kommt erst noch — nichts anzeigen
-    gesehen = (_lesen().get('bereiche') or {}).get(bereich)
-    return _teile(seit) > _teile(gesehen)
+    seen = (_read().get('bereiche') or {}).get(area)
+    return _parts(since) > _parts(seen)
 
 
-def gesehen(bereich, eigene_version):
+def mark_seen(area, own_version):
     """Bereich wurde geöffnet — die Marke ist damit erledigt."""
-    daten = _lesen()
-    daten.setdefault('bereiche', {})[bereich] = str(eigene_version or '')
-    daten['zuletzt'] = str(eigene_version or '')
-    return _schreiben(daten)
+    data = _read()
+    data.setdefault('bereiche', {})[area] = str(own_version or '')
+    data['zuletzt'] = str(own_version or '')
+    return _write(data)
 
 
-def offene(eigene_version):
+def open_areas(own_version):
     """Alle Bereiche, an denen gerade eine Marke stünde."""
-    return [b for b in NEU_SEIT if ist_neu(b, eigene_version)]
+    return [b for b in NEW_SINCE if is_new(b, own_version)]

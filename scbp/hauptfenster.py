@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import bildschirm, fehler, hinweis, neuheiten, pfade, zeichen
+from . import bildschirm, fehler, hinweis, news, pfade, zeichen
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -2563,7 +2563,7 @@ class Hauptfenster:
         b.pack(side='left', fill='x', expand=True)
 
         marke_widget = None
-        if neuheiten.ist_neu(kennung, self.version):
+        if news.is_new(kennung, self.version):
             marke_widget = marke(zeile, t('hf_neu'), ACCENT, self.f_klein)
             marke_widget.pack(side='right', padx=10)
 
@@ -2927,8 +2927,8 @@ class Hauptfenster:
         self._leistenbreite_nachziehen()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
-        if neuheiten.ist_neu(kennung, self.version):
-            neuheiten.gesehen(kennung, self.version)
+        if news.is_new(kennung, self.version):
+            news.mark_seen(kennung, self.version)
             eintrag = self.knoepfe.get(kennung)
             if eintrag and eintrag[4] is not None:
                 eintrag[4].destroy()

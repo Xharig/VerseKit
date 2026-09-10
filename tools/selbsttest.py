@@ -864,31 +864,31 @@ def main():
         print('14. „Neu"-Marken an den Bereichen')
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'neu1')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
-        from scbp import neuheiten
-        importlib.reload(neuheiten)
+        from scbp import news
+        importlib.reload(news)
 
-        neuheiten.erster_start('3.0.0')
-        pruefe(neuheiten.offene('3.0.0') == [],
+        news.first_start('3.0.0')
+        pruefe(news.open_areas('3.0.0') == [],
                'frische Installation bekommt keine Marken')
 
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'neu2')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
-        neuheiten.erster_start('2.0.0')
-        # ⚠ Gegen die **höchste** Version in NEU_SEIT prüfen, nicht gegen eine
+        news.first_start('2.0.0')
+        # ⚠ Gegen die **höchste** Version in NEW_SINCE prüfen, nicht gegen eine
         # feste Nummer. Sonst schlägt der Test fehl, sobald ein Bereich für eine
         # spätere Version einträgt (bei „herstellung" = 3.3.0 genau so passiert):
         # Der Bereich ist bei 3.0.0 zu Recht noch nicht offen.
-        hoechste = max(neuheiten.NEU_SEIT.values(),
+        hoechste = max(news.NEW_SINCE.values(),
                        key=lambda v: [int(x) for x in v.split('.')])
-        offen = sorted(neuheiten.offene(hoechste))
-        pruefe(offen == sorted(neuheiten.NEU_SEIT),
+        offen = sorted(news.open_areas(hoechste))
+        pruefe(offen == sorted(news.NEW_SINCE),
                'wer von 2.0.0 kommt, sieht die neuen Bereiche')
-        neuheiten.gesehen('bestand', hoechste)
-        pruefe('bestand' not in neuheiten.offene(hoechste),
+        news.mark_seen('bestand', hoechste)
+        pruefe('bestand' not in news.open_areas(hoechste),
                'die Marke verschwindet, sobald der Bereich offen war')
-        pruefe(len(neuheiten.offene(hoechste)) == len(offen) - 1,
+        pruefe(len(news.open_areas(hoechste)) == len(offen) - 1,
                'die übrigen Marken bleiben stehen')
-        pruefe(not neuheiten.ist_neu('bestand', '2.0.0'),
+        pruefe(not news.is_new('bestand', '2.0.0'),
                'was es in der eigenen Version noch nicht gibt, wird nicht markiert')
 
         # ------------------------------------------------------------------ 14a
