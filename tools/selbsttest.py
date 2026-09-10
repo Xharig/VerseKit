@@ -16370,16 +16370,34 @@ def main():
         pruefe(_ohne180 == _sp180.t('up_ohne_pruefung'),
                'und zwar mit genau diesem Grund (%r)' % _ohne180[:50])
 
+        # -- 5b. Eine Summen-Datei, die es GIBT, aber von fremder Adresse
+        #        kommen soll: eigener Satz. Das ist kein „noch nicht
+        #        eingerichtet", sondern ein Grund zum Misstrauen.
+        _fremd_frei180 = {'dateien': [
+            {'name': _name180, 'url': _url180},
+            {'name': 'SHA256SUMS.txt', 'url': 'https://boese.example/SHA256SUMS.txt'}]}
+        _pfad180, _fremdtext180 = _versuch180(_fremd_frei180)
+        pruefe(_pfad180 is None, 'Summen von fremder Adresse werden abgelehnt')
+        pruefe(_fremdtext180 == _sp180.t('up_summen_fremd'),
+               'und zwar mit einem EIGENEN Satz, nicht mit „keine Summen"')
+
         # -- 6. Ein Anhang mit fremder Endung darf nicht ueber den
         #       Rueckfallnamen `update.bin` hereinkommen.
+        # ⚠⚠ Die Summe fuer `update.bin` muss die **echte** des Inhalts sein.
+        #    Sonst scheitert der Versuch an der Summe statt am Namen — die
+        #    Pruefung waere gruen, ohne den Riegel zu beruehren. Genau das ist
+        #    ihr beim ersten Anlauf passiert und erst in der Gegenprobe
+        #    aufgefallen.
         _frei180 = _freigabe180()
-        _antwort180['summen'] += 'c' * 64 + '  update.bin\n'
+        _antwort180['summen'] += '%s  update.bin\n' % _summe180
         _boese_frei180 = {'dateien': [
             {'name': 'boese.sh', 'url': _url180},
             {'name': 'SHA256SUMS.txt', 'url': _summen_url180}]}
         _pfad180, _text180 = _versuch180(_boese_frei180)
         pruefe(_pfad180 is None,
                'ein Anhang mit fremder Endung kommt nicht ueber update.bin herein')
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'und es wird dafuer auch nichts erst geladen')
 
         # -- Der Dateiname aus der Server-Antwort wird entschaerft.
         for _boese180 in ('../../boese.appimage', '/etc/boese.appimage',
