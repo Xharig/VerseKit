@@ -15764,6 +15764,96 @@ def main():
            not in _as175.schluessel_lesen(_zeilen175),
            'die _short-Fassungen werden nicht mitgelesen')
 
+    print('\n176. Die Schiffszeile: eigener Schalter, kein Tk-Kaestchen')
+    # ⚠⚠ In v3.28.0 stand hier ein `tk.Checkbutton`. Gemeldet: „zu klein, sieht
+    # niemand, und sieht anders aus als der Rest im Projekt". Tk malt sein
+    # Kaestchen im Systemstil — hell, winzig, fremde Handschrift.
+    #
+    # ⚠ Geprueft wird die **gebaute Zeile**, nicht der Quelltext: Eine Pruefung,
+    # die auf `tk.Checkbutton` im Text sucht, faellt auf jeden anderen Weg zum
+    # selben Ergebnis herein. Und sie baut sich ihre Zeile selbst — an der
+    # ganzen Seite haengt eine `global.ini`, die es im Wegwerf-Ordner nicht
+    # gibt, und die Pruefung waere still uebersprungen.
+    from scbp import asop as _as176, hauptfenster as _hf176, seiten as _se176
+
+    _w176 = _wurzel()
+    _w176.deiconify()          # ⚠ sonst ist nichts gemappt und kein Klick kommt an
+    _f176 = _hf176.Hauptfenster(_w176, version='0.0.0-pruefung')
+    _rahmen176 = tk.Frame(_w176)
+    _rahmen176.pack(fill='both', expand=True)
+    _eintrag176 = {'name': 'Railen', 'kurz': 'GAMA_Railen',
+                   'schluessel': 'vehicle_NameXIAN_Railen',
+                   'werksname': 'Gatac Railen', 'weg': 'wertende'}
+    _gesichert176 = []
+    _daten176 = {'stand': _as176.leer()}
+    _se176._asop_zeile(_f176, _rahmen176, _eintrag176, _daten176, _as176,
+                       lambda: _gesichert176.append(True) or True)
+    _w176.update_idletasks()
+
+    _kinder176 = []
+
+    def _sammeln176(knoten):
+        for kind in knoten.winfo_children():
+            _kinder176.append(kind)
+            _sammeln176(kind)
+
+    _sammeln176(_rahmen176)
+    pruefe(bool(_kinder176), 'die Zeile wird ueberhaupt gebaut')
+    pruefe(not [w for w in _kinder176 if isinstance(w, tk.Checkbutton)],
+           'kein tk.Checkbutton — der Schalter ist im Projektstil gebaut')
+
+    # -- Und er tut auch etwas: ein Klick setzt den Stern und sichert.
+    _schalter176 = [w for w in _kinder176
+                    if isinstance(w, tk.Label) and w.cget('cursor') == 'hand2']
+    pruefe(bool(_schalter176), 'der Schalter ist anklickbar')
+    if _schalter176:
+        _schalter176[0].event_generate('<Button-1>')
+        _w176.update_idletasks()
+        _name176, _stern176 = _as176.eintrag(_daten176['stand'],
+                                             'vehicle_NameXIAN_Railen')
+        pruefe(_stern176, 'ein Klick setzt den Stern wirklich')
+        pruefe(bool(_gesichert176), 'und sichert sofort, ohne Speichern-Knopf')
+
+    # ⚠ Kein gemaltes Sternzeichen in der Beschriftung: cp1252 kennt U+2605
+    # nicht, und daran ist am 06.09.2026 ein Bau-Lauf gestorben.
+    # ⚠ Die Sternzeichen NICHT woertlich hinschreiben: Pruefung 144 durchsucht
+    # den ganzen Aufruf, nicht nur den Ausgabetext — sonst schlaegt sie hier an.
+    _sterne176 = (chr(0x2605), chr(0x2606))
+    _stern_text176 = _sp97.TEXTE.get('s_as_stern') or ()
+    pruefe(len(_stern_text176) == 2
+           and not any(z in x for x in _stern_text176 for z in _sterne176),
+           'die Beschriftung malt kein Sternzeichen')
+
+    # -- Und die Seite selbst: Suche oben, Knopf unten, nur die Liste rollt.
+    #
+    # ⚠⚠ Gemeldet zu v3.28.0: „der Button verschwindet, wenn man runterscrollt,
+    # in der ewig langen Liste." Ursache war die Pack-Reihenfolge — die
+    # Rollfläche mit `expand=True` schiebt alles aus dem Fenster, was NACH ihr
+    # gepackt wird.
+    #
+    # ⚠ Geprüft wird die **Pack-Reihenfolge**, nicht eine Pixellage: Prüfung
+    # 155 hat genau daran schon einmal gelitten (unter Linux grün, im Bau-Lauf
+    # unter Windows rot, weil dort nichts gemappt war).
+    _seite176 = tk.Frame(_w176)
+    _seite176.pack(fill='both', expand=True)
+    _se176._asop(_f176, _seite176)
+    _w176.update_idletasks()
+
+    _reihen176 = [(k, k.pack_info().get('side'), k.pack_info().get('expand'))
+                  for k in _seite176.winfo_children() if k.winfo_manager() == 'pack']
+    _unten176 = [i for i, (_k, s, _e) in enumerate(_reihen176) if s == 'bottom']
+    _dehnt176 = [i for i, (_k, _s, e) in enumerate(_reihen176) if str(e) in ('1', 'True')]
+    pruefe(bool(_unten176), 'die Seite hat einen fest verankerten Fuss')
+    pruefe(bool(_dehnt176), 'und eine Flaeche, die den Rest bekommt')
+    if _unten176 and _dehnt176:
+        pruefe(max(_unten176) < min(_dehnt176),
+               'der Fuss wird VOR der Rollflaeche gepackt — sonst faellt er heraus')
+
+    try:
+        _w176.destroy()
+    except Exception:
+        pass
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

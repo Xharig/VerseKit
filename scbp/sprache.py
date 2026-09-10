@@ -4252,7 +4252,22 @@ TEXTE = {
                           'ship: two identical Hornets get the same name. '
                           'Variants can be told apart — F7C, F7C-M, Mk I and '
                           'Mk II are different models to the game.'),
-    's_as_stern':        ('Sternchen davor', 'Star in front'),
+    # ⚠ Kein gemaltes Sternzeichen als Beschriftung: Das Projekt malt keine
+    # Symbole, und `U+2605` kennt cp1252 nicht — daran ist am 06.09.2026 schon
+    # ein Bau-Lauf gestorben (Pruefung 144). Das Sternchen selbst steht in
+    # `asop.STERN` und geht in die Sprachdatei des Spiels, nicht in die
+    # Oberflaeche.
+    's_as_stern':        ('Sternchen', 'Star'),
+    # ⚠ Diese drei sagen, ob der Name wirklich im Spiel steht. Ohne sie sieht
+    # die Seite genauso aus, ob geschrieben wurde oder nicht — der Fehler von
+    # v3.28.0: eingetragen, gespeichert, und im Flottenmanager stand weiter der
+    # Werksname.
+    's_as_gemerkt':      ('Gemerkt — wird gleich ins Spiel geschrieben …',
+                          'Saved — writing to the game in a moment …'),
+    's_as_steht':        ('Steht im Spiel. Beim nächsten Start des Spiels ist '
+                          'es zu sehen.',
+                          'Written to the game. You will see it the next time '
+                          'you start the game.'),
     's_as_stand':        ('%d von %d Schiffen lassen sich benennen.',
                           '%d of %d ships can be renamed.'),
     's_as_ohne':         ('Ohne Zuordnung: %s — diese Schiffe stehen unter '
@@ -4262,6 +4277,10 @@ TEXTE = {
                           'No match: %s — these ships are not in the language '
                           'file under this name. That mostly affects announced '
                           'ships that are not in the game yet.'),
+    's_as_suche':        ('Schiff suchen — Werksname oder eigener Name',
+                          'Search a ship — factory name or your own'),
+    's_as_nichts_gefunden': ('Kein Schiff passt zu deiner Suche.',
+                             'No ship matches your search.'),
     's_as_zeile_ohne':   ('In der Sprachdatei nicht gefunden.',
                           'Not found in the language file.'),
     's_as_kein_hangar':  ('Dein Hangar ist leer. Trag deine Schiffe unter '
@@ -4274,7 +4293,6 @@ TEXTE = {
                           'Settings → In-game text.'),
     's_as_einspielen':   ('Namen ins Spiel schreiben', 'Write names to the game'),
     's_as_laeuft':       ('Wird geschrieben …', 'Writing …'),
-    's_as_fertig':       ('Geschrieben: %s', 'Written: %s'),
     's_as_schief':       ('Hat nicht geklappt: %s', 'Did not work: %s'),
     's_as_nicht_gespeichert': ('Der Name ließ sich nicht speichern.',
                                'The name could not be saved.'),

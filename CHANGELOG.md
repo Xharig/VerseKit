@@ -6,6 +6,30 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.28.1 - 2026-09-10
+
+> **„Schiffe benennen" tat gestern nichts.** Man konnte einen Namen eintragen,
+> er wurde gespeichert — und im Flottenmanager stand trotzdem der Werksname.
+> Der Knopf, der ihn ins Spiel geschrieben hätte, lag unter einer Liste von
+> vierzig Schiffen und war nie zu sehen. Jetzt schreibt die Seite von selbst,
+> und Suchfeld wie Knopf bleiben stehen, egal wie weit du rollst.
+
+### Behoben
+
+- **Der eingetragene Name kam nie im Spiel an.** Die Seite schreibt ihn jetzt
+  selbst, sobald du das Feld verlässt — und sagt darüber, ob er angekommen ist
+- **Der Knopf „Namen ins Spiel schreiben" rollte aus dem Bild.** Er sitzt jetzt
+  fest am unteren Rand, zusammen mit dem neuen Suchfeld oben. Nur die Liste
+  rollt noch
+- **Der Schalter für das Sternchen war winzig und sah fremd aus.** Er war ein
+  Kästchen im Systemstil; jetzt ist es eine Schaltfläche im Programmstil, die
+  grün steht, wenn sie an ist
+
+### Neu
+
+- **Suchfeld auf „Schiffe benennen"** — fest oben, sucht über den Werksnamen,
+  den Namen aus deinem Hangar und den, den du selbst vergeben hast
+
 ## v3.28.0 - 2026-09-10
 
 > **Deine Schiffe heißen ab jetzt, wie du sie nennst.** Im Abrufterminal steht

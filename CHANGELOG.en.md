@@ -6,6 +6,31 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.28.1 - 2026-09-10
+
+> **"Rename ships" did nothing yesterday.** You could enter a name, it was
+> saved — and the fleet manager still showed the factory name. The button that
+> would have written it to the game sat below a list of forty ships and was
+> never in sight. The page now writes by itself, and both the search box and
+> the button stay put no matter how far you scroll.
+
+### Fixed
+
+- **The name you entered never reached the game.** The page now writes it
+  itself as soon as you leave the field — and says above the list whether it
+  arrived
+- **The "Write names to the game" button scrolled out of view.** It now sits
+  fixed at the bottom, together with the new search box at the top. Only the
+  list scrolls
+- **The star toggle was tiny and looked foreign.** It was a system-style
+  checkbox; now it is a button in the program's own style that turns green when
+  it is on
+
+### New
+
+- **Search box on "Rename ships"** — fixed at the top, searching the factory
+  name, the name from your hangar and the one you gave yourself
+
 ## v3.28.0 - 2026-09-10
 
 > **From now on your ships are called what you call them.** The retrieval

@@ -10418,14 +10418,57 @@ def _asop(fenster, rahmen):
     """
     from . import asop as asop_modul, hangar as meine, injektion
 
+    # ⚠⚠ **Reihenfolge ist hier alles.** Erst alles Feste packen (Kopf oben,
+    # Fuß unten), **danach** die rollende Fläche mit `expand=True`. Wer die
+    # Liste zuerst packt, schiebt den Fuß aus dem Fenster — bei 41 Schiffen
+    # ist der Knopf dann unerreichbar. Genau so gemeldet zu v3.28.0:
+    # „der Button verschwindet, wenn man runterscrollt, in der ewig langen
+    # Liste."
     _ueberschrift(fenster, rahmen, t('hf_asop'), t('s_as_lead'))
-    innen = _rollflaeche(rahmen)
-    _fliesstext(innen, t('s_as_grenze'), fenster.f_klein, fill='x', abzug=48)
 
     daten = {'stand': asop_modul.laden()}
-    meldung = tk.Label(innen, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+    alles = {'zuordnung': []}
+
+    # --- fester Kopf: Suche und Stand -------------------------------------
+    kopf = tk.Frame(rahmen, bg=BG)
+    kopf.pack(side='top', fill='x')
+
+    # ⚠ Gesucht wird über **beides** — den Werksnamen und den eigenen. Wer
+    # „Hornet" tippt, meint das Schiff; wer „Leitschiff" tippt, meint den
+    # Namen, den er selbst vergeben hat. Nur nach einem von beiden zu suchen
+    # wäre auf der Hälfte der Fälle nutzlos.
+    suche = tk.StringVar()
+    such_zeile = tk.Frame(kopf, bg=BG)
+    such_zeile.pack(fill='x', padx=24, pady=(0, 6))
+    from .hauptfenster import rundes_feld as _rundes_feld_such
+    such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_klein,
+                                  '#0c1017', LINIE, ACCENT, FG)
+    such_feld.halter.pack(side='left', fill='x', expand=True)
+    _suche_leeren_kreuz(fenster, such_zeile, suche)
+
+    such_platz = tk.Label(such_feld, text=t('s_as_suche'), bg='#0c1017',
+                          fg=SUB, font=fenster.f_klein, anchor='w')
+
+    def such_platz_zeigen(*_):
+        try:
+            if suche.get():
+                such_platz.place_forget()
+            else:
+                such_platz.place(x=1, rely=0.5, anchor='w')
+        except tk.TclError:
+            pass
+
+    such_platz.bind('<Button-1>', lambda _e: such_feld.focus_set())
+    such_platz_zeigen()
+
+    meldung = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_klein,
                        anchor='w', justify='left')
-    liste = tk.Frame(innen, bg=BG)
+    # ⚠ Eigene Zeile für „steht im Spiel". Sie sagt, ob die Namen wirklich
+    # angekommen sind — die Zeile darüber zählt nur, wie viele sich benennen
+    # lassen. Zwei verschiedene Auskünfte gehören nicht in dasselbe Feld.
+    stand = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_klein,
+                     anchor='w', justify='left')
+    stand.pack(fill='x', padx=24, pady=(2, 0))
 
     def zeilen_der_ini():
         """Die Zeilen der Sprachdatei, die das Spiel gerade lädt — oder nichts."""
@@ -10439,14 +10482,16 @@ def _asop(fenster, rahmen):
         return []
 
     def sichern():
+        """Merken — und gleich dafür sorgen, dass es auch im Spiel ankommt."""
         if not asop_modul.speichern(daten['stand']):
-            meldung.configure(text=t('s_as_nicht_gespeichert'), fg=ROT)
+            stand.configure(text=t('s_as_nicht_gespeichert'), fg=ROT)
             return False
+        spaeter_einspielen()
         return True
 
     def _fuellen():
-        for kind in liste.winfo_children():
-            kind.destroy()
+        """Die Daten holen — Sprachdatei und Hangar. Das Zeichnen macht `_zeichnen`."""
+        alles['zuordnung'] = []
         zeilen = zeilen_der_ini()
         tabelle = asop_modul.schluessel_lesen(zeilen) if zeilen else {}
         if not tabelle:
@@ -10454,22 +10499,59 @@ def _asop(fenster, rahmen):
             # benennen, und das ist kein Fehler des Nutzers.
             meldung.configure(text=t('s_as_keine_ini'), fg=SUB)
             meldung.pack(fill='x', padx=24, pady=(8, 0))
+            _zeichnen()
             return
         schiffe = (meine.laden().get('schiffe') or [])
         if not schiffe:
             meldung.configure(text=t('s_as_kein_hangar'), fg=SUB)
             meldung.pack(fill='x', padx=24, pady=(8, 0))
+            _zeichnen()
             return
-        zuordnung = asop_modul.zuordnen(schiffe, tabelle)
-        ohne = [e for e in zuordnung if not e['schluessel']]
+        alles['zuordnung'] = asop_modul.zuordnen(schiffe, tabelle)
+        ohne = [e for e in alles['zuordnung'] if not e['schluessel']]
         meldung.configure(
-            text=t('s_as_stand') % (len(zuordnung) - len(ohne), len(zuordnung)),
+            text=t('s_as_stand') % (len(alles['zuordnung']) - len(ohne),
+                                    len(alles['zuordnung'])),
             fg=SUB)
         meldung.pack(fill='x', padx=24, pady=(8, 0))
-        liste.pack(fill='x', padx=24, pady=(10, 0))
+        _zeichnen()
 
-        for e in zuordnung:
+    def _passt(e, text):
+        """Trifft der Suchbegriff dieses Schiff?
+
+        ⚠ Gesucht wird über **drei** Schreibweisen: den Namen aus dem Hangar,
+        den Werksnamen aus dem Spiel und den selbst vergebenen. Wer „Hornet"
+        tippt, meint das Schiff; wer „Leitschiff" tippt, meint seinen eigenen
+        Namen. Nur eines davon zu durchsuchen wäre in der Hälfte der Fälle
+        nutzlos.
+        """
+        if not text:
+            return True
+        eigen = ''
+        if e['schluessel']:
+            eigen = asop_modul.eintrag(daten['stand'], e['schluessel'])[0]
+        return any(text in (x or '').lower()
+                   for x in (e['name'], e['werksname'], eigen))
+
+    def _zeichnen():
+        for kind in liste.winfo_children():
+            kind.destroy()
+        zuordnung = alles['zuordnung']
+        if not zuordnung:
+            liste.pack_forget()
+            return
+        liste.pack(fill='x', padx=24, pady=(10, 0))
+        text = (suche.get() or '').strip().lower()
+        zeigen = [e for e in zuordnung if _passt(e, text)]
+        if not zeigen:
+            # ⚠ Nicht einfach leer bleiben — eine leere Liste sieht aus wie ein
+            # kaputtes Werkzeug, nicht wie „nichts gefunden".
+            tk.Label(liste, text=t('s_as_nichts_gefunden'), bg=BG, fg=SUB,
+                     font=fenster.f_klein, anchor='w').pack(fill='x', pady=(6, 0))
+            return
+        for e in zeigen:
             _asop_zeile(fenster, liste, e, daten, asop_modul, sichern)
+        ohne = [e for e in zeigen if not e['schluessel']]
         if ohne:
             hinweis_lbl = tk.Label(
                 liste, text=t('s_as_ohne') % ', '.join(x['name'] for x in ohne),
@@ -10479,27 +10561,59 @@ def _asop(fenster, rahmen):
 
     def einspielen():
         """Die Namen in die Sprachdatei schreiben — über den üblichen Weg."""
-        meldung.configure(text=t('s_as_laeuft'), fg=SUB)
-        meldung.update_idletasks()
+        stand.configure(text=t('s_as_laeuft'), fg=SUB)
+        stand.update_idletasks()
         try:
             pfad, sprachordner, _quelle = injektion.ini_datei()
             if not pfad:
-                meldung.configure(text=t('s_as_keine_ini'), fg=ROT)
+                stand.configure(text=t('s_as_keine_ini'), fg=ROT)
                 return
-            ok, anzahl, text = injektion.aktualisieren(pfad, sprachordner)
+            ok, _anzahl, text = injektion.aktualisieren(pfad, sprachordner)
         except Exception as ausnahme:
             fehler.merken('seiten._asop.einspielen', ausnahme)
-            ok, anzahl, text = False, 0, str(ausnahme)
-        meldung.configure(text=(t('s_as_fertig') % text) if ok
-                          else (t('s_as_schief') % text),
-                          fg=SUB if ok else ROT)
+            ok, text = False, str(ausnahme)
+        stand.configure(text=t('s_as_steht') if ok else (t('s_as_schief') % text),
+                        fg=ACCENT if ok else ROT)
 
-    fuss = tk.Frame(innen, bg=BG)
-    fuss.pack(fill='x', padx=24, pady=(16, 0))
-    _knopf(fenster, fuss, t('s_as_einspielen'), einspielen, stark=True).pack(side='left')
+    # ⚠⚠ **Der Knopf war der Fehler von v3.28.0.** Wer einen Namen eintippt,
+    # hat ihn vergeben — und erwartet ihn im Spiel. Stattdessen musste er unter
+    # einer Liste von 41 Schiffen einen Knopf finden, der weit außerhalb des
+    # Bildes lag. Gemeldet mit Bildschirmfoto: Name eingetragen, Haken gesetzt,
+    # im Flottenmanager stand weiter der Werksname. Die Datei war nie
+    # geschrieben worden.
+    #
+    # ⚠ Deshalb schreibt die Seite jetzt **von selbst** — gemessen 0,28 s für
+    # die ganze 12-MB-Datei, also nichts, wofür man jemanden klicken lässt.
+    # Gesammelt wird über `after`: Wer fünf Schiffe hintereinander benennt,
+    # löst einen Lauf aus, nicht fünf.
+    warte = {'id': None}
+
+    def spaeter_einspielen():
+        try:
+            if warte['id']:
+                innen.after_cancel(warte['id'])
+        except Exception:
+            pass
+        stand.configure(text=t('s_as_gemerkt'), fg=SUB)
+        warte['id'] = innen.after(900, einspielen)
+
+    # --- fester Fuß: der Knopf, der immer erreichbar bleiben muss ----------
+    # ⚠ `side='bottom'`, und **vor** der Rollfläche gepackt. Der Knopf bleibt
+    # trotz Selbstschreiben: Nach einem Spiel-Patch hat sich an den Namen
+    # nichts geändert, die Sprachdatei ist aber neu — dann gibt es nichts, was
+    # ein Selbstschreiben auslösen könnte.
+    fuss = tk.Frame(rahmen, bg=BG)
+    fuss.pack(side='bottom', fill='x', padx=24, pady=(10, 12))
+    _knopf(fenster, fuss, t('s_as_einspielen'), einspielen).pack(side='left')
+
+    # --- und zuletzt die rollende Liste ------------------------------------
+    innen = _rollflaeche(rahmen)
+    _fliesstext(innen, t('s_as_grenze'), fenster.f_klein, fill='x', abzug=48)
     _fliesstext(innen, t('s_as_patch_hinweis'), fenster.f_klein, fill='x',
-                abzug=48, pady=(10, 0))
+                abzug=48, pady=(6, 0))
+    liste = tk.Frame(innen, bg=BG)
 
+    suche.trace_add('write', lambda *_: (such_platz_zeigen(), _zeichnen()))
     fenster.beim_zeigen['asop'] = _fuellen
     _fuellen()
 
@@ -10539,22 +10653,43 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     feld = rundes_feld(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
     feld.halter.pack(side='left', fill='x', expand=True)
 
-    haken = tk.Checkbutton(
-        reihe, text=t('s_as_stern'), variable=stern_an, bg=FLAECHE, fg=SUB,
-        selectcolor=FLAECHE, activebackground=FLAECHE, activeforeground=FG,
-        font=fenster.f_klein, bd=0, highlightthickness=0, cursor='hand2')
-    haken.pack(side='right', padx=(10, 0))
-
     def uebernehmen(*_):
         asop_modul.setzen(daten['stand'], e['schluessel'], wert.get(),
                           stern_an.get())
         sichern()
 
+    # ⚠⚠ **Kein `tk.Checkbutton`.** In v3.28.0 stand hier eines — gemeldet:
+    # „zu klein, sieht niemand, und sieht anders aus als der Rest im Projekt".
+    # Beides stimmt: Tk malt sein Kästchen im Systemstil, also hell, winzig und
+    # in einer anderen Handschrift als jede andere Seite. Das Projekt hat einen
+    # eigenen Schalter (`_schalter`) — der hängt an einer Einstellung und passt
+    # hier nicht, sein **Aussehen** aber schon: eine Schaltfläche, die im
+    # Akzentgrün steht, wenn sie an ist.
+    #
+    # ⚠ Und er sitzt **rechts** neben dem Feld, wie jedes Bedienelement seiner
+    # Art im Programm. Symmetrie: Gleiches steht überall an der gleichen Stelle.
+    schalter = tk.Label(reihe, text='', bg=FLAECHE, font=fenster.f_klein,
+                        cursor='hand2', padx=12, pady=4)
+    schalter.pack(side='right', padx=(10, 0))
+
+    def schalter_zeichnen():
+        an = stern_an.get()
+        schalter.configure(text=' %s ' % t('s_as_stern'),
+                           fg=BG if an else SUB,
+                           bg=ACCENT if an else FLAECHE)
+
+    def stern_umschalten(_=None):
+        stern_an.set(not stern_an.get())
+        schalter_zeichnen()
+        uebernehmen()
+
+    schalter.bind('<Button-1>', stern_umschalten)
+    schalter_zeichnen()
+
     # ⚠ Beim Verlassen des Feldes sichern, nicht bei jedem Tastendruck: Sonst
     # schreibt das Werkzeug bei „Mamba-Leitschiff" siebzehn Dateien.
     feld.bind('<FocusOut>', uebernehmen)
     feld.bind('<Return>', uebernehmen)
-    haken.configure(command=uebernehmen)
 
 
 def _einkaufsliste(fenster, rahmen):
