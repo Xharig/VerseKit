@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Ein Update wird jetzt gegen seine veröffentlichte Prüfsumme geprüft.**
+  Bisher war nur sichergestellt, dass die Datei von GitHub kommt — nicht, dass
+  es die richtige ist. Jedes Release bringt ab sofort eine `SHA256SUMS.txt`
+  mit; das Programm holt sie, rechnet die geladene Datei nach und installiert
+  nur bei Übereinstimmung. Stimmt etwas nicht, wird die Datei verworfen und
+  der Weg von Hand über die Release-Seite genannt
+
+### Verbessert
+
+- **Der Dateiname aus der GitHub-Antwort wird entschärft**, bevor er in einen
+  Pfad kommt
+
 ### Behoben
 
 - **Beim Wechsel der Textquelle blieb die alte Sprachdatei liegen.** Die

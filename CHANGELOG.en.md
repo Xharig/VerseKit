@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **An update is now checked against its published checksum.** Until now only
+  the origin was verified — that the file came from GitHub, not that it was
+  the right one. Every release now ships a `SHA256SUMS.txt`; the program
+  fetches it, recomputes the downloaded file and installs only on a match. If
+  anything does not add up, the file is discarded and you are pointed to the
+  manual download on the release page
+
+### Improved
+
+- **The file name from GitHub's response is sanitised** before it becomes part
+  of a path
+
 ### Fixed
 
 - **Switching the text source left the old language file behind.** The sources
