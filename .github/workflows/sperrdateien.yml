@@ -1,0 +1,107 @@
+# Erzeugt die Sperrdateien fuer den Bau — je eine Datei pro Plattform.
+#
+# ⚠⚠ **Warum das ein eigener Ablauf ist und nicht Teil des Release-Baus.**
+# Eine Sperrdatei muss dort entstehen, wo sie gilt: `pip download --platform
+# win_amd64` loest die Windows-Pakete NICHT auf, weil die Marker
+# `sys_platform == "win32"` vom laufenden System kommen und nicht von der
+# Wheel-Vertraeglichkeit. Ein anderswo erzeugter Lock haette `pefile` und
+# `pywin32-ctypes` nicht dabei — der Windows-Bau waere mit `--require-hashes`
+# abgebrochen. Am 10.09.2026 gemessen.
+#
+# Und genau deshalb braucht es KEINEN zweiten Rechner: `windows-latest` hier
+# ist ein Windows-Rechner. Der Ablauf laeuft von Hand, haengt beide Dateien
+# als Anhang an den Lauf, und die werden dann eingecheckt.
+#
+# Ablauf fuer den Menschen:
+#   1. Actions -> "Sperrdateien bauen" -> Run workflow
+#   2. Die beiden Anhaenge herunterladen
+#   3. Nach packaging/lock-windows.txt und packaging/lock-linux.txt legen
+#   4. Committen — erst danach darf release.yml mit --require-hashes bauen
+#
+# ⚠ Nach JEDEM Anheben von PyInstaller, pyflakes oder pip neu laufen lassen.
+# Eine veraltete Sperrdatei bricht den Bau; das ist gewollt laut, aber
+# jemand muss die neue erzeugen, statt entnervt `--require-hashes` abzuschalten.
+
+name: Sperrdateien bauen
+
+on:
+  workflow_dispatch:
+
+# ⚠ Dieselben Versionen wie in release.yml. Stehen sie auseinander, nagelt die
+# Sperrdatei etwas anderes fest als das, was gebaut wird — Pruefung 181 im
+# Selbsttest haelt fest, dass beide Dateien dieselben Werte nennen.
+env:
+  PY_PYINSTALLER: '6.22.2'
+  PY_PYFLAKES: '3.4.0'
+  PY_PIP: '26.2.1'
+
+permissions:
+  contents: read              # es wird nichts geschrieben, nur angehaengt
+
+jobs:
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          # ⚠ Dieselbe Fassung wie im Bau. Eine Sperrdatei von Python 3.12
+          # kann Wheels nennen, die 3.14 gar nicht nimmt.
+          python-version: '3.14'
+
+      - name: pip festnageln
+        run: python -m pip install --upgrade "pip==${{ env.PY_PIP }}"
+
+      - name: Sperrdatei erzeugen
+        run: >
+          python .github/scripts/sperrdatei_bauen.py lock-windows.txt
+          "pyinstaller==${{ env.PY_PYINSTALLER }}"
+          "pyflakes==${{ env.PY_PYFLAKES }}"
+
+      - name: Gegenprobe — sind die Windows-Pakete wirklich drin?
+        # ⚠ Ohne diese Probe merkt niemand, wenn der Lauf versehentlich auf
+        # einem anderen System entstand: Die Datei saehe brauchbar aus und
+        # zerschoesse erst den naechsten Bau.
+        shell: bash
+        run: |
+          set -eu
+          grep -q '^pefile==' lock-windows.txt
+          grep -q '^pywin32-ctypes==' lock-windows.txt
+          ! grep -q '^macholib==' lock-windows.txt
+          echo "Windows-Pakete vorhanden, macholib nicht — sieht richtig aus."
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: lock-windows
+          path: lock-windows.txt
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.14'
+
+      - name: pip festnageln
+        run: python -m pip install --upgrade "pip==${{ env.PY_PIP }}"
+
+      - name: Sperrdatei erzeugen
+        run: >
+          python .github/scripts/sperrdatei_bauen.py lock-linux.txt
+          "pyinstaller==${{ env.PY_PYINSTALLER }}"
+          "pyflakes==${{ env.PY_PYFLAKES }}"
+
+      - name: Gegenprobe — und hier darf KEIN Windows-Paket stehen
+        run: |
+          set -eu
+          ! grep -q '^pefile==' lock-linux.txt
+          ! grep -q '^pywin32-ctypes==' lock-linux.txt
+          grep -q '^altgraph==' lock-linux.txt
+          echo "Sieht nach einem Linux-Lock aus."
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: lock-linux
+          path: lock-linux.txt
