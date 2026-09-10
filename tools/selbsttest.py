@@ -16224,6 +16224,71 @@ def main():
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
+    print('\n181. Die Sperrdateien nageln DAS fest, was auch gebaut wird')
+    # ⚠⚠ Zwei Ablaufdateien nennen dieselben Werkzeugversionen: `release.yml`
+    # baut damit, `sperrdateien.yml` nagelt sie samt Unterabhaengigkeiten
+    # fest. Laufen die Werte auseinander, sperrt man etwas anderes, als man
+    # baut — und merkt es erst, wenn der Bau mit `--require-hashes` abbricht
+    # oder, schlimmer, wenn er NICHT abbricht und still etwas anderes einbaut.
+    _rel181 = open(os.path.join(_wurzelpfad, '.github', 'workflows',
+                                'release.yml'), encoding='utf-8').read()
+    _spr181 = os.path.join(_wurzelpfad, '.github', 'workflows',
+                           'sperrdateien.yml')
+    pruefe(os.path.exists(_spr181), 'es gibt einen Ablauf fuer die Sperrdateien')
+    _sp_text181 = open(_spr181, encoding='utf-8').read()
+
+    for _wert181 in ('PY_PYINSTALLER', 'PY_PYFLAKES', 'PY_PIP'):
+        _a181 = re.search(r'%s:\s*([\'"])(.+?)\1' % _wert181, _rel181)
+        _b181 = re.search(r'%s:\s*([\'"])(.+?)\1' % _wert181, _sp_text181)
+        pruefe(_a181 and _b181 and _a181.group(2) == _b181.group(2),
+               '%s steht in beiden Ablaeufen gleich (%s / %s)'
+               % (_wert181,
+                  _a181.group(2) if _a181 else 'fehlt',
+                  _b181.group(2) if _b181 else 'fehlt'))
+
+    # Auch die Python-Fassung: Eine Sperrdatei von 3.12 kann Wheels nennen,
+    # die 3.14 gar nicht nimmt.
+    _pyv181 = set(re.findall(r"python-version:\s*'([\d.]+)'", _rel181))
+    _pys181 = set(re.findall(r"python-version:\s*'([\d.]+)'", _sp_text181))
+    pruefe(_pyv181 and _pyv181 == _pys181,
+           'beide Ablaeufe nehmen dieselbe Python-Fassung (%s / %s)'
+           % (sorted(_pyv181), sorted(_pys181)))
+
+    # ⚠⚠ **Und der Schalter, der die Sperrdateien erst wirksam macht.**
+    # Solange sie noch nicht eingecheckt sind, waere `--require-hashes` im
+    # Bau ein sofortiger Abbruch — deshalb haengt die Forderung an ihrem
+    # Dasein. Der Text sagt ausdruecklich, welcher Fall gerade gilt: Eine
+    # Pruefung, die stillschweigend nichts tut, prueft nichts.
+    #
+    # ⚠⚠ **Nur ausserhalb von Kommentaren zaehlen.** Der erste Anlauf suchte
+    # `--require-hashes` im ganzen Text — und fand es in einem **Kommentar**
+    # aus P0, der die Sache bloss beschreibt. Die Pruefung schlug an, obwohl
+    # nichts damit gebaut wird. Derselbe Fehler, den der Pruefer kurz zuvor an
+    # der Release-Wache beanstandet hatte; einmal gelesen ist eben nicht
+    # einmal verstanden.
+    def _wirklich181(text, wort):
+        return any(wort in z and not z.lstrip().startswith('#')
+                   for z in text.splitlines())
+
+    _lockordner181 = os.path.join(_wurzelpfad, 'packaging')
+    _locks181 = sorted(
+        d for d in (os.listdir(_lockordner181)
+                    if os.path.isdir(_lockordner181) else [])
+        if d.startswith('lock-') and d.endswith('.txt'))
+    if _locks181:
+        pruefe(_wirklich181(_rel181, '--require-hashes'),
+               'die Sperrdateien liegen (%s) — also baut release.yml mit '
+               '--require-hashes' % ', '.join(_locks181))
+        for _l181 in _locks181:
+            _inhalt181 = open(os.path.join(_lockordner181, _l181),
+                              encoding='utf-8').read()
+            pruefe('--hash=sha256:' in _inhalt181,
+                   '%s enthaelt wirklich Pruefsummen' % _l181)
+    else:
+        pruefe(not _wirklich181(_rel181, '--require-hashes'),
+               'noch KEINE Sperrdateien eingecheckt — dann darf release.yml '
+               'auch nicht mit --require-hashes bauen (sonst bricht jeder Lauf)')
+
     print('\n180. Ein Update ohne gueltige Pruefsumme wird nicht eingespielt')
     # ⚠⚠ Bis v3.28.x pruefte der Updater nur die **Herkunft** (`_url_ok`: kommt
     # von github.com), nicht den **Inhalt**. Was durch diesen Filter kam, wurde
