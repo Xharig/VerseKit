@@ -73,6 +73,12 @@ Ein neuer Bauplan wirft sofort die nächste Frage auf: **passt das Teil überhau
 </td>
 </tr>
 <tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-asop-ingame.jpg" alt="Der Flottenmanager im Spiel mit drei selbst benannten Schiffen" width="100%"><br>
+<sub><b>Schiffe benennen</b> — so sieht es <b>im Spiel</b> aus: eigene Namen im Abrufterminal statt der Werksnamen. Das Sternchen markiert nicht nur — weil der Flottenmanager alphabetisch sortiert, rutschen die markierten Schiffe nach oben</sub>
+</td>
+</tr>
+<tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-wunschliste.png" alt="Wunschliste mit Preis und planbarer Ausstattung" width="100%"><br>
 <sub><b>Wunschliste</b> — was du dir vornimmst, mit Kaufpreis und Ort; die Ausstattung lässt sich planen, bevor du das Schiff besitzt</sub>

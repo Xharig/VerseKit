@@ -73,6 +73,12 @@ A new blueprint immediately raises the next question: **does this part even fit 
 </td>
 </tr>
 <tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-asop-ingame.jpg" alt="The in-game fleet manager with three self-named ships" width="100%"><br>
+<sub><b>Rename ships</b> — this is what it looks like <b>in game</b>: your own names at the retrieval terminal instead of the factory ones. The star does more than mark — since the fleet manager sorts alphabetically, starred ships move to the top. <i>(German client shown)</i></sub>
+</td>
+</tr>
+<tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-wunschliste-en.png" alt="Wishlist with price and planned loadout" width="100%"><br>
 <sub><b>Wishlist</b> — what you are aiming for, with price and location; the loadout can be planned before you own the ship</sub>
