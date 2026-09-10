@@ -308,10 +308,10 @@ def _suche_leeren_kreuz(fenster, halter, var):
     sehen will, musste den Text von Hand markieren und löschen — und wer den
     Suchbegriff übersieht, hält die kurze Liste für den ganzen Bestand.
     """
-    from . import hinweis
+    from . import notice
     kreuz = tk.Label(halter, text='\u00d7', bg=BG, fg=SUB,
                      font=fenster.f_grund, cursor='hand2')
-    hinweis.anhaengen(kreuz, lambda: t('s_suche_leeren'))
+    notice.attach(kreuz, lambda: t('s_suche_leeren'))
     kreuz.bind('<Button-1>', lambda _e: var.set(''))
     kreuz.bind('<Enter>', lambda _e: kreuz.configure(fg=ACCENT))
     kreuz.bind('<Leave>', lambda _e: kreuz.configure(fg=SUB))
@@ -2723,8 +2723,8 @@ def _auftragslog(fenster, rahmen):
                     pass
             name_lab.bind('<Enter>', lambda e, w=name_lab: w.configure(fg=ACCENT))
             name_lab.bind('<Leave>', lambda e, w=name_lab: w.configure(fg=FG))
-            from . import hinweis as hinweis_modul
-            hinweis_modul.anhaengen(name_lab, lambda: t('s_al_klick'))
+            from . import notice
+            notice.attach(name_lab, lambda: t('s_al_klick'))
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
             if (zustand == missionslog.LAEUFT

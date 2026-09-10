@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import bildschirm, fehler, hinweis, news, pfade, zeichen
+from . import bildschirm, fehler, notice, news, pfade, zeichen
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -1947,7 +1947,7 @@ class Hauptfenster:
             import time as _t
             return t('hf_zeit_h') % _t.strftime('%d.%m.%Y', _t.localtime(ab))
 
-        hinweis.anhaengen(rahmen, erklaerung)
+        notice.attach(rahmen, erklaerung)
 
         def nachziehen():
             try:
@@ -1981,7 +1981,7 @@ class Hauptfenster:
         w.pack(side='left')
         for teil in (rahmen, z, w):
             teil.bind('<Button-1>', lambda e, f=tat: f())
-        hinweis.anhaengen(rahmen, lambda: erklaerung)
+        notice.attach(rahmen, lambda: erklaerung)
         rahmen.teile = (z, w)
         return rahmen
 

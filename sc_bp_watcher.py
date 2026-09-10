@@ -44,12 +44,12 @@ from tkinter import font as tkfont
 from scbp import sprache
 from scbp import zeichen
 from scbp import fehler
-from scbp import hinweis
+from scbp import notice
 from scbp import (
     auftraege,ablagesymbol, aktualisierung, assistent, autostart, orte, preise,
                   bildschirm, overlay,
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
-                  einstellungsfenster, hinweis, injektion,
+                  einstellungsfenster, notice, injektion,
                   katalog as katalog_modul, laeden, logquelle, merkliste,
                   pfade, phrasen, schiffe, spielstand, titelleiste, ton,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
@@ -1901,7 +1901,7 @@ class Overlay:
         titel_lbl = tk.Label(bar, text=f'● SC BP Watcher v{__version__}', bg=BAR,
                              fg=ACCENT, font=self.f_title)
         titel_lbl.pack(side='left', padx=8)
-        hinweis.anhaengen(titel_lbl, lambda: sprache.t('hinweis_ziehen'))
+        notice.attach(titel_lbl, lambda: sprache.t('hinweis_ziehen'))
 
         # ⚠ Alle Symbole kommen aus `scbp/zeichen.py` — fertige Bilder aus dem
         # Lucide-Satz, nicht mehr Schriftzeichen. Warum, steht dort ausführlich;
@@ -1915,7 +1915,7 @@ class Overlay:
         zu_lbl = zeichen.knopf(bar, 'schliessen', self.quit, ersatz='X',
                                schrift=self.f_title)
         zu_lbl.pack(side='right', padx=8)
-        hinweis.anhaengen(zu_lbl, lambda: sprache.t('hinweis_schliessen'))
+        notice.attach(zu_lbl, lambda: sprache.t('hinweis_schliessen'))
 
         # ⚠ Ein Radiergummi, kein Mülleimer. Der Knopf **löscht nichts** — er
         # räumt nur die angezeigten Meldungen weg, die Baupläne bleiben (siehe
@@ -1925,7 +1925,7 @@ class Overlay:
         leeren_lbl = zeichen.knopf(bar, 'leeren', self.clear,
                                    schrift=self.f_title)
         leeren_lbl.pack(side='right')
-        hinweis.anhaengen(leeren_lbl, lambda: sprache.t('hinweis_leeren'))
+        notice.attach(leeren_lbl, lambda: sprache.t('hinweis_leeren'))
 
         # Einklappen: nur die Titelleiste bleibt stehen. Für alle mit **einem**
         # Bildschirm — dort liegt das Overlay zwangsläufig über dem Spiel, und
@@ -1935,7 +1935,7 @@ class Overlay:
         self.klapp_lbl = zeichen.knopf(bar, 'einklappen', self.umklappen,
                                        schrift=self.f_title)
         self.klapp_lbl.pack(side='right', padx=(0, 6))
-        hinweis.anhaengen(self.klapp_lbl, self._hinweis_klappen)
+        notice.attach(self.klapp_lbl, self._hinweis_klappen)
 
         # ⚠ Der **Hinweg** zum Durchreichen. Bis rc89 gab es nur den Rückweg:
         # Das schwebende Schloss erscheint erst, wenn durchgereicht wird, und
@@ -1957,7 +1957,7 @@ class Overlay:
                                              self._schloss_zusperren,
                                              schrift=self.f_title)
             self.schloss_lbl.pack(side='right', padx=(0, 6))
-            hinweis.anhaengen(self.schloss_lbl,
+            notice.attach(self.schloss_lbl,
                               lambda: sprache.t('hinweis_schloss_zu'))
 
         # ⚠ **Protokolle erneut einlesen** — der Knopf gehört hierher und nicht
@@ -1969,7 +1969,7 @@ class Overlay:
                                           self._logs_neu_einlesen,
                                           schrift=self.f_title)
         self.neulesen_lbl.pack(side='right', padx=(0, 6))
-        hinweis.anhaengen(self.neulesen_lbl,
+        notice.attach(self.neulesen_lbl,
                           lambda: sprache.t('hinweis_neulesen'))
 
         # Zwei Ansichten, ein Programm: die schmale Melde-Leiste bleibt, das
@@ -1988,7 +1988,7 @@ class Overlay:
         self.liste_lbl = zeichen.knopf(bar, 'liste', self.liste_oeffnen,
                                        schrift=self.f_title)
         self.liste_lbl.pack(side='right', padx=(0, 6))
-        hinweis.anhaengen(self.liste_lbl, lambda: sprache.t('hinweis_liste'))
+        notice.attach(self.liste_lbl, lambda: sprache.t('hinweis_liste'))
 
         # Das Zahnrad ist der direkte Griff in die Einstellungen. Bis v3.0.0 lag
         # daneben noch ein zweiter Knopf für den Einrichtungs-Assistenten — der
@@ -2000,7 +2000,7 @@ class Overlay:
                                        self.einstellungen_oeffnen,
                                        schrift=self.f_title)
         self.einst_lbl.pack(side='right', padx=(0, 6))
-        hinweis.anhaengen(self.einst_lbl,
+        notice.attach(self.einst_lbl,
                           lambda: sprache.t('hinweis_einstellungen'))
 
         # ⚠ Der Startknopf gehört **hierher**, nicht auf eine Unterseite. Er saß
@@ -2021,12 +2021,12 @@ class Overlay:
                                            farbe=zeichen.GRUEN,
                                            schrift=self.f_title)
             self.start_lbl.pack(side='right', padx=(0, 6))
-            # ⚠ Erklärung wie bei allen anderen Zeichen über `hinweis`,
+            # ⚠ Erklärung wie bei allen anderen Zeichen über `notice`,
             # **nicht** über die Statuszeile: Die zeigt echte Meldungen, und
             # der frühere Weg stellte danach `_status_text` wieder her — einen
             # Merker, der nie fortgeschrieben wird. Ein Bauplanfund war nach
             # einem Mausschlenker damit überschrieben.
-            hinweis.anhaengen(self.start_lbl, lambda: sprache.t('s_sp_start'))
+            notice.attach(self.start_lbl, lambda: sprache.t('s_sp_start'))
 
         # ⚠ Eine Glocke statt des `ⓘ`. Ein „i" heisst „hier steht etwas", eine
         # Glocke heisst „fuer dich ist etwas da" — und genau darum geht es hier,
@@ -2045,7 +2045,7 @@ class Overlay:
         # meistens wissen, ob es etwas Neues gibt — und landet so direkt beim
         # Knopf. „Was ist neu" liegt einen Reiter daneben und ist einen Klick
         # entfernt.
-        hinweis.anhaengen(self.info_lbl, self._hinweis_info)
+        notice.attach(self.info_lbl, self._hinweis_info)
         # Dasselbe für die Sprache: Wer in den Einstellungen auf Englisch
         # stellt, soll die Melde-Leiste **sofort** englisch sehen — nicht erst
         # nach einem Neustart, und nicht halb.
@@ -2159,7 +2159,7 @@ class Overlay:
         self.root.bind('<Configure>', self._grip_nachziehen, add='+')
         self.root.bind('<Map>', self._grip_nachziehen, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
-        hinweis.anhaengen(self.grip, lambda: sprache.t('hinweis_groesse'))
+        notice.attach(self.grip, lambda: sprache.t('hinweis_groesse'))
 
         # Watcher starten
         # Version an die Bauplan-Liste durchreichen — sie landet im
@@ -2733,7 +2733,7 @@ class Overlay:
                                 schrift=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=rein: self._auftrag_ausblenden(r))
-            hinweis.anhaengen(weg, lambda: sprache.t('ov_auftrag_weg'))
+            notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
             self._auftrag_zeilen.append(lbl)
             self._ziele_zeigen(ziele)
 
@@ -2848,7 +2848,7 @@ class Overlay:
                                 schrift=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=auftrag: self._auftrag_ausblenden(r))
-            hinweis.anhaengen(weg, lambda: sprache.t('ov_auftrag_weg'))
+            notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
         self._fit_width()
         if top:
             row.pack_configure(before=top[0])
@@ -3779,7 +3779,7 @@ class Overlay:
                                   grund=BAR, schrift=self.f_title)
             marke.pack(expand=True)
             self._schloss.bind('<Button-1>', lambda e: self._schloss_loesen())
-            hinweis.anhaengen(self._schloss,
+            notice.attach(self._schloss,
                               lambda: sprache.t('hinweis_schloss'))
             self._schloss.geometry('%dx%d+%d+%d' % (breite, hoehe, x, y))
             self._schloss.lift()
@@ -3982,7 +3982,7 @@ class Overlay:
                                     lambda e: self._popup_zeigen(wegen_maus=True))
                 self._anfasser.bind('<Button-1>',
                                     lambda e: self._popup_zeigen(wegen_maus=True))
-                hinweis.anhaengen(self._anfasser,
+                notice.attach(self._anfasser,
                                   lambda: sprache.t('hinweis_anfasser'))
             self._anfasser.geometry('%dx%d+%d+%d'
                                     % (self.ANFASSER_BREITE, self.ANFASSER_HOEHE,

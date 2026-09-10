@@ -10201,12 +10201,12 @@ def main():
     # Das Programm funktioniert weiter, es wird nur wieder langsam. Genau die
     # Sorte Verschlechterung, die man erst Monate spaeter bemerkt.
     import tkinter as _tk112
-    from scbp import hinweis as _hw112
+    from scbp import notice as _hw112
 
     _root112 = _wurzel()
     try:
         _w112 = _tk112.Label(_root112, text='x')
-        _hw112.anhaengen(_w112, 'Erklaertext')
+        _hw112.attach(_w112, 'Erklaertext')
         _vorher112 = set(_w112.bind())
         pruefe(_vorher112 == {'<Enter>'},
                'beim Anhaengen wird nur <Enter> gesetzt (%s)'
@@ -10233,16 +10233,20 @@ def main():
         # tatsaechlich setzt. Es faengt aber genau den Rueckbau ab, um den es
         # geht: dass jemand die drei Abraeumer wieder nach oben zieht (dann
         # sind sie wieder sofort da) oder ganz streicht (dann fehlen sie).
-        _quelle112 = open(os.path.join(WURZEL, 'scbp', 'hinweis.py'),
+        # ⚠ Seit P3 (11.09.2026) heisst das Modul `notice`, die Funktionen
+        #   `attach`, `on_enter` und `cancel`. Diese Pruefung schneidet den
+        #   Quelltext an den Funktionsnamen auf — sie muss bei jeder Umbenennung
+        #   mitziehen, sonst bricht sie mit einem IndexError statt zu pruefen.
+        _quelle112 = open(os.path.join(WURZEL, 'scbp', 'notice.py'),
                           encoding='utf-8').read()
-        _fn112 = _quelle112.split('def anhaengen')[1]
-        _imenter112 = _fn112.split('def betreten')[1].split('def abbrechen')[0]
+        _fn112 = _quelle112.split('def attach')[1]
+        _imenter112 = _fn112.split('def on_enter')[1].split('def cancel')[0]
         for _ev112 in ('<Leave>', '<Button-1>', '<Destroy>'):
             pruefe("bind('%s'" % _ev112 in _imenter112,
                    '%s wird beim ersten <Enter> nachgezogen' % _ev112)
-        # Gegenprobe: ausserhalb von `betreten` darf nur noch <Enter> stehen.
-        _ausserhalb112 = (_fn112.split('def betreten')[0]
-                          + _fn112.split('def abbrechen')[1])
+        # Gegenprobe: ausserhalb von `on_enter` darf nur noch <Enter> stehen.
+        _ausserhalb112 = (_fn112.split('def on_enter')[0]
+                          + _fn112.split('def cancel')[1])
         pruefe(_ausserhalb112.count('widget.bind') == 1,
                'beim Anhaengen selbst steht genau ein bind (%d)'
                % _ausserhalb112.count('widget.bind'))

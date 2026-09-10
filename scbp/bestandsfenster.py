@@ -41,7 +41,7 @@ import tkinter as tk
 from . import fehler
 from . import bestand as bestand_datei
 from . import export as export_modul
-from . import hinweis
+from . import notice
 from . import katalog as katalog_modul
 from . import merkliste as merk
 from . import zeichen
@@ -410,7 +410,7 @@ class Bestandsfenster:
             k = rundknopf(bar, text, None, schrift(9), BAR, FLAECHE, LINIE, FG)
             k.pack(side='right', padx=abstand)
             k.bind('<Button-1>', lambda e, f=tat: f())
-            hinweis.anhaengen(k, lambda: t('hinweis_export'))
+            notice.attach(k, lambda: t('hinweis_export'))
         self.export_meldung = tk.Label(bar, text='', bg=BAR, fg=ACCENT,
                                        font=schrift(9))
         self.export_meldung.pack(side='right', padx=(0, 10))
@@ -526,7 +526,7 @@ class Bestandsfenster:
                                           schrift=schrift(10))
         self.loeschen_lbl.configure(padx=8, cursor='hand2')
         self.loeschen_lbl.bind('<Button-1>', lambda e: self._suche_leeren())
-        hinweis.anhaengen(self.loeschen_lbl, lambda: t('hinweis_suche_leeren'))
+        notice.attach(self.loeschen_lbl, lambda: t('hinweis_suche_leeren'))
         # Erscheint erst, wenn etwas drinsteht — ein ✕ an einem leeren Feld ist
         # nur ein Zeichen, das nichts tut.
         self._loeschkreuz_zeigen()
@@ -1048,7 +1048,7 @@ class Bestandsfenster:
             weg = tk.Label(kopfzeile, text='\u00d7', bg=FLAECHE, fg=SUB,
                            font=schrift(11), cursor='hand2')
             weg.pack(side='right')
-            hinweis.anhaengen(weg, lambda: t('merk_eigene_weg'))
+            notice.attach(weg, lambda: t('merk_eigene_weg'))
             weg.bind('<Enter>', lambda _e, l=weg: l.configure(fg='#e05555'))
             weg.bind('<Leave>', lambda _e, l=weg: l.configure(fg=SUB))
             weg.bind('<Button-1>',
@@ -2101,7 +2101,7 @@ class Bestandsfenster:
             name_lbl.bind('<Enter>', lambda e, w=name_lbl: w.configure(fg=ACCENT))
             name_lbl.bind('<Leave>',
                           lambda e, w=name_lbl, f=grundfarbe: w.configure(fg=f))
-            hinweis.anhaengen(name_lbl, lambda: t('hinweis_zutaten'))
+            notice.attach(name_lbl, lambda: t('hinweis_zutaten'))
 
         unten = [t for t in (kuerzel(eintrag), eintrag.get('m')) if t]
         if unten:
@@ -2123,7 +2123,7 @@ class Bestandsfenster:
             info.configure(cursor='hand2', padx=12, fg=ACCENT)
             info.pack(side='right')
             info.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
-            hinweis.anhaengen(info, lambda: t('hinweis_quellen'))
+            notice.attach(info, lambda: t('hinweis_quellen'))
         elif eintrag.get('start'):
             # Startbaupläne: hat jeder von Anfang an, stehen in keinem Pool und
             # in keinem Log. Eigenes Zeichen, damit niemand nach einem Auftrag
@@ -2132,7 +2132,7 @@ class Bestandsfenster:
                                 grund=FLAECHE, schrift=schrift(10))
             std.configure(padx=12)
             std.pack(side='right')
-            hinweis.anhaengen(std, lambda: t('hinweis_startbauplan'))
+            notice.attach(std, lambda: t('hinweis_startbauplan'))
         else:
             # 59 Baupläne haben in den Daten keine Bezugsquelle — überwiegend
             # Event-Belohnungen („Purgatory Camo", „SecondWind"). Ohne Zeichen
@@ -2142,7 +2142,7 @@ class Bestandsfenster:
             leer = tk.Label(zeile, text='?', bg=FLAECHE, fg=SUB,
                             font=schrift(11), padx=12)
             leer.pack(side='right')
-            hinweis.anhaengen(leer, lambda: t('hinweis_ohne_quelle'))
+            notice.attach(leer, lambda: t('hinweis_ohne_quelle'))
 
         # Stern: worauf man wartet, wird auffällig gemeldet, sobald es auftaucht.
         # Bei schon vorhandenen Bauplänen wäre das sinnlos — dort kein Stern.
@@ -2157,7 +2157,7 @@ class Bestandsfenster:
             stern.configure(cursor='hand2', padx=10)
             stern.pack(side='right')
             stern.bind('<Button-1>', lambda e, n=name: self._merken(n))
-            hinweis.anhaengen(stern, lambda n=name: t('nicht_mehr_merken')
+            notice.attach(stern, lambda n=name: t('nicht_mehr_merken')
                               if merk.enthaelt(n) else t('merken'))
 
 
@@ -2192,7 +2192,7 @@ class Bestandsfenster:
         zu.configure(cursor='hand2', padx=6)
         zu.pack(side='right')
         zu.bind('<Button-1>', lambda e: self._auswaehlen(None))
-        hinweis.anhaengen(zu, lambda: t('hk_zu'))
+        notice.attach(zu, lambda: t('hk_zu'))
         if quellen:
             blase(kopf, t('hk_ein_weg') if len(quellen) == 1
                   else t('hk_wege') % len(quellen),

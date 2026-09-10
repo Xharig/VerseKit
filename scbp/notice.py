@@ -26,9 +26,9 @@ absichtlich schmal und liegt über dem Spiel.
 
 Benutzung:
 
-    from .hinweis import anhaengen
-    anhaengen(knopf, lambda: t('hinweis_schliessen'))
-    anhaengen(knopf, 'fester Text')
+    from .notice import attach
+    attach(knopf, lambda: t('hinweis_schliessen'))
+    attach(knopf, 'fester Text')
 
 Der Text darf eine **Funktion** sein statt einer Zeichenkette. Nötig für alles,
 was seinen Zustand wechselt (Autostart an/aus, Stern gesetzt/nicht) — sonst
@@ -46,36 +46,46 @@ Bewusst schlicht gehalten:
   bloßen Überqueren der Leiste.
 * Der Hinweis verschwindet auch beim **Klick**. Sonst bliebe er über einem
   Fenster stehen, das gerade zugegangen ist.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `hinweis`, die Funktion `anhaengen`
+(Sprachumstellung P3). **Nur das Modul ist umbenannt.** Das Wort `hinweis`
+steht an vielen anderen Stellen weiter — und muss dort bleiben: als Kennung in
+der Nachrichten-Warteschlange (`q.put(('hinweis', …))`), als Feld im
+Fehlerprotokoll, das in der Datei des Nutzers steht, und in den Textschlüsseln
+`hinweis_…`. Ein pauschales Ersetzen hätte alle drei zerschossen.
+
+⚠ Prüfung 112 im Selbsttest schneidet den Quelltext dieser Datei an den Namen
+`attach`, `on_enter` und `cancel` auf. Wer die umbenennt, zieht die Prüfung mit.
 """
 import tkinter as tk
 
-VERZOEGERUNG_MS = 450          # bis der Hinweis kommt
-ABSTAND_X, ABSTAND_Y = 12, 22  # neben und unter dem Mauszeiger
+DELAY_MS = 450               # bis der Hinweis kommt
+OFFSET_X, OFFSET_Y = 12, 22  # neben und unter dem Mauszeiger
 
-BG   = '#1b1b1b'
-FG   = '#e8e8e8'
-RAND = '#3a3a3a'
+BG     = '#1b1b1b'
+FG     = '#e8e8e8'
+BORDER = '#3a3a3a'
 
 
-class _Fenster:
+class _Window:
     """Das eine Hinweisfenster. Wird beim ersten Bedarf angelegt."""
 
     def __init__(self):
         self.top = None
         self.label = None
 
-    def zeigen(self, eltern, text, x, y):
+    def show(self, parent, text, x, y):
         if not text:
             return
         try:
             if self.top is None or not self.top.winfo_exists():
-                self.top = tk.Toplevel(eltern)
+                self.top = tk.Toplevel(parent)
                 self.top.overrideredirect(True)      # keine Fensterdekoration
                 self.top.attributes('-topmost', True)
                 self.label = tk.Label(self.top, text=text, bg=BG, fg=FG,
                                       font=('Segoe UI', 9), justify='left',
                                       padx=8, pady=4,
-                                      highlightbackground=RAND,
+                                      highlightbackground=BORDER,
                                       highlightthickness=1)
                 self.label.pack()
             else:
@@ -87,7 +97,7 @@ class _Fenster:
             # das Programm stehenbleiben darf.
             self.top = None
 
-    def verstecken(self):
+    def hide(self):
         try:
             if self.top is not None and self.top.winfo_exists():
                 self.top.withdraw()
@@ -95,10 +105,10 @@ class _Fenster:
             self.top = None
 
 
-_fenster = _Fenster()
+_window = _Window()
 
 
-def anhaengen(widget, text):
+def attach(widget, text):
     """Einem Element einen Erklärtext geben. `text` ist Zeichenkette oder Funktion.
 
     ⚠⚠ **Nur EIN Binding beim Anhängen — die anderen drei kommen erst, wenn die
@@ -114,32 +124,32 @@ def anhaengen(widget, text):
     nicht geben kann. Wer nie mit der Maus hinfährt, braucht sie also nie; wer
     hinfährt, hat sie ab dem ersten Mal. Der Nutzer merkt keinen Unterschied.
     """
-    daten = {'job': None, 'rest': False}
+    state = {'job': None, 'rest': False}
 
-    def hole_text():
+    def get_text():
         return text() if callable(text) else text
 
-    def betreten(ereignis):
-        if not daten['rest']:
+    def on_enter(event):
+        if not state['rest']:
             # Ab jetzt kann ein Auftrag laufen — also jetzt die Abräumer setzen.
-            daten['rest'] = True
-            widget.bind('<Leave>', abbrechen, add='+')
-            widget.bind('<Button-1>', abbrechen, add='+')
-            widget.bind('<Destroy>', abbrechen, add='+')
-        abbrechen()
-        daten['job'] = widget.after(
-            VERZOEGERUNG_MS,
-            lambda: _fenster.zeigen(widget, hole_text(),
-                                    ereignis.x_root + ABSTAND_X,
-                                    ereignis.y_root + ABSTAND_Y))
+            state['rest'] = True
+            widget.bind('<Leave>', cancel, add='+')
+            widget.bind('<Button-1>', cancel, add='+')
+            widget.bind('<Destroy>', cancel, add='+')
+        cancel()
+        state['job'] = widget.after(
+            DELAY_MS,
+            lambda: _window.show(widget, get_text(),
+                                 event.x_root + OFFSET_X,
+                                 event.y_root + OFFSET_Y))
 
-    def abbrechen(ereignis=None):
-        if daten['job'] is not None:
+    def cancel(event=None):
+        if state['job'] is not None:
             try:
-                widget.after_cancel(daten['job'])
+                widget.after_cancel(state['job'])
             except tk.TclError:
                 pass
-            daten['job'] = None
-        _fenster.verstecken()
+            state['job'] = None
+        _window.hide()
 
-    widget.bind('<Enter>', betreten, add='+')
+    widget.bind('<Enter>', on_enter, add='+')
