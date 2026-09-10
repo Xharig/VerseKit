@@ -348,6 +348,27 @@ jobs:
             *)                      echo "vorab=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
+      - name: Pruefsummen erzeugen
+        # ⚠⚠ **Ohne diese Datei bekommt niemand mehr ein automatisches
+        # Update.** Seit P1 gilt im Programm: keine gueltige Pruefsumme, keine
+        # Installation. Das ist so gewollt und deshalb streng — aber es heisst
+        # auch, dass dieser Schritt bei JEDEM Release laufen muss.
+        #
+        # ⚠ Die Namen stehen ohne Ordner in der Datei (`cd` statt Pfadangabe):
+        # Der Updater sucht darin nach dem reinen Dateinamen des Anhangs, so
+        # wie GitHub ihn ausliefert. Mit `dateien/windows/…` davor faende er
+        # seinen Eintrag nie und wuerde jedes Update ablehnen.
+        run: |
+          set -eu
+          ( cd dateien/windows && sha256sum SC-BP-Watcher-Setup.exe ) \
+            > SHA256SUMS.txt
+          ( cd dateien/linux && sha256sum SC-BP-Watcher-x86_64.AppImage ) \
+            >> SHA256SUMS.txt
+          echo "--- SHA256SUMS.txt ---"
+          cat SHA256SUMS.txt
+          # Gegenprobe: zwei Zeilen, sonst fehlt eine Datei.
+          test "$(wc -l < SHA256SUMS.txt)" = "2"
+
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
@@ -369,6 +390,7 @@ jobs:
           files: |
             dateien/windows/SC-BP-Watcher-Setup.exe
             dateien/linux/SC-BP-Watcher-x86_64.AppImage
+            SHA256SUMS.txt
 
       # Meldung im eigenen Discord — als lesbare Karte statt als nackter Link.
       #

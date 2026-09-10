@@ -4304,7 +4304,8 @@ def _fassung_holen(fenster, mit_vorab):
         try:
             ziel = aktualisierung.herunterladen(
                 datei, fortschritt=lambda p: _im_tk(
-                    fenster, lambda: fenster.sagen(t('wird_geladen', p))))
+                    fenster, lambda: fenster.sagen(t('wird_geladen', p))),
+                freigabe=freigabe)
 
             # ⚠ Sagen, was gleich passiert — **vor** dem Einspielen.
             #

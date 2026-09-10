@@ -16224,6 +16224,155 @@ def main():
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
+    print('\n180. Ein Update ohne gueltige Pruefsumme wird nicht eingespielt')
+    # ⚠⚠ Bis v3.28.x pruefte der Updater nur die **Herkunft** (`_url_ok`: kommt
+    # von github.com), nicht den **Inhalt**. Was durch diesen Filter kam, wurde
+    # ungeprueft eingespielt. Entschieden am 10.09.2026: keine gueltige Summe,
+    # keine Installation — kein Schalter, kein „trotzdem".
+    #
+    # ⚠ Geprueft wird der **echte** Weg `herunterladen()`, mit einem
+    # vorgetaeuschten Netz. Wer nur `summe_rechnen()` prueft, prueft hashlib.
+    import hashlib as _hl180
+    import io as _io180
+    import tempfile as _tf180
+    import urllib.request as _ur180
+    from scbp import aktualisierung as _ak180
+
+    _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
+    _echt_open180 = _ur180.urlopen
+    _echt_appimage180 = _ak180.eigenes_appimage
+    try:
+        _nutz180 = b'Das ist die neue Fassung.' * 500
+        _name180 = 'SC-BP-Watcher-x86_64.AppImage'
+        _summe180 = _hl180.sha256(_nutz180).hexdigest()
+        _url180 = 'https://github.com/Xharig/SC-BP-Watcher/releases/x/' + _name180
+        _summen_url180 = ('https://github.com/Xharig/SC-BP-Watcher/'
+                          'releases/x/SHA256SUMS.txt')
+
+        # Das Programm soll neben eine Datei in unserem Wegwerf-Ordner laden.
+        _ak180.eigenes_appimage = lambda: os.path.join(_ordner180, _name180)
+
+        _antwort180 = {'summen': '', 'nutz': _nutz180}
+
+        class _Netz180(object):
+            """Ein Mini-Netz: liefert genau die zwei Dateien, sonst nichts."""
+
+            def __init__(self, inhalt):
+                self._f = _io180.BytesIO(inhalt)
+                self.headers = {'Content-Length': str(len(inhalt))}
+
+            def read(self, *a):
+                return self._f.read(*a)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        def _falsches_netz180(req, timeout=None):
+            ziel = req.full_url if hasattr(req, 'full_url') else str(req)
+            if ziel.endswith('SHA256SUMS.txt'):
+                if _antwort180['summen'] is None:
+                    raise OSError('kein Netz')
+                return _Netz180(_antwort180['summen'].encode('utf-8'))
+            return _Netz180(_antwort180['nutz'])
+
+        _ur180.urlopen = _falsches_netz180
+
+        def _freigabe180(mit_summen=True, summe=None):
+            dateien = [{'name': _name180, 'url': _url180, 'groesse': len(_nutz180)}]
+            if mit_summen:
+                dateien.append({'name': 'SHA256SUMS.txt', 'url': _summen_url180})
+            _antwort180['summen'] = ('%s  %s\n' % (summe or _summe180, _name180)
+                                     if summe != 'WEG' else None)
+            return {'version': 'v9.9.9', 'dateien': dateien}
+
+        def _versuch180(freigabe):
+            """Gibt (Pfad, Fehlertext). Genau eines von beiden ist gesetzt."""
+            try:
+                return _ak180.herunterladen(freigabe['dateien'][0],
+                                            freigabe=freigabe), ''
+            except Exception as ausnahme:
+                return None, str(ausnahme)
+
+        # -- 1. Summe stimmt → die Datei kommt an.
+        _pfad180, _text180 = _versuch180(_freigabe180())
+        pruefe(_pfad180 and os.path.exists(_pfad180),
+               'bei passender Pruefsumme wird geladen (%s)' % (_text180 or 'ok'))
+        if _pfad180 and os.path.exists(_pfad180):
+            pruefe(open(_pfad180, 'rb').read() == _nutz180,
+                   'und zwar unveraendert')
+            os.remove(_pfad180)
+
+        # -- 2. Summe falsch → nichts eingespielt, und nichts liegen gelassen.
+        _pfad180, _text180 = _versuch180(_freigabe180(summe='0' * 64))
+        pruefe(_pfad180 is None, 'bei falscher Pruefsumme wird abgelehnt')
+        pruefe('Pr' in _text180 or 'checksum' in _text180.lower(),
+               'und der Nutzer erfaehrt den Grund (%r)' % _text180[:60])
+        # ⚠⚠ Das ist der Punkt, den man vergisst: Die halbe Datei liegt neben
+        #    dem laufenden Programm. Sie MUSS weg sein.
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'die verworfene Datei bleibt nicht liegen')
+
+        # -- 3. Pruefsummen-Datei fehlt ganz → ebenfalls nichts.
+        _pfad180, _text180 = _versuch180(_freigabe180(mit_summen=False))
+        pruefe(_pfad180 is None, 'ohne Pruefsummen-Datei wird nicht installiert')
+
+        # -- 4. Netz weg beim Holen der Summen → **anderer** Satz. „Kein Netz"
+        #       darf nicht wie „manipuliert" klingen.
+        _frei180 = _freigabe180(summe='WEG')
+        _pfad180, _netztext180 = _versuch180(_frei180)
+        pruefe(_pfad180 is None, 'auch ohne erreichbare Summen wird abgelehnt')
+        pruefe(_netztext180 != _text180,
+               'und mit einem anderen Satz als bei fehlender Datei')
+
+        # -- 5. Ohne Freigabe gar nicht erst anfangen: Wer den Aufruf ohne sie
+        #       baut, haette den Schutz abgeschaltet.
+        _pfad180, _text180 = _versuch180({'dateien': [
+            {'name': _name180, 'url': _url180}]})
+        pruefe(_pfad180 is None, 'ein Aufruf ohne Freigabe wird abgelehnt')
+
+        # -- Der Dateiname aus der Server-Antwort wird entschaerft.
+        for _boese180 in ('../../boese.appimage', '/etc/boese.appimage',
+                          '..\\..\\boese.exe'):
+            _sauber180 = _ak180.sicherer_dateiname(_boese180)
+            pruefe(os.sep not in _sauber180 and '/' not in _sauber180
+                   and '..' not in _sauber180,
+                   'Asset-Name %r wird zu %r' % (_boese180, _sauber180))
+        pruefe(_ak180.sicherer_dateiname('boese.sh') == 'update.bin',
+               'eine fremde Endung wird gar nicht erst uebernommen')
+
+        # -- Und das Lesen der Summen-Datei: Muell wird uebergangen, nicht
+        #    geraten.
+        _tab180 = _ak180.pruefsummen_lesen(
+            '%s  %s\nkaputt\n%s *zweite.exe\nzu kurz  x.exe\n'
+            % (_summe180, _name180, 'b' * 64))
+        pruefe(_tab180 == {_name180: _summe180, 'zweite.exe': 'b' * 64},
+               'aus der Summen-Datei kommen nur brauchbare Zeilen (%r)' % _tab180)
+
+        # -- ⚠⚠ **Und die andere Haelfte: Der Bau MUSS die Datei liefern.**
+        #    Das Programm ist ab jetzt streng — ein Release ohne
+        #    `SHA256SUMS.txt` legt den Update-Weg fuer alle still. Die Strenge
+        #    ist gewollt; sie darf nur nicht daran scheitern, dass jemand den
+        #    Bau-Schritt herausnimmt, ohne die Folge zu kennen.
+        _abl180 = os.path.join(_wurzelpfad, '.github', 'workflows', 'release.yml')
+        _yml180 = open(_abl180, encoding='utf-8').read()
+        pruefe('sha256sum' in _yml180 and 'SHA256SUMS.txt' in _yml180,
+               'der Bau-Ablauf erzeugt eine Pruefsummen-Datei')
+        # Sie muss auch **angehaengt** werden — erzeugen allein nuetzt nichts.
+        _anhang180 = _yml180.split('files:', 1)[-1] if 'files:' in _yml180 else ''
+        pruefe('SHA256SUMS.txt' in _anhang180.split('\n\n', 1)[0],
+               'und haengt sie an das Release')
+        # ⚠ Die Namen in der Datei duerfen keinen Ordner tragen — sonst faende
+        #   der Updater seinen Eintrag nie und lehnte JEDES Update ab.
+        pruefe('cd dateien/windows' in _yml180 and 'cd dateien/linux' in _yml180,
+               'die Summen werden ohne Ordner im Namen erzeugt')
+    finally:
+        _ur180.urlopen = _echt_open180
+        _ak180.eigenes_appimage = _echt_appimage180
+        shutil.rmtree(_ordner180, ignore_errors=True)
+
     print('\n179. Der Erkennungskern der Scan-Signatur')
     # ⚠⚠ **655 Zeilen ohne eine einzige Pruefung** — so lag das Werkzeug bis
     # zum 10.09.2026 da. „Selbsttest gruen" sagte ueber diesen Teil schlicht

@@ -63,7 +63,8 @@ def main():
 
     print('\nLade herunter …')
     ziel = aktualisierung.herunterladen(
-        datei, fortschritt=lambda p: print('\r  %3d %%' % p, end='', flush=True))
+        datei, fortschritt=lambda p: print('\r  %3d %%' % p, end='', flush=True),
+        freigabe=freigabe)
     print('\r  fertig: %s (%.1f MB)' % (ziel, os.path.getsize(ziel) / 1048576))
 
     if not echt:
