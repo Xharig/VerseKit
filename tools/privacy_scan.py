@@ -163,10 +163,32 @@ def dateien_aus_git():
 
     ⚠ Genau darum geht es: Was nicht versioniert ist, kann auch nicht
     versehentlich veroeffentlicht werden.
+
+    ⚠⚠ **Und wenn Git nicht antwortet, wird trotzdem geprueft.** Im
+    Bau-Container gehoert der ausgecheckte Ordner einem anderen Benutzer;
+    `git ls-files` bricht dort mit „dubious ownership" ab (Exit 128, gemessen
+    am 11.09.2026 im Release-Bau). Der erste Anlauf gab dann auf — und ein
+    Scanner, der bei Unklarheit nichts prueft, ist schlimmer als keiner:
+    Er faerbt den Lauf gruen, ohne hingesehen zu haben.
     """
-    roh = subprocess.check_output(['git', '-C', WURZEL, 'ls-files'],
-                                  text=True, encoding='utf-8')
-    return [z for z in roh.splitlines() if z.strip()]
+    try:
+        roh = subprocess.check_output(['git', '-C', WURZEL, 'ls-files'],
+                                      text=True, encoding='utf-8',
+                                      stderr=subprocess.DEVNULL)
+        gefunden = [z for z in roh.splitlines() if z.strip()]
+        if gefunden:
+            return gefunden
+    except Exception:
+        pass
+    # Rueckfall: selbst durchgehen. Etwas grober — hier landen auch Dateien,
+    # die Git gar nicht kennt —, aber lieber zu viel gelesen als gar nichts.
+    raus = []
+    for ordner, unter, namen in os.walk(WURZEL):
+        unter[:] = [u for u in unter if u not in ('.git', '__pycache__')]
+        for n in namen:
+            raus.append(os.path.relpath(os.path.join(ordner, n), WURZEL)
+                        .replace(os.sep, '/'))
+    return raus
 
 
 def sperrliste_lesen():
@@ -240,20 +262,26 @@ def main(argv):
         return 2
 
     if len(argv) > 1:
-        dateien = [os.path.relpath(os.path.abspath(p), WURZEL)
-                   for p in argv[1:]]
+        # ⚠⚠ **Nicht auf einen Pfad relativ zum Repo umrechnen.** Unter
+        # Windows liegt der Arbeitsordner des Bau-Laeufers auf `D:` und der
+        # Temp-Ordner auf `C:`; `os.path.relpath` wirft dann `ValueError`
+        # („path is on mount 'C:', start on mount 'D:'"), und das Werkzeug
+        # starb mit einem Rueckverfolgungsprotokoll statt zu pruefen.
+        # Gemessen am 11.09.2026 im Release-Bau — unter Linux faellt es nie
+        # auf, weil es dort nur einen Baum gibt.
+        dateien = list(argv[1:])
     else:
-        try:
-            dateien = dateien_aus_git()
-        except Exception as ausnahme:
-            print('FEHLER: git ls-files ging nicht (%s)' % ausnahme)
-            return 2
+        dateien = dateien_aus_git()
 
     funde, geprueft = [], 0
     for rel in dateien:
-        if any(rel.startswith(a) or rel == a.rstrip('/') for a in AUSGENOMMEN):
+        # ⚠ Ein Pfad, der von aussen kommt, bleibt wie er ist; nur der
+        # Repo-eigene wird an die Wurzel gehaengt.
+        voll = rel if os.path.isabs(rel) else os.path.join(WURZEL, rel)
+        vergleich = rel.replace(os.sep, '/')
+        if any(vergleich.startswith(a) or vergleich == a.rstrip('/')
+               for a in AUSGENOMMEN):
             continue
-        voll = os.path.join(WURZEL, rel)
         if not os.path.isfile(voll):
             continue
         try:
