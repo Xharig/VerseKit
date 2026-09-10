@@ -83,12 +83,16 @@ jobs:
         run: python tools/privacy_scan.py
 
       - name: Selbsttest
-        # `unsichtbar.sicherstellen()` startet sich selbst unter `xvfb-run`
-        # neu, sobald ein Bildschirm noetig ist. `SC_BP_HOME` haelt den Lauf
-        # aus allem heraus, was nach echten Nutzerdaten aussieht.
+        # ⚠⚠ **`xvfb-run` muss HIER stehen, nicht im Programm.**
+        # `unsichtbar.sicherstellen()` startet sich nur dann selbst neu, wenn
+        # es einen Bildschirm SIEHT — es ist dazu da, den Bildschirm des
+        # Entwicklers zu schuetzen, nicht dazu, einen herbeizuschaffen. Auf
+        # einem Bau-Rechner gibt es gar kein `DISPLAY`, also bleibt es untaetig
+        # und `tk.Tk()` scheitert. `release.yml` macht es seit jeher so; beim
+        # ersten Anlauf dieses Ablaufs hatte ich es nicht uebernommen.
         env:
           SC_BP_HOME: ${{ runner.temp }}/sc-bp-home
-        run: python tools/selbsttest.py
+        run: xvfb-run -a python tools/selbsttest.py
 
       - name: Zweisprachigkeit
         run: python tools/sprachen_pruefen.py

@@ -254,6 +254,19 @@ def zeile_pruefen(zeile, begriffe):
 
 
 def main(argv):
+    # ⚠⚠ **Die Ausgabe darf nicht am Zeichensatz sterben.**
+    # Unter Windows schreibt Python in eine `cp1252`-Konsole; ein
+    # Gedankenstrich im Text der Fundliste loest dort einen
+    # `UnicodeEncodeError` aus — und zwar **bevor** der erste Fund gedruckt
+    # ist. Der Lauf endete dann mit Rueckgabe 1 und einer leeren Fundliste:
+    # Es sah aus, als haette der Scanner nichts gefunden, obwohl er vier
+    # Funde hatte. Gemessen am 11.09.2026 im Windows-Job des Release-Baus.
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
     begriffe, quelle = sperrliste_lesen()
     if quelle and not sperrliste_ist_ausgenommen():
         print('FEHLER: %s steht nicht in .gitignore. Eine Sperrliste im Repo '
@@ -301,12 +314,15 @@ def main(argv):
         print('Nichts Privates gefunden.')
         return 0
 
-    print('\n%d Fund(e) — Datei, Zeile und Regel; der Text selbst wird '
+    # ⚠ Bewusst ohne Gedankenstrich: Diese Zeile hat den Windows-Lauf
+    #   umgebracht (cp1252). Der Riegel oben faengt es inzwischen ab — die
+    #   Ausgabe bleibt trotzdem ASCII, doppelt haelt besser.
+    print('\n%d Fund(e). Datei, Zeile und Regel; der Text selbst wird '
           'bewusst NICHT ausgegeben:' % len(funde))
     for rel, nr, regel in funde:
         print('  %s:%d  %s' % (rel, nr, regel))
     print('\nJede Stelle einzeln ansehen. Ist sie harmlos, gehoert sie in '
-          'ERLAUBT oder AUSGENOMMEN — mit Begruendung im Kommentar.')
+          'ERLAUBT oder AUSGENOMMEN, mit Begruendung im Kommentar.')
     return 1
 
 

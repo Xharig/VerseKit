@@ -16261,7 +16261,8 @@ def main():
 
         _lauf182 = _sp182.run([sys.executable, _scan182, _probe182],
                               capture_output=True, text=True,
-                              encoding='utf-8', cwd=_wurzelpfad)
+                              encoding='utf-8', errors='replace',
+                              cwd=_wurzelpfad)
         _aus182 = (_lauf182.stdout or '') + (_lauf182.stderr or '')
         pruefe(_lauf182.returncode == 1,
                'ein Fund macht den Lauf rot (Rueckgabe %d)' % _lauf182.returncode)
@@ -16285,7 +16286,7 @@ def main():
                         'jemand@example.com\n')
         _ok182 = _sp182.run([sys.executable, _scan182, _harmlos182],
                             capture_output=True, text=True, encoding='utf-8',
-                            cwd=_wurzelpfad)
+                            errors='replace', cwd=_wurzelpfad)
         pruefe(_ok182.returncode == 0,
                'erfundene Beispiele und der Name Xharig schlagen NICHT an')
 
@@ -16293,7 +16294,7 @@ def main():
         #    rot und niemand koennte mehr pushen.
         _repo182 = _sp182.run([sys.executable, _scan182],
                               capture_output=True, text=True, encoding='utf-8',
-                              cwd=_wurzelpfad)
+                              errors='replace', cwd=_wurzelpfad)
         pruefe(_repo182.returncode == 0,
                'das Repo selbst ist sauber (%s)'
                % (_repo182.stdout or '').strip().splitlines()[-1:])
