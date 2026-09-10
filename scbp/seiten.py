@@ -4304,7 +4304,8 @@ def _fassung_holen(fenster, mit_vorab):
         try:
             ziel = aktualisierung.herunterladen(
                 datei, fortschritt=lambda p: _im_tk(
-                    fenster, lambda: fenster.sagen(t('wird_geladen', p))))
+                    fenster, lambda: fenster.sagen(t('wird_geladen', p))),
+                freigabe=freigabe)
 
             # ⚠ Sagen, was gleich passiert — **vor** dem Einspielen.
             #
@@ -8027,7 +8028,7 @@ def _laeden(fenster, rahmen):
     ld_reset.bind('<Leave>', lambda _=None: ld_reset.configure(fg=SUB))
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
-    # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
+    # da — eine Seite wird nur EINMAL gebaut.
     def _beim_zeigen():
         suche.set('')
         _liste_leeren()
@@ -10559,21 +10560,40 @@ def _asop(fenster, rahmen):
             hinweis_lbl.pack(fill='x', pady=(10, 0))
             _umbruch(hinweis_lbl, abzug=48)
 
+    def _sagen(text, farbe):
+        """Den Stand anzeigen — und stillhalten, wenn die Seite schon weg ist.
+
+        ⚠⚠ Der verzögerte Lauf kann auf ein Fenster treffen, das gerade
+        geschlossen wird. Beschriften scheitert dann, und **das darf das
+        Schreiben nicht verhindern**: Sonst steht der Name in `asop.json`,
+        aber nie in der `global.ini` — und im Spiel bleibt der Werksname
+        stehen, ohne jeden Hinweis. Genau dieses Bild wurde schon zweimal
+        gemeldet, damals aus einem anderen Grund.
+        """
+        try:
+            stand.configure(text=text, fg=farbe)
+        except Exception:
+            pass
+
     def einspielen():
         """Die Namen in die Sprachdatei schreiben — über den üblichen Weg."""
-        stand.configure(text=t('s_as_laeuft'), fg=SUB)
-        stand.update_idletasks()
+        warte['id'] = None
+        _sagen(t('s_as_laeuft'), SUB)
+        try:
+            stand.update_idletasks()
+        except Exception:
+            pass
         try:
             pfad, sprachordner, _quelle = injektion.ini_datei()
             if not pfad:
-                stand.configure(text=t('s_as_keine_ini'), fg=ROT)
+                _sagen(t('s_as_keine_ini'), ROT)
                 return
             ok, _anzahl, text = injektion.aktualisieren(pfad, sprachordner)
         except Exception as ausnahme:
             fehler.merken('seiten._asop.einspielen', ausnahme)
             ok, text = False, str(ausnahme)
-        stand.configure(text=t('s_as_steht') if ok else (t('s_as_schief') % text),
-                        fg=ACCENT if ok else ROT)
+        _sagen(t('s_as_steht') if ok else (t('s_as_schief') % text),
+               ACCENT if ok else ROT)
 
     # ⚠⚠ **Der Knopf war der Fehler von v3.28.0.** Wer einen Namen eintippt,
     # hat ihn vergeben — und erwartet ihn im Spiel. Stattdessen musste er unter
@@ -10586,16 +10606,41 @@ def _asop(fenster, rahmen):
     # die ganze 12-MB-Datei, also nichts, wofür man jemanden klicken lässt.
     # Gesammelt wird über `after`: Wer fünf Schiffe hintereinander benennt,
     # löst einen Lauf aus, nicht fünf.
+    #
+    # ⚠ Die Wartezeit hängt am **Fenster**, nicht an einem Element der Seite.
+    # Ein `after` auf einem Bauteil, das inzwischen zerstört ist, läuft ins
+    # Leere; das Fenster lebt dagegen so lange wie das Programm.
     warte = {'id': None}
 
     def spaeter_einspielen():
         try:
             if warte['id']:
-                innen.after_cancel(warte['id'])
+                fenster.root.after_cancel(warte['id'])
         except Exception:
             pass
-        stand.configure(text=t('s_as_gemerkt'), fg=SUB)
-        warte['id'] = innen.after(900, einspielen)
+        _sagen(t('s_as_gemerkt'), SUB)
+        warte['id'] = fenster.root.after(900, einspielen)
+
+    def _offenes_nachholen():
+        """Beim Zumachen: einen noch wartenden Schreiblauf jetzt ausführen.
+
+        Wer einen Namen eintippt und sofort das Fenster schließt, ist
+        schneller als die Drossel — ohne diese Stelle bliebe sein Name
+        ungeschrieben liegen.
+        """
+        if not warte['id']:
+            return
+        try:
+            fenster.root.after_cancel(warte['id'])
+        except Exception:
+            pass
+        warte['id'] = None
+        einspielen()
+
+    try:
+        fenster.vor_dem_schliessen.append(_offenes_nachholen)
+    except AttributeError:
+        pass          # Prüfstände bauen die Seite auch ohne ganzes Fenster
 
     # --- fester Fuß: der Knopf, der immer erreichbar bleiben muss ----------
     # ⚠ `side='bottom'`, und **vor** der Rollfläche gepackt. Der Knopf bleibt

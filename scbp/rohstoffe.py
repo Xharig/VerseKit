@@ -178,8 +178,26 @@ def trennzeichen_klaeren(text, ganzzahlig=False):
     if not roh:
         return ''
     kommas, punkte = roh.count(','), roh.count('.')
-    eindeutig = (kommas and punkte) or kommas > 1 or punkte > 1
-    if ganzzahlig or eindeutig:
+
+    # ⚠⚠ **Beide Zeichen: Das HINTERE trennt die Dezimalstellen.** Punkt.
+    #
+    # Bis zum 10.09.2026 lief auch dieser Fall ueber die Dreiergruppen-Schleife
+    # unten — und die frass bei drei Nachkommastellen eine Gruppe zu viel:
+    # `1,234.567` wurde erst zu `1234.567` und dann zu **1234567**. Wer eine
+    # Menge mit drei Nachkommastellen eintippt, hatte sie um Faktor tausend im
+    # Lager stehen, ohne jede Meldung — genau der Fehler, gegen den diese
+    # Funktion ueberhaupt geschrieben wurde.
+    #
+    # Mit beiden Zeichen braucht es die Schleife gar nicht: Welches Zeichen
+    # welche Rolle hat, steht fest, sobald man weiss, welches hinten steht.
+    if kommas and punkte:
+        dezimal = ',' if roh.rfind(',') > roh.rfind('.') else '.'
+        roh = roh.replace('.' if dezimal == ',' else ',', '')
+        return roh.replace(',', '.')
+
+    # Ab hier gibt es nur EIN Zeichen. Mehrfach kann es nur Tausender sein;
+    # einmal ist es mehrdeutig und wird ueber `ganzzahlig` entschieden.
+    if ganzzahlig or kommas > 1 or punkte > 1:
         vorher = None
         # In der Schleife, sonst bliebe bei `1,234,567` die vordere Gruppe stehen.
         while vorher != roh:

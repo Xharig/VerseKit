@@ -676,6 +676,46 @@ TEXTE = {
     's_sp_kein_starter': ('kein Starter gefunden', 'no launcher found'),
     'up_fremde_quelle': ('Datei kommt nicht von GitHub',
                           'File does not come from GitHub'),
+    # ⚠⚠ Drei Lagen, drei Sätze. Sie dürfen sich NICHT ähneln: „kein Netz" ist
+    # ein Ärgernis, „Summe stimmt nicht" ein Grund zur Vorsicht. Wer beides
+    # gleich formuliert, erschreckt die einen und beruhigt die anderen falsch.
+    # In allen drei Fällen steht der Weg von Hand dabei — eine Sackgasse wäre
+    # schlimmer als die Warnung.
+    'up_keine_summen': ('Zu dieser Version gibt es keine Prüfsummen-Datei — '
+                          'ohne sie wird nichts installiert. Bitte hol die '
+                          'neue Fassung von Hand auf der Release-Seite.',
+                          'This version has no checksum file — nothing is '
+                          'installed without one. Please download the new '
+                          'version by hand from the release page.'),
+    'up_summen_netz':  ('Die Prüfsummen ließen sich nicht laden — vermutlich '
+                          'ist gerade keine Verbindung da. Später noch einmal '
+                          'versuchen, oder von Hand auf der Release-Seite holen.',
+                          'The checksums could not be loaded — there is '
+                          'probably no connection right now. Try again later, '
+                          'or download by hand from the release page.'),
+    # ⚠ Eine Summen-Datei, die es GIBT, aber von einem fremden Server kommen
+    # soll, ist etwas anderes als gar keine — das ist kein „noch nicht
+    # eingerichtet", sondern ein Grund, misstrauisch zu sein.
+    'up_summen_fremd': ('Die Prüfsummen sollen von einer fremden Adresse '
+                          'kommen — das ist nicht in Ordnung. Es wurde nichts '
+                          'installiert. Bitte hol die neue Fassung von Hand '
+                          'auf der Release-Seite.',
+                          'The checksums are supposed to come from a foreign '
+                          'address — that is not right. Nothing was '
+                          'installed. Please download the new version by hand '
+                          'from the release page.'),
+    'up_summe_falsch': ('Die geladene Datei stimmt nicht mit der '
+                          'veröffentlichten Prüfsumme überein. Sie wurde '
+                          'verworfen und NICHT installiert. Bitte hol die '
+                          'neue Fassung von Hand auf der Release-Seite.',
+                          'The downloaded file does not match the published '
+                          'checksum. It has been discarded and was NOT '
+                          'installed. Please download the new version by hand '
+                          'from the release page.'),
+    # Kein Nutzertext im Alltag: Er erscheint nur, wenn jemand den Updater
+    # falsch aufruft. Trotzdem übersetzt — er kann im Fehlerprotokoll landen.
+    'up_ohne_pruefung': ('Update ohne Prüfsummen-Abgleich abgelehnt',
+                          'Update refused: no checksum comparison possible'),
     'b_woher_ini':     ('aus der global.ini des Spiels',
                           "from the game's global.ini"),
     'b_woher_eigen':   ('aus eigener Angabe', 'from your own entry'),
@@ -4657,6 +4697,11 @@ TEXTE = {
     # neu gestartet.
     'inj_aktiv':         ('Bauplan-Angaben sind eingetragen (%d Stellen) — wirkt beim nächsten Spielstart',
                           'Blueprint notes are in place (%d spots) — takes effect the next time the game starts'),
+    # ⚠ Der Wechsel räumt die alte Sprachdatei auf — das gehört gesagt, nicht
+    # stillschweigend getan: Es wird eine Datei des Spielers verändert.
+    'inj_alt_aufgeraeumt': ('Die vorherige Sprachdatei wurde zurückgesetzt '
+                            '(%d Stellen).',
+                            'The previous language file was reset (%d spots).'),
     'inj_steht':         ('Bauplan-Angaben sind eingetragen',
                           'Blueprint notes are in place'),
     'inj_steht_nicht':   ('Bauplan-Angaben sind nicht eingetragen',

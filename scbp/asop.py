@@ -186,10 +186,24 @@ def zuordnen(schiffe, tabelle):
     nach Namen sortiert. Ohne Zuordnung bleibt `schluessel` leer — dann sagt die
     Oberfläche das, statt zu raten.
     """
+    # ⚠⚠ **Alle Kandidaten sammeln, nicht nur den ersten.**
+    #
+    # Bis zum 10.09.2026 stand hier `setdefault(…, schluessel)` — der erste
+    # Treffer gewann, jeder weitere fiel lautlos weg. Damit waren ausgerechnet
+    # die **genauen** Stufen die unscharfen: Zwei Schluessel, die sich nur in
+    # Trennzeichen unterscheiden (`RSI_Aurora_MR` und `RSIAuroraMR` werden beide
+    # zu `rsiauroramr`), und erst recht zwei Schiffe mit demselben angezeigten
+    # Werksnamen — davon gibt es im Spiel etliche — landeten beim
+    # Erstgefundenen. Der eigene Name wurde dann am falschen Fahrzeug in die
+    # `global.ini` geschrieben, ohne eine Zeile Hinweis.
+    #
+    # Jetzt gilt auf **jeder** Stufe dieselbe Regel wie bei den unscharfen:
+    # genau ein Kandidat, sonst gar keiner.
     nach_schluessel, nach_wert = {}, {}
     for schluessel, wert in tabelle.items():
-        nach_schluessel.setdefault(_schlank(schluessel[len(VORSATZ):]), schluessel)
-        nach_wert.setdefault(_schlank(wert), schluessel)
+        nach_schluessel.setdefault(_schlank(schluessel[len(VORSATZ):]),
+                                   []).append(schluessel)
+        nach_wert.setdefault(_schlank(wert), []).append(schluessel)
 
     ergebnis = []
     for s in schiffe:
@@ -212,28 +226,39 @@ def _leiter(name, kurz, tabelle, nach_schluessel, nach_wert):
     Stufe hat dort mindestens einen Fall, den keine frühere löst.
     """
     n, k = _schlank(name), _schlank(kurz)
-    schluessel = nach_schluessel.get(k) if k else None
-    if schluessel:
-        return schluessel, 'kurz'
-    schluessel = nach_wert.get(n)
-    if schluessel:
-        return schluessel, 'name'
+    # Eine Stufe, die mehrere Kandidaten hat, entscheidet nichts — sie gibt an
+    # die naechste ab. Nur wenn am Ende gar nichts uebrig bleibt, wird aus der
+    # gesehenen Mehrdeutigkeit die Begruendung: „mehrdeutig" sagt dem Nutzer,
+    # dass es das Schiff gibt, aber mehrfach — „nichts" waere hier gelogen.
+    mehrdeutig = False
+
+    if k:
+        treffer = nach_schluessel.get(k) or []
+        if len(treffer) == 1:
+            return treffer[0], 'kurz'
+        mehrdeutig = mehrdeutig or len(treffer) > 1
+    if n:
+        treffer = nach_wert.get(n) or []
+        if len(treffer) == 1:
+            return treffer[0], 'name'
+        mehrdeutig = mehrdeutig or len(treffer) > 1
     if n:
         treffer = [s for s, w in tabelle.items() if _schlank(w).endswith(n)]
         if len(treffer) == 1:
             return treffer[0], 'wertende'
+        mehrdeutig = mehrdeutig or len(treffer) > 1
     if k:
         treffer = [s for s in tabelle
                    if _schlank(s[len(VORSATZ):]).startswith(k)]
         if len(treffer) == 1:
             return treffer[0], 'kurzanfang'
+        mehrdeutig = mehrdeutig or len(treffer) > 1
     if n:
         treffer = [s for s, w in tabelle.items() if n in _schlank(w)]
         if len(treffer) == 1:
             return treffer[0], 'imwert'
-        if len(treffer) > 1:
-            return None, 'mehrdeutig'
-    return None, 'nichts'
+        mehrdeutig = mehrdeutig or len(treffer) > 1
+    return None, ('mehrdeutig' if mehrdeutig else 'nichts')
 
 
 # ------------------------------------------------------------ Einspielen

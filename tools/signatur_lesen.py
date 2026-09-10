@@ -51,7 +51,7 @@ Schrift ohnehin Müll — angelernt wird stattdessen von Hand, einmal.
 
 ⚠ **Dieses Werkzeug öffnet kein Fenster.** Es liest nur und schreibt PNG-Dateien
 — deshalb braucht es `unsichtbar.sicherstellen()` nicht. Wer hier je eine
-Oberfläche einbaut, muss den Aufruf nachziehen (siehe `CLAUDE.md`).
+Oberfläche einbaut, muss den Aufruf nachziehen.
 
 ⚠ **Stand: Linux/X11.** Unter nativem Wayland hat Star Citizen kein X-Fenster
 und der Abgriff ist unmöglich — gemessen am 08.09.2026. Wine muss im X11-Modus
@@ -141,7 +141,56 @@ def _x11():
     lib.XFetchName.argtypes = [ctypes.c_void_p, ctypes.c_ulong,
                                ctypes.POINTER(ctypes.c_char_p)]
     lib.XFree.argtypes = [ctypes.c_void_p]
+    lib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    lib.XDestroyImage.argtypes = [ctypes.POINTER(_XImage)]
     return lib
+
+
+class _Sitzung(object):
+    """Eine X-Verbindung, die sich zuverlaessig wieder schliesst.
+
+    ⚠⚠ **Warum als Kontext und nicht einfach zwei Aufrufe.** Vorher oeffnete
+    `bereich_holen()` eine Verbindung, um das Fenster zu suchen, und
+    `abgreifen()` fuer denselben Vorgang gleich noch eine — geschlossen wurde
+    keine von beiden. Solange das Werkzeug einmal von Hand laeuft, faellt das
+    nicht auf; als wiederholter Scanner im Programm waere es ein Leck, das mit
+    jeder Messung waechst, bis X keine Verbindung mehr annimmt.
+    """
+
+    def __init__(self):
+        self.lib = _x11()
+        self.anzeige = None
+
+    def __enter__(self):
+        if self.lib is not None:
+            zeiger = self.lib.XOpenDisplay(None)
+            self.anzeige = ctypes.c_void_p(zeiger) if zeiger else None
+        return self
+
+    def __exit__(self, *_):
+        if self.lib is not None and self.anzeige:
+            self.lib.XCloseDisplay(self.anzeige)
+        self.anzeige = None
+        return False
+
+    @property
+    def offen(self):
+        return self.lib is not None and bool(self.anzeige)
+
+
+def _maske_zerlegen(maske):
+    """Aus einer Farbmaske (Verschiebung, Hoechstwert) machen.
+
+    `0x00FF0000` heisst: Der Wert steht 16 Bit weiter oben und geht bis 255.
+    """
+    if not maske:
+        return 0, 0
+    verschiebung = 0
+    rest = int(maske)
+    while not rest & 1:
+        rest >>= 1
+        verschiebung += 1
+    return verschiebung, rest
 
 
 def spielfenster(lib, anzeige):
@@ -154,87 +203,149 @@ def spielfenster(lib, anzeige):
     wurzel = lib.XDefaultRootWindow(anzeige)
 
     def kinder(von, tiefe=0):
+        """Die Fensterkennungen unter `von` — als fertige Python-Liste.
+
+        ⚠ Der Array, den `XQueryTree` liefert, gehoert Xlib und muss mit
+        `XFree` zurueckgegeben werden. Vorher lief hier ein Generator, der die
+        Kennungen erst beim Durchlaufen las — der Array wurde nie freigegeben.
+        Deshalb jetzt: abschreiben, freigeben, dann erst weitergehen.
+        """
         if tiefe > 3:
-            return
+            return []
         a, b = ctypes.c_ulong(), ctypes.c_ulong()
         liste = ctypes.POINTER(ctypes.c_ulong)()
         anzahl = ctypes.c_uint()
         if not lib.XQueryTree(anzeige, von, ctypes.byref(a), ctypes.byref(b),
                               ctypes.byref(liste), ctypes.byref(anzahl)):
-            return
-        for i in range(anzahl.value):
-            yield liste[i]
-            for tiefer in kinder(liste[i], tiefe + 1):
-                yield tiefer
+            return []
+        try:
+            eigene = [liste[i] for i in range(anzahl.value)]
+        finally:
+            if liste:
+                lib.XFree(ctypes.cast(liste, ctypes.c_void_p))
+        alle = []
+        for kind in eigene:
+            alle.append(kind)
+            alle.extend(kinder(kind, tiefe + 1))
+        return alle
 
     for fenster in kinder(wurzel):
         merkmale = _XWA()
         if not lib.XGetWindowAttributes(anzeige, fenster,
                                         ctypes.byref(merkmale)):
             continue
-        # IsViewable = 2. Tiefe 24 schliesst das Wurzelfenster aus, das unter
-        # XWayland zwar gemeldet wird, seinen Inhalt aber nie herausgibt.
-        if merkmale.map_state != 2 or merkmale.depth != 24:
+        # IsViewable = 2. Die Tiefen schliessen Hilfsfenster aus, die unter
+        # XWayland zwar gemeldet werden, ihren Inhalt aber nie herausgeben.
+        #
+        # ⚠ **24, 30 und 32 — nicht nur 24.** Auf einer Ausgabe mit 10 Bit je
+        # Farbkanal hat das Fenster Tiefe 30; die alte Bedingung liess es
+        # durchfallen, und das Werkzeug meldete „kein Star-Citizen-Fenster
+        # gefunden", obwohl das Spiel lief. Welches Fenster wirklich gemeint
+        # ist, entscheidet ohnehin der Name ein paar Zeilen weiter unten.
+        if merkmale.map_state != 2 or merkmale.depth not in (24, 30, 32):
             continue
         if merkmale.width < 800:
             continue
         zeiger = ctypes.c_char_p()
         name = ''
-        if lib.XFetchName(anzeige, fenster, ctypes.byref(zeiger)) \
-                and zeiger.value:
-            name = zeiger.value.decode('utf-8', 'replace')
-            lib.XFree(zeiger)
+        if lib.XFetchName(anzeige, fenster, ctypes.byref(zeiger)):
+            try:
+                if zeiger.value:
+                    name = zeiger.value.decode('utf-8', 'replace')
+            finally:
+                # ⚠ Auch freigeben, wenn der Name leer war — Xlib hat trotzdem
+                # Speicher belegt.
+                if zeiger:
+                    lib.XFree(ctypes.cast(zeiger, ctypes.c_void_p))
         if 'star citizen' in name.lower():
             return fenster, merkmale.width, merkmale.height
     return None
 
 
-def abgreifen(links, oben, breite, hoehe):
-    """Einen Ausschnitt des Spielfensters als Graustufen-Raster holen.
+def _bild_zu_graustufen(b, roh):
+    """Ein `_XImage` in ein Graustufen-Raster umrechnen.
 
-    Gibt (raster, breite, hoehe) — raster ist eine Liste von Zeilen, jede
-    Zeile eine Liste von Helligkeiten 0..255. Oder None, wenn nichts geht.
+    ⚠⚠ **Die Farblage steht IM Bild, sie wird nicht vorausgesetzt.** Vorher
+    las diese Stelle die Bytes stumpf als `B G R` und nahm 24 Bit an. Das ist
+    der haeufigste Fall und deshalb lange gutgegangen — aber eben nur einer:
+    Auf einem MSBFirst-Server stehen die Bytes andersherum, und bei 10 Bit je
+    Kanal (Tiefe 30) liegen die Farben ueberhaupt nicht auf Byte-Grenzen. Das
+    Ergebnis waere kein Fehler, sondern eine **falsche Helligkeit** — und
+    falsche Helligkeit heisst hier stillschweigend falsch gelesene Zahlen.
+
+    `_XImage` liefert alles Noetige mit: `byte_order`, `red_mask`,
+    `green_mask`, `blue_mask`. Genau daraus wird gerechnet.
     """
-    if sys.platform.startswith('win'):
-        # ⚠ Noch nicht gebaut. Der Weg ist unstrittig (ctypes/GDI, wie es
-        # `scbp/ablagesymbol.py` schon tut) — er fehlt hier nur.
-        return None
-    lib = _x11()
-    if lib is None:
-        return None
-    anzeige = lib.XOpenDisplay(None)
-    if not anzeige:
-        return None
-    anzeige = ctypes.c_void_p(anzeige)
-    gefunden = spielfenster(lib, anzeige)
-    if gefunden is None:
-        return None
-    fenster = gefunden[0]
-    bild = lib.XGetImage(anzeige, fenster, links, oben, breite, hoehe,
-                         ctypes.c_ulong(0xFFFFFFFF), 2)   # 2 = ZPixmap
-    if not bild:
-        return None
-    b = bild.contents
     je = max(1, b.bits_per_pixel // 8)
-    roh = ctypes.cast(b.data, ctypes.POINTER(
-        ctypes.c_ubyte * (b.bytes_per_line * b.height))).contents
+    reihenfolge = 'big' if b.byte_order else 'little'   # 0 = LSBFirst
+    rv, rmax = _maske_zerlegen(b.red_mask)
+    gv, gmax = _maske_zerlegen(b.green_mask)
+    bv, bmax = _maske_zerlegen(b.blue_mask)
+    # Ohne Masken bleibt nur die alte Annahme — dann wenigstens ausdruecklich.
+    if not (rmax and gmax and bmax):
+        rv, gv, bv, rmax, gmax, bmax = 16, 8, 0, 255, 255, 255
+
     raster = []
     for y in range(b.height):
         grund = y * b.bytes_per_line
         zeile = []
         for x in range(b.width):
             s = grund + x * je
-            if s + 2 < len(roh):
-                # Graustufe nach Augenempfindlichkeit — eine reine Mittelung
-                # verschluckt gruenen Text auf blauem Grund, und genau so
-                # sieht das SC-HUD aus.
-                zeile.append((roh[s + 2] * 299 + roh[s + 1] * 587
-                              + roh[s] * 114) // 1000)
-            else:
+            if s + je > len(roh):
                 zeile.append(0)
+                continue
+            wert = int.from_bytes(bytes(roh[s:s + je]), reihenfolge)
+            r = ((wert >> rv) & rmax) * 255 // rmax
+            g = ((wert >> gv) & gmax) * 255 // gmax
+            bl = ((wert >> bv) & bmax) * 255 // bmax
+            # Graustufe nach Augenempfindlichkeit — eine reine Mittelung
+            # verschluckt gruenen Text auf blauem Grund, und genau so
+            # sieht das SC-HUD aus.
+            zeile.append((r * 299 + g * 587 + bl * 114) // 1000)
         raster.append(zeile)
-    lib.XDestroyImage(bild)
-    return raster, b.width, b.height
+    return raster
+
+
+def abgreifen(links, oben, breite, hoehe, sitzung=None):
+    """Einen Ausschnitt des Spielfensters als Graustufen-Raster holen.
+
+    Gibt (raster, breite, hoehe) — raster ist eine Liste von Zeilen, jede
+    Zeile eine Liste von Helligkeiten 0..255. Oder None, wenn nichts geht.
+
+    ⚠ `sitzung` durchreichen, wenn schon eine offene X-Verbindung da ist.
+    Ohne sie macht diese Funktion eine eigene auf und wieder zu — aber zwei
+    Verbindungen fuer denselben Abgriff sind Verschwendung.
+    """
+    if sys.platform.startswith('win'):
+        # ⚠ Noch nicht gebaut. Der Weg ist unstrittig (ctypes/GDI, wie es
+        # `scbp/ablagesymbol.py` schon tut) — er fehlt hier nur.
+        return None
+    if sitzung is not None:
+        return _abgreifen_mit(sitzung, links, oben, breite, hoehe)
+    with _Sitzung() as eigene:
+        return _abgreifen_mit(eigene, links, oben, breite, hoehe)
+
+
+def _abgreifen_mit(sitzung, links, oben, breite, hoehe):
+    if not sitzung.offen:
+        return None
+    lib, anzeige = sitzung.lib, sitzung.anzeige
+    gefunden = spielfenster(lib, anzeige)
+    if gefunden is None:
+        return None
+    bild = lib.XGetImage(anzeige, gefunden[0], links, oben, breite, hoehe,
+                         ctypes.c_ulong(0xFFFFFFFF), 2)   # 2 = ZPixmap
+    if not bild:
+        return None
+    # ⚠ Das Bild gehoert Xlib. Was auch immer beim Umrechnen schiefgeht — es
+    # wird zurueckgegeben, sonst waechst der Verbrauch mit jeder Messung.
+    try:
+        b = bild.contents
+        roh = ctypes.cast(b.data, ctypes.POINTER(
+            ctypes.c_ubyte * (b.bytes_per_line * b.height))).contents
+        return _bild_zu_graustufen(b, roh), b.width, b.height
+    finally:
+        lib.XDestroyImage(bild)
 
 
 # --------------------------------------------------------------------------
@@ -264,12 +375,30 @@ def png_lesen(pfad):
         return None
     if not roh.startswith(b'\x89PNG\r\n\x1a\n'):
         return None
+    # ⚠⚠ **Jede Laenge pruefen, BEVOR daraus geschnitten wird.**
+    #
+    # Die Zusage dieser Funktion lautet „None bei allem, was nicht passt".
+    # Vorher galt sie nur fuer die Faelle, an die gedacht war: Eine abgebrochene
+    # oder fremde Datei konnte eine Laenge angeben, die ueber das Dateiende
+    # hinauszeigt — dann warf `struct.unpack` einen `struct.error` mitten aus
+    # dem Werkzeug heraus, oder ein zu kurzer Brocken wurde stillschweigend mit
+    # verfaelschten Punkten weiterverarbeitet. Beides ist schlechter als ein
+    # klares Nein.
     stelle, kopf, teile = 8, None, []
     while stelle + 8 <= len(roh):
         laenge = struct.unpack('>I', roh[stelle:stelle + 4])[0]
         art = roh[stelle + 4:stelle + 8]
+        # Laenge, Art, Inhalt und Pruefsumme muessen vollstaendig dasein.
+        if stelle + 12 + laenge > len(roh):
+            return None
         inhalt = roh[stelle + 8:stelle + 8 + laenge]
+        erwartet = struct.unpack(
+            '>I', roh[stelle + 8 + laenge:stelle + 12 + laenge])[0]
+        if zlib.crc32(art + inhalt) & 0xFFFFFFFF != erwartet:
+            return None
         if art == b'IHDR':
+            if laenge != 13:
+                return None
             kopf = struct.unpack('>IIBBBBB', inhalt)
         elif art == b'IDAT':
             teile.append(inhalt)
@@ -295,6 +424,11 @@ def png_lesen(pfad):
         if ort >= len(daten):
             return None
         filter_art = daten[ort]
+        # ⚠ Die Norm kennt genau fuenf Filter. Ein anderer Wert heisst: Die
+        # Daten sind nicht das, wofuer sie sich ausgeben. Vorher fiel er still
+        # in den „kein Filter"-Zweig und lieferte Unsinn als gueltiges Bild.
+        if filter_art > 4:
+            return None
         ort += 1
         zeile = bytearray(daten[ort:ort + zeilenlaenge])
         if len(zeile) < zeilenlaenge:
@@ -555,21 +689,21 @@ ANTEIL = (0.4844, 0.3264, 0.5234, 0.3653)
 
 def bereich_holen():
     """Den Signatur-Bereich abgreifen. Gibt (raster, meldung)."""
-    lib = _x11()
-    if lib is None:
-        return None, 'libX11 nicht ladbar — laeuft hier X11?'
-    anzeige = lib.XOpenDisplay(None)
-    if not anzeige:
-        return None, 'kein X-Display erreichbar'
-    gefunden = spielfenster(lib, ctypes.c_void_p(anzeige))
-    if gefunden is None:
-        return None, ('kein Star-Citizen-Fenster gefunden — laeuft das Spiel, '
-                      'und laeuft Wine im X11-Modus?')
-    _f, breite, hoehe = gefunden
-    x0, y0 = int(breite * ANTEIL[0]), int(hoehe * ANTEIL[1])
-    b = int(breite * (ANTEIL[2] - ANTEIL[0]))
-    h = int(hoehe * (ANTEIL[3] - ANTEIL[1]))
-    geholt = abgreifen(x0, y0, b, h)
+    # ⚠ EINE Verbindung fuer den ganzen Vorgang — Suchen und Abgreifen.
+    with _Sitzung() as sitzung:
+        if sitzung.lib is None:
+            return None, 'libX11 nicht ladbar — laeuft hier X11?'
+        if not sitzung.offen:
+            return None, 'kein X-Display erreichbar'
+        gefunden = spielfenster(sitzung.lib, sitzung.anzeige)
+        if gefunden is None:
+            return None, ('kein Star-Citizen-Fenster gefunden — laeuft das '
+                          'Spiel, und laeuft Wine im X11-Modus?')
+        _f, breite, hoehe = gefunden
+        x0, y0 = int(breite * ANTEIL[0]), int(hoehe * ANTEIL[1])
+        b = int(breite * (ANTEIL[2] - ANTEIL[0]))
+        h = int(hoehe * (ANTEIL[3] - ANTEIL[1]))
+        geholt = abgreifen(x0, y0, b, h, sitzung=sitzung)
     if geholt is None:
         return None, 'Abgriff fehlgeschlagen'
     return geholt[0], 'Fenster %dx%d, Ausschnitt %d,%d %dx%d' % (

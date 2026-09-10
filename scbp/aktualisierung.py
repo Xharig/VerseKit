@@ -44,6 +44,7 @@ Drei Teile:
 Geladen wird ausschließlich von `github.com`; eine Datei von woanders wird
 abgelehnt, selbst wenn die API sie nennen würde.
 """
+import hashlib
 import json
 import errno
 import os
@@ -636,6 +637,125 @@ def _url_ok(url):
         return False
 
 
+# ------------------------------------------------------------ Prüfsummen
+#
+# ⚠⚠ **Herkunft ist nicht Inhalt.** `_url_ok()` stellt sicher, dass die Datei
+# von GitHub kommt — nicht, dass es **die richtige** Datei ist. Bis v3.28.x
+# wurde alles eingespielt, was durch diesen Filter kam.
+#
+# Seit P1 gilt: **Keine gültige Prüfsumme, keine Installation.** Kein Schalter,
+# kein „trotzdem installieren", kein stilles Durchwinken. Wer die Prüfung nicht
+# bestehen kann, bekommt den Weg von Hand über die Release-Seite genannt.
+#
+# ⚠ Ältere ausgelieferte Fassungen lassen sich nicht nachrüsten — ihr Updater
+# ist längst beim Nutzer. Das ist eine Tatsache, kein Schlupfloch für Neues.
+PRUEFSUMMEN_DATEI = 'SHA256SUMS.txt'
+
+# Was der Updater ueberhaupt anfassen darf. Alles andere wird abgelehnt, auch
+# wenn GitHub es anbietet — ein Asset-Name kommt vom Server, nicht von uns.
+ERLAUBTE_ENDUNGEN = ('.appimage', '.exe')
+
+
+def sicherer_dateiname(name, rueckfall='update.bin', geprueft=False):
+    """Aus einem Asset-Namen einen harmlosen Dateinamen machen.
+
+    ⚠⚠ **Mit `geprueft=True` gibt es KEINEN Rückfall — dann kommt `None`.**
+    Das ist der Unterschied zwischen „irgendwohin schreiben" und „darf das
+    hier überhaupt sein": Ein Rückfallname ist für Notpfade recht, aber eine
+    Sicherheitsentscheidung darf er nicht tragen. Sonst hinge alles daran,
+    dass in keiner Summen-Datei je ein Eintrag `update.bin` steht.
+
+    ⚠⚠ Der Name kommt aus der Antwort des Servers und wurde bisher **roh** als
+    Pfadbestandteil benutzt. Ein Name wie `../../autostart/boese.exe` hätte die
+    Datei damit an einen ganz anderen Ort gelegt. Dass GitHub so etwas nicht
+    vergibt, ist kein Argument: Der Wert ist trotzdem Fremdeingabe.
+
+    Deshalb: nur der reine Dateiname, keine Pfadtrenner, keine Punkte-Namen —
+    und nur die Endungen, die dieses Programm überhaupt einspielt.
+    """
+    roh = (name or '').strip()
+    # Beide Trennzeichen entfernen: Ein unter Linux geladener Name kann einen
+    # Backslash tragen und umgekehrt.
+    roh = os.path.basename(roh.replace('\\', '/').rstrip('/'))
+    if roh in ('', '.', '..') or not roh.lower().endswith(ERLAUBTE_ENDUNGEN):
+        return None if geprueft else rueckfall
+    return roh
+
+
+def summe_rechnen(pfad):
+    """Die SHA-256-Summe einer Datei — blockweise, nicht am Stück.
+
+    ⚠ Blockweise, weil ein AppImage rund 100 MB hat. `f.read()` am Stück wäre
+    auf einem knappen Rechner ein vermeidbarer Ausschlag im Speicher.
+    """
+    h = hashlib.sha256()
+    with open(pfad, 'rb') as f:
+        for block in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def pruefsummen_lesen(text):
+    """`SHA256SUMS.txt` in `{Dateiname: Summe}` übersetzen.
+
+    Das Format ist das von `sha256sum`: `<64 Zeichen hex>  <Dateiname>`. Ein
+    Stern vor dem Namen (Binärkennzeichen) wird abgeschnitten.
+
+    ⚠⚠ **Zwei Dinge machen die ganze Datei ungültig, statt still zu gewinnen:**
+
+    1. **Ein Pfadanteil im Namen.** Der Bau erzeugt die Datei ausdrücklich mit
+       reinen Dateinamen (`cd dateien/linux && sha256sum …`). Stünde dort
+       `dateien/linux/…`, wäre etwas anders als gedacht — das per `basename()`
+       geradezubiegen hiesse, den Fehler zu verstecken.
+    2. **Ein Name zweimal.** Dann entschied vorher schlicht die letzte Zeile.
+       Welche Summe gilt, darf nicht von der Reihenfolge abhängen.
+
+    In beiden Fällen kommt eine **leere** Tabelle zurück — und leer heisst
+    weiter oben: keine Installation.
+    """
+    tabelle = {}
+    for zeile in (text or '').splitlines():
+        teile = zeile.strip().split(None, 1)
+        if len(teile) != 2:
+            continue
+        summe, name = teile[0].lower(), teile[1].strip().lstrip('*')
+        if len(summe) != 64 or not all(c in '0123456789abcdef' for c in summe):
+            continue
+        if '/' in name or '\\' in name:
+            return {}
+        if name in tabelle:
+            return {}
+        tabelle[name] = summe
+    return tabelle
+
+
+def pruefsummen_holen(freigabe):
+    """Die Prüfsummen einer Freigabe. Gibt `(tabelle, grund)`.
+
+    `grund` ist `''`, wenn alles gut ging, sonst sagt es **warum nicht** — und
+    das ist der Punkt: „Die Datei gibt es nicht" ist etwas anderes als „das
+    Netz war weg". Die zweite Lage darf nicht wie ein manipuliertes Update
+    aussehen, sonst erschrickt jemand grundlos.
+    """
+    for datei in freigabe.get('dateien') or []:
+        if (datei.get('name') or '') != PRUEFSUMMEN_DATEI:
+            continue
+        url = datei.get('url') or ''
+        if not _url_ok(url):
+            return {}, 'fremd'
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': KENNUNG})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                # Die Datei ist ein paar hundert Byte gross; die Grenze ist
+                # nur da, damit eine falsche Antwort nicht den Speicher frisst.
+                text = r.read(64 * 1024).decode('utf-8', 'replace')
+            return pruefsummen_lesen(text), ''
+        except Exception as ausnahme:
+            fehler.merken('aktualisierung.pruefsummen_holen', ausnahme)
+            return {}, 'netz'
+    return {}, 'fehlt'
+
+
 def _ablageort_fuer_update(name):
     """Wohin die neue Version geladen wird.
 
@@ -657,29 +777,97 @@ def _ablageort_fuer_update(name):
     ist `os.replace` unteilbar, es gibt keinen Moment, in dem die Datei halb da
     ist. Ist der Zielordner nicht beschreibbar, bleibt `/tmp` als Rückfall — dann
     greift beim Einspielen der Umweg über `shutil.move`.
+
+    ⚠ Der Name wird **entschärft**, bevor er in einen Pfad kommt — siehe
+    `sicherer_dateiname()`. Er stammt aus der Antwort des Servers.
     """
+    sauber = sicherer_dateiname(name)
     if sys.platform.startswith('win'):
-        return os.path.join(tempfile.gettempdir(), name or 'update.bin')
+        return os.path.join(tempfile.gettempdir(), sauber)
     laufende = eigenes_appimage() or sys.executable
     ordner = os.path.dirname(os.path.abspath(laufende))
     if os.access(ordner, os.W_OK):
-        return os.path.join(ordner, '.' + (name or 'update.bin') + '.neu')
-    return os.path.join(tempfile.gettempdir(), name or 'update.bin')
-    return os.path.join(tempfile.gettempdir(), name or 'update.bin')
+        return os.path.join(ordner, '.' + sauber + '.neu')
+    return os.path.join(tempfile.gettempdir(), sauber)
 
 
-def herunterladen(datei, fortschritt=None):
+def herunterladen(datei, fortschritt=None, freigabe=None):
     """Lädt die neue Version in eine Nebendatei. Gibt deren Pfad zurück.
 
     Geladen wird **neben** das laufende Programm, nicht darüber: Bricht die
-    Leitung ab, ist die alte Version noch vollständig da."""
+    Leitung ab, ist die alte Version noch vollständig da.
+
+    ⚠⚠ **`freigabe` ist Pflicht, nicht Beiwerk.** Aus ihr kommt die
+    veröffentlichte Prüfsumme, und ohne die wird nicht eingespielt. Wer diesen
+    Aufruf ohne `freigabe` baut, hätte den Schutz wieder abgeschaltet —
+    deshalb fliegt das hier auf, statt still durchzugehen.
+
+    Die Prüfung sitzt bewusst **hier** und nicht in `einspielen()`: So bekommt
+    `einspielen()` niemals eine ungeprüfte Datei zu sehen, und es gibt keinen
+    zweiten Weg, an dem man sie vorbeischleusen könnte.
+    """
+    from . import sprache
     url = datei.get('url')
     if not _url_ok(url):
         # ⚠ Der Text dieser Ausnahme landet über `str(fehler)` sichtbar
         # beim Nutzer (siehe `return False, str(fehler)` weiter unten).
-        from . import sprache
         raise ValueError(sprache.t('up_fremde_quelle'))
+
+    # ⚠ Die Prüfsummen kommen **vor** dem Herunterladen. Fehlen sie, ist der
+    # Download umsonst — und 100 MB umsonst zu laden, um sie danach
+    # wegzuwerfen, wäre unhöflich gegenüber jeder Leitung.
+    if freigabe is None:
+        raise ValueError(sprache.t('up_ohne_pruefung'))
+    # ⚠⚠ **Kein Rückfallname für eine Sicherheitsentscheidung.** `geprueft=True`
+    # gibt bei einem unbrauchbaren Asset-Namen `None` statt `update.bin`
+    # zurück. Sonst könnte ein Anhang mit fremder Endung durchrutschen, sobald
+    # in der Summen-Datei zufällig ein Eintrag `update.bin` stünde — der
+    # Rückfall gehört an Anzeige- und Notpfade, nicht hierher.
+    name = sicherer_dateiname(datei.get('name'), geprueft=True)
+    if not name:
+        raise ValueError(sprache.t('up_fremde_datei') % (datei.get('name') or '?'))
+
+    tabelle, grund = pruefsummen_holen(freigabe)
+    erwartet = tabelle.get(name)
+    if not erwartet:
+        # Vier Lagen, vier Sätze — „kein Netz" darf nicht wie „manipuliert"
+        # klingen, „diese Fassung hat noch keine Prüfsummen" auch nicht, und
+        # eine Summen-Datei von fremdem Server ist etwas anderes als gar keine.
+        raise ValueError(sprache.t({
+            'netz': 'up_summen_netz',
+            'fremd': 'up_summen_fremd',
+        }.get(grund, 'up_keine_summen')))
+
     ziel = _ablageort_fuer_update(datei.get('name'))
+    # ⚠⚠ **Ab hier liegt eine Datei auf der Platte — und sie ist ungeprüft.**
+    #
+    # Bricht die Leitung mitten im Schreiben ab, wird die Summe nie gerechnet,
+    # und ein Bruchstück bleibt liegen: unter Linux **neben** dem laufenden
+    # AppImage. Genau das soll P1 verhindern, und der erste Anlauf räumte nur
+    # bei falscher Summe auf. Deshalb umschliesst der Fehlerpfad jetzt das
+    # ganze Stück von der ersten geschriebenen Zeile bis zur bestandenen
+    # Prüfung.
+    try:
+        _laden_und_pruefen(url, ziel, erwartet, fortschritt)
+    except Exception:
+        _wegwerfen(ziel)
+        raise
+    return ziel
+
+
+def _wegwerfen(ziel):
+    """Eine ungeprüfte Update-Datei entfernen. Scheitert nie laut."""
+    try:
+        os.remove(ziel)
+    except FileNotFoundError:
+        pass
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.summe_verwerfen', ausnahme)
+
+
+def _laden_und_pruefen(url, ziel, erwartet, fortschritt=None):
+    """Herunterladen und die Summe abgleichen. Wirft bei jedem Zweifel."""
+    from . import sprache
     req = urllib.request.Request(url, headers={'User-Agent': KENNUNG})
     with urllib.request.urlopen(req, timeout=120) as r, open(ziel, 'wb') as f:
         gesamt = int(r.headers.get('Content-Length') or 0)
@@ -706,7 +894,11 @@ def herunterladen(datei, fortschritt=None):
                     fortschritt(round(100 * geladen / gesamt))
                 except Exception:
                     fortschritt = None      # einmal daneben, nie wieder fragen
-    return ziel
+
+    # ⚠ Das Aufräumen macht der Aufrufer — er fängt **jede** Ausnahme von hier
+    # ab, nicht nur die falsche Summe.
+    if summe_rechnen(ziel) != erwartet:
+        raise ValueError(sprache.t('up_summe_falsch'))
 
 
 # ⚠ Hier stand einmal ein Hilfsskript, das die laufende `.exe` selbst tauschte —

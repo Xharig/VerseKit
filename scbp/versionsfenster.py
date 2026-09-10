@@ -194,7 +194,8 @@ class Versionsfenster:
                 ziel = aktualisierung.herunterladen(
                     datei, fortschritt=lambda p: self.root.after(
                         0, lambda: self.meldung.configure(
-                            text=t('wird_geladen', p))))
+                            text=t('wird_geladen', p))),
+                    freigabe=self.neue)
                 geklappt, grund = aktualisierung.einspielen(ziel)
                 self.root.after(0, lambda: self._ergebnis(geklappt, grund))
             except Exception as fehler:

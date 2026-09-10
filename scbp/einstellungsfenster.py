@@ -435,6 +435,16 @@ class Einstellungsfenster:
                     return
                 sprache_ordner = uebersetzung.QUELLEN[quelle]['sprache']
                 ziel = uebersetzung.ziel_ini(sprache_ordner)
+            # ⚠⚠ **Erst die alte Datei zurücksetzen, dann die neue einrichten.**
+            # Die Quellen schreiben in verschiedene Sprachordner; ohne das
+            # bleiben unsere Einfügungen in einer Datei stehen, die niemand
+            # mehr pflegt. Lädt das Spiel ausgerechnet die, sieht der Spieler
+            # dauerhaft einen alten Stand. Die Reihenfolge ist Pflicht:
+            # `einrichten()` überschreibt den Urtext, den das Zurücksetzen
+            # braucht.
+            alt, alt_n = injektion.altlast_aufraeumen(ziel)
+            if alt:
+                melde(t('inj_alt_aufgeraeumt', alt_n))
             ok, n, meldung = injektion.einrichten(ziel, sprache_ordner,
                                                   fortschritt=melde)
             self._melden(t('inj_aktiv', n) if ok else t('inj_fehler', meldung),

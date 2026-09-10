@@ -1483,6 +1483,64 @@ def scdl_stand(sprachkuerzel):
     return (d.get('_meta') or {}).get('version') if d else None
 
 
+def altlast(neuer_pfad):
+    """Die Datei, in der noch unsere Einfügungen stehen, obwohl sie niemand
+    mehr pflegt — oder `None`.
+
+    Die Merkdatei `injektion-urtext.json` hält fest, in **welcher** Datei
+    zuletzt geschrieben wurde. Zeigt sie woandershin als das neue Ziel, ist das
+    genau die verwaiste.
+    """
+    alt = (_urtext_datei().get('datei') or '').strip()
+    if not alt or not (_urtext_datei().get('texte') or {}):
+        return None
+    try:
+        if neuer_pfad and os.path.samefile(alt, neuer_pfad):
+            return None
+    except OSError:
+        # Eine der beiden Dateien gibt es nicht mehr — dann entscheidet der
+        # Wortlaut. `samefile` braucht beide.
+        if neuer_pfad and os.path.normpath(alt) == os.path.normpath(neuer_pfad):
+            return None
+    return alt if os.path.isfile(alt) else None
+
+
+def altlast_aufraeumen(neuer_pfad):
+    """Vor einem Quellenwechsel die alte Datei zurücksetzen.
+
+    ⚠⚠ **Warum das sein muss.** Die Textquellen schreiben in **verschiedene**
+    Sprachordner: „deutsch" nach `german_(germany)`, „StarStrings" und
+    „Original" nach `english`. Wer wechselt, lässt in der alten Datei unsere
+    Einfügungen stehen — und niemand pflegt sie mehr. Lädt das Spiel
+    ausgerechnet die, sieht der Spieler **dauerhaft einen alten Stand**, ohne
+    dass irgendetwas darauf hindeutet.
+
+    Genau so am 29.08.2026 gemessen: Die deutsche Datei war **später**
+    geschrieben (06:53) als die englische (06:34) und trug trotzdem die alte
+    Form — der Wechsel auf „Original" an jenem Morgen hatte sie liegen lassen.
+
+    ⚠ Die Reihenfolge ist Pflicht: **erst aufräumen, dann einrichten.** Das
+    Zurücksetzen braucht den Urtext der alten Datei, und `einrichten()`
+    überschreibt ihn mit dem der neuen. Andersherum wäre die alte Datei für
+    immer verloren.
+
+    Gibt `(aufgeraeumt, anzahl)` zurück — `aufgeraeumt` ist der Pfad oder None.
+    """
+    alt = altlast(neuer_pfad)
+    if not alt:
+        return None, 0
+    ordner = os.path.basename(os.path.dirname(alt)) or 'english'
+    try:
+        ok, anzahl, _meldung = entfernen(alt, ordner)
+    except Exception as ausnahme:
+        # ⚠ Ein misslungenes Aufräumen darf den Wechsel nicht anhalten. Der
+        # Spieler steht sonst ohne beides da: alte Quelle weg, neue nicht
+        # eingerichtet.
+        fehler.merken('injektion.altlast_aufraeumen', ausnahme)
+        return None, 0
+    return (alt, anzahl) if ok else (None, 0)
+
+
 def entfernen(ini_pfad, sprache='english'):
     """Alle Einfügungen zurücknehmen — die Datei bleibt sonst unverändert.
 

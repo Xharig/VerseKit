@@ -4701,6 +4701,11 @@ def main():
         'xharig' + 'ds', '192.168.' + '178', 'fritz.' + 'box',
         'kirch' + 'hain', 'gar' + 'the', 'das kar' + 'tell',
         'staffel ma' + 'mba', 'pi-' + 'hole',
+        # ⚠ Auch der Verweis auf die interne Arbeitsregel-Datei gehoert nicht
+        # ins oeffentliche Repo — am 10.09.2026 standen sechs solcher Hinweise
+        # im Quelltext, einer davon frisch dazugekommen. Der Inhalt einer Regel
+        # darf im Kommentar stehen, der Zeiger auf die private Datei nicht.
+        'cla' + 'ude',
     ]
     # Was im Spiel wirklich so heisst, darf nicht anschlagen.
     _ERLAUBT52s = ('racing helmet obsid', 'helmetobsid')
@@ -4851,6 +4856,20 @@ def main():
            'als Signatur gelesen wird 17,200 zu 17200')
     pruefe(_ro53.trennzeichen_klaeren('17,200') == '17.200',
            'als Menge gelesen bleibt es eine Kommazahl')
+
+    # ⚠⚠ **Beide Trennzeichen zusammen — hier lag der Fehler bis 10.09.2026.**
+    # Die Dreiergruppen-Schleife frass bei DREI Nachkommastellen eine Gruppe zu
+    # viel: `1,234.567` wurde ueber `1234.567` zu 1234567, also Faktor tausend
+    # daneben — genau der Schaden, gegen den die Funktion geschrieben wurde.
+    for _roh53, _soll53 in (('1.234,56', '1234.56'),     # deutsche Schreibweise
+                            ('1,234.56', '1234.56'),     # englische
+                            ('1,234.567', '1234.567'),   # der Fehlerfall
+                            ('1.234,567', '1234.567'),   # und andersherum
+                            ('1.234.567,89', '1234567.89'),
+                            ('1,234,567.89', '1234567.89')):
+        pruefe(_ro53.trennzeichen_klaeren(_roh53) == _soll53,
+               '%r wird %s (bekommen: %s)'
+               % (_roh53, _soll53, _ro53.trennzeichen_klaeren(_roh53)))
 
     # Namensabgleich — der Schluessel zwischen Lager und Rezept.
     # ⚠ Mit eingespeister Namensliste pruefen. Im Wegwerf-Ordner gibt es keine
@@ -11122,11 +11141,13 @@ def main():
     from scbp import pfade as _pf119
 
     for _name119, _text119, _darf_nicht119 in (
+            # privacy-ok: erfundene Adressen — genau sie sind das Pruefmaterial
+            # dafuer, dass der Bericht Webhooks herausfiltert.
             ('Discord-Webhook',
-             'Senden an https://discord.com/api/webhooks/123/GeHeIm_xyz weg',
+             'Senden an https://discord.com/api/webhooks/123/GeHeIm_xyz weg',  # privacy-ok: siehe oben
              'GeHeIm_xyz'),
             ('discordapp-Schreibweise',
-             'POST https://discordapp.com/api/webhooks/9/ZuGaNg42 -> 404',
+             'POST https://discordapp.com/api/webhooks/9/ZuGaNg42 -> 404',  # privacy-ok: siehe oben
              'ZuGaNg42'),
             ('Schluessel als Parameter',
              'https://dienst.de/abruf?api_key=abc123geheim&format=json',
@@ -15733,6 +15754,30 @@ def main():
     pruefe(not _mehr175[0]['schluessel'],
            'bei mehreren moeglichen Schiffen wird keines gewaehlt')
 
+    # -- ⚠⚠ **Das gilt auch fuer die GENAUEN Stufen** (Befund vom 10.09.2026).
+    #    Bis dahin merkten sich die beiden Nachschlagetabellen ueber
+    #    `setdefault` nur den ERSTEN Schluessel je Schreibweise — die
+    #    Mehrdeutigkeit war weg, bevor die Leiter sie sehen konnte, und der
+    #    eigene Name landete am erstbesten Fahrzeug. Zwei Faelle davon:
+    _doppel175 = {
+        # gleicher Klartextname, zwei Fahrzeuge — im Spiel keine Seltenheit
+        'vehicle_NameDRAK_Cutlass_Black': 'Drake Cutlass Black',
+        'vehicle_NameDRAK_Cutlass_Black_Pirate': 'Drake Cutlass Black',
+        # gleiche Schreibweise nach dem Entschaerfen: beide -> `rsiauroramr`
+        'vehicle_NameRSI_Aurora_MR': 'RSI Aurora MR',
+        'vehicle_NameRSIAuroraMR': 'RSI Aurora MR (Umbau)',
+    }
+    _gleich175 = _as175.zuordnen(
+        [{'name': 'Drake Cutlass Black', 'kurz': ''},
+         {'name': 'Aurora', 'kurz': 'RSI_Aurora_MR'}], _doppel175)
+    _nach175 = {e['name']: e for e in _gleich175}
+    pruefe(not _nach175['Drake Cutlass Black']['schluessel'],
+           'zwei Fahrzeuge mit demselben Klartextnamen ergeben KEINEN Treffer')
+    pruefe(_nach175['Drake Cutlass Black']['weg'] == 'mehrdeutig',
+           'und der Grund heisst mehrdeutig, nicht nichts')
+    pruefe(not _nach175['Aurora']['schluessel'],
+           'zwei Schluessel gleicher Schreibweise ergeben ebenfalls keinen')
+
     # -- Der angezeigte Name
     pruefe(_as175.anzeigename('Anvil F7C-M', '', True) == '*Anvil F7C-M',
            'nur ein Stern laesst den Werksnamen stehen')
@@ -15766,19 +15811,164 @@ def main():
     # bei jedem mit SCDL-Daten wurde der Schiffsname also **nie** geschrieben.
     # Die Probe lief gruen, weil sie `einspielen()` direkt rief.
     #
-    # ⚠ Geprueft wird ueber die Namen im Code-Objekt, nicht ueber eine
-    # Textsuche: Ein Kommentar mit demselben Wort taeuscht das nicht vor.
+    # ⚠⚠ **Und diese Pruefung sah anfangs selbst nur so aus, als pruefe sie.**
+    # Sie sah nach, ob `_asop_tabelle` in `__code__.co_names` vorkommt. Das
+    # beweist nichts: Ein Aufruf, dessen Ergebnis anschliessend verworfen wird,
+    # besteht ihn genauso — und unerreichbarer Code ebenfalls. Seit dem
+    # 10.09.2026 wird deshalb an einer echten Wegwerf-`global.ini` geschrieben
+    # und der Name im Ergebnis **nachgelesen**, einmal ueber jeden Weg.
+    import tempfile as _tf175
     from scbp import injektion as _in175
-    for _weg175 in ('einspielen', 'einspielen_scdl'):
-        _f175 = getattr(_in175, _weg175)
-        pruefe('_asop_tabelle' in _f175.__code__.co_names,
-               'der Schreibweg %s() kennt die eigenen Schiffsnamen' % _weg175)
+
+    _heim175 = _tf175.mkdtemp(prefix='pruefung175-')
+    _altheim175 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim175
+    try:
+        _schl175 = 'vehicle_NameXIAN_Railen'
+        _ini175 = os.path.join(_heim175, 'Localization', 'english', 'global.ini')
+        os.makedirs(os.path.dirname(_ini175), exist_ok=True)
+
+        # ⚠ Die Datei braucht mehr als die Fahrzeugzeile: `einspielen()` bricht
+        #   ohne Missionen im Katalog vorzeitig ab — und haette dann nichts
+        #   geprueft, sondern nur nichts getan.
+        def _ini_frisch175():
+            with open(_ini175, 'w', encoding='utf-8', newline='') as f:
+                f.write('%s=Railen\n'
+                        'mission_desc_T=Ein Auftragstext von CIG.\n'
+                        'mission_title_T=Ein Auftrag\n' % _schl175)
+
+        _kat175 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': ['Testbauplan']}}}
+
+        # Der Wunsch muss in der abgelegten Datei stehen — beide Wege holen ihn
+        # sich von dort, nicht aus einem Aufrufparameter.
+        _as175.speichern(_as175.setzen(_as175.leer(), _schl175, 'Packesel', True))
+        _erwartet175 = '%s=*Packesel' % _schl175
+
+        # -- Weg 1: der Rueckfallweg, ohne Vertragsdaten.
+        _ini_frisch175()
+        _ok1_175, _, _meld1_175 = _in175.einspielen(_ini175, 'english',
+                                                    katalog=_kat175)
+        pruefe(_ok1_175, 'der Rueckfallweg laeuft wirklich an (%s)' % _meld1_175)
+        pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
+               'einspielen() schreibt den eigenen Schiffsnamen wirklich hinein')
+
+        # -- Weg 2: der bevorzugte SCDL-Weg. Ohne Vertragsdaten steigt er
+        #    sofort aus — also legt die Pruefung sich welche hin, statt sich
+        #    selbst zu ueberspringen (dieselbe Lehre wie bei Pruefung 67).
+        _scdl175 = _in175.pfade.app_datei(_in175.SCDL_CACHE % 'en')
+        os.makedirs(os.path.dirname(_scdl175), exist_ok=True)
+        with open(_scdl175, 'w', encoding='utf-8') as _f:
+            json.dump({'entries': [{}]}, _f)
+        _ini_frisch175()
+        _ok175, _, _meld175 = _in175.einspielen_scdl(_ini175, 'en')
+        pruefe(_ok175, 'der SCDL-Weg laeuft in der Pruefung wirklich an (%s)'
+               % _meld175)
+        pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
+               'einspielen_scdl() schreibt ihn ebenso — der Fehler von v3.28.0')
+    finally:
+        if _altheim175 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim175
+        shutil.rmtree(_heim175, ignore_errors=True)
+
+    # -- ⚠⚠ **Der Eilige.** Die Seite sammelt Aenderungen 900 ms lang, bevor
+    #    sie schreibt. Wer einen Namen tippt und sofort zumacht, ist schneller
+    #    als die Drossel: Der Wunsch stuende in `asop.json`, in der
+    #    `global.ini` aber nicht — im Spiel also weiter der Werksname, ohne
+    #    jeden Hinweis. Dasselbe Bild wie beim Fehler von v3.28.0, nur mit
+    #    anderer Ursache. `vor_dem_schliessen` holt den Auftrag nach.
+    from scbp import hauptfenster as _hf175
+    _wz175 = _wurzel()
+    _f175 = _hf175.Hauptfenster(_wz175, version='0.0.0-test')
+    _gelaufen175 = []
+    _f175.vor_dem_schliessen.append(lambda: _gelaufen175.append('geschrieben'))
+    # ⚠ Ein Auftrag, der wirft, darf die uebrigen nicht mitreissen.
+    _f175.vor_dem_schliessen.insert(0, lambda: 1 / 0)
+    _f175.schliessen()
+    pruefe(_gelaufen175 == ['geschrieben'],
+           'ein offener Schreibauftrag wird beim Zumachen nachgeholt')
 
     # -- Die Kurzfassungen bleiben draussen: sonst waere der Name doppelt zu
     #    pflegen, und im Fleet Manager steht die lange.
     pruefe('vehicle_NameANVL_Hornet_F7CM_short'
            not in _as175.schluessel_lesen(_zeilen175),
            'die _short-Fassungen werden nicht mitgelesen')
+
+    print('\n177. Beim Quellenwechsel bleibt keine Datei liegen')
+    # ⚠⚠ Die Textquellen schreiben in **verschiedene** Sprachordner: „deutsch"
+    # nach `german_(germany)`, „StarStrings" und „Original" nach `english`. Wer
+    # wechselt, liess bis v3.28.x unsere Einfuegungen in der alten Datei stehen
+    # — und niemand pflegte sie mehr. Laedt das Spiel ausgerechnet die, sieht
+    # der Spieler dauerhaft einen alten Stand, ohne jeden Hinweis.
+    #
+    # Gemessen am 29.08.2026: Die deutsche Datei war SPAETER geschrieben (06:53)
+    # als die englische (06:34) und trug trotzdem die alte Form.
+    #
+    # ⚠ Geprueft wird an zwei echten Dateien in zwei Ordnern, nicht an einer
+    # Zusicherung im Quelltext — und der Wortlaut zeichengenau.
+    import tempfile as _tf177
+    from scbp import injektion as _in177
+
+    _heim177 = _tf177.mkdtemp(prefix='pruefung177-')
+    _alt_heim177 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim177
+    try:
+        _zeilen177 = ['mission_desc_T=Ein Auftragstext von CIG.',
+                      'mission_title_T=Ein Auftrag']
+        # ⚠ Der Auftrag braucht einen Bauplan: `ist_drin()` erkennt nur
+        # eindeutig eigene Formen, und das ist das Kaestchen.
+        _kat177 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': ['Testbauplan']}}}
+
+        def _schreiben177(pfad):
+            os.makedirs(os.path.dirname(pfad), exist_ok=True)
+            with open(pfad, 'w', encoding='utf-8', newline='') as f:
+                f.write('\n'.join(_zeilen177) + '\n')
+
+        _de177 = os.path.join(_heim177, 'Localization', 'german_(germany)',
+                              'global.ini')
+        _en177 = os.path.join(_heim177, 'Localization', 'english', 'global.ini')
+        _schreiben177(_de177)
+        _schreiben177(_en177)
+        _ur177 = open(_de177, encoding='utf-8').read()
+
+        _in177.einspielen(_de177, 'german_(germany)', katalog=_kat177)
+        pruefe(_in177.ist_drin(_de177),
+               'die zuerst gewaehlte Datei traegt unsere Eintraege')
+
+        _fund177 = _in177.altlast(_en177)
+        pruefe(_fund177 is not None and os.path.samefile(_fund177, _de177),
+               'beim Wechsel wird die alte Datei als verwaist erkannt')
+        pruefe(_in177.altlast(_de177) is None,
+               'dasselbe Ziel gilt NICHT als Altlast — sonst raeumt es sich selbst ab')
+
+        _weg177, _n177 = _in177.altlast_aufraeumen(_en177)
+        pruefe(_weg177 is not None, 'und sie wird zurueckgesetzt')
+        pruefe(open(_de177, encoding='utf-8').read() == _ur177,
+               'zeichengenau auf den Wortlaut von vorher')
+        pruefe(not _in177.ist_drin(_de177), 'es steht nichts mehr von uns darin')
+
+        # -- Und die Gegenrichtung, sonst prueft es nur den halben Weg.
+        _in177.einspielen(_en177, 'english', katalog=_kat177)
+        _ur_en177 = open(_en177, encoding='utf-8').read()
+        _zurueck177, _ = _in177.altlast_aufraeumen(_de177)
+        pruefe(_zurueck177 is not None and os.path.samefile(_zurueck177, _en177),
+               'zurueck gewechselt ist die englische die Altlast')
+        pruefe(open(_en177, encoding='utf-8').read() != _ur_en177
+               and not _in177.ist_drin(_en177),
+               'auch sie wird sauber zurueckgesetzt')
+    finally:
+        if _alt_heim177 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim177
+        shutil.rmtree(_heim177, ignore_errors=True)
 
     print('\n176. Die Schiffszeile: eigener Schalter, kein Tk-Kaestchen')
     # ⚠⚠ In v3.28.0 stand hier ein `tk.Checkbutton`. Gemeldet: „zu klein, sieht
@@ -15874,6 +16064,739 @@ def main():
         _w176.destroy()
     except Exception:
         pass
+
+    print('\n178. Der Bau-Ablauf bleibt nachvollziehbar')
+    # ⚠⚠ Diese Pruefung bewacht nicht das Programm, sondern den **Weg vom
+    # Quelltext zum Nutzer**. Drei Dinge sollen nie wieder hineinrutschen:
+    #
+    #   1. Ein Skript aus dem Netz, das sofort ausgefuehrt wird
+    #      (`wget -qO- ... | python3`). Wer diese fremde Quelle einmal
+    #      uebernimmt, baut in JEDE veroeffentlichte Datei mit.
+    #   2. Werkzeuge ohne feste Version (`pip install --upgrade pyinstaller`).
+    #      Dann ergibt ein zweiter Bau desselben Tags nicht zwingend dieselbe
+    #      Datei — und niemand kann sagen, woraus die .exe entstanden ist.
+    #   3. Actions ueber bewegliche Tags (`@v4`). Ein Tag laesst sich
+    #      verschieben, ein Commit-SHA nicht.
+    #
+    # ⚠ Geprueft wird der **Text der Ablaufdateien**, nicht ein Bau-Lauf: Ein
+    # Bau laesst sich hier nicht nachstellen (kein Windows, kein
+    # Ubuntu-22.04-Container). Diese Pruefung ersetzt den Lauf also nicht —
+    # sie haelt nur fest, dass niemand die Absicherung wieder herausnimmt.
+    import re as _re178
+
+    _sha178 = _re178.compile(r'^[0-9a-f]{40}$')
+    _pipe178 = _re178.compile(
+        r'\b(?:wget|curl)\b[^\n]*\|[^\n]*\b(?:python[0-9.]*|sh|bash)\b')
+    _pip178 = _re178.compile(r'\bpip[0-9.]*\s+install\b([^\n]*)')
+    # ⚠ Auch eine Datei ohne Endung zaehlt: Die AppImage-Runtime heisst schlicht
+    # `runtime-x86_64`. Erkannt wird deshalb der Download an sich, nicht nur ein
+    # bekannter Dateiname.
+    _holt178 = _re178.compile(r'\b(?:wget|curl)\b[^\n]*'
+                              r'https?://[^\s"\']+', _re178.IGNORECASE)
+    # Womit eine geladene Datei benutzt wird — ab hier ist eine Pruefung zu
+    # spaet. `chmod +x` zaehlt mit: Wer ausfuehrbar macht, will ausfuehren.
+    _nutzt178 = _re178.compile(r'\bchmod\s+\+x\b|(?:^|\s)\./|'
+                               r'\b(?:bash|sh|source)\s+\S')
+    _prueft178 = _re178.compile(r'\b(?:sha256sum|shasum|sha512sum)\b')
+    # Endet ein Token so, ist es kein Paketname, sondern ein Schalter oder
+    # eine Datei — `-r anforderungen.txt` etwa.
+    _kein_paket178 = ('-', '.txt', '.', '/')
+
+    def _maengel178(text):
+        """Alles, was einen Bau unnachvollziehbar macht. Leere Liste = sauber."""
+        # ⚠ Zuerst zwei Dinge glaetten, sonst zerfaellt jede Zeile falsch:
+        # Fortsetzungszeilen (`\` am Ende) gehoeren zusammen, und ein
+        # `${{ env.X }}` enthaelt Leerzeichen — ungeglaettet sieht `env.X` aus
+        # wie ein Paket ohne Version, und die Pruefung meldet Unsinn.
+        glatt = text.replace('\\\n', ' ')
+        glatt = _re178.sub(r'\$\{\{[^}]*\}\}', 'X', glatt)
+        raus = []
+        zeilen = glatt.splitlines()
+        for nr, zeile in enumerate(zeilen):
+            blank = zeile.strip()
+            if blank.startswith('#'):
+                continue
+            if 'uses:' in blank:
+                ziel = blank.split('uses:', 1)[1].split('#')[0].strip()
+                if ziel and not ziel.startswith('./'):
+                    ref = ziel.rsplit('@', 1)[-1] if '@' in ziel else ''
+                    if not _sha178.match(ref):
+                        raus.append('bewegliche Action: %s' % ziel)
+            if _pipe178.search(blank):
+                raus.append('Skript aus dem Netz direkt ausgefuehrt: %s' % blank)
+            treffer = _pip178.search(blank)
+            if treffer:
+                for wort in treffer.group(1).split():
+                    wort = wort.strip('"\'')
+                    if wort.startswith(_kein_paket178) or wort.endswith('.txt'):
+                        continue
+                    if '==' not in wort:
+                        raus.append('Paket ohne feste Version: %s' % wort)
+            if _holt178.search(blank):
+                # ⚠⚠ **Die Reihenfolge ist der ganze Punkt.** Eine Pruefsumme
+                # hinter `chmod +x` oder hinter dem Aufruf ist wertlos — die
+                # fremde Datei lief dann schon. Geprueft wird deshalb nicht
+                # „steht irgendwo eine Pruefung", sondern „steht sie VOR der
+                # ersten Benutzung".
+                #
+                # Gesucht wird bis zum naechsten Schritt (`- name:`/`- uses:`)
+                # oder hoechstens 40 Zeilen weit; darueber hinaus waere es ein
+                # anderer Zusammenhang.
+                wo_prueft = None
+                wo_nutzt = None
+                for weiter in range(nr + 1, min(nr + 41, len(zeilen))):
+                    folge = zeilen[weiter].strip()
+                    if folge.startswith('- name:') or folge.startswith('- uses:'):
+                        break
+                    if wo_prueft is None and _prueft178.search(folge):
+                        wo_prueft = weiter
+                    if wo_nutzt is None and _nutzt178.search(folge):
+                        wo_nutzt = weiter
+                if wo_prueft is None:
+                    raus.append('Datei geladen, aber nicht geprueft: %s' % blank)
+                elif wo_nutzt is not None and wo_nutzt < wo_prueft:
+                    raus.append('Pruefsumme erst NACH der Benutzung: %s' % blank)
+        return raus
+
+    def _downloads178(text):
+        """Wie viele Dateien der Ablauf aus dem Netz holt."""
+        glatt = text.replace('\\\n', ' ')
+        return len([z for z in glatt.splitlines()
+                    if not z.strip().startswith('#') and _holt178.search(z)])
+
+    _wf178 = os.path.join(WURZEL, '.github', 'workflows')
+    _dateien178 = sorted(n for n in os.listdir(_wf178) if n.endswith('.yml'))
+    pruefe(bool(_dateien178), 'es gibt Ablaufdateien zu pruefen')
+
+    # ⚠ **Sonst prueft der Abschnitt womoeglich gar nichts.** Findet die
+    # Erkennung keinen einzigen Download mehr — weil jemand `wget` durch etwas
+    # anderes ersetzt hat —, meldet sie brav „sauber" und der Wegfall der
+    # Pruefsummen faellt niemandem auf. Es sind heute zwei: AppImageTool und
+    # die AppImage-Runtime.
+    _anzahl178 = _downloads178(open(os.path.join(_wf178, 'release.yml'),
+                                    encoding='utf-8').read())
+    pruefe(_anzahl178 >= 2,
+           'release.yml holt weiterhin die erwarteten Dateien (%d gefunden)'
+           % _anzahl178)
+    for _name178 in _dateien178:
+        _text178 = open(os.path.join(_wf178, _name178), encoding='utf-8').read()
+        _m178 = _maengel178(_text178)
+        pruefe(not _m178, '%s ist nachvollziehbar (%s)'
+               % (_name178, '; '.join(_m178) or 'nichts zu beanstanden'))
+
+    # ⚠⚠ **Gegenprobe — eine Pruefung, die nie anschlaegt, prueft nichts.**
+    # Genau das ist Pruefung 29 in ihrer ersten Fassung passiert: Sie meldete
+    # brav „0 Ausreisser", auch als absichtlich einer eingebaut wurde.
+    _boese178 = [
+        ('bewegliche Action', 'jobs:\n  a:\n    steps:\n'
+                              '      - uses: actions/checkout@v4\n'),
+        ('Skript aus dem Netz', '      - run: wget -qO- https://x/get-pip.py '
+                                '| python3.14\n'),
+        ('Paket ohne feste Version', '      - run: pip install --upgrade '
+                                     'pyinstaller\n'),
+        ('Datei ungeprueft', '      - run: |\n'
+                             '          wget -q https://x/werkzeug.AppImage\n'
+                             '          chmod +x werkzeug.AppImage\n'),
+        # ⚠ Der heimtueckische Fall: Die Pruefung IST da — nur zu spaet.
+        # Zwischen `chmod +x` und ihr liegt bereits der Aufruf; wer hier nur
+        # nach dem Wort `sha256sum` sucht, sieht gruen und hat nichts geprueft.
+        ('Pruefsumme zu spaet', '      - run: |\n'
+                                '          wget -q https://x/werkzeug.AppImage\n'
+                                '          chmod +x werkzeug.AppImage\n'
+                                '          ./werkzeug.AppImage bauen\n'
+                                '          echo "abc  werkzeug.AppImage" '
+                                '| sha256sum -c -\n'),
+    ]
+    for _was178, _quelle178 in _boese178:
+        pruefe(bool(_maengel178(_quelle178)),
+               'die Pruefung faengt den eingebauten Fehler: %s' % _was178)
+
+    # Und die Gegenrichtung: der geflickte Fall darf NICHT mehr anschlagen.
+    _gut178 = ('      - uses: actions/checkout@'
+               '11d5960a326750d5838078e36cf38b85af677262  # v4.4.0\n'
+               '      - run: |\n'
+               '          wget -q https://x/werkzeug.AppImage\n'
+               '          echo "abc  werkzeug.AppImage" | sha256sum -c -\n'
+               '          chmod +x werkzeug.AppImage\n'
+               '          wget -q https://x/runtime-x86_64\n'
+               '          echo "def  runtime-x86_64" | sha256sum -c -\n'
+               '          ./werkzeug.AppImage --runtime-file runtime-x86_64\n'
+               '      - run: pip install "pyflakes==3.4.0"\n')
+    pruefe(not _maengel178(_gut178),
+           'und laesst den abgesicherten Fall in Ruhe (%s)'
+           % ('; '.join(_maengel178(_gut178)) or 'sauber'))
+
+    print('\n182. Der Datenschutz-Scanner')
+    # ⚠⚠ Die Regel „nach aussen heisst der Entwickler nur `Xharig`" war bis
+    # zum 11.09.2026 reine Disziplin — zwei Riegel auf einem einzigen Rechner,
+    # sonst nichts. Und **aus dem aktuellen Stand entfernen reicht nicht**:
+    # Die Historie behaelt alles. Der Fund muss VOR dem Push passieren.
+    import subprocess as _sp182
+    import tempfile as _tf182
+
+    _scan182 = os.path.join(_wurzelpfad, 'tools', 'privacy_scan.py')
+    pruefe(os.path.exists(_scan182), 'es gibt einen Datenschutz-Scanner')
+
+    # -- Die Sperrliste darf NIE im Repo landen. Das ist die erste Frage.
+    _ign182 = open(os.path.join(_wurzelpfad, '.gitignore'),
+                   encoding='utf-8').read().splitlines()
+    pruefe('.sperrliste' in [z.strip() for z in _ign182],
+           'die Sperrliste steht in .gitignore')
+
+    _ordner182 = _tf182.mkdtemp(prefix='pruefung182-')
+    try:
+        # ⚠ Der Wert ist erfunden, sieht aber aus wie ein echter Fund. Genau
+        #   danach wird gleich in der Ausgabe gesucht.
+        _geheim182 = 'HeimlicherWert4711'
+        _probe182 = os.path.join(_ordner182, 'probe.py')
+        # privacy-ok: alles hier ist erfunden und wird gleich WEGGEWORFEN —
+        # es ist das Pruefmaterial dafuer, dass der Scanner ueberhaupt greift.
+        # Ohne diesen Vermerk meldete er seine eigene Pruefung als Fund.
+        with open(_probe182, 'w', encoding='utf-8') as _f182:
+            _f182.write('post = "https://discord.com/api/webhooks/7/%s"\n'  # privacy-ok: erfunden
+                        % _geheim182)
+            _f182.write('mail = "vorname.nachname@gmail.com"\n')  # privacy-ok: erfunden
+            _f182.write('nas = "192.168.0.99"\n')  # privacy-ok: erfunden
+            _f182.write('heim = "/home/echternutzer/geheim"\n')  # privacy-ok: erfunden
+
+        _lauf182 = _sp182.run([sys.executable, _scan182, _probe182],
+                              capture_output=True, text=True,
+                              encoding='utf-8', cwd=_wurzelpfad)
+        _aus182 = (_lauf182.stdout or '') + (_lauf182.stderr or '')
+        pruefe(_lauf182.returncode == 1,
+               'ein Fund macht den Lauf rot (Rueckgabe %d)' % _lauf182.returncode)
+        for _was182 in ('Webhook', 'E-Mail', 'privaten Netz', 'Heimverzeichnis'):
+            pruefe(_was182 in _aus182, 'gefunden: %s' % _was182)
+
+        # ⛔⛔ **Die wichtigste Zusage des ganzen Werkzeugs.**
+        # Wuerde der Scanner den Fund ausdrucken, staende das Gesuchte im
+        # Protokoll eines OEFFENTLICHEN Bau-Laufs — er waere dann selbst die
+        # Luecke, die er schliessen soll.
+        pruefe(_geheim182 not in _aus182,
+               'der gefundene Text wird NICHT ausgegeben')
+        pruefe('gmail.com' not in _aus182 and 'echternutzer' not in _aus182
+               and '192.168' not in _aus182,
+               'auch die uebrigen Funde stehen nicht im Klartext da')
+
+        # -- Und die Gegenrichtung: eine harmlose Datei darf nicht anschlagen.
+        _harmlos182 = os.path.join(_ordner182, 'harmlos.py')
+        with open(_harmlos182, 'w', encoding='utf-8') as _f182:
+            _f182.write('# Beispiel: /home/spieler/Programme, Xharig, '
+                        'jemand@example.com\n')
+        _ok182 = _sp182.run([sys.executable, _scan182, _harmlos182],
+                            capture_output=True, text=True, encoding='utf-8',
+                            cwd=_wurzelpfad)
+        pruefe(_ok182.returncode == 0,
+               'erfundene Beispiele und der Name Xharig schlagen NICHT an')
+
+        # -- Das ganze Repo muss sauber sein — sonst ist der Scanner ab heute
+        #    rot und niemand koennte mehr pushen.
+        _repo182 = _sp182.run([sys.executable, _scan182],
+                              capture_output=True, text=True, encoding='utf-8',
+                              cwd=_wurzelpfad)
+        pruefe(_repo182.returncode == 0,
+               'das Repo selbst ist sauber (%s)'
+               % (_repo182.stdout or '').strip().splitlines()[-1:])
+    finally:
+        shutil.rmtree(_ordner182, ignore_errors=True)
+
+    # -- Der Ablauf, der das bei jeder Aenderung tut.
+    _pruef182 = os.path.join(_wurzelpfad, '.github', 'workflows',
+                             'pruefung.yml')
+    pruefe(os.path.exists(_pruef182), 'es gibt einen Pruef-Ablauf')
+    _py182 = open(_pruef182, encoding='utf-8').read()
+    for _muss182 in ('pull_request', 'privacy_scan.py', 'selbsttest.py',
+                     'sprachen_pruefen.py', 'xvfb', 'compileall'):
+        pruefe(_muss182 in _py182, 'der Pruef-Ablauf enthaelt %s' % _muss182)
+    # ⚠ ruff darf den Lauf NICHT rot machen — sonst wird der Ablauf umgangen.
+    pruefe('continue-on-error: true' in _py182,
+           'ruff laeuft nur als Bericht, ohne den Lauf rot zu machen')
+    # ⚠ Und er darf NICHT bauen: Was baut, dauert, und was dauert, wird umgangen.
+    #
+    # ⚠⚠ **Nur Nicht-Kommentarzeilen.** Der erste Anlauf suchte im ganzen Text
+    # und fand „kein AppImage" im **eigenen erklaerenden Kommentar** des
+    # Ablaufs. Dieselbe Falle wie bei Pruefung 181 eine Stunde vorher — und
+    # genau der Befund, den der Pruefer an der Release-Wache erhoben hatte.
+    _echte182 = [z for z in _py182.splitlines() if not z.lstrip().startswith('#')]
+    _echt182 = '\n'.join(_echte182).lower()
+    pruefe('pyinstaller' not in _echt182 and 'appimage' not in _echt182,
+           'der Pruef-Ablauf baut nichts — er prueft nur')
+
+    print('\n181. Die Sperrdateien nageln DAS fest, was auch gebaut wird')
+    # ⚠⚠ Zwei Ablaufdateien nennen dieselben Werkzeugversionen: `release.yml`
+    # baut damit, `sperrdateien.yml` nagelt sie samt Unterabhaengigkeiten
+    # fest. Laufen die Werte auseinander, sperrt man etwas anderes, als man
+    # baut — und merkt es erst, wenn der Bau mit `--require-hashes` abbricht
+    # oder, schlimmer, wenn er NICHT abbricht und still etwas anderes einbaut.
+    _rel181 = open(os.path.join(_wurzelpfad, '.github', 'workflows',
+                                'release.yml'), encoding='utf-8').read()
+    _spr181 = os.path.join(_wurzelpfad, '.github', 'workflows',
+                           'sperrdateien.yml')
+    pruefe(os.path.exists(_spr181), 'es gibt einen Ablauf fuer die Sperrdateien')
+    _sp_text181 = open(_spr181, encoding='utf-8').read()
+
+    for _wert181 in ('PY_PYINSTALLER', 'PY_PYFLAKES', 'PY_PIP'):
+        _a181 = re.search(r'%s:\s*([\'"])(.+?)\1' % _wert181, _rel181)
+        _b181 = re.search(r'%s:\s*([\'"])(.+?)\1' % _wert181, _sp_text181)
+        pruefe(_a181 and _b181 and _a181.group(2) == _b181.group(2),
+               '%s steht in beiden Ablaeufen gleich (%s / %s)'
+               % (_wert181,
+                  _a181.group(2) if _a181 else 'fehlt',
+                  _b181.group(2) if _b181 else 'fehlt'))
+
+    # ⚠ Der Pruef-Ablauf nennt pyflakes ebenfalls — auch der muss mitziehen,
+    #   sonst prueft er mit einer anderen Fassung als der Bau.
+    _pf181 = re.search(r"PY_PYFLAKES:\s*(['\"])(.+?)\1",
+                       open(os.path.join(_wurzelpfad, '.github', 'workflows',
+                                         'pruefung.yml'),
+                            encoding='utf-8').read())
+    _soll181 = re.search(r"PY_PYFLAKES:\s*(['\"])(.+?)\1", _rel181)
+    pruefe(_pf181 and _soll181 and _pf181.group(2) == _soll181.group(2),
+           'auch der Pruef-Ablauf nimmt dieselbe pyflakes-Fassung (%s)'
+           % (_pf181.group(2) if _pf181 else 'fehlt'))
+
+    # Auch die Python-Fassung: Eine Sperrdatei von 3.12 kann Wheels nennen,
+    # die 3.14 gar nicht nimmt.
+    _pyv181 = set(re.findall(r"python-version:\s*'([\d.]+)'", _rel181))
+    _pys181 = set(re.findall(r"python-version:\s*'([\d.]+)'", _sp_text181))
+    pruefe(_pyv181 and _pyv181 == _pys181,
+           'beide Ablaeufe nehmen dieselbe Python-Fassung (%s / %s)'
+           % (sorted(_pyv181), sorted(_pys181)))
+
+    # ⚠⚠ **Und der Schalter, der die Sperrdateien erst wirksam macht.**
+    # Solange sie noch nicht eingecheckt sind, waere `--require-hashes` im
+    # Bau ein sofortiger Abbruch — deshalb haengt die Forderung an ihrem
+    # Dasein. Der Text sagt ausdruecklich, welcher Fall gerade gilt: Eine
+    # Pruefung, die stillschweigend nichts tut, prueft nichts.
+    #
+    # ⚠⚠ **Nur ausserhalb von Kommentaren zaehlen.** Der erste Anlauf suchte
+    # `--require-hashes` im ganzen Text — und fand es in einem **Kommentar**
+    # aus P0, der die Sache bloss beschreibt. Die Pruefung schlug an, obwohl
+    # nichts damit gebaut wird. Derselbe Fehler, den der Pruefer kurz zuvor an
+    # der Release-Wache beanstandet hatte; einmal gelesen ist eben nicht
+    # einmal verstanden.
+    def _wirklich181(text, wort):
+        return any(wort in z and not z.lstrip().startswith('#')
+                   for z in text.splitlines())
+
+    _lockordner181 = os.path.join(_wurzelpfad, 'packaging')
+    _locks181 = sorted(
+        d for d in (os.listdir(_lockordner181)
+                    if os.path.isdir(_lockordner181) else [])
+        if d.startswith('lock-') and d.endswith('.txt'))
+    if _locks181:
+        pruefe(_wirklich181(_rel181, '--require-hashes'),
+               'die Sperrdateien liegen (%s) — also baut release.yml mit '
+               '--require-hashes' % ', '.join(_locks181))
+        for _l181 in _locks181:
+            _inhalt181 = open(os.path.join(_lockordner181, _l181),
+                              encoding='utf-8').read()
+            pruefe('--hash=sha256:' in _inhalt181,
+                   '%s enthaelt wirklich Pruefsummen' % _l181)
+    else:
+        pruefe(not _wirklich181(_rel181, '--require-hashes'),
+               'noch KEINE Sperrdateien eingecheckt — dann darf release.yml '
+               'auch nicht mit --require-hashes bauen (sonst bricht jeder Lauf)')
+
+    print('\n180. Ein Update ohne gueltige Pruefsumme wird nicht eingespielt')
+    # ⚠⚠ Bis v3.28.x pruefte der Updater nur die **Herkunft** (`_url_ok`: kommt
+    # von github.com), nicht den **Inhalt**. Was durch diesen Filter kam, wurde
+    # ungeprueft eingespielt. Entschieden am 10.09.2026: keine gueltige Summe,
+    # keine Installation — kein Schalter, kein „trotzdem".
+    #
+    # ⚠ Geprueft wird der **echte** Weg `herunterladen()`, mit einem
+    # vorgetaeuschten Netz. Wer nur `summe_rechnen()` prueft, prueft hashlib.
+    import hashlib as _hl180
+    import io as _io180
+    import tempfile as _tf180
+    import urllib.request as _ur180
+    from scbp import aktualisierung as _ak180
+    from scbp import sprache as _sp180
+
+    _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
+    _echt_open180 = _ur180.urlopen
+    _echt_appimage180 = _ak180.eigenes_appimage
+    try:
+        _nutz180 = b'Das ist die neue Fassung.' * 500
+        _name180 = 'SC-BP-Watcher-x86_64.AppImage'
+        _summe180 = _hl180.sha256(_nutz180).hexdigest()
+        _url180 = 'https://github.com/Xharig/SC-BP-Watcher/releases/x/' + _name180
+        _summen_url180 = ('https://github.com/Xharig/SC-BP-Watcher/'
+                          'releases/x/SHA256SUMS.txt')
+
+        # Das Programm soll neben eine Datei in unserem Wegwerf-Ordner laden.
+        _ak180.eigenes_appimage = lambda: os.path.join(_ordner180, _name180)
+
+        _antwort180 = {'summen': '', 'nutz': _nutz180}
+
+        class _Netz180(object):
+            """Ein Mini-Netz: liefert genau die zwei Dateien, sonst nichts."""
+
+            def __init__(self, inhalt):
+                self._f = _io180.BytesIO(inhalt)
+                self.headers = {'Content-Length': str(len(inhalt))}
+
+            def read(self, *a):
+                return self._f.read(*a)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        def _falsches_netz180(req, timeout=None):
+            ziel = req.full_url if hasattr(req, 'full_url') else str(req)
+            if ziel.endswith('SHA256SUMS.txt'):
+                if _antwort180['summen'] is None:
+                    raise OSError('kein Netz')
+                return _Netz180(_antwort180['summen'].encode('utf-8'))
+            return _Netz180(_antwort180['nutz'])
+
+        _ur180.urlopen = _falsches_netz180
+
+        def _freigabe180(mit_summen=True, summe=None):
+            dateien = [{'name': _name180, 'url': _url180, 'groesse': len(_nutz180)}]
+            if mit_summen:
+                dateien.append({'name': 'SHA256SUMS.txt', 'url': _summen_url180})
+            _antwort180['summen'] = ('%s  %s\n' % (summe or _summe180, _name180)
+                                     if summe != 'WEG' else None)
+            return {'version': 'v9.9.9', 'dateien': dateien}
+
+        def _versuch180(freigabe):
+            """Gibt (Pfad, Fehlertext). Genau eines von beiden ist gesetzt."""
+            try:
+                return _ak180.herunterladen(freigabe['dateien'][0],
+                                            freigabe=freigabe), ''
+            except Exception as ausnahme:
+                return None, str(ausnahme)
+
+        # -- 1. Summe stimmt → die Datei kommt an.
+        _pfad180, _text180 = _versuch180(_freigabe180())
+        pruefe(_pfad180 and os.path.exists(_pfad180),
+               'bei passender Pruefsumme wird geladen (%s)' % (_text180 or 'ok'))
+        if _pfad180 and os.path.exists(_pfad180):
+            pruefe(open(_pfad180, 'rb').read() == _nutz180,
+                   'und zwar unveraendert')
+            os.remove(_pfad180)
+
+        # -- 2. Summe falsch → nichts eingespielt, und nichts liegen gelassen.
+        _pfad180, _text180 = _versuch180(_freigabe180(summe='0' * 64))
+        pruefe(_pfad180 is None, 'bei falscher Pruefsumme wird abgelehnt')
+        pruefe('Pr' in _text180 or 'checksum' in _text180.lower(),
+               'und der Nutzer erfaehrt den Grund (%r)' % _text180[:60])
+        # ⚠⚠ Das ist der Punkt, den man vergisst: Die halbe Datei liegt neben
+        #    dem laufenden Programm. Sie MUSS weg sein.
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'die verworfene Datei bleibt nicht liegen')
+
+        # -- 2b. ⚠⚠ **Die Leitung bricht MITTEN im Schreiben ab.**
+        #        Dann wird die Summe nie gerechnet — und der erste Anlauf
+        #        raeumte nur bei falscher Summe auf. Ein Bruchstueck blieb
+        #        also neben dem laufenden AppImage liegen, ungeprueft.
+        class _Abriss180(_Netz180):
+            def read(self, *a):
+                stueck = _Netz180.read(self, *a)
+                if not getattr(self, '_einmal', False):
+                    self._einmal = True
+                    return stueck
+                raise OSError('Verbindung abgebrochen')
+
+        def _abriss_netz180(req, timeout=None):
+            ziel = req.full_url if hasattr(req, 'full_url') else str(req)
+            if ziel.endswith('SHA256SUMS.txt'):
+                return _Netz180(_antwort180['summen'].encode('utf-8'))
+            return _Abriss180(_antwort180['nutz'])
+
+        _ur180.urlopen = _abriss_netz180
+        _pfad180, _text180 = _versuch180(_freigabe180())
+        _ur180.urlopen = _falsches_netz180
+        pruefe(_pfad180 is None, 'ein abgebrochener Download endet mit Fehler')
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'und laesst KEIN ungeprueftes Bruchstueck liegen')
+
+        # -- 3. Pruefsummen-Datei fehlt ganz → ebenfalls nichts.
+        _pfad180, _text180 = _versuch180(_freigabe180(mit_summen=False))
+        pruefe(_pfad180 is None, 'ohne Pruefsummen-Datei wird nicht installiert')
+
+        # -- 4. Netz weg beim Holen der Summen → **anderer** Satz. „Kein Netz"
+        #       darf nicht wie „manipuliert" klingen.
+        _frei180 = _freigabe180(summe='WEG')
+        _pfad180, _netztext180 = _versuch180(_frei180)
+        pruefe(_pfad180 is None, 'auch ohne erreichbare Summen wird abgelehnt')
+        pruefe(_netztext180 != _text180,
+               'und mit einem anderen Satz als bei fehlender Datei')
+
+        # -- 5. Ohne Freigabe gar nicht erst anfangen: Wer den Aufruf ohne sie
+        #       baut, haette den Schutz abgeschaltet.
+        #
+        # ⚠ Der erste Anlauf dieser Pruefung reichte trotzdem eine Freigabe
+        #   durch (nur eben eine ohne Summen) und pruefte damit **nicht**, was
+        #   sie zu pruefen vorgab. Jetzt wird `herunterladen()` wirklich ohne
+        #   das Argument gerufen — so, wie ein unachtsamer Umbau es taete.
+        try:
+            _ak180.herunterladen({'name': _name180, 'url': _url180})
+            _ohne180 = 'DURCHGELASSEN'
+        except Exception as _a180:
+            _ohne180 = str(_a180)
+        pruefe(_ohne180 != 'DURCHGELASSEN',
+               'ein Aufruf ganz OHNE das Freigabe-Argument wird abgelehnt')
+        pruefe(_ohne180 == _sp180.t('up_ohne_pruefung'),
+               'und zwar mit genau diesem Grund (%r)' % _ohne180[:50])
+
+        # -- 5b. Eine Summen-Datei, die es GIBT, aber von fremder Adresse
+        #        kommen soll: eigener Satz. Das ist kein „noch nicht
+        #        eingerichtet", sondern ein Grund zum Misstrauen.
+        _fremd_frei180 = {'dateien': [
+            {'name': _name180, 'url': _url180},
+            {'name': 'SHA256SUMS.txt', 'url': 'https://boese.example/SHA256SUMS.txt'}]}
+        _pfad180, _fremdtext180 = _versuch180(_fremd_frei180)
+        pruefe(_pfad180 is None, 'Summen von fremder Adresse werden abgelehnt')
+        pruefe(_fremdtext180 == _sp180.t('up_summen_fremd'),
+               'und zwar mit einem EIGENEN Satz, nicht mit „keine Summen"')
+
+        # -- 6. Ein Anhang mit fremder Endung darf nicht ueber den
+        #       Rueckfallnamen `update.bin` hereinkommen.
+        # ⚠⚠ Die Summe fuer `update.bin` muss die **echte** des Inhalts sein.
+        #    Sonst scheitert der Versuch an der Summe statt am Namen — die
+        #    Pruefung waere gruen, ohne den Riegel zu beruehren. Genau das ist
+        #    ihr beim ersten Anlauf passiert und erst in der Gegenprobe
+        #    aufgefallen.
+        _frei180 = _freigabe180()
+        _antwort180['summen'] += '%s  update.bin\n' % _summe180
+        _boese_frei180 = {'dateien': [
+            {'name': 'boese.sh', 'url': _url180},
+            {'name': 'SHA256SUMS.txt', 'url': _summen_url180}]}
+        _pfad180, _text180 = _versuch180(_boese_frei180)
+        pruefe(_pfad180 is None,
+               'ein Anhang mit fremder Endung kommt nicht ueber update.bin herein')
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'und es wird dafuer auch nichts erst geladen')
+
+        # -- Der Dateiname aus der Server-Antwort wird entschaerft.
+        for _boese180 in ('../../boese.appimage', '/etc/boese.appimage',
+                          '..\\..\\boese.exe'):
+            _sauber180 = _ak180.sicherer_dateiname(_boese180)
+            pruefe(os.sep not in _sauber180 and '/' not in _sauber180
+                   and '..' not in _sauber180,
+                   'Asset-Name %r wird zu %r' % (_boese180, _sauber180))
+        pruefe(_ak180.sicherer_dateiname('boese.sh') == 'update.bin',
+               'eine fremde Endung wird gar nicht erst uebernommen')
+
+        # -- Und das Lesen der Summen-Datei: Muell wird uebergangen, nicht
+        #    geraten.
+        _tab180 = _ak180.pruefsummen_lesen(
+            '%s  %s\nkaputt\n%s *zweite.exe\nzu kurz  x.exe\n'
+            % (_summe180, _name180, 'b' * 64))
+        pruefe(_tab180 == {_name180: _summe180, 'zweite.exe': 'b' * 64},
+               'aus der Summen-Datei kommen nur brauchbare Zeilen (%r)' % _tab180)
+        # ⚠⚠ Zwei Formen machen die GANZE Datei ungueltig — nicht nur die Zeile.
+        pruefe(_ak180.pruefsummen_lesen(
+            '%s  dateien/linux/%s\n' % (_summe180, _name180)) == {},
+            'ein Pfadanteil im Namen macht die Summen-Datei ungueltig')
+        pruefe(_ak180.pruefsummen_lesen(
+            '%s  %s\n%s  %s\n' % (_summe180, _name180, 'd' * 64, _name180)) == {},
+            'derselbe Name zweimal ebenfalls — sonst entschiede die Reihenfolge')
+
+        # -- ⚠⚠ **Und die andere Haelfte: Der Bau MUSS die Datei liefern.**
+        #    Das Programm ist ab jetzt streng — ein Release ohne
+        #    `SHA256SUMS.txt` legt den Update-Weg fuer alle still. Die Strenge
+        #    ist gewollt; sie darf nur nicht daran scheitern, dass jemand den
+        #    Bau-Schritt herausnimmt, ohne die Folge zu kennen.
+        # ⚠⚠ **Der erste Anlauf dieser Wache suchte freie Textfragmente** und
+        #    schnitt beim ERSTEN `files:` im ganzen YAML ab. Damit haette sie
+        #    auch bestanden, wenn die Datei irgendwo im Ablauf auftaucht, aber
+        #    nicht am Release haengt — oder wenn sie erst NACH dem Hochladen
+        #    erzeugt wird. Jetzt wird der konkrete Schritt genommen und die
+        #    Reihenfolge geprueft.
+        _abl180 = os.path.join(_wurzelpfad, '.github', 'workflows', 'release.yml')
+        _yml180 = open(_abl180, encoding='utf-8').read()
+
+        _erzeugt180 = _yml180.find('name: Pruefsummen erzeugen')
+        _laedt180 = _yml180.find('softprops/action-gh-release')
+        pruefe(_erzeugt180 >= 0, 'es gibt einen Schritt „Pruefsummen erzeugen"')
+        pruefe('sha256sum' in _yml180[_erzeugt180:_laedt180],
+               'und er rechnet die Summen wirklich aus')
+        # ⚠ Die Namen in der Datei duerfen keinen Ordner tragen — sonst faende
+        #   der Updater seinen Eintrag nie und lehnte JEDES Update ab.
+        pruefe('cd dateien/windows' in _yml180[_erzeugt180:_laedt180]
+               and 'cd dateien/linux' in _yml180[_erzeugt180:_laedt180],
+               'die Summen werden ohne Ordner im Namen erzeugt')
+        pruefe(0 <= _erzeugt180 < _laedt180,
+               'erzeugt wird VOR dem Hochladen, nicht danach')
+
+        # Und sie muss im `files:`-Block **dieses** Schrittes stehen.
+        _nach180 = _yml180[_laedt180:]
+        _block180 = _nach180.split('files:', 1)[1] if 'files:' in _nach180 else ''
+        # Der Block endet am naechsten Schritt (eine Zeile, die mit „      - "
+        # beginnt) — alles danach gehoert nicht mehr dazu.
+        _ende180 = _block180.find('\n      - ')
+        _block180 = _block180[:_ende180] if _ende180 > 0 else _block180
+        pruefe('SHA256SUMS.txt' in _block180,
+               'und haengt am Release-Schritt selbst (nicht irgendwo im YAML)')
+    finally:
+        _ur180.urlopen = _echt_open180
+        _ak180.eigenes_appimage = _echt_appimage180
+        shutil.rmtree(_ordner180, ignore_errors=True)
+
+    print('\n179. Der Erkennungskern der Scan-Signatur')
+    # ⚠⚠ **655 Zeilen ohne eine einzige Pruefung** — so lag das Werkzeug bis
+    # zum 10.09.2026 da. „Selbsttest gruen" sagte ueber diesen Teil schlicht
+    # nichts. Der Abgriff vom Bildschirm braucht ein laufendes Star Citizen und
+    # ist hier nicht pruefbar; **alles danach** ist reine Rechnerei und laesst
+    # sich vollstaendig aus einem selbstgebauten Bild pruefen. Genau das
+    # passiert hier — kein Spiel, keine Fremddatei, kein Ueberspringen.
+    import struct as _st179
+    import tempfile as _tf179
+    sys.path.insert(0, os.path.join(_wurzelpfad, 'tools'))
+    import signatur_lesen as _sig179
+
+    _ordner179 = _tf179.mkdtemp(prefix='pruefung179-')
+    try:
+        # -- Ein Bild bauen: dunkler Grund, zwei helle Zeichen nebeneinander.
+        #
+        # ⚠⚠ Sie muessen sich in der **Form** unterscheiden, nicht in der
+        # Groesse. Der erste Anlauf nahm zwei verschieden grosse Rechtecke —
+        # die sind nach dem Normieren zwangslaeufig gleich, denn genau das ist
+        # dessen Aufgabe. Die Pruefung fiel dadurch zu Recht durch und hat den
+        # Fehler im Pruefaufbau selbst gefunden. Also: ein voller Balken und
+        # ein L.
+        _hoch179, _breit179 = 24, 40
+        _bild179 = [[20] * _breit179 for _ in range(_hoch179)]
+        for _y in range(4, 20):                       # Zeichen 1: voller Block
+            for _x in range(4, 12):
+                _bild179[_y][_x] = 240
+        for _y in range(4, 20):                       # Zeichen 2: ein L
+            for _x in range(24, 27):
+                _bild179[_y][_x] = 240
+        for _y in range(17, 20):
+            for _x in range(24, 32):
+                _bild179[_y][_x] = 240
+
+        _weg179 = os.path.join(_ordner179, 'probe.png')
+        _sig179.png_schreiben(_bild179, _weg179)
+        _zurueck179 = _sig179.png_lesen(_weg179)
+        pruefe(_zurueck179 is not None
+               and _zurueck179[1] == _breit179 and _zurueck179[2] == _hoch179,
+               'ein geschriebenes PNG wird in derselben Groesse zurueckgelesen')
+        pruefe(_zurueck179 and _zurueck179[0] == _bild179,
+               'und punktgenau — Schreiben und Lesen passen zusammen')
+
+        # -- Die Schwelle muss zwischen Grund und Text liegen.
+        _schwelle179 = _sig179.otsu(_bild179)
+        pruefe(20 <= _schwelle179 < 240,
+               'die Schwelle liegt zwischen Grund und Text (%d)' % _schwelle179)
+        pruefe(_sig179.otsu([[7] * 4 for _ in range(4)]) is not None,
+               'ein Bild ohne jeden Kontrast bringt sie nicht zum Absturz')
+
+        # -- Zwei Flaechen, von links nach rechts.
+        _fl179 = _sig179.zeichen_trennen(_bild179, _schwelle179)
+        pruefe(len(_fl179) == 2, 'die zwei Bloecke werden getrennt gefunden (%d)'
+               % len(_fl179))
+        pruefe(_fl179 == sorted(_fl179, key=lambda f: f[0]),
+               'und stehen von links nach rechts')
+        # ⚠ GEGENPROBE: Ein einzelner heller Punkt ist Rauschen, keine Ziffer.
+        _rausch179 = [[20] * 10 for _ in range(10)]
+        _rausch179[5][5] = 250
+        pruefe(not _sig179.zeichen_trennen(_rausch179, 128),
+               'ein einzelner heller Punkt gilt nicht als Zeichen')
+
+        # -- Normieren: feste Groesse, und die beiden Zeichen bleiben
+        #    unterscheidbar. Genau das ist der Zweck der Uebung.
+        _z179 = [_sig179.normieren(_bild179, _f, _schwelle179) for _f in _fl179]
+        pruefe(all(len(_z) == _sig179.NORM_B * _sig179.NORM_H for _z in _z179),
+               'jedes Zeichen kommt auf das feste Raster %dx%d'
+               % (_sig179.NORM_B, _sig179.NORM_H))
+        pruefe(_sig179.abstand(_z179[0], _z179[0]) == 0.0,
+               'ein Zeichen ist zu sich selbst abstandslos')
+        pruefe(_sig179.abstand(_z179[0], _z179[1]) > 0.0,
+               'zwei verschiedene Zeichen sind es nicht')
+
+        # -- Anlernen: die Anzahl muss stimmen, sonst wird NICHTS gelernt.
+        _ziffern179 = {}
+        _gut179, _was179 = _sig179.anlernen(_z179, '123', _ziffern179)
+        pruefe(not _gut179 and not _ziffern179,
+               'bei falscher Anzahl wird nichts gelernt (%s)' % _was179)
+        _gut179, _was179 = _sig179.anlernen(_z179, '17', _ziffern179)
+        pruefe(_gut179 and sorted(_ziffern179) == ['1', '7'],
+               'bei passender Anzahl landen beide Ziffern in den Vorlagen')
+
+        # -- Erkennen: mit Vorlagen kommt die Zahl zurueck, ohne kommt nichts.
+        _text179, _un179 = _sig179.erkennen(_z179, _ziffern179)
+        pruefe(_text179 == '17',
+               'dieselben Zeichen werden als 17 gelesen (%r)' % _text179)
+        pruefe(_sig179.erkennen(_z179, {})[0] is None,
+               'ohne Vorlagen wird nichts geraten')
+        # ⚠ GEGENPROBE: Ein Zeichen, das zu keiner Vorlage passt, muss ein
+        #    Nein ergeben — nicht die naechstbeste Ziffer.
+        _fremd179 = [1 - _p for _p in _z179[0]]
+        pruefe(_sig179.erkennen([_fremd179], _ziffern179)[0] is None,
+               'ein unbekanntes Zeichen wird abgelehnt statt geraten')
+
+        # -- ⚠⚠ **Die Farblage kommt aus dem Bild, nicht aus einer Annahme.**
+        #    Bis zum 10.09.2026 las der Abgriff die Bytes stumpf als `B G R`
+        #    und setzte 24 Bit voraus. Auf einem MSBFirst-Server oder bei 10
+        #    Bit je Kanal (Tiefe 30) kaeme dabei keine Fehlermeldung heraus,
+        #    sondern eine **falsche Helligkeit** — und die heisst hier still
+        #    falsch gelesene Zahlen. Das laesst sich ohne X11 pruefen: Die
+        #    Umrechnung ist reine Rechnerei.
+        class _Bild179(object):
+            def __init__(self, bpp, ordnung, rm, gm, bm, zeile):
+                self.bits_per_pixel, self.byte_order = bpp, ordnung
+                self.red_mask, self.green_mask, self.blue_mask = rm, gm, bm
+                self.width, self.height, self.bytes_per_line = 1, 1, zeile
+
+        # Reines Rot muss ueberall dieselbe Graustufe ergeben: 255*299/1000.
+        _rot179 = 255 * 299 // 1000
+        # 32 Bit, LSBFirst, Bytes B G R X — der uebliche Fall.
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 0, 0x00FF0000, 0x0000FF00, 0x000000FF, 4),
+            bytearray([0, 0, 255, 0]))[0][0] == _rot179,
+            'LSBFirst mit 8 Bit je Kanal ergibt die richtige Graustufe')
+        # Dasselbe Pixel auf einem MSBFirst-Server: Bytes andersherum.
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 1, 0x00FF0000, 0x0000FF00, 0x000000FF, 4),
+            bytearray([0, 255, 0, 0]))[0][0] == _rot179,
+            'MSBFirst ergibt dieselbe — die Byte-Reihenfolge wird beachtet')
+        # Tiefe 30: 10 Bit je Kanal, Rot voll ausgesteuert (1023).
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 0, 0x3FF00000, 0x000FFC00, 0x000003FF, 4),
+            bytearray((0x3FF00000).to_bytes(4, 'little')))[0][0] == _rot179,
+            'auch 10 Bit je Kanal werden auf 0..255 gebracht')
+        pruefe(_sig179._maske_zerlegen(0x0000FF00) == (8, 255),
+               'eine Farbmaske wird in Verschiebung und Hoechstwert zerlegt')
+
+        # -- Die X-Verbindung macht sich in jedem Fall wieder zu. Ohne libX11
+        #    (Windows, Mac) laeuft derselbe Weg, nur ohne Verbindung — die
+        #    Pruefung greift also auf allen Systemen.
+        with _sig179._Sitzung() as _si179:
+            _hatte179 = _si179.offen
+        pruefe(_si179.anzeige is None,
+               'die X-Verbindung ist nach dem Block zu (offen war sie: %s)'
+               % _hatte179)
+
+        # -- Und die kaputten Dateien: die Zusage lautet None, nicht Absturz.
+        _roh179 = open(_weg179, 'rb').read()
+        _kaputt179 = os.path.join(_ordner179, 'kaputt.png')
+        for _name179, _inhalt179 in (
+                ('abgeschnitten', _roh179[:len(_roh179) // 2]),
+                ('Pruefsumme verdreht', _roh179[:-6] + b'\x00\x00\x00\x00\x00\x00'),
+                ('gar kein PNG', b'Dies ist Text, kein Bild.'),
+                ('Laenge zeigt ins Leere',
+                 _roh179[:8] + _st179.pack('>I', 0xFFFFFF) + _roh179[12:])):
+            with open(_kaputt179, 'wb') as _f179:
+                _f179.write(_inhalt179)
+            try:
+                _erg179 = _sig179.png_lesen(_kaputt179)
+                _geworfen179 = None
+            except Exception as _a179:
+                _erg179, _geworfen179 = 'FLOG', _a179
+            pruefe(_erg179 is None,
+                   'kaputtes PNG (%s) wird mit None abgelehnt%s'
+                   % (_name179,
+                      '' if _geworfen179 is None else ' — flog: %r' % _geworfen179))
+    finally:
+        shutil.rmtree(_ordner179, ignore_errors=True)
 
     print()
     if fehler:

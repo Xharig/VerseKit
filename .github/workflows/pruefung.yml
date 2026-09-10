@@ -1,0 +1,95 @@
+# Prueft jede Aenderung — nicht erst den Release.
+#
+# ⚠⚠ **Warum das ein eigener, schlanker Ablauf ist.** Der grosse Selbsttest
+# lief bisher in `release.yml`, also praktisch erst, wenn gebaut wird. Ein
+# Fehler, der beim Committen entsteht, faellt damit im schlechtesten Fall erst
+# am Release-Tag auf — und dann steht er schon in der Historie.
+#
+# Der Release-Bau bleibt davon **unberuehrt**: Er baut, dieser hier prueft.
+# Zwei Ablaeufe, zwei Aufgaben.
+#
+# ⚠ **Er muss schnell bleiben.** Was Minuten frisst, wird umgangen; was
+# umgangen wird, schuetzt nichts. Deshalb kein PyInstaller, kein AppImage,
+# kein Windows-Job — nur Lesen, Pruefen, Selbsttest.
+
+name: Pruefung
+
+on:
+  pull_request:
+  push:
+    branches: [main, arbeit]
+
+# ⚠ Dieselben Werte wie in release.yml und sperrdateien.yml — Pruefung 181 im
+# Selbsttest haelt fest, dass sie nicht auseinanderlaufen.
+env:
+  PY_PYFLAKES: '3.4.0'
+  # ⚠ Auch das reine Berichts-Werkzeug bekommt eine feste Fassung. Sonst
+  # aendert sich der Bericht von Lauf zu Lauf, ohne dass jemand etwas
+  # geaendert haette — und Pruefung 178 schlaegt zu Recht an.
+  PY_RUFF: '0.14.6'
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          # ⚠ 3.14 wie im Bau — `scbp/spieltexte.py` braucht
+          # `compression.zstd` aus der Standardbibliothek.
+          python-version: '3.14'
+
+      - name: Bildschirm und Tk
+        # ⚠⚠ Der Selbsttest baut **echte** Fenster. Ohne Xvfb ueberspringt er
+        # Pruefungen still — genau der Fall aus „Pruefungen muessen greifen".
+        # Deshalb wird hier ausdruecklich nachgesehen, ob Tk da ist, statt es
+        # anzunehmen: Ein Ablauf, der die halbe Pruefung weglaesst und trotzdem
+        # gruen wird, ist schlimmer als gar keiner.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends xvfb tk
+          python -c "import tkinter; print('tkinter:', tkinter.TkVersion)"
+
+      # ⚠ Hier reicht die Version ohne Pruefsumme: Dieser Ablauf **baut
+      # nichts**, was jemand herunterlaedt. Die Sperrdateien mit `--hash`
+      # gelten fuer den Release-Bau, wo aus dem Ergebnis eine Datei fuer
+      # Nutzer wird.
+      - name: pyflakes
+        run: pip install --quiet "pyflakes==${{ env.PY_PYFLAKES }}"
+
+      - name: Syntax aller Python-Dateien
+        # Faengt, was pyflakes gar nicht erst zu sehen bekommt: eine Datei,
+        # die sich nicht uebersetzen laesst.
+        run: python -m compileall -q scbp tools sc_bp_watcher.py .github/scripts
+
+      - name: pyflakes
+        run: python -m pyflakes scbp tools sc_bp_watcher.py .github/scripts
+
+      - name: Nichts Privates im Repo
+        # ⛔ Meldet Datei, Zeile und Regel — **nie** den gefundenen Text.
+        # Sonst stuende das Gesuchte im Protokoll eines oeffentlichen Laufs.
+        run: python tools/privacy_scan.py
+
+      - name: Selbsttest
+        # `unsichtbar.sicherstellen()` startet sich selbst unter `xvfb-run`
+        # neu, sobald ein Bildschirm noetig ist. `SC_BP_HOME` haelt den Lauf
+        # aus allem heraus, was nach echten Nutzerdaten aussieht.
+        env:
+          SC_BP_HOME: ${{ runner.temp }}/sc-bp-home
+        run: python tools/selbsttest.py
+
+      - name: Zweisprachigkeit
+        run: python tools/sprachen_pruefen.py
+
+      # ⚠ **Nur Bericht, nie rot.** `ruff` kennt das Projekt nicht und haette
+      # zu vielen Geschmack; es soll Hinweise geben, keine Arbeit erzwingen.
+      # `continue-on-error` ist hier Absicht und kein Versehen.
+      - name: ruff (nur Bericht)
+        continue-on-error: true
+        run: |
+          pip install --quiet "ruff==${{ env.PY_RUFF }}"
+          ruff check --output-format=concise . || true

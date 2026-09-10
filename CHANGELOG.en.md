@@ -6,6 +6,56 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+## v3.29.0 - 2026-09-11
+
+> **An update only installs itself if it is provably the right one.** Until
+> now it was certain that the file came from GitHub — from now on also that it
+> is *this* file: every release ships its checksum, and anything that does not
+> match is never installed in the first place.
+>
+> On top of that, three bugs that quietly produced wrong numbers and wrong
+> names. One is worth a look in particular: quantities with a thousands
+> separator *and* three decimal places ended up in your storage off by a
+> factor of a thousand.
+
+### New
+
+- **An update is checked against its published checksum.** Every release now
+  ships a `SHA256SUMS.txt`; the tool fetches it, recomputes the downloaded
+  file and installs **only** on a match. If something does not add up, or the
+  file is missing, nothing is installed — you get a message and the manual
+  download link instead
+
+### Improved
+
+- **The file name from GitHub's response is sanitised** before it becomes a
+  path on your disk
+- **If an update breaks off mid-download**, no half a file is left lying next
+  to the program
+
+### Fixed
+
+- **Quantities with a thousands separator and three decimal places were off by
+  a factor of a thousand.** `1,234.567` became `1234567`. When both separators
+  appear in one number, the trailing one now counts as the decimal separator —
+  as it does everywhere else
+- **Your own ship name could end up on the wrong vehicle.** If two ships share
+  the same factory name — not uncommon in the game — the first one silently
+  won. Now the same rule applies at every stage: if more than one matches,
+  **none** is renamed and the row says that it is ambiguous
+- **A ship name was lost if you closed the window right afterwards.** The page
+  collects entries briefly before writing; anyone quicker than that had the
+  name in their own file but not in the game. A pending write is now carried
+  out when the window closes
+- **Switching the text source left the old language file behind.** The sources
+  write into different folders: "German translation" into `german_(germany)`,
+  "StarStrings" and "Original" into `english`. Switching left the blueprint
+  notes sitting in the old file — and nothing maintained it any more. If the
+  game happened to load that one, you kept seeing an outdated state with no
+  hint as to why. Switching now resets the old file first, and says so
+
 ## v3.28.2 - 2026-09-10
 
 > **Now the name really does reach the game.** Yesterday the page wrote

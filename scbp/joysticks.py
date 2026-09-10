@@ -1461,7 +1461,7 @@ def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
     Beenden selbst und wuerde die Aenderung sonst ueberschreiben.
     """
     # ⚠ `fehler` lokal importieren — das Modul zieht selbst `pfade`, auf
-    # Modulebene waere das ein Zirkelbezug (steht so im Projekt-CLAUDE.md).
+    # Modulebene waere das ein Zirkelbezug.
     from . import fehler
 
     weg = datei or _pfad_actionmaps(ordner)
