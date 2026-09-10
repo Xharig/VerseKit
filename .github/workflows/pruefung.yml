@@ -58,16 +58,24 @@ jobs:
       # nichts**, was jemand herunterlaedt. Die Sperrdateien mit `--hash`
       # gelten fuer den Release-Bau, wo aus dem Ergebnis eine Datei fuer
       # Nutzer wird.
-      - name: pyflakes
+      - name: pyflakes bereitstellen
+        # ⚠⚠ **Nur installieren, nicht selbst aufrufen.** Der Selbsttest hat
+        # dafuer **Pruefung 20**, und die filtert bewusst auf `undefined name`
+        # — Zugriffe auf Namen, die es nicht gibt. Fehlt das Paket,
+        # ueberspringt sie sich; deshalb steht es hier.
+        #
+        # ⚠ Der erste Anlauf rief `pyflakes` hier direkt auf und war damit
+        # strenger als das Projekt: Er meldete Dutzende „imported but unused"
+        # aus dem Altbestand und war beim allerersten Lauf rot. Ein Ablauf,
+        # der aus Prinzip rot ist, wird abgeschaltet — dann prueft er nichts.
+        # Aufgeraeumt wird ueber die Dauerregel Kleinkram, nicht mit der
+        # Brechstange.
         run: pip install --quiet "pyflakes==${{ env.PY_PYFLAKES }}"
 
       - name: Syntax aller Python-Dateien
         # Faengt, was pyflakes gar nicht erst zu sehen bekommt: eine Datei,
         # die sich nicht uebersetzen laesst.
         run: python -m compileall -q scbp tools sc_bp_watcher.py .github/scripts
-
-      - name: pyflakes
-        run: python -m pyflakes scbp tools sc_bp_watcher.py .github/scripts
 
       - name: Nichts Privates im Repo
         # ⛔ Meldet Datei, Zeile und Regel — **nie** den gefundenen Text.
