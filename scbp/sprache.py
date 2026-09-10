@@ -693,6 +693,17 @@ TEXTE = {
                           'The checksums could not be loaded — there is '
                           'probably no connection right now. Try again later, '
                           'or download by hand from the release page.'),
+    # ⚠ Eine Summen-Datei, die es GIBT, aber von einem fremden Server kommen
+    # soll, ist etwas anderes als gar keine — das ist kein „noch nicht
+    # eingerichtet", sondern ein Grund, misstrauisch zu sein.
+    'up_summen_fremd': ('Die Prüfsummen sollen von einer fremden Adresse '
+                          'kommen — das ist nicht in Ordnung. Es wurde nichts '
+                          'installiert. Bitte hol die neue Fassung von Hand '
+                          'auf der Release-Seite.',
+                          'The checksums are supposed to come from a foreign '
+                          'address — that is not right. Nothing was '
+                          'installed. Please download the new version by hand '
+                          'from the release page.'),
     'up_summe_falsch': ('Die geladene Datei stimmt nicht mit der '
                           'veröffentlichten Prüfsumme überein. Sie wurde '
                           'verworfen und NICHT installiert. Bitte hol die '

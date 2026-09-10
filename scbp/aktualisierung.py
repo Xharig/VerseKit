@@ -656,8 +656,14 @@ PRUEFSUMMEN_DATEI = 'SHA256SUMS.txt'
 ERLAUBTE_ENDUNGEN = ('.appimage', '.exe')
 
 
-def sicherer_dateiname(name, rueckfall='update.bin'):
+def sicherer_dateiname(name, rueckfall='update.bin', geprueft=False):
     """Aus einem Asset-Namen einen harmlosen Dateinamen machen.
+
+    ⚠⚠ **Mit `geprueft=True` gibt es KEINEN Rückfall — dann kommt `None`.**
+    Das ist der Unterschied zwischen „irgendwohin schreiben" und „darf das
+    hier überhaupt sein": Ein Rückfallname ist für Notpfade recht, aber eine
+    Sicherheitsentscheidung darf er nicht tragen. Sonst hinge alles daran,
+    dass in keiner Summen-Datei je ein Eintrag `update.bin` steht.
 
     ⚠⚠ Der Name kommt aus der Antwort des Servers und wurde bisher **roh** als
     Pfadbestandteil benutzt. Ein Name wie `../../autostart/boese.exe` hätte die
@@ -672,7 +678,7 @@ def sicherer_dateiname(name, rueckfall='update.bin'):
     # Backslash tragen und umgekehrt.
     roh = os.path.basename(roh.replace('\\', '/').rstrip('/'))
     if roh in ('', '.', '..') or not roh.lower().endswith(ERLAUBTE_ENDUNGEN):
-        return rueckfall
+        return None if geprueft else rueckfall
     return roh
 
 
@@ -694,6 +700,18 @@ def pruefsummen_lesen(text):
 
     Das Format ist das von `sha256sum`: `<64 Zeichen hex>  <Dateiname>`. Ein
     Stern vor dem Namen (Binärkennzeichen) wird abgeschnitten.
+
+    ⚠⚠ **Zwei Dinge machen die ganze Datei ungültig, statt still zu gewinnen:**
+
+    1. **Ein Pfadanteil im Namen.** Der Bau erzeugt die Datei ausdrücklich mit
+       reinen Dateinamen (`cd dateien/linux && sha256sum …`). Stünde dort
+       `dateien/linux/…`, wäre etwas anders als gedacht — das per `basename()`
+       geradezubiegen hiesse, den Fehler zu verstecken.
+    2. **Ein Name zweimal.** Dann entschied vorher schlicht die letzte Zeile.
+       Welche Summe gilt, darf nicht von der Reihenfolge abhängen.
+
+    In beiden Fällen kommt eine **leere** Tabelle zurück — und leer heisst
+    weiter oben: keine Installation.
     """
     tabelle = {}
     for zeile in (text or '').splitlines():
@@ -703,7 +721,11 @@ def pruefsummen_lesen(text):
         summe, name = teile[0].lower(), teile[1].strip().lstrip('*')
         if len(summe) != 64 or not all(c in '0123456789abcdef' for c in summe):
             continue
-        tabelle[os.path.basename(name.replace('\\', '/'))] = summe
+        if '/' in name or '\\' in name:
+            return {}
+        if name in tabelle:
+            return {}
+        tabelle[name] = summe
     return tabelle
 
 
@@ -796,15 +818,56 @@ def herunterladen(datei, fortschritt=None, freigabe=None):
     # wegzuwerfen, wäre unhöflich gegenüber jeder Leitung.
     if freigabe is None:
         raise ValueError(sprache.t('up_ohne_pruefung'))
+    # ⚠⚠ **Kein Rückfallname für eine Sicherheitsentscheidung.** `geprueft=True`
+    # gibt bei einem unbrauchbaren Asset-Namen `None` statt `update.bin`
+    # zurück. Sonst könnte ein Anhang mit fremder Endung durchrutschen, sobald
+    # in der Summen-Datei zufällig ein Eintrag `update.bin` stünde — der
+    # Rückfall gehört an Anzeige- und Notpfade, nicht hierher.
+    name = sicherer_dateiname(datei.get('name'), geprueft=True)
+    if not name:
+        raise ValueError(sprache.t('up_fremde_datei') % (datei.get('name') or '?'))
+
     tabelle, grund = pruefsummen_holen(freigabe)
-    erwartet = tabelle.get(sicherer_dateiname(datei.get('name')))
+    erwartet = tabelle.get(name)
     if not erwartet:
-        # Drei Lagen, drei Sätze — „kein Netz" darf nicht wie „manipuliert"
-        # klingen, und „diese Fassung hat noch keine Prüfsummen" auch nicht.
-        raise ValueError(sprache.t(
-            'up_summen_netz' if grund == 'netz' else 'up_keine_summen'))
+        # Vier Lagen, vier Sätze — „kein Netz" darf nicht wie „manipuliert"
+        # klingen, „diese Fassung hat noch keine Prüfsummen" auch nicht, und
+        # eine Summen-Datei von fremdem Server ist etwas anderes als gar keine.
+        raise ValueError(sprache.t({
+            'netz': 'up_summen_netz',
+            'fremd': 'up_summen_fremd',
+        }.get(grund, 'up_keine_summen')))
 
     ziel = _ablageort_fuer_update(datei.get('name'))
+    # ⚠⚠ **Ab hier liegt eine Datei auf der Platte — und sie ist ungeprüft.**
+    #
+    # Bricht die Leitung mitten im Schreiben ab, wird die Summe nie gerechnet,
+    # und ein Bruchstück bleibt liegen: unter Linux **neben** dem laufenden
+    # AppImage. Genau das soll P1 verhindern, und der erste Anlauf räumte nur
+    # bei falscher Summe auf. Deshalb umschliesst der Fehlerpfad jetzt das
+    # ganze Stück von der ersten geschriebenen Zeile bis zur bestandenen
+    # Prüfung.
+    try:
+        _laden_und_pruefen(url, ziel, erwartet, fortschritt)
+    except Exception:
+        _wegwerfen(ziel)
+        raise
+    return ziel
+
+
+def _wegwerfen(ziel):
+    """Eine ungeprüfte Update-Datei entfernen. Scheitert nie laut."""
+    try:
+        os.remove(ziel)
+    except FileNotFoundError:
+        pass
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.summe_verwerfen', ausnahme)
+
+
+def _laden_und_pruefen(url, ziel, erwartet, fortschritt=None):
+    """Herunterladen und die Summe abgleichen. Wirft bei jedem Zweifel."""
+    from . import sprache
     req = urllib.request.Request(url, headers={'User-Agent': KENNUNG})
     with urllib.request.urlopen(req, timeout=120) as r, open(ziel, 'wb') as f:
         gesamt = int(r.headers.get('Content-Length') or 0)
@@ -832,17 +895,10 @@ def herunterladen(datei, fortschritt=None, freigabe=None):
                 except Exception:
                     fortschritt = None      # einmal daneben, nie wieder fragen
 
-    # ⚠⚠ **Stimmt die Summe nicht, wird die Datei weggeworfen — sofort.**
-    # Sie liegt unter Linux neben dem laufenden AppImage; dort etwas
-    # Unbestätigtes liegen zu lassen, wäre der halbe Schaden.
-    gerechnet = summe_rechnen(ziel)
-    if gerechnet != erwartet:
-        try:
-            os.remove(ziel)
-        except OSError as ausnahme:
-            fehler.merken('aktualisierung.summe_verwerfen', ausnahme)
+    # ⚠ Das Aufräumen macht der Aufrufer — er fängt **jede** Ausnahme von hier
+    # ab, nicht nur die falsche Summe.
+    if summe_rechnen(ziel) != erwartet:
         raise ValueError(sprache.t('up_summe_falsch'))
-    return ziel
 
 
 # ⚠ Hier stand einmal ein Hilfsskript, das die laufende `.exe` selbst tauschte —

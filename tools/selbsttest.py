@@ -16237,6 +16237,7 @@ def main():
     import tempfile as _tf180
     import urllib.request as _ur180
     from scbp import aktualisierung as _ak180
+    from scbp import sprache as _sp180
 
     _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
     _echt_open180 = _ur180.urlopen
@@ -16315,6 +16316,31 @@ def main():
         pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
                'die verworfene Datei bleibt nicht liegen')
 
+        # -- 2b. ⚠⚠ **Die Leitung bricht MITTEN im Schreiben ab.**
+        #        Dann wird die Summe nie gerechnet — und der erste Anlauf
+        #        raeumte nur bei falscher Summe auf. Ein Bruchstueck blieb
+        #        also neben dem laufenden AppImage liegen, ungeprueft.
+        class _Abriss180(_Netz180):
+            def read(self, *a):
+                stueck = _Netz180.read(self, *a)
+                if not getattr(self, '_einmal', False):
+                    self._einmal = True
+                    return stueck
+                raise OSError('Verbindung abgebrochen')
+
+        def _abriss_netz180(req, timeout=None):
+            ziel = req.full_url if hasattr(req, 'full_url') else str(req)
+            if ziel.endswith('SHA256SUMS.txt'):
+                return _Netz180(_antwort180['summen'].encode('utf-8'))
+            return _Abriss180(_antwort180['nutz'])
+
+        _ur180.urlopen = _abriss_netz180
+        _pfad180, _text180 = _versuch180(_freigabe180())
+        _ur180.urlopen = _falsches_netz180
+        pruefe(_pfad180 is None, 'ein abgebrochener Download endet mit Fehler')
+        pruefe(not [d for d in os.listdir(_ordner180) if d.endswith('.neu')],
+               'und laesst KEIN ungeprueftes Bruchstueck liegen')
+
         # -- 3. Pruefsummen-Datei fehlt ganz → ebenfalls nichts.
         _pfad180, _text180 = _versuch180(_freigabe180(mit_summen=False))
         pruefe(_pfad180 is None, 'ohne Pruefsummen-Datei wird nicht installiert')
@@ -16329,9 +16355,31 @@ def main():
 
         # -- 5. Ohne Freigabe gar nicht erst anfangen: Wer den Aufruf ohne sie
         #       baut, haette den Schutz abgeschaltet.
-        _pfad180, _text180 = _versuch180({'dateien': [
-            {'name': _name180, 'url': _url180}]})
-        pruefe(_pfad180 is None, 'ein Aufruf ohne Freigabe wird abgelehnt')
+        #
+        # ⚠ Der erste Anlauf dieser Pruefung reichte trotzdem eine Freigabe
+        #   durch (nur eben eine ohne Summen) und pruefte damit **nicht**, was
+        #   sie zu pruefen vorgab. Jetzt wird `herunterladen()` wirklich ohne
+        #   das Argument gerufen — so, wie ein unachtsamer Umbau es taete.
+        try:
+            _ak180.herunterladen({'name': _name180, 'url': _url180})
+            _ohne180 = 'DURCHGELASSEN'
+        except Exception as _a180:
+            _ohne180 = str(_a180)
+        pruefe(_ohne180 != 'DURCHGELASSEN',
+               'ein Aufruf ganz OHNE das Freigabe-Argument wird abgelehnt')
+        pruefe(_ohne180 == _sp180.t('up_ohne_pruefung'),
+               'und zwar mit genau diesem Grund (%r)' % _ohne180[:50])
+
+        # -- 6. Ein Anhang mit fremder Endung darf nicht ueber den
+        #       Rueckfallnamen `update.bin` hereinkommen.
+        _frei180 = _freigabe180()
+        _antwort180['summen'] += 'c' * 64 + '  update.bin\n'
+        _boese_frei180 = {'dateien': [
+            {'name': 'boese.sh', 'url': _url180},
+            {'name': 'SHA256SUMS.txt', 'url': _summen_url180}]}
+        _pfad180, _text180 = _versuch180(_boese_frei180)
+        pruefe(_pfad180 is None,
+               'ein Anhang mit fremder Endung kommt nicht ueber update.bin herein')
 
         # -- Der Dateiname aus der Server-Antwort wird entschaerft.
         for _boese180 in ('../../boese.appimage', '/etc/boese.appimage',
@@ -16350,24 +16398,50 @@ def main():
             % (_summe180, _name180, 'b' * 64))
         pruefe(_tab180 == {_name180: _summe180, 'zweite.exe': 'b' * 64},
                'aus der Summen-Datei kommen nur brauchbare Zeilen (%r)' % _tab180)
+        # ⚠⚠ Zwei Formen machen die GANZE Datei ungueltig — nicht nur die Zeile.
+        pruefe(_ak180.pruefsummen_lesen(
+            '%s  dateien/linux/%s\n' % (_summe180, _name180)) == {},
+            'ein Pfadanteil im Namen macht die Summen-Datei ungueltig')
+        pruefe(_ak180.pruefsummen_lesen(
+            '%s  %s\n%s  %s\n' % (_summe180, _name180, 'd' * 64, _name180)) == {},
+            'derselbe Name zweimal ebenfalls — sonst entschiede die Reihenfolge')
 
         # -- ⚠⚠ **Und die andere Haelfte: Der Bau MUSS die Datei liefern.**
         #    Das Programm ist ab jetzt streng — ein Release ohne
         #    `SHA256SUMS.txt` legt den Update-Weg fuer alle still. Die Strenge
         #    ist gewollt; sie darf nur nicht daran scheitern, dass jemand den
         #    Bau-Schritt herausnimmt, ohne die Folge zu kennen.
+        # ⚠⚠ **Der erste Anlauf dieser Wache suchte freie Textfragmente** und
+        #    schnitt beim ERSTEN `files:` im ganzen YAML ab. Damit haette sie
+        #    auch bestanden, wenn die Datei irgendwo im Ablauf auftaucht, aber
+        #    nicht am Release haengt — oder wenn sie erst NACH dem Hochladen
+        #    erzeugt wird. Jetzt wird der konkrete Schritt genommen und die
+        #    Reihenfolge geprueft.
         _abl180 = os.path.join(_wurzelpfad, '.github', 'workflows', 'release.yml')
         _yml180 = open(_abl180, encoding='utf-8').read()
-        pruefe('sha256sum' in _yml180 and 'SHA256SUMS.txt' in _yml180,
-               'der Bau-Ablauf erzeugt eine Pruefsummen-Datei')
-        # Sie muss auch **angehaengt** werden — erzeugen allein nuetzt nichts.
-        _anhang180 = _yml180.split('files:', 1)[-1] if 'files:' in _yml180 else ''
-        pruefe('SHA256SUMS.txt' in _anhang180.split('\n\n', 1)[0],
-               'und haengt sie an das Release')
+
+        _erzeugt180 = _yml180.find('name: Pruefsummen erzeugen')
+        _laedt180 = _yml180.find('softprops/action-gh-release')
+        pruefe(_erzeugt180 >= 0, 'es gibt einen Schritt „Pruefsummen erzeugen"')
+        pruefe('sha256sum' in _yml180[_erzeugt180:_laedt180],
+               'und er rechnet die Summen wirklich aus')
         # ⚠ Die Namen in der Datei duerfen keinen Ordner tragen — sonst faende
         #   der Updater seinen Eintrag nie und lehnte JEDES Update ab.
-        pruefe('cd dateien/windows' in _yml180 and 'cd dateien/linux' in _yml180,
+        pruefe('cd dateien/windows' in _yml180[_erzeugt180:_laedt180]
+               and 'cd dateien/linux' in _yml180[_erzeugt180:_laedt180],
                'die Summen werden ohne Ordner im Namen erzeugt')
+        pruefe(0 <= _erzeugt180 < _laedt180,
+               'erzeugt wird VOR dem Hochladen, nicht danach')
+
+        # Und sie muss im `files:`-Block **dieses** Schrittes stehen.
+        _nach180 = _yml180[_laedt180:]
+        _block180 = _nach180.split('files:', 1)[1] if 'files:' in _nach180 else ''
+        # Der Block endet am naechsten Schritt (eine Zeile, die mit „      - "
+        # beginnt) — alles danach gehoert nicht mehr dazu.
+        _ende180 = _block180.find('\n      - ')
+        _block180 = _block180[:_ende180] if _ende180 > 0 else _block180
+        pruefe('SHA256SUMS.txt' in _block180,
+               'und haengt am Release-Schritt selbst (nicht irgendwo im YAML)')
     finally:
         _ur180.urlopen = _echt_open180
         _ak180.eigenes_appimage = _echt_appimage180
