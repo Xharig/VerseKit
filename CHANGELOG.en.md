@@ -6,6 +6,17 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unreleased
+
+### Fixed
+
+- **Switching the text source left the old language file behind.** The sources
+  write into different folders: "German translation" into `german_(germany)`,
+  "StarStrings" and "Original" into `english`. Switching left the blueprint
+  notes sitting in the old file — and nothing maintained it any more. If the
+  game happened to load that one, you kept seeing an outdated state with no
+  hint as to why. Switching now resets the old file first, and says so
+
 ## v3.28.2 - 2026-09-10
 
 > **Now the name really does reach the game.** Yesterday the page wrote

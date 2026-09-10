@@ -4657,6 +4657,11 @@ TEXTE = {
     # neu gestartet.
     'inj_aktiv':         ('Bauplan-Angaben sind eingetragen (%d Stellen) — wirkt beim nächsten Spielstart',
                           'Blueprint notes are in place (%d spots) — takes effect the next time the game starts'),
+    # ⚠ Der Wechsel räumt die alte Sprachdatei auf — das gehört gesagt, nicht
+    # stillschweigend getan: Es wird eine Datei des Spielers verändert.
+    'inj_alt_aufgeraeumt': ('Die vorherige Sprachdatei wurde zurückgesetzt '
+                            '(%d Stellen).',
+                            'The previous language file was reset (%d spots).'),
     'inj_steht':         ('Bauplan-Angaben sind eingetragen',
                           'Blueprint notes are in place'),
     'inj_steht_nicht':   ('Bauplan-Angaben sind nicht eingetragen',

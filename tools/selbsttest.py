@@ -15780,6 +15780,78 @@ def main():
            not in _as175.schluessel_lesen(_zeilen175),
            'die _short-Fassungen werden nicht mitgelesen')
 
+    print('\n177. Beim Quellenwechsel bleibt keine Datei liegen')
+    # ⚠⚠ Die Textquellen schreiben in **verschiedene** Sprachordner: „deutsch"
+    # nach `german_(germany)`, „StarStrings" und „Original" nach `english`. Wer
+    # wechselt, liess bis v3.28.x unsere Einfuegungen in der alten Datei stehen
+    # — und niemand pflegte sie mehr. Laedt das Spiel ausgerechnet die, sieht
+    # der Spieler dauerhaft einen alten Stand, ohne jeden Hinweis.
+    #
+    # Gemessen am 29.08.2026: Die deutsche Datei war SPAETER geschrieben (06:53)
+    # als die englische (06:34) und trug trotzdem die alte Form.
+    #
+    # ⚠ Geprueft wird an zwei echten Dateien in zwei Ordnern, nicht an einer
+    # Zusicherung im Quelltext — und der Wortlaut zeichengenau.
+    import tempfile as _tf177
+    from scbp import injektion as _in177
+
+    _heim177 = _tf177.mkdtemp(prefix='pruefung177-')
+    _alt_heim177 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim177
+    try:
+        _zeilen177 = ['mission_desc_T=Ein Auftragstext von CIG.',
+                      'mission_title_T=Ein Auftrag']
+        # ⚠ Der Auftrag braucht einen Bauplan: `ist_drin()` erkennt nur
+        # eindeutig eigene Formen, und das ist das Kaestchen.
+        _kat177 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': ['Testbauplan']}}}
+
+        def _schreiben177(pfad):
+            os.makedirs(os.path.dirname(pfad), exist_ok=True)
+            with open(pfad, 'w', encoding='utf-8', newline='') as f:
+                f.write('\n'.join(_zeilen177) + '\n')
+
+        _de177 = os.path.join(_heim177, 'Localization', 'german_(germany)',
+                              'global.ini')
+        _en177 = os.path.join(_heim177, 'Localization', 'english', 'global.ini')
+        _schreiben177(_de177)
+        _schreiben177(_en177)
+        _ur177 = open(_de177, encoding='utf-8').read()
+
+        _in177.einspielen(_de177, 'german_(germany)', katalog=_kat177)
+        pruefe(_in177.ist_drin(_de177),
+               'die zuerst gewaehlte Datei traegt unsere Eintraege')
+
+        _fund177 = _in177.altlast(_en177)
+        pruefe(_fund177 is not None and os.path.samefile(_fund177, _de177),
+               'beim Wechsel wird die alte Datei als verwaist erkannt')
+        pruefe(_in177.altlast(_de177) is None,
+               'dasselbe Ziel gilt NICHT als Altlast — sonst raeumt es sich selbst ab')
+
+        _weg177, _n177 = _in177.altlast_aufraeumen(_en177)
+        pruefe(_weg177 is not None, 'und sie wird zurueckgesetzt')
+        pruefe(open(_de177, encoding='utf-8').read() == _ur177,
+               'zeichengenau auf den Wortlaut von vorher')
+        pruefe(not _in177.ist_drin(_de177), 'es steht nichts mehr von uns darin')
+
+        # -- Und die Gegenrichtung, sonst prueft es nur den halben Weg.
+        _in177.einspielen(_en177, 'english', katalog=_kat177)
+        _ur_en177 = open(_en177, encoding='utf-8').read()
+        _zurueck177, _ = _in177.altlast_aufraeumen(_de177)
+        pruefe(_zurueck177 is not None and os.path.samefile(_zurueck177, _en177),
+               'zurueck gewechselt ist die englische die Altlast')
+        pruefe(open(_en177, encoding='utf-8').read() != _ur_en177
+               and not _in177.ist_drin(_en177),
+               'auch sie wird sauber zurueckgesetzt')
+    finally:
+        if _alt_heim177 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_heim177
+        shutil.rmtree(_heim177, ignore_errors=True)
+
     print('\n176. Die Schiffszeile: eigener Schalter, kein Tk-Kaestchen')
     # ⚠⚠ In v3.28.0 stand hier ein `tk.Checkbutton`. Gemeldet: „zu klein, sieht
     # niemand, und sieht anders aus als der Rest im Projekt". Tk malt sein

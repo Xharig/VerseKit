@@ -6,6 +6,18 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## Unveröffentlicht
+
+### Behoben
+
+- **Beim Wechsel der Textquelle blieb die alte Sprachdatei liegen.** Die
+  Quellen schreiben in verschiedene Ordner: „Deutsche Übersetzung" nach
+  `german_(germany)`, „StarStrings" und „Original" nach `english`. Wer
+  umstellte, ließ die Bauplan-Angaben in der alten Datei stehen — und niemand
+  pflegte sie mehr. Lud das Spiel ausgerechnet die, sah man dauerhaft einen
+  alten Stand, ohne dass irgendetwas darauf hindeutete. Der Wechsel setzt die
+  alte Datei jetzt zuerst zurück und sagt, dass er es getan hat
+
 ## v3.28.2 - 2026-09-10
 
 > **Jetzt kommt der Name wirklich im Spiel an.** Gestern schrieb die Seite
