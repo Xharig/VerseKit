@@ -74,8 +74,8 @@ A new blueprint immediately raises the next question: **does this part even fit 
 </tr>
 <tr>
 <td colspan="2" valign="top" align="center">
-<img src="assets/screenshot-asop-ingame.jpg" alt="The in-game fleet manager with three self-named ships" width="100%"><br>
-<sub><b>Rename ships</b> — this is what it looks like <b>in game</b>: your own names at the retrieval terminal instead of the factory ones. The star does more than mark — since the fleet manager sorts alphabetically, starred ships move to the top. <i>(German client shown)</i></sub>
+<img src="assets/screenshot-asop-ingame-en.jpg" alt="The in-game fleet manager with three self-named ships" width="100%"><br>
+<sub><b>Rename ships</b> — this is what it looks like <b>in game</b>: your own names at the retrieval terminal instead of the factory ones. The star does more than mark — since the fleet manager sorts alphabetically, starred ships move to the top</sub>
 </td>
 </tr>
 <tr>
