@@ -57,7 +57,10 @@ jobs:
       tag:     ${{ steps.pruefung.outputs.tag }}
       grund:   ${{ steps.pruefung.outputs.grund }}
     steps:
-      - uses: actions/checkout@v4
+      # ⚠ Commit-SHA statt `@v4` — ein Tag laesst sich verschieben, ein SHA
+      # nicht. Die Fassung steht als Kommentar daneben; Anheben ist Handarbeit.
+      # Begruendung ausfuehrlich im Kopf von `release.yml`.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           fetch-depth: 0      # ohne die Tags kann nicht geprueft werden, was schon draussen ist
 
@@ -97,7 +100,7 @@ jobs:
     if: needs.pruefen.outputs.faellig == 'true' && inputs.trockenlauf != true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with: { fetch-depth: 0 }
 
       - name: Tag setzen und hochladen

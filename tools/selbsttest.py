@@ -15947,6 +15947,167 @@ def main():
     except Exception:
         pass
 
+    print('\n178. Der Bau-Ablauf bleibt nachvollziehbar')
+    # ⚠⚠ Diese Pruefung bewacht nicht das Programm, sondern den **Weg vom
+    # Quelltext zum Nutzer**. Drei Dinge sollen nie wieder hineinrutschen:
+    #
+    #   1. Ein Skript aus dem Netz, das sofort ausgefuehrt wird
+    #      (`wget -qO- ... | python3`). Wer diese fremde Quelle einmal
+    #      uebernimmt, baut in JEDE veroeffentlichte Datei mit.
+    #   2. Werkzeuge ohne feste Version (`pip install --upgrade pyinstaller`).
+    #      Dann ergibt ein zweiter Bau desselben Tags nicht zwingend dieselbe
+    #      Datei — und niemand kann sagen, woraus die .exe entstanden ist.
+    #   3. Actions ueber bewegliche Tags (`@v4`). Ein Tag laesst sich
+    #      verschieben, ein Commit-SHA nicht.
+    #
+    # ⚠ Geprueft wird der **Text der Ablaufdateien**, nicht ein Bau-Lauf: Ein
+    # Bau laesst sich hier nicht nachstellen (kein Windows, kein
+    # Ubuntu-22.04-Container). Diese Pruefung ersetzt den Lauf also nicht —
+    # sie haelt nur fest, dass niemand die Absicherung wieder herausnimmt.
+    import re as _re178
+
+    _sha178 = _re178.compile(r'^[0-9a-f]{40}$')
+    _pipe178 = _re178.compile(
+        r'\b(?:wget|curl)\b[^\n]*\|[^\n]*\b(?:python[0-9.]*|sh|bash)\b')
+    _pip178 = _re178.compile(r'\bpip[0-9.]*\s+install\b([^\n]*)')
+    # ⚠ Auch eine Datei ohne Endung zaehlt: Die AppImage-Runtime heisst schlicht
+    # `runtime-x86_64`. Erkannt wird deshalb der Download an sich, nicht nur ein
+    # bekannter Dateiname.
+    _holt178 = _re178.compile(r'\b(?:wget|curl)\b[^\n]*'
+                              r'https?://[^\s"\']+', _re178.IGNORECASE)
+    # Womit eine geladene Datei benutzt wird — ab hier ist eine Pruefung zu
+    # spaet. `chmod +x` zaehlt mit: Wer ausfuehrbar macht, will ausfuehren.
+    _nutzt178 = _re178.compile(r'\bchmod\s+\+x\b|(?:^|\s)\./|'
+                               r'\b(?:bash|sh|source)\s+\S')
+    _prueft178 = _re178.compile(r'\b(?:sha256sum|shasum|sha512sum)\b')
+    # Endet ein Token so, ist es kein Paketname, sondern ein Schalter oder
+    # eine Datei — `-r anforderungen.txt` etwa.
+    _kein_paket178 = ('-', '.txt', '.', '/')
+
+    def _maengel178(text):
+        """Alles, was einen Bau unnachvollziehbar macht. Leere Liste = sauber."""
+        # ⚠ Zuerst zwei Dinge glaetten, sonst zerfaellt jede Zeile falsch:
+        # Fortsetzungszeilen (`\` am Ende) gehoeren zusammen, und ein
+        # `${{ env.X }}` enthaelt Leerzeichen — ungeglaettet sieht `env.X` aus
+        # wie ein Paket ohne Version, und die Pruefung meldet Unsinn.
+        glatt = text.replace('\\\n', ' ')
+        glatt = _re178.sub(r'\$\{\{[^}]*\}\}', 'X', glatt)
+        raus = []
+        zeilen = glatt.splitlines()
+        for nr, zeile in enumerate(zeilen):
+            blank = zeile.strip()
+            if blank.startswith('#'):
+                continue
+            if 'uses:' in blank:
+                ziel = blank.split('uses:', 1)[1].split('#')[0].strip()
+                if ziel and not ziel.startswith('./'):
+                    ref = ziel.rsplit('@', 1)[-1] if '@' in ziel else ''
+                    if not _sha178.match(ref):
+                        raus.append('bewegliche Action: %s' % ziel)
+            if _pipe178.search(blank):
+                raus.append('Skript aus dem Netz direkt ausgefuehrt: %s' % blank)
+            treffer = _pip178.search(blank)
+            if treffer:
+                for wort in treffer.group(1).split():
+                    wort = wort.strip('"\'')
+                    if wort.startswith(_kein_paket178) or wort.endswith('.txt'):
+                        continue
+                    if '==' not in wort:
+                        raus.append('Paket ohne feste Version: %s' % wort)
+            if _holt178.search(blank):
+                # ⚠⚠ **Die Reihenfolge ist der ganze Punkt.** Eine Pruefsumme
+                # hinter `chmod +x` oder hinter dem Aufruf ist wertlos — die
+                # fremde Datei lief dann schon. Geprueft wird deshalb nicht
+                # „steht irgendwo eine Pruefung", sondern „steht sie VOR der
+                # ersten Benutzung".
+                #
+                # Gesucht wird bis zum naechsten Schritt (`- name:`/`- uses:`)
+                # oder hoechstens 40 Zeilen weit; darueber hinaus waere es ein
+                # anderer Zusammenhang.
+                wo_prueft = None
+                wo_nutzt = None
+                for weiter in range(nr + 1, min(nr + 41, len(zeilen))):
+                    folge = zeilen[weiter].strip()
+                    if folge.startswith('- name:') or folge.startswith('- uses:'):
+                        break
+                    if wo_prueft is None and _prueft178.search(folge):
+                        wo_prueft = weiter
+                    if wo_nutzt is None and _nutzt178.search(folge):
+                        wo_nutzt = weiter
+                if wo_prueft is None:
+                    raus.append('Datei geladen, aber nicht geprueft: %s' % blank)
+                elif wo_nutzt is not None and wo_nutzt < wo_prueft:
+                    raus.append('Pruefsumme erst NACH der Benutzung: %s' % blank)
+        return raus
+
+    def _downloads178(text):
+        """Wie viele Dateien der Ablauf aus dem Netz holt."""
+        glatt = text.replace('\\\n', ' ')
+        return len([z for z in glatt.splitlines()
+                    if not z.strip().startswith('#') and _holt178.search(z)])
+
+    _wf178 = os.path.join(WURZEL, '.github', 'workflows')
+    _dateien178 = sorted(n for n in os.listdir(_wf178) if n.endswith('.yml'))
+    pruefe(bool(_dateien178), 'es gibt Ablaufdateien zu pruefen')
+
+    # ⚠ **Sonst prueft der Abschnitt womoeglich gar nichts.** Findet die
+    # Erkennung keinen einzigen Download mehr — weil jemand `wget` durch etwas
+    # anderes ersetzt hat —, meldet sie brav „sauber" und der Wegfall der
+    # Pruefsummen faellt niemandem auf. Es sind heute zwei: AppImageTool und
+    # die AppImage-Runtime.
+    _anzahl178 = _downloads178(open(os.path.join(_wf178, 'release.yml'),
+                                    encoding='utf-8').read())
+    pruefe(_anzahl178 >= 2,
+           'release.yml holt weiterhin die erwarteten Dateien (%d gefunden)'
+           % _anzahl178)
+    for _name178 in _dateien178:
+        _text178 = open(os.path.join(_wf178, _name178), encoding='utf-8').read()
+        _m178 = _maengel178(_text178)
+        pruefe(not _m178, '%s ist nachvollziehbar (%s)'
+               % (_name178, '; '.join(_m178) or 'nichts zu beanstanden'))
+
+    # ⚠⚠ **Gegenprobe — eine Pruefung, die nie anschlaegt, prueft nichts.**
+    # Genau das ist Pruefung 29 in ihrer ersten Fassung passiert: Sie meldete
+    # brav „0 Ausreisser", auch als absichtlich einer eingebaut wurde.
+    _boese178 = [
+        ('bewegliche Action', 'jobs:\n  a:\n    steps:\n'
+                              '      - uses: actions/checkout@v4\n'),
+        ('Skript aus dem Netz', '      - run: wget -qO- https://x/get-pip.py '
+                                '| python3.14\n'),
+        ('Paket ohne feste Version', '      - run: pip install --upgrade '
+                                     'pyinstaller\n'),
+        ('Datei ungeprueft', '      - run: |\n'
+                             '          wget -q https://x/werkzeug.AppImage\n'
+                             '          chmod +x werkzeug.AppImage\n'),
+        # ⚠ Der heimtueckische Fall: Die Pruefung IST da — nur zu spaet.
+        # Zwischen `chmod +x` und ihr liegt bereits der Aufruf; wer hier nur
+        # nach dem Wort `sha256sum` sucht, sieht gruen und hat nichts geprueft.
+        ('Pruefsumme zu spaet', '      - run: |\n'
+                                '          wget -q https://x/werkzeug.AppImage\n'
+                                '          chmod +x werkzeug.AppImage\n'
+                                '          ./werkzeug.AppImage bauen\n'
+                                '          echo "abc  werkzeug.AppImage" '
+                                '| sha256sum -c -\n'),
+    ]
+    for _was178, _quelle178 in _boese178:
+        pruefe(bool(_maengel178(_quelle178)),
+               'die Pruefung faengt den eingebauten Fehler: %s' % _was178)
+
+    # Und die Gegenrichtung: der geflickte Fall darf NICHT mehr anschlagen.
+    _gut178 = ('      - uses: actions/checkout@'
+               '11d5960a326750d5838078e36cf38b85af677262  # v4.4.0\n'
+               '      - run: |\n'
+               '          wget -q https://x/werkzeug.AppImage\n'
+               '          echo "abc  werkzeug.AppImage" | sha256sum -c -\n'
+               '          chmod +x werkzeug.AppImage\n'
+               '          wget -q https://x/runtime-x86_64\n'
+               '          echo "def  runtime-x86_64" | sha256sum -c -\n'
+               '          ./werkzeug.AppImage --runtime-file runtime-x86_64\n'
+               '      - run: pip install "pyflakes==3.4.0"\n')
+    pruefe(not _maengel178(_gut178),
+           'und laesst den abgesicherten Fall in Ruhe (%s)'
+           % ('; '.join(_maengel178(_gut178)) or 'sauber'))
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

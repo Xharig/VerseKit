@@ -22,10 +22,57 @@ on:
         required: true
         type: string
 
-# Der Tag steht je nach Ausloeser woanders: beim Push in github.ref_name,
-# beim Aufruf aus geplant.yml in inputs.tag. Ab hier gilt nur noch TAG.
+# ⚠⚠ Die **direkten** Werkzeuge stehen hier mit fester Version — und die
+# Actions weiter unten mit ihrem Commit-SHA statt mit `@v4`.
+#
+# Warum: Ein Tag laesst sich verschieben, ein Commit-SHA nicht. Und
+# `pip install --upgrade pyinstaller` holt bei jedem Lauf, was gerade neu ist —
+# damit ergibt ein zweiter Bau desselben Tags nicht zwingend dieselbe Datei.
+#
+# Nachgemessen am 10.09.2026 mit `git ls-remote --tags`: Die beweglichen Tags
+# (`v4`, `v5`, `v2`) zeigten zu diesem Zeitpunkt auf **genau** die SHAs, die
+# unten stehen. Es wurde also festgeschrieben, was ohnehin lief — nichts
+# aktualisiert.
+#
+# ⚠⚠ **Das ist NOCH KEIN reproduzierbarer Bau — und soll auch nicht so
+# aussehen.** Festgeschrieben sind die direkt genannten Werkzeuge, die Actions,
+# AppImageTool und die AppImage-Runtime. **Nicht** festgeschrieben sind die
+# Unterabhaengigkeiten von PyInstaller und pyflakes (`altgraph`, `packaging`,
+# `setuptools`, `pyinstaller-hooks-contrib`, dazu `pefile` und
+# `pywin32-ctypes` nur unter Windows). Dafuer braucht es eine Sperrdatei mit
+# `pip install --require-hashes`, und die muss **auf der jeweiligen Zielplattform**
+# erzeugt werden: Die Windows-Pakete haengen an `sys_platform == "win32"`, ein
+# anderswo erzeugter Lock laesst sie weg und der Bau bricht. Das ist als
+# eigener Schritt vorgemerkt und bewusst nicht Teil dieser Aenderung.
+#
+# Anheben ist Handarbeit und Absicht: SHA UND den Kommentar daneben aendern.
+# `tools/selbsttest.py` (Pruefung 178) haelt fest, dass hier nichts wieder
+# beweglich wird.
 env:
+  # Der Tag steht je nach Ausloeser woanders: beim Push in github.ref_name,
+  # beim Aufruf aus geplant.yml in inputs.tag. Ab hier gilt nur noch TAG.
   TAG: ${{ inputs.tag || github.ref_name }}
+  PY_PYINSTALLER: '6.22.2'
+  PY_PYFLAKES: '3.4.0'
+  PY_PIP: '26.2.1'
+  # AppImageTool: feste Fassung statt des beweglichen `continuous`-Links.
+  # ⚠ Das Nachfolge-Repo — `AppImage/AppImageKit` ist abgeloest, seine aelteren
+  # Anhaenge tragen dort bereits `obsolete-` im Namen.
+  APPIMAGETOOL_VERSION: '1.9.1'
+  # Selbst nachgerechnet am 10.09.2026 (Datei geladen, `shasum -a 256`), nicht
+  # von der Seite abgeschrieben.
+  APPIMAGETOOL_SHA256: 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0'
+  # ⚠⚠ **Die Runtime ist der zweite Netzzugriff, den AppImageTool macht — und
+  # der faellt leicht unter den Tisch.** Ohne `--runtime-file` laedt es die
+  # Runtime beim Schnueren selbst nach (`fetch_runtime()` in seinem Quelltext),
+  # und zwar die jeweils neueste. Sie landet als erstes Stueck IM fertigen
+  # AppImage: Man haette also ein festgenageltes Werkzeug, das trotzdem jedes
+  # Mal etwas anderes ausliefert.
+  #
+  # Deshalb das **datierte** Release `20251108` statt `continuous` — plus
+  # Pruefsumme, ebenfalls selbst nachgerechnet.
+  RUNTIME_VERSION: '20251108'
+  RUNTIME_SHA256: '2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d'
 
 permissions:
   contents: write             # noetig, um das Release anzulegen
@@ -36,7 +83,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       # Die Adresse, an die ein Fehlerbericht auf Knopfdruck geht. Sie steht
       # NICHT im Quelltext — wer sie hat, kann in den Kanal schreiben. Hier
@@ -44,7 +91,7 @@ jobs:
       # wird. Fehlt das Secret, bleibt sie leer und der Knopf erscheint gar
       # nicht erst (`berichtziel.moeglich()`).
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           # ⚠ 3.14 ist Absicht, keine Modepflege: Erst ab dieser Fassung
           # bringt Python `compression.zstd` in der Standardbibliothek mit —
@@ -64,7 +111,7 @@ jobs:
       # Selbsttest diese Pruefung stillschweigend; vor einem Release soll sie
       # aber wirklich laufen.
       - name: pyflakes
-        run: pip install --quiet pyflakes
+        run: pip install --quiet "pyflakes==${{ env.PY_PYFLAKES }}"
 
       - name: Selbsttest
         run: python tools/selbsttest.py
@@ -90,7 +137,7 @@ jobs:
           PYEOF
 
       - name: PyInstaller
-        run: pip install --upgrade pyinstaller
+        run: pip install "pyinstaller==${{ env.PY_PYINSTALLER }}"
 
       - name: EXE bauen
         run: >
@@ -131,7 +178,7 @@ jobs:
           & $iscc "/DAppVersion=$version" packaging\installer.iss
           Get-ChildItem dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: windows
           path: |
@@ -171,11 +218,23 @@ jobs:
             python3.14 python3.14-dev python3.14-tk python3.14-venv
           update-alternatives --install /usr/bin/python3 python3 \
             /usr/bin/python3.14 1
-          wget -qO- https://bootstrap.pypa.io/get-pip.py | python3.14
-          python3 -m pip install --quiet --upgrade pip pyinstaller pyflakes
+          # ⚠⚠ Hier stand `wget -qO- .../get-pip.py | python3.14` — ein Skript
+          # aus dem Netz, ungesehen ausgefuehrt, mit vollem Zugriff auf den
+          # Bau-Rechner. Wer diese Quelle einmal uebernimmt, baut in JEDE
+          # veroeffentlichte Datei mit, und niemand wuerde es bemerken.
+          #
+          # `ensurepip` macht dasselbe aus dem bereits installierten Python
+          # heraus (Paket `python3.14-venv`, oben mitinstalliert) — kein
+          # Download, keine Pipe.
+          python3.14 -m ensurepip --upgrade
+          # Feste Versionen: siehe die Begruendung im Kopf dieser Datei.
+          python3.14 -m pip install --quiet \
+            "pip==${PY_PIP}" \
+            "pyinstaller==${PY_PYINSTALLER}" \
+            "pyflakes==${PY_PYFLAKES}"
           python3 -c "import compression.zstd; print('zstd in der Standardbibliothek: ok')"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
       # Dasselbe wie im Windows-Job — siehe die Begruendung dort.
 
@@ -229,13 +288,30 @@ jobs:
           cp packaging/AppRun "$APPDIR/AppRun"
           chmod +x "$APPDIR/AppRun"
 
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          # ⚠⚠ Feste Fassung statt des beweglichen `continuous`-Links, und die
+          # geladene Datei wird VOR der Benutzung geprueft. Bisher wurde hier
+          # ein Programm aus dem Netz geholt und sofort ausgefuehrt, ohne dass
+          # irgendetwas sagen konnte, ob es dasselbe wie beim letzten Mal ist.
+          #
+          # Stimmt die Pruefsumme nicht, bricht der Bau ab — `sha256sum -c`
+          # liefert dann einen Fehler, und `set -e` ganz oben beendet den
+          # Schritt. Das ist gewollt: lieber kein AppImage als ein fremdes.
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+          echo "${APPIMAGETOOL_SHA256}  appimagetool-x86_64.AppImage" | sha256sum -c -
           chmod +x appimagetool-x86_64.AppImage
+
+          # Und die Runtime dazu — sonst holt AppImageTool sie selbst aus dem
+          # Netz und packt eine unbestimmte Fassung in unser AppImage.
+          # ⚠ Die Pruefung steht VOR dem Weiterverwenden, nicht danach.
+          wget -q "https://github.com/AppImage/type2-runtime/releases/download/${RUNTIME_VERSION}/runtime-x86_64"
+          echo "${RUNTIME_SHA256}  runtime-x86_64" | sha256sum -c -
+
           # --appimage-extract-and-run, weil im Container kein FUSE zur Verfuegung steht
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run \
+            --runtime-file runtime-x86_64 \
             "$APPDIR" SC-BP-Watcher-x86_64.AppImage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: linux
           path: SC-BP-Watcher-x86_64.AppImage
@@ -246,12 +322,12 @@ jobs:
     if: inputs.tag != '' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         # ⚠ Mit voller Historie und Tags: `release_text.py` sucht die vorige
         # Testfassung, um „was hat sich seit dann geändert" zu verlinken. Ein
         # flacher Klon kennt keine Tags, und der Link fiele still weg.
         with: { fetch-depth: 0 }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with: { path: dateien }
 
       - name: Beschreibung aus dem CHANGELOG holen
@@ -272,7 +348,7 @@ jobs:
             *)                      echo "vorab=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md
