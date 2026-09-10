@@ -731,9 +731,9 @@ def absenden(text, version=''):
     Nachricht, ein Bericht ist regelmäßig länger. Eine angehängte `.txt` ist
     zudem das, was man lesen und aufheben kann.
     """
-    from . import berichtziel
-    ziel = berichtziel.ziel()
-    if not berichtziel.moeglich():
+    from . import report_target
+    ziel = report_target.target()
+    if not report_target.available():
         return False, t('m_bericht_kein_ziel')
 
     import urllib.request

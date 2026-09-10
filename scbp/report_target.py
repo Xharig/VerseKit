@@ -37,6 +37,23 @@ Ein Knopf ist die einzige Fassung, die bei so jemandem ankommt.
 und wer dort sucht, findet sie. Deshalb: ein **eigener Kanal** nur für Berichte,
 und wenn jemand Unfug treibt, wird der Webhook gelöscht und ein neuer angelegt.
 Der Schaden ist damit auf „ein Kanal muss aufgeräumt werden" begrenzt.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `berichtziel`, die Funktionen `ziel()`
+und `moeglich()` (Sprachumstellung P3). **Drei Namen sind dabei bewusst gleich
+geblieben**, weil außerhalb dieser Datei jemand wörtlich danach sucht:
+
+  * `WEBHOOK` — der Bau sucht die leere Zuweisung weiter unten wörtlich und
+    ersetzt ihr **erstes** Vorkommen in der Datei; umbenannt, bräche er ab.
+
+⛔⛔ **Die leere Zuweisung darf in dieser Datei nur EINMAL wörtlich stehen** —
+auch nicht in einem Kommentar oder in diesem Text. Am 11.09.2026 stand sie hier
+als Beispiel, **über** der echten Zeile: Der Bau hätte das Secret in den
+Docstring geschrieben, die echte Adresse wäre leer geblieben, und der Knopf
+hätte in keiner gebauten Fassung funktioniert — bei grünem Bau, weil dessen
+Prüfzeile nur fragt, ob der Text vorkommt. Prüfung 34 stellt die Ersetzung
+seitdem nach.
+  * `SC_BP_BERICHT_ZIEL` — die Umgebungsvariable zum Ausprobieren.
+  * `BERICHT_WEBHOOK` — der Name des GitHub-Secrets.
 """
 
 # Wird beim Bau ersetzt. Leer heißt: Der Knopf wird gar nicht erst angeboten —
@@ -44,7 +61,7 @@ Der Schaden ist damit auf „ein Kanal muss aufgeräumt werden" begrenzt.
 WEBHOOK = ''
 
 
-def ziel():
+def target():
     """Die Adresse — oder `''`, wenn keine vorliegt.
 
     ⚠ **`SC_BP_BERICHT_ZIEL` schlägt die eingebaute Adresse.** Damit lässt sich
@@ -60,6 +77,6 @@ def ziel():
     return (os.environ.get('SC_BP_BERICHT_ZIEL') or WEBHOOK or '').strip()
 
 
-def moeglich():
+def available():
     """Kann überhaupt gesendet werden? Nur dann gibt es den Knopf."""
-    return ziel().startswith('https://')
+    return target().startswith('https://')

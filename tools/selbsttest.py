@@ -2628,11 +2628,11 @@ def main():
         # Kopieren und in Discord einfuegen scheitert dreifach: Der Bericht
         # steckt unter „Fortgeschritten", er ist zu lang fuer eine Nachricht,
         # und man muss wissen, wohin damit.
-        from scbp import berichtziel as bz34, bericht as be34
-        pruefe(bz34.ziel() == '',
+        from scbp import report_target as bz34, bericht as be34
+        pruefe(bz34.target() == '',
                'im Repo steht KEINE Adresse — sie ist ein Geheimnis')
-        pruefe(not bz34.moeglich(),
-               'ohne Adresse meldet moeglich() sauber False')
+        pruefe(not bz34.available(),
+               'ohne Adresse meldet available() sauber False')
         # ⚠ Der Knopf wird trotzdem GEZEIGT — er sagt beim Druecken, was fehlt.
         # Ihn auszublenden traf nur den Quellcode, also den Entwickler selbst:
         # „nicht mal ICH finde den" (28.08.2026). Ein fehlender Knopf sieht aus
@@ -2649,10 +2649,31 @@ def main():
         # ⚠ Der Bau MUSS die Datei ersetzen — sonst hat niemand den Knopf.
         yml34 = open(os.path.join(WURZEL, '.github', 'workflows',
                                   'release.yml'), encoding='utf-8').read()
-        pruefe(yml34.count('scbp/berichtziel.py') >= 2,
+        pruefe(yml34.count('scbp/report_target.py') >= 2,
                'Windows UND Linux setzen das Ziel beim Bau ein')
         pruefe('BERICHT_WEBHOOK' in yml34,
                'und zwar aus dem Secret, nicht aus dem Quelltext')
+
+        # ⚠⚠ **Die Ersetzung muss die ZUWEISUNG treffen, nicht irgendeinen Text.**
+        # Der Bau ersetzt das erste Vorkommen der leeren Zuweisung. Stand sie
+        # am 11.09.2026 als Beispiel im Docstring — ueber der echten Zeile —,
+        # landete das Secret im Kommentar, die Adresse blieb leer, der Knopf
+        # war in jeder gebauten Fassung tot. Der Bau blieb dabei gruen: Seine
+        # Pruefzeile fragt nur, ob der Text vorkommt. Die beiden Pruefungen
+        # darueber sahen es ebenfalls nicht. Deshalb hier die Ersetzung
+        # nachgestellt, genau so wie in release.yml.
+        _rt34 = open(os.path.join(WURZEL, 'scbp', 'report_target.py'),
+                     encoding='utf-8').read()
+        _platz34 = "WEBHOOK = " + "''"
+        _probe34 = 'https://example.invalid/bauprobe'
+        pruefe(_rt34.count(_platz34) == 1,
+               'die leere Zuweisung steht genau EINMAL im Modul (%d Mal)'
+               % _rt34.count(_platz34))
+        _ns34 = {}
+        exec(compile(_rt34.replace(_platz34, "WEBHOOK = '%s'" % _probe34, 1),
+                     'report_target_bauprobe', 'exec'), _ns34)
+        pruefe(_ns34.get('WEBHOOK') == _probe34,
+               'die Bau-Ersetzung trifft die Zuweisung, nicht einen Kommentar')
         # Die Adresse darf nirgends im Repo stehen.
         for _wo34, _unter34, _dateien34 in os.walk(os.path.join(WURZEL, 'scbp')):
             for _d34 in _dateien34:

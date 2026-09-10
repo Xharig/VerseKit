@@ -1636,11 +1636,11 @@ def _geheimnisse_kuerzen(text):
     # Weiterleitung), greift es nicht. Hier wird ersetzt, was tatsächlich
     # eingetragen ist, ganz gleich wie es aussieht.
     #
-    # ⚠ Lokal importiert: `berichtziel` kommt ohne `pfade` aus, aber ein
+    # ⚠ Lokal importiert: `report_target` kommt ohne `pfade` aus, aber ein
     # Import auf Modulebene würde diese Reihenfolge für immer festschreiben.
     try:
-        from . import berichtziel
-        adresse = berichtziel.ziel()
+        from . import report_target
+        adresse = report_target.target()
         # Die Längenschwelle ist kein Schmuck: Ohne sie würde ein leeres Ziel
         # jede Stelle im Text treffen und den ganzen Bericht zerlegen.
         if adresse and len(adresse) > 12:
