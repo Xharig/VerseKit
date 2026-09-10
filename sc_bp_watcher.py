@@ -51,7 +51,7 @@ from scbp import (
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   katalog as katalog_modul, laeden, logquelle, merkliste,
-                  pfade, phrasen, schiffe, spielstand, titelleiste, ton,
+                  pfade, phrasen, schiffe, spielstand, titelleiste, sound,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
 
 try:
@@ -649,7 +649,7 @@ def save_geometry(geom):
 def signalton(auffaellig=False):
     """Kurzer Ton bei einem Fund.
 
-    Unter Windows `winsound`, unter Linux ein Systemklang über `scbp/ton.py`.
+    Unter Windows `winsound`, unter Linux ein Systemklang über `scbp/sound.py`.
 
     Bis v2.0.0-rc3 stand hier für Linux nur `bell()` mit der Begründung
     „bleibt es still, ist das kein Fehler". Beim ersten echten Bauplan blieb
@@ -665,7 +665,7 @@ def signalton(auffaellig=False):
         except Exception:
             pass
         return
-    if ton.abspielen('auffaellig' if auffaellig else 'normal'):
+    if sound.play('auffaellig' if auffaellig else 'normal'):
         return
     try:
         _WURZEL[0].bell()
