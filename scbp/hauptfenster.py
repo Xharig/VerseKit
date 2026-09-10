@@ -3222,23 +3222,23 @@ class Hauptfenster:
         dafuer sichert man ueberhaupt. Ein Knopf, der nur schreiben kann,
         loest das halbe Problem und laesst den Spieler beim anderen allein.
         """
-        from . import dateiwahl, sicherung
+        from . import file_picker, sicherung
         try:
             wahl = wahl_stellen(
                 self.root, t('sich_titel'),
                 t('sich_lead') + '\n\n' + t('sich_was'),
                 t('sich_schreiben'), t('sich_lesen'))
             if wahl == 'a':
-                self._sicherung_schreiben(dateiwahl, sicherung)
+                self._sicherung_schreiben(file_picker, sicherung)
             elif wahl == 'b':
-                self._sicherung_lesen(dateiwahl, sicherung)
+                self._sicherung_lesen(file_picker, sicherung)
         except Exception as ausnahme:
             fehler.merken('hauptfenster.sicherung', ausnahme)
 
-    def _sicherung_schreiben(self, dateiwahl, sicherung):
-        ziel = dateiwahl.datei_speichern(
-            t('sich_schreiben'), vorschlag=sicherung.vorschlag(),
-            endung='.zip', muster=(('ZIP', '*.zip'),))
+    def _sicherung_schreiben(self, file_picker, sicherung):
+        ziel = file_picker.save_file(
+            t('sich_schreiben'), suggestion=sicherung.vorschlag(),
+            extension='.zip', patterns=(('ZIP', '*.zip'),))
         if not ziel:
             return
         ok, meldung, anzahl = sicherung.schreiben(ziel, self.version)
@@ -3276,9 +3276,9 @@ class Hauptfenster:
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
             fehler.merken('hauptfenster.belegung_anbieten', ausnahme)
 
-    def _sicherung_lesen(self, dateiwahl, sicherung):
-        quelle = dateiwahl.datei_oeffnen(t('sich_lesen'),
-                                         muster=(('ZIP', '*.zip'),))
+    def _sicherung_lesen(self, file_picker, sicherung):
+        quelle = file_picker.open_file(t('sich_lesen'),
+                                       patterns=(('ZIP', '*.zip'),))
         if not quelle:
             return
         # ⚠ Erst nachsehen, dann fragen, dann erst schreiben. Wer sich in der

@@ -229,10 +229,10 @@ class Assistent:
         self._zeichnen()
 
     def _waehlen(self):
-        # ⚠ Siehe `dateiwahl`: Der Tk-Dialog wäre hier besonders unglücklich —
+        # ⚠ Siehe `file_picker`: Der Tk-Dialog wäre hier besonders unglücklich —
         # das ist der allererste Bildschirm, den ein neuer Nutzer sieht.
-        from . import dateiwahl
-        ordner = dateiwahl.ordner_waehlen(t('spielordner'))
+        from . import file_picker
+        ordner = file_picker.choose_folder(t('spielordner'))
         if ordner:
             self.pfad.set(ordner)
 

@@ -2014,7 +2014,7 @@ def _overlay_modus(fenster, wahl, kennung):
 
 
 def saubere_umgebung():
-    """Weiterleitung — die Wahrheit steht in `dateiwahl`.
+    """Weiterleitung — die Wahrheit steht in `file_picker` (bis 11.09.2026 `dateiwahl`).
 
     ⚠ Sie stand jahrelang hier, weil sie hier zuerst gebraucht wurde. Seit die
     Dateiauswahl ein eigenes Modul hat, gehört sie dorthin: Beide brauchen
@@ -2027,9 +2027,9 @@ def saubere_umgebung():
 
 
 def ordner_waehlen(titel, start=None):
-    """Weiterleitung — siehe `dateiwahl.ordner_waehlen`."""
-    from . import dateiwahl
-    return dateiwahl.ordner_waehlen(titel, start)
+    """Weiterleitung — siehe `file_picker.choose_folder`."""
+    from . import file_picker
+    return file_picker.choose_folder(titel, start)
 
 
 def _im_pfad(name):
@@ -2313,10 +2313,10 @@ def _bestand(fenster, rahmen):
         anderen beiden gar nicht erreichbar. Gemeldet am
         27.08.2026 („bei einzeln speichern speichert er nur basetool").
         """
-        from . import dateiwahl
-        ziel = dateiwahl.datei_speichern(
-            t('s_be_speichern'), vorschlag=export.vorschlag(art),
-            endung='.json', start=export.ablage_ordner())
+        from . import file_picker
+        ziel = file_picker.save_file(
+            t('s_be_speichern'), suggestion=export.vorschlag(art),
+            extension='.json', start=export.ablage_ordner())
         if not ziel:
             return
         try:
@@ -2344,10 +2344,10 @@ def _bestand(fenster, rahmen):
     vorschau_platz = tk.Frame(innen, bg=BG)
 
     def einlesen():
-        from . import dateiwahl
-        pfad = dateiwahl.datei_oeffnen(
+        from . import file_picker
+        pfad = file_picker.open_file(
             t('s_be_ein'),
-            muster=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
+            patterns=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
         if not pfad:
             return
         art, eintraege = importieren.lesen(pfad)
@@ -3277,12 +3277,12 @@ def _joysticks(fenster, rahmen):
 
     def _ausgeben(als_csv=False):
         """Die Belegung als Datei sichern — ohne Umweg über die Spielkonsole."""
-        from . import dateiwahl
+        from . import file_picker
         from .sprache import aktuelle
         endung = '.csv' if als_csv else '.xml'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_js_ausgeben'),
-            vorschlag='actionmaps' + endung, endung=endung)
+            suggestion='actionmaps' + endung, extension=endung)
         if not ziel:
             return
         erfolg, meldung = joysticks.ausgeben(ziel, aktuelle())
@@ -3333,7 +3333,7 @@ def _joysticks(fenster, rahmen):
             _hinweis(fenster, t('hf_joysticks'), t(meldung))
 
     def _einlesen():
-        from . import dateiwahl
+        from . import file_picker
         from .hauptfenster import auswahl_stellen, wahl_stellen
         # ⚠ Erst die eigenen Profile anbieten, dann den Dateiwähler. Der
         # Spieler kennt seine Belegung am **Namen**, nicht am Pfad — und der
@@ -3359,8 +3359,8 @@ def _joysticks(fenster, rahmen):
             elif wahl != 'b':
                 return                   # abgebrochen
         if not quelle:
-            quelle = dateiwahl.datei_oeffnen(t('s_js_einlesen'),
-                                             muster=(('XML', '*.xml'),))
+            quelle = file_picker.open_file(t('s_js_einlesen'),
+                                           patterns=(('XML', '*.xml'),))
         if not quelle:
             return
         if not _fragen(fenster, t('s_js_einlesen'),
@@ -10030,7 +10030,7 @@ def _hangar(fenster, rahmen):
     wer keinen Export hat, findet den Handeintrag direkt darunter. Umgekehrt
     wäre der bequeme Weg der versteckte.
     """
-    from . import hangar as meine, erkul, schiffe as alle_schiffe, dateiwahl
+    from . import hangar as meine, erkul, schiffe as alle_schiffe, file_picker
 
     _ueberschrift(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
     innen = _rollflaeche(rahmen)
@@ -10056,10 +10056,10 @@ def _hangar(fenster, rahmen):
                 fill='x', padx=24, abzug=48)
 
     def importieren():
-        pfad = dateiwahl.datei_oeffnen(
+        pfad = file_picker.open_file(
             t('s_hg_import_knopf'),
             # JSON zuerst — das ist der empfohlene Weg. CSV bleibt wählbar.
-            muster=(('JSON', '*.json'), ('CSV', '*.csv')))
+            patterns=(('JSON', '*.json'), ('CSV', '*.csv')))
         if not pfad:
             return
         eintraege, fehlertext = meine.lesen(pfad)
@@ -12967,12 +12967,12 @@ def _lager(fenster, rahmen):
     # ⚠ Das Lager wird von Hand gepflegt — es ist Arbeit, die sonst nirgends
     # liegt. Ohne Ausgabe ist sie beim naechsten Rechnerwechsel weg.
     def _ausgeben(art):
-        from . import dateiwahl
+        from . import file_picker
         endung = '.csv' if art == 'csv' else '.json'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_lg_ausgeben'),
-            vorschlag='lager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
-            endung=endung, start=None)
+            suggestion='lager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
+            extension=endung, start=None)
         if not ziel:
             return
         try:
@@ -12985,8 +12985,8 @@ def _lager(fenster, rahmen):
             fehler.merken('seiten.lager.ausgeben', ausnahme)
 
     def _einlesen():
-        from . import dateiwahl
-        quelle = dateiwahl.datei_oeffnen(t('s_lg_einlesen'))
+        from . import file_picker
+        quelle = file_picker.open_file(t('s_lg_einlesen'))
         if not quelle:
             return
         try:
@@ -14155,12 +14155,12 @@ def _handelslager(fenster, rahmen):
     # Fleissarbeit ist, die niemand macht (also bleibt ein falsches Lager
     # stehen und die Verkaufsrechnung luegt).
     def _ausgeben(art):
-        from . import dateiwahl
+        from . import file_picker
         endung = '.csv' if art == 'csv' else '.json'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_hl_ausgeben'),
-            vorschlag='handelslager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
-            endung=endung, start=None)
+            suggestion='handelslager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
+            extension=endung, start=None)
         if not ziel:
             return
         try:
@@ -14175,8 +14175,8 @@ def _handelslager(fenster, rahmen):
         neu_zeichnen()
 
     def _einlesen():
-        from . import dateiwahl
-        quelle = dateiwahl.datei_oeffnen(t('s_lg_einlesen'))
+        from . import file_picker
+        quelle = file_picker.open_file(t('s_lg_einlesen'))
         if not quelle:
             return
         try:

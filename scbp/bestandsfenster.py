@@ -446,13 +446,13 @@ class Bestandsfenster:
 
     def _exportieren(self, art):
         """Bestand als Datei ausgeben — Ziel wählt der Spieler."""
-        # ⚠ Siehe `dateiwahl` — der Systemdialog statt des Tk-Kastens.
-        from . import dateiwahl
-        pfad = dateiwahl.datei_speichern(
+        # ⚠ Siehe `file_picker` — der Systemdialog statt des Tk-Kastens.
+        from . import file_picker
+        pfad = file_picker.save_file(
             t('export_basetool' if art == 'basetool' else 'export_alles'),
-            vorschlag=export_modul.vorschlag(art), endung='.json',
+            suggestion=export_modul.vorschlag(art), extension='.json',
             start=export_modul.ablage_ordner(),
-            muster=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
+            patterns=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
         if not pfad:
             return
         ok, meldung = export_modul.schreiben(pfad, art, self.bestand,
