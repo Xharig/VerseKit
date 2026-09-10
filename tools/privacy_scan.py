@@ -77,9 +77,14 @@ SPERRLISTE = os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
 
 # Dateien, die nicht durchsucht werden.
 #
-# ⚠ `daten/` enthält Spieldaten von CIG — dort heisst ein Helm wirklich
-# „Obsidian", und Pfade aus dem Spiel sind keine privaten Pfade. Diese Datei
-# selbst enthält die Muster und wuerde sich sonst selbst melden.
+# ⚠ `daten/` enthält Spieldaten von CIG — dort tragen Gegenstände Namen, die
+# anderswo verdächtig wären, und Pfade aus dem Spiel sind keine privaten
+# Pfade. Diese Datei selbst enthält die Muster und wuerde sich sonst selbst
+# melden.
+#
+# ⚠ Die Namen stehen hier bewusst NICHT als Beispiel: Prüfung 52s im
+# Selbsttest sucht genau danach und hat diesen Kommentar prompt gemeldet, als
+# einer darin stand.
 AUSGENOMMEN = (
     'tools/privacy_scan.py',
     'daten/',
