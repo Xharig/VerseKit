@@ -2659,9 +2659,18 @@ def main():
         # am 11.09.2026 als Beispiel im Docstring — ueber der echten Zeile —,
         # landete das Secret im Kommentar, die Adresse blieb leer, der Knopf
         # war in jeder gebauten Fassung tot. Der Bau blieb dabei gruen: Seine
-        # Pruefzeile fragt nur, ob der Text vorkommt. Die beiden Pruefungen
-        # darueber sahen es ebenfalls nicht. Deshalb hier die Ersetzung
-        # nachgestellt, genau so wie in release.yml.
+        # Pruefzeile fragt nur, ob der Text vorkommt.
+        #
+        # ⚠⚠ **Und es wird der ECHTE Bau-Schritt ausgefuehrt, nicht nachgebaut.**
+        # Die erste Fassung dieser Pruefung stellte die Ersetzung selbst nach.
+        # Der Pruefer wies darauf hin: Aendert jemand den Schritt in
+        # release.yml, bliebe sie gruen und pruefte etwas, das gar nicht mehr
+        # laeuft. Deshalb werden jetzt die beiden Python-Bloecke aus der
+        # Ablaufdatei herausgeloest und an einer Wegwerf-Kopie ausgefuehrt —
+        # genau der Code, der beim Bau laeuft, nur mit einer Probe-Adresse
+        # statt des Secrets.
+        import tempfile as _tf34
+        import textwrap as _tw34
         _rt34 = open(os.path.join(WURZEL, 'scbp', 'report_target.py'),
                      encoding='utf-8').read()
         _platz34 = "WEBHOOK = " + "''"
@@ -2669,11 +2678,52 @@ def main():
         pruefe(_rt34.count(_platz34) == 1,
                'die leere Zuweisung steht genau EINMAL im Modul (%d Mal)'
                % _rt34.count(_platz34))
-        _ns34 = {}
-        exec(compile(_rt34.replace(_platz34, "WEBHOOK = '%s'" % _probe34, 1),
-                     'report_target_bauprobe', 'exec'), _ns34)
-        pruefe(_ns34.get('WEBHOOK') == _probe34,
-               'die Bau-Ersetzung trifft die Zuweisung, nicht einen Kommentar')
+
+        # ⚠ An der Heredoc-Marke ALLEIN aufteilen, nicht samt Interpreter:
+        #   Windows ruft `python - <<'PYEOF'`, Linux `python3 - <<'PYEOF'`.
+        #   Die erste Fassung suchte `python - <<'PYEOF'`, fand nur den
+        #   Windows-Block — und der Linux-Schritt waere stillschweigend
+        #   ungeprueft geblieben. Aufgefallen nur durch die Zaehlpruefung
+        #   darunter.
+        _bloecke34 = [b.split('PYEOF', 1)[0]
+                      for b in yml34.split("<<'PYEOF'")[1:]
+                      if 'scbp/report_target.py' in b.split('PYEOF', 1)[0]]
+        pruefe(len(_bloecke34) == 2,
+               'release.yml hat den Ersetzungsschritt fuer beide Systeme (%d)'
+               % len(_bloecke34))
+
+        def _bau_ausfuehren34(modultext, block):
+            """Den echten Bau-Schritt an einer Kopie laufen lassen.
+
+            Gibt zurueck, was danach in WEBHOOK steht."""
+            ordner = _tf34.mkdtemp(prefix='pruefung34-')
+            vorher = os.getcwd()
+            try:
+                os.makedirs(os.path.join(ordner, 'scbp'))
+                ziel = os.path.join(ordner, 'scbp', 'report_target.py')
+                with open(ziel, 'w', encoding='utf-8') as f:
+                    f.write(modultext)
+                os.chdir(ordner)       # der Schritt arbeitet mit relativem Pfad
+                code = _tw34.dedent(block).replace(
+                    '${{ secrets.BERICHT_WEBHOOK }}', _probe34)
+                exec(compile(code, 'release.yml:Berichtsziel', 'exec'), {})
+                ns = {}
+                exec(compile(open(ziel, encoding='utf-8').read(),
+                             'report_target_nach_dem_bau', 'exec'), ns)
+                return ns.get('WEBHOOK')
+            finally:
+                os.chdir(vorher)
+                shutil.rmtree(ordner, ignore_errors=True)
+
+        for _i34, _b34 in enumerate(_bloecke34, 1):
+            pruefe(_bau_ausfuehren34(_rt34, _b34) == _probe34,
+                   'der echte Bau-Schritt %d trifft die Zuweisung' % _i34)
+        # Gegenprobe: derselbe ECHTE Schritt an einer Kopie mit dem Fehler vom
+        # 11.09.2026 — die leere Zuweisung steht vorher schon einmal im Text.
+        if _bloecke34:
+            pruefe(_bau_ausfuehren34('# Beispiel: ' + _platz34 + '\n' + _rt34,
+                                     _bloecke34[0]) != _probe34,
+                   'Gegenprobe: steht die Zeile vorher im Text, faellt es auf')
         # Die Adresse darf nirgends im Repo stehen.
         for _wo34, _unter34, _dateien34 in os.walk(os.path.join(WURZEL, 'scbp')):
             for _d34 in _dateien34:
@@ -16250,6 +16300,106 @@ def main():
     pruefe(not _maengel178(_gut178),
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
+
+    print('\n183. Die Umbenennungen aus P3 halten')
+    # ⚠⚠ **Zwei dieser Pruefungen liefen beim Umbenennen nur als
+    # Wegwerf-Skript** (P3, 11.09.2026): die Signaturpruefung der Dateiauswahl
+    # und der Einzelimport des Sammelimports. Der Pruefer beanstandete zu
+    # Recht, dass sie im Repo nicht sichtbar waren. Was nicht eingecheckt ist,
+    # schuetzt beim naechsten Umbau nichts — hier stehen sie jetzt dauerhaft.
+    import ast as _ast183
+    import importlib as _il183
+    import inspect as _in183
+    from scbp import file_picker as _fp183
+
+    # -- a) Jeder Aufruf von file_picker.* passt zur Signatur.
+    #    Kein Pruefllauf oeffnet diese Dialoge. Ein falsches Schluesselwort
+    #    fiele sonst erst beim Klick auf „Speichern" auf — und pyflakes sieht
+    #    Schluesselwoerter nicht.
+    _sig183 = {n: set(_in183.signature(getattr(_fp183, n)).parameters)
+               for n in ('save_file', 'open_file', 'choose_folder')}
+
+    def _aufrufe183(quelle, name):
+        funde, zahl = [], 0
+        for k in _ast183.walk(_ast183.parse(quelle, name)):
+            if not isinstance(k, _ast183.Call):
+                continue
+            f = k.func
+            if not (isinstance(f, _ast183.Attribute) and f.attr in _sig183
+                    and isinstance(f.value, _ast183.Name)
+                    and f.value.id == 'file_picker'):
+                continue
+            zahl += 1
+            for kw in k.keywords:
+                if kw.arg not in _sig183[f.attr]:
+                    funde.append('%s:%d %s(%s=)' % (name, k.lineno, f.attr,
+                                                    kw.arg))
+            if len(k.args) > len(_sig183[f.attr]):
+                funde.append('%s:%d %s: zu viele Argumente'
+                             % (name, k.lineno, f.attr))
+        return funde, zahl
+
+    # Gegenprobe ZUERST: Alte Schluesselwoerter muessen auffallen — sonst
+    # beweist das „alles passt" darunter nichts.
+    _g183, _ = _aufrufe183(
+        "file_picker.save_file('x', vorschlag='a', endung='.j')\n"
+        "file_picker.open_file('x', muster=())\n", 'gegenprobe')
+    pruefe(len(_g183) == 3,
+           'die Signaturpruefung erkennt alte Schluesselwoerter (%d von 3)'
+           % len(_g183))
+    _alle183, _zahl183 = [], 0
+    for _o183, _u183, _n183 in os.walk(os.path.join(_wurzelpfad, 'scbp')):
+        for _d183 in _n183:
+            if _d183.endswith('.py'):
+                _p183 = os.path.join(_o183, _d183)
+                _f183, _z183 = _aufrufe183(
+                    open(_p183, encoding='utf-8').read(), _d183)
+                _alle183 += _f183
+                _zahl183 += _z183
+    for _x183 in _alle183[:6]:
+        print('       ·', _x183)
+    # ⚠ `>= 10`: Faende die Suche gar keinen Aufruf (etwa weil der Name
+    #   anders importiert wird), waere „kein Fehler" wertlos.
+    pruefe(_zahl183 >= 10 and not _alle183,
+           'alle %d Aufrufe der Dateiauswahl passen zur Signatur' % _zahl183)
+
+    # -- b) Jeder Name aus dem Sammelimport von sc_bp_watcher.py existiert.
+    #    pyflakes prueft nicht, ob ein importiertes Modul EXISTIERT, und das
+    #    Hauptprogramm wird hier nicht gestartet: Ein zweiter Start holt ueber
+    #    einen festen Port das laufende Fenster nach vorn.
+    def _namen183(quelle):
+        return [a.name for k in _ast183.walk(_ast183.parse(quelle))
+                if isinstance(k, _ast183.ImportFrom)
+                and k.module == 'scbp' and k.level == 0
+                for a in k.names]
+
+    def _fehlen183(namen):
+        raus = []
+        for n in namen:
+            try:
+                _il183.import_module('scbp.' + n)
+            except ImportError:
+                raus.append(n)
+        return raus
+
+    pruefe(_fehlen183(_namen183('from scbp import (pfade, gibtesnicht_xyz)\n'))
+           == ['gibtesnicht_xyz'],
+           'der Einzelimport erkennt einen erfundenen Modulnamen')
+    _sn183 = _namen183(open(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'),
+                            encoding='utf-8').read())
+    _fehlt183 = _fehlen183(_sn183)
+    pruefe(len(_sn183) >= 30 and not _fehlt183,
+           'alle %d Namen aus dem Sammelimport lassen sich importieren%s'
+           % (len(_sn183),
+              (' — fehlt: ' + ', '.join(_fehlt183)) if _fehlt183 else ''))
+
+    # -- c) Die alten Namen sind WEG. Die Roadmap verbietet eine
+    #    Weiterleitungsdatei, die beides am Leben haelt — das soll nicht nur
+    #    behauptet sein.
+    for _alt183 in ('neuheiten', 'berichtziel', 'dateiwahl', 'hinweis', 'ton'):
+        pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
+                                               _alt183 + '.py')),
+               'scbp/%s.py gibt es nicht mehr' % _alt183)
 
     print('\n182. Der Datenschutz-Scanner')
     # ⚠⚠ Die Regel „nach aussen heisst der Entwickler nur `Xharig`" war bis
