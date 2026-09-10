@@ -4701,6 +4701,11 @@ def main():
         'xharig' + 'ds', '192.168.' + '178', 'fritz.' + 'box',
         'kirch' + 'hain', 'gar' + 'the', 'das kar' + 'tell',
         'staffel ma' + 'mba', 'pi-' + 'hole',
+        # ⚠ Auch der Verweis auf die interne Arbeitsregel-Datei gehoert nicht
+        # ins oeffentliche Repo — am 10.09.2026 standen sechs solcher Hinweise
+        # im Quelltext, einer davon frisch dazugekommen. Der Inhalt einer Regel
+        # darf im Kommentar stehen, der Zeiger auf die private Datei nicht.
+        'cla' + 'ude',
     ]
     # Was im Spiel wirklich so heisst, darf nicht anschlagen.
     _ERLAUBT52s = ('racing helmet obsid', 'helmetobsid')

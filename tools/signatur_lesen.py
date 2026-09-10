@@ -51,7 +51,7 @@ Schrift ohnehin Müll — angelernt wird stattdessen von Hand, einmal.
 
 ⚠ **Dieses Werkzeug öffnet kein Fenster.** Es liest nur und schreibt PNG-Dateien
 — deshalb braucht es `unsichtbar.sicherstellen()` nicht. Wer hier je eine
-Oberfläche einbaut, muss den Aufruf nachziehen (siehe `CLAUDE.md`).
+Oberfläche einbaut, muss den Aufruf nachziehen.
 
 ⚠ **Stand: Linux/X11.** Unter nativem Wayland hat Star Citizen kein X-Fenster
 und der Abgriff ist unmöglich — gemessen am 08.09.2026. Wine muss im X11-Modus

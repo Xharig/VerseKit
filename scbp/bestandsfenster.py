@@ -1434,8 +1434,8 @@ class Bestandsfenster:
 
         ⚠ Muss **vor** der Liste gepackt werden. In tkinter bekommt das zuletzt
         gepackte Element mit `expand=True` den Rest des Platzes; käme dieser
-        Block danach, schöbe die Liste ihn aus dem Fenster. Steht so auch in
-        der CLAUDE.md des Projekts — und ist dort schon zweimal passiert.
+        Block danach, schöbe die Liste ihn aus dem Fenster — das ist in diesem
+        Programm schon zweimal passiert.
 
         Warum überhaupt fest: Vorher klappte die Herkunft in der Zeile auf. Ein
         Bauplan hat bis zu zwölf Bezugsquellen, der Block wurde über 700 Pixel

@@ -50,9 +50,9 @@ in einem Wegwerf-Ordner — es fasst die Daten des Nutzers nie an.
 
 ⚠⚠ **Nie auf dem Bildschirm des Nutzers.** Wie Selbsttest und
 `oberflaeche_pruefen.py` startet sich dieses Werkzeug unter `xvfb-run` neu,
-sobald ein echter Bildschirm dranhängt: Claudes Shell hängt an `DISPLAY=:0`,
-und ein aufblitzendes Fenster reißt den Tastaturfokus mit — wer gerade Star
-Citizen fliegt, landet im Desktop. Zusehen geht bewusst mit `SC_BP_SICHTBAR=1`.
+sobald ein echter Bildschirm dranhängt: Eine Entwickler-Sitzung läuft oft auf
+`DISPLAY=:0`, und ein aufblitzendes Fenster reißt den Tastaturfokus mit — wer
+gerade Star Citizen fliegt, landet im Desktop. Zusehen geht mit `SC_BP_SICHTBAR=1`.
 """
 
 import os

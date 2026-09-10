@@ -32,8 +32,7 @@ eingeklappt, was nur Fortgeschrittene brauchen.
     4. Inhaltsbereich   zuletzt, `expand=True` → bekommt den Rest
 
 Wer den Inhalt vor der Fußzeile packt, schiebt sie aus dem Fenster — das ist
-hier schon einmal passiert (der unsichtbare Speichern-Knopf). Steht auch in der
-`CLAUDE.md` des Projekts.
+hier schon einmal passiert (der unsichtbare Speichern-Knopf).
 
 **Seiten werden erst gezeichnet, wenn man sie öffnet.** Der Katalog hat über 700
 Einträge; alles beim Start aufzubauen kostet Sekunden, die niemand hergibt, um
@@ -120,9 +119,8 @@ MIN_BREITE, MIN_HOEHE = 1160, 380
 VORBAU_AN = False
 
 # Die zuletzt eingestellte Fenstergroesse. Nur die **Groesse**, keine Lage:
-# Eine gemerkte Position zeigt auf einem anderen Rechner ins Nichts (siehe die
-# Regel dazu in der Projekt-CLAUDE.md und `geometrie_pruefen` beim Overlay) —
-# das Fenster geht deshalb weiter mittig auf.
+# Eine gemerkte Position zeigt auf einem anderen Rechner ins Nichts (siehe
+# `geometrie_pruefen` beim Overlay) — das Fenster geht deshalb weiter mittig auf.
 GROESSE_SCHLUESSEL = 'fenster_groesse'
 
 

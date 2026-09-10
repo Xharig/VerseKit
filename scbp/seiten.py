@@ -8027,7 +8027,7 @@ def _laeden(fenster, rahmen):
     ld_reset.bind('<Leave>', lambda _=None: ld_reset.configure(fg=SUB))
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
-    # da — eine Seite wird nur EINMAL gebaut (siehe Falle 3 im Projekt-CLAUDE).
+    # da — eine Seite wird nur EINMAL gebaut.
     def _beim_zeigen():
         suche.set('')
         _liste_leeren()
