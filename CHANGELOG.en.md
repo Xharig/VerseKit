@@ -6,7 +6,13 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unreleased
+## v3.28.0 - 2026-09-10
+
+> **From now on your ships are called what you call them.** The retrieval
+> terminal no longer says "Anvil F7C-M Super Hornet Mk II" but whatever you
+> entered — and a star in front marks one without renaming it. The list comes
+> from your hangar, so there is nothing to search for and nothing to set up.
+> The factory name comes back character for character at any time.
 
 ### New
 

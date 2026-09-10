@@ -6,7 +6,13 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
-## Unveröffentlicht
+## v3.28.0 - 2026-09-10
+
+> **Deine Schiffe heißen ab jetzt, wie du sie nennst.** Im Abrufterminal steht
+> nicht mehr „Anvil F7C-M Super Hornet Mk II", sondern das, was du eingetragen
+> hast — und ein Sternchen davor markiert eines, ohne es umzutaufen. Die Liste
+> kommt aus deinem Hangar, du musst nichts suchen und nichts einrichten. Der
+> Werksname kommt jederzeit zeichengenau zurück.
 
 ### Neu
 
