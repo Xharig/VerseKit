@@ -16224,6 +16224,165 @@ def main():
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
+    print('\n179. Der Erkennungskern der Scan-Signatur')
+    # ⚠⚠ **655 Zeilen ohne eine einzige Pruefung** — so lag das Werkzeug bis
+    # zum 10.09.2026 da. „Selbsttest gruen" sagte ueber diesen Teil schlicht
+    # nichts. Der Abgriff vom Bildschirm braucht ein laufendes Star Citizen und
+    # ist hier nicht pruefbar; **alles danach** ist reine Rechnerei und laesst
+    # sich vollstaendig aus einem selbstgebauten Bild pruefen. Genau das
+    # passiert hier — kein Spiel, keine Fremddatei, kein Ueberspringen.
+    import struct as _st179
+    import tempfile as _tf179
+    sys.path.insert(0, os.path.join(_wurzelpfad, 'tools'))
+    import signatur_lesen as _sig179
+
+    _ordner179 = _tf179.mkdtemp(prefix='pruefung179-')
+    try:
+        # -- Ein Bild bauen: dunkler Grund, zwei helle Zeichen nebeneinander.
+        #
+        # ⚠⚠ Sie muessen sich in der **Form** unterscheiden, nicht in der
+        # Groesse. Der erste Anlauf nahm zwei verschieden grosse Rechtecke —
+        # die sind nach dem Normieren zwangslaeufig gleich, denn genau das ist
+        # dessen Aufgabe. Die Pruefung fiel dadurch zu Recht durch und hat den
+        # Fehler im Pruefaufbau selbst gefunden. Also: ein voller Balken und
+        # ein L.
+        _hoch179, _breit179 = 24, 40
+        _bild179 = [[20] * _breit179 for _ in range(_hoch179)]
+        for _y in range(4, 20):                       # Zeichen 1: voller Block
+            for _x in range(4, 12):
+                _bild179[_y][_x] = 240
+        for _y in range(4, 20):                       # Zeichen 2: ein L
+            for _x in range(24, 27):
+                _bild179[_y][_x] = 240
+        for _y in range(17, 20):
+            for _x in range(24, 32):
+                _bild179[_y][_x] = 240
+
+        _weg179 = os.path.join(_ordner179, 'probe.png')
+        _sig179.png_schreiben(_bild179, _weg179)
+        _zurueck179 = _sig179.png_lesen(_weg179)
+        pruefe(_zurueck179 is not None
+               and _zurueck179[1] == _breit179 and _zurueck179[2] == _hoch179,
+               'ein geschriebenes PNG wird in derselben Groesse zurueckgelesen')
+        pruefe(_zurueck179 and _zurueck179[0] == _bild179,
+               'und punktgenau — Schreiben und Lesen passen zusammen')
+
+        # -- Die Schwelle muss zwischen Grund und Text liegen.
+        _schwelle179 = _sig179.otsu(_bild179)
+        pruefe(20 <= _schwelle179 < 240,
+               'die Schwelle liegt zwischen Grund und Text (%d)' % _schwelle179)
+        pruefe(_sig179.otsu([[7] * 4 for _ in range(4)]) is not None,
+               'ein Bild ohne jeden Kontrast bringt sie nicht zum Absturz')
+
+        # -- Zwei Flaechen, von links nach rechts.
+        _fl179 = _sig179.zeichen_trennen(_bild179, _schwelle179)
+        pruefe(len(_fl179) == 2, 'die zwei Bloecke werden getrennt gefunden (%d)'
+               % len(_fl179))
+        pruefe(_fl179 == sorted(_fl179, key=lambda f: f[0]),
+               'und stehen von links nach rechts')
+        # ⚠ GEGENPROBE: Ein einzelner heller Punkt ist Rauschen, keine Ziffer.
+        _rausch179 = [[20] * 10 for _ in range(10)]
+        _rausch179[5][5] = 250
+        pruefe(not _sig179.zeichen_trennen(_rausch179, 128),
+               'ein einzelner heller Punkt gilt nicht als Zeichen')
+
+        # -- Normieren: feste Groesse, und die beiden Zeichen bleiben
+        #    unterscheidbar. Genau das ist der Zweck der Uebung.
+        _z179 = [_sig179.normieren(_bild179, _f, _schwelle179) for _f in _fl179]
+        pruefe(all(len(_z) == _sig179.NORM_B * _sig179.NORM_H for _z in _z179),
+               'jedes Zeichen kommt auf das feste Raster %dx%d'
+               % (_sig179.NORM_B, _sig179.NORM_H))
+        pruefe(_sig179.abstand(_z179[0], _z179[0]) == 0.0,
+               'ein Zeichen ist zu sich selbst abstandslos')
+        pruefe(_sig179.abstand(_z179[0], _z179[1]) > 0.0,
+               'zwei verschiedene Zeichen sind es nicht')
+
+        # -- Anlernen: die Anzahl muss stimmen, sonst wird NICHTS gelernt.
+        _ziffern179 = {}
+        _gut179, _was179 = _sig179.anlernen(_z179, '123', _ziffern179)
+        pruefe(not _gut179 and not _ziffern179,
+               'bei falscher Anzahl wird nichts gelernt (%s)' % _was179)
+        _gut179, _was179 = _sig179.anlernen(_z179, '17', _ziffern179)
+        pruefe(_gut179 and sorted(_ziffern179) == ['1', '7'],
+               'bei passender Anzahl landen beide Ziffern in den Vorlagen')
+
+        # -- Erkennen: mit Vorlagen kommt die Zahl zurueck, ohne kommt nichts.
+        _text179, _un179 = _sig179.erkennen(_z179, _ziffern179)
+        pruefe(_text179 == '17',
+               'dieselben Zeichen werden als 17 gelesen (%r)' % _text179)
+        pruefe(_sig179.erkennen(_z179, {})[0] is None,
+               'ohne Vorlagen wird nichts geraten')
+        # ⚠ GEGENPROBE: Ein Zeichen, das zu keiner Vorlage passt, muss ein
+        #    Nein ergeben — nicht die naechstbeste Ziffer.
+        _fremd179 = [1 - _p for _p in _z179[0]]
+        pruefe(_sig179.erkennen([_fremd179], _ziffern179)[0] is None,
+               'ein unbekanntes Zeichen wird abgelehnt statt geraten')
+
+        # -- ⚠⚠ **Die Farblage kommt aus dem Bild, nicht aus einer Annahme.**
+        #    Bis zum 10.09.2026 las der Abgriff die Bytes stumpf als `B G R`
+        #    und setzte 24 Bit voraus. Auf einem MSBFirst-Server oder bei 10
+        #    Bit je Kanal (Tiefe 30) kaeme dabei keine Fehlermeldung heraus,
+        #    sondern eine **falsche Helligkeit** — und die heisst hier still
+        #    falsch gelesene Zahlen. Das laesst sich ohne X11 pruefen: Die
+        #    Umrechnung ist reine Rechnerei.
+        class _Bild179(object):
+            def __init__(self, bpp, ordnung, rm, gm, bm, zeile):
+                self.bits_per_pixel, self.byte_order = bpp, ordnung
+                self.red_mask, self.green_mask, self.blue_mask = rm, gm, bm
+                self.width, self.height, self.bytes_per_line = 1, 1, zeile
+
+        # Reines Rot muss ueberall dieselbe Graustufe ergeben: 255*299/1000.
+        _rot179 = 255 * 299 // 1000
+        # 32 Bit, LSBFirst, Bytes B G R X — der uebliche Fall.
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 0, 0x00FF0000, 0x0000FF00, 0x000000FF, 4),
+            bytearray([0, 0, 255, 0]))[0][0] == _rot179,
+            'LSBFirst mit 8 Bit je Kanal ergibt die richtige Graustufe')
+        # Dasselbe Pixel auf einem MSBFirst-Server: Bytes andersherum.
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 1, 0x00FF0000, 0x0000FF00, 0x000000FF, 4),
+            bytearray([0, 255, 0, 0]))[0][0] == _rot179,
+            'MSBFirst ergibt dieselbe — die Byte-Reihenfolge wird beachtet')
+        # Tiefe 30: 10 Bit je Kanal, Rot voll ausgesteuert (1023).
+        pruefe(_sig179._bild_zu_graustufen(
+            _Bild179(32, 0, 0x3FF00000, 0x000FFC00, 0x000003FF, 4),
+            bytearray((0x3FF00000).to_bytes(4, 'little')))[0][0] == _rot179,
+            'auch 10 Bit je Kanal werden auf 0..255 gebracht')
+        pruefe(_sig179._maske_zerlegen(0x0000FF00) == (8, 255),
+               'eine Farbmaske wird in Verschiebung und Hoechstwert zerlegt')
+
+        # -- Die X-Verbindung macht sich in jedem Fall wieder zu. Ohne libX11
+        #    (Windows, Mac) laeuft derselbe Weg, nur ohne Verbindung — die
+        #    Pruefung greift also auf allen Systemen.
+        with _sig179._Sitzung() as _si179:
+            _hatte179 = _si179.offen
+        pruefe(_si179.anzeige is None,
+               'die X-Verbindung ist nach dem Block zu (offen war sie: %s)'
+               % _hatte179)
+
+        # -- Und die kaputten Dateien: die Zusage lautet None, nicht Absturz.
+        _roh179 = open(_weg179, 'rb').read()
+        _kaputt179 = os.path.join(_ordner179, 'kaputt.png')
+        for _name179, _inhalt179 in (
+                ('abgeschnitten', _roh179[:len(_roh179) // 2]),
+                ('Pruefsumme verdreht', _roh179[:-6] + b'\x00\x00\x00\x00\x00\x00'),
+                ('gar kein PNG', b'Dies ist Text, kein Bild.'),
+                ('Laenge zeigt ins Leere',
+                 _roh179[:8] + _st179.pack('>I', 0xFFFFFF) + _roh179[12:])):
+            with open(_kaputt179, 'wb') as _f179:
+                _f179.write(_inhalt179)
+            try:
+                _erg179 = _sig179.png_lesen(_kaputt179)
+                _geworfen179 = None
+            except Exception as _a179:
+                _erg179, _geworfen179 = 'FLOG', _a179
+            pruefe(_erg179 is None,
+                   'kaputtes PNG (%s) wird mit None abgelehnt%s'
+                   % (_name179,
+                      '' if _geworfen179 is None else ' — flog: %r' % _geworfen179))
+    finally:
+        shutil.rmtree(_ordner179, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
