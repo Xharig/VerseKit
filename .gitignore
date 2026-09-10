@@ -27,3 +27,10 @@ tools/entwurf_*.py
 UEBERGABE.md
 *UEBERGABE*.md
 CLAUDE.md
+
+# ⛔⛔ Die Suchbegriffe des Datenschutz-Scanners (11.09.2026).
+#
+# Eine Sperrliste IM Repo waere die Liste dessen, wonach zu suchen sich lohnt —
+# genau verkehrt herum. `tools/privacy_scan.py` prueft als Erstes, dass diese
+# Zeile hier steht, und verweigert sonst den Dienst.
+.sperrliste

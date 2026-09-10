@@ -11141,11 +11141,13 @@ def main():
     from scbp import pfade as _pf119
 
     for _name119, _text119, _darf_nicht119 in (
+            # privacy-ok: erfundene Adressen — genau sie sind das Pruefmaterial
+            # dafuer, dass der Bericht Webhooks herausfiltert.
             ('Discord-Webhook',
-             'Senden an https://discord.com/api/webhooks/123/GeHeIm_xyz weg',
+             'Senden an https://discord.com/api/webhooks/123/GeHeIm_xyz weg',  # privacy-ok: siehe oben
              'GeHeIm_xyz'),
             ('discordapp-Schreibweise',
-             'POST https://discordapp.com/api/webhooks/9/ZuGaNg42 -> 404',
+             'POST https://discordapp.com/api/webhooks/9/ZuGaNg42 -> 404',  # privacy-ok: siehe oben
              'ZuGaNg42'),
             ('Schluessel als Parameter',
              'https://dienst.de/abruf?api_key=abc123geheim&format=json',
@@ -16224,6 +16226,102 @@ def main():
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
 
+    print('\n182. Der Datenschutz-Scanner')
+    # ⚠⚠ Die Regel „nach aussen heisst der Entwickler nur `Xharig`" war bis
+    # zum 11.09.2026 reine Disziplin — zwei Riegel auf einem einzigen Rechner,
+    # sonst nichts. Und **aus dem aktuellen Stand entfernen reicht nicht**:
+    # Die Historie behaelt alles. Der Fund muss VOR dem Push passieren.
+    import subprocess as _sp182
+    import tempfile as _tf182
+
+    _scan182 = os.path.join(_wurzelpfad, 'tools', 'privacy_scan.py')
+    pruefe(os.path.exists(_scan182), 'es gibt einen Datenschutz-Scanner')
+
+    # -- Die Sperrliste darf NIE im Repo landen. Das ist die erste Frage.
+    _ign182 = open(os.path.join(_wurzelpfad, '.gitignore'),
+                   encoding='utf-8').read().splitlines()
+    pruefe('.sperrliste' in [z.strip() for z in _ign182],
+           'die Sperrliste steht in .gitignore')
+
+    _ordner182 = _tf182.mkdtemp(prefix='pruefung182-')
+    try:
+        # ⚠ Der Wert ist erfunden, sieht aber aus wie ein echter Fund. Genau
+        #   danach wird gleich in der Ausgabe gesucht.
+        _geheim182 = 'HeimlicherWert4711'
+        _probe182 = os.path.join(_ordner182, 'probe.py')
+        # privacy-ok: alles hier ist erfunden und wird gleich WEGGEWORFEN —
+        # es ist das Pruefmaterial dafuer, dass der Scanner ueberhaupt greift.
+        # Ohne diesen Vermerk meldete er seine eigene Pruefung als Fund.
+        with open(_probe182, 'w', encoding='utf-8') as _f182:
+            _f182.write('post = "https://discord.com/api/webhooks/7/%s"\n'  # privacy-ok: erfunden
+                        % _geheim182)
+            _f182.write('mail = "vorname.nachname@gmail.com"\n')  # privacy-ok: erfunden
+            _f182.write('nas = "192.168.0.99"\n')  # privacy-ok: erfunden
+            _f182.write('heim = "/home/echternutzer/geheim"\n')  # privacy-ok: erfunden
+
+        _lauf182 = _sp182.run([sys.executable, _scan182, _probe182],
+                              capture_output=True, text=True,
+                              encoding='utf-8', cwd=_wurzelpfad)
+        _aus182 = (_lauf182.stdout or '') + (_lauf182.stderr or '')
+        pruefe(_lauf182.returncode == 1,
+               'ein Fund macht den Lauf rot (Rueckgabe %d)' % _lauf182.returncode)
+        for _was182 in ('Webhook', 'E-Mail', 'privaten Netz', 'Heimverzeichnis'):
+            pruefe(_was182 in _aus182, 'gefunden: %s' % _was182)
+
+        # ⛔⛔ **Die wichtigste Zusage des ganzen Werkzeugs.**
+        # Wuerde der Scanner den Fund ausdrucken, staende das Gesuchte im
+        # Protokoll eines OEFFENTLICHEN Bau-Laufs — er waere dann selbst die
+        # Luecke, die er schliessen soll.
+        pruefe(_geheim182 not in _aus182,
+               'der gefundene Text wird NICHT ausgegeben')
+        pruefe('gmail.com' not in _aus182 and 'echternutzer' not in _aus182
+               and '192.168' not in _aus182,
+               'auch die uebrigen Funde stehen nicht im Klartext da')
+
+        # -- Und die Gegenrichtung: eine harmlose Datei darf nicht anschlagen.
+        _harmlos182 = os.path.join(_ordner182, 'harmlos.py')
+        with open(_harmlos182, 'w', encoding='utf-8') as _f182:
+            _f182.write('# Beispiel: /home/spieler/Programme, Xharig, '
+                        'jemand@example.com\n')
+        _ok182 = _sp182.run([sys.executable, _scan182, _harmlos182],
+                            capture_output=True, text=True, encoding='utf-8',
+                            cwd=_wurzelpfad)
+        pruefe(_ok182.returncode == 0,
+               'erfundene Beispiele und der Name Xharig schlagen NICHT an')
+
+        # -- Das ganze Repo muss sauber sein — sonst ist der Scanner ab heute
+        #    rot und niemand koennte mehr pushen.
+        _repo182 = _sp182.run([sys.executable, _scan182],
+                              capture_output=True, text=True, encoding='utf-8',
+                              cwd=_wurzelpfad)
+        pruefe(_repo182.returncode == 0,
+               'das Repo selbst ist sauber (%s)'
+               % (_repo182.stdout or '').strip().splitlines()[-1:])
+    finally:
+        shutil.rmtree(_ordner182, ignore_errors=True)
+
+    # -- Der Ablauf, der das bei jeder Aenderung tut.
+    _pruef182 = os.path.join(_wurzelpfad, '.github', 'workflows',
+                             'pruefung.yml')
+    pruefe(os.path.exists(_pruef182), 'es gibt einen Pruef-Ablauf')
+    _py182 = open(_pruef182, encoding='utf-8').read()
+    for _muss182 in ('pull_request', 'privacy_scan.py', 'selbsttest.py',
+                     'sprachen_pruefen.py', 'xvfb', 'compileall'):
+        pruefe(_muss182 in _py182, 'der Pruef-Ablauf enthaelt %s' % _muss182)
+    # ⚠ ruff darf den Lauf NICHT rot machen — sonst wird der Ablauf umgangen.
+    pruefe('continue-on-error: true' in _py182,
+           'ruff laeuft nur als Bericht, ohne den Lauf rot zu machen')
+    # ⚠ Und er darf NICHT bauen: Was baut, dauert, und was dauert, wird umgangen.
+    #
+    # ⚠⚠ **Nur Nicht-Kommentarzeilen.** Der erste Anlauf suchte im ganzen Text
+    # und fand „kein AppImage" im **eigenen erklaerenden Kommentar** des
+    # Ablaufs. Dieselbe Falle wie bei Pruefung 181 eine Stunde vorher — und
+    # genau der Befund, den der Pruefer an der Release-Wache erhoben hatte.
+    _echte182 = [z for z in _py182.splitlines() if not z.lstrip().startswith('#')]
+    _echt182 = '\n'.join(_echte182).lower()
+    pruefe('pyinstaller' not in _echt182 and 'appimage' not in _echt182,
+           'der Pruef-Ablauf baut nichts — er prueft nur')
+
     print('\n181. Die Sperrdateien nageln DAS fest, was auch gebaut wird')
     # ⚠⚠ Zwei Ablaufdateien nennen dieselben Werkzeugversionen: `release.yml`
     # baut damit, `sperrdateien.yml` nagelt sie samt Unterabhaengigkeiten
@@ -16245,6 +16343,17 @@ def main():
                % (_wert181,
                   _a181.group(2) if _a181 else 'fehlt',
                   _b181.group(2) if _b181 else 'fehlt'))
+
+    # ⚠ Der Pruef-Ablauf nennt pyflakes ebenfalls — auch der muss mitziehen,
+    #   sonst prueft er mit einer anderen Fassung als der Bau.
+    _pf181 = re.search(r"PY_PYFLAKES:\s*(['\"])(.+?)\1",
+                       open(os.path.join(_wurzelpfad, '.github', 'workflows',
+                                         'pruefung.yml'),
+                            encoding='utf-8').read())
+    _soll181 = re.search(r"PY_PYFLAKES:\s*(['\"])(.+?)\1", _rel181)
+    pruefe(_pf181 and _soll181 and _pf181.group(2) == _soll181.group(2),
+           'auch der Pruef-Ablauf nimmt dieselbe pyflakes-Fassung (%s)'
+           % (_pf181.group(2) if _pf181 else 'fehlt'))
 
     # Auch die Python-Fassung: Eine Sperrdatei von 3.12 kann Wheels nennen,
     # die 3.14 gar nicht nimmt.
