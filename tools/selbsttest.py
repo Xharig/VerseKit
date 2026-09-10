@@ -15758,6 +15758,22 @@ def main():
     pruefe(_as175.tabelle_bauen(_zeilen175, _weg175) == {},
            'ein geleertes Feld nimmt das Schiff wieder heraus')
 
+    # -- ⚠⚠ BEIDE Schreibwege muessen die eigenen Namen kennen.
+    #
+    # Das war der Fehler von v3.28.0/v3.28.1: `einrichten()` nimmt bevorzugt
+    # `einspielen_scdl()` (die gepflegten Vertragstexte) und faellt nur ohne
+    # sie auf `einspielen()` zurueck. Verdrahtet war nur der Rueckfallweg —
+    # bei jedem mit SCDL-Daten wurde der Schiffsname also **nie** geschrieben.
+    # Die Probe lief gruen, weil sie `einspielen()` direkt rief.
+    #
+    # ⚠ Geprueft wird ueber die Namen im Code-Objekt, nicht ueber eine
+    # Textsuche: Ein Kommentar mit demselben Wort taeuscht das nicht vor.
+    from scbp import injektion as _in175
+    for _weg175 in ('einspielen', 'einspielen_scdl'):
+        _f175 = getattr(_in175, _weg175)
+        pruefe('_asop_tabelle' in _f175.__code__.co_names,
+               'der Schreibweg %s() kennt die eigenen Schiffsnamen' % _weg175)
+
     # -- Die Kurzfassungen bleiben draussen: sonst waere der Name doppelt zu
     #    pflegen, und im Fleet Manager steht die lange.
     pruefe('vehicle_NameANVL_Hornet_F7CM_short'

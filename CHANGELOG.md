@@ -6,6 +6,20 @@ Alle wichtigen Änderungen an diesem Projekt werden hier dokumentiert.
 
 Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.28.2 - 2026-09-10
+
+> **Jetzt kommt der Name wirklich im Spiel an.** Gestern schrieb die Seite
+> zuverlässig — nur in die falsche Hälfte des Programms. Es gibt zwei Wege, die
+> Texte ins Spiel zu bringen, und die Schiffsnamen hingen nur an dem, der bei
+> den wenigsten überhaupt benutzt wird.
+
+### Behoben
+
+- **Der eigene Schiffsname wurde nie geschrieben, obwohl die Datei neu
+  geschrieben wurde.** Das Werkzeug hat zwei Wege, Texte einzutragen; genommen
+  wird fast immer der eine, verdrahtet war nur der andere. Jetzt kennen beide
+  die eigenen Namen
+
 ## v3.28.1 - 2026-09-10
 
 > **„Schiffe benennen" tat gestern nichts.** Man konnte einen Namen eintragen,

@@ -1178,6 +1178,17 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     urtext_neu = {}
     notnagel = _notnagel(urtext_alt, ini_pfad)
     namens_zusatz = _namens_tabelle(zeilen)
+    # ⚠⚠ **Es gibt ZWEI Schreibwege, und beide brauchen das hier.**
+    # `einrichten()` nimmt bevorzugt diesen (die gepflegten SCDL-Vertragstexte)
+    # und fällt nur ohne sie auf `einspielen()` zurück. In v3.28.0 hingen die
+    # eigenen Schiffsnamen nur am Rückfallweg — bei jedem, der die SCDL-Daten
+    # hat (also fast jedem), wurde der Name **nie** geschrieben. Gemeldet mit
+    # Bildschirmfoto: im Flottenmanager stand weiter der Werksname, obwohl die
+    # Datei nachweislich neu geschrieben worden war.
+    #
+    # ⚠ Wer hier eine neue Art von Einfügung baut, baut sie an **beiden**
+    # Stellen ein — oder er baut sie für die Hälfte der Nutzer gar nicht.
+    eigene_schiffe = _asop_tabelle(zeilen)
 
     neu = []
     for zeile in zeilen:
@@ -1192,7 +1203,11 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         grundlage, _fremd = _fremdblock_trennen(ur)
         sauber = grundlage
         angefasst = False
-        if schluessel in namens_zusatz:
+        if schluessel in eigene_schiffe:
+            eigen, stern = eigene_schiffe[schluessel]
+            sauber = asop_modul.anzeigename(grundlage, eigen, stern)
+            angefasst = sauber != grundlage
+        elif schluessel in namens_zusatz:
             sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
             angefasst = True
         elif schluessel in titel_an:

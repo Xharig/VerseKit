@@ -6,6 +6,19 @@ All notable changes to this project are documented here.
 
 The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
+## v3.28.2 - 2026-09-10
+
+> **Now the name really does reach the game.** Yesterday the page wrote
+> reliably — just into the wrong half of the program. There are two ways to get
+> text into the game, and the ship names were wired to the one that hardly
+> anyone actually uses.
+
+### Fixed
+
+- **Your own ship name was never written, even though the file was.** The tool
+  has two ways to inject text; almost everyone gets the one, and only the other
+  one knew about the names. Both know now
+
 ## v3.28.1 - 2026-09-10
 
 > **"Rename ships" did nothing yesterday.** You could enter a name, it was
