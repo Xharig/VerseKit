@@ -34,16 +34,24 @@ on:
 # unten stehen. Es wurde also festgeschrieben, was ohnehin lief — nichts
 # aktualisiert.
 #
-# ⚠⚠ **Das ist NOCH KEIN reproduzierbarer Bau — und soll auch nicht so
-# aussehen.** Festgeschrieben sind die direkt genannten Werkzeuge, die Actions,
-# AppImageTool und die AppImage-Runtime. **Nicht** festgeschrieben sind die
-# Unterabhaengigkeiten von PyInstaller und pyflakes (`altgraph`, `packaging`,
-# `setuptools`, `pyinstaller-hooks-contrib`, dazu `pefile` und
-# `pywin32-ctypes` nur unter Windows). Dafuer braucht es eine Sperrdatei mit
-# `pip install --require-hashes`, und die muss **auf der jeweiligen Zielplattform**
-# erzeugt werden: Die Windows-Pakete haengen an `sys_platform == "win32"`, ein
-# anderswo erzeugter Lock laesst sie weg und der Bau bricht. Das ist als
-# eigener Schritt vorgemerkt und bewusst nicht Teil dieser Aenderung.
+# ⚠⚠ **Seit dem 11.09.2026 sind auch die Unterabhaengigkeiten festgenagelt.**
+# `packaging/lock-windows.txt` und `packaging/lock-linux.txt` nennen jedes
+# Paket mit Version und SHA-256; installiert wird mit `--require-hashes`.
+# Damit liegen `altgraph`, `packaging`, `setuptools`,
+# `pyinstaller-hooks-contrib` und unter Windows `pefile` und
+# `pywin32-ctypes` ebenfalls fest.
+#
+# ⚠ **Je Plattform eine eigene Datei, erzeugt auf der Plattform selbst.**
+# Die Windows-Pakete haengen an `sys_platform == "win32"`; ein anderswo
+# erzeugter Lock laesst sie weg, und der Bau bricht. Dafuer gibt es den
+# Ablauf `sperrdateien.yml` — er laeuft auf beiden Systemen und haengt die
+# Ergebnisse als Anhang an. **Nach jedem Anheben eines Werkzeugs neu laufen
+# lassen und die Dateien einchecken.**
+#
+# ⚠ Was weiterhin NICHT festliegt: das Betriebssystem der Bau-Rechner, die
+# Python-Punktversion, `apt`-Pakete im Linux-Container und Inno Setup unter
+# Windows. „Reproduzierbar" waere also weiter zu viel gesagt — festgenagelt
+# ist die Python-Seite der Lieferkette.
 #
 # Anheben ist Handarbeit und Absicht: SHA UND den Kommentar daneben aendern.
 # `tools/selbsttest.py` (Pruefung 178) haelt fest, dass hier nichts wieder
@@ -110,8 +118,18 @@ jobs:
       # sonst erst beim Klicken auffliegen. Ohne das Paket ueberspringt der
       # Selbsttest diese Pruefung stillschweigend; vor einem Release soll sie
       # aber wirklich laufen.
-      - name: pyflakes
-        run: pip install --quiet "pyflakes==${{ env.PY_PYFLAKES }}"
+      - name: Werkzeuge aus der Sperrdatei
+        # ⚠⚠ `--require-hashes` verlangt, dass JEDES Paket mit Pruefsumme
+        # dasteht — auch `pefile` und `pywin32-ctypes`, die es nur unter
+        # Windows gibt. Deshalb hat jede Plattform ihre eigene Datei, erzeugt
+        # auf der Plattform selbst (Ablauf "Sperrdateien bauen").
+        #
+        # Hier kommen pyflakes UND PyInstaller in einem Rutsch: pyflakes wird
+        # gleich fuer den Selbsttest gebraucht, PyInstaller erst spaeter —
+        # zwei Laeufe mit derselben Sperrdatei waeren nur doppelte Zeit.
+        run: |
+          pip install --quiet --require-hashes -r packaging/lock-windows.txt
+          pip list
 
       - name: Selbsttest
         run: python tools/selbsttest.py
@@ -135,9 +153,6 @@ jobs:
           io.open(p, 'w', encoding='utf-8').write(t.replace(alt, neu, 1))
           print('Ziel eingesetzt:', 'ja' if len(neu) > len(alt) else 'leer')
           PYEOF
-
-      - name: PyInstaller
-        run: pip install "pyinstaller==${{ env.PY_PYINSTALLER }}"
 
       - name: EXE bauen
         run: >
@@ -227,14 +242,24 @@ jobs:
           # heraus (Paket `python3.14-venv`, oben mitinstalliert) — kein
           # Download, keine Pipe.
           python3.14 -m ensurepip --upgrade
-          # Feste Versionen: siehe die Begruendung im Kopf dieser Datei.
-          python3.14 -m pip install --quiet \
-            "pip==${PY_PIP}" \
-            "pyinstaller==${PY_PYINSTALLER}" \
-            "pyflakes==${PY_PYFLAKES}"
+          # Feste Version: siehe die Begruendung im Kopf dieser Datei.
+          python3.14 -m pip install --quiet "pip==${PY_PIP}"
           python3 -c "import compression.zstd; print('zstd in der Standardbibliothek: ok')"
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      # ⚠⚠ **Erst NACH dem Auschecken** — die Sperrdatei liegt im Repo.
+      # Vorher stand die Installation weiter oben; mit einer Sperrdatei geht
+      # das nicht mehr, und das ist der einzige Grund fuer die Umstellung.
+      - name: Werkzeuge aus der Sperrdatei
+        # ⚠ `--require-hashes` verlangt, dass JEDES Paket mit Pruefsumme
+        # dasteht — auch die Unterabhaengigkeiten. Fehlt eines, bricht der Bau
+        # ab. Genau das ist der Zweck: laut ist besser als still.
+        # Neue Sperrdateien erzeugt der Ablauf "Sperrdateien bauen".
+        run: |
+          python3.14 -m pip install --quiet --require-hashes \
+            -r packaging/lock-linux.txt
+          python3.14 -m pip list
 
       # Dasselbe wie im Windows-Job — siehe die Begruendung dort.
 
