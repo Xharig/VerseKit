@@ -8,22 +8,46 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.29.0 - 2026-09-11
+
+> **Ein Update installiert sich nur noch, wenn es nachweislich das richtige
+> ist.** Bisher war sichergestellt, dass die Datei von GitHub kommt — ab jetzt
+> auch, dass es *diese* Datei ist: Jedes Release bringt seine Prüfsumme mit,
+> und was nicht passt, wird gar nicht erst eingespielt.
+>
+> Dazu drei Fehler, die im Stillen falsche Zahlen und falsche Namen erzeugt
+> haben. Besonders einer lohnt den Blick: Mengen mit Tausendertrennzeichen
+> *und* drei Nachkommastellen landeten um den Faktor tausend daneben im Lager.
+
 ### Neu
 
-- **Ein Update wird jetzt gegen seine veröffentlichte Prüfsumme geprüft.**
-  Bisher war nur sichergestellt, dass die Datei von GitHub kommt — nicht, dass
-  es die richtige ist. Jedes Release bringt ab sofort eine `SHA256SUMS.txt`
-  mit; das Programm holt sie, rechnet die geladene Datei nach und installiert
-  nur bei Übereinstimmung. Stimmt etwas nicht, wird die Datei verworfen und
-  der Weg von Hand über die Release-Seite genannt
+- **Ein Update wird gegen seine veröffentlichte Prüfsumme geprüft.** Jedes
+  Release bringt ab sofort eine `SHA256SUMS.txt` mit; das Werkzeug holt sie,
+  rechnet die geladene Datei nach und installiert **nur** bei Übereinstimmung.
+  Stimmt etwas nicht oder fehlt die Datei, wird nichts installiert — stattdessen
+  kommt ein Hinweis und der Weg von Hand über die Release-Seite
 
 ### Verbessert
 
-- **Der Dateiname aus der GitHub-Antwort wird entschärft**, bevor er in einen
-  Pfad kommt
+- **Der Dateiname aus der GitHub-Antwort wird entschärft**, bevor er zu einem
+  Pfad auf deiner Platte wird
+- **Bricht ein Update mitten im Herunterladen ab**, bleibt kein halbes Stück
+  neben dem Programm liegen
 
 ### Behoben
 
+- **Mengen mit Tausendertrennzeichen und drei Nachkommastellen waren um den
+  Faktor tausend falsch.** Aus `1,234.567` wurde `1234567`. Stehen beide
+  Trennzeichen in einer Zahl, gilt jetzt das hintere als Dezimaltrennzeichen —
+  wie überall sonst auch
+- **Der eigene Schiffsname konnte am falschen Fahrzeug landen.** Haben zwei
+  Schiffe denselben Werksnamen — im Spiel keine Seltenheit —, wurde stillschweigend
+  das erstbeste genommen. Jetzt gilt überall dieselbe Regel: Passt mehr als
+  eines, wird **keines** umbenannt und die Zeile sagt, dass es mehrdeutig ist
+- **Ein Schiffsname ging verloren, wenn man das Fenster sofort danach schloss.**
+  Die Seite sammelt Eingaben kurz, bevor sie schreibt; wer schneller war,
+  hatte den Namen in der eigenen Datei stehen, aber nicht im Spiel. Beim
+  Schließen wird ein offener Schreibauftrag jetzt nachgeholt
 - **Beim Wechsel der Textquelle blieb die alte Sprachdatei liegen.** Die
   Quellen schreiben in verschiedene Ordner: „Deutsche Übersetzung" nach
   `german_(germany)`, „StarStrings" und „Original" nach `english`. Wer

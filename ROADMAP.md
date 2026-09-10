@@ -71,6 +71,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Blickwinkel**: Bildschirm mit einer Bankkarte ausmessen, daraus der neutrale Blickwinkel und der Sitzabstand, der zur eigenen Einstellung passt |
 | ✅ | **Geänderte Spielwerte**: was ein Spiel-Patch an Werten verändert hat — Schiffe, Waffen, Quantum-Antriebe, Komponenten. Gestiegen grün, gefallen rot. Die Quelle hebt nur die letzten zehn Patches auf; hier bleiben sie liegen |
 | ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
+| ✅ | **Geprüfte Updates**: jedes Release bringt seine Prüfsumme mit, und eingespielt wird nur, was ihr entspricht — sonst gar nichts, mit Hinweis auf den Download von Hand |
 
 ## Woran gearbeitet wird
 
