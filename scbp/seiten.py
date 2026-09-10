@@ -10684,6 +10684,12 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
         uebernehmen()
 
     schalter.bind('<Button-1>', stern_umschalten)
+    # ⚠ Der Griff für Prüfungen — wie `neu_zeichnen` bei `_schalter`. Ein
+    # erzeugter `<Button-1>` braucht ein **gemapptes** Fenster; im Bau-Lauf
+    # unter Windows gibt es keins, und die Prüfung wäre dort rot, obwohl der
+    # Schalter tut, was er soll. Genau daran ist Prüfung 155 schon einmal
+    # gescheitert: gemessen wurde die Pixellage statt der Wirkung.
+    schalter.umschalten = stern_umschalten
     schalter_zeichnen()
 
     # ⚠ Beim Verlassen des Feldes sichern, nicht bei jedem Tastendruck: Sonst

@@ -15803,11 +15803,16 @@ def main():
            'kein tk.Checkbutton — der Schalter ist im Projektstil gebaut')
 
     # -- Und er tut auch etwas: ein Klick setzt den Stern und sichert.
+    # ⚠⚠ **Kein erzeugter `<Button-1>`.** Der braucht ein gemapptes Fenster —
+    # im Bau-Lauf unter Windows gibt es keins, und die Prüfung war dort rot,
+    # während sie unter Linux grün lief. Gerufen wird deshalb der Rückruf
+    # selbst; geprüft ist damit dieselbe Wirkung, nur ohne Bildschirm.
     _schalter176 = [w for w in _kinder176
-                    if isinstance(w, tk.Label) and w.cget('cursor') == 'hand2']
+                    if isinstance(w, tk.Label) and w.cget('cursor') == 'hand2'
+                    and hasattr(w, 'umschalten')]
     pruefe(bool(_schalter176), 'der Schalter ist anklickbar')
     if _schalter176:
-        _schalter176[0].event_generate('<Button-1>')
+        _schalter176[0].umschalten()
         _w176.update_idletasks()
         _name176, _stern176 = _as176.eintrag(_daten176['stand'],
                                              'vehicle_NameXIAN_Railen')
