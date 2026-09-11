@@ -49,48 +49,56 @@ Drei Abrufe für eine vollständige Liste sind sparsamer als hundert kleine.
 
 ⚠ Und **selten**: Schiffe kommen mit einem Patch dazu, nicht über Nacht —
 dieselbe Wochenfrist wie bei den Lagerorten.
+
+⚠ Bis zum 12.09.2026 hieß dieses Modul `schiffe` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: der Ablage-Name `schiffe.json` und die Schlüssel darin
+(`schiffe`, `kauf`, `miete`, `konzept`, `anbau`, `name`, `werft`, `scu`,
+`stelle`, `ort`, `system`, `preis`) — sonst gilt jede vorhandene Ablage als
+fremd. Ebenso die Kennungen, unter denen `uex.holen()` meldet
+(`'schiffe'`, `'schiffe.kauf'`, `'schiffe.miete'`).
 """
 from . import uex
 from .katalog import AUS
 
-QUELLE_SCHIFFE = 'https://api.uexcorp.uk/2.0/vehicles'
-QUELLE_KAUF = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
-QUELLE_MIETE = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
+SOURCE_SHIPS = 'https://api.uexcorp.uk/2.0/vehicles'
+SOURCE_BUY = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
+SOURCE_RENT = 'https://api.uexcorp.uk/2.0/vehicles_rentals_prices'
 CACHE = 'schiffe.json'
 # 2 seit v3.15.0 (die Werft kam dazu), 3 seit dem Entschlüsseln der
 # HTML-Zeichen — sonst bliebe „Grey&apos;s Market" in der alten Ablage stehen.
-# 4 seit v3.19.0: `konzept` kam dazu, 5: `anbau` (siehe `aktualisieren`).
+# 4 seit v3.19.0: `konzept` kam dazu, 5: `anbau` (siehe `update`).
 FORMAT = 5
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
-HALTBAR = 30 * uex.TAG
+SHELF_LIFE = 30 * uex.TAG
 
 # ⚠ An den Patch gebunden: Schiffe, ihre Frachträume und ihre Kaufpreise
 # ändern sich mit einer neuen Spielversion, nicht im Wochenrhythmus.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
-                     patch_bindet=True)
+_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE,
+                    patch_bindet=True)
 
 
-def laden():
-    return _ablage.laden() or {}
+def load():
+    return _store.laden() or {}
 
 
-def alter():
-    return _ablage.alter()
+def age():
+    return _store.alter()
 
 
-def alle():
+def names_with_cargo():
     """Alle Schiffe **mit Frachtraum**, alphabetisch.
 
     ⚠ Ohne Laderaum ist ein Schiff für diese Frage uninteressant — wer eine
     Handelsroute plant, sucht keinen Jäger. 139 von 280 bleiben übrig.
     """
-    schiffe = laden().get('schiffe') or {}
-    return sorted((s.get('name') or '' for s in schiffe.values()
+    ships = load().get('schiffe') or {}
+    return sorted((s.get('name') or '' for s in ships.values()
                    if (s.get('scu') or 0) > 0), key=str.lower)
 
 
-def katalog():
+def catalog():
     """Jedes Schiff, das irgendwo **zu kaufen oder zu mieten** ist.
 
     Je Eintrag `name`, `werft` und `scu`. Gedacht für den Laden-Reiter: Dort
@@ -98,55 +106,56 @@ def katalog():
     angeboten wird, hat darauf keine Antwort — genau wie ein Teil ohne
     Ladenpreis.
 
-    ⚠ **Nicht dasselbe wie `alle()`.** Das liefert die Schiffe mit Laderaum
-    für den Routenplaner; hier zählt der Verkaufstresen, nicht der Frachtraum.
+    ⚠ **Nicht dasselbe wie `names_with_cargo()`.** Das liefert die Schiffe mit
+    Laderaum für den Routenplaner; hier zählt der Verkaufstresen, nicht der
+    Frachtraum.
     """
-    daten = laden()
-    schiffe = daten.get('schiffe') or {}
-    zu_haben = set(daten.get('kauf') or {}) | set(daten.get('miete') or {})
-    raus = []
-    for kennung, s in schiffe.items():
-        if kennung not in zu_haben or not (s.get('name') or ''):
+    data = load()
+    ships = data.get('schiffe') or {}
+    available = set(data.get('kauf') or {}) | set(data.get('miete') or {})
+    result = []
+    for ident, s in ships.items():
+        if ident not in available or not (s.get('name') or ''):
             continue
-        raus.append({'name': s['name'], 'werft': s.get('werft') or '',
-                     'scu': int(s.get('scu') or 0)})
-    raus.sort(key=lambda x: x['name'].lower())
-    return raus
+        result.append({'name': s['name'], 'werft': s.get('werft') or '',
+                       'scu': int(s.get('scu') or 0)})
+    result.sort(key=lambda x: x['name'].lower())
+    return result
 
 
-def mit_frachtraum():
+def with_cargo():
     """Alle Schiffe **mit Laderaum**, samt Werft und SCU.
 
-    ⚠ **Nicht auf das Verkaufsangebot beschränkt** — anders als `katalog()`.
+    ⚠ **Nicht auf das Verkaufsangebot beschränkt** — anders als `catalog()`.
     Wer eine Route plant, fliegt sein eigenes Schiff; ob es gerade irgendwo im
     Regal steht, ist dafür belanglos.
     """
-    raus = []
-    for s in (laden().get('schiffe') or {}).values():
-        laderaum = int(s.get('scu') or 0)
-        if laderaum <= 0 or not (s.get('name') or ''):
+    result = []
+    for s in (load().get('schiffe') or {}).values():
+        cargo = int(s.get('scu') or 0)
+        if cargo <= 0 or not (s.get('name') or ''):
             continue
-        raus.append({'name': s['name'], 'werft': s.get('werft') or '',
-                     'scu': laderaum})
-    raus.sort(key=lambda x: x['name'].lower())
-    return raus
+        result.append({'name': s['name'], 'werft': s.get('werft') or '',
+                       'scu': cargo})
+    result.sort(key=lambda x: x['name'].lower())
+    return result
 
 
-def namen_alle():
+def all_names():
     """**Alle** Schiffe und Fahrzeuge, alphabetisch — auch ohne Frachtraum.
 
-    ⚠⚠ **Nicht mit `alle()` verwechseln.** Das dort filtert auf Laderaum und
-    liefert 134 von 280 — richtig für den Routenplaner, falsch überall sonst.
-    Im Hangar war es ein Fehler: Wer einen Arrow, einen Gladius oder ein
-    A.T.L.S. IKTI besitzt, konnte ihn **gar nicht eintragen**, weil kein Jäger
-    und kein Exo-Anzug Laderaum hat. Gemeldet am 06.09.2026.
+    ⚠⚠ **Nicht mit `names_with_cargo()` verwechseln.** Das dort filtert auf
+    Laderaum und liefert 134 von 280 — richtig für den Routenplaner, falsch
+    überall sonst. Im Hangar war es ein Fehler: Wer einen Arrow, einen Gladius
+    oder ein A.T.L.S. IKTI besitzt, konnte ihn **gar nicht eintragen**, weil
+    kein Jäger und kein Exo-Anzug Laderaum hat. Gemeldet am 06.09.2026.
     """
-    schiffe = laden().get('schiffe') or {}
-    return sorted((s.get('name') or '' for s in schiffe.values()
+    ships = load().get('schiffe') or {}
+    return sorted((s.get('name') or '' for s in ships.values()
                    if s.get('name') and not s.get('anbau')), key=str.lower)
 
 
-def _finden(name):
+def _find(name):
     """Der UEX-Eintrag zu einem Schiffsnamen — oder `None`.
 
     ⚠⚠ **UEX führt den Hersteller im Namen mit** (`name_full`): „RSI Galaxy",
@@ -158,24 +167,24 @@ def _finden(name):
     zweite Weg zählt nur bei einem **einzigen** Treffer; „Galaxy" darf nicht
     versehentlich das „Galaxy Cargo Module" erwischen.
     """
-    gesucht = (name or '').strip().lower()
-    if not gesucht:
+    wanted = (name or '').strip().lower()
+    if not wanted:
         return None
-    alle_e = list((laden().get('schiffe') or {}).values())
-    for s in alle_e:
-        if (s.get('name') or '').lower() == gesucht:
+    entries = list((load().get('schiffe') or {}).values())
+    for s in entries:
+        if (s.get('name') or '').lower() == wanted:
             return s
-    endet = [s for s in alle_e
-             if (s.get('name') or '').lower().endswith(' ' + gesucht)]
-    return endet[0] if len(endet) == 1 else None
+    ends = [s for s in entries
+            if (s.get('name') or '').lower().endswith(' ' + wanted)]
+    return ends[0] if len(ends) == 1 else None
 
 
-def kennt(name):
+def knows(name):
     """Führt UEX ein Schiff dieses Namens?"""
-    return _finden(name) is not None
+    return _find(name) is not None
 
 
-def hersteller(name):
+def manufacturer(name):
     """Der Hersteller zu einem Schiffsnamen — oder `''`.
 
     ⚠ **Warum das nötig ist.** UEX führt den Hersteller im Namen mit („MISC
@@ -189,98 +198,98 @@ def hersteller(name):
     Wort: Bei „Mirai Fury LX" heißt der Hersteller „Mirai", bei „Aegis Dynamics
     Sabre" die vollen zwei Wörter.
     """
-    eintrag = _finden(name)
-    if not eintrag:
+    entry = _find(name)
+    if not entry:
         return ''
-    voll = (eintrag.get('name') or '').strip()
-    gesucht = (name or '').strip()
-    if voll.lower().endswith(' ' + gesucht.lower()):
-        return voll[:len(voll) - len(gesucht)].strip()
+    full = (entry.get('name') or '').strip()
+    wanted = (name or '').strip()
+    if full.lower().endswith(' ' + wanted.lower()):
+        return full[:len(full) - len(wanted)].strip()
     return ''
 
 
-def ist_konzept(name):
+def is_concept(name):
     """Ist das Schiff laut UEX ein Konzept — also noch nicht im Spiel?
 
     ⚠ **Fremdangabe, keine eigene Feststellung.** UEX pflegt das Feld von
     Hand; steht dort nichts, kommt `False` zurück. Die Anzeige darf daraus
     also „Konzept" folgern, aber niemals aus dem Fehlen von Steckplatz-Daten.
     """
-    eintrag = _finden(name)
-    return bool(eintrag and eintrag.get('konzept'))
+    entry = _find(name)
+    return bool(entry and entry.get('konzept'))
 
 
 def scu(name):
     """Der Frachtraum eines Schiffs in SCU — oder `0`."""
-    for s in (laden().get('schiffe') or {}).values():
+    for s in (load().get('schiffe') or {}).values():
         if (s.get('name') or '').lower() == (name or '').strip().lower():
             return int(s.get('scu') or 0)
     return 0
 
 
-def _stellen(name, feld):
-    schiffe = laden().get('schiffe') or {}
-    kennung = ''
-    for schluessel, s in schiffe.items():
+def _places(name, field):
+    ships = load().get('schiffe') or {}
+    ident = ''
+    for key, s in ships.items():
         if (s.get('name') or '').lower() == (name or '').strip().lower():
-            kennung = schluessel
+            ident = key
             break
-    if not kennung:
+    if not ident:
         return []
-    liste = (laden().get(feld) or {}).get(kennung) or []
-    return sorted(liste, key=lambda z: z['preis'])
+    items = (load().get(field) or {}).get(ident) or []
+    return sorted(items, key=lambda z: z['preis'])
 
 
-def kaufen(name):
+def buy_at(name):
     """Wo dieses Schiff zu kaufen ist — billigster zuerst."""
-    return _stellen(name, 'kauf')
+    return _places(name, 'kauf')
 
 
-def mieten(name):
+def rent_at(name):
     """Wo dieses Schiff zu mieten ist — billigster zuerst."""
-    return _stellen(name, 'miete')
+    return _places(name, 'miete')
 
 
-def _preise_einsammeln(roh, preisfeld):
+def _collect_prices(raw, price_field):
     """Aus einer Preisliste `{schiff_id: [Stellen]}` machen."""
-    raus = {}
-    for x in roh or []:
-        kennung = str(x.get('id_vehicle') or '')
-        preis = float(x.get(preisfeld) or 0)
+    result = {}
+    for x in raw or []:
+        ident = str(x.get('id_vehicle') or '')
+        price = float(x.get(price_field) or 0)
         # ⚠ `0` heisst „hier nicht zu haben", nicht „geschenkt" — dieselbe
         # Falle wie bei den Waren- und Ladenpreisen.
-        if not kennung or preis <= 0:
+        if not ident or price <= 0:
             continue
-        raus.setdefault(kennung, []).append({
+        result.setdefault(ident, []).append({
             'stelle': (x.get('terminal_name') or '').strip(),
             'ort': (x.get('space_station_name') or x.get('city_name')
                     or x.get('outpost_name') or x.get('planet_name')
                     or '').strip(),
             'system': (x.get('star_system_name') or '').strip(),
-            'preis': preis,
+            'preis': price,
         })
-    return raus
+    return result
 
 
-def aktualisieren():
+def update():
     """Die drei Listen holen, wenn sie fehlen oder älter als eine Woche sind."""
     if AUS:
         return False
-    if not _ablage.veraltet():
+    if not _store.veraltet():
         return True
-    roh = uex.holen(QUELLE_SCHIFFE, 'schiffe')
-    if not roh:
+    raw = uex.holen(SOURCE_SHIPS, 'schiffe')
+    if not raw:
         return False
-    schiffe = {}
-    for x in roh:
-        kennung = str(x.get('id') or '')
+    ships = {}
+    for x in raw:
+        ident = str(x.get('id') or '')
         name = (x.get('name_full') or x.get('name') or '').strip()
-        if kennung and name:
+        if ident and name:
             # ⚠ Der Hersteller kommt seit v3.15.0 mit — im Laden-Reiter sind
             # die Werften die Warengruppen, nach denen jemand sucht („zeig mir
             # die Drakes"). Ohne ihn wären 280 Schiffe eine Namensliste.
-            schiffe[kennung] = {'name': name, 'scu': int(x.get('scu') or 0),
-                                'werft': (x.get('company_name') or '').strip()}
+            ships[ident] = {'name': name, 'scu': int(x.get('scu') or 0),
+                            'werft': (x.get('company_name') or '').strip()}
             # ⭐⭐ **`is_concept` beantwortet eine Frage, die wir sonst raten
             # müssten:** Gibt es das Schiff im Spiel schon? Der Hangar zeigt zu
             # jedem Schiff ohne Steckplatz-Daten, woran das liegt — und ohne
@@ -289,21 +298,21 @@ def aktualisieren():
             # Super Hornet Mk II). Eine Behauptung, die man nicht belegen kann,
             # gehört nicht ins Werkzeug.
             if x.get('is_concept'):
-                schiffe[kennung]['konzept'] = 1
+                ships[ident]['konzept'] = 1
             # ⚠ Anbauteile sind keine Schiffe: „Retaliator Cargo Module",
             # „Endeavor Medical Bay Pod". In einer Schiffsliste stiften sie nur
             # Verwirrung — und bei der Zuordnung landeten sie beim Hauptschiff,
             # wodurch die Bergung für ein Modul die Ausstattung des ganzen
             # Retaliators zeigte.
             if x.get('is_addon'):
-                schiffe[kennung]['anbau'] = 1
+                ships[ident]['anbau'] = 1
 
     # ⚠ Die Preislisten dürfen fehlschlagen, ohne dass alles scheitert: Ohne
     # sie kennt man wenigstens noch die Frachträume, und genau die braucht der
     # Routen-Reiter. Lieber die halbe Auskunft als gar keine.
-    kauf = _preise_einsammeln(uex.holen(QUELLE_KAUF, 'schiffe.kauf'),
-                              'price_buy')
-    miete = _preise_einsammeln(uex.holen(QUELLE_MIETE, 'schiffe.miete'),
-                               'price_rent')
-    return _ablage.sichern({'schiffe': schiffe, 'kauf': kauf,
-                            'miete': miete}, kompakt=True)
+    buy = _collect_prices(uex.holen(SOURCE_BUY, 'schiffe.kauf'),
+                          'price_buy')
+    rent = _collect_prices(uex.holen(SOURCE_RENT, 'schiffe.miete'),
+                           'price_rent')
+    return _store.sichern({'schiffe': ships, 'kauf': buy,
+                           'miete': rent}, kompakt=True)

@@ -502,7 +502,7 @@ def auswahllisten_pruefen(hf):
     löst nichts aus, der Klick kommt nicht an, oder das Ergebnis wird nicht
     gezeichnet. Jede davon sieht für sich harmlos aus.
     """
-    from scbp import crafting, schiffe
+    from scbp import crafting, ships
 
     # Je Fall: (Seite, was getippt wird, erwarteter Vorschlag, Knopf danach)
     faelle = []
@@ -515,7 +515,7 @@ def auswahllisten_pruefen(hf):
     except Exception:
         pass
     try:
-        namen = schiffe.namen_alle() or []
+        namen = ships.all_names() or []
         if namen:
             faelle.append(('wunschliste', namen[0][:6], namen[0],
                            'Auf die Wunschliste'))

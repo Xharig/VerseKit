@@ -935,7 +935,7 @@ def rechnung(daten=None):
     Holen gehört in die Oberfläche, wo es im Hintergrund laufen kann, und nicht
     in eine Funktion, die beim Aufklappen einer Seite anhält.
     """
-    from . import hangar, schiffe as alle_schiffe
+    from . import hangar, ships as alle_schiffe
 
     daten = daten if daten is not None else hangar.laden()
     verzeichnis = _bauplan_verzeichnis()
@@ -962,7 +962,7 @@ def rechnung(daten=None):
                         'dauer': None, 'bauplan': '', 'ohne_preis': []},
             }
             try:
-                stellen = alle_schiffe.kaufen(name)
+                stellen = alle_schiffe.buy_at(name)
             except Exception as ausnahme:
                 fehler.merken('warenkorb.rechnung.schiffspreis', ausnahme)
                 stellen = []
@@ -1069,7 +1069,7 @@ def fehlende_preise(posten_liste):
     gesehen = set()
     for p in posten_liste or []:
         if p.get('sorte') == SCHIFF:
-            # Schiffspreise kommen aus `schiffe.py`, nicht aus `laeden.py`.
+            # Schiffspreise kommen aus `ships.py`, nicht aus `laeden.py`.
             continue
         kennung = p.get('ref') or ''
         zustand = (p.get('kauf') or {}).get('zustand')

@@ -6310,7 +6310,7 @@ def _routen(fenster, rahmen):
     Spieler steht, was in seinem Laderaum liegt oder wieviel Geld er hat —
     nichts davon steht in der `Game.log`. Also wird gefragt, statt geraten.
     """
-    from . import routen as routen_modul, schiffe as schiff_modul
+    from . import routen as routen_modul, ships as schiff_modul
     from . import verkauf as preisdaten
 
     _ueberschrift(fenster, rahmen, t('hf_routen'), t('s_rt_lead'))
@@ -6488,7 +6488,7 @@ def _routen(fenster, rahmen):
             return
         if text and text == (zustand.get('schiff') or '').lower():
             return
-        flotte = schiff_modul.mit_frachtraum()
+        flotte = schiff_modul.with_cargo()
         if not flotte:
             _schiffliste_zeigen()
             _fliesstext(schiffvorschlag, t('s_rt_keine_schiffe'),
@@ -6531,7 +6531,7 @@ def _routen(fenster, rahmen):
         for kind in werft_rahmen.winfo_children():
             kind.destroy()
         zaehler = {}
-        for s in schiff_modul.mit_frachtraum():
+        for s in schiff_modul.with_cargo():
             if s['werft']:
                 zaehler[s['werft']] = zaehler.get(s['werft'], 0) + 1
         eintraege = [(w, '%s (%d)' % (w, n)) for w, n in
@@ -6566,9 +6566,9 @@ def _routen(fenster, rahmen):
         if not name:
             return
         for schluessel, stellen in ((t('s_rt_kaufen'),
-                                     schiff_modul.kaufen(name)),
+                                     schiff_modul.buy_at(name)),
                                     (t('s_rt_mieten'),
-                                     schiff_modul.mieten(name))):
+                                     schiff_modul.rent_at(name))):
             if not stellen:
                 continue
             billig = stellen[0]
@@ -7117,12 +7117,12 @@ def _routen(fenster, rahmen):
         ⚠ Beim Aufbau der Seite liegen sie oft noch nicht vor; dann bliebe das
         Menü leer und der Reiter fragte nach einem Namen, den niemand kennt.
         """
-        if schiff_modul.mit_frachtraum():
+        if schiff_modul.with_cargo():
             return
 
         def arbeit():
             try:
-                schiff_modul.aktualisieren()
+                schiff_modul.update()
             except Exception as ausnahme:
                 fehler.merken('seiten.routen.schiffe', ausnahme)
 
@@ -7395,8 +7395,8 @@ def _laeden(fenster, rahmen):
             # ich das" ist der Ort dafür. Warengruppe ist die Werft: Wer ein
             # Schiff sucht, sucht meistens „die Drakes".
             try:
-                from . import schiffe as schiff_modul
-                for s in schiff_modul.katalog():
+                from . import ships as schiff_modul
+                for s in schiff_modul.catalog():
                     raus.append({'name': s['name'],
                                  'kennung': SCHIFF_PRAEFIX + s['name'],
                                  'bereich': BEREICH_SCHIFFE,
@@ -7577,7 +7577,7 @@ def _laeden(fenster, rahmen):
         ist die Miete die Zahl, die zählt: Wer einmal Fracht fahren will,
         mietet für einen Tag, statt Millionen auszugeben.
         """
-        from . import schiffe as schiff_modul
+        from . import ships as schiff_modul
         kopf = tk.Frame(ergebnis_rahmen, bg=BG)
         kopf.pack(fill='x', pady=(0, 6))
         tk.Label(kopf, text=schiffsname, bg=BG, fg=FG, font=fenster.f_fett,
@@ -7588,8 +7588,8 @@ def _laeden(fenster, rahmen):
                      font=fenster.f_klein, anchor='e').pack(side='right')
 
         etwas = False
-        for schluessel, holen in (('s_ld_kaufen', schiff_modul.kaufen),
-                                  ('s_ld_mieten', schiff_modul.mieten)):
+        for schluessel, holen in (('s_ld_kaufen', schiff_modul.buy_at),
+                                  ('s_ld_mieten', schiff_modul.rent_at)):
             stellen = holen(schiffsname)
             if not stellen:
                 continue
@@ -7937,8 +7937,8 @@ def _laeden(fenster, rahmen):
             # ⚠ Die Schiffsdaten gehören zum selben Aufwasch — ohne sie
             # fehlte der Bereich „Schiffe" in der Liste.
             try:
-                from . import schiffe as schiff_modul
-                schiff_modul.aktualisieren()
+                from . import ships as schiff_modul
+                schiff_modul.update()
             except Exception as ausnahme:
                 fehler.merken('seiten.laeden.schiffe_holen', ausnahme)
 
@@ -9043,7 +9043,7 @@ def _bergung(fenster, rahmen):
     eigene Schiff — hier geht es um jeden Rumpf, der einem begegnet. Deshalb
     sitzt die Seite auch nicht bei „Mein Hangar".
     """
-    from . import bergung as bg, erkul, laeden, schiffe as alle_schiffe
+    from . import bergung as bg, erkul, laeden, ships as alle_schiffe
 
     _ueberschrift(fenster, rahmen, t('hf_bergung'), t('s_wr_lead'))
     innen = _rollflaeche(rahmen)
@@ -9070,7 +9070,7 @@ def _bergung(fenster, rahmen):
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(6, 0))
     zeile, auswahl, _ = _auswahlfeld(fenster, block, schiff,
-                                     alle_schiffe.namen_alle,
+                                     alle_schiffe.all_names,
                                      leer_text=t('s_hg_nichts_gefunden'),
                                      rollbar=200)
     zeile.pack(fill='x')
@@ -9084,7 +9084,7 @@ def _bergung(fenster, rahmen):
             kind.destroy()
         if not teile:
             # ⚠ „Konzept" nur, wenn UEX es sagt — sonst der neutrale Satz.
-            schluessel = ('s_wr_konzept' if alle_schiffe.ist_konzept(name)
+            schluessel = ('s_wr_konzept' if alle_schiffe.is_concept(name)
                           else 's_wr_unbekannt')
             _fliesstext(ergebnis, t(schluessel), fenster.f_klein,
                         farbe=GOLD, fill='x')
@@ -9141,7 +9141,7 @@ def _bergung(fenster, rahmen):
 
     def nachsehen():
         name = (schiff.get() or '').strip()
-        if not alle_schiffe.kennt(name):
+        if not alle_schiffe.knows(name):
             hinweis.configure(text=t('s_wr_kein_schiff'), fg=ROT)
             return
         kennung = erkul.kennung(name, '', '', '')
@@ -9261,8 +9261,8 @@ def _bergung_holen(name):
     # das die Schiffe benutzen, ist nicht darunter. Die Zuordnung erkennt
     # Zusammenziehungen inzwischen selbst (`_ist_kuerzel`); die Werft kommt
     # trotzdem mit, weil sie bei manchen Namen das entscheidende Wort liefert.
-    from . import schiffe as alle_schiffe
-    eintrag = alle_schiffe._finden(name) or {}
+    from . import ships as alle_schiffe
+    eintrag = alle_schiffe._find(name) or {}
     werft = eintrag.get('werft') or ''
 
     treffer = erkul._wortweise_suchen(verzeichnis, name, werft, '', '')
@@ -10042,7 +10042,7 @@ def _hangar(fenster, rahmen):
     wer keinen Export hat, findet den Handeintrag direkt darunter. Umgekehrt
     wäre der bequeme Weg der versteckte.
     """
-    from . import hangar as meine, erkul, schiffe as alle_schiffe, file_picker
+    from . import hangar as meine, erkul, ships as alle_schiffe, file_picker
 
     _ueberschrift(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
     innen = _rollflaeche(rahmen)
@@ -10124,7 +10124,7 @@ def _hangar(fenster, rahmen):
     # Anzuege gar nicht eintragen: Arrow, Gladius, A.T.L.S. IKTI. Gemeldet am
     # 06.09.2026.
     zeile, auswahl, _ = _auswahlfeld(fenster, block, schiff,
-                                     alle_schiffe.namen_alle,
+                                     alle_schiffe.all_names,
                                      leer_text=t('s_hg_nichts_gefunden'),
                                      rollbar=200)
     zeile.pack(fill='x')
@@ -10136,7 +10136,7 @@ def _hangar(fenster, rahmen):
         # beim Handelslager: Angenommen wird nur, was UEX kennt. Sonst steht am
         # Ende ein ausgedachter oder beleidigender Name im Werkzeug, und ein
         # Bildschirmfoto davon macht die Runde.
-        if not alle_schiffe.kennt(name):
+        if not alle_schiffe.knows(name):
             meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
             neu_zeichnen()
             return
@@ -10312,7 +10312,7 @@ def _wunschliste(fenster, rahmen):
     Werkzeug eine Frage über ein Schiff, das niemand hat. Gespeichert wird
     trotzdem in derselben Datei: Es ist dieselbe Sammlung, nur ein anderes Fach.
     """
-    from . import hangar as meine, schiffe as alle_schiffe
+    from . import hangar as meine, ships as alle_schiffe
 
     _ueberschrift(fenster, rahmen, t('hf_wunschliste'), t('s_wl_lead'))
     innen = _rollflaeche(rahmen)
@@ -10325,7 +10325,7 @@ def _wunschliste(fenster, rahmen):
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(14, 0))
     w_zeile, w_auswahl, _ = _auswahlfeld(fenster, block, wunsch,
-                                         alle_schiffe.namen_alle,
+                                         alle_schiffe.all_names,
                                          leer_text=t('s_hg_nichts_gefunden'),
                                          rollbar=200)
     w_zeile.pack(fill='x')
@@ -10340,7 +10340,7 @@ def _wunschliste(fenster, rahmen):
 
     def eintragen():
         name = (wunsch.get() or '').strip()
-        if not alle_schiffe.kennt(name):
+        if not alle_schiffe.knows(name):
             meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
             neu_zeichnen()
             return
@@ -10356,7 +10356,7 @@ def _wunschliste(fenster, rahmen):
         # gibt es keinen Pledge-Export, aus dem er käme; UEX führt ihn im
         # Namen mit, also wird er dort geholt.
         if meine.wunsch_hinzufuegen(daten['stand'], name,
-                                    alle_schiffe.hersteller(name)):
+                                    alle_schiffe.manufacturer(name)):
             meine.speichern(daten['stand'])
             meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
             meldung['farbe'] = ACCENT
@@ -11415,11 +11415,11 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     """Ein Schiff auf der Wunschliste — mit dem, was es kostet und wo es steht.
 
     ⚠ **Die Preise stehen schon im Werkzeug**, es wird nichts nachgeladen:
-    `schiffe.kaufen()` und `schiffe.mieten()` kommen aus derselben UEX-Ablage,
+    `ships.buy_at()` und `ships.rent_at()` kommen aus derselben UEX-Ablage,
     die der Routenplaner ohnehin füllt. Ein Wunsch ohne Preis wäre eine
     Merkliste; mit Preis ist es eine Entscheidungshilfe.
     """
-    from . import hangar as meine, schiffe as alle_schiffe
+    from . import hangar as meine, ships as alle_schiffe
 
     name = eintrag.get('name') or ''
     karte = _karte(eltern, pady=(0, 6))
@@ -11439,8 +11439,8 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
 
     unten = tk.Frame(karte, bg=FLAECHE)
     unten.pack(fill='x', padx=16, pady=(0, 10))
-    kauf = alle_schiffe.kaufen(name)
-    miete = alle_schiffe.mieten(name)
+    kauf = alle_schiffe.buy_at(name)
+    miete = alle_schiffe.rent_at(name)
     teile = []
     if kauf:
         bester = kauf[0]
@@ -11526,12 +11526,12 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     #
     # Der mittlere Fall stützt sich auf eine **Fremdangabe** (UEX pflegt das
     # Feld), nicht auf unser eigenes Nichtwissen.
-    from . import schiffe as alle_schiffe
+    from . import ships as alle_schiffe
     if plaetze:
         teile.append(t('s_hg_plaetze').format(
             n=sum(int(p.get('anzahl') or 0) for p in plaetze)))
         farbe = SUB
-    elif alle_schiffe.ist_konzept(name):
+    elif alle_schiffe.is_concept(name):
         teile.append(t('s_hg_konzept'))
         farbe = GOLD
     else:

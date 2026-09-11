@@ -51,7 +51,7 @@ from scbp import (
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   katalog as katalog_modul, laeden, logquelle, watchlist,
-                  pfade, phrasen, schiffe, spielstand, titelleiste, sound,
+                  pfade, phrasen, ships, spielstand, titelleiste, sound,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
 
 try:
@@ -820,11 +820,11 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             fehler.merken('watcher.verkauf', ausnahme)
         # Und die Schiffsliste — höchstens einmal pro Woche, siehe
-        # `scbp/schiffe.py`. Sie liefert den Frachtraum für den Routen-Reiter.
+        # `scbp/ships.py`. Sie liefert den Frachtraum für den Routen-Reiter.
         try:
-            schiffe.aktualisieren()
+            ships.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.schiffe', ausnahme)
+            fehler.merken('watcher.ships', ausnahme)
         # ⭐⭐ **Und der Warengruppen-Katalog für den Laden-Reiter — zuletzt.**
         #
         # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s) und

@@ -14005,7 +14005,7 @@ def main():
     # noch einmal in Rechnung.
     from scbp import erkul as _erk151, warenkorb as _wk151
     from scbp import laeden as _ld151, crafting as _he151
-    from scbp import preise as _pr151, schiffe as _sf151
+    from scbp import preise as _pr151, ships as _sf151
 
     _slots151 = [
         {'pfad': 'hardpoint_cooler_left', 'art': 'Cooler', 'groesse': 2,
@@ -14018,7 +14018,7 @@ def main():
     }
     _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
                 _ld151.guenstigster, _wk151._bauplan_verzeichnis,
-                _he151.recipe, _pr151.preis, _sf151.kaufen)
+                _he151.recipe, _pr151.preis, _sf151.buy_at)
     try:
         _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {
@@ -14034,10 +14034,10 @@ def main():
         _wk151._bauplan_verzeichnis = lambda: {}
         _he151.recipe = lambda n: None
         _pr151.preis = lambda r: None
-        # ⚠ `schiffe.kaufen()` gibt eine **Liste** von Verkaufsstellen zurueck,
+        # ⚠ `ships.buy_at()` gibt eine **Liste** von Verkaufsstellen zurueck,
         # billigste zuerst — kein Tupel wie `laeden.guenstigster()`. Wer das
         # verwechselt, liest den Preis aus einem Zeichen statt aus einer Zahl.
-        _sf151.kaufen = lambda n: ([{'stelle': 'Astro Armada', 'ort': 'Area18',
+        _sf151.buy_at = lambda n: ([{'stelle': 'Astro Armada', 'ort': 'Area18',
                                      'system': 'Stanton', 'preis': 20250000.0}]
                                    if n == 'Polaris' else [])
 
@@ -14127,7 +14127,7 @@ def main():
         pruefe(_offen2_151 and _offen2_151[0][1] == 'Neuteil',
                'der Name kommt mit — `laeden.holen` braucht ihn als Rueckfall')
 
-        # ⚠ Schiffe gehoeren NICHT dazu: Ihre Preise kommen aus `schiffe.py`,
+        # ⚠ Schiffe gehoeren NICHT dazu: Ihre Preise kommen aus `ships.py`,
         # nicht aus `laeden.py`. Wer sie mitgibt, schlaegt eine Schiffskennung
         # im Teilekatalog nach und bekommt nie einen Treffer.
         pruefe(not any(k == 'Polaris' for k, _n in _offen2_151),
@@ -14142,7 +14142,7 @@ def main():
     finally:
         (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
          _wk151._bauplan_verzeichnis, _he151.recipe, _pr151.preis,
-         _sf151.kaufen) = _echt151
+         _sf151.buy_at) = _echt151
 
     # ------------------------------------------------------------------
     # 153. Guete und Klasse an der Teileauswahl
@@ -16504,6 +16504,7 @@ def main():
         'raffinerie': 'refinery',
         'kategorien': 'categories',
         'herstellung': 'crafting',
+        'schiffe': 'ships',
     }
 
     def _reste190(quelle, name, alte):

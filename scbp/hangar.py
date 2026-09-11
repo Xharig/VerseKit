@@ -20,7 +20,7 @@
 Meine Schiffe — welche ich habe und woher sie kommen.
 
 Ohne diese Liste ist „passt der Bauplan in mein Schiff?" nicht zu beantworten;
-das Werkzeug wüsste nur, in *irgendein* Schiff passt es. `schiffe.py` führt
+das Werkzeug wüsste nur, in *irgendein* Schiff passt es. `ships.py` führt
 alle Schiffe des Spiels für den Routenplaner — hier geht es um die eigenen.
 
 ## ⚠ Die `Game.log` gibt das nicht her — gemessen am 06.09.2026
@@ -500,13 +500,13 @@ def wunsch_kennsaetze(daten=None):
     nichts: Eine Leseabfrage, die nebenbei die Datei ändert, überrascht später
     an einer Stelle, an der niemand damit rechnet.
     """
-    from . import schiffe as alle
+    from . import ships
     raus = []
     for w in ((daten or laden()).get('wunsch') or []):
         if not (isinstance(w, dict) and w.get('name')):
             continue
         name = w.get('name') or ''
-        raus.append((name, w.get('hersteller') or alle.hersteller(name),
+        raus.append((name, w.get('hersteller') or ships.manufacturer(name),
                      '', ''))
     return raus
 
