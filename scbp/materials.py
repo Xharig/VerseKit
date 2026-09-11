@@ -46,6 +46,16 @@ Zählung `[BP 3/12]`: lieber nichts sagen als etwas Unwahres.
 
 Mehrere Posten desselben Materials sind Absicht: 12 SCU Iron von Daymar mit
 80 % Güte sind etwas anderes als 3 SCU aus dem Aaron Halo.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `rohstoffe` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
+`rohstoffe.json` und die Schlüssel `format`, `posten`, `material`, `menge`,
+`qualitaet` und `ort`. Ebenso die Schlüssel `name` und `menge`, die `stock()`
+für die Anzeige liefert, die Einheit `'cscu'` und die Textschlüssel `s_rf_…`.
+`norm_rohstoff` kommt aus `herstellung.py` und heißt dort weiter so.
+`calculate` und `parse_number` reicht `trade_cargo.py` weiter — das
+Handelslager rechnet mit denselben Regeln.
 """
 import json
 import re
@@ -54,23 +64,23 @@ import os
 from . import fehler, pfade
 from .herstellung import norm_rohstoff
 
-DATEI = 'rohstoffe.json'
+FILE = 'rohstoffe.json'
 FORMAT = 1
 
 
-def laden():
+def load():
     """Alle Posten — oder eine leere Liste."""
     try:
-        with open(pfade.app_datei(DATEI), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            return daten.get('posten') or []
+        with open(pfade.app_datei(FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            return data.get('posten') or []
     except Exception:
         pass
     return []
 
 
-def sichern(posten):
+def save(entries):
     """Die Posten schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ Die **Vorgängerfassung** (`rohstoffe.bak.json`) legt
@@ -78,15 +88,15 @@ def sichern(posten):
     atomar, aber ohne Rückfall — ein leer gespeichertes Lager war endgültig
     weg. Ein Lager sind eigene Eingaben, die kein Neuaufbau zurückholt.
     """
-    ziel = pfade.app_datei(DATEI)
+    target = pfade.app_datei(FILE)
     try:
-        return pfade.json_sichern(ziel, {'format': FORMAT, 'posten': posten})
-    except Exception as ausnahme:
-        fehler.merken('rohstoffe.sichern', ausnahme)
+        return pfade.json_sichern(target, {'format': FORMAT, 'posten': entries})
+    except Exception as exc:
+        fehler.merken('materials.save', exc)
         return False
 
 
-def als_csv(posten=None):
+def as_csv(entries=None):
     """Das Lager als Tabelle — Material, Menge, Qualität, Lagerort.
 
     Warum CSV und nicht nur JSON: Eine Tabelle öffnet sich in jedem
@@ -97,30 +107,30 @@ def als_csv(posten=None):
     deutsches Excel/LibreOffice. Mit Punkt und Komma-Trenner landet „1.36" dort
     als Datum oder in einer Spalte zu viel.
     """
-    posten = laden() if posten is None else posten
-    zeilen = ['Material;Menge;Qualitaet;Lagerort']
-    for p in posten:
-        menge = ('%g' % float(p.get('menge') or 0)).replace('.', ',')
-        guete = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else ''
-        zeilen.append(';'.join((
+    entries = load() if entries is None else entries
+    lines = ['Material;Menge;Qualitaet;Lagerort']
+    for p in entries:
+        amount = ('%g' % float(p.get('menge') or 0)).replace('.', ',')
+        quality = ('%g' % float(p['qualitaet'])) if p.get('qualitaet') else ''
+        lines.append(';'.join((
             (p.get('material') or '').replace(';', ','),
-            menge, guete,
+            amount, quality,
             (p.get('ort') or '').replace(';', ','))))
-    return '\n'.join(zeilen) + '\n'
+    return '\n'.join(lines) + '\n'
 
 
-def als_json(posten=None):
-    """Das Lager als JSON-Text — dasselbe Format, das `laden()` wieder liest.
+def as_json(entries=None):
+    """Das Lager als JSON-Text — dasselbe Format, das `load()` wieder liest.
 
     Damit ist der Export zugleich eine Sicherung: Datei wegschreiben, später
     zurückspielen, fertig.
     """
-    posten = laden() if posten is None else posten
-    return json.dumps({'format': FORMAT, 'posten': posten},
+    entries = load() if entries is None else entries
+    return json.dumps({'format': FORMAT, 'posten': entries},
                       ensure_ascii=False, indent=1)
 
 
-def aus_json(text):
+def from_json(text):
     """Ein früher ausgegebenes Lager wieder einlesen.
 
     Gibt die Postenliste zurück oder `None`, wenn die Datei nicht passt. ⚠ Es
@@ -128,23 +138,23 @@ def aus_json(text):
     gefragt hat, ob ersetzt oder ergänzt werden soll.
     """
     try:
-        daten = json.loads(text)
+        data = json.loads(text)
     except Exception:
         return None
-    if not isinstance(daten, dict) or daten.get('format') != FORMAT:
+    if not isinstance(data, dict) or data.get('format') != FORMAT:
         return None
-    posten = daten.get('posten')
-    if not isinstance(posten, list):
+    entries = data.get('posten')
+    if not isinstance(entries, list):
         return None
-    sauber = []
-    for p in posten:
+    clean = []
+    for p in entries:
         if not isinstance(p, dict) or not (p.get('material') or '').strip():
             continue
-        sauber.append({'material': str(p.get('material')).strip(),
-                       'menge': float(p.get('menge') or 0),
-                       'qualitaet': p.get('qualitaet'),
-                       'ort': str(p.get('ort') or '').strip()})
-    return sauber
+        clean.append({'material': str(p.get('material')).strip(),
+                      'menge': float(p.get('menge') or 0),
+                      'qualitaet': p.get('qualitaet'),
+                      'ort': str(p.get('ort') or '').strip()})
+    return clean
 
 
 # ⚠⚠ Tausendertrennzeichen gegen Dezimalkomma — ein Zeichen, zwei Bedeutungen.
@@ -162,22 +172,22 @@ def aus_json(text):
 # | `12,5` | ein Zeichen, keine Dreiergruppe | 12.5 |
 #
 # Bleibt der eine mehrdeutige Fall: EIN Trennzeichen mit GENAU drei Ziffern
-# dahinter (`1,500`). Den entscheidet der Aufrufer ueber `ganzzahlig`:
+# dahinter (`1,500`). Den entscheidet der Aufrufer ueber `integer`:
 #
-# * `ganzzahlig=True` (Scan-Signatur) → 1500. Signaturen sind ganzzahlig und
+# * `integer=True` (Scan-Signatur) → 1500. Signaturen sind ganzzahlig und
 #   liegen im Tausenderbereich; eine Signatur von 1,5 gibt es nicht.
-# * `ganzzahlig=False` (Mengen, Standard) → 1,5. Hier sind Kommazahlen der
+# * `integer=False` (Mengen, Standard) → 1,5. Hier sind Kommazahlen der
 #   Regelfall — `12,5 SCU` tippt jeder, `1.500 SCU` fast niemand. Ein falsch
 #   aufgeloester Tausender wuerde hier das Lager um Faktor tausend verbuchen.
-_TAUSENDER = re.compile(r'(\d)[.,](\d{3})(?!\d)')
+_THOUSANDS = re.compile(r'(\d)[.,](\d{3})(?!\d)')
 
 
-def trennzeichen_klaeren(text, ganzzahlig=False):
+def normalize_separators(text, integer=False):
     """Trennzeichen aufloesen und auf die Punkt-Schreibweise bringen."""
-    roh = (text or '').strip()
-    if not roh:
+    raw = (text or '').strip()
+    if not raw:
         return ''
-    kommas, punkte = roh.count(','), roh.count('.')
+    commas, dots = raw.count(','), raw.count('.')
 
     # ⚠⚠ **Beide Zeichen: Das HINTERE trennt die Dezimalstellen.** Punkt.
     #
@@ -190,23 +200,23 @@ def trennzeichen_klaeren(text, ganzzahlig=False):
     #
     # Mit beiden Zeichen braucht es die Schleife gar nicht: Welches Zeichen
     # welche Rolle hat, steht fest, sobald man weiss, welches hinten steht.
-    if kommas and punkte:
-        dezimal = ',' if roh.rfind(',') > roh.rfind('.') else '.'
-        roh = roh.replace('.' if dezimal == ',' else ',', '')
-        return roh.replace(',', '.')
+    if commas and dots:
+        decimal = ',' if raw.rfind(',') > raw.rfind('.') else '.'
+        raw = raw.replace('.' if decimal == ',' else ',', '')
+        return raw.replace(',', '.')
 
     # Ab hier gibt es nur EIN Zeichen. Mehrfach kann es nur Tausender sein;
-    # einmal ist es mehrdeutig und wird ueber `ganzzahlig` entschieden.
-    if ganzzahlig or kommas > 1 or punkte > 1:
-        vorher = None
+    # einmal ist es mehrdeutig und wird ueber `integer` entschieden.
+    if integer or commas > 1 or dots > 1:
+        previous = None
         # In der Schleife, sonst bliebe bei `1,234,567` die vordere Gruppe stehen.
-        while vorher != roh:
-            vorher = roh
-            roh = _TAUSENDER.sub(r'\1\2', roh)
-    return roh.replace(',', '.')
+        while previous != raw:
+            previous = raw
+            raw = _THOUSANDS.sub(r'\1\2', raw)
+    return raw.replace(',', '.')
 
 
-def zahl_lesen(text):
+def parse_number(text):
     """Eine getippte Zahl lesen — Komma und Punkt gelten gleich.
 
     ⚠ Die einen tippen `12,5`, die anderen `12.5`. Python kennt nur den Punkt,
@@ -214,23 +224,23 @@ def zahl_lesen(text):
     beim Eintragen eine Fehlermeldung bekommen und nicht gewusst, warum.
 
     ⚠ Tausendertrennzeichen werden aufgeloest, aber nur wo es eindeutig ist —
-    `1.234,56` wird 1234.56, `12,5` bleibt 12,5. Siehe `trennzeichen_klaeren`.
+    `1.234,56` wird 1234.56, `12,5` bleibt 12,5. Siehe `normalize_separators`.
 
     Auch das lange Minus vom Ziffernblock (`−`) wird angenommen, sonst
     scheitert das Abbuchen an einem Zeichen, das man nicht sieht.
 
     Gibt `None`, wenn es keine Zahl ist — dann meldet die Oberfläche das.
     """
-    roh = trennzeichen_klaeren(text).replace('−', '-')
-    if not roh:
+    raw = normalize_separators(text).replace('−', '-')
+    if not raw:
         return None
     try:
-        return float(roh)
+        return float(raw)
     except ValueError:
         return None
 
 
-def gleicher_posten(a_material, a_guete, a_ort, b):
+def same_stack(a_material, a_quality, a_place, b):
     """Sind das zwei Eintragungen für **denselben** Stapel?
 
     Gleich heisst: gleiches Material, gleiche Qualität, gleicher Lagerort. Nur
@@ -243,15 +253,15 @@ def gleicher_posten(a_material, a_guete, a_ort, b):
     """
     if norm_rohstoff(a_material) != norm_rohstoff(b.get('material')):
         return False
-    if (a_ort or '').strip().lower() != (b.get('ort') or '').strip().lower():
+    if (a_place or '').strip().lower() != (b.get('ort') or '').strip().lower():
         return False
-    a_q = None if a_guete is None else int(round(float(a_guete)))
+    a_q = None if a_quality is None else int(round(float(a_quality)))
     b_q = b.get('qualitaet')
     b_q = None if b_q is None else int(round(float(b_q)))
     return a_q == b_q
 
 
-def eintragen(material, menge, qualitaet=None, ort=''):
+def add(material, amount, quality=None, place=''):
     """Einen Posten hinzufügen. Gibt die neue Gesamtmenge des Materials zurück.
 
     ⚠⚠ **Gleiches Material, gleiche Qualität, gleicher Ort wird
@@ -267,21 +277,21 @@ def eintragen(material, menge, qualitaet=None, ort=''):
     Zeilen desselben Materials, und die Herstellung rechnet zwar richtig, aber
     niemand findet mehr etwas.
     """
-    posten = laden()
-    for p in posten:
-        if gleicher_posten(material, qualitaet, ort, p):
-            p['menge'] = round(float(p.get('menge') or 0) + float(menge or 0), 6)
-            sichern(posten)
-            return menge_von(material)
-    posten.append({'material': (material or '').strip(),
-                   'menge': float(menge or 0),
-                   'qualitaet': qualitaet,
-                   'ort': (ort or '').strip()})
-    sichern(posten)
-    return menge_von(material)
+    entries = load()
+    for p in entries:
+        if same_stack(material, quality, place, p):
+            p['menge'] = round(float(p.get('menge') or 0) + float(amount or 0), 6)
+            save(entries)
+            return amount_of(material)
+    entries.append({'material': (material or '').strip(),
+                    'menge': float(amount or 0),
+                    'qualitaet': quality,
+                    'ort': (place or '').strip()})
+    save(entries)
+    return amount_of(material)
 
 
-def aendern(nummer, material, menge, qualitaet=None, ort=''):
+def change(index, material, amount, quality=None, place=''):
     """Einen vorhandenen Posten überschreiben (Position in der Liste).
 
     Gebraucht wird das dauernd: Man vertippt sich bei der Menge, gibt jemandem
@@ -291,39 +301,39 @@ def aendern(nummer, material, menge, qualitaet=None, ort=''):
 
     Gibt True zurück, wenn es die Nummer gab.
     """
-    posten = laden()
-    if not (0 <= nummer < len(posten)):
+    entries = load()
+    if not (0 <= index < len(entries)):
         return False
-    posten[nummer] = {'material': (material or '').strip(),
-                      'menge': float(menge or 0),
-                      'qualitaet': qualitaet,
-                      'ort': (ort or '').strip()}
-    sichern(posten)
+    entries[index] = {'material': (material or '').strip(),
+                      'menge': float(amount or 0),
+                      'qualitaet': quality,
+                      'ort': (place or '').strip()}
+    save(entries)
     return True
 
 
-def entfernen(nummer):
+def remove(index):
     """Einen Posten löschen (Position in der Liste)."""
-    posten = laden()
-    if 0 <= nummer < len(posten):
-        posten.pop(nummer)
-        sichern(posten)
+    entries = load()
+    if 0 <= index < len(entries):
+        entries.pop(index)
+        save(entries)
         return True
     return False
 
 
-def menge_von(material):
+def amount_of(material):
     """Wie viel ist von diesem Material da? Über alle Posten summiert.
 
     ⚠ Über `norm_rohstoff()` vergleichen — das Rezept sagt `Aslarite`, im Lager
     steht vielleicht `Aslarite (Raw)`, weil es aus der Bergbau-Sicht kopiert
     wurde."""
-    gesucht = norm_rohstoff(material)
-    return sum(p.get('menge') or 0 for p in laden()
-               if norm_rohstoff(p.get('material')) == gesucht)
+    wanted = norm_rohstoff(material)
+    return sum(p.get('menge') or 0 for p in load()
+               if norm_rohstoff(p.get('material')) == wanted)
 
 
-def menge_mit_guete(material, mindestguete=0):
+def amount_with_quality(material, min_quality=0):
     """(passend, zu_gering) — wie viel taugt für die geforderte Qualität?
 
     ⚠ **Die Qualität ist keine Randnotiz.** 1.540 der 1.607 Baupläne (96 %)
@@ -337,58 +347,58 @@ def menge_mit_guete(material, mindestguete=0):
     Wert zurück und wird als Hinweis angezeigt. Behauptet wird nichts — das
     Lager ist von Hand gepflegt und kann hinterherhinken.
     """
-    gesucht = norm_rohstoff(material)
-    passend = zu_gering = 0.0
-    grenze = float(mindestguete or 0)
-    for p in laden():
-        if norm_rohstoff(p.get('material')) != gesucht:
+    wanted = norm_rohstoff(material)
+    suitable = too_low = 0.0
+    limit = float(min_quality or 0)
+    for p in load():
+        if norm_rohstoff(p.get('material')) != wanted:
             continue
-        menge = float(p.get('menge') or 0)
-        if float(p.get('qualitaet') or 0) >= grenze:
-            passend += menge
+        amount = float(p.get('menge') or 0)
+        if float(p.get('qualitaet') or 0) >= limit:
+            suitable += amount
         else:
-            zu_gering += menge
-    return passend, zu_gering
+            too_low += amount
+    return suitable, too_low
 
 
-def beste_qualitaet(material, mindestguete=0):
+def best_quality(material, min_quality=0):
     """Die höchste brauchbare Qualität dieses Materials im Lager — oder None.
 
     Damit lässt sich ausrechnen, **welche Werte** das Produkt bekäme; siehe
     `herstellung.werte_bei_qualitaet()`."""
-    gesucht = norm_rohstoff(material)
-    beste = None
-    for p in laden():
-        if norm_rohstoff(p.get('material')) != gesucht:
+    wanted = norm_rohstoff(material)
+    best = None
+    for p in load():
+        if norm_rohstoff(p.get('material')) != wanted:
             continue
         if float(p.get('menge') or 0) <= 0:
             continue
         q = float(p.get('qualitaet') or 0)
-        if q >= float(mindestguete or 0) and (beste is None or q > beste):
-            beste = q
-    return beste
+        if q >= float(min_quality or 0) and (best is None or q > best):
+            best = q
+    return best
 
 
-def bestand():
+def stock():
     """{Material: Gesamtmenge} — für die Anzeige im Rezept."""
-    raus = {}
-    for p in laden():
+    result = {}
+    for p in load():
         name = (p.get('material') or '').strip()
         if not name:
             continue
-        schluessel = norm_rohstoff(name)
-        vorher = raus.get(schluessel)
-        raus[schluessel] = {
-            'name': vorher['name'] if vorher else name,
-            'menge': (vorher['menge'] if vorher else 0) + (p.get('menge') or 0),
+        key = norm_rohstoff(name)
+        previous = result.get(key)
+        result[key] = {
+            'name': previous['name'] if previous else name,
+            'menge': (previous['menge'] if previous else 0) + (p.get('menge') or 0),
         }
-    return raus
+    return result
 
 
 # Eine Rechnung im Mengenfeld: `1.04+3`, `12,5-0,5`.
-_RECHNUNG = re.compile(r'^\s*([\d.,]+)\s*([+-])\s*([\d.,]+)\s*$')
+_CALCULATION = re.compile(r'^\s*([\d.,]+)\s*([+-])\s*([\d.,]+)\s*$')
 # Nur eine Auf-/Abbuchung: `+3`, `-0,5`.
-_BUCHUNG = re.compile(r'^\s*([+\-−])\s*([\d.,]+)\s*$')
+_BOOKING = re.compile(r'^\s*([+\-−])\s*([\d.,]+)\s*$')
 
 
 # Wie viele SCU ein cSCU ist. Das Raffinerie-Terminal im Spiel rechnet in
@@ -396,7 +406,7 @@ _BUCHUNG = re.compile(r'^\s*([+\-−])\s*([\d.,]+)\s*$')
 CSCU = 0.01
 
 
-def raffinerie_zeilen(text, einheit='cscu'):
+def refinery_lines(text, unit='cscu'):
     """Die Ausbeute eines Raffinerie-Auftrags aus getipptem Text lesen.
 
     Erwartet je Zeile `Material Qualität Menge`, so wie es im Terminal steht:
@@ -419,52 +429,52 @@ def raffinerie_zeilen(text, einheit='cscu'):
     """
     from . import herstellung
     from .sprache import t
-    posten, fehler = [], []
-    faktor = CSCU if einheit == 'cscu' else 1.0
-    for roh in (text or '').splitlines():
-        zeile = roh.strip()
-        if not zeile:
+    entries, errors = [], []
+    factor = CSCU if unit == 'cscu' else 1.0
+    for raw in (text or '').splitlines():
+        line = raw.strip()
+        if not line:
             continue
-        teile = zeile.replace('\t', ' ').split()
-        if len(teile) < 3:
-            fehler.append((zeile, t('s_rf_zu_kurz')))
+        parts = line.replace('\t', ' ').split()
+        if len(parts) < 3:
+            errors.append((line, t('s_rf_zu_kurz')))
             continue
-        name = ' '.join(teile[:-2])
+        name = ' '.join(parts[:-2])
         try:
             # ⚠ Dieselbe Trennzeichen-Regel wie beim Eintippen (08.09.2026).
             # Vorher scheiterte eine Zeile mit BEIDEN Zeichen ganz: aus
             # `1.234,56` wurde `1.234.56`, und das warf — die Zeile landete
             # unter „keine Zahl", obwohl sie eindeutig lesbar war. Die Menge
             # kann hier vierstellig sein (cSCU-Ausbeute), das Dezimalkomma
-            # bleibt bei SCU der Regelfall; deshalb ohne `ganzzahlig`.
-            guete = int(float(trennzeichen_klaeren(teile[-2])))
-            wert = float(trennzeichen_klaeren(teile[-1]))
+            # bleibt bei SCU der Regelfall; deshalb ohne `integer`.
+            quality = int(float(normalize_separators(parts[-2])))
+            value = float(normalize_separators(parts[-1]))
         except ValueError:
-            fehler.append((zeile, t('s_rf_keine_zahl')))
+            errors.append((line, t('s_rf_keine_zahl')))
             continue
-        echter = herstellung.lager_name(name)
-        if not echter:
+        real = herstellung.lager_name(name)
+        if not real:
             # ⚠ Kein stiller Fehlschlag und keine stille Zuordnung: Der Name
             # wird **nicht** geraten, aber der wahrscheinlichste Treffer steht
             # daneben. Wer „Aslerite" tippt, soll „Aslarite" lesen und selbst
             # entscheiden — das Werkzeug entscheidet es nicht für ihn.
-            aehnlich = herstellung.aehnliche_rohstoffe(name, 2)
-            grund = t('s_rf_unbekannt') % name
-            if aehnlich:
-                grund += ' ' + t('s_rf_meintest') % ' · '.join(aehnlich)
-            fehler.append((zeile, grund))
+            similar = herstellung.aehnliche_rohstoffe(name, 2)
+            reason = t('s_rf_unbekannt') % name
+            if similar:
+                reason += ' ' + t('s_rf_meintest') % ' · '.join(similar)
+            errors.append((line, reason))
             continue
-        if not 0 <= guete <= 1000:
-            fehler.append((zeile, t('s_rf_qualitaet')))
+        if not 0 <= quality <= 1000:
+            errors.append((line, t('s_rf_qualitaet')))
             continue
-        if wert <= 0:
-            fehler.append((zeile, t('s_rf_menge')))
+        if value <= 0:
+            errors.append((line, t('s_rf_menge')))
             continue
-        posten.append((echter, round(wert * faktor, 4), guete))
-    return posten, fehler
+        entries.append((real, round(value * factor, 4), quality))
+    return entries, errors
 
 
-def rechnen(text, vorher=0.0):
+def calculate(text, previous=0.0):
     """Was im Mengenfeld steht — als Zahl.
 
     Drei Schreibweisen, alle erlaubt:
@@ -486,67 +496,67 @@ def rechnen(text, vorher=0.0):
     Beide Wege kommen aufs Gleiche — das ist kein Zufall, sondern der Punkt:
     Man muss nicht wissen, welchen das Programm meint.
 
-    Gibt `None`, wenn nichts Sinnvolles dasteht. `vorher` zählt nur bei der
+    Gibt `None`, wenn nichts Sinnvolles dasteht. `previous` zählt nur bei der
     reinen Buchung.
     """
-    roh = (text or '').strip()
-    if not roh:
+    raw = (text or '').strip()
+    if not raw:
         return None
-    m = _BUCHUNG.match(roh)
+    m = _BOOKING.match(raw)
     if m:
-        wert = zahl_lesen(m.group(2))
-        if wert is None:
+        value = parse_number(m.group(2))
+        if value is None:
             return None
-        return float(vorher or 0) + (-wert if m.group(1) in '-−' else wert)
-    m = _RECHNUNG.match(roh)
+        return float(previous or 0) + (-value if m.group(1) in '-−' else value)
+    m = _CALCULATION.match(raw)
     if m:
-        links, zeichen, rechts = (zahl_lesen(m.group(1)), m.group(2),
-                                  zahl_lesen(m.group(3)))
-        if links is None or rechts is None:
+        left, sign, right = (parse_number(m.group(1)), m.group(2),
+                             parse_number(m.group(3)))
+        if left is None or right is None:
             return None
-        return links - rechts if zeichen == '-' else links + rechts
-    return zahl_lesen(roh)
+        return left - right if sign == '-' else left + right
+    return parse_number(raw)
 
 
-def pruefen(zutaten, anzahl=1):
-    """Was fehlt für dieses Rezept — bei `anzahl` Stück?
+def check(ingredients, count=1):
+    """Was fehlt für dieses Rezept — bei `count` Stück?
 
     [(Material, gebraucht, da, fehlt, zu_geringe_qualitaet, mindestqualitaet)]
 
-    `zutaten` ist die Liste aus `herstellung.rezept()` — (Slot, Material,
+    `ingredients` ist die Liste aus `herstellung.rezept()` — (Slot, Material,
     Menge, Güte). Zurück kommt **jede** Zutat, auch die vorhandenen: Die
     Anzeige soll zeigen, was da ist, nicht nur was fehlt.
 
-    ⚠ **`anzahl` muss hier durch, nicht nur beim Abziehen.** Wer 10 in das
+    ⚠ **`count` muss hier durch, nicht nur beim Abziehen.** Wer 10 in das
     Stückzahl-Feld tippt, sieht sonst weiter den Bedarf für ein einziges Stück
     — und daneben „dir fehlt nichts", während in Wirklichkeit das Zehnfache
     gebraucht wird. Am 30.08.2026 gemeldet: „10 als Menge eingegeben sollte
     auch 10fache Menge an benötigtem Material sein, angezeigt wird es nicht."
     Die zurückgegebene `gebraucht`-Menge ist deshalb bereits multipliziert.
     """
-    raus = []
-    faktor = max(1, int(anzahl or 1))
-    gebraucht = {}
-    for _slot, material, menge, _guete in zutaten:
-        schluessel = norm_rohstoff(material)
-        gebraucht[schluessel] = (gebraucht.get(schluessel, 0)
-                                 + (menge or 0) * faktor)
-    for _slot, material, menge, guete in zutaten:
-        schluessel = norm_rohstoff(material)
+    result = []
+    factor = max(1, int(count or 1))
+    needed = {}
+    for _slot, material, amount, _quality in ingredients:
+        key = norm_rohstoff(material)
+        needed[key] = (needed.get(key, 0)
+                       + (amount or 0) * factor)
+    for _slot, material, amount, quality in ingredients:
+        key = norm_rohstoff(material)
         # ⚠ Seit 29.08.2026 zählt nur, was die geforderte Qualität erreicht.
         # Vorher wurde `guete` durchgereicht und nie benutzt — dadurch galt Erz
         # als brauchbar, das für dieses Rezept zu schlecht ist.
-        passend, zu_gering = menge_mit_guete(material, guete)
-        noetig = gebraucht[schluessel]
-        raus.append((material, (menge or 0) * faktor, passend,
-                     max(0.0, noetig - passend), zu_gering, guete))
-    return raus
+        suitable, too_low = amount_with_quality(material, quality)
+        required = needed[key]
+        result.append((material, (amount or 0) * factor, suitable,
+                       max(0.0, required - suitable), too_low, quality))
+    return result
 
 
-def abziehen(zutaten, anzahl=1):
-    """Die Zutaten eines Rezepts aus dem Lager nehmen — `anzahl` mal.
+def deduct(ingredients, count=1):
+    """Die Zutaten eines Rezepts aus dem Lager nehmen — `count` mal.
 
-    ⚠ **`anzahl` gibt es, damit niemand zählen muss.** Wer zehn Stück am Stück
+    ⚠ **`count` gibt es, damit niemand zählen muss.** Wer zehn Stück am Stück
     baut, klickt sonst zehnmal — und beim elften Klick stimmt der Bestand nicht
     mehr, ohne dass es auffällt. Am 29.08.2026 genau so gemeldet: „ich klicke
     dann aber sogar 11 mal, weil ich mich verzählt habe."
@@ -573,47 +583,47 @@ def abziehen(zutaten, anzahl=1):
     Materials führt (verschiedene Güte oder Fundort), soll den älteren zuerst
     leer sehen — sonst bleiben lauter Reste stehen.
     """
-    posten = laden()
-    faktor = max(1, int(anzahl or 1))
+    entries = load()
+    factor = max(1, int(count or 1))
 
     # Mehrfach dieselbe Zutat im Rezept? Dann zaehlt die Summe, sonst wuerde
     # jeder Durchgang fuer sich pruefen und beide fuer machbar halten.
-    bedarf = {}
-    for _slot, material, menge, guete in zutaten:
-        schluessel = (norm_rohstoff(material), float(guete or 0))
-        bedarf[schluessel] = (bedarf.get(schluessel, (material, 0.0))[0],
-                              bedarf.get(schluessel, (material, 0.0))[1]
-                              + float(menge or 0) * faktor)
+    demand = {}
+    for _slot, material, amount, quality in ingredients:
+        key = (norm_rohstoff(material), float(quality or 0))
+        demand[key] = (demand.get(key, (material, 0.0))[0],
+                       demand.get(key, (material, 0.0))[1]
+                       + float(amount or 0) * factor)
 
     # --- Erster Durchgang: nur rechnen. Nichts wird angefasst. ---
-    fehlt = []
-    for (gesucht, mindest), (name, gebraucht) in bedarf.items():
-        da = 0.0
-        for p in posten:
-            if (norm_rohstoff(p.get('material')) == gesucht
-                    and float(p.get('qualitaet') or 0) >= mindest):
-                da += float(p.get('menge') or 0)
-        if da + 1e-9 < gebraucht:
-            fehlt.append((name, round(gebraucht - da, 6)))
-    if fehlt:
+    missing = []
+    for (wanted, minimum), (name, needed) in demand.items():
+        available = 0.0
+        for p in entries:
+            if (norm_rohstoff(p.get('material')) == wanted
+                    and float(p.get('qualitaet') or 0) >= minimum):
+                available += float(p.get('menge') or 0)
+        if available + 1e-9 < needed:
+            missing.append((name, round(needed - available, 6)))
+    if missing:
         # Nichts angefasst, nichts gespeichert — das Lager bleibt, wie es war.
-        return False, fehlt
+        return False, missing
 
     # --- Zweiter Durchgang: jetzt wirklich nehmen. ---
-    for (gesucht, mindest), (_name, gebraucht) in bedarf.items():
-        offen = gebraucht
-        for p in posten:
-            if offen <= 1e-9:
+    for (wanted, minimum), (_name, needed) in demand.items():
+        remaining = needed
+        for p in entries:
+            if remaining <= 1e-9:
                 break
-            if norm_rohstoff(p.get('material')) != gesucht:
+            if norm_rohstoff(p.get('material')) != wanted:
                 continue
-            if float(p.get('qualitaet') or 0) < mindest:
+            if float(p.get('qualitaet') or 0) < minimum:
                 continue
-            da = float(p.get('menge') or 0)
-            weg = min(da, offen)
-            p['menge'] = round(da - weg, 6)
-            offen -= weg
+            available = float(p.get('menge') or 0)
+            taken = min(available, remaining)
+            p['menge'] = round(available - taken, 6)
+            remaining -= taken
     # Leere Posten verschwinden — sonst füllt sich die Liste mit Nullen.
-    posten = [p for p in posten if (p.get('menge') or 0) > 1e-9]
-    sichern(posten)
+    entries = [p for p in entries if (p.get('menge') or 0) > 1e-9]
+    save(entries)
     return True, []

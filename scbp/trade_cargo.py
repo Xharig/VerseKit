@@ -19,14 +19,14 @@
 """
 Das Handelslager — was zum Verkauf im Laderaum liegt.
 
-Getrennt vom Werkstatt-Lager (`rohstoffe.py`), und zwar mit Absicht: Das dort
+Getrennt vom Werkstatt-Lager (`materials.py`), und zwar mit Absicht: Das dort
 ist Baumaterial, das man **behält**. Was hier steht, will man **loswerden**.
 Wer 500 SCU Gold für einen Handelsflug bunkert, will sie nicht in der
 Herstellungs-Rechnung als Vorrat auftauchen sehen.
 
 ## Was hier anders ist als im Werkstatt-Lager
 
-| | Werkstatt (`rohstoffe.py`) | Handel (hier) |
+| | Werkstatt (`materials.py`) | Handel (hier) |
 |---|---|---|
 | Waren | die 26 aus Rezepten | alle rund 150 verkäuflichen |
 | Güte | wichtig (Q 500 ist der Nullpunkt) | **gibt es nicht** |
@@ -61,8 +61,8 @@ gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
 `handelslager.json` und die Schlüssel `format`, `posten`, `ware`, `menge`,
 `ort` und `gestohlen`. Ebenso die Kennungen `'ware'`, `'menge'`,
 `'schreiben'` und `'weg'`, über die die Oberfläche ihre Meldung wählt, und der
-Seitenname `handelslager` in Reiterleiste und Symbolsatz. `rechnen` und
-`zahl_lesen` kommen aus `rohstoffe.py` und heißen dort weiter so.
+Seitenname `handelslager` in Reiterleiste und Symbolsatz. `calculate` und
+`parse_number` kommen aus `materials.py`.
 """
 import json
 import os
@@ -77,7 +77,7 @@ FORMAT = 1
 # und `100+5` ergibt 105. Wiederverwendet statt nachgebaut — zwei Fassungen
 # derselben Regel gehen irgendwann auseinander, und das Bedienkonzept darf
 # sich zwischen zwei Lagern nicht unterscheiden.
-from .rohstoffe import rechnen, zahl_lesen                   # noqa: E402
+from .materials import calculate, parse_number               # noqa: E402
 
 
 def _check_amount(amount, previous=0.0):
@@ -88,7 +88,7 @@ def _check_amount(amount, previous=0.0):
     abgebucht) — aber ein Laderaum mit „−40 SCU" ergibt keinen Sinn. Geprüft
     wird deshalb das **Ergebnis**, nicht die Eingabe.
     """
-    number = rechnen(amount, previous) if isinstance(amount, str) else amount
+    number = calculate(amount, previous) if isinstance(amount, str) else amount
     if number is None or number <= 0:
         return None
     return float(number)
@@ -133,7 +133,7 @@ def as_csv(entries=None):
     Semikolon als Trenner und Komma als Dezimalzeichen — so erwartet es ein
     deutsches Excel/LibreOffice. Mit Punkt und Komma-Trenner landet "1,36"
     dort als Datum oder in einer Spalte zu viel. Dieselbe Wahl wie im
-    Werkstatt-Lager (`rohstoffe.als_csv`); zwei Lager, die sich beim Ausgeben
+    Werkstatt-Lager (`materials.as_csv`); zwei Lager, die sich beim Ausgeben
     unterschiedlich verhalten, waeren nur eine Falle.
 
     Die Spalte "Gestohlen" steht als `ja`/leer da statt als `True`/`False`:
@@ -168,7 +168,7 @@ def from_json(text):
     Gibt die Postenliste zurueck oder `None`, wenn die Datei nicht passt.
 
     ⚠ Es wird **nichts** gespeichert — das entscheidet die Oberflaeche. Genau
-    wie bei `rohstoffe.aus_json`.
+    wie bei `materials.from_json`.
 
     ⚠⚠ **Die Datei des anderen Lagers wird abgelehnt.** Beide sind
     `{"format": 1, "posten": [...]}` — an der Huelle sind sie nicht zu

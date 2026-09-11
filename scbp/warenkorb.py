@@ -1095,7 +1095,7 @@ def farmliste(daten=None):
     Schiff so aussieht, wie ich es will?"*
 
     ⚠⚠ **Zusammengezählt wird ÜBER alle Posten, nicht Posten für Posten.**
-    Das ist die Falle, die `rohstoffe.pruefen()` allein nicht abfängt: Es
+    Das ist die Falle, die `materials.check()` allein nicht abfängt: Es
     rechnet **ein** Rezept gegen das Lager. Bei zwei Posten mit je 2 Iron und
     3 Iron im Lager meldet es zweimal „reicht" — zusammen fehlt aber eines.
     Wer die Fehlmengen einzeln addiert, bekommt dasselbe Erz mehrfach
@@ -1119,7 +1119,7 @@ def farmliste(daten=None):
     oder ein Rezept zwischen den beiden Schritten wegfällt. Lieber ein Feld,
     das meistens leer ist, als ein stiller Verlust.
     """
-    from . import herstellung, rohstoffe
+    from . import herstellung, materials
 
     fertig = rechnung(daten)
     verzeichnis = _bauplan_verzeichnis()
@@ -1190,7 +1190,7 @@ def farmliste(daten=None):
         # nimmt dabei das **gerade noch ausreichende** Erz, damit das bessere
         # für nichts verschwendet wird, das es nicht braucht.
         gruppen.sort(reverse=True)
-        posten = [dict(p) for p in rohstoffe.laden()
+        posten = [dict(p) for p in materials.load()
                   if herstellung.norm_rohstoff(p.get('material')) == norm]
         for guete, name, menge in gruppen:
             passend = sorted(

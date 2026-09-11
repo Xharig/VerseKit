@@ -6102,8 +6102,8 @@ def _herstellung(fenster, rahmen):
             rez = herst_modul.rezept(name) or {}
             stufen = rez.get('stufen') or []
             if stufen:
-                from . import rohstoffe as lager_modul
-                fehlt = [z for z in lager_modul.pruefen(stufen[0]['zutaten'])
+                from . import materials as lager_modul
+                fehlt = [z for z in lager_modul.check(stufen[0]['zutaten'])
                          if z[3]]          # z[3] = „fehlt"
                 wert = not fehlt
         except Exception:
@@ -8394,7 +8394,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     _passt_zeile(fenster, block, eintrag.get('basis'))
 
     rez = herst_modul.rezept(eintrag['basis'])
-    from . import rohstoffe as lager
+    from . import materials as lager
     from . import preise as preis_modul
     for stufe in (rez or {}).get('stufen') or []:
         # ⭐ Was davon liegt im eigenen Lager? (Vorschlag von Horthy (KRT))
@@ -8422,11 +8422,11 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
         def hergestellt(_e=None, zutaten=stufe['zutaten'], lbl=rueck,
                         var=anzahl_var):
-            wie_oft = lager.zahl_lesen(var.get())
+            wie_oft = lager.parse_number(var.get())
             # Unsinn im Feld heisst 1 — lieber einmal abziehen als gar nichts
             # tun und den Nutzer raten lassen, warum nichts passiert.
             wie_oft = 1 if not wie_oft or wie_oft < 1 else int(wie_oft)
-            ok, fehlt = lager.abziehen(zutaten, wie_oft)
+            ok, fehlt = lager.deduct(zutaten, wie_oft)
             if ok:
                 text = (t('s_lg_abgezogen') if wie_oft == 1
                         else t('s_lg_abgezogen_n') % wie_oft)
@@ -8604,10 +8604,10 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             1.16" — obwohl 11,6 gebraucht wurden. Der Abzug rechnete richtig,
             die Anzeige log. Am 30.08.2026 gemeldet.
             """
-            wie_viele = lager.zahl_lesen(anzahl_var.get())
+            wie_viele = lager.parse_number(anzahl_var.get())
             wie_viele = 1 if not wie_viele or wie_viele < 1 else int(wie_viele)
             neue_lage = {m: (br, da, f, zug, mq) for m, br, da, f, zug, mq
-                         in lager.pruefen(stufe['zutaten'], wie_viele)}
+                         in lager.check(stufe['zutaten'], wie_viele)}
             for (rohstoff, menge, menge_lbl, lage_lbl, guete_lbl,
                  preis_lbl) in zutat_widgets:
                 noetig = (menge or 0) * wie_viele
@@ -8690,7 +8690,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         # ⚠ Nur zeigen, wenn das Lager etwas dazu hergibt — geraten wird nicht.
         qualitaeten = {}
         for _slot, _roh, _mg, _gt in stufe['zutaten']:
-            beste = lager.beste_qualitaet(_roh, _gt)
+            beste = lager.best_quality(_roh, _gt)
             if beste is not None:
                 qualitaeten[_roh] = beste
         # ⚠ **Auch ohne Lager anzeigen.** Die Frage „was bringt mir Erz mit
@@ -9953,7 +9953,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
 
     def pruefen(*_):
         """Beim Tippen mitrechnen — man sieht sofort, was hineinginge."""
-        posten, fehlerhaft = lager.raffinerie_zeilen(
+        posten, fehlerhaft = lager.refinery_lines(
             feld.get('1.0', 'end-1c'), einheit.get())
         stand['posten'] = posten
         teile = []
@@ -9988,7 +9988,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         # Der Ort wird gegen die Ortsliste geprüft, so wie im Formular oben.
         ziel_ort = (ort_raff.get() or '').strip()
         for name, menge, guete in stand['posten']:
-            lager.eintragen(name, menge, guete, ziel_ort)
+            lager.add(name, menge, guete, ziel_ort)
         anzahl = len(stand['posten'])
         feld.delete('1.0', 'end')
         pruefen()
@@ -12408,7 +12408,7 @@ def _warenkorb_route(fenster, eltern, liste):
 
 def _lager(fenster, rahmen):
     """Das eigene Rohstoff-Lager: eintragen, ansehen, löschen."""
-    from . import rohstoffe as lager
+    from . import materials as lager
     _ueberschrift(fenster, rahmen, t('hf_lager'), t('s_lg_lead'))
     innen = _rollflaeche(rahmen)
 
@@ -12531,7 +12531,7 @@ def _lager(fenster, rahmen):
         nr = bearbeitung['nummer']
         if nr is None:
             return 0.0
-        posten = lager.laden()
+        posten = lager.load()
         return float(posten[nr].get('menge') or 0) if 0 <= nr < len(posten) else 0.0
 
     def mengen_vorschau_zeigen(*_):
@@ -12551,7 +12551,7 @@ def _lager(fenster, rahmen):
         # in der gewählten Einheit. Ohne Umrechnung addiert „+3" auf einen
         # hundertfach zu grossen Ausgangswert.
         vorher = _bestand_vorher() / _faktor()
-        wert = lager.rechnen(roh, vorher)
+        wert = lager.calculate(roh, vorher)
         if wert is None:
             mengen_vorschau.pack_forget()
             return
@@ -12605,7 +12605,7 @@ def _lager(fenster, rahmen):
     def zeichnen():
         for w in liste_rahmen.winfo_children():
             w.destroy()
-        posten = lager.laden()
+        posten = lager.load()
         if not posten:
             _fliesstext(liste_rahmen, t('s_lg_leer'), fenster.f_klein, fill='x')
             return
@@ -12691,7 +12691,7 @@ def _lager(fenster, rahmen):
             # zurecht (30.08.2026 gemeldet).
             weg.bind('<Button-1>',
                      lambda _e, n=nummer: _rollstelle_halten(
-                         weg, lambda: (lager.entfernen(n),
+                         weg, lambda: (lager.remove(n),
                                        verwerfen(), zeichnen())))
 
             spalten_labels = []
@@ -12725,7 +12725,7 @@ def _lager(fenster, rahmen):
         Bewusst dieselben Felder wie beim Eintragen: eine zweite Eingabemaske
         an anderer Stelle waere ein zweiter Ort zum Suchen.
         """
-        posten = lager.laden()
+        posten = lager.load()
         if not (0 <= nummer < len(posten)):
             return
         p = posten[nummer]
@@ -12754,7 +12754,7 @@ def _lager(fenster, rahmen):
         nummer = bearbeitung['nummer']
         if nummer is None:
             return
-        alle = lager.laden()
+        alle = lager.load()
         if not (0 <= nummer < len(alle)):
             return
         p_ = alle[nummer]
@@ -12762,7 +12762,7 @@ def _lager(fenster, rahmen):
                              t('s_lg_posten_frage') % (p_.get('material') or '?',
                                                        float(p_.get('menge') or 0))):
             return
-        _rollstelle_halten(innen, lambda: (lager.entfernen(nummer),
+        _rollstelle_halten(innen, lambda: (lager.remove(nummer),
                                            verwerfen(), zeichnen()))
 
     def verwerfen(*_):
@@ -12824,13 +12824,13 @@ def _lager(fenster, rahmen):
         # ⚠⚠ **Auch „1.04+3" muss gehen.** Beim Bearbeiten steht die aktuelle
         # Menge schon im Feld — wer drei dazulegen will, tippt hinten „+3" an.
         # Bis v3.3.0-rc39 zaehlte nur ein FUEHRENDES Vorzeichen, und genau die
-        # natuerliche Eingabe wurde abgelehnt. `lager.rechnen()` kann jetzt
+        # natuerliche Eingabe wurde abgelehnt. `lager.calculate()` kann jetzt
         # beides und liefert direkt die **neue Menge**.
         roh = (menge.get() or '0').strip()
         vorher_menge = _bestand_vorher()
         rechnend = bool(roh) and (roh[:1] in '+-−'
                                   or any(z in roh[1:] for z in '+-−'))
-        wert = lager.rechnen(roh, vorher_menge)
+        wert = lager.calculate(roh, vorher_menge)
         if wert is None:
             # ⚠ Keine Zahl? Dann nichts tun statt abstürzen — jemand tippt
             # „12 SCU" statt „12", und das darf das Fenster nicht kosten.
@@ -12857,7 +12857,7 @@ def _lager(fenster, rahmen):
                 return
             if neu_wert == 0 and nr is not None:
                 # Alles abgegeben — dann hat der Posten keinen Zweck mehr.
-                lager.entfernen(nr)
+                lager.remove(nr)
                 bearbeitung['nummer'] = None
                 material.set(''); menge.set(''); guete.set('')
                 ort.set(pfade.einstellung('lager_ort') or '')
@@ -12888,7 +12888,7 @@ def _lager(fenster, rahmen):
         # das Material aus dem Produkt macht — und genau dafür ist das Lager da.
         # Der Lagerort bleibt freiwillig: Wer alles an einem Ort hat, soll das
         # nicht 40-mal tippen müssen.
-        q_zahl = lager.zahl_lesen(guete.get())
+        q_zahl = lager.parse_number(guete.get())
         if q_zahl is None:
             meldung.configure(text=t('s_lg_keine_guete'), fg=GOLD)
             return
@@ -12904,10 +12904,10 @@ def _lager(fenster, rahmen):
         # cSCU „+3" tippt, meint drei cSCU, nicht drei SCU.
         wert = round(wert * _faktor(), 4)
         if bearbeitung['nummer'] is None:
-            lager.eintragen(name, wert, q, ort.get())
+            lager.add(name, wert, q, ort.get())
             hinweis = t('s_lg_eingetragen') % (name, wert)
         else:
-            lager.aendern(bearbeitung['nummer'], name, wert, q, ort.get())
+            lager.change(bearbeitung['nummer'], name, wert, q, ort.get())
             hinweis = t('s_lg_geaendert') % (name, wert)
             bearbeitung['nummer'] = None
         # ⚠ **Der Lagerort bleibt stehen.** Wer eine Raffinerie-Ausbeute
@@ -12988,7 +12988,7 @@ def _lager(fenster, rahmen):
         if not ziel:
             return
         try:
-            inhalt = (lager.als_csv() if art == 'csv' else lager.als_json())
+            inhalt = (lager.as_csv() if art == 'csv' else lager.as_json())
             with open(ziel, 'w', encoding='utf-8') as f:
                 f.write(inhalt)
             meldung.configure(text=t('s_lg_gespeichert') % os.path.basename(ziel),
@@ -13003,7 +13003,7 @@ def _lager(fenster, rahmen):
             return
         try:
             with open(quelle, encoding='utf-8') as f:
-                posten = lager.aus_json(f.read())
+                posten = lager.from_json(f.read())
         except Exception as ausnahme:
             fehler.merken('seiten.lager.einlesen', ausnahme)
             posten = None
@@ -13012,7 +13012,7 @@ def _lager(fenster, rahmen):
             # passieren sieht, haelt das Einlesen fuer kaputt.
             meldung.configure(text=t('s_lg_datei_falsch'), fg=GOLD)
             return
-        lager.sichern(posten)
+        lager.save(posten)
         verwerfen()
         meldung.configure(text=t('s_lg_eingelesen') % len(posten), fg=SUB)
         zeichnen()
@@ -13036,13 +13036,13 @@ def _lager(fenster, rahmen):
         anders als „wirklich löschen?".
         """
         from .hauptfenster import frage_stellen
-        anzahl = len(lager.laden())
+        anzahl = len(lager.load())
         if not anzahl:
             return
         if not frage_stellen(fenster.root, t('s_lg_leeren_frage_t'),
                              t('s_lg_leeren_frage') % anzahl):
             return
-        lager.sichern([])
+        lager.save([])
         verwerfen()
         meldung.configure(text=t('s_lg_geleert') % anzahl, fg=GOLD)
         zeichnen()
@@ -14090,7 +14090,7 @@ def _handelslager(fenster, rahmen):
         if not roh or not rechnung:
             vorschau.configure(text='')
             return
-        wert = lager.rechnen(roh, _bestand_vorher())
+        wert = lager.calculate(roh, _bestand_vorher())
         if wert is None:
             vorschau.configure(text=t('s_hl_rechnung_kaputt'), fg=GOLD)
         elif wert <= 0:

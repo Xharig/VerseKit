@@ -2831,7 +2831,7 @@ TEXTE = {
                           'aus.',
                           'Type a blueprint or material — or pick a type, '
                           'manufacturer or material above.'),
-    # --- Lager (scbp/rohstoffe.py) ------------------------------------------
+    # --- Lager (scbp/materials.py) ------------------------------------------
     # ⚠ **„Rohstofflager", nicht „Mein Lager".** Am 05.09.2026: „Da sind ja
     # Rohstoffe drin, und namentlich passt das zu Handelslager." Beides
     # richtig — der Name sagt jetzt, was drinliegt, und die zwei Lager im

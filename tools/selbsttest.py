@@ -4848,55 +4848,55 @@ def main():
     # Rezepten aber nicht mehr gefunden. Am 29.08.2026 gemeldet.
     print()
     print('53. Lagerbestand berichtigen und Namen abgleichen')
-    from scbp import rohstoffe as _ro53
+    from scbp import materials as _ro53
     from scbp import herstellung as _he53
 
-    _alt53 = _ro53.laden()
+    _alt53 = _ro53.load()
     try:
-        _ro53.sichern([])
-        _ro53.eintragen('Aslarite', 10, 500, 'Zuhause')
-        _ro53.eintragen('Quantainium', 4, 800, 'Schiff')
+        _ro53.save([])
+        _ro53.add('Aslarite', 10, 500, 'Zuhause')
+        _ro53.add('Quantainium', 4, 800, 'Schiff')
 
-        pruefe(len(_ro53.laden()) == 2, 'zwei Posten liegen im Lager')
+        pruefe(len(_ro53.load()) == 2, 'zwei Posten liegen im Lager')
 
         # Menge berichtigen, alles andere behalten
-        _ro53.aendern(0, 'Aslarite', 8, 500, 'Zuhause')
-        _p53 = _ro53.laden()[0]
+        _ro53.change(0, 'Aslarite', 8, 500, 'Zuhause')
+        _p53 = _ro53.load()[0]
         pruefe(_p53.get('menge') == 8, 'die Menge laesst sich berichtigen')
         pruefe(_p53.get('qualitaet') == 500,
                'dabei bleibt die Qualitaet stehen')
 
         # Umlagern und Qualitaet nachtragen
-        _ro53.aendern(1, 'Quantainium', 4, 950, 'Lagerhaus Area18')
-        _p53b = _ro53.laden()[1]
+        _ro53.change(1, 'Quantainium', 4, 950, 'Lagerhaus Area18')
+        _p53b = _ro53.load()[1]
         pruefe(_p53b.get('ort') == 'Lagerhaus Area18',
                'der Lagerort laesst sich aendern (umlagern)')
         pruefe(_p53b.get('qualitaet') == 950,
                'die Qualitaet laesst sich anpassen')
 
         # Der Nachbarposten bleibt unberuehrt
-        pruefe(_ro53.laden()[0].get('material') == 'Aslarite',
+        pruefe(_ro53.load()[0].get('material') == 'Aslarite',
                'die andere Zeile bleibt unangetastet')
 
         # Unsinnige Nummer aendert nichts
-        pruefe(_ro53.aendern(99, 'Irgendwas', 1, 1, '') is False,
+        pruefe(_ro53.change(99, 'Irgendwas', 1, 1, '') is False,
                'eine Nummer ausserhalb der Liste aendert nichts')
-        pruefe(len(_ro53.laden()) == 2,
+        pruefe(len(_ro53.load()) == 2,
                'und legt auch keinen neuen Posten an')
     finally:
-        _ro53.sichern(_alt53)
+        _ro53.save(_alt53)
 
     # Mehrfach herstellen — einmal klicken statt zehnmal
-    _ro53.sichern([{'material': 'Iron', 'menge': 10.0, 'qualitaet': 500,
+    _ro53.save([{'material': 'Iron', 'menge': 10.0, 'qualitaet': 500,
                     'ort': ''}])
     _zut53 = [('Frame', 'Iron', 2.0, 0)]
-    _ok53, _fehlt53 = _ro53.abziehen(_zut53, 3)
-    pruefe(_ok53 and abs(_ro53.menge_von('Iron') - 4.0) < 0.001,
+    _ok53, _fehlt53 = _ro53.deduct(_zut53, 3)
+    pruefe(_ok53 and abs(_ro53.amount_of('Iron') - 4.0) < 0.001,
            'dreimal herstellen zieht dreimal die Zutaten ab (10 - 3x2 = 4)')
-    _ro53.sichern([{'material': 'Iron', 'menge': 10.0, 'qualitaet': 500,
+    _ro53.save([{'material': 'Iron', 'menge': 10.0, 'qualitaet': 500,
                     'ort': ''}])
-    _ro53.abziehen(_zut53)
-    pruefe(abs(_ro53.menge_von('Iron') - 8.0) < 0.001,
+    _ro53.deduct(_zut53)
+    pruefe(abs(_ro53.amount_of('Iron') - 8.0) < 0.001,
            'ohne Angabe bleibt es bei einem Stueck')
 
     # Ausgeben und wieder einlesen
@@ -4904,26 +4904,26 @@ def main():
                  'ort': 'Zuhause'},
                 {'material': 'Riccite', 'menge': 2.91, 'qualitaet': 800,
                  'ort': ''}]
-    _csv53 = _ro53.als_csv(_probe53)
+    _csv53 = _ro53.as_csv(_probe53)
     pruefe(_csv53.startswith('Material;Menge;Qualitaet;Lagerort'),
            'die Tabelle hat eine Kopfzeile')
     pruefe('1,36' in _csv53,
            'Mengen stehen mit Komma darin (deutsches Tabellenprogramm)')
     pruefe(_csv53.count(chr(10)) == 3, 'zwei Posten ergeben zwei Zeilen')
-    _zurueck53 = _ro53.aus_json(_ro53.als_json(_probe53))
+    _zurueck53 = _ro53.from_json(_ro53.as_json(_probe53))
     pruefe(_zurueck53 == _probe53,
            'was ausgegeben wurde, kommt unveraendert zurueck')
-    pruefe(_ro53.aus_json('kein json') is None,
+    pruefe(_ro53.from_json('kein json') is None,
            'Unsinn wird nicht eingelesen')
-    pruefe(_ro53.aus_json('{"format": 99, "posten": []}') is None,
+    pruefe(_ro53.from_json('{"format": 99, "posten": []}') is None,
            'und ein fremdes Format auch nicht')
 
     # Komma und Punkt gelten gleich — die einen tippen 12,5, die anderen 12.5
-    pruefe(_ro53.zahl_lesen('12,5') == 12.5, 'ein Komma wird als Zahl gelesen')
-    pruefe(_ro53.zahl_lesen('12.5') == 12.5, 'ein Punkt genauso')
-    pruefe(_ro53.zahl_lesen(' 8 ') == 8.0, 'Leerzeichen stoeren nicht')
-    pruefe(_ro53.zahl_lesen('-2,5') == -2.5, 'ein Minus bleibt erhalten')
-    # ⚠ Hier stand bis 08.09.2026 `zahl_lesen('-2')` unter der Beschriftung
+    pruefe(_ro53.parse_number('12,5') == 12.5, 'ein Komma wird als Zahl gelesen')
+    pruefe(_ro53.parse_number('12.5') == 12.5, 'ein Punkt genauso')
+    pruefe(_ro53.parse_number(' 8 ') == 8.0, 'Leerzeichen stoeren nicht')
+    pruefe(_ro53.parse_number('-2,5') == -2.5, 'ein Minus bleibt erhalten')
+    # ⚠ Hier stand bis 08.09.2026 `parse_number('-2')` unter der Beschriftung
     # „auch das lange Minus" — geprueft wurde also das normale Minus ein zweites
     # Mal, und das lange (U+2212) nie. Eine Pruefung, die etwas anderes tut, als
     # sie sagt, ist schlimmer als keine: Sie erzeugt Sicherheit, die es nicht gibt.
@@ -4932,11 +4932,11 @@ def main():
     # Windows genau daran abgebrochen ist. U+2212 kennt cp1252 nicht — als
     # Literal waere diese Zeile also selbst der Fehler, den 144 sucht.
     # (Vermutlich der Grund, warum hier urspruenglich das normale Minus stand.)
-    pruefe(_ro53.zahl_lesen(chr(0x2212) + '2') == -2.0,
+    pruefe(_ro53.parse_number(chr(0x2212) + '2') == -2.0,
            'auch das lange Minus vom Ziffernblock')
-    pruefe(_ro53.zahl_lesen('12 SCU') is None,
+    pruefe(_ro53.parse_number('12 SCU') is None,
            'was keine Zahl ist, gibt None statt eines Absturzes')
-    pruefe(_ro53.zahl_lesen('') is None, 'und ein leeres Feld ebenso')
+    pruefe(_ro53.parse_number('') is None, 'und ein leeres Feld ebenso')
 
     # ⚠⚠ Tausendertrennzeichen — aufloesen, aber NUR wo es eindeutig ist.
     # Bei Mengen sind Kommazahlen der Regelfall (`12,5 SCU` tippt jeder), also
@@ -4950,16 +4950,16 @@ def main():
                             ('1,500', 1.5),           # dito
                             ('12,5', 12.5),
                             ('1234', 1234.0)):
-        pruefe(_ro53.zahl_lesen(_roh53) == _soll53,
+        pruefe(_ro53.parse_number(_roh53) == _soll53,
                'Menge %r wird %s (bekommen: %s)'
-               % (_roh53, _soll53, _ro53.zahl_lesen(_roh53)))
+               % (_roh53, _soll53, _ro53.parse_number(_roh53)))
 
     # ⭐ Und die Gegenprobe zur Scan-Signatur: DIESELBE Funktion, anderer
     # Schalter. `17,200` steht so im HUD und meint siebzehntausendzweihundert —
     # als Menge waere dieselbe Schreibweise dagegen 17,2.
-    pruefe(_ro53.trennzeichen_klaeren('17,200', ganzzahlig=True) == '17200',
+    pruefe(_ro53.normalize_separators('17,200', integer=True) == '17200',
            'als Signatur gelesen wird 17,200 zu 17200')
-    pruefe(_ro53.trennzeichen_klaeren('17,200') == '17.200',
+    pruefe(_ro53.normalize_separators('17,200') == '17.200',
            'als Menge gelesen bleibt es eine Kommazahl')
 
     # ⚠⚠ **Beide Trennzeichen zusammen — hier lag der Fehler bis 10.09.2026.**
@@ -4972,9 +4972,9 @@ def main():
                             ('1.234,567', '1234.567'),   # und andersherum
                             ('1.234.567,89', '1234567.89'),
                             ('1,234,567.89', '1234567.89')):
-        pruefe(_ro53.trennzeichen_klaeren(_roh53) == _soll53,
+        pruefe(_ro53.normalize_separators(_roh53) == _soll53,
                '%r wird %s (bekommen: %s)'
-               % (_roh53, _soll53, _ro53.trennzeichen_klaeren(_roh53)))
+               % (_roh53, _soll53, _ro53.normalize_separators(_roh53)))
 
     # Namensabgleich — der Schluessel zwischen Lager und Rezept.
     # ⚠ Mit eingespeister Namensliste pruefen. Im Wegwerf-Ordner gibt es keine
@@ -5389,82 +5389,82 @@ def main():
     # Bestand nie geraten — aber er wurde LEERGERAEUMT, wenn etwas fehlte.
     print()
     print('61. Stueckzahl, Abzug und die Grenze des Lagers')
-    from scbp import rohstoffe as _ro61
+    from scbp import materials as _ro61
 
-    _sichern61 = _ro61.laden()
+    _sichern61 = _ro61.load()
     try:
         _zut61 = [('Frame', 'Iron', 1.16, 0), ('Cycler', 'Riccite', 0.17, 0)]
 
         # a) Die ANZEIGE muss die Stueckzahl mitrechnen. Genau das fehlte.
-        _ro61.sichern([])
+        _ro61.save([])
         _eins61 = {m: br for m, br, _da, _f, _zg, _mq
-                   in _ro61.pruefen(_zut61, 1)}
+                   in _ro61.check(_zut61, 1)}
         _zehn61 = {m: br for m, br, _da, _f, _zg, _mq
-                   in _ro61.pruefen(_zut61, 10)}
+                   in _ro61.check(_zut61, 10)}
         pruefe(abs(_eins61['Iron'] - 1.16) < 1e-6,
                'ein Stueck braucht 1,16 Iron')
         pruefe(abs(_zehn61['Iron'] - 11.6) < 1e-6,
                'zehn Stueck brauchen das Zehnfache (%.2f)' % _zehn61['Iron'])
         _fehl61 = {m: f for m, _br, _da, f, _zg, _mq
-                   in _ro61.pruefen(_zut61, 10)}
+                   in _ro61.check(_zut61, 10)}
         pruefe(abs(_fehl61['Iron'] - 11.6) < 1e-6,
                'und bei leerem Lager fehlt auch das Zehnfache')
 
         # b) Der ABZUG rechnet die Stueckzahl mit — das war schon richtig.
-        _ro61.sichern([{'material': 'Iron', 'menge': 20.0, 'qualitaet': 500,
+        _ro61.save([{'material': 'Iron', 'menge': 20.0, 'qualitaet': 500,
                         'ort': ''},
                        {'material': 'Riccite', 'menge': 5.0, 'qualitaet': 500,
                         'ort': ''}])
-        _ok61, _weg61 = _ro61.abziehen(_zut61, 10)
+        _ok61, _weg61 = _ro61.deduct(_zut61, 10)
         pruefe(_ok61, 'zehn Stueck lassen sich abziehen, wenn genug da ist')
-        pruefe(abs(_ro61.menge_von('Iron') - 8.4) < 1e-6,
+        pruefe(abs(_ro61.amount_of('Iron') - 8.4) < 1e-6,
                '20 - 10x1,16 = 8,40 Iron bleiben (%.2f)'
-               % _ro61.menge_von('Iron'))
+               % _ro61.amount_of('Iron'))
 
         # c) ⚠⚠ Reicht es NICHT, wird GAR NICHTS genommen.
-        _ro61.sichern([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
+        _ro61.save([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
                         'ort': ''},
                        {'material': 'Riccite', 'menge': 5.0, 'qualitaet': 500,
                         'ort': ''}])
-        _ok61, _weg61 = _ro61.abziehen(_zut61, 10)
+        _ok61, _weg61 = _ro61.deduct(_zut61, 10)
         pruefe(not _ok61, 'zehn Stueck aus zu wenig Material gehen NICHT')
-        pruefe(abs(_ro61.menge_von('Iron') - 3.0) < 1e-6,
+        pruefe(abs(_ro61.amount_of('Iron') - 3.0) < 1e-6,
                'das Iron bleibt UNANGETASTET im Lager (%.2f statt 0)'
-               % _ro61.menge_von('Iron'))
-        pruefe(abs(_ro61.menge_von('Riccite') - 5.0) < 1e-6,
+               % _ro61.amount_of('Iron'))
+        pruefe(abs(_ro61.amount_of('Riccite') - 5.0) < 1e-6,
                'und das Riccite auch — kein halber Abzug (%.2f)'
-               % _ro61.menge_von('Riccite'))
+               % _ro61.amount_of('Riccite'))
         pruefe(any(n == 'Iron' and abs(f - 8.6) < 1e-6 for n, f in _weg61),
                'gemeldet wird die FEHLMENGE, nicht nur der Name (%s)'
                % (_weg61,))
 
         # d) Und nie ins Minus — auch nicht bei einer unsinnigen Stueckzahl.
-        _ro61.sichern([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
+        _ro61.save([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
                         'ort': ''}])
-        _ro61.abziehen([('Frame', 'Iron', 1.0, 0)], 9999)
-        pruefe(_ro61.menge_von('Iron') >= 0,
+        _ro61.deduct([('Frame', 'Iron', 1.0, 0)], 9999)
+        pruefe(_ro61.amount_of('Iron') >= 0,
                'der Bestand kann nicht negativ werden (%.2f)'
-               % _ro61.menge_von('Iron'))
-        pruefe(abs(_ro61.menge_von('Iron') - 3.0) < 1e-6,
+               % _ro61.amount_of('Iron'))
+        pruefe(abs(_ro61.amount_of('Iron') - 3.0) < 1e-6,
                'und bleibt bei 9999 Stueck unberuehrt stehen')
 
         # e) Zutat zweimal im Rezept: die Summe zaehlt, nicht jede fuer sich.
-        _ro61.sichern([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
+        _ro61.save([{'material': 'Iron', 'menge': 3.0, 'qualitaet': 500,
                         'ort': ''}])
-        _ok61, _weg61 = _ro61.abziehen(
+        _ok61, _weg61 = _ro61.deduct(
             [('A', 'Iron', 2.0, 0), ('B', 'Iron', 2.0, 0)], 1)
         pruefe(not _ok61,
                'zweimal 2 aus 3 im Lager geht nicht — die Summe zaehlt')
-        pruefe(abs(_ro61.menge_von('Iron') - 3.0) < 1e-6,
+        pruefe(abs(_ro61.amount_of('Iron') - 3.0) < 1e-6,
                'und auch hier bleibt alles liegen')
     finally:
-        _ro61.sichern(_sichern61)
+        _ro61.save(_sichern61)
 
     # f) Die Oberflaeche muss die Stueckzahl wirklich durchreichen — und je
     #    Material einen eigenen Regler bauen.
     _seiten61 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                      encoding='utf-8').read()
-    pruefe('lager.pruefen(stufe[\'zutaten\'], wie_viele)' in _seiten61,
+    pruefe('lager.check(stufe[\'zutaten\'], wie_viele)' in _seiten61,
            'die Zutatenliste rechnet mit der eingegebenen Stueckzahl')
     pruefe("anzahl_var.trace_add('write', mengen_setzen)" in _seiten61,
            'und rechnet sofort neu, wenn man die Zahl aendert')
@@ -6219,7 +6219,7 @@ def main():
         # Bis v3.3.0-rc39 zaehlte nur ein FUEHRENDES Vorzeichen; genau die
         # natuerliche Eingabe wurde abgelehnt („Trag eine Menge ein, zum
         # Beispiel 12,5"). Am 30.08.2026 gemeldet.
-        from scbp import rohstoffe as _ro68
+        from scbp import materials as _ro68
         for _eingabe68, _vorher68, _soll68 in (
                 ('4,5', 1.04, 4.5),          # blosse Zahl
                 ('+3', 1.04, 4.04),          # nur Buchung
@@ -6227,16 +6227,16 @@ def main():
                 ('1,04+3', 1.04, 4.04),      # mit Komma genauso
                 ('12,5-0,5', 0.0, 12.0),     # Minus mitten drin
                 ('-0,5', 1.04, 0.54)):       # abbuchen
-            _ist68 = _ro68.rechnen(_eingabe68, _vorher68)
+            _ist68 = _ro68.calculate(_eingabe68, _vorher68)
             pruefe(_ist68 is not None and abs(_ist68 - _soll68) < 1e-9,
                    '%r bei Bestand %g ergibt %s (erwartet %g)'
                    % (_eingabe68, _vorher68, _ist68, _soll68))
         # ⚠ Beide Wege muessen dasselbe ergeben — das ist der Punkt: Niemand
         #   muss wissen, welchen das Programm meint.
-        pruefe(_ro68.rechnen('+3', 1.04) == _ro68.rechnen('1.04+3', 1.04),
+        pruefe(_ro68.calculate('+3', 1.04) == _ro68.calculate('1.04+3', 1.04),
                '„+3" und „1.04+3" ergeben dasselbe')
         for _unsinn68 in ('12 SCU', '', '+abc', 'abc'):
-            pruefe(_ro68.rechnen(_unsinn68, 1.0) is None,
+            pruefe(_ro68.calculate(_unsinn68, 1.0) is None,
                    'Unsinn (%r) ergibt None statt einer Zahl' % _unsinn68)
 
         # ---- Und der Hinweistext darf nicht wieder abstrakt werden ----
@@ -7338,7 +7338,7 @@ def main():
     #      falschen Annahme steht alles um den Faktor 100 daneben.
     print()
     print('83. Raffinerie-Ausbeute abtippen')
-    from scbp import rohstoffe as _ro83
+    from scbp import materials as _ro83
     from scbp import herstellung as _he83
     from scbp import bergbau as _bg83
 
@@ -7357,7 +7357,7 @@ def main():
                    'Iron 1200 3\n'
                    'Iron 500\n'
                    'Iron 500 0')
-        _posten83, _fehl83 = _ro83.raffinerie_zeilen(_text83)
+        _posten83, _fehl83 = _ro83.refinery_lines(_text83)
         pruefe(len(_posten83) == 2,
                'die gueltigen Zeilen kommen durch (%d)' % len(_posten83))
         pruefe(('Heart of the Woods', 0.12, 500) in _posten83,
@@ -7367,7 +7367,7 @@ def main():
         pruefe(len(_fehl83) == 4,
                'jede kaputte Zeile wird einzeln gemeldet (%d)' % len(_fehl83))
 
-        _scu83, _ = _ro83.raffinerie_zeilen('Titanium 295 188', 'scu')
+        _scu83, _ = _ro83.refinery_lines('Titanium 295 188', 'scu')
         pruefe(_scu83 == [('Titanium', 188.0, 295)],
                'in SCU bleibt die Zahl, wie sie ist (%s)' % (_scu83,))
 
@@ -7493,7 +7493,7 @@ def main():
            'unsinnige Eingaben werden abgewiesen')
 
     # ⚠ **Keine negativen Mengen und keine Null.** Ein Laderaum mit „-40 SCU"
-    # ergibt keinen Sinn, und `zahl_lesen` laesst das Minus bewusst durch (im
+    # ergibt keinen Sinn, und `parse_number` laesst das Minus bewusst durch (im
     # Werkstatt-Lager wird damit abgebucht). Hier muss es also abgefangen
     # werden — auch das lange Minus vom Ziffernblock.
     _vorher84 = len(_hl84.load())
@@ -7923,7 +7923,7 @@ def main():
     # kein Abruf.
     print()
     print('86. Beide Lager: sichern, zurueckholen, leeren')
-    from scbp import trade_cargo as _hl86, rohstoffe as _rs86
+    from scbp import trade_cargo as _hl86, materials as _rs86
 
     _hl86.clear()
     _hl86.add('Gold', '500', 'Orison', False)
@@ -7944,7 +7944,7 @@ def main():
            'was ausgegeben wurde, kommt unveraendert zurueck')
 
     # Der Kernfall: die Sicherung des ANDEREN Lagers.
-    _fremd86 = _rs86.als_json([{'material': 'Iron', 'menge': 5,
+    _fremd86 = _rs86.as_json([{'material': 'Iron', 'menge': 5,
                                 'qualitaet': 800, 'ort': 'Daymar'}])
     pruefe(_hl86.from_json(_fremd86) is None,
            'eine Werkstatt-Sicherung wird im Handelslager ABGELEHNT')
@@ -7954,7 +7954,7 @@ def main():
     pruefe(not any(_p.get('ware') for _p
                    in _json86.loads(_fremd86)['posten']),
            'sie haette sonst ein leeres Lager ergeben')
-    pruefe(_rs86.aus_json(_hl86.as_json()) == [],
+    pruefe(_rs86.from_json(_hl86.as_json()) == [],
            'und umgekehrt bringt eine Handels-Sicherung dem Werkstatt-Lager '
            'nichts')
 
@@ -14412,12 +14412,12 @@ def main():
     print()
     print('157. Die Farmliste zaehlt ueber ALLE Posten zusammen')
     # ⚠⚠ **Die Falle, gegen die diese Pruefung geschrieben ist:**
-    # `rohstoffe.pruefen()` rechnet EIN Rezept gegen das Lager. Bei zwei
+    # `materials.check()` rechnet EIN Rezept gegen das Lager. Bei zwei
     # Posten mit je 2 Iron und 3 Iron im Lager meldet es zweimal „reicht" —
     # zusammen fehlt aber eines. Wer die Fehlmengen einzeln addiert, rechnet
     # dasselbe Erz mehrfach an und schickt den Spieler mit zu wenig Material
     # los.
-    from scbp import erkul as _erk157, rohstoffe as _ro157
+    from scbp import erkul as _erk157, materials as _ro157
     from scbp import preise as _pr157
 
     _slots157 = [
@@ -14428,7 +14428,7 @@ def main():
     ]
     _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
                 _ld156.guenstigster, _wk156._bauplan_verzeichnis,
-                _he156.rezept, _pr157.preis, _ro157.laden)
+                _he156.rezept, _pr157.preis, _ro157.load)
     try:
         _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {'probe': {
@@ -14443,7 +14443,7 @@ def main():
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
             if n == 'BlastChill' else None)
         # 3 Iron im Lager — reicht fuer EINEN der beiden Posten.
-        _ro157.laden = lambda: [{'material': 'Iron', 'menge': 3.0,
+        _ro157.load = lambda: [{'material': 'Iron', 'menge': 3.0,
                                  'qualitaet': 500, 'ort': ''}]
 
         _mein157 = {'name': 'Probe', 'hersteller': '', 'kurz': '',
@@ -14465,13 +14465,13 @@ def main():
 
         # ⚠ GEGENPROBE: Einzeln gerechnet meldet `pruefen()` „nichts fehlt" —
         # genau der Fehler, den die Farmliste vermeiden muss.
-        _einzeln157 = _ro157.pruefen([('Frame', 'Iron', 2.0, 0)], 1)
+        _einzeln157 = _ro157.check([('Frame', 'Iron', 2.0, 0)], 1)
         pruefe(_einzeln157[0][3] == 0.0,
                'Gegenprobe: einzeln gerechnet faellt der Mangel NICHT auf')
 
         # ⚠ Erz, das die geforderte Guete nicht erreicht, zaehlt nicht als
         # Bestand — wird aber ausgewiesen statt verschwiegen.
-        _ro157.laden = lambda: [{'material': 'Iron', 'menge': 10.0,
+        _ro157.load = lambda: [{'material': 'Iron', 'menge': 10.0,
                                  'qualitaet': 100, 'ort': ''}]
         _he156.rezept = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 500)]}]}
@@ -14502,7 +14502,7 @@ def main():
     finally:
         (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
          _wk156._bauplan_verzeichnis, _he156.rezept, _pr157.preis,
-         _ro157.laden) = _echt157
+         _ro157.load) = _echt157
 
     # ------------------------------------------------------------------
     # 158. Guete als Buchstabe, und was ohne Klasse dasteht
@@ -15542,8 +15542,8 @@ def main():
 
     # ⚠ `menge_mit_guete` gibt ein TUPEL — das ist die Falle von oben.
     _probe = _mz172 = None
-    from scbp import rohstoffe as _rs172
-    _probe = _rs172.menge_mit_guete('Gibtsnichterz', 0)
+    from scbp import materials as _rs172
+    _probe = _rs172.amount_with_quality('Gibtsnichterz', 0)
     pruefe(isinstance(_probe, tuple) and len(_probe) == 2,
            'menge_mit_guete gibt ein Tupel (passend, zu_gering) zurueck')
     _fehler172 = False
@@ -16499,6 +16499,7 @@ def main():
         'sicherung': 'backup',
         'handelslager': 'trade_cargo',
         'bestand': 'collection',
+        'rohstoffe': 'materials',
     }
 
     def _reste190(quelle, name, alte):

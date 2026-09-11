@@ -579,8 +579,8 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # Meldung wie „bei mir bleibt die Herstellung leer" nicht beurteilen —
     # man saehe nicht, ob die Daten ueberhaupt geladen sind.
     def _lagerzeile():
-        from . import rohstoffe
-        posten = rohstoffe.laden()
+        from . import materials
+        posten = materials.load()
         arten = {(p_.get('material') or '').strip().lower() for p_ in posten}
         return t('b_n_posten') % (len(posten), len(arten - {''}))
 

@@ -417,16 +417,16 @@ GRUND_SIGNATUR = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
 # tausend daneben und ohne eine Zeile Fehlermeldung: Wer genau abschrieb, was
 # im HUD stand, bekam Unsinn vorgesetzt.
 #
-# ⚠ Die Regel wohnt bewusst in `rohstoffe` und nicht hier — dort steht mit
-# `zahl_lesen` seit jeher alles, was eine getippte Zahl entgegennimmt, und zwei
+# ⚠ Die Regel wohnt bewusst in `materials` und nicht hier — dort steht mit
+# `parse_number` seit jeher alles, was eine getippte Zahl entgegennimmt, und zwei
 # Fassungen derselben Regel liefen garantiert auseinander. Der Unterschied
-# steckt allein im Schalter: Hier gilt `ganzzahlig=True`, weil Signaturen ganze
+# steckt allein im Schalter: Hier gilt `integer=True`, weil Signaturen ganze
 # Zahlen im Tausenderbereich sind (`8,600` meint 8600, nie 8,6). Bei Mengen ist
 # es umgekehrt, dort sind Kommazahlen der Regelfall.
 def _zahltext(roh):
     """Abgelesene oder getippte Signatur auf die Punkt-Schreibweise bringen."""
-    from .rohstoffe import trennzeichen_klaeren
-    return trennzeichen_klaeren(roh, ganzzahlig=True)
+    from .materials import normalize_separators
+    return normalize_separators(roh, integer=True)
 
 
 def signatur_suchen(eingabe):

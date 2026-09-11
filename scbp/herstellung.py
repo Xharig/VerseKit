@@ -854,7 +854,7 @@ def werte_mit_lager(name_oder_tag, qualitaet_je_material):
 
     `qualitaet_je_material` ist {Material: Qualität} — in der Regel die beste
     brauchbare Qualität aus dem eigenen Lager
-    (`rohstoffe.beste_qualitaet()`). Materialien ohne Eintrag werden
+    (`materials.best_quality()`). Materialien ohne Eintrag werden
     übersprungen; über sie ist nichts bekannt, und geraten wird nicht.
 
     Gibt [{eigenschaft, material, qualitaet, faktor}] zurück.

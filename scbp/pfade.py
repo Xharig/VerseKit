@@ -649,7 +649,7 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
     Zwei Fassungen derselben Regel gehen irgendwann auseinander, deshalb eine.
 
     ⚠ **Meldet nichts selbst.** Der Aufrufer weiss, unter welchem Namen der
-    Fehler ins Protokoll gehört (`rohstoffe.sichern` gegen
+    Fehler ins Protokoll gehört (`materials.save` gegen
     `trade_cargo.save`) — und `pfade` darf `fehler` nicht einbinden, das
     gäbe einen Ringschluss. Bei einem Fehlschlag fliegt die Ausnahme; die
     Nebendatei ist dann schon weggeräumt.
