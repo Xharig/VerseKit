@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.30.0-rc1 - 2026-09-11
+
+> **Ein Klick, und das Update läuft durch — samt Neustart.** Unter Windows
+> kommt der Watcher nach dem Einspielen jetzt von selbst wieder, unter Linux
+> fällt der zweite Klick weg. Und beim nächsten Start sagt er dir, was aus dem
+> Update geworden ist.
+
+> [!important]
+> Den Wechsel **auf diese** Testfassung spielt noch der bisherige Weg ein —
+> unter Windows startest du den Watcher danach einmal selbst. Ab der nächsten
+> Fassung geht das von allein.
+
 ### Neu
 
 - **Ein Klick genügt fürs Update.** Unter Windows startet der Watcher nach dem

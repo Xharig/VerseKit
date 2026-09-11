@@ -8,6 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.0-rc1 - 2026-09-11
+
+> **One click and the update runs through — restart included.** On Windows
+> the watcher now comes back by itself after installing, on Linux the second
+> click is gone. And on the next start it tells you how the update went.
+
+> [!important]
+> The switch **to this** test version is still installed the old way — on
+> Windows you start the watcher yourself once afterwards. From the next
+> version on it happens by itself.
+
 ### New
 
 - **One click is enough to update.** On Windows the watcher now starts again
