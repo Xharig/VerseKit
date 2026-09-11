@@ -97,7 +97,7 @@ jobs:
       # NICHT im Quelltext — wer sie hat, kann in den Kanal schreiben. Hier
       # wird sie aus dem Secret in die Datei geschrieben, die dann mitgebaut
       # wird. Fehlt das Secret, bleibt sie leer und der Knopf erscheint gar
-      # nicht erst (`berichtziel.moeglich()`).
+      # nicht erst (`report_target.available()`).
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
@@ -145,7 +145,7 @@ jobs:
           # sucht.
           python - <<'PYEOF'
           import io
-          p = 'scbp/berichtziel.py'
+          p = 'scbp/report_target.py'
           t = io.open(p, encoding='utf-8').read()
           alt = "WEBHOOK = ''"
           neu = "WEBHOOK = '${{ secrets.BERICHT_WEBHOOK }}'"
@@ -280,7 +280,7 @@ jobs:
           # sucht.
           python3 - <<'PYEOF'
           import io
-          p = 'scbp/berichtziel.py'
+          p = 'scbp/report_target.py'
           t = io.open(p, encoding='utf-8').read()
           alt = "WEBHOOK = ''"
           neu = "WEBHOOK = '${{ secrets.BERICHT_WEBHOOK }}'"

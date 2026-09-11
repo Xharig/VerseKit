@@ -8,6 +8,39 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.0 - 2026-09-11
+
+> **One click and the update runs through — restart included.** On Windows
+> the watcher now comes back by itself after installing, on Linux the second
+> click is gone. And on the next start it tells you how the update went:
+> installed, cancelled or failed.
+
+> [!important]
+> **The switch to this version is still installed the old way** — on Windows
+> you start the watcher yourself once afterwards. From the next version on it
+> happens by itself.
+
+### New
+
+- **One click is enough to update.** On Windows the watcher now starts again
+  by itself after installing — until now you had to open it by hand. On Linux
+  the second click on “Restart now” is gone
+- **After an update the watcher tells you how it went:** installed, cancelled
+  (then the previous version keeps running) or failed
+
+### Improved
+
+- **No more notice window before installing** — the message is shown in the
+  footer
+- **On Linux the current version is backed up before the swap.** If the new
+  one does not come up, it is restored automatically
+- **Two update clicks in quick succession start only one update**
+
+### Fixed
+
+- **The “Check for new versions” switch had no effect** — even when switched
+  off, the watcher checked every hour
+
 ## v3.29.0 - 2026-09-11
 
 > **An update only installs itself if it is provably the right one.** Until

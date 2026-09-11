@@ -1,0 +1,580 @@
+# -*- coding: utf-8 -*-
+#
+# SC BP Watcher — zeigt live neue Star-Citizen-Baupläne an.
+# Copyright (C) 2026 Xharig
+#
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+Ein-Klick-Update: Laufmarke, Update-Sperre und der Helfer unter Windows.
+
+Bis v3.29.0 endete ein Update unter Windows mit einem geschlossenen Watcher:
+Der Installer lief still, startete bei `/SILENT` absichtlich nichts, und der
+Nutzer musste selbst wieder starten. Dieses Modul nimmt das ab — und es hält
+nicht nur den Ablauf fest, der gelingt, sondern auch, was geschah, wenn er
+mittendrin stirbt.
+
+Drei Bausteine, alle nur Standardbibliothek:
+
+* **Die Laufmarke** (`update-lauf.json`) — geschrieben, bevor der Watcher
+  abtritt. Der nächste Start liest sie und sagt, was aus dem Update wurde:
+  fertig, abgebrochen, gescheitert oder unklar. Die Version prüft dabei der
+  **gestartete Watcher selbst** — ein Rückgabewert 0 allein ist kein Beleg.
+* **Die Sperre** (`update-sperre.json`) — damit zwei Klicks oder zwei
+  Instanzen nicht zwei Installer loslassen.
+  ⚠ Bewusst **keine** Portbindung. Unter Windows bindet ein zweiter Prozess
+  mit `SO_REUSEADDR` denselben Port anstandslos — gemessen am 11.09.2026.
+  Eine Datei, die nur mit `O_EXCL` entsteht, sperrt auf jedem System gleich.
+* **Der Helfer** — eine `.cmd` in `%TEMP%`. Sie wartet, bis der alte Watcher
+  weg ist, gleicht die Prüfsumme **unmittelbar vor dem Start** noch einmal ab,
+  startet den Installer, schreibt dessen Rückgabewert auf und fährt danach den
+  Watcher wieder hoch.
+"""
+import json
+import os
+import sys
+import time
+
+from . import pfade
+
+LAUF = 'update-lauf.json'
+ERGEBNIS = 'update-ergebnis.txt'
+SPERRE = 'update-sperre.json'
+PROTOKOLL = 'update-helfer.txt'
+PROTOKOLL_ALT = 'update-helfer.1.txt'
+HELFER_NAME = 'scbp-update-helfer.cmd'
+
+# Nach welchen Rückgabewerten der Helfer den Watcher wieder startet
+# (entschieden 11.09.2026):
+#
+#   0  Installation gelungen
+#   2  abgebrochen, bevor etwas geändert wurde
+#   3  vor dem Einspielen gescheitert — gemessen: Inno ändert dabei nichts
+#   5  abgebrochen während des Einspielens — gemessen: Inno rollt zurück, die
+#      bisherige Fassung liegt unverändert da
+#
+# Jeder andere Wert startet **nichts**. Gemeldet wird er beim nächsten Start
+# von Hand, über die Laufmarke.
+NEUSTART_NACH = (0, 2, 3, 5)
+
+# Eigene Rückgabewerte des Helfers — weit weg von denen des Installers.
+SUMME_FALSCH = 90
+ALTE_HAENGT = 91
+
+# So lange wartet der Helfer, bis die alte Fassung wirklich weg ist.
+WARTEN_SEKUNDEN = 60
+# Eine Sperre, die älter ist, gilt als verwaist — auch wenn die PID noch lebt
+# (Windows vergibt PIDs wieder).
+SPERRE_HOECHSTENS = 15 * 60
+# Eine Laufmarke, die älter ist, wird still weggeräumt: Wer tagelang nicht
+# gestartet hat, braucht keine Meldung über ein Update von damals.
+LAUF_HOECHSTENS = 24 * 3600
+
+
+# ⚠⚠ **In dieser Datei steht KEIN einziger Pfad.** Alles kommt über die
+# Umgebung (`SCBP_*`), die der Watcher beim Start des Helfers setzt.
+#
+# Warum: `cmd` liest eine `.cmd`-Datei in der OEM-Codepage. Ein Umlaut im
+# Benutzernamen — und damit in jedem Pfad unter dem Heimverzeichnis — käme als
+# Zeichensalat an, und jeder Pfad darin zeigte ins Leere. Umgebungsvariablen dagegen reicht Windows als Unicode
+# durch, und `cmd` setzt sie beim Ausführen ein, ohne sie noch einmal zu
+# zerlegen: `&`, `^`, `%`, `!`, Klammern und Apostroph überstehen das, solange
+# sie in Anführungszeichen stehen. Deshalb bleibt die Datei reines ASCII.
+#
+# ⚠ `DisableDelayedExpansion`, sonst verschwände jedes `!` aus einem Pfad.
+#
+# ⚠ `ping` statt `timeout`: `timeout` bricht ohne Konsole mit „Input
+# redirection is not supported" ab — und der Helfer läuft ohne Konsole.
+#
+# ⚠ Die Prüfsumme prüft `certutil` (liegt jedem Windows bei). Scheitert der
+# Abgleich, wird die Datei gelöscht und **nichts** installiert.
+# ⚠ **Die Protokollzeilen sind englisch** — wie das Setup-Protokoll von Inno
+# daneben. Beides liest nur, wer einen Fehlerbericht auswertet. Ein deutscher
+# Satz in dieser Konstante gälte der Textprüfung im Selbsttest als fester
+# Oberflächentext, und eine Ausnahme für die ganze Datei würde dort künftig
+# echte Funde verdecken.
+HELFER_VORLAGE = r'''@echo off
+rem SC BP Watcher - update helper. Rewritten on every update.
+rem All paths come from the environment (SCBP_*); none is stored in this file.
+setlocal DisableDelayedExpansion
+call :log Helper started
+set /a waited=0
+:old_version
+tasklist /FI "PID eq %SCBP_PID%" /NH >"%SCBP_ERGEBNIS%.pid" 2>nul
+findstr /C:" %SCBP_PID% " "%SCBP_ERGEBNIS%.pid" >nul && goto still_there
+if "%SCBP_PID2%"=="" goto gone
+tasklist /FI "PID eq %SCBP_PID2%" /NH >"%SCBP_ERGEBNIS%.pid" 2>nul
+findstr /C:" %SCBP_PID2% " "%SCBP_ERGEBNIS%.pid" >nul && goto still_there
+goto gone
+:still_there
+set /a waited+=1
+if %waited% GEQ %SCBP_WARTEN% goto stuck
+ping -n 2 127.0.0.1 >nul
+goto old_version
+:stuck
+call :log The old version does not exit - nothing installed
+set rc=91
+goto result
+:gone
+call :log Old version has exited
+certutil -hashfile "%SCBP_SETUP%" SHA256 >"%SCBP_ERGEBNIS%.summe" 2>nul
+findstr /I /C:"%SCBP_SHA256%" "%SCBP_ERGEBNIS%.summe" >nul
+if errorlevel 1 goto bad_checksum
+call :log Checksum matches, starting installer
+"%SCBP_SETUP%" /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR="%SCBP_ZIEL%" /LOG="%SCBP_SETUPLOG%"
+set rc=%errorlevel%
+call :log Installer finished, exit code %rc%
+goto result
+:bad_checksum
+call :log Checksum mismatch - file discarded, nothing installed
+call :log Expected %SCBP_SHA256%, certutil said:
+type "%SCBP_ERGEBNIS%.summe" >>"%SCBP_LOG%" 2>nul
+del "%SCBP_SETUP%" >nul 2>&1
+set rc=90
+:result
+del "%SCBP_ERGEBNIS%.summe" >nul 2>&1
+del "%SCBP_ERGEBNIS%.pid" >nul 2>&1
+>"%SCBP_ERGEBNIS%" echo %rc%
+del "%SCBP_SPERRE%" >nul 2>&1
+for %%c in (%SCBP_NEUSTART%) do if "%rc%"=="%%c" goto restart
+call :log No restart after exit code %rc%
+goto :eof
+:restart
+call :log Starting the watcher
+start "" "%SCBP_EXE%"
+goto :eof
+:log
+>>"%SCBP_LOG%" echo %date% %time% %*
+goto :eof
+'''
+
+
+# ------------------------------------------------------------------ Grundlagen
+
+def _pfad(name):
+    return pfade.app_datei(name)
+
+
+def _ordner_anlegen(pfad):
+    try:
+        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+    except OSError:
+        pass
+
+
+def _weg(pfad):
+    """Eine Datei entfernen. Fehlt sie, ist das kein Fehler."""
+    try:
+        os.remove(pfad)
+    except FileNotFoundError:
+        pass
+    except OSError as ausnahme:
+        from . import fehler
+        fehler.merken('update_lauf.weg', ausnahme)
+
+
+def _json_schreiben(pfad, daten):
+    """Erst daneben schreiben, dann tauschen — nie eine halbe Datei."""
+    _ordner_anlegen(pfad)
+    zwischen = pfad + '.neu'
+    with open(zwischen, 'w', encoding='utf-8') as f:
+        json.dump(daten, f)
+    os.replace(zwischen, pfad)
+
+
+def _json_lesen(pfad):
+    try:
+        with open(pfad, encoding='utf-8') as f:
+            daten = json.load(f)
+        return daten if isinstance(daten, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _norm(version):
+    return str(version or '').strip().lower().lstrip('v')
+
+
+# ---------------------------------------------------------------- Prozesse
+
+def _kernel32():
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.WinDLL('kernel32', use_last_error=True)
+    k.OpenProcess.restype = wintypes.HANDLE
+    k.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k.GetExitCodeProcess.argtypes = (wintypes.HANDLE,
+                                     ctypes.POINTER(wintypes.DWORD))
+    k.QueryFullProcessImageNameW.argtypes = (
+        wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+        ctypes.POINTER(wintypes.DWORD))
+    k.CloseHandle.argtypes = (wintypes.HANDLE,)
+    return k
+
+
+_NUR_ABFRAGEN = 0x1000          # PROCESS_QUERY_LIMITED_INFORMATION
+_LAEUFT_NOCH = 259              # STILL_ACTIVE
+
+
+def pid_lebt(pid):
+    """Lebt dieser Prozess noch? Ein Fehler beim Fragen zählt als „nein"."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    if pfade.WINDOWS:
+        import ctypes
+        from ctypes import wintypes
+        k = _kernel32()
+        griff = k.OpenProcess(_NUR_ABFRAGEN, False, pid)
+        if not griff:
+            # „Zugriff verweigert" heißt: Es gibt ihn, wir dürfen nur nicht
+            # hinein. Alles andere heißt: Es gibt ihn nicht.
+            return ctypes.get_last_error() == 5
+        try:
+            code = wintypes.DWORD()
+            if not k.GetExitCodeProcess(griff, ctypes.byref(code)):
+                return True
+            return code.value == _LAEUFT_NOCH
+        finally:
+            k.CloseHandle(griff)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _prozess_datei(pid):
+    """Die Programmdatei eines Prozesses (nur Windows), sonst None."""
+    if not pfade.WINDOWS:
+        return None
+    import ctypes
+    from ctypes import wintypes
+    k = _kernel32()
+    griff = k.OpenProcess(_NUR_ABFRAGEN, False, int(pid))
+    if not griff:
+        return None
+    try:
+        puffer = ctypes.create_unicode_buffer(1024)
+        groesse = wintypes.DWORD(1024)
+        if k.QueryFullProcessImageNameW(griff, 0, puffer, ctypes.byref(groesse)):
+            return puffer.value
+        return None
+    finally:
+        k.CloseHandle(griff)
+
+
+def alte_pids(exe=None):
+    """Die Prozesse, auf deren Ende der Helfer warten muss.
+
+    ⚠ **Zwei, nicht einer.** Die gepackte `.exe` startet sich zweimal: Ein
+    Bootloader entpackt nach `%TEMP%` und startet darin das eigentliche
+    Programm. Der Bootloader lebt weiter, bis er seinen Ordner aufgeräumt hat,
+    und **hält so lange die `.exe`**. Wartet der Helfer nur auf das Programm,
+    greift der Installer nach einer Datei, die noch belegt ist.
+
+    ⚠ Der Elternprozess zählt nur, wenn er **dieselbe Datei** ist. Wer den
+    Watcher aus einem Quellcode-Start oder über den Explorer bekommt, hat
+    einen Vater, der nie endet — auf den zu warten hieße, nie zu installieren.
+    """
+    exe = os.path.normcase(os.path.abspath(exe or sys.executable))
+    pids = [os.getpid()]
+    try:
+        vater = os.getppid()
+        datei = _prozess_datei(vater)
+        if datei and os.path.normcase(os.path.abspath(datei)) == exe:
+            pids.append(vater)
+    except Exception:
+        pass
+    return pids
+
+
+# ------------------------------------------------------------------- Sperre
+
+def _verwaist(pfad):
+    daten = _json_lesen(pfad)
+    if daten is None:
+        # Unlesbar: Entweder schreibt gerade jemand hinein — dann ist sie
+        # Sekundenbruchteile alt —, oder sie ist ein Überbleibsel.
+        try:
+            return time.time() - os.path.getmtime(pfad) > 10
+        except OSError:
+            return True
+    try:
+        alter = time.time() - float(daten.get('zeit') or 0)
+    except (TypeError, ValueError):
+        return True
+    if alter > SPERRE_HOECHSTENS:
+        return True
+    return not pid_lebt(daten.get('pid'))
+
+
+def sperre_nehmen():
+    """True: Wir dürfen. False: Ein anderes Update ist gerade unterwegs.
+
+    ⚠ Scheitert schon das Anlegen (Platte voll, keine Rechte), wird das Update
+    **nicht** blockiert. Die Sperre schützt vor dem doppelten Lauf, nicht vor
+    einer fremden Datei — das tut die Prüfsumme. Ein Werkzeug, das sich an
+    einer fehlenden Sperrdatei aufhängt, wäre schlimmer als der seltene
+    Doppellauf.
+    """
+    pfad = _pfad(SPERRE)
+    _ordner_anlegen(pfad)
+    for _versuch in range(2):
+        try:
+            fd = os.open(pfad, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            if not _verwaist(pfad):
+                return False
+            _weg(pfad)
+            continue
+        except OSError as ausnahme:
+            from . import fehler
+            fehler.merken('update_lauf.sperre', ausnahme)
+            return True
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump({'pid': os.getpid(), 'zeit': time.time()}, f)
+        return True
+    return False
+
+
+def sperre_uebergeben(pid):
+    """Die Sperre gehört ab jetzt dem Helfer — der Watcher tritt ja gleich ab."""
+    try:
+        _json_schreiben(_pfad(SPERRE), {'pid': int(pid), 'zeit': time.time()})
+    except (OSError, TypeError, ValueError) as ausnahme:
+        from . import fehler
+        fehler.merken('update_lauf.sperre_uebergeben', ausnahme)
+
+
+def sperre_freigeben():
+    _weg(_pfad(SPERRE))
+
+
+def sperre_gehalten():
+    """Hält gerade jemand Lebendiges die Sperre?"""
+    pfad = _pfad(SPERRE)
+    return os.path.exists(pfad) and not _verwaist(pfad)
+
+
+# --------------------------------------------------------------- Laufmarke
+
+def lauf_beginnen(ziel, alt, installer, summe):
+    """Festhalten, was gleich passiert — bevor der Watcher abtritt."""
+    _weg(_pfad(ERGEBNIS))
+    _json_schreiben(_pfad(LAUF), {
+        'ziel': str(ziel or ''), 'alt': str(alt or ''),
+        'installer': str(installer or ''), 'sha256': str(summe or ''),
+        'start': time.time(),
+    })
+
+
+def lauf_lesen():
+    return _json_lesen(_pfad(LAUF))
+
+
+def ergebnis_lesen():
+    """Der Rückgabewert, den der Helfer aufgeschrieben hat — oder None."""
+    try:
+        with open(_pfad(ERGEBNIS), encoding='ascii', errors='replace') as f:
+            return int(f.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _aufraeumen(lauf):
+    _weg(_pfad(LAUF))
+    _weg(_pfad(ERGEBNIS))
+    installer = str(lauf.get('installer') or '')
+    # Nur eine Datei, die erkennbar uns gehört — nie etwas Fremdes.
+    if installer and 'sc-bp-watcher' in os.path.basename(installer).lower():
+        _weg(installer)
+
+
+def auswerten(eigene_version):
+    """Beim Start: Was ist aus dem letzten Update geworden?
+
+    Gibt ein Wörterbuch mit `art` zurück — `fertig`, `abgebrochen`, `fehler`
+    oder `unklar` — oder None, wenn es nichts zu sagen gibt. Räumt danach auf.
+
+    ⚠ Die Version entscheidet, nicht der Rückgabewert. Meldet der Installer 0,
+    läuft aber weiter die alte Fassung, ist das **kein** Erfolg — genau diese
+    falsche Erfolgsmeldung soll es nicht geben.
+
+    ⚠ Hält der Helfer die Sperre noch, läuft das Update gerade — wer jetzt
+    von Hand startet, bekommt keine Meldung, und die Laufmarke bleibt liegen.
+    """
+    lauf = lauf_lesen()
+    if not lauf or sperre_gehalten():
+        return None
+    code = ergebnis_lesen()
+    ziel = str(lauf.get('ziel') or '')
+    alt = str(lauf.get('alt') or '')
+    try:
+        alter = time.time() - float(lauf.get('start') or 0)
+    except (TypeError, ValueError):
+        alter = LAUF_HOECHSTENS + 1
+    _aufraeumen(lauf)
+    if not 0 <= alter <= LAUF_HOECHSTENS:
+        return None
+
+    eigen = _norm(eigene_version)
+    if eigen and eigen == _norm(ziel):
+        art = 'fertig'
+    elif code is None:
+        art = 'unklar'
+    elif code in (2, 5) and eigen == _norm(alt):
+        art = 'abgebrochen'
+    else:
+        art = 'fehler'
+    if art != 'fertig':
+        from . import fehler
+        fehler.merken('aktualisierung.update_%s' % art, RuntimeError(
+            'Ziel %s, laufend %s, vorher %s, Rückgabewert %s'
+            % (ziel or '?', eigene_version or '?', alt or '?',
+               '–' if code is None else code)))
+    return {'art': art, 'ziel': ziel, 'alt': alt, 'code': code,
+            'eigen': str(eigene_version or '')}
+
+
+def meldung(ergebnis):
+    """Der Satz für den Nutzer — als `Satz`, damit er beim Sprachwechsel mitzieht."""
+    from . import sprache
+    art = ergebnis.get('art')
+    if art == 'fertig':
+        return sprache.Satz('up_erg_fertig', ergebnis.get('ziel'))
+    if art == 'abgebrochen':
+        return sprache.Satz('up_erg_abgebrochen', ergebnis.get('eigen'))
+    if art == 'unklar':
+        return sprache.Satz('up_erg_unklar', ergebnis.get('ziel'))
+    return sprache.Satz('up_erg_fehler', ergebnis.get('ziel'),
+                        ergebnis.get('code'))
+
+
+# ------------------------------------------------------------------ Helfer
+
+def protokoll_rotieren():
+    """Das letzte Protokoll als vorletztes behalten.
+
+    ⚠ Überschreiben hieße: Ein zweiter Versuch löscht genau den Fehler, nach
+    dem jemand fragt. Zwei Stände reichen — es geht um den letzten Versuch und
+    den davor, nicht um ein Tagebuch.
+    """
+    alt = _pfad(PROTOKOLL)
+    if os.path.exists(alt):
+        try:
+            os.replace(alt, _pfad(PROTOKOLL_ALT))
+        except OSError as ausnahme:
+            from . import fehler
+            fehler.merken('update_lauf.rotieren', ausnahme)
+
+
+def _protokoll_zeile(eintrag):
+    """Eine Zeile vom Watcher selbst. Nur ASCII — der Helfer schreibt OEM.
+
+    ⚠ Der Parameter heißt mit Absicht nicht `text`: Die Textprüfung wertet
+    jeden Parameter dieses Namens als Oberflächentext. Diese Zeile landet nur
+    in der Diagnose und ist englisch wie der Rest des Helfer-Protokolls.
+    """
+    pfad = _pfad(PROTOKOLL)
+    _ordner_anlegen(pfad)
+    try:
+        with open(pfad, 'a', encoding='ascii', errors='backslashreplace',
+                  newline='\r\n') as f:
+            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), eintrag))
+    except OSError:
+        pass
+
+
+def helfer_umgebung(umgebung, setup, summe, ziel_ordner, setup_protokoll,
+                    exe, pids):
+    """Die Umgebung für den Helfer: die gesäuberte des Watchers plus `SCBP_*`."""
+    import tempfile
+    env = dict(umgebung)
+    env.update({
+        'SCBP_SETUP': setup,
+        'SCBP_SHA256': str(summe).lower(),
+        'SCBP_ZIEL': ziel_ordner,
+        # Ohne Ablage schreibt das Setup trotzdem mit — nur eben nach %TEMP%.
+        'SCBP_SETUPLOG': setup_protokoll or os.path.join(
+            tempfile.gettempdir(), 'scbp-update-setup.txt'),
+        'SCBP_LOG': _pfad(PROTOKOLL),
+        'SCBP_ERGEBNIS': _pfad(ERGEBNIS),
+        'SCBP_SPERRE': _pfad(SPERRE),
+        'SCBP_EXE': exe,
+        'SCBP_PID': str(pids[0]),
+        'SCBP_PID2': str(pids[1]) if len(pids) > 1 else '',
+        'SCBP_WARTEN': str(WARTEN_SEKUNDEN),
+        'SCBP_NEUSTART': ' '.join(str(c) for c in NEUSTART_NACH),
+    })
+    return env
+
+
+def helfer_schreiben():
+    """Die Vorlage nach `%TEMP%` legen. Gibt den Pfad zurück."""
+    import tempfile
+    pfad = os.path.join(tempfile.gettempdir(), HELFER_NAME)
+    with open(pfad, 'w', encoding='ascii', newline='\r\n') as f:
+        f.write(HELFER_VORLAGE)
+    return pfad
+
+
+def helfer_flags():
+    """Wie der Helfer gestartet wird — an EINER Stelle, für Programm und Selbsttest.
+
+    ⚠⚠ **Kein `DETACHED_PROCESS`.** Ohne eigene Konsole bekommt jedes
+    Konsolenprogramm, das `cmd` startet (`tasklist`, `findstr`, `certutil`),
+    eine neue, sichtbare Konsole — und benutzt deren Ein- und Ausgabe statt der
+    Umleitungen. Im ersten Echttest (11.09.2026) hing so `find` in einem offenen
+    Fenster und wartete auf die Tastatur, und `certutil` schrieb die Summe in
+    sein Fenster statt in die Datei. Der Helfer verwarf daraufhin ein
+    einwandfreies Update (Rückgabewert 90) — sicher, aber aus dem falschen Grund.
+
+    `CREATE_NO_WINDOW` gibt `cmd` eine eigene, **unsichtbare** Konsole, die alle
+    Kinder erben. Die eigene Prozessgruppe löst ihn vom Watcher, der gleich
+    abtritt. Der Installer hängt am Helfer, und der lebt bis zu dessen Ende —
+    Innos Meldung über einen fehlenden Elternprozess kann so nicht entstehen.
+    """
+    import subprocess
+    return (getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
+
+
+def helfer_starten(setup, summe, ziel_ordner, setup_protokoll, umgebung,
+                   flags, exe=None):
+    """Den Helfer loslassen und ihm die Sperre übergeben. Gibt den Prozess."""
+    import subprocess
+    import tempfile
+    exe = exe or sys.executable
+    pids = alte_pids(exe)
+    helfer = helfer_schreiben()
+    protokoll_rotieren()
+    _protokoll_zeile('Watcher hands over: waiting for PID %s, installer %s'
+                     % ('/'.join(str(p) for p in pids),
+                        os.path.basename(setup)))
+    env = helfer_umgebung(umgebung, setup, summe, ziel_ordner,
+                          setup_protokoll, exe, pids)
+    # Das doppelte Anführungszeichen ist cmd-Eigenart: `cmd /c "…"` streicht
+    # das äußere Paar, ein Pfad mit Leerzeichen braucht deshalb ein eigenes.
+    prozess = subprocess.Popen('cmd /c ""%s""' % helfer, env=env,
+                               cwd=tempfile.gettempdir(), creationflags=flags)
+    sperre_uebergeben(prozess.pid)
+    return prozess

@@ -44,6 +44,17 @@ stumm scheitern und die Kaskade abbrechen, bevor der Rückfall greift.
 
 Gefunden wird das Programm **einmal beim Start**, nicht bei jedem Ton — sonst
 sucht das Programm bei jedem Bauplan erneut das Dateisystem ab.
+
+⚠⚠ Bis zum 11.09.2026 hieß dieses Modul `ton`, die Funktion `abspielen`
+(Sprachumstellung P3). **`ton` war die Falle des ganzen Pakets:** Das Wort
+steht an Stellen, die mit diesem Modul nichts zu tun haben — als Schalter
+`self.ton` im Einstellungsfenster (gespeichert als `signalton`), als Schlüssel
+`'ton'` in `uebersetzung.py` für die **Sprache der Spielstimmen**
+(`g_languageAudio`), und als Symbolname. Umbenannt wurde deshalb nur der
+Sammelimport und der eine Aufruf in `sc_bp_watcher.py` — nie das Wort.
+
+Die Anlässe `'normal'` und `'auffaellig'` sind unverändert: Der Aufrufer
+übergibt sie als Text, sie sind Schnittstelle, keine Bezeichner.
 """
 import os
 import shutil
@@ -53,15 +64,15 @@ import sys
 WINDOWS = sys.platform.startswith('win')
 
 # Klangdatei und Themen-Kennung je Anlass.
-KLAENGE = {
+SOUNDS = {
     'normal':     ('message', 'message.oga'),
     'auffaellig': ('complete', 'complete.oga'),
 }
 
-KLANG_ORDNER = '/usr/share/sounds/freedesktop/stereo'
+SOUND_DIR = '/usr/share/sounds/freedesktop/stereo'
 
 
-def _finde_spieler():
+def _find_player():
     """Welches Abspielprogramm ist da? Einmal ermitteln, dann merken."""
     if shutil.which('canberra-gtk-play'):
         return 'canberra'
@@ -71,33 +82,33 @@ def _finde_spieler():
     return None
 
 
-SPIELER = None if WINDOWS else _finde_spieler()
+PLAYER = None if WINDOWS else _find_player()
 
 
-def datei(anlass):
+def file_for(occasion):
     """Voller Pfad zur Klangdatei — oder None, wenn es sie hier nicht gibt."""
-    _, name = KLAENGE.get(anlass, KLAENGE['normal'])
-    pfad = os.path.join(KLANG_ORDNER, name)
-    return pfad if os.path.isfile(pfad) else None
+    _, name = SOUNDS.get(occasion, SOUNDS['normal'])
+    path = os.path.join(SOUND_DIR, name)
+    return path if os.path.isfile(path) else None
 
 
-def abspielen(anlass='normal'):
+def play(occasion='normal'):
     """Einen Systemklang abspielen. Gibt True zurück, wenn es losgeschickt wurde.
 
     Läuft **nebenher** (`Popen`, kein Warten): Ein Ton darf die Anzeige des
     Bauplans nicht aufhalten — die Meldung ist wichtiger als das Geräusch."""
-    if not SPIELER:
+    if not PLAYER:
         return False
-    kennung, _ = KLAENGE.get(anlass, KLAENGE['normal'])
-    if SPIELER == 'canberra':
-        befehl = ['canberra-gtk-play', '-i', kennung]
+    theme_id, _ = SOUNDS.get(occasion, SOUNDS['normal'])
+    if PLAYER == 'canberra':
+        command = ['canberra-gtk-play', '-i', theme_id]
     else:
-        pfad = datei(anlass)
-        if not pfad:
+        path = file_for(occasion)
+        if not path:
             return False
-        befehl = [SPIELER, pfad]
+        command = [PLAYER, path]
     try:
-        subprocess.Popen(befehl, stdout=subprocess.DEVNULL,
+        subprocess.Popen(command, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL)
         return True
     except Exception:

@@ -122,6 +122,9 @@ UNTERORDNER = {
     # Das Protokoll des Setups beim Selbst-Update. Gehoert zur Diagnose:
     # Meldet jemand 'das Update geht nicht', steht hier, woran es lag.
     'update-setup.txt':   'Diagnose',
+    # Das Protokoll des Update-Helfers — der letzte Versuch und der davor.
+    'update-helfer.txt':   'Diagnose',
+    'update-helfer.1.txt': 'Diagnose',
 }
 ORDNERNAME = 'SC BP Watcher'
 EINSTELLUNGEN = 'einstellungen.json'
@@ -1112,6 +1115,18 @@ def saubere_umgebung():
     ursprünglichen Werte unter `*_ORIG` ab; die gelten hier wieder.
     """
     umgebung = dict(os.environ)
+    # ⚠⚠ **Die Spuren des PyInstaller-Bootloaders müssen raus.** Eine gepackte
+    # `.exe` startet sich zweimal: Der Bootloader entpackt und startet sich
+    # selbst als Kind — woran das Kind sich erkennt, steht in `_PYI_*` (früher
+    # `_MEIPASS2`). Erbt ein NEU gestarteter Watcher diese Variablen, hält er
+    # sich für das Kind eines Bootloaders, prüft seinen „Vater" und bricht mit
+    # „Security validation failure: … parent process" ab. Im Echttest vom
+    # 11.09.2026 war das Update fertig eingespielt — und der Neustart
+    # scheiterte genau daran. Für jedes andere Programm sind die Variablen
+    # ohnehin bedeutungslos.
+    for name in list(umgebung):
+        if name.upper().startswith(('_PYI_', '_MEI')):
+            umgebung.pop(name, None)
     for name in ('LD_LIBRARY_PATH', 'PYTHONHOME', 'PYTHONPATH',
                  'PYTHONDONTWRITEBYTECODE', 'QT_PLUGIN_PATH', 'GTK_PATH',
                  'GDK_PIXBUF_MODULE_FILE', 'GI_TYPELIB_PATH', 'XDG_DATA_DIRS',
@@ -1636,11 +1651,11 @@ def _geheimnisse_kuerzen(text):
     # Weiterleitung), greift es nicht. Hier wird ersetzt, was tatsächlich
     # eingetragen ist, ganz gleich wie es aussieht.
     #
-    # ⚠ Lokal importiert: `berichtziel` kommt ohne `pfade` aus, aber ein
+    # ⚠ Lokal importiert: `report_target` kommt ohne `pfade` aus, aber ein
     # Import auf Modulebene würde diese Reihenfolge für immer festschreiben.
     try:
-        from . import berichtziel
-        adresse = berichtziel.ziel()
+        from . import report_target
+        adresse = report_target.target()
         # Die Längenschwelle ist kein Schmuck: Ohne sie würde ein leeres Ziel
         # jede Stelle im Text treffen und den ganzen Bericht zerlegen.
         if adresse and len(adresse) > 12:

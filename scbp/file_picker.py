@@ -18,6 +18,15 @@ Speichern von **Dateien** aber nicht, dort lief weiterhin `filedialog`. Beim
 Vorführen des Werkzeugs fiel es auf (gemeldet 27.08.2026: „bei Datei wählen
 kommt auch diese hässliche unübersichtliche Ordner-Auswahl"). Die drei Wege
 gehören zusammen und stehen deshalb jetzt an **einer** Stelle statt an dreien.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `dateiwahl` (Sprachumstellung P3):
+`ordner_waehlen` → `choose_folder`, `datei_oeffnen` → `open_file`,
+`datei_speichern` → `save_file`. **Auch die Schlüsselwörter sind umbenannt**
+(`vorschlag` → `suggestion`, `endung` → `extension`, `muster` → `patterns`,
+`titel` → `title`) — und genau das ist die Stelle, an der ein vergessener
+Aufrufer erst beim Klick auf „Speichern" auffällt, weil kein Prüflauf diese
+Dialoge öffnet. Die Aufrufe wurden deshalb beim Umbenennen maschinell gegen
+die neuen Signaturen geprüft.
 """
 
 import os
@@ -29,13 +38,13 @@ from . import fehler
 
 # Wie lange ein Dialog offen stehen darf, bevor aufgegeben wird. Großzügig: Es
 # sitzt ein Mensch davor, der sucht.
-GEDULD = 600
+PATIENCE = 600
 
 # Auf diesen Systemen ruft Tk den echten Systemdialog auf — Finger weg.
-TK_IST_GUT = sys.platform.startswith(('win', 'darwin'))
+TK_IS_NATIVE = sys.platform.startswith(('win', 'darwin'))
 
 
-def saubere_umgebung():
+def clean_environment():
     """Weiterleitung — die Wahrheit steht in `pfade`.
 
     ⚠ Sie stand hier, weil die Dateiauswahl sie zuerst brauchte. Am 27.08.2026
@@ -48,12 +57,12 @@ def saubere_umgebung():
     return pfade.saubere_umgebung()
 
 
-def _im_pfad(name):
+def _on_path(name):
     """Gibt es dieses Programm auf dem Rechner?"""
     return bool(shutil.which(name))
 
 
-def _versuchen(befehle, woher):
+def _try_helpers(commands, origin):
     """Die Helfer der Reihe nach fragen. Gibt den Pfad, '' oder None zurück.
 
     * **Pfad** — der Nutzer hat etwas gewählt.
@@ -66,70 +75,70 @@ def _versuchen(befehle, woher):
     Abbruch, und ein im AppImage abgestürztes `zenity` sah aus wie ein Knopf
     ohne Funktion.
     """
-    if TK_IST_GUT:
+    if TK_IS_NATIVE:
         return None
-    umgebung = saubere_umgebung()
-    for befehl in befehle:
-        if not _im_pfad(befehl[0]):
+    environment = clean_environment()
+    for command in commands:
+        if not _on_path(command[0]):
             continue
         try:
-            fertig = subprocess.run(befehl, capture_output=True, text=True,
-                                    timeout=GEDULD, env=umgebung)
-        except Exception as ausnahme:
-            fehler.merken('%s:%s' % (woher, befehl[0]), ausnahme)
+            done = subprocess.run(command, capture_output=True, text=True,
+                                  timeout=PATIENCE, env=environment)
+        except Exception as exc:
+            fehler.merken('%s:%s' % (origin, command[0]), exc)
             continue
-        gewaehlt = (fertig.stdout or '').strip()
-        if fertig.returncode == 0 and gewaehlt:
-            return gewaehlt
-        if fertig.returncode == 1:
+        chosen = (done.stdout or '').strip()
+        if done.returncode == 0 and chosen:
+            return chosen
+        if done.returncode == 1:
             return ''                      # bewusst abgebrochen
-        fehler.merken('%s:%s' % (woher, befehl[0]),
-                      RuntimeError('Code %s: %s' % (fertig.returncode,
-                                                    (fertig.stderr or '')[:200])))
+        fehler.merken('%s:%s' % (origin, command[0]),
+                      RuntimeError('Code %s: %s' % (done.returncode,
+                                                    (done.stderr or '')[:200])))
     return None
 
 
-def _kdialog_filter(muster):
+def _kdialog_filter(patterns):
     """Tk-Muster `(('JSON', '*.json'), …)` in die Schreibweise von kdialog."""
-    return ' '.join(m for _n, m in muster) + '|' + \
-           ' '.join(n for n, _m in muster)
+    return ' '.join(m for _n, m in patterns) + '|' + \
+           ' '.join(n for n, _m in patterns)
 
 
-def ordner_waehlen(titel, start=None):
+def choose_folder(title, start=None):
     """Einen Ordner auswählen lassen. Gibt den Pfad oder '' zurück."""
-    antwort = _versuchen([
+    answer = _try_helpers([
         ['kdialog', '--getexistingdirectory',
-         start or os.path.expanduser('~'), '--title', titel],
-        ['zenity', '--file-selection', '--directory', '--title', titel]
+         start or os.path.expanduser('~'), '--title', title],
+        ['zenity', '--file-selection', '--directory', '--title', title]
         + (['--filename', start.rstrip('/') + '/'] if start else []),
-    ], 'dateiwahl.ordner')
-    if antwort is not None:
-        return antwort
+    ], 'file_picker.folder')
+    if answer is not None:
+        return answer
     from tkinter import filedialog
-    return filedialog.askdirectory(title=titel, initialdir=start or None) or ''
+    return filedialog.askdirectory(title=title, initialdir=start or None) or ''
 
 
-def datei_oeffnen(titel, muster=(('JSON', '*.json'),), start=None):
+def open_file(title, patterns=(('JSON', '*.json'),), start=None):
     """Eine vorhandene Datei auswählen lassen. Gibt den Pfad oder '' zurück."""
-    zenity = ['zenity', '--file-selection', '--title', titel]
-    for name, m in muster:
+    zenity = ['zenity', '--file-selection', '--title', title]
+    for name, m in patterns:
         zenity.append('--file-filter=%s | %s' % (name, m))
     if start:
         zenity += ['--filename', start.rstrip('/') + '/']
-    antwort = _versuchen([
+    answer = _try_helpers([
         ['kdialog', '--getopenfilename', start or os.path.expanduser('~'),
-         _kdialog_filter(muster), '--title', titel],
+         _kdialog_filter(patterns), '--title', title],
         zenity,
-    ], 'dateiwahl.oeffnen')
-    if antwort is not None:
-        return antwort
+    ], 'file_picker.open')
+    if answer is not None:
+        return answer
     from tkinter import filedialog
-    return filedialog.askopenfilename(title=titel,
-                                      filetypes=list(muster)) or ''
+    return filedialog.askopenfilename(title=title,
+                                      filetypes=list(patterns)) or ''
 
 
-def datei_speichern(titel, vorschlag='', endung='.json', start=None,
-                    muster=(('JSON', '*.json'),)):
+def save_file(title, suggestion='', extension='.json', start=None,
+              patterns=(('JSON', '*.json'),)):
     """Einen Speicherort auswählen lassen. Gibt den Pfad oder '' zurück.
 
     ⚠ Die Endung wird **nachgetragen**, wenn der Nutzer keine tippt. Tk erledigt
@@ -137,19 +146,19 @@ def datei_speichern(titel, vorschlag='', endung='.json', start=None,
     diesen Schritt entstünde eine Datei ohne Endung, die hinterher kein Programm
     mehr als JSON erkennt.
     """
-    ort = os.path.join(start or os.path.expanduser('~'), vorschlag) \
-        if vorschlag else (start or os.path.expanduser('~'))
-    antwort = _versuchen([
-        ['kdialog', '--getsavefilename', ort, _kdialog_filter(muster),
-         '--title', titel],
+    place = os.path.join(start or os.path.expanduser('~'), suggestion) \
+        if suggestion else (start or os.path.expanduser('~'))
+    answer = _try_helpers([
+        ['kdialog', '--getsavefilename', place, _kdialog_filter(patterns),
+         '--title', title],
         ['zenity', '--file-selection', '--save', '--confirm-overwrite',
-         '--title', titel, '--filename', ort],
-    ], 'dateiwahl.speichern')
-    if antwort is None:
+         '--title', title, '--filename', place],
+    ], 'file_picker.save')
+    if answer is None:
         from tkinter import filedialog
-        antwort = filedialog.asksaveasfilename(
-            title=titel, initialfile=vorschlag, defaultextension=endung,
-            filetypes=list(muster)) or ''
-    if antwort and endung and not antwort.lower().endswith(endung.lower()):
-        antwort += endung
-    return antwort
+        answer = filedialog.asksaveasfilename(
+            title=title, initialfile=suggestion, defaultextension=extension,
+            filetypes=list(patterns)) or ''
+    if answer and extension and not answer.lower().endswith(extension.lower()):
+        answer += extension
+    return answer

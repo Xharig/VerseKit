@@ -27,7 +27,7 @@ A small, borderless overlay that tells you **in real time** when a new blueprint
 
 > 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](../../issues) — both are read.
 
-> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](../../releases) — each one says what it brings and what changed since the previous one. They are **never offered as an update** to anyone: if you want one, you download it there. If you try one and find something, please open an [issue](../../issues) — that is exactly what they are for.
+> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](../../releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](../../issues) — that is exactly what they are for.
 
 > ℹ️ **The SC Deutsch Launcher is no longer required.** The actual source is Star Citizen's own `Game.log` — every unlocked blueprint is written there in plain text. If the launcher is installed it is still used: it confirms finds and supplies German names. If it isn't (always the case on Linux), the watcher works anyway.
 
@@ -272,7 +272,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/schloss_auf-gruen.png" width="22" alt=""> **Pass clicks through** | One click on the lock in the bar and the overlay lets mouse clicks through — still in view, no longer in the way. The same lock turns green and brings it back with one click, with no detour through the settings |
 | <img src="assets/symbole/22/verschieben-gruen.png" width="22" alt=""> **Movable & resizable** | Drag the title bar, resize at the ◢ handle — **position and size are remembered** |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **German and English** | Interface switchable; the in-game blueprint message is recognised in both languages |
-| <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Tells you about updates** | Notices new versions by itself — with „What's new" to read up on, including older releases |
+| <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Tells you about updates** | Notices new versions by itself — with „What's new" to read up on, including older releases. One click installs it and restarts the watcher by itself |
 | <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log` and, if present, the launcher files. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved |
 | <img src="assets/symbole/22/eigenbuch-gruen.png" width="22" alt=""> **Own inventory** | Keeps track of which blueprints you have — without the SC Deutsch Launcher |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Play time** | The bar at the top shows **how long you have played** — in total, and while you are playing the current session next to it. Counted from the game's own logs, and **kept**: Star Citizen clears out its old logs, the count stays. The backup takes it along when you move machines |

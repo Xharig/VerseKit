@@ -308,10 +308,10 @@ def _suche_leeren_kreuz(fenster, halter, var):
     sehen will, musste den Text von Hand markieren und löschen — und wer den
     Suchbegriff übersieht, hält die kurze Liste für den ganzen Bestand.
     """
-    from . import hinweis
+    from . import notice
     kreuz = tk.Label(halter, text='\u00d7', bg=BG, fg=SUB,
                      font=fenster.f_grund, cursor='hand2')
-    hinweis.anhaengen(kreuz, lambda: t('s_suche_leeren'))
+    notice.attach(kreuz, lambda: t('s_suche_leeren'))
     kreuz.bind('<Button-1>', lambda _e: var.set(''))
     kreuz.bind('<Enter>', lambda _e: kreuz.configure(fg=ACCENT))
     kreuz.bind('<Leave>', lambda _e: kreuz.configure(fg=SUB))
@@ -2014,7 +2014,7 @@ def _overlay_modus(fenster, wahl, kennung):
 
 
 def saubere_umgebung():
-    """Weiterleitung — die Wahrheit steht in `dateiwahl`.
+    """Weiterleitung — die Wahrheit steht in `file_picker` (bis 11.09.2026 `dateiwahl`).
 
     ⚠ Sie stand jahrelang hier, weil sie hier zuerst gebraucht wurde. Seit die
     Dateiauswahl ein eigenes Modul hat, gehört sie dorthin: Beide brauchen
@@ -2027,9 +2027,9 @@ def saubere_umgebung():
 
 
 def ordner_waehlen(titel, start=None):
-    """Weiterleitung — siehe `dateiwahl.ordner_waehlen`."""
-    from . import dateiwahl
-    return dateiwahl.ordner_waehlen(titel, start)
+    """Weiterleitung — siehe `file_picker.choose_folder`."""
+    from . import file_picker
+    return file_picker.choose_folder(titel, start)
 
 
 def _im_pfad(name):
@@ -2313,10 +2313,10 @@ def _bestand(fenster, rahmen):
         anderen beiden gar nicht erreichbar. Gemeldet am
         27.08.2026 („bei einzeln speichern speichert er nur basetool").
         """
-        from . import dateiwahl
-        ziel = dateiwahl.datei_speichern(
-            t('s_be_speichern'), vorschlag=export.vorschlag(art),
-            endung='.json', start=export.ablage_ordner())
+        from . import file_picker
+        ziel = file_picker.save_file(
+            t('s_be_speichern'), suggestion=export.vorschlag(art),
+            extension='.json', start=export.ablage_ordner())
         if not ziel:
             return
         try:
@@ -2344,10 +2344,10 @@ def _bestand(fenster, rahmen):
     vorschau_platz = tk.Frame(innen, bg=BG)
 
     def einlesen():
-        from . import dateiwahl
-        pfad = dateiwahl.datei_oeffnen(
+        from . import file_picker
+        pfad = file_picker.open_file(
             t('s_be_ein'),
-            muster=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
+            patterns=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
         if not pfad:
             return
         art, eintraege = importieren.lesen(pfad)
@@ -2723,8 +2723,8 @@ def _auftragslog(fenster, rahmen):
                     pass
             name_lab.bind('<Enter>', lambda e, w=name_lab: w.configure(fg=ACCENT))
             name_lab.bind('<Leave>', lambda e, w=name_lab: w.configure(fg=FG))
-            from . import hinweis as hinweis_modul
-            hinweis_modul.anhaengen(name_lab, lambda: t('s_al_klick'))
+            from . import notice
+            notice.attach(name_lab, lambda: t('s_al_klick'))
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
             if (zustand == missionslog.LAEUFT
@@ -3277,12 +3277,12 @@ def _joysticks(fenster, rahmen):
 
     def _ausgeben(als_csv=False):
         """Die Belegung als Datei sichern — ohne Umweg über die Spielkonsole."""
-        from . import dateiwahl
+        from . import file_picker
         from .sprache import aktuelle
         endung = '.csv' if als_csv else '.xml'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_js_ausgeben'),
-            vorschlag='actionmaps' + endung, endung=endung)
+            suggestion='actionmaps' + endung, extension=endung)
         if not ziel:
             return
         erfolg, meldung = joysticks.ausgeben(ziel, aktuelle())
@@ -3333,7 +3333,7 @@ def _joysticks(fenster, rahmen):
             _hinweis(fenster, t('hf_joysticks'), t(meldung))
 
     def _einlesen():
-        from . import dateiwahl
+        from . import file_picker
         from .hauptfenster import auswahl_stellen, wahl_stellen
         # ⚠ Erst die eigenen Profile anbieten, dann den Dateiwähler. Der
         # Spieler kennt seine Belegung am **Namen**, nicht am Pfad — und der
@@ -3359,8 +3359,8 @@ def _joysticks(fenster, rahmen):
             elif wahl != 'b':
                 return                   # abgebrochen
         if not quelle:
-            quelle = dateiwahl.datei_oeffnen(t('s_js_einlesen'),
-                                             muster=(('XML', '*.xml'),))
+            quelle = file_picker.open_file(t('s_js_einlesen'),
+                                           patterns=(('XML', '*.xml'),))
         if not quelle:
             return
         if not _fragen(fenster, t('s_js_einlesen'),
@@ -4197,6 +4197,12 @@ def _nach_neustart_abtreten(fenster):
         def melden():
             if lebt:
                 _abtreten(fenster)
+            elif aktualisierung.zurueckrollen():
+                # ⚠ Ohne Rückweg liefe die alte Fassung nur noch aus ihrer
+                # offenen Inode weiter — wer sie schließt, stünde ohne Watcher
+                # da. Die Sicherung von vor dem Tausch macht daraus ein
+                # Umbenennen.
+                fenster.sagen(t('up_zurueckgerollt'))
             else:
                 fenster.sagen(t('s_ub_neustart_tot'))
         try:
@@ -4300,44 +4306,33 @@ def _fassung_holen(fenster, mit_vorab):
 
     fenster.sagen(t('s_ub_holen_laeuft') % freigabe.get('version'))
 
+    # ⚠ **Die Sperre kommt vor dem Herunterladen.** Zwei Klicks kurz
+    # hintereinander — oder zwei Instanzen, die im Startfenster beide
+    # hochkamen, bevor der Einzelstart greift — ließen sonst zwei Installer
+    # los. Freigegeben wird sie bei jedem Ausgang, außer beim Übergeben an den
+    # Helfer: Dann gehört sie ihm, und er räumt sie weg.
+    from . import update_lauf
+    if not update_lauf.sperre_nehmen():
+        fenster.sagen(t('up_laeuft_schon'))
+        return
+
     def arbeit():
+        uebergeben = False
         try:
             ziel = aktualisierung.herunterladen(
                 datei, fortschritt=lambda p: _im_tk(
                     fenster, lambda: fenster.sagen(t('wird_geladen', p))),
                 freigabe=freigabe)
 
-            # ⚠ Sagen, was gleich passiert — **vor** dem Einspielen.
-            #
-            # Das war die eigentliche Neuerung von rc52: Ein Programm, das sich
-            # wortlos schliesst und nicht wiederkommt, sieht aus wie ein
-            # Absturz. Der Hinweis nennt das Schliessen, das Einspielen und den
-            # noetigen Neustart, und beruhigt wegen des Bestands.
-            #
-            # ⚠ Nur stand er bis rc62 in `_jetzt_nachsehen` — einer Funktion,
-            # die gar nichts einspielt und deren Block ohnehin an einem
-            # `NameError` starb. Beim echten Update kam er also **nie**.
-            # Gefunden am 27.08.2026 beim Nachgehen des Nachsehen-Fehlers.
-            #
-            # ⚠ `messagebox` gehoert in den Tk-Faden, nicht hierher. Deshalb
-            # `after(0, …)` und das Warten auf die Quittung: Erst wenn der
-            # Nutzer gelesen hat, laeuft das Setup los. Sonst zaehlte der
-            # Restart Manager schon seine dreissig Sekunden, waehrend der
-            # Dialog noch offen steht.
-            if art == 'exe':
-                gelesen = threading.Event()
-
-                def bescheid_geben():
-                    try:
-                        _hinweis(fenster, t('s_ub_hinweis_titel'),
-                                            t('s_ub_hinweis_neustart'))
-                    finally:
-                        gelesen.set()
-
-                _im_tk(fenster, bescheid_geben)
-                gelesen.wait(120)      # ⚠ nicht ewig: ein Fenster kann zugehen
-
-            geklappt, grund = aktualisierung.einspielen(ziel)
+            # ⚠ Hier stand bis v3.29.0 ein Hinweisfenster, das quittiert
+            # werden musste, bevor das Setup loslief (seit rc52). Es war
+            # richtig, solange der Watcher danach **nicht** wiederkam: Ein
+            # Programm, das sich wortlos schließt, sieht aus wie ein Absturz.
+            # Jetzt kommt er von selbst wieder — und aus einem Klick sollen
+            # nicht zwei werden. Die Ansage steht in der Fußzeile.
+            geklappt, grund = aktualisierung.einspielen(
+                ziel, ziel_version=freigabe.get('version') or '',
+                alte_version=fenster.version or '')
             if not geklappt:
                 _im_tk(fenster, lambda: fenster.sagen(
                     t('update_fehler', grund)))
@@ -4365,30 +4360,46 @@ def _fassung_holen(fenster, mit_vorab):
             # hart ab. Wer waehrenddessen auf den Knopf schaut, sieht ein
             # Programm, das nichts tut.
             #
-            # Treten wir gleich ab, entfaellt das Warten vollstaendig, und der
-            # `[Run]`-Abschnitt des Installers faehrt uns danach wieder hoch.
+            # Treten wir gleich ab, entfaellt das Warten vollstaendig. Wieder
+            # hoch faehrt uns der Helfer aus `update_lauf` — bis v3.29.0 tat
+            # das niemand, und der Nutzer musste selbst starten. Die Sperre
+            # gehoert ab hier dem Helfer; er gibt sie am Ende frei.
             if art == 'exe':
-                _im_tk(fenster, lambda: fenster.sagen(t('s_ub_startet_neu')))
+                uebergeben = True
+                _im_tk(fenster, lambda: fenster.sagen(t('up_wird_eingespielt')))
                 _abtreten(fenster)
                 return
 
-            # Linux: Das AppImage ist getauscht, laufen tut aber noch die alte
-            # Version. Hier bleibt der zweite Klick sinnvoll — er beendet und
-            # startet neu.
-            # ⚠ Dieselbe Reihenfolge wie oben: erst zeichnen, dann melden.
-            # Der Neuaufbau macht aus „holen" ein „Jetzt neu starten" — er
-            # zerstoert dabei aber die Fusszeile. Stand das `sagen()` zuerst
-            # (after 0) und der Aufbau danach (after 50), war die Meldung nach
-            # einer zwanzigstel Sekunde wieder weg.
-            _im_tk(fenster, fenster.neu_aufbauen)
-            try:
-                fenster.root.after(50, lambda: fenster.sagen(t('s_ub_bereit')))
-            except Exception:
-                pass
+            # Linux: Das AppImage ist getauscht, die alte Fassung gesichert.
+            # ⚠ Bis v3.29.0 wurde hier die Seite umgebaut, und es brauchte
+            # einen zweiten Klick auf „Jetzt neu starten" — ein Rest aus der
+            # Zeit des Dateitauschs beim Beenden. Jetzt geht es gleich weiter.
+            # Der alte Knopf bleibt nur als Rückfall, wenn schon der Start
+            # scheitert.
+            def _neustart():
+                fenster.sagen(t('s_ub_startet_neu'))
+                if aktualisierung.neu_starten():
+                    _nach_neustart_abtreten(fenster)
+                    return
+                # ⚠ Erst zeichnen, dann melden: Der Neuaufbau macht aus
+                # „holen" ein „Jetzt neu starten" und zerstoert dabei die
+                # Fusszeile. Stand das `sagen()` zuerst, war die Meldung nach
+                # einer zwanzigstel Sekunde wieder weg.
+                fenster.neu_aufbauen()
+                try:
+                    fenster.root.after(50, lambda: fenster.sagen(
+                        t('s_ub_neustart_nein')))
+                except Exception:
+                    pass
+
+            _im_tk(fenster, _neustart)
         except Exception as ausnahme:
             grund = str(ausnahme)
             fehler.merken('seiten.fassung_holen', ausnahme)
             _im_tk(fenster, lambda: fenster.sagen(t('update_fehler', grund)))
+        finally:
+            if not uebergeben:
+                update_lauf.sperre_freigeben()
 
     threading.Thread(target=arbeit, daemon=True).start()
 
@@ -10030,7 +10041,7 @@ def _hangar(fenster, rahmen):
     wer keinen Export hat, findet den Handeintrag direkt darunter. Umgekehrt
     wäre der bequeme Weg der versteckte.
     """
-    from . import hangar as meine, erkul, schiffe as alle_schiffe, dateiwahl
+    from . import hangar as meine, erkul, schiffe as alle_schiffe, file_picker
 
     _ueberschrift(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
     innen = _rollflaeche(rahmen)
@@ -10056,10 +10067,10 @@ def _hangar(fenster, rahmen):
                 fill='x', padx=24, abzug=48)
 
     def importieren():
-        pfad = dateiwahl.datei_oeffnen(
+        pfad = file_picker.open_file(
             t('s_hg_import_knopf'),
             # JSON zuerst — das ist der empfohlene Weg. CSV bleibt wählbar.
-            muster=(('JSON', '*.json'), ('CSV', '*.csv')))
+            patterns=(('JSON', '*.json'), ('CSV', '*.csv')))
         if not pfad:
             return
         eintraege, fehlertext = meine.lesen(pfad)
@@ -12967,12 +12978,12 @@ def _lager(fenster, rahmen):
     # ⚠ Das Lager wird von Hand gepflegt — es ist Arbeit, die sonst nirgends
     # liegt. Ohne Ausgabe ist sie beim naechsten Rechnerwechsel weg.
     def _ausgeben(art):
-        from . import dateiwahl
+        from . import file_picker
         endung = '.csv' if art == 'csv' else '.json'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_lg_ausgeben'),
-            vorschlag='lager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
-            endung=endung, start=None)
+            suggestion='lager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
+            extension=endung, start=None)
         if not ziel:
             return
         try:
@@ -12985,8 +12996,8 @@ def _lager(fenster, rahmen):
             fehler.merken('seiten.lager.ausgeben', ausnahme)
 
     def _einlesen():
-        from . import dateiwahl
-        quelle = dateiwahl.datei_oeffnen(t('s_lg_einlesen'))
+        from . import file_picker
+        quelle = file_picker.open_file(t('s_lg_einlesen'))
         if not quelle:
             return
         try:
@@ -14155,12 +14166,12 @@ def _handelslager(fenster, rahmen):
     # Fleissarbeit ist, die niemand macht (also bleibt ein falsches Lager
     # stehen und die Verkaufsrechnung luegt).
     def _ausgeben(art):
-        from . import dateiwahl
+        from . import file_picker
         endung = '.csv' if art == 'csv' else '.json'
-        ziel = dateiwahl.datei_speichern(
+        ziel = file_picker.save_file(
             t('s_hl_ausgeben'),
-            vorschlag='handelslager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
-            endung=endung, start=None)
+            suggestion='handelslager-%s%s' % (time.strftime('%Y-%m-%d'), endung),
+            extension=endung, start=None)
         if not ziel:
             return
         try:
@@ -14175,8 +14186,8 @@ def _handelslager(fenster, rahmen):
         neu_zeichnen()
 
     def _einlesen():
-        from . import dateiwahl
-        quelle = dateiwahl.datei_oeffnen(t('s_lg_einlesen'))
+        from . import file_picker
+        quelle = file_picker.open_file(t('s_lg_einlesen'))
         if not quelle:
             return
         try:

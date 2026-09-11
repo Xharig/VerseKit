@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import bildschirm, fehler, hinweis, neuheiten, pfade, zeichen
+from . import bildschirm, fehler, notice, news, pfade, zeichen
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -1947,7 +1947,7 @@ class Hauptfenster:
             import time as _t
             return t('hf_zeit_h') % _t.strftime('%d.%m.%Y', _t.localtime(ab))
 
-        hinweis.anhaengen(rahmen, erklaerung)
+        notice.attach(rahmen, erklaerung)
 
         def nachziehen():
             try:
@@ -1981,7 +1981,7 @@ class Hauptfenster:
         w.pack(side='left')
         for teil in (rahmen, z, w):
             teil.bind('<Button-1>', lambda e, f=tat: f())
-        hinweis.anhaengen(rahmen, lambda: erklaerung)
+        notice.attach(rahmen, lambda: erklaerung)
         rahmen.teile = (z, w)
         return rahmen
 
@@ -2563,7 +2563,7 @@ class Hauptfenster:
         b.pack(side='left', fill='x', expand=True)
 
         marke_widget = None
-        if neuheiten.ist_neu(kennung, self.version):
+        if news.is_new(kennung, self.version):
             marke_widget = marke(zeile, t('hf_neu'), ACCENT, self.f_klein)
             marke_widget.pack(side='right', padx=10)
 
@@ -2927,8 +2927,8 @@ class Hauptfenster:
         self._leistenbreite_nachziehen()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
-        if neuheiten.ist_neu(kennung, self.version):
-            neuheiten.gesehen(kennung, self.version)
+        if news.is_new(kennung, self.version):
+            news.mark_seen(kennung, self.version)
             eintrag = self.knoepfe.get(kennung)
             if eintrag and eintrag[4] is not None:
                 eintrag[4].destroy()
@@ -3222,23 +3222,23 @@ class Hauptfenster:
         dafuer sichert man ueberhaupt. Ein Knopf, der nur schreiben kann,
         loest das halbe Problem und laesst den Spieler beim anderen allein.
         """
-        from . import dateiwahl, sicherung
+        from . import file_picker, sicherung
         try:
             wahl = wahl_stellen(
                 self.root, t('sich_titel'),
                 t('sich_lead') + '\n\n' + t('sich_was'),
                 t('sich_schreiben'), t('sich_lesen'))
             if wahl == 'a':
-                self._sicherung_schreiben(dateiwahl, sicherung)
+                self._sicherung_schreiben(file_picker, sicherung)
             elif wahl == 'b':
-                self._sicherung_lesen(dateiwahl, sicherung)
+                self._sicherung_lesen(file_picker, sicherung)
         except Exception as ausnahme:
             fehler.merken('hauptfenster.sicherung', ausnahme)
 
-    def _sicherung_schreiben(self, dateiwahl, sicherung):
-        ziel = dateiwahl.datei_speichern(
-            t('sich_schreiben'), vorschlag=sicherung.vorschlag(),
-            endung='.zip', muster=(('ZIP', '*.zip'),))
+    def _sicherung_schreiben(self, file_picker, sicherung):
+        ziel = file_picker.save_file(
+            t('sich_schreiben'), suggestion=sicherung.vorschlag(),
+            extension='.zip', patterns=(('ZIP', '*.zip'),))
         if not ziel:
             return
         ok, meldung, anzahl = sicherung.schreiben(ziel, self.version)
@@ -3276,9 +3276,9 @@ class Hauptfenster:
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
             fehler.merken('hauptfenster.belegung_anbieten', ausnahme)
 
-    def _sicherung_lesen(self, dateiwahl, sicherung):
-        quelle = dateiwahl.datei_oeffnen(t('sich_lesen'),
-                                         muster=(('ZIP', '*.zip'),))
+    def _sicherung_lesen(self, file_picker, sicherung):
+        quelle = file_picker.open_file(t('sich_lesen'),
+                                       patterns=(('ZIP', '*.zip'),))
         if not quelle:
             return
         # ⚠ Erst nachsehen, dann fragen, dann erst schreiben. Wer sich in der

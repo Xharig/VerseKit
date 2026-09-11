@@ -852,6 +852,13 @@ def herunterladen(datei, fortschritt=None, freigabe=None):
     except Exception:
         _wegwerfen(ziel)
         raise
+    # ⚠ Die geprüfte Summe wandert mit. Unter Windows startet nicht mehr der
+    # Watcher den Installer, sondern ein Helfer — ein anderer Prozess, Sekunden
+    # später. Bis dahin kann die Datei in `%TEMP%` ersetzt worden sein. Der
+    # Helfer gleicht deshalb unmittelbar vor dem Start noch einmal ab, und zwar
+    # gegen **diese** Summe aus der Veröffentlichung, nicht gegen eine, die er
+    # selbst aus der Datei rechnet.
+    _GEPRUEFT[os.path.abspath(ziel)] = erwartet
     return ziel
 
 
@@ -949,18 +956,69 @@ def _laden_und_pruefen(url, ziel, erwartet, fortschritt=None):
 # Tausch, dort startet das Programm sich selbst neu.
 _TAUSCH_LAEUFT = [False]
 
+# Welche Datei gegen welche veröffentlichte Summe geprüft wurde — gefüllt von
+# `herunterladen()`, gelesen von `einspielen()`. Unter Windows geht die Summe
+# an den Helfer weiter; ohne Eintrag hier wird dort nichts eingespielt.
+_GEPRUEFT = {}
 
-def einspielen(neue_datei):
+# Die Sicherung der bisherigen Fassung unter Linux, gleich neben der Datei.
+VORHER = '.vorher'
+
+
+def _sichern(ziel):
+    """Die laufende Datei neben sich kopieren. True nur bei vollständiger Kopie."""
+    import shutil
+    vorher = ziel + VORHER
+    try:
+        shutil.copy2(ziel, vorher)
+        return os.path.getsize(vorher) == os.path.getsize(ziel)
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.sichern', ausnahme)
+        return False
+
+
+def zurueckrollen():
+    """Die Sicherung von vor dem Tausch zurücklegen (Linux). True, wenn es klappte.
+
+    Gebraucht, wenn die neue Fassung beim Start stirbt: Dann ist das AppImage
+    schon getauscht, und die alte liefe nur noch aus ihrer offenen Inode
+    weiter — wer sie schließt, stünde ohne Watcher da.
+    """
+    ziel = eigenes_appimage()
+    if not ziel:
+        return False
+    vorher = ziel + VORHER
+    if not os.path.isfile(vorher):
+        return False
+    try:
+        os.replace(vorher, ziel)
+        os.chmod(ziel, 0o755)
+        return True
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.zurueckrollen', ausnahme)
+        return False
+
+
+def einspielen(neue_datei, ziel_version='', alte_version=''):
     """Die laufende Version durch die neue ersetzen.
 
     Zwei Wege, je nach Verpackung:
 
-    * **Linux** — das AppImage wird getauscht. Danach genügt ein Neustart.
-    * **Windows** — der Installer wird gestartet. Er beendet das laufende
-      Programm selbst, ersetzt die Datei und fährt den Watcher wieder hoch.
+    * **Linux** — erst wird die laufende Datei gesichert, dann das AppImage
+      getauscht. Den Neustart macht der Aufrufer, gleich danach.
+    * **Windows** — ein Helfer übernimmt (`update_lauf`): Er wartet, bis dieser
+      Watcher weg ist, prüft die Summe erneut, startet den Installer und fährt
+      den Watcher danach wieder hoch.
+
+    `ziel_version` und `alte_version` landen in der Laufmarke — daran sieht der
+    nächste Start, was aus dem Update geworden ist.
 
     Gibt (True, '') zurück, wenn der Weg angetreten ist. Bei (False, Grund) muss
-    der Nutzer selbst ran."""
+    der Nutzer selbst ran.
+
+    ⚠ In dieser Funktion **kein** `fehler.merken`: Das `except … as fehler`
+    unten macht `fehler` hier zur lokalen Variable, ein Aufruf davor fiele mit
+    `UnboundLocalError` um."""
     art = verpackung()
     if art == 'quellcode':
         return False, 'quellcode'
@@ -979,6 +1037,16 @@ def einspielen(neue_datei):
             # Unter Linux darf die laufende Datei ersetzt werden, solange man sie
             # austauscht statt hineinzuschreiben: Der laufende Prozess hält die
             # alte Inode, die neue liegt sofort am Platz.
+            #
+            # ⚠ **Erst sichern, dann tauschen.** Stirbt die neue Fassung beim
+            # Start, ist der Rückweg damit ein Umbenennen (`zurueckrollen()`),
+            # genau wie bei `tools/testfassung_holen.sh`. Lässt sich die
+            # Sicherung nicht anlegen, wird auch nicht getauscht — ein Update
+            # ohne Rückweg ist keins.
+            if not _sichern(ziel):
+                from . import sprache
+                _wegwerfen(neue_datei)
+                return False, sprache.t('up_sicherung_nein')
             #
             # ⚠ `os.replace` schafft das nur **innerhalb eines Dateisystems**.
             # Deshalb wird gleich daneben geladen (siehe `_ablageort_fuer_update`).
@@ -1010,65 +1078,59 @@ def einspielen(neue_datei):
         #     Attempting to restart applications.
         #     -- Run entry --   Filename: ...\SC-BP-Watcher.exe
         #
-        # Wird das Setup dabei aus dem Watcher heraus gestartet, passt die
-        # Prozesskette fuer den Neustart des Restart Managers nicht, und Inno
-        # bricht mit „Security validation failure: parent process has different
-        # executable!" ab. Aus einer PowerShell heraus faellt das nicht auf —
-        # deshalb war der Fehler zuerst nicht nachstellbar. Den Neustart macht
-        # allein `[Run]`.
-        import subprocess
+        # ⚠⚠ **„Security validation failure: parent process has different
+        # executable!" kam NICHT von Inno** — richtiggestellt am 11.09.2026.
+        # Alle zehn Meldungen dieser Reihe stehen im PyInstaller-Bootloader
+        # der Watcher-`.exe` (nachgesehen), im Inno-Installer keine. Es ist die
+        # Prüfung, mit der eine gepackte `.exe` kontrolliert, ob ihr Vater ihr
+        # eigener Bootloader ist.
+        #
+        # Was am 26.08.2026 sehr wahrscheinlich geschah: Inno startete den
+        # Watcher über `[Run]` (bzw. den Restart Manager) neu, und der neue
+        # erbte über das Setup die `_PYI_*`-Variablen des alten. Er hielt sich
+        # für das Kind eines Bootloaders, fand als Vater aber Innos Setup —
+        # „parent process has different executable". Aus einer PowerShell
+        # heraus war das nie nachstellbar, weil es dort kein `_PYI_*` gibt.
+        # Am 11.09.2026 kam dieselbe Reihe wieder („failed to obtain
+        # executable path for parent proces", der Vater war schon beendet) —
+        # diesmal mit „Installation process succeeded" im Setup-Protokoll eine
+        # Sekunde davor. Die Installation war also nie das Problem, der
+        # Neustart war es.
+        #
+        # Den Neustart macht seitdem der Helfer (`update_lauf`) mit einer
+        # Umgebung ohne `_PYI_*`. `/RESTARTAPPLICATIONS` bleibt trotzdem weg:
+        # Sonst startet ein zweiter Weg den Watcher.
         _TAUSCH_LAEUFT[0] = True
 
         # ⚠ Die Umgebung MUSS gesaeubert werden, das Arbeitsverzeichnis ebenso.
-        # Sonst erbt der Installer die PyInstaller-Variablen der laufenden
-        # Version und sucht seine Bibliotheken in dem Ordner unter `%TEMP%`, den
-        # der Bootloader gleich aufraeumen will. Genau diese Falle steht
-        # ausfuehrlich bei `neu_starten()`.
-        umgebung = dict(os.environ)
+        # Sie geht über den Helfer an den neu gestarteten Watcher, und alles,
+        # was vom laufenden PyInstaller stammt, zeigt entweder in dessen Ordner
+        # unter `%TEMP%`, den er gleich aufraeumt (siehe `neu_starten()`), oder
+        # führt den neuen Bootloader in die Irre (siehe oben). Deshalb über
+        # `saubere_umgebung()`, nicht `dict(os.environ)`: Dort fliegen auch die
+        # `_PYI_*`-Variablen raus.
+        umgebung = pfade.saubere_umgebung()
         for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             umgebung.pop(name, None)
 
-        # ⚠ **`__COMPAT_LAYER` muss weg** — daran hing die Meldung
-        #
-        #     Security validation failure: parent process has different
-        #     executable!
-        #
-        # die vier Anläufe gekostet hat. Der Weg dahin, weil er sich sonst nicht
-        # wiederfinden lässt:
-        #
-        # Windows führt einen Kompatibilitäts-Speicher über Programme, die ihm
-        # auffällig vorkommen. `SC-BP-Watcher.exe` steht dort — kein Wunder, der
-        # Watcher wird bei jedem Update über `CloseApplications=force` hart
-        # beendet. Windows setzt dem Prozess daraufhin `__COMPAT_LAYER` in die
-        # Umgebung, und **jeder Kindprozess erbt die Variable**. Das Setup lief
-        # damit unter einem Shim, Inno erkannte einen fremden Zwischenprozess und
-        # brach ab.
-        #
-        # Nachgestellt und belegt (26.08.2026) — derselbe Aufruf, dieselbe Datei,
-        # derselbe Pfad, nur die Variable unterschiedlich:
-        #
-        #     gesetzt   →  Compatibility mode: Yes (DetectorsAppHealth)  → Fehler
-        #     entfernt  →  keine solche Zeile                            → läuft
-        #
-        # Genau deshalb war der Fehler aus einer PowerShell oder aus Python heraus
-        # **nie** nachstellbar: Dort ist die Variable nicht gesetzt. Drei frühere
-        # Erklärungen klangen schlüssig und wurden alle durch Messläufe widerlegt.
-        # Gefunden hat es erst das Setup-Protokoll aus rc48.
+        # `__COMPAT_LAYER` fliegt weiterhin raus — als Vorsicht, nicht als
+        # Heilmittel. Am 26.08.2026 galt die Variable als DIE Ursache: Mit ihr
+        # stand „Compatibility mode: Yes (DetectorsAppHealth)" im
+        # Setup-Protokoll, ohne sie lief das Update durch. Die Messung vom
+        # 11.09.2026 konnte den Fehler mit ihr allein aber nicht nachstellen —
+        # Inno installiert damit anstandslos. Wahrscheinlich fiel das Entfernen
+        # damals mit einem Lauf zusammen, in dem der Neustart anders verlief.
+        # Schaden tut es nicht: Kein Programm, das der Helfer startet, braucht
+        # einen Kompatibilitäts-Shim.
         umgebung.pop('__COMPAT_LAYER', None)
         # ⚠ **Das Setup schreibt ein Protokoll**, und zwar immer — nicht nur im
-        # Fehlerfall. Der Grund steht in der Geschichte dieser Funktion: Am
-        # 26.08.2026 meldete Inno beim Update
-        #
-        #     Security validation failure: parent process has different
-        #     executable!
-        #
-        # und **drei** Erklärungsversuche lagen daneben (vererbtes
-        # Arbeitsverzeichnis, `/RESTARTAPPLICATIONS`, sterbender
-        # Elternprozess). Jeder klang schlüssig, jeder wurde durch einen
-        # Messlauf widerlegt. Nachstellen ließ sich der Fehler nie: aus einer
-        # PowerShell oder aus Python heraus lief derselbe Aufruf sauber durch,
-        # mit lebendem wie mit sterbendem Elternprozess.
+        # Fehlerfall. Am 26.08.2026 lagen **drei** Erklärungsversuche daneben
+        # (vererbtes Arbeitsverzeichnis, `/RESTARTAPPLICATIONS`, sterbender
+        # Elternprozess), und die vierte — `__COMPAT_LAYER` — sehr
+        # wahrscheinlich auch: Gesucht wurde im Installer, gemeldet hatte der
+        # neu gestartete Watcher. Erst das Protokoll vom 11.09.2026 trennte
+        # beides.
         #
         # Ohne Protokoll bleibt in so einem Fall nur Raten — und Raten hat hier
         # drei Versionen gekostet. Mit Protokoll beantwortet der nächste
@@ -1080,22 +1142,30 @@ def einspielen(neue_datei):
         # um den letzten Versuch, nicht um ein Tagebuch.
         protokoll_datei = ''
         try:
-            from . import pfade
+            # ⚠ Kein `from . import pfade` hier: Ein Import in der Funktion
+            # macht `pfade` für die GANZE Funktion lokal — und
+            # `pfade.saubere_umgebung()` weiter oben fiele mit
+            # `UnboundLocalError` um. Prüfung 185 hat genau das gefangen.
             protokoll_datei = pfade.app_datei('update-setup.txt')
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe
 
-        # ⚠ Der Umweg über `cmd` hält einen Elternprozess am Leben, solange das
-        # Setup läuft. Nachgemessen ist er **nicht** nötig — auch ein sofort
-        # abtretender Vater stört Inno nicht. Er bleibt trotzdem, weil er nichts
-        # kostet und der Fehler oben noch ungeklärt ist; fällt er weg, wäre es
-        # eine Änderung an einer Stelle, die gerade untersucht wird.
+        # ⚠⚠ **Seit dem Ein-Klick-Update startet nicht mehr der Watcher den
+        # Installer, sondern ein Helfer** (`update_lauf`). Bis v3.29.0 lief der
+        # Installer still, startete bei `/SILENT` absichtlich nichts, und der
+        # Watcher blieb unten. Jetzt wartet eine `.cmd` in `%TEMP%` auf unser
+        # Ende, prüft die Summe erneut, startet den Installer mit
+        # `/SUPPRESSMSGBOXES` und fährt uns danach wieder hoch.
         #
-        # Die doppelten Anführungszeichen sind cmd-Eigenart: `cmd /c "..."`
-        # streicht das äußere Paar, deshalb braucht ein Pfad mit Leerzeichen ein
-        # eigenes. Ohne das scheitert jeder Benutzername mit Leerzeichen —
-        # geprüft mit `C:\Users\Max Mustermann\...`.
-        schalter = '/SILENT /NORESTART /CLOSEAPPLICATIONS'
+        # Gemessen am 11.09.2026, bevor gebaut wurde:
+        #   * Ein `cmd` als Elternprozess stört Inno nicht — lebend wie sterbend.
+        #   * Der Restart Manager meldete den laufenden Watcher **nicht**
+        #     („found no applications"). Deshalb wartet der Helfer selbst auf
+        #     unsere PID, statt sich auf `CloseApplications` zu verlassen.
+        #   * Ohne `/SUPPRESSMSGBOXES` hängt ein echter Fehler an einem
+        #     unsichtbaren OK-Fenster; mit endet das Setup nach 0,4 s mit 3.
+        #   * Pfade mit `& ^ % ! ( ) '`, Umlauten und 185 Zeichen gelingen.
+        #
         # ⚠ Dorthin installieren, wo das laufende Programm liegt — sonst gibt es
         # zwei Kopien.
         #
@@ -1113,29 +1183,30 @@ def einspielen(neue_datei):
         # Installationsordner — dann ist es derselbe Wert, den Inno ohnehin
         # gewählt hätte. Ein Fall, zwei Wege, dieselbe Zeile.
         eigener_ordner = os.path.dirname(os.path.abspath(sys.executable))
-        if eigener_ordner:
-            schalter += ' /DIR="%s"' % eigener_ordner
-        if protokoll_datei:
-            schalter += ' /LOG="%s"' % protokoll_datei
-        befehl = 'cmd /c ""%s" %s"' % (neue_datei, schalter)
-        # ⚠ `DETACHED_PROCESS` **und** eine eigene Prozessgruppe. Ohne das bleibt
-        # das Setup an uns gebunden — und wir treten gleich ab, damit der Restart
-        # Manager nicht 30 Sekunden auf uns wartet. Inno prueft aber seinen
-        # Elternprozess und meldet dann
-        #
-        #     Security validation failure: failed to obtain executable path for
-        #     parent process!
-        #
-        # Das ist die Schwester der Meldung ueber `__COMPAT_LAYER` weiter oben:
-        # einmal traegt der Elternprozess einen Shim, einmal ist er zum
-        # Pruefzeitpunkt gar nicht mehr da. Beide Male geht es um denselben
-        # Zusammenhang — wer ein Setup startet und sich sofort verabschiedet,
-        # muss es vorher **loesen**.
-        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-        flags |= getattr(subprocess, 'DETACHED_PROCESS', 0)
-        flags |= getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-        subprocess.Popen(befehl, env=umgebung, cwd=tempfile.gettempdir(),
-                         creationflags=flags)
+
+        # ⚠⚠ **Ohne geprüfte Summe keine Übergabe.** `herunterladen()` legt sie
+        # in `_GEPRUEFT` ab; fehlt sie, kam die Datei nicht über den geprüften
+        # Weg — und dann wird hier auch nichts gestartet.
+        summe = _GEPRUEFT.get(os.path.abspath(neue_datei))
+        if not summe:
+            from . import sprache
+            return False, sprache.t('up_ohne_pruefung')
+
+        # ⚠⚠ Wie der Helfer gestartet wird, steht an EINER Stelle
+        # (`update_lauf.helfer_flags`) — der Selbsttest startet ihn genauso.
+        # Hier stand `DETACHED_PROCESS`: Der Helfer lief ohne Konsole, jedes
+        # Konsolenprogramm darin bekam eine eigene, sichtbare, und ignorierte
+        # die Umleitungen. Im ersten Echttest am 11.09.2026 hing `find` in
+        # einem Fenster, und `certutil` schrieb seine Summe ins Leere.
+        from . import update_lauf
+        flags = update_lauf.helfer_flags()
+
+        # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
+        # der nächste Start, dass ein Update begonnen hatte.
+        update_lauf.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
+        update_lauf.helfer_starten(neue_datei, summe, eigener_ordner,
+                                   protokoll_datei, umgebung, flags,
+                                   exe=sys.executable)
         return True, ''
     except Exception as fehler:
         return False, str(fehler)

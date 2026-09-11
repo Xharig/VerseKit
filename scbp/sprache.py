@@ -723,6 +723,34 @@ TEXTE = {
                           'from the built-in table'),
     'up_fremde_datei': ('Zieldatei geh\u00f6rt nicht zu diesem Programm: %s',
                           'Target file does not belong to this program: %s'),
+    # Das Ein-Klick-Update: ein Knopf, danach l\u00e4uft alles von allein \u2014 und was
+    # daraus wurde, sagt der n\u00e4chste Start (siehe `update_lauf.auswerten`).
+    'up_laeuft_schon': ('Ein Update l\u00e4uft bereits \u2014 bitte einen Moment warten.',
+                          'An update is already running \u2014 please wait a moment.'),
+    'up_wird_eingespielt': ('Wird eingespielt \u2014 der Watcher schlie\u00dft sich kurz '
+                          'und startet von selbst neu.',
+                          'Installing \u2014 the watcher closes briefly and '
+                          'restarts on its own.'),
+    'up_sicherung_nein': ('Die bisherige Fassung lie\u00df sich nicht sichern \u2014 das '
+                          'Update wurde nicht eingespielt.',
+                          'The current version could not be backed up \u2014 the '
+                          'update was not installed.'),
+    'up_zurueckgerollt': ('Die neue Version ist nicht hochgekommen \u2014 die '
+                          'bisherige ist wiederhergestellt. Der Watcher bleibt '
+                          'offen.',
+                          'The new version did not come up \u2014 the previous one '
+                          'has been restored. The watcher stays open.'),
+    'up_erg_fertig':   ('Update auf %s eingespielt.', 'Updated to %s.'),
+    'up_erg_abgebrochen': ('Update abgebrochen \u2014 du nutzt weiter %s.',
+                          'Update cancelled \u2014 you are still on %s.'),
+    'up_erg_fehler':   ('Das Update auf %s ist gescheitert (R\u00fcckgabewert %s). '
+                          'N\u00e4heres steht in der Diagnose.',
+                          'The update to %s failed (exit code %s). Details are '
+                          'in the diagnostics.'),
+    'up_erg_unklar':   ('Das Update auf %s wurde nicht zu Ende gef\u00fchrt. '
+                          'N\u00e4heres steht in der Diagnose.',
+                          'The update to %s did not finish. Details are in the '
+                          'diagnostics.'),
     's_sp_start_nein': ('Start nicht möglich: %s', 'Could not start: %s'),
     'tray_zeigen':     ('Fenster zeigen', 'Show window'),
     'tray_beenden':    ('Beenden', 'Quit'),

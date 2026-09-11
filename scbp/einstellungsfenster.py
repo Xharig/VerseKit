@@ -271,10 +271,10 @@ class Einstellungsfenster:
 
     def _waehlen(self, variable, titel):
         # ⚠ Nicht `filedialog`: Unter Linux zeichnet Tk seinen eigenen
-        # Motif-Kasten. `dateiwahl` nimmt den Dialog des Systems, wo es einen
+        # Motif-Kasten. `file_picker` nimmt den Dialog des Systems, wo es einen
         # gibt, und fällt sonst auf Tk zurück.
-        from . import dateiwahl
-        ordner = dateiwahl.ordner_waehlen(titel, variable.get() or None)
+        from . import file_picker
+        ordner = file_picker.choose_folder(titel, variable.get() or None)
         if ordner:
             variable.set(ordner)
 
