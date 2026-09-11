@@ -99,47 +99,53 @@ LAUF_HOECHSTENS = 24 * 3600
 #
 # ⚠ Die Prüfsumme prüft `certutil` (liegt jedem Windows bei). Scheitert der
 # Abgleich, wird die Datei gelöscht und **nichts** installiert.
+# ⚠ **Die Protokollzeilen sind englisch** — wie das Setup-Protokoll von Inno
+# daneben. Beides liest nur, wer einen Fehlerbericht auswertet. Ein deutscher
+# Satz in dieser Konstante gälte der Textprüfung im Selbsttest als fester
+# Oberflächentext, und eine Ausnahme für die ganze Datei würde dort künftig
+# echte Funde verdecken.
 HELFER_VORLAGE = r'''@echo off
-rem SC BP Watcher - Update-Helfer. Wird bei jedem Update neu geschrieben.
-rem Alle Pfade kommen aus der Umgebung (SCBP_*), keiner steht in dieser Datei.
+rem SC BP Watcher - update helper. Rewritten on every update.
+rem All paths come from the environment (SCBP_*); none is stored in this file.
 setlocal DisableDelayedExpansion
-call :log Helfer gestartet
-set /a warten=0
-:alte_fassung
-tasklist /FI "PID eq %SCBP_PID%" /NH 2>nul | find " %SCBP_PID% " >nul && goto noch_da
-if not "%SCBP_PID2%"=="" tasklist /FI "PID eq %SCBP_PID2%" /NH 2>nul | find " %SCBP_PID2% " >nul && goto noch_da
-goto frei
-:noch_da
-set /a warten+=1
-if %warten% GEQ %SCBP_WARTEN% goto haengt
+call :log Helper started
+set /a waited=0
+:old_version
+tasklist /FI "PID eq %SCBP_PID%" /NH 2>nul | find " %SCBP_PID% " >nul && goto still_there
+if not "%SCBP_PID2%"=="" tasklist /FI "PID eq %SCBP_PID2%" /NH 2>nul | find " %SCBP_PID2% " >nul && goto still_there
+goto gone
+:still_there
+set /a waited+=1
+if %waited% GEQ %SCBP_WARTEN% goto stuck
 ping -n 2 127.0.0.1 >nul
-goto alte_fassung
-:haengt
-call :log Die alte Fassung beendet sich nicht - nichts installiert
+goto old_version
+:stuck
+call :log The old version does not exit - nothing installed
 set rc=91
-goto ergebnis
-:frei
-call :log Alte Fassung beendet
+goto result
+:gone
+call :log Old version has exited
 certutil -hashfile "%SCBP_SETUP%" SHA256 >"%SCBP_ERGEBNIS%.summe" 2>nul
 findstr /I /C:"%SCBP_SHA256%" "%SCBP_ERGEBNIS%.summe" >nul
-if errorlevel 1 goto summe_falsch
-call :log Pruefsumme stimmt, Installer startet
+if errorlevel 1 goto bad_checksum
+call :log Checksum matches, starting installer
 "%SCBP_SETUP%" /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /DIR="%SCBP_ZIEL%" /LOG="%SCBP_SETUPLOG%"
 set rc=%errorlevel%
-call :log Installer beendet, Rueckgabewert %rc%
-goto ergebnis
-:summe_falsch
-call :log Pruefsumme stimmt nicht - Datei verworfen, nichts installiert
+call :log Installer finished, exit code %rc%
+goto result
+:bad_checksum
+call :log Checksum mismatch - file discarded, nothing installed
 del "%SCBP_SETUP%" >nul 2>&1
 set rc=90
-:ergebnis
+:result
+del "%SCBP_ERGEBNIS%.summe" >nul 2>&1
 >"%SCBP_ERGEBNIS%" echo %rc%
 del "%SCBP_SPERRE%" >nul 2>&1
-for %%c in (%SCBP_NEUSTART%) do if "%rc%"=="%%c" goto starten
-call :log Kein Neustart nach Rueckgabewert %rc%
+for %%c in (%SCBP_NEUSTART%) do if "%rc%"=="%%c" goto restart
+call :log No restart after exit code %rc%
 goto :eof
-:starten
-call :log Watcher startet
+:restart
+call :log Starting the watcher
 start "" "%SCBP_EXE%"
 goto :eof
 :log
@@ -475,14 +481,19 @@ def protokoll_rotieren():
             fehler.merken('update_lauf.rotieren', ausnahme)
 
 
-def _protokoll_zeile(text):
-    """Eine Zeile vom Watcher selbst. Nur ASCII — der Helfer schreibt OEM."""
+def _protokoll_zeile(eintrag):
+    """Eine Zeile vom Watcher selbst. Nur ASCII — der Helfer schreibt OEM.
+
+    ⚠ Der Parameter heißt mit Absicht nicht `text`: Die Textprüfung wertet
+    jeden Parameter dieses Namens als Oberflächentext. Diese Zeile landet nur
+    in der Diagnose und ist englisch wie der Rest des Helfer-Protokolls.
+    """
     pfad = _pfad(PROTOKOLL)
     _ordner_anlegen(pfad)
     try:
         with open(pfad, 'a', encoding='ascii', errors='backslashreplace',
                   newline='\r\n') as f:
-            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), text))
+            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), eintrag))
     except OSError:
         pass
 
@@ -529,7 +540,7 @@ def helfer_starten(setup, summe, ziel_ordner, setup_protokoll, umgebung,
     pids = alte_pids(exe)
     helfer = helfer_schreiben()
     protokoll_rotieren()
-    _protokoll_zeile('Watcher uebergibt: warten auf PID %s, Installer %s'
+    _protokoll_zeile('Watcher hands over: waiting for PID %s, installer %s'
                      % ('/'.join(str(p) for p in pids),
                         os.path.basename(setup)))
     env = helfer_umgebung(umgebung, setup, summe, ziel_ordner,

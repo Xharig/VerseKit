@@ -17349,7 +17349,7 @@ def main():
             pruefe(_e188 not in (None, _ul182.SUMME_FALSCH, _ul182.ALTE_HAENGT),
                    'richtige Summe: der „Installer" lief, sein Rueckgabewert kam '
                    'an (%s)' % _e188)
-            pruefe(os.path.exists(_log188) and 'Installer beendet' in open(
+            pruefe(os.path.exists(_log188) and 'Installer finished' in open(
                        _log188, encoding='ascii', errors='replace').read(),
                    "das Protokoll landet im Ordner mit & ^ % ! ( ) ' und Umlauten")
             _e188b = _lauf188('0' * 64, _tot188.pid)
