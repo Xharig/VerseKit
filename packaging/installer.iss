@@ -163,27 +163,28 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   Tasks: autostart
 
 [Run]
-; ⚠ **`skipifsilent` gehört hierher**, auch wenn es zwischenzeitlich draußen war.
+; ⚠ **`skipifsilent` gehört hierher.**
 ;
-; Der Watcher ruft das Setup mit `/SILENT` auf. Ohne `skipifsilent` führt Inno
-; diesen Eintrag dabei aus — und genau seitdem meldete es beim Update
+; Der Watcher ruft das Setup still auf, und den Neustart danach macht sein
+; Helfer (`scbp/update_lauf.py`). Liefe dieser Eintrag im stillen Modus mit,
+; kämen **zwei** Watcher hoch.
+;
+; ⚠ Richtiggestellt am 11.09.2026. Bis dahin stand hier, Inno 6.7 melde
 ;
 ;     Security validation failure: parent process has different executable!
 ;
-; Fünf Anläufe haben die Ursache nicht beseitigt (Umgebung säubern,
-; Zwischenprozess, Ablösen, Kompatibilitäts-Shim entfernen); jeder tauschte
-; höchstens den Meldungstext. Inno 6.7 prüft, wie sein Setup gestartet wurde,
-; und mag es nicht, wenn ein Programm im Hintergrund ein anderes startet.
-;
-; Also wird nach dem Update **nichts mehr automatisch gestartet**. der Autor am
-; 26.08.2026: „wir lassen den neu start einfach weg, der user soll es starten."
-; Das kostet einen Doppelklick und spart einen Fehler, dessen Ursache in der
-; Werkzeugkette liegt und die wir nicht in der Hand haben.
+; wenn ein Programm im Hintergrund ein anderes startet. Die Meldung stammt aber
+; aus dem PyInstaller-Bootloader des Watchers, nicht aus Inno — nachgesehen in
+; beiden Dateien. Sehr wahrscheinlich erbte der hier gestartete Watcher über
+; das Setup die `_PYI_*`-Variablen des alten, hielt sich für das Kind eines
+; Bootloaders und fand als Vater Innos Setup. Deshalb halfen die fünf Anläufe
+; am Installer nichts (Umgebung säubern, Zwischenprozess, Ablösen,
+; Kompatibilitäts-Shim entfernen): Sie suchten an der falschen Stelle. Der
+; Helfer startet den Watcher heute mit einer Umgebung ohne diese Variablen.
 ;
 ; Bei einer Installation **von Hand** ändert sich nichts: Dort zeigt
 ; `postinstall` weiterhin das Häkchen „SC BP Watcher starten" auf der letzten
-; Seite. Nur der stille Lauf startet nicht mehr von selbst — und dort sagt es
-; der Watcher vorher an (siehe `s_ub_hinweis_neustart` in `sprache.py`).
+; Seite.
 Filename: "{app}\SC-BP-Watcher.exe"; \
   Description: "{cm:LaunchProgram,{#AppName}}"; \
   Flags: nowait postinstall skipifsilent

@@ -1078,69 +1078,59 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         #     Attempting to restart applications.
         #     -- Run entry --   Filename: ...\SC-BP-Watcher.exe
         #
-        # Wird das Setup dabei aus dem Watcher heraus gestartet, passt die
-        # Prozesskette fuer den Neustart des Restart Managers nicht, und Inno
-        # bricht mit „Security validation failure: parent process has different
-        # executable!" ab. Aus einer PowerShell heraus faellt das nicht auf —
-        # deshalb war der Fehler zuerst nicht nachstellbar. Den Neustart macht
-        # allein `[Run]`.
+        # ⚠⚠ **„Security validation failure: parent process has different
+        # executable!" kam NICHT von Inno** — richtiggestellt am 11.09.2026.
+        # Alle zehn Meldungen dieser Reihe stehen im PyInstaller-Bootloader
+        # der Watcher-`.exe` (nachgesehen), im Inno-Installer keine. Es ist die
+        # Prüfung, mit der eine gepackte `.exe` kontrolliert, ob ihr Vater ihr
+        # eigener Bootloader ist.
+        #
+        # Was am 26.08.2026 sehr wahrscheinlich geschah: Inno startete den
+        # Watcher über `[Run]` (bzw. den Restart Manager) neu, und der neue
+        # erbte über das Setup die `_PYI_*`-Variablen des alten. Er hielt sich
+        # für das Kind eines Bootloaders, fand als Vater aber Innos Setup —
+        # „parent process has different executable". Aus einer PowerShell
+        # heraus war das nie nachstellbar, weil es dort kein `_PYI_*` gibt.
+        # Am 11.09.2026 kam dieselbe Reihe wieder („failed to obtain
+        # executable path for parent proces", der Vater war schon beendet) —
+        # diesmal mit „Installation process succeeded" im Setup-Protokoll eine
+        # Sekunde davor. Die Installation war also nie das Problem, der
+        # Neustart war es.
+        #
+        # Den Neustart macht seitdem der Helfer (`update_lauf`) mit einer
+        # Umgebung ohne `_PYI_*`. `/RESTARTAPPLICATIONS` bleibt trotzdem weg:
+        # Sonst startet ein zweiter Weg den Watcher.
         _TAUSCH_LAEUFT[0] = True
 
         # ⚠ Die Umgebung MUSS gesaeubert werden, das Arbeitsverzeichnis ebenso.
-        # Sonst erbt der Installer die PyInstaller-Variablen der laufenden
-        # Version und sucht seine Bibliotheken in dem Ordner unter `%TEMP%`, den
-        # der Bootloader gleich aufraeumen will. Genau diese Falle steht
-        # ausfuehrlich bei `neu_starten()`.
-        # ⚠ Über `saubere_umgebung()`, nicht `dict(os.environ)`: Dort fliegen
-        # auch die `_PYI_*`-Variablen des Bootloaders raus. Der Helfer reicht
-        # diese Umgebung an den neu gestarteten Watcher weiter — mit ihnen hielt
-        # der sich im Echttest vom 11.09.2026 für ein Bootloader-Kind und brach
-        # mit „Security validation failure" ab, obwohl das Update fertig war.
+        # Sie geht über den Helfer an den neu gestarteten Watcher, und alles,
+        # was vom laufenden PyInstaller stammt, zeigt entweder in dessen Ordner
+        # unter `%TEMP%`, den er gleich aufraeumt (siehe `neu_starten()`), oder
+        # führt den neuen Bootloader in die Irre (siehe oben). Deshalb über
+        # `saubere_umgebung()`, nicht `dict(os.environ)`: Dort fliegen auch die
+        # `_PYI_*`-Variablen raus.
         umgebung = pfade.saubere_umgebung()
         for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             umgebung.pop(name, None)
 
-        # ⚠ **`__COMPAT_LAYER` muss weg** — daran hing die Meldung
-        #
-        #     Security validation failure: parent process has different
-        #     executable!
-        #
-        # die vier Anläufe gekostet hat. Der Weg dahin, weil er sich sonst nicht
-        # wiederfinden lässt:
-        #
-        # Windows führt einen Kompatibilitäts-Speicher über Programme, die ihm
-        # auffällig vorkommen. `SC-BP-Watcher.exe` steht dort — kein Wunder, der
-        # Watcher wird bei jedem Update über `CloseApplications=force` hart
-        # beendet. Windows setzt dem Prozess daraufhin `__COMPAT_LAYER` in die
-        # Umgebung, und **jeder Kindprozess erbt die Variable**. Das Setup lief
-        # damit unter einem Shim, Inno erkannte einen fremden Zwischenprozess und
-        # brach ab.
-        #
-        # Nachgestellt und belegt (26.08.2026) — derselbe Aufruf, dieselbe Datei,
-        # derselbe Pfad, nur die Variable unterschiedlich:
-        #
-        #     gesetzt   →  Compatibility mode: Yes (DetectorsAppHealth)  → Fehler
-        #     entfernt  →  keine solche Zeile                            → läuft
-        #
-        # Genau deshalb war der Fehler aus einer PowerShell oder aus Python heraus
-        # **nie** nachstellbar: Dort ist die Variable nicht gesetzt. Drei frühere
-        # Erklärungen klangen schlüssig und wurden alle durch Messläufe widerlegt.
-        # Gefunden hat es erst das Setup-Protokoll aus rc48.
+        # `__COMPAT_LAYER` fliegt weiterhin raus — als Vorsicht, nicht als
+        # Heilmittel. Am 26.08.2026 galt die Variable als DIE Ursache: Mit ihr
+        # stand „Compatibility mode: Yes (DetectorsAppHealth)" im
+        # Setup-Protokoll, ohne sie lief das Update durch. Die Messung vom
+        # 11.09.2026 konnte den Fehler mit ihr allein aber nicht nachstellen —
+        # Inno installiert damit anstandslos. Wahrscheinlich fiel das Entfernen
+        # damals mit einem Lauf zusammen, in dem der Neustart anders verlief.
+        # Schaden tut es nicht: Kein Programm, das der Helfer startet, braucht
+        # einen Kompatibilitäts-Shim.
         umgebung.pop('__COMPAT_LAYER', None)
         # ⚠ **Das Setup schreibt ein Protokoll**, und zwar immer — nicht nur im
-        # Fehlerfall. Der Grund steht in der Geschichte dieser Funktion: Am
-        # 26.08.2026 meldete Inno beim Update
-        #
-        #     Security validation failure: parent process has different
-        #     executable!
-        #
-        # und **drei** Erklärungsversuche lagen daneben (vererbtes
-        # Arbeitsverzeichnis, `/RESTARTAPPLICATIONS`, sterbender
-        # Elternprozess). Jeder klang schlüssig, jeder wurde durch einen
-        # Messlauf widerlegt. Nachstellen ließ sich der Fehler nie: aus einer
-        # PowerShell oder aus Python heraus lief derselbe Aufruf sauber durch,
-        # mit lebendem wie mit sterbendem Elternprozess.
+        # Fehlerfall. Am 26.08.2026 lagen **drei** Erklärungsversuche daneben
+        # (vererbtes Arbeitsverzeichnis, `/RESTARTAPPLICATIONS`, sterbender
+        # Elternprozess), und die vierte — `__COMPAT_LAYER` — sehr
+        # wahrscheinlich auch: Gesucht wurde im Installer, gemeldet hatte der
+        # neu gestartete Watcher. Erst das Protokoll vom 11.09.2026 trennte
+        # beides.
         #
         # Ohne Protokoll bleibt in so einem Fall nur Raten — und Raten hat hier
         # drei Versionen gekostet. Mit Protokoll beantwortet der nächste
