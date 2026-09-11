@@ -8,7 +8,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
-## v3.30.1-rc1 - 2026-09-11
+## v3.30.1 - 2026-09-11
 
 > **Lange Auswahllisten bleiben offen, wenn du die Rollleiste anfasst.**
 > Bisher ging das nur mit dem Mausrad — wer die Leiste rechts zog, dem

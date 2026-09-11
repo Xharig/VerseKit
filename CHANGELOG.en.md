@@ -8,7 +8,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
-## v3.30.1-rc1 - 2026-09-11
+## v3.30.1 - 2026-09-11
 
 > **Long selection lists stay open when you grab the scrollbar.** Until now
 > only the mouse wheel worked — dragging the scrollbar on the right made the
