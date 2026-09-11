@@ -8,6 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.30.0-rc3 - 2026-09-11
+
+> **Der neue Update-Weg hängt unter Windows nicht mehr.** In rc1 und rc2 blieb
+> beim Einspielen ein leeres Konsolenfenster stehen, und am Ende wurde nichts
+> installiert. Ab dieser Fassung läuft alles unsichtbar durch.
+
+> [!important]
+> Von rc1 oder rc2 aus bleibt das Update noch hängen — **diese Fassung bitte
+> einmal von Hand installieren** (Setup von der Release-Seite). Ab rc3 geht
+> es dann mit einem Klick.
+
+### Behoben
+
+- **Unter Windows blieb das Ein-Klick-Update hängen** — ein leeres
+  Konsolenfenster stand offen, und die geladene Fassung wurde verworfen, statt
+  sie einzuspielen
+
 ## v3.30.0-rc2 - 2026-09-11
 
 > **Derselbe Stand wie rc1 — zum Ausprobieren des neuen Update-Wegs.** Wer

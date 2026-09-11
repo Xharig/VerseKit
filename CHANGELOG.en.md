@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.0-rc3 - 2026-09-11
+
+> **The new update path no longer hangs on Windows.** In rc1 and rc2 an
+> empty console window stayed open during the install, and in the end nothing
+> was installed. From this version on everything runs invisibly.
+
+> [!important]
+> Coming from rc1 or rc2 the update still hangs — **please install this
+> version once by hand** (setup from the release page). From rc3 on it works
+> with one click.
+
+### Fixed
+
+- **On Windows the one-click update got stuck** — an empty console window
+  stayed open, and the downloaded version was discarded instead of being
+  installed
+
 ## v3.30.0-rc2 - 2026-09-11
 
 > **The same state as rc1 — for trying out the new update path.** Coming
