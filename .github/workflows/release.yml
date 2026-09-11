@@ -91,7 +91,7 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
       # Die Adresse, an die ein Fehlerbericht auf Knopfdruck geht. Sie steht
       # NICHT im Quelltext — wer sie hat, kann in den Kanal schreiben. Hier
@@ -99,7 +99,7 @@ jobs:
       # wird. Fehlt das Secret, bleibt sie leer und der Knopf erscheint gar
       # nicht erst (`report_target.available()`).
 
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           # ⚠ 3.14 ist Absicht, keine Modepflege: Erst ab dieser Fassung
           # bringt Python `compression.zstd` in der Standardbibliothek mit —
@@ -193,7 +193,7 @@ jobs:
           & $iscc "/DAppVersion=$version" packaging\installer.iss
           Get-ChildItem dist
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: windows
           path: |
@@ -246,7 +246,7 @@ jobs:
           python3.14 -m pip install --quiet "pip==${PY_PIP}"
           python3 -c "import compression.zstd; print('zstd in der Standardbibliothek: ok')"
 
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
       # ⚠⚠ **Erst NACH dem Auschecken** — die Sperrdatei liegt im Repo.
       # Vorher stand die Installation weiter oben; mit einer Sperrdatei geht
@@ -336,7 +336,7 @@ jobs:
             --runtime-file runtime-x86_64 \
             "$APPDIR" SC-BP-Watcher-x86_64.AppImage
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: linux
           path: SC-BP-Watcher-x86_64.AppImage
@@ -347,12 +347,12 @@ jobs:
     if: inputs.tag != '' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
         # ⚠ Mit voller Historie und Tags: `release_text.py` sucht die vorige
         # Testfassung, um „was hat sich seit dann geändert" zu verlinken. Ein
         # flacher Klon kennt keine Tags, und der Link fiele still weg.
         with: { fetch-depth: 0 }
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with: { path: dateien }
 
       - name: Beschreibung aus dem CHANGELOG holen
