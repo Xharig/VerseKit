@@ -2212,7 +2212,13 @@ TEXTE = {
                               'newer scmdb.net format, and that switching '
                               'channels cost you your whole history — one '
                               'single file brought all three to light.'),
-    's_dk_horthy_idee':      ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
+    's_dk_rurudotorg_bugs':  ('Dass die Schiffsauswahl bei „Was steckt drin?" '
+                              'zuklappte, sobald man die Rollleiste anfasste — '
+                              'mit dem Mausrad ging es, mit der Leiste nicht.',
+                              'That the ship selection in “What\'s inside?” '
+                              'collapsed as soon as you grabbed the scrollbar — '
+                              'the mouse wheel worked, the scrollbar did not.'),
+    's_dk_horthy_idee':     ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
                               'maths; crafting deducts the ingredients for you.'),

@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.30.1-rc1 - 2026-09-11
+
+> **Lange Auswahllisten bleiben offen, wenn du die Rollleiste anfasst.**
+> Bisher ging das nur mit dem Mausrad — wer die Leiste rechts zog, dem
+> verschwand die Auswahl.
+
+### Behoben
+
+- **Die Schiffsauswahl bei „Was steckt drin?" klappte zu, sobald man die
+  Rollleiste anfasste.** Mit dem Mausrad ließ sich die Liste rollen, mit der
+  Leiste rechts nicht — die Auswahl verschwand. Das betraf jede lange
+  Auswahlliste mit Rollleiste, etwa auch im Hangar. Gemeldet von rurudotorg
+  (SC4M)
+
+### Dank
+
+- **rurudotorg** (SC4M) — die zuklappende Schiffsauswahl
+
 ## v3.30.0 - 2026-09-11
 
 > **Ein Klick, und das Update läuft durch — samt Neustart.** Unter Windows

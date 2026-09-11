@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.1-rc1 - 2026-09-11
+
+> **Long selection lists stay open when you grab the scrollbar.** Until now
+> only the mouse wheel worked — dragging the scrollbar on the right made the
+> selection vanish.
+
+### Fixed
+
+- **The ship selection in “What's inside?” collapsed as soon as you grabbed
+  the scrollbar.** The mouse wheel scrolled the list, the scrollbar on the
+  right did not — the selection vanished. This affected every long selection
+  list with a scrollbar, the hangar included. Reported by rurudotorg (SC4M)
+
+### Thanks
+
+- **rurudotorg** (SC4M) — the collapsing ship selection
+
 ## v3.30.0 - 2026-09-11
 
 > **One click and the update runs through — restart included.** On Windows

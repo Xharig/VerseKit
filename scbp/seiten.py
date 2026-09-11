@@ -5217,7 +5217,8 @@ def _danke(fenster, rahmen):
              t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
-             t('s_dk_zwaersch_bugs'))):
+             t('s_dk_zwaersch_bugs')),
+            ('rurudotorg', 'SC4M', '', t('s_dk_rurudotorg_bugs'))):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -13352,9 +13353,34 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             offen['ja'] = False
             zeichnen()
 
+    # ⚠⚠ **Ein Klick auf die Rollleiste ist ein Klick IN die Liste.**
+    # Gemeldet am 11.09.2026 zu „Was steckt drin?": Mit dem Mausrad ließ sich
+    # die Schiffsliste rollen — wer aber die Leiste rechts anfasste, dem
+    # verschwand die ganze Auswahl. Ursache ist die Fensterregel
+    # `_klick_ins_leere_einrichten`: Die Leiste ist eine Leinwand, kein
+    # Eingabefeld, also bekommt das Fenster den Fokus, das Feld meldet
+    # `<FocusOut>`, und 200 ms später klappte `_zumachen` die Liste zu.
+    # `_klick_im_fenster` erkannte den Klick zwar richtig als „drinnen" —
+    # nur fragte das `<FocusOut>` gar nicht erst nach.
+    #
+    # Deshalb merkt sich `_klick_im_fenster`, wann zuletzt innen geklickt
+    # wurde. Fällt der Fokusverlust auf denselben Augenblick, stammt er von
+    # diesem Klick, und die Liste bleibt offen. Verglichen wird mit dem
+    # Zeitpunkt des `<FocusOut>`, **nicht** mit dem des verzögerten Aufrufs:
+    # Kommt der Zeitgeber unter Last zu spät, darf das nicht wieder zuklappen.
+    # Selbsttest 189 geht genau diesen Weg.
+    drinnen = {'zeit': -1.0}
+
     def beim_verlassen(_=None):
+        verlassen = time.monotonic()
+
+        def _spaeter():
+            if abs(verlassen - drinnen['zeit']) < 0.15:
+                return
+            _zumachen()
+
         try:
-            feld.after(200, _zumachen)
+            feld.after(200, _spaeter)
         except tk.TclError:
             pass
 
@@ -13379,6 +13405,9 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
         # ein Klick auf die Liste.
         while w is not None:
             if w in (feld, liste, pfeil, zeile):
+                # Für `beim_verlassen`: Ein Fokusverlust in diesem Augenblick
+                # kommt von hier (Rollleiste) und klappt nicht zu.
+                drinnen['zeit'] = time.monotonic()
                 return
             w = getattr(w, 'master', None)
         _zumachen()

@@ -17397,6 +17397,99 @@ def main():
             os.environ['SC_BP_HOME'] = _alt_home182
         shutil.rmtree(_home182, ignore_errors=True)
 
+    print('\n189. Die Rollleiste einer Aufklappliste klappt sie nicht zu')
+    # Gemeldet am 11.09.2026 zu „Was steckt drin?": Mausrad geht, die Leiste
+    # rechts anfassen laesst die Auswahl verschwinden. Geprueft wird der echte
+    # Weg: Klick auf die Leiste, danach das `<FocusOut>`, das die Fensterregel
+    # `_klick_ins_leere_einrichten` in genau diesem Moment ausloest, dann die
+    # 200 ms bis zum verzoegerten Zumachen.
+    #
+    # ⚠ Das `<FocusOut>` wird geschickt, nicht erwartet — aus demselben Grund
+    # wie in Pruefung 126: Ohne Betriebssystem-Fokus feuert Tk es nicht.
+    #
+    # Gegenprobe: Ohne den Waechter in `_auswahlfeld` (`drinnen`) wird die
+    # erste Pruefung rot — die Liste ist nach 200 ms weg.
+    import tkinter as tk189
+    import tkinter.font as tkf189
+    from scbp import seiten as _se189
+    _w189 = _wurzel()
+    try:
+        _w189.deiconify()
+        _w189.geometry('600x500')
+        _sch189 = tkf189.Font(root=_w189, family='TkDefaultFont', size=9)
+
+        class _Fenster189:
+            f_grund = f_fett = f_klein = f_titel = f_zeichen = _sch189
+
+        _block189 = tk189.Frame(_w189)
+        _block189.pack(fill='both', expand=True)
+        _daneben189 = tk189.Label(_w189, text='daneben')
+        _daneben189.pack()
+        _var189 = tk189.StringVar(master=_w189)
+        _namen189 = ['Schiff %03d' % _i189 for _i189 in range(60)]
+        _zeile189, _liste189, _ = _se189._auswahlfeld(
+            _Fenster189(), _block189, _var189, lambda: _namen189,
+            rollbar=200)
+        _zeile189.pack(fill='x')
+        _liste189.pack(fill='x')
+        _w189.update()
+
+        def _alle189(knoten):
+            for _k in knoten.winfo_children():
+                yield _k
+                for _kk in _alle189(_k):
+                    yield _kk
+
+        def _warten189(ms):
+            _ende189 = time.monotonic() + ms / 1000.0
+            while time.monotonic() < _ende189:
+                _w189.update()
+                time.sleep(0.01)
+
+        def _offen189():
+            return _liste189.winfo_manager() == 'pack'
+
+        _feld189 = [w for w in _alle189(_zeile189)
+                    if isinstance(w, tk189.Entry)]
+        pruefe(bool(_feld189), 'das Auswahlfeld hat sein Eingabefeld')
+        if _feld189:
+            _feld189 = _feld189[0]
+            _feld189.event_generate('<Button-1>', x=5, y=5)
+            _w189.update()
+            pruefe(_offen189(), 'ein Klick ins Feld klappt die Liste auf')
+            _leisten189 = [w for w in _alle189(_liste189)
+                           if isinstance(w, tk189.Canvas)
+                           and getattr(w, 'auf_mass_gesetzt', False)]
+            pruefe(bool(_leisten189), 'die Liste hat ihre Rollleiste')
+            if _leisten189:
+                _warten189(300)
+                _leisten189[0].event_generate('<Button-1>', x=5, y=5)
+                _feld189.event_generate('<FocusOut>')
+                _warten189(350)
+                pruefe(_offen189(),
+                       'ein Klick auf die Rollleiste laesst die Liste offen')
+
+            # Gegenprobe 1: Fokusverlust ohne Klick in die Liste (etwa per
+            # Tabulator) schliesst sie weiterhin.
+            _warten189(300)
+            _feld189.event_generate('<FocusOut>')
+            _warten189(350)
+            pruefe(not _offen189(),
+                   'Gegenprobe: Fokusverlust ohne Klick in die Liste schliesst sie')
+
+            # Gegenprobe 2: Klick daneben schliesst sie weiterhin.
+            _feld189.event_generate('<Button-1>', x=5, y=5)
+            _w189.update()
+            _daneben189.event_generate('<Button-1>', x=2, y=2)
+            _warten189(350)
+            pruefe(not _offen189(),
+                   'Gegenprobe: ein Klick daneben schliesst sie weiterhin')
+    finally:
+        try:
+            _w189.destroy()
+        except tk189.TclError:
+            pass
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
