@@ -4029,7 +4029,7 @@ TEXTE = {
                           'schlechtester Wahl',
                           '%d percentage points between best and worst'),
 
-    # -- Welche Verarbeitungsmethode? (`scbp/raffinerie.py`) --
+    # -- Welche Verarbeitungsmethode? (`scbp/refinery.py`) --
     # Die dritte Frage der Kette: wo abbauen -> wohin bringen -> wie verarbeiten.
     's_rm_kopf':         ('Welche Verarbeitungsmethode?',
                           'Which refining method?'),

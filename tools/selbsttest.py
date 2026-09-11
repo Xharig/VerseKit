@@ -10064,17 +10064,17 @@ def main():
     # auf, weil das Ergebnis plausibel aussieht. Diese Wache prueft nicht die
     # Zahlen selbst (das kann nur ein Mensch mit dem Spiel), sondern die
     # **Struktur**, die sie haben muessen.
-    from scbp import raffinerie as _rf109
+    from scbp import refinery as _rf109
 
-    pruefe(len(_rf109.STUFEN) == 9,
-           'es sind neun Methoden (%d)' % len(_rf109.STUFEN))
-    pruefe(set(_rf109.STUFEN) == set(_rf109.NAMEN),
+    pruefe(len(_rf109.LEVELS) == 9,
+           'es sind neun Methoden (%d)' % len(_rf109.LEVELS))
+    pruefe(set(_rf109.LEVELS) == set(_rf109.NAMES),
            'zu jeder Methode gibt es einen Namen')
 
     # ⭐ **Der Kern:** Drei Ertragsstufen mal drei Kostenstufen, jede
     # Kombination genau einmal. Faellt das auseinander, wurde beim Nachtragen
     # etwas verwechselt — und die Empfehlung waere ab da geraten.
-    _raster109 = _rf109.raster()
+    _raster109 = _rf109.grid()
     pruefe(len(_raster109) == 9,
            'das Raster Ertrag x Kosten ist vollstaendig (%d von 9 Zellen)'
            % len(_raster109))
@@ -10082,42 +10082,42 @@ def main():
     # Jede Empfehlung muss auf der WICHTIGSTEN Achse das Beste liefern. Das ist
     # die eigentliche Zusage an den Spieler: Wer „Ertrag" sagt, bekommt nichts
     # mit weniger Ertrag, egal was sonst passiert.
-    for _erste109 in _rf109.ACHSEN:
-        for _zweite109 in _rf109.ACHSEN:
+    for _erste109 in _rf109.AXES:
+        for _zweite109 in _rf109.AXES:
             if _erste109 == _zweite109:
                 continue
-            _best109, _alle109 = _rf109.empfehlung(_erste109, _zweite109)
-            _max109 = max(_rf109.stufe(k, _erste109) for k in _rf109.STUFEN)
-            pruefe(_rf109.stufe(_best109, _erste109) == _max109
+            _best109, _alle109 = _rf109.recommend(_erste109, _zweite109)
+            _max109 = max(_rf109.level(k, _erste109) for k in _rf109.LEVELS)
+            pruefe(_rf109.level(_best109, _erste109) == _max109
                    and len(_alle109) == 9,
                    '%-6s dann %-6s -> %s' % (_erste109, _zweite109,
-                                             _rf109.NAMEN[_best109]))
+                                             _rf109.NAMES[_best109]))
 
     # Ohne jede Angabe muss trotzdem etwas Sinnvolles herauskommen.
-    _standard109 = _rf109.empfehlung()[0]
-    pruefe(_rf109.stufe(_standard109, 'ertrag') == 3
-           and _rf109.stufe(_standard109, 'kosten') == 3,
+    _standard109 = _rf109.recommend()[0]
+    pruefe(_rf109.level(_standard109, 'ertrag') == 3
+           and _rf109.level(_standard109, 'kosten') == 3,
            'ohne Auswahl kommt die Methode mit viel Ertrag und wenig Kosten '
-           '(%s)' % _rf109.NAMEN[_standard109])
+           '(%s)' % _rf109.NAMES[_standard109])
 
     # Eine unterlegene Methode darf nicht selbst als besserer Ersatz auftreten
     # — sonst schickt das Werkzeug den Spieler im Kreis.
-    _unter109 = _rf109.unterlegen()
+    _unter109 = _rf109.dominated()
     pruefe(not (set(_unter109) & set(_unter109.values())),
            'kein Ersatzvorschlag ist selbst unterlegen (%d unterlegene)'
            % len(_unter109))
 
     # ⚠ **Gegenprobe** — eine Pruefung, die nie anschlaegt, prueft nichts.
     # Hier wird absichtlich eine Stufe verbogen; das Raster MUSS brechen.
-    _echt109 = dict(_rf109.STUFEN)
+    _echt109 = dict(_rf109.LEVELS)
     try:
-        _rf109.STUFEN['kazen'] = _rf109.STUFEN['cormack']
-        pruefe(len(_rf109.raster()) < 9,
+        _rf109.LEVELS['kazen'] = _rf109.LEVELS['cormack']
+        pruefe(len(_rf109.grid()) < 9,
                'die Wache schlaegt bei einer verbogenen Stufe wirklich an')
     finally:
-        _rf109.STUFEN.clear()
-        _rf109.STUFEN.update(_echt109)
-    pruefe(len(_rf109.raster()) == 9,
+        _rf109.LEVELS.clear()
+        _rf109.LEVELS.update(_echt109)
+    pruefe(len(_rf109.grid()) == 9,
            'nach der Gegenprobe steht das Raster wieder')
 
     print()
@@ -16501,6 +16501,7 @@ def main():
         'bestand': 'collection',
         'rohstoffe': 'materials',
         'bergbau': 'mining',
+        'raffinerie': 'refinery',
     }
 
     def _reste190(quelle, name, alte):

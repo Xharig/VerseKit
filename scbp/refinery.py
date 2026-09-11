@@ -37,7 +37,7 @@ die schlechteste. Auch Websuche taugt nicht, sie mischt abgelöste Namen unter
 ist der Bildschirm im Spiel.**
 
 **Nach einem grösseren Patch neu ablesen:** jede Methode einmal anklicken, die
-Zeile darunter abfotografieren. Neun Bilder, fünf Minuten. Dann `STUFEN` unten
+Zeile darunter abfotografieren. Neun Bilder, fünf Minuten. Dann `LEVELS` unten
 nachziehen und `PATCH` hochsetzen — alles andere rechnet sich daraus.
 
 **Das Raster** — die neun Methoden sind kein Wildwuchs, sondern vollständig:
@@ -45,40 +45,46 @@ drei Ertragsstufen mal drei Kostenstufen, jede Kombination genau einmal. Daraus
 folgt, dass mehr Geld immer Tempo kauft und nie Material, und dass höherer
 Ertrag immer Zeit kostet. Deshalb braucht die Empfehlung **keine Gewichtung**:
 Erste und zweite Priorität genügen, es bleibt genau eine Methode übrig.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `raffinerie` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: die Kennungen der Methoden (`'pyrometric'`, `'gaskin'`, …)
+und die Achsen `'ertrag'`, `'kosten'`, `'tempo'` — über sie holt die
+Oberfläche ihre Texte (`s_rm_…`).
 """
 
 # Der Spielstand, aus dem die Stufen abgelesen wurden. Steht in der Oberfläche,
 # damit erkennbar bleibt, wie alt die Angaben sind.
 PATCH = '4.10'
-ABGELESEN = '2026-09-03'
+READ_ON = '2026-09-03'
 
 # Die drei Achsen. Grössere Zahl heisst **besser für den Spieler**:
 # viel Ertrag, wenig Kosten, hohes Tempo. Damit ist jeder Vergleich im Modul
 # ein simples „grösser ist besser", ohne Sonderfall für die Kosten.
-GERING, MODERAT, HOCH = 1, 2, 3
-SEHR_LANGSAM, LANGSAM, MITTEL, SCHNELL = 0, 1, 2, 3
+LOW, MODERATE, HIGH = 1, 2, 3
+VERY_SLOW, SLOW, MEDIUM, FAST = 0, 1, 2, 3
 
 # Methode -> (Ertrag, Tempo, Kostenvorteil)
 #
 # ⚠ Die dritte Zahl ist der **Kostenvorteil**, nicht der Preis: 3 heisst
 # „geringe Kosten". Im Spiel steht dort `GERINGE KOSTEN` — beim Nachtragen also
 # umdrehen, sonst empfiehlt das Werkzeug künftig die teuerste Methode.
-STUFEN = {
-    'pyrometric':  (HOCH,    SEHR_LANGSAM, HOCH),
-    'gaskin':      (HOCH,    LANGSAM,      MODERAT),
-    'dinyx':       (HOCH,    LANGSAM,      GERING),
-    'ferron':      (MODERAT, LANGSAM,      HOCH),
-    'kazen':       (MODERAT, MITTEL,       MODERAT),
-    'thermonatic': (MODERAT, SCHNELL,      GERING),
-    'electro':     (GERING,  MITTEL,       HOCH),
-    'cormack':     (GERING,  SCHNELL,      MODERAT),
-    'xcr':         (GERING,  SCHNELL,      GERING),
+LEVELS = {
+    'pyrometric':  (HIGH,     VERY_SLOW, HIGH),
+    'gaskin':      (HIGH,     SLOW,      MODERATE),
+    'dinyx':       (HIGH,     SLOW,      LOW),
+    'ferron':      (MODERATE, SLOW,      HIGH),
+    'kazen':       (MODERATE, MEDIUM,    MODERATE),
+    'thermonatic': (MODERATE, FAST,      LOW),
+    'electro':     (LOW,      MEDIUM,    HIGH),
+    'cormack':     (LOW,      FAST,      MODERATE),
+    'xcr':         (LOW,      FAST,      LOW),
 }
 
 # Wie die Methode im Spiel heisst. Englisch in beiden Sprachfassungen: Das
 # Terminal zeigt sie auch im deutschen Client englisch, und wer sie dort suchen
 # will, braucht genau diese Schreibweise.
-NAMEN = {
+NAMES = {
     'pyrometric':  'Pyrometric Chromalysis',
     'gaskin':      'Gaskin Process',
     'dinyx':       'Dinyx Solventation',
@@ -91,22 +97,22 @@ NAMEN = {
 }
 
 # Die drei Achsen als Auswahl. Reihenfolge = Reihenfolge in der Oberfläche.
-ACHSEN = ('ertrag', 'kosten', 'tempo')
-_STELLE = {'ertrag': 0, 'tempo': 1, 'kosten': 2}
+AXES = ('ertrag', 'kosten', 'tempo')
+_POSITION = {'ertrag': 0, 'tempo': 1, 'kosten': 2}
 
 
-def stufe(kennung, achse):
+def level(key, axis):
     """Die Stufe einer Methode auf einer Achse — grösser ist besser."""
-    werte = STUFEN.get(kennung)
-    if not werte or achse not in _STELLE:
+    values = LEVELS.get(key)
+    if not values or axis not in _POSITION:
         return 0
-    return werte[_STELLE[achse]]
+    return values[_POSITION[axis]]
 
 
-def empfehlung(erste=None, zweite=None):
+def recommend(first=None, second=None):
     """Die passende Methode — `(kennung, alle_kennungen_sortiert)`.
 
-    `erste` und `zweite` sind Achsen aus `ACHSEN`. Ohne Angabe gilt die
+    `first` und `second` sind Achsen aus `AXES`. Ohne Angabe gilt die
     Standard-Rangfolge Ertrag → Kosten → Tempo: Sie führt auf `pyrometric`, die
     einzige Methode mit höchstem Ertrag **und** geringsten Kosten.
 
@@ -115,23 +121,23 @@ def empfehlung(erste=None, zweite=None):
     erzeugen: Die Oberfläche lässt die Wahl zu, und ein Hinweis „das geht nicht"
     wäre für den Spieler ohne Erkenntnisgewinn.
     """
-    rang = [a for a in (erste, zweite) if a in _STELLE]
+    rank = [a for a in (first, second) if a in _POSITION]
     # Doppelte raus, danach den Rest in fester Reihenfolge anhängen — so ist
     # das Ergebnis **immer eindeutig**, auch wenn nichts gewählt wurde.
-    gesehen, sortierung = set(), []
-    for achse in rang + ['ertrag', 'kosten', 'tempo']:
-        if achse not in gesehen:
-            gesehen.add(achse)
-            sortierung.append(achse)
+    seen, order = set(), []
+    for axis in rank + ['ertrag', 'kosten', 'tempo']:
+        if axis not in seen:
+            seen.add(axis)
+            order.append(axis)
 
-    def schluessel(kennung):
-        return tuple(-stufe(kennung, achse) for achse in sortierung)
+    def sort_key(key):
+        return tuple(-level(key, axis) for axis in order)
 
-    alle = sorted(STUFEN, key=schluessel)
-    return alle[0], alle
+    all_keys = sorted(LEVELS, key=sort_key)
+    return all_keys[0], all_keys
 
 
-def unterlegen():
+def dominated():
     """Methoden, die von einer anderen in **jeder** Hinsicht geschlagen werden.
 
     Gibt `{schlechte: bessere}`. Solche Methoden gibt es wirklich — sie zu
@@ -142,29 +148,29 @@ def unterlegen():
     Aussage weiter. Eine fest hinterlegte Liste wäre beim nächsten Patch eine
     Falschaussage, die niemandem auffällt.
     """
-    raus = {}
-    for a in STUFEN:
-        for b in STUFEN:
+    result = {}
+    for a in LEVELS:
+        for b in LEVELS:
             if a == b:
                 continue
-            besser_in_einem = False
-            schlechter_irgendwo = False
-            for achse in _STELLE:
-                if stufe(b, achse) > stufe(a, achse):
-                    besser_in_einem = True
-                elif stufe(b, achse) < stufe(a, achse):
-                    schlechter_irgendwo = True
-            if besser_in_einem and not schlechter_irgendwo:
-                raus[a] = b
+            better_somewhere = False
+            worse_somewhere = False
+            for axis in _POSITION:
+                if level(b, axis) > level(a, axis):
+                    better_somewhere = True
+                elif level(b, axis) < level(a, axis):
+                    worse_somewhere = True
+            if better_somewhere and not worse_somewhere:
+                result[a] = b
                 break
-    return raus
+    return result
 
 
-def raster():
+def grid():
     """Die Tabelle Ertrag × Kosten — `{(ertrag, kosten): kennung}`.
 
     Dass jede der neun Zellen genau einmal belegt ist, ist der Kern der Sache
     und wird im Selbsttest geprüft: Fällt das Raster auseinander, wurde beim
     Nachtragen etwas verwechselt.
     """
-    return {(stufe(k, 'ertrag'), stufe(k, 'kosten')): k for k in STUFEN}
+    return {(level(k, 'ertrag'), level(k, 'kosten')): k for k in LEVELS}

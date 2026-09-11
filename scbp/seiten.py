@@ -9635,7 +9635,7 @@ def _methodenblock(fenster, eltern):
     ⚠ Die Auswahl steht in derselben `_filterleiste` wie überall sonst — ein
     Bedienkonzept fürs ganze Programm, kein Sonderweg für eine Seite.
     """
-    from . import raffinerie as raff
+    from . import refinery as raff
     block = tk.Frame(eltern, bg=BG)
     block.pack(fill='x', pady=(0, 12))
     tk.Label(block, text=t('s_rm_kopf'), bg=BG, fg=FG, font=fenster.f_grund,
@@ -9644,7 +9644,7 @@ def _methodenblock(fenster, eltern):
 
     achsentext = {'ertrag': t('s_rm_ertrag'), 'kosten': t('s_rm_kosten'),
                   'tempo': t('s_rm_tempo')}
-    auswahl = [(a, achsentext[a]) for a in raff.ACHSEN]
+    auswahl = [(a, achsentext[a]) for a in raff.AXES]
     wahl = {'erste': '', 'zweite': ''}
     # Der Klappzustand des Vergleichs — überlebt das Neuzeichnen, siehe unten.
     klapp = {'offen': False}
@@ -9652,27 +9652,27 @@ def _methodenblock(fenster, eltern):
 
     def stufentext(kennung):
         ertrag = {1: 's_rm_s_gering', 2: 's_rm_s_moderat',
-                  3: 's_rm_s_hoch'}[raff.stufe(kennung, 'ertrag')]
+                  3: 's_rm_s_hoch'}[raff.level(kennung, 'ertrag')]
         tempo = {0: 's_rm_t_sehr', 1: 's_rm_t_langsam', 2: 's_rm_t_mittel',
-                 3: 's_rm_t_schnell'}[raff.stufe(kennung, 'tempo')]
+                 3: 's_rm_t_schnell'}[raff.level(kennung, 'tempo')]
         # ⚠ Umdrehen: Im Modul ist 3 der **Kostenvorteil**, auf dem Bildschirm
         # steht „geringe Kosten". Ohne diese Zeile stünde dort das Gegenteil.
         kosten = {3: 's_rm_s_gering', 2: 's_rm_s_moderat',
-                  1: 's_rm_s_hoch'}[raff.stufe(kennung, 'kosten')]
+                  1: 's_rm_s_hoch'}[raff.level(kennung, 'kosten')]
         return t('s_rm_zeile') % (t(ertrag), t(tempo), t(kosten))
 
     def zeichnen():
         for w in ergebnis.winfo_children():
             w.destroy()
-        beste, alle = raff.empfehlung(wahl['erste'] or None,
+        beste, alle = raff.recommend(wahl['erste'] or None,
                                       wahl['zweite'] or None)
-        tk.Label(ergebnis, text=t('s_rm_nimm') % raff.NAMEN[beste], bg=BG,
+        tk.Label(ergebnis, text=t('s_rm_nimm') % raff.NAMES[beste], bg=BG,
                  fg=ACCENT, font=fenster.f_grund, anchor='w').pack(
                      fill='x', pady=(6, 0))
         _fliesstext(ergebnis, stufentext(beste), fenster.f_klein, fill='x')
         # Der Satz gehört genau dann dazu, wenn die Empfehlung mit Zeit
         # bezahlt wird — sonst wäre er ein Allgemeinplatz.
-        if raff.stufe(beste, 'tempo') <= 1:
+        if raff.level(beste, 'tempo') <= 1:
             _fliesstext(ergebnis, t('s_rm_zeit_laeuft'), fenster.f_klein,
                         fill='x')
 
@@ -9721,7 +9721,7 @@ def _methodenblock(fenster, eltern):
         for kennung in alle:
             z = tk.Frame(koerper, bg=BG)
             z.pack(fill='x', pady=1)
-            tk.Label(z, text=raff.NAMEN[kennung], bg=BG,
+            tk.Label(z, text=raff.NAMES[kennung], bg=BG,
                      fg=(ACCENT if kennung == beste else FG),
                      font=fenster.f_grund, anchor='w').pack(side='left',
                                                             padx=(4, 0))
@@ -9730,12 +9730,12 @@ def _methodenblock(fenster, eltern):
                                                             padx=(8, 4))
 
         # Methoden, die nichts können, was eine andere nicht besser kann.
-        for schlecht, besser in sorted(raff.unterlegen().items()):
+        for schlecht, besser in sorted(raff.dominated().items()):
             _fliesstext(koerper,
-                        t('s_rm_unterlegen') % (raff.NAMEN[schlecht],
-                                                raff.NAMEN[besser]),
+                        t('s_rm_unterlegen') % (raff.NAMES[schlecht],
+                                                raff.NAMES[besser]),
                         fenster.f_klein, fill='x')
-        _fliesstext(koerper, t('s_rm_stand') % (raff.PATCH, raff.ABGELESEN),
+        _fliesstext(koerper, t('s_rm_stand') % (raff.PATCH, raff.READ_ON),
                     fenster.f_klein, fill='x')
 
     _filterleiste(fenster, block,
