@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.0-rc4 - 2026-09-11
+
+> **The same state as rc3 — for trying out the one-click update.** Coming
+> from rc3, you click once: the watcher closes, installs the version and comes
+> back by itself. On start it tells you whether it worked.
+
 ## v3.30.0-rc3 - 2026-09-11
 
 > **The new update path no longer hangs on Windows.** In rc1 and rc2 an

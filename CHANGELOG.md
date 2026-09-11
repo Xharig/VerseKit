@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.30.0-rc4 - 2026-09-11
+
+> **Derselbe Stand wie rc3 — zum Ausprobieren des Ein-Klick-Updates.** Wer
+> von rc3 kommt, klickt einmal: Der Watcher schließt sich, spielt die Fassung
+> ein und kommt von selbst wieder. Beim Start sagt er dir, ob es geklappt hat.
+
 ## v3.30.0-rc3 - 2026-09-11
 
 > **Der neue Update-Weg hängt unter Windows nicht mehr.** In rc1 und rc2 blieb
