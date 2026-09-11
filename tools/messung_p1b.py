@@ -99,6 +99,15 @@ AWKWARD_NAMES = (
 
 INNO_STAMP = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3})')
 
+# Eine Ablage, in der das Werkzeug schon eingerichtet ist.
+# ⚠⚠ Ohne sie bleibt der gebaute Watcher im Einrichtungsassistenten stehen und
+# wartet auf einen Klick, den im Bau-Ablauf niemand macht. Der Instanz-Wächter
+# startet aber erst danach (`Overlay.run()`, direkt vor `mainloop()`) — der
+# Port wird nie geöffnet. Genau so im ersten Lauf am 11.09.2026: M4, M5 und M6
+# liefen grün durch und hatten nichts gemessen.
+SEEDED_SETTINGS = {'einrichtung_fertig': True, 'einrichtung_ohne_spiel': True}
+WATCHER_WAIT = 60           # Sekunden, bis der Watcher lauschen muss
+
 
 # ------------------------------------------------------------------ Grundlagen
 
@@ -227,18 +236,54 @@ def try_bind(reuse):
 
 
 def start_watcher(exe, home):
-    """Die gebaute Fassung starten — mit eigener Ablage und ohne Netz."""
+    """Die gebaute Fassung starten — mit eigener, schon eingerichteter Ablage.
+
+    Gibt (Prozess, lauscht er, Startspur) zurück.
+
+    ⚠ Lauscht er nach `WATCHER_WAIT` Sekunden nicht, ist jede Messung, die auf
+    ihm aufbaut, **ungültig** — nicht „bestanden". Dann kommt die Startspur
+    des Programms (`start-spur.txt`) mit in den Bericht, damit man sieht, wo er
+    stehen blieb, statt zu raten.
+    """
     env = dict(os.environ)
     env['SC_BP_HOME'] = home
     env['SC_BP_NO_NET'] = '1'
     os.makedirs(home, exist_ok=True)
+    with open(os.path.join(home, 'einstellungen.json'), 'w',
+              encoding='utf-8') as f:
+        json.dump(SEEDED_SETTINGS, f)
     proc = subprocess.Popen([exe], env=env, cwd=os.path.dirname(exe),
                             creationflags=detach_flags())
-    for _ in range(60):                 # bis zu 30 Sekunden
+    listening = False
+    for _ in range(WATCHER_WAIT * 2):
         if port_listener():
+            listening = True
             break
+        if proc.poll() is not None:
+            break                       # schon beendet — da kommt nichts mehr
         time.sleep(0.5)
-    return proc
+    trace = None
+    if not listening:
+        try:
+            with open(os.path.join(home, 'start-spur.txt'), encoding='utf-8',
+                      errors='replace') as f:
+                trace = f.read().splitlines()[-30:]
+        except OSError:
+            trace = ['keine start-spur.txt in der Ablage']
+    return proc, listening, trace
+
+
+def stop_watcher(proc):
+    """Hart beenden, samt Kindprozess (die gepackte .exe entpackt sich in einen)."""
+    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)],
+                   capture_output=True)
+
+
+def not_measured(result, trace):
+    """Eine Messung als ungültig kennzeichnen — laut, nicht als Erfolg."""
+    result['invalid'] = 'Watcher hat seinen Port nie geöffnet — nichts gemessen'
+    result['start_trace'] = trace
+    return result
 
 
 # ------------------------------------------------------------------ Messungen
@@ -335,18 +380,18 @@ def m3c_compat_layer(setup, work, out):
 def m6_m5_guard(exe, work):
     """M6 Sperre verhindert zweite Bindung? · M5 Port nach hartem Beenden frei?"""
     home = os.path.join(work, 'm6_ablage')
-    proc = start_watcher(exe, home)
-    listener = port_listener()
+    proc, listening, trace = start_watcher(exe, home)
     result = {'id': 'M6+M5',
               'question': 'Verhindert die Sperre unter Windows eine zweite '
                           'Bindung — und ist der Port nach hartem Beenden frei?',
-              'watcher_pid': proc.pid, 'listener_pid': listener,
-              'watcher_listening': listener is not None}
-    if listener:
-        result['second_bind_with_reuse'] = try_bind(reuse=True)
-        result['second_bind_without_reuse'] = try_bind(reuse=False)
-    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)],
-                   capture_output=True)
+              'watcher_pid': proc.pid, 'listener_pid': port_listener(),
+              'watcher_listening': listening}
+    if not listening:
+        stop_watcher(proc)
+        return not_measured(result, trace)
+    result['second_bind_with_reuse'] = try_bind(reuse=True)
+    result['second_bind_without_reuse'] = try_bind(reuse=False)
+    stop_watcher(proc)
     series = []
     for wait in (0, 0.5, 1, 2, 5):
         time.sleep(wait if not series else wait - series[-1]['t'])
@@ -361,8 +406,14 @@ def m4_close_from_temp_helper(setup, exe_installed, work, out):
     """M4: Setup aus einem Helfer in %TEMP%, Watcher läuft aus dem Zielordner."""
     target = os.path.dirname(exe_installed)
     home = os.path.join(work, 'm4_ablage')
-    proc = start_watcher(exe_installed, home)
-    listening_before = port_listener() is not None
+    proc, listening, trace = start_watcher(exe_installed, home)
+    result = {'id': 'M4',
+              'question': 'Schließt CloseApplications=force den Watcher, wenn '
+                          'das Setup aus einem Helfer in %TEMP% startet?',
+              'watcher_listening_before': listening}
+    if not listening:
+        stop_watcher(proc)
+        return not_measured(result, trace)
     log = os.path.join(out, 'm4_helfer_setup.log')
     helper = os.path.join(tempfile.gettempdir(), 'scbp_messung_helfer.cmd')
     with open(helper, 'w', encoding='ascii', errors='replace') as f:
@@ -370,20 +421,19 @@ def m4_close_from_temp_helper(setup, exe_installed, work, out):
                 % program_style_command(setup, target, log))
     run = run_timed(['cmd', '/c', helper], env=program_style_env())
     time.sleep(2)
-    return {'id': 'M4',
-            'question': 'Schließt CloseApplications=force den Watcher, wenn '
-                        'das Setup aus einem Helfer in %TEMP% startet?',
-            'watcher_listening_before': listening_before,
-            'watcher_alive_after': process_alive(proc.pid),
-            'run': run, 'log': inno_log_facts(log),
-            'port_after': {'listener': port_listener(),
-                           'bind_like_watcher': try_bind(reuse=True)}}
+    result.update({'watcher_alive_after': process_alive(proc.pid),
+                   'run': run, 'log': inno_log_facts(log),
+                   'port_after': {'listener': port_listener(),
+                                  'bind_like_watcher': try_bind(reuse=True)}})
+    if result['watcher_alive_after']:
+        stop_watcher(proc)              # aufräumen, der Befund steht schon oben
+    return result
 
 
 def m7_awkward_paths(setup, work, out):
     """M7: Pfade mit Zeichen, die cmd mitverarbeiten könnte."""
     results = []
-    for name in AWKWARD_NAMES:
+    for number, name in enumerate(AWKWARD_NAMES, 1):
         base = os.path.join(work, 'pfade', name)
         try:
             os.makedirs(base, exist_ok=True)
@@ -398,8 +448,10 @@ def m7_awkward_paths(setup, work, out):
                         env=program_style_env())
         facts = inno_log_facts(log)
         if facts.get('exists'):
-            shutil.copy2(log, os.path.join(
-                out, 'm7_%s_setup.log' % re.sub(r'[^A-Za-z0-9_]', '_', name)[:40]))
+            # ⚠ Mit laufender Nummer: `a&b`, `a^b` und `a!b` werden beim
+            #   Ersetzen alle zu `a_b` und überschrieben sich sonst gegenseitig.
+            shutil.copy2(log, os.path.join(out, 'm7_%d_%s_setup.log' % (
+                number, re.sub(r'[^A-Za-z0-9_]', '_', name)[:40])))
         results.append({'name': name, 'path_length': len(target),
                         'run': run,
                         'installed_exe': os.path.isfile(
@@ -411,6 +463,12 @@ def m7_awkward_paths(setup, work, out):
 
 # ------------------------------------------------------------------ Bericht
 
+def invalid_ids(report):
+    """Welche Messungen haben nichts gemessen (oder sind abgestürzt)?"""
+    return [str(m.get('id')) for m in report['measurements']
+            if m.get('invalid') or m.get('crashed')]
+
+
 def summary_lines(report):
     """Eine lesbare Kurzfassung. Die Einzelheiten stehen im JSON daneben."""
     z = ['# Messung P1b-1', '',
@@ -419,6 +477,9 @@ def summary_lines(report):
                                'ACHTUNG — Aufruf im Programm geändert, '
                                'Messung gilt nicht: %s'
                                % report['drift']['missing']), '']
+    invalid = invalid_ids(report)
+    z += [('UNGÜLTIG, nichts gemessen: %s' % ', '.join(invalid)) if invalid
+          else 'Alle Messungen gültig', '']
     for m in report['measurements']:
         z.append('## %s — %s' % (m.get('id'), m.get('question', '')))
         z.append('```')
@@ -487,9 +548,12 @@ def main(argv):
     with open(os.path.join(out, 'messung.md'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(summary_lines(report)) + '\n')
     print('\n'.join(summary_lines(report)))
-    # ⚠ Immer 0, außer die Drift-Prüfung schlägt an: Ein Befund ist ein
-    #   Ergebnis, kein Fehlschlag des Werkzeugs.
-    return 0 if drift['ok'] else 1
+    # ⚠ Ein Befund ist ein Ergebnis, kein Fehlschlag — deshalb bleibt der
+    #   Lauf auch bei „Installer scheitert" grün. Rot wird er nur, wenn das
+    #   Werkzeug selbst nichts gemessen hat: Drift im Programm, oder eine
+    #   Messung ungültig bzw. abgestürzt. Der erste Lauf war trotz drei leerer
+    #   Messungen grün — genau das soll nicht wieder durchrutschen.
+    return 0 if drift['ok'] and not invalid_ids(report) else 1
 
 
 if __name__ == '__main__':
