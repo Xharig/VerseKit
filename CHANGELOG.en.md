@@ -8,66 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
-## v3.30.0-rc6 - 2026-09-11
-
-> **The same state as rc5 — for trying out the one-click update.** Coming
-> from rc5, you click once: the watcher closes, installs the version and comes
-> back by itself. On start it tells you whether it worked.
-
-## v3.30.0-rc5 - 2026-09-11
-
-> **After an update the watcher now really starts by itself.** In rc4 the
-> installation went through, but the restart stopped with a security
-> message.
-
-> [!important]
-> **Switching from rc4 to this version shows the message once more** —
-> click OK and start the watcher yourself. From rc5 on it runs through.
-
-### Fixed
-
-- **After an update on Windows the restart stopped with “Security validation
-  failure”**, even though the new version was already installed
-
-## v3.30.0-rc4 - 2026-09-11
-
-> **The same state as rc3 — for trying out the one-click update.** Coming
-> from rc3, you click once: the watcher closes, installs the version and comes
-> back by itself. On start it tells you whether it worked.
-
-## v3.30.0-rc3 - 2026-09-11
-
-> **The new update path no longer hangs on Windows.** In rc1 and rc2 an
-> empty console window stayed open during the install, and in the end nothing
-> was installed. From this version on everything runs invisibly.
-
-> [!important]
-> Coming from rc1 or rc2 the update still hangs — **please install this
-> version once by hand** (setup from the release page). From rc3 on it works
-> with one click.
-
-### Fixed
-
-- **On Windows the one-click update got stuck** — an empty console window
-  stayed open, and the downloaded version was discarded instead of being
-  installed
-
-## v3.30.0-rc2 - 2026-09-11
-
-> **The same state as rc1 — for trying out the new update path.** Coming
-> from rc1, you click once: the watcher closes, installs the version and comes
-> back by itself. On start it tells you whether it worked.
-
-## v3.30.0-rc1 - 2026-09-11
+## v3.30.0 - 2026-09-11
 
 > **One click and the update runs through — restart included.** On Windows
 > the watcher now comes back by itself after installing, on Linux the second
-> click is gone. And on the next start it tells you how the update went.
+> click is gone. And on the next start it tells you how the update went:
+> installed, cancelled or failed.
 
 > [!important]
-> The switch **to this** test version is still installed the old way — on
-> Windows you start the watcher yourself once afterwards. From the next
-> version on it happens by itself.
+> **The switch to this version is still installed the old way** — on Windows
+> you start the watcher yourself once afterwards. From the next version on it
+> happens by itself.
 
 ### New
 

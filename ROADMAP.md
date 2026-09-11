@@ -72,6 +72,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Geänderte Spielwerte**: was ein Spiel-Patch an Werten verändert hat — Schiffe, Waffen, Quantum-Antriebe, Komponenten. Gestiegen grün, gefallen rot. Die Quelle hebt nur die letzten zehn Patches auf; hier bleiben sie liegen |
 | ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
 | ✅ | **Geprüfte Updates**: jedes Release bringt seine Prüfsumme mit, und eingespielt wird nur, was ihr entspricht — sonst gar nichts, mit Hinweis auf den Download von Hand |
+| ✅ | **Ein-Klick-Update**: ein Klick lädt, prüft, spielt ein und startet den Watcher von selbst neu — beim nächsten Start sagt er, was daraus wurde |
 
 ## Woran gearbeitet wird
 

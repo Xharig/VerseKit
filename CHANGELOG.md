@@ -8,67 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
-## v3.30.0-rc6 - 2026-09-11
-
-> **Derselbe Stand wie rc5 — zum Ausprobieren des Ein-Klick-Updates.** Wer
-> von rc5 kommt, klickt einmal: Der Watcher schließt sich, spielt die Fassung
-> ein und kommt von selbst wieder. Beim Start sagt er dir, ob es geklappt hat.
-
-## v3.30.0-rc5 - 2026-09-11
-
-> **Nach dem Update startet der Watcher jetzt wirklich von selbst.** In rc4
-> lief die Installation durch, der Neustart brach aber mit einer
-> Sicherheitsmeldung ab.
-
-> [!important]
-> **Beim Wechsel von rc4 auf diese Fassung kommt die Meldung noch einmal** —
-> auf OK klicken und den Watcher selbst starten. Ab rc5 läuft es durch.
-
-### Behoben
-
-- **Nach einem Update unter Windows brach der Neustart mit „Security
-  validation failure" ab**, obwohl die neue Fassung schon eingespielt war
-
-## v3.30.0-rc4 - 2026-09-11
-
-> **Derselbe Stand wie rc3 — zum Ausprobieren des Ein-Klick-Updates.** Wer
-> von rc3 kommt, klickt einmal: Der Watcher schließt sich, spielt die Fassung
-> ein und kommt von selbst wieder. Beim Start sagt er dir, ob es geklappt hat.
-
-## v3.30.0-rc3 - 2026-09-11
-
-> **Der neue Update-Weg hängt unter Windows nicht mehr.** In rc1 und rc2 blieb
-> beim Einspielen ein leeres Konsolenfenster stehen, und am Ende wurde nichts
-> installiert. Ab dieser Fassung läuft alles unsichtbar durch.
-
-> [!important]
-> Von rc1 oder rc2 aus bleibt das Update noch hängen — **diese Fassung bitte
-> einmal von Hand installieren** (Setup von der Release-Seite). Ab rc3 geht
-> es dann mit einem Klick.
-
-### Behoben
-
-- **Unter Windows blieb das Ein-Klick-Update hängen** — ein leeres
-  Konsolenfenster stand offen, und die geladene Fassung wurde verworfen, statt
-  sie einzuspielen
-
-## v3.30.0-rc2 - 2026-09-11
-
-> **Derselbe Stand wie rc1 — zum Ausprobieren des neuen Update-Wegs.** Wer
-> von rc1 kommt, klickt einmal: Der Watcher schließt sich, spielt die Fassung
-> ein und kommt von selbst wieder. Beim Start sagt er dir, ob es geklappt hat.
-
-## v3.30.0-rc1 - 2026-09-11
+## v3.30.0 - 2026-09-11
 
 > **Ein Klick, und das Update läuft durch — samt Neustart.** Unter Windows
-> kommt der Watcher nach dem Einspielen jetzt von selbst wieder, unter Linux
-> fällt der zweite Klick weg. Und beim nächsten Start sagt er dir, was aus dem
-> Update geworden ist.
+> kommt der Watcher nach dem Einspielen von selbst wieder, unter Linux fällt
+> der zweite Klick weg. Und beim nächsten Start sagt er dir, was aus dem
+> Update geworden ist: eingespielt, abgebrochen oder gescheitert.
 
 > [!important]
-> Den Wechsel **auf diese** Testfassung spielt noch der bisherige Weg ein —
-> unter Windows startest du den Watcher danach einmal selbst. Ab der nächsten
-> Fassung geht das von allein.
+> **Den Wechsel auf diese Version spielt noch der bisherige Weg ein** — unter
+> Windows startest du den Watcher danach einmal selbst. Ab der nächsten
+> Version geht das von allein.
 
 ### Neu
 
