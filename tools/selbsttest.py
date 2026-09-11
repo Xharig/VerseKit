@@ -2675,9 +2675,19 @@ def main():
                      encoding='utf-8').read()
         _platz34 = "WEBHOOK = " + "''"
         _probe34 = 'https://example.invalid/bauprobe'
-        pruefe(_rt34.count(_platz34) == 1,
+
+        def _zaehlen34(text):
+            """Wie oft steht die leere Zuweisung im Text — egal wo."""
+            return text.count(_platz34)
+
+        pruefe(_zaehlen34(_rt34) == 1,
                'die leere Zuweisung steht genau EINMAL im Modul (%d Mal)'
-               % _rt34.count(_platz34))
+               % _zaehlen34(_rt34))
+        # Gegenprobe zur Zaehlung: Der Fehler vom 11.09.2026 — die Zeile steht
+        # zusaetzlich im Text — muss hier auffallen, UNABHAENGIG davon, wie
+        # der Bau ersetzt.
+        pruefe(_zaehlen34('# Beispiel: ' + _platz34 + '\n' + _rt34) != 1,
+               'Gegenprobe: eine zweite leere Zuweisung im Text wird erkannt')
 
         # ⚠ An der Heredoc-Marke ALLEIN aufteilen, nicht samt Interpreter:
         #   Windows ruft `python - <<'PYEOF'`, Linux `python3 - <<'PYEOF'`.
@@ -2706,7 +2716,14 @@ def main():
                 os.chdir(ordner)       # der Schritt arbeitet mit relativem Pfad
                 code = _tw34.dedent(block).replace(
                     '${{ secrets.BERICHT_WEBHOOK }}', _probe34)
-                exec(compile(code, 'release.yml:Berichtsziel', 'exec'), {})
+                try:
+                    exec(compile(code, 'release.yml:Berichtsziel', 'exec'), {})
+                except AssertionError:
+                    # Der Bau-Schritt bricht ab („Platzhalter nicht gefunden").
+                    # Das ist ein Fehlschlag, kein Ergebnis — `None` faellt in
+                    # der Pruefung darunter sofort auf. Ein zeilenverankerter
+                    # Bau tut genau das, wenn die Zeile nur im Kommentar steht.
+                    return None
                 ns = {}
                 exec(compile(open(ziel, encoding='utf-8').read(),
                              'report_target_nach_dem_bau', 'exec'), ns)
@@ -2718,12 +2735,25 @@ def main():
         for _i34, _b34 in enumerate(_bloecke34, 1):
             pruefe(_bau_ausfuehren34(_rt34, _b34) == _probe34,
                    'der echte Bau-Schritt %d trifft die Zuweisung' % _i34)
-        # Gegenprobe: derselbe ECHTE Schritt an einer Kopie mit dem Fehler vom
-        # 11.09.2026 — die leere Zuweisung steht vorher schon einmal im Text.
+        # ⚠⚠ **Gegenprobe — und warum sie NICHT am Kommentar-Fall haengt.**
+        # Die erste Fassung liess den echten Schritt auf einen Text laufen, in
+        # dem die leere Zeile zusaetzlich als Kommentar davorstand, und
+        # verlangte, dass er daran SCHEITERT. Damit war die heutige Schwaeche
+        # des Bau-Schritts (er ersetzt das erste Vorkommen) als Sollverhalten
+        # festgeschrieben: Wuerde der Bau spaeter richtig — zeilenverankert —
+        # ersetzen, waere diese Gegenprobe rot geworden und haette genau die
+        # angekuendigte Verbesserung blockiert. Der Pruefer hat es gesehen.
+        #
+        # Jetzt fehlt im Text die ECHTE Zuweisung, die leere Zeile steht nur
+        # als Kommentar da. Daraus darf ein richtiger Bau nie eine gueltige
+        # Adresse machen — egal ob er das erste Vorkommen ersetzt (dann landet
+        # sie im Kommentar) oder nur die Zeile am Zeilenanfang (dann bricht er
+        # ab). In beiden Faellen muss die Pruefung oben rot werden.
         if _bloecke34:
-            pruefe(_bau_ausfuehren34('# Beispiel: ' + _platz34 + '\n' + _rt34,
-                                     _bloecke34[0]) != _probe34,
-                   'Gegenprobe: steht die Zeile vorher im Text, faellt es auf')
+            _ohne34 = _rt34.replace(_platz34, '# ' + _platz34, 1)
+            pruefe(_bau_ausfuehren34(_ohne34, _bloecke34[0]) != _probe34,
+                   'Gegenprobe: ohne echte Zuweisung meldet die Pruefung den '
+                   'Fehler')
         # Die Adresse darf nirgends im Repo stehen.
         for _wo34, _unter34, _dateien34 in os.walk(os.path.join(WURZEL, 'scbp')):
             for _d34 in _dateien34:
@@ -16347,21 +16377,67 @@ def main():
     pruefe(len(_g183) == 3,
            'die Signaturpruefung erkennt alte Schluesselwoerter (%d von 3)'
            % len(_g183))
+    # Das Programm: alle Module unter scbp/ und das Hauptprogramm. `tools/`
+    # bleibt draussen — dort holt sich der Selbsttest das Modul absichtlich
+    # unter einem eigenen Namen.
+    _programm183 = [os.path.join(_o183, _d183)
+                    for _o183, _u183, _n183
+                    in os.walk(os.path.join(_wurzelpfad, 'scbp'))
+                    for _d183 in _n183 if _d183.endswith('.py')]
+    _programm183.append(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'))
     _alle183, _zahl183 = [], 0
-    for _o183, _u183, _n183 in os.walk(os.path.join(_wurzelpfad, 'scbp')):
-        for _d183 in _n183:
-            if _d183.endswith('.py'):
-                _p183 = os.path.join(_o183, _d183)
-                _f183, _z183 = _aufrufe183(
-                    open(_p183, encoding='utf-8').read(), _d183)
-                _alle183 += _f183
-                _zahl183 += _z183
+    for _p183 in _programm183:
+        _f183, _z183 = _aufrufe183(open(_p183, encoding='utf-8').read(),
+                                   os.path.basename(_p183))
+        _alle183 += _f183
+        _zahl183 += _z183
     for _x183 in _alle183[:6]:
         print('       ·', _x183)
     # ⚠ `>= 10`: Faende die Suche gar keinen Aufruf (etwa weil der Name
     #   anders importiert wird), waere „kein Fehler" wertlos.
     pruefe(_zahl183 >= 10 and not _alle183,
            'alle %d Aufrufe der Dateiauswahl passen zur Signatur' % _zahl183)
+
+    # -- a2) ⚠⚠ **Die Voraussetzung der Pruefung oben wird erzwungen.**
+    #    Sie sieht nur Aufrufe der Form `file_picker.funktion(...)`. Ein
+    #    Alias, `from scbp.file_picker import save_file` oder
+    #    `import scbp.file_picker` liefe an ihr vorbei — und ein altes
+    #    Schluesselwort dort fiele erst beim Klick auf. Vom Pruefer bemerkt.
+    #    Statt jeden Umweg nachzuverfolgen, gibt es im Programm nur EINEN Weg,
+    #    die Dateiauswahl zu holen: `from . import file_picker`, ohne Alias.
+    def _importe183(quelle, name):
+        funde = []
+        for k in _ast183.walk(_ast183.parse(quelle, name)):
+            if isinstance(k, _ast183.ImportFrom):
+                if (k.module or '').split('.')[-1] == 'file_picker':
+                    funde.append('%s:%d from ...file_picker import ...'
+                                 % (name, k.lineno))
+                for a in k.names:
+                    if a.name == 'file_picker' and a.asname:
+                        funde.append('%s:%d file_picker als %s'
+                                     % (name, k.lineno, a.asname))
+            elif isinstance(k, _ast183.Import):
+                for a in k.names:
+                    if a.name.endswith('file_picker'):
+                        funde.append('%s:%d import %s'
+                                     % (name, k.lineno, a.name))
+        return funde
+
+    _gi183 = _importe183('from scbp.file_picker import save_file\n'
+                         'import scbp.file_picker as fp\n'
+                         'from . import file_picker as fp2\n', 'gegenprobe')
+    pruefe(len(_gi183) == 3,
+           'die Importpruefung erkennt Umwege an der Signaturpruefung vorbei '
+           '(%d von 3)' % len(_gi183))
+    _umwege183 = []
+    for _p183 in _programm183:
+        _umwege183 += _importe183(open(_p183, encoding='utf-8').read(),
+                                  os.path.basename(_p183))
+    for _x183 in _umwege183[:6]:
+        print('       ·', _x183)
+    pruefe(not _umwege183,
+           'die Dateiauswahl wird im Programm nur auf einem Weg geholt '
+           '(%d Umwege)' % len(_umwege183))
 
     # -- b) Jeder Name aus dem Sammelimport von sc_bp_watcher.py existiert.
     #    pyflakes prueft nicht, ob ein importiertes Modul EXISTIERT, und das
