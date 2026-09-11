@@ -17084,13 +17084,17 @@ def main():
                'echter Fehler an einem unsichtbaren OK-Fenster')
         pruefe('/RESTARTAPPLICATIONS' not in _v182,
                'kein /RESTARTAPPLICATIONS — sonst startet ein zweiter Weg')
-        # ⚠ Eine Pipe laesst cmd JEDE Seite noch einmal zerlegen, samt
-        # %-Erweiterung. Ein Pfad mit zwei % ginge dort kaputt. Pipes sind
-        # deshalb nur erlaubt, wo keine Pfadvariable drinsteht.
-        _pipes182 = [z for z in _v182.splitlines() if '|' in z and re.search(
-            r'%SCBP_(SETUP|ZIEL|SETUPLOG|LOG|ERGEBNIS|SPERRE|EXE)%', z)]
-        pruefe(not _pipes182, 'keine Pipe mit einem Pfad darin (%s)'
+        # ⚠ GAR keine Pipe. Eine Pipe laesst cmd jede Seite noch einmal
+        # zerlegen, samt %-Erweiterung — und `find` am Ende einer Pipe hing im
+        # ersten Echttest (11.09.2026) in einem eigenen Fenster und wartete auf
+        # die Tastatur. Zwischendateien sind langweilig, und sie haengen nie.
+        _pipes182 = [z for z in _v182.splitlines() if '|' in z]
+        pruefe(not _pipes182, 'keine Pipe in der Vorlage (%s)'
                % ('; '.join(_pipes182) or 'keine'))
+        pruefe(not (_ul182.helfer_flags()
+                    & getattr(subprocess, 'DETACHED_PROCESS', 0)),
+               'der Helfer laeuft mit eigener Konsole (kein DETACHED_PROCESS) — '
+               'sonst ignorieren seine Kinder die Umleitungen')
         _pos182 = dict((w, _v182.find(w)) for w in (
             'certutil', '"%SCBP_SETUP%" /SILENT', '>"%SCBP_ERGEBNIS%" echo',
             'start ""'))
@@ -17224,6 +17228,9 @@ def main():
             pruefe(str(_bef185).startswith('cmd /c ""')
                    and _ul182.HELFER_NAME in str(_bef185),
                    'gestartet wird der Helfer, nicht der Installer')
+            pruefe(_k185.get('creationflags') == _ul182.helfer_flags(),
+                   'und zwar mit helfer_flags() — denselben Schaltern, die '
+                   'Pruefung 188 echt ausprobiert')
             _env185 = _k185.get('env') or {}
             pruefe(_env185.get('SCBP_SHA256') == 'cd' * 32,
                    'der Helfer bekommt genau die veroeffentlichte Summe')
@@ -17336,8 +17343,18 @@ def main():
                     os.path.join(_ord188, 'gibt-es-nicht.exe'), [pid])
                 env.update({'SCBP_WARTEN': warten, 'SCBP_NEUSTART': 'X',
                             'SCBP_ERGEBNIS': _erg188, 'SCBP_LOG': _log188})
-                subprocess.run('cmd /c ""%s""' % _hf188, env=env, timeout=120,
-                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                # ⚠⚠ GENAU so wie das Programm: dieselbe Befehlszeile, dieselben
+                # Schalter (`helfer_flags`). Die erste Fassung dieser Pruefung
+                # startete mit eigenen Schaltern — und uebersah dadurch, dass
+                # `DETACHED_PROCESS` im echten Update `find` haengen und
+                # `certutil` ins Leere schreiben liess (Echttest 11.09.2026).
+                _p188 = subprocess.Popen('cmd /c ""%s""' % _hf188, env=env,
+                                         cwd=tempfile.gettempdir(),
+                                         creationflags=_ul182.helfer_flags())
+                try:
+                    _p188.wait(timeout=120)
+                except subprocess.TimeoutExpired:
+                    _p188.kill()
                 try:
                     with open(_erg188, encoding='ascii', errors='replace') as _f188:
                         return int(_f188.read().split()[0])

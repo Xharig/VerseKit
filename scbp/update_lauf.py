@@ -111,8 +111,11 @@ setlocal DisableDelayedExpansion
 call :log Helper started
 set /a waited=0
 :old_version
-tasklist /FI "PID eq %SCBP_PID%" /NH 2>nul | find " %SCBP_PID% " >nul && goto still_there
-if not "%SCBP_PID2%"=="" tasklist /FI "PID eq %SCBP_PID2%" /NH 2>nul | find " %SCBP_PID2% " >nul && goto still_there
+tasklist /FI "PID eq %SCBP_PID%" /NH >"%SCBP_ERGEBNIS%.pid" 2>nul
+findstr /C:" %SCBP_PID% " "%SCBP_ERGEBNIS%.pid" >nul && goto still_there
+if "%SCBP_PID2%"=="" goto gone
+tasklist /FI "PID eq %SCBP_PID2%" /NH >"%SCBP_ERGEBNIS%.pid" 2>nul
+findstr /C:" %SCBP_PID2% " "%SCBP_ERGEBNIS%.pid" >nul && goto still_there
 goto gone
 :still_there
 set /a waited+=1
@@ -135,10 +138,13 @@ call :log Installer finished, exit code %rc%
 goto result
 :bad_checksum
 call :log Checksum mismatch - file discarded, nothing installed
+call :log Expected %SCBP_SHA256%, certutil said:
+type "%SCBP_ERGEBNIS%.summe" >>"%SCBP_LOG%" 2>nul
 del "%SCBP_SETUP%" >nul 2>&1
 set rc=90
 :result
 del "%SCBP_ERGEBNIS%.summe" >nul 2>&1
+del "%SCBP_ERGEBNIS%.pid" >nul 2>&1
 >"%SCBP_ERGEBNIS%" echo %rc%
 del "%SCBP_SPERRE%" >nul 2>&1
 for %%c in (%SCBP_NEUSTART%) do if "%rc%"=="%%c" goto restart
@@ -529,6 +535,27 @@ def helfer_schreiben():
     with open(pfad, 'w', encoding='ascii', newline='\r\n') as f:
         f.write(HELFER_VORLAGE)
     return pfad
+
+
+def helfer_flags():
+    """Wie der Helfer gestartet wird — an EINER Stelle, für Programm und Selbsttest.
+
+    ⚠⚠ **Kein `DETACHED_PROCESS`.** Ohne eigene Konsole bekommt jedes
+    Konsolenprogramm, das `cmd` startet (`tasklist`, `findstr`, `certutil`),
+    eine neue, sichtbare Konsole — und benutzt deren Ein- und Ausgabe statt der
+    Umleitungen. Im ersten Echttest (11.09.2026) hing so `find` in einem offenen
+    Fenster und wartete auf die Tastatur, und `certutil` schrieb die Summe in
+    sein Fenster statt in die Datei. Der Helfer verwarf daraufhin ein
+    einwandfreies Update (Rückgabewert 90) — sicher, aber aus dem falschen Grund.
+
+    `CREATE_NO_WINDOW` gibt `cmd` eine eigene, **unsichtbare** Konsole, die alle
+    Kinder erben. Die eigene Prozessgruppe löst ihn vom Watcher, der gleich
+    abtritt. Der Installer hängt am Helfer, und der lebt bis zu dessen Ende —
+    Innos Meldung über einen fehlenden Elternprozess kann so nicht entstehen.
+    """
+    import subprocess
+    return (getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
 
 
 def helfer_starten(setup, summe, ziel_ordner, setup_protokoll, umgebung,

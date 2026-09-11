@@ -1084,7 +1084,6 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         # executable!" ab. Aus einer PowerShell heraus faellt das nicht auf —
         # deshalb war der Fehler zuerst nicht nachstellbar. Den Neustart macht
         # allein `[Run]`.
-        import subprocess
         _TAUSCH_LAEUFT[0] = True
 
         # ⚠ Die Umgebung MUSS gesaeubert werden, das Arbeitsverzeichnis ebenso.
@@ -1195,18 +1194,17 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
             from . import sprache
             return False, sprache.t('up_ohne_pruefung')
 
-        # ⚠ `DETACHED_PROCESS` **und** eine eigene Prozessgruppe. Ohne das bleibt
-        # der Helfer an uns gebunden — und wir treten gleich ab. Wer ein Setup
-        # startet und sich sofort verabschiedet, muss es vorher **loesen**; Inno
-        # meldete sonst „Security validation failure: failed to obtain
-        # executable path for parent process!". Beim Helfer gilt dasselbe.
-        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-        flags |= getattr(subprocess, 'DETACHED_PROCESS', 0)
-        flags |= getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        # ⚠⚠ Wie der Helfer gestartet wird, steht an EINER Stelle
+        # (`update_lauf.helfer_flags`) — der Selbsttest startet ihn genauso.
+        # Hier stand `DETACHED_PROCESS`: Der Helfer lief ohne Konsole, jedes
+        # Konsolenprogramm darin bekam eine eigene, sichtbare, und ignorierte
+        # die Umleitungen. Im ersten Echttest am 11.09.2026 hing `find` in
+        # einem Fenster, und `certutil` schrieb seine Summe ins Leere.
+        from . import update_lauf
+        flags = update_lauf.helfer_flags()
 
         # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
         # der nächste Start, dass ein Update begonnen hatte.
-        from . import update_lauf
         update_lauf.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
         update_lauf.helfer_starten(neue_datei, summe, eigener_ordner,
                                    protokoll_datei, umgebung, flags,
