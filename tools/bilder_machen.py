@@ -185,7 +185,23 @@ def datenstand_kopieren():
     # ⚠ Mit `SC_BP_HOME` legt der Watcher alles **flach** ab (siehe
     # `app_datei`) — die Unterordner der Vorlage werden deshalb eingeebnet.
     quelle = pfade.app_ordner()
-    ziel = tempfile.mkdtemp(prefix='sc-bp-bilder-')
+    # ⚠⚠ **Nicht unter %TEMP%, sondern in einem Ordner ohne Benutzernamen.**
+    # Der Pfad steht auf der Seite „Update & Über" im Bild — unter Windows hiess
+    # er `C:\Users\<name>\AppData\Local\Temp\…`, und die Bilder sind
+    # oeffentlich (Regel „Keine persoenlichen Daten im Repo"). Unter Linux ist
+    # es ohnehin `/tmp/…`.
+    basis = None
+    if sys.platform == 'win32':
+        try:
+            basis = os.path.join(os.environ.get('SystemDrive', 'C:') + os.sep,
+                                 'sc-bp-bilder')
+            os.makedirs(basis, exist_ok=True)
+        except OSError:
+            basis = None
+    ziel = tempfile.mkdtemp(prefix='sc-bp-bilder-', dir=basis)
+    # Die Kopie enthaelt den echten Datenstand — nach dem Lauf wegraeumen.
+    import atexit
+    atexit.register(shutil.rmtree, ziel, True)
     for wurzel_, _unter, dateien in os.walk(quelle):
         for name in dateien:
             if not name.endswith(('.json', '.txt')):
@@ -483,6 +499,21 @@ def abgreifen(fenster, ziel):
     user32.ReleaseDC(hwnd, fenster_dc)
 
     bild = Image.frombuffer('RGB', (breite, hoehe), puffer, 'raw', 'BGRX', 0, 1)
+
+    # ⚠ **Nur der Fensterinhalt — ohne Titelleiste und Rahmen.** `PrintWindow`
+    # zeichnet das ganze Fenster samt weisser Windows-Titelleiste. Die Bilder
+    # aus dem Linux-Weg haben keinen Rahmen (Xvfb zeichnet keinen), und zwei
+    # Sorten nebeneinander sehen nach Zufall aus. Gesehen am 11.09.2026.
+    class POINT(ctypes.Structure):
+        _fields_ = [('x', ctypes.c_long), ('y', ctypes.c_long)]
+
+    ecke, innen = POINT(0, 0), RECT()
+    if user32.ClientToScreen(hwnd, ctypes.byref(ecke)) and \
+            user32.GetClientRect(hwnd, ctypes.byref(innen)):
+        links, oben = ecke.x - rect.left, ecke.y - rect.top
+        if innen.right > 100 and innen.bottom > 100:
+            bild = bild.crop((links, oben, links + innen.right,
+                              oben + innen.bottom))
     # ⚠ Ein völlig schwarzes Bild heisst: das Fenster hat nicht gezeichnet.
     # Lieber nichts ablegen als ein schwarzes Rechteck in die Anleitung.
     if not bild.getbbox():
@@ -566,9 +597,39 @@ def main():
     # Desktop und stirbt (am 29.08.2026 rund zwanzig Mal passiert).
     #
     # ⚠ Der Schirm muss groesser sein als das Fenster, sonst schneidet Xvfb ab.
+    #
+    # ⚠⚠ **`messend=True` — sonst liefert Windows kein einziges Bild.** Ohne
+    # die Kennzeichnung versteckt `unsichtbar.py` unter Windows jedes Fenster
+    # mit `withdraw()`, und ein verstecktes Fenster zeichnet nichts, auch nicht
+    # fuer `PrintWindow`. So am 11.09.2026 gesehen: „das Fenster hat nichts
+    # gezeichnet", bei jeder Seite. Mit der Kennzeichnung bleibt es aufgebaut,
+    # wird aber voellig durchsichtig und weit neben den Schirm geschoben — und
+    # nach vorn holen bleibt gesperrt. Unter Linux aendert sich nichts, dort
+    # greift vorher Xvfb.
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import unsichtbar
-    unsichtbar.sicherstellen(BREITE + 100, HOEHE + 90)
+    unsichtbar.sicherstellen(BREITE + 100, HOEHE + 90, messend=True)
+
+    # ⚠⚠ **Immer 100 % — gleich wie auf jedem anderen Rechner.** Dieses Werkzeug
+    # macht sich oben DPI-bewusst (fuer den richtigen Abgriff). Dadurch sieht Tk
+    # die echte Bildschirm-Skalierung, bei 125 % also 120 DPI, und zeichnet
+    # alles ein Viertel groesser: Die Probe vom 11.09.2026 hatte groessere
+    # Schrift als jedes andere Bild, und die Seitenleiste klappte mangels Hoehe
+    # zu. Der Watcher selbst laeuft dort mit 100 % (sein Fehlerbericht sagt es).
+    # Deshalb bekommt JEDE Tk-Wurzel 96 DPI — auch die, die das Overlay selbst
+    # anlegt. Unter Linux arbeitet Xvfb ohnehin mit 96 DPI.
+    if sys.platform == 'win32':
+        import tkinter as _tk_wurzel
+        _anlegen = _tk_wurzel.Tk.__init__
+
+        def _mit_hundert_prozent(self, *a, _anlegen=_anlegen, **k):
+            _anlegen(self, *a, **k)
+            try:
+                self.tk.call('tk', 'scaling', 96 / 72)
+            except Exception:
+                pass
+
+        _tk_wurzel.Tk.__init__ = _mit_hundert_prozent
 
     argumente = [a for a in sys.argv[1:] if not a.startswith('--')]
     englisch = '--en' in sys.argv
