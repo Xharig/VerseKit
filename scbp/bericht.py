@@ -585,11 +585,11 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
         return t('b_n_posten') % (len(posten), len(arten - {''}))
 
     def _rezeptzeile():
-        from . import herstellung
-        stand = herstellung.stand()
+        from . import crafting
+        stand = crafting.current_build()
         if not stand:
             return t('b_nicht_geladen')
-        return t('b_n_bauplaene_kurz') % (len(herstellung.alle()), stand)
+        return t('b_n_bauplaene_kurz') % (len(crafting.all_items()), stand)
 
     def _bergbauzeile():
         from . import mining

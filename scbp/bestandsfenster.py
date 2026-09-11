@@ -727,8 +727,8 @@ class Bestandsfenster:
         if name in merker:
             return merker[name]
         try:
-            from . import categories as kat_modul, herstellung as herst
-            b = herst.rezept_roh(name) or {}
+            from . import categories as kat_modul, crafting as herst
+            b = herst.recipe_raw(name) or {}
             wert = kat_modul.classify(art=eintrag.get('a') or '',
                                        tag=b.get('tag') or '',
                                        unterart=b.get('subtype') or '',
@@ -1213,8 +1213,8 @@ class Bestandsfenster:
     def _unterart_von(self, eintrag):
         """Die Unterart eines Katalog-Bauplans — aus den Rezeptdaten."""
         try:
-            from . import herstellung as herst
-            return herst.unterart_von(eintrag.get('n') or '')
+            from . import crafting as herst
+            return herst.subkind_of(eintrag.get('n') or '')
         except Exception:
             return ''
 

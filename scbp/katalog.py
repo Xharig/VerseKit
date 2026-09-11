@@ -924,10 +924,10 @@ def aktualisieren(fortschritt=None):
         # durchlaufen — eine leere Seite, die das sagt, ist besser als ein
         # verlorener Abruf.
         try:
-            from . import herstellung
-            herstellung.aktualisieren(version, fortschritt)
+            from . import crafting
+            crafting.update(version, fortschritt)
         except Exception as ausnahme:
-            fehler.merken('katalog.aktualisieren.herstellung', ausnahme)
+            fehler.merken('katalog.aktualisieren.crafting', ausnahme)
         try:
             from . import mining
             mining.update(version, fortschritt)

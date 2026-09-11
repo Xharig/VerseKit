@@ -60,7 +60,22 @@ alle Stufen, damit es nicht bricht, falls CIG welche nachliefert.
 
 ⚠ **Die Rohstoffnamen sind nicht dieselben wie im Bergbau.** Hier steht
 `Aslarite`, in `mining_data` steht `Aslarite (Raw)`. Für die spätere Verknüpfung
-gibt es `norm_rohstoff()`.
+gibt es `norm_material()`.
+
+⚠ Bis zum 12.09.2026 hieß dieses Modul `herstellung` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: der Dateiname `crafting-blueprints.json` und alle Schlüssel
+darin (`format`, `build`, `blueprints`, `dismantle`) — sonst gilt jede
+vorhandene Ablage als veraltet und wird neu geholt (4,1 MB). Ebenso die
+Schlüssel der Ergebnisse (`basis`, `name`, `hersteller`, `art`, `unterart`,
+`stufen`, `tag`, `tags`, `entity`, `habe`, `zeit`, `zutaten`, `slot`,
+`material`, `menge`, `mindestguete`, `wirkungen`, `eigenschaft`, `key`,
+`mods`, `qualitaet`, `faktor`, `besser_hoch`, `absolut`, `spanne`) und die
+Textschlüssel `he_art_…` / `he_sub_…`.
+
+⚠ `norm_rohstoff()` heißt jetzt `norm_material()`. Drei bereits umgestellte
+Module holen sie direkt (`materials`, `mining`, `preise`) — ihre Hinweise sind
+mitgezogen.
 """
 import json
 import os
@@ -74,7 +89,7 @@ from .sprache import t
 # Die Datei heißt beim Anbieter so; <build> ist die Spielversion.
 # Nur der Dateiname — welche Adresse benutzt wird, entscheidet
 # `katalog.hole_datei()` (Spiegel zuerst, scmdb.net als Rückfall).
-QUELLE = 'crafting_blueprints-%s.json'
+SOURCE = 'crafting_blueprints-%s.json'
 CACHE = 'crafting-blueprints.json'
 
 # Aufbau-Nummer wie im Katalog: hochzählen, sobald hier etwas anders abgelegt
@@ -83,7 +98,7 @@ CACHE = 'crafting-blueprints.json'
 FORMAT = 1
 
 # Das Geruest, wenn noch nichts geladen ist.
-LEER = {'format': FORMAT, 'build': None, 'blueprints': []}
+EMPTY = {'format': FORMAT, 'build': None, 'blueprints': []}
 
 
 # --------------------------------------------------------------- Holen/Laden
@@ -91,7 +106,7 @@ LEER = {'format': FORMAT, 'build': None, 'blueprints': []}
 
 # ⚠⚠ **Die Daten bleiben im Speicher.**
 #
-# `laden()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
+# `load()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
 # Platte — bei den Rezepten sind das 4 MB und **22 ms**. Das fiel niemandem
 # auf, solange nur beim Seitenaufbau geladen wurde. Mit dem Qualitäts-Regler
 # wurde daraus ein Ladevorgang **pro Mausbewegung**: über 600 ms Rechenzeit je
@@ -101,96 +116,96 @@ LEER = {'format': FORMAT, 'build': None, 'blueprints': []}
 # von beiden — etwa weil ein neuer Spiel-Build geladen wurde — wird neu
 # gelesen. Damit bleibt der Zwischenspeicher richtig, ohne dass jemand ihn von
 # Hand leeren muss.
-_gemerkt = {'stand': None, 'daten': None}
+_cached = {'stand': None, 'daten': None}
 
 
-def laden():
+def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    pfad = pfade.app_datei(CACHE)
+    path = pfade.app_datei(CACHE)
     try:
-        st = os.stat(pfad)
-        kennung = (st.st_mtime_ns, st.st_size)
+        st = os.stat(path)
+        stamp = (st.st_mtime_ns, st.st_size)
     except OSError:
-        kennung = None
-    if kennung is not None and _gemerkt['stand'] == kennung:
-        return _gemerkt['daten']
+        stamp = None
+    if stamp is not None and _cached['stand'] == stamp:
+        return _cached['daten']
     try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            _gemerkt['stand'], _gemerkt['daten'] = kennung, daten
-            return daten
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            _cached['stand'], _cached['daten'] = stamp, data
+            return data
     except Exception:
         pass
-    return LEER.copy()
+    return EMPTY.copy()
 
-def _sichern(daten):
-    ziel = pfade.app_datei(CACHE)
+def _save(data):
+    target = pfade.app_datei(CACHE)
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
         # ⚠ Zwischenspeicher verwerfen: Zeitstempel und Groesse koennen sich
         # binnen derselben Sekunde wiederholen, dann bliebe der alte Stand.
-        _gemerkt['stand'] = None
-        # ⚠⚠ **Und das Roh-Verzeichnis mit.** Seit `rezept_roh()` den
-        # Frisch-Check drosselt (`_ROH_FRISCH_S`), wuerde es sonst bis zu eine
+        _cached['stand'] = None
+        # ⚠⚠ **Und das Roh-Verzeichnis mit.** Seit `recipe_raw()` den
+        # Frisch-Check drosselt (`_RAW_FRESH_S`), wuerde es sonst bis zu eine
         # halbe Sekunde lang die alten Rezepte weiterreichen — genau nach dem
         # Schreiben, wo die neuen gebraucht werden. Hier zurueckgesetzt,
         # schlaegt jede Aenderung sofort durch.
-        _roh_gemerkt['stand'] = None
-        _roh_gemerkt['daten'] = None
-        _roh_gemerkt['geprueft'] = 0.0
+        _raw_cache['stand'] = None
+        _raw_cache['daten'] = None
+        _raw_cache['geprueft'] = 0.0
         return True
-    except Exception as ausnahme:
-        fehler.merken('herstellung._sichern', ausnahme)
+    except Exception as exc:
+        fehler.merken('crafting._save', exc)
         return False
 
 
-def vergessen():
+def forget():
     """Zwischenspeicher leeren — nach einem Rezept-Update aufzurufen."""
-    global _nach_material
-    _nach_material = {}
+    global _by_material
+    _by_material = {}
 
 
-def stand():
+def current_build():
     """Für welchen Spiel-Build liegen die Rezepte hier? Oder None."""
-    return laden().get('build')
+    return load().get('build')
 
 
-def aktualisieren(build, fortschritt=None):
+def update(build, progress=None):
     """Die Rezepte holen, wenn sie fehlen oder zu einem alten Build gehören.
 
     Gibt (Erfolg, Meldung) zurück. **Sparsam**: Liegt derselbe Build schon da,
     wird gar nichts abgerufen — die Datei ist 4,1 MB groß."""
     if AUS:
         return False, t('m_h_kein_netz')
-    da = laden()
+    raw_stand = load()
     # ⚠ `dismantle` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
     # nur die Bauplaene behalten. Fehlt der Abschnitt, wird einmal neu geholt;
     # danach ist er da und es passiert wieder nichts.
-    if (da.get('build') == build and da.get('blueprints')
-            and da.get('dismantle') is not None):
-        return True, t('m_h_aktuell') % len(da['blueprints'])
-    if fortschritt:
-        fortschritt(t('z_laedt') % ('Herstellung', 4.1))
-    roh = hole_datei(QUELLE % build)
-    liste = roh.get('blueprints') or []
-    if not liste:
+    if (raw_stand.get('build') == build and raw_stand.get('blueprints')
+            and raw_stand.get('dismantle') is not None):
+        return True, t('m_h_aktuell') % len(raw_stand['blueprints'])
+    if progress:
+        progress(t('z_laedt') % ('Herstellung', 4.1))
+    raw = hole_datei(SOURCE % build)
+    items = raw.get('blueprints') or []
+    if not items:
         return False, t('m_h_leer')
     # ⚠ Nicht nur die Bauplaene sichern. Im selben Abruf steht, welche
     # Rohstoffe beim Zerlegen NICHT zurueckkommen (`dismantle`) — sechs
     # Stueck, darunter Lindinium und Quantainium. Das gehoert ans Rezept:
     # Ein Bauteil daraus ist eine Einbahnstrasse.
-    _sichern({'format': FORMAT, 'build': build, 'blueprints': liste,
-              'dismantle': roh.get('dismantle') or {}})
-    vergessen()
-    return True, t('m_h_geladen') % len(liste)
+    _save({'format': FORMAT, 'build': build, 'blueprints': items,
+           'dismantle': raw.get('dismantle') or {}})
+    forget()
+    return True, t('m_h_geladen') % len(items)
 
 
 # ------------------------------------------------------------- Auswerten
-def norm_rohstoff(name):
+def norm_material(name):
     """Rohstoffnamen vergleichbar machen — über Datenquellen hinweg.
 
     ⚠ Die Baupläne sagen `Aslarite`, `mining_data` sagt `Aslarite (Raw)`, und
@@ -202,24 +217,24 @@ def norm_rohstoff(name):
     """
     if not name:
         return ''
-    kurz = name.split('(')[0].strip().lower()
-    return kurz.replace('aluminium', 'aluminum')
+    short = name.split('(')[0].strip().lower()
+    return short.replace('aluminium', 'aluminum')
 
 
-def _zutaten(tier):
+def _ingredients(tier):
     """Die Zutaten einer Ausbaustufe: [(Slot, Rohstoff, Menge, Mindestgüte)]."""
-    raus = []
+    result = []
     for slot in tier.get('slots') or []:
         for o in slot.get('options') or []:
             if o.get('type') == 'resource' and o.get('resourceName'):
-                raus.append((slot.get('name') or '',
-                             o['resourceName'],
-                             o.get('quantity') or 0,
-                             o.get('minQuality') or 0))
-    return raus
+                result.append((slot.get('name') or '',
+                               o['resourceName'],
+                               o.get('quantity') or 0,
+                               o.get('minQuality') or 0))
+    return result
 
 
-def _name_aus_tag(tag):
+def _name_from_tag(tag):
     """Ein lesbarer Ersatzname, wenn `productName` fehlt.
 
     ⚠ **Fünf Baupläne tragen keinen Produktnamen** (gemessen 29.08.2026):
@@ -228,12 +243,12 @@ def _name_aus_tag(tag):
 
     Aus `BP_CRAFT_RADR_GNRP_S03_Idris_TEMP` wird `RADR GNRP S03 Idris`.
     """
-    roh = (tag or '').replace('BP_CRAFT_', '').replace('_SCItem', '')
-    roh = roh.replace('_TEMP', '').replace('_', ' ').strip()
-    return roh or '?'
+    raw = (tag or '').replace('BP_CRAFT_', '').replace('_SCItem', '')
+    raw = raw.replace('_TEMP', '').replace('_', ' ').strip()
+    return raw or '?'
 
 
-def _unterscheider(tag, name):
+def _distinguisher(tag, name):
     """Woran man zwei gleichnamige Gegenstände auseinanderhält.
 
     Aus `BP_CRAFT_POWR_AEGS_S04_Idris_SCItem` neben `…_S04_Reclaimer_SCItem`
@@ -242,15 +257,15 @@ def _unterscheider(tag, name):
 
     Genommen wird das, was **nicht** schon im Namen steht.
     """
-    roh = _name_aus_tag(tag)
-    im_namen = {w.lower() for w in (name or '').split()}
-    teile = [w for w in roh.split()
-             if w.lower() not in im_namen and w.upper() not in ('BP', 'CRAFT')]
+    raw = _name_from_tag(tag)
+    in_name = {w.lower() for w in (name or '').split()}
+    parts = [w for w in raw.split()
+             if w.lower() not in in_name and w.upper() not in ('BP', 'CRAFT')]
     # Von hinten: dort steht der Schiffs-/Variantenname, vorne die Kürzel.
-    return ' '.join(teile[-2:]) if teile else roh
+    return ' '.join(parts[-2:]) if parts else raw
 
 
-def _fasse_zusammen(liste):
+def _merge(items):
     """Mehrere Baupläne zu einem Listeneintrag — oder eben nicht.
 
     ⚠ **14 Produktnamen kommen mehrfach vor** (29.08.2026):
@@ -265,37 +280,37 @@ def _fasse_zusammen(liste):
 
     Unterschieden wird am **Rezept**: gleiche Zutaten = ein Eintrag.
     """
-    nach_rezept = {}
-    for b in liste:
-        schluessel = tuple(sorted(
-            '%s|%s|%s' % (slot, roh, menge)
+    by_recipe = {}
+    for b in items:
+        key = tuple(sorted(
+            '%s|%s|%s' % (slot, material, amount)
             for t_ in (b.get('tiers') or [])
-            for slot, roh, menge, _g in _zutaten(t_)))
-        nach_rezept.setdefault(schluessel, []).append(b)
-    return list(nach_rezept.values())
+            for slot, material, amount, _q in _ingredients(t_)))
+        by_recipe.setdefault(key, []).append(b)
+    return list(by_recipe.values())
 
 
-def alle():
+def all_items():
     """Alle herstellbaren Dinge, für die Liste in der Oberfläche.
 
     Je Eintrag: Name, Hersteller, Art, Anzahl Ausbaustufen — und `tags`, weil
     zu einem Eintrag mehrere Baupläne gehören können.
 
     **Ein Eintrag je Gegenstand**, nicht je Bauplan: Gleiche Namen mit gleichem
-    Rezept werden zusammengefasst (siehe `_fasse_zusammen`). Sonst zählt die
+    Rezept werden zusammengefasst (siehe `_merge`). Sonst zählt die
     Übersicht zu hoch — beim Messen am 29.08.2026 kamen so 406 „herstellbare"
     heraus, obwohl es 404 Baupläne waren."""
-    nach_name = {}
-    for b in laden().get('blueprints') or []:
-        name = b.get('productName') or _name_aus_tag(b.get('tag'))
-        nach_name.setdefault(_norm(name), []).append(b)
+    by_name = {}
+    for b in load().get('blueprints') or []:
+        name = b.get('productName') or _name_from_tag(b.get('tag'))
+        by_name.setdefault(_norm(name), []).append(b)
 
-    raus = []
-    for gruppe in nach_name.values():
-        teile = _fasse_zusammen(gruppe)
-        for teil in teile:
-            b = teil[0]
-            name = b.get('productName') or _name_aus_tag(b.get('tag'))
+    result = []
+    for group in by_name.values():
+        parts = _merge(group)
+        for part in parts:
+            b = part[0]
+            name = b.get('productName') or _name_from_tag(b.get('tag'))
             # ⚠ Bleiben mehrere Einträge unter demselben Namen übrig, sind es
             # **verschiedene Gegenstände** (Idris- und Reclaimer-Kraftwerk,
             # BroadSpec in zwei Größen). Ohne Unterscheidung stünden sie
@@ -305,34 +320,34 @@ def alle():
             # ⚠ `basis` bleibt dabei der ursprüngliche Name — **danach** wird
             # mit dem Bestand verglichen. Wer den Anzeigenamen vergleicht,
             # findet den eigenen Bauplan nicht mehr wieder.
-            anzeige = name
-            if len(teile) > 1:
-                anzeige = '%s (%s)' % (name, _unterscheider(b.get('tag'), name))
-            raus.append({
+            display = name
+            if len(parts) > 1:
+                display = '%s (%s)' % (name, _distinguisher(b.get('tag'), name))
+            result.append({
                 'basis': name,
-                'name': anzeige,
+                'name': display,
                 'hersteller': b.get('manufacturer') or '',
                 'art': b.get('type') or '',
                 'unterart': b.get('subtype') or '',
                 'stufen': len(b.get('tiers') or []),
                 'tag': b.get('tag') or '',
-                'tags': [x.get('tag') or '' for x in teil],
+                'tags': [x.get('tag') or '' for x in part],
                 'entity': b.get('productEntityClass') or '',
             })
-    raus.sort(key=lambda x: x['name'].lower())
-    return raus
+    result.sort(key=lambda x: x['name'].lower())
+    return result
 
 
-_einordnung_gemerkt = {'stand': None, 'daten': None}
+_classification_cache = {'stand': None, 'daten': None}
 
 
 # Name -> Entitäts-Kennung, einmal gebaut. Der Schlüssel ist der Formatstand
 # der Rezeptdaten: Werden die neu geholt, fällt das auf und die Tabelle wird
 # neu aufgebaut.
-_kennungen = {'stand': None, 'tabelle': {}}
+_entity_ids = {'stand': None, 'tabelle': {}}
 
 
-def entity_von(name):
+def entity_of(name):
     """Die Entitäts-Kennung zu einem Bauplan — oder `''`.
 
     ⭐ Das ist die Brücke zu den Ladenpreisen: Dieselbe Kennung führt UEX als
@@ -346,28 +361,28 @@ def entity_von(name):
         return ''
     # Der Build der Rezeptdaten. Wird neu geholt, ändert er sich — und die
     # Tabelle wird von selbst neu gebaut.
-    stand_jetzt = stand()
-    if _kennungen['stand'] != stand_jetzt:
-        tabelle = {}
-        for b in alle():
-            kennung = b.get('entity') or ''
-            if not kennung:
+    build_now = current_build()
+    if _entity_ids['stand'] != build_now:
+        table = {}
+        for b in all_items():
+            ident = b.get('entity') or ''
+            if not ident:
                 continue
             # Beide Schreibweisen: Die Oberfläche kennt mal den Grundnamen,
             # mal den mit Unterscheider in Klammern.
-            tabelle[b.get('basis') or ''] = kennung
-            tabelle[b.get('name') or ''] = kennung
-        tabelle.pop('', None)
-        _kennungen['stand'], _kennungen['tabelle'] = stand_jetzt, tabelle
-    return _kennungen['tabelle'].get(name, '')
+            table[b.get('basis') or ''] = ident
+            table[b.get('name') or ''] = ident
+        table.pop('', None)
+        _entity_ids['stand'], _entity_ids['tabelle'] = build_now, table
+    return _entity_ids['tabelle'].get(name, '')
 
 
-def _schluessel(name):
+def _key(name):
     """Namen vergleichbar machen — nur Buchstaben und Ziffern, klein."""
     return re.sub(r'[^a-z0-9]+', '', (name or '').lower())
 
 
-def einordnung():
+def classification():
     """Zu jedem Bauplan seine Art und Unterart aus den Rezeptdaten.
 
         {'10seriesgreatswordcannon': ('weapons', 'laser'), …}
@@ -385,25 +400,25 @@ def einordnung():
     Wird einmal gelesen und gemerkt; die 2-MB-Datei bei jedem Filterklick neu
     zu lesen wäre dieselbe Falle wie beim Qualitätsregler.
     """
-    daten = laden()
-    kennung = id(daten)
-    if _einordnung_gemerkt['stand'] == kennung:
-        return _einordnung_gemerkt['daten']
-    zuordnung = {}
-    for b in daten.get('blueprints') or []:
-        name = b.get('productName') or _name_aus_tag(b.get('tag'))
+    data = load()
+    stamp = id(data)
+    if _classification_cache['stand'] == stamp:
+        return _classification_cache['daten']
+    mapping = {}
+    for b in data.get('blueprints') or []:
+        name = b.get('productName') or _name_from_tag(b.get('tag'))
         if not name:
             continue
-        zuordnung[_schluessel(name)] = ((b.get('type') or ''),
-                                        (b.get('subtype') or ''))
-    _einordnung_gemerkt['stand'] = kennung
-    _einordnung_gemerkt['daten'] = zuordnung
-    return zuordnung
+        mapping[_key(name)] = ((b.get('type') or ''),
+                               (b.get('subtype') or ''))
+    _classification_cache['stand'] = stamp
+    _classification_cache['daten'] = mapping
+    return mapping
 
 
 # Wie die Unterarten und Arten im Fenster heissen sollen. Was hier fehlt,
 # wird unveraendert gezeigt — lieber der englische Rohwert als gar nichts.
-def _uebersetzt(vorsilbe, wert):
+def _translated(prefix, value):
     """Den Anzeigenamen holen — oder den Rohwert, wenn er unbekannt ist.
 
     Die Namen stehen in `sprache.py` unter `he_art_*` und `he_sub_*`. Fehlt
@@ -411,44 +426,44 @@ def _uebersetzt(vorsilbe, wert):
     gezeigt: lieber `tachyon` als eine leere Zeile.
     """
     from .sprache import TEXTE
-    schluessel = 'he_%s_%s' % (vorsilbe, (wert or '').lower())
-    if schluessel in TEXTE:
-        return t(schluessel)
-    return wert or ''
+    key = 'he_%s_%s' % (prefix, (value or '').lower())
+    if key in TEXTE:
+        return t(key)
+    return value or ''
 
 
-def artname(wert):
+def kind_name(value):
     """Wie eine Rezept-Art im Fenster heisst."""
-    return _uebersetzt('art', wert)
+    return _translated('art', value)
 
 
-def unterartname(wert):
+def subkind_name(value):
     """Wie eine Unterart im Fenster heisst — Waffenart oder Rüstungsrolle."""
-    return _uebersetzt('sub', wert)
+    return _translated('sub', value)
 
 
-_roh_gemerkt = {'stand': None, 'daten': None, 'geprueft': 0.0}
+_raw_cache = {'stand': None, 'daten': None, 'geprueft': 0.0}
 
 # ⚠⚠ **Wie lange ein einmal geprueftes Verzeichnis als frisch gilt.**
-# `laden()` fragt bei JEDEM Aufruf das Dateisystem (`os.stat`), um zu sehen,
+# `load()` fragt bei JEDEM Aufruf das Dateisystem (`os.stat`), um zu sehen,
 # ob sich der Zwischenspeicher geaendert hat. Einzeln ist das nichts — in einer
 # Schleife ueber den ganzen Katalog aber alles: Am 02.09.2026 gemessen,
-# **738 Nachschlaege = 51 ms, davon 50 ms allein `laden()`**; der eigentliche
+# **738 Nachschlaege = 51 ms, davon 50 ms allein `load()`**; der eigentliche
 # Verzeichnis-Zugriff kostete 0,1 ms. Das war der groesste Einzelposten beim
 # Oeffnen der Bauplan-Liste (gemeldet als „bis Symbole und Text links geladen
 # sind" — Haldjas, pr0, und am selben Tag erneut).
 #
 # Ein halbe Sekunde Nachlauf ist unbedenklich: Die Rezeptdaten aendern sich nur,
-# wenn der Katalog neu geschrieben wird — und `_sichern()` setzt den Merker
+# wenn der Katalog neu geschrieben wird — und `_save()` setzt den Merker
 # dann selbst zurueck, sodass die Aenderung SOFORT durchschlaegt.
-_ROH_FRISCH_S = 0.5
+_RAW_FRESH_S = 0.5
 
 
-def rezept_roh(name):
+def recipe_raw(name):
     """Der unveränderte Rezept-Eintrag zu einem Namen — oder `None`.
 
     Gebraucht für die Einordnung: Dort zählt der **Tag**
-    (`BP_CRAFT_APAR_BallisticGatling_S4`), und den gibt `rezept()` nicht heraus,
+    (`BP_CRAFT_APAR_BallisticGatling_S4`), und den gibt `recipe()` nicht heraus,
     weil er für die Anzeige nichts taugt.
 
     Wird als Verzeichnis gemerkt — 738 Baupläne einzeln durch eine Liste mit
@@ -456,42 +471,40 @@ def rezept_roh(name):
     Vergleiche.
     """
     # ⚠ Steht ein Verzeichnis und ist der Frisch-Check keine halbe Sekunde her,
-    # geht es ohne `laden()` weiter — siehe `_ROH_FRISCH_S`. Ohne diese Abkuerzung
+    # geht es ohne `load()` weiter — siehe `_RAW_FRESH_S`. Ohne diese Abkuerzung
     # kostet ein Durchlauf ueber den Katalog 738 Dateisystem-Abfragen.
-    jetzt = time.monotonic()
-    if _roh_gemerkt['daten'] is not None \
-            and jetzt - _roh_gemerkt['geprueft'] < _ROH_FRISCH_S:
-        return _roh_gemerkt['daten'].get(_schluessel(name))
+    now = time.monotonic()
+    if _raw_cache['daten'] is not None \
+            and now - _raw_cache['geprueft'] < _RAW_FRESH_S:
+        return _raw_cache['daten'].get(_key(name))
 
-    daten = laden()
-    kennung = id(daten)
+    data = load()
+    stamp = id(data)
     # ⚠ `daten is None` gehoert mit in die Bedingung: Sonst genuegt ein
     # geleertes Verzeichnis bei gleich gebliebener Kennung, und die letzte
     # Zeile laeuft in ein `None.get(...)`. Beim Bau der Gegenprobe zu dieser
     # Drosselung genau so passiert (02.09.2026).
-    if _roh_gemerkt['stand'] != kennung or _roh_gemerkt['daten'] is None:
-        verzeichnis = {}
-        for b in daten.get('blueprints') or []:
-            n_ = b.get('productName') or _name_aus_tag(b.get('tag'))
+    if _raw_cache['stand'] != stamp or _raw_cache['daten'] is None:
+        index = {}
+        for b in data.get('blueprints') or []:
+            n_ = b.get('productName') or _name_from_tag(b.get('tag'))
             if n_:
-                verzeichnis.setdefault(_schluessel(n_), b)
-        _roh_gemerkt['stand'] = kennung
-        _roh_gemerkt['daten'] = verzeichnis
-    _roh_gemerkt['geprueft'] = jetzt
-    return _roh_gemerkt['daten'].get(_schluessel(name))
+                index.setdefault(_key(n_), b)
+        _raw_cache['stand'] = stamp
+        _raw_cache['daten'] = index
+    _raw_cache['geprueft'] = now
+    return _raw_cache['daten'].get(_key(name))
 
 
-def unterart_von(name):
+def subkind_of(name):
     """Die Unterart eines Bauplans — `ballistic`, `laser`, `combat` … oder ''."""
-    return einordnung().get(_schluessel(name), ('', ''))[1]
+    return classification().get(_key(name), ('', ''))[1]
 
 
-def art_von(name):
+def kind_of(name):
     """Die Rezept-Art eines Bauplans — `weapons`, `armour`, `cooler` … oder ''."""
-    return einordnung().get(_schluessel(name), ('', ''))[0]
-
-
-def rezept(name_oder_tag):
+    return classification().get(_key(name), ('', ''))[0]
+def recipe(name_or_tag):
     """Das Rezept zu einem Bauplan — oder None.
 
     Gibt je Ausbaustufe die Zutaten und die Herstellzeit zurück:
@@ -502,36 +515,36 @@ def rezept(name_oder_tag):
 
     Gelesen werden alle Stufen; aktuell hat jeder Bauplan genau eine.
     """
-    gesucht = (name_oder_tag or '').strip().lower()
-    for b in laden().get('blueprints') or []:
-        if gesucht in ((b.get('productName') or '').lower(),
-                       (b.get('tag') or '').lower()):
+    wanted = (name_or_tag or '').strip().lower()
+    for b in load().get('blueprints') or []:
+        if wanted in ((b.get('productName') or '').lower(),
+                      (b.get('tag') or '').lower()):
             return {
                 'name': b.get('productName') or b.get('tag') or '?',
                 'hersteller': b.get('manufacturer') or '',
                 'art': b.get('type') or '',
                 'stufen': [{'zeit': (t_.get('craftTimeSeconds') or 0),
-                            'zutaten': _zutaten(t_)}
+                            'zutaten': _ingredients(t_)}
                            for t_ in (b.get('tiers') or [])],
             }
     return None
 
 
-def rohstoff_bedarf():
+def material_demand():
     """Wie viele Baupläne brauchen welchen Rohstoff? {Rohstoff: Anzahl}.
 
     Grundlage für die spätere Umkehrsicht („dir fehlen 12, dafür brauchst du
     vor allem Aslarite"). Gemessen am 29.08.2026: Aslarite steckt in 856 der
     1.607 Baupläne."""
-    zaehl = {}
-    for b in laden().get('blueprints') or []:
-        namen = set()
+    counter = {}
+    for b in load().get('blueprints') or []:
+        names = set()
         for t_ in b.get('tiers') or []:
-            for _slot, rohstoff, _menge, _guete in _zutaten(t_):
-                namen.add(rohstoff)
-        for n in namen:
-            zaehl[n] = zaehl.get(n, 0) + 1
-    return zaehl
+            for _slot, material, _amount, _quality in _ingredients(t_):
+                names.add(material)
+        for n in names:
+            counter[n] = counter.get(n, 0) + 1
+    return counter
 
 
 # ------------------------------------------------- Verknüpfung mit dem Bestand
@@ -547,19 +560,19 @@ def rohstoff_bedarf():
 # sind die bekannte Anführungszeichen-Falle, die `katalog._norm()` behandelt.
 
 
-def habe_ich(bestand_schluessel, produktname):
+def owns(collection_keys, product_name):
     """Hat der Spieler den Bauplan zu diesem Produkt?
 
-    `bestand_schluessel` ist das Ergebnis von `collection.keys(...)` — also
+    `collection_keys` ist das Ergebnis von `collection.keys(...)` — also
     bereits normalisierte Namen. Deshalb wird hier nur die andere Seite
     normalisiert."""
-    return _norm(produktname or '') in (bestand_schluessel or set())
+    return _norm(product_name or '') in (collection_keys or set())
 
 
-def mit_bestand(bestand_schluessel):
+def with_collection(collection_keys):
     """Alle herstellbaren Dinge, jedes mit der Angabe „Bauplan vorhanden".
 
-    Gibt dieselbe Liste wie `alle()` zurück, je Eintrag zusätzlich `habe`:
+    Gibt dieselbe Liste wie `all_items()` zurück, je Eintrag zusätzlich `habe`:
 
         True   der Bauplan liegt vor
         False  er fehlt
@@ -575,22 +588,22 @@ def mit_bestand(bestand_schluessel):
     standen 405 Häkchen in einer Liste, obwohl es 404 Baupläne sind. Die Linie
     ist dieselbe wie überall im Werkzeug: Was wir nicht wissen, behaupten wir
     nicht — „kennt der Katalog den Auftrag nicht, wird geschwiegen"."""
-    raus = alle()
-    mehrdeutig = set()
-    gesehen = set()
-    for e in raus:
+    result = all_items()
+    ambiguous = set()
+    seen = set()
+    for e in result:
         k = _norm(e['basis'])
-        if k in gesehen:
-            mehrdeutig.add(k)
-        gesehen.add(k)
-    for e in raus:
+        if k in seen:
+            ambiguous.add(k)
+        seen.add(k)
+    for e in result:
         # ⚠ Gegen `basis` vergleichen, nicht gegen den Anzeigenamen.
-        da = habe_ich(bestand_schluessel, e['basis'])
-        e['habe'] = (None if (da and _norm(e['basis']) in mehrdeutig) else da)
-    return raus
+        owned = owns(collection_keys, e['basis'])
+        e['habe'] = (None if (owned and _norm(e['basis']) in ambiguous) else owned)
+    return result
 
 
-def zaehlung(bestand_schluessel):
+def counts(collection_keys):
     """(sicher, gesamt, unklar) — für die Zeile über der Liste.
 
     Gedacht als Gegenstück zum Bauplan-Fortschritt: Dort steht, wie viele
@@ -610,10 +623,10 @@ def zaehlung(bestand_schluessel):
     `404 + 2 = 406` und hat 405 Baupläne. Gezählt werden deshalb die
     betroffenen **Namen**, nicht die Einträge; dann geht die Rechnung auf:
     404 sicher + 1 unklar = 405 im Bestand."""
-    liste = mit_bestand(bestand_schluessel)
-    sicher = sum(1 for e in liste if e['habe'] is True)
-    unklar = len({_norm(e['basis']) for e in liste if e['habe'] is None})
-    return sicher, len(liste), unklar
+    items = with_collection(collection_keys)
+    certain = sum(1 for e in items if e['habe'] is True)
+    unclear = len({_norm(e['basis']) for e in items if e['habe'] is None})
+    return certain, len(items), unclear
 
 
 # ------------------------------------------------- Was die Qualität bewirkt
@@ -641,36 +654,36 @@ def zaehlung(bestand_schluessel):
 # nimmt, rechnet oberhalb davon falsch.
 
 
-def _spanne_fuer(modifikatoren, qualitaet):
+def _range_for(modifiers, quality):
     """Die Spanne, in die diese Qualität fällt — sonst die nächstgelegene."""
-    q = float(qualitaet or 0)
-    for m in modifikatoren:
+    q = float(quality or 0)
+    for m in modifiers:
         if float(m.get('startQuality', 0)) <= q <= float(m.get('endQuality', 0)):
             return m
     # Außerhalb aller Spannen: die mit der nächsten Grenze nehmen, damit das
     # Ergebnis nicht einfach verschwindet.
-    if not modifikatoren:
+    if not modifiers:
         return None
-    return min(modifikatoren,
+    return min(modifiers,
                key=lambda m: min(abs(q - float(m.get('startQuality', 0))),
                                  abs(q - float(m.get('endQuality', 0)))))
 
 
-def faktor(modifikatoren, qualitaet):
+def factor(modifiers, quality):
     """Der Multiplikator für diese Qualität — linear in der passenden Spanne."""
-    m = _spanne_fuer(modifikatoren, qualitaet)
+    m = _range_for(modifiers, quality)
     if not m:
         return None
-    start, ende = float(m.get('startQuality', 0)), float(m.get('endQuality', 0))
+    start, end = float(m.get('startQuality', 0)), float(m.get('endQuality', 0))
     a, b = float(m.get('modifierAtStart', 1)), float(m.get('modifierAtEnd', 1))
-    if ende == start:
+    if end == start:
         return b
-    anteil = (float(qualitaet or 0) - start) / (ende - start)
-    anteil = max(0.0, min(1.0, anteil))          # außerhalb nicht extrapolieren
-    return a + anteil * (b - a)
+    share = (float(quality or 0) - start) / (end - start)
+    share = max(0.0, min(1.0, share))            # außerhalb nicht extrapolieren
+    return a + share * (b - a)
 
 
-def besser_ist_hoch(modifikatoren):
+def higher_is_better(modifiers):
     """Hebt bessere Qualität diesen Wert — oder senkt sie ihn?
 
     ⚠ **Nicht jede Eigenschaft wird durch eine höhere Zahl besser.** Gemessen
@@ -698,15 +711,15 @@ def besser_ist_hoch(modifikatoren):
     wird deshalb der Anfang der ersten mit dem Ende der letzten; ein flaches
     Teilstück in der Mitte würde sonst die Richtung verfälschen.
     """
-    if not modifikatoren:
+    if not modifiers:
         return True
-    erste = min(modifikatoren, key=lambda m: float(m.get('startQuality', 0)))
-    letzte = max(modifikatoren, key=lambda m: float(m.get('endQuality', 0)))
-    return (float(letzte.get('modifierAtEnd', 1))
-            >= float(erste.get('modifierAtStart', 1)))
+    first = min(modifiers, key=lambda m: float(m.get('startQuality', 0)))
+    last = max(modifiers, key=lambda m: float(m.get('endQuality', 0)))
+    return (float(last.get('modifierAtEnd', 1))
+            >= float(first.get('modifierAtStart', 1)))
 
 
-def ist_absolut(modifikatoren):
+def is_absolute(modifiers):
     """Ist das ein Multiplikator — oder eine glatte Zahl?
 
     ⚠ **Nicht jede Wirkung ist ein Faktor.** `itemresource_powergeneration`
@@ -723,14 +736,14 @@ def ist_absolut(modifikatoren):
     auf, kann es keiner sein. Damit stimmt die Erkennung auch für Eigenschaften,
     die es heute noch nicht gibt.
     """
-    for m in modifikatoren or []:
+    for m in modifiers or []:
         if (float(m.get('modifierAtStart', 1)) <= 0
                 or float(m.get('modifierAtEnd', 1)) <= 0):
             return True
     return False
 
 
-def spanne_von(modifikatoren):
+def range_of(modifiers):
     """Was ist mit diesem Material überhaupt erreichbar?
 
     Gibt `(q_von, q_bis, f_von, f_bis, basis)` — die Qualitätsspanne, die
@@ -744,18 +757,18 @@ def spanne_von(modifikatoren):
     `basis` ist der Nullpunkt — die Qualität, ab der es besser statt schlechter
     wird. Bei fast allen Rezepten liegt er bei 500.
     """
-    if not modifikatoren:
+    if not modifiers:
         return None
-    erste = min(modifikatoren, key=lambda m: float(m.get('startQuality', 0)))
-    letzte = max(modifikatoren, key=lambda m: float(m.get('endQuality', 0)))
-    q_von = float(erste.get('startQuality', 0))
-    q_bis = float(letzte.get('endQuality', 0))
-    f_von = float(erste.get('modifierAtStart', 1))
-    f_bis = float(letzte.get('modifierAtEnd', 1))
+    first = min(modifiers, key=lambda m: float(m.get('startQuality', 0)))
+    last = max(modifiers, key=lambda m: float(m.get('endQuality', 0)))
+    q_from = float(first.get('startQuality', 0))
+    q_to = float(last.get('endQuality', 0))
+    f_from = float(first.get('modifierAtStart', 1))
+    f_to = float(last.get('modifierAtEnd', 1))
 
     # Wo ist der Faktor genau 1? Das Teilstück suchen, das die 1 enthält.
-    basis = None
-    for m in sorted(modifikatoren, key=lambda x: float(x.get('startQuality', 0))):
+    base = None
+    for m in sorted(modifiers, key=lambda x: float(x.get('startQuality', 0))):
         a = float(m.get('modifierAtStart', 1))
         b = float(m.get('modifierAtEnd', 1))
         if a == b:
@@ -763,12 +776,12 @@ def spanne_von(modifikatoren):
         if min(a, b) <= 1.0 <= max(a, b):
             s = float(m.get('startQuality', 0))
             e = float(m.get('endQuality', 0))
-            basis = s + (1.0 - a) / (b - a) * (e - s)
+            base = s + (1.0 - a) / (b - a) * (e - s)
             break
-    return q_von, q_bis, f_von, f_bis, basis
+    return q_from, q_to, f_from, f_to, base
 
 
-def zerlege_sperre():
+def dismantle_block():
     """Rohstoffe, die beim Zerlegen NICHT zurückkommen.
 
     Steht in den Rezeptdaten unter `dismantle.blacklistedResources`. Wer ein
@@ -780,50 +793,50 @@ def zerlege_sperre():
     Gibt `(set(Namen), efficiency, sekunden)`.
     """
     try:
-        d = laden().get('dismantle') or {}
+        d = load().get('dismantle') or {}
     except Exception:
         return set(), 0.5, 15
-    namen = {r.get('name') for r in (d.get('blacklistedResources') or [])
+    names = {r.get('name') for r in (d.get('blacklistedResources') or [])
              if r.get('name')}
-    namen |= {r.get('name') for r in (d.get('blacklistedEntityClasses') or [])
+    names |= {r.get('name') for r in (d.get('blacklistedEntityClasses') or [])
               if r.get('name')}
-    return namen, float(d.get('efficiency', 0.5)), int(d.get('dismantleTimeSeconds', 15))
+    return names, float(d.get('efficiency', 0.5)), int(d.get('dismantleTimeSeconds', 15))
 
 
-def slots(name_oder_tag):
+def slots(name_or_tag):
     """Die Slots eines Bauplans mit Material **und** Qualitätswirkung.
 
     [{slot, material, menge, mindestguete, wirkungen:[{eigenschaft, key, mods}]}]
     """
-    gesucht = (name_oder_tag or '').strip().lower()
-    for b in laden().get('blueprints') or []:
-        if gesucht not in ((b.get('productName') or '').lower(),
-                           (b.get('tag') or '').lower()):
+    wanted = (name_or_tag or '').strip().lower()
+    for b in load().get('blueprints') or []:
+        if wanted not in ((b.get('productName') or '').lower(),
+                          (b.get('tag') or '').lower()):
             continue
-        raus = []
+        result = []
         for t_ in b.get('tiers') or []:
             for s in t_.get('slots') or []:
-                material = menge = guete = None
+                material = amount = quality = None
                 for o in s.get('options') or []:
                     if o.get('type') == 'resource' and o.get('resourceName'):
                         material = o['resourceName']
-                        menge = o.get('quantity') or 0
-                        guete = o.get('minQuality') or 0
+                        amount = o.get('quantity') or 0
+                        quality = o.get('minQuality') or 0
                         break
-                nach_eigenschaft = {}
+                by_property = {}
                 for m in s.get('modifiers') or []:
-                    nach_eigenschaft.setdefault(
+                    by_property.setdefault(
                         (m.get('propertyName'), m.get('propertyKey')),
                         []).append(m)
-                raus.append({
+                result.append({
                     'slot': s.get('name') or '',
                     'material': material,
-                    'menge': menge,
-                    'mindestguete': guete,
+                    'menge': amount,
+                    'mindestguete': quality,
                     'wirkungen': [{'eigenschaft': n, 'key': k, 'mods': v}
-                                  for (n, k), v in nach_eigenschaft.items()],
+                                  for (n, k), v in by_property.items()],
                 })
-        return raus
+        return result
     return None
 
 
@@ -836,7 +849,7 @@ def slots(name_oder_tag):
 # dorthin, weil die Rezeptdaten hier zu Hause sind.
 
 
-def eigenschaft(name, schluessel=None):
+def property_name(name, key=None):
     """Der Name der Eigenschaft in der eingestellten Sprache.
 
     ⚠⚠ **Der SCHLÜSSEL entscheidet, nicht der englische Text.**
@@ -846,43 +859,43 @@ def eigenschaft(name, schluessel=None):
     beim nächsten Patch fällt die Hälfte still auf Englisch zurück.
     """
     from . import sprache
-    return sprache.eigenschaft(name, schluessel)
+    return sprache.eigenschaft(name, key)
 
 
-def werte_mit_lager(name_oder_tag, qualitaet_je_material):
+def values_with_stock(name_or_tag, quality_per_material):
     """Was käme mit **diesem** Material heraus?
 
-    `qualitaet_je_material` ist {Material: Qualität} — in der Regel die beste
+    `quality_per_material` ist {Material: Qualität} — in der Regel die beste
     brauchbare Qualität aus dem eigenen Lager
     (`materials.best_quality()`). Materialien ohne Eintrag werden
     übersprungen; über sie ist nichts bekannt, und geraten wird nicht.
 
     Gibt [{eigenschaft, material, qualitaet, faktor}] zurück.
     """
-    raus = []
-    for s in (slots(name_oder_tag) or []):
-        q = (qualitaet_je_material or {}).get(s['material'])
+    result = []
+    for s in (slots(name_or_tag) or []):
+        q = (quality_per_material or {}).get(s['material'])
         if q is None:
             continue
         for w in s['wirkungen']:
-            f = faktor(w['mods'], q)
+            f = factor(w['mods'], q)
             if f is None:
                 continue
-            raus.append({'eigenschaft': w['eigenschaft'], 'key': w['key'],
-                         'material': s['material'], 'qualitaet': q,
-                         'faktor': f, 'slot': s['slot'],
-                         # ⚠ Ohne diese Angabe faerbt die Anzeige einen guten
-                         # Wert als Warnung. Siehe `besser_ist_hoch`.
-                         'besser_hoch': besser_ist_hoch(w['mods']),
-                         # ⚠ Und ohne diese steht „× -1.000" da, wo „-1 Pip"
-                         # hingehoert. Siehe `ist_absolut`.
-                         'absolut': ist_absolut(w['mods']),
-                         # Was waere ueberhaupt erreichbar? Siehe `spanne_von`.
-                         'spanne': spanne_von(w['mods'])})
-    return raus
+            result.append({'eigenschaft': w['eigenschaft'], 'key': w['key'],
+                           'material': s['material'], 'qualitaet': q,
+                           'faktor': f, 'slot': s['slot'],
+                           # ⚠ Ohne diese Angabe faerbt die Anzeige einen guten
+                           # Wert als Warnung. Siehe `higher_is_better`.
+                           'besser_hoch': higher_is_better(w['mods']),
+                           # ⚠ Und ohne diese steht „× -1.000" da, wo „-1 Pip"
+                           # hingehoert. Siehe `is_absolute`.
+                           'absolut': is_absolute(w['mods']),
+                           # Was waere ueberhaupt erreichbar? Siehe `range_of`.
+                           'spanne': range_of(w['mods'])})
+    return result
 
 
-def rohstoffnamen():
+def material_names():
     """Alle Materialien, die in Rezepten vorkommen — alphabetisch.
 
     ⚠ **Damit niemand raten oder tippen muss.** Ein freies Textfeld für einen
@@ -891,16 +904,16 @@ def rohstoffnamen():
     am 29.08.2026 sind es **26** Materialien — eine Liste, die in jede Auswahl
     passt.
     """
-    namen = set()
-    for b in laden().get('blueprints') or []:
+    names = set()
+    for b in load().get('blueprints') or []:
         for t_ in b.get('tiers') or []:
-            for slot, rohstoff, _menge, _guete in _zutaten(t_):
-                if rohstoff:
-                    namen.add(rohstoff)
-    return sorted(namen, key=lambda x: x.lower())
+            for slot, material, _amount, _quality in _ingredients(t_):
+                if material:
+                    names.add(material)
+    return sorted(names, key=lambda x: x.lower())
 
 
-def einlagerbar():
+def storable():
     """**Alles**, was im Lager stehen darf — die abschliessende Liste.
 
     Drei Quellen, alle aus den Spieldaten:
@@ -930,57 +943,57 @@ def einlagerbar():
     # Vorrang hat die Schreibweise aus den Rezepten — die steht auch in der
     # Herstellung, und zwei Schreibweisen für einen Stapel wären genau der
     # Fehler, den die Liste verhindern soll.
-    nach_schluessel = {}
-    for n in rohstoffnamen():
-        nach_schluessel.setdefault(norm_rohstoff(n), n)
+    by_key = {}
+    for n in material_names():
+        by_key.setdefault(norm_material(n), n)
     try:
         from . import mining
-        weitere = [(e.get('name') or '').strip()
-                   for e in (mining.load().get('elemente') or {}).values()]
-        weitere += mining.plants()
-        for n in weitere:
+        more = [(e.get('name') or '').strip()
+                for e in (mining.load().get('elemente') or {}).values()]
+        more += mining.plants()
+        for n in more:
             if n:
-                nach_schluessel.setdefault(norm_rohstoff(n), n)
-    except Exception as ausnahme:
+                by_key.setdefault(norm_material(n), n)
+    except Exception as exc:
         # Ohne Bergbaudaten bleibt es bei den Rezept-Materialien. Weniger
         # Auswahl ist hinnehmbar — ein offenes Textfeld nicht.
-        fehler.merken('herstellung.einlagerbar', ausnahme)
-    return sorted(nach_schluessel.values(), key=str.lower)
+        fehler.merken('crafting.storable', exc)
+    return sorted(by_key.values(), key=str.lower)
 
 
-def kennt_rohstoff(name):
+def knows_material(name):
     """Ist dieser Name einem Rezept-Material zuzuordnen?"""
     if not (name or '').strip():
         return False
-    gesucht = norm_rohstoff(name)
-    return any(norm_rohstoff(n) == gesucht for n in rohstoffnamen())
+    wanted = norm_material(name)
+    return any(norm_material(n) == wanted for n in material_names())
 
 
-def darf_ins_lager(name):
-    """Darf dieser Name im Lager stehen? Siehe `einlagerbar()`."""
+def may_store(name):
+    """Darf dieser Name im Lager stehen? Siehe `storable()`."""
     if not (name or '').strip():
         return False
-    gesucht = norm_rohstoff(name)
-    return any(norm_rohstoff(n) == gesucht for n in einlagerbar())
+    wanted = norm_material(name)
+    return any(norm_material(n) == wanted for n in storable())
 
 
-def lager_name(eingabe):
+def storage_name(given):
     """Die verbindliche Schreibweise für das Lager — oder `None`.
 
     ⚠ Damit landet nie die Tippweise des Nutzers im Lager, sondern immer der
     Name aus den Spieldaten. Sonst stehen „orison-savrilium" und „Savrilium"
     als zwei Stapel da.
     """
-    gesucht = norm_rohstoff(eingabe)
-    if not gesucht:
+    wanted = norm_material(given)
+    if not wanted:
         return None
-    for n in einlagerbar():
-        if norm_rohstoff(n) == gesucht:
+    for n in storable():
+        if norm_material(n) == wanted:
             return n
     return None
 
 
-def offizieller_name(eingabe):
+def official_name(given):
     """Die verbindliche Schreibweise zu einer Eingabe — oder `None`.
 
     ⚠ **Der Name ist der Schlüssel.** Steht im Lager `aslarite` oder
@@ -1000,42 +1013,42 @@ def offizieller_name(eingabe):
     Oberfläche, ob sie nachfragt.
     """
     import difflib
-    text = (eingabe or '').strip()
+    text = (given or '').strip()
     if not text:
         return None
-    alle = rohstoffnamen()
-    if not alle:
+    all_names = material_names()
+    if not all_names:
         # ⚠ Keine Rezeptdaten geladen — dann gibt es nichts zu vergleichen.
         # Hier `None` zu melden hiesse: „kenne ich nicht", und die Oberfläche
         # wuerde **jede** Eingabe abweisen. Wer beim ersten Start ohne Netz
         # sein Lager fuellen will, kaeme nicht weiter. Also durchlassen.
         return text
-    gesucht = norm_rohstoff(text)
+    wanted = norm_material(text)
 
-    for n in alle:
-        if norm_rohstoff(n) == gesucht:
+    for n in all_names:
+        if norm_material(n) == wanted:
             return n
 
     # Vertipper: hohe Schwelle, und nur wenn der zweitbeste Treffer deutlich
     # schlechter ist. Sonst macht die Berichtigung aus einem falschen Namen
     # einen anderen falschen Namen.
-    schluessel = {norm_rohstoff(n): n for n in alle}
-    nahe = difflib.get_close_matches(gesucht, list(schluessel), n=2, cutoff=0.82)
-    if len(nahe) == 1:
-        return schluessel[nahe[0]]
-    if len(nahe) == 2:
+    by_key = {norm_material(n): n for n in all_names}
+    close = difflib.get_close_matches(wanted, list(by_key), n=2, cutoff=0.82)
+    if len(close) == 1:
+        return by_key[close[0]]
+    if len(close) == 2:
         g = difflib.SequenceMatcher
-        a = g(None, gesucht, nahe[0]).ratio()
-        b = g(None, gesucht, nahe[1]).ratio()
+        a = g(None, wanted, close[0]).ratio()
+        b = g(None, wanted, close[1]).ratio()
         if a - b >= 0.08:
-            return schluessel[nahe[0]]
+            return by_key[close[0]]
     return None
 
 
-_nach_material = {}
+_by_material = {}
 
 
-def bauplaene_mit(rohstoff):
+def blueprints_with(material):
     """Welche Baupläne brauchen diesen Rohstoff? Namen, alphabetisch.
 
     ⭐ **Die Gegenrichtung, die gefehlt hat.** Die Suche schaute nur auf
@@ -1048,26 +1061,26 @@ def bauplaene_mit(rohstoff):
     13 Pflanzen und 13 Mineralien, darunter Sadaryx. Das muss dastehen, statt
     dass jemand weitersucht.
     """
-    global _nach_material
-    if not _nach_material:
-        for b in laden().get('blueprints') or []:
+    global _by_material
+    if not _by_material:
+        for b in load().get('blueprints') or []:
             name = b.get('productName')
             if not name:
                 continue
             for t_ in b.get('tiers') or []:
-                for s in _zutaten(t_):
-                    _rohstoff = s[1]
-                    if _rohstoff:
-                        _nach_material.setdefault(norm_rohstoff(_rohstoff),
-                                                  set()).add(name)
-    return sorted(_nach_material.get(norm_rohstoff(rohstoff)) or (),
+                for s in _ingredients(t_):
+                    _material = s[1]
+                    if _material:
+                        _by_material.setdefault(norm_material(_material),
+                                                set()).add(name)
+    return sorted(_by_material.get(norm_material(material)) or (),
                   key=str.lower)
 
 
-def aehnliche_lagernamen(name, hoechstens=4):
+def similar_storage_names(name, most=4):
     """Vorschläge aus der **Lager**-Liste — Mineralien und Pflanzen.
 
-    Wie `aehnliche_rohstoffe`, nur über `einlagerbar()`. ⚠ Eigene Funktion
+    Wie `similar_materials`, nur über `storable()`. ⚠ Eigene Funktion
     statt eines Schalters: Die Rezept-Vorschläge in der Herstellung dürfen
     keine Pflanzen anbieten, die dort nie vorkommen.
     """
@@ -1075,15 +1088,15 @@ def aehnliche_lagernamen(name, hoechstens=4):
     text = (name or '').strip().lower()
     if not text:
         return []
-    alle = einlagerbar()
+    all_names = storable()
     # Erst, was den Text enthält — „ran" soll „Laranite" und „Taranite" finden.
-    treffer = [n for n in alle if text in n.lower()]
-    if treffer:
-        return treffer[:hoechstens]
-    return difflib.get_close_matches(text, alle, n=hoechstens, cutoff=0.6)
+    hits = [n for n in all_names if text in n.lower()]
+    if hits:
+        return hits[:most]
+    return difflib.get_close_matches(text, all_names, n=most, cutoff=0.6)
 
 
-def aehnliche_rohstoffe(name, hoechstens=3):
+def similar_materials(name, most=3):
     """Vorschläge zu einem Namen, der so nicht bekannt ist.
 
     Erst Namen, die den Text enthalten; sonst die mit der kleinsten
@@ -1093,8 +1106,8 @@ def aehnliche_rohstoffe(name, hoechstens=3):
     text = (name or '').strip().lower()
     if not text:
         return []
-    alle = rohstoffnamen()
-    treffer = [n for n in alle if text in n.lower()]
-    if treffer:
-        return treffer[:hoechstens]
-    return difflib.get_close_matches(text, alle, n=hoechstens, cutoff=0.6)
+    all_names = material_names()
+    hits = [n for n in all_names if text in n.lower()]
+    if hits:
+        return hits[:most]
+    return difflib.get_close_matches(text, all_names, n=most, cutoff=0.6)

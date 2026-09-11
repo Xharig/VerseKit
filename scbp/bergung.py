@@ -270,8 +270,8 @@ def zerlege_regeln():
     einem Patch, ändert sich diese Auskunft mit — ohne dass jemand eine Zahl
     im Quelltext nachziehen muss.
     """
-    from . import herstellung
-    roh = (herstellung.laden() or {}).get('dismantle') or {}
+    from . import crafting
+    roh = (crafting.load() or {}).get('dismantle') or {}
     # ⚠ Die Feldnamen kommen aus den Craftdaten und werden hier NICHT
     # übersetzt: `efficiency`, `dismantleTimeSeconds`, `blacklistedResources`.
     # Wer sie beim Einlesen umbenennt, muss die Umbenennung bei jedem Patch
@@ -318,9 +318,9 @@ def zerlegen(bauplan):
     ⚠ Gerechnet wird über **alle Stufen** des Rezepts: Ein mehrstufiges Teil
     verbraucht auf jeder Stufe Material, und zerlegt wird das fertige Stück.
     """
-    from . import herstellung
+    from . import crafting
 
-    rezept = herstellung.rezept(bauplan)
+    rezept = crafting.recipe(bauplan)
     if not rezept or not rezept.get('stufen'):
         return [], 0
 

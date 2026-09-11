@@ -21,7 +21,7 @@ Was ein fertiges Teil im Laden kostet — und wo es dort liegt.
 
 ## Die Frage, die nur dieses Werkzeug beantworten kann
 
-Der Watcher kennt das **Rezept** (`herstellung.py`) und die **Rohstoffpreise**
+Der Watcher kennt das **Rezept** (`crafting.py`) und die **Rohstoffpreise**
 (`preise.py`). Daraus ergibt sich, was Selberbauen kostet. Fehlte bisher die
 andere Hälfte: Was kostet dasselbe Teil fertig im Regal?
 
@@ -380,7 +380,7 @@ def katalog_teile():
     `kategorie` und `abschnitt` als englische UEX-Namen. Übersetzt wird erst
     in der Anzeige — hier bleibt stehen, was die Quelle sagt.
 
-    ⚠ **Das ist die Liste für den Laden-Reiter**, nicht `herstellung.alle()`.
+    ⚠ **Das ist die Liste für den Laden-Reiter**, nicht `crafting.all_items()`.
     Der Unterschied ist der Zweck: Die Herstellung fragt „was kann ich
     bauen", der Laden „was kann ich kaufen". Das zweite ist die größere
     Menge — und die, nach der jemand sucht, der ein Teil braucht.

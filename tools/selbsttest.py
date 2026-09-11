@@ -4418,30 +4418,30 @@ def main():
     # grad nicht, welche Ballistik sind, welche Laser".
     print()
     print('52e. Unterarten aus den Rezeptdaten')
-    from scbp import herstellung as _he52e
-    _echt52e = _he52e.einordnung
-    _he52e.einordnung = lambda: {
+    from scbp import crafting as _he52e
+    _echt52e = _he52e.classification
+    _he52e.classification = lambda: {
         'zehnserieskanone': ('weapons', 'ballistic'),
         'laserkanone': ('weapons', 'laser'),
         'kampfhelm': ('armour', 'combat'),
         'kuehlerzwei': ('cooler', 'size2'),
     }
     try:
-        pruefe(_he52e.unterart_von('Zehn-Series Kanone') == 'ballistic',
+        pruefe(_he52e.subkind_of('Zehn-Series Kanone') == 'ballistic',
                'die Waffenart kommt aus den Rezeptdaten')
-        pruefe(_he52e.art_von('Kampfhelm') == 'armour',
+        pruefe(_he52e.kind_of('Kampfhelm') == 'armour',
                'und die Art dazu')
-        pruefe(_he52e.unterart_von('gibt es nicht') == '',
+        pruefe(_he52e.subkind_of('gibt es nicht') == '',
                'ein unbekannter Name ergibt keine Unterart')
     finally:
-        _he52e.einordnung = _echt52e
+        _he52e.classification = _echt52e
     # Anzeigenamen: zweisprachig und mit Rueckfall auf den Rohwert
     for _k52e in ('he_art_weapons', 'he_art_armour', 'he_sub_ballistic',
                   'he_sub_laser', 'he_sub_combat', 'he_sub_stealth'):
         _w52e = _sp51.TEXTE.get(_k52e)
         pruefe(bool(_w52e) and len(_w52e) == 2 and all(_w52e),
                'Anzeigename %s gibt es deutsch und englisch' % _k52e)
-    pruefe(_he52e.unterartname('gibtsnichtimmer') == 'gibtsnichtimmer',
+    pruefe(_he52e.subkind_name('gibtsnichtimmer') == 'gibtsnichtimmer',
            'eine unbekannte Unterart wird roh gezeigt statt verschluckt')
     for _k52e in ('ff_alle_unterarten', 'ff_alle_rollen', 'ff_alle_hersteller',
                   'ff_alle_zustaende', 'ff_zustand_habe', 'ff_zustand_fehlt',
@@ -4849,7 +4849,7 @@ def main():
     print()
     print('53. Lagerbestand berichtigen und Namen abgleichen')
     from scbp import materials as _ro53
-    from scbp import herstellung as _he53
+    from scbp import crafting as _he53
 
     _alt53 = _ro53.load()
     try:
@@ -4979,29 +4979,29 @@ def main():
     # Namensabgleich — der Schluessel zwischen Lager und Rezept.
     # ⚠ Mit eingespeister Namensliste pruefen. Im Wegwerf-Ordner gibt es keine
     # Rezeptdaten; ohne diesen Griff pruefte man nur, dass nichts geladen ist.
-    _echt53 = _he53.rohstoffnamen
-    _he53.rohstoffnamen = lambda: ['Aslarite', 'Quantainium', 'Aluminum',
+    _echt53 = _he53.material_names
+    _he53.material_names = lambda: ['Aslarite', 'Quantainium', 'Aluminum',
                                    'Agricium', 'Titanium']
-    pruefe(_he53.offizieller_name('aslarite') == 'Aslarite',
+    pruefe(_he53.official_name('aslarite') == 'Aslarite',
            'Kleinschreibung wird auf den richtigen Namen gezogen')
-    pruefe(_he53.offizieller_name('  ASLARITE  ') == 'Aslarite',
+    pruefe(_he53.official_name('  ASLARITE  ') == 'Aslarite',
            'Grossschreibung und Leerzeichen stoeren nicht')
-    pruefe(_he53.offizieller_name('Aslarite (Raw)') == 'Aslarite',
+    pruefe(_he53.official_name('Aslarite (Raw)') == 'Aslarite',
            'die Bergbau-Schreibweise mit Klammer passt auch')
-    pruefe(_he53.offizieller_name('aslerite') == 'Aslarite',
+    pruefe(_he53.official_name('aslerite') == 'Aslarite',
            'ein knapper Vertipper wird berichtigt')
-    pruefe(_he53.offizieller_name('Bratkartoffeln') is None,
+    pruefe(_he53.official_name('Bratkartoffeln') is None,
            'ein voellig fremder Name wird NICHT geraten')
-    pruefe(_he53.offizieller_name('') is None,
+    pruefe(_he53.official_name('') is None,
            'und eine leere Eingabe ergibt nichts')
-    pruefe(_he53.offizieller_name('Aluminium') == 'Aluminum',
+    pruefe(_he53.official_name('Aluminium') == 'Aluminum',
            'die britische Schreibweise trifft die amerikanische')
     # ⚠ Ohne geladene Rezeptdaten darf NICHTS abgewiesen werden — sonst kann
     # beim ersten Start ohne Netz niemand sein Lager fuellen.
-    _he53.rohstoffnamen = lambda: []
-    pruefe(_he53.offizieller_name('Irgendwas') == 'Irgendwas',
+    _he53.material_names = lambda: []
+    pruefe(_he53.official_name('Irgendwas') == 'Irgendwas',
            'ohne Rezeptdaten wird die Eingabe durchgelassen')
-    _he53.rohstoffnamen = _echt53
+    _he53.material_names = _echt53
     for _k53 in ('s_lg_speichern', 's_lg_abbrechen', 's_lg_geaendert',
                  's_lg_rechnen', 's_lg_zu_wenig', 's_lg_alles_weg',
                  's_lg_name_fremd', 's_lg_keine_guete',
@@ -5496,16 +5496,16 @@ def main():
     # in Gruen.
     print()
     print('62. Richtung der Qualitaetswirkung')
-    from scbp import herstellung as _he62
+    from scbp import crafting as _he62
 
     # a) Die Richtung kommt aus dem Modifikator, nicht aus dem Namen.
     _hoch62 = [{'startQuality': 0, 'endQuality': 1000,
                 'modifierAtStart': 0.925, 'modifierAtEnd': 1.075}]
     _runter62 = [{'startQuality': 0, 'endQuality': 1000,
                   'modifierAtStart': 1.2, 'modifierAtEnd': 0.8}]
-    pruefe(_he62.besser_ist_hoch(_hoch62) is True,
+    pruefe(_he62.higher_is_better(_hoch62) is True,
            'steigt der Faktor mit der Qualitaet, ist hoeher besser')
-    pruefe(_he62.besser_ist_hoch(_runter62) is False,
+    pruefe(_he62.higher_is_better(_runter62) is False,
            'faellt er, ist NIEDRIGER besser (Rueckstoss, Treibstoff)')
 
     # b) Mehrteilige Spannen beschreiben EINE Kurve — Anfang gegen Ende.
@@ -5514,9 +5514,9 @@ def main():
                    'modifierAtStart': 1.0, 'modifierAtEnd': 0.8},
                   {'startQuality': 0, 'endQuality': 500,
                    'modifierAtStart': 1.2, 'modifierAtEnd': 1.0}]
-    pruefe(_he62.besser_ist_hoch(_geteilt62) is False,
+    pruefe(_he62.higher_is_better(_geteilt62) is False,
            'ueber mehrere Spannen zaehlt die Gesamtrichtung (1,2 -> 0,8)')
-    pruefe(_he62.besser_ist_hoch([]) is True,
+    pruefe(_he62.higher_is_better([]) is True,
            'ohne Modifikator wird nichts behauptet (Vorgabe: hoeher ist besser)')
 
     # c) Und die Probe aufs Ganze an echten Daten, wenn welche da sind:
@@ -5526,7 +5526,7 @@ def main():
         return (w['faktor'] >= 1 if w.get('besser_hoch', True)
                 else w['faktor'] <= 1)
 
-    _daten62 = _he62.laden().get('blueprints') or []
+    _daten62 = _he62.load().get('blueprints') or []
     if _daten62:
         _schlecht62 = _falsch62 = 0
         _geprueft62 = 0
@@ -5540,9 +5540,9 @@ def main():
                             _mats62[_o62['resourceName']] = 0
             if not _mats62:
                 continue
-            _unten62 = _he62.werte_mit_lager(
+            _unten62 = _he62.values_with_stock(
                 _name62, {m: 0 for m in _mats62})
-            _oben62 = _he62.werte_mit_lager(
+            _oben62 = _he62.values_with_stock(
                 _name62, {m: 1000 for m in _mats62})
             if not _unten62:
                 continue
@@ -5570,16 +5570,16 @@ def main():
     #    dort „× -1.000", ein Multiplikator, den es nicht geben kann. 598 der
     #    6524 Modifikatoren im Spielstand 4.10.0 sind so gebaut, das betrifft
     #    saemtliche Kraftwerke.
-    pruefe(_he62.ist_absolut([{'modifierAtStart': -1.0,
+    pruefe(_he62.is_absolute([{'modifierAtStart': -1.0,
                                'modifierAtEnd': -1.0}]) is True,
            'ein negativer Wert kann kein Multiplikator sein')
-    pruefe(_he62.ist_absolut([{'modifierAtStart': 0.0,
+    pruefe(_he62.is_absolute([{'modifierAtStart': 0.0,
                                'modifierAtEnd': 0.0}]) is True,
            'eine Null auch nicht (sie wuerde den Wert ausloeschen)')
-    pruefe(_he62.ist_absolut([{'modifierAtStart': 0.925,
+    pruefe(_he62.is_absolute([{'modifierAtStart': 0.925,
                                'modifierAtEnd': 1.075}]) is False,
            'ein Wert um 1 herum dagegen schon')
-    pruefe(_he62.ist_absolut([]) is False,
+    pruefe(_he62.is_absolute([]) is False,
            'ohne Angaben wird nichts behauptet')
 
     # e) Die Anzeige muss die Richtung auch benutzen.
@@ -5644,8 +5644,8 @@ def main():
            'die Raffinerien werden beim Sichern behalten')
     pruefe("current.get('refineries') is not None" in _q63,
            'und eine alte Ablage ohne sie wird einmal neu geholt')
-    _q63b = open(os.path.join(WURZEL, 'scbp', 'herstellung.py'), encoding='utf-8').read()
-    pruefe("'dismantle': roh.get('dismantle')" in _q63b,
+    _q63b = open(os.path.join(WURZEL, 'scbp', 'crafting.py'), encoding='utf-8').read()
+    pruefe("'dismantle': raw.get('dismantle')" in _q63b,
            'dasselbe fuer die Zerlege-Sperrliste')
     from scbp import sprache as _sp63
     for _k63 in ('s_bg_raff_kopf', 's_bg_raff_zeile', 's_bg_raff_egal',
@@ -5949,7 +5949,7 @@ def main():
     print('67. Ein Rezept aufklappen')
     import tkinter as _tk67
     from scbp import seiten as _se67
-    from scbp import herstellung as _he67
+    from scbp import crafting as _he67
 
     # ⚠⚠ **Notfalls eigene Daten hinlegen.** Die Rezepte sind ein
     # heruntergeladener Zwischenspeicher im Ablageordner — der Selbsttest
@@ -5958,7 +5958,7 @@ def main():
     # und im Bau-Lauf sowieso. Sie war fuer den `_dauer`-Fehler gebaut worden,
     # der zwei ausgelieferte Fassungen unbrauchbar gemacht hat — und lief nie.
     # Eine Pruefung, die nur bei ihrem Autor anschlaegt, ist keine.
-    if not (_he67.laden().get('blueprints') or []):
+    if not (_he67.load().get('blueprints') or []):
         _mini67 = {
             'format': _he67.FORMAT, 'build': 'selbsttest',
             'blueprints': [{
@@ -5991,9 +5991,9 @@ def main():
         from scbp import pfade as _pf67
         with open(_pf67.app_datei(_he67.CACHE), 'w', encoding='utf-8') as _f67:
             json.dump(_mini67, _f67)
-        _he67.vergessen()
+        _he67.forget()
 
-    _rez67 = _he67.laden().get('blueprints') or []
+    _rez67 = _he67.load().get('blueprints') or []
     if not _rez67:
         print('  [–]    keine Rezeptdaten vorhanden — uebersprungen')
     else:
@@ -6196,8 +6196,8 @@ def main():
         pruefe(bool(_felder68), 'die Lager-Seite hat Eingabefelder')
         # ⚠ Ohne Rezeptdaten gibt es keine Namen, zu denen etwas vorgeschlagen
         # werden koennte — auf dem Bau-Laeufer ist das der Normalfall.
-        from scbp import herstellung as _he68
-        if _felder68 and _he68.aehnliche_rohstoffe('sa'):
+        from scbp import crafting as _he68
+        if _felder68 and _he68.similar_materials('sa'):
             _felder68[0].insert(0, 'sa')
             _w68.update_idletasks()
             _v68 = _mit_text68(_rahmen68, 'Savrilium', [])
@@ -6270,9 +6270,9 @@ def main():
     import tkinter as _tk69
     import tkinter.font as _tkfont69
     from scbp import seiten as _se69
-    from scbp import herstellung as _he69
+    from scbp import crafting as _he69
 
-    _rez69 = _he69.laden().get('blueprints') or []
+    _rez69 = _he69.load().get('blueprints') or []
     if not _rez69:
         print('  [–]    keine Rezeptdaten vorhanden — uebersprungen')
     else:
@@ -6386,7 +6386,7 @@ def main():
     # nichts." Und: „Lagerort gilt exakt das Gleiche."
     print()
     print('70. Nur Echtes ins Lager')
-    from scbp import herstellung as _he70
+    from scbp import crafting as _he70
     from scbp import orte as _or70
 
     # a) Der Ausweg-Knopf ist WEG und darf nicht zurueckkommen.
@@ -6406,28 +6406,28 @@ def main():
         pruefe('trotzdem' not in _w70[0].lower()
                and 'still add' not in _w70[1].lower(),
                '%s verspricht keinen Ausweg mehr' % _k70)
-    pruefe('h_modul.lager_name(name)' in _q70,
+    pruefe('h_modul.storage_name(name)' in _q70,
            'der Name wird gegen die Lagerliste geprueft')
     pruefe('orte_modul.offizieller_name(ort.get())' in _q70,
            'und der Lagerort gegen die Ortsliste')
 
     # b) Die Liste selbst.
-    _liste70 = _he70.einlagerbar()
+    _liste70 = _he70.storable()
     if len(_liste70) > 30:
         pruefe(len(_liste70) >= 39,
                'die Lagerliste hat %d Namen (Mineralien + Pflanzen)' % len(_liste70))
         for _pflanze70 in ('Flareweed', 'Heart of the Woods', 'Sunset Berry'):
-            pruefe(_he70.darf_ins_lager(_pflanze70),
+            pruefe(_he70.may_store(_pflanze70),
                    'Pflanze %s ist einlagerbar' % _pflanze70)
         for _erz70 in ('Sadaryx', 'Saldynium', 'Jaclium'):
-            pruefe(_he70.darf_ins_lager(_erz70),
+            pruefe(_he70.may_store(_erz70),
                    'Mineral ohne Rezept (%s) ist einlagerbar' % _erz70)
         for _mist70 in ('savratum', 'Bei Oma im Keller', 'Politik', 'xyz123'):
-            pruefe(not _he70.darf_ins_lager(_mist70),
+            pruefe(not _he70.may_store(_mist70),
                    '%r wird abgelehnt' % _mist70)
         # ⚠ Vorschlaege muessen aus der GANZEN Liste kommen. Sadaryx kam nicht,
         #   weil sie nur aus den Rezept-Materialien stammten.
-        pruefe(_he70.aehnliche_lagernamen('Sad') == ['Sadaryx'],
+        pruefe(_he70.similar_storage_names('Sad') == ['Sadaryx'],
                'Sadaryx wird vorgeschlagen (kam frueher nicht)')
     else:
         print('  [–]    keine Rezept-/Bergbaudaten — Listentest uebersprungen')
@@ -6658,7 +6658,7 @@ def main():
     print('73. Die Zahlen in der Anleitung stimmen noch')
     import re as _re73
     from scbp import katalog as _ka73
-    from scbp import herstellung as _he73
+    from scbp import crafting as _he73
 
     # ⚠ Kurz aus dem Wegwerf-Ordner heraustreten. Der Selbsttest arbeitet in
     # einem leeren `SC_BP_HOME`; die echten Daten liegen im Ablageordner des
@@ -6666,21 +6666,21 @@ def main():
     _heim73 = os.environ.pop('SC_BP_HOME', None)
     try:
         _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
-        _he73.vergessen()
+        _he73.forget()
         try:
             _bp73 = (_ka73.laden().get('bauplaene') or {})
         except Exception:
             _bp73 = {}
         _gezeigt73 = []
         try:
-            _gezeigt73 = _he73.mit_bestand(set())
+            _gezeigt73 = _he73.with_collection(set())
         except Exception:
             pass
     finally:
         if _heim73 is not None:
             os.environ['SC_BP_HOME'] = _heim73
         _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
-        _he73.vergessen()
+        _he73.forget()
 
     if not _bp73 or not _gezeigt73:
         print('  [–]    keine Katalog- oder Rezeptdaten — uebersprungen')
@@ -7339,15 +7339,15 @@ def main():
     print()
     print('83. Raffinerie-Ausbeute abtippen')
     from scbp import materials as _ro83
-    from scbp import herstellung as _he83
+    from scbp import crafting as _he83
     from scbp import mining as _bg83
 
     # ⚠ Die Liste der einlagerbaren Namen kommt aus Rezept- und Bergbaudaten —
     # beides Zwischenspeicher, die es im Wegwerf-Ordner nicht gibt. Ohne eigene
     # Daten waere hier jeder Name „unbekannt" und die Pruefung gruen, ohne
     # etwas geprueft zu haben. (Dieselbe Falle wie bei Pruefung 67 und 76.)
-    _echt83 = _he83.einlagerbar
-    _he83.einlagerbar = lambda: ['Titanium', 'Iron', 'Heart of the Woods']
+    _echt83 = _he83.storable
+    _he83.storable = lambda: ['Titanium', 'Iron', 'Heart of the Woods']
     try:
 
         _text83 = ('Titanium 295 188\n'
@@ -7372,7 +7372,7 @@ def main():
                'in SCU bleibt die Zahl, wie sie ist (%s)' % (_scu83,))
 
     finally:
-        _he83.einlagerbar = _echt83
+        _he83.storable = _echt83
 
     _q83 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
@@ -7420,20 +7420,20 @@ def main():
            'Gold liefert nicht Golden Medmon mit (%s)' % sorted(set(_treffer84)))
 
     # ⭐ Falle 2: Erz und veredelte Ware sind verschiedene Waren mit
-    # verschiedenen Preisen. `norm_rohstoff()` wuerfe sie zusammen.
+    # verschiedenen Preisen. `norm_material()` wuerfe sie zusammen.
     pruefe(_vk84.bester_preis('Copper') == 4400
            and _vk84.bester_preis('Copper (Ore)') == 1200,
            'Copper und Copper (Ore) bleiben getrennt')
 
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf und in
     # den Kommentaren, und das soll es auch. Geprueft wird, ob die Funktion
-    # ueberhaupt erreichbar ist: ohne Import aus `herstellung` kann sie nicht
+    # ueberhaupt erreichbar ist: ohne Import aus `crafting` kann sie nicht
     # benutzt werden.
     _q84 = open(os.path.join(WURZEL, 'scbp', 'verkauf.py'),
                 encoding='utf-8').read()
-    pruefe('from .herstellung import' not in _q84
-           and 'import herstellung' not in _q84,
-           'verkauf.py kann norm_rohstoff gar nicht erreichen')
+    pruefe('from .crafting import' not in _q84
+           and 'import crafting' not in _q84,
+           'verkauf.py kann norm_material gar nicht erreichen')
 
     # ⭐ Der Kern des Reiters: mehr abgenommene Waren schlagen den hoeheren
     # Preis. Gemessen am 30.08.2026 bringt der Umweg ueber mehrere Terminals
@@ -7546,7 +7546,7 @@ def main():
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf des
     # Bausteins, und das soll es auch. Geprueft wird der Import: ohne ihn kann
     # kein Systemelement benutzt werden. (Dieselbe Falle wie bei
-    # `norm_rohstoff` weiter oben — beim ersten Anlauf prompt wieder getappt.)
+    # `norm_material` weiter oben — beim ersten Anlauf prompt wieder getappt.)
     pruefe('import ttk' not in _q84s and 'from tkinter.ttk' not in _q84s,
            'kein ttk-Systemelement in der Oberflaeche')
     pruefe("'verkauf':     _verkauf," in _q84s
@@ -7745,8 +7745,8 @@ def main():
     # daraus einen leeren Lagerort: Wer „Levski" gewaehlt hatte, bekam die
     # ganze Ausbeute ohne Ort eingebucht (30.08.2026 gemeldet, mit zwei
     # Bildschirmfotos belegt).
-    from scbp import herstellung as _he85
-    pruefe(_he85.lager_name('Levski') is None,
+    from scbp import crafting as _he85
+    pruefe(_he85.storage_name('Levski') is None,
            'lager_name() kennt keine Orte — das war die Ursache')
 
     _raffblock85 = _q85p.split('def _raffinerie_block(')[-1].split('\ndef ')[0]
@@ -9140,7 +9140,7 @@ def main():
     print()
     print('98d. Rezept-Nachschlaege fragen das Dateisystem nur einmal')
 
-    from scbp import herstellung as _hs98d
+    from scbp import crafting as _hs98d
 
     # ⚠ Eigene Daten hinlegen — im Wegwerf-Ordner gibt es keine Rezepte, und
     # eine Pruefung, die sich mangels Daten selbst ueberspringt, prueft nichts.
@@ -9148,34 +9148,34 @@ def main():
         {'productName': 'Pruefteil A', 'tag': 'BP_TEST_A', 'type': 'weapons'},
         {'productName': 'Pruefteil B', 'tag': 'BP_TEST_B', 'type': 'cooler'},
     ]}
-    pruefe(_hs98d._sichern(_daten98d) is True, 'Pruefdaten liegen bereit')
+    pruefe(_hs98d._save(_daten98d) is True, 'Pruefdaten liegen bereit')
 
-    _echt_laden98d = _hs98d.laden
+    _echt_laden98d = _hs98d.load
     _zaehler98d = [0]
 
     def _laden_gezaehlt98d():
         _zaehler98d[0] += 1
         return _echt_laden98d()
 
-    _hs98d.laden = _laden_gezaehlt98d
+    _hs98d.load = _laden_gezaehlt98d
     try:
         for _ in range(50):
-            _hs98d.rezept_roh('Pruefteil A')
+            _hs98d.recipe_raw('Pruefteil A')
         pruefe(_zaehler98d[0] == 1,
                '50 Nachschlaege = 1 Dateisystem-Abfrage (gemessen: %d)'
                % _zaehler98d[0])
-        pruefe(_hs98d.rezept_roh('Pruefteil B') is not None,
+        pruefe(_hs98d.recipe_raw('Pruefteil B') is not None,
                'und gefunden wird trotzdem alles')
 
         # Jetzt die Gegenrichtung: Aenderung muss SOFORT sichtbar sein.
         _daten98d['blueprints'][0]['tag'] = 'BP_TEST_A_NEU'
-        _hs98d._sichern(_daten98d)
-        _neu98d = _hs98d.rezept_roh('Pruefteil A') or {}
+        _hs98d._save(_daten98d)
+        _neu98d = _hs98d.recipe_raw('Pruefteil A') or {}
         pruefe(_neu98d.get('tag') == 'BP_TEST_A_NEU',
                'nach dem Speichern gilt sofort der neue Stand (%s)'
                % _neu98d.get('tag'))
     finally:
-        _hs98d.laden = _echt_laden98d
+        _hs98d.load = _echt_laden98d
 
 
     # 98e. Der Seiten-Vorbau bleibt abgeschaltet
@@ -9235,7 +9235,7 @@ def main():
     # Dahinter waere er wertlos — dann hat man ihn erst gefunden, wenn man
     # ihn nicht mehr braucht.
     _kopf99 = _code99.find("text=eintrag['name'], bg='#0c1017'")
-    _zutat99 = _code99.find('rez = herst_modul.rezept')
+    _zutat99 = _code99.find('rez = herst_modul.recipe')
     pruefe(_kopf99 > 0, 'der Name steht noch einmal ueber dem Rezept')
     pruefe(_kopf99 < _zutat99,
            'und zwar VOR den Zutaten, nicht darunter')
@@ -9766,10 +9766,10 @@ def main():
     # 67): Die Rezeptdaten sind ein heruntergeladener Zwischenspeicher und
     # liegen im Wegwerf-Ordner nie. Eine Pruefung, die sich deshalb
     # ueberspringt, prueft nichts.
-    from scbp import herstellung as _he105
+    from scbp import crafting as _he105
     from scbp import sprache as _sp105
 
-    _echt_alle105 = _he105.alle
+    _echt_alle105 = _he105.all_items
 
     def _vorrat105():
         """Zwei Gegenstaende mit demselben Namen, dazu ein eindeutiger."""
@@ -9786,13 +9786,13 @@ def main():
         ]
 
     try:
-        _he105.alle = _vorrat105
+        _he105.all_items = _vorrat105
         # Der Spieler hat BEIDE Bauplaene — den mehrdeutigen und den klaren.
         _bestand105 = {_he105._norm('Main Powerplant'),
                        _he105._norm('Testlampe')}
-        _sicher105, _gesamt105, _unklar105 = _he105.zaehlung(_bestand105)
+        _sicher105, _gesamt105, _unklar105 = _he105.counts(_bestand105)
     finally:
-        _he105.alle = _echt_alle105
+        _he105.all_items = _echt_alle105
 
     # ⚠⚠ **Erst pruefen, dass der unklare Fall ueberhaupt entsteht.** Ohne
     # diesen Waechter wuerde die Pruefung auch dann gruen, wenn die
@@ -14004,7 +14004,7 @@ def main():
     # Ausstattung. Wer das verwechselt, stellt dem Spieler sein eigenes Schiff
     # noch einmal in Rechnung.
     from scbp import erkul as _erk151, warenkorb as _wk151
-    from scbp import laeden as _ld151, herstellung as _he151
+    from scbp import laeden as _ld151, crafting as _he151
     from scbp import preise as _pr151, schiffe as _sf151
 
     _slots151 = [
@@ -14018,7 +14018,7 @@ def main():
     }
     _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
                 _ld151.guenstigster, _wk151._bauplan_verzeichnis,
-                _he151.rezept, _pr151.preis, _sf151.kaufen)
+                _he151.recipe, _pr151.preis, _sf151.kaufen)
     try:
         _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {
@@ -14032,7 +14032,7 @@ def main():
             (_regale151[k][0]['preis'], _regale151[k][0]['laden'],
              _regale151[k][0]['ort']) if _regale151.get(k) else None)
         _wk151._bauplan_verzeichnis = lambda: {}
-        _he151.rezept = lambda n: None
+        _he151.recipe = lambda n: None
         _pr151.preis = lambda r: None
         # ⚠ `schiffe.kaufen()` gibt eine **Liste** von Verkaufsstellen zurueck,
         # billigste zuerst — kein Tupel wie `laeden.guenstigster()`. Wer das
@@ -14141,7 +14141,7 @@ def main():
                % len(_offen2_151))
     finally:
         (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
-         _wk151._bauplan_verzeichnis, _he151.rezept, _pr151.preis,
+         _wk151._bauplan_verzeichnis, _he151.recipe, _pr151.preis,
          _sf151.kaufen) = _echt151
 
     # ------------------------------------------------------------------
@@ -14334,9 +14334,9 @@ def main():
     # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
     # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
     from scbp import warenkorb as _wk156, laeden as _ld156
-    from scbp import herstellung as _he156, katalog as _kt156
+    from scbp import crafting as _he156, katalog as _kt156
 
-    _echt156 = (_ld156.katalog_teile, _he156.alle, _kt156.laden)
+    _echt156 = (_ld156.katalog_teile, _he156.all_items, _kt156.laden)
     try:
         # Zwei kaufbare Teile, davon eines auch herstellbar; dazu ein rein
         # herstellbares Militaer-Teil, das UEX gar nicht kennt.
@@ -14348,7 +14348,7 @@ def main():
              'Quantum Drives', 'abschnitt': 'Propulsion', 'hersteller': 'Acme',
              'groesse': '2', 'klasse': 'Industrial', 'guete': 'B'},
         ]
-        _he156.alle = lambda: [
+        _he156.all_items = lambda: [
             {'basis': 'Doppel-QD', 'name': 'Doppel-QD', 'entity': 'ref-doppel',
              'hersteller': 'Acme', 'art': 'quantumdrive', 'unterart': 'size2'},
             {'basis': 'Militaer-QD', 'name': 'Militaer-QD',
@@ -14407,7 +14407,7 @@ def main():
         pruefe(_wk156.auswahl('GibtsNicht', 2) == [],
                'Gegenprobe: eine unbekannte Art liefert nichts')
     finally:
-        _ld156.katalog_teile, _he156.alle, _kt156.laden = _echt156
+        _ld156.katalog_teile, _he156.all_items, _kt156.laden = _echt156
 
     print()
     print('157. Die Farmliste zaehlt ueber ALLE Posten zusammen')
@@ -14428,7 +14428,7 @@ def main():
     ]
     _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
                 _ld156.guenstigster, _wk156._bauplan_verzeichnis,
-                _he156.rezept, _pr157.preis, _ro157.load)
+                _he156.recipe, _pr157.preis, _ro157.load)
     try:
         _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {'probe': {
@@ -14439,7 +14439,7 @@ def main():
         _ld156.guenstigster = lambda k: None
         _wk156._bauplan_verzeichnis = lambda: {'ref-blast': 'BlastChill'}
         _pr157.preis = lambda r: (2643.0, 2000.0, 'Iron')
-        _he156.rezept = lambda n: ({'name': 'BlastChill', 'stufen': [
+        _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
             if n == 'BlastChill' else None)
         # 3 Iron im Lager — reicht fuer EINEN der beiden Posten.
@@ -14473,7 +14473,7 @@ def main():
         # Bestand — wird aber ausgewiesen statt verschwiegen.
         _ro157.load = lambda: [{'material': 'Iron', 'menge': 10.0,
                                  'qualitaet': 100, 'ort': ''}]
-        _he156.rezept = lambda n: ({'name': 'BlastChill', 'stufen': [
+        _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 500)]}]}
             if n == 'BlastChill' else None)
         _g157 = _wk156.farmliste(_daten157)
@@ -14491,7 +14491,7 @@ def main():
         #
         # Geprueft wird deshalb das **tatsaechliche** Verhalten: Er erzeugt
         # keinen Materialbedarf und wird nicht als Bau-Posten gezaehlt.
-        _he156.rezept = lambda n: None
+        _he156.recipe = lambda n: None
         _wk156._bauplan_verzeichnis = lambda: {}
         _h157 = _wk156.farmliste(_daten157)
         pruefe(_h157['fehlt'] == [] and _h157['vollstaendig'] == [],
@@ -14501,7 +14501,7 @@ def main():
                % _h157['posten'])
     finally:
         (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
-         _wk156._bauplan_verzeichnis, _he156.rezept, _pr157.preis,
+         _wk156._bauplan_verzeichnis, _he156.recipe, _pr157.preis,
          _ro157.load) = _echt157
 
     # ------------------------------------------------------------------
@@ -14975,17 +14975,17 @@ def main():
     print()
     print('164. Der Zerlege-Rechner')
     from scbp import bergung as _bg164
-    from scbp import herstellung as _he164
+    from scbp import crafting as _he164
 
-    _echt164 = (_he164.laden, _he164.rezept)
+    _echt164 = (_he164.load, _he164.recipe)
     try:
-        _he164.laden = lambda: {'dismantle': {
+        _he164.load = lambda: {'dismantle': {
             'efficiency': 0.5,
             'dismantleTimeSeconds': 15,
             'blacklistedResources': [{'name': 'Quantainium'},
                                      {'name': 'Riccite'}],
             'blacklistedEntityClasses': [{'name': 'Saldynium (Ore)'}]}}
-        _he164.rezept = lambda name: {
+        _he164.recipe = lambda name: {
             'stufen': [{'zeit': 960,
                         'zutaten': [['Frame', 'Iron', 0.64, 1],
                                     ['Cycler', 'Riccite', 0.09, 1],
@@ -15024,12 +15024,12 @@ def main():
                'Gegenprobe: ein nicht gesperrter Rohstoff ist nicht verloren')
 
         # Ohne Rezept keine Behauptung.
-        _he164.rezept = lambda name: None
+        _he164.recipe = lambda name: None
         _leer164, _ = _bg164.zerlegen('Gibt es nicht')
         pruefe(_leer164 == [],
                'Gegenprobe: ohne Rezept wird nichts erfunden')
     finally:
-        _he164.laden, _he164.rezept = _echt164
+        _he164.load, _he164.recipe = _echt164
 
     # ------------------------------------------------------------------
     # 165. Die Kurve zeigt den Exponenten DIESER Achse
@@ -15457,9 +15457,9 @@ def main():
     # muss."
     _echt_rez = None
     try:
-        from scbp import herstellung as _hs170
-        _echt_rez = _hs170.rezept
-        _hs170.rezept = lambda name: (
+        from scbp import crafting as _hs170
+        _echt_rez = _hs170.recipe
+        _hs170.recipe = lambda name: (
             {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
             if name == 'Testwaffe' else None)
 
@@ -15479,7 +15479,7 @@ def main():
                'Gegenprobe: ganz ohne Angabe ebenso')
     finally:
         if _echt_rez is not None:
-            _hs170.rezept = _echt_rez
+            _hs170.recipe = _echt_rez
 
     # ------------------------------------------------------------------
     # 171. Erledigte Merkposten fliegen beim Start raus
@@ -15554,13 +15554,13 @@ def main():
     pruefe(_fehler172,
            'Gegenprobe: float() darauf wirft — genau das war der Fehler')
 
-    _echt_rez172 = _hs170.rezept
+    _echt_rez172 = _hs170.recipe
     _echt_bp172 = _wk170._bauplan_verzeichnis
     _heim172 = _tf166.mkdtemp(prefix='mengen-')
     _alt172 = os.environ.get('SC_BP_HOME')
     try:
         os.environ['SC_BP_HOME'] = _heim172
-        _hs170.rezept = lambda name: (
+        _hs170.recipe = lambda name: (
             {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
             if name in ('Waffe A', 'Waffe B') else None)
         _wk170._bauplan_verzeichnis = lambda: {}
@@ -15619,7 +15619,7 @@ def main():
         pruefe(_hg172.merkzettel(_heil)[0]['ref'] == 'abc-123',
                'Gegenprobe: eine echte Kennung bleibt stehen')
     finally:
-        _hs170.rezept = _echt_rez172
+        _hs170.recipe = _echt_rez172
         _wk170._bauplan_verzeichnis = _echt_bp172
         if _alt172 is None:
             os.environ.pop('SC_BP_HOME', None)
@@ -16503,6 +16503,7 @@ def main():
         'bergbau': 'mining',
         'raffinerie': 'refinery',
         'kategorien': 'categories',
+        'herstellung': 'crafting',
     }
 
     def _reste190(quelle, name, alte):

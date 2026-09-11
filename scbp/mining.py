@@ -69,7 +69,7 @@ import os
 
 from . import fehler, pfade
 from .katalog import AUS, hole_datei
-from .herstellung import norm_rohstoff
+from .crafting import norm_material
 from .sprache import t
 
 # Nur der Dateiname — siehe `katalog.hole_datei()`.
@@ -362,10 +362,10 @@ def mining_kinds(name):
     `schiff_selten` zählt als `schiff` — für die Frage „womit hole ich das?"
     macht die Seltenheit keinen Unterschied.
     """
-    wanted = norm_rohstoff(name)
+    wanted = norm_material(name)
     kinds = set()
     for e in ores():
-        if norm_rohstoff(e.get('name')) != wanted:
+        if norm_material(e.get('name')) != wanted:
             continue
         for entry in e.get('orte') or []:
             for kind in (entry[2] if len(entry) > 2 else ()):
@@ -562,23 +562,23 @@ def refineries_for(material):
     ⚠ **Was nicht im Profil steht, ist 0 %**, nicht „unbekannt". So haelt es
     die Quelle, und so steht es auch in deren Tabelle.
 
-    ⚠ Verglichen wird ueber `norm_rohstoff` — die Profile sagen
+    ⚠ Verglichen wird ueber `norm_material` — die Profile sagen
     `Aluminum (Ore)`, die Rezepte `Aluminium`, die Bergbaudaten
     `Aluminium (Ore)`. Ohne Angleichung findet man zu keinem Erz eine
     Raffinerie.
     """
-    from .herstellung import norm_rohstoff
+    from .crafting import norm_material
     current = load()
     profiles = current.get('refineryProfiles') or {}
     if not profiles:
         return []
-    wanted = norm_rohstoff(material)
+    wanted = norm_material(material)
     # Erst je Profil den Bonus bestimmen ...
     bonus_per_profile = {}
     for pid, values in profiles.items():
         bonus_per_profile[pid] = 0
         for mat, value in (values or {}).items():
-            if norm_rohstoff(mat) == wanted:
+            if norm_material(mat) == wanted:
                 bonus_per_profile[pid] = value
                 break
     # ... dann die Stationen dazu buendeln.
@@ -599,10 +599,10 @@ def locations_for(material):
     """Wo gibt es diesen Rohstoff? Verträgt beide Schreibweisen.
 
     ⚠ Die Baupläne sagen `Aslarite`, hier heißt es `Aslarite (Raw)` — deshalb
-    über `norm_rohstoff()` vergleichen. Ohne das findet der Sprung aus dem
+    über `norm_material()` vergleichen. Ohne das findet der Sprung aus dem
     Rezept **nichts** (gemessen: 0 von 26)."""
-    wanted = norm_rohstoff(material)
+    wanted = norm_material(material)
     for e in ores():
-        if norm_rohstoff(e['name']) == wanted:
+        if norm_material(e['name']) == wanted:
             return e
     return None

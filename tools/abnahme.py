@@ -502,12 +502,12 @@ def auswahllisten_pruefen(hf):
     löst nichts aus, der Klick kommt nicht an, oder das Ergebnis wird nicht
     gezeichnet. Jede davon sieht für sich harmlos aus.
     """
-    from scbp import herstellung, schiffe
+    from scbp import crafting, schiffe
 
     # Je Fall: (Seite, was getippt wird, erwarteter Vorschlag, Knopf danach)
     faelle = []
     try:
-        rezepte = herstellung.alle() or []
+        rezepte = crafting.all_items() or []
         if rezepte:
             teil = rezepte[0].get('basis') or ''
             faelle.append(('zerlegen', teil.split()[0] if teil else '',
@@ -876,9 +876,9 @@ def daten_pruefen():
     plausibel aus; erst an den wirklichen Daten zeigt sich, ob eine Rechnung
     trägt.
     """
-    from scbp import bergung, herstellung, warenkorb
+    from scbp import bergung, crafting, warenkorb
 
-    rezepte = herstellung.alle() or []
+    rezepte = crafting.all_items() or []
     if not rezepte:
         pruefe(False, 'Spieldaten für die Plausibilitätsprüfung vorhanden',
                nur_warnen=True)

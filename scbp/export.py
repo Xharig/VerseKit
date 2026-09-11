@@ -93,8 +93,8 @@ def _scmdb_tags():
     nicht am Netz hängen."""
     tabelle = {}
     try:
-        from . import herstellung
-        for r in herstellung.alle():
+        from . import crafting
+        for r in crafting.all_items():
             tag = (r.get('tag') or '').strip()
             if not tag:
                 continue

@@ -2505,7 +2505,7 @@ TEXTE = {
     # `Python-urllib`-Kennung laeuft auf 403, gemessen 29.08.2026). Ohne
     # eigene Meldung stand dort nur "Netzfehler", und man sucht an der
     # falschen Stelle — dieselbe Falle wie beim Zertifikatsfehler.
-    # Rueckmeldungen der Herstellungs-Daten (scbp/herstellung.py).
+    # Rueckmeldungen der Herstellungs-Daten (scbp/crafting.py).
     'm_h_aktuell':     ('Rezepte sind aktuell (%d Baupläne)',
                         'Recipes are up to date (%d blueprints)'),
     'm_h_geladen':     ('%d Baupläne geladen', '%d blueprints loaded'),
@@ -2817,7 +2817,7 @@ TEXTE = {
     's_he_minuten':      ('%d min', '%d min'),
     's_he_std_min':      ('%d h %d min', '%d h %d min'),
     's_he_menge':        ('%g SCU', '%g SCU'),
-    # ⚠ Der unklare Fall — siehe herstellung.mit_bestand().
+    # ⚠ Der unklare Fall — siehe crafting.with_collection().
     's_he_unklar':       ('Bauplan vorhanden, aber es gibt mehrere Gegenstände '
                           'dieses Namens — welcher gemeint ist, geht aus den '
                           'Daten nicht hervor.',
@@ -3924,7 +3924,7 @@ TEXTE = {
     # ⚠⚠ Es gibt keinen Ausweg mehr — der Text darf also nicht klingen,
     # als gaebe es einen. „Du kannst es trotzdem eintragen" stand hier
     # bis v3.3.0-rc40 und war die Einladung, ein freies Textfeld zu
-    # benutzen. Grund fuer die Sperre: siehe `herstellung.einlagerbar()`.
+    # benutzen. Grund fuer die Sperre: siehe `crafting.storable()`.
     # ⚠ Auch der Lagerort ist eine geschlossene Liste — aus demselben Grund
     # wie der Rohstoffname. „Bei Oma im Keller ist eben keine Location mit
     # Lager in SC." (30.08.2026)

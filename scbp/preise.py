@@ -69,7 +69,7 @@ was das Terminal **verlangt**, dort, was es **zahlt**.
 """
 from . import uex
 from .katalog import AUS
-from .herstellung import norm_rohstoff
+from .crafting import norm_material
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
 CACHE = 'preise.json'
@@ -160,7 +160,7 @@ def aktualisieren(fortschritt=None):
         name = (x.get('name') or '').strip()
         if not name:
             continue
-        schlank.setdefault(norm_rohstoff(name), []).append({
+        schlank.setdefault(norm_material(name), []).append({
             'name': name,
             'kauf': float(x.get('price_buy') or 0),
             'verkauf': float(x.get('price_sell') or 0),
@@ -188,7 +188,7 @@ def preis(rohstoff):
     waren = (laden() or {}).get('waren') or {}
     if not waren:
         return None
-    formen = waren.get(norm_rohstoff(rohstoff))
+    formen = waren.get(norm_material(rohstoff))
     if not formen:
         return None
     kaufbar = [f for f in formen if f.get('kauf')]

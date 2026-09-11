@@ -5845,14 +5845,14 @@ def _dauer(sekunden):
 
 def _herstellung(fenster, rahmen):
     """Alle herstellbaren Gegenstände, mit Rezept auf Klick."""
-    from . import herstellung as herst_modul
+    from . import crafting as herst_modul
     _ueberschrift(fenster, rahmen, t('hf_herstellung'), t('s_he_lead'))
     innen = _rollflaeche(rahmen)
 
     try:
         habe = bestand_datei.keys(bestand_datei.load())
-        eintraege = herst_modul.mit_bestand(habe)
-        sicher, gesamt, unklar = herst_modul.zaehlung(habe)
+        eintraege = herst_modul.with_collection(habe)
+        sicher, gesamt, unklar = herst_modul.counts(habe)
     except Exception as ausnahme:
         fehler.merken('seiten.herstellung', ausnahme)
         eintraege, sicher, gesamt, unklar = [], 0, 0, 0
@@ -5971,9 +5971,9 @@ def _herstellung(fenster, rahmen):
     _kat_arten = {}
     try:
         for _k, _v in (kat_daten.laden().get('bauplaene') or {}).items():
-            _kat_arten[herst_modul._schluessel(_v.get('n') or '')] = _v.get('a') or ''
+            _kat_arten[herst_modul._key(_v.get('n') or '')] = _v.get('a') or ''
     except Exception as ausnahme:
-        fehler.merken('seiten.herstellung.katalog', ausnahme)
+        fehler.merken('seiten.crafting.katalog', ausnahme)
 
     _kat_merker = {}
 
@@ -5981,9 +5981,9 @@ def _herstellung(fenster, rahmen):
         name = e.get('basis') or e.get('name') or ''
         if name in _kat_merker:
             return _kat_merker[name]
-        b = herst_modul.rezept_roh(name) or {}
+        b = herst_modul.recipe_raw(name) or {}
         wert = kat_modul.classify(
-            art=_kat_arten.get(herst_modul._schluessel(name), ''),
+            art=_kat_arten.get(herst_modul._key(name), ''),
             tag=b.get('tag') or '',
             unterart=e.get('unterart') or '',
             rezeptart=e.get('art') or '')
@@ -6099,7 +6099,7 @@ def _herstellung(fenster, rahmen):
             return _material_merker[name]
         wert = False
         try:
-            rez = herst_modul.rezept(name) or {}
+            rez = herst_modul.recipe(name) or {}
             stufen = rez.get('stufen') or []
             if stufen:
                 from . import materials as lager_modul
@@ -6160,10 +6160,10 @@ def _herstellung(fenster, rahmen):
         # nie erfahren."
         material_treffer, aus_material = [], set()
         if text:
-            for name_ in herst_modul.einlagerbar():
+            for name_ in herst_modul.storable():
                 if text in name_.lower():
                     material_treffer.append(name_)
-                    aus_material.update(herst_modul.bauplaene_mit(name_))
+                    aus_material.update(herst_modul.blueprints_with(name_))
 
         treffer = [e for e in eintraege
                    if passt(e)
@@ -6177,7 +6177,7 @@ def _herstellung(fenster, rahmen):
         # 26 der 52 einlagerbaren Namen kommen in keinem Rezept vor, alle 13
         # Pflanzen darunter. Das muss dastehen, sonst sucht jemand weiter.
         for name_ in material_treffer[:3]:
-            anzahl = len(herst_modul.bauplaene_mit(name_))
+            anzahl = len(herst_modul.blueprints_with(name_))
             _fliesstext(liste_rahmen,
                         (t('s_he_aus') % (name_, anzahl) if anzahl
                          else t('s_he_aus_keine') % name_),
@@ -7269,7 +7269,7 @@ def _laeden(fenster, rahmen):
     ist das, worüber es keine Verwechslung gibt. Ein Namensvergleich gegen UEX
     hat hier schon einmal `Golden Medmon` als Goldpreis geliefert.
     """
-    from . import herstellung as herst_modul, laeden as laden_modul
+    from . import crafting as herst_modul, laeden as laden_modul
 
     _ueberschrift(fenster, rahmen, t('hf_laeden'), t('s_ld_lead'))
 
@@ -7355,7 +7355,7 @@ def _laeden(fenster, rahmen):
         gültig, auch wenn jemand die Sprache umstellt.
 
         ⚠⚠ **Die Quelle ist der UEX-Katalog, nicht die Bauplanliste.** Bis
-        v3.14.0 kam die Liste aus `herstellung.alle()` — sie zeigte also nur,
+        v3.14.0 kam die Liste aus `crafting.all_items()` — sie zeigte also nur,
         was man auch **bauen** kann. Am 04.09.2026 gefragt: „Wie soll man da
         wissen, wo es Boomtube-Raketen gibt?" Gar nicht: Der Boomtube Rocket
         Launcher ist nicht craftbar und stand deshalb nirgends, obwohl UEX
@@ -7407,7 +7407,7 @@ def _laeden(fenster, rahmen):
                 fehler.merken('seiten.laeden.schiffe', ausnahme)
             return raus
         try:
-            alle = [b for b in herst_modul.alle() if b.get('entity')]
+            alle = [b for b in herst_modul.all_items() if b.get('entity')]
         except Exception as ausnahme:
             fehler.merken('seiten.laeden.teile', ausnahme)
             return []
@@ -7449,8 +7449,8 @@ def _laeden(fenster, rahmen):
             return t('s_ld_art_schiffswaffen')
         if wert == 'weapons_fps':
             return t('s_ld_art_fpswaffen')
-        from . import herstellung as hm
-        return hm.artname(wert)
+        from . import crafting as hm
+        return hm.kind_name(wert)
 
     def _gruppenname(wert):
         """Warengruppe lesbar — aus dem Katalog oder aus den Bauplan-Arten.
@@ -8069,9 +8069,9 @@ def _laden_zeile(fenster, eltern, bauplan):
     435 von 1.604 Bauplänen), und eine Lücke in fremden Daten ist keine
     Aussage über das Spiel.
     """
-    from . import herstellung as herst_modul, laeden
+    from . import crafting as herst_modul, laeden
     try:
-        kennung = herst_modul.entity_von(bauplan)
+        kennung = herst_modul.entity_of(bauplan)
     except Exception as ausnahme:
         fehler.merken('seiten.laden_zeile.kennung', ausnahme)
         return
@@ -8295,7 +8295,7 @@ def _passt_zeile(fenster, eltern, bauplan):
 
 def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     """Eine Zeile der Herstellungs-Liste, auf Klick klappt das Rezept auf."""
-    from . import herstellung as herst_modul
+    from . import crafting as herst_modul
     zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
     zeile.pack(fill='x', pady=1)
 
@@ -8393,7 +8393,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     # nirgends hineinpasst.
     _passt_zeile(fenster, block, eintrag.get('basis'))
 
-    rez = herst_modul.rezept(eintrag['basis'])
+    rez = herst_modul.recipe(eintrag['basis'])
     from . import materials as lager
     from . import preise as preis_modul
     for stufe in (rez or {}).get('stufen') or []:
@@ -8464,12 +8464,12 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         # rc38 ausgeliefert. Nie einen lokalen Namen vergeben, den es in
         # dieser Datei schon als Funktion gibt.
         try:
-            _sperre, _wirkung, _zerlege_sekunden = herst_modul.zerlege_sperre()
+            _sperre, _wirkung, _zerlege_sekunden = herst_modul.dismantle_block()
         except Exception:
             _sperre, _wirkung = set(), 0.5
         _betroffen = [r for _s, r, _m, _g in stufe['zutaten']
-                      if r and lager.norm_rohstoff(r) in
-                      {lager.norm_rohstoff(x) for x in _sperre}]
+                      if r and lager.norm_material(r) in
+                      {lager.norm_material(x) for x in _sperre}]
         if _betroffen:
             _fliesstext(block, t('s_he_zerlegen') % (_wirkung * 100,
                                                      ', '.join(dict.fromkeys(_betroffen))),
@@ -8721,15 +8721,15 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             # Damit die Zeilenzahl feststeht, wird die Liste **immer** mit
             # einer vollständigen Qualitätsvorgabe gebaut; welche Werte darin
             # stehen, entscheidet erst `werte_setzen()`.
-            grundliste = herst_modul.werte_mit_lager(
+            grundliste = herst_modul.values_with_stock(
                 eintrag['basis'], {m: 500.0 for m in alle_materialien})
             zeilen_widgets = []
             for w in grundliste:
                 wz = tk.Frame(werte_rahmen, bg='#0c1017')
                 wz.pack(fill='x', padx=12, pady=1)
                 # ⚠ Uebersetzt ueber den sprachneutralen Schluessel, nicht
-                # ueber den englischen Namen — siehe `herstellung.eigenschaft`.
-                tk.Label(wz, text=herst_modul.eigenschaft(w['eigenschaft'],
+                # ueber den englischen Namen — siehe `crafting.property_name`.
+                tk.Label(wz, text=herst_modul.property_name(w['eigenschaft'],
                                                           w.get('key')),
                          bg='#0c1017', fg=SUB,
                          font=fenster.f_klein, width=22,
@@ -8793,7 +8793,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             def werte_zeichnen():
                 """Nur die Zahlen austauschen — keine Widgets neu bauen."""
                 aktuell = {(w['eigenschaft'], w['material'], w['slot']): w
-                           for w in herst_modul.werte_mit_lager(
+                           for w in herst_modul.values_with_stock(
                                eintrag['basis'], stand)}
                 gezeigt = 0
                 for (w0, faktor_lbl, prozent_lbl, herkunft_lbl,
@@ -9872,7 +9872,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     oben **24 Eingaben**; hier sind es sechs Zeilen, so wie sie im Terminal
     stehen.
     """
-    from . import herstellung as herst_lager
+    from . import crafting as herst_lager
     from . import orte as _orte_modul
     from .hauptfenster import rundrahmen
 
@@ -10900,7 +10900,7 @@ def _zerlegen(fenster, rahmen):
     dabei. Ein Rechner, der stumpf halbiert, schickt zwei Drittel der Spieler
     mit falschen Erwartungen los.
     """
-    from . import bergung as bg, herstellung
+    from . import bergung as bg, crafting
 
     _ueberschrift(fenster, rahmen, t('hf_zerlegen'), t('s_zl_lead'))
     innen = _rollflaeche(rahmen)
@@ -10921,7 +10921,7 @@ def _zerlegen(fenster, rahmen):
 
     def namen():
         try:
-            return sorted((e.get('basis') or '') for e in herstellung.alle()
+            return sorted((e.get('basis') or '') for e in crafting.all_items()
                           if e.get('basis'))
         except Exception as ausnahme:
             fehler.merken('seiten.zerlegen.namen', ausnahme)
@@ -11082,7 +11082,7 @@ def _farmliste(fenster, rahmen):
         # was man farmen muss — unter den Waffen würde es Sinn machen, dass man
         # das zu farmende Material sieht." Genau so: Die Summe unten beantwortet
         # „wie viel Erz brauche ich insgesamt", hier steht „und wofür".
-        from . import herstellung as _mz_herst
+        from . import crafting as _mz_herst
         # ⚠⚠⚠ **Die Fehlmengen kommen aus DERSELBEN Rechnung wie die Summe
         # darunter.** Der erste Anlauf fragte hier das Lager direkt und zeigte
         # „hast 8,01", während zehn Zeilen tiefer „hast 3,44" stand. Beide
@@ -11126,7 +11126,7 @@ def _farmliste(fenster, rahmen):
             # Die Zutaten darunter — mit der Stückzahl multipliziert und
             # gegen das Lager gehalten.
             try:
-                rez = _mz_herst.rezept(e.get('name') or '')
+                rez = _mz_herst.recipe(e.get('name') or '')
             except Exception:
                 rez = None
             if not rez or not rez.get('stufen'):
@@ -12464,11 +12464,11 @@ def _lager(fenster, rahmen):
             # Ohne Vorschläge tippt jemand „Aslerite", bekommt nie einen
             # Treffer und sucht den Fehler bei sich.
             if var is material:
-                from . import herstellung as _h_lg
+                from . import crafting as _h_lg
 
                 def _quelle_material():
                     try:
-                        return sorted(_h_lg.einlagerbar())
+                        return sorted(_h_lg.storable())
                     except Exception:
                         return []
                 quelle = _quelle_material
@@ -12790,8 +12790,8 @@ def _lager(fenster, rahmen):
         # stille Fehlerquelle: „Aslerite" sieht in der Liste richtig aus, wird
         # aber von keinem Rezept gefunden. Vorschlaege allein reichen nicht —
         # sie lassen sich uebergehen.
-        from . import herstellung as h_modul
-        richtig = h_modul.lager_name(name)
+        from . import crafting as h_modul
+        richtig = h_modul.storage_name(name)
         if richtig is None:
             # ⚠⚠ **HIER endet es. Es gibt keinen Ausweg, und das ist Absicht.**
             #
@@ -12806,7 +12806,7 @@ def _lager(fenster, rahmen):
             # der Rohstoff-Liste ist darf speicherbar sein, sonst nichts."
             #
             # Die Liste umfasst alle 39 Mineralien und 13 Pflanzen aus den
-            # Spieldaten (`herstellung.einlagerbar()`). Fehlt etwas, wird die
+            # Spieldaten (`crafting.storable()`). Fehlt etwas, wird die
             # LISTE ergaenzt — nicht die Sperre gelockert.
             meldung.configure(text=t('s_lg_name_fremd') % name, fg=GOLD)
             ware_zeichnen()

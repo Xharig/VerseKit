@@ -273,11 +273,11 @@ def _herstellbare(art, groesse):
     hängen später Ladenpreis und Rezept am Teil — der Name ist nur die
     Beschriftung.
     """
-    from . import herstellung, katalog
+    from . import crafting, katalog
     raus = {}
     try:
         werte = (katalog.laden() or {}).get('bauplaene') or {}
-        for eintrag in herstellung.alle():
+        for eintrag in crafting.all_items():
             kennung = eintrag.get('entity') or ''
             if not kennung:
                 continue
@@ -551,7 +551,7 @@ def erledigt_setzen(eintrag, pfad, ja=True):
 def _bauplan_verzeichnis():
     """Entitäts-Kennung → Name des Bauplans, der genau dieses Teil herstellt.
 
-    ⚠⚠ **Die Umkehrung von `herstellung.entity_von()` — und sie ist der Grund,
+    ⚠⚠ **Die Umkehrung von `crafting.entity_of()` — und sie ist der Grund,
     warum hier nichts über Namen läuft.** Der Warenkorb kennt zu jedem Teil nur
     seine Kennung (aus erkul). Um zu wissen, ob es dafür einen Bauplan gibt,
     braucht es den Weg von der Kennung zum Rezept, nicht umgekehrt.
@@ -560,10 +560,10 @@ def _bauplan_verzeichnis():
     dort wieder nachgeschlagen. Es ist also kein Namensabgleich über zwei
     Quellen hinweg — genau der Fehler, den `laeden.py` im Kopf beschreibt.
     """
-    from . import herstellung
+    from . import crafting
     raus = {}
     try:
-        for b in herstellung.alle():
+        for b in crafting.all_items():
             kennung = b.get('entity') or ''
             if kennung:
                 raus.setdefault(kennung, b.get('basis') or b.get('name') or '')
@@ -679,10 +679,10 @@ def bauweg(ref, verzeichnis=None, name=''):
     gestellt", obwohl zwei Waffen vorgemerkt waren.
 
     Deshalb der zweite Weg über `name`: Findet die Kennung nichts, wird der
-    **Bauplanname** direkt genommen — `herstellung.rezept()` sucht ohnehin über
+    **Bauplanname** direkt genommen — `crafting.recipe()` sucht ohnehin über
     ihn.
     """
-    from . import herstellung, preise
+    from . import crafting, preise
     leer = {'zustand': KEIN_REZEPT, 'material': None, 'dauer': None,
             'bauplan': '', 'ohne_preis': []}
     if not ref and not name:
@@ -696,7 +696,7 @@ def bauweg(ref, verzeichnis=None, name=''):
     if not bauplan:
         return leer
     try:
-        rez = herstellung.rezept(bauplan)
+        rez = crafting.recipe(bauplan)
     except Exception as ausnahme:
         fehler.merken('warenkorb.bauweg.rezept', ausnahme)
         return leer
@@ -1119,7 +1119,7 @@ def farmliste(daten=None):
     oder ein Rezept zwischen den beiden Schritten wegfällt. Lieber ein Feld,
     das meistens leer ist, als ein stiller Verlust.
     """
-    from . import herstellung, materials
+    from . import crafting, materials
 
     fertig = rechnung(daten)
     verzeichnis = _bauplan_verzeichnis()
@@ -1164,7 +1164,7 @@ def farmliste(daten=None):
         rez = None
         if bauplan:
             try:
-                rez = herstellung.rezept(bauplan)
+                rez = crafting.recipe(bauplan)
             except Exception as ausnahme:
                 fehler.merken('warenkorb.farmliste.rezept', ausnahme)
         if not rez or not rez.get('stufen'):
@@ -1172,7 +1172,7 @@ def farmliste(daten=None):
             continue
         for stufe in rez['stufen']:
             for _slot, rohstoff, menge, guete in (stufe.get('zutaten') or []):
-                schluessel = (herstellung.norm_rohstoff(rohstoff),
+                schluessel = (crafting.norm_material(rohstoff),
                               float(guete or 0))
                 eintrag = bedarf.setdefault(schluessel,
                                             {'name': rohstoff, 'menge': 0.0})
@@ -1191,7 +1191,7 @@ def farmliste(daten=None):
         # für nichts verschwendet wird, das es nicht braucht.
         gruppen.sort(reverse=True)
         posten = [dict(p) for p in materials.load()
-                  if herstellung.norm_rohstoff(p.get('material')) == norm]
+                  if crafting.norm_material(p.get('material')) == norm]
         for guete, name, menge in gruppen:
             passend = sorted(
                 (p for p in posten

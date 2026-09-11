@@ -64,8 +64,8 @@ kein Absturz.
 sagenhafter Goldpreis, während Gold tatsächlich bei 33.000 liegt. Deshalb wird
 hier **ausschliesslich exakt** verglichen, nie mit `in` oder `startswith`.
 
-**2. `norm_rohstoff()` darf hier NICHT benutzt werden.** Die Funktion aus
-`herstellung.py` schneidet die Klammer ab, damit die Bergbau-Sicht zu
+**2. `norm_material()` darf hier NICHT benutzt werden.** Die Funktion aus
+`crafting.py` schneidet die Klammer ab, damit die Bergbau-Sicht zu
 `Aslarite (Raw)` einen Fundort findet — für die Herstellung richtig. Beim
 Verkauf wäre es falsch, denn Erz und veredelte Ware sind **verschiedene Waren
 mit verschiedenen Preisen**:
@@ -296,7 +296,7 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     #
     # ⚠ Der Warenname wird **unverändert** übernommen, mit Klammer und allem.
     # Siehe die zweite Falle im Kopf: `Copper` und `Copper (Ore)` sind zwei
-    # verschiedene Waren, und `norm_rohstoff()` würde sie zusammenwerfen.
+    # verschiedene Waren, und `norm_material()` würde sie zusammenwerfen.
     waren = {}
     for x in preise:
         preis = float(x.get('price_sell') or 0)

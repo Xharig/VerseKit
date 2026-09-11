@@ -28,7 +28,7 @@ Bauplänen, die im Log stehen.
 **Der Vorschlag dahinter** stammt von **Horthy (KRT)** (29.08.2026):
 Rohstoffe selbst eintragen, und beim Herstellen sagt man dem Werkzeug „Bauplan
 X baue ich jetzt" — dann zieht es die Zutaten ab. Die Mengen kennt es seit
-v3.3.0 ohnehin (`herstellung.rezept()`).
+v3.3.0 ohnehin (`crafting.recipe()`).
 
 ⚠ **Haltung: Hinweis, keine Behauptung.**
 
@@ -53,7 +53,7 @@ gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
 `rohstoffe.json` und die Schlüssel `format`, `posten`, `material`, `menge`,
 `qualitaet` und `ort`. Ebenso die Schlüssel `name` und `menge`, die `stock()`
 für die Anzeige liefert, die Einheit `'cscu'` und die Textschlüssel `s_rf_…`.
-`norm_rohstoff` kommt aus `herstellung.py` und heißt dort weiter so.
+`norm_material` kommt aus `crafting.py` und heißt dort weiter so.
 `calculate` und `parse_number` reicht `trade_cargo.py` weiter — das
 Handelslager rechnet mit denselben Regeln.
 """
@@ -62,7 +62,7 @@ import re
 import os
 
 from . import fehler, pfade
-from .herstellung import norm_rohstoff
+from .crafting import norm_material
 
 FILE = 'rohstoffe.json'
 FORMAT = 1
@@ -247,11 +247,11 @@ def same_stack(a_material, a_quality, a_place, b):
     dann darf zusammengezählt werden — unterschiedliche Qualität ist ein
     anderer Stapel, und was in Orison liegt, hilft in Pyro nicht.
 
-    ⚠ Verglichen wird über `norm_rohstoff` und ohne Rücksicht auf Gross- und
+    ⚠ Verglichen wird über `norm_material` und ohne Rücksicht auf Gross- und
     Kleinschreibung: „orison" und „Orison" sind derselbe Ort, „Iron (Ore)" und
     „Iron" dasselbe Material.
     """
-    if norm_rohstoff(a_material) != norm_rohstoff(b.get('material')):
+    if norm_material(a_material) != norm_material(b.get('material')):
         return False
     if (a_place or '').strip().lower() != (b.get('ort') or '').strip().lower():
         return False
@@ -325,12 +325,12 @@ def remove(index):
 def amount_of(material):
     """Wie viel ist von diesem Material da? Über alle Posten summiert.
 
-    ⚠ Über `norm_rohstoff()` vergleichen — das Rezept sagt `Aslarite`, im Lager
+    ⚠ Über `norm_material()` vergleichen — das Rezept sagt `Aslarite`, im Lager
     steht vielleicht `Aslarite (Raw)`, weil es aus der Bergbau-Sicht kopiert
     wurde."""
-    wanted = norm_rohstoff(material)
+    wanted = norm_material(material)
     return sum(p.get('menge') or 0 for p in load()
-               if norm_rohstoff(p.get('material')) == wanted)
+               if norm_material(p.get('material')) == wanted)
 
 
 def amount_with_quality(material, min_quality=0):
@@ -347,11 +347,11 @@ def amount_with_quality(material, min_quality=0):
     Wert zurück und wird als Hinweis angezeigt. Behauptet wird nichts — das
     Lager ist von Hand gepflegt und kann hinterherhinken.
     """
-    wanted = norm_rohstoff(material)
+    wanted = norm_material(material)
     suitable = too_low = 0.0
     limit = float(min_quality or 0)
     for p in load():
-        if norm_rohstoff(p.get('material')) != wanted:
+        if norm_material(p.get('material')) != wanted:
             continue
         amount = float(p.get('menge') or 0)
         if float(p.get('qualitaet') or 0) >= limit:
@@ -365,11 +365,11 @@ def best_quality(material, min_quality=0):
     """Die höchste brauchbare Qualität dieses Materials im Lager — oder None.
 
     Damit lässt sich ausrechnen, **welche Werte** das Produkt bekäme; siehe
-    `herstellung.werte_bei_qualitaet()`."""
-    wanted = norm_rohstoff(material)
+    `crafting.values_with_stock()`."""
+    wanted = norm_material(material)
     best = None
     for p in load():
-        if norm_rohstoff(p.get('material')) != wanted:
+        if norm_material(p.get('material')) != wanted:
             continue
         if float(p.get('menge') or 0) <= 0:
             continue
@@ -386,7 +386,7 @@ def stock():
         name = (p.get('material') or '').strip()
         if not name:
             continue
-        key = norm_rohstoff(name)
+        key = norm_material(name)
         previous = result.get(key)
         result[key] = {
             'name': previous['name'] if previous else name,
@@ -427,7 +427,7 @@ def refinery_lines(text, unit='cscu'):
     („GEWONNENE MATERIALIEN (cSCU)"). Bei der falschen Annahme steht im Lager
     alles um den Faktor 100 daneben, und die Herstellung rechnet mit Unsinn.
     """
-    from . import herstellung
+    from . import crafting
     from .sprache import t
     entries, errors = [], []
     factor = CSCU if unit == 'cscu' else 1.0
@@ -452,13 +452,13 @@ def refinery_lines(text, unit='cscu'):
         except ValueError:
             errors.append((line, t('s_rf_keine_zahl')))
             continue
-        real = herstellung.lager_name(name)
+        real = crafting.storage_name(name)
         if not real:
             # ⚠ Kein stiller Fehlschlag und keine stille Zuordnung: Der Name
             # wird **nicht** geraten, aber der wahrscheinlichste Treffer steht
             # daneben. Wer „Aslerite" tippt, soll „Aslarite" lesen und selbst
             # entscheiden — das Werkzeug entscheidet es nicht für ihn.
-            similar = herstellung.aehnliche_rohstoffe(name, 2)
+            similar = crafting.similar_materials(name, 2)
             reason = t('s_rf_unbekannt') % name
             if similar:
                 reason += ' ' + t('s_rf_meintest') % ' · '.join(similar)
@@ -523,7 +523,7 @@ def check(ingredients, count=1):
 
     [(Material, gebraucht, da, fehlt, zu_geringe_qualitaet, mindestqualitaet)]
 
-    `ingredients` ist die Liste aus `herstellung.rezept()` — (Slot, Material,
+    `ingredients` ist die Liste aus `crafting.recipe()` — (Slot, Material,
     Menge, Güte). Zurück kommt **jede** Zutat, auch die vorhandenen: Die
     Anzeige soll zeigen, was da ist, nicht nur was fehlt.
 
@@ -538,11 +538,11 @@ def check(ingredients, count=1):
     factor = max(1, int(count or 1))
     needed = {}
     for _slot, material, amount, _quality in ingredients:
-        key = norm_rohstoff(material)
+        key = norm_material(material)
         needed[key] = (needed.get(key, 0)
                        + (amount or 0) * factor)
     for _slot, material, amount, quality in ingredients:
-        key = norm_rohstoff(material)
+        key = norm_material(material)
         # ⚠ Seit 29.08.2026 zählt nur, was die geforderte Qualität erreicht.
         # Vorher wurde `guete` durchgereicht und nie benutzt — dadurch galt Erz
         # als brauchbar, das für dieses Rezept zu schlecht ist.
@@ -590,7 +590,7 @@ def deduct(ingredients, count=1):
     # jeder Durchgang fuer sich pruefen und beide fuer machbar halten.
     demand = {}
     for _slot, material, amount, quality in ingredients:
-        key = (norm_rohstoff(material), float(quality or 0))
+        key = (norm_material(material), float(quality or 0))
         demand[key] = (demand.get(key, (material, 0.0))[0],
                        demand.get(key, (material, 0.0))[1]
                        + float(amount or 0) * factor)
@@ -600,7 +600,7 @@ def deduct(ingredients, count=1):
     for (wanted, minimum), (name, needed) in demand.items():
         available = 0.0
         for p in entries:
-            if (norm_rohstoff(p.get('material')) == wanted
+            if (norm_material(p.get('material')) == wanted
                     and float(p.get('qualitaet') or 0) >= minimum):
                 available += float(p.get('menge') or 0)
         if available + 1e-9 < needed:
@@ -615,7 +615,7 @@ def deduct(ingredients, count=1):
         for p in entries:
             if remaining <= 1e-9:
                 break
-            if norm_rohstoff(p.get('material')) != wanted:
+            if norm_material(p.get('material')) != wanted:
                 continue
             if float(p.get('qualitaet') or 0) < minimum:
                 continue
