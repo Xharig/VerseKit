@@ -4459,35 +4459,35 @@ def main():
     # Gemessen an echten Daten deckt sie sich mit dieser Liste exakt.
     print()
     print('52f. Ober- und Unterkategorie')
-    from scbp import kategorien as _ka52f
+    from scbp import categories as _ka52f
     # Die feine Waffenart steckt im Tag — nur dort.
-    pruefe(_ka52f.einordnen(tag='BP_CRAFT_APAR_BallisticGatling_S4')
-           == (_ka52f.SCHIFFSWAFFE, 'ballistic_gatling'),
+    pruefe(_ka52f.classify(tag='BP_CRAFT_APAR_BallisticGatling_S4')
+           == (_ka52f.SHIP_WEAPON, 'ballistic_gatling'),
            'die ballistische Gatling wird aus dem Tag erkannt')
-    pruefe(_ka52f.einordnen(tag='BP_CRAFT_HRST_LaserScatterGun_S1')
-           == (_ka52f.SCHIFFSWAFFE, 'scatter_gun'),
+    pruefe(_ka52f.classify(tag='BP_CRAFT_HRST_LaserScatterGun_S1')
+           == (_ka52f.SHIP_WEAPON, 'scatter_gun'),
            'auch die Scattergun — ihr Tag heisst LaserScatterGun')
-    pruefe(_ka52f.einordnen(tag='BP_CRAFT_APAR_BallisticScatterGun_S1')
-           == (_ka52f.SCHIFFSWAFFE, 'scatter_gun'),
+    pruefe(_ka52f.classify(tag='BP_CRAFT_APAR_BallisticScatterGun_S1')
+           == (_ka52f.SHIP_WEAPON, 'scatter_gun'),
            'und die ballistische Fassung ebenso')
     # ⚠ Ohne die Reihenfolge im Muster wuerde `ScatterGun` das laengere Wort
     # schlucken — sechs von sieben Scatterguns fielen durch.
-    pruefe(_ka52f.einordnen(tag='BP_CRAFT_behr_lmg_ballistic_01_mag')
-           == (_ka52f.AUSRUESTUNG, 'magazin'),
+    pruefe(_ka52f.classify(tag='BP_CRAFT_behr_lmg_ballistic_01_mag')
+           == (_ka52f.GEAR, 'magazin'),
            'Magazine erkennt man am Tag-Ende, nicht an der Katalog-Art')
-    pruefe(_ka52f.einordnen(art='Char_Armor_Helmet')
-           == (_ka52f.RUESTUNG, 'helm'),
+    pruefe(_ka52f.classify(art='Char_Armor_Helmet')
+           == (_ka52f.ARMOUR, 'helm'),
            'Koerperteile kommen aus der Katalog-Art')
-    pruefe(_ka52f.einordnen(art='Char_Armor_Legs')
-           == (_ka52f.RUESTUNG, 'beine'), 'Beine ebenso')
-    pruefe(_ka52f.einordnen(unterart='sniper')
-           == (_ka52f.FPS_WAFFE, 'sniper'),
+    pruefe(_ka52f.classify(art='Char_Armor_Legs')
+           == (_ka52f.ARMOUR, 'beine'), 'Beine ebenso')
+    pruefe(_ka52f.classify(unterart='sniper')
+           == (_ka52f.FPS_WEAPON, 'sniper'),
            'FPS-Waffen kommen aus dem Rezept-Untertyp')
     # Was sich nicht buendeln laesst, bleibt allein stehen — nicht in einem
     # Sammeltopf.
-    _einzeln = _ka52f.einordnen(art='DockingCollarXY')
-    pruefe(not _ka52f.ist_gruppe(_einzeln[0])
-           and _ka52f.rohe_art(_einzeln[0]) == 'DockingCollarXY',
+    _einzeln = _ka52f.classify(art='DockingCollarXY')
+    pruefe(not _ka52f.is_group(_einzeln[0])
+           and _ka52f.raw_kind(_einzeln[0]) == 'DockingCollarXY',
            'eine unbekannte Art bleibt als eigener Eintrag stehen')
     for _k52f in ('kat_ober_schiffswaffe', 'kat_ober_ruestung',
                   'kat_unter_ballistic_gatling', 'kat_unter_scatter_gun',
@@ -16502,6 +16502,7 @@ def main():
         'rohstoffe': 'materials',
         'bergbau': 'mining',
         'raffinerie': 'refinery',
+        'kategorien': 'categories',
     }
 
     def _reste190(quelle, name, alte):

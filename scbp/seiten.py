@@ -5965,7 +5965,7 @@ def _herstellung(fenster, rahmen):
     # „BP und Herstellung sind ja die gleichen BP, also muss man auf die
     # gleiche Art suchen." Beide Seiten fragen dasselbe Modul — wer hier eine
     # eigene Einteilung baute, hätte zwei Wahrheiten über dieselben Daten.
-    from . import kategorien as kat_modul
+    from . import categories as kat_modul
     from . import katalog as kat_daten
 
     _kat_arten = {}
@@ -5982,7 +5982,7 @@ def _herstellung(fenster, rahmen):
         if name in _kat_merker:
             return _kat_merker[name]
         b = herst_modul.rezept_roh(name) or {}
-        wert = kat_modul.einordnen(
+        wert = kat_modul.classify(
             art=_kat_arten.get(herst_modul._schluessel(name), ''),
             tag=b.get('tag') or '',
             unterart=e.get('unterart') or '',
@@ -6003,10 +6003,10 @@ def _herstellung(fenster, rahmen):
                 zaehler[o] = zaehler.get(o, 0) + 1
         raus = []
         for o, n in zaehler.items():
-            name = kat_modul.obername(o)
-            if not kat_modul.ist_gruppe(o):
-                name = kat_daten.art_lesbar(kat_modul.rohe_art(o)) or name
-            raus.append((o, '%s (%d)' % (name, n), kat_modul.ist_gruppe(o), name))
+            name = kat_modul.top_name(o)
+            if not kat_modul.is_group(o):
+                name = kat_daten.art_lesbar(kat_modul.raw_kind(o)) or name
+            raus.append((o, '%s (%d)' % (name, n), kat_modul.is_group(o), name))
         raus.sort(key=lambda p: (not p[2], p[3].lower()))
         return [(o, b) for o, b, _g, _n in raus]
 
@@ -6023,9 +6023,9 @@ def _herstellung(fenster, rahmen):
             if o != ober or not u:
                 continue
             zaehler[u] = zaehler.get(u, 0) + 1
-        return [(u, '%s (%d)' % (kat_modul.untername(u), n))
+        return [(u, '%s (%d)' % (kat_modul.sub_name(u), n))
                 for u, n in sorted(zaehler.items(),
-                                   key=lambda q: kat_modul.untername(q[0]).lower())]
+                                   key=lambda q: kat_modul.sub_name(q[0]).lower())]
 
     filter_rahmen = tk.Frame(innen, bg=BG)
     filter_rahmen.pack(fill='x')

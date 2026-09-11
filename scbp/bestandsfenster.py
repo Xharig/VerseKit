@@ -587,7 +587,7 @@ class Bestandsfenster:
         # dem Bauplan-Fortschritt, wo jede Kategorie eine eigene Zeile hat.
         #
         # ⚠ Bewusst NICHT `fein['art']`: Das sind die Oberkategorien aus
-        # `kategorien.einordnen`, der Fortschritt zählt dagegen nach
+        # `categories.classify`, der Fortschritt zählt dagegen nach
         # `katalog.art_lesbar`. Zwei Zuordnungen, die sich ähneln, aber nicht
         # deckungsgleich sind — genau daran ging am 29.08.2026 schon einmal
         # eine Liste leer aus, während im Feld eine Zahl stand. Wer aus dem
@@ -727,9 +727,9 @@ class Bestandsfenster:
         if name in merker:
             return merker[name]
         try:
-            from . import kategorien as kat_modul, herstellung as herst
+            from . import categories as kat_modul, herstellung as herst
             b = herst.rezept_roh(name) or {}
-            wert = kat_modul.einordnen(art=eintrag.get('a') or '',
+            wert = kat_modul.classify(art=eintrag.get('a') or '',
                                        tag=b.get('tag') or '',
                                        unterart=b.get('subtype') or '',
                                        rezeptart=b.get('type') or '')
@@ -750,7 +750,7 @@ class Bestandsfenster:
         Was sich nicht bündeln lässt, bleibt als eigener Eintrag stehen —
         „nur was man nicht bündeln kann, sollte noch alleine stehen bleiben."
         """
-        from . import kategorien as kat_modul
+        from . import categories as kat_modul
         zaehler = {}
         for e in (self.katalog.get('bauplaene') or {}).values():
             ober, _u = self._kategorie(e)
@@ -758,12 +758,12 @@ class Bestandsfenster:
                 zaehler[ober] = zaehler.get(ober, 0) + 1
         eintraege = []
         for ober, n in zaehler.items():
-            name = kat_modul.obername(ober)
-            if not kat_modul.ist_gruppe(ober):
+            name = kat_modul.top_name(ober)
+            if not kat_modul.is_group(ober):
                 # Einzelgänger: den gewohnten Katalognamen zeigen.
-                name = katalog_modul.art_lesbar(kat_modul.rohe_art(ober)) or name
+                name = katalog_modul.art_lesbar(kat_modul.raw_kind(ober)) or name
             eintraege.append((ober, '%s (%d)' % (name, n),
-                              kat_modul.ist_gruppe(ober), name))
+                              kat_modul.is_group(ober), name))
         # Gruppen zuerst, danach die Einzelgänger — beides alphabetisch.
         eintraege.sort(key=lambda p: (not p[2], p[3].lower()))
         return [(o, b) for o, b, _g, _n in eintraege]
@@ -1237,7 +1237,7 @@ class Bestandsfenster:
         dass man nur die Unterarten passend zur Überkategorie zur Auswahl hat,
         sonst suchen die Leute sich wieder nen Wolf" (29.08.2026).
         """
-        from . import kategorien as kat_modul
+        from . import categories as kat_modul
         ober = self.fein.get('art') or ''
         if not ober:
             return []
@@ -1247,9 +1247,9 @@ class Bestandsfenster:
             if o != ober or not u:
                 continue
             zaehler[u] = zaehler.get(u, 0) + 1
-        return [(u, '%s (%d)' % (kat_modul.untername(u), n))
+        return [(u, '%s (%d)' % (kat_modul.sub_name(u), n))
                 for u, n in sorted(zaehler.items(),
-                                   key=lambda p: kat_modul.untername(p[0]).lower())]
+                                   key=lambda p: kat_modul.sub_name(p[0]).lower())]
 
     def _fein_setzen(self, schluessel, wert):
         self.fein[schluessel] = wert
@@ -2433,7 +2433,7 @@ class Bestandsfenster:
 
         ⚠ Gefiltert wird ueber `katalog.art_lesbar` — **dieselbe** Zuordnung,
         nach der der Fortschritt zaehlt. Wuerde hier der Feinfilter
-        (`fein['art']`, aus `kategorien.einordnen`) benutzt, koennten Zahl und
+        (`fein['art']`, aus `categories.classify`) benutzt, koennten Zahl und
         Liste auseinanderlaufen; genau diesen stummen Widerspruch gab es am
         29.08.2026 schon einmal.
         """

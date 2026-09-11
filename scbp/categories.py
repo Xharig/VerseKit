@@ -44,6 +44,13 @@ Werkzeug nicht neu erfinden.
 
 Was in keine Kategorie fällt, landet unter „Sonstiges" — sichtbar, nicht
 verschwunden.
+
+⚠ Bis zum 12.09.2026 hieß dieses Modul `kategorien` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: die Kennungen der Gruppen (`'schiffswaffe'`, `'ruestung'`,
+`'kleidung'` …) und der feinen Arten (`'ballistic_cannon'`, `'helm'` …) —
+über sie holt die Oberfläche ihre Texte (`kat_ober_…`, `kat_unter_…`), und
+der Vorsatz `art:` für Einzelgänger steht in gespeicherten Filtern.
 """
 import re
 
@@ -52,7 +59,7 @@ from .sprache import t
 # --- Die feinen Arten, wie sie im Tag der Rezeptdaten stehen ---------------
 # ⚠ Reihenfolge egal, aber die Schreibweise muss zum Tag passen; verglichen
 # wird ohne Rücksicht auf Gross- und Kleinschreibung.
-_TAG_ARTEN = (
+_TAG_KINDS = (
     # ⚠ Die zusammengesetzten zuerst: `BallisticScatterGun` muss vor
     # `ScatterGun` stehen, sonst schluckt das kürzere Wort den Treffer und
     # sechs von sieben Scatterguns fielen durch — gemessen am 29.08.2026.
@@ -64,81 +71,81 @@ _TAG_ARTEN = (
     'TachyonCannon', 'ScatterGun', 'MassDriver',
     'MiningLaser', 'SalvageModifier', 'SalvageHead', 'TractorBeam',
 )
-_TAG_MUSTER = re.compile(r'_(%s)(?:_|$)' % '|'.join(_TAG_ARTEN), re.I)
+_TAG_PATTERN = re.compile(r'_(%s)(?:_|$)' % '|'.join(_TAG_KINDS), re.I)
 
 # --- Oberkategorie je feiner Art ------------------------------------------
 # Die sieben Gruppen aus einer erprobten Liste.
-SCHIFFSWAFFE = 'schiffswaffe'
-SCHIFFSMODUL = 'schiffsmodul'
-SCHIFFSWERKZEUG = 'schiffswerkzeug'
-FPS_WAFFE = 'fpswaffe'
-AUSRUESTUNG = 'ausruestung'
-RUESTUNG = 'ruestung'
-KLEIDUNG = 'kleidung'
-SONSTIGES = 'sonstiges'
+SHIP_WEAPON = 'schiffswaffe'
+SHIP_MODULE = 'schiffsmodul'
+SHIP_TOOL = 'schiffswerkzeug'
+FPS_WEAPON = 'fpswaffe'
+GEAR = 'ausruestung'
+ARMOUR = 'ruestung'
+CLOTHING = 'kleidung'
+OTHER = 'sonstiges'
 
 # Reihenfolge im Auswahlfeld — dieselbe wie in der Vergleichsliste.
-OBER_REIHE = (SCHIFFSWAFFE, SCHIFFSMODUL, SCHIFFSWERKZEUG, FPS_WAFFE,
-              AUSRUESTUNG, RUESTUNG, KLEIDUNG, SONSTIGES)
+TOP_ORDER = (SHIP_WEAPON, SHIP_MODULE, SHIP_TOOL, FPS_WEAPON,
+             GEAR, ARMOUR, CLOTHING, OTHER)
 
-_AUS_TAG = {
-    'ballisticcannon': (SCHIFFSWAFFE, 'ballistic_cannon'),
-    'ballisticgatling': (SCHIFFSWAFFE, 'ballistic_gatling'),
-    'ballisticrepeater': (SCHIFFSWAFFE, 'ballistic_repeater'),
-    'lasercannon': (SCHIFFSWAFFE, 'laser_cannon'),
-    'laserrepeater': (SCHIFFSWAFFE, 'laser_repeater'),
-    'distortioncannon': (SCHIFFSWAFFE, 'dist_cannon'),
-    'distortionrepeater': (SCHIFFSWAFFE, 'dist_repeater'),
-    'neutroncannon': (SCHIFFSWAFFE, 'neutron_cannon'),
-    'neutronrepeater': (SCHIFFSWAFFE, 'neutron_repeater'),
-    'tachyoncannon': (SCHIFFSWAFFE, 'tachyon_cannon'),
-    'scattergun': (SCHIFFSWAFFE, 'scatter_gun'),
-    'ballisticscattergun': (SCHIFFSWAFFE, 'scatter_gun'),
-    'laserscattergun': (SCHIFFSWAFFE, 'scatter_gun'),
-    'massdriver': (SCHIFFSWAFFE, 'mass_driver'),
-    'mininglaser': (SCHIFFSWERKZEUG, 'mining_laser'),
-    'salvagemodifier': (SCHIFFSWERKZEUG, 'salvage_modifier'),
-    'salvagehead': (SCHIFFSWERKZEUG, 'salvage_head'),
-    'tractorbeam': (SCHIFFSWERKZEUG, 'tractor_beam'),
+_FROM_TAG = {
+    'ballisticcannon': (SHIP_WEAPON, 'ballistic_cannon'),
+    'ballisticgatling': (SHIP_WEAPON, 'ballistic_gatling'),
+    'ballisticrepeater': (SHIP_WEAPON, 'ballistic_repeater'),
+    'lasercannon': (SHIP_WEAPON, 'laser_cannon'),
+    'laserrepeater': (SHIP_WEAPON, 'laser_repeater'),
+    'distortioncannon': (SHIP_WEAPON, 'dist_cannon'),
+    'distortionrepeater': (SHIP_WEAPON, 'dist_repeater'),
+    'neutroncannon': (SHIP_WEAPON, 'neutron_cannon'),
+    'neutronrepeater': (SHIP_WEAPON, 'neutron_repeater'),
+    'tachyoncannon': (SHIP_WEAPON, 'tachyon_cannon'),
+    'scattergun': (SHIP_WEAPON, 'scatter_gun'),
+    'ballisticscattergun': (SHIP_WEAPON, 'scatter_gun'),
+    'laserscattergun': (SHIP_WEAPON, 'scatter_gun'),
+    'massdriver': (SHIP_WEAPON, 'mass_driver'),
+    'mininglaser': (SHIP_TOOL, 'mining_laser'),
+    'salvagemodifier': (SHIP_TOOL, 'salvage_modifier'),
+    'salvagehead': (SHIP_TOOL, 'salvage_head'),
+    'tractorbeam': (SHIP_TOOL, 'tractor_beam'),
 }
 
 # --- Aus der Katalog-Art --------------------------------------------------
-_AUS_ART = {
-    'char_armor_helmet': (RUESTUNG, 'helm'),
-    'char_armor_torso': (RUESTUNG, 'torso'),
-    'char_armor_arms': (RUESTUNG, 'arme'),
-    'char_armor_legs': (RUESTUNG, 'beine'),
-    'char_armor_undersuit': (RUESTUNG, 'unteranzug'),
-    'char_armor_backpack': (AUSRUESTUNG, 'rucksack'),
-    'backpack': (AUSRUESTUNG, 'rucksack'),
-    'undersuit': (RUESTUNG, 'unteranzug'),
-    'char_clothing_torso': (KLEIDUNG, 'oberkoerper'),
-    'char_clothing_legs': (KLEIDUNG, 'beine'),
-    'char_clothing_feet': (KLEIDUNG, 'schuhe'),
-    'char_clothing_jacket': (KLEIDUNG, 'jacke'),
-    'cooler': (SCHIFFSMODUL, 'cooler'),
-    'powerplant': (SCHIFFSMODUL, 'powerplant'),
-    'quantumdrive': (SCHIFFSMODUL, 'quantumdrive'),
-    'shield': (SCHIFFSMODUL, 'schild'),
-    'radar': (SCHIFFSMODUL, 'radar'),
-    'weaponattachment': (AUSRUESTUNG, 'aufsatz'),
-    'weaponmagazine': (AUSRUESTUNG, 'magazin'),
-    'magazine': (AUSRUESTUNG, 'magazin'),
-    'dockingcollar': (SCHIFFSWERKZEUG, 'andockkragen'),
-    'fuelnozzle': (SCHIFFSWERKZEUG, 'fuelnozzle'),
-    'weaponmining': (SCHIFFSWERKZEUG, 'mining_laser'),
-    'container': (AUSRUESTUNG, 'behaelter'),
-    'cargomodule': (SCHIFFSWERKZEUG, 'frachtmodul'),
+_FROM_KIND = {
+    'char_armor_helmet': (ARMOUR, 'helm'),
+    'char_armor_torso': (ARMOUR, 'torso'),
+    'char_armor_arms': (ARMOUR, 'arme'),
+    'char_armor_legs': (ARMOUR, 'beine'),
+    'char_armor_undersuit': (ARMOUR, 'unteranzug'),
+    'char_armor_backpack': (GEAR, 'rucksack'),
+    'backpack': (GEAR, 'rucksack'),
+    'undersuit': (ARMOUR, 'unteranzug'),
+    'char_clothing_torso': (CLOTHING, 'oberkoerper'),
+    'char_clothing_legs': (CLOTHING, 'beine'),
+    'char_clothing_feet': (CLOTHING, 'schuhe'),
+    'char_clothing_jacket': (CLOTHING, 'jacke'),
+    'cooler': (SHIP_MODULE, 'cooler'),
+    'powerplant': (SHIP_MODULE, 'powerplant'),
+    'quantumdrive': (SHIP_MODULE, 'quantumdrive'),
+    'shield': (SHIP_MODULE, 'schild'),
+    'radar': (SHIP_MODULE, 'radar'),
+    'weaponattachment': (GEAR, 'aufsatz'),
+    'weaponmagazine': (GEAR, 'magazin'),
+    'magazine': (GEAR, 'magazin'),
+    'dockingcollar': (SHIP_TOOL, 'andockkragen'),
+    'fuelnozzle': (SHIP_TOOL, 'fuelnozzle'),
+    'weaponmining': (SHIP_TOOL, 'mining_laser'),
+    'container': (GEAR, 'behaelter'),
+    'cargomodule': (SHIP_TOOL, 'frachtmodul'),
 }
 
 # --- Aus dem Rezept-Untertyp (FPS-Waffen) ---------------------------------
-_AUS_SUB = {
-    'pistol': (FPS_WAFFE, 'pistole'),
-    'rifle': (FPS_WAFFE, 'gewehr'),
-    'sniper': (FPS_WAFFE, 'sniper'),
-    'smg': (FPS_WAFFE, 'smg'),
-    'shotgun': (FPS_WAFFE, 'schrotflinte'),
-    'lmg': (FPS_WAFFE, 'lmg'),
+_FROM_SUBTYPE = {
+    'pistol': (FPS_WEAPON, 'pistole'),
+    'rifle': (FPS_WEAPON, 'gewehr'),
+    'sniper': (FPS_WEAPON, 'sniper'),
+    'smg': (FPS_WEAPON, 'smg'),
+    'shotgun': (FPS_WEAPON, 'schrotflinte'),
+    'lmg': (FPS_WEAPON, 'lmg'),
 }
 
 
@@ -147,46 +154,51 @@ _AUS_SUB = {
 # immer auf `_mag` (oder `_mag_civilian`). ⚠ Ohne diese Zeile lagen 18 Magazine
 # unter „Waffenaufsatz", während sie andernorts als
 # eigene Gruppe führt.
-_MAGAZIN = re.compile(r'_mag(?:_|$)', re.I)
+_MAGAZINE = re.compile(r'_mag(?:_|$)', re.I)
 
 
-def _aus_tag(tag):
+def _from_tag(tag):
     tag = tag or ''
-    if _MAGAZIN.search(tag):
-        return (AUSRUESTUNG, 'magazin')
-    m = _TAG_MUSTER.search(tag)
+    if _MAGAZINE.search(tag):
+        return (GEAR, 'magazin')
+    m = _TAG_PATTERN.search(tag)
     if not m:
         return None
-    return _AUS_TAG.get(m.group(1).lower())
+    return _FROM_TAG.get(m.group(1).lower())
 
 
-def einordnen(art='', tag='', unterart='', rezeptart=''):
+def classify(art='', tag='', unterart='', rezeptart=''):
     """Ober- und Unterkategorie eines Bauplans — `(ober, unter)`.
 
     Die Reihenfolge der Quellen ist Absicht: Der Tag ist am genauesten, die
     Katalog-Art am verlässlichsten, der Untertyp am gröbsten. Wer sie anders
     herum abfragt, bekommt bei einer ballistischen Gatling nur „Waffe".
+
+    ⚠ Die Namen der Schlüsselwörter (`art`, `tag`, `unterart`, `rezeptart`)
+    bleiben vorerst deutsch: Die Aufrufer in `seiten.py` und
+    `bestandsfenster.py` rufen sie so, und die Dateien sind noch nicht an der
+    Reihe. Sie wandern mit, wenn ihre eigene Stufe drankommt.
     """
-    treffer = _aus_tag(tag)
-    if treffer:
-        return treffer
-    treffer = _AUS_ART.get((art or '').lower())
-    if treffer:
-        return treffer
-    treffer = _AUS_SUB.get((unterart or '').lower())
-    if treffer:
-        return treffer
+    hit = _from_tag(tag)
+    if hit:
+        return hit
+    hit = _FROM_KIND.get((art or '').lower())
+    if hit:
+        return hit
+    hit = _FROM_SUBTYPE.get((unterart or '').lower())
+    if hit:
+        return hit
     # Munition zählt zur Ausrüstung — sie gehört zur Waffe, nicht zum Schiff.
     if (rezeptart or '').lower() == 'ammo':
-        return (AUSRUESTUNG, 'munition')
+        return (GEAR, 'munition')
     if (art or '').lower().startswith('weapongun'):
-        return (SCHIFFSWAFFE, '')
+        return (SHIP_WEAPON, '')
     if (art or '').lower().startswith('weapon'):
-        return (FPS_WAFFE, '')
+        return (FPS_WEAPON, '')
     if (art or '').lower().startswith('char_armor'):
-        return (RUESTUNG, '')
+        return (ARMOUR, '')
     if (art or '').lower().startswith('char_clothing'):
-        return (KLEIDUNG, '')
+        return (CLOTHING, '')
     # ⚠ Was sich nicht bündeln lässt, bleibt **allein stehen** — mit seinem
     # eigenen Namen, nicht in einem Sammeltopf „Sonstiges". Xharig:
     # „nur was man nicht bündeln kann, sollte noch alleine stehen bleiben."
@@ -194,33 +206,33 @@ def einordnen(art='', tag='', unterart='', rezeptart=''):
     # Sache — er verschwindet nicht, er steht für sich.
     if art:
         return ('art:' + art, '')
-    return (SONSTIGES, '')
+    return (OTHER, '')
 
 
-def ist_gruppe(schluessel):
+def is_group(key):
     """Ist das eine der sieben Gruppen — oder ein Einzelgänger?"""
-    return bool(schluessel) and not str(schluessel).startswith('art:')
+    return bool(key) and not str(key).startswith('art:')
 
 
-def rohe_art(schluessel):
+def raw_kind(key):
     """Die Katalog-Art hinter einem Einzelgänger (`art:Cooler` → `Cooler`)."""
-    s = str(schluessel or '')
+    s = str(key or '')
     return s[4:] if s.startswith('art:') else ''
 
 
-def obername(schluessel):
+def top_name(key):
     """Wie eine Oberkategorie im Fenster heisst.
 
     Einzelgänger tragen ihren Katalognamen — den kennt der Aufrufer besser als
     dieses Modul, deshalb gibt es hier den Rohwert zurück.
     """
-    if not schluessel:
+    if not key:
         return ''
-    if not ist_gruppe(schluessel):
-        return rohe_art(schluessel)
-    return t('kat_ober_%s' % schluessel)
+    if not is_group(key):
+        return raw_kind(key)
+    return t('kat_ober_%s' % key)
 
 
-def untername(schluessel):
+def sub_name(key):
     """Wie eine Unterart im Fenster heisst."""
-    return t('kat_unter_%s' % schluessel) if schluessel else ''
+    return t('kat_unter_%s' % key) if key else ''
