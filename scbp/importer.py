@@ -48,8 +48,17 @@ als einer zu viel: Wer denkt, ihm fehle ein Bauplan, jagt ihn ein zweites Mal.
 Vorher wird versucht, ihn über den Klammer-Zusatz zuzuordnen — dieselbe Falle
 wie `(12 Schuss)` gegen `(12 cap)`.
 
-Dieses Modul **entscheidet nichts allein**: `vorschau()` sagt, was passieren
-würde; erst `uebernehmen()` schreibt.
+Dieses Modul **entscheidet nichts allein**: `preview()` sagt, was passieren
+würde; erst `merge()` schreibt.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `importieren`, die Funktionen
+`erkennen`, `lesen`, `vorschau` und `uebernehmen` (Sprachumstellung P4,
+Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst gleich
+geblieben: die Formatkennungen (`'eigen'`, `'scmdb'`, `'scmdb2'`, `'basetool'`,
+`'launcher'`) — `seiten.py` holt darüber die Bezeichnung für die Anzeige —, die
+Schlüssel `name` und `zeit` der Einträge, die Schlüssel `neu`, `schon_da`,
+`unbekannt` und `gesamt` der Vorschau und der Quellwert `'import'`, der im
+Bestand jedes Nutzers steht.
 """
 import json
 import os
@@ -59,28 +68,28 @@ import time
 from . import bestand as bestand_datei
 from . import fehler
 
-QUELLE = 'import'
+SOURCE = 'import'
 
 
-def _entklammert(name):
+def _strip_suffix(name):
     """Name ohne den Klammer-Zusatz am Ende — für den Notfall-Abgleich."""
     return re.sub(r'\s*\([^()]*\)\s*$', '', name or '').strip()
 
 
-def erkennen(daten):
+def detect(data):
     """Aus welchem Format stammt die geladene Datei? Sonst None."""
-    if not isinstance(daten, dict):
+    if not isinstance(data, dict):
         return None
-    if daten.get('werkzeug') == 'SC BP Watcher' or 'bauplaene' in daten:
+    if data.get('werkzeug') == 'SC BP Watcher' or 'bauplaene' in data:
         return 'eigen'
-    liste = daten.get('blueprints')
-    if isinstance(liste, list) and liste:
-        erster = liste[0] if isinstance(liste[0], dict) else {}
-        if 'key' in erster:
+    items = data.get('blueprints')
+    if isinstance(items, list) and items:
+        first = items[0] if isinstance(items[0], dict) else {}
+        if 'key' in first:
             return 'launcher'
-        if 'exportSchemaVersion' in daten or 'ts' in erster:
+        if 'exportSchemaVersion' in data or 'ts' in first:
             return 'scmdb'
-        if 'productName' in erster:
+        if 'productName' in first:
             return 'basetool'
         # ⚠⚠ **Die neuere Ausfuhr von scmdb.net** (dort „Tracking-Export").
         # Am 05.09.2026 gemeldet: Eine Datei von einem Mitspieler wurde mit
@@ -92,49 +101,49 @@ def erkennen(daten):
         #
         # ⚠ Erkannt wird an `tag` + `name`, nicht an `version`: Die Zahl waere
         # beim naechsten Formatwechsel wieder eine andere, die Felder bleiben.
-        if 'tag' in erster and 'name' in erster:
+        if 'tag' in first and 'name' in first:
             return 'scmdb2'
     return None
 
 
-def _zeit_aus(wert):
+def _time_from(value):
     """Einen Zeitwert in unsere Schreibweise bringen — oder nichts."""
     try:
-        if isinstance(wert, (int, float)) and wert > 0:
-            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(wert))
-        if isinstance(wert, str) and wert.strip():
-            roh = wert.strip().replace('Z', '').replace('T', ' ')
-            return roh[:19]
+        if isinstance(value, (int, float)) and value > 0:
+            return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(value))
+        if isinstance(value, str) and value.strip():
+            raw = value.strip().replace('Z', '').replace('T', ' ')
+            return raw[:19]
     except Exception:
         pass
     return None
 
 
-def lesen(pfad):
+def read(path):
     """Eine Datei einlesen. Gibt (art, [{name, zeit}, …]) zurück.
 
     Bei einer unlesbaren oder unbekannten Datei ist die Art None — die Meldung
     dazu gehört in die Oberfläche, nicht in eine Ausnahme mitten im Ablauf.
     """
     try:
-        with open(pfad, encoding='utf-8-sig') as f:
-            daten = json.load(f)
-    except Exception as ausnahme:
-        fehler.merken('importieren.lesen', ausnahme, os.path.basename(pfad or ''))
+        with open(path, encoding='utf-8-sig') as f:
+            data = json.load(f)
+    except Exception as exc:
+        fehler.merken('importer.read', exc, os.path.basename(path or ''))
         return None, []
 
-    art = erkennen(daten)
-    eintraege = []
-    if art == 'eigen':
-        for e in daten.get('bauplaene') or []:
+    kind = detect(data)
+    entries = []
+    if kind == 'eigen':
+        for e in data.get('bauplaene') or []:
             if isinstance(e, dict) and e.get('name'):
-                eintraege.append({'name': e['name'], 'zeit': _zeit_aus(e.get('zeit'))})
-    elif art in ('scmdb', 'basetool'):
-        for e in daten.get('blueprints') or []:
+                entries.append({'name': e['name'], 'zeit': _time_from(e.get('zeit'))})
+    elif kind in ('scmdb', 'basetool'):
+        for e in data.get('blueprints') or []:
             if isinstance(e, dict) and e.get('productName'):
-                eintraege.append({'name': e['productName'],
-                                  'zeit': _zeit_aus(e.get('ts') or e.get('receivedAt'))})
-    elif art == 'scmdb2':
+                entries.append({'name': e['productName'],
+                                'zeit': _time_from(e.get('ts') or e.get('receivedAt'))})
+    elif kind == 'scmdb2':
         # ⚠⚠ **Nur, was als erledigt markiert ist.** Die Ausfuhr enthaelt auch
         # Bauplaene, die jemand nur beobachtet oder angesehen hat; `completed`
         # ist das Feld, das „habe ich" bedeutet. Ohne diese Bedingung waere
@@ -143,71 +152,71 @@ def lesen(pfad):
         #
         # ⚠ Einen Zeitpunkt gibt es in diesem Format nicht. Lieber keiner als
         # ein erfundener: Der Bestand kommt damit zurecht.
-        for e in daten.get('blueprints') or []:
+        for e in data.get('blueprints') or []:
             if isinstance(e, dict) and e.get('name') and e.get('completed'):
-                eintraege.append({'name': e['name'], 'zeit': None})
-    elif art == 'launcher':
-        for e in daten.get('blueprints') or []:
+                entries.append({'name': e['name'], 'zeit': None})
+    elif kind == 'launcher':
+        for e in data.get('blueprints') or []:
             if isinstance(e, dict) and e.get('key'):
-                eintraege.append({'name': e['key'], 'zeit': None})
-    return art, eintraege
+                entries.append({'name': e['key'], 'zeit': None})
+    return kind, entries
 
 
-def vorschau(eintraege, daten=None, katalog_namen=None):
+def preview(entries, data=None, catalog_names=None):
     """Was würde passieren? Ändert nichts.
 
     Rückgabe: dict mit `neu`, `schon_da`, `unbekannt` (Namen) und `gesamt`.
     `unbekannt` sind Namen, die der Katalog nicht kennt — sie kommen trotzdem
     mit, stehen aber getrennt, damit die Fortschrittszahl erklärbar bleibt.
     """
-    daten = daten if daten is not None else bestand_datei.laden()
-    vorhanden = set(daten.get('bauplaene') or {})
-    bekannt = {bestand_datei.norm(n) for n in (katalog_namen or [])}
-    ohne_klammer = {bestand_datei.norm(_entklammert(n)) for n in (katalog_namen or [])}
+    data = data if data is not None else bestand_datei.laden()
+    present = set(data.get('bauplaene') or {})
+    known = {bestand_datei.norm(n) for n in (catalog_names or [])}
+    known_short = {bestand_datei.norm(_strip_suffix(n)) for n in (catalog_names or [])}
 
-    neu, schon_da, unbekannt, gesehen = [], [], [], set()
-    for e in eintraege:
-        schluessel = bestand_datei.norm(e.get('name'))
-        if not schluessel or schluessel in gesehen:
+    new, existing, unknown, seen = [], [], [], set()
+    for e in entries:
+        key = bestand_datei.norm(e.get('name'))
+        if not key or key in seen:
             continue
-        gesehen.add(schluessel)
-        if schluessel in vorhanden:
-            schon_da.append(e['name'])
+        seen.add(key)
+        if key in present:
+            existing.append(e['name'])
             continue
-        neu.append(e['name'])
-        if bekannt and schluessel not in bekannt:
+        new.append(e['name'])
+        if known and key not in known:
             # Zweiter Versuch ohne Klammer-Zusatz — aber nur, wenn er eindeutig
             # ist. Sonst würden `Singe Cannon (S1)/(S2)/(S3)` verschmelzen.
-            kurz = bestand_datei.norm(_entklammert(e['name']))
-            if kurz not in ohne_klammer:
-                unbekannt.append(e['name'])
+            short = bestand_datei.norm(_strip_suffix(e['name']))
+            if short not in known_short:
+                unknown.append(e['name'])
 
-    return {'neu': neu, 'schon_da': schon_da, 'unbekannt': unbekannt,
-            'gesamt': len(gesehen)}
+    return {'neu': new, 'schon_da': existing, 'unbekannt': unknown,
+            'gesamt': len(seen)}
 
 
-def uebernehmen(eintraege, daten=None, speichern=True):
+def merge(entries, data=None, save=True):
     """Die Einträge in den Bestand aufnehmen. Gibt die Zahl der neuen zurück.
 
     Zusammenführen: Vorhandenes bleibt unangetastet. Ein Zeitpunkt aus der Datei
     wird übernommen — er ist genauer als „jetzt gerade eingelesen".
     """
-    daten = daten if daten is not None else bestand_datei.laden()
-    dazu = 0
-    for e in eintraege:
-        if bestand_datei.hinzufuegen(daten, e.get('name'), QUELLE, e.get('zeit')):
-            dazu += 1
-    if speichern and dazu:
-        bestand_datei.speichern(daten)
-    return dazu
+    data = data if data is not None else bestand_datei.laden()
+    added = 0
+    for e in entries:
+        if bestand_datei.hinzufuegen(data, e.get('name'), SOURCE, e.get('zeit')):
+            added += 1
+    if save and added:
+        bestand_datei.speichern(data)
+    return added
 
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 2:
-        print('Aufruf: python3 -m scbp.importieren <datei.json>')
+        print('Aufruf: python3 -m scbp.importer <datei.json>')
         sys.exit(2)
-    art, eintraege = lesen(sys.argv[1])
-    print('Format:', art or 'nicht erkannt', '·', len(eintraege), 'Einträge')
-    v = vorschau(eintraege)
+    kind, entries = read(sys.argv[1])
+    print('Format:', kind or 'nicht erkannt', '·', len(entries), 'Einträge')
+    v = preview(entries)
     print('neu: %d · schon da: %d' % (len(v['neu']), len(v['schon_da'])))

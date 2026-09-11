@@ -2259,7 +2259,7 @@ def _quelle_waehlen(fenster, e, wahl, kennung, danach):
 
 
 def _bestand(fenster, rahmen):
-    from . import export, importieren
+    from . import export, importer
     _ueberschrift(fenster, rahmen, t('hf_bestand'), t('s_be_lead'))
     innen = _rollflaeche(rahmen)
 
@@ -2350,14 +2350,14 @@ def _bestand(fenster, rahmen):
             patterns=(('JSON', '*.json'), (t('alle_dateien'), '*.*')))
         if not pfad:
             return
-        art, eintraege = importieren.lesen(pfad)
+        art, eintraege = importer.read(pfad)
         for kind in vorschau_platz.winfo_children():
             kind.destroy()
         if not art:
             _status(fenster, vorschau_platz, '!', t('s_be_unbekannt'),
                     t('s_be_unbekannt_h'), farbe=ROT)
             return
-        v = importieren.vorschau(eintraege)
+        v = importer.preview(eintraege)
         _vorschau_zeigen(fenster, vorschau_platz, art, eintraege, v)
 
     _knopf(fenster, innen, t('s_be_waehlen'), einlesen,
@@ -2469,7 +2469,7 @@ def _leere_vorschau(fenster, eltern):
 
 def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     """Was der Import täte — erst nach dem Knopf passiert wirklich etwas."""
-    from . import importieren
+    from . import importer
     from .hauptfenster import marke as blase
     innen = _karte(eltern, rand=ACCENT)
 
@@ -2512,7 +2512,7 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     reihe.pack(fill='x', padx=16, pady=(0, 14))
 
     def uebernehmen():
-        dazu = importieren.uebernehmen(eintraege)
+        dazu = importer.merge(eintraege)
         fenster.sagen(t('s_be_genommen') % dazu)
         innen.halter.destroy()
 

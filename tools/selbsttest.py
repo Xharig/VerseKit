@@ -755,7 +755,7 @@ def main():
         # zusammenführen heißt zusammenführen.
         print()
         print('13. Vorhandenen Bestand einlesen')
-        from scbp import importieren, bestand as bestandsmodul
+        from scbp import importer, bestand as bestandsmodul
 
         proben = {
             'eigen': {'werkzeug': 'SC BP Watcher',
@@ -766,9 +766,9 @@ def main():
                                          'receivedAt': '2026-08-02T01:49:03.322Z'}]},
             'launcher': {'blueprints': [{'key': 'XL-1'}]},
         }
-        erkannt = all(importieren.erkennen(d) == art for art, d in proben.items())
+        erkannt = all(importer.detect(d) == art for art, d in proben.items())
         pruefe(erkannt, 'alle vier Formate werden am Inhalt erkannt')
-        pruefe(importieren.erkennen({'irgendwas': [1, 2, 3]}) is None,
+        pruefe(importer.detect({'irgendwas': [1, 2, 3]}) is None,
                'eine fremde Datei wird nicht erkannt')
 
         datei = os.path.join(basis, 'einlesen.json')
@@ -779,15 +779,15 @@ def main():
                 {'productName': 'Attrition-5 Repeater'},          # Dublette
                 {'productName': 'Voll Neuer Bauplan'},
             ]}, f)
-        art, eintraege = importieren.lesen(datei)
+        art, eintraege = importer.read(datei)
         pruefe(art == 'basetool', 'die Datei wird als Basetool-Ausgabe gelesen')
         pruefe(len(eintraege) == 3, 'alle Zeilen kommen an')
 
         vorher = bestandsmodul.leer()
         bestandsmodul.hinzufuegen(vorher, 'Attrition-5 Repeater', 'log')
         bestandsmodul.hinzufuegen(vorher, 'Nur Im Bestand', 'log')
-        v = importieren.vorschau(eintraege, vorher,
-                                 katalog_namen=['Attrition-5 Repeater',
+        v = importer.preview(eintraege, vorher,
+                                 catalog_names=['Attrition-5 Repeater',
                                                 'Scalpel Sniper Rifle Magazine (12 cap)'])
         pruefe(v['gesamt'] == 2, 'Dubletten in der Datei zählen einmal')
         pruefe(v['neu'] == ['Voll Neuer Bauplan'], 'nur wirklich Neues gilt als neu')
@@ -795,7 +795,7 @@ def main():
         pruefe(v['unbekannt'] == ['Voll Neuer Bauplan'],
                'ein dem Katalog unbekannter Name wird gemeldet')
 
-        dazu = importieren.uebernehmen(eintraege, vorher, speichern=False)
+        dazu = importer.merge(eintraege, vorher, save=False)
         pruefe(dazu == 1, 'genau ein Eintrag kommt dazu')
         pruefe('nur im bestand' in vorher['bauplaene'],
                'der vorhandene Bestand bleibt vollständig erhalten')
@@ -1104,10 +1104,10 @@ def main():
             os.environ['SC_BP_HOME'] = os.path.join(basis, 'eigene')
 
         # Der Klammer-Abgleich: (12 Schuss) gegen (12 cap) — derselbe Bauplan.
-        v2 = importieren.vorschau(
+        v2 = importer.preview(
             [{'name': 'Scalpel Sniper Rifle Magazine (12 Schuss)', 'zeit': None}],
             bestandsmodul.leer(),
-            katalog_namen=['Scalpel Sniper Rifle Magazine (12 cap)'])
+            catalog_names=['Scalpel Sniper Rifle Magazine (12 cap)'])
         pruefe(v2['unbekannt'] == [],
                'abweichender Klammer-Zusatz gilt nicht als unbekannt')
 
@@ -12180,26 +12180,26 @@ def main():
     #
     # An der echten Datei gemessen: 349 Eintraege, 348 davon im Katalog
     # wiedergefunden.
-    from scbp import importieren as _imp129
+    from scbp import importer as _imp129
 
     _neu129 = {'version': 3, 'blueprints': [
         {'tag': 'BP_CRAFT_X', 'name': 'Omnisky VI Cannon', 'completed': True},
         {'tag': 'BP_CRAFT_Y', 'name': 'Nur beobachtet', 'completed': False},
     ], 'missions': [{'hash': 'a', 'name': 'Auftrag', 'completed': True}]}
-    pruefe(_imp129.erkennen(_neu129) == 'scmdb2',
+    pruefe(_imp129.detect(_neu129) == 'scmdb2',
            'das neue Format wird erkannt')
 
     # ⚠ Das ALTE Format darf dabei nicht verloren gehen — es gibt Nutzer mit
     # aelteren Ausfuhren, und eine Erkennung, die das eine gegen das andere
     # tauscht, verschiebt den Fehler nur.
-    pruefe(_imp129.erkennen(
+    pruefe(_imp129.detect(
         {'exportSchemaVersion': 1,
          'blueprints': [{'productName': 'Alt', 'ts': 1}]}) == 'scmdb',
         'das alte scmdb-Format weiterhin auch')
-    pruefe(_imp129.erkennen(
+    pruefe(_imp129.detect(
         {'blueprints': [{'productName': 'B', 'receivedAt': 1}]}) == 'basetool',
         'und das Basetool-Format')
-    pruefe(_imp129.erkennen(
+    pruefe(_imp129.detect(
         {'blueprints': [{'key': 'irgendwas'}]}) == 'launcher',
         'und das des Launchers')
 
@@ -12208,7 +12208,7 @@ def main():
         _datei129 = os.path.join(_wiese129, 'scmdb-tracking.json')
         with open(_datei129, 'w', encoding='utf-8') as _d129:
             json.dump(_neu129, _d129)
-        _art129, _eintraege129 = _imp129.lesen(_datei129)
+        _art129, _eintraege129 = _imp129.read(_datei129)
         pruefe(_art129 == 'scmdb2', 'die Datei wird als solche gelesen')
         # ⚠⚠ **Nur `completed` zaehlt.** Die Ausfuhr enthaelt auch Bauplaene,
         # die jemand nur beobachtet — waeren die dabei, staende die halbe
@@ -16480,6 +16480,89 @@ def main():
         pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
                                                _alt183 + '.py')),
                'scbp/%s.py gibt es nicht mehr' % _alt183)
+
+    print('\n190. Die Umbenennungen aus P4 halten')
+    # ⚠⚠ Sprachumstellung P4 (ab 11.09.2026). Jede Umbenennung traegt sich in
+    # `_p4_190` ein: alter Modulname -> neuer. Mehr ist nicht zu tun.
+    #
+    # ⚠ Gesucht wird nicht nur nach `import`-Zeilen. `bericht.py` holte die
+    # Merkliste per `__import__('scbp.merkliste', …)` — eine Zeichenkette, die
+    # weder eine Suche nach Importen noch pyflakes als Modulbezug sieht. Ein
+    # Rest dort fiele erst auf, wenn ein Nutzer einen Fehlerbericht baut.
+    # Deshalb liest die Pruefung den Syntaxbaum: Importe in allen Formen UND
+    # jede Zeichenkette, die genau `scbp.<alter Name>` lautet.
+    import ast as _ast190
+    import importlib as _il190
+    _p4_190 = {
+        'importieren': 'importer',
+    }
+
+    def _reste190(quelle, name, alte):
+        funde = []
+        for k in _ast190.walk(_ast190.parse(quelle, name)):
+            if isinstance(k, _ast190.ImportFrom):
+                modul = k.module or ''
+                if modul.split('.')[-1] in alte:
+                    funde.append('%s:%d from %s' % (name, k.lineno, modul))
+                if modul in ('', 'scbp'):
+                    for a in k.names:
+                        if a.name in alte:
+                            funde.append('%s:%d import %s'
+                                         % (name, k.lineno, a.name))
+            elif isinstance(k, _ast190.Import):
+                for a in k.names:
+                    if (a.name.startswith('scbp.')
+                            and a.name.split('.')[-1] in alte):
+                        funde.append('%s:%d import %s'
+                                     % (name, k.lineno, a.name))
+            elif (isinstance(k, _ast190.Constant) and isinstance(k.value, str)
+                  and k.value.startswith('scbp.') and k.value[5:] in alte):
+                funde.append('%s:%d Zeichenkette %r'
+                             % (name, k.lineno, k.value))
+        return funde
+
+    # Gegenprobe ZUERST: Alle vier Wege zu einem alten Namen muessen auffallen.
+    _g190 = _reste190("from . import importieren\n"
+                      "from scbp.importieren import read\n"
+                      "import scbp.importieren\n"
+                      "x = __import__('scbp.importieren', fromlist=['a'])\n",
+                      'gegenprobe', {'importieren'})
+    pruefe(len(_g190) == 4,
+           'die Suche erkennt alle vier Wege zu einem alten Modulnamen '
+           '(%d von 4)' % len(_g190))
+
+    # Das Programm und die eingecheckten Werkzeuge. `tools/entwurf_*` bleibt
+    # draussen: Diese Dateien sind per .gitignore ausgenommen und fehlen im
+    # Bau-Lauf — sie hier mitzuzaehlen, machte den Lauf lokal anders als dort.
+    _dateien190 = [os.path.join(_o190, _d190)
+                   for _o190, _u190, _n190
+                   in os.walk(os.path.join(_wurzelpfad, 'scbp'))
+                   for _d190 in _n190 if _d190.endswith('.py')]
+    _dateien190.append(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'))
+    _dateien190 += [os.path.join(_wurzelpfad, 'tools', _d190)
+                    for _d190 in os.listdir(os.path.join(_wurzelpfad, 'tools'))
+                    if _d190.endswith('.py')
+                    and not _d190.startswith('entwurf_')]
+    _alle190 = []
+    for _p190 in _dateien190:
+        _alle190 += _reste190(open(_p190, encoding='utf-8-sig').read(),
+                              os.path.basename(_p190), set(_p4_190))
+    for _x190 in _alle190[:6]:
+        print('       ·', _x190)
+    pruefe(len(_dateien190) >= 50 and not _alle190,
+           'kein Verweis mehr auf einen alten Modulnamen (%d Dateien)'
+           % len(_dateien190))
+
+    for _alt190, _neu190 in _p4_190.items():
+        pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
+                                               _alt190 + '.py')),
+               'scbp/%s.py gibt es nicht mehr' % _alt190)
+        try:
+            _il190.import_module('scbp.' + _neu190)
+            _da190 = True
+        except ImportError:
+            _da190 = False
+        pruefe(_da190, 'scbp.%s laesst sich importieren' % _neu190)
 
     print('\n182. Der Datenschutz-Scanner')
     # ⚠⚠ Die Regel „nach aussen heisst der Entwickler nur `Xharig`" war bis
