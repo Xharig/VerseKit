@@ -52,6 +52,16 @@ mal); nur Wrackteile tragen dort einen Namen. Wer darüber verknüpft, bekommt
 
 ⚠ **Nur die Erz-Gruppen nehmen.** `Salvage_*` und `Harvestables` stehen in
 derselben Liste, sind aber Wracks und Pflanzen.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `bergbau` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: der Dateiname `mining-data.json` und die Schlüssel darin
+(`format`, `build`, `locations`, `compositions`, `refineries`,
+`refineryProfiles`, `elemente`) — sonst wird jede vorhandene Ablage als
+veraltet verworfen und neu geholt. Ebenso die Abbauarten `fps`, `schiff`,
+`schiff_selten`, `fahrzeug`, die Schlüssel der Ergebnisse von `locations()`
+(`name`, `system`, `typ`, `erze`, `anteile`, `je_geraet`) und der Seitenname
+`bergbau` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
 import json
 import re
@@ -63,16 +73,16 @@ from .herstellung import norm_rohstoff
 from .sprache import t
 
 # Nur der Dateiname — siehe `katalog.hole_datei()`.
-QUELLE = 'mining_data-%s.json'
+SOURCE = 'mining_data-%s.json'
 CACHE = 'mining-data.json'
 FORMAT = 1
 
 # Das Geruest, wenn noch nichts geladen ist.
-LEER = {'format': FORMAT, 'build': None, 'locations': [], 'compositions': {}}
+EMPTY = {'format': FORMAT, 'build': None, 'locations': [], 'compositions': {}}
 
 # Welche Gruppe bedeutet welche Abbauart. Alles, was hier nicht steht, ist kein
 # Erz (Wracks, Pflanzen) und wird übergangen.
-ARTEN = {
+KINDS = {
     'FPS_Mineables':            'fps',
     'SpaceShip_Mineables':      'schiff',
     'SpaceShip_Mineables_Rare': 'schiff_selten',
@@ -84,7 +94,7 @@ ARTEN = {
 
 # ⚠⚠ **Die Daten bleiben im Speicher.**
 #
-# `laden()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
+# `load()` las bis zum 29.08.2026 bei JEDEM Aufruf die ganze Datei von der
 # Platte — bei den Rezepten sind das 4 MB und **22 ms**. Das fiel niemandem
 # auf, solange nur beim Seitenaufbau geladen wurde. Mit dem Qualitäts-Regler
 # wurde daraus ein Ladevorgang **pro Mausbewegung**: über 600 ms Rechenzeit je
@@ -94,78 +104,78 @@ ARTEN = {
 # von beiden — etwa weil ein neuer Spiel-Build geladen wurde — wird neu
 # gelesen. Damit bleibt der Zwischenspeicher richtig, ohne dass jemand ihn von
 # Hand leeren muss.
-_gemerkt = {'stand': None, 'daten': None}
+_cached = {'stand': None, 'daten': None}
 
 
-def laden():
+def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    pfad = pfade.app_datei(CACHE)
+    path = pfade.app_datei(CACHE)
     try:
-        st = os.stat(pfad)
-        kennung = (st.st_mtime_ns, st.st_size)
+        st = os.stat(path)
+        stamp = (st.st_mtime_ns, st.st_size)
     except OSError:
-        kennung = None
-    if kennung is not None and _gemerkt['stand'] == kennung:
-        return _gemerkt['daten']
+        stamp = None
+    if stamp is not None and _cached['stand'] == stamp:
+        return _cached['daten']
     try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            _gemerkt['stand'], _gemerkt['daten'] = kennung, daten
-            return daten
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            _cached['stand'], _cached['daten'] = stamp, data
+            return data
     except Exception:
         pass
-    return LEER.copy()
+    return EMPTY.copy()
 
-def stand():
-    return laden().get('build')
+def current_build():
+    return load().get('build')
 
 
-def aktualisieren(build, fortschritt=None):
+def update(build, progress=None):
     """Die Bergbau-Daten holen, wenn sie fehlen oder veraltet sind."""
     if AUS:
         return False, t('m_h_kein_netz')
-    da = laden()
+    current = load()
     # ⚠ `refineries` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
     # nur Orte und Zusammensetzungen behalten. Fehlt der Abschnitt, wird einmal
     # neu geholt; danach passiert wieder nichts. Die Datei ist 0,4 MB.
-    if (da.get('build') == build and da.get('locations')
-            and da.get('refineries') is not None
-            and da.get('elemente') is not None):
-        return True, t('m_b_aktuell') % len(da['locations'])
-    if fortschritt:
-        fortschritt(t('z_laedt') % ('Bergbau', 0.4))
-    roh = hole_datei(QUELLE % build)
-    orte = roh.get('locations') or []
-    if not orte:
+    if (current.get('build') == build and current.get('locations')
+            and current.get('refineries') is not None
+            and current.get('elemente') is not None):
+        return True, t('m_b_aktuell') % len(current['locations'])
+    if progress:
+        progress(t('z_laedt') % ('Bergbau', 0.4))
+    raw = hole_datei(SOURCE % build)
+    locations_ = raw.get('locations') or []
+    if not locations_:
         return False, t('m_b_leer')
     # ⚠ Die Raffinerien gehoeren dazu. Sie stehen im selben Abruf und
     # beantworten die Frage, die nach „wo baue ich das ab?" kommt: „und wohin
     # bringe ich es?" 20 Raffinerien, 10 verschiedene Profile — bei Quartz
     # liegen zwischen der besten und der schlechtesten 14 Prozentpunkte.
-    _sichern({'format': FORMAT, 'build': build, 'locations': orte,
-              'compositions': roh.get('compositions') or {},
-              'refineries': roh.get('refineries') or [],
-              'refineryProfiles': roh.get('refineryProfiles') or {},
-              # Die Stammdaten je Rohstoff — darin stehen Seltenheit und
-              # Scan-Signatur, ohne die der Signatur-Rechner nichts kann.
-              'elemente': roh.get('mineableElements') or {}})
-    return True, t('m_b_geladen') % len(orte)
+    _save({'format': FORMAT, 'build': build, 'locations': locations_,
+           'compositions': raw.get('compositions') or {},
+           'refineries': raw.get('refineries') or [],
+           'refineryProfiles': raw.get('refineryProfiles') or {},
+           # Die Stammdaten je Rohstoff — darin stehen Seltenheit und
+           # Scan-Signatur, ohne die der Signatur-Rechner nichts kann.
+           'elemente': raw.get('mineableElements') or {}})
+    return True, t('m_b_geladen') % len(locations_)
 
 
-def _sichern(daten):
-    ziel = pfade.app_datei(CACHE)
+def _save(data):
+    target = pfade.app_datei(CACHE)
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
         # ⚠ Zwischenspeicher verwerfen: Zeitstempel und Groesse koennen sich
         # binnen derselben Sekunde wiederholen, dann bliebe der alte Stand.
-        _gemerkt['stand'] = None
+        _cached['stand'] = None
         return True
-    except Exception as ausnahme:
-        fehler.merken('bergbau._sichern', ausnahme)
+    except Exception as exc:
+        fehler.merken('mining._save', exc)
         return False
 
 
@@ -202,7 +212,7 @@ def _sichern(daten):
 
 # Die sechs Stufen auf denselben Anteil — feste Bänder, keine Rangfolge unter
 # den Orten. Damit heißt „viel" an jedem Ort dasselbe. In Prozent, weil die
-# Stufe zu der Zahl passen muss, die danebensteht (siehe `stufe()`).
+# Stufe zu der Zahl passen muss, die danebensteht (siehe `level()`).
 #
 # ⚠ **Höher angesetzt als bei strata.celd.space** (dort 25/15/8/4/1). Die
 # rechnen über alles am Ort, wir je Abbauart — dadurch liegen unsere Anteile
@@ -210,10 +220,10 @@ def _sichern(daten):
 # „fast nur das" untereinander: 59, 48, 40, 35, 33, 31, 26 Prozent, alle
 # gleich benannt. Eine Stufe, die für fast jede Zeile dasselbe sagt, sagt
 # nichts. (Gemessen 08.09.2026 am fertigen Bild.)
-STUFEN = ((50, 6), (30, 5), (15, 4), (7, 3), (2, 2))
+LEVELS = ((50, 6), (30, 5), (15, 4), (7, 3), (2, 2))
 
 
-def stufe(anteil):
+def level(share):
     """1 bis 6 — von „kaum etwas" bis „fast nur das".
 
     ⚠ **Gerechnet wird auf der gerundeten Prozentzahl**, nicht auf dem
@@ -223,19 +233,19 @@ def stufe(anteil):
     Programm für kaputt, und mit Recht: Was gleich aussieht, muss gleich
     heißen.
     """
-    prozent = round((anteil or 0.0) * 100)
-    for schwelle, wert in STUFEN:
-        if prozent >= schwelle:
-            return wert
+    percent = round((share or 0.0) * 100)
+    for threshold, value in LEVELS:
+        if percent >= threshold:
+            return value
     return 1
 
 
-def _topf(art):
+def _pot(kind):
     """Womit man hinfährt — `schiff_selten` ist derselbe Prospector."""
-    return 'schiff' if art.startswith('schiff') else art
+    return 'schiff' if kind.startswith('schiff') else kind
 
 
-def _am_ort(ort, compositions):
+def _at_location(location, compositions):
     """Was an einem Ort liegt — und zu welchem Anteil.
 
     Gibt `(arten, anteile, je_geraet)`:
@@ -261,59 +271,59 @@ def _am_ort(ort, compositions):
     Kommt ein Erz in mehreren Töpfen vor (Carinite: Hand und Fahrzeug), zählt
     der höhere Anteil — sonst stünde an derselben Zeile zweimal etwas anderes.
     """
-    arten, gewicht = {}, {}
-    for g in ort.get('groups') or []:
-        art = ARTEN.get(g.get('groupName'))
-        if not art:
+    kinds, weight = {}, {}
+    for g in location.get('groups') or []:
+        kind = KINDS.get(g.get('groupName'))
+        if not kind:
             continue
         # ⚠ Fehlt die Angabe, zählt die Gruppe voll — sonst fiele ein ganzer
         # Ort auf 0 und stünde ohne Erze da.
-        gruppe = g.get('groupProbability')
-        gruppe = 1.0 if gruppe is None else gruppe
-        vorkommen = g.get('deposits') or []
+        group = g.get('groupProbability')
+        group = 1.0 if group is None else group
+        deposits = g.get('deposits') or []
         # Die `relativeProbability` ist **relativ innerhalb der Gruppe** —
         # erst durch die Summe geteilt wird daraus ein Anteil.
-        summe = sum(d.get('relativeProbability') or 0.0 for d in vorkommen)
-        for d in vorkommen:
+        total = sum(d.get('relativeProbability') or 0.0 for d in deposits)
+        for d in deposits:
             c = compositions.get(d.get('compositionGuid'))
             if not c:
                 continue
-            anteil_vorkommen = ((d.get('relativeProbability') or 0.0) / summe
-                                if summe else 1.0 / max(len(vorkommen), 1))
-            for teil in c.get('parts') or []:
-                name = teil.get('elementName')
+            deposit_share = ((d.get('relativeProbability') or 0.0) / total
+                             if total else 1.0 / max(len(deposits), 1))
+            for part in c.get('parts') or []:
+                name = part.get('elementName')
                 if not name:
                     continue
-                arten.setdefault(name, set()).add(art)
-                mitte = ((teil.get('minPercent') or 0.0)
-                         + (teil.get('maxPercent') or 0.0)) / 2.0
-                wahrscheinlich = teil.get('probability')
-                wahrscheinlich = (1.0 if wahrscheinlich is None
-                                  else wahrscheinlich)
-                schluessel = (_topf(art), name)
-                gewicht[schluessel] = (gewicht.get(schluessel, 0.0)
-                                       + gruppe * anteil_vorkommen
-                                       * wahrscheinlich * mitte)
+                kinds.setdefault(name, set()).add(kind)
+                middle = ((part.get('minPercent') or 0.0)
+                          + (part.get('maxPercent') or 0.0)) / 2.0
+                probability = part.get('probability')
+                probability = (1.0 if probability is None
+                               else probability)
+                key = (_pot(kind), name)
+                weight[key] = (weight.get(key, 0.0)
+                               + group * deposit_share
+                               * probability * middle)
     # Je Topf auf 100 % normieren, dann je Erz den höheren Wert behalten.
-    summen = {}
-    for (topf, _n), w in gewicht.items():
-        summen[topf] = summen.get(topf, 0.0) + w
-    anteile = {n: 0.0 for n in arten}
-    je_geraet = {}
-    for (topf, name), w in gewicht.items():
-        gesamt = summen.get(topf) or 0.0
-        wert = w / gesamt if gesamt else 0.0
-        je_geraet.setdefault(topf, {})[name] = wert
-        anteile[name] = max(anteile.get(name, 0.0), wert)
-    return arten, anteile, je_geraet
+    totals = {}
+    for (pot, _n), w in weight.items():
+        totals[pot] = totals.get(pot, 0.0) + w
+    shares = {n: 0.0 for n in kinds}
+    per_device = {}
+    for (pot, name), w in weight.items():
+        pot_total = totals.get(pot) or 0.0
+        value = w / pot_total if pot_total else 0.0
+        per_device.setdefault(pot, {})[name] = value
+        shares[name] = max(shares.get(name, 0.0), value)
+    return kinds, shares, per_device
 
 
-def _erze_am_ort(ort, compositions):
+def _ores_at_location(location, compositions):
     """{Erzname: {Abbauart, …}} für einen Ort."""
-    return _am_ort(ort, compositions)[0]
+    return _at_location(location, compositions)[0]
 
 
-def orte():
+def locations():
     """Alle Orte mit Erzen.
 
     `[{name, system, typ, erze:{name:{art}}, anteile:{name:(Anteil, Stufe)}}]`
@@ -322,26 +332,26 @@ def orte():
     Selbsttest und die Lager-Abbauart, und beides soll von der Konzentration
     nichts wissen müssen.
     """
-    daten = laden()
-    comp = daten.get('compositions') or {}
-    raus = []
-    for o in daten.get('locations') or []:
-        erze, anteile, je_geraet = _am_ort(o, comp)
-        if not erze:
+    data = load()
+    comp = data.get('compositions') or {}
+    result = []
+    for o in data.get('locations') or []:
+        ores_, shares, per_device = _at_location(o, comp)
+        if not ores_:
             continue
-        raus.append({'name': o.get('locationName') or '?',
-                     'system': o.get('system') or '',
-                     'typ': o.get('locationType') or '',
-                     'erze': erze,
-                     'anteile': {n: (a, stufe(a))
-                                 for n, a in anteile.items()},
-                     'je_geraet': {g: {n: (a, stufe(a)) for n, a in werte.items()}
-                                   for g, werte in je_geraet.items()}})
-    raus.sort(key=lambda x: x['name'].lower())
-    return raus
+        result.append({'name': o.get('locationName') or '?',
+                       'system': o.get('system') or '',
+                       'typ': o.get('locationType') or '',
+                       'erze': ores_,
+                       'anteile': {n: (a, level(a))
+                                   for n, a in shares.items()},
+                       'je_geraet': {g: {n: (a, level(a)) for n, a in values.items()}
+                                     for g, values in per_device.items()}})
+    result.sort(key=lambda x: x['name'].lower())
+    return result
 
 
-def abbauart(name):
+def mining_kinds(name):
     """Wie wird dieser Rohstoff abgebaut? — Menge aus `fps`, `fahrzeug`, `schiff`.
 
     ⚠ Gebraucht im Lager: Wer „Iron" einträgt, will auf einen Blick sehen, ob
@@ -352,21 +362,21 @@ def abbauart(name):
     `schiff_selten` zählt als `schiff` — für die Frage „womit hole ich das?"
     macht die Seltenheit keinen Unterschied.
     """
-    gesucht = norm_rohstoff(name)
-    arten = set()
-    for e in erze():
-        if norm_rohstoff(e.get('name')) != gesucht:
+    wanted = norm_rohstoff(name)
+    kinds = set()
+    for e in ores():
+        if norm_rohstoff(e.get('name')) != wanted:
             continue
-        for eintrag in e.get('orte') or []:
-            for art in (eintrag[2] if len(eintrag) > 2 else ()):
-                arten.add('schiff' if art.startswith('schiff') else art)
-    return arten
+        for entry in e.get('orte') or []:
+            for kind in (entry[2] if len(entry) > 2 else ()):
+                kinds.add('schiff' if kind.startswith('schiff') else kind)
+    return kinds
 
 
-def erze():
+def ores():
     """Alle Erze: `[{name, orte:[(Ort, System, {Art}, Anteil, Stufe)]}]`.
 
-    Die Gegenrichtung zu `orte()`.
+    Die Gegenrichtung zu `locations()`.
 
     ⚠ **Die Fundorte stehen nach Konzentration, nicht alphabetisch.** Wer
     fragt „wo hole ich Titanium?", will den ergiebigsten Ort zuerst sehen —
@@ -374,42 +384,42 @@ def erze():
 
     ⚠ Die beiden hinteren Felder kamen später dazu. Wer die Liste auswertet,
     entpackt sie deshalb nachgiebig (`eintrag[3] if len(eintrag) > 3`) —
-    `abbauart()` unten macht es genauso.
+    `mining_kinds()` oben macht es genauso.
     """
-    sammlung = {}
-    for o in orte():
-        je_geraet = o.get('je_geraet') or {}
-        for name, arten in o['erze'].items():
-            anteil, hoehe = (o.get('anteile') or {}).get(name, (0.0, 1))
+    collected = {}
+    for o in locations():
+        per_device = o.get('je_geraet') or {}
+        for name, kinds in o['erze'].items():
+            share, lvl = (o.get('anteile') or {}).get(name, (0.0, 1))
             # Sechstes Feld: je Gerät `(Anteil, Stufe, wie viele Erze dieses
             # Gerät hier überhaupt findet)`. Die letzte Zahl trägt die
-            # Aussage „das ist hier das einzige" — siehe `orte()`.
-            fein = {}
-            for geraet, werte in je_geraet.items():
-                if name in werte:
-                    fein[geraet] = werte[name] + (len(werte),)
-            sammlung.setdefault(name, []).append(
-                (o['name'], o['system'], arten, anteil, hoehe, fein))
+            # Aussage „das ist hier das einzige" — siehe `locations()`.
+            fine = {}
+            for device, values in per_device.items():
+                if name in values:
+                    fine[device] = values[name] + (len(values),)
+            collected.setdefault(name, []).append(
+                (o['name'], o['system'], kinds, share, lvl, fine))
     # ⚠ **Kein blankes `sorted()`.** Sobald zwei Einträge in Ort und System
     # übereinstimmen, verglich Python die Mengen dahinter — und Mengen haben
     # keine Reihenfolge. Deshalb ausdrücklich nur über die Zahlen sortieren.
-    raus = [{'name': n, 'orte': sorted(v, key=lambda x: (-x[3], x[0].lower()))}
-            for n, v in sammlung.items()]
-    raus.sort(key=lambda x: x['name'].lower())
-    return raus
+    result = [{'name': n, 'orte': sorted(v, key=lambda x: (-x[3], x[0].lower()))}
+              for n, v in collected.items()]
+    result.sort(key=lambda x: x['name'].lower())
+    return result
 
 
 # Wie oft ein Vorkommen höchstens auftritt — das begrenzt, welche Vielfachen
 # der Signatur überhaupt vorkommen können. Steht als `rarity` an jedem
 # Rohstoff.
-MAX_BROCKEN = {'legendary': 2, 'epic': 3, 'rare': 4, 'uncommon': 5,
-               'common': 6}
+MAX_CHUNKS = {'legendary': 2, 'epic': 3, 'rare': 4, 'uncommon': 5,
+              'common': 6}
 
 # Grundsignaturen für Vorkommen ohne eigenen Wert. ⚠ `roc` und `fps` stehen so
 # in den Daten (`groundScanSignature` 4000, `fpsScanSignature` 3000).
 # `salvage` steht dort **nicht** — der Wert stammt aus der Tabelle auf
 # scmdb.net. Wenn er je falsch ist, ist er dort genauso falsch.
-GRUND_SIGNATUR = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
+BASE_SIGNATURES = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
 
 
 # ⚠⚠ Das Spiel zeigt die Signatur als `17,200` — mit Tausenderkomma. Bis zum
@@ -423,13 +433,13 @@ GRUND_SIGNATUR = (('roc', 4000, 7), ('fps', 3000, 10), ('salvage', 2000, 15))
 # steckt allein im Schalter: Hier gilt `integer=True`, weil Signaturen ganze
 # Zahlen im Tausenderbereich sind (`8,600` meint 8600, nie 8,6). Bei Mengen ist
 # es umgekehrt, dort sind Kommazahlen der Regelfall.
-def _zahltext(roh):
+def _number_text(raw):
     """Abgelesene oder getippte Signatur auf die Punkt-Schreibweise bringen."""
     from .materials import normalize_separators
-    return normalize_separators(roh, integer=True)
+    return normalize_separators(raw, integer=True)
 
 
-def signatur_suchen(eingabe):
+def find_signature(query):
     """Aus einem gescannten Wert den Rohstoff bestimmen.
 
     ⭐ **Das Werkzeug, das ein Miner im Spiel wirklich braucht.** Der Scanner
@@ -453,52 +463,52 @@ def signatur_suchen(eingabe):
     trifft, soll das erfahren und `~8600` versuchen — nicht einen Treffer
     vorgesetzt bekommen, der um 300 danebenliegt.
     """
-    text = _zahltext(eingabe)
+    text = _number_text(query)
     if not text:
         return []
-    toleranz, unten, oben = 0.0, None, None
+    tolerance, low, high = 0.0, None, None
     try:
         if text.startswith('~'):
-            wert = float(text[1:])
-            toleranz = 0.10
-            unten, oben = wert * 0.9, wert * 1.1
+            value = float(text[1:])
+            tolerance = 0.10
+            low, high = value * 0.9, value * 1.1
         elif '-' in text[1:]:
             a, b = text.split('-', 1) if not text.startswith('-') else (None, None)
-            unten, oben = sorted((float(a), float(b)))
-            wert = (unten + oben) / 2.0
+            low, high = sorted((float(a), float(b)))
+            value = (low + high) / 2.0
         else:
-            wert = float(text)
-            unten = oben = wert
+            value = float(text)
+            low = high = value
     except (ValueError, TypeError):
         return []
-    if unten is None:
+    if low is None:
         return []
 
-    da = laden()
-    elemente = da.get('elemente') or {}
-    treffer = []
-    for _g, e in elemente.items():
+    current = load()
+    elements = current.get('elemente') or {}
+    hits = []
+    for _g, e in elements.items():
         sig = e.get('scanSignature')
         if not sig:
             continue
-        hoechstens = MAX_BROCKEN.get(e.get('rarity'), 6)
-        for anzahl in range(1, hoechstens + 1):
-            gesamt = sig * anzahl
-            if unten <= gesamt <= oben:
-                ab = (gesamt - wert) / wert * 100.0 if wert else 0.0
-                treffer.append((e.get('name') or '?', anzahl, gesamt, ab))
+        most = MAX_CHUNKS.get(e.get('rarity'), 6)
+        for count in range(1, most + 1):
+            total = sig * count
+            if low <= total <= high:
+                deviation = (total - value) / value * 100.0 if value else 0.0
+                hits.append((e.get('name') or '?', count, total, deviation))
     # Und die pauschalen Vorkommen ohne eigenen Rohstoff.
-    for name, sig, hoechstens in GRUND_SIGNATUR:
-        for anzahl in range(1, hoechstens + 1):
-            gesamt = sig * anzahl
-            if unten <= gesamt <= oben:
-                ab = (gesamt - wert) / wert * 100.0 if wert else 0.0
-                treffer.append((name, anzahl, gesamt, ab))
-    treffer.sort(key=lambda x: (abs(x[3]), x[0]))
-    return treffer
+    for name, sig, most in BASE_SIGNATURES:
+        for count in range(1, most + 1):
+            total = sig * count
+            if low <= total <= high:
+                deviation = (total - value) / value * 100.0 if value else 0.0
+                hits.append((name, count, total, deviation))
+    hits.sort(key=lambda x: (abs(x[3]), x[0]))
+    return hits
 
 
-def pflanzen():
+def plants():
     """Die Pflanzen, die man von Hand ernten kann — mit lesbarem Namen.
 
     ⚠ Sie stehen **nicht** bei den Mineralien (`mineableElements`), sondern als
@@ -512,9 +522,9 @@ def pflanzen():
 
     Gibt eine alphabetische Liste.
     """
-    da = laden()
-    raus = set()
-    for o in da.get('locations') or []:
+    current = load()
+    result = set()
+    for o in current.get('locations') or []:
         for g in o.get('groups') or []:
             if g.get('groupName') != 'Harvestables':
                 continue
@@ -522,11 +532,11 @@ def pflanzen():
                 name = (dep.get('presetName') or '').strip()
                 if not name.startswith('Plant '):
                     continue
-                raus.add(_lesbar(name[len('Plant '):]))
-    return sorted(raus, key=str.lower)
+                result.add(_readable(name[len('Plant '):]))
+    return sorted(result, key=str.lower)
 
 
-def _lesbar(zusammen):
+def _readable(joined):
     """`HeartoftheWoods` wird zu `Heart of the Woods`.
 
     ⚠ Die kleinen Bindewoerter stehen in den Daten klein und mitten im Wort;
@@ -537,12 +547,12 @@ def _lesbar(zusammen):
     # ⚠ Das Bindewort darf auch von einem KLEINBUCHSTABEN gefolgt sein.
     # „HeartoftheWoods" ist genau so gebaut: auf „of" folgt „the". Mit
     # `(?=[A-Z])` blieb daraus „Heartof the Woods".
-    text = re.sub(r'(?<=[a-z])(of|the|and)(?=[a-zA-Z])', r' \1 ', zusammen)
+    text = re.sub(r'(?<=[a-z])(of|the|and)(?=[a-zA-Z])', r' \1 ', joined)
     text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
     return ' '.join(text.split())
 
 
-def raffinerien_fuer(rohstoff):
+def refineries_for(material):
     """Welche Raffinerie holt aus diesem Erz am meisten heraus?
 
     Gibt `[(Namen, System, Bonus in Prozent)]`, beste zuerst. Raffinerien mit
@@ -558,41 +568,41 @@ def raffinerien_fuer(rohstoff):
     Raffinerie.
     """
     from .herstellung import norm_rohstoff
-    da = laden()
-    profile = da.get('refineryProfiles') or {}
-    if not profile:
+    current = load()
+    profiles = current.get('refineryProfiles') or {}
+    if not profiles:
         return []
-    gesucht = norm_rohstoff(rohstoff)
+    wanted = norm_rohstoff(material)
     # Erst je Profil den Bonus bestimmen ...
-    bonus_je_profil = {}
-    for pid, werte in profile.items():
-        bonus_je_profil[pid] = 0
-        for mat, wert in (werte or {}).items():
-            if norm_rohstoff(mat) == gesucht:
-                bonus_je_profil[pid] = wert
+    bonus_per_profile = {}
+    for pid, values in profiles.items():
+        bonus_per_profile[pid] = 0
+        for mat, value in (values or {}).items():
+            if norm_rohstoff(mat) == wanted:
+                bonus_per_profile[pid] = value
                 break
     # ... dann die Stationen dazu buendeln.
-    gebuendelt = {}
-    for r in da.get('refineries') or []:
+    bundled = {}
+    for r in current.get('refineries') or []:
         pid = r.get('profileId')
-        if pid not in bonus_je_profil:
+        if pid not in bonus_per_profile:
             continue
-        eintrag = gebuendelt.setdefault(pid, {'namen': [], 'system': r.get('system'),
-                                              'bonus': bonus_je_profil[pid]})
-        eintrag['namen'].append(r.get('name') or '')
-    raus = [(e['namen'], e['system'], e['bonus']) for e in gebuendelt.values()]
-    raus.sort(key=lambda x: (-x[2], x[0][0] if x[0] else ''))
-    return raus
+        entry = bundled.setdefault(pid, {'namen': [], 'system': r.get('system'),
+                                         'bonus': bonus_per_profile[pid]})
+        entry['namen'].append(r.get('name') or '')
+    result = [(e['namen'], e['system'], e['bonus']) for e in bundled.values()]
+    result.sort(key=lambda x: (-x[2], x[0][0] if x[0] else ''))
+    return result
 
 
-def orte_fuer(rohstoff):
+def locations_for(material):
     """Wo gibt es diesen Rohstoff? Verträgt beide Schreibweisen.
 
     ⚠ Die Baupläne sagen `Aslarite`, hier heißt es `Aslarite (Raw)` — deshalb
     über `norm_rohstoff()` vergleichen. Ohne das findet der Sprung aus dem
     Rezept **nichts** (gemessen: 0 von 26)."""
-    gesucht = norm_rohstoff(rohstoff)
-    for e in erze():
-        if norm_rohstoff(e['name']) == gesucht:
+    wanted = norm_rohstoff(material)
+    for e in ores():
+        if norm_rohstoff(e['name']) == wanted:
             return e
     return None

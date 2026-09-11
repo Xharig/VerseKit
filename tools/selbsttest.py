@@ -4645,22 +4645,22 @@ def main():
     # 52n. Abbauart im Lager und die neuen Filter
     print()
     print('52n. Abbauart und Herstellungs-Filter')
-    from scbp import bergbau as _bg52n
-    _echt52n = _bg52n.erze
-    _bg52n.erze = lambda: [
+    from scbp import mining as _bg52n
+    _echt52n = _bg52n.ores
+    _bg52n.ores = lambda: [
         {'name': 'Iron (Ore)', 'orte': [('Daymar', 'Stanton', {'schiff'}),
                                         ('Yela', 'Stanton', {'schiff_selten'})]},
         {'name': 'Aphorite', 'orte': [('Daymar', 'Stanton', {'fps'})]},
     ]
     try:
-        pruefe(_bg52n.abbauart('Iron') == {'schiff'},
+        pruefe(_bg52n.mining_kinds('Iron') == {'schiff'},
                'Schiffsabbau wird erkannt — auch aus schiff_selten')
-        pruefe(_bg52n.abbauart('Aphorite') == {'fps'},
+        pruefe(_bg52n.mining_kinds('Aphorite') == {'fps'},
                'Handabbau ebenso')
-        pruefe(_bg52n.abbauart('Gibtsnicht') == set(),
+        pruefe(_bg52n.mining_kinds('Gibtsnicht') == set(),
                'ein unbekannter Rohstoff ergibt keine Art')
     finally:
-        _bg52n.erze = _echt52n
+        _bg52n.ores = _echt52n
     for _k52n in ('s_lg_sp_abbau', 's_lg_abbau_fps', 's_lg_abbau_fahrzeug',
                   's_lg_abbau_schiff', 's_lg_posten_weg', 's_lg_posten_frage',
                   's_lg_leeren', 's_lg_leeren_frage', 's_lg_geleert',
@@ -5607,9 +5607,9 @@ def main():
     # sie beim Sichern weggeworfen.
     print()
     print('63. Raffinerien')
-    from scbp import bergbau as _bg63
+    from scbp import mining as _bg63
 
-    _daten63 = _bg63.laden()
+    _daten63 = _bg63.load()
     if not _daten63.get('refineryProfiles'):
         print('  [–]    keine Raffineriedaten vorhanden — uebersprungen')
     else:
@@ -5617,7 +5617,7 @@ def main():
         _soll63 = {'Quartz': ('ARC-L1', 11), 'Titanium': ('MIC-L5', 13),
                    'Bexalite': ('MIC-L5', 12)}
         for _erz63, (_beste63, _bonus63) in _soll63.items():
-            _r63 = _bg63.raffinerien_fuer(_erz63)
+            _r63 = _bg63.refineries_for(_erz63)
             pruefe(bool(_r63), '%s findet Raffinerien' % _erz63)
             if _r63:
                 _namen63, _sys63, _wert63 = _r63[0]
@@ -5627,22 +5627,22 @@ def main():
                 pruefe(any(n.startswith(_beste63) for n in _namen63),
                        '%s: beste Raffinerie ist %s' % (_erz63, _beste63))
         # ⚠ Was nicht im Profil steht, ist 0 % — nicht „unbekannt".
-        _r63 = _bg63.raffinerien_fuer('Riccite')
+        _r63 = _bg63.refineries_for('Riccite')
         pruefe(_r63 and all(w == 0 for _n, _s, w in _r63),
                'ein Erz ohne Profileintrag steht ueberall auf 0 %')
         # ⚠ Schreibweisen: Profile sagen „Aluminum (Ore)", Rezepte „Aluminium".
-        pruefe(bool(_bg63.raffinerien_fuer('Aluminium')),
+        pruefe(bool(_bg63.refineries_for('Aluminium')),
                'die britische Schreibweise findet dieselben Raffinerien')
         # Und die Reihenfolge: beste zuerst.
-        _r63 = _bg63.raffinerien_fuer('Bexalite')
+        _r63 = _bg63.refineries_for('Bexalite')
         pruefe(all(_r63[i][2] >= _r63[i+1][2] for i in range(len(_r63)-1)),
                'die Liste steht nach Bonus sortiert, beste zuerst')
 
     # Die Daten muessen beim Sichern erhalten bleiben — genau daran lag es.
-    _q63 = open(os.path.join(WURZEL, 'scbp', 'bergbau.py'), encoding='utf-8').read()
-    pruefe("'refineries': roh.get('refineries')" in _q63,
+    _q63 = open(os.path.join(WURZEL, 'scbp', 'mining.py'), encoding='utf-8').read()
+    pruefe("'refineries': raw.get('refineries')" in _q63,
            'die Raffinerien werden beim Sichern behalten')
-    pruefe("da.get('refineries') is not None" in _q63,
+    pruefe("current.get('refineries') is not None" in _q63,
            'und eine alte Ablage ohne sie wird einmal neu geholt')
     _q63b = open(os.path.join(WURZEL, 'scbp', 'herstellung.py'), encoding='utf-8').read()
     pruefe("'dismantle': roh.get('dismantle')" in _q63b,
@@ -5664,7 +5664,7 @@ def main():
     # Gegengerechnet gegen die Tabelle auf scmdb.net (Stand 4.10.0).
     print()
     print('64. Scan-Signatur')
-    from scbp import bergbau as _bg64
+    from scbp import mining as _bg64
 
     # ⚠⚠ Diese Gruppe steht VOR der Datenabfrage, mit Absicht. Sie prueft reine
     # Textumwandlung und braucht keine Stammdaten — stuende sie im `else`, wuerde
@@ -5687,11 +5687,11 @@ def main():
                             ('8.5', '8.5'),
                             ('  17,200  ', '17200'),      # mit Leerraum
                             ('', '')):                    # leer bleibt leer
-        pruefe(_bg64._zahltext(_roh64) == _soll64,
+        pruefe(_bg64._number_text(_roh64) == _soll64,
                'aus %r wird %r (bekommen: %r)'
-               % (_roh64, _soll64, _bg64._zahltext(_roh64)))
+               % (_roh64, _soll64, _bg64._number_text(_roh64)))
 
-    if not (_bg64.laden().get('elemente') or {}):
+    if not (_bg64.load().get('elemente') or {}):
         print('  [–]    keine Rohstoff-Stammdaten vorhanden — uebersprungen')
     else:
         # a) Punktgenaue Treffer aus der Tabelle.
@@ -5701,7 +5701,7 @@ def main():
                 ('4270', 'Iron', 1),
                 ('25800', 'Ice', 6),
                 ('19500', 'Torite', 5)):
-            _tr64 = _bg64.signatur_suchen(_eingabe64)
+            _tr64 = _bg64.find_signature(_eingabe64)
             pruefe(bool(_tr64) and _tr64[0][0].startswith(_soll64)
                    and _tr64[0][1] == _anz64,
                    '%s -> %d× %s (gefunden: %s)'
@@ -5710,25 +5710,25 @@ def main():
 
         # b) ⚠ Ohne Toleranz wird NICHTS gerundet. Wer daneben liegt, soll das
         #    erfahren statt einen falschen Treffer vorgesetzt zu bekommen.
-        pruefe(_bg64.signatur_suchen('9999') == [],
+        pruefe(_bg64.find_signature('9999') == [],
                'ein Wert ohne Entsprechung liefert nichts, statt zu raten')
-        pruefe(len(_bg64.signatur_suchen('~8600')) > 1,
+        pruefe(len(_bg64.find_signature('~8600')) > 1,
                'mit ~ davor kommen die Nachbarn dazu')
-        pruefe(len(_bg64.signatur_suchen('12000-13000')) > 1,
+        pruefe(len(_bg64.find_signature('12000-13000')) > 1,
                'eine Bereichssuche findet mehrere')
 
         # c) Die Seltenheit begrenzt die Vielfachen. Quantainium ist legendaer
         #    (hoechstens 2 Brocken) — ein drittes Vielfaches darf es NICHT
         #    geben, sonst behauptet das Werkzeug unmoegliche Vorkommen.
-        _drei64 = _bg64.signatur_suchen('9510')      # 3170 x 3
+        _drei64 = _bg64.find_signature('9510')      # 3170 x 3
         pruefe(not any(n.startswith('Quantainium') for n, _a, _g, _ab in _drei64),
                'legendaeres Erz wird nicht mit 3 Brocken gemeldet')
-        _zwei64 = _bg64.signatur_suchen('6340')      # 3170 x 2
+        _zwei64 = _bg64.find_signature('6340')      # 3170 x 2
         pruefe(any(n.startswith('Quantainium') for n, _a, _g, _ab in _zwei64),
                'mit 2 Brocken dagegen schon')
 
         # d) Sortierung: die genaueste Uebereinstimmung zuerst.
-        _tr64 = _bg64.signatur_suchen('~8600')
+        _tr64 = _bg64.find_signature('~8600')
         pruefe(abs(_tr64[0][3]) <= abs(_tr64[-1][3]),
                'die genaueste Uebereinstimmung steht oben')
 
@@ -5736,14 +5736,14 @@ def main():
         #    deshalb hier: Getippt wie im HUD muss dasselbe herauskommen wie
         #    ohne Trennzeichen. (Die Umwandlung selbst wird oben geprueft,
         #    ausserhalb dieser Bedingung.)
-        pruefe(_bg64.signatur_suchen('~17,200') == _bg64.signatur_suchen('~17200'),
+        pruefe(_bg64.find_signature('~17,200') == _bg64.find_signature('~17200'),
                'die HUD-Schreibweise findet dieselben Treffer wie die blanke Zahl')
 
     # Die Stammdaten muessen beim Sichern erhalten bleiben.
-    _q64 = open(os.path.join(WURZEL, 'scbp', 'bergbau.py'), encoding='utf-8').read()
-    pruefe("'elemente': roh.get('mineableElements')" in _q64,
+    _q64 = open(os.path.join(WURZEL, 'scbp', 'mining.py'), encoding='utf-8').read()
+    pruefe("'elemente': raw.get('mineableElements')" in _q64,
            'die Rohstoff-Stammdaten werden beim Sichern behalten')
-    pruefe("da.get('elemente') is not None" in _q64,
+    pruefe("current.get('elemente') is not None" in _q64,
            'und eine alte Ablage ohne sie wird einmal neu geholt')
     # ⚠ Das Eingabefeld darf NICHT im Neuzeichnen gebaut werden.
     _q64b = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
@@ -7340,7 +7340,7 @@ def main():
     print('83. Raffinerie-Ausbeute abtippen')
     from scbp import materials as _ro83
     from scbp import herstellung as _he83
-    from scbp import bergbau as _bg83
+    from scbp import mining as _bg83
 
     # ⚠ Die Liste der einlagerbaren Namen kommt aus Rezept- und Bergbaudaten —
     # beides Zwischenspeicher, die es im Wegwerf-Ordner nicht gibt. Ohne eigene
@@ -15749,17 +15749,17 @@ def main():
 
     # ---------------------------------------------------------------- 174
     print('\n174. Wie viel von einem Erz an einem Ort liegt')
-    from scbp import bergbau as _bg174
+    from scbp import mining as _bg174
 
     # --- Die sechs Stufen ------------------------------------------------
-    pruefe(_bg174.stufe(0.62) == 6 and _bg174.stufe(0.31) == 5
-           and _bg174.stufe(0.18) == 4 and _bg174.stufe(0.09) == 3
-           and _bg174.stufe(0.03) == 2 and _bg174.stufe(0.004) == 1,
+    pruefe(_bg174.level(0.62) == 6 and _bg174.level(0.31) == 5
+           and _bg174.level(0.18) == 4 and _bg174.level(0.09) == 3
+           and _bg174.level(0.03) == 2 and _bg174.level(0.004) == 1,
            'jede der sechs Stufen wird getroffen')
     # ⚠⚠ **Die Stufe haengt an der GERUNDETEN Prozentzahl.** Sonst stehen
     # zwei Zeilen mit derselben Zahl da und heissen verschieden — genau der
     # Fall Titanium: Yela-Guertel 0,2499, Lagrange E 0,2520, beide „25 %".
-    pruefe(_bg174.stufe(0.2951) == _bg174.stufe(0.3004),
+    pruefe(_bg174.level(0.2951) == _bg174.level(0.3004),
            'was gleich angezeigt wird, bekommt dieselbe Stufe')
 
     # --- Je Geraet getrennt, auf 100 % ------------------------------------
@@ -15784,7 +15784,7 @@ def main():
         'c': {'parts': [{'elementName': 'Nur mit ROC', 'probability': 1.0,
                          'minPercent': 100.0, 'maxPercent': 100.0}]},
     }
-    _arten174, _anteile174, _je174 = _bg174._am_ort(_erfunden174, _teile174)
+    _arten174, _anteile174, _je174 = _bg174._at_location(_erfunden174, _teile174)
 
     pruefe(set(_arten174) == {'Selten', 'Haeufig', 'Nur mit ROC'},
            'Wrackgruppen zaehlen nicht als Erz')
@@ -15803,7 +15803,7 @@ def main():
            'und die Anzahl im Topf traegt das „hier das einzige"')
 
     # --- Und dasselbe am echten Datenstand --------------------------------
-    _orte174 = _bg174.orte()
+    _orte174 = _bg174.locations()
     if not _orte174:
         print('  [–]    keine Bergbaudaten vorhanden — uebersprungen')
     else:
@@ -15815,7 +15815,7 @@ def main():
         pruefe(all(abs(s - 1.0) < 0.01 for s in _summen174),
                'auch echt gerechnet ergibt jeder Topf 100 %')
         # Die Fundorte eines Erzes stehen nach Konzentration, nicht von A–Z.
-        _erze174 = [e for e in _bg174.erze() if len(e['orte']) > 2]
+        _erze174 = [e for e in _bg174.ores() if len(e['orte']) > 2]
         pruefe(bool(_erze174) and all(
             all(a['orte'][i][3] >= a['orte'][i + 1][3] - 0.0001
                 for i in range(len(a['orte']) - 1)) for a in _erze174[:20]),
@@ -16500,6 +16500,7 @@ def main():
         'handelslager': 'trade_cargo',
         'bestand': 'collection',
         'rohstoffe': 'materials',
+        'bergbau': 'mining',
     }
 
     def _reste190(quelle, name, alte):

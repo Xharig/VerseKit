@@ -929,8 +929,8 @@ def aktualisieren(fortschritt=None):
         except Exception as ausnahme:
             fehler.merken('katalog.aktualisieren.herstellung', ausnahme)
         try:
-            from . import bergbau
-            bergbau.aktualisieren(version, fortschritt)
+            from . import mining
+            mining.update(version, fortschritt)
         except Exception as ausnahme:
             fehler.merken('katalog.aktualisieren.bergbau', ausnahme)
 

@@ -4222,7 +4222,7 @@ TEXTE = {
     's_bg_art_schiff_selten': ('Schiff (selten)', 'Ship (rare)'),
     's_bg_art_fahrzeug': ('Fahrzeug', 'Vehicle'),
     # Wie viel von dem, was hier liegt, dieses Erz ist. Die sechs Stufen
-    # stehen in `bergbau.STUFEN`; die Worte sollen ohne die Zahl daneben
+    # stehen in `mining.LEVELS`; die Worte sollen ohne die Zahl daneben
     # verständlich sein.
     's_bg_anteil':       ('%d %%', '%d %%'),
     's_bg_anteil_wenig': ('< 1 %', '< 1 %'),

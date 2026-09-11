@@ -934,10 +934,10 @@ def einlagerbar():
     for n in rohstoffnamen():
         nach_schluessel.setdefault(norm_rohstoff(n), n)
     try:
-        from . import bergbau
+        from . import mining
         weitere = [(e.get('name') or '').strip()
-                   for e in (bergbau.laden().get('elemente') or {}).values()]
-        weitere += bergbau.pflanzen()
+                   for e in (mining.load().get('elemente') or {}).values()]
+        weitere += mining.plants()
         for n in weitere:
             if n:
                 nach_schluessel.setdefault(norm_rohstoff(n), n)

@@ -20,7 +20,7 @@
 Die Scan-Signatur vom Bildschirm lesen — als Werkzeug, noch nicht im Programm.
 
 **Wozu.** Der Scanner im Spiel zeigt eine Zahl; welcher Brocken dahintersteckt,
-sagt er nicht. `scbp.bergbau.signatur_suchen()` beantwortet das längst — nur
+sagt er nicht. `scbp.mining.find_signature()` beantwortet das längst — nur
 muss die Zahl bisher von Hand eingetippt werden. Ein Nutzer dazu: „wieso kann
 ein Funk-Plugin das, mein Tool mit SC-Bezug nicht?" Das Argument sitzt.
 

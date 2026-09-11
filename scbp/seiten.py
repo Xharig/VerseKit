@@ -8988,10 +8988,10 @@ def _art_text(arten):
 
 def _hat_geraet(erz, geraet):
     """Lässt sich dieses Erz mit dem gewählten Gerät abbauen?"""
-    from .bergbau import _topf
+    from .mining import _pot
     for eintrag in erz.get('orte') or []:
         for art in (eintrag[2] if len(eintrag) > 2 else ()):
-            if _topf(art) == geraet:
+            if _pot(art) == geraet:
                 return True
     return False
 
@@ -9288,7 +9288,7 @@ def _bergbau(fenster, rahmen):
     Eingängen — beides sind echte Fragen, je nachdem ob man gerade fliegen mag
     oder nicht.
     """
-    from . import bergbau as berg_modul
+    from . import mining as berg_modul
     # ⚠ **`s_bg_lead`, nicht `s_wr_lead`.** Hier stand der Text der
     # Bergungs-Seite — „Vor dir treibt ein Wrack…" über der Erzsuche. Der
     # eigene Satz war die ganze Zeit da und wurde von niemandem gerufen.
@@ -9296,8 +9296,8 @@ def _bergbau(fenster, rahmen):
     innen = _rollflaeche(rahmen)
 
     try:
-        orte = berg_modul.orte()
-        erze = berg_modul.erze()
+        orte = berg_modul.locations()
+        erze = berg_modul.ores()
     except Exception as ausnahme:
         fehler.merken('seiten.bergbau', ausnahme)
         orte, erze = [], []
@@ -9418,7 +9418,7 @@ def _bergbau(fenster, rahmen):
         if not eingabe:
             return
         try:
-            treffer = berg_modul.signatur_suchen(eingabe)
+            treffer = berg_modul.find_signature(eingabe)
         except Exception as ausnahme:
             fehler.merken('seiten.signatur', ausnahme)
             return
@@ -9534,10 +9534,10 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     # Bildschirmfoto (29.08.2026). Jetzt ein eigener Textschlüssel.
     # ⚠ Bei gewähltem Gerät zählt die Kopfzeile nur die Orte, die dann auch
     # darunter stehen — sonst verspricht sie 18 Orte und zeigt drei.
-    from .bergbau import _topf
+    from .mining import _pot
     fundorte = [e for e in erz['orte']
                 if not geraet
-                or any(_topf(a) == geraet for a in (e[2] if len(e) > 2 else ()))]
+                or any(_pot(a) == geraet for a in (e[2] if len(e) > 2 else ()))]
     _berg_kopfzeile(fenster, eltern, erz['name'],
                     t('s_bg_nur_orte') % len(fundorte),
                     ACCENT, umschalten)
@@ -9546,7 +9546,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     block = tk.Frame(eltern, bg='#0c1017')
     block.pack(fill='x', padx=(24, 0), pady=(2, 8))
     # Mit Gerätewahl gilt dessen eigener Anteil — und damit auch dessen
-    # Reihenfolge. Ohne Wahl bleibt es bei der aus `bergbau.erze()`.
+    # Reihenfolge. Ohne Wahl bleibt es bei der aus `mining.ores()`.
     if geraet:
         fundorte.sort(key=lambda e: (-((e[5] or {}).get(geraet, (0.0,))[0]
                                        if len(e) > 5 else 0.0),
@@ -9585,9 +9585,9 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     # ⚠ Die Daten stehen in denselben Bergbaudaten (`refineries` +
     # `refineryProfiles`) und kosten keinen zusätzlichen Abruf. Gegengerechnet
     # gegen die Tabelle auf scmdb.net: alle zehn ARC-L1-Werte identisch.
-    from . import bergbau as berg_modul
+    from . import mining as berg_modul
     try:
-        raff = berg_modul.raffinerien_fuer(erz['name'])
+        raff = berg_modul.refineries_for(erz['name'])
     except Exception as ausnahme:
         fehler.merken('seiten.raffinerie', ausnahme)
         raff = []
@@ -12590,8 +12590,8 @@ def _lager(fenster, rahmen):
     def _abbau_text(material):
         """Hand / Fahrzeug / Schiff — oder leer, wenn die Daten fehlen."""
         try:
-            from . import bergbau as berg
-            arten = berg.abbauart(material)
+            from . import mining as berg
+            arten = berg.mining_kinds(material)
         except Exception:
             return ''
         namen = []

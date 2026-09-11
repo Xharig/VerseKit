@@ -592,11 +592,11 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
         return t('b_n_bauplaene_kurz') % (len(herstellung.alle()), stand)
 
     def _bergbauzeile():
-        from . import bergbau
-        stand = bergbau.stand()
+        from . import mining
+        stand = mining.current_build()
         if not stand:
             return t('b_nicht_geladen')
-        return t('b_n_orte') % (len(bergbau.orte()), stand)
+        return t('b_n_orte') % (len(mining.locations()), stand)
 
     zeile(t('b_lager'), _sicher(_lagerzeile))
     zeile(t('b_rezepte'), _sicher(_rezeptzeile))
