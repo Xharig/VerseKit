@@ -641,7 +641,7 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
     Schreiben ab, ist die alte Datei noch vollständig da. Die vorige Fassung
     bleibt als `….bak.json` liegen.
 
-    ⚠ **Warum das hier steht und nicht in jedem Modul einzeln.** `bestand.py`
+    ⚠ **Warum das hier steht und nicht in jedem Modul einzeln.** `collection.py`
     hatte diese Sicherung von Anfang an, die beiden Lager (Werkstatt und
     Handel) nicht — sie schrieben zwar atomar, aber ohne Rückfall. Genau dort
     stehen **eigene Eingaben**, die es nirgends sonst zu holen gibt: Ein
@@ -1787,8 +1787,8 @@ MENGE_RE = re.compile(r'\((\d+)\s+[^)]*\)')
 def namensform(s):
     """Ein Bauplan-Name als Vergleichsschlüssel — die EINZIGE Stelle dafür.
 
-    ⚠ Diese Funktion stand dreimal im Programm: in `bestand.py`, `katalog.py`
-    und `watchlist.py`. Der Kommentar in `bestand.py` behauptete „identisch zum
+    ⚠ Diese Funktion stand dreimal im Programm: in `collection.py`, `katalog.py`
+    und `watchlist.py`. Der Kommentar in `collection.py` behauptete „identisch zum
     Hauptprogramm" — und war es nicht mehr. Wer eine davon anfasst, verschiebt
     stillschweigend, welche Baupläne noch zueinander finden.
 

@@ -248,7 +248,7 @@ def main():
     try:
         import queue
         import sc_bp_watcher as w
-        from scbp import bestand as bd
+        from scbp import collection as bd
 
         print('\n1. Pfade finden')
         pruefe(w.pfade.spiel_ordner() == live, 'Spielordner gefunden')
@@ -260,7 +260,7 @@ def main():
         wa = w.Watcher(q)
         wa.start()
         time.sleep(1.5)
-        b = bd.laden()
+        b = bd.load()
         gefunden = set(b['bauplaene'])
         pruefe(gefunden == ERWARTET,
                'genau die %d erwarteten Baupläne (gefunden: %d)'
@@ -296,11 +296,11 @@ def main():
         pruefe(neu == ['Behring FS-9 LMG'],
                'genau eine Meldung, und zwar die richtige (war: %s)' % neu)
         pruefe(any(m[0] == 'hinweis' for m in meldungen)
-               or bd.anzahl(bd.laden()) > 0, 'Lückenhinweis wurde ausgegeben')
+               or bd.count(bd.load()) > 0, 'Lückenhinweis wurde ausgegeben')
         wa.stop()
 
         print('\n4. Neustart — nichts doppelt, nichts verloren')
-        vorher = bd.anzahl(bd.laden())
+        vorher = bd.count(bd.load())
         q2 = queue.Queue()
         wa2 = w.Watcher(q2)
         wa2.start()
@@ -308,7 +308,7 @@ def main():
         wa2.stop()
         doppelt = [m for m in list(q2.queue) if m[0] == 'new']
         pruefe(not doppelt, 'keine Meldung wiederholt (waren: %d)' % len(doppelt))
-        pruefe(bd.anzahl(bd.laden()) == vorher, 'Bestand unverändert (%d)' % vorher)
+        pruefe(bd.count(bd.load()) == vorher, 'Bestand unverändert (%d)' % vorher)
 
         print('\n5. Eigener Pfad statt Suche')
         import json
@@ -376,13 +376,13 @@ def main():
         # Und jetzt der Punkt: Der Bestand füllt sich von allein
         from scbp import logquelle as lq
         funde, _ = lq.nachlesen(lq.Lesestand())
-        frischer_bestand = bd.leer()
+        frischer_bestand = bd.empty()
         for n, _z in funde:
-            bd.hinzufuegen(frischer_bestand, n, 'nachlese')
+            bd.add(frischer_bestand, n, 'nachlese')
         # +1, weil Schritt 3 dem laufenden Log noch einen Bauplan angehängt hat
-        pruefe(bd.anzahl(frischer_bestand) == len(ERWARTET) + 1,
+        pruefe(bd.count(frischer_bestand) == len(ERWARTET) + 1,
                'Bestand kommt aus den Logs, ohne dass jemand etwas eintippt (%d)'
-               % bd.anzahl(frischer_bestand))
+               % bd.count(frischer_bestand))
         pruefe(not assi.noetig(),
                'beim nächsten Mal läuft der Assistent nicht mehr von allein')
 
@@ -572,7 +572,7 @@ def main():
         # Anführungszeichen, scmdb mit einfachen — der Bauplan galt als
         # „fehlt", obwohl er im Bestand stand. Hier wird geprüft, dass alle
         # drei Module dieselbe Form liefern.
-        from scbp import bestand as b_norm, katalog as k_norm
+        from scbp import collection as b_norm, katalog as k_norm
         from scbp import watchlist as m_norm, pfade as p_norm
         proben = ('7MA "Lorica"', "7MA 'Lorica'", 'CF-117 „Hazard" Repeater',
                   'Test\xa0Name')
@@ -755,7 +755,7 @@ def main():
         # zusammenführen heißt zusammenführen.
         print()
         print('13. Vorhandenen Bestand einlesen')
-        from scbp import importer, bestand as bestandsmodul
+        from scbp import importer, collection as bestandsmodul
 
         proben = {
             'eigen': {'werkzeug': 'SC BP Watcher',
@@ -783,9 +783,9 @@ def main():
         pruefe(art == 'basetool', 'die Datei wird als Basetool-Ausgabe gelesen')
         pruefe(len(eintraege) == 3, 'alle Zeilen kommen an')
 
-        vorher = bestandsmodul.leer()
-        bestandsmodul.hinzufuegen(vorher, 'Attrition-5 Repeater', 'log')
-        bestandsmodul.hinzufuegen(vorher, 'Nur Im Bestand', 'log')
+        vorher = bestandsmodul.empty()
+        bestandsmodul.add(vorher, 'Attrition-5 Repeater', 'log')
+        bestandsmodul.add(vorher, 'Nur Im Bestand', 'log')
         v = importer.preview(eintraege, vorher,
                                  catalog_names=['Attrition-5 Repeater',
                                                 'Scalpel Sniper Rifle Magazine (12 cap)'])
@@ -1106,7 +1106,7 @@ def main():
         # Der Klammer-Abgleich: (12 Schuss) gegen (12 cap) — derselbe Bauplan.
         v2 = importer.preview(
             [{'name': 'Scalpel Sniper Rifle Magazine (12 Schuss)', 'zeit': None}],
-            bestandsmodul.leer(),
+            bestandsmodul.empty(),
             catalog_names=['Scalpel Sniper Rifle Magazine (12 cap)'])
         pruefe(v2['unbekannt'] == [],
                'abweichender Klammer-Zusatz gilt nicht als unbekannt')
@@ -2563,9 +2563,9 @@ def main():
             import importlib as im33
             from scbp import pfade as pf33
             im33.reload(pf33)
-            from scbp import bestand as be33
+            from scbp import collection as be33
             im33.reload(be33)
-            with open(be33.pfad(), 'w', encoding='utf-8') as f33:
+            with open(be33.path(), 'w', encoding='utf-8') as f33:
                 js33.dump({'version': 1, 'stand': '2026-08-01 12:00:00',
                            'bauplaene': {
                                'xl-1 (mil/2/a)': {'name': 'XL-1 (Mil/2/A)',
@@ -2583,7 +2583,7 @@ def main():
                                    'name': 'Ravager-212 Magazine (16 Schuss)',
                                    'quelle': 'nachlese', 'zeit': '2026-08-04 07:00:00'},
                            }}, f33, ensure_ascii=False)
-            d33 = be33.laden()
+            d33 = be33.load()
             pruefe('xl-1' in d33['bauplaene'],
                    'ein gespeicherter Schluessel mit Kuerzel zieht um')
             pruefe('xl-1 (mil/2/a)' not in d33['bauplaene'],
@@ -2592,11 +2592,11 @@ def main():
                    'eine Dublette wird zu einem Eintrag zusammengefuehrt')
             pruefe(d33['bauplaene']['guardian'].get('zeit') == '2026-08-02 08:00:00',
                    'dabei gewinnt der aeltere Fund, nicht der zuletzt gelesene')
-            pruefe(d33.get('version') == be33.DATEI_VERSION,
+            pruefe(d33.get('version') == be33.FILE_VERSION,
                'die Datei-Version wird hochgesetzt')
             # ⚠ Nur EINMAL umziehen — sonst schreibt jeder Start die Datei neu.
-            auf_platte33 = js33.load(open(be33.pfad(), encoding='utf-8'))
-            pruefe(auf_platte33.get('version') == be33.DATEI_VERSION,
+            auf_platte33 = js33.load(open(be33.path(), encoding='utf-8'))
+            pruefe(auf_platte33.get('version') == be33.FILE_VERSION,
                    'der Umzug wird auf die Platte geschrieben, nicht nur gedacht')
             # ⚠ Und der Umzug muss die Sprach-Dublette einsammeln — genau die,
             # die am 29.08.2026 in einem echten Bestand lag. Nur `namensform()` zu
@@ -3037,7 +3037,7 @@ def main():
         try:
             from scbp import pfade as pf22
             _imp22.reload(pf22)
-            from scbp import bestand as be22, export as ex22
+            from scbp import collection as be22, export as ex22
             _imp22.reload(ex22)
             _imp22.reload(be22)
 
@@ -3049,9 +3049,9 @@ def main():
                 open(os.path.join(ordner22, name), 'w').close()
             open(os.path.join(ordner22, 'meine-notiz.json'), 'w').close()
 
-            daten22 = be22.leer()
-            be22.hinzufuegen(daten22, 'Testbauplan Alpha', 'log')
-            be22.speichern(daten22)
+            daten22 = be22.empty()
+            be22.add(daten22, 'Testbauplan Alpha', 'log')
+            be22.save(daten22)
 
             liegt = set(os.listdir(ordner22))
             pruefe({'SC-Blueprints-Basetool.json', 'scmdb-import.json',
@@ -3060,8 +3060,8 @@ def main():
 
             # ⚠ Ohne Datum im Namen — sonst entstuenden taeglich drei neue
             # Dateien, und niemand wuesste, welche die aktuelle ist.
-            be22.hinzufuegen(daten22, 'Testbauplan Beta', 'log')
-            be22.speichern(daten22)
+            be22.add(daten22, 'Testbauplan Beta', 'log')
+            be22.save(daten22)
             # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
             # `pfade.app_datei()` ALLES flach in denselben Ordner — im
             # Normalbetrieb liegen die internen Dateien dagegen unter
@@ -6998,7 +6998,7 @@ def main():
     # tragen selbst eine („A03 Sniper Rifle Magazine (15 cap)").
     print()
     print('78. Angaben im Namen verderben den Abgleich nicht')
-    from scbp import bestand as _bd78
+    from scbp import collection as _bd78
     from scbp import katalog as _ka78
 
     _heim78 = os.environ.get('SC_BP_HOME')
@@ -7027,33 +7027,33 @@ def main():
                'der Testkatalog wird gelesen')
 
         # a) Beim Eintragen wird der Anhang abgeschnitten …
-        _d78 = _bd78.leer()
-        _bd78.hinzufuegen(_d78, 'Balandin (S3 B Military)', 'log')
+        _d78 = _bd78.empty()
+        _bd78.add(_d78, 'Balandin (S3 B Military)', 'log')
         pruefe(_bd78.norm('Balandin') in _d78['bauplaene'],
                'ein Bauplan mit angehaengten Angaben landet unter seinem '
                'Katalognamen')
 
         # b) … aber nur, wenn die Klammer die Ursache ist.
-        _bd78.hinzufuegen(_d78, 'A03 Sniper Rifle Magazine (15 cap)', 'log')
+        _bd78.add(_d78, 'A03 Sniper Rifle Magazine (15 cap)', 'log')
         pruefe(_bd78.norm('A03 Sniper Rifle Magazine (15 cap)')
                in _d78['bauplaene'],
                'ein Katalogname MIT Klammer bleibt unangetastet')
 
         # c) Was der Katalog gar nicht kennt, bleibt wie gefunden.
-        _bd78.hinzufuegen(_d78, 'Voellig Unbekannt (Irgendwas)', 'log')
+        _bd78.add(_d78, 'Voellig Unbekannt (Irgendwas)', 'log')
         pruefe(_bd78.norm('Voellig Unbekannt (Irgendwas)')
                in _d78['bauplaene'],
                'ein unbekannter Name wird nicht auf Verdacht gekuerzt')
 
         # d) Und der alte Stand wird nachtraeglich angeglichen.
-        _alt78 = _bd78.leer()
+        _alt78 = _bd78.empty()
         _alt78['bauplaene']['balandin (s3 b military)'] = {
             'name': 'Balandin (S3 B Military)', 'quelle': 'log',
             'zeit': '2026-08-01'}
         _alt78['bauplaene']['cirrus (s2 c stealth)'] = {
             'name': 'Cirrus (S2 C Stealth)', 'quelle': 'log',
             'zeit': '2026-08-02'}
-        _zahl78 = _bd78.angleichen(_alt78)
+        _zahl78 = _bd78.align(_alt78)
         pruefe(_zahl78 == 2 and sorted(_alt78['bauplaene'])
                == sorted([_bd78.norm('Balandin'), _bd78.norm('Cirrus')]),
                'ein alter Stand wird beim Start angeglichen (%d berichtigt)'
@@ -7066,7 +7066,7 @@ def main():
         _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
     _q78 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
-    pruefe('bestand_datei.angleichen(self.bestand)' in _q78,
+    pruefe('bestand_datei.align(self.bestand)' in _q78,
            'und der Watcher stoesst das beim Start an')
 
     # ------------------------------------------------------------------
@@ -7101,14 +7101,14 @@ def main():
             json.dump(_kat79, _f79)
         _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
-        pruefe(_bd78.katalogname('BlackFire Racing Flight Suit')
+        pruefe(_bd78.catalog_name('BlackFire Racing Flight Suit')
                == 'Neutrino Racing Flight Suit BlackFire',
                'ein eindeutiger Altname wird zugeordnet')
-        pruefe(_bd78.katalogname('Parallax') == 'Parallax',
+        pruefe(_bd78.catalog_name('Parallax') == 'Parallax',
                'ein mehrdeutiger Altname bleibt stehen (Parallax passt auf zwei)')
-        pruefe(_bd78.katalogname('Tailwind Flight Suit') == 'Tailwind Flight Suit',
+        pruefe(_bd78.catalog_name('Tailwind Flight Suit') == 'Tailwind Flight Suit',
                'ein Name, den es genau so gibt, wird nicht angefasst')
-        pruefe(_bd78.katalogname('Voellig Fremder Gegenstand')
+        pruefe(_bd78.catalog_name('Voellig Fremder Gegenstand')
                == 'Voellig Fremder Gegenstand',
                'ein Name ohne jeden Treffer bleibt, wie er ist')
     finally:
@@ -8514,22 +8514,22 @@ def main():
     # ohne Fenster — auf jedem System und im Bau-Lauf.
     print()
     print('93. „Bestand zuruecksetzen" sagt immer, was passiert ist')
-    from scbp import bestand as _bd93, pfade as _pf93
+    from scbp import collection as _bd93, pfade as _pf93
 
     _datei93 = _pf93.app_datei('bestand.json')
-    _bd93.speichern({'bauplaene': {'xl-1': {'name': 'XL-1'}}})
+    _bd93.save({'bauplaene': {'xl-1': {'name': 'XL-1'}}})
     pruefe(os.path.exists(_datei93), 'ein Bestand liegt da')
 
-    pruefe(_bd93.zuruecksetzen() is None, 'das Zuruecksetzen meldet Erfolg')
+    pruefe(_bd93.reset() is None, 'das Zuruecksetzen meldet Erfolg')
     pruefe(not os.path.exists(_datei93), 'und die Datei ist weg')
 
     # ⭐ Der gemeldete Fall: noch einmal, jetzt ohne Datei.
-    pruefe(_bd93.zuruecksetzen() is None,
+    pruefe(_bd93.reset() is None,
            'ein zweites Mal ist ebenfalls Erfolg — „war schon weg" ist weg')
 
     # Und der Bestand liest sich danach als leer, faellt also NICHT auf die
     # Vorgaengerfassung zurueck. Sonst waere das Zuruecksetzen wirkungslos.
-    pruefe(_bd93.laden().get('bauplaene') == {},
+    pruefe(_bd93.load().get('bauplaene') == {},
            'danach ist der Bestand wirklich leer')
 
     # ⚠ Eine echte Stoerung muss dagegen zurueckkommen — sonst schluckt der
@@ -8538,7 +8538,7 @@ def main():
     os.remove = _machs93 = lambda *_a, **_k: (_ for _ in ()).throw(
         PermissionError(13, 'kein Zugriff'))
     try:
-        _stoerung93 = _bd93.zuruecksetzen()
+        _stoerung93 = _bd93.reset()
     finally:
         os.remove = _echt93
     pruefe(isinstance(_stoerung93, OSError)
@@ -8570,12 +8570,12 @@ def main():
     # | 462 · 462 durchgesehen · 380 daraus | alles in Ordnung |
     print()
     print('94. Der Bericht sagt selbst, ob die Log-Erkennung greift')
-    from scbp import bericht as _be94, bestand as _bd94
+    from scbp import bericht as _be94, collection as _bd94
 
     def _zahlen94(text):
         return [int(_x) for _x in re.findall(r'\d+', text)]
 
-    _bd94.speichern(_bd94.leer())
+    _bd94.save(_bd94.empty())
     _zeile94 = _be94._protokollzeile()
     _z94 = _zahlen94(_zeile94)
     pruefe(len(_z94) == 3,
@@ -8588,13 +8588,13 @@ def main():
     # ⭐ Der Kern: Nur Funde AUS PROTOKOLLEN zaehlen. Was vom Launcher, von
     # Hand oder aus den Startbauplaenen kam, sagt ueber die Log-Erkennung
     # nichts — und genau die steht hier zur Frage.
-    _daten94 = _bd94.leer()
-    _bd94.hinzufuegen(_daten94, 'Aus dem Log', 'log')
-    _bd94.hinzufuegen(_daten94, 'Aus der Nachlese', 'nachlese')
-    _bd94.hinzufuegen(_daten94, 'Vom Launcher', 'launcher')
-    _bd94.hinzufuegen(_daten94, 'Von Hand', 'hand')
-    _bd94.hinzufuegen(_daten94, 'Startbauplan', 'start')
-    _bd94.speichern(_daten94)
+    _daten94 = _bd94.empty()
+    _bd94.add(_daten94, 'Aus dem Log', 'log')
+    _bd94.add(_daten94, 'Aus der Nachlese', 'nachlese')
+    _bd94.add(_daten94, 'Vom Launcher', 'launcher')
+    _bd94.add(_daten94, 'Von Hand', 'hand')
+    _bd94.add(_daten94, 'Startbauplan', 'start')
+    _bd94.save(_daten94)
     _z94b = _zahlen94(_be94._protokollzeile())
     pruefe(_z94b[2] == 2,
            'nur die zwei aus Protokollen werden gezaehlt, nicht alle fuenf '
@@ -8616,7 +8616,7 @@ def main():
     pruefe(_kaputt94 is None,
            'die Zeile bricht den Bericht nicht ab (%s)' % _kaputt94)
 
-    _bd94.speichern(_bd94.leer())
+    _bd94.save(_bd94.empty())
 
 
     # 95. Rot heisst „weg", nicht „irgendwas Wichtiges"
@@ -8637,17 +8637,17 @@ def main():
     # nichts ueberschrieben, doppelt kann nichts werden.
     print()
     print('95. Rot heisst „weg", nicht „irgendwas Wichtiges"')
-    from scbp import bestand as _bd95
+    from scbp import collection as _bd95
 
     # a) Der Beleg, dass der Knopf harmlos ist: zweimal dasselbe einlesen
     #    aendert nichts, und Vorhandenes bleibt stehen.
-    _stand95 = _bd95.leer()
-    _bd95.hinzufuegen(_stand95, 'Vom Launcher', 'launcher')
-    _bd95.hinzufuegen(_stand95, 'Aus dem Log', 'log')
+    _stand95 = _bd95.empty()
+    _bd95.add(_stand95, 'Vom Launcher', 'launcher')
+    _bd95.add(_stand95, 'Aus dem Log', 'log')
     _vorher95 = dict(_stand95['bauplaene'])
     for _ in range(3):
-        _bd95.hinzufuegen(_stand95, 'Aus dem Log', 'nachlese')
-        _bd95.hinzufuegen(_stand95, 'Vom Launcher', 'nachlese')
+        _bd95.add(_stand95, 'Aus dem Log', 'nachlese')
+        _bd95.add(_stand95, 'Vom Launcher', 'nachlese')
     pruefe(_stand95['bauplaene'].keys() == _vorher95.keys(),
            'erneutes Einlesen legt nichts doppelt an')
     pruefe(_stand95['bauplaene'][_bd95.norm('Vom Launcher')]['quelle']
@@ -10586,7 +10586,7 @@ def main():
     # ist dagegen eindeutig — und sie ist die Ursache, nicht das Symptom.
     print()
     print('113b. Der Bestandsabgleich liest den Katalog nur einmal')
-    _bes113b = importlib.import_module('scbp.bestand')
+    _bes113b = importlib.import_module('scbp.collection')
     _kat113b = importlib.import_module('scbp.katalog')
     _zaehler113b = [0]
     _echt113b = _kat113b.laden
@@ -10599,7 +10599,7 @@ def main():
     try:
         _daten113b = {'bauplaene': {
             'testhelm %d' % i: {'name': 'Testhelm %d' % i} for i in range(50)}}
-        _bes113b.angleichen(_daten113b)
+        _bes113b.align(_daten113b)
         pruefe(_zaehler113b[0] <= 1,
                'bei 50 Bauplaenen wird der Katalog %dx geladen (erlaubt: 1)'
                % _zaehler113b[0])
@@ -11133,7 +11133,7 @@ def main():
     for _i117 in range(len(_stellen117) - 1):
         _stueck117 = _seiten117[_stellen117[_i117]:_stellen117[_i117 + 1]]
         _name117 = re.match(r'^def _([a-z_]+)\(', _stueck117).group(1)
-        if 'bestand_datei.laden()' in _stueck117 or '_zahl_bestand()' in _stueck117:
+        if 'bestand_datei.load()' in _stueck117 or '_zahl_bestand()' in _stueck117:
             _liest117.add(_name117)
 
     pruefe(bool(_liest117),
@@ -11175,7 +11175,7 @@ def main():
     # bestehen, auch wenn alle Seiten eingetragen sind.
     _wq117 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                   encoding='utf-8').read()
-    _direkt117 = len(re.findall(r'bestand_datei\.speichern\(self\.bestand\)',
+    _direkt117 = len(re.findall(r'bestand_datei\.save\(self\.bestand\)',
                                 _wq117))
     pruefe(_direkt117 == 1,
            'der Bestand wird nur ueber _bestand_sichern() geschrieben '
@@ -12227,21 +12227,21 @@ def main():
     # gaben 221 Protokolle ganze 3 Bauplaene her; 229 waren weg.
     #
     # Wer „232 → 3" liest, bricht ab. Wer einen Satz liest, klickt weiter.
-    from scbp import bestand as _b130
+    from scbp import collection as _b130
 
     _wiese130 = tempfile.mkdtemp(prefix='sc-bp-reset-')
     _altheim130 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _wiese130
     try:
-        _d130 = _b130.leer()
+        _d130 = _b130.empty()
         for _i130 in range(3):
-            _b130.hinzufuegen(_d130, 'Aus Log %d' % _i130, 'log')
+            _b130.add(_d130, 'Aus Log %d' % _i130, 'log')
         for _i130 in range(229):
-            _b130.hinzufuegen(_d130, 'Vom Launcher %d' % _i130, 'launcher')
-        _b130.speichern(_d130)
+            _b130.add(_d130, 'Vom Launcher %d' % _i130, 'launcher')
+        _b130.save(_d130)
 
-        _g130 = _b130.laden()
-        _q130 = _b130.nach_quelle(_g130)
+        _g130 = _b130.load()
+        _q130 = _b130.by_source(_g130)
         _bleibt130 = _q130.get('log', 0) + _q130.get('nachlese', 0)
         pruefe(len(_g130['bauplaene']) == 232,
                'die Lage ist nachgestellt (232 Bauplaene)')
@@ -12261,12 +12261,12 @@ def main():
 
         # ⚠ Gegenprobe: Ein Bestand nur aus Protokollen verliert nichts —
         # sonst waere die Warnung eine Panikmache, die man wegklickt.
-        _d130b = _b130.leer()
+        _d130b = _b130.empty()
         for _i130 in range(5):
-            _b130.hinzufuegen(_d130b, 'Nur Log %d' % _i130, 'log')
-        _b130.speichern(_d130b)
-        _g130b = _b130.laden()
-        _q130b = _b130.nach_quelle(_g130b)
+            _b130.add(_d130b, 'Nur Log %d' % _i130, 'log')
+        _b130.save(_d130b)
+        _g130b = _b130.load()
+        _q130b = _b130.by_source(_g130b)
         pruefe((_q130b.get('log', 0) + _q130b.get('nachlese', 0))
                == len(_g130b['bauplaene']),
                'ein reiner Protokoll-Bestand verliert nichts')
@@ -15256,7 +15256,7 @@ def main():
     # Kein Wort dazu; zurueck blieb nur eine kleinere Zahl.
     print()
     print('168. Weniger Bauplaene als je zuvor faellt auf')
-    from scbp import bestand as _bs168
+    from scbp import collection as _bs168
 
     _heim = _tf166.mkdtemp(prefix='schwund-')
     _konf = _tf166.mkdtemp(prefix='schwund-konf-')
@@ -15269,35 +15269,35 @@ def main():
         os.environ['APPDATA'] = _konf          # damit es auch auf Windows greift
 
         def _lege(n):
-            with io.open(_bs168.pfad(), 'w', encoding='utf-8') as _f:
+            with io.open(_bs168.path(), 'w', encoding='utf-8') as _f:
                 json.dump({'bauplaene': {'t%03d' % i: {'name': 'T%d' % i}
                                          for i in range(n)},
                            'stand': 'x', 'version': 2}, _f)
 
         _lege(413)
-        pruefe(_bs168.schwund_pruefen(_bs168.laden()) is None,
+        pruefe(_bs168.check_shrinkage(_bs168.load()) is None,
                'ein voller Bestand meldet nichts und setzt die Marke')
 
         _lege(406)
-        _fund = _bs168.schwund_stand()
+        _fund = _bs168.shrinkage_state()
         pruefe(_fund is not None and _fund[0] == 406 and _fund[1] == 413,
                'ein geschrumpfter Bestand wird gemeldet (406 statt 413)')
 
         # ⚠⚠ Das Ansehen darf die Marke NICHT verstellen — sonst waere die
         # Meldung nach einmal Hinsehen fuer immer weg.
-        _bs168.schwund_stand()
-        pruefe(_bs168.schwund_stand() is not None,
+        _bs168.shrinkage_state()
+        pruefe(_bs168.shrinkage_state() is not None,
                'Gegenprobe: Ansehen loescht die Meldung nicht')
 
         _lege(413)
-        pruefe(_bs168.schwund_stand() is None,
+        pruefe(_bs168.shrinkage_state() is None,
                'ist alles wieder da, verschwindet die Meldung')
 
         # ⚠ Ein GEWOLLTES Zuruecksetzen ist kein Verlust.
-        _bs168.schwund_pruefen(_bs168.laden())
-        _bs168.zuruecksetzen()
+        _bs168.check_shrinkage(_bs168.load())
+        _bs168.reset()
         _lege(0)
-        pruefe(_bs168.schwund_stand() is None,
+        pruefe(_bs168.shrinkage_state() is None,
                'Gegenprobe: nach bewusstem Zuruecksetzen keine Warnung')
     finally:
         for _name, _wert in (('SC_BP_HOME', _alt_home),
@@ -16498,6 +16498,7 @@ def main():
         'merkliste': 'watchlist',
         'sicherung': 'backup',
         'handelslager': 'trade_cargo',
+        'bestand': 'collection',
     }
 
     def _reste190(quelle, name, alte):

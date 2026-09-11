@@ -39,7 +39,7 @@ import time
 import tkinter as tk
 
 from . import fehler
-from . import bestand as bestand_datei
+from . import collection as bestand_datei
 from . import export as export_modul
 from . import notice
 from . import katalog as katalog_modul
@@ -327,7 +327,7 @@ class Bestandsfenster:
         # statt 405. Ohne Zahlen vom echten Rechner bliebe es beim Raten, und
         # genau daran sind hier schon mehrere Anläufe gescheitert.
         _t_bau = time.perf_counter()
-        self.bestand = bestand_datei.laden()
+        self.bestand = bestand_datei.load()
         _ms_bestand = (time.perf_counter() - _t_bau) * 1000
         # ⚠ Erst stempeln, dann laden. Das Nachziehen hing bisher allein am
         # Netz-Takt (`katalog.aktualisieren()`), und der läuft irgendwann nach
@@ -1363,7 +1363,7 @@ class Bestandsfenster:
         er will den Haken auftauchen sehen.
         """
         try:
-            self.bestand = bestand_datei.laden()
+            self.bestand = bestand_datei.load()
             if auch_katalog:
                 katalog_modul.stempel_nachziehen()
                 self.katalog = katalog_modul.laden()
@@ -1511,7 +1511,7 @@ class Bestandsfenster:
         Alphabet stand vorher „Andockkragen" ganz oben und die Rüstung
         mittendrin."""
         text = self.suche.get().strip().lower()
-        habe = bestand_datei.schluessel(self.bestand)
+        habe = bestand_datei.keys(self.bestand)
         beobachtet = merk.names()
         # Was mit dem letzten Patch dazukam. Einmal je Durchlauf holen — die
         # Menge ist für alle Zeilen dieselbe.
@@ -1637,7 +1637,7 @@ class Bestandsfenster:
         _t_auswahl = time.perf_counter()
         gruppen = self._auswahl()
         _ms_auswahl = (time.perf_counter() - _t_auswahl) * 1000
-        habe = bestand_datei.schluessel(self.bestand)
+        habe = bestand_datei.keys(self.bestand)
         gesamt = len(self.katalog['bauplaene'])
         meine = sum(1 for k in self.katalog['bauplaene'] if k in habe)
         if gesamt:
@@ -1892,7 +1892,7 @@ class Bestandsfenster:
     def _block_bauen(self, nummer):
         start = self._block_start[nummer]
         rahmen = tk.Frame(self.leinwand, bg=BG)
-        habe = bestand_datei.schluessel(self.bestand)
+        habe = bestand_datei.keys(self.bestand)
         for reihe in self._reihen[start:start + BLOCK_REIHEN]:
             if reihe[0] == 'kopf':
                 self._gruppenkopf(reihe[1], reihe[2], habe, eltern=rahmen)
@@ -2204,7 +2204,7 @@ class Bestandsfenster:
         if eintrag.get('c'):
             teile.append(eintrag['c'])
         teile.append(t('hk_hast_du')
-                     if bestand_datei.enthaelt(self.bestand, eintrag['n'])
+                     if bestand_datei.contains(self.bestand, eintrag['n'])
                      else t('hk_fehlt_dir'))
         if len(quellen) > 1:
             teile.append(t('hk_leichtester'))
@@ -2216,7 +2216,7 @@ class Bestandsfenster:
         # **verlieren** kann, ohne es zu merken. Steht in Gold direkt unter den
         # Angaben, nicht irgendwo unten: Wer den Bauplan noch nicht hat, muss es
         # sehen, bevor er weiterliest.
-        if not bestand_datei.enthaelt(self.bestand, eintrag['n']):
+        if not bestand_datei.contains(self.bestand, eintrag['n']):
             deckel = katalog_modul.ruf_deckel(
                 self.katalog, katalog_modul._norm(eintrag['n']))
             if deckel:
@@ -2339,11 +2339,11 @@ class Bestandsfenster:
     # ------------------------------------------------------------------ Aktion
     def _umschalten(self, name):
         """Häkchen setzen oder entfernen — und sofort auf die Platte schreiben."""
-        if bestand_datei.enthaelt(self.bestand, name):
-            bestand_datei.entfernen(self.bestand, name)
+        if bestand_datei.contains(self.bestand, name):
+            bestand_datei.remove(self.bestand, name)
         else:
-            bestand_datei.hinzufuegen(self.bestand, name, 'hand')
-        bestand_datei.speichern(self.bestand)
+            bestand_datei.add(self.bestand, name, 'hand')
+        bestand_datei.save(self.bestand)
         self._zeichnen()
 
     def _merken(self, name):

@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 heim = tempfile.mkdtemp(prefix='marken-')
 os.environ['SC_BP_HOME'] = heim
 os.environ['SC_BP_NO_NET'] = '1'
-from scbp import injektion, bestand as bestand_datei
+from scbp import injektion, collection as bestand_datei
 
 # ⚠ Kein fester Pfad: Der Spielordner liegt bei jedem woanders, und ein
 # Heimverzeichnis im Quelltext ist eine persoenliche Angabe im oeffentlichen

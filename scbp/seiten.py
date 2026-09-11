@@ -35,7 +35,7 @@ import threading
 import time
 import tkinter as tk
 
-from . import bericht, bestand as bestand_datei, fehler, katalog as katalog_modul
+from . import bericht, collection as bestand_datei, fehler, katalog as katalog_modul
 from . import pfade, zeichen
 from .sprache import t, pa_feld
 
@@ -1054,7 +1054,7 @@ def _fortschritt(fenster, rahmen):
     _ueberschrift(fenster, rahmen, t('hf_fortschritt'), t('s_fo_lead'))
     innen = _rollflaeche(rahmen)
     try:
-        bestand = bestand_datei.laden()
+        bestand = bestand_datei.load()
         katalog = katalog_modul.laden()
     except Exception as ausnahme:
         fehler.merken('seiten.fortschritt', ausnahme)
@@ -1071,7 +1071,7 @@ def _fortschritt(fenster, rahmen):
     # ⚠ `schwund_stand()` und nicht `schwund_pruefen()`: Letzteres würde beim
     # Hinsehen den kleineren Stand als neuen Höchstwert festschreiben, und die
     # Meldung wäre nach einmal Ansehen für immer weg.
-    schwund = bestand_datei.schwund_stand()
+    schwund = bestand_datei.shrinkage_state()
     if schwund:
         jetzt_da, hoechst, frueher = schwund
         kasten = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
@@ -2426,9 +2426,9 @@ def _bestand(fenster, rahmen):
         # Protokolle nötig, die Auskunft liegt schon da.
         frage = t('s_be_reset_frage')
         try:
-            daten = bestand_datei.laden()
+            daten = bestand_datei.load()
             gesamt = len(daten.get('bauplaene') or {})
-            quellen = bestand_datei.nach_quelle(daten)
+            quellen = bestand_datei.by_source(daten)
             bleibt = quellen.get('log', 0) + quellen.get('nachlese', 0)
             if gesamt:
                 frage = '%s\n\n%s' % (
@@ -2441,9 +2441,9 @@ def _bestand(fenster, rahmen):
             return
         # ⚠⚠ **Jeder Ausgang sagt etwas.** Ein Knopf, der nach der
         # Warnfrage schweigt, ist von einem kaputten nicht zu unterscheiden.
-        # Was „geschafft" heisst, entscheidet `bestand.zuruecksetzen()` — dort
+        # Was „geschafft" heisst, entscheidet `collection.reset()` — dort
         # steht auch, warum „war schon weg" dazugehoert.
-        stoerung = bestand_datei.zuruecksetzen()
+        stoerung = bestand_datei.reset()
         if stoerung is not None:
             fehler.merken('seiten.bestand.zuruecksetzen', stoerung)
             fenster.sagen(t('s_be_reset_fehler', stoerung))
@@ -5817,7 +5817,7 @@ def _zahl_katalog():
 
 def _zahl_bestand():
     try:
-        return len((bestand_datei.laden().get('bauplaene') or {}))
+        return len((bestand_datei.load().get('bauplaene') or {}))
     except Exception:
         return '—'
 
@@ -5850,7 +5850,7 @@ def _herstellung(fenster, rahmen):
     innen = _rollflaeche(rahmen)
 
     try:
-        habe = bestand_datei.schluessel(bestand_datei.laden())
+        habe = bestand_datei.keys(bestand_datei.load())
         eintraege = herst_modul.mit_bestand(habe)
         sicher, gesamt, unklar = herst_modul.zaehlung(habe)
     except Exception as ausnahme:

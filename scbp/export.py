@@ -43,7 +43,7 @@ import json
 import os
 import time
 
-from . import bestand as bestand_datei
+from . import collection as bestand_datei
 from . import katalog as katalog_modul
 
 
@@ -65,7 +65,7 @@ def _iso(zeit_text):
 
 def fuer_basetool(bestand=None):
     """Die Struktur, die `profit-base.online` beim Import erwartet."""
-    daten = bestand if bestand is not None else bestand_datei.laden()
+    daten = bestand if bestand is not None else bestand_datei.load()
     eintraege = []
     for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
@@ -129,7 +129,7 @@ def fuer_scmdb(bestand=None, version='', tags=None):
 
     `missions` bleibt leer. Ihre Einträge tragen einen `hash` aus dem
     Auftragssystem von scmdb, den wir nicht haben und nicht erfinden."""
-    daten = bestand if bestand is not None else bestand_datei.laden()
+    daten = bestand if bestand is not None else bestand_datei.load()
     tabelle = _scmdb_tags() if tags is None else tags
     eintraege = []
     for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
@@ -152,7 +152,7 @@ def fuer_scmdb(bestand=None, version='', tags=None):
 
 def vollstaendig(bestand=None, katalog=None):
     """Alles, was das Werkzeug über den eigenen Bestand weiß."""
-    daten = bestand if bestand is not None else bestand_datei.laden()
+    daten = bestand if bestand is not None else bestand_datei.load()
     kat = (katalog if katalog is not None else katalog_modul.laden())
     kb = kat.get('bauplaene') or {}
     eintraege = []

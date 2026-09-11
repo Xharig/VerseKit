@@ -161,7 +161,7 @@ def _protokollzeile():
     Launcher, von Hand oder aus den Startbauplaenen kam, sagt ueber die
     Log-Erkennung nichts aus — und genau die steht hier zur Frage.
     """
-    from . import bestand as bestand_modul
+    from . import collection as bestand_modul
     from . import logquelle, pfade as pfade_modul
 
     # ⚠ **Jeder Schritt fuer sich abgesichert, auch der erste.** Diese Zeile
@@ -184,7 +184,7 @@ def _protokollzeile():
     except Exception:
         pass
     try:
-        quellen = bestand_modul.nach_quelle(bestand_modul.laden())
+        quellen = bestand_modul.by_source(bestand_modul.load())
         aus_logs = quellen.get('log', 0) + quellen.get('nachlese', 0)
         teile.append(t('b_logs_funde_1' if aus_logs == 1 else 'b_logs_funde')
                      % aus_logs)
@@ -206,17 +206,17 @@ def _bestandzeile():
     muss. Sie ist auch die interessantere Angabe: Sie sagt, wie weit Katalog und
     eigener Stand auseinanderlaufen.
     """
-    from . import bestand as bestand_modul
+    from . import collection as bestand_modul
     from . import katalog as katalog_modul
-    daten = bestand_modul.laden()
-    gesamt = bestand_modul.anzahl(daten)
+    daten = bestand_modul.load()
+    gesamt = bestand_modul.count(daten)
     try:
         bekannt = set(katalog_modul.laden().get('bauplaene') or {})
     except Exception:
         bekannt = set()
     if not bekannt:
         return t('b_n_bauplaene') % gesamt
-    im_katalog = len(bestand_modul.schluessel(daten) & bekannt)
+    im_katalog = len(bestand_modul.keys(daten) & bekannt)
     if im_katalog == gesamt:
         return t('b_n_bauplaene') % gesamt
     return t('b_n_bp_katalog') % (gesamt, im_katalog, gesamt - im_katalog)
@@ -236,7 +236,7 @@ def _unbekannte_bauplaene():
     Schreibweise. Ohne sie muss jemand die Datei von Hand mit dem Katalog
     vergleichen; damit ist die Angabe im Bericht wertlos.
     """
-    from . import bestand as bestand_modul
+    from . import collection as bestand_modul
     from . import katalog as katalog_modul
     try:
         bekannt = set(katalog_modul.laden().get('bauplaene') or {})
@@ -244,7 +244,7 @@ def _unbekannte_bauplaene():
         return ''
     if not bekannt:
         return ''
-    daten = bestand_modul.laden()
+    daten = bestand_modul.load()
     fehlend = sorted((e.get('name') or k)
                      for k, e in daten['bauplaene'].items() if k not in bekannt)
     if not fehlend:

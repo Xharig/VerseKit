@@ -550,7 +550,7 @@ def rohstoff_bedarf():
 def habe_ich(bestand_schluessel, produktname):
     """Hat der Spieler den Bauplan zu diesem Produkt?
 
-    `bestand_schluessel` ist das Ergebnis von `bestand.schluessel(...)` — also
+    `bestand_schluessel` ist das Ergebnis von `collection.keys(...)` — also
     bereits normalisierte Namen. Deshalb wird hier nur die andere Seite
     normalisiert."""
     return _norm(produktname or '') in (bestand_schluessel or set())

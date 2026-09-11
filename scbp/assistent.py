@@ -37,7 +37,7 @@ import os
 import tkinter as tk
 
 from . import fehler
-from . import bestand as bestand_datei
+from . import collection as bestand_datei
 from . import logquelle, pfade, sprache
 from .sprache import t, fenstertitel
 
@@ -278,13 +278,13 @@ class Assistent:
                 self.ergebnis.configure(text=t('lese_logs_n', anzahl_dateien))
                 self.root.update()
             funde, bericht = logquelle.nachlesen(logquelle.Lesestand())
-            b = bestand_datei.laden()
+            b = bestand_datei.load()
             neu = 0
             for name, _zusatz in funde:
-                if bestand_datei.hinzufuegen(b, name, 'nachlese'):
+                if bestand_datei.add(b, name, 'nachlese'):
                     neu += 1
             if neu:
-                bestand_datei.speichern(b)
+                bestand_datei.save(b)
             fehler.spur('Assistent: nachgelesen (%d neu)' % neu)
             self.ergebnis.configure(
                 text=t('nachgelesen_gross', neu, bericht.get('dateien', 0)),
@@ -381,8 +381,8 @@ class Assistent:
             return
         self.titel.configure(text=t('schritt_fertig'))
         f = self._flaeche()
-        b = bestand_datei.laden()
-        self._absatz(f, t('bauplaene') + ': %d' % bestand_datei.anzahl(b),
+        b = bestand_datei.load()
+        self._absatz(f, t('bauplaene') + ': %d' % bestand_datei.count(b),
                      ACCENT, 15, fett=True)
         self._absatz(f, t('schritt_fertig_text'), FG, 11, oben=14)
         # ⚠ Ohne führendes Zeichen. Hier stand `☰`, das es seit rc55 gar nicht

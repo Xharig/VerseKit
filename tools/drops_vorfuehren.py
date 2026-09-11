@@ -146,15 +146,15 @@ def _bestand_freimachen():
     Baupläne, die den grünen Zustand zeigen sollen, stehen ja im Export und
     damit im Bestand.
     """
-    from scbp import bestand as bd
-    daten = bd.laden()
+    from scbp import collection as bd
+    daten = bd.load()
     weg = []
     for name, _, _ in FUNDE + [GEMERKT]:
-        if bd.enthaelt(daten, name):
-            bd.entfernen(daten, name)
+        if bd.contains(daten, name):
+            bd.remove(daten, name)
             weg.append(name)
     if weg:
-        bd.speichern(daten)
+        bd.save(daten)
         print('  Aus dem Bestand genommen: %s' % ', '.join(w[:22] for w in weg))
 
 
@@ -255,15 +255,15 @@ def aufraeumen():
     # ⚠ Die vorgeführten Funde **aus dem Bestand nehmen**. Sonst meldet der
     # Watcher sie beim nächsten Durchlauf nicht mehr — er kennt sie ja bereits,
     # und die Vorführung liefe ins Leere, ohne dass man den Grund sähe.
-    from scbp import bestand as bd
-    daten = bd.laden()
+    from scbp import collection as bd
+    daten = bd.load()
     weg = []
     for name, _, _ in FUNDE + [GEMERKT]:
-        if bd.enthaelt(daten, name):
-            bd.entfernen(daten, name)
+        if bd.contains(daten, name):
+            bd.remove(daten, name)
             weg.append(name)
     if weg:
-        bd.speichern(daten)
+        bd.save(daten)
         print('  Aus dem Bestand genommen: %d (%s)'
               % (len(weg), ', '.join(w[:18] for w in weg)))
 

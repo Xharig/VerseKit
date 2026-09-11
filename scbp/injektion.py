@@ -64,7 +64,7 @@ import urllib.request
 
 from . import angaben as angaben_modul
 from . import asop as asop_modul
-from . import fehler, bestand as bestand_datei
+from . import fehler, collection as bestand_datei
 from . import katalog as katalog_modul
 from . import pfade
 from .sprache import t
@@ -749,14 +749,14 @@ def bestand_marke(bestand=None):
     beantwortet die Frage „hat sich seit dem letzten Einspielen etwas getan?"
     ohne die Texte jedes Mal neu zu bauen.
 
-    ⚠ Über die **Namen**, nicht über die Anzahl: `bestand.angleichen()` benennt
+    ⚠ Über die **Namen**, nicht über die Anzahl: `collection.align()` benennt
     beim Start Einträge um, ohne dass die Zahl sich ändert — und genau die
     Namen stehen in den Kästchen.
     """
     import hashlib
-    from . import bestand as bestand_datei
-    namen = bestand_datei.schluessel(
-        bestand if bestand is not None else bestand_datei.laden())
+    from . import collection as bestand_datei
+    namen = bestand_datei.keys(
+        bestand if bestand is not None else bestand_datei.load())
     roh = '\n'.join(sorted(namen)).encode('utf-8', 'replace')
     return '%d-%s' % (len(namen), hashlib.sha1(roh).hexdigest()[:12])
 
@@ -1050,8 +1050,8 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     if not ini_pfad or not os.path.isfile(ini_pfad):
         return False, 0, t('m_keine_ini')
 
-    habe = bestand_datei.schluessel(bestand if bestand is not None
-                                    else bestand_datei.laden())
+    habe = bestand_datei.keys(bestand if bestand is not None
+                                    else bestand_datei.load())
     worte = TEXTE[sprachkuerzel]
 
     # ⚠⚠ **Wem der Auftrag Ruf bringt — aus einer eigenen Quelle.** Die
@@ -1293,8 +1293,8 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
     if not missionen and not nur_entfernen:
         return False, 0, t('m_keine_missionen')
 
-    habe = bestand_datei.schluessel(bestand if bestand is not None
-                                    else bestand_datei.laden())
+    habe = bestand_datei.keys(bestand if bestand is not None
+                                    else bestand_datei.load())
     worte = TEXTE[_sprachkuerzel(sprache)]
 
     # Beide Schlüssel-Arten in eine Tabelle: Titel bekommen das Kürzel,

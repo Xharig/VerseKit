@@ -48,7 +48,7 @@ from scbp import notice
 from scbp import (
     auftraege,ablagesymbol, aktualisierung, assistent, autostart, orte, preise,
                   bildschirm, overlay,
-                  bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
+                  collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   katalog as katalog_modul, laeden, logquelle, watchlist,
                   pfade, phrasen, schiffe, spielstand, titelleiste, sound,
@@ -715,16 +715,16 @@ class Watcher(threading.Thread):
         # festmachen koennen. Ein Bericht, der nur Anfang und Ende kennt, sagt
         # bei genau der Frage nichts, fuer die man ihn braucht.
         fehler.spur('Overlay: Bestand wird geladen')
-        self.bestand = bestand_datei.laden()   # der eigene, dauerhafte Bestand
+        self.bestand = bestand_datei.load()   # der eigene, dauerhafte Bestand
         fehler.spur('Overlay: Bestand geladen (%d Bauplaene)'
                     % len(self.bestand.get('bauplaene') or {}))
         # ⚠ Einmal beim Start die Namen an den Katalog angleichen. Was der
         # Watcher vor v3.3.3 aus dem Log gelesen hat, trägt womöglich die
         # Angaben aus dem Spiel im Namen („Balandin (S3 B Military)") und galt
-        # dadurch als unbekannt — siehe `bestand.katalogname`. Ohne diesen
+        # dadurch als unbekannt — siehe `collection.catalog_name`. Ohne diesen
         # Durchlauf bliebe der alte Stand für immer schief.
         try:
-            berichtigt = bestand_datei.angleichen(self.bestand)
+            berichtigt = bestand_datei.align(self.bestand)
             if berichtigt:
                 self._bestand_sichern()
                 fehler.spur('Bestand: %d Namen an den Katalog angeglichen'
@@ -753,7 +753,7 @@ class Watcher(threading.Thread):
         # ⚠ Nur vermerken, nicht hier melden: Zu diesem Zeitpunkt steht noch
         # kein Fenster. Die Oberflaeche fragt es ab und zeigt es an.
         try:
-            self.schwund = bestand_datei.schwund_pruefen(self.bestand)
+            self.schwund = bestand_datei.check_shrinkage(self.bestand)
             if self.schwund:
                 jetzt, hoechst, wo = self.schwund
                 fehler.spur('Bestand: SCHWUND %d statt %d (frueher in %s)'
@@ -1410,7 +1410,7 @@ class Watcher(threading.Thread):
         Protokolle kommen Dutzende Funde auf einmal; die Liste einmal neu zu
         zeichnen reicht. Deshalb hängt es hier und nicht in `_emit`.
         """
-        bestand_datei.speichern(self.bestand)
+        bestand_datei.save(self.bestand)
         schlange = getattr(self, 'q', None)
         if schlange is not None:
             schlange.put(('liste_frisch',))
@@ -1474,11 +1474,11 @@ class Watcher(threading.Thread):
             return
         dazu = []
         for name, _zusatz in funde:
-            if bestand_datei.hinzufuegen(self.bestand, name, 'nachlese'):
+            if bestand_datei.add(self.bestand, name, 'nachlese'):
                 dazu.append(name)
         if dazu:
             self._bestand_sichern()
-            self.seen = set(bestand_datei.schluessel(self.bestand))
+            self.seen = set(bestand_datei.keys(self.bestand))
         # ⚠⚠ **Das Auftrags-Protokoll gehoert mit dazu (06.09.2026).** Bis
         # hierher fasste dieser Lauf nur den Bauplan-Bestand an — gemeldet
         # wurde er als „Protokolle erneut einlesen", raeumte aber nur eine
@@ -1547,7 +1547,7 @@ class Watcher(threading.Thread):
             return
         dazu = []
         for name, _zusatz in funde:
-            if bestand_datei.hinzufuegen(self.bestand, name, 'nachlese'):
+            if bestand_datei.add(self.bestand, name, 'nachlese'):
                 dazu.append(name)
         if dazu:
             self._bestand_sichern()
@@ -1565,7 +1565,7 @@ class Watcher(threading.Thread):
         genauere Quelle, solange er da ist."""
         neu = 0
         for k in keys:
-            if bestand_datei.hinzufuegen(self.bestand, k, 'launcher'):
+            if bestand_datei.add(self.bestand, k, 'launcher'):
                 neu += 1
         if neu:
             self._bestand_sichern()
@@ -1585,7 +1585,7 @@ class Watcher(threading.Thread):
             neu = 0
             for schluessel in std:
                 name = (katalog.get(schluessel) or {}).get('n')
-                if name and bestand_datei.hinzufuegen(self.bestand, name, 'start'):
+                if name and bestand_datei.add(self.bestand, name, 'start'):
                     neu += 1
             if neu:
                 self._bestand_sichern()
@@ -1653,7 +1653,7 @@ class Watcher(threading.Thread):
 
         # 5) Alles, was schon im Bestand steht, gilt als bekannt — es wird nicht
         #    als „neu" gemeldet.
-        self.seen = set(bestand_datei.schluessel(self.bestand))
+        self.seen = set(bestand_datei.keys(self.bestand))
         overlay.NEULESEN_RUECKRUF[0] = self.neu_einlesen_anstossen
         self.tail.new_names()          # Lesestand der Game.log setzen/fortführen
         # ⚠ Was dieser Aufruf an Auftragsereignissen aufgesammelt hat, ist
@@ -1691,7 +1691,7 @@ class Watcher(threading.Thread):
                 if nk in self.seen:
                     continue
                 self.seen.add(nk)
-                if bestand_datei.hinzufuegen(self.bestand, name, 'log'):
+                if bestand_datei.add(self.bestand, name, 'log'):
                     geaendert = True
                 self._emit(name, kuerzel_aus_zusatz(zusatz))
                 self._merkliste_erledigen(name)
@@ -1711,7 +1711,7 @@ class Watcher(threading.Thread):
                 for k in sorted(cur - (self.known or set())):
                     dup = _norm(k) in self.seen      # steht schon in der Liste
                     self.seen.add(_norm(k))
-                    if bestand_datei.hinzufuegen(self.bestand, k, 'launcher'):
+                    if bestand_datei.add(self.bestand, k, 'launcher'):
                         zuwachs = True
                     self._merkliste_erledigen(k)
                     if not dup:
@@ -1754,7 +1754,7 @@ class Watcher(threading.Thread):
         # das ist richtig — der Zeitpunkt der Meldung ändert sich nicht.
         quelle = sprache.Satz('mit_launcher' if (HAT_LAUNCHER and self.known)
                               else 'ohne_launcher')
-        return sprache.Satz('ueberwache', bestand_datei.anzahl(self.bestand),
+        return sprache.Satz('ueberwache', bestand_datei.count(self.bestand),
                             log_state, quelle, time.strftime('%H:%M:%S'))
 
     def stop(self):

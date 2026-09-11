@@ -46,6 +46,15 @@ das Hauptprogramm benutzt, damit Log-Fund und Launcher-Eintrag zusammenfinden.
 Bekannte Quellen: `log` (aus der laufenden Game.log), `nachlese` (aus einer
 Log-Sicherung), `launcher` (vom SC Deutsch Launcher bestätigt), `start`
 (Startbauplan, war von Anfang an da) und `hand` (im Fenster abgehakt).
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `bestand` (Sprachumstellung P4,
+Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben, weil sie in den Dateien jedes Nutzers stehen: die Dateinamen
+`bestand.json`, `bestand.bak.json` und `hochwasser.json`, die Schlüssel
+`version`, `stand`, `bauplaene`, `name`, `quelle`, `zeit` und `ordner` und die
+Quellwerte oben. Ebenso der Schlüssel `'unbekannt'`, den `by_source()` für
+Einträge ohne Quelle liefert. Umbenannt, stünde bei jedem Nutzer nach dem
+Update ein leerer Bestand da.
 """
 import json
 import os
@@ -56,12 +65,12 @@ from . import fehler, pfade
 # 3 (29.08.2026): `namensform()` gleicht jetzt auch die SPRACHE der Mengenangabe
 #   an — `(16 Schuss)` und `(16 cap)` sind derselbe Bauplan. Gespeicherte
 #   Bestaende haben die Dublette noch drin, deshalb muss der Umzug erneut laufen.
-DATEI_VERSION = 3
+FILE_VERSION = 3
 
 # Rangfolge der Quellen: Ein Eintrag wird nur „aufgewertet", nie herabgestuft.
 # Sonst überschriebe eine spätere vorläufige Log-Zeile eine bereits vom
 # Launcher bestätigte Angabe.
-RANG = {'log': 1, 'nachlese': 1, 'start': 2, 'hand': 3, 'launcher': 4}
+RANK = {'log': 1, 'nachlese': 1, 'start': 2, 'hand': 3, 'launcher': 4}
 
 
 def norm(s):
@@ -69,19 +78,19 @@ def norm(s):
     return pfade.namensform(s)
 
 
-def _jetzt():
+def _now():
     return time.strftime('%Y-%m-%d %H:%M:%S')
 
 
-def pfad():
+def path():
     return pfade.app_datei('bestand.json')
 
 
-def leer():
-    return {'version': DATEI_VERSION, 'stand': _jetzt(), 'bauplaene': {}}
+def empty():
+    return {'version': FILE_VERSION, 'stand': _now(), 'bauplaene': {}}
 
 
-def _schluessel_erneuern(daten):
+def _renew_keys(data):
     """Gespeicherte Schlüssel noch einmal durch `namensform()` schicken.
 
     ⚠ **Warum das nötig war.** Bis v3.0.0 schnitt nur das Log-Lesen den
@@ -102,62 +111,62 @@ def _schluessel_erneuern(daten):
     zählt. Gibt es sie nicht, gewinnt der mit dem höheren Rang (Launcher
     schlägt Log).
     """
-    alt_bp = daten.get('bauplaene') or {}
-    neu_bp, geaendert = {}, False
-    for schluessel, eintrag in alt_bp.items():
-        eintrag = eintrag if isinstance(eintrag, dict) else {}
-        frisch = norm(eintrag.get('name') or schluessel)
-        if frisch != schluessel:
-            geaendert = True
-        da = neu_bp.get(frisch)
-        if da is None:
-            neu_bp[frisch] = eintrag
+    old_bp = data.get('bauplaene') or {}
+    new_bp, changed = {}, False
+    for key, entry in old_bp.items():
+        entry = entry if isinstance(entry, dict) else {}
+        fresh = norm(entry.get('name') or key)
+        if fresh != key:
+            changed = True
+        present = new_bp.get(fresh)
+        if present is None:
+            new_bp[fresh] = entry
             continue
         # Dublette zusammenführen
-        alt_zeit = str(da.get('zeit') or '')
-        neu_zeit = str(eintrag.get('zeit') or '')
-        if neu_zeit and (not alt_zeit or neu_zeit < alt_zeit):
-            eintrag = dict(eintrag)
-            eintrag.setdefault('quelle', da.get('quelle'))
-            neu_bp[frisch] = eintrag
-        elif RANG.get(eintrag.get('quelle'), 0) > RANG.get(da.get('quelle'), 0):
-            da['quelle'] = eintrag.get('quelle')
-    if geaendert:
-        daten['bauplaene'] = neu_bp
-    return geaendert
+        old_time = str(present.get('zeit') or '')
+        new_time = str(entry.get('zeit') or '')
+        if new_time and (not old_time or new_time < old_time):
+            entry = dict(entry)
+            entry.setdefault('quelle', present.get('quelle'))
+            new_bp[fresh] = entry
+        elif RANK.get(entry.get('quelle'), 0) > RANK.get(present.get('quelle'), 0):
+            present['quelle'] = entry.get('quelle')
+    if changed:
+        data['bauplaene'] = new_bp
+    return changed
 
 
-def laden():
+def load():
     """Bestand von der Platte. Fehlt die Datei oder ist sie beschädigt, wird mit
     einem leeren Bestand weitergearbeitet — der Watcher soll nie am Start scheitern."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
+        with open(path(), encoding='utf-8') as f:
+            data = json.load(f)
     except Exception:
-        return leer()
-    if not isinstance(daten.get('bauplaene'), dict):
-        return leer()
+        return empty()
+    if not isinstance(data.get('bauplaene'), dict):
+        return empty()
     # ⚠ Erst umziehen, dann die Version hochsetzen — und nur dann schreiben,
     # wenn sich wirklich etwas geändert hat. Ein Schreibfehler darf den Start
     # nicht aufhalten: Der Bestand im Speicher stimmt dann trotzdem, nur der
     # Umzug wiederholt sich beim nächsten Mal.
-    # ⚠ Gegen DATEI_VERSION pruefen, nicht gegen eine feste Zahl: Beim Sprung
+    # ⚠ Gegen FILE_VERSION pruefen, nicht gegen eine feste Zahl: Beim Sprung
     # auf 3 waere ein hart geschriebenes `< 2` stillschweigend wirkungslos
     # geblieben, und die Dubletten haetten ueberlebt.
-    if daten.get('version', 1) < DATEI_VERSION:
-        if _schluessel_erneuern(daten):
-            daten['version'] = DATEI_VERSION
+    if data.get('version', 1) < FILE_VERSION:
+        if _renew_keys(data):
+            data['version'] = FILE_VERSION
             try:
-                speichern(daten)
-            except Exception as ausnahme:
-                fehler.merken('bestand.schluessel_erneuern', ausnahme)
+                save(data)
+            except Exception as exc:
+                fehler.merken('collection.renew_keys', exc)
         else:
-            daten['version'] = DATEI_VERSION
-    daten.setdefault('version', DATEI_VERSION)
-    return daten
+            data['version'] = FILE_VERSION
+    data.setdefault('version', FILE_VERSION)
+    return data
 
 
-def _hochwasser_datei():
+def _high_water_file():
     """Wo die groesste je gesehene Bauplan-Zahl steht — NEBEN der Ablage.
 
     ⚠ Bewusst nicht IM Datenordner: Genau der ist ja weg, wenn es darauf
@@ -167,7 +176,7 @@ def _hochwasser_datei():
     return os.path.join(os.path.dirname(pfade._zweitzeiger()), 'hochwasser.json')
 
 
-def schwund_pruefen(daten):
+def check_shrinkage(data):
     """Sind ploetzlich Bauplaene weniger als je zuvor? Dann melden.
 
     ⚠⚠⚠ **Der Fall, aus dem das entstand.** Am 06.09.2026 zeigte der Watcher
@@ -185,73 +194,73 @@ def schwund_pruefen(daten):
     er es doch, stimmt etwas mit dem ORT nicht — und genau das soll dastehen,
     solange der Spieler es noch mit dem Neustart in Verbindung bringt.
 
-    ⚠ Ein bewusstes Zuruecksetzen ist kein Schwund: `zuruecksetzen()` setzt die
+    ⚠ Ein bewusstes Zuruecksetzen ist kein Schwund: `reset()` setzt die
     Marke mit zurueck, sonst meldete das Programm hinterher ewig einen Verlust,
     den der Spieler selbst gewollt hat.
 
     Zurueck kommt `None`, wenn alles stimmt — sonst `(jetzt, hoechststand,
     ordner)` fuer die Meldung.
     """
-    jetzt = len(daten.get('bauplaene') or {})
-    weg = _hochwasser_datei()
-    hoechst, ordner = 0, None
+    now = len(data.get('bauplaene') or {})
+    mark = _high_water_file()
+    highest, folder = 0, None
     try:
-        if os.path.isfile(weg):
-            gemerkt = json.load(open(weg, encoding='utf-8'))
-            hoechst = int(gemerkt.get('bauplaene') or 0)
-            ordner = gemerkt.get('ordner')
+        if os.path.isfile(mark):
+            stored = json.load(open(mark, encoding='utf-8'))
+            highest = int(stored.get('bauplaene') or 0)
+            folder = stored.get('ordner')
     except Exception:
-        hoechst, ordner = 0, None
+        highest, folder = 0, None
 
-    if jetzt >= hoechst:
+    if now >= highest:
         # Neuer Hoechststand — merken, samt Ordner, damit die Meldung spaeter
         # sagen kann, WO die Bauplaene zuletzt lagen.
         try:
-            os.makedirs(os.path.dirname(weg), exist_ok=True)
-            temp = weg + '.tmp'
-            with open(temp, 'w', encoding='utf-8') as f:
-                json.dump({'bauplaene': jetzt, 'ordner': pfade.app_ordner(),
-                           'stand': _jetzt()}, f, ensure_ascii=False,
+            os.makedirs(os.path.dirname(mark), exist_ok=True)
+            tmp = mark + '.tmp'
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump({'bauplaene': now, 'ordner': pfade.app_ordner(),
+                           'stand': _now()}, f, ensure_ascii=False,
                           indent=2)
-            os.replace(temp, weg)
+            os.replace(tmp, mark)
         except Exception:
             pass
         return None
 
-    return (jetzt, hoechst, ordner)
+    return (now, highest, folder)
 
 
-def schwund_stand():
-    """Dasselbe wie `schwund_pruefen`, aber **ohne** die Marke zu veraendern.
+def shrinkage_state():
+    """Dasselbe wie `check_shrinkage`, aber **ohne** die Marke zu veraendern.
 
-    ⚠ Fuer die Oberflaeche. Wuerde eine Seite `schwund_pruefen` aufrufen, wuerde
+    ⚠ Fuer die Oberflaeche. Wuerde eine Seite `check_shrinkage` aufrufen, wuerde
     sie beim ersten Blick den aktuellen (kleineren) Stand als neuen Hoechstwert
     festschreiben — und die Meldung waere nach einmal Hinsehen fuer immer weg.
     """
     try:
-        daten = laden()
-        jetzt = len(daten.get('bauplaene') or {})
-        weg = _hochwasser_datei()
-        if not os.path.isfile(weg):
+        data = load()
+        now = len(data.get('bauplaene') or {})
+        mark = _high_water_file()
+        if not os.path.isfile(mark):
             return None
-        gemerkt = json.load(open(weg, encoding='utf-8'))
-        hoechst = int(gemerkt.get('bauplaene') or 0)
-        if jetzt >= hoechst:
+        stored = json.load(open(mark, encoding='utf-8'))
+        highest = int(stored.get('bauplaene') or 0)
+        if now >= highest:
             return None
-        return (jetzt, hoechst, gemerkt.get('ordner'))
+        return (now, highest, stored.get('ordner'))
     except Exception:
         return None
 
 
-def hochwasser_zuruecksetzen():
+def reset_high_water():
     """Die Marke loeschen — nach einem gewollten Zuruecksetzen."""
     try:
-        os.remove(_hochwasser_datei())
+        os.remove(_high_water_file())
     except OSError:
         pass
 
 
-def zuruecksetzen():
+def reset():
     """Den Bauplan-Bestand von der Platte nehmen.
 
     Rückgabe: `None`, wenn danach keine Bestandsdatei mehr da ist — **auch
@@ -272,55 +281,55 @@ def zuruecksetzen():
     ⚠ Hier und nicht in der Oberfläche, damit es sich prüfen lässt — ohne
     Fenster, auf jedem System.
     """
-    # ⚠⚠ **Die Hochwasser-Marke muss mit.** Sonst meldet `schwund_pruefen`
+    # ⚠⚠ **Die Hochwasser-Marke muss mit.** Sonst meldet `check_shrinkage`
     # nach einem gewollten Zuruecksetzen bei jedem Start einen Verlust, den
     # der Spieler selbst ausgeloest hat — und eine Warnung, die immer kommt,
     # liest nach dem dritten Mal niemand mehr.
-    hochwasser_zuruecksetzen()
+    reset_high_water()
     try:
-        os.remove(pfad())
+        os.remove(path())
     except FileNotFoundError:
         return None
-    except OSError as stoerung:
-        return stoerung
+    except OSError as err:
+        return err
     return None
 
 
-def speichern(daten):
+def save(data):
     """Schreibt den Bestand — mit Vorgängerfassung und ohne Halbfertiges.
 
     Erst in eine Nebendatei schreiben, dann umbenennen: Stürzt der Rechner
     mitten im Schreiben ab, ist die alte Datei noch vollständig da. Die
     Vorgängerfassung (`bestand.bak.json`) bleibt als Rückfall liegen."""
-    daten['version'] = DATEI_VERSION
-    daten['stand'] = _jetzt()
-    ziel = pfad()
-    temp = ziel + '.tmp'
+    data['version'] = FILE_VERSION
+    data['stand'] = _now()
+    target = path()
+    tmp = target + '.tmp'
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=1, sort_keys=True)
-        if os.path.exists(ziel):
-            sicherung = ziel.replace('.json', '.bak.json')
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=1, sort_keys=True)
+        if os.path.exists(target):
+            bak = target.replace('.json', '.bak.json')
             try:
-                os.replace(ziel, sicherung)
+                os.replace(target, bak)
             except OSError:
                 pass
-        os.replace(temp, ziel)
-        _ablage_nachziehen(daten)
+        os.replace(tmp, target)
+        _update_exports(data)
         return True
-    except Exception as ausnahme:
+    except Exception as exc:
         # Hier ist der eigene Bauplan-Bestand betroffen — das Wichtigste, was
         # das Werkzeug hat. Ein stiller Fehlschlag wäre nicht zu verzeihen.
-        fehler.merken('bestand.speichern', ausnahme, ziel)
+        fehler.merken('collection.save', exc, target)
         try:
-            os.remove(temp)
+            os.remove(tmp)
         except OSError:
             pass
         return False
 
 
-def _ablage_nachziehen(daten):
+def _update_exports(data):
     """Die drei Ausgabe-Dateien auf den neuen Stand bringen — still.
 
     ⚠ **Warum das hier hängt und nicht am Knopf.** Die Ausgabe-Dateien für das
@@ -332,7 +341,7 @@ def _ablage_nachziehen(daten):
     herkommen (27.08.2026): „die werden ja bei drops direkt fortgeschrieben
     oder?" Nein — bis jetzt nicht.
 
-    An `speichern()` hängt es, weil hier **jede** Bestandsänderung
+    An `save()` hängt es, weil hier **jede** Bestandsänderung
     vorbeikommt: der Fund im Spiel, die Nachlese beim Start, die Bestätigung
     durch den Launcher und der Import einer fremden Datei. Ein Aufruf statt
     fünf, und keine Stelle kann vergessen werden.
@@ -345,22 +354,22 @@ def _ablage_nachziehen(daten):
     """
     try:
         from . import export
-        export.ablegen(daten)
-    except Exception as ausnahme:
-        fehler.merken('bestand.ablage_nachziehen', ausnahme)
+        export.ablegen(data)
+    except Exception as exc:
+        fehler.merken('collection.update_exports', exc)
 
 
-ANHANG_RE = __import__('re').compile(r'\s*\([^()]*\)\s*$')
+SUFFIX_RE = __import__('re').compile(r'\s*\([^()]*\)\s*$')
 
 
-def katalogname(name, bekannt=None):
+def catalog_name(name, known=None):
     """Den Namen so, wie ihn der Katalog kennt — ohne angehängte Angaben.
 
-    ⚠⚠ **`bekannt` durchreichen, wenn viele Namen hintereinander laufen.**
+    ⚠⚠ **`known` durchreichen, wenn viele Namen hintereinander laufen.**
     Ohne den Parameter holt sich diese Funktion den Katalog selbst — und
     `katalog.laden()` liest jedes Mal die ganze Datei (rund 1 MB). Bei einem
     Aufruf faellt das nicht auf, bei 406 hintereinander schon: Gemessen am
-    04.09.2026 brauchte `angleichen()` dadurch **3,6 Sekunden** bei jedem
+    04.09.2026 brauchte `align()` dadurch **3,6 Sekunden** bei jedem
     Programmstart — und berichtigte dabei null Eintraege. Wer 26 Bauplaene hat,
     merkt nichts; wer 400 hat, wartet.
 
@@ -383,25 +392,25 @@ def katalogname(name, bekannt=None):
     """
     if not name:
         return name
-    if bekannt is None:
+    if known is None:
         from . import katalog
         try:
-            bekannt = katalog.laden().get('bauplaene') or {}
+            known = katalog.laden().get('bauplaene') or {}
         except Exception:
             return name
-    if not bekannt or norm(name) in bekannt:
+    if not known or norm(name) in known:
         return name
-    ohne = ANHANG_RE.sub('', name).strip()
-    if ohne and ohne != name and norm(ohne) in bekannt:
-        return ohne
-    return _eindeutiger_treffer(name, bekannt)
+    short = SUFFIX_RE.sub('', name).strip()
+    if short and short != name and norm(short) in known:
+        return short
+    return _unique_match(name, known)
 
 
 # Ab so vielen Wörtern darf über die Wortmenge zugeordnet werden.
-MINDEST_WOERTER = 2
+MIN_WORDS = 2
 
 
-def _eindeutiger_treffer(name, bekannt):
+def _unique_match(name, known):
     """Ein Altname, dessen Wörter in **genau einem** Katalognamen stecken.
 
     ⚠ Wozu: Die Übersetzung benennt Gegenstände gelegentlich um. Wer den
@@ -421,108 +430,108 @@ def _eindeutiger_treffer(name, bekannt):
     fremden Namen (`Tailwind` in `Tailwind Flight Suit`), und dann wäre die
     Eindeutigkeit nur Zufall.
     """
-    woerter = set(norm(name).split())
-    if len(woerter) < MINDEST_WOERTER:
+    words = set(norm(name).split())
+    if len(words) < MIN_WORDS:
         return name
-    treffer = [k for k in bekannt if woerter <= set(k.split())]
-    if len(treffer) != 1:
+    hits = [k for k in known if words <= set(k.split())]
+    if len(hits) != 1:
         return name
-    eintrag = bekannt[treffer[0]]
-    return (eintrag.get('n') if isinstance(eintrag, dict) else None) or treffer[0]
+    entry = known[hits[0]]
+    return (entry.get('n') if isinstance(entry, dict) else None) or hits[0]
 
 
-def angleichen(daten):
+def align(data):
     """Gespeicherte Namen nachträglich an den Katalog angleichen.
 
     Für alles, was vor dieser Berichtigung schon mit Anhang abgelegt wurde.
     Gibt die Zahl der berichtigten Einträge zurück; `0` heißt „nichts zu tun".
     """
     # ⚠ Den Katalog EINMAL holen und durchreichen — nicht je Bauplan neu.
-    # Siehe `katalogname`: Ohne das las diese Schleife die 1-MB-Katalogdatei
+    # Siehe `catalog_name`: Ohne das las diese Schleife die 1-MB-Katalogdatei
     # einmal pro Eintrag und brauchte bei 406 Bauplaenen 3,6 Sekunden.
     from . import katalog
     try:
-        bekannt = katalog.laden().get('bauplaene') or {}
+        known = katalog.laden().get('bauplaene') or {}
     except Exception:
         return 0
 
-    berichtigt = 0
-    for schluessel in list(daten['bauplaene']):
-        eintrag = daten['bauplaene'][schluessel]
-        alt_name = eintrag.get('name') or schluessel
-        neu_name = katalogname(alt_name, bekannt)
-        if neu_name == alt_name:
+    fixed = 0
+    for key in list(data['bauplaene']):
+        entry = data['bauplaene'][key]
+        old_name = entry.get('name') or key
+        new_name = catalog_name(old_name, known)
+        if new_name == old_name:
             continue
-        daten['bauplaene'].pop(schluessel)
-        neuer = norm(neu_name)
+        data['bauplaene'].pop(key)
+        new_key = norm(new_name)
         # Gibt es den Bauplan schon unter dem richtigen Namen, bleibt der
         # ältere Eintrag stehen — er hat den früheren Fundzeitpunkt.
-        if neuer not in daten['bauplaene']:
-            eintrag['name'] = neu_name
-            daten['bauplaene'][neuer] = eintrag
-        berichtigt += 1
-    return berichtigt
+        if new_key not in data['bauplaene']:
+            entry['name'] = new_name
+            data['bauplaene'][new_key] = entry
+        fixed += 1
+    return fixed
 
 
-def hinzufuegen(daten, name, quelle='log', zeit=None):
+def add(data, name, source='log', when=None):
     """Einen Bauplan aufnehmen. Gibt True zurück, wenn er vorher nicht drin war.
 
     Ein schon bekannter Bauplan wird nicht doppelt angelegt; steht die neue
     Quelle höher (z. B. `launcher` statt `log`), wird sie nachgetragen.
 
-    ⚠ Der Name läuft vorher durch `katalogname()` — siehe dort, warum.
+    ⚠ Der Name läuft vorher durch `catalog_name()` — siehe dort, warum.
     """
-    name = katalogname(name)
-    schluessel = norm(name)
-    if not schluessel:
+    name = catalog_name(name)
+    key = norm(name)
+    if not key:
         return False
-    eintrag = daten['bauplaene'].get(schluessel)
-    if eintrag is None:
-        daten['bauplaene'][schluessel] = {
+    entry = data['bauplaene'].get(key)
+    if entry is None:
+        data['bauplaene'][key] = {
             'name': name.strip(),
-            'quelle': quelle,
-            'zeit': zeit or _jetzt(),
+            'quelle': source,
+            'zeit': when or _now(),
         }
         return True
-    if RANG.get(quelle, 0) > RANG.get(eintrag.get('quelle'), 0):
-        eintrag['quelle'] = quelle
+    if RANK.get(source, 0) > RANK.get(entry.get('quelle'), 0):
+        entry['quelle'] = source
     return False
 
 
-def entfernen(daten, name):
+def remove(data, name):
     """Häkchen wieder wegnehmen (Verwaltungsfenster)."""
-    return daten['bauplaene'].pop(norm(name), None) is not None
+    return data['bauplaene'].pop(norm(name), None) is not None
 
 
-def enthaelt(daten, name):
-    return norm(name) in daten['bauplaene']
+def contains(data, name):
+    return norm(name) in data['bauplaene']
 
 
-def schluessel(daten):
+def keys(data):
     """Alle Namen in Vergleichsform — als Menge, für schnelle Abgleiche."""
-    return set(daten['bauplaene'])
+    return set(data['bauplaene'])
 
 
-def namen(daten):
+def names(data):
     """Die Namen in Schreibweise wie gefunden, alphabetisch."""
-    return sorted((e.get('name') or k) for k, e in daten['bauplaene'].items())
+    return sorted((e.get('name') or k) for k, e in data['bauplaene'].items())
 
 
-def anzahl(daten):
-    return len(daten['bauplaene'])
+def count(data):
+    return len(data['bauplaene'])
 
 
-def nach_quelle(daten):
+def by_source(data):
     """Wie viele Baupläne kommen woher — für die Statusanzeige."""
-    zaehler = {}
-    for e in daten['bauplaene'].values():
+    counter = {}
+    for e in data['bauplaene'].values():
         q = e.get('quelle') or 'unbekannt'
-        zaehler[q] = zaehler.get(q, 0) + 1
-    return zaehler
+        counter[q] = counter.get(q, 0) + 1
+    return counter
 
 
 if __name__ == '__main__':
-    b = laden()
-    print('Datei:  ', pfad())
-    print('Anzahl: ', anzahl(b))
-    print('Quellen:', nach_quelle(b) or '—')
+    b = load()
+    print('Datei:  ', path())
+    print('Anzahl: ', count(b))
+    print('Quellen:', by_source(b) or '—')

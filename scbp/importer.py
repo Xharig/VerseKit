@@ -65,7 +65,7 @@ import os
 import re
 import time
 
-from . import bestand as bestand_datei
+from . import collection as bestand_datei
 from . import fehler
 
 SOURCE = 'import'
@@ -169,7 +169,7 @@ def preview(entries, data=None, catalog_names=None):
     `unbekannt` sind Namen, die der Katalog nicht kennt — sie kommen trotzdem
     mit, stehen aber getrennt, damit die Fortschrittszahl erklärbar bleibt.
     """
-    data = data if data is not None else bestand_datei.laden()
+    data = data if data is not None else bestand_datei.load()
     present = set(data.get('bauplaene') or {})
     known = {bestand_datei.norm(n) for n in (catalog_names or [])}
     known_short = {bestand_datei.norm(_strip_suffix(n)) for n in (catalog_names or [])}
@@ -201,13 +201,13 @@ def merge(entries, data=None, save=True):
     Zusammenführen: Vorhandenes bleibt unangetastet. Ein Zeitpunkt aus der Datei
     wird übernommen — er ist genauer als „jetzt gerade eingelesen".
     """
-    data = data if data is not None else bestand_datei.laden()
+    data = data if data is not None else bestand_datei.load()
     added = 0
     for e in entries:
-        if bestand_datei.hinzufuegen(data, e.get('name'), SOURCE, e.get('zeit')):
+        if bestand_datei.add(data, e.get('name'), SOURCE, e.get('zeit')):
             added += 1
     if save and added:
-        bestand_datei.speichern(data)
+        bestand_datei.save(data)
     return added
 
 
