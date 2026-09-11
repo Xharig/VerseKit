@@ -1788,7 +1788,7 @@ def namensform(s):
     """Ein Bauplan-Name als Vergleichsschlüssel — die EINZIGE Stelle dafür.
 
     ⚠ Diese Funktion stand dreimal im Programm: in `bestand.py`, `katalog.py`
-    und `merkliste.py`. Der Kommentar in `bestand.py` behauptete „identisch zum
+    und `watchlist.py`. Der Kommentar in `bestand.py` behauptete „identisch zum
     Hauptprogramm" — und war es nicht mehr. Wer eine davon anfasst, verschiebt
     stillschweigend, welche Baupläne noch zueinander finden.
 

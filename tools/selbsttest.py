@@ -511,25 +511,25 @@ def main():
         pruefe(einzeln is None, 'ein einzelner Treffer gilt nicht als Beleg')
 
         print('\n9. Merkliste')
-        from scbp import merkliste as mk
+        from scbp import watchlist as mk
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'merk')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
-        pruefe(mk.anzahl() == 0, 'startet leer')
-        pruefe(mk.umschalten('Wunschteil') is True, 'ein Klick trägt ein')
-        pruefe(mk.enthaelt('wunschteil'), 'Groß- und Kleinschreibung egal')
-        pruefe(mk.umschalten('Wunschteil') is False, 'zweiter Klick trägt aus')
-        mk.umschalten('Wunschteil')
+        pruefe(mk.count() == 0, 'startet leer')
+        pruefe(mk.toggle('Wunschteil') is True, 'ein Klick trägt ein')
+        pruefe(mk.contains('wunschteil'), 'Groß- und Kleinschreibung egal')
+        pruefe(mk.toggle('Wunschteil') is False, 'zweiter Klick trägt aus')
+        mk.toggle('Wunschteil')
         # Muster-Einträge von außen (ein eigenes Werkzeug des Autors schreibt so)
-        d = mk.laden()
+        d = mk.load()
         d['eintraege'].append({'titel': 'Beispielsatz',
                                'muster': ['adp-mk4', 'woodland']})
-        mk.speichern(d)
-        pruefe(mk.treffer('ADP-mk4 Woodland Helmet') == 'Beispielsatz',
+        mk.save(d)
+        pruefe(mk.match('ADP-mk4 Woodland Helmet') == 'Beispielsatz',
                'Muster von außen greifen weiter')
-        pruefe(mk.erledigen('Wunschteil') == 'Wunschteil',
+        pruefe(mk.fulfill('Wunschteil') == 'Wunschteil',
                'erfüllter Wunsch wird ausgetragen')
-        pruefe(not mk.enthaelt('Wunschteil'), 'und ist danach wirklich weg')
-        pruefe(mk.erledigen('Irgendwas anderes') is None,
+        pruefe(not mk.contains('Wunschteil'), 'und ist danach wirklich weg')
+        pruefe(mk.fulfill('Irgendwas anderes') is None,
                'was nie beobachtet wurde, ändert nichts')
 
         print('\n10. Deutsch und Englisch decken sich')
@@ -573,7 +573,7 @@ def main():
         # „fehlt", obwohl er im Bestand stand. Hier wird geprüft, dass alle
         # drei Module dieselbe Form liefern.
         from scbp import bestand as b_norm, katalog as k_norm
-        from scbp import merkliste as m_norm, pfade as p_norm
+        from scbp import watchlist as m_norm, pfade as p_norm
         proben = ('7MA "Lorica"', "7MA 'Lorica'", 'CF-117 „Hazard" Repeater',
                   'Test\xa0Name')
         gleich = all(b_norm.norm(x) == k_norm._norm(x) == m_norm._norm(x)
@@ -4507,21 +4507,21 @@ def main():
     # sind ueber Monate auf Tarnung getestet.
     print()
     print('52g. Muster treffen nur an Wortgrenzen')
-    from scbp import merkliste as _mk52g
+    from scbp import watchlist as _mk52g
     _eintrag52g = {'titel': 'Probe', 'muster': ['xyz-cl backpack beispiel']}
-    pruefe(_mk52g._muster_trifft(_eintrag52g, 'xyz-cl backpack beispiel'),
+    pruefe(_mk52g._pattern_matches(_eintrag52g, 'xyz-cl backpack beispiel'),
            'das gesuchte Teil wird erkannt')
-    pruefe(not _mk52g._muster_trifft(
+    pruefe(not _mk52g._pattern_matches(
                {'titel': 'P', 'muster': ['yz backpack']},
                'xyz backpack muster camo'),
            'ein Muster mitten im Wort trifft NICHT')
-    pruefe(_mk52g._muster_trifft(
+    pruefe(_mk52g._pattern_matches(
                {'titel': 'P', 'muster': ['abc-mk4 legs grey']},
                'abc-mk4 legs grey'),
            'Bindestriche und Leerzeichen zaehlen als Grenze')
-    pruefe(not _mk52g._muster_trifft({'titel': 'P', 'muster': []}, 'irgendwas'),
+    pruefe(not _mk52g._pattern_matches({'titel': 'P', 'muster': []}, 'irgendwas'),
            'ein Eintrag ohne Muster trifft nichts')
-    pruefe(not _mk52g._muster_trifft({'titel': 'P', 'muster': ['']}, 'irgendwas'),
+    pruefe(not _mk52g._pattern_matches({'titel': 'P', 'muster': ['']}, 'irgendwas'),
            'ein leeres Muster ebenso wenig')
 
     # 52h. Die Kategorie wird an genau EINER Stelle geprueft
@@ -15490,27 +15490,27 @@ def main():
     # ein Haekchen trug: „da wird einer beobachtet, den ich schon habe."
     print()
     print('171. Erledigte Merkposten fliegen beim Start raus')
-    from scbp import merkliste as _mk171
+    from scbp import watchlist as _mk171
 
     _heim171 = _tf166.mkdtemp(prefix='merk-')
     _alt171 = os.environ.get('SC_BP_HOME')
     try:
         os.environ['SC_BP_HOME'] = _heim171
-        _mk171.speichern({'namen': ['Habe Ich', 'Fehlt Mir'],
+        _mk171.save({'namen': ['Habe Ich', 'Fehlt Mir'],
                           'eintraege': [{'titel': 'Muster',
                                          'muster': ['morozov']}]})
-        _weg = _mk171.aufraeumen(['habe ich'])
+        _weg = _mk171.prune(['habe ich'])
         pruefe(_weg == 1, 'genau ein erledigter Posten wird ausgetragen')
-        _jetzt = _mk171.laden()
+        _jetzt = _mk171.load()
         pruefe(_jetzt['namen'] == ['Fehlt Mir'],
                'der noch fehlende bleibt stehen')
         # ⚠ Muster bleiben unangetastet: „Morozov" steht fuer mehrere Teile,
         # von denen erst eines da sein kann.
         pruefe(len(_jetzt['eintraege']) == 1,
                'Muster-Eintraege bleiben unberuehrt')
-        pruefe(_mk171.aufraeumen([]) == 0,
+        pruefe(_mk171.prune([]) == 0,
                'Gegenprobe: ohne Bestand wird nichts ausgetragen')
-        pruefe(_mk171.aufraeumen(['gibtsnicht']) == 0,
+        pruefe(_mk171.prune(['gibtsnicht']) == 0,
                'Gegenprobe: ein fremder Name traegt nichts aus')
 
     finally:
@@ -16495,6 +16495,7 @@ def main():
     import importlib as _il190
     _p4_190 = {
         'importieren': 'importer',
+        'merkliste': 'watchlist',
     }
 
     def _reste190(quelle, name, alte):

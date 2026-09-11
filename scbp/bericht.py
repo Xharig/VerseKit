@@ -560,7 +560,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     if _unbekannt and _unbekannt != '—':
         zeile(t('b_unbekannt'), _unbekannt)
     zeile(t('b_merkliste'), _sicher(lambda: t('b_n_eintraege') % _json_groesse(
-        __import__('scbp.merkliste', fromlist=['pfad']).pfad(), 'eintraege')))
+        __import__('scbp.watchlist', fromlist=['path']).path(), 'eintraege')))
     # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** Hier stand
     # `aktuelle_version()` — und die fragt scmdb.net. Ohne Internet wartete der
     # Bericht auf den Timeout, und weil er im Hauptfaden gebaut wird, war das

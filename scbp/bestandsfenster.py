@@ -43,7 +43,7 @@ from . import bestand as bestand_datei
 from . import export as export_modul
 from . import notice
 from . import katalog as katalog_modul
-from . import merkliste as merk
+from . import watchlist as merk
 from . import zeichen
 from . import pfade
 from .sprache import t, fenstertitel
@@ -1027,7 +1027,7 @@ class Bestandsfenster:
         """
         if self.filter != 'merk':
             return
-        eintraege = merk.laden().get('eintraege') or []
+        eintraege = merk.load().get('eintraege') or []
         if not eintraege:
             return
         tk.Label(self.inhalt, text=t('merk_eigene'), bg=BG, fg=ACCENT,
@@ -1063,7 +1063,7 @@ class Bestandsfenster:
     def _eigene_weg(self, titel):
         """Eine eigene Beobachtung abwählen."""
         try:
-            merk.speichern(merk.eintrag_entfernen(titel))
+            merk.save(merk.remove_entry(titel))
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.eigene_weg', ausnahme)
         self._zeichnen(nach_oben=False)
@@ -1512,7 +1512,7 @@ class Bestandsfenster:
         mittendrin."""
         text = self.suche.get().strip().lower()
         habe = bestand_datei.schluessel(self.bestand)
-        beobachtet = merk.namen()
+        beobachtet = merk.names()
         # Was mit dem letzten Patch dazukam. Einmal je Durchlauf holen — die
         # Menge ist für alle Zeilen dieselbe.
         neu_im_spiel = katalog_modul.neue(self.katalog)
@@ -1552,7 +1552,7 @@ class Bestandsfenster:
                     # der Filter nur angeklickte Namen, und ein Treffer auf
                     # ein Muster-Treffer wäre unsichtbar geblieben:
                     # Man beobachtet etwas und erfährt nicht, dass es da ist.
-                    if not merk.treffer(e['n']):
+                    if not merk.match(e['n']):
                         continue
                 if self.filter == 'neu' and k not in neu_im_spiel:
                     continue
@@ -1703,7 +1703,7 @@ class Bestandsfenster:
                 mehr.bind('<Button-1>', lambda e: self._alle())
         self._treffer_zeigen(gruppen)
         if not gruppen and not (self.filter == 'merk'
-                                and (merk.laden().get('eintraege') or [])):
+                                and (merk.load().get('eintraege') or [])):
             leer = (t('merkliste_leer') if self.filter == 'merk'
                     else t('deckel_leer') if self.filter == 'deckel'
                     else t('neu_leer') if self.filter == 'neu'
@@ -2147,7 +2147,7 @@ class Bestandsfenster:
         # Stern: worauf man wartet, wird auffällig gemeldet, sobald es auftaucht.
         # Bei schon vorhandenen Bauplänen wäre das sinnlos — dort kein Stern.
         if not drin:
-            gemerkt = merk.enthaelt(name)
+            gemerkt = merk.contains(name)
             # Größer als der Rest: Der Stern ist das einzige Zeichen in der
             # Zeile, das man *trifft* statt liest — in Zeilenschrift war er zu
             # klein zum Klicken und ging neben dem Namen unter.
@@ -2158,7 +2158,7 @@ class Bestandsfenster:
             stern.pack(side='right')
             stern.bind('<Button-1>', lambda e, n=name: self._merken(n))
             notice.attach(stern, lambda n=name: t('nicht_mehr_merken')
-                              if merk.enthaelt(n) else t('merken'))
+                              if merk.contains(n) else t('merken'))
 
 
     def _herkunft_zeichnen(self):
@@ -2348,7 +2348,7 @@ class Bestandsfenster:
 
     def _merken(self, name):
         """Stern an oder aus — sofort auf die Platte, kein Speichern-Knopf."""
-        merk.umschalten(name)
+        merk.toggle(name)
         self._zeichnen()
 
     def _herkunft_umschalten(self, name):

@@ -41,6 +41,15 @@ Format:
       "namen": ["Attrition-5 Repeater"],
       "eintraege": [{"titel": "Helm meiner Wahl", "muster": ["adp-mk4", "woodland"]}]
     }
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `merkliste` (Sprachumstellung P4,
+Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben, weil sie in der Datei jedes Nutzers stehen: die Schlüssel
+`namen`, `eintraege`, `titel` und `muster`. Ebenso die Schlüssel, die
+`all_entries()` für die Anzeige liefert (`titel`, `art`, `muster`), und die
+Fehlerkennung wechselt nur ihren Namen, nicht ihre Bedeutung. Der alte
+Dateiname `merkliste.json` steht weiter in `pfade.UNTERORDNER` — er gehört zu
+Ablagen aus früheren Fassungen, nicht zu diesem Modul.
 """
 import re
 import json
@@ -48,7 +57,7 @@ import os
 
 from . import pfade
 
-DATEI = 'watchlist.json'
+FILE = 'watchlist.json'
 
 
 def _norm(s):
@@ -56,14 +65,14 @@ def _norm(s):
     return pfade.namensform(s)
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def path():
+    return pfade.app_datei(FILE)
 
 
-def laden():
+def load():
     """Die Merkliste. Fehlt die Datei, ist sie leer — das ist kein Fehler."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
+        with open(path(), encoding='utf-8') as f:
             d = json.load(f)
     except Exception:
         return {'namen': [], 'eintraege': []}
@@ -78,61 +87,61 @@ def laden():
     return d
 
 
-def speichern(daten):
+def save(data):
     """Schreibt über eine Nebendatei, damit ein Absturz nichts zerreißt."""
-    ziel = pfad()
-    temp = ziel + '.tmp'
+    target = path()
+    tmp = target + '.tmp'
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=1)
-        os.replace(temp, ziel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, target)
         return True
-    except OSError as ausnahme:
+    except OSError as exc:
         try:
             from . import fehler
-            fehler.merken('merkliste.speichern', ausnahme)
+            fehler.merken('watchlist.save', exc)
         except Exception:
             pass
         try:
-            os.remove(temp)
+            os.remove(tmp)
         except OSError:
             pass
         return False
 
 
 # ---------------------------------------------------------------- Nach außen
-def namen(daten=None):
+def names(data=None):
     """Die angeklickten Namen in Vergleichsform."""
-    return {_norm(n) for n in (daten or laden())['namen']}
+    return {_norm(n) for n in (data or load())['namen']}
 
 
-def enthaelt(name, daten=None):
-    return _norm(name) in namen(daten)
+def contains(name, data=None):
+    return _norm(name) in names(data)
 
 
-def hinzufuegen(name, daten=None):
+def add(name, data=None):
     """Aufnehmen. Gibt die geänderten Daten zurück (noch nicht gespeichert)."""
-    daten = daten or laden()
-    if not enthaelt(name, daten):
-        daten['namen'].append(name.strip())
-    return daten
+    data = data or load()
+    if not contains(name, data):
+        data['namen'].append(name.strip())
+    return data
 
 
-def entfernen(name, daten=None):
+def remove(name, data=None):
     """Herausnehmen — auch aus den Muster-Einträgen, falls einer greift."""
-    daten = daten or laden()
-    k = _norm(name)
-    daten['namen'] = [n for n in daten['namen'] if _norm(n) != k]
-    daten['eintraege'] = [e for e in daten['eintraege']
-                          if not _muster_trifft(e, k)]
-    return daten
+    data = data or load()
+    key = _norm(name)
+    data['namen'] = [n for n in data['namen'] if _norm(n) != key]
+    data['eintraege'] = [e for e in data['eintraege']
+                         if not _pattern_matches(e, key)]
+    return data
 
 
-def eintrag_entfernen(titel, daten=None):
+def remove_entry(title, data=None):
     """Eine **eigene Beobachtung** herausnehmen — über ihren Titel.
 
-    ⚠ Nicht dasselbe wie `entfernen()`. Das nimmt einen Bauplan-Namen heraus
+    ⚠ Nicht dasselbe wie `remove()`. Das nimmt einen Bauplan-Namen heraus
     und wirft dabei jede Muster-Beobachtung mit weg, die auf ihn passt. Hier
     geht es um die Beobachtung selbst: „Helm meiner Wahl" abwählen,
     weil die Staffel ein anderes Teil nimmt — die Baupläne, die das Muster
@@ -140,23 +149,23 @@ def eintrag_entfernen(titel, daten=None):
 
     Gibt die geänderten Daten zurück (noch nicht gespeichert).
     """
-    daten = daten or laden()
-    gesucht = (titel or '').strip().lower()
-    daten['eintraege'] = [e for e in daten['eintraege']
-                          if (e.get('titel') or '').strip().lower() != gesucht]
-    return daten
+    data = data or load()
+    wanted = (title or '').strip().lower()
+    data['eintraege'] = [e for e in data['eintraege']
+                         if (e.get('titel') or '').strip().lower() != wanted]
+    return data
 
 
-def umschalten(name):
+def toggle(name):
     """Klick im Fenster: rein oder raus. Gibt zurück, ob er jetzt drin ist."""
-    daten = laden()
-    drin = enthaelt(name, daten)
-    daten = entfernen(name, daten) if drin else hinzufuegen(name, daten)
-    speichern(daten)
-    return not drin
+    data = load()
+    inside = contains(name, data)
+    data = remove(name, data) if inside else add(name, data)
+    save(data)
+    return not inside
 
 
-def _muster_trifft(eintrag, name_norm):
+def _pattern_matches(entry, name_norm):
     """Passt eine Beobachtung auf diesen Namen?
 
     ⚠ **An Wortgrenzen, nicht mitten im Wort.** Ein blosses „steckt drin"
@@ -170,48 +179,48 @@ def _muster_trifft(eintrag, name_norm):
     Ziffer stehen. Bindestriche und Leerzeichen zählen als Grenze, damit
     `abc-mk4 legs grey` weiter passt.
     """
-    muster = [str(m).lower().strip() for m in (eintrag.get('muster') or [])]
-    for m in muster:
-        if not m:
+    patterns = [str(p).lower().strip() for p in (entry.get('muster') or [])]
+    for p in patterns:
+        if not p:
             continue
-        if re.search(r'(?<![a-z0-9])%s(?![a-z0-9])' % re.escape(m), name_norm):
+        if re.search(r'(?<![a-z0-9])%s(?![a-z0-9])' % re.escape(p), name_norm):
             return True
     return False
 
 
-def treffer(name, daten=None):
+def match(name, data=None):
     """Wird auf diesen Bauplan gewartet? Rückgabe: Titel des Eintrags oder None.
 
     Bei einem angeklickten Namen ist der Titel der Name selbst, bei einem
     Muster-Eintrag dessen Titel („Helm meiner Wahl")."""
-    daten = daten or laden()
-    k = _norm(name)
-    for n in daten['namen']:
-        if _norm(n) == k:
+    data = data or load()
+    key = _norm(name)
+    for n in data['namen']:
+        if _norm(n) == key:
             return n
-    for e in daten['eintraege']:
-        if _muster_trifft(e, k):
+    for e in data['eintraege']:
+        if _pattern_matches(e, key):
             return e.get('titel') or name
     return None
 
 
-def erledigen(name):
+def fulfill(name):
     """Einen erfüllten Wunsch austragen. Gibt den Titel zurück, wenn einer weg ist.
 
     Wird aufgerufen, sobald ein Bauplan im eigenen Bestand landet: Worauf man
     gewartet hat und was man jetzt hat, gehört nicht mehr auf die Liste."""
-    daten = laden()
-    titel = treffer(name, daten)
-    if not titel:
+    data = load()
+    title = match(name, data)
+    if not title:
         return None
-    speichern(entfernen(name, daten))
-    return titel
+    save(remove(name, data))
+    return title
 
 
-def aufraeumen(bestand_namen):
+def prune(owned_names):
     """Merkposten austragen, die schon im Bestand stehen. Gibt die Anzahl zurück.
 
-    ⚠⚠⚠ **`erledigen()` greift nur beim FUND.** Wer einen Bauplan merkt, den er
+    ⚠⚠⚠ **`fulfill()` greift nur beim FUND.** Wer einen Bauplan merkt, den er
     längst hat — oder ihn zwischen zwei Programmstarts über eine andere Quelle
     bekommt —, behält den Merkposten für immer. Am 06.09.2026 stand
     `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste ein
@@ -223,35 +232,35 @@ def aufraeumen(bestand_namen):
     ⚠ Nur `namen` werden aufgeräumt, **nicht** die Muster-Einträge: Ein Muster
     wie „Morozov" steht für mehrere Teile, von denen erst eines da sein kann.
     """
-    daten = laden()
-    habe = {_norm(n) for n in (bestand_namen or ())}
-    if not habe:
+    data = load()
+    owned = {_norm(n) for n in (owned_names or ())}
+    if not owned:
         return 0
-    bleibt = [n for n in daten['namen'] if _norm(n) not in habe]
-    weg = len(daten['namen']) - len(bleibt)
-    if weg:
-        daten['namen'] = bleibt
-        speichern(daten)
-    return weg
+    kept = [n for n in data['namen'] if _norm(n) not in owned]
+    removed = len(data['namen']) - len(kept)
+    if removed:
+        data['namen'] = kept
+        save(data)
+    return removed
 
 
-def alle(daten=None):
+def all_entries(data=None):
     """Alles, worauf gewartet wird — für die Anzeige. Namen zuerst."""
-    daten = daten or laden()
-    liste = [{'titel': n, 'art': 'name'} for n in sorted(daten['namen'])]
-    liste += [{'titel': e.get('titel') or '?', 'art': 'muster',
+    data = data or load()
+    items = [{'titel': n, 'art': 'name'} for n in sorted(data['namen'])]
+    items += [{'titel': e.get('titel') or '?', 'art': 'muster',
                'muster': e.get('muster') or []}
-              for e in daten['eintraege']]
-    return liste
+              for e in data['eintraege']]
+    return items
 
 
-def anzahl(daten=None):
-    daten = daten or laden()
-    return len(daten['namen']) + len(daten['eintraege'])
+def count(data=None):
+    data = data or load()
+    return len(data['namen']) + len(data['eintraege'])
 
 
 if __name__ == '__main__':
-    print('Datei:', pfad())
-    for e in alle():
+    print('Datei:', path())
+    for e in all_entries():
         print('  %-8s %s %s' % (e['art'], e['titel'], e.get('muster') or ''))
-    print('Gesamt:', anzahl())
+    print('Gesamt:', count())

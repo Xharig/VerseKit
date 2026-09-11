@@ -50,7 +50,7 @@ from scbp import (
                   bildschirm, overlay,
                   bestand as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
-                  katalog as katalog_modul, laeden, logquelle, merkliste,
+                  katalog as katalog_modul, laeden, logquelle, watchlist,
                   pfade, phrasen, schiffe, spielstand, titelleiste, sound,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
 
@@ -224,7 +224,7 @@ def load_types():
             for name, eintrag in (SCMDB or {}).items()} if SCMDB else {}
 
 
-# Die Merkliste steckt in `scbp/merkliste.py` — sie wird im Fenster per Klick
+# Die Merkliste steckt in `scbp/watchlist.py` — sie wird im Fenster per Klick
 # gepflegt, nicht mehr nur von Hand in der Datei.
 
 
@@ -737,7 +737,7 @@ class Watcher(threading.Thread):
         # schon hat, behält den Posten für immer. Gemeldet am 06.09.2026: „da
         # wird einer beobachtet, den ich schon habe."
         try:
-            _weg = merkliste.aufraeumen(
+            _weg = watchlist.prune(
                 (self.bestand.get('bauplaene') or {}).keys())
             if _weg:
                 fehler.spur('Merkliste: %d erledigte Posten ausgetragen' % _weg)
@@ -1081,7 +1081,7 @@ class Watcher(threading.Thread):
             return
         anzeige = load_display()
         for name in neu:
-            titel = merkliste.treffer(name)
+            titel = watchlist.match(name)
             self.q.put(('catalog', _katalogname(name, anzeige),
                         jetzt.get(name) or '—', time.strftime('%H:%M:%S'), titel))
         self._save_catalog(jetzt)
@@ -1733,7 +1733,7 @@ class Watcher(threading.Thread):
         Eine Liste voller längst erfüllter Wünsche wäre keine Merkliste, sondern
         ein Archiv. Der Watcher sagt einmal Bescheid, dann ist es erledigt."""
         try:
-            titel = merkliste.erledigen(name)
+            titel = watchlist.fulfill(name)
         except Exception:
             return
         if titel:

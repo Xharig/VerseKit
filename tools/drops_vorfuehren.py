@@ -57,7 +57,7 @@ TEST_ABLAGE = os.path.join(os.path.expanduser('~'), 'Documents',
 if not os.environ.get('SC_BP_HOME') and os.path.isdir(TEST_ABLAGE):
     os.environ['SC_BP_HOME'] = TEST_ABLAGE
 
-from scbp import merkliste, pfade                      # noqa: E402
+from scbp import watchlist, pfade                      # noqa: E402
 
 # Ein Wegwerf-Spielordner neben der Ablage des Testlaufs — nicht im Projekt,
 # damit nichts davon je in einen Commit rutscht.
@@ -194,11 +194,11 @@ def vorbereiten():
     launcher_anschliessen()
     _bestand_freimachen()
     _katalogstand_beschneiden()
-    if not merkliste.enthaelt(GEMERKT[0]):
+    if not watchlist.contains(GEMERKT[0]):
         # ⚠ `hinzufuegen()` gibt die geänderten Daten nur **zurück**, es
         # speichert sie nicht — das steht so in seinem Docstring. Ohne
         # `speichern()` dahinter passiert nichts, und der Fund käme ohne Stern.
-        merkliste.speichern(merkliste.hinzufuegen(GEMERKT[0]))
+        watchlist.save(watchlist.add(GEMERKT[0]))
         print('  Auf die Merkliste gesetzt: %s' % GEMERKT[0])
     else:
         print('  Steht schon auf der Merkliste: %s' % GEMERKT[0])
@@ -209,7 +209,7 @@ def vorbereiten():
 def vorfuehren():
     log = einrichten()
 
-    if not merkliste.enthaelt(GEMERKT[0]):
+    if not watchlist.contains(GEMERKT[0]):
         print('  ⚠ %s steht nicht auf der Merkliste.' % GEMERKT[0])
         print('    Der Fund kommt dann ohne Stern. Erst vorbereiten:')
         print('      python3 tools/drops_vorfuehren.py --vorbereiten')
@@ -239,8 +239,8 @@ def vorfuehren():
 
 def aufraeumen():
     """Den Vorführ-Stand zurücknehmen — Merkliste, Spielordner, Log."""
-    if merkliste.enthaelt(GEMERKT[0]):
-        merkliste.speichern(merkliste.entfernen(GEMERKT[0]))
+    if watchlist.contains(GEMERKT[0]):
+        watchlist.save(watchlist.remove(GEMERKT[0]))
         print('  Von der Merkliste genommen: %s' % GEMERKT[0])
     if pfade.einstellung('launcher_ordner') == LAUNCHER:
         pfade.einstellung_setzen('launcher_ordner', '')
