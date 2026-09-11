@@ -2397,9 +2397,13 @@ def main():
         # entsteht eine zweite Fassung neben der alten Datei.
         ak30q = open(os.path.join(WURZEL, 'scbp', 'aktualisierung.py'),
                      encoding='utf-8').read()
-        start30 = ak30q[ak30q.index("schalter = '/SILENT"):][:1400]
-        pruefe('/DIR=' in start30,
+        # Seit dem Ein-Klick-Update steht der Installer-Aufruf im Helfer, der
+        # Ordner kommt als SCBP_ZIEL aus `einspielen()`.
+        ul30 = open(os.path.join(WURZEL, 'scbp', 'update_lauf.py'),
+                    encoding='utf-8').read()
+        pruefe('/DIR="%SCBP_ZIEL%"' in ul30,
                'der Installer bekommt /DIR — ersetzen statt danebenlegen')
+        start30 = ak30q[ak30q.index('eigener_ordner = '):][:200]
         pruefe('sys.executable' in start30,
                'und zwar den Ordner des laufenden Programms')
 
@@ -17049,6 +17053,317 @@ def main():
                       '' if _geworfen179 is None else ' — flog: %r' % _geworfen179))
     finally:
         shutil.rmtree(_ordner179, ignore_errors=True)
+
+    # ------------------------------------------------ Ein-Klick-Update (182–188)
+    # Alles in einer eigenen Ablage — Laufmarke, Sperre und Protokoll landen
+    # sonst in der echten.
+    from scbp import update_lauf as _ul182
+    _alt_home182 = os.environ.get('SC_BP_HOME')
+    _home182 = tempfile.mkdtemp(prefix='pruefung182-')
+    os.environ['SC_BP_HOME'] = _home182
+    try:
+        print('\n182. Ein-Klick-Update: der Helfer traegt keinen Pfad in sich')
+        # ⚠⚠ `cmd` liest eine .cmd-Datei in der OEM-Codepage. Stuende ein Pfad
+        # darin, zerbraeche er an jedem Umlaut im Benutzernamen. Deshalb kommt
+        # alles ueber die Umgebung, und die Vorlage muss reines ASCII bleiben.
+        _v182 = _ul182.HELFER_VORLAGE
+        try:
+            _v182.encode('ascii')
+            _ascii182 = True
+        except UnicodeEncodeError:
+            _ascii182 = False
+        pruefe(_ascii182, 'die Helfer-Vorlage ist reines ASCII')
+        pruefe(not re.search(r'[A-Za-z]:\\', _v182),
+               'und enthaelt keinen festen Pfad')
+        pruefe('DisableDelayedExpansion' in _v182,
+               'ein ! im Pfad ueberlebt (keine verzoegerte Erweiterung)')
+        _setup182 = next((z for z in _v182.splitlines()
+                          if z.startswith('"%SCBP_SETUP%"')), '')
+        pruefe('/SUPPRESSMSGBOXES' in _setup182,
+               'der Installer laeuft mit /SUPPRESSMSGBOXES — sonst haengt ein '
+               'echter Fehler an einem unsichtbaren OK-Fenster')
+        pruefe('/RESTARTAPPLICATIONS' not in _v182,
+               'kein /RESTARTAPPLICATIONS — sonst startet ein zweiter Weg')
+        # ⚠ Eine Pipe laesst cmd JEDE Seite noch einmal zerlegen, samt
+        # %-Erweiterung. Ein Pfad mit zwei % ginge dort kaputt. Pipes sind
+        # deshalb nur erlaubt, wo keine Pfadvariable drinsteht.
+        _pipes182 = [z for z in _v182.splitlines() if '|' in z and re.search(
+            r'%SCBP_(SETUP|ZIEL|SETUPLOG|LOG|ERGEBNIS|SPERRE|EXE)%', z)]
+        pruefe(not _pipes182, 'keine Pipe mit einem Pfad darin (%s)'
+               % ('; '.join(_pipes182) or 'keine'))
+        _pos182 = dict((w, _v182.find(w)) for w in (
+            'certutil', '"%SCBP_SETUP%" /SILENT', '>"%SCBP_ERGEBNIS%" echo',
+            'start ""'))
+        pruefe(0 <= _pos182['certutil'] < _pos182['"%SCBP_SETUP%" /SILENT'],
+               'die Pruefsumme wird VOR dem Installer abgeglichen')
+        pruefe(0 <= _pos182['>"%SCBP_ERGEBNIS%" echo'] < _pos182['start ""'],
+               'das Ergebnis steht fest, BEVOR der Watcher startet')
+        pruefe(_ul182.NEUSTART_NACH == (0, 2, 3, 5),
+               'Neustart nur nach 0, 2, 3 und 5 (entschieden 11.09.2026)')
+        pruefe('timeout ' not in _v182,
+               'kein timeout — das bricht ohne Konsole ab')
+        _var182 = set(re.findall(r'%(SCBP_[A-Z0-9]+)%', _v182))
+        _env182 = set(_ul182.helfer_umgebung({}, 's', 'ab', 'z', 'l', 'e',
+                                             [1]).keys())
+        pruefe(_var182 <= _env182,
+               'jede Variable der Vorlage wird auch gesetzt (fehlt: %s)'
+               % (', '.join(sorted(_var182 - _env182)) or 'keine'))
+
+        print('\n183. Die Update-Sperre laesst genau einen Lauf zu — und verwaist nicht')
+        # ⚠ Bewusst keine Portbindung: Unter Windows bindet ein zweiter Prozess
+        # mit SO_REUSEADDR denselben Port (gemessen 11.09.2026).
+        _sp183 = _ul182._pfad(_ul182.SPERRE)
+        _ul182.sperre_freigeben()
+        pruefe(_ul182.sperre_nehmen() is True, 'die erste Anfrage bekommt die Sperre')
+        pruefe(_ul182.sperre_nehmen() is False,
+               'die zweite nicht — solange die erste lebt')
+        pruefe(_ul182.sperre_gehalten(), 'und sie gilt als gehalten')
+        _tot183 = subprocess.Popen([sys.executable, '-c', 'pass'])
+        _tot183.wait()
+        _ul182.sperre_uebergeben(_tot183.pid)
+        pruefe(not _ul182.sperre_gehalten(),
+               'die Sperre eines beendeten Prozesses gilt als verwaist')
+        pruefe(_ul182.sperre_nehmen() is True, 'und wird uebernommen')
+        with open(_sp183, 'w', encoding='utf-8') as _f183:
+            json.dump({'pid': os.getpid(),
+                       'zeit': time.time() - _ul182.SPERRE_HOECHSTENS - 5}, _f183)
+        pruefe(_ul182.sperre_nehmen() is True,
+               'eine uralte Sperre wird uebernommen, auch wenn die PID lebt '
+               '(Windows vergibt PIDs wieder)')
+        _ul182.sperre_freigeben()
+        pruefe(not os.path.exists(_sp183), 'freigeben raeumt die Datei weg')
+        pruefe(_ul182.pid_lebt(os.getpid()), 'pid_lebt erkennt den eigenen Prozess')
+        pruefe(not _ul182.pid_lebt(_tot183.pid), 'und einen beendeten als tot')
+
+        print('\n184. Was aus dem Update wurde, entscheidet die Version — nicht der Rueckgabewert')
+
+        def _fall184(code, eigen, ziel='3.30.0', alt='3.29.0', alter=0,
+                     installer=''):
+            _ul182.sperre_freigeben()
+            _ul182.lauf_beginnen(ziel, alt, installer, 'ab' * 32)
+            if alter:
+                _d184 = _ul182.lauf_lesen()
+                _d184['start'] -= alter
+                _ul182._json_schreiben(_ul182._pfad(_ul182.LAUF), _d184)
+            if code is not None:
+                with open(_ul182._pfad(_ul182.ERGEBNIS), 'w') as _f184:
+                    _f184.write('%d \r\n' % code)
+            _e184 = _ul182.auswerten(eigen)
+            return _e184 and _e184['art']
+
+        pruefe(_fall184(0, '3.30.0') == 'fertig', '0 und neue Version: fertig')
+        pruefe(_fall184(0, '3.29.0') == 'fehler',
+               '0, aber weiter die alte Version: KEIN Erfolg')
+        pruefe(_fall184(5, '3.29.0') == 'abgebrochen',
+               '5 und alte Version: abgebrochen (Inno rollt zurueck)')
+        pruefe(_fall184(2, '3.29.0') == 'abgebrochen', '2 und alte Version: abgebrochen')
+        pruefe(_fall184(3, '3.29.0') == 'fehler', '3: gescheitert')
+        pruefe(_fall184(None, '3.29.0') == 'unklar',
+               'kein Ergebnis (Helfer nie fertig geworden): unklar')
+        pruefe(_fall184(0, '3.30.0', alter=_ul182.LAUF_HOECHSTENS + 60) is None,
+               'eine Marke von vorgestern wird still weggeraeumt')
+        pruefe(_fall184(0, 'v3.30.0') == 'fertig', 'ein v vor der Version stoert nicht')
+        pruefe(not os.path.exists(_ul182._pfad(_ul182.LAUF))
+               and not os.path.exists(_ul182._pfad(_ul182.ERGEBNIS)),
+               'nach dem Auswerten ist aufgeraeumt')
+        _inst184 = os.path.join(_home182, 'SC-BP-Watcher-Setup.exe')
+        open(_inst184, 'wb').close()
+        _fall184(0, '3.30.0', installer=_inst184)
+        pruefe(not os.path.exists(_inst184), 'der geladene Installer wird danach weggeraeumt')
+        _fremd184 = os.path.join(_home182, 'fremd.exe')
+        open(_fremd184, 'wb').close()
+        _fall184(0, '3.30.0', installer=_fremd184)
+        pruefe(os.path.exists(_fremd184),
+               'eine fremde Datei bleibt liegen, auch wenn sie in der Marke steht')
+        _ul182.lauf_beginnen('3.30.0', '3.29.0', '', 'ab')
+        _ul182.sperre_nehmen()
+        pruefe(_ul182.auswerten('3.29.0') is None and _ul182.lauf_lesen() is not None,
+               'solange der Helfer die Sperre haelt, bleibt die Marke liegen')
+        _ul182.sperre_freigeben()
+        _ul182.auswerten('3.29.0')
+        from scbp import sprache as _sp184
+        for _art184 in ('fertig', 'abgebrochen', 'fehler', 'unklar'):
+            _s184 = _ul182.meldung({'art': _art184, 'ziel': '3.30.0',
+                                    'eigen': '3.29.0', 'code': 3})
+            pruefe(_s184.schluessel in _sp184.TEXTE,
+                   'Meldung „%s" hat einen Text (%s)' % (_art184, _s184.schluessel))
+
+        print('\n185. Unter Windows uebergibt einspielen() an den Helfer — nur mit gepruefter Summe')
+        from scbp import aktualisierung as _ak185
+        _gest185 = []
+
+        class _Popen185(object):
+            pid = 424242
+
+            def __init__(self, befehl, **k):
+                _gest185.append((befehl, k))
+
+        _echt185 = (subprocess.Popen, _ak185.verpackung,
+                    _ak185.eigenes_appimage, sys.executable)
+        _exe185 = os.path.join(_home182, 'prog', 'SC-BP-Watcher.exe')
+        os.makedirs(os.path.dirname(_exe185), exist_ok=True)
+        _setup185 = os.path.join(_home182, 'SC-BP-Watcher-Setup.exe')
+        with open(_setup185, 'wb') as _f185:
+            _f185.write(b'x')
+        try:
+            subprocess.Popen = _Popen185
+            _ak185.verpackung = lambda: 'exe'
+            _ak185.eigenes_appimage = lambda: None
+            sys.executable = _exe185
+            _ak185._GEPRUEFT.clear()
+            _ok185, _grund185 = _ak185.einspielen(
+                _setup185, ziel_version='3.30.0', alte_version='3.29.0')
+            pruefe(not _ok185 and not _gest185,
+                   'ohne gepruefte Summe wird nichts gestartet')
+            _ak185._GEPRUEFT[os.path.abspath(_setup185)] = 'CD' * 32
+            _ok185, _grund185 = _ak185.einspielen(
+                _setup185, ziel_version='3.30.0', alte_version='3.29.0')
+            pruefe(_ok185, 'mit gepruefter Summe wird uebergeben (%s)'
+                   % (_grund185 or 'ok'))
+            _bef185, _k185 = _gest185[-1] if _gest185 else ('', {})
+            pruefe(str(_bef185).startswith('cmd /c ""')
+                   and _ul182.HELFER_NAME in str(_bef185),
+                   'gestartet wird der Helfer, nicht der Installer')
+            _env185 = _k185.get('env') or {}
+            pruefe(_env185.get('SCBP_SHA256') == 'cd' * 32,
+                   'der Helfer bekommt genau die veroeffentlichte Summe')
+            pruefe(_env185.get('SCBP_EXE') == _exe185
+                   and _env185.get('SCBP_ZIEL') == os.path.dirname(_exe185),
+                   'und das laufende Programm samt Ordner')
+            pruefe(not [n for n in ('_MEIPASS', 'TCL_LIBRARY', '__COMPAT_LAYER')
+                        if n in _env185], 'die Umgebung ist gewaschen')
+            pruefe(_env185.get('SCBP_PID') == str(os.getpid()),
+                   'er wartet auf unsere PID')
+            _lauf185 = _ul182.lauf_lesen() or {}
+            pruefe(_lauf185.get('ziel') == '3.30.0' and _lauf185.get('alt') == '3.29.0',
+                   'die Laufmarke steht, bevor wir abtreten')
+            _sp185 = _ul182._json_lesen(_ul182._pfad(_ul182.SPERRE)) or {}
+            pruefe(_sp185.get('pid') == 424242, 'die Sperre gehoert jetzt dem Helfer')
+            _hf185 = os.path.join(tempfile.gettempdir(), _ul182.HELFER_NAME)
+            pruefe(os.path.exists(_hf185) and open(_hf185, 'rb').read()
+                   == _ul182.HELFER_VORLAGE.replace('\n', '\r\n').encode('ascii'),
+                   'die Helfer-Datei liegt mit CRLF in %TEMP%')
+        finally:
+            (subprocess.Popen, _ak185.verpackung, _ak185.eigenes_appimage,
+             sys.executable) = _echt185
+            _ak185._TAUSCH_LAEUFT[0] = False
+            _ak185._GEPRUEFT.clear()
+            _ul182.sperre_freigeben()
+            for _n185 in (_ul182.LAUF, _ul182.ERGEBNIS):
+                _ul182._weg(_ul182._pfad(_n185))
+
+        print('\n186. Unter Linux wird vor dem Tausch gesichert — und zurueckgerollt')
+        _app186 = os.path.join(_home182, 'SC-BP-Watcher-x86_64.AppImage')
+        _neu186 = os.path.join(_home182, '.neu186')
+        with open(_app186, 'wb') as _f186:
+            _f186.write(b'ALT' * 100)
+        with open(_neu186, 'wb') as _f186:
+            _f186.write(b'NEU' * 120)
+        _echt186 = (_ak185.verpackung, _ak185.eigenes_appimage)
+        try:
+            _ak185.verpackung = lambda: 'appimage'
+            _ak185.eigenes_appimage = lambda: _app186
+            _ok186, _g186 = _ak185.einspielen(_neu186)
+            pruefe(_ok186, 'der Tausch gelingt (%s)' % (_g186 or 'ok'))
+            pruefe(open(_app186, 'rb').read() == b'NEU' * 120,
+                   'danach liegt die neue Fassung am Platz')
+            pruefe(open(_app186 + _ak185.VORHER, 'rb').read() == b'ALT' * 100,
+                   'und die alte daneben als Sicherung')
+            pruefe(_ak185.zurueckrollen() and open(_app186, 'rb').read() == b'ALT' * 100,
+                   'zurueckrollen legt die alte wieder hin')
+            pruefe(not _ak185.zurueckrollen(),
+                   'ohne Sicherung gibt es nichts zurueckzurollen')
+            # Gegenprobe: Laesst sich nicht sichern, wird auch nicht getauscht.
+            os.makedirs(_app186 + _ak185.VORHER, exist_ok=True)
+            with open(_neu186, 'wb') as _f186:
+                _f186.write(b'NEU' * 120)
+            _ok186b, _g186b = _ak185.einspielen(_neu186)
+            pruefe(not _ok186b and open(_app186, 'rb').read() == b'ALT' * 100,
+                   'scheitert die Sicherung, bleibt die alte Fassung unangetastet')
+            pruefe(not os.path.exists(_neu186), 'und die geladene Datei wird verworfen')
+        finally:
+            _ak185.verpackung, _ak185.eigenes_appimage = _echt186
+
+        print('\n187. Ein Klick: kein Quittungsfenster, kein zweiter Knopf, der Schalter wirkt')
+        import inspect as _in187
+        from scbp import seiten as _se187
+        _q187 = _in187.getsource(_se187._fassung_holen)
+        pruefe('s_ub_hinweis_neustart' not in _q187,
+               'kein Hinweisfenster mehr vor dem Einspielen')
+        pruefe('sperre_nehmen' in _q187 and 'sperre_freigeben' in _q187,
+               'die Sperre wird genommen und freigegeben')
+        pruefe('aktualisierung.neu_starten()' in _q187,
+               'unter Linux startet es gleich neu — ohne zweiten Klick')
+        _w187 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
+        _nv187 = _w187[_w187.index('def _nach_version_sehen'):][:3000]
+        pruefe("einstellung_wahrheit('update_pruefen'" in _nv187,
+               'der Schalter „Nach neuen Versionen sehen" wird gelesen')
+        pruefe('self._update_ergebnis_melden()' in _w187,
+               'der Start meldet, was aus dem letzten Update wurde')
+        from scbp import pfade as _pf187
+        pruefe(_pf187.UNTERORDNER.get('update-helfer.txt') == 'Diagnose',
+               'das Helfer-Protokoll liegt bei der Diagnose')
+
+        print('\n188. Der Helfer laeuft wirklich — mit Pfaden, an denen cmd scheitern koennte')
+        # ⚠ Gemessen war nur die Befehlszeile (M7), nicht eine .cmd-DATEI, die
+        # Pfade aus der Umgebung einsetzt und in Dateien umleitet. Genau das
+        # tut der Helfer — also laeuft er hier echt, mit einem harmlosen
+        # Programm als „Installer": whoami liegt jedem Windows bei und oeffnet
+        # kein Fenster. Gestartet wird danach nichts, SCBP_NEUSTART passt auf
+        # keinen Rueckgabewert.
+        if not sys.platform.startswith('win'):
+            uebersprungen('echter Helferlauf', 'nur unter Windows — dort laeuft cmd')
+        else:
+            import hashlib as _hl188
+            _ord188 = os.path.join(_home182, "a&b ^c 100% !x (y) o'r äöü")
+            os.makedirs(_ord188, exist_ok=True)
+            _quelle188 = os.path.join(os.environ.get('SystemRoot', 'C:\\Windows'),
+                                      'System32', 'whoami.exe')
+            _fake188 = os.path.join(_ord188, 'SC-BP-Watcher-Setup.exe')
+            _erg188 = os.path.join(_ord188, 'ergebnis.txt')
+            _log188 = os.path.join(_ord188, 'helfer.txt')
+            _hf188 = _ul182.helfer_schreiben()
+            _tot188 = subprocess.Popen([sys.executable, '-c', 'pass'])
+            _tot188.wait()
+
+            def _lauf188(summe, pid, warten='5'):
+                shutil.copy2(_quelle188, _fake188)
+                if os.path.exists(_erg188):
+                    os.remove(_erg188)
+                env = _ul182.helfer_umgebung(
+                    dict(os.environ), _fake188, summe, _ord188,
+                    os.path.join(_ord188, 'setup.log'),
+                    os.path.join(_ord188, 'gibt-es-nicht.exe'), [pid])
+                env.update({'SCBP_WARTEN': warten, 'SCBP_NEUSTART': 'X',
+                            'SCBP_ERGEBNIS': _erg188, 'SCBP_LOG': _log188})
+                subprocess.run('cmd /c ""%s""' % _hf188, env=env, timeout=120,
+                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                try:
+                    with open(_erg188, encoding='ascii', errors='replace') as _f188:
+                        return int(_f188.read().split()[0])
+                except (OSError, ValueError, IndexError):
+                    return None
+
+            _summe188 = _hl188.sha256(open(_quelle188, 'rb').read()).hexdigest()
+            _e188 = _lauf188(_summe188, _tot188.pid)
+            pruefe(_e188 not in (None, _ul182.SUMME_FALSCH, _ul182.ALTE_HAENGT),
+                   'richtige Summe: der „Installer" lief, sein Rueckgabewert kam '
+                   'an (%s)' % _e188)
+            pruefe(os.path.exists(_log188) and 'Installer beendet' in open(
+                       _log188, encoding='ascii', errors='replace').read(),
+                   "das Protokoll landet im Ordner mit & ^ % ! ( ) ' und Umlauten")
+            _e188b = _lauf188('0' * 64, _tot188.pid)
+            pruefe(_e188b == _ul182.SUMME_FALSCH and not os.path.exists(_fake188),
+                   'falsche Summe: nichts ausgefuehrt, Datei verworfen (%s)' % _e188b)
+            _e188c = _lauf188(_summe188, os.getpid(), warten='2')
+            pruefe(_e188c == _ul182.ALTE_HAENGT,
+                   'lebt die alte Fassung noch, wird nicht installiert (%s)' % _e188c)
+    finally:
+        if _alt_home182 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home182
+        shutil.rmtree(_home182, ignore_errors=True)
 
     print()
     if fehler:

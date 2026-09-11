@@ -852,6 +852,13 @@ def herunterladen(datei, fortschritt=None, freigabe=None):
     except Exception:
         _wegwerfen(ziel)
         raise
+    # ⚠ Die geprüfte Summe wandert mit. Unter Windows startet nicht mehr der
+    # Watcher den Installer, sondern ein Helfer — ein anderer Prozess, Sekunden
+    # später. Bis dahin kann die Datei in `%TEMP%` ersetzt worden sein. Der
+    # Helfer gleicht deshalb unmittelbar vor dem Start noch einmal ab, und zwar
+    # gegen **diese** Summe aus der Veröffentlichung, nicht gegen eine, die er
+    # selbst aus der Datei rechnet.
+    _GEPRUEFT[os.path.abspath(ziel)] = erwartet
     return ziel
 
 
@@ -949,18 +956,69 @@ def _laden_und_pruefen(url, ziel, erwartet, fortschritt=None):
 # Tausch, dort startet das Programm sich selbst neu.
 _TAUSCH_LAEUFT = [False]
 
+# Welche Datei gegen welche veröffentlichte Summe geprüft wurde — gefüllt von
+# `herunterladen()`, gelesen von `einspielen()`. Unter Windows geht die Summe
+# an den Helfer weiter; ohne Eintrag hier wird dort nichts eingespielt.
+_GEPRUEFT = {}
 
-def einspielen(neue_datei):
+# Die Sicherung der bisherigen Fassung unter Linux, gleich neben der Datei.
+VORHER = '.vorher'
+
+
+def _sichern(ziel):
+    """Die laufende Datei neben sich kopieren. True nur bei vollständiger Kopie."""
+    import shutil
+    vorher = ziel + VORHER
+    try:
+        shutil.copy2(ziel, vorher)
+        return os.path.getsize(vorher) == os.path.getsize(ziel)
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.sichern', ausnahme)
+        return False
+
+
+def zurueckrollen():
+    """Die Sicherung von vor dem Tausch zurücklegen (Linux). True, wenn es klappte.
+
+    Gebraucht, wenn die neue Fassung beim Start stirbt: Dann ist das AppImage
+    schon getauscht, und die alte liefe nur noch aus ihrer offenen Inode
+    weiter — wer sie schließt, stünde ohne Watcher da.
+    """
+    ziel = eigenes_appimage()
+    if not ziel:
+        return False
+    vorher = ziel + VORHER
+    if not os.path.isfile(vorher):
+        return False
+    try:
+        os.replace(vorher, ziel)
+        os.chmod(ziel, 0o755)
+        return True
+    except OSError as ausnahme:
+        fehler.merken('aktualisierung.zurueckrollen', ausnahme)
+        return False
+
+
+def einspielen(neue_datei, ziel_version='', alte_version=''):
     """Die laufende Version durch die neue ersetzen.
 
     Zwei Wege, je nach Verpackung:
 
-    * **Linux** — das AppImage wird getauscht. Danach genügt ein Neustart.
-    * **Windows** — der Installer wird gestartet. Er beendet das laufende
-      Programm selbst, ersetzt die Datei und fährt den Watcher wieder hoch.
+    * **Linux** — erst wird die laufende Datei gesichert, dann das AppImage
+      getauscht. Den Neustart macht der Aufrufer, gleich danach.
+    * **Windows** — ein Helfer übernimmt (`update_lauf`): Er wartet, bis dieser
+      Watcher weg ist, prüft die Summe erneut, startet den Installer und fährt
+      den Watcher danach wieder hoch.
+
+    `ziel_version` und `alte_version` landen in der Laufmarke — daran sieht der
+    nächste Start, was aus dem Update geworden ist.
 
     Gibt (True, '') zurück, wenn der Weg angetreten ist. Bei (False, Grund) muss
-    der Nutzer selbst ran."""
+    der Nutzer selbst ran.
+
+    ⚠ In dieser Funktion **kein** `fehler.merken`: Das `except … as fehler`
+    unten macht `fehler` hier zur lokalen Variable, ein Aufruf davor fiele mit
+    `UnboundLocalError` um."""
     art = verpackung()
     if art == 'quellcode':
         return False, 'quellcode'
@@ -979,6 +1037,16 @@ def einspielen(neue_datei):
             # Unter Linux darf die laufende Datei ersetzt werden, solange man sie
             # austauscht statt hineinzuschreiben: Der laufende Prozess hält die
             # alte Inode, die neue liegt sofort am Platz.
+            #
+            # ⚠ **Erst sichern, dann tauschen.** Stirbt die neue Fassung beim
+            # Start, ist der Rückweg damit ein Umbenennen (`zurueckrollen()`),
+            # genau wie bei `tools/testfassung_holen.sh`. Lässt sich die
+            # Sicherung nicht anlegen, wird auch nicht getauscht — ein Update
+            # ohne Rückweg ist keins.
+            if not _sichern(ziel):
+                from . import sprache
+                _wegwerfen(neue_datei)
+                return False, sprache.t('up_sicherung_nein')
             #
             # ⚠ `os.replace` schafft das nur **innerhalb eines Dateisystems**.
             # Deshalb wird gleich daneben geladen (siehe `_ablageort_fuer_update`).
@@ -1085,17 +1153,22 @@ def einspielen(neue_datei):
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe
 
-        # ⚠ Der Umweg über `cmd` hält einen Elternprozess am Leben, solange das
-        # Setup läuft. Nachgemessen ist er **nicht** nötig — auch ein sofort
-        # abtretender Vater stört Inno nicht. Er bleibt trotzdem, weil er nichts
-        # kostet und der Fehler oben noch ungeklärt ist; fällt er weg, wäre es
-        # eine Änderung an einer Stelle, die gerade untersucht wird.
+        # ⚠⚠ **Seit dem Ein-Klick-Update startet nicht mehr der Watcher den
+        # Installer, sondern ein Helfer** (`update_lauf`). Bis v3.29.0 lief der
+        # Installer still, startete bei `/SILENT` absichtlich nichts, und der
+        # Watcher blieb unten. Jetzt wartet eine `.cmd` in `%TEMP%` auf unser
+        # Ende, prüft die Summe erneut, startet den Installer mit
+        # `/SUPPRESSMSGBOXES` und fährt uns danach wieder hoch.
         #
-        # Die doppelten Anführungszeichen sind cmd-Eigenart: `cmd /c "..."`
-        # streicht das äußere Paar, deshalb braucht ein Pfad mit Leerzeichen ein
-        # eigenes. Ohne das scheitert jeder Benutzername mit Leerzeichen —
-        # geprüft mit `C:\Users\Max Mustermann\...`.
-        schalter = '/SILENT /NORESTART /CLOSEAPPLICATIONS'
+        # Gemessen am 11.09.2026, bevor gebaut wurde:
+        #   * Ein `cmd` als Elternprozess stört Inno nicht — lebend wie sterbend.
+        #   * Der Restart Manager meldete den laufenden Watcher **nicht**
+        #     („found no applications"). Deshalb wartet der Helfer selbst auf
+        #     unsere PID, statt sich auf `CloseApplications` zu verlassen.
+        #   * Ohne `/SUPPRESSMSGBOXES` hängt ein echter Fehler an einem
+        #     unsichtbaren OK-Fenster; mit endet das Setup nach 0,4 s mit 3.
+        #   * Pfade mit `& ^ % ! ( ) '`, Umlauten und 185 Zeichen gelingen.
+        #
         # ⚠ Dorthin installieren, wo das laufende Programm liegt — sonst gibt es
         # zwei Kopien.
         #
@@ -1113,29 +1186,31 @@ def einspielen(neue_datei):
         # Installationsordner — dann ist es derselbe Wert, den Inno ohnehin
         # gewählt hätte. Ein Fall, zwei Wege, dieselbe Zeile.
         eigener_ordner = os.path.dirname(os.path.abspath(sys.executable))
-        if eigener_ordner:
-            schalter += ' /DIR="%s"' % eigener_ordner
-        if protokoll_datei:
-            schalter += ' /LOG="%s"' % protokoll_datei
-        befehl = 'cmd /c ""%s" %s"' % (neue_datei, schalter)
+
+        # ⚠⚠ **Ohne geprüfte Summe keine Übergabe.** `herunterladen()` legt sie
+        # in `_GEPRUEFT` ab; fehlt sie, kam die Datei nicht über den geprüften
+        # Weg — und dann wird hier auch nichts gestartet.
+        summe = _GEPRUEFT.get(os.path.abspath(neue_datei))
+        if not summe:
+            from . import sprache
+            return False, sprache.t('up_ohne_pruefung')
+
         # ⚠ `DETACHED_PROCESS` **und** eine eigene Prozessgruppe. Ohne das bleibt
-        # das Setup an uns gebunden — und wir treten gleich ab, damit der Restart
-        # Manager nicht 30 Sekunden auf uns wartet. Inno prueft aber seinen
-        # Elternprozess und meldet dann
-        #
-        #     Security validation failure: failed to obtain executable path for
-        #     parent process!
-        #
-        # Das ist die Schwester der Meldung ueber `__COMPAT_LAYER` weiter oben:
-        # einmal traegt der Elternprozess einen Shim, einmal ist er zum
-        # Pruefzeitpunkt gar nicht mehr da. Beide Male geht es um denselben
-        # Zusammenhang — wer ein Setup startet und sich sofort verabschiedet,
-        # muss es vorher **loesen**.
+        # der Helfer an uns gebunden — und wir treten gleich ab. Wer ein Setup
+        # startet und sich sofort verabschiedet, muss es vorher **loesen**; Inno
+        # meldete sonst „Security validation failure: failed to obtain
+        # executable path for parent process!". Beim Helfer gilt dasselbe.
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
         flags |= getattr(subprocess, 'DETACHED_PROCESS', 0)
         flags |= getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-        subprocess.Popen(befehl, env=umgebung, cwd=tempfile.gettempdir(),
-                         creationflags=flags)
+
+        # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
+        # der nächste Start, dass ein Update begonnen hatte.
+        from . import update_lauf
+        update_lauf.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
+        update_lauf.helfer_starten(neue_datei, summe, eigener_ordner,
+                                   protokoll_datei, umgebung, flags,
+                                   exe=sys.executable)
         return True, ''
     except Exception as fehler:
         return False, str(fehler)

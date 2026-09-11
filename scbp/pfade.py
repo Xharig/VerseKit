@@ -122,6 +122,9 @@ UNTERORDNER = {
     # Das Protokoll des Setups beim Selbst-Update. Gehoert zur Diagnose:
     # Meldet jemand 'das Update geht nicht', steht hier, woran es lag.
     'update-setup.txt':   'Diagnose',
+    # Das Protokoll des Update-Helfers — der letzte Versuch und der davor.
+    'update-helfer.txt':   'Diagnose',
+    'update-helfer.1.txt': 'Diagnose',
 }
 ORDNERNAME = 'SC BP Watcher'
 EINSTELLUNGEN = 'einstellungen.json'

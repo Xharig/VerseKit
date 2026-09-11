@@ -4197,6 +4197,12 @@ def _nach_neustart_abtreten(fenster):
         def melden():
             if lebt:
                 _abtreten(fenster)
+            elif aktualisierung.zurueckrollen():
+                # ⚠ Ohne Rückweg liefe die alte Fassung nur noch aus ihrer
+                # offenen Inode weiter — wer sie schließt, stünde ohne Watcher
+                # da. Die Sicherung von vor dem Tausch macht daraus ein
+                # Umbenennen.
+                fenster.sagen(t('up_zurueckgerollt'))
             else:
                 fenster.sagen(t('s_ub_neustart_tot'))
         try:
@@ -4300,44 +4306,33 @@ def _fassung_holen(fenster, mit_vorab):
 
     fenster.sagen(t('s_ub_holen_laeuft') % freigabe.get('version'))
 
+    # ⚠ **Die Sperre kommt vor dem Herunterladen.** Zwei Klicks kurz
+    # hintereinander — oder zwei Instanzen, die im Startfenster beide
+    # hochkamen, bevor der Einzelstart greift — ließen sonst zwei Installer
+    # los. Freigegeben wird sie bei jedem Ausgang, außer beim Übergeben an den
+    # Helfer: Dann gehört sie ihm, und er räumt sie weg.
+    from . import update_lauf
+    if not update_lauf.sperre_nehmen():
+        fenster.sagen(t('up_laeuft_schon'))
+        return
+
     def arbeit():
+        uebergeben = False
         try:
             ziel = aktualisierung.herunterladen(
                 datei, fortschritt=lambda p: _im_tk(
                     fenster, lambda: fenster.sagen(t('wird_geladen', p))),
                 freigabe=freigabe)
 
-            # ⚠ Sagen, was gleich passiert — **vor** dem Einspielen.
-            #
-            # Das war die eigentliche Neuerung von rc52: Ein Programm, das sich
-            # wortlos schliesst und nicht wiederkommt, sieht aus wie ein
-            # Absturz. Der Hinweis nennt das Schliessen, das Einspielen und den
-            # noetigen Neustart, und beruhigt wegen des Bestands.
-            #
-            # ⚠ Nur stand er bis rc62 in `_jetzt_nachsehen` — einer Funktion,
-            # die gar nichts einspielt und deren Block ohnehin an einem
-            # `NameError` starb. Beim echten Update kam er also **nie**.
-            # Gefunden am 27.08.2026 beim Nachgehen des Nachsehen-Fehlers.
-            #
-            # ⚠ `messagebox` gehoert in den Tk-Faden, nicht hierher. Deshalb
-            # `after(0, …)` und das Warten auf die Quittung: Erst wenn der
-            # Nutzer gelesen hat, laeuft das Setup los. Sonst zaehlte der
-            # Restart Manager schon seine dreissig Sekunden, waehrend der
-            # Dialog noch offen steht.
-            if art == 'exe':
-                gelesen = threading.Event()
-
-                def bescheid_geben():
-                    try:
-                        _hinweis(fenster, t('s_ub_hinweis_titel'),
-                                            t('s_ub_hinweis_neustart'))
-                    finally:
-                        gelesen.set()
-
-                _im_tk(fenster, bescheid_geben)
-                gelesen.wait(120)      # ⚠ nicht ewig: ein Fenster kann zugehen
-
-            geklappt, grund = aktualisierung.einspielen(ziel)
+            # ⚠ Hier stand bis v3.29.0 ein Hinweisfenster, das quittiert
+            # werden musste, bevor das Setup loslief (seit rc52). Es war
+            # richtig, solange der Watcher danach **nicht** wiederkam: Ein
+            # Programm, das sich wortlos schließt, sieht aus wie ein Absturz.
+            # Jetzt kommt er von selbst wieder — und aus einem Klick sollen
+            # nicht zwei werden. Die Ansage steht in der Fußzeile.
+            geklappt, grund = aktualisierung.einspielen(
+                ziel, ziel_version=freigabe.get('version') or '',
+                alte_version=fenster.version or '')
             if not geklappt:
                 _im_tk(fenster, lambda: fenster.sagen(
                     t('update_fehler', grund)))
@@ -4365,30 +4360,46 @@ def _fassung_holen(fenster, mit_vorab):
             # hart ab. Wer waehrenddessen auf den Knopf schaut, sieht ein
             # Programm, das nichts tut.
             #
-            # Treten wir gleich ab, entfaellt das Warten vollstaendig, und der
-            # `[Run]`-Abschnitt des Installers faehrt uns danach wieder hoch.
+            # Treten wir gleich ab, entfaellt das Warten vollstaendig. Wieder
+            # hoch faehrt uns der Helfer aus `update_lauf` — bis v3.29.0 tat
+            # das niemand, und der Nutzer musste selbst starten. Die Sperre
+            # gehoert ab hier dem Helfer; er gibt sie am Ende frei.
             if art == 'exe':
-                _im_tk(fenster, lambda: fenster.sagen(t('s_ub_startet_neu')))
+                uebergeben = True
+                _im_tk(fenster, lambda: fenster.sagen(t('up_wird_eingespielt')))
                 _abtreten(fenster)
                 return
 
-            # Linux: Das AppImage ist getauscht, laufen tut aber noch die alte
-            # Version. Hier bleibt der zweite Klick sinnvoll — er beendet und
-            # startet neu.
-            # ⚠ Dieselbe Reihenfolge wie oben: erst zeichnen, dann melden.
-            # Der Neuaufbau macht aus „holen" ein „Jetzt neu starten" — er
-            # zerstoert dabei aber die Fusszeile. Stand das `sagen()` zuerst
-            # (after 0) und der Aufbau danach (after 50), war die Meldung nach
-            # einer zwanzigstel Sekunde wieder weg.
-            _im_tk(fenster, fenster.neu_aufbauen)
-            try:
-                fenster.root.after(50, lambda: fenster.sagen(t('s_ub_bereit')))
-            except Exception:
-                pass
+            # Linux: Das AppImage ist getauscht, die alte Fassung gesichert.
+            # ⚠ Bis v3.29.0 wurde hier die Seite umgebaut, und es brauchte
+            # einen zweiten Klick auf „Jetzt neu starten" — ein Rest aus der
+            # Zeit des Dateitauschs beim Beenden. Jetzt geht es gleich weiter.
+            # Der alte Knopf bleibt nur als Rückfall, wenn schon der Start
+            # scheitert.
+            def _neustart():
+                fenster.sagen(t('s_ub_startet_neu'))
+                if aktualisierung.neu_starten():
+                    _nach_neustart_abtreten(fenster)
+                    return
+                # ⚠ Erst zeichnen, dann melden: Der Neuaufbau macht aus
+                # „holen" ein „Jetzt neu starten" und zerstoert dabei die
+                # Fusszeile. Stand das `sagen()` zuerst, war die Meldung nach
+                # einer zwanzigstel Sekunde wieder weg.
+                fenster.neu_aufbauen()
+                try:
+                    fenster.root.after(50, lambda: fenster.sagen(
+                        t('s_ub_neustart_nein')))
+                except Exception:
+                    pass
+
+            _im_tk(fenster, _neustart)
         except Exception as ausnahme:
             grund = str(ausnahme)
             fehler.merken('seiten.fassung_holen', ausnahme)
             _im_tk(fenster, lambda: fenster.sagen(t('update_fehler', grund)))
+        finally:
+            if not uebergeben:
+                update_lauf.sperre_freigeben()
 
     threading.Thread(target=arbeit, daemon=True).start()
 

@@ -2998,6 +2998,13 @@ class Overlay:
             self.root.after(self.VERSION_TAKT, self._nach_version_sehen)
         except tk.TclError:
             return                       # Fenster ist zu, dann reicht es auch
+        # ⚠ **Der Schalter „Nach neuen Versionen sehen" wirkt erst seit hier.**
+        # Er wurde geschrieben, aber nirgends gelesen — wer ihn ausschaltete,
+        # änderte nichts. Eine beschriftete Einstellung, die nichts tut, ist
+        # schlimmer als gar keine. Die Reihe oben läuft trotzdem weiter, damit
+        # das Wiedereinschalten ohne Neustart greift.
+        if not pfade.einstellung_wahrheit('update_pruefen', True):
+            return
 
         def arbeit():
             try:
@@ -4224,8 +4231,25 @@ class Overlay:
             fehler.spur('Ablagesymbol: Fehler beim Anlegen')
             fehler.merken('overlay.ablagesymbol', ausnahme)
 
+    def _update_ergebnis_melden(self):
+        """Sagen, was aus dem letzten Update geworden ist — einmal, beim Start.
+
+        ⚠ Die Version prüft **dieser** Start, nicht der Helfer davor: Er weiß
+        als Einziger sicher, welche Fassung jetzt läuft. Ein Rückgabewert 0 des
+        Installers bei weiterhin alter Fassung ist deshalb kein Erfolg, und
+        genau diese falsche Erfolgsmeldung soll es nicht geben.
+        """
+        try:
+            from scbp import update_lauf
+            ergebnis = update_lauf.auswerten(__version__)
+            if ergebnis:
+                self.q.put(('hinweis', update_lauf.meldung(ergebnis)))
+        except Exception as ausnahme:
+            fehler.merken('start.update_ergebnis', ausnahme)
+
     def run(self):
         self.verhalten_anwenden()
+        self._update_ergebnis_melden()
         self.ablagesymbol_starten()
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —

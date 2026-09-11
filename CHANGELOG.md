@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Ein Klick genügt fürs Update.** Unter Windows startet der Watcher nach dem
+  Einspielen von selbst wieder — bisher musste man ihn danach von Hand öffnen.
+  Unter Linux entfällt der zweite Klick auf „Jetzt neu starten"
+- **Nach einem Update sagt der Watcher, was daraus wurde:** eingespielt,
+  abgebrochen (dann läuft die bisherige Fassung weiter) oder gescheitert
+
+### Verbessert
+
+- **Kein Hinweisfenster mehr vor dem Einspielen** — die Ansage steht in der
+  Fußzeile
+- **Unter Linux wird die bisherige Fassung vor dem Tausch gesichert.** Kommt
+  die neue nicht hoch, wird sie von selbst wiederhergestellt
+- **Zwei Update-Klicks kurz hintereinander starten nur ein Update**
+
+### Behoben
+
+- **Der Schalter „Nach neuen Versionen sehen" hatte keine Wirkung** — auch
+  ausgeschaltet wurde stündlich nachgesehen
+
 ## v3.29.0 - 2026-09-11
 
 > **Ein Update installiert sich nur noch, wenn es nachweislich das richtige

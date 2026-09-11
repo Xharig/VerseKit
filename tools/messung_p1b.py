@@ -71,15 +71,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUARD_PORT = 47913          # scbp/overlay.py: WAECHTER_PORT
 TIMEOUT = 180               # Sekunden je Installer-Lauf
 
-# Die Zeilen aus `aktualisierung.einspielen()`, die hier nachgebildet sind.
+# Die Zeilen aus dem Programm, die hier nachgebildet sind — seit dem
+# Ein-Klick-Update steht der Installer-Aufruf im Helfer
+# (`update_lauf.HELFER_VORLAGE`), die Umgebungswäsche in `einspielen()`.
 # Stehen sie dort nicht mehr wörtlich, misst dieses Werkzeug etwas anderes als
 # das, was beim Nutzer läuft.
 EXPECTED_IN_PROGRAM = (
-    "schalter = '/SILENT /NORESTART /CLOSEAPPLICATIONS'",
-    "schalter += ' /DIR=\"%s\"' % eigener_ordner",
-    "schalter += ' /LOG=\"%s\"' % protokoll_datei",
-    "befehl = 'cmd /c \"\"%s\" %s\"' % (neue_datei, schalter)",
-    "umgebung.pop('__COMPAT_LAYER', None)",
+    ('scbp/update_lauf.py',
+     '"%SCBP_SETUP%" /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS '
+     '/DIR="%SCBP_ZIEL%" /LOG="%SCBP_SETUPLOG%"'),
+    ('scbp/aktualisierung.py', "umgebung.pop('__COMPAT_LAYER', None)"),
 )
 
 # Pfadnamen, an denen `cmd` scheitern könnte. ⚠ Nicht nur Leerzeichen: `&`
@@ -113,15 +114,18 @@ WATCHER_WAIT = 60           # Sekunden, bis der Watcher lauschen muss
 
 def drift_check():
     """Stehen die nachgebildeten Aufrufzeilen noch wörtlich im Programm?"""
-    path = os.path.join(ROOT, 'scbp', 'aktualisierung.py')
-    text = open(path, encoding='utf-8').read()
-    missing = [line for line in EXPECTED_IN_PROGRAM if line not in text]
+    missing = []
+    for rel, line in EXPECTED_IN_PROGRAM:
+        path = os.path.join(ROOT, *rel.split('/'))
+        text = open(path, encoding='utf-8').read()
+        if line not in text:
+            missing.append('%s: %s' % (rel, line))
     return {'ok': not missing, 'missing': missing}
 
 
 def program_style_command(setup, target_dir, log_file):
     """Der Aufruf, den das Programm beim Update absetzt — Zeichen für Zeichen."""
-    switches = '/SILENT /NORESTART /CLOSEAPPLICATIONS'
+    switches = '/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS'
     switches += ' /DIR="%s"' % target_dir
     switches += ' /LOG="%s"' % log_file
     return 'cmd /c ""%s" %s"' % (setup, switches)
