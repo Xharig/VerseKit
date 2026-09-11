@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.30.0-rc6 - 2026-09-11
+
+> **The same state as rc5 — for trying out the one-click update.** Coming
+> from rc5, you click once: the watcher closes, installs the version and comes
+> back by itself. On start it tells you whether it worked.
+
 ## v3.30.0-rc5 - 2026-09-11
 
 > **After an update the watcher now really starts by itself.** In rc4 the
