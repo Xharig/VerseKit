@@ -65,7 +65,7 @@ import os
 import re
 import time
 
-from . import collection as bestand_datei
+from . import collection
 from . import fehler
 
 SOURCE = 'import'
@@ -169,14 +169,14 @@ def preview(entries, data=None, catalog_names=None):
     `unbekannt` sind Namen, die der Katalog nicht kennt — sie kommen trotzdem
     mit, stehen aber getrennt, damit die Fortschrittszahl erklärbar bleibt.
     """
-    data = data if data is not None else bestand_datei.load()
+    data = data if data is not None else collection.load()
     present = set(data.get('bauplaene') or {})
-    known = {bestand_datei.norm(n) for n in (catalog_names or [])}
-    known_short = {bestand_datei.norm(_strip_suffix(n)) for n in (catalog_names or [])}
+    known = {collection.norm(n) for n in (catalog_names or [])}
+    known_short = {collection.norm(_strip_suffix(n)) for n in (catalog_names or [])}
 
     new, existing, unknown, seen = [], [], [], set()
     for e in entries:
-        key = bestand_datei.norm(e.get('name'))
+        key = collection.norm(e.get('name'))
         if not key or key in seen:
             continue
         seen.add(key)
@@ -187,7 +187,7 @@ def preview(entries, data=None, catalog_names=None):
         if known and key not in known:
             # Zweiter Versuch ohne Klammer-Zusatz — aber nur, wenn er eindeutig
             # ist. Sonst würden `Singe Cannon (S1)/(S2)/(S3)` verschmelzen.
-            short = bestand_datei.norm(_strip_suffix(e['name']))
+            short = collection.norm(_strip_suffix(e['name']))
             if short not in known_short:
                 unknown.append(e['name'])
 
@@ -201,13 +201,13 @@ def merge(entries, data=None, save=True):
     Zusammenführen: Vorhandenes bleibt unangetastet. Ein Zeitpunkt aus der Datei
     wird übernommen — er ist genauer als „jetzt gerade eingelesen".
     """
-    data = data if data is not None else bestand_datei.load()
+    data = data if data is not None else collection.load()
     added = 0
     for e in entries:
-        if bestand_datei.add(data, e.get('name'), SOURCE, e.get('zeit')):
+        if collection.add(data, e.get('name'), SOURCE, e.get('zeit')):
             added += 1
     if save and added:
-        bestand_datei.save(data)
+        collection.save(data)
     return added
 
 
