@@ -1,0 +1,81 @@
+# Messungen fuer das Ein-Klick-Update unter Windows (Paket P1b-1).
+#
+# ⚠⚠ Hier wird NICHTS gebaut, was ein Nutzer bekommt. Der Ablauf baut
+# `.exe` und Installer aus dem gewaehlten Zweig, stellt dem Installer die
+# Fragen aus der P1b-Entscheidungsvorlage und haengt die Antworten samt
+# Setup-Protokollen an den Lauf.
+#
+# Warum auf einem Bau-Rechner und nicht am Windows-Rechner des Autors: Wie
+# Inno Setup sich verhaelt, ist auf jedem Windows gleich — und Windows laeuft
+# beim Autor nur selten. Was an einem echten Arbeitsplatz haengt (Defender,
+# ein Klick auf „Abbrechen", Anmelden mitten im Update), misst dieser Ablauf
+# ausdruecklich NICHT; das bleibt fuer den Windows-Rechner.
+#
+# ⚠ Die Bau-Schritte sind aus release.yml uebernommen. Aendert sich dort der
+# Bau, gehoert er hier nachgezogen — sonst misst dieser Ablauf einen Installer,
+# den kein Nutzer bekommt.
+
+name: Messung P1b
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  messen:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.14'
+
+      - name: Werkzeuge aus der Sperrdatei
+        run: pip install --quiet --require-hashes -r packaging/lock-windows.txt
+
+      - name: EXE bauen
+        run: >
+          python -m PyInstaller --noconfirm --onefile --windowed
+          --name "SC-BP-Watcher" --icon "icon.ico"
+          --add-data "CHANGELOG.en.md;." --add-data "CHANGELOG.md;."
+          --add-data "assets/icon.png;assets" --add-data "assets/xharig.png;assets" --add-data "icon.ico;."
+          --add-data "assets/symbole;assets/symbole"
+          --add-data "daten;daten"
+          sc_bp_watcher.py
+
+      - name: Installer bauen
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Write-Host "Inno Setup fehlt — wird geholt"
+            choco install innosetup --no-progress -y
+          }
+          if (-not (Test-Path $iscc)) { $iscc = "ISCC.exe" }
+          $roh = Get-Content sc_bp_watcher.py -Raw
+          $version = [regex]::Match($roh, "__version__\s*=\s*'([^']+)'").Groups[1].Value
+          if (-not $version) { throw "__version__ nicht gefunden" }
+          & $iscc "/DAppVersion=$version" packaging\installer.iss
+          Get-ChildItem dist
+
+      - name: Messen
+        # ⚠ Ein Befund ist ein Ergebnis, kein Absturz — das Werkzeug gibt nur
+        # dann einen Fehler zurueck, wenn der Aufruf im Programm sich geaendert
+        # hat und die Messung damit nicht mehr gilt.
+        run: >
+          python tools/messung_p1b.py
+          --setup dist\SC-BP-Watcher-Setup.exe
+          --exe dist\SC-BP-Watcher.exe
+          --out messung
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        # ⚠ IMMER hochladen — gerade wenn etwas schiefging, sind die
+        # Protokolle das Wertvollste an diesem Lauf.
+        if: always()
+        with:
+          name: messung-p1b
+          path: messung
