@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.30.0-rc5 - 2026-09-11
+
+> **Nach dem Update startet der Watcher jetzt wirklich von selbst.** In rc4
+> lief die Installation durch, der Neustart brach aber mit einer
+> Sicherheitsmeldung ab.
+
+> [!important]
+> **Beim Wechsel von rc4 auf diese Fassung kommt die Meldung noch einmal** —
+> auf OK klicken und den Watcher selbst starten. Ab rc5 läuft es durch.
+
+### Behoben
+
+- **Nach einem Update unter Windows brach der Neustart mit „Security
+  validation failure" ab**, obwohl die neue Fassung schon eingespielt war
+
 ## v3.30.0-rc4 - 2026-09-11
 
 > **Derselbe Stand wie rc3 — zum Ausprobieren des Ein-Klick-Updates.** Wer
