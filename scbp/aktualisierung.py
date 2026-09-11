@@ -1091,7 +1091,12 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         # Version und sucht seine Bibliotheken in dem Ordner unter `%TEMP%`, den
         # der Bootloader gleich aufraeumen will. Genau diese Falle steht
         # ausfuehrlich bei `neu_starten()`.
-        umgebung = dict(os.environ)
+        # ⚠ Über `saubere_umgebung()`, nicht `dict(os.environ)`: Dort fliegen
+        # auch die `_PYI_*`-Variablen des Bootloaders raus. Der Helfer reicht
+        # diese Umgebung an den neu gestarteten Watcher weiter — mit ihnen hielt
+        # der sich im Echttest vom 11.09.2026 für ein Bootloader-Kind und brach
+        # mit „Security validation failure" ab, obwohl das Update fertig war.
+        umgebung = pfade.saubere_umgebung()
         for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             umgebung.pop(name, None)
@@ -1147,7 +1152,10 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         # um den letzten Versuch, nicht um ein Tagebuch.
         protokoll_datei = ''
         try:
-            from . import pfade
+            # ⚠ Kein `from . import pfade` hier: Ein Import in der Funktion
+            # macht `pfade` für die GANZE Funktion lokal — und
+            # `pfade.saubere_umgebung()` weiter oben fiele mit
+            # `UnboundLocalError` um. Prüfung 185 hat genau das gefangen.
             protokoll_datei = pfade.app_datei('update-setup.txt')
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe

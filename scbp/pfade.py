@@ -1115,6 +1115,18 @@ def saubere_umgebung():
     ursprünglichen Werte unter `*_ORIG` ab; die gelten hier wieder.
     """
     umgebung = dict(os.environ)
+    # ⚠⚠ **Die Spuren des PyInstaller-Bootloaders müssen raus.** Eine gepackte
+    # `.exe` startet sich zweimal: Der Bootloader entpackt und startet sich
+    # selbst als Kind — woran das Kind sich erkennt, steht in `_PYI_*` (früher
+    # `_MEIPASS2`). Erbt ein NEU gestarteter Watcher diese Variablen, hält er
+    # sich für das Kind eines Bootloaders, prüft seinen „Vater" und bricht mit
+    # „Security validation failure: … parent process" ab. Im Echttest vom
+    # 11.09.2026 war das Update fertig eingespielt — und der Neustart
+    # scheiterte genau daran. Für jedes andere Programm sind die Variablen
+    # ohnehin bedeutungslos.
+    for name in list(umgebung):
+        if name.upper().startswith(('_PYI_', '_MEI')):
+            umgebung.pop(name, None)
     for name in ('LD_LIBRARY_PATH', 'PYTHONHOME', 'PYTHONPATH',
                  'PYTHONDONTWRITEBYTECODE', 'QT_PLUGIN_PATH', 'GTK_PATH',
                  'GDK_PIXBUF_MODULE_FILE', 'GI_TYPELIB_PATH', 'XDG_DATA_DIRS',

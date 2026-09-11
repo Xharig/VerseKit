@@ -17214,6 +17214,12 @@ def main():
             _ak185.verpackung = lambda: 'exe'
             _ak185.eigenes_appimage = lambda: None
             sys.executable = _exe185
+            # ⚠ So sieht die Umgebung in der gepackten .exe aus: Der
+            # Bootloader setzt `_PYI_*`. Erbt der neu gestartete Watcher das,
+            # haelt er sich fuer ein Bootloader-Kind und bricht ab (Echttest
+            # 11.09.2026: Update fertig, Neustart „Security validation failure").
+            os.environ['_PYI_PARENT_PROCESS_LEVEL'] = '1'
+            os.environ['_PYI_APPLICATION_HOME_DIR'] = _home182
             _ak185._GEPRUEFT.clear()
             _ok185, _grund185 = _ak185.einspielen(
                 _setup185, ziel_version='3.30.0', alte_version='3.29.0')
@@ -17239,6 +17245,13 @@ def main():
                    'und das laufende Programm samt Ordner')
             pruefe(not [n for n in ('_MEIPASS', 'TCL_LIBRARY', '__COMPAT_LAYER')
                         if n in _env185], 'die Umgebung ist gewaschen')
+            _pyi185 = [n for n in _env185 if n.upper().startswith(('_PYI_', '_MEI'))]
+            # ⚠ Nur mit einer echten Umgebung aussagekraeftig — eine leere ist
+            # nicht „sauber", sondern gar nicht erst uebergeben.
+            pruefe(bool(_env185) and not _pyi185,
+                   'keine Bootloader-Spuren (_PYI_*) fuer den neuen Watcher (%s)'
+                   % (', '.join(_pyi185) or ('keine' if _env185 else
+                                              'KEINE Umgebung uebergeben')))
             pruefe(_env185.get('SCBP_PID') == str(os.getpid()),
                    'er wartet auf unsere PID')
             _lauf185 = _ul182.lauf_lesen() or {}
@@ -17251,6 +17264,8 @@ def main():
                    == _ul182.HELFER_VORLAGE.replace('\n', '\r\n').encode('ascii'),
                    'die Helfer-Datei liegt mit CRLF in %TEMP%')
         finally:
+            os.environ.pop('_PYI_PARENT_PROCESS_LEVEL', None)
+            os.environ.pop('_PYI_APPLICATION_HOME_DIR', None)
             (subprocess.Popen, _ak185.verpackung, _ak185.eigenes_appimage,
              sys.executable) = _echt185
             _ak185._TAUSCH_LAEUFT[0] = False
