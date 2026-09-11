@@ -85,9 +85,9 @@ LAUF_HOECHSTENS = 24 * 3600
 # ⚠⚠ **In dieser Datei steht KEIN einziger Pfad.** Alles kommt über die
 # Umgebung (`SCBP_*`), die der Watcher beim Start des Helfers setzt.
 #
-# Warum: `cmd` liest eine `.cmd`-Datei in der OEM-Codepage. Ein Benutzername
-# mit Umlaut — `C:\Users\Jürgen\…` — käme als Zeichensalat an, und jeder Pfad
-# darin zeigte ins Leere. Umgebungsvariablen dagegen reicht Windows als Unicode
+# Warum: `cmd` liest eine `.cmd`-Datei in der OEM-Codepage. Ein Umlaut im
+# Benutzernamen — und damit in jedem Pfad unter dem Heimverzeichnis — käme als
+# Zeichensalat an, und jeder Pfad darin zeigte ins Leere. Umgebungsvariablen dagegen reicht Windows als Unicode
 # durch, und `cmd` setzt sie beim Ausführen ein, ohne sie noch einmal zu
 # zerlegen: `&`, `^`, `%`, `!`, Klammern und Apostroph überstehen das, solange
 # sie in Anführungszeichen stehen. Deshalb bleibt die Datei reines ASCII.
