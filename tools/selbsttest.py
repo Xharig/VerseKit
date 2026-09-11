@@ -14974,7 +14974,7 @@ def main():
     # Zwischenspeicher und liegen im Wegwerf-Ordner nicht.
     print()
     print('164. Der Zerlege-Rechner')
-    from scbp import bergung as _bg164
+    from scbp import salvage as _bg164
     from scbp import crafting as _he164
 
     _echt164 = (_he164.load, _he164.recipe)
@@ -14993,7 +14993,7 @@ def main():
                        {'zeit': 120,
                         'zutaten': [['Kern', 'Iron', 0.36, 1]]}]}
 
-        _regeln164 = _bg164.zerlege_regeln()
+        _regeln164 = _bg164.dismantle_rules()
         pruefe(abs(_regeln164['anteil'] - 0.5) < 0.001,
                'der Anteil kommt aus den Spieldaten (%.2f)'
                % _regeln164['anteil'])
@@ -15004,7 +15004,7 @@ def main():
         pruefe('saldynium' in _regeln164['gesperrt'],
                'auch die Kurzform eines gesperrten Erzes gilt')
 
-        _zeilen164, _dauer164 = _bg164.zerlegen('Testteil')
+        _zeilen164, _dauer164 = _bg164.dismantle('Testteil')
         _nach164 = dict((z['rohstoff'], z) for z in _zeilen164)
         pruefe(len(_zeilen164) == 3,
                'drei verschiedene Rohstoffe (bekam: %d)' % len(_zeilen164))
@@ -15025,7 +15025,7 @@ def main():
 
         # Ohne Rezept keine Behauptung.
         _he164.recipe = lambda name: None
-        _leer164, _ = _bg164.zerlegen('Gibt es nicht')
+        _leer164, _ = _bg164.dismantle('Gibt es nicht')
         pruefe(_leer164 == [],
                'Gegenprobe: ohne Rezept wird nichts erfunden')
     finally:
@@ -16505,6 +16505,7 @@ def main():
         'kategorien': 'categories',
         'herstellung': 'crafting',
         'schiffe': 'ships',
+        'bergung': 'salvage',
     }
 
     def _reste190(quelle, name, alte):

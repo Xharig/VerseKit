@@ -90,6 +90,14 @@ Ein Wrack ist **nicht dein Schiff**. `erkul.plaetze()` beantwortet „passt das 
 meines" und hat deshalb nur die Schiffe im Hangar abgelegt; hier geht es um
 jedes Schiff, das einem im Verse begegnet. Deshalb wird das gewählte Schiff bei
 Bedarf einzeln geholt und getrennt abgelegt.
+
+⚠ Bis zum 12.09.2026 hieß dieses Modul `bergung` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: der Ablage-Name `bergung.json` und die Schlüssel darin
+(`format`, `schiffe`, `name`, `teile`, `stand`, `spielversion`), die Schlüssel
+der Ergebnisse (`ref`, `art`, `groesse`, `guete`, `anzahl`, `rohstoff`,
+`drin`, `zurueck`, `verloren`, `anteil`, `dauer`, `gesperrt`) und die
+Bauteil-Arten in `REMOVABLE` — die kommen wörtlich von erkul.
 """
 import json
 import os
@@ -97,20 +105,20 @@ import time
 
 from . import erkul, fehler, pfade
 
-DATEI = 'bergung.json'
+FILE = 'bergung.json'
 FORMAT = 1
 
 # Wie viele Schiffe hier vorgehalten werden. Wer Bergung spielt, sieht immer
 # wieder dieselben Rümpfe — mehr als das braucht niemand, und die Ablage soll
 # nicht unbemerkt wachsen.
-HOECHSTENS = 40
+MAX_SHIPS = 40
 
 # Was als Beute zählt. Rumpfpanzerung, Treibstofftanks und Lebenserhaltung
 # lassen sich nicht ausbauen und gehören deshalb nicht in eine Liste, die
 # „das kannst du mitnehmen" verspricht.
 #
 # ⚠ Die Namen kommen wörtlich aus erkuls `category`/`type` — nicht übersetzen.
-MITNEHMBAR = frozenset((
+REMOVABLE = frozenset((
     'PowerPlant', 'Cooler', 'Shield', 'QuantumDrive', 'Radar', 'JumpDrive',
     'WeaponGun', 'Turret', 'MissileLauncher', 'Missile', 'BombLauncher',
     'Bomb', 'MiningLaser', 'WeaponMining', 'SalvageHead', 'TractorBeam',
@@ -119,39 +127,39 @@ MITNEHMBAR = frozenset((
 ))
 
 
-def _ablage():
-    return pfade.app_datei(DATEI)
+def _store_path():
+    return pfade.app_datei(FILE)
 
 
-def laden():
+def load():
     """Die gemerkten Wracks — oder ein leerer Stand."""
     try:
-        with open(_ablage(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            return daten
+        with open(_store_path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            return data
     except FileNotFoundError:
         pass
-    except Exception as ausnahme:
-        fehler.merken('bergung.laden', ausnahme)
+    except Exception as exc:
+        fehler.merken('salvage.load', exc)
     return {'format': FORMAT, 'schiffe': {}}
 
 
-def _sichern(daten):
+def _save(data):
     """Atomar ablegen; der Rückgabewert wird ausgewertet."""
-    ziel = _ablage()
+    target = _store_path()
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
         return True
-    except Exception as ausnahme:
-        fehler.merken('bergung.sichern', ausnahme)
+    except Exception as exc:
+        fehler.merken('salvage.save', exc)
         return False
 
 
-def _teile_sammeln(knoten, raus):
+def _collect_parts(node, result):
     """Alle bestückten Steckplätze eines Schiffs einsammeln, rekursiv.
 
     ⚠ **Rekursiv, und das ist kein Beiwerk.** Die Waffen sitzen im Turm, der
@@ -159,12 +167,12 @@ def _teile_sammeln(knoten, raus):
     Arm. Wer nur die oberste Ebene liest, findet bei einem bewaffneten Schiff
     keine einzige Waffe — also ausgerechnet das, was etwas wert ist.
     """
-    if not isinstance(knoten, list):
+    if not isinstance(node, list):
         return
-    for platz in knoten:
-        if not isinstance(platz, dict):
+    for slot in node:
+        if not isinstance(slot, dict):
             continue
-        teil = platz.get('item')
+        item = slot.get('item')
         # ⚠⚠ **Festverbautes zählt nicht — es lässt sich nicht ausbauen.**
         # Jeder Steckplatz trägt ein `kind`: `swappable` oder `fixed`.
         # Panzerung und Strukturteile sitzen in `fixed`-Plätzen; wer sie
@@ -175,8 +183,8 @@ def _teile_sammeln(knoten, raus):
         # ⚠ **Trotzdem wird weiter in die Kinder gelaufen** (siehe unten): Ein
         # fester Turm hat tauschbare Waffen darin. Wer bei `fixed` abbricht,
         # verliert die Turmwaffen — also das Wertvollste am Schiff.
-        if isinstance(teil, dict) and teil.get('ref') \
-                and platz.get('kind') != 'fixed':
+        if isinstance(item, dict) and item.get('ref') \
+                and slot.get('kind') != 'fixed':
             # ⚠⚠ **`type` vor `category`, und das ist kein Geschmack.**
             # Erkul führt eine Schiffskanone als `category: AssembledWeapon`
             # (die Bauform) und `type: WeaponGun` (die Sache). Wer `category`
@@ -184,81 +192,81 @@ def _teile_sammeln(knoten, raus):
             # waren das vier Repeater und zwei Gatlings, also ausgerechnet das
             # Wertvollste an einem Wrack. Gemessen am 06.09.2026 beim ersten
             # Durchlauf: 24 Stück statt 43.
-            art = ''
-            for kandidat in (teil.get('type'), teil.get('category')):
-                if kandidat in MITNEHMBAR:
-                    art = kandidat
+            kind = ''
+            for candidate in (item.get('type'), item.get('category')):
+                if candidate in REMOVABLE:
+                    kind = candidate
                     break
-            if art:
-                raus.append({
-                    'ref': teil['ref'],
-                    'name': (teil.get('i18n') or {}).get('name')
-                            or teil.get('className') or '?',
-                    'art': art,
-                    'groesse': teil.get('size'),
-                    'guete': teil.get('grade'),
+            if kind:
+                result.append({
+                    'ref': item['ref'],
+                    'name': (item.get('i18n') or {}).get('name')
+                            or item.get('className') or '?',
+                    'art': kind,
+                    'groesse': item.get('size'),
+                    'guete': item.get('grade'),
                 })
-        for feld in ('slots', 'children', 'ports', 'hardpoints'):
-            _teile_sammeln(platz.get(feld), raus)
-        if isinstance(teil, dict):
-            for feld in ('slots', 'ports', 'hardpoints'):
-                _teile_sammeln(teil.get(feld), raus)
+        for field in ('slots', 'children', 'ports', 'hardpoints'):
+            _collect_parts(slot.get(field), result)
+        if isinstance(item, dict):
+            for field in ('slots', 'ports', 'hardpoints'):
+                _collect_parts(item.get(field), result)
 
 
-def werksausstattung(schiff_id, pfad):
+def factory_loadout(ship_id, path):
     """Was ab Werk in diesem Schiff steckt — Liste mit Anzahl je Teil.
 
     Holt die Schiffsdatei bei erkul und dampft sie auf das ein, was sich
     ausbauen lässt. Gibt `[]` zurück, wenn nichts zu holen war.
     """
-    roh = erkul._holen('%s/%s' % (erkul.ZWEIG, pfad), 'bergung')
-    if not isinstance(roh, dict):
+    raw = erkul._holen('%s/%s' % (erkul.ZWEIG, path), 'bergung')
+    if not isinstance(raw, dict):
         return []
-    gefunden = []
-    _teile_sammeln(roh.get('slots'), gefunden)
+    found = []
+    _collect_parts(raw.get('slots'), found)
 
     # Gleiche Teile zusammenfassen — vier Repeater sind eine Zeile mit „4×",
     # nicht vier Zeilen.
-    gezaehlt = {}
-    for teil in gefunden:
-        eintrag = gezaehlt.setdefault(teil['ref'], dict(teil, anzahl=0))
-        eintrag['anzahl'] += 1
-    raus = list(gezaehlt.values())
-    raus.sort(key=lambda x: (x['art'], -(x.get('groesse') or 0), x['name']))
-    return raus
+    counted = {}
+    for part in found:
+        entry = counted.setdefault(part['ref'], dict(part, anzahl=0))
+        entry['anzahl'] += 1
+    result = list(counted.values())
+    result.sort(key=lambda x: (x['art'], -(x.get('groesse') or 0), x['name']))
+    return result
 
 
-def schiff_merken(schiff_id, name, teile):
+def remember_ship(ship_id, name, parts):
     """Ein ausgewertetes Schiff ablegen, damit es beim nächsten Mal dasteht."""
-    daten = laden()
-    schiffe = daten.setdefault('schiffe', {})
-    schiffe[schiff_id] = {'name': name, 'teile': teile, 'stand': time.time(),
-                          'spielversion': erkul.spielversion()}
+    data = load()
+    ships = data.setdefault('schiffe', {})
+    ships[ship_id] = {'name': name, 'teile': parts, 'stand': time.time(),
+                      'spielversion': erkul.spielversion()}
     # ⚠ Älteste zuerst weg, nicht willkürlich: Wer ein Schiff gerade
     # nachgeschlagen hat, will es morgen wieder ohne Abruf sehen.
-    if len(schiffe) > HOECHSTENS:
-        nach_alter = sorted(schiffe.items(), key=lambda p: p[1].get('stand', 0))
-        for alt, _ in nach_alter[:len(schiffe) - HOECHSTENS]:
-            schiffe.pop(alt, None)
-    _sichern(daten)
+    if len(ships) > MAX_SHIPS:
+        by_age = sorted(ships.items(), key=lambda p: p[1].get('stand', 0))
+        for old, _ in by_age[:len(ships) - MAX_SHIPS]:
+            ships.pop(old, None)
+    _save(data)
 
 
-def gemerkt(schiff_id):
+def remembered(ship_id):
     """Ein früher ausgewertetes Schiff — oder `None`.
 
     ⚠ Ein Stand aus einer **anderen Spielversion** gilt als nicht vorhanden.
     CIG tauscht mit jedem Patch Bestückungen aus; eine alte Liste sähe richtig
     aus und wäre es nicht.
     """
-    eintrag = (laden().get('schiffe') or {}).get(schiff_id)
-    if not eintrag:
+    entry = (load().get('schiffe') or {}).get(ship_id)
+    if not entry:
         return None
-    if eintrag.get('spielversion') != erkul.spielversion():
+    if entry.get('spielversion') != erkul.spielversion():
         return None
-    return eintrag
+    return entry
 
 
-def zerlege_regeln():
+def dismantle_rules():
     """Die Regeln des Fabricators — Ausbeute, Dauer und was verloren geht.
 
     Gibt `{'anteil', 'dauer', 'gesperrt'}` zurück; `gesperrt` ist eine Menge
@@ -271,32 +279,32 @@ def zerlege_regeln():
     im Quelltext nachziehen muss.
     """
     from . import crafting
-    roh = (crafting.load() or {}).get('dismantle') or {}
+    raw = (crafting.load() or {}).get('dismantle') or {}
     # ⚠ Die Feldnamen kommen aus den Craftdaten und werden hier NICHT
     # übersetzt: `efficiency`, `dismantleTimeSeconds`, `blacklistedResources`.
     # Wer sie beim Einlesen umbenennt, muss die Umbenennung bei jedem Patch
     # nachziehen.
-    gesperrt = set()
-    for eintrag in roh.get('blacklistedResources') or []:
-        name = (eintrag or {}).get('name') if isinstance(eintrag, dict)             else eintrag
+    blocked = set()
+    for entry in raw.get('blacklistedResources') or []:
+        name = (entry or {}).get('name') if isinstance(entry, dict) else entry
         if name:
-            gesperrt.add(str(name).strip().lower())
+            blocked.add(str(name).strip().lower())
     # ⚠ **Auch die gesperrten Gegenstandsklassen zählen mit** — dort stehen
     # Erze wie „Saldynium (Ore)", die als Rohstoff denselben Namen tragen.
-    for eintrag in roh.get('blacklistedEntityClasses') or []:
-        name = (eintrag or {}).get('name') if isinstance(eintrag, dict)             else eintrag
+    for entry in raw.get('blacklistedEntityClasses') or []:
+        name = (entry or {}).get('name') if isinstance(entry, dict) else entry
         if name:
-            gesperrt.add(str(name).strip().lower())
+            blocked.add(str(name).strip().lower())
             # „Saldynium (Ore)" und „Saldynium" sind dasselbe Erz.
-            kurz = str(name).split('(')[0].strip().lower()
-            if kurz:
-                gesperrt.add(kurz)
-    return {'anteil': float(roh.get('efficiency') or 0.5),
-            'dauer': int(roh.get('dismantleTimeSeconds') or 0),
-            'gesperrt': gesperrt}
+            short = str(name).split('(')[0].strip().lower()
+            if short:
+                blocked.add(short)
+    return {'anteil': float(raw.get('efficiency') or 0.5),
+            'dauer': int(raw.get('dismantleTimeSeconds') or 0),
+            'gesperrt': blocked}
 
 
-def zerlegen(bauplan):
+def dismantle(blueprint):
     """Was beim Zerlegen dieses Teils herauskommt.
 
     Gibt `(zeilen, dauer)` zurück. Je Zeile::
@@ -320,42 +328,42 @@ def zerlegen(bauplan):
     """
     from . import crafting
 
-    rezept = crafting.recipe(bauplan)
-    if not rezept or not rezept.get('stufen'):
+    recipe_ = crafting.recipe(blueprint)
+    if not recipe_ or not recipe_.get('stufen'):
         return [], 0
 
-    regeln = zerlege_regeln()
-    bedarf = {}
-    for stufe in rezept.get('stufen') or []:
-        for eintrag in stufe.get('zutaten') or []:
+    rules = dismantle_rules()
+    demand = {}
+    for tier in recipe_.get('stufen') or []:
+        for entry in tier.get('zutaten') or []:
             # (Bauteil, Rohstoff, Menge, Güte)
-            if len(eintrag) < 3:
+            if len(entry) < 3:
                 continue
-            name = str(eintrag[1] or '').strip()
+            name = str(entry[1] or '').strip()
             if not name:
                 continue
             try:
-                menge = float(eintrag[2] or 0)
+                amount = float(entry[2] or 0)
             except (TypeError, ValueError):
                 continue
-            bedarf[name] = bedarf.get(name, 0.0) + menge
+            demand[name] = demand.get(name, 0.0) + amount
 
-    zeilen = []
-    for name in sorted(bedarf, key=lambda x: x.lower()):
-        verloren = name.lower() in regeln['gesperrt']
-        zeilen.append({
+    rows = []
+    for name in sorted(demand, key=lambda x: x.lower()):
+        lost = name.lower() in rules['gesperrt']
+        rows.append({
             'rohstoff': name,
-            'drin': bedarf[name],
-            'zurueck': 0.0 if verloren else bedarf[name] * regeln['anteil'],
-            'verloren': verloren,
+            'drin': demand[name],
+            'zurueck': 0.0 if lost else demand[name] * rules['anteil'],
+            'verloren': lost,
         })
-    return zeilen, regeln['dauer']
+    return rows, rules['dauer']
 
 
-def wert(teile, preis_von):
+def value(parts, price_of):
     """Ladenwert der Teile — `(summe, mit_preis, ohne_preis)`.
 
-    `preis_von` ist eine Funktion `kennung -> preis oder None`; sie kommt von
+    `price_of` ist eine Funktion `kennung -> preis oder None`; sie kommt von
     `laeden.py` und wird hier nur benutzt, nicht nachgebaut.
 
     ⚠⚠ **Was keinen Preis hat, wird NICHT geschätzt.** Es wird gezählt und
@@ -363,19 +371,19 @@ def wert(teile, preis_von):
     aus wie eine echte — und wer danach entscheidet, ob er im Feuer aussteigt,
     hat ein Recht darauf zu wissen, wie belastbar sie ist.
     """
-    summe = mit = ohne = 0
-    for teil in teile:
-        preis = preis_von(teil['ref'])
-        anzahl = int(teil.get('anzahl') or 1)
-        if preis:
-            summe += preis * anzahl
-            mit += anzahl
+    total = with_price = without_price = 0
+    for part in parts:
+        price = price_of(part['ref'])
+        count = int(part.get('anzahl') or 1)
+        if price:
+            total += price * count
+            with_price += count
         else:
-            ohne += anzahl
-    return summe, mit, ohne
+            without_price += count
+    return total, with_price, without_price
 
 
-def vergessen():
+def forget():
     """Alle gemerkten Wracks verwerfen. Gibt die Zahl der Schiffe zurück.
 
     ⚠⚠ **Dafür gibt es einen Knopf, weil es sonst Handarbeit wäre.** Ohne ihn
@@ -386,7 +394,7 @@ def vergessen():
     Der Wunsch kam am 06.09.2026, direkt beim Bau: „denk direkt mit an den
     Reset-Knopf, sonst muss man es per Hand löschen."
     """
-    daten = laden()
-    anzahl = len(daten.get('schiffe') or {})
-    _sichern({'format': FORMAT, 'schiffe': {}})
-    return anzahl
+    data = load()
+    count = len(data.get('schiffe') or {})
+    _save({'format': FORMAT, 'schiffe': {}})
+    return count

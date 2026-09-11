@@ -876,7 +876,7 @@ def daten_pruefen():
     plausibel aus; erst an den wirklichen Daten zeigt sich, ob eine Rechnung
     trägt.
     """
-    from scbp import bergung, crafting, warenkorb
+    from scbp import salvage, crafting, warenkorb
 
     rezepte = crafting.all_items() or []
     if not rezepte:
@@ -886,7 +886,7 @@ def daten_pruefen():
     pruefe(len(rezepte) > 500,
            'die Rezeptdaten sind vollständig (%d Baupläne)' % len(rezepte))
 
-    regeln = bergung.zerlege_regeln()
+    regeln = salvage.dismantle_rules()
     pruefe(0 < regeln['anteil'] <= 1,
            'die Zerlege-Ausbeute liegt zwischen 0 und 100 %% (%.0f %%)'
            % (regeln['anteil'] * 100))
@@ -898,7 +898,7 @@ def daten_pruefen():
     negativ = zuviel = 0
     geprueft_teile = 0
     for eintrag in rezepte[:200]:
-        zeilen, _dauer = bergung.zerlegen(eintrag.get('basis') or '')
+        zeilen, _dauer = salvage.dismantle(eintrag.get('basis') or '')
         for z in zeilen:
             geprueft_teile += 1
             if z['zurueck'] < 0 or z['drin'] < 0:

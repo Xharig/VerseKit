@@ -9043,7 +9043,7 @@ def _bergung(fenster, rahmen):
     eigene Schiff — hier geht es um jeden Rumpf, der einem begegnet. Deshalb
     sitzt die Seite auch nicht bei „Mein Hangar".
     """
-    from . import bergung as bg, erkul, laeden, ships as alle_schiffe
+    from . import salvage as bg, erkul, laeden, ships as alle_schiffe
 
     _ueberschrift(fenster, rahmen, t('hf_bergung'), t('s_wr_lead'))
     innen = _rollflaeche(rahmen)
@@ -9100,7 +9100,7 @@ def _bergung(fenster, rahmen):
             bester = laeden.guenstigster(ref)
             return bester[0] if bester else None
 
-        summe, _mit, ohne = bg.wert(teile, preis_von)
+        summe, _mit, ohne = bg.value(teile, preis_von)
         tk.Label(ergebnis, text=t('s_wr_wert') % _geld(summe), bg=BG,
                  fg=ACCENT, font=fenster.f_fett,
                  anchor='w').pack(fill='x', pady=(0, 2))
@@ -9145,7 +9145,7 @@ def _bergung(fenster, rahmen):
             hinweis.configure(text=t('s_wr_kein_schiff'), fg=ROT)
             return
         kennung = erkul.kennung(name, '', '', '')
-        gespeichert = bg.gemerkt(kennung) if kennung else None
+        gespeichert = bg.remembered(kennung) if kennung else None
         if gespeichert:
             hinweis.configure(text='', fg=SUB)
             _zeigen(name, gespeichert['teile'])
@@ -9170,7 +9170,7 @@ def _bergung(fenster, rahmen):
                     return
                 hinweis.configure(text='', fg=SUB)
                 if gefunden:
-                    bg.schiff_merken(gefunden, name, teile)
+                    bg.remember_ship(gefunden, name, teile)
                 _zeigen(name, teile)
             try:
                 ergebnis.after(0, fertig)
@@ -9192,7 +9192,7 @@ def _bergung(fenster, rahmen):
         # 06.09.2026 in zwei Worten: „sieht kacke aus." Der eigene Dialog
         # steht seit v3.0.0 bereit und wird überall sonst benutzt.
         from .hauptfenster import frage_stellen
-        anzahl = len(bg.laden().get('schiffe') or {})
+        anzahl = len(bg.load().get('schiffe') or {})
         if not anzahl:
             hinweis.configure(text=t('s_wr_nichts_gemerkt'), fg=SUB)
             return
@@ -9200,7 +9200,7 @@ def _bergung(fenster, rahmen):
                              t('s_wr_vergessen_frage') % anzahl,
                              ja=t('s_wr_vergessen_ja'), nein=t('e_abbrechen')):
             return
-        weg = bg.vergessen()
+        weg = bg.forget()
         for kind in ergebnis.winfo_children():
             kind.destroy()
         hinweis.configure(text=t('s_wr_vergessen_ok') % weg, fg=ACCENT)
@@ -9234,7 +9234,7 @@ def _bergung_holen(name):
 
     Läuft **außerhalb** des Oberflächen-Fadens. Gibt `(teile, kennung)` zurück.
     """
-    from . import bergung as bg, erkul, laeden
+    from . import salvage as bg, erkul, laeden
     kat = erkul.katalog()
     if not isinstance(kat, dict):
         return [], ''
@@ -9268,7 +9268,7 @@ def _bergung_holen(name):
     treffer = erkul._wortweise_suchen(verzeichnis, name, werft, '', '')
     if not treffer:
         return [], ''
-    teile = bg.werksausstattung(treffer, verzeichnis[treffer])
+    teile = bg.factory_loadout(treffer, verzeichnis[treffer])
     # Preise nachladen, damit die Anzeige sie schon hat.
     for teil in teile:
         if not laeden.bekannt(teil['ref']):
@@ -10900,12 +10900,12 @@ def _zerlegen(fenster, rahmen):
     dabei. Ein Rechner, der stumpf halbiert, schickt zwei Drittel der Spieler
     mit falschen Erwartungen los.
     """
-    from . import bergung as bg, crafting
+    from . import salvage as bg, crafting
 
     _ueberschrift(fenster, rahmen, t('hf_zerlegen'), t('s_zl_lead'))
     innen = _rollflaeche(rahmen)
 
-    regeln = bg.zerlege_regeln()
+    regeln = bg.dismantle_rules()
     _fliesstext(innen,
                 t('s_zl_regel').format(prozent=int(regeln['anteil'] * 100),
                                        dauer=regeln['dauer'],
@@ -10933,7 +10933,7 @@ def _zerlegen(fenster, rahmen):
         gesucht = (name or gewaehlt.get() or '').strip()
         if not gesucht:
             return
-        zeilen, dauer = bg.zerlegen(gesucht)
+        zeilen, dauer = bg.dismantle(gesucht)
         if not zeilen:
             # ⚠ Kein Rezept heisst nicht „gibt nichts zurück" — es heisst, dass
             # wir es nicht wissen. Der Unterschied gehört gesagt.
