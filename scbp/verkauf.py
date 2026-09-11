@@ -379,7 +379,7 @@ def orte_fuer(namen, nur_nqa=False):
     ⚠ **Ohne Mengen wird nicht summiert.** `summe` ist die Summe der Preise je
     SCU, also eine Rangzahl zum Sortieren — **kein Erlös**. Wer sie als Erlös
     anzeigt, behauptet etwas über Mengen, die das Werkzeug nicht kennt. Für
-    einen echten Erlös braucht es das Handelslager (`handelslager.py`).
+    einen echten Erlös braucht es das Handelslager (`trade_cargo.py`).
 
     `nur_nqa=True` blendet auf die Stellen ein, die keine Fragen stellen —
     für als gestohlen markierte Ladung.

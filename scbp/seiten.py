@@ -13459,7 +13459,7 @@ def _verkauf(fenster, rahmen):
     """Wo man seine Ware los wird — die beste Stelle zuerst."""
     import threading
 
-    from . import handelslager, verkauf as preisdaten
+    from . import trade_cargo, verkauf as preisdaten
     from .hauptfenster import rundes_feld
 
     _ueberschrift(fenster, rahmen, t('hf_verkauf'), t('s_vk_lead'))
@@ -13602,14 +13602,14 @@ def _verkauf(fenster, rahmen):
     def aus_lager():
         """Die Waren aus dem Handelslager übernehmen — die Brücke zum Lager."""
         genommen = 0
-        for ware in handelslager.waren_im_lager():
+        for ware in trade_cargo.goods_in_stock():
             # ⚠ Nur übernehmen, was die Preisdaten auch kennen. Sonst steht ein
             # Name in der Auswahl, zu dem es nie ein Ergebnis geben kann, und
             # der Nutzer sucht den Fehler bei sich.
             if preisdaten.bekannt(ware) and ware not in auswahl:
                 auswahl.append(ware)
                 genommen += 1
-        if handelslager.hat_gestohlenes():
+        if trade_cargo.has_stolen():
             nur_nqa[0] = True
         if not genommen:
             meldung['text'] = t('s_vk_lager_leer')
@@ -13789,7 +13789,7 @@ def _verkauf(fenster, rahmen):
         # ⚠ Von Hand eingetragene Mengen **überschreiben** das Lager: Wer hier
         # 120 SCU eingibt, meint die Ladung, die er gerade dabei hat — nicht
         # das, was vor drei Tagen im Lager stand.
-        lagermengen = dict(handelslager.mengen())
+        lagermengen = dict(trade_cargo.amounts())
         lagermengen.update(eigene_mengen)
         for nummer, ort in enumerate(orte[:40]):
             # ⚠ Die Spaltenüberschrift steht **nur über dem ersten Kasten**.
@@ -13950,7 +13950,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
 
 def _handelslager(fenster, rahmen):
     """Was zum Verkauf im Laderaum liegt — eintragen, ansehen, löschen."""
-    from . import handelslager as lager, orte as ortsliste
+    from . import trade_cargo as lager, orte as ortsliste
     from . import verkauf as preisdaten
     from .hauptfenster import rundes_feld
 
@@ -13964,7 +13964,7 @@ def _handelslager(fenster, rahmen):
     gestohlen = [False]
     meldung = {'text': '', 'farbe': SUB}
     # Welche Zeile gerade zum Ändern offen ist. `None` heisst: neuer Posten.
-    # ⚠ Die Nummer ist die Position in `lager.laden()` — dieselbe Vorsicht wie
+    # ⚠ Die Nummer ist die Position in `lager.load()` — dieselbe Vorsicht wie
     # im Werkstatt-Lager: Sortieren darf sie nicht verschieben, sonst
     # berichtigt man den falschen Posten.
     bearbeitung = {'nummer': None}
@@ -14047,10 +14047,10 @@ def _handelslager(fenster, rahmen):
             neu_zeichnen()
             return
         if bearbeitung['nummer'] is None:
-            ok, grund = lager.eintragen(name, menge.get(), ort.get(),
+            ok, grund = lager.add(name, menge.get(), ort.get(),
                                         gestohlen[0])
         else:
-            ok, grund = lager.aendern(bearbeitung['nummer'], name,
+            ok, grund = lager.change(bearbeitung['nummer'], name,
                                       menge.get(), ort.get(), gestohlen[0])
         if ok:
             bearbeitung['nummer'] = None
@@ -14080,7 +14080,7 @@ def _handelslager(fenster, rahmen):
         nr = bearbeitung['nummer']
         if nr is None:
             return 0.0
-        posten = lager.laden()
+        posten = lager.load()
         return (float(posten[nr].get('menge') or 0)
                 if 0 <= nr < len(posten) else 0.0)
 
@@ -14129,7 +14129,7 @@ def _handelslager(fenster, rahmen):
     def bearbeiten(nummer):
         """Einen Posten ins Formular holen — dann lässt er sich mit `+5`
         oder `-20` nachjustieren."""
-        posten = lager.laden()
+        posten = lager.load()
         if not 0 <= nummer < len(posten):
             return
         p = posten[nummer]
@@ -14152,7 +14152,7 @@ def _handelslager(fenster, rahmen):
                      fg=meldung['farbe'], font=fenster.f_klein,
                      anchor='w').pack(fill='x', pady=(0, 8))
             meldung['text'] = ''
-        posten = lager.laden()
+        posten = lager.load()
         if not posten:
             _fliesstext(liste_rahmen, t('s_hl_leer'), fenster.f_klein,
                         fill='x')
@@ -14164,7 +14164,7 @@ def _handelslager(fenster, rahmen):
         gesamt = _handelslager_tabelle(
             fenster, liste_rahmen, posten, preisdaten.bester_preis,
             lambda n: _rollstelle_halten(
-                liste_rahmen, lambda: (lager.entfernen(n), abbrechen())),
+                liste_rahmen, lambda: (lager.remove(n), abbrechen())),
             bearbeiten, bearbeitung['nummer'])
         if gesamt:
             # ⚠ „höchstens" ist wörtlich gemeint: der beste bekannte Ankauf je
@@ -14204,7 +14204,7 @@ def _handelslager(fenster, rahmen):
         if not ziel:
             return
         try:
-            inhalt = (lager.als_csv() if art == 'csv' else lager.als_json())
+            inhalt = (lager.as_csv() if art == 'csv' else lager.as_json())
             with open(ziel, 'w', encoding='utf-8') as f:
                 f.write(inhalt)
             meldung['text'] = t('s_lg_gespeichert') % os.path.basename(ziel)
@@ -14221,7 +14221,7 @@ def _handelslager(fenster, rahmen):
             return
         try:
             with open(quelle, encoding='utf-8') as f:
-                posten = lager.aus_json(f.read())
+                posten = lager.from_json(f.read())
         except Exception as ausnahme:
             fehler.merken('seiten.handelslager.einlesen', ausnahme)
             posten = None
@@ -14231,7 +14231,7 @@ def _handelslager(fenster, rahmen):
             meldung['text'], meldung['farbe'] = t('s_hl_datei_falsch'), GOLD
             neu_zeichnen()
             return
-        lager.sichern(posten)
+        lager.save(posten)
         # ⚠ Erst die Bearbeitung schliessen, dann melden: `abbrechen()` zeichnet
         # neu, und die Meldung wird beim Zeichnen verbraucht — andersherum waere
         # sie weg, bevor sie jemand sieht.
@@ -14257,13 +14257,13 @@ def _handelslager(fenster, rahmen):
         gemeint ist.
         """
         from .hauptfenster import frage_stellen
-        anzahl = len(lager.laden())
+        anzahl = len(lager.load())
         if not anzahl:
             return
         if not frage_stellen(fenster.root, t('s_hl_leeren_frage_t'),
                              t('s_hl_leeren_frage') % anzahl):
             return
-        lager.leeren()
+        lager.clear()
         abbrechen()
         meldung['text'], meldung['farbe'] = t('s_hl_geleert') % anzahl, GOLD
         neu_zeichnen()

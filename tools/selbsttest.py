@@ -7388,7 +7388,7 @@ def main():
     print()
     print('84. Verkauf — wo die Ware hin soll')
     from scbp import verkauf as _vk84
-    from scbp import handelslager as _hl84
+    from scbp import trade_cargo as _hl84
 
     # ⚠ `format` und `geholt` setzt die Ablage selbst (siehe `scbp/uex.py`) —
     # hier stehen nur die eigenen Felder.
@@ -7479,51 +7479,51 @@ def main():
            'der Knopf laesst sich nicht zweimal druecken (%s)' % (_ergebnis84,))
 
     # Das Handelslager: gleiche Stapel zusammen, markierte getrennt.
-    _hl84.leeren()
-    _hl84.eintragen('Gold', '100', 'Area 18')
-    _hl84.eintragen('Gold', '50', 'Area 18')
-    _hl84.eintragen('Gold', '20', 'Area 18', gestohlen=True)
-    _posten84 = _hl84.laden()
+    _hl84.clear()
+    _hl84.add('Gold', '100', 'Area 18')
+    _hl84.add('Gold', '50', 'Area 18')
+    _hl84.add('Gold', '20', 'Area 18', stolen=True)
+    _posten84 = _hl84.load()
     pruefe(len(_posten84) == 2 and _posten84[0]['menge'] == 150,
            'gleiche Posten werden zusammengezaehlt (%d Stapel)' % len(_posten84))
-    pruefe(_hl84.mengen(nur_gestohlen=True) == {'Gold': 20.0},
+    pruefe(_hl84.amounts(only_stolen=True) == {'Gold': 20.0},
            'markierte Ware ist ein eigener Stapel')
-    pruefe(_hl84.eintragen('Gold', 'abc')[1] == 'menge'
-           and _hl84.eintragen('', '5')[1] == 'ware',
+    pruefe(_hl84.add('Gold', 'abc')[1] == 'menge'
+           and _hl84.add('', '5')[1] == 'ware',
            'unsinnige Eingaben werden abgewiesen')
 
     # ⚠ **Keine negativen Mengen und keine Null.** Ein Laderaum mit „-40 SCU"
     # ergibt keinen Sinn, und `zahl_lesen` laesst das Minus bewusst durch (im
     # Werkstatt-Lager wird damit abgebucht). Hier muss es also abgefangen
     # werden — auch das lange Minus vom Ziffernblock.
-    _vorher84 = len(_hl84.laden())
-    pruefe(all(_hl84.eintragen('Gold', wert)[1] == 'menge'
+    _vorher84 = len(_hl84.load())
+    pruefe(all(_hl84.add('Gold', wert)[1] == 'menge'
                for wert in ('-40', '-40', '0', '-0,5')),
            'negative Mengen und Null werden abgewiesen')
-    pruefe(len(_hl84.laden()) == _vorher84,
+    pruefe(len(_hl84.load()) == _vorher84,
            'und es landet nichts davon im Lager')
 
     # ⭐ Der Rechner im Mengenfeld — dasselbe wie im Werkstatt-Lager.
-    pruefe(_hl84.eintragen('Copper', '100+5')[0]
-           and _hl84.mengen()['Copper'] == 105.0,
+    pruefe(_hl84.add('Copper', '100+5')[0]
+           and _hl84.amounts()['Copper'] == 105.0,
            'im Mengenfeld darf gerechnet werden (100+5)')
-    pruefe(_hl84.eintragen('Iron', '100-40')[0]
-           and _hl84.mengen()['Iron'] == 60.0,
+    pruefe(_hl84.add('Iron', '100-40')[0]
+           and _hl84.amounts()['Iron'] == 60.0,
            'auch mit Minus (100-40 ergibt 60)')
 
     # ⚠ **Beim Aendern zaehlt die bisherige Menge als Ausgangswert**: `-5` ist
     # dort eine Buchung („fuenf abbuchen"), kein Fehler. Abgewiesen wird erst,
     # wenn das **Ergebnis** null oder kleiner waere.
-    _nr84 = [i for i, p in enumerate(_hl84.laden())
+    _nr84 = [i for i, p in enumerate(_hl84.load())
              if p['ware'] == 'Gold' and not p['gestohlen']][0]
-    _stand84 = _hl84.laden()[_nr84]['menge']
-    pruefe(_hl84.aendern(_nr84, 'Gold', '-5')[0]
-           and _hl84.laden()[_nr84]['menge'] == _stand84 - 5,
+    _stand84 = _hl84.load()[_nr84]['menge']
+    pruefe(_hl84.change(_nr84, 'Gold', '-5')[0]
+           and _hl84.load()[_nr84]['menge'] == _stand84 - 5,
            'beim Aendern bucht -5 ab (%s -> %s)'
-           % (_stand84, _hl84.laden()[_nr84]['menge']))
-    pruefe(_hl84.aendern(_nr84, 'Gold', '-9999')[1] == 'menge',
+           % (_stand84, _hl84.load()[_nr84]['menge']))
+    pruefe(_hl84.change(_nr84, 'Gold', '-9999')[1] == 'menge',
            'aber nicht unter null')
-    _hl84.leeren()
+    _hl84.clear()
 
     # ⚠ **Beide Felder sperren gleich.** Ware und Lagerort kommen aus
     # geschlossenen Listen — sonst steht in dem einen Feld eine Liste und im
@@ -7923,14 +7923,14 @@ def main():
     # kein Abruf.
     print()
     print('86. Beide Lager: sichern, zurueckholen, leeren')
-    from scbp import handelslager as _hl86, rohstoffe as _rs86
+    from scbp import trade_cargo as _hl86, rohstoffe as _rs86
 
-    _hl86.leeren()
-    _hl86.eintragen('Gold', '500', 'Orison', False)
-    _hl86.eintragen('Gold', '100', 'Orison', False)
-    _hl86.eintragen('Laranite', '12,5', 'Area18', True)
+    _hl86.clear()
+    _hl86.add('Gold', '500', 'Orison', False)
+    _hl86.add('Gold', '100', 'Orison', False)
+    _hl86.add('Laranite', '12,5', 'Area18', True)
 
-    _csv86 = _hl86.als_csv()
+    _csv86 = _hl86.as_csv()
     pruefe(_csv86.startswith('Ware;Menge;Gestohlen;Lagerort'),
            'die Tabelle hat eine Kopfzeile')
     pruefe('Gold;600;;Orison' in _csv86,
@@ -7940,13 +7940,13 @@ def main():
     pruefe('Laranite;12,5;ja;Area18' in _csv86,
            'Menge mit Komma, gestohlene Ware als „ja" gekennzeichnet')
 
-    pruefe(_hl86.aus_json(_hl86.als_json()) == _hl86.laden(),
+    pruefe(_hl86.from_json(_hl86.as_json()) == _hl86.load(),
            'was ausgegeben wurde, kommt unveraendert zurueck')
 
     # Der Kernfall: die Sicherung des ANDEREN Lagers.
     _fremd86 = _rs86.als_json([{'material': 'Iron', 'menge': 5,
                                 'qualitaet': 800, 'ort': 'Daymar'}])
-    pruefe(_hl86.aus_json(_fremd86) is None,
+    pruefe(_hl86.from_json(_fremd86) is None,
            'eine Werkstatt-Sicherung wird im Handelslager ABGELEHNT')
     # Gegenprobe zur Gegenprobe — ohne die Weiche waere das Ergebnis leer
     # gewesen, und genau das ist der Datenverlust.
@@ -7954,23 +7954,23 @@ def main():
     pruefe(not any(_p.get('ware') for _p
                    in _json86.loads(_fremd86)['posten']),
            'sie haette sonst ein leeres Lager ergeben')
-    pruefe(_rs86.aus_json(_hl86.als_json()) == [],
+    pruefe(_rs86.aus_json(_hl86.as_json()) == [],
            'und umgekehrt bringt eine Handels-Sicherung dem Werkstatt-Lager '
            'nichts')
 
-    pruefe(_hl86.aus_json('kein json') is None
-           and _hl86.aus_json('{"format": 9, "posten": []}') is None,
+    pruefe(_hl86.from_json('kein json') is None
+           and _hl86.from_json('{"format": 9, "posten": []}') is None,
            'kaputte und fremde Formate werden abgelehnt')
-    pruefe(_hl86.aus_json('{"format": 1, "posten": []}') == [],
+    pruefe(_hl86.from_json('{"format": 1, "posten": []}') == [],
            'ein leeres Lager ist aber erlaubt')
-    pruefe(_hl86.aus_json('{"format": 1, "posten": [{"ware": "Tin", '
+    pruefe(_hl86.from_json('{"format": 1, "posten": [{"ware": "Tin", '
                           '"menge": "viel"}, {"ware": "Gold", "menge": 5}]}')
            == [{'ware': 'Gold', 'menge': 5.0, 'ort': '', 'gestohlen': False}],
            'unbrauchbare Zeilen fallen raus, der Rest bleibt')
 
-    _anzahl86 = len(_hl86.laden())
-    _hl86.leeren()
-    pruefe(_anzahl86 == 2 and _hl86.laden() == [],
+    _anzahl86 = len(_hl86.load())
+    _hl86.clear()
+    pruefe(_anzahl86 == 2 and _hl86.load() == [],
            'nach einem Patch-Wisch raeumt „leeren" alles in einem Zug weg')
 
     # Und die Oberflaeche muss die Griffe auch anbieten — beide Lager
@@ -16497,6 +16497,7 @@ def main():
         'importieren': 'importer',
         'merkliste': 'watchlist',
         'sicherung': 'backup',
+        'handelslager': 'trade_cargo',
     }
 
     def _reste190(quelle, name, alte):

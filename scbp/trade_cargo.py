@@ -54,13 +54,22 @@ UEX) — 15 Terminals, davon 7 mit Ankaufgeboten.
 zwei Zugänge zu buchen vergisst, hat ein lückenhaftes Lager. Das Werkzeug sagt
 deshalb nie „das hast du nicht", sondern rechnet nur mit dem, was eingetragen
 ist.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `handelslager` (Sprachumstellung P4,
+Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben, weil sie in der Datei jedes Nutzers stehen: der Dateiname
+`handelslager.json` und die Schlüssel `format`, `posten`, `ware`, `menge`,
+`ort` und `gestohlen`. Ebenso die Kennungen `'ware'`, `'menge'`,
+`'schreiben'` und `'weg'`, über die die Oberfläche ihre Meldung wählt, und der
+Seitenname `handelslager` in Reiterleiste und Symbolsatz. `rechnen` und
+`zahl_lesen` kommen aus `rohstoffe.py` und heißen dort weiter so.
 """
 import json
 import os
 
 from . import fehler, pfade
 
-DATEI = 'handelslager.json'
+FILE = 'handelslager.json'
 FORMAT = 1
 
 # ⭐ Zahleingabe **und Rechner** sind dieselben wie im Werkstatt-Lager: Komma
@@ -71,7 +80,7 @@ FORMAT = 1
 from .rohstoffe import rechnen, zahl_lesen                   # noqa: E402
 
 
-def _menge_pruefen(menge, vorher=0.0):
+def _check_amount(amount, previous=0.0):
     """Was im Mengenfeld steht, als geprüfte Zahl — oder `None`.
 
     ⚠ **Kein negatives Ergebnis und keine Null.** Der Rechner lässt Minus
@@ -79,25 +88,25 @@ def _menge_pruefen(menge, vorher=0.0):
     abgebucht) — aber ein Laderaum mit „−40 SCU" ergibt keinen Sinn. Geprüft
     wird deshalb das **Ergebnis**, nicht die Eingabe.
     """
-    zahl = rechnen(menge, vorher) if isinstance(menge, str) else menge
-    if zahl is None or zahl <= 0:
+    number = rechnen(amount, previous) if isinstance(amount, str) else amount
+    if number is None or number <= 0:
         return None
-    return float(zahl)
+    return float(number)
 
 
-def laden():
+def load():
     """Alle Posten — oder eine leere Liste."""
     try:
-        with open(pfade.app_datei(DATEI), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            return daten.get('posten') or []
+        with open(pfade.app_datei(FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            return data.get('posten') or []
     except Exception:
         pass
     return []
 
 
-def sichern(posten):
+def save(entries):
     """Die Posten schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ Die **Vorgängerfassung** (`handelslager.bak.json`) legt
@@ -105,15 +114,15 @@ def sichern(posten):
     atomar, aber ohne Rückfall — ein leer gespeichertes Lager war endgültig
     weg. Ein Lager sind eigene Eingaben, die kein Neuaufbau zurückholt.
     """
-    ziel = pfade.app_datei(DATEI)
+    target = pfade.app_datei(FILE)
     try:
-        return pfade.json_sichern(ziel, {'format': FORMAT, 'posten': posten})
-    except Exception as ausnahme:
-        fehler.merken('handelslager.sichern', ausnahme)
+        return pfade.json_sichern(target, {'format': FORMAT, 'posten': entries})
+    except Exception as exc:
+        fehler.merken('trade_cargo.save', exc)
         return False
 
 
-def als_csv(posten=None):
+def as_csv(entries=None):
     """Das Handelslager als Tabelle — Ware, Menge, Kennzeichen, Lagerort.
 
     Warum CSV und nicht nur JSON: Eine Tabelle oeffnet sich in jedem
@@ -130,30 +139,30 @@ def als_csv(posten=None):
     Die Spalte "Gestohlen" steht als `ja`/leer da statt als `True`/`False`:
     In einer Tabelle liest das jeder, und es uebersetzt sich nicht falsch.
     """
-    posten = laden() if posten is None else posten
-    zeilen = ['Ware;Menge;Gestohlen;Lagerort']
-    for p in posten:
-        menge = ('%g' % float(p.get('menge') or 0)).replace('.', ',')
-        zeilen.append(';'.join((
+    entries = load() if entries is None else entries
+    lines = ['Ware;Menge;Gestohlen;Lagerort']
+    for p in entries:
+        amount = ('%g' % float(p.get('menge') or 0)).replace('.', ',')
+        lines.append(';'.join((
             (p.get('ware') or '').replace(';', ','),
-            menge,
+            amount,
             'ja' if p.get('gestohlen') else '',
             (p.get('ort') or '').replace(';', ','))))
-    return '\n'.join(zeilen) + '\n'
+    return '\n'.join(lines) + '\n'
 
 
-def als_json(posten=None):
-    """Das Handelslager als JSON-Text — dasselbe Format, das `laden()` liest.
+def as_json(entries=None):
+    """Das Handelslager als JSON-Text — dasselbe Format, das `load()` liest.
 
     Damit ist die Ausgabe zugleich eine Sicherung: Datei wegschreiben, spaeter
     zuruckspielen, fertig.
     """
-    posten = laden() if posten is None else posten
-    return json.dumps({'format': FORMAT, 'posten': posten},
+    entries = load() if entries is None else entries
+    return json.dumps({'format': FORMAT, 'posten': entries},
                       ensure_ascii=False, indent=1)
 
 
-def aus_json(text):
+def from_json(text):
     """Ein frueher ausgegebenes Handelslager wieder einlesen.
 
     Gibt die Postenliste zurueck oder `None`, wenn die Datei nicht passt.
@@ -170,37 +179,37 @@ def aus_json(text):
     Nichts getauscht, mit der Meldung "0 Posten eingelesen".
     """
     try:
-        daten = json.loads(text)
+        data = json.loads(text)
     except Exception:
         return None
-    if not isinstance(daten, dict) or daten.get('format') != FORMAT:
+    if not isinstance(data, dict) or data.get('format') != FORMAT:
         return None
-    posten = daten.get('posten')
-    if not isinstance(posten, list):
+    entries = data.get('posten')
+    if not isinstance(entries, list):
         return None
     # Eine nicht leere Liste, in der kein einziger Posten eine `ware` hat, ist
     # keine Handelslager-Sicherung, sondern die des anderen Lagers.
-    if posten and not any(isinstance(p, dict) and str(p.get('ware') or '').strip()
-                          for p in posten):
+    if entries and not any(isinstance(p, dict) and str(p.get('ware') or '').strip()
+                           for p in entries):
         return None
-    sauber = []
-    for p in posten:
+    clean = []
+    for p in entries:
         if not isinstance(p, dict) or not str(p.get('ware') or '').strip():
             continue
         try:
-            menge = float(p.get('menge') or 0)
+            amount = float(p.get('menge') or 0)
         except (TypeError, ValueError):
             continue
-        if menge <= 0:
+        if amount <= 0:
             continue
-        sauber.append({'ware': str(p.get('ware')).strip(),
-                       'menge': menge,
-                       'ort': str(p.get('ort') or '').strip(),
-                       'gestohlen': bool(p.get('gestohlen'))})
-    return sauber
+        clean.append({'ware': str(p.get('ware')).strip(),
+                      'menge': amount,
+                      'ort': str(p.get('ort') or '').strip(),
+                      'gestohlen': bool(p.get('gestohlen'))})
+    return clean
 
 
-def gleicher_posten(a_ware, a_ort, a_gestohlen, b):
+def same_stack(a_goods, a_place, a_stolen, b):
     """Sind das zwei Eintragungen für **denselben** Stapel?
 
     Gleich heisst: gleiche Ware, gleicher Lagerort, gleiches Kennzeichen. Nur
@@ -211,87 +220,87 @@ def gleicher_posten(a_ware, a_ort, a_gestohlen, b):
     Stellen verkaufen. Wer sie zusammenzählt, schickt jemanden mit heißer Ware
     an ein Terminal, das Fragen stellt.
     """
-    return (b.get('ware') == a_ware
-            and (b.get('ort') or '') == (a_ort or '')
-            and bool(b.get('gestohlen')) == bool(a_gestohlen))
+    return (b.get('ware') == a_goods
+            and (b.get('ort') or '') == (a_place or '')
+            and bool(b.get('gestohlen')) == bool(a_stolen))
 
 
-def eintragen(ware, menge, ort='', gestohlen=False):
+def add(goods, amount, place='', stolen=False):
     """Einen Zugang buchen. Gleiche Stapel werden zusammengezählt.
 
     Gibt `(Erfolg, Grund)` zurück; `Grund` ist eine Kennung für die Oberfläche
     (`'ware'`, `'menge'`, `'schreiben'`) oder `''`.
     """
-    ware = (ware or '').strip()
-    if not ware:
+    goods = (goods or '').strip()
+    if not goods:
         return False, 'ware'
-    zahl = _menge_pruefen(menge)
-    if zahl is None:
+    number = _check_amount(amount)
+    if number is None:
         return False, 'menge'
-    posten = laden()
-    for p in posten:
-        if gleicher_posten(ware, ort, gestohlen, p):
-            p['menge'] = float(p.get('menge') or 0) + float(zahl)
-            return (True, '') if sichern(posten) else (False, 'schreiben')
-    posten.append({'ware': ware, 'menge': float(zahl),
-                   'ort': ort or '', 'gestohlen': bool(gestohlen)})
-    return (True, '') if sichern(posten) else (False, 'schreiben')
+    entries = load()
+    for p in entries:
+        if same_stack(goods, place, stolen, p):
+            p['menge'] = float(p.get('menge') or 0) + float(number)
+            return (True, '') if save(entries) else (False, 'schreiben')
+    entries.append({'ware': goods, 'menge': float(number),
+                    'ort': place or '', 'gestohlen': bool(stolen)})
+    return (True, '') if save(entries) else (False, 'schreiben')
 
 
-def aendern(nummer, ware, menge, ort='', gestohlen=False):
-    """Einen Posten überschreiben. `nummer` ist die Stelle in `laden()`."""
-    posten = laden()
-    if not 0 <= nummer < len(posten):
+def change(index, goods, amount, place='', stolen=False):
+    """Einen Posten überschreiben. `index` ist die Stelle in `load()`."""
+    entries = load()
+    if not 0 <= index < len(entries):
         return False, 'weg'
-    ware = (ware or '').strip()
-    if not ware:
+    goods = (goods or '').strip()
+    if not goods:
         return False, 'ware'
     # Beim Ändern zählt die bisherige Menge als Ausgangswert — wer `+5`
     # tippt, bucht dazu, statt die Menge auf 5 zu setzen.
-    zahl = _menge_pruefen(menge, float(posten[nummer].get('menge') or 0))
-    if zahl is None:
+    number = _check_amount(amount, float(entries[index].get('menge') or 0))
+    if number is None:
         return False, 'menge'
-    posten[nummer] = {'ware': ware, 'menge': float(zahl),
-                      'ort': ort or '', 'gestohlen': bool(gestohlen)}
-    return (True, '') if sichern(posten) else (False, 'schreiben')
+    entries[index] = {'ware': goods, 'menge': float(number),
+                      'ort': place or '', 'gestohlen': bool(stolen)}
+    return (True, '') if save(entries) else (False, 'schreiben')
 
 
-def entfernen(nummer):
+def remove(index):
     """Einen Posten löschen."""
-    posten = laden()
-    if not 0 <= nummer < len(posten):
+    entries = load()
+    if not 0 <= index < len(entries):
         return False
-    posten.pop(nummer)
-    return sichern(posten)
+    entries.pop(index)
+    return save(entries)
 
 
-def leeren():
+def clear():
     """Alles löschen — nach dem Verkauf der ganzen Ladung."""
-    return sichern([])
+    return save([])
 
 
-def mengen(nur_gestohlen=None):
+def amounts(only_stolen=None):
     """Wie viel von welcher Ware im Lager liegt: `{Ware: SCU}`.
 
-    `nur_gestohlen=True` zählt nur die markierte Ware, `False` nur die saubere,
+    `only_stolen=True` zählt nur die markierte Ware, `False` nur die saubere,
     `None` alles.
     """
-    zusammen = {}
-    for p in laden():
-        if nur_gestohlen is not None and bool(p.get('gestohlen')) != nur_gestohlen:
+    total = {}
+    for p in load():
+        if only_stolen is not None and bool(p.get('gestohlen')) != only_stolen:
             continue
-        ware = p.get('ware')
-        if not ware:
+        goods = p.get('ware')
+        if not goods:
             continue
-        zusammen[ware] = zusammen.get(ware, 0.0) + float(p.get('menge') or 0)
-    return zusammen
+        total[goods] = total.get(goods, 0.0) + float(p.get('menge') or 0)
+    return total
 
 
-def waren_im_lager(nur_gestohlen=None):
+def goods_in_stock(only_stolen=None):
     """Die Warennamen im Lager, alphabetisch — die Vorauswahl für den Verkauf."""
-    return sorted(mengen(nur_gestohlen))
+    return sorted(amounts(only_stolen))
 
 
-def hat_gestohlenes():
+def has_stolen():
     """Liegt markierte Ware im Lager? Schaltet den Filter im Reiter vor."""
-    return any(p.get('gestohlen') for p in laden())
+    return any(p.get('gestohlen') for p in load())

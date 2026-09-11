@@ -650,7 +650,7 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
 
     ⚠ **Meldet nichts selbst.** Der Aufrufer weiss, unter welchem Namen der
     Fehler ins Protokoll gehört (`rohstoffe.sichern` gegen
-    `handelslager.sichern`) — und `pfade` darf `fehler` nicht einbinden, das
+    `trade_cargo.save`) — und `pfade` darf `fehler` nicht einbinden, das
     gäbe einen Ringschluss. Bei einem Fehlschlag fliegt die Ausnahme; die
     Nebendatei ist dann schon weggeräumt.
     """
