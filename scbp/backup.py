@@ -30,15 +30,23 @@ dazukam, fiel sie stillschweigend heraus. Niemand merkt so etwas, bis der
 Rechner neu aufgesetzt ist.
 
 Deshalb hier andersherum: Mitgenommen wird **alles**, ausgenommen die
-Zwischenspeicher, die sich jederzeit neu laden lassen (`NACHLADBAR`). Kommt
+Zwischenspeicher, die sich jederzeit neu laden lassen (`RELOADABLE`). Kommt
 morgen eine neue eigene Datei dazu, ist sie ohne Zutun in der Sicherung. Der
 schlimmste Fall ist dann eine etwas größere Datei — nicht ein fehlender
 Bestand.
 
 ⚠ **Ein Rückweg gehört dazu.** Eine Sicherung, die sich nur schreiben lässt,
 löst den Rechnerwechsel nicht: Der Spieler müsste die Dateien von Hand in einen
-Ordner legen, den er nicht kennt. `zurueckholen()` ist deshalb kein Zusatz,
+Ordner legen, den er nicht kennt. `restore()` ist deshalb kein Zusatz,
 sondern die zweite Hälfte derselben Funktion.
+
+⚠ Bis zum 11.09.2026 hieß dieses Modul `sicherung` (Sprachumstellung P4,
+Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben, weil sie in den Sicherungen der Nutzer stehen: die Kennung
+`SC-BP-Watcher-Sicherung`, die Beilage `sicherung.txt` und der Vorsatz
+`Steuerung/` im Archiv — umbenannt, ließe sich keine ältere Sicherung mehr
+einspielen. Ebenso die Kennwörter `'leer'` und `'ungueltig'`, über die die
+Oberfläche ihre Meldung wählt, und die Einstellungsschlüssel in `PATH_FIELDS`.
 """
 import os
 import time
@@ -48,8 +56,8 @@ from . import fehler, pfade
 
 # Die Kennung im Kopf der Datei — daran ist eine Sicherung dieses Programms zu
 # erkennen, auch wenn jemand sie umbenannt hat.
-KENNUNG = 'SC-BP-Watcher-Sicherung'
-INFODATEI = 'sicherung.txt'
+MARKER = 'SC-BP-Watcher-Sicherung'
+INFO_FILE = 'sicherung.txt'
 
 # Was NICHT mitkommt: heruntergeladene Nachschlagewerke und Spuren des
 # laufenden Betriebs. Zusammen sind das mehrere Megabyte, und jede Datei davon
@@ -57,7 +65,7 @@ INFODATEI = 'sicherung.txt'
 #
 # ⚠ Im Zweifel gehört etwas NICHT hierher. Eine zu große Sicherung kostet
 # Sekunden, eine zu kleine kostet den Bestand.
-NACHLADBAR = (
+RELOADABLE = (
     'Intern/bp-contracts-de.json',      # Auftragstexte, vom Netz
     'Intern/bp-contracts-en.json',
     'Intern/crafting-blueprints.json',  # Rezepte, vom Netz
@@ -77,7 +85,7 @@ NACHLADBAR = (
 )
 
 # Ganze Ordner, die draußen bleiben.
-NACHLADBARE_ORDNER = (
+RELOADABLE_FOLDERS = (
     'export',       # wird bei jedem Fund neu geschrieben
     'Diagnose',     # Fehlerprotokolle des alten Rechners
 )
@@ -90,10 +98,10 @@ NACHLADBARE_ORDNER = (
 #
 # Sie kommt unter einem eigenen Vorsatz ins Archiv, damit beim Zurueckholen
 # klar zu trennen ist, was in die Ablage gehoert und was ins Spiel.
-STEUERUNG = 'Steuerung/'
+CONTROLS = 'Steuerung/'
 
 
-def _belegung_dateien(ordner=None):
+def _binding_files(folder=None):
     """Die Belegungsdateien des Spielers — (voller Pfad, Name im Archiv).
 
     Zwei Sorten, beide noetig:
@@ -117,106 +125,106 @@ def _belegung_dateien(ordner=None):
     des Spielers dazu, gehoert sie hierher — nicht in eine zweite Liste.
     """
     from . import joysticks
-    gefunden = {}
-    aktiv = joysticks._pfad_actionmaps(ordner)
-    if aktiv and os.path.isfile(aktiv):
-        gefunden['actionmaps.xml'] = aktiv
+    found = {}
+    active = joysticks._pfad_actionmaps(folder)
+    if active and os.path.isfile(active):
+        found['actionmaps.xml'] = active
         # Die Spieleinstellungen liegen im selben Ordner. Ueber den Pfad der
         # Belegung gefunden, damit die Gross-/Kleinschreibung stimmt (USER
         # oder user, Client oder client) — dieselbe Falle wie ueberall hier.
-        nachbar = os.path.join(os.path.dirname(aktiv), 'attributes.xml')
-        if os.path.isfile(nachbar):
-            gefunden['attributes.xml'] = nachbar
+        neighbour = os.path.join(os.path.dirname(active), 'attributes.xml')
+        if os.path.isfile(neighbour):
+            found['attributes.xml'] = neighbour
     # ⚠ Ueber **alle** Schreibweisen des Ordners sammeln, nicht nur ueber den,
     # in den geschrieben wuerde. Beim Sichern zaehlt Vollstaendigkeit.
-    for mappings in joysticks.alle_mapping_ordner(ordner):
+    for mappings in joysticks.alle_mapping_ordner(folder):
         try:
             for name in os.listdir(mappings):
                 if not name.lower().endswith('.xml'):
                     continue
-                voll = os.path.join(mappings, name)
-                if not os.path.isfile(voll):
+                full = os.path.join(mappings, name)
+                if not os.path.isfile(full):
                     continue
-                schluessel = 'mappings/' + name
-                vorher = gefunden.get(schluessel)
-                if vorher and os.path.getmtime(vorher) >= os.path.getmtime(voll):
+                key = 'mappings/' + name
+                previous = found.get(key)
+                if previous and os.path.getmtime(previous) >= os.path.getmtime(full):
                     continue
-                gefunden[schluessel] = voll
+                found[key] = full
         except OSError:
             continue
-    return sorted(((voll, STEUERUNG + rel)
-                   for rel, voll in gefunden.items()), key=lambda x: x[1])
+    return sorted(((full, CONTROLS + rel)
+                   for rel, full in found.items()), key=lambda x: x[1])
 
 
-def _mitnehmen(rel):
+def _include(rel):
     """Gehört diese Datei (Pfad relativ zur Ablage) in die Sicherung?"""
-    pfad = rel.replace('\\', '/')
-    if pfad in NACHLADBAR:
+    path = rel.replace('\\', '/')
+    if path in RELOADABLE:
         return False
-    erster = pfad.split('/', 1)[0]
-    if erster in NACHLADBARE_ORDNER:
+    first = path.split('/', 1)[0]
+    if first in RELOADABLE_FOLDERS:
         return False
     # Die Sicherung selbst nicht mitsichern, falls sie jemand in die Ablage legt.
-    return not pfad.lower().endswith('.zip')
+    return not path.lower().endswith('.zip')
 
 
-def _dateien():
+def _files():
     """Alle mitzunehmenden Dateien der Ablage — (voller Pfad, Name in der Datei)."""
-    wurzel = pfade.app_ordner()
-    gefunden = []
-    for ordner, _unter, namen in os.walk(wurzel):
-        for name in namen:
-            voll = os.path.join(ordner, name)
-            rel = os.path.relpath(voll, wurzel)
-            if _mitnehmen(rel):
-                gefunden.append((voll, rel.replace('\\', '/')))
-    return sorted(gefunden, key=lambda x: x[1])
+    root = pfade.app_ordner()
+    found = []
+    for folder, _sub, names in os.walk(root):
+        for name in names:
+            full = os.path.join(folder, name)
+            rel = os.path.relpath(full, root)
+            if _include(rel):
+                found.append((full, rel.replace('\\', '/')))
+    return sorted(found, key=lambda x: x[1])
 
 
-def vorschlag():
+def suggestion():
     """Ein Dateiname mit Datum — eine Sicherung hält einen Stand fest."""
     return 'SC-BP-Watcher-Sicherung-%s.zip' % time.strftime('%Y-%m-%d')
 
 
-def schreiben(ziel, version='', spielordner=None):
+def write(target, version='', game_folder=None):
     """Alles Eigene in eine ZIP-Datei schreiben.
 
     Gibt `(ok, meldung, anzahl)` zurück. Die Meldung ist für den Spieler
     gedacht und nennt im Fehlerfall den Grund — ein stilles `False` hilft
     niemandem.
 
-    ⚠ `spielordner` ist für Prüfläufe da. Ohne ihn wird der eingerichtete
+    ⚠ `game_folder` ist für Prüfläufe da. Ohne ihn wird der eingerichtete
     Spielordner genommen — und ein Prüflauf, der ihn vergisst, schreibt in die
     **echte** Steuerung des Spielers. Genau das ist am 04.09.2026 passiert.
     """
-    dateien = _dateien()
-    if not dateien:
+    files = _files()
+    if not files:
         return False, 'leer', 0
     # Die Belegung kommt aus dem Spielordner dazu. Fehlt das Spiel (noch nicht
     # eingerichtet), bleibt die Liste leer — das ist kein Fehler.
-    dateien = dateien + _belegung_dateien(spielordner)
+    files = files + _binding_files(game_folder)
     # ⚠ Erst neben das Ziel schreiben, dann umbenennen. Bricht das Schreiben ab
     # (Stick abgezogen, Platte voll), steht sonst eine halbe Sicherung da, die
     # aussieht wie eine ganze.
-    temp = ziel + '.teil'
+    tmp = target + '.teil'
     try:
-        with zipfile.ZipFile(temp, 'w', zipfile.ZIP_DEFLATED) as z:
-            for voll, rel in dateien:
-                z.write(voll, rel)
-            z.writestr(INFODATEI, _infotext(version, len(dateien)))
-        os.replace(temp, ziel)
-        return True, ziel, len(dateien)
-    except (OSError, zipfile.BadZipFile) as ausnahme:
-        fehler.merken('sicherung.schreiben', ausnahme)
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as z:
+            for full, rel in files:
+                z.write(full, rel)
+            z.writestr(INFO_FILE, _info_text(version, len(files)))
+        os.replace(tmp, target)
+        return True, target, len(files)
+    except (OSError, zipfile.BadZipFile) as exc:
+        fehler.merken('backup.write', exc)
         try:
-            if os.path.isfile(temp):
-                os.remove(temp)
+            if os.path.isfile(tmp):
+                os.remove(tmp)
         except OSError:
             pass
-        return False, str(ausnahme), 0
+        return False, str(exc), 0
 
 
-def _infotext(version, anzahl):
+def _info_text(version, count):
     """Eine lesbare Beilage in der Sicherung — für den Menschen, nicht fürs Programm.
 
     Wer die Datei in einem Jahr findet, soll ohne das Programm erkennen, was er
@@ -226,12 +234,12 @@ def _infotext(version, anzahl):
     englischer bekäme sonst eine deutsche Beilage in seiner eigenen Sicherung.
     """
     from .sprache import t
-    kopf = '%s\r\n\r\n' % KENNUNG
-    return kopf + t('sich_datei_info', time.strftime('%d.%m.%Y %H:%M'),
-                    version or '?', anzahl).replace('\n', '\r\n') + '\r\n'
+    head = '%s\r\n\r\n' % MARKER
+    return head + t('sich_datei_info', time.strftime('%d.%m.%Y %H:%M'),
+                    version or '?', count).replace('\n', '\r\n') + '\r\n'
 
 
-def pruefen(quelle):
+def check(source):
     """Was steckt in dieser Datei? Gibt `(ok, anzahl, erstellt_am)` zurueck.
 
     ⚠ **Vor dem Zurueckholen fragen, nicht danach.** Wer eine fremde oder
@@ -239,25 +247,25 @@ def pruefen(quelle):
     ist.
     """
     try:
-        with zipfile.ZipFile(quelle) as z:
-            namen = [n for n in z.namelist() if not n.endswith('/')]
-            if INFODATEI not in namen:
+        with zipfile.ZipFile(source) as z:
+            names = [n for n in z.namelist() if not n.endswith('/')]
+            if INFO_FILE not in names:
                 return False, 0, ''
-            kopf = z.read(INFODATEI).decode('utf-8', 'replace')
-            if KENNUNG not in kopf:
+            head = z.read(INFO_FILE).decode('utf-8', 'replace')
+            if MARKER not in head:
                 return False, 0, ''
-            wann = ''
-            for zeile in kopf.splitlines():
-                if zeile.startswith('Erstellt am '):
-                    wann = zeile[len('Erstellt am '):].split(' mit ')[0]
+            when = ''
+            for line in head.splitlines():
+                if line.startswith('Erstellt am '):
+                    when = line[len('Erstellt am '):].split(' mit ')[0]
                     break
-            return True, len(namen) - 1, wann
-    except (OSError, zipfile.BadZipFile, KeyError) as ausnahme:
-        fehler.merken('sicherung.pruefen', ausnahme)
+            return True, len(names) - 1, when
+    except (OSError, zipfile.BadZipFile, KeyError) as exc:
+        fehler.merken('backup.check', exc)
         return False, 0, ''
 
 
-def zurueckholen(quelle):
+def restore(source):
     """Eine Sicherung einspielen. Gibt `(ok, meldung, anzahl)` zurueck.
 
     ⚠⚠ **Der vorhandene Stand wird vorher zur Seite gelegt.** Wer sich
@@ -269,108 +277,108 @@ def zurueckholen(quelle):
     Arbeitsspeicher und wuerden sie beim naechsten Speichern wieder ueber die
     frisch eingespielten schreiben.
     """
-    ok, anzahl, _wann = pruefen(quelle)
+    ok, count, _when = check(source)
     if not ok:
         # ⚠ Ein Kennwort, kein Satz: Was der Spieler liest, steht in
         # `sprache.py`. Ein deutscher Satz an dieser Stelle waere in der
         # englischen Oberflaeche gelandet.
         return False, 'ungueltig', 0
 
-    wurzel = pfade.app_ordner()
-    rueckfall = os.path.join(
-        os.path.dirname(wurzel.rstrip(os.sep)) or wurzel,
+    root = pfade.app_ordner()
+    fallback = os.path.join(
+        os.path.dirname(root.rstrip(os.sep)) or root,
         'SC-BP-Watcher-vorher-%s.zip' % time.strftime('%Y-%m-%d-%H%M%S'))
-    vorher_ok, _m, _n = schreiben(rueckfall)
+    previous_ok, _m, _n = write(fallback)
 
     try:
-        with zipfile.ZipFile(quelle) as z:
+        with zipfile.ZipFile(source) as z:
             for name in z.namelist():
-                if name.endswith('/') or name == INFODATEI:
+                if name.endswith('/') or name == INFO_FILE:
                     continue
                 # ⚠⚠ **Die Belegung wird hier ausdruecklich NICHT eingespielt.**
                 # Sie gehoert ins Spiel, nicht in unsere Ablage — und eine
                 # falsch zurueckgespielte `actionmaps.xml` kostet den Spieler
                 # seine komplette Steuerung. Dafuer gibt es
-                # `belegung_zurueckholen()`, das der Spieler eigens ausloest.
-                if name.startswith(STEUERUNG):
+                # `restore_bindings()`, das der Spieler eigens ausloest.
+                if name.startswith(CONTROLS):
                     continue
                 # ⚠ Kein Pfad darf aus der Ablage herausfuehren. Eine ZIP kann
                 # `../../` enthalten (bekannt als „Zip Slip"); ohne diese
                 # Pruefung schreibt eine praeparierte Datei irgendwohin.
-                ziel = os.path.normpath(os.path.join(wurzel, name))
-                if not ziel.startswith(os.path.abspath(wurzel) + os.sep):
+                target = os.path.normpath(os.path.join(root, name))
+                if not target.startswith(os.path.abspath(root) + os.sep):
                     continue
-                os.makedirs(os.path.dirname(ziel), exist_ok=True)
-                with z.open(name) as her, open(ziel, 'wb') as hin:
-                    hin.write(her.read())
-    except (OSError, zipfile.BadZipFile) as ausnahme:
-        fehler.merken('sicherung.zurueckholen', ausnahme)
-        return False, str(ausnahme), 0
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with z.open(name) as src, open(target, 'wb') as dst:
+                    dst.write(src.read())
+    except (OSError, zipfile.BadZipFile) as exc:
+        fehler.merken('backup.restore', exc)
+        return False, str(exc), 0
 
-    _fremde_pfade_leeren(wurzel)
-    return True, (rueckfall if vorher_ok else ''), anzahl
+    _clear_foreign_paths(root)
+    return True, (fallback if previous_ok else ''), count
 
 
-def belegung_im_archiv(quelle):
+def bindings_in_archive(source):
     """Was an Belegung in dieser Sicherung steckt — Namen, nicht Pfade.
 
     Damit der Spieler **vorher** sieht, was er einspielen wuerde. Gibt
     `(aktiv_dabei, [Profilnamen])` zurueck.
     """
-    aktiv = False
-    profile = []
+    active = False
+    profiles = []
     try:
-        with zipfile.ZipFile(quelle) as z:
+        with zipfile.ZipFile(source) as z:
             for name in z.namelist():
-                if not name.startswith(STEUERUNG) or name.endswith('/'):
+                if not name.startswith(CONTROLS) or name.endswith('/'):
                     continue
-                rest = name[len(STEUERUNG):]
+                rest = name[len(CONTROLS):]
                 if rest == 'actionmaps.xml':
-                    aktiv = True
+                    active = True
                 elif rest.startswith('mappings/') and rest.endswith('.xml'):
-                    profile.append(os.path.basename(rest)[:-4])
-    except (OSError, zipfile.BadZipFile) as ausnahme:
-        fehler.merken('sicherung.belegung_im_archiv', ausnahme)
+                    profiles.append(os.path.basename(rest)[:-4])
+    except (OSError, zipfile.BadZipFile) as exc:
+        fehler.merken('backup.bindings_in_archive', exc)
         return False, []
-    return aktiv, sorted(profile, key=str.lower)
+    return active, sorted(profiles, key=str.lower)
 
 
-def belegung_zurueckholen(quelle, mit_aktiver=False, spielordner=None):
+def restore_bindings(source, with_active=False, game_folder=None):
     """Die gesicherte Belegung ins Spiel zurueckspielen.
 
     ⚠⚠ **Getrennt vom uebrigen Zurueckholen, und mit Absicht umstaendlicher.**
     Die gespeicherten Profile dazuzulegen ist harmlos — sie liegen nur herum,
     bis der Spieler eines laedt. Die **aktive** Belegung zu ueberschreiben ist
     es nicht: Wer sich vergreift, sitzt vor einem Schiff, das auf nichts mehr
-    reagiert. Deshalb kommt sie nur mit, wenn `mit_aktiver` ausdruecklich
+    reagiert. Deshalb kommt sie nur mit, wenn `with_active` ausdruecklich
     gesetzt ist — und die alte wird vorher zur Seite gelegt.
 
     Gibt `(ok, meldung, anzahl)` zurueck.
     """
     from . import joysticks
-    ok, _anzahl, _wann = pruefen(quelle)
+    ok, _count, _when = check(source)
     if not ok:
         return False, 'ungueltig', 0
 
-    ziel_ordner = joysticks._pfad_mappings(spielordner, anlegen=True)
-    aktiv_ziel = joysticks._pfad_actionmaps(spielordner)
-    geschrieben = 0
-    rueckfall = ''
+    target_folder = joysticks._pfad_mappings(game_folder, anlegen=True)
+    active_target = joysticks._pfad_actionmaps(game_folder)
+    written = 0
+    fallback = ''
     try:
-        with zipfile.ZipFile(quelle) as z:
+        with zipfile.ZipFile(source) as z:
             for name in z.namelist():
-                if not name.startswith(STEUERUNG) or name.endswith('/'):
+                if not name.startswith(CONTROLS) or name.endswith('/'):
                     continue
-                rest = name[len(STEUERUNG):]
+                rest = name[len(CONTROLS):]
                 if rest == 'actionmaps.xml':
-                    if not (mit_aktiver and aktiv_ziel):
+                    if not (with_active and active_target):
                         continue
-                    rueckfall = '%s.scbpw-%s' % (
-                        aktiv_ziel, time.strftime('%Y%m%d-%H%M%S'))
-                    with open(aktiv_ziel, 'rb') as her, \
-                            open(rueckfall, 'wb') as hin:
-                        hin.write(her.read())
-                    ziel = aktiv_ziel
+                    fallback = '%s.scbpw-%s' % (
+                        active_target, time.strftime('%Y%m%d-%H%M%S'))
+                    with open(active_target, 'rb') as src, \
+                            open(fallback, 'wb') as dst:
+                        dst.write(src.read())
+                    target = active_target
                 elif rest == 'attributes.xml':
                     # ⚠⚠ **Gehoert zum aktiven Stand, nicht zu den Profilen.**
                     # Darin steht der Blickwinkel und die Grafik — sie
@@ -381,37 +389,37 @@ def belegung_zurueckholen(quelle, mit_aktiver=False, spielordner=None):
                     # Ohne diesen Zweig waere sie zwar im Archiv gelandet,
                     # aber nie wieder herausgekommen — eine Sicherung, die
                     # nicht zurueckkommt, ist keine.
-                    if not (mit_aktiver and aktiv_ziel):
+                    if not (with_active and active_target):
                         continue
-                    ziel = os.path.join(os.path.dirname(aktiv_ziel),
-                                        'attributes.xml')
-                    if os.path.isfile(ziel):
-                        with open(ziel, 'rb') as her, \
+                    target = os.path.join(os.path.dirname(active_target),
+                                          'attributes.xml')
+                    if os.path.isfile(target):
+                        with open(target, 'rb') as src, \
                                 open('%s.scbpw-%s' % (
-                                    ziel, time.strftime('%Y%m%d-%H%M%S')),
-                                     'wb') as hin:
-                            hin.write(her.read())
-                elif rest.startswith('mappings/') and ziel_ordner:
+                                    target, time.strftime('%Y%m%d-%H%M%S')),
+                                     'wb') as dst:
+                            dst.write(src.read())
+                elif rest.startswith('mappings/') and target_folder:
                     # ⚠ Nur der reine Dateiname. Ein Pfad aus dem Archiv duerfte
                     # sonst aus dem Mappings-Ordner herausfuehren.
-                    ziel = os.path.join(ziel_ordner, os.path.basename(rest))
+                    target = os.path.join(target_folder, os.path.basename(rest))
                 else:
                     continue
-                with z.open(name) as her, open(ziel, 'wb') as hin:
-                    hin.write(her.read())
-                geschrieben += 1
-    except (OSError, zipfile.BadZipFile) as ausnahme:
-        fehler.merken('sicherung.belegung_zurueckholen', ausnahme)
-        return False, str(ausnahme), geschrieben
-    return True, rueckfall, geschrieben
+                with z.open(name) as src, open(target, 'wb') as dst:
+                    dst.write(src.read())
+                written += 1
+    except (OSError, zipfile.BadZipFile) as exc:
+        fehler.merken('backup.restore_bindings', exc)
+        return False, str(exc), written
+    return True, fallback, written
 
 
 # Einstellungen, die einen Ort auf der Platte nennen. Beim Rechnerwechsel sind
 # sie der wahrscheinlichste Grund, warum danach nichts geht.
-PFAD_FELDER = ('spiel_ordner', 'launcher_ordner', 'export_ordner')
+PATH_FIELDS = ('spiel_ordner', 'launcher_ordner', 'export_ordner')
 
 
-def _fremde_pfade_leeren(wurzel):
+def _clear_foreign_paths(root):
     """Pfade des alten Rechners entfernen, wenn es sie hier nicht gibt.
 
     ⚠⚠ **Genau dafuer ist diese Funktion da: der Rechnerwechsel.** Auf dem
@@ -430,23 +438,23 @@ def _fremde_pfade_leeren(wurzel):
     stehen, wuerde das Programm nach dem Einspielen woanders hinschauen als
     dorthin, wo der Spieler die Sicherung gerade eingespielt hat.
     """
-    ziel = os.path.join(wurzel, 'Einstellungen', pfade.EINSTELLUNGEN)
-    if not os.path.isfile(ziel):
+    target = os.path.join(root, 'Einstellungen', pfade.EINSTELLUNGEN)
+    if not os.path.isfile(target):
         return
     try:
         import json
-        with open(ziel, encoding='utf-8') as f:
-            daten = json.load(f)
-        if not isinstance(daten, dict):
+        with open(target, encoding='utf-8') as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
             return
-        geaendert = daten.pop('ablage_ordner', None) is not None
-        for feld in PFAD_FELDER:
-            wert = daten.get(feld)
-            if isinstance(wert, str) and wert.strip() \
-                    and not os.path.exists(os.path.expanduser(wert)):
-                daten[feld] = ''
-                geaendert = True
-        if geaendert:
-            pfade.json_sichern(ziel, daten)
-    except Exception as ausnahme:
-        fehler.merken('sicherung.pfade_leeren', ausnahme)
+        changed = data.pop('ablage_ordner', None) is not None
+        for field in PATH_FIELDS:
+            value = data.get(field)
+            if isinstance(value, str) and value.strip() \
+                    and not os.path.exists(os.path.expanduser(value)):
+                data[field] = ''
+                changed = True
+        if changed:
+            pfade.json_sichern(target, data)
+    except Exception as exc:
+        fehler.merken('backup.clear_foreign_paths', exc)

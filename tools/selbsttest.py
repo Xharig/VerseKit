@@ -10939,7 +10939,7 @@ def main():
 
     print()
     print('114. Sicherung: alles Eigene rein, alles wieder raus')
-    _sich = importlib.import_module('scbp.sicherung')
+    _sich = importlib.import_module('scbp.backup')
     _altheim114 = os.environ.get('SC_BP_HOME')
     _wiese114 = tempfile.mkdtemp(prefix='sc-bp-sicherung-')
     try:
@@ -10970,7 +10970,7 @@ def main():
             json.dump({'gross': 'x' * 5000}, _f)
 
         _datei114 = os.path.join(_wiese114, 'sicherung.zip')
-        _ok114, _m114, _n114 = _sich.schreiben(_datei114, '9.9.9')
+        _ok114, _m114, _n114 = _sich.write(_datei114, '9.9.9')
         pruefe(_ok114, 'die Sicherung wird geschrieben')
 
         import zipfile as _zip114
@@ -10984,13 +10984,13 @@ def main():
         pruefe('Intern/preise.json' not in _drin114,
                'der nachladbare Zwischenspeicher bleibt draussen')
 
-        _g114, _anz114, _wann114 = _sich.pruefen(_datei114)
+        _g114, _anz114, _wann114 = _sich.check(_datei114)
         pruefe(_g114 and _wann114, 'die eigene Datei wird als gueltig erkannt')
 
         # Einspielen in eine LEERE Ablage — der Rechnerwechsel.
         os.environ['SC_BP_HOME'] = _ziel114
         importlib.reload(_sich)
-        _ok114, _m114, _n114 = _sich.zurueckholen(_datei114)
+        _ok114, _m114, _n114 = _sich.restore(_datei114)
         pruefe(_ok114, 'die Sicherung laesst sich einspielen')
         with open(os.path.join(_ziel114, 'Bauplaene', 'bestand.json'),
                   encoding='utf-8') as _f:
@@ -11004,17 +11004,17 @@ def main():
         _fremd114 = os.path.join(_wiese114, 'fremd.zip')
         with _zip114.ZipFile(_fremd114, 'w') as _z:
             _z.writestr('beliebig.txt', 'nicht von uns')
-        pruefe(_sich.zurueckholen(_fremd114)[0] is False,
+        pruefe(_sich.restore(_fremd114)[0] is False,
                'eine fremde Datei wird abgelehnt')
 
         # ⚠ Gegenprobe 2: Ein Pfad, der aus der Ablage herausfuehrt („Zip
         # Slip"). Ohne Abwehr schreibt eine praeparierte Datei irgendwohin.
         _boese114 = os.path.join(_wiese114, 'boese.zip')
         with _zip114.ZipFile(_boese114, 'w') as _z:
-            _z.writestr(_sich.INFODATEI,
-                        _sich.KENNUNG + '\nErstellt am 01.01.2026 mit x')
+            _z.writestr(_sich.INFO_FILE,
+                        _sich.MARKER + '\nErstellt am 01.01.2026 mit x')
             _z.writestr('../entkommen.txt', 'darf nicht landen')
-        _sich.zurueckholen(_boese114)
+        _sich.restore(_boese114)
         pruefe(not os.path.exists(os.path.join(_wiese114, 'entkommen.txt')),
                'ein Pfad aus der Ablage heraus wird abgewehrt')
 
@@ -11028,10 +11028,10 @@ def main():
                        'ablage_ordner': '/alter/rechner'}, _f)
         os.environ['SC_BP_HOME'] = _quell114
         importlib.reload(_sich)
-        _sich.schreiben(_datei114, '9.9.9')
+        _sich.write(_datei114, '9.9.9')
         os.environ['SC_BP_HOME'] = _ziel114
         importlib.reload(_sich)
-        _sich.zurueckholen(_datei114)
+        _sich.restore(_datei114)
         with open(os.path.join(_ziel114, 'Einstellungen',
                                'einstellungen.json'), encoding='utf-8') as _f:
             _e114 = json.load(_f)
@@ -11826,9 +11826,9 @@ def main():
         # laesst sich nicht neu beschaffen, sobald die Logs rotiert sind —
         # stuende sie dort, waere die ganze aufgezeichnete Vergangenheit beim
         # Rechnerwechsel weg, und zwar lautlos.
-        from scbp import sicherung as _si125
+        from scbp import backup as _si125
         pruefe(not any(_sz125.DATEI in eintrag
-                       for eintrag in _si125.NACHLADBAR),
+                       for eintrag in _si125.RELOADABLE),
                'die Spielzeit gilt NICHT als nachladbar — sie kommt in die '
                'Sicherung')
     finally:
@@ -16496,6 +16496,7 @@ def main():
     _p4_190 = {
         'importieren': 'importer',
         'merkliste': 'watchlist',
+        'sicherung': 'backup',
     }
 
     def _reste190(quelle, name, alte):

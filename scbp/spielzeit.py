@@ -48,7 +48,7 @@ Summe, und die Zahl waere falsch, ohne dass es jemandem auffiele.
 
 ## ⚠ Die Sicherung nimmt diese Datei von allein mit
 
-`sicherung.py` sichert **alles** ausser dem, was ausdruecklich als nachladbar
+`backup.py` sichert **alles** ausser dem, was ausdruecklich als nachladbar
 gilt. `spielzeit.json` gehoert NICHT dort hinein: Sie laesst sich nicht neu
 beschaffen, sobald die Logs rotiert sind. Beim Rechnerwechsel kommt sie damit
 ohne Zutun mit.

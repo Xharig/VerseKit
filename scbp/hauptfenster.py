@@ -3222,26 +3222,26 @@ class Hauptfenster:
         dafuer sichert man ueberhaupt. Ein Knopf, der nur schreiben kann,
         loest das halbe Problem und laesst den Spieler beim anderen allein.
         """
-        from . import file_picker, sicherung
+        from . import file_picker, backup
         try:
             wahl = wahl_stellen(
                 self.root, t('sich_titel'),
                 t('sich_lead') + '\n\n' + t('sich_was'),
                 t('sich_schreiben'), t('sich_lesen'))
             if wahl == 'a':
-                self._sicherung_schreiben(file_picker, sicherung)
+                self._sicherung_schreiben(file_picker, backup)
             elif wahl == 'b':
-                self._sicherung_lesen(file_picker, sicherung)
+                self._sicherung_lesen(file_picker, backup)
         except Exception as ausnahme:
             fehler.merken('hauptfenster.sicherung', ausnahme)
 
     def _sicherung_schreiben(self, file_picker, sicherung):
         ziel = file_picker.save_file(
-            t('sich_schreiben'), suggestion=sicherung.vorschlag(),
+            t('sich_schreiben'), suggestion=sicherung.suggestion(),
             extension='.zip', patterns=(('ZIP', '*.zip'),))
         if not ziel:
             return
-        ok, meldung, anzahl = sicherung.schreiben(ziel, self.version)
+        ok, meldung, anzahl = sicherung.write(ziel, self.version)
         if ok:
             self.sagen(t('sich_fertig', anzahl, os.path.basename(meldung)))
         elif meldung == 'leer':
@@ -3258,7 +3258,7 @@ class Hauptfenster:
         voreingestellt auf Nein.
         """
         try:
-            aktiv_dabei, profile = sicherung.belegung_im_archiv(quelle)
+            aktiv_dabei, profile = sicherung.bindings_in_archive(quelle)
             if not (aktiv_dabei or profile):
                 return
             was = ', '.join(profile) if profile else t('sich_belegung_keine')
@@ -3267,8 +3267,8 @@ class Hauptfenster:
                 return
             mit_aktiver = aktiv_dabei and frage_stellen(
                 self.root, t('sich_titel'), t('sich_belegung_aktiv'))
-            ok, _meldung, geschrieben = sicherung.belegung_zurueckholen(
-                quelle, mit_aktiver=mit_aktiver)
+            ok, _meldung, geschrieben = sicherung.restore_bindings(
+                quelle, with_active=mit_aktiver)
             if ok:
                 self.sagen(t('sich_belegung_ok', geschrieben))
         except Exception as ausnahme:
@@ -3283,14 +3283,14 @@ class Hauptfenster:
             return
         # ⚠ Erst nachsehen, dann fragen, dann erst schreiben. Wer sich in der
         # Datei vergreift, soll das erfahren, BEVOR sein Bestand weg ist.
-        gueltig, anzahl, wann = sicherung.pruefen(quelle)
+        gueltig, anzahl, wann = sicherung.check(quelle)
         if not gueltig:
             self.sagen(t('sich_ungueltig'))
             return
         if not frage_stellen(self.root, t('sich_titel'),
                              t('sich_frage', wann or '?', anzahl)):
             return
-        ok, meldung, anzahl = sicherung.zurueckholen(quelle)
+        ok, meldung, anzahl = sicherung.restore(quelle)
         if not ok:
             self.sagen(t('sich_fehler', meldung))
             return
