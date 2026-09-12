@@ -32,7 +32,7 @@ weil sie mehr behauptete, als sie wusste.
 
 `crafting_blueprints-<build>.json` von scmdb.net, 4,1 MB, einmal je Spiel-Build.
 Dazu `crafting_items-<build>.json` (1,3 MB) für die Eigenschaften des Produkts —
-die lädt der Katalog ohnehin schon, siehe `katalog.py`.
+die lädt der Katalog ohnehin schon, siehe `catalog.py`.
 
 > **Nichts davon wird mitgeliefert.** scmdb steht unter CC BY-NC-ND 4.0; geholt
 > wird zur Laufzeit auf dem Rechner des Nutzers, von der Original-Adresse. Die
@@ -83,12 +83,12 @@ import re
 import time
 
 from . import fehler, pfade
-from .katalog import AUS, hole_datei, _norm
+from .catalog import OFF, fetch_file, _norm
 from .sprache import t
 
 # Die Datei heißt beim Anbieter so; <build> ist die Spielversion.
 # Nur der Dateiname — welche Adresse benutzt wird, entscheidet
-# `katalog.hole_datei()` (Spiegel zuerst, scmdb.net als Rückfall).
+# `catalog.fetch_file()` (Spiegel zuerst, scmdb.net als Rückfall).
 SOURCE = 'crafting_blueprints-%s.json'
 CACHE = 'crafting-blueprints.json'
 
@@ -179,7 +179,7 @@ def update(build, progress=None):
 
     Gibt (Erfolg, Meldung) zurück. **Sparsam**: Liegt derselbe Build schon da,
     wird gar nichts abgerufen — die Datei ist 4,1 MB groß."""
-    if AUS:
+    if OFF:
         return False, t('m_h_kein_netz')
     raw_stand = load()
     # ⚠ `dismantle` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
@@ -190,7 +190,7 @@ def update(build, progress=None):
         return True, t('m_h_aktuell') % len(raw_stand['blueprints'])
     if progress:
         progress(t('z_laedt') % ('Herstellung', 4.1))
-    raw = hole_datei(SOURCE % build)
+    raw = fetch_file(SOURCE % build)
     items = raw.get('blueprints') or []
     if not items:
         return False, t('m_h_leer')
@@ -557,7 +557,7 @@ def material_demand():
 # ⚠ **Immer über `_norm()` vergleichen, nie stumpf.** Gemessen am 29.08.2026 an
 # einem echten Bestand: 404 von 404 Bauplänen finden ihr Produkt — ohne
 # Normalisierung nur 402. Die beiden Ausreißer (`7MA "Lorica"`, `Oracle Helmet`)
-# sind die bekannte Anführungszeichen-Falle, die `katalog._norm()` behandelt.
+# sind die bekannte Anführungszeichen-Falle, die `catalog._norm()` behandelt.
 
 
 def owns(collection_keys, product_name):

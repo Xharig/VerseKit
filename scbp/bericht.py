@@ -207,11 +207,11 @@ def _bestandzeile():
     eigener Stand auseinanderlaufen.
     """
     from . import collection as bestand_modul
-    from . import katalog as katalog_modul
+    from . import catalog as katalog_modul
     daten = bestand_modul.load()
     gesamt = bestand_modul.count(daten)
     try:
-        bekannt = set(katalog_modul.laden().get('bauplaene') or {})
+        bekannt = set(katalog_modul.load().get('bauplaene') or {})
     except Exception:
         bekannt = set()
     if not bekannt:
@@ -237,9 +237,9 @@ def _unbekannte_bauplaene():
     vergleichen; damit ist die Angabe im Bericht wertlos.
     """
     from . import collection as bestand_modul
-    from . import katalog as katalog_modul
+    from . import catalog as katalog_modul
     try:
-        bekannt = set(katalog_modul.laden().get('bauplaene') or {})
+        bekannt = set(katalog_modul.load().get('bauplaene') or {})
     except Exception:
         return ''
     if not bekannt:
@@ -572,7 +572,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # Der Bericht soll ohnehin den **Ist-Zustand auf diesem Rechner** zeigen,
     # nicht den im Netz: Interessant ist, welchen Katalog der Nutzer hat.
     zeile(t('b_katalog'), _sicher(lambda: (__import__(
-        'scbp.katalog', fromlist=['laden']).laden().get('version') or None)))
+        'scbp.catalog', fromlist=['load']).load().get('version') or None)))
     zeile(t('b_historie'), _sicher(_patchhistorie))
 
     # ⚠ Die drei Werkstatt-Seiten (ab v3.3.0). Ohne sie liesse sich eine

@@ -273,15 +273,15 @@ def _craftable(kind, size):
     hängen später Ladenpreis und Rezept am Teil — der Name ist nur die
     Beschriftung.
     """
-    from . import crafting, katalog
+    from . import crafting, catalog
     result = {}
     try:
-        values = (katalog.laden() or {}).get('bauplaene') or {}
+        values = (catalog.load() or {}).get('bauplaene') or {}
         for entry in crafting.all_items():
             ident = entry.get('entity') or ''
             if not ident:
                 continue
-            traits = values.get(katalog._norm(entry.get('basis') or '')) or {}
+            traits = values.get(catalog._norm(entry.get('basis') or '')) or {}
             own_kind = traits.get('a') or ''
             own = traits.get('s')
             if not own_kind:

@@ -59,7 +59,7 @@ fremd. Ebenso die Kennungen, unter denen `uex.fetch()` meldet
 (`'schiffe'`, `'schiffe.kauf'`, `'schiffe.miete'`).
 """
 from . import uex
-from .katalog import AUS
+from .catalog import OFF
 
 SOURCE_SHIPS = 'https://api.uexcorp.uk/2.0/vehicles'
 SOURCE_BUY = 'https://api.uexcorp.uk/2.0/vehicles_purchases_prices'
@@ -273,7 +273,7 @@ def _collect_prices(raw, price_field):
 
 def update():
     """Die drei Listen holen, wenn sie fehlen oder älter als eine Woche sind."""
-    if AUS:
+    if OFF:
         return False
     if not _store.stale():
         return True

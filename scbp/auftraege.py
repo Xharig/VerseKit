@@ -66,7 +66,7 @@ läuft unverändert weiter.
 import os
 import re
 
-from . import fehler, katalog, pfade
+from . import fehler, catalog, pfade
 
 # Der sprachneutrale Schlüssel für „Auftrag angenommen" — in jeder Sprache derselbe.
 # Dazu das Teilen in der Gruppe: Wer einen Auftrag geteilt **bekommt**, soll
@@ -155,13 +155,13 @@ _missionen = None        # Zwischenspeicher: der Katalog ist rund 1 MB gross
 def missionen():
     """Die Missionen aus dem Katalog — einmal lesen, dann gemerkt.
 
-    `katalog.laden()` liest jedes Mal die ganze Datei. Bei einem Auftrag alle
+    `catalog.load()` liest jedes Mal die ganze Datei. Bei einem Auftrag alle
     paar Minuten faellt das nicht auf, aber es waere unnoetige Arbeit.
     """
     global _missionen
     if _missionen is None:
         try:
-            _missionen = katalog.laden().get('missionen') or {}
+            _missionen = catalog.load().get('missionen') or {}
         except Exception as ausnahme:
             fehler.merken('auftraege.katalog', ausnahme)
             _missionen = {}

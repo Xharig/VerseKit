@@ -35,7 +35,7 @@ import threading
 import time
 import tkinter as tk
 
-from . import bericht, collection as bestand_datei, fehler, katalog as katalog_modul
+from . import bericht, collection as bestand_datei, fehler, catalog as katalog_modul
 from . import pfade, zeichen
 from .sprache import t, pa_feld
 
@@ -1055,7 +1055,7 @@ def _fortschritt(fenster, rahmen):
     innen = _rollflaeche(rahmen)
     try:
         bestand = bestand_datei.load()
-        katalog = katalog_modul.laden()
+        katalog = katalog_modul.load()
     except Exception as ausnahme:
         fehler.merken('seiten.fortschritt', ausnahme)
         return
@@ -1103,9 +1103,9 @@ def _fortschritt(fenster, rahmen):
     # Je Bereich: Liste von (Kategorie, gesamt, meine)
     nach_bereich = {}
     for schluessel, e in bp.items():
-        roh = katalog_modul.art_kennung(e)
-        bereich = katalog_modul.obergruppe(roh)
-        art = katalog_modul.art_lesbar(roh) if roh else '—'
+        roh = katalog_modul.kind_id(e)
+        bereich = katalog_modul.top_group(roh)
+        art = katalog_modul.kind_readable(roh) if roh else '—'
         zaehler = nach_bereich.setdefault(bereich, {})
         gesamt, meine = zaehler.get(art, (0, 0))
         zaehler[art] = (gesamt + 1, meine + (1 if schluessel in habe else 0))
@@ -1125,7 +1125,7 @@ def _fortschritt(fenster, rahmen):
     rundbalken(innen, 9, meine_alle / float(gesamt_alle), BG, '#222b3b',
                ACCENT).pack(fill='x', pady=(6, 18))
 
-    for bereich in katalog_modul.OBERGRUPPEN:
+    for bereich in katalog_modul.TOP_GROUPS:
         zaehler = nach_bereich.get(bereich)
         if not zaehler:
             continue
@@ -1147,7 +1147,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
     weiterer Datenweg.
     """
     try:
-        lohnend = katalog_modul.lohnende_auftraege(katalog, habe)
+        lohnend = katalog_modul.worthwhile_contracts(katalog, habe)
     except Exception as ausnahme:
         fehler.merken('seiten.lohnende_auftraege', ausnahme)
         return
@@ -5464,7 +5464,7 @@ def _schalter(fenster, eltern, schluessel, standard):
 
 
 def _erkennung(fenster, rahmen):
-    from . import katalog as katalog_modul, pfade, phrasen
+    from . import catalog as katalog_modul, pfade, phrasen
     _ueberschrift(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _rollflaeche(rahmen)
 
@@ -5514,7 +5514,7 @@ def _erkennung(fenster, rahmen):
     def katalog_neu():
         fenster.sagen(t('s_er_kat_holt'))
         try:
-            katalog_modul.aktualisieren()
+            katalog_modul.update()
             fenster.sagen(t('s_er_kat_da') % _zahl_katalog())
         except Exception as ausnahme:
             fehler.merken('seiten.erkennung.katalog', ausnahme)
@@ -5816,7 +5816,7 @@ def _diagnose(fenster, rahmen):
 
 def _zahl_katalog():
     try:
-        return len((katalog_modul.laden().get('bauplaene') or {}))
+        return len((katalog_modul.load().get('bauplaene') or {}))
     except Exception:
         return '—'
 
@@ -5972,11 +5972,11 @@ def _herstellung(fenster, rahmen):
     # gleiche Art suchen." Beide Seiten fragen dasselbe Modul — wer hier eine
     # eigene Einteilung baute, hätte zwei Wahrheiten über dieselben Daten.
     from . import categories as kat_modul
-    from . import katalog as kat_daten
+    from . import catalog as kat_daten
 
     _kat_arten = {}
     try:
-        for _k, _v in (kat_daten.laden().get('bauplaene') or {}).items():
+        for _k, _v in (kat_daten.load().get('bauplaene') or {}).items():
             _kat_arten[herst_modul._key(_v.get('n') or '')] = _v.get('a') or ''
     except Exception as ausnahme:
         fehler.merken('seiten.crafting.katalog', ausnahme)
@@ -6011,7 +6011,7 @@ def _herstellung(fenster, rahmen):
         for o, n in zaehler.items():
             name = kat_modul.top_name(o)
             if not kat_modul.is_group(o):
-                name = kat_daten.art_lesbar(kat_modul.raw_kind(o)) or name
+                name = kat_daten.kind_readable(kat_modul.raw_kind(o)) or name
             raus.append((o, '%s (%d)' % (name, n), kat_modul.is_group(o), name))
         raus.sort(key=lambda p: (not p[2], p[3].lower()))
         return [(o, b) for o, b, _g, _n in raus]
@@ -6235,9 +6235,9 @@ def _hat_herkunft(name):
     if not name:
         return False
     try:
-        from . import katalog as kat
+        from . import catalog as kat
         gesucht = bestand_datei.norm(name)
-        for e in (kat.laden().get('bauplaene') or {}).values():
+        for e in (kat.load().get('bauplaene') or {}).values():
             if bestand_datei.norm(e.get('n') or '') == gesucht:
                 return bool(e.get('q'))
     except Exception:
@@ -6263,10 +6263,10 @@ def _zum_auftrag(fenster, titel):
         if not titel:
             return
         # Gegen den Katalog fragen, ohne die Seite anzufassen.
-        from . import katalog as kat_modul
+        from . import catalog as kat_modul
         bekannt = any(
             titel == (q.get('auftrag') or '').strip()
-            for eintrag in ((kat_modul.laden() or {}).get('bauplaene')
+            for eintrag in ((kat_modul.load() or {}).get('bauplaene')
                             or {}).values()
             for q in (eintrag.get('q') or []))
         if not bekannt:
@@ -8134,12 +8134,12 @@ def _bauplan_angaben(bauplan):
 
     ⚠ **Was fehlt, fällt weg — es wird nichts erfunden.** Bei Rüstung und
     FPS-Waffen stehen Größe und Güte zwar in den Rohdaten, bedeuten dort aber
-    nichts (siehe `katalog._werte`). Wo der Katalog keine Klasse führt, gibt es
+    nichts (siehe `catalog._values`). Wo der Katalog keine Klasse führt, gibt es
     auch keine; ein „–" an dieser Stelle wäre eine Angabe, die keine ist.
     """
-    from . import katalog as kat_daten
+    from . import catalog as kat_daten
     from .bestandsfenster import GRAD_BUCHSTABE
-    eintrag = (kat_daten.laden().get('bauplaene') or {}).get(
+    eintrag = (kat_daten.load().get('bauplaene') or {}).get(
         pfade.namensform(bauplan or ''))
     if not eintrag:
         return ''
@@ -8147,7 +8147,7 @@ def _bauplan_angaben(bauplan):
     # trägt jeder Helm brav eine Größe und eine Güte — sie bedeuten dort aber
     # nichts. Gemessen am 06.09.2026: Das „A03 Sniper Rifle" kam als „Größe 3 ·
     # Güte A" heraus, was frei erfunden ist. Dieselbe Falle steht in
-    # `reference_scmdb_craftdaten` und in `katalog._werte`: Werte nur zeigen,
+    # `reference_scmdb_craftdaten` und in `catalog._values`: Werte nur zeigen,
     # wo sie eine Bedeutung haben.
     art = eintrag.get('a') or ''
     if art.startswith('Char_') or art in ('WeaponPersonal', 'WeaponAttachment'):
@@ -8236,9 +8236,9 @@ def _passt_zeile(fenster, eltern, bauplan):
     Wer den ersten Fall wie den dritten behandelt, sagt jedem Neuling, sein
     frisch freigeschalteter Bauplan sei nutzlos.
     """
-    from . import erkul, fleet as meine, katalog as kat_daten
+    from . import erkul, fleet as meine, catalog as kat_daten
 
-    eintrag = (kat_daten.laden().get('bauplaene') or {}).get(
+    eintrag = (kat_daten.load().get('bauplaene') or {}).get(
         pfade.namensform(bauplan or ''))
     if not eintrag:
         return

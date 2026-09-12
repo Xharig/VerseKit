@@ -93,7 +93,7 @@ import urllib.error
 import urllib.request
 
 from . import fehler, pfade
-from .katalog import AUS, KENNUNG
+from .catalog import OFF, USER_AGENT
 
 # Die übliche Frist zwischen zwei Abrufen derselben Liste.
 DAY = 24 * 60 * 60
@@ -133,11 +133,11 @@ def fetch(url, label, timeout=TIMEOUT):
 
     `label` ist der Name fürs Fehlerprotokoll, etwa `'prices'`.
     """
-    if AUS:
+    if OFF:
         return None
     try:
         request = urllib.request.Request(
-            url, headers={'User-Agent': KENNUNG})
+            url, headers={'User-Agent': USER_AGENT})
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw_text = response.read().decode('utf-8')
         raw = json.loads(raw_text)

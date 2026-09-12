@@ -367,7 +367,7 @@ def catalog_name(name, known=None):
 
     ⚠⚠ **`known` durchreichen, wenn viele Namen hintereinander laufen.**
     Ohne den Parameter holt sich diese Funktion den Katalog selbst — und
-    `katalog.laden()` liest jedes Mal die ganze Datei (rund 1 MB). Bei einem
+    `catalog.load()` liest jedes Mal die ganze Datei (rund 1 MB). Bei einem
     Aufruf faellt das nicht auf, bei 406 hintereinander schon: Gemessen am
     04.09.2026 brauchte `align()` dadurch **3,6 Sekunden** bei jedem
     Programmstart — und berichtigte dabei null Eintraege. Wer 26 Bauplaene hat,
@@ -393,9 +393,9 @@ def catalog_name(name, known=None):
     if not name:
         return name
     if known is None:
-        from . import katalog
+        from . import catalog
         try:
-            known = katalog.laden().get('bauplaene') or {}
+            known = catalog.load().get('bauplaene') or {}
         except Exception:
             return name
     if not known or norm(name) in known:
@@ -449,9 +449,9 @@ def align(data):
     # ⚠ Den Katalog EINMAL holen und durchreichen — nicht je Bauplan neu.
     # Siehe `catalog_name`: Ohne das las diese Schleife die 1-MB-Katalogdatei
     # einmal pro Eintrag und brauchte bei 406 Bauplaenen 3,6 Sekunden.
-    from . import katalog
+    from . import catalog
     try:
-        known = katalog.laden().get('bauplaene') or {}
+        known = catalog.load().get('bauplaene') or {}
     except Exception:
         return 0
 

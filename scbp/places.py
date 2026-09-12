@@ -51,7 +51,7 @@ Prüfung — lieber ohne Vorschlagsliste weiterarbeiten als gar nichts eintragen
 können.
 """
 from . import uex
-from .katalog import AUS
+from .catalog import OFF
 
 SOURCE = 'https://api.uexcorp.uk/2.0/terminals'
 CACHE = 'orte.json'
@@ -89,7 +89,7 @@ def update():
     """Die Ortsliste holen, wenn sie fehlt oder älter als eine Woche ist."""
     # ⚠ Wie in `prices.py`: Die Abfrage bleibt hier, damit der Rückgabewert
     # bei abgeschaltetem Netz derselbe ist wie vor dem Umbau.
-    if AUS:
+    if OFF:
         return False
     if not _store.stale():
         return True

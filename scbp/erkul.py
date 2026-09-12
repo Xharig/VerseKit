@@ -93,7 +93,7 @@ import urllib.request
 import zlib
 
 from . import fehler, uex
-from .katalog import AUS, KENNUNG
+from .catalog import OFF, USER_AGENT
 
 # Der Zweig, aus dem gelesen wird. PTU führt eigene Daten, die den Spieler auf
 # LIVE nur verwirren würden.
@@ -194,12 +194,12 @@ def _fetch(path, where):
     Wirft **nie**: Ohne Netz läuft das Werkzeug weiter wie vorher, genau wie
     bei UEX. Der Grund steht dort ausführlich.
     """
-    if AUS:
+    if OFF:
         return None
     address = '%s/%s' % (BASE, path.lstrip('/'))
     try:
         request = urllib.request.Request(
-            address, headers={'User-Agent': KENNUNG})
+            address, headers={'User-Agent': USER_AGENT})
         with urllib.request.urlopen(request, timeout=uex.TIMEOUT) as reply:
             raw = reply.read()
         # ⚠ `-15` = raw deflate, ohne zlib-Kopf. Mit `zlib.decompress(roh)`
@@ -747,7 +747,7 @@ def add_missing(rows):
     **oder** „kein Netz", und beides ist in Ordnung: Was fehlt, wird beim
     nächsten Mal nachgeholt.
     """
-    if AUS or not rows:
+    if OFF or not rows:
         return 0
     cat = ship_catalog()
     if not isinstance(cat, dict):

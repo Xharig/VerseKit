@@ -1787,7 +1787,7 @@ MENGE_RE = re.compile(r'\((\d+)\s+[^)]*\)')
 def namensform(s):
     """Ein Bauplan-Name als Vergleichsschlüssel — die EINZIGE Stelle dafür.
 
-    ⚠ Diese Funktion stand dreimal im Programm: in `collection.py`, `katalog.py`
+    ⚠ Diese Funktion stand dreimal im Programm: in `collection.py`, `catalog.py`
     und `watchlist.py`. Der Kommentar in `collection.py` behauptete „identisch zum
     Hauptprogramm" — und war es nicht mehr. Wer eine davon anfasst, verschiebt
     stillschweigend, welche Baupläne noch zueinander finden.

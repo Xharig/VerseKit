@@ -44,7 +44,7 @@ import os
 import time
 
 from . import collection as bestand_datei
-from . import katalog as katalog_modul
+from . import catalog as katalog_modul
 
 
 def _iso(zeit_text):
@@ -153,7 +153,7 @@ def fuer_scmdb(bestand=None, version='', tags=None):
 def vollstaendig(bestand=None, katalog=None):
     """Alles, was das Werkzeug über den eigenen Bestand weiß."""
     daten = bestand if bestand is not None else bestand_datei.load()
-    kat = (katalog if katalog is not None else katalog_modul.laden())
+    kat = (katalog if katalog is not None else katalog_modul.load())
     kb = kat.get('bauplaene') or {}
     eintraege = []
     for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
@@ -162,7 +162,7 @@ def vollstaendig(bestand=None, katalog=None):
             'name': e.get('name'),
             'quelle': e.get('quelle'),
             'zeit': e.get('zeit'),
-            'art': katalog_modul.art_lesbar(k.get('a')) if k.get('a') else None,
+            'art': katalog_modul.kind_readable(k.get('a')) if k.get('a') else None,
             'klasse': k.get('c'),
             'size': k.get('s'),
             'grade': k.get('g'),

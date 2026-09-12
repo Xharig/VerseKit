@@ -65,7 +65,7 @@ import urllib.request
 from . import angaben as angaben_modul
 from . import asop as asop_modul
 from . import fehler, collection as bestand_datei
-from . import katalog as katalog_modul
+from . import catalog as katalog_modul
 from . import pfade
 from .sprache import t
 
@@ -659,9 +659,9 @@ def _titel_zusatz(eintrag, habe, worte):
 
 def scdl_holen(sprachkuerzel, fortschritt=None):
     """Die Vertragsdaten des SCDL-Teams holen und ablegen. (Erfolg, Anzahl)."""
-    from .katalog import AUS
+    from .catalog import OFF
     datei = SCDL_DATEI.get(sprachkuerzel)
-    if not datei or AUS:          # ⚠ SC_BP_NO_NET gilt auch hier
+    if not datei or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
         return False, 0
     try:
         if fortschritt:
@@ -1288,7 +1288,7 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
     if not ini_pfad or not os.path.isfile(ini_pfad):
         return False, 0, t('m_keine_ini')
 
-    katalog = katalog if katalog is not None else katalog_modul.laden()
+    katalog = katalog if katalog is not None else katalog_modul.load()
     missionen = katalog.get('missionen') or {}
     if not missionen and not nur_entfernen:
         return False, 0, t('m_keine_missionen')
@@ -1450,10 +1450,10 @@ def scdl_update_da(sprachkuerzel):
     Verglichen wird die Kennung aus `_meta.version` (z. B. „LIVE 20.08.2026").
     Geholt wird dafür die ganze Datei — sie hat keine eigene Versionsauskunft,
     und 2,4 MB einmal am Tag sind kein Grund, dafür etwas zu bauen."""
-    from .katalog import AUS
+    from .catalog import OFF
     alt = scdl_stand(sprachkuerzel)
     datei = SCDL_DATEI.get(sprachkuerzel)
-    if not datei or AUS:          # ⚠ SC_BP_NO_NET gilt auch hier
+    if not datei or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
         return False, None
     try:
         req = urllib.request.Request(SCDL_ROH % datei,

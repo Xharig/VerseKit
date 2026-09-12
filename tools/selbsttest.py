@@ -538,8 +538,8 @@ def main():
         # Arten aus dem Katalog müssen alle eine Übersetzung haben — nach einem
         # SC-Patch können neue dazukommen, und dann steht sonst „Char_Armor_…"
         # mitten in der Liste.
-        from scbp import katalog
-        kat = katalog.laden()
+        from scbp import catalog
+        kat = catalog.load()
         if kat['bauplaene']:
             roh = {e.get('a') for e in kat['bauplaene'].values()}
             offen = [r for r in roh if ('art_%s' % r) not in sprache.TEXTE]
@@ -630,14 +630,14 @@ def main():
         pruefe(not unbekannt,
                'die Beispieldaten benutzen echte Art-Kennungen')
         for art in unbekannt[:5]:
-            print('        · %s kennt katalog.ART_GRUPPE nicht' % art)
+            print('        · %s kennt catalog.KIND_GROUP nicht' % art)
 
         # ⚠ Die Namensform stand dreimal im Programm und lief auseinander.
         # Folge: Der SC Deutsch Launcher schreibt 7MA "Lorica" mit geraden
         # Anführungszeichen, scmdb mit einfachen — der Bauplan galt als
         # „fehlt", obwohl er im Bestand stand. Hier wird geprüft, dass alle
         # drei Module dieselbe Form liefern.
-        from scbp import collection as b_norm, katalog as k_norm
+        from scbp import collection as b_norm, catalog as k_norm
         from scbp import watchlist as m_norm, pfade as p_norm
         proben = ('7MA "Lorica"', "7MA 'Lorica'", 'CF-117 „Hazard" Repeater',
                   'Test\xa0Name')
@@ -1539,8 +1539,8 @@ def main():
             # Suchwörter und Datenzuordnung — werden nie angezeigt
             ('scbp/aktualisierung.py', 'geändert'),
             ('scbp/aktualisierung.py', 'hinzugefügt'),
-            ('scbp/katalog.py', 'CDS-Rüstung'),
-            ('scbp/katalog.py', 'geschütz'),
+            ('scbp/catalog.py', 'CDS-Rüstung'),
+            ('scbp/catalog.py', 'geschütz'),
             # Wortlaut des SPIELS, mit dem im Log GESUCHT wird — angezeigt
             # wird er nie. Rueckfall, falls die `global.ini` fehlt.
             ('scbp/auftraege.py', 'Auftrag zurückgezogen'),
@@ -1817,7 +1817,7 @@ def main():
         # sonst bis zum nächsten Patch, und der wäre obendrein stumm geblieben.
         print()
         print('19. Der Katalog holt fehlende Patch-Stempel nach')
-        from scbp import katalog as kat19, patchhistorie as ph19
+        from scbp import catalog as kat19, patchhistorie as ph19
 
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'stempel')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
@@ -1839,23 +1839,23 @@ def main():
 
         # a) Ein Katalog ohne jeden Stempel — wie bei jedem Bestandsnutzer.
         _katalog_schreiben('4.10.0-live.2')
-        pruefe(kat19.stempel_nachziehen() == 2,
+        pruefe(kat19.refresh_stamp() == 2,
                'beide fehlenden Stempel werden nachgetragen')
 
-        _d19 = kat19.laden()
+        _d19 = kat19.load()
         pruefe(_d19['bauplaene']['neuer bauplan'].get('seit') == '4.10.0-live.2',
                'der Neuzugang trägt die Version, die ihn gebracht hat')
-        pruefe(kat19.neue(_d19) == {'neuer bauplan'},
+        pruefe(kat19.new_ones(_d19) == {'neuer bauplan'},
                '„neu im Spiel" zeigt genau den einen Zugang')
 
         # b) Zweiter Start: nichts zu tun. Sonst schriebe das Werkzeug bei
         #    jedem Start eine Megabyte-Datei neu, ohne dass sich etwas ändert.
-        pruefe(kat19.stempel_nachziehen() == 0,
+        pruefe(kat19.refresh_stamp() == 0,
                'ein zweiter Start schreibt nicht noch einmal')
 
         # c) Ohne Katalog darf nichts passieren und nichts fliegen.
         os.remove(_kat19)
-        pruefe(kat19.stempel_nachziehen() == 0,
+        pruefe(kat19.refresh_stamp() == 0,
                'ohne Katalog bleibt es ruhig')
 
         # d) ⚠ Der teurere Fehler: Fehlt die Vergleichsgrundlage, hielte
@@ -1864,21 +1864,21 @@ def main():
         #    richtige Grundlage — was darin steht, war vorher im Spiel.
         _katalog_schreiben('4.10.0-live.2')
         pruefe(not ph19.gesehen(), 'Ausgangslage: keine Vergleichsgrundlage')
-        pruefe(kat19._vergleichsgrundlage() == {'alter bauplan', 'neuer bauplan'},
+        pruefe(kat19._baseline() == {'alter bauplan', 'neuer bauplan'},
                'ersatzweise gilt der vorhandene Katalog als Grundlage')
-        pruefe('quantum drive' not in kat19._vergleichsgrundlage(),
+        pruefe('quantum drive' not in kat19._baseline(),
                'was der Katalog nicht kennt, bleibt ein Zugang')
 
         # Ist die Grundlage vorhanden, gilt sie — und nicht der Katalog.
         ph19.gesehen_setzen({'alter bauplan'})
-        pruefe(kat19._vergleichsgrundlage() == {'alter bauplan'},
+        pruefe(kat19._baseline() == {'alter bauplan'},
                'die eigene Grundlage schlaegt den Katalog')
 
         # ⚠ Beim allerersten Katalogbau gibt es beides nicht — dann MUSS die
         # Grundlage leer bleiben, sonst staenden alle 738 als „neu" da.
         os.remove(kat19.pfade.app_datei('bauplaene-gesehen.json'))
         os.remove(_kat19)
-        pruefe(kat19._vergleichsgrundlage() == set(),
+        pruefe(kat19._baseline() == set(),
                'beim allerersten Bau bleibt sie leer')
 
         # e) ⚠ Und wird das Nachziehen ueberhaupt angestossen? Die Funktion
@@ -1887,13 +1887,13 @@ def main():
         #    weg ist. Deshalb hier ohne Netz: Die Versionsabfrage wird
         #    stillgelegt, gestempelt werden muss trotzdem.
         _katalog_schreiben('4.10.0-live.2')
-        _echte_version = kat19.aktuelle_version
-        kat19.aktuelle_version = lambda: ''
+        _echte_version = kat19.current_version
+        kat19.current_version = lambda: ''
         try:
-            kat19.aktualisieren()
+            kat19.update()
         finally:
-            kat19.aktuelle_version = _echte_version
-        pruefe(kat19.laden()['bauplaene']['neuer bauplan'].get('seit')
+            kat19.current_version = _echte_version
+        pruefe(kat19.load()['bauplaene']['neuer bauplan'].get('seit')
                == '4.10.0-live.2',
                'auch ohne Netz stempelt der Start nach')
 
@@ -2680,7 +2680,7 @@ def main():
 
         # Und der Weg, um den es eigentlich geht: Ein Bestand aus der
         # Launcher-Datei muss die Liste abhaken koennen.
-        from scbp import katalog as kat33
+        from scbp import catalog as kat33
         habe33 = {nfm33('XL-1 (Mil/2/A)'), nfm33('Siren (Mil/1/B)')}
         pruefe(kat33._norm('XL-1') in habe33,
                'ein Launcher-Bestand hakt die Bauplan-Liste ab')
@@ -3318,7 +3318,7 @@ def main():
     # Geprueft wird an einem winzigen Dump mit genau dieser Falle: zwei
     # Stufen, ein Schluessel, verschiedene Toepfe. Kommt nur eine Seite an,
     # ist der alte Fehler zurueck.
-    from scbp import katalog as k37
+    from scbp import catalog as k37
     dump37 = {
         'blueprintPools': {
             'p-klein': {'blueprints': [{'name': 'Kleiner Plan'}]},
@@ -3341,7 +3341,7 @@ def main():
              'minStanding': {'name': 'Anwaerter', 'minReputation': 1}},
         ],
     }
-    m37 = k37._missionen(dump37)
+    m37 = k37._missions(dump37)
     e37 = m37.get('geteilt_title') or {}
     pruefe(sorted(e37.get('bp') or []) == ['Grosser Plan', 'Kleiner Plan'],
            'beide Stufen kommen an, keine ueberschreibt die andere')
@@ -3356,7 +3356,7 @@ def main():
     gleich37 = json.loads(json.dumps(dump37))
     gleich37['contracts'][1]['minStanding'] = {'name': 'Neuling',
                                                'minReputation': 800}
-    pruefe(not (k37._missionen(gleich37).get('geteilt_title') or {}).get('ab'),
+    pruefe(not (k37._missions(gleich37).get('geteilt_title') or {}).get('ab'),
            'bei gleichem Rang steht die Angabe NICHT an jedem Plan')
     # Und der Katalog auf der Platte muss den Umbau ueberhaupt mitbekommen.
     pruefe(k37.FORMAT >= 2,
@@ -3658,7 +3658,7 @@ def main():
     # laeuft (gemessen: Fenster 10:44:02, Stempel 10:44:03 — eine Sekunde zu
     # spaet, und die Liste blieb bis zum naechsten Oeffnen falsch).
     import tempfile as _tf43
-    from scbp import katalog as kat43, patchhistorie as ph43
+    from scbp import catalog as kat43, patchhistorie as ph43
     _alt_home43 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf43.mkdtemp(prefix='sc-bp-patchfeld-')
     try:
@@ -3677,28 +3677,28 @@ def main():
                        'missionen': {}}, f)
 
         # a) Ungestempelt darf das Feld gar nichts versprechen.
-        pruefe(kat43.patches(kat43.laden()) == [],
+        pruefe(kat43.patches(kat43.load()) == [],
                'ohne Stempel bleibt das Feld leer, statt zu versprechen')
 
         # b) Nach dem Nachziehen: genau die zwei, die es im Katalog gibt.
-        pruefe(kat43.stempel_nachziehen() == 2,
+        pruefe(kat43.refresh_stamp() == 2,
                'zwei Stempel werden nachgetragen')
-        _p43 = kat43.patches(kat43.laden())
+        _p43 = kat43.patches(kat43.load())
         pruefe(_p43 == [('4.10.0-live.7', '4.10.0', 2)],
                'das Feld zaehlt den Katalog (2), nicht die Historie (3)')
 
         # c) Und die Liste kommt auf dieselbe Zahl — das ist der ganze Punkt.
-        _d43 = kat43.laden()
-        pruefe(len(kat43.neue(_d43)) == _p43[0][2],
+        _d43 = kat43.load()
+        pruefe(len(kat43.new_ones(_d43)) == _p43[0][2],
                'Feld und Liste kommen auf dieselbe Zahl')
 
         # d) ⚠ Und das Fenster muss stempeln, BEVOR es liest. Andersherum sieht
         #    es beim ersten Start nach einem Update den alten Stand.
         _q43 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
                     encoding='utf-8').read()
-        pruefe('katalog_modul.stempel_nachziehen()' in _q43
-               and (_q43.index('katalog_modul.stempel_nachziehen()')
-                    < _q43.index('self.katalog = katalog_modul.laden()')),
+        pruefe('katalog_modul.refresh_stamp()' in _q43
+               and (_q43.index('katalog_modul.refresh_stamp()')
+                    < _q43.index('self.katalog = katalog_modul.load()')),
                'das Fenster stempelt, BEVOR es den Katalog liest')
     finally:
         if _alt_home43 is None:
@@ -4473,7 +4473,7 @@ def main():
                 '\\n\\n# Region: \\n    - Stanton-System - Gefahr 4-6/10'
                 '\\n    - \\n    - Nyx-System - Gefahr 3-6/10'
                 '\\n\\n# Abgabe:\\n    - Port Olisar')
-    _habe52 = {katalog._norm('Aril Arms')}
+    _habe52 = {catalog._norm('Aril Arms')}
     _neu52, _meine52, _gesamt52 = _inj52._kaestchen_setzen(_block52, _habe52)
     pruefe('[  ] Atzkav Sniper Rifle' in _neu52,
            'ein Bauplan, den man nicht hat, bekommt ein leeres Kaestchen')
@@ -4793,18 +4793,18 @@ def main():
     # Fortschritt 382 von 738, und niemand konnte die Zahlen erklaeren.
     print()
     print('52k. Alte Katalog-Schluessel werden angeglichen')
-    from scbp import katalog as _ka52k
+    from scbp import catalog as _ka52k
     _alt52k = {'a03 sniper rifle magazine (15 cap)':
                {'n': 'A03 Sniper Rifle Magazine (15 cap)', 'a': 'WeaponAttachment'},
                'bolide': {'n': 'Bolide', 'a': 'PowerPlant'}}
-    _neu52k = _ka52k._schluessel_angleichen(_alt52k)
+    _neu52k = _ka52k._align_keys(_alt52k)
     pruefe('a03 sniper rifle magazine (15)' in _neu52k,
            'der Schluessel wird aus dem Namen neu gebildet')
     pruefe('bolide' in _neu52k, 'unauffaellige Schluessel bleiben, wie sie sind')
     pruefe(len(_neu52k) == len(_alt52k), 'kein Bauplan geht dabei verloren')
     # Passt schon alles, wird nichts angefasst — dasselbe Verzeichnis zurueck.
     _sauber52k = {'bolide': {'n': 'Bolide'}}
-    pruefe(_ka52k._schluessel_angleichen(_sauber52k) is _sauber52k,
+    pruefe(_ka52k._align_keys(_sauber52k) is _sauber52k,
            'ein frischer Katalog wird nicht unnoetig umgebaut')
 
     # 52m. Der Ziehgriff ueberlebt ein niedriges Overlay
@@ -6859,7 +6859,7 @@ def main():
     print()
     print('73. Die Zahlen in der Anleitung stimmen noch')
     import re as _re73
-    from scbp import katalog as _ka73
+    from scbp import catalog as _ka73
     from scbp import crafting as _he73
 
     # ⚠ Kurz aus dem Wegwerf-Ordner heraustreten. Der Selbsttest arbeitet in
@@ -6870,7 +6870,7 @@ def main():
         _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
         _he73.forget()
         try:
-            _bp73 = (_ka73.laden().get('bauplaene') or {})
+            _bp73 = (_ka73.load().get('bauplaene') or {})
         except Exception:
             _bp73 = {}
         _gezeigt73 = []
@@ -6943,7 +6943,10 @@ def main():
                     encoding='utf-8').read()
         if 'urlopen(' not in _q74:
             continue
-        if 'AUS' not in _q74 and 'SC_BP_NO_NET' not in _q74:
+        # ⚠ Waehrend der Sprachmigration (P4) heisst der Schalter je nach
+        # Stufe noch `AUS` oder schon `OFF` — beide zaehlen. Wortgrenzen,
+        # damit `OFF` nicht in `OFFEN` anschlaegt.
+        if not re.search(r'\b(AUS|OFF|SC_BP_NO_NET)\b', _q74):
             _offen74.append(_name74)
     pruefe(not _offen74,
            'jedes Modul mit Netzabruf kennt den Schalter (%s)'
@@ -7201,7 +7204,7 @@ def main():
     print()
     print('78. Angaben im Namen verderben den Abgleich nicht')
     from scbp import collection as _bd78
-    from scbp import katalog as _ka78
+    from scbp import catalog as _ka78
 
     _heim78 = os.environ.get('SC_BP_HOME')
     _ordner78 = os.path.join(basis, 'angleich78')
@@ -7225,7 +7228,7 @@ def main():
             json.dump(_kat78, _f78)
         _ka78.vergessen() if hasattr(_ka78, 'vergessen') else None
 
-        pruefe(bool(_ka78.laden().get('bauplaene')),
+        pruefe(bool(_ka78.load().get('bauplaene')),
                'der Testkatalog wird gelesen')
 
         # a) Beim Eintragen wird der Anhang abgeschnitten …
@@ -7448,7 +7451,7 @@ def main():
     # ist nichts in Gefahr.
     print()
     print('82. Ruf-Obergrenze wird nur bei echter Gefahr gemeldet')
-    from scbp import katalog as _ka82
+    from scbp import catalog as _ka82
 
     _kat82 = {'bauplaene': {}, 'missionen': {
         'nur_gedeckelt': {'bp': ['Testteil A'], 'rep_max': 15000,
@@ -7457,12 +7460,12 @@ def main():
                            'rep_max': 95250, 'rang_max': 'Elite Contractor'},
         'ohne_deckel': {'bp': ['Testteil B']},
     }}
-    _a82 = _ka82.ruf_deckel(_kat82, _ka82._norm('Testteil A'))
+    _a82 = _ka82.reward_cap(_kat82, _ka82._norm('Testteil A'))
     pruefe(_a82 == (95250, 'Elite Contractor'),
            'alle Wege gedeckelt -> der grosszuegigste zaehlt (%s)' % (_a82,))
-    pruefe(_ka82.ruf_deckel(_kat82, _ka82._norm('Testteil B')) is None,
+    pruefe(_ka82.reward_cap(_kat82, _ka82._norm('Testteil B')) is None,
            'ein Weg ohne Obergrenze genuegt -> keine Warnung')
-    pruefe(_ka82.ruf_deckel(_kat82, _ka82._norm('Gibt es nicht')) is None,
+    pruefe(_ka82.reward_cap(_kat82, _ka82._norm('Gibt es nicht')) is None,
            'ein Bauplan ohne Auftrag meldet nichts')
 
     # Und der Filter muss in der Liste angeboten werden.
@@ -7472,7 +7475,7 @@ def main():
            'die Bauplan-Liste bietet den Filter an')
     pruefe("if self.filter == 'deckel':" in _q82,
            'und filtert danach')
-    pruefe('drin or not katalog_modul.ruf_deckel' in _q82,
+    pruefe('drin or not katalog_modul.reward_cap' in _q82,
            'was man schon hat, taucht dabei nicht auf')
 
     # --- Die drei uebrigen Auskuenfte aus denselben Vertragsdaten ---
@@ -7487,11 +7490,11 @@ def main():
     _kat82['missionen']['auch_gedeckelt']['teilbar'] = True
     _kat82['missionen']['auch_gedeckelt']['cooldown'] = 240
 
-    _m82 = _ka82.auftragsmerkmale(_kat82, _ka82._norm('Testteil A'))
+    _m82 = _ka82.contract_traits(_kat82, _ka82._norm('Testteil A'))
     pruefe(_m82['teilbar'] is True and _m82['sperre'] == 15,
            'teilbar wenn alle Wege es sind, Sperre ist die kuerzeste (%s)'
            % _m82)
-    _m82 = _ka82.auftragsmerkmale(_kat82, _ka82._norm('Testteil C'))
+    _m82 = _ka82.contract_traits(_kat82, _ka82._norm('Testteil C'))
     pruefe(_m82['teilbar'] is False,
            'ein nicht teilbarer Weg genuegt fuer „nicht teilbar"')
 
@@ -7508,7 +7511,7 @@ def main():
             {'auftrag': 'Kleiner Auftrag', 'fraktion': 'Testfraktion',
              'uec': 500}]},
     }
-    _lohnt82 = _ka82.lohnende_auftraege(_kat82, {_ka82._norm('Habe ich')})
+    _lohnt82 = _ka82.worthwhile_contracts(_kat82, {_ka82._norm('Habe ich')})
     pruefe(len(_lohnt82) == 1 and _lohnt82[0][0] == 'Grosser Auftrag'
            and _lohnt82[0][2] == 2,
            'der Auftrag mit den meisten FEHLENDEN Bauplaenen steht oben (%s)'
@@ -7669,14 +7672,14 @@ def main():
     def _falle84(*_a, **_k):
         raise AssertionError('trotz Sperre ins Netz gegriffen')
 
-    _aus84, _echt84 = _vk84.AUS, _uex84.fetch
-    _vk84.AUS, _uex84.fetch = False, _falle84
+    _aus84, _echt84 = _vk84.OFF, _uex84.fetch
+    _vk84.OFF, _uex84.fetch = False, _falle84
     try:
         _ergebnis84 = _vk84.update(force=True)
     except AssertionError:
         _ergebnis84 = ('ins Netz gegriffen',)
     finally:
-        _vk84.AUS, _uex84.fetch = _aus84, _echt84
+        _vk84.OFF, _uex84.fetch = _aus84, _echt84
     pruefe(_ergebnis84 == (False, 'gesperrt'),
            'der Knopf laesst sich nicht zweimal druecken (%s)' % (_ergebnis84,))
 
@@ -9009,7 +9012,7 @@ def main():
     pruefe(_se97._hat_herkunft('') is False and _se97._hat_herkunft(None) is False,
            'und ein leerer Name auch nicht')
 
-    from scbp import katalog as _kat97
+    from scbp import catalog as _kat97
     from scbp import pfade as _pf97
 
     # ⚠⚠ **Notfalls eigene Daten hinlegen.** Der Selbsttest arbeitet in einem
@@ -9017,16 +9020,16 @@ def main():
     # zwei interessanten Pruefungen IMMER uebersprungen worden, auf jedem
     # frischen Rechner und im Bau-Lauf sowieso. Dieselbe Falle wie bei
     # Pruefung 67: Eine Pruefung, die nur bei ihrem Autor anschlaegt, ist keine.
-    if not (_kat97.laden().get('bauplaene') or {}):
+    if not (_kat97.load().get('bauplaene') or {}):
         with open(_pf97.app_datei(_kat97.CACHE), 'w', encoding='utf-8') as _f97:
             json.dump({'bauplaene': {
                 'mit-quelle': {'n': 'Pruefling Mit Quelle',
                                'q': [{'f': 'Foxwell', 'a': 'Testauftrag'}]},
                 'ohne-quelle': {'n': 'Pruefling Ohne Quelle'}}}, _f97)
 
-    _mit_q97 = [e.get('n') for e in (_kat97.laden().get('bauplaene') or {}).values()
+    _mit_q97 = [e.get('n') for e in (_kat97.load().get('bauplaene') or {}).values()
                 if e.get('q') and e.get('n')]
-    _ohne_q97 = [e.get('n') for e in (_kat97.laden().get('bauplaene') or {}).values()
+    _ohne_q97 = [e.get('n') for e in (_kat97.load().get('bauplaene') or {}).values()
                  if not e.get('q') and e.get('n')]
     if _mit_q97:
         pruefe(_se97._hat_herkunft(_mit_q97[0]),
@@ -9070,7 +9073,7 @@ def main():
     pruefe(hasattr(_bf97.Bestandsfenster, 'zum_auftrag'),
            'die Liste laesst sich auch auf einen ganzen Auftrag stellen')
     _auf97 = sorted({(q.get('auftrag') or '').strip()
-                     for e in (_kat97.laden().get('bauplaene') or {}).values()
+                     for e in (_kat97.load().get('bauplaene') or {}).values()
                      for q in (e.get('q') or [])
                      if (q.get('auftrag') or '').strip()})
     _liste97.auftrag = ''
@@ -10969,15 +10972,15 @@ def main():
     print()
     print('113b. Der Bestandsabgleich liest den Katalog nur einmal')
     _bes113b = importlib.import_module('scbp.collection')
-    _kat113b = importlib.import_module('scbp.katalog')
+    _kat113b = importlib.import_module('scbp.catalog')
     _zaehler113b = [0]
-    _echt113b = _kat113b.laden
+    _echt113b = _kat113b.load
 
     def _gezaehlt113b(*a, **k):
         _zaehler113b[0] += 1
         return _echt113b(*a, **k)
 
-    _kat113b.laden = _gezaehlt113b
+    _kat113b.load = _gezaehlt113b
     try:
         _daten113b = {'bauplaene': {
             'testhelm %d' % i: {'name': 'Testhelm %d' % i} for i in range(50)}}
@@ -10986,7 +10989,7 @@ def main():
                'bei 50 Bauplaenen wird der Katalog %dx geladen (erlaubt: 1)'
                % _zaehler113b[0])
     finally:
-        _kat113b.laden = _echt113b
+        _kat113b.load = _echt113b
 
     # ⚠⚠ Ein zweites Kuerzel-Muster: MrKraken StarStrings stellt Klasse, Groesse
     # und Grad VORAN statt sie anzuhaengen (`Ind/2/B Citadel`). Gemessen in der
@@ -14743,9 +14746,9 @@ def main():
     # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
     # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
     from scbp import cart as _wk156, shops as _ld156
-    from scbp import crafting as _he156, katalog as _kt156
+    from scbp import crafting as _he156, catalog as _kt156
 
-    _echt156 = (_ld156.catalog_items, _he156.all_items, _kt156.laden)
+    _echt156 = (_ld156.catalog_items, _he156.all_items, _kt156.load)
     try:
         # Zwei kaufbare Teile, davon eines auch herstellbar; dazu ein rein
         # herstellbares Militaer-Teil, das UEX gar nicht kennt.
@@ -14769,11 +14772,11 @@ def main():
         ]
         # Der Katalog kennt nur eines der drei — die anderen muessen ueber den
         # Rueckfall aus den Rezeptdaten kommen.
-        # ⚠ Der Schluessel muss durch `katalog._norm()` gegangen sein.
+        # ⚠ Der Schluessel muss durch `catalog._norm()` gegangen sein.
         # Beim ersten Anlauf stand hier `militaerqd` ohne Bindestrich — `_norm`
         # macht aber `militaer-qd` daraus, die Merkmale wurden nicht gefunden,
         # und die Pruefung meldete einen Fehler im Code, den es nicht gab.
-        _kt156.laden = lambda: {'bauplaene': {
+        _kt156.load = lambda: {'bauplaene': {
             'militaer-qd': {'n': 'Militaer-QD', 'a': 'QuantumDrive', 's': 2,
                             'g': 1, 'c': 'Military', 'm': 'Wei-Tek'}}}
 
@@ -14816,7 +14819,7 @@ def main():
         pruefe(_wk156.choices('GibtsNicht', 2) == [],
                'Gegenprobe: eine unbekannte Art liefert nichts')
     finally:
-        _ld156.catalog_items, _he156.all_items, _kt156.laden = _echt156
+        _ld156.catalog_items, _he156.all_items, _kt156.load = _echt156
 
     print()
     print('157. Die Farmliste zaehlt ueber ALLE Posten zusammen')

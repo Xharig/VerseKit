@@ -68,11 +68,11 @@ import re
 import os
 
 from . import fehler, pfade
-from .katalog import AUS, hole_datei
+from .catalog import OFF, fetch_file
 from .crafting import norm_material
 from .sprache import t
 
-# Nur der Dateiname — siehe `katalog.hole_datei()`.
+# Nur der Dateiname — siehe `catalog.fetch_file()`.
 SOURCE = 'mining_data-%s.json'
 CACHE = 'mining-data.json'
 FORMAT = 1
@@ -133,7 +133,7 @@ def current_build():
 
 def update(build, progress=None):
     """Die Bergbau-Daten holen, wenn sie fehlen oder veraltet sind."""
-    if AUS:
+    if OFF:
         return False, t('m_h_kein_netz')
     current = load()
     # ⚠ `refineries` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
@@ -145,7 +145,7 @@ def update(build, progress=None):
         return True, t('m_b_aktuell') % len(current['locations'])
     if progress:
         progress(t('z_laedt') % ('Bergbau', 0.4))
-    raw = hole_datei(SOURCE % build)
+    raw = fetch_file(SOURCE % build)
     locations_ = raw.get('locations') or []
     if not locations_:
         return False, t('m_b_leer')

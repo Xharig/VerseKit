@@ -93,7 +93,7 @@ Die Idee zu diesem Reiter stammt von **Morkhan (KRT)** (30.08.2026).
 import time
 
 from . import places, uex
-from .katalog import AUS
+from .catalog import OFF
 
 SOURCE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
@@ -224,7 +224,7 @@ def update(force=False, progress=None):
     | `'leer'` | Antwort kam an, enthielt aber keine Preise |
     | `'aus'` | Netzzugriff ist abgeschaltet (`SC_BP_NO_NET=1`) |
     """
-    if AUS:
+    if OFF:
         return False, 'aus'
     if force:
         if wait_time():

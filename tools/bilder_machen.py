@@ -655,7 +655,7 @@ def main():
 
     os.environ['SC_BP_HOME'] = datenstand_kopieren()
     # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
-    # seiner vier Schiffe, und dafür braucht er das Netz — `katalog.AUS` liest
+    # seiner vier Schiffe, und dafür braucht er das Netz — `catalog.OFF` liest
     # die Sperre beim Import und behält sie danach. Wer die Reihenfolge dreht,
     # bekommt viermal „keine Steckplatz-Daten" ins Bild, also ausgerechnet das
     # Gegenteil dessen, was die Seite zeigen soll.

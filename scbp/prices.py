@@ -68,7 +68,7 @@ Getrennt bleiben die beiden trotzdem, und zwar an der Bedeutung von
 was das Terminal **verlangt**, dort, was es **zahlt**.
 """
 from . import uex
-from .katalog import AUS
+from .catalog import OFF
 from .crafting import norm_material
 
 SOURCE = 'https://api.uexcorp.uk/2.0/commodities'
@@ -134,7 +134,7 @@ def update(progress=None):
     # käme bei abgeschaltetem Netz und frischer Ablage ein `True` zurück, wo
     # vorher ein `False` stand. Ein Umbau soll die Struktur ändern, nicht das
     # Verhalten — auch wenn den Wert hier gerade niemand auswertet.
-    if AUS:
+    if OFF:
         return False, ''
     if not _store.stale():
         return True, ''

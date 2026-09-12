@@ -42,7 +42,7 @@ from . import fehler
 from . import collection as bestand_datei
 from . import export as export_modul
 from . import notice
-from . import katalog as katalog_modul
+from . import catalog as katalog_modul
 from . import watchlist as merk
 from . import zeichen
 from . import pfade
@@ -330,7 +330,7 @@ class Bestandsfenster:
         self.bestand = bestand_datei.load()
         _ms_bestand = (time.perf_counter() - _t_bau) * 1000
         # ⚠ Erst stempeln, dann laden. Das Nachziehen hing bisher allein am
-        # Netz-Takt (`katalog.aktualisieren()`), und der läuft irgendwann nach
+        # Netz-Takt (`catalog.update()`), und der läuft irgendwann nach
         # dem Start in einem eigenen Faden. Am 28.08.2026 war das Fenster um
         # 10:44:02 gebaut und der Katalog um 10:44:03 fertig gestempelt — eine
         # Sekunde zu spät: Die Liste hielt den ungestempelten Stand fest und
@@ -341,10 +341,10 @@ class Bestandsfenster:
         # Fassung, die neue Historie mitbringt. Hier kostet es nichts: gelesen
         # wird ohnehin, geschrieben nur, wenn sich wirklich etwas ändert.
         _t_stempel = time.perf_counter()
-        katalog_modul.stempel_nachziehen()
+        katalog_modul.refresh_stamp()
         _ms_stempel = (time.perf_counter() - _t_stempel) * 1000
         _t_kat = time.perf_counter()
-        self.katalog = katalog_modul.laden()
+        self.katalog = katalog_modul.load()
         _ms_katalog = (time.perf_counter() - _t_kat) * 1000
         fehler.spur('Liste: Daten gelesen (Bestand %d ms, Stempel %d ms, '
                     'Katalog %d ms, %d Bauplaene)'
@@ -588,7 +588,7 @@ class Bestandsfenster:
         #
         # ⚠ Bewusst NICHT `fein['art']`: Das sind die Oberkategorien aus
         # `categories.classify`, der Fortschritt zählt dagegen nach
-        # `katalog.art_lesbar`. Zwei Zuordnungen, die sich ähneln, aber nicht
+        # `catalog.kind_readable`. Zwei Zuordnungen, die sich ähneln, aber nicht
         # deckungsgleich sind — genau daran ging am 29.08.2026 schon einmal
         # eine Liste leer aus, während im Feld eine Zahl stand. Wer aus dem
         # Fortschritt springt, muss exakt die Baupläne sehen, die dort gezählt
@@ -761,7 +761,7 @@ class Bestandsfenster:
             name = kat_modul.top_name(ober)
             if not kat_modul.is_group(ober):
                 # Einzelgänger: den gewohnten Katalognamen zeigen.
-                name = katalog_modul.art_lesbar(kat_modul.raw_kind(ober)) or name
+                name = katalog_modul.kind_readable(kat_modul.raw_kind(ober)) or name
             eintraege.append((ober, '%s (%d)' % (name, n),
                               kat_modul.is_group(ober), name))
         # Gruppen zuerst, danach die Einzelgänger — beides alphabetisch.
@@ -777,9 +777,9 @@ class Bestandsfenster:
         """
         arten = {}
         for e in (self.katalog.get('bauplaene') or {}).values():
-            roh = katalog_modul.art_kennung(e)
+            roh = katalog_modul.kind_id(e)
             if roh:
-                arten[roh] = katalog_modul.art_lesbar(roh)
+                arten[roh] = katalog_modul.kind_readable(roh)
         return sorted(arten.items(), key=lambda p: p[1].lower())
 
     def _anzahl_je(self, feld, kennung=None):
@@ -833,7 +833,7 @@ class Bestandsfenster:
             wert = e.get(feld)
             if wert in (None, ''):
                 continue
-            je_art.setdefault(katalog_modul.art_kennung(e), Counter())[str(wert)] += 1
+            je_art.setdefault(katalog_modul.kind_id(e), Counter())[str(wert)] += 1
         echt = set()
         for art, zaehler in je_art.items():
             gesamt = sum(zaehler.values())
@@ -845,7 +845,7 @@ class Bestandsfenster:
 
     def _feld_zaehlt(self, eintrag, feld):
         """Zählt dieser Bauplan für den Grad- bzw. Größenfilter überhaupt mit?"""
-        return katalog_modul.art_kennung(eintrag) in self._arten_mit_echtem(feld)
+        return katalog_modul.kind_id(eintrag) in self._arten_mit_echtem(feld)
 
     def _mit_zahl(self, eintraege, zaehler):
         """An jede Beschriftung die Anzahl hängen — „Military (38)"."""
@@ -1113,7 +1113,7 @@ class Bestandsfenster:
                 return False
         if self.katalog_art:
             # Gehört er zu der Kategorie, die im Fortschritt angeklickt wurde?
-            if (katalog_modul.art_lesbar(katalog_modul.art_kennung(e))
+            if (katalog_modul.kind_readable(katalog_modul.kind_id(e))
                     != self.katalog_art):
                 return False
         if self.fein.get('art') or self.fein.get('unterart'):
@@ -1365,8 +1365,8 @@ class Bestandsfenster:
         try:
             self.bestand = bestand_datei.load()
             if auch_katalog:
-                katalog_modul.stempel_nachziehen()
-                self.katalog = katalog_modul.laden()
+                katalog_modul.refresh_stamp()
+                self.katalog = katalog_modul.load()
             self._zeichnen()
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.neu_laden', ausnahme)
@@ -1424,7 +1424,7 @@ class Bestandsfenster:
         Liste ohne erkennbaren Grund ist keine Einstellung, sondern ein Rätsel."""
         if gruppe in self.bereiche_aus:
             self.bereiche_aus.discard(gruppe)
-        elif len(self.bereiche_aus) < len(katalog_modul.OBERGRUPPEN) - 1:
+        elif len(self.bereiche_aus) < len(katalog_modul.TOP_GROUPS) - 1:
             self.bereiche_aus.add(gruppe)
         self.alle_zeigen = False
         self._zeichnen(nach_oben=True)
@@ -1506,7 +1506,7 @@ class Bestandsfenster:
     def _auswahl(self):
         """Die Baupläne, die gerade angezeigt werden sollen.
 
-        Die Reihenfolge kommt aus `katalog.gruppen_geordnet()`: erst die
+        Die Reihenfolge kommt aus `catalog.groups_ordered()`: erst die
         Schiffsteile, dann die FPS-Waffen, dann Rüstung und Kleidung. Nach
         Alphabet stand vorher „Andockkragen" ganz oben und die Rüstung
         mittendrin."""
@@ -1515,9 +1515,9 @@ class Bestandsfenster:
         beobachtet = merk.names()
         # Was mit dem letzten Patch dazukam. Einmal je Durchlauf holen — die
         # Menge ist für alle Zeilen dieselbe.
-        neu_im_spiel = katalog_modul.neue(self.katalog)
+        neu_im_spiel = katalog_modul.new_ones(self.katalog)
         ergebnis = []
-        for og, art, liste in katalog_modul.gruppen_geordnet(self.katalog):
+        for og, art, liste in katalog_modul.groups_ordered(self.katalog):
             if og in self.bereiche_aus:
                 continue
             # ⚠ **Hier wird die Art NICHT mehr vorab geprüft.** Bis rc19 stand
@@ -1534,7 +1534,7 @@ class Bestandsfenster:
             # gemerkt, das kostet also kaum etwas.
             # Suchwörter der Art: „Kühler" soll die Cooler finden, obwohl die
             # Kategorie im Spiel englisch heißt.
-            wortliste = katalog_modul.suchworte(liste[0].get('a')) if liste else ()
+            wortliste = katalog_modul.keywords(liste[0].get('a')) if liste else ()
             art_passt = bool(text) and (text in art.lower()
                                         or any(text in w for w in wortliste))
             treffer = []
@@ -1561,7 +1561,7 @@ class Bestandsfenster:
                 # hat, kann nicht mehr verloren gehen; und ein einziger Weg
                 # ohne Deckel genuegt, damit nichts in Gefahr ist.
                 if self.filter == 'deckel':
-                    if drin or not katalog_modul.ruf_deckel(self.katalog, k):
+                    if drin or not katalog_modul.reward_cap(self.katalog, k):
                         continue
                 if text and not art_passt and not _passt(e, text):
                     continue
@@ -2200,7 +2200,7 @@ class Bestandsfenster:
                                                         padx=8)
 
         # Unterzeile: Art, Klasse, Besitz — und der Hinweis auf die Sortierung.
-        teile = [katalog_modul.art_lesbar(eintrag.get('a'))]
+        teile = [katalog_modul.kind_readable(eintrag.get('a'))]
         if eintrag.get('c'):
             teile.append(eintrag['c'])
         teile.append(t('hk_hast_du')
@@ -2217,7 +2217,7 @@ class Bestandsfenster:
         # Angaben, nicht irgendwo unten: Wer den Bauplan noch nicht hat, muss es
         # sehen, bevor er weiterliest.
         if not bestand_datei.contains(self.bestand, eintrag['n']):
-            deckel = katalog_modul.ruf_deckel(
+            deckel = katalog_modul.reward_cap(
                 self.katalog, katalog_modul._norm(eintrag['n']))
             if deckel:
                 grenze, rang = deckel
@@ -2229,7 +2229,7 @@ class Bestandsfenster:
 
         # Zwei Angaben, die ebenfalls in CIGs Vertragsdaten stehen und sonst
         # nirgends auftauchen: teilbar und Wiederholsperre.
-        merkmale = katalog_modul.auftragsmerkmale(
+        merkmale = katalog_modul.contract_traits(
             self.katalog, katalog_modul._norm(eintrag['n']))
         stichworte = []
         if merkmale['teilbar'] is True:
@@ -2431,7 +2431,7 @@ class Bestandsfenster:
         die Liste NICHT umgestellt. Ein Sprung auf eine leere Liste sieht aus,
         als sei das Werkzeug kaputt.
 
-        ⚠ Gefiltert wird ueber `katalog.art_lesbar` — **dieselbe** Zuordnung,
+        ⚠ Gefiltert wird ueber `catalog.kind_readable` — **dieselbe** Zuordnung,
         nach der der Fortschritt zaehlt. Wuerde hier der Feinfilter
         (`fein['art']`, aus `categories.classify`) benutzt, koennten Zahl und
         Liste auseinanderlaufen; genau diesen stummen Widerspruch gab es am
@@ -2441,7 +2441,7 @@ class Bestandsfenster:
         if not art:
             return False
         bekannt = any(
-            katalog_modul.art_lesbar(katalog_modul.art_kennung(e)) == art
+            katalog_modul.kind_readable(katalog_modul.kind_id(e)) == art
             for e in ((self.katalog or {}).get('bauplaene') or {}).values())
         if not bekannt:
             return False

@@ -291,7 +291,7 @@ def absturz_abhaken():
 def merken(stelle, ausnahme=None, hinweis=''):
     """Einen Fehler festhalten. Gibt True zurück, wenn es geklappt hat.
 
-    `stelle` ist der Ort im Programm ('katalog.aktualisieren') — er sagt beim
+    `stelle` ist der Ort im Programm ('catalog.update') — er sagt beim
     Lesen mehr als jede Fehlermeldung. `hinweis` ist Platz für eine Angabe, die
     aus der Ausnahme nicht hervorgeht (welche Datei, welche Adresse).
     """
@@ -354,8 +354,8 @@ def leeren():
 class gefangen(object):
     """Kontextmanager: Der Abschnitt darf scheitern, aber nicht schweigen.
 
-        with fehler.gefangen('katalog.aktualisieren'):
-            katalog.holen()
+        with fehler.gefangen('catalog.update'):
+            catalog.holen()
 
     Der Fehler wird festgehalten und **verschluckt** — der Aufrufer läuft
     weiter, so wie es die vorhandenen `except Exception`-Stellen tun. Wer den

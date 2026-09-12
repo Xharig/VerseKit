@@ -53,7 +53,7 @@ from . import pfade
 from .sprache import t
 
 MERKDATEI = 'uebersetzung.json'
-KENNUNG = 'SC-BP-Watcher (+https://github.com/Xharig/SC-BP-Watcher)'
+USER_AGENT = 'SC-BP-Watcher (+https://github.com/Xharig/SC-BP-Watcher)'
 ZEITLIMIT = 60
 
 # Die Fremdquellen. `sprache` ist der Ordnername, unter dem Star Citizen die
@@ -86,10 +86,10 @@ def _hole(url, roh=False):
     # die Preise, die Orte, den Serverstatus und die Update-Frage, aber nicht
     # für die Übersetzungsquellen und die Auftragsdaten. Ein Versprechen, das
     # nur zum Teil eingehalten wird, ist keines.
-    from .katalog import AUS
-    if AUS:
+    from .catalog import OFF
+    if OFF:
         raise OSError('Netzabrufe sind abgeschaltet (SC_BP_NO_NET)')
-    req = urllib.request.Request(url, headers={'User-Agent': KENNUNG})
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
     with urllib.request.urlopen(req, timeout=ZEITLIMIT) as r:
         daten = r.read()
     return daten if roh else json.loads(daten.decode('utf-8'))

@@ -4771,7 +4771,7 @@ TEXTE = {
     'art_WeaponMining':         ('Mining-Laser', 'Mining laser'),
     # ⚠ Heißt „Magazin", nicht „Waffenaufsatz": Alle 32 Einträge dieser Art
     # tragen den Subtyp „Magazine", etwas anderes steckt nicht darin. Die
-    # beiden Start-Magazine (Art `ammo`) werden über `katalog.ART_ZUSAMMEN`
+    # beiden Start-Magazine (Art `ammo`) werden über `catalog.KIND_MERGE`
     # hier eingereiht, damit alle 34 an einer Stelle stehen.
     'art_WeaponAttachment':     ('Magazin', 'Magazine'),
     'art_SalvageModifier':      ('Salvage-Modifikator', 'Salvage modifier'),

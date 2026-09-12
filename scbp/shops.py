@@ -72,7 +72,7 @@ benutzt und sein Alter angezeigt; liegt keiner da, bleibt die Spalte leer.
 import time
 
 from . import uex
-from .katalog import AUS
+from .catalog import OFF
 
 SOURCE = 'https://api.uexcorp.uk/2.0/items_prices?uuid=%s'
 SOURCE_BY_ID = 'https://api.uexcorp.uk/2.0/items_prices?id_item=%s'
@@ -501,7 +501,7 @@ def fetch(ident, name='', force=False):
     # ist kaputt, ob das Netz an ist oder nicht — und im Prüflauf ist es aus.
     # Stand die Prüfung `AUS` davor, lief die Wache dort nie und hätte
     # unbemerkt verrotten können.
-    if AUS:
+    if OFF:
         return False
     a = age(ident)
     if not force and a is not None and a < SHELF_LIFE:

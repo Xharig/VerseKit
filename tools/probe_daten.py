@@ -22,7 +22,7 @@ import sys
 #
 # ⚠ Die Art MUSS die echte Kennung aus dem scmdb-Katalog sein — `WeaponGun`,
 # nicht „Ship weapon". Hier standen ausgedachte Namen, und weil
-# `katalog.ART_GRUPPE` die nicht kennt, landete alles in „Sonstiges": Der
+# `catalog.KIND_GROUP` die nicht kennt, landete alles in „Sonstiges": Der
 # Filter „nur FPS-Waffen" zeigte nichts, „nur Schiffsteile" zeigte nichts, und
 # unter Sonstiges tauchte ein Netzteil namens XL-1 auf. Die Oberfläche war in
 # Ordnung — die Testdaten waren es nicht. `_arten_pruefen()` unten lässt das
@@ -75,14 +75,14 @@ def main():
     os.environ['SC_BP_HOME'] = ziel
 
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from scbp import katalog as katalog_modul
+    from scbp import catalog as katalog_modul
 
-    katalog = katalog_modul.laden()
+    katalog = katalog_modul.load()
     if not (katalog.get('bauplaene') or {}):
         print('Hole den Bauplan-Katalog von scmdb.net (etwa 12 MB, einmalig) …')
         try:
-            katalog_modul.aktualisieren(fortschritt=lambda x: print('  ' + str(x)))
-            katalog = katalog_modul.laden()
+            katalog_modul.update(progress=lambda x: print('  ' + str(x)))
+            katalog = katalog_modul.load()
         except Exception as ausnahme:
             print('Ging nicht (%s) — es bleibt bei den Beispielen.' % ausnahme)
 
@@ -118,7 +118,7 @@ def main():
 def arten_pruefen():
     """Stehen alle Beispiel-Arten wirklich im Katalog-Schema?
 
-    Liefert die Arten, die `katalog.ART_GRUPPE` nicht kennt und die deshalb
+    Liefert die Arten, die `catalog.KIND_GROUP` nicht kennt und die deshalb
     in „Sonstiges" verschwinden würden — bis auf `Pattern`, das absichtlich
     dort landet, damit auch dieser Bereich etwas zu zeigen hat.
 
@@ -127,11 +127,11 @@ def arten_pruefen():
     „nur FPS-Waffen" zeigte nichts, und gesucht wurde tagelang am Filter.
     """
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from scbp import katalog
+    from scbp import catalog
 
     absicht = ('Pattern',)
     return sorted({art for _, art, _, _, _, _, _ in BEISPIELE
-                   if art not in katalog.ART_GRUPPE and art not in absicht})
+                   if art not in catalog.KIND_GROUP and art not in absicht})
 
 
 def formate_pruefen():

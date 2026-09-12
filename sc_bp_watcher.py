@@ -50,7 +50,7 @@ from scbp import (
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
-                  katalog as katalog_modul, shops, logquelle, watchlist,
+                  catalog as katalog_modul, shops, logquelle, watchlist,
                   pfade, phrasen, ships, spielstand, titelleiste, sound,
                   uebersetzung, selling, hotkey as hotkey_modul)
 
@@ -846,7 +846,7 @@ class Watcher(threading.Thread):
     def _katalog_tick(self):
         """Holt den Bauplan-Katalog von scmdb, wenn er fehlt oder veraltet ist.
 
-        Bis v2.0.0-rc1 wurde `katalog.aktualisieren()` von **nirgendwo** aufgerufen:
+        Bis v2.0.0-rc1 wurde `catalog.update()` von **nirgendwo** aufgerufen:
         Der Katalog kam nie an, das Bauplan-Fenster blieb bei jedem Nutzer leer und
         der Hinweistext versprach etwas, das nicht geschah.
 
@@ -861,17 +861,17 @@ class Watcher(threading.Thread):
 
         def holen():
             try:
-                gab_es_schon = bool(katalog_modul.laden()['bauplaene'])
+                gab_es_schon = bool(katalog_modul.load()['bauplaene'])
                 if not gab_es_schon:
                     self.q.put(('status', sprache.Satz('katalog_holt')))
-                neu, anzahl, version = katalog_modul.aktualisieren()
+                neu, anzahl, version = katalog_modul.update()
                 if neu:
                     self.q.put(('status', sprache.Satz('katalog_geholt', anzahl, version)))
                 else:
                     # Nichts zu tun heißt: schon aktuell — oder kein Netz. Im
                     # zweiten Fall bald noch einmal versuchen statt sechs Stunden
                     # warten, sonst bleibt ein kurzer Aussetzer den ganzen Tag hängen.
-                    if not gab_es_schon and not katalog_modul.laden()['bauplaene']:
+                    if not gab_es_schon and not katalog_modul.load()['bauplaene']:
                         self.kat_next = time.time() + 300
             finally:
                 self.kat_laeuft = False
@@ -1436,7 +1436,7 @@ class Watcher(threading.Thread):
         try:
             if phrasen.bestaetigt():
                 return
-            namen = [e['n'] for e in katalog_modul.laden()['bauplaene'].values()]
+            namen = [e['n'] for e in katalog_modul.load()['bauplaene'].values()]
             if not namen:
                 return
             gefunden = phrasen.selbst_finden(namen, pfade.log_sicherungen())
@@ -1578,10 +1578,10 @@ class Watcher(threading.Thread):
         Hand gesetztes Häkchen oder der Launcher. Wer sie also selbst abgehakt
         hat, behält seinen Eintrag."""
         try:
-            std = katalog_modul.startbauplaene()
+            std = katalog_modul.starter_blueprints()
             if not std:
                 return
-            katalog = katalog_modul.laden()['bauplaene']
+            katalog = katalog_modul.load()['bauplaene']
             neu = 0
             for schluessel in std:
                 name = (katalog.get(schluessel) or {}).get('n')
@@ -1605,11 +1605,11 @@ class Watcher(threading.Thread):
 
         Nur beim ersten Mal. Ist der Katalog da, hält ihn `_katalog_tick()`
         frisch, ohne den Start aufzuhalten."""
-        if SCMDB_AUS or katalog_modul.laden()['bauplaene']:
+        if SCMDB_AUS or katalog_modul.load()['bauplaene']:
             return
         self.q.put(('status', sprache.Satz('katalog_holt')))
         try:
-            neu, anzahl, version = katalog_modul.aktualisieren()
+            neu, anzahl, version = katalog_modul.update()
             if neu:
                 self.q.put(('status', sprache.Satz('katalog_geholt', anzahl, version)))
                 self.kat_next = time.time() + SCMDB_POLL_SEC

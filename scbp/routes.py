@@ -71,7 +71,7 @@ deshalb an jede Route, nicht in eine Fußnote.
 import time
 
 from . import uex
-from .katalog import AUS
+from .catalog import OFF
 
 SOURCE = 'https://api.uexcorp.uk/2.0/commodities_routes?id_terminal_origin=%s'
 CACHE = 'routen.json'
@@ -139,7 +139,7 @@ def trips(start):
 
 def fetch(start, force=False):
     """Die Fahrten ab einem Terminal nachschlagen."""
-    if AUS or not start:
+    if OFF or not start:
         return False
     a = age(start)
     if not force and a is not None and a < SHELF_LIFE:
@@ -385,7 +385,7 @@ def fetch_all(progress=None, cancel=None):
     `progress(fertig, gesamt)` wird nach jedem Posten gerufen, `cancel()`
     kann den Lauf beenden.
     """
-    if AUS:
+    if OFF:
         return 0
     posts = trade_posts()
     done_count = 0
