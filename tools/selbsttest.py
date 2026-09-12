@@ -16740,6 +16740,62 @@ def main():
            'kein Verweis mehr auf einen alten Modulnamen (%d Dateien)'
            % len(_dateien190))
 
+    # ⭐⭐ Der FUENFTE Weg — und der einzige, den die vier oben nicht sehen:
+    # ein blanker Name in einer Liste, der erst zur Laufzeit zu `'scbp.' + name`
+    # zusammengesetzt wird. Genau so blieben `'bergbau'` und `'schiffe'` in
+    # `tools/abnahme.py` monatelang tot stehen — und am 12.09.2026 `'orte'` und
+    # `'routen'` gleich noch einmal, obwohl ein Kommentar direkt darueber davor
+    # warnt. Eine Textsuche taugt hier nicht: `'orte'` ist anderswo ein voellig
+    # gueltiger Woerterbuch-Schluessel.
+    #
+    # Deshalb prueft diese Wache die WIRKUNG statt der Schreibweise: Sie holt
+    # sich die Namensliste aus dem Syntaxbaum und importiert jeden Eintrag.
+    # Damit faellt jede kuenftige Umbenennung auf, in welcher Schreibweise auch
+    # immer — und die Wache veraltet nicht, weil sie keine Namen kennt.
+    def _dynamische190(quelle, name):
+        namen = []
+        for _k in _ast190.walk(_ast190.parse(quelle, name)):
+            if not isinstance(_k, _ast190.For):
+                continue
+            if not isinstance(_k.iter, (_ast190.Tuple, _ast190.List)):
+                continue
+            # Baut der Schleifenkoerper einen Modulnamen aus 'scbp.' + x?
+            _baut = any(
+                isinstance(_b, _ast190.BinOp)
+                and isinstance(_b.op, _ast190.Add)
+                and isinstance(_b.left, _ast190.Constant)
+                and _b.left.value == 'scbp.'
+                for _b in _ast190.walk(_k))
+            if not _baut:
+                continue
+            for _e in _k.iter.elts:
+                if isinstance(_e, _ast190.Constant) and isinstance(_e.value,
+                                                                   str):
+                    namen.append((name, _k.lineno, _e.value))
+        return namen
+
+    # Gegenprobe ZUERST: An einem erfundenen Beispiel muss die Suche greifen.
+    _gd190 = _dynamische190("for m in ('alpha', 'beta'):\n"
+                            "    __import__('scbp.' + m)\n", 'gegenprobe')
+    pruefe([_x[2] for _x in _gd190] == ['alpha', 'beta'],
+           'die Suche findet dynamisch zusammengesetzte Modulnamen (%r)'
+           % ([_x[2] for _x in _gd190],))
+
+    _dyn190 = []
+    for _p190 in _dateien190:
+        _dyn190 += _dynamische190(open(_p190, encoding='utf-8-sig').read(),
+                                  os.path.basename(_p190))
+    _tot190 = []
+    for _datei190, _zeile190, _name190 in _dyn190:
+        try:
+            _il190.import_module('scbp.' + _name190)
+        except ImportError:
+            _tot190.append('%s:%d %r' % (_datei190, _zeile190, _name190))
+    pruefe(len(_dyn190) >= 5 and not _tot190,
+           'jeder dynamisch gebaute Modulname zeigt auf ein Modul '
+           '(%d geprueft, tot: %s)'
+           % (len(_dyn190), ', '.join(_tot190) or 'keiner'))
+
     for _alt190, _neu190 in _p4_190.items():
         pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
                                                _alt190 + '.py')),

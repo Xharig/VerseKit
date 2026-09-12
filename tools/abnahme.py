@@ -712,8 +712,8 @@ def datenabruf_pruefen():
     # Deshalb ist ein Fehlschlag hier jetzt ein **Befund**, kein Überspringen.
     ablagen = []
     fehlende = []
-    for modulname in ('shops', 'ships', 'erkul', 'orte', 'prices',
-                      'mining', 'routen'):
+    for modulname in ('shops', 'ships', 'erkul', 'places', 'prices',
+                      'mining', 'routes'):
         try:
             modul = __import__('scbp.' + modulname, fromlist=[modulname])
         except Exception as ausnahme:
