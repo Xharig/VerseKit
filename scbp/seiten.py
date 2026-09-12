@@ -3660,17 +3660,29 @@ def _joysticks(fenster, rahmen):
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
             # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
             #
-            # ⚠ `vergessen()` sieht nach einem Kostenpunkt aus — ist aber
-            # keiner. Am 12.09.2026 versuchsweise entfernt und **gemessen**:
-            # Der Rückruf brauchte weiter 894 statt 886 ms, also unverändert.
-            # Ein Profillauf nennt den echten Posten: `liste_zeichnen` kostet
-            # 1,89 von 2,05 Sekunden (92 %), weil die gesamte Belegungsliste
-            # bei jedem Anzeigen neu gezeichnet wird.
+            # ⚠⚠ `vergessen()` NUR beim echten Sprachwechsel — und das ist
+            # eine Korrektur meiner eigenen Messung vom selben Tag.
             #
-            # Deshalb steht der Aufruf wieder da: Eine Verhaltensänderung ohne
-            # gemessenen Nutzen ist ein Risiko ohne Gegenwert.
-            joysticks.vergessen()
-            daten['namen'] = joysticks.klarnamen(aktuelle())
+            # Erst hielt ich es für den Kostenpunkt, entfernte es und maß
+            # 894 statt 886 ms: scheinbar wirkungslos. Diese **Einzelmessung
+            # war zu verrauscht**. Ein Profillauf über fünf Seitenwechsel
+            # zeigt: `klarnamen()` kostet **96 ms je Anzeige**, davon 44 ms in
+            # `_ini_texte` — weil `vergessen()` den Merker jedes Mal leert und
+            # die `global.ini` neu gelesen werden muss.
+            #
+            # ⭐ Die Lehre: Eine Differenz von 8 ms aus **einer** Messung ist
+            # kein Beleg für „wirkungslos". Wer ausschließen will, misst
+            # wiederholt oder profiliert.
+            #
+            # Der Merker ist nach Sprache geschlüsselt, ein Wechsel baut also
+            # ohnehin neu. `vergessen()` braucht es nur, damit ein geänderter
+            # **Spielordner** durchschlägt — und der ändert sich nicht beim
+            # Seitenwechsel.
+            _spr_jetzt = aktuelle()
+            if zuletzt.get('sprache') != _spr_jetzt:
+                joysticks.vergessen()
+                zuletzt['sprache'] = _spr_jetzt
+            daten['namen'] = joysticks.klarnamen(_spr_jetzt)
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_namen', ausnahme)
             daten['namen'] = {}

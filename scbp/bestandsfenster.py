@@ -1368,7 +1368,33 @@ class Bestandsfenster:
             if auch_katalog:
                 katalog_modul.refresh_stamp()
                 self.katalog = katalog_modul.load()
-            self._zeichnen()
+            # ⭐⭐ **Nur neu zeichnen, wenn sich die Daten geändert haben.**
+            #
+            # `_zeichnen()` baut bis zu 200 Zeilen aus je mehreren Bauteilen
+            # neu auf. Gemessen am 12.09.2026 im Profillauf: **177 ms bei
+            # jedem Anzeigen der Seite**, obwohl man nur kurz woanders war.
+            # Teil dessen, was als „wirkt lahm" ankam.
+            #
+            # ⚠⚠ Der Abdruck umfasst **Daten UND Anzeigezustand**. Die Daten
+            # allein reichen nicht: Ein Filter, eine Suche oder ein
+            # angeklickter Auftrag ändert das Bild, ohne die Daten anzufassen.
+            # Genau diese Lücke hat der Prüfer am selben Tag zweimal auf
+            # anderen Seiten gefunden — hier ist sie von vornherein zu.
+            #
+            # Sind Daten und Zustand gleich, wäre auch das Bild gleich. Ein
+            # Irrtum fällt in die harmlose Richtung: schlimmstenfalls ein
+            # überflüssiger Neuaufbau, nie ein veralteter Haken.
+            #
+            # Die Zusicherung aus dem Text oben bleibt damit erhalten: Ein
+            # frisch gefallener Bauplan ändert `bestand.json`, also den
+            # Abdruck, also wird gezeichnet.
+            stand = (repr(self.bestand), repr(self.katalog),
+                     self.filter, self.suche.get(), repr(self.fein),
+                     self.auftrag, getattr(self, 'katalog_art', ''),
+                     self.alle_zeigen, repr(sorted(self.offen)))
+            if stand != getattr(self, '_letzter_stand', None):
+                self._letzter_stand = stand
+                self._zeichnen()
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.neu_laden', ausnahme)
 
