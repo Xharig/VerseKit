@@ -19,7 +19,7 @@
 """
 Verkaufspreise je Terminal — „wo werde ich das los?"
 
-Das Gegenstück zu `preise.py`. Dort geht es um **kaufen oder abbauen**, hier um
+Das Gegenstück zu `prices.py`. Dort geht es um **kaufen oder abbauen**, hier um
 die Frage danach: Der Laderaum ist voll, wo bringt die Ladung am meisten?
 
 ## Warum das hier steht und nicht auf einer Webseite
@@ -50,7 +50,7 @@ Die Ortsnamen kommen aus `orte.py`, das dieselbe Terminal-Liste ohnehin holt —
 so wird die fremde Schnittstelle nicht zweimal für dasselbe angefasst.
 
 ⚠ **Die Daten werden NICHT mitgeliefert**, sondern auf dem Rechner des Nutzers
-geholt — dieselbe Regel wie bei scmdb, `preise.py` und `orte.py`. Und
+geholt — dieselbe Regel wie bei scmdb, `prices.py` und `orte.py`. Und
 **höchstens einmal am Tag**.
 
 ⚠ **Ohne Netz passiert nichts Schlimmes.** Liegt eine alte Ablage da, wird sie
@@ -131,7 +131,7 @@ FUELLT_SICH = 5
 KEIN_BEDARF = 6
 
 # Ein Tag. Preise ändern sich im Spiel laufend, aber nicht im Minutentakt —
-# dieselbe Überlegung wie in `preise.py`.
+# dieselbe Überlegung wie in `prices.py`.
 HALTBAR = uex.DAY
 
 # Ab wann eine Meldung als alt gilt und in der Anzeige abgesetzt wird.
@@ -164,7 +164,7 @@ _letzter_fehlversuch = {'zeit': 0.0}
 # bis morgen warten müssen — der tägliche Abruf allein reicht dafür nicht.
 # Ohne Sperre wäre der Knopf aber eine Einladung, im Minutentakt zu drücken,
 # und ein Werkzeug, das eine fremde Schnittstelle so anfasst, ist ein
-# schlechter Gast (dieselbe Überlegung wie in `preise.py`).
+# schlechter Gast (dieselbe Überlegung wie in `prices.py`).
 #
 # Eine Stunde ist der Kompromiss: oft genug für einen Handelsflug, selten genug,
 # dass 100 Nutzer zusammen keine Last erzeugen.
