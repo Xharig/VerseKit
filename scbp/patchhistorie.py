@@ -140,7 +140,7 @@ def _schreib(ziel, patches):
     daten = {
         'hinweis': ('Welcher Patch welche Baupläne gebracht hat. Nur die '
                     'Zugänge je Spielversion, nie der ganze Katalog.'),
-        'quelle': 'eigene Beobachtung des SC BP Watcher',
+        'quelle': 'eigene Beobachtung von VerseKit',
         'weitergabe': True,
         'patches': patches,
     }

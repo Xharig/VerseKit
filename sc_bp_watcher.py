@@ -4235,7 +4235,7 @@ class Overlay:
                 # Der Rückgabewert wurde bisher weggeworfen. Ein „nein" ist
                 # aber genau die Auskunft, die in den Bericht gehört.
                 fehler.merken('overlay.ablagesymbol',
-                              OSError('TrayIcon.start() meldet, dass es'
+                              OSError('TrayIcon.start() meldet, dass es '
                                       'nicht angelegt werden konnte'))
         except Exception as ausnahme:
             fehler.spur('Ablagesymbol: Fehler beim Anlegen')

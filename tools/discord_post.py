@@ -200,12 +200,12 @@ def bauen(tag, sprache='de'):
     vorspann = vorspann_aus(block)
     if vorspann:
         if sprache == 'de':
-            return ('## SC BP Watcher %s ist da\n\n%s\n\n'
+            return ('## VerseKit %s ist da\n\n%s\n\n'
                     '**Herunterladen:** <%s>\n'
                     'Alle Änderungen im Einzelnen: '
                     '<%s/blob/main/CHANGELOG.md>'
                     % (tag, vorspann, holen, REPO))
-        return ('## SC BP Watcher %s is out\n\n%s\n\n'
+        return ('## VerseKit %s is out\n\n%s\n\n'
                 '**Download:** <%s>\n'
                 'Every change in detail: <%s/blob/main/CHANGELOG.en.md>'
                 % (tag, vorspann, holen, REPO))
@@ -218,14 +218,14 @@ def bauen(tag, sprache='de'):
     nur_behoben = bool(re.search(r'(?m)^### (Behoben|Fixed)\s*$', block)) and \
         not re.search(r'(?m)^### (Neu|Added|Geändert|Changed)\s*$', block)
     if sprache == 'de':
-        kopf = '## SC BP Watcher %s ist da' % tag
+        kopf = '## VerseKit %s ist da' % tag
         rest = (('Behoben in dieser Fassung:' if nur_behoben
                  else 'Was diese Version bringt:') if punkte else '')
         fuss = ('\n**Herunterladen:** <%s>\n'
                 'Fehler gefunden oder eine Frage? Ab damit in die passenden Kanäle — '
                 'hier bleibt es bei den Versionsmeldungen.' % holen)
     else:
-        kopf = '## SC BP Watcher %s is out' % tag
+        kopf = '## VerseKit %s is out' % tag
         rest = (('Fixed in this build:' if nur_behoben
                  else 'What this version brings:') if punkte else '')
         fuss = ('\n**Download:** <%s>\n'

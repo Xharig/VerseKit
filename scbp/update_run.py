@@ -105,7 +105,7 @@ LAUF_HOECHSTENS = 24 * 3600
 # Oberflächentext, und eine Ausnahme für die ganze Datei würde dort künftig
 # echte Funde verdecken.
 HELFER_VORLAGE = r'''@echo off
-rem SC BP Watcher - update helper. Rewritten on every update.
+rem VerseKit - update helper. Rewritten on every update.
 rem All paths come from the environment (SCBP_*); none is stored in this file.
 setlocal DisableDelayedExpansion
 call :log Helper started

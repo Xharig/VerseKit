@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Erzeugt das App-Icon für SC BP Watcher (Xharig-Stil: dunkel + Xharig-Grün).
+Erzeugt das App-Icon für VerseKit (Xharig-Stil: dunkel + Xharig-Grün).
 Motiv: Scope/Watcher-Ring mit grünem „neu"-Punkt.
 
 Ausgabe:

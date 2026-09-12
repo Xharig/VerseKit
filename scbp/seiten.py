@@ -5136,8 +5136,8 @@ def _danke(fenster, rahmen):
     rechts.pack(side='left', fill='x', expand=True)
     tk.Label(rechts, text='Xharig', bg=FLAECHE, fg=ACCENT, font=fenster.f_titel,
              anchor='w').pack(fill='x')
-    tk.Label(rechts, text='SC BP Watcher %s · GPL-3.0-only'
-             % (fenster.version or ''), bg=FLAECHE, fg=SUB,
+    tk.Label(rechts, text='%s %s · GPL-3.0-only'
+             % (t('hf_titel'), fenster.version or ''), bg=FLAECHE, fg=SUB,
              font=fenster.f_klein, anchor='w').pack(fill='x')
     _adresse(fenster, rechts, 'github.com/Xharig/SC-BP-Watcher',
              'https://github.com/Xharig/SC-BP-Watcher')

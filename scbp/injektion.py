@@ -249,7 +249,7 @@ TEXTE = {
         'ab_rang':   'erst ab',
         'leere_stufen': ('Achtung: %d der %d Stufen dieses Auftrags geben '
                          'gar keine Baupläne.'),
-        'quelle':    'Angaben von scmdb.net · eingefügt vom SC BP Watcher',
+        'quelle':    'Angaben von scmdb.net · eingefügt von VerseKit',
         'trenner':   '.',
     },
     'en': {
@@ -271,7 +271,7 @@ TEXTE = {
         'ab_rang':   'needs',
         'leere_stufen': ('Note: %d of the %d tiers of this contract give no '
                          'blueprints at all.'),
-        'quelle':    'Data from scmdb.net · added by SC BP Watcher',
+        'quelle':    'Data from scmdb.net · added by VerseKit',
         'trenner':   ',',
     },
 }

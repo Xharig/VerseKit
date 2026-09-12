@@ -81,7 +81,7 @@ class Assistent:
         self.gedeutet = None
 
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
-        self.root.title(fenstertitel('SC BP Watcher — ' + t('assistent')))
+        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('assistent')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
@@ -170,7 +170,7 @@ class Assistent:
     def _sprache(self, wert):
         pfade.einstellung_setzen('sprache', wert)
         sprache.setzen(wert)
-        self.root.title(fenstertitel('SC BP Watcher — ' + t('assistent')))
+        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('assistent')))
         self._zeichnen()
 
     # -------------------------------------------------- 2. Star Citizen

@@ -139,7 +139,7 @@ def bauen(tag):
                         'was drin ist, sagt die [Release-Seite](%s).' % link)
 
     einbettung = {
-        'title': ('SC BP Watcher %s' % tag.lstrip('v'))[:MAX_TITEL],
+        'title': ('VerseKit %s' % tag.lstrip('v'))[:MAX_TITEL],
         'url': link,
         'description': beschreibung,
         'color': GOLD if vorab else GRUEN,

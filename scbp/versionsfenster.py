@@ -96,7 +96,7 @@ class Versionsfenster:
         self.neue = updater.nachsehen(eigene_version)
 
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
-        self.root.title(fenstertitel('SC BP Watcher — ' + t('was_ist_neu')))
+        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('was_ist_neu')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der

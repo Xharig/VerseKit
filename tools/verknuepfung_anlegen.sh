@@ -19,6 +19,12 @@ WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # AppImage, damit im Menü nicht zwei gleich heißende Einträge stehen.
 NAME="VerseKit (Quellcode)"
 
+# ⚠⚠ Der Name der ALTEN Fassung. Unter macOS steckt der sichtbare Name im
+# DATEINAMEN (`$NAME.command`) — nach der Umbenennung entstünde also ein
+# zweiter Startknopf neben dem alten. Unter Linux ist der Dateiname fest
+# (`sc-bp-watcher-quellcode.desktop`), dort gibt es das Problem nicht.
+ALT_NAME="SC BP Watcher (Quellcode)"
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
   ZIEL="$HOME/Desktop/$NAME.command"
   cat > "$ZIEL" <<EOF
@@ -34,6 +40,25 @@ mkdir -p "\$SC_BP_HOME"
 EOF
   chmod +x "$ZIEL"
   echo "Angelegt: $ZIEL"
+
+  # ⭐ Den alten Startknopf wegräumen — aber NUR, wenn er nachweislich von
+  # diesem Skript stammt. Ein Dateiname allein belegt das nicht: Der Nutzer
+  # darf eine eigene Datei genauso nennen.
+  #
+  # Der Beleg ist die Zeile, die nur wir hineinschreiben. Fehlt sie, bleibt
+  # die Datei stehen — ein übrig gebliebener Startknopf ist harmlos, eine
+  # gelöschte fremde Datei nicht.
+  #
+  # ⚠ Und erst NACH dem erfolgreichen Schreiben des neuen: entfernt wird nur,
+  # wofür ein Ersatz dasteht.
+  ALT_ZIEL="$HOME/Desktop/$ALT_NAME.command"
+  if [[ -f "$ALT_ZIEL" && "$ALT_ZIEL" != "$ZIEL" ]] \
+     && grep -q 'tools/probe_daten.py' "$ALT_ZIEL" 2>/dev/null; then
+    rm -f "$ALT_ZIEL"
+    echo "Alten Startknopf entfernt: $ALT_ZIEL"
+  elif [[ -f "$ALT_ZIEL" ]]; then
+    echo "Hinweis: $ALT_ZIEL bleibt stehen — stammt nicht von diesem Skript."
+  fi
   exit 0
 fi
 

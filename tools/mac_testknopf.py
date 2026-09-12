@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Hält die Start-Datei auf dem Mac-Desktop aktuell — Name und Symbol.
 
-**Wozu.** Auf dem Desktop liegt `SC BP Watcher (Test) vX.Y.Z.command`. Sie startet
+**Wozu.** Auf dem Desktop liegt `VerseKit (Test) vX.Y.Z.command`. Sie startet
 den Quellcode **mit den echten Bauplan-Daten** — deshalb laufen die Screenshots
 für die Anleitung darüber: Auf leeren Listen sieht man dem Werkzeug nicht an,
 dass es benutzt wird.
@@ -46,7 +46,15 @@ SYMBOL = os.path.join(PROJEKT, 'assets', 'icon.png')
 # Das erste Muster verbot sie und fand deshalb ausgerechnet die Datei nicht mehr,
 # die das Skript selbst benannt hatte — beim ersten Lauf fiel das nicht auf, weil
 # im Namen damals noch gar keine Nummer stand.
-MUSTER = re.compile(r'^SC BP Watcher \(Test\)( v.+)?\.command$')
+# ⚠⚠ BEIDE Namen erkennen (Umbenennung zu VerseKit, 12.09.2026). Das Skript
+# BENENNT die vorhandene Datei um, statt eine zweite anzulegen — deshalb reicht
+# es, den alten Namen weiter zu finden: Beim naechsten Lauf heisst sie neu, und
+# es bleibt bei EINEM Startknopf.
+#
+# Wer hier nur den neuen Namen stehen lassen wuerde, bekaeme „Keine Start-Datei
+# gefunden" und muesste sie von Hand anlegen.
+MUSTER = re.compile(r'^(?:SC BP Watcher|VerseKit) \(Test\)( v.+)?\.command$')
+NAME = 'VerseKit'
 
 
 def fassung():
@@ -89,8 +97,9 @@ def main():
     treffer = [n for n in os.listdir(DESKTOP) if MUSTER.match(n)]
     if not treffer:
         sys.exit('Keine Start-Datei auf dem Desktop gefunden.\n'
-                 'Erwartet: „SC BP Watcher (Test).command" oder mit Version '
-                 'dahinter.')
+                 'Erwartet: „%s (Test).command" oder mit Version dahinter '
+                 '(der alte Name „SC BP Watcher (Test)" wird auch erkannt).'
+                 % NAME)
     if len(treffer) > 1:
         print('  ! Mehrere gefunden, nehme die erste: %s' % ', '.join(treffer))
 
@@ -99,7 +108,7 @@ def main():
     if not v:
         sys.exit('Versionsnummer nicht gefunden in sc_bp_watcher.py')
 
-    neu = os.path.join(DESKTOP, 'SC BP Watcher (Test) v%s.command' % v)
+    neu = os.path.join(DESKTOP, '%s (Test) v%s.command' % (NAME, v))
     if alt != neu:
         # ⚠ `os.rename` und nicht kopieren: Die erweiterten Attribute — und damit
         # das Symbol — wandern beim Umbenennen mit, beim Kopieren nicht

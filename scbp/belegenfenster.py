@@ -83,7 +83,7 @@ class Belegenfenster:
         self._laeuft = True
 
         self.root = tk.Toplevel(eltern)
-        self.root.title('SC BP Watcher — ' + t('s_js_b_titel'))
+        self.root.title(t('hf_titel') + ' — ' + t('s_js_b_titel'))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der

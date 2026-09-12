@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Die Bausteine des SC BP Watcher.
+Die Bausteine von VerseKit.
 
 Hier steckt alles, was sich zwischen Windows und Linux unterscheidet oder für
 sich allein prüfbar ist. `sc_bp_watcher.py` daneben ist Startdatei, Oberfläche
