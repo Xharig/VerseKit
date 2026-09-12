@@ -54,7 +54,7 @@ Eine `Ablage` je Endpunkt, als Modulvariable::
     def aktualisieren():
         if not _ablage.veraltet():
             return True
-        liste = uex.holen(QUELLE, 'preise')
+        liste = uex.holen(QUELLE, 'prices')
         if not liste:
             return False
         _ablage.sichern({'waren': _auswerten(liste)})
@@ -130,7 +130,7 @@ def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
     **nie eine Ausnahme**. Ohne Netz läuft alles weiter wie vorher; das ist der
     Grund, warum hier so großzügig gefangen wird.
 
-    `stelle` ist der Name fürs Fehlerprotokoll, etwa `'preise'`.
+    `stelle` ist der Name fürs Fehlerprotokoll, etwa `'prices'`.
     """
     if AUS:
         return None

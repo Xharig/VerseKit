@@ -74,7 +74,7 @@ Schlüssel der Ergebnisse (`basis`, `name`, `hersteller`, `art`, `unterart`,
 Textschlüssel `he_art_…` / `he_sub_…`.
 
 ⚠ `norm_rohstoff()` heißt jetzt `norm_material()`. Drei bereits umgestellte
-Module holen sie direkt (`materials`, `mining`, `preise`) — ihre Hinweise sind
+Module holen sie direkt (`materials`, `mining`, `prices`) — ihre Hinweise sind
 mitgezogen.
 """
 import json

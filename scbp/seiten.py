@@ -8395,7 +8395,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
     rez = herst_modul.recipe(eintrag['basis'])
     from . import materials as lager
-    from . import preise as preis_modul
+    from . import prices as preis_modul
     for stufe in (rez or {}).get('stufen') or []:
         # ⭐ Was davon liegt im eigenen Lager? (Vorschlag von Horthy (KRT))
         # ⚠ Gezeigt wird „hast du" bzw. „dir fehlt" — **nie** „du kannst nicht
@@ -8651,7 +8651,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                 _p = None
                 if _fehlt > 0:
                     try:
-                        _p = preis_modul.preis(rohstoff)
+                        _p = preis_modul.price(rohstoff)
                     except Exception as ausnahme:
                         fehler.merken('seiten.preis', ausnahme)
                 if not _p:
@@ -8664,7 +8664,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                         # nur Geld statt Zeit kostet — und das stimmt nicht.
                         preis_lbl.configure(
                             text=t('s_he_kaufen') % (_geld(_kauf * _fehlt),
-                                                     preis_modul.KAUF_QUALITAET),
+                                                     preis_modul.BUY_QUALITY),
                             fg=SUB)
                     else:
                         # ⚠ NICHT „0 aUEC" — das liest sich wie geschenkt.
@@ -8879,7 +8879,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             # immer bei 500 — dem Nullpunkt. Alles darüber muss man selbst
             # abbauen. Ohne diesen Hinweis sieht der Regler nach einer freien
             # Wahl aus, die man am Terminal treffen könnte.
-            _fliesstext(block, t('s_he_kauf_q') % preis_modul.KAUF_QUALITAET,
+            _fliesstext(block, t('s_he_kauf_q') % preis_modul.BUY_QUALITY,
                         fenster.f_klein, fill='x')
 
             # ⚠⚠ **589 Rezept-Slots haben ein Material ohne jede

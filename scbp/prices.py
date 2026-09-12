@@ -64,23 +64,23 @@ der volle Abzug 1,04 MB und aufgeräumt abgelegt 293 KB, und die Frage „wo wer
 ich das los" gehört zum Handelslager, das der Watcher ohnehin führt.
 
 Getrennt bleiben die beiden trotzdem, und zwar an der Bedeutung von
-`price_buy` und `price_sell` (siehe `KAUF_QUALITAET` weiter unten): Hier zählt,
+`price_buy` und `price_sell` (siehe `BUY_QUALITY` weiter unten): Hier zählt,
 was das Terminal **verlangt**, dort, was es **zahlt**.
 """
 from . import uex
 from .katalog import AUS
 from .crafting import norm_material
 
-QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
+SOURCE = 'https://api.uexcorp.uk/2.0/commodities'
 CACHE = 'preise.json'
 FORMAT = 1
-ZEITLIMIT = 20
+TIMEOUT = 20
 
 # Wie lange eine Ablage als frisch gilt. Ein Tag — siehe Kopf.
-HALTBAR = uex.TAG
+SHELF_LIFE = uex.TAG
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE)
 
 # ⭐⭐ **Am Terminal gekaufte Ware hat immer Qualität 500.**
 #
@@ -112,19 +112,19 @@ _ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
 # Der Wert 500 steht nicht in den Handelsdaten — er ergibt sich aus der
 # Bauweise der Rezepte (siehe Tabelle oben) und wurde von einem Spieler
 # bestätigt.
-KAUF_QUALITAET = 500
+BUY_QUALITY = 500
 
-def laden():
+def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _ablage.laden()
+    return _store.laden()
 
 
-def alter():
+def age():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    return _ablage.alter()
+    return _store.alter()
 
 
-def aktualisieren(fortschritt=None):
+def update(progress=None):
     """Die Preise holen, wenn die Ablage fehlt oder älter als ein Tag ist.
 
     Gibt `(Erfolg, Meldung)` zurück. **Sparsam**: Ist die Ablage frisch, wird
@@ -136,13 +136,13 @@ def aktualisieren(fortschritt=None):
     # Verhalten — auch wenn den Wert hier gerade niemand auswertet.
     if AUS:
         return False, ''
-    if not _ablage.veraltet():
+    if not _store.veraltet():
         return True, ''
-    if fortschritt:
-        fortschritt('')
+    if progress:
+        progress('')
     # ⚠ Kein lautes Scheitern. Ohne Preise laeuft alles weiter wie vorher.
-    liste = uex.holen(QUELLE, 'preise', zeitlimit=ZEITLIMIT)
-    if not liste:
+    items = uex.holen(SOURCE, 'prices', zeitlimit=TIMEOUT)
+    if not items:
         return False, ''
     # Nur die drei Felder behalten, die gebraucht werden — aus 134 KB werden so
     # rund 10 KB, und es liegt nichts herum, das niemand benutzt.
@@ -155,21 +155,21 @@ def aktualisieren(fortschritt=None):
     # „Kaufpreis 0" da, obwohl es für 2.643 im Regal liegt.
     #
     # Also **beide Formen behalten** und erst beim Abfragen entscheiden.
-    schlank = {}
-    for x in liste:
+    slim = {}
+    for x in items:
         name = (x.get('name') or '').strip()
         if not name:
             continue
-        schlank.setdefault(norm_material(name), []).append({
+        slim.setdefault(norm_material(name), []).append({
             'name': name,
             'kauf': float(x.get('price_buy') or 0),
             'verkauf': float(x.get('price_sell') or 0),
         })
-    _ablage.sichern({'waren': schlank})
+    _store.sichern({'waren': slim})
     return True, ''
 
 
-def preis(rohstoff):
+def price(material):
     """Was dieser Rohstoff kostet und bringt.
 
     Gibt `(Kaufpreis, Verkaufspreis, Form)` in aUEC je SCU — oder `None`, wenn
@@ -185,15 +185,15 @@ def preis(rohstoff):
     Borase aber das Erz. Gibt es gar keine kaufbare, kommt der beste
     Verkaufspreis zurück und `kauf = 0`.
     """
-    waren = (laden() or {}).get('waren') or {}
-    if not waren:
+    goods = (load() or {}).get('waren') or {}
+    if not goods:
         return None
-    formen = waren.get(norm_material(rohstoff))
-    if not formen:
+    forms = goods.get(norm_material(material))
+    if not forms:
         return None
-    kaufbar = [f for f in formen if f.get('kauf')]
-    if kaufbar:
-        beste = min(kaufbar, key=lambda f: f['kauf'])
-        return beste['kauf'], beste.get('verkauf') or 0.0, beste['name']
-    beste = max(formen, key=lambda f: f.get('verkauf') or 0)
-    return 0.0, beste.get('verkauf') or 0.0, beste['name']
+    buyable = [f for f in forms if f.get('kauf')]
+    if buyable:
+        best = min(buyable, key=lambda f: f['kauf'])
+        return best['kauf'], best.get('verkauf') or 0.0, best['name']
+    best = max(forms, key=lambda f: f.get('verkauf') or 0)
+    return 0.0, best.get('verkauf') or 0.0, best['name']

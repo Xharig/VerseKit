@@ -46,7 +46,7 @@ from scbp import zeichen
 from scbp import fehler
 from scbp import notice
 from scbp import (
-    auftraege,ablagesymbol, aktualisierung, assistent, autostart, orte, preise,
+    auftraege,ablagesymbol, aktualisierung, assistent, autostart, orte, prices,
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
@@ -803,9 +803,9 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             fehler.merken('watcher.spielstand', ausnahme)
         try:
-            preise.aktualisieren()
+            prices.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.preise', ausnahme)
+            fehler.merken('watcher.prices', ausnahme)
         # Die Lagerorte dazu — hoechstens einmal pro Woche, siehe `orte.py`.
         try:
             orte.aktualisieren()
@@ -4396,8 +4396,8 @@ if __name__ == '__main__':
             # sie sonst beim Öffnen nach (gemessen: bis 4,7 Sekunden).
             # `aktualisieren()` ist von sich aus sparsam: Ist die Ablage
             # frisch, geht kein einziger Abruf hinaus.
-            from scbp import preise as _pr
-            _pr.aktualisieren()
+            from scbp import prices as _pr
+            _pr.update()
         except Exception as ausnahme:
             fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
         try:
@@ -4408,7 +4408,7 @@ if __name__ == '__main__':
             if offen:
                 fehler.spur('Vorladen: %d Preise geholt' % len(offen))
         except Exception as ausnahme:
-            fehler.merken('watcher.preise_vorladen', ausnahme)
+            fehler.merken('watcher.prices_vorladen', ausnahme)
 
     threading.Thread(target=_steckplaetze_vorladen, daemon=True).start()
     fehler.spur('Hauptschleife läuft')

@@ -5857,18 +5857,18 @@ def main():
     # Zerlege-Sperrliste — weder kaufbar noch zurueckzugewinnen.
     print()
     print('66. Rohstoffpreise')
-    from scbp import preise as _pr66
+    from scbp import prices as _pr66
 
     # a) ⚠ Ohne Netz und ohne Ablage darf NICHTS passieren.
-    _echt66 = _pr66.laden
+    _echt66 = _pr66.load
     try:
-        _pr66.laden = lambda: {}
-        pruefe(_pr66.preis('Iron') is None,
+        _pr66.load = lambda: {}
+        pruefe(_pr66.price('Iron') is None,
                'ohne Preisdaten kommt None zurueck, kein Absturz')
-        pruefe(_pr66.alter() is None,
+        pruefe(_pr66.age() is None,
                'und das Alter ist None statt einer erfundenen Zahl')
     finally:
-        _pr66.laden = _echt66
+        _pr66.load = _echt66
 
     # b) ⚠⚠ Jedes Material steht bei UEX ZWEIMAL — veredelt und als Erz. Wer
     #    beim Einlesen ueberschreibt, bekommt zufaellig die falsche Form: Beim
@@ -5881,24 +5881,24 @@ def main():
                    {'name': 'Borase (Ore)', 'kauf': 5520.0, 'verkauf': 14000.0}],
         'quantainium': [{'name': 'Quantainium', 'kauf': 0.0,
                          'verkauf': 145789.0}]}}
-    _pr66.laden = lambda: _bau66
+    _pr66.load = lambda: _bau66
     try:
-        pruefe(_pr66.preis('Iron')[0] == 2643.0,
+        pruefe(_pr66.price('Iron')[0] == 2643.0,
                'Iron nimmt die veredelte Form (2643), nicht das Erz')
-        pruefe(_pr66.preis('Borase')[0] == 5520.0
-               and _pr66.preis('Borase')[2] == 'Borase (Ore)',
+        pruefe(_pr66.price('Borase')[0] == 5520.0
+               and _pr66.price('Borase')[2] == 'Borase (Ore)',
                'Borase nimmt das Erz — dort steht der einzige Kaufpreis')
-        pruefe(_pr66.preis('Quantainium')[0] == 0.0,
+        pruefe(_pr66.price('Quantainium')[0] == 0.0,
                'Quantainium ist nicht kaufbar (Kaufpreis 0)')
-        pruefe(_pr66.preis('Quantainium')[1] == 145789.0,
+        pruefe(_pr66.price('Quantainium')[1] == 145789.0,
                'der Verkaufspreis kommt trotzdem mit')
         # ⚠ Die Namensangleichung muss auch hier greifen.
-        pruefe(_pr66.preis('Iron (Ore)')[0] == 2643.0,
+        pruefe(_pr66.price('Iron (Ore)')[0] == 2643.0,
                'die Erz-Schreibweise findet denselben Eintrag')
-        pruefe(_pr66.preis('Voellig Unbekanntes') is None,
+        pruefe(_pr66.price('Voellig Unbekanntes') is None,
                'ein unbekannter Name ergibt None, keinen Nullpreis')
     finally:
-        _pr66.laden = _echt66
+        _pr66.load = _echt66
 
     # c) Die Anzeige darf „nicht kaufbar" NIE als „0 aUEC" schreiben.
     _seiten66 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
@@ -5916,9 +5916,9 @@ def main():
     #   ein gleichwertiger Weg, der nur Geld statt Zeit kostet — und das ist
     #   falsch: Am Terminal gekaufte Ware hat immer Q 500, den Nullpunkt, also
     #   exakt x1,000 auf jede Eigenschaft.
-    pruefe(_pr66.KAUF_QUALITAET == 500,
+    pruefe(_pr66.BUY_QUALITY == 500,
            'die Qualitaet gekaufter Ware ist als 500 festgehalten')
-    pruefe('preis_modul.KAUF_QUALITAET' in _seiten66,
+    pruefe('preis_modul.BUY_QUALITY' in _seiten66,
            'und steht in der Anzeige neben dem Preis')
     pruefe("t('s_he_kauf_q')" in _seiten66,
            'dazu der Satz, der die Regler einordnet')
@@ -14032,7 +14032,7 @@ def main():
     # noch einmal in Rechnung.
     from scbp import cart as _wk151, erkul as _erk151
     from scbp import laeden as _ld151, crafting as _he151
-    from scbp import preise as _pr151, ships as _sf151
+    from scbp import prices as _pr151, ships as _sf151
 
     _slots151 = [
         {'pfad': 'hardpoint_cooler_left', 'art': 'Cooler', 'groesse': 2,
@@ -14045,7 +14045,7 @@ def main():
     }
     _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
                 _ld151.guenstigster, _wk151._blueprint_index,
-                _he151.recipe, _pr151.preis, _sf151.buy_at)
+                _he151.recipe, _pr151.price, _sf151.buy_at)
     try:
         _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {
@@ -14060,7 +14060,7 @@ def main():
              _regale151[k][0]['ort']) if _regale151.get(k) else None)
         _wk151._blueprint_index = lambda: {}
         _he151.recipe = lambda n: None
-        _pr151.preis = lambda r: None
+        _pr151.price = lambda r: None
         # ⚠ `ships.buy_at()` gibt eine **Liste** von Verkaufsstellen zurueck,
         # billigste zuerst — kein Tupel wie `laeden.guenstigster()`. Wer das
         # verwechselt, liest den Preis aus einem Zeichen statt aus einer Zahl.
@@ -14168,7 +14168,7 @@ def main():
                % len(_offen2_151))
     finally:
         (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
-         _wk151._blueprint_index, _he151.recipe, _pr151.preis,
+         _wk151._blueprint_index, _he151.recipe, _pr151.price,
          _sf151.buy_at) = _echt151
 
     # ------------------------------------------------------------------
@@ -14445,7 +14445,7 @@ def main():
     # dasselbe Erz mehrfach an und schickt den Spieler mit zu wenig Material
     # los.
     from scbp import erkul as _erk157, materials as _ro157
-    from scbp import preise as _pr157
+    from scbp import prices as _pr157
 
     _slots157 = [
         {'pfad': 'a', 'art': 'Cooler', 'groesse': 2,
@@ -14455,7 +14455,7 @@ def main():
     ]
     _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
                 _ld156.guenstigster, _wk156._blueprint_index,
-                _he156.recipe, _pr157.preis, _ro157.load)
+                _he156.recipe, _pr157.price, _ro157.load)
     try:
         _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {'probe': {
@@ -14465,7 +14465,7 @@ def main():
         _ld156.laeden = lambda k: None
         _ld156.guenstigster = lambda k: None
         _wk156._blueprint_index = lambda: {'ref-blast': 'BlastChill'}
-        _pr157.preis = lambda r: (2643.0, 2000.0, 'Iron')
+        _pr157.price = lambda r: (2643.0, 2000.0, 'Iron')
         _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
             if n == 'BlastChill' else None)
@@ -14528,7 +14528,7 @@ def main():
                % _h157['posten'])
     finally:
         (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
-         _wk156._blueprint_index, _he156.recipe, _pr157.preis,
+         _wk156._blueprint_index, _he156.recipe, _pr157.price,
          _ro157.load) = _echt157
 
     # ------------------------------------------------------------------
@@ -16535,6 +16535,7 @@ def main():
         'bergung': 'salvage',
         'hangar': 'fleet',
         'warenkorb': 'cart',
+        'preise': 'prices',
     }
 
     def _reste190(quelle, name, alte):

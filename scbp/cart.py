@@ -682,7 +682,7 @@ def craft_option(ref, index=None, name=''):
     **Bauplanname** direkt genommen — `crafting.recipe()` sucht ohnehin über
     ihn.
     """
-    from . import crafting, preise
+    from . import crafting, prices
     blank = {'zustand': NO_RECIPE, 'material': None, 'dauer': None,
              'bauplan': '', 'ohne_preis': []}
     if not ref and not name:
@@ -711,7 +711,7 @@ def craft_option(ref, index=None, name=''):
     for step in rec['stufen']:
         time_total += int(step.get('zeit') or 0)
         for _slot, raw, amount, _grade in (step.get('zutaten') or []):
-            found = preise.preis(raw)
+            found = prices.price(raw)
             buy = (found or (0, 0, ''))[0]
             if not buy:
                 # Nicht kaufbar (oder gar keine Preisdaten) — der Posten wird
