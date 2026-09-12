@@ -3162,34 +3162,104 @@ def main():
     #   113: „das Protokoll steht in der eigenen Datei (396)" statt 2
     #    94: „nur die zwei aus Protokollen werden gezaehlt (gezaehlt: 164)"
     #
-    # ⚠⚠ **Genau `log_sicherungen()` stilllegen — nicht die Spielordner-Suche.**
-    # Drei groebere Wege wurden gemessen und verworfen:
+    # ⚠⚠⚠ **Die Isolation gehoert an `nachlese()` — nicht an eine seiner
+    # Quellen.** Das ist die Lehre vom 12.09.2026, und sie hat zwei Anlaeufe
+    # gekostet:
+    #
+    # `nachlese()` liest ZWEI Quellen, und beide zeigen auf den Spieler:
+    #
+    #   | Quelle | kommt aus |
+    #   |---|---|
+    #   | die aufgehobenen Sicherungen | `pfade.log_sicherungen()` |
+    #   | die **laufende** `Game.log`   | `pfade.spiel_ordner()` |
+    #
+    # ⛔ Der erste Versuch legte nur `log_sicherungen()` stille — und die
+    # **Wache dazu fragte genau diese Funktion ab**. Sie war gruen und konnte
+    # gar nicht rot werden, waehrend der Lauf weiter 1,2 MB echte `Game.log`
+    # mit 80 Auftragszeilen las. Gefunden hat es erst ein fremder Pruefer.
+    #
+    # ⭐ **Eine Wache darf nicht messen, was zwei Zeilen vorher stillgelegt
+    # wurde.** Und wer einen groben Schutz durch einen feinen ersetzt, zaehlt
+    # vorher ALLE Wege der Quelle auf.
+    #
+    # Warum `nachlese()` die richtige Stelle ist — gemessen, nicht vermutet:
+    # Kein Pruefabschnitt testet die Funktion selbst. Die einzigen Aufrufer
+    # sind `seiten.py` (Hintergrundfaden beim Oeffnen der Auftragslog-Seite)
+    # und `sc_bp_watcher.py` beim Start. Hier faellt also nichts aus.
+    #
+    # Verworfen wurden ausserdem, jeweils mit Gegenprobe:
     #
     # | Weg | Ergebnis |
     # |---|---|
     # | `SC_INSTALL_DIR` zurueck auf die nachgebaute Installation | wirkungslos, der Ordner ist geloescht |
     # | `SC_INSTALL_DIR` auf einen leeren Ersatz | zerbricht Pruefung 111 und 123 — die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
     # | Suchwurzeln leeren | kostet VIER `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen). Der Lauf war gruen — mit 2090 statt 2094 Pruefungen |
+    # | nur `log_sicherungen()` stilllegen | laesst die laufende `Game.log` durch; die Wache dazu misst ihre eigene Stilllegung |
     #
-    # Die Protokolle sind das einzige, was hier schadet. Der Spielordner darf
-    # gefunden werden; die Sprachdatei liegt dort.
+    # ⭐⭐ **Es sind DREI Wege, nicht einer.** Aufgezaehlt statt vermutet — das
+    # ist der Kern der Lehre:
+    #
+    #   | # | Weg | wer ihn nimmt |
+    #   |---|---|---|
+    #   | 1 | `pfade.log_sicherungen()` | `logquelle`, `missionslog`, `bericht`, `assistent`, der Watcher |
+    #   | 2 | `pfade.game_log()` | `logquelle`, `spielzeit`, `joysticks`, der Watcher |
+    #   | 3 | `missionslog.nachlese()` | baut sich den Pfad zur laufenden Datei **selbst** (`missionslog.py`) und geht an 2 vorbei |
+    #
+    # Riegel 3 gaebe es nicht, wenn `missionslog` ueber `pfade.game_log()`
+    # ginge. Das zu aendern waere Programmcode — und der wird in einem
+    # Umbenennungs-Zweig nicht angefasst. Also hier ein dritter Riegel.
+    #
+    # ⚠⚠⚠ **Der Riegel haengt an der WIRKUNG, nicht an der Form des Aufrufs.**
+    #
+    # Der erste Versuch unterschied „Aufruf ohne Ordner" (gefaehrlich) von
+    # „Aufruf mit Ordner" (isoliert). Das ist zu grob und hat prompt Pruefung
+    # 123 gekippt: Sie legt ihren eigenen Spielordner an und traegt ihn in die
+    # **Einstellungsdatei** ein, ruft also voellig zu Recht ohne Argument.
+    # „Ohne Argument" heisst eben nicht „zeigt auf den Spieler".
+    #
+    # Entschieden wird deshalb am Pfad: Alles, was unter der **echten**
+    # Installation liegt, wird abgeschnitten — alles andere (die Wegwerf-Ordner
+    # der Pruefungen) geht durch. Damit sind Pruefung 123 und 131 unberuehrt,
+    # und die Hintergrund-Ticks kommen trotzdem nicht an die Spielerdaten.
+    #
+    # ⚠ Ein blanker `lambda *_a: []` war der allererste Versuch und hat VIER
+    # Pruefungen von 131 gekippt („LIVE (3) + HOTFIX (221) = 224" wurde 0).
+    # Wer eine Funktion stilllegt, legt auch ihre Pruefungen still.
+    #
+    # Der Spielordner selbst darf weiterhin gefunden werden — die `global.ini`
+    # liegt dort, und vier Pruefungen brauchen sie.
     #
     # ⚠ Steht bewusst HINTER Abschnitt 6: Der braucht die Sicherungen der
     # nachgebauten Installation („es liegen Sicherungen zum Pruefen bereit").
-    # ⚠⚠ **Nur der Aufruf OHNE Ordner wird stillgelegt.** Genau so ruft der
-    # Hintergrund-Tick sie (`nachlese()` → `pfade.log_sicherungen()`), und nur
-    # dort sucht sie im Spielordner des Nutzers. Pruefung 131 prueft die
-    # Funktion selbst und uebergibt ihren eigenen Wegwerf-Ordner — die muss
-    # weiter die echte Antwort bekommen.
-    #
-    # ⚠ Ein blanker `lambda *_a: []` war der erste Versuch und hat prompt
-    # VIER Pruefungen von 131 gekippt („LIVE (3) + HOTFIX (221) = 224" wurde 0).
-    # Wer eine Funktion stilllegt, legt auch ihre Pruefungen still.
     _pf_iso = __import__('scbp.pfade', fromlist=['log_sicherungen'])
     _echte_sicherungen = _pf_iso.log_sicherungen
-    _pf_iso.log_sicherungen = (
-        lambda ordner=None, *_a, **_k:
-        _echte_sicherungen(ordner, *_a, **_k) if ordner else [])
+    _echte_gamelog = _pf_iso.game_log
+    # Einmal ermitteln, solange nichts stillgelegt ist: Wo liegt das echte Spiel?
+    _echte_inst = _pf_iso.spiel_ordner() or ''
+
+    def _beim_spieler(pfad):
+        """Zeigt dieser Pfad in die echte Installation des Nutzers?"""
+        if not (_echte_inst and pfad):
+            return False
+        try:
+            return os.path.commonpath(
+                [os.path.abspath(pfad),
+                 os.path.abspath(_echte_inst)]) == os.path.abspath(_echte_inst)
+        except ValueError:          # andere Festplatte — dann sicher nicht
+            return False
+
+    def _sicherungen_iso(ordner=None, *_a, **_k):
+        return [_p for _p in (_echte_sicherungen(ordner, *_a, **_k) or [])
+                if not _beim_spieler(_p)]
+
+    def _gamelog_iso(ordner=None, *_a, **_k):
+        _p = _echte_gamelog(ordner, *_a, **_k)
+        return None if _beim_spieler(_p) else _p
+
+    _pf_iso.log_sicherungen = _sicherungen_iso
+    _pf_iso.game_log = _gamelog_iso
+    _ml_iso = __import__('scbp.missionslog', fromlist=['nachlese'])
+    _ml_iso.nachlese = lambda *_a, **_k: (0, 0)
 
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
@@ -8661,13 +8731,35 @@ def main():
         return [int(_x) for _x in re.findall(r'\d+', text)]
 
     _bd94.save(_bd94.empty())
-    _zeile94 = _be94._protokollzeile()
+
+    # ⚠⚠⚠ **Die erste Zahl wird gegen eine FESTE Liste geprueft, nicht gegen
+    # `log_sicherungen()`.** Bis zum 12.09.2026 stand hier
+    #
+    #     pruefe(_z94[0] == len(w.pfade.log_sicherungen()), ...)
+    #
+    # — beide Seiten holten ihren Wert aus derselben Funktion. Die Pruefung
+    # konnte gar nicht rot werden; sie verglich die Funktion mit sich selbst.
+    # Auf einem Rechner ohne Spiel war es zusaetzlich `0 == 0`.
+    #
+    # ⭐ Der Erwartungswert steht jetzt HIER im Test (drei erfundene Pfade) und
+    # nicht in der geprueften Funktion. Damit faellt auf, wenn der Bericht
+    # anfaengt, eine andere Quelle zu zaehlen oder gar nicht mehr zu zaehlen.
+    # Nichtleer ist Absicht: Gegen `0` waere jede kaputte Zaehlung unauffaellig.
+    _echt94 = w.pfade.log_sicherungen
+    _liste94 = [os.path.join('nirgendwo', 'Game_%d.log' % _i94)
+                for _i94 in range(3)]
+    w.pfade.log_sicherungen = lambda *_a, **_k: list(_liste94)
+    try:
+        _zeile94 = _be94._protokollzeile()
+    finally:
+        w.pfade.log_sicherungen = _echt94
     _z94 = _zahlen94(_zeile94)
     pruefe(len(_z94) == 3,
            'die Zeile nennt drei Zahlen: vorhanden, gelesen, gefunden (%r)'
            % _zeile94)
-    pruefe(_z94[0] == len(w.pfade.log_sicherungen()),
-           'die erste Zahl ist die Zahl der Protokolle')
+    pruefe(_z94[0] == 3,
+           'die erste Zahl ist die Zahl der Protokolle (erwartet 3, steht %r)'
+           % (_z94[0],))
     pruefe(_z94[2] == 0, 'ohne Bestand steht hinten eine Null')
 
     # ⭐ Der Kern: Nur Funde AUS PROTOKOLLEN zaehlen. Was vom Launcher, von
@@ -10468,18 +10560,66 @@ def main():
     # Hintergrund-Ticks — die Pruefungen darunter sind also nur so verlaesslich
     # wie diese Zeile.
     #
-    # ⚠⚠ **Geprueft wird `log_sicherungen()`, nicht der Spielordner.** Der
-    # Spielordner DARF gefunden werden — dort liegt die `global.ini`, die vier
-    # andere Pruefungen brauchen. Schaden richten allein die Protokolle an, und
-    # die sind seit Abschnitt 37 stillgelegt (Begruendung dort).
+    # ⚠⚠⚠ **Diese Wache darf NICHT abfragen, was Abschnitt 37 stillgelegt hat.**
+    # Die erste Fassung tat genau das (`log_sicherungen()` fragen, nachdem
+    # `log_sicherungen()` stillgelegt wurde) — sie war gruen und konnte
+    # strukturell nicht rot werden, waehrend die laufende `Game.log` weiter
+    # gelesen wurde. Eine Wache auf dem eigenen Eingriff ist keine.
     #
-    # Diese Zeile ist die Wache dazu, und sie steht genau hier: erst mit dem
-    # frischen Ablageordner oben entsteht die Lage, in der das Leck zuschlaegt.
-    _sicher113 = __import__('scbp.pfade',
-                            fromlist=['log_sicherungen']).log_sicherungen()
-    pruefe(not _sicher113,
-           'der Prueflauf sieht keine echten Spiel-Protokolle (%d)'
-           % len(_sicher113 or []))
+    # Geprueft werden deshalb **alle drei Wege** zu echten Logdaten, einzeln
+    # benannt (Abschnitt 37 zaehlt sie auf). Nimmt jemand einen Riegel heraus —
+    # genau das ist am 12.09.2026 in einem „nur Umbenennung"-Commit passiert —,
+    # nennt die Meldung, welcher es war.
+    #
+    # ⚠ Auf einem Rechner ohne Star Citizen ist diese Wache trivial gruen: Dort
+    # gibt es nichts zu finden. Das ist hinnehmbar, weil sie auf einem
+    # Spielrechner sehr wohl rot wird. Der Unterschied zur ersten Fassung ist
+    # genau das — die konnte NIRGENDS rot werden, weil sie die Funktion abfragte,
+    # die zwei Zeilen vorher stillgelegt worden war.
+    #
+    # ⚠ Der Spielordner DARF gefunden werden — dort liegt die `global.ini`, die
+    # vier andere Pruefungen brauchen.
+    # ⚠ Es sind ZWEI Aussagen, und sie werden getrennt geprueft — vermischt
+    # ergaeben sie wieder eine Wache, die mehr behauptet als sie misst:
+    #
+    #   a) **Wirkung:** Keiner der Wege liefert hier echte Daten.
+    #   b) **Struktur:** Alle drei Riegel liegen ueberhaupt.
+    #
+    # (a) allein genuegt nicht: Riegel 3 deckt einen Weg, der strukturell offen
+    # ist (`missionslog` baut den Pfad selbst und geht an `game_log()` vorbei),
+    # bei diesem Spielstand aber gerade nichts hergibt — gemessen am 12.09.2026:
+    # ohne Riegel 3 bleibt (a) gruen. Wer sich auf (a) verliesse, koennte Riegel
+    # 3 entfernen, ohne dass etwas auffaellt. Genau diese Sorte Entfernung war
+    # der Ausloeser.
+    #
+    # (b) allein genuegt auch nicht: Sie prueft nur, dass ich etwas gesetzt habe,
+    # nicht dass es wirkt.
+    _pf113 = __import__('scbp.pfade', fromlist=['log_sicherungen'])
+    _ml113 = __import__('scbp.missionslog', fromlist=['nachlese'])
+    _offen113 = []
+    if _pf113.log_sicherungen():
+        _offen113.append('log_sicherungen: %d Dateien'
+                         % len(_pf113.log_sicherungen()))
+    if _pf113.game_log():
+        _offen113.append('game_log: laufende Datei')
+    if _ml113.nachlese() != (0, 0):
+        _offen113.append('nachlese: %r' % (_ml113.nachlese(),))
+    pruefe(not _offen113,
+           'kein Weg fuehrt zu echten Spiel-Protokollen (%s)'
+           % ('; '.join(_offen113) or 'alle drei dicht'))
+
+    # Struktur: Jeder Riegel ist in Abschnitt 37 gesetzt worden und liegt noch.
+    # Erkannt am Namen des Ersatzes — die echten Funktionen heissen anders.
+    _riegel113 = [
+        ('log_sicherungen', _pf113.log_sicherungen.__name__
+         == '_sicherungen_iso'),
+        ('game_log', _pf113.game_log.__name__ == '_gamelog_iso'),
+        ('nachlese', _ml113.nachlese.__name__ == '<lambda>'),
+    ]
+    _fehlt113 = [_n113 for _n113, _da113 in _riegel113 if not _da113]
+    pruefe(not _fehlt113,
+           'alle drei Riegel aus Abschnitt 37 liegen noch (fehlt: %s)'
+           % (', '.join(_fehlt113) or 'keiner'))
     try:
         def _zeile113(zeit, text, nr):
             return ('<%sZ> [Notice] <SHUDEvent_OnNotification> '
@@ -17822,7 +17962,19 @@ def main():
         for f in fehler:
             print('  ·', f)
         return 1
-    print('Alle Prüfungen bestanden.')
+    # ⭐⭐ **Die ZAHL gehoert auch in die Erfolgsmeldung.** Bis zum 12.09.2026
+    # stand hier nur „Alle Prüfungen bestanden." — die Zahl nannte der Lauf
+    # ausschliesslich im Fehlerfall. Damit war ausgerechnet der gefaehrlichste
+    # Fall unsichtbar: ein **gruener** Lauf mit weniger Pruefungen als vorher.
+    #
+    # Genau das ist am selben Tag zweimal passiert. Einmal auffaellig (2090
+    # statt 2094, weil eine Reparatur vier `global.ini`-Pruefungen stillgelegt
+    # hatte) — und einmal beinahe unbemerkt, weil die Erfolgsmeldung keine Zahl
+    # hergab und erst das Nachzaehlen der Ausgabe sie lieferte.
+    #
+    # Ein gruener Lauf mit weniger Pruefungen sieht besser aus als ein roter und
+    # ist schlechter. Wer vergleichen soll, braucht die Zahl ohne Nachzaehlen.
+    print('Alle Prüfungen bestanden (%d).' % geprueft[0])
     return 0
 
 
