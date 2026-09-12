@@ -20,7 +20,7 @@ haben:
 |---|---|
 | Namen direkt in `abnahme.py` | Nach jeder Umbenennung standen dort tote Namen — `'bergbau'`, `'schiffe'`, zuletzt `'orte'`/`'routen'`, jedes Mal monatelang unbemerkt |
 | den Quelltext nach `'scbp.' + x` durchsuchen | f-Strings, `.format()`, ausgelagerte Listen und Comprehensions fielen durch — vier von fuenf Schreibweisen |
-| eine gemeinsame Liste hier als Konstante | Sie war beim Anlegen schon falsch: `selling` und `spielstand` fehlten, `mining` stand drin **ohne** Ablage |
+| eine gemeinsame Liste hier als Konstante | Sie war beim Anlegen schon falsch: `selling` und `gamebuild` fehlten, `mining` stand drin **ohne** Ablage |
 
 ⭐⭐ Der dritte Fehlschlag ist der lehrreiche: **Eine gemeinsame Quelle
 verhindert auseinanderlaufende Kopien — gemeinsame Auslassungen verhindert sie

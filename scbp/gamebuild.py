@@ -66,20 +66,20 @@ Spielstand nicht kennt, kann nicht behaupten, die Daten seien überholt.
 """
 from . import uex
 
-QUELLE = 'https://api.uexcorp.uk/2.0/game_versions'
+SOURCE = 'https://api.uexcorp.uk/2.0/game_versions'
 CACHE = 'spielstand.json'
 FORMAT = 1
 
 # Zwölf Stunden. Ein Patch erscheint nicht überraschend mitten am Tag, aber wer
 # abends spielt, soll den Freitags-Patch nicht erst am Samstag bemerken.
-HALTBAR = uex.DAY // 2
+SHELF_LIFE = uex.DAY // 2
 
-_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR, stamp=False)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE, stamp=False)
 
 
-def laden():
+def load():
     """Der abgelegte Stand — oder `{}`."""
-    return _ablage.load()
+    return _store.load()
 
 
 def live():
@@ -88,7 +88,7 @@ def live():
     Leer heißt **nicht** „kein Patch", sondern „wir wissen es nicht". Der
     Unterschied entscheidet darüber, ob eine Warnung angezeigt werden darf.
     """
-    return (laden() or {}).get('live') or ''
+    return (load() or {}).get('live') or ''
 
 
 def ptu():
@@ -97,26 +97,26 @@ def ptu():
     Nur zur Anzeige. Für die Frage, ob unsere Zahlen passen, zählt `live()`:
     Wer auf dem Testserver spielt, hat ohnehin eigene Preise.
     """
-    return (laden() or {}).get('ptu') or ''
+    return (load() or {}).get('ptu') or ''
 
 
-def aktualisieren():
+def update():
     """Den Spielstand holen, wenn die Ablage fehlt oder älter als 12 h ist."""
-    if not _ablage.stale():
+    if not _store.stale():
         return True
-    roh = uex.fetch(QUELLE, 'spielstand')
+    raw = uex.fetch(SOURCE, 'gamebuild')
     # ⚠ Dieser Endpunkt liefert ein Wörterbuch, keine Liste — anders als jeder
     # andere. `uex.fetch` reicht beides unverändert durch.
-    if not isinstance(roh, dict):
+    if not isinstance(raw, dict):
         return False
-    stand = (roh.get('live') or '').strip()
-    if not stand:
+    state = (raw.get('live') or '').strip()
+    if not state:
         return False
-    return _ablage.save({'live': stand,
-                            'ptu': (roh.get('ptu') or '').strip()})
+    return _store.save({'live': state,
+                            'ptu': (raw.get('ptu') or '').strip()})
 
 
-def ueberholt(ablage):
+def outdated(store):
     """Liegt ein Patch zwischen dieser Ablage und dem Spiel?
 
     `ablage` ist eine `uex.Store`. Gibt `(ja, stand_der_ablage, live)` zurück
@@ -128,8 +128,8 @@ def ueberholt(ablage):
     auf Unwissen beruht, ist schlimmer als keine: Sie lehrt den Spieler, sie zu
     überlesen.
     """
-    jetzt = live()
-    damals = (ablage.load() or {}).get('spielstand') or ''
-    if not jetzt or not damals:
-        return False, damals, jetzt
-    return damals != jetzt, damals, jetzt
+    now = live()
+    before = (store.load() or {}).get('spielstand') or ''
+    if not now or not before:
+        return False, before, now
+    return before != now, before, now

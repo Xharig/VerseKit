@@ -185,8 +185,8 @@ def _save_catalog(progress=None):
     # nicht. Beim Programmstart läuft derselbe Abruf; wer diese Seite sofort
     # öffnet, ist ihm aber möglicherweise zuvorgekommen.
     try:
-        from . import spielstand
-        spielstand.aktualisieren()
+        from . import gamebuild
+        gamebuild.update()
     except Exception:
         pass
     cats = uex.fetch(SOURCE_CATEGORIES, 'shops.categories')

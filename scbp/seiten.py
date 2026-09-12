@@ -13575,8 +13575,8 @@ def _verkauf(fenster, rahmen):
         # Stunde alt und trotzdem überholt sein, wenn dazwischen ein Patch lag —
         # CIG wirft dabei regelmäßig Preise um. Wer das nicht sagt, behauptet
         # etwas Falsches mit derselben Bestimmtheit wie etwas Richtiges.
-        from . import spielstand
-        veraltet, damals, jetzt = spielstand.ueberholt(preisdaten._store)
+        from . import gamebuild
+        veraltet, damals, jetzt = gamebuild.outdated(preisdaten._store)
         if veraltet:
             stand_label.configure(text=t('s_vk_patch').format(
                 alt=damals, neu=jetzt), fg=GOLD)

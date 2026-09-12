@@ -1063,9 +1063,9 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     # Ruf-Zeile ist ein Verlust, ein abgebrochener Einbau waere ein Schaden.
     ruftabelle = None
     try:
-        from . import auftragsruf, spielstand
+        from . import auftragsruf, gamebuild
         try:
-            version = spielstand.live() or ''
+            version = gamebuild.live() or ''
         except Exception:
             version = ''
         auftragsruf.auffrischen(version)

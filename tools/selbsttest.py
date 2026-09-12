@@ -17127,7 +17127,7 @@ def main():
     # ⭐⭐ **Vollstaendigkeit, nicht nur Gueltigkeit.** Eine gemeinsame Quelle
     # verhindert auseinanderlaufende Kopien — gemeinsame AUSLASSUNGEN verhindert
     # sie nicht. Die Liste war von Hand gepflegt und beim Anlegen schon falsch:
-    # `selling` und `spielstand` fehlten, `mining` stand drin OHNE Ablage.
+    # `selling` und `gamebuild` fehlten, `mining` stand drin OHNE Ablage.
     # `len >= 5` und „alles importierbar" waren trotzdem erfuellt.
     #
     # Deshalb wird die Menge gegen die TATSAECHLICH vorhandenen Ablagen

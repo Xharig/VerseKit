@@ -51,7 +51,7 @@ from scbp import (
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   catalog as katalog_modul, shops, logquelle, watchlist,
-                  pfade, phrasen, ships, spielstand, titelleiste, sound,
+                  pfade, phrasen, ships, gamebuild, titelleiste, sound,
                   uebersetzung, selling, hotkey as hotkey_modul)
 
 try:
@@ -799,9 +799,9 @@ class Watcher(threading.Thread):
         # nach den Preisen, trüge eine frisch geholte Ablage den Stand von
         # **vor** dem Patch — und wäre damit genau falsch gekennzeichnet.
         try:
-            spielstand.aktualisieren()
+            gamebuild.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.spielstand', ausnahme)
+            fehler.merken('watcher.gamebuild', ausnahme)
         try:
             prices.update()
         except Exception as ausnahme:

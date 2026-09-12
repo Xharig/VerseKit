@@ -261,10 +261,10 @@ class Store:
         if a is None or a >= self.shelf_life:
             return True
         if self.patch_bound:
-            # ⚠ Lokal importiert: `spielstand` benutzt selbst eine `Store`.
+            # ⚠ Lokal importiert: `gamebuild` benutzt selbst eine `Store`.
             try:
-                from . import spielstand
-                yes, _then, _now = spielstand.ueberholt(self)
+                from . import gamebuild
+                yes, _then, _now = gamebuild.outdated(self)
                 return bool(yes)
             except Exception:
                 # Im Zweifel gilt der abgelegte Stand — siehe `ueberholt`.
@@ -287,11 +287,11 @@ class Store:
             # Zeile ist eine Ablage einen Tag lang „frisch" — auch wenn
             # zwischendurch ein Patch die halben Preise umgeworfen hat. Der
             # Zeitstempel allein sagt nichts darüber, ob die Zahlen noch
-            # gelten. Siehe `scbp/spielstand.py`.
+            # gelten. Siehe `scbp/gamebuild.py`.
             #
-            # Lokal importiert: `spielstand` hängt seinerseits an diesem Modul.
-            from . import spielstand
-            build = spielstand.live()
+            # Lokal importiert: `gamebuild` hängt seinerseits an diesem Modul.
+            from . import gamebuild
+            build = gamebuild.live()
             if build:
                 data['spielstand'] = build
         target = self.path()
