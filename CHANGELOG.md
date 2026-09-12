@@ -8,6 +8,41 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.31.0 - 2026-09-12
+
+> **Der SC BP Watcher heißt jetzt VerseKit.** Angefangen hat er als Wächter
+> für freigeschaltete Baupläne — inzwischen sind Hangar, Handelslager,
+> Rufwerte, Zerlegen und Teilesuche dazugekommen, und der alte Name wurde dem
+> nicht mehr gerecht. Der Name ist neu, alles andere bleibt genau dort, wo du
+> es hast.
+
+> [!important]
+> **Du musst nichts neu einrichten.** Baupläne, Handelslager, Einstellungen,
+> Beobachtungsliste und Autostart bleiben unangetastet — das Update tauscht
+> nur das Programm. Im Startmenü und auf dem Desktop heißt die Verknüpfung
+> danach VerseKit, die alte wird dabei entfernt, damit nicht zwei dastehen.
+>
+> Und das Update selbst läuft wie immer: aus der alten Fassung heraus über
+> „Jetzt die neueste Version holen".
+
+### Neu
+
+- **Das Werkzeug heißt VerseKit.** Fenstertitel, Anleitung, Installer und
+  Verknüpfungen tragen den neuen Namen. Heruntergeladen wird es weiter an
+  derselben Stelle, und deine Daten liegen weiter im selben Ordner
+
+### Verbessert
+
+- **Beim Update bleibt nur eine Verknüpfung übrig.** Der Eintrag im Startmenü
+  und auf dem Desktop wird auf den neuen Namen gezogen, statt ein zweites Mal
+  angelegt zu werden. Eigene Verknüpfungen und eigene Dateien im
+  Startmenü-Ordner bleiben dabei unangetastet
+- **Sicherungen aus älteren Fassungen lassen sich weiter einlesen.** Eine
+  Datei, die du unter dem alten Namen exportiert hast, wird genauso erkannt
+  wie eine neue
+- **Eine vorhandene Installation wird aktualisiert, keine zweite angelegt.**
+  Der Installer bleibt in dem Ordner, in dem das Programm bei dir schon liegt
+
 ## v3.30.1 - 2026-09-11
 
 > **Lange Auswahllisten bleiben offen, wenn du die Rollleiste anfasst.**

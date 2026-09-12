@@ -8,6 +8,40 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.31.0 - 2026-09-12
+
+> **SC BP Watcher is now called VerseKit.** It started out as a watcher for
+> unlocked blueprints — by now the hangar, trade storage, reputation,
+> salvaging and part lookup have joined in, and the old name no longer did it
+> justice. The name is new, everything else stays exactly where you have it.
+
+> [!important]
+> **You don't have to set anything up again.** Blueprints, trade storage,
+> settings, watchlist and autostart are left untouched — the update only
+> replaces the program. In the Start menu and on the desktop the shortcut is
+> called VerseKit afterwards, and the old one is removed so you don't end up
+> with two.
+>
+> The update itself works as always: from your current version via “Get the
+> latest version now”.
+
+### New
+
+- **The tool is called VerseKit.** Window title, guide, installer and
+  shortcuts carry the new name. You still download it from the same place, and
+  your data still lives in the same folder
+
+### Improved
+
+- **Only one shortcut is left after the update.** The Start menu and desktop
+  entries are carried over to the new name instead of being created a second
+  time. Shortcuts and files of your own in the Start menu folder are left
+  untouched
+- **Backups from older versions can still be imported.** A file you exported
+  under the old name is recognised just like a new one
+- **An existing installation is updated, not duplicated.** The installer stays
+  in the folder where the program already lives on your machine
+
 ## v3.30.1 - 2026-09-11
 
 > **Long selection lists stay open when you grab the scrollbar.** Until now
