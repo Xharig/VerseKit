@@ -730,10 +730,30 @@ def datenabruf_pruefen():
     pruefe(bool(ablagen), 'die Zwischenspeicher sind auffindbar (%d)'
            % len(ablagen))
 
+    # ⚠⚠ **Auch diese Attributnamen sind ZEICHENKETTEN** — dieselbe Falle wie
+    # bei den Modulnamen oben, nur eine Ebene tiefer. `getattr(…, None)` gibt
+    # bei einem umbenannten Attribut still den **Ersatzwert** zurück; die
+    # Prüfung meldet dann „ohne Frist und ohne Datei", obwohl die Ablage in
+    # Ordnung ist. Genau das ist beim Umbenennen von `uex` am 12.09.2026
+    # passiert: aus `haltbar`, `patch_bindet` und `dateiname` wurden
+    # `shelf_life`, `patch_bound` und `filename`.
+    #
+    # ⚠ Deshalb wird zuerst geprüft, dass es die Felder überhaupt GIBT. Ohne
+    # diesen Schritt ist der Unterschied zwischen „Ablage ohne Frist" und
+    # „Feld heißt inzwischen anders" von außen nicht zu sehen — und die
+    # Prüfung schlägt Alarm über ein Problem, das es nicht gibt.
+    FELDER = ('shelf_life', 'patch_bound', 'filename')
+    fehlende_felder = sorted({
+        '%s.%s' % (m, feld) for m, _n, a in ablagen for feld in FELDER
+        if not hasattr(a, feld)})
+    pruefe(not fehlende_felder,
+           'jede Ablage traegt die erwarteten Felder (fehlt: %s)'
+           % (', '.join(fehlende_felder) or 'keines'))
+
     ohne_frist, zu_kurz, zu_lang = [], [], []
     for modulname, name, ablage in ablagen:
-        haltbar = getattr(ablage, 'haltbar', None)
-        patch = getattr(ablage, 'patch_bindet', False)
+        haltbar = getattr(ablage, 'shelf_life', None)
+        patch = getattr(ablage, 'patch_bound', False)
         if not haltbar and not patch:
             ohne_frist.append('%s.%s' % (modulname, name))
             continue
@@ -759,7 +779,7 @@ def datenabruf_pruefen():
     # ⚠ Und wird auch wirklich geschrieben? Jede Ablage muss einen Dateinamen
     # tragen — sonst steht sie nur im Arbeitsspeicher.
     ohne_datei = [('%s.%s' % (m, n)) for m, n, a in ablagen
-                  if not getattr(a, 'dateiname', '')]
+                  if not getattr(a, 'filename', '')]
     pruefe(not ohne_datei,
            'jeder Zwischenspeicher landet in einer Datei (%s)'
            % (', '.join(ohne_datei) or 'alle'))
