@@ -3660,29 +3660,25 @@ def _joysticks(fenster, rahmen):
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
             # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
             #
-            # ⚠⚠ `vergessen()` NUR beim echten Sprachwechsel — und das ist
-            # eine Korrektur meiner eigenen Messung vom selben Tag.
+            # ⚠⚠ **Hier steht bewusst KEIN `vergessen()` mehr.**
             #
-            # Erst hielt ich es für den Kostenpunkt, entfernte es und maß
-            # 894 statt 886 ms: scheinbar wirkungslos. Diese **Einzelmessung
-            # war zu verrauscht**. Ein Profillauf über fünf Seitenwechsel
-            # zeigt: `klarnamen()` kostet **96 ms je Anzeige**, davon 44 ms in
-            # `_ini_texte` — weil `vergessen()` den Merker jedes Mal leert und
-            # die `global.ini` neu gelesen werden muss.
+            # Die Geschichte dazu in drei Schritten, weil sie lehrreich ist:
             #
-            # ⭐ Die Lehre: Eine Differenz von 8 ms aus **einer** Messung ist
-            # kein Beleg für „wirkungslos". Wer ausschließen will, misst
-            # wiederholt oder profiliert.
+            # 1. Es stand hier und lief bei JEDEM Anzeigen — gemessen 96 ms.
+            # 2. Ich entfernte es, maß 894 statt 886 ms und schloss daraus
+            #    „wirkungslos". ⛔ Diese **Einzelmessung war zu verrauscht**:
+            #    Die Zahl schwankt zwischen 978 und 3966 ms.
+            # 3. Dann band ich es an den Sprachwechsel. Auch das war falsch —
+            #    der Prüfer zeigte, dass die Namen aus **Dateien im
+            #    Spielordner** kommen. Wer den Ordner umstellt oder das Spiel
+            #    aktualisiert, bekam weiter die alten Namen.
             #
-            # Der Merker ist nach Sprache geschlüsselt, ein Wechsel baut also
-            # ohnehin neu. `vergessen()` braucht es nur, damit ein geänderter
-            # **Spielordner** durchschlägt — und der ändert sich nicht beim
-            # Seitenwechsel.
-            _spr_jetzt = aktuelle()
-            if zuletzt.get('sprache') != _spr_jetzt:
-                joysticks.vergessen()
-                zuletzt['sprache'] = _spr_jetzt
-            daten['namen'] = joysticks.klarnamen(_spr_jetzt)
+            # ⭐ Die Gültigkeit gehört dorthin, wo die Daten herkommen:
+            # `joysticks.klarnamen()` schlüsselt seinen Merker jetzt selbst
+            # nach Sprache **und** Zustand der Quelldateien. Diese Seite muss
+            # gar nichts mehr darüber wissen — und bekommt trotzdem immer den
+            # richtigen Stand.
+            daten['namen'] = joysticks.klarnamen(aktuelle())
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_namen', ausnahme)
             daten['namen'] = {}
@@ -14849,7 +14845,18 @@ def _achsen(fenster, rahmen):
             if weg and os.path.exists(weg):
                 with open(weg, 'rb') as f:
                     roh = f.read()
+            # ⚠⚠ Der XML-Hash allein reicht NICHT. `zusammenfassung()` hängt
+            # zusätzlich an `gueltige_kennungen()` → `joysticks.geraete()`,
+            # und die kommen aus dem **Spielprotokoll**, nicht aus der XML.
+            # Vom Prüfer nachgestellt: dieselbe XML, eine Gerätekennung im
+            # Protokoll ergänzt — ein Geräteblock wechselt von `aktiv=False`
+            # auf `True`, der Hash bleibt gleich. Geräteauswahl und Bewertung
+            # wären veraltet geblieben.
+            #
+            # Deshalb steht die Zusammenfassung **zusätzlich** drin: Sie
+            # deckt die Protokoll-Seite ab, der Hash die Datei-Seite.
             stand = (hashlib.sha1(roh).hexdigest(),
+                     repr(kurven.zusammenfassung()),
                      repr(_gs.saetze()),
                      repr(wahl))
         except Exception as ausnahme:

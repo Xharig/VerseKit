@@ -1375,25 +1375,10 @@ class Bestandsfenster:
             # jedem Anzeigen der Seite**, obwohl man nur kurz woanders war.
             # Teil dessen, was als „wirkt lahm" ankam.
             #
-            # ⚠⚠ Der Abdruck umfasst **Daten UND Anzeigezustand**. Die Daten
-            # allein reichen nicht: Ein Filter, eine Suche oder ein
-            # angeklickter Auftrag ändert das Bild, ohne die Daten anzufassen.
-            # Genau diese Lücke hat der Prüfer am selben Tag zweimal auf
-            # anderen Seiten gefunden — hier ist sie von vornherein zu.
-            #
-            # Sind Daten und Zustand gleich, wäre auch das Bild gleich. Ein
-            # Irrtum fällt in die harmlose Richtung: schlimmstenfalls ein
-            # überflüssiger Neuaufbau, nie ein veralteter Haken.
-            #
-            # Die Zusicherung aus dem Text oben bleibt damit erhalten: Ein
-            # frisch gefallener Bauplan ändert `bestand.json`, also den
-            # Abdruck, also wird gezeichnet.
-            stand = (repr(self.bestand), repr(self.katalog),
-                     self.filter, self.suche.get(), repr(self.fein),
-                     self.auftrag, getattr(self, 'katalog_art', ''),
-                     self.alle_zeigen, repr(sorted(self.offen)))
-            if stand != getattr(self, '_letzter_stand', None):
-                self._letzter_stand = stand
+            # ⭐⭐ Nur neu zeichnen, wenn sich etwas geändert hat — und der
+            # Vergleich geht gegen den Abdruck, den `_zeichnen()` beim
+            # **letzten tatsächlichen Aufbau** hinterlassen hat.
+            if self._anzeige_stand() != getattr(self, '_letzter_stand', None):
                 self._zeichnen()
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.neu_laden', ausnahme)
@@ -1587,6 +1572,32 @@ class Bestandsfenster:
                 ergebnis.append((art, treffer))
         return ergebnis
 
+    def _anzeige_stand(self):
+        """Der Fingerabdruck dessen, was die Liste zeigen WÜRDE.
+
+        ⚠⚠ Er muss **jede** Quelle enthalten, aus der `_zeichnen()` liest —
+        Daten **und** Anzeigezustand. Fehlt eine, bleibt die Liste still auf
+        dem alten Stand, und das fällt niemandem auf.
+
+        Am 12.09.2026 zweimal nachgebessert, beide Male vom Prüfer gefunden:
+        erst fehlte der Anzeigezustand (Filter, Suche), dann die
+        **Merkliste** — `_auswahl()` liest `merk.names()` und `merk.match()`,
+        die Zeilen lesen `merk.contains()`. Wer sie in einem zweiten Fenster
+        ändert, sah hier weiter die alten Sterne.
+
+        ⚠ Lieber eine Quelle zu viel als eine zu wenig: Ein Irrtum soll einen
+        **überflüssigen** Neuaufbau kosten, nie ein veraltetes Bild.
+        """
+        try:
+            merkliste = repr(merk.load())
+        except Exception:
+            merkliste = '?'                 # im Zweifel neu zeichnen
+        return (repr(self.bestand), repr(self.katalog), merkliste,
+                self.filter, self.suche.get(), repr(self.fein),
+                self.auftrag, getattr(self, 'katalog_art', ''),
+                self.alle_zeigen, repr(sorted(self.offen)),
+                repr(getattr(self, 'bereiche_aus', None)))
+
     def _zeichnen(self, nach_oben=False):
         """Die Liste neu aufbauen.
 
@@ -1757,6 +1768,20 @@ class Bestandsfenster:
             # 29,6 Sekunden steckten in dieser einen Zeile.
             self.root.after_idle(
                 lambda: self.root.after_idle(lambda: self._zurueck_zu(oben_px)))
+
+        # ⭐⭐ **Wer zeichnet, schreibt den Abdruck — und zwar HIER, am Ende.**
+        #
+        # Die erste Fassung setzte ihn in `neu_laden()`, also nur auf einem von
+        # **vierzehn** Wegen, die `_zeichnen()` rufen. Vom Prüfer nachgestellt:
+        # Zustand A über `neu_laden()` zeichnen, Zustand B direkt zeichnen, A
+        # auf der Platte wiederherstellen, `neu_laden()` — der Vergleich fand
+        # sein altes A, sprang ab, und auf dem Bildschirm stand weiter B.
+        #
+        # ⚠ Und **nach** dem Aufbau, nicht davor: Bricht das Zeichnen ab,
+        # bleibt der Abdruck auf dem letzten Stand, der wirklich zu sehen war.
+        # Vorher hätte ein Abbruch einen Zustand als gezeichnet vermerkt, den
+        # niemand je gesehen hat.
+        self._letzter_stand = self._anzeige_stand()
 
     def _rollbereich_anmelden(self):
         """Die Scrollfläche neu vermessen — aber höchstens einmal je Runde.

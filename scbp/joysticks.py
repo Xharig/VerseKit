@@ -946,7 +946,11 @@ def _zahl_am_ende(text):
 # ⚠ Deutsch heisst dort `german_(germany)`, mit Unterstrichen und Klammern.
 INI_ORDNER = {'de': ('german_(germany)', 'german'), 'en': ('english',)}
 
-_KLARNAMEN = {}          # {sprache: {aktion: (name, beschreibung)}}
+# {(sprache, Quellenmarke): {aktion: (name, beschreibung)}}
+# ⚠ Die Marke gehoert in den Schluessel, nicht nur die Sprache — siehe
+# `_quellenmarke()`. Aendert sich der Spielordner oder eine Uebersetzungsdatei,
+# entsteht dadurch von selbst ein neuer Eintrag.
+_KLARNAMEN = {}
 
 
 # ⚠ Aendert sich, was `_profil()` merkt, muss diese Zahl hoch — sonst liest
@@ -1084,6 +1088,39 @@ def _ini_texte(sprache, spielordner=None):
     return heraus
 
 
+def _quellenmarke(sprache, spielordner=None):
+    """Woran man erkennt, dass die Klarnamen-Quellen sich geaendert haben.
+
+    ⚠⚠ **Der Merker allein nach Sprache reicht nicht.** Die Namen kommen aus
+    zwei Dateien im SPIELORDNER — `defaultProfile.xml` und der `global.ini`
+    der jeweiligen Sprache. Wer den Spielordner umstellt oder das Spiel
+    aktualisiert, bekam bisher weiter die alten Namen; nur ein `vergessen()`
+    half, und das wurde aus Tempogruenden seltener gerufen.
+
+    Vom Pruefer am 12.09.2026 nachgestellt: Uebersetzungsquelle aendern,
+    Sprache gleich lassen — `klarnamen()` lieferte den alten Namen.
+
+    Die Marke ist absichtlich **billig**: Pfad, Groesse und Zeitstempel, kein
+    Lesen des Inhalts. Die `global.ini` hat rund 12 MB.
+    """
+    ordner = spielordner or pfade.spiel_ordner() or ''
+    wege = [os.path.join(ordner, 'Data', 'defaultProfile.xml'),
+            os.path.join(ordner, 'data', 'defaultProfile.xml')]
+    for unter in ('data', 'Data'):
+        for name in INI_ORDNER.get(sprache, ('english',)):
+            wege.append(os.path.join(ordner, unter, 'Localization', name,
+                                     'global.ini'))
+    teile = [ordner, sprache]
+    for weg in wege:
+        try:
+            zustand = os.stat(weg)
+            teile.append('%s:%d:%d' % (weg, zustand.st_size,
+                                       int(zustand.st_mtime)))
+        except OSError:
+            continue                  # Datei gibt es nicht — zaehlt als „leer"
+    return '|'.join(teile)
+
+
 def klarnamen(sprache='de', spielordner=None):
     """Aktion → (lesbarer Name, Beschreibung) in der gewuenschten Sprache.
 
@@ -1092,7 +1129,11 @@ def klarnamen(sprache='de', spielordner=None):
     Etikett ohne Eintrag in der `global.ini` bleibt weg, statt aus dem
     Schluessel einen huebschen Namen zu basteln.
     """
-    merk = _KLARNAMEN.get(sprache)
+    # ⚠ Der Schluessel ist NICHT nur die Sprache, sondern auch der Zustand der
+    # Quelldateien — sonst bleiben die Namen stehen, wenn sich der Spielordner
+    # oder das Spiel geaendert hat. Siehe `_quellenmarke()`.
+    schluessel = (sprache, _quellenmarke(sprache, spielordner))
+    merk = _KLARNAMEN.get(schluessel)
     if merk is not None:
         return merk
     etiketten = (_profil(spielordner) or {}).get('etiketten') or {}
@@ -1121,7 +1162,7 @@ def klarnamen(sprache='de', spielordner=None):
             heraus[aktion] = (name, hinweis, False)
             continue
         heraus[aktion] = (name, hinweis, True)
-    _KLARNAMEN[sprache] = heraus
+    _KLARNAMEN[schluessel] = heraus
     return heraus
 
 

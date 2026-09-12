@@ -119,7 +119,7 @@ def main():
     kosten = []
     for kennung in sorted(rueckrufe):
         ruf = rueckrufe[kennung]
-        start = time.time()
+        start = time.perf_counter()
         try:
             ruf()
             fenster.root.update()
@@ -127,7 +127,7 @@ def main():
         except Exception as fehler:
             kosten.append((-1.0, kennung, type(fehler).__name__))
             continue
-        kosten.append(((time.time() - start) * 1000.0, kennung, ''))
+        kosten.append(((time.perf_counter() - start) * 1000.0, kennung, ''))
     if kosten:
         kosten.sort(reverse=True)
         print('\n  Was der Rueckruf beim Anzeigen kostet:')
