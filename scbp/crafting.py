@@ -351,7 +351,7 @@ def entity_of(name):
     """Die Entitäts-Kennung zu einem Bauplan — oder `''`.
 
     ⭐ Das ist die Brücke zu den Ladenpreisen: Dieselbe Kennung führt UEX als
-    `uuid` (siehe `scbp/laeden.py`). **Zugeordnet wird darüber, nie über den
+    `uuid` (siehe `scbp/shops.py`). **Zugeordnet wird darüber, nie über den
     Namen** — über Namen ist es hier schon einmal schiefgegangen.
 
     ⚠ Gemerkt, nicht gesucht: Ohne Tabelle liefe bei jedem Aufklappen eine

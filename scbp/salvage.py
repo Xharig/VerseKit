@@ -79,7 +79,7 @@ Zwei Quellen, beide schon im Werkzeug:
 | | |
 |---|---|
 | Werksausstattung je Schiff | `erkul.py` → `cdn.erkul.games` |
-| Was ein Teil im Laden kostet | `laeden.py` → UEX Corp |
+| Was ein Teil im Laden kostet | `shops.py` → UEX Corp |
 
 Verbunden über die **Entitäts-Kennung** (`ref` bei erkul, `uuid` bei UEX) —
 nie über den Namen. Über Namen ist es im Projekt schon zweimal schiefgegangen.
@@ -364,7 +364,7 @@ def value(parts, price_of):
     """Ladenwert der Teile — `(summe, mit_preis, ohne_preis)`.
 
     `price_of` ist eine Funktion `kennung -> preis oder None`; sie kommt von
-    `laeden.py` und wird hier nur benutzt, nicht nachgebaut.
+    `shops.py` und wird hier nur benutzt, nicht nachgebaut.
 
     ⚠⚠ **Was keinen Preis hat, wird NICHT geschätzt.** Es wird gezählt und
     genannt. Eine Summe, in der drei erfundene Zahlen stecken, sieht genauso

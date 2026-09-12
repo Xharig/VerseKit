@@ -50,7 +50,7 @@ from scbp import (
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
-                  katalog as katalog_modul, laeden, logquelle, watchlist,
+                  katalog as katalog_modul, shops, logquelle, watchlist,
                   pfade, phrasen, ships, spielstand, titelleiste, sound,
                   uebersetzung, verkauf, hotkey as hotkey_modul)
 
@@ -838,7 +838,7 @@ class Watcher(threading.Thread):
         # Spielversion. Er steht **hinter** den anderen, damit die schnellen
         # Abrufe nicht auf ihn warten.
         try:
-            laeden.katalog_holen()
+            shops.fetch_catalog()
         except Exception as ausnahme:
             fehler.merken('watcher.laeden_katalog', ausnahme)
 
@@ -4401,10 +4401,10 @@ if __name__ == '__main__':
         except Exception as ausnahme:
             fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
         try:
-            from scbp import cart as _wk, fleet as _hg2, laeden as _ld
+            from scbp import cart as _wk, fleet as _hg2, shops as _ld
             offen = _wk.missing_prices(_wk.invoice(_hg2.load())['posten'])
             for kennung in offen:
-                _ld.holen(kennung)
+                _ld.fetch(kennung)
             if offen:
                 fehler.spur('Vorladen: %d Preise geholt' % len(offen))
         except Exception as ausnahme:

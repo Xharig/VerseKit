@@ -43,7 +43,7 @@ wichtigste Regel des Projekts, und sie wird auch hier nicht aufgeweicht.
 Erkuls Feld `ref` ist **exakt** die Entitäts-Kennung, unter der auch UEX und
 scmdb denselben Gegenstand führen. Gegengeprüft am 06.09.2026::
 
-    BlastChill  →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (in laeden.py dokumentiert)
+    BlastChill  →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (in shops.py dokumentiert)
                 →  94ea5bb5-070c-4c75-b90d-66c26c38bb2a   (erkul liefert dasselbe)
 
 ⚠⚠ **Deshalb wird auch hier NIE über den Namen zugeordnet.** Genau daran ist es

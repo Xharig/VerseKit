@@ -2939,7 +2939,7 @@ TEXTE = {
     # ⚠⚠ **Die Bereiche und Warengruppen von UEX — englisch in den Daten.**
     # Sie stehen in den Auswahlmenüs des Laden-Reiters, also gehören sie
     # übersetzt wie jeder andere sichtbare Text. Die Zuordnung „UEX-Name →
-    # Schlüssel" steht in `scbp/laeden.py`; kennt sie einen Namen nicht,
+    # Schlüssel" steht in `scbp/shops.py`; kennt sie einen Namen nicht,
     # bleibt der englische stehen — geraten wird nicht.
     's_uk_armor':        ('Rüstung', 'Armor'),
     # ⚠ „Avionik" ist ein deutsches Wort und sagt trotzdem nichts — am

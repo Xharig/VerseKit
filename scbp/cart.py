@@ -76,7 +76,7 @@ Teil wird deshalb über die Kennung gesucht, nicht über die Beschriftung.
 verkaufe teuer", über UEX' fertige Handelsfahrten. Hier geht es darum, eine
 feste Liste mit möglichst wenigen Stopps abzuklappern. Es gibt zwischen beiden
 auch keine gemeinsame Schlüsselgröße: `routen.py` rechnet ausschließlich über
-Terminal-Nummern, `laeden.py` legt nur Namen ab.
+Terminal-Nummern, `shops.py` legt nur Namen ab.
 
 Gerechnet wird deshalb hier, mit einer Überdeckung: Es gewinnt der Ort, der die
 meisten offenen Posten deckt, bei Gleichstand der billigere. Das ist dieselbe
@@ -336,7 +336,7 @@ def choices(kind, size):
     der in einem Waffenplatz zur Auswahl steht, ist schlimmer als gar keine
     Auswahl.
     """
-    from . import laeden
+    from . import shops
     if not kind:
         return []
     found = _craftable(kind, size)
@@ -345,7 +345,7 @@ def choices(kind, size):
 
     groups = [g for g, a in GROUP_TO_KIND.items() if a == kind]
     result = []
-    for part in (laeden.katalog_teile() if groups else []):
+    for part in (shops.catalog_items() if groups else []):
         if part.get('kategorie') not in groups:
             continue
         # ⚠ Die Größe wird nur geprüft, wenn beide Seiten eine haben. UEX
@@ -558,7 +558,7 @@ def _blueprint_index():
 
     Der so gefundene Name stammt aus den **Rezeptdaten selbst** und wird nur
     dort wieder nachgeschlagen. Es ist also kein Namensabgleich über zwei
-    Quellen hinweg — genau der Fehler, den `laeden.py` im Kopf beschreibt.
+    Quellen hinweg — genau der Fehler, den `shops.py` im Kopf beschreibt.
     """
     from . import crafting
     result = {}
@@ -646,13 +646,13 @@ def buy_option(ref, name=''):
     Bauplänen) — daraus „nirgends im Handel" zu machen, wäre eine Aussage über
     fremde Daten, nicht über das Spiel.
     """
-    from . import laeden
+    from . import shops
     blank = {'zustand': NOT_CHECKED, 'preis': None, 'laden': '', 'ort': ''}
     if not ref:
         return blank
-    if not laeden.bekannt(ref):
+    if not shops.known(ref):
         return blank
-    best = laeden.guenstigster(ref)
+    best = shops.cheapest(ref)
     if not best:
         return {'zustand': NO_PRICE, 'preis': None, 'laden': '', 'ort': ''}
     price, shop_name, place = best
@@ -811,12 +811,12 @@ def total(items):
 
 def _offers(items):
     """Je zu kaufendem Posten alle Läden, die ihn führen."""
-    from . import laeden
+    from . import shops
     result = {}
     for p in items:
         if p.get('weg') != BUY or not p.get('ref'):
             continue
-        rows = laeden.laeden(p['ref'])
+        rows = shops.shops_for(p['ref'])
         if not rows:
             continue
         result[p['pfad']] = rows
@@ -968,7 +968,7 @@ def invoice(data=None):
                 places = []
             if places:
                 # ⚠ `buy_at()` gibt eine **Liste** von Verkaufsstellen zurück,
-                # billigste zuerst — kein Tupel wie `laeden.guenstigster()`.
+                # billigste zuerst — kein Tupel wie `shops.cheapest()`.
                 best = places[0]
                 ship_item['kauf'] = {
                     'zustand': KNOWN, 'preis': best.get('preis'),
@@ -1056,7 +1056,7 @@ def invoice(data=None):
 def missing_prices(item_list):
     """Zu welchen Posten der Ladenpreis noch nachzuschlagen ist.
 
-    Gibt Paare `(kennung, name)` zurück — genau das, was `laeden.holen()`
+    Gibt Paare `(kennung, name)` zurück — genau das, was `shops.fetch()`
     braucht.
 
     ⚠⚠ **Ohne diesen Schritt bleibt eine Rechnung auf `NOT_CHECKED`
@@ -1069,7 +1069,7 @@ def missing_prices(item_list):
     seen = set()
     for p in item_list or []:
         if p.get('sorte') == SHIP:
-            # Schiffspreise kommen aus `ships.py`, nicht aus `laeden.py`.
+            # Schiffspreise kommen aus `ships.py`, nicht aus `shops.py`.
             continue
         ident = p.get('ref') or ''
         state = (p.get('kauf') or {}).get('zustand')

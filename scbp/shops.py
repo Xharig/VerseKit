@@ -22,7 +22,7 @@ Was ein fertiges Teil im Laden kostet — und wo es dort liegt.
 ## Die Frage, die nur dieses Werkzeug beantworten kann
 
 Der Watcher kennt das **Rezept** (`crafting.py`) und die **Rohstoffpreise**
-(`preise.py`). Daraus ergibt sich, was Selberbauen kostet. Fehlte bisher die
+(`prices.py`). Daraus ergibt sich, was Selberbauen kostet. Fehlte bisher die
 andere Hälfte: Was kostet dasselbe Teil fertig im Regal?
 
 Erst beide Zahlen nebeneinander beantworten die Frage, um die es wirklich geht
@@ -64,7 +64,7 @@ Zuschnitt, den diese Schnittstelle hergibt:
 | **je Gegenstand, wenn jemand hinschaut** | **1** | so viel wie nötig |
 
 ⚠ Ein Gegenstand wird **höchstens einmal am Tag** neu geholt, auch wenn man
-zehnmal auf ihn schaut. Die Frist steht in `HALTBAR`.
+zehnmal auf ihn schaut. Die Frist steht in `SHELF_LIFE`.
 
 ⚠ **Ohne Netz passiert nichts Schlimmes.** Liegt ein alter Stand da, wird er
 benutzt und sein Alter angezeigt; liegt keiner da, bleibt die Spalte leer.
@@ -74,34 +74,34 @@ import time
 from . import uex
 from .katalog import AUS
 
-QUELLE = 'https://api.uexcorp.uk/2.0/items_prices?uuid=%s'
-QUELLE_UEBER_ID = 'https://api.uexcorp.uk/2.0/items_prices?id_item=%s'
-QUELLE_KATEGORIEN = 'https://api.uexcorp.uk/2.0/categories'
-QUELLE_TEILE = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
-QUELLE_PREISE_KATEGORIE = ('https://api.uexcorp.uk/2.0/'
-                           'items_prices?id_category=%d')
+SOURCE = 'https://api.uexcorp.uk/2.0/items_prices?uuid=%s'
+SOURCE_BY_ID = 'https://api.uexcorp.uk/2.0/items_prices?id_item=%s'
+SOURCE_CATEGORIES = 'https://api.uexcorp.uk/2.0/categories'
+SOURCE_ITEMS = 'https://api.uexcorp.uk/2.0/items?id_category=%d'
+SOURCE_CATEGORY_PRICES = ('https://api.uexcorp.uk/2.0/'
+                          'items_prices?id_category=%d')
 # ⭐⭐ **Klasse und Güte je Teil.** Genau die Angaben, nach denen UEX auf
 # seiner eigenen Seite filtert (Class · Grade · Size) — und genau die, die der
 # Watcher bei Bauplänen längst als Kürzel `M/1/A` führt. Ein Abruf je
 # Warengruppe, gemessen 392 Zeilen für Kühler in 0,5 s.
-QUELLE_ATTRIBUTE = ('https://api.uexcorp.uk/2.0/'
-                    'items_attributes?id_category=%d')
+SOURCE_ATTRIBUTES = ('https://api.uexcorp.uk/2.0/'
+                     'items_attributes?id_category=%d')
 CACHE = 'laeden.json'
-KATALOG_CACHE = 'laeden-katalog.json'
+CATALOG_CACHE = 'laeden-katalog.json'
 FORMAT = 1
 
 # ⚠ Eigene Formatnummer für den Katalog. Er hat seit v3.15.0 eine andere
 # Struktur (er führt die kaufbaren Teile selbst, seit `3` samt Hersteller und
 # Größe); der Preis-Zwischenspeicher daneben ist unverändert und soll deshalb
 # nicht mit weggeworfen werden.
-FORMAT_KATALOG = 5
+FORMAT_CATALOG = 5
 
 # ⚠⚠ **Ein Teil ohne `uuid` wird über seine UEX-Nummer geführt.** Rund ein
 # Drittel des Katalogs hat keine Entitäts-Kennung — darunter der Boomtube
-# Rocket Launcher, nach dem am 04.09.2026 gefragt wurde. Für die wäre `holen()`
+# Rocket Launcher, nach dem am 04.09.2026 gefragt wurde. Für die wäre `fetch()`
 # ohne diesen Umweg blind. Der Schlüssel `id:123` unterscheidet sich von jeder
 # echten Kennung, also bleiben Ablage, Alter und Nachschlagen unverändert.
-ID_PRAEFIX = 'id:'
+ID_PREFIX = 'id:'
 
 # ⚠⚠ **Die Kennung trägt nicht überall — gemeldet und nachgemessen 04.09.2026.**
 #
@@ -129,8 +129,8 @@ ID_PRAEFIX = 'id:'
 #
 # ⚠ Ein Name, den UEX **mehrfach** führt, wird gar nicht zugeordnet: Eine
 # geratene Zuordnung wäre schlimmer als keine.
-ABSCHNITTE = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
-              'Armor', 'Avionics', 'Undersuits', 'Propulsion')
+SECTIONS = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
+            'Armor', 'Avionics', 'Undersuits', 'Propulsion')
 
 # ⭐⭐ **Ladenpreise hängen am Patch, nicht an der Uhr.** Sie ändern sich, wenn
 # CIG etwas ändert — anders als die Warenpreise im Handel, die täglich
@@ -141,24 +141,24 @@ ABSCHNITTE = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
 # die als Datenbank beim Spieler abzulegen und nur bei Bedarf zu
 # aktualisieren? Schiffspreise, Waffenpreise erneuern sich ja nicht so
 # häufig." Die Ablage gab es schon; sie warf ihren Inhalt nur zu oft weg.
-HALTBAR = 30 * uex.TAG
+SHELF_LIFE = 30 * uex.TAG
 
 # ⚠ Wieviele Gegenstände die Ablage höchstens behält. Ohne Grenze wüchse sie
 # mit jedem angesehenen Teil weiter; 400 deckt jeden realistischen Bestand ab
 # und bleibt unter 200 KB. Beim Überschreiten fliegt der älteste Eintrag.
-HOECHSTENS = 400
+MAX_ITEMS = 400
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
-                     patch_bindet=True)
+_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE,
+                    patch_bindet=True)
 
 # Der Warengruppen-Katalog. Eigene Ablage, dieselbe Regel: Er ändert sich mit
 # einem Patch, nicht mit dem Tag — und sein Aufbau kostet rund 50 Sekunden.
 # Genau der Lauf, der bisher jede Woche umsonst fällig wurde.
-_katalog = uex.Ablage(KATALOG_CACHE, format_nr=FORMAT_KATALOG,
+_catalog = uex.Ablage(CATALOG_CACHE, format_nr=FORMAT_CATALOG,
                       haltbar=90 * uex.TAG, patch_bindet=True)
 
 
-def _katalog_sichern(fortschritt=None):
+def _save_catalog(progress=None):
     """Den Katalog aufbauen: Namen **und** wer überhaupt kaufbar ist.
 
     ⚠ Das kostet rund 76 Abrufe (zwei je Kategorie) und dauert gemessen etwa
@@ -177,7 +177,7 @@ def _katalog_sichern(fortschritt=None):
     (gemessen: 4.282 Zeilen in sechs Kategorien, davon 710 kaufbare Teile).
     Das ist unvergleichlich billiger, als 1.597 Teile einzeln zu fragen.
     """
-    if not _katalog.veraltet():
+    if not _catalog.veraltet():
         return True
     # ⚠⚠ **Erst den Spielstand, dann den Katalog.** Gesichert wird mit dem
     # Stand, der in diesem Augenblick bekannt ist — fehlt er, trägt der
@@ -189,13 +189,13 @@ def _katalog_sichern(fortschritt=None):
         spielstand.aktualisieren()
     except Exception:
         pass
-    kats = uex.holen(QUELLE_KATEGORIEN, 'laeden.kategorien')
-    if not kats:
+    cats = uex.holen(SOURCE_CATEGORIES, 'shops.categories')
+    if not cats:
         return False
-    gewaehlt = [k for k in kats if k.get('section') in ABSCHNITTE]
-    namen = {}
-    doppelt = set()
-    id_zu_uuid = {}
+    chosen = [k for k in cats if k.get('section') in SECTIONS]
+    names = {}
+    duplicates = set()
+    id_to_uuid = {}
     # ⭐⭐ **Die kaufbaren Teile werden mitgeschrieben, nicht nur gezählt.**
     # Bis v3.14.0 speiste sich die Ladenliste aus den **Bauplänen** — sie
     # zeigte also nur, was man auch herstellen kann. Am 04.09.2026 gefragt:
@@ -206,111 +206,111 @@ def _katalog_sichern(fortschritt=None):
     # Gemessen über die 38 Kategorien unserer Abschnitte: **3.958 Teile,
     # davon 1.528 mit Kaufpreis** — gegenüber 893 craftbaren. Die Abrufe
     # dafür laufen ohnehin schon; bisher wurde das Ergebnis weggeworfen.
-    kategorien = []
-    teile_raus = []
-    for nummer, k in enumerate(gewaehlt, start=1):
-        kat_index = len(kategorien)
-        kategorien.append([k.get('section') or '', k.get('name') or ''])
-        teile = uex.holen(QUELLE_TEILE % k['id'], 'laeden.katalog')
-        roh = {}
-        for x in teile or []:
+    categories = []
+    items_out = []
+    for number, k in enumerate(chosen, start=1):
+        cat_index = len(categories)
+        categories.append([k.get('section') or '', k.get('name') or ''])
+        items = uex.holen(SOURCE_ITEMS % k['id'], 'shops.catalog')
+        raw = {}
+        for x in items or []:
             name = (x.get('name') or '').strip()
-            kennung = x.get('id')
-            if not kennung:
+            ident = x.get('id')
+            if not ident:
                 continue
             uuid = (x.get('uuid') or '').strip()
             if uuid:
-                id_zu_uuid[str(kennung)] = uuid
+                id_to_uuid[str(ident)] = uuid
             # ⭐ Hersteller und Größe kommen mit — sie sind die zwei weiteren
             # Auswahlmenüs im Laden-Reiter. Gemessen: `company_name` ist bei
             # Geschützen 143 von 154 gefüllt, `size` 150 von 154 (Größe 1–10);
             # bei Rüstung dagegen fast leer, dort fällt das Menü von selbst
             # weg (`_filterleiste` lässt ein Feld ohne Auswahl aus).
-            roh[str(kennung)] = {
+            raw[str(ident)] = {
                 'n': name,
                 'h': (x.get('company_name') or '').strip(),
                 'g': str(x.get('size') or '').strip(),
                 'c': '',
                 'q': '',
             }
-            klein = name.lower()
-            if not klein:
+            lower = name.lower()
+            if not lower:
                 continue
-            if klein in namen and namen[klein] != kennung:
-                doppelt.add(klein)
-            namen[klein] = kennung
+            if lower in names and names[lower] != ident:
+                duplicates.add(lower)
+            names[lower] = ident
         # ⚠ Die Attribute überschreiben die Größe aus der Teileliste: Dort ist
         # sie nur bei 466 von 1.528 gefüllt, hier bei 70 von 73 (Kühler).
-        merkmale = {}
-        for x in uex.holen(QUELLE_ATTRIBUTE % k['id'], 'laeden.attribute') or []:
-            teil_nr = str(x.get('id_item') or '')
-            feld = (x.get('attribute_name') or '').strip()
-            wert = str(x.get('value') or '').strip()
+        traits = {}
+        for x in uex.holen(SOURCE_ATTRIBUTES % k['id'], 'shops.attributes') or []:
+            item_no = str(x.get('id_item') or '')
+            field = (x.get('attribute_name') or '').strip()
+            value = str(x.get('value') or '').strip()
             # ⚠⚠ **Die Güte heißt nicht überall gleich.** Bei Kühlern steht
             # sie als `Grade`, bei Radar als `Grade Letter` (daneben gibt es
             # dort ein `Grade Numeric`). Wer nur auf `Grade` prüft, bekommt
             # für Radar gar keine Güte — gemessen: 182 statt der möglichen
             # Treffer, und das Menü fiel bei Radar ganz weg.
-            if feld in ('Grade', 'Grade Letter'):
-                feld = 'Grade'
-            if not teil_nr or not wert or feld not in ('Size', 'Class',
-                                                       'Grade'):
+            if field in ('Grade', 'Grade Letter'):
+                field = 'Grade'
+            if not item_no or not value or field not in ('Size', 'Class',
+                                                         'Grade'):
                 continue
-            merkmale.setdefault(teil_nr, {})[feld] = wert
-        for teil_nr, gefunden in merkmale.items():
-            if teil_nr not in roh:
+            traits.setdefault(item_no, {})[field] = value
+        for item_no, found in traits.items():
+            if item_no not in raw:
                 continue
-            roh[teil_nr]['c'] = gefunden.get('Class', '')
-            roh[teil_nr]['q'] = gefunden.get('Grade', '')
-            if gefunden.get('Size'):
-                roh[teil_nr]['g'] = gefunden['Size']
-        preise = uex.holen(QUELLE_PREISE_KATEGORIE % k['id'], 'laeden.kaufbar')
-        gesehen = set()
-        for x in preise or []:
+            raw[item_no]['c'] = found.get('Class', '')
+            raw[item_no]['q'] = found.get('Grade', '')
+            if found.get('Size'):
+                raw[item_no]['g'] = found['Size']
+        price_rows = uex.holen(SOURCE_CATEGORY_PRICES % k['id'], 'shops.buyable')
+        seen = set()
+        for x in price_rows or []:
             if (x.get('price_buy') or 0) <= 0:
                 continue
-            teil = str(x.get('id_item') or '')
-            if not teil:
+            item = str(x.get('id_item') or '')
+            if not item:
                 continue
             # Ein Teil steht in vielen Terminals — hier zählt es einmal.
-            if teil in gesehen or teil not in roh:
+            if item in seen or item not in raw:
                 continue
-            gesehen.add(teil)
-            eintrag = roh[teil]
-            teile_raus.append({'n': eintrag['n'],
-                               's': id_zu_uuid.get(teil) or ID_PRAEFIX + teil,
-                               'k': kat_index,
-                               'h': eintrag['h'],
-                               'g': eintrag['g'],
-                               'c': eintrag['c'],
-                               'q': eintrag['q']})
-        if fortschritt:
-            fortschritt(nummer, len(gewaehlt))
+            seen.add(item)
+            entry = raw[item]
+            items_out.append({'n': entry['n'],
+                              's': id_to_uuid.get(item) or ID_PREFIX + item,
+                              'k': cat_index,
+                              'h': entry['h'],
+                              'g': entry['g'],
+                              'c': entry['c'],
+                              'q': entry['q']})
+        if progress:
+            progress(number, len(chosen))
     # Mehrdeutige Namen fliegen raus — siehe Kopf.
-    for name in doppelt:
-        namen.pop(name, None)
-    if not namen:
+    for name in duplicates:
+        names.pop(name, None)
+    if not names:
         return False
-    teile_raus.sort(key=lambda x: x['n'].lower())
-    return _katalog.sichern({'namen': namen,
-                             'kategorien': kategorien,
-                             'teile': teile_raus},
+    items_out.sort(key=lambda x: x['n'].lower())
+    return _catalog.sichern({'namen': names,
+                             'kategorien': categories,
+                             'teile': items_out},
                             kompakt=True)
 
 
-def katalog_da():
+def catalog_ready():
     """Liegt der Katalog vor? Ohne ihn gibt es keine Ladenliste.
 
     ⚠ Geprüft wird auf `teile` — die Liste, aus der der Reiter lebt. Ein
     Katalog im alten Format (nur Kennungen, keine Teile) zählt nicht als da;
-    er wird über `FORMAT_KATALOG` ohnehin verworfen.
+    er wird über `FORMAT_CATALOG` ohnehin verworfen.
     """
-    return bool((_katalog.laden() or {}).get('teile'))
+    return bool((_catalog.laden() or {}).get('teile'))
 
 
-def katalog_holen(fortschritt=None):
+def fetch_catalog(progress=None):
     """Den Katalog von außen anstoßen — für die Ladenliste."""
-    return _katalog_sichern(fortschritt)
+    return _save_catalog(progress)
 
 
 # ⚠ **UEX-Name → Sprachschlüssel.** Die Namen kommen englisch aus der Quelle
@@ -320,7 +320,7 @@ def katalog_holen(fortschritt=None):
 #
 # ⚠ Zwei Namen kommen doppelt vor — `Personal Weapons` und `Undersuits` sind
 # zugleich Bereich **und** Warengruppe. Deshalb zwei Tabellen statt einer.
-BEREICH_TEXTE = {
+SECTION_KEYS = {
     'Armor': 's_uk_armor',
     'Avionics': 's_uk_avionics',
     'Personal Weapons': 's_uk_personal_weapons_s',
@@ -331,7 +331,7 @@ BEREICH_TEXTE = {
     'Vehicle Weapons': 's_uk_vehicle_weapons_s',
 }
 
-GRUPPE_TEXTE = {
+GROUP_KEYS = {
     'Arms': 's_uk_arms',
     'Attachments': 's_uk_attachments',
     'Backpacks': 's_uk_backpacks',
@@ -373,7 +373,7 @@ GRUPPE_TEXTE = {
 }
 
 
-def katalog_teile():
+def catalog_items():
     """Alles, was UEX in unseren Abschnitten **verkauft** — oder leere Liste.
 
     Je Eintrag: `name`, `kennung` (Entitäts-Kennung oder `id:…`),
@@ -385,21 +385,21 @@ def katalog_teile():
     bauen", der Laden „was kann ich kaufen". Das zweite ist die größere
     Menge — und die, nach der jemand sucht, der ein Teil braucht.
     """
-    daten = _katalog.laden() or {}
-    kats = daten.get('kategorien') or []
-    raus = []
-    for x in daten.get('teile') or []:
+    data = _catalog.laden() or {}
+    cats = data.get('kategorien') or []
+    result = []
+    for x in data.get('teile') or []:
         nr = x.get('k')
-        paar = kats[nr] if isinstance(nr, int) and 0 <= nr < len(kats) else ['', '']
-        raus.append({'name': x.get('n') or '',
-                     'kennung': x.get('s') or '',
-                     'abschnitt': paar[0],
-                     'kategorie': paar[1],
-                     'hersteller': x.get('h') or '',
-                     'groesse': x.get('g') or '',
-                     'klasse': x.get('c') or '',
-                     'guete': x.get('q') or ''})
-    return raus
+        pair = cats[nr] if isinstance(nr, int) and 0 <= nr < len(cats) else ['', '']
+        result.append({'name': x.get('n') or '',
+                       'kennung': x.get('s') or '',
+                       'abschnitt': pair[0],
+                       'kategorie': pair[1],
+                       'hersteller': x.get('h') or '',
+                       'groesse': x.get('g') or '',
+                       'klasse': x.get('c') or '',
+                       'guete': x.get('q') or ''})
+    return result
 
 
 
@@ -408,35 +408,35 @@ def _uex_id(name):
     """Die UEX-Kennung zu einem Namen — oder `None`. Baut den Katalog bei Bedarf."""
     if not (name or '').strip():
         return None
-    tabelle = (_katalog.laden() or {}).get('namen') or {}
-    if not tabelle:
-        if not _katalog_sichern():
+    table = (_catalog.laden() or {}).get('namen') or {}
+    if not table:
+        if not _save_catalog():
             return None
-        tabelle = (_katalog.laden() or {}).get('namen') or {}
-    return tabelle.get(name.strip().lower())
+        table = (_catalog.laden() or {}).get('namen') or {}
+    return table.get(name.strip().lower())
 
 
-def _alle():
-    return (_ablage.laden() or {}).get('teile') or {}
+def _all():
+    return (_store.laden() or {}).get('teile') or {}
 
 
-def bekannt(kennung):
+def known(ident):
     """Liegt zu dieser Kennung schon etwas vor? (Auch ein leeres Ergebnis.)"""
-    return bool(kennung) and kennung in _alle()
+    return bool(ident) and ident in _all()
 
 
-def alter(kennung):
+def age(ident):
     """Wie alt der Stand zu diesem Gegenstand ist — oder `None`."""
-    eintrag = _alle().get(kennung or '')
-    if not eintrag:
+    entry = _all().get(ident or '')
+    if not entry:
         return None
     try:
-        return time.time() - float(eintrag.get('geholt') or 0)
+        return time.time() - float(entry.get('geholt') or 0)
     except (TypeError, ValueError):
         return None
 
 
-def laeden(kennung):
+def shops_for(ident):
     """Alle Läden, die dieses Teil führen — teuerster zuletzt.
 
     Je Eintrag: `laden`, `ort`, `system`, `preis`, `zustand`.
@@ -444,33 +444,33 @@ def laeden(kennung):
     **„noch nicht nachgesehen"**. Der Unterschied gehört in die Anzeige:
     einmal „nirgends im Handel", einmal gar nichts.
     """
-    eintrag = _alle().get(kennung or '')
-    if eintrag is None:
+    entry = _all().get(ident or '')
+    if entry is None:
         return None
-    return eintrag.get('zeilen') or []
+    return entry.get('zeilen') or []
 
 
-def guenstigster(kennung):
+def cheapest(ident):
     """Der billigste Laden — `(preis, laden, ort)` oder `None`."""
-    liste = laeden(kennung)
-    if not liste:
+    rows = shops_for(ident)
+    if not rows:
         return None
-    bester = min(liste, key=lambda z: z['preis'])
-    return bester['preis'], bester.get('laden') or '?', bester.get('ort') or ''
+    best = min(rows, key=lambda z: z['preis'])
+    return best['preis'], best.get('laden') or '?', best.get('ort') or ''
 
 
-def holen(kennung, name='', erzwingen=False):
+def fetch(ident, name='', force=False):
     """Die Ladenpreise zu einem Gegenstand nachschlagen.
 
     `name` ist der **Rückfall**: Kommt über die Kennung nichts, wird der
-    ganze Name im UEX-Katalog gesucht (siehe `ABSCHNITTE` im Kopf). Ohne
+    ganze Name im UEX-Katalog gesucht (siehe `SECTIONS` im Kopf). Ohne
     `name` bleibt es beim alten Verhalten.
 
     Gibt `True` zurück, wenn danach ein Stand vorliegt — auch ein leerer
     („UEX kennt es nicht" ist ein gültiges Ergebnis und wird gemerkt, sonst
     fragt das Werkzeug bei jedem Blick erneut nach).
     """
-    if not kennung:
+    if not ident:
         return False
     # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung.** Am 06.09.2026
     # landete ein Bauplan**name** im Kennungsfeld eines Merkzettel-Postens, und
@@ -487,15 +487,15 @@ def holen(kennung, name='', erzwingen=False):
     # ⚠ Die Wache steht HIER und nicht nur an der Fundstelle: Sie fängt jede
     # künftige Stelle mit, die versehentlich einen Namen weiterreicht. Ein
     # falscher Aufruf soll gar nicht erst hinausgehen.
-    if any(z.isspace() for z in kennung) or '"' in kennung:
+    if any(z.isspace() for z in ident) or '"' in ident:
         # ⚠ `fehler` lokal importieren — auf Modulebene wäre es ein
         # Zirkelbezug (`fehler.py` importiert selbst `pfade`). Steht so in den
         # Projektregeln; beim ersten Anlauf stand der Aufruf hier ohne jeden
         # Import und hätte beim ersten Auslösen einen `NameError` geworfen.
         from . import fehler as _f
-        _f.merken('laeden.holen',
+        _f.merken('shops.fetch',
                   ValueError('keine Kennung, sondern ein Name: %r'
-                             % kennung[:60]))
+                             % ident[:60]))
         return False
     # ⚠ **Die Netz-Abschaltung steht NACH der Wache.** Eine kaputte Kennung
     # ist kaputt, ob das Netz an ist oder nicht — und im Prüflauf ist es aus.
@@ -503,61 +503,61 @@ def holen(kennung, name='', erzwingen=False):
     # unbemerkt verrotten können.
     if AUS:
         return False
-    a = alter(kennung)
-    if not erzwingen and a is not None and a < HALTBAR:
+    a = age(ident)
+    if not force and a is not None and a < SHELF_LIFE:
         return True
     # ⚠ Ein Teil ohne Entitäts-Kennung wird über seine UEX-Nummer geholt —
-    # siehe `ID_PRAEFIX`. Ohne diesen Zweig bliebe ein Drittel des Katalogs
+    # siehe `ID_PREFIX`. Ohne diesen Zweig bliebe ein Drittel des Katalogs
     # stumm, darunter jeder Boomtube-Werfer.
-    if kennung.startswith(ID_PRAEFIX):
-        roh = uex.holen(QUELLE_UEBER_ID % kennung[len(ID_PRAEFIX):],
-                        'laeden.id')
+    if ident.startswith(ID_PREFIX):
+        raw = uex.holen(SOURCE_BY_ID % ident[len(ID_PREFIX):],
+                        'shops.id')
     else:
-        roh = uex.holen(QUELLE % kennung, 'laeden')
-    if roh is None:
+        raw = uex.holen(SOURCE % ident, 'shops')
+    if raw is None:
         return False
     # ⚠ Erst wenn die Kennung leer ausgeht, wird der Name bemüht — und auch
     # dann nur der ganze, nie ein Teiltext. Begründung im Kopf des Moduls.
-    if not roh and name:
-        uex_kennung = _uex_id(name)
-        if uex_kennung:
-            ueber_id = uex.holen(QUELLE_UEBER_ID % uex_kennung, 'laeden.name')
-            if ueber_id:
-                roh = ueber_id
+    if not raw and name:
+        uex_ident = _uex_id(name)
+        if uex_ident:
+            by_id = uex.holen(SOURCE_BY_ID % uex_ident, 'shops.name')
+            if by_id:
+                raw = by_id
 
-    zeilen = []
-    for x in roh:
-        preis = float(x.get('price_buy') or 0)
+    rows = []
+    for x in raw:
+        price = float(x.get('price_buy') or 0)
         # ⚠ `price_buy = 0` heisst „dieses Terminal verkauft es nicht", nicht
         # „es ist umsonst". Dieselbe Falle wie bei den Ankaufgeboten in
         # `verkauf.py` — einmal vergessen, und im Reiter steht ein Laden mit
         # „0 aUEC" ganz oben, weil er der billigste zu sein scheint.
-        if preis <= 0:
+        if price <= 0:
             continue
-        zeilen.append({
+        rows.append({
             'laden': (x.get('terminal_name') or '').strip(),
             'ort': (x.get('space_station_name') or x.get('city_name')
                     or x.get('outpost_name') or '').strip(),
             'system': (x.get('star_system_name') or '').strip(),
-            'preis': preis,
+            'preis': price,
             # 100 = fabrikneu. Gebrauchte Ware ist billiger und weniger wert —
             # ein Preis ohne diese Zahl wäre die halbe Wahrheit.
             'zustand': int(x.get('durability') or 0),
         })
-    zeilen.sort(key=lambda z: z['preis'])
+    rows.sort(key=lambda z: z['preis'])
 
-    teile = dict(_alle())
-    teile[kennung] = {'geholt': time.time(), 'zeilen': zeilen}
+    items = dict(_all())
+    items[ident] = {'geholt': time.time(), 'zeilen': rows}
     # ⚠ Älteste zuerst hinaus, wenn es zu viele werden.
-    if len(teile) > HOECHSTENS:
-        nach_alter = sorted(teile.items(),
-                            key=lambda p: p[1].get('geholt') or 0)
-        for schluessel, _wert in nach_alter[:len(teile) - HOECHSTENS]:
-            teile.pop(schluessel, None)
-    return _ablage.sichern({'teile': teile}, kompakt=True)
+    if len(items) > MAX_ITEMS:
+        by_age = sorted(items.items(),
+                        key=lambda p: p[1].get('geholt') or 0)
+        for key, _value in by_age[:len(items) - MAX_ITEMS]:
+            items.pop(key, None)
+    return _store.sichern({'teile': items}, kompakt=True)
 
 
-def vergessen():
+def forget():
     """Alles Nachgeschlagene verwerfen — für den Selbsttest und die Diagnose."""
-    _ablage.sichern({'teile': {}}, kompakt=True)
-    _ablage.vergessen()
+    _store.sichern({'teile': {}}, kompakt=True)
+    _store.vergessen()

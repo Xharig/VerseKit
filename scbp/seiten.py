@@ -7269,7 +7269,7 @@ def _laeden(fenster, rahmen):
     ist das, worüber es keine Verwechslung gibt. Ein Namensvergleich gegen UEX
     hat hier schon einmal `Golden Medmon` als Goldpreis geliefert.
     """
-    from . import crafting as herst_modul, laeden as laden_modul
+    from . import crafting as herst_modul, shops as laden_modul
 
     _ueberschrift(fenster, rahmen, t('hf_laeden'), t('s_ld_lead'))
 
@@ -7377,9 +7377,9 @@ def _laeden(fenster, rahmen):
         if zustand_katalog['laeuft']:
             return []
         try:
-            katalog = laden_modul.katalog_teile()
+            katalog = laden_modul.catalog_items()
         except Exception as ausnahme:
-            fehler.merken('seiten.laeden.katalog_teile', ausnahme)
+            fehler.merken('seiten.shops.catalog_items', ausnahme)
             katalog = []
         if katalog:
             raus = [{'name': x['name'], 'kennung': x['kennung'],
@@ -7404,12 +7404,12 @@ def _laeden(fenster, rahmen):
                                  'hersteller': '', 'groesse': '',
                                  'klasse': '', 'guete': ''})
             except Exception as ausnahme:
-                fehler.merken('seiten.laeden.schiffe', ausnahme)
+                fehler.merken('seiten.shops.schiffe', ausnahme)
             return raus
         try:
             alle = [b for b in herst_modul.all_items() if b.get('entity')]
         except Exception as ausnahme:
-            fehler.merken('seiten.laeden.teile', ausnahme)
+            fehler.merken('seiten.shops.teile', ausnahme)
             return []
         return [{'name': b.get('name') or '', 'kennung': b.get('entity') or '',
                  'bereich': '', 'gruppe': _art_von(b)} for b in alle]
@@ -7462,7 +7462,7 @@ def _laeden(fenster, rahmen):
         if wert.startswith(WERFT_PRAEFIX):
             # Eine Werft heißt überall gleich — Drake bleibt Drake.
             return wert[len(WERFT_PRAEFIX):]
-        schluessel = laden_modul.GRUPPE_TEXTE.get(wert)
+        schluessel = laden_modul.GROUP_KEYS.get(wert)
         if schluessel:
             return t(schluessel)
         return _artname(wert) if wert else wert
@@ -7471,7 +7471,7 @@ def _laeden(fenster, rahmen):
         """Bereich lesbar — sonst wie `_gruppenname`."""
         if wert == BEREICH_SCHIFFE:
             return t('s_ld_ber_schiffe')
-        schluessel = laden_modul.BEREICH_TEXTE.get(wert)
+        schluessel = laden_modul.SECTION_KEYS.get(wert)
         return t(schluessel) if schluessel else wert
 
     def _wertname(feld, wert):
@@ -7628,7 +7628,7 @@ def _laeden(fenster, rahmen):
         if gewaehlt['kennung'].startswith(SCHIFF_PRAEFIX):
             _schiff_zeichnen(gewaehlt['kennung'][len(SCHIFF_PRAEFIX):])
             return
-        liste = laden_modul.laeden(gewaehlt['kennung'])
+        liste = laden_modul.shops_for(gewaehlt['kennung'])
         if liste is None:
             _fliesstext(ergebnis_rahmen, t('s_ld_sucht'), fenster.f_klein,
                         fill='x')
@@ -7646,7 +7646,7 @@ def _laeden(fenster, rahmen):
         kopf.pack(fill='x', pady=(0, 6))
         tk.Label(kopf, text=gewaehlt['name'], bg=BG, fg=FG,
                  font=fenster.f_fett, anchor='w').pack(side='left')
-        a = laden_modul.alter(gewaehlt['kennung'])
+        a = laden_modul.age(gewaehlt['kennung'])
         if a is not None:
             tk.Label(kopf, text=t('s_vk_stand').format(alter=_alterstext(a)),
                      bg=BG, fg=SUB, font=fenster.f_klein,
@@ -7690,18 +7690,18 @@ def _laeden(fenster, rahmen):
         # drei Wochenlisten, nicht aus einem Abruf je Gegenstand.
         if kennung.startswith(SCHIFF_PRAEFIX):
             return
-        if laden_modul.bekannt(kennung) or laeuft['ja']:
+        if laden_modul.known(kennung) or laeuft['ja']:
             return
         laeuft['ja'] = True
 
         def arbeit():
             try:
                 # ⚠ Der Name ist der Rückfall, falls die Kennung leer ausgeht
-                # — siehe Kopf von `laeden.py`. Er hat dort 375 Teile mehr
+                # — siehe Kopf von `shops.py`. Er hat dort 375 Teile mehr
                 # zugeordnet.
-                laden_modul.holen(kennung, name)
+                laden_modul.fetch(kennung, name)
             except Exception as ausnahme:
-                fehler.merken('seiten.laeden.holen', ausnahme)
+                fehler.merken('seiten.shops.fetch', ausnahme)
 
             def fertig():
                 laeuft['ja'] = False
@@ -7900,7 +7900,7 @@ def _laeden(fenster, rahmen):
         stand_zeile.pack(side='left')
 
     def _katalog_anstossen():
-        if laden_modul.katalog_da() or zustand_katalog['laeuft']:
+        if laden_modul.catalog_ready() or zustand_katalog['laeuft']:
             _stand_melden()
             return
         zustand_katalog['laeuft'] = True
@@ -7931,16 +7931,16 @@ def _laeden(fenster, rahmen):
                     # Abnahme-Durchlauf am 06.09.2026 gefunden.
                     pass
             try:
-                laden_modul.katalog_holen(fortschritt=melden)
+                laden_modul.fetch_catalog(progress=melden)
             except Exception as ausnahme:
-                fehler.merken('seiten.laeden.katalog', ausnahme)
+                fehler.merken('seiten.shops.katalog', ausnahme)
             # ⚠ Die Schiffsdaten gehören zum selben Aufwasch — ohne sie
             # fehlte der Bereich „Schiffe" in der Liste.
             try:
                 from . import ships as schiff_modul
                 schiff_modul.update()
             except Exception as ausnahme:
-                fehler.merken('seiten.laeden.schiffe_holen', ausnahme)
+                fehler.merken('seiten.shops.schiffe_holen', ausnahme)
 
             def fertig():
                 zustand_katalog['laeuft'] = False
@@ -8069,7 +8069,7 @@ def _laden_zeile(fenster, eltern, bauplan):
     435 von 1.604 Bauplänen), und eine Lücke in fremden Daten ist keine
     Aussage über das Spiel.
     """
-    from . import crafting as herst_modul, laeden
+    from . import crafting as herst_modul, shops
     try:
         kennung = herst_modul.entity_of(bauplan)
     except Exception as ausnahme:
@@ -8082,7 +8082,7 @@ def _laden_zeile(fenster, eltern, bauplan):
                    font=fenster.f_klein, anchor='w')
 
     def zeigen():
-        bester = laeden.guenstigster(kennung)
+        bester = shops.cheapest(kennung)
         if not bester:
             return
         preis, laden, ort = bester
@@ -8090,7 +8090,7 @@ def _laden_zeile(fenster, eltern, bauplan):
         lbl.configure(text=t('s_he_fertig_kaufen') % (_geld(preis), wo))
         lbl.pack(fill='x', padx=12, pady=(6, 0))
 
-    if laeden.bekannt(kennung):
+    if shops.known(kennung):
         zeigen()
         return
 
@@ -8099,8 +8099,8 @@ def _laden_zeile(fenster, eltern, bauplan):
         try:
             # ⚠ Der Name kommt als Rückfall mit: UEX führt manche Teile unter
             # einer anderen Kennung als das Spiel (gemessen bei den
-            # CF-Repeatern). Siehe `scbp/laeden.py`.
-            laeden.holen(kennung, name=bauplan)
+            # CF-Repeatern). Siehe `scbp/shops.py`.
+            shops.fetch(kennung, name=bauplan)
         except Exception as ausnahme:
             fehler.merken('seiten.laden_zeile.holen', ausnahme)
             return
@@ -8385,7 +8385,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     #
     # ⚠ Zugeordnet wird über die **Entitäts-Kennung**, nie über den Namen.
     # Über Namen ist es hier schon einmal schiefgegangen (`Gold` lieferte
-    # `Golden Medmon` mit). Siehe `scbp/laeden.py`.
+    # `Golden Medmon` mit). Siehe `scbp/shops.py`.
     _laden_zeile(fenster, block, eintrag.get('basis'))
     # ⭐⭐ **„Und passt das überhaupt in mein Schiff?"** Die Frage, die auf
     # jeden neuen Bauplan folgt. Steht direkt unter dem Ladenpreis, weil beide
@@ -9043,7 +9043,7 @@ def _bergung(fenster, rahmen):
     eigene Schiff — hier geht es um jeden Rumpf, der einem begegnet. Deshalb
     sitzt die Seite auch nicht bei „Mein Hangar".
     """
-    from . import salvage as bg, erkul, laeden, ships as alle_schiffe
+    from . import salvage as bg, erkul, shops, ships as alle_schiffe
 
     _ueberschrift(fenster, rahmen, t('hf_bergung'), t('s_wr_lead'))
     innen = _rollflaeche(rahmen)
@@ -9095,9 +9095,9 @@ def _bergung(fenster, rahmen):
                     fenster.f_klein, fill='x', pady=(0, 8))
 
         def preis_von(ref):
-            if not laeden.bekannt(ref):
+            if not shops.known(ref):
                 return None            # nichts nachladen beim Zeichnen
-            bester = laeden.guenstigster(ref)
+            bester = shops.cheapest(ref)
             return bester[0] if bester else None
 
         summe, _mit, ohne = bg.value(teile, preis_von)
@@ -9234,7 +9234,7 @@ def _bergung_holen(name):
 
     Läuft **außerhalb** des Oberflächen-Fadens. Gibt `(teile, kennung)` zurück.
     """
-    from . import salvage as bg, erkul, laeden
+    from . import salvage as bg, erkul, shops
     kat = erkul.katalog()
     if not isinstance(kat, dict):
         return [], ''
@@ -9271,9 +9271,9 @@ def _bergung_holen(name):
     teile = bg.factory_loadout(treffer, verzeichnis[treffer])
     # Preise nachladen, damit die Anzeige sie schon hat.
     for teil in teile:
-        if not laeden.bekannt(teil['ref']):
+        if not shops.known(teil['ref']):
             try:
-                laeden.holen(teil['ref'], name=teil['name'])
+                shops.fetch(teil['ref'], name=teil['name'])
             except Exception as ausnahme:
                 fehler.merken('seiten.bergung.preis', ausnahme)
     return teile, treffer
@@ -11387,7 +11387,7 @@ def _einkauf_preise_holen(posten, widget, neu_zeichnen):
     fasst bewusst kein Netz an — zwölf Posten wären zwölf Netzrunden, während
     die Oberfläche steht. Das Holen gehört hierher.
     """
-    from . import cart, laeden
+    from . import cart, shops
 
     offen = cart.missing_prices(posten)
     if not offen:
@@ -11397,8 +11397,8 @@ def _einkauf_preise_holen(posten, widget, neu_zeichnen):
         geholt = False
         for kennung, name in offen:
             try:
-                if not laeden.bekannt(kennung):
-                    laeden.holen(kennung, name=name or '')
+                if not shops.known(kennung):
+                    shops.fetch(kennung, name=name or '')
                     geholt = True
             except Exception as ausnahme:
                 fehler.merken('seiten.einkauf.preis', ausnahme)
@@ -11733,7 +11733,7 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
     wenn wirklich etwas dazukam, wird neu gezeichnet — sonst flackert die
     Liste bei jedem Aufklappen ohne Grund.
     """
-    from . import cart, laeden
+    from . import cart, shops
 
     offen = [p for p in liste
              if (p.get('kauf') or {}).get('zustand') == cart.NOT_CHECKED
@@ -11745,8 +11745,8 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
         geholt = False
         for posten in offen:
             try:
-                if not laeden.bekannt(posten['ref']):
-                    laeden.holen(posten['ref'], name=posten.get('name') or '')
+                if not shops.known(posten['ref']):
+                    shops.fetch(posten['ref'], name=posten.get('name') or '')
                     geholt = True
             except Exception as ausnahme:
                 fehler.merken('seiten.cart.preis', ausnahme)
@@ -11853,12 +11853,12 @@ def _teil_nachschlagen(kennung):
     die Güte, die den Vergleich mit der Auswahl trägt.
     """
     if _TEIL_VERZEICHNIS[0] is None:
-        from . import laeden
+        from . import shops
         try:
             _TEIL_VERZEICHNIS[0] = dict(
                 (x.get('kennung'), {'guete': x.get('guete') or '',
                                     'klasse': x.get('klasse') or ''})
-                for x in laeden.katalog_teile() if x.get('kennung'))
+                for x in shops.catalog_items() if x.get('kennung'))
         except Exception as ausnahme:
             fehler.merken('seiten.teil_nachschlagen', ausnahme)
             _TEIL_VERZEICHNIS[0] = {}

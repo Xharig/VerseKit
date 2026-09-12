@@ -13418,9 +13418,9 @@ def main():
         'r-d': [{'laden': 'Egal', 'ort': 'Nirgendwo', 'system': 'Pyro',
                  'preis': 9999.0}],
     }
-    from scbp import laeden as _ld143
-    _echt143 = _ld143.laeden
-    _ld143.laeden = lambda k: _regale143.get(k)
+    from scbp import shops as _ld143
+    _echt143 = _ld143.shops_for
+    _ld143.shops_for = lambda k: _regale143.get(k)
     try:
         _stopps143, _ohne143 = _wk142.route(_posten143)
         pruefe(len(_stopps143) == 1,
@@ -13462,7 +13462,7 @@ def main():
         pruefe(_s143 == [] and _o143 == ['x'],
                'ein Posten ohne Laden wird als solcher gemeldet')
     finally:
-        _ld143.laeden = _echt143
+        _ld143.shops_for = _echt143
 
     print()
     print('144. Jeder Prüftext lässt sich unter Windows ausgeben')
@@ -14031,7 +14031,7 @@ def main():
     # Ausstattung. Wer das verwechselt, stellt dem Spieler sein eigenes Schiff
     # noch einmal in Rechnung.
     from scbp import cart as _wk151, erkul as _erk151
-    from scbp import laeden as _ld151, crafting as _he151
+    from scbp import shops as _ld151, crafting as _he151
     from scbp import prices as _pr151, ships as _sf151
 
     _slots151 = [
@@ -14043,8 +14043,8 @@ def main():
         'ref-blast': [{'laden': 'Depot', 'ort': 'Area18', 'system': 'Stanton',
                        'preis': 22730.0}],
     }
-    _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
-                _ld151.guenstigster, _wk151._blueprint_index,
+    _echt151 = (_erk151.laden, _ld151.known, _ld151.shops_for,
+                _ld151.cheapest, _wk151._blueprint_index,
                 _he151.recipe, _pr151.price, _sf151.buy_at)
     try:
         _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
@@ -14053,16 +14053,16 @@ def main():
                              'plaetze': [], 'slots': _slots151},
             'polaris': {'name': 'Polaris', 'id': 'rsi_polaris',
                         'plaetze': [], 'slots': _slots151}}}
-        _ld151.bekannt = lambda k: k in _regale151
-        _ld151.laeden = lambda k: _regale151.get(k)
-        _ld151.guenstigster = lambda k: (
+        _ld151.known = lambda k: k in _regale151
+        _ld151.shops_for = lambda k: _regale151.get(k)
+        _ld151.cheapest = lambda k: (
             (_regale151[k][0]['preis'], _regale151[k][0]['laden'],
              _regale151[k][0]['ort']) if _regale151.get(k) else None)
         _wk151._blueprint_index = lambda: {}
         _he151.recipe = lambda n: None
         _pr151.price = lambda r: None
         # ⚠ `ships.buy_at()` gibt eine **Liste** von Verkaufsstellen zurueck,
-        # billigste zuerst — kein Tupel wie `laeden.guenstigster()`. Wer das
+        # billigste zuerst — kein Tupel wie `shops.cheapest()`. Wer das
         # verwechselt, liest den Preis aus einem Zeichen statt aus einer Zahl.
         _sf151.buy_at = lambda n: ([{'stelle': 'Astro Armada', 'ort': 'Area18',
                                      'system': 'Stanton', 'preis': 20250000.0}]
@@ -14152,10 +14152,10 @@ def main():
                'ein ungeprueftes Teil wird gemeldet (bekam: %s)'
                % ([k for k, _n in _offen2_151],))
         pruefe(_offen2_151 and _offen2_151[0][1] == 'Neuteil',
-               'der Name kommt mit — `laeden.holen` braucht ihn als Rueckfall')
+               'der Name kommt mit — `shops.fetch` braucht ihn als Rueckfall')
 
         # ⚠ Schiffe gehoeren NICHT dazu: Ihre Preise kommen aus `ships.py`,
-        # nicht aus `laeden.py`. Wer sie mitgibt, schlaegt eine Schiffskennung
+        # nicht aus `shops.py`. Wer sie mitgibt, schlaegt eine Schiffskennung
         # im Teilekatalog nach und bekommt nie einen Treffer.
         pruefe(not any(k == 'Polaris' for k, _n in _offen2_151),
                'Schiffe stehen nicht in der Nachschlage-Liste')
@@ -14167,7 +14167,7 @@ def main():
                'Gegenprobe: nur das ungepruefte Teil, nicht alle (bekam: %d)'
                % len(_offen2_151))
     finally:
-        (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
+        (_erk151.laden, _ld151.known, _ld151.shops_for, _ld151.cheapest,
          _wk151._blueprint_index, _he151.recipe, _pr151.price,
          _sf151.buy_at) = _echt151
 
@@ -14360,14 +14360,14 @@ def main():
     # speiste sich die Auswahl nur aus UEX — und UEX fuehrt Ladenware. Bei den
     # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
     # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
-    from scbp import cart as _wk156, laeden as _ld156
+    from scbp import cart as _wk156, shops as _ld156
     from scbp import crafting as _he156, katalog as _kt156
 
-    _echt156 = (_ld156.katalog_teile, _he156.all_items, _kt156.laden)
+    _echt156 = (_ld156.catalog_items, _he156.all_items, _kt156.laden)
     try:
         # Zwei kaufbare Teile, davon eines auch herstellbar; dazu ein rein
         # herstellbares Militaer-Teil, das UEX gar nicht kennt.
-        _ld156.katalog_teile = lambda: [
+        _ld156.catalog_items = lambda: [
             {'name': 'Civi-QD', 'kennung': 'ref-civi', 'kategorie':
              'Quantum Drives', 'abschnitt': 'Propulsion', 'hersteller': 'Acme',
              'groesse': '2', 'klasse': 'Civilian', 'guete': 'A'},
@@ -14434,7 +14434,7 @@ def main():
         pruefe(_wk156.choices('GibtsNicht', 2) == [],
                'Gegenprobe: eine unbekannte Art liefert nichts')
     finally:
-        _ld156.katalog_teile, _he156.all_items, _kt156.laden = _echt156
+        _ld156.catalog_items, _he156.all_items, _kt156.laden = _echt156
 
     print()
     print('157. Die Farmliste zaehlt ueber ALLE Posten zusammen')
@@ -14453,17 +14453,17 @@ def main():
         {'pfad': 'b', 'art': 'Cooler', 'groesse': 2,
          'werk': {'ref': 'ref-werk', 'name': 'Werk'}},
     ]
-    _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
-                _ld156.guenstigster, _wk156._blueprint_index,
+    _echt157 = (_erk157.laden, _ld156.known, _ld156.shops_for,
+                _ld156.cheapest, _wk156._blueprint_index,
                 _he156.recipe, _pr157.price, _ro157.load)
     try:
         _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {'probe': {
                                      'name': 'Probe', 'id': 'probe',
                                      'plaetze': [], 'slots': _slots157}}}
-        _ld156.bekannt = lambda k: False
-        _ld156.laeden = lambda k: None
-        _ld156.guenstigster = lambda k: None
+        _ld156.known = lambda k: False
+        _ld156.shops_for = lambda k: None
+        _ld156.cheapest = lambda k: None
         _wk156._blueprint_index = lambda: {'ref-blast': 'BlastChill'}
         _pr157.price = lambda r: (2643.0, 2000.0, 'Iron')
         _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
@@ -14527,7 +14527,7 @@ def main():
                'und der Posten zaehlt nicht als Bau-Posten (bekam: %d)'
                % _h157['posten'])
     finally:
-        (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
+        (_erk157.laden, _ld156.known, _ld156.shops_for, _ld156.cheapest,
          _wk156._blueprint_index, _he156.recipe, _pr157.price,
          _ro157.load) = _echt157
 
@@ -15620,17 +15620,17 @@ def main():
         # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts
         # gemerkt war, versuchte es die Seite sofort wieder. „Was noch fehlt"
         # blieb leer und lud endlos.
-        from scbp import laeden as _ld172, fehler as _fe172
+        from scbp import shops as _ld172, fehler as _fe172
         _fe172.leeren()
-        pruefe(_ld172.holen('CF-447 Rhino Repeater') is False,
+        pruefe(_ld172.fetch('CF-447 Rhino Repeater') is False,
                'ein NAME im Kennungsfeld wird nicht abgefragt')
-        pruefe(_ld172.holen('Teil "mit Anfuehrung"') is False,
+        pruefe(_ld172.fetch('Teil "mit Anfuehrung"') is False,
                'auch Anfuehrungszeichen werden abgefangen')
         pruefe(len(_fe172.letzte()) == 2,
                'und beide landen im Fehlerprotokoll, statt still zu scheitern')
         # ⚠ Gegenprobe: Eine echte Kennung darf die Wache NICHT anfassen.
         _fe172.leeren()
-        _ld172.holen('94ea5bb5-0000-0000-0000-000000000000')
+        _ld172.fetch('94ea5bb5-0000-0000-0000-000000000000')
         pruefe(len(_fe172.letzte()) == 0,
                'Gegenprobe: eine echte Kennung wird durchgelassen')
 
@@ -16536,6 +16536,7 @@ def main():
         'hangar': 'fleet',
         'warenkorb': 'cart',
         'preise': 'prices',
+        'laeden': 'shops',
     }
 
     def _reste190(quelle, name, alte):
