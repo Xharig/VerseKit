@@ -13302,7 +13302,7 @@ def main():
     # „nichts zu tun" sehen im Code gleich aus — beides ist eine leere Liste.
     # Am 06.09.2026 stand deshalb bei jedem Bauplan „passt in keines deiner
     # Schiffe", auch wenn nur die Steckplatz-Daten fehlten.
-    from scbp import warenkorb as _wk142
+    from scbp import cart as _wk142
 
     _abgelegt142 = {'spielversion': 'probe', 'hersteller': {}, 'schiffe': {
         'probeschiff': {'name': 'Probeschiff', 'id': 'probe_schiff',
@@ -13314,33 +13314,33 @@ def main():
                     'hkurz': '', 'belegung': {}}
 
         # 1. Schiff ohne Steckplatz-Daten -> KEINE_DATEN, niemals NICHTS_OFFEN.
-        _z142, _l142 = _wk142.posten({'name': 'Gibtesnicht'})
-        pruefe(_z142 == _wk142.KEINE_DATEN,
+        _z142, _l142 = _wk142.line_items({'name': 'Gibtesnicht'})
+        pruefe(_z142 == _wk142.NO_DATA,
                'ein unbekanntes Schiff meldet KEINE_DATEN (bekam: %s)' % _z142)
 
         # 2. Auslegung = Werksausstattung -> NICHTS_OFFEN.
-        _z142, _l142 = _wk142.posten(_mein142)
-        pruefe(_z142 == _wk142.NICHTS_OFFEN,
+        _z142, _l142 = _wk142.line_items(_mein142)
+        pruefe(_z142 == _wk142.NOTHING_OPEN,
                'ohne Aenderung meldet der Korb NICHTS_OFFEN (bekam: %s)'
                % _z142)
 
         # ⚠⚠ **Der eigentliche Punkt: die beiden duerfen NICHT gleich sein.**
-        pruefe(_wk142.KEINE_DATEN != _wk142.NICHTS_OFFEN,
+        pruefe(_wk142.NO_DATA != _wk142.NOTHING_OPEN,
                '„keine Daten" und „nichts offen" sind verschiedene Zustaende')
 
         # 3. Das Werksteil selbst einlegen ist KEINE Aenderung.
-        _wk142.setzen(_mein142, 'hardpoint_cooler_left', 'ref-coldsnap',
+        _wk142.set_part(_mein142, 'hardpoint_cooler_left', 'ref-coldsnap',
                       'ColdSnap')
-        _z142, _l142 = _wk142.posten(_mein142)
-        pruefe(_z142 == _wk142.NICHTS_OFFEN and not _l142,
+        _z142, _l142 = _wk142.line_items(_mein142)
+        pruefe(_z142 == _wk142.NOTHING_OPEN and not _l142,
                'das Werksteil einzulegen erzeugt keinen Posten')
 
         # 4. Ein anderes Teil -> ein Posten, mit dem Werksteil daneben.
-        _wk142.setzen(_mein142, 'hardpoint_cooler_left', 'ref-blastchill',
+        _wk142.set_part(_mein142, 'hardpoint_cooler_left', 'ref-blastchill',
                       'BlastChill')
-        _wk142.setzen(_mein142, 'hardpoint_battery', 'ref-akku', 'Akku')
-        _z142, _l142 = _wk142.posten(_mein142)
-        pruefe(_z142 == _wk142.OFFEN and len(_l142) == 2,
+        _wk142.set_part(_mein142, 'hardpoint_battery', 'ref-akku', 'Akku')
+        _z142, _l142 = _wk142.line_items(_mein142)
+        pruefe(_z142 == _wk142.OPEN and len(_l142) == 2,
                'zwei Aenderungen ergeben zwei Posten (bekam: %d)' % len(_l142))
         _kuehler142 = [p for p in _l142 if p['pfad'] == 'hardpoint_cooler_left']
         pruefe(_kuehler142 and _kuehler142[0]['werk_name'] == 'ColdSnap',
@@ -13351,8 +13351,8 @@ def main():
 
         # 5. Ein Steckplatz, den es nicht mehr gibt, wird uebergangen —
         # nach einem Patch moeglich, und der Spieler kann nichts dafuer.
-        _wk142.setzen(_mein142, 'hardpoint_gibtsnichtmehr', 'ref-x', 'X')
-        _z142, _l142 = _wk142.posten(_mein142)
+        _wk142.set_part(_mein142, 'hardpoint_gibtsnichtmehr', 'ref-x', 'X')
+        _z142, _l142 = _wk142.line_items(_mein142)
         pruefe(len(_l142) == 2,
                'ein verschwundener Steckplatz erzeugt keinen Posten '
                '(bekam: %d)' % len(_l142))
@@ -13360,8 +13360,8 @@ def main():
         # ⚠ GEGENPROBE: Wuerde `posten()` bei fehlenden Daten eine leere Liste
         # mit NICHTS_OFFEN zurueckgeben, waere der Unterschied weg — und die
         # Anzeige saehe fuer beide Faelle gleich aus.
-        _leer142 = _wk142.posten({'name': 'Gibtesnicht'})
-        pruefe(_leer142 == (_wk142.KEINE_DATEN, []),
+        _leer142 = _wk142.line_items({'name': 'Gibtesnicht'})
+        pruefe(_leer142 == (_wk142.NO_DATA, []),
                'Gegenprobe: fehlende Daten geben KEINE_DATEN mit leerer Liste')
     finally:
         _erk141.laden = _echt142
@@ -13372,11 +13372,11 @@ def main():
     # durch drei Systeme.** Rechnerisch das Beste, in der Praxis ein verlorener
     # Abend. Diese Pruefung haelt fest, dass die Route nach Deckung waehlt.
     _posten143 = [
-        {'pfad': 'a', 'name': 'Teil A', 'weg': _wk142.KAUFEN, 'ref': 'r-a'},
-        {'pfad': 'b', 'name': 'Teil B', 'weg': _wk142.KAUFEN, 'ref': 'r-b'},
-        {'pfad': 'c', 'name': 'Teil C', 'weg': _wk142.KAUFEN, 'ref': 'r-c'},
+        {'pfad': 'a', 'name': 'Teil A', 'weg': _wk142.BUY, 'ref': 'r-a'},
+        {'pfad': 'b', 'name': 'Teil B', 'weg': _wk142.BUY, 'ref': 'r-b'},
+        {'pfad': 'c', 'name': 'Teil C', 'weg': _wk142.BUY, 'ref': 'r-c'},
         # ⚠ Dieser wird gebaut, gehoert also NICHT auf die Kaufroute.
-        {'pfad': 'd', 'name': 'Teil D', 'weg': _wk142.BAUEN, 'ref': 'r-d'},
+        {'pfad': 'd', 'name': 'Teil D', 'weg': _wk142.CRAFT, 'ref': 'r-d'},
     ]
     # Ein Ort fuehrt alles (etwas teurer), ein zweiter nur eines (billiger).
     _regale143 = {
@@ -13405,7 +13405,7 @@ def main():
         # „1 shop · 1 stop" trifft.
         pruefe(_stopps143 and len(_stopps143[0]['laeden']) == 2,
                'zwei Laeden am selben Ort bleiben EIN Stopp')
-        _summe143 = _wk142.route_summe(_stopps143)
+        _summe143 = _wk142.route_total(_stopps143)
         pruefe(_summe143['gesamt'] == 2500.0,
                'die Routensumme rechnet mit den Laeden der Route '
                '(bekam: %s)' % _summe143['gesamt'])
@@ -13420,7 +13420,7 @@ def main():
         # billiger. Genau das soll die Route nicht tun.
         _billigste143 = set()
         for _p143 in _posten143:
-            if _p143['weg'] != _wk142.KAUFEN:
+            if _p143['weg'] != _wk142.BUY:
                 continue
             _z143 = min(_regale143[_p143['ref']], key=lambda z: z['preis'])
             _billigste143.add((_z143['system'], _z143['ort']))
@@ -13430,7 +13430,7 @@ def main():
 
         # Ein Posten, den kein Laden fuehrt, wird benannt statt verschwiegen.
         _ohne_laden143 = [{'pfad': 'x', 'name': 'Teil X',
-                           'weg': _wk142.KAUFEN, 'ref': 'r-unbekannt'}]
+                           'weg': _wk142.BUY, 'ref': 'r-unbekannt'}]
         _s143, _o143 = _wk142.route(_ohne_laden143)
         pruefe(_s143 == [] and _o143 == ['x'],
                'ein Posten ohne Laden wird als solcher gemeldet')
@@ -13791,7 +13791,7 @@ def main():
     print()
     print('149. Wunschschiffe sind ausstattbar, ohne Besitz zu werden')
     from scbp import fleet as _hg149
-    from scbp import warenkorb as _wk149
+    from scbp import cart as _wk149
 
     _daten149 = {'schiffe': [{'name': 'Vulture', 'hersteller': 'Drake',
                               'kurz': 'vulture', 'hkurz': 'DRAK',
@@ -13808,12 +13808,12 @@ def main():
            'das Feld fuer die Ausstattung liegt leer bereit')
 
     # Der Warenkorb arbeitet auf dem Wunsch-Eintrag wie auf einem Hangar-Schiff.
-    pruefe(_wk149.setzen(_w149, 'hardpoint_power', 'ref-abc', 'Fortitude'),
+    pruefe(_wk149.set_part(_w149, 'hardpoint_power', 'ref-abc', 'Fortitude'),
            'ein Teil laesst sich in einen Steckplatz des Wunschschiffs legen')
-    pruefe(_wk149.belegung(_w149).get('hardpoint_power', {}).get('name')
+    pruefe(_wk149.loadout(_w149).get('hardpoint_power', {}).get('name')
            == 'Fortitude',
            '* und steht danach auch drin')
-    pruefe(_wk149.loeschen(_w149, 'hardpoint_power'),
+    pruefe(_wk149.clear_part(_w149, 'hardpoint_power'),
            '* und laesst sich wieder herausnehmen')
 
     # Die beiden Listen bleiben getrennt.
@@ -14003,7 +14003,7 @@ def main():
     # fehlen. Ein Wunschschiff kostet dagegen erst sich selbst und dann seine
     # Ausstattung. Wer das verwechselt, stellt dem Spieler sein eigenes Schiff
     # noch einmal in Rechnung.
-    from scbp import erkul as _erk151, warenkorb as _wk151
+    from scbp import cart as _wk151, erkul as _erk151
     from scbp import laeden as _ld151, crafting as _he151
     from scbp import preise as _pr151, ships as _sf151
 
@@ -14017,7 +14017,7 @@ def main():
                        'preis': 22730.0}],
     }
     _echt151 = (_erk151.laden, _ld151.bekannt, _ld151.laeden,
-                _ld151.guenstigster, _wk151._bauplan_verzeichnis,
+                _ld151.guenstigster, _wk151._blueprint_index,
                 _he151.recipe, _pr151.preis, _sf151.buy_at)
     try:
         _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
@@ -14031,7 +14031,7 @@ def main():
         _ld151.guenstigster = lambda k: (
             (_regale151[k][0]['preis'], _regale151[k][0]['laden'],
              _regale151[k][0]['ort']) if _regale151.get(k) else None)
-        _wk151._bauplan_verzeichnis = lambda: {}
+        _wk151._blueprint_index = lambda: {}
         _he151.recipe = lambda n: None
         _pr151.preis = lambda r: None
         # ⚠ `ships.buy_at()` gibt eine **Liste** von Verkaufsstellen zurueck,
@@ -14046,23 +14046,23 @@ def main():
         _wunsch151 = {'name': 'Polaris', 'hersteller': 'RSI', 'belegung': {}}
         # Ein Wunschschiff ohne Steckplatzdaten UND ohne Auslegung.
         _leer151 = {'name': 'Gibtsnochnicht', 'hersteller': '', 'belegung': {}}
-        _wk151.setzen(_hangar151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
-        _wk151.setzen(_wunsch151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
+        _wk151.set_part(_hangar151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
+        _wk151.set_part(_wunsch151, 'hardpoint_cooler_left', 'ref-blast', 'Blast')
         _daten151 = {'format': 1, 'schiffe': [_hangar151],
                      'wunsch': [_wunsch151, _leer151]}
 
-        _r151 = _wk151.rechnung(_daten151)
+        _r151 = _wk151.invoice(_daten151)
         _schiffsposten151 = [p for p in _r151['posten']
-                             if p['sorte'] == _wk151.SCHIFF]
+                             if p['sorte'] == _wk151.SHIP]
 
         # ⚠⚠ Das Hangar-Schiff darf NICHT als Posten auftauchen.
-        pruefe(all(p['quelle'] == _wk151.WUNSCH for p in _schiffsposten151),
+        pruefe(all(p['quelle'] == _wk151.WISHLIST for p in _schiffsposten151),
                'nur Wunschschiffe stehen selbst auf der Rechnung')
         pruefe(len(_schiffsposten151) == 2,
                'beide Wunschschiffe stehen drauf (bekam: %d)'
                % len(_schiffsposten151))
         pruefe(not any(p['schiff'] == 'Cutlass Black'
-                       and p['sorte'] == _wk151.SCHIFF
+                       and p['sorte'] == _wk151.SHIP
                        for p in _r151['posten']),
                'das eigene Schiff wird NICHT noch einmal berechnet')
 
@@ -14076,7 +14076,7 @@ def main():
         # Position ist eine Zahl.
         pruefe(all(p.get('schiff') for p in _r151['posten']),
                'jeder Posten nennt sein Schiff')
-        _teile151 = [p for p in _r151['posten'] if p['sorte'] == _wk151.TEIL]
+        _teile151 = [p for p in _r151['posten'] if p['sorte'] == _wk151.PART]
         pruefe(_teile151 and all(p.get('position') for p in _teile151),
                'jedes Teil nennt seinen Steckplatz')
         pruefe(any(p['position'] == 'Cooler S2' for p in _teile151),
@@ -14113,14 +14113,14 @@ def main():
         # nachgeschlagen" stehen.** Der Abruf gehoert nicht ins Rechenmodul —
         # zwoelf Posten waeren zwoelf Netzrunden, waehrend die Oberflaeche
         # steht. Also sagt das Modul, WAS fehlt, und die Anzeige holt es nach.
-        _offen151 = _wk151.fehlende_preise(_r151['posten'])
+        _offen151 = _wk151.missing_prices(_r151['posten'])
         pruefe(_offen151 == [],
                'was schon nachgeschlagen ist, wird nicht erneut gemeldet')
 
         # Jetzt ein Teil, das noch nie nachgeschlagen wurde.
-        _wk151.setzen(_hangar151, 'hardpoint_battery', 'ref-neu', 'Neuteil')
-        _r2_151 = _wk151.rechnung(_daten151)
-        _offen2_151 = _wk151.fehlende_preise(_r2_151['posten'])
+        _wk151.set_part(_hangar151, 'hardpoint_battery', 'ref-neu', 'Neuteil')
+        _r2_151 = _wk151.invoice(_daten151)
+        _offen2_151 = _wk151.missing_prices(_r2_151['posten'])
         pruefe([k for k, _n in _offen2_151] == ['ref-neu'],
                'ein ungeprueftes Teil wird gemeldet (bekam: %s)'
                % ([k for k, _n in _offen2_151],))
@@ -14141,7 +14141,7 @@ def main():
                % len(_offen2_151))
     finally:
         (_erk151.laden, _ld151.bekannt, _ld151.laeden, _ld151.guenstigster,
-         _wk151._bauplan_verzeichnis, _he151.recipe, _pr151.preis,
+         _wk151._blueprint_index, _he151.recipe, _pr151.preis,
          _sf151.buy_at) = _echt151
 
     # ------------------------------------------------------------------
@@ -14239,7 +14239,7 @@ def main():
     import tkinter as _tk155
     from tkinter import font as _fo155
     from scbp import seiten as _st155
-    from scbp import warenkorb as _wk155
+    from scbp import cart as _wk155
 
     class _F155:
         pass
@@ -14248,9 +14248,9 @@ def main():
         """Baut einen Warenkorb-Posten auf und gibt (zeilen, texte) zurueck."""
         rahmen = _tk155.Frame(wurzel155, bg='#0d1117')
         posten = {'pfad': 'p1', 'name': 'M6A Cannon', 'ref': 'r1',
-                  'werk_name': 'CF-447 Rhino Repeater', 'weg': _wk155.BAUEN,
+                  'werk_name': 'CF-447 Rhino Repeater', 'weg': _wk155.CRAFT,
                   'kauf': kauf,
-                  'bau': {'zustand': _wk155.BEKANNT, 'material': 17120,
+                  'bau': {'zustand': _wk155.KNOWN, 'material': 17120,
                           'dauer': 2940}}
         _st155._warenkorb_posten(_f155, rahmen, {'name': 'T', 'belegung': {}},
                                  posten, lambda: None)
@@ -14287,7 +14287,7 @@ def main():
     _f155.f_fett = _fo155.Font(family='Calibri', size=10, weight='bold')
     _f155.beim_zeigen = {}
     try:
-        _lang155 = {'zustand': _wk155.BEKANNT, 'preis': 160626,
+        _lang155 = {'zustand': _wk155.KNOWN, 'preis': 160626,
                     'laden': 'Ship Weapons - Pyro Gateway (Stanton)',
                     'ort': 'Pyro Gateway (Stanton)'}
         _zeilen155, _texte155 = _bauen155(_lang155)
@@ -14316,7 +14316,7 @@ def main():
                % (_kauf155[0].count('Pyro Gateway') if _kauf155 else -1))
 
         # Gegenprobe: Ein Ort, der NICHT im Ladennamen steckt, muss dazu.
-        _eigen155 = {'zustand': _wk155.BEKANNT, 'preis': 1000,
+        _eigen155 = {'zustand': _wk155.KNOWN, 'preis': 1000,
                      'laden': 'Platinum Bay', 'ort': 'Area18'}
         _zeilen155, _texte155 = _bauen155(_eigen155)
         _kauf155 = [x for x in _texte155 if 'aUEC bei' in x]
@@ -14333,7 +14333,7 @@ def main():
     # speiste sich die Auswahl nur aus UEX — und UEX fuehrt Ladenware. Bei den
     # Quantenantrieben der Groesse 2 standen dadurch 0 Militaer-Teile zur Wahl,
     # obwohl es drei gibt. Wer Bauplaene sammelt, will genau die sehen.
-    from scbp import warenkorb as _wk156, laeden as _ld156
+    from scbp import cart as _wk156, laeden as _ld156
     from scbp import crafting as _he156, katalog as _kt156
 
     _echt156 = (_ld156.katalog_teile, _he156.all_items, _kt156.laden)
@@ -14368,7 +14368,7 @@ def main():
             'militaer-qd': {'n': 'Militaer-QD', 'a': 'QuantumDrive', 's': 2,
                             'g': 1, 'c': 'Military', 'm': 'Wei-Tek'}}}
 
-        _a156 = _wk156.auswahl('QuantumDrive', 2)
+        _a156 = _wk156.choices('QuantumDrive', 2)
         _namen156 = sorted(x['name'] for x in _a156)
         pruefe(_namen156 == ['Civi-QD', 'Doppel-QD', 'Militaer-QD'],
                'kaufbare UND herstellbare Teile stehen zur Wahl (bekam: %s)'
@@ -14378,7 +14378,7 @@ def main():
         _mil156 = [x for x in _a156 if x['name'] == 'Militaer-QD']
         pruefe(_mil156 and _mil156[0]['klasse'] == 'Military',
                'das nur herstellbare Militaer-Teil ist dabei, mit Klasse')
-        pruefe(_mil156 and _mil156[0]['herkunft'] == _wk156.HERSTELLBAR,
+        pruefe(_mil156 and _mil156[0]['herkunft'] == _wk156.CRAFTABLE,
                'und ist als herstellbar gekennzeichnet')
 
         # ⚠ Ein Teil aus beiden Quellen steht EINMAL da, nicht zweimal.
@@ -14386,7 +14386,7 @@ def main():
         pruefe(len(_dop156) == 1,
                'ein Teil aus beiden Quellen steht einmal da (bekam: %d)'
                % len(_dop156))
-        pruefe(_dop156 and _dop156[0]['herkunft'] == _wk156.BEIDES,
+        pruefe(_dop156 and _dop156[0]['herkunft'] == _wk156.BOTH,
                'und traegt die Herkunft „beides"')
         pruefe(len(set(x['kennung'] for x in _a156)) == len(_a156),
                'jede Kennung kommt genau einmal vor')
@@ -14397,14 +14397,14 @@ def main():
 
         # ⚠ GEGENPROBE 1: Ohne die Craft-Quelle waeren es nur die zwei
         # kaufbaren — und Militaer fehlte, genau wie vor dem 06.09.2026.
-        _ohne156 = [x for x in _a156 if x['herkunft'] != _wk156.HERSTELLBAR]
+        _ohne156 = [x for x in _a156 if x['herkunft'] != _wk156.CRAFTABLE]
         pruefe(len(_ohne156) == 2,
                'Gegenprobe: nur aus dem Laden waeren es 2 statt 3 (bekam: %d)'
                % len(_ohne156))
 
         # ⚠ GEGENPROBE 2: Eine Art, die keine Quelle kennt, gibt eine LEERE
         # Liste — nicht wahllos den halben Katalog.
-        pruefe(_wk156.auswahl('GibtsNicht', 2) == [],
+        pruefe(_wk156.choices('GibtsNicht', 2) == [],
                'Gegenprobe: eine unbekannte Art liefert nichts')
     finally:
         _ld156.katalog_teile, _he156.all_items, _kt156.laden = _echt156
@@ -14427,7 +14427,7 @@ def main():
          'werk': {'ref': 'ref-werk', 'name': 'Werk'}},
     ]
     _echt157 = (_erk157.laden, _ld156.bekannt, _ld156.laeden,
-                _ld156.guenstigster, _wk156._bauplan_verzeichnis,
+                _ld156.guenstigster, _wk156._blueprint_index,
                 _he156.recipe, _pr157.preis, _ro157.load)
     try:
         _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
@@ -14437,7 +14437,7 @@ def main():
         _ld156.bekannt = lambda k: False
         _ld156.laeden = lambda k: None
         _ld156.guenstigster = lambda k: None
-        _wk156._bauplan_verzeichnis = lambda: {'ref-blast': 'BlastChill'}
+        _wk156._blueprint_index = lambda: {'ref-blast': 'BlastChill'}
         _pr157.preis = lambda r: (2643.0, 2000.0, 'Iron')
         _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 0)]}]}
@@ -14448,11 +14448,11 @@ def main():
 
         _mein157 = {'name': 'Probe', 'hersteller': '', 'kurz': '',
                     'hkurz': '', 'belegung': {}}
-        _wk156.setzen(_mein157, 'a', 'ref-blast', 'Blast', _wk156.BAUEN)
-        _wk156.setzen(_mein157, 'b', 'ref-blast', 'Blast', _wk156.BAUEN)
+        _wk156.set_part(_mein157, 'a', 'ref-blast', 'Blast', _wk156.CRAFT)
+        _wk156.set_part(_mein157, 'b', 'ref-blast', 'Blast', _wk156.CRAFT)
         _daten157 = {'format': 1, 'schiffe': [_mein157], 'wunsch': []}
 
-        _f157 = _wk156.farmliste(_daten157)
+        _f157 = _wk156.farm_list(_daten157)
         pruefe(_f157['posten'] == 2,
                'beide Posten stehen auf bauen (bekam: %d)' % _f157['posten'])
         pruefe(len(_f157['fehlt']) == 1
@@ -14476,7 +14476,7 @@ def main():
         _he156.recipe = lambda n: ({'name': 'BlastChill', 'stufen': [
             {'zeit': 100, 'zutaten': [('Frame', 'Iron', 2.0, 500)]}]}
             if n == 'BlastChill' else None)
-        _g157 = _wk156.farmliste(_daten157)
+        _g157 = _wk156.farm_list(_daten157)
         pruefe(_g157['fehlt'] and _g157['fehlt'][0]['vorhanden'] == 0.0,
                'zu schlechtes Erz zaehlt nicht als Bestand')
         pruefe(_g157['fehlt'] and _g157['fehlt'][0]['zu_gering'] == 10.0,
@@ -14492,8 +14492,8 @@ def main():
         # Geprueft wird deshalb das **tatsaechliche** Verhalten: Er erzeugt
         # keinen Materialbedarf und wird nicht als Bau-Posten gezaehlt.
         _he156.recipe = lambda n: None
-        _wk156._bauplan_verzeichnis = lambda: {}
-        _h157 = _wk156.farmliste(_daten157)
+        _wk156._blueprint_index = lambda: {}
+        _h157 = _wk156.farm_list(_daten157)
         pruefe(_h157['fehlt'] == [] and _h157['vollstaendig'] == [],
                'ohne Rezept entsteht kein erfundener Materialbedarf')
         pruefe(_h157['posten'] == 0,
@@ -14501,7 +14501,7 @@ def main():
                % _h157['posten'])
     finally:
         (_erk157.laden, _ld156.bekannt, _ld156.laeden, _ld156.guenstigster,
-         _wk156._bauplan_verzeichnis, _he156.recipe, _pr157.preis,
+         _wk156._blueprint_index, _he156.recipe, _pr157.preis,
          _ro157.load) = _echt157
 
     # ------------------------------------------------------------------
@@ -14523,18 +14523,18 @@ def main():
     print('158. Guete als Buchstabe, Klasse nie geraten')
     from scbp import seiten as _st158
     from scbp import sprache as _sp158
-    from scbp import warenkorb as _wk158
+    from scbp import cart as _wk158
 
-    pruefe(_wk158._guete_buchstabe('2') == 'B',
+    pruefe(_wk158._grade_letter('2') == 'B',
            'die Zahl 2 wird zum Buchstaben B')
-    pruefe(_wk158._guete_buchstabe(1) == 'A', '* auch als Zahl statt Text')
-    pruefe(_wk158._guete_buchstabe('4') == 'D', '* und 4 zu D')
-    pruefe(_wk158._guete_buchstabe('C') == 'C',
+    pruefe(_wk158._grade_letter(1) == 'A', '* auch als Zahl statt Text')
+    pruefe(_wk158._grade_letter('4') == 'D', '* und 4 zu D')
+    pruefe(_wk158._grade_letter('C') == 'C',
            'ein vorhandener Buchstabe bleibt unangetastet')
-    pruefe(_wk158._guete_buchstabe('') == '', 'nichts bleibt nichts')
+    pruefe(_wk158._grade_letter('') == '', 'nichts bleibt nichts')
     # ⚠ Gegenprobe: Etwas Unerwartetes wird gezeigt, nicht verschluckt — eine
     # 7 waere der Hinweis, dass sich die Quelle geaendert hat.
-    pruefe(_wk158._guete_buchstabe('7') == '7',
+    pruefe(_wk158._grade_letter('7') == '7',
            'Gegenprobe: ein unerwarteter Wert wird nicht verworfen')
 
     _alt158 = _sp158.aktuelle()
@@ -14544,25 +14544,25 @@ def main():
         _sp158.setzen('de')
         pruefe(_st158._teil_kennzeichen(
             {'guete': 'A', 'klasse': 'Military',
-             'herkunft': _wk158.HERSTELLBAR}) == 'A · Militär · nur über Bauplan',
+             'herkunft': _wk158.CRAFTABLE}) == 'A · Militär · nur über Bauplan',
                'ein Militaerteil zeigt Guete, Klasse und die Herkunft')
         # ⭐ Der Fall Crossfield: keine Klasse, aber eine nuetzliche Auskunft.
         pruefe(_st158._teil_kennzeichen(
             {'guete': '', 'klasse': '',
-             'herkunft': _wk158.HERSTELLBAR}) == 'nur über Bauplan',
+             'herkunft': _wk158.CRAFTABLE}) == 'nur über Bauplan',
                'ohne Klasse steht die Herkunft da, keine geratene Klasse')
         pruefe('Zivil' not in _st158._teil_kennzeichen(
-            {'guete': '', 'klasse': '', 'herkunft': _wk158.HERSTELLBAR}),
+            {'guete': '', 'klasse': '', 'herkunft': _wk158.CRAFTABLE}),
                'Gegenprobe: es wird KEINE Standardklasse eingesetzt')
         # Der Normalfall bekommt keinen Zusatz — sonst staende an jedem
         # zweiten Teil dasselbe Wort.
         pruefe(_st158._teil_kennzeichen(
             {'guete': 'B', 'klasse': 'Civilian',
-             'herkunft': _wk158.BEIDES}) == 'B · Zivil',
+             'herkunft': _wk158.BOTH}) == 'B · Zivil',
                'ein auch kaufbares Teil bekommt keinen Herkunfts-Zusatz')
         pruefe(_st158._teil_kennzeichen(
             {'guete': 'B', 'klasse': 'Civilian',
-             'herkunft': _wk158.KAUFBAR}) == 'B · Zivil',
+             'herkunft': _wk158.BUYABLE}) == 'B · Zivil',
                '* und ein nur kaufbares ebenso wenig')
     finally:
         _st158._TEIL_VERZEICHNIS[0] = _vorher158
@@ -14587,56 +14587,56 @@ def main():
     # gefittet, sondern unberuehrt. Im Code sieht das gleich aus.
     print()
     print('159. Abhaken, offene Posten und fertig gefittet')
-    from scbp import warenkorb as _wk159
+    from scbp import cart as _wk159
 
     _leer159 = {'name': 'Arrow', 'belegung': {}}
     _offen159 = {'name': 'Cutlass', 'belegung': {
-        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN},
-        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN}}}
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.BUY},
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.CRAFT}}}
     _halb159 = {'name': 'Vulture', 'belegung': {
-        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN,
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.BUY,
                'erledigt': True},
-        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN}}}
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.CRAFT}}}
     _fertig159 = {'name': 'Super Hornet', 'belegung': {
-        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.KAUFEN,
+        'p1': {'ref': 'r1', 'name': 'A', 'weg': _wk159.BUY,
                'erledigt': True},
-        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.BAUEN,
+        'p2': {'ref': 'r2', 'name': 'B', 'weg': _wk159.CRAFT,
                'erledigt': True}}}
 
-    pruefe(_wk159.offene_anzahl(_offen159) == 2, 'zwei offene Posten')
-    pruefe(_wk159.offene_anzahl(_halb159) == 1, 'einer abgehakt, einer offen')
-    pruefe(_wk159.offene_anzahl(_fertig159) == 0, 'alles abgehakt')
-    pruefe(_wk159.offene_anzahl(_leer159) == 0, 'nichts geplant, nichts offen')
+    pruefe(_wk159.open_count(_offen159) == 2, 'zwei offene Posten')
+    pruefe(_wk159.open_count(_halb159) == 1, 'einer abgehakt, einer offen')
+    pruefe(_wk159.open_count(_fertig159) == 0, 'alles abgehakt')
+    pruefe(_wk159.open_count(_leer159) == 0, 'nichts geplant, nichts offen')
 
-    pruefe(_wk159.fertig_gefittet(_fertig159),
+    pruefe(_wk159.fully_fitted(_fertig159),
            'ein durchgehend abgehaktes Schiff gilt als fertig gefittet')
-    pruefe(not _wk159.fertig_gefittet(_halb159),
+    pruefe(not _wk159.fully_fitted(_halb159),
            'ein halb erledigtes nicht')
-    pruefe(not _wk159.fertig_gefittet(_offen159), 'ein unberuehrtes nicht')
+    pruefe(not _wk159.fully_fitted(_offen159), 'ein unberuehrtes nicht')
     # ⚠⚠ Die Gegenprobe, auf die es ankommt.
-    pruefe(not _wk159.fertig_gefittet(_leer159),
+    pruefe(not _wk159.fully_fitted(_leer159),
            'Gegenprobe: ein Schiff OHNE Planung ist nicht fertig gefittet, '
            'obwohl es auch keine offenen Posten hat')
 
     # Haken setzen und wieder wegnehmen.
-    pruefe(_wk159.erledigt_setzen(_offen159, 'p1', True), 'abhaken wirkt')
-    pruefe(_wk159.erledigt(_offen159, 'p1'), '* und steht danach drin')
-    pruefe(not _wk159.erledigt_setzen(_offen159, 'p1', True),
+    pruefe(_wk159.set_done(_offen159, 'p1', True), 'abhaken wirkt')
+    pruefe(_wk159.is_done(_offen159, 'p1'), '* und steht danach drin')
+    pruefe(not _wk159.set_done(_offen159, 'p1', True),
            'zweimal dasselbe abhaken aendert nichts')
-    pruefe(_wk159.erledigt_setzen(_offen159, 'p1', False),
+    pruefe(_wk159.set_done(_offen159, 'p1', False),
            'der Haken laesst sich zurueckziehen')
-    pruefe(not _wk159.erledigt(_offen159, 'p1'), '* und ist dann weg')
-    pruefe(not _wk159.erledigt_setzen(_offen159, 'gibt-es-nicht', True),
+    pruefe(not _wk159.is_done(_offen159, 'p1'), '* und ist dann weg')
+    pruefe(not _wk159.set_done(_offen159, 'gibt-es-nicht', True),
            'Gegenprobe: ein unbekannter Platz laesst sich nicht abhaken')
 
     # Ein abgehakter Posten kostet nichts mehr, zaehlt aber nicht als Luecke.
     _liste159 = [
-        {'weg': _wk159.KAUFEN, 'erledigt': True,
-         'kauf': {'zustand': _wk159.BEKANNT, 'preis': 1000}},
-        {'weg': _wk159.KAUFEN, 'erledigt': False,
-         'kauf': {'zustand': _wk159.BEKANNT, 'preis': 500}},
+        {'weg': _wk159.BUY, 'erledigt': True,
+         'kauf': {'zustand': _wk159.KNOWN, 'preis': 1000}},
+        {'weg': _wk159.BUY, 'erledigt': False,
+         'kauf': {'zustand': _wk159.KNOWN, 'preis': 500}},
     ]
-    _s159 = _wk159.summe(_liste159)
+    _s159 = _wk159.total(_liste159)
     pruefe(abs(float(_s159.get('gesamt') or 0) - 500.0) < 0.01,
            'die Summe laesst Abgehaktes aus (bekam: %s)' % _s159.get('gesamt'))
     pruefe(not _s159.get('offen'),
@@ -14669,7 +14669,7 @@ def main():
     import tkinter as _tk160
     from tkinter import font as _fo160
     from scbp import seiten as _st160
-    from scbp import warenkorb as _wk160
+    from scbp import cart as _wk160
 
     class _F160:
         pass
@@ -14697,9 +14697,9 @@ def main():
         _schiff160 = {'name': 'Testschiff', 'hersteller': 'X',
                       'belegung': {
                           'p1': {'ref': 'r1', 'name': 'Teil A',
-                                 'weg': _wk160.KAUFEN},
+                                 'weg': _wk160.BUY},
                           'p2': {'ref': 'r2', 'name': 'Teil B',
-                                 'weg': _wk160.KAUFEN}}}
+                                 'weg': _wk160.BUY}}}
         _rahmen160 = _tk160.Frame(_wurzel160, bg='#0d1117')
         _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
         _wurzel160.update_idletasks()
@@ -14710,7 +14710,7 @@ def main():
 
         # Jetzt einen abhaken und die Marke neu zeichnen — wie es der
         # Rueckruf tut.
-        _wk160.erledigt_setzen(_schiff160, 'p1', True)
+        _wk160.set_done(_schiff160, 'p1', True)
         for _k160 in _rahmen160.winfo_children():
             _k160.destroy()
         _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
@@ -14721,7 +14721,7 @@ def main():
                % _nachher160)
 
         # Beide abgehakt: aus der Zaehlung wird die Claim-Warnung.
-        _wk160.erledigt_setzen(_schiff160, 'p2', True)
+        _wk160.set_done(_schiff160, 'p2', True)
         for _k160 in _rahmen160.winfo_children():
             _k160.destroy()
         _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
@@ -14901,7 +14901,7 @@ def main():
     import shutil as _sh163
     import tempfile as _tf163
     from scbp import seiten as _st163
-    from scbp import warenkorb as _wk163
+    from scbp import cart as _wk163
 
     _ordner163 = _tf163.mkdtemp(prefix='sc-bp-speichern-')
     _altheim163 = os.environ.get('SC_BP_HOME')
@@ -14926,24 +14926,24 @@ def main():
 
         # An einem HANGAR-Schiff etwas aendern.
         _schiff163 = _stand163['schiffe'][0]
-        _wk163.setzen(_schiff163, 'p1', 'ref-1', 'BlastChill')
+        _wk163.set_part(_schiff163, 'p1', 'ref-1', 'BlastChill')
         _st163._eintrag_speichern(_schiff163)
         _neu163 = _hg163.load()
         pruefe(len(_neu163.get('wunsch') or []) == 1,
                'die Wunschliste ueberlebt eine Aenderung am Hangar-Schiff')
-        pruefe(len(_wk163.belegung(_neu163['schiffe'][0])) == 1,
+        pruefe(len(_wk163.loadout(_neu163['schiffe'][0])) == 1,
                '* und die Aenderung selbst ist gespeichert')
 
         # An einem WUNSCH-Schiff etwas aendern.
         _wunsch163 = _neu163['wunsch'][0]
-        _wk163.setzen(_wunsch163, 'p9', 'ref-2', 'FR-66')
+        _wk163.set_part(_wunsch163, 'p9', 'ref-2', 'FR-66')
         _st163._eintrag_speichern(_wunsch163)
         _zuletzt163 = _hg163.load()
         pruefe(len(_zuletzt163.get('schiffe') or []) == 1,
                'der Hangar ueberlebt eine Aenderung am Wunschschiff')
-        pruefe(len(_wk163.belegung(_zuletzt163['wunsch'][0])) == 1,
+        pruefe(len(_wk163.loadout(_zuletzt163['wunsch'][0])) == 1,
                '* und die Aenderung am Wunschschiff ist gespeichert')
-        pruefe(len(_wk163.belegung(_zuletzt163['schiffe'][0])) == 1,
+        pruefe(len(_wk163.loadout(_zuletzt163['schiffe'][0])) == 1,
                '* die des Hangar-Schiffs steht auch noch da')
 
         # Gegenprobe: Ein Eintrag, den es nirgends gibt, wird gemeldet.
@@ -15427,22 +15427,22 @@ def main():
     # ⚠⚠ **Die Stueckzahl muss bis ins Material durchschlagen.** Genau daran
     # haengt der Nutzen: „drei Helme" heisst dreifaches Erz, nicht dreimal
     # dieselbe Zeile.
-    from scbp import warenkorb as _wk170
-    _posten = [{'sorte': _wk170.TEIL, 'weg': _wk170.BAUEN, 'anzahl': 3,
-                'bau': {'zustand': _wk170.BEKANNT, 'material': 100.0,
+    from scbp import cart as _wk170
+    _posten = [{'sorte': _wk170.PART, 'weg': _wk170.CRAFT, 'anzahl': 3,
+                'bau': {'zustand': _wk170.KNOWN, 'material': 100.0,
                         'dauer': 60, 'ohne_preis': []},
-                'kauf': {'zustand': _wk170.BEKANNT, 'preis': 50.0}}]
-    _summe = _wk170.summe(_posten)
+                'kauf': {'zustand': _wk170.KNOWN, 'preis': 50.0}}]
+    _summe = _wk170.total(_posten)
     pruefe(abs(_summe['bauen'] - 300.0) < 0.01,
            'drei Stueck kosten dreimal so viel Material (100 -> 300)')
     pruefe(_summe['dauer'] == 180,
            'und dauern dreimal so lange (60 -> 180)')
-    _posten[0]['weg'] = _wk170.KAUFEN
-    pruefe(abs(_wk170.summe(_posten)['kaufen'] - 150.0) < 0.01,
+    _posten[0]['weg'] = _wk170.BUY
+    pruefe(abs(_wk170.total(_posten)['kaufen'] - 150.0) < 0.01,
            'beim Kaufen ebenso (50 -> 150)')
     # Gegenprobe: Ein Schiffsteil OHNE `anzahl` bleibt bei einfach.
     del _posten[0]['anzahl']
-    pruefe(abs(_wk170.summe(_posten)['kaufen'] - 50.0) < 0.01,
+    pruefe(abs(_wk170.total(_posten)['kaufen'] - 50.0) < 0.01,
            'Gegenprobe: ohne Stueckzahl bleibt es bei einfach')
 
     # ⚠⚠⚠ **Ein Merkzettel-Posten hat KEINE Entitaets-Kennung.** Er entsteht in
@@ -15463,8 +15463,8 @@ def main():
             {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
             if name == 'Testwaffe' else None)
 
-        _bau = _wk170.bauweg('gibtsnicht', {}, name='Testwaffe')
-        pruefe(_bau['zustand'] == _wk170.BEKANNT,
+        _bau = _wk170.craft_option('gibtsnicht', {}, name='Testwaffe')
+        pruefe(_bau['zustand'] == _wk170.KNOWN,
                'ohne Kennung findet der Bauweg das Rezept ueber den NAMEN')
         pruefe(_bau['bauplan'] == 'Testwaffe',
                'und nennt den Bauplan beim Namen')
@@ -15472,10 +15472,10 @@ def main():
         # Gegenprobe: Ein Name, zu dem es kein Rezept gibt, darf NICHT als
         # bekannt gelten — sonst behauptet die Seite eine Materialliste, die
         # es nicht gibt.
-        _leer = _wk170.bauweg('', {}, name='Gibtsnichtwaffe')
-        pruefe(_leer['zustand'] != _wk170.BEKANNT,
+        _leer = _wk170.craft_option('', {}, name='Gibtsnichtwaffe')
+        pruefe(_leer['zustand'] != _wk170.KNOWN,
                'Gegenprobe: ohne Rezept bleibt es beim Zustand KEIN_REZEPT')
-        pruefe(_wk170.bauweg('', {}, name='')['zustand'] != _wk170.BEKANNT,
+        pruefe(_wk170.craft_option('', {}, name='')['zustand'] != _wk170.KNOWN,
                'Gegenprobe: ganz ohne Angabe ebenso')
     finally:
         if _echt_rez is not None:
@@ -15555,7 +15555,7 @@ def main():
            'Gegenprobe: float() darauf wirft — genau das war der Fehler')
 
     _echt_rez172 = _hs170.recipe
-    _echt_bp172 = _wk170._bauplan_verzeichnis
+    _echt_bp172 = _wk170._blueprint_index
     _heim172 = _tf166.mkdtemp(prefix='mengen-')
     _alt172 = os.environ.get('SC_BP_HOME')
     try:
@@ -15563,7 +15563,7 @@ def main():
         _hs170.recipe = lambda name: (
             {'stufen': [{'zutaten': [(0, 'Agricium', 2.0, 0)]}], 'dauer': 60}
             if name in ('Waffe A', 'Waffe B') else None)
-        _wk170._bauplan_verzeichnis = lambda: {}
+        _wk170._blueprint_index = lambda: {}
 
         from scbp import fleet as _hg172
         _stand172 = {'format': 1, 'schiffe': []}
@@ -15572,7 +15572,7 @@ def main():
 
         # Einzelbedarfe, wie sie am Eintrag stehen: 4 x 2,0 und 2 x 2,0
         _einzeln = 4 * 2.0 + 2 * 2.0
-        _liste = _wk170.farmliste(_stand172)
+        _liste = _wk170.farm_list(_stand172)
         _gesamt = 0.0
         for _e in ((_liste.get('fehlt') or [])
                    + (_liste.get('vollstaendig') or [])):
@@ -15620,7 +15620,7 @@ def main():
                'Gegenprobe: eine echte Kennung bleibt stehen')
     finally:
         _hs170.recipe = _echt_rez172
-        _wk170._bauplan_verzeichnis = _echt_bp172
+        _wk170._blueprint_index = _echt_bp172
         if _alt172 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:
@@ -16507,6 +16507,7 @@ def main():
         'schiffe': 'ships',
         'bergung': 'salvage',
         'hangar': 'fleet',
+        'warenkorb': 'cart',
     }
 
     def _reste190(quelle, name, alte):

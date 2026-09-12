@@ -55,12 +55,12 @@ Hier wird das auseinandergehalten:
 
 | Kennung | heißt | was der Spieler liest |
 |---|---|---|
-| `KEINE_DATEN` | zum Schiff fehlen die Steckplätze | „für dieses Schiff liegen keine Daten vor" |
-| `NICHTS_OFFEN` | Auslegung = Werksausstattung | „nichts zu besorgen — alles ab Werk" |
-| `KEIN_PREIS` | Teil bekannt, UEX hat keinen Preis | Feld bleibt leer, keine Behauptung |
-| `KEIN_REZEPT` | dafür gibt es keinen Bauplan | „nur kaufbar" |
+| `NO_DATA` | zum Schiff fehlen die Steckplätze | „für dieses Schiff liegen keine Daten vor" |
+| `NOTHING_OPEN` | Auslegung = Werksausstattung | „nichts zu besorgen — alles ab Werk" |
+| `NO_PRICE` | Teil bekannt, UEX hat keinen Preis | Feld bleibt leer, keine Behauptung |
+| `NO_RECIPE` | dafür gibt es keinen Bauplan | „nur kaufbar" |
 
-`KEIN_PREIS` und `KEIN_REZEPT` hängen am einzelnen Posten, die anderen beiden
+`NO_PRICE` und `NO_RECIPE` hängen am einzelnen Posten, die anderen beiden
 am Schiff.
 
 ## ⚠ Zugeordnet wird über die Kennung, nie über den Namen
@@ -88,31 +88,31 @@ import re
 from . import erkul, fehler
 
 # Zustände eines ganzen Warenkorbs.
-KEINE_DATEN = 'keine_daten'
-NICHTS_OFFEN = 'nichts_offen'
-OFFEN = 'offen'
+NO_DATA = 'keine_daten'
+NOTHING_OPEN = 'nichts_offen'
+OPEN = 'offen'
 
 # Zustände eines einzelnen Weges an einem Posten.
-BEKANNT = 'bekannt'
-KEIN_PREIS = 'kein_preis'
-KEIN_REZEPT = 'kein_rezept'
-NICHT_GEPRUEFT = 'nicht_geprueft'
+KNOWN = 'bekannt'
+NO_PRICE = 'kein_preis'
+NO_RECIPE = 'kein_rezept'
+NOT_CHECKED = 'nicht_geprueft'
 
 # Die beiden Wege, zwischen denen der Spieler wählt.
-KAUFEN = 'kaufen'
-BAUEN = 'bauen'
+BUY = 'kaufen'
+CRAFT = 'bauen'
 
 # Was für ein Posten auf der Rechnung steht — ein Einzelteil oder ein ganzes
-# Schiff. ⚠ Beide brauchen dieselbe Form (`kauf`, `bau`, `weg`), damit `summe()`
+# Schiff. ⚠ Beide brauchen dieselbe Form (`kauf`, `bau`, `weg`), damit `total()`
 # und `route()` sie ohne Sonderfall verarbeiten.
-TEIL = 'teil'
-SCHIFF = 'schiff'
+PART = 'teil'
+SHIP = 'schiff'
 
 # Woher ein Schiff kommt: schon im Hangar oder erst auf der Wunschliste. Der
 # Unterschied entscheidet, ob das Schiff selbst als Posten zählt — was man hat,
 # muss man nicht kaufen.
 HANGAR = 'hangar'
-WUNSCH = 'wunsch'
+WISHLIST = 'wunsch'
 
 # ⭐⭐ **Der Merkzettel: Einzelteile ohne Schiff.** Bis v3.20.0 fuehrte jeder Weg
 # zum Farmen ueber ein Schiff — man legte eines auf die Wunschliste, waehlte
@@ -129,14 +129,14 @@ WUNSCH = 'wunsch'
 # Ein Merkzettel-Posten hat kein Schiff und keine Position — er ist einfach
 # etwas, das man bauen oder kaufen will. Alles andere (Preis, Material, Route)
 # rechnet sich genauso wie bei einem Schiffsteil.
-MERKZETTEL = 'merkzettel'
+NOTEPAD = 'merkzettel'
 
 # Woher ein Teil überhaupt zu bekommen ist. ⚠ Das ist keine Feinheit: Militär
 # ist **nicht kaufbar, aber herstellbar** — wer nur die Ladenware zeigt, lässt
 # genau die Teile weg, für die man Baupläne sammelt.
-KAUFBAR = 'kaufbar'
-HERSTELLBAR = 'herstellbar'
-BEIDES = 'beides'
+BUYABLE = 'kaufbar'
+CRAFTABLE = 'herstellbar'
+BOTH = 'beides'
 
 
 # ⚠⚠ **UEX-Warengruppe → Steckplatz-Art. Die einzige Übersetzungstabelle hier
@@ -153,7 +153,7 @@ BEIDES = 'beides'
 # Zugeordnet wird ausschließlich über die Entitäts-Kennung. Veraltet die
 # Tabelle, weil UEX eine Warengruppe umbenennt, wird die Liste an einem Platz
 # leer — der Rückfall unten fängt das ab, und es geht nichts kaputt.
-GRUPPE_ZU_ART = {
+GROUP_TO_KIND = {
     'Coolers': 'Cooler',
     'Power Plants': 'PowerPlant',
     'Shield Generators': 'Shield',
@@ -194,7 +194,7 @@ GRUPPE_ZU_ART = {
 # keine Größe — dort trägt nur der Katalog. Das ist die verbleibende Lücke und
 # kein Fehler: Lieber ein Teil weniger anbieten als eines in der falschen
 # Größe.
-REZEPT_ZU_ART = {
+RECIPE_TO_KIND = {
     'quantumdrive': 'QuantumDrive',
     'cooler': 'Cooler',
     'powerplant': 'PowerPlant',
@@ -205,19 +205,19 @@ REZEPT_ZU_ART = {
 }
 
 # `size2` → 2. Nur diese Form, nichts geraten.
-_GROESSE_AUS_UNTERART = re.compile(r'^size(\d+)$')
+_SIZE_FROM_SUBTYPE = re.compile(r'^size(\d+)$')
 
 
-def _aus_rezept(eintrag):
+def _from_recipe(entry):
     """Art und Größe aus den Rezeptdaten — oder `(None, None)`."""
-    art = REZEPT_ZU_ART.get((eintrag.get('art') or '').lower())
-    if not art:
+    kind = RECIPE_TO_KIND.get((entry.get('art') or '').lower())
+    if not kind:
         return None, None
-    treffer = _GROESSE_AUS_UNTERART.match((eintrag.get('unterart') or '').lower())
-    return art, (int(treffer.group(1)) if treffer else None)
+    found = _SIZE_FROM_SUBTYPE.match((entry.get('unterart') or '').lower())
+    return kind, (int(found.group(1)) if found else None)
 
 
-def _guete_buchstabe(wert):
+def _grade_letter(value):
     """Die Güte als Buchstabe — `2` wird zu `B`.
 
     ⚠⚠ **Der Bauplan-Katalog führt die Güte als Zahl, das Spiel als
@@ -236,11 +236,11 @@ def _guete_buchstabe(wert):
     stillschweigend verworfen — eine Zahl 7 wäre ein Hinweis darauf, dass sich
     die Quelle geändert hat, und den will man sehen.
     """
-    text = str(wert or '').strip()
+    text = str(value or '').strip()
     return {'1': 'A', '2': 'B', '3': 'C', '4': 'D'}.get(text, text)
 
 
-def _herstellbare(art, groesse):
+def _craftable(kind, size):
     """Alle **herstellbaren** Teile dieser Art und Größe — Kennung → Angaben.
 
     ⭐⭐ **Ohne diese Quelle fehlt dem Spieler die halbe Welt, und zwar
@@ -265,7 +265,7 @@ def _herstellbare(art, groesse):
     „nie über Namen"-Regel gilt für Zuordnungen über **Quellengrenzen**
     hinweg (dort holte `Gold` einmal `Golden Medmon` mit). Rezeptdaten und
     Katalog stammen dagegen beide aus derselben Quelle und benutzen dieselbe
-    Namensform; `einordnung()` verknüpft sie längst genauso. Gemessen am
+    Namensform; `classification()` verknüpft sie längst genauso. Gemessen am
     06.09.2026: **1.592 von 1.597 (99,7 %)** finden ihre Angaben, alle davon
     mit Art und Größe.
 
@@ -274,52 +274,52 @@ def _herstellbare(art, groesse):
     Beschriftung.
     """
     from . import crafting, katalog
-    raus = {}
+    result = {}
     try:
-        werte = (katalog.laden() or {}).get('bauplaene') or {}
-        for eintrag in crafting.all_items():
-            kennung = eintrag.get('entity') or ''
-            if not kennung:
+        values = (katalog.laden() or {}).get('bauplaene') or {}
+        for entry in crafting.all_items():
+            ident = entry.get('entity') or ''
+            if not ident:
                 continue
-            merkmale = werte.get(katalog._norm(eintrag.get('basis') or '')) or {}
-            eigene_art = merkmale.get('a') or ''
-            eigene = merkmale.get('s')
-            if not eigene_art:
+            traits = values.get(katalog._norm(entry.get('basis') or '')) or {}
+            own_kind = traits.get('a') or ''
+            own = traits.get('s')
+            if not own_kind:
                 # Der Katalog kennt dieses Teil nicht — dann sagen es die
-                # Rezeptdaten selbst. Siehe `REZEPT_ZU_ART`.
-                eigene_art, aus_rezept = _aus_rezept(eintrag)
-                if eigene is None:
-                    eigene = aus_rezept
-            if (eigene_art or '') != art:
+                # Rezeptdaten selbst. Siehe `RECIPE_TO_KIND`.
+                own_kind, from_recipe = _from_recipe(entry)
+                if own is None:
+                    own = from_recipe
+            if (own_kind or '') != kind:
                 continue
             # ⚠ Größe nur vergleichen, wenn beide Seiten eine haben — sonst
             # fällt ein Teil heraus, weil eine Angabe fehlt, nicht weil es
             # nicht passt.
-            if groesse is not None and eigene is not None:
+            if size is not None and own is not None:
                 try:
-                    if int(eigene) != int(groesse):
+                    if int(own) != int(size):
                         continue
                 except (TypeError, ValueError):
                     pass
-            raus[kennung] = {
-                'name': eintrag.get('basis') or eintrag.get('name') or '',
-                'kennung': kennung,
-                'hersteller': (merkmale.get('m')
-                               or eintrag.get('hersteller') or ''),
-                'guete': _guete_buchstabe(merkmale.get('g')),
-                'klasse': merkmale.get('c') or '',
+            result[ident] = {
+                'name': entry.get('basis') or entry.get('name') or '',
+                'kennung': ident,
+                'hersteller': (traits.get('m')
+                               or entry.get('hersteller') or ''),
+                'guete': _grade_letter(traits.get('g')),
+                'klasse': traits.get('c') or '',
             }
     except Exception as ausnahme:
-        fehler.merken('warenkorb.herstellbare', ausnahme)
-    return raus
+        fehler.merken('cart.craftable', ausnahme)
+    return result
 
 
-def auswahl(art, groesse):
+def choices(kind, size):
     """Welche Teile in einen Steckplatz dieser Art und Größe passen.
 
     Gibt eine Liste `{'name', 'kennung', 'hersteller', 'guete', 'klasse',
-    'herkunft'}` zurück, alphabetisch. `herkunft` ist `KAUFBAR`,
-    `HERSTELLBAR` oder `BEIDES` — die Anzeige kann das kennzeichnen.
+    'herkunft'}` zurück, alphabetisch. `herkunft` ist `BUYABLE`,
+    `CRAFTABLE` oder `BOTH` — die Anzeige kann das kennzeichnen.
 
     ⚠⚠ **Zwei Quellen, weil keine allein reicht:** UEX kennt nur, was im Laden
     steht (kein Militär), die Spieldaten kennen nur, was herstellbar ist. Erst
@@ -337,25 +337,25 @@ def auswahl(art, groesse):
     Auswahl.
     """
     from . import laeden
-    if not art:
+    if not kind:
         return []
-    gefunden = _herstellbare(art, groesse)
-    for eintrag in gefunden.values():
-        eintrag['herkunft'] = HERSTELLBAR
+    found = _craftable(kind, size)
+    for entry in found.values():
+        entry['herkunft'] = CRAFTABLE
 
-    gruppen = [g for g, a in GRUPPE_ZU_ART.items() if a == art]
-    raus = []
-    for teil in (laeden.katalog_teile() if gruppen else []):
-        if teil.get('kategorie') not in gruppen:
+    groups = [g for g, a in GROUP_TO_KIND.items() if a == kind]
+    result = []
+    for part in (laeden.katalog_teile() if groups else []):
+        if part.get('kategorie') not in groups:
             continue
         # ⚠ Die Größe wird nur geprüft, wenn beide Seiten eine haben. UEX
         # lässt das Feld bei einem Teil der Ware leer — dort dann alles
         # auszusortieren hieße, kaufbare Teile zu verstecken, weil eine
         # fremde Datenbank eine Lücke hat.
-        eigene = str(teil.get('groesse') or '').strip()
-        if groesse is not None and eigene:
+        own = str(part.get('groesse') or '').strip()
+        if size is not None and own:
             try:
-                if int(float(eigene)) != int(groesse):
+                if int(float(own)) != int(size):
                     continue
             except (TypeError, ValueError):
                 pass
@@ -365,13 +365,13 @@ def auswahl(art, groesse):
         # Niemand kennt 1.500 Teile auswendig. Gemessen an den Kraftwerken der
         # Größe 1: 20 Civilian, 13 Industrial, 5 Competition, 3 Stealth, keine
         # Lücke — das Feld trägt also wirklich.
-        kennung = teil.get('kennung') or ''
+        ident = part.get('kennung') or ''
         # ⚠ Ist das Teil auch herstellbar, wird der vorhandene Eintrag
         # **ergänzt** statt ein zweiter angelegt — sonst stünde dasselbe Teil
         # zweimal in der Liste, einmal aus jeder Quelle.
-        schon = gefunden.get(kennung)
-        if schon is not None:
-            schon['herkunft'] = BEIDES
+        already = found.get(ident)
+        if already is not None:
+            already['herkunft'] = BOTH
             # ⚠⚠ **UEX' Angaben gewinnen wirklich — nicht nur bei einer Lücke.**
             # Bis zum 06.09.2026 stand hier `if wert and not schon.get(feld)`:
             # Die Angabe aus dem Bauplan-Katalog blieb stehen, sobald sie
@@ -382,21 +382,21 @@ def auswahl(art, groesse):
             #
             # UEX pflegt Klasse und Güte für seine Ladenware gründlicher; wo
             # es etwas führt, gilt das. Der Katalog füllt nur die Lücken.
-            for feld, wert in (('klasse', teil.get('klasse')),
-                               ('guete', teil.get('guete')),
-                               ('hersteller', teil.get('hersteller'))):
-                if wert:
-                    schon[feld] = wert
+            for field, value in (('klasse', part.get('klasse')),
+                                 ('guete', part.get('guete')),
+                                 ('hersteller', part.get('hersteller'))):
+                if value:
+                    already[field] = value
             continue
-        raus.append({'name': teil.get('name') or '',
-                     'kennung': kennung,
-                     'hersteller': teil.get('hersteller') or '',
-                     'guete': teil.get('guete') or '',
-                     'klasse': teil.get('klasse') or '',
-                     'herkunft': KAUFBAR})
-    raus.extend(gefunden.values())
-    raus.sort(key=lambda x: (x['name'] or '').lower())
-    return raus
+        result.append({'name': part.get('name') or '',
+                       'kennung': ident,
+                       'hersteller': part.get('hersteller') or '',
+                       'guete': part.get('guete') or '',
+                       'klasse': part.get('klasse') or '',
+                       'herkunft': BUYABLE})
+    result.extend(found.values())
+    result.sort(key=lambda x: (x['name'] or '').lower())
+    return result
 
 
 # ------------------------------------------------------------- Die Auslegung
@@ -407,34 +407,34 @@ def auswahl(art, groesse):
 # kostet also keinen Formatwechsel und entwertet keine bestehende Datei.
 
 
-def belegung(eintrag):
+def loadout(entry):
     """Die gespeicherte Auslegung eines Schiffs: Pfad → Teil."""
-    werte = (eintrag or {}).get('belegung')
-    return werte if isinstance(werte, dict) else {}
+    values = (entry or {}).get('belegung')
+    return values if isinstance(values, dict) else {}
 
 
-def setzen(eintrag, pfad, ref, name, weg=KAUFEN):
+def set_part(entry, path, ref, name, method=BUY):
     """Ein Teil in einen Steckplatz legen. Gibt zurück, ob sich etwas änderte.
 
     ⚠ Die **Kennung** ist der Inhalt, der Name nur die Beschriftung daneben.
     Wer später einen Preis dazu sucht, fragt über `ref`.
     """
-    if not pfad or not ref:
+    if not path or not ref:
         return False
-    alt = belegung(eintrag).get(pfad)
-    neu = {'ref': ref, 'name': name or '', 'weg': weg}
-    if alt == neu:
+    old = loadout(entry).get(path)
+    new = {'ref': ref, 'name': name or '', 'weg': method}
+    if old == new:
         return False
-    eintrag.setdefault('belegung', {})[pfad] = neu
+    entry.setdefault('belegung', {})[path] = new
     return True
 
 
-def loeschen(eintrag, pfad):
+def clear_part(entry, path):
     """Einen Steckplatz wieder auf die Werksausstattung zurücksetzen."""
-    return (eintrag or {}).get('belegung', {}).pop(pfad, None) is not None
+    return (entry or {}).get('belegung', {}).pop(path, None) is not None
 
 
-def weg_setzen(eintrag, pfad, weg):
+def set_method(entry, path, method):
     """Kaufen oder selbst herstellen — die Wahl an einem Posten.
 
     ⚠ Die Wahl gehört **in** die Auslegung, nicht in ein zweites Feld daneben.
@@ -442,16 +442,16 @@ def weg_setzen(eintrag, pfad, weg):
     später auseinander — dann steht eine Wahl für einen Steckplatz da, in dem
     längst nichts mehr liegt.
     """
-    if weg not in (KAUFEN, BAUEN):
+    if method not in (BUY, CRAFT):
         return False
-    eintrag_platz = belegung(eintrag).get(pfad)
-    if not eintrag_platz or eintrag_platz.get('weg') == weg:
+    slot = loadout(entry).get(path)
+    if not slot or slot.get('weg') == method:
         return False
-    eintrag_platz['weg'] = weg
+    slot['weg'] = method
     return True
 
 
-def offene_anzahl(eintrag):
+def open_count(entry):
     """Wie viele Plätze an diesem Schiff noch offen sind — **ohne** Netz.
 
     ⭐⭐ **Damit man es sieht, ohne aufzuklappen.** Am 06.09.2026 gefragt: *„wie
@@ -459,9 +459,9 @@ def offene_anzahl(eintrag):
     habe?"* Gar nicht — in der Hangar-Liste stand nur „gekauft · LTI · 39
     Steckplätze", und bei vierzig Schiffen klappt niemand alle auf.
 
-    ⚠ **Gezählt wird die gespeicherte Auslegung, nicht `posten()`.** Das ist
-    der ganze Sinn: `posten()` braucht die Steckplatz-Daten und läuft je Schiff
-    einmal durch — bei vierzig Schiffen wäre das Zeichnen der Liste ein
+    ⚠ **Gezählt wird die gespeicherte Auslegung, nicht `line_items()`.** Das ist
+    der ganze Sinn: `line_items()` braucht die Steckplatz-Daten und läuft je
+    Schiff einmal durch — bei vierzig Schiffen wäre das Zeichnen der Liste ein
     spürbares Warten, und genau deshalb wird der Warenkorb erst beim Aufklappen
     gebaut. Hier reicht ein Blick ins eigene Feld.
 
@@ -471,11 +471,11 @@ def offene_anzahl(eintrag):
     die genaue Liste. Lieber einmal zu viel hinweisen als einen offenen Posten
     verschweigen.
     """
-    return sum(1 for teil in belegung(eintrag).values()
-               if isinstance(teil, dict) and not teil.get('erledigt'))
+    return sum(1 for part in loadout(entry).values()
+               if isinstance(part, dict) and not part.get('erledigt'))
 
 
-def fertig_gefittet(eintrag):
+def fully_fitted(entry):
     """Steckt an diesem Schiff alles drin, was geplant war?
 
     ⭐⭐ **Das ist keine Fleißmeldung, sondern eine Warnung.** Am 06.09.2026
@@ -499,19 +499,19 @@ def fertig_gefittet(eintrag):
     unberührt. Beides sähe im Code gleich aus (keine offenen Posten), bedeutet
     aber das Gegenteil: einmal „alles drin", einmal „nie etwas vorgehabt".
     """
-    werte = belegung(eintrag)
-    if not werte:
+    values = loadout(entry)
+    if not values:
         return False
-    return all(teil.get('erledigt') for teil in werte.values()
-               if isinstance(teil, dict))
+    return all(part.get('erledigt') for part in values.values()
+               if isinstance(part, dict))
 
 
-def erledigt(eintrag, pfad):
+def is_done(entry, path):
     """Ist dieser Posten abgehakt?"""
-    return bool((belegung(eintrag).get(pfad) or {}).get('erledigt'))
+    return bool((loadout(entry).get(path) or {}).get('erledigt'))
 
 
-def erledigt_setzen(eintrag, pfad, ja=True):
+def set_done(entry, path, on=True):
     """Einen Posten abhaken oder den Haken wieder wegnehmen.
 
     ⭐⭐ **Warum es das braucht — das Werkzeug kann es nicht selbst merken.**
@@ -533,22 +533,22 @@ def erledigt_setzen(eintrag, pfad, ja=True):
     nicht in einer zweiten Liste daneben, die über dieselben Schlüssel läuft
     und irgendwann auseinanderdriftet.
     """
-    platz = belegung(eintrag).get(pfad)
-    if not platz:
+    slot = loadout(entry).get(path)
+    if not slot:
         return False
-    if bool(platz.get('erledigt')) == bool(ja):
+    if bool(slot.get('erledigt')) == bool(on):
         return False
-    if ja:
-        platz['erledigt'] = True
+    if on:
+        slot['erledigt'] = True
     else:
-        platz.pop('erledigt', None)
+        slot.pop('erledigt', None)
     return True
 
 
 # ------------------------------------------------------------- Die Posten
 
 
-def _bauplan_verzeichnis():
+def _blueprint_index():
     """Entitäts-Kennung → Name des Bauplans, der genau dieses Teil herstellt.
 
     ⚠⚠ **Die Umkehrung von `crafting.entity_of()` — und sie ist der Grund,
@@ -561,25 +561,25 @@ def _bauplan_verzeichnis():
     Quellen hinweg — genau der Fehler, den `laeden.py` im Kopf beschreibt.
     """
     from . import crafting
-    raus = {}
+    result = {}
     try:
         for b in crafting.all_items():
-            kennung = b.get('entity') or ''
-            if kennung:
-                raus.setdefault(kennung, b.get('basis') or b.get('name') or '')
+            ident = b.get('entity') or ''
+            if ident:
+                result.setdefault(ident, b.get('basis') or b.get('name') or '')
     except Exception as ausnahme:
-        fehler.merken('warenkorb.bauplan_verzeichnis', ausnahme)
-    return raus
+        fehler.merken('cart.blueprint_index', ausnahme)
+    return result
 
 
-def posten(eintrag):
+def line_items(entry):
     """Alles, was an diesem Schiff **nicht** ab Werk verbaut ist.
 
     Gibt `(zustand, liste)` zurück. Je Posten:
 
         {'pfad', 'art', 'groesse', 'ref', 'name',
          'werk_ref', 'werk_name',   # was stattdessen ab Werk drinsteckt
-         'weg'}                     # KAUFEN oder BAUEN
+         'weg'}                     # BUY oder CRAFT
 
     ⚠ **Ein ab Werk leerer Platz zählt mit.** Batterie, Bordrechner und
     Gravitationsgenerator stehen bei der Cutlass Black leer — legt der Spieler
@@ -589,78 +589,78 @@ def posten(eintrag):
     ⚠ Und ein Platz, in den der Spieler **genau das Werksteil** legt, ist
     keiner. Verglichen wird über die Kennung.
     """
-    if not eintrag:
-        return KEINE_DATEN, []
-    plaetze = erkul.steckplaetze(eintrag.get('name') or '',
-                                 eintrag.get('hersteller') or '',
-                                 eintrag.get('kurz') or '',
-                                 eintrag.get('hkurz') or '')
-    if not plaetze:
+    if not entry:
+        return NO_DATA, []
+    slots = erkul.steckplaetze(entry.get('name') or '',
+                               entry.get('hersteller') or '',
+                               entry.get('kurz') or '',
+                               entry.get('hkurz') or '')
+    if not slots:
         # ⚠ Das ist **nicht** „nichts zu besorgen". Ohne Steckplatz-Daten ist
         # gar keine Aussage möglich, und die beiden Fälle dürfen nie denselben
         # Satz erzeugen.
-        return KEINE_DATEN, []
+        return NO_DATA, []
 
-    gewaehlt = belegung(eintrag)
-    nach_pfad = dict((p.get('pfad'), p) for p in plaetze)
-    raus = []
-    for pfad, teil in gewaehlt.items():
-        platz = nach_pfad.get(pfad)
-        if not platz or not (teil or {}).get('ref'):
+    chosen = loadout(entry)
+    by_path = dict((p.get('pfad'), p) for p in slots)
+    result = []
+    for path, part in chosen.items():
+        slot = by_path.get(path)
+        if not slot or not (part or {}).get('ref'):
             # Ein Steckplatz, den es nicht mehr gibt — nach einem Patch
             # möglich. Er wird übergangen, nicht gemeldet: Der Spieler kann
             # nichts dafür, und ein Fehler wäre er auch nicht.
             continue
-        werk = platz.get('werk') or {}
-        if werk.get('ref') == teil['ref']:
+        factory = slot.get('werk') or {}
+        if factory.get('ref') == part['ref']:
             continue
-        raus.append({
-            'pfad': pfad,
-            'art': platz.get('art') or '',
-            'groesse': platz.get('groesse'),
-            'ref': teil['ref'],
-            'name': teil.get('name') or '',
-            'werk_ref': werk.get('ref') or '',
-            'werk_name': werk.get('name') or '',
-            'weg': teil.get('weg') or KAUFEN,
+        result.append({
+            'pfad': path,
+            'art': slot.get('art') or '',
+            'groesse': slot.get('groesse'),
+            'ref': part['ref'],
+            'name': part.get('name') or '',
+            'werk_ref': factory.get('ref') or '',
+            'werk_name': factory.get('name') or '',
+            'weg': part.get('weg') or BUY,
             # ⚠ Ein abgehakter Posten bleibt in der Liste — er wird nur nicht
             # mehr mitgerechnet. Ihn verschwinden zu lassen hiesse, dass
             # niemand einen falsch gesetzten Haken zuruecknehmen kann.
-            'erledigt': bool(teil.get('erledigt')),
+            'erledigt': bool(part.get('erledigt')),
         })
-    raus.sort(key=lambda p: (p['art'], p['pfad']))
-    return (OFFEN if raus else NICHTS_OFFEN), raus
+    result.sort(key=lambda p: (p['art'], p['pfad']))
+    return (OPEN if result else NOTHING_OPEN), result
 
 
 # ------------------------------------------------------------- Die zwei Wege
 
 
-def kaufweg(ref, name=''):
+def buy_option(ref, name=''):
     """Was der Posten fertig im Laden kostet.
 
     Gibt `{'zustand', 'preis', 'laden', 'ort'}` zurück.
 
     ⚠ **Drei Zustände, und keiner davon ist eine Behauptung über das Spiel.**
-    `NICHT_GEPRUEFT` heißt, dass noch niemand nachgesehen hat; `KEIN_PREIS`,
+    `NOT_CHECKED` heißt, dass noch niemand nachgesehen hat; `NO_PRICE`,
     dass UEX das Teil nicht führt. UEX hat Lücken (gemessen: 435 von 1.604
     Bauplänen) — daraus „nirgends im Handel" zu machen, wäre eine Aussage über
     fremde Daten, nicht über das Spiel.
     """
     from . import laeden
-    leer = {'zustand': NICHT_GEPRUEFT, 'preis': None, 'laden': '', 'ort': ''}
+    blank = {'zustand': NOT_CHECKED, 'preis': None, 'laden': '', 'ort': ''}
     if not ref:
-        return leer
+        return blank
     if not laeden.bekannt(ref):
-        return leer
-    bester = laeden.guenstigster(ref)
-    if not bester:
-        return {'zustand': KEIN_PREIS, 'preis': None, 'laden': '', 'ort': ''}
-    preis, laden_name, ort = bester
-    return {'zustand': BEKANNT, 'preis': preis, 'laden': laden_name,
-            'ort': ort}
+        return blank
+    best = laeden.guenstigster(ref)
+    if not best:
+        return {'zustand': NO_PRICE, 'preis': None, 'laden': '', 'ort': ''}
+    price, shop_name, place = best
+    return {'zustand': KNOWN, 'preis': price, 'laden': shop_name,
+            'ort': place}
 
 
-def bauweg(ref, verzeichnis=None, name=''):
+def craft_option(ref, index=None, name=''):
     """Was der Posten an Material kostet, wenn er selbst hergestellt wird.
 
     Gibt `{'zustand', 'material', 'dauer', 'bauplan', 'ohne_preis'}` zurück.
@@ -673,7 +673,7 @@ def bauweg(ref, verzeichnis=None, name=''):
 
     ⚠⚠⚠ **`ref` ist die Entitäts-Kennung, NICHT der Name.** Merkzettel-Posten
     kommen aus der Herstellungsliste, und die kennt nur den Bauplannamen — beim
-    ersten Anlauf am 06.09.2026 landete der Name im `ref`-Feld, `verzeichnis`
+    ersten Anlauf am 06.09.2026 landete der Name im `ref`-Feld, `index`
     fand nichts, und der Posten fiel stillschweigend auf „kaufen" zurück. Auf
     „Was ich farmen muss" stand daraufhin „Nichts auf selbst herstellen
     gestellt", obwohl zwei Waffen vorgemerkt waren.
@@ -683,67 +683,67 @@ def bauweg(ref, verzeichnis=None, name=''):
     ihn.
     """
     from . import crafting, preise
-    leer = {'zustand': KEIN_REZEPT, 'material': None, 'dauer': None,
-            'bauplan': '', 'ohne_preis': []}
+    blank = {'zustand': NO_RECIPE, 'material': None, 'dauer': None,
+             'bauplan': '', 'ohne_preis': []}
     if not ref and not name:
-        return leer
-    verzeichnis = _bauplan_verzeichnis() if verzeichnis is None else verzeichnis
-    bauplan = (verzeichnis.get(ref) or '') if ref else ''
-    if not bauplan and name:
-        # ⚠ Der Rückweg für Posten ohne Kennung. `rezept()` nimmt den Namen,
+        return blank
+    index = _blueprint_index() if index is None else index
+    blueprint = (index.get(ref) or '') if ref else ''
+    if not blueprint and name:
+        # ⚠ Der Rückweg für Posten ohne Kennung. `recipe()` nimmt den Namen,
         # also reicht er — geprüft wird gleich unten, ob wirklich einer kommt.
-        bauplan = name
-    if not bauplan:
-        return leer
+        blueprint = name
+    if not blueprint:
+        return blank
     try:
-        rez = crafting.recipe(bauplan)
+        rec = crafting.recipe(blueprint)
     except Exception as ausnahme:
-        fehler.merken('warenkorb.bauweg.rezept', ausnahme)
-        return leer
-    if not rez or not rez.get('stufen'):
-        return leer
+        fehler.merken('cart.craft_option.recipe', ausnahme)
+        return blank
+    if not rec or not rec.get('stufen'):
+        return blank
 
     # Aktuell hat jeder Bauplan genau eine Stufe — gerechnet wird trotzdem
     # über alle, damit eine zweite nicht stillschweigend unterschlagen wird.
     material = 0.0
-    ohne_preis = []
-    dauer = 0
-    for stufe in rez['stufen']:
-        dauer += int(stufe.get('zeit') or 0)
-        for _slot, rohstoff, menge, _guete in (stufe.get('zutaten') or []):
-            gefunden = preise.preis(rohstoff)
-            kauf = (gefunden or (0, 0, ''))[0]
-            if not kauf:
+    unpriced = []
+    time_total = 0
+    for step in rec['stufen']:
+        time_total += int(step.get('zeit') or 0)
+        for _slot, raw, amount, _grade in (step.get('zutaten') or []):
+            found = preise.preis(raw)
+            buy = (found or (0, 0, ''))[0]
+            if not buy:
                 # Nicht kaufbar (oder gar keine Preisdaten) — der Posten wird
                 # benannt, nicht mit 0 verrechnet.
-                if rohstoff not in ohne_preis:
-                    ohne_preis.append(rohstoff)
+                if raw not in unpriced:
+                    unpriced.append(raw)
                 continue
-            material += float(kauf) * float(menge or 0)
-    return {'zustand': BEKANNT, 'material': material, 'dauer': dauer,
-            'bauplan': bauplan, 'ohne_preis': ohne_preis}
+            material += float(buy) * float(amount or 0)
+    return {'zustand': KNOWN, 'material': material, 'dauer': time_total,
+            'bauplan': blueprint, 'ohne_preis': unpriced}
 
 
-def anreichern(liste):
+def enrich(items):
     """Jeden Posten um beide Wege ergänzen — `kauf` und `bau`.
 
     ⚠ Das Bauplan-Verzeichnis wird **einmal** gebaut, nicht je Posten: Es geht
     über rund 1.600 Baupläne, und bei zwölf Posten wären das zwölf Durchläufe
     für dieselbe Tabelle.
     """
-    verzeichnis = _bauplan_verzeichnis()
-    for p in liste:
-        p['kauf'] = kaufweg(p.get('ref'), p.get('name'))
-        p['bau'] = bauweg(p.get('ref'), verzeichnis)
+    index = _blueprint_index()
+    for p in items:
+        p['kauf'] = buy_option(p.get('ref'), p.get('name'))
+        p['bau'] = craft_option(p.get('ref'), index)
         # ⚠ Ein Posten ohne Bauplan kann nicht gebaut werden — dann steht der
         # Weg auf „kaufen", ganz gleich, was gespeichert war. Sonst rechnet die
         # Summe mit einem Weg, den es nicht gibt.
-        if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
-            p['weg'] = KAUFEN
-    return liste
+        if p['weg'] == CRAFT and p['bau']['zustand'] != KNOWN:
+            p['weg'] = BUY
+    return items
 
 
-def summe(liste):
+def total(items):
     """Was der Warenkorb **günstigstenfalls** kostet — nach der getroffenen Wahl.
 
     Gibt `{'gesamt', 'kaufen', 'bauen', 'dauer', 'offen', 'unvollstaendig'}`
@@ -764,11 +764,11 @@ def summe(liste):
     der Summe, und das muss dabeistehen: Eine Summe, der drei Posten fehlen,
     sieht genauso aus wie eine vollständige.
     """
-    gesamt = kaufteil = bauteil = 0.0
-    dauer = 0
-    offen = 0
-    unvollstaendig = False
-    for p in liste:
+    overall = buy_part = craft_part = 0.0
+    time_total = 0
+    unpriced = 0
+    incomplete = False
+    for p in items:
         # ⚠⚠ **Abgehaktes kostet nichts mehr.** Wer ein Teil gekauft und
         # eingebaut hat, will nicht, dass es weiter in der Summe steht — sonst
         # bleibt die Zahl gleich, egal wie viel man schon erledigt hat, und
@@ -781,49 +781,49 @@ def summe(liste):
         # brauchen dreimal so lange. Ein Schiffsteil hat kein `anzahl`; dort
         # bleibt es bei 1, weil ein Steckplatz genau ein Teil aufnimmt.
         try:
-            stueck = max(1, int(p.get('anzahl') or 1))
+            pieces = max(1, int(p.get('anzahl') or 1))
         except (TypeError, ValueError):
-            stueck = 1
-        if p.get('weg') == BAUEN:
-            bau = p.get('bau') or {}
-            if bau.get('zustand') != BEKANNT or bau.get('material') is None:
-                offen += 1
+            pieces = 1
+        if p.get('weg') == CRAFT:
+            craft = p.get('bau') or {}
+            if craft.get('zustand') != KNOWN or craft.get('material') is None:
+                unpriced += 1
                 continue
-            bauteil += bau['material'] * stueck
-            gesamt += bau['material'] * stueck
-            dauer += int(bau.get('dauer') or 0) * stueck
-            if bau.get('ohne_preis'):
-                unvollstaendig = True
+            craft_part += craft['material'] * pieces
+            overall += craft['material'] * pieces
+            time_total += int(craft.get('dauer') or 0) * pieces
+            if craft.get('ohne_preis'):
+                incomplete = True
         else:
-            kauf = p.get('kauf') or {}
-            if kauf.get('zustand') != BEKANNT or kauf.get('preis') is None:
-                offen += 1
+            buy = p.get('kauf') or {}
+            if buy.get('zustand') != KNOWN or buy.get('preis') is None:
+                unpriced += 1
                 continue
-            kaufteil += kauf['preis'] * stueck
-            gesamt += kauf['preis'] * stueck
-    return {'gesamt': gesamt, 'kaufen': kaufteil, 'bauen': bauteil,
-            'dauer': dauer, 'offen': offen,
-            'unvollstaendig': unvollstaendig}
+            buy_part += buy['preis'] * pieces
+            overall += buy['preis'] * pieces
+    return {'gesamt': overall, 'kaufen': buy_part, 'bauen': craft_part,
+            'dauer': time_total, 'offen': unpriced,
+            'unvollstaendig': incomplete}
 
 
 # ------------------------------------------------------------- Die Kaufroute
 
 
-def _angebote(liste):
+def _offers(items):
     """Je zu kaufendem Posten alle Läden, die ihn führen."""
     from . import laeden
-    raus = {}
-    for p in liste:
-        if p.get('weg') != KAUFEN or not p.get('ref'):
+    result = {}
+    for p in items:
+        if p.get('weg') != BUY or not p.get('ref'):
             continue
-        zeilen = laeden.laeden(p['ref'])
-        if not zeilen:
+        rows = laeden.laeden(p['ref'])
+        if not rows:
             continue
-        raus[p['pfad']] = zeilen
-    return raus
+        result[p['pfad']] = rows
+    return result
 
 
-def route(liste):
+def route(items):
     """Die Einkaufsroute: möglichst wenige Stopps für alles Gekaufte.
 
     Gibt `(stopps, ohne)` zurück — `stopps` ist eine Liste::
@@ -844,80 +844,80 @@ def route(liste):
     an derselben Station sind ein Stopp — genau die Unterscheidung, die erkul
     mit „1 shop · 1 stop" trifft.
     """
-    angebote = _angebote(liste)
+    offers = _offers(items)
     # ⚠ Nur Posten mit Steckplatz — ein ganzes Schiff hat keinen, und
-    # Abgehaktes muss man nicht mehr abholen (siehe `_angebote`).
-    kaufbar = [p for p in liste if p.get('pfad') and not p.get('erledigt')]
-    nach_pfad = dict((p['pfad'], p) for p in kaufbar)
-    offen = set(angebote)
-    ohne = [p['pfad'] for p in kaufbar
-            if p.get('weg') == KAUFEN and p['pfad'] not in angebote]
+    # Abgehaktes muss man nicht mehr abholen (siehe `_offers`).
+    buyable = [p for p in items if p.get('pfad') and not p.get('erledigt')]
+    by_path = dict((p['pfad'], p) for p in buyable)
+    open_paths = set(offers)
+    without = [p['pfad'] for p in buyable
+               if p.get('weg') == BUY and p['pfad'] not in offers]
 
     # Ort → {Pfad → billigste Zeile dort}
-    orte = {}
-    for pfad, zeilen in angebote.items():
-        for z in zeilen:
-            schluessel = (z.get('system') or '', z.get('ort') or '')
-            hier = orte.setdefault(schluessel, {})
+    places = {}
+    for path, rows in offers.items():
+        for row in rows:
+            key = (row.get('system') or '', row.get('ort') or '')
+            here = places.setdefault(key, {})
             # ⚠ Am selben Ort kann dasselbe Teil in mehreren Terminals liegen —
             # es zählt einmal, und zwar mit dem billigsten Preis.
-            if pfad not in hier or z['preis'] < hier[pfad]['preis']:
-                hier[pfad] = z
+            if path not in here or row['preis'] < here[path]['preis']:
+                here[path] = row
 
-    stopps = []
-    while offen:
-        bester = None
-        for schluessel, hier in orte.items():
-            deckt = offen & set(hier)
-            if not deckt:
+    stops = []
+    while open_paths:
+        best = None
+        for key, here in places.items():
+            covers = open_paths & set(here)
+            if not covers:
                 continue
-            kosten = sum(hier[p]['preis'] for p in deckt)
+            cost = sum(here[p]['preis'] for p in covers)
             # Viel Deckung zuerst, dann billig, dann nach Namen — der letzte
             # Schlüssel nur, damit dasselbe Ergebnis stabil bleibt.
-            marke = (-len(deckt), kosten, schluessel)
-            if bester is None or marke < bester[0]:
-                bester = (marke, schluessel, deckt)
-        if bester is None:
+            mark = (-len(covers), cost, key)
+            if best is None or mark < best[0]:
+                best = (mark, key, covers)
+        if best is None:
             break
-        _marke, schluessel, deckt = bester
-        hier = orte[schluessel]
-        eintraege = []
-        for pfad in sorted(deckt):
-            z = hier[pfad]
-            eintraege.append({
-                'pfad': pfad,
-                'name': (nach_pfad.get(pfad) or {}).get('name') or '',
-                'preis': z['preis'],
-                'laden': z.get('laden') or '',
+        _mark, key, covers = best
+        here = places[key]
+        entries = []
+        for path in sorted(covers):
+            row = here[path]
+            entries.append({
+                'pfad': path,
+                'name': (by_path.get(path) or {}).get('name') or '',
+                'preis': row['preis'],
+                'laden': row.get('laden') or '',
             })
-        stopps.append({
-            'system': schluessel[0],
-            'ort': schluessel[1],
-            'laeden': sorted(set(e['laden'] for e in eintraege if e['laden'])),
-            'posten': eintraege,
-            'summe': sum(e['preis'] for e in eintraege),
+        stops.append({
+            'system': key[0],
+            'ort': key[1],
+            'laeden': sorted(set(e['laden'] for e in entries if e['laden'])),
+            'posten': entries,
+            'summe': sum(e['preis'] for e in entries),
         })
-        offen -= deckt
+        open_paths -= covers
 
-    return stopps, ohne
+    return stops, without
 
 
-def rechnung(daten=None):
+def invoice(data=None):
     """Die Einkaufsliste über **alle** Schiffe — wie eine Rechnung.
 
     Gibt zurück::
 
         {'posten': [...],          # jeder mit Position, Preis und Weg
-         'summe': {...},           # dieselbe Form wie `summe()`
+         'summe': {...},           # dieselbe Form wie `total()`
          'schiffe': 3,             # wie viele Schiffe beteiligt sind
          'ohne_steckplatzdaten': ['Galaxy', …]}
 
     Je Posten:
 
-        {'sorte': TEIL | SCHIFF,
-         'schiff': 'Cutlass Black', 'quelle': HANGAR | WUNSCH,
-         'position': 'Cooler S2',   # wo am Schiff — bei SCHIFF leer
-         'name': 'BlastChill', 'ref': …, 'weg': KAUFEN | BAUEN,
+        {'sorte': PART | SHIP,
+         'schiff': 'Cutlass Black', 'quelle': HANGAR | WISHLIST,
+         'position': 'Cooler S2',   # wo am Schiff — bei SHIP leer
+         'name': 'BlastChill', 'ref': …, 'weg': BUY | CRAFT,
          'kauf': {...}, 'bau': {...}}
 
     ⭐⭐ **Ein Schiff ist selbst ein Posten — aber nur, wenn man es noch nicht
@@ -931,77 +931,77 @@ def rechnung(daten=None):
     Schiffen weiß man sonst nicht, welcher wohin gehört.
 
     ⚠ **Ohne Netzzugriff.** Diese Funktion rechnet nur mit dem, was schon
-    abgelegt ist. Was noch nachzuschlagen wäre, sagt `fehlende_preise()` — das
+    abgelegt ist. Was noch nachzuschlagen wäre, sagt `missing_prices()` — das
     Holen gehört in die Oberfläche, wo es im Hintergrund laufen kann, und nicht
     in eine Funktion, die beim Aufklappen einer Seite anhält.
     """
     from . import fleet, ships as alle_schiffe
 
-    daten = daten if daten is not None else fleet.load()
-    verzeichnis = _bauplan_verzeichnis()
-    raus = []
-    ohne_daten = []
-    beteiligt = set()
+    data = data if data is not None else fleet.load()
+    index = _blueprint_index()
+    result = []
+    without_data = []
+    involved = set()
 
-    quellen = ([(s, HANGAR) for s in (daten.get('schiffe') or [])]
-               + [(w, WUNSCH) for w in (daten.get('wunsch') or [])])
+    sources = ([(s, HANGAR) for s in (data.get('schiffe') or [])]
+               + [(w, WISHLIST) for w in (data.get('wunsch') or [])])
 
-    for eintrag, quelle in quellen:
-        name = eintrag.get('name') or ''
+    for entry, source in sources:
+        name = entry.get('name') or ''
         if not name:
             continue
 
         # 1. Das Schiff selbst — nur beim Wunsch, siehe oben.
-        if quelle == WUNSCH:
-            beteiligt.add(name)
-            posten_schiff = {
-                'sorte': SCHIFF, 'schiff': name, 'quelle': quelle,
+        if source == WISHLIST:
+            involved.add(name)
+            ship_item = {
+                'sorte': SHIP, 'schiff': name, 'quelle': source,
                 'position': '', 'name': name, 'ref': '',
-                'weg': KAUFEN,
-                'bau': {'zustand': KEIN_REZEPT, 'material': None,
+                'weg': BUY,
+                'bau': {'zustand': NO_RECIPE, 'material': None,
                         'dauer': None, 'bauplan': '', 'ohne_preis': []},
             }
             try:
-                stellen = alle_schiffe.buy_at(name)
+                places = alle_schiffe.buy_at(name)
             except Exception as ausnahme:
-                fehler.merken('warenkorb.rechnung.schiffspreis', ausnahme)
-                stellen = []
-            if stellen:
-                # ⚠ `kaufen()` gibt eine **Liste** von Verkaufsstellen zurück,
+                fehler.merken('cart.invoice.ship_price', ausnahme)
+                places = []
+            if places:
+                # ⚠ `buy_at()` gibt eine **Liste** von Verkaufsstellen zurück,
                 # billigste zuerst — kein Tupel wie `laeden.guenstigster()`.
-                bester = stellen[0]
-                posten_schiff['kauf'] = {
-                    'zustand': BEKANNT, 'preis': bester.get('preis'),
-                    'laden': bester.get('stelle') or '',
-                    'ort': bester.get('ort') or ''}
+                best = places[0]
+                ship_item['kauf'] = {
+                    'zustand': KNOWN, 'preis': best.get('preis'),
+                    'laden': best.get('stelle') or '',
+                    'ort': best.get('ort') or ''}
             else:
                 # ⚠ Kein Preis heißt hier meistens „im Spiel nicht für aUEC zu
                 # haben" (Konzeptschiff, nur gegen Echtgeld). Behauptet wird das
                 # trotzdem nicht — es steht nur kein Preis da.
-                posten_schiff['kauf'] = {'zustand': KEIN_PREIS, 'preis': None,
-                                         'laden': '', 'ort': ''}
-            raus.append(posten_schiff)
+                ship_item['kauf'] = {'zustand': NO_PRICE, 'preis': None,
+                                     'laden': '', 'ort': ''}
+            result.append(ship_item)
 
         # 2. Die Ausstattung — bei Hangar- und Wunschschiffen gleich.
-        zustand, liste = posten(eintrag)
-        if zustand == KEINE_DATEN:
+        state, items = line_items(entry)
+        if state == NO_DATA:
             # ⚠ Nur vermerken, wenn jemand am Schiff überhaupt etwas vorhat.
             # Sonst stünden vierzig Konzeptschiffe als Mangel in der Rechnung.
-            if belegung(eintrag):
-                ohne_daten.append(name)
+            if loadout(entry):
+                without_data.append(name)
             continue
-        for p in liste:
-            beteiligt.add(name)
-            p['kauf'] = kaufweg(p.get('ref'), p.get('name'))
-            p['bau'] = bauweg(p.get('ref'), verzeichnis)
-            if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
-                p['weg'] = KAUFEN
+        for p in items:
+            involved.add(name)
+            p['kauf'] = buy_option(p.get('ref'), p.get('name'))
+            p['bau'] = craft_option(p.get('ref'), index)
+            if p['weg'] == CRAFT and p['bau']['zustand'] != KNOWN:
+                p['weg'] = BUY
             position = p.get('art') or ''
             if p.get('groesse') is not None:
                 position = '%s S%s' % (position, p['groesse'])
-            p.update({'sorte': TEIL, 'schiff': name, 'quelle': quelle,
+            p.update({'sorte': PART, 'schiff': name, 'quelle': source,
                       'position': position})
-            raus.append(p)
+            result.append(p)
 
     # 3. Der Merkzettel — Einzelteile, die zu keinem Schiff gehören.
     #
@@ -1013,31 +1013,31 @@ def rechnung(daten=None):
     # ⚠ Die `anzahl` gehört an den Posten, nicht in mehrere Zeilen: Drei
     # gleiche Helme sollen einmal dastehen und dreifaches Material fordern,
     # nicht dreimal untereinander stehen.
-    for eintrag in fleet.notepad(daten):
-        name = eintrag.get('name') or ''
+    for entry in fleet.notepad(data):
+        name = entry.get('name') or ''
         if not name:
             continue
-        ref = eintrag.get('ref') or ''
+        ref = entry.get('ref') or ''
         try:
-            menge = max(1, int(eintrag.get('anzahl') or 1))
+            amount = max(1, int(entry.get('anzahl') or 1))
         except (TypeError, ValueError):
-            menge = 1
-        p = {'sorte': TEIL, 'schiff': '', 'quelle': MERKZETTEL,
+            amount = 1
+        p = {'sorte': PART, 'schiff': '', 'quelle': NOTEPAD,
              'position': '', 'name': name, 'ref': ref,
-             'anzahl': menge,
-             'weg': eintrag.get('weg') or BAUEN,
-             'erledigt': bool(eintrag.get('erledigt'))}
-        p['kauf'] = kaufweg(ref, name)
+             'anzahl': amount,
+             'weg': entry.get('weg') or CRAFT,
+             'erledigt': bool(entry.get('erledigt'))}
+        p['kauf'] = buy_option(ref, name)
         # ⚠ **Mit `name`**, denn ein Merkzettel-Posten hat oft keine
         # Entitäts-Kennung: Er entsteht in der Herstellungsliste, und die kennt
         # nur den Bauplannamen. Ohne diesen zweiten Weg fällt jeder vorgemerkte
         # Gegenstand auf „kaufen" zurück, und die Materialliste bleibt leer.
-        p['bau'] = bauweg(ref, verzeichnis, name=name)
+        p['bau'] = craft_option(ref, index, name=name)
         # ⚠ Dieselbe Regel wie bei den Schiffsteilen: Ohne Rezept ist „bauen"
         # keine Wahl, sondern eine leere Behauptung.
-        if p['weg'] == BAUEN and p['bau']['zustand'] != BEKANNT:
-            p['weg'] = KAUFEN
-        raus.append(p)
+        if p['weg'] == CRAFT and p['bau']['zustand'] != KNOWN:
+            p['weg'] = BUY
+        result.append(p)
 
     # Schiffe zuerst, dann ihre Teile — wie auf einer Rechnung, auf der die
     # Hauptposition über dem Zubehör steht.
@@ -1045,41 +1045,41 @@ def rechnung(daten=None):
     # ⚠ Merkzettel-Posten haben kein Schiff und landen dadurch von selbst
     # ganz oben. Das ist gewollt: Sie sind eine eigene kleine Liste und sollen
     # nicht zwischen den Schiffsteilen verschwinden.
-    raus.sort(key=lambda p: ((p['schiff'] or '').lower(),
-                             0 if p['sorte'] == SCHIFF else 1,
-                             (p.get('position') or ''),
-                             (p.get('name') or '').lower()))
-    return {'posten': raus, 'summe': summe(raus), 'schiffe': len(beteiligt),
-            'ohne_steckplatzdaten': sorted(set(ohne_daten))}
+    result.sort(key=lambda p: ((p['schiff'] or '').lower(),
+                               0 if p['sorte'] == SHIP else 1,
+                               (p.get('position') or ''),
+                               (p.get('name') or '').lower()))
+    return {'posten': result, 'summe': total(result), 'schiffe': len(involved),
+            'ohne_steckplatzdaten': sorted(set(without_data))}
 
 
-def fehlende_preise(posten_liste):
+def missing_prices(item_list):
     """Zu welchen Posten der Ladenpreis noch nachzuschlagen ist.
 
     Gibt Paare `(kennung, name)` zurück — genau das, was `laeden.holen()`
     braucht.
 
-    ⚠⚠ **Ohne diesen Schritt bleibt eine Rechnung auf `NICHT_GEPRUEFT`
+    ⚠⚠ **Ohne diesen Schritt bleibt eine Rechnung auf `NOT_CHECKED`
     stehen** und zeigt Posten ohne Preis, obwohl UEX sie kennt. Der Abruf
     gehört aber nicht hierher: Er dauert je Teil eine Netzrunde, und eine
     Rechnung mit zwölf Posten würde die Oberfläche zwölf Mal anhalten. Die
     Anzeige holt sie im Hintergrund nach und zeichnet dann neu.
     """
-    raus = []
-    gesehen = set()
-    for p in posten_liste or []:
-        if p.get('sorte') == SCHIFF:
+    result = []
+    seen = set()
+    for p in item_list or []:
+        if p.get('sorte') == SHIP:
             # Schiffspreise kommen aus `ships.py`, nicht aus `laeden.py`.
             continue
-        kennung = p.get('ref') or ''
-        zustand = (p.get('kauf') or {}).get('zustand')
-        if kennung and kennung not in gesehen and zustand == NICHT_GEPRUEFT:
-            gesehen.add(kennung)
-            raus.append((kennung, p.get('name') or ''))
-    return raus
+        ident = p.get('ref') or ''
+        state = (p.get('kauf') or {}).get('zustand')
+        if ident and ident not in seen and state == NOT_CHECKED:
+            seen.add(ident)
+            result.append((ident, p.get('name') or ''))
+    return result
 
 
-def farmliste(daten=None):
+def farm_list(data=None):
     """Was noch zu farmen ist — Material für **alle** Posten auf „bauen".
 
     Gibt zurück::
@@ -1113,7 +1113,7 @@ def farmliste(daten=None):
     null Materialbedarf verrechnet.
 
     ⚠ `ohne_rezept` bleibt im Regelfall **leer**, und das ist richtig so:
-    `rechnung()` setzt den Weg schon auf „kaufen" zurück, sobald zu einem
+    `invoice()` setzt den Weg schon auf „kaufen" zurück, sobald zu einem
     Posten kein Rezept vorliegt — hier kommt er dann gar nicht mehr an. Das
     Feld ist ein **Sicherheitsnetz** für den Fall, dass sich das einmal ändert
     oder ein Rezept zwischen den beiden Schritten wegfällt. Lieber ein Feld,
@@ -1121,15 +1121,15 @@ def farmliste(daten=None):
     """
     from . import crafting, materials
 
-    fertig = rechnung(daten)
-    verzeichnis = _bauplan_verzeichnis()
+    done = invoice(data)
+    index = _blueprint_index()
 
     # 1. Bedarf einsammeln: (Rohstoff, Mindestgüte) -> Menge
-    bedarf = {}
-    ohne_rezept = []
-    gebaut = 0
-    for p in fertig['posten']:
-        if p.get('weg') != BAUEN:
+    needed = {}
+    without_recipe = []
+    crafted = 0
+    for p in done['posten']:
+        if p.get('weg') != CRAFT:
             continue
         # ⚠⚠ **Was gebaut UND eingebaut ist, braucht kein Material mehr.**
         # Bis zum 06.09.2026 zählte die Farmliste auch abgehakte Posten mit:
@@ -1148,94 +1148,92 @@ def farmliste(daten=None):
         # nötig. Schiffsteile haben kein `anzahl`; für sie bleibt es bei 1,
         # weil ein Steckplatz genau ein Teil aufnimmt.
         try:
-            stueck = max(1, int(p.get('anzahl') or 1))
+            pieces = max(1, int(p.get('anzahl') or 1))
         except (TypeError, ValueError):
-            stueck = 1
-        gebaut += stueck
+            pieces = 1
+        crafted += pieces
         # ⚠⚠ **Auch hier der Rückweg über den Namen** — dieselbe Falle wie in
-        # `bauweg()`. Ein Merkzettel-Posten hat keine Entitäts-Kennung: Er
+        # `craft_option()`. Ein Merkzettel-Posten hat keine Entitäts-Kennung: Er
         # entsteht in der Herstellungsliste, und die kennt nur den
         # Bauplannamen. Ohne diese Zeile meldete die Seite „2 Teile konnten
         # nicht gerechnet werden" und darunter „Alles da" — bei null Erz im
         # Lager. Zwei Sätze, die sich widersprechen, und beide falsch.
-        bauplan = verzeichnis.get(p.get('ref') or '') or ''
-        if not bauplan:
-            bauplan = p.get('name') or ''
-        rez = None
-        if bauplan:
+        blueprint = index.get(p.get('ref') or '') or ''
+        if not blueprint:
+            blueprint = p.get('name') or ''
+        rec = None
+        if blueprint:
             try:
-                rez = crafting.recipe(bauplan)
+                rec = crafting.recipe(blueprint)
             except Exception as ausnahme:
-                fehler.merken('warenkorb.farmliste.rezept', ausnahme)
-        if not rez or not rez.get('stufen'):
-            ohne_rezept.append(p.get('name') or '')
+                fehler.merken('cart.farm_list.recipe', ausnahme)
+        if not rec or not rec.get('stufen'):
+            without_recipe.append(p.get('name') or '')
             continue
-        for stufe in rez['stufen']:
-            for _slot, rohstoff, menge, guete in (stufe.get('zutaten') or []):
-                schluessel = (crafting.norm_material(rohstoff),
-                              float(guete or 0))
-                eintrag = bedarf.setdefault(schluessel,
-                                            {'name': rohstoff, 'menge': 0.0})
-                eintrag['menge'] += float(menge or 0) * stueck
+        for step in rec['stufen']:
+            for _slot, raw, amount, grade in (step.get('zutaten') or []):
+                key = (crafting.norm_material(raw), float(grade or 0))
+                entry = needed.setdefault(key, {'name': raw, 'menge': 0.0})
+                entry['menge'] += float(amount or 0) * pieces
 
     # 2. Je Rohstoff den Bestand zuteilen — anspruchsvollste Güte zuerst.
-    nach_rohstoff = {}
-    for (norm, guete), eintrag in bedarf.items():
-        nach_rohstoff.setdefault(norm, []).append(
-            (guete, eintrag['name'], eintrag['menge']))
+    by_material = {}
+    for (norm, grade), entry in needed.items():
+        by_material.setdefault(norm, []).append(
+            (grade, entry['name'], entry['menge']))
 
-    fehlt, vollstaendig = [], []
-    for norm, gruppen in nach_rohstoff.items():
+    missing, complete = [], []
+    for norm, groups in by_material.items():
         # ⚠ Absteigend: Wer die höchste Güte verlangt, bekommt zuerst — und
         # nimmt dabei das **gerade noch ausreichende** Erz, damit das bessere
         # für nichts verschwendet wird, das es nicht braucht.
-        gruppen.sort(reverse=True)
-        posten = [dict(p) for p in materials.load()
-                  if crafting.norm_material(p.get('material')) == norm]
-        for guete, name, menge in gruppen:
-            passend = sorted(
-                (p for p in posten
-                 if float(p.get('qualitaet') or 0) >= guete
+        groups.sort(reverse=True)
+        stock = [dict(p) for p in materials.load()
+                 if crafting.norm_material(p.get('material')) == norm]
+        for grade, name, amount in groups:
+            usable = sorted(
+                (p for p in stock
+                 if float(p.get('qualitaet') or 0) >= grade
                  and float(p.get('menge') or 0) > 0),
                 key=lambda p: float(p.get('qualitaet') or 0))
-            genommen = 0.0
-            for p in passend:
-                if genommen >= menge:
+            taken = 0.0
+            for p in usable:
+                if taken >= amount:
                     break
-                da = float(p.get('menge') or 0)
-                nimm = min(da, menge - genommen)
-                p['menge'] = da - nimm
-                genommen += nimm
+                have = float(p.get('menge') or 0)
+                take = min(have, amount - taken)
+                p['menge'] = have - take
+                taken += take
             # Was zwar da ist, aber die Güte nicht schafft — als Hinweis, nicht
             # als Bestand. Das Lager wird von Hand gepflegt und kann hinterher
             # hinken; behauptet wird deshalb nichts.
-            zu_gering = sum(float(p.get('menge') or 0) for p in posten
-                            if float(p.get('qualitaet') or 0) < guete)
-            zeile = {'rohstoff': name, 'benoetigt': menge,
-                     'vorhanden': genommen,
-                     'differenz': max(0.0, menge - genommen),
-                     'mindestguete': guete, 'zu_gering': zu_gering}
-            (fehlt if zeile['differenz'] > 0 else vollstaendig).append(zeile)
+            too_low = sum(float(p.get('menge') or 0) for p in stock
+                          if float(p.get('qualitaet') or 0) < grade)
+            row = {'rohstoff': name, 'benoetigt': amount,
+                   'vorhanden': taken,
+                   'differenz': max(0.0, amount - taken),
+                   'mindestguete': grade, 'zu_gering': too_low}
+            (missing if row['differenz'] > 0 else complete).append(row)
 
-    fehlt.sort(key=lambda z: (-z['differenz'], z['rohstoff'].lower()))
-    vollstaendig.sort(key=lambda z: z['rohstoff'].lower())
-    return {'fehlt': fehlt, 'vollstaendig': vollstaendig, 'posten': gebaut,
-            'ohne_rezept': sorted(set(x for x in ohne_rezept if x))}
+    missing.sort(key=lambda z: (-z['differenz'], z['rohstoff'].lower()))
+    complete.sort(key=lambda z: z['rohstoff'].lower())
+    return {'fehlt': missing, 'vollstaendig': complete, 'posten': crafted,
+            'ohne_rezept': sorted(set(x for x in without_recipe if x))}
 
 
-def route_summe(stopps):
+def route_total(stops):
     """Was diese Route kostet, und wie weit sie führt.
 
     Gibt `{'gesamt', 'stopps', 'laeden', 'systeme'}` zurück.
 
-    ⚠ **Diese Zahl gehört an die Route, nicht die aus `summe()`.** Sie ist in
+    ⚠ **Diese Zahl gehört an die Route, nicht die aus `total()`.** Sie ist in
     aller Regel etwas höher, weil an einem Ort nicht alles zum Bestpreis liegt
     — siehe die Warnung dort. Angezeigt wird sie deshalb als „auf dieser
     Route", damit niemand die beiden für dieselbe Angabe hält.
     """
     return {
-        'gesamt': sum(s['summe'] for s in stopps),
-        'stopps': len(stopps),
-        'laeden': sum(len(s['laeden']) for s in stopps),
-        'systeme': len(set(s['system'] for s in stopps if s['system'])),
+        'gesamt': sum(s['summe'] for s in stops),
+        'stopps': len(stops),
+        'laeden': sum(len(s['laeden']) for s in stops),
+        'systeme': len(set(s['system'] for s in stops if s['system'])),
     }

@@ -876,7 +876,7 @@ def daten_pruefen():
     plausibel aus; erst an den wirklichen Daten zeigt sich, ob eine Rechnung
     trägt.
     """
-    from scbp import salvage, crafting, warenkorb
+    from scbp import salvage, crafting, cart
 
     rezepte = crafting.all_items() or []
     if not rezepte:
@@ -913,7 +913,7 @@ def daten_pruefen():
            'nie mehr zurück als drinsteckt (%d Ausreißer)' % zuviel)
 
     # Die Teileauswahl darf nur passende Größen anbieten.
-    auswahl = warenkorb.auswahl('PowerPlant', 1)
+    auswahl = cart.choices('PowerPlant', 1)
     falsch = [x for x in auswahl
               if str(x.get('groesse') or '').strip() not in ('', '1')]
     pruefe(not falsch,

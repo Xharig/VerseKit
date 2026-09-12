@@ -4401,8 +4401,8 @@ if __name__ == '__main__':
         except Exception as ausnahme:
             fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
         try:
-            from scbp import warenkorb as _wk, fleet as _hg2, laeden as _ld
-            offen = _wk.fehlende_preise(_wk.rechnung(_hg2.load())['posten'])
+            from scbp import cart as _wk, fleet as _hg2, laeden as _ld
+            offen = _wk.missing_prices(_wk.invoice(_hg2.load())['posten'])
             for kennung in offen:
                 _ld.holen(kennung)
             if offen:

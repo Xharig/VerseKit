@@ -10776,7 +10776,7 @@ def _einkaufsliste(fenster, rahmen):
     Wunschschiff kostet erst sich selbst und dann seine Ausstattung — genau die
     Frage, die vor dem Kauf im Kopf steht.
     """
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
     _ueberschrift(fenster, rahmen, t('hf_einkaufsliste'), t('s_ek_lead'))
     innen = _rollflaeche(rahmen)
@@ -10792,7 +10792,7 @@ def _einkaufsliste(fenster, rahmen):
 
     def _aufbauen():
         stand = meine.load()
-        werte = warenkorb.rechnung(stand)
+        werte = cart.invoice(stand)
         daten['stand'] = stand
         posten = werte.get('posten') or []
 
@@ -10848,10 +10848,10 @@ def _einkaufsliste(fenster, rahmen):
             ein zweites Exemplar), und der Haken gehört genau an eines davon.
             """
             quelle = (stand.get('wunsch') if posten_eintrag.get('quelle')
-                      == warenkorb.WUNSCH else stand.get('schiffe')) or []
+                      == cart.WISHLIST else stand.get('schiffe')) or []
             for schiff in quelle:
                 if (schiff.get('name') or '') == posten_eintrag.get('schiff'):
-                    if warenkorb.erledigt_setzen(schiff,
+                    if cart.set_done(schiff,
                                                  posten_eintrag.get('pfad'),
                                                  ja):
                         meine.save(stand)
@@ -11030,7 +11030,7 @@ def _farmliste(fenster, rahmen):
     geprüft meldet jedes „reicht", zusammen fehlt eines. Wer die Fehlmengen
     einzeln addiert, schickt den Spieler mit zu wenig Material los.
     """
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
     _ueberschrift(fenster, rahmen, t('hf_farmliste'), t('s_fl_lead'))
     innen = _rollflaeche(rahmen)
@@ -11094,7 +11094,7 @@ def _farmliste(fenster, rahmen):
         # reicht, sagt die Farbe, und die stammt aus der Gesamtrechnung. Eine
         # Seite, eine Wahrheit.
         # ⚠⚠⚠ **Die Rechnung wird ÜBERGEBEN, nicht neu angestellt.** Der erste
-        # Anlauf rief hier `warenkorb.farmliste()` ein zweites Mal — dieselbe
+        # Anlauf rief hier `cart.farm_list()` ein zweites Mal — dieselbe
         # Rechnung über alle Schiffe und Rezepte, nur damit die Farbe stimmt.
         # Gemessen: Die Seite brauchte dadurch **3937 ms** statt 60.
         #
@@ -11162,7 +11162,7 @@ def _farmliste(fenster, rahmen):
                              anchor='w').pack(side='left')
 
     def _aufbauen():
-        werte = warenkorb.farmliste(meine.load())
+        werte = cart.farm_list(meine.load())
         fehlt = werte.get('fehlt') or []
         reicht = werte.get('vollstaendig') or []
         anzahl = werte.get('posten') or 0
@@ -11290,7 +11290,7 @@ def _ohne_daten_hinweis(fenster, eltern, werte):
 
 def _einkauf_schiffkopf(fenster, eltern, eintrag):
     """Die Zwischenüberschrift je Schiff — mit Herkunft."""
-    from . import warenkorb
+    from . import cart
 
     zeile = tk.Frame(eltern, bg=BG)
     zeile.pack(fill='x', pady=(12, 4))
@@ -11300,7 +11300,7 @@ def _einkauf_schiffkopf(fenster, eltern, eintrag):
     # mit vierzig Positionen ist der Unterschied zwischen „habe ich" und
     # „will ich haben" die wichtigste Angabe überhaupt.
     marke = (t('s_ek_aus_wunsch')
-             if eintrag.get('quelle') == warenkorb.WUNSCH
+             if eintrag.get('quelle') == cart.WISHLIST
              else t('s_ek_aus_hangar'))
     tk.Label(zeile, text=marke, bg=BG, fg=SUB, font=fenster.f_klein,
              anchor='w').pack(side='left', padx=(10, 0))
@@ -11308,7 +11308,7 @@ def _einkauf_schiffkopf(fenster, eltern, eintrag):
 
 def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     """Eine Rechnungsposition: wo, was, wie, wie viel — und ein Haken davor."""
-    from . import warenkorb
+    from . import cart
 
     fertig = bool(eintrag.get('erledigt'))
     zeile = tk.Frame(eltern, bg=FLAECHE)
@@ -11320,7 +11320,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # das Spiel schreibt nicht in die Game.log, was in einem Schiff steckt.
     # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
     # Beim Selbstherstellen genauso: ein Haken für beide Wege.
-    if abhaken is not None and eintrag.get('sorte') == warenkorb.TEIL:
+    if abhaken is not None and eintrag.get('sorte') == cart.PART:
         haken = zeichen.zeile(zeile, 'haken', grund=FLAECHE,
                               farbe=zeichen.GRUEN if fertig else zeichen.GRAU,
                               schrift=fenster.f_klein)
@@ -11339,7 +11339,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # Position (Steckplatz) — bei einem Schiff steht dort, dass es das Schiff
     # selbst ist, damit die Spalte nie leer bleibt.
     pos = eintrag.get('position') or ''
-    if eintrag.get('sorte') == warenkorb.SCHIFF:
+    if eintrag.get('sorte') == cart.SHIP:
         pos = t('s_ek_das_schiff')
     tk.Label(zeile, text=pos, bg=FLAECHE, fg=neben, font=fenster.f_klein,
              anchor='w', width=22).pack(side='left', padx=rand, pady=4)
@@ -11350,7 +11350,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
     # Rechnung sagt „Fortitude" wenig, „Fortitude · C · Industrie" viel.
     kennzeichen = (_teil_kennzeichen({'kennung': eintrag.get('ref')})
-                   if eintrag.get('sorte') == warenkorb.TEIL else '')
+                   if eintrag.get('sorte') == cart.PART else '')
     if kennzeichen:
         tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=neben,
                  font=fenster.f_klein, anchor='w').pack(side='left',
@@ -11358,23 +11358,23 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
 
     # Rechts der Betrag, daneben der gewählte Weg.
     weg = eintrag.get('weg')
-    angabe = (eintrag.get('kauf') if weg == warenkorb.KAUFEN
+    angabe = (eintrag.get('kauf') if weg == cart.BUY
               else eintrag.get('bau')) or {}
     if fertig:
         # ⚠ Kein Betrag mehr, sondern das Wort: Ein abgehakter Posten kostet
         # nichts mehr, und eine durchgestrichene Zahl waere nur Ballast.
         betrag, farbe = t('s_ek_erledigt'), ACCENT
-    elif angabe.get('zustand') == warenkorb.BEKANNT:
-        betrag = _geld(angabe.get('preis') if weg == warenkorb.KAUFEN
+    elif angabe.get('zustand') == cart.KNOWN:
+        betrag = _geld(angabe.get('preis') if weg == cart.BUY
                        else angabe.get('material'))
         farbe = FG
-    elif angabe.get('zustand') == warenkorb.NICHT_GEPRUEFT:
+    elif angabe.get('zustand') == cart.NOT_CHECKED:
         betrag, farbe = t('s_wk_nicht_geprueft'), SUB
     else:
         betrag, farbe = t('s_ek_kein_betrag'), GOLD
     tk.Label(zeile, text=betrag, bg=FLAECHE, fg=farbe, font=fenster.f_klein,
              anchor='e').pack(side='right', padx=(0, 12))
-    tk.Label(zeile, text=t('s_wk_kaufen') if weg == warenkorb.KAUFEN
+    tk.Label(zeile, text=t('s_wk_kaufen') if weg == cart.BUY
              else t('s_wk_bauen'),
              bg=FLAECHE, fg=neben, font=fenster.f_klein,
              anchor='e').pack(side='right', padx=(0, 16))
@@ -11387,9 +11387,9 @@ def _einkauf_preise_holen(posten, widget, neu_zeichnen):
     fasst bewusst kein Netz an — zwölf Posten wären zwölf Netzrunden, während
     die Oberfläche steht. Das Holen gehört hierher.
     """
-    from . import laeden, warenkorb
+    from . import cart, laeden
 
-    offen = warenkorb.fehlende_preise(posten)
+    offen = cart.missing_prices(posten)
     if not offen:
         return
 
@@ -11459,8 +11459,8 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
 
     # Dieselbe Marke wie im Hangar — ein geplantes Wunschschiff hat oft mehr
     # offene Posten als ein fertiges.
-    from . import warenkorb as _wk_marke
-    offen = _wk_marke.offene_anzahl(eintrag)
+    from . import cart as _wk_marke
+    offen = _wk_marke.open_count(eintrag)
     if offen:
         tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
                  fg=ACCENT, font=fenster.f_klein,
@@ -11552,7 +11552,7 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # ⚠ In der Markenfarbe, nicht in Grau: Dieselbe Rückmeldung wie zu „passt
     # in dein Schiff" — „in Grau nimmt es keiner wahr und fragt sich dann, wo
     # er die Info findet".
-    from . import warenkorb as _wk_marke
+    from . import cart as _wk_marke
     # ⚠ Ein eigener Rahmen, damit sich die Marke nachziehen lässt, ohne die
     # ganze Zeile neu zu bauen — beim Abhaken darf die aufgeklappte
     # Ausstattung nicht zuklappen.
@@ -11565,7 +11565,7 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
         _zeichne_marke(fenster, marke_rahmen, eintrag)
 
     marke_setzen()
-    offen = _wk_marke.offene_anzahl(eintrag)
+    offen = _wk_marke.open_count(eintrag)
     # Ausstattung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
     # Schiffen eine Liste bleibt und keine Bleiwüste wird.
     _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=marke_setzen)
@@ -11581,14 +11581,14 @@ def _zeichne_marke(fenster, eltern, eintrag):
     Eingebaute. Deshalb steht sie in **Gold** wie die übrigen
     Vorsichtshinweise, nicht in der Markenfarbe wie eine Erfolgsmeldung.
     """
-    from . import warenkorb
+    from . import cart
 
-    offen = warenkorb.offene_anzahl(eintrag)
+    offen = cart.open_count(eintrag)
     if offen:
         tk.Label(eltern, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
                  fg=ACCENT, font=fenster.f_klein,
                  anchor='w').pack(side='left', padx=(12, 0))
-    elif warenkorb.fertig_gefittet(eintrag):
+    elif cart.fully_fitted(eintrag):
         haken = zeichen.zeile(eltern, 'haken', grund=FLAECHE,
                               farbe=zeichen.GELB, schrift=fenster.f_klein)
         haken.pack(side='left', padx=(12, 4))
@@ -11604,7 +11604,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     wie der Spieler Schiffe hat — bei vierzig Schiffen wartet er auf etwas,
     das er gar nicht sehen wollte.
     """
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
     kasten = tk.Frame(karte, bg=FLAECHE)
     kasten.pack(fill='x')
@@ -11649,16 +11649,16 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
 
 def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
-    zustand, liste = warenkorb.posten(eintrag)
+    zustand, liste = cart.line_items(eintrag)
 
     # ⚠⚠ **Drei Zustände, drei verschiedene Sätze.** „Keine Daten" und „nichts
     # zu besorgen" sehen im Code gleich aus — beides ist eine leere Liste. Wer
     # sie gleich behandelt, sagt jemandem mit fehlenden Steckplatz-Daten, an
     # seinem Schiff sei alles in Ordnung. Genau diese Verwechslung stand am
     # 06.09.2026 bei jedem Bauplan.
-    if zustand == warenkorb.KEINE_DATEN:
+    if zustand == cart.NO_DATA:
         _fliesstext(eltern, t('s_wk_keine_daten'), fenster.f_klein,
                     grund=FLAECHE, fill='x', padx=(46, 16), pady=(0, 10),
                     abzug=78)
@@ -11666,7 +11666,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
 
     _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
 
-    if zustand == warenkorb.NICHTS_OFFEN:
+    if zustand == cart.NOTHING_OPEN:
         # ⚠⚠ **Zwei Gründe für „nichts offen", zwei verschiedene Sätze.**
         # Entweder war nie etwas geplant (dann steckt die Werksausstattung
         # drin), oder alles Geplante ist eingebaut — und dann hängt an diesem
@@ -11674,7 +11674,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
         # Werksausstattung zurück, ohne passende Versicherung sind die
         # eingebauten Teile weg. Beides gleich zu behandeln hieße, die
         # teuerste Auskunft dieser Seite zu verschweigen.
-        if warenkorb.fertig_gefittet(eintrag):
+        if cart.fully_fitted(eintrag):
             _fliesstext(eltern, t('s_hg_fertig_hilfe'), fenster.f_klein,
                         farbe=GOLD, grund=FLAECHE, fill='x', padx=(46, 16),
                         pady=(4, 10), abzug=78)
@@ -11684,7 +11684,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
                         abzug=78)
         return
 
-    warenkorb.anreichern(liste)
+    cart.enrich(liste)
     _warenkorb_preise_holen(liste, eltern, neu_zeichnen)
 
     # ⚠ **Zählt, was noch zu tun ist.** Derselbe Fehler wie im Kopf der
@@ -11733,10 +11733,10 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
     wenn wirklich etwas dazukam, wird neu gezeichnet — sonst flackert die
     Liste bei jedem Aufklappen ohne Grund.
     """
-    from . import laeden, warenkorb
+    from . import cart, laeden
 
     offen = [p for p in liste
-             if (p.get('kauf') or {}).get('zustand') == warenkorb.NICHT_GEPRUEFT
+             if (p.get('kauf') or {}).get('zustand') == cart.NOT_CHECKED
              and p.get('ref')]
     if not offen:
         return
@@ -11749,7 +11749,7 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
                     laeden.holen(posten['ref'], name=posten.get('name') or '')
                     geholt = True
             except Exception as ausnahme:
-                fehler.merken('seiten.warenkorb.preis', ausnahme)
+                fehler.merken('seiten.cart.preis', ausnahme)
         if geholt:
             # ⚠ Zurück in den Oberflächen-Faden. Tk aus einem Thread heraus
             # anzufassen ist der Weg in Abstürze, die sich nicht nachstellen
@@ -11803,7 +11803,7 @@ def _teil_kennzeichen(teil):
     in der Liste sehen ob es grade A B oder C ist und ob Military oder was
     anderes."
 
-    ⚠ **Die Klasse wird nachgeschlagen, wenn sie fehlt.** `warenkorb.auswahl()`
+    ⚠ **Die Klasse wird nachgeschlagen, wenn sie fehlt.** `cart.choices()`
     reichte sie bis v3.19.0 nicht durch; UEX führt sie neben der Güte. Sobald
     sie mitkommt, greift der direkte Weg und der Nachschlag entfällt von
     selbst — er steht hier, damit nicht zwei Stellen dieselbe Filterung
@@ -11835,8 +11835,8 @@ def _teil_kennzeichen(teil):
     # der jemand hier hinsieht — es steht in keinem Laden, egal wie lange man
     # sucht. Umgekehrt braucht „auch kaufbar" keinen Hinweis: Das ist der
     # Normalfall, und an jedem zweiten Teil stünde dasselbe Wort.
-    from . import warenkorb as _wk
-    if (teil.get('herkunft') or '') == _wk.HERSTELLBAR:
+    from . import cart as _wk
+    if (teil.get('herkunft') or '') == _wk.CRAFTABLE:
         teile.append(t('s_wk_nur_bauplan'))
     return ' · '.join(teile)
 
@@ -11876,13 +11876,13 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
     nichts geändert wurde. Ohne sie wäre nicht zu sehen, wogegen der Spieler
     tauscht — und „non-stock" wäre eine Behauptung ohne Bezugsgröße.
     """
-    from . import erkul, fleet as meine, warenkorb
+    from . import cart, erkul, fleet as meine
 
     plaetze = erkul.steckplaetze(eintrag.get('name') or '',
                                  eintrag.get('hersteller') or '',
                                  eintrag.get('kurz') or '',
                                  eintrag.get('hkurz') or '')
-    gewaehlt = warenkorb.belegung(eintrag)
+    gewaehlt = cart.loadout(eintrag)
 
     tk.Label(eltern, text=t('s_wk_auslegung'), bg=FLAECHE, fg=FG,
              font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
@@ -11933,7 +11933,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     belegt, müsste sonst viermal ein Fenster öffnen und schließen. Aufgeklappt
     wird dieselbe Formensprache benutzt wie beim Handeintrag darüber.
     """
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
     pfad = platz.get('pfad') or ''
     # ⚠⚠ **Eine Wahl gilt für die ganze Gruppe.** Die Zeile vertritt bei
@@ -12009,7 +12009,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         def platz_zuruecksetzen():
             geaendert = False
             for einer in alle_pfade:
-                if warenkorb.loeschen(eintrag, einer):
+                if cart.clear_part(eintrag, einer):
                     geaendert = True
             if geaendert:
                 speichern()
@@ -12024,7 +12024,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         if gebaut:
             return
         gebaut.append(True)
-        moeglich = warenkorb.auswahl(platz.get('art'), platz.get('groesse'))
+        moeglich = cart.choices(platz.get('art'), platz.get('groesse'))
         if not moeglich:
             # ⚠ Ehrlich statt hübsch: Wenn zu diesem Platz keine kaufbaren
             # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
@@ -12054,7 +12054,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
                 return
             geaendert = False
             for einer in alle_pfade:
-                if warenkorb.setzen(eintrag, einer, m['kennung'], m['name']):
+                if cart.set_part(eintrag, einer, m['kennung'], m['name']):
                     geaendert = True
             if geaendert:
                 speichern()
@@ -12173,7 +12173,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
     Preises; wer Zeit hat, baut.
     """
-    from . import fleet as meine, warenkorb
+    from . import cart, fleet as meine
 
     karte = tk.Frame(eltern, bg='#0c1017')
     karte.pack(fill='x', padx=((46, 16) if eingerueckt else (0, 0)),
@@ -12189,7 +12189,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     # Genau hier steht man vor dem Schiff und sieht seine Plätze — hier fällt
     # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
     def abhaken(_e=None):
-        if warenkorb.erledigt_setzen(eintrag, posten['pfad'], not fertig):
+        if cart.set_done(eintrag, posten['pfad'], not fertig):
             _eintrag_speichern(eintrag)
             neu_zeichnen()
 
@@ -12227,14 +12227,14 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
 
     def waehlen(weg):
         def tat():
-            if warenkorb.weg_setzen(eintrag, posten['pfad'], weg):
+            if cart.set_method(eintrag, posten['pfad'], weg):
                 _eintrag_speichern(eintrag)
                 neu_zeichnen()
         return tat
 
-    for weg, schluessel, zustandsfeld in ((warenkorb.KAUFEN, 's_wk_kaufen',
+    for weg, schluessel, zustandsfeld in ((cart.BUY, 's_wk_kaufen',
                                            'kauf'),
-                                          (warenkorb.BAUEN, 's_wk_bauen',
+                                          (cart.CRAFT, 's_wk_bauen',
                                            'bau')):
         angabe = posten.get(zustandsfeld) or {}
         zeile = tk.Frame(karte, bg='#0c1017')
@@ -12248,8 +12248,8 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
                  font=fenster.f_fett if aktiv else fenster.f_klein,
                  anchor='w', width=18).pack(side='left')
 
-        if angabe.get('zustand') == warenkorb.BEKANNT:
-            if weg == warenkorb.KAUFEN:
+        if angabe.get('zustand') == cart.KNOWN:
+            if weg == cart.BUY:
                 # ⚠⚠ **Der Ort steht oft schon im Ladennamen.** UEX schreibt
                 # ihn dort mit hinein: Laden „Ship Weapons - Pyro Gateway
                 # (Stanton)", Ort „Pyro Gateway (Stanton)". Beides
@@ -12271,9 +12271,9 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
                     preis=_geld(angabe.get('material')),
                     dauer=_dauer(angabe.get('dauer')))
             farbe = FG
-        elif angabe.get('zustand') == warenkorb.KEIN_REZEPT:
+        elif angabe.get('zustand') == cart.NO_RECIPE:
             text, farbe = t('s_wk_kein_rezept'), SUB
-        elif angabe.get('zustand') == warenkorb.KEIN_PREIS:
+        elif angabe.get('zustand') == cart.NO_PRICE:
             text, farbe = t('s_wk_kein_preis'), SUB
         else:
             text, farbe = t('s_wk_nicht_geprueft'), SUB
@@ -12300,7 +12300,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
         # unsichtbar, und wer einmal auf „Selbst herstellen" gewechselt hatte,
         # kam nicht zurück. Am 06.09.2026 gemeldet — und dieselbe Falle steht
         # schon zweimal in den Projektregeln.
-        if not aktiv and angabe.get('zustand') != warenkorb.KEIN_REZEPT:
+        if not aktiv and angabe.get('zustand') != cart.NO_RECIPE:
             _knopf(fenster, zeile, t(schluessel),
                    waehlen(weg)).pack(side='right', padx=(8, 0))
 
@@ -12312,7 +12312,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
 
         # ⚠⚠ Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
         # kaufbar. Ohne diesen Satz sieht Selberbauen billiger aus, als es ist.
-        if weg == warenkorb.BAUEN and angabe.get('ohne_preis'):
+        if weg == cart.CRAFT and angabe.get('ohne_preis'):
             _fliesstext(karte,
                         t('s_wk_ohne_preis').format(
                             rohstoffe=', '.join(angabe['ohne_preis'])),
@@ -12324,8 +12324,8 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
 
 def _warenkorb_summe(fenster, eltern, liste):
     """Was der Warenkorb kostet — nach der getroffenen Wahl."""
-    from . import warenkorb
-    zahlen = warenkorb.summe(liste)
+    from . import cart
+    zahlen = cart.total(liste)
 
     kasten = tk.Frame(eltern, bg=FLAECHE)
     kasten.pack(fill='x', padx=(46, 16), pady=(4, 0))
@@ -12351,8 +12351,8 @@ def _warenkorb_summe(fenster, eltern, liste):
 
 def _warenkorb_route(fenster, eltern, liste):
     """Die Einkaufsroute für alles, was gekauft wird."""
-    from . import warenkorb
-    stopps, ohne = warenkorb.route(liste)
+    from . import cart
+    stopps, ohne = cart.route(liste)
 
     tk.Label(eltern, text=t('s_wk_route'), bg=FLAECHE, fg=FG,
              font=fenster.f_fett, anchor='w').pack(fill='x', padx=(46, 16),
@@ -12362,7 +12362,7 @@ def _warenkorb_route(fenster, eltern, liste):
                     grund=FLAECHE, fill='x', padx=(46, 16), abzug=78)
         return
 
-    zahlen = warenkorb.route_summe(stopps)
+    zahlen = cart.route_total(stopps)
     # ⚠⚠ **„Auf dieser Route", nicht „Summe".** Die Zahl oben rechnet mit dem
     # billigsten Laden im ganzen Verse, diese mit den Läden, die auf der Route
     # wirklich liegen. Beide sind richtig und meinen Verschiedenes —

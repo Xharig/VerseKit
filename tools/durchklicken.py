@@ -166,7 +166,7 @@ def _ablage_vorbereiten():
 def main():
     ordner = _ablage_vorbereiten()
     try:
-        from scbp import hauptfenster, seiten, sprache, warenkorb
+        from scbp import cart, hauptfenster, seiten, sprache
         sprache.setzen('de')
 
         print('Die Oberflaeche wirklich bedienen')
@@ -189,7 +189,7 @@ def main():
         pruefe('2' in gelesen,
                'zwei offene Posten stehen da (%r)' % gelesen)
 
-        warenkorb.erledigt_setzen(schiff, 'hardpoint_cooler_01', True)
+        cart.set_done(schiff, 'hardpoint_cooler_01', True)
         for kind in rahmen.winfo_children():
             kind.destroy()
         seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)
@@ -198,7 +198,7 @@ def main():
         pruefe('1' in gelesen and '2' not in gelesen,
                'nach einem Haken steht dort einer (%r)' % gelesen)
 
-        warenkorb.erledigt_setzen(schiff, 'hardpoint_cooler_02', True)
+        cart.set_done(schiff, 'hardpoint_cooler_02', True)
         for kind in rahmen.winfo_children():
             kind.destroy()
         seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)
