@@ -33,6 +33,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **In jedem Suchfeld steht jetzt, was du dort eingeben kannst** — und du
+  triffst das Feld überall, auch mitten im grauen Hinweistext. Vorher musste
+  man *neben* den Text klicken. Drei Felder hatten bisher gar keinen Hinweis:
+  „Wo stehst du gerade?" und das Schiff bei den Routen, dazu die Suche bei den
+  Läden
 - **Beim Update bleibt nur eine Verknüpfung übrig.** Der Eintrag im Startmenü
   und auf dem Desktop wird auf den neuen Namen gezogen, statt ein zweites Mal
   angelegt zu werden. Eigene Verknüpfungen und eigene Dateien im

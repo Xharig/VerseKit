@@ -33,6 +33,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Every search field now tells you what you can type there** — and you hit
+  the field anywhere, including right on the grey hint text. Before you had to
+  click *next to* it. Three fields had no hint at all until now: “Where are you
+  right now?” and the ship on the routes page, plus the shop search
 - **Only one shortcut is left after the update.** The Start menu and desktop
   entries are carried over to the new name instead of being created a second
   time. Shortcuts and files of your own in the Start menu folder are left
