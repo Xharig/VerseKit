@@ -1102,12 +1102,38 @@ def _quellenmarke(sprache, spielordner=None):
 
     Die Marke ist absichtlich **billig**: Pfad, Groesse und Zeitstempel, kein
     Lesen des Inhalts. Die `global.ini` hat rund 12 MB.
+
+    ⚠⚠ **Sie muss die Dateien beobachten, die WIRKLICH gelesen werden.** Die
+    erste Fassung nahm eine lose `Data/defaultProfile.xml` — die gibt es gar
+    nicht: `_profil()` holt sie aus dem Archiv `Data.p4k`. Und bei deutscher
+    Oberflaeche fehlte die englische `global.ini`, obwohl `klarnamen()`
+    daraus jede fehlende Uebersetzung nachtraegt. Beide echten Quellen
+    konnten sich also aendern, ohne dass die Marke sich ruehrte — vom Pruefer
+    am 12.09.2026 nachgestellt.
+
+    ⚠ **Und `st_mtime_ns`, nicht `int(st_mtime)`.** Auf Sekunden gerundet
+    fallen zwei gleich grosse Fassungen derselben Sekunde zusammen. Das
+    kostet nichts und schliesst eine Luecke.
+
+    ⚠ Sie bleibt trotzdem eine **Heuristik**, kein Inhaltsbeweis. Eigene
+    Schreibwege (`injektion`) sind gedeckt — sie schreiben die Datei neu und
+    aendern damit Groesse und Zeitstempel. Nicht gedeckt ist eine
+    Ruecksicherung oder Kopie **mit erhaltenem Aenderungsdatum**: gleich
+    gross, gleicher Zeitstempel, anderer Inhalt. Wer das sicher erkennen
+    will, braucht eine Inhaltspruefung — und die kostet bei 12 MB je Anzeige
+    mehr, als der ganze Merker einspart. Wer hier kuenftig selbst schreibt,
+    ohne den Zeitstempel zu aendern, ruft `vergessen()`.
     """
     ordner = spielordner or pfade.spiel_ordner() or ''
-    wege = [os.path.join(ordner, 'Data', 'defaultProfile.xml'),
-            os.path.join(ordner, 'data', 'defaultProfile.xml')]
+    # Das Archiv, aus dem die Etiketten kommen (`_profil()` → `p4k_pfad()`).
+    wege = [os.path.join(ordner, 'Data.p4k')]
+    # Jede `global.ini`, die `klarnamen()` anfassen kann — die der Sprache
+    # UND die englische, denn sie fuellt die Luecken der Uebersetzung.
+    ordnernamen = list(INI_ORDNER.get(sprache, ('english',)))
+    if sprache != 'en':
+        ordnernamen += [n for n in INI_ORDNER['en'] if n not in ordnernamen]
     for unter in ('data', 'Data'):
-        for name in INI_ORDNER.get(sprache, ('english',)):
+        for name in ordnernamen:
             wege.append(os.path.join(ordner, unter, 'Localization', name,
                                      'global.ini'))
     teile = [ordner, sprache]
@@ -1115,7 +1141,7 @@ def _quellenmarke(sprache, spielordner=None):
         try:
             zustand = os.stat(weg)
             teile.append('%s:%d:%d' % (weg, zustand.st_size,
-                                       int(zustand.st_mtime)))
+                                       zustand.st_mtime_ns))
         except OSError:
             continue                  # Datei gibt es nicht — zaehlt als „leer"
     return '|'.join(teile)
@@ -1144,8 +1170,15 @@ def klarnamen(sprache='de', spielordner=None):
     heraus = {}
     for aktion, paar in (etiketten or {}).items():
         label, beschreibung = ((paar or []) + ['', ''])[:2]
-        schluessel = (label or '').lstrip('@')
-        name = texte.get(schluessel) or ersatz.get(schluessel) or ''
+        # ⚠⚠ **Nicht `schluessel` nennen.** Genau das hiess hier bis zum
+        # 12.09.2026 so wie der Merker-Schluessel oben — die Schleife
+        # ueberschrieb ihn, und abgelegt wurde am Ende unter dem letzten
+        # Etikett (`'ui_…'`). Gesucht wird aber nach `(Sprache, Marke)`: Der
+        # Merker traf nie, die 12-MB-INI wurde bei **jedem** Aufruf neu
+        # gelesen. Vom Pruefer nachgestellt — zwei unveraenderte Aufrufe,
+        # zwei Lesevorgaenge.
+        l_schluessel = (label or '').lstrip('@')
+        name = texte.get(l_schluessel) or ersatz.get(l_schluessel) or ''
         h_schluessel = (beschreibung or '').lstrip('@')
         hinweis = texte.get(h_schluessel) or ersatz.get(h_schluessel) or ''
         if not name:

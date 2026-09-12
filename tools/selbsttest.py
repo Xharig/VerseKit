@@ -18624,6 +18624,115 @@ def main():
         _liste192.root.destroy(); _wz192.destroy()
     except Exception:
         pass
+    # -------------------------------- Die Abdruecke bleiben dicht (193)
+    print('\n193. Die Fingerabdruecke beschreiben, was wirklich passiert ist')
+    # ⚠⚠ Drei Fehler aus derselben Woche, alle vom Pruefer gefunden, alle
+    # **still**: Die Oberflaeche sah richtig aus, nur veraltet.
+    #
+    # | Was schiefging | Folge |
+    # |---|---|
+    # | Merker-Schluessel in der Schleife ueberschrieben | 12-MB-INI bei jedem Aufruf neu gelesen |
+    # | Marke sah die falschen Dateien | Spiel-Patch aenderte nichts an den Namen |
+    # | Abdruck ueberlebte einen Abbruch im Zeichnen | Liste blieb leer |
+    #
+    # ⭐ Geprueft wird am **Syntaxbaum**, nicht per Textsuche: Ein Kommentar
+    # mit dem richtigen Wort darin wuerde eine Textsuche gruen faerben.
+    import ast as _ast193
+
+    def _merk_schluessel193(quelltext, funktion, ablage):
+        """Wie oft wird der Name neu belegt, unter dem abgelegt wird?
+
+        Rueckgabe `(name, anzahl)` — `anzahl` muss 1 sein. Alles darueber
+        heisst: Zwischen „Schluessel bilden" und „ablegen" schreibt jemand
+        denselben Namen um, und abgelegt wird unter etwas anderem.
+        """
+        for knoten in _ast193.walk(_ast193.parse(quelltext)):
+            if not (isinstance(knoten, _ast193.FunctionDef)
+                    and knoten.name == funktion):
+                continue
+            name = None
+            for k in _ast193.walk(knoten):
+                if (isinstance(k, _ast193.Assign) and len(k.targets) == 1
+                        and isinstance(k.targets[0], _ast193.Subscript)
+                        and isinstance(k.targets[0].value, _ast193.Name)
+                        and k.targets[0].value.id == ablage
+                        and isinstance(k.targets[0].slice, _ast193.Name)):
+                    name = k.targets[0].slice.id
+            if name is None:
+                return (None, 0)
+            belegt = sum(1 for k in _ast193.walk(knoten)
+                         if isinstance(k, _ast193.Name) and k.id == name
+                         and isinstance(k.ctx, _ast193.Store))
+            return (name, belegt)
+        return (None, 0)
+
+    _q193 = open(os.path.join(WURZEL, 'scbp', 'joysticks.py'),
+                 encoding='utf-8').read()
+    _name193, _mal193 = _merk_schluessel193(_q193, 'klarnamen', '_KLARNAMEN')
+    pruefe(_name193 is not None, 'klarnamen() legt unter einem Namen ab')
+    pruefe(_mal193 == 1,
+           'der Merker-Schluessel %r wird genau EINMAL belegt (%d)'
+           % (_name193, _mal193))
+
+    # Gegenprobe: Genau der alte Fehler, nachgebaut — die Pruefung muss ihn
+    # sehen. Ohne sie waere die Zeile darueber nur eine Behauptung.
+    _kaputt193 = ('def klarnamen(s):\n'
+                  '    schluessel = (s, 1)\n'
+                  '    for a, b in x.items():\n'
+                  '        schluessel = b\n'
+                  '    _KLARNAMEN[schluessel] = 1\n')
+    pruefe(_merk_schluessel193(_kaputt193, 'klarnamen', '_KLARNAMEN')[1] == 2,
+           'Gegenprobe: die ueberschriebene Fassung faellt auf (%d Belegungen)'
+           % _merk_schluessel193(_kaputt193, 'klarnamen', '_KLARNAMEN')[1])
+
+    # Die Marke muss die Dateien beobachten, die wirklich gelesen werden.
+    # ⚠ **Ohne den Beschreibungstext.** Die erste Fassung dieser Pruefung
+    # dumpte die ganze Funktion und fiel ueber ihr eigenes Handbuch: Dort
+    # steht `defaultProfile.xml` als Erklaerung, warum sie NICHT beobachtet
+    # wird. Geprueft gehoert der Rumpf, nicht die Begruendung.
+    _mark193 = ''
+    for _k193 in _ast193.walk(_ast193.parse(_q193)):
+        if (isinstance(_k193, _ast193.FunctionDef)
+                and _k193.name == '_quellenmarke'):
+            _rumpf193 = _k193.body
+            if (_rumpf193 and isinstance(_rumpf193[0], _ast193.Expr)
+                    and isinstance(_rumpf193[0].value, _ast193.Constant)):
+                _rumpf193 = _rumpf193[1:]
+            _mark193 = '\n'.join(_ast193.dump(_s193) for _s193 in _rumpf193)
+    pruefe("'Data.p4k'" in _mark193,
+           'die Quellenmarke beobachtet das Archiv Data.p4k')
+    pruefe('defaultProfile' not in _mark193,
+           'und NICHT die lose defaultProfile.xml — die gibt es gar nicht')
+    pruefe('st_mtime_ns' in _mark193,
+           'sie nimmt den Zeitstempel in Nanosekunden')
+    pruefe("'en'" in _mark193,
+           'und sie schliesst die englische Rueckfallquelle ein')
+
+    def _vor193(quelltext, funktion, zuerst, danach):
+        """Steht `zuerst` im Quelltext der Funktion VOR `danach`?"""
+        for knoten in _ast193.walk(_ast193.parse(quelltext)):
+            if (isinstance(knoten, _ast193.FunctionDef)
+                    and knoten.name == funktion):
+                text = _ast193.unparse(knoten)
+                a, b = text.find(zuerst), text.find(danach)
+                return a >= 0 and b >= 0 and a < b
+        return False
+
+    _q193b = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+                  encoding='utf-8').read()
+    # ⭐ Erst ungueltig machen, dann zerstoeren. Danach schreibt jeder
+    # erfolgreiche Ausgang den Abdruck selbst wieder.
+    pruefe(_vor193(_q193b, '_zeichnen', 'self._letzter_stand = None',
+                   'winfo_children()'),
+           'die Liste macht ihren Abdruck ungueltig, BEVOR sie die Zeilen'
+           ' zerstoert')
+    pruefe(_vor193(_q193b, '_bloecke_aufbauen', '_bloecke_pflegen()',
+                   'self._letzter_stand = stand'),
+           'der Block-Aufbau schreibt den Abdruck erst, wenn die Bloecke'
+           ' stehen')
+    pruefe(not _vor193(_q193b, '_zeichnen', 'winfo_children()',
+                       'self._letzter_stand = None'),
+           'Gegenprobe: umgekehrte Reihenfolge waere ein anderes Ergebnis')
 
     print()
     if fehler:

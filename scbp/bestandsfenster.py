@@ -1624,6 +1624,21 @@ class Bestandsfenster:
             except tk.TclError:
                 oben_px = None
 
+        # ⭐⭐ **Ab hier gibt es kein gueltiges Bild mehr.** Die naechste Zeile
+        # zerstoert die Zeilen; was danach schiefgeht — ein vorzeitiges
+        # `return`, eine Ausnahme —, hinterlaesst eine halbe oder leere Liste.
+        # Der alte Abdruck wuerde sie weiter als „zeigt Zustand A" ausweisen,
+        # und `neu_laden()` spraenge ab, obwohl A laengst weg ist.
+        #
+        # Vom Pruefer am 12.09.2026 nachgestellt: A zeichnen → leeren Katalog
+        # zeichnen (fliegt unten raus) → A wiederherstellen → `neu_laden()`.
+        # Die Liste blieb leer.
+        #
+        # Deshalb: **erst ungueltig machen, dann bauen.** Jeder erfolgreiche
+        # Ausgang schreibt den Abdruck selbst wieder.
+        self._letzter_stand = None
+        self._stand_nach_bloecken = None
+
         for kind in self.inhalt.winfo_children():
             kind.destroy()
 
@@ -1671,7 +1686,12 @@ class Bestandsfenster:
                 text=t('von_gesamt', meine, gesamt,
                        round(100 * meine / gesamt)))
         elif not self.katalog['bauplaene']:
+            # ⚠ Auch das ist ein **fertiges** Bild, nur ein sehr kurzes. Ohne
+            # diesen Abdruck bliebe die Seite auf ewig ungueltig und wuerde bei
+            # jedem Anzeigen neu gebaut — der Fall „noch kein Katalog" trifft
+            # jede frische Installation.
             self._hinweis_kein_katalog()
+            self._letzter_stand = self._anzeige_stand()
             return
 
         # Zwei Wege, je nachdem wie lang die Liste wird:
@@ -1778,10 +1798,20 @@ class Bestandsfenster:
         # sein altes A, sprang ab, und auf dem Bildschirm stand weiter B.
         #
         # ⚠ Und **nach** dem Aufbau, nicht davor: Bricht das Zeichnen ab,
-        # bleibt der Abdruck auf dem letzten Stand, der wirklich zu sehen war.
-        # Vorher hätte ein Abbruch einen Zustand als gezeichnet vermerkt, den
-        # niemand je gesehen hat.
-        self._letzter_stand = self._anzeige_stand()
+        # bleibt der Abdruck ungültig (oben auf `None` gesetzt), und die Liste
+        # wird beim nächsten Anzeigen neu gebaut. Vorher hätte ein Abbruch
+        # einen Zustand als gezeichnet vermerkt, den niemand je gesehen hat.
+        #
+        # ⚠⚠ **Das Ende dieser Funktion ist nicht immer das Ende des Aufbaus.**
+        # Bei langen Listen läuft `_bloecke_aufbauen()` erst im Leerlauf. Hier
+        # ist der Aufbau dann nur **eingeplant**, nicht erledigt — der Abdruck
+        # wird deshalb zwischengelegt und erst dort gültig, wo die Blöcke
+        # wirklich stehen. Vom Prüfer am 12.09.2026 angemerkt.
+        stand = self._anzeige_stand()
+        if in_bloecken:
+            self._stand_nach_bloecken = stand
+        else:
+            self._letzter_stand = stand
 
     def _rollbereich_anmelden(self):
         """Die Scrollfläche neu vermessen — aber höchstens einmal je Runde.
@@ -1915,6 +1945,15 @@ class Bestandsfenster:
         breite = max(1, self.leinwand.winfo_width())
         self.leinwand.configure(scrollregion=(0, 0, breite, y))
         self._bloecke_pflegen()
+
+        # ⭐ **Jetzt erst steht das Bild.** `_zeichnen()` hat diesen Aufbau nur
+        # eingeplant und den Abdruck deshalb zwischengelegt; gültig wird er
+        # hier. Fliegt oben etwas raus, bleibt `_letzter_stand` auf `None` und
+        # die Liste wird beim nächsten Anzeigen neu gebaut.
+        stand = getattr(self, '_stand_nach_bloecken', None)
+        if stand is not None:
+            self._letzter_stand = stand
+            self._stand_nach_bloecken = None
 
     def _bloecke_abraeumen(self):
         """Alle Blöcke aus der Leinwand nehmen — beim Neuzeichnen der Liste."""
