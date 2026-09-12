@@ -195,9 +195,9 @@ def vorbereiten():
     _bestand_freimachen()
     _katalogstand_beschneiden()
     if not watchlist.contains(GEMERKT[0]):
-        # ⚠ `hinzufuegen()` gibt die geänderten Daten nur **zurück**, es
+        # ⚠ `add()` gibt die geänderten Daten nur **zurück**, es
         # speichert sie nicht — das steht so in seinem Docstring. Ohne
-        # `speichern()` dahinter passiert nichts, und der Fund käme ohne Stern.
+        # `save()` dahinter passiert nichts, und der Fund käme ohne Stern.
         watchlist.save(watchlist.add(GEMERKT[0]))
         print('  Auf die Merkliste gesetzt: %s' % GEMERKT[0])
     else:

@@ -86,7 +86,7 @@ def _scmdb_tags():
     """Bauplanname (klein) -> Tag, aus den Rezeptdaten.
 
     Der Tag (`BP_CRAFT_AMRS_LaserCannon_S2`) ist bei scmdb der Schlüssel — der
-    Name ist nur Beiwerk. `rezept()` gibt ihn nicht heraus, `alle()` schon.
+    Name ist nur Beiwerk. `recipe()` gibt ihn nicht heraus, `all_items()` schon.
 
     ⚠ Liegen keine Rezeptdaten vor (frische Installation, kein Netz), ist die
     Zuordnung leer. Der Export läuft dann trotzdem, nur ohne Tags — er darf

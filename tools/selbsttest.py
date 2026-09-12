@@ -7739,8 +7739,8 @@ def main():
            'und nicht mehr die alte Vorschlagszeile daneben')
 
     # ⚠⚠ **Der Lagerort der Raffinerie-Ausbeute darf NICHT durch
-    # `lager_name()` laufen.** Die Funktion zieht eine Eingabe auf einen
-    # bekannten **Rohstoff** (sie vergleicht gegen `einlagerbar()`); ein
+    # `storage_name()` laufen.** Die Funktion zieht eine Eingabe auf einen
+    # bekannten **Rohstoff** (sie vergleicht gegen `storable()`); ein
     # Ortsname steht dort nie drin. Ergebnis war `None`, und `or ''` machte
     # daraus einen leeren Lagerort: Wer „Levski" gewaehlt hatte, bekam die
     # ganze Ausbeute ohne Ort eingebucht (30.08.2026 gemeldet, mit zwei
@@ -9124,19 +9124,19 @@ def main():
     # 98d. Ein Rezept-Nachschlag fragt nicht jedes Mal das Dateisystem
     #
     # ⚠⚠ **Der groesste Einzelposten beim Oeffnen der Bauplan-Liste.**
-    # `rezept_roh()` rief bei JEDEM Nachschlag `laden()`, und das macht ein
+    # `recipe_raw()` rief bei JEDEM Nachschlag `load()`, und das macht ein
     # `os.stat`. Einzeln belanglos, ueber den Katalog toedlich: am 02.09.2026
-    # gemessen **738 Nachschlaege = 51 ms, davon 50 ms allein `laden()`** —
+    # gemessen **738 Nachschlaege = 51 ms, davon 50 ms allein `load()`** —
     # der reine Verzeichnis-Zugriff kostete 0,1 ms. Nach der Drosselung
-    # (`_ROH_FRISCH_S`) waren es 0,7 ms.
+    # (`_RAW_FRESH_S`) waren es 0,7 ms.
     #
     # ⚠ Gezaehlt wird, nicht gestoppt: Eine Zeitmessung im Selbsttest haengt
     # von der Tagesform des Rechners ab und wird frueher oder spaeter zur
-    # Zufallspruefung. Die Zahl der `laden()`-Aufrufe ist dagegen eindeutig.
+    # Zufallspruefung. Die Zahl der `load()`-Aufrufe ist dagegen eindeutig.
     #
     # ⚠ Und die Gegenrichtung gehoert dazu: Eine Drosselung, die eine echte
     # Aenderung verschluckt, waere schlimmer als die Langsamkeit. Deshalb
-    # prueft der zweite Teil, dass `_sichern()` sofort durchschlaegt.
+    # prueft der zweite Teil, dass `_save()` sofort durchschlaegt.
     print()
     print('98d. Rezept-Nachschlaege fragen das Dateisystem nur einmal')
 
@@ -9756,7 +9756,7 @@ def main():
     # Reclaimer-Kraftwerk, BroadSpec in zwei Groessen), zaehlt er bewusst
     # nicht als „sicher". Das ist richtig so.
     #
-    # Falsch war die ANZEIGE: `zaehlung()` gibt `unklar` seit jeher zurueck,
+    # Falsch war die ANZEIGE: `counts()` gibt `unklar` seit jeher zurueck,
     # die Kopfzeile warf den Wert weg. Oben stand also eine Zahl kleiner als
     # der eigene Bestand, und der Hinweis dazu (`s_he_unklar`) stand erst am
     # AUFGEKLAPPTEN Eintrag — dort findet ihn nur, wer schon weiss, wonach er
@@ -9802,7 +9802,7 @@ def main():
 
     # ⚠⚠ **EIN Bauplan, nicht zwei Eintraege.** Der Spieler hat einen einzigen
     # Bauplan „Main Powerplant"; dass zwei Gegenstaende so heissen, ist SEIN
-    # Problem nicht. Bis zum 03.09.2026 zaehlte `zaehlung()` hier die
+    # Problem nicht. Bis zum 03.09.2026 zaehlte `counts()` hier die
     # Listeneintraege — an den echten Daten kamen so `404 · 2 unklar` bei 405
     # Bauplaenen heraus, und die Rechnung ging wieder nicht auf. Genau der
     # Fehler, den der Zusatz eigentlich beheben sollte, nur eine Stelle
@@ -15484,7 +15484,7 @@ def main():
     # ------------------------------------------------------------------
     # 171. Erledigte Merkposten fliegen beim Start raus
     #
-    # ⚠⚠ **`erledigen()` greift nur beim FUND.** Wer einen Bauplan merkt, den
+    # ⚠⚠ **`fulfill()` greift nur beim FUND.** Wer einen Bauplan merkt, den
     # er laengst hat, behaelt den Merkposten fuer immer. Am 06.09.2026 stand
     # `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste
     # ein Haekchen trug: „da wird einer beobachtet, den ich schon habe."
@@ -15526,7 +15526,7 @@ def main():
     # ⚠⚠⚠ **Zwei Zahlen mit derselben Beschriftung auf einer Seite.** Am
     # 06.09.2026 stand bei einem Bauteil „hast 0,00" und zehn Zeilen tiefer
     # „hast 3,44" fuer denselben Rohstoff — Ursache war ein `float()` auf das
-    # TUPEL aus `menge_mit_guete()`, dessen Ausnahme ein `except` daneben
+    # TUPEL aus `amount_with_quality()`, dessen Ausnahme ein `except` daneben
     # stillschweigend zu `0.00` machte.
     #
     # Nach dem Fix stand oben der volle Lagerbestand (8,01) und unten der

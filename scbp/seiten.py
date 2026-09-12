@@ -1068,7 +1068,7 @@ def _fortschritt(fenster, rahmen):
     # kleinere Zahl und die Frage „wieso ändert sich immer wieder der
     # Ordner, die ganze Zeit hat es doch geklappt?"
     #
-    # ⚠ `schwund_stand()` und nicht `schwund_pruefen()`: Letzteres würde beim
+    # ⚠ `shrinkage_state()` und nicht `check_shrinkage()`: Letzteres würde beim
     # Hinsehen den kleineren Stand als neuen Höchstwert festschreiben, und die
     # Meldung wäre nach einmal Ansehen für immer weg.
     schwund = bestand_datei.shrinkage_state()
@@ -5870,7 +5870,7 @@ def _herstellung(fenster, rahmen):
     tk.Label(kopf, text=t('s_he_von') % gesamt, bg=BG, fg=SUB,
              font=fenster.f_klein).pack(side='left')
     # ⚠⚠ **Die unklaren gehören dazu, sonst fehlt eine Zahl ohne Erklärung.**
-    # `zaehlung()` gibt sie längst zurück, angezeigt wurden sie nie: Ein
+    # `counts()` gibt sie längst zurück, angezeigt wurden sie nie: Ein
     # Bauplan, dessen Name mehrere Gegenstände meint (Idris- und
     # Reclaimer-Kraftwerk, BroadSpec in zwei Größen), zählt bewusst nicht als
     # „sicher" — richtig so, ein falsch zugeordneter Bauplan wäre schlimmer.
@@ -9978,9 +9978,9 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         if not _orte_modul.kennt((ort_raff.get() or '').strip()):
             meldung.configure(text=t('s_rf_ort_unbekannt'), fg=ROT)
             return
-        # ⚠⚠ **Der Ort läuft NICHT durch `lager_name()`.** Die Funktion zieht
+        # ⚠⚠ **Der Ort läuft NICHT durch `storage_name()`.** Die Funktion zieht
         # eine Eingabe auf einen bekannten **Rohstoff** — sie vergleicht gegen
-        # `einlagerbar()`. Ein Ortsname steht dort nie drin, also kam immer
+        # `storable()`. Ein Ortsname steht dort nie drin, also kam immer
         # `None` zurück, und `or ''` machte daraus einen **leeren Lagerort**:
         # Wer „Levski" gewählt hatte, bekam seine ganze Ausbeute ohne Ort
         # eingebucht. Am 30.08.2026 gemeldet.
