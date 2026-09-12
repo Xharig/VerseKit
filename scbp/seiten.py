@@ -223,6 +223,78 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
     return innen_ziel
 
 
+# Wie viele Zeilen sofort dastehen, und wie viele beim Rollen dazukommen.
+# ⚠ Der erste Wert muss die **sichtbare** Fläche sicher füllen — sonst sieht
+# man unten Leerraum und hält die Liste für zu Ende. 45 Zeilen decken auch
+# ein hohes Fenster ab.
+ZEILEN_SOFORT = 45
+ZEILEN_NACHSCHLAG = 45
+
+
+def _nach_bedarf_packen(leinwand, zeilen, sofort=ZEILEN_SOFORT,
+                        schritt=ZEILEN_NACHSCHLAG):
+    """Nur die sichtbaren Zeilen packen, den Rest beim Rollen nachlegen.
+
+    ⚠⚠ **Warum das etwas bringt, obwohl die Zeilen längst gebaut sind:**
+    Tk rechnet die Geometrie für **jedes gepackte** Kind, auch für die, die
+    weit unter dem Fensterrand liegen. Bei 200 Zeilen ist das die eigentliche
+    Wartezeit beim Seitenwechsel — nicht das Bauen.
+
+    Gemessen am 13.09.2026 auf der Joystick-Seite, warmer Wechsel:
+
+    | | |
+    |---|---|
+    | alle 200 Zeilen gepackt | **635 ms** |
+    | nur 30 gepackt | **192 ms** |
+
+    ⚠ Und die Reihenfolge bleibt, weil **nur nach hinten** angehängt wird.
+    Ein `pack()` nach `pack_forget()` würde die Zeile ans Ende setzen — mit
+    Herausnehmen und Wiedereinsetzen wäre die Liste nach dem ersten Rollen
+    durcheinander.
+
+    ⚠ Die Zeilen sind **gebaut**, nur nicht gepackt. Sie sind damit sofort
+    da, wenn gerollt wird — kein Nachladen, kein Flackern.
+    """
+    stand = {'gepackt': 0}
+
+    def nachlegen():
+        if stand['gepackt'] >= len(zeilen):
+            return
+        bis = min(len(zeilen), stand['gepackt'] + schritt)
+        for zeile in zeilen[stand['gepackt']:bis]:
+            try:
+                zeile.pack(fill='x', pady=1)
+            except tk.TclError:
+                return            # Liste wurde inzwischen neu gezeichnet
+        stand['gepackt'] = bis
+
+    nachlegen()
+    if len(zeilen) <= sofort:
+        return
+
+    # ⭐ An `yscrollcommand` andocken statt an Mausrad und Rollbalken einzeln:
+    # Tk ruft es bei **jeder** Sichtänderung, egal wodurch sie entstand.
+    # ⚠ `cget` liefert einen Tcl-Befehlsnamen, keine Python-Funktion — der
+    # bisherige Empfänger (der Rollbalken) wird deshalb über `tk.call`
+    # weiterbedient. Ohne das bliebe der Balken stehen.
+    vorher = leinwand.cget('yscrollcommand')
+
+    def beim_rollen(*werte):
+        if vorher:
+            try:
+                leinwand.tk.call(vorher, *werte)
+            except tk.TclError:
+                pass
+        try:
+            # Nahe am Ende? Dann die nächste Portion anhängen.
+            if float(werte[1]) > 0.85:
+                nachlegen()
+        except (IndexError, TypeError, ValueError):
+            pass
+
+    leinwand.configure(yscrollcommand=beim_rollen)
+
+
 def _nach_oben(widget):
     """Die Rollfläche wieder an den Anfang setzen.
 
@@ -3527,9 +3599,14 @@ def _joysticks(fenster, rahmen):
             return
         # ⚠ Dieselbe Grenze wie in der Bauplan-Liste: Wer alle Geräte auf
         # einmal zeigt, hat schnell dreihundert Zeilen und wartet beim Öffnen.
+        # ⭐⭐ **Gebaut werden alle, gepackt nur die sichtbaren.**
+        # Tk rechnet die Geometrie für jedes gepackte Kind — auch für die 170
+        # Zeilen unter dem Fensterrand. Gemessen: 635 ms gegen 192 ms beim
+        # Wechsel auf diese Seite. Siehe `_nach_bedarf_packen`.
+        gepackt = []
         for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
             zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
-            zeile.pack(fill='x', pady=1)
+            gepackt.append(zeile)
 
             # ⚠ Die Bindung muss auf **jedes** Kind gelegt werden, nicht nur
             # auf den Rahmen: Ein Klick landet auf der Beschriftung, die
@@ -3577,6 +3654,9 @@ def _joysticks(fenster, rahmen):
                      anchor='w').pack(side='left', fill='x', expand=True)
             for kind in zeile.winfo_children():
                 _anfassen(kind)
+
+        # ⭐ Jetzt erst packen — und nur so viele, wie hineinpassen.
+        _nach_bedarf_packen(innen.leinwand, gepackt)
 
     def _uebernehmen(alt, neu):
         erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
