@@ -1821,7 +1821,12 @@ TEXTE = {
     's_be_voll':       ('Vollständige Sicherung', 'Full backup'),
     's_be_voll_h':     ('mit Art, Klasse, Größe, Gütegrad',
                           'with type, class, size and grade'),
-    's_be_alle_drei':  ('Alle drei in die Ablage', 'All three to the folder'),
+    # ⚠ Hieß bis v3.32.0 `s_be_alle_drei` („Alle drei in die Ablage"). Drei
+    # stimmte schon vorher nicht mehr — das Auftrags-Protokoll wird seit
+    # v3.26.0 mitgeschrieben —, und mit der Launcher-Version sind es fünf
+    # Dateien. Eine Zahl im Knopf, die niemand nachzählt, ist nur eine
+    # Falschaussage, die bei jeder Erweiterung wieder falsch wird.
+    's_be_alle':       ('Alles in die Ablage', 'Everything to the folder'),
     's_be_einzeln':    ('Einzeln speichern …', 'Save individually …'),
     # ⚠ Ein Knopf je Version, direkt an der Version. Vorher gab es nur
     # „Einzeln speichern …", und das schrieb **immer** die Basetool-Version —
@@ -1841,12 +1846,20 @@ TEXTE = {
     's_be_ein_h':      ('Du hast deinen Stand schon woanders — im Basetool, bei scmdb, im SC Deutsch Launcher oder als Sicherung? Datei wählen, der Rest geht von selbst.',
                           'Already have your inventory elsewhere — in the Basetool, at scmdb, in the SC Deutsch Launcher or as a backup? Pick the file, the rest happens on its own.'),
     's_be_waehlen':    ('Datei wählen …', 'Choose file …'),
-    's_be_erkannt':    ('Erkannt werden: eigene Sicherung · KRT Profit Basetool · scmdb.net · sc_bp_erledigt.json des Launchers. Welches Format vorliegt, findet das Werkzeug selbst heraus.',
-                          'Recognised: your own backup · KRT Profit Basetool · scmdb.net · the launcher’s sc_bp_erledigt.json. Which format it is, the tool works out by itself.'),
+    's_be_erkannt':    ('Erkannt werden: eigene Sicherung · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher, Programm wie Webseite. Welches Format vorliegt, findet das Werkzeug selbst heraus.',
+                          'Recognised: your own backup · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher, both the program and the website. Which format it is, the tool works out by itself.'),
     's_be_unbekannt':  ('Diese Datei kenne ich nicht.',
                           'I do not recognise this file.'),
-    's_be_unbekannt_h': ('Erwartet werden: eigene Sicherung, KRT Profit Basetool, scmdb.net oder sc_bp_erledigt.json des Launchers.',
-                          'Expected: your own backup, KRT Profit Basetool, scmdb.net or the launcher’s sc_bp_erledigt.json.'),
+    's_be_unbekannt_h': ('Erwartet werden: eigene Sicherung, KRT Profit Basetool, scmdb.net oder eine Ausgabe des SC Deutsch Launchers.',
+                          'Expected: your own backup, KRT Profit Basetool, scmdb.net or an export from the SC Deutsch Launcher.'),
+    # ⚠ Erkannt, aber nichts darin: Der Launcher gibt auf Wunsch die
+    # **vorgemerkten** Baupläne aus, scmdb die nur beobachteten. Beides sind
+    # Wunschzettel — daraus wird nichts übernommen, und das muss dastehen,
+    # sonst wirkt der leere Import wie ein Fehler.
+    's_be_leer':       ('Diese Datei kenne ich — erspielte Baupläne stehen aber keine darin.',
+                          'I recognise this file — but there are no unlocked blueprints in it.'),
+    's_be_leer_h':     ('Vermutlich sind es vorgemerkte Baupläne, also ein Wunschzettel. Übernommen wird nur, was du wirklich erspielt hast: im SC Deutsch Launcher „Erspielte als JSON", bei scmdb die abgehakten.',
+                          'These are probably blueprints you marked as wanted, not ones you own. Only what you have actually unlocked is taken over: in the SC Deutsch Launcher choose “unlocked as JSON”, at scmdb the completed ones.'),
     's_be_vorschau':   ('Vorschau — nichts ist bisher übernommen',
                           'Preview — nothing has been taken over yet'),
     's_be_eigen':      ('Eigene Sicherung', 'Your own backup'),
@@ -2230,11 +2243,16 @@ TEXTE = {
                               'scmdb.net nicht kannten, und dass ein '
                               'Kanalwechsel die ganze Vorgeschichte kostete — '
                               'eine einzige Datei hat alles drei ans Licht '
-                              'gebracht.',
+                              'gebracht. Und dass ein leeres Suchfeld nicht '
+                              'verrät, was es alles findet — daraus wurde der '
+                              'Hinweistext in **jedem** Eingabefeld.',
                               'That both import **and** export did not know the '
                               'newer scmdb.net format, and that switching '
                               'channels cost you your whole history — one '
-                              'single file brought all three to light.'),
+                              'single file brought all three to light. And '
+                              'that an empty search field never says what it '
+                              'can find — which turned into the hint text in '
+                              '**every** input field.'),
     's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',

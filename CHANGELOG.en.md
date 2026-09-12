@@ -8,12 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
-## v3.31.0 - 2026-09-12
+## v3.31.0 - 2026-09-13
 
-> **SC BP Watcher is now called VerseKit.** It started out as a watcher for
-> unlocked blueprints — by now the hangar, trade storage, reputation,
-> salvaging and part lookup have joined in, and the old name no longer did it
-> justice. The name is new, everything else stays exactly where you have it.
+> **SC BP Watcher is now called VerseKit — and it got a lot faster.** It
+> started out as a watcher for unlocked blueprints; by now the hangar, trade
+> storage, reputation, salvaging and part lookup have joined in, and the old
+> name no longer did it justice. While renaming it, it became obvious how
+> sluggish some pages felt: “Salvage value” took over two seconds per click,
+> now it takes two tenths. The name is new, the pace is too — everything else
+> stays exactly where you have it.
 
 > [!important]
 > **You don't have to set anything up again.** Blueprints, trade storage,
@@ -33,14 +36,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **“Salvage value” now opens in an instant** — it used to take over two
+  seconds every time, and typing in the part field was sluggish. The same
+  picker sits in the **hangar**, in **selling** and in **part lookup**; all of
+  them feel fluid now
+- **The joystick page arrives twice as fast** — even with many bindings. The
+  rest appears as you scroll down, as usual
 - **Pages feel snappy again.** Switching back and forth used to rebuild the
   page every single time, even when nothing had changed. Most noticeable on
-  **Joysticks** (close to a second per click before) and **Axes**. Only what
-  actually changed is redrawn now; an unplugged device still shows up at once
+  **Joysticks** and **Axes**. Only what actually changed is redrawn now; an
+  unplugged device still shows up at once
 - **Every search field now tells you what you can type there** — and you hit
   the field anywhere, including right on the grey hint text. Before you had to
   click *next to* it. Three fields had no hint at all until now: “Where are you
-  right now?” and the ship on the routes page, plus the shop search
+  right now?” and the ship on the routes page, plus the shop search. Reported
+  by Zwaersch
 - **Only one shortcut is left after the update.** The Start menu and desktop
   entries are carried over to the new name instead of being created a second
   time. Shortcuts and files of your own in the Start menu folder are left

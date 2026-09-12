@@ -8,13 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
-## v3.31.0 - 2026-09-12
+## v3.31.0 - 2026-09-13
 
-> **Der SC BP Watcher heißt jetzt VerseKit.** Angefangen hat er als Wächter
-> für freigeschaltete Baupläne — inzwischen sind Hangar, Handelslager,
-> Rufwerte, Zerlegen und Teilesuche dazugekommen, und der alte Name wurde dem
-> nicht mehr gerecht. Der Name ist neu, alles andere bleibt genau dort, wo du
-> es hast.
+> **Der SC BP Watcher heißt jetzt VerseKit — und er ist deutlich schneller
+> geworden.** Angefangen hat er als Wächter für freigeschaltete Baupläne;
+> inzwischen sind Hangar, Handelslager, Rufwerte, Zerlegen und Teilesuche
+> dazugekommen, und der alte Name wurde dem nicht mehr gerecht. Beim Umbenennen
+> ist dann aufgefallen, wie zäh sich manche Seiten anfühlten: „Zerlegen"
+> brauchte über zwei Sekunden pro Klick, jetzt sind es zwei Zehntel. Der Name
+> ist neu, das Tempo auch — alles andere bleibt genau dort, wo du es hast.
 
 > [!important]
 > **Du musst nichts neu einrichten.** Baupläne, Handelslager, Einstellungen,
@@ -33,17 +35,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **„Zerlegen" öffnet jetzt in einem Augenblick** — vorher dauerte jeder
+  Aufruf über zwei Sekunden, und das Tippen im Teile-Feld war zäh. Dieselbe
+  Auswahlliste steckt im **Hangar**, beim **Verkauf** und in der
+  **Teilesuche**; überall ist es jetzt flüssig
+- **Die Joystick-Seite kommt doppelt so schnell** — auch bei vielen belegten
+  Tasten. Beim Herunterrollen erscheint der Rest wie gewohnt
 - **Seiten fühlen sich wieder flott an.** Wer zwischen den Seiten hin- und
   herwechselt, wartete bisher jedes Mal neu — die Seite baute sich auf, auch
-  wenn sich gar nichts geändert hatte. Am deutlichsten bei **Joysticks**
-  (vorher knapp eine Sekunde pro Klick) und bei **Achsen**. Geändert wird nur
-  noch, was sich wirklich geändert hat; ein abgezogenes Gerät fällt weiterhin
-  sofort auf
+  wenn sich gar nichts geändert hatte. Am deutlichsten bei **Joysticks** und
+  bei **Achsen**. Geändert wird nur noch, was sich wirklich geändert hat; ein
+  abgezogenes Gerät fällt weiterhin sofort auf
 - **In jedem Suchfeld steht jetzt, was du dort eingeben kannst** — und du
   triffst das Feld überall, auch mitten im grauen Hinweistext. Vorher musste
   man *neben* den Text klicken. Drei Felder hatten bisher gar keinen Hinweis:
   „Wo stehst du gerade?" und das Schiff bei den Routen, dazu die Suche bei den
-  Läden
+  Läden. Gemeldet von Zwaersch
 - **Beim Update bleibt nur eine Verknüpfung übrig.** Der Eintrag im Startmenü
   und auf dem Desktop wird auf den neuen Namen gezogen, statt ein zweites Mal
   angelegt zu werden. Eigene Verknüpfungen und eigene Dateien im
