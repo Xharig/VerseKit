@@ -46,7 +46,7 @@ from scbp import zeichen
 from scbp import fehler
 from scbp import notice
 from scbp import (
-    auftraege,ablagesymbol, aktualisierung, assistent, autostart, places, prices,
+    auftraege,ablagesymbol, updater, assistent, autostart, places, prices,
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
@@ -1793,7 +1793,7 @@ class Overlay:
         # sein Bestand nur woanders liegt.
         # Nach einem Selbst-Update zeigt Windows sonst weiter die alte Nummer.
         try:
-            aktualisierung.windows_eintrag_pflegen(__version__)
+            updater.windows_eintrag_pflegen(__version__)
         except Exception as ausnahme:
             fehler.merken('start.windows_eintrag', ausnahme)
 
@@ -2978,7 +2978,7 @@ class Overlay:
             beim_schliessen=lambda: setattr(self, '_versionen', None))
 
     # Wie oft nach einer neuen Fassung gesehen wird, in Millisekunden.
-    # Dasselbe Maß wie `aktualisierung.ABSTAND` (eine Stunde) — die Abfrage
+    # Dasselbe Maß wie `updater.ABSTAND` (eine Stunde) — die Abfrage
     # selbst hat ihren eigenen Zwischenspeicher, hier geht es nur darum, dass
     # überhaupt jemand fragt.
     VERSION_TAKT = 3600 * 1000
@@ -2992,7 +2992,7 @@ class Overlay:
 
         ⚠ **Und danach wieder, jede Stunde.** Bis v3.0.1 lief das hier **genau
         einmal**, zwei Sekunden nach dem Start. Der Stundenabstand in
-        `aktualisierung.nachsehen()` lief damit ins Leere — er begrenzt, wie oft
+        `updater.nachsehen()` lief damit ins Leere — er begrenzt, wie oft
         gefragt werden *darf*, aber fragen musste jemand. Wer den Watcher
         durchlaufen ließ, erfuhr nie von einer neuen Fassung; sie erschien erst
         nach einem Neustart. Gemeldet am 28.08.2026, als v3.0.1
@@ -3015,7 +3015,7 @@ class Overlay:
 
         def arbeit():
             try:
-                neu = aktualisierung.nachsehen(__version__)
+                neu = updater.nachsehen(__version__)
             except Exception:
                 return
             if neu:
@@ -4250,10 +4250,10 @@ class Overlay:
         genau diese falsche Erfolgsmeldung soll es nicht geben.
         """
         try:
-            from scbp import update_lauf
-            ergebnis = update_lauf.auswerten(__version__)
+            from scbp import update_run
+            ergebnis = update_run.auswerten(__version__)
             if ergebnis:
-                self.q.put(('hinweis', update_lauf.meldung(ergebnis)))
+                self.q.put(('hinweis', update_run.meldung(ergebnis)))
         except Exception as ausnahme:
             fehler.merken('start.update_ergebnis', ausnahme)
 

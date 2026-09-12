@@ -133,9 +133,9 @@ EINSTELLUNGEN = 'einstellungen.json'
 #
 # Steht hier, weil **drei** Stellen sie brauchen und sie nie auseinanderlaufen
 # dürfen:
-#   * `aktualisierung.eigenes_appimage()` — erkennt das laufende AppImage
-#   * der Riegel in `aktualisierung.einspielen()` — überschreibt nie Fremdes
-#   * `update_lauf._aufraeumen()` — löscht nur den eigenen Installer
+#   * `updater.eigenes_appimage()` — erkennt das laufende AppImage
+#   * der Riegel in `updater.einspielen()` — überschreibt nie Fremdes
+#   * `update_run._aufraeumen()` — löscht nur den eigenen Installer
 #
 # Warum beide Namen (Umbenennung zu VerseKit, 12.09.2026):
 #   `sc-bp-watcher` — so heißen die Dateien bei jedem, der vorher installiert

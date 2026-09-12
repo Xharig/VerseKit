@@ -724,7 +724,7 @@ TEXTE = {
     'up_fremde_datei': ('Zieldatei geh\u00f6rt nicht zu diesem Programm: %s',
                           'Target file does not belong to this program: %s'),
     # Das Ein-Klick-Update: ein Knopf, danach l\u00e4uft alles von allein \u2014 und was
-    # daraus wurde, sagt der n\u00e4chste Start (siehe `update_lauf.auswerten`).
+    # daraus wurde, sagt der n\u00e4chste Start (siehe `update_run.auswerten`).
     'up_laeuft_schon': ('Ein Update l\u00e4uft bereits \u2014 bitte einen Moment warten.',
                           'An update is already running \u2014 please wait a moment.'),
     'up_wird_eingespielt': ('Wird eingespielt \u2014 der Watcher schlie\u00dft sich kurz '
@@ -2323,7 +2323,7 @@ TEXTE = {
     's_ub_gefunden':   ('Neue Version gefunden: %s', 'New version found: %s'),
     # ⚠ Der Unterschied zwischen „nichts Neues" und „konnte nicht nachsehen".
     # Bis rc68 meldete der Knopf in beiden Fällen Entwarnung — siehe
-    # `aktualisierung.abruf_geglueckt`.
+    # `updater.abruf_geglueckt`.
     's_ub_grenze':     ('GitHub lässt nur 60 Abfragen pro Stunde zu, und die '
                         'sind für den Moment aufgebraucht. In einer Stunde geht '
                         'es wieder — der Knopf zum Holen funktioniert weiter.',
@@ -2404,7 +2404,7 @@ TEXTE = {
     'b_system':        ('System', 'System'),
     'b_verpackung':    ('Verpackung', 'Packaging'),
     # ⚠ Nur für die Anzeige. Die Kennung selbst („quellcode", „exe",
-    # „appimage") bleibt unübersetzt — `aktualisierung.py` vergleicht darauf,
+    # „appimage") bleibt unübersetzt — `updater.py` vergleicht darauf,
     # und eine übersetzte Kennung würde die Update-Prüfung stillschweigend
     # ins Leere laufen lassen.
     'b_v_quellcode':   ('Quellcode', 'source code'),

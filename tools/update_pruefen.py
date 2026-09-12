@@ -16,7 +16,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from scbp import aktualisierung                                   # noqa: E402
+from scbp import updater                                   # noqa: E402
 
 APPIMAGE = os.path.expanduser('~/Programme/SC-BP-Watcher.AppImage')
 
@@ -35,25 +35,25 @@ def main():
         print('Kein AppImage unter %s — nichts zu prüfen.' % APPIMAGE)
         return 1
     print('Laufende Datei :', APPIMAGE)
-    print('Verpackung     :', aktualisierung.verpackung())
+    print('Verpackung     :', updater.verpackung())
 
-    freigabe = aktualisierung.neueste(True)
+    freigabe = updater.neueste(True)
     if not freigabe:
-        aktualisierung.nachsehen('0.0.0', erzwingen=True)
-        freigabe = aktualisierung.neueste(True)
+        updater.nachsehen('0.0.0', erzwingen=True)
+        freigabe = updater.neueste(True)
     if not freigabe:
         print('Keine Freigabe gefunden — ohne Netz geht das nicht.')
         return 1
     print('Neueste Version:', freigabe.get('version'))
 
-    datei = aktualisierung.passende_datei(freigabe, art='appimage')
+    datei = updater.passende_datei(freigabe, art='appimage')
     if not datei:
         print('Keine passende Datei in der Freigabe.')
         return 1
     print('Datei          : %s (%.1f MB)'
           % (datei['name'], (datei.get('groesse') or 0) / 1048576))
 
-    ort = aktualisierung._ablageort_fuer_update(datei['name'])
+    ort = updater._ablageort_fuer_update(datei['name'])
     print('\nWohin geladen wird:', ort)
     gleiches = (os.stat(os.path.dirname(ort)).st_dev
                 == os.stat(os.path.dirname(APPIMAGE)).st_dev)
@@ -62,7 +62,7 @@ def main():
         print('  ⚠ Dann greift beim Einspielen der Umweg über shutil.move.')
 
     print('\nLade herunter …')
-    ziel = aktualisierung.herunterladen(
+    ziel = updater.herunterladen(
         datei, fortschritt=lambda p: print('\r  %3d %%' % p, end='', flush=True),
         freigabe=freigabe)
     print('\r  fertig: %s (%.1f MB)' % (ziel, os.path.getsize(ziel) / 1048576))
@@ -74,7 +74,7 @@ def main():
         return 0
 
     print('\nSpiele ein …')
-    geklappt, grund = aktualisierung.einspielen(ziel)
+    geklappt, grund = updater.einspielen(ziel)
     print('  Ergebnis:', 'geklappt' if geklappt else 'FEHLER: %s' % grund)
     if geklappt:
         print('  Datei jetzt: %.1f MB, ausführbar: %s'

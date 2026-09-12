@@ -3311,9 +3311,9 @@ class Hauptfenster:
         # Der Spieler sieht seinen alten Stand und haelt das Einspielen fuer
         # gescheitert, waehrend die Dateien laengst da sind.
         def _neustart():
-            from . import aktualisierung
+            from . import updater
             try:
-                if not aktualisierung.neu_starten():
+                if not updater.neu_starten():
                     self.sagen(t('sich_neustart_selbst'))
             except Exception as ausnahme:
                 fehler.merken('hauptfenster.sicherung_neustart', ausnahme)

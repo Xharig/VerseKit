@@ -244,7 +244,7 @@ def nachsehen(eigene_version, erzwingen=False):
             _ABRUF['ok'] = False
             _ABRUF['grenze'] = '403' in str(ausnahme) or 'rate limit' in str(
                 ausnahme).lower()
-            fehler.merken('aktualisierung.nachsehen', ausnahme)
+            fehler.merken('updater.nachsehen', ausnahme)
             # Der letzte bekannte Stand gilt weiter — ohne Netz ist das besser
             # als gar nichts.
 
@@ -524,7 +524,7 @@ def protokoll_gebuendelt():
 # ------------------------------------------------------------------- Holen
 # ⚠⚠ Welche Dateien uns gehoeren, steht in `pfade.EIGENE_DATEINAMEN` —
 # an EINER Stelle fuer alle drei Pruefungen (hier zweimal, dazu
-# `update_lauf._aufraeumen()`). Zwei Listen waeren nach dem ersten
+# `update_run._aufraeumen()`). Zwei Listen waeren nach dem ersten
 # Namenswechsel auseinander.
 
 
@@ -773,7 +773,7 @@ def pruefsummen_holen(freigabe):
                 text = r.read(64 * 1024).decode('utf-8', 'replace')
             return pruefsummen_lesen(text), ''
         except Exception as ausnahme:
-            fehler.merken('aktualisierung.pruefsummen_holen', ausnahme)
+            fehler.merken('updater.pruefsummen_holen', ausnahme)
             return {}, 'netz'
     return {}, 'fehlt'
 
@@ -891,7 +891,7 @@ def _wegwerfen(ziel):
     except FileNotFoundError:
         pass
     except OSError as ausnahme:
-        fehler.merken('aktualisierung.summe_verwerfen', ausnahme)
+        fehler.merken('updater.summe_verwerfen', ausnahme)
 
 
 def _laden_und_pruefen(url, ziel, erwartet, fortschritt=None):
@@ -995,7 +995,7 @@ def _sichern(ziel):
         shutil.copy2(ziel, vorher)
         return os.path.getsize(vorher) == os.path.getsize(ziel)
     except OSError as ausnahme:
-        fehler.merken('aktualisierung.sichern', ausnahme)
+        fehler.merken('updater.sichern', ausnahme)
         return False
 
 
@@ -1017,7 +1017,7 @@ def zurueckrollen():
         os.chmod(ziel, 0o755)
         return True
     except OSError as ausnahme:
-        fehler.merken('aktualisierung.zurueckrollen', ausnahme)
+        fehler.merken('updater.zurueckrollen', ausnahme)
         return False
 
 
@@ -1028,7 +1028,7 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
 
     * **Linux** — erst wird die laufende Datei gesichert, dann das AppImage
       getauscht. Den Neustart macht der Aufrufer, gleich danach.
-    * **Windows** — ein Helfer übernimmt (`update_lauf`): Er wartet, bis dieser
+    * **Windows** — ein Helfer übernimmt (`update_run`): Er wartet, bis dieser
       Watcher weg ist, prüft die Summe erneut, startet den Installer und fährt
       den Watcher danach wieder hoch.
 
@@ -1120,7 +1120,7 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         # Sekunde davor. Die Installation war also nie das Problem, der
         # Neustart war es.
         #
-        # Den Neustart macht seitdem der Helfer (`update_lauf`) mit einer
+        # Den Neustart macht seitdem der Helfer (`update_run`) mit einer
         # Umgebung ohne `_PYI_*`. `/RESTARTAPPLICATIONS` bleibt trotzdem weg:
         # Sonst startet ein zweiter Weg den Watcher.
         _TAUSCH_LAEUFT[0] = True
@@ -1174,7 +1174,7 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
             pass                     # ohne Protokoll ist der Weg derselbe
 
         # ⚠⚠ **Seit dem Ein-Klick-Update startet nicht mehr der Watcher den
-        # Installer, sondern ein Helfer** (`update_lauf`). Bis v3.29.0 lief der
+        # Installer, sondern ein Helfer** (`update_run`). Bis v3.29.0 lief der
         # Installer still, startete bei `/SILENT` absichtlich nichts, und der
         # Watcher blieb unten. Jetzt wartet eine `.cmd` in `%TEMP%` auf unser
         # Ende, prüft die Summe erneut, startet den Installer mit
@@ -1216,18 +1216,18 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
             return False, sprache.t('up_ohne_pruefung')
 
         # ⚠⚠ Wie der Helfer gestartet wird, steht an EINER Stelle
-        # (`update_lauf.helfer_flags`) — der Selbsttest startet ihn genauso.
+        # (`update_run.helfer_flags`) — der Selbsttest startet ihn genauso.
         # Hier stand `DETACHED_PROCESS`: Der Helfer lief ohne Konsole, jedes
         # Konsolenprogramm darin bekam eine eigene, sichtbare, und ignorierte
         # die Umleitungen. Im ersten Echttest am 11.09.2026 hing `find` in
         # einem Fenster, und `certutil` schrieb seine Summe ins Leere.
-        from . import update_lauf
-        flags = update_lauf.helfer_flags()
+        from . import update_run
+        flags = update_run.helfer_flags()
 
         # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
         # der nächste Start, dass ein Update begonnen hatte.
-        update_lauf.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
-        update_lauf.helfer_starten(neue_datei, summe, eigener_ordner,
+        update_run.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
+        update_run.helfer_starten(neue_datei, summe, eigener_ordner,
                                    protokoll_datei, umgebung, flags,
                                    exe=sys.executable)
         return True, ''
@@ -1316,7 +1316,7 @@ def _tot_melden(rueckgabe):
             text = (datei.read() or '').strip()[-800:]
         except Exception:
             text = ''
-    fehler.merken('aktualisierung.neustart_tot',
+    fehler.merken('updater.neustart_tot',
                   RuntimeError('Rückgabewert %s%s' % (
                       rueckgabe, (' — ' + text) if text else
                       ' — keine Ausgabe')))
@@ -1408,7 +1408,7 @@ def neu_starten():
             stderr=_AUSGABE[0] or subprocess.DEVNULL)
         return True
     except Exception as ausnahme:
-        fehler.merken('aktualisierung.neu_starten', ausnahme)
+        fehler.merken('updater.neu_starten', ausnahme)
         return False
 
 
@@ -1456,6 +1456,6 @@ def windows_eintrag_pflegen(eigene_version):
             continue          # HKLM ohne Administratorrechte — hinnehmen
         except Exception as ausnahme:
             from . import fehler
-            fehler.merken('aktualisierung.windows_eintrag', ausnahme)
+            fehler.merken('updater.windows_eintrag', ausnahme)
             return False
     return False

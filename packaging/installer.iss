@@ -250,7 +250,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 ; ⚠ **`skipifsilent` gehört hierher.**
 ;
 ; Der Watcher ruft das Setup still auf, und den Neustart danach macht sein
-; Helfer (`scbp/update_lauf.py`). Liefe dieser Eintrag im stillen Modus mit,
+; Helfer (`scbp/update_run.py`). Liefe dieser Eintrag im stillen Modus mit,
 ; kämen **zwei** Watcher hoch.
 ;
 ; ⚠ Richtiggestellt am 11.09.2026. Bis dahin stand hier, Inno 6.7 melde

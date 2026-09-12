@@ -377,12 +377,12 @@ def _tk_fassung():
 
 
 def _verpackung_lesbar():
-    """Die Kennung aus `aktualisierung` in einen lesbaren Namen übersetzen.
+    """Die Kennung aus `updater` in einen lesbaren Namen übersetzen.
 
     ⚠ Nur hier, nur für die Anzeige: Die Kennung selbst wird anderswo
     verglichen (`art == 'quellcode'`) und bleibt deshalb, wie sie ist.
     """
-    art = __import__('scbp.aktualisierung',
+    art = __import__('scbp.updater',
                      fromlist=['verpackung']).verpackung()
     return {'quellcode': t('b_v_quellcode'),
             'exe': t('b_v_exe'),

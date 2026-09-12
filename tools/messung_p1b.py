@@ -51,7 +51,7 @@ mitten im Update. Diese Fragen bleiben für den Windows-Rechner des Autors.
     python tools/messung_p1b.py --trocken      # nur Aufbau und Drift prüfen
 
 ⚠ **Der Installer-Aufruf ist hier nachgebildet**, weil er im Programm mitten
-in `aktualisierung.einspielen()` steht und nicht einzeln aufrufbar ist. Damit
+in `updater.einspielen()` steht und nicht einzeln aufrufbar ist. Damit
 er nicht still wegdriftet, prüft `drift_check()` vor jeder Messung, ob die
 Aufrufzeilen im Programm noch wörtlich so lauten. Tun sie es nicht, gilt die
 Messung nicht mehr — und das steht dann im Bericht.
@@ -73,14 +73,14 @@ TIMEOUT = 180               # Sekunden je Installer-Lauf
 
 # Die Zeilen aus dem Programm, die hier nachgebildet sind — seit dem
 # Ein-Klick-Update steht der Installer-Aufruf im Helfer
-# (`update_lauf.HELFER_VORLAGE`), die Umgebungswäsche in `einspielen()`.
+# (`update_run.HELFER_VORLAGE`), die Umgebungswäsche in `einspielen()`.
 # Stehen sie dort nicht mehr wörtlich, misst dieses Werkzeug etwas anderes als
 # das, was beim Nutzer läuft.
 EXPECTED_IN_PROGRAM = (
-    ('scbp/update_lauf.py',
+    ('scbp/update_run.py',
      '"%SCBP_SETUP%" /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS '
      '/DIR="%SCBP_ZIEL%" /LOG="%SCBP_SETUPLOG%"'),
-    ('scbp/aktualisierung.py', "umgebung.pop('__COMPAT_LAYER', None)"),
+    ('scbp/updater.py', "umgebung.pop('__COMPAT_LAYER', None)"),
 )
 
 # Pfadnamen, an denen `cmd` scheitern könnte. ⚠ Nicht nur Leerzeichen: `&`

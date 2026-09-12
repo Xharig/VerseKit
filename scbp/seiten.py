@@ -3702,11 +3702,11 @@ def _wasistneu(fenster, rahmen):
     """
     _ueberschrift(fenster, rahmen, t('hf_wasistneu'), t('s_wn_lead'))
 
-    from . import aktualisierung
+    from . import updater
     try:
         # ⚠ Gebündelt: v3.13.0 bis .3 stehen als **eine** Reihe „v3.13" da.
-        # Siehe `aktualisierung.protokoll_gebuendelt`.
-        eintraege = aktualisierung.protokoll_gebuendelt()
+        # Siehe `updater.protokoll_gebuendelt`.
+        eintraege = updater.protokoll_gebuendelt()
     except Exception as ausnahme:
         fehler.merken('seiten.wasistneu', ausnahme)
         eintraege = []
@@ -3727,7 +3727,7 @@ def _wasistneu(fenster, rahmen):
         # Testreihe kann ein Dutzend Einträge stellen, und die verdrängten die
         # fertigen Versionen darunter aus der Liste.
         for nummer, e in enumerate(eintraege[:25]):
-            punkte = aktualisierung.punkte_nach_art(e.get('text') or '')
+            punkte = updater.punkte_nach_art(e.get('text') or '')
             if stand['art'] != 'alle':
                 punkte = [p for p in punkte if p[0] == stand['art']]
             if not punkte:
@@ -3819,7 +3819,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
     # Der Vorstellungssatz der Version steht **hier**, unter ihrer Überschrift —
     # nicht irgendwo am Seitenende. Wer eine Version aufklappt, will zuerst wissen,
     # worum es ging, und dann die Einzelheiten.
-    from . import aktualisierung as _akt
+    from . import updater as _akt
     lead = _akt.einleitung(eintrag.get('text') or '')
     if lead:
         satz = tk.Label(koerper, text=lead, bg=BG, fg=SUB, font=fenster.f_klein,
@@ -3956,12 +3956,12 @@ def _jetzt_nachsehen(fenster):
     Tk-Faden.
     """
     import threading
-    from . import aktualisierung
+    from . import updater
     fenster.sagen(t('s_ub_sucht'))
 
     def arbeit():
         try:
-            neuere = aktualisierung.nachsehen(fenster.version or '0.0.0',
+            neuere = updater.nachsehen(fenster.version or '0.0.0',
                                               erzwingen=True)
         except Exception as ausnahme:
             fehler.merken('seiten.jetzt_nachsehen', ausnahme)
@@ -3985,14 +3985,14 @@ def _jetzt_nachsehen(fenster):
                 pass
             if neuere:
                 fenster.sagen(t('s_ub_gefunden') % neuere.get('version'))
-            elif aktualisierung.abruf_geglueckt() is False:
+            elif updater.abruf_geglueckt() is False:
                 # ⚠ **Nicht „du bist aktuell" sagen, wenn gar nicht nachgesehen
                 # werden konnte.** Die beiden Auskünfte sind das Gegenteil
                 # voneinander. Bomb20 bekam am 27.08.2026 „du hast die neueste
                 # rc67" gemeldet, während rc68 seit zwei Minuten draußen war —
                 # der Abruf war an GitHubs Stundengrenze gescheitert und wurde
                 # still verschluckt.
-                fenster.sagen(t('s_ub_grenze') if aktualisierung.grenze_erreicht()
+                fenster.sagen(t('s_ub_grenze') if updater.grenze_erreicht()
                               else t('s_ub_sucht_fehler'))
             else:
                 fenster.sagen(t('s_ub_aktuell'))
@@ -4018,7 +4018,7 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
     andere endet früher oder später in einem Absturz.
     """
     import threading
-    from . import aktualisierung
+    from . import updater
     if getattr(kaesten, 'schon_gefragt', False):
         return
     kaesten.schon_gefragt = True
@@ -4033,7 +4033,7 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
             # passiert: Der Knopf bot „v3.0.0-rc13 holen" an, während rc15 lief.
             # Wer draufdrückt, geht **zurück**. Einmal je Seitenaufbau nachfragen
             # ist der Preis dafür, dass draufsteht, was drin ist.
-            aktualisierung.nachsehen(fenster.version or '0.0.0', erzwingen=True)
+            updater.nachsehen(fenster.version or '0.0.0', erzwingen=True)
         except Exception as ausnahme:
             fehler.merken('seiten.kanaele_auffrischen', ausnahme)
             return
@@ -4090,9 +4090,9 @@ def _holen_moeglich(mit_vorab, eigene=''):
     Was aussieht wie ein Knopf, muss etwas tun. Sonst wird daraus ein ruhiger
     Hinweis (siehe `_kanalkasten`).
     """
-    from . import aktualisierung
+    from . import updater
     try:
-        freigabe = aktualisierung.neueste(mit_vorab)
+        freigabe = updater.neueste(mit_vorab)
     except Exception:
         return False
     if not freigabe:
@@ -4120,9 +4120,9 @@ def _holen_text(mit_vorab, eigene=''):
     Ist die angebotene Version älter, steht das jetzt dabei; ist es dieselbe,
     steht das auch da.
     """
-    from . import aktualisierung
+    from . import updater
     try:
-        freigabe = aktualisierung.neueste(mit_vorab)
+        freigabe = updater.neueste(mit_vorab)
     except Exception:
         freigabe = None
     if not freigabe:
@@ -4137,7 +4137,7 @@ def _holen_text(mit_vorab, eigene=''):
         sauber = fassung.lstrip('v')
         if sauber == eigene.lstrip('v'):
             return t('s_ub_holen_gleich') % fassung
-        if aktualisierung.ist_neuer(eigene, fassung):
+        if updater.ist_neuer(eigene, fassung):
             return t('s_ub_holen_zurueck') % fassung
     return t('s_ub_holen') % fassung
 
@@ -4183,21 +4183,21 @@ def _nach_neustart_abtreten(fenster):
     """Erst nachsehen, ob die neue Version lebt — dann erst selbst gehen.
 
     ⚠ Vorher trat die alte Version **sofort** ab. War die neue schon tot (unter
-    Linux monatelang der Regelfall, siehe `aktualisierung.neue_fassung_laeuft`),
+    Linux monatelang der Regelfall, siehe `updater.neue_fassung_laeuft`),
     stand der Rechner ohne Watcher da, und niemand erfuhr den Grund.
 
     Die Prüfung wartet ein paar Sekunden und gehört deshalb in einen eigenen
     Faden. Gezeichnet wird nur im Tk-Faden.
     """
     import threading
-    from . import aktualisierung
+    from . import updater
 
     def pruefen():
-        lebt = aktualisierung.neue_fassung_laeuft()
+        lebt = updater.neue_fassung_laeuft()
         def melden():
             if lebt:
                 _abtreten(fenster)
-            elif aktualisierung.zurueckrollen():
+            elif updater.zurueckrollen():
                 # ⚠ Ohne Rückweg liefe die alte Fassung nur noch aus ihrer
                 # offenen Inode weiter — wer sie schließt, stünde ohne Watcher
                 # da. Die Sicherung von vor dem Tausch macht daraus ein
@@ -4260,33 +4260,33 @@ def _fassung_holen(fenster, mit_vorab):
     das Fenster darf so lange nicht einfrieren.
     """
     import threading
-    from . import aktualisierung
+    from . import updater
     # ⚠ Erst nachsehen, dann greifen. Die Liste der Freigaben steht im
     # Zwischenspeicher und frischt sich nur einmal am Tag auf — ohne diesen
     # Schritt holt der Knopf die Version von gestern, obwohl heute eine neuere
     # da ist. Gemessen: Der Knopf bot v3.0.0-rc2 an, während rc7 längst
     # veröffentlicht war.
     try:
-        aktualisierung.nachsehen(fenster.version or '0.0.0')
+        updater.nachsehen(fenster.version or '0.0.0')
     except Exception as ausnahme:
         fehler.merken('seiten.fassung_holen.nachsehen', ausnahme)
-    freigabe = aktualisierung.neueste(mit_vorab)
+    freigabe = updater.neueste(mit_vorab)
     if not freigabe:
         fenster.sagen(t('s_ub_holen_keine'))
         return
     # Schon geholt? Dann ist der Knopf jetzt der Neustart-Knopf.
     if _BEREIT[0] and _BEREIT[0] == (freigabe.get('version') or ''):
         fenster.sagen(t('s_ub_startet_neu'))
-        if not aktualisierung.neu_starten():
+        if not updater.neu_starten():
             fenster.sagen(t('s_ub_neustart_nein'))
             return
         _nach_neustart_abtreten(fenster)
         return
-    art = aktualisierung.verpackung()
+    art = updater.verpackung()
     if art == 'quellcode':
         fenster.sagen(t('update_quellcode'))
         return
-    datei = aktualisierung.passende_datei(freigabe)
+    datei = updater.passende_datei(freigabe)
     if not datei:
         # ⚠⚠ **Zwei verschiedene Lagen, zwei verschiedene Antworten.**
         #
@@ -4311,15 +4311,15 @@ def _fassung_holen(fenster, mit_vorab):
     # hochkamen, bevor der Einzelstart greift — ließen sonst zwei Installer
     # los. Freigegeben wird sie bei jedem Ausgang, außer beim Übergeben an den
     # Helfer: Dann gehört sie ihm, und er räumt sie weg.
-    from . import update_lauf
-    if not update_lauf.sperre_nehmen():
+    from . import update_run
+    if not update_run.sperre_nehmen():
         fenster.sagen(t('up_laeuft_schon'))
         return
 
     def arbeit():
         uebergeben = False
         try:
-            ziel = aktualisierung.herunterladen(
+            ziel = updater.herunterladen(
                 datei, fortschritt=lambda p: _im_tk(
                     fenster, lambda: fenster.sagen(t('wird_geladen', p))),
                 freigabe=freigabe)
@@ -4330,7 +4330,7 @@ def _fassung_holen(fenster, mit_vorab):
             # Programm, das sich wortlos schließt, sieht aus wie ein Absturz.
             # Jetzt kommt er von selbst wieder — und aus einem Klick sollen
             # nicht zwei werden. Die Ansage steht in der Fußzeile.
-            geklappt, grund = aktualisierung.einspielen(
+            geklappt, grund = updater.einspielen(
                 ziel, ziel_version=freigabe.get('version') or '',
                 alte_version=fenster.version or '')
             if not geklappt:
@@ -4361,7 +4361,7 @@ def _fassung_holen(fenster, mit_vorab):
             # Programm, das nichts tut.
             #
             # Treten wir gleich ab, entfaellt das Warten vollstaendig. Wieder
-            # hoch faehrt uns der Helfer aus `update_lauf` — bis v3.29.0 tat
+            # hoch faehrt uns der Helfer aus `update_run` — bis v3.29.0 tat
             # das niemand, und der Nutzer musste selbst starten. Die Sperre
             # gehoert ab hier dem Helfer; er gibt sie am Ende frei.
             if art == 'exe':
@@ -4378,7 +4378,7 @@ def _fassung_holen(fenster, mit_vorab):
             # scheitert.
             def _neustart():
                 fenster.sagen(t('s_ub_startet_neu'))
-                if aktualisierung.neu_starten():
+                if updater.neu_starten():
                     _nach_neustart_abtreten(fenster)
                     return
                 # ⚠ Erst zeichnen, dann melden: Der Neuaufbau macht aus
@@ -4399,7 +4399,7 @@ def _fassung_holen(fenster, mit_vorab):
             _im_tk(fenster, lambda: fenster.sagen(t('update_fehler', grund)))
         finally:
             if not uebergeben:
-                update_lauf.sperre_freigeben()
+                update_run.sperre_freigeben()
 
     threading.Thread(target=arbeit, daemon=True).start()
 

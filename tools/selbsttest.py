@@ -962,7 +962,7 @@ def main():
         # lang) und verworfene Fortsetzungszeilen (Sätze enden mittendrin).
         print()
         print('14a. Änderungstext zerlegen')
-        from scbp import aktualisierung as akt
+        from scbp import updater as akt
         probe = """### Hinzugefügt
 - **Ein Fenster mit Reitern.** Oben die Baupläne, darunter die Einstellungen,
   ganz unten eingeklappt, was nur Fortgeschrittene brauchen.
@@ -1183,7 +1183,7 @@ def main():
         # nicht das Ergebnis.
         print()
         print('16. Neustart nach dem Update')
-        from scbp import aktualisierung as akt
+        from scbp import updater as akt
 
         gestartet = []
 
@@ -1537,8 +1537,8 @@ def main():
         # prüfen, Ausnahmen einzeln benennen und begründen.
         _AUSNAHMEN = {
             # Suchwörter und Datenzuordnung — werden nie angezeigt
-            ('scbp/aktualisierung.py', 'geändert'),
-            ('scbp/aktualisierung.py', 'hinzugefügt'),
+            ('scbp/updater.py', 'geändert'),
+            ('scbp/updater.py', 'hinzugefügt'),
             ('scbp/catalog.py', 'CDS-Rüstung'),
             ('scbp/catalog.py', 'geschütz'),
             # Wortlaut des SPIELS, mit dem im Log GESUCHT wird — angezeigt
@@ -2434,7 +2434,7 @@ def main():
         # startet die getauschte Datei anschliessend (`start "" "<ziel>"`) —
         # der Installer laeuft also und richtet alles ein. Was frueher der
         # Fehler war, ist jetzt der Weg hinaus.
-        from scbp import aktualisierung as ak30
+        from scbp import updater as ak30
         yml30 = open(os.path.join(WURZEL, '.github', 'workflows',
                                   'release.yml'), encoding='utf-8').read()
         anhang30 = yml30[yml30.index('files: |'):][:400]
@@ -2473,11 +2473,11 @@ def main():
                'v2.0.0 greift den Installer — und startet ihn (%s)' % erste_exe30)
         # ⚠ Und der Installer muss dorthin, wo das Programm liegt: sonst
         # entsteht eine zweite Fassung neben der alten Datei.
-        ak30q = open(os.path.join(WURZEL, 'scbp', 'aktualisierung.py'),
+        ak30q = open(os.path.join(WURZEL, 'scbp', 'updater.py'),
                      encoding='utf-8').read()
         # Seit dem Ein-Klick-Update steht der Installer-Aufruf im Helfer, der
         # Ordner kommt als SCBP_ZIEL aus `einspielen()`.
-        ul30 = open(os.path.join(WURZEL, 'scbp', 'update_lauf.py'),
+        ul30 = open(os.path.join(WURZEL, 'scbp', 'update_run.py'),
                     encoding='utf-8').read()
         pruefe('/DIR="%SCBP_ZIEL%"' in ul30,
                'der Installer bekommt /DIR — ersetzen statt danebenlegen')
@@ -3504,7 +3504,7 @@ def main():
            'RestartApplications=no — der RM faehrt nichts von selbst hoch')
     # ⚠ Und die Erklaerung im Code muss dazu passen. Sie tat es bis zum
     # 28.08.2026 nicht und schickte die Fehlersuche in die falsche Richtung.
-    ak40 = open(os.path.join(WURZEL, 'scbp', 'aktualisierung.py'),
+    ak40 = open(os.path.join(WURZEL, 'scbp', 'updater.py'),
                 encoding='utf-8').read()
     kopf40 = ak40[ak40.index('Der Eigenbau ist deshalb weg'):][:3000]
     # ⚠ Auf Wortabwesenheit zu pruefen waere falsch: Der Kommentar ZITIERT die
@@ -4192,7 +4192,7 @@ def main():
     # seinem Zwischenspeicher stand.
     #
     # Der Grund: `_nach_version_sehen()` wurde GENAU EINMAL gerufen, zwei
-    # Sekunden nach dem Start. Der Stundenabstand in `aktualisierung.nachsehen()`
+    # Sekunden nach dem Start. Der Stundenabstand in `updater.nachsehen()`
     # begrenzt nur, wie oft gefragt werden DARF — fragen muss trotzdem jemand.
     # Wer den Watcher durchlaufen liess, erfuhr nie von einer neuen Fassung.
     _w48 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
@@ -16978,6 +16978,13 @@ def main():
         'spielstand': 'gamebuild',
         'uebersetzung': 'translation',
         'auftragsruf': 'reputation',
+        # Stufe 4a — Selbstaktualisierung
+        #
+        # ⚠⚠ Diese beiden sind der Grund, warum die VerseKit-Umbenennung
+        # VORHER lief: Die ganze Anker-Analyse beruhte auf diesen Dateien.
+        # Wer sie zuerst umbenennt, muss die Analyse neu machen.
+        'aktualisierung': 'updater',
+        'update_lauf': 'update_run',
     }
 
     def _reste190(quelle, name, alte):
@@ -17393,7 +17400,7 @@ def main():
     import io as _io180
     import tempfile as _tf180
     import urllib.request as _ur180
-    from scbp import aktualisierung as _ak180
+    from scbp import updater as _ak180
     from scbp import sprache as _sp180
 
     _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
@@ -17784,7 +17791,7 @@ def main():
     # ------------------------------------------------ Ein-Klick-Update (182–188)
     # Alles in einer eigenen Ablage — Laufmarke, Sperre und Protokoll landen
     # sonst in der echten.
-    from scbp import update_lauf as _ul182
+    from scbp import update_run as _ul182
     _alt_home182 = os.environ.get('SC_BP_HOME')
     _home182 = tempfile.mkdtemp(prefix='pruefung182-')
     os.environ['SC_BP_HOME'] = _home182
@@ -17920,7 +17927,7 @@ def main():
                    'Meldung „%s" hat einen Text (%s)' % (_art184, _s184.schluessel))
 
         print('\n185. Unter Windows uebergibt einspielen() an den Helfer — nur mit gepruefter Summe')
-        from scbp import aktualisierung as _ak185
+        from scbp import updater as _ak185
         _gest185 = []
 
         class _Popen185(object):
@@ -18041,7 +18048,7 @@ def main():
                'kein Hinweisfenster mehr vor dem Einspielen')
         pruefe('sperre_nehmen' in _q187 and 'sperre_freigeben' in _q187,
                'die Sperre wird genommen und freigegeben')
-        pruefe('aktualisierung.neu_starten()' in _q187,
+        pruefe('updater.neu_starten()' in _q187,
                'unter Linux startet es gleich neu — ohne zweiten Klick')
         _w187 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
         _nv187 = _w187[_w187.index('def _nach_version_sehen'):][:3000]
@@ -18254,11 +18261,11 @@ def main():
         ('scbp/pfade.py', 1,
          "EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')",
          'BEIDE Dateinamen — Bestandsnutzer UND Neuinstallation'),
-        ('scbp/aktualisierung.py', 2, 'if not pfade.gehoert_uns(',
+        ('scbp/updater.py', 2, 'if not pfade.gehoert_uns(',
          'AppImage-Erkennung und Ueberschreib-Riegel, EINE gemeinsame Quelle'),
-        ('scbp/update_lauf.py', 1, 'and pfade.gehoert_uns(installer)',
+        ('scbp/update_run.py', 1, 'and pfade.gehoert_uns(installer)',
          'Installer-Aufraeumen kennt beide Namen (sonst bleibt er liegen)'),
-        ('scbp/aktualisierung.py', 1,
+        ('scbp/updater.py', 1,
          "INNO_KENNUNG = '{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}_is1'",
          'Deinstallations-Kennung — dieselbe GUID wie AppId'),
     ]

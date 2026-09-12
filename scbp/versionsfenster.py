@@ -32,7 +32,7 @@ import tkinter as tk
 
 import re
 
-from . import aktualisierung, pfade, sprache
+from . import updater, pfade, sprache
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -93,7 +93,7 @@ class Versionsfenster:
     def __init__(self, eltern=None, eigene_version='', beim_schliessen=None):
         self.eigene = eigene_version
         self.beim_schliessen = beim_schliessen
-        self.neue = aktualisierung.nachsehen(eigene_version)
+        self.neue = updater.nachsehen(eigene_version)
 
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
         self.root.title(fenstertitel('SC BP Watcher — ' + t('was_ist_neu')))
@@ -136,7 +136,7 @@ class Versionsfenster:
         steht dort, dass alles aktuell ist."""
         self.pruef_lbl.configure(text='  …  ', fg=SUB)
         self.root.update()
-        neu = aktualisierung.nachsehen(self.eigene, erzwingen=True)
+        neu = updater.nachsehen(self.eigene, erzwingen=True)
         if neu and neu.get('version'):
             self.neue = neu
             self.pruef_lbl.configure(
@@ -170,8 +170,8 @@ class Versionsfenster:
 
         knoepfe = tk.Frame(self.banner, bg=FLAECHE)
         knoepfe.pack(fill='x', padx=14, pady=(8, 12))
-        art = aktualisierung.verpackung()
-        datei = aktualisierung.passende_datei(self.neue)
+        art = updater.verpackung()
+        datei = updater.passende_datei(self.neue)
         if art == 'quellcode':
             self.meldung.configure(text=t('update_quellcode'))
         elif not datei:
@@ -191,12 +191,12 @@ class Versionsfenster:
 
         def arbeit():
             try:
-                ziel = aktualisierung.herunterladen(
+                ziel = updater.herunterladen(
                     datei, fortschritt=lambda p: self.root.after(
                         0, lambda: self.meldung.configure(
                             text=t('wird_geladen', p))),
                     freigabe=self.neue)
-                geklappt, grund = aktualisierung.einspielen(ziel)
+                geklappt, grund = updater.einspielen(ziel)
                 self.root.after(0, lambda: self._ergebnis(geklappt, grund))
             except Exception as fehler:
                 nachricht = str(fehler)
@@ -247,7 +247,7 @@ class Versionsfenster:
         abgeräumt wird.
         """
         import os
-        if not aktualisierung.neu_starten():
+        if not updater.neu_starten():
             self.meldung.configure(text=t('s_ub_neustart_nein'), fg=GELB)
             return
 
@@ -255,9 +255,9 @@ class Versionsfenster:
         # Notausgang hier sofort scharf gestellt — war die neue Version schon
         # tot (unter Linux monatelang der Regelfall), stand der Rechner ohne
         # Watcher da, und niemand erfuhr den Grund. Siehe
-        # `aktualisierung.neue_fassung_laeuft`.
+        # `updater.neue_fassung_laeuft`.
         def pruefen():
-            lebt = aktualisierung.neue_fassung_laeuft()
+            lebt = updater.neue_fassung_laeuft()
 
             def weiter():
                 if not lebt:
@@ -295,7 +295,7 @@ class Versionsfenster:
         from .hauptfenster import rad_anschliessen
         rad_anschliessen(leinwand)
 
-        eintraege = aktualisierung.protokoll()
+        eintraege = updater.protokoll()
         if not eintraege:
             tk.Label(inhalt, text=t('keine_versionen'), bg=BG, fg=SUB,
                      font=schrift(11), pady=20).pack()
@@ -310,8 +310,8 @@ class Versionsfenster:
         kopf.pack(fill='x')
         # Die eigene Version hervorheben — dann sieht man auf einen Blick,
         # wie weit man zurückliegt.
-        eigen = (aktualisierung._teile(e['version'])
-                 == aktualisierung._teile(self.eigene))
+        eigen = (updater._teile(e['version'])
+                 == updater._teile(self.eigene))
         tk.Label(kopf, text=e['version'], bg=BG, fg=ACCENT if eigen else FG,
                  font=schrift(12, True), anchor='w').pack(side='left')
         rechts = e['datum']

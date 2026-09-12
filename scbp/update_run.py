@@ -181,7 +181,7 @@ def _weg(pfad):
         pass
     except OSError as ausnahme:
         from . import fehler
-        fehler.merken('update_lauf.weg', ausnahme)
+        fehler.merken('update_run.weg', ausnahme)
 
 
 def _json_schreiben(pfad, daten):
@@ -348,7 +348,7 @@ def sperre_nehmen():
             continue
         except OSError as ausnahme:
             from . import fehler
-            fehler.merken('update_lauf.sperre', ausnahme)
+            fehler.merken('update_run.sperre', ausnahme)
             return True
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             json.dump({'pid': os.getpid(), 'zeit': time.time()}, f)
@@ -362,7 +362,7 @@ def sperre_uebergeben(pid):
         _json_schreiben(_pfad(SPERRE), {'pid': int(pid), 'zeit': time.time()})
     except (OSError, TypeError, ValueError) as ausnahme:
         from . import fehler
-        fehler.merken('update_lauf.sperre_uebergeben', ausnahme)
+        fehler.merken('update_run.sperre_uebergeben', ausnahme)
 
 
 def sperre_freigeben():
@@ -453,7 +453,7 @@ def auswerten(eigene_version):
         art = 'fehler'
     if art != 'fertig':
         from . import fehler
-        fehler.merken('aktualisierung.update_%s' % art, RuntimeError(
+        fehler.merken('updater.update_%s' % art, RuntimeError(
             'Ziel %s, laufend %s, vorher %s, Rückgabewert %s'
             % (ziel or '?', eigene_version or '?', alt or '?',
                '–' if code is None else code)))
@@ -490,7 +490,7 @@ def protokoll_rotieren():
             os.replace(alt, _pfad(PROTOKOLL_ALT))
         except OSError as ausnahme:
             from . import fehler
-            fehler.merken('update_lauf.rotieren', ausnahme)
+            fehler.merken('update_run.rotieren', ausnahme)
 
 
 def _protokoll_zeile(eintrag):
