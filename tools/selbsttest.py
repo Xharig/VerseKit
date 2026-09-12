@@ -229,11 +229,35 @@ def baue(basis):
     return live
 
 
+# Der Wegwerf-Ordner GENAU DIESES Laufs. Alles darunter darf der Prueflauf
+# lesen, alles andere nicht — siehe Abschnitt 37.
+LAUFWURZEL = ['']
+
+
 def main():
     global ANZEIGE
     ANZEIGE = hat_anzeige()
     if not ANZEIGE:
         print('Hinweis: kein Bildschirm — Fenster-Prüfungen werden übersprungen.')
+
+    # ⭐⭐ **Eine eigene Laufwurzel — alles unter EINEM Dach.**
+    #
+    # `tempfile.tempdir` umzubiegen wirkt auf jedes spaetere `mkdtemp()` und
+    # `gettempdir()`, ohne dass eine der 42 Fundstellen angefasst werden muss.
+    #
+    # ⚠⚠ Der Grund steht in Abschnitt 37: Die Isolation gegen echte Spieldaten
+    # laesst nur den Wegwerf-Bereich durch. Waere das der ALLGEMEINE
+    # Temp-Ordner, waere das viel zu weit — dort liegen auch fremde Werkzeuge,
+    # abgebrochene Prueflaeufe von gestern und deren Daten. Gemessen am
+    # 12.09.2026: Eine `Game.log` in einem beliebigen, nirgendwo registrierten
+    # Temp-Ordner wurde anstandslos akzeptiert, ebenso die Temp-Wurzel selbst.
+    #
+    # Mit einer eigenen Wurzel ist die Erlaubnis genau das, was dieser Lauf
+    # selbst angelegt hat — nicht „irgendetwas Temporaeres".
+    _echtes_temp = tempfile.gettempdir()
+    LAUFWURZEL[0] = tempfile.mkdtemp(prefix='sc-bp-lauf-', dir=_echtes_temp)
+    tempfile.tempdir = LAUFWURZEL[0]
+
     basis = tempfile.mkdtemp(prefix='sc-bp-selbsttest-')
     live = baue(basis)
     os.environ['SC_INSTALL_DIR'] = live
@@ -3246,14 +3270,19 @@ def main():
     _pf_iso = __import__('scbp.pfade', fromlist=['log_sicherungen'])
     _echte_sicherungen = _pf_iso.log_sicherungen
     _echte_gamelog = _pf_iso.game_log
-    _temp_wurzel_iso = os.path.normcase(
-        os.path.realpath(tempfile.gettempdir()))
+    # ⚠⚠ **Die Wurzel DIESES Laufs, nicht der allgemeine Temp-Ordner.**
+    # `gettempdir()` waere viel zu weit: Dort liegen fremde Werkzeuge und
+    # abgebrochene Prueflaeufe von gestern. Gemessen — eine `Game.log` in einem
+    # beliebigen Temp-Ordner kam glatt durch, ebenso die Temp-Wurzel selbst.
+    _lauf_iso = os.path.normcase(os.path.realpath(LAUFWURZEL[0]))
 
     def _wegwerf(pfad):
-        """Liegt der Pfad im Wegwerf-Bereich? Nur dann ist er erlaubt.
+        """Liegt der Pfad im Wegwerf-Ordner DIESES Laufs? Nur dann erlaubt.
 
         `realpath` loest Junctions und Symlinks auf, `normcase` macht die
         Schreibweise unter Windows egal — beides war eine eigene Luecke.
+        Die Wurzel selbst gilt NICHT als erlaubt: Erlaubt ist, was dieser Lauf
+        darunter angelegt hat.
         """
         if not pfad:
             return False
@@ -3261,8 +3290,7 @@ def main():
             _echt = os.path.normcase(os.path.realpath(pfad))
         except OSError:
             return False
-        return (_echt == _temp_wurzel_iso
-                or _echt.startswith(_temp_wurzel_iso + os.sep))
+        return _echt.startswith(_lauf_iso + os.sep)
 
     def _sicherungen_iso(ordner=None, *_a, **_k):
         return [_p for _p in (_echte_sicherungen(ordner, *_a, **_k) or [])
@@ -10623,39 +10651,12 @@ def main():
     # nicht dass es wirkt.
     _pf113 = __import__('scbp.pfade', fromlist=['log_sicherungen'])
     _ml113 = __import__('scbp.missionslog', fromlist=['nachlese'])
-    _offen113 = []
-    if _pf113.log_sicherungen():
-        _offen113.append('log_sicherungen: %d Dateien'
-                         % len(_pf113.log_sicherungen()))
-    if _pf113.game_log():
-        _offen113.append('game_log: laufende Datei')
-    if _ml113.nachlese() != (0, 0):
-        _offen113.append('nachlese: %r' % (_ml113.nachlese(),))
 
-    # ⚠⚠ **Auch die Aufrufe MIT Ordner** — sonst prueft die Wache nur die
-    # Haelfte. Der Pruefer hat genau das gefunden: Die erste Fassung testete
-    # ausschliesslich Aufrufe ohne Argumente, waehrend `game_log(<Nachbarkanal>)`
-    # weiterhin eine lesbare Datei lieferte.
-    #
-    # Geprueft wird an KONSTRUIERTEN Pfaden — es wird nichts Echtes gelesen und
-    # nichts angelegt. Die Namen muessen nicht existieren; gesperrt gehoert
-    # jeder Pfad, der nicht im Wegwerf-Bereich liegt.
-    for _probe113 in (os.path.join('C:' + os.sep, 'Program Files', 'Spiel',
-                                   'StarCitizen', 'HOTFIX'),
-                      os.path.join(os.sep, 'opt', 'spiel', 'LIVE')):
-        if _pf113.game_log(_probe113) or _pf113.log_sicherungen(_probe113):
-            _offen113.append('mit Ordner: %s' % _probe113)
-    pruefe(not _offen113,
-           'kein Weg fuehrt zu echten Spiel-Protokollen (%s)'
-           % ('; '.join(_offen113) or 'alle drei dicht, auch mit Ordner'))
-
-    # Struktur: Jeder Riegel ist in Abschnitt 37 gesetzt worden und liegt noch.
-    #
-    # ⚠⚠ **Geprueft wird die IDENTITAET, nicht der Name.** Die erste Fassung
-    # verglich `__name__` — und `== '<lambda>'` beweist gar nichts: Der Pruefer
-    # hat eine beliebige Lambda gebaut, die echte Dateien liest und trotzdem
-    # (0, 0) zurueckgibt. Sie bestand beide Wachen. Ein Rueckgabewert belegt
-    # keinen unterbliebenen Lesezugriff.
+    # ⚠⚠⚠ **Die Struktur ZUERST — vor jedem Aufruf.** Die erste Fassung rief
+    # die Funktionen auf und prueefte erst danach, ob ueberhaupt die Riegel
+    # drinstecken. Ist `nachlese` versehentlich wieder das Original, liest die
+    # Wache selbst die echten Daten ein, bevor sie den Fehler meldet — und
+    # `pruefe()` sammelt nur, es bricht nicht ab.
     _riegel113 = [
         ('log_sicherungen', _pf113.log_sicherungen is _sicherungen_iso),
         ('game_log', _pf113.game_log is _gamelog_iso),
@@ -10665,6 +10666,77 @@ def main():
     pruefe(not _fehlt113,
            'alle drei Riegel aus Abschnitt 37 sind noch DIESELBEN (fehlt: %s)'
            % (', '.join(_fehlt113) or 'keiner'))
+
+    if _fehlt113:
+        # Ohne Riegel wird hier NICHT weitergemessen — sonst liest die Wache
+        # genau das, wogegen sie schuetzen soll.
+        print('       · Riegel fehlen — die Wirkungspruefung wird uebersprungen')
+    else:
+        # ⚠⚠ **Die Wirkung an ECHTEN Dateien pruefen, nicht an erfundenen.**
+        # Die erste Fassung uebergab Pfade, unter denen gar nichts liegt — da
+        # liefert schon die Originalfunktion `None` bzw. `[]`, und der Filter
+        # kam nie zum Zug. Der Pruefer hat es belegt: Mit einem Filter, der
+        # ALLES durchlaesst, blieb diese Pruefung gruen.
+        #
+        # Jetzt werden zwei nachgebaute Installationen angelegt — eine INNERHALB
+        # der Laufwurzel (muss durchgelassen werden) und eine AUSSERHALB (muss
+        # gesperrt sein). Beide mit echter `Game.log` und echter Sicherung.
+        # ⚠ **`gettempdir()` taugt hier NICHT als „draussen".** Es ist seit
+        # Beginn von `main()` auf die Laufwurzel umgebogen — der Ordner landete
+        # damit INNERHALB, und die Gegenprobe pruefte drinnen gegen drinnen.
+        # Gefunden hat das diese Pruefung selbst, im ersten Lauf.
+        # `_echtes_temp` ist der Ordner VOR dem Umbiegen.
+        _drin113 = tempfile.mkdtemp(prefix='iso-drin-')
+        _drauss113 = tempfile.mkdtemp(prefix='iso-draussen-', dir=_echtes_temp)
+        try:
+            for _wo113 in (_drin113, _drauss113):
+                _sp113 = os.path.join(_wo113, 'StarCitizen', 'LIVE')
+                os.makedirs(os.path.join(_sp113, 'logbackups'), exist_ok=True)
+                for _datei113 in (os.path.join(_sp113, 'Game.log'),
+                                  os.path.join(_sp113, 'logbackups',
+                                               'Game.log.0')):
+                    with open(_datei113, 'w', encoding='utf-8') as _d113:
+                        _d113.write('Probe\n')
+
+            _sp_drin = os.path.join(_drin113, 'StarCitizen', 'LIVE')
+            _sp_draus = os.path.join(_drauss113, 'StarCitizen', 'LIVE')
+
+            _offen113 = []
+            if _pf113.log_sicherungen():
+                _offen113.append('log_sicherungen: %d Dateien'
+                                 % len(_pf113.log_sicherungen()))
+            if _pf113.game_log():
+                _offen113.append('game_log: laufende Datei')
+            if _ml113.nachlese() != (0, 0):
+                _offen113.append('nachlese: %r' % (_ml113.nachlese(),))
+            # Der eigentliche Nachweis: aussen gesperrt, obwohl Dateien da sind.
+            if _pf113.game_log(_sp_draus):
+                _offen113.append('game_log(ausserhalb) liefert eine Datei')
+            if _pf113.log_sicherungen(_sp_draus):
+                _offen113.append('log_sicherungen(ausserhalb) liefert %d'
+                                 % len(_pf113.log_sicherungen(_sp_draus)))
+            pruefe(not _offen113,
+                   'kein Weg fuehrt zu Protokollen ausserhalb des Laufordners '
+                   '(%s)' % ('; '.join(_offen113) or 'alle dicht'))
+
+            # ⚠ Und die Gegenprobe dazu, in derselben Lage: INNERHALB muss es
+            # ankommen. Ohne sie waere ein Filter, der einfach alles sperrt,
+            # ebenfalls gruen — und der Prueflauf saehe seine eigenen Daten
+            # nicht mehr.
+            pruefe(bool(_pf113.game_log(_sp_drin))
+                   and len(_pf113.log_sicherungen(_sp_drin) or []) == 1,
+                   'der eigene Laufordner wird durchgelassen (%r / %d)'
+                   % (bool(_pf113.game_log(_sp_drin)),
+                      len(_pf113.log_sicherungen(_sp_drin) or [])))
+
+            # ⚠ Die Filterentscheidung direkt — unabhaengig davon, ob eine
+            # Funktion zufaellig nichts findet.
+            pruefe(_wegwerf(_sp_drin) and not _wegwerf(_sp_draus),
+                   'die Filterentscheidung trennt drinnen von draussen '
+                   '(%r / %r)' % (_wegwerf(_sp_drin), _wegwerf(_sp_draus)))
+        finally:
+            shutil.rmtree(_drin113, ignore_errors=True)
+            shutil.rmtree(_drauss113, ignore_errors=True)
     try:
         def _zeile113(zeit, text, nr):
             return ('<%sZ> [Notice] <SHUDEvent_OnNotification> '
@@ -16847,6 +16919,10 @@ def main():
     # jede Zeichenkette, die genau `scbp.<alter Name>` lautet.
     import ast as _ast190
     import importlib as _il190
+    import pkgutil as _pkg190
+    import tkinter as _tk190
+    import scbp as _scbp190
+    from scbp import uex as _uex190
     _p4_190 = {
         'importieren': 'importer',
         'merkliste': 'watchlist',
@@ -16968,21 +17044,72 @@ def main():
     _sys190 = __import__('sys')
     if os.path.join(_wurzelpfad, 'tools') not in _sys190.path:
         _sys190.path.insert(0, os.path.join(_wurzelpfad, 'tools'))
-    _abl190 = _il190.import_module('ablagen')
-    _liste190 = list(getattr(_abl190, 'ABLAGE_MODULE', ()))
-    pruefe(len(_liste190) >= 5,
-           'ablagen.py fuehrt die Ablage-Module als gemeinsame Liste (%d)'
-           % len(_liste190))
+    # ⚠⚠⚠ **Die Gefahr ist keine Import-ZEILE, sondern eine Nebenwirkung.**
+    # Die erste Wache suchte nach `Import`-Knoten im Syntaxbaum. Der Pruefer hat
+    # sie zerlegt: `__import__('unsichtbar').sicherstellen()` erzeugt gar keinen
+    # solchen Knoten — und beliebiger anderer Code auf Modulebene auch nicht.
+    # **Importfrei heisst nicht nebenwirkungsfrei.**
+    #
+    # Geprueft wird deshalb die WIRKUNG, und zwar genau die, die einmal
+    # zugeschlagen hat: Nimmt der Import einem Fenster die Geometrie?
+    # (`abnahme.py` tat das, weil es auf Modulebene `sicherstellen()` ruft.)
+    if ANZEIGE:
+        _w190 = _tk190.Tk()
+        try:
+            _w190.geometry('400x300')
+            _w190.update()
+            _vorher190 = (_w190.winfo_width(), _w190.winfo_viewable())
+        finally:
+            _w190.destroy()
+        _il190.import_module('ablagen')
+        _w2_190 = _tk190.Tk()
+        try:
+            _w2_190.geometry('400x300')
+            _w2_190.update()
+            _nachher190 = (_w2_190.winfo_width(), _w2_190.winfo_viewable())
+        finally:
+            _w2_190.destroy()
+        pruefe(_nachher190 == _vorher190,
+               'der Import von ablagen nimmt keinem Fenster die Geometrie '
+               '(%r -> %r)' % (_vorher190, _nachher190))
 
-    # ⚠ Und die Wache dagegen, dass jemand den Import spaeter „aufraeumt":
-    # `tools/ablagen.py` darf nichts importieren, sonst ist die Falle zurueck.
-    _q190 = open(os.path.join(_wurzelpfad, 'tools', 'ablagen.py'),
-                 encoding='utf-8-sig').read()
-    _imp190 = [_k190 for _k190 in _ast190.walk(_ast190.parse(_q190))
-               if isinstance(_k190, (_ast190.Import, _ast190.ImportFrom))]
-    pruefe(not _imp190,
-           'tools/ablagen.py bleibt frei von Importen (%d gefunden)'
-           % len(_imp190))
+    _abl190 = _il190.import_module('ablagen')
+    _liste190 = list(_abl190.ablage_module())
+
+    # ⭐⭐ **Vollstaendigkeit, nicht nur Gueltigkeit.** Eine gemeinsame Quelle
+    # verhindert auseinanderlaufende Kopien — gemeinsame AUSLASSUNGEN verhindert
+    # sie nicht. Die Liste war von Hand gepflegt und beim Anlegen schon falsch:
+    # `selling` und `spielstand` fehlten, `mining` stand drin OHNE Ablage.
+    # `len >= 5` und „alles importierbar" waren trotzdem erfuellt.
+    #
+    # Deshalb wird die Menge gegen die TATSAECHLICH vorhandenen Ablagen
+    # gehalten, ermittelt auf einem zweiten Weg.
+    _soll190 = set()
+    for _eintrag190 in _pkg190.iter_modules(_scbp190.__path__):
+        try:
+            _m190 = _il190.import_module('scbp.' + _eintrag190.name)
+        except Exception:
+            continue
+        if any(isinstance(getattr(_m190, _n190, None), _uex190.Store)
+               for _n190 in dir(_m190)):
+            _soll190.add(_eintrag190.name)
+    _fehlt190 = sorted(_soll190 - set(_liste190))
+    _zuviel190 = sorted(set(_liste190) - _soll190)
+    pruefe(bool(_soll190) and not _fehlt190 and not _zuviel190,
+           'die Ablagen-Liste ist vollstaendig (fehlt: %s / zuviel: %s)'
+           % (', '.join(_fehlt190) or 'nichts',
+              ', '.join(_zuviel190) or 'nichts'))
+    pruefe(len(set(_liste190)) == len(_liste190) and len(_liste190) >= 5,
+           'kein Eintrag steht doppelt drin (%d von %d eindeutig)'
+           % (len(set(_liste190)), len(_liste190)))
+
+    # ⚠ Und der Verbraucher: Benutzt die Abnahme diese Quelle auch wirklich?
+    # Eine neue lokale Liste dort waere sonst unbemerkt.
+    _qa190 = open(os.path.join(_wurzelpfad, 'tools', 'abnahme.py'),
+                  encoding='utf-8-sig').read()
+    pruefe('ablage_module()' in _qa190 and 'from ablagen import' in _qa190,
+           'tools/abnahme.py holt seine Modulliste aus ablagen.py')
+
     _tot190 = []
     for _name190 in _liste190:
         try:
@@ -16990,7 +17117,7 @@ def main():
         except ImportError:
             _tot190.append(repr(_name190))
     pruefe(not _tot190,
-           'jedes Modul aus abnahme.ABLAGE_MODULE gibt es auch (tot: %s)'
+           'jedes ermittelte Ablage-Modul gibt es auch (tot: %s)'
            % (', '.join(_tot190) or 'keines'))
 
     # Gegenprobe: Ein erfundener Name in derselben Liste muss auffallen.

@@ -80,7 +80,7 @@ WURZEL = os.path.dirname(HIER)
 sys.path.insert(0, WURZEL)
 sys.path.insert(0, HIER)
 
-from ablagen import ABLAGE_MODULE                          # noqa: E402
+from ablagen import ablage_module                           # noqa: E402
 import unsichtbar                                          # noqa: E402
 unsichtbar.sicherstellen()
 
@@ -713,7 +713,7 @@ def datenabruf_pruefen():
     # Deshalb ist ein Fehlschlag hier jetzt ein **Befund**, kein Überspringen.
     ablagen = []
     fehlende = []
-    for modulname in ABLAGE_MODULE:
+    for modulname in ablage_module():
         try:
             modul = __import__('scbp.' + modulname, fromlist=[modulname])
         except Exception as ausnahme:
