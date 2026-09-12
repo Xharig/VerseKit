@@ -382,8 +382,14 @@ def _verpackung_lesbar():
     ⚠ Nur hier, nur für die Anzeige: Die Kennung selbst wird anderswo
     verglichen (`art == 'quellcode'`) und bleibt deshalb, wie sie ist.
     """
+    # ⚠⚠ **Ein dynamischer Import — kein Umbenennungswerkzeug findet ihn.**
+    # Der Modulname steht in einer Zeichenkette, der Funktionsname auch.
+    # Bei der Bezeichner-Migration am 12.09.2026 war das die EINZIGE Stelle
+    # im Projekt, die weder der Syntaxbaum-Scanner noch der Selbsttest
+    # gemeldet hätte: Sie bricht erst, wenn jemand einen Fehlerbericht baut.
+    # Gefunden per Textsuche über das ganze Repo, nachdem alles grün war.
     art = __import__('scbp.updater',
-                     fromlist=['verpackung']).verpackung()
+                     fromlist=['packaging']).packaging()
     return {'quellcode': t('b_v_quellcode'),
             'exe': t('b_v_exe'),
             'appimage': t('b_v_appimage')}.get(art, art)

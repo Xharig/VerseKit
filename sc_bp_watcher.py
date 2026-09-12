@@ -1793,7 +1793,7 @@ class Overlay:
         # sein Bestand nur woanders liegt.
         # Nach einem Selbst-Update zeigt Windows sonst weiter die alte Nummer.
         try:
-            updater.windows_eintrag_pflegen(__version__)
+            updater.update_windows_entry(__version__)
         except Exception as ausnahme:
             fehler.merken('start.windows_eintrag', ausnahme)
 
@@ -3015,7 +3015,7 @@ class Overlay:
 
         def arbeit():
             try:
-                neu = updater.nachsehen(__version__)
+                neu = updater.check(__version__)
             except Exception:
                 return
             if neu:

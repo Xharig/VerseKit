@@ -35,25 +35,25 @@ def main():
         print('Kein AppImage unter %s — nichts zu prüfen.' % APPIMAGE)
         return 1
     print('Laufende Datei :', APPIMAGE)
-    print('Verpackung     :', updater.verpackung())
+    print('Verpackung     :', updater.packaging())
 
-    freigabe = updater.neueste(True)
+    freigabe = updater.latest(True)
     if not freigabe:
-        updater.nachsehen('0.0.0', erzwingen=True)
-        freigabe = updater.neueste(True)
+        updater.check('0.0.0', force=True)
+        freigabe = updater.latest(True)
     if not freigabe:
         print('Keine Freigabe gefunden — ohne Netz geht das nicht.')
         return 1
     print('Neueste Version:', freigabe.get('version'))
 
-    datei = updater.passende_datei(freigabe, art='appimage')
+    datei = updater.matching_asset(freigabe, kind='appimage')
     if not datei:
         print('Keine passende Datei in der Freigabe.')
         return 1
     print('Datei          : %s (%.1f MB)'
           % (datei['name'], (datei.get('groesse') or 0) / 1048576))
 
-    ort = updater._ablageort_fuer_update(datei['name'])
+    ort = updater._download_target(datei['name'])
     print('\nWohin geladen wird:', ort)
     gleiches = (os.stat(os.path.dirname(ort)).st_dev
                 == os.stat(os.path.dirname(APPIMAGE)).st_dev)
@@ -62,9 +62,9 @@ def main():
         print('  ⚠ Dann greift beim Einspielen der Umweg über shutil.move.')
 
     print('\nLade herunter …')
-    ziel = updater.herunterladen(
-        datei, fortschritt=lambda p: print('\r  %3d %%' % p, end='', flush=True),
-        freigabe=freigabe)
+    ziel = updater.download(
+        datei, progress=lambda p: print('\r  %3d %%' % p, end='', flush=True),
+        release=freigabe)
     print('\r  fertig: %s (%.1f MB)' % (ziel, os.path.getsize(ziel) / 1048576))
 
     if not echt:
@@ -74,7 +74,7 @@ def main():
         return 0
 
     print('\nSpiele ein …')
-    geklappt, grund = updater.einspielen(ziel)
+    geklappt, grund = updater.install(ziel)
     print('  Ergebnis:', 'geklappt' if geklappt else 'FEHLER: %s' % grund)
     if geklappt:
         print('  Datei jetzt: %.1f MB, ausführbar: %s'

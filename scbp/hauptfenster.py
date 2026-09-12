@@ -3330,7 +3330,7 @@ class Hauptfenster:
         def _neustart():
             from . import updater
             try:
-                if not updater.neu_starten():
+                if not updater.restart():
                     self.sagen(t('sich_neustart_selbst'))
             except Exception as ausnahme:
                 fehler.merken('hauptfenster.sicherung_neustart', ausnahme)

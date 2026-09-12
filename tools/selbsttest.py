@@ -970,7 +970,7 @@ def main():
 ### Behoben
 - **Das Icon fehlte.**
 """
-        punkte = akt.punkte_nach_art(probe)
+        punkte = akt.points_by_kind(probe)
         pruefe(len(punkte) == 2, 'zwei Punkte, nicht vier')
         pruefe(punkte and punkte[0][0] == 'neu' and punkte[1][0] == 'fix',
                'die Art kommt aus der Zwischenüberschrift')
@@ -1198,26 +1198,26 @@ def main():
                 return None          # tut so, als lebe die neue Version
 
         echtes_popen = subprocess.Popen
-        echte_verpackung = akt.verpackung
-        merker_vorher = akt._TAUSCH_LAEUFT[0]
+        echte_verpackung = akt.packaging
+        merker_vorher = akt._SWAP_RUNNING[0]
         try:
             subprocess.Popen = _FalschesPopen
-            akt.verpackung = lambda: 'exe'
+            akt.packaging = lambda: 'exe'
 
             # Wartet ein Hilfsskript auf den Dateitausch, darf `neu_starten()`
             # NICHT selbst starten: Auf der Platte liegt dann noch die ALTE
             # `.exe`, und ein eigener Start fährt genau die wieder hoch. Sie
             # hält danach den Temp-Ordner fest, der Tausch scheitert endgültig,
             # und der Nutzer sieht die alte Version weiterlaufen.
-            akt._TAUSCH_LAEUFT[0] = True
-            akt.neu_starten()
+            akt._SWAP_RUNNING[0] = True
+            akt.restart()
             pruefe(gestartet == [],
                    'wartet ein Dateitausch, wird nichts selbst gestartet')
 
             # Ohne wartenden Tausch (AppImage: schon getauscht) muss gestartet
             # werden — sonst bliebe das Programm nach dem Update einfach zu.
-            akt._TAUSCH_LAEUFT[0] = False
-            akt.neu_starten()
+            akt._SWAP_RUNNING[0] = False
+            akt.restart()
             pruefe(len(gestartet) == 1,
                    'ohne wartenden Tausch startet die neue Version')
 
@@ -1242,17 +1242,17 @@ def main():
 
                 def poll(self):
                     return 1         # schon gestorben
-            akt._GESTARTET[0] = _TotesPopen('x')
-            pruefe(akt.neue_fassung_laeuft(wartezeit=0.3) is False,
+            akt._STARTED[0] = _TotesPopen('x')
+            pruefe(akt.new_version_alive(wait=0.3) is False,
                    'eine sofort gestorbene neue Version wird erkannt')
-            akt._GESTARTET[0] = _FalschesPopen('x')
-            pruefe(akt.neue_fassung_laeuft(wartezeit=0.3) is True,
+            akt._STARTED[0] = _FalschesPopen('x')
+            pruefe(akt.new_version_alive(wait=0.3) is True,
                    'eine laufende neue Version gilt als geglueckt')
-            akt._GESTARTET[0] = None
+            akt._STARTED[0] = None
         finally:
             subprocess.Popen = echtes_popen
-            akt.verpackung = echte_verpackung
-            akt._TAUSCH_LAEUFT[0] = merker_vorher
+            akt.packaging = echte_verpackung
+            akt._SWAP_RUNNING[0] = merker_vorher
 
         # Den Spiel-Starter neben dem Spielordner finden. Feste Pfadlisten
         # gehen genau dann schief, wenn jemand woanders installiert hat — und
@@ -2481,9 +2481,27 @@ def main():
                     encoding='utf-8').read()
         pruefe('/DIR="%SCBP_ZIEL%"' in ul30,
                'der Installer bekommt /DIR — ersetzen statt danebenlegen')
-        start30 = ak30q[ak30q.index('eigener_ordner = '):][:200]
-        pruefe('sys.executable' in start30,
-               'und zwar den Ordner des laufenden Programms')
+        # ⚠⚠ Diese Pruefung schnitt bis zum 12.09.2026 **200 Zeichen Text**
+        # ab der Zeile `eigener_ordner = ` heraus. Bei der Umbenennung der
+        # Update-Module flog sie mit `ValueError: substring not found` —
+        # zu Recht: Sie prueft eine Schreibweise, und schon eine andere
+        # Zeilenumbruch-Stelle haette sie blind gemacht.
+        #
+        # Jetzt ueber den Syntaxbaum: Gesucht wird die **Zuweisung**, die den
+        # Zielordner bildet, und ob in ihrem Ausdruck wirklich das laufende
+        # Programm steht.
+        import ast as _ast30
+        _fund30 = False
+        for _k30 in _ast30.walk(_ast30.parse(ak30q)):
+            if (isinstance(_k30, _ast30.Assign) and len(_k30.targets) == 1
+                    and isinstance(_k30.targets[0], _ast30.Name)
+                    and _k30.targets[0].id == 'own_dir'):
+                _fund30 = any(
+                    isinstance(_a30, _ast30.Attribute)
+                    and _a30.attr == 'executable'
+                    for _a30 in _ast30.walk(_k30.value))
+        pruefe(_fund30,
+               'und zwar den Ordner des laufenden Programms (sys.executable)')
 
         print()
         print('31. Das Schloss holt einen aus dem Durchreichen zurueck')
@@ -17419,7 +17437,7 @@ def main():
 
     _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
     _echt_open180 = _ur180.urlopen
-    _echt_appimage180 = _ak180.eigenes_appimage
+    _echt_appimage180 = _ak180.own_appimage
     try:
         _nutz180 = b'Das ist die neue Fassung.' * 500
         _name180 = 'SC-BP-Watcher-x86_64.AppImage'
@@ -17429,7 +17447,7 @@ def main():
                           'releases/x/SHA256SUMS.txt')
 
         # Das Programm soll neben eine Datei in unserem Wegwerf-Ordner laden.
-        _ak180.eigenes_appimage = lambda: os.path.join(_ordner180, _name180)
+        _ak180.own_appimage = lambda: os.path.join(_ordner180, _name180)
 
         _antwort180 = {'summen': '', 'nutz': _nutz180}
 
@@ -17470,8 +17488,8 @@ def main():
         def _versuch180(freigabe):
             """Gibt (Pfad, Fehlertext). Genau eines von beiden ist gesetzt."""
             try:
-                return _ak180.herunterladen(freigabe['dateien'][0],
-                                            freigabe=freigabe), ''
+                return _ak180.download(freigabe['dateien'][0],
+                                            release=freigabe), ''
             except Exception as ausnahme:
                 return None, str(ausnahme)
 
@@ -17539,7 +17557,7 @@ def main():
         #   sie zu pruefen vorgab. Jetzt wird `herunterladen()` wirklich ohne
         #   das Argument gerufen — so, wie ein unachtsamer Umbau es taete.
         try:
-            _ak180.herunterladen({'name': _name180, 'url': _url180})
+            _ak180.download({'name': _name180, 'url': _url180})
             _ohne180 = 'DURCHGELASSEN'
         except Exception as _a180:
             _ohne180 = str(_a180)
@@ -17580,25 +17598,25 @@ def main():
         # -- Der Dateiname aus der Server-Antwort wird entschaerft.
         for _boese180 in ('../../boese.appimage', '/etc/boese.appimage',
                           '..\\..\\boese.exe'):
-            _sauber180 = _ak180.sicherer_dateiname(_boese180)
+            _sauber180 = _ak180.safe_filename(_boese180)
             pruefe(os.sep not in _sauber180 and '/' not in _sauber180
                    and '..' not in _sauber180,
                    'Asset-Name %r wird zu %r' % (_boese180, _sauber180))
-        pruefe(_ak180.sicherer_dateiname('boese.sh') == 'update.bin',
+        pruefe(_ak180.safe_filename('boese.sh') == 'update.bin',
                'eine fremde Endung wird gar nicht erst uebernommen')
 
         # -- Und das Lesen der Summen-Datei: Muell wird uebergangen, nicht
         #    geraten.
-        _tab180 = _ak180.pruefsummen_lesen(
+        _tab180 = _ak180.parse_checksums(
             '%s  %s\nkaputt\n%s *zweite.exe\nzu kurz  x.exe\n'
             % (_summe180, _name180, 'b' * 64))
         pruefe(_tab180 == {_name180: _summe180, 'zweite.exe': 'b' * 64},
                'aus der Summen-Datei kommen nur brauchbare Zeilen (%r)' % _tab180)
         # ⚠⚠ Zwei Formen machen die GANZE Datei ungueltig — nicht nur die Zeile.
-        pruefe(_ak180.pruefsummen_lesen(
+        pruefe(_ak180.parse_checksums(
             '%s  dateien/linux/%s\n' % (_summe180, _name180)) == {},
             'ein Pfadanteil im Namen macht die Summen-Datei ungueltig')
-        pruefe(_ak180.pruefsummen_lesen(
+        pruefe(_ak180.parse_checksums(
             '%s  %s\n%s  %s\n' % (_summe180, _name180, 'd' * 64, _name180)) == {},
             'derselbe Name zweimal ebenfalls — sonst entschiede die Reihenfolge')
 
@@ -17640,7 +17658,7 @@ def main():
                'und haengt am Release-Schritt selbst (nicht irgendwo im YAML)')
     finally:
         _ur180.urlopen = _echt_open180
-        _ak180.eigenes_appimage = _echt_appimage180
+        _ak180.own_appimage = _echt_appimage180
         shutil.rmtree(_ordner180, ignore_errors=True)
 
     print('\n179. Der Erkennungskern der Scan-Signatur')
@@ -17950,8 +17968,8 @@ def main():
             def __init__(self, befehl, **k):
                 _gest185.append((befehl, k))
 
-        _echt185 = (subprocess.Popen, _ak185.verpackung,
-                    _ak185.eigenes_appimage, sys.executable)
+        _echt185 = (subprocess.Popen, _ak185.packaging,
+                    _ak185.own_appimage, sys.executable)
         _exe185 = os.path.join(_home182, 'prog', 'SC-BP-Watcher.exe')
         os.makedirs(os.path.dirname(_exe185), exist_ok=True)
         _setup185 = os.path.join(_home182, 'SC-BP-Watcher-Setup.exe')
@@ -17959,8 +17977,8 @@ def main():
             _f185.write(b'x')
         try:
             subprocess.Popen = _Popen185
-            _ak185.verpackung = lambda: 'exe'
-            _ak185.eigenes_appimage = lambda: None
+            _ak185.packaging = lambda: 'exe'
+            _ak185.own_appimage = lambda: None
             sys.executable = _exe185
             # ⚠ So sieht die Umgebung in der gepackten .exe aus: Der
             # Bootloader setzt `_PYI_*`. Erbt der neu gestartete Watcher das,
@@ -17968,14 +17986,14 @@ def main():
             # 11.09.2026: Update fertig, Neustart „Security validation failure").
             os.environ['_PYI_PARENT_PROCESS_LEVEL'] = '1'
             os.environ['_PYI_APPLICATION_HOME_DIR'] = _home182
-            _ak185._GEPRUEFT.clear()
-            _ok185, _grund185 = _ak185.einspielen(
-                _setup185, ziel_version='3.30.0', alte_version='3.29.0')
+            _ak185._CHECKED.clear()
+            _ok185, _grund185 = _ak185.install(
+                _setup185, target_version='3.30.0', previous_version='3.29.0')
             pruefe(not _ok185 and not _gest185,
                    'ohne gepruefte Summe wird nichts gestartet')
-            _ak185._GEPRUEFT[os.path.abspath(_setup185)] = 'CD' * 32
-            _ok185, _grund185 = _ak185.einspielen(
-                _setup185, ziel_version='3.30.0', alte_version='3.29.0')
+            _ak185._CHECKED[os.path.abspath(_setup185)] = 'CD' * 32
+            _ok185, _grund185 = _ak185.install(
+                _setup185, target_version='3.30.0', previous_version='3.29.0')
             pruefe(_ok185, 'mit gepruefter Summe wird uebergeben (%s)'
                    % (_grund185 or 'ok'))
             _bef185, _k185 = _gest185[-1] if _gest185 else ('', {})
@@ -18014,10 +18032,10 @@ def main():
         finally:
             os.environ.pop('_PYI_PARENT_PROCESS_LEVEL', None)
             os.environ.pop('_PYI_APPLICATION_HOME_DIR', None)
-            (subprocess.Popen, _ak185.verpackung, _ak185.eigenes_appimage,
+            (subprocess.Popen, _ak185.packaging, _ak185.own_appimage,
              sys.executable) = _echt185
-            _ak185._TAUSCH_LAEUFT[0] = False
-            _ak185._GEPRUEFT.clear()
+            _ak185._SWAP_RUNNING[0] = False
+            _ak185._CHECKED.clear()
             _ul182.release_lock()
             for _n185 in (_ul182.RUN_FILE, _ul182.RESULT_FILE):
                 _ul182._remove(_ul182._path(_n185))
@@ -18029,30 +18047,30 @@ def main():
             _f186.write(b'ALT' * 100)
         with open(_neu186, 'wb') as _f186:
             _f186.write(b'NEU' * 120)
-        _echt186 = (_ak185.verpackung, _ak185.eigenes_appimage)
+        _echt186 = (_ak185.packaging, _ak185.own_appimage)
         try:
-            _ak185.verpackung = lambda: 'appimage'
-            _ak185.eigenes_appimage = lambda: _app186
-            _ok186, _g186 = _ak185.einspielen(_neu186)
+            _ak185.packaging = lambda: 'appimage'
+            _ak185.own_appimage = lambda: _app186
+            _ok186, _g186 = _ak185.install(_neu186)
             pruefe(_ok186, 'der Tausch gelingt (%s)' % (_g186 or 'ok'))
             pruefe(open(_app186, 'rb').read() == b'NEU' * 120,
                    'danach liegt die neue Fassung am Platz')
-            pruefe(open(_app186 + _ak185.VORHER, 'rb').read() == b'ALT' * 100,
+            pruefe(open(_app186 + _ak185.BACKUP_SUFFIX, 'rb').read() == b'ALT' * 100,
                    'und die alte daneben als Sicherung')
-            pruefe(_ak185.zurueckrollen() and open(_app186, 'rb').read() == b'ALT' * 100,
+            pruefe(_ak185.roll_back() and open(_app186, 'rb').read() == b'ALT' * 100,
                    'zurueckrollen legt die alte wieder hin')
-            pruefe(not _ak185.zurueckrollen(),
+            pruefe(not _ak185.roll_back(),
                    'ohne Sicherung gibt es nichts zurueckzurollen')
             # Gegenprobe: Laesst sich nicht sichern, wird auch nicht getauscht.
-            os.makedirs(_app186 + _ak185.VORHER, exist_ok=True)
+            os.makedirs(_app186 + _ak185.BACKUP_SUFFIX, exist_ok=True)
             with open(_neu186, 'wb') as _f186:
                 _f186.write(b'NEU' * 120)
-            _ok186b, _g186b = _ak185.einspielen(_neu186)
+            _ok186b, _g186b = _ak185.install(_neu186)
             pruefe(not _ok186b and open(_app186, 'rb').read() == b'ALT' * 100,
                    'scheitert die Sicherung, bleibt die alte Fassung unangetastet')
             pruefe(not os.path.exists(_neu186), 'und die geladene Datei wird verworfen')
         finally:
-            _ak185.verpackung, _ak185.eigenes_appimage = _echt186
+            _ak185.packaging, _ak185.own_appimage = _echt186
 
         print('\n187. Ein Klick: kein Quittungsfenster, kein zweiter Knopf, der Schalter wirkt')
         import inspect as _in187
@@ -18086,7 +18104,7 @@ def main():
         pruefe('take_lock' in _ruft187 and 'release_lock' in _ruft187,
                'die Sperre wird genommen und freigegeben (%s)'
                % ', '.join(sorted(n for n in _ruft187 if 'lock' in n)))
-        pruefe('updater.neu_starten()' in _q187,
+        pruefe('restart' in _ruft187,
                'unter Linux startet es gleich neu — ohne zweiten Klick')
         _w187 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
         _nv187 = _w187[_w187.index('def _nach_version_sehen'):][:3000]
@@ -18307,7 +18325,10 @@ def main():
         ('scbp/update_run.py', 1, 'and pfade.gehoert_uns(installer)',
          'Installer-Aufraeumen kennt beide Namen (sonst bleibt er liegen)'),
         ('scbp/updater.py', 1,
-         "INNO_KENNUNG = '{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}_is1'",
+         # ⚠ Der Anker ist die **GUID**, nicht der Name der Konstanten. Der
+         # Name wurde am 12.09.2026 zu `INNO_KEY`; die GUID steht so in der
+         # Registry jedes Windows-Nutzers und wechselt nie.
+         "INNO_KEY = '{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}_is1'",
          'Deinstallations-Kennung — dieselbe GUID wie AppId'),
     ]
     for _datei191, _wieviel191, _text191, _warum191 in _anker191:
@@ -18804,6 +18825,76 @@ def main():
            'das Archiv hat eine eigene Marke (Pfad, Groesse, Nanosekunden)')
     pruefe('int(os.path.getmtime' not in _q193,
            'und nirgends mehr ein auf Sekunden gerundeter Zeitstempel')
+
+    # ------------------------------ Dynamische Importe zeigen ins Leere (194)
+    print('\n194. Jeder dynamische Import zeigt auf etwas, das es gibt')
+    # ⚠⚠ **Die Luecke, die KEIN Umbenennungswerkzeug schliesst.** Bei
+    # `__import__('scbp.updater', fromlist=['verpackung']).verpackung()`
+    # stehen Modul- UND Funktionsname in Zeichenketten. Weder ein
+    # Syntaxbaum-Scanner noch der Selbsttest melden etwas — die Stelle
+    # bricht erst, wenn ein Nutzer einen Fehlerbericht baut.
+    #
+    # Am 12.09.2026 war das bei der Umbenennung der Update-Module die
+    # EINZIGE Stelle im Projekt, die nach dem gruenen Lauf noch falsch war.
+    # Gefunden nur, weil ich danach das ganze Repo nach alten Namen
+    # durchsucht habe.
+    import importlib as _im194
+    _fehler194 = []
+    _gezaehlt194 = 0
+    for _ordner194, _unter194, _namen194 in os.walk(WURZEL):
+        _unter194[:] = [_u for _u in _unter194
+                        if _u not in ('.git', '__pycache__', 'daten')]
+        for _n194 in sorted(_namen194):
+            if not _n194.endswith('.py'):
+                continue
+            _weg194 = os.path.join(_ordner194, _n194)
+            try:
+                _b194 = _ast193.parse(open(_weg194, encoding='utf-8').read())
+            except Exception:
+                continue
+            for _k194 in _ast193.walk(_b194):
+                if not (isinstance(_k194, _ast193.Call)
+                        and isinstance(_k194.func, _ast193.Name)
+                        and _k194.func.id == '__import__'):
+                    continue
+                if not (_k194.args and isinstance(_k194.args[0],
+                                                  _ast193.Constant)):
+                    continue
+                _modul194 = _k194.args[0].value
+                if not str(_modul194).startswith('scbp'):
+                    continue
+                _hole194 = []
+                for _kw194 in _k194.keywords:
+                    if _kw194.arg == 'fromlist':
+                        try:
+                            _hole194 = list(
+                                _ast193.literal_eval(_kw194.value))
+                        except Exception:
+                            _hole194 = []
+                try:
+                    _m194 = _im194.import_module(_modul194)
+                except Exception as _f194:
+                    _fehler194.append('%s: %s nicht ladbar (%s)'
+                                      % (_n194, _modul194, _f194))
+                    continue
+                for _name194 in _hole194:
+                    _gezaehlt194 += 1
+                    if not hasattr(_m194, _name194):
+                        _fehler194.append(
+                            '%s:%d  %s hat kein `%s`'
+                            % (os.path.relpath(_weg194, WURZEL),
+                               _k194.lineno, _modul194, _name194))
+    pruefe(not _fehler194,
+           '%d dynamisch geholte Namen gibt es wirklich%s'
+           % (_gezaehlt194,
+              '' if not _fehler194 else ' — FEHLT: ' + '; '.join(_fehler194)))
+    # ⭐ Gegenprobe: Die Pruefung muss einen erfundenen Namen auch finden.
+    pruefe(not hasattr(_im194.import_module('scbp.updater'),
+                       'gibt_es_nicht_194'),
+           'Gegenprobe: ein erfundener Name wuerde auffallen')
+    pruefe(_gezaehlt194 > 0,
+           'und sie hat ueberhaupt etwas zu pruefen gefunden (%d)'
+           % _gezaehlt194)
 
     print()
     if fehler:
