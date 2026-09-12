@@ -10734,6 +10734,19 @@ def main():
             pruefe(_wegwerf(_sp_drin) and not _wegwerf(_sp_draus),
                    'die Filterentscheidung trennt drinnen von draussen '
                    '(%r / %r)' % (_wegwerf(_sp_drin), _wegwerf(_sp_draus)))
+
+            # ⚠⚠ **Die zwei Grenzfaelle, die frueher schon durchgingen.**
+            # Ein drinnen/draussen-Paar allein beweist zu wenig: Eine Fassung
+            # ohne abschliessenden Pfadtrenner (`startswith(wurzel)` statt
+            # `startswith(wurzel + os.sep)`) besteht es **und** laesst einen
+            # Nachbarordner `…-fremd` durch. Und eine Fassung, die die Wurzel
+            # selbst erlaubt, faellt dort ebenfalls nicht auf.
+            _nachbar190 = LAUFWURZEL[0] + '-fremd'
+            pruefe(not _wegwerf(LAUFWURZEL[0])
+                   and not _wegwerf(_nachbar190),
+                   'weder die Laufwurzel selbst noch ein Praefix-Nachbar '
+                   'gelten als erlaubt (%r / %r)'
+                   % (_wegwerf(LAUFWURZEL[0]), _wegwerf(_nachbar190)))
         finally:
             shutil.rmtree(_drin113, ignore_errors=True)
             shutil.rmtree(_drauss113, ignore_errors=True)
@@ -16920,7 +16933,7 @@ def main():
     import ast as _ast190
     import importlib as _il190
     import pkgutil as _pkg190
-    import tkinter as _tk190
+    import subprocess as _sp190
     import scbp as _scbp190
     from scbp import uex as _uex190
     _p4_190 = {
@@ -17053,28 +17066,60 @@ def main():
     # Geprueft wird deshalb die WIRKUNG, und zwar genau die, die einmal
     # zugeschlagen hat: Nimmt der Import einem Fenster die Geometrie?
     # (`abnahme.py` tat das, weil es auf Modulebene `sicherstellen()` ruft.)
+    # ⚠⚠ **In einem FRISCHEN Prozess, und um den ganzen Arbeitsschritt herum.**
+    # Die erste Fassung mass nur `import_module('ablagen')` — und das ist
+    # gleich doppelt daneben:
+    #
+    #   · `import_module` laedt NICHT neu, wenn das Modul schon im Speicher
+    #     ist. Gemessen wurde also oft gar kein Import.
+    #   · Die Projektimporte passieren erst in `ablage_module()`, also NACH
+    #     der Messung. Genau dort saesse eine Nebenwirkung.
+    #
+    # Dazu: Vorher/Nachher-Gleichheit allein akzeptiert auch zweimal denselben
+    # kaputten Zustand. Deshalb wird zuerst eine brauchbare Geometrie belegt,
+    # dann der volle Arbeitsschritt ausgefuehrt, dann erneut gemessen.
+    #
+    # Das ist ein gezielter Regressionstest fuer die bekannte Falle
+    # (`abnahme.py` versteckt beim Import jedes Fenster) — kein Beweis
+    # allgemeiner Nebenwirkungsfreiheit. Mehr soll er auch nicht sein.
     if ANZEIGE:
-        _w190 = _tk190.Tk()
-        try:
-            _w190.geometry('400x300')
-            _w190.update()
-            _vorher190 = (_w190.winfo_width(), _w190.winfo_viewable())
-        finally:
-            _w190.destroy()
-        _il190.import_module('ablagen')
-        _w2_190 = _tk190.Tk()
-        try:
-            _w2_190.geometry('400x300')
-            _w2_190.update()
-            _nachher190 = (_w2_190.winfo_width(), _w2_190.winfo_viewable())
-        finally:
-            _w2_190.destroy()
-        pruefe(_nachher190 == _vorher190,
-               'der Import von ablagen nimmt keinem Fenster die Geometrie '
-               '(%r -> %r)' % (_vorher190, _nachher190))
+        _mess190 = (
+            'import sys, tkinter as tk\n'
+            'sys.path.insert(0, %r)\n'
+            'sys.path.insert(0, %r)\n'
+            'w = tk.Tk(); w.geometry("400x300"); w.update()\n'
+            'vorher = (w.winfo_width(), w.winfo_height())\n'
+            'w.destroy()\n'
+            'import ablagen\n'
+            'ablagen.ablage_module()\n'
+            'w = tk.Tk(); w.geometry("400x300"); w.update()\n'
+            'nachher = (w.winfo_width(), w.winfo_height())\n'
+            'w.destroy()\n'
+            'print(vorher, nachher)\n'
+            % (os.path.join(_wurzelpfad, 'tools'), _wurzelpfad))
+        _lauf190 = _sp190.run([_sys190.executable, '-c', _mess190],
+                              capture_output=True, text=True,
+                              env=dict(os.environ, SC_BP_SICHTBAR='1'))
+        _aus190 = (_lauf190.stdout or '').strip().splitlines()
+        _zeile190 = _aus190[-1] if _aus190 else ''
+        _paare190 = re.findall(r'\((\d+), (\d+)\)', _zeile190)
+        pruefe(len(_paare190) == 2
+               and _paare190[0] == ('400', '300')
+               and _paare190[1] == _paare190[0],
+               'Import UND Ermittlung nehmen keinem Fenster die Geometrie '
+               '(%s)' % (_zeile190 or _lauf190.stderr.strip()[-80:] or 'leer'))
 
     _abl190 = _il190.import_module('ablagen')
-    _liste190 = list(_abl190.ablage_module())
+    _liste190, _impfehler190 = _abl190.ablage_module(mit_fehlern=True)
+    _liste190 = list(_liste190)
+
+    # ⚠⚠ **Ein uebersprungener Import ist ein Befund.** Sonst fehlt das Modul
+    # in beiden Ermittlungen, der Mengenvergleich bleibt gruen, und die
+    # Importpruefung sieht den Namen gar nicht erst. Zwei Ermittlungen mit
+    # demselben Algorithmus sind keine zwei Ermittlungen.
+    pruefe(not _impfehler190,
+           'kein scbp-Modul liess sich beim Ermitteln nicht laden (%s)'
+           % (', '.join(_impfehler190) or 'keines'))
 
     # ⭐⭐ **Vollstaendigkeit, nicht nur Gueltigkeit.** Eine gemeinsame Quelle
     # verhindert auseinanderlaufende Kopien — gemeinsame AUSLASSUNGEN verhindert

@@ -42,23 +42,39 @@ import importlib
 import pkgutil
 
 
-def ablage_module():
+def ablage_module(mit_fehlern=False):
     """Alle `scbp`-Module mit mindestens einer `uex.Store`-Instanz.
 
-    Gibt Namen ohne das `scbp.`-Praefix zurueck, alphabetisch. Module, die sich
-    nicht laden lassen, werden uebergangen — das faellt an anderer Stelle auf
-    (Pruefung 190 haelt die Menge gegen die tatsaechlich vorhandenen Module).
+    Gibt Namen ohne das `scbp.`-Praefix zurueck, alphabetisch. Mit
+    `mit_fehlern=True` zusaetzlich die Module, die sich **nicht laden liessen**
+    — als `(namen, fehler)`.
+
+    ⚠⚠ **Ein uebersprungener Import ist ein BEFUND, kein Nebenergebnis.**
+    Die erste Fassung verschluckte ihn mit `except Exception: continue`, und
+    die Begruendung dazu war falsch: „faellt an anderer Stelle auf". Faellt es
+    nicht. Pruefung 190 vergleicht diese Menge mit einer zweiten Ermittlung —
+    die denselben Weg geht und denselben Import ueberspringt. Scheitert also
+    `selling`, fehlt es in **beiden** Mengen, der Vergleich bleibt gruen, und
+    die Importpruefung danach sieht den Namen gar nicht erst.
+
+    Zwei Ermittlungen mit demselben Algorithmus sind keine zwei Ermittlungen.
+    Deshalb wird der Fehlschlag jetzt nach oben gereicht.
     """
     import scbp
     from scbp import uex
 
     gefunden = []
+    fehler = []
     for eintrag in pkgutil.iter_modules(scbp.__path__):
         try:
             modul = importlib.import_module('scbp.' + eintrag.name)
-        except Exception:
+        except Exception as ausnahme:
+            fehler.append('%s (%s)' % (eintrag.name,
+                                       type(ausnahme).__name__))
             continue
         if any(isinstance(getattr(modul, name, None), uex.Store)
                for name in dir(modul)):
             gefunden.append(eintrag.name)
+    if mit_fehlern:
+        return tuple(sorted(gefunden)), tuple(sorted(fehler))
     return tuple(sorted(gefunden))
