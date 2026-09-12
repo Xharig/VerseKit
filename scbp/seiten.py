@@ -295,6 +295,56 @@ def _nach_bedarf_packen(leinwand, zeilen, sofort=ZEILEN_SOFORT,
     leinwand.configure(yscrollcommand=beim_rollen)
 
 
+def _nach_bedarf_bauen(leinwand, anzahl, bauer, sofort=ZEILEN_SOFORT,
+                       schritt=ZEILEN_NACHSCHLAG):
+    """Nur die sichtbaren Einträge **bauen**, den Rest beim Rollen nachlegen.
+
+    ⚠⚠ **Unterschied zu `_nach_bedarf_packen`:** Dort sind die Zeilen längst
+    gebaut und es geht nur ums Layout. Hier werden sie gar nicht erst
+    erzeugt — weil nicht das Anzeigen teuer ist, sondern das **Wegwerfen**
+    beim nächsten Tastendruck.
+
+    Gemessen am 13.09.2026 auf der Seite „Zerlegen": Von 1,24 s je Anzeigen
+    gingen **1,03 s** allein für `destroy()` von 1600 Bauteilen drauf. Die
+    Auswahlliste baut für jedes der rund 400 Teile eine Zeile aus bis zu drei
+    Bauteilen — und wirft alles weg, sobald jemand einen Buchstaben tippt.
+
+    `bauer(i)` erzeugt den Eintrag mit der Nummer `i` und packt ihn selbst.
+    """
+    stand = {'gebaut': 0}
+
+    def nachlegen():
+        if stand['gebaut'] >= anzahl:
+            return
+        bis = min(anzahl, stand['gebaut'] + schritt)
+        for i in range(stand['gebaut'], bis):
+            try:
+                bauer(i)
+            except tk.TclError:
+                return            # Liste wurde inzwischen neu gezeichnet
+        stand['gebaut'] = bis
+
+    nachlegen()
+    if anzahl <= sofort or leinwand is None:
+        return
+
+    vorher = leinwand.cget('yscrollcommand')
+
+    def beim_rollen(*werte):
+        if vorher:
+            try:
+                leinwand.tk.call(vorher, *werte)
+            except tk.TclError:
+                pass
+        try:
+            if float(werte[1]) > 0.85:
+                nachlegen()
+        except (IndexError, TypeError, ValueError):
+            pass
+
+    leinwand.configure(yscrollcommand=beim_rollen)
+
+
 def _nach_oben(widget):
     """Die Rollfläche wieder an den Anfang setzen.
 
@@ -13398,7 +13448,9 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             rad_anschliessen(leinwand)
 
         zeigen = treffer if rollbar else treffer[:hoechstens]
-        for name in zeigen:
+
+        def _eintrag_bauen(nummer):
+            name = zeigen[nummer]
             bei = _zusatz_text(name)
             if not bei:
                 eintrag = tk.Label(halter, text=name, bg=BG, fg=FG,
@@ -13428,6 +13480,19 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
                     x.configure(bg=FLAECHE) for x in w])
                 teil.bind('<Leave>', lambda _e, w=mitfaerben: [
                     x.configure(bg=BG) for x in w])
+
+        # ⭐⭐ **Nur die sichtbaren Einträge bauen.** Bei 400 Teilen entstanden
+        # sonst über 1.600 Bauteile — und beim nächsten Tastendruck wurden sie
+        # alle wieder zerstört. Gemessen: 1,03 von 1,24 s gingen allein für
+        # das `destroy()` drauf. Siehe `_nach_bedarf_bauen`.
+        #
+        # ⚠ Ohne Rollfläche (`rollbar=None`) bleibt alles wie bisher: Dort
+        # deckelt `hoechstens` die Liste ohnehin auf wenige Zeilen.
+        if rollbar:
+            _nach_bedarf_bauen(leinwand, len(zeigen), _eintrag_bauen)
+        else:
+            for nummer in range(len(zeigen)):
+                _eintrag_bauen(nummer)
         rest = 0 if rollbar else len(treffer) - hoechstens
         if rest > 0:
             tk.Label(halter, text=t('s_af_weitere').format(n=rest), bg=BG,

@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(WURZEL, 'tools'))
 import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
+import tkinter as tk
 from scbp import seiten, hauptfenster                        # noqa: E402
 
 OK = []
@@ -122,6 +123,76 @@ def main():
     p(leinwand.cget('yscrollcommand') != '',
       'der Rollbalken haengt weiterhin dran')
 
+    # ── Und dasselbe fuer die Auswahlliste („Zerlegen") ──────────────────
+    #
+    # ⚠ Dort wird nicht nur gepackt, sondern **gebaut**: Bei 400 Teilen
+    # entstanden ueber 1.600 Bauteile, die beim naechsten Tastendruck alle
+    # wieder zerstoert wurden (1,03 von 1,24 s allein dafuer).
+    print('\n  Auswahlliste auf „Zerlegen":')
+    fenster.oeffnen('zerlegen')
+    for _ in range(3):
+        fenster.root.update()
+        fenster.root.update_idletasks()
+
+    def alle_leinwaende(w, heraus):
+        if w.winfo_class() == 'Canvas':
+            heraus.append(w)
+        for k in w.winfo_children():
+            alle_leinwaende(k, heraus)
+        return heraus
+
+    seite = fenster.seiten['zerlegen']
+    # Das Feld aufklappen, damit die Liste ueberhaupt entsteht.
+    feld = None
+    def entry_finden(w):
+        nonlocal feld
+        if w.winfo_class() == 'Entry' and feld is None:
+            feld = w
+        for k in w.winfo_children():
+            entry_finden(k)
+    entry_finden(seite)
+    p(feld is not None, 'das Auswahlfeld ist da')
+    # ⚠ **Ein Klick reicht nicht.** Ohne Eingabe und ohne Aufklappen baut die
+    # Liste bewusst gar nichts (`if not text and not offen['ja']: return`).
+    # Die erste Fassung dieser Probe klickte nur und mass deshalb eine Seite
+    # ganz ohne Liste — 109 Bauteile vorher wie nachher.
+    #
+    # Also wirklich tippen: ueber die `textvariable` des Feldes.
+    if feld is not None:
+        var_name = feld.cget('textvariable')
+        if var_name:
+            fenster.root.setvar(var_name, 'a')
+        for _ in range(4):
+            fenster.root.update()
+            fenster.root.update_idletasks()
+
+    def bauteile(w):
+        n = 1
+        for k in w.winfo_children():
+            n += bauteile(k)
+        return n
+
+    vorher_n = bauteile(seite)
+    p(vorher_n < 400,
+      'zu Beginn stehen deutlich weniger als alle Bauteile (%d)' % vorher_n)
+
+    # ⚠ **Über ALLE Rollflächen rollen.** Die erste Fassung nahm die letzte
+    # gefundene — das war die der Seite, nicht die der Auswahlliste. Sie
+    # meldete deshalb „nichts kam nach", obwohl die Mechanik lief.
+    lw = [c for c in alle_leinwaende(seite, []) if c.winfo_height() > 20]
+    for _ in range(14):
+        for c in lw:
+            try:
+                c.yview_moveto(1.0)
+            except tk.TclError:
+                pass
+        fenster.root.update()
+        fenster.root.update_idletasks()
+    nachher_n = bauteile(seite)
+    p(nachher_n > vorher_n,
+      'nach dem Rollen sind mehr Eintraege da (%d -> %d)'
+      % (vorher_n, nachher_n))
+
     fenster.root.destroy()
     print('\n  %d von %d' % (sum(1 for b in OK if b), len(OK)))
     return 0 if all(OK) else 1
@@ -129,3 +200,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
