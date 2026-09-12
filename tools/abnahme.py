@@ -721,7 +721,7 @@ def datenabruf_pruefen():
             continue
         for name in dir(modul):
             wert = getattr(modul, name, None)
-            if isinstance(wert, uex.Ablage):
+            if isinstance(wert, uex.Store):
                 ablagen.append((modulname, name, wert))
 
     pruefe(not fehlende,

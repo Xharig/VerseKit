@@ -55,7 +55,7 @@ Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
 gleich geblieben: der Ablage-Name `schiffe.json` und die Schlüssel darin
 (`schiffe`, `kauf`, `miete`, `konzept`, `anbau`, `name`, `werft`, `scu`,
 `stelle`, `ort`, `system`, `preis`) — sonst gilt jede vorhandene Ablage als
-fremd. Ebenso die Kennungen, unter denen `uex.holen()` meldet
+fremd. Ebenso die Kennungen, unter denen `uex.fetch()` meldet
 (`'schiffe'`, `'schiffe.kauf'`, `'schiffe.miete'`).
 """
 from . import uex
@@ -71,20 +71,20 @@ CACHE = 'schiffe.json'
 FORMAT = 5
 
 # Eine Woche — wie bei den Lagerorten. Schiffe kommen mit einem Patch.
-SHELF_LIFE = 30 * uex.TAG
+SHELF_LIFE = 30 * uex.DAY
 
 # ⚠ An den Patch gebunden: Schiffe, ihre Frachträume und ihre Kaufpreise
 # ändern sich mit einer neuen Spielversion, nicht im Wochenrhythmus.
-_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE,
-                    patch_bindet=True)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE,
+                    patch_bound=True)
 
 
 def load():
-    return _store.laden() or {}
+    return _store.load() or {}
 
 
 def age():
-    return _store.alter()
+    return _store.age()
 
 
 def names_with_cargo():
@@ -275,9 +275,9 @@ def update():
     """Die drei Listen holen, wenn sie fehlen oder älter als eine Woche sind."""
     if AUS:
         return False
-    if not _store.veraltet():
+    if not _store.stale():
         return True
-    raw = uex.holen(SOURCE_SHIPS, 'schiffe')
+    raw = uex.fetch(SOURCE_SHIPS, 'schiffe')
     if not raw:
         return False
     ships = {}
@@ -310,9 +310,9 @@ def update():
     # ⚠ Die Preislisten dürfen fehlschlagen, ohne dass alles scheitert: Ohne
     # sie kennt man wenigstens noch die Frachträume, und genau die braucht der
     # Routen-Reiter. Lieber die halbe Auskunft als gar keine.
-    buy = _collect_prices(uex.holen(SOURCE_BUY, 'schiffe.kauf'),
+    buy = _collect_prices(uex.fetch(SOURCE_BUY, 'schiffe.kauf'),
                           'price_buy')
-    rent = _collect_prices(uex.holen(SOURCE_RENT, 'schiffe.miete'),
+    rent = _collect_prices(uex.fetch(SOURCE_RENT, 'schiffe.miete'),
                            'price_rent')
-    return _store.sichern({'schiffe': ships, 'kauf': buy,
-                           'miete': rent}, kompakt=True)
+    return _store.save({'schiffe': ships, 'kauf': buy,
+                           'miete': rent}, compact=True)

@@ -58,7 +58,7 @@ CACHE = 'orte.json'
 FORMAT = 1
 
 # Eine Woche. Stationen kommen mit einem Patch, nicht über Nacht.
-HALTBAR = 30 * uex.TAG
+HALTBAR = 30 * uex.DAY
 
 # Aus diesen Feldern wird der Ortsname gezogen — in dieser Reihenfolge.
 FELDER = ('space_station_name', 'city_name', 'outpost_name')
@@ -66,13 +66,13 @@ FELDER = ('space_station_name', 'city_name', 'outpost_name')
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
 # ⚠ An den Patch gebunden: Stationen und Aussenposten kommen mit einer neuen
 # Spielversion dazu, nicht zwischendurch.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
-                     patch_bindet=True)
+_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR,
+                     patch_bound=True)
 
 
 def laden():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _ablage.laden()
+    return _ablage.load()
 
 
 def alle():
@@ -82,7 +82,7 @@ def alle():
 
 def alter():
     """Wie alt die Ablage ist, in Sekunden — oder None."""
-    return _ablage.alter()
+    return _ablage.age()
 
 
 def aktualisieren():
@@ -91,9 +91,9 @@ def aktualisieren():
     # bei abgeschaltetem Netz derselbe ist wie vor dem Umbau.
     if AUS:
         return False
-    if not _ablage.veraltet():
+    if not _ablage.stale():
         return True
-    roh = uex.holen(QUELLE, 'orte')
+    roh = uex.fetch(QUELLE, 'orte')
     if not roh:
         return False
     namen = set()
@@ -104,7 +104,7 @@ def aktualisieren():
                 namen.add(n)
     if not namen:
         return False
-    return _ablage.sichern({'orte': sorted(namen, key=str.lower)})
+    return _ablage.save({'orte': sorted(namen, key=str.lower)})
 
 
 def kennt(name):

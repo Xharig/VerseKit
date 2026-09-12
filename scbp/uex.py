@@ -26,10 +26,11 @@ Bedeutung der Daten. Die bleibt im jeweiligen Fachmodul.
 
 ## Warum es das gibt
 
-`preise.py`, `orte.py` und `verkauf.py` trugen bis v3.15 **jeweils dieselbe**
+`prices.py`, `orte.py` und `verkauf.py` trugen bis v3.15 **jeweils dieselbe**
 Maschinerie: `QUELLE`, `CACHE`, `FORMAT`, `ZEITLIMIT`, `HALTBAR` und dazu
 `laden()`, `alter()`, `_holen()`, `_sichern()`. Dreimal derselbe Code, und mit
-jedem weiteren Endpunkt eine Kopie mehr.
+jedem weiteren Endpunkt eine Kopie mehr. (Die Namen von damals stehen hier
+unverändert — sie beschreiben den Stand vor v3.15, nicht den von heute.)
 
 Das ist nicht nur Schreibarbeit. An jeder Kopie hängen **Regeln, die niemand
 sieht**: höchstens einmal am Tag holen, ohne Netz nicht krachen, bei
@@ -38,29 +39,29 @@ wird eine davon vergessen — und zwar die, an die niemand denkt.
 
 ## Wie ein Fachmodul es benutzt
 
-Eine `Ablage` je Endpunkt, als Modulvariable::
+Eine `Store` je Endpunkt, als Modulvariable::
 
     from . import uex
 
-    _ablage = uex.Ablage('preise.json', format_nr=1, haltbar=uex.TAG)
-    QUELLE = 'https://api.uexcorp.uk/2.0/commodities'
+    _store = uex.Store('preise.json', format_no=1, shelf_life=uex.DAY)
+    SOURCE = 'https://api.uexcorp.uk/2.0/commodities'
 
-    def laden():
-        return _ablage.laden()
+    def load():
+        return _store.load()
 
-    def alter():
-        return _ablage.alter()
+    def age():
+        return _store.age()
 
-    def aktualisieren():
-        if not _ablage.veraltet():
+    def update():
+        if not _store.stale():
             return True
-        liste = uex.holen(QUELLE, 'prices')
-        if not liste:
+        items = uex.fetch(SOURCE, 'prices')
+        if not items:
             return False
-        _ablage.sichern({'waren': _auswerten(liste)})
+        _store.save({'waren': _auswerten(items)})
         return True
 
-`sichern()` setzt `format` und `geholt` selbst — das Fachmodul gibt nur seine
+`save()` setzt `format` und `geholt` selbst — das Fachmodul gibt nur seine
 eigenen Felder mit.
 
 ## ⚠ Was hier bewusst NICHT hineingehört
@@ -78,8 +79,8 @@ alles ein bisschen kann und nichts richtig.
 
 **2. Eine Antwort ist bei 500 Zeilen abgeschnitten.** Kein Fehler, keine
 Meldung — die Liste hört einfach auf. Wer einen zu weiten Zuschnitt wählt,
-bekommt stillschweigend ein Bruchstück und merkt es nie. `holen()` meldet
-deshalb einen Verdacht ins Fehlerprotokoll, sobald genau `DECKEL` Zeilen
+bekommt stillschweigend ein Bruchstück und merkt es nie. `fetch()` meldet
+deshalb einen Verdacht ins Fehlerprotokoll, sobald genau `CAP` Zeilen
 zurückkommen. Der richtige Umgang ist **enger zuschneiden**, nicht mehr
 abrufen.
 """
@@ -95,56 +96,56 @@ from . import fehler, pfade
 from .katalog import AUS, KENNUNG
 
 # Die übliche Frist zwischen zwei Abrufen derselben Liste.
-TAG = 24 * 60 * 60
-WOCHE = 7 * TAG
+DAY = 24 * 60 * 60
+WEEK = 7 * DAY
 
 # Wie lange auf eine Antwort gewartet wird.
-ZEITLIMIT = 30
+TIMEOUT = 30
 
 # ⚠ Ab so vielen Zeilen ist die Antwort vermutlich abgeschnitten. Gemessen am
 # 04.09.2026: `commodities_routes?id_planet_origin=…` lieferte bei 7 von 10
 # Planeten **exakt** 500 Zeilen. Das ist keine Zufallszahl, das ist der Deckel.
-DECKEL = 500
+CAP = 500
 
 
-def _entschluesseln(wert):
+def _unescape(value):
     """`&apos;` → `'`, rekursiv durch Listen und Wörterbücher.
 
     ⚠ Nur Zeichenketten werden angefasst; Zahlen und `None` bleiben, wie sie
     sind. Ein Wert ohne `&` wird unverändert zurückgegeben, damit der
     Durchlauf über zehntausende Felder nichts kostet.
     """
-    if isinstance(wert, str):
-        return html.unescape(wert) if '&' in wert else wert
-    if isinstance(wert, list):
-        return [_entschluesseln(x) for x in wert]
-    if isinstance(wert, dict):
-        return dict((k, _entschluesseln(v)) for k, v in wert.items())
-    return wert
+    if isinstance(value, str):
+        return html.unescape(value) if '&' in value else value
+    if isinstance(value, list):
+        return [_unescape(x) for x in value]
+    if isinstance(value, dict):
+        return dict((k, _unescape(v)) for k, v in value.items())
+    return value
 
 
-def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
+def fetch(url, label, timeout=TIMEOUT):
     """Eine UEX-Liste abrufen.
 
     Gibt die Datenliste zurück, oder `None`, wenn der Abruf scheitert —
     **nie eine Ausnahme**. Ohne Netz läuft alles weiter wie vorher; das ist der
     Grund, warum hier so großzügig gefangen wird.
 
-    `stelle` ist der Name fürs Fehlerprotokoll, etwa `'prices'`.
+    `label` ist der Name fürs Fehlerprotokoll, etwa `'prices'`.
     """
     if AUS:
         return None
     try:
-        anfrage = urllib.request.Request(
-            adresse, headers={'User-Agent': KENNUNG})
-        with urllib.request.urlopen(anfrage, timeout=zeitlimit) as antwort:
-            rohtext = antwort.read().decode('utf-8')
-        roh = json.loads(rohtext)
+        request = urllib.request.Request(
+            url, headers={'User-Agent': KENNUNG})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw_text = response.read().decode('utf-8')
+        raw = json.loads(raw_text)
     except Exception as ausnahme:
-        fehler.merken('uex.holen.' + stelle, ausnahme)
+        fehler.merken('uex.fetch.' + label, ausnahme)
         return None
-    liste = roh.get('data')
-    if liste is None:
+    items = raw.get('data')
+    if items is None:
         return []
     # ⚠⚠ **HTML-Zeichen aus den Daten holen.** UEX liefert Apostrophe als
     # `&apos;` — im Werkzeug stand deshalb „Grey&apos;s Market" statt „Grey's
@@ -156,9 +157,9 @@ def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
     #
     # ⚠ Der Vortest auf `&` spart den Durchlauf bei den allermeisten Antworten:
     # Wo kein `&` im Rohtext steht, gibt es auch nichts zu entschlüsseln.
-    if '&' in rohtext:
-        liste = _entschluesseln(liste)
-    # ⚠ Siehe `DECKEL` oben: Abgeschnitten wird still. Wer es nicht merkt,
+    if '&' in raw_text:
+        items = _unescape(items)
+    # ⚠ Siehe `CAP` oben: Abgeschnitten wird still. Wer es nicht merkt,
     # rechnet mit einem Bruchstück weiter und hält es für das Ganze.
     #
     # ⚠⚠ **`==`, nicht `>=`** — und der Unterschied ist der ganze Sinn der
@@ -174,29 +175,29 @@ def holen(adresse, stelle, zeitlimit=ZEITLIMIT):
     # Abgeschnitten ist eine Antwort **genau dann**, wenn sie exakt auf dem
     # Deckel sitzt. Alles darüber beweist, dass es für diese Abfrage keinen
     # gibt.
-    if isinstance(liste, list) and len(liste) == DECKEL:
+    if isinstance(items, list) and len(items) == CAP:
         fehler.merken(
-            'uex.holen.' + stelle,
+            'uex.fetch.' + label,
             RuntimeError('Antwort bei %d Zeilen — vermutlich abgeschnitten, '
-                         'Abruf enger zuschneiden: %s' % (len(liste), adresse)))
-    return liste
+                         'Abruf enger zuschneiden: %s' % (len(items), url)))
+    return items
 
 
-class Ablage:
+class Store:
     """Eine abgelegte UEX-Liste auf der Platte, mit Alter und Formatstand.
 
     Ein Fachmodul legt sich davon **eine** an und behält sie als Modulvariable.
     """
 
-    def __init__(self, dateiname, format_nr, haltbar, stempeln=True,
-                 patch_bindet=False):
-        self.dateiname = dateiname
-        self.format_nr = format_nr
-        self.haltbar = haltbar
-        # ⚠ `stempeln=False` nur für die Ablage des Spielstands selbst — sie
+    def __init__(self, filename, format_no, shelf_life, stamp=True,
+                 patch_bound=False):
+        self.filename = filename
+        self.format_no = format_no
+        self.shelf_life = shelf_life
+        # ⚠ `stamp=False` nur für die Ablage des Spielstands selbst — sie
         # würde sich sonst mit ihrem eigenen alten Wert stempeln.
-        self.stempeln = stempeln
-        # ⭐⭐ **`patch_bindet=True`: Der Patch entscheidet, nicht die Uhr.**
+        self.stamp = stamp
+        # ⭐⭐ **`patch_bound=True`: Der Patch entscheidet, nicht die Uhr.**
         #
         # Ladenpreise, Schiffspreise und der Warengruppen-Katalog ändern sich
         # mit einem Spiel-Patch, nicht mit der Tageszeit — anders als die
@@ -205,72 +206,72 @@ class Ablage:
         # Spieler eine Minute Wartezeit für nichts.
         #
         # Mit dieser Bindung bleibt die Ablage stehen, bis CIG wirklich etwas
-        # geändert hat; `haltbar` ist dann nur noch die Notfrist für den Fall,
+        # geändert hat; `shelf_life` ist dann nur noch die Notfrist für den Fall,
         # dass sich die Spielversion gar nicht ermitteln lässt.
-        self.patch_bindet = patch_bindet
+        self.patch_bound = patch_bound
         # Zuletzt gelesener Inhalt, damit nicht bei jedem Zugriff die Datei
         # neu geparst wird. Der Schlüssel ist (Änderungszeit, Größe): Ändert
         # eine andere Stelle die Datei, fällt das auf und es wird neu gelesen.
-        self._gemerkt = {'stand': None, 'daten': None}
+        self._cached = {'stand': None, 'daten': None}
 
-    def pfad(self):
-        return pfade.app_datei(self.dateiname)
+    def path(self):
+        return pfade.app_datei(self.filename)
 
-    def laden(self):
+    def load(self):
         """Der abgelegte Stand — oder `{}`, wenn keiner (brauchbar) da ist.
 
         Ein anderer Formatstand gilt als „nicht da": Lieber einmal neu holen
         als eine alte Struktur falsch deuten.
         """
-        pfad = self.pfad()
+        target = self.path()
         try:
-            st = os.stat(pfad)
-            kennung = (st.st_mtime_ns, st.st_size)
+            st = os.stat(target)
+            ident = (st.st_mtime_ns, st.st_size)
         except OSError:
             return {}
-        if self._gemerkt['stand'] == kennung:
-            return self._gemerkt['daten']
+        if self._cached['stand'] == ident:
+            return self._cached['daten']
         try:
-            with open(pfad, encoding='utf-8') as f:
-                daten = json.load(f)
-            if daten.get('format') == self.format_nr:
-                self._gemerkt['stand'] = kennung
-                self._gemerkt['daten'] = daten
-                return daten
+            with open(target, encoding='utf-8') as f:
+                data = json.load(f)
+            if data.get('format') == self.format_no:
+                self._cached['stand'] = ident
+                self._cached['daten'] = data
+                return data
         except Exception:
             pass
         return {}
 
-    def alter(self):
+    def age(self):
         """Wie alt die Ablage ist, in Sekunden — oder `None`, wenn keine da ist."""
-        geholt = (self.laden() or {}).get('geholt')
+        fetched = (self.load() or {}).get('geholt')
         try:
-            return (time.time() - float(geholt)) if geholt else None
+            return (time.time() - float(fetched)) if fetched else None
         except (TypeError, ValueError):
             return None
 
-    def veraltet(self):
+    def stale(self):
         """Muss neu geholt werden? Ohne Ablage: ja.
 
-        ⚠ Bei `patch_bindet=True` zählt zusätzlich der Spielstand: Ein neuer
+        ⚠ Bei `patch_bound=True` zählt zusätzlich der Spielstand: Ein neuer
         Patch macht die Ablage sofort ungültig, ein gleichbleibender hält sie
         bis zur Notfrist am Leben.
         """
-        a = self.alter()
-        if a is None or a >= self.haltbar:
+        a = self.age()
+        if a is None or a >= self.shelf_life:
             return True
-        if self.patch_bindet:
-            # ⚠ Lokal importiert: `spielstand` benutzt selbst eine `Ablage`.
+        if self.patch_bound:
+            # ⚠ Lokal importiert: `spielstand` benutzt selbst eine `Store`.
             try:
                 from . import spielstand
-                ja, _damals, _jetzt = spielstand.ueberholt(self)
-                return bool(ja)
+                yes, _then, _now = spielstand.ueberholt(self)
+                return bool(yes)
             except Exception:
                 # Im Zweifel gilt der abgelegte Stand — siehe `ueberholt`.
                 return False
         return False
 
-    def sichern(self, felder, kompakt=False):
+    def save(self, fields, compact=False):
         """Die eigenen Felder ablegen; `format` und `geholt` kommen von hier.
 
         ⚠ Geschrieben wird über eine `.tmp` und `os.replace()` — **atomar**.
@@ -278,10 +279,10 @@ class Ablage:
         nie eine halbe Datei. Genau die wäre beim nächsten Start eine kaputte
         Ablage, die niemand einem abgebrochenen Schreibvorgang zuordnet.
         """
-        daten = dict(felder)
-        daten['format'] = self.format_nr
-        daten['geholt'] = time.time()
-        if self.stempeln:
+        data = dict(fields)
+        data['format'] = self.format_no
+        data['geholt'] = time.time()
+        if self.stamp:
             # ⚠⚠ **Unter welchem Spielstand wurde das geholt?** Ohne diese
             # Zeile ist eine Ablage einen Tag lang „frisch" — auch wenn
             # zwischendurch ein Patch die halben Preise umgeworfen hat. Der
@@ -290,11 +291,11 @@ class Ablage:
             #
             # Lokal importiert: `spielstand` hängt seinerseits an diesem Modul.
             from . import spielstand
-            stand = spielstand.live()
-            if stand:
-                daten['spielstand'] = stand
-        ziel = self.pfad()
-        trenner = (',', ':') if kompakt else None
+            build = spielstand.live()
+            if build:
+                data['spielstand'] = build
+        target = self.path()
+        separators = (',', ':') if compact else None
         # ⚠⚠ **Ein eigener Zwischenname je Schreibvorgang.** Bis zum
         # 06.09.2026 hieß die Datei fest `<ziel>.tmp` — schreiben zwei Fäden
         # gleichzeitig dieselbe Ablage (etwa zwei Abrufe der Steckplatzdaten),
@@ -304,29 +305,30 @@ class Ablage:
         # Der Schreibvorgang war also atomar, aber nicht nebenläufig-sicher.
         # Mit Prozess- und Faden-Nummer im Namen stören sie sich nicht mehr;
         # das abschließende `os.replace` bleibt atomar wie zuvor.
-        zwischen = '%s.%d.%d.tmp' % (ziel, os.getpid(),
-                                     threading.get_ident() % 100000)
+        temp = '%s.%d.%d.tmp' % (target, os.getpid(),
+                                 threading.get_ident() % 100000)
         try:
-            os.makedirs(os.path.dirname(ziel), exist_ok=True)
-            with open(zwischen, 'w', encoding='utf-8') as f:
-                if trenner:
-                    json.dump(daten, f, ensure_ascii=False, separators=trenner)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(temp, 'w', encoding='utf-8') as f:
+                if separators:
+                    json.dump(data, f, ensure_ascii=False,
+                              separators=separators)
                 else:
-                    json.dump(daten, f, ensure_ascii=False)
-            os.replace(zwischen, ziel)
-            self._gemerkt['stand'] = None
+                    json.dump(data, f, ensure_ascii=False)
+            os.replace(temp, target)
+            self._cached['stand'] = None
             return True
         except Exception as ausnahme:
-            fehler.merken('uex.sichern.' + self.dateiname, ausnahme)
+            fehler.merken('uex.save.' + self.filename, ausnahme)
             # ⚠ Die halbe Datei nicht liegen lassen — sie hieße sonst für immer
             # `…12345.tmp` im Ablageordner des Nutzers.
             try:
-                os.remove(zwischen)
+                os.remove(temp)
             except OSError:
                 pass
             return False
 
-    def vergessen(self):
+    def forget(self):
         """Den gemerkten Inhalt verwerfen — die Datei bleibt liegen."""
-        self._gemerkt['stand'] = None
-        self._gemerkt['daten'] = None
+        self._cached['stand'] = None
+        self._cached['daten'] = None

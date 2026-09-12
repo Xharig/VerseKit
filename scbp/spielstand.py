@@ -50,7 +50,7 @@ Wert, kein Verteilungsproblem.
 
 ## Was daraus folgt
 
-`uex.Ablage` schreibt beim Sichern mit, unter welchem Spielstand die Daten
+`uex.Store` schreibt beim Sichern mit, unter welchem Spielstand die Daten
 geholt wurden. Stimmt der später nicht mehr mit `live()` überein, gilt die
 Ablage als **überholt** — unabhängig von ihrem Alter. Der Reiter zeigt die
 Zahlen dann weiter, sagt aber dazu, dass ein Patch dazwischen liegt.
@@ -72,14 +72,14 @@ FORMAT = 1
 
 # Zwölf Stunden. Ein Patch erscheint nicht überraschend mitten am Tag, aber wer
 # abends spielt, soll den Freitags-Patch nicht erst am Samstag bemerken.
-HALTBAR = uex.TAG // 2
+HALTBAR = uex.DAY // 2
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR, stempeln=False)
+_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR, stamp=False)
 
 
 def laden():
     """Der abgelegte Stand — oder `{}`."""
-    return _ablage.laden()
+    return _ablage.load()
 
 
 def live():
@@ -102,24 +102,24 @@ def ptu():
 
 def aktualisieren():
     """Den Spielstand holen, wenn die Ablage fehlt oder älter als 12 h ist."""
-    if not _ablage.veraltet():
+    if not _ablage.stale():
         return True
-    roh = uex.holen(QUELLE, 'spielstand')
+    roh = uex.fetch(QUELLE, 'spielstand')
     # ⚠ Dieser Endpunkt liefert ein Wörterbuch, keine Liste — anders als jeder
-    # andere. `uex.holen` reicht beides unverändert durch.
+    # andere. `uex.fetch` reicht beides unverändert durch.
     if not isinstance(roh, dict):
         return False
     stand = (roh.get('live') or '').strip()
     if not stand:
         return False
-    return _ablage.sichern({'live': stand,
+    return _ablage.save({'live': stand,
                             'ptu': (roh.get('ptu') or '').strip()})
 
 
 def ueberholt(ablage):
     """Liegt ein Patch zwischen dieser Ablage und dem Spiel?
 
-    `ablage` ist eine `uex.Ablage`. Gibt `(ja, stand_der_ablage, live)` zurück
+    `ablage` ist eine `uex.Store`. Gibt `(ja, stand_der_ablage, live)` zurück
     — die beiden Nummern, damit die Oberfläche sie nennen kann statt nur
     „veraltet" zu sagen.
 
@@ -129,7 +129,7 @@ def ueberholt(ablage):
     überlesen.
     """
     jetzt = live()
-    damals = (ablage.laden() or {}).get('spielstand') or ''
+    damals = (ablage.load() or {}).get('spielstand') or ''
     if not jetzt or not damals:
         return False, damals, jetzt
     return damals != jetzt, damals, jetzt

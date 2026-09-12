@@ -117,14 +117,14 @@ FORMAT = 3
 
 # Notfrist. Maßgeblich ist die Spielversion aus `catalog.bin` — diese Frist
 # greift nur, falls sich die gar nicht ermitteln lässt.
-HALTBAR = 30 * uex.TAG
+HALTBAR = 30 * uex.DAY
 
-# ⭐⭐ **`patch_bindet=True`: Der Patch entscheidet, nicht die Uhr.**
+# ⭐⭐ **`patch_bound=True`: Der Patch entscheidet, nicht die Uhr.**
 # Steckplätze ändern sich mit einem Spiel-Patch und sonst nie. Eine Zeitfrist
 # würde denselben Stand alle 30 Tage wegwerfen und neu holen — Abrufe, die
 # niemandem nützen und die erkul bezahlt.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR,
-                     patch_bindet=True)
+_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR,
+                     patch_bound=True)
 
 # ⚠ Steckplätze, die den Spieler nichts angehen. `invisible` und `uneditable`
 # heißt: Das Spiel zeigt sie nicht und lässt sie nicht tauschen — ein Bauplan
@@ -200,7 +200,7 @@ def _holen(pfad, stelle):
     try:
         anfrage = urllib.request.Request(
             adresse, headers={'User-Agent': KENNUNG})
-        with urllib.request.urlopen(anfrage, timeout=uex.ZEITLIMIT) as antwort:
+        with urllib.request.urlopen(anfrage, timeout=uex.TIMEOUT) as antwort:
             roh = antwort.read()
         # ⚠ `-15` = raw deflate, ohne zlib-Kopf. Mit `zlib.decompress(roh)`
         # allein scheitert es an genau dieser Stelle — der Kopf fehlt, weil
@@ -245,11 +245,11 @@ def _hersteller_tabelle(kat):
 
 
 def laden():
-    return _ablage.laden() or {}
+    return _ablage.load() or {}
 
 
 def alter():
-    return _ablage.alter()
+    return _ablage.age()
 
 
 def spielversion():
@@ -815,7 +815,7 @@ def nachtragen(saetze):
         # ⚠ `hersteller_kuerzel`, **nicht** `hersteller` — das ist die
         # Schleifenvariable aus dem Schiffs-Tupel und wäre hier eine
         # Zeichenkette, wo ein Wörterbuch erwartet wird.
-        _ablage.sichern({'spielversion': version, 'schiffe': bekannt,
+        _ablage.save({'spielversion': version, 'schiffe': bekannt,
                          'hersteller': hersteller_kuerzel})
     return geholt
 

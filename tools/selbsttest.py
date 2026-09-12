@@ -7392,7 +7392,7 @@ def main():
 
     # ⚠ `format` und `geholt` setzt die Ablage selbst (siehe `scbp/uex.py`) —
     # hier stehen nur die eigenen Felder.
-    _vk84._ablage.sichern({
+    _vk84._ablage.save({
         'terminals': {'1': {'o': 'Area 18', 's': 'Stanton', 'q': 0},
                       '2': {'o': 'GrimHEX', 's': 'Stanton', 'q': 1},
                       '3': {'o': 'Ashland', 's': 'Pyro', 'q': 0}},
@@ -7460,21 +7460,21 @@ def main():
     # `AUS` hier abgeschaltet und der Abruf durch eine Falle ersetzt: Kommt die
     # Anfrage trotz Sperre durch, fliegt sie und die Pruefung faellt durch.
     #
-    # ⚠ Seit dem gemeinsamen Unterbau haengt der Abruf an `uex.holen` — die
+    # ⚠ Seit dem gemeinsamen Unterbau haengt der Abruf an `uex.fetch` — die
     # Falle gehoert also dorthin, nicht mehr an ein `_holen` in `verkauf`.
     from scbp import uex as _uex84
 
     def _falle84(*_a, **_k):
         raise AssertionError('trotz Sperre ins Netz gegriffen')
 
-    _aus84, _echt84 = _vk84.AUS, _uex84.holen
-    _vk84.AUS, _uex84.holen = False, _falle84
+    _aus84, _echt84 = _vk84.AUS, _uex84.fetch
+    _vk84.AUS, _uex84.fetch = False, _falle84
     try:
         _ergebnis84 = _vk84.aktualisieren(erzwingen=True)
     except AssertionError:
         _ergebnis84 = ('ins Netz gegriffen',)
     finally:
-        _vk84.AUS, _uex84.holen = _aus84, _echt84
+        _vk84.AUS, _uex84.fetch = _aus84, _echt84
     pruefe(_ergebnis84 == (False, 'gesperrt'),
            'der Knopf laesst sich nicht zweimal druecken (%s)' % (_ergebnis84,))
 
@@ -15394,10 +15394,40 @@ def main():
                'Gegenprobe: ein Zeiger ins Leere verliert gegen den gueltigen')
 
         # 4. Gar kein Zeiger -> None, und der Standardordner greift.
+        #
+        # ⚠⚠ **Unter Windows kann `os.remove` an einer gerade geschriebenen
+        # Datei scheitern** — Virenscanner und Indexdienst halten sie einen
+        # Augenblick fest (`WinError 32`). Bis zum 12.09.2026 stand hier ein
+        # blankes `os.remove`, und ein einziger solcher Augenblick riss den
+        # GANZEN Selbsttest ab: Der Lauf endete nach 1.777 von 2.090
+        # Pruefungen mit einem Traceback, und die restlichen 300 liefen nie.
+        #
+        # Die beiden `rmtree` daneben tragen `ignore_errors=True` aus genau
+        # diesem Grund — nur diese eine Zeile war ungeschuetzt.
+        #
+        # ⚠ Weggesehen wird trotzdem nicht: Laesst sich die Datei auch nach
+        # mehreren Anlaeufen nicht entfernen, ist das ein BEFUND mit Grund,
+        # kein stilles Ueberspringen. Die Pruefung darunter braucht sie weg —
+        # sonst prueft sie etwas anderes, als ihr Text behauptet.
         shutil.rmtree(os.path.dirname(erst), ignore_errors=True)
-        os.remove(zweit)
-        pruefe(_pf169._ablage_aus_datei() is None,
-               'ohne jeden Zeiger kommt None zurueck')
+        _weg169 = None
+        for _versuch169 in range(20):
+            try:
+                os.remove(zweit)
+                _weg169 = True
+                break
+            except FileNotFoundError:
+                _weg169 = True
+                break
+            except OSError as _sperre169:
+                _weg169 = _sperre169
+                time.sleep(0.05)
+        if _weg169 is not True:
+            pruefe(False, 'die Zweitschrift laesst sich entfernen (gesperrt: %s)'
+                   % _weg169)
+        else:
+            pruefe(_pf169._ablage_aus_datei() is None,
+                   'ohne jeden Zeiger kommt None zurueck')
     finally:
         _pf169._dokumente = _echt_dok
         for _k, _v in _sicher.items():

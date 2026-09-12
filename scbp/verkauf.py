@@ -132,7 +132,7 @@ KEIN_BEDARF = 6
 
 # Ein Tag. Preise ändern sich im Spiel laufend, aber nicht im Minutentakt —
 # dieselbe Überlegung wie in `preise.py`.
-HALTBAR = uex.TAG
+HALTBAR = uex.DAY
 
 # Ab wann eine Meldung als alt gilt und in der Anzeige abgesetzt wird.
 # Gemessen am 30.08.2026 über alle 1.880 Ankauf-Einträge: 98,5 % waren jünger
@@ -152,7 +152,7 @@ ALT = 7 * 24 * 60 * 60
 FEHLERSPERRE = 60
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR)
 
 # Wann zuletzt vergeblich angefragt wurde. Bewusst nur im Arbeitsspeicher: Nach
 # einem Neustart des Werkzeugs darf man es sofort wieder versuchen.
@@ -182,12 +182,12 @@ QUELLE_TERMINALS = 'https://api.uexcorp.uk/2.0/terminals'
 
 def laden():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _ablage.laden()
+    return _ablage.load()
 
 
 def alter():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    return _ablage.alter()
+    return _ablage.age()
 
 
 def wartezeit():
@@ -229,11 +229,11 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     if erzwingen:
         if wartezeit():
             return False, 'gesperrt'
-    elif not _ablage.veraltet():
+    elif not _ablage.stale():
         return True, ''
     if fortschritt:
         fortschritt('')
-    preise = uex.holen(QUELLE, 'verkauf', zeitlimit=ZEITLIMIT)
+    preise = uex.fetch(QUELLE, 'verkauf', timeout=ZEITLIMIT)
     if preise is None:
         _letzter_fehlversuch['zeit'] = time.time()
         return False, 'netz'
@@ -243,8 +243,8 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     # Die Terminal-Liste darf fehlschlagen, ohne dass alles scheitert: Ohne sie
     # kennen wir System und `is_nqa` nicht, aber der Terminal-Name steht in den
     # Preisdaten selbst. Lieber eine Liste ohne Systemspalte als gar keine.
-    stellen = uex.holen(QUELLE_TERMINALS, 'verkauf.terminals',
-                        zeitlimit=ZEITLIMIT) or []
+    stellen = uex.fetch(QUELLE_TERMINALS, 'verkauf.terminals',
+                        timeout=ZEITLIMIT) or []
 
     # ⚠⚠ **Hier steht mit Absicht KEIN Spielstand.**
     #
@@ -322,7 +322,7 @@ def aktualisieren(erzwingen=False, fortschritt=None):
         zeilen.sort(key=lambda z: -z['p'])
     # ⚠ `kompakt`: Diese Ablage ist mit rund 75 KB die grösste der drei —
     # ohne Leerzeichen zwischen den Feldern spart das spürbar Platz.
-    _ablage.sichern({'terminals': terminals, 'waren': waren}, kompakt=True)
+    _ablage.save({'terminals': terminals, 'waren': waren}, compact=True)
     return True, ''
 
 

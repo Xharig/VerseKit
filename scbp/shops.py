@@ -134,28 +134,28 @@ SECTIONS = ('Systems', 'Vehicle Weapons', 'Utility', 'Personal Weapons',
 
 # ⭐⭐ **Ladenpreise hängen am Patch, nicht an der Uhr.** Sie ändern sich, wenn
 # CIG etwas ändert — anders als die Warenpreise im Handel, die täglich
-# schwanken. Deshalb `patch_bindet=True` unten und hier nur noch eine
+# schwanken. Deshalb `patch_bound=True` unten und hier nur noch eine
 # Notfrist: Sie greift, wenn sich die Spielversion nicht ermitteln lässt.
 #
 # Am 05.09.2026 angeregt: „Damit die Listen schneller laden — wäre es möglich,
 # die als Datenbank beim Spieler abzulegen und nur bei Bedarf zu
 # aktualisieren? Schiffspreise, Waffenpreise erneuern sich ja nicht so
 # häufig." Die Ablage gab es schon; sie warf ihren Inhalt nur zu oft weg.
-SHELF_LIFE = 30 * uex.TAG
+SHELF_LIFE = 30 * uex.DAY
 
 # ⚠ Wieviele Gegenstände die Ablage höchstens behält. Ohne Grenze wüchse sie
 # mit jedem angesehenen Teil weiter; 400 deckt jeden realistischen Bestand ab
 # und bleibt unter 200 KB. Beim Überschreiten fliegt der älteste Eintrag.
 MAX_ITEMS = 400
 
-_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE,
-                    patch_bindet=True)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE,
+                    patch_bound=True)
 
 # Der Warengruppen-Katalog. Eigene Ablage, dieselbe Regel: Er ändert sich mit
 # einem Patch, nicht mit dem Tag — und sein Aufbau kostet rund 50 Sekunden.
 # Genau der Lauf, der bisher jede Woche umsonst fällig wurde.
-_catalog = uex.Ablage(CATALOG_CACHE, format_nr=FORMAT_CATALOG,
-                      haltbar=90 * uex.TAG, patch_bindet=True)
+_catalog = uex.Store(CATALOG_CACHE, format_no=FORMAT_CATALOG,
+                      shelf_life=90 * uex.DAY, patch_bound=True)
 
 
 def _save_catalog(progress=None):
@@ -177,7 +177,7 @@ def _save_catalog(progress=None):
     (gemessen: 4.282 Zeilen in sechs Kategorien, davon 710 kaufbare Teile).
     Das ist unvergleichlich billiger, als 1.597 Teile einzeln zu fragen.
     """
-    if not _catalog.veraltet():
+    if not _catalog.stale():
         return True
     # ⚠⚠ **Erst den Spielstand, dann den Katalog.** Gesichert wird mit dem
     # Stand, der in diesem Augenblick bekannt ist — fehlt er, trägt der
@@ -189,7 +189,7 @@ def _save_catalog(progress=None):
         spielstand.aktualisieren()
     except Exception:
         pass
-    cats = uex.holen(SOURCE_CATEGORIES, 'shops.categories')
+    cats = uex.fetch(SOURCE_CATEGORIES, 'shops.categories')
     if not cats:
         return False
     chosen = [k for k in cats if k.get('section') in SECTIONS]
@@ -211,7 +211,7 @@ def _save_catalog(progress=None):
     for number, k in enumerate(chosen, start=1):
         cat_index = len(categories)
         categories.append([k.get('section') or '', k.get('name') or ''])
-        items = uex.holen(SOURCE_ITEMS % k['id'], 'shops.catalog')
+        items = uex.fetch(SOURCE_ITEMS % k['id'], 'shops.catalog')
         raw = {}
         for x in items or []:
             name = (x.get('name') or '').strip()
@@ -242,7 +242,7 @@ def _save_catalog(progress=None):
         # ⚠ Die Attribute überschreiben die Größe aus der Teileliste: Dort ist
         # sie nur bei 466 von 1.528 gefüllt, hier bei 70 von 73 (Kühler).
         traits = {}
-        for x in uex.holen(SOURCE_ATTRIBUTES % k['id'], 'shops.attributes') or []:
+        for x in uex.fetch(SOURCE_ATTRIBUTES % k['id'], 'shops.attributes') or []:
             item_no = str(x.get('id_item') or '')
             field = (x.get('attribute_name') or '').strip()
             value = str(x.get('value') or '').strip()
@@ -264,7 +264,7 @@ def _save_catalog(progress=None):
             raw[item_no]['q'] = found.get('Grade', '')
             if found.get('Size'):
                 raw[item_no]['g'] = found['Size']
-        price_rows = uex.holen(SOURCE_CATEGORY_PRICES % k['id'], 'shops.buyable')
+        price_rows = uex.fetch(SOURCE_CATEGORY_PRICES % k['id'], 'shops.buyable')
         seen = set()
         for x in price_rows or []:
             if (x.get('price_buy') or 0) <= 0:
@@ -292,10 +292,10 @@ def _save_catalog(progress=None):
     if not names:
         return False
     items_out.sort(key=lambda x: x['n'].lower())
-    return _catalog.sichern({'namen': names,
+    return _catalog.save({'namen': names,
                              'kategorien': categories,
                              'teile': items_out},
-                            kompakt=True)
+                            compact=True)
 
 
 def catalog_ready():
@@ -305,7 +305,7 @@ def catalog_ready():
     Katalog im alten Format (nur Kennungen, keine Teile) zählt nicht als da;
     er wird über `FORMAT_CATALOG` ohnehin verworfen.
     """
-    return bool((_catalog.laden() or {}).get('teile'))
+    return bool((_catalog.load() or {}).get('teile'))
 
 
 def fetch_catalog(progress=None):
@@ -385,7 +385,7 @@ def catalog_items():
     bauen", der Laden „was kann ich kaufen". Das zweite ist die größere
     Menge — und die, nach der jemand sucht, der ein Teil braucht.
     """
-    data = _catalog.laden() or {}
+    data = _catalog.load() or {}
     cats = data.get('kategorien') or []
     result = []
     for x in data.get('teile') or []:
@@ -408,16 +408,16 @@ def _uex_id(name):
     """Die UEX-Kennung zu einem Namen — oder `None`. Baut den Katalog bei Bedarf."""
     if not (name or '').strip():
         return None
-    table = (_catalog.laden() or {}).get('namen') or {}
+    table = (_catalog.load() or {}).get('namen') or {}
     if not table:
         if not _save_catalog():
             return None
-        table = (_catalog.laden() or {}).get('namen') or {}
+        table = (_catalog.load() or {}).get('namen') or {}
     return table.get(name.strip().lower())
 
 
 def _all():
-    return (_store.laden() or {}).get('teile') or {}
+    return (_store.load() or {}).get('teile') or {}
 
 
 def known(ident):
@@ -510,10 +510,10 @@ def fetch(ident, name='', force=False):
     # siehe `ID_PREFIX`. Ohne diesen Zweig bliebe ein Drittel des Katalogs
     # stumm, darunter jeder Boomtube-Werfer.
     if ident.startswith(ID_PREFIX):
-        raw = uex.holen(SOURCE_BY_ID % ident[len(ID_PREFIX):],
+        raw = uex.fetch(SOURCE_BY_ID % ident[len(ID_PREFIX):],
                         'shops.id')
     else:
-        raw = uex.holen(SOURCE % ident, 'shops')
+        raw = uex.fetch(SOURCE % ident, 'shops')
     if raw is None:
         return False
     # ⚠ Erst wenn die Kennung leer ausgeht, wird der Name bemüht — und auch
@@ -521,7 +521,7 @@ def fetch(ident, name='', force=False):
     if not raw and name:
         uex_ident = _uex_id(name)
         if uex_ident:
-            by_id = uex.holen(SOURCE_BY_ID % uex_ident, 'shops.name')
+            by_id = uex.fetch(SOURCE_BY_ID % uex_ident, 'shops.name')
             if by_id:
                 raw = by_id
 
@@ -554,10 +554,10 @@ def fetch(ident, name='', force=False):
                         key=lambda p: p[1].get('geholt') or 0)
         for key, _value in by_age[:len(items) - MAX_ITEMS]:
             items.pop(key, None)
-    return _store.sichern({'teile': items}, kompakt=True)
+    return _store.save({'teile': items}, compact=True)
 
 
 def forget():
     """Alles Nachgeschlagene verwerfen — für den Selbsttest und die Diagnose."""
-    _store.sichern({'teile': {}}, kompakt=True)
-    _store.vergessen()
+    _store.save({'teile': {}}, compact=True)
+    _store.forget()

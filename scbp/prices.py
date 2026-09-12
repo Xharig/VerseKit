@@ -77,10 +77,10 @@ FORMAT = 1
 TIMEOUT = 20
 
 # Wie lange eine Ablage als frisch gilt. Ein Tag — siehe Kopf.
-SHELF_LIFE = uex.TAG
+SHELF_LIFE = uex.DAY
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
-_store = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=SHELF_LIFE)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE)
 
 # ⭐⭐ **Am Terminal gekaufte Ware hat immer Qualität 500.**
 #
@@ -116,12 +116,12 @@ BUY_QUALITY = 500
 
 def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _store.laden()
+    return _store.load()
 
 
 def age():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    return _store.alter()
+    return _store.age()
 
 
 def update(progress=None):
@@ -130,18 +130,18 @@ def update(progress=None):
     Gibt `(Erfolg, Meldung)` zurück. **Sparsam**: Ist die Ablage frisch, wird
     gar nichts abgerufen.
     """
-    # ⚠ Die Abfrage steht hier, obwohl `uex.holen()` sie auch kennt: Sonst
+    # ⚠ Die Abfrage steht hier, obwohl `uex.fetch()` sie auch kennt: Sonst
     # käme bei abgeschaltetem Netz und frischer Ablage ein `True` zurück, wo
     # vorher ein `False` stand. Ein Umbau soll die Struktur ändern, nicht das
     # Verhalten — auch wenn den Wert hier gerade niemand auswertet.
     if AUS:
         return False, ''
-    if not _store.veraltet():
+    if not _store.stale():
         return True, ''
     if progress:
         progress('')
     # ⚠ Kein lautes Scheitern. Ohne Preise laeuft alles weiter wie vorher.
-    items = uex.holen(SOURCE, 'prices', zeitlimit=TIMEOUT)
+    items = uex.fetch(SOURCE, 'prices', timeout=TIMEOUT)
     if not items:
         return False, ''
     # Nur die drei Felder behalten, die gebraucht werden — aus 134 KB werden so
@@ -165,7 +165,7 @@ def update(progress=None):
             'kauf': float(x.get('price_buy') or 0),
             'verkauf': float(x.get('price_sell') or 0),
         })
-    _store.sichern({'waren': slim})
+    _store.save({'waren': slim})
     return True, ''
 
 

@@ -108,11 +108,11 @@ RUECKFAHRT_KANDIDATEN = 400
 # Stopp ist, sind die Preise vom Anfang alt.
 MAX_STOPPS = 4
 
-_ablage = uex.Ablage(CACHE, format_nr=FORMAT, haltbar=HALTBAR)
+_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR)
 
 
 def _alle():
-    return (_ablage.laden() or {}).get('starts') or {}
+    return (_ablage.load() or {}).get('starts') or {}
 
 
 def alter(start):
@@ -144,7 +144,7 @@ def holen(start, erzwingen=False):
     a = alter(start)
     if not erzwingen and a is not None and a < HALTBAR:
         return True
-    roh = uex.holen(QUELLE % start, 'routen')
+    roh = uex.fetch(QUELLE % start, 'routen')
     if roh is None:
         return False
 
@@ -182,7 +182,7 @@ def holen(start, erzwingen=False):
                             key=lambda p: p[1].get('geholt') or 0)
         for schluessel, _wert in nach_alter[:len(starts) - HOECHSTENS]:
             starts.pop(schluessel, None)
-    return _ablage.sichern({'starts': starts}, kompakt=True)
+    return _ablage.save({'starts': starts}, compact=True)
 
 
 def menge_und_gewinn(fahrt, scu_frei, geld):
@@ -477,5 +477,5 @@ def bekannte_starts():
 
 def vergessen():
     """Alles Nachgeschlagene verwerfen — für den Selbsttest und die Diagnose."""
-    _ablage.sichern({'starts': {}}, kompakt=True)
-    _ablage.vergessen()
+    _ablage.save({'starts': {}}, compact=True)
+    _ablage.forget()
