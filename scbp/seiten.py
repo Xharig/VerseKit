@@ -3655,26 +3655,6 @@ def _joysticks(fenster, rahmen):
             daten['vergleich'] = {}
             daten['geraetenamen'] = {}
 
-        # ⭐⭐ **Nichts neu zeichnen, wenn sich nichts geändert hat.**
-        #
-        # Dieser Rückruf läuft bei JEDEM Anzeigen der Seite — auch wenn man nur
-        # kurz woanders war. Gemessen am 12.09.2026: **894 ms je Klick**, davon
-        # 92 % in `liste_zeichnen`. Gemeldet als „wirkt lahm … als hätte ein
-        # Anfänger das gebaut".
-        #
-        # ⚠ Der Fingerabdruck ist **die Datenlage selbst**, nicht eine
-        # Ableitung davon (Dateizeitstempel o. ä.). Damit kann er nicht
-        # veralten: Sind die Daten gleich, wäre auch das Bild gleich. Eine
-        # billigere Marke wäre eine zweite Wahrheit, die irgendwann von der
-        # ersten abweicht — und dann steht eine Seite still veraltet da.
-        #
-        # ⚠ `erzwingen=True` für die Aufrufer, die selbst etwas geändert haben.
-        # Sie wissen es besser als jeder Vergleich.
-        stand = (aktuelle(), repr(daten['vergleich']), repr(nur.get('sicht')))
-        if not erzwingen and stand == zuletzt['stand']:
-            return
-        zuletzt['stand'] = stand
-
         try:
             # ⚠ Die Klarnamen richten sich nach der **Programmsprache**, nicht
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
@@ -3695,6 +3675,39 @@ def _joysticks(fenster, rahmen):
             fehler.merken('seiten.joysticks_namen', ausnahme)
             daten['namen'] = {}
         _laden()
+
+        # ⭐⭐ **Nichts neu zeichnen, wenn sich nichts geändert hat.**
+        #
+        # Dieser Rückruf läuft bei JEDEM Anzeigen der Seite — auch wenn man nur
+        # kurz woanders war. Gemessen am 12.09.2026: **894 ms je Klick**, davon
+        # 92 % in `liste_zeichnen`. Gemeldet als „wirkt lahm … als hätte ein
+        # Anfänger das gebaut".
+        #
+        # ⚠⚠ **Der Vergleich steht HIER — nach `_laden()`, nicht davor.**
+        # Die erste Fassung verglich nur `vergleich()`, und das enthält Geräte,
+        # Zuordnung und Dateipfad, **nicht die Belegungen**. Die kommen erst
+        # über `_laden()` → `joysticks.sicht()`. Der Prüfer hat es nachgestellt:
+        # `js1_x` auf `js1_y` umlegen — `vergleich()` bleibt gleich, die
+        # Belegung ändert sich, und die Seite hätte den alten Stand gezeigt.
+        # Importierte und im Werkzeug neu gesetzte Belegungen wären unsichtbar
+        # geblieben.
+        #
+        # ⭐ Die Lehre daraus: Ein Fingerabdruck muss aus **genau den Daten**
+        # bestehen, aus denen gezeichnet wird — nicht aus denen, die man
+        # zuerst zur Hand hat. Deshalb stehen jetzt alle vier Quellen drin,
+        # die `kopf_zeichnen()` und `liste_zeichnen()` benutzen.
+        #
+        # ⚠ `erzwingen=True` für Aufrufer, die selbst etwas geändert haben.
+        stand = (aktuelle(),
+                 repr(daten.get('vergleich')),
+                 repr(daten.get('belegungen')),
+                 repr(daten.get('namen')),
+                 repr(daten.get('geraetenamen')),
+                 repr(nur.get('sicht')))
+        if not erzwingen and stand == zuletzt['stand']:
+            return
+        zuletzt['stand'] = stand
+
         kopf_zeichnen()
         # Die feste Hülle erst zeigen, wenn es wirklich Belegungen gibt —
         # ein Suchfeld über einer leeren Liste ist nur Ballast.
@@ -14586,7 +14599,15 @@ def _blickwinkel(fenster, rahmen):
         fields.hinweis(feld, zustand['abstand'], t('s_pl_abstand'),
                        normal=FG, grau=SUB)
         feld.bind('<Return>', _abstand_merken)
-        feld.bind('<FocusOut>', _abstand_merken)
+        # ⚠⚠ `add='+'` ist hier PFLICHT. Ohne das ersetzt diese Bindung die,
+        # die `fields.hinweis()` gerade gesetzt hat — und der Hinweis kommt
+        # nach dem ersten Verlassen des Feldes nie wieder. Vom Prüfer
+        # nachgestellt (12.09.2026): leeres Feld → Return → Fokus weg, Hinweis
+        # bleibt verschwunden.
+        #
+        # Die Falle gilt für JEDES Feld mit eigener Bindung: `bind()` ohne
+        # `add='+'` wirft die vorhandene weg, ohne sich zu beschweren.
+        feld.bind('<FocusOut>', _abstand_merken, add='+')
         tk.Frame(inhalt, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
 
         if not abstand_mm:
@@ -14782,12 +14803,43 @@ def _achsen(fenster, rahmen):
 
         ⭐ Der Fingerabdruck ist die **Datenlage selbst**, nicht ein
         Zeitstempel: Sind die Zahlen gleich, wäre auch das Bild gleich. Und
-        wenn `zusammenfassung()` einmal etwas Unsortiertes liefert, ist der
-        schlimmste Fall ein **überflüssiger** Neuaufbau — nie ein veraltetes
-        Bild. Das ist die richtige Richtung für einen Irrtum.
+        wenn eine Quelle einmal etwas Unsortiertes liefert, ist der schlimmste
+        Fall ein **überflüssiger** Neuaufbau — nie ein veraltetes Bild. Das ist
+        die richtige Richtung für einen Irrtum.
+
+        ⚠⚠ **Er braucht ALLE Quellen, aus denen gezeichnet wird — nicht nur
+        die naheliegendste.** Die erste Fassung nahm allein
+        `kurven.zusammenfassung()`. Darin stehen die Achseneinstellungen, aber
+        **nicht**, welche Funktion auf welcher Achse liegt. Vom Prüfer
+        nachgestellt (12.09.2026): `v_pitch` von `js1_x` auf `js1_y` schieben,
+        Exponent unverändert — die Zusammenfassung bleibt gleich, die Funktion
+        gehört danach zu einer anderen Achse, und Beschriftung, Kurvenbild und
+        Regler wären auf dem alten Stand geblieben.
+
+        ⭐ **Statt die einzelnen Abfragen nachzubauen, steht hier die QUELLE.**
+        `zusammenfassung()`, `funktionen_je_achse()` und `spielachsen_auf()`
+        lesen alle dieselbe Datei — die `actionmaps.xml` des Spielers. Ein
+        Abdruck über ihren Inhalt deckt damit **alles** ab, was diese Seite von
+        dort zeigt, auch das, woran hier gerade niemand denkt.
+
+        Einzelne Abfragen aufzuzählen wäre die zweite Wahrheit, die irgendwann
+        unvollständig wird — genau der Fehler, den die erste Fassung hatte.
+
+        ⚠ Dazu `geraetesatz.saetze()`: eine **eigene** Quelle (die Gerätesätze
+        stehen woanders), und sie wird auf derselben Seite angezeigt.
         """
+        import hashlib
+        from . import geraetesatz as _gs
+        from . import joysticks as _js
         try:
-            stand = (repr(kurven.zusammenfassung()), repr(wahl))
+            weg = _js._pfad_actionmaps()
+            roh = b''
+            if weg and os.path.exists(weg):
+                with open(weg, 'rb') as f:
+                    roh = f.read()
+            stand = (hashlib.sha1(roh).hexdigest(),
+                     repr(_gs.saetze()),
+                     repr(wahl))
         except Exception as ausnahme:
             fehler.merken('seiten.achsen_stand', ausnahme)
             stand = None

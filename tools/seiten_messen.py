@@ -46,12 +46,20 @@ WIEDERHOLUNGEN = 3
 
 
 def _durchlauf(fenster, kennung):
-    """Einmal oeffnen und warten, bis Tk wirklich fertig ist."""
-    start = time.time()
+    """Einmal oeffnen und warten, bis Tk wirklich fertig ist.
+
+    ⚠ `perf_counter()` statt `time()`: Die Systemuhr kann springen, und unter
+    Windows ist ihre Aufloesung fuer Millisekunden zu grob.
+
+    ⚠ `update()` arbeitet auch **andere faellige Rueckrufe** ab. Die Zahlen
+    sind damit „was der Nutzer wartet", nicht „was diese eine Funktion
+    kostet" — fuer die zweite Frage ist ein Profillauf das richtige Werkzeug.
+    """
+    start = time.perf_counter()
     fenster.oeffnen(kennung)
     fenster.root.update()
     fenster.root.update_idletasks()
-    return (time.time() - start) * 1000.0
+    return (time.perf_counter() - start) * 1000.0
 
 
 def main():
@@ -66,22 +74,41 @@ def main():
         print('Keine Seiten gefunden — `abnahme.SEITEN` ist leer.')
         return 1
 
-    ergebnis = []
+    # ⚠⚠ **Erst ALLE kalten Aufbauten, dann erst die Wiederbesuche.**
+    #
+    # Die erste Fassung mass je Seite sofort auch das Wiederkommen — und baute
+    # dafuer die naechste Seite schon auf. Deren „erstmals" war dann in
+    # Wahrheit ein warmer Aufruf. Vom Pruefer nachgestellt (12.09.2026) mit
+    # simulierten 100 ms kalt / 1 ms warm: Zwei Seiten erschienen beide mit
+    # 1 ms als Erstoeffnung.
+    #
+    # ⚠ Und die Startseite ist beim Bauen des Fensters **schon offen**. Ihr
+    # „erstmals" laesst sich hier nicht mehr messen; sie wird deshalb
+    # gekennzeichnet statt stillschweigend falsch gezaehlt.
+    schon_offen = set(getattr(fenster, 'gezeichnet', ()) or ())
+    kalt = {}
     for kennung in kennungen:
+        if kennung in schon_offen:
+            kalt[kennung] = None            # war vor der Messung schon da
+            continue
         try:
-            erst = _durchlauf(fenster, kennung)
+            kalt[kennung] = _durchlauf(fenster, kennung)
         except Exception as fehler:
             print('  !! %-16s %s: %s'
                   % (kennung, type(fehler).__name__, fehler))
+
+    ergebnis = []
+    for kennung in kennungen:
+        if kennung not in kalt:
             continue
-        # Wiederkommen: erst woanders hin, dann zurueck.
         anders = [k for k in kennungen if k != kennung][:1]
         wieder = []
         for _ in range(WIEDERHOLUNGEN):
             if anders:
                 _durchlauf(fenster, anders[0])
             wieder.append(_durchlauf(fenster, kennung))
-        ergebnis.append((erst, sum(wieder) / len(wieder), kennung))
+        ergebnis.append((kalt[kennung] if kalt[kennung] is not None else -1.0,
+                         sum(wieder) / len(wieder), kennung))
 
     # ⭐ Und die Frage dahinter: WAS kostet beim Wiederkommen Zeit?
     #
@@ -116,9 +143,12 @@ def main():
             marke = '  <- blendet nicht nur ein'
         elif erst > 300:
             marke = '  <- teurer Aufbau'
-        print('  %-18s %7.0f ms %9.0f ms%s' % (kennung, erst, wieder, marke))
-    print('\n  Summe erstmals: %.0f ms ueber %d Seiten'
-          % (sum(e for e, _w, _k in ergebnis), len(ergebnis)))
+        erst_text = ('   (war offen)' if erst < 0 else '%7.0f ms' % erst)
+        print('  %-18s %12s %9.0f ms%s'
+              % (kennung, erst_text, wieder, marke))
+    echte = [e for e, _w, _k in ergebnis if e >= 0]
+    print('\n  Summe erstmals: %.0f ms ueber %d Seiten (%d waren schon offen)'
+          % (sum(echte), len(echte), len(ergebnis) - len(echte)))
     fenster.root.destroy()
     return 0
 
