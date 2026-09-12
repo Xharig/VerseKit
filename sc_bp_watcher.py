@@ -4374,8 +4374,8 @@ if __name__ == '__main__':
     # eben langsamer beim ersten Blick.
     def _steckplaetze_vorladen():
         try:
-            from scbp import hangar as _hg
-            anzahl = _hg.daten_nachziehen() or 0
+            from scbp import fleet as _hg
+            anzahl = _hg.fetch_missing() or 0
             if anzahl:
                 fehler.spur('Vorladen: Steckplaetze fuer %d Schiffe geholt'
                             % anzahl)
@@ -4401,8 +4401,8 @@ if __name__ == '__main__':
         except Exception as ausnahme:
             fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
         try:
-            from scbp import warenkorb as _wk, hangar as _hg2, laeden as _ld
-            offen = _wk.fehlende_preise(_wk.rechnung(_hg2.laden())['posten'])
+            from scbp import warenkorb as _wk, fleet as _hg2, laeden as _ld
+            offen = _wk.fehlende_preise(_wk.rechnung(_hg2.load())['posten'])
             for kennung in offen:
                 _ld.holen(kennung)
             if offen:

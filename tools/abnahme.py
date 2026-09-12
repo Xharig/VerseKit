@@ -273,9 +273,9 @@ def ablage_vorbereiten():
     DATEN_DA[0] = all(os.path.isfile(os.path.join(ordner, n))
                       for n in ('schiffe.json', 'erkul-schiffe.json'))
 
-    from scbp import hangar
+    from scbp import fleet
     with open(os.path.join(ordner, 'hangar.json'), 'w', encoding='utf-8') as f:
-        json.dump({'format': hangar.FORMAT,
+        json.dump({'format': fleet.FORMAT,
                    'schiffe': [{'name': 'Cutlass Black', 'hersteller': 'Drake',
                                 'kurz': 'cutlassblack', 'hkurz': 'DRAK',
                                 'herkunft': 'pledge', 'belegung': {}}],

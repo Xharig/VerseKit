@@ -140,10 +140,10 @@ def _ablage_vorbereiten():
     ordner = tempfile.mkdtemp(prefix='sc-bp-klick-')
     os.environ['SC_BP_HOME'] = ordner
     # ⚠ **Die Formatnummer aus dem Modul holen, nicht hinschreiben.** Der
-    # erste Anlauf setzte hier eine 4 — `hangar.FORMAT` ist aber 1, und eine
+    # erste Anlauf setzte hier eine 4 — `fleet.FORMAT` ist aber 1, und eine
     # Datei aus der Zukunft wird stillschweigend verworfen. Ergebnis: null
     # Schiffe, zwei rote Pruefungen, und der Fehler lag im Pruefaufbau.
-    from scbp import hangar as _hg
+    from scbp import fleet as _hg
     hangar = {
         'format': _hg.FORMAT,
         'schiffe': [{
@@ -179,8 +179,8 @@ def main():
         rahmen = tk.Frame(wurzel, bg='#0d1117')
         rahmen.pack(fill='both', expand=True)
 
-        from scbp import hangar as meine
-        stand = meine.laden()
+        from scbp import fleet as meine
+        stand = meine.load()
         schiff = (stand.get('schiffe') or [{}])[0]
 
         seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)

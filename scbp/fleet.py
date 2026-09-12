@@ -70,6 +70,15 @@ Fehlerbericht geraten. Dieselbe Linie wie `pfade.kuerzen()` bei den Pfaden.
 ⚠ **`belegung` bleibt vorerst leer.** Der Platz für eine gespeicherte Auslegung
 (welches Teil in welchem Steckplatz) ist mit Absicht schon da: Kommt sie dazu,
 soll das keinen Formatwechsel kosten und keine bestehende Datei entwerten.
+
+⚠ Bis zum 12.09.2026 hieß dieses Modul `hangar` (Sprachumstellung P4,
+Stufe 2). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst
+gleich geblieben: der Ablage-Name `hangar.json` und alle Schlüssel darin
+(`format`, `schiffe`, `wunsch`, `merkzettel`, `name`, `hersteller`,
+`herkunft`, `belegung`, `kurz`, `hkurz`, `lti`, `warbond`, `paket`,
+`gekauft`, `preis`, `ref`, `anzahl`, `weg`) sowie die Herkunftswerte
+`'pledge'` und `'ingame'` — sonst verliert jeder beim Update seinen Hangar.
+Ebenso der Seitenname `hangar` in Reiterleiste, Symbolsatz und „Neu"-Marken.
 """
 import csv
 import io
@@ -79,7 +88,7 @@ import re
 
 from . import erkul, fehler, pfade
 
-DATEI = 'hangar.json'
+FILE = 'hangar.json'
 FORMAT = 1
 
 # Woher ein Schiff stammt. Mehr Fälle gibt es nicht — geliehene Schiffe stehen
@@ -88,63 +97,63 @@ PLEDGE = 'pledge'
 INGAME = 'ingame'
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def path():
+    return pfade.app_datei(FILE)
 
 
-def leer():
+def empty():
     return {'format': FORMAT, 'schiffe': []}
 
 
-def laden():
+def load():
     """Der eigene Hangar — oder eine leere Liste."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT and isinstance(daten.get('schiffe'), list):
-            return daten
+        with open(path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT and isinstance(data.get('schiffe'), list):
+            return data
     except FileNotFoundError:
         pass
-    except Exception as ausnahme:
-        fehler.merken('hangar.laden', ausnahme)
-    return leer()
+    except Exception as exc:
+        fehler.merken('fleet.load', exc)
+    return empty()
 
 
-def speichern(daten):
+def save(data):
     """Atomar ablegen. Gibt zurück, ob es geklappt hat.
 
     ⚠ Der Rückgabewert wird ausgewertet — ein stilles `False` wäre genau der
     Fehler, der bei `pfade.einstellungen_schreiben` monatelang dafür sorgte,
     dass eine nicht gespeicherte Einstellung nach dem Neustart wieder alt war.
     """
-    ziel = pfad()
+    target = path()
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=1)
-        os.replace(ziel + '.tmp', ziel)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+        os.replace(target + '.tmp', target)
         return True
-    except Exception as ausnahme:
-        fehler.merken('hangar.speichern', ausnahme)
+    except Exception as exc:
+        fehler.merken('fleet.save', exc)
         return False
 
 
-def _schlank(text):
+def _slim(text):
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
 
 
-def anzahl(daten=None):
-    return len((daten or laden()).get('schiffe') or [])
+def count(data=None):
+    return len((data or load()).get('schiffe') or [])
 
 
-def namen(daten=None):
+def names(data=None):
     """Alle Schiffsnamen im Hangar, alphabetisch."""
-    liste = (daten or laden()).get('schiffe') or []
-    return sorted((s.get('name') or '' for s in liste if s.get('name')),
+    items = (data or load()).get('schiffe') or []
+    return sorted((s.get('name') or '' for s in items if s.get('name')),
                   key=str.lower)
 
 
-def kennsaetze(daten=None):
+def id_sets(data=None):
     """Je Schiff `(name, hersteller, kurz)` — was `erkul` zum Zuordnen braucht.
 
     ⚠ Der Kurzname aus dem Export trägt die meisten Treffer; ohne ihn fällt die
@@ -153,12 +162,12 @@ def kennsaetze(daten=None):
     """
     return [(s.get('name') or '', s.get('hersteller') or '',
              s.get('kurz') or '', s.get('hkurz') or '')
-            for s in ((daten or laden()).get('schiffe') or []) if s.get('name')]
+            for s in ((data or load()).get('schiffe') or []) if s.get('name')]
 
 
 # ------------------------------------------------------------ Wunschliste
 
-def wunsch_liste(daten=None):
+def wishlist(data=None):
     """Die Schiffe, die man sich vorgenommen hat — alphabetisch.
 
     ⚠ **Getrennt vom Hangar, in derselben Datei.** Ein Wunsch ist kein Besitz:
@@ -171,18 +180,18 @@ def wunsch_liste(daten=None):
     könnte man noch ne Wishlist-Option anbieten. Für, ich nenn's mal allgemein
     Vehikel, die man sich erspielen/kaufen möchte."*
     """
-    liste = (daten or laden()).get('wunsch') or []
-    return sorted((w for w in liste if isinstance(w, dict) and w.get('name')),
+    items = (data or load()).get('wunsch') or []
+    return sorted((w for w in items if isinstance(w, dict) and w.get('name')),
                   key=lambda w: (w.get('name') or '').lower())
 
 
-def wunsch_enthaelt(daten, name):
-    suche = _schlank(name)
-    return any(_schlank(w.get('name')) == suche
-               for w in (daten.get('wunsch') or []))
+def wishlist_contains(data, name):
+    wanted = _slim(name)
+    return any(_slim(w.get('name')) == wanted
+               for w in (data.get('wunsch') or []))
 
 
-def wunsch_hinzufuegen(daten, name, hersteller=''):
+def wishlist_add(data, name, manufacturer=''):
     """Ein Schiff auf die Wunschliste setzen. Gibt zurück, ob es neu war.
 
     ⚠ Was schon im Hangar steht, kommt **nicht** auf die Wunschliste — man
@@ -191,27 +200,27 @@ def wunsch_hinzufuegen(daten, name, hersteller=''):
     """
     if not (name or '').strip():
         return False
-    if wunsch_enthaelt(daten, name):
+    if wishlist_contains(data, name):
         return False
     # `belegung` liegt leer bereit, genau wie beim Hangar-Schiff: Auch ein
     # Wunschschiff lässt sich ausstatten, und so kostet das später keinen
     # Formatwechsel.
-    daten.setdefault('wunsch', []).append(
-        {'name': name.strip(), 'hersteller': (hersteller or '').strip(),
+    data.setdefault('wunsch', []).append(
+        {'name': name.strip(), 'hersteller': (manufacturer or '').strip(),
          'belegung': {}})
     return True
 
 
-def wunsch_entfernen(daten, name):
+def wishlist_remove(data, name):
     """Einen Wunsch streichen. Gibt zurück, ob einer wegfiel."""
-    suche = _schlank(name)
-    vorher = len(daten.get('wunsch') or [])
-    daten['wunsch'] = [w for w in (daten.get('wunsch') or [])
-                       if _schlank(w.get('name')) != suche]
-    return len(daten['wunsch']) != vorher
+    wanted = _slim(name)
+    before = len(data.get('wunsch') or [])
+    data['wunsch'] = [w for w in (data.get('wunsch') or [])
+                      if _slim(w.get('name')) != wanted]
+    return len(data['wunsch']) != before
 
 
-def merkzettel(daten=None):
+def notepad(data=None):
     """Einzelne Gegenstände, die man bauen oder kaufen will — alphabetisch.
 
     ⭐⭐ **Der Weg zum Farmen ohne Umweg über ein Schiff.** Bis v3.20.0 führte
@@ -231,11 +240,11 @@ def merkzettel(daten=None):
 
     ⚠ Ein fehlendes Feld gilt als leere Liste — alte Dateien bleiben gültig,
     es braucht keinen Formatwechsel. Dieselbe Entscheidung wie bei
-    `wunsch_liste()`.
+    `wishlist()`.
     """
-    liste = (daten or laden()).get('merkzettel') or []
-    raus = []
-    for m in liste:
+    items = (data or load()).get('merkzettel') or []
+    result = []
+    for m in items:
         if not isinstance(m, dict) or not m.get('name'):
             continue
         # ⚠⚠⚠ **Eine Kennung mit Leerzeichen ist keine Kennung, sondern ein
@@ -251,17 +260,17 @@ def merkzettel(daten=None):
         if ref and (any(z.isspace() for z in ref) or '"' in ref):
             m = dict(m)
             m['ref'] = ''
-        raus.append(m)
-    return sorted(raus, key=lambda m: (m.get('name') or '').lower())
+        result.append(m)
+    return sorted(result, key=lambda m: (m.get('name') or '').lower())
 
 
-def merkzettel_enthaelt(daten, name):
-    suche = _schlank(name)
-    return any(_schlank(m.get('name')) == suche
-               for m in (daten.get('merkzettel') or []))
+def notepad_contains(data, name):
+    wanted = _slim(name)
+    return any(_slim(m.get('name')) == wanted
+               for m in (data.get('merkzettel') or []))
 
 
-def merkzettel_hinzufuegen(daten, name, ref='', anzahl=1):
+def notepad_add(data, name, ref='', count=1):
     """Einen Gegenstand auf den Merkzettel setzen. Gibt zurück, ob er neu war.
 
     ⚠ `ref` ist die Kennung aus den Rezeptdaten. Ohne sie ließe sich später
@@ -277,60 +286,60 @@ def merkzettel_hinzufuegen(daten, name, ref='', anzahl=1):
     if not name:
         return False
     try:
-        anzahl = max(1, int(anzahl))
+        count = max(1, int(count))
     except (TypeError, ValueError):
-        anzahl = 1
-    suche = _schlank(name)
-    for eintrag in (daten.get('merkzettel') or []):
-        if _schlank(eintrag.get('name')) == suche:
-            eintrag['anzahl'] = int(eintrag.get('anzahl') or 1) + anzahl
+        count = 1
+    wanted = _slim(name)
+    for entry in (data.get('merkzettel') or []):
+        if _slim(entry.get('name')) == wanted:
+            entry['anzahl'] = int(entry.get('anzahl') or 1) + count
             return False
-    daten.setdefault('merkzettel', []).append(
-        {'name': name, 'ref': (ref or '').strip(), 'anzahl': anzahl,
+    data.setdefault('merkzettel', []).append(
+        {'name': name, 'ref': (ref or '').strip(), 'anzahl': count,
          'weg': 'bauen'})
     return True
 
 
-def merkzettel_entfernen(daten, name):
+def notepad_remove(data, name):
     """Einen Gegenstand vom Merkzettel streichen. Gibt zurück, ob einer wegfiel."""
-    suche = _schlank(name)
-    vorher = len(daten.get('merkzettel') or [])
-    daten['merkzettel'] = [m for m in (daten.get('merkzettel') or [])
-                           if _schlank(m.get('name')) != suche]
-    return len(daten['merkzettel']) != vorher
+    wanted = _slim(name)
+    before = len(data.get('merkzettel') or [])
+    data['merkzettel'] = [m for m in (data.get('merkzettel') or [])
+                          if _slim(m.get('name')) != wanted]
+    return len(data['merkzettel']) != before
 
 
-def merkzettel_anzahl_setzen(daten, name, anzahl):
+def notepad_set_count(data, name, count):
     """Wie oft der Gegenstand gebaut werden soll. `0` streicht ihn."""
     try:
-        anzahl = int(anzahl)
+        count = int(count)
     except (TypeError, ValueError):
         return False
-    if anzahl <= 0:
-        return merkzettel_entfernen(daten, name)
-    suche = _schlank(name)
-    for eintrag in (daten.get('merkzettel') or []):
-        if _schlank(eintrag.get('name')) == suche:
-            eintrag['anzahl'] = anzahl
+    if count <= 0:
+        return notepad_remove(data, name)
+    wanted = _slim(name)
+    for entry in (data.get('merkzettel') or []):
+        if _slim(entry.get('name')) == wanted:
+            entry['anzahl'] = count
             return True
     return False
 
 
-def enthaelt(daten, name, hersteller=''):
+def contains(data, name, manufacturer=''):
     """Steht dieses Schiff schon drin?
 
     ⚠ Verglichen wird über Hersteller **und** Name in schlanker Schreibweise.
     „Cutlass Black" von Drake und eine gleichnamige Variante eines anderen
     Herstellers wären sonst dasselbe.
     """
-    suche = _schlank(hersteller) + _schlank(name)
-    for s in (daten.get('schiffe') or []):
-        if _schlank(s.get('hersteller')) + _schlank(s.get('name')) == suche:
+    wanted = _slim(manufacturer) + _slim(name)
+    for s in (data.get('schiffe') or []):
+        if _slim(s.get('hersteller')) + _slim(s.get('name')) == wanted:
             return True
     return False
 
 
-def hinzufuegen(daten, name, hersteller='', herkunft=INGAME, **rest):
+def add(data, name, manufacturer='', origin=INGAME, **rest):
     """Ein Schiff eintragen. Gibt zurück, ob es neu war.
 
     Doppelte werden still übergangen — wer zweimal importiert, soll nicht jedes
@@ -338,42 +347,42 @@ def hinzufuegen(daten, name, hersteller='', herkunft=INGAME, **rest):
     """
     if not (name or '').strip():
         return False
-    if enthaelt(daten, name, hersteller):
+    if contains(data, name, manufacturer):
         return False
-    eintrag = {'name': name.strip(), 'hersteller': (hersteller or '').strip(),
-               'herkunft': herkunft, 'belegung': {}}
-    for schluessel in ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft',
-                       'preis'):
-        if rest.get(schluessel) not in (None, ''):
-            eintrag[schluessel] = rest[schluessel]
-    daten.setdefault('schiffe', []).append(eintrag)
+    entry = {'name': name.strip(), 'hersteller': (manufacturer or '').strip(),
+             'herkunft': origin, 'belegung': {}}
+    for key in ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft',
+                'preis'):
+        if rest.get(key) not in (None, ''):
+            entry[key] = rest[key]
+    data.setdefault('schiffe', []).append(entry)
     return True
 
 
-def entfernen(daten, name, hersteller=''):
+def remove(data, name, manufacturer=''):
     """Ein Schiff austragen. Gibt zurück, ob eines wegfiel."""
-    suche = _schlank(hersteller) + _schlank(name)
-    vorher = len(daten.get('schiffe') or [])
-    daten['schiffe'] = [
-        s for s in (daten.get('schiffe') or [])
-        if _schlank(s.get('hersteller')) + _schlank(s.get('name')) != suche]
-    return len(daten['schiffe']) != vorher
+    wanted = _slim(manufacturer) + _slim(name)
+    before = len(data.get('schiffe') or [])
+    data['schiffe'] = [
+        s for s in (data.get('schiffe') or [])
+        if _slim(s.get('hersteller')) + _slim(s.get('name')) != wanted]
+    return len(data['schiffe']) != before
 
 
 # ---------------------------------------------------------------- Import
 
-def _aus_json(text):
+def _from_json(text):
     """Der JSON-Export von Hangar XPLORer."""
-    roh = json.loads(text)
-    if not isinstance(roh, list):
+    raw = json.loads(text)
+    if not isinstance(raw, list):
         return []
-    raus = []
-    for eintrag in roh:
-        if not isinstance(eintrag, dict):
+    result = []
+    for entry in raw:
+        if not isinstance(entry, dict):
             continue
         # ⚠ Nur Schiffe. Der Export führt auch Ausrüstung, Farben und Anzüge —
         # ein „Bosco Weapon Display Rack" hat keine Steckplätze.
-        if eintrag.get('entity_type') not in (None, '', 'ship'):
+        if entry.get('entity_type') not in (None, '', 'ship'):
             continue
         # ⚠⚠ **`name` vor `ship_name`** — und das ist kein Geschmack.
         # `ship_name` ist der Grundtyp, `name` die tatsächliche Ausführung.
@@ -381,95 +390,95 @@ def _aus_json(text):
         # desselben Namens, von denen der zweite als Doppel wegfiel; und die
         # „F7C-M Super Hornet Mk II" hieß Mk I, weil ihr `ship_code` noch auf
         # der alten Ausführung steht.
-        name = (eintrag.get('name') or eintrag.get('ship_name') or '').strip()
+        name = (entry.get('name') or entry.get('ship_name') or '').strip()
         if not name:
             continue
-        raus.append({
+        result.append({
             'name': name,
-            'hersteller': (eintrag.get('manufacturer_name') or '').strip(),
-            'kurz': (eintrag.get('ship_code') or '').strip(),
+            'hersteller': (entry.get('manufacturer_name') or '').strip(),
+            'kurz': (entry.get('ship_code') or '').strip(),
             # ⚠ Das Herstellerkürzel ist für die Zuordnung wichtiger als der
             # ausgeschriebene Name: Erkul führt „Roberts Space Industries" als
             # `rsi`. Ohne dieses Feld fand die Ursa Medivac keinen Anschluss.
-            'hkurz': (eintrag.get('manufacturer_code') or '').strip(),
-            'lti': bool(eintrag.get('lti')),
-            'warbond': bool(eintrag.get('warbond')),
-            'paket': (eintrag.get('pledge_name') or '').strip(),
-            'gekauft': (eintrag.get('pledge_date') or '').strip(),
-            'preis': (eintrag.get('pledge_cost') or '').strip(),
+            'hkurz': (entry.get('manufacturer_code') or '').strip(),
+            'lti': bool(entry.get('lti')),
+            'warbond': bool(entry.get('warbond')),
+            'paket': (entry.get('pledge_name') or '').strip(),
+            'gekauft': (entry.get('pledge_date') or '').strip(),
+            'preis': (entry.get('pledge_cost') or '').strip(),
         })
-    return raus
+    return result
 
 
-def _aus_csv(text):
+def _from_csv(text):
     """Der CSV-Export von Hangar XPLORer.
 
     ⚠ Die Kopfzeile trägt **Leerzeichen hinter den Kommas** (`Manufacturer,
     Ship, Lti, …`). Ohne `skipinitialspace` heißt die zweite Spalte `' Ship'`
     und wird nie gefunden.
     """
-    raus = []
-    for zeile in csv.DictReader(io.StringIO(text), skipinitialspace=True):
-        name = (zeile.get('Ship') or '').strip()
+    result = []
+    for row in csv.DictReader(io.StringIO(text), skipinitialspace=True):
+        name = (row.get('Ship') or '').strip()
         # ⚠ Der Export schreibt bei unbekannten Stücken wörtlich `undefined`
         # in die Namensspalte — das ist kein Schiff, sondern eine Lücke.
         if not name or name == 'undefined':
             continue
-        raus.append({
+        result.append({
             'name': name,
-            'hersteller': (zeile.get('Manufacturer') or '').strip(),
+            'hersteller': (row.get('Manufacturer') or '').strip(),
             'kurz': '',
             'hkurz': '',
-            'lti': (zeile.get('Lti') or '').strip().lower() == 'true',
-            'warbond': (zeile.get('Warbond') or '').strip().lower() == 'true',
-            'paket': (zeile.get('Pledge') or '').strip(),
-            'gekauft': (zeile.get('Date') or '').strip(),
-            'preis': (zeile.get('Cost') or '').strip(),
+            'lti': (row.get('Lti') or '').strip().lower() == 'true',
+            'warbond': (row.get('Warbond') or '').strip().lower() == 'true',
+            'paket': (row.get('Pledge') or '').strip(),
+            'gekauft': (row.get('Date') or '').strip(),
+            'preis': (row.get('Cost') or '').strip(),
         })
-    return raus
+    return result
 
 
-def lesen(dateipfad):
+def read(file_path):
     """Eine Exportdatei einlesen. Gibt `(eintraege, fehlertext)` zurück.
 
     Erkannt wird am Inhalt, nicht an der Endung — wer eine `.json` in `.txt`
     umbenennt, soll trotzdem weiterkommen.
     """
     try:
-        with open(dateipfad, encoding='utf-8-sig') as f:
+        with open(file_path, encoding='utf-8-sig') as f:
             text = f.read()
-    except Exception as ausnahme:
-        fehler.merken('hangar.lesen', ausnahme)
-        return [], str(ausnahme)
-    kopf = text.lstrip()[:1]
+    except Exception as exc:
+        fehler.merken('fleet.read', exc)
+        return [], str(exc)
+    head = text.lstrip()[:1]
     try:
-        eintraege = _aus_json(text) if kopf == '[' else _aus_csv(text)
-    except Exception as ausnahme:
-        fehler.merken('hangar.lesen.deuten', ausnahme)
-        return [], str(ausnahme)
-    return eintraege, ''
+        entries = _from_json(text) if head == '[' else _from_csv(text)
+    except Exception as exc:
+        fehler.merken('fleet.read.parse', exc)
+        return [], str(exc)
+    return entries, ''
 
 
-def uebernehmen(eintraege, daten=None, sichern=True):
+def import_entries(entries, data=None, save_now=True):
     """Gelesene Einträge in den Hangar übernehmen.
 
     Gibt `(neu, schon_da)` zurück.
     """
-    daten = daten if daten is not None else laden()
-    neu = 0
-    for e in eintraege:
-        if hinzufuegen(daten, e.get('name'), e.get('hersteller'),
-                       herkunft=PLEDGE, kurz=e.get('kurz'),
-                       hkurz=e.get('hkurz'), lti=e.get('lti'),
-                       warbond=e.get('warbond'), paket=e.get('paket'),
-                       gekauft=e.get('gekauft'), preis=e.get('preis')):
-            neu += 1
-    if sichern:
-        speichern(daten)
-    return neu, len(eintraege) - neu
+    data = data if data is not None else load()
+    new = 0
+    for e in entries:
+        if add(data, e.get('name'), e.get('hersteller'),
+               origin=PLEDGE, kurz=e.get('kurz'),
+               hkurz=e.get('hkurz'), lti=e.get('lti'),
+               warbond=e.get('warbond'), paket=e.get('paket'),
+               gekauft=e.get('gekauft'), preis=e.get('preis')):
+            new += 1
+    if save_now:
+        save(data)
+    return new, len(entries) - new
 
 
-def unbekannt(daten=None):
+def unknown(data=None):
     """Welche Schiffe im Hangar erkul **nicht** kennt.
 
     ⚠ Das ist meistens **keine Panne**, sondern eine Auskunft: Erkul führt nur
@@ -477,19 +486,19 @@ def unbekannt(daten=None):
     „gibt es noch nicht" — bei einem echten Hangar-Export vom 06.09.2026 waren
     das Crucible, Endeavor, Galaxy, Liberator, Merchantman und die beiden ATLS.
     """
-    raus = []
-    for s in ((daten or laden()).get('schiffe') or []):
+    result = []
+    for s in ((data or load()).get('schiffe') or []):
         if not erkul.kennt(s.get('name'), s.get('hersteller'), s.get('kurz'),
                            s.get('hkurz')):
-            raus.append(s.get('name') or '')
-    return raus
+            result.append(s.get('name') or '')
+    return result
 
 
-def wunsch_kennsaetze(daten=None):
+def wishlist_id_sets(data=None):
     """Dasselbe für die Wunschliste — je Wunsch `(name, hersteller, '', '')`.
 
-    ⚠ **Getrennt von `kennsaetze()`, mit Absicht.** Beide Listen holen dieselbe
-    Art Daten, dürfen aber nie in denselben Topf: `kennsaetze()` speist auch
+    ⚠ **Getrennt von `id_sets()`, mit Absicht.** Beide Listen holen dieselbe
+    Art Daten, dürfen aber nie in denselben Topf: `id_sets()` speist auch
     „passt in dein Schiff", und ein Wunschschiff hat man nicht. Wer die Listen
     hier zusammenlegt, beantwortet dort eine Frage über fremdes Eigentum.
 
@@ -501,17 +510,17 @@ def wunsch_kennsaetze(daten=None):
     an einer Stelle, an der niemand damit rechnet.
     """
     from . import ships
-    raus = []
-    for w in ((daten or laden()).get('wunsch') or []):
+    result = []
+    for w in ((data or load()).get('wunsch') or []):
         if not (isinstance(w, dict) and w.get('name')):
             continue
         name = w.get('name') or ''
-        raus.append((name, w.get('hersteller') or ships.manufacturer(name),
-                     '', ''))
-    return raus
+        result.append((name, w.get('hersteller') or ships.manufacturer(name),
+                       '', ''))
+    return result
 
 
-def daten_nachziehen(daten=None):
+def fetch_missing(data=None):
     """Die Steckplätze aller Schiffe holen, soweit sie fehlen.
 
     Gibt zurück, wie viele Schiffe neu geholt wurden.
@@ -523,4 +532,4 @@ def daten_nachziehen(daten=None):
     die Ausstattung ließe sich erst planen, wenn das Schiff schon gekauft ist.
     Geholt wird nur — verrechnet werden Wunschschiffe nirgends als Besitz.
     """
-    return erkul.nachtragen(kennsaetze(daten) + wunsch_kennsaetze(daten))
+    return erkul.nachtragen(id_sets(data) + wishlist_id_sets(data))

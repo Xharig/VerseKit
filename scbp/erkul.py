@@ -66,7 +66,7 @@ Erkul führt 194 Schiffe und 25 Bodenfahrzeuge, jedes in einer eigenen Datei von
 rund 16 KB. Alle zu holen wären 219 Abrufe für eine Frage, die sich auf drei
 oder dreißig Schiffe bezieht.
 
-Geholt wird deshalb **auf Zuruf**: Steht ein Schiff im Hangar (`hangar.py`) und
+Geholt wird deshalb **auf Zuruf**: Steht ein Schiff im Hangar (`fleet.py`) und
 fehlt in der Ablage, wird genau dieses eine geholt. Ein voller Hangar kostet
 einmalig so viele Abrufe, wie er Schiffe hat — danach nie wieder, bis CIG
 patcht.
@@ -904,7 +904,7 @@ def kennt(name, hersteller='', kurz='', hkurz=''):
 def passende_schiffe(art, groesse, schiffe):
     """In welche dieser Schiffe passt ein Teil dieser Art und Größe?
 
-    `schiffe` sind die Einträge aus `hangar.laden()['schiffe']`. Zurück kommen
+    `schiffe` sind die Einträge aus `fleet.load()['schiffe']`. Zurück kommen
     Paare `(Schiffsname, Anzahl Steckplätze)`, die meisten Plätze zuerst.
 
     ⭐ **Das ist die Auskunft, die keine fremde Seite geben kann** — nicht,

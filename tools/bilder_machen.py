@@ -275,9 +275,9 @@ def beispiel_hangar():
         {'name': 'Drake Cutlass Black', 'hersteller': 'Drake Interplanetary',
          'herkunft': 'pledge', 'belegung': {}},
     ]
-    from scbp import hangar
-    daten = {'format': hangar.FORMAT, 'schiffe': beispiele}
-    ziel = os.path.join(os.environ['SC_BP_HOME'], hangar.DATEI)
+    from scbp import fleet
+    daten = {'format': fleet.FORMAT, 'schiffe': beispiele}
+    ziel = os.path.join(os.environ['SC_BP_HOME'], fleet.FILE)
     try:
         with open(ziel, 'w', encoding='utf-8') as f:
             json.dump(daten, f, ensure_ascii=False, indent=1)
@@ -288,7 +288,7 @@ def beispiel_hangar():
     # „keine Steckplatz-Daten" — ein Bild, das das Gegenteil dessen zeigt, was
     # die Seite kann. Vier Abrufe bei erkul, und nur beim Bilderbau.
     try:
-        geholt = hangar.daten_nachziehen(daten)
+        geholt = fleet.fetch_missing(daten)
         if geholt:
             print('  Steckplätze für %d Beispielschiffe geholt' % geholt)
     except Exception as ausnahme:

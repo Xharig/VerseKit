@@ -13790,7 +13790,7 @@ def main():
     # Baut sich die Daten selbst, kein Netz, keine Nutzerdatei.
     print()
     print('149. Wunschschiffe sind ausstattbar, ohne Besitz zu werden')
-    from scbp import hangar as _hg149
+    from scbp import fleet as _hg149
     from scbp import warenkorb as _wk149
 
     _daten149 = {'schiffe': [{'name': 'Vulture', 'hersteller': 'Drake',
@@ -13798,9 +13798,9 @@ def main():
                               'belegung': {}}],
                  'wunsch': []}
 
-    pruefe(_hg149.wunsch_hinzufuegen(_daten149, 'Prospector', 'MISC'),
+    pruefe(_hg149.wishlist_add(_daten149, 'Prospector', 'MISC'),
            'ein Wunsch laesst sich eintragen')
-    _w149 = _hg149.wunsch_liste(_daten149)[0]
+    _w149 = _hg149.wishlist(_daten149)[0]
     pruefe(_w149.get('hersteller') == 'MISC',
            'der Hersteller wird mitgespeichert (ohne ihn findet erkul nicht '
            'jedes Schiff)')
@@ -13817,8 +13817,8 @@ def main():
            '* und laesst sich wieder herausnehmen')
 
     # Die beiden Listen bleiben getrennt.
-    _hs149 = _hg149.kennsaetze(_daten149)
-    _ws149 = _hg149.wunsch_kennsaetze(_daten149)
+    _hs149 = _hg149.id_sets(_daten149)
+    _ws149 = _hg149.wishlist_id_sets(_daten149)
     pruefe([s[0] for s in _hs149] == ['Vulture'],
            'die Hangar-Liste enthaelt nur, was der Spieler wirklich hat')
     pruefe([s[0] for s in _ws149] == ['Prospector'],
@@ -13830,7 +13830,7 @@ def main():
     _falsch149 = dict(_daten149)
     _falsch149['schiffe'] = _daten149['schiffe'] + [{'name': 'Prospector',
                                                      'hersteller': 'MISC'}]
-    pruefe(bool(set(s[0] for s in _hg149.kennsaetze(_falsch149))
+    pruefe(bool(set(s[0] for s in _hg149.id_sets(_falsch149))
                 & set(s[0] for s in _ws149)),
            'Gegenprobe: ein Wunsch im Hangar wuerde als Ueberschneidung '
            'auffallen')
@@ -14907,7 +14907,7 @@ def main():
     _altheim163 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _ordner163
     try:
-        from scbp import hangar as _hg163
+        from scbp import fleet as _hg163
         _hg163.vergessen() if hasattr(_hg163, 'vergessen') else None
         with open(os.path.join(_ordner163, 'hangar.json'), 'w',
                   encoding='utf-8') as _f163:
@@ -14919,7 +14919,7 @@ def main():
                                      'hersteller': 'Aegis',
                                      'belegung': {}}]}, _f163)
 
-        _stand163 = _hg163.laden()
+        _stand163 = _hg163.load()
         pruefe(len(_stand163.get('schiffe') or []) == 1
                and len(_stand163.get('wunsch') or []) == 1,
                'Ausgangslage: ein Schiff, ein Wunsch')
@@ -14928,7 +14928,7 @@ def main():
         _schiff163 = _stand163['schiffe'][0]
         _wk163.setzen(_schiff163, 'p1', 'ref-1', 'BlastChill')
         _st163._eintrag_speichern(_schiff163)
-        _neu163 = _hg163.laden()
+        _neu163 = _hg163.load()
         pruefe(len(_neu163.get('wunsch') or []) == 1,
                'die Wunschliste ueberlebt eine Aenderung am Hangar-Schiff')
         pruefe(len(_wk163.belegung(_neu163['schiffe'][0])) == 1,
@@ -14938,7 +14938,7 @@ def main():
         _wunsch163 = _neu163['wunsch'][0]
         _wk163.setzen(_wunsch163, 'p9', 'ref-2', 'FR-66')
         _st163._eintrag_speichern(_wunsch163)
-        _zuletzt163 = _hg163.laden()
+        _zuletzt163 = _hg163.load()
         pruefe(len(_zuletzt163.get('schiffe') or []) == 1,
                'der Hangar ueberlebt eine Aenderung am Wunschschiff')
         pruefe(len(_wk163.belegung(_zuletzt163['wunsch'][0])) == 1,
@@ -15396,32 +15396,32 @@ def main():
     # sondern auch Ruestungen/Waffen fuer FPS hinzufuegen koennte zum Workshop."
     print()
     print('170. Der Merkzettel — farmen ohne Umweg ueber ein Schiff')
-    from scbp import hangar as _hg170
+    from scbp import fleet as _hg170
 
     _stand = {'format': 1, 'schiffe': []}
-    pruefe(_hg170.merkzettel(_stand) == [],
+    pruefe(_hg170.notepad(_stand) == [],
            'ein Stand ohne Merkzettel-Feld gilt als leere Liste')
-    pruefe(_hg170.merkzettel_hinzufuegen(_stand, 'BUL-H4 Helmet',
-                                         ref='abc', anzahl=2) is True,
+    pruefe(_hg170.notepad_add(_stand, 'BUL-H4 Helmet',
+                                         ref='abc', count=2) is True,
            'ein Gegenstand laesst sich vormerken')
     # ⚠⚠ Zweimal dasselbe darf KEINE zweite Zeile geben — sonst zaehlt die
     # Materialliste doppelt und die Anzeige ist unbrauchbar.
-    pruefe(_hg170.merkzettel_hinzufuegen(_stand, 'BUL-H4 Helmet',
-                                         anzahl=1) is False,
+    pruefe(_hg170.notepad_add(_stand, 'BUL-H4 Helmet',
+                                         count=1) is False,
            'derselbe Gegenstand legt keine zweite Zeile an')
-    pruefe(_hg170.merkzettel(_stand)[0]['anzahl'] == 3,
+    pruefe(_hg170.notepad(_stand)[0]['anzahl'] == 3,
            'sondern erhoeht die Stueckzahl (2 + 1 = 3)')
     # ⚠ Gross-/Kleinschreibung darf keinen zweiten Eintrag erzeugen.
-    _hg170.merkzettel_hinzufuegen(_stand, 'bul-h4 helmet', anzahl=1)
-    pruefe(len(_hg170.merkzettel(_stand)) == 1,
+    _hg170.notepad_add(_stand, 'bul-h4 helmet', count=1)
+    pruefe(len(_hg170.notepad(_stand)) == 1,
            'Gegenprobe: andere Schreibweise ist derselbe Gegenstand')
-    pruefe(_hg170.merkzettel_anzahl_setzen(_stand, 'BUL-H4 Helmet', 5) is True,
+    pruefe(_hg170.notepad_set_count(_stand, 'BUL-H4 Helmet', 5) is True,
            'die Stueckzahl laesst sich setzen')
-    pruefe(_hg170.merkzettel(_stand)[0]['anzahl'] == 5, 'und steht dann da')
-    pruefe(_hg170.merkzettel_anzahl_setzen(_stand, 'BUL-H4 Helmet', 0) is True,
+    pruefe(_hg170.notepad(_stand)[0]['anzahl'] == 5, 'und steht dann da')
+    pruefe(_hg170.notepad_set_count(_stand, 'BUL-H4 Helmet', 0) is True,
            'Stueckzahl 0 streicht den Eintrag')
-    pruefe(_hg170.merkzettel(_stand) == [], 'und er ist weg')
-    pruefe(_hg170.merkzettel_hinzufuegen(_stand, '   ') is False,
+    pruefe(_hg170.notepad(_stand) == [], 'und er ist weg')
+    pruefe(_hg170.notepad_add(_stand, '   ') is False,
            'Gegenprobe: ein leerer Name wird nicht aufgenommen')
 
     # ⚠⚠ **Die Stueckzahl muss bis ins Material durchschlagen.** Genau daran
@@ -15565,10 +15565,10 @@ def main():
             if name in ('Waffe A', 'Waffe B') else None)
         _wk170._bauplan_verzeichnis = lambda: {}
 
-        from scbp import hangar as _hg172
+        from scbp import fleet as _hg172
         _stand172 = {'format': 1, 'schiffe': []}
-        _hg172.merkzettel_hinzufuegen(_stand172, 'Waffe A', anzahl=4)
-        _hg172.merkzettel_hinzufuegen(_stand172, 'Waffe B', anzahl=2)
+        _hg172.notepad_add(_stand172, 'Waffe A', count=4)
+        _hg172.notepad_add(_stand172, 'Waffe B', count=2)
 
         # Einzelbedarfe, wie sie am Eintrag stehen: 4 x 2,0 und 2 x 2,0
         _einzeln = 4 * 2.0 + 2 * 2.0
@@ -15611,12 +15611,12 @@ def main():
         _kaputt = {'format': 1, 'schiffe': [],
                    'merkzettel': [{'name': 'Waffe A', 'ref': 'Waffe A',
                                    'anzahl': 1}]}
-        pruefe(_hg172.merkzettel(_kaputt)[0]['ref'] == '',
+        pruefe(_hg172.notepad(_kaputt)[0]['ref'] == '',
                'ein alter Eintrag mit Namen als Kennung heilt beim Lesen')
         _heil = {'format': 1, 'schiffe': [],
                  'merkzettel': [{'name': 'Waffe A', 'ref': 'abc-123',
                                  'anzahl': 1}]}
-        pruefe(_hg172.merkzettel(_heil)[0]['ref'] == 'abc-123',
+        pruefe(_hg172.notepad(_heil)[0]['ref'] == 'abc-123',
                'Gegenprobe: eine echte Kennung bleibt stehen')
     finally:
         _hs170.recipe = _echt_rez172
@@ -16506,6 +16506,7 @@ def main():
         'herstellung': 'crafting',
         'schiffe': 'ships',
         'bergung': 'salvage',
+        'hangar': 'fleet',
     }
 
     def _reste190(quelle, name, alte):

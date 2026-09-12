@@ -8191,8 +8191,8 @@ def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
     def arbeit():
         geholt = 0
         try:
-            from . import hangar as meine
-            geholt = meine.daten_nachziehen() or 0
+            from . import fleet as meine
+            geholt = meine.fetch_missing() or 0
         except Exception as ausnahme:
             fehler.merken('seiten.steckplaetze_nachziehen', ausnahme)
         if geholt and danach is not None:
@@ -8230,7 +8230,7 @@ def _passt_zeile(fenster, eltern, bauplan):
     Wer den ersten Fall wie den dritten behandelt, sagt jedem Neuling, sein
     frisch freigeschalteter Bauplan sei nutzlos.
     """
-    from . import erkul, hangar as meine, katalog as kat_daten
+    from . import erkul, fleet as meine, katalog as kat_daten
 
     eintrag = (kat_daten.laden().get('bauplaene') or {}).get(
         pfade.namensform(bauplan or ''))
@@ -8243,7 +8243,7 @@ def _passt_zeile(fenster, eltern, bauplan):
     if not art or not groesse:
         return
 
-    schiffe = (meine.laden().get('schiffe') or [])
+    schiffe = (meine.load().get('schiffe') or [])
     if not schiffe:
         tk.Label(eltern, text=t('s_hg_passt_leer'), bg='#0c1017', fg=SUB,
                  font=fenster.f_klein, anchor='w').pack(fill='x', padx=12,
@@ -8499,7 +8499,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         #
         # ⚠ Die Stückzahl daneben wird mitgenommen: Wer drei Helme bauen will,
         # braucht dreifaches Material.
-        from . import hangar as _mz_hangar
+        from . import fleet as _mz_hangar
 
         # ⚠ Der Name kommt aus dem Eintrag der Herstellungsliste — `bauplan`
         # gibt es in dieser Funktion nicht, das ist die Nachbarfunktion
@@ -8523,17 +8523,17 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         _mz_ref = (eintrag.get('ref') or '').strip()
 
         def _vormerken():
-            stand = _mz_hangar.laden()
+            stand = _mz_hangar.load()
             try:
                 wieviel = max(1, int(anzahl_var.get() or 1))
             except (TypeError, ValueError):
                 wieviel = 1
-            _mz_hangar.merkzettel_hinzufuegen(
-                stand, _mz_name, ref=_mz_ref, anzahl=wieviel)
+            _mz_hangar.notepad_add(
+                stand, _mz_name, ref=_mz_ref, count=wieviel)
             # ⚠ Der Gesamtstand wird gespeichert, nicht eine Teilmenge —
             # dieselbe Falle, die einmal die komplette Wunschliste gelöscht
             # hat (siehe `_eintrag_speichern`).
-            _mz_hangar.speichern(stand)
+            _mz_hangar.save(stand)
             # ⚠ Der Knopf ist eine Leinwand mit gezeichnetem Text und lässt
             # sich nicht umbeschriften. Die Rückmeldung steht deshalb daneben —
             # sichtbar, ohne den Knopf neu zu bauen.
@@ -8543,8 +8543,8 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                _vormerken).pack(side='left', padx=(12, 0))
         merk_stand = tk.Label(
             reihe, bg='#0c1017', fg=ACCENT, font=fenster.f_klein,
-            text=(t('s_mz_drauf') if _mz_hangar.merkzettel_enthaelt(
-                _mz_hangar.laden(), _mz_name) else ''))
+            text=(t('s_mz_drauf') if _mz_hangar.notepad_contains(
+                _mz_hangar.load(), _mz_name) else ''))
         merk_stand.pack(side='left', padx=(8, 0))
 
         # Eine Zeile, die sagt, was der Knopf tut — sonst rät man.
@@ -10042,13 +10042,13 @@ def _hangar(fenster, rahmen):
     wer keinen Export hat, findet den Handeintrag direkt darunter. Umgekehrt
     wäre der bequeme Weg der versteckte.
     """
-    from . import hangar as meine, erkul, ships as alle_schiffe, file_picker
+    from . import fleet as meine, erkul, ships as alle_schiffe, file_picker
 
     _ueberschrift(fenster, rahmen, t('hf_hangar'), t('s_hg_lead'))
     innen = _rollflaeche(rahmen)
     _fliesstext(innen, t('s_hg_hinweis'), fenster.f_klein, fill='x')
 
-    daten = {'stand': meine.laden()}
+    daten = {'stand': meine.load()}
     meldung = {'text': '', 'farbe': SUB}
     liste_rahmen = tk.Frame(innen, bg=BG)
     schiff = tk.StringVar()
@@ -10074,13 +10074,13 @@ def _hangar(fenster, rahmen):
             patterns=(('JSON', '*.json'), ('CSV', '*.csv')))
         if not pfad:
             return
-        eintraege, fehlertext = meine.lesen(pfad)
+        eintraege, fehlertext = meine.read(pfad)
         if fehlertext:
             meldung['text'], meldung['farbe'] = t('s_hg_import_fehler'), ROT
         elif not eintraege:
             meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), ROT
         else:
-            neu, alt = meine.uebernehmen(eintraege, daten['stand'])
+            neu, alt = meine.import_entries(eintraege, daten['stand'])
             meldung['text'] = t('s_hg_import_ok').format(neu=neu, alt=alt)
             meldung['farbe'] = ACCENT
             _steckplaetze_holen(still=True)
@@ -10150,11 +10150,11 @@ def _hangar(fenster, rahmen):
         # Schiff dauerhaft versichert ist (LTI kommt nur mit Echtgeld-Käufen)
         # — und genau das entscheidet beim Claimen, ob die eingebauten Teile
         # überleben.
-        if meine.hinzufuegen(daten['stand'], name,
-                             herkunft=(meine.PLEDGE if echtgeld[0]
-                                       else meine.INGAME),
+        if meine.add(daten['stand'], name,
+                             origin=(meine.PLEDGE if echtgeld[0]
+                                     else meine.INGAME),
                              lti=echtgeld[0] and lti[0]):
-            meine.speichern(daten['stand'])
+            meine.save(daten['stand'])
             meldung['text'] = t('s_hg_getragen').format(name=name)
             meldung['farbe'] = ACCENT
             schiff.set('')
@@ -10177,7 +10177,7 @@ def _hangar(fenster, rahmen):
         Geholt wird jetzt an drei Stellen von selbst: nach dem Import, nach
         einem Handeintrag, und **beim Öffnen der Seite**, wenn etwas fehlt.
         """
-        geholt = meine.daten_nachziehen(daten['stand'])
+        geholt = meine.fetch_missing(daten['stand'])
         if not still and geholt:
             meldung['text'] = t('s_hg_geholt').format(n=geholt)
             meldung['farbe'] = ACCENT
@@ -10267,13 +10267,13 @@ def _hangar(fenster, rahmen):
     # zurück in den Oberflächen-Faden.
     def _nachziehen_im_hintergrund():
         try:
-            if not meine.unbekannt(daten['stand']):
+            if not meine.unknown(daten['stand']):
                 return
         except Exception:
             return
         def arbeit():
             try:
-                geholt = meine.daten_nachziehen(daten['stand'])
+                geholt = meine.fetch_missing(daten['stand'])
             except Exception as ausnahme:
                 fehler.merken('seiten.hangar.nachziehen', ausnahme)
                 return
@@ -10312,13 +10312,13 @@ def _wunschliste(fenster, rahmen):
     Werkzeug eine Frage über ein Schiff, das niemand hat. Gespeichert wird
     trotzdem in derselben Datei: Es ist dieselbe Sammlung, nur ein anderes Fach.
     """
-    from . import hangar as meine, ships as alle_schiffe
+    from . import fleet as meine, ships as alle_schiffe
 
     _ueberschrift(fenster, rahmen, t('hf_wunschliste'), t('s_wl_lead'))
     innen = _rollflaeche(rahmen)
     _fliesstext(innen, t('s_hg_wunsch_text'), fenster.f_klein, fill='x')
 
-    daten = {'stand': meine.laden()}
+    daten = {'stand': meine.load()}
     meldung = {'text': '', 'farbe': SUB}
     wunsch = tk.StringVar()
 
@@ -10346,7 +10346,7 @@ def _wunschliste(fenster, rahmen):
             return
         # ⚠ Was man hat, wünscht man sich nicht — und das wird gesagt, nicht
         # stillschweigend verschluckt.
-        if meine.enthaelt(daten['stand'], name):
+        if meine.contains(daten['stand'], name):
             meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), ROT
             neu_zeichnen()
             return
@@ -10355,9 +10355,9 @@ def _wunschliste(fenster, rahmen):
         # ließe sich ein Wunschschiff nicht ausstatten. Auf der Wunschliste
         # gibt es keinen Pledge-Export, aus dem er käme; UEX führt ihn im
         # Namen mit, also wird er dort geholt.
-        if meine.wunsch_hinzufuegen(daten['stand'], name,
+        if meine.wishlist_add(daten['stand'], name,
                                     alle_schiffe.manufacturer(name)):
-            meine.speichern(daten['stand'])
+            meine.save(daten['stand'])
             meldung['text'] = t('s_hg_wunsch_notiert').format(name=name)
             meldung['farbe'] = ACCENT
             wunsch.set('')
@@ -10387,7 +10387,7 @@ def _wunschliste(fenster, rahmen):
         for kind in liste_rahmen.winfo_children():
             kind.destroy()
         hinweis.configure(text=meldung['text'], fg=meldung['farbe'])
-        liste = meine.wunsch_liste(daten['stand'])
+        liste = meine.wishlist(daten['stand'])
         tk.Label(liste_rahmen, text=t('s_hg_wunsch_meine').format(n=len(liste)),
                  bg=BG, fg=FG, font=fenster.f_fett,
                  anchor='w').pack(fill='x', pady=(0, 6))
@@ -10403,7 +10403,7 @@ def _wunschliste(fenster, rahmen):
     # (siehe `oeffnen()`), und wer inzwischen im Hangar ein Wunschschiff
     # gekauft hat, fände hier sonst den alten Stand.
     def _beim_zeigen():
-        daten['stand'] = meine.laden()
+        daten['stand'] = meine.load()
         meldung['text'] = ''
         wunsch.set('')
         _fuellen()
@@ -10429,7 +10429,7 @@ def _asop(fenster, rahmen):
     des Spiels. Niemand benennt ein Schiff um, das er nicht hat, und eine
     Liste, die man erst durchsuchen muss, ist ein Bausatz.
     """
-    from . import asop as asop_modul, hangar as meine, injektion
+    from . import asop as asop_modul, fleet as meine, injektion
 
     # ⚠⚠ **Reihenfolge ist hier alles.** Erst alles Feste packen (Kopf oben,
     # Fuß unten), **danach** die rollende Fläche mit `expand=True`. Wer die
@@ -10514,7 +10514,7 @@ def _asop(fenster, rahmen):
             meldung.pack(fill='x', padx=24, pady=(8, 0))
             _zeichnen()
             return
-        schiffe = (meine.laden().get('schiffe') or [])
+        schiffe = (meine.load().get('schiffe') or [])
         if not schiffe:
             meldung.configure(text=t('s_as_kein_hangar'), fg=SUB)
             meldung.pack(fill='x', padx=24, pady=(8, 0))
@@ -10776,7 +10776,7 @@ def _einkaufsliste(fenster, rahmen):
     Wunschschiff kostet erst sich selbst und dann seine Ausstattung — genau die
     Frage, die vor dem Kauf im Kopf steht.
     """
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     _ueberschrift(fenster, rahmen, t('hf_einkaufsliste'), t('s_ek_lead'))
     innen = _rollflaeche(rahmen)
@@ -10791,7 +10791,7 @@ def _einkaufsliste(fenster, rahmen):
         _aufbauen()
 
     def _aufbauen():
-        stand = meine.laden()
+        stand = meine.load()
         werte = warenkorb.rechnung(stand)
         daten['stand'] = stand
         posten = werte.get('posten') or []
@@ -10854,7 +10854,7 @@ def _einkaufsliste(fenster, rahmen):
                     if warenkorb.erledigt_setzen(schiff,
                                                  posten_eintrag.get('pfad'),
                                                  ja):
-                        meine.speichern(stand)
+                        meine.save(stand)
                     break
             neu_zeichnen()
 
@@ -11030,7 +11030,7 @@ def _farmliste(fenster, rahmen):
     geprüft meldet jedes „reicht", zusammen fehlt eines. Wer die Fehlmengen
     einzeln addiert, schickt den Spieler mit zu wenig Material los.
     """
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     _ueberschrift(fenster, rahmen, t('hf_farmliste'), t('s_fl_lead'))
     innen = _rollflaeche(rahmen)
@@ -11062,7 +11062,7 @@ def _farmliste(fenster, rahmen):
         der Knopf sitzt. Ein leerer Bereich ohne Erklärung wirft genau die
         Frage auf, die diese Rückmeldung ausgelöst hat.
         """
-        eintraege = meine.merkzettel()
+        eintraege = meine.notepad()
         rahmen_mz = tk.Frame(koerper, bg=BG)
         rahmen_mz.pack(fill='x', pady=(0, 14))
         tk.Label(rahmen_mz, text=t('s_mz_titel'), bg=BG, fg=FG,
@@ -11072,9 +11072,9 @@ def _farmliste(fenster, rahmen):
             return
 
         def _streichen(name):
-            stand = meine.laden()
-            meine.merkzettel_entfernen(stand, name)
-            meine.speichern(stand)
+            stand = meine.load()
+            meine.notepad_remove(stand, name)
+            meine.save(stand)
             neu_zeichnen()
 
         # ⚠⚠ **Das Material gehört an den Eintrag, nicht nur in die Summe
@@ -11162,7 +11162,7 @@ def _farmliste(fenster, rahmen):
                              anchor='w').pack(side='left')
 
     def _aufbauen():
-        werte = warenkorb.farmliste(meine.laden())
+        werte = warenkorb.farmliste(meine.load())
         fehlt = werte.get('fehlt') or []
         reicht = werte.get('vollstaendig') or []
         anzahl = werte.get('posten') or 0
@@ -11419,7 +11419,7 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     die der Routenplaner ohnehin füllt. Ein Wunsch ohne Preis wäre eine
     Merkliste; mit Preis ist es eine Entscheidungshilfe.
     """
-    from . import hangar as meine, ships as alle_schiffe
+    from . import fleet as meine, ships as alle_schiffe
 
     name = eintrag.get('name') or ''
     karte = _karte(eltern, pady=(0, 6))
@@ -11429,8 +11429,8 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              anchor='w').pack(side='left')
 
     def streichen():
-        if meine.wunsch_entfernen(daten['stand'], name):
-            meine.speichern(daten['stand'])
+        if meine.wishlist_remove(daten['stand'], name):
+            meine.save(daten['stand'])
             meldung['text'], meldung['farbe'] = '', SUB
         neu_zeichnen()
 
@@ -11484,7 +11484,7 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
 
 def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     """Eine Schiffszeile. Gibt `1` zurück, wenn Steckplätze fehlen."""
-    from . import hangar as meine, erkul
+    from . import fleet as meine, erkul
 
     name = eintrag.get('name') or ''
     plaetze = erkul.plaetze(name, eintrag.get('hersteller', ''),
@@ -11497,8 +11497,8 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              anchor='w').pack(side='left')
 
     def austragen():
-        if meine.entfernen(daten['stand'], name, eintrag.get('hersteller', '')):
-            meine.speichern(daten['stand'])
+        if meine.remove(daten['stand'], name, eintrag.get('hersteller', '')):
+            meine.save(daten['stand'])
             meldung['text'], meldung['farbe'] = '', SUB
         neu_zeichnen()
 
@@ -11604,7 +11604,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     wie der Spieler Schiffe hat — bei vierzig Schiffen wartet er auf etwas,
     das er gar nicht sehen wollte.
     """
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     kasten = tk.Frame(karte, bg=FLAECHE)
     kasten.pack(fill='x')
@@ -11649,7 +11649,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
 
 def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     zustand, liste = warenkorb.posten(eintrag)
 
@@ -11876,7 +11876,7 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
     nichts geändert wurde. Ohne sie wäre nicht zu sehen, wogegen der Spieler
     tauscht — und „non-stock" wäre eine Behauptung ohne Bezugsgröße.
     """
-    from . import erkul, hangar as meine, warenkorb
+    from . import erkul, fleet as meine, warenkorb
 
     plaetze = erkul.steckplaetze(eintrag.get('name') or '',
                                  eintrag.get('hersteller') or '',
@@ -11933,7 +11933,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     belegt, müsste sonst viermal ein Fenster öffnen und schließen. Aufgeklappt
     wird dieselbe Formensprache benutzt wie beim Handeintrag darüber.
     """
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     pfad = platz.get('pfad') or ''
     # ⚠⚠ **Eine Wahl gilt für die ganze Gruppe.** Die Zeile vertritt bei
@@ -12107,8 +12107,8 @@ def _eintrag_speichern(eintrag):
     ausgetauschten Eintrag. Wer eine Teilmenge schreibt, löscht den Rest; das
     ist bei einer Datei, in der zwei Listen stehen, keine Frage des Stils.
     """
-    from . import hangar as meine
-    stand = meine.laden()
+    from . import fleet as meine
+    stand = meine.load()
     name = eintrag.get('name')
     hersteller = eintrag.get('hersteller')
     gefunden = False
@@ -12121,7 +12121,7 @@ def _eintrag_speichern(eintrag):
                 break
         if gefunden:
             break
-    meine.speichern(stand)
+    meine.save(stand)
     return gefunden
 
 
@@ -12173,7 +12173,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     Posten für Posten. Wer gerade kein Erz hat, kauft trotz des besseren
     Preises; wer Zeit hat, baut.
     """
-    from . import hangar as meine, warenkorb
+    from . import fleet as meine, warenkorb
 
     karte = tk.Frame(eltern, bg='#0c1017')
     karte.pack(fill='x', padx=((46, 16) if eingerueckt else (0, 0)),

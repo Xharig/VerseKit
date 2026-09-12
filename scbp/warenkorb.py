@@ -402,7 +402,7 @@ def auswahl(art, groesse):
 # ------------------------------------------------------------- Die Auslegung
 #
 # ⚠ Alles hier arbeitet auf **einem Hangar-Eintrag** (ein Schiff aus
-# `hangar.laden()['schiffe']`), nicht auf der ganzen Datei. Geschrieben wird
+# `fleet.load()['schiffe']`), nicht auf der ganzen Datei. Geschrieben wird
 # in das Feld `belegung`, das dort seit v3.19.0-rc1 leer bereitliegt — es
 # kostet also keinen Formatwechsel und entwertet keine bestehende Datei.
 
@@ -935,9 +935,9 @@ def rechnung(daten=None):
     Holen gehört in die Oberfläche, wo es im Hintergrund laufen kann, und nicht
     in eine Funktion, die beim Aufklappen einer Seite anhält.
     """
-    from . import hangar, ships as alle_schiffe
+    from . import fleet, ships as alle_schiffe
 
-    daten = daten if daten is not None else hangar.laden()
+    daten = daten if daten is not None else fleet.load()
     verzeichnis = _bauplan_verzeichnis()
     raus = []
     ohne_daten = []
@@ -1013,7 +1013,7 @@ def rechnung(daten=None):
     # ⚠ Die `anzahl` gehört an den Posten, nicht in mehrere Zeilen: Drei
     # gleiche Helme sollen einmal dastehen und dreifaches Material fordern,
     # nicht dreimal untereinander stehen.
-    for eintrag in hangar.merkzettel(daten):
+    for eintrag in fleet.notepad(daten):
         name = eintrag.get('name') or ''
         if not name:
             continue
