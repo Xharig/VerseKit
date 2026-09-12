@@ -702,18 +702,31 @@ def datenabruf_pruefen():
 
     # Jede Ablage nennt ihre Frist selbst. Geprüft wird, dass sie überhaupt
     # eine hat und dass sie in einem sinnvollen Rahmen liegt.
+    # ⚠⚠ **Diese Namen sind Zeichenketten — keine Import-Zeile passt sie an.**
+    # Prüfung 190 im Selbsttest bewacht Importe und `'scbp.<alt>'`-Angaben,
+    # aber keinen blanken Namen in einer Liste. Beim Umbenennen von `bergbau`
+    # (Stufe 2a) und `schiffe` (Stufe 2c) blieben sie deshalb stehen — und das
+    # `except: continue` darunter hat es verschluckt: Die Prüfung lief mit zwei
+    # Ablagen weniger und meldete trotzdem „auffindbar".
+    #
+    # Deshalb ist ein Fehlschlag hier jetzt ein **Befund**, kein Überspringen.
     ablagen = []
-    for modulname in ('laeden', 'schiffe', 'erkul', 'orte', 'preise',
-                      'bergbau', 'routen'):
+    fehlende = []
+    for modulname in ('laeden', 'ships', 'erkul', 'orte', 'preise',
+                      'mining', 'routen'):
         try:
             modul = __import__('scbp.' + modulname, fromlist=[modulname])
-        except Exception:
+        except Exception as ausnahme:
+            fehlende.append('%s (%s)' % (modulname, type(ausnahme).__name__))
             continue
         for name in dir(modul):
             wert = getattr(modul, name, None)
             if isinstance(wert, uex.Ablage):
                 ablagen.append((modulname, name, wert))
 
+    pruefe(not fehlende,
+           'jedes hier genannte Modul gibt es auch (fehlt: %s)'
+           % (', '.join(fehlende) or 'keines'))
     pruefe(bool(ablagen), 'die Zwischenspeicher sind auffindbar (%d)'
            % len(ablagen))
 
