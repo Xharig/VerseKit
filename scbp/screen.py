@@ -61,7 +61,7 @@ WINDOWS = sys.platform.startswith('win')
 _XRANDR = re.compile(r'^\s*\d+:\s*\+\*\S*\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)')
 
 
-def _ganze_flaeche(root):
+def _whole_area(root):
     """Rückfall: alles, was Tk sieht."""
     try:
         return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
@@ -69,44 +69,44 @@ def _ganze_flaeche(root):
         return 0, 0, 1920, 1080
 
 
-def _windows_hauptschirm():
+def _windows_primary():
     try:
         import ctypes
         benutzer = ctypes.windll.user32
         # 0 = SM_CXSCREEN, 1 = SM_CYSCREEN — beides bezieht sich auf den Primärschirm.
-        breite = int(benutzer.GetSystemMetrics(0))
-        hoehe = int(benutzer.GetSystemMetrics(1))
-        if breite > 0 and hoehe > 0:
-            return 0, 0, breite, hoehe
+        width = int(benutzer.GetSystemMetrics(0))
+        height = int(benutzer.GetSystemMetrics(1))
+        if width > 0 and height > 0:
+            return 0, 0, width, height
     except Exception:
         pass
     return None
 
 
 # Dieselbe Zeilenform wie oben, nur ohne den Stern — also **alle** Monitore.
-_XRANDR_ALLE = re.compile(r'^\s*\d+:\s*\+\*?\S*\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)')
+_XRANDR_ALL = re.compile(r'^\s*\d+:\s*\+\*?\S*\s+(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)')
 
 
-def _linux_alle_schirme():
+def _linux_all_screens():
     try:
-        umgebung = dict(os.environ)
-        umgebung['LC_ALL'] = 'C'
-        ausgabe = subprocess.run(['xrandr', '--listmonitors'],
+        env = dict(os.environ)
+        env['LC_ALL'] = 'C'
+        output = subprocess.run(['xrandr', '--listmonitors'],
                                  capture_output=True, text=True, timeout=3,
-                                 env=umgebung).stdout
-        schirme = []
-        for zeile in ausgabe.splitlines():
-            treffer = _XRANDR_ALLE.match(zeile)
-            if treffer:
-                b, h, x, y = (int(z) for z in treffer.groups())
+                                 env=env).stdout
+        screens = []
+        for line in output.splitlines():
+            match = _XRANDR_ALL.match(line)
+            if match:
+                b, h, x, y = (int(z) for z in match.groups())
                 if b > 0 and h > 0:
-                    schirme.append((x, y, b, h))
-        return schirme
+                    screens.append((x, y, b, h))
+        return screens
     except Exception:
         return []
 
 
-def _windows_alle_schirme():
+def _windows_all_screens():
     """Alle Monitore über EnumDisplayMonitors."""
     try:
         import ctypes
@@ -116,34 +116,34 @@ def _windows_alle_schirme():
             _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long),
                         ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
 
-        schirme = []
+        screens = []
         rueckruf_typ = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_void_p,
                                           ctypes.c_void_p,
                                           ctypes.POINTER(RECT), ctypes.c_double)
 
         def sammeln(_h, _dc, rechteck, _daten):
             r = rechteck.contents
-            schirme.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
+            screens.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
             return 1
 
         ctypes.windll.user32.EnumDisplayMonitors(None, None,
                                                  rueckruf_typ(sammeln), 0)
-        return [s for s in schirme if s[2] > 0 and s[3] > 0]
+        return [s for s in screens if s[2] > 0 and s[3] > 0]
     except Exception:
         return []
 
 
-def _linux_hauptschirm():
+def _linux_primary():
     try:
-        umgebung = dict(os.environ)
-        umgebung['LC_ALL'] = 'C'
-        ausgabe = subprocess.run(['xrandr', '--listmonitors'],
+        env = dict(os.environ)
+        env['LC_ALL'] = 'C'
+        output = subprocess.run(['xrandr', '--listmonitors'],
                                  capture_output=True, text=True, timeout=3,
-                                 env=umgebung).stdout
-        for zeile in ausgabe.splitlines():
-            treffer = _XRANDR.match(zeile)
-            if treffer:
-                b, h, x, y = (int(z) for z in treffer.groups())
+                                 env=env).stdout
+        for line in output.splitlines():
+            match = _XRANDR.match(line)
+            if match:
+                b, h, x, y = (int(z) for z in match.groups())
                 if b > 0 and h > 0:
                     return x, y, b, h
     except Exception:
@@ -151,25 +151,25 @@ def _linux_hauptschirm():
     return None
 
 
-def hauptbildschirm(root):
+def primary(root):
     """Lage und Größe des Hauptbildschirms als (x, y, breite, hoehe)."""
-    gefunden = _windows_hauptschirm() if WINDOWS else _linux_hauptschirm()
-    return gefunden or _ganze_flaeche(root)
+    gefunden = _windows_primary() if WINDOWS else _linux_primary()
+    return gefunden or _whole_area(root)
 
 
-def alle_schirme(root):
+def all_screens(root):
     """Alle Bildschirme als (x, y, breite, hoehe) — oder die Gesamtfläche."""
     if WINDOWS:
-        gefunden = _windows_alle_schirme()
+        gefunden = _windows_all_screens()
         if gefunden:
             return gefunden
-        einer = _windows_hauptschirm()
-        return [einer] if einer else [_ganze_flaeche(root)]
-    gefunden = _linux_alle_schirme()
-    return gefunden or [_ganze_flaeche(root)]
+        einer = _windows_primary()
+        return [einer] if einer else [_whole_area(root)]
+    gefunden = _linux_all_screens()
+    return gefunden or [_whole_area(root)]
 
 
-def _windows_arbeitsflaeche():
+def _windows_work_area():
     """Der nutzbare Bereich des Hauptschirms — **ohne Taskleiste**.
 
     ⚠⚠ Warum das noetig ist (gemeldet 02.09.2026 von Haldjas, pr0): Wer das
@@ -201,19 +201,19 @@ def _windows_arbeitsflaeche():
     return None
 
 
-def _linux_arbeitsflaeche():
+def _linux_work_area():
     """Dasselbe unter Linux: `_NET_WORKAREA` des Fensterverwalters.
 
     ⚠ Nicht jede Umgebung setzt die Eigenschaft, und unter Wayland gibt es sie
     haeufig gar nicht. Dann `None` — der Aufrufer nimmt die volle Flaeche.
     """
     try:
-        umgebung = dict(os.environ)
-        umgebung['LC_ALL'] = 'C'
-        ausgabe = subprocess.run(
+        env = dict(os.environ)
+        env['LC_ALL'] = 'C'
+        output = subprocess.run(
             ['xprop', '-root', '_NET_WORKAREA'],
-            capture_output=True, text=True, timeout=3, env=umgebung).stdout
-        zahlen = [int(z) for z in re.findall(r'\d+', ausgabe.split('=')[-1])]
+            capture_output=True, text=True, timeout=3, env=env).stdout
+        zahlen = [int(z) for z in re.findall(r'\d+', output.split('=')[-1])]
         if len(zahlen) >= 4 and zahlen[2] > 0 and zahlen[3] > 0:
             return zahlen[0], zahlen[1], zahlen[2], zahlen[3]
     except Exception:
@@ -221,7 +221,7 @@ def _linux_arbeitsflaeche():
     return None
 
 
-def arbeitsflaeche(root, x, y):
+def work_area(root, x, y):
     """Wo ein Fenster wirklich hindarf — Schirm unter (x, y) ohne Taskleiste.
 
     ⚠ Der Arbeitsbereich wird nur fuer den **Hauptschirm** gemeldet; beide
@@ -229,8 +229,8 @@ def arbeitsflaeche(root, x, y):
     anderen Schirm, gilt deshalb weiter dessen volle Flaeche — besser als eine
     Zahl, die vom falschen Bildschirm stammt.
     """
-    schirm = schirm_fuer(root, x, y)
-    arbeit = _windows_arbeitsflaeche() if WINDOWS else _linux_arbeitsflaeche()
+    schirm = screen_at(root, x, y)
+    arbeit = _windows_work_area() if WINDOWS else _linux_work_area()
     if not arbeit:
         return schirm
     ax, ay, ab, ah = arbeit
@@ -242,7 +242,7 @@ def arbeitsflaeche(root, x, y):
     return schirm
 
 
-def schirm_fuer(root, x, y):
+def screen_at(root, x, y):
     """Auf welchem Bildschirm liegt dieser Punkt? (x, y, breite, hoehe)
 
     ⚠ Gebraucht überall dort, wo etwas neben ein Bedienelement geklappt wird.
@@ -253,13 +253,13 @@ def schirm_fuer(root, x, y):
     klappt in Wirklichkeit ins Nichts. Gemeldet als „Alle Arten und Alle Quellen
     sind nicht auswählbar": Die langen Listen gingen unterhalb des Bildes auf.
     """
-    for sx, sy, sb, sh in alle_schirme(root):
+    for sx, sy, sb, sh in all_screens(root):
         if sx <= x < sx + sb and sy <= y < sy + sh:
             return sx, sy, sb, sh
-    return hauptbildschirm(root)
+    return primary(root)
 
 
-def mittig(root, breite, hoehe):
+def centered(root, width, height):
     """Geometrie-Angabe für ein Fenster in der Mitte des Hauptbildschirms.
 
     Das Ergebnis ist die übliche Tk-Form `BREITExHOEHE+X+Y`. Passt das Fenster
@@ -267,7 +267,7 @@ def mittig(root, breite, hoehe):
     ein Fenster, dessen Titelleiste oberhalb des Bildes liegt, lässt sich nicht mehr
     anfassen.
     """
-    sx, sy, sb, sh = hauptbildschirm(root)
-    x = sx + max(0, (sb - breite) // 2)
-    y = sy + max(0, (sh - hoehe) // 2)
-    return '%dx%d+%d+%d' % (breite, hoehe, x, y)
+    sx, sy, sb, sh = primary(root)
+    x = sx + max(0, (sb - width) // 2)
+    y = sy + max(0, (sh - height) // 2)
+    return '%dx%d+%d+%d' % (width, height, x, y)

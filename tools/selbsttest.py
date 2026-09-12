@@ -7814,7 +7814,7 @@ def main():
     # `geometry()`, auch gegen das Zurechtruecken beim Start.
     print()
     print('85. Das Fenster passt auf den Bildschirm')
-    from scbp import bildschirm as _bs85
+    from scbp import screen as _bs85
     from scbp import hauptfenster as _hf85
 
     # ⚠ **`Hauptfenster` legt ein eigenes Toplevel an** — `hf.root` ist nicht
@@ -7839,8 +7839,8 @@ def main():
     # nachziehen` steigt aus, solange die Leiste noch nicht gezeichnet ist, und
     # `minsize` bleibt dann auf 1 — die Pruefung waere gruen gewesen, ohne
     # irgendetwas geprueft zu haben. Genau die Falle aus Pruefung 83.
-    _echt85 = _bs85.schirm_fuer
-    _bs85.schirm_fuer = lambda *_a, **_k: (0, 0, 1280, 700)
+    _echt85 = _bs85.screen_at
+    _bs85.screen_at = lambda *_a, **_k: (0, 0, 1280, 700)
     try:
         for _versuch85 in range(40):
             _fenster85._mindesthoehe_nachziehen()
@@ -7851,7 +7851,7 @@ def main():
                 break
         _mb85, _mh85 = _echt_fenster85.minsize()
     finally:
-        _bs85.schirm_fuer = _echt85
+        _bs85.screen_at = _echt85
 
     pruefe(_mh85 > 1,
            'die Mindesthoehe wurde ueberhaupt gesetzt (%d)' % _mh85)
@@ -8321,9 +8321,26 @@ def main():
     # Und der Weg von der Rechnung ins Fenster muss auch gegangen werden.
     _q87 = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
                 encoding='utf-8').read()
-    pruefe('_b_start, _h_start = gemerkte_groesse(self.root)' in _q87
-           and 'bildschirm.mittig(self.root, _b_start, _h_start)' in _q87,
-           'der Start benutzt die gemerkte Groesse — und bleibt mittig')
+    # ⚠⚠ Suchte bis zum 12.09.2026 den **kompletten Aufruf als Zeichenkette**
+    # (`'bildschirm.mittig(self.root, _b_start, _h_start)'`). Ein anderer
+    # Zeilenumbruch haette sie blind gemacht, und bei der Umbenennung des
+    # Moduls fiel sie um. Geprueft wird jetzt, ob die Aufbau-Funktion beide
+    # Dinge wirklich **nachschlaegt** — rekursiv, damit verschachtelte
+    # Rueckrufe mitzaehlen (siehe Pruefung 187).
+    from scbp import hauptfenster as _hf87
+
+    def _namen87(code):
+        heraus = set(code.co_names)
+        for wert in code.co_consts:
+            if hasattr(wert, 'co_names'):
+                heraus |= _namen87(wert)
+        return heraus
+
+    _ruft87 = _namen87(_hf87.Hauptfenster.__init__.__code__)
+    pruefe('gemerkte_groesse' in _ruft87 and 'centered' in _ruft87,
+           'der Start benutzt die gemerkte Groesse — und bleibt mittig (%s)'
+           % ', '.join(sorted(n for n in _ruft87
+                              if n in ('gemerkte_groesse', 'centered'))))
     pruefe('self.root.minsize(MIN_BREITE, MIN_HOEHE)' in _q87,
            'die Mindestgroesse wird unveraendert gesetzt')
     pruefe("self.root.bind('<Configure>', self._groesse_beobachten" in _q87
@@ -9691,7 +9708,7 @@ def main():
     print()
     print('101. Das Overlay laesst sich in eine Ecke legen')
     import sc_bp_watcher as _w101
-    from scbp import bildschirm as _bs101, pfade as _pf101
+    from scbp import screen as _bs101, pfade as _pf101
 
     class _Wurzel101:
         def winfo_x(self): return 500
@@ -9710,8 +9727,8 @@ def main():
     # sind das andere als 1920x1080, und drei Pruefungen fielen um
     # (gemessen 02.09.2026 beim Bau von v3.9.4). Der Fehlschlag war richtig:
     # Der Aufrufweg hatte sich geaendert.
-    _echt101 = _bs101.arbeitsflaeche
-    _bs101.arbeitsflaeche = lambda *_a, **_k: (0, 0, 1920, 1080)
+    _echt101 = _bs101.work_area
+    _bs101.work_area = lambda *_a, **_k: (0, 0, 1920, 1080)
     _o101 = _Ov101()
     try:
         _pf101.einstellung_setzen('overlay_ecke', 'frei')
@@ -9731,7 +9748,7 @@ def main():
 
         # ⚠ Auf DEM Schirm, auf dem es steht — nicht auf dem ersten. Bei drei
         # Monitoren nebeneinander waere „oben rechts" sonst immer der linke.
-        _bs101.arbeitsflaeche = lambda *_a, **_k: (1920, 0, 2560, 1440)
+        _bs101.work_area = lambda *_a, **_k: (1920, 0, 2560, 1440)
         _pf101.einstellung_setzen('overlay_ecke', 'oben-rechts')
         pruefe(_o101._klapp_ecke(300, 30) == (1920 + 2560 - 300 - 8, 8),
                'und auf dem zweiten Bildschirm genauso')
@@ -9742,7 +9759,7 @@ def main():
         pruefe(_o101._klapp_ecke(300, 30) == (500, 400),
                'eine unbekannte Ecke laesst alles, wie es ist')
     finally:
-        _bs101.arbeitsflaeche = _echt101
+        _bs101.work_area = _echt101
         _pf101.einstellung_setzen('overlay_ecke', 'frei')
 
     # Und das Einklappen nimmt die Breite mit.
@@ -17017,6 +17034,12 @@ def main():
         # freedesktop-Fachbegriff.
         'verknuepfung': 'desktop_entry',
         'ablagesymbol': 'tray_icon',
+        # Stufe 4b — Bildschirme und Fensterlage
+        #
+        # ⚠ `screen` und nicht `display`: Das Modul fragt nach **Monitoren**
+        # (Lage, Groesse, Arbeitsflaeche), nicht nach dem X11-Display. Unter
+        # Linux waere `display` sogar irrefuehrend — das ist `:0`.
+        'bildschirm': 'screen',
     }
 
     def _reste190(quelle, name, alte):

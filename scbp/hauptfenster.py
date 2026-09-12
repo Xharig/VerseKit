@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import bildschirm, fehler, fields, notice, news, pfade, zeichen
+from . import screen, fehler, fields, notice, news, pfade, zeichen
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -1374,7 +1374,7 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # Wirklichkeit unterhalb des Bildes auf. Gemeldet als „Alle Arten und
         # Alle Quellen sind nicht auswählbar", also genau die beiden längsten
         # Listen. Maßgeblich ist der Bildschirm, auf dem das Feld steht.
-        _sx, schirm_oben, _sb, schirm_hoch = bildschirm.schirm_fuer(
+        _sx, schirm_oben, _sb, schirm_hoch = screen.screen_at(
             c, c.winfo_rootx(), c.winfo_rooty())
         schirm_unten = schirm_oben + schirm_hoch
         # So viel Platz ist nach unten bzw. nach oben — mit etwas Luft zum Rand.
@@ -1676,7 +1676,7 @@ class Hauptfenster:
         # ging es bei jedem Start wieder auf 1160x380 zurueck, und wer mit
         # langen Listen arbeitet, zog es jedes Mal von Hand auf.
         _b_start, _h_start = gemerkte_groesse(self.root)
-        self.root.geometry(bildschirm.mittig(self.root, _b_start, _h_start))
+        self.root.geometry(screen.centered(self.root, _b_start, _h_start))
         self.root.minsize(MIN_BREITE, MIN_HOEHE)
         # Merker fuer die Drossel unten — solange etwas darin steht, ist ein
         # Speichern schon vorgemerkt.
@@ -2716,9 +2716,9 @@ class Hauptfenster:
             # Seit die Seitenleiste rollt (siehe `_korpus`), ist ein Fenster,
             # das kürzer ist als ihr Bedarf, auch kein Verlust mehr — man
             # kommt weiterhin an jeden Eintrag.
-            from . import bildschirm as _bs
+            from . import screen as _bs
             try:
-                _, _, _, schirm_hoch = _bs.schirm_fuer(
+                _, _, _, schirm_hoch = _bs.screen_at(
                     self.root, self.root.winfo_x(), self.root.winfo_y())
                 if schirm_hoch and schirm_hoch > 200:
                     noetig = min(noetig, schirm_hoch)
@@ -2749,19 +2749,19 @@ class Hauptfenster:
 
         ⚠ Tk hilft hier nicht: `winfo_screenheight()` meldet die Höhe **aller**
         Bildschirme zusammen — bei zwei übereinander also das Doppelte. Für
-        „passt das?" ist das die falsche Zahl. `bildschirm.schirm_fuer()`
+        „passt das?" ist das die falsche Zahl. `screen.screen_at()`
         liefert den Monitor, auf dem das Fenster wirklich steht.
 
         Verschoben wird nur, was muss: Wer sein Fenster selbst irgendwohin
         zieht, soll es dort wiederfinden.
         """
-        from . import bildschirm as _bs
+        from . import screen as _bs
         try:
             x, y = self.root.winfo_x(), self.root.winfo_y()
             b, h = self.root.winfo_width(), self.root.winfo_height()
             if b < 50 or h < 50:              # noch nicht angezeigt
                 return
-            sx, sy, sb, sh = _bs.schirm_fuer(self.root, x, y)
+            sx, sy, sb, sh = _bs.screen_at(self.root, x, y)
             # ⚠ Erst die Größe deckeln, dann die Lage — sonst schiebt man ein
             # zu großes Fenster hin und her und es ragt trotzdem heraus.
             neu_b, neu_h = min(b, sb), min(h, sh)

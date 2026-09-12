@@ -244,7 +244,7 @@ def check(own_version, force=False):
             _FETCH['ok'] = False
             _FETCH['grenze'] = '403' in str(ausnahme) or 'rate limit' in str(
                 ausnahme).lower()
-            fehler.merken('updater.nachsehen', ausnahme)
+            fehler.merken('updater.check', ausnahme)
             # Der letzte bekannte Stand gilt weiter — ohne Netz ist das besser
             # als gar nichts.
 
@@ -777,7 +777,7 @@ def fetch_checksums(release):
                 text = r.read(64 * 1024).decode('utf-8', 'replace')
             return parse_checksums(text), ''
         except Exception as ausnahme:
-            fehler.merken('updater.pruefsummen_holen', ausnahme)
+            fehler.merken('updater.fetch_checksums', ausnahme)
             return {}, 'netz'
     return {}, 'fehlt'
 
@@ -895,7 +895,7 @@ def _discard(target):
     except FileNotFoundError:
         pass
     except OSError as ausnahme:
-        fehler.merken('updater.summe_verwerfen', ausnahme)
+        fehler.merken('updater.discard', ausnahme)
 
 
 def _fetch_and_verify(url, target, expected, progress=None):
@@ -999,7 +999,7 @@ def _backup(target):
         shutil.copy2(target, before)
         return os.path.getsize(before) == os.path.getsize(target)
     except OSError as ausnahme:
-        fehler.merken('updater.sichern', ausnahme)
+        fehler.merken('updater.backup', ausnahme)
         return False
 
 
@@ -1021,7 +1021,7 @@ def roll_back():
         os.chmod(target, 0o755)
         return True
     except OSError as ausnahme:
-        fehler.merken('updater.zurueckrollen', ausnahme)
+        fehler.merken('updater.roll_back', ausnahme)
         return False
 
 
@@ -1320,7 +1320,7 @@ def _report_death(exit_code):
             text = (asset.read() or '').strip()[-800:]
         except Exception:
             text = ''
-    fehler.merken('updater.neustart_tot',
+    fehler.merken('updater.report_death',
                   RuntimeError('Rückgabewert %s%s' % (
                       exit_code, (' — ' + text) if text else
                       ' — keine Ausgabe')))
@@ -1412,7 +1412,7 @@ def restart():
             stderr=_OUTPUT[0] or subprocess.DEVNULL)
         return True
     except Exception as ausnahme:
-        fehler.merken('updater.neu_starten', ausnahme)
+        fehler.merken('updater.restart', ausnahme)
         return False
 
 
@@ -1460,6 +1460,6 @@ def update_windows_entry(own_version):
             continue          # HKLM ohne Administratorrechte — hinnehmen
         except Exception as ausnahme:
             from . import fehler
-            fehler.merken('updater.windows_eintrag', ausnahme)
+            fehler.merken('updater.update_windows_entry', ausnahme)
             return False
     return False

@@ -47,7 +47,7 @@ from scbp import fehler
 from scbp import notice
 from scbp import (
     auftraege,tray_icon, updater, assistent, autostart, places, prices,
-                  bildschirm, overlay,
+                  screen, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   catalog as katalog_modul, shops, logquelle, watchlist,
@@ -609,7 +609,7 @@ def standardlage(root):
     """
     m = GEOM_RE.match(DEFAULT_GEOM or '')
     breite, hoehe = (int(m.group(1)), int(m.group(2))) if m else (440, 1000)
-    return bildschirm.mittig(root, breite, hoehe)
+    return screen.centered(root, breite, hoehe)
 
 
 def startlage(root):
@@ -1832,7 +1832,7 @@ class Overlay:
         _WURZEL[0] = self.root                    # damit signalton() klingeln kann
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
         # setzen kann, ohne dass `seiten.py` das Hauptprogramm importieren müsste.
-        bildschirm.OVERLAY[0] = self.root
+        screen.OVERLAY[0] = self.root
         overlay.OVERLAY_FENSTER[0] = self.root
         # Merken, ob der Zeiger auf dem Overlay steht — das entscheidet, ob eine
         # Einblendung stehen bleibt. Echte Ereignisse statt Positionsabfrage.
@@ -3261,7 +3261,7 @@ class Overlay:
             # 02.09.2026) — getroffen wurde das Stueck, das oberhalb der
             # Leiste herausschaute. `arbeitsflaeche()` faellt auf die volle
             # Flaeche zurueck, wenn das System keine Angabe liefert.
-            sx, sy, sb, sh = bildschirm.arbeitsflaeche(self.root, x, y)
+            sx, sy, sb, sh = screen.work_area(self.root, x, y)
             rand = 8
             x = sx + rand if ecke.endswith('links') else sx + sb - breite - rand
             y = sy + rand if ecke.startswith('oben') else sy + sh - hoehe - rand

@@ -181,7 +181,7 @@ def _remove(path):
         pass
     except OSError as ausnahme:
         from . import fehler
-        fehler.merken('update_run.weg', ausnahme)
+        fehler.merken('update_run.remove', ausnahme)
 
 
 def _json_write(path, data):
@@ -348,7 +348,7 @@ def take_lock():
             continue
         except OSError as ausnahme:
             from . import fehler
-            fehler.merken('update_run.sperre', ausnahme)
+            fehler.merken('update_run.take_lock', ausnahme)
             return True
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             json.dump({'pid': os.getpid(), 'zeit': time.time()}, f)
@@ -362,7 +362,7 @@ def hand_lock_to(pid):
         _json_write(_path(LOCK_FILE), {'pid': int(pid), 'zeit': time.time()})
     except (OSError, TypeError, ValueError) as ausnahme:
         from . import fehler
-        fehler.merken('update_run.sperre_uebergeben', ausnahme)
+        fehler.merken('update_run.hand_lock_to', ausnahme)
 
 
 def release_lock():
@@ -453,7 +453,7 @@ def evaluate(own_version):
         kind = 'fehler'
     if kind != 'fertig':
         from . import fehler
-        fehler.merken('updater.update_%s' % kind, RuntimeError(
+        fehler.merken('update_run.update_%s' % kind, RuntimeError(
             'Ziel %s, laufend %s, vorher %s, Rückgabewert %s'
             % (target or '?', own_version or '?', previous or '?',
                '–' if code is None else code)))
@@ -490,7 +490,7 @@ def rotate_log():
             os.replace(previous, _path(LOG_FILE_OLD))
         except OSError as ausnahme:
             from . import fehler
-            fehler.merken('update_run.rotieren', ausnahme)
+            fehler.merken('update_run.rotate_log', ausnahme)
 
 
 def _log_line(entry):

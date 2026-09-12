@@ -1642,15 +1642,15 @@ def _anzeige(fenster, rahmen):
         # dorthin geschickt, wo man es sucht. Deshalb wird aktiv die Standardlage
         # gesetzt: mittig auf dem Hauptbildschirm. Wie viele Bildschirme jemand hat,
         # wissen wir nicht; die Mitte des Hauptbildschirms passt überall.
-        from . import bildschirm
+        from . import screen
         try:
             os.remove(pfade.app_datei('watcher.json'))
         except OSError:
             pass
-        overlay = bildschirm.OVERLAY[0]
+        overlay = screen.OVERLAY[0]
         if overlay is not None:
             try:
-                overlay.geometry(bildschirm.mittig(overlay, 440, 1000))
+                overlay.geometry(screen.centered(overlay, 440, 1000))
             except Exception as ausnahme:
                 fehler.merken('seiten.lage_weg', ausnahme)
         fenster.sagen(t('s_an_lage_weg'))
