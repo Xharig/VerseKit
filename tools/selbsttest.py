@@ -11444,13 +11444,24 @@ def main():
         _ov121._maus_drauf = False
 
         class _Fern121(object):
+            """Haelt `_maus_drauf` waehrend der Messung auf einem festen Wert.
+
+            ⚠⚠ **Der Wert ist ein Parameter, kein festes False.** Beide
+            Haelften dieser Pruefung warten 2,4 Sekunden in einer
+            `mainloop()`, und in dieser Zeit darf nur das Programm
+            entscheiden — nicht die Umgebung.
+            """
+
+            def __init__(self, wert):
+                self._wert = wert
+
             def __get__(self, _o, _t=None):
-                return False
+                return self._wert
 
             def __set__(self, _o, _w):
                 pass
 
-        type(_ov121)._maus_drauf = _Fern121()
+        type(_ov121)._maus_drauf = _Fern121(False)
         try:
             _ov121.root.after(2400, _ov121.root.quit)
             _ov121.root.mainloop()
@@ -11461,13 +11472,29 @@ def main():
 
         # Und die Ruecksicht: Wer gerade liest, dem klappt nichts unter dem
         # Zeiger weg.
+        #
+        # ⚠⚠ **Auch diese Haelfte muss festgenagelt werden.** Bis zum
+        # 12.09.2026 stand hier nur `_ov121._maus_drauf = True` — eine
+        # Zuweisung an die Instanz. Unter Xvfb traegt das, weil der Zeiger bei
+        # (0,0) steht und sich nicht ruehrt. Unter Windows ist es ein echtes
+        # Fenster mit einem echten Mauszeiger: Ein `<Enter>` oder `<Leave>` vom
+        # Betriebssystem schrieb den Wert waehrend des Wartens um, das Overlay
+        # klappte zu Recht zu — und die Pruefung meldete einen Fehler, den es
+        # nicht gab. Gemessen: derselbe Stand lief dreimal, einmal rot.
+        #
+        # ⚠ Die beiden Haelften sind einander die Gegenprobe: mit `False`
+        # klappt es zu, mit `True` bleibt es offen. Wer hier `_Fern121(True)`
+        # auf `False` dreht, muss genau diese eine Zeile rot sehen.
         _ov121.klappzustand_setzen(True)
         _ov121.add_new('Zweiter Pruef-Bauplan', 'WeaponGun', '', '12:00:05')
-        _ov121._maus_drauf = True
-        _ov121.root.after(2400, _ov121.root.quit)
-        _ov121.root.mainloop()
-        pruefe(not _ov121.eingeklappt,
-               'mit der Maus darauf bleibt es offen, statt wegzuklappen')
+        type(_ov121)._maus_drauf = _Fern121(True)
+        try:
+            _ov121.root.after(2400, _ov121.root.quit)
+            _ov121.root.mainloop()
+            pruefe(not _ov121.eingeklappt,
+                   'mit der Maus darauf bleibt es offen, statt wegzuklappen')
+        finally:
+            del type(_ov121)._maus_drauf
 
         try:
             _ov121.root.destroy()
