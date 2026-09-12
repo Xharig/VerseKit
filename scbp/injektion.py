@@ -407,7 +407,7 @@ def ist_frisch():
 def urtext_verwerfen():
     """Die gemerkten Originaltexte wegwerfen und die Datei als frisch merken.
 
-    Gehört zu **jedem** Einsetzen einer neuen Grundlage (`uebersetzung.holen()`):
+    Gehört zu **jedem** Einsetzen einer neuen Grundlage (`translation.fetch()`):
     Die alten Merktexte gehören zur alten Datei und würden auf einen überholten
     Stand zurückschreiben; das Kennzeichen `frisch` schützt den fremden Text
     beim ersten Lauf (siehe `ist_frisch()`)."""
@@ -1604,10 +1604,10 @@ def _sprachreihenfolge(rueckfall=('english', 'german_(germany)')):
     beim Rückfall: Ohne Eintrag startet Star Citizen auf Englisch, dann ist die
     bisherige Reihenfolge richtig.
     """
-    from . import uebersetzung
+    from . import translation
     ordnung = list(rueckfall)
     try:
-        sprache = uebersetzung.spielsprache()
+        sprache = translation.game_language()
     except Exception as ausnahme:
         fehler.merken('injektion.spielsprache', ausnahme)
         return ordnung
@@ -1628,7 +1628,7 @@ def ini_datei():
     angezeigt — die deutsche war ja auch noch eingerichtet. Genau so gemeldet.
     Die Reihenfolge greift nur, solange nichts gewählt wurde.
     """
-    from . import uebersetzung
+    from . import translation
     gewaehlt = pfade.einstellung('inj_quelle')
     reihenfolge = ['deutsch', 'starstrings']
     if gewaehlt in reihenfolge:
@@ -1646,19 +1646,19 @@ def ini_datei():
         # das Spiel nie liest. Eingetragen wurde korrekt, angekommen ist nichts,
         # und die Statuszeile meldete trotzdem Erfolg. Am 29.08.2026 gemeldet.
         for sprache_ordner in _sprachreihenfolge():
-            pfad = uebersetzung.ziel_ini(sprache_ordner)
+            pfad = translation.target_ini(sprache_ordner)
             if pfad and os.path.isfile(pfad):
                 return pfad, sprache_ordner, None
     for quelle in reihenfolge:
-        if uebersetzung.installiert(quelle):
-            sprache_ordner = uebersetzung.QUELLEN[quelle]['sprache']
-            return uebersetzung.ziel_ini(sprache_ordner), sprache_ordner, quelle
+        if translation.installed(quelle):
+            sprache_ordner = translation.SOURCES[quelle]['sprache']
+            return translation.target_ini(sprache_ordner), sprache_ordner, quelle
     # Nichts vermerkt: dann die Datei nehmen, die tatsächlich daliegt — aber in
     # der Reihenfolge, die das Spiel vorgibt. Hier stand `german_(germany)`
     # zuerst; für dieses eine Haus richtig, für jeden mit englischem Spiel
     # falsch. Geraten wird nicht mehr.
     for sprache_ordner in _sprachreihenfolge(('german_(germany)', 'english')):
-        p = uebersetzung.ziel_ini(sprache_ordner)
+        p = translation.target_ini(sprache_ordner)
         if p and os.path.isfile(p):
             return p, sprache_ordner, None
     return None, 'english', None
@@ -1666,9 +1666,9 @@ def ini_datei():
 
 def lage():
     """Steht etwas im Spiel, und aus welcher Quelle? (dict)"""
-    from . import uebersetzung
+    from . import translation
     pfad, _sprache, quelle = ini_datei()
     da = bool(pfad and os.path.isfile(pfad))
     drin = bool(da and ist_drin(pfad))
     return {'datei': pfad, 'drin': drin, 'quelle': quelle,
-            'stand': uebersetzung.installiert(quelle) if quelle else None}
+            'stand': translation.installed(quelle) if quelle else None}

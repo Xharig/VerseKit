@@ -52,7 +52,7 @@ from scbp import (
                   einstellungsfenster, notice, injektion,
                   catalog as katalog_modul, shops, logquelle, watchlist,
                   pfade, phrasen, ships, gamebuild, titelleiste, sound,
-                  uebersetzung, selling, hotkey as hotkey_modul)
+                  translation, selling, hotkey as hotkey_modul)
 
 try:
     import winsound                      # nur Windows; unter Linux übernimmt tkinter
@@ -929,9 +929,9 @@ class Watcher(threading.Thread):
         if not faellig and not bestand_neu:
             return
 
-        quelle = next((q for q in uebersetzung.QUELLEN
-                       if uebersetzung.installiert(q)), None)
-        eigene_texte = bool(uebersetzung.installiert('original'))
+        quelle = next((q for q in translation.SOURCES
+                       if translation.installed(q)), None)
+        eigene_texte = bool(translation.installed('original'))
         if not quelle and not eigene_texte:
             return                      # nie eingerichtet — Finger weg
         # ⚠ Nur der Sechs-Stunden-Lauf schiebt seinen eigenen Termin. Täte das
@@ -972,9 +972,9 @@ class Watcher(threading.Thread):
         mehrere Megabyte große `global.ini`. Für einen frisch gefundenen
         Bauplan ist keine davon nötig: Da steht schon fest, was zu tun ist.
         """
-        sprache_ordner = (uebersetzung.QUELLEN[quelle]['sprache'] if quelle
+        sprache_ordner = (translation.SOURCES[quelle]['sprache'] if quelle
                           else 'english')
-        ziel = uebersetzung.ziel_ini(sprache_ordner)
+        ziel = translation.target_ini(sprache_ordner)
         if not ziel:
             return
         kuerzel = injektion._sprachkuerzel(sprache_ordner)
@@ -983,9 +983,9 @@ class Watcher(threading.Thread):
         # 1. Neue Version der Übersetzung? Die schreibt die Datei komplett neu,
         #    danach ist die Injektion in jedem Fall weg.
         if quelle and not nur_bestand:
-            da, kennung = uebersetzung.update_da(quelle)
+            da, kennung = translation.update_available(quelle)
             if da:
-                ok, meldung = uebersetzung.holen(quelle)
+                ok, meldung = translation.fetch(quelle)
                 if ok:
                     self.q.put(('status', sprache.Satz('texte_erneuert', kennung)))
                     neu_noetig = True

@@ -49,7 +49,7 @@ sucht das Programm bei jedem Bauplan erneut das Dateisystem ab.
 (Sprachumstellung P3). **`ton` war die Falle des ganzen Pakets:** Das Wort
 steht an Stellen, die mit diesem Modul nichts zu tun haben — als Schalter
 `self.ton` im Einstellungsfenster (gespeichert als `signalton`), als Schlüssel
-`'ton'` in `uebersetzung.py` für die **Sprache der Spielstimmen**
+`'ton'` in `translation.py` für die **Sprache der Spielstimmen**
 (`g_languageAudio`), und als Symbolname. Umbenannt wurde deshalb nur der
 Sammelimport und der eine Aufruf in `sc_bp_watcher.py` — nie das Wort.
 

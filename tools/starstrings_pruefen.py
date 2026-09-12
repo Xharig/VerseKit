@@ -102,7 +102,7 @@ print('StarStrings: %d KB, %d Kennzeichnungen [BP], %d Namen mit Kürzel'
 fehler = []
 
 # ---------------------------------------------------------------- 0) frisch?
-# So, wie es nach `uebersetzung.holen()` aussieht: eben eingesetzt, nie berührt.
+# So, wie es nach `translation.fetch()` aussieht: eben eingesetzt, nie berührt.
 injektion.urtext_verwerfen()
 if not injektion.ist_frisch():
     fehler.append('Die eingesetzte Datei gilt nicht als frisch.')

@@ -325,7 +325,7 @@ class Assistent:
 
     def _texte_holen(self, quelle):
         """Herunterladen, einsetzen, Bauplan-Angaben eintragen — in einem Zug."""
-        from . import injektion, spieltexte, uebersetzung
+        from . import injektion, spieltexte, translation
         # ⚠ Die Wahl **vor** dem Einrichten merken — genau wie auf der
         # Einstellungsseite. Fehlte das hier, holte der Assistent zwar die Texte,
         # aber unter „Angaben im Spiel" stand danach keine der drei Quellen
@@ -350,18 +350,18 @@ class Assistent:
                     return
                 # `g_language` setzt `spieltexte.holen()` selbst — dort
                 # gehört es hin, damit kein Weg es vergessen kann.
-                ziel = uebersetzung.ziel_ini(sprache_ordner)
-                uebersetzung.vermerken('original', 'Data.p4k')
+                ziel = translation.target_ini(sprache_ordner)
+                translation.note('original', 'Data.p4k')
             else:
-                ok, meldung = uebersetzung.holen(
+                ok, meldung = translation.fetch(
                     quelle, fortschritt=lambda x: (
                         self.inj_meldung.configure(text=x), self.root.update()))
                 if not ok:
                     self.inj_meldung.configure(text=t('inj_fehler', meldung),
                                                fg=GELB)
                     return
-                sprache_ordner = uebersetzung.QUELLEN[quelle]['sprache']
-                ziel = uebersetzung.ziel_ini(sprache_ordner)
+                sprache_ordner = translation.SOURCES[quelle]['sprache']
+                ziel = translation.target_ini(sprache_ordner)
 
             ok, anzahl, meldung = injektion.einrichten(
                 ziel, sprache_ordner,

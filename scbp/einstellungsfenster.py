@@ -43,7 +43,7 @@ from . import injektion
 from . import pfade
 from . import spieltexte
 from . import sprache
-from . import uebersetzung
+from . import translation
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -426,15 +426,15 @@ class Einstellungsfenster:
                     self._melden(t('inj_fehler', meldung), ROT)
                     return
                 # `g_language` setzt `spieltexte.holen()` selbst.
-                ziel = uebersetzung.ziel_ini(sprache_ordner)
-                uebersetzung.vermerken('original', 'Data.p4k')
+                ziel = translation.target_ini(sprache_ordner)
+                translation.note('original', 'Data.p4k')
             else:
-                ok, meldung = uebersetzung.holen(quelle, fortschritt=melde)
+                ok, meldung = translation.fetch(quelle, fortschritt=melde)
                 if not ok:
                     self._melden(t('inj_fehler', meldung), ROT)
                     return
-                sprache_ordner = uebersetzung.QUELLEN[quelle]['sprache']
-                ziel = uebersetzung.ziel_ini(sprache_ordner)
+                sprache_ordner = translation.SOURCES[quelle]['sprache']
+                ziel = translation.target_ini(sprache_ordner)
             # ⚠⚠ **Erst die alte Datei zurücksetzen, dann die neue einrichten.**
             # Die Quellen schreiben in verschiedene Sprachordner; ohne das
             # bleiben unsere Einfügungen in einer Datei stehen, die niemand
@@ -519,8 +519,8 @@ class Einstellungsfenster:
             return
         self._melden(t('inj_laeuft'))
         self._weiterarbeiten()
-        neu, kennung = uebersetzung.update_da(quelle)
-        stand = uebersetzung.installiert(quelle)
+        neu, kennung = translation.update_available(quelle)
+        stand = translation.installed(quelle)
         teile = [t('inj_steht') if drin else t('inj_steht_nicht')]
         if stand:
             teile.append(str(stand))

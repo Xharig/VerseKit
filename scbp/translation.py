@@ -52,13 +52,13 @@ import zipfile
 from . import pfade
 from .sprache import t
 
-MERKDATEI = 'uebersetzung.json'
+NOTE_FILE = 'uebersetzung.json'
 USER_AGENT = 'SC-BP-Watcher (+https://github.com/Xharig/SC-BP-Watcher)'
-ZEITLIMIT = 60
+TIMEOUT = 60
 
 # Die Fremdquellen. `sprache` ist der Ordnername, unter dem Star Citizen die
 # Datei erwartet — er entscheidet zugleich, was in die `user.cfg` muss.
-QUELLEN = {
+SOURCES = {
     'deutsch': {
         'repo':     'rjcncpt/StarCitizen-Deutsch-INI',
         'datei':    'StarCitizen.Deutsch.LIVE.zip',
@@ -80,7 +80,7 @@ QUELLEN = {
 }
 
 
-def _hole(url, roh=False):
+def _fetch(url, raw=False):
     # ⚠ `SC_BP_NO_NET` gilt hier genauso. Die Anleitung verspricht, dass sich
     # die Netzabrufe abschalten lassen — bis rc42 galt das für den Katalog,
     # die Preise, die Orte, den Serverstatus und die Update-Frage, aber nicht
@@ -90,9 +90,9 @@ def _hole(url, roh=False):
     if OFF:
         raise OSError('Netzabrufe sind abgeschaltet (SC_BP_NO_NET)')
     req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=ZEITLIMIT) as r:
-        daten = r.read()
-    return daten if roh else json.loads(daten.decode('utf-8'))
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+        data = r.read()
+    return data if raw else json.loads(data.decode('utf-8'))
 
 
 # --------------------------------------------------------------- Was ist neu?
@@ -101,100 +101,100 @@ def _hole(url, roh=False):
 # gefunden" im Fenster, was nach „das Release existiert nicht" aussieht und in
 # die völlig falsche Richtung führt. Die Diagnose kostete am 24.08.2026 eine
 # halbe Stunde, obwohl die Ausnahme den Grund kannte.
-letzter_fehler = [None]
+last_error = [None]
 
 
-def neueste(quelle):
+def latest(source):
     """Die neueste Version einer Quelle: (Kennung, Adresse, Größe) oder None.
 
     Die Kennung ist der Release-Tag. Bei StarStrings heißt der Tag immer
     `latest` — dort taugt er nicht zum Vergleichen, deshalb wird zusätzlich
     das Veröffentlichungsdatum genommen."""
-    q = QUELLEN.get(quelle)
+    q = SOURCES.get(source)
     if not q:
         return None
     try:
-        r = _hole('https://api.github.com/repos/%s/releases/latest' % q['repo'])
-        letzter_fehler[0] = None
+        r = _fetch('https://api.github.com/repos/%s/releases/latest' % q['repo'])
+        last_error[0] = None
     except Exception as e:
         # Zertifikatsfehler eigens benennen — die Meldung von OpenSSL ist für
         # Nichttechniker unlesbar, die Ursache aber immer dieselbe.
         text = str(e)
         if 'CERTIFICATE' in text.upper() or 'SSL' in text.upper():
-            letzter_fehler[0] = t('m_kein_zertifikat')
+            last_error[0] = t('m_kein_zertifikat')
         elif getattr(e, 'code', None) == 403 or '403' in text:
             # ⚠ Auch hier gilt: 403 ist eine Absage, kein Netzfehler. Bei
             # GitHub ist es meist das Abruflimit, bei Cloudflare-Seiten der
             # Bot-Schutz. Ohne eigene Meldung sucht man beim eigenen Anschluss.
-            letzter_fehler[0] = t('m_abgewiesen')
+            last_error[0] = t('m_abgewiesen')
         else:
-            letzter_fehler[0] = text
+            last_error[0] = text
         return None
-    kennung = r.get('tag_name') or ''
-    if kennung.lower() in ('latest', ''):
-        kennung = (r.get('published_at') or '')[:19]
+    ident = r.get('tag_name') or ''
+    if ident.lower() in ('latest', ''):
+        ident = (r.get('published_at') or '')[:19]
     for a in r.get('assets') or []:
         if a.get('name') == q['datei']:
-            return kennung, a.get('browser_download_url'), a.get('size') or 0
+            return ident, a.get('browser_download_url'), a.get('size') or 0
     return None
 
 
-def _merk():
+def _note():
     try:
-        with open(pfade.app_datei(MERKDATEI), encoding='utf-8') as f:
+        with open(pfade.app_datei(NOTE_FILE), encoding='utf-8') as f:
             d = json.load(f)
         return d if isinstance(d, dict) else {}
     except Exception:
         return {}
 
 
-def _merk_setzen(quelle, kennung):
-    d = _merk()
-    d[quelle] = {'kennung': kennung, 'stand': time.strftime('%Y-%m-%d %H:%M')}
-    ziel = pfade.app_datei(MERKDATEI)
+def _note_set(source, ident):
+    d = _note()
+    d[source] = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+    target = pfade.app_datei(NOTE_FILE)
     try:
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(d, f, ensure_ascii=False, indent=1)
-        os.replace(ziel + '.tmp', ziel)
+        os.replace(target + '.tmp', target)
     except OSError:
         pass
 
 
-def vermerken(quelle, kennung):
+def note(source, ident):
     """Eine Quelle als eingerichtet festhalten.
 
     Auch für den Weg „Originaltexte aus dem Spiel" nötig, obwohl dort nichts
     heruntergeladen wird: Ohne Vermerk weiß der Watcher beim nächsten Start
     nicht, dass der Spieler die Bauplan-Angaben überhaupt eingerichtet hat —
     und würde sie nach einem Spiel-Patch nicht wieder eintragen."""
-    _merk_setzen(quelle, kennung)
+    _note_set(source, ident)
 
 
-def installiert(quelle):
+def installed(source):
     """Welche Version liegt hier? Kennung oder None."""
-    return (_merk().get(quelle) or {}).get('kennung')
+    return (_note().get(source) or {}).get('kennung')
 
 
-def update_da(quelle):
+def update_available(source):
     """(True, neue_Kennung), wenn es etwas Neueres gibt. Wirft nie."""
-    neu = neueste(quelle)
-    if not neu:
+    fresh = latest(source)
+    if not fresh:
         return False, None
-    return (neu[0] != installiert(quelle)), neu[0]
+    return (fresh[0] != installed(source)), fresh[0]
 
 
 # ------------------------------------------------------------ Installieren
-def _ini_aus_zip(inhalt, sprache):
+def _ini_from_zip(content, sprache):
     """Die `global.ini` aus dem Archiv holen — egal wie der Ordner geschrieben ist.
 
     StarStrings packt nach `Data/…`, die deutsche Übersetzung nach `data/…`.
     Unter Windows ist das dasselbe, **unter Linux nicht** — dort wäre ein
     falsch geschriebener Ordner schlicht unsichtbar für das Spiel. Deshalb wird
     hier nur auf den Dateinamen geachtet und der Zielpfad später selbst gebaut."""
-    with zipfile.ZipFile(io.BytesIO(inhalt)) as z:
+    with zipfile.ZipFile(io.BytesIO(content)) as z:
         for name in z.namelist():
-            teile = name.replace('\\', '/').lower().split('/')
-            if teile[-1] == 'global.ini' and sprache.lower() in teile:
+            parts = name.replace('\\', '/').lower().split('/')
+            if parts[-1] == 'global.ini' and sprache.lower() in parts:
                 return z.read(name)
         for name in z.namelist():          # Rückfall: die einzige global.ini
             if name.replace('\\', '/').lower().endswith('/global.ini'):
@@ -202,20 +202,20 @@ def _ini_aus_zip(inhalt, sprache):
     return None
 
 
-def ziel_ini(sprache, spielordner=None):
+def target_ini(sprache, game_dir=None):
     """Wohin die Datei gehört. Ein vorhandener `Data`-Ordner wird beibehalten,
     sonst wird `data` angelegt — Linux unterscheidet die beiden."""
-    wurzel = spielordner or pfade.spiel_ordner()
-    if not wurzel:
+    root = game_dir or pfade.spiel_ordner()
+    if not root:
         return None
-    for schreibweise in ('data', 'Data'):
-        p = os.path.join(wurzel, schreibweise)
+    for spelling in ('data', 'Data'):
+        p = os.path.join(root, spelling)
         if os.path.isdir(p):
             return os.path.join(p, 'Localization', sprache, 'global.ini')
-    return os.path.join(wurzel, 'data', 'Localization', sprache, 'global.ini')
+    return os.path.join(root, 'data', 'Localization', sprache, 'global.ini')
 
 
-def spielsprache(spielordner=None):
+def game_language(game_dir=None):
     """Welche Sprache das Spiel wirklich liest — aus der `user.cfg`.
 
     Gibt den Sprachordner zurück (`german_(germany)`, `english`, …) oder `None`,
@@ -230,108 +230,108 @@ def spielsprache(spielordner=None):
     meldete trotzdem Erfolg. Am 29.08.2026 gemeldet; es erklärt vermutlich
     monatelang nicht ankommende Auftragstexte.
     """
-    wurzel = spielordner or pfade.spiel_ordner()
-    if not wurzel:
+    root = game_dir or pfade.spiel_ordner()
+    if not root:
         return None
-    pfad = os.path.join(wurzel, 'user.cfg')
+    path = os.path.join(root, 'user.cfg')
     try:
-        with open(pfad, encoding='utf-8', errors='ignore') as f:
-            zeilen = f.read().splitlines()
+        with open(path, encoding='utf-8', errors='ignore') as f:
+            lines = f.read().splitlines()
     except OSError:
         return None
-    for z in zeilen:
+    for z in lines:
         if z.split('=', 1)[0].strip() != 'g_language':
             continue
-        wert = z.split('=', 1)[1].strip() if '=' in z else ''
+        value = z.split('=', 1)[1].strip() if '=' in z else ''
         # Kommentare hinter dem Wert abschneiden — die `user.cfg` erlaubt sie.
-        wert = wert.split(';', 1)[0].split('--', 1)[0].strip().strip('"\'')
-        if wert:
-            return wert
+        value = value.split(';', 1)[0].split('--', 1)[0].strip().strip('"\'')
+        if value:
+            return value
     return None
 
 
-def user_cfg_setzen(sprache, ton=None, spielordner=None):
+def set_user_cfg(sprache, audio=None, game_dir=None):
     """`g_language` in der `user.cfg` setzen — **ergänzend**, nicht ersetzend.
 
     In dieser Datei stehen die Grafikeinstellungen des Spielers. Sie zu
     überschreiben, weil man eine Zeile ändern will, wäre ein handfester
     Schaden — deshalb wird zeilenweise gelesen und nur die betroffene Zeile
     ausgetauscht."""
-    wurzel = spielordner or pfade.spiel_ordner()
-    if not wurzel:
+    root = game_dir or pfade.spiel_ordner()
+    if not root:
         return False
-    pfad = os.path.join(wurzel, 'user.cfg')
-    zeilen = []
-    if os.path.isfile(pfad):
+    path = os.path.join(root, 'user.cfg')
+    lines = []
+    if os.path.isfile(path):
         try:
-            with open(pfad, encoding='utf-8', errors='ignore') as f:
-                zeilen = f.read().splitlines()
+            with open(path, encoding='utf-8', errors='ignore') as f:
+                lines = f.read().splitlines()
         except OSError:
             return False
-    gesetzt = {'g_language': False, 'g_languageAudio': ton is None}
-    neu = []
-    for z in zeilen:
-        schluessel = z.split('=', 1)[0].strip()
-        if schluessel == 'g_language':
-            neu.append('g_language = %s' % sprache)
-            gesetzt['g_language'] = True
-        elif schluessel == 'g_languageAudio' and ton:
-            neu.append('g_languageAudio = %s' % ton)
-            gesetzt['g_languageAudio'] = True
+    was_set = {'g_language': False, 'g_languageAudio': audio is None}
+    fresh = []
+    for z in lines:
+        key = z.split('=', 1)[0].strip()
+        if key == 'g_language':
+            fresh.append('g_language = %s' % sprache)
+            was_set['g_language'] = True
+        elif key == 'g_languageAudio' and audio:
+            fresh.append('g_languageAudio = %s' % audio)
+            was_set['g_languageAudio'] = True
         else:
-            neu.append(z)
-    if not gesetzt['g_language']:
-        neu.append('g_language = %s' % sprache)
-    if ton and not gesetzt['g_languageAudio']:
-        neu.append('g_languageAudio = %s' % ton)
+            fresh.append(z)
+    if not was_set['g_language']:
+        fresh.append('g_language = %s' % sprache)
+    if audio and not was_set['g_languageAudio']:
+        fresh.append('g_languageAudio = %s' % audio)
     try:
-        with open(pfad + '.tmp', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(neu) + '\n')
-        os.replace(pfad + '.tmp', pfad)
+        with open(path + '.tmp', 'w', encoding='utf-8') as f:
+            f.write('\n'.join(fresh) + '\n')
+        os.replace(path + '.tmp', path)
         return True
     except OSError:
         return False
 
 
-def holen(quelle, fortschritt=None, spielordner=None):
+def fetch(source, progress=None, game_dir=None):
     """Eine Quelle herunterladen und einsetzen. Gibt (Erfolg, Meldung) zurück."""
-    def melde(text):
-        if fortschritt:
-            fortschritt(text)
+    def report(text):
+        if progress:
+            progress(text)
 
-    q = QUELLEN.get(quelle)
+    q = SOURCES.get(source)
     if not q:
         return False, 'unbekannte Quelle'
-    neu = neueste(quelle)
-    if not neu:
-        return False, letzter_fehler[0] or t('m_keine_fassung')
-    kennung, adresse, groesse = neu
+    fresh = latest(source)
+    if not fresh:
+        return False, last_error[0] or t('m_keine_fassung')
+    ident, address, byte_size = fresh
 
-    melde(t('z_laedt') % (q['name'], groesse / 1048576.0))
+    report(t('z_laedt') % (q['name'], byte_size / 1048576.0))
     try:
-        inhalt = _hole(adresse, roh=True)
+        content = _fetch(address, raw=True)
     except Exception as e:
         return False, 'Download fehlgeschlagen: %s' % e
 
-    ini = _ini_aus_zip(inhalt, q['sprache'])
+    ini = _ini_from_zip(content, q['sprache'])
     if not ini:
         return False, t('m_keine_ini_archiv')
 
-    ziel = ziel_ini(q['sprache'], spielordner)
-    if not ziel:
+    target = target_ini(q['sprache'], game_dir)
+    if not target:
         return False, 'Star-Citizen-Ordner unbekannt'
 
-    melde(t('z_einsetzen'))
+    report(t('z_einsetzen'))
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel + '.tmp', 'wb') as f:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target + '.tmp', 'wb') as f:
             f.write(ini)
-        os.replace(ziel + '.tmp', ziel)
+        os.replace(target + '.tmp', target)
     except OSError as e:
         return False, 'Schreiben fehlgeschlagen: %s' % e
 
-    user_cfg_setzen(q['sprache'], q['ton'], spielordner)
-    _merk_setzen(quelle, kennung)
+    set_user_cfg(q['sprache'], q['ton'], game_dir)
+    _note_set(source, ident)
     # ⚠ Hier liegt jetzt eine **fremde, unberührte** Datei. Die gemerkten
     # Originaltexte gehören zur alten und würden auf einen überholten Stand
     # zurückschreiben; zugleich wird vermerkt, dass in dieser Datei noch nie
@@ -340,4 +340,4 @@ def holen(quelle, fortschritt=None, spielordner=None):
     # und wegen des dann falsch gemerkten „Urtextes" für immer.
     from . import injektion
     injektion.urtext_verwerfen()
-    return True, '%s (%s), %.1f MB' % (q['name'], kennung, len(ini) / 1048576.0)
+    return True, '%s (%s), %.1f MB' % (q['name'], ident, len(ini) / 1048576.0)

@@ -179,8 +179,8 @@ def entpacke_zstd(roh, erwartet):
 def _sprache_eintragen(sprache, spielordner):
     """`g_language` setzen — Fehlschlag ist kein Grund, den Rest wegzuwerfen."""
     try:
-        from . import uebersetzung
-        uebersetzung.user_cfg_setzen(sprache, None, spielordner)
+        from . import translation
+        translation.set_user_cfg(sprache, None, spielordner)
     except Exception as ausnahme:
         from . import fehler
         fehler.merken('spieltexte._sprache_eintragen', ausnahme)
@@ -216,8 +216,8 @@ def holen(sprache='english', spielordner=None, fortschritt=None,
         return False, t('m_kein_p4k')
     ziel = None
     try:
-        from . import uebersetzung
-        ziel = uebersetzung.ziel_ini(sprache, spielordner)
+        from . import translation
+        ziel = translation.target_ini(sprache, spielordner)
     except Exception:
         pass
     if not ziel:

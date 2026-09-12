@@ -1549,8 +1549,8 @@ def main():
             # fuer die Log-Zeile.
             ('scbp/auftraege.py', 'Uftrag zurückgezogen'),
             # Datenfeld der Übersetzungsquellen, nirgends angezeigt (geprüft)
-            ('scbp/uebersetzung.py', 'Deutsche Übersetzung (rjcncpt)'),
-            ('scbp/uebersetzung.py', 'StarStrings (aufgeräumte englische Texte)'),
+            ('scbp/translation.py', 'Deutsche Übersetzung (rjcncpt)'),
+            ('scbp/translation.py', 'StarStrings (aufgeräumte englische Texte)'),
         }
         # Ganze Dateien, deren deutsche Texte begründet fest sind
         _AUSNAHME_DATEIEN = {
@@ -2250,12 +2250,12 @@ def main():
         # Dazu die Tonspur: Star Citizen hat **keine deutsche Sprachausgabe**.
         # Ohne `g_languageAudio = english` neben der deutschen Textsprache
         # fehlt der Ton. Der Launcher setzt beides, also müssen wir es auch.
-        from scbp import uebersetzung as ue28
+        from scbp import translation as ue28
         frisch28 = os.path.join(basis, 'frischeinstallation', 'LIVE')
         os.makedirs(frisch28)
         open(os.path.join(frisch28, 'Data.p4k'), 'w').close()
 
-        ziel28 = ue28.ziel_ini('german_(germany)', frisch28)
+        ziel28 = ue28.target_ini('german_(germany)', frisch28)
         pruefe(ziel28.endswith(os.path.join('data', 'Localization',
                                             'german_(germany)', 'global.ini')),
                'der Zielpfad steht dort, wo Star Citizen sucht')
@@ -2263,7 +2263,7 @@ def main():
         pruefe(os.path.isdir(os.path.dirname(ziel28)),
                'die ganze Ordnerkette entsteht ohne Launcher')
 
-        ue28.user_cfg_setzen('german_(germany)', 'english', frisch28)
+        ue28.set_user_cfg('german_(germany)', 'english', frisch28)
         cfg28 = open(os.path.join(frisch28, 'user.cfg'), encoding='utf-8').read()
         pruefe('g_language = german_(germany)' in cfg28,
                'g_language wird gesetzt — sonst liest das Spiel die Datei nicht')
@@ -2276,7 +2276,7 @@ def main():
         with open(cfgpfad28, 'w', encoding='utf-8') as f28:
             f28.write('r_DisplayInfo = 3\nsys_maxfps = 0\n'
                       'g_language = english\n')
-        ue28.user_cfg_setzen('german_(germany)', 'english', frisch28)
+        ue28.set_user_cfg('german_(germany)', 'english', frisch28)
         cfg28b = open(cfgpfad28, encoding='utf-8').read()
         pruefe('r_DisplayInfo = 3' in cfg28b and 'sys_maxfps = 0' in cfg28b,
                'vorhandene Grafikeinstellungen bleiben unangetastet')
@@ -2286,28 +2286,28 @@ def main():
                'g_language steht genau einmal da')
 
         # Der Weg ueber die EINSTELLUNGEN (Assistent abgebrochen) muss dasselbe
-        # tun wie der Assistent. Beide laufen ueber `uebersetzung.holen()`.
-        quelle28 = open(os.path.join(WURZEL, 'scbp', 'uebersetzung.py'),
+        # tun wie der Assistent. Beide laufen ueber `translation.fetch()`.
+        quelle28 = open(os.path.join(WURZEL, 'scbp', 'translation.py'),
                         encoding='utf-8').read()
-        holen28 = quelle28[quelle28.index('def holen('):]
+        holen28 = quelle28[quelle28.index('def fetch('):]
         holen28 = holen28[:holen28.index('\ndef ', 1)] if '\ndef ' in holen28[1:] else holen28
         pruefe('os.makedirs(' in holen28,
-               'holen() legt die Ordnerkette selbst an')
-        pruefe('user_cfg_setzen(' in holen28,
-               'holen() setzt die user.cfg — auch wenn der Assistent uebersprungen wurde')
-        pruefe(ue28.QUELLEN['deutsch']['ton'] == 'english',
+               'fetch() legt die Ordnerkette selbst an')
+        pruefe('set_user_cfg(' in holen28,
+               'fetch() setzt die user.cfg — auch wenn der Assistent uebersprungen wurde')
+        pruefe(ue28.SOURCES['deutsch']['ton'] == 'english',
                'die deutsche Quelle bringt den englischen Ton mit')
 
         # StarStrings (MrKraken) ist derselbe Fall — nur mit englischem
         # Zielordner. Gemeldet: „ist ja wie die deutsche im grunde."
         ss28 = os.path.join(basis, 'starstringsprobe', 'LIVE')
         os.makedirs(ss28)
-        ziel_ss = ue28.ziel_ini(ue28.QUELLEN['starstrings']['sprache'], ss28)
+        ziel_ss = ue28.target_ini(ue28.SOURCES['starstrings']['sprache'], ss28)
         pruefe(ziel_ss.endswith(os.path.join('data', 'Localization',
                                              'english', 'global.ini')),
                'StarStrings landet im englischen Ordner, ebenfalls selbst angelegt')
-        ue28.user_cfg_setzen(ue28.QUELLEN['starstrings']['sprache'],
-                             ue28.QUELLEN['starstrings']['ton'], ss28)
+        ue28.set_user_cfg(ue28.SOURCES['starstrings']['sprache'],
+                             ue28.SOURCES['starstrings']['ton'], ss28)
         cfg_ss = open(os.path.join(ss28, 'user.cfg'), encoding='utf-8').read()
         pruefe('g_language = english' in cfg_ss,
                'auch StarStrings traegt seine Sprache in die user.cfg ein')
@@ -2320,7 +2320,7 @@ def main():
             f_ss.write('g_language = german_(germany)\n'
                        'g_languageAudio = english\n'
                        'r_VSync = 0\n')
-        ue28.user_cfg_setzen('english', None, ss28)
+        ue28.set_user_cfg('english', None, ss28)
         cfg_ss2 = open(os.path.join(ss28, 'user.cfg'), encoding='utf-8').read()
         pruefe('g_language = english' in cfg_ss2,
                'beim Wechsel wird die Textsprache umgestellt')
@@ -2347,13 +2347,13 @@ def main():
             inhalt_st = open(os.path.join(WURZEL, 'scbp', datei_st),
                              encoding='utf-8').read()
             block_st = inhalt_st[inhalt_st.index('spieltexte.holen('):][:900]
-            pruefe('user_cfg_setzen(' not in block_st,
+            pruefe('set_user_cfg(' not in block_st,
                    '%s verlaesst sich auf holen(), statt es zu wiederholen'
                    % datei_st)
         # Und der englische Zielordner entsteht genauso von selbst.
         orig28 = os.path.join(basis, 'englischoriginal', 'LIVE')
         os.makedirs(orig28)
-        ziel_or = ue28.ziel_ini('english', orig28)
+        ziel_or = ue28.target_ini('english', orig28)
         os.makedirs(os.path.dirname(ziel_or), exist_ok=True)
         st28._sprache_eintragen('english', orig28)
         cfg_or = open(os.path.join(orig28, 'user.cfg'), encoding='utf-8').read()
@@ -7375,7 +7375,7 @@ def main():
     print()
     print('81. Die Spielsprache entscheidet ueber die Zieldatei')
     from scbp import injektion as _in81
-    from scbp import uebersetzung as _ue81
+    from scbp import translation as _ue81
     from scbp import pfade as _pf81
 
     _spiel81 = os.path.join(basis, 'spiel81', 'LIVE')
@@ -7402,9 +7402,9 @@ def main():
                     _f.write('g_language = %s\n' % wert)
 
         _cfg81('german_(germany)')
-        pruefe(_ue81.spielsprache() == 'german_(germany)',
+        pruefe(_ue81.game_language() == 'german_(germany)',
                'g_language wird aus der user.cfg gelesen (%s)'
-               % _ue81.spielsprache())
+               % _ue81.game_language())
         _pfad81, _spr81, _ = _in81.ini_datei()
         pruefe(_spr81 == 'german_(germany)',
                'deutsches Spiel -> deutsche global.ini (%s)' % _spr81)
@@ -7418,7 +7418,7 @@ def main():
         # Ohne Eintrag bleibt es beim Rueckfall — ohne g_language startet
         # Star Citizen auf Englisch.
         _cfg81(None)
-        pruefe(_ue81.spielsprache() is None,
+        pruefe(_ue81.game_language() is None,
                'ohne Eintrag meldet die Sprache sich als unbekannt')
         _pfad81, _spr81, _ = _in81.ini_datei()
         pruefe(_spr81 == 'english',
