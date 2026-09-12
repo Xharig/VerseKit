@@ -4582,7 +4582,7 @@ def _serverstatus(fenster, rahmen):
             # dann: „Einstellungsmenü stürzt ab, wenn der User kein Internet
             # mehr hat und man auf Serverstatus geht" (30.08.2026).
             try:
-                lage = serverstatus.state(erzwingen=erzwingen)
+                lage = serverstatus.state(force=erzwingen)
             except Exception as ausnahme:
                 fehler.merken('seiten.serverstatus', ausnahme)
                 lage = None

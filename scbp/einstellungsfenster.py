@@ -429,7 +429,7 @@ class Einstellungsfenster:
                 ziel = translation.target_ini(sprache_ordner)
                 translation.note('original', 'Data.p4k')
             else:
-                ok, meldung = translation.fetch(quelle, fortschritt=melde)
+                ok, meldung = translation.fetch(quelle, progress=melde)
                 if not ok:
                     self._melden(t('inj_fehler', meldung), ROT)
                     return

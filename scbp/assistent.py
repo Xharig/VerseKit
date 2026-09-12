@@ -354,7 +354,7 @@ class Assistent:
                 translation.note('original', 'Data.p4k')
             else:
                 ok, meldung = translation.fetch(
-                    quelle, fortschritt=lambda x: (
+                    quelle, progress=lambda x: (
                         self.inj_meldung.configure(text=x), self.root.update()))
                 if not ok:
                     self.inj_meldung.configure(text=t('inj_fehler', meldung),
