@@ -99,13 +99,54 @@ def main():
     p(seite._letzter_stand is None,
       'Bloecke: nach `_zeichnen()` noch KEIN Abdruck — der Aufbau ist nur '
       'eingeplant')
-    p(getattr(seite, '_stand_nach_bloecken', None) is not None,
-      'Bloecke: der Abdruck liegt bereit')
     wurzel.update()                            # jetzt laeuft `after_idle`
     p(seite._letzter_stand is not None,
       'Bloecke: nach dem Aufbau ist der Abdruck gueltig')
-    p(getattr(seite, '_stand_nach_bloecken', None) is None,
-      'Bloecke: die Zwischenablage ist wieder leer')
+    p(len(seite._blockteile) > 0,
+      'Bloecke: es stehen welche (%d)' % len(seite._blockteile))
+
+    # ── 3. Zwei Zeichenauftraege kurz hintereinander ─────────────────────
+    #
+    # ⚠⚠ Der Fall, den die Laufnummer abfaengt: Der lange Aufbau ist
+    # eingeplant, laeuft aber erst im Leerlauf — und bis dahin hat laengst
+    # ein zweiter Zeichenvorgang stattgefunden. Ohne Nummer legt der alte
+    # Auftrag dann seine Bloecke ueber das neue Bild.
+    seite.alle_zeigen = True
+    seite._zeilen_deckel = lambda: 2
+    seite._zeichnen()                          # lang: plant Bloecke ein
+    seite.alle_zeigen = False                  # und jetzt: kurze Ansicht
+    seite._zeilen_deckel = lambda: 999
+    seite._zeichnen()                          # geradlinig, setzt Abdruck
+    kurz = seite._letzter_stand
+    p(kurz is not None, 'kurze Ansicht: Abdruck steht')
+    wurzel.update()                            # der ueberholte Auftrag laeuft
+    p(len(seite._blockteile) == 0,
+      'der ueberholte Auftrag hat KEINE Bloecke gelegt (%d)'
+      % len(seite._blockteile))
+    p(seite._letzter_stand == kurz,
+      'und er hat den Abdruck der kurzen Ansicht nicht angefasst')
+
+    # ── 4. Der Aufbau scheitert ──────────────────────────────────────────
+    #
+    # ⛔ `_bloecke_pflegen()` faengt `TclError` ab. Seine Rueckkehr ist damit
+    # kein Beleg fuer einen geglueckten Aufbau — geprueft wird, dass der
+    # Abdruck bei einem Fehlschlag UNGUELTIG bleibt.
+    echt_bauen = seite._block_bauen
+
+    def kaputt(_nummer):
+        raise tk.TclError('Probe: Aufbau absichtlich gescheitert')
+
+    seite._block_bauen = kaputt
+    seite.alle_zeigen = True
+    seite._zeilen_deckel = lambda: 2
+    seite._zeichnen()
+    wurzel.update()
+    p(seite._letzter_stand is None,
+      'gescheiterter Aufbau -> Abdruck bleibt ungueltig (%r)'
+      % (seite._letzter_stand,))
+    p(len(seite._blockteile) == 0,
+      'und es steht wirklich nichts (%d Bloecke)' % len(seite._blockteile))
+    seite._block_bauen = echt_bauen
 
     wurzel.destroy()
     print('\n  %d von %d' % (sum(1 for b, _ in OK if b), len(OK)))

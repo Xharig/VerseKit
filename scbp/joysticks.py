@@ -955,7 +955,39 @@ _KLARNAMEN = {}
 
 # ⚠ Aendert sich, was `_profil()` merkt, muss diese Zahl hoch — sonst liest
 # eine neue Fassung den Merker der alten und findet die neuen Felder nicht.
-MERK_FASSUNG = 3
+#
+# ⭐ **4 seit dem 12.09.2026**, und diesmal aus einem anderen Grund: Nicht der
+# Inhalt hat sich geaendert, sondern die Art, wie der Stand gebildet wird
+# (siehe `_p4k_marke()`). Alte Eintraege tragen einen Stand, der nach der
+# neuen Regel nicht mehr zustande kaeme — sie muessen weg.
+MERK_FASSUNG = 4
+
+
+def _p4k_marke(spielordner=None):
+    """Woran man erkennt, dass ein ANDERES Archiv vorliegt.
+
+    ⚠⚠ **Der blosse Zeitstempel reicht nicht**, und die Begruendung „die
+    Datei ist 100 GB gross, zwei Fassungen in derselben Sekunde gibt es
+    nicht" geht am Fall vorbei: Das Archiv muss nicht *geschrieben* werden,
+    um zu wechseln. Zwei Installationen nebeneinander, eine Ruecksicherung,
+    eine Kopie mit erhaltenem Datum — und der gemeinsame Merker
+    `aktionsnamen.json` liefert weiter die Etiketten der anderen Installation.
+    Vom Pruefer am 12.09.2026 nachgestellt.
+
+    Deshalb: **Pfad, Groesse und `st_mtime_ns`** — reine Metadaten, kein
+    Lesen. Der aeussere Merker in `klarnamen()` kann das nicht heilen; er
+    liegt im Arbeitsspeicher, dieser hier auf der Platte.
+    """
+    from . import spieltexte
+    try:
+        weg = spieltexte.p4k_pfad(spielordner)
+        if not weg:
+            return ''
+        weg = os.path.realpath(weg)
+        zustand = os.stat(weg)
+        return '%s:%d:%d' % (weg, zustand.st_size, zustand.st_mtime_ns)
+    except Exception:
+        return ''
 
 
 def _profil(spielordner=None):
@@ -981,14 +1013,7 @@ def _profil(spielordner=None):
     from . import fehler
     leer = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
     merk = pfade.app_datei('aktionsnamen.json')
-    stand = ''
-    try:
-        p4k = os.path.join(spielordner or pfade.spiel_ordner() or '',
-                           'Data.p4k')
-        if os.path.isfile(p4k):
-            stand = str(int(os.path.getmtime(p4k)))
-    except Exception:
-        pass
+    stand = _p4k_marke(spielordner)
     try:
         if os.path.isfile(merk):
             with open(merk, 'r', encoding='utf-8') as f:
@@ -1125,8 +1150,9 @@ def _quellenmarke(sprache, spielordner=None):
     ohne den Zeitstempel zu aendern, ruft `vergessen()`.
     """
     ordner = spielordner or pfade.spiel_ordner() or ''
-    # Das Archiv, aus dem die Etiketten kommen (`_profil()` → `p4k_pfad()`).
-    wege = [os.path.join(ordner, 'Data.p4k')]
+    # Das Archiv, aus dem die Etiketten kommen — ueber **dieselbe** Funktion
+    # wie der Merker auf der Platte, damit beide dasselbe Archiv meinen.
+    wege = []
     # Jede `global.ini`, die `klarnamen()` anfassen kann — die der Sprache
     # UND die englische, denn sie fuellt die Luecken der Uebersetzung.
     ordnernamen = list(INI_ORDNER.get(sprache, ('english',)))
@@ -1136,7 +1162,7 @@ def _quellenmarke(sprache, spielordner=None):
         for name in ordnernamen:
             wege.append(os.path.join(ordner, unter, 'Localization', name,
                                      'global.ini'))
-    teile = [ordner, sprache]
+    teile = [ordner, sprache, _p4k_marke(spielordner)]
     for weg in wege:
         try:
             zustand = os.stat(weg)

@@ -18699,8 +18699,16 @@ def main():
                     and isinstance(_rumpf193[0].value, _ast193.Constant)):
                 _rumpf193 = _rumpf193[1:]
             _mark193 = '\n'.join(_ast193.dump(_s193) for _s193 in _rumpf193)
-    pruefe("'Data.p4k'" in _mark193,
-           'die Quellenmarke beobachtet das Archiv Data.p4k')
+    # ⚠ Nicht nach `'Data.p4k'` suchen: Den Pfad baut niemand mehr selbst
+    # zusammen, er kommt aus `p4k_pfad()`. Geprueft wird die **Kette** —
+    # sonst prueft die Wache eine Schreibweise statt einer Wirkung.
+    pruefe('_p4k_marke' in _mark193,
+           'die Quellenmarke deckt das Archiv ab (ueber `_p4k_marke`)')
+    pruefe('p4k_pfad' in _ast193.dump(
+        [k for k in _ast193.walk(_ast193.parse(_q193))
+         if isinstance(k, _ast193.FunctionDef)
+         and k.name == '_p4k_marke'][0]),
+        'und `_p4k_marke` fragt dieselbe Stelle wie `_profil()`')
     pruefe('defaultProfile' not in _mark193,
            'und NICHT die lose defaultProfile.xml — die gibt es gar nicht')
     pruefe('st_mtime_ns' in _mark193,
@@ -18733,6 +18741,45 @@ def main():
     pruefe(not _vor193(_q193b, '_zeichnen', 'winfo_children()',
                        'self._letzter_stand = None'),
            'Gegenprobe: umgekehrte Reihenfolge waere ein anderes Ergebnis')
+
+    # ⚠⚠ Der verzoegerte Aufbau braucht ZWEI Dinge, die beide leicht fehlen:
+    #     * eine Laufnummer, damit ein ueberholter Auftrag abbricht
+    #     * eine Erfolgsmeldung, weil `_bloecke_pflegen()` `TclError` schluckt
+    _bau193 = ''
+    for _k193 in _ast193.walk(_ast193.parse(_q193b)):
+        if (isinstance(_k193, _ast193.FunctionDef)
+                and _k193.name == '_bloecke_aufbauen'):
+            _bau193 = _ast193.unparse(_k193)
+    pruefe('lauf' in _bau193 and 'stand' in _bau193,
+           'der Block-Aufbau bekommt Laufnummer UND Abdruck uebergeben')
+    # Der Abbruch muss VOR der ersten Aenderung stehen — `_bloecke_abraeumen`
+    # ist die erste, und sie loescht bereits das neue Bild.
+    pruefe(_vor193(_q193b, '_bloecke_aufbauen', 'return',
+                   'self._bloecke_abraeumen()'),
+           'und bricht ab, BEVOR er irgendetwas anfasst')
+    pruefe('_stand_nach_bloecken' not in _q193b,
+           'kein gemeinsames Zwischenfeld mehr — der Abdruck reist mit dem'
+           ' Auftrag')
+    pruefe(_vor193(_q193b, '_bloecke_aufbauen', '= self._bloecke_pflegen()',
+                   'self._letzter_stand = stand'),
+           'der Erfolg des Aufbaus wird ausgewertet, nicht angenommen')
+    # ⭐ Und die Pflege muss ueberhaupt etwas zurueckgeben — ein `return`
+    # ohne Wert waere hier genauso stumm wie vorher.
+    _pfl193 = ''
+    for _k193 in _ast193.walk(_ast193.parse(_q193b)):
+        if (isinstance(_k193, _ast193.FunctionDef)
+                and _k193.name == '_bloecke_pflegen'):
+            _pfl193 = _k193
+    pruefe(_pfl193 != '' and all(
+        r.value is not None for r in _ast193.walk(_pfl193)
+        if isinstance(r, _ast193.Return)),
+        'jeder Ausgang von `_bloecke_pflegen()` meldet einen Wert')
+
+    # Der Merker auf der Platte darf nicht mehr auf Sekunden runden.
+    pruefe('_p4k_marke' in _q193,
+           'das Archiv hat eine eigene Marke (Pfad, Groesse, Nanosekunden)')
+    pruefe('int(os.path.getmtime' not in _q193,
+           'und nirgends mehr ein auf Sekunden gerundeter Zeitstempel')
 
     print()
     if fehler:

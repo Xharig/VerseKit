@@ -394,7 +394,12 @@ jobs:
           # Gegenprobe: zwei Zeilen, sonst fehlt eine Datei.
           test "$(wc -l < SHA256SUMS.txt)" = "2"
 
-      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
+      # ⚠ Die einzige Fremd-Action hier — und deshalb bei der Aktualisierungs-
+      # runde durchgerutscht, als die vier GitHub-eigenen auf Node 24 gehoben
+      # wurden. Sie blieb auf v2.6.2 (Node 20) stehen; GitHub fuehrte sie
+      # notduerftig auf Node 24 aus und warnte bei JEDEM Bau. v3.0.0 aendert
+      # nichts ausser der Laufzeit — keine geaenderten Eingaben.
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
         with:
           prerelease: ${{ steps.art.outputs.vorab }}
           body_path: release-text.md

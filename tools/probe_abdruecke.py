@@ -131,6 +131,47 @@ def main():
         os.utime(de_ini, ns=(1_000_900_000_000, 1_000_900_000_000))
         p(joysticks._quellenmarke('de', tmp) != eins,
           'gleiche Groesse, .1 und .9 derselben Sekunde -> andere Marke')
+
+        # ── 4. Der Merker auf der Platte (`aktionsnamen.json`) ───────────
+        #
+        # ⚠ Er ist der gefaehrlichere von beiden: Der Merker in `klarnamen()`
+        # lebt im Arbeitsspeicher und ist nach einem Neustart weg — dieser
+        # hier ueberlebt ihn. Ein falscher Eintrag haelt sich also.
+        #
+        # Der Fall, den der Zeitstempel allein nicht sieht: **zwei
+        # Installationen**, beide mit demselben Aenderungsdatum.
+        zweit = tempfile.mkdtemp(prefix='probe-abdruck-2-')
+        try:
+            spielordner_bauen(zweit)
+            gleich = (1_700_000_000_000_000_000, 1_700_000_000_000_000_000)
+            os.utime(p4k, ns=gleich)
+            os.utime(os.path.join(zweit, 'Data.p4k'), ns=gleich)
+            marke = getattr(joysticks, '_p4k_marke', None)
+            p(marke is not None, 'es gibt eine Marke fuer das Archiv')
+            # ⭐ **Die Gegenprobe steht auf eigenen Fuessen.** Statt die alte
+            # Fassung zu laden (die es nach dem Umbau nicht mehr gibt), wird
+            # ihre Bildungsregel hier nachgerechnet — und belegt, dass sie
+            # die beiden Installationen NICHT unterscheiden konnte.
+            alt = lambda w: str(int(os.path.getmtime(w)))     # noqa: E731
+            p(alt(p4k) == alt(os.path.join(zweit, 'Data.p4k')),
+              'Gegenprobe: die alte Regel (nur Sekunden) sah KEINEN '
+              'Unterschied (%r)' % alt(p4k))
+            if marke is not None:
+                p(marke(tmp) != marke(zweit),
+                  'zwei Installationen mit gleichem Zeitstempel -> '
+                  'andere Marke')
+                p(marke(tmp) == marke(tmp),
+                  'dieselbe Installation -> gleiche Marke')
+            # Gleicher Ordner, gleiche Groesse, andere Sekundenbruchteile.
+            if marke is not None:
+                os.utime(p4k, ns=(1_000_100_000_000, 1_000_100_000_000))
+                frueh = marke(tmp)
+                os.utime(p4k, ns=(1_000_900_000_000, 1_000_900_000_000))
+                p(marke(tmp) != frueh,
+                  '.1 und .9 derselben Sekunde -> andere Marke (auf der '
+                  'Platte)')
+        finally:
+            shutil.rmtree(zweit, ignore_errors=True)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

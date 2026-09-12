@@ -1637,7 +1637,20 @@ class Bestandsfenster:
         # Deshalb: **erst ungueltig machen, dann bauen.** Jeder erfolgreiche
         # Ausgang schreibt den Abdruck selbst wieder.
         self._letzter_stand = None
-        self._stand_nach_bloecken = None
+
+        # ⭐⭐ **Jeder Zeichenvorgang bekommt eine Nummer.** Der Aufbau langer
+        # Listen laeuft erst im Leerlauf — bis dahin kann laengst ein zweiter
+        # Zeichenvorgang gelaufen sein. Ohne Nummer legt der alte Auftrag dann
+        # seine Bloecke ueber das neue Bild und stempelt es auch noch als
+        # gueltig. Vom Pruefer am 12.09.2026 nachgestellt: lange Ansicht
+        # einplanen → kurze Ansicht zeichnen → Leerlauf abarbeiten.
+        #
+        # ⛔ Und die Nummer allein reicht nicht: Der Abdruck darf NICHT in
+        # einem gemeinsamen Feld zwischengelagert werden, sonst greift der
+        # ueberholte Auftrag nach dem Abdruck des neuen. **Zeilen und Abdruck
+        # reisen zusammen mit dem Auftrag.**
+        self._zeichen_lauf = getattr(self, '_zeichen_lauf', 0) + 1
+        lauf = self._zeichen_lauf
 
         for kind in self.inhalt.winfo_children():
             kind.destroy()
@@ -1713,7 +1726,12 @@ class Bestandsfenster:
                 reihen.append(('kopf', art, treffer))
                 for eintrag, drin in treffer:
                     reihen.append(('zeile', eintrag, drin))
-            self.root.after_idle(lambda r=reihen: self._bloecke_aufbauen(r))
+            # ⚠ `stand` wird hier schon gebildet und als Vorgabewert
+            # eingefroren — er beschreibt die Daten, aus denen `reihen`
+            # entstanden ist. Er gilt erst, wenn der Aufbau geglueckt ist.
+            self.root.after_idle(
+                lambda r=reihen, n=lauf, s=self._anzeige_stand():
+                self._bloecke_aufbauen(r, n, s))
             gezeichnet = gesamt_zeilen
         else:
             self._bloecke_abraeumen()
@@ -1803,15 +1821,12 @@ class Bestandsfenster:
         # einen Zustand als gezeichnet vermerkt, den niemand je gesehen hat.
         #
         # ⚠⚠ **Das Ende dieser Funktion ist nicht immer das Ende des Aufbaus.**
-        # Bei langen Listen läuft `_bloecke_aufbauen()` erst im Leerlauf. Hier
-        # ist der Aufbau dann nur **eingeplant**, nicht erledigt — der Abdruck
-        # wird deshalb zwischengelegt und erst dort gültig, wo die Blöcke
-        # wirklich stehen. Vom Prüfer am 12.09.2026 angemerkt.
-        stand = self._anzeige_stand()
-        if in_bloecken:
-            self._stand_nach_bloecken = stand
-        else:
-            self._letzter_stand = stand
+        # Bei langen Listen läuft `_bloecke_aufbauen()` erst im Leerlauf. Dort
+        # ist der Aufbau nur **eingeplant**; der Abdruck reist mit dem Auftrag
+        # mit und wird erst gültig, wenn die Blöcke wirklich stehen. Hier gilt
+        # er deshalb nur für den geradlinigen Weg.
+        if not in_bloecken:
+            self._letzter_stand = self._anzeige_stand()
 
     def _rollbereich_anmelden(self):
         """Die Scrollfläche neu vermessen — aber höchstens einmal je Runde.
@@ -1928,8 +1943,20 @@ class Bestandsfenster:
         hat_zusatz = bool(kuerzel(eintrag) or eintrag.get('m'))
         return zeile_zusatz_h if hat_zusatz else zeile_h
 
-    def _bloecke_aufbauen(self, reihen):
-        """Das Gerüst anlegen: Wo liegt welcher Block, und wie hoch ist alles."""
+    def _bloecke_aufbauen(self, reihen, lauf=None, stand=None):
+        """Das Gerüst anlegen: Wo liegt welcher Block, und wie hoch ist alles.
+
+        `lauf` ist die Nummer des Zeichenvorgangs, aus dem `reihen` stammt,
+        `stand` sein Fingerabdruck. Beide reisen **mit dem Auftrag**, nicht
+        über ein gemeinsames Feld — sonst greift ein überholter Auftrag nach
+        dem Abdruck des neueren.
+
+        ⛔ **Der Abbruch steht ganz oben, VOR jeder Änderung.** Ein überholter
+        Auftrag darf weder Blöcke anlegen noch welche abräumen: Er würde sonst
+        seine alten Zeilen über das neue Bild legen.
+        """
+        if lauf is not None and lauf != getattr(self, '_zeichen_lauf', lauf):
+            return                          # überholt — nichts anfassen
         self._bloecke_abraeumen()
         self._reihen = reihen
         self._block_start = list(range(0, len(reihen), BLOCK_REIHEN))
@@ -1944,16 +1971,23 @@ class Bestandsfenster:
         self._gesamthoehe = y
         breite = max(1, self.leinwand.winfo_width())
         self.leinwand.configure(scrollregion=(0, 0, breite, y))
-        self._bloecke_pflegen()
+        geglueckt = self._bloecke_pflegen()
 
-        # ⭐ **Jetzt erst steht das Bild.** `_zeichnen()` hat diesen Aufbau nur
-        # eingeplant und den Abdruck deshalb zwischengelegt; gültig wird er
-        # hier. Fliegt oben etwas raus, bleibt `_letzter_stand` auf `None` und
-        # die Liste wird beim nächsten Anzeigen neu gebaut.
-        stand = getattr(self, '_stand_nach_bloecken', None)
-        if stand is not None:
+        # ⭐ **Jetzt erst steht das Bild — wenn es denn steht.**
+        #
+        # ⛔ `_bloecke_pflegen()` fängt `TclError` ab und kehrt trotzdem
+        # normal zurück. Seine Rückkehr war deshalb **kein Beleg** für einen
+        # geglückten Aufbau: Vom Prüfer am 12.09.2026 nachgestellt — ein
+        # simulierter `TclError` in `_block_bauen()` ergab null gebaute Blöcke
+        # und trotzdem einen gültigen Abdruck. Sie meldet den Erfolg jetzt
+        # ausdrücklich zurück.
+        #
+        # ⚠ Und die Laufnummer noch einmal: Zwischen Gerüst und hier kann ein
+        # Rückruf ein neues Zeichnen ausgelöst haben.
+        if (geglueckt and stand is not None
+                and (lauf is None
+                     or lauf == getattr(self, '_zeichen_lauf', lauf))):
             self._letzter_stand = stand
-            self._stand_nach_bloecken = None
 
     def _bloecke_abraeumen(self):
         """Alle Blöcke aus der Leinwand nehmen — beim Neuzeichnen der Liste."""
@@ -2020,17 +2054,30 @@ class Bestandsfenster:
         self._bloecke_pflegen()
 
     def _bloecke_pflegen(self, *_):
-        """Blöcke im Sichtfeld bauen, weit entfernte wieder abräumen."""
-        if not self._block_start or getattr(self, '_pflege_laeuft', False):
-            return
+        """Blöcke im Sichtfeld bauen, weit entfernte wieder abräumen.
+
+        Gibt `True` zurück, wenn danach **jeder** gebrauchte Block wirklich
+        dasteht.
+
+        ⛔⛔ **Die normale Rückkehr allein beweist gar nichts** — hier wird
+        `TclError` abgefangen, damit ein Rollvorgang nicht das Programm
+        mitreißt. Wer daraus „ist gebaut" schließt, stempelt ein Bild als
+        gültig, das nie entstanden ist. Genau das ist am 12.09.2026 im
+        Fingerabdruck passiert; deshalb der ausdrückliche Rückgabewert.
+        """
+        if not self._block_start:
+            return True                     # nichts zu bauen ist auch fertig
+        if getattr(self, '_pflege_laeuft', False):
+            return False                    # läuft schon — Ausgang unbekannt
         self._pflege_laeuft = True
+        gebraucht = set()
+        geglueckt = False
         try:
             oben = self.leinwand.canvasy(0)
             unten = oben + max(1, self.leinwand.winfo_height())
             # Ein Block Vorlauf nach oben und unten: So ist beim Rollen schon
             # gezeichnet, was gleich ins Bild kommt.
             rand = max(self._block_h) if self._block_h else 0
-            gebraucht = set()
             for nummer, y in enumerate(self._block_y):
                 if y + self._block_h[nummer] >= oben - rand and y <= unten + rand:
                     gebraucht.add(nummer)
@@ -2045,8 +2092,12 @@ class Bestandsfenster:
             for nummer in sorted(gebraucht):
                 if nummer not in self._blockteile:
                     self._block_bauen(nummer)
+            # ⭐ Nicht „keine Ausnahme geflogen", sondern **nachgesehen**: Ein
+            # Block, der in `_blockteile` fehlt, steht auch nicht auf dem
+            # Schirm — egal warum.
+            geglueckt = all(n in self._blockteile for n in gebraucht)
         except tk.TclError:
-            pass
+            geglueckt = False
         finally:
             self._pflege_laeuft = False
         # ⚠ Erst jetzt lässt sich prüfen, ob die Schätzung stimmt: Gebaut ist
@@ -2054,6 +2105,7 @@ class Bestandsfenster:
         # eine Zeile. Ohne diese Runde bleibt die Rollfläche zu kurz und die
         # unteren Wege sind unerreichbar.
         self._hoehen_pruefen()
+        return geglueckt
 
     def _hoehen_pruefen(self):
         """Weicht ein gebauter Block von seiner Schätzung ab? Dann nachziehen.
