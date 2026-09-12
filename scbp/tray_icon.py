@@ -51,7 +51,7 @@ WINDOWS = sys.platform.startswith('win')
 # Eigene Nachrichtennummer für alles, was das Symbol meldet. WM_APP ist der
 # Bereich, den Windows für Programme frei lässt.
 WM_APP = 0x8000
-NACHRICHT = WM_APP + 17
+MESSAGE = WM_APP + 17
 
 WM_DESTROY = 0x0002
 WM_CLOSE = 0x0010
@@ -80,8 +80,8 @@ MF_STRING = 0x0000
 # Setup wieder startet — da ist die Taskleiste manchmal noch nicht bereit.
 WM_TASKBARCREATED = None          # wird beim Start registriert
 
-BEFEHL_ZEIGEN = 1001
-BEFEHL_BEENDEN = 1002
+CMD_SHOW = 1001
+CMD_QUIT = 1002
 
 
 
@@ -102,7 +102,7 @@ BEFEHL_BEENDEN = 1002
 # Dasselbe Muster erklärt vermutlich auch, warum das Symbol selbst gelegentlich
 # ausblieb. Dagegen half bisher nur, es mehrfach zu versuchen — das behandelte
 # das Symptom.
-def _signaturen_setzen():
+def _set_signatures():
     """Einmal beim Laden: sagen, was die Windows-Funktionen wirklich liefern."""
     if not WINDOWS:
         return
@@ -195,20 +195,24 @@ def _signaturen_setzen():
 
 
 try:
-    _signaturen_setzen()
+    _set_signatures()
 except Exception:
     # Läuft etwas davon auf einer alten Windows-Version nicht, ist das kein
     # Grund, das Programm nicht zu starten — dann eben ohne Symbol.
     pass
 
-def moeglich():
+def available():
     return WINDOWS
 
 
-class Ablagesymbol(object):
-    """Das Symbol neben der Uhr. `starten()` und `stoppen()` — mehr braucht es nicht."""
+class TrayIcon(object):
+    """Das Symbol neben der Uhr. `start()` und `stop()` — mehr braucht es nicht."""
 
-    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='SC BP Watcher'):
+    # ⚠ Der Standardtitel ist nur ein Notnagel: Der Aufrufer uebergibt
+    # `sprache.t('hf_titel')`. Er wurde bei der Umbenennung (12.09.2026)
+    # trotzdem mitgezogen — ein Standardwert mit altem Namen ist eine
+    # Zeitbombe fuer den Fall, dass der Aufrufer ihn einmal weglaesst.
+    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='VerseKit'):
         self.beim_zeigen = beim_zeigen
         self.beim_beenden = beim_beenden
         self.titel = titel
@@ -222,7 +226,7 @@ class Ablagesymbol(object):
         self._klasse = None
 
     # ------------------------------------------------------------- Aufbau
-    def _symbol_laden(self):
+    def _load_icon(self):
         """Das Programmsymbol — sonst das Standardsymbol von Windows."""
         benutzer = ctypes.windll.user32
         for ordner in (getattr(sys, '_MEIPASS', ''),
@@ -238,7 +242,7 @@ class Ablagesymbol(object):
                     return kennung
         return benutzer.LoadIconW(None, ctypes.c_wchar_p(IDI_APPLICATION))
 
-    def _daten(self, flags):
+    def _data(self, flags):
         """Die NOTIFYICONDATAW-Struktur, die Windows erwartet."""
         from ctypes import wintypes
 
@@ -264,12 +268,12 @@ class Ablagesymbol(object):
         daten.hWnd = self.fenster
         daten.uID = 1
         daten.uFlags = flags
-        daten.uCallbackMessage = NACHRICHT
+        daten.uCallbackMessage = MESSAGE
         daten.hIcon = self._symbol
         daten.szTip = self.titel[:127]
         return daten
 
-    def _symbol_anlegen(self, versuche=5):
+    def _create_icon(self, versuche=5):
         """Das Symbol bei Windows anmelden — mit Wiederholung.
 
         ⚠ `Shell_NotifyIcon` schlägt fehl, solange die Taskleiste nicht bereit
@@ -282,7 +286,7 @@ class Ablagesymbol(object):
         Fünf Versuche im Abstand von einer Sekunde. Reicht auch das nicht,
         kommt später `WM_TASKBARCREATED` und es wird erneut versucht.
         """
-        daten = self._daten(NIF_MESSAGE | NIF_ICON | NIF_TIP)
+        daten = self._data(NIF_MESSAGE | NIF_ICON | NIF_TIP)
         for versuch in range(versuche):
             if ctypes.windll.shell32.Shell_NotifyIconW(NIM_ADD,
                                                        ctypes.byref(daten)):
@@ -291,7 +295,7 @@ class Ablagesymbol(object):
                 time.sleep(1.0)
         try:
             from . import fehler
-            fehler.merken('tray_icon.anlegen',
+            fehler.merken('tray_icon.create_icon',
                           OSError('Shell_NotifyIcon: Fehler %d nach %d '
                                   'Versuchen'
                                   % (ctypes.windll.kernel32.GetLastError(),
@@ -300,7 +304,7 @@ class Ablagesymbol(object):
             pass
         return False
 
-    def _menue_zeigen(self):
+    def _show_menu(self):
         """Das Rechtsklick-Menü — zwei Punkte, mehr braucht niemand."""
         benutzer = ctypes.windll.user32
         menue = benutzer.CreatePopupMenu()
@@ -309,12 +313,12 @@ class Ablagesymbol(object):
         try:
             # Der Rückgabewert wurde bisher weggeworfen — deshalb fiel ein
             # leeres Menü niemandem auf. Jetzt steht es im Fehlerbericht.
-            for kennung, beschriftung in ((BEFEHL_ZEIGEN, self._text_zeigen),
-                                          (BEFEHL_BEENDEN, self._text_beenden)):
+            for kennung, beschriftung in ((CMD_SHOW, self._text_zeigen),
+                                          (CMD_QUIT, self._text_beenden)):
                 if not benutzer.AppendMenuW(menue, MF_STRING, kennung,
                                             beschriftung):
                     from . import fehler
-                    fehler.merken('tray_icon.menue',
+                    fehler.merken('tray_icon.show_menu',
                                   OSError('AppendMenuW ist gescheitert (%s), '
                                           'Fehler %d'
                                           % (beschriftung,
@@ -335,20 +339,20 @@ class Ablagesymbol(object):
         finally:
             benutzer.DestroyMenu(menue)
 
-    def _behandeln(self, fenster, nachricht, wparam, lparam):
+    def _handle(self, fenster, nachricht, wparam, lparam):
         try:
-            if nachricht == NACHRICHT:
+            if nachricht == MESSAGE:
                 if lparam == WM_LBUTTONUP:
-                    self._rufen(self.beim_zeigen)
+                    self._call(self.beim_zeigen)
                 elif lparam == WM_RBUTTONUP:
-                    self._menue_zeigen()
+                    self._show_menu()
                 return 0
             if nachricht == WM_COMMAND:
                 befehl = wparam & 0xFFFF
-                if befehl == BEFEHL_ZEIGEN:
-                    self._rufen(self.beim_zeigen)
-                elif befehl == BEFEHL_BEENDEN:
-                    self._rufen(self.beim_beenden)
+                if befehl == CMD_SHOW:
+                    self._call(self.beim_zeigen)
+                elif befehl == CMD_QUIT:
+                    self._call(self.beim_beenden)
                 return 0
             if nachricht == WM_DESTROY:
                 ctypes.windll.user32.PostQuitMessage(0)
@@ -359,7 +363,7 @@ class Ablagesymbol(object):
                                                    wparam, lparam)
 
     @staticmethod
-    def _rufen(was):
+    def _call(was):
         if was:
             try:
                 was()
@@ -367,7 +371,7 @@ class Ablagesymbol(object):
                 pass
 
     # ------------------------------------------------------------ Betrieb
-    def starten(self, text_zeigen='Fenster zeigen', text_beenden='Beenden'):
+    def start(self, text_zeigen='Fenster zeigen', text_beenden='Beenden'):
         """Symbol anlegen. Gibt zurück, ob es geklappt hat."""
         if not WINDOWS or self._laeuft:
             return False
@@ -375,13 +379,13 @@ class Ablagesymbol(object):
         self._text_beenden = text_beenden
         bereit = threading.Event()
         self._geklappt = False
-        self._faden = threading.Thread(target=self._schleife, args=(bereit,),
+        self._faden = threading.Thread(target=self._loop, args=(bereit,),
                                        daemon=True)
         self._faden.start()
         bereit.wait(5)
         return self._geklappt
 
-    def _schleife(self, bereit):
+    def _loop(self, bereit):
         from ctypes import wintypes
         try:
             benutzer = ctypes.windll.user32
@@ -393,7 +397,7 @@ class Ablagesymbol(object):
             WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wintypes.HWND,
                                          wintypes.UINT, wintypes.WPARAM,
                                          wintypes.LPARAM)
-            self._fensterfunktion = WNDPROC(self._behandeln)
+            self._fensterfunktion = WNDPROC(self._handle)
 
             class WNDCLASS(ctypes.Structure):
                 _fields_ = [('style', wintypes.UINT),
@@ -423,7 +427,7 @@ class Ablagesymbol(object):
                 # bei Haldjas am 25.08.2026 gemeldet. Ohne Meldung ist eine
                 # Nutzerrückmeldung wertlos.
                 from . import fehler
-                fehler.merken('tray_icon.fenster',
+                fehler.merken('tray_icon.window',
                               OSError('CreateWindowExW lieferte kein Fenster, '
                                       'Fehler %d'
                                       % ctypes.windll.kernel32.GetLastError()))
@@ -437,8 +441,8 @@ class Ablagesymbol(object):
                 WM_TASKBARCREATED = benutzer.RegisterWindowMessageW(
                     'TaskbarCreated')
 
-            self._symbol = self._symbol_laden()
-            self._geklappt = self._symbol_anlegen()
+            self._symbol = self._load_icon()
+            self._geklappt = self._create_icon()
             self._laeuft = self._geklappt
             bereit.set()
 
@@ -449,7 +453,7 @@ class Ablagesymbol(object):
                 # es bis zum nächsten Programmstart verschwunden.
                 if (WM_TASKBARCREATED
                         and nachricht.message == WM_TASKBARCREATED):
-                    self._geklappt = self._symbol_anlegen(versuche=3)
+                    self._geklappt = self._create_icon(versuche=3)
                     self._laeuft = self._geklappt
                 benutzer.TranslateMessage(ctypes.byref(nachricht))
                 benutzer.DispatchMessageW(ctypes.byref(nachricht))
@@ -460,14 +464,14 @@ class Ablagesymbol(object):
             # das Symbol fehlte, und jede Ursachensuche lief ins Leere.
             try:
                 from . import fehler
-                fehler.merken('tray_icon.schleife', ausnahme)
+                fehler.merken('tray_icon.loop', ausnahme)
             except Exception:
                 pass                  # selbst das Melden darf nichts umwerfen
             bereit.set()
         finally:
             self._laeuft = False
 
-    def stoppen(self):
+    def stop(self):
         """Symbol wieder wegnehmen — sonst bleibt eine tote Hülle neben der Uhr.
 
         ⚠ `DestroyWindow` stand hier früher direkt im Aufruf, und das ging nicht
@@ -486,7 +490,7 @@ class Ablagesymbol(object):
             return
         fenster = self.fenster
         try:
-            daten = self._daten(NIF_MESSAGE)
+            daten = self._data(NIF_MESSAGE)
             ctypes.windll.shell32.Shell_NotifyIconW(NIM_DELETE,
                                                     ctypes.byref(daten))
             ctypes.windll.user32.PostMessageW(fenster, WM_CLOSE, 0, 0)

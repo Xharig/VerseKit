@@ -47,16 +47,16 @@ import sys
 
 WINDOWS = sys.platform.startswith('win')
 
-DATEINAME = 'sc-bp-watcher.desktop'
-SYMBOLNAME = 'sc-bp-watcher.png'
+FILENAME = 'sc-bp-watcher.desktop'
+ICON_NAME = 'sc-bp-watcher.png'
 
 
-def moeglich():
+def available():
     """Lohnt sich der Eintrag auf diesem System?"""
     return not WINDOWS and sys.platform != 'darwin'
 
 
-def _programmpfad():
+def _program_path():
     """Womit das Programm gestartet wird — AppImage oder das laufende Python.
 
     ⚠ Bei einem AppImage steht der Pfad **nur** in `APPIMAGE`; `sys.executable`
@@ -75,19 +75,19 @@ def _programmpfad():
     return os.path.abspath(sys.executable), skript
 
 
-def _menue_ordner():
+def _menu_dir():
     basis = (os.environ.get('XDG_DATA_HOME')
              or os.path.join(os.path.expanduser('~'), '.local', 'share'))
     return os.path.join(basis, 'applications')
 
 
-def ziel_datei():
-    return os.path.join(_menue_ordner(), DATEINAME)
+def target_file():
+    return os.path.join(_menu_dir(), FILENAME)
 
 
-def vorhanden():
+def exists():
     """Gibt es den Eintrag schon — und zeigt er noch auf ein Programm, das da ist?"""
-    pfad = ziel_datei()
+    pfad = target_file()
     if not os.path.isfile(pfad):
         return False
     try:
@@ -101,7 +101,7 @@ def vorhanden():
     return True
 
 
-def _symbol_ablegen(ordner):
+def _write_icon(ordner):
     """Das Programmsymbol neben den Eintrag legen. Gibt den Pfad zurück."""
     quelle = None
     wurzel = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -113,7 +113,7 @@ def _symbol_ablegen(ordner):
             break
     if not quelle:
         return 'sc-bp-watcher'          # kein Bild da: Name reicht als Kennung
-    ziel = os.path.join(ordner, SYMBOLNAME)
+    ziel = os.path.join(ordner, ICON_NAME)
     try:
         os.makedirs(ordner, exist_ok=True)
         shutil.copyfile(quelle, ziel)
@@ -122,7 +122,7 @@ def _symbol_ablegen(ordner):
         return 'sc-bp-watcher'
 
 
-def desktop_inhalt(befehl, symbol):
+def desktop_content(befehl, symbol):
     """Der Text einer `.desktop`-Datei — ohne Dateisystem, ohne Linux.
 
     ⭐ Steht bewusst als eigene Funktion da: So lässt sich **prüfen, was
@@ -154,19 +154,19 @@ def desktop_inhalt(befehl, symbol):
            sprache.TEXTE['vk_untertitel'][1], befehl, symbol, name))
 
 
-def anlegen():
+def create():
     """Den Menüeintrag schreiben. Gibt (geklappt, Pfad-oder-Meldung) zurück."""
-    if not moeglich():
+    if not available():
         return False, 'nur unter Linux'
-    programm, skript = _programmpfad()
+    programm, skript = _program_path()
     if not os.path.exists(programm):
         return False, programm
-    ordner = _menue_ordner()
+    ordner = _menu_dir()
     symbol_ordner = os.path.join(
         os.environ.get('XDG_DATA_HOME')
         or os.path.join(os.path.expanduser('~'), '.local', 'share'),
         'icons', 'hicolor', '256x256', 'apps')
-    symbol = _symbol_ablegen(symbol_ordner)
+    symbol = _write_icon(symbol_ordner)
 
     # Pfade mit Leerzeichen gehören in Anführungszeichen — das AppImage liegt bei
     # vielen unter „Programme"/„Downloads", und ohne Anführungszeichen bricht der
@@ -175,10 +175,10 @@ def anlegen():
     if skript:
         befehl += ' "%s"' % skript
 
-    inhalt = desktop_inhalt(befehl, symbol)
+    inhalt = desktop_content(befehl, symbol)
     try:
         os.makedirs(ordner, exist_ok=True)
-        pfad = ziel_datei()
+        pfad = target_file()
         with open(pfad, 'w', encoding='utf-8') as f:
             f.write(inhalt)
         os.chmod(pfad, 0o755)
@@ -196,7 +196,7 @@ def anlegen():
     return True, pfad
 
 
-def beschriftung_nachziehen():
+def refresh_label():
     """Einen **vorhandenen** Eintrag auf den aktuellen Produktnamen bringen.
 
     ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). `anlegen()`
@@ -220,7 +220,7 @@ def beschriftung_nachziehen():
     # existierendes Programm zeigt. Hier zählt allein: **liegt die Datei da?**
     # Ein AppImage, das gerade verschoben wurde, hätte sonst für immer die alte
     # Beschriftung behalten. Gefunden vom eigenen Migrationstest am 12.09.2026.
-    pfad = ziel_datei()
+    pfad = target_file()
     if not os.path.isfile(pfad):
         return False
     try:
@@ -254,10 +254,10 @@ def beschriftung_nachziehen():
     return True
 
 
-def entfernen():
+def remove():
     """Den Eintrag wieder wegnehmen."""
     try:
-        pfad = ziel_datei()
+        pfad = target_file()
         if os.path.isfile(pfad):
             os.remove(pfad)
         return True

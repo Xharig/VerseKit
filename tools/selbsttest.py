@@ -18263,9 +18263,12 @@ def main():
          'Registry-Wertname des Autostarts — sonst zwei Eintraege'),
         ('scbp/autostart.py', 1, "'sc-bp-watcher.desktop'",
          'Autostart-Datei unter Linux — dasselbe'),
-        ('scbp/desktop_entry.py', 1, "DATEINAME = 'sc-bp-watcher.desktop'",
+        # ⚠ Der BEZEICHNER heisst seit der Sprachmigration FILENAME bzw.
+        # ICON_NAME — der WERT ist der Anker und bleibt. Genau diese Prüfung
+        # hat den Wechsel gemeldet, als die Konstanten umbenannt wurden.
+        ('scbp/desktop_entry.py', 1, "FILENAME = 'sc-bp-watcher.desktop'",
          'Verknuepfung — sonst zwei Eintraege im Startmenue'),
-        ('scbp/desktop_entry.py', 1, "SYMBOLNAME = 'sc-bp-watcher.png'",
+        ('scbp/desktop_entry.py', 1, "ICON_NAME = 'sc-bp-watcher.png'",
          'Symboldatei der Verknuepfung'),
         ('scbp/pfade.py', 1,
          "EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')",
@@ -18304,7 +18307,7 @@ def main():
     # Der Text, den anlegen() schreiben WUERDE — ohne Dateisystem, damit die
     # Pruefung auch unter Windows laeuft (Regel: nichts stillschweigend
     # ueberspringen).
-    _inhalt191 = _vk191.desktop_inhalt('/pfad/programm', 'sc-bp-watcher')
+    _inhalt191 = _vk191.desktop_content('/pfad/programm', 'sc-bp-watcher')
     _felder191 = {}
     for _z191 in _inhalt191.splitlines():
         if '=' in _z191:
@@ -18321,8 +18324,8 @@ def main():
     pruefe(_felder191.get('Icon') == 'sc-bp-watcher',
            'die .desktop behaelt ihren Symbolnamen (%r)'
            % _felder191.get('Icon'))
-    pruefe(_vk191.DATEINAME == 'sc-bp-watcher.desktop',
-           'die .desktop behaelt ihren Dateinamen (%r)' % _vk191.DATEINAME)
+    pruefe(_vk191.FILENAME == 'sc-bp-watcher.desktop',
+           'die .desktop behaelt ihren Dateinamen (%r)' % _vk191.FILENAME)
 
     # ⭐⭐ Das Aufraeumen der ALTEN Verknuepfungen (installer.iss)
     #

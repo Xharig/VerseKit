@@ -412,14 +412,14 @@ class Assistent:
         das Overlay zurück.
         """
         from . import desktop_entry
-        if not desktop_entry.moeglich() or desktop_entry.vorhanden():
+        if not desktop_entry.available() or desktop_entry.exists():
             return
         self._absatz(flaeche, t('as_menue_frage'), FG, 11, oben=18)
         meldung = tk.Label(flaeche, text='', bg=BG, fg=SUB, font=schrift(9),
                            anchor='w', justify='left')
 
         def anlegen(_=None):
-            geklappt, wohin = desktop_entry.anlegen()
+            geklappt, wohin = desktop_entry.create()
             meldung.configure(text=(t('as_menue_da') % wohin) if geklappt
                               else t('as_menue_nein') % wohin,
                               fg=ACCENT if geklappt else SUB)

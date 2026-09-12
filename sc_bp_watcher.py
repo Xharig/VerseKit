@@ -4214,20 +4214,20 @@ class Overlay:
         # ob das Symbol scheitert oder gar nicht erst versucht wird — Haldjas'
         # Bericht zeigte weder einen Fehler noch eine Spur. Eine Zeile im
         # Startverlauf beantwortet das beim nächsten Bericht sofort.
-        if not tray_icon.moeglich():
+        if not tray_icon.available():
             fehler.spur('Ablagesymbol: entfällt (nicht Windows)')
             return
         if not pfade.einstellung_wahrheit('tray', True):
             fehler.spur('Ablagesymbol: abgeschaltet (Einstellung „tray")')
             return
         try:
-            self._ablage = tray_icon.Ablagesymbol(
+            self._ablage = tray_icon.TrayIcon(
                 beim_zeigen=lambda: self.root.after(0, self.hervorholen),
                 beim_beenden=lambda: self.root.after(0, self._ganz_beenden),
                 # ⚠ Produktname von hier, nicht aus dem Standardwert des
                 # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
                 titel=sprache.t('hf_titel'))
-            geklappt = self._ablage.starten(sprache.t('tray_zeigen'),
+            geklappt = self._ablage.start(sprache.t('tray_zeigen'),
                                             sprache.t('tray_beenden'))
             fehler.spur('Ablagesymbol: %s'
                         % ('steht' if geklappt else 'NICHT angelegt'))
@@ -4235,7 +4235,7 @@ class Overlay:
                 # Der Rückgabewert wurde bisher weggeworfen. Ein „nein" ist
                 # aber genau die Auskunft, die in den Bericht gehört.
                 fehler.merken('overlay.ablagesymbol',
-                              OSError('Ablagesymbol.starten() meldet, dass es '
+                              OSError('TrayIcon.start() meldet, dass es'
                                       'nicht angelegt werden konnte'))
         except Exception as ausnahme:
             fehler.spur('Ablagesymbol: Fehler beim Anlegen')
@@ -4261,19 +4261,19 @@ class Overlay:
         """Eine vorhandene Linux-Verknüpfung auf den aktuellen Namen bringen.
 
         ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). Beim
-        Update läuft `desktop_entry.anlegen()` **nicht** — der Eintrag gilt als
+        Update läuft `desktop_entry.create()` **nicht** — der Eintrag gilt als
         vorhanden, und damit wäre die Sache erledigt. Bestandsnutzer behielten
         dauerhaft „SC BP Watcher" im Anwendungsmenü. Vom Prüfer gefunden (F02).
 
         Legt nie etwas an und fasst `Exec`, `Icon` und den Dateinamen nicht an
-        — siehe `desktop_entry.beschriftung_nachziehen()`.
+        — siehe `desktop_entry.refresh_label()`.
         """
         if pfade.WINDOWS:
             return
         try:
             # Lokal importiert: Das Modul wird nur unter Linux gebraucht.
             from scbp import desktop_entry
-            if desktop_entry.beschriftung_nachziehen():
+            if desktop_entry.refresh_label():
                 fehler.spur('Verknuepfung auf den aktuellen Namen gebracht')
         except Exception as ausnahme:
             fehler.merken('start.beschriftung', ausnahme)
