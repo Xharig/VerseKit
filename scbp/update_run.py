@@ -48,12 +48,12 @@ import time
 
 from . import pfade
 
-LAUF = 'update-lauf.json'
-ERGEBNIS = 'update-ergebnis.txt'
-SPERRE = 'update-sperre.json'
-PROTOKOLL = 'update-helfer.txt'
-PROTOKOLL_ALT = 'update-helfer.1.txt'
-HELFER_NAME = 'scbp-update-helfer.cmd'
+RUN_FILE = 'update-lauf.json'
+RESULT_FILE = 'update-ergebnis.txt'
+LOCK_FILE = 'update-sperre.json'
+LOG_FILE = 'update-helfer.txt'
+LOG_FILE_OLD = 'update-helfer.1.txt'
+HELPER_NAME = 'scbp-update-helfer.cmd'
 
 # Nach welchen Rückgabewerten der Helfer den Watcher wieder startet
 # (entschieden 11.09.2026):
@@ -66,20 +66,20 @@ HELFER_NAME = 'scbp-update-helfer.cmd'
 #
 # Jeder andere Wert startet **nichts**. Gemeldet wird er beim nächsten Start
 # von Hand, über die Laufmarke.
-NEUSTART_NACH = (0, 2, 3, 5)
+RESTART_AFTER = (0, 2, 3, 5)
 
 # Eigene Rückgabewerte des Helfers — weit weg von denen des Installers.
-SUMME_FALSCH = 90
-ALTE_HAENGT = 91
+RC_CHECKSUM_BAD = 90
+RC_OLD_STUCK = 91
 
 # So lange wartet der Helfer, bis die alte Fassung wirklich weg ist.
-WARTEN_SEKUNDEN = 60
+WAIT_SECONDS = 60
 # Eine Sperre, die älter ist, gilt als verwaist — auch wenn die PID noch lebt
 # (Windows vergibt PIDs wieder).
-SPERRE_HOECHSTENS = 15 * 60
+LOCK_MAX_AGE = 15 * 60
 # Eine Laufmarke, die älter ist, wird still weggeräumt: Wer tagelang nicht
 # gestartet hat, braucht keine Meldung über ein Update von damals.
-LAUF_HOECHSTENS = 24 * 3600
+RUN_MAX_AGE = 24 * 3600
 
 
 # ⚠⚠ **In dieser Datei steht KEIN einziger Pfad.** Alles kommt über die
@@ -104,7 +104,7 @@ LAUF_HOECHSTENS = 24 * 3600
 # Satz in dieser Konstante gälte der Textprüfung im Selbsttest als fester
 # Oberflächentext, und eine Ausnahme für die ganze Datei würde dort künftig
 # echte Funde verdecken.
-HELFER_VORLAGE = r'''@echo off
+HELPER_TEMPLATE = r'''@echo off
 rem VerseKit - update helper. Rewritten on every update.
 rem All paths come from the environment (SCBP_*); none is stored in this file.
 setlocal DisableDelayedExpansion
@@ -162,21 +162,21 @@ goto :eof
 
 # ------------------------------------------------------------------ Grundlagen
 
-def _pfad(name):
+def _path(name):
     return pfade.app_datei(name)
 
 
-def _ordner_anlegen(pfad):
+def _make_dir(path):
     try:
-        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
     except OSError:
         pass
 
 
-def _weg(pfad):
+def _remove(path):
     """Eine Datei entfernen. Fehlt sie, ist das kein Fehler."""
     try:
-        os.remove(pfad)
+        os.remove(path)
     except FileNotFoundError:
         pass
     except OSError as ausnahme:
@@ -184,20 +184,20 @@ def _weg(pfad):
         fehler.merken('update_run.weg', ausnahme)
 
 
-def _json_schreiben(pfad, daten):
+def _json_write(path, data):
     """Erst daneben schreiben, dann tauschen — nie eine halbe Datei."""
-    _ordner_anlegen(pfad)
-    zwischen = pfad + '.neu'
-    with open(zwischen, 'w', encoding='utf-8') as f:
-        json.dump(daten, f)
-    os.replace(zwischen, pfad)
+    _make_dir(path)
+    staging = path + '.neu'
+    with open(staging, 'w', encoding='utf-8') as f:
+        json.dump(data, f)
+    os.replace(staging, path)
 
 
-def _json_lesen(pfad):
+def _json_read(path):
     try:
-        with open(pfad, encoding='utf-8') as f:
-            daten = json.load(f)
-        return daten if isinstance(daten, dict) else None
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
     except (OSError, ValueError):
         return None
 
@@ -223,11 +223,11 @@ def _kernel32():
     return k
 
 
-_NUR_ABFRAGEN = 0x1000          # PROCESS_QUERY_LIMITED_INFORMATION
-_LAEUFT_NOCH = 259              # STILL_ACTIVE
+_QUERY_ONLY = 0x1000          # PROCESS_QUERY_LIMITED_INFORMATION
+_STILL_ACTIVE = 259              # STILL_ACTIVE
 
 
-def pid_lebt(pid):
+def pid_alive(pid):
     """Lebt dieser Prozess noch? Ein Fehler beim Fragen zählt als „nein"."""
     try:
         pid = int(pid)
@@ -239,18 +239,18 @@ def pid_lebt(pid):
         import ctypes
         from ctypes import wintypes
         k = _kernel32()
-        griff = k.OpenProcess(_NUR_ABFRAGEN, False, pid)
-        if not griff:
+        handle = k.OpenProcess(_QUERY_ONLY, False, pid)
+        if not handle:
             # „Zugriff verweigert" heißt: Es gibt ihn, wir dürfen nur nicht
             # hinein. Alles andere heißt: Es gibt ihn nicht.
             return ctypes.get_last_error() == 5
         try:
             code = wintypes.DWORD()
-            if not k.GetExitCodeProcess(griff, ctypes.byref(code)):
+            if not k.GetExitCodeProcess(handle, ctypes.byref(code)):
                 return True
-            return code.value == _LAEUFT_NOCH
+            return code.value == _STILL_ACTIVE
         finally:
-            k.CloseHandle(griff)
+            k.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -262,27 +262,27 @@ def pid_lebt(pid):
     return True
 
 
-def _prozess_datei(pid):
+def _process_image(pid):
     """Die Programmdatei eines Prozesses (nur Windows), sonst None."""
     if not pfade.WINDOWS:
         return None
     import ctypes
     from ctypes import wintypes
     k = _kernel32()
-    griff = k.OpenProcess(_NUR_ABFRAGEN, False, int(pid))
-    if not griff:
+    handle = k.OpenProcess(_QUERY_ONLY, False, int(pid))
+    if not handle:
         return None
     try:
-        puffer = ctypes.create_unicode_buffer(1024)
-        groesse = wintypes.DWORD(1024)
-        if k.QueryFullProcessImageNameW(griff, 0, puffer, ctypes.byref(groesse)):
-            return puffer.value
+        buffer = ctypes.create_unicode_buffer(1024)
+        size = wintypes.DWORD(1024)
+        if k.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+            return buffer.value
         return None
     finally:
-        k.CloseHandle(griff)
+        k.CloseHandle(handle)
 
 
-def alte_pids(exe=None):
+def old_pids(exe=None):
     """Die Prozesse, auf deren Ende der Helfer warten muss.
 
     ⚠ **Zwei, nicht einer.** Die gepackte `.exe` startet sich zweimal: Ein
@@ -298,10 +298,10 @@ def alte_pids(exe=None):
     exe = os.path.normcase(os.path.abspath(exe or sys.executable))
     pids = [os.getpid()]
     try:
-        vater = os.getppid()
-        datei = _prozess_datei(vater)
-        if datei and os.path.normcase(os.path.abspath(datei)) == exe:
-            pids.append(vater)
+        parent = os.getppid()
+        filename = _process_image(parent)
+        if filename and os.path.normcase(os.path.abspath(filename)) == exe:
+            pids.append(parent)
     except Exception:
         pass
     return pids
@@ -309,25 +309,25 @@ def alte_pids(exe=None):
 
 # ------------------------------------------------------------------- Sperre
 
-def _verwaist(pfad):
-    daten = _json_lesen(pfad)
-    if daten is None:
+def _orphaned(path):
+    data = _json_read(path)
+    if data is None:
         # Unlesbar: Entweder schreibt gerade jemand hinein — dann ist sie
         # Sekundenbruchteile alt —, oder sie ist ein Überbleibsel.
         try:
-            return time.time() - os.path.getmtime(pfad) > 10
+            return time.time() - os.path.getmtime(path) > 10
         except OSError:
             return True
     try:
-        alter = time.time() - float(daten.get('zeit') or 0)
+        age = time.time() - float(data.get('zeit') or 0)
     except (TypeError, ValueError):
         return True
-    if alter > SPERRE_HOECHSTENS:
+    if age > LOCK_MAX_AGE:
         return True
-    return not pid_lebt(daten.get('pid'))
+    return not pid_alive(data.get('pid'))
 
 
-def sperre_nehmen():
+def take_lock():
     """True: Wir dürfen. False: Ein anderes Update ist gerade unterwegs.
 
     ⚠ Scheitert schon das Anlegen (Platte voll, keine Rechte), wird das Update
@@ -336,15 +336,15 @@ def sperre_nehmen():
     einer fehlenden Sperrdatei aufhängt, wäre schlimmer als der seltene
     Doppellauf.
     """
-    pfad = _pfad(SPERRE)
-    _ordner_anlegen(pfad)
-    for _versuch in range(2):
+    path = _path(LOCK_FILE)
+    _make_dir(path)
+    for _attempt in range(2):
         try:
-            fd = os.open(pfad, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
         except FileExistsError:
-            if not _verwaist(pfad):
+            if not _orphaned(path):
                 return False
-            _weg(pfad)
+            _remove(path)
             continue
         except OSError as ausnahme:
             from . import fehler
@@ -356,54 +356,54 @@ def sperre_nehmen():
     return False
 
 
-def sperre_uebergeben(pid):
+def hand_lock_to(pid):
     """Die Sperre gehört ab jetzt dem Helfer — der Watcher tritt ja gleich ab."""
     try:
-        _json_schreiben(_pfad(SPERRE), {'pid': int(pid), 'zeit': time.time()})
+        _json_write(_path(LOCK_FILE), {'pid': int(pid), 'zeit': time.time()})
     except (OSError, TypeError, ValueError) as ausnahme:
         from . import fehler
         fehler.merken('update_run.sperre_uebergeben', ausnahme)
 
 
-def sperre_freigeben():
-    _weg(_pfad(SPERRE))
+def release_lock():
+    _remove(_path(LOCK_FILE))
 
 
-def sperre_gehalten():
+def lock_held():
     """Hält gerade jemand Lebendiges die Sperre?"""
-    pfad = _pfad(SPERRE)
-    return os.path.exists(pfad) and not _verwaist(pfad)
+    path = _path(LOCK_FILE)
+    return os.path.exists(path) and not _orphaned(path)
 
 
 # --------------------------------------------------------------- Laufmarke
 
-def lauf_beginnen(ziel, alt, installer, summe):
+def begin_run(target, previous, installer, checksum):
     """Festhalten, was gleich passiert — bevor der Watcher abtritt."""
-    _weg(_pfad(ERGEBNIS))
-    _json_schreiben(_pfad(LAUF), {
-        'ziel': str(ziel or ''), 'alt': str(alt or ''),
-        'installer': str(installer or ''), 'sha256': str(summe or ''),
+    _remove(_path(RESULT_FILE))
+    _json_write(_path(RUN_FILE), {
+        'ziel': str(target or ''), 'alt': str(previous or ''),
+        'installer': str(installer or ''), 'sha256': str(checksum or ''),
         'start': time.time(),
     })
 
 
-def lauf_lesen():
-    return _json_lesen(_pfad(LAUF))
+def read_run():
+    return _json_read(_path(RUN_FILE))
 
 
-def ergebnis_lesen():
+def read_result():
     """Der Rückgabewert, den der Helfer aufgeschrieben hat — oder None."""
     try:
-        with open(_pfad(ERGEBNIS), encoding='ascii', errors='replace') as f:
+        with open(_path(RESULT_FILE), encoding='ascii', errors='replace') as f:
             return int(f.read().split()[0])
     except (OSError, ValueError, IndexError):
         return None
 
 
-def _aufraeumen(lauf):
-    _weg(_pfad(LAUF))
-    _weg(_pfad(ERGEBNIS))
-    installer = str(lauf.get('installer') or '')
+def _cleanup(run):
+    _remove(_path(RUN_FILE))
+    _remove(_path(RESULT_FILE))
+    installer = str(run.get('installer') or '')
     # Nur eine Datei, die erkennbar uns gehört — nie etwas Fremdes.
     #
     # ⚠⚠ Die Prüfung geht über `pfade.gehoert_uns()`, weil sie BEIDE
@@ -412,10 +412,10 @@ def _aufraeumen(lauf):
     # liegen geblieben, während die Laufmarke gelöscht wurde. Vom Prüfer
     # mit einer protokollierenden Attrappe nachgewiesen (F04).
     if installer and pfade.gehoert_uns(installer):
-        _weg(installer)
+        _remove(installer)
 
 
-def auswerten(eigene_version):
+def evaluate(own_version):
     """Beim Start: Was ist aus dem letzten Update geworden?
 
     Gibt ein Wörterbuch mit `art` zurück — `fertig`, `abgebrochen`, `fehler`
@@ -428,122 +428,122 @@ def auswerten(eigene_version):
     ⚠ Hält der Helfer die Sperre noch, läuft das Update gerade — wer jetzt
     von Hand startet, bekommt keine Meldung, und die Laufmarke bleibt liegen.
     """
-    lauf = lauf_lesen()
-    if not lauf or sperre_gehalten():
+    run = read_run()
+    if not run or lock_held():
         return None
-    code = ergebnis_lesen()
-    ziel = str(lauf.get('ziel') or '')
-    alt = str(lauf.get('alt') or '')
+    code = read_result()
+    target = str(run.get('ziel') or '')
+    previous = str(run.get('alt') or '')
     try:
-        alter = time.time() - float(lauf.get('start') or 0)
+        age = time.time() - float(run.get('start') or 0)
     except (TypeError, ValueError):
-        alter = LAUF_HOECHSTENS + 1
-    _aufraeumen(lauf)
-    if not 0 <= alter <= LAUF_HOECHSTENS:
+        age = RUN_MAX_AGE + 1
+    _cleanup(run)
+    if not 0 <= age <= RUN_MAX_AGE:
         return None
 
-    eigen = _norm(eigene_version)
-    if eigen and eigen == _norm(ziel):
-        art = 'fertig'
+    own = _norm(own_version)
+    if own and own == _norm(target):
+        kind = 'fertig'
     elif code is None:
-        art = 'unklar'
-    elif code in (2, 5) and eigen == _norm(alt):
-        art = 'abgebrochen'
+        kind = 'unklar'
+    elif code in (2, 5) and own == _norm(previous):
+        kind = 'abgebrochen'
     else:
-        art = 'fehler'
-    if art != 'fertig':
+        kind = 'fehler'
+    if kind != 'fertig':
         from . import fehler
-        fehler.merken('updater.update_%s' % art, RuntimeError(
+        fehler.merken('updater.update_%s' % kind, RuntimeError(
             'Ziel %s, laufend %s, vorher %s, Rückgabewert %s'
-            % (ziel or '?', eigene_version or '?', alt or '?',
+            % (target or '?', own_version or '?', previous or '?',
                '–' if code is None else code)))
-    return {'art': art, 'ziel': ziel, 'alt': alt, 'code': code,
-            'eigen': str(eigene_version or '')}
+    return {'art': kind, 'ziel': target, 'alt': previous, 'code': code,
+            'eigen': str(own_version or '')}
 
 
-def meldung(ergebnis):
+def message(result):
     """Der Satz für den Nutzer — als `Satz`, damit er beim Sprachwechsel mitzieht."""
     from . import sprache
-    art = ergebnis.get('art')
-    if art == 'fertig':
-        return sprache.Satz('up_erg_fertig', ergebnis.get('ziel'))
-    if art == 'abgebrochen':
-        return sprache.Satz('up_erg_abgebrochen', ergebnis.get('eigen'))
-    if art == 'unklar':
-        return sprache.Satz('up_erg_unklar', ergebnis.get('ziel'))
-    return sprache.Satz('up_erg_fehler', ergebnis.get('ziel'),
-                        ergebnis.get('code'))
+    kind = result.get('art')
+    if kind == 'fertig':
+        return sprache.Satz('up_erg_fertig', result.get('ziel'))
+    if kind == 'abgebrochen':
+        return sprache.Satz('up_erg_abgebrochen', result.get('eigen'))
+    if kind == 'unklar':
+        return sprache.Satz('up_erg_unklar', result.get('ziel'))
+    return sprache.Satz('up_erg_fehler', result.get('ziel'),
+                        result.get('code'))
 
 
 # ------------------------------------------------------------------ Helfer
 
-def protokoll_rotieren():
+def rotate_log():
     """Das letzte Protokoll als vorletztes behalten.
 
     ⚠ Überschreiben hieße: Ein zweiter Versuch löscht genau den Fehler, nach
     dem jemand fragt. Zwei Stände reichen — es geht um den letzten Versuch und
     den davor, nicht um ein Tagebuch.
     """
-    alt = _pfad(PROTOKOLL)
-    if os.path.exists(alt):
+    previous = _path(LOG_FILE)
+    if os.path.exists(previous):
         try:
-            os.replace(alt, _pfad(PROTOKOLL_ALT))
+            os.replace(previous, _path(LOG_FILE_OLD))
         except OSError as ausnahme:
             from . import fehler
             fehler.merken('update_run.rotieren', ausnahme)
 
 
-def _protokoll_zeile(eintrag):
+def _log_line(entry):
     """Eine Zeile vom Watcher selbst. Nur ASCII — der Helfer schreibt OEM.
 
     ⚠ Der Parameter heißt mit Absicht nicht `text`: Die Textprüfung wertet
     jeden Parameter dieses Namens als Oberflächentext. Diese Zeile landet nur
     in der Diagnose und ist englisch wie der Rest des Helfer-Protokolls.
     """
-    pfad = _pfad(PROTOKOLL)
-    _ordner_anlegen(pfad)
+    path = _path(LOG_FILE)
+    _make_dir(path)
     try:
-        with open(pfad, 'a', encoding='ascii', errors='backslashreplace',
+        with open(path, 'a', encoding='ascii', errors='backslashreplace',
                   newline='\r\n') as f:
-            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), eintrag))
+            f.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), entry))
     except OSError:
         pass
 
 
-def helfer_umgebung(umgebung, setup, summe, ziel_ordner, setup_protokoll,
+def helper_env(base_env, setup, checksum, target_dir, setup_log,
                     exe, pids):
     """Die Umgebung für den Helfer: die gesäuberte des Watchers plus `SCBP_*`."""
     import tempfile
-    env = dict(umgebung)
+    env = dict(base_env)
     env.update({
         'SCBP_SETUP': setup,
-        'SCBP_SHA256': str(summe).lower(),
-        'SCBP_ZIEL': ziel_ordner,
+        'SCBP_SHA256': str(checksum).lower(),
+        'SCBP_ZIEL': target_dir,
         # Ohne Ablage schreibt das Setup trotzdem mit — nur eben nach %TEMP%.
-        'SCBP_SETUPLOG': setup_protokoll or os.path.join(
+        'SCBP_SETUPLOG': setup_log or os.path.join(
             tempfile.gettempdir(), 'scbp-update-setup.txt'),
-        'SCBP_LOG': _pfad(PROTOKOLL),
-        'SCBP_ERGEBNIS': _pfad(ERGEBNIS),
-        'SCBP_SPERRE': _pfad(SPERRE),
+        'SCBP_LOG': _path(LOG_FILE),
+        'SCBP_ERGEBNIS': _path(RESULT_FILE),
+        'SCBP_SPERRE': _path(LOCK_FILE),
         'SCBP_EXE': exe,
         'SCBP_PID': str(pids[0]),
         'SCBP_PID2': str(pids[1]) if len(pids) > 1 else '',
-        'SCBP_WARTEN': str(WARTEN_SEKUNDEN),
-        'SCBP_NEUSTART': ' '.join(str(c) for c in NEUSTART_NACH),
+        'SCBP_WARTEN': str(WAIT_SECONDS),
+        'SCBP_NEUSTART': ' '.join(str(c) for c in RESTART_AFTER),
     })
     return env
 
 
-def helfer_schreiben():
+def write_helper():
     """Die Vorlage nach `%TEMP%` legen. Gibt den Pfad zurück."""
     import tempfile
-    pfad = os.path.join(tempfile.gettempdir(), HELFER_NAME)
-    with open(pfad, 'w', encoding='ascii', newline='\r\n') as f:
-        f.write(HELFER_VORLAGE)
-    return pfad
+    path = os.path.join(tempfile.gettempdir(), HELPER_NAME)
+    with open(path, 'w', encoding='ascii', newline='\r\n') as f:
+        f.write(HELPER_TEMPLATE)
+    return path
 
 
-def helfer_flags():
+def helper_flags():
     """Wie der Helfer gestartet wird — an EINER Stelle, für Programm und Selbsttest.
 
     ⚠⚠ **Kein `DETACHED_PROCESS`.** Ohne eigene Konsole bekommt jedes
@@ -564,23 +564,23 @@ def helfer_flags():
             | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
 
 
-def helfer_starten(setup, summe, ziel_ordner, setup_protokoll, umgebung,
+def start_helper(setup, checksum, target_dir, setup_log, base_env,
                    flags, exe=None):
     """Den Helfer loslassen und ihm die Sperre übergeben. Gibt den Prozess."""
     import subprocess
     import tempfile
     exe = exe or sys.executable
-    pids = alte_pids(exe)
-    helfer = helfer_schreiben()
-    protokoll_rotieren()
-    _protokoll_zeile('Watcher hands over: waiting for PID %s, installer %s'
+    pids = old_pids(exe)
+    helper = write_helper()
+    rotate_log()
+    _log_line('Watcher hands over: waiting for PID %s, installer %s'
                      % ('/'.join(str(p) for p in pids),
                         os.path.basename(setup)))
-    env = helfer_umgebung(umgebung, setup, summe, ziel_ordner,
-                          setup_protokoll, exe, pids)
+    env = helper_env(base_env, setup, checksum, target_dir,
+                          setup_log, exe, pids)
     # Das doppelte Anführungszeichen ist cmd-Eigenart: `cmd /c "…"` streicht
     # das äußere Paar, ein Pfad mit Leerzeichen braucht deshalb ein eigenes.
-    prozess = subprocess.Popen('cmd /c ""%s""' % helfer, env=env,
+    process = subprocess.Popen('cmd /c ""%s""' % helper, env=env,
                                cwd=tempfile.gettempdir(), creationflags=flags)
-    sperre_uebergeben(prozess.pid)
-    return prozess
+    hand_lock_to(process.pid)
+    return process

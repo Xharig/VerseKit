@@ -1222,12 +1222,12 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
         # die Umleitungen. Im ersten Echttest am 11.09.2026 hing `find` in
         # einem Fenster, und `certutil` schrieb seine Summe ins Leere.
         from . import update_run
-        flags = update_run.helfer_flags()
+        flags = update_run.helper_flags()
 
         # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
         # der nächste Start, dass ein Update begonnen hatte.
-        update_run.lauf_beginnen(ziel_version, alte_version, neue_datei, summe)
-        update_run.helfer_starten(neue_datei, summe, eigener_ordner,
+        update_run.begin_run(ziel_version, alte_version, neue_datei, summe)
+        update_run.start_helper(neue_datei, summe, eigener_ordner,
                                    protokoll_datei, umgebung, flags,
                                    exe=sys.executable)
         return True, ''

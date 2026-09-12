@@ -4251,9 +4251,9 @@ class Overlay:
         """
         try:
             from scbp import update_run
-            ergebnis = update_run.auswerten(__version__)
+            ergebnis = update_run.evaluate(__version__)
             if ergebnis:
-                self.q.put(('hinweis', update_run.meldung(ergebnis)))
+                self.q.put(('hinweis', update_run.message(ergebnis)))
         except Exception as ausnahme:
             fehler.merken('start.update_ergebnis', ausnahme)
 

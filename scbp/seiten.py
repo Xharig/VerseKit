@@ -4367,7 +4367,7 @@ def _fassung_holen(fenster, mit_vorab):
     # los. Freigegeben wird sie bei jedem Ausgang, außer beim Übergeben an den
     # Helfer: Dann gehört sie ihm, und er räumt sie weg.
     from . import update_run
-    if not update_run.sperre_nehmen():
+    if not update_run.take_lock():
         fenster.sagen(t('up_laeuft_schon'))
         return
 
@@ -4454,7 +4454,7 @@ def _fassung_holen(fenster, mit_vorab):
             _im_tk(fenster, lambda: fenster.sagen(t('update_fehler', grund)))
         finally:
             if not uebergeben:
-                update_run.sperre_freigeben()
+                update_run.release_lock()
 
     threading.Thread(target=arbeit, daemon=True).start()
 
