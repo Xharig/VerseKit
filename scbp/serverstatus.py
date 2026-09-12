@@ -60,23 +60,23 @@ import urllib.request
 
 from . import pfade
 
-BASIS = 'https://status.robertsspaceindustries.com'
+BASE = 'https://status.robertsspaceindustries.com'
 CACHE = 'serverstatus.json'
-ZEITLIMIT = 15
-AUS = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
+TIMEOUT = 15
+OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 
 # Wie alt die gespeicherte Lage werden darf, bevor erneut gefragt wird.
-FRISCHE_SEK = 300
+FRESH_SEC = 300
 
 # Die Ampelfarben stehen in der Seite selbst (`colorOk` und Geschwister). Sie
 # hier noch einmal zu führen wäre doppelt — geholt werden sie beim Abruf und
 # mit gespeichert. Diese hier greifen nur, wenn noch nie etwas geholt wurde.
-FARBEN = {'ok': '#008000', 'gestoert': '#cc4400',
+COLORS = {'ok': '#008000', 'gestoert': '#cc4400',
           'aus': '#e60000', 'hinweis': '#24478f'}
 
 # Welcher Zustand welche Ampel bekommt. cState kennt mehr Namen als die drei
 # Farben; alles Unbekannte gilt als Störung — lieber einmal zu viel gewarnt.
-AMPEL = {
+LIGHTS = {
     'operational': 'ok',
     'monitoring': 'hinweis',
     'maintenance': 'hinweis',
@@ -86,33 +86,33 @@ AMPEL = {
 }
 
 
-def _kennung():
+def _ident():
     from sc_bp_watcher import __version__ as v
     return 'SC-BP-Watcher/%s (+https://github.com/Xharig/SC-BP-Watcher)' % v
 
 
-def _hole(pfad, etag=None):
+def _fetch(path, etag=None):
     """Eine Datei der Statusseite holen.
 
     Gibt `(daten, etag)` zurück. Bei **304** (nichts geändert) kommt
     `(None, etag)` — das ist kein Fehler, sondern der Normalfall."""
-    if AUS:
+    if OFF:
         return None, etag
-    kopf = {'User-Agent': _kennung(), 'Accept': 'application/json'}
+    header = {'User-Agent': _ident(), 'Accept': 'application/json'}
     if etag:
-        kopf['If-None-Match'] = etag
-    anfrage = urllib.request.Request(BASIS + pfad, headers=kopf)
+        header['If-None-Match'] = etag
+    request = urllib.request.Request(BASE + path, headers=header)
     try:
-        with urllib.request.urlopen(anfrage, timeout=ZEITLIMIT) as antwort:
-            roh = antwort.read().decode('utf-8', 'replace')
-            return json.loads(roh), antwort.headers.get('ETag') or etag
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as reply:
+            raw = reply.read().decode('utf-8', 'replace')
+            return json.loads(raw), reply.headers.get('ETag') or etag
     except urllib.error.HTTPError as e:
         if e.code == 304:
             return None, etag
         raise
 
 
-def _text_aus_html(roh):
+def _text_from_html(raw):
     """Aus dem Meldungstext lesbare Zeilen machen — **mit** der Hervorhebung.
 
     Rückgabe: `[(text, fett), …]`.
@@ -127,35 +127,35 @@ def _text_aus_html(roh):
     Entities, nicht um verschachtelte Auszeichnung. `<!-- raw HTML omitted -->`
     steht als Kommentar drin und fällt beim Entfernen der Tags von selbst weg.
     """
-    if not roh:
+    if not raw:
         return []
-    text = re.sub(r'(?i)<!--.*?-->', '', roh, flags=re.S)
+    text = re.sub(r'(?i)<!--.*?-->', '', raw, flags=re.S)
     text = re.sub(r'(?i)<br\s*/?>', '\n', text)
     text = re.sub(r'(?i)</p\s*>', '\n\n', text)
 
-    zeilen = []
-    for stueck in text.split('\n'):
-        if not stueck.strip():
+    lines = []
+    for piece in text.split('\n'):
+        if not piece.strip():
             continue
         # Fett ist die Zeile, wenn ihr sichtbarer Text vollständig in einer
         # Hervorhebung steckt. Ein einzelnes fettes Wort mitten im Satz
         # bekäme sonst die ganze Zeile fett — falsch gewichtet.
-        ohne_tags = re.sub(r'<[^>]+>', '', stueck).strip()
+        without_tags = re.sub(r'<[^>]+>', '', piece).strip()
         # Verglichen wird der Text **innerhalb** der Hervorhebung mit dem
         # gesamten sichtbaren Text. Nur wenn beide gleich sind, ist die ganze
         # Zeile hervorgehoben.
-        hervor = ' '.join(
-            re.sub(r'<[^>]+>', '', treffer)
-            for treffer in re.findall(r'(?is)<(?:strong|b)\s*>(.*?)</(?:strong|b)\s*>',
-                                      stueck)).strip()
-        fett = bool(hervor) and hervor == ohne_tags
-        sauber = html.unescape(ohne_tags)
-        if sauber:
-            zeilen.append((sauber, fett))
-    return zeilen
+        highlight = ' '.join(
+            re.sub(r'<[^>]+>', '', hits)
+            for hits in re.findall(r'(?is)<(?:strong|b)\s*>(.*?)</(?:strong|b)\s*>',
+                                      piece)).strip()
+        bold = bool(highlight) and highlight == without_tags
+        clean = html.unescape(without_tags)
+        if clean:
+            lines.append((clean, bold))
+    return lines
 
 
-def _zeitstempel(roh):
+def _timestamp(raw):
     """'2026-08-26 14:15:00 +0000 UTC' -> Sekunden seit 1970, oder None.
 
     ⚠ **Die Seite rechnet in UTC**, auch wo keine Zone dabeisteht (`buildTimezone`
@@ -168,22 +168,22 @@ def _zeitstempel(roh):
     (`+0000 UTC`), mit doppelter Zone, ganz ohne — und `buildTime` sogar **ohne
     Sekunden** (`18:30`). Deshalb sind die Sekunden im Muster wahlfrei.
     Scheitert das Lesen, gibt es lieber **keine** Zeit als eine falsche."""
-    if not roh:
+    if not raw:
         return None
     m = re.match(r'(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::(\d{2}))?',
-                 str(roh).strip())
+                 str(raw).strip())
     if not m:
         return None
-    tag, stunde, sekunde = m.group(1), m.group(2), m.group(3) or '00'
+    day, hour, second = m.group(1), m.group(2), m.group(3) or '00'
     try:
         return calendar.timegm(
-            time.strptime('%s %s:%s' % (tag, stunde, sekunde), '%Y-%m-%d %H:%M:%S'))
+            time.strptime('%s %s:%s' % (day, hour, second), '%Y-%m-%d %H:%M:%S'))
     except Exception:
         return None
 
 
 # ------------------------------------------------------------------- Abruf
-def _cache_lesen():
+def _cache_read():
     try:
         with open(pfade.app_datei(CACHE), encoding='utf-8') as f:
             return json.load(f)
@@ -191,27 +191,27 @@ def _cache_lesen():
         return {}
 
 
-def _cache_schreiben(daten):
-    ziel = pfade.app_datei(CACHE)
+def _cache_write(data):
+    target = pfade.app_datei(CACHE)
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        temp = ziel + '.tmp'
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        temp = target + '.tmp'
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(temp, ziel)
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(temp, target)
     except Exception:
         pass
 
 
-def gespeicherte_lage():
+def stored_state():
     """Der zuletzt geholte Stand — **ohne** ins Netz zu gehen.
 
     Damit steht beim Öffnen der Seite sofort etwas da, während der frische
     Abruf noch läuft. Gab es nie einen Abruf, kommt `{}` zurück."""
-    return (_cache_lesen().get('lage') or {})
+    return (_cache_read().get('lage') or {})
 
 
-def lage(erzwingen=False, frist=None):
+def state(force=False, deadline=None):
     """Die Lage aller Systeme — aus dem Netz oder aus dem Zwischenspeicher.
 
     Rückgabe:
@@ -225,71 +225,71 @@ def lage(erzwingen=False, frist=None):
 
     Wirft nie. Ohne Netz gilt der letzte Stand; gab es nie einen, kommt
     `{}` zurück — dann zeigt die Oberfläche nichts an, statt zu raten."""
-    gespeichert = _cache_lesen()
-    alt = gespeichert.get('lage') or {}
+    stored = _cache_read()
+    old = stored.get('lage') or {}
     # `frist` sagt, wie alt der gespeicherte Stand sein darf, bevor überhaupt
     # gefragt wird. Der Live-Takt setzt sie auf 0: Er fragt jede Minute, aber
     # **mit** ETag — unverändert antwortet der Server mit 304 und ohne Inhalt.
     # Das ist der billige Fall und darf deshalb oft passieren.
-    grenze = FRISCHE_SEK if frist is None else frist
-    frisch = (time.time() - (alt.get('geholt') or 0)) < grenze
-    if alt and frisch and not erzwingen:
-        return alt
+    limit = FRESH_SEC if deadline is None else deadline
+    is_fresh = (time.time() - (old.get('geholt') or 0)) < limit
+    if old and is_fresh and not force:
+        return old
 
     try:
         # ⚠ Beim erzwungenen Abruf **ohne** ETag fragen. Sonst antwortet der
         # Server mit 304, und „jetzt nachsehen" liefert genau die Daten zurück,
         # die schon dastanden — der Knopf wirkt kaputt, obwohl alles läuft.
-        daten, etag = _hole('/index.json',
-                            None if erzwingen else gespeichert.get('etag'))
+        data, etag = _fetch('/index.json',
+                            None if force else stored.get('etag'))
     except Exception:
         # ⚠ **Sagen, dass es am Netz lag.** Vorher kam hier nur der alte Stand
         # zurück — oder `{}`, wenn es nie einen gab. Die Seite konnte „noch nie
         # abgerufen" und „gerade keine Verbindung" nicht auseinanderhalten und
         # bat, auf „Jetzt nachsehen" zu klicken. Ohne Internet führt dieser
         # Klick zu nichts, und der Nutzer sucht den Fehler bei sich.
-        alt = dict(alt) if alt else {}
-        alt['kein_netz'] = True
-        return alt
+        old = dict(old) if old else {}
+        old['kein_netz'] = True
+        return old
 
-    if daten is None:                   # 304 — unverändert, nur die Uhr stellen
-        if alt:
-            alt['geholt'] = time.time()
-            gespeichert['lage'] = alt
-            _cache_schreiben(gespeichert)
-        return alt
+    if data is None:                   # 304 — unverändert, nur die Uhr stellen
+        if old:
+            old['geholt'] = time.time()
+            stored['lage'] = old
+            _cache_write(stored)
+        return old
 
-    farben = {
-        'ok': daten.get('colorOk') or FARBEN['ok'],
-        'gestoert': daten.get('colorDisrupted') or FARBEN['gestoert'],
-        'aus': daten.get('colorDown') or FARBEN['aus'],
-        'hinweis': daten.get('colorNotice') or FARBEN['hinweis'],
+    colors = {
+        'ok': data.get('colorOk') or COLORS['ok'],
+        'gestoert': data.get('colorDisrupted') or COLORS['gestoert'],
+        'aus': data.get('colorDown') or COLORS['aus'],
+        'hinweis': data.get('colorNotice') or COLORS['hinweis'],
     }
-    systeme = []
-    for s in daten.get('systems') or []:
-        zustand = (s.get('status') or '').strip()
-        ampel = AMPEL.get(zustand, 'gestoert')
-        systeme.append({
+    sys_list = []
+    for s in data.get('systems') or []:
+        condition = (s.get('status') or '').strip()
+        light = LIGHTS.get(condition, 'gestoert')
+        sys_list.append({
             'name': s.get('name') or '?',
-            'status': zustand,          # im Wortlaut von CIG, nie übersetzt
-            'ampel': ampel,
-            'farbe': farben[ampel],
-            'meldungen': [_vorfall_kurz(i) for i in (s.get('unresolvedIssues') or [])],
+            'status': condition,          # im Wortlaut von CIG, nie übersetzt
+            'ampel': light,
+            'farbe': colors[light],
+            'meldungen': [_incident_short(i) for i in (s.get('unresolvedIssues') or [])],
         })
 
-    neu = {
-        'gesamt': (daten.get('summaryStatus') or '').strip(),
-        'systeme': systeme,
+    fresh = {
+        'gesamt': (data.get('summaryStatus') or '').strip(),
+        'systeme': sys_list,
         'geholt': time.time(),
-        'stand': _zeitstempel('%s %s' % (daten.get('buildDate') or '',
-                                         daten.get('buildTime') or '')),
-        'quelle': BASIS + '/',
+        'stand': _timestamp('%s %s' % (data.get('buildDate') or '',
+                                         data.get('buildTime') or '')),
+        'quelle': BASE + '/',
     }
-    _cache_schreiben({'etag': etag, 'lage': neu})
-    return neu
+    _cache_write({'etag': etag, 'lage': fresh})
+    return fresh
 
 
-def nachfragen():
+def ask():
     """Ein Blick, ob sich etwas geändert hat — für den laufenden Takt.
 
     Fragt **mit** ETag. Hat CIG nichts angefasst, kommt ein 304 ohne Inhalt
@@ -300,57 +300,57 @@ def nachfragen():
     überhaupt neu zeichnen muss. Ohne das würde die Anzeige jede Minute
     zerlegt und neu aufgebaut, obwohl sich nichts getan hat: Wer gerade eine
     Meldung liest, verlöre dabei seine Rollposition."""
-    vorher = gespeicherte_lage()
-    neu = lage(frist=0)
-    return neu, _kern(neu) != _kern(vorher)
+    before = stored_state()
+    fresh = state(deadline=0)
+    return fresh, _core(fresh) != _core(before)
 
 
-def _kern(lage_):
+def _core(state_):
     """Woran man erkennt, ob sich inhaltlich etwas geändert hat.
 
     Bewusst **ohne** `geholt` — das ändert sich bei jedem Blick und würde jede
     Nachfrage als Änderung ausgeben."""
-    if not lage_:
+    if not state_:
         return None
-    return (lage_.get('gesamt'),
+    return (state_.get('gesamt'),
             tuple((s.get('name'), s.get('status'),
                    tuple(sorted(m.get('titel') or '' for m in s.get('meldungen') or [])))
-                  for s in lage_.get('systeme') or []))
+                  for s in state_.get('systeme') or []))
 
 
-def _vorfall_kurz(roh):
+def _incident_short(raw):
     """Die Angaben zu einem Vorfall, wie sie in der Systemliste mitkommen."""
     return {
-        'titel': roh.get('title') or '',
-        'schwere': (roh.get('severity') or '').strip(),
-        'betroffen': list(roh.get('affected') or []),
-        'begonnen': _zeitstempel(roh.get('createdAt')),
-        'erledigt': _zeitstempel(roh.get('resolvedAt')),
-        'datei': roh.get('filename') or '',
-        'adresse': roh.get('permalink') or '',
+        'titel': raw.get('title') or '',
+        'schwere': (raw.get('severity') or '').strip(),
+        'betroffen': list(raw.get('affected') or []),
+        'begonnen': _timestamp(raw.get('createdAt')),
+        'erledigt': _timestamp(raw.get('resolvedAt')),
+        'datei': raw.get('filename') or '',
+        'adresse': raw.get('permalink') or '',
     }
 
 
-def vorfall(datei):
+def incident(file_name):
     """Ein Vorfall im Volltext — Meldung samt Update-Zeilen.
 
     `datei` ist der Dateiname aus der Übersicht (`2026-08-26_live-deployment.md`).
     Die Endung fällt weg, der Rest ist der Ordner unter `/issues/`."""
-    name = re.sub(r'\.md$', '', (datei or '').strip())
+    name = re.sub(r'\.md$', '', (file_name or '').strip())
     if not name:
         return {}
     try:
-        daten, _ = _hole('/issues/%s/index.json' % name)
+        data, _ = _fetch('/issues/%s/index.json' % name)
     except Exception:
         return {}
-    if not daten:
+    if not data:
         return {}
-    e = _vorfall_kurz(daten)
-    e['zeilen'] = _text_aus_html(daten.get('body'))
+    e = _incident_short(data)
+    e['zeilen'] = _text_from_html(data.get('body'))
     return e
 
 
-def meldungen(monate=2, hoechstens=12):
+def messages(months=2, at_most=12):
     """Die Meldungen der letzten Monate — im Volltext, wie auf der Statusseite.
 
     Die Seite zeigt unter „Latest incidents" **auch erledigte** Vorfälle. Das ist
@@ -364,47 +364,47 @@ def meldungen(monate=2, hoechstens=12):
 
     Zwei Monate sind Absicht, nicht die ganze Historie: Sie liegt vollständig
     unter der verlinkten Adresse, und 265 Vorfälle im Fenster hülfen niemandem."""
-    grenze = time.time() - monate * 30 * 86400
-    zwischen = _cache_lesen()
-    volltexte = zwischen.get('volltexte') or {}
-    ergebnis, neu_geholt = [], False
+    limit = time.time() - months * 30 * 86400
+    between = _cache_read()
+    full_texts = between.get('volltexte') or {}
+    result, freshly_fetched = [], False
 
-    for kurz in historie(60):
-        wann = kurz.get('begonnen') or 0
-        if wann and wann < grenze:
+    for short in history(60):
+        when = short.get('begonnen') or 0
+        if when and when < limit:
             break                      # die Liste ist nach Datum sortiert
-        datei = kurz.get('datei') or ''
-        if datei in volltexte:
-            voll = volltexte[datei]
+        file_name = short.get('datei') or ''
+        if file_name in full_texts:
+            full = full_texts[file_name]
         else:
-            voll = vorfall(datei)
-            if voll:
+            full = incident(file_name)
+            if full:
                 # Nur Erledigtes darf dauerhaft liegen bleiben. Eine offene
                 # Meldung bekommt weitere Update-Zeilen — die würden wir sonst
                 # nie wieder sehen.
-                if voll.get('erledigt'):
-                    volltexte[datei] = voll
-                    neu_geholt = True
-        if voll:
-            ergebnis.append(voll)
-        if len(ergebnis) >= hoechstens:
+                if full.get('erledigt'):
+                    full_texts[file_name] = full
+                    freshly_fetched = True
+        if full:
+            result.append(full)
+        if len(result) >= at_most:
             break
 
-    if neu_geholt:
-        zwischen['volltexte'] = volltexte
-        _cache_schreiben(zwischen)
-    return ergebnis
+    if freshly_fetched:
+        between['volltexte'] = full_texts
+        _cache_write(between)
+    return result
 
 
-def historie(hoechstens=20):
+def history(at_most=20):
     """Die letzten Vorfälle — neueste zuerst.
 
     Gedacht zum Nachsehen („war gestern etwas?") und als Prüfstoff: Solange
     alles läuft, gibt es keine offene Meldung, mit der sich die Anzeige testen
     ließe. Ein alter Vorfall füllt diese Lücke."""
     try:
-        daten, _ = _hole('/issues/index.json')
+        data, _ = _fetch('/issues/index.json')
     except Exception:
         return []
-    seiten = (daten or {}).get('pages') or []
-    return [_vorfall_kurz(s) for s in seiten[:hoechstens]]
+    page_list = (data or {}).get('pages') or []
+    return [_incident_short(s) for s in page_list[:at_most]]

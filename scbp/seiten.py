@@ -4582,7 +4582,7 @@ def _serverstatus(fenster, rahmen):
             # dann: „Einstellungsmenü stürzt ab, wenn der User kein Internet
             # mehr hat und man auf Serverstatus geht" (30.08.2026).
             try:
-                lage = serverstatus.lage(erzwingen=erzwingen)
+                lage = serverstatus.state(erzwingen=erzwingen)
             except Exception as ausnahme:
                 fehler.merken('seiten.serverstatus', ausnahme)
                 lage = None
@@ -4629,7 +4629,7 @@ def _serverstatus(fenster, rahmen):
 
         def arbeit():
             try:
-                lage, veraendert = serverstatus.nachfragen()
+                lage, veraendert = serverstatus.ask()
             except Exception:
                 lage, veraendert = None, False
             # Dieselbe Absicherung wie oben: Der Takt läuft, während der Nutzer
@@ -4644,7 +4644,7 @@ def _serverstatus(fenster, rahmen):
 
         threading.Thread(target=arbeit, daemon=True).start()
 
-    zeichnen(serverstatus.gespeicherte_lage())   # sofort, ohne Netz
+    zeichnen(serverstatus.stored_state())   # sofort, ohne Netz
     auffrischen()                                # und im Hintergrund nachziehen
     fenster.root.after(TAKT_MS, takt)            # danach im Takt weiter
 
@@ -4737,7 +4737,7 @@ def _meldungen_laden(fenster, raum, quelle):
 
     def arbeit():
         try:
-            liste = serverstatus.meldungen(2)
+            liste = serverstatus.messages(2)
         except Exception as ausnahme:
             fehler.merken('seiten.serverstatus_meldungen', ausnahme)
             liste = []
