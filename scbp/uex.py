@@ -26,7 +26,7 @@ Bedeutung der Daten. Die bleibt im jeweiligen Fachmodul.
 
 ## Warum es das gibt
 
-`prices.py`, `orte.py` und `verkauf.py` trugen bis v3.15 **jeweils dieselbe**
+`prices.py`, `places.py` und `verkauf.py` trugen bis v3.15 **jeweils dieselbe**
 Maschinerie: `QUELLE`, `CACHE`, `FORMAT`, `ZEITLIMIT`, `HALTBAR` und dazu
 `laden()`, `alter()`, `_holen()`, `_sichern()`. Dreimal derselbe Code, und mit
 jedem weiteren Endpunkt eine Kopie mehr. (Die Namen von damals stehen hier

@@ -46,11 +46,11 @@ und das ist die Antwort, die keine der beiden Seiten von sich aus gibt.
 2.585 Einträge, rund 1 MB. Kein Schlüssel nötig, ein einfacher GET. Behalten
 wird davon nur, was ein Ankaufgebot hat (1.880 Zeilen, rund 75 KB).
 
-Die Ortsnamen kommen aus `orte.py`, das dieselbe Terminal-Liste ohnehin holt —
+Die Ortsnamen kommen aus `places.py`, das dieselbe Terminal-Liste ohnehin holt —
 so wird die fremde Schnittstelle nicht zweimal für dasselbe angefasst.
 
 ⚠ **Die Daten werden NICHT mitgeliefert**, sondern auf dem Rechner des Nutzers
-geholt — dieselbe Regel wie bei scmdb, `prices.py` und `orte.py`. Und
+geholt — dieselbe Regel wie bei scmdb, `prices.py` und `places.py`. Und
 **höchstens einmal am Tag**.
 
 ⚠ **Ohne Netz passiert nichts Schlimmes.** Liegt eine alte Ablage da, wird sie
@@ -92,7 +92,7 @@ Die Idee zu diesem Reiter stammt von **Morkhan (KRT)** (30.08.2026).
 """
 import time
 
-from . import orte, uex
+from . import places, uex
 from .katalog import AUS
 
 QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
@@ -173,7 +173,7 @@ SPERRE = 60 * 60
 # Zweite Quelle: die Terminal-Liste. Sie liefert System, Ort und das Kennzeichen
 # `is_nqa`, das in den Preisdaten fehlt.
 #
-# ⚠ `orte.py` holt dieselbe Liste — dort aber nur wöchentlich und nur für die
+# ⚠ `places.py` holt dieselbe Liste — dort aber nur wöchentlich und nur für die
 # Ortsnamen. Bewusst **nicht** gekoppelt: Ein Modul, das sich seine Daten selbst
 # besorgt, lässt sich einzeln prüfen und geht nicht kaputt, wenn am anderen
 # etwas geändert wird. Der Preis dafür ist ein zusätzlicher Abruf pro Tag.

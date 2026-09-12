@@ -53,61 +53,61 @@ können.
 from . import uex
 from .katalog import AUS
 
-QUELLE = 'https://api.uexcorp.uk/2.0/terminals'
+SOURCE = 'https://api.uexcorp.uk/2.0/terminals'
 CACHE = 'orte.json'
 FORMAT = 1
 
 # Eine Woche. Stationen kommen mit einem Patch, nicht über Nacht.
-HALTBAR = 30 * uex.DAY
+SHELF_LIFE = 30 * uex.DAY
 
 # Aus diesen Feldern wird der Ortsname gezogen — in dieser Reihenfolge.
-FELDER = ('space_station_name', 'city_name', 'outpost_name')
+FIELDS = ('space_station_name', 'city_name', 'outpost_name')
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
 # ⚠ An den Patch gebunden: Stationen und Aussenposten kommen mit einer neuen
 # Spielversion dazu, nicht zwischendurch.
-_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR,
-                     patch_bound=True)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE,
+                   patch_bound=True)
 
 
-def laden():
+def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _ablage.load()
+    return _store.load()
 
 
-def alle():
+def all_places():
     """Alle bekannten Lagerorte, alphabetisch — oder eine leere Liste."""
-    return (laden() or {}).get('orte') or []
+    return (load() or {}).get('orte') or []
 
 
-def alter():
+def age():
     """Wie alt die Ablage ist, in Sekunden — oder None."""
-    return _ablage.age()
+    return _store.age()
 
 
-def aktualisieren():
+def update():
     """Die Ortsliste holen, wenn sie fehlt oder älter als eine Woche ist."""
-    # ⚠ Wie in `preise.py`: Die Abfrage bleibt hier, damit der Rückgabewert
+    # ⚠ Wie in `prices.py`: Die Abfrage bleibt hier, damit der Rückgabewert
     # bei abgeschaltetem Netz derselbe ist wie vor dem Umbau.
     if AUS:
         return False
-    if not _ablage.stale():
+    if not _store.stale():
         return True
-    roh = uex.fetch(QUELLE, 'orte')
-    if not roh:
+    raw = uex.fetch(SOURCE, 'places')
+    if not raw:
         return False
-    namen = set()
-    for x in roh:
-        for feld in FELDER:
-            n = (x.get(feld) or '').strip()
+    names = set()
+    for x in raw:
+        for field in FIELDS:
+            n = (x.get(field) or '').strip()
             if n:
-                namen.add(n)
-    if not namen:
+                names.add(n)
+    if not names:
         return False
-    return _ablage.save({'orte': sorted(namen, key=str.lower)})
+    return _store.save({'orte': sorted(names, key=str.lower)})
 
 
-def kennt(name):
+def knows(name):
     """Gibt es diesen Ort? Ohne Ortsliste gilt **alles** als gültig.
 
     ⚠ Das ist Absicht: Liegt keine Liste vor (erster Start ohne Netz), darf das
@@ -116,25 +116,25 @@ def kennt(name):
     """
     if not (name or '').strip():
         return True                      # leer ist erlaubt, das Feld ist freiwillig
-    liste = alle()
-    if not liste:
+    items = all_places()
+    if not items:
         return True
-    gesucht = (name or '').strip().lower()
-    return any(o.lower() == gesucht for o in liste)
+    wanted = (name or '').strip().lower()
+    return any(o.lower() == wanted for o in items)
 
 
-def offizieller_name(eingabe):
+def official_name(given):
     """Die verbindliche Schreibweise — oder `None`, wenn unbekannt."""
-    gesucht = (eingabe or '').strip().lower()
-    if not gesucht:
+    wanted = (given or '').strip().lower()
+    if not wanted:
         return ''
-    for o in alle():
-        if o.lower() == gesucht:
+    for o in all_places():
+        if o.lower() == wanted:
             return o
     return None
 
 
-def aehnliche(name, hoechstens=4):
+def similar(name, most=4):
     """Vorschläge zu einer Eingabe.
 
     ⚠ **Teiltext, nicht nur Wortanfang.** Wer „pyro" tippt, meint
@@ -145,8 +145,8 @@ def aehnliche(name, hoechstens=4):
     text = (name or '').strip().lower()
     if not text:
         return []
-    liste = alle()
-    treffer = [o for o in liste if text in o.lower()]
-    if treffer:
-        return treffer[:hoechstens]
-    return difflib.get_close_matches(text, liste, n=hoechstens, cutoff=0.6)
+    items = all_places()
+    hits = [o for o in items if text in o.lower()]
+    if hits:
+        return hits[:most]
+    return difflib.get_close_matches(text, items, n=most, cutoff=0.6)

@@ -9879,7 +9879,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     stehen.
     """
     from . import crafting as herst_lager
-    from . import orte as _orte_modul
+    from . import places as _orte_modul
     from .hauptfenster import rundrahmen
 
     # ⭐ **Zugeklappt, bis er gebraucht wird.** Der Block ist der laengste auf
@@ -9939,7 +9939,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     tk.Label(ortblock, text=t('s_rf_ort'), bg=BG, fg=FG,
              font=fenster.f_fett, anchor='w').pack(fill='x')
     _ozeile, _oliste, _ozeichnen = _auswahlfeld(fenster, ortblock, ort_raff,
-                                                _orte_modul.alle)
+                                                _orte_modul.all_places)
     _ozeile.pack(fill='x', pady=(4, 0))
     _oliste.pack(fill='x')
 
@@ -9981,7 +9981,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     def uebernehmen():
         # ⚠ Geschlossene Liste wie überall: Was UEX nicht kennt, kommt nicht
         # ins Lager. Leer ist erlaubt — der Lagerort ist freiwillig.
-        if not _orte_modul.kennt((ort_raff.get() or '').strip()):
+        if not _orte_modul.knows((ort_raff.get() or '').strip()):
             meldung.configure(text=t('s_rf_ort_unbekannt'), fg=ROT)
             return
         # ⚠⚠ **Der Ort läuft NICHT durch `storage_name()`.** Die Funktion zieht
@@ -12479,8 +12479,8 @@ def _lager(fenster, rahmen):
                         return []
                 quelle = _quelle_material
             else:
-                from . import orte as _o_lg
-                quelle = _o_lg.alle
+                from . import places as _o_lg
+                quelle = _o_lg.all_places
             zeile_, liste_, zeichnen_ = _auswahlfeld(fenster, block, var,
                                                      quelle)
             zeile_.pack(fill='x', pady=(4, 0))
@@ -12881,8 +12881,8 @@ def _lager(fenster, rahmen):
         # Grund: Ein freies Textfeld lässt sich mit allem füllen, was man
         # danach als Bildschirmfoto verbreiten kann. Leer bleiben darf es, das
         # Feld ist freiwillig.
-        from . import orte as orte_modul
-        ort_richtig = orte_modul.offizieller_name(ort.get())
+        from . import places as orte_modul
+        ort_richtig = orte_modul.official_name(ort.get())
         if ort_richtig is None:
             meldung.configure(text=t('s_lg_ort_fremd') % ort.get().strip(),
                               fg=GOLD)
@@ -13136,7 +13136,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     | lostippen | dieselbe Liste, auf die Treffer eingedampft |
 
     ⚠ **Teiltexte, nicht nur Wortanfänge** — dieselbe Erfahrung wie bei den
-    Lagerorten in `orte.py`: Wer `Ore` tippt, sucht `Copper (Ore)`.
+    Lagerorten in `places.py`: Wer `Ore` tippt, sucht `Copper (Ore)`.
 
     ⚠ Es werden **höchstens zehn** Einträge gezeigt, sonst schiebt eine Liste
     mit 114 Waren alles andere aus dem Bild. Darunter steht, wie viele noch
@@ -13956,7 +13956,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
 
 def _handelslager(fenster, rahmen):
     """Was zum Verkauf im Laderaum liegt — eintragen, ansehen, löschen."""
-    from . import trade_cargo as lager, orte as ortsliste
+    from . import trade_cargo as lager, places as ortsliste
     from . import verkauf as preisdaten
     from .hauptfenster import rundes_feld
 
@@ -14002,7 +14002,7 @@ def _handelslager(fenster, rahmen):
                                ACCENT, FG)
             feld.halter.pack(fill='x', pady=(4, 0))
             continue
-        quelle = (preisdaten.waren if var is ware else ortsliste.alle)
+        quelle = (preisdaten.waren if var is ware else ortsliste.all_places)
         zeile, liste, zeichnen_ = _auswahlfeld(fenster, block, var, quelle)
         zeile.pack(fill='x', pady=(4, 0))
         # Die Liste sitzt **unter** dem Feld und ist genauso breit — sie gehoert
@@ -14045,10 +14045,10 @@ def _handelslager(fenster, rahmen):
         # tippen, was er will — und der Missbrauchsfall (etwas Beleidigendes
         # eintragen, Bildschirmfoto machen, verbreiten) steht wieder offen.
         #
-        # ℹ `orte.kennt()` lässt Leeres durch und meldet ohne Ortsliste alles
+        # ℹ `places.knows()` lässt Leeres durch und meldet ohne Ortsliste alles
         # als gültig — der Lagerort ist freiwillig, und beim ersten Start ohne
         # Netz darf das Feld nicht blockieren.
-        if not ortsliste.kennt(ort.get()):
+        if not ortsliste.knows(ort.get()):
             meldung['text'], meldung['farbe'] = t('s_hl_ort_unbekannt'), ROT
             neu_zeichnen()
             return

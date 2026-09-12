@@ -39,10 +39,10 @@ ohnehin immer Q 0. Ein Feld, das nie etwas ändert, ist nur ein Feld, das man
 falsch ausfüllen kann.
 
 ⚠⚠ **Geschlossene Listen, kein Freitext** — dieselbe Regel wie beim Lagerort in
-`orte.py`, aus demselben Grund: Jemand tippt etwas Beleidigendes hinein, macht
+`places.py`, aus demselben Grund: Jemand tippt etwas Beleidigendes hinein, macht
 ein Bildschirmfoto und verbreitet es. Am Ende fragt niemand, wer getippt hat;
 es steht in diesem Werkzeug. Die Warennamen kommen deshalb aus `verkauf.py`,
-die Orte aus `orte.py`.
+die Orte aus `places.py`.
 
 ## Als gestohlen markiert
 

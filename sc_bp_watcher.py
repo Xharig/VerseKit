@@ -46,7 +46,7 @@ from scbp import zeichen
 from scbp import fehler
 from scbp import notice
 from scbp import (
-    auftraege,ablagesymbol, aktualisierung, assistent, autostart, orte, prices,
+    auftraege,ablagesymbol, aktualisierung, assistent, autostart, places, prices,
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
@@ -806,9 +806,9 @@ class Watcher(threading.Thread):
             prices.update()
         except Exception as ausnahme:
             fehler.merken('watcher.prices', ausnahme)
-        # Die Lagerorte dazu — hoechstens einmal pro Woche, siehe `orte.py`.
+        # Die Lagerorte dazu — hoechstens einmal pro Woche, siehe `places.py`.
         try:
-            orte.aktualisieren()
+            places.update()
         except Exception as ausnahme:
             fehler.merken('watcher.orte', ausnahme)
         # Und die Ankaufpreise je Terminal fuer den Verkaufs-Reiter — ebenfalls

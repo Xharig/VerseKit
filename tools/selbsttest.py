@@ -373,6 +373,34 @@ def main():
                'Elternordner wird zum richtigen Ordner gedeutet')
         pf2.einstellung_setzen('spiel_ordner', gedeutet)
         pruefe(pf2.spiel_ordner() == live, 'Angabe wirkt sofort, ohne Neustart')
+
+        # ⚠⚠⚠ **Ab hier zeigt SC_INSTALL_DIR wieder auf die NACHGEBAUTE
+        # Installation — und das ist keine Kosmetik.**
+        #
+        # Abschnitt 5 hat die Variable entfernt („Suche muss jetzt scheitern")
+        # und nie wieder gesetzt. Danach trug nur noch die Einstellungsdatei im
+        # Prüf-Ablageordner. Legt eine spätere Prüfung einen **frischen**
+        # `SC_BP_HOME` an — Prüfung 113 tut genau das —, ist diese Einstellung
+        # weg, die Suche greift, und auf einem Spielrechner findet sie die
+        # **echte** Star-Citizen-Installation.
+        #
+        # Gemessen am 12.09.2026: Ein Hintergrund-`nachlese()` (es läuft beim
+        # Öffnen der Auftragslog-Seite) las daraufhin die echten `logbackups/`
+        # und schrieb **390 echte Auftraege** in die Testdatei von Prüfung 113.
+        # Die meldete „396 statt 2" — ein Fehler, den es im Programm nicht gab.
+        # Zweimal in Folge aufgetreten, dazwischen grün: Es haengt am Zeitpunkt
+        # des Hintergrund-Ticks, nicht am Code.
+        #
+        # Der Kommentar in Abschnitt 5 kannte das Problem bereits („Auf einem
+        # Spielrechner war er deshalb rot") — entschaerft wurde es dort aber nur
+        # fuer eine einzelne Pruefung, nicht fuer den Rest des Laufs.
+        #
+        # ⚠ Die Umgebungsvariable ist das richtige Mittel: Sie sticht sowohl die
+        # Einstellungsdatei als auch die Suche. Damit kann KEINE spaetere
+        # Pruefung mehr an die Daten des Spielers geraten, egal welchen
+        # `SC_BP_HOME` sie setzt.
+        os.environ['SC_INSTALL_DIR'] = live
+
         # Und jetzt der Punkt: Der Bestand füllt sich von allein
         from scbp import logquelle as lq
         funde, _ = lq.nachlesen(lq.Lesestand())
@@ -395,6 +423,19 @@ def main():
         _sicherungen6 = pf2.log_sicherungen()
         pruefe(len(_sicherungen6) > 0,
                'es liegen Sicherungen zum Pruefen bereit (%d)' % len(_sicherungen6))
+        # ⚠ **Und sie stammen aus dem Wegwerf-Ordner, nicht vom Spieler.**
+        #
+        # ⚠⚠ Diese Zeile allein reicht NICHT als Wache gegen das Leck von
+        # Pruefung 113 — nachgemessen am 12.09.2026: Mit ausgebautem
+        # `SC_INSTALL_DIR` blieb sie gruen. An dieser Stelle traegt naemlich
+        # noch die Einstellungsdatei im Pruef-Ablageordner. Die eigentliche
+        # Wache steht deshalb dort, wo die Bedingung entsteht: bei 113, wo ein
+        # FRISCHER Ablageordner die Einstellung wegnimmt.
+        _fremd6 = [x for x in _sicherungen6
+                   if not os.path.abspath(x).startswith(os.path.abspath(basis))]
+        pruefe(not _fremd6,
+               'und zwar ALLE aus dem Wegwerf-Ordner, keine echten Spieldaten '
+               '(fremd: %d)' % len(_fremd6))
         _echt6, _erste6 = lq._lies_datei, _sicherungen6[0]
         _kaputt6 = os.path.basename(str(_erste6))
 
@@ -3106,6 +3147,17 @@ def main():
     finally:
         shutil.rmtree(basis, ignore_errors=True)
 
+    # ⚠⚠⚠ **Ab hier gibt es die nachgebaute Installation nicht mehr — und damit
+    # faellt der Schutz gegen die echten Spieldaten weg.**
+    #
+    # `SC_INSTALL_DIR` zeigte bis eben auf `basis`, der gerade geloescht wurde.
+    # `pfade.spiel_ordner()` findet dort keine `Game.log` mehr und faellt auf
+    # die Suche zurueck — auf einem Spielrechner also auf die **echte**
+    # Installation. Von da an kann jede weitere Pruefung an die `logbackups/`
+    # des Spielers geraten; ein Hintergrund-`nachlese()` hat am 12.09.2026
+    # genau so 390 echte Auftraege in die Testdatei von Pruefung 113 geschrieben
+    # („das Protokoll steht in der eigenen Datei (396)" statt 2).
+    #
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
     # ⚠ Der Fehler vom 28.08.2026, gemeldet von Morkhan. `_missionen()` legte
@@ -6387,7 +6439,7 @@ def main():
     print()
     print('70. Nur Echtes ins Lager')
     from scbp import crafting as _he70
-    from scbp import orte as _or70
+    from scbp import places as _or70
 
     # a) Der Ausweg-Knopf ist WEG und darf nicht zurueckkommen.
     _q70 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
@@ -6408,7 +6460,7 @@ def main():
                '%s verspricht keinen Ausweg mehr' % _k70)
     pruefe('h_modul.storage_name(name)' in _q70,
            'der Name wird gegen die Lagerliste geprueft')
-    pruefe('orte_modul.offizieller_name(ort.get())' in _q70,
+    pruefe('orte_modul.official_name(ort.get())' in _q70,
            'und der Lagerort gegen die Ortsliste')
 
     # b) Die Liste selbst.
@@ -6433,24 +6485,24 @@ def main():
         print('  [–]    keine Rezept-/Bergbaudaten — Listentest uebersprungen')
 
     # c) Der Lagerort.
-    if _or70.alle():
-        pruefe(len(_or70.alle()) > 100,
-               'die Ortsliste hat %d Eintraege' % len(_or70.alle()))
-        pruefe(_or70.kennt('Orison') and _or70.kennt('Lorville'),
+    if _or70.all_places():
+        pruefe(len(_or70.all_places()) > 100,
+               'die Ortsliste hat %d Eintraege' % len(_or70.all_places()))
+        pruefe(_or70.knows('Orison') and _or70.knows('Lorville'),
                'bekannte Orte werden erkannt')
-        pruefe(not _or70.kennt('Bei Oma im Keller'),
+        pruefe(not _or70.knows('Bei Oma im Keller'),
                'ein erfundener Ort wird abgelehnt')
-        pruefe(_or70.kennt(''), 'leer bleibt erlaubt — das Feld ist freiwillig')
+        pruefe(_or70.knows(''), 'leer bleibt erlaubt — das Feld ist freiwillig')
         # ⚠ Teiltext, nicht nur Wortanfang: UEX schreibt „Pyro Gateway
         #   (Stanton)" und „Checkmate Station".
-        pruefe(any('Pyro Gateway' in o for o in _or70.aehnliche('pyro')),
+        pruefe(any('Pyro Gateway' in o for o in _or70.similar('pyro')),
                '„pyro" schlaegt die Gateways vor')
-        pruefe(_or70.aehnliche('checkmate') == ['Checkmate Station'],
+        pruefe(_or70.similar('checkmate') == ['Checkmate Station'],
                '„checkmate" findet die Station')
     else:
         # ⚠ Ohne Liste darf NICHTS blockieren — sonst laesst sich bei einem
         #   ersten Start ohne Netz gar nichts eintragen.
-        pruefe(_or70.kennt('Irgendwo'),
+        pruefe(_or70.knows('Irgendwo'),
                'ohne Ortsliste blockiert das Feld nicht')
         print('  [–]    keine Ortsliste vorhanden — Rest uebersprungen')
 
@@ -7533,14 +7585,14 @@ def main():
     _hlseite84 = _q84s.split('def _handelslager(')[-1]
     pruefe('preisdaten.bekannt(name)' in _hlseite84,
            'die Ware wird gegen die Warenliste geprueft')
-    pruefe('ortsliste.kennt(ort.get())' in _hlseite84,
+    pruefe('ortsliste.knows(ort.get())' in _hlseite84,
            'der Lagerort wird gegen die Ortsliste geprueft')
     # ⚠ Seit dem Auswahlfeld gibt es keine „Meintest du"-Zeile mehr: Das Feld
     # filtert beim Tippen selbst und laesst sich per Pfeil ganz aufklappen.
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
     pruefe('_auswahlfeld(fenster, block, var, quelle)' in _hlseite84
-           and 'preisdaten.waren if var is ware else ortsliste.alle'
+           and 'preisdaten.waren if var is ware else ortsliste.all_places'
            in _hlseite84,
            'Ware und Ort sind Auswahlfelder mit geschlossener Liste')
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf des
@@ -7756,7 +7808,7 @@ def main():
     pruefe('lager_name((ort' not in _raffblock85
            and 'lager_name(ort' not in _raffblock85,
            'der Raffinerie-Block zieht den ORT nicht durch lager_name()')
-    pruefe('ort_raff' in _raffblock85 and '_orte_modul.kennt(' in _raffblock85,
+    pruefe('ort_raff' in _raffblock85 and '_orte_modul.knows(' in _raffblock85,
            'er hat ein eigenes Ortsfeld und prueft es gegen die Ortsliste')
 
     # ⚠⚠ **Die Mindesthoehe haengt NICHT mehr am Leistenbedarf.** Sie tat es,
@@ -10368,6 +10420,42 @@ def main():
     _altheim113 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = os.path.join(_wiese113, 'ablage')
     os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
+
+    # ⚠⚠⚠ **Die Wache gegen die Daten des Spielers — sie steht GENAU HIER.**
+    #
+    # Mit dem frischen Ablageordner oben ist die Einstellung `spiel_ordner`
+    # weg. Traegt `SC_INSTALL_DIR` nicht (Abschnitt 5 entfernt sie), faellt
+    # `pfade` auf die Suche zurueck und findet auf einem Spielrechner die
+    # **echte** Star-Citizen-Installation. Ein Hintergrund-`nachlese()` — es
+    # laeuft beim Oeffnen der Auftragslog-Seite — liest dann die echten
+    # `logbackups/` und schreibt sie in die Testdatei hier drunter.
+    #
+    # Gemessen am 12.09.2026: „das Protokoll steht in der eigenen Datei (396)"
+    # statt 2, zweimal in Folge, dazwischen gruen. Es haengt am Zeitpunkt des
+    # Hintergrund-Ticks — die Pruefungen darunter sind also nur so verlaesslich
+    # wie diese Zeile.
+    #
+    # ⚠⚠ **Die Suche wird NUR fuer diese Pruefung stillgelegt — nicht fuer den
+    # ganzen Lauf.** Beides ausprobiert und gemessen:
+    #
+    # | Weg | Ergebnis |
+    # |---|---|
+    # | `SC_INSTALL_DIR` auf die nachgebaute Installation | wirkungslos, der Ordner wird vor Abschnitt 37 geloescht |
+    # | `SC_INSTALL_DIR` auf einen leeren Ersatz | schliesst das Leck, **zerbricht** Pruefung 111 und 123: die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
+    # | Suchwurzeln fuer den ganzen Lauf leeren | schliesst das Leck, kostet aber **vier** `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen) |
+    # | **Suchwurzeln nur hier leeren** | schliesst das Leck, kostet nichts |
+    #
+    # Der Rueckfall auf die echte Installation entfaellt damit genau dort, wo
+    # er schadet, und die `global.ini`-Pruefungen behalten ihre Datenquelle.
+    _pf113_mod = __import__('scbp.pfade', fromlist=['spiel_ordner'])
+    _echte_wurzeln113 = _pf113_mod._spiel_wurzeln
+    _pf113_mod._spiel_wurzeln = lambda: []
+    _spiel113 = _pf113_mod.spiel_ordner()
+    pruefe(_spiel113 is None
+           or os.path.abspath(_spiel113).startswith(
+               os.path.abspath(tempfile.gettempdir())),
+           'auch mit frischem Ablageordner zeigt der Spielordner NICHT auf '
+           'die echte Installation (%s)' % _spiel113)
     try:
         def _zeile113(zeit, text, nr):
             return ('<%sZ> [Notice] <SHUDEvent_OnNotification> '
@@ -10573,6 +10661,9 @@ def main():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = _altheim113
+        # ⚠ Die Suche wieder freigeben — sonst fehlen dem Rest des Laufs die
+        #   vier `global.ini`-Pruefungen, die die echte Sprachdatei brauchen.
+        _pf113_mod._spiel_wurzeln = _echte_wurzeln113
         shutil.rmtree(_wiese113, ignore_errors=True)
 
     # --------------------------------------------------------------------- 113b
@@ -16567,6 +16658,7 @@ def main():
         'warenkorb': 'cart',
         'preise': 'prices',
         'laeden': 'shops',
+        'orte': 'places',
     }
 
     def _reste190(quelle, name, alte):
