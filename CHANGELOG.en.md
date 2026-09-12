@@ -33,6 +33,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **Pages feel snappy again.** Switching back and forth used to rebuild the
+  page every single time, even when nothing had changed. Most noticeable on
+  **Joysticks** (close to a second per click before) and **Axes**. Only what
+  actually changed is redrawn now; an unplugged device still shows up at once
 - **Every search field now tells you what you can type there** — and you hit
   the field anywhere, including right on the grey hint text. Before you had to
   click *next to* it. Three fields had no hint at all until now: “Where are you

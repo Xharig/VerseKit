@@ -33,6 +33,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Seiten fühlen sich wieder flott an.** Wer zwischen den Seiten hin- und
+  herwechselt, wartete bisher jedes Mal neu — die Seite baute sich auf, auch
+  wenn sich gar nichts geändert hatte. Am deutlichsten bei **Joysticks**
+  (vorher knapp eine Sekunde pro Klick) und bei **Achsen**. Geändert wird nur
+  noch, was sich wirklich geändert hat; ein abgezogenes Gerät fällt weiterhin
+  sofort auf
 - **In jedem Suchfeld steht jetzt, was du dort eingeben kannst** — und du
   triffst das Feld überall, auch mitten im grauen Hinweistext. Vorher musste
   man *neben* den Text klicken. Drei Felder hatten bisher gar keinen Hinweis:
