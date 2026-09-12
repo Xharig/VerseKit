@@ -530,7 +530,7 @@ def fetch(ident, name='', force=False):
         price = float(x.get('price_buy') or 0)
         # ⚠ `price_buy = 0` heisst „dieses Terminal verkauft es nicht", nicht
         # „es ist umsonst". Dieselbe Falle wie bei den Ankaufgeboten in
-        # `verkauf.py` — einmal vergessen, und im Reiter steht ein Laden mit
+        # `selling.py` — einmal vergessen, und im Reiter steht ein Laden mit
         # „0 aUEC" ganz oben, weil er der billigste zu sein scheint.
         if price <= 0:
             continue

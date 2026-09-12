@@ -6317,7 +6317,7 @@ def _routen(fenster, rahmen):
     nichts davon steht in der `Game.log`. Also wird gefragt, statt geraten.
     """
     from . import routen as routen_modul, ships as schiff_modul
-    from . import verkauf as preisdaten
+    from . import selling as preisdaten
 
     _ueberschrift(fenster, rahmen, t('hf_routen'), t('s_rt_lead'))
 
@@ -6380,11 +6380,11 @@ def _routen(fenster, rahmen):
 
     def _systeme():
         """Die Systeme, in denen es Handelsposten gibt — mit Anzahl."""
-        stellen = (preisdaten.laden() or {}).get('terminals') or {}
+        stellen = (preisdaten.load() or {}).get('terminals') or {}
         zaehler = {}
         for stelle in stellen.values():
             art = stelle.get('t')
-            if art is not None and art not in preisdaten.HANDELSARTEN:
+            if art is not None and art not in preisdaten.TRADE_TYPES:
                 continue
             system = (stelle.get('s') or '').strip()
             if system:
@@ -6966,7 +6966,7 @@ def _routen(fenster, rahmen):
             return
         # ⚠ Die Terminal-Liste liegt bereits in der Verkaufs-Ablage — 826
         # Stück mit Namen und System. Kein eigener Abruf nötig.
-        stellen = (preisdaten.laden() or {}).get('terminals') or {}
+        stellen = (preisdaten.load() or {}).get('terminals') or {}
         treffer = []
         for kennung, stelle in stellen.items():
             # ⚠⚠ **Nur Terminals, die mit Ware handeln.** Von 826 sind es 184;
@@ -6976,7 +6976,7 @@ def _routen(fenster, rahmen):
             # taugten. Ältere Ablagen kennen die Art noch nicht; dort bleibt
             # alles stehen, statt die Liste leer zu lassen.
             art = stelle.get('t')
-            if art is not None and art not in preisdaten.HANDELSARTEN:
+            if art is not None and art not in preisdaten.TRADE_TYPES:
                 continue
             ort = stelle.get('o') or ''
             # ⚠⚠ **Gesucht wird in BEIDEN Namen.** Eine Station hat viele
@@ -13465,7 +13465,7 @@ def _verkauf(fenster, rahmen):
     """Wo man seine Ware los wird — die beste Stelle zuerst."""
     import threading
 
-    from . import trade_cargo, verkauf as preisdaten
+    from . import trade_cargo, selling as preisdaten
     from .hauptfenster import rundes_feld
 
     _ueberschrift(fenster, rahmen, t('hf_verkauf'), t('s_vk_lead'))
@@ -13509,7 +13509,7 @@ def _verkauf(fenster, rahmen):
         """
         if laeuft['ja']:
             return
-        rest = preisdaten.wartezeit()
+        rest = preisdaten.wait_time()
         if rest:
             meldung['text'], meldung['farbe'] = t('s_vk_gesperrt'), GOLD
             neu_zeichnen()
@@ -13519,7 +13519,7 @@ def _verkauf(fenster, rahmen):
 
         def arbeit():
             try:
-                ok, grund = preisdaten.aktualisieren(erzwingen=True)
+                ok, grund = preisdaten.update(force=True)
             except Exception as ausnahme:
                 fehler.merken('seiten.verkauf_abruf', ausnahme)
                 ok, grund = False, 'netz'
@@ -13565,18 +13565,18 @@ def _verkauf(fenster, rahmen):
                 return
         except Exception:
             return
-        rest = preisdaten.wartezeit()
+        rest = preisdaten.wait_time()
         if rest:
             knopf.beschriften(_wartetext(rest), _warteton(rest))
         else:
             knopf.beschriften(t('s_vk_holen'), None)
-        alter = preisdaten.alter()
+        alter = preisdaten.age()
         # ⚠⚠ **Ein Patch zählt mehr als das Alter.** Die Zahlen können eine
         # Stunde alt und trotzdem überholt sein, wenn dazwischen ein Patch lag —
         # CIG wirft dabei regelmäßig Preise um. Wer das nicht sagt, behauptet
         # etwas Falsches mit derselben Bestimmtheit wie etwas Richtiges.
         from . import spielstand
-        veraltet, damals, jetzt = spielstand.ueberholt(preisdaten._ablage)
+        veraltet, damals, jetzt = spielstand.ueberholt(preisdaten._store)
         if veraltet:
             stand_label.configure(text=t('s_vk_patch').format(
                 alt=damals, neu=jetzt), fg=GOLD)
@@ -13612,7 +13612,7 @@ def _verkauf(fenster, rahmen):
             # ⚠ Nur übernehmen, was die Preisdaten auch kennen. Sonst steht ein
             # Name in der Auswahl, zu dem es nie ein Ergebnis geben kann, und
             # der Nutzer sucht den Fehler bei sich.
-            if preisdaten.bekannt(ware) and ware not in auswahl:
+            if preisdaten.known(ware) and ware not in auswahl:
                 auswahl.append(ware)
                 genommen += 1
         if trade_cargo.has_stolen():
@@ -13630,7 +13630,7 @@ def _verkauf(fenster, rahmen):
     # Auswahlfeld statt blossem Suchfeld: Wer nicht weiss, wie die Ware bei UEX
     # heisst, klappt die Liste auf und sucht sie aus.
     feldzeile, feldliste, such_zeichnen = _auswahlfeld(
-        fenster, suchzeile, suche, preisdaten.waren,
+        fenster, suchzeile, suche, preisdaten.goods,
         beim_waehlen=lambda name: waehlen(name),
         beim_bestaetigen=lambda name: waehlen(name))
     feldzeile.pack(fill='x', pady=(4, 0))
@@ -13741,13 +13741,13 @@ def _verkauf(fenster, rahmen):
             # ⚠ Anklickbar, nicht nur zum Anschauen. Eine Liste, aus der man
             # nichts übernehmen kann, ist eine Tapete.
             # ⚠ Event-Geschenke bleiben draußen, und ein einzelnes absurdes
-            # Gebot wird verworfen — beides steckt in `verkauf.py`, damit es
+            # Gebot wird verworfen — beides steckt in `selling.py`, damit es
             # an einer Stelle steht und nicht in der Anzeige verstreut.
             spitze = []
-            for ware in preisdaten.waren():
-                if not preisdaten.in_bestenliste(ware):
+            for ware in preisdaten.goods():
+                if not preisdaten.in_top_list(ware):
                     continue
-                preis = preisdaten.bester_preis(ware)
+                preis = preisdaten.best_price(ware)
                 if preis:
                     spitze.append((preis, ware))
             spitze.sort(reverse=True)
@@ -13784,7 +13784,7 @@ def _verkauf(fenster, rahmen):
                     w.bind('<Button-1>',
                            lambda _=None, x=ware: waehlen(x))
             return
-        orte = preisdaten.orte_fuer(auswahl, nur_nqa=nur_nqa[0])
+        orte = preisdaten.places_for(auswahl, nqa_only=nur_nqa[0])
         if not orte:
             _fliesstext(ergebnis_rahmen, t('s_vk_keine_orte'),
                         fenster.f_klein, fill='x')
@@ -13947,7 +13947,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
 
     # ⚠⚠ **Eine Summe gibt es nur mit Mengen aus dem Handelslager.** Ohne sie
     # wäre jede Zahl hier eine Behauptung über eine Ladung, die das Werkzeug
-    # nicht kennt — siehe `verkauf.orte_fuer`.
+    # nicht kennt — siehe `selling.places_for`.
     if erloes:
         tk.Label(innen, text=t('s_vk_erloes').format(summe=_geld(erloes)),
                  bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
@@ -13957,7 +13957,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
 def _handelslager(fenster, rahmen):
     """Was zum Verkauf im Laderaum liegt — eintragen, ansehen, löschen."""
     from . import trade_cargo as lager, places as ortsliste
-    from . import verkauf as preisdaten
+    from . import selling as preisdaten
     from .hauptfenster import rundes_feld
 
     _ueberschrift(fenster, rahmen, t('hf_handelslager'), t('s_hl_lead'))
@@ -14002,7 +14002,7 @@ def _handelslager(fenster, rahmen):
                                ACCENT, FG)
             feld.halter.pack(fill='x', pady=(4, 0))
             continue
-        quelle = (preisdaten.waren if var is ware else ortsliste.all_places)
+        quelle = (preisdaten.goods if var is ware else ortsliste.all_places)
         zeile, liste, zeichnen_ = _auswahlfeld(fenster, block, var, quelle)
         zeile.pack(fill='x', pady=(4, 0))
         # Die Liste sitzt **unter** dem Feld und ist genauso breit — sie gehoert
@@ -14036,7 +14036,7 @@ def _handelslager(fenster, rahmen):
         # Lagerort. Angenommen wird nur, was UEX kennt; sonst steht am Ende ein
         # ausgedachter oder beleidigender Name im Werkzeug, und ein Bildschirm-
         # foto davon macht die Runde.
-        if not preisdaten.bekannt(name):
+        if not preisdaten.known(name):
             meldung['text'], meldung['farbe'] = t('s_hl_unbekannt'), ROT
             neu_zeichnen()
             return
@@ -14168,7 +14168,7 @@ def _handelslager(fenster, rahmen):
         _fliesstext(liste_rahmen, t('s_hl_aendern_hinweis'), fenster.f_klein,
                     fill='x', pady=(0, 8))
         gesamt = _handelslager_tabelle(
-            fenster, liste_rahmen, posten, preisdaten.bester_preis,
+            fenster, liste_rahmen, posten, preisdaten.best_price,
             lambda n: _rollstelle_halten(
                 liste_rahmen, lambda: (lager.remove(n), abbrechen())),
             bearbeiten, bearbeitung['nummer'])

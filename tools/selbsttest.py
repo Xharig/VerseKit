@@ -3147,17 +3147,50 @@ def main():
     finally:
         shutil.rmtree(basis, ignore_errors=True)
 
-    # ⚠⚠⚠ **Ab hier gibt es die nachgebaute Installation nicht mehr — und damit
-    # faellt der Schutz gegen die echten Spieldaten weg.**
+    # ⚠⚠⚠ **Ab hier sieht der Prueflauf keine echten Spiel-Protokolle mehr.**
     #
-    # `SC_INSTALL_DIR` zeigte bis eben auf `basis`, der gerade geloescht wurde.
-    # `pfade.spiel_ordner()` findet dort keine `Game.log` mehr und faellt auf
-    # die Suche zurueck — auf einem Spielrechner also auf die **echte**
-    # Installation. Von da an kann jede weitere Pruefung an die `logbackups/`
-    # des Spielers geraten; ein Hintergrund-`nachlese()` hat am 12.09.2026
-    # genau so 390 echte Auftraege in die Testdatei von Pruefung 113 geschrieben
-    # („das Protokoll steht in der eigenen Datei (396)" statt 2).
+    # Abschnitt 5 entfernt `SC_INSTALL_DIR` („Suche muss jetzt scheitern") und
+    # setzt es nie wieder; die nachgebaute Installation ist gerade geloescht
+    # worden. Danach findet `pfade` auf einem Spielrechner die **echte**
+    # Installation — und ein `missionslog.nachlese()` im Hintergrundfaden (es
+    # startet beim Oeffnen der Auftragslog-Seite) liest deren `logbackups/` und
+    # schreibt sie in Bestand und Protokoll.
     #
+    # Am 12.09.2026 hat das zwei Pruefungen gekippt, beide nicht reproduzierbar
+    # und nur unter Windows:
+    #
+    #   113: „das Protokoll steht in der eigenen Datei (396)" statt 2
+    #    94: „nur die zwei aus Protokollen werden gezaehlt (gezaehlt: 164)"
+    #
+    # ⚠⚠ **Genau `log_sicherungen()` stilllegen — nicht die Spielordner-Suche.**
+    # Drei groebere Wege wurden gemessen und verworfen:
+    #
+    # | Weg | Ergebnis |
+    # |---|---|
+    # | `SC_INSTALL_DIR` zurueck auf die nachgebaute Installation | wirkungslos, der Ordner ist geloescht |
+    # | `SC_INSTALL_DIR` auf einen leeren Ersatz | zerbricht Pruefung 111 und 123 — die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
+    # | Suchwurzeln leeren | kostet VIER `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen). Der Lauf war gruen — mit 2090 statt 2094 Pruefungen |
+    #
+    # Die Protokolle sind das einzige, was hier schadet. Der Spielordner darf
+    # gefunden werden; die Sprachdatei liegt dort.
+    #
+    # ⚠ Steht bewusst HINTER Abschnitt 6: Der braucht die Sicherungen der
+    # nachgebauten Installation („es liegen Sicherungen zum Pruefen bereit").
+    # ⚠⚠ **Nur der Aufruf OHNE Ordner wird stillgelegt.** Genau so ruft der
+    # Hintergrund-Tick sie (`nachlese()` → `pfade.log_sicherungen()`), und nur
+    # dort sucht sie im Spielordner des Nutzers. Pruefung 131 prueft die
+    # Funktion selbst und uebergibt ihren eigenen Wegwerf-Ordner — die muss
+    # weiter die echte Antwort bekommen.
+    #
+    # ⚠ Ein blanker `lambda *_a: []` war der erste Versuch und hat prompt
+    # VIER Pruefungen von 131 gekippt („LIVE (3) + HOTFIX (221) = 224" wurde 0).
+    # Wer eine Funktion stilllegt, legt auch ihre Pruefungen still.
+    _pf_iso = __import__('scbp.pfade', fromlist=['log_sicherungen'])
+    _echte_sicherungen = _pf_iso.log_sicherungen
+    _pf_iso.log_sicherungen = (
+        lambda ordner=None, *_a, **_k:
+        _echte_sicherungen(ordner, *_a, **_k) if ordner else [])
+
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
     # ⚠ Der Fehler vom 28.08.2026, gemeldet von Morkhan. `_missionen()` legte
@@ -7439,12 +7472,12 @@ def main():
     # bekannten Zahlen belegen.
     print()
     print('84. Verkauf — wo die Ware hin soll')
-    from scbp import verkauf as _vk84
+    from scbp import selling as _vk84
     from scbp import trade_cargo as _hl84
 
     # ⚠ `format` und `geholt` setzt die Ablage selbst (siehe `scbp/uex.py`) —
     # hier stehen nur die eigenen Felder.
-    _vk84._ablage.save({
+    _vk84._store.save({
         'terminals': {'1': {'o': 'Area 18', 's': 'Stanton', 'q': 0},
                       '2': {'o': 'GrimHEX', 's': 'Stanton', 'q': 1},
                       '3': {'o': 'Ashland', 's': 'Pyro', 'q': 0}},
@@ -7466,45 +7499,45 @@ def main():
     # ⭐ Falle 1: UEX filtert Warennamen als Teiltext. Wer `Gold` sucht, bekommt
     # dort `Golden Medmon` mit — und dessen Preis sieht aus wie ein
     # sagenhaftes Goldgebot. Hier muss exakt verglichen werden.
-    _treffer84 = [tr['ware'] for e in _vk84.orte_fuer(['Gold'])
+    _treffer84 = [tr['ware'] for e in _vk84.places_for(['Gold'])
                   for tr in e['treffer']]
     pruefe(_treffer84 and set(_treffer84) == {'Gold'},
            'Gold liefert nicht Golden Medmon mit (%s)' % sorted(set(_treffer84)))
 
     # ⭐ Falle 2: Erz und veredelte Ware sind verschiedene Waren mit
     # verschiedenen Preisen. `norm_material()` wuerfe sie zusammen.
-    pruefe(_vk84.bester_preis('Copper') == 4400
-           and _vk84.bester_preis('Copper (Ore)') == 1200,
+    pruefe(_vk84.best_price('Copper') == 4400
+           and _vk84.best_price('Copper (Ore)') == 1200,
            'Copper und Copper (Ore) bleiben getrennt')
 
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf und in
     # den Kommentaren, und das soll es auch. Geprueft wird, ob die Funktion
     # ueberhaupt erreichbar ist: ohne Import aus `crafting` kann sie nicht
     # benutzt werden.
-    _q84 = open(os.path.join(WURZEL, 'scbp', 'verkauf.py'),
+    _q84 = open(os.path.join(WURZEL, 'scbp', 'selling.py'),
                 encoding='utf-8').read()
     pruefe('from .crafting import' not in _q84
            and 'import crafting' not in _q84,
-           'verkauf.py kann norm_material gar nicht erreichen')
+           'selling.py kann norm_material gar nicht erreichen')
 
     # ⭐ Der Kern des Reiters: mehr abgenommene Waren schlagen den hoeheren
     # Preis. Gemessen am 30.08.2026 bringt der Umweg ueber mehrere Terminals
     # nur 2 % mehr — dafuer aber zwei zusaetzliche Anfluege.
-    _orte84 = _vk84.orte_fuer(['Gold', 'Copper', 'Iron'])
+    _orte84 = _vk84.places_for(['Gold', 'Copper', 'Iron'])
     pruefe(_orte84[0]['terminal'] == 'Alles' and _orte84[0]['anzahl'] == 3,
            'der Ort mit den meisten Waren steht oben (%s)'
            % _orte84[0]['terminal'])
     pruefe(_orte84[1]['terminal'] == 'Heiss',
            'danach wird nach Preis sortiert (%s)' % _orte84[1]['terminal'])
 
-    _heiss84 = _vk84.orte_fuer(['Gold', 'Copper', 'Iron'], nur_nqa=True)
+    _heiss84 = _vk84.places_for(['Gold', 'Copper', 'Iron'], nqa_only=True)
     pruefe([e['terminal'] for e in _heiss84] == ['Heiss'],
            'gestohlene Ware sieht nur Orte ohne Fragen (%s)'
            % [e['terminal'] for e in _heiss84])
 
     # Die Stundensperre. ⚠ Gegenprobe gegen den alten Stand: Ohne sie waere
-    # `aktualisieren(erzwingen=True)` sofort wieder durchgelaufen.
-    pruefe(_vk84.wartezeit() > 0, 'nach dem Abruf laeuft die Sperre')
+    # `update(force=True)` sofort wieder durchgelaufen.
+    pruefe(_vk84.wait_time() > 0, 'nach dem Abruf laeuft die Sperre')
 
     # ⚠⚠ **Mit Gegenprobe.** Im Selbsttest ist der Netzzugriff abgeschaltet
     # (`AUS`) — die Pruefung waere also auch dann gruen gewesen, wenn die
@@ -7522,7 +7555,7 @@ def main():
     _aus84, _echt84 = _vk84.AUS, _uex84.fetch
     _vk84.AUS, _uex84.fetch = False, _falle84
     try:
-        _ergebnis84 = _vk84.aktualisieren(erzwingen=True)
+        _ergebnis84 = _vk84.update(force=True)
     except AssertionError:
         _ergebnis84 = ('ins Netz gegriffen',)
     finally:
@@ -7583,7 +7616,7 @@ def main():
     _q84s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
     _hlseite84 = _q84s.split('def _handelslager(')[-1]
-    pruefe('preisdaten.bekannt(name)' in _hlseite84,
+    pruefe('preisdaten.known(name)' in _hlseite84,
            'die Ware wird gegen die Warenliste geprueft')
     pruefe('ortsliste.knows(ort.get())' in _hlseite84,
            'der Lagerort wird gegen die Ortsliste geprueft')
@@ -7592,7 +7625,7 @@ def main():
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
     pruefe('_auswahlfeld(fenster, block, var, quelle)' in _hlseite84
-           and 'preisdaten.waren if var is ware else ortsliste.all_places'
+           and 'preisdaten.goods if var is ware else ortsliste.all_places'
            in _hlseite84,
            'Ware und Ort sind Auswahlfelder mit geschlossener Liste')
     # ⚠ Nicht auf das Wort pruefen — es steht als **Warnung** im Kopf des
@@ -10435,27 +10468,18 @@ def main():
     # Hintergrund-Ticks — die Pruefungen darunter sind also nur so verlaesslich
     # wie diese Zeile.
     #
-    # ⚠⚠ **Die Suche wird NUR fuer diese Pruefung stillgelegt — nicht fuer den
-    # ganzen Lauf.** Beides ausprobiert und gemessen:
+    # ⚠⚠ **Geprueft wird `log_sicherungen()`, nicht der Spielordner.** Der
+    # Spielordner DARF gefunden werden — dort liegt die `global.ini`, die vier
+    # andere Pruefungen brauchen. Schaden richten allein die Protokolle an, und
+    # die sind seit Abschnitt 37 stillgelegt (Begruendung dort).
     #
-    # | Weg | Ergebnis |
-    # |---|---|
-    # | `SC_INSTALL_DIR` auf die nachgebaute Installation | wirkungslos, der Ordner wird vor Abschnitt 37 geloescht |
-    # | `SC_INSTALL_DIR` auf einen leeren Ersatz | schliesst das Leck, **zerbricht** Pruefung 111 und 123: die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
-    # | Suchwurzeln fuer den ganzen Lauf leeren | schliesst das Leck, kostet aber **vier** `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen) |
-    # | **Suchwurzeln nur hier leeren** | schliesst das Leck, kostet nichts |
-    #
-    # Der Rueckfall auf die echte Installation entfaellt damit genau dort, wo
-    # er schadet, und die `global.ini`-Pruefungen behalten ihre Datenquelle.
-    _pf113_mod = __import__('scbp.pfade', fromlist=['spiel_ordner'])
-    _echte_wurzeln113 = _pf113_mod._spiel_wurzeln
-    _pf113_mod._spiel_wurzeln = lambda: []
-    _spiel113 = _pf113_mod.spiel_ordner()
-    pruefe(_spiel113 is None
-           or os.path.abspath(_spiel113).startswith(
-               os.path.abspath(tempfile.gettempdir())),
-           'auch mit frischem Ablageordner zeigt der Spielordner NICHT auf '
-           'die echte Installation (%s)' % _spiel113)
+    # Diese Zeile ist die Wache dazu, und sie steht genau hier: erst mit dem
+    # frischen Ablageordner oben entsteht die Lage, in der das Leck zuschlaegt.
+    _sicher113 = __import__('scbp.pfade',
+                            fromlist=['log_sicherungen']).log_sicherungen()
+    pruefe(not _sicher113,
+           'der Prueflauf sieht keine echten Spiel-Protokolle (%d)'
+           % len(_sicher113 or []))
     try:
         def _zeile113(zeit, text, nr):
             return ('<%sZ> [Notice] <SHUDEvent_OnNotification> '
@@ -10661,9 +10685,6 @@ def main():
             os.environ.pop('SC_BP_HOME', None)
         else:
             os.environ['SC_BP_HOME'] = _altheim113
-        # ⚠ Die Suche wieder freigeben — sonst fehlen dem Rest des Laufs die
-        #   vier `global.ini`-Pruefungen, die die echte Sprachdatei brauchen.
-        _pf113_mod._spiel_wurzeln = _echte_wurzeln113
         shutil.rmtree(_wiese113, ignore_errors=True)
 
     # --------------------------------------------------------------------- 113b
@@ -16659,6 +16680,7 @@ def main():
         'preise': 'prices',
         'laeden': 'shops',
         'orte': 'places',
+        'verkauf': 'selling',
     }
 
     def _reste190(quelle, name, alte):

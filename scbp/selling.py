@@ -95,7 +95,7 @@ import time
 from . import places, uex
 from .katalog import AUS
 
-QUELLE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
+SOURCE = 'https://api.uexcorp.uk/2.0/commodities_prices_all'
 CACHE = 'verkauf.json'
 # ⚠ Auf 2 gesetzt, als der Füllstand (`z`) dazukam, auf 3 mit dem Terminalnamen
 # (`n`), auf 4 mit der Terminal-Art (`t`). Eine alte Ablage hätte die Felder
@@ -105,8 +105,8 @@ FORMAT = 4
 
 # Welche Terminal-Arten mit **Ware** handeln. Alles andere taugt für eine
 # Handelsroute nicht — siehe die Begründung bei `'t'` weiter unten.
-HANDELSARTEN = ('commodity', 'commodity_raw')
-ZEITLIMIT = 30
+TRADE_TYPES = ('commodity', 'commodity_raw')
+TIMEOUT = 30
 
 # ⭐⭐ **Beim Verkauf ist „voll" das Schlechte.** Das ist der Punkt, an dem die
 # Ampel überhaupt nützt: Ein Terminal mit vollem Lager hat keinen Bedarf mehr
@@ -127,18 +127,18 @@ ZEITLIMIT = 30
 #
 # Ein Zeichen, das fast immer da ist, wird übersehen. Eines, das selten kommt,
 # wird gelesen.
-FUELLT_SICH = 5
-KEIN_BEDARF = 6
+FILLING_UP = 5
+NO_DEMAND = 6
 
 # Ein Tag. Preise ändern sich im Spiel laufend, aber nicht im Minutentakt —
 # dieselbe Überlegung wie in `prices.py`.
-HALTBAR = uex.DAY
+SHELF_LIFE = uex.DAY
 
 # Ab wann eine Meldung als alt gilt und in der Anzeige abgesetzt wird.
 # Gemessen am 30.08.2026 über alle 1.880 Ankauf-Einträge: 98,5 % waren jünger
 # als eine Woche, die Hälfte jünger als 2,2 Tage, der älteste 15 Tage. Eine
 # Woche trennt also sauber zwischen „normal" und „schau genau hin".
-ALT = 7 * 24 * 60 * 60
+OLD = 7 * 24 * 60 * 60
 
 # ⚠ **Auch ein Fehlversuch bremst — aber nur kurz.**
 #
@@ -149,14 +149,14 @@ ALT = 7 * 24 * 60 * 60
 #
 # Eine Minute, nicht eine Stunde: Wer sein Netz repariert, soll es sofort
 # wieder versuchen dürfen und nicht für einen fremden Ausfall bestraft werden.
-FEHLERSPERRE = 60
+ERROR_LOCK = 60
 
 # Abruf und Ablage liegen im gemeinsamen Unterbau — siehe `scbp/uex.py`.
-_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR)
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE)
 
 # Wann zuletzt vergeblich angefragt wurde. Bewusst nur im Arbeitsspeicher: Nach
 # einem Neustart des Werkzeugs darf man es sofort wieder versuchen.
-_letzter_fehlversuch = {'zeit': 0.0}
+_last_failure = {'zeit': 0.0}
 
 # ⭐ **Der Knopf „Jetzt aktualisieren" ist auf einmal pro Stunde begrenzt.**
 #
@@ -168,7 +168,7 @@ _letzter_fehlversuch = {'zeit': 0.0}
 #
 # Eine Stunde ist der Kompromiss: oft genug für einen Handelsflug, selten genug,
 # dass 100 Nutzer zusammen keine Last erzeugen.
-SPERRE = 60 * 60
+LOCK = 60 * 60
 
 # Zweite Quelle: die Terminal-Liste. Sie liefert System, Ort und das Kennzeichen
 # `is_nqa`, das in den Preisdaten fehlt.
@@ -177,40 +177,40 @@ SPERRE = 60 * 60
 # Ortsnamen. Bewusst **nicht** gekoppelt: Ein Modul, das sich seine Daten selbst
 # besorgt, lässt sich einzeln prüfen und geht nicht kaputt, wenn am anderen
 # etwas geändert wird. Der Preis dafür ist ein zusätzlicher Abruf pro Tag.
-QUELLE_TERMINALS = 'https://api.uexcorp.uk/2.0/terminals'
+SOURCE_TERMINALS = 'https://api.uexcorp.uk/2.0/terminals'
 
 
-def laden():
+def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    return _ablage.load()
+    return _store.load()
 
 
-def alter():
+def age():
     """Wie alt die Ablage ist, in Sekunden — oder None, wenn keine da ist."""
-    return _ablage.age()
+    return _store.age()
 
 
-def wartezeit():
+def wait_time():
     """Wie viele Sekunden der Knopf „Jetzt aktualisieren" noch gesperrt ist.
 
-    `0` heisst: darf sofort. Siehe `SPERRE`.
+    `0` heisst: darf sofort. Siehe `LOCK`.
     """
-    seit_fehler = time.time() - _letzter_fehlversuch['zeit']
-    rest_fehler = max(0, int(FEHLERSPERRE - seit_fehler))
-    a = alter()
+    since_error = time.time() - _last_failure['zeit']
+    rest_error = max(0, int(ERROR_LOCK - since_error))
+    a = age()
     if a is None:
-        return rest_fehler
-    return max(rest_fehler, int(SPERRE - a) if a < SPERRE else 0)
+        return rest_error
+    return max(rest_error, int(LOCK - a) if a < LOCK else 0)
 
 
-def aktualisieren(erzwingen=False, fortschritt=None):
+def update(force=False, progress=None):
     """Die Verkaufspreise holen.
 
-    Ohne `erzwingen` passiert nur etwas, wenn die Ablage fehlt oder älter als
+    Ohne `force` passiert nur etwas, wenn die Ablage fehlt oder älter als
     ein Tag ist — der stille Abruf im Hintergrund.
 
-    Mit `erzwingen=True` ist es der Knopf aus dem Reiter. Der darf höchstens
-    einmal pro Stunde (siehe `SPERRE`); ist er noch gesperrt, kommt
+    Mit `force=True` ist es der Knopf aus dem Reiter. Der darf höchstens
+    einmal pro Stunde (siehe `LOCK`); ist er noch gesperrt, kommt
     `(False, 'gesperrt')` zurück und die Oberfläche zeigt die Restzeit.
 
     Gibt `(Erfolg, Grund)` zurück. `Grund` ist eine Kennung, kein fertiger Satz
@@ -226,25 +226,25 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     """
     if AUS:
         return False, 'aus'
-    if erzwingen:
-        if wartezeit():
+    if force:
+        if wait_time():
             return False, 'gesperrt'
-    elif not _ablage.stale():
+    elif not _store.stale():
         return True, ''
-    if fortschritt:
-        fortschritt('')
-    preise = uex.fetch(QUELLE, 'verkauf', timeout=ZEITLIMIT)
-    if preise is None:
-        _letzter_fehlversuch['zeit'] = time.time()
+    if progress:
+        progress('')
+    rows = uex.fetch(SOURCE, 'selling', timeout=TIMEOUT)
+    if rows is None:
+        _last_failure['zeit'] = time.time()
         return False, 'netz'
-    if not preise:
-        _letzter_fehlversuch['zeit'] = time.time()
+    if not rows:
+        _last_failure['zeit'] = time.time()
         return False, 'leer'
     # Die Terminal-Liste darf fehlschlagen, ohne dass alles scheitert: Ohne sie
     # kennen wir System und `is_nqa` nicht, aber der Terminal-Name steht in den
     # Preisdaten selbst. Lieber eine Liste ohne Systemspalte als gar keine.
-    stellen = uex.fetch(QUELLE_TERMINALS, 'verkauf.terminals',
-                        timeout=ZEITLIMIT) or []
+    spots = uex.fetch(SOURCE_TERMINALS, 'selling.terminals',
+                      timeout=TIMEOUT) or []
 
     # ⚠⚠ **Hier steht mit Absicht KEIN Spielstand.**
     #
@@ -256,17 +256,17 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     # während die Preise tatsächlich aus 4.10.0 stammten.
     #
     # Zwei Anläufe, beide falsch. Statt einen dritten Kniff zu suchen, sagt der
-    # Reiter, was er **weiss**: wie alt die Meldungen sind (`alter()`). Eine
+    # Reiter, was er **weiss**: wie alt die Meldungen sind (`age()`). Eine
     # Versionsnummer, die man nicht belegen kann, ist schlimmer als keine.
     terminals = {}
-    for x in stellen:
-        kennung = x.get('id')
-        if kennung is None:
+    for x in spots:
+        ident = x.get('id')
+        if ident is None:
             continue
-        ort = (x.get('space_station_name') or x.get('city_name')
-               or x.get('outpost_name') or x.get('planet_name') or '')
-        terminals[str(kennung)] = {
-            'o': ort,
+        place = (x.get('space_station_name') or x.get('city_name')
+                 or x.get('outpost_name') or x.get('planet_name') or '')
+        terminals[str(ident)] = {
+            'o': place,
             's': x.get('star_system_name') or '',
             'q': 1 if x.get('is_nqa') else 0,
             # ⚠⚠ **Der Terminalname gehört dazu.** Ohne ihn standen im
@@ -297,18 +297,18 @@ def aktualisieren(erzwingen=False, fortschritt=None):
     # ⚠ Der Warenname wird **unverändert** übernommen, mit Klammer und allem.
     # Siehe die zweite Falle im Kopf: `Copper` und `Copper (Ore)` sind zwei
     # verschiedene Waren, und `norm_material()` würde sie zusammenwerfen.
-    waren = {}
-    for x in preise:
-        preis = float(x.get('price_sell') or 0)
-        if preis <= 0:
+    goods_map = {}
+    for x in rows:
+        price = float(x.get('price_sell') or 0)
+        if price <= 0:
             continue
         name = (x.get('commodity_name') or '').strip()
         if not name:
             continue
-        waren.setdefault(name, []).append({
+        goods_map.setdefault(name, []).append({
             't': str(x.get('id_terminal')),
             'n': (x.get('terminal_name') or '').strip(),
-            'p': preis,
+            'p': price,
             'd': int(x.get('date_modified') or 0),
             'k': x.get('container_sizes') or '',
             # ⭐ Wie voll das Lager dort ist, in UEX' eigenen sieben Stufen.
@@ -316,17 +316,17 @@ def aktualisieren(erzwingen=False, fortschritt=None):
             # hat keinen Bedarf mehr und nimmt die Ladung nicht.
             'z': int(x.get('status_sell') or 0),
         })
-    if not waren:
+    if not goods_map:
         return False, 'leer'
-    for zeilen in waren.values():
-        zeilen.sort(key=lambda z: -z['p'])
-    # ⚠ `kompakt`: Diese Ablage ist mit rund 75 KB die grösste der drei —
+    for lines in goods_map.values():
+        lines.sort(key=lambda z: -z['p'])
+    # ⚠ `compact`: Diese Ablage ist mit rund 75 KB die grösste der drei —
     # ohne Leerzeichen zwischen den Feldern spart das spürbar Platz.
-    _ablage.save({'terminals': terminals, 'waren': waren}, compact=True)
+    _store.save({'terminals': terminals, 'waren': goods_map}, compact=True)
     return True, ''
 
 
-def fuellstand(zeile):
+def fill_level(row):
     """Was der Füllstand einer Verkaufsstelle bedeutet — oder `None`.
 
     Gibt `(schluessel, ist_warnung)` zurück: den Sprachschlüssel für den Text
@@ -334,37 +334,37 @@ def fuellstand(zeile):
 
     ⚠ **`None` heisst „nichts sagen"** — nicht „alles in Ordnung". Beides
     sieht in der Anzeige gleich aus, und das ist Absicht: Der Normalfall
-    braucht kein Zeichen. Siehe `FUELLT_SICH` oben.
+    braucht kein Zeichen. Siehe `FILLING_UP` oben.
 
     ⚠ Ältere Ablagen kennen das Feld nicht (`z` fehlt). Dann wird ebenfalls
     geschwiegen — eine Warnung aus fehlenden Daten wäre geraten.
     """
-    stufe = (zeile or {}).get('z') or 0
-    if stufe >= KEIN_BEDARF:
+    level = (row or {}).get('z') or 0
+    if level >= NO_DEMAND:
         return 's_vk_voll', True
-    if stufe == FUELLT_SICH:
+    if level == FILLING_UP:
         return 's_vk_fuellt', False
     return None
 
 
-def waren():
+def goods():
     """Alle Waren mit mindestens einem Ankaufgebot, alphabetisch.
 
     Rund 150 Namen, genau so geschrieben wie bei UEX — `Copper` und
     `Copper (Ore)` stehen beide darin und sind **nicht** dasselbe.
     """
-    return sorted((laden() or {}).get('waren') or {})
+    return sorted((load() or {}).get('waren') or {})
 
 
-def bekannt(name):
+def known(name):
     """Kennt die Ablage diese Ware? Exakter Vergleich, siehe Falle 1 im Kopf."""
-    return name in ((laden() or {}).get('waren') or {})
+    return name in ((load() or {}).get('waren') or {})
 
 
-def orte_fuer(namen, nur_nqa=False):
+def places_for(names, nqa_only=False):
     """Wo man die genannten Waren los wird — die beste Stelle zuerst.
 
-    `namen` ist eine Liste von Warennamen, wie sie `waren()` liefert.
+    `names` ist eine Liste von Warennamen, wie sie `goods()` liefert.
 
     Zurück kommt eine Liste von Orten. Sortiert wird **zuerst nach der Zahl der
     abgenommenen Waren**, erst danach nach Preis:
@@ -381,59 +381,59 @@ def orte_fuer(namen, nur_nqa=False):
     anzeigt, behauptet etwas über Mengen, die das Werkzeug nicht kennt. Für
     einen echten Erlös braucht es das Handelslager (`trade_cargo.py`).
 
-    `nur_nqa=True` blendet auf die Stellen ein, die keine Fragen stellen —
+    `nqa_only=True` blendet auf die Stellen ein, die keine Fragen stellen —
     für als gestohlen markierte Ladung.
     """
-    daten = laden() or {}
-    alle = daten.get('waren') or {}
-    stellen = daten.get('terminals') or {}
-    gesucht = [n for n in namen if n in alle]
-    if not gesucht:
+    data = load() or {}
+    all_goods = data.get('waren') or {}
+    spots = data.get('terminals') or {}
+    wanted = [n for n in names if n in all_goods]
+    if not wanted:
         return []
 
-    jetzt = time.time()
-    gesammelt = {}
-    for ware in gesucht:
-        for zeile in alle[ware]:
-            kennung = zeile['t']
-            stelle = stellen.get(kennung) or {}
-            if nur_nqa and not stelle.get('q'):
+    now = time.time()
+    collected = {}
+    for item in wanted:
+        for row in all_goods[item]:
+            ident = row['t']
+            spot = spots.get(ident) or {}
+            if nqa_only and not spot.get('q'):
                 continue
-            eintrag = gesammelt.setdefault(kennung, {
-                'terminal': zeile.get('n') or '?',
-                'ort': stelle.get('o') or '',
-                'system': stelle.get('s') or '',
-                'nqa': bool(stelle.get('q')),
+            entry = collected.setdefault(ident, {
+                'terminal': row.get('n') or '?',
+                'ort': spot.get('o') or '',
+                'system': spot.get('s') or '',
+                'nqa': bool(spot.get('q')),
                 'treffer': [],
             })
-            eintrag['treffer'].append({
-                'ware': ware,
-                'preis': zeile['p'],
-                'kisten': zeile.get('k') or '',
+            entry['treffer'].append({
+                'ware': item,
+                'preis': row['p'],
+                'kisten': row.get('k') or '',
                 # Alter in Sekunden. `None`, wenn die Meldung kein Datum hat —
                 # dann wird in der Anzeige nichts behauptet.
-                'alter': (jetzt - zeile['d']) if zeile.get('d') else None,
+                'alter': (now - row['d']) if row.get('d') else None,
                 # ⚠ Der Füllstand gehört an die **Ware**, nicht an den Ort:
                 # Dasselbe Terminal kann bei Gold randvoll und bei Iron leer
                 # sein. Ein Zeichen am Ort wäre für die halbe Ladung falsch.
-                'fuellstand': fuellstand(zeile),
+                'fuellstand': fill_level(row),
             })
 
-    ergebnis = []
-    for eintrag in gesammelt.values():
-        eintrag['treffer'].sort(key=lambda tr: -tr['preis'])
-        eintrag['anzahl'] = len(eintrag['treffer'])
-        eintrag['summe'] = sum(tr['preis'] for tr in eintrag['treffer'])
+    result = []
+    for entry in collected.values():
+        entry['treffer'].sort(key=lambda tr: -tr['preis'])
+        entry['anzahl'] = len(entry['treffer'])
+        entry['summe'] = sum(tr['preis'] for tr in entry['treffer'])
         # Das Alter des Ortes ist das der **ältesten** Meldung, die ihn stützt.
         # Die vorsichtigere Angabe: Wer drei Waren dort verkaufen will, verlässt
         # sich auf alle drei Meldungen, nicht nur auf die frischeste.
-        alter_werte = [tr['alter'] for tr in eintrag['treffer']
-                       if tr['alter'] is not None]
-        eintrag['alter'] = max(alter_werte) if alter_werte else None
-        ergebnis.append(eintrag)
+        ages = [tr['alter'] for tr in entry['treffer']
+                if tr['alter'] is not None]
+        entry['alter'] = max(ages) if ages else None
+        result.append(entry)
 
-    ergebnis.sort(key=lambda e: (-e['anzahl'], -e['summe']))
-    return ergebnis
+    result.sort(key=lambda e: (-e['anzahl'], -e['summe']))
+    return result
 
 
 # Waren, die in der Bestenliste nichts zu suchen haben.
@@ -450,15 +450,15 @@ def orte_fuer(namen, nur_nqa=False):
 # ⚠ Die Erkennung geht über den Namen, weil die Daten nichts hergeben:
 # `container_sizes` steht bei den Karten auf denselben Werten wie bei Erzen.
 # Kommt ein neues Event dazu, gehört sein Geschenk hier hinein.
-NICHT_IN_BESTENLISTE = (
+NOT_IN_TOP_LIST = (
     'luminalia gift',
     'year of the rat envelope',
 )
 
 
-def in_bestenliste(name):
+def in_top_list(name):
     """Gehört diese Ware in „Was gerade am besten zahlt"?"""
-    return (name or '').strip().lower() not in NICHT_IN_BESTENLISTE
+    return (name or '').strip().lower() not in NOT_IN_TOP_LIST
 
 
 # Ab welchem Vielfachen des zweithöchsten Gebots ein Preis als Ausreißer gilt.
@@ -470,35 +470,35 @@ def in_bestenliste(name):
 # am selben Terminal. Das sieht nach einer vorangestellten Ziffer aus. Alle
 # übrigen 112 Waren bleiben unter Faktor 3 — die Grenze trennt also sauber,
 # ohne echte Preisunterschiede wegzuwerfen.
-AUSREISSER_FAKTOR = 3.0
+OUTLIER_FACTOR = 3.0
 
 
-def _ohne_ausreisser(zeilen):
+def _without_outliers(rows):
     """Gebote ohne den einen Wert, der aus der Reihe fällt.
 
     ⚠ Erst ab drei Geboten. Bei zweien lässt sich nicht sagen, welches das
     falsche ist — und bei einem gibt es nichts zu vergleichen.
     """
-    preise = sorted((z.get('p') or 0.0) for z in zeilen)
-    if len(preise) < 3 or preise[-2] <= 0:
-        return zeilen
-    if preise[-1] / preise[-2] < AUSREISSER_FAKTOR:
-        return zeilen
-    hoechster = preise[-1]
-    return [z for z in zeilen if (z.get('p') or 0.0) < hoechster]
+    values = sorted((z.get('p') or 0.0) for z in rows)
+    if len(values) < 3 or values[-2] <= 0:
+        return rows
+    if values[-1] / values[-2] < OUTLIER_FACTOR:
+        return rows
+    highest = values[-1]
+    return [z for z in rows if (z.get('p') or 0.0) < highest]
 
 
-def bester_preis(name, mit_ausreissern=False):
+def best_price(name, with_outliers=False):
     """Was die Ware höchstens bringt, je SCU — oder `0.0`.
 
     Für die schnelle Angabe im Handelslager, ohne die ganze Ortsliste.
 
     ⚠ **Ein einzelnes absurdes Gebot wird verworfen.** Sonst steht in der
     Bestenliste ein Preis, den es nicht gibt, und verdrängt die Waren, mit
-    denen sich wirklich Geld verdienen lässt. `mit_ausreissern=True` gibt den
+    denen sich wirklich Geld verdienen lässt. `with_outliers=True` gibt den
     Rohwert zurück — für die Ortsliste, wo jedes Terminal zu sehen sein soll.
     """
-    zeilen = ((laden() or {}).get('waren') or {}).get(name) or []
-    if not mit_ausreissern:
-        zeilen = _ohne_ausreisser(zeilen)
-    return max((z['p'] for z in zeilen), default=0.0)
+    rows = ((load() or {}).get('waren') or {}).get(name) or []
+    if not with_outliers:
+        rows = _without_outliers(rows)
+    return max((z['p'] for z in rows), default=0.0)

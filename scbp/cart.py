@@ -669,7 +669,7 @@ def craft_option(ref, index=None, name=''):
     nicht kostenlos, sondern **nicht kaufbar** — er muss abgebaut werden. Die
     Materialsumme ist dann eine **Untergrenze**, und wer das nicht dazusagt,
     lässt Selberbauen billiger aussehen, als es ist. Dieselbe Falle wie bei den
-    Ankaufgeboten in `verkauf.py`.
+    Ankaufgeboten in `selling.py`.
 
     ⚠⚠⚠ **`ref` ist die Entitäts-Kennung, NICHT der Name.** Merkzettel-Posten
     kommen aus der Herstellungsliste, und die kennt nur den Bauplannamen — beim

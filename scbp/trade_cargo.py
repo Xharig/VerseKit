@@ -41,7 +41,7 @@ falsch ausfüllen kann.
 ⚠⚠ **Geschlossene Listen, kein Freitext** — dieselbe Regel wie beim Lagerort in
 `places.py`, aus demselben Grund: Jemand tippt etwas Beleidigendes hinein, macht
 ein Bildschirmfoto und verbreitet es. Am Ende fragt niemand, wer getippt hat;
-es steht in diesem Werkzeug. Die Warennamen kommen deshalb aus `verkauf.py`,
+es steht in diesem Werkzeug. Die Warennamen kommen deshalb aus `selling.py`,
 die Orte aus `places.py`.
 
 ## Als gestohlen markiert

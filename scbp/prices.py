@@ -57,7 +57,7 @@ Absturz — die Herstellung funktioniert ohne Preise genauso wie vorher.
 Keine Handelsrouten, keine Frachtplanung. Dieses Modul beantwortet **eine**
 Frage: „kaufen oder abbauen?"
 
-⚠ **Die Preise je Terminal stehen seit v3.4.0 in `verkauf.py`** — bis dahin
+⚠ **Die Preise je Terminal stehen seit v3.4.0 in `selling.py`** — bis dahin
 waren sie hier ausdrücklich ausgeschlossen („weitere 2,1 MB Daten und ein
 anderes Werkzeug"). Der Satz stimmte nicht mehr: Gemessen am 30.08.2026 ist
 der volle Abzug 1,04 MB und aufgeräumt abgelegt 293 KB, und die Frage „wo werde

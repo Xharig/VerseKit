@@ -32,7 +32,7 @@ leeres Feld ist ehrlich, eine alte Zahl ohne Hinweis ist es nicht.
 
 ## ⚠⚠ Das ist der DRITTE Anlauf — die ersten beiden waren falsch
 
-In `verkauf.py` steht seit dem 30.08.2026 ausdrücklich, dass dort **kein**
+In `selling.py` steht seit dem 30.08.2026 ausdrücklich, dass dort **kein**
 Spielstand hingehört. Diese Warnung bleibt richtig, und dieses Modul verstößt
 nicht dagegen — es holt die Angabe aus einer **anderen** Quelle:
 

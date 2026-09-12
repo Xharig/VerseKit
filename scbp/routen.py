@@ -350,14 +350,14 @@ def handelsposten():
 
     Kommt aus der Verkaufs-Ablage; ein eigener Abruf wäre Verschwendung.
     """
-    from . import verkauf
-    stellen = (verkauf.laden() or {}).get('terminals') or {}
+    from . import selling
+    stellen = (selling.load() or {}).get('terminals') or {}
     raus = []
     for kennung, stelle in stellen.items():
         art = stelle.get('t')
         # Ältere Ablagen kennen die Art nicht — dann lieber mitnehmen als
         # eine leere Liste liefern.
-        if art is not None and art not in verkauf.HANDELSARTEN:
+        if art is not None and art not in selling.TRADE_TYPES:
             continue
         raus.append((kennung, stelle.get('n') or stelle.get('o') or '?'))
     return raus

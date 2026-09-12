@@ -52,7 +52,7 @@ from scbp import (
                   einstellungsfenster, notice, injektion,
                   katalog as katalog_modul, shops, logquelle, watchlist,
                   pfade, phrasen, ships, spielstand, titelleiste, sound,
-                  uebersetzung, verkauf, hotkey as hotkey_modul)
+                  uebersetzung, selling, hotkey as hotkey_modul)
 
 try:
     import winsound                      # nur Windows; unter Linux übernimmt tkinter
@@ -816,7 +816,7 @@ class Watcher(threading.Thread):
         # der Seite: Wer den Reiter aufmacht, soll Daten vorfinden statt auf
         # einen Abruf zu warten.
         try:
-            verkauf.aktualisieren()
+            selling.update()
         except Exception as ausnahme:
             fehler.merken('watcher.verkauf', ausnahme)
         # Und die Schiffsliste — höchstens einmal pro Woche, siehe
