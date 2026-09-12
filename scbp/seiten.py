@@ -5205,10 +5205,17 @@ def _danke(fenster, rahmen):
     for name, gruppe, idee, funde in (
             ('Haldjas', 'pr0', t('s_dk_haldjas_idee'),
              t('s_dk_haldjas_bugs')),
-            # ⚠ Zwei Bausteine hintereinander: die Funde und der Nitro-Dank.
-            # `_person` nimmt einen Text — also hier zusammensetzen, statt die
-            # Funktion für einen Sonderfall umzubauen.
-            ('Bomb20', 'pr0', t('s_dk_bomb_idee'), t('s_dk_bomb_bugs')),
+            # ⚠ Zwei Bausteine hintereinander: die frühen Funde samt
+            # Nitro-Dank und der Fund vom 11.09. `_person` nimmt einen Text —
+            # also hier zusammensetzen, statt die Funktion für einen
+            # Sonderfall umzubauen.
+            #
+            # ⚠⚠ **Eine Person, ein Eintrag.** Er stand hier bis zum
+            # 12.09.2026 zweimal, weil sein Anzeigename gewechselt hat — die
+            # Seite zählt Beiträge je Person, seine waren dadurch geteilt.
+            # Genannt wird der Name, unter dem er heute auftritt.
+            ('rurudotorg', 'SC4M', t('s_dk_rurudotorg_idee'),
+             t('s_dk_rurudotorg_bugs') + '\n\n' + t('s_dk_rurudotorg_bugs2')),
             ('Morkhan', 'KRT', t('s_dk_morkhan_idee'),
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
@@ -5217,8 +5224,7 @@ def _danke(fenster, rahmen):
              t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
-             t('s_dk_zwaersch_bugs')),
-            ('rurudotorg', 'SC4M', '', t('s_dk_rurudotorg_bugs'))):
+             t('s_dk_zwaersch_bugs'))):
         _person(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---

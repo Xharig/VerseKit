@@ -2136,12 +2136,12 @@ TEXTE = {
                               'of the time. His latest report brought two things at '
                               'once: the sluggish program start, and the blueprints '
                               'that no longer matched the catalogue with StarStrings.'),
-    # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.** Am 27.08.2026 hat
-    # Bomb20 an einem Vormittag vier Fehler gefunden, die alle am Samstag jeden
+    # ⚠ **Diese Seite mitziehen, nicht nur den CHANGELOG.** Am 27.08.2026 fand
+    # ein Tester an einem Vormittag vier Fehler, die alle am Samstag jeden
     # Nutzer getroffen hätten — und hier stand weiter nur sein Fund vom 25.08.
     # Der Dank im CHANGELOG ist das eine; diese Seite ist das, was die Leute im
     # Programm sehen. Wer einen Melder hier vergisst, hat ihm nicht gedankt.
-    's_dk_bomb_idee':        ('**Updates kamen unter Linux nicht an** — er ist drangeblieben,'
+    's_dk_rurudotorg_idee':  ('**Updates kamen unter Linux nicht an** — er ist drangeblieben,'
                               'als es längst nach Bedienfehler aussah, bis der Grund gefunden'
                               'war.',
                               '**Updates never arrived on Linux** — he kept at it long after'
@@ -2149,7 +2149,7 @@ TEXTE = {
     # ⚠ Der vierte Fund ist kein behobener Fehler, und genau so steht er da.
     # Wer „behoben" schreibt, wo nur „sichtbar gemacht" stimmt, belügt den
     # nächsten Melder.
-    's_dk_bomb_bugs':        ('Dazu der Absturz beim allerersten Start, harte Abbrüche, die'
+    's_dk_rurudotorg_bugs':  ('Dazu der Absturz beim allerersten Start, harte Abbrüche, die'
                               'im Bericht gar nicht auftauchten — und ein Monat Discord Nitro'
                               'für den Server.',
                               'Plus the crash on the very first start, hard aborts that never'
@@ -2212,7 +2212,7 @@ TEXTE = {
                               'newer scmdb.net format, and that switching '
                               'channels cost you your whole history — one '
                               'single file brought all three to light.'),
-    's_dk_rurudotorg_bugs':  ('Dass die Schiffsauswahl bei „Was steckt drin?" '
+    's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',
                               'That the ship selection in “What\'s inside?” '
