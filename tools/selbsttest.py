@@ -12210,7 +12210,7 @@ def main():
     # vorhandenen Logs rechnet, bekommt jeden Monat eine kleinere
     # Vergangenheit.
     import time as _t125
-    from scbp import spielzeit as _sz125
+    from scbp import playtime as _sz125
 
     _wiese125 = tempfile.mkdtemp(prefix='sc-bp-zeit-')
     _altheim125 = os.environ.get('SC_BP_HOME')
@@ -12230,7 +12230,7 @@ def main():
         _a125 = _log125('a.log', '2026-09-01T10:00:00', '2026-09-01T12:00:00')
         _b125 = _log125('b.log', '2026-09-02T10:00:00', '2026-09-02T11:30:00')
 
-        _sz125.nachtragen([_a125, _b125])
+        _sz125.catch_up([_a125, _b125])
         # ⚠⚠ **`mit_laufender=False`, sonst misst die Pruefung den Rechner,
         # auf dem sie laeuft.** `pfade.spiel_ordner()` faellt auf eine Suche
         # zurueck, wenn kein gueltiger Pfad eingetragen ist — auf einem
@@ -12238,53 +12238,53 @@ def main():
         # gerade gespielt wird, zaehlt die laufende Sitzung mit. Genau so
         # meldete diese Pruefung „3 h 31 min statt 3 h 30 min": ein Fehler in
         # der Pruefung, nicht im Programm.
-        pruefe(_sz125.gesamt(mit_laufender=False) == 3600 * 3.5,
+        pruefe(_sz125.total(with_running=False) == 3600 * 3.5,
                'zwei Sitzungen ergeben 3 h 30 min (%s)'
-               % _sz125.als_text(_sz125.gesamt(mit_laufender=False)))
+               % _sz125.as_text(_sz125.total(with_running=False)))
 
         # ⚠ Der zweite Lauf darf NICHTS dazuzaehlen. Sonst waechst die Zahl bei
         # jedem Programmstart, und niemand merkt es, bis sie absurd ist.
-        _vorher125 = _sz125.gesamt(mit_laufender=False)
-        _neu125 = _sz125.nachtragen([_a125, _b125])
+        _vorher125 = _sz125.total(with_running=False)
+        _neu125 = _sz125.catch_up([_a125, _b125])
         pruefe(_neu125 == 0
-               and _sz125.gesamt(mit_laufender=False) == _vorher125,
+               and _sz125.total(with_running=False) == _vorher125,
                'ein zweiter Durchlauf zaehlt nichts doppelt')
 
         # Ein Start, der nie ins Spiel kam, ist keine Spielzeit.
         _c125 = _log125('c.log', '2026-09-03T10:00:00', '2026-09-03T14:00:00',
                         mit_spawn=False)
-        _sz125.nachtragen([_c125])
-        pruefe(_sz125.gesamt(mit_laufender=False) == _vorher125,
+        _sz125.catch_up([_c125])
+        pruefe(_sz125.total(with_running=False) == _vorher125,
                'ein Start ohne Spawn zaehlt nicht als Spielzeit')
 
         # Kurze Sitzungen zaehlen dagegen mit — eine Grenze waere eine
         # Behauptung ueber „richtiges" Spielen.
         _d125 = _log125('d.log', '2026-09-04T10:00:00', '2026-09-04T10:02:00')
-        _sz125.nachtragen([_d125])
-        pruefe(_sz125.gesamt(mit_laufender=False) == _vorher125 + 120,
+        _sz125.catch_up([_d125])
+        pruefe(_sz125.total(with_running=False) == _vorher125 + 120,
                'auch zwei Minuten zaehlen mit')
 
         # ⚠ Ueberlappungen verschmelzen, statt sich zu addieren. In den echten
         # Daten gab es genau so einen Fall.
-        _sz125.sichern({'format': _sz125.FORMAT, 'sitzungen': [
+        _sz125.save({'format': _sz125.FORMAT, 'sitzungen': [
             {'von': 1000, 'bis': 1000 + 3600},
             {'von': 1000 + 1800, 'bis': 1000 + 7200},
         ]})
-        pruefe(_sz125.gesamt(mit_laufender=False) == 7200,
+        pruefe(_sz125.total(with_running=False) == 7200,
                'ueberlappende Zeitraeume werden zusammengefuehrt (%s)'
-               % _sz125.als_text(_sz125.gesamt(mit_laufender=False)))
+               % _sz125.as_text(_sz125.total(with_running=False)))
 
         # Ein Ausreisser (verstellte Uhr, zwei Laeufe in einer Datei) darf die
         # Summe nicht verderben.
         _e125 = _log125('e.log', '2026-09-05T10:00:00', '2026-09-08T10:00:00')
-        _stand125 = _sz125.gesamt(mit_laufender=False)
-        _sz125.nachtragen([_e125])
-        pruefe(_sz125.gesamt(mit_laufender=False) == _stand125,
+        _stand125 = _sz125.total(with_running=False)
+        _sz125.catch_up([_e125])
+        pruefe(_sz125.total(with_running=False) == _stand125,
                'eine 72-Stunden-Sitzung wird verworfen statt gezaehlt')
 
         for _s125, _soll125 in ((0, '0 min'), (59, '0 min'), (60, '1 min'),
                                 (3600, '1 h 00 min'), (3660, '1 h 01 min')):
-            pruefe(_sz125.als_text(_s125) == _soll125,
+            pruefe(_sz125.as_text(_s125) == _soll125,
                    '%d s steht als „%s"' % (_s125, _soll125))
 
         # ⚠⚠ **Die Datei darf NICHT auf der Nachladbar-Liste stehen.** Sie
@@ -12292,7 +12292,7 @@ def main():
         # stuende sie dort, waere die ganze aufgezeichnete Vergangenheit beim
         # Rechnerwechsel weg, und zwar lautlos.
         from scbp import backup as _si125
-        pruefe(not any(_sz125.DATEI in eintrag
+        pruefe(not any(_sz125.FILE in eintrag
                        for eintrag in _si125.RELOADABLE),
                'die Spielzeit gilt NICHT als nachladbar — sie kommt in die '
                'Sicherung')
@@ -17040,6 +17040,13 @@ def main():
         # (Lage, Groesse, Arbeitsflaeche), nicht nach dem X11-Display. Unter
         # Linux waere `display` sogar irrefuehrend — das ist `:0`.
         'bildschirm': 'screen',
+        # Stufe 4c — Spielzeit
+        #
+        # ⚠⚠ `spielzeit.json` auf der Platte behaelt seinen Namen: Dort liegt
+        # die **gesamte** aufgezeichnete Spielzeit, sie wird nirgends sonst
+        # gefuehrt. Ebenso der Einstellungsschluessel `spielzeit_zeigen`.
+        # Der Modulname wandert, die Daten bleiben.
+        'spielzeit': 'playtime',
     }
 
     def _reste190(quelle, name, alte):

@@ -59,51 +59,51 @@ import re
 
 from . import fehler, pfade
 
-DATEI = 'spielzeit.json'
+FILE = 'spielzeit.json'
 FORMAT = 1
 
 # Der Zeitstempel am Zeilenanfang: <2026-08-29T16:02:14.792Z>
-_ZEIT = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
+_TIMESTAMP = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
 
 # ⚠ Eine Sitzung, die laenger als das dauert, ist keine mehr. Star Citizen
 # haelt keine 24-Stunden-Sitzung durch; so ein Wert entsteht durch eine
 # verstellte Uhr oder ein Protokoll, das zwei Laeufe enthaelt. Lieber eine
 # Sitzung verwerfen als die Gesamtzahl mit einem Ausreisser verderben.
-GRENZE_SEK = 24 * 3600
+MAX_SPAN_SEC = 24 * 3600
 
 
-def _sekunden(stempel):
+def _seconds(stamp):
     try:
         import calendar
         import time as _t
-        return calendar.timegm(_t.strptime(stempel[:19], '%Y-%m-%dT%H:%M:%S'))
+        return calendar.timegm(_t.strptime(stamp[:19], '%Y-%m-%dT%H:%M:%S'))
     except Exception:
         return None
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def path():
+    return pfade.app_datei(FILE)
 
 
-def laden():
+def load():
     """Die gespeicherten Sitzungen — `{'format':…, 'sitzungen':[…]}`."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if isinstance(daten, dict) and isinstance(daten.get('sitzungen'), list):
-            return daten
+        with open(path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get('sitzungen'), list):
+            return data
     except (OSError, ValueError):
         pass
     except Exception as ausnahme:
-        fehler.merken('spielzeit.laden', ausnahme)
+        fehler.merken('playtime.load', ausnahme)
     return {'format': FORMAT, 'sitzungen': []}
 
 
-def sichern(daten):
+def save(data):
     """Schreiben. Meldet, wenn es scheitert — sonst waere die Zeit still weg."""
     try:
-        daten['format'] = FORMAT
-        ziel = pfad()
+        data['format'] = FORMAT
+        ziel = path()
         ordner = os.path.dirname(ziel)
         if ordner and not os.path.isdir(ordner):
             os.makedirs(ordner)
@@ -112,66 +112,66 @@ def sichern(daten):
         # aufgezeichnete Vergangenheit.
         vorlaeufig = ziel + '.neu'
         with open(vorlaeufig, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
+            json.dump(data, f, ensure_ascii=False)
         os.replace(vorlaeufig, ziel)
         return True
     except Exception as ausnahme:
-        fehler.merken('spielzeit.sichern', ausnahme)
+        fehler.merken('playtime.save', ausnahme)
         return False
 
 
-def spanne_aus_log(dateipfad, spawn_marke=None):
+def span_from_log(log_path, spawn_mark=None):
     """(von, bis) einer Protokolldatei in Sekunden — oder None.
 
     ⚠ Gibt None zurueck, wenn der Spieler nie im Spiel ankam. Ein
     Ladebildschirm, in dem jemand zwanzig Minuten haengt, ist keine Spielzeit.
     """
-    if spawn_marke is None:
+    if spawn_mark is None:
         from .missionslog import SPAWN_MARKE
-        spawn_marke = SPAWN_MARKE
+        spawn_mark = SPAWN_MARKE
     erste = letzte = None
     drin = False
     try:
-        with open(dateipfad, encoding='utf-8', errors='replace') as f:
-            for zeile in f:
-                if not drin and spawn_marke in zeile:
+        with open(log_path, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if not drin and spawn_mark in line:
                     drin = True
-                treffer = _ZEIT.search(zeile)
-                if treffer:
+                match = _TIMESTAMP.search(line)
+                if match:
                     if erste is None:
-                        erste = treffer.group(1)
-                    letzte = treffer.group(1)
+                        erste = match.group(1)
+                    letzte = match.group(1)
     except Exception:
         return None
     if not drin:
         return None
-    von, bis = _sekunden(erste or ''), _sekunden(letzte or '')
-    if not von or not bis or bis < von:
+    start, end = _seconds(erste or ''), _seconds(letzte or '')
+    if not start or not end or end < start:
         return None
-    if (bis - von) > GRENZE_SEK:
+    if (end - start) > MAX_SPAN_SEC:
         return None
-    return (von, bis)
+    return (start, end)
 
 
-def _zusammenfuehren(spannen):
+def _merge_spans(spans):
     """Ueberlappende Zeitraeume verschmelzen — sonst zaehlt Zeit doppelt.
 
     ⚠ In den echten Daten gab es genau einen solchen Fall, mit **7,9 Stunden**
     Ueberschneidung. Ohne diesen Schritt stuende die Zeit zweimal in der Summe.
     """
-    if not spannen:
+    if not spans:
         return []
-    geordnet = sorted(spannen)
+    geordnet = sorted(spans)
     raus = [list(geordnet[0])]
-    for von, bis in geordnet[1:]:
-        if von <= raus[-1][1]:
-            raus[-1][1] = max(raus[-1][1], bis)
+    for start, end in geordnet[1:]:
+        if start <= raus[-1][1]:
+            raus[-1][1] = max(raus[-1][1], end)
         else:
-            raus.append([von, bis])
+            raus.append([start, end])
     return raus
 
 
-def nachtragen(dateien):
+def catch_up(files):
     """Protokolle einlesen und die Datenbank fortschreiben.
 
     Gibt die Zahl der neu dazugekommenen Sitzungen zurueck. Bereits bekannte
@@ -191,50 +191,50 @@ def nachtragen(dateien):
     **eigenen** Lesestand: Dateiname und Groesse. Waechst eine Datei (die
     laufende `Game.log` tut das staendig), wird sie erneut gelesen.
     """
-    daten = laden()
+    data = load()
     bekannt = {}
-    for eintrag in daten['sitzungen']:
+    for eintrag in data['sitzungen']:
         bekannt[eintrag.get('von')] = eintrag
-    gelesen = daten.get('gelesen')
+    gelesen = data.get('gelesen')
     if not isinstance(gelesen, dict):
         gelesen = {}
-        daten['gelesen'] = gelesen
+        data['gelesen'] = gelesen
 
-    neu = 0
-    for dateipfad in (dateien or []):
+    tmp_path = 0
+    for log_path in (files or []):
         # ⚠ Vor dem Lesen fragen, ob es noetig ist: 188 Dateien sind zusammen
         # leicht ein halbes Gigabyte.
         try:
-            marke = os.path.getsize(dateipfad)
+            marke = os.path.getsize(log_path)
         except OSError:
             continue
-        name = os.path.basename(dateipfad)
+        name = os.path.basename(log_path)
         if gelesen.get(name) == marke:
             continue
         gelesen[name] = marke
 
-        spanne = spanne_aus_log(dateipfad)
-        if not spanne:
+        span = span_from_log(log_path)
+        if not span:
             continue
-        von, bis = spanne
-        vorhanden = bekannt.get(von)
+        start, end = span
+        vorhanden = bekannt.get(start)
         if vorhanden is None:
-            eintrag = {'von': von, 'bis': bis}
-            daten['sitzungen'].append(eintrag)
-            bekannt[von] = eintrag
-            neu += 1
-        elif bis > vorhanden.get('bis', 0):
+            eintrag = {'von': start, 'bis': end}
+            data['sitzungen'].append(eintrag)
+            bekannt[start] = eintrag
+            tmp_path += 1
+        elif end > vorhanden.get('bis', 0):
             # ⚠ Dieselbe Sitzung, aber laenger als beim letzten Mal: Die
             # laufende Game.log waechst ja noch. Ohne diesen Zweig bliebe die
             # heutige Sitzung fuer immer auf ihrem ersten Stand stehen.
-            vorhanden['bis'] = bis
+            vorhanden['bis'] = end
 
-    daten['sitzungen'].sort(key=lambda e: e.get('von') or 0)
-    sichern(daten)
-    return neu
+    data['sitzungen'].sort(key=lambda e: e.get('von') or 0)
+    save(data)
+    return tmp_path
 
 
-def gesamt(daten=None, mit_laufender=True):
+def total(data=None, with_running=True):
     """Die aufgezeichnete Spielzeit in Sekunden.
 
     ⚠⚠ **Die laufende Sitzung zaehlt mit ihrem AKTUELLEN Stand.** In der
@@ -246,24 +246,24 @@ def gesamt(daten=None, mit_laufender=True):
     gespeicherte kuerzere Spanne mit der aktuellen laengeren, weil sie
     denselben Anfang haben. Genau dafuer ist es da.
     """
-    daten = daten if daten is not None else laden()
-    spannen = [(e.get('von'), e.get('bis')) for e in daten.get('sitzungen', [])
+    data = data if data is not None else load()
+    spans = [(e.get('von'), e.get('bis')) for e in data.get('sitzungen', [])
                if e.get('von') and e.get('bis')]
-    if mit_laufender:
-        jetzt = _laufende_spanne()
+    if with_running:
+        jetzt = _running_span()
         if jetzt:
-            spannen.append(jetzt)
-    return sum(bis - von for von, bis in _zusammenfuehren(spannen))
+            spans.append(jetzt)
+    return sum(end - start for start, end in _merge_spans(spans))
 
 
-def seit(daten=None):
+def since(data=None):
     """Ab wann aufgezeichnet wurde — als Sekunden, oder None."""
-    daten = daten if daten is not None else laden()
-    zeiten = [e.get('von') for e in daten.get('sitzungen', []) if e.get('von')]
+    data = data if data is not None else load()
+    zeiten = [e.get('von') for e in data.get('sitzungen', []) if e.get('von')]
     return min(zeiten) if zeiten else None
 
 
-def _laufende_spanne():
+def _running_span():
     """(von, bis) der gerade laufenden Sitzung — oder None.
 
     ⚠ **Das Ende kommt aus der Schreibzeit der Datei, nicht aus der Uhr.**
@@ -275,39 +275,39 @@ def _laufende_spanne():
     solange dieselbe Datei dieselbe Sitzung ist; faengt das Spiel neu an, wird
     die Datei **kuerzer** — daran ist der Wechsel zu erkennen.
     """
-    datei = pfade.game_log()
-    if not datei or not pfade.spiel_laeuft():
+    filename = pfade.game_log()
+    if not filename or not pfade.spiel_laeuft():
         return None
     try:
-        groesse = os.path.getsize(datei)
-        if (_merker.get('datei') != datei
-                or _merker.get('groesse', 0) > groesse
-                or not _merker.get('von')):
-            spanne = spanne_aus_log(datei)
-            _merker['datei'] = datei
-            _merker['von'] = spanne[0] if spanne else None
-        _merker['groesse'] = groesse
-        von = _merker.get('von')
-        if not von:
+        size = os.path.getsize(filename)
+        if (_cache.get('datei') != filename
+                or _cache.get('groesse', 0) > size
+                or not _cache.get('von')):
+            span = span_from_log(filename)
+            _cache['datei'] = filename
+            _cache['von'] = span[0] if span else None
+        _cache['groesse'] = size
+        start = _cache.get('von')
+        if not start:
             return None
-        bis = int(os.path.getmtime(datei))
-        if not (0 <= (bis - von) <= GRENZE_SEK):
+        end = int(os.path.getmtime(filename))
+        if not (0 <= (end - start) <= MAX_SPAN_SEC):
             return None
-        return (von, bis)
+        return (start, end)
     except Exception:
         return None
 
 
-def sitzung_jetzt():
+def session_now():
     """Die laufende Sitzung in Sekunden — 0, wenn das Spiel nicht laeuft."""
-    spanne = _laufende_spanne()
-    return (spanne[1] - spanne[0]) if spanne else 0
+    span = _running_span()
+    return (span[1] - span[0]) if span else 0
 
 
-_merker = {}
+_cache = {}
 
 
-def als_text(sekunden):
+def as_text(seconds):
     """Sekunden als „3 h 14 min" — kurz genug fuer eine Kopfzeile.
 
     ⚠ Keine Sekundenanzeige: Sie aendert sich staendig, zieht den Blick auf
@@ -315,10 +315,10 @@ def als_text(sekunden):
     nicht „gerade eben" — eine Zahl bleibt eine Zahl.
     """
     try:
-        sekunden = max(0, int(sekunden))
+        seconds = max(0, int(seconds))
     except Exception:
         return '0 min'
-    stunden, rest = divmod(sekunden, 3600)
+    stunden, rest = divmod(seconds, 3600)
     minuten = rest // 60
     if stunden:
         return '%d h %02d min' % (stunden, minuten)

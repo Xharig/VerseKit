@@ -843,8 +843,8 @@ def nachlese():
     # „0 min", obwohl 188 Protokolle dalagen. `spielzeit` hat einen eigenen
     # Lesestand und ueberspringt selbst, was es kennt.
     try:
-        from . import spielzeit as _sz
-        _sz.nachtragen(sicherungen + ([laufende] if laufende else []))
+        from . import playtime as _sz
+        _sz.catch_up(sicherungen + ([laufende] if laufende else []))
     except Exception as ausnahme:
         fehler.merken('missionslog.spielzeit', ausnahme)
 

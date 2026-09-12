@@ -1934,7 +1934,7 @@ class Hauptfenster:
         staendig, und eine wandernde Zahl zwischen festen Knoepfen laesst die
         ganze Leiste unruhig wirken.
         """
-        from . import spielzeit as _sz
+        from . import playtime as _sz
 
         # ⚠⚠ **Standardmaessig AUS** (Wunsch vom 05.09.2026). Nicht jeder will
         # wissen, wie viel Zeit er in einem Spiel verbracht hat — und eine
@@ -1958,7 +1958,7 @@ class Hauptfenster:
         self.zeit_text.pack(side='left')
 
         def erklaerung():
-            ab = _sz.seit()
+            ab = _sz.since()
             if not ab:
                 return t('hf_zeit_h_leer')
             import time as _t
@@ -1970,15 +1970,15 @@ class Hauptfenster:
             try:
                 if not self.zeit_text.winfo_exists():
                     return
-                gesamt = _sz.gesamt()
-                jetzt = _sz.sitzung_jetzt()
+                gesamt = _sz.total()
+                jetzt = _sz.session_now()
                 # ⚠ Die laufende Sitzung steht nur da, wenn wirklich gespielt
                 # wird. „+ 0 min" waere eine Zeile, die nie etwas sagt.
                 if jetzt:
-                    text = ' %s  (+%s)' % (_sz.als_text(gesamt),
-                                           _sz.als_text(jetzt))
+                    text = ' %s  (+%s)' % (_sz.as_text(gesamt),
+                                           _sz.as_text(jetzt))
                 else:
-                    text = ' %s' % _sz.als_text(gesamt)
+                    text = ' %s' % _sz.as_text(gesamt)
                 self.zeit_text.configure(text=text)
             except Exception as ausnahme:
                 fehler.merken('hauptfenster.spielzeit', ausnahme)
