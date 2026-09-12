@@ -57,7 +57,7 @@ import re
 
 from . import fehler, pfade
 
-DATEI = 'auftragsruf.json'
+CACHE_FILE = 'auftragsruf.json'
 FORMAT = 1
 
 # ⚠⚠ **Geholt wird vom GitHub-Spiegel, nicht von scmdb.net.** Krovax hat ihn
@@ -66,18 +66,18 @@ FORMAT = 1
 # Wer eine fremde Quelle benutzt, benutzt den Weg, den ihr Betreiber dafür
 # vorgesehen hat — sonst hängt man an einer Einstellung, die jederzeit anders
 # gemeint sein kann.
-BASIS = ('https://raw.githubusercontent.com/KrovaxCode/SCMDB_DATA/main/data')
+BASE = ('https://raw.githubusercontent.com/KrovaxCode/SCMDB_DATA/main/data')
 # ⚠ Beim Spiegel heißt die Übersicht `game-versions.json`, auf der Webseite
 # `versions.json`. Inhalt und Aufbau sind gleich.
-VERSIONSDATEI = 'game-versions.json'
+VERSION_FILE = 'game-versions.json'
 
 # ⚠ **Nur als Rückfall.** Krovax hat die Nutzung seiner Webseite ausdrücklich
 # erlaubt, für den Fall, dass am Spiegel etwas fehlt. Der Spiegel bleibt
 # trotzdem der erste Weg: Er ist der, den er dafür gebaut hat.
-RUECKFALL = 'https://scmdb.net/data'
-RUECKFALL_VERSIONSDATEI = 'versions.json'
+FALLBACK = 'https://scmdb.net/data'
+FALLBACK_VERSION_FILE = 'versions.json'
 
-ZEITGRENZE = 30
+TIME_LIMIT = 30
 
 # ⚠ Wer den Netzzugriff abschaltet, meint auch diesen. Der Selbsttest haelt
 # fest, dass JEDES Modul mit Netzabruf den Schalter kennt — und hat dieses
@@ -86,7 +86,7 @@ ZEITGRENZE = 30
 # ⚠ Abgeschaltet wird das **Holen**, nicht das Wissen: Eine bereits geladene
 # Tabelle bleibt nutzbar. Sonst verlöre man mit dem Netz auch das, was längst
 # auf der Platte liegt.
-AUS = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
+OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 
 # Der Auftragsschluessel steht bei scmdb mit fuehrendem `@` und in anderer
 # Gross-/Kleinschreibung als in den Vertragsdaten:
@@ -96,55 +96,55 @@ AUS = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 #
 # ⚠ Gemessen: Ohne diese Angleichung gibt es **null** Treffer, mit ihr passen
 # die Listen zusammen. Der Vergleich laeuft deshalb immer ueber `_schluessel`.
-def _schluessel(roh):
-    return (roh or '').lstrip('@').lower()
+def _key(raw):
+    return (raw or '').lstrip('@').lower()
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def path():
+    return pfade.app_datei(CACHE_FILE)
 
 
-def laden():
+def load():
     """Die aufbereitete Tabelle — `{'version':…, 'auftraege': {…}}`."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if (isinstance(daten, dict) and daten.get('format') == FORMAT
-                and isinstance(daten.get('auftraege'), dict)):
-            return daten
+        with open(path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if (isinstance(data, dict) and data.get('format') == FORMAT
+                and isinstance(data.get('auftraege'), dict)):
+            return data
     except (OSError, ValueError):
         pass
-    except Exception as ausnahme:
-        fehler.merken('auftragsruf.laden', ausnahme)
+    except Exception as error:
+        fehler.merken('reputation.load', error)
     return {'format': FORMAT, 'version': '', 'auftraege': {}}
 
 
-def sichern(daten):
+def save(data):
     try:
-        daten['format'] = FORMAT
-        ziel = pfad()
-        ordner = os.path.dirname(ziel)
-        if ordner and not os.path.isdir(ordner):
-            os.makedirs(ordner)
-        vorlaeufig = ziel + '.neu'
-        with open(vorlaeufig, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False)
-        os.replace(vorlaeufig, ziel)
+        data['format'] = FORMAT
+        target = path()
+        folder = os.path.dirname(target)
+        if folder and not os.path.isdir(folder):
+            os.makedirs(folder)
+        tentative = target + '.neu'
+        with open(tentative, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tentative, target)
         return True
-    except Exception as ausnahme:
-        fehler.merken('auftragsruf.sichern', ausnahme)
+    except Exception as error:
+        fehler.merken('reputation.save', error)
         return False
 
 
-def _holen(adresse):
+def _fetch(address):
     import urllib.request
-    anfrage = urllib.request.Request(
-        adresse, headers={'User-Agent': 'SC-BP-Watcher'})
-    with urllib.request.urlopen(anfrage, timeout=ZEITGRENZE) as antwort:
-        return json.loads(antwort.read().decode('utf-8'))
+    request = urllib.request.Request(
+        address, headers={'User-Agent': 'SC-BP-Watcher'})
+    with urllib.request.urlopen(request, timeout=TIME_LIMIT) as reply:
+        return json.loads(reply.read().decode('utf-8'))
 
 
-def aufbereiten(roh):
+def prepare(raw):
     """Aus der 12,5-MB-Datei die Tabelle bauen, die wir brauchen.
 
     Gibt `{schluessel: [{'wer':…, 'was':…, 'wieviel':…}, …]}` zurueck.
@@ -153,104 +153,104 @@ def aufbereiten(roh):
     Genau das war der Anlass: „headhunters ist ne gute quelle da gibt es
     beides, oder citizen for prosperity."
     """
-    contracts = roh.get('contracts') or []
-    pools = roh.get('factionRewardsPools') or []
-    factions = roh.get('factions') or {}
-    scopes = roh.get('scopes') or {}
+    contracts = raw.get('contracts') or []
+    pools = raw.get('factionRewardsPools') or []
+    factions = raw.get('factions') or {}
+    scopes = raw.get('scopes') or {}
 
-    raus = {}
+    out = {}
     for c in contracts:
-        schluessel = _schluessel(c.get('titleLocKey') or c.get('titleKey'))
-        index = c.get('factionRewardsIndex')
-        if not schluessel or not isinstance(index, int):
+        key = _key(c.get('titleLocKey') or c.get('titleKey'))
+        idx = c.get('factionRewardsIndex')
+        if not key or not isinstance(idx, int):
             continue
-        if index < 0 or index >= len(pools):
+        if idx < 0 or idx >= len(pools):
             continue
-        eintraege = []
-        for teil in (pools[index] or []):
-            if not isinstance(teil, dict):
+        entries = []
+        for part in (pools[idx] or []):
+            if not isinstance(part, dict):
                 continue
-            menge = teil.get('amount')
-            if not menge:
+            amount_ = part.get('amount')
+            if not amount_:
                 continue
-            fraktion = (factions.get(teil.get('factionGuid')) or {}).get('name')
-            art = (scopes.get(teil.get('scopeGuid')) or {}).get('displayName')
-            if not fraktion and not art:
+            faction = (factions.get(part.get('factionGuid')) or {}).get('name')
+            kind = (scopes.get(part.get('scopeGuid')) or {}).get('displayName')
+            if not faction and not kind:
                 continue
-            eintraege.append({'wer': fraktion or '', 'was': art or '',
-                              'wieviel': menge})
-        if eintraege:
-            raus[schluessel] = eintraege
-    return raus
+            entries.append({'wer': faction or '', 'was': kind or '',
+                              'wieviel': amount_})
+        if entries:
+            out[key] = entries
+    return out
 
 
-def auffrischen(spielversion=''):
+def refresh(game_version=''):
     """Die Tabelle holen, wenn sie fehlt oder zum Patch nicht mehr passt.
 
     Gibt die Zahl der Auftraege zurueck. Bei Netzfehlern bleibt der alte
     Stand stehen — eine veraltete Angabe ist besser als keine.
     """
-    alt = laden()
-    if alt['auftraege'] and (not spielversion
-                             or alt.get('version') == spielversion):
-        return len(alt['auftraege'])
-    if AUS:
-        return len(alt['auftraege'])
+    old = load()
+    if old['auftraege'] and (not game_version
+                             or old.get('version') == game_version):
+        return len(old['auftraege'])
+    if OFF:
+        return len(old['auftraege'])
 
     try:
         # ⚠ Spiegel zuerst, Webseite nur wenn dort etwas fehlt. Beide Wege
         # sind erlaubt — der Spiegel ist der vorgesehene.
-        basis = BASIS
+        base_url = BASE
         try:
-            versionen = _holen('%s/%s' % (BASIS, VERSIONSDATEI))
+            versions_ = _fetch('%s/%s' % (BASE, VERSION_FILE))
         except Exception:
-            basis = RUECKFALL
-            versionen = _holen('%s/%s' % (RUECKFALL,
-                                          RUECKFALL_VERSIONSDATEI))
-        datei = None
+            base_url = FALLBACK
+            versions_ = _fetch('%s/%s' % (FALLBACK,
+                                          FALLBACK_VERSION_FILE))
+        file_name = None
         # ⚠ Die zum Spielstand passende Fassung, nicht blind die erste: Die
         # Liste beginnt mit der PTU, und wer auf LIVE spielt, bekaeme sonst
         # Auftragsdaten einer Version, die er gar nicht hat.
-        for eintrag in (versionen or []):
-            if spielversion and eintrag.get('version') == spielversion:
-                datei = eintrag.get('file')
+        for entry in (versions_ or []):
+            if game_version and entry.get('version') == game_version:
+                file_name = entry.get('file')
                 break
-        if not datei:
-            for eintrag in (versionen or []):
-                if 'live' in (eintrag.get('version') or ''):
-                    datei = eintrag.get('file')
+        if not file_name:
+            for entry in (versions_ or []):
+                if 'live' in (entry.get('version') or ''):
+                    file_name = entry.get('file')
                     break
-        if not datei and versionen:
-            datei = versionen[0].get('file')
-        if not datei:
-            return len(alt['auftraege'])
+        if not file_name and versions_:
+            file_name = versions_[0].get('file')
+        if not file_name:
+            return len(old['auftraege'])
 
         try:
-            roh = _holen('%s/%s' % (basis, datei))
+            raw = _fetch('%s/%s' % (base_url, file_name))
         except Exception:
             # Die Übersicht kam durch, die Datei selbst nicht — dann den
             # anderen Weg versuchen, statt ganz aufzugeben.
-            anderer = RUECKFALL if basis == BASIS else BASIS
-            roh = _holen('%s/%s' % (anderer, datei))
-        auftraege = aufbereiten(roh)
-        if not auftraege:
-            return len(alt['auftraege'])
-        sichern({'format': FORMAT,
-                 'version': roh.get('version') or spielversion or '',
-                 'auftraege': auftraege})
-        return len(auftraege)
-    except Exception as ausnahme:
-        fehler.merken('auftragsruf.auffrischen', ausnahme)
-        return len(alt['auftraege'])
+            other = FALLBACK if base_url == BASE else BASE
+            raw = _fetch('%s/%s' % (other, file_name))
+        contract_map = prepare(raw)
+        if not contract_map:
+            return len(old['auftraege'])
+        save({'format': FORMAT,
+                 'version': raw.get('version') or game_version or '',
+                 'auftraege': contract_map})
+        return len(contract_map)
+    except Exception as error:
+        fehler.merken('reputation.refresh', error)
+        return len(old['auftraege'])
 
 
-def zu(schluessel, daten=None):
+def entries_for(key, data=None):
     """Die Rufeintraege eines Auftrags — leere Liste, wenn nichts bekannt."""
-    daten = daten if daten is not None else laden()
-    return daten['auftraege'].get(_schluessel(schluessel)) or []
+    data = data if data is not None else load()
+    return data['auftraege'].get(_key(key)) or []
 
 
-def zeile(schluessel, wort='Ruf', daten=None):
+def line(key, word='Ruf', data=None):
     """Eine fertige Zeile fuer den Auftragstext — oder `''`.
 
     Sieht so aus: `# Ruf: Headhunters +50 Standing`, bei mehreren Parteien
@@ -260,16 +260,16 @@ def zeile(schluessel, wort='Ruf', daten=None):
     zu schreiben; ohne Art umgekehrt. Eine halbe Angabe ist immer noch eine
     Auskunft, eine erfundene waere keine.
     """
-    teile = []
-    for e in zu(schluessel, daten):
-        menge = e.get('wieviel')
-        wer, was = (e.get('wer') or '').strip(), (e.get('was') or '').strip()
-        if wer and was:
-            teile.append('%s +%s %s' % (wer, menge, was))
-        elif wer:
-            teile.append('%s +%s' % (wer, menge))
-        elif was:
-            teile.append('+%s %s' % (menge, was))
-    if not teile:
+    parts = []
+    for e in entries_for(key, data):
+        amount_ = e.get('wieviel')
+        who, what = (e.get('wer') or '').strip(), (e.get('was') or '').strip()
+        if who and what:
+            parts.append('%s +%s %s' % (who, amount_, what))
+        elif who:
+            parts.append('%s +%s' % (who, amount_))
+        elif what:
+            parts.append('+%s %s' % (amount_, what))
+    if not parts:
         return ''
-    return '# %s: %s' % (wort, ', '.join(teile))
+    return '# %s: %s' % (word, ', '.join(parts))

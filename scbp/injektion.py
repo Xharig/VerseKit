@@ -870,7 +870,7 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     als neu, nur weil sie beim letzten Lauf noch ungefaerbt war — und stuende
     danach zweimal da.
 
-    ⚠⚠ **Die Ruf-Zeile kommt aus einer ANDEREN Quelle** (`auftragsruf`). Die
+    ⚠⚠ **Die Ruf-Zeile kommt aus einer ANDEREN Quelle** (`reputation`). Die
     Vertragsdaten nennen die Rufpunkte nur als Zahl; bei WEM sie anfallen und
     ob es Standing, Affinity oder Bounty Hunting ist, steht dort in keinem
     einzigen Feld — gemessen an allen 818 Eintraegen. Gewuenscht wurde genau
@@ -887,8 +887,8 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
 
     if ruftabelle is not None:
         try:
-            from . import auftragsruf
-            zeile = auftragsruf.zeile(
+            from . import reputation
+            zeile = reputation.line(
                 eintrag.get('titleLocKey') or '',
                 (worte or {}).get('ruf_bei') or 'Ruf', ruftabelle)
             # ⚠ Der Dublettenschutz vergleicht nur den ANFANG bis zum
@@ -1063,15 +1063,15 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     # Ruf-Zeile ist ein Verlust, ein abgebrochener Einbau waere ein Schaden.
     ruftabelle = None
     try:
-        from . import auftragsruf, gamebuild
+        from . import reputation, gamebuild
         try:
             version = gamebuild.live() or ''
         except Exception:
             version = ''
-        auftragsruf.auffrischen(version)
-        ruftabelle = auftragsruf.laden()
+        reputation.refresh(version)
+        ruftabelle = reputation.load()
     except Exception as ausnahme:
-        fehler.merken('injektion.auftragsruf', ausnahme)
+        fehler.merken('injektion.reputation', ausnahme)
 
     titel_an, text_an = {}, {}
     # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben

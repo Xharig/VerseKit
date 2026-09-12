@@ -12511,12 +12511,12 @@ def main():
     # Die Vertragsdaten geben das NICHT her — gemessen an allen 818 Eintraegen
     # kennen sie die Rufpunkte nur als Zahl, ohne Partei und ohne Art. Deshalb
     # eine zweite Quelle (scmdb.net) und ein eigenes Modul.
-    from scbp import auftragsruf as _ar128
+    from scbp import reputation as _ar128
 
     # ⚠ Der Schluesselvergleich ist der Angelpunkt: scmdb schreibt `@` davor
     # und eine andere Gross-/Kleinschreibung. Ohne Angleichung gibt es NULL
     # Treffer — gemessen, bevor es gebaut wurde.
-    pruefe(_ar128._schluessel('@Shubin_Nyx_M_Title_001') ==
+    pruefe(_ar128._key('@Shubin_Nyx_M_Title_001') ==
            'shubin_nyx_m_title_001',
            'der scmdb-Schluessel wird angeglichen')
 
@@ -12542,24 +12542,24 @@ def main():
                    's2': {'displayName': 'Affinity'}},
     }
     _tab128 = {'format': _ar128.FORMAT, 'version': 'probe',
-               'auftraege': _ar128.aufbereiten(_roh128)}
+               'auftraege': _ar128.prepare(_roh128)}
 
     pruefe(len(_tab128['auftraege']) == 2,
            'nur Auftraege mit Rufeintrag kommen in die Tabelle (%d)'
            % len(_tab128['auftraege']))
 
-    _z128 = _ar128.zeile('headhunters_test_title_001', 'Ruf', _tab128)
+    _z128 = _ar128.line('headhunters_test_title_001', 'Ruf', _tab128)
     pruefe(_z128 == '# Ruf: Headhunters +150 Standing',
            'eine Partei: %r' % _z128)
 
-    _z128 = _ar128.zeile('cfp_test_title_001', 'Ruf', _tab128)
+    _z128 = _ar128.line('cfp_test_title_001', 'Ruf', _tab128)
     pruefe(_z128 == ('# Ruf: Citizens For Prosperity +100 Standing, '
                      'Citizens For Prosperity +50 Affinity'),
            'zwei Parteien in einem Auftrag: %r' % _z128)
 
-    pruefe(_ar128.zeile('ohne_test_title_001', 'Ruf', _tab128) == '',
+    pruefe(_ar128.line('ohne_test_title_001', 'Ruf', _tab128) == '',
            'ohne Rufeintrag bleibt die Zeile leer')
-    pruefe(_ar128.zeile('gibtesnicht', 'Ruf', _tab128) == '',
+    pruefe(_ar128.line('gibtesnicht', 'Ruf', _tab128) == '',
            'ein unbekannter Auftrag bekommt nichts erfunden')
 
     # ⚠ Und die Verbindung zur Injektion: Ohne sie stuende das Modul da und
