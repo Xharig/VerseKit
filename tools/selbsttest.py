@@ -3209,57 +3209,76 @@ def main():
     # ginge. Das zu aendern waere Programmcode — und der wird in einem
     # Umbenennungs-Zweig nicht angefasst. Also hier ein dritter Riegel.
     #
-    # ⚠⚠⚠ **Der Riegel haengt an der WIRKUNG, nicht an der Form des Aufrufs.**
+    # ⚠⚠⚠ **POSITIVLISTE: erlaubt ist nur der Wegwerf-Ordner, nicht „alles
+    # ausser dem Spiel".** Drei Anlaeufe, jeder von einer Gegenprobe widerlegt:
     #
-    # Der erste Versuch unterschied „Aufruf ohne Ordner" (gefaehrlich) von
-    # „Aufruf mit Ordner" (isoliert). Das ist zu grob und hat prompt Pruefung
-    # 123 gekippt: Sie legt ihren eigenen Spielordner an und traegt ihn in die
-    # **Einstellungsdatei** ein, ruft also voellig zu Recht ohne Argument.
-    # „Ohne Argument" heisst eben nicht „zeigt auf den Spieler".
+    # | Ansatz | Was ihn erledigt hat |
+    # |---|---|
+    # | alles stilllegen (`lambda *_a: []`) | kippt VIER Pruefungen in 131 |
+    # | nur der Aufruf **ohne Ordner** | kippt Pruefung 123: Sie legt ihren eigenen Spielordner an und traegt ihn in die EINSTELLUNGSDATEI ein — ruft also zu Recht ohne Argument. „Ohne Argument" heisst nicht „zeigt auf den Spieler" |
+    # | **Sperrliste**: alles unter der echten Installation | zwei Loecher, beide gemessen (siehe unten) |
     #
-    # Entschieden wird deshalb am Pfad: Alles, was unter der **echten**
-    # Installation liegt, wird abgeschnitten — alles andere (die Wegwerf-Ordner
-    # der Pruefungen) geht durch. Damit sind Pruefung 123 und 131 unberuehrt,
-    # und die Hintergrund-Ticks kommen trotzdem nicht an die Spielerdaten.
+    # ⛔ **Warum die Sperrliste durchlaessig war** — der Pruefer hat beides
+    # gefunden, die Messung hat es bestaetigt:
     #
-    # ⚠ Ein blanker `lambda *_a: []` war der allererste Versuch und hat VIER
-    # Pruefungen von 131 gekippt („LIVE (3) + HOTFIX (221) = 224" wurde 0).
-    # Wer eine Funktion stilllegt, legt auch ihre Pruefungen still.
+    #   1. **Nachbarkanaele.** `log_sicherungen()` liest ausdruecklich auch
+    #      HOTFIX (`_kanal_geschwister`, Wunsch vom 05.09.2026). HOTFIX ist ein
+    #      GESCHWISTER von LIVE, kein Unterordner — eine Sperre auf LIVE laesst
+    #      es durch. Gemessen: 2 Sicherungen und die laufende Datei kamen an.
+    #   2. **Gross-/Kleinschreibung.** `commonpath` vergleicht Zeichenketten;
+    #      Windows-Pfade sind aber schreibungsblind. Derselbe Ordner,
+    #      kleingeschrieben uebergeben, ging glatt durch. Dazu loest
+    #      `abspath()` keine Junctions auf — der zweite Weg um dieselbe Sperre.
     #
-    # Der Spielordner selbst darf weiterhin gefunden werden — die `global.ini`
-    # liegt dort, und vier Pruefungen brauchen sie.
+    # ⭐⭐ **Die Lehre: Eine Sperrliste muss jeden Weg kennen, eine Positivliste
+    # nur den erlaubten.** Der Pruefstand arbeitet ausnahmslos in
+    # `tempfile.mkdtemp()`-Ordnern (42 Stellen, nachgezaehlt) — also ist genau
+    # das die Erlaubnis, und alles andere ist gesperrt. Kanaele, Schreibweise
+    # und Symlinks sind damit kein Thema mehr, weil sie gar nicht mehr
+    # unterschieden werden muessen.
+    #
+    # Der Spielordner selbst darf weiterhin GEFUNDEN werden — die `global.ini`
+    # liegt dort, und vier Pruefungen brauchen sie. Gesperrt sind nur die
+    # Protokolle.
     #
     # ⚠ Steht bewusst HINTER Abschnitt 6: Der braucht die Sicherungen der
     # nachgebauten Installation („es liegen Sicherungen zum Pruefen bereit").
     _pf_iso = __import__('scbp.pfade', fromlist=['log_sicherungen'])
     _echte_sicherungen = _pf_iso.log_sicherungen
     _echte_gamelog = _pf_iso.game_log
-    # Einmal ermitteln, solange nichts stillgelegt ist: Wo liegt das echte Spiel?
-    _echte_inst = _pf_iso.spiel_ordner() or ''
+    _temp_wurzel_iso = os.path.normcase(
+        os.path.realpath(tempfile.gettempdir()))
 
-    def _beim_spieler(pfad):
-        """Zeigt dieser Pfad in die echte Installation des Nutzers?"""
-        if not (_echte_inst and pfad):
+    def _wegwerf(pfad):
+        """Liegt der Pfad im Wegwerf-Bereich? Nur dann ist er erlaubt.
+
+        `realpath` loest Junctions und Symlinks auf, `normcase` macht die
+        Schreibweise unter Windows egal — beides war eine eigene Luecke.
+        """
+        if not pfad:
             return False
         try:
-            return os.path.commonpath(
-                [os.path.abspath(pfad),
-                 os.path.abspath(_echte_inst)]) == os.path.abspath(_echte_inst)
-        except ValueError:          # andere Festplatte — dann sicher nicht
+            _echt = os.path.normcase(os.path.realpath(pfad))
+        except OSError:
             return False
+        return (_echt == _temp_wurzel_iso
+                or _echt.startswith(_temp_wurzel_iso + os.sep))
 
     def _sicherungen_iso(ordner=None, *_a, **_k):
         return [_p for _p in (_echte_sicherungen(ordner, *_a, **_k) or [])
-                if not _beim_spieler(_p)]
+                if _wegwerf(_p)]
 
     def _gamelog_iso(ordner=None, *_a, **_k):
         _p = _echte_gamelog(ordner, *_a, **_k)
-        return None if _beim_spieler(_p) else _p
+        return _p if _wegwerf(_p) else None
+
+    def _nachlese_iso(*_a, **_k):
+        return (0, 0)
 
     _pf_iso.log_sicherungen = _sicherungen_iso
     _pf_iso.game_log = _gamelog_iso
     _ml_iso = __import__('scbp.missionslog', fromlist=['nachlese'])
-    _ml_iso.nachlese = lambda *_a, **_k: (0, 0)
+    _ml_iso.nachlese = _nachlese_iso
 
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
@@ -8745,21 +8764,29 @@ def main():
     # nicht in der geprueften Funktion. Damit faellt auf, wenn der Bericht
     # anfaengt, eine andere Quelle zu zaehlen oder gar nicht mehr zu zaehlen.
     # Nichtleer ist Absicht: Gegen `0` waere jede kaputte Zaehlung unauffaellig.
+    # ⚠ **Mehrere Groessen, nicht nur eine.** Eine einzige Probe (3 -> 3) liesse
+    # eine fest eingebaute 3 durchgehen; die Gegenprobe „vier Pfade, erwartet
+    # drei" zeigt nur, dass eine absichtlich falsche Erwartung scheitert. Erst
+    # eine Reihe belegt, dass wirklich GEZAEHLT wird.
     _echt94 = w.pfade.log_sicherungen
-    _liste94 = [os.path.join('nirgendwo', 'Game_%d.log' % _i94)
-                for _i94 in range(3)]
-    w.pfade.log_sicherungen = lambda *_a, **_k: list(_liste94)
+    _gemessen94 = []
     try:
+        for _n94 in (0, 1, 3, 4):
+            _liste94 = [os.path.join('nirgendwo', 'Game_%d.log' % _i94)
+                        for _i94 in range(_n94)]
+            w.pfade.log_sicherungen = (
+                lambda *_a, _l94=_liste94, **_k: list(_l94))
+            _gemessen94.append(_zahlen94(_be94._protokollzeile())[0])
         _zeile94 = _be94._protokollzeile()
     finally:
         w.pfade.log_sicherungen = _echt94
+    pruefe(_gemessen94 == [0, 1, 3, 4],
+           'die erste Zahl zaehlt die Protokolle wirklich '
+           '(0/1/3/4 -> %r)' % (_gemessen94,))
     _z94 = _zahlen94(_zeile94)
     pruefe(len(_z94) == 3,
            'die Zeile nennt drei Zahlen: vorhanden, gelesen, gefunden (%r)'
            % _zeile94)
-    pruefe(_z94[0] == 3,
-           'die erste Zahl ist die Zahl der Protokolle (erwartet 3, steht %r)'
-           % (_z94[0],))
     pruefe(_z94[2] == 0, 'ohne Bestand steht hinten eine Null')
 
     # ⭐ Der Kern: Nur Funde AUS PROTOKOLLEN zaehlen. Was vom Launcher, von
@@ -10604,21 +10631,39 @@ def main():
         _offen113.append('game_log: laufende Datei')
     if _ml113.nachlese() != (0, 0):
         _offen113.append('nachlese: %r' % (_ml113.nachlese(),))
+
+    # ⚠⚠ **Auch die Aufrufe MIT Ordner** — sonst prueft die Wache nur die
+    # Haelfte. Der Pruefer hat genau das gefunden: Die erste Fassung testete
+    # ausschliesslich Aufrufe ohne Argumente, waehrend `game_log(<Nachbarkanal>)`
+    # weiterhin eine lesbare Datei lieferte.
+    #
+    # Geprueft wird an KONSTRUIERTEN Pfaden — es wird nichts Echtes gelesen und
+    # nichts angelegt. Die Namen muessen nicht existieren; gesperrt gehoert
+    # jeder Pfad, der nicht im Wegwerf-Bereich liegt.
+    for _probe113 in (os.path.join('C:' + os.sep, 'Program Files', 'Spiel',
+                                   'StarCitizen', 'HOTFIX'),
+                      os.path.join(os.sep, 'opt', 'spiel', 'LIVE')):
+        if _pf113.game_log(_probe113) or _pf113.log_sicherungen(_probe113):
+            _offen113.append('mit Ordner: %s' % _probe113)
     pruefe(not _offen113,
            'kein Weg fuehrt zu echten Spiel-Protokollen (%s)'
-           % ('; '.join(_offen113) or 'alle drei dicht'))
+           % ('; '.join(_offen113) or 'alle drei dicht, auch mit Ordner'))
 
     # Struktur: Jeder Riegel ist in Abschnitt 37 gesetzt worden und liegt noch.
-    # Erkannt am Namen des Ersatzes — die echten Funktionen heissen anders.
+    #
+    # ⚠⚠ **Geprueft wird die IDENTITAET, nicht der Name.** Die erste Fassung
+    # verglich `__name__` — und `== '<lambda>'` beweist gar nichts: Der Pruefer
+    # hat eine beliebige Lambda gebaut, die echte Dateien liest und trotzdem
+    # (0, 0) zurueckgibt. Sie bestand beide Wachen. Ein Rueckgabewert belegt
+    # keinen unterbliebenen Lesezugriff.
     _riegel113 = [
-        ('log_sicherungen', _pf113.log_sicherungen.__name__
-         == '_sicherungen_iso'),
-        ('game_log', _pf113.game_log.__name__ == '_gamelog_iso'),
-        ('nachlese', _ml113.nachlese.__name__ == '<lambda>'),
+        ('log_sicherungen', _pf113.log_sicherungen is _sicherungen_iso),
+        ('game_log', _pf113.game_log is _gamelog_iso),
+        ('nachlese', _ml113.nachlese is _nachlese_iso),
     ]
     _fehlt113 = [_n113 for _n113, _da113 in _riegel113 if not _da113]
     pruefe(not _fehlt113,
-           'alle drei Riegel aus Abschnitt 37 liegen noch (fehlt: %s)'
+           'alle drei Riegel aus Abschnitt 37 sind noch DIESELBEN (fehlt: %s)'
            % (', '.join(_fehlt113) or 'keiner'))
     try:
         def _zeile113(zeit, text, nr):
@@ -16881,60 +16926,82 @@ def main():
            % len(_dateien190))
 
     # ⭐⭐ Der FUENFTE Weg — und der einzige, den die vier oben nicht sehen:
-    # ein blanker Name in einer Liste, der erst zur Laufzeit zu `'scbp.' + name`
-    # zusammengesetzt wird. Genau so blieben `'bergbau'` und `'schiffe'` in
-    # `tools/abnahme.py` monatelang tot stehen — und am 12.09.2026 `'orte'` und
-    # `'routen'` gleich noch einmal, obwohl ein Kommentar direkt darueber davor
-    # warnt. Eine Textsuche taugt hier nicht: `'orte'` ist anderswo ein voellig
-    # gueltiger Woerterbuch-Schluessel.
+    # ein blanker Name in einer Liste, der erst zur Laufzeit zu einem
+    # Modulnamen zusammengesetzt wird. Genau so blieben `'bergbau'` und
+    # `'schiffe'` in `tools/abnahme.py` monatelang tot stehen — und am
+    # 12.09.2026 `'orte'` und `'routen'` gleich noch einmal, obwohl ein
+    # Kommentar direkt darueber davor warnt.
     #
-    # Deshalb prueft diese Wache die WIRKUNG statt der Schreibweise: Sie holt
-    # sich die Namensliste aus dem Syntaxbaum und importiert jeden Eintrag.
-    # Damit faellt jede kuenftige Umbenennung auf, in welcher Schreibweise auch
-    # immer — und die Wache veraltet nicht, weil sie keine Namen kennt.
-    def _dynamische190(quelle, name):
-        namen = []
-        for _k in _ast190.walk(_ast190.parse(quelle, name)):
-            if not isinstance(_k, _ast190.For):
-                continue
-            if not isinstance(_k.iter, (_ast190.Tuple, _ast190.List)):
-                continue
-            # Baut der Schleifenkoerper einen Modulnamen aus 'scbp.' + x?
-            _baut = any(
-                isinstance(_b, _ast190.BinOp)
-                and isinstance(_b.op, _ast190.Add)
-                and isinstance(_b.left, _ast190.Constant)
-                and _b.left.value == 'scbp.'
-                for _b in _ast190.walk(_k))
-            if not _baut:
-                continue
-            for _e in _k.iter.elts:
-                if isinstance(_e, _ast190.Constant) and isinstance(_e.value,
-                                                                   str):
-                    namen.append((name, _k.lineno, _e.value))
-        return namen
+    # ⛔ **Der erste Reparaturversuch durchsuchte den Quelltext** nach
+    # `for`-Schleifen mit `'scbp.' + x`. Der Pruefer hat ihn zerlegt, und die
+    # Messung gab ihm recht — VIER von fuenf Schreibweisen fielen durch:
+    #
+    #     f'scbp.{m}'            nicht gefunden
+    #     'scbp.{}'.format(m)    nicht gefunden
+    #     MODULE = (...)         nicht gefunden (ausgelagerte Liste)
+    #     [... for m in (...)]   nicht gefunden (Comprehension)
+    #
+    # Dazu maskierte die Mindestzahl `>= 5` den Rest: Bleiben fuenf gueltige
+    # Namen im erkannten Muster und wandern zwei veraltete in eine
+    # f-String-Schleife, meldet die Wache brav „5 geprueft, tot: keiner".
+    #
+    # ⭐ **Eine Suche nach Schreibweisen ist immer nur so gut wie ihre
+    # Fallliste.** Deshalb wird jetzt gar nicht mehr gesucht: Die Liste steht
+    # in `tools/ablagen.py`, und beide Seiten IMPORTIEREN sie — die Abnahme und
+    # diese Pruefung. Eine gemeinsame Quelle statt zweier Kopien.
+    #
+    # ⚠⚠⚠ **Und zwar `ablagen`, NICHT `abnahme`.** Der erste Versuch importierte
+    # `tools/abnahme.py` — das ruft auf Modulebene `unsichtbar.sicherstellen()`
+    # auf (ohne `messend`), und ab da ist jedes weitere Fenster versteckt. Ein
+    # verstecktes Fenster hat keine Geometrie: Pruefung 189 fand danach keine
+    # Rollleiste mehr, drei Pruefungen fielen.
+    #
+    # Belegt statt vermutet — zwei Erklaerungen waren vorher falsch:
+    #
+    #   „189 schwankt"          -> zweimal identisch rot, also nicht
+    #   „Windows zeichnet nicht" -> Fenster gemessen: 500x400, sichtbar
+    #   eigener Arbeitsbaum auf dem Stand davor -> dort 2101 GRUEN
+    #
+    # Erst der Arbeitsbaum hat es entschieden. Dieselbe Falle kostete am
+    # 07.09.2026 schon einmal den halben Selbsttest — sie kommt hier durch die
+    # Hintertuer eines harmlos aussehenden Imports zurueck.
+    _sys190 = __import__('sys')
+    if os.path.join(_wurzelpfad, 'tools') not in _sys190.path:
+        _sys190.path.insert(0, os.path.join(_wurzelpfad, 'tools'))
+    _abl190 = _il190.import_module('ablagen')
+    _liste190 = list(getattr(_abl190, 'ABLAGE_MODULE', ()))
+    pruefe(len(_liste190) >= 5,
+           'ablagen.py fuehrt die Ablage-Module als gemeinsame Liste (%d)'
+           % len(_liste190))
 
-    # Gegenprobe ZUERST: An einem erfundenen Beispiel muss die Suche greifen.
-    _gd190 = _dynamische190("for m in ('alpha', 'beta'):\n"
-                            "    __import__('scbp.' + m)\n", 'gegenprobe')
-    pruefe([_x[2] for _x in _gd190] == ['alpha', 'beta'],
-           'die Suche findet dynamisch zusammengesetzte Modulnamen (%r)'
-           % ([_x[2] for _x in _gd190],))
-
-    _dyn190 = []
-    for _p190 in _dateien190:
-        _dyn190 += _dynamische190(open(_p190, encoding='utf-8-sig').read(),
-                                  os.path.basename(_p190))
+    # ⚠ Und die Wache dagegen, dass jemand den Import spaeter „aufraeumt":
+    # `tools/ablagen.py` darf nichts importieren, sonst ist die Falle zurueck.
+    _q190 = open(os.path.join(_wurzelpfad, 'tools', 'ablagen.py'),
+                 encoding='utf-8-sig').read()
+    _imp190 = [_k190 for _k190 in _ast190.walk(_ast190.parse(_q190))
+               if isinstance(_k190, (_ast190.Import, _ast190.ImportFrom))]
+    pruefe(not _imp190,
+           'tools/ablagen.py bleibt frei von Importen (%d gefunden)'
+           % len(_imp190))
     _tot190 = []
-    for _datei190, _zeile190, _name190 in _dyn190:
+    for _name190 in _liste190:
         try:
             _il190.import_module('scbp.' + _name190)
         except ImportError:
-            _tot190.append('%s:%d %r' % (_datei190, _zeile190, _name190))
-    pruefe(len(_dyn190) >= 5 and not _tot190,
-           'jeder dynamisch gebaute Modulname zeigt auf ein Modul '
-           '(%d geprueft, tot: %s)'
-           % (len(_dyn190), ', '.join(_tot190) or 'keiner'))
+            _tot190.append(repr(_name190))
+    pruefe(not _tot190,
+           'jedes Modul aus abnahme.ABLAGE_MODULE gibt es auch (tot: %s)'
+           % (', '.join(_tot190) or 'keines'))
+
+    # Gegenprobe: Ein erfundener Name in derselben Liste muss auffallen.
+    _gp190 = []
+    for _name190 in list(_liste190) + ['gibtesnicht190']:
+        try:
+            _il190.import_module('scbp.' + _name190)
+        except ImportError:
+            _gp190.append(_name190)
+    pruefe(_gp190 == ['gibtesnicht190'],
+           'Gegenprobe: ein toter Name in der Liste faellt auf (%r)' % (_gp190,))
 
     for _alt190, _neu190 in _p4_190.items():
         pruefe(not os.path.exists(os.path.join(_wurzelpfad, 'scbp',
