@@ -16681,6 +16681,7 @@ def main():
         'laeden': 'shops',
         'orte': 'places',
         'verkauf': 'selling',
+        'routen': 'routes',
     }
 
     def _reste190(quelle, name, alte):

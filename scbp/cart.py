@@ -72,10 +72,10 @@ Teil wird deshalb über die Kennung gesucht, nicht über die Beschriftung.
 
 ## Die Kaufroute
 
-`routen.py` beantwortet eine **andere** Frage — „wo kaufe ich billig und
+`routes.py` beantwortet eine **andere** Frage — „wo kaufe ich billig und
 verkaufe teuer", über UEX' fertige Handelsfahrten. Hier geht es darum, eine
 feste Liste mit möglichst wenigen Stopps abzuklappern. Es gibt zwischen beiden
-auch keine gemeinsame Schlüsselgröße: `routen.py` rechnet ausschließlich über
+auch keine gemeinsame Schlüsselgröße: `routes.py` rechnet ausschließlich über
 Terminal-Nummern, `shops.py` legt nur Namen ab.
 
 Gerechnet wird deshalb hier, mit einer Überdeckung: Es gewinnt der Ort, der die

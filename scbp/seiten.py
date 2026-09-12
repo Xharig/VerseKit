@@ -6316,7 +6316,7 @@ def _routen(fenster, rahmen):
     Spieler steht, was in seinem Laderaum liegt oder wieviel Geld er hat —
     nichts davon steht in der `Game.log`. Also wird gefragt, statt geraten.
     """
-    from . import routen as routen_modul, ships as schiff_modul
+    from . import routes as routen_modul, ships as schiff_modul
     from . import selling as preisdaten
 
     _ueberschrift(fenster, rahmen, t('hf_routen'), t('s_rt_lead'))
@@ -6613,8 +6613,8 @@ def _routen(fenster, rahmen):
     reset_knopf.pack(side='right')
 
     def _stand_zeigen():
-        bekannt = routen_modul.bekannte_starts()
-        gesamt = len(routen_modul.handelsposten())
+        bekannt = routen_modul.known_starts()
+        gesamt = len(routen_modul.trade_posts())
         # ⚠ **Auch die Null wird genannt.** Vorher blieb die Zeile leer,
         # solange noch nichts gesammelt war — und damit stand neben dem Knopf
         # gar nichts, wo bei anderen „184 von 184 Handelsposten" steht. Wer
@@ -6648,9 +6648,9 @@ def _routen(fenster, rahmen):
                 except tk.TclError:
                     pass
             try:
-                routen_modul.alle_holen(fortschritt=melden)
+                routen_modul.fetch_all(progress=melden)
             except Exception as ausnahme:
-                fehler.merken('seiten.routen.alle_holen', ausnahme)
+                fehler.merken('seiten.routes.alle_holen', ausnahme)
 
             def fertig():
                 zustand['laeuft'] = False
@@ -6762,9 +6762,9 @@ def _routen(fenster, rahmen):
             # nach einem vollen Lauf gemessen unter einer Sekunde.
             stopps = int(zustand.get('stopps') or 1)
             if stopps > 1:
-                ketten = routen_modul.beste_ketten_ueberall(
-                    scu, geld, kurz=bool(zustand.get('kurz')), stopps=stopps,
-                    rundreise=bool(zustand.get('rund')), hoechstens=8)
+                ketten = routen_modul.best_chains_anywhere(
+                    scu, geld, short=bool(zustand.get('kurz')), stops=stopps,
+                    round_trip=bool(zustand.get('rund')), most=8)
                 if not ketten:
                     _fliesstext(ergebnis, t('s_rt_keine_kette'),
                                 fenster.f_klein, fill='x')
@@ -6772,7 +6772,7 @@ def _routen(fenster, rahmen):
                 for gewinn, startname, weg in ketten:
                     _kette_zeichnen(ergebnis, gewinn, weg, startname)
                 return
-            beste = routen_modul.beste_ueberall(scu, geld, hoechstens=15)
+            beste = routen_modul.best_anywhere(scu, geld, most=15)
             if not beste:
                 _fliesstext(ergebnis, t('s_rt_ueberall_leer'),
                             fenster.f_klein, fill='x')
@@ -6793,15 +6793,15 @@ def _routen(fenster, rahmen):
         kopfzeile.pack(fill='x', pady=(0, 8))
         tk.Label(kopfzeile, text=zustand['startname'], bg=BG, fg=FG,
                  font=fenster.f_fett, anchor='w').pack(side='left')
-        a = routen_modul.alter(zustand['start'])
+        a = routen_modul.age(zustand['start'])
         if a is not None:
             tk.Label(kopfzeile,
                      text=t('s_vk_stand').format(alter=_alterstext(a)),
                      bg=BG, fg=SUB, font=fenster.f_klein,
                      anchor='e').pack(side='right')
 
-        einzeln = routen_modul.einzelfahrten(zustand['start'], scu, geld,
-                                             hoechstens=8)
+        einzeln = routen_modul.single_trips(zustand['start'], scu, geld,
+                                             most=8)
         if not einzeln:
             _fliesstext(ergebnis, t('s_rt_nichts'), fenster.f_klein, fill='x')
             return
@@ -6818,10 +6818,10 @@ def _routen(fenster, rahmen):
             e['startname'] = zustand['startname']
             _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0))
 
-        ketten = routen_modul.kette(zustand['start'], scu, geld,
-                                    kurz=zustand['kurz'], hoechstens=3,
-                                    stopps=zustand['stopps'],
-                                    rundreise=zustand['rund'])
+        ketten = routen_modul.chain(zustand['start'], scu, geld,
+                                    short=zustand['kurz'], most=3,
+                                    stops=zustand['stopps'],
+                                    round_trip=zustand['rund'])
         ueberschrift = (t('s_rt_rundreise_titel') if zustand['rund']
                         else t('s_rt_ketten') % zustand['stopps'])
         tk.Label(ergebnis, text=ueberschrift, bg=BG, fg=SUB,
@@ -6921,7 +6921,7 @@ def _routen(fenster, rahmen):
         # ⚠ Die Vorschlagsliste war eben noch acht Zeilen hoch; ohne das hier
         # bleibt die Rollfläche stehen, wo sie war, und oben klafft eine Lücke.
         _nach_oben(ergebnis)
-        if routen_modul.fahrten(kennung) is not None:
+        if routen_modul.trips(kennung) is not None:
             _zeichnen()
             return
         zustand['laeuft'] = True
@@ -6929,9 +6929,9 @@ def _routen(fenster, rahmen):
 
         def arbeit():
             try:
-                routen_modul.holen(kennung)
+                routen_modul.fetch(kennung)
             except Exception as ausnahme:
-                fehler.merken('seiten.routen.holen', ausnahme)
+                fehler.merken('seiten.routes.holen', ausnahme)
 
             def fertig():
                 zustand['laeuft'] = False
@@ -7130,7 +7130,7 @@ def _routen(fenster, rahmen):
             try:
                 schiff_modul.update()
             except Exception as ausnahme:
-                fehler.merken('seiten.routen.schiffe', ausnahme)
+                fehler.merken('seiten.routes.schiffe', ausnahme)
 
             def fertig():
                 try:

@@ -58,7 +58,7 @@ unhöflich.
 
 Für „und wo fahre ich danach hin?" braucht es die Fahrten **ab dem Zielort**.
 Das ist je Kandidat ein weiterer Abruf. Deshalb werden nur die
-`KETTEN_KANDIDATEN` besten Ziele weiterverfolgt: höchstens ein paar Abrufe
+`CHAIN_CANDIDATES` besten Ziele weiterverfolgt: höchstens ein paar Abrufe
 statt siebzig.
 
 ## ⚠⚠ Und eine Warnung, die in jede Anzeige gehört
@@ -73,119 +73,119 @@ import time
 from . import uex
 from .katalog import AUS
 
-QUELLE = 'https://api.uexcorp.uk/2.0/commodities_routes?id_terminal_origin=%s'
+SOURCE = 'https://api.uexcorp.uk/2.0/commodities_routes?id_terminal_origin=%s'
 CACHE = 'routen.json'
 FORMAT = 1
 
 # Sechs Stunden. Kürzer als bei den Ladenpreisen: Eine Handelsspanne lebt von
 # Beständen, und die ändern sich im Lauf eines Abends.
-HALTBAR = 6 * 60 * 60
+SHELF_LIFE = 6 * 60 * 60
 
 # Wieviele Startorte die Ablage behält.
 #
 # ⚠⚠ **Muss über der Zahl der Handelsposten liegen (184).** Stand hier vorher
-# auf 25 — mit dem Rundumlauf aus `alle_holen()` hätte sich die Ablage dabei
+# auf 25 — mit dem Rundumlauf aus `fetch_all()` hätte sich die Ablage dabei
 # selbst leergeräumt: Ab dem 26. Posten wäre bei jedem weiteren der älteste
 # hinausgeflogen, und am Ende stünden 25 zufällige statt aller 184 da. Der
 # Fehler wäre nicht aufgefallen — die Liste hätte einfach weniger gezeigt.
 #
 # 200 deckt alle Posten ab und bleibt bei rund 2 MB.
-HOECHSTENS = 200
+MAX_STARTS = 200
 
 # ⚠ Wieviele Ziele für eine Kette weiterverfolgt werden. Jeder kostet einen
 # eigenen Abruf — bei 69 Fahrten je Startort wären es sonst 69.
-KETTEN_KANDIDATEN = 5
+CHAIN_CANDIDATES = 5
 
 # ⚠ Wie viele Fahrten auf der **Rückfahrt** einer Rundreise betrachtet werden.
-# Deutlich mehr als `KETTEN_KANDIDATEN`, weil die Fahrt zurück zum Startort
+# Deutlich mehr als `CHAIN_CANDIDATES`, weil die Fahrt zurück zum Startort
 # selten zu den gewinnstärksten gehört — sie muss aber gefunden werden, sonst
 # gibt es gar keine Rundreise. Kostet keinen Abruf: Die Fahrten des Ortes
 # liegen bereits in der Ablage.
-RUECKFAHRT_KANDIDATEN = 400
+RETURN_CANDIDATES = 400
 
 # ⚠ Wieviele Fahrten eine Route höchstens hat. Jede Stufe kostet Abrufe, und
 # eine Route über sechs Stationen plant ohnehin niemand: Bis man beim letzten
 # Stopp ist, sind die Preise vom Anfang alt.
-MAX_STOPPS = 4
+MAX_STOPS = 4
 
-_ablage = uex.Store(CACHE, format_no=FORMAT, shelf_life=HALTBAR)
-
-
-def _alle():
-    return (_ablage.load() or {}).get('starts') or {}
+_store = uex.Store(CACHE, format_no=FORMAT, shelf_life=SHELF_LIFE)
 
 
-def alter(start):
+def _all():
+    return (_store.load() or {}).get('starts') or {}
+
+
+def age(start):
     """Wie alt die Fahrten ab diesem Ort sind — oder `None`."""
-    eintrag = _alle().get(str(start))
-    if not eintrag:
+    entry = _all().get(str(start))
+    if not entry:
         return None
     try:
-        return time.time() - float(eintrag.get('geholt') or 0)
+        return time.time() - float(entry.get('geholt') or 0)
     except (TypeError, ValueError):
         return None
 
 
-def fahrten(start):
+def trips(start):
     """Alle bekannten Fahrten ab diesem Terminal.
 
     `None` heißt „noch nicht nachgesehen", `[]` heißt „von hier lohnt nichts".
     """
-    eintrag = _alle().get(str(start))
-    if eintrag is None:
+    entry = _all().get(str(start))
+    if entry is None:
         return None
-    return eintrag.get('fahrten') or []
+    return entry.get('fahrten') or []
 
 
-def holen(start, erzwingen=False):
+def fetch(start, force=False):
     """Die Fahrten ab einem Terminal nachschlagen."""
     if AUS or not start:
         return False
-    a = alter(start)
-    if not erzwingen and a is not None and a < HALTBAR:
+    a = age(start)
+    if not force and a is not None and a < SHELF_LIFE:
         return True
-    roh = uex.fetch(QUELLE % start, 'routen')
-    if roh is None:
+    raw = uex.fetch(SOURCE % start, 'routes')
+    if raw is None:
         return False
 
-    liste = []
-    for x in roh:
-        ek = float(x.get('price_origin') or 0)
-        vk = float(x.get('price_destination') or 0)
+    items = []
+    for x in raw:
+        buy = float(x.get('price_origin') or 0)
+        sell = float(x.get('price_destination') or 0)
         # ⚠ Drei Gründe, eine Zeile wegzulassen — und alle drei sind nötig:
         # ohne Einkaufspreis kann man nicht kaufen, ohne Aufschlag lohnt es
         # nicht, und ohne Vorrat steht dort nichts im Regal.
-        if ek <= 0 or vk <= ek or not (x.get('scu_origin') or 0):
+        if buy <= 0 or sell <= buy or not (x.get('scu_origin') or 0):
             continue
-        liste.append({
+        items.append({
             'ware': (x.get('commodity_name') or '').strip(),
             'ziel': str(x.get('id_terminal_destination') or ''),
             'zielname': (x.get('destination_terminal_name') or '').strip(),
             'zielort': (x.get('destination_planet_name')
                         or x.get('destination_orbit_name') or '').strip(),
             'zielsystem': (x.get('destination_star_system_name') or '').strip(),
-            'ek': ek,
-            'vk': vk,
-            'gewinn_scu': vk - ek,
+            'ek': buy,
+            'vk': sell,
+            'gewinn_scu': sell - buy,
             # Entfernung in Gm. `0`, wenn UEX keine kennt — dann wird bei
             # „kurze Route" nichts behauptet.
             'strecke': float(x.get('distance') or 0),
             'vorrat': int(x.get('scu_origin') or 0),
             'bedarf': int(x.get('scu_destination') or 0),
         })
-    liste.sort(key=lambda f: -f['gewinn_scu'])
+    items.sort(key=lambda f: -f['gewinn_scu'])
 
-    starts = dict(_alle())
-    starts[str(start)] = {'geholt': time.time(), 'fahrten': liste}
-    if len(starts) > HOECHSTENS:
-        nach_alter = sorted(starts.items(),
-                            key=lambda p: p[1].get('geholt') or 0)
-        for schluessel, _wert in nach_alter[:len(starts) - HOECHSTENS]:
-            starts.pop(schluessel, None)
-    return _ablage.save({'starts': starts}, compact=True)
+    starts = dict(_all())
+    starts[str(start)] = {'geholt': time.time(), 'fahrten': items}
+    if len(starts) > MAX_STARTS:
+        by_age = sorted(starts.items(),
+                        key=lambda p: p[1].get('geholt') or 0)
+        for key, _value in by_age[:len(starts) - MAX_STARTS]:
+            starts.pop(key, None)
+    return _store.save({'starts': starts}, compact=True)
 
 
-def menge_und_gewinn(fahrt, scu_frei, geld):
+def amount_and_profit(trip, free_scu, money):
     """Wieviel passt wirklich — und was bringt es? `(menge, gewinn)`.
 
     ⚠ **Drei Grenzen, nicht eine.** Der Laderaum ist die offensichtliche; die
@@ -200,16 +200,16 @@ def menge_und_gewinn(fahrt, scu_frei, geld):
     Wer nur den Laderaum rechnet, verspricht bei 45 verfügbaren SCU den Gewinn
     für 96 — mehr als das Doppelte.
     """
-    menge = min(int(scu_frei or 0), int(fahrt.get('vorrat') or 0))
-    if fahrt.get('bedarf'):
-        menge = min(menge, int(fahrt['bedarf']))
-    if fahrt.get('ek'):
-        menge = min(menge, int((geld or 0) // fahrt['ek']))
-    menge = max(0, menge)
-    return menge, menge * fahrt['gewinn_scu']
+    amount = min(int(free_scu or 0), int(trip.get('vorrat') or 0))
+    if trip.get('bedarf'):
+        amount = min(amount, int(trip['bedarf']))
+    if trip.get('ek'):
+        amount = min(amount, int((money or 0) // trip['ek']))
+    amount = max(0, amount)
+    return amount, amount * trip['gewinn_scu']
 
 
-def was_begrenzt(fahrt, scu_frei, geld):
+def what_limits(trip, free_scu, money):
     """Woran hängt die Menge — Frachtraum, Vorrat, Bedarf oder Geld?
 
     ⭐ **Die nützlichste Auskunft der ganzen Zeile.** „69 von 120 SCU" sagt
@@ -220,50 +220,50 @@ def was_begrenzt(fahrt, scu_frei, geld):
 
     Gibt einen Sprachschlüssel zurück, oder `''`, wenn nichts begrenzt.
     """
-    menge, _gewinn = menge_und_gewinn(fahrt, scu_frei, geld)
-    if not menge:
+    amount, _profit = amount_and_profit(trip, free_scu, money)
+    if not amount:
         return ''
     # ⚠ Reihenfolge nach Ärgerlichkeit: Was der Spieler ändern **kann**
     # (Geld, Schiff) zuerst — der Vorrat am Terminal ist nicht seine Sache.
-    if fahrt.get('ek') and menge == int((geld or 0) // fahrt['ek']) \
-            and menge < int(scu_frei or 0):
+    if trip.get('ek') and amount == int((money or 0) // trip['ek']) \
+            and amount < int(free_scu or 0):
         return 's_rt_grenze_geld'
-    if menge == int(scu_frei or 0):
+    if amount == int(free_scu or 0):
         return 's_rt_grenze_frachtraum'
-    if menge == int(fahrt.get('vorrat') or 0):
+    if amount == int(trip.get('vorrat') or 0):
         return 's_rt_grenze_vorrat'
-    if fahrt.get('bedarf') and menge == int(fahrt['bedarf']):
+    if trip.get('bedarf') and amount == int(trip['bedarf']):
         return 's_rt_grenze_bedarf'
     return ''
 
 
-def einzelfahrten(start, scu, geld, hoechstens=20):
+def single_trips(start, scu, money, most=20):
     """Die lohnendsten Einzelfahrten ab einem Ort, beste zuerst.
 
     Je Eintrag: die Fahrt, dazu `menge` und `gewinn` für **dieses** Schiff und
     **dieses** Geld.
     """
-    raus = []
-    for f in fahrten(start) or []:
-        menge, gewinn = menge_und_gewinn(f, scu, geld)
-        if menge > 0 and gewinn > 0:
-            eintrag = dict(f)
-            eintrag['menge'], eintrag['gewinn'] = menge, gewinn
-            eintrag['grenze'] = was_begrenzt(f, scu, geld)
-            raus.append(eintrag)
-    raus.sort(key=lambda e: -e['gewinn'])
-    return raus[:hoechstens]
+    result = []
+    for f in trips(start) or []:
+        amount, profit = amount_and_profit(f, scu, money)
+        if amount > 0 and profit > 0:
+            entry = dict(f)
+            entry['menge'], entry['gewinn'] = amount, profit
+            entry['grenze'] = what_limits(f, scu, money)
+            result.append(entry)
+    result.sort(key=lambda e: -e['gewinn'])
+    return result[:most]
 
 
-def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
-          rundreise=False, nachholen=True):
+def chain(start, scu, money, short=False, most=5, stops=2,
+          round_trip=False, fetch_missing=True):
     """Mehrere Fahrten hintereinander: Ziel der einen ist Start der nächsten.
 
-    `stopps` sagt, über wie viele Fahrten geplant wird (2 bis `MAX_STOPPS`).
-    `rundreise=True` verlangt, dass die letzte Fahrt **zurück zum Startort**
+    `stops` sagt, über wie viele Fahrten geplant wird (2 bis `MAX_STOPS`).
+    `round_trip=True` verlangt, dass die letzte Fahrt **zurück zum Startort**
     führt — A → B → C → A.
 
-    `kurz=True` sortiert nach **Gesamtstrecke** statt nach Gewinn — für den
+    `short=True` sortiert nach **Gesamtstrecke** statt nach Gewinn — für den
     Abend, an dem man nicht quer durchs System fliegen will.
 
     ⚠⚠ **Warum die Rundreise mehr ist als Bequemlichkeit.** Ohne sie steht man
@@ -272,23 +272,23 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
     dort endet, wo sie anfing, lässt sich **wiederholen**.
 
     ⚠ Jede weitere Stufe kostet Abrufe: je Kandidat einen. Deshalb wird der
-    Baum bei jeder Stufe auf `KETTEN_KANDIDATEN` beschnitten — sonst wären es
+    Baum bei jeder Stufe auf `CHAIN_CANDIDATES` beschnitten — sonst wären es
     bei drei Stopps schon einige hundert.
 
     Gibt eine Liste von `(gesamtgewinn, [fahrten])` zurück.
     """
-    stopps = max(2, min(int(stopps or 2), MAX_STOPPS))
+    stops = max(2, min(int(stops or 2), MAX_STOPS))
     # Ein Zweig ist (Gewinn bisher, Ort jetzt, Liste der Fahrten).
-    zweige = [(0.0, str(start), [])]
-    for stufe in range(stopps):
-        naechste = []
-        letzte_stufe = (stufe == stopps - 1)
-        for gewinn_bisher, ort, bisher in zweige:
-            # ⚠ `nachholen=False` rechnet **nur** mit dem, was schon abgelegt
+    branches = [(0.0, str(start), [])]
+    for step in range(stops):
+        next_branches = []
+        last_step = (step == stops - 1)
+        for profit_so_far, place, so_far in branches:
+            # ⚠ `fetch_missing=False` rechnet **nur** mit dem, was schon abgelegt
             # ist. Für „beste Route überall" ist das Pflicht: Dort werden 184
             # Startorte durchgerechnet, und jeder fehlende Zwischenstopp wäre
             # ein Netzabruf — Minuten statt Sekunden.
-            if fahrten(ort) is None and (not nachholen or not holen(ort)):
+            if trips(place) is None and (not fetch_missing or not fetch(place)):
                 continue
             # ⚠⚠ **Auf der Rückfahrt zählen ALLE Fahrten, nicht nur die fünf
             # besten.** Die Fahrt, die zufällig zum Startort zurückführt,
@@ -303,67 +303,67 @@ def kette(start, scu, geld, kurz=False, hoechstens=5, stopps=2,
             #
             # Teuer ist das nicht: Die Fahrten dieses Ortes liegen bereits in
             # der Ablage, es wird nur weniger davon weggeworfen.
-            grenze = (RUECKFAHRT_KANDIDATEN if (rundreise and letzte_stufe)
-                      else KETTEN_KANDIDATEN)
+            limit = (RETURN_CANDIDATES if (round_trip and last_step)
+                     else CHAIN_CANDIDATES)
             # Nach jeder Fahrt ist mehr Geld da — das darf die nächste nutzen.
-            for f in einzelfahrten(ort, scu, (geld or 0) + gewinn_bisher,
-                                   hoechstens=grenze):
+            for f in single_trips(place, scu, (money or 0) + profit_so_far,
+                                  most=limit):
                 if not f.get('ziel'):
                     continue
                 # ⚠ Denselben Ort nicht zweimal anfahren — außer als Rückkehr
                 # zum Start, und das nur auf der letzten Stufe.
-                schon = {b['ziel'] for b in bisher} | {str(start)}
-                if f['ziel'] in schon:
-                    if not (rundreise and letzte_stufe
+                seen = {b['ziel'] for b in so_far} | {str(start)}
+                if f['ziel'] in seen:
+                    if not (round_trip and last_step
                             and f['ziel'] == str(start)):
                         continue
-                naechste.append((gewinn_bisher + f['gewinn'], f['ziel'],
-                                 bisher + [f]))
+                next_branches.append((profit_so_far + f['gewinn'], f['ziel'],
+                                      so_far + [f]))
         # ⚠⚠ **Erst aussortieren, dann kürzen.** Auf der letzten Stufe einer
         # Rundreise zählen nur Zweige, die wirklich am Start enden. Wer vorher
         # auf die fünf gewinnstärksten kürzt, wirft genau die weg — und die
         # Prüfung darunter findet dann nichts mehr vor.
-        if rundreise and letzte_stufe:
-            naechste = [z for z in naechste if z[1] == str(start)]
+        if round_trip and last_step:
+            next_branches = [z for z in next_branches if z[1] == str(start)]
         # Nur die besten Zweige weiterverfolgen, sonst explodiert der Baum.
-        naechste.sort(key=lambda z: -z[0])
-        zweige = naechste[:KETTEN_KANDIDATEN]
-        if not zweige:
+        next_branches.sort(key=lambda z: -z[0])
+        branches = next_branches[:CHAIN_CANDIDATES]
+        if not branches:
             return []
 
-    fertige = [(g, weg) for g, ort, weg in zweige
-               if len(weg) == stopps
-               and (not rundreise or ort == str(start))]
-    if kurz:
+    done = [(g, way) for g, place, way in branches
+            if len(way) == stops
+            and (not round_trip or place == str(start))]
+    if short:
         # ⚠ Fahrten ohne Streckenangabe fliegen heraus, statt als „0 Gm" ganz
         # nach oben zu rutschen — das wäre eine erfundene Nähe.
-        fertige = [(g, w) for g, w in fertige
-                   if all(f.get('strecke') for f in w)]
-        fertige.sort(key=lambda p: (sum(f['strecke'] for f in p[1]), -p[0]))
+        done = [(g, w) for g, w in done
+                if all(f.get('strecke') for f in w)]
+        done.sort(key=lambda p: (sum(f['strecke'] for f in p[1]), -p[0]))
     else:
-        fertige.sort(key=lambda p: -p[0])
-    return fertige[:hoechstens]
+        done.sort(key=lambda p: -p[0])
+    return done[:most]
 
 
-def handelsposten():
+def trade_posts():
     """Alle Terminals, die mit Ware handeln — `[(kennung, name)]`.
 
     Kommt aus der Verkaufs-Ablage; ein eigener Abruf wäre Verschwendung.
     """
     from . import selling
-    stellen = (selling.load() or {}).get('terminals') or {}
-    raus = []
-    for kennung, stelle in stellen.items():
-        art = stelle.get('t')
+    spots = (selling.load() or {}).get('terminals') or {}
+    result = []
+    for ident, spot in spots.items():
+        kind = spot.get('t')
         # Ältere Ablagen kennen die Art nicht — dann lieber mitnehmen als
         # eine leere Liste liefern.
-        if art is not None and art not in selling.TRADE_TYPES:
+        if kind is not None and kind not in selling.TRADE_TYPES:
             continue
-        raus.append((kennung, stelle.get('n') or stelle.get('o') or '?'))
-    return raus
+        result.append((ident, spot.get('n') or spot.get('o') or '?'))
+    return result
 
 
-def alle_holen(fortschritt=None, abbruch=None):
+def fetch_all(progress=None, cancel=None):
     """Die Fahrten **aller** Handelsposten holen — für „beste Route überhaupt".
 
     ⚠⚠ **Das ist der teuerste Abruf im ganzen Werkzeug, und deshalb kein
@@ -382,24 +382,24 @@ def alle_holen(fortschritt=None, abbruch=None):
     Zeilen. Der Deckel schneidet also willkürlich ab; die zehn Planet-Abrufe
     lieferten ein Bruchstück, das man für das Ganze halten würde.
 
-    `fortschritt(fertig, gesamt)` wird nach jedem Posten gerufen, `abbruch()`
+    `progress(fertig, gesamt)` wird nach jedem Posten gerufen, `cancel()`
     kann den Lauf beenden.
     """
     if AUS:
         return 0
-    posten = handelsposten()
-    fertig = 0
-    for kennung, _name in posten:
-        if abbruch and abbruch():
+    posts = trade_posts()
+    done_count = 0
+    for ident, _name in posts:
+        if cancel and cancel():
             break
-        holen(kennung)
-        fertig += 1
-        if fortschritt:
-            fortschritt(fertig, len(posten))
-    return fertig
+        fetch(ident)
+        done_count += 1
+        if progress:
+            progress(done_count, len(posts))
+    return done_count
 
 
-def beste_ueberall(scu, geld, hoechstens=15):
+def best_anywhere(scu, money, most=15):
     """Die lohnendsten Einzelfahrten über **alle** bekannten Startorte.
 
     ⚠ Rechnet nur mit dem, was schon abgelegt ist — sie holt **nichts** nach.
@@ -410,55 +410,55 @@ def beste_ueberall(scu, geld, hoechstens=15):
     Je Eintrag zusätzlich `startname` — sonst wüsste niemand, wo die Fahrt
     beginnt.
     """
-    namen = dict(handelsposten())
-    raus = []
-    for kennung, eintrag in (_alle() or {}).items():
-        for f in eintrag.get('fahrten') or []:
-            menge, gewinn = menge_und_gewinn(f, scu, geld)
-            if menge <= 0 or gewinn <= 0:
+    names = dict(trade_posts())
+    result = []
+    for ident, entry in (_all() or {}).items():
+        for f in entry.get('fahrten') or []:
+            amount, profit = amount_and_profit(f, scu, money)
+            if amount <= 0 or profit <= 0:
                 continue
             e = dict(f)
-            e['menge'], e['gewinn'] = menge, gewinn
-            e['grenze'] = was_begrenzt(f, scu, geld)
-            e['startname'] = namen.get(kennung, '?')
-            raus.append(e)
-    raus.sort(key=lambda e: -e['gewinn'])
-    return raus[:hoechstens]
+            e['menge'], e['gewinn'] = amount, profit
+            e['grenze'] = what_limits(f, scu, money)
+            e['startname'] = names.get(ident, '?')
+            result.append(e)
+    result.sort(key=lambda e: -e['gewinn'])
+    return result[:most]
 
 
-def beste_ketten_ueberall(scu, geld, kurz=False, stopps=2, rundreise=False,
-                          hoechstens=15):
+def best_chains_anywhere(scu, money, short=False, stops=2, round_trip=False,
+                         most=15):
     """Die besten **Ketten** über alle abgelegten Startorte.
 
     ⚠⚠ **Die Schalter mussten auch hier gelten.** Am 05.09.2026 gemeldet:
     „Ich möchte eine Rundreise über 3 Stationen, kurze Strecken — die Anzeige
-    bleibt aber so wie am Anfang geladen." Zu Recht: `beste_ueberall` kannte
+    bleibt aber so wie am Anfang geladen." Zu Recht: `best_anywhere` kannte
     nur Einzelfahrten, die Schalter darüber färbten sich und bewirkten nichts.
     Ein Bedienelement, das sich einschalten lässt und nichts tut, ist
     schlimmer als keins.
 
-    ⚠ **Holt nichts nach** — dieselbe Regel wie bei `beste_ueberall`. Gerechnet
+    ⚠ **Holt nichts nach** — dieselbe Regel wie bei `best_anywhere`. Gerechnet
     wird mit dem, was der Rundumlauf gesammelt hat; gemessen bleibt das nach
     einem vollen Lauf unter einer Sekunde.
 
     Gibt `[(gewinn, startname, [fahrten])]` zurück.
     """
-    namen = dict(handelsposten())
-    raus = []
-    for kennung in list(_alle() or {}):
-        for gewinn, weg in kette(kennung, scu, geld, kurz=kurz,
-                                 hoechstens=3, stopps=stopps,
-                                 rundreise=rundreise, nachholen=False):
-            raus.append((gewinn, namen.get(kennung, '?'), weg))
-    if kurz:
-        raus.sort(key=lambda p: (sum(f.get('strecke') or 0 for f in p[2]),
-                                 -p[0]))
+    names = dict(trade_posts())
+    result = []
+    for ident in list(_all() or {}):
+        for profit, way in chain(ident, scu, money, short=short,
+                                 most=3, stops=stops,
+                                 round_trip=round_trip, fetch_missing=False):
+            result.append((profit, names.get(ident, '?'), way))
+    if short:
+        result.sort(key=lambda p: (sum(f.get('strecke') or 0 for f in p[2]),
+                                   -p[0]))
     else:
-        raus.sort(key=lambda p: -p[0])
-    return raus[:hoechstens]
+        result.sort(key=lambda p: -p[0])
+    return result[:most]
 
 
-def bekannte_starts():
+def known_starts():
     """Wieviele **Handelsposten** schon abgelegt sind — für die Anzeige.
 
     ⚠⚠ **Nur die, die auch in der Postenliste stehen.** Vorher wurde einfach
@@ -469,13 +469,13 @@ def bekannte_starts():
     Eine Zahl, die größer ist als ihr Nenner, macht die ganze Anzeige
     unglaubwürdig — auch die Teile, die stimmen.
     """
-    kennungen = {k for k, _n in handelsposten()}
-    if not kennungen:
-        return len(_alle() or {})
-    return sum(1 for k in (_alle() or {}) if k in kennungen)
+    idents = {k for k, _n in trade_posts()}
+    if not idents:
+        return len(_all() or {})
+    return sum(1 for k in (_all() or {}) if k in idents)
 
 
-def vergessen():
+def forget():
     """Alles Nachgeschlagene verwerfen — für den Selbsttest und die Diagnose."""
-    _ablage.save({'starts': {}}, compact=True)
-    _ablage.forget()
+    _store.save({'starts': {}}, compact=True)
+    _store.forget()
