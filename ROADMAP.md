@@ -4,7 +4,7 @@
 
 ## Zielbild
 
-SC BP Watcher ist ein kleines Overlay, das beim Spielen von Star Citizen live anzeigt, sobald ein neuer Bauplan freigeschaltet wird — unter **Windows und Linux**, aus einer gemeinsamen Codebasis.
+VerseKit ist dein Werkzeugkasten für Star Citizen: Baupläne, Aufträge, Herstellung, Handel — live beim Spielen — unter **Windows und Linux**, aus einer gemeinsamen Codebasis.
 
 Seit v3.3.0 kommt eine **Werkstatt** dazu: Was du aus einem Bauplan herstellen kannst, was dafür fehlt, wo die Rohstoffe liegen und was in deinem Lager steht. Der Bauplan bleibt der Ausgangspunkt — die Werkstatt beantwortet die Frage, die danach kommt: *und jetzt?*
 

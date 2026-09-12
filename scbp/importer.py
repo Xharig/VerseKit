@@ -70,6 +70,14 @@ from . import fehler
 
 SOURCE = 'import'
 
+# ⚠⚠ Unter welchen Namen wir unsere EIGENEN Exportdateien wiedererkennen.
+# BEIDE gelten dauerhaft (Umbenennung zu VerseKit, 12.09.2026):
+#   * 'VerseKit'      — was `export.py` ab jetzt schreibt
+#   * 'SC BP Watcher' — was in jeder vor der Umbenennung erzeugten Datei steht
+# ⛔ Keinen streichen. Der Auftrag verlangt ausdrücklich, dass bestehende
+# Sicherungen und Exporte weiter importierbar bleiben.
+EIGENE_WERKZEUGNAMEN = ('VerseKit', 'SC BP Watcher')
+
 
 def _strip_suffix(name):
     """Name ohne den Klammer-Zusatz am Ende — für den Notfall-Abgleich."""
@@ -80,7 +88,7 @@ def detect(data):
     """Aus welchem Format stammt die geladene Datei? Sonst None."""
     if not isinstance(data, dict):
         return None
-    if data.get('werkzeug') == 'SC BP Watcher' or 'bauplaene' in data:
+    if data.get('werkzeug') in EIGENE_WERKZEUGNAMEN or 'bauplaene' in data:
         return 'eigen'
     items = data.get('blueprints')
     if isinstance(items, list) and items:

@@ -122,6 +122,38 @@ def _symbol_ablegen(ordner):
         return 'sc-bp-watcher'
 
 
+def desktop_inhalt(befehl, symbol):
+    """Der Text einer `.desktop`-Datei — ohne Dateisystem, ohne Linux.
+
+    ⭐ Steht bewusst als eigene Funktion da: So lässt sich **prüfen, was
+    entsteht**, auch auf einem System, das gar keine `.desktop`-Dateien kennt.
+    Am 12.09.2026 schlug Prüfung 191 unter Windows fehl, weil sie `anlegen()`
+    rief — und das gibt dort „nur unter Linux" zurück. Eine Prüfung, die sich
+    auf dem halben Bestand überspringt, prüft die Hälfte nicht.
+
+    ⚠ Name und Untertitel kommen aus `sprache.py` — dieselbe Quelle, aus der
+    `beschriftung_nachziehen()` eine vorhandene Datei aktualisiert. Getrennt
+    gepflegt wären sie nach dem ersten Wortwechsel auseinander.
+    """
+    # Lokal importiert, weil `sprache` selbst auf `pfade` aufsetzt.
+    from . import sprache
+    name = sprache.t('hf_titel')
+    return (
+        '[Desktop Entry]\n'
+        'Type=Application\n'
+        'Name=%s\n'
+        'Comment=%s\n'
+        'Comment[en]=%s\n'
+        'Exec=%s\n'
+        'Icon=%s\n'
+        'Terminal=false\n'
+        'Categories=Utility;Game;\n'
+        'StartupWMClass=%s\n'
+        'Keywords=Star Citizen;Blueprint;Bauplan;\n'
+        % (name, sprache.TEXTE['vk_untertitel'][0],
+           sprache.TEXTE['vk_untertitel'][1], befehl, symbol, name))
+
+
 def anlegen():
     """Den Menüeintrag schreiben. Gibt (geklappt, Pfad-oder-Meldung) zurück."""
     if not moeglich():
@@ -143,18 +175,7 @@ def anlegen():
     if skript:
         befehl += ' "%s"' % skript
 
-    inhalt = (
-        '[Desktop Entry]\n'
-        'Type=Application\n'
-        'Name=SC BP Watcher\n'
-        'Comment=Zeigt neue Star-Citizen-Baupläne an\n'
-        'Comment[en]=Shows new Star Citizen blueprints\n'
-        'Exec=%s\n'
-        'Icon=%s\n'
-        'Terminal=false\n'
-        'Categories=Utility;Game;\n'
-        'StartupWMClass=SC BP Watcher\n'
-        'Keywords=Star Citizen;Blueprint;Bauplan;\n' % (befehl, symbol))
+    inhalt = desktop_inhalt(befehl, symbol)
     try:
         os.makedirs(ordner, exist_ok=True)
         pfad = ziel_datei()
@@ -173,6 +194,64 @@ def anlegen():
     except Exception:
         pass
     return True, pfad
+
+
+def beschriftung_nachziehen():
+    """Einen **vorhandenen** Eintrag auf den aktuellen Produktnamen bringen.
+
+    ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). `anlegen()`
+    schreibt die neuen Beschriftungen — aber beim Update läuft `anlegen()`
+    **nicht**: `vorhanden()` meldet den Eintrag als da, und damit ist die Sache
+    für den Assistenten erledigt. Bestandsnutzer behielten so dauerhaft
+    „SC BP Watcher" im Anwendungsmenü, samt altem `StartupWMClass`.
+
+    Drei Regeln, alle drei wichtig:
+
+    * ⛔ **Legt nie etwas an.** Wer die Verknüpfung bewusst gelöscht hat, soll
+      sie nicht durch ein Update zurückbekommen.
+    * ⛔ **Fasst `Exec`, `Icon` und den Dateinamen nicht an.** Das sind die
+      Anker — der Pfad zum Programm und die Symboldatei.
+    * ✅ **Ändert nur, was sich geändert hat.** Steht der neue Name schon da,
+      wird die Datei nicht angefasst (kein Zeitstempel, kein Neuschreiben).
+
+    Gibt zurück, ob etwas geändert wurde.
+    """
+    # ⚠ NICHT `vorhanden()` — das prüft zusätzlich, ob `Exec` auf ein
+    # existierendes Programm zeigt. Hier zählt allein: **liegt die Datei da?**
+    # Ein AppImage, das gerade verschoben wurde, hätte sonst für immer die alte
+    # Beschriftung behalten. Gefunden vom eigenen Migrationstest am 12.09.2026.
+    pfad = ziel_datei()
+    if not os.path.isfile(pfad):
+        return False
+    try:
+        with open(pfad, encoding='utf-8') as f:
+            zeilen = f.readlines()
+    except OSError:
+        return False
+
+    from . import sprache
+    name = sprache.t('hf_titel')
+    neu = {
+        'Name=': 'Name=%s\n' % name,
+        'Comment=': 'Comment=%s\n' % sprache.TEXTE['vk_untertitel'][0],
+        'Comment[en]=': 'Comment[en]=%s\n' % sprache.TEXTE['vk_untertitel'][1],
+        'StartupWMClass=': 'StartupWMClass=%s\n' % name,
+    }
+    geaendert = False
+    for i, zeile in enumerate(zeilen):
+        for vorsatz, ersatz in neu.items():
+            if zeile.startswith(vorsatz) and zeile != ersatz:
+                zeilen[i] = ersatz
+                geaendert = True
+                break
+    if not geaendert:
+        return False
+    try:
+        with open(pfad, 'w', encoding='utf-8') as f:
+            f.writelines(zeilen)
+    except OSError:
+        return False
+    return True
 
 
 def entfernen():

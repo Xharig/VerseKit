@@ -1843,7 +1843,11 @@ class Overlay:
         overlay.OVERLAY_STEUERUNG[0] = self
         # Damit jeder festgehaltene Fehler weiß, aus welcher Version er stammt.
         fehler.VERSION[0] = __version__
-        self.root.title('SC BP Watcher')
+        # ⚠ Der Produktname steht NUR in `sprache.py` (`hf_titel`). Hier stand
+        # er bis zum 12.09.2026 fest im Code — bei der Umbenennung zu VerseKit
+        # zeigte das Hauptfenster deshalb den neuen Namen und das Overlay noch
+        # den alten. Vom Prüfer gefunden, nicht vom Selbsttest.
+        self.root.title(sprache.t('hf_titel'))
         self.root.configure(bg=BG)
         self.root.overrideredirect(True)          # randloses Overlay
         self.root.attributes('-topmost', True)    # immer im Vordergrund
@@ -1898,7 +1902,10 @@ class Overlay:
         # unteren Fensterrand — sonst klebt sie eine Fensterhoehe ueber dem
         # Bildschirmrand. Siehe `_leiste_ausrichten`.
         self._leisten_seite = 'top'
-        titel_lbl = tk.Label(bar, text=f'● SC BP Watcher v{__version__}', bg=BAR,
+        # ⚠ Produktname aus `sprache.py` — siehe `root.title()` oben.
+        titel_lbl = tk.Label(bar,
+                             text='● %s v%s' % (sprache.t('hf_titel'),
+                                                __version__), bg=BAR,
                              fg=ACCENT, font=self.f_title)
         titel_lbl.pack(side='left', padx=8)
         notice.attach(titel_lbl, lambda: sprache.t('hinweis_ziehen'))
@@ -4216,7 +4223,10 @@ class Overlay:
         try:
             self._ablage = ablagesymbol.Ablagesymbol(
                 beim_zeigen=lambda: self.root.after(0, self.hervorholen),
-                beim_beenden=lambda: self.root.after(0, self._ganz_beenden))
+                beim_beenden=lambda: self.root.after(0, self._ganz_beenden),
+                # ⚠ Produktname von hier, nicht aus dem Standardwert des
+                # Moduls: `ablagesymbol` soll nicht von `sprache` abhängen.
+                titel=sprache.t('hf_titel'))
             geklappt = self._ablage.starten(sprache.t('tray_zeigen'),
                                             sprache.t('tray_beenden'))
             fehler.spur('Ablagesymbol: %s'
@@ -4247,9 +4257,31 @@ class Overlay:
         except Exception as ausnahme:
             fehler.merken('start.update_ergebnis', ausnahme)
 
+    def _beschriftung_nachziehen(self):
+        """Eine vorhandene Linux-Verknüpfung auf den aktuellen Namen bringen.
+
+        ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). Beim
+        Update läuft `verknuepfung.anlegen()` **nicht** — der Eintrag gilt als
+        vorhanden, und damit wäre die Sache erledigt. Bestandsnutzer behielten
+        dauerhaft „SC BP Watcher" im Anwendungsmenü. Vom Prüfer gefunden (F02).
+
+        Legt nie etwas an und fasst `Exec`, `Icon` und den Dateinamen nicht an
+        — siehe `verknuepfung.beschriftung_nachziehen()`.
+        """
+        if pfade.WINDOWS:
+            return
+        try:
+            # Lokal importiert: Das Modul wird nur unter Linux gebraucht.
+            from scbp import verknuepfung
+            if verknuepfung.beschriftung_nachziehen():
+                fehler.spur('Verknuepfung auf den aktuellen Namen gebracht')
+        except Exception as ausnahme:
+            fehler.merken('start.beschriftung', ausnahme)
+
     def run(self):
         self.verhalten_anwenden()
         self._update_ergebnis_melden()
+        self._beschriftung_nachziehen()
         self.ablagesymbol_starten()
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —

@@ -129,6 +129,34 @@ UNTERORDNER = {
 ORDNERNAME = 'SC BP Watcher'
 EINSTELLUNGEN = 'einstellungen.json'
 
+# ⚠⚠⚠ Die Dateinamen, unter denen eine Datei UNS gehört — beide dauerhaft.
+#
+# Steht hier, weil **drei** Stellen sie brauchen und sie nie auseinanderlaufen
+# dürfen:
+#   * `aktualisierung.eigenes_appimage()` — erkennt das laufende AppImage
+#   * der Riegel in `aktualisierung.einspielen()` — überschreibt nie Fremdes
+#   * `update_lauf._aufraeumen()` — löscht nur den eigenen Installer
+#
+# Warum beide Namen (Umbenennung zu VerseKit, 12.09.2026):
+#   `sc-bp-watcher` — so heißen die Dateien bei jedem, der vorher installiert
+#     hat. Ein AppImage wird beim Update an seinem Platz ersetzt und behält
+#     seinen Namen.
+#   `versekit` — so heißen die Release-Dateien für alle, die neu dazukommen.
+#
+# ⛔ Keinen streichen. Wer den alten entfernt, lässt die Hälfte der Nutzer
+# stehen; wer den neuen entfernt, die andere Hälfte.
+EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')
+
+
+def gehoert_uns(dateiname):
+    """Gehört diese Datei zu diesem Programm? (nach ihrem NAMEN)
+
+    Der Maßstab ist der Dateiname, nicht der Pfad — beim AppImage ist das die
+    einzige verlässliche Angabe, weil `sys.executable` im Einhängepunkt liegt.
+    """
+    klein = os.path.basename(dateiname or '').lower()
+    return any(n in klein for n in EIGENE_DATEINAMEN)
+
 
 def _dokumente():
     """Der Dokumente-Ordner des Nutzers — oder das Heimatverzeichnis."""

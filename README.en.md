@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="SC BP Watcher icon" width="128">
+<img src="assets/icon.png" alt="VerseKit icon" width="128">
 
-# SC BP Watcher
+# VerseKit
 
-**Live overlay that shows new Star Citizen blueprints the moment you unlock them**
+**Your Star Citizen toolkit — blueprints, contracts, crafting, trade and more, live while you play**
+
+<sub>formerly **SC BP Watcher** · your collection and settings are kept</sub>
 
 <sub>Windows · Linux · no account, no cloud — installer on Windows, single file on Linux</sub>
 
@@ -293,8 +295,8 @@ Nothing else. No Python, no account — and whether you install is your call (se
 
    | System | File | What happens |
    |---|---|---|
-   | **Windows** | `SC-BP-Watcher-Setup.exe` | Installs with a start menu entry, optional desktop icon and autostart — and uninstalls cleanly |
-   | **Linux** | `SC-BP-Watcher-x86_64.AppImage` | A single file. The wizard offers an application menu entry if you want one |
+   | **Windows** | `VerseKit-Setup.exe` | Installs with a start menu entry, optional desktop icon and autostart — and uninstalls cleanly |
+   | **Linux** | `VerseKit-x86_64.AppImage` | A single file. The wizard offers an application menu entry if you want one |
 
 2. Run it. Done.
 
@@ -307,7 +309,7 @@ No Python, no extra packages — the installer brings everything with it and can
 > shortcut afterwards kept using the old version for months without noticing.
 > With the installer that cannot happen: a start-menu entry, updates that
 > genuinely replace, autostart as a checkbox, and a clean uninstall. On Linux
-> the AppImage stays as it is. On Linux, make the AppImage executable once (right click → Properties → *Executable as program*, or `chmod +x SC-BP-Watcher-x86_64.AppImage`).
+> the AppImage stays as it is. On Linux, make the AppImage executable once (right click → Properties → *Executable as program*, or `chmod +x VerseKit-x86_64.AppImage`).
 
 On first start a **wizard** walks you through setup: language, finding Star Citizen, collecting your existing blueprints. It takes a minute, and then your inventory is there.
 
@@ -558,7 +560,7 @@ As a base for the blueprint details you can pick **[StarStrings](https://github.
 
 The interface symbols come from the **[Lucide](https://lucide.dev)** set (ISC licence) — all drawn on the same grid with the same stroke width, which is why they look identical on Windows, Linux and macOS. **Thanks** to the Lucide community! 🙏 The licence text ships with the tool (`assets/symbole/LIZENZ.txt`) and is shown under **Thanks & Licenses**.
 
-SC BP Watcher is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
+VerseKit is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
 
 ## What's next
 
@@ -581,7 +583,7 @@ Wishes and bug reports are welcome as an [issue](../../issues) or on [Discord](h
 > companies. All content on this site not authored by its host or users are property of their
 > respective owners.
 
-SC BP Watcher is an unofficial, non-commercial fan project for the *Star Citizen* community.
+VerseKit is an unofficial, non-commercial fan project for the *Star Citizen* community.
 It is **not affiliated with, endorsed, sponsored, or approved by** Cloud Imperium Rights LLC,
 Cloud Imperium Rights Ltd., or Roberts Space Industries.
 

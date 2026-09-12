@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="SC BP Watcher Icon" width="128">
+<img src="assets/icon.png" alt="VerseKit Icon" width="128">
 
-# SC BP Watcher
+# VerseKit
 
-**Live-Overlay, das neue Star-Citizen-Baupläne anzeigt, sobald du sie freischaltest**
+**Dein Werkzeugkasten für Star Citizen — Baupläne, Aufträge, Herstellung, Handel und mehr, live beim Spielen**
+
+<sub>ehemals **SC BP Watcher** · dein Bestand und deine Einstellungen bleiben erhalten</sub>
 
 <sub>Windows · Linux · ohne Konto, ohne Cloud — Installer unter Windows, einzelne Datei unter Linux</sub>
 
@@ -296,8 +298,8 @@ Sonst nichts. Kein Python, kein Konto — und ob du installieren willst, entsche
 
    | System | Datei | Was passiert |
    |---|---|---|
-   | **Windows** | `SC-BP-Watcher-Setup.exe` | Installiert mit Startmenü-Eintrag, optionalem Desktop-Symbol und Autostart — und lässt sich ordentlich wieder deinstallieren |
-   | **Linux** | `SC-BP-Watcher-x86_64.AppImage` | Eine einzelne Datei. Einen Startmenü-Eintrag bietet der Assistent auf Wunsch an |
+   | **Windows** | `VerseKit-Setup.exe` | Installiert mit Startmenü-Eintrag, optionalem Desktop-Symbol und Autostart — und lässt sich ordentlich wieder deinstallieren |
+   | **Linux** | `VerseKit-x86_64.AppImage` | Eine einzelne Datei. Einen Startmenü-Eintrag bietet der Assistent auf Wunsch an |
 
 2. Starten. Fertig.
 
@@ -310,7 +312,7 @@ Kein Python, keine Zusatzpakete — der Installer bringt alles mit und lässt si
 > gewohnte Verknüpfung anklickte, benutzte monatelang unbemerkt die alte
 > Version. Mit dem Installer kann das nicht passieren: Startmenü-Eintrag,
 > Updates ersetzen wirklich, Autostart ist ein Häkchen, und deinstallieren
-> lässt es sich ordentlich. Unter Linux bleibt alles beim AppImage. Unter Linux muss das AppImage einmalig ausführbar gemacht werden (Rechtsklick → Eigenschaften → *Als Programm ausführbar*, oder `chmod +x SC-BP-Watcher-x86_64.AppImage`).
+> lässt es sich ordentlich. Unter Linux bleibt alles beim AppImage. Unter Linux muss das AppImage einmalig ausführbar gemacht werden (Rechtsklick → Eigenschaften → *Als Programm ausführbar*, oder `chmod +x VerseKit-x86_64.AppImage`).
 
 Beim ersten Start führt dich ein **Assistent** durch die Einrichtung: Sprache, Star Citizen finden, bisherige Baupläne holen. Das dauert eine Minute, danach steht dein Bestand.
 
@@ -602,7 +604,7 @@ Als Grundlage für die Bauplan-Angaben lässt sich **[StarStrings](https://githu
 
 Die Symbole der Oberfläche stammen aus dem **[Lucide](https://lucide.dev)**-Satz (ISC-Lizenz) — alle auf demselben Raster mit gleicher Strichstärke gezeichnet, weshalb sie unter Windows, Linux und macOS gleich aussehen. **Danke** an die Lucide-Gemeinschaft! 🙏 Der Lizenztext liegt bei (`assets/symbole/LIZENZ.txt`) und steht im Werkzeug unter **Danke & Lizenzen**.
 
-SC BP Watcher ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keiner** offiziellen Verbindung zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle Marken- und Projektnamen gehören ihren jeweiligen Eigentümern.
+VerseKit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keiner** offiziellen Verbindung zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle Marken- und Projektnamen gehören ihren jeweiligen Eigentümern.
 
 ## Was noch kommt
 
@@ -625,7 +627,7 @@ Wünsche und Fehlermeldungen gern als [Issue](../../issues) oder im [Discord](ht
 > companies. All content on this site not authored by its host or users are property of their
 > respective owners.
 
-SC BP Watcher ist ein inoffizielles, nicht-kommerzielles Fan-Projekt für die
+VerseKit ist ein inoffizielles, nicht-kommerzielles Fan-Projekt für die
 Star-Citizen-Gemeinschaft. Es steht in **keiner Verbindung zu** Cloud Imperium Rights LLC,
 Cloud Imperium Rights Ltd. oder Roberts Space Industries und wird von ihnen weder unterstützt
 noch gebilligt.

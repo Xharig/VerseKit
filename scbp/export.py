@@ -46,6 +46,18 @@ import time
 from . import collection as bestand_datei
 from . import catalog as katalog_modul
 
+# ⚠⚠ Das Feld `werkzeug` in einer eigenen Exportdatei — daran erkennt
+# `importer.detect()` unsere Dateien wieder.
+#
+# Geschrieben wird der NEUE Name, gelesen werden BEIDE: `importer.py` führt
+# dazu `EIGENE_WERKZEUGNAMEN`. Wer hier etwas ändert, muss dort nachsehen —
+# sonst sind entweder alte Exporte nicht mehr importierbar oder neue nicht.
+#
+# ⭐ Bis zum 12.09.2026 stand hier `'SC BP Watcher'` fest, und `detect()`
+# verglich genauso fest. Dass ein neuer Name trotzdem erkannt würde, lag nur
+# am Rückfall `or 'bauplaene' in data` — Zufall, kein Entwurf.
+WERKZEUGNAME = 'VerseKit'
+
 
 def _iso(zeit_text):
     """„2026-08-24 07:57:59" -> „2026-08-24T07:57:59Z" oder None.
@@ -170,7 +182,7 @@ def vollstaendig(bestand=None, katalog=None):
         }
         eintraege.append({kk: v for kk, v in satz.items() if v not in (None, '')})
     return {
-        'werkzeug': 'SC BP Watcher',
+        'werkzeug': WERKZEUGNAME,
         'erstellt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'spielversion': kat.get('version') or None,
         'anzahl': len(eintraege),

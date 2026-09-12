@@ -102,7 +102,10 @@ CACHE = 'katalog-cache.json'
 #
 # **Hochzählen, sobald `_missionen()` oder `_herkunft()` etwas anders ablegen.**
 FORMAT = 2
-USER_AGENT = 'SC-BP-Watcher/2.0 (+https://github.com/Xharig/SC-BP-Watcher)'
+# ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
+# alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
+USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
+              '(+https://github.com/Xharig/SC-BP-Watcher)')
 TIMEOUT = 120
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 

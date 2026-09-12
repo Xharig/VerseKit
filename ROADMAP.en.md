@@ -4,7 +4,7 @@
 
 ## What it is for
 
-SC BP Watcher is a small overlay that shows, while you play Star Citizen, when a new blueprint is unlocked — on **Windows and Linux**, from a shared codebase.
+VerseKit is your Star Citizen toolkit: blueprints, contracts, crafting, trade — live while you play — on **Windows and Linux**, from a shared codebase.
 
 Since v3.3.0 there is a **workshop** on top of that: what you can craft from a blueprint, what you are missing for it, where the materials are mined and what sits in your storage. The blueprint is still the starting point — the workshop answers the question that follows it: *and now what?*
 

@@ -5269,7 +5269,10 @@ def _ueber(fenster, rahmen):
             fehler.merken('seiten.ueber.symbol', ausnahme)
     titel = tk.Frame(kopf, bg=FLAECHE)
     titel.pack(side='left', fill='x', expand=True)
-    tk.Label(titel, text='SC BP Watcher', bg=FLAECHE, fg=FG,
+    # ⚠ Produktname aus `sprache.py` — nie fest hier. Bei der Umbenennung zu
+    # VerseKit (12.09.2026) stand er an vier Stellen hart im Code und wäre
+    # teils alt geblieben.
+    tk.Label(titel, text=t('hf_titel'), bg=FLAECHE, fg=FG,
              font=fenster.f_titel, anchor='w').pack(fill='x')
     tk.Label(titel, text=fenster.version or '—', bg=FLAECHE, fg=ACCENT,
              font=fenster.f_fett, anchor='w').pack(fill='x')

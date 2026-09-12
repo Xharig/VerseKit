@@ -405,7 +405,13 @@ def _aufraeumen(lauf):
     _weg(_pfad(ERGEBNIS))
     installer = str(lauf.get('installer') or '')
     # Nur eine Datei, die erkennbar uns gehört — nie etwas Fremdes.
-    if installer and 'sc-bp-watcher' in os.path.basename(installer).lower():
+    #
+    # ⚠⚠ Die Prüfung geht über `pfade.gehoert_uns()`, weil sie BEIDE
+    # Namen kennen muss. Bis zum 12.09.2026 stand hier nur
+    # 'sc-bp-watcher' — ein `VerseKit-Setup.exe` wäre nach dem Update
+    # liegen geblieben, während die Laufmarke gelöscht wurde. Vom Prüfer
+    # mit einer protokollierenden Attrappe nachgewiesen (F04).
+    if installer and pfade.gehoert_uns(installer):
         _weg(installer)
 
 

@@ -198,7 +198,7 @@ jobs:
           name: windows
           path: |
             dist/SC-BP-Watcher.exe
-            dist/SC-BP-Watcher-Setup.exe
+            dist/VerseKit-Setup.exe
 
   # -------------------------------------------------------------------- Linux
   linux:
@@ -334,12 +334,12 @@ jobs:
           # --appimage-extract-and-run, weil im Container kein FUSE zur Verfuegung steht
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run \
             --runtime-file runtime-x86_64 \
-            "$APPDIR" SC-BP-Watcher-x86_64.AppImage
+            "$APPDIR" VerseKit-x86_64.AppImage
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
           name: linux
-          path: SC-BP-Watcher-x86_64.AppImage
+          path: VerseKit-x86_64.AppImage
 
   # ------------------------------------------------------------------ Release
   release:
@@ -385,9 +385,9 @@ jobs:
         # seinen Eintrag nie und wuerde jedes Update ablehnen.
         run: |
           set -eu
-          ( cd dateien/windows && sha256sum SC-BP-Watcher-Setup.exe ) \
+          ( cd dateien/windows && sha256sum VerseKit-Setup.exe ) \
             > SHA256SUMS.txt
-          ( cd dateien/linux && sha256sum SC-BP-Watcher-x86_64.AppImage ) \
+          ( cd dateien/linux && sha256sum VerseKit-x86_64.AppImage ) \
             >> SHA256SUMS.txt
           echo "--- SHA256SUMS.txt ---"
           cat SHA256SUMS.txt
@@ -413,8 +413,8 @@ jobs:
           # (`start "" "<ziel>"`). Der Installer läuft also und installiert
           # sauber, statt als totes Programm liegenzubleiben.
           files: |
-            dateien/windows/SC-BP-Watcher-Setup.exe
-            dateien/linux/SC-BP-Watcher-x86_64.AppImage
+            dateien/windows/VerseKit-Setup.exe
+            dateien/linux/VerseKit-x86_64.AppImage
             SHA256SUMS.txt
 
       # Meldung im eigenen Discord — als lesbare Karte statt als nackter Link.

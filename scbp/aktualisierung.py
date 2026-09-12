@@ -65,7 +65,12 @@ API = 'https://api.github.com/repos/%s/releases' % REPO
 # Monaten — und bekam prompt Fehler gemeldet, die längst behoben waren.
 # Die Übersicht zeigt alles, auch die Vorabversionen.
 SEITE = 'https://github.com/%s/releases' % REPO
-KENNUNG = 'SC-BP-Watcher (+https://github.com/%s)' % REPO
+# ⚠ Der User-Agent geht an FREMDE Server (GitHub, scmdb, UEX) — ihre Betreiber
+# sehen ihn. Deshalb nennt er nach der Umbenennung (12.09.2026) **beide** Namen:
+# Wer den alten in einer Freigabeliste stehen hat, erkennt uns weiter, und wer
+# nur den neuen kennt, auch. Die Adresse bleibt ohnehin dieselbe, weil `REPO`
+# nicht umbenannt wird.
+KENNUNG = 'VerseKit (ehemals SC-BP-Watcher) (+https://github.com/%s)' % REPO
 CACHE = 'versionen.json'
 # Wie lange ein Blick auf GitHub gilt. Früher standen hier 24 Stunden — „einmal
 # am Tag reicht". Tut es nicht: Wer das Programm mehrmals startet, bekam beim
@@ -517,6 +522,12 @@ def protokoll_gebuendelt():
 
 
 # ------------------------------------------------------------------- Holen
+# ⚠⚠ Welche Dateien uns gehoeren, steht in `pfade.EIGENE_DATEINAMEN` —
+# an EINER Stelle fuer alle drei Pruefungen (hier zweimal, dazu
+# `update_lauf._aufraeumen()`). Zwei Listen waeren nach dem ersten
+# Namenswechsel auseinander.
+
+
 def eigenes_appimage():
     """Der Pfad **unseres** AppImage — oder None.
 
@@ -547,7 +558,18 @@ def eigenes_appimage():
     # Maßgeblich ist stattdessen der Dateiname: Zeigt `APPIMAGE` auf eine Datei,
     # die nach diesem Programm heißt, ist es unsere. Ein fremdes AppImage — der
     # Unfall, um den es hier geht — heißt anders und fällt durch.
-    if 'sc-bp-watcher' not in os.path.basename(pfad).lower():
+    #
+    # ⚠⚠ **BEIDE Namen, dauerhaft** (Umbenennung zu VerseKit, 12.09.2026).
+    # Zwei Fälle, die gleichzeitig gelten:
+    #   * Bestandsnutzer: Beim Update wird die VORHANDENE Datei an ihrem Platz
+    #     ersetzt. Sie heißt danach weiter `SC-BP-Watcher-x86_64.AppImage` und
+    #     enthält VerseKit.
+    #   * Neuinstallationen: Die Release-Datei heißt `VerseKit-x86_64.AppImage`.
+    # Wer hier einen der beiden Namen streicht, sorgt dafür, dass sich die eine
+    # Hälfte der Nutzer nicht mehr selbst erkennt: `verpackung()` fällt auf
+    # `'exe'` zurück, das Programm geht in den Windows-Zweig und stirbt mit
+    # `[Errno 2] No such file or directory: 'cmd'`.
+    if not pfade.gehoert_uns(pfad):
         return None
     return pfad
 
@@ -1029,7 +1051,8 @@ def einspielen(neue_datei, ziel_version='', alte_version=''):
     # keine fremde Datei ersetzt. Genau dieser Riegel hätte den Unfall vom
     # 25.08.2026 verhindert, bei dem ein fremdes AppImage überschrieben wurde,
     # weil `APPIMAGE` auf ein anderes Programm zeigte.
-    if 'sc-bp-watcher' not in os.path.basename(ziel).lower():
+    # ⚠⚠ Auch hier beide Namen — siehe `pfade.gehoert_uns()`.
+    if not pfade.gehoert_uns(ziel):
         from . import sprache
         return False, sprache.t('up_fremde_datei', os.path.basename(ziel))
     try:

@@ -14,7 +14,7 @@
 ; Installer NICHT an — weder beim Installieren noch beim Deinstallieren.
 ; Ein Bauplan-Bestand, den man über Monate sammelt, gehört nicht dem Programm.
 
-#define AppName "SC BP Watcher"
+#define AppName "VerseKit"
 #define AppPublisher "Xharig"
 #define AppURL "https://github.com/Xharig/SC-BP-Watcher"
 #ifndef AppVersion
@@ -116,8 +116,27 @@ RestartApplications=no
 ; Ohne die Zeile landet alles im Benutzerzweig — passend zum Ziel unter
 ; `{localappdata}\Programs`, für das ohnehin nie Administratorrechte nötig sind.
 PrivilegesRequired=lowest
+; ⚠⚠ Nur der Vorschlag für eine NEUinstallation. Eine vorhandene Installation
+; behält ihren Ordner — `UsePreviousAppDir` steht deshalb ausdrücklich hier und
+; nicht als stiller Standard.
+;
+; Das ist bei der Umbenennung zu VerseKit (12.09.2026) entscheidend geworden:
+; Bestandsnutzer haben `…\Programs\SC BP Watcher`, der Vorschlag lautet jetzt
+; `…\Programs\VerseKit`. Ohne diese Zeile hinge daran die Frage, ob das Update
+; die vorhandene Installation aktualisiert oder eine zweite anlegt — und der
+; Autostart-Eintrag in der Registry zeigt auf den ALTEN Pfad.
+UsePreviousAppDir=yes
 DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
+; ⚠⚠ Ohne diese Zeile behielte Inno den GESPEICHERTEN Gruppennamen (Standard
+; `UsePreviousGroup=yes`). Nach der Umbenennung hieße der Startmenü-Ordner also
+; weiter „SC BP Watcher", während die Verknüpfungen darin „VerseKit" heißen —
+; sichtbar inkonsistent.
+;
+; Mit `no` greift `DefaultGroupName`, und der alte Ordner wird über
+; `[InstallDelete]` entfernt. Unkritisch, weil `DisableProgramGroupPage=yes`
+; den Nutzer den Ordner ohnehin nie wählen lässt.
+UsePreviousGroup=no
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 
@@ -125,7 +144,7 @@ OutputDir=..\dist
 ; ⚠ Der Name bleibt so — die Testfassungen rc39 bis rc75 suchen beim Update
 ; gezielt nach einer Datei auf `-setup.exe`. Wird hier umbenannt, finden sie
 ; gar nichts mehr und bekommen nie wieder ein Update angeboten.
-OutputBaseFilename=SC-BP-Watcher-Setup
+OutputBaseFilename=VerseKit-Setup
 SetupIconFile=..\icon.ico
 UninstallDisplayIcon={app}\SC-BP-Watcher.exe
 UninstallDisplayName={#AppName}
@@ -147,6 +166,71 @@ Name: "autostart"; Description: "Mit Windows starten"; \
 
 [Files]
 Source: "..\dist\SC-BP-Watcher.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+; ⚠⚠⚠ Umbenennung zu VerseKit (12.09.2026): Die Verknüpfungs-DATEINAMEN hängen
+; an `AppName`. Beim Update entstehen sonst `VerseKit.lnk` **neben** den alten
+; `SC BP Watcher.lnk` — im Startmenü, auf dem Desktop und beim
+; Deinstallations-Link. `UsePreviousAppDir` schützt nur den Installationspfad,
+; nicht die Verknüpfungen.
+;
+; Deshalb werden die alten hier entfernt, bevor die neuen entstehen.
+;
+; `Type: files` ohne vorhandene Datei ist stillschweigend in Ordnung; wer nie
+; eine solche Verknüpfung hatte, merkt nichts.
+[InstallDelete]
+; ⚠⚠⚠ Hier standen schon DREI falsche Fassungen — alle drei vom Prüfer
+; gefunden, und alle drei hatten dieselbe Ursache: eine unbelegte Annahme.
+;
+; **Versuch 1 (F01):** die Links einzeln aufgezählt, dabei den übersetzten
+; Namen des Deinstallations-Links GERATEN — „… deinstallieren.lnk" statt
+; „… entfernen.lnk", wie `German.isl` ihn wirklich bildet.
+;
+; **Versuch 2 (F05a):** daraufhin `filesandordirs` auf den ganzen Ordner. Löst
+; das Sprachproblem, löscht laut Inno-Doku aber „all files and subdirectories
+; in them" — also auch, was der NUTZER hineingelegt hat. `DefaultGroupName`
+; reserviert den Ordner nicht exklusiv.
+;
+; **Versuch 3 (F05b):** dann Platzhalter auf den Produktnamen. Trifft aber
+; auch eine Verknüpfung, die der Nutzer SELBST angelegt hat —
+; „SC BP Watcher - Eigene Notizen.lnk" zeigt auf seine Notizen und wäre
+; gelöscht worden. ⭐ **Ein Produktname im Dateinamen belegt keine
+; Zugehörigkeit zum Installer.**
+;
+; ⭐⭐ **Jetzt: genau die Namen, die dieser Installer selbst anlegt** — und
+; zwar über Innos EIGENE Übersetzung, nicht über eine geratene oder
+; nachgepflegte. `{cm:UninstallProgram,…}` ist wörtlich derselbe Ausdruck, mit
+; dem `[Icons]` den Link erzeugt (eine Klammer weiter unten). Damit können
+; Anlegen und Entfernen nicht auseinanderlaufen, und es gibt nichts zu raten.
+;
+; ⚠ **Der Name steht hier absichtlich ausgeschrieben statt als `{#AppName}`:**
+; Entfernt wird der Link der ALTEN Fassung. Zöge er mit `AppName` mit, würde
+; beim nächsten Namenswechsel der falsche Link gelöscht.
+;
+; ⚠ Nicht prüfbar auf diesem Rechner: ob `{cm:…}` in diesem Parameter
+; entfaltet wird (Inno liegt hier nicht, der Bau läuft in GitHub Actions). Die
+; Doku sagt nur „the majority of the script entries can have constants
+; embedded in them". Ein Fehler daran bricht den BAU — er wird also sichtbar,
+; bevor ein Release entsteht, und trifft keinen Nutzer.
+; ⚠ Bleibt die Sprache des Updates hinter der Erstinstallation zurück, bleibt
+; ein übersetzter Link stehen. Sichtbar, harmlos, kein Datenverlust — und
+; `UsePreviousLanguage` (Standard `yes`) macht genau das unwahrscheinlich.
+Type: files; Name: "{autoprograms}\SC BP Watcher\SC BP Watcher.lnk"
+Type: files; Name: "{autoprograms}\SC BP Watcher\{cm:UninstallProgram,SC BP Watcher}.lnk"
+; `dirifempty` räumt den alten Gruppenordner weg — und lässt ihn stehen,
+; sobald noch irgendetwas darin liegt. Ein Nutzerinhalt überlebt das Update,
+; der Preis ist ein übrig gebliebener Ordner. Richtige Richtung: nichts
+; Fremdes löschen ist wichtiger als ein aufgeräumtes Startmenü.
+Type: dirifempty; Name: "{autoprograms}\SC BP Watcher"
+
+; ⚠⚠ `Tasks: desktopicon` ist hier KEIN Beiwerk (F06). Der Ersatz unten
+; entsteht nur mit dieser Aufgabe — ohne die Bedingung würde der alte Link
+; bedingungslos verschwinden und kein neuer nachkommen. Konkreter Fall des
+; Prüfers: Installation ohne Desktop-Aufgabe, der Nutzer legt sich die
+; Verknüpfung später selbst an, das automatische Update übernimmt die alte
+; Aufgabenauswahl — und hätte ihm den Desktop leer geräumt.
+;
+; ⭐ Die Regel dahinter: **Entfernt wird nur, wofür ein Ersatz gesichert ist.**
+Type: files; Name: "{autodesktop}\SC BP Watcher.lnk"; Tasks: desktopicon
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\SC-BP-Watcher.exe"

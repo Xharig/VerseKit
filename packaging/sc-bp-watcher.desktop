@@ -1,8 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=SC BP Watcher
-Comment=Zeigt neue Star-Citizen-Baupläne an
-Comment[en]=Shows new Star Citizen blueprints
+Name=VerseKit
+Comment=Dein Werkzeugkasten für Star Citizen
+Comment[en]=Your Star Citizen toolkit
+# ⚠ Exec und Icon BLEIBEN: Das ist der Name der Binary im AppImage und der
+# Symboldatei — beide sind unsichtbar und wurden nicht umbenannt.
 Exec=SC-BP-Watcher
 Icon=sc-bp-watcher
 Categories=Game;Utility;

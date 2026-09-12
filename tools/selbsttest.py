@@ -733,7 +733,7 @@ def main():
                'es bleiben höchstens %d Einträge liegen' % fehlerbuch.HOECHSTENS)
 
         text = bericht.bauen(version='0.0.0-test')
-        pruefe(bool(text) and 'SC BP Watcher' in text, 'der Bericht wird gebaut')
+        pruefe(bool(text) and 'VerseKit' in text, 'der Bericht wird gebaut')
 
         # ⚠ Ein Schreibfehler darf nicht spurlos verschwinden. Bis zum
         # 26.08.2026 gab `einstellungen_schreiben` nur `False` zurück — und
@@ -2438,7 +2438,7 @@ def main():
         yml30 = open(os.path.join(WURZEL, '.github', 'workflows',
                                   'release.yml'), encoding='utf-8').read()
         anhang30 = yml30[yml30.index('files: |'):][:400]
-        pruefe('SC-BP-Watcher-Setup.exe' in anhang30,
+        pruefe('VerseKit-Setup.exe' in anhang30,
                'der Installer haengt am Release')
         pruefe('windows/SC-BP-Watcher.exe' not in anhang30,
                'die nackte .exe haengt NICHT mehr daran')
@@ -2447,8 +2447,21 @@ def main():
         # Was gebaut wird, muss zu dem passen, was gesucht wird.
         iss30 = open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
                      encoding='utf-8').read()
-        pruefe('OutputBaseFilename=SC-BP-Watcher-Setup' in iss30,
-               'der Installer heisst so, wie rc39-rc75 ihn suchen')
+        # ⭐ Die WIRKUNG pruefen, nicht den Namen. Alte Fassungen (rc39-rc75 und
+        # alles danach) suchen die Release-Datei ueber `passende_datei()`, und
+        # die schaut auf die ENDUNG: `-setup.exe`, `-installer.exe`, `_setup.exe`.
+        # Der Praefix darf wechseln, das Suffix nicht.
+        #
+        # ⚠ Bis zum 12.09.2026 stand hier der Name woertlich — die Wache haette
+        # die VerseKit-Umbenennung blockiert, obwohl der Updateweg sie traegt.
+        # Dasselbe Muster wie bei Pruefung 74: Form gemessen, wo Wirkung zaehlt.
+        _basis30 = [z.split('=', 1)[1].strip() for z in iss30.splitlines()
+                    if z.strip().startswith('OutputBaseFilename=')]
+        _endungen30 = ('-setup.exe', '-installer.exe', '_setup.exe')
+        pruefe(len(_basis30) == 1
+               and (_basis30[0] + '.exe').lower().endswith(_endungen30),
+               'der Installer heisst so, dass aeltere Fassungen ihn finden (%s)'
+               % (_basis30[0] if _basis30 else 'keine Zeile gefunden'))
         pruefe(ak30.WINDOWS_INSTALLER[0] == '-setup.exe',
                'und die Suche faengt genau damit an')
         # Der Weg von v2.0.0: erste Datei auf .exe — das MUSS der Installer sein.
@@ -16959,6 +16972,12 @@ def main():
         'orte': 'places',
         'verkauf': 'selling',
         'routen': 'routes',
+        # Stufe 3c — Spieldaten von aussen (erkul behaelt seinen Dateinamen)
+        'katalog': 'catalog',
+        # Stufe 3d — Dienste (serverstatus behaelt seinen Dateinamen)
+        'spielstand': 'gamebuild',
+        'uebersetzung': 'translation',
+        'auftragsruf': 'reputation',
     }
 
     def _reste190(quelle, name, alte):
@@ -18198,6 +18217,335 @@ def main():
         except tk189.TclError:
             pass
 
+    # ------------------------------------------------ Identitaets-Anker (191)
+    print('\n191. Die Identitaets-Anker halten (Umbenennung VerseKit)')
+    # ⚠⚠⚠ Diese Anker entscheiden, ob ein Bestandsnutzer nach einem Update
+    # seine Daten wiederfindet. Sie duerfen sich NIE aendern — auch nicht,
+    # wenn das Werkzeug einen neuen Namen bekommt.
+    #
+    # Der Grundsatz: **Was der Nutzer SIEHT, wechselt. Was ihn WIEDERFINDET,
+    # bleibt.** Am 12.09.2026 gemessen: Die Vorab-Analyse zur
+    # VerseKit-Umbenennung nannte drei solcher Anker, es sind zehn.
+    #
+    # ⚠ Wer hier einen Wert aendert, muss zuerst erklaeren, wie die vorhandene
+    # Installation den neuen findet. Ohne Migrationsweg ist die Antwort: nicht.
+    # ⚠ Je Anker die ERWARTETE ANZAHL, nicht blosse Anwesenheit. Der
+    # Ablageordner steht zweimal in pfade.py — eine Wache, die nur fragt
+    # "kommt der Text vor", merkt es nicht, wenn eines der beiden
+    # Vorkommen wechselt. Gefunden von der Gegenprobe am 12.09.2026.
+    _anker191 = [
+        ('packaging/installer.iss', 1,
+         'AppId={{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}',
+         'Installer-Kennung — sonst legt der Installer eine ZWEITE Installation an'),
+        ('scbp/pfade.py', 1, "ORDNERNAME = 'SC BP Watcher'",
+         'Ordner unter Dokumente — dort liegt der Zeiger auf die Bauplan-Daten'),
+        ('scbp/pfade.py', 2, "'sc-bp-watcher')",
+         'Ablageordner in APPDATA bzw. ~/.config — BEIDE Stellen'),
+        ('scbp/backup.py', 1, "MARKER = 'SC-BP-Watcher-Sicherung'",
+         'Marker der Sicherungsdateien — wird geschrieben UND gelesen'),
+        ('scbp/autostart.py', 1, "NAME = 'SC BP Watcher'",
+         'Registry-Wertname des Autostarts — sonst zwei Eintraege'),
+        ('scbp/autostart.py', 1, "'sc-bp-watcher.desktop'",
+         'Autostart-Datei unter Linux — dasselbe'),
+        ('scbp/verknuepfung.py', 1, "DATEINAME = 'sc-bp-watcher.desktop'",
+         'Verknuepfung — sonst zwei Eintraege im Startmenue'),
+        ('scbp/verknuepfung.py', 1, "SYMBOLNAME = 'sc-bp-watcher.png'",
+         'Symboldatei der Verknuepfung'),
+        ('scbp/pfade.py', 1,
+         "EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')",
+         'BEIDE Dateinamen — Bestandsnutzer UND Neuinstallation'),
+        ('scbp/aktualisierung.py', 2, 'if not pfade.gehoert_uns(',
+         'AppImage-Erkennung und Ueberschreib-Riegel, EINE gemeinsame Quelle'),
+        ('scbp/update_lauf.py', 1, 'and pfade.gehoert_uns(installer)',
+         'Installer-Aufraeumen kennt beide Namen (sonst bleibt er liegen)'),
+        ('scbp/aktualisierung.py', 1,
+         "INNO_KENNUNG = '{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}_is1'",
+         'Deinstallations-Kennung — dieselbe GUID wie AppId'),
+    ]
+    for _datei191, _wieviel191, _text191, _warum191 in _anker191:
+        _p191 = os.path.join(WURZEL, _datei191)
+        _q191 = open(_p191, encoding='utf-8').read() if os.path.exists(_p191) else ''
+        _n191 = _q191.count(_text191)
+        pruefe(_n191 == _wieviel191,
+               '%s (%dx): %s' % (_datei191.split('/')[-1], _wieviel191, _warum191)
+               + ('' if _n191 == _wieviel191 else ' — gefunden: %dx' % _n191))
+
+    # (Die AppImage-Pruefung steckt jetzt im Anker-Katalog oben.)
+
+    # ⭐ Der einzige unsichtbare Anker, der MITWECHSELN muss: StartupWMClass
+    # haengt am Fenstertitel. Laufen sie auseinander, ordnet der Desktop das
+    # Fenster der Verknuepfung nicht mehr zu — das Programm erscheint als
+    # zweites Symbol in der Leiste.
+    # ⭐ Die WIRKUNG pruefen, nicht den Quelltext: anlegen() in einem
+    # Wegwerf-Ordner laufen lassen und die ERZEUGTE Datei lesen.
+    #
+    # ⚠ Bis zum 12.09.2026 las diese Pruefung den Quelltext von
+    # verknuepfung.py. Als der Wert dort zu einem Platzhalter wurde (der Name
+    # kommt jetzt aus sprache.py), meldete sie '%s' vs 'VerseKit' — ein
+    # Fehlalarm. Dieselbe Schwaeche wie bei Pruefung 74 und 30: Form
+    # gemessen, wo Wirkung zaehlt.
+    from scbp import sprache as _spr191, verknuepfung as _vk191
+    # Der Text, den anlegen() schreiben WUERDE — ohne Dateisystem, damit die
+    # Pruefung auch unter Windows laeuft (Regel: nichts stillschweigend
+    # ueberspringen).
+    _inhalt191 = _vk191.desktop_inhalt('/pfad/programm', 'sc-bp-watcher')
+    _felder191 = {}
+    for _z191 in _inhalt191.splitlines():
+        if '=' in _z191:
+            _k191, _v191 = _z191.split('=', 1)
+            _felder191[_k191] = _v191.strip()
+    _titel191 = _spr191.t('hf_titel').strip()
+    pruefe(_felder191.get('Name') == _titel191
+           and _felder191.get('StartupWMClass') == _titel191,
+           'die .desktop traegt ueberall den Fenstertitel'
+           ' (Name=%r, StartupWMClass=%r, Titel=%r)'
+           % (_felder191.get('Name'), _felder191.get('StartupWMClass'),
+              _titel191))
+    # Und die Anker in derselben Datei: Symbol und Dateiname bleiben alt.
+    pruefe(_felder191.get('Icon') == 'sc-bp-watcher',
+           'die .desktop behaelt ihren Symbolnamen (%r)'
+           % _felder191.get('Icon'))
+    pruefe(_vk191.DATEINAME == 'sc-bp-watcher.desktop',
+           'die .desktop behaelt ihren Dateinamen (%r)' % _vk191.DATEINAME)
+
+    # ⭐⭐ Das Aufraeumen der ALTEN Verknuepfungen (installer.iss)
+    #
+    # ⚠⚠⚠ An dieser Stelle standen DREI falsche Fassungen, alle drei vom
+    # Pruefer gefunden — und alle drei mit derselben Ursache: eine unbelegte
+    # Annahme, die als Tatsache in den Code ging.
+    #   * F01 — den UEBERSETZTEN Namen des Deinstallations-Links geraten
+    #     ('deinstallieren' statt 'entfernen'). Inno liegt hier nicht vor, der
+    #     Bau laeuft in Actions: Der Name war nicht pruefbar.
+    #   * F05a — daraufhin `filesandordirs` auf den ganzen Gruppenordner.
+    #     Loest das Sprachproblem, loescht laut Inno-Doku aber „all files and
+    #     subdirectories in them" — auch, was der NUTZER hineingelegt hat.
+    #   * F05b — dann Platzhalter auf den Produktnamen. Trifft aber auch
+    #     'SC BP Watcher - Eigene Notizen.lnk', eine Verknuepfung des Nutzers
+    #     auf SEINE Notizen. ⭐ Ein Produktname im Dateinamen belegt keine
+    #     Zugehoerigkeit zum Installer.
+    #
+    # ⭐⭐ Jetzt entscheidet nicht mehr ein Muster, sondern die SYMMETRIE:
+    # Geloescht wird genau, was `[Icons]` selbst anlegt — im selben Wortlaut,
+    # inklusive Innos eigener Uebersetzung `{cm:UninstallProgram,…}`. Diese
+    # Pruefung erzwingt den Gleichlauf: Wer eine vierte Verknuepfung
+    # hinzufuegt, ohne ihr Aufraeumen zu ergaenzen, faellt durch.
+    #
+    # ⚠ Was sie NICHT kann: Innos Parser ersetzen. Ob `{cm:…}` in diesem
+    # Parameter entfaltet wird, entscheidet der Bau in GitHub Actions. Ein
+    # Fehler daran bricht den Bau — er trifft keinen Nutzer.
+    import fnmatch as _fn191
+    _iss191 = open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
+                   encoding='utf-8').read()
+    _altname191 = 'SC BP Watcher'          # der Name der ALTEN Fassung
+    _gruppe191 = r'{autoprograms}\%s' % _altname191
+
+    def _abschnitt191(name):
+        """Die Zeilen eines [Abschnitts] — ohne Kommentare und Leerzeilen."""
+        t = re.search(r'^\[%s\](.*?)(?=^\[)' % name, _iss191, re.S | re.M)
+        if not t:
+            return []
+        zeilen, offen = [], ''
+        for z in t.group(1).splitlines():
+            z = z.strip()
+            if not z or z.startswith(';'):
+                continue
+            if z.endswith('\\'):               # Fortsetzungszeile
+                offen += z[:-1].strip() + ' '
+                continue
+            zeilen.append(offen + z)
+            offen = ''
+        return zeilen
+
+    def _feldwert191(zeile, feld):
+        t = re.search(r'%s:\s*"?([^";]+)"?' % feld, zeile)
+        return t.group(1).strip() if t else ''
+
+    _regeln191 = []
+    for _z191 in _abschnitt191('InstallDelete'):
+        _art191 = _feldwert191(_z191, 'Type').lower()
+        _nam191 = _feldwert191(_z191, 'Name')
+        if _art191 and _nam191:
+            _regeln191.append((_art191, _nam191,
+                               _feldwert191(_z191, 'Tasks')))
+    pruefe(bool(_regeln191),
+           'installer.iss hat einen [InstallDelete]-Abschnitt (%d Regeln)'
+           % len(_regeln191))
+    # Nur die Regeln, die den alten Gruppenordner betreffen.
+    _unsere191 = [(_a191, _n191) for _a191, _n191, _t191 in _regeln191
+                  if _n191.startswith(_gruppe191)]
+    pruefe(bool(_unsere191),
+           'der alte Gruppenordner wird ueberhaupt aufgeraeumt (%d Regeln)'
+           % len(_unsere191))
+
+    # ⛔ F05a-Riegel: KEINE Regel darf den Gruppenordner rekursiv loeschen.
+    _rekursiv191 = [_n191 for _a191, _n191 in _unsere191
+                    if _a191 == 'filesandordirs']
+    pruefe(not _rekursiv191,
+           'kein filesandordirs auf den Gruppenordner (loescht Nutzerinhalt)'
+           + ('' if not _rekursiv191 else ' — gefunden: %r' % _rekursiv191))
+
+    # ⛔⛔ F05b-Riegel: KEIN Platzhalter in einem Loeschnamen. Ein Muster kann
+    # nicht wissen, ob eine Datei vom Installer stammt — nur ein exakter Name
+    # kann das. Das ist der eigentliche Riegel dieser Pruefung.
+    _muster191 = [_n191 for _a191, _n191, _t191 in _regeln191
+                  if '*' in _n191 or '?' in _n191]
+    pruefe(not _muster191,
+           'kein Platzhalter in [InstallDelete] — ein exakter Name belegt die'
+           ' Herkunft, ein Muster nicht'
+           + ('' if not _muster191 else ' — gefunden: %r' % _muster191))
+
+    pruefe(any(_a191 == 'dirifempty' and _n191 == _gruppe191
+               for _a191, _n191 in _unsere191),
+           'der leere Gruppenordner verschwindet per dirifempty')
+
+    # ⭐⭐ Die Symmetrie: jede Verknuepfung, die [Icons] anlegt, wird in ihrer
+    # ALTEN Form auch aufgeraeumt — und zwar im identischen Wortlaut.
+    _loeschen191 = dict(((_n191, _t191) for _a191, _n191, _t191 in _regeln191
+                         if _a191 == 'files'))
+    for _z191 in _abschnitt191('Icons'):
+        _iname191 = _feldwert191(_z191, 'Name')
+        _itask191 = _feldwert191(_z191, 'Tasks')
+        # Der Name, den dieselbe Verknuepfung in der ALTEN Fassung trug.
+        _alt191 = _iname191.replace('{#AppName}', _altname191)
+        _alt191 = _alt191.replace('{group}', _gruppe191) + '.lnk'
+        pruefe(_alt191 in _loeschen191,
+               'Symmetrie: %r wird auch aufgeraeumt' % _iname191
+               + ('' if _alt191 in _loeschen191
+                  else ' — es fehlt %r' % _alt191))
+        # ⚠ F06: Wird der Ersatz nur mit einer Aufgabe angelegt, darf der alte
+        # Link auch nur mit DIESER Aufgabe verschwinden. Sonst raeumt ein
+        # Update den Desktop leer, ohne etwas hinzustellen.
+        if _alt191 in _loeschen191:
+            pruefe(_loeschen191[_alt191] == _itask191,
+                   'F06: %r wird unter derselben Bedingung geloescht wie'
+                   ' angelegt (Aufgabe %r)'
+                   % (_iname191, _itask191 or 'keine')
+                   + ('' if _loeschen191[_alt191] == _itask191
+                      else ' — Loeschen hat %r' % (_loeschen191[_alt191]
+                                                   or 'keine')))
+
+    def _aufraeumen191(inhalt, regeln=None):
+        """Was von `inhalt` uebrig bleibt — nach Innos Regeln.
+
+        `inhalt` ist eine Liste aus (Name, ist_ordner), `regeln` eine Liste
+        aus (Art, Name); ohne Angabe die echten aus `installer.iss`.
+        Rueckgabe: (Rest, Ordner_verschwindet).
+        """
+        regeln = _unsere191 if regeln is None else regeln
+        rest = list(inhalt)
+        leeren = False
+        for art, name in regeln:
+            if art == 'dirifempty':
+                leeren = leeren or name == _gruppe191
+                continue
+            if not name.startswith(_gruppe191 + '\\'):
+                continue                     # zeigt nicht IN den Ordner
+            muster = name[len(_gruppe191) + 1:].lower()
+            behalten = []
+            for eintrag, ist_ordner in rest:
+                treffer = _fn191.fnmatchcase(eintrag.lower(), muster)
+                # `files` trifft laut Inno-Doku ausdruecklich keine Ordner.
+                if treffer and (art == 'filesandordirs' or not ist_ordner):
+                    continue
+                behalten.append((eintrag, ist_ordner))
+            rest = behalten
+        return rest, (leeren and not rest)
+
+    # ⚠ `{cm:…}` entfaltet Inno erst beim Lauf. Fuer die Simulation werden
+    # BEIDE Sprachen eingesetzt — eine Fassung, die nur eine davon traefe,
+    # faellt unten auf.
+    def _sprachig191(regeln, uebersetzt):
+        return [(art, re.sub(r'\{cm:UninstallProgram,([^}]*)\}',
+                             uebersetzt, name))
+                for art, name in regeln]
+
+    _unser_link191 = ('SC BP Watcher.lnk', False)
+    _de191 = ('SC BP Watcher entfernen.lnk', False)      # German.isl
+    _en191 = ('Uninstall SC BP Watcher.lnk', False)      # Default.isl
+    _fremd191 = ('Steam.lnk', False)
+    _fremdordner191 = ('Eigene Notizen', True)
+    # ⭐⭐ DER Fall, der F05b ausgeloest hat: eine Verknuepfung, die der Nutzer
+    # SELBST angelegt hat und die unseren Produktnamen traegt — sie zeigt auf
+    # seine Notizen. Kein Muster darf sie erwischen.
+    _eigen191 = ('SC BP Watcher - Eigene Notizen.lnk', False)
+
+    _de_regeln191 = _sprachig191(_unsere191, r'\1 entfernen')
+    _en_regeln191 = _sprachig191(_unsere191, r'Uninstall \1')
+
+    # Fall 1 und 2 — die eigenen Links, in beiden Sprachen des Installers.
+    _rest191, _weg191 = _aufraeumen191([_unser_link191, _de191],
+                                       regeln=_de_regeln191)
+    pruefe(not _rest191 and _weg191,
+           'deutsche Fassung: eigene Links weg, leerer Ordner weg'
+           ' (Rest: %r, Ordner weg: %s)'
+           % ([n for n, _d in _rest191], _weg191))
+
+    _rest191, _weg191 = _aufraeumen191([_unser_link191, _en191],
+                                       regeln=_en_regeln191)
+    pruefe(not _rest191 and _weg191,
+           'englische Fassung: eigene Links weg, leerer Ordner weg'
+           ' (Rest: %r, Ordner weg: %s)'
+           % ([n for n, _d in _rest191], _weg191))
+
+    # ⭐ Fall 3 bis 5 — die Gegenproben. Der Ordner MUSS stehen bleiben,
+    # solange Fremdes darin liegt.
+    _rest191, _weg191 = _aufraeumen191([_unser_link191, _de191, _fremd191],
+                                       regeln=_de_regeln191)
+    pruefe([n for n, _d in _rest191] == ['Steam.lnk'] and not _weg191,
+           'Gegenprobe: eine FREMDE Verknuepfung ueberlebt das Update'
+           ' (Rest: %r, Ordner weg: %s)'
+           % ([n for n, _d in _rest191], _weg191))
+
+    _rest191, _weg191 = _aufraeumen191(
+        [_unser_link191, _de191, _fremdordner191], regeln=_de_regeln191)
+    pruefe([n for n, _d in _rest191] == ['Eigene Notizen'] and not _weg191,
+           'Gegenprobe: ein FREMDER Unterordner ueberlebt das Update'
+           ' (Rest: %r, Ordner weg: %s)'
+           % ([n for n, _d in _rest191], _weg191))
+
+    # ⭐⭐ Fall 6 — die Gegenprobe zu F05b, in BEIDEN Sprachen.
+    for _sp191, _rg191 in (('deutsch', _de_regeln191),
+                           ('englisch', _en_regeln191)):
+        _rest191, _weg191 = _aufraeumen191(
+            [_unser_link191, _de191, _en191, _eigen191], regeln=_rg191)
+        pruefe(_eigen191 in _rest191,
+               'Gegenprobe (%s): die EIGENE Verknuepfung des Nutzers mit'
+               ' unserem Produktnamen ueberlebt (Rest: %r)'
+               % (_sp191, [n for n, _d in _rest191]))
+
+    # Fall 7 — wir waren dort nie: nichts angefasst.
+    _rest191, _weg191 = _aufraeumen191([_fremd191, _fremdordner191],
+                                       regeln=_de_regeln191)
+    pruefe(len(_rest191) == 2 and not _weg191,
+           'Gegenprobe: ein fremder Ordner ohne unsere Links bleibt ganz'
+           ' (Rest: %r)' % [n for n, _d in _rest191])
+
+    # ⛔⛔ Und die Gegenproben auf die SIMULATION selbst — sonst belegen die
+    # Faelle oben nur, dass nichts geknallt ist. BEIDE verworfenen Fassungen
+    # muessen hier nachweislich Schaden anrichten.
+    #
+    # F05a: `filesandordirs` mit Platzhalter MUSS den fremden Unterordner
+    # mitnehmen. Tut er das nicht, unterscheidet die Simulation Dateien nicht
+    # von Ordnern.
+    _rest191, _weg191 = _aufraeumen191(
+        [_unser_link191, _de191, _fremdordner191],
+        regeln=[('filesandordirs', _gruppe191 + '\\*'),
+                ('dirifempty', _gruppe191)])
+    pruefe(not _rest191 and _weg191,
+           'Gegenprobe der Pruefung (F05a): mit filesandordirs waere der'
+           ' fremde Ordner WEG — die Simulation greift also (Rest: %r)'
+           % [n for n, _d in _rest191])
+
+    # F05b: der Produktname-Platzhalter MUSS die eigene Verknuepfung des
+    # Nutzers mitnehmen. Tut er das nicht, belegt Fall 6 nichts.
+    _rest191, _weg191 = _aufraeumen191(
+        [_unser_link191, _de191, _eigen191],
+        regeln=[('files', _gruppe191 + '\\SC BP Watcher*.lnk'),
+                ('dirifempty', _gruppe191)])
+    pruefe(_eigen191 not in _rest191,
+           'Gegenprobe der Pruefung (F05b): mit Platzhalter WAERE die eigene'
+           ' Verknuepfung des Nutzers weg — Fall 6 belegt also etwas'
+           ' (Rest: %r)' % [n for n, _d in _rest191])
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

@@ -756,7 +756,7 @@ def absenden(text, version=''):
         anfrage = urllib.request.Request(
             ziel, data=leib, method='POST',
             headers={'Content-Type': 'multipart/form-data; boundary=%s' % grenze,
-                     'User-Agent': 'SC-BP-Watcher'})
+                     'User-Agent': 'VerseKit (ehemals SC-BP-Watcher)'})
         with urllib.request.urlopen(anfrage, timeout=30) as antwort:
             if 200 <= antwort.status < 300:
                 return True, ''

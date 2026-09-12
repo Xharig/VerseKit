@@ -54,7 +54,7 @@ STANDARD = 'de'
 # getrennten Dateien: So sieht man beim Nachtragen sofort, ob etwas fehlt.
 TEXTE = {
     # -- Verwaltungsfenster --
-    'titel_bauplaene':   ('SC BP Watcher — Baupläne', 'SC BP Watcher — Blueprints'),
+    'titel_bauplaene':   ('VerseKit — Baupläne', 'VerseKit — Blueprints'),
     'bauplaene':         ('Baupläne', 'Blueprints'),
     'filter_alle':       ('alle', 'all'),
     'filter_habe':       ('habe ich', 'owned'),
@@ -457,8 +457,8 @@ TEXTE = {
     'hinweis_suche_leeren': ('Sucheingabe löschen', 'Clear the search'),
 
     # -- Einstellungsfenster --
-    'titel_einstellungen': ('SC BP Watcher — Einstellungen',
-                            'SC BP Watcher — Settings'),
+    'titel_einstellungen': ('VerseKit — Einstellungen',
+                            'VerseKit — Settings'),
     # ⚠ `einstellungen` steht schon weiter oben unter „Einstellungen" — der
     # zweite Eintrag war identisch und damit wirkungslos, aber er hätte beim
     # nächsten Ändern eine der beiden Stellen still übergangen.
@@ -2237,12 +2237,12 @@ TEXTE = {
                               'nobody ever got to see, a window that no longer fit the '
                               'screen, and the withdrawn contract that came back after '
                               'every start.'),
-    's_dk_marken':     ('SC BP Watcher ist ein eigenständiges, inoffizielles '
+    's_dk_marken':     ('VerseKit ist ein eigenständiges, inoffizielles '
                         'Zusatzwerkzeug und steht in keiner offiziellen Verbindung '
                         'zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle '
                         'Marken- und Projektnamen gehören ihren jeweiligen '
                         'Eigentümern.',
-                        'SC BP Watcher is an independent, unofficial companion tool '
+                        'VerseKit is an independent, unofficial companion tool '
                         'with no official connection to the SC Deutsch Launcher or '
                         'Cloud Imperium Games. All trademarks and project names '
                         'belong to their respective owners.'),
@@ -2398,8 +2398,8 @@ TEXTE = {
     # kopiert. Er MUSS der Oberflächensprache folgen: Die Diagnose-Seite
     # verspricht „Du siehst vorher genau, was du verschickst" — auf Englisch
     # gilt das nur, wenn der Block darüber auch englisch ist.
-    'b_kopf':          ('SC BP Watcher %s · Bericht vom %s',
-                          'SC BP Watcher %s · report from %s'),
+    'b_kopf':          ('VerseKit %s · Bericht vom %s',
+                          'VerseKit %s · report from %s'),
     'b_datum':         ('%d.%m.%Y, %H:%M', '%Y-%m-%d, %H:%M'),
     'b_system':        ('System', 'System'),
     'b_verpackung':    ('Verpackung', 'Packaging'),
@@ -2786,7 +2786,13 @@ TEXTE = {
     'ff_alle_treffer': ('alle %d Baupläne', 'all %d blueprints'),
 
     # --- Hauptfenster: Reiter und Rahmen (ab v3.0.0) ---
-    'hf_titel':          ('SC BP Watcher', 'SC BP Watcher'),
+    'hf_titel':          ('VerseKit', 'VerseKit'),
+    # ⚠ Der Untertitel steht hier, weil ihn ZWEI Stellen brauchen:
+    # `verknuepfung.anlegen()` schreibt ihn in eine neue `.desktop`-Datei, und
+    # `verknuepfung.beschriftung_nachziehen()` bringt eine vorhandene darauf.
+    # Getrennt gepflegt wären sie nach dem ersten Wortwechsel auseinander.
+    'vk_untertitel':     ('Dein Werkzeugkasten für Star Citizen',
+                          'Your Star Citizen toolkit'),
     # Zusatz im Fenstertitel, wenn die Testfassung laeuft (SC_BP_TESTFASSUNG).
     # ⚠ Zwei gleich aussehende Fenster nebeneinander sind eine Falle: Man
     # verstellt etwas in der falschen Fassung und sucht dann den Fehler.
@@ -4597,8 +4603,8 @@ TEXTE = {
                           'There is nothing to back up yet.'),
     'sich_fehler':       ('Sicherung fehlgeschlagen: %s',
                           'Backup failed: %s'),
-    'sich_ungueltig':    ('Das ist keine Sicherung des SC BP Watchers.',
-                          'That is not an SC BP Watcher backup.'),
+    'sich_ungueltig':    ('Das ist keine VerseKit-Sicherung.',
+                          'That is not a VerseKit backup.'),
     'sich_frage':        ('Sicherung vom %s mit %d Dateien einspielen?\n\n'
                           'Dein jetziger Stand wird dabei überschrieben — eine '
                           'Kopie davon wird vorher neben der Ablage abgelegt.\n\n'
@@ -4615,7 +4621,7 @@ TEXTE = {
                              'everything is in place.'),
     # Die Beilage IN der Sicherungsdatei — wer sie in einem Jahr findet, soll
     # ohne das Programm erkennen, was er da hat.
-    'sich_datei_info':   ('Erstellt am %s mit SC BP Watcher %s.\n'
+    'sich_datei_info':   ('Erstellt am %s mit VerseKit %s.\n'
                           'Enthaelt %d Dateien: Bauplan-Bestand, Lager,\n'
                           'Auftrags-Protokoll, Merkliste und Einstellungen.\n'
                           '\n'
@@ -4623,7 +4629,7 @@ TEXTE = {
                           'klicken und diese Datei auswaehlen. Die Ordner\n'
                           'darin entsprechen dem Ablage-Ordner des Programms;\n'
                           'im Notfall reicht auch Entpacken von Hand.',
-                          'Created on %s with SC BP Watcher %s.\n'
+                          'Created on %s with VerseKit %s.\n'
                           'Contains %d files: blueprint inventory, stock,\n'
                           'mission log, watchlist and settings.\n'
                           '\n'
