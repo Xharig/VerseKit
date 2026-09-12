@@ -2573,7 +2573,7 @@ def _auftragslog(fenster, rahmen):
              anchor='w').pack(fill='x')
     from .hauptfenster import rundes_feld
     feld = rundes_feld(block, suche, fenster.f_klein, '#0c1017', LINIE,
-                       ACCENT, FG)
+                       ACCENT, FG, hinweis=t('s_pl_auftrag'))
     feld.halter.pack(fill='x', pady=(4, 0))
 
     # ⚠ Die Filterleiste wird weiter unten befuellt — die Farben und Woerter
@@ -3132,7 +3132,7 @@ def _joysticks(fenster, rahmen):
 
     from .hauptfenster import rundes_feld
     feld = rundes_feld(werkzeug, suche, fenster.f_klein, '#0c1017', LINIE,
-                       ACCENT, FG)
+                       ACCENT, FG, hinweis=t('s_pl_belegung'))
     feld.halter.pack(fill='x')
 
     def _kennung_kurz(k):
@@ -3638,7 +3638,10 @@ def _joysticks(fenster, rahmen):
             fehler.merken('seiten.joysticks_sicht', ausnahme)
             daten['belegungen'] = {}
 
-    def _auffrischen():
+    # ⚠⚠ Der Fingerabdruck der zuletzt gezeichneten Lage — siehe unten.
+    zuletzt = {'stand': None}
+
+    def _auffrischen(erzwingen=False):
         from .sprache import aktuelle
         try:
             daten['vergleich'] = joysticks.vergleich()
@@ -3651,10 +3654,41 @@ def _joysticks(fenster, rahmen):
             fehler.merken('seiten.joysticks', ausnahme)
             daten['vergleich'] = {}
             daten['geraetenamen'] = {}
+
+        # ⭐⭐ **Nichts neu zeichnen, wenn sich nichts geändert hat.**
+        #
+        # Dieser Rückruf läuft bei JEDEM Anzeigen der Seite — auch wenn man nur
+        # kurz woanders war. Gemessen am 12.09.2026: **894 ms je Klick**, davon
+        # 92 % in `liste_zeichnen`. Gemeldet als „wirkt lahm … als hätte ein
+        # Anfänger das gebaut".
+        #
+        # ⚠ Der Fingerabdruck ist **die Datenlage selbst**, nicht eine
+        # Ableitung davon (Dateizeitstempel o. ä.). Damit kann er nicht
+        # veralten: Sind die Daten gleich, wäre auch das Bild gleich. Eine
+        # billigere Marke wäre eine zweite Wahrheit, die irgendwann von der
+        # ersten abweicht — und dann steht eine Seite still veraltet da.
+        #
+        # ⚠ `erzwingen=True` für die Aufrufer, die selbst etwas geändert haben.
+        # Sie wissen es besser als jeder Vergleich.
+        stand = (aktuelle(), repr(daten['vergleich']), repr(nur.get('sicht')))
+        if not erzwingen and stand == zuletzt['stand']:
+            return
+        zuletzt['stand'] = stand
+
         try:
             # ⚠ Die Klarnamen richten sich nach der **Programmsprache**, nicht
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
             # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
+            #
+            # ⚠ `vergessen()` sieht nach einem Kostenpunkt aus — ist aber
+            # keiner. Am 12.09.2026 versuchsweise entfernt und **gemessen**:
+            # Der Rückruf brauchte weiter 894 statt 886 ms, also unverändert.
+            # Ein Profillauf nennt den echten Posten: `liste_zeichnen` kostet
+            # 1,89 von 2,05 Sekunden (92 %), weil die gesamte Belegungsliste
+            # bei jedem Anzeigen neu gezeichnet wird.
+            #
+            # Deshalb steht der Aufruf wieder da: Eine Verhaltensänderung ohne
+            # gemessenen Nutzen ist ein Risiko ohne Gegenwert.
             joysticks.vergessen()
             daten['namen'] = joysticks.klarnamen(aktuelle())
         except Exception as ausnahme:
@@ -5561,7 +5595,8 @@ def _diagnose(fenster, rahmen):
     ziel_melder = _feld(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .hauptfenster import rundes_feld
     melder_feld = rundes_feld(ziel_melder, melder_var, fenster.f_klein,
-                              '#0c1017', LINIE, ACCENT, FG)
+                              '#0c1017', LINIE, ACCENT, FG,
+                              hinweis=t('s_pl_melder'))
     melder_feld.halter.pack(fill='x', pady=(8, 0))
 
     # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.**
@@ -5913,7 +5948,7 @@ def _herstellung(fenster, rahmen):
     fenster.herstellung_suche = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = rundes_feld(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
-                           LINIE, ACCENT, FG)
+                           LINIE, ACCENT, FG, hinweis=t('s_pl_herstellung'))
     suchfeld.halter.pack(fill='x', pady=(4, 12))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
@@ -6420,16 +6455,22 @@ def _routen(fenster, rahmen):
     # ------------------------------------------- Frachtraum und Kapital
     zahlen = tk.Frame(kopf, bg=BG)
     zahlen.pack(fill='x', pady=(10, 0))
-    for beschriftung, var, breite in ((t('s_rt_scu'), scu_var, 8),
-                                      (t('s_rt_geld'), geld_var, 14)):
+    for beschriftung, var, breite, beispiel in (
+            (t('s_rt_scu'), scu_var, 8, t('s_pl_scu')),
+            (t('s_rt_geld'), geld_var, 14, t('s_pl_geld'))):
         spalte = tk.Frame(zahlen, bg=BG)
         spalte.pack(side='left', padx=(0, 18))
         tk.Label(spalte, text=beschriftung, bg=BG, fg=SUB,
                  font=fenster.f_klein, anchor='w').pack(fill='x')
-        tk.Entry(spalte, textvariable=var, font=fenster.f_grund, width=breite,
-                 bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
-                 highlightthickness=1, highlightbackground=LINIE,
-                 highlightcolor=ACCENT).pack(ipady=4)
+        zahlfeld = tk.Entry(spalte, textvariable=var, font=fenster.f_grund,
+                            width=breite, bg=FLAECHE, fg=FG,
+                            insertbackground=FG, relief='flat',
+                            highlightthickness=1, highlightbackground=LINIE,
+                            highlightcolor=ACCENT)
+        zahlfeld.pack(ipady=4)
+        # ⚠ Der Hinweis nennt ein BEISPIEL, nicht die Beschriftung darüber —
+        # „Frachtraum (SCU)" zweimal zu sagen hilft niemandem.
+        fields.hinweis(zahlfeld, var, beispiel, normal=FG, grau=SUB)
 
     # ⭐⭐ **Schiff wählen statt Zahl tippen — als Suchfeld, nicht als Fenster.**
     #
@@ -9418,7 +9459,7 @@ def _bergbau(fenster, rahmen):
     sig_var = tk.StringVar(value='')
     ziel_sig = _feld(fenster, innen, t('s_bg_sig_feld'), '')
     sig_feld = rundes_feld(ziel_sig, sig_var, fenster.f_klein, '#0c1017',
-                           LINIE, ACCENT, FG)
+                           LINIE, ACCENT, FG, hinweis=t('s_pl_signatur'))
     sig_feld.halter.pack(fill='x', pady=(4, 2))
     _fliesstext(innen, t('s_bg_sig_hilfe'), fenster.f_klein, fill='x')
     sig_rahmen = tk.Frame(innen, bg=BG)
@@ -13699,6 +13740,10 @@ def _verkauf(fenster, rahmen):
                             highlightthickness=1, highlightbackground=LINIE,
                             highlightcolor=ACCENT, justify='right')
             feld.pack(side='left', pady=3)
+            # ⚠ Nur ein Wort: Das Feld ist fünf Zeichen breit. Ein
+            # abgeschnittener Hinweis wäre schlimmer als keiner — und die
+            # Einheit steht ohnehin als Etikett daneben.
+            fields.hinweis(feld, var, t('s_pl_menge'), normal=FG, grau=SUB)
             tk.Label(marke, text=t('s_vk_scu_kurz'), bg=FLAECHE, fg=SUB,
                      font=fenster.f_klein, padx=4).pack(side='left')
 
@@ -14534,6 +14579,12 @@ def _blickwinkel(fenster, rahmen):
                         bg=FLAECHE, fg=FG, insertbackground=FG,
                         font=fenster.f_grund, relief='flat', justify='right')
         feld.pack(side='right', padx=(16, 0), ipady=3)
+        # ⚠ An diesem Feld hängt schon ein `<FocusOut>`, das den Wert
+        # speichert. Das verträgt sich: `_abstand_merken` steigt bei leerem
+        # Text aus (`float('')` wirft), und genau leer ist die Variable,
+        # solange der Hinweis steht.
+        fields.hinweis(feld, zustand['abstand'], t('s_pl_abstand'),
+                       normal=FG, grau=SUB)
         feld.bind('<Return>', _abstand_merken)
         feld.bind('<FocusOut>', _abstand_merken)
         tk.Frame(inhalt, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
@@ -14716,6 +14767,34 @@ def _achsen(fenster, rahmen):
         if wert is None:
             return '—'
         return ('%.2f' % wert).rstrip('0').rstrip('.') or '0'
+
+    # Der Fingerabdruck der zuletzt gezeichneten Lage — siehe `_beim_zeigen`.
+    zuletzt_achsen = {'stand': None}
+
+    def _beim_zeigen():
+        """Beim Anzeigen der Seite: nur neu zeichnen, wenn nötig.
+
+        ⚠⚠ `_auffrischen()` baut den ganzen Inhalt neu auf — alle Kinder
+        zerstören, alles wieder hinstellen. Beim Ändern einer Einstellung ist
+        das richtig. Bei einem **Seitenwechsel** ist es reine Arbeit ohne
+        Ergebnis: Gemessen am 12.09.2026 **313 ms bei jedem Klick**, und das
+        ist Teil dessen, was als „wirkt lahm" ankam.
+
+        ⭐ Der Fingerabdruck ist die **Datenlage selbst**, nicht ein
+        Zeitstempel: Sind die Zahlen gleich, wäre auch das Bild gleich. Und
+        wenn `zusammenfassung()` einmal etwas Unsortiertes liefert, ist der
+        schlimmste Fall ein **überflüssiger** Neuaufbau — nie ein veraltetes
+        Bild. Das ist die richtige Richtung für einen Irrtum.
+        """
+        try:
+            stand = (repr(kurven.zusammenfassung()), repr(wahl))
+        except Exception as ausnahme:
+            fehler.merken('seiten.achsen_stand', ausnahme)
+            stand = None
+        if stand is not None and stand == zuletzt_achsen['stand']:
+            return
+        zuletzt_achsen['stand'] = stand
+        _auffrischen()
 
     def _auffrischen():
         """Neu zeichnen, ohne dass die Seite nach oben springt.
@@ -15209,6 +15288,7 @@ def _achsen(fenster, rahmen):
         feld = tk.Entry(neu, textvariable=name, bg=FLAECHE, fg=FG,
                         insertbackground=FG, font=fenster.f_klein,
                         relief='flat', width=22)
+        fields.hinweis(feld, name, t('s_pl_satzname'), normal=FG, grau=SUB)
         feld.pack(side='left', ipady=4, padx=(0, 8))
 
         def _sichern():
@@ -15525,7 +15605,9 @@ def _achsen(fenster, rahmen):
                _uebernehmen).pack(side='left')
 
     _auffrischen()
-    fenster.beim_zeigen['achsen'] = _auffrischen
+    # ⚠ Nicht `_auffrischen` selbst: Der baut IMMER neu. Beim Seitenwechsel
+    # soll nur neu gebaut werden, wenn sich wirklich etwas geändert hat.
+    fenster.beim_zeigen['achsen'] = _beim_zeigen
 
 
 # ------------------------------------------- Was der Patch geändert hat (v3.24)

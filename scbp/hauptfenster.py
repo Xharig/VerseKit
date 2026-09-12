@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import bildschirm, fehler, notice, news, pfade, zeichen
+from . import bildschirm, fehler, fields, notice, news, pfade, zeichen
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -442,14 +442,29 @@ def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
 
 
 def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
-                breite=None, **kw):
+                breite=None, hinweis=None, **kw):
     """Ein Eingabefeld mit runden Ecken — überall im Programm dasselbe.
 
     Das Feld selbst bleibt ein gewöhnliches `Entry` (nur so lässt sich tippen),
     aber ohne eigenen Rand; den runden Rand malt die Leinwand darunter. Beim
     Hineinklicken wechselt der Rand auf die Akzentfarbe, damit man sieht, wo
     man schreibt.
+
+    `hinweis` ist der graue Text im leeren Feld — er sagt, was hineingehört.
+    Er steht **im Feld**, nicht als Bauteil darüber; warum das so sein muss,
+    steht in `scbp/fields.py`.
+
+    ⚠⚠ **Ein Hinweis braucht zwingend eine `textvariable`.** Wer das Feld
+    stattdessen mit `feld.get()` ausliest, bekäme den Hinweistext als
+    Benutzereingabe zurück — aus einem leeren Mengenfeld würde dann das Wort
+    „Menge". Deshalb ist die Kombination `hinweis=` ohne `textvariable`
+    **verboten** und nicht etwa still wirkungslos: Ein stiller Ausfall wäre
+    genau die Sorte Fehler, die erst beim Nutzer auffällt.
     """
+    if hinweis and textvariable is None:
+        raise ValueError('rundes_feld: `hinweis` braucht eine `textvariable` '
+                         '— sonst liest `feld.get()` den Hinweistext als '
+                         'Eingabe')
     schrift = _als_schrift(schrift)
     radius = 8
     polster = 6
@@ -464,6 +479,8 @@ def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
                     bd=0, highlightthickness=0, insertbackground=fg, **kw)
     fenster_id = leinwand.create_window(polster + 2, hoehe / 2.0, window=feld,
                                         anchor='w')
+    if hinweis:
+        fields.hinweis(feld, textvariable, hinweis, normal=fg, grau=SUB)
 
     def nachziehen(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand

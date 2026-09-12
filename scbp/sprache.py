@@ -596,6 +596,27 @@ TEXTE = {
     's_lg_suche':        ('Im Lager suchen …', 'Search stock …'),
     's_ld_suche_platz':  ('Ware, Laden oder Ort suchen',
                           'Search commodity, shop or location'),
+    # ⭐⭐ Hinweise IM Eingabefeld — Regel seit 12.09.2026: In JEDEM Feld
+    # steht, was hineingehört. Zwei Bedingungen, beide bewusst:
+    #   * Sie nennen ein BEISPIEL, nicht die Beschriftung daneben. „Suche"
+    #     über einem Feld und „Suche" darin sagt zweimal nichts.
+    #   * Sie stehen im Feld, nicht als Bauteil darüber (siehe fields.py).
+    's_pl_auftrag':      ('Auftragsname oder Ort', 'Mission name or location'),
+    's_pl_belegung':     ('Taste, Achse oder Funktion',
+                          'Key, axis or function'),
+    's_pl_herstellung':  ('z. B. Arctic-Storm oder Aluminium',
+                          'e.g. Arctic-Storm or Aluminium'),
+    's_pl_bergbau':      ('z. B. Quantanium oder Yela',
+                          'e.g. Quantanium or Yela'),
+    's_pl_signatur':     ('Zahl vom Scanner', 'Number from the scanner'),
+    's_pl_melder':       ('Dein Discord-Name', 'Your Discord name'),
+    's_pl_intervall':    ('Sekunden, z. B. 3', 'Seconds, e.g. 3'),
+    's_pl_scu':          ('z. B. 96', 'e.g. 96'),
+    's_pl_geld':         ('z. B. 250000', 'e.g. 250000'),
+    's_pl_menge':        ('Menge', 'Amount'),
+    's_pl_abstand':      ('cm', 'cm'),
+    's_pl_satzname':     ('Name für den neuen Satz', 'Name for the new set'),
+    's_pl_spielordner':  ('…\\StarCitizen\\LIVE', '…\\StarCitizen\\LIVE'),
     's_lg_posten_weg':   ('Diesen Posten löschen', 'Delete this entry'),
     's_lg_posten_frage_t': ('Posten löschen?', 'Delete entry?'),
     's_lg_posten_frage': ('%s (%g SCU) wird aus dem Lager genommen.',

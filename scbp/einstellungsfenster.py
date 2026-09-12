@@ -282,7 +282,8 @@ class Einstellungsfenster:
         self._titel(eltern, t('e_intervall'), t('e_intervall_hilfe'))
         from .hauptfenster import rundes_feld
         feld = rundes_feld(eltern, self.intervall, schrift(10), FLAECHE, LINIE,
-                           ACCENT, FG, breite=8)
+                           ACCENT, FG, breite=8,
+                           hinweis=t('s_pl_intervall'))
         feld.halter.pack(anchor='w')
 
     def _tonfeld(self, eltern):

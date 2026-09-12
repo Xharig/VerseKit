@@ -186,7 +186,8 @@ class Assistent:
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
         from .hauptfenster import rundes_feld
-        feld = rundes_feld(zeile, self.pfad, mono(10), FLAECHE, LINIE, ACCENT, FG)
+        feld = rundes_feld(zeile, self.pfad, mono(10), FLAECHE, LINIE, ACCENT, FG,
+                           hinweis=t('s_pl_spielordner'))
         feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
                          font=schrift(10), cursor='hand2', padx=8, pady=6)
