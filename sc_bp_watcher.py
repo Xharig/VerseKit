@@ -50,7 +50,7 @@ from scbp import (
                   screen, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
-                  catalog as katalog_modul, shops, logquelle, watchlist,
+                  catalog as katalog_modul, shops, logsource, watchlist,
                   pfade, phrasen, ships, gamebuild, titelleiste, sound,
                   translation, selling, hotkey as hotkey_modul)
 
@@ -519,7 +519,7 @@ def meta_of(key):
 
 
 # ------------------------------------------------------- Game.log (Sofort-Meldung)
-# Das Lesen der Log steckt seit v1.6 in `scbp/logquelle.py` — samt Nachlese der
+# Das Lesen der Log steckt seit v1.6 in `scbp/logsource.py` — samt Nachlese der
 # aufgehobenen Sitzungen und einem Lesestand, der Programmneustarts übersteht.
 # Welche Formulierung im Log steht, hängt an der Spielsprache; darum kümmert
 # sich `scbp/phrasen.py`. Hier bleibt nur, was mit der ANZEIGE zu tun hat.
@@ -685,15 +685,15 @@ class Watcher(threading.Thread):
         self.q = out_queue
         self.known = None       # BP-Namen aus der Launcher-Datei (None = kein Launcher)
         self.seen = set()       # schon angezeigte Namen (normalisiert) — gegen Dubletten
-        self.stand = logquelle.Lesestand()
-        self.tail = logquelle.LogTail(self.stand)
+        self.stand = logsource.ReadState()
+        self.tail = logsource.LogTail(self.stand)
         # Zweites Muster: angenommene Auftraege (ab v3.2.0). Faellt der Katalog
         # aus, meldet `auftraege` einfach nichts — der Bauplan-Weg bleibt heil.
         try:
-            self.tail.auftrag_muster = auftraege.muster()
-            self.tail.auftrag_ende_muster = auftraege.ende_muster()
+            self.tail.mission_pattern = auftraege.muster()
+            self.tail.mission_end_pattern = auftraege.ende_muster()
         except Exception as ausnahme:
-            fehler.merken('watcher.auftrag_muster', ausnahme)
+            fehler.merken('watcher.mission_pattern', ausnahme)
         self._auftraege_gesehen = set()   # je Programmlauf, gegen Doppelmeldungen
         # Was gerade laeuft — Titel (ohne unsere Marken) → fertige Zeile.
         # ⚠ Ein Zustand, keine Verlaufsliste: Beim Abschluss muss der Auftrag
@@ -1190,7 +1190,7 @@ class Watcher(threading.Thread):
         eine frische; was in den Sicherungen davor steht, kann laengst erledigt
         sein. Lieber nichts zeigen als etwas Falsches behaupten.
         """
-        if not getattr(self.tail, 'auftrag_muster', None):
+        if not getattr(self.tail, 'mission_pattern', None):
             return
         try:
             pfad = pfade.game_log()
@@ -1204,7 +1204,7 @@ class Watcher(threading.Thread):
 
         try:
             offen, missionen = auftraege.stand_aus_text(
-                text, self.tail.auftrag_muster, self.tail.auftrag_ende_muster)
+                text, self.tail.mission_pattern, self.tail.mission_end_pattern)
         except Exception as ausnahme:
             fehler.merken('watcher.auftraege_start', ausnahme)
             return
@@ -1249,19 +1249,19 @@ class Watcher(threading.Thread):
         ziele_neu = False
         try:
             ziele_neu = self._ziele.aufnehmen(
-                getattr(self.tail, 'ziel_ereignisse', None))
+                getattr(self.tail, 'objective_events', None))
         except Exception as ausnahme:
             fehler.merken('watcher.ziele', ausnahme)
-        self.tail.ziel_ereignisse = []
+        self.tail.objective_events = []
 
-        ereignisse = getattr(self.tail, 'auftrag_ereignisse', None) or []
+        ereignisse = getattr(self.tail, 'mission_events', None) or []
         if not ereignisse:
             if ziele_neu and self._offene_auftraege:
                 self.q.put(('auftraege', self._auftragsstand()))
             return
-        self.tail.auftraege = []
-        self.tail.auftraege_beendet = []
-        self.tail.auftrag_ereignisse = []
+        self.tail.missions = []
+        self.tail.missions_done = []
+        self.tail.mission_events = []
         veraendert = False
 
         # ⚠ **In der Reihenfolge des Logs durchgehen, nicht erst alle Enden.**
@@ -1441,7 +1441,7 @@ class Watcher(threading.Thread):
                 return
             gefunden = phrasen.selbst_finden(namen, pfade.log_sicherungen())
             if gefunden and phrasen.merken(gefunden):
-                self.tail.muster = phrasen.muster()
+                self.tail.pattern = phrasen.muster()
                 self.q.put(('hinweis', sprache.Satz('sprache_erkannt', gefunden)))
         except Exception:
             pass            # ohne Erkennung gilt die mitgelieferte Tabelle
@@ -1466,7 +1466,7 @@ class Watcher(threading.Thread):
         Gemeldet wird immer, auch die Null: Wer einen Knopf drückt, will wissen,
         dass etwas passiert ist."""
         try:
-            funde, bericht = logquelle.alles_neu(phrasen.muster())
+            funde, bericht = logsource.read_all(phrasen.muster())
         except Exception as ausnahme:
             fehler.merken('watcher.neu_einlesen', ausnahme)
             self.q.put(('bescheid', sprache.Satz('s_be_neu'),
@@ -1542,7 +1542,7 @@ class Watcher(threading.Thread):
             fehler.merken('watcher.auftragsprotokoll', ausnahme)
 
         try:
-            funde, bericht = logquelle.nachlesen(self.stand)
+            funde, bericht = logsource.read_backlog(self.stand)
         except Exception:
             return
         dazu = []
@@ -1660,9 +1660,9 @@ class Watcher(threading.Thread):
         # Vergangenheit — es steht in der Log, die gleich ohnehin ganz gelesen
         # wird (`_auftraege_beim_start`). Bliebe es liegen, wertete es der
         # erste Schleifendurchlauf ein zweites Mal aus.
-        self.tail.auftraege = []
-        self.tail.auftraege_beendet = []
-        self.tail.auftrag_ereignisse = []
+        self.tail.missions = []
+        self.tail.missions_done = []
+        self.tail.mission_events = []
         # 6) Was laeuft gerade? Das Log weiss es — auch nach einem Neustart
         #    des Watchers. Nach `new_names()`, damit der Lesestand steht und
         #    laufende Meldungen nicht doppelt kommen.

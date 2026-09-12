@@ -38,7 +38,7 @@ import tkinter as tk
 
 from . import fehler
 from . import collection as bestand_datei
-from . import logquelle, pfade, sprache
+from . import logsource, pfade, sprache
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -278,7 +278,7 @@ class Assistent:
             if anzahl_dateien:
                 self.ergebnis.configure(text=t('lese_logs_n', anzahl_dateien))
                 self.root.update()
-            funde, bericht = logquelle.nachlesen(logquelle.Lesestand())
+            funde, bericht = logsource.read_backlog(logsource.ReadState())
             b = bestand_datei.load()
             neu = 0
             for name, _zusatz in funde:

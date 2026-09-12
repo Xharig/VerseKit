@@ -103,7 +103,7 @@ FELDER = {
 
 # Wortteile → Kürzel. Kleingeschrieben verglichen, deshalb hier auch klein.
 # Die ersten fünf sind **CIGs eigene** Kürzel: Star Citizen schreibt sie selbst
-# so in die Game.log (`7CA 'Nargun' (Civ/3/A)`), und `logquelle.py` zerlegt sie
+# so in die Game.log (`7CA 'Nargun' (Civ/3/A)`), und `logsource.py` zerlegt sie
 # seit Langem. Die übrigen folgen demselben Muster.
 KLASSEN = (
     (('civilian', 'zivil'),                        'Civ'),

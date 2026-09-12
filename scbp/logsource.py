@@ -61,29 +61,29 @@ from .sprache import t, Satz, Zeitpunkt
 #   * **Waffen ohne Größe** — `P4-AR "Warhawk" Rifle (Bal)`; FPS-Waffen haben
 #     in Star Citizen weder Größe noch Gütegrad
 #   * **Raketen** — `'Arrow' I Missile (IR1)`, Suchkopf statt Fraktion
-_KUERZEL = ('Civ|Mil|Ind|Sth|Cmp'          # Fraktion, auch CIGs eigene Schreibweise
+_ABBREV = ('Civ|Mil|Ind|Sth|Cmp'          # Fraktion, auch CIGs eigene Schreibweise
             '|Las|Ele|Pla|Dis|Mic|Bal'     # Waffenwirkung
             '|Nah|Min|Slv|Med|Tool|Trc')   # Nahkampf, Bergbau, Bergung, Medizin
-_STRICH = '\u2013|-'                        # Gedankenstrich oder Bindestrich
+_DASH = '\u2013|-'                        # Gedankenstrich oder Bindestrich
 SUFFIX_RE = re.compile(
     r'\s*\((?:(%s)/(\d+|%s)/([A-D]|%s)'      # (Mil/1/A), auch mit Strichen
     r'|(%s)'                                 # (Bal) — Waffe ohne Größe/Grad
     r'|(IR|EM|CS)(\d{1,2}))\)\s*$'           # (IR1) — Rakete
-    % (_KUERZEL, _STRICH, _STRICH, _KUERZEL), re.I)
+    % (_ABBREV, _DASH, _DASH, _ABBREV), re.I)
 
 # Wie viel einer Sicherung am Stück gelesen wird. Die Dateien werden mehrere
 # hundert Megabyte groß; sie komplett in den Speicher zu holen wäre unnötig.
 BLOCK = 4 * 1024 * 1024
 
 
-def teile_namen(roh):
+def split_names(raw):
     """('7CA \\'Nargun\\'', ('Civ', '3', 'A'))  aus  "7CA 'Nargun' (Civ/3/A)".
 
     Zweiter Wert ist None, wenn kein Zusatz dranhing (FPS-Waffen, Rüstung)."""
-    m = SUFFIX_RE.search(roh)
+    m = SUFFIX_RE.search(raw)
     if not m:
-        return roh.strip(), None
-    name = roh[:m.start()].strip()
+        return raw.strip(), None
+    name = raw[:m.start()].strip()
     if m.group(1):                       # (Mil/1/A) — die vollständige Form
         return name, (m.group(1).title(), m.group(2), m.group(3).upper())
     if m.group(4):                       # (Bal) — nur die Klasse
@@ -91,7 +91,7 @@ def teile_namen(roh):
     return name, (m.group(5).upper(), m.group(6), None)   # (IR1) — Rakete
 
 
-def _namen_aus_text(text, muster):
+def _names_from_text(text, pattern):
     """Die Bauplan-Namen aus einem Textabschnitt.
 
     ⚠ **Die erste gefüllte Gruppe zählt, nicht stur Gruppe 1.** Seit
@@ -100,26 +100,26 @@ def _namen_aus_text(text, muster):
     Alternative eine. `m.group(1)` wäre bei einem Treffer der zweiten
     Alternative `None`.
     """
-    raus = []
-    for m in muster.finditer(text):
-        for wert in m.groups():
-            if wert:
-                raus.append(teile_namen(wert))
+    out = []
+    for m in pattern.finditer(text):
+        for value in m.groups():
+            if value:
+                out.append(split_names(value))
                 break
-    return raus
+    return out
 
 
 # ------------------------------------------------------------------ Lesestand
-class Lesestand:
+class ReadState:
     """Merkt sich, was schon gelesen wurde — über Programmneustarts hinweg."""
 
     def __init__(self):
-        self.pfad = pfade.app_datei('logstand.json')
-        self.daten = self._laden()
+        self.path = pfade.app_datei('logstand.json')
+        self.data = self._load()
 
-    def _laden(self):
+    def _load(self):
         try:
-            with open(self.pfad, encoding='utf-8') as f:
+            with open(self.path, encoding='utf-8') as f:
                 d = json.load(f)
             d.setdefault('aktiv', {})
             d.setdefault('sicherungen', {})
@@ -128,60 +128,60 @@ class Lesestand:
         except Exception:
             return {'aktiv': {}, 'sicherungen': {}, 'letzte_sitzung': 0.0}
 
-    def speichern(self):
+    def save(self):
         try:
-            os.makedirs(os.path.dirname(self.pfad), exist_ok=True)
-            temp = self.pfad + '.tmp'
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            temp = self.path + '.tmp'
             with open(temp, 'w', encoding='utf-8') as f:
-                json.dump(self.daten, f, ensure_ascii=False, indent=1)
-            os.replace(temp, self.pfad)
+                json.dump(self.data, f, ensure_ascii=False, indent=1)
+            os.replace(temp, self.path)
         except Exception:
             pass
 
     # --- Sicherungen ---
-    def kennt(self, datei):
+    def knows(self, filename):
         """Wurde diese Sicherung schon gelesen? Erkannt an Name, Größe und Zeit —
         wächst eine Datei doch noch, gilt sie wieder als ungelesen."""
-        e = self.daten['sicherungen'].get(os.path.basename(datei))
+        e = self.data['sicherungen'].get(os.path.basename(filename))
         if not e:
             return False
         try:
-            return (e.get('groesse') == os.path.getsize(datei)
-                    and abs(e.get('mtime', 0) - os.path.getmtime(datei)) < 1)
+            return (e.get('groesse') == os.path.getsize(filename)
+                    and abs(e.get('mtime', 0) - os.path.getmtime(filename)) < 1)
         except OSError:
             return False
 
-    def merke(self, datei):
+    def remember(self, filename):
         try:
-            self.daten['sicherungen'][os.path.basename(datei)] = {
-                'groesse': os.path.getsize(datei),
-                'mtime': os.path.getmtime(datei),
+            self.data['sicherungen'][os.path.basename(filename)] = {
+                'groesse': os.path.getsize(filename),
+                'mtime': os.path.getmtime(filename),
             }
-            self.daten['letzte_sitzung'] = max(
-                self.daten.get('letzte_sitzung', 0.0), os.path.getmtime(datei))
+            self.data['letzte_sitzung'] = max(
+                self.data.get('letzte_sitzung', 0.0), os.path.getmtime(filename))
         except OSError:
             pass
 
-    def aufraeumen(self, vorhandene):
+    def cleanup(self, existing):
         """Einträge zu Sicherungen wegwerfen, die es nicht mehr gibt — sonst
         wächst die Datei mit jeder Spielsitzung weiter."""
-        da = {os.path.basename(p) for p in vorhandene}
-        self.daten['sicherungen'] = {k: v for k, v
-                                     in self.daten['sicherungen'].items() if k in da}
+        da = {os.path.basename(p) for p in existing}
+        self.data['sicherungen'] = {k: v for k, v
+                                     in self.data['sicherungen'].items() if k in da}
 
     # --- laufende Log ---
-    def aktiv_holen(self, pfad):
-        e = self.daten['aktiv']
-        return e.get('offset', 0) if e.get('pfad') == pfad else None
+    def get_active(self, path):
+        e = self.data['aktiv']
+        return e.get('offset', 0) if e.get('pfad') == path else None
 
-    def aktiv_setzen(self, pfad, offset):
-        self.daten['aktiv'] = {'pfad': pfad, 'offset': offset, 'zeit': time.time()}
-        self.daten['letzte_sitzung'] = max(self.daten.get('letzte_sitzung', 0.0),
+    def set_active(self, path, offset):
+        self.data['aktiv'] = {'pfad': path, 'offset': offset, 'zeit': time.time()}
+        self.data['letzte_sitzung'] = max(self.data.get('letzte_sitzung', 0.0),
                                            time.time())
 
 
 # ------------------------------------------------------------------- Nachlese
-def nachlesen(stand=None, muster=None, nur_neue=True, auch_laufende=True):
+def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
     """Die aufgehobenen Logs durchsehen.
 
     Rückgabe: (namen, bericht). `namen` ist eine Liste von (Name, Zusatz) —
@@ -190,20 +190,20 @@ def nachlesen(stand=None, muster=None, nur_neue=True, auch_laufende=True):
 
     `bericht` sagt, was passiert ist: wie viele Dateien gelesen wurden, ob eine
     Lücke bleibt und warum."""
-    stand = stand or Lesestand()
-    muster = muster or phrasen.muster()
-    alle = pfade.log_sicherungen()
+    state = state or ReadState()
+    pattern = pattern or phrasen.muster()
+    all_names = pfade.log_sicherungen()
     # Vergleichswert VOR dem Lauf festhalten — `stand.merke()` schreibt ihn
     # gleich fort, danach ließe sich keine Lücke mehr erkennen.
-    vorher = stand.daten.get('letzte_sitzung', 0.0)
-    bericht = {'dateien': 0, 'uebersprungen': 0, 'gefunden': 0,
-               'vorhanden': len(alle), 'luecke': False, 'grund': '',
+    before = state.data.get('letzte_sitzung', 0.0)
+    report = {'dateien': 0, 'uebersprungen': 0, 'gefunden': 0,
+               'vorhanden': len(all_names), 'luecke': False, 'grund': '',
                'laufende': False, 'unlesbar': 0}
 
-    treffer, gesehen = [], set()
-    for datei in alle:
-        if nur_neue and stand.kennt(datei):
-            bericht['uebersprungen'] += 1
+    match, seen = [], set()
+    for filename in all_names:
+        if only_new and state.knows(filename):
+            report['uebersprungen'] += 1
             continue
         # ⚠ Eine einzige Datei darf den ganzen Lauf nicht kippen. `_lies_datei`
         # faengt `OSError` selbst ab — alles andere (unerwartete Ausnahme beim
@@ -214,30 +214,30 @@ def nachlesen(stand=None, muster=None, nur_neue=True, auch_laufende=True):
         # beim naechsten Start von vorn — jedes Mal, ohne dass jemand erfaehrt
         # warum. Deshalb hier abfangen und die eine Datei ueberspringen.
         try:
-            funde = _lies_datei(datei, muster)
+            finds = _read_file(filename, pattern)
         except Exception:
             # Bewusst NICHT merken: Eine Datei, die wir nicht lesen konnten,
             # muss beim naechsten Lauf wieder drankommen.
-            bericht['unlesbar'] += 1
+            report['unlesbar'] += 1
             continue
-        for name, zusatz in funde:
-            schluessel = name.lower().strip()
-            if schluessel in gesehen:
+        for name, extra in finds:
+            key = name.lower().strip()
+            if key in seen:
                 continue
-            gesehen.add(schluessel)
-            treffer.append((name, zusatz))
-        stand.merke(datei)
-        bericht['dateien'] += 1
+            seen.add(key)
+            match.append((name, extra))
+        state.remember(filename)
+        report['dateien'] += 1
 
     # Die laufende Game.log gehört mit dazu, wenn sie noch nie gelesen wurde:
     # Wer den Watcher startet, während Star Citizen schon läuft, hätte sonst
     # ausgerechnet die aktuelle Sitzung als Loch im Bestand. Danach steht der
     # Lesestand auf dem Dateiende, das Mitlesen setzt dort nahtlos an.
-    if auch_laufende:
+    if incl_running:
         # ⚠ Auch dieser Teil darf den Lauf nicht kippen — er steht NACH der
         # Schleife, also haette eine Ausnahme hier ausgerechnet die eben
         # gelesenen Sicherungen um ihren Eintrag gebracht.
-        aktiv = _sicher_game_log()
+        active = _safe_game_log()
         # ⚠ **Immer lesen, nicht nur beim allerersten Mal.** Hier stand
         # `if aktiv and stand.aktiv_holen(aktiv) is None:` — die laufende Datei
         # wurde also übersprungen, sobald sie einmal gelesen war. Das trifft
@@ -255,25 +255,25 @@ def nachlesen(stand=None, muster=None, nur_neue=True, auch_laufende=True):
         # Die Datei ganz zu lesen kostet bei 12 MB den Bruchteil einer Sekunde —
         # die Nachlese geht ohnehin über 149 Sicherungen. Doppelte fängt der
         # Bestand ab, der prüft jeden Namen.
-        if aktiv:
+        if active:
             try:
-                for name, zusatz in _lies_datei(aktiv, muster):
-                    schluessel = name.lower().strip()
-                    if schluessel in gesehen:
+                for name, extra in _read_file(active, pattern):
+                    key = name.lower().strip()
+                    if key in seen:
                         continue
-                    gesehen.add(schluessel)
-                    treffer.append((name, zusatz))
-                bericht['laufende'] = True
+                    seen.add(key)
+                    match.append((name, extra))
+                report['laufende'] = True
             except Exception:
-                bericht['unlesbar'] += 1
+                report['unlesbar'] += 1
             try:
-                stand.aktiv_setzen(aktiv, os.path.getsize(aktiv))
+                state.set_active(active, os.path.getsize(active))
             except OSError:
                 pass
 
-    bericht['gefunden'] = len(treffer)
+    report['gefunden'] = len(match)
     try:
-        bericht.update(_luecke_pruefen(vorher, alle))
+        report.update(_check_gap(before, all_names))
     except Exception:
         pass
     # ⚠ Das Festhalten steht am Ende und muss es auch erreichen — deshalb ist
@@ -281,14 +281,14 @@ def nachlesen(stand=None, muster=None, nur_neue=True, auch_laufende=True):
     # gespeichert, war der ganze Lauf umsonst: Beim naechsten Start wird alles
     # noch einmal gelesen, still und ohne erkennbaren Grund.
     try:
-        stand.aufraeumen(alle)
+        state.cleanup(all_names)
     except Exception:
         pass
-    stand.speichern()
-    return treffer, bericht
+    state.save()
+    return match, report
 
 
-def _sicher_game_log():
+def _safe_game_log():
     """Die laufende `Game.log` — oder None, wenn der Pfad nicht zu holen ist.
 
     ⚠ `pfade.game_log()` sieht auf dem Dateisystem nach. Eine ausgehaengte
@@ -300,7 +300,7 @@ def _sicher_game_log():
         return None
 
 
-def alles_neu(muster=None):
+def read_all(pattern=None):
     """Alle Protokolle noch einmal einlesen, auch die schon bekannten.
 
     Für den Fall, dass etwas fehlt: Der Lesestand wird ignoriert, jede Datei in
@@ -313,37 +313,37 @@ def alles_neu(muster=None):
     Zurücksetzen des Bestands.
 
     Rückgabe wie `nachlesen()`: (Namen, Bericht)."""
-    return nachlesen(stand=Lesestand(), muster=muster,
-                     nur_neue=False, auch_laufende=True)
+    return read_backlog(state=ReadState(), pattern=pattern,
+                     only_new=False, incl_running=True)
 
 
-def _lies_datei(datei, muster):
+def _read_file(filename, pattern):
     """Eine ganze Logdatei blockweise durchsuchen."""
-    gefunden = []
+    found = []
     try:
-        with open(datei, 'rb') as f:
+        with open(filename, 'rb') as f:
             rest = b''
             while True:
                 block = f.read(BLOCK)
                 if not block:
                     break
                 block = rest + block
-                schnitt = block.rfind(b'\n')
-                if schnitt < 0:            # eine sehr lange Zeile — weitersammeln
+                cut_at = block.rfind(b'\n')
+                if cut_at < 0:            # eine sehr lange Zeile — weitersammeln
                     rest = block
                     continue
-                rest = block[schnitt + 1:]
-                text = block[:schnitt].decode('utf-8', 'ignore')
-                gefunden.extend(_namen_aus_text(text, muster))
+                rest = block[cut_at + 1:]
+                text = block[:cut_at].decode('utf-8', 'ignore')
+                found.extend(_names_from_text(text, pattern))
             if rest:
-                gefunden.extend(_namen_aus_text(rest.decode('utf-8', 'ignore'),
-                                                muster))
+                found.extend(_names_from_text(rest.decode('utf-8', 'ignore'),
+                                                pattern))
     except OSError:
         pass
-    return gefunden
+    return found
 
 
-def _luecke_pruefen(vorher, alle):
+def _check_gap(before, all_names):
     """Bleibt trotz Nachlese etwas unbekannt?
 
     Zwei Fälle sagen Ja:
@@ -359,14 +359,14 @@ def _luecke_pruefen(vorher, alle):
     # eine deutsche Zeile in einem englischen Fenster. Genau so gefunden am
     # 26.08.2026. Der `Satz` merkt sich Schlüssel und Werte und lässt sich beim
     # Sprachwechsel neu auswerten.
-    if not alle:
+    if not all_names:
         return {'luecke': True, 'grund': Satz('m_keine_logs')}
-    aeltester = min((os.path.getmtime(p) for p in alle
+    oldest = min((os.path.getmtime(p) for p in all_names
                      if os.path.exists(p)), default=0.0)
-    if not vorher:
+    if not before:
         return {'luecke': True,
-                'grund': Satz('m_erster_lauf', Zeitpunkt(aeltester))}
-    if aeltester > vorher + 60:
+                'grund': Satz('m_erster_lauf', Zeitpunkt(oldest))}
+    if oldest > before + 60:
         return {'luecke': True,
                 # ⚠ Auch das Datumsformat ist sprachabhängig: Im Englischen
                 # steht das Jahr vorn (`m_erster_datum`). Deshalb wandert hier
@@ -374,7 +374,7 @@ def _luecke_pruefen(vorher, alle):
                 # formatierten Datums — sonst stünde in der englischen Meldung
                 # ein deutsches Datum.
                 'grund': Satz('m_luecke_logs',
-                              Zeitpunkt(vorher), Zeitpunkt(aeltester))}
+                              Zeitpunkt(before), Zeitpunkt(oldest))}
     return {'luecke': False, 'grund': ''}
 
 
@@ -386,9 +386,9 @@ class LogTail:
     Watcher neu startet, während das Spiel läuft, verliert die Baupläne dieser
     Sitzung nicht mehr."""
 
-    def __init__(self, stand=None, muster=None):
-        self.stand = stand or Lesestand()
-        self.muster = muster or phrasen.muster()
+    def __init__(self, state=None, pattern=None):
+        self.state = state or ReadState()
+        self.pattern = pattern or phrasen.muster()
         self.path, self.offset = None, 0
         # Zweites Muster fuer angenommene Auftraege (ab v3.2.0). Wird von aussen
         # gesetzt; ist es None, aendert sich am Verhalten nichts.
@@ -397,13 +397,13 @@ class LogTail:
         # mehrere Stellen aus (Watcher-Faden, Nachlese, Selbsttest). Eine zweite
         # Sorte Treffer hineinzumischen haette jede davon anfassen muessen —
         # und der Bauplan-Weg ist der Weg, der nie brechen darf.
-        self.auftrag_muster = None
-        self.auftraege = []
+        self.mission_pattern = None
+        self.missions = []
         # Und die Gegenstuecke: abgeschlossen, zurueckgezogen, fehlgeschlagen.
         # ⚠ Ohne sie bliebe jeder Auftrag ewig stehen — nach einem Abend mit
         # zehn Auftraegen stuende eine Liste da, von der nichts mehr stimmt.
-        self.auftrag_ende_muster = None
-        self.auftraege_beendet = []
+        self.mission_end_pattern = None
+        self.missions_done = []
         # ⚠ Und dasselbe noch einmal **in der Reihenfolge des Logs**. Zwei
         # getrennte Listen verlieren, was zuerst kam: Steht in einem Abschnitt
         # erst die Annahme und danach der Abschluss — genau der Fall nach einem
@@ -414,22 +414,22 @@ class LogTail:
         # Eintraege sind `(ist_annahme, titel, mission_id, objective_id)`
         # — die beiden Kennungen entscheiden, ob ein Ende den Auftrag
         # meint oder nur ein Zwischenziel (siehe `auftraege.ZUSATZ`).
-        self.auftrag_ereignisse = []
+        self.mission_events = []
         # Und die Zwischenziele desselben Abschnitts — was gerade zu tun ist.
         # ⚠ Zwei Sorten in einer Liste, roh: Zustandswechsel und Wortlaut.
         # Gewertet wird in `auftraege.Ziele`, damit Start und laufender Betrieb
         # nicht wieder eigene Rechenwege bekommen.
-        self.ziel_ereignisse = []
+        self.objective_events = []
 
     def _locate(self):
         p = pfade.game_log()
         if p and p != self.path:
             self.path = p
-            gemerkt = self.stand.aktiv_holen(p)
+            remembered = self.state.get_active(p)
             try:
-                groesse = os.path.getsize(p)
+                size = os.path.getsize(p)
             except OSError:
-                groesse = 0
+                size = 0
             # ⚠ **Drei Fälle, und der mittlere hat Baupläne verschluckt.**
             #
             #   gemerkt is None      Die Datei wurde noch nie gelesen. Dann hat
@@ -454,12 +454,12 @@ class LogTail:
             #
             # Gemessen am 28.08.2026: Stand 12.759.872, Datei 12.758.651 Bytes.
             # Zwei Baupläne standen in der Log, einer fehlte im Bestand.
-            if gemerkt is None:
-                self.offset = groesse
-            elif gemerkt > groesse:
+            if remembered is None:
+                self.offset = size
+            elif remembered > size:
                 self.offset = 0
             else:
-                self.offset = gemerkt
+                self.offset = remembered
         elif not p:
             self.path = None
         return self.path
@@ -472,10 +472,10 @@ class LogTail:
         # meldete einen Auftrag von vorhin noch einmal als eben angenommen.
         # Der Bauplan-Weg hat das Problem nie gehabt, weil er seine Funde
         # zurueckgibt statt sie abzulegen.
-        self.auftraege = []
-        self.auftraege_beendet = []
-        self.auftrag_ereignisse = []
-        self.ziel_ereignisse = []
+        self.missions = []
+        self.missions_done = []
+        self.mission_events = []
+        self.objective_events = []
         if not self._locate():
             return []
         try:
@@ -493,23 +493,23 @@ class LogTail:
         if cut < 0:
             return []
         self.offset += cut + 1
-        self.stand.aktiv_setzen(self.path, self.offset)
-        self.stand.speichern()
+        self.state.set_active(self.path, self.offset)
+        self.state.save()
         text = chunk[:cut].decode('utf-8', 'ignore')
         # Derselbe Textabschnitt, zweiter Blick: angenommene Auftraege.
-        self.auftraege = (self.auftrag_muster.findall(text)
-                          if self.auftrag_muster else [])
+        self.missions = (self.mission_pattern.findall(text)
+                          if self.mission_pattern else [])
         # Und ein dritter: was in diesem Abschnitt zu Ende gegangen ist.
-        self.auftraege_beendet = (self.auftrag_ende_muster.findall(text)
-                                  if self.auftrag_ende_muster else [])
-        self.auftrag_ereignisse = self._ereignisse_ordnen(text)
+        self.missions_done = (self.mission_end_pattern.findall(text)
+                                  if self.mission_end_pattern else [])
+        self.mission_events = self._sort_events(text)
         # ⚠ Ohne Auftragsmuster gibt es auch keine Auftragsanzeige — dann
         # braucht niemand die Ziele, und das Suchen waere reine Arbeit.
-        self.ziel_ereignisse = (auftraege.ziel_ereignisse_aus_text(text)
-                                if self.auftrag_muster else [])
-        return _namen_aus_text(text, self.muster)
+        self.objective_events = (auftraege.ziel_ereignisse_aus_text(text)
+                                if self.mission_pattern else [])
+        return _names_from_text(text, self.pattern)
 
-    def _ereignisse_ordnen(self, text):
+    def _sort_events(self, text):
         """Annahmen und Enden dieses Abschnitts in der Reihenfolge des Logs.
 
         ⚠ Das Auslesen selbst liegt in `auftraege.ereignisse_aus_text` — eine
@@ -518,18 +518,18 @@ class LogTail:
         die beiden auseinander, verschwände ein Auftrag beim Neustart oder
         stünde doppelt da.
         """
-        if not self.auftrag_muster and not self.auftrag_ende_muster:
+        if not self.mission_pattern and not self.mission_end_pattern:
             return []
-        return auftraege.ereignisse_aus_text(text, self.auftrag_muster,
-                                             self.auftrag_ende_muster)
+        return auftraege.ereignisse_aus_text(text, self.mission_pattern,
+                                             self.mission_end_pattern)
 
 
 if __name__ == '__main__':
-    funde, b = nachlesen()
+    finds, b = read_backlog()
     print('Sicherungen vorhanden:', b['vorhanden'],
           '· gelesen:', b['dateien'], '· übersprungen:', b['uebersprungen'])
     print('Baupläne gefunden:', b['gefunden'])
     if b['luecke']:
         print('LÜCKE:', b['grund'])
-    for n, z in funde[:20]:
+    for n, z in finds[:20]:
         print(' ·', n, z or '')

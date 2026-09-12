@@ -289,7 +289,7 @@ def muster(phrasen=None):
     ⚠ **Der Ausdruck kann mehrere Klammergruppen haben.** Beschriftungen vor
     dem Namen teilen sich eine (der Normalfall, unverändert); jede umgestellte
     Formulierung bekommt eine eigene, weil ihr Muster anders gebaut ist.
-    `logquelle._namen_aus_text` nimmt deshalb die **erste gefüllte** Gruppe und
+    `logsource._names_from_text` nimmt deshalb die **erste gefüllte** Gruppe und
     nicht stur Gruppe 1.
     """
     if phrasen is None:

@@ -426,8 +426,8 @@ def main():
         os.environ['SC_INSTALL_DIR'] = live
 
         # Und jetzt der Punkt: Der Bestand füllt sich von allein
-        from scbp import logquelle as lq
-        funde, _ = lq.nachlesen(lq.Lesestand())
+        from scbp import logsource as lq
+        funde, _ = lq.read_backlog(lq.ReadState())
         frischer_bestand = bd.empty()
         for n, _z in funde:
             bd.add(frischer_bestand, n, 'nachlese')
@@ -460,7 +460,7 @@ def main():
         pruefe(not _fremd6,
                'und zwar ALLE aus dem Wegwerf-Ordner, keine echten Spieldaten '
                '(fremd: %d)' % len(_fremd6))
-        _echt6, _erste6 = lq._lies_datei, _sicherungen6[0]
+        _echt6, _erste6 = lq._read_file, _sicherungen6[0]
         _kaputt6 = os.path.basename(str(_erste6))
 
         def _stolpert6(datei, muster, _e=_echt6, _k=_kaputt6):
@@ -471,22 +471,22 @@ def main():
         # ⚠ Den Eintrag dieser Datei vorher wegnehmen. Der Abschnitt oben hat
         # sie schon gemerkt; ohne das misst die Pruefung unten den ALTEN
         # Eintrag und wird gruen, egal wie sich der Code verhaelt.
-        _vor6 = lq.Lesestand()
-        _vor6.daten['sicherungen'].pop(_kaputt6, None)
-        _vor6.speichern()
+        _vor6 = lq.ReadState()
+        _vor6.data['sicherungen'].pop(_kaputt6, None)
+        _vor6.save()
 
-        lq._lies_datei = _stolpert6
+        lq._read_file = _stolpert6
         try:
-            _f6, _b6 = lq.nachlesen(lq.Lesestand(), nur_neue=False)
+            _f6, _b6 = lq.read_backlog(lq.ReadState(), only_new=False)
             pruefe(_b6['unlesbar'] == 1,
                    'eine unlesbare Datei wird gezaehlt statt den Lauf zu sprengen')
-            pruefe(not lq.Lesestand().kennt(_erste6),
+            pruefe(not lq.ReadState().knows(_erste6),
                    'und bleibt ungemerkt, damit sie beim naechsten Lauf drankommt')
         except Exception as _e6:
-            pruefe(False, 'nachlesen() ueberlebt einen Lesefehler (%s)'
+            pruefe(False, 'read_backlog() ueberlebt einen Lesefehler (%s)'
                    % type(_e6).__name__)
         finally:
-            lq._lies_datei = _echt6
+            lq._read_file = _echt6
 
         # Dasselbe fuer die laufende Game.log: Sie wird NACH der Schleife
         # gelesen — eine Ausnahme dort haette die eben gelesenen Sicherungen um
@@ -494,12 +494,12 @@ def main():
         _echt_log6 = pf2.game_log
         pf2.game_log = lambda: (_ for _ in ()).throw(OSError('erzwungen'))
         try:
-            lq.nachlesen(lq.Lesestand(), nur_neue=False)
-            pruefe(lq.Lesestand().kennt(_erste6),
+            lq.read_backlog(lq.ReadState(), only_new=False)
+            pruefe(lq.ReadState().knows(_erste6),
                    'faellt die laufende Game.log aus, bleiben die Sicherungen '
                    'trotzdem festgehalten')
         except Exception as _e6b:
-            pruefe(False, 'nachlesen() ueberlebt eine ausgefallene Game.log (%s)'
+            pruefe(False, 'read_backlog() ueberlebt eine ausgefallene Game.log (%s)'
                    % type(_e6b).__name__)
         finally:
             pf2.game_log = _echt_log6
@@ -1528,7 +1528,7 @@ def main():
         # ⚠ ALLE Module, nicht nur die mit „Fenster" im Namen.
         #
         # Die erste Version prüfte eine Handauswahl von Oberflächen-Dateien —
-        # und ließ `logquelle.py` aus, weil das nach Hintergrund klingt. Genau
+        # und ließ `logsource.py` aus, weil das nach Hintergrund klingt. Genau
         # von dort kam aber „Zwischen … hat Star Citizen Logs weggeräumt", und
         # der Satz stand fest auf Deutsch im Overlay. Auch `pfade.py` gab „kein
         # Starter gefunden" in die Statuszeile.
@@ -1723,10 +1723,10 @@ def main():
         # Label merkt sich den Träger, `_neu_beschriften()` wertet ihn neu aus.
         print()
         print('18. Meldungen ziehen beim Sprachwechsel mit')
-        from scbp import sprache as spr18, logquelle as lq18
+        from scbp import sprache as spr18, logsource as lq18
 
         # a) Die Quelle liefert einen Träger, keinen fertigen Satz.
-        grund = lq18._luecke_pruefen(0.0, [__file__])['grund']
+        grund = lq18._check_gap(0.0, [__file__])['grund']
         pruefe(spr18.auffrischbar(grund),
                'die Lücken-Meldung kommt als Träger, nicht als fertiger Text')
 
@@ -2570,7 +2570,7 @@ def main():
         #
         # Betroffen waeren 344 Waffen und 62 Raketen gewesen — und niemand
         # haette es gemerkt, weil das Werkzeug ja etwas anzeigt.
-        from scbp.logquelle import teile_namen as tn32
+        from scbp.logsource import split_names as tn32
         faelle32 = [
             ('Spectre (Sth/1/A)',            'Spectre'),
             ('7CA \'Nargun\' (Civ/3/A)',      "7CA 'Nargun'"),
@@ -2596,10 +2596,10 @@ def main():
                    'unangetastet: %s' % roh32)
         # Die Kuerzel-Liste MUSS zu angaben.py passen — sonst reisst genau
         # diese Luecke beim naechsten neuen Kuerzel wieder auf.
-        from scbp import angaben as an32, logquelle as lq32
+        from scbp import angaben as an32, logsource as lq32
         for _teile32, kurz32 in an32.KLASSEN:
-            pruefe(kurz32.lower() in lq32._KUERZEL.lower(),
-                   'logquelle kennt das Kuerzel %s aus angaben.py' % kurz32)
+            pruefe(kurz32.lower() in lq32._ABBREV.lower(),
+                   'logsource kennt das Kuerzel %s aus angaben.py' % kurz32)
 
         print()
         print('33. Bestand und Liste finden zueinander, egal woher der Name kam')
@@ -2607,7 +2607,7 @@ def main():
         #
         # `pfade.namensform()` nennt sich selbst „die EINZIGE Stelle" fuer
         # Vergleichsschluessel — schnitt den Klassen-Zusatz aber nicht ab. Das
-        # tat nur `logquelle.teile_namen()`. Also:
+        # tat nur `logsource.split_names()`. Also:
         #
         #     aus der Game.log:        'xl-1'            ✅ geschnitten
         #     aus der Launcher-Datei:  'xl-1 (mil/2/a)'  ❌ ungeschnitten
@@ -3256,8 +3256,8 @@ def main():
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
-    #   | 1 | `pfade.log_sicherungen()` | `logquelle`, `missionslog`, `bericht`, `assistent`, der Watcher |
-    #   | 2 | `pfade.game_log()` | `logquelle`, `spielzeit`, `joysticks`, der Watcher |
+    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `missionslog`, `bericht`, `assistent`, der Watcher |
+    #   | 2 | `pfade.game_log()` | `logsource`, `playtime`, `joysticks`, der Watcher |
     #   | 3 | `missionslog.nachlese()` | baut sich den Pfad zur laufenden Datei **selbst** (`missionslog.py`) und geht an 2 vorbei |
     #
     # Riegel 3 gaebe es nicht, wenn `missionslog` ueber `pfade.game_log()`
@@ -4172,19 +4172,27 @@ def main():
     # `logbackups/` landet die Datei erst beim naechsten Spielstart.
     #
     # Gemessen: Bauplan bei Byte 11.987.664, Lesestand 12.759.872.
-    _q47 = open(os.path.join(WURZEL, 'scbp', 'logquelle.py'),
+    _q47 = open(os.path.join(WURZEL, 'scbp', 'logsource.py'),
                 encoding='utf-8').read()
-    _lauf47 = _q47[_q47.index('if auch_laufende:'):]
-    _lauf47 = _lauf47[:_lauf47.index('bericht[')]
-    # ⚠ Nur den Code ansehen. Die alte Bedingung steht als Zitat im Kommentar
-    #   daneben — wer die Zeilen nicht filtert, prueft die Erklaerung statt der
-    #   Sache und meldet einen Fehler, den es nicht gibt.
-    _code47 = chr(10).join(z for z in _lauf47.split(chr(10))
-                           if not z.lstrip().startswith('#'))
-    pruefe("aktiv_holen(aktiv) is None" not in _code47,
+    # ⚠⚠ Schnitt bis zum 13.09.2026 den Text zwischen ZWEI Zeichenketten
+    # heraus (`'if auch_laufende:'` bis `'bericht['`). Bei der Umbenennung
+    # des Moduls flog das zweimal mit `ValueError: substring not found` —
+    # zu Recht: Schon eine umformulierte Zeile haette denselben Effekt.
+    #
+    # Jetzt ueber den Syntaxbaum: der Rumpf der Funktion, die den Fall
+    # wirklich behandelt. `ast.unparse` laesst Kommentare von selbst weg —
+    # und genau die waren vorher das Problem, weil die alte Bedingung dort
+    # als Zitat steht.
+    import ast as _ast47
+    _code47 = ''
+    for _k47 in _ast47.walk(_ast47.parse(_q47)):
+        if (isinstance(_k47, _ast47.FunctionDef)
+                and _k47.name == 'read_backlog'):
+            _code47 = _ast47.unparse(_k47)
+    pruefe("get_active(active) is None" not in _code47,
            'die laufende Game.log wird immer gelesen, nicht nur beim ersten Mal')
-    from scbp import logquelle as lq47
-    pruefe(hasattr(lq47, 'alles_neu'),
+    from scbp import logsource as lq47
+    pruefe(hasattr(lq47, 'read_all'),
            'es gibt einen Weg, alles noch einmal einzulesen')
 
     # ⚠ Und beides muss BEDIENBAR sein — an zwei Stellen, wie gewuenscht:
@@ -4200,7 +4208,7 @@ def main():
     # ⚠ Die Arbeit gehoert in den Watcher-Faden. Laese die Seite selbst ein und
     #   speicherte, ueberschriebe der Faden das beim naechsten Fund mit seinem
     #   aelteren Stand — die gefundenen Bauplaene waeren wieder weg.
-    pruefe('alles_neu' not in _s47,
+    pruefe('read_all' not in _s47,
            'die Seite liest NICHT selbst ein (der Bestand hat einen Besitzer)')
 
     print()
@@ -4476,11 +4484,11 @@ def main():
                'Text %s gibt es deutsch und englisch' % _k51)
 
     # f) Der Log-Leser darf den Bauplan-Weg nicht angetastet haben.
-    from scbp import logquelle as _lq51
-    _tail51 = _lq51.LogTail(_lq51.Lesestand())
-    pruefe(getattr(_tail51, 'auftrag_muster', 'fehlt') is None,
+    from scbp import logsource as _lq51
+    _tail51 = _lq51.LogTail(_lq51.ReadState())
+    pruefe(getattr(_tail51, 'mission_pattern', 'fehlt') is None,
            'ein frischer LogTail sucht KEINE Auftraege (muss gesetzt werden)')
-    pruefe(_tail51.auftraege == [],
+    pruefe(_tail51.missions == [],
            'und traegt eine leere Auftragsliste')
     # ⚠ Der Bauplan-Weg darf sich nicht veraendert haben: `new_names()` liefert
     #    weiterhin Paare (Name, Zusatz) — mehrere Stellen verlassen sich darauf.
@@ -5265,7 +5273,7 @@ def main():
     #      den Auftrag danach wieder hin.
     print()
     print('58. Abgeschlossener Auftrag bleibt abgeschlossen')
-    from scbp import logquelle as _lq58
+    from scbp import logsource as _lq58
     from scbp import auftraege as _au58
     from scbp import pfade as _pf58
 
@@ -5275,28 +5283,37 @@ def main():
                    'irgendwas dazwischen\n'
                    'Added notification "Auftrag abgeschlossen: Retake Platforms: " ...\n')
 
+    # ⚠⚠ **Eine Attrappe bildet eine Schnittstelle nach, ohne sie zu erben.**
+    # Bei der Umbenennung von `logquelle` am 13.09.2026 fiel sie deshalb
+    # durch KEIN Werkzeug auf: Sie nennt `ReadState` nirgends, hat aber
+    # dessen Methodennamen. Der Fehler kam erst zur Laufzeit —
+    # `'_Stand58' object has no attribute 'get_active'`.
+    #
+    # ⭐ Wer eine Attrappe baut, macht sie damit **unsichtbar fuer jede
+    # Werkzeugsuche**. Das ist der Preis dafuer, dass sie leichtgewichtig
+    # ist — man muss sie beim Umbenennen mitdenken.
     class _Stand58:
         def __init__(_s): _s.o = 0
-        def aktiv_holen(_s, _p): return 0
-        def aktiv_setzen(_s, _p, _o): _s.o = _o
-        def speichern(_s): pass
+        def get_active(_s, _p): return 0
+        def set_active(_s, _p, _o): _s.o = _o
+        def save(_s): pass
 
     _echt58 = _pf58.game_log
     try:
         _pf58.game_log = lambda: _log58
         _t58 = _lq58.LogTail(_Stand58())
-        _t58.auftrag_muster = _au58.muster()
-        _t58.auftrag_ende_muster = _au58.ende_muster()
+        _t58.mission_pattern = _au58.muster()
+        _t58.mission_end_pattern = _au58.ende_muster()
 
         _t58.new_names()
-        pruefe(len(_t58.auftraege) == 1 and len(_t58.auftraege_beendet) == 1,
+        pruefe(len(_t58.missions) == 1 and len(_t58.missions_done) == 1,
                'der erste Abschnitt bringt Annahme und Ende')
 
         # a) Zweiter Aufruf, nichts Neues in der Datei: die Listen MUESSEN leer
         #    sein. Bis v3.3.0-rc33 standen sie noch voll da.
         _t58.new_names()
-        pruefe(_t58.auftraege == [] and _t58.auftraege_beendet == []
-               and _t58.auftrag_ereignisse == [],
+        pruefe(_t58.missions == [] and _t58.missions_done == []
+               and _t58.mission_events == [],
                'ohne neuen Text bleiben die Auftragslisten LEER')
 
         # b) Die Reihenfolge muss stimmen: Annahme, dann Ende.
@@ -5304,15 +5321,15 @@ def main():
             _f58.write('Added notification "Auftrag angenommen: Zweiter Job: " ...\n'
                        'Added notification "Auftrag abgeschlossen: Zweiter Job: " ...\n')
         _t58.new_names()
-        pruefe([e[0] for e in _t58.auftrag_ereignisse] == [True, False],
+        pruefe([e[0] for e in _t58.mission_events] == [True, False],
                'die Ereignisse kommen in der Reihenfolge des Logs')
-        pruefe([e[1] for e in _t58.auftrag_ereignisse] == ['Zweiter Job', 'Zweiter Job'],
+        pruefe([e[1] for e in _t58.mission_events] == ['Zweiter Job', 'Zweiter Job'],
                'und tragen beide denselben Titel')
 
         # c) Und die Gesamtrechnung ueber die ganze Datei: nichts offen.
         _text58 = open(_log58, encoding='utf-8').read()
-        pruefe(_au58.offene_aus_text(_text58, _t58.auftrag_muster,
-                                     _t58.auftrag_ende_muster) == [],
+        pruefe(_au58.offene_aus_text(_text58, _t58.mission_pattern,
+                                     _t58.mission_end_pattern) == [],
                'ueber die ganze Log gerechnet ist KEIN Auftrag mehr offen')
     finally:
         _pf58.game_log = _echt58
@@ -5322,7 +5339,7 @@ def main():
     _quelle58 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                      encoding='utf-8').read()
     _ab58 = _quelle58.split('def _auftraege_melden')[1].split('def _emit')[0]
-    pruefe('auftrag_ereignisse' in _ab58,
+    pruefe('mission_events' in _ab58,
            'die Auswertung geht ueber die geordneten Ereignisse')
     pruefe('for titel in beendet:' not in _ab58,
            'und NICHT mehr erst ueber alle Enden')
@@ -6006,7 +6023,7 @@ def main():
     print('65. Umgestellte Uebersetzung')
     import re as _re65
     from scbp import phrasen as _ph65
-    from scbp import logquelle as _lq65
+    from scbp import logsource as _lq65
 
     # a) ⚠ Der Normalfall MUSS unveraendert sein — Zeichen fuer Zeichen.
     _liste65 = _ph65.sammeln()[0]
@@ -6058,7 +6075,7 @@ def main():
              'Attrition-5 Repeater'),
             ('Added notification "Bauplan: Aves Shrike Helmet erhalten: " [2] to queue.',
              'Aves Shrike Helmet')):
-        _funde65 = _lq65._namen_aus_text(_zeile65, _m65)
+        _funde65 = _lq65._names_from_text(_zeile65, _m65)
         pruefe(bool(_funde65) and _funde65[0][0] == _soll65,
                'erkannt: %s' % (_funde65[0][0] if _funde65 else 'NICHTS'))
 
@@ -6067,7 +6084,7 @@ def main():
     for _zeile65 in (
             'Added notification "Auftrag angenommen: Retake Platforms: " [4] to queue.',
             'Added notification "Neuer Auftrag: Koerper durchsuchen: " [5] to queue.'):
-        pruefe(not _lq65._namen_aus_text(_zeile65, _m65),
+        pruefe(not _lq65._names_from_text(_zeile65, _m65),
                'eine Auftrags-Meldung loest nichts aus')
 
     # e) Die schweizerdeutsche Fassung steht in der Rueckfall-Tabelle.
@@ -17047,6 +17064,14 @@ def main():
         # gefuehrt. Ebenso der Einstellungsschluessel `spielzeit_zeigen`.
         # Der Modulname wandert, die Daten bleiben.
         'spielzeit': 'playtime',
+        # Stufe 4d — die Datenquelle selbst
+        #
+        # ⚠⚠ `logstand.json` behaelt seinen Namen: Wandert er, liest der
+        # Watcher beim naechsten Start ALLE Sicherungen von vorn. Ebenso die
+        # Schluessel darin (`dateien`, `offset`, `pfad`, `aktiv` …).
+        # ⚠ Die Klasse `LogTail` bleibt, wie sie heisst — schon englisch,
+        # und es ist der Fachbegriff fuers Mitlesen am Dateiende.
+        'logquelle': 'logsource',
     }
 
     def _reste190(quelle, name, alte):
@@ -18919,12 +18944,98 @@ def main():
            % (_gezaehlt194,
               '' if not _fehler194 else ' — FEHLT: ' + '; '.join(_fehler194)))
     # ⭐ Gegenprobe: Die Pruefung muss einen erfundenen Namen auch finden.
-    pruefe(not hasattr(_im194.import_module('scbp.updater'),
-                       'gibt_es_nicht_194'),
+    # ⚠ Der erfundene Name wird ZUSAMMENGESETZT, nicht als Zeichenkette
+    # hingeschrieben: Pruefung 195 sucht genau solche Konstanten und haette
+    # sonst diese Gegenprobe als Fund gemeldet — eine Wache, die die andere
+    # anschlaegt.
+    _erfunden194 = 'gibt_es' + '_nicht_194'
+    pruefe(not hasattr(_im194.import_module('scbp.updater'), _erfunden194),
            'Gegenprobe: ein erfundener Name wuerde auffallen')
     pruefe(_gezaehlt194 > 0,
            'und sie hat ueberhaupt etwas zu pruefen gefunden (%d)'
            % _gezaehlt194)
+
+    # ------------------------ Namen in Zeichenketten zeigen ins Leere (195)
+    print('\n195. `getattr` & Co. zeigen auf Namen, die es gibt')
+    # ⛔⛔ **Der stillste Ausfall von allen.** Bei der Umbenennung der
+    # Log-Module am 13.09.2026 blieb
+    #     getattr(self.tail, 'auftrag_muster', None)
+    # stehen. Das wirft **keinen Fehler** — es liefert den Standardwert.
+    # Die Auftragserkennung waere stumm ausgefallen: kein Absturz, keine
+    # Meldung, nur „es kommt halt nichts mehr".
+    #
+    # Zum Vergleich: Der dynamische Import aus Pruefung 194 warf wenigstens
+    # einen AttributeError.
+    #
+    # ⚠ Geprueft wird gegen die Felder und Methoden, die es im Projekt
+    # ueberhaupt gibt — ein Name, den KEINE Klasse und KEIN Modul kennt, ist
+    # entweder ein Rest oder ein Tippfehler.
+    _bekannt195 = set()
+    _quellen195 = []
+    for _ordner195, _unter195, _namen195 in os.walk(WURZEL):
+        _unter195[:] = [_u for _u in _unter195
+                        if _u not in ('.git', '__pycache__', 'daten')]
+        for _n195 in sorted(_namen195):
+            if _n195.endswith('.py'):
+                _quellen195.append(os.path.join(_ordner195, _n195))
+    _baeume195 = {}
+    for _w195 in _quellen195:
+        try:
+            _baeume195[_w195] = _ast193.parse(
+                open(_w195, encoding='utf-8').read())
+        except Exception:
+            continue
+    for _b195 in _baeume195.values():
+        for _k195 in _ast193.walk(_b195):
+            if isinstance(_k195, (_ast193.FunctionDef, _ast193.ClassDef)):
+                _bekannt195.add(_k195.name)
+            elif isinstance(_k195, _ast193.Attribute):
+                _bekannt195.add(_k195.attr)
+            elif isinstance(_k195, _ast193.Name):
+                _bekannt195.add(_k195.id)
+    _tot195 = []
+    for _w195, _b195 in _baeume195.items():
+        for _k195 in _ast193.walk(_b195):
+            if not (isinstance(_k195, _ast193.Call)
+                    and isinstance(_k195.func, _ast193.Name)
+                    and _k195.func.id in ('getattr', 'hasattr', 'setattr')):
+                continue
+            if (len(_k195.args) < 2
+                    or not isinstance(_k195.args[1], _ast193.Constant)
+                    or not isinstance(_k195.args[1].value, str)):
+                continue
+            _name195 = _k195.args[1].value
+            # Nur einfache Bezeichner — `getattr(x, 'a.b')` gibt es nicht.
+            if not _name195.isidentifier():
+                continue
+            # ⚠ **Acht Namen, die FREMDEN Bibliotheken gehoeren.** Sie stehen
+            # in keiner Quelldatei dieses Projekts und wuerden die Pruefung
+            # sonst dauerhaft rot faerben. Gemessen: 25 Fundstellen, aber nur
+            # diese acht Namen — eine geschlossene Menge, kein Anfang einer
+            # wachsenden Ausnahmeliste.
+            if _name195 in ('_MEIPASS',              # PyInstaller
+                            'num',                   # tkinter-Ereignis
+                            '__len__',               # Python selbst
+                            'GetWindowLongPtrW',     # Windows-API
+                            'SetWindowLongPtrW',
+                            'DETACHED_PROCESS',      # subprocess-Schalter
+                            'CREATE_NO_WINDOW',
+                            'CREATE_NEW_PROCESS_GROUP'):
+                continue
+            if _name195 not in _bekannt195:
+                _tot195.append('%s:%d  %s(…, %r)'
+                               % (os.path.relpath(_w195, WURZEL),
+                                  _k195.lineno, _k195.func.id, _name195))
+    pruefe(not _tot195,
+           'kein `getattr`/`hasattr`/`setattr` auf einen Namen, den es '
+           'nirgends gibt%s'
+           % ('' if not _tot195 else ' — ' + '; '.join(_tot195[:4])))
+    # ⭐ Gegenprobe: Ein erfundener Name muss auffallen.
+    pruefe('auftrag_muster_gibt_es_nicht_195' not in _bekannt195,
+           'Gegenprobe: ein erfundener Name steht in keiner Quelldatei')
+    pruefe(len(_bekannt195) > 500,
+           'und die Namensliste ist vollstaendig genug (%d Namen aus %d '
+           'Dateien)' % (len(_bekannt195), len(_baeume195)))
 
     print()
     if fehler:

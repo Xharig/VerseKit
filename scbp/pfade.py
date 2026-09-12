@@ -1752,7 +1752,7 @@ ANFUEHRUNG = str.maketrans({
 # `P4-AR Rifle (Bal)`, `'Arrow' I Missile (IR1)`.
 #
 # ⚠ **Warum das hierher gehört und nicht nur ins Log-Lesen.** Bis zum 28.08.2026
-# schnitt nur `logquelle.teile_namen()` den Zusatz ab. Namen aus der
+# schnitt nur `logsource.split_names()` den Zusatz ab. Namen aus der
 # **Launcher-Datei** und aus **Importen** (Basetool, scmdb, eigene Sicherung)
 # gingen ungeschnitten in den Bestand — und `XL-1 (Mil/2/A)` findet `XL-1` nie.
 # Der Bauplan galt als fehlend, obwohl er dastand.

@@ -162,7 +162,7 @@ def _protokollzeile():
     Log-Erkennung nichts aus — und genau die steht hier zur Frage.
     """
     from . import collection as bestand_modul
-    from . import logquelle, pfade as pfade_modul
+    from . import logsource, pfade as pfade_modul
 
     # ⚠ **Jeder Schritt fuer sich abgesichert, auch der erste.** Diese Zeile
     # steht in einem Bericht, den jemand abschickt, WEIL schon etwas kaputt
@@ -178,8 +178,8 @@ def _protokollzeile():
     teile = [t('b_protokolle_1' if len(sicherungen) == 1 else 'b_protokolle')
              % len(sicherungen)]
     try:
-        stand = logquelle.Lesestand()
-        gelesen = sum(1 for p in sicherungen if stand.kennt(p))
+        stand = logsource.ReadState()
+        gelesen = sum(1 for p in sicherungen if stand.knows(p))
         teile.append(t('b_logs_gelesen') % gelesen)
     except Exception:
         pass

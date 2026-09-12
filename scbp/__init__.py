@@ -25,7 +25,7 @@ und Überwachungs-Thread — es benutzt diese Bausteine, kennt aber selbst kein
 Betriebssystem mehr.
 
     pfade       wo was liegt (die einzige Stelle mit Systempfaden)
-    logquelle   Game.log mitlesen und frühere Sitzungen nachlesen
+    logsource   Game.log mitlesen und frühere Sitzungen nachlesen
     bestand     der eigene Bauplan-Bestand
     phrasen     die Bauplan-Meldung in der jeweiligen Spielsprache erkennen
     autostart   mit dem Rechner starten
