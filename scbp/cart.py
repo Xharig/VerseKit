@@ -591,7 +591,7 @@ def line_items(entry):
     """
     if not entry:
         return NO_DATA, []
-    slots = erkul.steckplaetze(entry.get('name') or '',
+    slots = erkul.hardpoints(entry.get('name') or '',
                                entry.get('hersteller') or '',
                                entry.get('kurz') or '',
                                entry.get('hkurz') or '')

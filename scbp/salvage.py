@@ -86,7 +86,7 @@ nie über den Namen. Über Namen ist es im Projekt schon zweimal schiefgegangen.
 
 ## ⚠ Warum eigene Abrufe statt der Hangar-Ablage
 
-Ein Wrack ist **nicht dein Schiff**. `erkul.plaetze()` beantwortet „passt das in
+Ein Wrack ist **nicht dein Schiff**. `erkul.slot_counts()` beantwortet „passt das in
 meines" und hat deshalb nur die Schiffe im Hangar abgelegt; hier geht es um
 jedes Schiff, das einem im Verse begegnet. Deshalb wird das gewählte Schiff bei
 Bedarf einzeln geholt und getrennt abgelegt.
@@ -219,7 +219,7 @@ def factory_loadout(ship_id, path):
     Holt die Schiffsdatei bei erkul und dampft sie auf das ein, was sich
     ausbauen lässt. Gibt `[]` zurück, wenn nichts zu holen war.
     """
-    raw = erkul._holen('%s/%s' % (erkul.ZWEIG, path), 'bergung')
+    raw = erkul._fetch('%s/%s' % (erkul.BRANCH, path), 'bergung')
     if not isinstance(raw, dict):
         return []
     found = []
@@ -241,7 +241,7 @@ def remember_ship(ship_id, name, parts):
     data = load()
     ships = data.setdefault('schiffe', {})
     ships[ship_id] = {'name': name, 'teile': parts, 'stand': time.time(),
-                      'spielversion': erkul.spielversion()}
+                      'spielversion': erkul.game_version()}
     # ⚠ Älteste zuerst weg, nicht willkürlich: Wer ein Schiff gerade
     # nachgeschlagen hat, will es morgen wieder ohne Abruf sehen.
     if len(ships) > MAX_SHIPS:
@@ -261,7 +261,7 @@ def remembered(ship_id):
     entry = (load().get('schiffe') or {}).get(ship_id)
     if not entry:
         return None
-    if entry.get('spielversion') != erkul.spielversion():
+    if entry.get('spielversion') != erkul.game_version():
         return None
     return entry
 

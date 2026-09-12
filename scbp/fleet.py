@@ -488,7 +488,7 @@ def unknown(data=None):
     """
     result = []
     for s in ((data or load()).get('schiffe') or []):
-        if not erkul.kennt(s.get('name'), s.get('hersteller'), s.get('kurz'),
+        if not erkul.knows(s.get('name'), s.get('hersteller'), s.get('kurz'),
                            s.get('hkurz')):
             result.append(s.get('name') or '')
     return result
@@ -532,4 +532,4 @@ def fetch_missing(data=None):
     die Ausstattung ließe sich erst planen, wenn das Schiff schon gekauft ist.
     Geholt wird nur — verrechnet werden Wunschschiffe nirgends als Besitz.
     """
-    return erkul.nachtragen(id_sets(data) + wishlist_id_sets(data))
+    return erkul.add_missing(id_sets(data) + wishlist_id_sets(data))

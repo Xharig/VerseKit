@@ -127,7 +127,7 @@ def angebotene():
 
     Neueste zuerst. Ohne Netz eine leere Liste — wie überall im Werkzeug
     läuft es dann einfach ohne diese Angaben weiter."""
-    kat = erkul.katalog()
+    kat = erkul.ship_catalog()
     if not kat:
         return []
     raus = []
@@ -153,7 +153,7 @@ def _abrufen(eintrag):
     pfad = eintrag.get('path')
     if not pfad:
         return None
-    return erkul._holen('%s/%s' % (erkul.ZWEIG, pfad), 'changelog')
+    return erkul._fetch('%s/%s' % (erkul.BRANCH, pfad), 'changelog')
 
 
 # --------------------------------------------------------------- Die Ablage

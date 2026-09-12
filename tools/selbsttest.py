@@ -13230,7 +13230,7 @@ def main():
     ]
     _daneben139 = []
     for (_n139, _h139, _hk139), _soll139 in _faelle139:
-        _ist139 = _erk139._wortweise_suchen(_ids139, _n139, _h139, '', _hk139)
+        _ist139 = _erk139._search_wordwise(_ids139, _n139, _h139, '', _hk139)
         if _ist139 != _soll139:
             _daneben139.append('%s -> %s statt %s' % (_n139, _ist139 or '—',
                                                       _soll139))
@@ -13244,11 +13244,11 @@ def main():
     # ⚠ Gegenprobe: Ein Name, der auf zwei Kennungen gleich gut passt, darf
     # **keine** liefern. Raten ist schlimmer als „keine Daten" — sonst zeigt
     # das Werkzeug die Steckplätze des falschen Schiffs, und das merkt niemand.
-    _zwei139 = _erk139._wortweise_suchen({'aegs_gladius': 1, 'aegs_gladius_pirat': 1},
+    _zwei139 = _erk139._search_wordwise({'aegs_gladius': 1, 'aegs_gladius_pirat': 1},
                                          'Gladius', 'Aegis Dynamics', '', 'AEGS')
     pruefe(_zwei139 == 'aegs_gladius',
            'bei einem klaren Sieger wird zugeordnet')
-    _patt139 = _erk139._wortweise_suchen({'anvl_hornet_f7c': 1, 'anvl_hornet_f7a': 1},
+    _patt139 = _erk139._search_wordwise({'anvl_hornet_f7c': 1, 'anvl_hornet_f7a': 1},
                                          'Hornet', '', '', 'ANVL')
     pruefe(_patt139 == '',
            'bei Gleichstand wird NICHT geraten (bekam: %r)' % _patt139)
@@ -13257,7 +13257,7 @@ def main():
     # Suche gegen geschliffene Schlüssel (`drakironcladassault`), gibt es nur
     # noch ein einziges Wort — sie findet dann nie etwas und sagt nicht warum.
     _geschliffen139 = {'drakironcladassault': 1}
-    pruefe(_erk139._wortweise_suchen(_geschliffen139, 'Drake Ironclad Assault',
+    pruefe(_erk139._search_wordwise(_geschliffen139, 'Drake Ironclad Assault',
                                      '', '', '') == '',
            'Gegenprobe: ohne Wortgrenzen findet die Suche nichts')
 
@@ -13646,9 +13646,9 @@ def main():
         ]}
 
     _hp141 = {}
-    _erk141._hardpoint_verzeichnis(_schiff141['vehicle']['hardpoints'], _hp141)
+    _erk141._hardpoint_index(_schiff141['vehicle']['hardpoints'], _hp141)
     _slots141 = []
-    _erk141._ausstattung_sammeln(_schiff141['slots'], _hp141, _slots141)
+    _erk141._collect_loadout(_schiff141['slots'], _hp141, _slots141)
     _pfade141 = [s['pfad'] for s in _slots141]
 
     # Kuehler + Batterie + 2 Gimbal + 2 Waffen = 6. Der feste Turm selbst
@@ -13689,7 +13689,7 @@ def main():
     _nur_oben141 = []
     for _s141 in _schiff141['slots']:
         if _s141.get('kind') == 'swappable':
-            _e141 = _erk141._ein_slot(_s141, _hp141, _s141['portName'])
+            _e141 = _erk141._one_hardpoint(_s141, _hp141, _s141['portName'])
             if _e141:
                 _nur_oben141.append(_e141)
     pruefe(len(_nur_oben141) == 2,
@@ -13716,8 +13716,8 @@ def main():
     _abgelegt142 = {'spielversion': 'probe', 'hersteller': {}, 'schiffe': {
         'probeschiff': {'name': 'Probeschiff', 'id': 'probe_schiff',
                         'plaetze': [], 'slots': _slots141}}}
-    _echt142 = _erk141.laden
-    _erk141.laden = lambda: _abgelegt142
+    _echt142 = _erk141.load
+    _erk141.load = lambda: _abgelegt142
     try:
         _mein142 = {'name': 'Probeschiff', 'hersteller': '', 'kurz': '',
                     'hkurz': '', 'belegung': {}}
@@ -13773,7 +13773,7 @@ def main():
         pruefe(_leer142 == (_wk142.NO_DATA, []),
                'Gegenprobe: fehlende Daten geben KEINE_DATEN mit leerer Liste')
     finally:
-        _erk141.laden = _echt142
+        _erk141.load = _echt142
 
     print()
     print('143. Die Kaufroute nimmt Deckung vor Preis')
@@ -14425,11 +14425,11 @@ def main():
         'ref-blast': [{'laden': 'Depot', 'ort': 'Area18', 'system': 'Stanton',
                        'preis': 22730.0}],
     }
-    _echt151 = (_erk151.laden, _ld151.known, _ld151.shops_for,
+    _echt151 = (_erk151.load, _ld151.known, _ld151.shops_for,
                 _ld151.cheapest, _wk151._blueprint_index,
                 _he151.recipe, _pr151.price, _sf151.buy_at)
     try:
-        _erk151.laden = lambda: {'spielversion': 'p', 'hersteller': {},
+        _erk151.load = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {
             'cutlassblack': {'name': 'Cutlass Black', 'id': 'drak_cutlass',
                              'plaetze': [], 'slots': _slots151},
@@ -14549,7 +14549,7 @@ def main():
                'Gegenprobe: nur das ungepruefte Teil, nicht alle (bekam: %d)'
                % len(_offen2_151))
     finally:
-        (_erk151.laden, _ld151.known, _ld151.shops_for, _ld151.cheapest,
+        (_erk151.load, _ld151.known, _ld151.shops_for, _ld151.cheapest,
          _wk151._blueprint_index, _he151.recipe, _pr151.price,
          _sf151.buy_at) = _echt151
 
@@ -14835,11 +14835,11 @@ def main():
         {'pfad': 'b', 'art': 'Cooler', 'groesse': 2,
          'werk': {'ref': 'ref-werk', 'name': 'Werk'}},
     ]
-    _echt157 = (_erk157.laden, _ld156.known, _ld156.shops_for,
+    _echt157 = (_erk157.load, _ld156.known, _ld156.shops_for,
                 _ld156.cheapest, _wk156._blueprint_index,
                 _he156.recipe, _pr157.price, _ro157.load)
     try:
-        _erk157.laden = lambda: {'spielversion': 'p', 'hersteller': {},
+        _erk157.load = lambda: {'spielversion': 'p', 'hersteller': {},
                                  'schiffe': {'probe': {
                                      'name': 'Probe', 'id': 'probe',
                                      'plaetze': [], 'slots': _slots157}}}
@@ -14909,7 +14909,7 @@ def main():
                'und der Posten zaehlt nicht als Bau-Posten (bekam: %d)'
                % _h157['posten'])
     finally:
-        (_erk157.laden, _ld156.known, _ld156.shops_for, _ld156.cheapest,
+        (_erk157.load, _ld156.known, _ld156.shops_for, _ld156.cheapest,
          _wk156._blueprint_index, _he156.recipe, _pr157.price,
          _ro157.load) = _echt157
 

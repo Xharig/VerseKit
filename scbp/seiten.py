@@ -8267,7 +8267,7 @@ def _passt_zeile(fenster, eltern, bauplan):
     # Liste) und bedeuten das Gegenteil voneinander. Wer sie zusammenwirft,
     # behauptet etwas, das er nicht weiß — und das ist schlimmer, als nichts
     # zu sagen.
-    if not (erkul.laden().get('schiffe') or {}):
+    if not (erkul.load().get('schiffe') or {}):
         lbl = tk.Label(eltern, text=t('s_hg_passt_unbekannt'), bg='#0c1017',
                        fg=GOLD, font=fenster.f_klein, anchor='w',
                        justify='left')
@@ -8276,7 +8276,7 @@ def _passt_zeile(fenster, eltern, bauplan):
         _steckplaetze_nachziehen(lbl)
         return
 
-    treffer = erkul.passende_schiffe(art, groesse, schiffe)
+    treffer = erkul.matching_ships(art, groesse, schiffe)
     if treffer:
         namen = ', '.join(
             t('s_hg_passt_mehrfach').format(name=n, n=z) if z > 1 else n
@@ -9150,7 +9150,7 @@ def _bergung(fenster, rahmen):
         if not alle_schiffe.knows(name):
             hinweis.configure(text=t('s_wr_kein_schiff'), fg=ROT)
             return
-        kennung = erkul.kennung(name, '', '', '')
+        kennung = erkul.ident(name, '', '', '')
         gespeichert = bg.remembered(kennung) if kennung else None
         if gespeichert:
             hinweis.configure(text='', fg=SUB)
@@ -9241,7 +9241,7 @@ def _bergung_holen(name):
     Läuft **außerhalb** des Oberflächen-Fadens. Gibt `(teile, kennung)` zurück.
     """
     from . import salvage as bg, erkul, shops
-    kat = erkul.katalog()
+    kat = erkul.ship_catalog()
     if not isinstance(kat, dict):
         return [], ''
     verzeichnis = {}
@@ -9249,7 +9249,7 @@ def _bergung_holen(name):
         pfad = gruppe.get('indexPath')
         if not pfad:
             continue
-        index = erkul._holen('%s/%s' % (erkul.ZWEIG, pfad), 'bergung.index')
+        index = erkul._fetch('%s/%s' % (erkul.BRANCH, pfad), 'bergung.index')
         for eintrag in ((index or {}).get('blobs') or []):
             if eintrag.get('id') and eintrag.get('path'):
                 verzeichnis[eintrag['id']] = eintrag['path']
@@ -9271,7 +9271,7 @@ def _bergung_holen(name):
     eintrag = alle_schiffe._find(name) or {}
     werft = eintrag.get('werft') or ''
 
-    treffer = erkul._wortweise_suchen(verzeichnis, name, werft, '', '')
+    treffer = erkul._search_wordwise(verzeichnis, name, werft, '', '')
     if not treffer:
         return [], ''
     teile = bg.factory_loadout(treffer, verzeichnis[treffer])
@@ -10244,7 +10244,7 @@ def _hangar(fenster, rahmen):
             _fliesstext(liste_rahmen, t('s_hg_leer'), fenster.f_klein, fill='x')
             return
 
-        version = erkul.spielversion()
+        version = erkul.game_version()
         _fliesstext(liste_rahmen,
                     t('s_hg_quelle').format(version=version) if version
                     else t('s_hg_keine_daten'),
@@ -11493,7 +11493,7 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     from . import fleet as meine, erkul
 
     name = eintrag.get('name') or ''
-    plaetze = erkul.plaetze(name, eintrag.get('hersteller', ''),
+    plaetze = erkul.slot_counts(name, eintrag.get('hersteller', ''),
                             eintrag.get('kurz', ''), eintrag.get('hkurz', ''))
     karte = _karte(eltern, pady=(0, 6))
 
@@ -11884,7 +11884,7 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
     """
     from . import cart, erkul, fleet as meine
 
-    plaetze = erkul.steckplaetze(eintrag.get('name') or '',
+    plaetze = erkul.hardpoints(eintrag.get('name') or '',
                                  eintrag.get('hersteller') or '',
                                  eintrag.get('kurz') or '',
                                  eintrag.get('hkurz') or '')
