@@ -318,7 +318,7 @@ def abgreifen(links, oben, breite, hoehe, sitzung=None):
     """
     if sys.platform.startswith('win'):
         # ⚠ Noch nicht gebaut. Der Weg ist unstrittig (ctypes/GDI, wie es
-        # `scbp/ablagesymbol.py` schon tut) — er fehlt hier nur.
+        # `scbp/tray_icon.py` schon tut) — er fehlt hier nur.
         return None
     if sitzung is not None:
         return _abgreifen_mit(sitzung, links, oben, breite, hoehe)

@@ -1932,8 +1932,8 @@ def _menueeintrag_feld(fenster, innen):
 
     Unter Windows erledigt das der Installer; dort wäre der Punkt nur Ballast.
     """
-    from . import verknuepfung
-    if not verknuepfung.moeglich():
+    from . import desktop_entry
+    if not desktop_entry.moeglich():
         return
     ziel = _feld(fenster, innen, t('s_menue'), t('s_menue_h'), breit=True)
     reihe = tk.Frame(ziel, bg=BG)
@@ -1941,16 +1941,16 @@ def _menueeintrag_feld(fenster, innen):
     stand = tk.Label(reihe, text='', bg=BG, fg=SUB, font=fenster.f_klein)
 
     def zeigen():
-        stand.configure(text=t('s_menue_steht') if verknuepfung.vorhanden() else '')
+        stand.configure(text=t('s_menue_steht') if desktop_entry.vorhanden() else '')
 
     def anlegen():
-        geklappt, wohin = verknuepfung.anlegen()
+        geklappt, wohin = desktop_entry.anlegen()
         fenster.sagen((t('as_menue_da') % wohin) if geklappt
                       else t('as_menue_nein') % wohin)
         zeigen()
 
     def weg():
-        verknuepfung.entfernen()
+        desktop_entry.entfernen()
         fenster.sagen(t('s_menue_weg_ok'))
         zeigen()
 

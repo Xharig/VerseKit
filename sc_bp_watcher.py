@@ -46,7 +46,7 @@ from scbp import zeichen
 from scbp import fehler
 from scbp import notice
 from scbp import (
-    auftraege,ablagesymbol, updater, assistent, autostart, places, prices,
+    auftraege,tray_icon, updater, assistent, autostart, places, prices,
                   bildschirm, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
@@ -4214,18 +4214,18 @@ class Overlay:
         # ob das Symbol scheitert oder gar nicht erst versucht wird — Haldjas'
         # Bericht zeigte weder einen Fehler noch eine Spur. Eine Zeile im
         # Startverlauf beantwortet das beim nächsten Bericht sofort.
-        if not ablagesymbol.moeglich():
+        if not tray_icon.moeglich():
             fehler.spur('Ablagesymbol: entfällt (nicht Windows)')
             return
         if not pfade.einstellung_wahrheit('tray', True):
             fehler.spur('Ablagesymbol: abgeschaltet (Einstellung „tray")')
             return
         try:
-            self._ablage = ablagesymbol.Ablagesymbol(
+            self._ablage = tray_icon.Ablagesymbol(
                 beim_zeigen=lambda: self.root.after(0, self.hervorholen),
                 beim_beenden=lambda: self.root.after(0, self._ganz_beenden),
                 # ⚠ Produktname von hier, nicht aus dem Standardwert des
-                # Moduls: `ablagesymbol` soll nicht von `sprache` abhängen.
+                # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
                 titel=sprache.t('hf_titel'))
             geklappt = self._ablage.starten(sprache.t('tray_zeigen'),
                                             sprache.t('tray_beenden'))
@@ -4261,19 +4261,19 @@ class Overlay:
         """Eine vorhandene Linux-Verknüpfung auf den aktuellen Namen bringen.
 
         ⚠⚠ Gebraucht wegen der Umbenennung zu VerseKit (12.09.2026). Beim
-        Update läuft `verknuepfung.anlegen()` **nicht** — der Eintrag gilt als
+        Update läuft `desktop_entry.anlegen()` **nicht** — der Eintrag gilt als
         vorhanden, und damit wäre die Sache erledigt. Bestandsnutzer behielten
         dauerhaft „SC BP Watcher" im Anwendungsmenü. Vom Prüfer gefunden (F02).
 
         Legt nie etwas an und fasst `Exec`, `Icon` und den Dateinamen nicht an
-        — siehe `verknuepfung.beschriftung_nachziehen()`.
+        — siehe `desktop_entry.beschriftung_nachziehen()`.
         """
         if pfade.WINDOWS:
             return
         try:
             # Lokal importiert: Das Modul wird nur unter Linux gebraucht.
-            from scbp import verknuepfung
-            if verknuepfung.beschriftung_nachziehen():
+            from scbp import desktop_entry
+            if desktop_entry.beschriftung_nachziehen():
                 fehler.spur('Verknuepfung auf den aktuellen Namen gebracht')
         except Exception as ausnahme:
             fehler.merken('start.beschriftung', ausnahme)

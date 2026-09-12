@@ -411,15 +411,15 @@ class Assistent:
         lässt; zusammen mit dem Einzelinstanz-Wächter holt das im Pop-up-Betrieb
         das Overlay zurück.
         """
-        from . import verknuepfung
-        if not verknuepfung.moeglich() or verknuepfung.vorhanden():
+        from . import desktop_entry
+        if not desktop_entry.moeglich() or desktop_entry.vorhanden():
             return
         self._absatz(flaeche, t('as_menue_frage'), FG, 11, oben=18)
         meldung = tk.Label(flaeche, text='', bg=BG, fg=SUB, font=schrift(9),
                            anchor='w', justify='left')
 
         def anlegen(_=None):
-            geklappt, wohin = verknuepfung.anlegen()
+            geklappt, wohin = desktop_entry.anlegen()
             meldung.configure(text=(t('as_menue_da') % wohin) if geklappt
                               else t('as_menue_nein') % wohin,
                               fg=ACCENT if geklappt else SUB)

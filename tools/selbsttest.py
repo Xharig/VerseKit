@@ -1372,7 +1372,7 @@ def main():
             pruefe(erwartet in block,
                    'Ablagesymbol meldet den Fall „%s"' % wofuer)
 
-        symbol_quelle = open(os.path.join(WURZEL, 'scbp', 'ablagesymbol.py'),
+        symbol_quelle = open(os.path.join(WURZEL, 'scbp', 'tray_icon.py'),
                              encoding='utf-8').read()
         pruefe('except Exception:\n            bereit.set()' not in symbol_quelle,
                'der Faden verschluckt Fehler nicht mehr stillschweigend')
@@ -1559,7 +1559,7 @@ def main():
             # will deutsche Auftragstexte, auch wenn das Fenster englisch ist.
             'scbp/injektion.py',
             # `.desktop`-Dateien: Das Betriebssystem zeigt sie, nicht wir.
-            'scbp/autostart.py', 'scbp/verknuepfung.py',
+            'scbp/autostart.py', 'scbp/desktop_entry.py',
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
             # zum fehlenden Entpacker — beides kein Oberflächentext.
             'scbp/pfade.py', 'scbp/spieltexte.py', 'scbp/phrasen.py',
@@ -16985,6 +16985,15 @@ def main():
         # Wer sie zuerst umbenennt, muss die Analyse neu machen.
         'aktualisierung': 'updater',
         'update_lauf': 'update_run',
+        # Stufe 4b — Desktop-Anbindung
+        #
+        # ⚠ `tray` waere der naheliegende Name gewesen — und falsch: Das ist
+        # ein DATENSCHLUESSEL in einstellungen.json. Deshalb `tray_icon`.
+        # ⚠ `shortcut` waere doppeldeutig: Das Modul legt einen Desktop-Entry
+        # an, die Tastenkombination macht `hotkey`. Deshalb der
+        # freedesktop-Fachbegriff.
+        'verknuepfung': 'desktop_entry',
+        'ablagesymbol': 'tray_icon',
     }
 
     def _reste190(quelle, name, alte):
@@ -18254,9 +18263,9 @@ def main():
          'Registry-Wertname des Autostarts — sonst zwei Eintraege'),
         ('scbp/autostart.py', 1, "'sc-bp-watcher.desktop'",
          'Autostart-Datei unter Linux — dasselbe'),
-        ('scbp/verknuepfung.py', 1, "DATEINAME = 'sc-bp-watcher.desktop'",
+        ('scbp/desktop_entry.py', 1, "DATEINAME = 'sc-bp-watcher.desktop'",
          'Verknuepfung — sonst zwei Eintraege im Startmenue'),
-        ('scbp/verknuepfung.py', 1, "SYMBOLNAME = 'sc-bp-watcher.png'",
+        ('scbp/desktop_entry.py', 1, "SYMBOLNAME = 'sc-bp-watcher.png'",
          'Symboldatei der Verknuepfung'),
         ('scbp/pfade.py', 1,
          "EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')",
@@ -18287,11 +18296,11 @@ def main():
     # Wegwerf-Ordner laufen lassen und die ERZEUGTE Datei lesen.
     #
     # ⚠ Bis zum 12.09.2026 las diese Pruefung den Quelltext von
-    # verknuepfung.py. Als der Wert dort zu einem Platzhalter wurde (der Name
+    # desktop_entry.py. Als der Wert dort zu einem Platzhalter wurde (der Name
     # kommt jetzt aus sprache.py), meldete sie '%s' vs 'VerseKit' — ein
     # Fehlalarm. Dieselbe Schwaeche wie bei Pruefung 74 und 30: Form
     # gemessen, wo Wirkung zaehlt.
-    from scbp import sprache as _spr191, verknuepfung as _vk191
+    from scbp import sprache as _spr191, desktop_entry as _vk191
     # Der Text, den anlegen() schreiben WUERDE — ohne Dateisystem, damit die
     # Pruefung auch unter Windows laeuft (Regel: nichts stillschweigend
     # ueberspringen).

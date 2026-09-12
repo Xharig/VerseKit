@@ -14,7 +14,10 @@
 set -euo pipefail
 
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NAME="SC BP Watcher (Quellcode)"
+# ⚠ Sichtbarer Name — wandert mit der Umbenennung (12.09.2026). Der Zusatz
+# „(Quellcode)" unterscheidet ihn vom echten Eintrag des Installers bzw. des
+# AppImage, damit im Menü nicht zwei gleich heißende Einträge stehen.
+NAME="VerseKit (Quellcode)"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   ZIEL="$HOME/Desktop/$NAME.command"

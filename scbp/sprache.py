@@ -2788,8 +2788,8 @@ TEXTE = {
     # --- Hauptfenster: Reiter und Rahmen (ab v3.0.0) ---
     'hf_titel':          ('VerseKit', 'VerseKit'),
     # ⚠ Der Untertitel steht hier, weil ihn ZWEI Stellen brauchen:
-    # `verknuepfung.anlegen()` schreibt ihn in eine neue `.desktop`-Datei, und
-    # `verknuepfung.beschriftung_nachziehen()` bringt eine vorhandene darauf.
+    # `desktop_entry.anlegen()` schreibt ihn in eine neue `.desktop`-Datei, und
+    # `desktop_entry.beschriftung_nachziehen()` bringt eine vorhandene darauf.
     # Getrennt gepflegt wären sie nach dem ersten Wortwechsel auseinander.
     'vk_untertitel':     ('Dein Werkzeugkasten für Star Citizen',
                           'Your Star Citizen toolkit'),

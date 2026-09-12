@@ -291,7 +291,7 @@ class Ablagesymbol(object):
                 time.sleep(1.0)
         try:
             from . import fehler
-            fehler.merken('ablagesymbol.anlegen',
+            fehler.merken('tray_icon.anlegen',
                           OSError('Shell_NotifyIcon: Fehler %d nach %d '
                                   'Versuchen'
                                   % (ctypes.windll.kernel32.GetLastError(),
@@ -314,7 +314,7 @@ class Ablagesymbol(object):
                 if not benutzer.AppendMenuW(menue, MF_STRING, kennung,
                                             beschriftung):
                     from . import fehler
-                    fehler.merken('ablagesymbol.menue',
+                    fehler.merken('tray_icon.menue',
                                   OSError('AppendMenuW ist gescheitert (%s), '
                                           'Fehler %d'
                                           % (beschriftung,
@@ -423,7 +423,7 @@ class Ablagesymbol(object):
                 # bei Haldjas am 25.08.2026 gemeldet. Ohne Meldung ist eine
                 # Nutzerrückmeldung wertlos.
                 from . import fehler
-                fehler.merken('ablagesymbol.fenster',
+                fehler.merken('tray_icon.fenster',
                               OSError('CreateWindowExW lieferte kein Fenster, '
                                       'Fehler %d'
                                       % ctypes.windll.kernel32.GetLastError()))
@@ -460,7 +460,7 @@ class Ablagesymbol(object):
             # das Symbol fehlte, und jede Ursachensuche lief ins Leere.
             try:
                 from . import fehler
-                fehler.merken('ablagesymbol.schleife', ausnahme)
+                fehler.merken('tray_icon.schleife', ausnahme)
             except Exception:
                 pass                  # selbst das Melden darf nichts umwerfen
             bereit.set()
