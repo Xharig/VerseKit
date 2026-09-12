@@ -9127,18 +9127,23 @@ def main():
     # ⚠ Geprueft wird die **Wirkung** (ist er zu sehen?), nicht die
     # Schreibweise im Quelltext — eine Pruefung, die einen Aufruf
     # festschreibt, haelt beim naechsten Mal den Fehler fest (Pruefung 86).
-    # Gegenprobe gemacht: mit dauerhaftem `place()` faellt die zweite Zeile.
-    _liste97.suche.set('')
-    _wz97.update(); _wz97.update_idletasks()
-    pruefe(_liste97.platzhalter_lbl.winfo_ismapped(),
-           'das leere Suchfeld sagt, dass es auch Auftraege findet')
+    #
+    # ⚠⚠ Umgestellt am 12.09.2026: Bis dahin fragte sie das LABEL, das ueber
+    # dem Feld lag (`platzhalter_lbl.winfo_ismapped()`). Genau dieses Label
+    # war der Fehler — es fing die Mausklicks ab, und man musste NEBEN den
+    # Text klicken, um ins Feld zu kommen. Der Hinweis steht jetzt im Feld
+    # selbst.
+    #
+    # ⭐ Die Pruefung fragt deshalb den **sichtbaren Feldinhalt** ab. Das ist
+    # genau das, was der Nutzer sieht — und es haelt auch, wenn der Hinweis
+    # morgen wieder anders gebaut wird.
+    # ⚠ Hier nur noch, dass es den Text ueberhaupt in beiden Sprachen gibt.
+    # Das VERHALTEN des Hinweises prueft Abschnitt 192 an einem **frischen**
+    # Fenster — dieses hier wurde oben schon mehrfach umgeschaltet, und eine
+    # Pruefung, die auf fremdem Zustand aufsetzt, misst nicht, was sie soll.
     _pl97 = _sp97.TEXTE.get('s_bp_suche_platz') or ()
     pruefe(len(_pl97) == 2 and all(_pl97),
-           'und der Hinweis steht in beiden Sprachen')
-    _liste97.suche.set('titan')
-    _wz97.update(); _wz97.update_idletasks()
-    pruefe(not _liste97.platzhalter_lbl.winfo_ismapped(),
-           'sobald etwas drinsteht, ist der Hinweis weg')
+           'der Hinweis im Suchfeld steht in beiden Sprachen')
 
     try:
         _liste97.root.destroy()
@@ -18565,6 +18570,61 @@ def main():
            'Gegenprobe der Pruefung (F05b): mit Platzhalter WAERE die eigene'
            ' Verknuepfung des Nutzers weg — Fall 6 belegt also etwas'
            ' (Rest: %r)' % [n for n, _d in _rest191])
+    # ------------------------------------ Hinweis IM Eingabefeld (192)
+    print('\n192. Der Hinweis steht IM Feld, nicht darueber')
+    # ⚠⚠ Bis zum 12.09.2026 lag ein `tk.Label` ueber dem Suchfeld. Es sah
+    # gleich aus und fing die Mausklicks ab: Wer auf den Hinweistext klickte,
+    # klickte nicht ins Feld — man musste NEBEN den Text treffen. Gemeldet
+    # als „alles andere als intuitiv".
+    #
+    # ⭐ Geprueft wird die Wirkung am **frischen** Fenster: was im Feld steht,
+    # und was die Filtervariable sieht. Nicht, welches Bauteil es gibt.
+    from scbp import bestandsfenster as _bf192, sprache as _sp192
+    _wz192 = _wurzel()
+    _liste192 = _bf192.Bestandsfenster(_wz192)
+    for _ in range(3):
+        _wz192.update(); _wz192.update_idletasks()
+    _f192 = getattr(_liste192, 'suchfeld', None)
+    _hin192 = _sp192.t('s_bp_suche_platz')
+    pruefe(_f192 is not None, 'das Fenster kennt sein eigenes Suchfeld')
+    if _f192 is not None:
+        pruefe(_f192.get() == _hin192,
+               'das leere Suchfeld sagt, dass es auch Auftraege findet (%r)'
+               % _f192.get())
+        # ⭐⭐ Der Punkt, an dem die Label-Loesung scheiterte und weshalb es
+        # frueher ueberhaupt ein Label war: Die Filtervariable darf den
+        # Hinweis NIE sehen — sonst filtert die Liste danach und ist leer.
+        pruefe(_liste192.suche.get() == '',
+               'der Hinweis steht NICHT in der Filtervariable (%r)'
+               % _liste192.suche.get())
+        # Es gibt kein Bauteil mehr, das den Klick abfangen koennte.
+        pruefe(not [w for w in _f192.winfo_children()],
+               'im Feld liegt kein Bauteil, das Klicks abfaengt (%d)'
+               % len(_f192.winfo_children()))
+        # Der Rueckweg: Wird die Suche geleert (das ✕ tut genau das), muss der
+        # Hinweis sofort zurueck sein — nicht erst beim Fokuswechsel.
+        _liste192.suche.set('ezra'); _wz192.update()
+        _liste192.suche.set(''); _wz192.update()
+        pruefe(_f192.get() == _hin192,
+               'nach dem Leeren ist der Hinweis sofort zurueck (%r)'
+               % _f192.get())
+
+    # ⚠⚠ ZWEI Verhalten stehen hier bewusst NICHT:
+    #     * der erste Tastendruck raeumt den Hinweis weg
+    #     * `suche.set('titan')` von aussen bringt den Text ins Feld
+    #
+    # Beide sind am 12.09.2026 in einem echten Fenster gemessen worden und
+    # stimmen dort (`tools/probe_hinweisfeld.py`). Im Selbsttest-Rahmen sind
+    # sie nicht nachstellbar: Dort haengen weitere Beobachter an derselben
+    # Variable, und ein `event_generate('<Key>')` kommt nicht verlaesslich an.
+    #
+    # ⛔ Lieber eine Pruefung WENIGER als eine, die gruen aussieht und nichts
+    # misst. Wer das automatisieren will, faengt beim Probeskript an.
+    try:
+        _liste192.root.destroy(); _wz192.destroy()
+    except Exception:
+        pass
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

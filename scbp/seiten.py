@@ -36,7 +36,7 @@ import time
 import tkinter as tk
 
 from . import bericht, collection as bestand_datei, fehler, catalog as katalog_modul
-from . import pfade, zeichen
+from . import pfade, zeichen, fields
 from .sprache import t, pa_feld
 
 BG      = '#10141c'
@@ -6361,6 +6361,7 @@ def _routen(fenster, rahmen):
                        highlightthickness=1, highlightbackground=LINIE,
                        highlightcolor=ACCENT)
     ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
+    fields.hinweis(ortfeld, ortsuche, t('s_rt_wo_platz'), normal=FG, grau=SUB)
     # ⚠⚠ **Nicht gepackt, solange leer.** Ein geleerter Rahmen behält seine
     # Höhe — gemessen 920 px bei null Kindern. Am 05.09.2026 im Routen-Reiter
     # gemeldet: „Oben entsteht mega viel Leerraum, ich scrolle, um nichts zu
@@ -6451,6 +6452,8 @@ def _routen(fenster, rahmen):
                           highlightthickness=1, highlightbackground=LINIE,
                           highlightcolor=ACCENT)
     schifffeld.pack(fill='x', ipady=5)
+    fields.hinweis(schifffeld, schiffsuche, t('s_rt_schiff_platz'),
+                   normal=FG, grau=SUB)
     # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Am 05.09.2026: „Dropdown
     # hast du mir für Schiffe unter Routen versprochen — Spieler kennen ja
     # nicht alle Schiffe und deren SCU-Kapazität." Richtig: Ein Suchfeld, das
@@ -7321,6 +7324,7 @@ def _laeden(fenster, rahmen):
                     highlightthickness=1, highlightbackground=LINIE,
                     highlightcolor=ACCENT)
     feld.pack(fill='x', ipady=5)
+    fields.hinweis(feld, suche, t('s_ld_suche_platz'), normal=FG, grau=SUB)
 
     # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
     # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah

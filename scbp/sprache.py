@@ -594,6 +594,8 @@ TEXTE = {
     's_lg_abbau_fahrzeug': ('Fahrzeug', 'Vehicle'),
     's_lg_abbau_schiff': ('Schiff', 'Ship'),
     's_lg_suche':        ('Im Lager suchen …', 'Search stock …'),
+    's_ld_suche_platz':  ('Ware, Laden oder Ort suchen',
+                          'Search commodity, shop or location'),
     's_lg_posten_weg':   ('Diesen Posten löschen', 'Delete this entry'),
     's_lg_posten_frage_t': ('Posten löschen?', 'Delete entry?'),
     's_lg_posten_frage': ('%s (%g SCU) wird aus dem Lager genommen.',
@@ -3007,6 +3009,11 @@ TEXTE = {
                             'Tell me where you are and what fits — then I work '
                             'out what pays off.'),
     's_rt_wo':           ('Wo stehst du gerade?', 'Where are you right now?'),
+    # ⭐ Hinweise IM Eingabefeld. Regel seit 12.09.2026: In jedem Feld steht,
+    # was hineingehört — ein leeres Kästchen sagt nichts. Sie liegen im Feld
+    # selbst, nicht als Bauteil darüber (siehe `scbp/fields.py`).
+    's_rt_wo_platz':     ('Station, Mond oder Planet tippen',
+                          'Type a station, moon or planet'),
     's_rt_alle_systeme': ('Alle Systeme', 'All systems'),
     's_rt_scu':          ('Frachtraum (SCU)', 'Cargo hold (SCU)'),
     's_rt_geld':         ('Geld (aUEC)', 'Money (aUEC)'),
@@ -3052,6 +3059,8 @@ TEXTE = {
     's_rt_alle_werften': ('Alle Hersteller', 'All manufacturers'),
     's_rt_schiff':       ('Schiff — trägt den Frachtraum ein',
                             'Ship — fills in the cargo hold'),
+    's_rt_schiff_platz': ('Schiffsnamen tippen, z. B. Caterpillar',
+                          'Type a ship name, e.g. Caterpillar'),
     's_rt_keine_schiffe': ('Die Schiffsliste ist noch nicht da — sie wird beim '
                            'nächsten Abruf geholt.',
                              'The ship list is not here yet — it will be '

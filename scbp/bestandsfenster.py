@@ -46,6 +46,7 @@ from . import catalog as katalog_modul
 from . import watchlist as merk
 from . import zeichen
 from . import pfade
+from . import fields
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -1381,37 +1382,25 @@ class Bestandsfenster:
         die dritte Stelle für dieselbe Sache gewesen; der Text hier steht
         genau dort, wohin man beim Tippen ohnehin sieht.
 
-        ⚠ **Nicht über die Textvariable lösen.** `self.suche` hängt an
-        `_zeichnen()` — stünde der Hinweis als Wert im Feld, würde die Liste
-        danach filtern und wäre beim Start leer. Deshalb ein eigenes Label,
-        das über dem Feld liegt und nur vom Inhalt abhängt (nicht vom Fokus:
-        das Feld bekommt ihn beim Aufbau, der Hinweis wäre nie zu sehen).
-        """
-        self.platzhalter_lbl = tk.Label(
-            feld, text=t('s_bp_suche_platz'), bg=FLAECHE, fg=SUB,
-            font=schrift(11), anchor='w')
-        # Ein Klick auf den Hinweis gehört ins Feld darunter — sonst wirkt die
-        # linke Hälfte des Suchfeldes tot.
-        self.platzhalter_lbl.bind('<Button-1>', lambda _e: feld.focus_set())
-        self._platzhalter_zeigen()
+        ⚠⚠ **Bis zum 12.09.2026 war das ein Label ÜBER dem Feld** — und damit
+        ein Bauteil, das die Mausklicks abfing. Wer auf den Hinweis klickte,
+        klickte nicht ins Feld; man musste **daneben** treffen. Gemeldet als
+        „alles andere als intuitiv".
 
-    def _platzhalter_zeigen(self):
-        """Den Hinweis nur zeigen, solange nichts im Feld steht."""
-        lbl = getattr(self, 'platzhalter_lbl', None)
-        if lbl is None:
-            return
-        try:
-            if self.suche.get():
-                lbl.place_forget()
-            else:
-                lbl.place(x=1, rely=0.5, anchor='w')
-        except tk.TclError:
-            # Beim Seitenwechsel kann das Feld schon zerstört sein.
-            pass
+        Jetzt steht der Hinweis **im Feld selbst** (`fields.hinweis`), also
+        gibt es nichts mehr, was einen Klick abfangen könnte. Warum das die
+        Textvariable nicht stört, steht ausführlich in `scbp/fields.py`.
+        """
+        # ⚠ Das Feld wird gemerkt, damit der Selbsttest es nicht im
+        # Widget-Baum suchen muss. Solange der Hinweis steht, ist die
+        # Textvariable abgehängt — ein Suchen „nach dem Feld mit dieser
+        # Variable" fände es dann gar nicht und griffe ein beliebiges anderes.
+        self.suchfeld = feld
+        self._hinweis_steht = fields.hinweis(
+            feld, self.suche, t('s_bp_suche_platz'), normal=FG, grau=SUB)
 
     def _loeschkreuz_zeigen(self):
         """Das ✕ nur zeigen, wenn es etwas zu löschen gibt."""
-        self._platzhalter_zeigen()
         if self.suche.get():
             self.loeschen_lbl.pack(side='right')
         else:
