@@ -32,19 +32,42 @@ eingeblendet. Das ist der Fall, der den Nutzer bei **jedem** Klick trifft.
 | joysticks | 584 ms | **35 ms** | **535 ms** | 986 |
 | wasistneu | 119 ms | 11 ms | 91 ms | **1000** |
 
-**Drei Erklärungen sind damit erledigt:**
+**Zwei Erklärungen sind damit erledigt:**
 
 1. ⛔ *„`oeffnen()` ist zu langsam"* — es kostet 35 von 584 ms.
 2. ⛔ *„Es hängen noch Aufbau-Aufträge im Leerlauf"* — offen sind nur drei
    Timer (`takt`, `nachziehen`), keine Bau-Aufträge.
-3. ⛔ *„Es sind zu viele Bauteile"* — `wasistneu` hat **gleich viele** und
-   braucht ein Sechstel der Zeit. Auch der Typ erklärt es nicht: Dort stehen
-   sogar **mehr** Canvas (277 gegen 19), dafür halb so viele Label.
 
-⚠⚠ **Was übrig bleibt, ist offen** — und wird hier nicht geraten. Die Zeit
-steckt in Tks eigenem Zeichnen/Layout während `update()`, und `cProfile`
-sieht dort nichts (C-Code). Der nächste belastbare Schritt wäre eine
-Gegenprobe mit halber Zeilenzahl auf **derselben** Seite.
+Die Zeit steckt in `update()`, also in Tks eigenem Zeichnen.
+
+### ⛔⛔ Und eine dritte „Erkenntnis", die FALSCH war
+
+Hier stand zunächst, die Bauteil-Anzahl sei es nicht — begründet damit, dass
+`wasistneu` mit **1000** Bauteilen nur 91 ms braucht.
+
+**Der Vergleich beantwortet die Frage nicht.** Zwei verschiedene Seiten
+unterscheiden sich in allem; aus ihrem Unterschied folgt nichts über die
+Wirkung der Zahl. Die saubere Gegenprobe (`tools/zeilenzahl_messen.py`) hält
+alles konstant außer der Zeilenzahl — **dieselbe** Seite:
+
+| Zeilen | Bauteile | Zeit |
+|---|---|---|
+| 100 % | 986 | 639 ms |
+| 50 % | 95 % | 86 % |
+| **25 %** | **68 %** | **68 %** |
+
+**Die Zeit skaliert linear mit der Bauteil-Zahl.** Auf dieser Seite ist die
+Zahl also sehr wohl der Posten.
+
+⚠ Der Unterschied zwischen den Seiten liegt in den **Kosten je Bauteil**:
+542 µs bei `joysticks` gegen 91 µs bei `wasistneu`. Woran das liegt, ist
+offen — Tiefe (beide 8), Typ und Umbruch erklären es nicht. Das wird hier
+**nicht geraten**.
+
+⚠⚠ **Nicht zu verwechseln mit der Messung vom 12.09.2026**, wonach zehnmal
+weniger Bauteile nur 18 ms sparen. Die betraf das **Bauen** einer Seite.
+Hier geht es ums **Anzeigen** einer bereits gebauten — ein anderer Vorgang
+mit anderem Ergebnis.
 """
 import os
 import sys
