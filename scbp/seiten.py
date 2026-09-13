@@ -3088,7 +3088,7 @@ def _geraete_hub(fenster, eltern):
     Seite zerstört, hört er von selbst auf. Ein Faden müsste dafür eigens
     beendet werden, und genau das wird beim nächsten Umbau vergessen.
     """
-    from . import geraetehub
+    from . import device_hub
 
     # ⚠⚠ **Kein `messagebox`** — der Dialog des Betriebssystems ist ein
     # weißer Kasten mit grauen Knöpfen mitten im dunklen Fenster. Dieselbe
@@ -3123,14 +3123,14 @@ def _geraete_hub(fenster, eltern):
                        font=fenster.f_klein, anchor='w')
     meldung.pack(fill='x')
 
-    wache = geraetehub.Wache()
-    farben = {geraetehub.BEREIT: ACCENT, geraetehub.OHNE_NUMMER: GOLD,
-              geraetehub.ABGESTECKT: ROT, geraetehub.UNBEKANNT: GOLD}
+    wache = device_hub.Watchdog()
+    farben = {device_hub.READY: ACCENT, device_hub.NO_NUMBER: GOLD,
+              device_hub.UNPLUGGED: ROT, device_hub.UNKNOWN: GOLD}
 
     def _zeichnen():
         for kind in list(tafel.winfo_children()):
             kind.destroy()
-        ueberblick = geraetehub.zusammenfassung()
+        ueberblick = device_hub.summary()
         if not ueberblick['geraete']:
             tk.Label(tafel, text=t('s_gh_kein_geraet'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x')
@@ -3180,18 +3180,18 @@ def _geraete_hub(fenster, eltern):
         tk.Label(tafel, text=t('s_gh_was_tun'), bg=BG, fg=FG,
                  font=fenster.f_fett, anchor='w').pack(fill='x', pady=(12, 0))
 
-        for vorschlag in geraetehub.vorschlaege():
+        for vorschlag in device_hub.suggestions():
             _vorschlag_zeigen(vorschlag)
 
     def _vorschlag_zeigen(vorschlag):
         """Ein Schritt, in einem Satz — und wo möglich mit Knopf."""
-        from . import geraetehub
+        from . import device_hub
 
         geraet = vorschlag['geraet']
         kasten = tk.Frame(tafel, bg=FLAECHE)
         kasten.pack(fill='x', pady=(6, 0))
 
-        if vorschlag['art'] == geraetehub.TAUSCH:
+        if vorschlag['art'] == device_hub.SWAP:
             alt = vorschlag['alt']
             tk.Label(kasten,
                      text=t('s_gh_tausch').format(
@@ -3212,7 +3212,7 @@ def _geraete_hub(fenster, eltern):
                             neu['name'] or neu['kurz'], zeilen)
                         + '\n\n' + t('s_ac_spiel_zu')):
                     return
-                erfolg, meldung, _ = geraetehub.umhaengen(
+                erfolg, meldung, _ = device_hub.reassign(
                     vorher['kennung'], neu['kennung'])
                 if not erfolg:
                     _hinweis(fenster, t('hf_joysticks'), t(meldung))
@@ -3232,7 +3232,7 @@ def _geraete_hub(fenster, eltern):
         # Die beiden Fälle ohne Knopf: Da hilft kein Schreibvorgang, sondern
         # ein Handgriff am Rechner. Ein Knopf, der nur einen Rat wiederholt,
         # wäre eine Attrappe.
-        rat = (t('s_gh_starten_rat') if vorschlag['art'] == geraetehub.STARTEN
+        rat = (t('s_gh_starten_rat') if vorschlag['art'] == device_hub.START
                else t('s_gh_anstecken_rat'))
         _fliesstext(kasten, rat.format(geraet['name'] or geraet['kurz']),
                     fenster.f_klein, grund=FLAECHE, fill='x', abzug=24)
@@ -3245,7 +3245,7 @@ def _geraete_hub(fenster, eltern):
         # und die sieht in einer `.exe` niemand.
         if not tafel.winfo_exists():
             return
-        dazu, weg = wache.pruefen()
+        dazu, weg = wache.check()
         if dazu or weg:
             namen = [g.get('name', '?') for g in (dazu or weg)]
             meldung.configure(
@@ -3254,7 +3254,7 @@ def _geraete_hub(fenster, eltern):
             _zeichnen()
         tafel.after(3000, _takt)
 
-    wache.pruefen()          # Grundlage setzen, ohne zu melden
+    wache.check()          # Grundlage setzen, ohne zu melden
     _zeichnen()
     tafel.after(3000, _takt)
     return _zeichnen
@@ -15051,11 +15051,11 @@ def _achsen(fenster, rahmen):
         Einzelne Abfragen aufzuzählen wäre die zweite Wahrheit, die irgendwann
         unvollständig wird — genau der Fehler, den die erste Fassung hatte.
 
-        ⚠ Dazu `geraetesatz.saetze()`: eine **eigene** Quelle (die Gerätesätze
+        ⚠ Dazu `device_set.sets()`: eine **eigene** Quelle (die Gerätesätze
         stehen woanders), und sie wird auf derselben Seite angezeigt.
         """
         import hashlib
-        from . import geraetesatz as _gs
+        from . import device_set as _gs
         from . import joysticks as _js
         try:
             weg = _js._pfad_actionmaps()
@@ -15075,7 +15075,7 @@ def _achsen(fenster, rahmen):
             # deckt die Protokoll-Seite ab, der Hash die Datei-Seite.
             stand = (hashlib.sha1(roh).hexdigest(),
                      repr(kurven.zusammenfassung()),
-                     repr(_gs.saetze()),
+                     repr(_gs.sets()),
                      repr(wahl))
         except Exception as ausnahme:
             fehler.merken('seiten.achsen_stand', ausnahme)
@@ -15555,20 +15555,20 @@ def _achsen(fenster, rahmen):
 
     def _saetze_block(eltern):
         """Ganze Einrichtungen unter einem Namen — „mit/ohne Pedale"."""
-        from . import geraetesatz
+        from . import device_set
 
         tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
         tk.Label(eltern, text=t('s_gs_titel'), bg=BG, fg=FG,
                  font=fenster.f_fett, anchor='w').pack(fill='x', pady=(14, 0))
         _fliesstext(eltern, t('s_gs_lead'), fenster.f_klein, fill='x')
 
-        vorhandene = geraetesatz.saetze()
+        vorhandene = device_set.sets()
         if not vorhandene:
             tk.Label(eltern, text=t('s_gs_keine'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x',
                                                             pady=(6, 0))
         for satz in vorhandene:
-            _satz_zeile(eltern, satz, geraetesatz)
+            _satz_zeile(eltern, satz, device_set)
 
         # Neuen Satz anlegen: Feld und Knopf in einer Zeile.
         neu = tk.Frame(eltern, bg=BG)
@@ -15581,12 +15581,12 @@ def _achsen(fenster, rahmen):
         feld.pack(side='left', ipady=4, padx=(0, 8))
 
         def _sichern():
-            ok, meldung, wieviele = geraetesatz.speichern(name.get())
+            ok, meldung, wieviele = device_set.save(name.get())
             if not ok and meldung == 's_gs_f_name_belegt':
                 if not _fragen(fenster, t('hf_achsen'), t(meldung)):
                     return
-                ok, meldung, wieviele = geraetesatz.speichern(
-                    name.get(), ueberschreiben=True)
+                ok, meldung, wieviele = device_set.save(
+                    name.get(), overwrite=True)
             if not ok:
                 _hinweis(fenster, t('hf_achsen'), t(meldung))
                 return
@@ -15594,7 +15594,7 @@ def _achsen(fenster, rahmen):
 
         _knopf(fenster, neu, t('s_gs_speichern'), _sichern).pack(side='left')
 
-    def _satz_zeile(eltern, satz, geraetesatz):
+    def _satz_zeile(eltern, satz, device_set):
         zeile = tk.Frame(eltern, bg=FLAECHE)
         zeile.pack(fill='x', pady=(6, 0))
         links_teil = tk.Frame(zeile, bg=FLAECHE)
@@ -15609,14 +15609,14 @@ def _achsen(fenster, rahmen):
                  anchor='w').pack(fill='x')
 
         def _anwenden(n=satz['name']):
-            schreibt, fehlt = geraetesatz.vorschau(n)
+            schreibt, fehlt = device_set.preview(n)
             frage = t('s_gs_frage').format(n, len(schreibt))
             if fehlt:
                 frage += '\n\n' + t('s_gs_fehlt').format(', '.join(fehlt))
             frage += '\n\n' + t('s_ac_spiel_zu')
             if not _fragen(fenster, t('hf_achsen'), frage):
                 return
-            erfolg, meldung, anzahl = geraetesatz.anwenden(n)
+            erfolg, meldung, anzahl = device_set.apply(n)
             if not erfolg:
                 _hinweis(fenster, t('hf_achsen'), t(meldung))
                 return
@@ -15628,7 +15628,7 @@ def _achsen(fenster, rahmen):
             if not _fragen(fenster, t('hf_achsen'),
                                        t('s_gs_loeschen_frage').format(n)):
                 return
-            geraetesatz.loeschen(n)
+            device_set.delete(n)
             _auffrischen()
 
         # ⚠ Die Knöpfe stehen außerhalb des `FLAECHE`-Kastens nicht zur

@@ -14004,7 +14004,7 @@ def main():
     print('147. Bindings tauschen und Gerätesätze')
     import shutil as _sh145
     import tempfile as _tf145
-    from scbp import geraetesatz as _gs145
+    from scbp import device_set as _gs145
     from scbp import joysticks as _js145
     from scbp import kurven as _kv145
 
@@ -14089,21 +14089,21 @@ def main():
                'eine unbekannte Kennung wird abgelehnt')
 
         # --- Gerätesätze ---
-        pruefe(_gs145.speichern('Satz', datei=_d145)[0], 'ein Satz lässt sich anlegen')
-        pruefe(not _gs145.speichern('Satz', datei=_d145)[0],
+        pruefe(_gs145.save('Satz', filename=_d145)[0], 'ein Satz lässt sich anlegen')
+        pruefe(not _gs145.save('Satz', filename=_d145)[0],
                'derselbe Name nicht zweimal')
-        pruefe(_gs145.speichern('Satz', ueberschreiben=True, datei=_d145)[0],
+        pruefe(_gs145.save('Satz', overwrite=True, filename=_d145)[0],
                'mit ausdrücklicher Erlaubnis schon')
-        pruefe(not _gs145.speichern('', datei=_d145)[0],
+        pruefe(not _gs145.save('', filename=_d145)[0],
                'ein leerer Name wird abgelehnt')
 
         _kv145.setzen(_A145, 'x', 'deadzone', 0.5, datei=_d145)
-        _schreibt145, _fehlt145 = _gs145.vorschau('Satz', datei=_d145)
+        _schreibt145, _fehlt145 = _gs145.preview('Satz', filename=_d145)
         pruefe(len(_schreibt145) == 1,
                'die Vorschau kündigt genau eine Änderung an (sind: %d)'
                % len(_schreibt145))
         pruefe(not _fehlt145, 'kein Gerät fehlt')
-        _ok145, _m145, _n145 = _gs145.anwenden('Satz', datei=_d145)
+        _ok145, _m145, _n145 = _gs145.apply('Satz', filename=_d145)
         pruefe(_ok145 and _totzone145(_A145) == 0.1,
                '*der Satz stellt den alten Wert wieder her')
 
@@ -14111,7 +14111,7 @@ def main():
         # nach dem Anwenden nicht stehenbleiben — sonst sind zwei Zustände,
         # die gleich heißen, eben nicht gleich.
         _kv145.setzen(_B145, 'x', 'saturation', 0.66, datei=_d145)
-        _gs145.anwenden('Satz', datei=_d145)
+        _gs145.apply('Satz', filename=_d145)
         _satB145 = None
         for _b in _kv145.geraete_achsen(datei=_d145):
             if _b['kennung'] == _B145:
@@ -14127,12 +14127,12 @@ def main():
                '*ein geschriebener Wert kommt unverändert zurück (ist: %r)'
                % _totzone145(_A145))
 
-        _fehlend145 = _gs145.satz('Satz')
+        _fehlend145 = _gs145.entry_set('Satz')
         pruefe(_fehlend145 and len(_fehlend145.get('geraete') or {}) == 2,
                'der Satz kennt beide Geräte')
-        pruefe(_gs145.loeschen('Satz')[0] and not _gs145.saetze(),
+        pruefe(_gs145.delete('Satz')[0] and not _gs145.sets(),
                'löschen räumt den Satz weg')
-        pruefe(not _gs145.anwenden('Gibt es nicht', datei=_d145)[0],
+        pruefe(not _gs145.apply('Gibt es nicht', filename=_d145)[0],
                'ein unbekannter Satz wird abgelehnt')
 
         # ⚠⚠ **Kein Dialog des Betriebssystems in den neuen Seiten.**
@@ -14354,7 +14354,7 @@ def main():
     print()
     print('150. Geräte-Hub: System, Protokoll und Belegung zusammenführen')
     from scbp import eingabe as _ei150
-    from scbp import geraetehub as _hub150
+    from scbp import device_hub as _hub150
     from scbp import joysticks as _js150
 
     _A150 = 'AAAA1111-0000-0000-0000-504944564944'
@@ -14384,17 +14384,17 @@ def main():
             {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
         ]
 
-        _u150 = {g['kennung']: g for g in _hub150.uebersicht()}
+        _u150 = {g['kennung']: g for g in _hub150.overview()}
         pruefe(len(_u150) == 4,
                'alle vier Geräte tauchen genau einmal auf (sind: %d)'
                % len(_u150))
-        pruefe(_u150[_A150]['zustand'] == _hub150.BEREIT,
+        pruefe(_u150[_A150]['zustand'] == _hub150.READY,
                'angesteckt + bekannt + Nummer = bereit')
-        pruefe(_u150[_B150]['zustand'] == _hub150.ABGESTECKT,
+        pruefe(_u150[_B150]['zustand'] == _hub150.UNPLUGGED,
                '* die Belegung erwartet es, es ist nicht da = abgesteckt')
-        pruefe(_u150[_C150]['zustand'] == _hub150.OHNE_NUMMER,
+        pruefe(_u150[_C150]['zustand'] == _hub150.NO_NUMBER,
                '* angesteckt, aber ohne Nummer in der Belegung')
-        pruefe(_u150[_D150]['zustand'] == _hub150.UNBEKANNT,
+        pruefe(_u150[_D150]['zustand'] == _hub150.UNKNOWN,
                '* angesteckt, dem Spiel noch nie begegnet')
 
         # ⚠ Der Name der BELEGUNG gewinnt — den hat der Spieler zuletzt
@@ -14412,7 +14412,7 @@ def main():
                and _u150[_A150]['systempfad'] == '/dev/input/js0',
                '* Spiel-Nummer und System-Pfad stehen nebeneinander')
 
-        _z150 = _hub150.zusammenfassung()
+        _z150 = _hub150.summary()
         pruefe((_z150['bereit'], _z150['abgesteckt'], _z150['ohne_nummer'],
                 _z150['unbekannt']) == (1, 1, 1, 1),
                'die Zusammenfassung zählt richtig')
@@ -14420,31 +14420,31 @@ def main():
                'mit fehlendem Gerät ist nicht alles gut')
 
         # Sortierung: was eine Nummer hat, steht vorn und nach Nummer.
-        _liste150 = _hub150.uebersicht()
+        _liste150 = _hub150.overview()
         _nummern150 = [g['nummer'] for g in _liste150 if g['nummer']]
         pruefe(_nummern150 == sorted(_nummern150),
                'die Geräte mit Nummer stehen der Reihe nach vorn')
 
         # --- Die Wache ---
-        _wache150 = _hub150.Wache()
-        pruefe(_wache150.pruefen() == ([], []),
+        _wache150 = _hub150.Watchdog()
+        pruefe(_wache150.check() == ([], []),
                '* der erste Blick meldet nichts (sonst Fehlalarm beim Start)')
-        pruefe(_wache150.pruefen() == ([], []),
+        pruefe(_wache150.check() == ([], []),
                'ohne Änderung bleibt es dabei')
         _ei150.geraete = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
         ]
-        _dazu150, _weg150 = _wache150.pruefen()
+        _dazu150, _weg150 = _wache150.check()
         pruefe(not _dazu150 and len(_weg150) == 2,
                '* zwei abgezogene Geräte werden gemeldet (%d)' % len(_weg150))
         _ei150.geraete = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
             {'pfad': '/dev/input/js9', 'name': 'Neu', 'kennung': _D150},
         ]
-        _dazu150, _weg150 = _wache150.pruefen()
+        _dazu150, _weg150 = _wache150.check()
         pruefe(len(_dazu150) == 1 and not _weg150,
                '* ein neu angestecktes Gerät wird gemeldet')
-        pruefe(_wache150.pruefen(mindestabstand=60) == ([], []),
+        pruefe(_wache150.check(min_gap=60) == ([], []),
                'der Mindestabstand bremst die Abfrage')
 
         # --- Der Zuordnungs-Assistent ---
@@ -14461,8 +14461,8 @@ def main():
         _js150.zuordnung = lambda datei=None, ordner=None: [
             {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
         ]
-        _v150 = _hub150.vorschlaege()
-        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.TAUSCH,
+        _v150 = _hub150.suggestions()
+        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.SWAP,
                '* eins fehlt, eins ist neu -> Umhaengen vorgeschlagen')
         pruefe(_v150 and _v150[0]['alt']['kennung'] == _B150
                and _v150[0]['geraet']['kennung'] == _C150,
@@ -14475,11 +14475,11 @@ def main():
             {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150},
             {'nummer': 2, 'name': 'Belegung B', 'kennung': _B150},
         ]
-        _v150 = _hub150.vorschlaege()
-        pruefe(all(v['art'] != _hub150.TAUSCH for v in _v150),
+        _v150 = _hub150.suggestions()
+        pruefe(all(v['art'] != _hub150.SWAP for v in _v150),
                '* bei zwei fehlenden Geraeten wird NICHT geraten')
         pruefe(len(_v150) == 2
-               and all(v['art'] == _hub150.ANSTECKEN for v in _v150),
+               and all(v['art'] == _hub150.PLUG_IN for v in _v150),
                'stattdessen steht bei jedem, dass es fehlt (%d)' % len(_v150))
 
         # Ein Gerät, das das Spiel noch nie gesehen hat, aber auch nichts
@@ -14489,8 +14489,8 @@ def main():
         _ei150.geraete = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'Frisch', 'kennung': _D150},
         ]
-        _v150 = _hub150.vorschlaege()
-        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.STARTEN,
+        _v150 = _hub150.suggestions()
+        pruefe(len(_v150) == 1 and _v150[0]['art'] == _hub150.START,
                'ein voellig neues Geraet -> einmal starten')
 
         # Alles in Ordnung heisst: kein Vorschlag.
@@ -14500,7 +14500,7 @@ def main():
             {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150}]
         _ei150.geraete = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150}]
-        pruefe(_hub150.vorschlaege() == [],
+        pruefe(_hub150.suggestions() == [],
                '* wenn alles passt, schlaegt der Assistent nichts vor')
     finally:
         _ei150.geraete, _js150.geraete, _js150.zuordnung = _echt150

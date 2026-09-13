@@ -64,18 +64,18 @@ import time
 from . import eingabe, joysticks
 
 # Die Zustände eines Geräts im Hub.
-BEREIT = 'bereit'
-OHNE_NUMMER = 'ohne_nummer'
-ABGESTECKT = 'abgesteckt'
-UNBEKANNT = 'unbekannt'
+READY = 'bereit'
+NO_NUMBER = 'ohne_nummer'
+UNPLUGGED = 'abgesteckt'
+UNKNOWN = 'unbekannt'
 
 
-def _kurz(kennung):
+def _short(ident):
     """Die ersten acht Zeichen — sie unterscheiden die Geräte bereits."""
-    return (kennung or '')[:8]
+    return (ident or '')[:8]
 
 
-def uebersicht(ordner=None, datei=None):
+def overview(folder=None, filename=None):
     """Alle Geräte aus allen drei Quellen, über die Kennung zusammengeführt.
 
     Liefert eine Liste; je Gerät:
@@ -93,67 +93,67 @@ def uebersicht(ordner=None, datei=None):
     Sortiert: erst was eine Nummer hat (nach Nummer), dann der Rest.
     """
     live = {}
-    for geraet in eingabe.geraete() or []:
-        if geraet.get('kennung'):
-            live[geraet['kennung'].upper()] = geraet
+    for device in eingabe.geraete() or []:
+        if device.get('kennung'):
+            live[device['kennung'].upper()] = device
 
-    gesehen = {}
-    for geraet in joysticks.geraete(ordner) or []:
-        if geraet.get('kennung'):
-            gesehen[geraet['kennung'].upper()] = geraet
+    seen = {}
+    for device in joysticks.geraete(folder) or []:
+        if device.get('kennung'):
+            seen[device['kennung'].upper()] = device
 
-    belegt = {}
-    for eintrag in joysticks.zuordnung(datei, ordner) or []:
-        if eintrag.get('kennung'):
-            belegt[eintrag['kennung'].upper()] = eintrag
+    in_use = {}
+    for entry in joysticks.zuordnung(filename, folder) or []:
+        if entry.get('kennung'):
+            in_use[entry['kennung'].upper()] = entry
 
-    heraus = []
-    for kennung in set(live) | set(gesehen) | set(belegt):
-        am_system = live.get(kennung)
-        im_log = gesehen.get(kennung)
-        in_belegung = belegt.get(kennung)
+    out = []
+    for ident in set(live) | set(seen) | set(in_use):
+        on_system = live.get(ident)
+        in_log = seen.get(ident)
+        in_binding = in_use.get(ident)
 
         # ⚠ Der Name der **Belegung** gewinnt: Den hat der Spieler zuletzt
         # gesehen, und oft hat er ihn selbst vergeben. Der Systemname ist am
         # ausführlichsten, aber auch am sperrigsten („VIRPIL Controls
         # 20241226 L-VPC Stick WarBRD-D").
         name = ''
-        for quelle in (in_belegung, im_log, am_system):
-            if quelle and quelle.get('name'):
-                name = quelle['name']
+        for source in (in_binding, in_log, on_system):
+            if source and source.get('name'):
+                name = source['name']
                 break
 
-        if in_belegung and am_system:
-            zustand = BEREIT
-        elif in_belegung:
-            zustand = ABGESTECKT
-        elif am_system and im_log:
-            zustand = OHNE_NUMMER
-        elif am_system:
-            zustand = UNBEKANNT
+        if in_binding and on_system:
+            status = READY
+        elif in_binding:
+            status = UNPLUGGED
+        elif on_system and in_log:
+            status = NO_NUMBER
+        elif on_system:
+            status = UNKNOWN
         else:
             # Nur im Protokoll, sonst nirgends: war mal da, ist weg, hat
             # keine Belegung. Das ist Altbestand, kein eigener Zustand.
-            zustand = ABGESTECKT
+            status = UNPLUGGED
 
-        heraus.append({
-            'kennung': kennung,
-            'kurz': _kurz(kennung),
+        out.append({
+            'kennung': ident,
+            'kurz': _short(ident),
             'name': name,
-            'zustand': zustand,
-            'nummer': (in_belegung or {}).get('nummer'),
-            'systempfad': (am_system or {}).get('pfad', ''),
-            'systemname': (am_system or {}).get('name', ''),
-            'angeschlossen': bool(am_system),
-            'im_spiel': bool(im_log),
+            'zustand': status,
+            'nummer': (in_binding or {}).get('nummer'),
+            'systempfad': (on_system or {}).get('pfad', ''),
+            'systemname': (on_system or {}).get('name', ''),
+            'angeschlossen': bool(on_system),
+            'im_spiel': bool(in_log),
         })
 
-    heraus.sort(key=lambda g: (g['nummer'] is None, g['nummer'] or 0,
+    out.sort(key=lambda g: (g['nummer'] is None, g['nummer'] or 0,
                                g['name'].lower()))
-    return heraus
+    return out
 
 
-def zusammenfassung(ordner=None, datei=None):
+def summary(folder=None, filename=None):
     """Der Hub in Zahlen — für eine Kopfzeile, die den Zustand nennt.
 
     | Feld | Bedeutung |
@@ -162,28 +162,28 @@ def zusammenfassung(ordner=None, datei=None):
     | `bereit` / `ohne_nummer` / `abgesteckt` / `unbekannt` | Anzahl je Zustand |
     | `alles_gut` | nichts fehlt, nichts hängt ohne Nummer herum |
     """
-    liste = uebersicht(ordner, datei)
-    zaehler = {BEREIT: 0, OHNE_NUMMER: 0, ABGESTECKT: 0, UNBEKANNT: 0}
-    for geraet in liste:
-        zaehler[geraet['zustand']] = zaehler.get(geraet['zustand'], 0) + 1
+    items = overview(folder, filename)
+    counter = {READY: 0, NO_NUMBER: 0, UNPLUGGED: 0, UNKNOWN: 0}
+    for device in items:
+        counter[device['zustand']] = counter.get(device['zustand'], 0) + 1
     return {
-        'geraete': liste,
-        'bereit': zaehler[BEREIT],
-        'ohne_nummer': zaehler[OHNE_NUMMER],
-        'abgesteckt': zaehler[ABGESTECKT],
-        'unbekannt': zaehler[UNBEKANNT],
-        'alles_gut': not (zaehler[ABGESTECKT] or zaehler[OHNE_NUMMER]
-                          or zaehler[UNBEKANNT]),
+        'geraete': items,
+        'bereit': counter[READY],
+        'ohne_nummer': counter[NO_NUMBER],
+        'abgesteckt': counter[UNPLUGGED],
+        'unbekannt': counter[UNKNOWN],
+        'alles_gut': not (counter[UNPLUGGED] or counter[NO_NUMBER]
+                          or counter[UNKNOWN]),
     }
 
 
 # Was der Assistent vorschlagen kann.
-TAUSCH = 'tausch'        # dasselbe Gerät unter neuer Kennung → umhängen
-STARTEN = 'starten'      # das Spiel kennt es noch nicht → einmal starten
-ANSTECKEN = 'anstecken'  # die Belegung erwartet es → anstecken oder aufräumen
+SWAP = 'tausch'        # dasselbe Gerät unter neuer Kennung → umhängen
+START = 'starten'      # das Spiel kennt es noch nicht → einmal starten
+PLUG_IN = 'anstecken'  # die Belegung erwartet es → anstecken oder aufräumen
 
 
-def vorschlaege(ordner=None, datei=None):
+def suggestions(folder=None, filename=None):
     """Was ist zu tun? Konkrete Schritte statt bloßer Zustände.
 
     ## Der Fall, für den das gebaut ist
@@ -217,12 +217,12 @@ def vorschlaege(ordner=None, datei=None):
     | `geraet` | das betroffene Gerät aus `uebersicht()` |
     | `alt` | beim Tausch: der Eintrag, dessen Belegung übernommen wird |
     """
-    liste = uebersicht(ordner, datei)
-    fehlend = [g for g in liste if g['zustand'] == ABGESTECKT]
-    ohne = [g for g in liste if g['zustand'] == OHNE_NUMMER]
-    neu = [g for g in liste if g['zustand'] == UNBEKANNT]
+    items = overview(folder, filename)
+    missing = [g for g in items if g['zustand'] == UNPLUGGED]
+    without = [g for g in items if g['zustand'] == NO_NUMBER]
+    fresh = [g for g in items if g['zustand'] == UNKNOWN]
 
-    heraus = []
+    out = []
 
     # ⭐ Der eine eindeutige Fall — und nur der.
     #
@@ -230,21 +230,21 @@ def vorschlaege(ordner=None, datei=None):
     # Spiel die neue Kennung schon einmal gesehen hat, hängt bloß daran, ob
     # seither eine Runde gespielt wurde. Für die Frage „ist das derselbe
     # Stick unter neuem Namen" sagt das nichts aus.
-    kandidaten = ohne + neu
-    if len(fehlend) == 1 and len(kandidaten) == 1:
-        heraus.append({'art': TAUSCH, 'geraet': kandidaten[0],
-                       'alt': fehlend[0]})
-        return heraus
+    candidates = without + fresh
+    if len(missing) == 1 and len(candidates) == 1:
+        out.append({'art': SWAP, 'geraet': candidates[0],
+                       'alt': missing[0]})
+        return out
 
     # Sonst: je Gerät der Schritt, der für sich genommen stimmt.
-    for geraet in neu:
-        heraus.append({'art': STARTEN, 'geraet': geraet, 'alt': None})
-    for geraet in fehlend:
-        heraus.append({'art': ANSTECKEN, 'geraet': geraet, 'alt': None})
-    return heraus
+    for device in fresh:
+        out.append({'art': START, 'geraet': device, 'alt': None})
+    for device in missing:
+        out.append({'art': PLUG_IN, 'geraet': device, 'alt': None})
+    return out
 
 
-def umhaengen(alt_kennung, neu_kennung, datei=None, ordner=None):
+def reassign(old_id, new_id, filename=None, folder=None):
     """Die Belegung eines Geräts auf seine neue Kennung umhängen.
 
     Reicht an `joysticks.kennung_tauschen()` durch — der Schritt, den der
@@ -255,11 +255,11 @@ def umhaengen(alt_kennung, neu_kennung, datei=None, ordner=None):
     Kennung im Kopf der Datei; alle `js<n>_`-Zeilen zeigen danach wieder auf
     ein Gerät, das da ist.
     """
-    return joysticks.kennung_tauschen(alt_kennung, neu_kennung,
-                                      datei=datei, ordner=ordner)
+    return joysticks.kennung_tauschen(old_id, new_id,
+                                      filename=filename, folder=folder)
 
 
-class Wache:
+class Watchdog:
     """Merkt, wenn ein Gerät kommt oder geht.
 
     ⭐ **Warum das nützt:** Star Citizen liest die Geräte beim Start. Wer
@@ -275,17 +275,17 @@ class Wache:
 
     Benutzung:
 
-        wache = geraetehub.Wache()
-        wache.pruefen()          # der erste Aufruf setzt nur die Grundlage
+        watchdog = device_hub.Watchdog()
+        watchdog.check()          # der erste Aufruf setzt nur die Grundlage
         …
-        neu, weg = wache.pruefen()
+        neu, weg = watchdog.check()
     """
 
     def __init__(self):
-        self.stand = None
-        self.zuletzt = 0.0
+        self.state = None
+        self.last = 0.0
 
-    def pruefen(self, mindestabstand=0.0):
+    def check(self, min_gap=0.0):
         """Was hat sich seit dem letzten Mal geändert?
 
         Liefert `(dazugekommen, verschwunden)` — je eine Liste von Geräten
@@ -296,21 +296,21 @@ class Wache:
         `mindestabstand` in Sekunden bremst die Abfrage; ein Aufruf davor
         liefert `([], [])`, ohne etwas zu lesen.
         """
-        jetzt = time.time()
-        if mindestabstand and (jetzt - self.zuletzt) < mindestabstand:
+        now = time.time()
+        if min_gap and (now - self.last) < min_gap:
             return [], []
-        self.zuletzt = jetzt
+        self.last = now
 
-        aktuell = {}
-        for geraet in eingabe.geraete() or []:
-            if geraet.get('kennung'):
-                aktuell[geraet['kennung'].upper()] = geraet
+        current = {}
+        for device in eingabe.geraete() or []:
+            if device.get('kennung'):
+                current[device['kennung'].upper()] = device
 
-        if self.stand is None:
-            self.stand = aktuell
+        if self.state is None:
+            self.state = current
             return [], []
 
-        dazu = [aktuell[k] for k in aktuell if k not in self.stand]
-        weg = [self.stand[k] for k in self.stand if k not in aktuell]
-        self.stand = aktuell
-        return dazu, weg
+        added = [current[k] for k in current if k not in self.state]
+        gone = [self.state[k] for k in self.state if k not in current]
+        self.state = current
+        return added, gone

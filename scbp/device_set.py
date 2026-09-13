@@ -46,42 +46,42 @@ import time
 
 from . import kurven, pfade
 
-DATEI = 'joystick-saetze.json'
+FILE = 'joystick-saetze.json'
 
 # Was in einem Namen nichts zu suchen hat. Er wird nur angezeigt, nicht zu
 # einem Dateinamen — deshalb reicht es, Steuerzeichen und Übermaß abzuwehren.
 NAME_MAX = 40
 
 
-def _laden():
+def _load():
     # ⚠ `pfade` hat ein `json_sichern`, aber kein Gegenstück zum Lesen —
     # deshalb hier von Hand. Eine fehlende oder kaputte Datei ist kein Grund
     # abzustürzen: Dann gibt es eben noch keine Sätze.
-    daten = None
+    data = None
     try:
-        weg = pfade.app_datei(DATEI)
-        if os.path.isfile(weg):
-            with open(weg, 'r', encoding='utf-8') as f:
-                daten = json.load(f)
+        gone = pfade.app_datei(FILE)
+        if os.path.isfile(gone):
+            with open(gone, 'r', encoding='utf-8') as f:
+                data = json.load(f)
     except Exception:
-        daten = None
-    if not isinstance(daten, dict):
+        data = None
+    if not isinstance(data, dict):
         return {'saetze': {}}
-    if not isinstance(daten.get('saetze'), dict):
-        daten['saetze'] = {}
-    return daten
+    if not isinstance(data.get('saetze'), dict):
+        data['saetze'] = {}
+    return data
 
 
-def _sichern(daten):
+def _save(data):
     try:
-        return bool(pfade.json_sichern(pfade.app_datei(DATEI), daten))
+        return bool(pfade.json_sichern(pfade.app_datei(FILE), data))
     except Exception as ausnahme:
         from . import fehler
-        fehler.merken('geraetesatz.sichern', ausnahme)
+        fehler.merken('device_set.save', ausnahme)
         return False
 
 
-def name_pruefen(name):
+def check_name(name):
     """Ist der Name brauchbar? Liefert `(ok, Sprachschluessel)`."""
     name = (name or '').strip()
     if not name:
@@ -93,41 +93,41 @@ def name_pruefen(name):
     return True, ''
 
 
-def saetze():
+def sets():
     """Alle gespeicherten Sätze, neueste zuerst."""
-    daten = _laden()
-    heraus = []
-    for name, satz in daten['saetze'].items():
-        eintrag = dict(satz)
-        eintrag['name'] = name
-        heraus.append(eintrag)
-    heraus.sort(key=lambda s: s.get('stand', ''), reverse=True)
-    return heraus
+    data = _load()
+    out = []
+    for name, entry_set in data['saetze'].items():
+        entry = dict(entry_set)
+        entry['name'] = name
+        out.append(entry)
+    out.sort(key=lambda s: s.get('stand', ''), reverse=True)
+    return out
 
 
-def satz(name):
+def entry_set(name):
     """Ein einzelner Satz — oder `None`."""
-    return _laden()['saetze'].get((name or '').strip())
+    return _load()['saetze'].get((name or '').strip())
 
 
-def aufnehmen(datei=None, ordner=None):
+def capture(filename=None, folder=None):
     """Den aktuellen Stand einsammeln, ohne ihn zu speichern.
 
     Getrennt vom Speichern, damit die Oberfläche vorher zeigen kann, was in
     den Satz wandert — und damit sich der Stand mit einem gespeicherten
     vergleichen lässt.
     """
-    bloecke = kurven.geraete_achsen(datei, ordner)
-    spiel = kurven.spielachsen(datei, ordner)
+    blocks = kurven.geraete_achsen(filename, folder)
+    game = kurven.spielachsen(filename, folder)
 
-    geraete = {}
-    for block in bloecke:
+    devices = {}
+    for block in blocks:
         if not block['kennung'] or not block['aktiv']:
             # Karteileichen gehören nicht in einen Satz — sie würden beim
             # nächsten Anwenden wieder auferstehen.
             continue
-        achsen = {}
-        for achse, werte in block['achsen'].items():
+        axes = {}
+        for axis, values in block['achsen'].items():
             # ⚠⚠ **Auch was NICHT gesetzt ist, gehört in den Satz.**
             #
             # Der erste Entwurf speicherte nur belegte Werte. Ein Satz war
@@ -140,66 +140,66 @@ def aufnehmen(datei=None, ordner=None):
             # Ein `None` heißt beim Anwenden **löschen**. Dieselbe Regel wie
             # beim Angleichen zweier Sticks: Sonst sind zwei Zustände, die
             # gleich heißen, eben nicht gleich.
-            achsen[achse] = {k: werte.get(k) for k in kurven.EIGENSCHAFTEN}
-        geraete[block['kennung']] = {'name': block['name'], 'achsen': achsen}
+            axes[axis] = {k: values.get(k) for k in kurven.EIGENSCHAFTEN}
+        devices[block['kennung']] = {'name': block['name'], 'achsen': axes}
 
-    nummern = {}
-    spielachsen = {}
-    for eintrag in spiel:
-        if eintrag['art'] != 'joystick' or not eintrag['kennung']:
+    numbers = {}
+    game_axes = {}
+    for entry in game:
+        if entry['art'] != 'joystick' or not entry['kennung']:
             continue
-        nummern[eintrag['kennung']] = eintrag['nummer']
-        werte = {}
-        for achse, eigenschaften in eintrag['achsen'].items():
-            gesetzt = {k: v for k, v in eigenschaften.items()
+        numbers[entry['kennung']] = entry['nummer']
+        values = {}
+        for axis, props in entry['achsen'].items():
+            is_set = {k: v for k, v in props.items()
                        if k in ('exponent', 'invert') and v is not None}
-            if gesetzt:
-                werte[achse] = gesetzt
-        if werte:
-            spielachsen[eintrag['kennung']] = werte
+            if is_set:
+                values[axis] = is_set
+        if values:
+            game_axes[entry['kennung']] = values
 
     return {'stand': time.strftime('%Y-%m-%d %H:%M'),
-            'geraete': geraete, 'nummern': nummern,
-            'spielachsen': spielachsen}
+            'geraete': devices, 'nummern': numbers,
+            'spielachsen': game_axes}
 
 
-def speichern(name, ueberschreiben=False, datei=None, ordner=None):
+def save(name, overwrite=False, filename=None, folder=None):
     """Den aktuellen Stand unter einem Namen ablegen.
 
     Liefert `(erfolg, meldung, anzahl Geräte)`.
     """
-    ok, meldung = name_pruefen(name)
+    ok, message = check_name(name)
     if not ok:
-        return False, meldung, 0
+        return False, message, 0
     name = name.strip()
 
-    daten = _laden()
-    if name in daten['saetze'] and not ueberschreiben:
+    data = _load()
+    if name in data['saetze'] and not overwrite:
         return False, 's_gs_f_name_belegt', 0
 
-    neu = aufnehmen(datei, ordner)
-    if not neu['geraete']:
+    fresh = capture(filename, folder)
+    if not fresh['geraete']:
         return False, 's_gs_f_nichts', 0
 
-    daten['saetze'][name] = neu
-    if not _sichern(daten):
+    data['saetze'][name] = fresh
+    if not _save(data):
         return False, 's_gs_f_schreiben', 0
-    return True, '', len(neu['geraete'])
+    return True, '', len(fresh['geraete'])
 
 
-def loeschen(name):
+def delete(name):
     """Einen Satz entfernen."""
     name = (name or '').strip()
-    daten = _laden()
-    if name not in daten['saetze']:
+    data = _load()
+    if name not in data['saetze']:
         return False, 's_gs_f_unbekannt', 0
-    del daten['saetze'][name]
-    if not _sichern(daten):
+    del data['saetze'][name]
+    if not _save(data):
         return False, 's_gs_f_schreiben', 0
     return True, '', 1
 
 
-def vorschau(name, datei=None, ordner=None):
+def preview(name, filename=None, folder=None):
     """Was würde das Anwenden tun? Liefert `(schreibt, fehlt)`.
 
     `schreibt` ist eine Liste von `(Gerätename, Achse, Eigenschaft, Wert)`,
@@ -210,43 +210,43 @@ def vorschau(name, datei=None, ordner=None):
     komplette Steuerung hängt, soll vorher sehen, was passiert — besonders
     hier, wo ein Satz ein Dutzend Werte auf einmal schreibt.
     """
-    gespeichert = satz(name)
-    if not gespeichert:
+    stored = entry_set(name)
+    if not stored:
         return [], []
 
-    vorhanden = {}
-    for block in kurven.geraete_achsen(datei, ordner):
+    present = {}
+    for block in kurven.geraete_achsen(filename, folder):
         if block['kennung'] and block['aktiv']:
-            vorhanden[block['kennung']] = block
+            present[block['kennung']] = block
 
-    schreibt = []
-    fehlt = []
-    for kennung, eintrag in (gespeichert.get('geraete') or {}).items():
-        ziel = vorhanden.get(kennung)
-        if ziel is None:
-            fehlt.append(eintrag.get('name') or kennung[:8])
+    writes = []
+    missing = []
+    for ident, entry in (stored.get('geraete') or {}).items():
+        target = present.get(ident)
+        if target is None:
+            missing.append(entry.get('name') or ident[:8])
             continue
-        for achse, werte in (eintrag.get('achsen') or {}).items():
-            for eigenschaft, wert in werte.items():
-                if eigenschaft not in kurven.EIGENSCHAFTEN:
+        for axis, values in (entry.get('achsen') or {}).items():
+            for prop, value in values.items():
+                if prop not in kurven.EIGENSCHAFTEN:
                     continue
-                jetzt = (ziel['achsen'].get(achse) or {}).get(eigenschaft)
+                now = (target['achsen'].get(axis) or {}).get(prop)
                 # ⚠ `wert is None` heißt „löschen" und ist damit ebenfalls
                 # eine Änderung, wenn gerade etwas dasteht.
-                if jetzt != wert:
-                    schreibt.append((eintrag.get('name') or '', achse,
-                                     eigenschaft, wert))
-    return schreibt, fehlt
+                if now != value:
+                    writes.append((entry.get('name') or '', axis,
+                                     prop, value))
+    return writes, missing
 
 
-def anwenden(name, datei=None, ordner=None):
+def apply(name, filename=None, folder=None):
     """Einen Satz auf die Belegungsdatei schreiben.
 
     Liefert `(erfolg, meldung, anzahl geschriebener Werte)`. Fehlende Geräte
     sind **kein** Fehler — sie werden übersprungen; genau dafür gibt es Sätze.
     """
-    gespeichert = satz(name)
-    if not gespeichert:
+    stored = entry_set(name)
+    if not stored:
         return False, 's_gs_f_unbekannt', 0
 
     # ⚠⚠ **Nur schreiben, was sich unterscheidet.**
@@ -256,48 +256,48 @@ def anwenden(name, datei=None, ordner=None):
     # Satz mit drei Geräten würde aber blind 36 Werte schreiben und damit 36
     # Sicherungsdateien hinterlassen, für meist zwei echte Änderungen. Der
     # Vergleich vorweg kostet nichts und macht aus 36 Schreibvorgängen zwei.
-    jetzt = {}
-    for block in kurven.geraete_achsen(datei, ordner):
+    now = {}
+    for block in kurven.geraete_achsen(filename, folder):
         if block['kennung'] and block['aktiv']:
-            jetzt[block['kennung']] = block
+            now[block['kennung']] = block
 
-    anzahl = 0
-    for kennung, eintrag in (gespeichert.get('geraete') or {}).items():
-        ziel = jetzt.get(kennung)
-        if ziel is None:
+    count = 0
+    for ident, entry in (stored.get('geraete') or {}).items():
+        target = now.get(ident)
+        if target is None:
             continue
-        for achse, werte in (eintrag.get('achsen') or {}).items():
-            for eigenschaft, wert in werte.items():
-                if eigenschaft not in kurven.EIGENSCHAFTEN:
+        for axis, values in (entry.get('achsen') or {}).items():
+            for prop, value in values.items():
+                if prop not in kurven.EIGENSCHAFTEN:
                     continue
-                ist = (ziel['achsen'].get(achse) or {}).get(eigenschaft)
-                if ist == wert:
+                ist = (target['achsen'].get(axis) or {}).get(prop)
+                if ist == value:
                     continue
-                erfolg, meldung, _ = kurven.setzen(
-                    kennung, achse, eigenschaft, wert, datei, ordner)
-                if not erfolg:
-                    return False, meldung, anzahl
-                anzahl += 1
-    vorhanden = set(jetzt)
+                ok_state, message, _ = kurven.setzen(
+                    ident, axis, prop, value, filename, folder)
+                if not ok_state:
+                    return False, message, count
+                count += 1
+    present = set(now)
 
     # Die Spielachsen zuletzt — sie hängen an der Nummer, nicht an der
     # Kennung, und sollen nicht schreiben, wenn schon die Achsen scheiterten.
-    for kennung, achsen in (gespeichert.get('spielachsen') or {}).items():
-        if kennung not in vorhanden:
+    for ident, axes in (stored.get('spielachsen') or {}).items():
+        if ident not in present:
             continue
-        nummer = (gespeichert.get('nummern') or {}).get(kennung)
-        if not nummer:
+        number = (stored.get('nummern') or {}).get(ident)
+        if not number:
             continue
-        for achse, werte in achsen.items():
-            for eigenschaft, wert in werte.items():
-                if eigenschaft not in kurven.SPIEL_EIGENSCHAFTEN:
+        for axis, values in axes.items():
+            for prop, value in values.items():
+                if prop not in kurven.SPIEL_EIGENSCHAFTEN:
                     continue
-                erfolg, meldung, _ = kurven.spiel_setzen(
-                    nummer, achse, eigenschaft, wert, datei, ordner)
-                if not erfolg:
-                    return False, meldung, anzahl
-                anzahl += 1
+                ok_state, message, _ = kurven.spiel_setzen(
+                    number, axis, prop, value, filename, folder)
+                if not ok_state:
+                    return False, message, count
+                count += 1
 
-    if not anzahl:
+    if not count:
         return False, 's_gs_f_nichts_zu_tun', 0
-    return True, '', anzahl
+    return True, '', count
