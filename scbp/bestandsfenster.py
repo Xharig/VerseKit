@@ -2544,7 +2544,7 @@ class Bestandsfenster:
             hf = getattr(self, 'hauptfenster', None)
             if hf is None:
                 return
-            hf.herstellung_suche = name
+            hf.crafting_search = name
             hf.open_page('herstellung')
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.zur_herstellung', ausnahme)

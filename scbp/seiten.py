@@ -1134,13 +1134,13 @@ def _liste(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
     from . import bestandsfenster
     # ⭐ Rückweg zum Hauptfenster — die Liste braucht ihn, um auf andere Seiten
-    # zu springen (bisher ging der Weg nur andersherum, über `bestandsseite`).
+    # zu springen (bisher ging der Weg nur andersherum, über `stock_page`).
     #
     # ⚠⚠ **Als Argument, nicht danach zugewiesen.** Der Konstruktor zeichnet
     # die Liste bereits; wer den Rückweg erst hinterher setzt, hat beim ersten
     # Zeichnen keinen — und dann ist kein Name anklickbar, bis zufällig neu
     # gezeichnet wird. Genau das war der Fehler in v3.26.0 bis rc3.
-    fenster.bestandsseite = bestandsfenster.Bestandsfenster(rahmen=rahmen,
+    fenster.stock_page = bestandsfenster.Bestandsfenster(rahmen=rahmen,
                                                             hauptfenster=fenster)
 
     # ⚠ Beim erneuten Aufrufen ohne Filter anfangen. Die Seite wird nur ein-
@@ -1148,7 +1148,7 @@ def _liste(fenster, rahmen):
     # „Andockkragen, Größe 2, Grad A" vergessen hat, sieht „Nichts gefunden"
     # und hält den Bestand für leer. Am 29.08.2026 gemeldet.
     def _frisch():
-        seite = getattr(fenster, 'bestandsseite', None)
+        seite = getattr(fenster, 'stock_page', None)
         if seite is None:
             return
         seite._fein_leeren()
@@ -5385,8 +5385,8 @@ def _danke(fenster, rahmen):
         try:
             voll = tk.PhotoImage(file=logo)
             teiler = max(1, voll.width() // 64)
-            fenster._autorlogo = voll.subsample(teiler, teiler)
-            tk.Label(zeile, image=fenster._autorlogo, bg=FLAECHE).pack(
+            fenster._author_logo = voll.subsample(teiler, teiler)
+            tk.Label(zeile, image=fenster._author_logo, bg=FLAECHE).pack(
                 side='left', padx=(0, 16))
         except Exception as ausnahme:
             fehler.merken('seiten.danke.logo', ausnahme)
@@ -5520,8 +5520,8 @@ def _ueber(fenster, rahmen):
             # `subsample` verkleinert nur ganzzahlig — 48 px ist die Größe, die
             # neben zwei Textzeilen sitzt, ohne die Karte auseinanderzuziehen.
             teiler = max(1, voll.width() // 48)
-            fenster._ueberlogo = voll.subsample(teiler, teiler)
-            tk.Label(kopf, image=fenster._ueberlogo, bg=FLAECHE).pack(
+            fenster._about_logo = voll.subsample(teiler, teiler)
+            tk.Label(kopf, image=fenster._about_logo, bg=FLAECHE).pack(
                 side='left', padx=(0, 14))
         except Exception as ausnahme:
             fehler.merken('seiten.ueber.symbol', ausnahme)
@@ -6161,15 +6161,15 @@ def _herstellung(fenster, rahmen):
     # der Bauplan-Liste. Dort gibt die Leiste den Kontext, hier gäbe ein leeres
     # Kästchen mitten auf der Seite keinen Hinweis, wofür es da ist.
     # ⭐ Der Sprung aus der Bauplan-Liste setzt hier den Namen hinein — genau
-    # wie `bergbau_suche` beim Rohstoff-Sprung. Danach wieder leeren, sonst
+    # wie `mining_search` beim Rohstoff-Sprung. Danach wieder leeren, sonst
     # stünde der Begriff beim nächsten Öffnen erneut da.
     #
     # ⚠ `gesprungen` wird weiter unten gebraucht, um die Zeile gleich
     # aufgeklappt zu zeigen — deshalb hier gemerkt und nicht nur ins Suchfeld
     # geschrieben.
-    gesprungen = getattr(fenster, 'herstellung_suche', '') or ''
+    gesprungen = getattr(fenster, 'crafting_search', '') or ''
     suche_var = tk.StringVar(value=gesprungen)
-    fenster.herstellung_suche = ''
+    fenster.crafting_search = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
                            LINIE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
@@ -6190,9 +6190,9 @@ def _herstellung(fenster, rahmen):
         # Namen im Aufbau entgegen — beim zweiten Mal existiert sie schon, und
         # dann läuft nur noch dieser Rückruf. Ohne die Abfrage hätte der
         # Sprung genau einmal funktioniert und danach nie wieder.
-        neuer_sprung = getattr(fenster, 'herstellung_suche', '') or ''
+        neuer_sprung = getattr(fenster, 'crafting_search', '') or ''
         if neuer_sprung:
-            fenster.herstellung_suche = ''
+            fenster.crafting_search = ''
             for schluessel in wahl:
                 wahl[schluessel] = ''
             _material_merker.clear()
@@ -6536,7 +6536,7 @@ def _zum_auftrag(fenster, titel):
             return
 
         fenster.open_page('liste')
-        seite = getattr(fenster, 'bestandsseite', None)
+        seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zum_auftrag(titel):
             return
         fenster.say(t('s_fo_lohnt_nichts'))
@@ -6548,7 +6548,7 @@ def _zur_art(fenster, art):
     """Vom Bauplan-Fortschritt zur Liste, gefiltert auf diese Kategorie."""
     try:
         fenster.open_page('liste')
-        seite = getattr(fenster, 'bestandsseite', None)
+        seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zur_art(art):
             return
         fenster.say(t('s_fo_art_nichts') % art)
@@ -6560,7 +6560,7 @@ def _zum_bauplan(fenster, name):
     """Von der Herstellung zur Bauplan-Liste — mit aufgeschlagener Herkunft."""
     try:
         fenster.open_page('liste')
-        seite = getattr(fenster, 'bestandsseite', None)
+        seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zum_bauplan(name):
             return
         fenster.say(t('s_he_woher_nichts'))
@@ -8853,7 +8853,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             roh_lbl.pack(side='left')
 
             def zum_bergbau(_e=None, name=rohstoff):
-                fenster.bergbau_suche = name
+                fenster.mining_search = name
                 fenster.open_page('bergbau')
 
             roh_lbl.bind('<Button-1>', zum_bergbau)
@@ -9601,8 +9601,8 @@ def _bergbau(fenster, rahmen):
 
     from .main_window import round_entry
     # Der Sprung aus einem Rezept setzt hier den Rohstoff hinein.
-    suche_var = tk.StringVar(value=getattr(fenster, 'bergbau_suche', '') or '')
-    fenster.bergbau_suche = ''
+    suche_var = tk.StringVar(value=getattr(fenster, 'mining_search', '') or '')
+    fenster.mining_search = ''
     ziel_suche = _feld(fenster, innen, t('s_bg_suche'), '')
     feld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
                        LINIE, ACCENT, FG)

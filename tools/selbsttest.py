@@ -6318,7 +6318,7 @@ def main():
                     # Schrift dazu, gehoert sie hierher.
                     f_base = f_small = f_item = f_bold = _schrift67
                     on_show = {}
-                    bergbau_suche = ''
+                    mining_search = ''
 
                     def open_page(self, _name):
                         pass
@@ -6445,7 +6445,7 @@ def main():
         class _Fenster68:
             f_base = f_small = f_item = f_bold = f_title = f_sub = _s68
             on_show = {}
-            bergbau_suche = ''
+            mining_search = ''
 
             def open_page(self, _n):
                 pass
@@ -6580,7 +6580,7 @@ def main():
             class _Fenster69:
                 f_base = f_small = f_item = f_bold = f_title = f_sub = _s69f
                 on_show = {}
-                bergbau_suche = ''
+                mining_search = ''
 
                 def open_page(self, _n):
                     pass

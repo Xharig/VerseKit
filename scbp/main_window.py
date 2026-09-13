@@ -3033,7 +3033,7 @@ class MainWindow:
         ist beim nächsten Öffnen frisch, und das ist der Moment, in dem
         jemand hinschaut.
         """
-        seite = getattr(self, 'bestandsseite', None)
+        seite = getattr(self, 'stock_page', None)
         if seite is not None:
             try:
                 seite.neu_laden()
