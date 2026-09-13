@@ -1781,7 +1781,17 @@ TEXTE = {
     # es sind fremde Projekte, keine eigene Übersetzung.
     's_sp_q_de':       ('Deutsch (rjcncpt)', 'German (rjcncpt)'),
     's_sp_q_ss':       ('StarStrings (MrKraken)', 'StarStrings (MrKraken)'),
-    's_sp_q_or':       ('Original (aus dem Spiel)', 'Original (from the game)'),
+    # ⚠ „Englisch", nicht „Original" — **nicht jeder weiß, dass die
+    # Originalsprache des Spiels Englisch ist.** Wer „Original" liest, denkt an
+    # „unverändert" und nicht an eine Sprache; wer Deutsch spielt, erwartet
+    # darunter womöglich deutschen Text.
+    #
+    # ⚠ Und es macht die beiden Stellen einheitlich: Der Einrichtungsassistent
+    # sagt seit jeher „Englisch — Originaltexte aus dem Spiel"
+    # (`inj_quelle_orig`). Dieselbe Auswahl an zwei Orten verschieden zu
+    # benennen ist genau die Sorte Unterschied, die niemandem auffällt außer
+    # dem, der sie sucht.
+    's_sp_q_or':       ('Englisch (aus dem Spiel)', 'English (from the game)'),
     's_sp_an':         ('Angaben in die Auftragstexte schreiben',
                           'Write the details into the mission text'),
     's_sp_an_h':       ('Aus lassen, wenn du gerade auf PTU spielst oder die Textdatei in Ruhe lassen willst. Ausschalten nimmt vorhandene Angaben gleich wieder heraus, Einschalten trägt sie neu ein — der Wortlaut des Spiels wird dabei buchstabengenau wiederhergestellt.',
