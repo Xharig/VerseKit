@@ -60,32 +60,32 @@ LINIE = '#232c3d'
 
 # Die Karte wird nie kleiner als das gezeichnet — darunter lässt sich nichts
 # mehr sinnvoll anlegen, und der Messfehler wüchse ins Unbrauchbare.
-KLEINSTE_BREITE = 120
+MIN_WIDTH = 120
 
 
-class Kalibrierfenster:
+class CalibrationWindow:
     """Das Vollbildfenster zum Ausmessen.
 
     `beim_fertig` bekommt die gemessene Kartenbreite in Pixeln und die
     Pixelbreite des Bildschirms — daraus rechnet der Aufrufer weiter.
     """
 
-    def __init__(self, eltern, beim_fertig, schrift=None, klein=None,
-                 startbreite=None):
-        self.beim_fertig = beim_fertig
-        self.schrift = schrift or ('DejaVu Sans', 11)
-        self.klein = klein or ('DejaVu Sans', 9)
+    def __init__(self, parent, on_done, font=None, small=None,
+                 start_width=None):
+        self.on_done = on_done
+        self.font = font or ('DejaVu Sans', 11)
+        self.small = small or ('DejaVu Sans', 9)
 
-        self.fenster = tk.Toplevel(eltern)
-        self.fenster.title(t('s_fv_titel'))
-        self.fenster.configure(bg=BG)
+        self.window = tk.Toplevel(parent)
+        self.window.title(t('s_fv_titel'))
+        self.window.configure(bg=BG)
         # ⚠ Erst anzeigen, dann Vollbild — sonst misst sich das Fenster unter
         # manchen Fensterverwaltungen noch in seiner Ausgangsgröße.
-        self.fenster.update_idletasks()
-        self.vollbild = False
+        self.window.update_idletasks()
+        self.fullscreen = False
         try:
-            self.fenster.attributes('-fullscreen', True)
-            self.vollbild = True
+            self.window.attributes('-fullscreen', True)
+            self.fullscreen = True
         except tk.TclError:
             # Nicht jede Umgebung kann das. Dann ein großes Fenster — die
             # Messung der Karte stimmt trotzdem, nur die Bildschirmbreite
@@ -99,103 +99,103 @@ class Kalibrierfenster:
             # `mittig_ueber` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
             from .hauptfenster import mittig_ueber
-            if eltern is None or not mittig_ueber(self.fenster, eltern, 1200, 800):
-                self.fenster.geometry('1200x800')
-        self.fenster.bind('<Escape>', lambda _e: self.schliessen())
+            if parent is None or not mittig_ueber(self.window, parent, 1200, 800):
+                self.window.geometry('1200x800')
+        self.window.bind('<Escape>', lambda _e: self.close())
 
-        self.leinwand = tk.Canvas(self.fenster, bg=BG, highlightthickness=0,
+        self.canvas = tk.Canvas(self.window, bg=BG, highlightthickness=0,
                                   bd=0, cursor='sb_h_double_arrow')
-        self.leinwand.pack(fill='both', expand=True)
+        self.canvas.pack(fill='both', expand=True)
 
-        self.breite = tk.DoubleVar(value=float(startbreite or 320))
-        self.leinwand.bind('<Configure>', lambda _e: self._zeichnen())
-        self.leinwand.bind('<B1-Motion>', self._ziehen)
-        self.fenster.bind('<Left>', lambda _e: self._stufe(-1))
-        self.fenster.bind('<Right>', lambda _e: self._stufe(1))
-        self.fenster.bind('<Shift-Left>', lambda _e: self._stufe(-10))
-        self.fenster.bind('<Shift-Right>', lambda _e: self._stufe(10))
-        self.fenster.focus_set()
-        self._bauen()
+        self.width = tk.DoubleVar(value=float(start_width or 320))
+        self.canvas.bind('<Configure>', lambda _e: self._draw())
+        self.canvas.bind('<B1-Motion>', self._drag)
+        self.window.bind('<Left>', lambda _e: self._stufe(-1))
+        self.window.bind('<Right>', lambda _e: self._stufe(1))
+        self.window.bind('<Shift-Left>', lambda _e: self._stufe(-10))
+        self.window.bind('<Shift-Right>', lambda _e: self._stufe(10))
+        self.window.focus_set()
+        self._build()
 
     # ------------------------------------------------------------------
 
-    def _bauen(self):
-        leiste = tk.Frame(self.fenster, bg=FLAECHE)
-        leiste.place(relx=0.5, rely=0.94, anchor='center')
+    def _build(self):
+        bar = tk.Frame(self.window, bg=FLAECHE)
+        bar.place(relx=0.5, rely=0.94, anchor='center')
 
-        self.regler = tk.Scale(
-            leiste, from_=KLEINSTE_BREITE, to=900, resolution=1,
-            orient='horizontal', variable=self.breite,
-            command=lambda _w: self._zeichnen(), showvalue=False,
+        self.slider = tk.Scale(
+            bar, from_=MIN_WIDTH, to=900, resolution=1,
+            orient='horizontal', variable=self.width,
+            command=lambda _w: self._draw(), showvalue=False,
             bg=FLAECHE, fg=FG, troughcolor=BG, activebackground=ACCENT,
             highlightthickness=0, bd=0, sliderrelief='flat', length=420)
-        self.regler.pack(side='left', padx=14, pady=10)
+        self.slider.pack(side='left', padx=14, pady=10)
 
-        self.wert = tk.Label(leiste, text='', bg=FLAECHE, fg=ACCENT,
-                             font=self.klein, width=22, anchor='w')
-        self.wert.pack(side='left', padx=(0, 14))
+        self.value = tk.Label(bar, text='', bg=FLAECHE, fg=ACCENT,
+                             font=self.small, width=22, anchor='w')
+        self.value.pack(side='left', padx=(0, 14))
 
-        fertig = tk.Label(leiste, text=t('s_fv_passt'), bg=ACCENT, fg=BG,
-                          font=self.schrift, padx=18, pady=6, cursor='hand2')
-        fertig.pack(side='left', padx=(0, 8), pady=10)
-        fertig.bind('<Button-1>', lambda _e: self._fertig())
+        done = tk.Label(bar, text=t('s_fv_passt'), bg=ACCENT, fg=BG,
+                          font=self.font, padx=18, pady=6, cursor='hand2')
+        done.pack(side='left', padx=(0, 8), pady=10)
+        done.bind('<Button-1>', lambda _e: self._finish())
 
-        ab = tk.Label(leiste, text=t('s_fv_abbrechen'), bg=FLAECHE, fg=SUB,
-                      font=self.klein, padx=14, pady=6, cursor='hand2')
+        ab = tk.Label(bar, text=t('s_fv_abbrechen'), bg=FLAECHE, fg=SUB,
+                      font=self.small, padx=14, pady=6, cursor='hand2')
         ab.pack(side='left', padx=(0, 14), pady=10)
-        ab.bind('<Button-1>', lambda _e: self.schliessen())
+        ab.bind('<Button-1>', lambda _e: self.close())
 
     def _stufe(self, um):
-        self.breite.set(max(KLEINSTE_BREITE, self.breite.get() + um))
-        self._zeichnen()
+        self.width.set(max(MIN_WIDTH, self.width.get() + um))
+        self._draw()
 
-    def _ziehen(self, ereignis):
+    def _drag(self, event):
         """Am Rand ziehen: Die Breite folgt dem Abstand zur Mitte."""
-        mitte = self.leinwand.winfo_width() / 2.0
-        neu = abs(ereignis.x - mitte) * 2.0
-        self.breite.set(max(KLEINSTE_BREITE, neu))
-        self._zeichnen()
+        centre = self.canvas.winfo_width() / 2.0
+        fresh = abs(event.x - centre) * 2.0
+        self.width.set(max(MIN_WIDTH, fresh))
+        self._draw()
 
-    def _zeichnen(self):
-        self.leinwand.delete('all')
-        breite_px = self.leinwand.winfo_width()
-        hoehe_px = self.leinwand.winfo_height()
-        if breite_px <= 1:
+    def _draw(self):
+        self.canvas.delete('all')
+        width_px = self.canvas.winfo_width()
+        height_px = self.canvas.winfo_height()
+        if width_px <= 1:
             return
 
-        karte_breite = float(self.breite.get())
+        card_width = float(self.width.get())
         # Das Seitenverhältnis der Karte ist genormt — die Höhe folgt daraus
         # und wird NICHT getrennt eingestellt. Zwei Regler wären zwei
         # Fehlerquellen für dieselbe Messung.
-        karte_hoehe = karte_breite * (fov.KARTE_HOEHE_MM / fov.KARTE_BREITE_MM)
+        card_height = card_width * (fov.KARTE_HOEHE_MM / fov.KARTE_BREITE_MM)
 
-        mx, my = breite_px / 2.0, hoehe_px / 2.0 - 30
-        x1, y1 = mx - karte_breite / 2.0, my - karte_hoehe / 2.0
-        x2, y2 = mx + karte_breite / 2.0, my + karte_hoehe / 2.0
+        mx, my = width_px / 2.0, height_px / 2.0 - 30
+        x1, y1 = mx - card_width / 2.0, my - card_height / 2.0
+        x2, y2 = mx + card_width / 2.0, my + card_height / 2.0
 
         # Die Karte selbst — heller Umriss auf dunklem Grund, damit die echte
         # Karte danebengehalten gut abzugleichen ist.
-        self.leinwand.create_rectangle(x1, y1, x2, y2, outline=ACCENT,
+        self.canvas.create_rectangle(x1, y1, x2, y2, outline=ACCENT,
                                        width=2, fill=FLAECHE)
         # Hilfslinien in der Mitte: An einer Kante lässt sich genauer
         # angleichen als an einer Fläche.
-        self.leinwand.create_line(mx, y1, mx, y2, fill=LINIE)
-        self.leinwand.create_line(x1, my, x2, my, fill=LINIE)
+        self.canvas.create_line(mx, y1, mx, y2, fill=LINIE)
+        self.canvas.create_line(x1, my, x2, my, fill=LINIE)
 
-        self.leinwand.create_text(
+        self.canvas.create_text(
             mx, y1 - 60, text=t('s_fv_anleitung'), fill=FG,
-            font=self.schrift, anchor='center', justify='center',
-            width=min(900, breite_px - 80))
-        self.leinwand.create_text(
-            mx, y2 + 40, text=t('s_fv_masse'), fill=SUB, font=self.klein,
+            font=self.font, anchor='center', justify='center',
+            width=min(900, width_px - 80))
+        self.canvas.create_text(
+            mx, y2 + 40, text=t('s_fv_masse'), fill=SUB, font=self.small,
             anchor='center')
 
-        mm_je_pixel = fov.mm_pro_pixel(karte_breite)
-        if mm_je_pixel:
-            gesamt = fov.bildschirmbreite_mm(breite_px, mm_je_pixel)
-            self.wert.configure(
-                text=t('s_fv_stand').format(int(karte_breite),
-                                            (gesamt or 0) / 10.0))
+        mm_per_pixel = fov.mm_pro_pixel(card_width)
+        if mm_per_pixel:
+            total = fov.bildschirmbreite_mm(width_px, mm_per_pixel)
+            self.value.configure(
+                text=t('s_fv_stand').format(int(card_width),
+                                            (total or 0) / 10.0))
 
     def _wirklich_vollbild(self):
         """Steht das Fenster wirklich über den ganzen Bildschirm?
@@ -211,35 +211,35 @@ class Kalibrierfenster:
         Lieber nichts speichern als einen falschen Wert.
         """
         try:
-            gesetzt = bool(self.fenster.attributes('-fullscreen'))
+            is_set = bool(self.window.attributes('-fullscreen'))
         except tk.TclError:
-            gesetzt = False
-        breite = self.leinwand.winfo_width()
+            is_set = False
+        width = self.canvas.winfo_width()
         # Zweite Sicherung: Ein „Vollbild", das schmaler ist als die Hälfte
         # dessen, was Tk als Bildschirm meldet, ist keines.
         try:
-            genug = breite >= self.fenster.winfo_screenwidth() * 0.5
+            enough = width >= self.window.winfo_screenwidth() * 0.5
         except tk.TclError:
-            genug = False
-        return gesetzt and genug
+            enough = False
+        return is_set and enough
 
-    def _fertig(self):
-        breite_px = self.leinwand.winfo_width()
-        karte = float(self.breite.get())
-        vollbild = self._wirklich_vollbild()
-        self.schliessen()
-        if self.beim_fertig:
-            self.beim_fertig(karte, breite_px, vollbild)
+    def _finish(self):
+        width_px = self.canvas.winfo_width()
+        card = float(self.width.get())
+        fullscreen = self._wirklich_vollbild()
+        self.close()
+        if self.on_done:
+            self.on_done(card, width_px, fullscreen)
 
-    def schliessen(self):
+    def close(self):
         try:
-            self.fenster.destroy()
+            self.window.destroy()
         except tk.TclError:
             pass
 
 
-def kalibrieren(eltern, beim_fertig, schrift=None, klein=None,
-                startbreite=None):
+def calibrate(parent, on_done, font=None, small=None,
+                start_width=None):
     """Das Kalibrierfenster öffnen. Bequemer Einstieg für die Oberfläche."""
-    return Kalibrierfenster(eltern, beim_fertig, schrift=schrift,
-                            klein=klein, startbreite=startbreite)
+    return CalibrationWindow(parent, on_done, font=font,
+                            small=small, start_width=start_width)

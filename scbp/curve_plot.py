@@ -67,11 +67,11 @@ ROT     = '#e05252'
 # Wieviele Stützstellen der Streckenzug bekommt. Tk kennt keine Kurven; zu
 # wenige Punkte machen aus dem Knick an der Totzone eine sanfte Rundung — und
 # genau der Knick ist die Aussage.
-STUETZSTELLEN = 160
+SUPPORT_POINTS = 160
 
 
-def gross_zeigen(eltern, titel, totzone=None, saettigung=None, exponent=None,
-                 kurve=None, ganz=False, schrift=None, klein=None):
+def show_large(parent, title, totzone=None, saturation=None, exponent=None,
+                 curve=None, whole=False, font=None, small=None):
     """Die Kurve groß in einem eigenen Fenster — zum genauen Hinsehen.
 
     Auf der Seite ist das Bild klein, weil daneben die Regler und die
@@ -88,49 +88,49 @@ def gross_zeigen(eltern, titel, totzone=None, saettigung=None, exponent=None,
     mehr mit der tatsächlichen überein — im Projekt schon einmal die Ursache
     dafür, dass ein Fenster aus dem Bildschirm wanderte.
     """
-    fenster = tk.Toplevel(eltern)
-    fenster.title(titel)
-    fenster.configure(bg=BG)
-    rand = 40
-    seite = 560
-    fenster.geometry('%dx%d' % (seite + rand, seite + rand + 46))
-    fenster.minsize(360, 400)
+    window = tk.Toplevel(parent)
+    window.title(title)
+    window.configure(bg=BG)
+    margin = 40
+    side = 560
+    window.geometry('%dx%d' % (side + margin, side + margin + 46))
+    window.minsize(360, 400)
 
-    kopf = tk.Frame(fenster, bg=BG)
-    kopf.pack(fill='x', side='top')
+    head = tk.Frame(window, bg=BG)
+    head.pack(fill='x', side='top')
 
-    bild = Kurvenbild(fenster, breite=seite, hoehe=seite, ganz=ganz,
-                      schrift=schrift, klein=klein)
-    bild.pack(fill='both', expand=True, padx=20, pady=(0, 20))
-    bild.zeigen(totzone=totzone, saettigung=saettigung, exponent=exponent,
-                kurve=kurve)
+    plot = CurvePlot(window, width=side, height=side, whole=whole,
+                      font=font, small=small)
+    plot.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+    plot.show(totzone=totzone, saturation=saturation, exponent=exponent,
+                curve=curve)
 
-    zustand = {'ganz': ganz}
+    zustand = {'ganz': whole}
 
-    def _umschalten():
-        zustand['ganz'] = bild.umschalten()
-        knopf.configure(text=(t('s_kv_quadrant') if zustand['ganz']
+    def _toggle():
+        zustand['ganz'] = plot.toggle()
+        button.configure(text=(t('s_kv_quadrant') if zustand['ganz']
                               else t('s_kv_ganz')))
 
-    knopf = tk.Label(kopf, text=(t('s_kv_quadrant') if ganz
+    button = tk.Label(head, text=(t('s_kv_quadrant') if whole
                                  else t('s_kv_ganz')),
-                     bg=FLAECHE, fg=FG, font=klein or schrift,
+                     bg=FLAECHE, fg=FG, font=small or font,
                      padx=12, pady=6, cursor='hand2')
-    knopf.pack(side='left', padx=20, pady=14)
-    knopf.bind('<Button-1>', lambda _e: _umschalten())
+    button.pack(side='left', padx=20, pady=14)
+    button.bind('<Button-1>', lambda _e: _toggle())
 
     werte = tk.Label(
-        kopf,
+        head,
         text='%s %s   ·   %s %s' % (
             t('s_kv_totzone'), '—' if totzone is None else ('%g' % totzone),
             t('s_kv_saettigung'),
-            '—' if saettigung is None else ('%g' % saettigung)),
-        bg=BG, fg=SUB, font=klein or schrift)
+            '—' if saturation is None else ('%g' % saturation)),
+        bg=BG, fg=SUB, font=small or font)
     werte.pack(side='left')
-    return fenster
+    return window
 
 
-class Kurvenbild:
+class CurvePlot:
     """Die Antwortkurve einer Achse auf einer Leinwand.
 
     Benutzung:
@@ -142,47 +142,47 @@ class Kurvenbild:
     Quadrant. Umschalten geht jederzeit über `umschalten()`.
     """
 
-    def __init__(self, eltern, breite=260, hoehe=260, ganz=False,
-                 schrift=None, klein=None):
-        self.ganz = bool(ganz)
-        self.schrift = schrift
-        self.klein = klein or schrift
+    def __init__(self, parent, width=260, height=260, whole=False,
+                 font=None, small=None):
+        self.whole = bool(whole)
+        self.font = font
+        self.small = small or font
         self.werte = {'totzone': 0.0, 'saettigung': 1.0, 'exponent': 1.0,
                       'kurve': None}
         self.zeiger = None          # aktueller Ausschlag, falls gemessen
-        self.leinwand = tk.Canvas(eltern, width=breite, height=hoehe,
+        self.canvas = tk.Canvas(parent, width=width, height=height,
                                   bg=FLAECHE, highlightthickness=1,
                                   highlightbackground=LINIE, bd=0)
         # ⚠ Neu zeichnen, sobald die Fläche wirklich steht — nicht nur einmal
         # beim Bauen. Siehe Modulkopf.
-        self.leinwand.bind('<Configure>', self._neu)
+        self.canvas.bind('<Configure>', self._neu)
 
     def pack(self, **kwargs):
-        self.leinwand.pack(**kwargs)
+        self.canvas.pack(**kwargs)
         return self
 
     def grid(self, **kwargs):
-        self.leinwand.grid(**kwargs)
+        self.canvas.grid(**kwargs)
         return self
 
-    def zeigen(self, totzone=None, saettigung=None, exponent=None, kurve=None):
+    def show(self, totzone=None, saturation=None, exponent=None, curve=None):
         """Neue Werte setzen und zeichnen. Nicht genannte bleiben stehen."""
         if totzone is not None:
             self.werte['totzone'] = totzone
-        if saettigung is not None:
-            self.werte['saettigung'] = saettigung
+        if saturation is not None:
+            self.werte['saettigung'] = saturation
         if exponent is not None:
             self.werte['exponent'] = exponent
-        self.werte['kurve'] = kurve
-        self._zeichnen()
+        self.werte['kurve'] = curve
+        self._draw()
 
-    def umschalten(self, ganz=None):
+    def toggle(self, whole=None):
         """Zwischen Quadrant und Vollansicht wechseln."""
-        self.ganz = (not self.ganz) if ganz is None else bool(ganz)
-        self._zeichnen()
-        return self.ganz
+        self.whole = (not self.whole) if whole is None else bool(whole)
+        self._draw()
+        return self.whole
 
-    def ausschlag(self, wert):
+    def deflection(self, wert):
         """Den aktuell gemessenen Ausschlag als Punkt einzeichnen.
 
         `None` nimmt ihn wieder weg. Gedacht für den Achsen-Test: Man bewegt
@@ -190,156 +190,156 @@ class Kurvenbild:
         erkennt man Drift und tote Ecken sofort.
         """
         self.zeiger = wert
-        self._zeichnen()
+        self._draw()
 
     # ------------------------------------------------------------------
 
-    def _neu(self, _ereignis=None):
-        self._zeichnen()
+    def _neu(self, _event=None):
+        self._draw()
 
-    def _flaeche(self):
+    def _area(self):
         """Die Zeichenfläche in Pixeln, mit Rand für die Beschriftung."""
-        breite = self.leinwand.winfo_width()
-        hoehe = self.leinwand.winfo_height()
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
         # Vor dem ersten Anzeigen meldet Tk 1 Pixel. Dann die gewünschte
         # Größe nehmen, sonst wird in ein 1×1-Feld gezeichnet.
-        if breite <= 1:
-            breite = int(self.leinwand['width'])
-        if hoehe <= 1:
-            hoehe = int(self.leinwand['height'])
-        rand_links, rand_unten, rand_oben, rand_rechts = 34, 24, 10, 10
-        return (rand_links, rand_oben,
-                max(10, breite - rand_links - rand_rechts),
-                max(10, hoehe - rand_oben - rand_unten))
+        if width <= 1:
+            width = int(self.canvas['width'])
+        if height <= 1:
+            height = int(self.canvas['height'])
+        margin_left, margin_bottom, margin_top, margin_right = 34, 24, 10, 10
+        return (margin_left, margin_top,
+                max(10, width - margin_left - margin_right),
+                max(10, height - margin_top - margin_bottom))
 
-    def _punkt(self, ein, aus):
+    def _punkt(self, on_state, off_state):
         """Von Kurvenwerten (-1..1 bzw. 0..1) auf Bildschirmpunkte."""
-        x0, y0, breite, hoehe = self._flaeche()
-        if self.ganz:
-            lage_x = (ein + 1.0) / 2.0
-            lage_y = (aus + 1.0) / 2.0
+        x0, y0, width, height = self._area()
+        if self.whole:
+            pos_x = (on_state + 1.0) / 2.0
+            pos_y = (off_state + 1.0) / 2.0
         else:
-            lage_x = ein
-            lage_y = aus
-        return (x0 + lage_x * breite, y0 + (1.0 - lage_y) * hoehe)
+            pos_x = on_state
+            pos_y = off_state
+        return (x0 + pos_x * width, y0 + (1.0 - pos_y) * height)
 
-    def _zeichnen(self):
-        self.leinwand.delete('all')
-        x0, y0, breite, hoehe = self._flaeche()
+    def _draw(self):
+        self.canvas.delete('all')
+        x0, y0, width, height = self._area()
         totzone = self.werte['totzone'] or 0.0
-        saettigung = (1.0 if self.werte['saettigung'] is None
+        saturation = (1.0 if self.werte['saettigung'] is None
                       else self.werte['saettigung'])
 
         # 1. Die Felder, in denen nichts passiert — zuerst, damit alles
         #    Weitere darüber liegt.
-        self._bereiche(totzone, saettigung)
+        self._bereiche(totzone, saturation)
 
         # 2. Gitter und Rahmen
-        self._gitter()
+        self._grid()
 
         # 3. Die Gerade als Vergleich: So liefe es ohne jede Einstellung.
         #    Ohne sie ist nicht zu sehen, ob eine Kurve steil oder flach ist.
-        gerade = ((-1.0, -1.0), (1.0, 1.0)) if self.ganz else ((0.0, 0.0),
+        straight = ((-1.0, -1.0), (1.0, 1.0)) if self.whole else ((0.0, 0.0),
                                                                (1.0, 1.0))
-        a = self._punkt(*gerade[0])
-        b = self._punkt(*gerade[1])
-        self.leinwand.create_line(a[0], a[1], b[0], b[1], fill=LINIE,
+        a = self._punkt(*straight[0])
+        b = self._punkt(*straight[1])
+        self.canvas.create_line(a[0], a[1], b[0], b[1], fill=LINIE,
                                   width=1, dash=(3, 3))
 
         # 4. Die Kurve selbst
-        verlauf = kurven.verlauf(totzone, saettigung,
+        verlauf = kurven.verlauf(totzone, saturation,
                                  self.werte['exponent'],
                                  self.werte['kurve'],
-                                 schritte=STUETZSTELLEN, ganz=self.ganz)
-        punkte = []
-        for ein, aus in verlauf:
-            punkte.extend(self._punkt(ein, aus))
-        if len(punkte) >= 4:
-            self.leinwand.create_line(*punkte, fill=ACCENT, width=2,
+                                 schritte=SUPPORT_POINTS, whole=self.whole)
+        points = []
+        for on_state, off_state in verlauf:
+            points.extend(self._punkt(on_state, off_state))
+        if len(points) >= 4:
+            self.canvas.create_line(*points, fill=ACCENT, width=2,
                                       capstyle='round', joinstyle='round')
 
         # 5. Der gemessene Ausschlag, falls einer anliegt
         if self.zeiger is not None:
-            aus = kurven.antwort(self.zeiger, totzone, saettigung,
+            off_state = kurven.antwort(self.zeiger, totzone, saturation,
                                  self.werte['exponent'], self.werte['kurve'])
-            px, py = self._punkt(self.zeiger if self.ganz
-                                 else abs(self.zeiger), abs(aus)
-                                 if not self.ganz else aus)
-            self.leinwand.create_oval(px - 4, py - 4, px + 4, py + 4,
+            px, py = self._punkt(self.zeiger if self.whole
+                                 else abs(self.zeiger), abs(off_state)
+                                 if not self.whole else off_state)
+            self.canvas.create_oval(px - 4, py - 4, px + 4, py + 4,
                                       fill=GOLD, outline=BG, width=1)
 
-        self._beschriften(totzone, saettigung)
+        self._label_axes(totzone, saturation)
 
-    def _bereiche(self, totzone, saettigung):
+    def _bereiche(self, totzone, saturation):
         """Totzone und Sättigungsbereich als gedämpfte Flächen.
 
         Beide sind „verschenkter Weg": In der Totzone bewegt sich nichts,
         jenseits der Sättigung ändert sich nichts mehr. Wer sie sieht, versteht
         sofort, warum sein Stick sich anfühlt, wie er sich anfühlt.
         """
-        x0, y0, breite, hoehe = self._flaeche()
+        x0, y0, width, height = self._area()
 
-        def band(von, bis, farbe):
+        def band(von, bis, colour):
             if bis <= von:
                 return
-            a = self._punkt(von, -1.0 if self.ganz else 0.0)
+            a = self._punkt(von, -1.0 if self.whole else 0.0)
             b = self._punkt(bis, 1.0)
-            self.leinwand.create_rectangle(a[0], y0, b[0], y0 + hoehe,
-                                           fill=farbe, outline='')
+            self.canvas.create_rectangle(a[0], y0, b[0], y0 + height,
+                                           fill=colour, outline='')
 
         # Ein sehr dunkles Blaugrau — sichtbar, aber ohne die Kurve zu stören.
         tot_farbe = '#1d2534'
         if totzone > 0:
             band(0.0, totzone, tot_farbe)
-            if self.ganz:
+            if self.whole:
                 band(-totzone, 0.0, tot_farbe)
-        if saettigung < 1.0:
-            band(saettigung, 1.0, tot_farbe)
-            if self.ganz:
-                band(-1.0, -saettigung, tot_farbe)
+        if saturation < 1.0:
+            band(saturation, 1.0, tot_farbe)
+            if self.whole:
+                band(-1.0, -saturation, tot_farbe)
 
-    def _gitter(self):
-        x0, y0, breite, hoehe = self._flaeche()
+    def _grid(self):
+        x0, y0, width, height = self._area()
         # Viertel-Linien — mehr wäre Unruhe, weniger gäbe keinen Anhalt.
-        for anteil in (0.25, 0.5, 0.75):
-            x = x0 + anteil * breite
-            y = y0 + anteil * hoehe
-            self.leinwand.create_line(x, y0, x, y0 + hoehe, fill=LINIE)
-            self.leinwand.create_line(x0, y, x0 + breite, y, fill=LINIE)
-        self.leinwand.create_rectangle(x0, y0, x0 + breite, y0 + hoehe,
+        for share in (0.25, 0.5, 0.75):
+            x = x0 + share * width
+            y = y0 + share * height
+            self.canvas.create_line(x, y0, x, y0 + height, fill=LINIE)
+            self.canvas.create_line(x0, y, x0 + width, y, fill=LINIE)
+        self.canvas.create_rectangle(x0, y0, x0 + width, y0 + height,
                                        outline=LINIE)
-        if self.ganz:
+        if self.whole:
             # Die Nulllinien kräftiger — in der Vollansicht sind sie der
             # Bezugspunkt, um den herum die Kurve punktsymmetrisch liegt.
-            mitte_x = x0 + breite / 2.0
-            mitte_y = y0 + hoehe / 2.0
-            self.leinwand.create_line(mitte_x, y0, mitte_x, y0 + hoehe,
+            centre_x = x0 + width / 2.0
+            centre_y = y0 + height / 2.0
+            self.canvas.create_line(centre_x, y0, centre_x, y0 + height,
                                       fill=SUB)
-            self.leinwand.create_line(x0, mitte_y, x0 + breite, mitte_y,
+            self.canvas.create_line(x0, centre_y, x0 + width, centre_y,
                                       fill=SUB)
 
-    def _beschriften(self, totzone, saettigung):
-        x0, y0, breite, hoehe = self._flaeche()
-        klein = self.klein
-        links = '-1' if self.ganz else '0'
-        self.leinwand.create_text(x0, y0 + hoehe + 12, text=links, fill=SUB,
-                                  font=klein, anchor='w')
-        self.leinwand.create_text(x0 + breite, y0 + hoehe + 12, text='1',
-                                  fill=SUB, font=klein, anchor='e')
-        self.leinwand.create_text(x0 - 6, y0 + hoehe, text=links, fill=SUB,
-                                  font=klein, anchor='e')
-        self.leinwand.create_text(x0 - 6, y0, text='1', fill=SUB, font=klein,
+    def _label_axes(self, totzone, saturation):
+        x0, y0, width, height = self._area()
+        small = self.small
+        left = '-1' if self.whole else '0'
+        self.canvas.create_text(x0, y0 + height + 12, text=left, fill=SUB,
+                                  font=small, anchor='w')
+        self.canvas.create_text(x0 + width, y0 + height + 12, text='1',
+                                  fill=SUB, font=small, anchor='e')
+        self.canvas.create_text(x0 - 6, y0 + height, text=left, fill=SUB,
+                                  font=small, anchor='e')
+        self.canvas.create_text(x0 - 6, y0, text='1', fill=SUB, font=small,
                                   anchor='e')
         # Was auf welcher Achse steht — ohne das ist ein Diagramm ein Muster.
-        self.leinwand.create_text(x0 + breite / 2.0, y0 + hoehe + 12,
+        self.canvas.create_text(x0 + width / 2.0, y0 + height + 12,
                                   text=t('s_kv_achse_ein'), fill=SUB,
-                                  font=klein, anchor='center')
+                                  font=small, anchor='center')
         # ⚠ Die senkrechte Beschriftung braucht `angle` (Tk 8.6). Fehlt es,
         # wird sie weggelassen statt quer über die Kurve gelegt — ein Werkzeug
         # darf an einer Beschriftung nicht scheitern.
         try:
-            self.leinwand.create_text(x0 - 20, y0 + hoehe / 2.0,
+            self.canvas.create_text(x0 - 20, y0 + height / 2.0,
                                       text=t('s_kv_achse_aus'), fill=SUB,
-                                      font=klein, anchor='center', angle=90)
+                                      font=small, anchor='center', angle=90)
         except tk.TclError:
             pass

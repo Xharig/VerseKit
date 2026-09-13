@@ -44,12 +44,12 @@ ACCENT  = '#9ce430'
 GELB    = '#d8a03a'
 
 
-def schrift(groesse, fett=False):
+def schrift(size, bold=False):
     fam = 'Segoe UI' if pfade.WINDOWS else 'Helvetica'
-    return (fam, groesse, 'bold' if fett else 'normal')
+    return (fam, size, 'bold' if bold else 'normal')
 
 
-def sprachteil(text):
+def language_part(text):
     """Aus einem zweisprachigen Release-Text den passenden Teil holen.
 
     Die Release-Texte tragen Englisch oben und Deutsch in einem aufklappbaren
@@ -61,14 +61,14 @@ def sprachteil(text):
                   re.S | re.I)
     if not m:
         return text
-    deutsch = m.group(1).strip()
-    englisch = text[:m.start()].strip().rstrip('-').strip()
+    german = m.group(1).strip()
+    english = text[:m.start()].strip().rstrip('-').strip()
     if sprache.aktuelle() == 'de':
-        return deutsch or englisch
-    return englisch or deutsch
+        return german or english
+    return english or german
 
 
-def aufbereiten(text):
+def prepare(text):
     """Markdown so weit entschärfen, dass es sich als schlichter Text liest.
 
     Ein vollwertiger Markdown-Anzeiger wäre ein eigenes Projekt und bräuchte
@@ -76,26 +76,26 @@ def aufbereiten(text):
     Listenpunkte vereinheitlichen — mehr braucht es für Release-Texte nicht."""
     zeilen = []
     for roh in (text or '').splitlines():
-        zeile = roh.rstrip()
-        zeile = zeile.replace('**', '').replace('`', '')
-        if zeile.startswith('### '):
-            zeile = zeile[4:].upper()
-        elif zeile.startswith('## '):
-            zeile = zeile[3:].upper()
-        elif zeile.lstrip().startswith('- '):
-            einzug = len(zeile) - len(zeile.lstrip())
-            zeile = ' ' * einzug + '•' + zeile.lstrip()[1:]
-        zeilen.append(zeile)
+        row = roh.rstrip()
+        row = row.replace('**', '').replace('`', '')
+        if row.startswith('### '):
+            row = row[4:].upper()
+        elif row.startswith('## '):
+            row = row[3:].upper()
+        elif row.lstrip().startswith('- '):
+            indent = len(row) - len(row.lstrip())
+            row = ' ' * indent + '•' + row.lstrip()[1:]
+        zeilen.append(row)
     return '\n'.join(zeilen).strip()
 
 
-class Versionsfenster:
-    def __init__(self, eltern=None, eigene_version='', beim_schliessen=None):
-        self.eigene = eigene_version
-        self.beim_schliessen = beim_schliessen
-        self.neue = updater.check(eigene_version)
+class VersionWindow:
+    def __init__(self, parent=None, own_version='', on_close=None):
+        self.own_value = own_version
+        self.on_close = on_close
+        self.newer = updater.check(own_version)
 
-        self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
+        self.root = tk.Toplevel(parent) if parent else tk.Tk()
         self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('was_ist_neu')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
@@ -107,106 +107,106 @@ class Versionsfenster:
         # `mittig_ueber` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
         from .hauptfenster import mittig_ueber
-        if eltern is None or not mittig_ueber(self.root, eltern, 700, 740):
+        if parent is None or not mittig_ueber(self.root, parent, 700, 740):
             self.root.geometry('700x740')
-        self.root.protocol('WM_DELETE_WINDOW', self.schliessen)
+        self.root.protocol('WM_DELETE_WINDOW', self.close)
 
-        kopf = tk.Frame(self.root, bg=BAR)
-        kopf.pack(fill='x')
-        tk.Label(kopf, text=t('was_ist_neu'), bg=BAR, fg=FG,
+        head = tk.Frame(self.root, bg=BAR)
+        head.pack(fill='x')
+        tk.Label(head, text=t('was_ist_neu'), bg=BAR, fg=FG,
                  font=schrift(12, True)).pack(side='left', padx=16, pady=11)
         # Von Hand nachsehen — nötig, weil die Abfrage sonst höchstens
         # stündlich läuft und man sonst nicht weiß, ob gerade geprüft wurde.
-        self.pruef_lbl = tk.Label(kopf, text=' %s ' % t('inj_pruefen'), bg=FLAECHE,
+        self.check_label = tk.Label(head, text=' %s ' % t('inj_pruefen'), bg=FLAECHE,
                                   fg=FG, font=schrift(10), cursor='hand2',
                                   padx=10, pady=5)
-        self.pruef_lbl.pack(side='right', padx=16)
-        self.pruef_lbl.bind('<Button-1>', lambda e: self._jetzt_pruefen())
+        self.check_label.pack(side='right', padx=16)
+        self.check_label.bind('<Button-1>', lambda e: self._check_now())
         # Kein eigenes ✕ — das Fenster hat eine Systemtitelleiste, und die hat
         # schon eins. Zwei Kreuze übereinander sehen aus wie ein Fehler.
 
         self._banner()
-        self._geschichte()
+        self._history()
 
-    def _jetzt_pruefen(self):
+    def _check_now(self):
         """Sofort bei GitHub nachfragen — der Knopf wird selbst zur Antwort.
 
         Bewusst **kein** Neuaufbau des Fensters: Wer nachsieht, will eine
         Auskunft, kein Flackern. Steht etwas Neues an, sagt der Knopf es; sonst
         steht dort, dass alles aktuell ist."""
-        self.pruef_lbl.configure(text='  …  ', fg=SUB)
+        self.check_label.configure(text='  …  ', fg=SUB)
         self.root.update()
-        neu = updater.check(self.eigene, force=True)
-        if neu and neu.get('version'):
-            self.neue = neu
-            self.pruef_lbl.configure(
-                text='  %s  ' % t('neue_version_da', neu['version']), fg=ACCENT)
+        fresh = updater.check(self.own_value, force=True)
+        if fresh and fresh.get('version'):
+            self.newer = fresh
+            self.check_label.configure(
+                text='  %s  ' % t('neue_version_da', fresh['version']), fg=ACCENT)
         else:
-            self.pruef_lbl.configure(text='  %s  ' % t('inj_aktuell'), fg=SUB)
+            self.check_label.configure(text='  %s  ' % t('inj_aktuell'), fg=SUB)
 
     # ------------------------------------------------------------------ Banner
     def _banner(self):
         """Der Hinweis auf die neue Version — nur wenn es eine gibt."""
         self.banner = tk.Frame(self.root, bg=FLAECHE)
         self.banner.pack(fill='x', padx=14, pady=(12, 0))
-        if not self.neue:
+        if not self.newer:
             tk.Label(self.banner, text=t('aktuelle_fassung'), bg=FLAECHE, fg=SUB,
                      font=schrift(10), anchor='w', padx=14,
                      pady=10).pack(fill='x')
             return
 
-        oben = tk.Frame(self.banner, bg=FLAECHE)
-        oben.pack(fill='x', padx=14, pady=(12, 4))
-        tk.Label(oben, text=t('neue_version_da', self.neue['version']),
+        top = tk.Frame(self.banner, bg=FLAECHE)
+        top.pack(fill='x', padx=14, pady=(12, 4))
+        tk.Label(top, text=t('neue_version_da', self.newer['version']),
                  bg=FLAECHE, fg=ACCENT, font=schrift(13, True),
                  anchor='w').pack(side='left')
-        tk.Label(oben, text=t('du_hast', self.eigene), bg=FLAECHE, fg=SUB,
+        tk.Label(top, text=t('du_hast', self.own_value), bg=FLAECHE, fg=SUB,
                  font=schrift(9), anchor='e').pack(side='right')
 
-        self.meldung = tk.Label(self.banner, text='', bg=FLAECHE, fg=SUB,
+        self.message = tk.Label(self.banner, text='', bg=FLAECHE, fg=SUB,
                                 font=schrift(10), anchor='w', justify='left',
                                 wraplength=620)
-        self.meldung.pack(fill='x', padx=14)
+        self.message.pack(fill='x', padx=14)
 
-        knoepfe = tk.Frame(self.banner, bg=FLAECHE)
-        knoepfe.pack(fill='x', padx=14, pady=(8, 12))
-        art = updater.packaging()
-        datei = updater.matching_asset(self.neue)
-        if art == 'quellcode':
-            self.meldung.configure(text=t('update_quellcode'))
-        elif not datei:
-            self.meldung.configure(text=t('selbst_holen'))
+        buttons = tk.Frame(self.banner, bg=FLAECHE)
+        buttons.pack(fill='x', padx=14, pady=(8, 12))
+        kind = updater.packaging()
+        asset = updater.matching_asset(self.newer)
+        if kind == 'quellcode':
+            self.message.configure(text=t('update_quellcode'))
+        elif not asset:
+            self.message.configure(text=t('selbst_holen'))
         else:
-            self.holen = tk.Label(knoepfe, text='  %s  ' % t('jetzt_holen'),
+            self.fetch = tk.Label(buttons, text='  %s  ' % t('jetzt_holen'),
                                   bg=ACCENT, fg=BG, font=schrift(10, True),
                                   cursor='hand2', padx=10, pady=6)
-            self.holen.pack(side='left')
-            self.holen.bind('<Button-1>', lambda e, d=datei: self._holen(d))
-            self._knopfleiste = knoepfe
+            self.fetch.pack(side='left')
+            self.fetch.bind('<Button-1>', lambda e, d=asset: self._fetch(d))
+            self._knopfleiste = buttons
 
-    def _holen(self, datei):
+    def _fetch(self, asset):
         """Herunterladen und einspielen — im Nebenläufer, damit nichts einfriert."""
-        self.holen.configure(bg=BAR, fg=SUB, cursor='')
-        self.holen.unbind('<Button-1>')
+        self.fetch.configure(bg=BAR, fg=SUB, cursor='')
+        self.fetch.unbind('<Button-1>')
 
         def arbeit():
             try:
                 ziel = updater.download(
-                    datei, progress=lambda p: self.root.after(
-                        0, lambda: self.meldung.configure(
+                    asset, progress=lambda p: self.root.after(
+                        0, lambda: self.message.configure(
                             text=t('wird_geladen', p))),
-                    release=self.neue)
-                geklappt, grund = updater.install(ziel)
-                self.root.after(0, lambda: self._ergebnis(geklappt, grund))
+                    release=self.newer)
+                collapsed, bg_colour = updater.install(ziel)
+                self.root.after(0, lambda: self._outcome(collapsed, bg_colour))
             except Exception as fehler:
-                nachricht = str(fehler)
-                self.root.after(0, lambda: self._ergebnis(False, nachricht))
+                notice_text = str(fehler)
+                self.root.after(0, lambda: self._outcome(False, notice_text))
 
         threading.Thread(target=arbeit, daemon=True).start()
 
-    def _ergebnis(self, geklappt, grund):
-        if not geklappt:
-            self.meldung.configure(text=t('update_fehler', grund) + '\n'
+    def _outcome(self, collapsed, bg_colour):
+        if not collapsed:
+            self.message.configure(text=t('update_fehler', bg_colour) + '\n'
                                    + t('selbst_holen'), fg=GELB)
             return
 
@@ -220,25 +220,25 @@ class Versionsfenster:
         # gemacht — es fehlte schlicht der zweite Schritt, und niemand sagte ihm
         # das. In den Einstellungen gibt es den Neustart-Knopf längst; hier war
         # er nie eingebaut.
-        self.meldung.configure(text=t('neustart_noetig'), fg=ACCENT)
+        self.message.configure(text=t('neustart_noetig'), fg=ACCENT)
         try:
             self._neustart_knopf()
         except Exception as ausnahme:
             from . import fehler
-            fehler.merken('versionsfenster.neustart_knopf', ausnahme)
+            fehler.merken('version_window.restart_button', ausnahme)
 
     def _neustart_knopf(self):
         """Aus „geladen" wird ein Knopf, der den Neustart auch ausführt."""
-        leiste = getattr(self, '_knopfleiste', None)
-        if leiste is None:
+        bar = getattr(self, '_knopfleiste', None)
+        if bar is None:
             return
-        knopf = tk.Label(leiste, text='  %s  ' % t('s_ub_neustart'),
+        button = tk.Label(bar, text='  %s  ' % t('s_ub_neustart'),
                          bg=ACCENT, fg=BG, font=schrift(10, True),
                          cursor='hand2', padx=10, pady=6)
-        knopf.pack(side='left', padx=(8, 0))
-        knopf.bind('<Button-1>', lambda e: self._neu_starten())
+        button.pack(side='left', padx=(8, 0))
+        button.bind('<Button-1>', lambda e: self._restart())
 
-    def _neu_starten(self):
+    def _restart(self):
         """Die frisch geladene Version übernehmen.
 
         ⚠ Derselbe Ablauf wie auf der Einstellungsseite: Der Notausgang wird
@@ -248,7 +248,7 @@ class Versionsfenster:
         """
         import os
         if not updater.restart():
-            self.meldung.configure(text=t('s_ub_neustart_nein'), fg=GELB)
+            self.message.configure(text=t('s_ub_neustart_nein'), fg=GELB)
             return
 
         # ⚠ **Erst nachsehen, ob die neue Version lebt.** Vorher wurde der
@@ -256,12 +256,12 @@ class Versionsfenster:
         # tot (unter Linux monatelang der Regelfall), stand der Rechner ohne
         # Watcher da, und niemand erfuhr den Grund. Siehe
         # `updater.neue_fassung_laeuft`.
-        def pruefen():
-            lebt = updater.new_version_alive()
+        def check():
+            alive = updater.new_version_alive()
 
             def weiter():
-                if not lebt:
-                    self.meldung.configure(text=t('s_ub_neustart_tot'), fg=GELB)
+                if not alive:
+                    self.message.configure(text=t('s_ub_neustart_tot'), fg=GELB)
                     return
                 threading.Timer(2.0, lambda: os._exit(0)).start()
                 try:
@@ -274,60 +274,60 @@ class Versionsfenster:
             except Exception:
                 pass
 
-        threading.Thread(target=pruefen, daemon=True).start()
+        threading.Thread(target=check, daemon=True).start()
 
     # ------------------------------------------------------------- Geschichte
-    def _geschichte(self):
-        rahmen = tk.Frame(self.root, bg=BG)
-        rahmen.pack(fill='both', expand=True, padx=14, pady=12)
-        leinwand = tk.Canvas(rahmen, bg=BG, highlightthickness=0)
+    def _history(self):
+        frame = tk.Frame(self.root, bg=BG)
+        frame.pack(fill='both', expand=True, padx=14, pady=12)
+        canvas = tk.Canvas(frame, bg=BG, highlightthickness=0)
         from .hauptfenster import rundleiste
-        rolle = rundleiste(rahmen, leinwand, grund=BG)
-        inhalt = tk.Frame(leinwand, bg=BG)
-        inhalt.bind('<Configure>', lambda e: leinwand.configure(
-            scrollregion=leinwand.bbox('all')))
-        fenster = leinwand.create_window((0, 0), window=inhalt, anchor='nw')
-        leinwand.bind('<Configure>',
-                      lambda e: leinwand.itemconfigure(fenster, width=e.width))
-        leinwand.configure(yscrollcommand=rolle.set)
-        leinwand.pack(side='left', fill='both', expand=True)
+        rolle = rundleiste(frame, canvas, bg_colour=BG)
+        body = tk.Frame(canvas, bg=BG)
+        body.bind('<Configure>', lambda e: canvas.configure(
+            scrollregion=canvas.bbox('all')))
+        window = canvas.create_window((0, 0), window=body, anchor='nw')
+        canvas.bind('<Configure>',
+                      lambda e: canvas.itemconfigure(window, width=e.width))
+        canvas.configure(yscrollcommand=rolle.set)
+        canvas.pack(side='left', fill='both', expand=True)
         rolle.pack(side='right', fill='y')
         from .hauptfenster import rad_anschliessen
-        rad_anschliessen(leinwand)
+        rad_anschliessen(canvas)
 
-        eintraege = updater.history()
-        if not eintraege:
-            tk.Label(inhalt, text=t('keine_versionen'), bg=BG, fg=SUB,
+        entries = updater.history()
+        if not entries:
+            tk.Label(body, text=t('keine_versionen'), bg=BG, fg=SUB,
                      font=schrift(11), pady=20).pack()
             return
-        for e in eintraege:
-            self._eintrag(inhalt, e)
+        for e in entries:
+            self._eintrag(body, e)
 
-    def _eintrag(self, eltern, e):
-        block = tk.Frame(eltern, bg=BG)
+    def _eintrag(self, parent, e):
+        block = tk.Frame(parent, bg=BG)
         block.pack(fill='x', pady=(0, 18))
-        kopf = tk.Frame(block, bg=BG)
-        kopf.pack(fill='x')
+        head = tk.Frame(block, bg=BG)
+        head.pack(fill='x')
         # Die eigene Version hervorheben — dann sieht man auf einen Blick,
         # wie weit man zurückliegt.
-        eigen = (updater._parts(e['version'])
-                 == updater._parts(self.eigene))
-        tk.Label(kopf, text=e['version'], bg=BG, fg=ACCENT if eigen else FG,
+        own = (updater._parts(e['version'])
+                 == updater._parts(self.own_value))
+        tk.Label(head, text=e['version'], bg=BG, fg=ACCENT if own else FG,
                  font=schrift(12, True), anchor='w').pack(side='left')
         rechts = e['datum']
-        if eigen:
+        if own:
             rechts = (rechts + '  ·  ' if rechts else '') + t('du_hast', '').strip(' %s')
         if rechts:
-            tk.Label(kopf, text=rechts, bg=BG, fg=SUB, font=schrift(9),
+            tk.Label(head, text=rechts, bg=BG, fg=SUB, font=schrift(9),
                      anchor='e').pack(side='right')
         tk.Frame(block, bg=FLAECHE, height=1).pack(fill='x', pady=(4, 8))
-        tk.Label(block, text=aufbereiten(sprachteil(e['text'])) or '—', bg=BG, fg=SUB,
+        tk.Label(block, text=prepare(language_part(e['text'])) or '—', bg=BG, fg=SUB,
                  font=schrift(10), anchor='w', justify='left',
                  wraplength=630).pack(fill='x')
 
-    def schliessen(self):
-        if self.beim_schliessen:
-            self.beim_schliessen()
+    def close(self):
+        if self.on_close:
+            self.on_close()
         self.root.destroy()
 
     def run(self):
@@ -335,4 +335,4 @@ class Versionsfenster:
 
 
 if __name__ == '__main__':
-    Versionsfenster(eigene_version='1.0.3').run()
+    VersionWindow(own_version='1.0.3').run()

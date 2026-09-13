@@ -67,22 +67,22 @@ ROT     = '#e05252'
 # Wie lange auf einen Stick-Knopf gewartet wird, bevor der Faden aufgibt.
 # Kurz genug, dass ein vergessenes Fenster nichts offen haelt; lang genug,
 # dass man den richtigen Knopf sucht.
-GEDULD = 20.0
+PATIENCE = 20.0
 
 
-class Belegenfenster:
+class BindingWindow:
     """Fragt eine Eingabe ab und schreibt sie auf Wunsch in die Belegung."""
 
-    def __init__(self, eltern, aktion, bereich, kennzeichen, klarname='',
-                 bisher='', fertig=None):
-        self.aktion = aktion
-        self.bereich = bereich
-        self.kennzeichen = kennzeichen
-        self.fertig = fertig
-        self.erkannt = None
-        self._laeuft = True
+    def __init__(self, parent, action, section, device_id, plain_name='',
+                 previous='', done=None):
+        self.action = action
+        self.section = section
+        self.device_id = device_id
+        self.done = done
+        self.detected = None
+        self._running = True
 
-        self.root = tk.Toplevel(eltern)
+        self.root = tk.Toplevel(parent)
         self.root.title(t('hf_titel') + ' — ' + t('s_js_b_titel'))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
@@ -94,85 +94,85 @@ class Belegenfenster:
         # `mittig_ueber` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
         from .hauptfenster import mittig_ueber
-        if eltern is None or not mittig_ueber(self.root, eltern, 520, 340):
+        if parent is None or not mittig_ueber(self.root, parent, 520, 340):
             self.root.geometry('520x340')
         self.root.resizable(False, False)
-        self.root.transient(eltern)
-        self.root.protocol('WM_DELETE_WINDOW', self.schliessen)
+        self.root.transient(parent)
+        self.root.protocol('WM_DELETE_WINDOW', self.close)
 
-        kopf = tk.Frame(self.root, bg=BAR)
-        kopf.pack(fill='x')
-        tk.Label(kopf, text=(klarname or aktion), bg=BAR, fg=FG,
+        head = tk.Frame(self.root, bg=BAR)
+        head.pack(fill='x')
+        tk.Label(head, text=(plain_name or action), bg=BAR, fg=FG,
                  font=('Segoe UI', 11, 'bold'), anchor='w',
                  wraplength=470, justify='left').pack(fill='x', padx=16,
                                                       pady=(11, 2))
-        tk.Label(kopf, text='%s · %s' % (kennzeichen, bereich or ''),
+        tk.Label(head, text='%s · %s' % (device_id, section or ''),
                  bg=BAR, fg=SUB, font=('Segoe UI', 9),
                  anchor='w').pack(fill='x', padx=16, pady=(0, 11))
 
-        leib = tk.Frame(self.root, bg=BG)
-        leib.pack(fill='both', expand=True, padx=16, pady=12)
+        body = tk.Frame(self.root, bg=BG)
+        body.pack(fill='both', expand=True, padx=16, pady=12)
 
-        if bisher:
-            tk.Label(leib, text=t('s_js_b_bisher', bisher), bg=BG, fg=SUB,
+        if previous:
+            tk.Label(body, text=t('s_js_b_bisher', previous), bg=BG, fg=SUB,
                      font=('Segoe UI', 9), anchor='w').pack(fill='x')
 
-        self.aufforderung = tk.Label(leib, text=t('s_js_b_druecke'), bg=BG,
+        self.prompt = tk.Label(body, text=t('s_js_b_druecke'), bg=BG,
                                      fg=FG, font=('Segoe UI', 11), anchor='w',
                                      wraplength=470, justify='left')
-        self.aufforderung.pack(fill='x', pady=(12, 6))
+        self.prompt.pack(fill='x', pady=(12, 6))
 
-        self.anzeige = tk.Label(leib, text='—', bg=FLAECHE, fg=ACCENT,
+        self.display = tk.Label(body, text='—', bg=FLAECHE, fg=ACCENT,
                                 font=('Segoe UI', 14, 'bold'), pady=14)
-        self.anzeige.pack(fill='x')
+        self.display.pack(fill='x')
 
-        self.konflikt = tk.Label(leib, text='', bg=BG, fg=GOLD,
+        self.conflict = tk.Label(body, text='', bg=BG, fg=GOLD,
                                  font=('Segoe UI', 9), anchor='w',
                                  wraplength=470, justify='left')
-        self.konflikt.pack(fill='x', pady=(8, 0))
+        self.conflict.pack(fill='x', pady=(8, 0))
 
-        tk.Label(leib, text=t('s_js_spiel_zu'), bg=BG, fg=SUB,
+        tk.Label(body, text=t('s_js_spiel_zu'), bg=BG, fg=SUB,
                  font=('Segoe UI', 9), anchor='w', wraplength=470,
                  justify='left').pack(fill='x', pady=(8, 0))
 
-        fuss = tk.Frame(self.root, bg=BG)
-        fuss.pack(fill='x', padx=16, pady=(0, 14))
-        self.ok = tk.Label(fuss, text=' %s ' % t('s_js_b_uebernehmen'),
+        footer = tk.Frame(self.root, bg=BG)
+        footer.pack(fill='x', padx=16, pady=(0, 14))
+        self.ok = tk.Label(footer, text=' %s ' % t('s_js_b_uebernehmen'),
                            bg=FLAECHE, fg=SUB, font=('Segoe UI', 10),
                            padx=12, pady=7)
         self.ok.pack(side='left')
-        self.ok.bind('<Button-1>', lambda e: self._uebernehmen())
-        loeschen = tk.Label(fuss, text=' %s ' % t('s_js_b_loeschen'),
+        self.ok.bind('<Button-1>', lambda e: self._take_over())
+        clear = tk.Label(footer, text=' %s ' % t('s_js_b_loeschen'),
                             bg=FLAECHE, fg=ROT, font=('Segoe UI', 10),
                             padx=12, pady=7, cursor='hand2')
-        loeschen.pack(side='left', padx=(8, 0))
-        loeschen.bind('<Button-1>', lambda e: self._loeschen())
-        abbruch = tk.Label(fuss, text=' %s ' % t('s_js_b_abbruch'), bg=BG,
+        clear.pack(side='left', padx=(8, 0))
+        clear.bind('<Button-1>', lambda e: self._clear())
+        cancel = tk.Label(footer, text=' %s ' % t('s_js_b_abbruch'), bg=BG,
                            fg=SUB, font=('Segoe UI', 10), padx=12, pady=7,
                            cursor='hand2')
-        abbruch.pack(side='right')
-        abbruch.bind('<Button-1>', lambda e: self.schliessen())
+        cancel.pack(side='right')
+        cancel.bind('<Button-1>', lambda e: self.close())
 
         # ⚠ Tastatur und Maus fängt **dieses Fenster** ab, nichts sonst.
         self.root.bind('<KeyPress>', self._taste)
         self.root.bind('<Button>', self._maustaste)
         self.root.bind('<MouseWheel>', self._rad)          # Windows/macOS
-        self.root.bind('<Button-4>', lambda e: self._setzen('mo1',
+        self.root.bind('<Button-4>', lambda e: self._apply('mo1',
                                                             'mwheel_up'))
-        self.root.bind('<Button-5>', lambda e: self._setzen('mo1',
+        self.root.bind('<Button-5>', lambda e: self._apply('mo1',
                                                             'mwheel_down'))
         self.root.focus_force()
         self.root.grab_set()
 
         if eingabe.verfuegbar():
-            self._lauschen()
+            self._listen()
         else:
             # Kein Stick erkennbar — Tastatur und Maus gehen trotzdem.
-            self.aufforderung.configure(text=t('s_js_b_nur_tastatur'))
+            self.prompt.configure(text=t('s_js_b_nur_tastatur'))
 
     # ------------------------------------------------------------- erkennen
 
-    def _lauschen(self):
+    def _listen(self):
         """Auf einen Stick-Knopf warten — in einem eigenen Faden.
 
         ⚠ Der Faden fasst **keine** Oberfläche an. Das Ergebnis wird über
@@ -181,105 +181,105 @@ class Belegenfenster:
         """
         def arbeit():
             try:
-                treffer = eingabe.warten(GEDULD, abbruch=lambda: not self._laeuft)
+                match = eingabe.warten(PATIENCE, cancel=lambda: not self._running)
             except Exception as ausnahme:
-                fehler.merken('belegenfenster.lauschen', ausnahme)
-                treffer = None
-            if treffer and self._laeuft:
+                fehler.merken('binding_window.listen', ausnahme)
+                match = None
+            if match and self._running:
                 try:
-                    self.root.after(0, lambda: self._vom_stick(treffer))
+                    self.root.after(0, lambda: self._vom_stick(match))
                 except Exception:
                     pass
 
         threading.Thread(target=arbeit, daemon=True).start()
 
-    def _vom_stick(self, treffer):
+    def _vom_stick(self, match):
         """Ein Stick hat gemeldet — welches Gerät war es?"""
-        kennzeichen = self._geraet_zu_kennzeichen(treffer.get('kennung'))
-        if not kennzeichen:
+        device_id = self._device_to_id(match.get('kennung'))
+        if not device_id:
             # Das Gerät steht noch in keiner Belegung. Dann ist unklar, welche
             # Nummer das Spiel ihm gibt — lieber sagen als raten.
-            self.aufforderung.configure(text=t('s_js_b_fremd'), fg=GOLD)
+            self.prompt.configure(text=t('s_js_b_fremd'), fg=GOLD)
             return
-        self._setzen(kennzeichen, treffer.get('eingabe', ''))
+        self._apply(device_id, match.get('eingabe', ''))
 
-    def _geraet_zu_kennzeichen(self, kennung):
+    def _device_to_id(self, tag):
         """Aus der Geräte-Kennung die Nummer machen, die das Spiel benutzt."""
-        if not kennung:
+        if not tag:
             return ''
         try:
             for z in joysticks.zuordnung():
-                if (z.get('kennung') or '').upper() == kennung.upper():
+                if (z.get('kennung') or '').upper() == tag.upper():
                     return 'js%d' % z['nummer']
         except Exception as ausnahme:
-            fehler.merken('belegenfenster.zuordnung', ausnahme)
+            fehler.merken('binding_window.mapping', ausnahme)
         return ''
 
-    def _taste(self, ereignis):
-        name = eingabe.taste_aus_tk(getattr(ereignis, 'keysym', ''))
+    def _taste(self, event):
+        name = eingabe.taste_aus_tk(getattr(event, 'keysym', ''))
         if name == 'escape':
-            self.schliessen()
+            self.close()
             return
         if name:
-            self._setzen('kb1', name)
+            self._apply('kb1', name)
 
-    def _maustaste(self, ereignis):
+    def _maustaste(self, event):
         # 4 und 5 sind unter X11 das Rad — die haben eigene Bindungen.
-        if getattr(ereignis, 'num', 0) in (4, 5):
+        if getattr(event, 'num', 0) in (4, 5):
             return
-        name = eingabe.maus_aus_tk(nummer=getattr(ereignis, 'num', 0))
+        name = eingabe.maus_aus_tk(nummer=getattr(event, 'num', 0))
         if name:
-            self._setzen('mo1', name)
+            self._apply('mo1', name)
 
-    def _rad(self, ereignis):
-        self._setzen('mo1', eingabe.maus_aus_tk(
-            rad=getattr(ereignis, 'delta', 0)))
+    def _rad(self, event):
+        self._apply('mo1', eingabe.maus_aus_tk(
+            rad=getattr(event, 'delta', 0)))
 
-    def _setzen(self, kennzeichen, name):
+    def _apply(self, device_id, name):
         """Eine erkannte Eingabe anzeigen — geschrieben wird noch nicht."""
         if not name:
             return
-        self._laeuft = False
-        self.erkannt = (kennzeichen, name)
-        self.anzeige.configure(text='%s  %s' % (kennzeichen, name))
+        self._running = False
+        self.detected = (device_id, name)
+        self.display.configure(text='%s  %s' % (device_id, name))
         self.ok.configure(fg=ACCENT, cursor='hand2')
-        self.aufforderung.configure(text=t('s_js_b_nochmal'), fg=SUB)
+        self.prompt.configure(text=t('s_js_b_nochmal'), fg=SUB)
         # Wieder lauschen: Wer sich vertan hat, drückt einfach nochmal.
-        self._laeuft = True
+        self._running = True
         if eingabe.verfuegbar():
-            self._lauschen()
+            self._listen()
 
         try:
-            andere = joysticks.konflikte(self.aktion, kennzeichen, name)
+            others = joysticks.konflikte(self.action, device_id, name)
         except Exception:
-            andere = []
-        if andere:
-            namen = []
+            others = []
+        if others:
+            names = []
             try:
-                klar = joysticks.klarnamen(_sprache())
+                label = joysticks.klarnamen(_language())
             except Exception:
-                klar = {}
-            for e in andere[:3]:
-                namen.append(klar.get(e['aktion'], ('', ''))[0]
+                label = {}
+            for e in others[:3]:
+                names.append(label.get(e['aktion'], ('', ''))[0]
                              or e['aktion'])
-            self.konflikt.configure(text=t('s_js_b_konflikt',
-                                           ', '.join(namen)))
+            self.conflict.configure(text=t('s_js_b_konflikt',
+                                           ', '.join(names)))
         else:
-            self.konflikt.configure(text='')
+            self.conflict.configure(text='')
 
     # -------------------------------------------------------------- schreiben
 
-    def _uebernehmen(self):
-        if not self.erkannt:
+    def _take_over(self):
+        if not self.detected:
             return
-        kennzeichen, name = self.erkannt
-        self._schreiben(kennzeichen, name)
+        device_id, name = self.detected
+        self._write(device_id, name)
 
-    def _loeschen(self):
+    def _clear(self):
         """Die Belegung entfernen — und zwar so, wie das Spiel es versteht."""
-        self._schreiben(self.kennzeichen, '')
+        self._write(self.device_id, '')
 
-    def _schreiben(self, kennzeichen, name):
+    def _write(self, device_id, name):
         # ⚠⚠ **Kein `messagebox`.** Der System-Dialog von Tk landet nicht
         # zuverlässig über dem Elternfenster: Am 06.09.2026 erschien er beim
         # Speichern der Belegung **außerhalb aller Bildschirme** — und weil er
@@ -290,18 +290,18 @@ class Belegenfenster:
         # `frage_stellen` setzt sich mittig über das Elternfenster und wird
         # mit ihm geschlossen.
         from .hauptfenster import frage_stellen
-        erfolg, meldung, _ = joysticks.belegen(self.aktion, self.bereich,
-                                               kennzeichen, name)
-        if erfolg:
+        ok_state, message, _ = joysticks.belegen(self.action, self.section,
+                                               device_id, name)
+        if ok_state:
             frage_stellen(self.root, t('s_js_b_titel'),
-                          t('s_js_fertig', meldung), nur_ok=True)
-            self.schliessen(True)
+                          t('s_js_fertig', message), nur_ok=True)
+            self.close(True)
         else:
             frage_stellen(self.root, t('s_js_b_titel'),
-                          t('s_js_schief', t(meldung)), nur_ok=True)
+                          t('s_js_schief', t(message)), nur_ok=True)
 
-    def schliessen(self, geaendert=False):
-        self._laeuft = False
+    def close(self, changed=False):
+        self._running = False
         try:
             self.root.grab_release()
         except Exception:
@@ -310,14 +310,14 @@ class Belegenfenster:
             self.root.destroy()
         except Exception:
             pass
-        if geaendert and self.fertig:
+        if changed and self.done:
             try:
-                self.fertig()
+                self.done()
             except Exception as ausnahme:
-                fehler.merken('belegenfenster.fertig', ausnahme)
+                fehler.merken('binding_window.done', ausnahme)
 
 
-def _sprache():
+def _language():
     from .sprache import aktuelle
     try:
         return aktuelle()

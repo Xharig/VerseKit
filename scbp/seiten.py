@@ -3797,7 +3797,7 @@ def _joysticks(fenster, rahmen):
         gedacht. Aus der Werkseinstellung kommt sie nicht mit — dann wird die
         Gruppe aus der eigenen Datei gesucht.
         """
-        from .belegenfenster import Belegenfenster
+        from .binding_window import BindingWindow
         bereich = (eintrag.get('bereich')
                    or joysticks.gruppe_von(eintrag['aktion'])
                    or _bereich_suchen(eintrag['aktion']))
@@ -3806,7 +3806,7 @@ def _joysticks(fenster, rahmen):
             # wird, entscheidet der Knopf, den der Spieler gleich drückt.
             kennzeichen = ''
         try:
-            Belegenfenster(fenster.root, eintrag['aktion'], bereich,
+            BindingWindow(fenster.root, eintrag['aktion'], bereich,
                            kennzeichen, klarname=klar,
                            bisher=eintrag.get('eingabe', ''),
                            fertig=_auffrischen)
@@ -14749,14 +14749,14 @@ def _blickwinkel(fenster, rahmen):
         _auffrischen()
 
     def _messen():
-        from . import fovfenster
+        from . import fov_window
         mm_je_pixel, pixelbreite, _abstand = _gespeichertes()
         start = None
         if mm_je_pixel:
             # Dort weitermachen, wo zuletzt aufgehört wurde — wer nachjustiert,
             # soll nicht wieder bei einer beliebigen Größe anfangen.
             start = fov_modul.KARTE_BREITE_MM / mm_je_pixel
-        fovfenster.kalibrieren(rahmen, _fertig_gemessen,
+        fov_window.calibrate(rahmen, _fertig_gemessen,
                                schrift=fenster.f_grund, klein=fenster.f_klein,
                                startbreite=start)
 
@@ -14924,7 +14924,7 @@ def _achsen(fenster, rahmen):
     ⚠ **Geschrieben wird nur auf Knopfdruck** — wie im ganzen Joystick-Teil.
     """
     from . import kurven
-    from .kurvenbild import Kurvenbild
+    from .curve_plot import CurvePlot
 
     # ⚠⚠ **Kein `messagebox`** — siehe die Begründung auf der Seite
     # „Blickwinkel". Jedes Fenster sieht aus wie das Programm, auch ein neues.
@@ -15033,7 +15033,7 @@ def _achsen(fenster, rahmen):
         **nicht**, welche Funktion auf welcher Achse liegt. Vom Prüfer
         nachgestellt (12.09.2026): `v_pitch` von `js1_x` auf `js1_y` schieben,
         Exponent unverändert — die Zusammenfassung bleibt gleich, die Funktion
-        gehört danach zu einer anderen Achse, und Beschriftung, Kurvenbild und
+        gehört danach zu einer anderen Achse, und Beschriftung, CurvePlot und
         Regler wären auf dem alten Stand geblieben.
 
         ⭐ **Statt die einzelnen Abfragen nachzubauen, steht hier die QUELLE.**
@@ -15152,7 +15152,7 @@ def _achsen(fenster, rahmen):
         links.pack(side='left', fill='both', expand=True)
 
         werte = gewaehlter['achsen'].get(wahl['achse']) or {}
-        bild = Kurvenbild(rechts, breite=240, hoehe=240, ganz=wahl['ganz'],
+        bild = CurvePlot(rechts, breite=240, hoehe=240, ganz=wahl['ganz'],
                           schrift=fenster.f_grund, klein=fenster.f_klein)
         bild.pack()
         bild.zeigen(totzone=werte.get('deadzone'),
@@ -15168,8 +15168,8 @@ def _achsen(fenster, rahmen):
             _auffrischen()
 
         def _gross():
-            from .kurvenbild import gross_zeigen
-            gross_zeigen(rahmen, '%s — %s %s' % (t('s_ac_titel_gross'),
+            from .curve_plot import show_large
+            show_large(rahmen, '%s — %s %s' % (t('s_ac_titel_gross'),
                                                  gewaehlter['name'],
                                                  wahl['achse']),
                          totzone=werte.get('deadzone'),

@@ -2964,7 +2964,7 @@ class Overlay:
 
     def versionen_zeigen(self):
         """Das Fenster „Was ist neu" öffnen."""
-        from scbp.versionsfenster import Versionsfenster
+        from scbp.version_window import VersionWindow
         vorhanden = getattr(self, '_versionen', None)
         if vorhanden is not None:
             try:
@@ -2973,7 +2973,7 @@ class Overlay:
                 return
             except Exception:
                 pass
-        self._versionen = Versionsfenster(
+        self._versionen = VersionWindow(
             self.root, eigene_version=__version__,
             beim_schliessen=lambda: setattr(self, '_versionen', None))
 
