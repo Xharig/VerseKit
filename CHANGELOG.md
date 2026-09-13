@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.34.0 - 2026-09-13
+
+> **Alle Raffinerien auf einen Blick.** Zwischen der besten und der
+> schlechtesten Wahl liegen bei manchen Erzen 18 Prozentpunkte — und einige
+> Stationen ziehen dir bei bestimmten Materialien sogar etwas ab. Bisher sah
+> man das nur Erz für Erz. Jetzt steht alles nebeneinander, Aufschlag wie
+> Abschlag, und man sucht sich die Station, die zur eigenen Ladung passt.
+
 ### Neu
 
 - **Seite „Raffinerien":** alle Raffinerien nebeneinander, mit Aufschlag **und

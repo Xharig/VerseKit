@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.34.0 - 2026-09-13
+
+> **Every refinery at a glance.** For some ores there are 18 percentage points
+> between the best and the worst choice — and a few stations even take
+> something off for certain materials. Until now you could only see this ore by
+> ore. Now it is all side by side, bonus as well as penalty, and you pick the
+> station that suits your cargo.
+
 ### New
 
 - **"Refineries" page:** every refinery side by side, with bonus **and
