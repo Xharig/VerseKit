@@ -51,14 +51,14 @@ def gepackt(rahmen):
 
 
 def main():
-    fenster = main_window.Hauptfenster(version='mess')
+    fenster = main_window.MainWindow(version='mess')
     fenster.root.update()
-    fenster.oeffnen('joysticks')
+    fenster.open_page('joysticks')
     for _ in range(3):
         fenster.root.update()
         fenster.root.update_idletasks()
 
-    liste = liste_finden(fenster.seiten['joysticks'])
+    liste = liste_finden(fenster.pages['joysticks'])
     gebaut = len(liste.winfo_children()) if liste else 0
     p(gebaut > seiten.ZEILEN_SOFORT,
       'die Liste hat mehr Zeilen als sofort gezeigt werden (%d)' % gebaut)
@@ -129,7 +129,7 @@ def main():
     # entstanden ueber 1.600 Bauteile, die beim naechsten Tastendruck alle
     # wieder zerstoert wurden (1,03 von 1,24 s allein dafuer).
     print('\n  Auswahlliste auf „Zerlegen":')
-    fenster.oeffnen('zerlegen')
+    fenster.open_page('zerlegen')
     for _ in range(3):
         fenster.root.update()
         fenster.root.update_idletasks()
@@ -141,7 +141,7 @@ def main():
             alle_leinwaende(k, heraus)
         return heraus
 
-    seite = fenster.seiten['zerlegen']
+    seite = fenster.pages['zerlegen']
     # Das Feld aufklappen, damit die Liste ueberhaupt entsteht.
     feld = None
     def entry_finden(w):

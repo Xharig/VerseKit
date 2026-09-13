@@ -112,12 +112,12 @@ def _durchgehen(w, gefunden):
 
 def _eine_runde(groesse, kuerzel, treffer):
     sprache.setzen(kuerzel)
-    fenster = main_window.Hauptfenster()
+    fenster = main_window.MainWindow()
     fenster.root.geometry(groesse)
     fenster.root.update_idletasks()
     for seite in SEITEN:
         try:
-            fenster.oeffnen(seite)
+            fenster.open_page(seite)
         except Exception as ausnahme:
             treffer.append((groesse, kuerzel, seite,
                             'Seite baut nicht: %s' % ausnahme, 0))
@@ -125,7 +125,7 @@ def _eine_runde(groesse, kuerzel, treffer):
         fenster.root.update_idletasks()
         fenster.root.update()
         gefunden = []
-        _durchgehen(fenster.inhalt, gefunden)
+        _durchgehen(fenster.content, gefunden)
         for text, fehlt, art in gefunden:
             treffer.append((groesse, kuerzel, seite,
                             '%s (%s)' % (text, art), fehlt))

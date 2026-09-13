@@ -72,7 +72,7 @@ RED     = '#e05252'
 # sind. 1100 gibt etwas Luft.
 #
 # **Höhe:** Der Wert hier ist nur die Untergrenze. Die wirkliche Mindesthöhe wird
-# **gemessen** (siehe `_mindesthoehe_nachziehen`), denn wie viel Platz die
+# **gemessen** (siehe `_min_height_update`), denn wie viel Platz die
 # Seitenleiste braucht, hängt an Schriftgröße und Anzeige-Skalierung: bei 100 %
 # rund 674 Pixel, bei 125 % schon 842. Eine feste Zahl wäre auf dem einen
 # System zu klein — dann ist unten „Diagnose" abgeschnitten — und auf dem anderen
@@ -1637,12 +1637,12 @@ def badge(eltern, text, color, schrift, grund=None, min_width=0):
     return c
 
 
-class Hauptfenster:
+class MainWindow:
     """Der Rahmen mit der Reiterleiste. Die Seiten liefern andere Module."""
 
-    def __init__(self, eltern=None, beim_schliessen=None, version='',
-                 beim_schriftwechsel=None, startseite='liste'):
-        self.beim_schliessen = beim_schliessen
+    def __init__(self, eltern=None, on_close=None, version='',
+                 on_font_change=None, start_page='liste'):
+        self.on_close = on_close
         self.version = version
         # ⚠⚠ **Was noch aussteht, wird beim Zumachen nachgeholt.**
         #
@@ -1656,7 +1656,7 @@ class Hauptfenster:
         # Genau dieselbe Falle wie bei der Fenstergroesse ein paar Zeilen
         # weiter unten, nur mit schlimmerer Wirkung. Eine Seite meldet ihren
         # offenen Auftrag hier an; `schliessen()` arbeitet ihn ab.
-        self.vor_dem_schliessen = []
+        self.before_close = []
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
         # ⚠⚠ **Erst bauen, dann zeigen.** Ein `Toplevel` steht ab der Erzeugung
         # auf dem Bildschirm — Reiterleiste, Fusszeile und die erste Seite
@@ -1680,26 +1680,26 @@ class Hauptfenster:
         self.root.minsize(MIN_WIDTH, MIN_HEIGHT)
         # Merker fuer die Drossel unten — solange etwas darin steht, ist ein
         # Speichern schon vorgemerkt.
-        self._groesse_wartet = None
-        self.root.bind('<Configure>', self._groesse_beobachten, add='+')
+        self._size_pending = None
+        self.root.bind('<Configure>', self._watch_size, add='+')
 
-        self._schriften_anlegen()
+        self._build_fonts()
 
-        self.seiten = {}          # kennung -> Frame
-        self.gezeichnet = set()   # welche Seiten schon Inhalt haben
-        self.knoepfe = {}         # kennung -> Reiter-Label
-        # Die klappbaren Gruppen der Seitenleiste — siehe `_gruppe`.
-        self.gruppen = {}
-        self.aktuell = None
-        self.fortgeschritten_offen = False
+        self.pages = {}          # kennung -> Frame
+        self.drawn = set()   # welche Seiten schon Inhalt haben
+        self.buttons = {}         # kennung -> Reiter-Label
+        # Die klappbaren Gruppen der Seitenleiste — siehe `_group`.
+        self.groups = {}
+        self.current = None
+        self.advanced_open = False
         # Wer die Schriftgröße ändert, meint das ganze Programm — auch das
         # Overlay. Das Fenster kennt es nicht, deshalb ein Rückruf.
-        self.beim_schriftwechsel = beim_schriftwechsel
+        self.on_font_change = on_font_change
 
-        self._titelleiste()
-        self._fusszeile()         # ⚠ vor dem Inhalt — sonst rutscht sie hinaus
-        self._korpus()
-        self._klick_ins_leere_einrichten()
+        self._titlebar()
+        self._footer()         # ⚠ vor dem Inhalt — sonst rutscht sie hinaus
+        self._body()
+        self._bind_click_on_empty()
 
         # ⚠⚠ **Die gewuenschte Seite, nicht fest die Liste.** Bis zum 02.09.2026
         # stand hier `self.oeffnen('liste')`, und der Aufrufer oeffnete die
@@ -1708,11 +1708,11 @@ class Hauptfenster:
         # wieder ausgeblendet wurde. Im Fehlerbericht stand es zweimal woertlich
         # untereinander: `Seite liste: steht (205 ms)` gefolgt von
         # `Seite allgemein: steht (7 ms)` — 205 der 212 ms waren fuer nichts.
-        self.oeffnen(startseite)
+        self.open_page(start_page)
         # Die Mindesthöhe hängt an Schriftgröße und Skalierung — einmal messen,
         # sobald Tk die Seitenleiste gezeichnet hat.
-        self.root.after(50, self._mindesthoehe_nachziehen)
-        self.root.protocol('WM_DELETE_WINDOW', self.schliessen)
+        self.root.after(50, self._min_height_update)
+        self.root.protocol('WM_DELETE_WINDOW', self.close)
         # ⚠ Jetzt ist alles gebaut — ab hier darf es gesehen werden. Steht
         # bewusst als letzte Zeile: Was danach noch dazukaeme, saehe der Nutzer
         # wieder entstehen. (Im Pruefbetrieb legt `tools/unsichtbar.py`
@@ -1730,11 +1730,11 @@ class Hauptfenster:
         # die Bitte: ein Standard, nicht dieselbe Zeile an fünfzig Stellen.
         # `bind_all` mit `add='+'`, damit vorhandene Klick-Bindungen weiter
         # feuern — ohne das `+` würde jedes andere `<Button-1>` überschrieben.
-        self.root.bind_all('<Button-1>', self._klick_ins_leere, add='+')
+        self.root.bind_all('<Button-1>', self._click_on_empty, add='+')
 
         self.root.deiconify()
 
-    def _klick_ins_leere(self, ereignis=None):
+    def _click_on_empty(self, ereignis=None):
         """Wird irgendwo geklickt, das kein Eingabefeld ist: Fokus abgeben.
 
         ⚠ **Nur Text-Eingaben behalten den Fokus.** Ein Klick auf einen Knopf
@@ -1774,19 +1774,19 @@ class Hauptfenster:
             pass                 # ein Klick darf nie einen Fehler auslösen
 
     # ------------------------------------------------------------- Schriften
-    def _schriften_anlegen(self):
+    def _build_fonts(self):
         stufe = FONT_LEVELS.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
-        self.f_grund  = tkfont.Font(family='Segoe UI', size=10 + stufe)
-        self.f_fett   = tkfont.Font(family='Segoe UI', size=10 + stufe, weight='bold')
-        self.f_klein  = tkfont.Font(family='Segoe UI', size=9 + stufe)
-        self.f_titel  = tkfont.Font(family='Segoe UI', size=12 + stufe, weight='bold')
+        self.f_base  = tkfont.Font(family='Segoe UI', size=10 + stufe)
+        self.f_bold   = tkfont.Font(family='Segoe UI', size=10 + stufe, weight='bold')
+        self.f_small  = tkfont.Font(family='Segoe UI', size=9 + stufe)
+        self.f_title  = tkfont.Font(family='Segoe UI', size=12 + stufe, weight='bold')
         # Siehe `Overlay.ZEICHEN_SCHRIFT`: `Segoe UI` enthält die Symbole nicht,
         # Windows fällt sonst auf die **farbige** Segoe UI Emoji zurück.
-        self.f_zeichen = tkfont.Font(
+        self.f_icon = tkfont.Font(
             family='Segoe UI Symbol' if pfade.WINDOWS else 'Segoe UI',
             size=13 + stufe)
 
-    def schriftgroesse_setzen(self, stufe):
+    def set_font_size(self, stufe):
         """Die ganze Oberfläche wächst oder schrumpft — sofort, ohne Neustart.
 
         ⚠ **Die Schriften umzustellen reicht nicht.** Ein benanntes Tk-Font
@@ -1804,17 +1804,17 @@ class Hauptfenster:
         pflegen kann.
 
         ⚠ Die Rückmeldung kommt **nach** dem Neuaufbau. Vorher gesagt, wäre sie
-        sofort wieder weg: `neu_aufbauen()` zerstört auch die Fußzeile.
+        sofort wieder weg: `rebuild()` zerstört auch die Fußzeile.
         """
         n = FONT_LEVELS.get(stufe, 1)
-        for schrift, grund in ((self.f_grund, 10), (self.f_fett, 10),
-                               (self.f_klein, 9), (self.f_titel, 12),
-                               (self.f_zeichen, 13)):
+        for schrift, grund in ((self.f_base, 10), (self.f_bold, 10),
+                               (self.f_small, 9), (self.f_title, 12),
+                               (self.f_icon, 13)):
             schrift.configure(size=grund + n)
         pfade.einstellung_setzen('schriftgroesse', stufe)
-        if self.beim_schriftwechsel:
+        if self.on_font_change:
             try:
-                self.beim_schriftwechsel(stufe)
+                self.on_font_change(stufe)
             except Exception as ausnahme:
                 fehler.merken('main_window.schriftwechsel', ausnahme)
 
@@ -1823,15 +1823,15 @@ class Hauptfenster:
         # „invalid command name“.
         def nachziehen():
             try:
-                self.neu_aufbauen()
-                self.sagen('%s: %s' % (t('hf_schrift'), t('hf_s_' + stufe)))
+                self.rebuild()
+                self.say('%s: %s' % (t('hf_schrift'), t('hf_s_' + stufe)))
             except Exception as ausnahme:
                 fehler.merken('main_window.schriftgroesse_nachziehen',
                               ausnahme)
 
         self.root.after(0, nachziehen)
 
-    def _klick_ins_leere_einrichten(self):
+    def _bind_click_on_empty(self):
         """Ein Klick neben ein Eingabefeld beendet die Eingabe — überall.
 
         ⚠⚠ **Das ist eine Regel des ganzen Fensters, keine Einzellösung.**
@@ -1875,51 +1875,51 @@ class Hauptfenster:
             pass
 
     # ------------------------------------------------------------ Titelleiste
-    def _titelleiste(self):
+    def _titlebar(self):
         bar = tk.Frame(self.root, bg=BAR)
         bar.pack(side='top', fill='x')
 
         # Das Programm-Icon gehört hierhin — dort sucht man es.
-        self._icon_bild = None
+        self._icon_image = None
         png = _bundled(os.path.join('assets', 'icon.png'))
         if png and os.path.exists(png):
             try:
                 full_color = tk.PhotoImage(file=png)
                 teiler = max(1, full_color.width() // 22)
-                self._icon_bild = full_color.subsample(teiler, teiler)
-                tk.Label(bar, image=self._icon_bild, bg=BAR).pack(side='left',
+                self._icon_image = full_color.subsample(teiler, teiler)
+                tk.Label(bar, image=self._icon_image, bg=BAR).pack(side='left',
                                                                  padx=(12, 8), pady=8)
             except Exception as ausnahme:
                 fehler.merken('main_window.icon', ausnahme)
 
         tk.Label(bar, text=t('hf_titel'), bg=BAR, fg=FG,
-                 font=self.f_fett).pack(side='left')
+                 font=self.f_bold).pack(side='left')
         tk.Label(bar, text='v%s' % (self.version or '—'), bg=BAR, fg=SUB,
-                 font=self.f_klein).pack(side='left', padx=(6, 0))
+                 font=self.f_small).pack(side='left', padx=(6, 0))
 
         # Symbol UND Wort: Ein Symbol allein erklärt sich nur dem, der es gebaut
         # hat — hier war selbst der Entwickler unsicher, was `⟳` bedeutet. Genau
         # deshalb steht der Zauberstab jetzt neben dem Wort „Einrichtung
         # starten": ein Verb sagt, dass etwas losgeht; „Einrichtung" allein
         # klang nach einem Ort, an dem man etwas nachschlägt.
-        self.knopf_neu = self._titelknopf(bar, 'wasistneu', t('hf_wasistneu'),
-                                          t('hf_hinweis_neu'), self._was_ist_neu)
-        self._titelknopf(bar, 'einrichtung', t('hf_einrichtung'),
-                         t('hf_hinweis_einr'), self._einrichtung)
+        self.news_button = self._titlebar_button(bar, 'wasistneu', t('hf_wasistneu'),
+                                          t('hf_hinweis_neu'), self._whats_new)
+        self._titlebar_button(bar, 'einrichtung', t('hf_einrichtung'),
+                         t('hf_hinweis_einr'), self._open_wizard)
         # ⚠ Gehoert hier oben hin, nicht in die Einstellungen: Wer den Rechner
         # wechselt, sucht nicht erst in Untermenues — und wer eine Sicherung
         # nie gesehen hat, macht auch keine. Ein sichtbarer Knopf ist der
         # Unterschied zwischen „gibt es" und „wird benutzt".
-        self._titelknopf(bar, 'sicherung', t('hf_sicherung'),
-                         t('hf_hinweis_sich'), self._sicherung)
-        self._spielzeit_anzeige(bar)
+        self._titlebar_button(bar, 'sicherung', t('hf_sicherung'),
+                         t('hf_hinweis_sich'), self._backup)
+        self._playtime_display(bar)
 
     # Wie oft die Spielzeit oben nachgerechnet wird.
     # ⚠ Eine Minute ist die feinste Anzeige („3 h 14 min") — oefter zu rechnen
     # aendert nichts am Bild und liest nur die Dateizeit umsonst.
-    ZEIT_TAKT_MS = 60 * 1000
+    TIME_TICK_MS = 60 * 1000
 
-    def _spielzeit_anzeige(self, bar):
+    def _playtime_display(self, bar):
         """Gesamt- und Sitzungszeit in der Kopfzeile.
 
         ⚠⚠ **Gewuenscht am 05.09.2026**, zusammen mit der Datenbank dahinter:
@@ -1946,16 +1946,16 @@ class Hauptfenster:
         # weggeraeumt. Was nichts kostet und sich nicht nachholen laesst,
         # sammelt man besser mit.
         if not pfade.einstellung_wahrheit('spielzeit_zeigen', False):
-            self.zeit_text = None
+            self.time_label = None
             return
 
         rahmen = tk.Frame(bar, bg=BAR)
         rahmen.pack(side='right', padx=(0, 14), pady=6)
-        z = icons.button(rahmen, 'zeit', background=BAR, font=self.f_zeichen)
+        z = icons.button(rahmen, 'zeit', background=BAR, font=self.f_icon)
         z.pack(side='left')
-        self.zeit_text = tk.Label(rahmen, text='', bg=BAR, fg=SUB,
-                                  font=self.f_klein)
-        self.zeit_text.pack(side='left')
+        self.time_label = tk.Label(rahmen, text='', bg=BAR, fg=SUB,
+                                  font=self.f_small)
+        self.time_label.pack(side='left')
 
         def erklaerung():
             ab = _sz.since()
@@ -1968,7 +1968,7 @@ class Hauptfenster:
 
         def nachziehen():
             try:
-                if not self.zeit_text.winfo_exists():
+                if not self.time_label.winfo_exists():
                     return
                 gesamt = _sz.total()
                 jetzt = _sz.session_now()
@@ -1979,22 +1979,22 @@ class Hauptfenster:
                                            _sz.as_text(jetzt))
                 else:
                     text = ' %s' % _sz.as_text(gesamt)
-                self.zeit_text.configure(text=text)
+                self.time_label.configure(text=text)
             except Exception as ausnahme:
                 fehler.merken('main_window.spielzeit', ausnahme)
             try:
-                self.root.after(self.ZEIT_TAKT_MS, nachziehen)
+                self.root.after(self.TIME_TICK_MS, nachziehen)
             except tk.TclError:
                 pass
 
         nachziehen()
 
-    def _titelknopf(self, eltern, symbol, wort, erklaerung, tat):
+    def _titlebar_button(self, eltern, symbol, wort, erklaerung, tat):
         rahmen = tk.Frame(eltern, bg=BAR, cursor='hand2')
         rahmen.pack(side='right', padx=(0, 10), pady=6)
-        z = icons.button(rahmen, symbol, background=BAR, font=self.f_zeichen)
+        z = icons.button(rahmen, symbol, background=BAR, font=self.f_icon)
         z.pack(side='left')
-        w = tk.Label(rahmen, text=' ' + wort, bg=BAR, fg=SUB, font=self.f_klein)
+        w = tk.Label(rahmen, text=' ' + wort, bg=BAR, fg=SUB, font=self.f_small)
         w.pack(side='left')
         for part in (rahmen, z, w):
             part.bind('<Button-1>', lambda e, f=tat: f())
@@ -2003,30 +2003,30 @@ class Hauptfenster:
         return rahmen
 
     # --------------------------------------------------------------- Fußzeile
-    def _fusszeile(self):
+    def _footer(self):
         fuss = tk.Frame(self.root, bg=BAR)
         fuss.pack(side='bottom', fill='x')
-        self.meldung = tk.Label(fuss, text=t('hf_sofort'), bg=BAR, fg=SUB,
-                                font=self.f_klein)
-        self.meldung.pack(side='left', padx=14, pady=9)
+        self.message = tk.Label(fuss, text=t('hf_sofort'), bg=BAR, fg=SUB,
+                                font=self.f_small)
+        self.message.pack(side='left', padx=14, pady=9)
         k = tk.Label(fuss, text=' %s ' % t('hf_schliessen'), bg=SURFACE, fg=FG,
-                     font=self.f_klein, cursor='hand2', padx=10, pady=4)
+                     font=self.f_small, cursor='hand2', padx=10, pady=4)
         k.pack(side='right', padx=12)
-        k.bind('<Button-1>', lambda e: self.schliessen())
+        k.bind('<Button-1>', lambda e: self.close())
 
-    def sagen(self, text):
+    def say(self, text):
         """Kurze Rückmeldung in der Fußzeile — statt eines Speichern-Knopfes."""
         try:
-            self.meldung.configure(text=text, fg=ACCENT)
-            self.root.after(4000, lambda: self.meldung.configure(
+            self.message.configure(text=text, fg=ACCENT)
+            self.root.after(4000, lambda: self.message.configure(
                 text=t('hf_sofort'), fg=SUB))
         except Exception:
             pass
 
     # ----------------------------------------------------------------- Korpus
-    def _korpus(self):
+    def _body(self):
         # 210 ist nur der Startwert — die wirkliche Breite wird gemessen, sobald
-        # die Einträge stehen (siehe `_leistenbreite_nachziehen`).
+        # die Einträge stehen (siehe `_sidebar_width_update`).
         # ⚠⚠ **Die Leiste rollt, wenn sie nicht ganz auf den Bildschirm passt.**
         #
         # Vorher war sie ein fester Rahmen, und ihre Höhe bestimmte die
@@ -2046,19 +2046,19 @@ class Hauptfenster:
         # ein Startknopf, den man erst herunterrollen muss, ist keiner. Deshalb
         # eine Spalte mit zwei Teilen: unten der feste Fuß, darüber die
         # rollende Leiste, die sich den Rest nimmt.
-        self.leisten_spalte = tk.Frame(self.root, bg=SURFACE,
+        self.sidebar_column = tk.Frame(self.root, bg=SURFACE,
                                        width=SIDEBAR_WIDTH)
-        self.leisten_spalte.pack(side='left', fill='y')
-        self.leisten_spalte.pack_propagate(False)
+        self.sidebar_column.pack(side='left', fill='y')
+        self.sidebar_column.pack_propagate(False)
 
-        self.leisten_fuss = tk.Frame(self.leisten_spalte, bg=SURFACE)
-        self.leisten_fuss.pack(side='bottom', fill='x')
+        self.sidebar_foot = tk.Frame(self.sidebar_column, bg=SURFACE)
+        self.sidebar_foot.pack(side='bottom', fill='x')
 
         # Zwischenrahmen, damit Rollbalken und Fläche nebeneinander liegen und
         # der Fuß darunter unberührt bleibt.
-        rollbereich = tk.Frame(self.leisten_spalte, bg=SURFACE)
+        rollbereich = tk.Frame(self.sidebar_column, bg=SURFACE)
         rollbereich.pack(side='top', fill='both', expand=True)
-        self.leisten_flaeche = tk.Canvas(rollbereich, bg=SURFACE,
+        self.sidebar_canvas = tk.Canvas(rollbereich, bg=SURFACE,
                                          width=SIDEBAR_WIDTH,
                                          highlightthickness=0, bd=0)
         # ⚠ **Ohne sichtbaren Balken sieht die Leiste kaputt aus.** Passt sie
@@ -2066,30 +2066,30 @@ class Hauptfenster:
         # Gruppe wirkt dann leer, und niemand kommt auf die Idee zu rollen.
         # Genau so stand „Info" beim ersten Bau da: aufgeklappt und trotzdem
         # ohne einen einzigen Eintrag.
-        self.leisten_balken = round_scrollbar(rollbereich, self.leisten_flaeche,
+        self.sidebar_scrollbar = round_scrollbar(rollbereich, self.sidebar_canvas,
                                          grund=SURFACE)
-        self.leisten_flaeche.configure(
-            yscrollcommand=self.leisten_balken.set)
-        self.leisten_balken.pack(side='right', fill='y')
-        self.leisten_flaeche.pack(side='left', fill='both', expand=True)
-        self.leiste = tk.Frame(self.leisten_flaeche, bg=SURFACE)
-        self._leisten_fenster = self.leisten_flaeche.create_window(
-            0, 0, window=self.leiste, anchor='nw', width=SIDEBAR_WIDTH)
+        self.sidebar_canvas.configure(
+            yscrollcommand=self.sidebar_scrollbar.set)
+        self.sidebar_scrollbar.pack(side='right', fill='y')
+        self.sidebar_canvas.pack(side='left', fill='both', expand=True)
+        self.sidebar = tk.Frame(self.sidebar_canvas, bg=SURFACE)
+        self._sidebar_window = self.sidebar_canvas.create_window(
+            0, 0, window=self.sidebar, anchor='nw', width=SIDEBAR_WIDTH)
 
-        def _leiste_nachmessen(_=None):
+        def _sidebar_remeasure(_=None):
             """Rollbereich auf den Inhalt setzen — und nur rollen, wenn nötig."""
             try:
-                hoch = self.leiste.winfo_reqheight()
-                self.leisten_flaeche.configure(scrollregion=(0, 0, 0, hoch))
+                hoch = self.sidebar.winfo_reqheight()
+                self.sidebar_canvas.configure(scrollregion=(0, 0, 0, hoch))
                 # Passt alles, steht die Leiste still — sonst würde ein
                 # Mausrad-Dreh die Einträge grundlos verschieben.
-                if hoch <= self.leisten_flaeche.winfo_height():
-                    self.leisten_flaeche.yview_moveto(0)
+                if hoch <= self.sidebar_canvas.winfo_height():
+                    self.sidebar_canvas.yview_moveto(0)
             except tk.TclError:
                 pass
 
-        self.leiste.bind('<Configure>', _leiste_nachmessen)
-        self.leisten_flaeche.bind('<Configure>', _leiste_nachmessen)
+        self.sidebar.bind('<Configure>', _sidebar_remeasure)
+        self.sidebar_canvas.bind('<Configure>', _sidebar_remeasure)
 
         # ⭐ **Mausrad über die vorhandene Stelle**, nicht selbst gebaut:
         # `bind_wheel` kennt bereits alle Fallen, die hier schon einmal
@@ -2097,19 +2097,19 @@ class Hauptfenster:
         # ±120, und vor allem `bind_all` **ohne** `add='+'`, das jede andere
         # Bindung im Fenster stillschweigend ersetzt. Ein zweiter Eigenbau
         # daneben hätte genau das wieder aufgerissen.
-        bind_wheel(self.leisten_flaeche)
-        self._leiste_nachmessen = _leiste_nachmessen
+        bind_wheel(self.sidebar_canvas)
+        self._sidebar_remeasure = _sidebar_remeasure
 
-        self.inhalt = tk.Frame(self.root, bg=BG)
-        self.inhalt.pack(side='right', fill='both', expand=True)
+        self.content = tk.Frame(self.root, bg=BG)
+        self.content.pack(side='right', fill='both', expand=True)
 
-        g_bp = self._gruppe(t('hf_gruppe_bp'), 'bauplaene')
-        self._reiter('liste', 'liste', t('hf_liste'), g_bp)
-        self._reiter('fortschritt', 'fortschritt', t('hf_fortschritt'), g_bp)
+        g_bp = self._group(t('hf_gruppe_bp'), 'bauplaene')
+        self._tab('liste', 'liste', t('hf_liste'), g_bp)
+        self._tab('fortschritt', 'fortschritt', t('hf_fortschritt'), g_bp)
         # ⚠ Hier und nicht in einer eigenen Gruppe: Auftraege sind die Quelle
         # der Baupläne — wer wissen will, woher seine kommen, sucht sie neben
         # der Bauplan-Liste, nicht in einem eigenen Bereich.
-        self._reiter('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
+        self._tab('auftragslog', 'eigenbuch', t('hf_auftragslog'), g_bp)
 
         # Eigene Gruppe, kein Anhängsel unter „Baupläne": Die beiden Seiten
         # beantworten eine andere Frage („was brauche ich / wo hole ich es")
@@ -2128,8 +2128,8 @@ class Hauptfenster:
         # **Zwischen Bauplänen und Werkstatt**, weil „passt der Bauplan in mein
         # Schiff?" die unmittelbare Anschlussfrage an einen neuen Fund ist —
         # sie kommt vor „woraus baue ich das".
-        g_schiff = self._gruppe(t('hf_gruppe_schiffe'), 'schiffe')
-        self._reiter('hangar', 'hangar', t('hf_hangar'), g_schiff)
+        g_schiff = self._group(t('hf_gruppe_schiffe'), 'schiffe')
+        self._tab('hangar', 'hangar', t('hf_hangar'), g_schiff)
         # ⚠ **Eigener Reiter seit v3.19.0** — vorher stand die Wunschliste
         # unten auf der Hangar-Seite. Am 06.09.2026 gemeldet: „wird sonst
         # unübersichtlich und niemand findet es auf Anhieb." Über einer Liste
@@ -2139,28 +2139,28 @@ class Hauptfenster:
         # ⚠ Und in derselben Gruppe, nicht in einer eigenen: „die Reiter können
         # unter Schiffe bleiben, weil es ja Schiffe betrifft." Eine Gruppe je
         # Reiter wäre keine Gliederung mehr.
-        self._reiter('wunschliste', 'wunschliste', t('hf_wunschliste'),
+        self._tab('wunschliste', 'wunschliste', t('hf_wunschliste'),
                      g_schiff)
         # ⚠ **Zuletzt in der Gruppe, und das ist die Kette:** was ich habe →
         # was ich will → was mich das kostet. Die Einkaufsliste ist die Summe
         # der beiden Reiter über ihr, nicht ein dritter Anfang.
-        self._reiter('einkaufsliste', 'einkaufsliste',
+        self._tab('einkaufsliste', 'einkaufsliste',
                      t('hf_einkaufsliste'), g_schiff)
         # ⚠ Danach, nicht davor: Namen vergeben ist Feinarbeit an dem, was man
         # schon hat — die Kette „habe → will → kostet" bleibt vorn. Und es
         # gehört in diese Gruppe, weil es Schiffe betrifft; eine eigene Gruppe
         # für einen Reiter wäre keine Gliederung mehr.
-        self._reiter('asop', 'hangar', t('hf_asop'), g_schiff)
+        self._tab('asop', 'hangar', t('hf_asop'), g_schiff)
 
-        g_werk = self._gruppe(t('hf_gruppe_herst'), 'werkstatt')
-        self._reiter('lager', 'bestand', t('hf_lager'), g_werk)
-        self._reiter('herstellung', 'blitz', t('hf_herstellung'), g_werk)
-        self._reiter('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
+        g_werk = self._group(t('hf_gruppe_herst'), 'werkstatt')
+        self._tab('lager', 'bestand', t('hf_lager'), g_werk)
+        self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
+        self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
         # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet bei
         # „wo hole ich das" — und ein fertig gekauftes Teil ist die Antwort auf
         # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"
         # ginge es um Ware, die man **loswerden** will; das ist etwas anderes.
-        self._reiter('laeden', 'laeden', t('hf_laeden'), g_werk)
+        self._tab('laeden', 'laeden', t('hf_laeden'), g_werk)
         # ⚠ **Hier und nicht bei den Schiffen** (Einordnung vom 06.09.2026:
         # „schiebt man Herstellungsliste nicht eher unten in die Werkstatt?").
         # Die Werkstatt-Kette ist „was habe ich an Material → was baue ich → wo
@@ -2168,7 +2168,7 @@ class Hauptfenster:
         # erste Frage. Bei den Schiffen ginge es um Geld, hier um Erz.
         #
         # Zuletzt in der Gruppe, weil sie die anderen drei zusammenfasst.
-        self._reiter('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
+        self._tab('farmliste', 'farmliste', t('hf_farmliste'), g_werk)
 
         # ⚠ **Eigene Gruppe, nicht an „Werkstatt" angehängt.** Die Kette dort
         # endet beim Bauen („was habe ich → was brauche ich → wo hole ich es").
@@ -2183,33 +2183,33 @@ class Hauptfenster:
         # nur im deutschen Wort nah beieinander liegen. Der Wunsch dazu war
         # ausdrücklich: „dafür machen wir einen Salvage-Abschnitt, zumindest
         # würde man da suchen."
-        g_bergung = self._gruppe(t('hf_gruppe_bergung'), 'bergung')
-        self._reiter('bergung', 'sicherung', t('hf_bergung'), g_bergung)
+        g_bergung = self._group(t('hf_gruppe_bergung'), 'bergung')
+        self._tab('bergung', 'sicherung', t('hf_bergung'), g_bergung)
         # ⚠ **Zweiter Reiter in dieser Gruppe.** „Was steckt drin?" sagt, was
         # ein Wrack an Bord hat; hier steht, was davon der Fabricator wieder
         # herausgibt. Zwei Schritte derselben Arbeit — erst schauen, dann
         # entscheiden, ob sich das Ausbauen lohnt.
-        self._reiter('zerlegen', 'zerlegen', t('hf_zerlegen'), g_bergung)
+        self._tab('zerlegen', 'zerlegen', t('hf_zerlegen'), g_bergung)
 
-        g_handel = self._gruppe(t('hf_gruppe_handel'), 'handel')
-        self._reiter('handelslager', 'handelslager', t('hf_handelslager'),
+        g_handel = self._group(t('hf_gruppe_handel'), 'handel')
+        self._tab('handelslager', 'handelslager', t('hf_handelslager'),
                      g_handel)
-        self._reiter('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
+        self._tab('verkauf', 'verkauf', t('hf_verkauf'), g_handel)
         # ⚠ Nach „Verkauf", weil es die größere Frage ist: Dort geht es um
         # Ware, die man **schon hat**; hier um die Fahrt, die man erst plant.
         # Wer den Laderaum voll hat, will „wohin damit" — wer ihn leer hat,
         # „was soll ich überhaupt laden".
-        self._reiter('routen', 'routen', t('hf_routen'), g_handel)
+        self._tab('routen', 'routen', t('hf_routen'), g_handel)
 
-        g_einst = self._gruppe(t('hf_gruppe_einst'), 'einstellungen')
-        self._reiter('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
-        self._reiter('anzeige', 'anzeige', t('hf_anzeige'), g_einst)
-        self._reiter('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
+        g_einst = self._group(t('hf_gruppe_einst'), 'einstellungen')
+        self._tab('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
+        self._tab('anzeige', 'anzeige', t('hf_anzeige'), g_einst)
+        self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
         # ⚠ Unter „Einstellungen" und nicht bei den Bauplänen: Die Seite sagt,
         # wie der eigene Aufbau aussieht — welcher Stick welche Nummer hat und
         # was darauf liegt. Das ist dieselbe Sorte Frage wie „welcher Ordner,
         # welche Sprache", nur für die Steuerung.
-        self._reiter('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
+        self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
         # ⚠ Direkt darunter, weil es dieselbe Sache aus der anderen Richtung
         # ist: „Joysticks" sagt, WELCHER Stick welche Nummer hat und was
         # darauf liegt — „Achsen & Kurven" sagt, WIE die Achse reagiert. Im
@@ -2217,13 +2217,13 @@ class Hauptfenster:
         # ⚠ „Achsen & Kurven" steht NICHT hier, sondern unter „Für
         # Fortgeschrittene" — Begründung dort. „Blickwinkel" bleibt offen:
         # Es schreibt nichts und kann nichts kaputtmachen.
-        self._reiter('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
+        self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
                      g_einst)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.
-        g_info = self._gruppe(t('hf_gruppe_info'), 'info')
-        self._reiter('wasistneu', 'wasistneu', t('hf_wasistneu'), g_info)
+        g_info = self._group(t('hf_gruppe_info'), 'info')
+        self._tab('wasistneu', 'wasistneu', t('hf_wasistneu'), g_info)
         # ⚠ **Direkt unter „Was ist neu", und das ist die Symmetrie:** Dort
         # steht, was sich am WERKZEUG geändert hat — hier, was sich am SPIEL
         # geändert hat. Dieselbe Frage, zwei Gegenstände. Beide erzählen
@@ -2236,13 +2236,13 @@ class Hauptfenster:
         # wurde, sucht dort nicht.
         # Das Symbol `zeit` ist geliehen: Ein eigenes bräuchte eine
         # Lucide-Vorlage in `tools/symbole_bauen.py`.
-        self._reiter('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
+        self._tab('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
                      g_info)
-        self._reiter('ueber', 'ueber', t('hf_ueber'), g_info)
+        self._tab('ueber', 'ueber', t('hf_ueber'), g_info)
         # Direkt unter „Update & Über": Wer nicht ins Spiel kommt, sucht den
         # Fehler zuerst bei sich. Ein eigener Reiter beantwortet das, statt die
         # Auskunft unten an eine andere Seite zu hängen, wo niemand sie sucht.
-        self._reiter('serverstatus', 'serverstatus', t('hf_serverstatus'),
+        self._tab('serverstatus', 'serverstatus', t('hf_serverstatus'),
                      g_info)
         # ⚠ **Diagnose gehört hierher, nicht unter „Fortgeschritten".** Wer die
         # Seite braucht, hat ein Problem — und sucht sie dann in einem Menü, das
@@ -2254,11 +2254,11 @@ class Hauptfenster:
         # Seit dem roten Knopf „Fehlerbericht absenden" ist die Seite außerdem
         # der Weg, auf dem Meldungen überhaupt ankommen. Ein Weg, den man
         # erklären muss, wird nicht benutzt.
-        self._reiter('diagnose', 'diagnose', t('hf_diagnose'), g_info)
+        self._tab('diagnose', 'diagnose', t('hf_diagnose'), g_info)
         # ⚠ Eigener Reiter, kein Abschnitt auf „Update & Über": Die Seite dort
         # ist mit Version, Katalogzahlen, Update-Kanal und Holen-Knopf schon
         # voll, und wem was gehört, hat mit Updates nichts zu tun.
-        self._reiter('danke', 'quellen', t('hf_danke'), g_info)
+        self._tab('danke', 'quellen', t('hf_danke'), g_info)
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
         # es sucht, findet es; wer es nicht kennt, wird nicht erschlagen.
@@ -2272,24 +2272,24 @@ class Hauptfenster:
         # Erkennung und der Bauplan-Bestand, also Dinge, die man **einstellt**.
         # „Info" erzählt etwas (Was ist neu, Über, Serverstatus, Danke) — dort
         # wäre es thematisch falsch einsortiert, auch wenn es optisch passte.
-        self.klapp = tk.Frame(g_einst, bg=SURFACE)
-        self.klapp.pack(fill='x', pady=(6, 4))
+        self.collapse = tk.Frame(g_einst, bg=SURFACE)
+        self.collapse.pack(fill='x', pady=(6, 4))
         # ⚠ Aufbau wie eine Gruppenüberschrift: Beschriftung links, Pfeil
         # rechts, dasselbe Symbol. Es ist dieselbe Handlung — etwas auf- und
         # zuklappen —, also muss es gleich aussehen (Wunsch vom 30.08.2026:
         # „gleiches Bild im gesamten Projekt").
-        self.klappkopf = tk.Frame(self.klapp, bg=SURFACE, cursor='hand2')
-        self.klappkopf.pack(fill='x')
-        self.klapppfeil = icons.line(self.klappkopf, 'aufklappen',
-                                        background=SURFACE, font=self.f_klein)
-        self.klapppfeil.pack(side='right', padx=(0, 12))
-        self.klappknopf = tk.Label(self.klappkopf, text=t('hf_fortgeschritten'),
-                                   bg=SURFACE, fg=SUB, font=self.f_klein,
+        self.collapse_head = tk.Frame(self.collapse, bg=SURFACE, cursor='hand2')
+        self.collapse_head.pack(fill='x')
+        self.collapse_arrow = icons.line(self.collapse_head, 'aufklappen',
+                                        background=SURFACE, font=self.f_small)
+        self.collapse_arrow.pack(side='right', padx=(0, 12))
+        self.collapse_button = tk.Label(self.collapse_head, text=t('hf_fortgeschritten'),
+                                   bg=SURFACE, fg=SUB, font=self.f_small,
                                    cursor='hand2', anchor='w', padx=16, pady=8)
-        self.klappknopf.pack(side='left', fill='x', expand=True)
-        for _teil in (self.klappkopf, self.klappknopf, self.klapppfeil):
-            _teil.bind('<Button-1>', lambda e: self._klapp_umschalten())
-        self.klappinhalt = tk.Frame(self.klapp, bg=SURFACE)
+        self.collapse_button.pack(side='left', fill='x', expand=True)
+        for _teil in (self.collapse_head, self.collapse_button, self.collapse_arrow):
+            _teil.bind('<Button-1>', lambda e: self._collapse_toggle())
+        self.collapse_body = tk.Frame(self.collapse, bg=SURFACE)
 
         # --- Discord -----------------------------------------------------
         # Wunsch von am 26.08.2026 gemeldet, nach dem Vorbild des
@@ -2300,13 +2300,13 @@ class Hauptfenster:
         # Discord ist ein Angebot. Zwei gleich laute Knöpfe nebeneinander nehmen
         # sich gegenseitig die Wirkung — das markante Grün trägt nur, solange es
         # an genau einer Stelle steht.
-        rahmen_dc = tk.Frame(self.leisten_fuss, bg=SURFACE)
+        rahmen_dc = tk.Frame(self.sidebar_foot, bg=SURFACE)
         rahmen_dc.pack(side='bottom', fill='x', padx=12, pady=(0, 6))
-        self.discordknopf = round_button(
-            rahmen_dc, t('hf_discord'), self._discord_oeffnen, self.f_klein,
+        self.discord_button = round_button(
+            rahmen_dc, t('hf_discord'), self._open_discord, self.f_small,
             SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
             paint=discord_glyph)
-        self.discordknopf.pack(fill='x')
+        self.discord_button.pack(fill='x')
 
         # --- Ko-fi -------------------------------------------------------
         # ⚠ Die Rechtslage dazu ist **zweigeteilt** und am 26.08.2026 geprüft:
@@ -2323,13 +2323,13 @@ class Hauptfenster:
         # **beiden** Dokumenten verboten bleibt und deshalb hier nie entstehen
         # darf: eine Bezahlschranke, ein Abo, Werbung. Der Knopf führt zu einer
         # freiwilligen Seite, das Werkzeug bleibt vollständig und kostenlos.
-        rahmen_kofi = tk.Frame(self.leisten_fuss, bg=SURFACE)
+        rahmen_kofi = tk.Frame(self.sidebar_foot, bg=SURFACE)
         rahmen_kofi.pack(side='bottom', fill='x', padx=12, pady=(0, 2))
-        self.kofiknopf = round_button(
-            rahmen_kofi, t('hf_kofi'), self._kofi_oeffnen, self.f_klein,
+        self.kofi_button = round_button(
+            rahmen_kofi, t('hf_kofi'), self._open_kofi, self.f_small,
             SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
             paint=coffee_glyph)
-        self.kofiknopf.pack(fill='x')
+        self.kofi_button.pack(fill='x')
 
         # --- Star Citizen starten ---------------------------------------
         # ⚠ Der Knopf stand erst auf der Seite „Auftragstexte", also dort, wo es
@@ -2354,29 +2354,29 @@ class Hauptfenster:
         except Exception:
             hat_starter = False
         if hat_starter:
-            rahmen_start = tk.Frame(self.leisten_fuss, bg=SURFACE)
+            rahmen_start = tk.Frame(self.sidebar_foot, bg=SURFACE)
             rahmen_start.pack(side='bottom', fill='x', padx=12, pady=(8, 2))
-            self.spielknopf = round_button(
+            self.play_button = round_button(
                 rahmen_start, t('s_sp_start_knopf'),
-                self._spiel_starten, self.f_klein,
+                self._start_game, self.f_small,
                 SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
-            self.spielknopf.pack(fill='x')
+            self.play_button.pack(fill='x')
 
-    def _kofi_oeffnen(self):
+    def _open_kofi(self):
         """Die Ko-fi-Seite im Browser aufmachen."""
-        self._adresse_auf(KOFI_URL, t('hf_kofi_auf'), 'main_window.kofi')
+        self._open_address(KOFI_URL, t('hf_kofi_auf'), 'main_window.kofi')
 
-    def _discord_oeffnen(self):
+    def _open_discord(self):
         """Die Einladung im Browser aufmachen.
 
         ⚠ Die Adresse steht **fest** im Code und ist die dauerhafte Einladung
         (`CODE_OF_CONDUCT.md` nennt dieselbe). Ein Link, der irgendwann abläuft,
         führt Leute auf eine Fehlerseite und niemand merkt es.
         """
-        self._adresse_auf('https://discord.gg/g2E7e6XxZC',
+        self._open_address('https://discord.gg/g2E7e6XxZC',
                           t('hf_discord_auf'), 'main_window.discord')
 
-    def _adresse_auf(self, adresse, meldung, stelle):
+    def _open_address(self, adresse, meldung, stelle):
         """Eine Adresse aufmachen — und **sagen**, wenn es nicht geklappt hat.
 
         ⚠ Beide Knöpfe riefen bis rc43 `webbrowser.open()` direkt auf. Im
@@ -2386,7 +2386,7 @@ class Hauptfenster:
         der sagt, dass er nicht kann — dann steht wenigstens die Adresse da.
         """
         from . import pfade as pfade_browser
-        self.sagen(meldung)
+        self.say(meldung)
         self.root.update_idletasks()
         try:
             geklappt = pfade_browser.im_browser(adresse)
@@ -2395,18 +2395,18 @@ class Hauptfenster:
             fehler.merken(stelle, ausnahme, adresse)
             geklappt = False
         if not geklappt:
-            self.sagen(t('s_ub_auf_nein') % adresse)
+            self.say(t('s_ub_auf_nein') % adresse)
 
-    def _spiel_starten(self):
+    def _start_game(self):
         """Star Citizen aus dem Werkzeug heraus hochfahren."""
         from . import pfade as pfade_start
-        self.sagen(t('s_sp_start_lauft'))
+        self.say(t('s_sp_start_lauft'))
         try:
             ok, grund = pfade_start.spiel_starten()
         except Exception as ausnahme:
             ok, grund = False, str(ausnahme)
         if not ok:
-            self.sagen(t('s_sp_start_nein', grund))
+            self.say(t('s_sp_start_nein', grund))
 
         # --- Star Citizen starten ---------------------------------------
         # ⚠ Der Knopf stand vorher auf der Seite „Auftragstexte", also dort, wo
@@ -2431,24 +2431,24 @@ class Hauptfenster:
         except Exception:
             hat_starter = False
         if hat_starter:
-            rahmen_start = tk.Frame(self.leisten_fuss, bg=SURFACE)
+            rahmen_start = tk.Frame(self.sidebar_foot, bg=SURFACE)
             rahmen_start.pack(side='bottom', fill='x', padx=12, pady=(8, 2))
-            self.spielknopf = round_button(
+            self.play_button = round_button(
                 rahmen_start, t('s_sp_start_knopf'),
-                self._spiel_starten, self.f_klein,
+                self._start_game, self.f_small,
                 SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
-            self.spielknopf.pack(fill='x')
+            self.play_button.pack(fill='x')
 
-    def _spiel_starten(self):
+    def _start_game(self):
         """Star Citizen aus dem Werkzeug heraus hochfahren."""
         from . import pfade as pfade_start
-        self.sagen(t('s_sp_start_lauft'))
+        self.say(t('s_sp_start_lauft'))
         try:
             ok, grund = pfade_start.spiel_starten()
         except Exception as ausnahme:
             ok, grund = False, str(ausnahme)
         if not ok:
-            self.sagen(t('s_sp_start_nein', grund))
+            self.say(t('s_sp_start_nein', grund))
 
     # ⚠⚠ **Diese Gruppen lassen sich NICHT zuklappen** (05.09.2026).
     # In „Info" steht „Fehler melden". Wer die Gruppe zuklappt, blendet damit
@@ -2461,9 +2461,9 @@ class Hauptfenster:
     # guten Grund — die Seitenleiste bestimmt die Mindesthöhe des Fensters,
     # und zugeklappte Gruppen sparen rund 400 px. Festgenagelt wird deshalb
     # nur, was im Notfall auffindbar bleiben muss.
-    IMMER_OFFEN = ('info',)
+    ALWAYS_OPEN = ('info',)
 
-    def _gruppe(self, text, kennung=None):
+    def _group(self, text, kennung=None):
         """Eine Gruppenüberschrift — anklicken klappt ihre Reiter weg.
 
         Gibt den Rahmen zurück, in den die Reiter der Gruppe gehören.
@@ -2479,11 +2479,11 @@ class Hauptfenster:
         Maßnahmen wäre derselbe Fehler zurück.
 
         ⚠ Der Zustand wird gemerkt, aber **die Gruppe des offenen Reiters
-        bleibt offen** (siehe `oeffnen`) — sonst verschwindet die Seite, auf
+        bleibt offen** (siehe `open_page`) — sonst verschwindet die Seite, auf
         der man gerade steht, aus der Leiste, und das sieht nach kaputt aus.
         """
         kennung = kennung or text
-        fest = kennung in self.IMMER_OFFEN
+        fest = kennung in self.ALWAYS_OPEN
         # ⚠ Eine festgenagelte Gruppe steht offen, auch wenn in den
         # Einstellungen noch ein „zu" von früher liegt. Sonst bliebe sie bei
         # allen zu, die sie einmal zugeklappt hatten — also genau bei denen,
@@ -2493,7 +2493,7 @@ class Hauptfenster:
 
         # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
         # der wie ein Knopf aussieht und nicht reagiert, wirkt kaputt.
-        kopf = tk.Frame(self.leiste, bg=SURFACE,
+        kopf = tk.Frame(self.sidebar, bg=SURFACE,
                         cursor='' if fest else 'hand2')
         kopf.pack(fill='x', pady=(10, 0))
         # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Zuerst standen
@@ -2502,43 +2502,43 @@ class Hauptfenster:
         # und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
         # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
         pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
-                              background=SURFACE, font=self.f_klein)
+                              background=SURFACE, font=self.f_small)
         # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil ist ein
         # Versprechen („hier lässt sich klappen"); eines, das nicht eingelöst
         # wird, ist schlimmer als keines.
         if not fest:
             pfeil.pack(side='right', padx=(0, 12))
         beschriftung = tk.Label(kopf, text=text.upper(), bg=SURFACE, fg=SUB,
-                                font=self.f_klein, anchor='w', padx=16, pady=6)
+                                font=self.f_small, anchor='w', padx=16, pady=6)
         beschriftung.pack(side='left', fill='x', expand=True)
 
-        inhalt = tk.Frame(self.leiste, bg=SURFACE)
+        inhalt = tk.Frame(self.sidebar, bg=SURFACE)
         if offen:
             inhalt.pack(fill='x')
 
-        self.gruppen[kennung] = {'kopf': kopf, 'inhalt': inhalt,
+        self.groups[kennung] = {'kopf': kopf, 'inhalt': inhalt,
                                  'pfeil': pfeil, 'offen': offen,
                                  'reiter': []}
 
         if not fest:
             for part in (kopf, beschriftung, pfeil):
                 part.bind('<Button-1>',
-                          lambda _e, k=kennung: self._gruppe_um(k))
+                          lambda _e, k=kennung: self._group_toggle(k))
         return inhalt
 
-    def _gruppe_um(self, kennung, auf=None):
+    def _group_toggle(self, kennung, auf=None):
         """Eine Gruppe auf- oder zuklappen. `auf=True` erzwingt das Aufklappen."""
-        g = self.gruppen.get(kennung)
+        g = self.groups.get(kennung)
         if not g:
             return
         # ⚠ **Der Riegel gehört hierher, nicht nur an den Mausklick.** Diese
-        # Funktion wird auch von `_gruppe_von_reiter_oeffnen` gerufen. Wer die
+        # Funktion wird auch von `_open_group_of_tab` gerufen. Wer die
         # Sperre allein an die Bindung hängt, hat sie beim nächsten Aufrufer
         # nicht mehr — und der kommt bestimmt.
-        if kennung in self.IMMER_OFFEN and not (auf is True or auf is None):
+        if kennung in self.ALWAYS_OPEN and not (auf is True or auf is None):
             return
         neu_offen = (not g['offen']) if auf is None else bool(auf)
-        if kennung in self.IMMER_OFFEN and not neu_offen:
+        if kennung in self.ALWAYS_OPEN and not neu_offen:
             return
         if neu_offen == g['offen']:
             return
@@ -2558,37 +2558,37 @@ class Hauptfenster:
                                      'nein' if neu_offen else 'ja')
         except tk.TclError:
             pass
-        self.root.after(30, self._mindesthoehe_nachziehen)
+        self.root.after(30, self._min_height_update)
 
     # ⚠ Nur Zeichen aus der Grundebene benutzen. `🗀` und `⇅` liegen darüber und
     # fehlen in der Oberflächenschrift — im Fenster stand statt des Symbols ein
     # Fragezeichen. Auffallen tut das erst im laufenden Fenster, nicht im Code.
     # Prüfen lässt es sich mit `tkfont.Font.measure`: Ein fehlendes Zeichen ist
     # genauso breit wie das amtliche Ersatzzeichen `￿`.
-    def _reiter(self, kennung, symbol, text, wohin=None):
-        target = wohin if wohin is not None else self.leiste
+    def _tab(self, kennung, symbol, text, wohin=None):
+        target = wohin if wohin is not None else self.sidebar
         zeile = tk.Frame(target, bg=SURFACE, cursor='hand2')
         zeile.pack(fill='x')
         strich = tk.Frame(zeile, bg=SURFACE, width=3)
         strich.pack(side='left', fill='y')
         # ⚠ `symbol` heißt der Parameter, nicht `zeichen` — sonst verdeckt er
         # das gleichnamige Modul, aus dem das Bild kommt.
-        z = icons.button(zeile, symbol, background=SURFACE, font=self.f_zeichen)
+        z = icons.button(zeile, symbol, background=SURFACE, font=self.f_icon)
         z.pack(side='left', padx=(10, 4), pady=7)
-        b = tk.Label(zeile, text=text, bg=SURFACE, fg=SUB, font=self.f_grund,
+        b = tk.Label(zeile, text=text, bg=SURFACE, fg=SUB, font=self.f_base,
                      anchor='w')
         b.pack(side='left', fill='x', expand=True)
 
         marke_widget = None
         if news.is_new(kennung, self.version):
-            marke_widget = badge(zeile, t('hf_neu'), ACCENT, self.f_klein)
+            marke_widget = badge(zeile, t('hf_neu'), ACCENT, self.f_small)
             marke_widget.pack(side='right', padx=10)
 
         for part in (zeile, z, b):
-            part.bind('<Button-1>', lambda e, k=kennung: self.oeffnen(k))
-        self.knoepfe[kennung] = (zeile, strich, z, b, marke_widget)
+            part.bind('<Button-1>', lambda e, k=kennung: self.open_page(k))
+        self.buttons[kennung] = (zeile, strich, z, b, marke_widget)
 
-    def _seitenleiste_bedarf(self):
+    def _sidebar_needed_height(self):
         """Wie viele Pixel Höhe die Seitenleiste für all ihre Einträge braucht.
 
         Gerechnet wird über die Kinder, nicht über den Rahmen selbst: Die Leiste
@@ -2596,7 +2596,7 @@ class Hauptfenster:
         Rahmen die gesetzte Größe statt der des Inhalts.
         """
         hoch = 0
-        for kind in self.leiste.winfo_children():
+        for kind in self.sidebar.winfo_children():
             try:
                 # ⚠⚠ **Was nicht gepackt ist, zählt nicht.** `winfo_reqheight()`
                 # meldet auch für einen weggeklappten Rahmen weiter die volle
@@ -2615,7 +2615,7 @@ class Hauptfenster:
             hoch += kind.winfo_reqheight() + 2 * int(polster or 0)
         return hoch
 
-    def _leistenbreite_nachziehen(self):
+    def _sidebar_width_update(self):
         """Die Seitenleiste so breit machen, dass der längste Eintrag hineinpasst.
 
         ⚠ Die Leiste hat eine feste Breite (`pack_propagate(False)`) — sonst würde
@@ -2626,7 +2626,7 @@ class Hauptfenster:
         """
         try:
             breiten = []
-            for entry in self.knoepfe.values():
+            for entry in self.buttons.values():
                 if not entry or not entry[0]:
                     continue
                 zeile, _strich, _z, beschriftung, _marke = entry
@@ -2638,25 +2638,25 @@ class Hauptfenster:
                 zusatz = 0
                 try:
                     text = beschriftung.cget('text')
-                    zusatz = max(0, self.f_fett.measure(text)
-                                 - self.f_grund.measure(text))
+                    zusatz = max(0, self.f_bold.measure(text)
+                                 - self.f_base.measure(text))
                 except tk.TclError:
                     pass
                 breiten.append(zeile.winfo_reqwidth() + zusatz)
             # ⚠ Den **Kopf** messen, nicht nur die Beschriftung: Seit der
             # Pfeil daneben sitzt, ist die Zeile breiter als ihr Text.
-            breiten.append(self.klappkopf.winfo_reqwidth())
+            breiten.append(self.collapse_head.winfo_reqwidth())
             needed = max(SIDEBAR_WIDTH, max(breiten) + 12)
-            if needed != self.leisten_spalte.winfo_width():
-                self.leisten_spalte.configure(width=needed)
-                self.leisten_flaeche.configure(width=needed)
-                self.leisten_flaeche.itemconfigure(self._leisten_fenster,
+            if needed != self.sidebar_column.winfo_width():
+                self.sidebar_column.configure(width=needed)
+                self.sidebar_canvas.configure(width=needed)
+                self.sidebar_canvas.itemconfigure(self._sidebar_window,
                                                    width=needed)
             return needed
         except (tk.TclError, ValueError):
             return SIDEBAR_WIDTH
 
-    def _mindesthoehe_nachziehen(self, versuch=0):
+    def _min_height_update(self, versuch=0):
         """Die Mindesthöhe an das anpassen, was die Seitenleiste braucht.
 
         ⚠ Gerechnet wird immer für den **aufgeklappten** Zustand — auch solange
@@ -2683,9 +2683,9 @@ class Hauptfenster:
         except Exception:
             return
         try:
-            if self.leisten_flaeche.winfo_height() < 50:
+            if self.sidebar_canvas.winfo_height() < 50:
                 if versuch < 10:
-                    self.root.after(60, lambda: self._mindesthoehe_nachziehen(
+                    self.root.after(60, lambda: self._min_height_update(
                         versuch + 1))
                 return
             # ⚠⚠ **Der Leistenbedarf bestimmt die Mindesthöhe NICHT mehr.**
@@ -2698,22 +2698,22 @@ class Hauptfenster:
             # liess es sich nicht kleiner ziehen als 1028 px („das fenster ist
             # zu hoch, kann es nicht kleiner ziehen", 30.08.2026).
             #
-            # Seit die Leiste rollt (`_korpus`) und ihre Gruppen klappbar sind,
+            # Seit die Leiste rollt (`_body`) und ihre Gruppen klappbar sind,
             # geht bei einem kürzeren Fenster nichts verloren: Was nicht
             # hinpasst, rollt. Die Mindesthöhe ist deshalb wieder eine feste
-            # Zahl — `_seitenleiste_bedarf()` wird nur noch für den Rollbereich
+            # Zahl — `_sidebar_needed_height()` wird nur noch für den Rollbereich
             # gebraucht, nicht mehr für die Fenstergrösse.
             needed = MIN_HEIGHT
             # ⚠⚠ **Die Mindesthöhe darf den Bildschirm nie überschreiten.**
             #
             # Ein `minsize`, das höher ist als der Monitor, lässt sich nicht
             # mehr wegdeckeln: Tk hält es gegen jedes `geometry()`, auch gegen
-            # `_auf_den_schirm_holen()` weiter unten. Das Fenster stand dann
+            # `_onto_screen()` weiter unten. Das Fenster stand dann
             # über die Taskleiste hinaus, und an alles darunter kam man nicht
             # mehr heran (30.08.2026 gemeldet, nachdem die Gruppe „Handel" die
             # Leiste auf 1020 px gebracht hatte).
             #
-            # Seit die Seitenleiste rollt (siehe `_korpus`), ist ein Fenster,
+            # Seit die Seitenleiste rollt (siehe `_body`), ist ein Fenster,
             # das kürzer ist als ihr Bedarf, auch kein Verlust mehr — man
             # kommt weiterhin an jeden Eintrag.
             from . import screen as _bs
@@ -2727,17 +2727,17 @@ class Hauptfenster:
                 fehler.merken('main_window.schirmhoehe', ausnahme)
             # Wird die Leiste breiter, braucht auch das Fenster mehr — sonst geht
             # der Platz auf Kosten des Inhalts daneben.
-            leiste_breit = self._leistenbreite_nachziehen()
+            leiste_breit = self._sidebar_width_update()
             breit = MIN_WIDTH + max(0, leiste_breit - SIDEBAR_WIDTH)
             self.root.minsize(breit, needed)
             if self.root.winfo_height() < needed or self.root.winfo_width() < breit:
                 self.root.geometry('%dx%d' % (max(breit, self.root.winfo_width()),
                                               max(needed, self.root.winfo_height())))
-            self._auf_den_schirm_holen()
+            self._onto_screen()
         except tk.TclError:
             pass
 
-    def _auf_den_schirm_holen(self):
+    def _onto_screen(self):
         """Das Fenster auf dem Bildschirm halten, auf dem es gerade steht.
 
         ⚠⚠ **Bei „Sehr groß" wuchs das Fenster über den Monitor hinaus.** Die
@@ -2772,24 +2772,24 @@ class Hauptfenster:
         except (tk.TclError, ValueError, TypeError) as ausnahme:
             fehler.merken('main_window.schirm', ausnahme)
 
-    def _klapp_umschalten(self):
-        self.fortgeschritten_offen = not self.fortgeschritten_offen
+    def _collapse_toggle(self):
+        self.advanced_open = not self.advanced_open
         # Der Pfeil zeigt, was ein Klick tut — wie bei den Gruppenüberschriften.
         try:
-            self.klapppfeil.swap_symbol(
-                'zuklappen' if self.fortgeschritten_offen else 'aufklappen')
+            self.collapse_arrow.swap_symbol(
+                'zuklappen' if self.advanced_open else 'aufklappen')
         except (AttributeError, tk.TclError):
             pass
-        if self.fortgeschritten_offen:
-            self.klappinhalt.pack(fill='x')
-            if not self.klappinhalt.winfo_children():
+        if self.advanced_open:
+            self.collapse_body.pack(fill='x')
+            if not self.collapse_body.winfo_children():
                 # Pfade liegen hier unten, seit die Erkennung sie selbst
                 # findet: Spielordner und Launcher werden gesucht, und wer doch
                 # nachhelfen muss, wird vom Einrichtungsassistenten geführt —
                 # der erklärt, was die Seite nur als Felder zeigt. Ein Reiter,
                 # den fast niemand braucht, steht oben nur im Weg.
-                self._reiter('ordner', 'ordner', t('hf_ordner'), self.klappinhalt)
-                self._reiter('erkennung', 'erkennung', t('hf_erkennung'), self.klappinhalt)
+                self._tab('ordner', 'ordner', t('hf_ordner'), self.collapse_body)
+                self._tab('erkennung', 'erkennung', t('hf_erkennung'), self.collapse_body)
                 # ⚠ **Bauplan-Bestand gehört hierher, nicht in die offene
                 # Liste.** Die Seite schreibt am eigenen Bestand — einlesen,
                 # überschreiben, zurücksetzen. Am 30.08.2026 hat sie genau
@@ -2799,8 +2799,8 @@ class Hauptfenster:
                 #
                 # Hinter dem zugeklappten „Für Fortgeschrittene" ist sie
                 # weiterhin erreichbar, aber nicht mehr im Vorbeigehen.
-                self._reiter('bestand', 'bestand', t('hf_bestand'),
-                             self.klappinhalt)
+                self._tab('bestand', 'bestand', t('hf_bestand'),
+                             self.collapse_body)
                 # ⚠ **„Achsen & Kurven" aus demselben Grund wie der Bestand.**
                 # Die Seite schreibt in die `actionmaps.xml` — die Datei, an
                 # der die komplette Steuerung des Spielers hängt. Wer nicht
@@ -2820,30 +2820,30 @@ class Hauptfenster:
                 # Nutzen ist sofort verständlich. Das Kriterium ist nicht,
                 # wie fachlich etwas wirkt, sondern ob es etwas kaputtmachen
                 # kann.
-                self._reiter('achsen', 'achsen', t('hf_achsen'),
-                             self.klappinhalt)
-            self.klappknopf.configure(text=t('hf_fortgeschritten'))
+                self._tab('achsen', 'achsen', t('hf_achsen'),
+                             self.collapse_body)
+            self.collapse_button.configure(text=t('hf_fortgeschritten'))
         else:
-            self.klappinhalt.pack_forget()
-            self.klappknopf.configure(text=t('hf_fortgeschritten'))
+            self.collapse_body.pack_forget()
+            self.collapse_button.configure(text=t('hf_fortgeschritten'))
         # Kurz warten, statt `after_idle`: Vorher hat Tk die neuen Einträge noch
         # nicht vermessen — und `after_idle` kommt hier nicht zuverlässig dran,
         # weil die Bauplan-Liste selbst Leerlauf-Aufgaben nachlegt.
-        self.root.after(30, self._mindesthoehe_nachziehen)
+        self.root.after(30, self._min_height_update)
 
     # ------------------------------------------------------------ Seitenwahl
-    def _gruppe_von_reiter_oeffnen(self, kennung):
+    def _open_group_of_tab(self, kennung):
         """Die Gruppe aufklappen, in der dieser Reiter sitzt."""
-        entry = self.knoepfe.get(kennung)
+        entry = self.buttons.get(kennung)
         if not entry or not entry[0]:
             return
         elternrahmen = entry[0].master
-        for name, g in self.gruppen.items():
+        for name, g in self.groups.items():
             if g['inhalt'] is elternrahmen and not g['offen']:
-                self._gruppe_um(name, auf=True)
+                self._group_toggle(name, auf=True)
                 return
 
-    def oeffnen(self, kennung):
+    def open_page(self, kennung):
         """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen."""
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
         # Ohne diese Zeile lief der Vorbau munter weiter, während die gerade
@@ -2851,18 +2851,18 @@ class Hauptfenster:
         # war aber sekundenlang nicht zu sehen, weil Tk mit dem Vorbau der
         # nächsten Seite beschäftigt war. Gemeldet am 02.09.2026 als „bauplan
         # langsam", nachdem die linke Leiste bereits schnell war.
-        self._aktion_merken()
+        self._remember_action()
         # ⚠ **Die Gruppe des Reiters muss offen sein.** Sonst steht man auf
         # einer Seite, deren Eintrag in der Leiste gar nicht zu sehen ist — das
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.
         # Betrifft vor allem den Programmstart: Die zuletzt benutzte Seite kann
         # in einer zugeklappten Gruppe liegen.
-        self._gruppe_von_reiter_oeffnen(kennung)
-        if not hasattr(self, 'beim_zeigen'):
+        self._open_group_of_tab(kennung)
+        if not hasattr(self, 'on_show'):
             # kennung -> Funktion, die beim erneuten Anzeigen laeuft
-            self.beim_zeigen = {}
-        if kennung not in self.seiten:
-            self.seiten[kennung] = tk.Frame(self.inhalt, bg=BG)
+            self.on_show = {}
+        if kennung not in self.pages:
+            self.pages[kennung] = tk.Frame(self.content, bg=BG)
         # ⚠ Beim **zweiten** Besuch wurde bisher nur „steht" geschrieben, weil
         # die Seite schon gebaut war. Knallte es dabei, fehlte die Zeile ganz
         # statt nur zur Hälfte — und die Überschrift des Berichts verspricht
@@ -2882,21 +2882,21 @@ class Hauptfenster:
         # Symbolbilder: gemessen 36 Bilder in 4 ms). Ohne Zahl im Bericht
         # bleibt es beim Raten.
         _beginn = time.perf_counter()
-        if kennung in self.gezeichnet:
+        if kennung in self.drawn:
             fehler.spur('Seite %s: zeigen' % kennung)
             # ⚠ Eine Seite wird **einmal** gebaut und danach nur noch ein- und
             # ausgeblendet. Alles, was beim erneuten Aufrufen frisch sein soll,
             # muss sich deshalb hier melden — sonst steht der Suchbegriff von
             # vorhin noch da. Am 29.08.2026 gemeldet: „da sollte man den
             # Titan-Eintrag im Suchfeld nicht speichern."
-            ruf = self.beim_zeigen.get(kennung)
+            ruf = self.on_show.get(kennung)
             if ruf:
                 try:
                     ruf()
                 except Exception as ausnahme:
                     fehler.merken('main_window.zeigen:%s' % kennung, ausnahme)
         else:
-            self.gezeichnet.add(kennung)
+            self.drawn.add(kennung)
             # ⚠ Die Spur führt jetzt auch über die Bedienung, nicht nur über den
             # Start. Grund: Bomb20 meldete am 27.08.2026 einen reproduzierbaren
             # Absturz beim Öffnen von „Was ist neu" — und sein Bericht wusste
@@ -2905,48 +2905,48 @@ class Hauptfenster:
             # Zeile hier, hat es beim Bauen genau dieser Seite geknallt.
             fehler.spur('Seite %s: bauen beginnt' % kennung)
             try:
-                self._seite_fuellen(kennung, self.seiten[kennung])
+                self._fill_page(kennung, self.pages[kennung])
             except Exception as ausnahme:
                 fehler.merken('main_window.seite:%s' % kennung, ausnahme)
-                tk.Label(self.seiten[kennung], text='—', bg=BG, fg=SUB,
-                         font=self.f_grund).pack(padx=20, pady=20)
+                tk.Label(self.pages[kennung], text='—', bg=BG, fg=SUB,
+                         font=self.f_base).pack(padx=20, pady=20)
 
-        if self.aktuell:
-            self.seiten[self.aktuell].pack_forget()
-        self.seiten[kennung].pack(fill='both', expand=True)
-        self.aktuell = kennung
+        if self.current:
+            self.pages[self.current].pack_forget()
+        self.pages[kennung].pack(fill='both', expand=True)
+        self.current = kennung
         fehler.spur('Seite %s: steht (%.0f ms)'
                     % (kennung, (time.perf_counter() - _beginn) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die
         # angeklickte steht. Vorher gestartet, wuerde der Vorbau genau die
         # Seite verzoegern, die der Mensch gerade sehen will.
-        # `_vorbau_laeuft` sorgt dafuer, dass das nur einmal je Fenster
+        # `_prebuild_running` sorgt dafuer, dass das nur einmal je Fenster
         # anlaeuft; bei jedem Reiterwechsel neu anzustossen haette mehrere
         # Ketten parallel erzeugt.
-        if not getattr(self, '_vorbau_laeuft', False):
-            self._vorbau_laeuft = True
+        if not getattr(self, '_prebuild_running', False):
+            self._prebuild_running = True
             if PREBUILD_ON:
-                self._letzte_aktion = time.monotonic()
+                self._last_action = time.monotonic()
                 # ⚠ Jede Eingabe verschiebt den Vorbau nach hinten — siehe
-                # `_seiten_vorbauen`. `add='+'` ist Pflicht, sonst verdraengt
+                # `_prebuild_pages`. `add='+'` ist Pflicht, sonst verdraengt
                 # das die Haken, die andere Bausteine global gesetzt haben.
                 for ereignis in ('<Button>', '<Key>', '<MouseWheel>'):
                     try:
-                        self.root.bind_all(ereignis, self._aktion_merken,
+                        self.root.bind_all(ereignis, self._remember_action,
                                            add='+')
                     except Exception:
                         pass
-                self.root.after(400, self._seiten_vorbauen)
-        self._reiter_faerben()
+                self.root.after(400, self._prebuild_pages)
+        self._recolor_tabs()
         # Der aktive Reiter wird fett — und fett ist breiter. Die Leiste muss
         # deshalb bei jedem Wechsel nachmessen, sonst wird der längste Eintrag
         # genau dann abgeschnitten, wenn man auf ihm steht.
-        self._leistenbreite_nachziehen()
+        self._sidebar_width_update()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
         if news.is_new(kennung, self.version):
             news.mark_seen(kennung, self.version)
-            entry = self.knoepfe.get(kennung)
+            entry = self.buttons.get(kennung)
             if entry and entry[4] is not None:
                 entry[4].destroy()
                 # ⚠ Und aus der Liste nehmen! Ein zerstörtes Widget bleibt sonst
@@ -2954,9 +2954,9 @@ class Hauptfenster:
                 # (`invalid command name`). Das schlug beim zweiten Reiterwechsel
                 # zu — also bei jedem Nutzer sofort.
                 zeile, strich, z, b, _ = entry
-                self.knoepfe[kennung] = (zeile, strich, z, b, None)
+                self.buttons[kennung] = (zeile, strich, z, b, None)
 
-    def _fehler_liegen_an(self):
+    def _errors_pending(self):
         """Wurde seit dem Start etwas mitgeschrieben? Faerbt das Reiter-Symbol.
 
         Gefragt wird bei jedem Neuzeichnen der Leiste — also bei jedem
@@ -2969,9 +2969,9 @@ class Hauptfenster:
         except Exception:
             return False
 
-    def _reiter_faerben(self):
-        for kennung, (zeile, strich, z, b, badge) in self.knoepfe.items():
-            an = (kennung == self.aktuell)
+    def _recolor_tabs(self):
+        for kennung, (zeile, strich, z, b, badge) in self.buttons.items():
+            an = (kennung == self.current)
             grund = '#1d2634' if an else SURFACE
             for part in (zeile, z, b):
                 part.configure(bg=grund)
@@ -2993,10 +2993,10 @@ class Hauptfenster:
             # Der Strich darunter bleibt gruen, wenn die Seite offen ist —
             # sonst saehe die gewaehlte Seite aus wie eine Warnung.
             rot = (kennung == 'diagnose')
-            z.recolor(icons.RED if (rot and self._fehler_liegen_an())
+            z.recolor(icons.RED if (rot and self._errors_pending())
                       else (icons.LIGHT if an else icons.GREY))
             b.configure(fg=RED if rot else (FG if an else SUB),
-                        font=self.f_fett if (an or rot) else self.f_grund)
+                        font=self.f_bold if (an or rot) else self.f_base)
             strich.configure(bg=ACCENT if an else SURFACE)
 
     # Die Seiten, auf denen der eigene Bauplan-Bestand steht. Ändert er sich,
@@ -3007,9 +3007,9 @@ class Hauptfenster:
     # Zahl über den Ausgabe-Knöpfen) und „Über". `allgemein` und `erkennung`
     # stehen bewusst NICHT hier: Sie zeigen nur Katalogzahlen, und die ändern
     # sich durch einen eigenen Fund nicht.
-    BESTANDSSEITEN = ('fortschritt', 'herstellung', 'bestand', 'ueber')
+    STOCK_PAGES = ('fortschritt', 'herstellung', 'bestand', 'ueber')
 
-    def bestand_geaendert(self):
+    def stock_changed(self):
         """Sagt allen Seiten Bescheid, die den eigenen Bestand anzeigen.
 
         ⚠⚠ **Gemeldet von Bushwick4712 am 05.09.2026** für die Bauplan-Liste.
@@ -3041,47 +3041,47 @@ class Hauptfenster:
                 from . import fehler
                 fehler.merken('main_window.bestand_liste', ausnahme)
 
-        for kennung in self.BESTANDSSEITEN:
-            if kennung == self.aktuell or kennung not in self.gezeichnet:
+        for kennung in self.STOCK_PAGES:
+            if kennung == self.current or kennung not in self.drawn:
                 continue
             try:
-                rahmen = self.seiten.get(kennung)
+                rahmen = self.pages.get(kennung)
                 if rahmen is None:
                     continue
                 for kind in rahmen.winfo_children():
                     kind.destroy()
-                self.gezeichnet.discard(kennung)
+                self.drawn.discard(kennung)
             except Exception as ausnahme:
                 from . import fehler
                 fehler.merken('main_window.bestand_verwerfen:%s' % kennung,
                               ausnahme)
 
-    def neu_aufbauen(self):
+    def rebuild(self):
         """Alles neu zeichnen — nach einem Sprachwechsel.
 
         Texte stehen in der Reiterleiste, in der Titelleiste, in der Fußzeile
         und auf jeder Seite. Einzeln nachzuziehen wäre zwanzig Stellen, die man
         vergessen kann; einmal neu aufbauen ist verlässlicher.
         """
-        merker = self.aktuell
-        offen = self.fortgeschritten_offen
+        merker = self.current
+        offen = self.advanced_open
         for kind in self.root.winfo_children():
             kind.destroy()
-        self.seiten, self.gezeichnet, self.knoepfe = {}, set(), {}
+        self.pages, self.drawn, self.buttons = {}, set(), {}
         # ⚠ Mit zuruecksetzen: Sonst liefe der Vorbau nach einem Neuaufbau
         # (Sprache, Schriftgroesse) nie wieder an — die Seiten sind ja alle
         # weg, aber die Sperre stuende noch.
-        self._vorbau_laeuft = False
-        self.aktuell = None
-        self._einst = None            # das geliehene Einstellungsfenster ist weg
-        self.fortgeschritten_offen = False
+        self._prebuild_running = False
+        self.current = None
+        self._settings_window = None            # das geliehene Einstellungsfenster ist weg
+        self.advanced_open = False
 
-        self._titelleiste()
-        self._fusszeile()
-        self._korpus()
+        self._titlebar()
+        self._footer()
+        self._body()
         if offen:
-            self._klapp_umschalten()
-        self.oeffnen(merker or 'liste')
+            self._collapse_toggle()
+        self.open_page(merker or 'liste')
 
         # ⚠ Die Mindestgroesse muss mitwachsen. Sie haengt an der Hoehe der
         # Seitenleiste, und die haengt an der Schrift: Bei „sehr gross" braucht
@@ -3091,15 +3091,15 @@ class Hauptfenster:
         # „wenn jemand so schlecht sehen sollte, was ja moeglich ist, dann muss
         # die minimale groesse eben im verhaeltnis mitwachsen."
         #
-        # Gerechnet hat das `_mindesthoehe_nachziehen()` schon immer richtig —
+        # Gerechnet hat das `_min_height_update()` schon immer richtig —
         # es lief nur beim Start und beim Aufklappen, nie nach einem Schrift-
         # oder Sprachwechsel. Hier ist der richtige Ort: Wer neu aufbaut, hat
         # neue Masse. Ueber `after`, weil Tk die Leiste erst zeichnen muss —
         # vorher meldet sie 1 Pixel Hoehe (die Funktion faengt das ab und
         # versucht es erneut).
-        self.root.after(50, self._mindesthoehe_nachziehen)
+        self.root.after(50, self._min_height_update)
 
-    def _seite_fuellen(self, kennung, rahmen):
+    def _fill_page(self, kennung, rahmen):
         """Hier hängen die Seiten ein — geliefert von `seiten.py`."""
         from . import seiten
         seiten.bauen(self, kennung, rahmen)
@@ -3111,14 +3111,14 @@ class Hauptfenster:
     # 17 Seiten. Gemeldet wurde das als „linke leiste laed langsamer" bzw.
     # „bauplan liste weiterhin langsam", je nachdem, was gerade angefasst
     # wurde — dasselbe Stocken, nur an wechselnder Stelle.
-    VORBAU_RUHE_S = 1.2
-    VORBAU_NACHFRAGE_MS = 400
+    PREBUILD_IDLE_S = 1.2
+    PREBUILD_RECHECK_MS = 400
 
-    def _aktion_merken(self, _ereignis=None):
+    def _remember_action(self, _ereignis=None):
         """Zeitpunkt der letzten Eingabe — der Vorbau richtet sich danach."""
-        self._letzte_aktion = time.monotonic()
+        self._last_action = time.monotonic()
 
-    def _seiten_vorbauen(self, rest=None):
+    def _prebuild_pages(self, rest=None):
         """Die noch leeren Seiten nacheinander im Leerlauf bauen.
 
         ⚠ **Warum das nötig ist.** Jede Seite entsteht erst beim ersten
@@ -3143,14 +3143,14 @@ class Hauptfenster:
         frei, sodass Klicks sofort ankommen.
 
         ⚠ Klickt jemand währenddessen auf eine noch nicht vorgebaute Seite,
-        baut `oeffnen()` sie sofort selbst und trägt sie in `gezeichnet` ein —
+        baut `open_page()` sie sofort selbst und trägt sie in `drawn` ein —
         hier wird sie dann übersprungen. Doppelt gebaut wird nie.
         """
         try:
             if rest is None:
                 from . import seiten
                 rest = [k for k in seiten.kennungen()
-                        if k not in self.gezeichnet]
+                        if k not in self.drawn]
             if not rest:
                 return
             # ⚠⚠ **Erst bauen, wenn der Nutzer eine Weile nichts getan hat.**
@@ -3158,16 +3158,16 @@ class Hauptfenster:
             # bei jeder Seite die Oberflaeche fest. Er hat es nicht eilig — die
             # Seiten werden gebraucht, wenn jemand sie anklickt, und bis dahin
             # ist meistens laengst Ruhe gewesen.
-            still = time.monotonic() - getattr(self, '_letzte_aktion', 0.0)
-            if still < self.VORBAU_RUHE_S:
-                self.root.after(self.VORBAU_NACHFRAGE_MS,
-                                lambda r=rest: self._seiten_vorbauen(r))
+            still = time.monotonic() - getattr(self, '_last_action', 0.0)
+            if still < self.PREBUILD_IDLE_S:
+                self.root.after(self.PREBUILD_RECHECK_MS,
+                                lambda r=rest: self._prebuild_pages(r))
                 return
             kennung, rest = rest[0], rest[1:]
-            if kennung not in self.gezeichnet:
-                self.gezeichnet.add(kennung)
-                if kennung not in self.seiten:
-                    self.seiten[kennung] = tk.Frame(self.inhalt, bg=BG)
+            if kennung not in self.drawn:
+                self.drawn.add(kennung)
+                if kennung not in self.pages:
+                    self.pages[kennung] = tk.Frame(self.content, bg=BG)
                 # ⚠⚠ **Den Eingabefokus retten.** Manche Seiten setzen ihn beim
                 # Bauen selbst — das Suchfeld der Bauplan-Liste ruft
                 # `feld.focus_set()`, damit man sofort tippen kann. Beim
@@ -3186,7 +3186,7 @@ class Hauptfenster:
                     pass
                 _t_vor = time.perf_counter()
                 try:
-                    self._seite_fuellen(kennung, self.seiten[kennung])
+                    self._fill_page(kennung, self.pages[kennung])
                     # ⚠ Diagnose (02.09.2026): Der Vorbau laeuft 400 ms nach
                     # dem Oeffnen los und haelt Tk je Seite fest — waehrend
                     # dieser Zeit reagiert das Fenster traege. Gemeldet als
@@ -3199,7 +3199,7 @@ class Hauptfenster:
                 except Exception as ausnahme:
                     # Eine Seite, die sich nicht bauen laesst, darf die
                     # anderen nicht aufhalten — beim Anklicken zeigt
-                    # `oeffnen()` denselben Platzhalter.
+                    # `open_page()` denselben Platzhalter.
                     fehler.merken('main_window.vorbau:%s' % kennung, ausnahme)
                 # Und zurueckgeben, was die vorgebaute Seite sich genommen hat.
                 # ⚠ Nur, wenn es das Widget noch gibt: Beim Neuaufbau des
@@ -3211,27 +3211,27 @@ class Hauptfenster:
                 except Exception:
                     pass
             if rest:
-                self.root.after(60, lambda: self._seiten_vorbauen(rest))
+                self.root.after(60, lambda: self._prebuild_pages(rest))
         except Exception as ausnahme:
             fehler.merken('main_window.seiten_vorbauen', ausnahme)
 
     # ------------------------------------------------------------------ Tat
-    def _was_ist_neu(self):
+    def _whats_new(self):
         """Kein eigenes Fenster mehr — die Änderungen sind ein Reiter.
 
         Ein Fenster über dem Fenster verdeckt genau das, was man gerade
         vergleichen will, und es gibt keinen Grund dafür: Der Platz ist da.
         """
-        self.oeffnen('wasistneu')
+        self.open_page('wasistneu')
 
-    def _einrichtung(self):
+    def _open_wizard(self):
         from . import assistent
         try:
             assistent.starten(self.root)
         except Exception as ausnahme:
             fehler.merken('main_window.assistent', ausnahme)
 
-    def _sicherung(self):
+    def _backup(self):
         """Alles Eigene in eine Datei — oder eine solche Datei einspielen.
 
         ⚠ **Zwei Wege hinter einem Knopf.** Sichern ist der haeufige Fall,
@@ -3246,13 +3246,13 @@ class Hauptfenster:
                 t('sich_lead') + '\n\n' + t('sich_was'),
                 t('sich_schreiben'), t('sich_lesen'))
             if wahl == 'a':
-                self._sicherung_schreiben(file_picker, backup)
+                self._backup_write(file_picker, backup)
             elif wahl == 'b':
-                self._sicherung_lesen(file_picker, backup)
+                self._backup_read(file_picker, backup)
         except Exception as ausnahme:
             fehler.merken('main_window.sicherung', ausnahme)
 
-    def _sicherung_schreiben(self, file_picker, sicherung):
+    def _backup_write(self, file_picker, sicherung):
         target = file_picker.save_file(
             t('sich_schreiben'), suggestion=sicherung.suggestion(),
             extension='.zip', patterns=(('ZIP', '*.zip'),))
@@ -3260,13 +3260,13 @@ class Hauptfenster:
             return
         ok, meldung, anzahl = sicherung.write(target, self.version)
         if ok:
-            self.sagen(t('sich_fertig', anzahl, os.path.basename(meldung)))
+            self.say(t('sich_fertig', anzahl, os.path.basename(meldung)))
         elif meldung == 'leer':
-            self.sagen(t('sich_leer'))
+            self.say(t('sich_leer'))
         else:
-            self.sagen(t('sich_fehler', meldung))
+            self.say(t('sich_fehler', meldung))
 
-    def _belegung_anbieten(self, quelle, sicherung):
+    def _offer_bindings(self, quelle, sicherung):
         """Die gesicherte Steuerung anbieten — zwei Fragen, nicht eine.
 
         Die erste betrifft die **Profile**: Sie kommen nur dazu, es geht nichts
@@ -3287,13 +3287,13 @@ class Hauptfenster:
             ok, _meldung, geschrieben = sicherung.restore_bindings(
                 quelle, with_active=mit_aktiver)
             if ok:
-                self.sagen(t('sich_belegung_ok', geschrieben))
+                self.say(t('sich_belegung_ok', geschrieben))
         except Exception as ausnahme:
             # ⚠ Ein Fehler hier darf das Einspielen nicht mitreißen — der
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
             fehler.merken('main_window.belegung_anbieten', ausnahme)
 
-    def _sicherung_lesen(self, file_picker, sicherung):
+    def _backup_read(self, file_picker, sicherung):
         quelle = file_picker.open_file(t('sich_lesen'),
                                        patterns=(('ZIP', '*.zip'),))
         if not quelle:
@@ -3302,22 +3302,22 @@ class Hauptfenster:
         # Datei vergreift, soll das erfahren, BEVOR sein Bestand weg ist.
         gueltig, anzahl, when = sicherung.check(quelle)
         if not gueltig:
-            self.sagen(t('sich_ungueltig'))
+            self.say(t('sich_ungueltig'))
             return
         if not ask_yes_no(self.root, t('sich_titel'),
                              t('sich_frage', when or '?', anzahl)):
             return
         ok, meldung, anzahl = sicherung.restore(quelle)
         if not ok:
-            self.sagen(t('sich_fehler', meldung))
+            self.say(t('sich_fehler', meldung))
             return
         # ⚠⚠ **Die Steuerung kommt getrennt und nur auf Nachfrage.** Sie liegt
         # im Spielordner, nicht in unserer Ablage — und wer die aktive Belegung
         # aus einer fremden Sicherung bekommt, sitzt vor einem Schiff, das auf
         # nichts mehr reagiert. Profile dazuzulegen ist dagegen harmlos: Sie
         # liegen nur herum, bis jemand eines lädt.
-        self._belegung_anbieten(quelle, sicherung)
-        self.sagen(t('sich_zurueck_ok', anzahl))
+        self._offer_bindings(quelle, sicherung)
+        self.say(t('sich_zurueck_ok', anzahl))
         # ⚠⚠ Neustart ist Pflicht, keine Hoeflichkeit: Bestand, Lager und
         # Protokoll liegen im Arbeitsspeicher und wuerden beim naechsten
         # Speichern ueber die gerade eingespielten Dateien geschrieben.
@@ -3331,14 +3331,14 @@ class Hauptfenster:
             from . import updater
             try:
                 if not updater.restart():
-                    self.sagen(t('sich_neustart_selbst'))
+                    self.say(t('sich_neustart_selbst'))
             except Exception as ausnahme:
                 fehler.merken('main_window.sicherung_neustart', ausnahme)
-                self.sagen(t('sich_neustart_selbst'))
+                self.say(t('sich_neustart_selbst'))
 
         self.root.after(1200, _neustart)
 
-    def _groesse_beobachten(self, ereignis):
+    def _watch_size(self, ereignis):
         """Auf Groessenaenderungen horchen — aber nicht bei jedem Pixel schreiben.
 
         ⚠ **Gedrosselt.** `<Configure>` feuert waehrend des Ziehens
@@ -3351,14 +3351,14 @@ class Hauptfenster:
         """
         if ereignis.widget is not self.root:
             return
-        if self._groesse_wartet:
+        if self._size_pending:
             try:
-                self.root.after_cancel(self._groesse_wartet)
+                self.root.after_cancel(self._size_pending)
             except Exception:
                 pass
-        self._groesse_wartet = self.root.after(500, self._groesse_merken)
+        self._size_pending = self.root.after(500, self._remember_size)
 
-    def _groesse_merken(self):
+    def _remember_size(self):
         """Die eingestellte Groesse sichern.
 
         ⚠ **Nur im normalen Zustand.** Ein maximiertes Fenster meldet die
@@ -3367,7 +3367,7 @@ class Hauptfenster:
         Taskleiste reicht. Wer maximiert, findet beim naechsten Start seine
         letzte selbst gezogene Groesse vor — das ist die ehrlichere Antwort.
         """
-        self._groesse_wartet = None
+        self._size_pending = None
         try:
             if self.root.state() != 'normal':
                 return
@@ -3382,23 +3382,23 @@ class Hauptfenster:
             return
         pfade.einstellung_setzen(SIZE_KEY, wert)
 
-    def schliessen(self):
+    def close(self):
         # Beim Zumachen noch einmal sichern: Wer das Fenster kurz nach dem
         # Ziehen schliesst, waere sonst schneller als die Drossel.
         try:
-            self._groesse_merken()
+            self._remember_size()
         except Exception as ausnahme:
             fehler.merken('main_window.groesse_merken', ausnahme)
         # Offene Schreibauftraege der Seiten abarbeiten, bevor das Fenster weg
         # ist. Einer, der scheitert, darf die uebrigen nicht mitreissen.
-        for auftrag in list(self.vor_dem_schliessen):
+        for auftrag in list(self.before_close):
             try:
                 auftrag()
             except Exception as ausnahme:
                 fehler.merken('main_window.vor_dem_schliessen', ausnahme)
         try:
-            if self.beim_schliessen:
-                self.beim_schliessen()
+            if self.on_close:
+                self.on_close()
         finally:
             self.root.destroy()
 

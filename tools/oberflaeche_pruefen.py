@@ -51,7 +51,7 @@ os.environ.setdefault('SC_BP_HOME', '/tmp/sc-bp-oberflaechenpruefung')
 os.environ.setdefault('SC_BP_NO_NET', '1')
 
 from scbp import sprache                                  # noqa: E402
-from scbp.main_window import Hauptfenster                 # noqa: E402
+from scbp.main_window import MainWindow                 # noqa: E402
 
 # ⚠⚠ **ALLE Seiten, die `scbp/seiten.py` kennt** — nicht nur die, die es beim
 # Bau dieser Pruefung schon gab. Bis 31.08.2026 fehlten hier sechs: die ganze
@@ -106,7 +106,7 @@ def pruefe():
 
     wurzel = tk.Tk()
     wurzel.withdraw()
-    fenster = Hauptfenster(wurzel, version='pruefung')
+    fenster = MainWindow(wurzel, version='pruefung')
     treffer = {}
     kaputt = []
     # ⚠ Zweite Ernte aus demselben Durchgang: sichtbarer Text, in dem noch die
@@ -145,7 +145,7 @@ def pruefe():
         for kind in widget.winfo_children():
             sammeln(kind)
 
-    # ⚠⚠ **Das Fehlerprotokoll ist die eigentliche Quelle.** `oeffnen()` faengt
+    # ⚠⚠ **Das Fehlerprotokoll ist die eigentliche Quelle.** `open_page()` faengt
     # jede Ausnahme selbst ab und schreibt sie nur nach `scbp.fehler` — bei der
     # Pruefung hier kommt sie nie an. Genau deshalb blieb der TypeError in der
     # Handelslager-Seite unbemerkt, obwohl dieser Lauf die Seite aufgebaut hat:
@@ -156,7 +156,7 @@ def pruefe():
 
     for seite in SEITEN:
         try:
-            fenster.oeffnen(seite)
+            fenster.open_page(seite)
             fenster.root.update()
             sammeln(fenster.root)
         except Exception as ausnahme:

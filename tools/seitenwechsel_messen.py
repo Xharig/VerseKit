@@ -8,16 +8,16 @@ nicht, **wo** die Zeit hingeht — und ohne das bleibt jede Verbesserung Raten.
 Genau daran sind hier schon drei Erklärungen gescheitert (Schriftgröße, Zahl
 der Symbolbilder, Zahl der Bauteile).
 
-⚠⚠ **Und die Spur im Fehlerbericht misst zu kurz.** `oeffnen()` schreibt
+⚠⚠ **Und die Spur im Fehlerbericht misst zu kurz.** `open_page()` schreibt
 `Seite x: steht (440 ms)` direkt nach dem Ein- und Ausblenden — danach laufen
-aber noch `_reiter_faerben()`, `_leistenbreite_nachziehen()` und die
+aber noch `_recolor_tabs()`, `_sidebar_width_update()` und die
 „Neu"-Marken. Wer die 440 ms für den ganzen Wechsel hält, sucht an der
 falschen Stelle.
 
 ## Wie gemessen wird
 
 **Per Wrapper, ohne den Code anzufassen.** Jede beteiligte Methode wird durch
-eine zeitnehmende Hülle ersetzt, dann läuft `oeffnen()` ganz normal. So misst
+eine zeitnehmende Hülle ersetzt, dann läuft `open_page()` ganz normal. So misst
 das Werkzeug den echten Weg — nicht einen nachgebauten.
 
     python3 tools/seitenwechsel_messen.py
@@ -27,14 +27,14 @@ eingeblendet. Das ist der Fall, der den Nutzer bei **jedem** Klick trifft.
 
 ## Was die erste Messung ergeben hat (13.09.2026)
 
-| Seite | gesamt | `oeffnen()` | `update()` | Bauteile |
+| Seite | gesamt | `open_page()` | `update()` | Bauteile |
 |---|---|---|---|---|
 | joysticks | 584 ms | **35 ms** | **535 ms** | 986 |
 | wasistneu | 119 ms | 11 ms | 91 ms | **1000** |
 
 **Zwei Erklärungen sind damit erledigt:**
 
-1. ⛔ *„`oeffnen()` ist zu langsam"* — es kostet 35 von 584 ms.
+1. ⛔ *„`open_page()` ist zu langsam"* — es kostet 35 von 584 ms.
 2. ⛔ *„Es hängen noch Aufbau-Aufträge im Leerlauf"* — offen sind nur drei
    Timer (`takt`, `nachziehen`), keine Bau-Aufträge.
 
@@ -83,10 +83,10 @@ unsichtbar.sicherstellen(messend=True)
 
 from scbp import main_window                                # noqa: E402
 
-# Die Methoden, die `oeffnen()` der Reihe nach ruft.
-SCHRITTE = ('_aktion_merken', '_gruppe_von_reiter_oeffnen',
-            '_seite_fuellen', '_reiter_faerben',
-            '_leistenbreite_nachziehen')
+# Die Methoden, die `open_page()` der Reihe nach ruft.
+SCHRITTE = ('_remember_action', '_open_group_of_tab',
+            '_fill_page', '_recolor_tabs',
+            '_sidebar_width_update')
 
 WIEDERHOLUNGEN = 3
 
@@ -114,7 +114,7 @@ def _huellen(fenster, konto):
 
 
 def main():
-    fenster = main_window.Hauptfenster(version='mess')
+    fenster = main_window.MainWindow(version='mess')
     fenster.root.update()
     fenster.root.update_idletasks()
 
@@ -124,7 +124,7 @@ def main():
     # ⚠ Erst ALLE Seiten einmal bauen — gemessen wird nur der warme Fall.
     for kennung in kennungen:
         try:
-            fenster.oeffnen(kennung)
+            fenster.open_page(kennung)
             fenster.root.update()
         except Exception as fehler:
             print('  !! %s: %s' % (kennung, fehler))
@@ -132,21 +132,21 @@ def main():
 
     ergebnis = []
     for kennung in kennungen:
-        if kennung not in fenster.gezeichnet:
+        if kennung not in fenster.drawn:
             continue
         summe = {}
         for _ in range(WIEDERHOLUNGEN):
             # Auf eine andere Seite und zurueck — sonst misst man nichts.
             andere = next((k for k in kennungen if k != kennung), None)
             if andere:
-                fenster.oeffnen(andere)
+                fenster.open_page(andere)
                 fenster.root.update()
 
             konto = {}
             echt = _huellen(fenster, konto)
             try:
                 t0 = time.perf_counter()
-                fenster.oeffnen(kennung)
+                fenster.open_page(kennung)
                 t_oeffnen = (time.perf_counter() - t0) * 1000
 
                 t0 = time.perf_counter()
@@ -160,9 +160,9 @@ def main():
                 for name, ruf in echt.items():
                     setattr(fenster, name, ruf)
 
-            # Der Rueckruf `beim_zeigen` laeuft INNERHALB von `oeffnen`, hat
+            # Der Rueckruf `on_show` laeuft INNERHALB von `open_page`, hat
             # aber keine eigene Methode — er wird separat nachgemessen.
-            ruf = (getattr(fenster, 'beim_zeigen', {}) or {}).get(kennung)
+            ruf = (getattr(fenster, 'on_show', {}) or {}).get(kennung)
             t0 = time.perf_counter()
             if ruf:
                 try:
@@ -173,14 +173,14 @@ def main():
 
             for name, wert in konto.items():
                 summe[name] = summe.get(name, 0.0) + wert
-            for name, wert in (('oeffnen gesamt', t_oeffnen),
+            for name, wert in (('open_page gesamt', t_oeffnen),
                                ('update_idletasks', t_idle),
                                ('update', t_update),
                                ('davon Rueckruf', t_rueckruf)):
                 summe[name] = summe.get(name, 0.0) + wert
 
         mittel = {k: v / WIEDERHOLUNGEN for k, v in summe.items()}
-        ergebnis.append((mittel.get('oeffnen gesamt', 0)
+        ergebnis.append((mittel.get('open_page gesamt', 0)
                          + mittel.get('update_idletasks', 0)
                          + mittel.get('update', 0), kennung, mittel))
 
@@ -195,15 +195,15 @@ def main():
         return anzahl
 
     ergebnis.sort(reverse=True)
-    kopf = ('oeffnen gesamt', 'davon Rueckruf', 'update_idletasks', 'update',
-            '_reiter_faerben', '_leistenbreite_nachziehen')
+    kopf = ('open_page gesamt', 'davon Rueckruf', 'update_idletasks', 'update',
+            '_recolor_tabs', '_sidebar_width_update')
     print('\n  %-16s %8s %8s %9s %8s %8s %9s %7s'
-          % ('Seite', 'gesamt', 'oeffnen', 'Rueckruf', 'idle', 'update',
+          % ('Seite', 'gesamt', 'open_page', 'Rueckruf', 'idle', 'update',
              'Bauteile', 'µs/St.'))
     print('  ' + '-' * 82)
     for gesamt, kennung, m in ergebnis[:14]:
         try:
-            n = _bauteile(fenster.seiten[kennung])
+            n = _bauteile(fenster.pages[kennung])
         except Exception:
             n = 0
         je = (m.get(kopf[3], 0) * 1000 / n) if n else 0
@@ -211,19 +211,19 @@ def main():
               % (kennung, gesamt, m.get(kopf[0], 0), m.get(kopf[1], 0),
                  m.get(kopf[2], 0), m.get(kopf[3], 0), n, je))
 
-    # ⭐⭐ Und die Frage dahinter: **Was** laeuft im Leerlauf, wenn `oeffnen()`
+    # ⭐⭐ Und die Frage dahinter: **Was** laeuft im Leerlauf, wenn `open_page()`
     # laengst zurueck ist? Die Tabelle oben sagt nur, DASS `update()` teuer
     # ist — `update()` arbeitet naemlich alle faelligen Rueckrufe ab, nicht
     # nur die dieser Seite.
     print('\n  Was nach einem Wechsel noch eingeplant ist:')
     for kennung in ('joysticks', 'zerlegen', 'liste'):
-        if kennung not in fenster.gezeichnet:
+        if kennung not in fenster.drawn:
             continue
         andere = next((k for k in kennungen if k != kennung), None)
         if andere:
-            fenster.oeffnen(andere)
+            fenster.open_page(andere)
             fenster.root.update()
-        fenster.oeffnen(kennung)
+        fenster.open_page(kennung)
         offen = fenster.root.tk.splitlist(fenster.root.tk.call('after',
                                                                'info'))
         namen = []
@@ -240,7 +240,7 @@ def main():
         fenster.root.update()
 
     # ⚠ **Die Spalte „Rueckruf" ist eine ZWEITE Messung**, kein Anteil an
-    # `oeffnen`. Der Rueckruf laeuft einmal in `oeffnen()` und wird danach
+    # `open_page`. Der Rueckruf laeuft einmal in `open_page()` und wird danach
     # noch einmal allein gerufen — nur so laesst sich seine Zeit von der
     # Umgebung trennen. Bei `zerlegen` ist der zweite Aufruf teurer als der
     # erste; die Seite schwankt ohnehin zwischen 1,7 und 3,3 Sekunden.

@@ -996,12 +996,12 @@ def main():
             from scbp import main_window, seiten as seitenmodul, sprache as spr
             import tkinter as _tk
             spr.setzen('de')
-            hf = main_window.Hauptfenster(version='3.0.0')
+            hf = main_window.MainWindow(version='3.0.0')
             hf.root.withdraw()
             try:
-                hf.oeffnen('allgemein')
+                hf.open_page('allgemein')
                 hf.root.update()
-                vorher = hf.knoepfe['allgemein'][3].cget('text')
+                vorher = hf.buttons['allgemein'][3].cget('text')
 
                 def fenster_zaehlen(w):
                     n = 0
@@ -1021,15 +1021,15 @@ def main():
                 # Geprüft werden soll ohnehin etwas anderes: dass der
                 # Sprachwechsel **keinen Reiter verschluckt**. Dafür ist die
                 # Zahl davor das richtige Maß, nicht eine notierte Konstante.
-                _vorher_reiter = len(hf.knoepfe)
+                _vorher_reiter = len(hf.buttons)
                 seitenmodul._einstellungen(hf)._sprache_waehlen('en')
                 hf.root.update()
                 pruefe(fenster_zaehlen(hf.root) == 0,
                        'kein zweites Fenster beim Sprachwechsel')
                 pruefe(vorher == 'Allgemein'
-                       and hf.knoepfe['allgemein'][3].cget('text') == 'General',
+                       and hf.buttons['allgemein'][3].cget('text') == 'General',
                        'die Reiter sind übersetzt')
-                pruefe(hf.aktuell == 'allgemein',
+                pruefe(hf.current == 'allgemein',
                        'die geöffnete Seite bleibt geöffnet')
                 # Feste Zahl mit Absicht: Der Test soll auffallen, wenn beim
                 # Sprachwechsel ein Reiter verschwindet. Kommt einer dazu,
@@ -1085,9 +1085,9 @@ def main():
                 # ⚠ Beide Zahlen stehen im Text. Ohne sie meldet ein
                 # Bau-Lauf nur „[FEHL] alle Reiter sind wieder da", und
                 # niemand weiß, ob einer fehlt oder zwanzig.
-                pruefe(len(hf.knoepfe) == _vorher_reiter,
+                pruefe(len(hf.buttons) == _vorher_reiter,
                        'alle Reiter sind wieder da (vorher %d, jetzt %d)'
-                       % (_vorher_reiter, len(hf.knoepfe)))
+                       % (_vorher_reiter, len(hf.buttons)))
 
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
@@ -1635,7 +1635,7 @@ def main():
             _kaputt, _rohe = [], []
             for _kuerzel in ('de', 'en'):
                 _spr.setzen(_kuerzel)
-                _f = _hf.Hauptfenster(version='0.0.0-test')
+                _f = _hf.MainWindow(version='0.0.0-test')
                 _f.root.geometry('900x600+3000+3000')       # aus dem Blick
                 for _seite in _SEITEN:
                     _rahmen = _tk.Frame(_f.root)
@@ -1674,7 +1674,7 @@ def main():
             # Gegengeprüft mit eingebautem Fehler — schlägt dann an.
             _felder_kaputt = []
             _spr.setzen('de')
-            _f = _hf.Hauptfenster(version='0.0.0-test')
+            _f = _hf.MainWindow(version='0.0.0-test')
             _f.root.geometry('900x600+3000+3000')
             for _seite in ('joysticks',):
                 _rahmen = _tk.Frame(_f.root)
@@ -1956,13 +1956,13 @@ def main():
         import tkinter as tk21
         import tkinter.font as tkfont21
         from scbp import seiten as se21
-        from scbp.main_window import Hauptfenster as HF21
+        from scbp.main_window import MainWindow as HF21
 
         wurzel = _wurzel()
         _sch21 = tkfont21.Font(root=wurzel, family='Segoe UI', size=10)
 
         class _Traeger21:
-            f_klein = _sch21
+            f_small = _sch21
 
         _wahl21 = se21._wahl(_Traeger21(), tk21.Frame(wurzel),
                              [('popup', 'nur bei einem Neuzugang')],
@@ -1984,13 +1984,13 @@ def main():
         _ablauf21 = []
 
         class _Fenster21:
-            f_grund = f_fett = f_klein = f_titel = f_zeichen = _sch21
-            beim_schriftwechsel = None
+            f_base = f_bold = f_small = f_title = f_icon = _sch21
+            on_font_change = None
             root = wurzel
-            neu_aufbauen = lambda self: _ablauf21.append('aufbauen')
-            sagen = lambda self, text: _ablauf21.append('sagen')
+            rebuild = lambda self: _ablauf21.append('aufbauen')
+            say = lambda self, text: _ablauf21.append('sagen')
 
-        HF21.schriftgroesse_setzen(_Fenster21(), 'gross')
+        HF21.set_font_size(_Fenster21(), 'gross')
         wurzel.update()                        # die `after`-Schlange abarbeiten
         pruefe(_ablauf21 == ['aufbauen', 'sagen'],
                'Schriftwechsel baut neu auf und meldet danach (%s)'
@@ -2002,8 +2002,8 @@ def main():
         #    aus dem Fenster — sie werden von unten gepackt und fallen heraus.
         #    Gerechnet wurde immer richtig; der Aufruf fehlte im Neuaufbau.
         import inspect as _ins21
-        _quelle21 = _ins21.getsource(HF21.neu_aufbauen)
-        pruefe('_mindesthoehe_nachziehen' in _quelle21,
+        _quelle21 = _ins21.getsource(HF21.rebuild)
+        pruefe('_min_height_update' in _quelle21,
                'der Neuaufbau zieht die Mindestgroesse nach')
 
         # d) ⚠ Die zwei Kanal-Kaesten muessen gleich gross sein. `pack` kann das
@@ -2029,8 +2029,8 @@ def main():
         _rahmen21.pack(fill='both', expand=True)
 
         class _Traeger21b:
-            f_klein = _sch21
-            f_fett = _sch21
+            f_small = _sch21
+            f_bold = _sch21
             version = '0.0.0'
 
         _t21 = _Traeger21b()
@@ -2096,7 +2096,7 @@ def main():
             # sporadisch mit 81 fehl, ohne dass sich am Programm etwas
             # geaendert haette.
             #
-            # Ursache: `Hauptfenster._seiten_vorbauen` laeuft **400 ms nach dem
+            # Ursache: `MainWindow._prebuild_pages` laeuft **400 ms nach dem
             # Oeffnen** ueber `after()` und schreibt dann `Vorbau xy: N ms` in
             # die Spur. Hat eine fruehere Pruefung ein Fenster gebaut, faellt
             # dieser Rueckruf mitten in diese hier — und landet in der Datei,
@@ -2936,10 +2936,10 @@ def main():
         #     alles laeuft — und niemand naehme ihn noch ernst.
         quelle36 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                         encoding='utf-8').read()
-        stelle36 = quelle36[quelle36.index('def _reiter_faerben'):][:2200]
+        stelle36 = quelle36[quelle36.index('def _recolor_tabs'):][:2200]
         pruefe("rot = (kennung == 'diagnose')" in stelle36,
                'der Reiter diagnose wird gesondert behandelt')
-        pruefe('_fehler_liegen_an()' in stelle36,
+        pruefe('_errors_pending()' in stelle36,
                'das Symbol haengt an tatsaechlichen Fehlern, nicht am Reiter')
         pruefe('fg=RED if rot' in stelle36,
                'das Wort ist unabhaengig davon rot')
@@ -3078,11 +3078,11 @@ def main():
                              weight='bold')
 
         class _Traeger23:
-            f_klein = _k23; f_titel = _t23; f_fett = _t23; f_gross = _t23
+            f_small = _k23; f_title = _t23; f_bold = _t23; f_gross = _t23
             f_mittel = _k23; f_normal = _k23; version = '3.0.0'
-            def sagen(self, *a, **k): pass
-            def oeffnen(self, *a, **k): pass
-            def _einrichtung(self, *a, **k): pass
+            def say(self, *a, **k): pass
+            def open_page(self, *a, **k): pass
+            def _open_wizard(self, *a, **k): pass
 
         try:
             rahmen23 = tk23.Frame(wurzel23)
@@ -4028,16 +4028,16 @@ def main():
         if os.path.isfile(_hf46):
             with open(_hf46, encoding='utf-8') as _f46:
                 _q46 = _f46.read()
-            pruefe('def _seiten_vorbauen' in _q46,
+            pruefe('def _prebuild_pages' in _q46,
                    'die Seiten werden im Leerlauf vorgebaut')
-            if 'def _seiten_vorbauen' in _q46:
-                _t46 = _q46[_q46.index('def _seiten_vorbauen'):]
+            if 'def _prebuild_pages' in _q46:
+                _t46 = _q46[_q46.index('def _prebuild_pages'):]
                 _t46 = _t46[:_t46.index('    def ', 10)]
                 # EINE Seite je Durchlauf — sonst haelt der Vorbau das Fenster
                 # sekundenlang fest, statt es freizugeben.
                 pruefe('after(' in _t46,
                        'und gibt zwischen den Seiten die Bedienung frei')
-                pruefe('in self.gezeichnet' in _t46,
+                pruefe('in self.drawn' in _t46,
                        'und baut keine Seite doppelt')
                 # ⚠⚠ Der Fehler, den der Vorbau selbst erzeugt hat
                 #   (02.09.2026, direkt nach rc4): Manche Seiten rufen beim
@@ -4048,13 +4048,13 @@ def main():
                 pruefe('focus_get()' in _t46 and 'focus_set()' in _t46,
                        'und gibt den Eingabefokus zurueck, den eine Seite '
                        'sich beim Bauen nimmt')
-            pruefe('_vorbau_laeuft' in _q46,
+            pruefe('_prebuild_running' in _q46,
                    'er laeuft nur einmal je Fenster an')
             # ⚠ Die Sperre muss beim Neuaufbau zurueck — sonst laeuft der
             #   Vorbau nach einem Sprachwechsel nie wieder.
-            if 'self.seiten, self.gezeichnet' in _q46:
-                _t47 = _q46[_q46.index('self.seiten, self.gezeichnet'):][:400]
-                pruefe('_vorbau_laeuft = False' in _t47,
+            if 'self.pages, self.drawn' in _q46:
+                _t47 = _q46[_q46.index('self.pages, self.drawn'):][:400]
+                pruefe('_prebuild_running = False' in _t47,
                        'und wird beim Neuaufbau des Fensters zurueckgesetzt')
         # ⚠ Gemessen am 28.08.2026: Ein ungezeichnetes Widget meldet Breite 1 und
         #   Position 0. `ismapped()` allein reicht deshalb nicht — sonst saesse
@@ -4580,7 +4580,7 @@ def main():
     print('52b. Knoepfe schneiden ihre Beschriftung nicht ab')
     import tkinter as _tk52b
     from scbp import seiten as _se52b
-    from scbp.main_window import Hauptfenster as _HF52b
+    from scbp.main_window import MainWindow as _HF52b
     _w52b = _tk52b.Tk()
     try:
         _f52b = _HF52b(_w52b, version='knopfprobe')
@@ -4656,9 +4656,9 @@ def main():
     try:
         _f52d = _HF52b(_w52d, version='suchprobe')
         for _seite in ('bergbau', 'herstellung'):
-            _f52d.oeffnen(_seite)
+            _f52d.open_page(_seite)
         _w52d.update_idletasks()
-        pruefe(hasattr(_f52d, 'beim_zeigen'),
+        pruefe(hasattr(_f52d, 'on_show'),
                'das Fenster fuehrt ein Verzeichnis fuer das erneute Anzeigen')
         # ⚠ Im Wegwerf-Ordner fehlen Bergbau- und Rezeptdaten; die Seiten
         # brechen dann vor dem Suchfeld ab. Ob sie sich anmelden, steht
@@ -4667,13 +4667,13 @@ def main():
                   encoding='utf-8') as _fh52d:
             _qu52d = _fh52d.read()
         for _seite in ('bergbau', 'herstellung'):
-            pruefe("beim_zeigen['%s']" % _seite in _qu52d,
+            pruefe("on_show['%s']" % _seite in _qu52d,
                    'Seite %s meldet sich fuers erneute Anzeigen an' % _seite)
         pruefe(_qu52d.count('_suche_leeren_kreuz(') >= 3,
                'beide Suchfelder haben ein Kreuz zum Leeren')
         # Und der Rueckruf muss auch wirklich leeren.
         _leer52d = []
-        for _seite, _ruf in _f52d.beim_zeigen.items():
+        for _seite, _ruf in _f52d.on_show.items():
             try:
                 _ruf()
             except Exception as _a:
@@ -6311,16 +6311,16 @@ def main():
 
                 class _Fenster67:
                     # ⚠ **Das Ersatzfenster muss alle Schriften kennen, die das
-                    # echte hat.** Am 31.08.2026 fehlte `f_fett`, und die neue
+                    # echte hat.** Am 31.08.2026 fehlte `f_bold`, und die neue
                     # Kopfzeile ueber dem Rezept liess die ganze Pruefung
                     # auffliegen — im Bau-Lauf, nicht auf dem Entwicklerrechner,
                     # weil der Selbsttest dort schon vorher abbricht. Kommt eine
                     # Schrift dazu, gehoert sie hierher.
-                    f_grund = f_klein = f_item = f_fett = _schrift67
-                    beim_zeigen = {}
+                    f_base = f_small = f_item = f_bold = _schrift67
+                    on_show = {}
                     bergbau_suche = ''
 
-                    def oeffnen(self, _name):
+                    def open_page(self, _name):
                         pass
 
                 _rahmen67 = _tk67.Frame(_w67)
@@ -6443,14 +6443,14 @@ def main():
         _s68 = _tkfont68.Font(root=_w68, family='TkDefaultFont', size=10)
 
         class _Fenster68:
-            f_grund = f_klein = f_item = f_fett = f_titel = f_sub = _s68
-            beim_zeigen = {}
+            f_base = f_small = f_item = f_bold = f_title = f_sub = _s68
+            on_show = {}
             bergbau_suche = ''
 
-            def oeffnen(self, _n):
+            def open_page(self, _n):
                 pass
 
-            def sagen(self, *_a):
+            def say(self, *_a):
                 pass
 
         _rahmen68 = _tk68.Frame(_w68)
@@ -6578,14 +6578,14 @@ def main():
             _s69f = _tkfont69.Font(root=_w69, family='TkDefaultFont', size=10)
 
             class _Fenster69:
-                f_grund = f_klein = f_item = f_fett = f_titel = f_sub = _s69f
-                beim_zeigen = {}
+                f_base = f_small = f_item = f_bold = f_title = f_sub = _s69f
+                on_show = {}
                 bergbau_suche = ''
 
-                def oeffnen(self, _n):
+                def open_page(self, _n):
                     pass
 
-                def sagen(self, *_a):
+                def say(self, *_a):
                     pass
 
             _rahmen69 = _tk69.Frame(_w69)
@@ -7838,7 +7838,7 @@ def main():
     pruefe("'verkauf':     _verkauf," in _q84s
            and "'handelslager': _handelslager," in _q84s,
            'beide Seiten sind angemeldet')
-    pruefe("self._reiter('verkauf', 'verkauf'" in open(
+    pruefe("self._tab('verkauf', 'verkauf'" in open(
         os.path.join(WURZEL, 'scbp', 'main_window.py'),
         encoding='utf-8').read(), 'der Reiter steht in der Leiste')
 
@@ -7867,19 +7867,19 @@ def main():
     from scbp import screen as _bs85
     from scbp import main_window as _hf85
 
-    # ⚠ **`Hauptfenster` legt ein eigenes Toplevel an** — `hf.root` ist nicht
+    # ⚠ **`MainWindow` legt ein eigenes Toplevel an** — `hf.root` ist nicht
     # das uebergebene Fenster. Wer die uebergebene Wurzel misst, liest immer
     # `minsize (1, 1)` und haelt die Pruefung faelschlich fuer gruen.
     _wurzel85 = _wurzel()
     _wurzel85.geometry('1160x760+0+0')
-    _fenster85 = _hf85.Hauptfenster(_wurzel85)
+    _fenster85 = _hf85.MainWindow(_wurzel85)
     _echt_fenster85 = _fenster85.root
     _echt_fenster85.deiconify()
     for _ in range(8):
         _wurzel85.update()
         _wurzel85.update_idletasks()
 
-    _bedarf85 = _fenster85._seitenleiste_bedarf()
+    _bedarf85 = _fenster85._sidebar_needed_height()
     pruefe(_bedarf85 > 400,
            'die Seitenleiste braucht messbar Platz (%d px)' % _bedarf85)
 
@@ -7893,7 +7893,7 @@ def main():
     _bs85.screen_at = lambda *_a, **_k: (0, 0, 1280, 700)
     try:
         for _versuch85 in range(40):
-            _fenster85._mindesthoehe_nachziehen()
+            _fenster85._min_height_update()
             for _ in range(3):
                 _wurzel85.update()
                 _wurzel85.update_idletasks()
@@ -7911,7 +7911,7 @@ def main():
     # Gegenprobe: **ohne** die Deckelung waere sie groesser als der Schirm
     # gewesen. Sonst belegt nichts, dass die Deckelung die Ursache ist.
     _kopf85 = max(0, _echt_fenster85.winfo_height()
-                  - _fenster85.leisten_flaeche.winfo_height())
+                  - _fenster85.sidebar_canvas.winfo_height())
     pruefe(_bedarf85 + _kopf85 > 700,
            'ohne Deckelung waere sie ueber dem Schirm gewesen (%d > 700)'
            % (_bedarf85 + _kopf85))
@@ -7919,31 +7919,31 @@ def main():
     # Und weil die Leiste dann nicht mehr ganz hineinpasst: Sie muss rollen,
     # sonst waeren die unteren Reiter unerreichbar — das Problem waere nur
     # verschoben statt behoben.
-    _roll85 = str(_fenster85.leisten_flaeche.cget('scrollregion') or '')
+    _roll85 = str(_fenster85.sidebar_canvas.cget('scrollregion') or '')
     _teile85 = _roll85.split()
     pruefe(len(_teile85) == 4 and float(_teile85[3]) > 100,
            'die Seitenleiste hat einen Rollbereich (%s)' % _roll85)
-    pruefe(hasattr(_fenster85, 'leisten_flaeche')
-           and _fenster85.leisten_flaeche.winfo_class() == 'Canvas',
+    pruefe(hasattr(_fenster85, 'sidebar_canvas')
+           and _fenster85.sidebar_canvas.winfo_class() == 'Canvas',
            'die Leiste sitzt auf einer Rollflaeche')
 
     _q85 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                 encoding='utf-8').read()
-    pruefe('bind_wheel(self.leisten_flaeche)' in _q85,
+    pruefe('bind_wheel(self.sidebar_canvas)' in _q85,
            'das Mausrad haengt an der gemeinsamen Stelle, nicht am Eigenbau')
 
     # ⭐ Klappbare Gruppen — der dritte Hebel gegen die Fensterhoehe.
-    pruefe(set(_fenster85.gruppen) >= {'werkstatt', 'handel', 'einstellungen'},
+    pruefe(set(_fenster85.groups) >= {'werkstatt', 'handel', 'einstellungen'},
            'die Gruppen sind klappbar angelegt (%s)'
-           % sorted(_fenster85.gruppen))
+           % sorted(_fenster85.groups))
 
-    _offen85 = _fenster85._seitenleiste_bedarf()
+    _offen85 = _fenster85._sidebar_needed_height()
     for _g85 in ('werkstatt', 'handel', 'einstellungen'):
-        _fenster85._gruppe_um(_g85, auf=False)
+        _fenster85._group_toggle(_g85, auf=False)
     for _ in range(6):
         _wurzel85.update()
         _wurzel85.update_idletasks()
-    _zu85 = _fenster85._seitenleiste_bedarf()
+    _zu85 = _fenster85._sidebar_needed_height()
 
     # ⚠⚠ **Mit Zahl, nicht mit „kleiner gleich".** Beim ersten Bau brachte das
     # Zuklappen **null** Ersparnis (1020 px vorher wie nachher):
@@ -7955,7 +7955,7 @@ def main():
 
     # ⚠⚠ **Die Knoepfe unten duerfen NICHT mitrollen.** Ein „Star Citizen
     # starten", das man erst herunterrollen muss, ist keiner.
-    _fuss85 = _fenster85.leisten_fuss
+    _fuss85 = _fenster85.sidebar_foot
     _in_fuss85 = []
 
     def _sammeln85(w):
@@ -7963,37 +7963,37 @@ def main():
             _in_fuss85.append(k)
             _sammeln85(k)
     _sammeln85(_fuss85)
-    pruefe(_fenster85.discordknopf in _in_fuss85
+    pruefe(_fenster85.discord_button in _in_fuss85
            or any(getattr(k, 'master', None) is _fuss85 for k in _in_fuss85),
            'die Knoepfe sitzen im festen Fuss, nicht in der Rollflaeche')
-    pruefe(_fuss85.master is _fenster85.leisten_spalte,
+    pruefe(_fuss85.master is _fenster85.sidebar_column,
            'der Fuss haengt an der Spalte, nicht am rollenden Teil')
 
     # Ohne sichtbaren Balken sieht eine ueberlaufende Leiste kaputt aus:
     # Eine offene Gruppe wirkt leer, und niemand kommt auf die Idee zu rollen.
-    pruefe(hasattr(_fenster85, 'leisten_balken'),
+    pruefe(hasattr(_fenster85, 'sidebar_scrollbar'),
            'die Leiste hat einen sichtbaren Rollbalken')
 
     # „Fuer Fortgeschrittene" gehoert in eine Gruppe wie alles andere —
     # sonst ist es das einzige Element der Leiste ohne eine.
     # ⚠ **Einstellungen, nicht Info.** Dahinter liegen Spielordner und
     # Erkennung — Dinge, die man einstellt. „Info" erzaehlt etwas.
-    pruefe(_fenster85.klapp.master
-           is _fenster85.gruppen['einstellungen']['inhalt'],
+    pruefe(_fenster85.collapse.master
+           is _fenster85.groups['einstellungen']['inhalt'],
            'Fortgeschrittenes sitzt in der Gruppe Einstellungen')
-    pruefe(hasattr(_fenster85, 'klapppfeil'),
+    pruefe(hasattr(_fenster85, 'collapse_arrow'),
            'und traegt denselben Klapp-Pfeil wie die Gruppen')
 
     # ⚠ **Bauplan-Bestand steht NICHT in der offenen Liste.** Die Seite
     # schreibt am eigenen Bestand; sie stand zwischen harmlosen Einstellungen
     # und wurde im Vorbeigehen angeklickt (30.08.2026).
-    pruefe('bestand' not in _fenster85.knoepfe,
+    pruefe('bestand' not in _fenster85.buttons,
            'Bauplan-Bestand liegt hinter „Fuer Fortgeschrittene"')
-    _fenster85._klapp_umschalten()
+    _fenster85._collapse_toggle()
     for _ in range(4):
         _wurzel85.update()
         _wurzel85.update_idletasks()
-    pruefe('bestand' in _fenster85.knoepfe,
+    pruefe('bestand' in _fenster85.buttons,
            'und ist nach dem Aufklappen da')
 
     # ⚠⚠ **Umgedreht am 31.08.2026.** Hier stand bis v3.5.1 das Gegenteil:
@@ -8077,11 +8077,11 @@ def main():
 
     # Und der Reiter einer zugeklappten Gruppe muss sie wieder aufmachen —
     # sonst steht man auf einer Seite, deren Eintrag nicht zu sehen ist.
-    _fenster85.oeffnen('verkauf')
+    _fenster85.open_page('verkauf')
     for _ in range(4):
         _wurzel85.update()
         _wurzel85.update_idletasks()
-    pruefe(_fenster85.gruppen['handel']['offen'],
+    pruefe(_fenster85.groups['handel']['offen'],
            'wer einen Reiter oeffnet, sieht ihn auch in der Leiste')
 
     # Der Bericht muss den Fehler zeigen koennen — sonst raet man beim
@@ -8117,7 +8117,7 @@ def main():
     # Deshalb misst diese Pruefung den WERT am fertigen Fenster.
     #
     # ⚠ Bewusst ein EIGENES Toplevel statt des Hauptfensters: Dort haengt
-    # `_mindesthoehe_nachziehen` am `<Configure>` und setzt `minsize` gleich
+    # `_min_height_update` am `<Configure>` und setzt `minsize` gleich
     # wieder auf `MIN_HEIGHT` zurueck. Die Pruefung waere gruen geworden, ohne
     # dass der Fehler behoben ist — genau die Falle aus Pruefung 83.
     print()
@@ -8312,7 +8312,7 @@ def main():
     # beiden Bau-Rechnern durch, obwohl der Code stimmte: Ein verstecktes
     # Fenster meldet dort keine brauchbaren Masse (dieselbe Falle wie bei den
     # Pruefungen 59 und 60). Was zaehlt, ist ohnehin `gemerkte_groesse()`:
-    # Genau ihr Ergebnis setzt `Hauptfenster.__init__` als Startgroesse.
+    # Genau ihr Ergebnis setzt `MainWindow.__init__` als Startgroesse.
     class _Schirm87:
         """Ein Bildschirm bekannter Groesse — statt des echten."""
 
@@ -8386,14 +8386,14 @@ def main():
                 heraus |= _namen87(wert)
         return heraus
 
-    _ruft87 = _namen87(_hf87.Hauptfenster.__init__.__code__)
+    _ruft87 = _namen87(_hf87.MainWindow.__init__.__code__)
     pruefe('remembered_size' in _ruft87 and 'centered' in _ruft87,
            'der Start benutzt die gemerkte Groesse — und bleibt mittig (%s)'
            % ', '.join(sorted(n for n in _ruft87
                               if n in ('remembered_size', 'centered'))))
     pruefe('self.root.minsize(MIN_WIDTH, MIN_HEIGHT)' in _q87,
            'die Mindestgroesse wird unveraendert gesetzt')
-    pruefe("self.root.bind('<Configure>', self._groesse_beobachten" in _q87
+    pruefe("self.root.bind('<Configure>', self._watch_size" in _q87
            and 'after_cancel' in _q87,
            'Groessenaenderungen werden verfolgt und gedrosselt gespeichert')
     pruefe("self.root.state() != 'normal'" in _q87,
@@ -8603,7 +8603,7 @@ def main():
            'und das Suchfeld wird nur angefasst, wenn etwas drinsteht')
 
     _q90s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
-    _herst90 = _q90s.split('def _herst_frisch(')[1].split('\n    fenster.beim_zeigen')[0]
+    _herst90 = _q90s.split('def _herst_frisch(')[1].split('\n    fenster.on_show')[0]
     pruefe('if not etwas_gesetzt:' in _herst90 and 'return' in _herst90,
            'dasselbe auf der Herstellungs-Seite')
 
@@ -8852,7 +8852,7 @@ def main():
     _q93 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
     _ab93 = _q93.split('def zuruecksetzen():')[-1].split('_knopf(')[0]
-    pruefe(_ab93.count('fenster.sagen') == 2,
+    pruefe(_ab93.count('fenster.say') == 2,
            'beide Ausgaenge melden sich beim Nutzer')
     pruefe("t('s_be_reset_fehler'" in _ab93,
            'und der Fehlschlag hat einen eigenen Text')
@@ -9420,18 +9420,18 @@ def main():
 
     from scbp import main_window as _hf98c
     _wz98c = _wurzel()
-    _f98c = _hf98c.Hauptfenster(_wz98c, version='pruefung',
-                                startseite='allgemein')
-    pruefe('allgemein' in _f98c.seiten,
+    _f98c = _hf98c.MainWindow(_wz98c, version='pruefung',
+                                start_page='allgemein')
+    pruefe('allgemein' in _f98c.pages,
            'die gewuenschte Seite ist da')
-    pruefe('liste' not in _f98c.seiten,
+    pruefe('liste' not in _f98c.pages,
            'und die Bauplan-Liste wurde NICHT nebenbei mitgebaut '
-           '(gebaut: %s)' % ', '.join(sorted(_f98c.seiten)))
+           '(gebaut: %s)' % ', '.join(sorted(_f98c.pages)))
 
     # Der Standard bleibt die Liste — sonst aendert sich das Verhalten fuer
     # alle anderen Aufrufer (Werkzeuge unter tools/, Bilder, Randpruefung).
-    _f98d = _hf98c.Hauptfenster(_wz98c, version='pruefung')
-    pruefe('liste' in _f98d.seiten,
+    _f98d = _hf98c.MainWindow(_wz98c, version='pruefung')
+    pruefe('liste' in _f98d.pages,
            'ohne Angabe bleibt es bei der Liste')
 
     _q98c = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
@@ -9444,7 +9444,7 @@ def main():
     pruefe('deiconify()' in _code98c,
            'und am Ende wieder gezeigt')
     # ⚠ Die Reihenfolge ist der ganze Punkt: zeigen NACH dem Bauen.
-    pruefe(_code98c.index('withdraw()') < _code98c.index('oeffnen(startseite)')
+    pruefe(_code98c.index('withdraw()') < _code98c.index('open_page(start_page)')
            < _code98c.index('deiconify()'),
            'und zwar in dieser Reihenfolge: verstecken, bauen, zeigen')
 
@@ -9539,7 +9539,7 @@ def main():
                             if not _z.strip().startswith('#'))
     pruefe('if PREBUILD_ON:' in _code98e,
            'und der Start haengt wirklich daran')
-    _start98e = _code98e.index('after(400, self._seiten_vorbauen)')
+    _start98e = _code98e.index('after(400, self._prebuild_pages)')
     _schalter98e = _code98e.index('if PREBUILD_ON:')
     pruefe(_schalter98e < _start98e,
            'der Schalter steht VOR dem Start, nicht daneben')
@@ -9566,7 +9566,7 @@ def main():
 
     pruefe("fg=ACCENT if _offen else FG" in _code99,
            'die aufgeklappte Zeile ist farblich abgesetzt')
-    pruefe('f_fett if _offen else' in _code99,
+    pruefe('f_bold if _offen else' in _code99,
            'und fett — Farbe allein reicht nicht, wenn jemand schlecht sieht')
 
     # ⚠ Der Name im Kasten: geprueft wird, dass er VOR den Zutaten steht.
@@ -11601,13 +11601,13 @@ def main():
     # wieder; die Seite selbst wird nur ein- und ausgeblendet.
     #
     # Vier weitere Seiten hatten denselben Fehler. Sie stehen jetzt in
-    # `BESTANDSSEITEN` und werden bei einer Bestandsaenderung verworfen.
+    # `STOCK_PAGES` und werden bei einer Bestandsaenderung verworfen.
     #
     # ⚠ Diese Pruefung haelt die LISTE vollstaendig: Wer morgen eine Seite
     # baut, die `bestand_datei` liest, faellt hier auf, statt es niemandem zu
     # sagen. Genau so ist der gemeldete Fehler entstanden — die Seiten kamen
     # nach und nach dazu, und niemand ging die alten noch einmal durch.
-    from scbp.main_window import Hauptfenster as _HF117
+    from scbp.main_window import MainWindow as _HF117
 
     _seiten117 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
@@ -11634,24 +11634,24 @@ def main():
     # im Fehlerbericht, darf aber nicht verworfen werden: Ein Neubau leerte das
     # Feld „Was ist passiert?" — jemand tippt seine Beschreibung, sieht kurz
     # woanders nach, und der Text waere weg. Sie frischt stattdessen ueber
-    # `beim_zeigen['diagnose']` nur den Berichtstext auf. Wer diese Zeile
+    # `on_show['diagnose']` nur den Berichtstext auf. Wer diese Zeile
     # entfernt, muss dort einen anderen Weg bauen, nicht die Seite verwerfen.
     _ausnahmen117 = {'diagnose'}
-    pruefe("beim_zeigen['diagnose']" in _seiten117,
+    pruefe("on_show['diagnose']" in _seiten117,
            'die Diagnose-Seite frischt ihren Bericht beim Oeffnen auf')
-    _fehlt117 = sorted(_liest117 - set(_HF117.BESTANDSSEITEN) - _ausnahmen117)
+    _fehlt117 = sorted(_liest117 - set(_HF117.STOCK_PAGES) - _ausnahmen117)
     pruefe(not _fehlt117,
-           'jede Seite mit Bestandszahlen steht in BESTANDSSEITEN '
+           'jede Seite mit Bestandszahlen steht in STOCK_PAGES '
            '(fehlt: %s)' % (', '.join(_fehlt117) or 'keine'))
     # Und andersherum: Kein Eintrag, den es gar nicht gibt — ein Tippfehler
     # dort waere still, die Seite zoege einfach nie nach.
-    _reiter117 = set(re.findall(r"_reiter\('([a-z_]+)'",
+    _reiter117 = set(re.findall(r"_tab\('([a-z_]+)'",
                                 open(os.path.join(WURZEL, 'scbp',
                                                   'main_window.py'),
                                      encoding='utf-8').read()))
-    _tot117 = sorted(set(_HF117.BESTANDSSEITEN) - _reiter117)
+    _tot117 = sorted(set(_HF117.STOCK_PAGES) - _reiter117)
     pruefe(not _tot117,
-           'kein Eintrag in BESTANDSSEITEN ohne Seite (tot: %s)'
+           'kein Eintrag in STOCK_PAGES ohne Seite (tot: %s)'
            % (', '.join(_tot117) or 'keine'))
 
     # Die Liste selbst muss den eigenen Weg wirklich haben.
@@ -11790,8 +11790,8 @@ def main():
         _w120.deiconify()
         _w120.geometry('1200x900')
         from scbp import main_window as _hf120
-        _f120 = _hf120.Hauptfenster(_w120, version='0.0.0-pruefung')
-        _f120.oeffnen('diagnose')
+        _f120 = _hf120.MainWindow(_w120, version='0.0.0-pruefung')
+        _f120.open_page('diagnose')
         _w120.update_idletasks()
 
         _alle120 = []
@@ -11801,7 +11801,7 @@ def main():
                 _alle120.append(kind)
                 _sammeln120(kind)
 
-        _sammeln120(_f120.seiten['diagnose'])
+        _sammeln120(_f120.pages['diagnose'])
 
         _texte120 = [w for w in _alle120 if isinstance(w, tk.Text)]
         _eingabe120 = [w for w in _texte120 if int(w.cget('height')) == 4]
@@ -11811,7 +11811,7 @@ def main():
                'das Meldungsfeld ist mehrzeilig (ein Text, kein Entry)')
         if _eingabe120:
             _b120 = _eingabe120[0].winfo_width()
-            _seite120 = _f120.seiten['diagnose'].winfo_width()
+            _seite120 = _f120.pages['diagnose'].winfo_width()
             pruefe(_b120 > _seite120 * 0.6,
                    'das Meldungsfeld nimmt die volle Breite (%d von %d px)'
                    % (_b120, _seite120))
@@ -12022,14 +12022,14 @@ def main():
 
         _w122.deiconify()
         _w122.geometry('1200x900')
-        _f122 = _hf122.Hauptfenster(_w122, version='0.0.0-pruefung')
+        _f122 = _hf122.MainWindow(_w122, version='0.0.0-pruefung')
         _w122.update_idletasks()
 
-        pruefe('info' in _hf122.Hauptfenster.IMMER_OFFEN,
+        pruefe('info' in _hf122.MainWindow.ALWAYS_OPEN,
                '„info" steht in der Liste der festen Gruppen')
 
-        _gi122 = _f122.gruppen.get('info')
-        _gw122 = _f122.gruppen.get('werkstatt')
+        _gi122 = _f122.groups.get('info')
+        _gw122 = _f122.groups.get('werkstatt')
         pruefe(bool(_gi122 and _gi122['offen']),
                'Info steht offen, auch mit einem alten „zu" in den '
                'Einstellungen')
@@ -12043,23 +12043,23 @@ def main():
             pruefe(not _gi122['kopf'].cget('cursor'),
                    'und keinen Zeigefinger, wo nichts zu klicken ist')
 
-        # ⚠ Der Riegel muss in `_gruppe_um` sitzen, nicht nur an der Bindung:
-        # Die Funktion wird auch von `_gruppe_von_reiter_oeffnen` gerufen.
-        _f122._gruppe_um('info')
+        # ⚠ Der Riegel muss in `_group_toggle` sitzen, nicht nur an der Bindung:
+        # Die Funktion wird auch von `_open_group_of_tab` gerufen.
+        _f122._group_toggle('info')
         _w122.update_idletasks()
-        pruefe(_f122.gruppen['info']['offen'],
-               'auch ein Aufruf von _gruppe_um klappt Info nicht zu')
-        _f122._gruppe_um('info', auf=False)
+        pruefe(_f122.groups['info']['offen'],
+               'auch ein Aufruf von _group_toggle klappt Info nicht zu')
+        _f122._group_toggle('info', auf=False)
         _w122.update_idletasks()
-        pruefe(_f122.gruppen['info']['offen'],
+        pruefe(_f122.groups['info']['offen'],
                'und ein erzwungenes Zuklappen ebenso wenig')
 
         # Gegenprobe: Die uebrigen lassen sich weiterhin klappen.
-        _f122._gruppe_um('werkstatt', auf=True)
+        _f122._group_toggle('werkstatt', auf=True)
         _w122.update_idletasks()
-        _f122._gruppe_um('werkstatt')
+        _f122._group_toggle('werkstatt')
         _w122.update_idletasks()
-        pruefe(not _f122.gruppen['werkstatt']['offen'],
+        pruefe(not _f122.groups['werkstatt']['offen'],
                'die uebrigen Gruppen lassen sich weiterhin zuklappen')
     finally:
         try:
@@ -12374,11 +12374,11 @@ def main():
         _w126.deiconify()
         _w126.geometry('1200x900')
         from scbp import main_window as _hf126
-        _f126 = _hf126.Hauptfenster(_w126, version='0.0.0-pruefung')
-        _f126.oeffnen('diagnose')
+        _f126 = _hf126.MainWindow(_w126, version='0.0.0-pruefung')
+        _f126.open_page('diagnose')
         _w126.update_idletasks()
 
-        pruefe(hasattr(_hf126.Hauptfenster, '_klick_ins_leere_einrichten'),
+        pruefe(hasattr(_hf126.MainWindow, '_bind_click_on_empty'),
                'das Fenster kennt die Regel (und nicht nur eine Seite)')
 
         _alle126 = []
@@ -12388,7 +12388,7 @@ def main():
                 _alle126.append(kind)
                 _sammeln126(kind)
 
-        _sammeln126(_f126.seiten['diagnose'])
+        _sammeln126(_f126.pages['diagnose'])
         _texte126 = [w for w in _alle126 if isinstance(w, tk126.Text)]
         _eingabe126 = [w for w in _texte126 if int(w.cget('height')) == 4]
         _kasten126 = [w for w in _texte126 if w not in _eingabe126]
@@ -12400,7 +12400,7 @@ def main():
 
         if _eingabe126 and _kasten126 and _namen126:
             def _ins_leere126():
-                ziel = _label126[0] if _label126 else _f126.seiten['diagnose']
+                ziel = _label126[0] if _label126 else _f126.pages['diagnose']
                 ziel.event_generate('<Button-1>', x=2, y=2)
                 _w126.update()
                 _w126.update_idletasks()
@@ -14798,9 +14798,9 @@ def main():
     wurzel155 = _tk155.Tk()
     wurzel155.withdraw()
     _f155 = _F155()
-    _f155.f_klein = _fo155.Font(family='Calibri', size=10)
-    _f155.f_fett = _fo155.Font(family='Calibri', size=10, weight='bold')
-    _f155.beim_zeigen = {}
+    _f155.f_small = _fo155.Font(family='Calibri', size=10)
+    _f155.f_bold = _fo155.Font(family='Calibri', size=10, weight='bold')
+    _f155.on_show = {}
     try:
         _lang155 = {'zustand': _wk155.KNOWN, 'preis': 160626,
                     'laden': 'Ship Weapons - Pyro Gateway (Stanton)',
@@ -15204,9 +15204,9 @@ def main():
     _wurzel160 = _tk160.Tk()
     _wurzel160.withdraw()
     _f160 = _F160()
-    _f160.f_klein = _fo160.Font(family='Calibri', size=10)
-    _f160.f_fett = _fo160.Font(family='Calibri', size=10, weight='bold')
-    _f160.beim_zeigen = {}
+    _f160.f_small = _fo160.Font(family='Calibri', size=10)
+    _f160.f_bold = _fo160.Font(family='Calibri', size=10, weight='bold')
+    _f160.on_show = {}
     try:
         # Zwei Posten, beide offen — die Marke muss „2" sagen.
         _schiff160 = {'name': 'Testschiff', 'hersteller': 'X',
@@ -16534,15 +16534,15 @@ def main():
     #    als die Drossel: Der Wunsch stuende in `asop.json`, in der
     #    `global.ini` aber nicht — im Spiel also weiter der Werksname, ohne
     #    jeden Hinweis. Dasselbe Bild wie beim Fehler von v3.28.0, nur mit
-    #    anderer Ursache. `vor_dem_schliessen` holt den Auftrag nach.
+    #    anderer Ursache. `before_close` holt den Auftrag nach.
     from scbp import main_window as _hf175
     _wz175 = _wurzel()
-    _f175 = _hf175.Hauptfenster(_wz175, version='0.0.0-test')
+    _f175 = _hf175.MainWindow(_wz175, version='0.0.0-test')
     _gelaufen175 = []
-    _f175.vor_dem_schliessen.append(lambda: _gelaufen175.append('geschrieben'))
+    _f175.before_close.append(lambda: _gelaufen175.append('geschrieben'))
     # ⚠ Ein Auftrag, der wirft, darf die uebrigen nicht mitreissen.
-    _f175.vor_dem_schliessen.insert(0, lambda: 1 / 0)
-    _f175.schliessen()
+    _f175.before_close.insert(0, lambda: 1 / 0)
+    _f175.close()
     pruefe(_gelaufen175 == ['geschrieben'],
            'ein offener Schreibauftrag wird beim Zumachen nachgeholt')
 
@@ -16638,7 +16638,7 @@ def main():
 
     _w176 = _wurzel()
     _w176.deiconify()          # ⚠ sonst ist nichts gemappt und kein Klick kommt an
-    _f176 = _hf176.Hauptfenster(_w176, version='0.0.0-pruefung')
+    _f176 = _hf176.MainWindow(_w176, version='0.0.0-pruefung')
     _rahmen176 = tk.Frame(_w176)
     _rahmen176.pack(fill='both', expand=True)
     _eintrag176 = {'name': 'Railen', 'kurz': 'GAMA_Railen',
@@ -18279,7 +18279,7 @@ def main():
     # Gemeldet am 11.09.2026 zu „Was steckt drin?": Mausrad geht, die Leiste
     # rechts anfassen laesst die Auswahl verschwinden. Geprueft wird der echte
     # Weg: Klick auf die Leiste, danach das `<FocusOut>`, das die Fensterregel
-    # `_klick_ins_leere_einrichten` in genau diesem Moment ausloest, dann die
+    # `_bind_click_on_empty` in genau diesem Moment ausloest, dann die
     # 200 ms bis zum verzoegerten Zumachen.
     #
     # ⚠ Das `<FocusOut>` wird geschickt, nicht erwartet — aus demselben Grund
@@ -18297,7 +18297,7 @@ def main():
         _sch189 = tkf189.Font(root=_w189, family='TkDefaultFont', size=9)
 
         class _Fenster189:
-            f_grund = f_fett = f_klein = f_titel = f_zeichen = _sch189
+            f_base = f_bold = f_small = f_title = f_icon = _sch189
 
         _block189 = tk189.Frame(_w189)
         _block189.pack(fill='both', expand=True)

@@ -81,20 +81,20 @@ def messen(anteil):
 
     joysticks.sicht = gekuerzt
     try:
-        fenster = main_window.Hauptfenster(version='mess')
+        fenster = main_window.MainWindow(version='mess')
         fenster.root.update()
         fenster.root.update_idletasks()
-        fenster.oeffnen('joysticks')
+        fenster.open_page('joysticks')
         fenster.root.update()
         fenster.root.update_idletasks()
-        n = _bauteile(fenster.seiten['joysticks'])
+        n = _bauteile(fenster.pages['joysticks'])
 
         zeiten = []
         for _ in range(WIEDERHOLUNGEN):
-            fenster.oeffnen('spiel')
+            fenster.open_page('spiel')
             fenster.root.update()
             t0 = time.perf_counter()
-            fenster.oeffnen('joysticks')
+            fenster.open_page('joysticks')
             fenster.root.update_idletasks()
             fenster.root.update()
             zeiten.append((time.perf_counter() - t0) * 1000)

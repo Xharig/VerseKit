@@ -211,12 +211,12 @@ def main():
         # ---------------------------------------------------------------
         print()
         print('2. Das ganze Fenster: Seiten oeffnen und lesen')
-        hf = main_window.Hauptfenster(version='0.0.0-pruefung')
+        hf = main_window.MainWindow(version='0.0.0-pruefung')
         hf.root.withdraw()
         try:
             for name in ('hangar', 'wunschliste', 'einkaufsliste',
                          'farmliste', 'bergung', 'zerlegen'):
-                hf.oeffnen(name)
+                hf.open_page(name)
                 hf.root.update()
                 gelesen = texte(hf.root)
                 pruefe(bool(gelesen),
@@ -246,10 +246,10 @@ def _fenster(wurzel):
         pass
 
     f = Fenster()
-    f.f_klein = tkfont.Font(family='Calibri', size=10)
-    f.f_grund = tkfont.Font(family='Calibri', size=11)
-    f.f_fett = tkfont.Font(family='Calibri', size=10, weight='bold')
-    f.beim_zeigen = {}
+    f.f_small = tkfont.Font(family='Calibri', size=10)
+    f.f_base = tkfont.Font(family='Calibri', size=11)
+    f.f_bold = tkfont.Font(family='Calibri', size=10, weight='bold')
+    f.on_show = {}
     f.root = wurzel
     return f
 

@@ -2536,7 +2536,7 @@ TEXTE = {
 
     # -- Kurzmeldungen aus den Bausteinen (Injektion, Übersetzung, Logs) --
     # Sie kommen als Rückgabewert aus einem Modul und landen über
-    # `fenster.sagen()` in der Statuszeile — also sichtbar für den Nutzer.
+    # `fenster.say()` in der Statuszeile — also sichtbar für den Nutzer.
     'm_keine_scdl':    ('keine SCDL-Bauplan-Daten', 'no SCDL blueprint data'),
     'm_keine_ini':     ('global.ini nicht gefunden', 'global.ini not found'),
     'm_keine_missionen': ('Katalog kennt keine Missionen',

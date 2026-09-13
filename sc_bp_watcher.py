@@ -2262,7 +2262,7 @@ class Overlay:
     # button größe oben, ist auch deutlich angenehmer". Auf einem 4096 Pixel
     # breiten Bildschirm bei 100 % Skalierung ist das keine Geschmacksfrage.
     #
-    # ⚠ Eine vierte Schrift `f_zeichen` gab es hier bis v3.0.0-rc55, eigens für
+    # ⚠ Eine vierte Schrift `f_icon` gab es hier bis v3.0.0-rc55, eigens für
     # die Symbole, samt einer eigenen Schriftfamilie (`Segoe UI Symbol`) — weil
     # in `Segoe UI` kein einziges der Symbole steckt und Windows sonst zur
     # Farb-Emoji-Schrift greift. Beides ist entfallen: Die Symbole sind seit dem
@@ -2680,7 +2680,7 @@ class Overlay:
         if fenster is None:
             return
         try:
-            fenster.bestand_geaendert()
+            fenster.stock_changed()
         except Exception as ausnahme:
             fehler.merken('oberflaeche.liste_nachziehen', ausnahme)
 
@@ -3419,7 +3419,7 @@ class Overlay:
         Ein zweiter Klick holt das vorhandene Fenster nach vorn und wechselt die
         Seite, statt ein zweites aufzumachen. Zwei gleiche Fenster nebeneinander
         sind für niemanden nachvollziehbar."""
-        from scbp.main_window import Hauptfenster
+        from scbp.main_window import MainWindow
         vorhanden = getattr(self, '_fenster', None)
         if vorhanden is not None:
             try:
@@ -3427,17 +3427,17 @@ class Overlay:
                 # ignoriert, und ein minimiertes Fenster bliebe minimiert.
                 from scbp.main_window import to_front
                 to_front(vorhanden.root)
-                vorhanden.oeffnen(seite)
+                vorhanden.open_page(seite)
                 return
             except Exception:
                 pass                       # war schon zu
-        # ⚠ `startseite` durchreichen, NICHT hinterher oeffnen: Sonst baut das
+        # ⚠ `start_page` durchreichen, NICHT hinterher oeffnen: Sonst baut das
         # Fenster erst die Bauplan-Liste und danach die eigentlich gewollte
         # Seite — zwei Aufbauten fuer einen Wunsch.
-        self._fenster = Hauptfenster(self.root, beim_schliessen=self._liste_zu,
+        self._fenster = MainWindow(self.root, on_close=self._liste_zu,
                                      version=__version__,
-                                     beim_schriftwechsel=self.schriftgroesse_anwenden,
-                                     startseite=seite)
+                                     on_font_change=self.schriftgroesse_anwenden,
+                                     start_page=seite)
         self.liste_lbl.recolor(icons.GREEN)
 
     def _liste_zu(self):

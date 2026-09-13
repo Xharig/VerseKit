@@ -2545,7 +2545,7 @@ class Bestandsfenster:
             if hf is None:
                 return
             hf.herstellung_suche = name
-            hf.oeffnen('herstellung')
+            hf.open_page('herstellung')
         except Exception as ausnahme:
             fehler.merken('bestandsfenster.zur_herstellung', ausnahme)
 

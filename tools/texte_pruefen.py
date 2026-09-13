@@ -69,7 +69,7 @@ TEXTNAMEN = ('text', 'titel', 'bez', 'bezeichnung', 'hilfe', 'lead', 'fett',
              'rest', 'beschriftung', 'wofuer', 'platzhalter')
 
 # Methoden, die eine Meldung in die Statuszeile schreiben.
-MELDER = ('sagen',)
+MELDER = ('say',)
 
 # `_wahl(fenster, eltern, eintraege, …)` bekommt Paare (Schlüssel, Anzeige).
 # Nur die zweite Hälfte steht auf dem Bildschirm.

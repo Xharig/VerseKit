@@ -385,7 +385,7 @@ def seiten_pruefen(hf, sprache_name):
     for name, titel in SEITEN:
         angefangen = _zeit.time()
         try:
-            hf.oeffnen(name)
+            hf.open_page(name)
             hf.root.update()
             zeiten[name] = (_zeit.time() - angefangen) * 1000
         except Exception as ausnahme:
@@ -529,7 +529,7 @@ def auswahllisten_pruefen(hf):
         return
 
     # ⚠⚠ **Diese Prüfung läuft ZUERST, vor dem Seitendurchlauf.** Wird eine
-    # Seite ein zweites Mal geöffnet, setzt ihr `beim_zeigen` das Suchfeld
+    # Seite ein zweites Mal geöffnet, setzt ihr `on_show` das Suchfeld
     # zurück — der Prüflauf tippte dann in ein Feld, das im selben Atemzug
     # geleert wurde, und die Liste blieb leer.
     #
@@ -539,14 +539,14 @@ def auswahllisten_pruefen(hf):
     for seite, suchtext, erwartet, knopf in faelle:
         if not suchtext:
             continue
-        hf.oeffnen(seite)
+        hf.open_page(seite)
         hf.root.update()
         # ⚠⚠ **Nur die sichtbare Seite.** Seiten werden einmal gebaut und
         # danach nur ein- und ausgeblendet — die Eingabefelder aller schon
         # besuchten Seiten hängen also weiter im Baum. Wer über das ganze
         # Fenster sucht, tippt in ein Feld, das gerade niemand sieht, und
         # wundert sich, dass keine Vorschläge kommen.
-        bereich = hf.seiten.get(seite) if hasattr(hf, 'seiten') else hf.root
+        bereich = hf.pages.get(seite) if hasattr(hf, 'pages') else hf.root
         felder = widgets(bereich or hf.root, 'Entry')
         if not felder:
             pruefe(False, '[%s] ein Eingabefeld ist da' % seite)
@@ -589,7 +589,7 @@ def abschneiden_pruefen(hf):
     eng = []
     for name, _titel in SEITEN:
         try:
-            hf.oeffnen(name)
+            hf.open_page(name)
             hf.root.update()
             hf.root.update_idletasks()
         except Exception:
@@ -632,7 +632,7 @@ def schriftgroessen_pruefen():
         for stufe in ('klein', 'normal', 'gross', 'sehrgross'):
             pfade.einstellung_setzen('schriftgroesse', stufe)
             icons.set_level(stufe)
-            hf = main_window.Hauptfenster(version='0.0.0-abnahme')
+            hf = main_window.MainWindow(version='0.0.0-abnahme')
             hf.root.withdraw()
             try:
                 hf.root.update()
@@ -995,7 +995,7 @@ def main():
 
         print('1. Jede Seite auf Deutsch')
         sprache.setzen('de')
-        hf = main_window.Hauptfenster(version='0.0.0-abnahme')
+        hf = main_window.MainWindow(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
             print('   (zuerst die Auswahllisten — sie brauchen frische '
@@ -1017,7 +1017,7 @@ def main():
         print()
         print('5. Dieselben Seiten auf Englisch')
         sprache.setzen('en')
-        hf = main_window.Hauptfenster(version='0.0.0-abnahme')
+        hf = main_window.MainWindow(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
             seiten_pruefen(hf, 'en')

@@ -56,14 +56,14 @@ def _durchlauf(fenster, kennung):
     kostet" — fuer die zweite Frage ist ein Profillauf das richtige Werkzeug.
     """
     start = time.perf_counter()
-    fenster.oeffnen(kennung)
+    fenster.open_page(kennung)
     fenster.root.update()
     fenster.root.update_idletasks()
     return (time.perf_counter() - start) * 1000.0
 
 
 def main():
-    fenster = main_window.Hauptfenster(version='mess')
+    fenster = main_window.MainWindow(version='mess')
     fenster.root.update()
     fenster.root.update_idletasks()
 
@@ -85,7 +85,7 @@ def main():
     # ⚠ Und die Startseite ist beim Bauen des Fensters **schon offen**. Ihr
     # „erstmals" laesst sich hier nicht mehr messen; sie wird deshalb
     # gekennzeichnet statt stillschweigend falsch gezaehlt.
-    schon_offen = set(getattr(fenster, 'gezeichnet', ()) or ())
+    schon_offen = set(getattr(fenster, 'drawn', ()) or ())
     kalt = {}
     for kennung in kennungen:
         if kennung in schon_offen:
@@ -113,9 +113,9 @@ def main():
     # ⭐ Und die Frage dahinter: WAS kostet beim Wiederkommen Zeit?
     #
     # Eine gebaute Seite wird nur ein- und ausgeblendet — bis auf den Rueckruf
-    # in `beim_zeigen`, der alles auffrischt, was nicht stehenbleiben soll
+    # in `on_show`, der alles auffrischt, was nicht stehenbleiben soll
     # (Suchfelder, Auswahl). Der laeuft bei JEDEM Klick.
-    rueckrufe = getattr(fenster, 'beim_zeigen', {}) or {}
+    rueckrufe = getattr(fenster, 'on_show', {}) or {}
     kosten = []
     for kennung in sorted(rueckrufe):
         ruf = rueckrufe[kennung]

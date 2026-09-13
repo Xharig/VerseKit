@@ -666,7 +666,7 @@ def main():
 
     import tkinter as tk
     from scbp import sprache
-    from scbp.main_window import Hauptfenster
+    from scbp.main_window import MainWindow
 
     sprache.setzen('en' if englisch else 'de')
 
@@ -695,9 +695,9 @@ def main():
         try:
             # Frisches Fenster **und** Puffer raeumen — erst beides zusammen
             # liefert brauchbare Bilder (siehe die Tabelle oben).
-            fenster = Hauptfenster(wurzel, version=_version())
+            fenster = MainWindow(wurzel, version=_version())
             fenster_richten(fenster, wurzel)
-            fenster.oeffnen(kennung)
+            fenster.open_page(kennung)
             for _ in range(12):
                 wurzel.update()
                 wurzel.update_idletasks()
