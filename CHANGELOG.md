@@ -8,6 +8,25 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.33.0 - 2026-09-13
+
+> **Die Auftragszeile zählt jetzt die Baupläne deiner Region.** Derselbe
+> Auftragstyp schüttet in Nyx, Pyro und Stanton verschiedene Baupläne aus — bis
+> jetzt wurden sie zusammengezählt, und die Zahl passte nicht zu dem, was im
+> Auftragsfenster stand. Der Watcher liest jetzt aus dem Spielprotokoll, welchen
+> Vertrag du angenommen hast, und zeigt genau dessen Liste.
+
+### Verbessert
+
+- **Baupläne je Region statt zusammengezählt.** Aus `Baupläne 27/54` wird
+  `Baupläne 12/23` — die Zahl, die auch im Auftragsfenster steht. Über die
+  vorhandenen Protokolle gemessen: bei 53 Aufträgen ändert sich die Angabe,
+  einmal von 25 auf 5
+- **Zehn Auftragsarten werden überhaupt erst erkannt**, weil sie über den
+  Vertrag eindeutig sind, über den Titel aber nicht
+- ⚠ Wo das Protokoll den Vertrag nicht nennt, bleibt alles wie bisher — die
+  Angabe wird nie schlechter, nur genauer
+
 ## v3.32.4 - 2026-09-13
 
 > **Der doppelte Auftrag, jetzt wirklich.** In v3.32.3 war die Korrektur nur an

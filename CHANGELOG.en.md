@@ -8,6 +8,25 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.33.0 - 2026-09-13
+
+> **The contract line now counts the blueprints of your region.** The same
+> contract type hands out different blueprints in Nyx, Pyro and Stanton — until
+> now they were added up, and the number did not match what the contract window
+> showed. The watcher now reads from the game log which contract you accepted
+> and shows exactly its list.
+
+### Improved
+
+- **Blueprints per region instead of added up.** `Blueprints 27/54` becomes
+  `Blueprints 12/23` — the number the contract window shows too. Measured
+  across the existing logs: the figure changes for 53 contracts, in one case
+  from 25 to 5
+- **Ten contract types are recognised at all now**, because they are
+  unambiguous by contract even though their title is not
+- ⚠ Where the log does not name the contract, everything stays as before — the
+  figure never gets worse, only more precise
+
 ## v3.32.4 - 2026-09-13
 
 > **The duplicate contract, for real this time.** In v3.32.3 the fix was only
