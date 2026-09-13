@@ -208,16 +208,6 @@ def sauber(titel):
     return ' '.join(_MARKEN.sub(' ', str(titel)).split())
 
 
-def _platzhalter_titel(titel):
-    """Steht in diesem Titel noch ein unaufgelöstes `~mission(...)`?
-
-    ⚠ So ein Titel ist nie der bessere: Er zeigt dem Spieler eine
-    Maschinenschreibweise statt des Namens, unter dem der Auftrag im Spiel
-    steht. Bei gleicher MissionId gewinnt deshalb der aufgelöste.
-    """
-    return bool(_PLATZHALTER.search(str(titel)))
-
-
 def _phrase_kuerzen(wert):
     """Aus `Auftrag angenommen: %s` wird `Auftrag angenommen`."""
     return _PLATZHALTER_ENDE.sub('', sauber(wert)).strip()
@@ -416,6 +406,35 @@ def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
     gefunden.sort(key=lambda e: e[0])
     ergebnis = []
     for stelle, ist_annahme, titel, mid in gefunden:
+        # ⛔⛔ **Eine ANNAHME mit unaufgelöstem `~mission(...)` fällt hier raus
+        # — an der Quelle, nicht in der Buchführung.**
+        #
+        # Das Spiel meldet denselben Auftrag zweimal, eine Sekunde auseinander:
+        #
+        #   "Auftrag geteilt:    … Stop Rival Attack at ~mission(Location): "
+        #                        MissionId: [00000000-0000-0000-0000-…]
+        #   "Auftrag angenommen: … Stop Rival Attack at Asteroiden Bergbau…: "
+        #                        MissionId: [4f1e…]
+        #
+        # Beide gelten als Annahme (`INI_SCHLUESSEL`), also standen zwei Zeilen
+        # da — und die erste ging nicht von selbst weg, weil das Ende nur den
+        # aufgelösten Titel trägt.
+        #
+        # ⚠⚠ **v3.32.3 hat das in `stand_aus_text` gefiltert. Das war zu weit
+        # unten.** Es gibt ZWEI Buchführungen: `stand_aus_text` für den Start
+        # und `_auftraege_melden()` im Watcher für den laufenden Betrieb — und
+        # die zweite baut ihre Liste direkt aus diesen Ereignissen. Der Filter
+        # griff also nur beim Start; beim nächsten angenommenen Auftrag stand
+        # der Doppeleintrag wieder da. Dieselbe Falle wie bei den zwei
+        # Schreibwegen in die `global.ini` (siehe Projektregeln).
+        #
+        # An allen 157 Log-Sicherungen gemessen: 146 Platzhalter-Titel, davon
+        # **146 aus der geteilten Meldung und 0 aus einer Annahme**.
+        #
+        # ⚠ Nur Annahmen. Ein ENDE mit Platzhalter muss durch — sonst bliebe
+        # der Auftrag für immer stehen, und das ist der schlimmere Fehler.
+        if ist_annahme is True and _PLATZHALTER.search(titel or ''):
+            continue
         if mid is None:
             ergebnis.append((ist_annahme, titel) + kennungen(text, stelle))
         else:
@@ -476,38 +495,10 @@ def stand_aus_text(text, muster_an=None, muster_aus=None):
         if not rein and not (mid and not ist_annahme):
             continue
         if ist_annahme:
-            # ⛔⛔ **Ein Titel mit unaufgelöstem `~mission(...)` kommt nicht in
-            # die Liste.**
-            #
-            # Das Spiel meldet denselben Auftrag zweimal, eine Sekunde
-            # auseinander:
-            #
-            #   "Auftrag geteilt:    … Protect ~mission(Objects) and Escort …"
-            #                        MissionId: [00000000-0000-0000-0000-…]
-            #   "Auftrag angenommen: … Protect Fuel Tanks and Escort …"
-            #                        MissionId: [7a12d7cf-936d-42e7-996e-…]
-            #
-            # Beide gelten als Annahme (`INI_SCHLUESSEL`), also standen zwei
-            # Zeilen da. ⚠ Und die zweite ging nicht von selbst weg: Das Ende
-            # trägt nur den aufgelösten Titel, der rohe blieb für immer stehen
-            # und musste von Hand weggeklickt werden.
-            #
-            # ⚠⚠ Über die MissionId ist das NICHT zu heilen — die geteilte
-            # Meldung trägt die Nullkennung, und die ist für alle dieselbe.
-            # Genau daran ist der erste Anlauf (v3.32.2) gescheitert.
-            #
-            # An allen 157 Log-Sicherungen gemessen (13.09.2026):
-            #
-            #     1109 Meldungen · 706 angenommen · 403 geteilt
-            #      146 mit Platzhalter — davon 146 geteilt, 0 angenommen
-            #      146 mit Platzhalter — davon 146 mit Nullkennung
-            #        0 Annahmen mit Nullkennung
-            #
-            # Ein Platzhalter-Titel kommt also **ausschliesslich** aus der
-            # geteilten Meldung. Er ist ohnehin unbrauchbar: `Protect
-            # ~mission(Objects)` ist Maschinenschrift, kein Auftragsname.
-            if _platzhalter_titel(rein):
-                continue
+            # ⚠ Platzhalter-Titel sind hier schon weg — `ereignisse_aus_text`
+            # laesst sie gar nicht erst durch. Dort steht auch, warum: Es gibt
+            # ZWEI Buchfuehrungen, und ein Filter an nur einer wirkt nur zur
+            # Haelfte. Genau daran ist v3.32.3 gescheitert.
             offen.setdefault(rein, titel)
             # ⚠ Die Nullkennung ist keine Kennung. Sie als solche zu führen
             # hiesse, alle geteilten Auftraege in einen Topf zu werfen — und

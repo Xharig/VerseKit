@@ -19569,6 +19569,24 @@ def main():
         'Added notification "Auftrag angenommen: %s <EM4>[BP!]</EM4>: " to queue. '
         'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
         % (_roh200, _null200, _fein200, _mid200))
+    # ⛔⛔ **BEIDE Buchfuehrungen pruefen — nicht nur eine.**
+    #
+    # v3.32.3 filterte den Platzhalter-Titel in `stand_aus_text`. Das ist die
+    # Buchfuehrung fuer den START. Der laufende Betrieb (`_auftraege_melden`
+    # im Watcher) baut seine Liste aber DIREKT aus `ereignisse_aus_text` —
+    # dort griff nichts. Beim naechsten angenommenen Auftrag stand der
+    # Doppeleintrag wieder da, und zwar bei einem ganz anderen Auftrag
+    # („Stop Rival Attack at ~mission(Location)"), also kein Einzelfall.
+    #
+    # Dieselbe Falle wie bei den zwei Schreibwegen in die `global.ini`: Wer
+    # eine von zwei Stellen anfasst, baut die Haelfte.
+    _roh_ereignisse200 = [e for e in _au200.ereignisse_aus_text(_text200)
+                          if e[0] is True]
+    pruefe(all('~mission(' not in (e[1] or '') for e in _roh_ereignisse200),
+           'schon die QUELLE gibt keine Annahme mit Platzhalter-Titel heraus')
+    pruefe(len(_roh_ereignisse200) == 1,
+           'und damit sieht auch der laufende Betrieb nur EINE Annahme')
+
     _offen200, _kenn200 = _au200.stand_aus_text(_text200)
     pruefe(len(_offen200) == 1,
            'geteilt + angenommen ergibt EINEN Eintrag, nicht zwei')
@@ -19576,6 +19594,15 @@ def main():
            'und der Platzhalter-Titel steht nicht in der Liste')
     pruefe(_null200 not in _kenn200,
            'die Nullkennung wird nicht als MissionId gefuehrt')
+
+    # ⚠ Ein ENDE mit Platzhalter muss durch — sonst bliebe der Auftrag fuer
+    # immer stehen, und das ist der schlimmere Fehler.
+    _ende200 = _au200.ereignisse_aus_text(
+        'Added notification "Auftrag abgeschlossen: Irgendwas '
+        '~mission(Location): " to queue. New queue size: 1, '
+        'MissionId: [%s], ObjectiveId: []\n' % _mid200)
+    pruefe(any(e[0] is False for e in _ende200),
+           'ein ENDE mit Platzhalter kommt weiterhin durch')
 
     # f) ⚠ Und das Ende raeumt ihn dann auch wirklich weg. Genau das ging
     #    vorher schief: Der rohe Eintrag blieb fuer immer stehen und musste

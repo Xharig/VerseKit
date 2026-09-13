@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.32.4 - 2026-09-13
+
+> **Der doppelte Auftrag, jetzt wirklich.** In v3.32.3 war die Korrektur nur an
+> einer von zwei Stellen eingebaut — sie wirkte beim Start, aber nicht bei einem
+> Auftrag, den man während des Spielens annimmt. Genau dort fällt es auf.
+
+### Behoben
+
+- **Ein geteilter Auftrag stand weiterhin doppelt in der Liste.** Der unfertige
+  Name (`… at ~mission(Location)`) wird jetzt an der Quelle aussortiert und
+  damit auf allen Wegen — beim Start wie im laufenden Spiel
+
 ## v3.32.3 - 2026-09-13
 
 > **Zwei Nachzügler zu v3.32.2.** Ein geteilter Auftrag stand weiterhin doppelt

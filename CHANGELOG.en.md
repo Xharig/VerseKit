@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.32.4 - 2026-09-13
+
+> **The duplicate contract, for real this time.** In v3.32.3 the fix was only
+> wired into one of two places — it worked at startup, but not for a contract
+> you accept while playing. Which is exactly where you notice it.
+
+### Fixed
+
+- **A shared contract still appeared twice in the list.** The unfinished name
+  (`… at ~mission(Location)`) is now filtered at the source, and therefore on
+  every path — at startup as well as during play
+
 ## v3.32.3 - 2026-09-13
 
 > **Two follow-ups to v3.32.2.** A shared contract still appeared twice in the
