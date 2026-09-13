@@ -584,6 +584,10 @@ class Bestandsfenster:
         # stammt. Kein Auswahlfeld: Aufträge gibt es hunderte, sie kommen
         # über die Suche und werden dort angeklickt.
         self.auftrag = ''
+        # ⚠ Die zu `auftrag` aufgelösten Bauplan-Schlüssel, oder None. Gesetzt
+        # von `zum_auftrag()`, weil ein Titel aus dem Spiel sich nicht
+        # wörtlich mit den Herkunftsdaten vergleichen lässt (Platzhalter).
+        self.auftrag_bp = None
         # Eine angeklickte Katalog-Art („Cooler", „Schild", „Helm") — kommt aus
         # dem Bauplan-Fortschritt, wo jede Kategorie eine eigene Zeile hat.
         #
@@ -1010,7 +1014,14 @@ class Bestandsfenster:
             pass
 
     def _auftrag_waehlen(self, name):
-        """Einen Auftrag als Filter setzen — oder wieder lösen."""
+        """Einen Auftrag als Filter setzen — oder wieder lösen.
+
+        ⚠ **Die aufgelöste Menge gehört mit zurückgesetzt.** Sie stammt aus
+        `zum_auftrag()` und gilt nur für den Auftrag, für den sie geholt wurde.
+        Bliebe sie stehen, filterte ein Klick in der Liste nach dem vorigen
+        Auftrag — dieselbe Sorte wie ein Zwischenspeicher, den niemand leert.
+        """
+        self.auftrag_bp = None
         self.auftrag = '' if self.auftrag == name else name
         self.alle_zeigen = False
         self._zeichnen(nach_oben=True)
@@ -1099,19 +1110,33 @@ class Bestandsfenster:
         else:
             self.zuruecksetzen_lbl.pack_forget()
 
-    def _fein_passt(self, e):
+    def _fein_passt(self, e, key=None):
         """Kommt dieser Bauplan durch die fünf Auswahlfelder?
 
         Ein leeres Feld heißt „alle" und lässt alles durch. Die Quelle prüft
         zwei Dinge: `f:` eine Fraktion, die den Bauplan auslobt, `t:` einen
         Belohnungstopf (XenoThreat und Verwandte).
+
+        ⚠ `key` ist der Katalog-Schlüssel der Zeile. Er wird nur für den
+        Auftragsfilter gebraucht (siehe unten) und ist deshalb freiwillig —
+        ohne ihn gilt der alte Weg über den Namen.
         """
         if self.auftrag:
             # Stammt dieser Bauplan aus dem angeklickten Auftrag?
-            namen = {(q.get('auftrag') or '').strip()
-                     for q in (e.get('q') or [])}
-            if self.auftrag not in namen:
-                return False
+            #
+            # ⚠ Steht die aufgelöste Menge bereit (`zum_auftrag`), gilt sie —
+            # sie kennt auch Titel mit Platzhalter. Sonst wie bisher über den
+            # Namen: Ein Klick IN der Liste trägt den Namen aus den
+            # Herkunftsdaten, und dort passt der Vergleich.
+            aufgeloest = getattr(self, 'auftrag_bp', None)
+            if aufgeloest is not None and key is not None:
+                if key not in aufgeloest:
+                    return False
+            else:
+                namen = {(q.get('auftrag') or '').strip()
+                         for q in (e.get('q') or [])}
+                if self.auftrag not in namen:
+                    return False
         if self.katalog_art:
             # Gehört er zu der Kategorie, die im Fortschritt angeklickt wurde?
             if (katalog_modul.kind_readable(katalog_modul.kind_id(e))
@@ -1295,6 +1320,7 @@ class Bestandsfenster:
         self.suche.set('')
         self.filter = 'alle'
         self.auftrag = ''
+        self.auftrag_bp = None
         self.katalog_art = ''
         # `_fein_leeren()` zeichnet neu — und dabei werden die Zustandsknöpfe
         # mit eingefärbt. Ein eigener Aufruf dafür wäre doppelt.
@@ -1565,7 +1591,7 @@ class Bestandsfenster:
                         continue
                 if text and not art_passt and not _passt(e, text):
                     continue
-                if not self._fein_passt(e):
+                if not self._fein_passt(e, k):
                     continue
                 treffer.append((e, drin))
             if treffer:
@@ -2518,12 +2544,17 @@ class Bestandsfenster:
         name = (name or '').strip()
         if not name:
             return False
-        bekannt = any(
-            name == (q.get('auftrag') or '').strip()
-            for eintrag in ((self.katalog or {}).get('bauplaene') or {}).values()
-            for q in (eintrag.get('q') or []))
-        if not bekannt:
+        # ⛔⛔ Über `catalog.blueprints_for_contract` — siehe dort. Hier stand
+        # ein wörtlicher Vergleich gegen `q['auftrag']`, der Titel aus dem
+        # Spiel nie traf (Platzhalter `[LOCATION]`).
+        from . import catalog as kat_modul
+        treffer = kat_modul.blueprints_for_contract(self.katalog or {}, name)
+        if not treffer:
             return False
+        # ⚠ Die aufgelösten Schlüssel merken, nicht nur den Namen: Der Filter
+        # kann sonst dieselbe Auflösung nicht machen und zeigte eine leere
+        # Liste — der Sprung sähe aus, als sei das Werkzeug kaputt.
+        self.auftrag_bp = treffer
         # ⚠ Der Filter muss auf „alle" — sonst versteckt „fehlt mir" genau die
         # Bauplaene, die man schon hat, und die Zahl daneben stimmt nicht mehr
         # mit dem ueberein, was dasteht.
@@ -2583,6 +2614,7 @@ class Bestandsfenster:
         self.alle_zeigen = False
         self.suche.set('')
         self.auftrag = ''
+        self.auftrag_bp = None
         self.katalog_art = art
         self._zeichnen(nach_oben=True)
         return True

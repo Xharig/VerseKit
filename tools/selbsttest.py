@@ -19785,6 +19785,104 @@ def main():
     finally:
         _inj204.lage, _tr204.game_language = _alt204
 
+    # === 205 · Auftragstitel mit Platzhalter sind anklickbar ===============
+    #
+    # ⛔⛔ Gemeldet am 13.09.2026: „Stop Rival Attack at Asteroiden
+    # Bergbaubasis" hat **55 Bauplaene** und meldete „Zu diesem Auftrag steht
+    # kein Bauplan in der Liste".
+    #
+    # Zwei Stellen verglichen den Titel WOERTLICH gegen `q['auftrag']` —
+    # `seiten._zum_auftrag()` und `bestandsfenster.zum_auftrag()`. In den
+    # Herkunftsdaten steht aber `'Stop Rival Attack at [LOCATION]'`, im Spiel
+    # der aufgeloeste Name. Ein exakter Vergleich kann das nie treffen.
+    #
+    # ⚠ **Regel 7.41 zum dritten Mal an einem Tag**: zwei Wege, dieselbe
+    # Frage, verschiedene Antworten. Deshalb gibt es jetzt EINE Aufloesung —
+    # `catalog.blueprints_for_contract` — und diese Pruefung fragt sie
+    # zusammen mit BEIDEN Nutzern ab.
+    print('\n205. Auftragstitel mit Platzhalter finden ihre Bauplaene')
+    from scbp import catalog as _kat205
+    _kat205data = {'bauplaene': {
+        'alpha bp': {'n': 'Alpha BP',
+                     'q': [{'auftrag': 'Stop Rival Attack at [LOCATION]'}]},
+        'beta bp':  {'n': 'Beta BP',
+                     'q': [{'auftrag': 'Stop Rival Attack at [LOCATION]'}]},
+        'gamma bp': {'n': 'Gamma BP', 'q': [{'auftrag': 'Ganz was anderes'}]},
+    }}
+    from scbp import auftraege as _au205
+    _alt205 = (_au205._missionen, _au205._index, _au205._muster_index)
+    try:
+        _au205._missionen = {'rival_title': {'bp': ['Alpha BP', 'Beta BP']}}
+        _au205._index = {}
+        _au205._muster_index = [
+            (__import__('re').compile(r'^Stop Rival Attack at .+$'),
+             'rival_title')]
+
+        # a) Der alte Weg — ein Klick IN der Liste — muss weiter gehen.
+        pruefe(_kat205.blueprints_for_contract(
+            _kat205data, 'Stop Rival Attack at [LOCATION]')
+            == {'alpha bp', 'beta bp'},
+            'der Name aus den Herkunftsdaten findet seine Bauplaene')
+        # b) ⭐ Der gemeldete Fall: der aufgeloeste Titel aus dem Spiel.
+        pruefe(_kat205.blueprints_for_contract(
+            _kat205data, 'Stop Rival Attack at Asteroiden Bergbaubasis')
+            == {'alpha bp', 'beta bp'},
+            'und der aufgeloeste Titel aus dem Spiel ebenso')
+        # c) Was es nicht gibt, gibt es nicht — es wird nicht geraten.
+        pruefe(_kat205.blueprints_for_contract(_kat205data, 'Gibt es nicht')
+               == set(),
+               'ein unbekannter Auftrag liefert nichts, statt zu raten')
+        pruefe(_kat205.blueprints_for_contract(_kat205data, '') == set(),
+               'und ein leerer Titel auch')
+    finally:
+        _au205._missionen, _au205._index, _au205._muster_index = _alt205
+
+    # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Genau daran ist
+    #    v3.32.3 gescheitert: Der Filter sass in einer von zwei Stellen.
+    import ast as _ast205
+    for _datei205, _funk205 in (('scbp/seiten.py', '_zum_auftrag'),
+                                ('scbp/bestandsfenster.py', 'zum_auftrag')):
+        _q205 = open(os.path.join(WURZEL, _datei205), encoding='utf-8').read()
+        _gefunden205 = False
+        for _k205 in _ast205.walk(_ast205.parse(_q205)):
+            if (isinstance(_k205, _ast205.FunctionDef)
+                    and _k205.name == _funk205):
+                _gefunden205 = 'blueprints_for_contract' in {
+                    n.attr for n in _ast205.walk(_k205)
+                    if isinstance(n, _ast205.Attribute)}
+        pruefe(_gefunden205,
+               '%s nutzt die gemeinsame Aufloesung' % _funk205)
+
+    # e) ⛔⛔ **Jede Funktion, die `self.auftrag` setzt, muss auch
+    #    `self.auftrag_bp` setzen.** Sonst filtert eine alte Menge weiter —
+    #    dieselbe Sorte wie ein Zwischenspeicher, den niemand leert.
+    #
+    # ⚠ Hier stand zuerst ein ZAEHLVERGLEICH („mindestens so viele wie"). Die
+    # Gegenprobe hat ihn entlarvt: Nimmt man eine Zuweisung weg, stimmt die
+    # Zahl immer noch. **Eine Zaehlung ist keine Pruefung** — gefragt wird
+    # jetzt je Funktion, nicht in Summe.
+    _q205 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+                 encoding='utf-8').read()
+    _fehlt205 = []
+    for _k205 in _ast205.walk(_ast205.parse(_q205)):
+        if not isinstance(_k205, _ast205.FunctionDef):
+            continue
+        _setzt205 = set()
+        for _n205 in _ast205.walk(_k205):
+            if not isinstance(_n205, _ast205.Assign):
+                continue
+            for _z205 in _n205.targets:
+                if (isinstance(_z205, _ast205.Attribute)
+                        and isinstance(_z205.value, _ast205.Name)
+                        and _z205.value.id == 'self'):
+                    _setzt205.add(_z205.attr)
+        if 'auftrag' in _setzt205 and 'auftrag_bp' not in _setzt205:
+            _fehlt205.append('%s (Zeile %d)' % (_k205.name, _k205.lineno))
+    pruefe(not _fehlt205,
+           'jede Stelle, die den Auftragsfilter setzt, setzt auch die '
+           'aufgeloeste Menge%s'
+           % (' — FEHLT in: ' + ', '.join(_fehlt205) if _fehlt205 else ''))
+
     # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
     #
     # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:

@@ -154,6 +154,60 @@ def reward_cap(catalog_data, blueprint_key):
     return highest_one.get('rep_max'), highest_one.get('rang_max')
 
 
+def blueprints_for_contract(catalog_data, title):
+    """Welche Bauplan-Schlüssel gibt dieser Auftrag her? (Menge, ggf. leer)
+
+    ⛔⛔ **Die EINE Stelle, die einen angezeigten Auftragstitel auflöst.**
+    Vorher rechneten zwei Seiten es sich selbst aus — jede mit einem
+    **wörtlichen** Vergleich gegen `q['auftrag']`:
+
+        seiten._zum_auftrag()            (ob anklickbar)
+        bestandsfenster.zum_auftrag()    (Liste umstellen)
+
+    Das trifft alles, was aus der Liste selbst kommt, und **nichts**, was aus
+    dem Spiel kommt: In den Herkunftsdaten steht der Auftrag mit Platzhalter,
+
+        'Stop Rival Attack at [LOCATION]'
+
+    im Spiel heißt er `'Stop Rival Attack at Asteroiden Bergbaubasis'`.
+    Gemeldet am 13.09.2026 — 55 Baupläne, und die Zeile war tot.
+
+    **Zwei Wege, in dieser Reihenfolge:**
+
+    1. Der Name, wie er in den Herkunftsdaten steht. Das ist der Klick in der
+       eigenen Liste, und er muss weiter funktionieren.
+    2. Über den **Missionsschlüssel** (`auftraege.schluessel_zu`) — derselbe
+       Weg, den das Overlay seit jeher geht. Er löst Platzhalter auf.
+
+    ⚠ Gibt es zu einem Titel auf beiden Wegen etwas, gewinnt Weg 1: Er ist
+    genauer, weil er an den einzelnen Bauplänen hängt.
+    """
+    title = (title or '').strip()
+    if not title:
+        return set()
+    blueprints = catalog_data.get('bauplaene') or {}
+    # Weg 1 — wörtlich, wie bisher.
+    treffer = {key for key, entry in blueprints.items()
+               if any((q.get('auftrag') or '').strip() == title
+                      for q in (entry.get('q') or []))}
+    if treffer:
+        return treffer
+    # Weg 2 — über den Missionsschlüssel.
+    try:
+        from . import auftraege
+        schluessel = auftraege.schluessel_zu(title)
+        if not schluessel:
+            return set()
+        namen = (auftraege.missionen().get(schluessel) or {}).get('bp') or []
+    except Exception as error:
+        fehler.merken('katalog.auftrag_aufloesen', error)
+        return set()
+    # ⚠ Die Namen aus der Missionsliste sind Klartext, die Schlüssel hier sind
+    # normalisiert — sonst findet sich nichts wieder.
+    gesucht = {_norm(n) for n in namen if n}
+    return {key for key in blueprints if key in gesucht}
+
+
 def contract_traits(catalog_data, blueprint_key):
     """Was die Aufträge zu diesem Bauplan noch hergeben.
 

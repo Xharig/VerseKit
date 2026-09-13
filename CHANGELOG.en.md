@@ -8,6 +8,26 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.33.3 - 2026-09-13
+
+> **Many contracts could not be clicked in the contract log**, even though they
+> do hand out blueprints — "no blueprint listed for this contract", on one with
+> 55 of them. Every contract whose in-game name fills in a location or target
+> was affected. It is now **all 260 instead of 199**.
+
+### Fixed
+
+- **Contracts with a filled-in location or target can be clicked now.** In the
+  source data the name reads `Stop Rival Attack at [LOCATION]`, in the game
+  `Stop Rival Attack at Asteroid Mining Base` — the match compared both
+  literally and never found anything. **61 contracts** are added by this
+
+### Improved
+
+- **The text source is named the same everywhere: "English (from the game)".**
+  The setup wizard had been saying that all along while the settings page said
+  "Original" — and not everyone knows the original language is English
+
 ## v3.33.2 - 2026-09-13
 
 > **"I can't see your entries in the game."** That case has two causes which

@@ -6563,13 +6563,17 @@ def _zum_auftrag(fenster, titel):
         if not titel:
             return
         # Gegen den Katalog fragen, ohne die Seite anzufassen.
+        #
+        # ⛔⛔ **Über `catalog.blueprints_for_contract`, nicht mit einem eigenen
+        # Vergleich.** Hier stand ein wörtlicher Titelvergleich gegen
+        # `q['auftrag']` — und derselbe noch einmal in
+        # `bestandsfenster.zum_auftrag()`. Beide trafen alles aus der eigenen
+        # Liste und **nichts** aus dem Spiel: In den Herkunftsdaten steht
+        # `'Stop Rival Attack at [LOCATION]'`, im Spiel
+        # `'Stop Rival Attack at Asteroiden Bergbaubasis'`. 55 Baupläne, und
+        # die Zeile war tot (gemeldet 13.09.2026).
         from . import catalog as kat_modul
-        bekannt = any(
-            titel == (q.get('auftrag') or '').strip()
-            for eintrag in ((kat_modul.load() or {}).get('bauplaene')
-                            or {}).values()
-            for q in (eintrag.get('q') or []))
-        if not bekannt:
+        if not kat_modul.blueprints_for_contract(kat_modul.load(), titel):
             fenster.say(t('s_fo_lohnt_nichts'))
             return
 

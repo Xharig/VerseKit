@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.33.3 - 2026-09-13
+
+> **Im Auftrags-Protokoll ließen sich viele Aufträge nicht anklicken**, obwohl
+> sie Baupläne bringen — „Zu diesem Auftrag steht kein Bauplan in der Liste",
+> bei einem Auftrag mit 55 Stück. Betroffen war jeder Auftrag, dessen Name im
+> Spiel einen Ort oder ein Ziel einsetzt. Jetzt sind es **alle 260 statt 199**.
+
+### Behoben
+
+- **Aufträge mit eingesetztem Ort oder Ziel sind jetzt anklickbar.** Der Name
+  lautet in den Herkunftsdaten `Stop Rival Attack at [LOCATION]`, im Spiel
+  `Stop Rival Attack at Asteroiden Bergbaubasis` — der Abgleich verglich beide
+  wörtlich und fand nie etwas. **61 Aufträge** kommen dadurch dazu
+
+### Verbessert
+
+- **Die Textquelle heißt überall gleich: „Englisch (aus dem Spiel)".** Der
+  Einrichtungsassistent sagte das längst, die Einstellungsseite sagte
+  „Original" — und nicht jeder weiß, dass die Originalsprache Englisch ist
+
 ## v3.33.2 - 2026-09-13
 
 > **„Ich sehe deine Angaben im Spiel nicht."** Dieser Fall hat zwei Ursachen,
