@@ -13454,7 +13454,7 @@ def main():
     print('146. Achsen: Totzone, Sättigung, tote Kennungen')
     import shutil as _sh141
     import tempfile as _tf141
-    from scbp import kurven as _kv141
+    from scbp import curves as _kv141
 
     _AKTIV141 = 'AAAA1111-0000-0000-0000-504944564944'
     _ALT141 = 'BBBB2222-0000-0000-0000-504944564944'
@@ -13512,7 +13512,7 @@ def main():
         with open(_datei141, 'w', encoding='utf-8') as _f141:
             _f141.write(_xml141)
 
-        _bloecke141 = _kv141.geraete_achsen(datei=_datei141)
+        _bloecke141 = _kv141.device_axes(filename=_datei141)
         _nach141 = {}
         for _b141 in _bloecke141:
             _nach141.setdefault(_b141['kennung'], []).append(_b141)
@@ -13532,7 +13532,7 @@ def main():
         pruefe(_nach141.get(_WEG141) and _nach141[_WEG141][0]['verwaist'],
                'Gerät ohne aktiven Zwilling -> verwaist')
 
-        _uebern141 = _kv141.uebernehmbar(datei=_datei141)
+        _uebern141 = _kv141.adoptable(filename=_datei141)
         pruefe(len(_uebern141) == 1,
                'genau ein übernehmbarer Fall (sind: %d)' % len(_uebern141))
         _verloren141 = [z for z in (_uebern141[0]['werte'] if _uebern141 else [])
@@ -13548,7 +13548,7 @@ def main():
         # ⚠ Der Selbsttreffer-Fehler: Ein Kinder-Regex, der das Elternelement
         # sehen kann, verschlingt den ganzen Block und findet nie eine Achse.
         # Diese Prüfung ist genau dafür da — sie war bei ihrer Entstehung rot.
-        _spiel141 = [b for b in _kv141.spielachsen(datei=_datei141)
+        _spiel141 = [b for b in _kv141.game_axes(filename=_datei141)
                      if b['nummer'] == 1 and b['art'] == 'joystick']
         pruefe(_spiel141 and len(_spiel141[0]['achsen']) == 2,
                'beide Spielachsen gelesen (sind: %d)'
@@ -13566,20 +13566,20 @@ def main():
         # einen. Eine Wache, die nur eine Tür bewacht, meldet nichts, wenn
         # jemand durch die andere geht.
         _vorher_alle141 = {}
-        for _b141 in _kv141.geraete_achsen(datei=_datei141):
+        for _b141 in _kv141.device_axes(filename=_datei141):
             _vorher_alle141.setdefault(_b141['kennung'], []).append(
                 {a: dict(w) for a, w in _b141['achsen'].items()})
 
-        _ok141, _meld141, _n141 = _kv141.setzen(
-            _AKTIV141, 'x', 'saturation', 0.6, datei=_datei141)
+        _ok141, _meld141, _n141 = _kv141.apply(
+            _AKTIV141, 'x', 'saturation', 0.6, filename=_datei141)
         pruefe(_ok141, 'Schreiben gelingt (%s)' % ('ok' if _ok141 else _meld141))
 
         _nachher_alle141 = {}
-        for _b141 in _kv141.geraete_achsen(datei=_datei141):
+        for _b141 in _kv141.device_axes(filename=_datei141):
             _nachher_alle141.setdefault(_b141['kennung'], []).append(
                 {a: dict(w) for a, w in _b141['achsen'].items()})
 
-        _jetzt141 = [b for b in _kv141.geraete_achsen(datei=_datei141)
+        _jetzt141 = [b for b in _kv141.device_axes(filename=_datei141)
                      if b['kennung'] == _AKTIV141]
         pruefe(_jetzt141 and abs((_jetzt141[0]['achsen']['x'].get('saturation')
                                   or 0) - 0.6) < 1e-6,
@@ -13602,11 +13602,11 @@ def main():
         # Ein Wert ausserhalb 0..1 und eine unbekannte Kennung müssen
         # abgelehnt werden — ohne die Datei anzufassen.
         _vorher141 = _inhalt141
-        pruefe(not _kv141.setzen(_AKTIV141, 'x', 'deadzone', 2.0,
-                                 datei=_datei141)[0],
+        pruefe(not _kv141.apply(_AKTIV141, 'x', 'deadzone', 2.0,
+                                 filename=_datei141)[0],
                'ein Wert über 1 wird abgelehnt')
-        pruefe(not _kv141.setzen('FFFF9999', 'x', 'deadzone', 0.2,
-                                 datei=_datei141)[0],
+        pruefe(not _kv141.apply('FFFF9999', 'x', 'deadzone', 0.2,
+                                 filename=_datei141)[0],
                'eine unbekannte Kennung wird abgelehnt')
         with open(_datei141, encoding='utf-8') as _f141:
             pruefe(_f141.read() == _vorher141,
@@ -13614,15 +13614,15 @@ def main():
         # ⭐ Zwei Sticks angleichen — Totzone UND Sättigung, in einem Zug.
         # Die Quelle (aktiv) hat jetzt Sättigung 0,6 und Totzone 0,1; das
         # Ziel `_WEG141` hat nur eine Totzone. Danach müssen beide gleich sein.
-        _ok141, _meld141, _n141 = _kv141.angleichen(
-            _AKTIV141, _WEG141, datei=_datei141)
+        _ok141, _meld141, _n141 = _kv141.align(
+            _AKTIV141, _WEG141, filename=_datei141)
         pruefe(_ok141, 'Angleichen gelingt (%s)' % ('ok' if _ok141
                                                     else _meld141))
         _danach141 = {b['kennung']: b for b in
-                      _kv141.geraete_achsen(datei=_datei141)}
+                      _kv141.device_axes(filename=_datei141)}
         _q141 = _danach141.get(_AKTIV141, {}).get('achsen', {})
         _z141 = _danach141.get(_WEG141, {}).get('achsen', {})
-        _gemeinsam141 = [a for a in _kv141.ACHSEN if a in _q141 and a in _z141]
+        _gemeinsam141 = [a for a in _kv141.AXES if a in _q141 and a in _z141]
         pruefe(_gemeinsam141,
                'es gibt gemeinsame Achsen (%d)' % len(_gemeinsam141))
         _ungleich141 = [a for a in _gemeinsam141
@@ -13638,11 +13638,11 @@ def main():
         pruefe(_q141.get('y', {}).get('saturation')
                == _z141.get('y', {}).get('saturation'),
                'ein fehlender Wert wird als Löschen übertragen')
-        pruefe(not _kv141.angleichen(_AKTIV141, _AKTIV141,
-                                     datei=_datei141)[0],
+        pruefe(not _kv141.align(_AKTIV141, _AKTIV141,
+                                     filename=_datei141)[0],
                'ein Gerät auf sich selbst anzugleichen wird abgelehnt')
-        pruefe(not _kv141.angleichen(_AKTIV141, 'FFFF9999',
-                                     datei=_datei141)[0],
+        pruefe(not _kv141.align(_AKTIV141, 'FFFF9999',
+                                     filename=_datei141)[0],
                'eine unbekannte Zielkennung wird abgelehnt')
     finally:
         _sh141.rmtree(_ordner141, ignore_errors=True)
@@ -13654,41 +13654,41 @@ def main():
     def _gl141(ist, soll):
         return abs(ist - soll) < 1e-9
 
-    pruefe(_gl141(_kv141.antwort(0.0), 0.0) and _gl141(_kv141.antwort(1.0), 1.0)
-           and _gl141(_kv141.antwort(-1.0), -1.0),
+    pruefe(_gl141(_kv141.answer(0.0), 0.0) and _gl141(_kv141.answer(1.0), 1.0)
+           and _gl141(_kv141.answer(-1.0), -1.0),
            'ohne Einstellungen ist die Kurve die Gerade')
-    pruefe(_gl141(_kv141.antwort(0.05, totzone=0.1), 0.0)
-           and _gl141(_kv141.antwort(0.55, totzone=0.1), 0.5),
+    pruefe(_gl141(_kv141.answer(0.05, deadzone_value=0.1), 0.0)
+           and _gl141(_kv141.answer(0.55, deadzone_value=0.1), 0.5),
            'die Totzone schneidet ab und spannt den Rest neu auf')
-    pruefe(_gl141(_kv141.antwort(0.5, saettigung=0.5), 1.0)
-           and _gl141(_kv141.antwort(0.25, saettigung=0.5), 0.5),
+    pruefe(_gl141(_kv141.answer(0.5, saturation=0.5), 1.0)
+           and _gl141(_kv141.answer(0.25, saturation=0.5), 0.5),
            'ab der Sättigung gilt Vollausschlag')
-    pruefe(_gl141(_kv141.antwort(0.5, exponent=2.0), 0.25),
+    pruefe(_gl141(_kv141.answer(0.5, exponent=2.0), 0.25),
            'der Exponent macht die Mitte feiner')
-    pruefe(_gl141(_kv141.antwort(0.5, 0.1, 0.9, 2.0), 0.25),
+    pruefe(_gl141(_kv141.answer(0.5, 0.1, 0.9, 2.0), 0.25),
            'alle drei zusammen, von Hand nachgerechnet')
-    pruefe(_gl141(_kv141.antwort(0.95, totzone=0.9, saettigung=0.2), 1.0),
+    pruefe(_gl141(_kv141.answer(0.95, deadzone_value=0.9, saturation=0.2), 1.0),
            'Sättigung unter der Totzone knallt nicht (keine Division durch 0)')
-    pruefe(_gl141(_kv141.antwort(5.0), 1.0),
+    pruefe(_gl141(_kv141.answer(5.0), 1.0),
            'eine Eingabe über 1 wird begrenzt')
     _knick141 = [(0.0, 0.0), (0.5, 0.1), (1.0, 1.0)]
-    pruefe(_gl141(_kv141.antwort(0.5, kurve=_knick141), 0.1)
-           and _gl141(_kv141.antwort(0.25, kurve=_knick141), 0.05),
+    pruefe(_gl141(_kv141.answer(0.5, curve=_knick141), 0.1)
+           and _gl141(_kv141.answer(0.25, curve=_knick141), 0.05),
            'gesetzte Kurvenpunkte gewinnen über den Exponenten')
     # ⚠⚠ Die gefährlichste Verwechslung im ganzen Bereich: „nicht gesetzt"
     # ist bei der Sättigung **1,0**, nicht 0. Ein Regler, der bei fehlender
     # Sättigung auf 0 stünde, schriebe beim ersten Anfassen einen Wert, nach
     # dem der Stick fast nicht mehr steuert. Die Oberfläche holt sich den
     # Ruhewert aus dieser Tabelle — deshalb wird sie hier festgenagelt.
-    pruefe(_kv141.STANDARD['saturation'] == 1.0
-           and _kv141.STANDARD['deadzone'] == 0.0,
+    pruefe(_kv141.DEFAULT['saturation'] == 1.0
+           and _kv141.DEFAULT['deadzone'] == 0.0,
            '* Ruhewerte: Sättigung 1,0 und Totzone 0,0')
-    pruefe(_gl141(_kv141.antwort(1.0, saettigung=None), 1.0)
-           and _gl141(_kv141.antwort(0.5, saettigung=None), 0.5),
+    pruefe(_gl141(_kv141.answer(1.0, saturation=None), 1.0)
+           and _gl141(_kv141.answer(0.5, saturation=None), 0.5),
            'eine fehlende Sättigung rechnet wie 1,0, nicht wie 0')
 
-    _voll141 = _kv141.verlauf(schritte=10, ganz=True)
-    _quad141 = _kv141.verlauf(schritte=10)
+    _voll141 = _kv141.progression(steps=10, whole=True)
+    _quad141 = _kv141.progression(steps=10)
     pruefe(_gl141(_quad141[0][0], 0.0) and _gl141(_voll141[0][0], -1.0)
            and _gl141(_voll141[len(_voll141) // 2][1], 0.0),
            'Quadrant und Vollansicht decken ihren Bereich ab')
@@ -14006,7 +14006,7 @@ def main():
     import tempfile as _tf145
     from scbp import device_set as _gs145
     from scbp import joysticks as _js145
-    from scbp import kurven as _kv145
+    from scbp import curves as _kv145
 
     _A145 = 'AAAA1111-0000-0000-0000-504944564944'
     _B145 = 'BBBB2222-0000-0000-0000-504944564944'
@@ -14058,7 +14058,7 @@ def main():
             return _h
 
         def _totzone145(kennung):
-            for _b in _kv145.geraete_achsen(datei=_d145):
+            for _b in _kv145.device_axes(filename=_d145):
                 if _b['kennung'] == kennung:
                     return (_b['achsen'].get('x') or {}).get('deadzone')
             return None
@@ -14097,7 +14097,7 @@ def main():
         pruefe(not _gs145.save('', filename=_d145)[0],
                'ein leerer Name wird abgelehnt')
 
-        _kv145.setzen(_A145, 'x', 'deadzone', 0.5, datei=_d145)
+        _kv145.apply(_A145, 'x', 'deadzone', 0.5, filename=_d145)
         _schreibt145, _fehlt145 = _gs145.preview('Satz', filename=_d145)
         pruefe(len(_schreibt145) == 1,
                'die Vorschau kündigt genau eine Änderung an (sind: %d)'
@@ -14110,10 +14110,10 @@ def main():
         # ⭐ Ein Satz muss auch LÖSCHEN: Ein Wert, den er nicht kennt, darf
         # nach dem Anwenden nicht stehenbleiben — sonst sind zwei Zustände,
         # die gleich heißen, eben nicht gleich.
-        _kv145.setzen(_B145, 'x', 'saturation', 0.66, datei=_d145)
+        _kv145.apply(_B145, 'x', 'saturation', 0.66, filename=_d145)
         _gs145.apply('Satz', filename=_d145)
         _satB145 = None
-        for _b in _kv145.geraete_achsen(datei=_d145):
+        for _b in _kv145.device_axes(filename=_d145):
             if _b['kennung'] == _B145:
                 _satB145 = (_b['achsen'].get('x') or {}).get('saturation')
         pruefe(_satB145 is None,
@@ -14122,7 +14122,7 @@ def main():
         # ⚠ Werte dürfen sich beim Schreiben NICHT verändern. `%g` kürzte
         # 0.098999992 auf 0.099 — ein anderer Wert an einer Achse, die
         # niemand angefasst hat.
-        _kv145.setzen(_A145, 'x', 'deadzone', 0.098999992, datei=_d145)
+        _kv145.apply(_A145, 'x', 'deadzone', 0.098999992, filename=_d145)
         pruefe(_totzone145(_A145) == 0.098999992,
                '*ein geschriebener Wert kommt unverändert zurück (ist: %r)'
                % _totzone145(_A145))
@@ -14153,8 +14153,8 @@ def main():
         # „nichts zu tun" — und NICHT als Erfolg mit null Treffern. Die
         # Oberfläche zeigt daraus einen Hinweis statt einer Rückfrage über
         # null Einträge.
-        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145,
-                                                    nur_zaehlen=True)
+        _ok145, _m145, _zahl145 = _kv145.clean_up(filename=_d145,
+                                                    count_only=True)
         pruefe(not _ok145 and _m145 == 's_gs_f_nichts_zu_tun',
                'ohne tote Eintraege wird "nichts zu tun" gemeldet')
 
@@ -14169,16 +14169,16 @@ def main():
         with open(_d145, 'w', encoding='utf-8') as _f145:
             _f145.write(_t145)
 
-        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145,
-                                                    nur_zaehlen=True)
+        _ok145, _m145, _zahl145 = _kv145.clean_up(filename=_d145,
+                                                    count_only=True)
         pruefe(_ok145 and _zahl145 == 1,
                'der tote Eintrag wird gezählt (%d)' % _zahl145)
-        _lebend145 = [b['kennung'] for b in _kv145.geraete_achsen(datei=_d145)
+        _lebend145 = [b['kennung'] for b in _kv145.device_axes(filename=_d145)
                       if b['aktiv']]
-        _ok145, _m145, _zahl145 = _kv145.aufraeumen(datei=_d145)
+        _ok145, _m145, _zahl145 = _kv145.clean_up(filename=_d145)
         pruefe(_ok145 and _zahl145 == 1,
                'aufräumen entfernt genau einen Block (%d)' % _zahl145)
-        _danach145 = _kv145.geraete_achsen(datei=_d145)
+        _danach145 = _kv145.device_axes(filename=_d145)
         pruefe([b['kennung'] for b in _danach145 if b['aktiv']] == _lebend145,
                '* die lebenden Geräte sind alle noch da')
         pruefe(all('DDDD4444' not in b['kennung'] for b in _danach145),
@@ -14353,7 +14353,7 @@ def main():
     # nicht als Grundlage für eine Prüfung, die überall dasselbe sagen soll.
     print()
     print('150. Geräte-Hub: System, Protokoll und Belegung zusammenführen')
-    from scbp import eingabe as _ei150
+    from scbp import input_device as _ei150
     from scbp import device_hub as _hub150
     from scbp import joysticks as _js150
 
@@ -14362,14 +14362,14 @@ def main():
     _C150 = 'CCCC3333-0000-0000-0000-504944564944'
     _D150 = 'DDDD4444-0000-0000-0000-504944564944'
 
-    _echt150 = (_ei150.geraete, _js150.geraete, _js150.zuordnung)
+    _echt150 = (_ei150.devices, _js150.geraete, _js150.zuordnung)
     try:
         # ⭐ Der Aufbau bildet genau die vier Lagen ab, die es geben kann:
         #   A — angesteckt, bekannt, hat eine Nummer        → bereit
         #   B — in der Belegung, aber nicht angesteckt      → abgesteckt
         #   C — angesteckt und bekannt, ohne Nummer         → ohne_nummer
         #   D — angesteckt, das Spiel kennt es gar nicht    → unbekannt
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
             {'pfad': '/dev/input/js1', 'name': 'System C', 'kennung': _C150},
             {'pfad': '/dev/input/js2', 'name': 'System D', 'kennung': _D150},
@@ -14431,13 +14431,13 @@ def main():
                '* der erste Blick meldet nichts (sonst Fehlalarm beim Start)')
         pruefe(_wache150.check() == ([], []),
                'ohne Änderung bleibt es dabei')
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
         ]
         _dazu150, _weg150 = _wache150.check()
         pruefe(not _dazu150 and len(_weg150) == 2,
                '* zwei abgezogene Geräte werden gemeldet (%d)' % len(_weg150))
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150},
             {'pfad': '/dev/input/js9', 'name': 'Neu', 'kennung': _D150},
         ]
@@ -14452,7 +14452,7 @@ def main():
         # ⭐ Der Fall, um den es geht: EIN Gerät fehlt, EIN neues steht ohne
         # Nummer da. Dann ist es fast immer derselbe Stick mit neuer Kennung,
         # und ein einziger Handgriff hängt die Belegung um.
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'Neu', 'kennung': _C150},
         ]
         _js150.geraete = lambda ordner=None: [
@@ -14486,7 +14486,7 @@ def main():
         # ersetzt: Da hilft nur, einmal damit zu starten.
         _js150.geraete = lambda ordner=None: []
         _js150.zuordnung = lambda datei=None, ordner=None: []
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'Frisch', 'kennung': _D150},
         ]
         _v150 = _hub150.suggestions()
@@ -14498,12 +14498,12 @@ def main():
             {'name': 'Log A', 'kennung': _A150}]
         _js150.zuordnung = lambda datei=None, ordner=None: [
             {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150}]
-        _ei150.geraete = lambda: [
+        _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150}]
         pruefe(_hub150.suggestions() == [],
                '* wenn alles passt, schlaegt der Assistent nichts vor')
     finally:
-        _ei150.geraete, _js150.geraete, _js150.zuordnung = _echt150
+        _ei150.devices, _js150.geraete, _js150.zuordnung = _echt150
 
     print()
     print('151. Die Einkaufsliste rechnet ueber alle Schiffe')
@@ -15560,18 +15560,18 @@ def main():
     # ebenfalls — dann gibt es keine eine Wahrheit.
     print()
     print('165. Die Kurve zeigt den Exponenten DIESER Achse')
-    from scbp import kurven as _kv165
+    from scbp import curves as _kv165
 
-    _echt165 = _kv165.spielachsen_auf
+    _echt165 = _kv165.game_axes_of
 
     def _tue_so(treffer):
         """`spielachsen_auf` vortäuschen, damit die Regel prüfbar wird."""
-        _kv165.spielachsen_auf = lambda n, a, datei=None, ordner=None: treffer
+        _kv165.game_axes_of = lambda n, a, datei=None, ordner=None: treffer
 
     # Die Regel als Funktion nachbauen — dieselbe wie in `_exponent_fuer`.
     def _regel():
         exponenten = set()
-        for eintrag in _kv165.spielachsen_auf(1, 'x'):
+        for eintrag in _kv165.game_axes_of(1, 'x'):
             wert = eintrag.get('exponent')
             if wert is not None:
                 exponenten.add(wert)
@@ -15604,13 +15604,13 @@ def main():
                'Gegenprobe: eine Funktion OHNE eigenen Exponenten zaehlt '
                'nicht als Wert')
     finally:
-        _kv165.spielachsen_auf = _echt165
+        _kv165.game_axes_of = _echt165
 
     # ⚠ Und die Rechnung dahinter: Bei 1 muss die Kurve wirklich gerade sein.
-    pruefe(all(abs(_kv165.antwort(x, 0.0, 1.0, 1.0) - x) < 0.001
+    pruefe(all(abs(_kv165.answer(x, 0.0, 1.0, 1.0) - x) < 0.001
                for x in (0.1, 0.25, 0.5, 0.75, 0.9)),
            'bei Exponent 1 ist die Kurve eine Gerade')
-    pruefe(abs(_kv165.antwort(0.25, 0.0, 1.0, 2.0) - 0.0625) < 0.001,
+    pruefe(abs(_kv165.answer(0.25, 0.0, 1.0, 2.0) - 0.0625) < 0.001,
            'bei Exponent 2 liegt Viertelausschlag bei 6,25 %% (gebogen)')
 
     # ------------------------------------------------------------------
@@ -15716,45 +15716,45 @@ def main():
     # Wer etwas einstellte, traf womoeglich den toten Eintrag.
     print()
     print('167. Ein Geraet mit zwei Namen ist EIN Reiter')
-    from scbp import kurven as _kv167
+    from scbp import curves as _kv167
 
     _bloecke = [
         {'name': 'L-VPC Stick', 'kennung': '{AAA}', 'aktiv': True},
         {'name': 'LEFT VPC Stick', 'kennung': '{AAA}', 'aktiv': True},
         {'name': 'VPC Rudder Pedals', 'kennung': '{BBB}', 'aktiv': True},
     ]
-    _echt167 = _kv167._gefuehrte_namen
+    _echt167 = _kv167._managed_names
     try:
-        _kv167._gefuehrte_namen = lambda weg: {'{AAA}': 'L-VPC Stick',
+        _kv167._managed_names = lambda weg: {'{AAA}': 'L-VPC Stick',
                                                '{BBB}': 'VPC Rudder Pedals'}
-        _kv167._nur_der_gefuehrte_bleibt(_bloecke, 'egal')
+        _kv167._keep_only_managed(_bloecke, 'egal')
         pruefe([b['aktiv'] for b in _bloecke] == [True, False, True],
                'der gefuehrte Name bleibt, der alte wird zur Leiche')
 
         # Gegenprobe: Kennt das Spiel den Namen nicht, wird NICHTS weggeraeumt.
         _zwei = [{'name': 'A', 'kennung': '{X}', 'aktiv': True},
                  {'name': 'B', 'kennung': '{X}', 'aktiv': True}]
-        _kv167._gefuehrte_namen = lambda weg: {'{X}': 'ganz was anderes'}
-        _kv167._nur_der_gefuehrte_bleibt(_zwei, 'egal')
+        _kv167._managed_names = lambda weg: {'{X}': 'ganz was anderes'}
+        _kv167._keep_only_managed(_zwei, 'egal')
         pruefe(all(b['aktiv'] for b in _zwei),
                'Gegenprobe: passt kein Name, bleibt alles stehen')
 
         # Gegenprobe: ohne gefuehrte Namen ebenso.
         _drei = [{'name': 'A', 'kennung': '{Y}', 'aktiv': True},
                  {'name': 'B', 'kennung': '{Y}', 'aktiv': True}]
-        _kv167._gefuehrte_namen = lambda weg: {}
-        _kv167._nur_der_gefuehrte_bleibt(_drei, 'egal')
+        _kv167._managed_names = lambda weg: {}
+        _kv167._keep_only_managed(_drei, 'egal')
         pruefe(all(b['aktiv'] for b in _drei),
                'Gegenprobe: ohne Angabe des Spiels bleibt alles stehen')
 
         # Ein einzelner Block darf nie deaktiviert werden.
         _einer = [{'name': 'Nur ich', 'kennung': '{Z}', 'aktiv': True}]
-        _kv167._gefuehrte_namen = lambda weg: {'{Z}': 'anders'}
-        _kv167._nur_der_gefuehrte_bleibt(_einer, 'egal')
+        _kv167._managed_names = lambda weg: {'{Z}': 'anders'}
+        _kv167._keep_only_managed(_einer, 'egal')
         pruefe(_einer[0]['aktiv'],
                'ein einzelnes Geraet bleibt aktiv, auch bei anderem Namen')
     finally:
-        _kv167._gefuehrte_namen = _echt167
+        _kv167._managed_names = _echt167
 
     # ------------------------------------------------------------------
     # 168. Weniger Bauplaene als je zuvor faellt auf

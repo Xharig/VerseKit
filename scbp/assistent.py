@@ -238,13 +238,13 @@ class Assistent:
             self.pfad.set(ordner)
 
     def _pfad_pruefen(self):
-        eingabe = self.pfad.get().strip()
-        self.gedeutet = pfade.spielordner_deuten(eingabe) if eingabe else None
-        if not eingabe:
+        input_device = self.pfad.get().strip()
+        self.gedeutet = pfade.spielordner_deuten(input_device) if input_device else None
+        if not input_device:
             self.rueckmeldung.configure(text='', fg=SUB)
         elif self.gedeutet:
             text = t('log_gefunden')
-            if self.gedeutet.rstrip('/\\') != eingabe.rstrip('/\\'):
+            if self.gedeutet.rstrip('/\\') != input_device.rstrip('/\\'):
                 text += '\n' + t('ordner_gedeutet', self.gedeutet)
             self.rueckmeldung.configure(text=text, fg=ACCENT)
         else:

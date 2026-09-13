@@ -41,7 +41,7 @@ des Spielers.
 
 ⚠ Die Tastatur wird ausdruecklich **nicht** systemweit mitgelesen. Das waere
 ein Keylogger; hier hoert nur das eigene Fenster zu, solange es den
-Eingabezeiger hat. Siehe `scbp/eingabe.py`.
+Eingabezeiger hat. Siehe `scbp/input_device.py`.
 
 ## ⚠ Das Spiel muss zu sein
 
@@ -51,7 +51,7 @@ Aenderung ueberschreiben. Das Fenster sagt es, statt es vorauszusetzen.
 import threading
 import tkinter as tk
 
-from . import eingabe, fehler, joysticks
+from . import input_device, fehler, joysticks
 from .sprache import t
 
 BG      = '#10141c'
@@ -164,7 +164,7 @@ class BindingWindow:
         self.root.focus_force()
         self.root.grab_set()
 
-        if eingabe.verfuegbar():
+        if input_device.available():
             self._listen()
         else:
             # Kein Stick erkennbar — Tastatur und Maus gehen trotzdem.
@@ -181,7 +181,7 @@ class BindingWindow:
         """
         def arbeit():
             try:
-                match = eingabe.warten(PATIENCE, abbruch=lambda: not self._running)
+                match = input_device.wait(PATIENCE, stop_flag=lambda: not self._running)
             except Exception as ausnahme:
                 fehler.merken('binding_window.listen', ausnahme)
                 match = None
@@ -216,7 +216,7 @@ class BindingWindow:
         return ''
 
     def _taste(self, event):
-        name = eingabe.taste_aus_tk(getattr(event, 'keysym', ''))
+        name = input_device.key_from_tk(getattr(event, 'keysym', ''))
         if name == 'escape':
             self.close()
             return
@@ -227,13 +227,13 @@ class BindingWindow:
         # 4 und 5 sind unter X11 das Rad — die haben eigene Bindungen.
         if getattr(event, 'num', 0) in (4, 5):
             return
-        name = eingabe.maus_aus_tk(nummer=getattr(event, 'num', 0))
+        name = input_device.mouse_from_tk(number=getattr(event, 'num', 0))
         if name:
             self._apply('mo1', name)
 
     def _rad(self, event):
-        self._apply('mo1', eingabe.maus_aus_tk(
-            rad=getattr(event, 'delta', 0)))
+        self._apply('mo1', input_device.mouse_from_tk(
+            wheel=getattr(event, 'delta', 0)))
 
     def _apply(self, device_id, name):
         """Eine erkannte Eingabe anzeigen — geschrieben wird noch nicht."""
@@ -246,7 +246,7 @@ class BindingWindow:
         self.prompt.configure(text=t('s_js_b_nochmal'), fg=SUB)
         # Wieder lauschen: Wer sich vertan hat, drückt einfach nochmal.
         self._running = True
-        if eingabe.verfuegbar():
+        if input_device.available():
             self._listen()
 
         try:

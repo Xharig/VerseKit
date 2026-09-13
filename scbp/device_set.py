@@ -44,7 +44,7 @@ import json
 import os
 import time
 
-from . import kurven, pfade
+from . import curves, pfade
 
 FILE = 'joystick-saetze.json'
 
@@ -117,8 +117,8 @@ def capture(filename=None, folder=None):
     den Satz wandert — und damit sich der Stand mit einem gespeicherten
     vergleichen lässt.
     """
-    blocks = kurven.geraete_achsen(filename, folder)
-    game = kurven.spielachsen(filename, folder)
+    blocks = curves.device_axes(filename, folder)
+    game = curves.game_axes(filename, folder)
 
     devices = {}
     for block in blocks:
@@ -140,7 +140,7 @@ def capture(filename=None, folder=None):
             # Ein `None` heißt beim Anwenden **löschen**. Dieselbe Regel wie
             # beim Angleichen zweier Sticks: Sonst sind zwei Zustände, die
             # gleich heißen, eben nicht gleich.
-            axes[axis] = {k: values.get(k) for k in kurven.EIGENSCHAFTEN}
+            axes[axis] = {k: values.get(k) for k in curves.PROPERTIES}
         devices[block['kennung']] = {'name': block['name'], 'achsen': axes}
 
     numbers = {}
@@ -215,7 +215,7 @@ def preview(name, filename=None, folder=None):
         return [], []
 
     present = {}
-    for block in kurven.geraete_achsen(filename, folder):
+    for block in curves.device_axes(filename, folder):
         if block['kennung'] and block['aktiv']:
             present[block['kennung']] = block
 
@@ -228,7 +228,7 @@ def preview(name, filename=None, folder=None):
             continue
         for axis, values in (entry.get('achsen') or {}).items():
             for prop, value in values.items():
-                if prop not in kurven.EIGENSCHAFTEN:
+                if prop not in curves.PROPERTIES:
                     continue
                 now = (target['achsen'].get(axis) or {}).get(prop)
                 # ⚠ `wert is None` heißt „löschen" und ist damit ebenfalls
@@ -251,13 +251,13 @@ def apply(name, filename=None, folder=None):
 
     # ⚠⚠ **Nur schreiben, was sich unterscheidet.**
     #
-    # `kurven.setzen()` legt bei JEDEM Aufruf eine Sicherung der
+    # `curves.apply()` legt bei JEDEM Aufruf eine Sicherung der
     # `actionmaps.xml` an — richtig so, an ihr hängt die ganze Steuerung. Ein
     # Satz mit drei Geräten würde aber blind 36 Werte schreiben und damit 36
     # Sicherungsdateien hinterlassen, für meist zwei echte Änderungen. Der
     # Vergleich vorweg kostet nichts und macht aus 36 Schreibvorgängen zwei.
     now = {}
-    for block in kurven.geraete_achsen(filename, folder):
+    for block in curves.device_axes(filename, folder):
         if block['kennung'] and block['aktiv']:
             now[block['kennung']] = block
 
@@ -268,12 +268,12 @@ def apply(name, filename=None, folder=None):
             continue
         for axis, values in (entry.get('achsen') or {}).items():
             for prop, value in values.items():
-                if prop not in kurven.EIGENSCHAFTEN:
+                if prop not in curves.PROPERTIES:
                     continue
                 ist = (target['achsen'].get(axis) or {}).get(prop)
                 if ist == value:
                     continue
-                ok_state, message, _ = kurven.setzen(
+                ok_state, message, _ = curves.apply(
                     ident, axis, prop, value, filename, folder)
                 if not ok_state:
                     return False, message, count
@@ -290,9 +290,9 @@ def apply(name, filename=None, folder=None):
             continue
         for axis, values in axes.items():
             for prop, value in values.items():
-                if prop not in kurven.SPIEL_EIGENSCHAFTEN:
+                if prop not in curves.GAME_PROPERTIES:
                     continue
-                ok_state, message, _ = kurven.spiel_setzen(
+                ok_state, message, _ = curves.apply_to_game(
                     number, axis, prop, value, filename, folder)
                 if not ok_state:
                     return False, message, count

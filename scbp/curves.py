@@ -94,12 +94,12 @@ from . import joysticks
 # Die physischen Achsen, die in einer `actionmaps.xml` vorkommen können.
 # ⚠ Die Reihenfolge ist die, in der sie in der Oberfläche erscheinen sollen —
 # erst die beiden Hauptachsen, dann Drehung, dann die Schieber.
-ACHSEN = ('x', 'y', 'z', 'rotx', 'roty', 'rotz', 'slider1', 'slider2')
+AXES = ('x', 'y', 'z', 'rotx', 'roty', 'rotz', 'slider1', 'slider2')
 
 # Was an einer physischen Achse einstellbar ist, mit erlaubtem Wertebereich.
 # Beide sind Anteile von 0 bis 1: Totzone ist der tote Bereich um die Mitte,
 # Sättigung der Punkt, ab dem der Vollausschlag erreicht gilt.
-EIGENSCHAFTEN = {
+PROPERTIES = {
     'deadzone':   (0.0, 1.0),
     'saturation': (0.0, 1.0),
 }
@@ -113,7 +113,7 @@ EIGENSCHAFTEN = {
 #
 # Dieselbe Tabelle gilt für die Kurvenrechnung in `antwort()`; die Werte
 # stehen hier, damit Oberfläche und Rechnung nicht auseinanderlaufen.
-STANDARD = {
+DEFAULT = {
     'deadzone':   0.0,
     'saturation': 1.0,
     'exponent':   1.0,
@@ -123,26 +123,26 @@ STANDARD = {
 # ⚠ `exponent` ist KEIN Anteil — gemessen wurden 1, 1.1, 1.5 und 3. Ein Wert
 # unter 1 macht die Mitte grober, über 1 feiner. Die Grenzen hier sind großzügig
 # gewählt; das Spiel selbst schreibt nichts außerhalb.
-SPIEL_EIGENSCHAFTEN = {
+GAME_PROPERTIES = {
     'exponent': (0.1, 10.0),
     'invert':   (0, 1),
 }
 
 # Ein `<deviceoptions>`-Block, mit oder ohne Inhalt.
-BLOCK = re.compile(
+BLOCK_RE = re.compile(
     r'<deviceoptions\b[^>]*?/>|<deviceoptions\b.*?</deviceoptions>', re.S)
 
 # Ein einzelner `<option …/>`-Eintrag darin.
-EINTRAG = re.compile(r'<option\s+([^>]*?)/>')
+ENTRY_RE = re.compile(r'<option\s+([^>]*?)/>')
 
 # Ein Attribut in einem solchen Eintrag.
-ATTRIBUT = re.compile(r'(\w+)="([^"]*)"')
+ATTRIBUTE_RE = re.compile(r'(\w+)="([^"]*)"')
 
 # Die Kennung in geschweiften Klammern, wie überall im Projekt.
-KENNUNG = re.compile(r'\{([0-9A-Fa-f-]{8,})\}')
+IDENT_RE = re.compile(r'\{([0-9A-Fa-f-]{8,})\}')
 
 
-def _zahl(text):
+def _number(text):
     """Einen Attributwert in eine Zahl wandeln — oder `None`.
 
     Das Spiel schreibt Fließkommazahlen in voller Breite (`0.098999992`).
@@ -155,18 +155,18 @@ def _zahl(text):
         return None
 
 
-def _kennung_aus(text):
+def _ident_from(text):
     """Die reine Kennung aus einem Namen mit geschweiftem Anhang."""
-    treffer = KENNUNG.search(text or '')
-    return treffer.group(1).upper() if treffer else ''
+    match = IDENT_RE.search(text or '')
+    return match.group(1).upper() if match else ''
 
 
-def _name_ohne_kennung(text):
+def _name_without_ident(text):
     """Der Gerätename ohne die geschweifte Kennung, sauber beschnitten."""
-    return KENNUNG.sub('', text or '').strip()
+    return IDENT_RE.sub('', text or '').strip()
 
 
-def gueltige_kennungen(ordner=None, datei=None):
+def valid_idents(folder=None, filename=None):
     """Welche Geräte-Kennungen gelten aktuell als lebendig?
 
     Zusammengetragen aus beiden Quellen, die das Nachbarmodul kennt: was das
@@ -174,23 +174,23 @@ def gueltige_kennungen(ordner=None, datei=None):
     Eine Kennung aus **einer** der beiden reicht — ein Stick, der gerade
     abgesteckt ist, aber eine `js`-Nummer hat, ist keine Karteileiche.
     """
-    lebendig = set()
+    alive = set()
     try:
-        for geraet in joysticks.geraete(ordner) or []:
-            if geraet.get('kennung'):
-                lebendig.add(geraet['kennung'].upper())
+        for device in joysticks.geraete(folder) or []:
+            if device.get('kennung'):
+                alive.add(device['kennung'].upper())
     except Exception:
         pass
     try:
-        for eintrag in joysticks.zuordnung(datei, ordner) or []:
-            if eintrag.get('kennung'):
-                lebendig.add(eintrag['kennung'].upper())
+        for entry in joysticks.zuordnung(filename, folder) or []:
+            if entry.get('kennung'):
+                alive.add(entry['kennung'].upper())
     except Exception:
         pass
-    return lebendig
+    return alive
 
 
-def geraete_achsen(datei=None, ordner=None):
+def device_axes(filename=None, folder=None):
     """Was an den physischen Achsen eingestellt ist — je `<deviceoptions>`-Block.
 
     Liefert eine Liste von Blöcken in der Reihenfolge der Datei. Jeder Block:
@@ -207,94 +207,94 @@ def geraete_achsen(datei=None, ordner=None):
     Datei, sie sehen echt aus, und das Spiel ignoriert sie. Die Oberfläche muss
     das deutlich zeigen — sonst stellt der Spieler etwas ein, das nichts tut.
     """
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return []
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             text = f.read()
     except Exception:
         return []
 
-    lebendig = gueltige_kennungen(ordner, datei)
-    heraus = []
-    for treffer in BLOCK.finditer(text):
-        block = treffer.group(0)
-        kopf = re.match(r'<deviceoptions[^>]*>', block)
-        kopf = kopf.group(0) if kopf else ''
-        name_roh = re.search(r'name="([^"]*)"', kopf)
-        name_roh = name_roh.group(1) if name_roh else ''
-        kennung = _kennung_aus(name_roh)
+    alive = valid_idents(folder, filename)
+    out = []
+    for match in BLOCK_RE.finditer(text):
+        block = match.group(0)
+        head = re.match(r'<deviceoptions[^>]*>', block)
+        head = head.group(0) if head else ''
+        name_raw = re.search(r'name="([^"]*)"', head)
+        name_raw = name_raw.group(1) if name_raw else ''
+        ident = _ident_from(name_raw)
 
-        achsen = {}
-        mehrfach = set()
-        for eintrag in EINTRAG.finditer(block):
-            attribute = dict(ATTRIBUT.findall(eintrag.group(1)))
-            achse = attribute.pop('input', '')
-            if not achse:
+        axes = {}
+        duplicates = set()
+        for entry in ENTRY_RE.finditer(block):
+            attributes = dict(ATTRIBUTE_RE.findall(entry.group(1)))
+            axis = attributes.pop('input', '')
+            if not axis:
                 continue
-            ziel = achsen.setdefault(achse, {})
-            for schluessel, wert in attribute.items():
-                if schluessel not in EIGENSCHAFTEN:
+            target = axes.setdefault(axis, {})
+            for key, value in attributes.items():
+                if key not in PROPERTIES:
                     continue
-                neu = _zahl(wert)
-                alt = ziel.get(schluessel)
+                fresh = _number(value)
+                previous = target.get(key)
                 # ⚠ Der LETZTE gewinnt (siehe Modulkopf). Ein Widerspruch wird
                 # gemerkt, damit die Oberfläche ihn zeigen kann — ein doppelter
                 # IDENTISCHER Wert ist dagegen der Normalfall und kein Hinweis.
-                if alt is not None and neu is not None and alt != neu:
-                    mehrfach.add(achse)
-                ziel[schluessel] = neu
+                if previous is not None and fresh is not None and previous != fresh:
+                    duplicates.add(axis)
+                target[key] = fresh
 
         # Jede bekannte Eigenschaft auftauchen lassen, auch wenn sie fehlt —
         # „nicht gesetzt" ist eine Aussage und soll in der Oberfläche stehen.
-        for achse in achsen:
-            for schluessel in EIGENSCHAFTEN:
-                achsen[achse].setdefault(schluessel, None)
+        for axis in axes:
+            for key in PROPERTIES:
+                axes[axis].setdefault(key, None)
 
-        heraus.append({
-            'name': _name_ohne_kennung(name_roh),
-            'kennung': kennung,
+        out.append({
+            'name': _name_without_ident(name_raw),
+            'kennung': ident,
             # ⚠ Ohne Kennung ist nichts zu beurteilen. Maus und Tastatur
             # stehen ohne geschweiften Anhang in der Datei — sie als tot zu
             # melden wäre schlicht falsch.
-            'aktiv': (not kennung) or kennung in lebendig,
-            'achsen': achsen,
-            'mehrfach': sorted(mehrfach),
+            'aktiv': (not ident) or ident in alive,
+            'achsen': axes,
+            'mehrfach': sorted(duplicates),
             'roh': block,
         })
-    _nur_der_gefuehrte_bleibt(heraus, weg)
-    _widersprueche_ueber_bloecke(heraus)
-    _leichen_einordnen(heraus)
-    return heraus
+    _keep_only_managed(out, gone)
+    _conflicts_across_blocks(out)
+    _sort_orphans(out)
+    return out
 
 
-def _gefuehrte_namen(weg):
+def _managed_names(gone):
     """{Kennung: Name}, wie das Spiel die Geraete **gerade** nennt.
 
     Gelesen aus den `<options type="joystick" Product="…">`-Koepfen — dort
     steht der Name, den das Spiel beim letzten Schreiben benutzt hat.
     """
-    raus = {}
+    dropped = {}
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             text = f.read()
     except Exception:
-        return raus
-    for kopf in re.finditer(r'<options\b[^>]*>', text):
-        roh = kopf.group(0)
-        if 'type="joystick"' not in roh:
+        return dropped
+    for head in re.finditer(r'<options\b[^>]*>', text):
+        raw = head.group(0)
+        if 'type="joystick"' not in raw:
             continue
-        name = re.search(r'Product="([^"]*)"', roh)
+        name = re.search(r'Product="([^"]*)"', raw)
         if not name:
             continue
-        kennung = _kennung_aus(name.group(1))
-        if kennung:
-            raus[kennung] = _name_ohne_kennung(name.group(1))
-    return raus
+        ident = _ident_from(name.group(1))
+        if ident:
+            dropped[ident] = _name_without_ident(name.group(1))
+    return dropped
 
 
-def _nur_der_gefuehrte_bleibt(bloecke, weg):
+def _keep_only_managed(blocks, gone):
     """Bei mehreren Bloecken einer Kennung ist nur **einer** aktiv.
 
     ⚠⚠⚠ **Sonst steht dasselbe Geraet zweimal in der Leiste.** Am 06.09.2026
@@ -318,29 +318,29 @@ def _nur_der_gefuehrte_bleibt(bloecke, weg):
     alles wie es war — lieber einen Reiter zuviel als den richtigen
     weggeraeumt.
     """
-    gefuehrt = _gefuehrte_namen(weg)
-    if not gefuehrt:
+    managed = _managed_names(gone)
+    if not managed:
         return
-    je_kennung = {}
-    for block in bloecke:
+    per_ident = {}
+    for block in blocks:
         if block['kennung']:
-            je_kennung.setdefault(block['kennung'], []).append(block)
-    for kennung, gruppe in je_kennung.items():
-        if len(gruppe) < 2:
+            per_ident.setdefault(block['kennung'], []).append(block)
+    for ident, group in per_ident.items():
+        if len(group) < 2:
             continue
-        name = gefuehrt.get(kennung)
+        name = managed.get(ident)
         if not name:
             continue
         # ⚠ Nur eingreifen, wenn der gefuehrte Name wirklich dabei ist. Passt
         # keiner, weiss niemand, welcher gilt — dann lieber nichts tun.
-        treffer = [b for b in gruppe if b['name'] == name]
-        if not treffer:
+        match = [b for b in group if b['name'] == name]
+        if not match:
             continue
-        for block in gruppe:
-            block['aktiv'] = block is treffer[0]
+        for block in group:
+            block['aktiv'] = block is match[0]
 
 
-def _widersprueche_ueber_bloecke(bloecke):
+def _conflicts_across_blocks(blocks):
     """Widersprüche finden, die über zwei Blöcke derselben Kennung gehen.
 
     Gemessen: Ein Gerät stand **zweimal mit derselben Kennung** in der Datei,
@@ -364,31 +364,31 @@ def _widersprueche_ueber_bloecke(bloecke):
     Liste der Alteinträge, nicht an eine gültige Achse. Nach Zustand gruppieren
     hält beides auseinander.
     """
-    nach_kennung = {}
-    for block in bloecke:
+    by_ident = {}
+    for block in blocks:
         if block['kennung']:
-            schluessel = (block['kennung'], bool(block.get('aktiv')))
-            nach_kennung.setdefault(schluessel, []).append(block)
+            key = (block['kennung'], bool(block.get('aktiv')))
+            by_ident.setdefault(key, []).append(block)
 
-    for gruppe in nach_kennung.values():
-        if len(gruppe) < 2:
+    for group in by_ident.values():
+        if len(group) < 2:
             continue
-        gesehen = {}
-        for block in gruppe:
-            for achse, eigenschaften in block['achsen'].items():
-                for name, wert in eigenschaften.items():
-                    if wert is None:
+        seen = {}
+        for block in group:
+            for axis, props in block['achsen'].items():
+                for name, value in props.items():
+                    if value is None:
                         continue
-                    schluessel = (achse, name)
-                    if schluessel in gesehen and gesehen[schluessel] != wert:
-                        for teil in gruppe:
-                            if achse in teil['achsen']:
-                                teil['mehrfach'] = sorted(
-                                    set(teil['mehrfach']) | {achse})
-                    gesehen[schluessel] = wert
+                    key = (axis, name)
+                    if key in seen and seen[key] != value:
+                        for part in group:
+                            if axis in part['achsen']:
+                                part['mehrfach'] = sorted(
+                                    set(part['mehrfach']) | {axis})
+                    seen[key] = value
 
 
-def _leichen_einordnen(bloecke):
+def _sort_orphans(blocks):
     """Einen toten Block danach unterscheiden, ob sein Gerät noch da ist.
 
     Das ist der Unterschied zwischen „egal" und „hier ist dir etwas verloren
@@ -406,15 +406,15 @@ def _leichen_einordnen(bloecke):
     er nichts entscheidet, sondern nur einen **Hinweis** einordnet. Geschrieben
     wird daraufhin nichts; der Spieler bekommt den Fund gezeigt und entscheidet.
     """
-    aktive_namen = {block['name'] for block in bloecke
+    active_names = {block['name'] for block in blocks
                     if block['aktiv'] and block['name']}
-    for block in bloecke:
-        tot = not block['aktiv']
-        block['ueberholt'] = tot and block['name'] in aktive_namen
-        block['verwaist'] = tot and not block['ueberholt']
+    for block in blocks:
+        dead = not block['aktiv']
+        block['ueberholt'] = dead and block['name'] in active_names
+        block['verwaist'] = dead and not block['ueberholt']
 
 
-def spielachsen(datei=None, ordner=None):
+def game_axes(filename=None, folder=None):
     """Was an den Spielachsen eingestellt ist — je `<options type=…>`-Block.
 
     Liefert je Block ein Wörterbuch mit `art` (`joystick`, `keyboard`,
@@ -426,36 +426,36 @@ def spielachsen(datei=None, ordner=None):
     ihn an, füllt ihn aber erst, wenn der Spieler im Kurven-Bildschirm etwas
     verschiebt. Eine leere Kurve bedeutet „gerade Linie", nicht „kaputt".
     """
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return []
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             text = f.read()
     except Exception:
         return []
 
-    lebendig = gueltige_kennungen(ordner, datei)
-    muster = re.compile(
+    alive = valid_idents(folder, filename)
+    pattern = re.compile(
         r'<options\b[^>]*?/>|<options\b.*?</options>', re.S)
-    heraus = []
-    for treffer in muster.finditer(text):
-        block = treffer.group(0)
-        kopf = re.match(r'<options[^>]*>', block)
-        kopf = kopf.group(0) if kopf else ''
-        art = re.search(r'type="([^"]*)"', kopf)
-        art = (art.group(1) if art else '').lower()
-        produkt = re.search(r'Product="([^"]*)"', kopf)
-        produkt = produkt.group(1) if produkt else ''
-        if not produkt.strip():
+    out = []
+    for match in pattern.finditer(text):
+        block = match.group(0)
+        head = re.match(r'<options[^>]*>', block)
+        head = head.group(0) if head else ''
+        kind = re.search(r'type="([^"]*)"', head)
+        kind = (kind.group(1) if kind else '').lower()
+        product = re.search(r'Product="([^"]*)"', head)
+        product = product.group(1) if product else ''
+        if not product.strip():
             # Ein leerer Platzhalter (`<options type="joystick" instance="7"/>`)
             # sagt nichts aus — das Spiel legt acht davon an.
             continue
-        nummer = re.search(r'instance="(\d+)"', kopf)
-        nummer = int(nummer.group(1)) if nummer else 0
-        kennung = _kennung_aus(produkt)
+        number = re.search(r'instance="(\d+)"', head)
+        number = int(number.group(1)) if number else 0
+        ident = _ident_from(product)
 
-        achsen = {}
+        axes = {}
         # ⚠⚠ **Erst den Kopf abschneiden, dann nach Kindern suchen.**
         #
         # Der erste Entwurf suchte die Kinder im ganzen Block — und das erste,
@@ -467,43 +467,43 @@ def spielachsen(datei=None, ordner=None):
         # Ein Muster, das Kinder sucht, darf das Elternelement nicht sehen
         # können. Deshalb wird hier der Bereich zwischen dem ersten `>` und
         # dem schließenden `</options>` herausgeschnitten.
-        inneres = re.match(r'<options\b[^>]*>(.*)</options>\s*$', block, re.S)
-        inhalt_block = inneres.group(1) if inneres else ''
+        inner = re.match(r'<options\b[^>]*>(.*)</options>\s*$', block, re.S)
+        block_content = inner.group(1) if inner else ''
 
         # Jedes Kind-Element ist eine Spielachse. Sie kann selbstschließend
         # sein (`<flight_view exponent="1"/>`) oder eine Kurve enthalten.
-        kinder = re.finditer(
+        children = re.finditer(
             r'<(\w+)((?:\s+\w+="[^"]*")*)\s*(?:/>|>(.*?)</\1>)',
-            inhalt_block, re.S)
-        for kind in kinder:
-            achse = kind.group(1)
-            if achse in ('nonlinearity_curve', 'point'):
+            block_content, re.S)
+        for child in children:
+            axis = child.group(1)
+            if axis in ('nonlinearity_curve', 'point'):
                 continue
-            attribute = dict(ATTRIBUT.findall(kind.group(2) or ''))
-            inhalt = kind.group(3) or ''
-            kurve = [(_zahl(a), _zahl(b)) for a, b in
+            attributes = dict(ATTRIBUTE_RE.findall(child.group(2) or ''))
+            content = child.group(3) or ''
+            curve = [(_number(a), _number(b)) for a, b in
                      re.findall(r'<point\s+in="([^"]*)"\s+out="([^"]*)"',
-                                inhalt)]
-            achsen[achse] = {
-                'exponent': _zahl(attribute.get('exponent')),
-                'invert': (None if 'invert' not in attribute
-                           else _zahl(attribute.get('invert'))),
-                'kurve': kurve,
-                'hat_kurvenblock': 'nonlinearity_curve' in inhalt,
+                                content)]
+            axes[axis] = {
+                'exponent': _number(attributes.get('exponent')),
+                'invert': (None if 'invert' not in attributes
+                           else _number(attributes.get('invert'))),
+                'kurve': curve,
+                'hat_kurvenblock': 'nonlinearity_curve' in content,
             }
 
-        heraus.append({
-            'art': art,
-            'nummer': nummer,
-            'name': _name_ohne_kennung(produkt),
-            'kennung': kennung,
-            'aktiv': (not kennung) or kennung in lebendig,
-            'achsen': achsen,
+        out.append({
+            'art': kind,
+            'nummer': number,
+            'name': _name_without_ident(product),
+            'kennung': ident,
+            'aktiv': (not ident) or ident in alive,
+            'achsen': axes,
         })
-    return heraus
+    return out
 
 
-def leichen(datei=None, ordner=None, bloecke=None):
+def orphans(filename=None, folder=None, blocks=None):
     """Die Blöcke, deren Einstellungen nicht mehr wirken.
 
     Das ist der Befund, der einem Spieler am meisten bringt: „Du hast hier
@@ -515,22 +515,22 @@ def leichen(datei=None, ordner=None, bloecke=None):
     nur unter neuer Kennung — dort lohnt sich das Hinsehen. Verwaiste Blöcke
     gehören zu Geräten, die es nicht mehr gibt; die sind bloß Ballast.
     """
-    if bloecke is None:
-        bloecke = geraete_achsen(datei, ordner)
-    heraus = []
-    for block in bloecke:
+    if blocks is None:
+        blocks = device_axes(filename, folder)
+    out = []
+    for block in blocks:
         if block['aktiv']:
             continue
-        hat_werte = any(
-            any(wert is not None for wert in eigenschaften.values())
-            for eigenschaften in block['achsen'].values())
-        if hat_werte:
-            heraus.append(block)
-    heraus.sort(key=lambda b: (not b.get('ueberholt'), b['name']))
-    return heraus
+        has_values = any(
+            any(value is not None for value in props.values())
+            for props in block['achsen'].values())
+        if has_values:
+            out.append(block)
+    out.sort(key=lambda b: (not b.get('ueberholt'), b['name']))
+    return out
 
 
-def uebernehmbar(datei=None, ordner=None, bloecke=None):
+def adoptable(filename=None, folder=None, blocks=None):
     """Was ließe sich aus einem überholten Block in den aktiven übernehmen?
 
     Der Fall, für den das hier gebaut ist: Ein Stick hat eine neue Kennung
@@ -553,48 +553,48 @@ def uebernehmbar(datei=None, ordner=None, bloecke=None):
     ⚠ **Es wird nichts übernommen.** Diese Funktion stellt fest, sie handelt
     nicht — wie das ganze Modul.
     """
-    if bloecke is None:
-        bloecke = geraete_achsen(datei, ordner)
+    if blocks is None:
+        blocks = device_axes(filename, folder)
 
-    aktive = {}
-    for block in bloecke:
+    active = {}
+    for block in blocks:
         if block['aktiv'] and block['name']:
             # Bei mehreren aktiven Blöcken gleichen Namens gewinnt der letzte,
             # aus demselben Grund wie bei den Einzelwerten.
-            aktive[block['name']] = block
+            active[block['name']] = block
 
-    heraus = []
-    for block in bloecke:
+    out = []
+    for block in blocks:
         if not block.get('ueberholt'):
             continue
-        ziel = aktive.get(block['name'])
-        if ziel is None:
+        target = active.get(block['name'])
+        if target is None:
             continue
-        unterschiede = []
-        for achse, eigenschaften in block['achsen'].items():
-            for name, alt in eigenschaften.items():
-                if alt is None:
+        differences = []
+        for axis, props in block['achsen'].items():
+            for name, previous in props.items():
+                if previous is None:
                     continue
-                jetzt = (ziel['achsen'].get(achse) or {}).get(name)
+                now = (target['achsen'].get(axis) or {}).get(name)
                 # ⚠⚠ **Mit Toleranz vergleichen.** Das Spiel schreibt
                 # `0.098999992`, das Werkzeug `0.099` — zwei Zahlen, die in
                 # der Anzeige beide als „0.1" erscheinen. Ohne Toleranz stand
                 # deshalb „Totzone: war 0.1 → jetzt 0.1" im Befund: ein
                 # Unterschied, den niemand sehen kann und der keiner ist.
                 # Ein Tausendstel Totzone spürt kein Mensch.
-                if jetzt is not None and abs(jetzt - alt) < 1e-3:
+                if now is not None and abs(now - previous) < 1e-3:
                     continue
-                if jetzt != alt:
-                    unterschiede.append((achse, name, alt, jetzt))
-        if unterschiede:
-            unterschiede.sort(key=lambda z: (ACHSEN.index(z[0])
-                                             if z[0] in ACHSEN else 99, z[1]))
-            heraus.append({'name': block['name'], 'alt': block, 'neu': ziel,
-                           'werte': unterschiede})
-    return heraus
+                if now != previous:
+                    differences.append((axis, name, previous, now))
+        if differences:
+            differences.sort(key=lambda z: (AXES.index(z[0])
+                                             if z[0] in AXES else 99, z[1]))
+            out.append({'name': block['name'], 'alt': block, 'neu': target,
+                           'werte': differences})
+    return out
 
 
-def antwort(eingabe, totzone=0.0, saettigung=1.0, exponent=1.0, kurve=None):
+def answer(input_name, deadzone_value=0.0, saturation=1.0, exponent=1.0, curve=None):
     """Was kommt hinten heraus, wenn der Stick um `eingabe` ausgelenkt ist?
 
     Das ist die Rechnung hinter der Kurve, die Star Citizen im
@@ -622,73 +622,73 @@ def antwort(eingabe, totzone=0.0, saettigung=1.0, exponent=1.0, kurve=None):
     eine gute Vorschau, kein Beweis.
     """
     try:
-        eingabe = float(eingabe)
+        input_name = float(input_name)
     except (TypeError, ValueError):
         return 0.0
 
-    vorzeichen = -1.0 if eingabe < 0 else 1.0
-    betrag = abs(eingabe)
-    if betrag > 1.0:
-        betrag = 1.0
+    sign = -1.0 if input_name < 0 else 1.0
+    amount = abs(input_name)
+    if amount > 1.0:
+        amount = 1.0
 
-    totzone = 0.0 if totzone is None else max(0.0, min(1.0, float(totzone)))
-    saettigung = 1.0 if saettigung is None else max(0.0, min(1.0,
-                                                            float(saettigung)))
+    deadzone_value = 0.0 if deadzone_value is None else max(0.0, min(1.0, float(deadzone_value)))
+    saturation = 1.0 if saturation is None else max(0.0, min(1.0,
+                                                            float(saturation)))
     exponent = 1.0 if exponent is None else float(exponent)
 
-    if betrag <= totzone:
+    if amount <= deadzone_value:
         return 0.0
 
     # ⚠ Sättigung unterhalb der Totzone wäre ein Widerspruch — dann bliebe
     # kein Weg übrig, auf dem sich überhaupt etwas ändern kann. Statt durch
     # Null zu teilen, gilt dann alles jenseits der Totzone als Vollausschlag.
-    spanne = saettigung - totzone
-    if spanne <= 0:
-        return vorzeichen
+    span = saturation - deadzone_value
+    if span <= 0:
+        return sign
 
-    anteil = (betrag - totzone) / spanne
-    if anteil > 1.0:
-        anteil = 1.0
+    share = (amount - deadzone_value) / span
+    if share > 1.0:
+        share = 1.0
 
-    if kurve:
-        return vorzeichen * _aus_kurve(anteil, kurve)
+    if curve:
+        return sign * _from_curve(share, curve)
 
     if exponent > 0 and exponent != 1.0:
-        anteil = anteil ** exponent
-    return vorzeichen * anteil
+        share = share ** exponent
+    return sign * share
 
 
-def _aus_kurve(anteil, kurve):
+def _from_curve(share, curve):
     """Zwischen den gesetzten Punkten geradlinig ablesen.
 
     Die Punkte kommen aus `<nonlinearity_curve>` und sind auf 0..1 normiert.
     Zwischen zwei Punkten wird linear interpoliert — dieselbe Vereinfachung,
     die auch das Zeichnen benutzt, und für eine Vorschau genau genug.
     """
-    punkte = sorted((a, b) for a, b in kurve
+    points = sorted((a, b) for a, b in curve
                     if a is not None and b is not None)
-    if not punkte:
-        return anteil
+    if not points:
+        return share
     # Die Enden festnageln, damit außerhalb nicht ins Leere gelesen wird.
-    if punkte[0][0] > 0:
-        punkte.insert(0, (0.0, 0.0))
-    if punkte[-1][0] < 1:
-        punkte.append((1.0, 1.0))
+    if points[0][0] > 0:
+        points.insert(0, (0.0, 0.0))
+    if points[-1][0] < 1:
+        points.append((1.0, 1.0))
 
-    for nr in range(len(punkte) - 1):
-        links_x, links_y = punkte[nr]
-        rechts_x, rechts_y = punkte[nr + 1]
-        if links_x <= anteil <= rechts_x:
-            breite = rechts_x - links_x
-            if breite <= 0:
-                return rechts_y
-            lage = (anteil - links_x) / breite
-            return links_y + lage * (rechts_y - links_y)
-    return punkte[-1][1]
+    for nr in range(len(points) - 1):
+        left_x, left_y = points[nr]
+        right_x, right_y = points[nr + 1]
+        if left_x <= share <= right_x:
+            width = right_x - left_x
+            if width <= 0:
+                return right_y
+            pos = (share - left_x) / width
+            return left_y + pos * (right_y - left_y)
+    return points[-1][1]
 
 
-def verlauf(totzone=0.0, saettigung=1.0, exponent=1.0, kurve=None,
-            schritte=120, ganz=False):
+def progression(deadzone_value=0.0, saturation=1.0, exponent=1.0, curve=None,
+            steps=120, whole=False):
     """Die Kurve als Liste von `(ein, aus)`-Paaren — fertig zum Zeichnen.
 
     `ganz=False` liefert den **Quadranten** (0 bis 1) — die Ansicht, die Star
@@ -701,17 +701,17 @@ def verlauf(totzone=0.0, saettigung=1.0, exponent=1.0, kurve=None,
     genug Stützstellen, damit der Knick an der Totzone nicht wie eine Rundung
     aussieht.
     """
-    schritte = max(2, int(schritte))
-    anfang = -1.0 if ganz else 0.0
-    weite = 1.0 - anfang
-    heraus = []
-    for nr in range(schritte + 1):
-        ein = anfang + weite * nr / schritte
-        heraus.append((ein, antwort(ein, totzone, saettigung, exponent, kurve)))
-    return heraus
+    steps = max(2, int(steps))
+    start = -1.0 if whole else 0.0
+    extent = 1.0 - start
+    out = []
+    for nr in range(steps + 1):
+        on_state = start + extent * nr / steps
+        out.append((on_state, answer(on_state, deadzone_value, saturation, exponent, curve)))
+    return out
 
 
-def setzen(kennung, achse, eigenschaft, wert, datei=None, ordner=None):
+def apply(ident, axis, prop, value, filename=None, folder=None):
     """Totzone oder Sättigung einer physischen Achse schreiben.
 
     | | |
@@ -741,59 +741,59 @@ def setzen(kennung, achse, eigenschaft, wert, datei=None, ordner=None):
 
     from . import fehler
 
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return False, 's_js_f_datei', 0
-    if eigenschaft not in EIGENSCHAFTEN:
+    if prop not in PROPERTIES:
         return False, 's_kv_f_eigenschaft', 0
-    if wert is not None:
-        unten, oben = EIGENSCHAFTEN[eigenschaft]
+    if value is not None:
+        bottom, top = PROPERTIES[prop]
         try:
-            wert = float(wert)
+            value = float(value)
         except (TypeError, ValueError):
             return False, 's_kv_f_wert', 0
-        if not (unten <= wert <= oben):
+        if not (bottom <= value <= top):
             return False, 's_kv_f_bereich', 0
 
-    kennung = (kennung or '').upper()
-    if not kennung:
+    ident = (ident or '').upper()
+    if not ident:
         return False, 's_kv_f_kennung', 0
 
     try:
-        baum = ET.parse(weg)
+        tree = ET.parse(gone)
     except Exception as ausnahme:
-        fehler.merken('kurven.setzen_lesen', ausnahme)
+        fehler.merken('curves.setzen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
-    ziel = None
-    for knoten in baum.getroot().iter('deviceoptions'):
-        if _kennung_aus(knoten.get('name') or '') == kennung:
+    target = None
+    for node in tree.getroot().iter('deviceoptions'):
+        if _ident_from(node.get('name') or '') == ident:
             # Bei mehreren Blöcken derselben Kennung gewinnt der letzte —
             # also wird auch dort geschrieben, wo das Spiel zuletzt schrieb.
-            ziel = knoten
-    if ziel is None:
+            target = node
+    if target is None:
         return False, 's_kv_f_geraet', 0
 
-    behalten = None
-    entfernt = 0
-    for eintrag in list(ziel.findall('option')):
-        if (eintrag.get('input') or '') != achse:
+    keep = None
+    removed = 0
+    for entry in list(target.findall('option')):
+        if (entry.get('input') or '') != axis:
             continue
-        if eigenschaft not in eintrag.attrib:
+        if prop not in entry.attrib:
             continue
-        if behalten is None:
-            behalten = eintrag
+        if keep is None:
+            keep = entry
         else:
-            ziel.remove(eintrag)
-            entfernt += 1
+            target.remove(entry)
+            removed += 1
 
-    if wert is None:
-        if behalten is not None:
+    if value is None:
+        if keep is not None:
             # Nur das eine Attribut löschen — trägt der Eintrag noch etwas
             # anderes (die andere Eigenschaft), bleibt er stehen.
-            behalten.attrib.pop(eigenschaft, None)
-            if not [k for k in behalten.attrib if k != 'input']:
-                ziel.remove(behalten)
+            keep.attrib.pop(prop, None)
+            if not [k for k in keep.attrib if k != 'input']:
+                target.remove(keep)
     else:
         # ⚠⚠ **`repr()`, nicht `%g`.**
         #
@@ -807,16 +807,16 @@ def setzen(kennung, achse, eigenschaft, wert, datei=None, ordner=None):
         # Der Modulkopf sagt das für das Lesen bereits ausdrücklich — beim
         # Schreiben gilt es genauso. `repr()` liefert die kürzeste
         # Darstellung, die exakt wieder eingelesen wird.
-        text = repr(float(wert))
-        if behalten is None:
-            behalten = ET.SubElement(ziel, 'option')
-            behalten.set('input', achse)
-        behalten.set(eigenschaft, text)
+        text = repr(float(value))
+        if keep is None:
+            keep = ET.SubElement(target, 'option')
+            keep.set('input', axis)
+        keep.set(prop, text)
 
-    return joysticks._schreiben(weg, baum, 1 + entfernt)
+    return joysticks._schreiben(gone, tree, 1 + removed)
 
 
-def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
+def apply_to_game(number, axis, prop, value, filename=None, folder=None):
     """Exponent oder Invertierung einer Spielachse schreiben.
 
     `nummer` ist die `instance` — das `n` in `js<n>_`. Anders als bei den
@@ -829,53 +829,53 @@ def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
 
     from . import fehler
 
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return False, 's_js_f_datei', 0
-    if eigenschaft not in SPIEL_EIGENSCHAFTEN:
+    if prop not in GAME_PROPERTIES:
         return False, 's_kv_f_eigenschaft', 0
-    if wert is not None:
-        unten, oben = SPIEL_EIGENSCHAFTEN[eigenschaft]
+    if value is not None:
+        bottom, top = GAME_PROPERTIES[prop]
         try:
-            wert = float(wert)
+            value = float(value)
         except (TypeError, ValueError):
             return False, 's_kv_f_wert', 0
-        if not (unten <= wert <= oben):
+        if not (bottom <= value <= top):
             return False, 's_kv_f_bereich', 0
 
     try:
-        baum = ET.parse(weg)
+        tree = ET.parse(gone)
     except Exception as ausnahme:
-        fehler.merken('kurven.spiel_setzen_lesen', ausnahme)
+        fehler.merken('curves.spiel_setzen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
-    ziel = None
-    for knoten in baum.getroot().iter('options'):
-        if (knoten.get('type') or '').lower() != 'joystick':
+    target = None
+    for node in tree.getroot().iter('options'):
+        if (node.get('type') or '').lower() != 'joystick':
             continue
         try:
-            if int(knoten.get('instance') or 0) == int(nummer):
-                ziel = knoten
+            if int(node.get('instance') or 0) == int(number):
+                target = node
                 break
         except ValueError:
             continue
-    if ziel is None:
+    if target is None:
         return False, 's_kv_f_geraet', 0
 
-    knoten = ziel.find(achse)
-    if wert is None:
-        if knoten is not None:
-            knoten.attrib.pop(eigenschaft, None)
+    node = target.find(axis)
+    if value is None:
+        if node is not None:
+            node.attrib.pop(prop, None)
             # Ein Element ohne Attribute und ohne Kurve sagt nichts mehr aus.
-            if not knoten.attrib and len(knoten) == 0:
-                ziel.remove(knoten)
+            if not node.attrib and len(node) == 0:
+                target.remove(node)
     else:
-        if knoten is None:
-            knoten = ET.SubElement(ziel, achse)
-        text = ('%d' % int(wert)) if eigenschaft == 'invert' else ('%g' % wert)
-        knoten.set(eigenschaft, text)
+        if node is None:
+            node = ET.SubElement(target, axis)
+        text = ('%d' % int(value)) if prop == 'invert' else ('%g' % value)
+        node.set(prop, text)
 
-    return joysticks._schreiben(weg, baum, 1)
+    return joysticks._schreiben(gone, tree, 1)
 
 
 # Wie die Aktion in der Belegung zum Element in `<options>` heißt.
@@ -889,22 +889,22 @@ def spiel_setzen(nummer, achse, eigenschaft, wert, datei=None, ordner=None):
 # `flight_move_pitch`. Drei Formen kommen vor, und die Reihenfolge zählt:
 # `v_view_pitch` muss VOR `v_pitch` geprüft werden, sonst würde es als
 # „view_pitch" unter `flight_move_` einsortiert.
-AKTION_ZU_ACHSE = (
+ACTION_TO_AXIS = (
     ('v_view_', 'flight_view_'),
     ('v_mining_', 'mining_'),
     ('v_', 'flight_move_'),
 )
 
 
-def _achsenname(aktion):
+def _axis_name(action):
     """Aus dem Aktionsnamen der Belegung den Namen in `<options>` machen."""
-    for vorn, ersatz in AKTION_ZU_ACHSE:
-        if aktion.startswith(vorn):
-            return ersatz + aktion[len(vorn):]
-    return aktion
+    for front, replacement in ACTION_TO_AXIS:
+        if action.startswith(front):
+            return replacement + action[len(front):]
+    return action
 
 
-def funktionen_je_achse(nummer, achsen, datei=None, ordner=None):
+def functions_per_axis(number, axes, filename=None, folder=None):
     """Für mehrere physische Achsen auf einmal: was darauf liegt.
 
     ⚠ **Eine Dateilesung für alle Achsen, nicht eine je Achse.**
@@ -914,23 +914,23 @@ def funktionen_je_achse(nummer, achsen, datei=None, ordner=None):
 
     Gibt `{achse: [funktionen]}` zurück; Achsen ohne Funktion fehlen.
     """
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return {}
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             text = f.read()
     except Exception:
         return {}
-    raus = {}
-    for achse in achsen:
-        treffer = spielachsen_auf(nummer, achse, datei=weg)
-        if treffer:
-            raus[achse] = treffer
-    return raus
+    dropped = {}
+    for axis in axes:
+        match = game_axes_of(number, axis, filename=gone)
+        if match:
+            dropped[axis] = match
+    return dropped
 
 
-def spielachsen_auf(nummer, achse, datei=None, ordner=None):
+def game_axes_of(number, axis, filename=None, folder=None):
     """Welche Spielachsen liegen auf dieser physischen Achse?
 
     ⭐ **Warum das gebraucht wird:** Die Empfindlichkeit (der Exponent) hängt
@@ -946,48 +946,48 @@ def spielachsen_auf(nummer, achse, datei=None, ordner=None):
     Liefert je Treffer ein Wörterbuch mit `achse` (Name in `<options>`),
     `aktion` (Name in der Belegung), `exponent` und `invert`.
     """
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg:
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone:
         return []
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             text = f.read()
     except Exception:
         return []
 
-    gesucht = 'js%s_%s' % (nummer, achse)
-    aktionen = []
+    wanted = 'js%s_%s' % (number, axis)
+    actions = []
     # Jede `<action name="…">` mit ihren `<rebind>`-Kindern durchgehen.
-    for treffer in re.finditer(
+    for match in re.finditer(
             r'<action\s+name="([^"]*)"\s*>(.*?)</action>', text, re.S):
-        name, inhalt = treffer.group(1), treffer.group(2)
-        for bindung in re.finditer(r'<rebind\s+input="([^"]*)"', inhalt):
-            if bindung.group(1).strip() == gesucht:
-                aktionen.append(name)
+        name, content = match.group(1), match.group(2)
+        for binding in re.finditer(r'<rebind\s+input="([^"]*)"', content):
+            if binding.group(1).strip() == wanted:
+                actions.append(name)
                 break
 
     # Die Einstellungen dieser Nummer dazuholen.
-    werte = {}
-    for block in spielachsen(datei, ordner):
-        if block['art'] == 'joystick' and block['nummer'] == int(nummer):
-            werte = block['achsen']
+    values = {}
+    for block in game_axes(filename, folder):
+        if block['art'] == 'joystick' and block['nummer'] == int(number):
+            values = block['achsen']
             break
 
-    heraus = []
-    gesehen = set()
-    for aktion in aktionen:
-        name = _achsenname(aktion)
-        if name in gesehen:
+    out = []
+    seen = set()
+    for action in actions:
+        name = _axis_name(action)
+        if name in seen:
             continue
-        gesehen.add(name)
-        eigenschaften = werte.get(name) or {}
-        heraus.append({'achse': name, 'aktion': aktion,
-                       'exponent': eigenschaften.get('exponent'),
-                       'invert': eigenschaften.get('invert')})
-    return heraus
+        seen.add(name)
+        props = values.get(name) or {}
+        out.append({'achse': name, 'aktion': action,
+                       'exponent': props.get('exponent'),
+                       'invert': props.get('invert')})
+    return out
 
 
-def aufraeumen(datei=None, ordner=None, nur_zaehlen=False):
+def clean_up(filename=None, folder=None, count_only=False):
     """Tote `<deviceoptions>`-Blöcke aus der Belegungsdatei entfernen.
 
     ⭐ **Warum das nötig ist:** Star Citizen legt bei jeder neuen
@@ -1010,66 +1010,66 @@ def aufraeumen(datei=None, ordner=None, nur_zaehlen=False):
     """
     from . import fehler
 
-    weg = datei or joysticks._pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    gone = filename or joysticks._pfad_actionmaps(folder)
+    if not gone or not os.path.isfile(gone):
         return False, 's_js_f_datei', 0
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
-            inhalt = f.read()
+        with open(gone, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
     except Exception as ausnahme:
-        fehler.merken('kurven.aufraeumen_lesen', ausnahme)
+        fehler.merken('curves.aufraeumen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
-    lebendig = gueltige_kennungen(ordner, datei)
-    schnitte = []
-    for treffer in BLOCK.finditer(inhalt):
-        kopf = re.match(r'<deviceoptions[^>]*>', treffer.group(0))
-        name = re.search(r'name="([^"]*)"', kopf.group(0) if kopf else '')
-        kennung = _kennung_aus(name.group(1) if name else '')
+    alive = valid_idents(folder, filename)
+    cuts = []
+    for match in BLOCK_RE.finditer(content):
+        head = re.match(r'<deviceoptions[^>]*>', match.group(0))
+        name = re.search(r'name="([^"]*)"', head.group(0) if head else '')
+        ident = _ident_from(name.group(1) if name else '')
         # ⚠ Ein Block OHNE Kennung (Maus, Tastatur) ist nicht tot, sondern
         # nur nicht zuordenbar — der bleibt.
-        if kennung and kennung not in lebendig:
-            schnitte.append((treffer.start(), treffer.end()))
+        if ident and ident not in alive:
+            cuts.append((match.start(), match.end()))
 
-    if not schnitte:
+    if not cuts:
         return False, 's_gs_f_nichts_zu_tun', 0
-    if nur_zaehlen:
-        return True, '', len(schnitte)
+    if count_only:
+        return True, '', len(cuts)
 
     # Von hinten nach vorn schneiden, sonst verschieben sich die Stellen.
-    neu = inhalt
-    for anfang, ende in reversed(schnitte):
+    fresh = content
+    for start, end in reversed(cuts):
         # Die Leerzeile mitnehmen, die der Block hinterlässt.
-        nach = ende
-        while nach < len(neu) and neu[nach] in ' \t':
-            nach += 1
-        if nach < len(neu) and neu[nach] == '\n':
-            nach += 1
-        vor = anfang
-        while vor > 0 and neu[vor - 1] in ' \t':
-            vor -= 1
-        neu = neu[:vor] + neu[nach:]
+        to_value = end
+        while to_value < len(fresh) and fresh[to_value] in ' \t':
+            to_value += 1
+        if to_value < len(fresh) and fresh[to_value] == '\n':
+            to_value += 1
+        before = start
+        while before > 0 and fresh[before - 1] in ' \t':
+            before -= 1
+        fresh = fresh[:before] + fresh[to_value:]
 
-    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    backup = '%s.scbpw-%s' % (gone, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(weg, sicherung)
+        shutil.copy2(gone, backup)
     except Exception as ausnahme:
-        fehler.merken('kurven.aufraeumen_sicherung', ausnahme)
+        fehler.merken('curves.aufraeumen_sicherung', ausnahme)
         return False, 's_js_f_sicherung', 0
     try:
-        with open(weg, 'w', encoding='utf-8', newline='') as f:
-            f.write(neu)
+        with open(gone, 'w', encoding='utf-8', newline='') as f:
+            f.write(fresh)
     except Exception as ausnahme:
         try:
-            shutil.copy2(sicherung, weg)
+            shutil.copy2(backup, gone)
         except Exception:
             pass
-        fehler.merken('kurven.aufraeumen_schreiben', ausnahme)
+        fehler.merken('curves.aufraeumen_schreiben', ausnahme)
         return False, 's_js_f_schreiben', 0
-    return True, sicherung, len(schnitte)
+    return True, backup, len(cuts)
 
 
-def angleichen(von_kennung, nach_kennung, datei=None, ordner=None):
+def align(from_ident, by_ident, filename=None, folder=None):
     """Alle Achsenwerte eines Geräts auf ein anderes übertragen.
 
     ⭐ **Wofür das da ist:** Wer zwei Sticks fliegt, will auf beiden Seiten
@@ -1087,49 +1087,49 @@ def angleichen(von_kennung, nach_kennung, datei=None, ordner=None):
     Liefert `(erfolg, meldung, anzahl)`; `anzahl` ist die Zahl der
     geschriebenen Werte.
     """
-    von_kennung = (von_kennung or '').upper()
-    nach_kennung = (nach_kennung or '').upper()
-    if not von_kennung or not nach_kennung:
+    from_ident = (from_ident or '').upper()
+    by_ident = (by_ident or '').upper()
+    if not from_ident or not by_ident:
         return False, 's_kv_f_kennung', 0
-    if von_kennung == nach_kennung:
+    if from_ident == by_ident:
         return False, 's_kv_f_geraet', 0
 
-    bloecke = geraete_achsen(datei, ordner)
-    quelle = ziel = None
-    for block in bloecke:
+    blocks = device_axes(filename, folder)
+    source = target = None
+    for block in blocks:
         # Bei mehreren Blöcken derselben Kennung gewinnt der letzte — dieselbe
         # Regel wie überall in diesem Modul.
-        if block['kennung'] == von_kennung:
-            quelle = block
-        if block['kennung'] == nach_kennung:
-            ziel = block
-    if quelle is None or ziel is None:
+        if block['kennung'] == from_ident:
+            source = block
+        if block['kennung'] == by_ident:
+            target = block
+    if source is None or target is None:
         return False, 's_kv_f_geraet', 0
 
-    gemeinsam = [a for a in ACHSEN
-                 if a in quelle['achsen'] and a in ziel['achsen']]
-    if not gemeinsam:
+    shared = [a for a in AXES
+                 if a in source['achsen'] and a in target['achsen']]
+    if not shared:
         return False, 's_ac_nichts_gemeinsam', 0
 
     # ⚠ Nur schreiben, was sich unterscheidet. `setzen()` legt bei jedem
     # Aufruf eine Sicherung an — zwölf blinde Schreibvorgänge hinterließen
     # zwölf Sicherungsdateien für meist zwei echte Änderungen.
-    anzahl = 0
-    for achse in gemeinsam:
-        for eigenschaft in EIGENSCHAFTEN:
-            wert = quelle['achsen'][achse].get(eigenschaft)
-            ist = ziel['achsen'][achse].get(eigenschaft)
-            if ist == wert:
+    count = 0
+    for axis in shared:
+        for prop in PROPERTIES:
+            value = source['achsen'][axis].get(prop)
+            ist = target['achsen'][axis].get(prop)
+            if ist == value:
                 continue
-            erfolg, meldung, _ = setzen(nach_kennung, achse, eigenschaft,
-                                        wert, datei, ordner)
-            if not erfolg:
-                return False, meldung, anzahl
-            anzahl += 1
-    return True, '', anzahl
+            ok_state, message, _ = apply(by_ident, axis, prop,
+                                        value, filename, folder)
+            if not ok_state:
+                return False, message, count
+            count += 1
+    return True, '', count
 
 
-def zusammenfassung(datei=None, ordner=None):
+def summary(filename=None, folder=None):
     """Ein Überblick für die Oberfläche — was gilt, was nicht, wo klemmt es.
 
     | Feld | Bedeutung |
@@ -1144,15 +1144,15 @@ def zusammenfassung(datei=None, ordner=None):
     Vorher las jede Teilfunktion sie neu — bei einer Seite, die beim Tippen
     neu zeichnet, wären das mehrere Dateizugriffe je Tastendruck.
     """
-    bloecke = geraete_achsen(datei, ordner)
-    widersprueche = []
-    for block in bloecke:
-        for achse in block['mehrfach']:
-            widersprueche.append((block['name'], achse))
+    blocks = device_axes(filename, folder)
+    conflicts = []
+    for block in blocks:
+        for axis in block['mehrfach']:
+            conflicts.append((block['name'], axis))
     return {
-        'bloecke': sorted(bloecke, key=lambda b: (not b['aktiv'], b['name'])),
-        'leichen': leichen(bloecke=bloecke),
-        'uebernehmbar': uebernehmbar(bloecke=bloecke),
-        'spiel': spielachsen(datei, ordner),
-        'widersprueche': widersprueche,
+        'bloecke': sorted(blocks, key=lambda b: (not b['aktiv'], b['name'])),
+        'leichen': orphans(blocks=blocks),
+        'uebernehmbar': adoptable(blocks=blocks),
+        'spiel': game_axes(filename, folder),
+        'widersprueche': conflicts,
     }

@@ -76,59 +76,59 @@ import time
 WINDOWS = sys.platform.startswith('win')
 
 # Ereignisarten im Linux-Joystick-Protokoll.
-ART_KNOPF = 0x01
-ART_ACHSE = 0x02
-ART_INIT = 0x80          # beim Oeffnen: der Ist-Zustand, kein echter Druck
+KIND_BUTTON = 0x01
+KIND_AXIS = 0x02
+KIND_INIT = 0x80          # beim Oeffnen: der Ist-Zustand, kein echter Druck
 
 # So heisst die Kennung, die Star Citizen schreibt: PID, VID, dann „PIDVID".
-KENNUNG_MUSTER = '%04X%04X-0000-0000-0000-504944564944'
+ID_PATTERN = '%04X%04X-0000-0000-0000-504944564944'
 
 # Ab dieser Auslenkung gilt eine Achse als bewegt (Bereich -32767..32767).
 # Bewusst hoch: Ein Stick ruht selten exakt auf null, und eine zittrige Achse
 # darf keine Belegung ausloesen.
-ACHSEN_SCHWELLE = 24000
+AXIS_THRESHOLD = 24000
 
 
-def kennung_aus_ids(vid, pid):
+def ident_from_ids(vid, pid):
     """Aus VID und PID die Kennung bauen, die Star Citizen benutzt."""
-    return KENNUNG_MUSTER % (pid, vid)
+    return ID_PATTERN % (pid, vid)
 
 
-def _linux_geraete():
+def _linux_devices():
     """Die Joysticks des Systems mit ihrer Star-Citizen-Kennung.
 
     Liefert `[{'pfad': '/dev/input/js0', 'name': …, 'kennung': …}, …]`.
     """
-    heraus = []
-    basis = '/sys/class/input'
+    out = []
+    base = '/sys/class/input'
     try:
-        namen = sorted(n for n in os.listdir(basis) if n.startswith('js'))
+        names = sorted(n for n in os.listdir(base) if n.startswith('js'))
     except OSError:
-        return heraus
-    for name in namen:
-        pfad = '/dev/input/' + name
-        if not os.path.exists(pfad):
+        return out
+    for name in names:
+        path = '/dev/input/' + name
+        if not os.path.exists(path):
             continue
-        eintrag = {'pfad': pfad, 'name': '', 'kennung': ''}
-        for feld, ziel in (('device/name', 'name'),):
+        entry = {'pfad': path, 'name': '', 'kennung': ''}
+        for field, target in (('device/name', 'name'),):
             try:
-                with open(os.path.join(basis, name, feld)) as f:
-                    eintrag[ziel] = f.read().strip()
+                with open(os.path.join(base, name, field)) as f:
+                    entry[target] = f.read().strip()
             except OSError:
                 pass
         try:
-            with open(os.path.join(basis, name, 'device/id/vendor')) as f:
+            with open(os.path.join(base, name, 'device/id/vendor')) as f:
                 vid = int(f.read().strip(), 16)
-            with open(os.path.join(basis, name, 'device/id/product')) as f:
+            with open(os.path.join(base, name, 'device/id/product')) as f:
                 pid = int(f.read().strip(), 16)
-            eintrag['kennung'] = kennung_aus_ids(vid, pid)
+            entry['kennung'] = ident_from_ids(vid, pid)
         except (OSError, ValueError):
             pass
-        heraus.append(eintrag)
-    return heraus
+        out.append(entry)
+    return out
 
 
-def _windows_geraete():
+def _windows_devices():
     """Die Joysticks des Systems unter Windows, ueber `winmm`.
 
     Dasselbe Ergebnis wie `_linux_geraete()`: `[{'pfad', 'name', 'kennung'}]`.
@@ -163,26 +163,26 @@ def _windows_geraete():
                     ('szRegKey', wintypes.WCHAR * 32),
                     ('szOEMVxD', wintypes.WCHAR * 260)]
 
-    heraus = []
+    out = []
     try:
         winmm = ctypes.WinDLL('winmm')
-        for nummer in range(winmm.joyGetNumDevs()):
+        for number in range(winmm.joyGetNumDevs()):
             caps = JOYCAPS()
-            if winmm.joyGetDevCapsW(nummer, ctypes.byref(caps),
+            if winmm.joyGetDevCapsW(number, ctypes.byref(caps),
                                     ctypes.sizeof(caps)) != 0:
                 # Kein Geraet auf diesem Platz — das ist der Normalfall,
                 # `joyGetNumDevs()` meldet die Zahl der Plaetze, nicht der
                 # angeschlossenen Geraete.
                 continue
-            heraus.append({'pfad': 'joy%d' % nummer,
+            out.append({'pfad': 'joy%d' % number,
                            'name': caps.szPname,
-                           'kennung': kennung_aus_ids(caps.wMid, caps.wPid)})
+                           'kennung': ident_from_ids(caps.wMid, caps.wPid)})
     except Exception:
         return []
-    return heraus
+    return out
 
 
-def geraete():
+def devices():
     """Die angeschlossenen Joysticks — auf beiden Systemen gleich.
 
     ⭐ **Das ist die dritte Sicht auf dieselben Geraete.** Die anderen beiden
@@ -195,62 +195,62 @@ def geraete():
     Joystick oder wenn die Abfrage nicht geht.
     """
     if sys.platform == 'win32':
-        return _windows_geraete()
-    return _linux_geraete()
+        return _windows_devices()
+    return _linux_devices()
 
 
-def _linux_warten(dauer, abbruch=None):
+def _linux_wait(duration, stop_flag=None):
     """Auf den ersten echten Knopfdruck warten (Linux).
 
     Liefert `{'kennung':…, 'eingabe':…, 'name':…}` oder `None`.
     """
     import select
 
-    geraete = _linux_geraete()
-    offen = {}
-    for g in geraete:
+    devices = _linux_devices()
+    open_handle = {}
+    for g in devices:
         try:
-            offen[os.open(g['pfad'], os.O_RDONLY | os.O_NONBLOCK)] = g
+            open_handle[os.open(g['pfad'], os.O_RDONLY | os.O_NONBLOCK)] = g
         except OSError:
             continue
-    if not offen:
+    if not open_handle:
         return None
-    ende = time.time() + dauer
+    end_time = time.time() + duration
     try:
         # ⚠ Die ersten Ereignisse nach dem Oeffnen tragen das Init-Bit und
         # beschreiben nur den Ist-Zustand. Wer sie mitzaehlt, bekommt sofort
         # einen „Druck", ohne dass jemand etwas angefasst hat.
-        while time.time() < ende:
-            if abbruch is not None and abbruch():
+        while time.time() < end_time:
+            if stop_flag is not None and stop_flag():
                 return None
-            bereit, _, _ = select.select(list(offen), [], [], 0.15)
-            for kennung in bereit:
+            ready, _, _ = select.select(list(open_handle), [], [], 0.15)
+            for ident in ready:
                 try:
-                    roh = os.read(kennung, 8)
+                    raw = os.read(ident, 8)
                 except (BlockingIOError, OSError):
                     continue
-                if len(roh) < 8:
+                if len(raw) < 8:
                     continue
-                _zeit, wert, art, nummer = struct.unpack('<IhBB', roh)
-                if art & ART_INIT:
+                _time_source, value, kind, number = struct.unpack('<IhBB', raw)
+                if kind & KIND_INIT:
                     continue
-                g = offen[kennung]
-                if art & ART_KNOPF and wert:
+                g = open_handle[ident]
+                if kind & KIND_BUTTON and value:
                     # ⚠ Star Citizen zaehlt Knoepfe ab **eins**, Linux ab
                     # null. Ohne das Plus sitzt jede Belegung einen Knopf
                     # daneben — und das faellt erst im Spiel auf.
                     return {'kennung': g['kennung'],
-                            'eingabe': 'button%d' % (nummer + 1),
+                            'eingabe': 'button%d' % (number + 1),
                             'name': g['name']}
-                if art & ART_ACHSE and abs(wert) >= ACHSEN_SCHWELLE:
-                    achse = _achsenname(nummer)
-                    if achse:
-                        return {'kennung': g['kennung'], 'eingabe': achse,
+                if kind & KIND_AXIS and abs(value) >= AXIS_THRESHOLD:
+                    axis = _axis_name(number)
+                    if axis:
+                        return {'kennung': g['kennung'], 'eingabe': axis,
                                 'name': g['name']}
     finally:
-        for kennung in offen:
+        for ident in open_handle:
             try:
-                os.close(kennung)
+                os.close(ident)
             except OSError:
                 pass
     return None
@@ -260,14 +260,14 @@ def _linux_warten(dauer, abbruch=None):
 # ⚠ Das ist eine **Annahme**, keine Messung: Welche Achse das Spiel als `x`
 # fuehrt, haengt am Treiber. Deshalb darf die Oberflaeche eine erkannte Achse
 # anzeigen und bestaetigen lassen, statt sie stillschweigend zu setzen.
-ACHSEN = ('x', 'y', 'z', 'rotx', 'roty', 'rotz', 'slider1', 'slider2')
+AXES = ('x', 'y', 'z', 'rotx', 'roty', 'rotz', 'slider1', 'slider2')
 
 
-def _achsenname(nummer):
-    return ACHSEN[nummer] if 0 <= nummer < len(ACHSEN) else ''
+def _axis_name(number):
+    return AXES[number] if 0 <= number < len(AXES) else ''
 
 
-def _windows_warten(dauer, abbruch=None):
+def _windows_wait(duration, stop_flag=None):
     """Auf den ersten Knopfdruck warten (Windows, ueber `winmm`).
 
     ⚠️ **Ungetestet** — siehe Kopf des Moduls. Bei jedem Fehler kommt `None`
@@ -309,47 +309,47 @@ def _windows_warten(dauer, abbruch=None):
 
     try:
         winmm = ctypes.WinDLL('winmm')
-        anzahl = winmm.joyGetNumDevs()
-        if not anzahl:
+        count = winmm.joyGetNumDevs()
+        if not count:
             return None
-        geraete = {}
-        for i in range(anzahl):
+        devices = {}
+        for i in range(count):
             caps = JOYCAPS()
             if winmm.joyGetDevCapsW(i, ctypes.byref(caps),
                                     ctypes.sizeof(caps)) != 0:
                 continue
-            geraete[i] = {'name': caps.szPname,
-                          'kennung': kennung_aus_ids(caps.wMid, caps.wPid)}
-        if not geraete:
+            devices[i] = {'name': caps.szPname,
+                          'kennung': ident_from_ids(caps.wMid, caps.wPid)}
+        if not devices:
             return None
 
         # Ausgangszustand merken, damit ein bereits gehaltener Knopf nicht
         # sofort als Druck gilt — das Gegenstueck zum Init-Bit unter Linux.
-        vorher = {}
-        for i in geraete:
+        before = {}
+        for i in devices:
             info = JOYINFOEX()
             info.dwSize = ctypes.sizeof(info)
             info.dwFlags = 0x000000FF                 # JOY_RETURNALL
             if winmm.joyGetPosEx(i, ctypes.byref(info)) == 0:
-                vorher[i] = info.dwButtons
+                before[i] = info.dwButtons
 
-        ende = time.time() + dauer
-        while time.time() < ende:
-            if abbruch is not None and abbruch():
+        end_time = time.time() + duration
+        while time.time() < end_time:
+            if stop_flag is not None and stop_flag():
                 return None
-            for i, g in geraete.items():
+            for i, g in devices.items():
                 info = JOYINFOEX()
                 info.dwSize = ctypes.sizeof(info)
                 info.dwFlags = 0x000000FF
                 if winmm.joyGetPosEx(i, ctypes.byref(info)) != 0:
                     continue
-                neu = info.dwButtons & ~vorher.get(i, 0)
-                if neu:
-                    nummer = (neu & -neu).bit_length()    # unterstes Bit
+                fresh = info.dwButtons & ~before.get(i, 0)
+                if fresh:
+                    number = (fresh & -fresh).bit_length()    # unterstes Bit
                     return {'kennung': g['kennung'],
-                            'eingabe': 'button%d' % nummer,
+                            'eingabe': 'button%d' % number,
                             'name': g['name']}
-                vorher[i] = info.dwButtons
+                before[i] = info.dwButtons
             time.sleep(0.03)
     except Exception:
         return None
@@ -378,7 +378,7 @@ def _windows_warten(dauer, abbruch=None):
 # kleingeschrieben durchgereicht — das deckt Buchstaben und Ziffern ab.
 # ⚠ Die Zielnamen sind an den Werkseinstellungen des Spiels abgelesen, nicht
 # erfunden (99 verschiedene, Stand 04.09.2026).
-TK_ZU_SC = {
+TK_TO_SC = {
     'Escape': 'escape', 'Return': 'enter', 'BackSpace': 'backspace',
     'Tab': 'tab', 'space': 'space', 'Caps_Lock': 'capslock',
     'Shift_L': 'lshift', 'Shift_R': 'rshift',
@@ -401,18 +401,18 @@ TK_ZU_SC = {
 
 # Diese Tasten sind Umschalter — sie stehen VOR der eigentlichen Taste, mit
 # Pluszeichen verbunden: `ralt+y`. So schreibt es auch das Spiel.
-UMSCHALTER = ('lshift', 'rshift', 'lctrl', 'rctrl', 'lalt', 'ralt')
+MODIFIERS = ('lshift', 'rshift', 'lctrl', 'rctrl', 'lalt', 'ralt')
 
 
-def taste_aus_tk(keysym):
+def key_from_tk(keysym):
     """Aus einem Tk-Tastennamen die Schreibweise des Spiels machen.
 
     Liefert `''`, wenn die Taste nicht sinnvoll belegt werden kann.
     """
     if not keysym:
         return ''
-    if keysym in TK_ZU_SC:
-        return TK_ZU_SC[keysym]
+    if keysym in TK_TO_SC:
+        return TK_TO_SC[keysym]
     if re.match(r'^F([1-9]|1[0-2])$', keysym):
         return keysym.lower()
     if len(keysym) == 1 and (keysym.isalpha() or keysym.isdigit()):
@@ -420,19 +420,19 @@ def taste_aus_tk(keysym):
     return ''
 
 
-def maus_aus_tk(nummer=None, rad=None):
+def mouse_from_tk(number=None, wheel=None):
     """Maustaste oder Rad in der Schreibweise des Spiels.
 
     ⚠ Tk zaehlt die mittlere Maustaste als **2** und die rechte als **3**,
     Star Citizen genau andersherum (`mouse2` ist rechts). Ohne diese
     Vertauschung landet jede Belegung auf der falschen Taste.
     """
-    if rad:
-        return 'mwheel_up' if rad > 0 else 'mwheel_down'
-    return {1: 'mouse1', 2: 'mouse3', 3: 'mouse2'}.get(nummer, '')
+    if wheel:
+        return 'mwheel_up' if wheel > 0 else 'mwheel_down'
+    return {1: 'mouse1', 2: 'mouse3', 3: 'mouse2'}.get(number, '')
 
 
-def verfuegbar():
+def available():
     """Laesst sich auf diesem System ueberhaupt ein Knopfdruck abwarten?"""
     if WINDOWS:
         try:
@@ -440,10 +440,10 @@ def verfuegbar():
             return bool(ctypes.WinDLL('winmm').joyGetNumDevs())
         except Exception:
             return False
-    return bool(_linux_geraete())
+    return bool(_linux_devices())
 
 
-def warten(dauer=8.0, abbruch=None):
+def wait(duration=8.0, stop_flag=None):
     """Den naechsten Knopfdruck abwarten — hoechstens `dauer` Sekunden.
 
     `abbruch` ist eine Funktion, die `True` liefert, wenn abgebrochen werden
@@ -454,7 +454,7 @@ def warten(dauer=8.0, abbruch=None):
     der Oberflaeche.
     """
     try:
-        return (_windows_warten(dauer, abbruch) if WINDOWS
-                else _linux_warten(dauer, abbruch))
+        return (_windows_wait(duration, stop_flag) if WINDOWS
+                else _linux_wait(duration, stop_flag))
     except Exception:
         return None

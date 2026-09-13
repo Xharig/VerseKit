@@ -24,7 +24,7 @@ keine davon ist für sich vollständig:
 
 | Quelle | Was sie weiß | Was sie nicht weiß |
 |---|---|---|
-| **das System** (`eingabe.geraete()`) | was **jetzt** angesteckt ist | nichts über das Spiel |
+| **das System** (`input_device.devices()`) | was **jetzt** angesteckt ist | nichts über das Spiel |
 | **die Game.log** (`joysticks.geraete()`) | was das Spiel zuletzt gesehen hat | ob es noch da ist |
 | **die actionmaps.xml** (`joysticks.zuordnung()`) | welche `js`-Nummer die Belegung meint | ob es das Gerät gibt |
 
@@ -61,7 +61,7 @@ Belegung — je nachdem, wer es zuletzt umbenannt hat.
 """
 import time
 
-from . import eingabe, joysticks
+from . import input_device, joysticks
 
 # Die Zustände eines Geräts im Hub.
 READY = 'bereit'
@@ -93,7 +93,7 @@ def overview(folder=None, filename=None):
     Sortiert: erst was eine Nummer hat (nach Nummer), dann der Rest.
     """
     live = {}
-    for device in eingabe.geraete() or []:
+    for device in input_device.devices() or []:
         if device.get('kennung'):
             live[device['kennung'].upper()] = device
 
@@ -302,7 +302,7 @@ class Watchdog:
         self.last = now
 
         current = {}
-        for device in eingabe.geraete() or []:
+        for device in input_device.devices() or []:
             if device.get('kennung'):
                 current[device['kennung'].upper()] = device
 

@@ -52,7 +52,7 @@ einmal beim Bauen zeichnet, bekommt eine Kurve, die in der Ecke klebt.
 """
 import tkinter as tk
 
-from . import kurven
+from . import curves
 from .sprache import t
 
 BG      = '#10141c'
@@ -135,8 +135,8 @@ class CurvePlot:
 
     Benutzung:
 
-        bild = Kurvenbild(rahmen, breite=260, hoehe=260)
-        bild.zeigen(totzone=0.1, saettigung=0.9, exponent=1.5)
+        bild = CurvePlot(rahmen, breite=260, hoehe=260)
+        plot.show(totzone=0.1, saettigung=0.9, exponent=1.5)
 
     `ganz=True` schaltet auf die Vollansicht (-1 bis 1), Standard ist der
     Quadrant. Umschalten geht jederzeit über `umschalten()`.
@@ -247,10 +247,10 @@ class CurvePlot:
                                   width=1, dash=(3, 3))
 
         # 4. Die Kurve selbst
-        verlauf = kurven.verlauf(totzone, saturation,
+        verlauf = curves.progression(totzone, saturation,
                                  self.werte['exponent'],
                                  self.werte['kurve'],
-                                 schritte=SUPPORT_POINTS, ganz=self.whole)
+                                 steps=SUPPORT_POINTS, whole=self.whole)
         points = []
         for on_state, off_state in verlauf:
             points.extend(self._punkt(on_state, off_state))
@@ -260,7 +260,7 @@ class CurvePlot:
 
         # 5. Der gemessene Ausschlag, falls einer anliegt
         if self.zeiger is not None:
-            off_state = kurven.antwort(self.zeiger, totzone, saturation,
+            off_state = curves.answer(self.zeiger, totzone, saturation,
                                  self.werte['exponent'], self.werte['kurve'])
             px, py = self._punkt(self.zeiger if self.whole
                                  else abs(self.zeiger), abs(off_state)

@@ -641,13 +641,13 @@ def belegungen(datei=None, ordner=None):
         for aktion in gruppe.iter('action'):
             name = aktion.get('name') or ''
             for bindung in aktion.iter('rebind'):
-                eingabe = (bindung.get('input') or '').strip()
-                treffer = VORSILBE.match(eingabe)
+                input_device = (bindung.get('input') or '').strip()
+                treffer = VORSILBE.match(input_device)
                 if not treffer:
                     continue
                 kennzeichen = treffer.group(1) + treffer.group(2)
                 heraus.setdefault(kennzeichen, []).append({
-                    'eingabe': eingabe[treffer.end():],
+                    'eingabe': input_device[treffer.end():],
                     'aktion': name,
                     'bereich': bereich,
                     'art': nach_vorsilbe.get(treffer.group(1), ''),
@@ -684,7 +684,7 @@ ACHSEN_LESBAR = {'x': 'X', 'y': 'Y', 'z': 'Z'}
 DREHACHSEN = {'rotx': 'X', 'roty': 'Y', 'rotz': 'Z'}
 
 
-def eingabe_lesbar(eingabe, art=''):
+def eingabe_lesbar(input_device, art=''):
     """Aus `x` wird „Achse X", aus `button12` „Knopf 12".
 
     ⚠⚠ **Warum das noetig ist:** In der Spalte stand nur `x` — und `x` ist
@@ -695,35 +695,35 @@ def eingabe_lesbar(eingabe, art=''):
     geschrieben durchgereicht, statt einen huebschen Namen zu erfinden.
     """
     from .sprache import t
-    if not eingabe:
+    if not input_device:
         return ''
     # Zusammengesetzte Eingaben: `ralt+y` → „Alt rechts + Y"
-    if '+' in eingabe:
+    if '+' in input_device:
         return ' + '.join(eingabe_lesbar(teil, art)
-                          for teil in eingabe.split('+') if teil)
-    if art in ('tastatur', 'maus') or eingabe in TASTE_LESBAR:
-        schluessel = TASTE_LESBAR.get(eingabe)
+                          for teil in input_device.split('+') if teil)
+    if art in ('tastatur', 'maus') or input_device in TASTE_LESBAR:
+        schluessel = TASTE_LESBAR.get(input_device)
         if schluessel:
             return t(schluessel)
-        if eingabe.startswith('np_'):
-            return t('s_js_t_np', eingabe[3:].upper())
-        return eingabe.upper()
-    if eingabe in ACHSEN_LESBAR:
-        return t('s_js_e_achse', ACHSEN_LESBAR[eingabe])
-    if eingabe in DREHACHSEN:
-        return t('s_js_e_drehachse', DREHACHSEN[eingabe])
-    treffer = re.match(r'^button(\d+)$', eingabe)
+        if input_device.startswith('np_'):
+            return t('s_js_t_np', input_device[3:].upper())
+        return input_device.upper()
+    if input_device in ACHSEN_LESBAR:
+        return t('s_js_e_achse', ACHSEN_LESBAR[input_device])
+    if input_device in DREHACHSEN:
+        return t('s_js_e_drehachse', DREHACHSEN[input_device])
+    treffer = re.match(r'^button(\d+)$', input_device)
     if treffer:
         return t('s_js_e_knopf', int(treffer.group(1)))
-    treffer = re.match(r'^slider(\d+)$', eingabe)
+    treffer = re.match(r'^slider(\d+)$', input_device)
     if treffer:
         return t('s_js_e_schieber', int(treffer.group(1)))
-    treffer = re.match(r'^hat(\d+)_(\w+)$', eingabe)
+    treffer = re.match(r'^hat(\d+)_(\w+)$', input_device)
     if treffer:
         richtungen = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
         pfeil = richtungen.get(treffer.group(2), treffer.group(2))
         return t('s_js_e_hut', int(treffer.group(1)), pfeil)
-    return eingabe
+    return input_device
 
 
 def art_von(kennzeichen):
@@ -764,7 +764,7 @@ def unbelegte(spielordner=None, datei=None):
     sind ab Werk unbelegt (Emotes, Bergbau-Feinheiten, Notfallbefehle).
 
     Liefert dieselbe Form wie `sicht()`, unter dem Schluessel `frei`, mit
-    leerer `eingabe`.
+    leerer `input_device`.
     """
     profil = _profil(spielordner) or {}
     benannt = profil.get('etiketten') or {}
@@ -806,13 +806,13 @@ def standardbelegungen(spielordner=None):
     for aktion, felder in standard.items():
         if not (benannt.get(aktion) or [''])[0]:
             continue
-        for feld, eingabe in felder.items():
+        for feld, input_device in felder.items():
             kennzeichen = STANDARD_FELD.get(feld)
-            if not kennzeichen or not eingabe:
+            if not kennzeichen or not input_device:
                 continue
             # Im Standard steht die Eingabe teils mit, teils ohne Vorsilbe.
-            treffer = VORSILBE.match(eingabe)
-            rein = eingabe[treffer.end():] if treffer else eingabe
+            treffer = VORSILBE.match(input_device)
+            rein = input_device[treffer.end():] if treffer else input_device
             if treffer:
                 kennzeichen = treffer.group(1) + treffer.group(2)
             heraus.setdefault(kennzeichen, []).append({
@@ -1256,7 +1256,7 @@ def _actionmap_finden(wurzel, bereich):
     return neu
 
 
-def belegen(aktion, bereich, kennzeichen, eingabe, datei=None, ordner=None):
+def belegen(aktion, bereich, kennzeichen, input_device, datei=None, ordner=None):
     """Eine Aktion auf eine Eingabe legen — in der `actionmaps.xml` des Spielers.
 
     | | |
@@ -1319,7 +1319,7 @@ def belegen(aktion, bereich, kennzeichen, eingabe, datei=None, ordner=None):
         ziel = ET.SubElement(gruppe, 'action')
         ziel.set('name', aktion)
 
-    voll = ('%s_%s' % (kennzeichen, eingabe)) if eingabe else (kennzeichen + '_')
+    voll = ('%s_%s' % (kennzeichen, input_device)) if input_device else (kennzeichen + '_')
     ersetzt = False
     for bindung in list(ziel.findall('rebind')):
         vorhanden = (bindung.get('input') or '').strip()
@@ -1367,7 +1367,7 @@ def _schreiben(weg, baum, anzahl):
     return True, sicherung, anzahl
 
 
-def konflikte(aktion, kennzeichen, eingabe, datei=None, ordner=None):
+def konflikte(aktion, kennzeichen, input_device, datei=None, ordner=None):
     """Wer sitzt schon auf dieser Eingabe? Liefert die betroffenen Aktionen.
 
     ⭐ **Wird VOR dem Belegen gefragt.** Eine Taste doppelt zu belegen ist in
@@ -1376,14 +1376,14 @@ def konflikte(aktion, kennzeichen, eingabe, datei=None, ordner=None):
     Deshalb wird es gezeigt und der Spieler entscheidet, statt dass das
     Programm heimlich etwas wegnimmt.
     """
-    if not eingabe:
+    if not input_device:
         return []
     heraus = []
     for kz, liste in (sicht(ALLES, datei, ordner) or {}).items():
         if kz != kennzeichen:
             continue
         for e in liste:
-            if e['eingabe'] == eingabe and e['aktion'] != aktion:
+            if e['eingabe'] == input_device and e['aktion'] != aktion:
                 heraus.append(e)
     return heraus
 

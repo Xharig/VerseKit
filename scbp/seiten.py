@@ -9692,11 +9692,11 @@ def _bergbau(fenster, rahmen):
     def sig_zeichnen(*_):
         for w in sig_rahmen.winfo_children():
             w.destroy()
-        eingabe = sig_var.get().strip()
-        if not eingabe:
+        input_device = sig_var.get().strip()
+        if not input_device:
             return
         try:
-            treffer = berg_modul.find_signature(eingabe)
+            treffer = berg_modul.find_signature(input_device)
         except Exception as ausnahme:
             fehler.merken('seiten.signatur', ausnahme)
             return
@@ -14929,7 +14929,7 @@ def _achsen(fenster, rahmen):
 
     ⚠ **Geschrieben wird nur auf Knopfdruck** — wie im ganzen Joystick-Teil.
     """
-    from . import kurven
+    from . import curves
     from .curve_plot import CurvePlot
 
     # ⚠⚠ **Kein `messagebox`** — siehe die Begründung auf der Seite
@@ -15035,7 +15035,7 @@ def _achsen(fenster, rahmen):
 
         ⚠⚠ **Er braucht ALLE Quellen, aus denen gezeichnet wird — nicht nur
         die naheliegendste.** Die erste Fassung nahm allein
-        `kurven.zusammenfassung()`. Darin stehen die Achseneinstellungen, aber
+        `curves.summary()`. Darin stehen die Achseneinstellungen, aber
         **nicht**, welche Funktion auf welcher Achse liegt. Vom Prüfer
         nachgestellt (12.09.2026): `v_pitch` von `js1_x` auf `js1_y` schieben,
         Exponent unverändert — die Zusammenfassung bleibt gleich, die Funktion
@@ -15074,7 +15074,7 @@ def _achsen(fenster, rahmen):
             # Deshalb steht die Zusammenfassung **zusätzlich** drin: Sie
             # deckt die Protokoll-Seite ab, der Hash die Datei-Seite.
             stand = (hashlib.sha1(roh).hexdigest(),
-                     repr(kurven.zusammenfassung()),
+                     repr(curves.summary()),
                      repr(_gs.sets()),
                      repr(wahl))
         except Exception as ausnahme:
@@ -15100,7 +15100,7 @@ def _achsen(fenster, rahmen):
         for kind in list(inhalt.winfo_children()):
             kind.destroy()
 
-        ueberblick = kurven.zusammenfassung()
+        ueberblick = curves.summary()
         aktive = [b for b in ueberblick['bloecke']
                   if b['aktiv'] and b['kennung']]
 
@@ -15138,7 +15138,7 @@ def _achsen(fenster, rahmen):
         gewaehlter = [b for b in aktive if b['kennung'] == wahl['kennung']][0]
 
         # --- 3. Die Achsen des gewählten Geräts ------------------------
-        vorhandene = [a for a in kurven.ACHSEN if a in gewaehlter['achsen']]
+        vorhandene = [a for a in curves.AXES if a in gewaehlter['achsen']]
         if not vorhandene:
             _fliesstext(inhalt, t('s_ac_keine_werte'), fenster.f_klein,
                         fill='x')
@@ -15158,11 +15158,11 @@ def _achsen(fenster, rahmen):
         links.pack(side='left', fill='both', expand=True)
 
         werte = gewaehlter['achsen'].get(wahl['achse']) or {}
-        bild = CurvePlot(rechts, breite=240, hoehe=240, ganz=wahl['ganz'],
-                          schrift=fenster.f_grund, klein=fenster.f_klein)
-        bild.pack()
-        bild.zeigen(totzone=werte.get('deadzone'),
-                    saettigung=werte.get('saturation'),
+        plot = CurvePlot(rechts, width=240, height=240, whole=wahl['ganz'],
+                          font=fenster.f_grund, small=fenster.f_klein)
+        plot.pack()
+        plot.show(totzone=werte.get('deadzone'),
+                    saturation=werte.get('saturation'),
                     exponent=_exponent_fuer(ueberblick, gewaehlter,
                                             wahl['achse']))
 
@@ -15179,7 +15179,7 @@ def _achsen(fenster, rahmen):
                                                  gewaehlter['name'],
                                                  wahl['achse']),
                          totzone=werte.get('deadzone'),
-                         saettigung=werte.get('saturation'),
+                         saturation=werte.get('saturation'),
                          exponent=_exponent_fuer(ueberblick, gewaehlter,
                                                  wahl['achse']),
                          ganz=wahl['ganz'],
@@ -15196,13 +15196,13 @@ def _achsen(fenster, rahmen):
         # Zeilen neu zu lesen hieße, eine 20-KB-Datei achtmal je Zeichnen
         # anzufassen.
         nummer_fuer_liste = None
-        for _spiel in kurven.spielachsen():
+        for _spiel in curves.game_axes():
             if (_spiel['art'] == 'joystick'
                     and _spiel['kennung'] == gewaehlter['kennung']):
                 nummer_fuer_liste = _spiel['nummer']
                 break
         belegt = ({} if nummer_fuer_liste is None
-                  else kurven.funktionen_je_achse(nummer_fuer_liste,
+                  else curves.functions_per_axis(nummer_fuer_liste,
                                                   vorhandene))
 
         for achse in vorhandene:
@@ -15229,8 +15229,8 @@ def _achsen(fenster, rahmen):
             """
             for name, teil in anzeigen.items():
                 teil['anzeige'].configure(text=_zahl(teil['var'].get()))
-            bild.zeigen(totzone=anzeigen['deadzone']['var'].get(),
-                        saettigung=anzeigen['saturation']['var'].get(),
+            plot.show(totzone=anzeigen['deadzone']['var'].get(),
+                        saturation=anzeigen['saturation']['var'].get(),
                         exponent=_exponent_fuer(ueberblick, gewaehlter,
                                                 wahl['achse']))
             _stand_zeigen()
@@ -15240,7 +15240,7 @@ def _achsen(fenster, rahmen):
 
             ⚠ Zwei verschiedene Ziele in derselben Schleife: Totzone und
             Sättigung gehören zur **physischen** Achse und laufen über
-            `kurven.setzen()`, die Empfindlichkeit zur **Spielachse** und über
+            `curves.apply()`, die Empfindlichkeit zur **Spielachse** und über
             `kurven.spiel_setzen()`. Woran ein Eintrag hängt, sagt sein Feld
             `spiel` — steht dort etwas, ist es eine Spielachse.
             """
@@ -15252,10 +15252,10 @@ def _achsen(fenster, rahmen):
                 teil = anzeigen[schluessel]
                 if teil.get('spiel'):
                     nummer, achse = teil['spiel']
-                    erfolg, meldung, _ = kurven.spiel_setzen(
+                    erfolg, meldung, _ = curves.apply_to_game(
                         nummer, achse, 'exponent', neu)
                 else:
-                    erfolg, meldung, _ = kurven.setzen(
+                    erfolg, meldung, _ = curves.apply(
                         gewaehlter['kennung'], wahl['achse'], schluessel, neu)
                 if not erfolg:
                     _hinweis(fenster, t('hf_achsen'), t(meldung))
@@ -15273,7 +15273,7 @@ def _achsen(fenster, rahmen):
             hätte danach praktisch keine Kontrolle mehr über den Stick.
             Deshalb hat jede Eigenschaft ihren eigenen Ruhewert.
             """
-            ruhe = kurven.STANDARD.get(eigenschaft, 0.0)
+            ruhe = curves.DEFAULT.get(eigenschaft, 0.0)
             zeile = tk.Frame(regler, bg=BG)
             zeile.pack(fill='x', pady=(6, 0))
             tk.Label(zeile, text=beschriftung, bg=BG, fg=FG,
@@ -15359,7 +15359,7 @@ def _achsen(fenster, rahmen):
         # zuerst oben beim Rahmen und lief damit gegen eine Funktion, die es
         # zu dem Zeitpunkt noch nicht gab.
         _empfindlichkeit(empf_rahmen, gewaehlter, wahl['achse'],
-                         bild, anzeigen, _stand_zeigen)
+                         plot, anzeigen, _stand_zeigen)
 
         # ⚠ Der frühere lokale Import des Tk-Dialogs ist hier weggefallen: Er
         # verdeckte den Dialog im Programmstil, der weiter oben in dieser
@@ -15410,7 +15410,7 @@ def _achsen(fenster, rahmen):
                                 gewaehlter['name'], z['name'])
                             + '\n\n' + t('s_ac_spiel_zu')):
                         return
-                    erfolg, meldung, anzahl = kurven.angleichen(
+                    erfolg, meldung, anzahl = curves.align(
                         gewaehlter['kennung'], z['kennung'])
                     if not erfolg:
                         _hinweis(fenster, t('hf_achsen'), t(meldung))
@@ -15482,7 +15482,7 @@ def _achsen(fenster, rahmen):
         statt Warnfarbe, und der erste Satz sagt, dass nichts zu tun ist.
         """
         faelle = ueberblick['uebernehmbar']
-        ok, _m, tote = kurven.aufraeumen(nur_zaehlen=True)
+        ok, _m, tote = curves.clean_up(count_only=True)
         anzahl = tote if ok else 0
         if not faelle and not anzahl:
             return
@@ -15526,7 +15526,7 @@ def _achsen(fenster, rahmen):
                         fill='x')
 
             def _aufraeumen():
-                ok2, meldung, wieviele = kurven.aufraeumen(nur_zaehlen=True)
+                ok2, meldung, wieviele = curves.clean_up(count_only=True)
                 if not ok2:
                     _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
@@ -15534,7 +15534,7 @@ def _achsen(fenster, rahmen):
                         t('hf_achsen'),
                         t('s_ac_aufraeumen_frage').format(wieviele)):
                     return
-                ok2, meldung, wieviele = kurven.aufraeumen()
+                ok2, meldung, wieviele = curves.clean_up()
                 if not ok2:
                     _hinweis(fenster, t('hf_achsen'), t(meldung))
                     return
@@ -15677,20 +15677,20 @@ def _achsen(fenster, rahmen):
         if nummer is None:
             return 1.0
         exponenten = set()
-        for eintrag in kurven.spielachsen_auf(nummer, achse):
+        for eintrag in curves.game_axes_of(nummer, achse):
             wert = eintrag.get('exponent')
             if wert is not None:
                 exponenten.add(wert)
         return exponenten.pop() if len(exponenten) == 1 else 1.0
 
-    def _empfindlichkeit(eltern, block, achse, bild, anzeigen, stand_zeigen):
+    def _empfindlichkeit(eltern, block, achse, plot, anzeigen, stand_zeigen):
         """Je Flugfunktion auf dieser Stickachse ein Regler.
 
         ⚠ Geschrieben wird auch hier erst auf Knopfdruck — jeder Regler hat
         seinen eigenen, weil jede Funktion einzeln in der Datei steht.
         """
         nummer = None
-        for spiel in kurven.spielachsen():
+        for spiel in curves.game_axes():
             if (spiel['art'] == 'joystick'
                     and spiel['kennung'] == block['kennung']):
                 nummer = spiel['nummer']
@@ -15698,7 +15698,7 @@ def _achsen(fenster, rahmen):
         if nummer is None:
             return
 
-        funktionen = kurven.spielachsen_auf(nummer, achse)
+        funktionen = curves.game_axes_of(nummer, achse)
 
         tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
         tk.Label(eltern, text=t('s_ac_kopf_empf'), bg=BG, fg=FG,
@@ -15712,10 +15712,10 @@ def _achsen(fenster, rahmen):
             return
 
         for eintrag in funktionen:
-            _empf_zeile(eltern, nummer, eintrag, bild, anzeigen,
+            _empf_zeile(eltern, nummer, eintrag, plot, anzeigen,
                         stand_zeigen)
 
-    def _empf_zeile(eltern, nummer, eintrag, bild, anzeigen, stand_zeigen):
+    def _empf_zeile(eltern, nummer, eintrag, plot, anzeigen, stand_zeigen):
         """Ein Regler je Flugfunktion — im selben Sammelbecken wie die anderen.
 
         ⚠⚠ **Kein eigener Speichern-Knopf je Zeile.** Die erste Fassung hatte
@@ -15733,7 +15733,7 @@ def _achsen(fenster, rahmen):
         if klar == 's_ax_' + eintrag['achse']:
             klar = eintrag['achse']
 
-        ruhe = kurven.STANDARD['exponent']
+        ruhe = curves.DEFAULT['exponent']
         ist = eintrag['exponent']
         zeile = tk.Frame(eltern, bg=BG)
         zeile.pack(fill='x', pady=(8, 0))
@@ -15747,8 +15747,8 @@ def _achsen(fenster, rahmen):
         def _gezogen(_w=None):
             anzeige.configure(text=_zahl(var.get()))
             # Die Kurve mitziehen, damit man sieht, was man tut.
-            bild.zeigen(totzone=anzeigen['deadzone']['var'].get(),
-                        saettigung=anzeigen['saturation']['var'].get(),
+            plot.show(totzone=anzeigen['deadzone']['var'].get(),
+                        saturation=anzeigen['saturation']['var'].get(),
                         exponent=var.get())
             stand_zeigen()
 
@@ -15875,7 +15875,7 @@ def _achsen(fenster, rahmen):
                     '%s\n\n%s' % (t('s_ac_uebernehmen'), t('s_ac_spiel_zu'))):
                 return
             for achse, eigenschaft, alt, _jetzt in f['werte']:
-                erfolg, meldung, _ = kurven.setzen(
+                erfolg, meldung, _ = curves.apply(
                     f['neu']['kennung'], achse, eigenschaft, alt)
                 if not erfolg:
                     _hinweis(fenster, t('hf_achsen'), t(meldung))
