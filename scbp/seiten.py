@@ -1614,6 +1614,26 @@ def _anzeige(fenster, rahmen):
                  pfade.einstellung('overlay_ecke') or 'frei',
                  lambda k: _overlay_ecke(fenster, ecke, k))
     ecke.pack()
+    # ⭐ Zieht jemand das Overlay mit der Hand woandershin, hebt es die Ecke
+    # selbst auf (`Overlay._verschoben`) — diese Liste muss das sehen, sonst
+    # steht hier weiter „unten links", waehrend das Fenster woanders sitzt.
+    # ⚠ `stumm_setzen`: Die Auswahl soll sich nur neu beschriften, nicht den
+    # Rueckruf ausloesen — der wuerde die Ecke gleich wieder anwenden.
+    from . import overlay as _ov_anzeige
+    _ov_anzeige.ECKEN_ANZEIGE[0] = lambda k: ecke.stumm_setzen(k)
+
+    # ⭐ **Wo die Leiste sitzt, entscheidet der Nutzer** (13.09.2026). Bisher
+    # hing das an der Ecke: untere Ecke = Leiste unten, sonst oben. Seit ein
+    # Verschieben die Ecke auf „frei" stellt, waere sie damit immer oben — wer
+    # sie unten hatte, haette sie verloren. Also eine eigene Einstellung.
+    ziel = _feld(fenster, innen, t('s_ov_leiste'), t('s_ov_leiste_h'),
+                 breit=True)
+    leiste = _wahl(fenster, ziel,
+                   [('oben', t('s_ov_leiste_oben')),
+                    ('unten', t('s_ov_leiste_unten'))],
+                   pfade.einstellung('overlay_leiste') or 'oben',
+                   lambda k: _overlay_leiste(fenster, leiste, k))
+    leiste.pack()
 
     _hotkey_feld(fenster, innen)
 
@@ -1951,6 +1971,23 @@ def _overlay_ecke(fenster, wahl, kennung):
     steuerung = ov.OVERLAY_STEUERUNG[0]
     if steuerung is not None and hasattr(steuerung, 'ecke_anwenden'):
         steuerung.ecke_anwenden()
+
+
+def _overlay_leiste(fenster, wahl, kennung):
+    """Die Leiste nach oben oder unten haengen — sofort.
+
+    ⚠ Sofort und nicht erst beim naechsten Start: Wer eine Seite waehlt, will
+    sehen, ob sie die richtige ist. Dieselbe Begruendung wie bei der Ecke.
+    """
+    pfade.einstellung_setzen('overlay_leiste', kennung)
+    try:
+        wahl.setzen(kennung)
+    except Exception:
+        pass
+    from . import overlay as ov
+    steuerung = ov.OVERLAY_STEUERUNG[0]
+    if steuerung is not None and hasattr(steuerung, 'leiste_anwenden'):
+        steuerung.leiste_anwenden()
 
 
 def _hotkey_feld(fenster, innen):

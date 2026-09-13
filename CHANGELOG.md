@@ -8,8 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.32.0 - 2026-09-13
+
+> **Ein Klick bringt dich woanders hin — jetzt kommst du auch wieder zurück.**
+> Wer in der Bauplan-Liste einen Eintrag anklickt, landet in der Herstellung,
+> und der Weg zurück ging bisher nur über die Seitenleiste: Suchbegriff weg,
+> Filter weg, von vorn. Oben auf der Zielseite steht jetzt ein Knopf zurück —
+> und zwar bei jedem dieser Sprünge, nicht nur bei dem einen. Dazu hat das
+> Overlay zwei alte Marotten abgelegt: Die Leiste springt beim Einklappen nicht
+> mehr in der Breite, und das grüne Schloss bleibt dort, wo es hingehört.
+
 ### Neu
 
+- **Du kannst wählen, ob die Leiste oben oder unten am Overlay sitzt.** Bisher
+  entschied das die eingestellte Ecke mit; jetzt steht es als eigener Punkt auf
+  der Seite „Anzeige". Wer nichts umstellt, behält genau das Verhalten von
+  vorher
 - **Ein Knopf zurück, wenn dich ein Klick auf eine andere Seite bringt.** Wer in
   der Bauplan-Liste einen Eintrag anklickt, landet in der Herstellung — und kam
   von dort bisher nur über die Seitenleiste zurück, also ohne den Suchbegriff und
@@ -19,6 +33,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **Ein verschobenes Overlay bleibt, wo du es hingezogen hast.** Wer eine Ecke
+  eingestellt hatte, sah das Fenster bei jedem Anlass dorthin zurückspringen —
+  beim Einklappen, beim Start und beim Schließen des großen Fensters. Ein Zug
+  mit der Maus schaltet die Einstellung jetzt selbst auf „frei verschiebbar",
+  und die Auswahl auf der Seite „Anzeige" zeigt das sofort an. Damit lässt sich
+  das Overlay auch auf einen zweiten Bildschirm ziehen
+- **Die Leiste springt beim Einklappen nicht mehr in die Breite.** Wer die
+  Schriftgröße einmal hochgestellt hatte, sah beim Wechsel von ausgeklappt auf
+  eingeklappt, wie das Overlay ein Stück breiter wurde — bei „groß" gemessene
+  61 Pixel. Grund: Die Mindestbreite des offenen Fensters wuchs mit den größeren
+  Symbolen nicht mit, die des eingeklappten Streifens schon
 - **Das grüne Schloss folgt dem Overlay.** Wenn Klicks ins Spiel durchgereicht
   werden, liegt ein eigenes kleines Fenster mit dem Schloss über der Leiste.
   Beim Verschieben oder Einklappen des Overlays blieb es stehen, wo es vorher
@@ -26,6 +51,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Das Overlay blendet nicht mehr ab, während das große Fenster davorsteht.**
   Die Abfrage, ob noch ein Fenster offen ist, sah seit Längerem an der falschen
   Stelle nach und fand deshalb nie eines
+
+### Dank
+
+- **Bushwick** — für den Zurück-Knopf. Ihm ist aufgefallen, dass ein Klick auf
+  einen Bauplan zwar weiterführt, aber keinen Rückweg anbietet
 
 ## v3.31.2 - 2026-09-13
 

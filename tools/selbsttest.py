@@ -3929,14 +3929,32 @@ def main():
         #   Diese Pruefung bewacht die drei Stellen, an denen es kippen kann.
         #   Die Leiste ist im eingeklappten Zustand der EINZIGE Bedienweg —
         #   ist sie ausserhalb des Bildes, kommt niemand mehr an das Werkzeug.
-        if 'def _leiste_ausrichten' in _q44:
-            _teil45 = _q44[_q44.index('def _leiste_ausrichten'):]
+        #
+        #   ⭐⭐ **Neu gefasst am 13.09.2026.** Bis dahin stand hier, die Seite
+        #   haenge an der EckeR — und genau das ist jetzt falsch: Sie ist eine
+        #   eigene Entscheidung des Nutzers geworden (`overlay_leiste`), weil
+        #   ein Verschieben die Ecke auf „frei" stellt und die Leiste sonst
+        #   immer oben gelandet waere.
+        #
+        #   Die Pruefung hat dabei getan, wofuer sie da ist: Sie ist bei der
+        #   Aenderung rot geworden und hat zum Nachdenken gezwungen, statt sie
+        #   stillschweigend durchzulassen. Bewacht wird ab jetzt der neue
+        #   Vertrag — **samt Rueckfall**, denn ohne den verlieren
+        #   Bestandsnutzer ihre untere Leiste.
+        if 'def _leiste_seite_wunsch' in _q44:
+            _teil45 = _q44[_q44.index('def _leiste_seite_wunsch'):]
             _teil45 = _teil45[:_teil45.index('    def ', 10)]
             pruefe("'bottom'" in _teil45,
                    'die Titelleiste kann nach unten wechseln')
-            pruefe('startswith' in _teil45 and 'unten' in _teil45,
-                   'und zwar abhaengig von der gewaehlten Ecke')
-            pruefe('_leiste_seite' in _teil45,
+            pruefe('overlay_leiste' in _teil45,
+                   'und zwar nach der eigenen Einstellung des Nutzers')
+            pruefe('startswith' in _teil45 and 'overlay_ecke' in _teil45,
+                   'ohne Einstellung entscheidet weiter die Ecke '
+                   '(Bestandsnutzer behalten ihre Leiste)')
+        if 'def _leiste_ausrichten' in _q44:
+            _teil45b = _q44[_q44.index('def _leiste_ausrichten'):]
+            _teil45b = _teil45b[:_teil45b.index('    def ', 10)]
+            pruefe('_leiste_seite' in _teil45b,
                    'ein Wechsel wird gemerkt, statt bei jedem Klappen '
                    'umzupacken')
         # ⚠ Die Reihenfolge ist der Kern: erst umpacken, dann die Geometrie.
@@ -19300,6 +19318,135 @@ def main():
     finally:
         try:
             _w197.destroy()
+        except Exception:
+            pass
+
+    # ------------- Die Leiste wird beim Einklappen nicht breiter (198)
+    print('\n198. Die Leiste springt beim Einklappen nicht in die Breite')
+    # ⛔⛔ Gemeldet am 13.09.2026: „wenn ich von ausgeklappt in eingeklappt
+    # wechsle, dann wird die Leiste ein klein bisschen groesser" — und zwar in
+    # der BREITE. Gemessen an v3.31.2: **+61 px**.
+    #
+    # Die Ursache war eine Drift zwischen zwei Rechnungen, die dieselbe sind:
+    #   * `_mindestgroesse_setzen()` lief EINMAL beim Start
+    #   * `_leisten_breite()` wird bei JEDEM Einklappen neu gemessen
+    # `schriftgroesse_anwenden()` vergroessert die Symbole — und liess die
+    # offene Grenze stehen. Damit liess sich das Fenster schmaler ziehen, als
+    # der Streifen braucht, und das erste Zuklappen zog es hoch.
+    #
+    # ⚠⚠ **Kein Aufklappen zwischendurch!** `klappzustand_setzen(False)` setzt
+    # `minsize()` selbst neu und verdeckt den Fehler vollstaendig. Der erste
+    # Anlauf dieser Probe meldete deshalb auch gegen den alten Stand „alles
+    # gut". Der echte Weg ist: Schrift umstellen, schmaler ziehen, einklappen.
+    import tkinter as _tk198
+    import sc_bp_watcher as _wat198
+    _w198 = _tk198.Tk()
+    try:
+        _ov198 = _wat198.Overlay(wurzel=_w198)
+        _ov198.root.deiconify()
+        for _ in range(12):
+            _ov198.root.update()
+            _ov198.root.update_idletasks()
+        _klein198 = _ov198._mindestbreite()
+        _ov198.schriftgroesse_anwenden('gross')
+        for _ in range(12):
+            _ov198.root.update()
+            _ov198.root.update_idletasks()
+        _gross198 = _ov198._mindestbreite()
+        pruefe(_gross198 > _klein198,
+               'groessere Symbole brauchen mehr Breite (%d -> %d)'
+               % (_klein198, _gross198))
+        # ⭐ Der Kern: Die GRENZE muss mitgewachsen sein, nicht nur der Bedarf.
+        pruefe(int(_ov198.root.minsize()[0]) >= _gross198,
+               'und die offene Mindestbreite ist mitgewachsen (%s)'
+               % (_ov198.root.minsize(),))
+        _ov198.root.geometry('%dx%d+%d+%d'
+                             % (_klein198, 300, _ov198.root.winfo_x(),
+                                _ov198.root.winfo_y()))
+        for _ in range(12):
+            _ov198.root.update()
+            _ov198.root.update_idletasks()
+        _offen198 = _ov198.kopf.winfo_width()
+        _ov198.klappzustand_setzen(True, merken=False)
+        for _ in range(12):
+            _ov198.root.update()
+            _ov198.root.update_idletasks()
+        _zu198 = _ov198.kopf.winfo_width()
+        pruefe(_zu198 == _offen198,
+               'die Leiste ist beim Einklappen gleich breit geblieben '
+               '(%d -> %d)' % (_offen198, _zu198))
+        # ⭐ Gegenprobe: Genau diese Gleichheit war der Fehler. Sie gilt nur,
+        # weil die zwei Rechnungen jetzt denselben Stand sehen — also wird
+        # nachgesehen, dass sie es wirklich tun.
+        pruefe(_ov198._leisten_breite() == max(_ov198._mindestbreite(), 260),
+               'Gegenprobe: Streifenbreite und Mindestbreite sind dieselbe '
+               'Rechnung')
+    finally:
+        try:
+            _w198.destroy()
+        except Exception:
+            pass
+
+    # ---------- Verschieben hebt die Ecke auf, Leistenseite waehlbar (199)
+    print('\n199. Wer das Overlay verschiebt, entscheidet — nicht die Ecke')
+    # ⭐ Gemeldet am 13.09.2026: „beim Schliessen des Einstellungsfensters wird
+    # die Position des Overlays wieder zurueckgesetzt, ich wollte es auf meinen
+    # 2. Bildschirm ziehen" — bei eingestellter Ecke „unten links". Jeder
+    # Anlass (Start, Klappen, `verhalten_anwenden`) setzte es zurueck.
+    #
+    # ⚠ Und die Folge daraus: Bis dahin hing die Seite der Leiste an der Ecke.
+    # Wer verschiebt, haette sie damit immer nach oben bekommen — deshalb eine
+    # eigene Einstellung, und Bestandsnutzer behalten ohne sie ihr Verhalten.
+    import tkinter as _tk199
+    import sc_bp_watcher as _wat199
+    from scbp import overlay as _ov199
+    _w199 = _tk199.Tk()
+    _altecke199 = _pf199 = None
+    try:
+        from scbp import pfade as _pf199
+        _ov = _wat199.Overlay(wurzel=_w199)
+        _ov.root.deiconify()
+        for _ in range(8):
+            _ov.root.update()
+            _ov.root.update_idletasks()
+
+        # --- Die Leistenseite ist eine eigene Entscheidung ---------------
+        _pf199.einstellung_setzen('overlay_leiste', '')
+        _pf199.einstellung_setzen('overlay_ecke', 'unten-links')
+        pruefe(_ov._leiste_seite_wunsch() == 'bottom',
+               'ohne eigene Einstellung entscheidet weiter die Ecke '
+               '(Bestandsnutzer behalten ihre Leiste unten)')
+        _pf199.einstellung_setzen('overlay_leiste', 'oben')
+        pruefe(_ov._leiste_seite_wunsch() == 'top',
+               'die eigene Einstellung sticht die Ecke aus')
+        _ov.leiste_anwenden()
+        for _ in range(6):
+            _ov.root.update()
+            _ov.root.update_idletasks()
+        pruefe(_ov.kopf.pack_info().get('side') == 'top',
+               'und sie wirkt sofort, ohne Neustart')
+
+        # --- Verschieben hebt die Ecke auf ------------------------------
+        _gerufen199 = []
+        _ov199.ECKEN_ANZEIGE[0] = lambda k: _gerufen199.append(k)
+        _pf199.einstellung_setzen('overlay_ecke', 'unten-links')
+        _ov._drag_von = (_ov.root.winfo_x(), _ov.root.winfo_y())
+        _ov._verschoben()
+        pruefe(_pf199.einstellung('overlay_ecke') == 'unten-links',
+               'ein Klick ohne Bewegung laesst die Ecke in Ruhe')
+        _ov._drag_von = (_ov.root.winfo_x() - 300, _ov.root.winfo_y())
+        _ov._verschoben()
+        pruefe(_pf199.einstellung('overlay_ecke') == 'frei',
+               'ein echtes Verschieben stellt auf „frei verschiebbar"')
+        pruefe(_gerufen199 == ['frei'],
+               'und die Auswahlliste in den Einstellungen erfaehrt davon')
+    finally:
+        try:
+            if _pf199 is not None:
+                _pf199.einstellung_setzen('overlay_ecke', 'frei')
+                _pf199.einstellung_setzen('overlay_leiste', '')
+            _ov199.ECKEN_ANZEIGE[0] = None
+            _w199.destroy()
         except Exception:
             pass
 

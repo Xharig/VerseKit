@@ -8,8 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.32.0 - 2026-09-13
+
+> **A click takes you somewhere else — now you can get back, too.** Clicking an
+> entry in the blueprint list takes you to crafting, and the only way back was
+> the sidebar: search term gone, filter gone, start over. The target page now
+> carries a button back — for every one of those jumps, not just that one. On
+> top of that the overlay has dropped two old quirks: the bar no longer jumps in
+> width when you collapse it, and the green padlock stays where it belongs.
+
 ### New
 
+- **You can choose whether the bar sits at the top or the bottom of the
+  overlay.** Until now the chosen corner decided that along the way; it is its
+  own entry on the "Display" page now. Change nothing and you keep exactly the
+  behaviour you had
 - **A button back when a click takes you to another page.** Clicking an entry in
   the blueprint list takes you to crafting — and the only way back was the
   sidebar, which lost the search term and the filter you had set. The target page
@@ -18,6 +31,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **A moved overlay stays where you dragged it.** If you had picked a corner,
+  the window snapped back to it at every opportunity — on collapse, on startup
+  and when the main window was closed. Dragging it with the mouse now switches
+  the setting to "free to move" by itself, and the choice on the "Display" page
+  shows that right away. This is what lets you drag the overlay onto a second
+  screen
+- **The bar no longer jumps in width when you collapse it.** If you had ever
+  raised the font size, switching from expanded to collapsed made the overlay a
+  little wider — a measured 61 pixels at "large". The reason: the minimum width
+  of the open window did not grow along with the larger icons, while the one for
+  the collapsed strip did
 - **The green padlock follows the overlay.** When clicks are passed through to
   the game, a small separate window carries the padlock above the bar. Moving or
   collapsing the overlay left it where it was until something else caught it up.
@@ -25,6 +49,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **The overlay no longer fades out while the main window is in front of it.**
   The check for an open window had been looking in the wrong place for a while
   and therefore never found one
+
+### Thanks
+
+- **Bushwick** — for the button back. He noticed that clicking a blueprint takes
+  you onwards but offers no way back
 
 ## v3.31.2 - 2026-09-13
 

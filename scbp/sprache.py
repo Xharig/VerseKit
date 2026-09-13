@@ -1676,6 +1676,16 @@ TEXTE = {
                           'the overlay passes mouse clicks through and cannot '
                           'be dragged.'),
     's_ov_ecke_frei':  ('Frei verschiebbar', 'Free to move'),
+    # ⚠ Bis v3.31.2 hing die Seite der Leiste an der Ecke — untere Ecke hiess
+    # Leiste unten. Seit ein Verschieben die Ecke auf „frei" stellt, braucht es
+    # dafuer eine eigene Entscheidung, sonst waere sie immer oben.
+    's_ov_leiste':     ('Leiste am Overlay', 'Bar on the overlay'),
+    's_ov_leiste_h':   ('Oben oder unten — je nachdem, wo das Overlay steht '
+                        'und wohin du greifen willst.',
+                        'Top or bottom — depending on where the overlay sits '
+                        'and where you want to reach.'),
+    's_ov_leiste_oben': ('Oben', 'Top'),
+    's_ov_leiste_unten': ('Unten', 'Bottom'),
     's_ov_ecke_ol':    ('Oben links', 'Top left'),
     's_ov_ecke_or':    ('Oben rechts', 'Top right'),
     's_ov_ecke_ul':    ('Unten links', 'Bottom left'),
@@ -2517,6 +2527,7 @@ TEXTE = {
     'b_n_eintraege':   ('%s Einträge', '%s entries'),
     'b_katalog':       ('Katalogstand', 'Catalogue state'),
     'b_historie':      ('Patch-Historie', 'Patch history'),
+    'b_overlay':       ('Overlay', 'Overlay'),
     'b_ordner':        ('Eigener Ordner', 'Own folder'),
     'b_einstellungen': ('Einstellungen', 'Settings'),
     'b_standard':      ('alle auf Standard', 'all at default'),

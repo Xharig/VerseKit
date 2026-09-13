@@ -186,6 +186,23 @@ def durchklickbar_moeglich():
 # Schloss, das anklickbar bleibt — denselben Weg gehen wir.
 SCHLOSS_RUECKRUF = [None]
 
+# ⭐ **Der Bericht muss mitwachsen.** Am 13.09.2026 kam die Meldung „im
+# eingeklappten Zustand sitzt das Schloss nicht ganz genau da, wo es sitzen
+# sollte" — und dazu die entscheidende Beobachtung „beim Einklappen wird das
+# Fenster leicht groesser". Beides liess sich hier nicht nachstellen, und im
+# Fehlerbericht stand nichts davon: keine Fenstergroesse, kein Klappzustand,
+# keine Mindestbreite, kein Versatz des schwebenden Schlosses.
+#
+# Das ist genau der Fall, fuer den die Regel gilt: Wird ein Fehler behandelt,
+# der im Bericht **nicht sichtbar** gewesen waere, wird die Sichtbarkeit im
+# selben Arbeitsgang mitgebaut. Eine Zeile im Bericht haette die Messungen
+# eines ganzen Abends ersetzt.
+#
+# Das Overlay haengt seine Auskunft hier ein; `bericht.bauen()` fragt sie ab.
+# Ueber ein Modul, weil der Bericht aus `seiten.py` gebaut wird und von dort
+# das Overlay nicht erreichbar ist — derselbe Weg wie beim Schloss-Rueckruf.
+LAGE_BERICHT = [None]
+
 # ⚠⚠ **Der Schalter in den Einstellungen muss mitgehen.** Das Durchreichen
 # laesst sich an ZWEI Stellen umlegen: mit dem Schloss am Overlay und mit dem
 # Schiebeschalter auf der Seite „Anzeige". Wer die Seite offen hatte und das
@@ -196,6 +213,19 @@ SCHLOSS_RUECKRUF = [None]
 # Die Seite haengt hier ihre Zeichenfunktion ein; das Overlay ruft sie nach
 # jeder Aenderung. `None` heisst schlicht: Die Seite wurde nie gebaut.
 DURCHKLICK_ANZEIGE = [None]
+
+# ⭐ **Dasselbe fuer die Ecken-Auswahl** (13.09.2026). Wer das Overlay mit der
+# Hand an eine andere Stelle zieht, hat damit gesagt „hier will ich es" — die
+# eingestellte Ecke muss dann weichen, sonst schnappt das Fenster beim naechsten
+# Anlass zurueck. Gemeldet: „beim Schliessen des Einstellungsfensters wird die
+# Position des Overlays wieder zurueckgesetzt, ich wollte es auf meinen 2.
+# Bildschirm ziehen."
+#
+# Das Overlay stellt die Einstellung dabei selbst auf „frei verschiebbar" — und
+# die Auswahlliste auf der Seite „Anzeige" muss das sehen. Sonst steht dort
+# weiter „unten links", waehrend das Fenster woanders sitzt: zwei Anzeigen fuer
+# denselben Zustand, die sich widersprechen.
+ECKEN_ANZEIGE = [None]
 
 # Dasselbe für „Protokolle erneut einlesen". Beide Bedienelemente — der Knopf am
 # Overlay und der in den Einstellungen — rufen hier an; die Arbeit macht der

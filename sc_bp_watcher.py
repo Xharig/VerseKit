@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.31.2'
+__version__ = '3.32.0'
 
 
 def _mitgeliefert(name):
@@ -1863,6 +1863,8 @@ class Overlay:
         # Das Schloss zieht mit, egal wer das Durchreichen umschaltet — hier im
         # Overlay oder drüben in den Einstellungen.
         overlay.SCHLOSS_RUECKRUF[0] = self._schloss_anwenden
+        # Damit die Lage des Overlays im Fehlerbericht steht — siehe dort.
+        overlay.LAGE_BERICHT[0] = self._lage_bericht
         self._maus_drauf = False
         # Durchsichtigkeit einstellbar (30–100 %). Wer nur **einen** Monitor hat,
         # legt das Overlay zwangsläufig übers Spiel — dann muss man hindurchsehen
@@ -2061,7 +2063,9 @@ class Overlay:
         for w in (bar, bar.winfo_children()[0]):
             w.bind('<Button-1>', self._drag_start)
             w.bind('<B1-Motion>', self._drag_move)
-            w.bind('<ButtonRelease-1>', self._save_geo)   # Position nach dem Ziehen merken
+            # ⚠ `_verschoben`, nicht `_save_geo`: Es merkt die Lage **und**
+            # hebt eine eingestellte Ecke auf, wenn wirklich gezogen wurde.
+            w.bind('<ButtonRelease-1>', self._verschoben)
 
         # --- Statuszeile ---
         self._status_text = sprache.t('ov_starte')
@@ -2316,6 +2320,25 @@ class Overlay:
             self.bar.configure(height=icons.width() + 4)
         except Exception as ausnahme:
             fehler.merken('overlay.symbolgroesse', ausnahme)
+        # ⛔⛔ **Und die Mindestbreite muss mit** (13.09.2026). Größere Symbole
+        # brauchen mehr Platz — die offene Grenze stand aber weiter auf dem
+        # Wert vom Programmstart. Damit ließ sich das Fenster schmaler ziehen,
+        # als der eingeklappte Streifen braucht, und beim ersten Zuklappen zog
+        # `klappzustand_setzen()` es auf die echte Breite hoch: **die Leiste
+        # wurde breiter.** Gemeldet als „wenn ich von ausgeklappt in
+        # eingeklappt wechsle, wird die Leiste ein klein bisschen größer".
+        #
+        # Die beiden Rechnungen sind dieselbe (`_leisten_breite()` ist nur
+        # `max(_mindestbreite(), 260)`) — sie liefen nur zu verschiedenen
+        # Zeiten. Die offene Grenze wurde **einmal** gesetzt, die des Streifens
+        # bei **jedem** Einklappen.
+        #
+        # ⚠ Über `after_idle`: Die neuen Symbolgrößen stehen erst, wenn Tk
+        # gezeichnet hat — vorher gemessen wäre es derselbe Fehler nochmal.
+        try:
+            self.root.after_idle(self._mindestgroesse_setzen)
+        except tk.TclError:
+            pass
 
     def _spiel_starten(self):
         """Star Citizen starten — über den Weg, den der Spieler ohnehin nutzt."""
@@ -2462,18 +2485,125 @@ class Overlay:
     _dx = 0
     _dy = 0
 
-    def _drag_start(self, e): self._dx, self._dy = e.x, e.y
+    def _drag_start(self, e):
+        self._dx, self._dy = e.x, e.y
+        # ⚠ Die Fensterlage mitnehmen, nicht nur den Griffpunkt. Erst der
+        # Vergleich beim Loslassen unterscheidet ein **Verschieben** von einem
+        # blossen **Klick** auf die Leiste — und nur das Verschieben darf die
+        # eingestellte Ecke aufheben (siehe `_verschoben`).
+        try:
+            self._drag_von = (self.root.winfo_x(), self.root.winfo_y())
+        except tk.TclError:
+            self._drag_von = None
+
     def _drag_move(self, e):
         self.root.geometry(f'+{self.root.winfo_x()+e.x-self._dx}+{self.root.winfo_y()+e.y-self._dy}')
-    def _mindestgroesse_setzen(self):
+
+    def _leiste_seite_wunsch(self):
+        """Gehoert die Leiste nach oben oder nach unten?
+
+        ⭐ **Eine eigene Entscheidung seit v3.32.0** (13.09.2026). Bis dahin
+        hing sie an der Ecke: untere Ecke = Leiste unten. Seit ein Verschieben
+        die Ecke auf „frei" stellt, waere sie damit immer oben — wer sie unten
+        hatte, haette sie beim ersten Ziehen verloren.
+
+        ⚠ **Bestandsnutzer behalten, was sie hatten.** Ist nichts eingestellt,
+        entscheidet weiter die Ecke. Ein neuer Schalter darf niemandem
+        stillschweigend die Oberflaeche umbauen — wer „unten links" gewaehlt
+        hatte, hat die Leiste unten gewollt, auch ohne den neuen Schalter je
+        gesehen zu haben.
+        """
+        try:
+            wunsch = (pfade.einstellung('overlay_leiste') or '').strip()
+        except Exception:
+            wunsch = ''
+        if wunsch in ('oben', 'unten'):
+            return 'bottom' if wunsch == 'unten' else 'top'
+        try:
+            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+        except Exception:
+            ecke = 'frei'
+        return 'bottom' if ecke.startswith('unten') else 'top'
+
+    def leiste_anwenden(self):
+        """Von der Einstellungsseite gerufen: die Leiste sofort umhaengen."""
+        try:
+            self._leiste_ausrichten()
+            self.root.update_idletasks()
+            # Das Schloss haengt am Knopf in der Leiste — der ist gerade
+            # umgezogen, also muss es hinterher.
+            self._schloss_nachziehen()
+        except Exception as ausnahme:
+            fehler.merken('overlay.leiste_anwenden', ausnahme)
+
+    def _verschoben(self, e=None):
+        """Nach dem Ziehen: Lage merken — und die Ecke aufheben.
+
+        ⭐ **Wer schiebt, entscheidet.** Steht eine Ecke eingestellt, setzt das
+        Overlay sich bei jedem Anlass dorthin zurueck: beim Start, beim Klappen
+        und beim Schliessen des grossen Fensters (`verhalten_anwenden`). Wer es
+        derweil mit der Hand auf einen anderen Bildschirm gezogen hat, sah seine
+        Verschiebung deshalb kommentarlos rueckgaengig gemacht.
+
+        Gemeldet am 13.09.2026: „beim Schliessen des Einstellungsfensters wird
+        die Position des Overlays wieder zurueckgesetzt, ich wollte das Overlay
+        auf meinen 2. Bildschirm ziehen" — mit der richtigen Schlussfolgerung
+        gleich dazu: *„wenn man es verschiebt, muesste sich das automatisch auf
+        verschiebbar aendern."*
+
+        ⚠ **Nur bei einer echten Bewegung.** Die Leiste ist auch die Flaeche,
+        auf die man klickt; ein Klick ohne Bewegung darf die Einstellung nicht
+        anfassen. Zwei Pixel Spiel, damit ein Zittern der Hand nicht zaehlt.
+        """
+        self._save_geo(e)
+        try:
+            von = getattr(self, '_drag_von', None)
+            if von is None:
+                return
+            weg = (abs(self.root.winfo_x() - von[0])
+                   + abs(self.root.winfo_y() - von[1]))
+            if weg <= 2:
+                return
+            if (pfade.einstellung('overlay_ecke') or 'frei') == 'frei':
+                return
+            pfade.einstellung_setzen('overlay_ecke', 'frei')
+            # Die Auswahlliste auf der Seite „Anzeige" mitziehen, falls sie
+            # gerade offen ist — sonst steht dort weiter die alte Ecke.
+            ruf = overlay.ECKEN_ANZEIGE[0]
+            if ruf is not None:
+                ruf('frei')
+        except Exception as ausnahme:
+            fehler.merken('overlay.verschoben', ausnahme)
+    def _mindestgroesse_setzen(self, versuch=0):
         """Das Overlay darf nicht schmaler werden als seine Symbolleiste.
 
         Gilt in beide Richtungen: Der Fenstermanager bekommt die Grenze über
         `minsize()`, und eine gespeicherte Groesse von frueher wird angehoben,
         falls sie darunter liegt. Sonst startet das Overlay in genau der Groesse
         wieder, in der die Symbole fehlten.
+
+        ⛔⛔ **Nachfassen, solange die Leiste noch nicht messbar ist**
+        (13.09.2026). Ein Label, dessen Bild noch nicht geladen ist, meldet
+        `winfo_reqwidth() == 1`. Faellt das in den einen `after_idle`-Aufruf
+        beim Start, ist die Grenze dauerhaft zu klein — und **zu klein heisst
+        hier nicht harmlos**: Das Fenster laesst sich dann schmaler ziehen, als
+        der eingeklappte Streifen braucht, und beim ersten Zuklappen wird es
+        wieder hochgezogen. Sichtbar als „die Leiste wird ein klein bisschen
+        groesser".
+
+        Dieselbe Falle wie beim schwebenden Schloss: Ein ungezeichnetes Widget
+        meldet 1, und wer das fuer eine Messung haelt, rechnet mit Unsinn.
         """
         try:
+            if versuch < 10:
+                try:
+                    roh = [k.winfo_reqwidth() for k in self.kopf.winfo_children()]
+                except Exception:
+                    roh = []
+                if not roh or any(b <= 1 for b in roh):
+                    self.root.after(300,
+                                    lambda: self._mindestgroesse_setzen(versuch + 1))
+                    return
             breite = self._mindestbreite()
             self.root.minsize(breite, 120)
             # ⚠⚠ **Nur eingreifen, wenn das Fenster wirklich schon steht.**
@@ -3179,7 +3309,10 @@ class Overlay:
             return max(self.root.winfo_width(), 260)
 
     def _leiste_ausrichten(self):
-        """Die Titelleiste an den Fensterrand haengen, der zur Ecke passt.
+        """Die Titelleiste an den Fensterrand haengen, den der Nutzer will.
+
+        ⚠ Seit v3.32.0 entscheidet das eine **eigene Einstellung**
+        (`_leiste_seite_wunsch`), nicht mehr die Ecke — siehe dort.
 
         ⚠⚠ Gemeldet von Haldjas (pr0) am 02.09.2026, nachdem ein erster Versuch
         am eigentlichen Punkt vorbeiging: *„Der Balken und das Schloss sind, der
@@ -3211,11 +3344,7 @@ class Overlay:
         bekaempft, das eine Ursache zwei Funktionen weiter hatte. Die Zahlen
         aus der ersten Messung hatten sie benannt.
         """
-        try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
-        except Exception:
-            ecke = 'frei'
-        seite = 'bottom' if ecke.startswith('unten') else 'top'
+        seite = self._leiste_seite_wunsch()
         # ⚠ Nur anfassen, wenn sich wirklich etwas aendert. Ein Umpacken bei
         # jedem Klappen liesse die Oberflaeche sichtbar zucken.
         if seite == getattr(self, '_leiste_seite', 'top'):
@@ -3846,6 +3975,69 @@ class Overlay:
                 self._schloss_anwenden(True)
         except Exception:
             pass
+
+    def _lage_bericht(self):
+        """Eine Zeile fuer den Fehlerbericht: Wie steht das Overlay gerade?
+
+        ⭐ Gebaut am 13.09.2026, nachdem eine Meldung ueber das Schloss einen
+        ganzen Abend Messungen gekostet hat, weil im Bericht nichts davon
+        stand. Die Zeile beantwortet die Fragen, die dabei offen blieben:
+
+        * Wie gross ist das Fenster, und ist es eingeklappt?
+        * **Waechst es beim Einklappen?** Dazu die gemessene Mindestbreite
+          neben der tatsaechlichen — laufen die auseinander, steht es hier.
+        * Sitzt das schwebende Schloss auf dem Knopf, oder daneben? Der
+          Versatz in Pixeln, nicht „sieht falsch aus".
+
+        ⚠ Nur Zahlen und Zustaende, keine Pfade und keine Namen — die Zeile
+        geht wie der ganze Bericht in ein oeffentliches Issue.
+        """
+        teile = []
+        try:
+            teile.append('%s %s' % (self.root.geometry(),
+                                    'zu' if self.eingeklappt else 'offen'))
+        except tk.TclError:
+            return ''
+        try:
+            teile.append('min %d/%d' % (self._mindestbreite(),
+                                        self._leisten_breite()))
+        except Exception:
+            pass
+        # ⚠ Die Leiste **selbst**, nicht ihre Kinder. Genau darauf ging die
+        # Beobachtung „beim Einklappen wird die Leiste ein klein bisschen
+        # groesser" — und die Kinder saehen dabei unveraendert aus.
+        try:
+            teile.append('Leiste %dx%d' % (self.kopf.winfo_width(),
+                                           self.kopf.winfo_height()))
+        except (tk.TclError, AttributeError):
+            pass
+        try:
+            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+        except Exception:
+            ecke = '?'
+        teile.append('Ecke %s' % ecke)
+        try:
+            durch = pfade.einstellung_wahrheit('durchklickbar', False)
+        except Exception:
+            durch = False
+        teile.append('durchklickbar %s' % ('ja' if durch else 'nein'))
+        # Der Versatz des schwebenden Schlosses gegen den Knopf in der Leiste —
+        # die eine Zahl, um die es bei der Meldung ging.
+        try:
+            knopf = getattr(self, 'schloss_lbl', None)
+            if (self._schloss is not None and self._schloss.winfo_exists()
+                    and knopf is not None and knopf.winfo_ismapped()):
+                teile.append('Schloss %+d/%+d'
+                             % (self._schloss.winfo_rootx() - knopf.winfo_rootx(),
+                                self._schloss.winfo_rooty() - knopf.winfo_rooty()))
+            else:
+                # ⚠ Kein Wort, sondern dieselbe Schreibweise wie der Versatz.
+                # „Schloss aus" waere ein deutscher Satz in der Oberflaeche —
+                # der Bericht ist sichtbar, und Pruefung 17 faengt das zu Recht.
+                teile.append('Schloss -/-')
+        except tk.TclError:
+            pass
+        return ' · '.join(teile)
 
     def _schloss_lage_folgen(self, _e=None):
         """Das schwebende Schloss dem Knopf hinterherziehen — nur die Lage.

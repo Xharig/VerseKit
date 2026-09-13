@@ -43,7 +43,7 @@ import platform
 import sys
 from datetime import datetime
 
-from . import fehler, pfade
+from . import fehler, overlay, pfade
 from .sprache import t
 
 
@@ -529,6 +529,18 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     zeile(t('b_python'), '%s / %s' % (platform.python_version(),
                                       _sicher(_tk_fassung)))
     zeile(t('b_bildschirm'), _sicher(lambda: _bildschirme(wurzel)))
+    # ⭐ **Wie das Overlay gerade steht.** Am 13.09.2026 kostete eine Meldung
+    # ueber das schwebende Schloss einen ganzen Abend Messungen, weil hier
+    # nichts davon stand: keine Fenstergroesse, kein Klappzustand, keine
+    # Mindestbreite, keine Leistengroesse, kein Versatz. Der Bericht waechst
+    # deshalb mit — eine Zeile beantwortet, wofuer sonst nachgefragt wird.
+    #
+    # ⚠ Nur Zahlen und Zustaende; der Bericht landet in einem oeffentlichen
+    # Issue. Steht kein Overlay (Pruefstand, reines Fensterprogramm), bleibt
+    # die Zeile weg statt „unbekannt" zu melden.
+    _lage = _sicher(lambda: (overlay.LAGE_BERICHT[0] or (lambda: ''))())
+    if _lage:
+        zeile(t('b_overlay'), _lage)
     zeilen.append('')
 
     zeile(t('b_spiel'), _sicher(lambda: uebersicht.get('spiel_ordner')
