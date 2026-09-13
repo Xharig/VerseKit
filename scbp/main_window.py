@@ -2177,6 +2177,11 @@ class MainWindow:
         self._tab('lager', 'bestand', t('hf_lager'), g_werk)
         self._tab('herstellung', 'blitz', t('hf_herstellung'), g_werk)
         self._tab('bergbau', 'herkunft', t('hf_bergbau'), g_werk)
+        # ⚠ **Direkt unter Bergbau.** Die Seite beantwortet die Frage, die sich
+        # beim Erz stellt: „und wo lasse ich das raffinieren?" Ein eigener
+        # Bereich wäre sie nicht — der Raffinerie-Kasten am Erz verlinkt
+        # hierher, und der Rückweg steht über der Seite.
+        self._tab('raffinerien', 'raffinerie', t('hf_raffinerien'), g_werk)
         # ⚠ **Hier und nicht bei „Handel".** Die Kette der Werkstatt endet bei
         # „wo hole ich das" — und ein fertig gekauftes Teil ist die Antwort auf
         # dieselbe Frage, nur der andere Weg: bauen oder kaufen. Bei „Handel"

@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **"Refineries" page:** every refinery side by side, with bonus **and
+  penalty** per material. One row is a material, one column a refinery; green
+  is the best value in the row, red costs you yield. A button in the refinery
+  box on an ore leads straight there
+
 ## v3.33.3 - 2026-09-13
 
 > **Many contracts could not be clicked in the contract log**, even though they

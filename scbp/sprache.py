@@ -4123,6 +4123,32 @@ TEXTE = {
                           'with 10 %% tolerance.'),
     's_bg_sig_anzahl':   ('%d mögliche Treffer', '%d possible matches'),
     's_bg_sig_genau':    ('genau', 'exact'),
+    # --- Raffinerien im Vergleich (Wunsch vom 13.09.2026) ---
+    # ⚠ Der Vorspann nennt die Nachteile ausdrücklich. Wer nur „hier stehen die
+    # Boni" liest, überfliegt die roten Zahlen — und genau die entscheiden.
+    's_rf_lead':         ('Was jede Raffinerie aus deinem Erz macht — Aufschlag '
+                          'und Abschlag. Eine Zeile ist ein Material, eine '
+                          'Spalte eine Raffinerie. Grün ist der beste Wert der '
+                          'Zeile, Rot kostet dich Ausbeute.',
+                          'What each refinery makes of your ore — bonus and '
+                          'penalty. One row is a material, one column a '
+                          'refinery. Green is the best value in the row, red '
+                          'costs you yield.'),
+    's_rf_material':     ('Material', 'Material'),
+    's_rf_legende':      ('Welche Station zu welcher Spalte gehört:',
+                          'Which station belongs to which column:'),
+    's_rf_keine':        ('Dafür fehlen die Bergbaudaten. Sie kommen mit dem '
+                          'Katalog — einmal auffrischen genügt.',
+                          'The mining data is missing for this. It comes with '
+                          'the catalogue — one refresh is enough.'),
+    's_rf_quelle':       ('Ein Wert, der nicht dasteht, ist 0 % — so hält es '
+                          'die Quelle. Raffinerien mit gleichem Ergebnis '
+                          'stehen in einer Spalte.',
+                          'A value that is not listed is 0 % — that is how the '
+                          'source has it. Refineries with the same result '
+                          'share a column.'),
+    's_bg_raff_alle':    ('Alle Raffinerien vergleichen',
+                          'Compare all refineries'),
     's_bg_raff_kopf':    ('Raffinerie — was am meisten herausholt',
                           'Refinery — where you get the most'),
     's_bg_raff_zeile':   ('%+d %%', '%+d %%'),
@@ -4502,6 +4528,7 @@ TEXTE = {
     's_wk_nur_bauplan':  ('nur über Bauplan', 'blueprint only'),
     'hf_herstellung':    ('Herstellung', 'Crafting'),
     'hf_bergbau':        ('Bergbau', 'Mining'),
+    'hf_raffinerien':    ('Raffinerien', 'Refineries'),
     # --- Gruppe „Handel" (v3.4.0) ---
     'hf_gruppe_handel':  ('Handel', 'Trading'),
     'hf_verkauf':        ('Verkauf', 'Selling'),

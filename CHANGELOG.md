@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Seite „Raffinerien":** alle Raffinerien nebeneinander, mit Aufschlag **und
+  Abschlag** je Material. Eine Zeile ist ein Material, eine Spalte eine
+  Raffinerie; grün ist der beste Wert der Zeile, rot kostet Ausbeute. Vom
+  Raffinerie-Kasten am Erz führt ein Knopf direkt hin
+
 ## v3.33.3 - 2026-09-13
 
 > **Im Auftrags-Protokoll ließen sich viele Aufträge nicht anklicken**, obwohl

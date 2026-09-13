@@ -19306,15 +19306,27 @@ def main():
         pruefe(_f197.came_from is None and not _f197.back_bar.winfo_manager(),
                'Gegenprobe: ein Reiterklick loescht den Rueckweg')
         # ⚠ Und jeder Sprung im Programm geht wirklich ueber `jump_to` —
-        # sonst bekommt genau einer als einziger keinen Rueckweg. Geprueft am
-        # Quelltext, nicht am Lauf: Die Wege liegen in fuenf Funktionen.
+        # sonst bekommt genau einer als einziger keinen Rueckweg.
+        #
+        # ⛔⛔ Hier stand `count('.jump_to(') == 6`. Das ist eine **Zaehlung,
+        # keine Pruefung** (Regel 5.2c): Sie wurde rot, als eine neue Seite
+        # dazukam — obwohl alles richtig war —, und sie waere gruen geblieben,
+        # wenn jemand einen Sprung auf `open_page` umgestellt und dafuer einen
+        # anderen ergaenzt haette. Die feste Zahl prueft das Wachstum des
+        # Programms, nicht die Sache.
+        #
+        # Gefragt wird jetzt das Gegenteil: **Ruft irgendeine Stelle
+        # `open_page` als Sprung?** Die Reiterleiste darf es (sie IST der
+        # Reiterklick), die Seiten nicht.
         _q197 = ''
         for _d197 in ('scbp/seiten.py', 'scbp/bestandsfenster.py'):
             with open(os.path.join(WURZEL, _d197), encoding='utf-8') as _fh197:
                 _q197 += _fh197.read()
-        pruefe(_q197.count('.jump_to(') == 6,
-               'alle sechs Seitenspruenge gehen ueber `jump_to` (%d)'
+        pruefe(_q197.count('.jump_to(') >= 6,
+               'die Seitenspruenge gehen ueber `jump_to` (%d gefunden)'
                % _q197.count('.jump_to('))
+        pruefe('.open_page(' not in _q197,
+               'und KEINE Seite springt an `jump_to` vorbei ueber `open_page`')
     finally:
         try:
             _w197.destroy()

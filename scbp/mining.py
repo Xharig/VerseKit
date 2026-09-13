@@ -552,6 +552,71 @@ def _readable(joined):
     return ' '.join(text.split())
 
 
+def refinery_matrix():
+    """Alle Raffinerien nebeneinander: `(spalten, zeilen)`.
+
+    * `spalten` = `[(namen, system)]` je Profil, eine Spalte
+    * `zeilen`  = `[(material, [wert je Spalte], bester_index)]`
+
+    ⭐ **Die Gegenrichtung zu `refineries_for()`.** Die beantwortet „welche
+    Raffinerie für DIESES Erz" — gefragt wurde aber das Umgekehrte: „welche
+    ist für meine Materialien insgesamt die beste". Dafür braucht man alle
+    nebeneinander, und zwar **samt der Nachteile**: Gemessen am Stand
+    4.10.0 sind **40 von 108** Werten negativ, von −9 % bis +13 %. Eine
+    Tabelle, die nur die Boni zeigt, empfiehlt eine Station, die beim
+    nächsten Erz draufzahlt.
+
+    ⚠ **Was nicht im Profil steht, ist 0 %**, nicht „unbekannt" — so hält es
+    die Quelle, und so steht es auch in deren Tabelle.
+
+    ⚠ Raffinerien mit **demselben Profil** werden zu einer Spalte gebündelt:
+    20 Stationen teilen sich 10 Profile, sonst stünde jede Spalte doppelt.
+
+    ⚠ `bester_index` ist `None`, wenn alle Werte gleich sind — dann gibt es
+    nichts hervorzuheben, und eine Markierung wäre eine erfundene Empfehlung.
+    """
+    current = load()
+    profiles = current.get('refineryProfiles') or {}
+    if not profiles:
+        return [], []
+
+    # Die Stationen je Profil bündeln — in fester Reihenfolge, damit die
+    # Spalten bei jedem Aufbau gleich stehen.
+    bundled = {}
+    for r in current.get('refineries') or []:
+        pid = r.get('profileId')
+        if pid not in profiles:
+            continue
+        entry = bundled.setdefault(pid, {'namen': [], 'system': r.get('system')})
+        entry['namen'].append(r.get('name') or '')
+    if not bundled:
+        return [], []
+    order = sorted(bundled, key=lambda p: (bundled[p]['system'] or '',
+                                           sorted(bundled[p]['namen'])))
+    columns = [(sorted(bundled[p]['namen']), bundled[p]['system'])
+               for p in order]
+
+    # Alle Materialien, die überhaupt vorkommen.
+    materials = set()
+    for values in profiles.values():
+        materials.update((values or {}).keys())
+
+    rows = []
+    for material in sorted(materials, key=lambda s: s.lower()):
+        werte = []
+        for pid in order:
+            roh = (profiles.get(pid) or {}).get(material, 0)
+            try:
+                werte.append(int(roh))
+            except (TypeError, ValueError):
+                werte.append(0)
+        bester = None
+        if werte and len(set(werte)) > 1:
+            bester = werte.index(max(werte))
+        rows.append((material, werte, bester))
+    return columns, rows
+
+
 def refineries_for(material):
     """Welche Raffinerie holt aus diesem Erz am meisten heraus?
 

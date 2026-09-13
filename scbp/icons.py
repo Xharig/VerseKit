@@ -290,7 +290,7 @@ BUTTON_NAMES = (
     'einrichtung', 'neustart',
     'herunterladen',
     'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen', 'zeit', 'hangar',
-    'wunschliste', 'farmliste', 'zerlegen', 'einkaufsliste',
+    'wunschliste', 'farmliste', 'zerlegen', 'einkaufsliste', 'raffinerie',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',

@@ -131,6 +131,7 @@ def _bauer_tabelle():
         'zerlegen':    _zerlegen,
         'herstellung': _herstellung,
         'bergbau':     _bergbau,
+        'raffinerien': _raffinerien,
         'lager':       _lager,
         'verkauf':     _verkauf,
         'handelslager': _handelslager,
@@ -9819,6 +9820,102 @@ def _bergbau(fenster, rahmen):
     _body_text(innen, t('s_bg_mehr_info'), fenster.f_small, fill='x')
 
 
+def _raff_kurz(namen):
+    """Aus „ARC-L1 Wide Forest Station" wird „ARC-L1".
+
+    ⚠ Dieselbe Regel wie im Raffinerie-Kasten der Bergbau-Seite. Zwei
+    Schreibweisen für dieselbe Station wären ein Widerspruch im eigenen
+    Programm — und genau die sind heute dreimal teuer geworden.
+    """
+    kuerzel = list(dict.fromkeys((n or '').split(' ')[0] for n in namen if n))
+    return kuerzel[0] if kuerzel else '—'
+
+
+def _raffinerien(fenster, rahmen):
+    """Alle Raffinerien nebeneinander — Boni **und** Nachteile.
+
+    ⭐ Gewünscht am 13.09.2026: „eine Seite, wo er sehen kann, welche Boni alle
+    Raffinerien geben, in einer Tabelle, damit er entscheiden kann, welche die
+    beste ist, wo er für unterschiedliche Materialien das beste Ergebnis
+    bekommt" — und ausdrücklich **mit den Nachteilen**.
+
+    ⚠⚠ **Die Nachteile sind der Kern, nicht die Zugabe.** 40 der 108 Werte
+    sind negativ (−9 % bis +13 %). Eine Tabelle, die nur die Boni zeigt,
+    empfiehlt eine Station, die beim nächsten Erz draufzahlt — und das ist
+    schlechter als gar keine Empfehlung.
+
+    ⚠ **Materialien als Zeilen, Raffinerien als Spalten.** So liest man eine
+    Zeile für „welche Station für dieses Erz" und eine Spalte für „was taugt
+    diese Station überhaupt". Andersherum stünden 24 Zahlenspalten
+    nebeneinander, und niemand fände die eigene Zeile wieder.
+
+    ⚠ Der Spaltenkopf trägt nur das Kürzel (`ARC-L1`) — ausgeschrieben sind es
+    bis zu vier Stationen je Spalte. Die vollen Namen stehen unter der Tabelle.
+    """
+    from . import mining as berg_modul
+
+    _heading(fenster, rahmen, t('hf_raffinerien'), t('s_rf_lead'))
+    innen = _scroll_area(rahmen)
+
+    try:
+        spalten, zeilen = berg_modul.refinery_matrix()
+    except Exception as ausnahme:
+        fehler.merken('seiten.raffinerien', ausnahme)
+        spalten, zeilen = [], []
+
+    if not spalten or not zeilen:
+        # ⚠ Kein leerer Bildschirm: Ohne Bergbaudaten ist die Seite nicht
+        # kaputt, sie hat nur noch nichts. Das gehört dagestanden.
+        _body_text(innen, t('s_rf_keine'), fenster.f_base, fill='x')
+        return
+
+    # ⚠ Die Tabelle bekommt eine **eigene** waagerechte Rollfläche. Zehn
+    # Spalten passen bei „sehr groß" nicht mehr nebeneinander, und der
+    # Seitenkörper darf nie waagerecht rollen (Projektregel).
+    karte = _card(innen, pady=(0, 12))
+
+    kopf = tk.Frame(karte, bg=SURFACE)
+    kopf.pack(fill='x', padx=12, pady=(10, 4))
+    tk.Label(kopf, text=t('s_rf_material'), bg=SURFACE, fg=SUB,
+             font=fenster.f_small, anchor='w', width=20).pack(side='left')
+    for namen, _system in spalten:
+        tk.Label(kopf, text=_raff_kurz(namen), bg=SURFACE, fg=SUB,
+                 font=fenster.f_small, width=8, anchor='e').pack(side='left')
+
+    for material, werte, bester in zeilen:
+        z = tk.Frame(karte, bg=SURFACE)
+        z.pack(fill='x', padx=12, pady=1)
+        tk.Label(z, text=material, bg=SURFACE, fg=FG, font=fenster.f_small,
+                 anchor='w', width=20).pack(side='left')
+        for i, wert in enumerate(werte):
+            # ⚠ Drei Zustände, drei Farben: Gewinn, Verlust, weder noch.
+            # Eine 0 grau zu lassen ist wichtig — sie ist keine Empfehlung.
+            if wert > 0:
+                farbe = ACCENT if i == bester else FG
+            elif wert < 0:
+                farbe = RED_PALE
+            else:
+                farbe = SUB
+            tk.Label(z, text=('%+d' % wert) if wert else '·',
+                     bg=SURFACE, fg=farbe, font=fenster.f_small,
+                     width=8, anchor='e').pack(side='left')
+
+    _body_text(innen, t('s_rf_legende'), fenster.f_small, fill='x')
+    for namen, system in spalten:
+        z = tk.Frame(innen, bg=BG)
+        z.pack(fill='x', pady=1)
+        tk.Label(z, text=_raff_kurz(namen), bg=BG, fg=FG,
+                 font=fenster.f_small, anchor='w', width=12).pack(side='left')
+        tk.Label(z, text=system or '', bg=BG, fg=SUB, font=fenster.f_small,
+                 anchor='w', width=10).pack(side='left')
+        tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
+                 font=fenster.f_small, anchor='w').pack(side='left',
+                                                        fill='x', expand=True)
+
+    _body_text(innen, t('s_rf_quelle'), fenster.f_small, fill='x',
+               pady=(12, 0))
+
+
 def _berg_kopfzeile(fenster, eltern, links, rechts, farbe, aufklappen):
     zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
     zeile.pack(fill='x', pady=1)
@@ -9941,6 +10038,16 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                              side='right', padx=12)
             _body_text(block, t('s_bg_raff_spanne') % spanne,
                         fenster.f_small, fill='x')
+        # ⭐ **Von hier zur ganzen Tabelle.** Der Kasten beantwortet „welche
+        # Raffinerie für DIESES Erz"; wer mehrere Erze im Laderaum hat, will
+        # die Gegenrichtung. Ausdrücklich so gewünscht am 13.09.2026:
+        # „mit Verlinkung von den Raffinerien von der Bergbau-Seite".
+        #
+        # ⚠ Über `jump_to`, nicht `open_page` — nur so steht der Rückweg über
+        # der Zielseite (seit v3.32.0).
+        _button(fenster, block, t('s_bg_raff_alle'),
+                lambda: fenster.jump_to('raffinerien')).pack(
+                    anchor='w', padx=12, pady=(6, 10))
 
 
 def _methodenblock(fenster, eltern):

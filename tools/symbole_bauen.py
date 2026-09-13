@@ -192,6 +192,15 @@ KNOPF_SYMBOLE = {
     # einer Anleitung für genau dieses Programm ist das ein Bruch.
     'blitz':        'zap',
     'herkunft':     'compass',
+    # ⚠ Das Gebäude, nicht der Vorgang. Erwogen und verworfen: `funnel`
+    # (Trichter — das ist das Verarbeiten, nicht der Ort), `flask-conical`
+    # (Chemie — die Seite vergleicht Stationen, nicht Verfahren) und `blend`
+    # (Mischen — eine Raffinerie trennt, sie mischt nicht).
+    #
+    # ⚠ Unterscheidbar von allem, was in derselben Gruppe steht: `compass`
+    # (Bergbau), `zap` (Herstellung), `package` (Lager), `store` (Läden),
+    # `warehouse` (Handelslager).
+    'raffinerie':   'factory',
     'kuerzel':      'tag',
     'ton':          'volume-2',
     'vordergrund':  'pin',
