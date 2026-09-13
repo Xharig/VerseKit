@@ -2229,6 +2229,16 @@ TEXTE = {
                               '**Reputation and cooldown in the contract texts** — '
                               'asked twice, persistently, until they were not just '
                               'there but actually noticeable.'),
+    's_dk_bushwick_idee3':   ('**Der Rückweg nach einem Seitensprung** — wer in '
+                              'der Bauplan-Liste einen Eintrag anklickt, landet '
+                              'in der Herstellung und kam von dort nur über die '
+                              'Seitenleiste zurück, also ohne Suchbegriff und '
+                              'ohne Filter. Jetzt steht dort ein Knopf zurück.',
+                              '**The way back after a page jump** — clicking an '
+                              'entry in the blueprint list takes you to crafting, '
+                              'and the only way back was the sidebar, which lost '
+                              'your search and your filter. Now there is a button '
+                              'that takes you back.'),
     's_dk_zwaersch_idee':    ('**Was steckt in einem Wrack?** Der Wunsch, vor '
                               'dem Aussteigen zu wissen, ob sich das Bergen '
                               'lohnt — daraus ist der ganze Anschluss an die '
@@ -2842,6 +2852,12 @@ TEXTE = {
     # ⚠ Zwei gleich aussehende Fenster nebeneinander sind eine Falle: Man
     # verstellt etwas in der falschen Fassung und sucht dann den Fehler.
     's_testfassung':     ('⚠ TESTFASSUNG', '⚠ TEST BUILD'),
+    # ⚠ Der Rueckweg nach einem Seitensprung. Wer in der Bauplan-Liste auf
+    # einen Eintrag klickt, landet in der Herstellung — und kam von dort bis
+    # zum 13.09.2026 nur ueber die Seitenleiste zurueck, also ohne den Filter,
+    # mit dem er losgelaufen war. Gewuenscht von Bushwick.
+    # Der Platzhalter ist der Name der Seite, von der man kam.
+    'hf_zurueck_zu':     ('← Zurück zu %s', '← Back to %s'),
     # --- Seite „Herstellung" -------------------------------------------------
     's_he_lead':         ('Was ein Gegenstand zum Herstellen braucht. Klick auf '
                           'eine Zeile zeigt die Zutaten.',

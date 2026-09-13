@@ -5478,7 +5478,8 @@ def _danke(fenster, rahmen):
              t('s_dk_morkhan_bugs')),
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
             ('Bushwick4712', 'KRT',
-             t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2'),
+             t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2')
+             + '\n\n' + t('s_dk_bushwick_idee3'),
              t('s_dk_bushwick_bugs')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
@@ -5576,7 +5577,7 @@ def _ueber(fenster, rahmen):
         _knopf(fenster, reihe, t('s_ub_nachsehen'),
                lambda: _jetzt_nachsehen(fenster)),
         _knopf(fenster, reihe, t('hf_wasistneu'),
-               lambda: fenster.open_page('wasistneu')),
+               lambda: fenster.jump_to('wasistneu')),
         _knopf(fenster, reihe, t('s_ub_einrichtung'), fenster._open_wizard),
     ])
 
@@ -6535,7 +6536,7 @@ def _zum_auftrag(fenster, titel):
             fenster.say(t('s_fo_lohnt_nichts'))
             return
 
-        fenster.open_page('liste')
+        fenster.jump_to('liste')
         seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zum_auftrag(titel):
             return
@@ -6547,7 +6548,7 @@ def _zum_auftrag(fenster, titel):
 def _zur_art(fenster, art):
     """Vom Bauplan-Fortschritt zur Liste, gefiltert auf diese Kategorie."""
     try:
-        fenster.open_page('liste')
+        fenster.jump_to('liste')
         seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zur_art(art):
             return
@@ -6559,7 +6560,7 @@ def _zur_art(fenster, art):
 def _zum_bauplan(fenster, name):
     """Von der Herstellung zur Bauplan-Liste — mit aufgeschlagener Herkunft."""
     try:
-        fenster.open_page('liste')
+        fenster.jump_to('liste')
         seite = getattr(fenster, 'stock_page', None)
         if seite is not None and seite.zum_bauplan(name):
             return
@@ -8854,7 +8855,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
             def zum_bergbau(_e=None, name=rohstoff):
                 fenster.mining_search = name
-                fenster.open_page('bergbau')
+                fenster.jump_to('bergbau')
 
             roh_lbl.bind('<Button-1>', zum_bergbau)
             menge_lbl = tk.Label(z, text='', bg='#0c1017', fg=SUB,

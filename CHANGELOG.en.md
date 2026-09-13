@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **A button back when a click takes you to another page.** Clicking an entry in
+  the blueprint list takes you to crafting — and the only way back was the
+  sidebar, which lost the search term and the filter you had set. The target page
+  now shows "← Back to …" at the top. This covers all six such jumps, not just
+  this one. Reported by Bushwick
+
+### Fixed
+
+- **The green padlock follows the overlay.** When clicks are passed through to
+  the game, a small separate window carries the padlock above the bar. Moving or
+  collapsing the overlay left it where it was until something else caught it up.
+  It now moves along immediately
+- **The overlay no longer fades out while the main window is in front of it.**
+  The check for an open window had been looking in the wrong place for a while
+  and therefore never found one
+
 ## v3.31.2 - 2026-09-13
 
 > **Axes & Curves works again.** The page still showed the buttons for your

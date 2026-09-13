@@ -2102,6 +2102,22 @@ class MainWindow:
 
         self.content = tk.Frame(self.root, bg=BG)
         self.content.pack(side='right', fill='both', expand=True)
+        # ⭐ **Der Rückweg nach einem Seitensprung** (13.09.2026, Bushwick).
+        # Wer in der Bauplan-Liste einen Eintrag anklickt, landet in der
+        # Herstellung — und kam von dort nur über die Seitenleiste zurück,
+        # also ohne Suchbegriff und ohne Filter, mit denen er losgelaufen war.
+        #
+        # ⚠ Es sind **sechs** solcher Sprünge, nicht einer (Liste→Herstellung,
+        # Auftrag→Liste dreimal, Rohstoff→Bergbau, →Was ist neu). Ein Knopf nur
+        # auf der Herstellungs-Seite hätte die anderen fünf stehen lassen —
+        # deshalb sitzt er hier, über **allen** Seiten, und wird von
+        # `jump_to()` gesetzt.
+        #
+        # ⚠ Nicht dauerhaft gepackt: Solange kein Sprung stattfand, nimmt er
+        # keinen Platz weg. Beim Zeigen mit `before=` über die aktuelle Seite,
+        # sonst landet er beim zweiten Mal darunter.
+        self.back_bar = tk.Frame(self.content, bg=BG)
+        self.came_from = None
 
         g_bp = self._group(t('hf_gruppe_bp'), 'bauplaene')
         self._tab('liste', 'liste', t('hf_liste'), g_bp)
@@ -2396,48 +2412,6 @@ class MainWindow:
             geklappt = False
         if not geklappt:
             self.say(t('s_ub_auf_nein') % adresse)
-
-    def _start_game(self):
-        """Star Citizen aus dem Werkzeug heraus hochfahren."""
-        from . import pfade as pfade_start
-        self.say(t('s_sp_start_lauft'))
-        try:
-            ok, grund = pfade_start.spiel_starten()
-        except Exception as ausnahme:
-            ok, grund = False, str(ausnahme)
-        if not ok:
-            self.say(t('s_sp_start_nein', grund))
-
-        # --- Star Citizen starten ---------------------------------------
-        # ⚠ Der Knopf stand vorher auf der Seite „Auftragstexte", also dort, wo
-        # es um Bauplan-Angaben im Spiel geht. Selbst der Autor fand ihn nicht
-        # wieder. Danach zog er ins Overlay; sichtbar war er dort nur, solange
-        # das Overlay eingeblendet ist.
-        #
-        # Gemeldet am 26.08.2026: „den SC Starten Button sollten wir über für
-        # Fortgeschrittene packen in dem markanten grün wie jetzt auch, da sieht
-        # man ihn sofort." Genau hier ist er auf **jeder** Seite zu sehen, ohne
-        # dass man ihn suchen muss.
-        #
-        # ⚠ `side='bottom'` staffelt von unten nach oben: Was **spaeter**
-        # gepackt wird, sitzt weiter oben. Dieser Knopf kommt also nach dem
-        # Klappbereich und landet dadurch **ueber** ihm.
-        #
-        # Nur bauen, wenn wirklich ein Startweg gefunden wurde — unter Windows
-        # der RSI Launcher, unter Linux der lug-helper. Ein Knopf, der nichts
-        # tut, waere schlimmer als keiner.
-        try:
-            hat_starter = bool(pfade.spielstarter())
-        except Exception:
-            hat_starter = False
-        if hat_starter:
-            rahmen_start = tk.Frame(self.sidebar_foot, bg=SURFACE)
-            rahmen_start.pack(side='bottom', fill='x', padx=12, pady=(8, 2))
-            self.play_button = round_button(
-                rahmen_start, t('s_sp_start_knopf'),
-                self._start_game, self.f_small,
-                SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
-            self.play_button.pack(fill='x')
 
     def _start_game(self):
         """Star Citizen aus dem Werkzeug heraus hochfahren."""
@@ -2843,8 +2817,14 @@ class MainWindow:
                 self._group_toggle(name, auf=True)
                 return
 
-    def open_page(self, kennung):
-        """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen."""
+    def open_page(self, kennung, zurueck_zu=None):
+        """Eine Seite zeigen — und beim ersten Mal ihren Inhalt bauen.
+
+        `zurueck_zu` setzt **nur** `jump_to()`. Ein Klick in der Seitenleiste
+        kommt ohne, und das loescht den Rueckweg — richtig so: Wer selbst
+        weiterblaettert, will nicht dorthin zurueck, wo ein alter Sprung
+        einmal begann.
+        """
         # ⚠⚠ **Ein Seitenwechsel ist die deutlichste Nutzeraktion überhaupt.**
         # Ohne diese Zeile lief der Vorbau munter weiter, während die gerade
         # angeklickte Seite noch gezeichnet wurde: Sie meldete `steht (3 ms)`,
@@ -2915,6 +2895,8 @@ class MainWindow:
             self.pages[self.current].pack_forget()
         self.pages[kennung].pack(fill='both', expand=True)
         self.current = kennung
+        self.came_from = zurueck_zu
+        self._back_bar_update()
         fehler.spur('Seite %s: steht (%.0f ms)'
                     % (kennung, (time.perf_counter() - _beginn) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die
@@ -2955,6 +2937,65 @@ class MainWindow:
                 # zu — also bei jedem Nutzer sofort.
                 zeile, strich, z, b, _ = entry
                 self.buttons[kennung] = (zeile, strich, z, b, None)
+
+    def jump_to(self, kennung):
+        """Auf eine andere Seite springen — und den Rückweg anbieten.
+
+        ⭐ **Der Unterschied zu `open_page()`.** Ein Klick in der Seitenleiste
+        ist eine Entscheidung: Der Mensch weiß, wo er hinwill, und findet auch
+        zurück. Ein **Sprung** ist etwas anderes — die Seite wechselt, weil er
+        auf einen Eintrag geklickt hat, und danach steht er woanders, als er
+        wollte. Gewünscht von Bushwick (13.09.2026) für den Weg
+        Bauplan-Liste → Herstellung.
+
+        Jeder Sprung im Programm geht deshalb hier durch, nicht direkt über
+        `open_page()`. Wer einen neuen baut, nimmt diese Methode — sonst
+        bekommt genau sein Sprung als einziger keinen Rückweg.
+        """
+        self.open_page(kennung, zurueck_zu=self.current)
+
+    def _back_jump(self):
+        """Zurück zu der Seite, von der der Sprung ausging."""
+        ziel = self.came_from
+        if ziel and ziel in self.pages:
+            self.open_page(ziel)
+
+    def _back_bar_update(self):
+        """Die Rückweg-Leiste zeigen oder wegnehmen.
+
+        ⚠ **Der Knopf wird jedes Mal neu gebaut, nicht beschriftet.**
+        `round_button` malt den Text auf eine Leinwand und misst die Breite
+        dabei einmal — ein späteres `itemconfigure(text=…)` ließe den Rahmen
+        auf der alten Breite stehen, und bei „Zurück zu Aufträge" neben
+        „Zurück zu Bauplan-Liste" fällt das sofort auf. Dasselbe Muster wie
+        beim schwebenden Schloss im Overlay.
+        """
+        for kind in self.back_bar.winfo_children():
+            kind.destroy()
+        ziel = self.came_from
+        if not ziel or ziel == self.current or ziel not in self.buttons:
+            self.back_bar.pack_forget()
+            return
+        eintrag = self.buttons.get(ziel)
+        name = ziel
+        try:
+            if eintrag and eintrag[3] is not None:
+                name = eintrag[3].cget('text')
+        except tk.TclError:
+            pass
+        knopf = round_button(
+            self.back_bar, t('hf_zurueck_zu') % name, self._back_jump,
+            self.f_small, BG, SURFACE, BORDER, SUB,
+            radius=8, polster=(12, 5))
+        knopf.pack(side='left', padx=14, pady=(10, 0))
+        # ⚠ `before=` ist Pflicht. Die Seiten werden bei jedem Wechsel neu
+        # gepackt; ohne diesen Bezug landet die Leiste beim zweiten Mal
+        # **unter** der Seite und ist aus dem Bild.
+        try:
+            self.back_bar.pack(side='top', fill='x',
+                               before=self.pages[self.current])
+        except (tk.TclError, KeyError):
+            self.back_bar.pack(side='top', fill='x')
 
     def _errors_pending(self):
         """Wurde seit dem Start etwas mitgeschrieben? Faerbt das Reiter-Symbol.

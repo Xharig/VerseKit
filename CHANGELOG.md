@@ -8,6 +8,25 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Ein Knopf zurück, wenn dich ein Klick auf eine andere Seite bringt.** Wer in
+  der Bauplan-Liste einen Eintrag anklickt, landet in der Herstellung — und kam
+  von dort bisher nur über die Seitenleiste zurück, also ohne den Suchbegriff und
+  ohne den Filter, mit denen er losgelaufen war. Oben auf der Zielseite steht
+  jetzt „← Zurück zu …". Gilt für alle sechs solcher Sprünge, nicht nur für
+  diesen einen. Gemeldet von Bushwick
+
+### Behoben
+
+- **Das grüne Schloss folgt dem Overlay.** Wenn Klicks ins Spiel durchgereicht
+  werden, liegt ein eigenes kleines Fenster mit dem Schloss über der Leiste.
+  Beim Verschieben oder Einklappen des Overlays blieb es stehen, wo es vorher
+  war, bis ein anderer Anlass es wieder einfing. Jetzt zieht es sofort mit
+- **Das Overlay blendet nicht mehr ab, während das große Fenster davorsteht.**
+  Die Abfrage, ob noch ein Fenster offen ist, sah seit Längerem an der falschen
+  Stelle nach und fand deshalb nie eines
+
 ## v3.31.2 - 2026-09-13
 
 > **Achsen & Kurven geht wieder.** Auf der Seite standen zwar noch die Knöpfe

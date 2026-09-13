@@ -1859,6 +1859,7 @@ class Overlay:
         self._letzte_lage = ''
         self._anfasser = None
         self._schloss = None
+        self._schloss_folgt = False    # Merker fuer `_schloss_lage_folgen`
         # Das Schloss zieht mit, egal wer das Durchreichen umschaltet — hier im
         # Overlay oder drüben in den Einstellungen.
         overlay.SCHLOSS_RUECKRUF[0] = self._schloss_anwenden
@@ -2165,6 +2166,12 @@ class Overlay:
         # Prüfung sofort zurück.
         self.root.bind('<Configure>', self._grip_nachziehen, add='+')
         self.root.bind('<Map>', self._grip_nachziehen, add='+')
+        # ⚠⚠ **Und das schwebende Schloss genauso** (13.09.2026). Es ist ein
+        # eigenes Fenster und wandert nicht von allein mit — siehe
+        # `_schloss_lage_folgen`. `add='+'` ist Pflicht, sonst verdrängt diese
+        # Bindung die Zeile darüber.
+        self.root.bind('<Configure>', self._schloss_lage_folgen, add='+')
+        self.root.bind('<Map>', self._schloss_lage_folgen, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
         notice.attach(self.grip, lambda: sprache.t('hinweis_groesse'))
 
@@ -3840,6 +3847,59 @@ class Overlay:
         except Exception:
             pass
 
+    def _schloss_lage_folgen(self, _e=None):
+        """Das schwebende Schloss dem Knopf hinterherziehen — nur die Lage.
+
+        ⚠⚠ **Warum das zusätzlich zu `_schloss_nachziehen()` nötig ist.**
+        Jenes baut das Fenster komplett neu auf; es läuft deshalb nur an
+        wenigen, ausgesuchten Stellen. Die Lage des Knopfes ändert sich aber
+        bei **jedem** `<Configure>`: Wer das Overlay zieht, es in eine Ecke
+        springen lässt oder ein- und ausklappt, verschiebt die Leiste — und
+        das Schloss ist ein eigenes Fenster und wandert nicht von allein mit.
+
+        Bis zum 13.09.2026 gab es dafür keinen Rückweg: Nach dem letzten
+        ausdrücklichen Aufruf blieb das Schloss stehen, wo es war, bis der
+        nächste Anlass kam. Genau das ist die Sorte Versatz, die man sieht,
+        aber nicht nachmisst — gemeldet als „im eingeklappten Zustand sitzt
+        das Schloss nicht ganz genau da, wo es sitzen sollte".
+
+        Diese Methode baut **nichts** neu, sie setzt nur `geometry()`. Damit
+        ist sie billig genug, um an `<Configure>` zu hängen.
+
+        ⚠ Über `after_idle` gesammelt: Tk schickt beim Ziehen Dutzende
+        `<Configure>` hintereinander, und die Maße stimmen erst, wenn die
+        Ereignisschleife durch ist.
+        """
+        try:
+            if self._schloss is None or not self._schloss.winfo_exists():
+                return
+            if getattr(self, '_schloss_folgt', False):
+                return                       # schon vorgemerkt
+            self._schloss_folgt = True
+            self.root.after_idle(self._schloss_lage_setzen)
+        except tk.TclError:
+            pass
+
+    def _schloss_lage_setzen(self):
+        """Die gemerkte Nachführung ausführen — ein `geometry()`, sonst nichts."""
+        self._schloss_folgt = False
+        try:
+            knopf = getattr(self, 'schloss_lbl', None)
+            if (self._schloss is None or not self._schloss.winfo_exists()
+                    or knopf is None or not knopf.winfo_ismapped()
+                    or knopf.winfo_width() <= 1 or knopf.winfo_height() <= 1):
+                return
+            soll = '%dx%d+%d+%d' % (max(knopf.winfo_width(), 8),
+                                    max(knopf.winfo_height(), 8),
+                                    knopf.winfo_rootx() + self.SCHLOSS_FEIN_X,
+                                    knopf.winfo_rooty())
+            # ⚠ Nur setzen, wenn sich wirklich etwas ändert — ein `geometry()`
+            # bei jedem Leerlauf liesse das Fenster flackern.
+            if self._schloss.geometry() != soll:
+                self._schloss.geometry(soll)
+        except tk.TclError:
+            pass
+
     def _nachfassen(self, versuch):
         """Die Lage des Schlosses noch einmal setzen, sobald die Leiste steht.
 
@@ -4122,16 +4182,24 @@ class Overlay:
         if getattr(self, '_maus_drauf', False):
             self._popup_uhr = self.root.after(800, self._popup_verstecken)
             return
-        # Solange ein Fenster davor offen ist, bleibt auch das Overlay stehen —
-        # sonst verschwindet es unter den Händen, während man die Liste liest.
-        for name in ('listenfenster', 'hauptfenster'):
-            fenster = getattr(self, name, None)
-            try:
-                if fenster is not None and fenster.root.winfo_exists():
-                    self._popup_uhr = self.root.after(2000, self._popup_verstecken)
-                    return
-            except (tk.TclError, AttributeError):
-                pass
+        # Solange das grosse Fenster davor offen ist, bleibt auch das Overlay
+        # stehen — sonst verschwindet es unter den Händen, während man die
+        # Liste liest.
+        #
+        # ⛔⛔ Hier stand bis zum 13.09.2026 `for name in ('listenfenster',
+        # 'hauptfenster')`. **Beide Felder gibt es auf dieser Klasse nicht** —
+        # das Fenster heisst `_fenster` (siehe `fenster_oeffnen`). `getattr`
+        # lieferte also immer `None`, die Schleife lief zweimal leer, und das
+        # Overlay blendete beim Verlassen nach 800 ms ab, obwohl die
+        # Bauplan-Liste offen davor stand. Kein Fehler, keine Meldung — der
+        # stille Ausfall, gegen den es `tote_namen()` gibt.
+        fenster = getattr(self, '_fenster', None)
+        try:
+            if fenster is not None and fenster.root.winfo_exists():
+                self._popup_uhr = self.root.after(2000, self._popup_verstecken)
+                return
+        except (tk.TclError, AttributeError):
+            pass
         try:
             # Die Lage merken, bevor das Fenster verschwindet — danach meldet Tk
             # für ein verstecktes Fenster keine brauchbaren Werte mehr, und die

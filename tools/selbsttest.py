@@ -3845,8 +3845,15 @@ def main():
         #   genauso tot wie der Rest. Also liegt es passgenau darueber. Diese
         #   Pruefung haelt fest, dass die Lage vom Leisten-Knopf kommt und nicht
         #   wieder in die Ecke rutscht.
+        # ⚠ **Genau diese eine Methode ausschneiden, nicht bis zur
+        # uebernaechsten.** Bis zum 13.09.2026 lief der Schnitt bis
+        # `def _leistenschloss` — also ueber `_schloss_nachziehen` hinweg. Kam
+        # dort eine Methode dazu, die `SCHLOSS_FEIN_X` zu Recht benutzt, wurde
+        # die Pruefung rot, obwohl der Aufblend-Betrieb unveraendert war. Ein
+        # Bereich, der fremde Nachbarn einschliesst, prueft nicht die Sache,
+        # sondern die Reihenfolge im Quelltext.
         _ank44 = _q44.index('def _schloss_anwenden')
-        _bis44 = _q44.index('def _leistenschloss')
+        _bis44 = _q44.index('\n    def ', _ank44 + 1)
         _rumpf44 = _q44[_ank44:_bis44]
         pruefe('knopf.winfo_rootx()' in _rumpf44,
                'das schwebende Schloss nimmt die Lage vom Leisten-Knopf')
@@ -19026,6 +19033,45 @@ def main():
                 _bekannt195.add(_k195.attr)
             elif isinstance(_k195, _ast193.Name):
                 _bekannt195.add(_k195.id)
+    # ⛔⛔ **Die Luecke, die diese Pruefung selbst hatte (13.09.2026).**
+    # Sie sah nur die Zeichenkette, die DIREKT im Aufruf steht. Genau so
+    # stand es aber nicht da:
+    #
+    #     for name in ('listenfenster', 'hauptfenster'):
+    #         fenster = getattr(self, name, None)
+    #
+    # Das zweite Argument ist eine **Variable** — die Pruefung sprang ab,
+    # und beide Namen zeigten seit Monaten ins Leere (es heisst `_fenster`).
+    # Die Schleife lief zweimal leer, das Overlay blendete beim Verlassen
+    # ab, obwohl die Bauplan-Liste offen davorstand. Kein Fehler, keine
+    # Meldung — der stille Ausfall, den diese Pruefung verhindern soll.
+    #
+    # Deshalb werden Namen aus einer **festen Aufzaehlung** mit aufgeloest —
+    # aber nur fuer Aufrufe **innerhalb genau dieser Schleife**.
+    #
+    # ⚠ Ein erster Versuch fuehrte das Register projektweit je Variablenname:
+    # `for name in (...)` gibt es an sieben Stellen, und `getattr(x, name)`
+    # bekam dann die Namen aller sieben. Ergebnis 259 Fehlalarme statt einem
+    # Befund. Ein Register, das nicht zum Gueltigkeitsbereich passt, ist
+    # keine schaerfere Pruefung, sondern Rauschen.
+    def _aus_schleife195(_aufruf, _baum):
+        """Die Zeichenketten, die diese `getattr`-Variable annehmen kann."""
+        _heraus = set()
+        for _f195 in _ast193.walk(_baum):
+            if not (isinstance(_f195, _ast193.For)
+                    and isinstance(_f195.target, _ast193.Name)
+                    and _f195.target.id == _aufruf.args[1].id
+                    and isinstance(_f195.iter,
+                                   (_ast193.Tuple, _ast193.List))):
+                continue
+            if not any(_x is _aufruf for _y in _f195.body
+                       for _x in _ast193.walk(_y)):
+                continue                       # Aufruf steht nicht darin
+            _heraus |= {_e195.value for _e195 in _f195.iter.elts
+                        if isinstance(_e195, _ast193.Constant)
+                        and isinstance(_e195.value, str)}
+        return _heraus
+
     _tot195 = []
     for _w195, _b195 in _baeume195.items():
         for _k195 in _ast193.walk(_b195):
@@ -19033,32 +19079,36 @@ def main():
                     and isinstance(_k195.func, _ast193.Name)
                     and _k195.func.id in ('getattr', 'hasattr', 'setattr')):
                 continue
-            if (len(_k195.args) < 2
-                    or not isinstance(_k195.args[1], _ast193.Constant)
-                    or not isinstance(_k195.args[1].value, str)):
+            if len(_k195.args) < 2:
                 continue
-            _name195 = _k195.args[1].value
-            # Nur einfache Bezeichner — `getattr(x, 'a.b')` gibt es nicht.
-            if not _name195.isidentifier():
-                continue
-            # ⚠ **Acht Namen, die FREMDEN Bibliotheken gehoeren.** Sie stehen
-            # in keiner Quelldatei dieses Projekts und wuerden die Pruefung
-            # sonst dauerhaft rot faerben. Gemessen: 25 Fundstellen, aber nur
-            # diese acht Namen — eine geschlossene Menge, kein Anfang einer
-            # wachsenden Ausnahmeliste.
-            if _name195 in ('_MEIPASS',              # PyInstaller
-                            'num',                   # tkinter-Ereignis
-                            '__len__',               # Python selbst
-                            'GetWindowLongPtrW',     # Windows-API
-                            'SetWindowLongPtrW',
-                            'DETACHED_PROCESS',      # subprocess-Schalter
-                            'CREATE_NO_WINDOW',
-                            'CREATE_NEW_PROCESS_GROUP'):
-                continue
-            if _name195 not in _bekannt195:
-                _tot195.append('%s:%d  %s(…, %r)'
-                               % (os.path.relpath(_w195, WURZEL),
-                                  _k195.lineno, _k195.func.id, _name195))
+            _kandidaten195 = []
+            if (isinstance(_k195.args[1], _ast193.Constant)
+                    and isinstance(_k195.args[1].value, str)):
+                _kandidaten195 = [_k195.args[1].value]
+            elif isinstance(_k195.args[1], _ast193.Name):
+                _kandidaten195 = sorted(_aus_schleife195(_k195, _b195))
+            for _name195 in _kandidaten195:
+                # Nur einfache Bezeichner — `getattr(x, 'a.b')` gibt es nicht.
+                if not _name195.isidentifier():
+                    continue
+                # ⚠ **Acht Namen, die FREMDEN Bibliotheken gehoeren.** Sie
+                # stehen in keiner Quelldatei dieses Projekts und wuerden die
+                # Pruefung sonst dauerhaft rot faerben. Gemessen: 25
+                # Fundstellen, aber nur diese acht Namen — eine geschlossene
+                # Menge, kein Anfang einer wachsenden Ausnahmeliste.
+                if _name195 in ('_MEIPASS',              # PyInstaller
+                                'num',                   # tkinter-Ereignis
+                                '__len__',               # Python selbst
+                                'GetWindowLongPtrW',     # Windows-API
+                                'SetWindowLongPtrW',
+                                'DETACHED_PROCESS',      # subprocess-Schalter
+                                'CREATE_NO_WINDOW',
+                                'CREATE_NEW_PROCESS_GROUP'):
+                    continue
+                if _name195 not in _bekannt195:
+                    _tot195.append('%s:%d  %s(…, %r)'
+                                   % (os.path.relpath(_w195, WURZEL),
+                                      _k195.lineno, _k195.func.id, _name195))
     pruefe(not _tot195,
            'kein `getattr`/`hasattr`/`setattr` auf einen Namen, den es '
            'nirgends gibt%s'
@@ -19069,6 +19119,30 @@ def main():
     pruefe(len(_bekannt195) > 500,
            'und die Namensliste ist vollstaendig genug (%d Namen aus %d '
            'Dateien)' % (len(_bekannt195), len(_baeume195)))
+    # ⭐⭐ Gegenprobe fuer die Aufzaehlung (13.09.2026): Genau diese Form hat
+    # die Pruefung monatelang durchgelassen. Sie muss sie jetzt aufloesen —
+    # sonst prueft die Erweiterung nichts und sieht trotzdem gruen aus.
+    _probe195 = _ast193.parse(
+        "for _n in ('gibtesnicht195a', 'gibtesnicht195b'):\n"
+        "    getattr(x, _n, None)\n"
+        "for _n in ('fremd195',):\n"
+        "    pass\n"
+        "getattr(y, _n, None)\n")
+    # ⚠ Nach ZEILE aussuchen, nicht nach der Reihenfolge von `ast.walk()`.
+    # Die laeuft in die Breite: Der Aufruf ausserhalb der Schleife liegt
+    # flacher und kommt deshalb ZUERST. Beim ersten Versuch waren dadurch
+    # beide Gegenproben vertauscht — und meldeten brav einen Fehler, den es
+    # nicht gab.
+    _rufe195 = {_k.lineno: _k for _k in _ast193.walk(_probe195)
+                if isinstance(_k, _ast193.Call)
+                and isinstance(_k.func, _ast193.Name)
+                and _k.func.id == 'getattr'}
+    pruefe(_aus_schleife195(_rufe195[2], _probe195)
+           == {'gibtesnicht195a', 'gibtesnicht195b'},
+           'Gegenprobe: Namen aus einer festen Aufzaehlung werden aufgeloest')
+    # ⚠ Und die andere Haelfte: ausserhalb der Schleife gilt sie NICHT.
+    pruefe(_aus_schleife195(_rufe195[5], _probe195) == set(),
+           'Gegenprobe: ausserhalb der Schleife zaehlt die Aufzaehlung nicht')
 
     # ---------------------------- Die Baupläne DB im Browser (196)
     print()
@@ -19173,6 +19247,61 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _alt196
         shutil.rmtree(_wiese196, ignore_errors=True)
+
+    # ------------------------- Der Rueckweg nach einem Seitensprung (197)
+    print('\n197. Ein Seitensprung bietet den Rueckweg an')
+    # ⭐ Gewuenscht von Bushwick (13.09.2026): Wer in der Bauplan-Liste einen
+    # Eintrag anklickt, landet in der Herstellung — und kam von dort nur ueber
+    # die Seitenleiste zurueck, also ohne Suchbegriff und ohne Filter.
+    #
+    # ⚠ Geprueft wird die **Unterscheidung**: `jump_to()` bietet den Rueckweg
+    # an, ein gewoehnliches `open_page()` nicht. Ohne diese zweite Haelfte
+    # wuerde eine Fassung durchgehen, die den Knopf einfach immer zeigt — und
+    # der waere dann sinnlos statt hilfreich.
+    import tkinter as _tk197
+    from scbp.main_window import MainWindow as _MW197
+    _w197 = _tk197.Tk()
+    try:
+        _f197 = _MW197(_w197, version='0.0.0-rueckweg')
+        for _ in range(4):
+            _f197.root.update_idletasks()
+        pruefe(not _f197.back_bar.winfo_manager(),
+               'am Anfang steht kein Rueckweg-Knopf')
+        _f197.jump_to('herstellung')
+        _f197.root.update_idletasks()
+        pruefe(_f197.current == 'herstellung' and _f197.came_from == 'liste',
+               'nach dem Sprung ist gemerkt, woher er kam')
+        pruefe(bool(_f197.back_bar.winfo_manager())
+               and len(_f197.back_bar.winfo_children()) == 1,
+               'und der Rueckweg-Knopf steht da')
+        _f197._back_jump()
+        _f197.root.update_idletasks()
+        pruefe(_f197.current == 'liste' and _f197.came_from is None,
+               'er fuehrt zurueck und raeumt sich selbst weg')
+        pruefe(not _f197.back_bar.winfo_manager(),
+               'danach ist der Knopf wieder weg')
+        # ⭐ Die Gegenprobe: Ein gewoehnlicher Reiterklick ist KEIN Sprung.
+        _f197.jump_to('bergbau')
+        _f197.root.update_idletasks()
+        _f197.open_page('liste')
+        _f197.root.update_idletasks()
+        pruefe(_f197.came_from is None and not _f197.back_bar.winfo_manager(),
+               'Gegenprobe: ein Reiterklick loescht den Rueckweg')
+        # ⚠ Und jeder Sprung im Programm geht wirklich ueber `jump_to` —
+        # sonst bekommt genau einer als einziger keinen Rueckweg. Geprueft am
+        # Quelltext, nicht am Lauf: Die Wege liegen in fuenf Funktionen.
+        _q197 = ''
+        for _d197 in ('scbp/seiten.py', 'scbp/bestandsfenster.py'):
+            with open(os.path.join(WURZEL, _d197), encoding='utf-8') as _fh197:
+                _q197 += _fh197.read()
+        pruefe(_q197.count('.jump_to(') == 6,
+               'alle sechs Seitenspruenge gehen ueber `jump_to` (%d)'
+               % _q197.count('.jump_to('))
+    finally:
+        try:
+            _w197.destroy()
+        except Exception:
+            pass
 
     print()
     if fehler:
