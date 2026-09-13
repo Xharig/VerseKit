@@ -42,7 +42,7 @@ from tkinter import font as tkfont
 # Eigene Bausteine. Sie kapseln alles, was sich zwischen Windows und Linux
 # unterscheidet — der Rest dieser Datei muss das Betriebssystem nicht kennen.
 from scbp import sprache
-from scbp import zeichen
+from scbp import icons
 from scbp import fehler
 from scbp import notice
 from scbp import (
@@ -1886,12 +1886,12 @@ class Overlay:
         # der nichts eingestellt hat, sieht plötzlich ein anderes Overlay.
         (self.f_title, self.f_item, self.f_sub) = self._schriften_anlegen()
         # Die Symbolgröße hängt an derselben Stufe wie die Schriften.
-        zeichen.stufe_setzen(pfade.einstellung('schriftgroesse') or 'normal')
+        icons.set_level(pfade.einstellung('schriftgroesse') or 'normal')
 
         # --- Titelleiste (Drag-Griff + Schließen) ---
         # ⚠ Die Höhe wächst mit der Schriftgröße mit. Sie stand lange fest auf
         # 26 px — bei „groß" ragten die Symbole dann oben und unten heraus.
-        bar = tk.Frame(self.root, bg=BAR, height=zeichen.breite() + 4)
+        bar = tk.Frame(self.root, bg=BAR, height=icons.width() + 4)
         # Für die Mindestbreite gemerkt: Schmaler als diese Leiste darf das
         # Overlay nicht werden, sonst fehlen die Symbole.
         self.kopf = bar
@@ -1910,7 +1910,7 @@ class Overlay:
         titel_lbl.pack(side='left', padx=8)
         notice.attach(titel_lbl, lambda: sprache.t('hinweis_ziehen'))
 
-        # ⚠ Alle Symbole kommen aus `scbp/zeichen.py` — fertige Bilder aus dem
+        # ⚠ Alle Symbole kommen aus `scbp/icons.py` — fertige Bilder aus dem
         # Lucide-Satz, nicht mehr Schriftzeichen. Warum, steht dort ausführlich;
         # der Kern: Schriftzeichen füllen ihre Box unterschiedlich weit aus (die
         # Glocke war die größte), mischen gefüllte und gestrichelte
@@ -1919,8 +1919,8 @@ class Overlay:
         # Die Reihenfolge ist von **rechts** gedacht, weil `side='right'` packt:
         # Schließen ganz außen, dann Leeren, Einklappen, Liste, Einstellungen,
         # Spielstart, Glocke.
-        zu_lbl = zeichen.knopf(bar, 'schliessen', self.quit, ersatz='X',
-                               schrift=self.f_title)
+        zu_lbl = icons.button(bar, 'schliessen', self.quit, fallback='X',
+                               font=self.f_title)
         zu_lbl.pack(side='right', padx=8)
         notice.attach(zu_lbl, lambda: sprache.t('hinweis_schliessen'))
 
@@ -1929,8 +1929,8 @@ class Overlay:
         # `hinweis_leeren`). Ein Mülleimer verspricht Vernichtung, und genau
         # deshalb traut sich niemand, ihn zu drücken. Gemeldet am 27.08.2026:
         # „Mülleimer für leeren schon gut, aber gäbe es da was besseres?"
-        leeren_lbl = zeichen.knopf(bar, 'leeren', self.clear,
-                                   schrift=self.f_title)
+        leeren_lbl = icons.button(bar, 'leeren', self.clear,
+                                   font=self.f_title)
         leeren_lbl.pack(side='right')
         notice.attach(leeren_lbl, lambda: sprache.t('hinweis_leeren'))
 
@@ -1939,8 +1939,8 @@ class Overlay:
         # Durchsichtigkeit allein reicht nicht, wenn man gerade freie Sicht
         # braucht. Ersetzt zugleich das nie gebaute Ablage-Symbol (Tray): Das
         # bräuchte Zusatzpakete, ein eingeklappter Streifen nicht.
-        self.klapp_lbl = zeichen.knopf(bar, 'einklappen', self.umklappen,
-                                       schrift=self.f_title)
+        self.klapp_lbl = icons.button(bar, 'einklappen', self.umklappen,
+                                       font=self.f_title)
         self.klapp_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.klapp_lbl, self._hinweis_klappen)
 
@@ -1960,9 +1960,9 @@ class Overlay:
         # Knopf ohne Wirkung schlimmer als keiner — dieselbe Regel wie beim
         # Schalter in den Einstellungen.
         if overlay.durchklickbar_moeglich():
-            self.schloss_lbl = zeichen.knopf(bar, 'schloss_auf',
+            self.schloss_lbl = icons.button(bar, 'schloss_auf',
                                              self._schloss_zusperren,
-                                             schrift=self.f_title)
+                                             font=self.f_title)
             self.schloss_lbl.pack(side='right', padx=(0, 6))
             notice.attach(self.schloss_lbl,
                               lambda: sprache.t('hinweis_schloss_zu'))
@@ -1972,9 +1972,9 @@ class Overlay:
         # dann ein, wenn niemand im Einstellungsfenster ist: Watcher zu, Star
         # Citizen läuft weiter, Baupläne kommen. Wer danach merkt, dass einer
         # fehlt, soll ihn dort finden, wo er ohnehin hinsieht.
-        self.neulesen_lbl = zeichen.knopf(bar, 'neustart',
+        self.neulesen_lbl = icons.button(bar, 'neustart',
                                           self._logs_neu_einlesen,
-                                          schrift=self.f_title)
+                                          font=self.f_title)
         self.neulesen_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.neulesen_lbl,
                           lambda: sprache.t('hinweis_neulesen'))
@@ -1992,8 +1992,8 @@ class Overlay:
         # Einstellungen. Am 27.08.2026 stand er kurz vor dem Rauswurf, weil
         # genau das täuscht. Ohne ihn führte der Weg zur Hauptsache des
         # Programms über die Einstellungen und einen Reiterwechsel.
-        self.liste_lbl = zeichen.knopf(bar, 'liste', self.liste_oeffnen,
-                                       schrift=self.f_title)
+        self.liste_lbl = icons.button(bar, 'liste', self.liste_oeffnen,
+                                       font=self.f_title)
         self.liste_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.liste_lbl, lambda: sprache.t('hinweis_liste'))
 
@@ -2003,9 +2003,9 @@ class Overlay:
         # glaube ich in den einstellungen, da gehen die leute eh hin wenn die
         # merken es klemmt etwas." Erreichbar bleibt er über das große Fenster,
         # oben rechts („Einrichtung starten").
-        self.einst_lbl = zeichen.knopf(bar, 'einstellungen',
+        self.einst_lbl = icons.button(bar, 'einstellungen',
                                        self.einstellungen_oeffnen,
-                                       schrift=self.f_title)
+                                       font=self.f_title)
         self.einst_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.einst_lbl,
                           lambda: sprache.t('hinweis_einstellungen'))
@@ -2024,9 +2024,9 @@ class Overlay:
         # Weltraum. Gemeldet am 27.08.2026: „SC Starten ist das symbol nicht
         # eindeutig genug".
         if pfade.spielstarter():
-            self.start_lbl = zeichen.knopf(bar, 'starten', self._spiel_starten,
-                                           farbe=zeichen.GRUEN,
-                                           schrift=self.f_title)
+            self.start_lbl = icons.button(bar, 'starten', self._spiel_starten,
+                                           color=icons.GREEN,
+                                           font=self.f_title)
             self.start_lbl.pack(side='right', padx=(0, 6))
             # ⚠ Erklärung wie bei allen anderen Zeichen über `notice`,
             # **nicht** über die Statuszeile: Die zeigt echte Meldungen, und
@@ -2039,9 +2039,9 @@ class Overlay:
         # Glocke heisst „fuer dich ist etwas da" — und genau darum geht es hier,
         # denn das Zeichen faerbt sich gruen, wenn eine neue Version bereitsteht.
         # Gemeldet am 26.08.2026: „Die Glocke für Updates ist auch besser."
-        self.info_lbl = zeichen.knopf(bar, 'glocke',
+        self.info_lbl = icons.button(bar, 'glocke',
                                       lambda: self.fenster_oeffnen('ueber'),
-                                      schrift=self.f_title)
+                                      font=self.f_title)
         self.info_lbl.pack(side='right', padx=(0, 6))
         # ⚠ Führt ins **Hauptfenster**, nicht mehr in ein eigenes Infofenster.
         # Es gab zwei Wege zu Änderungen und Updates, und nur einer war zu Ende
@@ -2150,9 +2150,9 @@ class Overlay:
         # ausgeschlossen (sie sind auf jedem System anders gross). Jetzt sind
         # es vier Lucide-Pfeile, einer je Richtung; `_grip_nachziehen()`
         # tauscht den passenden ein.
-        self.grip = zeichen.knopf(self.root,
+        self.grip = icons.button(self.root,
                                   self.GRIFF_SYMBOLE[(False, False)],
-                                  farbe=zeichen.GRUEN, grund=BG)
+                                  color=icons.GREEN, background=BG)
         self.grip.configure(cursor=sicherer_cursor(CURSOR_GROESSE))
         self.grip.place(relx=1.0, rely=1.0, anchor='se')
         self.grip.bind('<B1-Motion>', self._resize)
@@ -2267,7 +2267,7 @@ class Overlay:
     # in `Segoe UI` kein einziges der Symbole steckt und Windows sonst zur
     # Farb-Emoji-Schrift greift. Beides ist entfallen: Die Symbole sind seit dem
     # 27.08.2026 **Bilder** und hängen an keiner Schrift mehr (siehe
-    # `scbp/zeichen.py`). Damit ist auch die alte Schwierigkeit weg, die gemalten
+    # `scbp/icons.py`). Damit ist auch die alte Schwierigkeit weg, die gemalten
     # und die geschriebenen Zeichen auf eine Größe zu bringen.
     #
     # Wer eine der Zahlen aendert, sieht sich die Leiste danach an — auf dem
@@ -2304,9 +2304,9 @@ class Overlay:
         # kleinen Symbolen stehen. Die Leistenhöhe wächst mit, sonst ragen sie
         # oben und unten heraus.
         try:
-            zeichen.stufe_setzen(stufe or (
+            icons.set_level(stufe or (
                 pfade.einstellung('schriftgroesse') or 'normal'))
-            self.bar.configure(height=zeichen.breite() + 4)
+            self.bar.configure(height=icons.width() + 4)
         except Exception as ausnahme:
             fehler.merken('overlay.symbolgroesse', ausnahme)
 
@@ -2376,7 +2376,7 @@ class Overlay:
     def _hinweis_info(self):
         """Die Glocke heißt zweierlei — Versionsgeschichte, und bei Grün: „es
         gibt Neues"."""
-        gruen = getattr(self.info_lbl, 'symbol_farbe', '') == zeichen.GRUEN
+        gruen = getattr(self.info_lbl, 'symbol_color', '') == icons.GREEN
         return sprache.t('hinweis_neue_version' if gruen else 'hinweis_versionen')
 
     def _status_setzen(self, quelle):
@@ -2632,8 +2632,8 @@ class Overlay:
         # Noch früher standen hier die Emoji `🟡`/`🟢`: Die nahmen unter Windows
         # die Farb-Emoji-Schrift, erschienen als bunte Klötzchen und ignorierten
         # jede eingestellte Farbe — vor jeder einzelnen Zeile.
-        dot = zeichen.zeile(row, 'bestaetigt', farbe=zeichen.GRUEN,
-                            grund=BG, schrift=self.f_item)
+        dot = icons.line(row, 'bestaetigt', color=icons.GREEN,
+                            background=BG, font=self.f_item)
         dot.pack(side='left', padx=(0, 4))
         txt = tk.Frame(row, bg=BG); txt.pack(side='left', fill='x', expand=True)
         name = tk.Label(txt, text=key, bg=BG, fg=FG, font=self.f_item,
@@ -2694,7 +2694,7 @@ class Overlay:
         ⚠⚠ **Die Zwischenziele stehen eingerueckt unter ihrem Auftrag.** Der
         Auftrag sagt, ob Bauplaene drin sind; das Ziel sagt, was gerade zu tun
         ist. Die Raute ist dieselbe, die das Spiel selbst neben seine Ziele
-        setzt — und sie kommt aus dem festgelegten Satz (`zeichen.py`), nicht
+        setzt — und sie kommt aus dem festgelegten Satz (`icons.py`), nicht
         aus einem getippten Zeichen.
 
         ⚠ Die zwei Formen sind Absicht: Eine Anzeige, die nur Paare bekommt,
@@ -2732,12 +2732,12 @@ class Overlay:
             # Zum Ausblenden. Ein Auftrag kann im Spiel verloren gehen, ohne
             # dass das Log ein Wort darüber verliert — dann nimmt man ihn hier
             # selbst heraus.
-            # ⚠ Das Symbol kommt aus dem festgelegten Satz (`zeichen.py`,
+            # ⚠ Das Symbol kommt aus dem festgelegten Satz (`icons.py`,
             # Lucide `ban`) — nichts wird hier selbst gemalt. Genau das war der
             # Grund der Umstellung auf Bilder: gemalte und getippte Zeichen
             # sahen unterschiedlich aus und auf jedem System wieder anders.
-            weg = zeichen.zeile(z, 'ausblenden', farbe=zeichen.ROT, grund=BG,
-                                schrift=self.f_sub)
+            weg = icons.line(z, 'ausblenden', color=icons.RED, background=BG,
+                                font=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=rein: self._auftrag_ausblenden(r))
             notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
@@ -2765,8 +2765,8 @@ class Overlay:
         for name in ziele[:auftraege.ZIELE_MAX]:
             zz = tk.Frame(self.auftragsleiste, bg=BG)
             zz.pack(fill='x', padx=(14, 0))
-            raute = zeichen.zeile(zz, 'standard', farbe=zeichen.GRAU, grund=BG,
-                                  schrift=self.f_sub)
+            raute = icons.line(zz, 'standard', color=icons.GREY, background=BG,
+                                  font=self.f_sub)
             raute.pack(side='left', padx=(0, 5))
             zl = tk.Label(zz, text=str(name), bg=BG, fg=SUB, font=self.f_sub,
                           anchor='w', justify='left')
@@ -2832,8 +2832,8 @@ class Overlay:
         top = self.list.pack_slaves()
         row = tk.Frame(self.list, bg=BG)
         row.pack(fill='x', anchor='w', padx=2, pady=1)
-        zeichen.zeile(row, 'hinweiszeile', grund=BG,
-                      schrift=self.f_item).pack(side='left', padx=(0, 4))
+        icons.line(row, 'hinweiszeile', background=BG,
+                      font=self.f_item).pack(side='left', padx=(0, 4))
         lbl = tk.Label(row, text=str(text), bg=BG, fg=SUB, font=self.f_sub,
                        anchor='w', justify='left')
         # ⚠ Der Träger bleibt am Label hängen. Hinweise stehen in der Liste,
@@ -2849,10 +2849,10 @@ class Overlay:
         row._bpkey = None
         row._auftrag = auftrag
         if auftrag:
-            # Dasselbe Zeichen wie in der Auftragsleiste (`zeichen.py`, Lucide
+            # Dasselbe Zeichen wie in der Auftragsleiste (`icons.py`, Lucide
             # `ban`) — nichts wird hier selbst gemalt.
-            weg = zeichen.zeile(row, 'ausblenden', farbe=zeichen.ROT, grund=BG,
-                                schrift=self.f_sub)
+            weg = icons.line(row, 'ausblenden', color=icons.RED, background=BG,
+                                font=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=auftrag: self._auftrag_ausblenden(r))
             notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
@@ -2871,9 +2871,9 @@ class Overlay:
         top = self.list.pack_slaves()
         row = tk.Frame(self.list, bg=BG)
         row.pack(fill='x', anchor='w', padx=2, pady=1)
-        zeichen.zeile(row, 'gemerkt' if titel else 'punkt', grund=BG,
-                      farbe=zeichen.GELB if titel else zeichen.BLAU,
-                      schrift=self.f_item).pack(side='left', padx=(0, 4))
+        icons.line(row, 'gemerkt' if titel else 'punkt', background=BG,
+                      color=icons.YELLOW if titel else icons.BLUE,
+                      font=self.f_item).pack(side='left', padx=(0, 4))
         txt = tk.Frame(row, bg=BG); txt.pack(side='left', fill='x', expand=True)
         tk.Label(txt, text=name, bg=BG, fg=PROV if titel else FG, font=self.f_item,
                  anchor='w', justify='left').pack(fill='x', anchor='w')
@@ -3024,7 +3024,7 @@ class Overlay:
 
     def _version_melden(self, neu):
         try:
-            self.info_lbl.faerben(zeichen.GRUEN)
+            self.info_lbl.recolor(icons.GREEN)
             # ⚠ Zwei eigenständige Sätze in einer Zeile — als `Kette`, damit
             # auch diese Meldung beim Sprachwechsel mitzieht. Das Trennzeichen
             # ist Satzzeichen, kein Text, und braucht deshalb keinen Schlüssel.
@@ -3106,7 +3106,7 @@ class Overlay:
             self._leiste_ausrichten()
             x, y = self._klapp_ecke(breite, hoehe)
             self.root.geometry('%dx%d+%d+%d' % (breite, hoehe, x, y))
-            self.klapp_lbl.symbol_tauschen('aufklappen' if zu
+            self.klapp_lbl.swap_symbol('aufklappen' if zu
                                           else 'einklappen')
             self.eingeklappt = zu
             self._grip_nachziehen()
@@ -3359,7 +3359,7 @@ class Overlay:
             # gegen den Bildschirmrand — also genau in die Richtung, in der
             # kein Platz ist. Ein Griff, der in die Irre zeigt, ist schlechter
             # als gar keiner. Gemeldet am 02.09.2026 zu rc11.
-            self.grip.symbol_tauschen(self.GRIFF_SYMBOLE[(unten, rechts)])
+            self.grip.swap_symbol(self.GRIFF_SYMBOLE[(unten, rechts)])
             # ⚠ **Und er darf keinen Text verdecken.** Sitzt der Griff oben
             # (also bei einer unteren Ecke), liegt er auf der Statuszeile:
             # „405 Baupläne" wurde zu „5 Baupläne", weil das Dreieck die
@@ -3438,11 +3438,11 @@ class Overlay:
                                      version=__version__,
                                      beim_schriftwechsel=self.schriftgroesse_anwenden,
                                      startseite=seite)
-        self.liste_lbl.faerben(zeichen.GRUEN)
+        self.liste_lbl.recolor(icons.GREEN)
 
     def _liste_zu(self):
         self._fenster = None
-        self.liste_lbl.faerben(zeichen.GRAU)
+        self.liste_lbl.recolor(icons.GREY)
         # ⚠ Genau hier zieht eine geänderte Anzeigeart. Stellt jemand in den
         # Einstellungen auf „nur bei einem Neuzugang" um, darf das Overlay nicht
         # sofort verschwinden — er steht ja noch davor und will das Ergebnis
@@ -3788,9 +3788,9 @@ class Overlay:
             except tk.TclError:
                 pass
             # Dasselbe Bauteil wie in der Leiste — nur grün und geschlossen.
-            marke = zeichen.knopf(self._schloss, 'schloss_zu',
-                                  self._schloss_loesen, farbe=zeichen.GRUEN,
-                                  grund=BAR, schrift=self.f_title)
+            marke = icons.button(self._schloss, 'schloss_zu',
+                                  self._schloss_loesen, color=icons.GREEN,
+                                  background=BAR, font=self.f_title)
             marke.pack(expand=True)
             self._schloss.bind('<Button-1>', lambda e: self._schloss_loesen())
             notice.attach(self._schloss,
@@ -3858,8 +3858,8 @@ class Overlay:
         if knopf is None:
             return
         try:
-            knopf.symbol_tauschen('schloss_zu' if zu else 'schloss_auf')
-            knopf.faerben(zeichen.GRUEN if zu else zeichen.GRAU)
+            knopf.swap_symbol('schloss_zu' if zu else 'schloss_auf')
+            knopf.recolor(icons.GREEN if zu else icons.GREY)
         except Exception:
             pass                         # Anzeige darf das Schalten nie kippen
 

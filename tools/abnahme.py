@@ -481,9 +481,9 @@ def symbole_pruefen():
     ein Symbol. Am 06.09.2026 hat ein unbekannter Symbolname sogar das ganze
     Fenster abstürzen lassen.
     """
-    from scbp import zeichen
+    from scbp import icons
     fehlt = []
-    for name in zeichen.KNOPF_NAMEN + zeichen.ZEILEN_NAMEN:
+    for name in icons.BUTTON_NAMES + icons.LINE_NAMES:
         for px in (18, 22, 26, 30, 12, 14, 16):
             pfad = os.path.join(WURZEL, 'assets', 'symbole', str(px),
                                 '%s-grau.png' % name)
@@ -624,14 +624,14 @@ def schriftgroessen_pruefen():
     Geprüft wird die **Mindesthöhe der Seitenleiste** gegen die Fensterhöhe:
     Passt die Leiste nicht mehr, sind Reiter unerreichbar.
     """
-    from scbp import hauptfenster, pfade, zeichen
+    from scbp import hauptfenster, pfade, icons
 
     alt_stufe = pfade.einstellung('schriftgroesse') or 'normal'
     gemessen_stufen = {}
     try:
         for stufe in ('klein', 'normal', 'gross', 'sehrgross'):
             pfade.einstellung_setzen('schriftgroesse', stufe)
-            zeichen.stufe_setzen(stufe)
+            icons.set_level(stufe)
             hf = hauptfenster.Hauptfenster(version='0.0.0-abnahme')
             hf.root.withdraw()
             try:
@@ -654,7 +654,7 @@ def schriftgroessen_pruefen():
                 hf.root.destroy()
     finally:
         pfade.einstellung_setzen('schriftgroesse', alt_stufe)
-        zeichen.stufe_setzen(alt_stufe)
+        icons.set_level(alt_stufe)
 
     # ⚠⚠ **Die Mindestbreite muss mit der Schrift wachsen.** „Bei sehr groß
     # waren die Knöpfe abgeschnitten (29 px fehlten)" — genau dann, wenn eine

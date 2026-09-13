@@ -36,7 +36,7 @@ import time
 import tkinter as tk
 
 from . import bericht, collection as bestand_datei, fehler, catalog as katalog_modul
-from . import pfade, zeichen, fields
+from . import pfade, icons, fields
 from .sprache import t, pa_feld
 
 BG      = '#10141c'
@@ -683,7 +683,7 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
 def _status(fenster, eltern, symbol, fett, rest, farbe=None):
     """Ein Statuskasten mit farbigem Balken links — wie in der Vorschau.
 
-    ⚠ `symbol` ist ein Name aus `scbp/zeichen.py` („haken", „offen"), kein
+    ⚠ `symbol` ist ein Name aus `scbp/icons.py` („haken", „offen"), kein
     Schriftzeichen mehr. Der Parameter hieß bis v3.0.0-rc55 `zeichen` und hätte
     das gleichnamige Modul verdeckt.
     """
@@ -691,8 +691,8 @@ def _status(fenster, eltern, symbol, fett, rest, farbe=None):
     innen = _karte(eltern, rand=farbe, pady=(0, 14))
     zeile = tk.Frame(innen, bg=FLAECHE)
     zeile.pack(fill='x', padx=14, pady=12)
-    zeichen.zeile(zeile, symbol, grund=FLAECHE, schrift=fenster.f_grund,
-                  farbe=zeichen.GRAU if farbe == SUB else zeichen.GRUEN
+    icons.line(zeile, symbol, background=FLAECHE, font=fenster.f_grund,
+                  color=icons.GREY if farbe == SUB else icons.GREEN
                   ).pack(side='left', padx=(0, 10), anchor='n')
     text = tk.Frame(zeile, bg=FLAECHE)
     text.pack(side='left', fill='x', expand=True)
@@ -1287,8 +1287,8 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
     zustand = {'offen': False}
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
     kopf.pack(fill='x', pady=(22, 2))
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=BG,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=BG,
+                          font=fenster.f_klein)
     pfeil.pack(side='left')
     tk.Label(kopf, text=t('s_fo_lohnt'), bg=BG, fg=FG,
              font=fenster.f_grund, anchor='w').pack(side='left')
@@ -1300,7 +1300,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
 
     def umschalten(*_):
         zustand['offen'] = not zustand['offen']
-        pfeil.symbol_tauschen('zuklappen' if zustand['offen']
+        pfeil.swap_symbol('zuklappen' if zustand['offen']
                               else 'aufklappen')
         if zustand['offen']:
             # ⚠ `after=kopf`: nachträglich gepackt heißt sonst „ans Ende" —
@@ -1392,8 +1392,8 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
 
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
     kopf.pack(fill='x', pady=(10, 2))
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=BG,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=BG,
+                          font=fenster.f_klein)
     pfeil.pack(side='left')
     tk.Label(kopf, text=titel, bg=BG, fg=FG, font=fenster.f_fett,
              anchor='w').pack(side='left')
@@ -1444,7 +1444,7 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
 
     def umschalten(*_):
         zustand['offen'] = not zustand['offen']
-        pfeil.symbol_tauschen('zuklappen' if zustand['offen']
+        pfeil.swap_symbol('zuklappen' if zustand['offen']
                              else 'aufklappen')
         if zustand['offen']:
             zeichnen()
@@ -1676,7 +1676,7 @@ def _anzeige(fenster, rahmen):
     # trotzdem beschnitten. Eine Einstellung, die das Fenster unbrauchbar
     # macht, gehört nicht angeboten.
     #
-    # ⚠ Der Wert bleibt im Programm gültig (`STUFEN`, `zeichen.py`): Wer ihn
+    # ⚠ Der Wert bleibt im Programm gültig (`STUFEN`, `icons.py`): Wer ihn
     # gespeichert hat, verliert nichts — er kann ihn nur nicht neu wählen.
     wahl = _wahl(fenster, ziel,
                  [(s, t('hf_s_' + s))
@@ -4058,8 +4058,8 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
     zustand = {'offen': offen}
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
     kopf.pack(fill='x', padx=24, pady=(12, 2))
-    pfeil = zeichen.zeile(kopf, 'zuklappen' if offen else 'aufklappen',
-                          grund=BG, schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
+                          background=BG, font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=eintrag.get('version') or '—', bg=BG, fg=ACCENT,
              font=fenster.f_fett).pack(side='left')
@@ -4141,7 +4141,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
 
     def umschalten(*_):
         zustand['offen'] = not zustand['offen']
-        pfeil.symbol_tauschen('zuklappen' if zustand['offen']
+        pfeil.swap_symbol('zuklappen' if zustand['offen']
                              else 'aufklappen')
         if zustand['offen']:
             # ⚠ `after=kopf` ist der ganze Witz. Ohne das packt Tk den Inhalt ans
@@ -5307,8 +5307,8 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
 
     kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
     kopf.pack(fill='x', padx=16, pady=10)
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+                          font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_fett,
              anchor='w').pack(side='left')
@@ -5335,11 +5335,11 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
     def umschalten(_=None):
         if koerper.winfo_ismapped():
             koerper.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
         else:
             zeichnen()
             koerper.pack(fill='x', after=kopf)
-            pfeil.symbol_tauschen('zuklappen')
+            pfeil.swap_symbol('zuklappen')
 
     for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
         teil.bind('<Button-1>', umschalten)
@@ -9966,9 +9966,9 @@ def _methodenblock(fenster, eltern):
         # neu; ein Zustand darin wäre bei jedem Wechsel wieder zu.
         kopf = tk.Frame(ergebnis, bg=BG, cursor='hand2')
         kopf.pack(fill='x', pady=(10, 2))
-        pfeil = zeichen.zeile(kopf, 'zuklappen' if klapp['offen']
-                              else 'aufklappen', grund=BG,
-                              schrift=fenster.f_klein)
+        pfeil = icons.line(kopf, 'zuklappen' if klapp['offen']
+                              else 'aufklappen', background=BG,
+                              font=fenster.f_klein)
         pfeil.pack(side='left')
         tk.Label(kopf, text=t('s_rm_alle'), bg=BG, fg=SUB,
                  font=fenster.f_klein, anchor='w').pack(side='left')
@@ -9981,7 +9981,7 @@ def _methodenblock(fenster, eltern):
 
         def umschalten(*_):
             klapp['offen'] = not klapp['offen']
-            pfeil.symbol_tauschen('zuklappen' if klapp['offen']
+            pfeil.swap_symbol('zuklappen' if klapp['offen']
                                   else 'aufklappen')
             if klapp['offen']:
                 # ⚠ `after=kopf` — sonst landet der Block ganz unten.
@@ -10104,7 +10104,7 @@ def _kaestchen(eltern, text, an, umschalten, schrift_klein):
     """
     rahmen = tk.Frame(eltern, bg=BG, cursor='hand2')
     # ⚠ Nur Symbole aus dem festgelegten Satz — `haken` steht in
-    # `zeichen.ZEILEN_NAMEN`. Ein frei erfundener Name (`abhaken` gibt es nur
+    # `icons.LINE_NAMES`. Ein frei erfundener Name (`abhaken` gibt es nur
     # als Knopf-Symbol) faellt still auf den Ersatztext zurueck, und die Zeile
     # sieht dann anders aus als der Rest des Programms.
     # ⚠⚠ **Nur die festgelegten Farben.** Die Symbole liegen als fertige Bilder
@@ -10114,9 +10114,9 @@ def _kaestchen(eltern, text, an, umschalten, schrift_klein):
     def _bauen(an_jetzt):
         for kind in rahmen.winfo_children():
             kind.destroy()
-        symbol = zeichen.zeile(rahmen, 'haken', grund=BG,
-                               farbe=zeichen.GRUEN if an_jetzt
-                               else zeichen.GRAU)
+        symbol = icons.line(rahmen, 'haken', background=BG,
+                               color=icons.GREEN if an_jetzt
+                               else icons.GREY)
         symbol.pack(side='left')
         lbl = tk.Label(rahmen, text=text, bg=BG,
                        fg=ACCENT if an_jetzt else SUB, font=schrift_klein)
@@ -10172,8 +10172,8 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     kasten.pack(fill='x', pady=(12, 0))
     kopf = tk.Frame(kasten, bg=BG, cursor='hand2')
     kopf.pack(fill='x')
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=BG,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=BG,
+                          font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=t('s_rf_titel'), bg=BG, fg=FG, font=fenster.f_fett,
              anchor='w', cursor='hand2').pack(side='left')
@@ -10278,14 +10278,14 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     def _umschalten(_=None):
         if ziel.winfo_ismapped():
             ziel.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
             pfade.einstellung_setzen('lager_raffinerie_offen', False)
         else:
             # ⚠ `after=kopf` — sonst haengt der Koerper beim zweiten Aufklappen
             # unter allem, was inzwischen dazugekommen ist, statt unter seiner
             # eigenen Kopfzeile.
             ziel.pack(fill='x', after=kopf)
-            pfeil.symbol_tauschen('zuklappen')
+            pfeil.swap_symbol('zuklappen')
             pfade.einstellung_setzen('lager_raffinerie_offen', True)
 
     # Die ganze Kopfzeile ist die Schaltflaeche, nicht nur das Symbol: Ein
@@ -11599,9 +11599,9 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
     # Beim Selbstherstellen genauso: ein Haken für beide Wege.
     if abhaken is not None and eintrag.get('sorte') == cart.PART:
-        haken = zeichen.zeile(zeile, 'haken', grund=FLAECHE,
-                              farbe=zeichen.GRUEN if fertig else zeichen.GRAU,
-                              schrift=fenster.f_klein)
+        haken = icons.line(zeile, 'haken', background=FLAECHE,
+                              color=icons.GREEN if fertig else icons.GREY,
+                              font=fenster.f_klein)
         haken.configure(cursor='hand2')
         haken.pack(side='left', padx=(12, 8), pady=4)
         haken.bind('<Button-1>', lambda _e: abhaken(eintrag, not fertig))
@@ -11867,8 +11867,8 @@ def _zeichne_marke(fenster, eltern, eintrag):
                  fg=ACCENT, font=fenster.f_klein,
                  anchor='w').pack(side='left', padx=(12, 0))
     elif cart.fully_fitted(eintrag):
-        haken = zeichen.zeile(eltern, 'haken', grund=FLAECHE,
-                              farbe=zeichen.GELB, schrift=fenster.f_klein)
+        haken = icons.line(eltern, 'haken', background=FLAECHE,
+                              color=icons.YELLOW, font=fenster.f_klein)
         haken.pack(side='left', padx=(12, 4))
         tk.Label(eltern, text=t('s_hg_fertig'), bg=FLAECHE, fg=GOLD,
                  font=fenster.f_klein, anchor='w').pack(side='left')
@@ -11889,8 +11889,8 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
 
     kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
     kopf.pack(fill='x', padx=16, pady=(0, 10))
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+                          font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=t('s_wk_titel'), bg=FLAECHE, fg=FG,
              font=fenster.f_klein, anchor='w').pack(side='left')
@@ -11915,11 +11915,11 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     def umschalten(_=None):
         if koerper.winfo_ismapped():
             koerper.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
         else:
             neu()
             koerper.pack(fill='x', after=kopf)
-            pfeil.symbol_tauschen('zuklappen')
+            pfeil.swap_symbol('zuklappen')
 
     for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
         teil.bind('<Button-1>', umschalten)
@@ -12233,8 +12233,8 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # findet, findet sie niemand.
     #
     # Überall sonst im Programm steht an aufklappbaren Zeilen dieser Pfeil.
-    pfeil = zeichen.zeile(zeile, 'aufklappen', grund=FLAECHE,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(zeile, 'aufklappen', background=FLAECHE,
+                          font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 6))
 
     art_text = platz.get('art') or ''
@@ -12350,7 +12350,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     def umschalten(_=None):
         if auswahl_rahmen.winfo_ismapped():
             auswahl_rahmen.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
         else:
             aufbauen()
             auswahl_rahmen.pack(fill='x', padx=(46, 16), pady=(0, 6),
@@ -12358,7 +12358,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             # ⚠ Der Pfeil zeigt den **Zustand**, nicht die Tat: nach unten
             # heißt „ist offen", nach rechts „ist zu". Andersherum gelesen
             # wäre er eine Aufforderung und damit immer verkehrt herum.
-            pfeil.symbol_tauschen('zuklappen')
+            pfeil.swap_symbol('zuklappen')
 
     for teil in (zeile,) + tuple(zeile.winfo_children()):
         if isinstance(teil, tk.Label):
@@ -12415,8 +12415,8 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
 
     kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
     kopf.pack(fill='x')
-    pfeil = zeichen.zeile(kopf, 'aufklappen', grund=FLAECHE,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+                          font=fenster.f_klein)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=t('s_wk_eingebaut_n').format(n=len(fertig)),
              bg=FLAECHE, fg=ACCENT, font=fenster.f_klein,
@@ -12427,7 +12427,7 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
     def umschalten(_=None):
         if koerper.winfo_ismapped():
             koerper.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
         else:
             for kind in koerper.winfo_children():
                 kind.destroy()
@@ -12435,7 +12435,7 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
                 _warenkorb_posten(fenster, koerper, eintrag, posten,
                                   neu_zeichnen, eingerueckt=False)
             koerper.pack(fill='x', after=kopf)
-            pfeil.symbol_tauschen('zuklappen')
+            pfeil.swap_symbol('zuklappen')
 
     for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
         teil.bind('<Button-1>', umschalten)
@@ -12471,9 +12471,9 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
             _eintrag_speichern(eintrag)
             neu_zeichnen()
 
-    haken = zeichen.zeile(kopf, 'haken', grund='#0c1017',
-                          farbe=zeichen.GRUEN if fertig else zeichen.GRAU,
-                          schrift=fenster.f_klein)
+    haken = icons.line(kopf, 'haken', background='#0c1017',
+                          color=icons.GREEN if fertig else icons.GREY,
+                          font=fenster.f_klein)
     haken.configure(cursor='hand2')
     haken.pack(side='left', padx=(0, 8))
     haken.bind('<Button-1>', abhaken)
@@ -13436,8 +13436,8 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
 
     # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
     # nach Systemschrift anders aussieht als die gezeichneten Symbole daneben.
-    pfeil = zeichen.zeile(zeile, 'aufklappen', grund=BG,
-                          schrift=fenster.f_klein)
+    pfeil = icons.line(zeile, 'aufklappen', background=BG,
+                          font=fenster.f_klein)
     pfeil.configure(cursor='hand2')
 
     def _leeren():
@@ -13461,11 +13461,11 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
         # Steht genau der gewählte Eintrag im Feld, ist nichts mehr zu suchen.
         if text and any(text == e.lower() for e in alle) and not offen['ja']:
             liste.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
             return
         if not text and not offen['ja']:
             liste.pack_forget()
-            pfeil.symbol_tauschen('aufklappen')
+            pfeil.swap_symbol('aufklappen')
             return
         # ⚠⚠ **Punkte und Bindestriche zaehlen beim Suchen nicht.** Wer „ATLS"
         # tippt, meint „A.T.L.S." — und umgekehrt. Ohne diese Zeile findet das
@@ -13483,7 +13483,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             return len(schlank) > 1 and bei and schlank in _ohne_trenner(bei)
 
         treffer = [e for e in alle if _passt(e)] if text else list(alle)
-        pfeil.symbol_tauschen('zuklappen' if offen['ja'] else 'aufklappen')
+        pfeil.swap_symbol('zuklappen' if offen['ja'] else 'aufklappen')
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
             tk.Label(liste, text=leer_text or t('s_vk_nichts_gefunden'),
@@ -15490,8 +15490,8 @@ def _achsen(fenster, rahmen):
         tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
         kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
         kopf.pack(fill='x', pady=(12, 0))
-        pfeil = zeichen.zeile(kopf, 'aufklappen', grund=BG,
-                              schrift=fenster.f_klein)
+        pfeil = icons.line(kopf, 'aufklappen', background=BG,
+                              font=fenster.f_klein)
         pfeil.pack(side='left', padx=(0, 6))
         tk.Label(kopf, text=t('s_ac_befund'), bg=BG, fg=SUB,
                  font=fenster.f_fett, anchor='w').pack(side='left')
@@ -15504,7 +15504,7 @@ def _achsen(fenster, rahmen):
 
         def _klappen(_e=None):
             zustand['offen'] = not zustand['offen']
-            pfeil.symbol_tauschen('zuklappen' if zustand['offen']
+            pfeil.swap_symbol('zuklappen' if zustand['offen']
                                   else 'aufklappen')
             if zustand['offen']:
                 koerper.pack(fill='x')

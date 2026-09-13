@@ -40,22 +40,22 @@ import tkinter as tk
 
 # Die drei Farben, in denen jedes Symbol vorliegt (siehe `symbole_bauen.py`).
 # Namen statt Farbwerten, damit der Code sagt, **was** gemeint ist:
-# `faerben(GRUEN)` heißt „hervorheben", nicht „nimm #9ce430".
-GRAU, GRUEN, HELL = 'grau', 'gruen', 'hell'
+# `recolor(GREEN)` heißt „hervorheben", nicht „nimm #9ce430".
+GREY, GREEN, LIGHT = 'grau', 'gruen', 'hell'
 # Die beiden Zustandsfarben der Bauplanzeilen — Gelb heißt „aus der Game.log,
 # noch nicht vom Launcher bestätigt", Blau „neu im Spiel craftbar".
-GELB, BLAU = 'gelb', 'blau'
+YELLOW, BLUE = 'gelb', 'blau'
 # Die Schriftfarbe für Wörter, die **neben** einem Symbol stehen. Tk faerbt
 # Text sonst schwarz — auf dunklem Grund ist er damit unlesbar.
-SCHRIFT = '#8b98a5'
+TEXT_COLOR = '#8b98a5'
 
 # ⚠ **Nur für den Notnagel:** Was jeder Bildsatz als **echte** Farbe bedeutet.
 # Steht kein Bild zur Verfügung, wird ein Zeichen gezeichnet — und das braucht
 # eine Farbe, die Tk kennt. Die Namen oben sind Satznamen (`grau`, `gruen`),
 # keine Farbwerte; sie ungeprüft an Tk zu reichen, hat das Programm beim
 # Aufbau der Reiterleiste abstürzen lassen.
-_SATZ_FARBEN = {
-    'grau':  SCHRIFT,
+_SET_COLORS = {
+    'grau':  TEXT_COLOR,
     'gruen': '#9ce430',   # die Markenfarbe
     'hell':  '#e6edf3',
     'gelb':  '#e3b341',
@@ -63,7 +63,7 @@ _SATZ_FARBEN = {
 }
 # Rot ist keine Zustandsfarbe, sondern ein Wegweiser: Der Reiter „Fehler
 # melden“ traegt sie, damit ihn niemand sucht, wenn gerade etwas klemmt.
-ROT = 'rot'
+RED = 'rot'
 
 # ⚠ Muss zu `KNOPF`/`ZEILE` in `tools/symbole_bauen.py` passen. Zwei Skalen,
 # weil es auf den Einsatzort ankommt: ein Knopf in der Leiste ist etwas anderes
@@ -72,71 +72,71 @@ ROT = 'rot'
 # Die Zahlen sind bewusst fest und stammen **nicht** mehr aus
 # `font.metrics('linespace')` — Schriftmetriken sind je System verschieden, und
 # genau daher kamen die abweichenden Maße zwischen Mac und Windows.
-KNOPF = {'klein': 18, 'normal': 22, 'gross': 26, 'sehrgross': 30}
-ZEILE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
-# ⚠ Eine Stufe groesser als `ZEILE` — fuer Zeichen, die man **treffen** muss.
+BUTTON = {'klein': 18, 'normal': 22, 'gross': 26, 'sehrgross': 30}
+LINE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
+# ⚠ Eine Stufe groesser als `LINE` — fuer Zeichen, die man **treffen** muss.
 # Das ⓘ am rechten Rand der Bauplan-Liste oeffnet den Herkunftskasten; in
 # Zeilengroesse (14 px bei „normal") war es zu klein, um es als Schaltflaeche zu
 # erkennen und sicher zu treffen. Gemeldet am 27.08.2026. Ein
-# eigener Satz statt eines groesseren `ZEILE`, damit die Statuspunkte im Overlay
+# eigener Satz statt eines groesseren `LINE`, damit die Statuspunkte im Overlay
 # unveraendert bleiben — die will niemand anklicken.
-ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
+TAPPABLE = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 
 # Tk räumt Bilder weg, sobald keine Python-Variable mehr auf sie zeigt — auch
 # dann, wenn sie gerade angezeigt werden; das Widget allein hält sie nicht. Ohne
 # diesen Halter verschwinden die Symbole, sobald der Aufräumer läuft. Ein
 # bekannter Stolperstein in tkinter, und er fällt immer erst im laufenden
 # Programm auf.
-_SPEICHER = {}
-_FEHLT = set()
+_CACHE = {}
+_MISSING = set()
 
 # Alle angelegten Symbol-Widgets, damit sie beim Umstellen der Schriftgröße
 # mitziehen können — dasselbe Muster wie `sprache.anmelden()`.
 _WIDGETS = []
-_STUFE = ['normal']
+_LEVEL = ['normal']
 
 
-def _mitgeliefert(*teile):
+def _bundled(*parts):
     """Pfad zu einer mitgelieferten Datei — im Quellcode wie im fertigen Paket.
 
     PyInstaller entpackt alles nach `sys._MEIPASS`; daneben zu suchen geht dort
     ins Leere.
     """
-    basis = getattr(sys, '_MEIPASS', None) or os.path.dirname(
+    base = getattr(sys, '_MEIPASS', None) or os.path.dirname(
         os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(basis, 'assets', 'symbole', *teile)
+    return os.path.join(base, 'assets', 'symbole', *parts)
 
 
-def stufe_setzen(stufe):
+def set_level(level):
     """Die eingestellte Schriftgröße übernehmen und alle Symbole nachziehen.
 
     Wird aus `schriftgroesse_anwenden()` gerufen, damit die Symbole sofort
     mitwachsen — ohne Neustart, so wie die Schriften auch.
     """
-    if stufe not in KNOPF:
-        stufe = 'normal'
-    _STUFE[0] = stufe
-    lebende = []
+    if level not in BUTTON:
+        level = 'normal'
+    _LEVEL[0] = level
+    alive = []
     for w in _WIDGETS:
         try:
-            w.groesse_nachziehen()
-            lebende.append(w)
+            w.resize()
+            alive.append(w)
         except Exception:
             pass                       # Fenster war schon zu — Eintrag fällt weg
-    _WIDGETS[:] = lebende
+    _WIDGETS[:] = alive
 
 
-def stufe():
+def level():
     """Die gerade gültige Stufe."""
-    return _STUFE[0]
+    return _LEVEL[0]
 
 
-def breite(satz=None):
+def width(sizes=None):
     """Kantenlänge in Pixeln für die aktuelle Stufe."""
-    return (satz or KNOPF).get(_STUFE[0], 22)
+    return (sizes or BUTTON).get(_LEVEL[0], 22)
 
 
-def bild(name, px, farbe=GRAU, master=None):
+def photo(name, px, color=GREY, master=None):
     """Ein Symbol als `tk.PhotoImage` — beim zweiten Mal aus dem Speicher.
 
     ⚠ **`master` ist Pflicht, sobald es mehr als einen Tk-Interpreter gibt.**
@@ -150,41 +150,42 @@ def bild(name, px, farbe=GRAU, master=None):
     Text zurück, statt abzubrechen: Ein fehlendes Symbol ist ein
     Schönheitsfehler, kein Grund, das Programm anzuhalten.
     """
-    kern = id(master.tk) if master is not None else 0
-    schluessel = (kern, name, px, farbe)
-    if schluessel in _SPEICHER:
-        return _SPEICHER[schluessel]
-    if (name, px, farbe) in _FEHLT:
+    interp = id(master.tk) if master is not None else 0
+    key = (interp, name, px, color)
+    if key in _CACHE:
+        return _CACHE[key]
+    if (name, px, color) in _MISSING:
         return None
     try:
-        _SPEICHER[schluessel] = tk.PhotoImage(
-            file=_mitgeliefert(str(px), '%s-%s.png' % (name, farbe)),
+        _CACHE[key] = tk.PhotoImage(
+            file=_bundled(str(px), '%s-%s.png' % (name, color)),
             master=master)
-        return _SPEICHER[schluessel]
+        return _CACHE[key]
     except Exception:
-        _FEHLT.add((name, px, farbe))
+        _MISSING.add((name, px, color))
         return None
 
 
-def _bauen(eltern, name, satz, tat, farbe, grund, ersatz, text, schrift):
-    """Gemeinsamer Kern von `knopf()` und `zeile()`."""
-    grund = grund if grund is not None else eltern['bg']
-    px = satz.get(_STUFE[0], 22)
-    b = bild(name, px, farbe, eltern)
+def _build(parent, name, sizes, action, color, background, fallback, text,
+           font):
+    """Gemeinsamer Kern von `button()` und `line()`."""
+    background = background if background is not None else parent['bg']
+    px = sizes.get(_LEVEL[0], 22)
+    b = photo(name, px, color, parent)
 
-    gemeinsam = dict(bg=grund, bd=0, highlightthickness=0)
-    if tat:
-        gemeinsam['cursor'] = 'hand2'
+    common = dict(bg=background, bd=0, highlightthickness=0)
+    if action:
+        common['cursor'] = 'hand2'
 
     if b is not None:
-        w = tk.Label(eltern, image=b, **gemeinsam)
+        w = tk.Label(parent, image=b, **common)
         w.image = b                    # zusätzlicher Halter am Widget selbst
     else:
         # Notnagel: Fehlt die Bilddatei, steht wenigstens ein Zeichen da, statt
         # einer leeren Lücke, die niemand als Knopf erkennt.
-        w = tk.Label(eltern, text=ersatz, fg=SCHRIFT, **gemeinsam)
-        if schrift is not None:
-            w.configure(font=schrift)
+        w = tk.Label(parent, text=fallback, fg=TEXT_COLOR, **common)
+        if font is not None:
+            w.configure(font=font)
 
     if text:
         # Bild **und** Wort — ein Symbol allein erklärt sich nur dem, der es
@@ -194,22 +195,22 @@ def _bauen(eltern, name, satz, tat, farbe, grund, ersatz, text, schrift):
         # normal, bekam das Label bis 04.09.2026 **nie** eine Vordergrundfarbe —
         # Tk nahm seinen Standard, und der ist Schwarz. Auf dem dunklen Grund
         # war „n weitere Wege zu diesem Bauplan" dadurch kaum zu lesen.
-        w.configure(text=text, compound='left', padx=4, fg=SCHRIFT)
-        if schrift is not None:
-            w.configure(font=schrift)
+        w.configure(text=text, compound='left', padx=4, fg=TEXT_COLOR)
+        if font is not None:
+            w.configure(font=font)
 
     w.symbol = name
-    w.symbol_satz = satz
-    w.symbol_farbe = farbe
+    w.symbol_sizes = sizes
+    w.symbol_color = color
 
-    def zeigen():
-        n = bild(w.symbol, w.symbol_satz.get(_STUFE[0], 22),
-                 w.symbol_farbe, w)
+    def show():
+        n = photo(w.symbol, w.symbol_sizes.get(_LEVEL[0], 22),
+                 w.symbol_color, w)
         if n is not None:
             w.configure(image=n)
             w.image = n
 
-    def faerben(neu):
+    def recolor(new_color):
         """Statt `configure(fg=…)` — ein Bild nimmt keine Vordergrundfarbe an,
         es muss gegen eine andersfarbige Version getauscht werden.
 
@@ -224,63 +225,64 @@ def _bauen(eltern, name, satz, tat, farbe, grund, ersatz, text, schrift):
         zwei Funktionen weiter oben lief nie. Am 06.09.2026 aufgefallen, als
         ein neuer Reiter angelegt wurde, bevor sein Bild da war.
         """
-        w.symbol_farbe = neu
+        w.symbol_color = new_color
         if b is not None:
             w.configure(fg=w.cget('fg'))
         else:
-            w.configure(fg=_SATZ_FARBEN.get(neu, SCHRIFT))
-        zeigen()
+            w.configure(fg=_SET_COLORS.get(new_color, TEXT_COLOR))
+        show()
 
-    def tauschen(neuer_name):
+    def swap(new_name):
         """Ein anderes Motiv zeigen — etwa Pfeil auf/zu beim Umklappen."""
-        w.symbol = neuer_name
-        zeigen()
+        w.symbol = new_name
+        show()
 
-    w.faerben = faerben
-    w.symbol_tauschen = tauschen
-    w.groesse_nachziehen = zeigen
+    w.recolor = recolor
+    w.swap_symbol = swap
+    w.resize = show
     _WIDGETS.append(w)
 
-    if tat:
-        w.bind('<Button-1>', lambda e: tat())
+    if action:
+        w.bind('<Button-1>', lambda e: action())
     return w
 
 
-def knopf(eltern, name, tat=None, farbe=GRAU, grund=None, ersatz='',
-          text='', schrift=None):
+def button(parent, name, action=None, color=GREY, background=None,
+           fallback='', text='', font=None):
     """Ein anklickbares Symbol in einer Leiste (Melde-Leiste, Reiter, Titel).
 
     Am Rückgabewert hängen drei Zusätze, die `configure()` hier nicht leisten
-    kann: `.faerben(farbe)`, `.symbol_tauschen(name)` und
-    `.groesse_nachziehen()`.
+    kann: `.recolor(color)`, `.swap_symbol(name)` und `.resize()`.
     """
-    return _bauen(eltern, name, KNOPF, tat, farbe, grund, ersatz, text, schrift)
+    return _build(parent, name, BUTTON, action, color, background, fallback,
+                  text, font)
 
 
-def antippbar(eltern, name, tat=None, farbe=GRAU, grund=None, ersatz='',
-              text='', schrift=None):
-    """Wie `zeile()`, nur eine Stufe groesser — fuer Zeichen zum Anklicken.
+def tappable(parent, name, action=None, color=GREY, background=None,
+             fallback='', text='', font=None):
+    """Wie `line()`, nur eine Stufe groesser — fuer Zeichen zum Anklicken.
 
-    Zwischen `zeile()` (blosse Anzeige) und `knopf()` (eigene Schaltflaeche in
+    Zwischen `line()` (blosse Anzeige) und `button()` (eigene Schaltflaeche in
     einer Leiste): sitzt in einer Textzeile, ist aber ein Bedienelement und
     muss deshalb getroffen werden koennen."""
-    return _bauen(eltern, name, ANTIPPBAR, tat, farbe, grund, ersatz, text,
-                  schrift)
+    return _build(parent, name, TAPPABLE, action, color, background, fallback,
+                  text, font)
 
 
-def zeile(eltern, name, tat=None, farbe=GRAU, grund=None, ersatz='',
-          text='', schrift=None):
+def line(parent, name, action=None, color=GREY, background=None, fallback='',
+         text='', font=None):
     """Ein kleines Symbol **in** einer Textzeile — Statuspunkt, Haken, Pfeil.
 
-    Kleiner als `knopf()`, damit es zur Textgröße passt und die Zeilenhöhe nicht
-    aufbläht.
+    Kleiner als `button()`, damit es zur Textgröße passt und die Zeilenhöhe
+    nicht aufbläht.
     """
-    return _bauen(eltern, name, ZEILE, tat, farbe, grund, ersatz, text, schrift)
+    return _build(parent, name, LINE, action, color, background, fallback,
+                  text, font)
 
 
 # Welche Symbole es gibt — für den Selbsttest. Die Zuordnung zu den
 # Lucide-Vorlagen steht in `tools/symbole_bauen.py`.
-KNOPF_NAMEN = (
+BUTTON_NAMES = (
     'starten', 'glocke', 'liste', 'einstellungen', 'einklappen', 'ausklappen',
     'leeren', 'schliessen', 'ziehgriff', 'fortschritt', 'anzeige',
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
@@ -293,9 +295,9 @@ KNOPF_NAMEN = (
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',
 )
-ZEILEN_NAMEN = (
+LINE_NAMES = (
     'bestaetigt', 'vorlaeufig', 'punkt', 'gemerkt', 'haken', 'offen',
     'standard', 'aufklappen', 'zuklappen', 'hinweiszeile', 'kaffee',
     'ausblenden',
 )
-ALLE = KNOPF_NAMEN + ZEILEN_NAMEN
+ALL_NAMES = BUTTON_NAMES + LINE_NAMES

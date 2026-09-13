@@ -89,7 +89,7 @@ STRICH = 2.0
 #        zur Leiste.
 KNOPF = {'klein': 18, 'normal': 22, 'gross': 26, 'sehrgross': 30}
 ZEILE = {'klein': 12, 'normal': 14, 'gross': 16, 'sehrgross': 18}
-# Muss zu `scbp/zeichen.py` passen — sonst fehlt die 22er-Version und das
+# Muss zu `scbp/icons.py` passen — sonst fehlt die 22er-Version und das
 # Zeichen verschwindet bei „sehr gross" stillschweigend (`bild()` gibt `None`).
 ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 

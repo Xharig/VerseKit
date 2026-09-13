@@ -44,7 +44,7 @@ from . import export as export_modul
 from . import notice
 from . import catalog as katalog_modul
 from . import watchlist as merk
-from . import zeichen
+from . import icons
 from . import pfade
 from . import fields
 from .sprache import t, fenstertitel
@@ -523,8 +523,8 @@ class Bestandsfenster:
         feld.pack(side='left', fill='x', expand=True, ipady=6, padx=(8, 0))
         feld.focus_set()
         self._platzhalter(feld)
-        self.loeschen_lbl = zeichen.zeile(kasten, 'schliessen', grund=FLAECHE,
-                                          schrift=schrift(10))
+        self.loeschen_lbl = icons.line(kasten, 'schliessen', background=FLAECHE,
+                                          font=schrift(10))
         self.loeschen_lbl.configure(padx=8, cursor='hand2')
         self.loeschen_lbl.bind('<Button-1>', lambda e: self._suche_leeren())
         notice.attach(self.loeschen_lbl, lambda: t('hinweis_suche_leeren'))
@@ -2183,9 +2183,9 @@ class Bestandsfenster:
                          bg=FLAECHE)
         zeile.pack(fill='x', pady=1)
 
-        haken = zeichen.zeile(zeile, 'haken' if drin else 'offen',
-                              farbe=zeichen.GRUEN if drin else zeichen.GRAU,
-                              grund=FLAECHE, schrift=schrift(12))
+        haken = icons.line(zeile, 'haken' if drin else 'offen',
+                              color=icons.GREEN if drin else icons.GREY,
+                              background=FLAECHE, font=schrift(12))
         haken.configure(cursor='hand2', padx=10, pady=6)
         haken.pack(side='left')
         haken.bind('<Button-1>', lambda e, n=name: self._umschalten(n))
@@ -2249,8 +2249,8 @@ class Bestandsfenster:
             # es einen Bauplan gibt, und das Symbol am rechten Rand hat ihm
             # nichts gesagt. Ein Symbol erklaert sich nur dem, der es gebaut
             # hat.
-            info = zeichen.antippbar(zeile, symbol, grund=FLAECHE,
-                                     text=t('hk_knopf'), schrift=schrift(10))
+            info = icons.tappable(zeile, symbol, background=FLAECHE,
+                                     text=t('hk_knopf'), font=schrift(10))
             info.configure(cursor='hand2', padx=12, fg=ACCENT)
             info.pack(side='right')
             info.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
@@ -2259,8 +2259,8 @@ class Bestandsfenster:
             # Startbaupläne: hat jeder von Anfang an, stehen in keinem Pool und
             # in keinem Log. Eigenes Zeichen, damit niemand nach einem Auftrag
             # sucht, den es nicht gibt.
-            std = zeichen.zeile(zeile, 'standard', farbe=zeichen.GRUEN,
-                                grund=FLAECHE, schrift=schrift(10))
+            std = icons.line(zeile, 'standard', color=icons.GREEN,
+                                background=FLAECHE, font=schrift(10))
             std.configure(padx=12)
             std.pack(side='right')
             notice.attach(std, lambda: t('hinweis_startbauplan'))
@@ -2282,9 +2282,9 @@ class Bestandsfenster:
             # Größer als der Rest: Der Stern ist das einzige Zeichen in der
             # Zeile, das man *trifft* statt liest — in Zeilenschrift war er zu
             # klein zum Klicken und ging neben dem Namen unter.
-            stern = zeichen.zeile(zeile, 'gemerkt',
-                                  farbe=zeichen.GELB if gemerkt else zeichen.GRAU,
-                                  grund=FLAECHE, schrift=schrift(16))
+            stern = icons.line(zeile, 'gemerkt',
+                                  color=icons.YELLOW if gemerkt else icons.GREY,
+                                  background=FLAECHE, font=schrift(16))
             stern.configure(cursor='hand2', padx=10)
             stern.pack(side='right')
             stern.bind('<Button-1>', lambda e, n=name: self._merken(n))
@@ -2318,8 +2318,8 @@ class Bestandsfenster:
         kopf.pack(fill='x', padx=14, pady=(10, 2))
         tk.Label(kopf, text=eintrag['n'], bg=FLAECHE, fg=FG, font=schrift(12, True),
                  anchor='w').pack(side='left')
-        zu = zeichen.zeile(kopf, 'schliessen', grund=FLAECHE,
-                           schrift=schrift(11))
+        zu = icons.line(kopf, 'schliessen', background=FLAECHE,
+                           font=schrift(11))
         zu.configure(cursor='hand2', padx=6)
         zu.pack(side='right')
         zu.bind('<Button-1>', lambda e: self._auswaehlen(None))
@@ -2432,8 +2432,8 @@ class Bestandsfenster:
         rahmen.pack(fill='x', padx=14, pady=(0, 10))
         tk.Frame(rahmen, bg=LINIE, height=1).pack(fill='x', pady=(0, 8))
 
-        kopf = zeichen.zeile(rahmen, 'aufklappen', grund=FLAECHE,
-                             schrift=schrift(10),
+        kopf = icons.line(rahmen, 'aufklappen', background=FLAECHE,
+                             font=schrift(10),
                              text='  ' + t('hk_weitere') % len(weitere))
         kopf.configure(cursor='hand2', anchor='w')
         kopf.pack(fill='x')
@@ -2442,10 +2442,10 @@ class Bestandsfenster:
         def umschalten(_=None):
             if inhalt.winfo_ismapped():
                 inhalt.pack_forget()
-                kopf.symbol_tauschen('aufklappen')
+                kopf.swap_symbol('aufklappen')
             else:
                 inhalt.pack(fill='x', pady=(8, 0))
-                kopf.symbol_tauschen('zuklappen')
+                kopf.swap_symbol('zuklappen')
             # ⚠ Ohne das bleibt die Rollfläche so lang wie vorher — die
             # aufgeklappten Wege stehen dann unerreichbar unterhalb.
             self._hoehen_nachziehen()

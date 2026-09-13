@@ -242,12 +242,12 @@ def main():
 # ---------------------------------------------------------------------------
 # Zweite Prüfung: fehlen Symbolbilder?
 #
-# ⚠ `zeichen.bild()` gibt bei einer fehlenden Datei still `None` zurück — mit
+# ⚠ `icons.photo()` gibt bei einer fehlenden Datei still `None` zurück — mit
 # Absicht: Ein fehlendes Symbol ist ein Schönheitsfehler, kein Grund, das
 # Programm anzuhalten. Genau diese Nachsicht macht den Fehler aber unsichtbar.
 #
 # Am 27.08.2026 aufgeschlagen: `schliessen` stand nur unter KNOPF_SYMBOLE, wurde
-# aber mit `zeichen.zeile()` benutzt. In Zeilengröße gab es die Datei nicht, und
+# aber mit `icons.line()` benutzt. In Zeilengröße gab es die Datei nicht, und
 # im Herkunftskasten der Bauplan-Liste blieb statt des Kreuzes eine leere Lücke.
 # Aufgefallen ist es einem Nutzer, nicht dem Selbsttest.
 
@@ -256,7 +256,7 @@ import re                                                    # noqa: E402
 
 def symbole_pruefen():
     """Jedes im Code angeforderte Symbol muss es in seiner Größe auch geben."""
-    from scbp import zeichen
+    from scbp import icons
 
     wurzel = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     verlangt = set()
@@ -266,27 +266,27 @@ def symbole_pruefen():
                 continue
             text = io_lesen(os.path.join(ordner, name))
             for art, symbol in re.findall(
-                    r"zeichen\.(knopf|zeile)\(\s*[^,]+,\s*'([a-z_]+)'", text):
+                    r"icons\.(button|line)\(\s*[^,]+,\s*'([a-z_]+)'", text):
                 verlangt.add((symbol, art))
-            # ⚠ `symbol_tauschen('name')` wird **schwächer** geprüft: nur, ob es
+            # ⚠ `swap_symbol('name')` wird **schwächer** geprüft: nur, ob es
             # das Symbol überhaupt gibt. Ob an der Stelle ein Knopf oder eine
             # Zeile steht, verrät der Text allein nicht — beide Größen zu
             # verlangen brächte Fehlalarme (`zuklappen` hängt nur an Zeilen und
             # braucht keine Knopfgrößen). Das fängt Tippfehler, keine
             # Größenfehler.
-            for symbol in re.findall(r"symbol_tauschen\('([a-z_]+)'\)", text):
+            for symbol in re.findall(r"swap_symbol\('([a-z_]+)'\)", text):
                 verlangt.add((symbol, 'irgendeine'))
 
     fehlt = []
     for symbol, art in sorted(verlangt):
         if art == 'irgendeine':
-            alle = set(zeichen.KNOPF.values()) | set(zeichen.ZEILE.values())
+            alle = set(icons.BUTTON.values()) | set(icons.LINE.values())
             if not any(os.path.exists(os.path.join(
                     wurzel, 'assets', 'symbole', str(px), '%s-grau.png' % symbol))
                     for px in alle):
                 fehlt.append((symbol, art, 0))
             continue
-        satz = zeichen.KNOPF if art == 'knopf' else zeichen.ZEILE
+        satz = icons.BUTTON if art == 'button' else icons.LINE
         for stufe, px in sorted(satz.items()):
             pfad = os.path.join(wurzel, 'assets', 'symbole', str(px),
                                 '%s-grau.png' % symbol)

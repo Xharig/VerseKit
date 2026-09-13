@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import screen, fehler, fields, notice, news, pfade, zeichen
+from . import screen, fehler, fields, notice, news, pfade, icons
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
@@ -1951,7 +1951,7 @@ class Hauptfenster:
 
         rahmen = tk.Frame(bar, bg=BAR)
         rahmen.pack(side='right', padx=(0, 14), pady=6)
-        z = zeichen.knopf(rahmen, 'zeit', grund=BAR, schrift=self.f_zeichen)
+        z = icons.button(rahmen, 'zeit', background=BAR, font=self.f_zeichen)
         z.pack(side='left')
         self.zeit_text = tk.Label(rahmen, text='', bg=BAR, fg=SUB,
                                   font=self.f_klein)
@@ -1992,7 +1992,7 @@ class Hauptfenster:
     def _titelknopf(self, eltern, symbol, wort, erklaerung, tat):
         rahmen = tk.Frame(eltern, bg=BAR, cursor='hand2')
         rahmen.pack(side='right', padx=(0, 10), pady=6)
-        z = zeichen.knopf(rahmen, symbol, grund=BAR, schrift=self.f_zeichen)
+        z = icons.button(rahmen, symbol, background=BAR, font=self.f_zeichen)
         z.pack(side='left')
         w = tk.Label(rahmen, text=' ' + wort, bg=BAR, fg=SUB, font=self.f_klein)
         w.pack(side='left')
@@ -2280,8 +2280,8 @@ class Hauptfenster:
         # „gleiches Bild im gesamten Projekt").
         self.klappkopf = tk.Frame(self.klapp, bg=FLAECHE, cursor='hand2')
         self.klappkopf.pack(fill='x')
-        self.klapppfeil = zeichen.zeile(self.klappkopf, 'aufklappen',
-                                        grund=FLAECHE, schrift=self.f_klein)
+        self.klapppfeil = icons.line(self.klappkopf, 'aufklappen',
+                                        background=FLAECHE, font=self.f_klein)
         self.klapppfeil.pack(side='right', padx=(0, 12))
         self.klappknopf = tk.Label(self.klappkopf, text=t('hf_fortgeschritten'),
                                    bg=FLAECHE, fg=SUB, font=self.f_klein,
@@ -2501,8 +2501,8 @@ class Hauptfenster:
         # als die gezeichneten Symbole, mit denen sich der Bauplan-Fortschritt
         # und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
         # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
-        pfeil = zeichen.zeile(kopf, 'zuklappen' if offen else 'aufklappen',
-                              grund=FLAECHE, schrift=self.f_klein)
+        pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
+                              background=FLAECHE, font=self.f_klein)
         # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil ist ein
         # Versprechen („hier lässt sich klappen"); eines, das nicht eingelöst
         # wird, ist schlimmer als keines.
@@ -2552,7 +2552,7 @@ class Hauptfenster:
                 g['inhalt'].pack(fill='x', after=g['kopf'])
             else:
                 g['inhalt'].pack_forget()
-            g['pfeil'].symbol_tauschen('zuklappen' if neu_offen
+            g['pfeil'].swap_symbol('zuklappen' if neu_offen
                                        else 'aufklappen')
             pfade.einstellung_setzen('gruppe_zu_%s' % kennung,
                                      'nein' if neu_offen else 'ja')
@@ -2573,7 +2573,7 @@ class Hauptfenster:
         strich.pack(side='left', fill='y')
         # ⚠ `symbol` heißt der Parameter, nicht `zeichen` — sonst verdeckt er
         # das gleichnamige Modul, aus dem das Bild kommt.
-        z = zeichen.knopf(zeile, symbol, grund=FLAECHE, schrift=self.f_zeichen)
+        z = icons.button(zeile, symbol, background=FLAECHE, font=self.f_zeichen)
         z.pack(side='left', padx=(10, 4), pady=7)
         b = tk.Label(zeile, text=text, bg=FLAECHE, fg=SUB, font=self.f_grund,
                      anchor='w')
@@ -2776,7 +2776,7 @@ class Hauptfenster:
         self.fortgeschritten_offen = not self.fortgeschritten_offen
         # Der Pfeil zeigt, was ein Klick tut — wie bei den Gruppenüberschriften.
         try:
-            self.klapppfeil.symbol_tauschen(
+            self.klapppfeil.swap_symbol(
                 'zuklappen' if self.fortgeschritten_offen else 'aufklappen')
         except (AttributeError, tk.TclError):
             pass
@@ -2993,8 +2993,8 @@ class Hauptfenster:
             # Der Strich darunter bleibt gruen, wenn die Seite offen ist —
             # sonst saehe die gewaehlte Seite aus wie eine Warnung.
             rot = (kennung == 'diagnose')
-            z.faerben(zeichen.ROT if (rot and self._fehler_liegen_an())
-                      else (zeichen.HELL if an else zeichen.GRAU))
+            z.recolor(icons.RED if (rot and self._fehler_liegen_an())
+                      else (icons.LIGHT if an else icons.GREY))
             b.configure(fg=ROT if rot else (FG if an else SUB),
                         font=self.f_fett if (an or rot) else self.f_grund)
             strich.configure(bg=ACCENT if an else FLAECHE)

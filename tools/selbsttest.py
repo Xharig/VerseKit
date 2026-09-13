@@ -2939,8 +2939,8 @@ def main():
                'das Wort ist unabhaengig davon rot')
         # Die Farbe muss es als Bild wirklich geben, sonst bleibt es unsichtbar
         # — genau so ist heute Nacht schon einmal ein X verschwunden.
-        from scbp import zeichen as zi36
-        pruefe(zi36.ROT == 'rot', 'zeichen kennt die Farbe rot')
+        from scbp import icons as zi36
+        pruefe(zi36.RED == 'rot', 'icons kennt die Farbe rot')
         for n36 in ('diagnose',):
             pfad36 = os.path.join(WURZEL, 'assets', 'symbole', '22',
                                   n36 + '-rot.png')
@@ -3779,12 +3779,12 @@ def main():
     import sc_bp_watcher as w44
     _q44 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
 
-    pruefe("zeichen.knopf(bar, 'schloss_auf'" in _q44,
+    pruefe("icons.button(bar, 'schloss_auf'" in _q44,
            'in der Overlay-Leiste steht ein offenes Schloss')
     # ⚠ Nur, wo das System es kann. Unter nativem Wayland waere ein Knopf ohne
     #   Wirkung schlimmer als keiner — dieselbe Regel wie beim Schalter.
     pruefe(_q44.index('overlay.durchklickbar_moeglich()')
-           < _q44.index("zeichen.knopf(bar, 'schloss_auf'"),
+           < _q44.index("icons.button(bar, 'schloss_auf'"),
            'und zwar nur, wenn das System Klicks durchreichen kann')
     pruefe(os.path.exists(os.path.join(WURZEL, 'assets', 'symbole',
                                        'schloss_auf.png'))
@@ -4058,15 +4058,15 @@ def main():
 
         # Und das Schloss darunter sagt dasselbe — sonst stuende dort das
         # Gegenteil des wahren Zustands, falls das Fenster darueber ausbleibt.
-        from scbp import zeichen as zn44
+        from scbp import icons as zn44
 
         class _Knopf44:
-            symbol, farbe = 'schloss_auf', zn44.GRAU
+            symbol, farbe = 'schloss_auf', zn44.GREY
 
-            def symbol_tauschen(self, name):
+            def swap_symbol(self, name):
                 self.symbol = name
 
-            def faerben(self, farbe):
+            def recolor(self, farbe):
                 self.farbe = farbe
 
         class _Leiste44:
@@ -4076,11 +4076,11 @@ def main():
         _l44.schloss_lbl = _Knopf44()
         w44.Overlay._leistenschloss(_l44, True)
         pruefe(_l44.schloss_lbl.symbol == 'schloss_zu'
-               and _l44.schloss_lbl.farbe == zn44.GRUEN,
+               and _l44.schloss_lbl.farbe == zn44.GREEN,
                'beim Zusperren wird das Leisten-Schloss zu und gruen')
         w44.Overlay._leistenschloss(_l44, False)
         pruefe(_l44.schloss_lbl.symbol == 'schloss_auf'
-               and _l44.schloss_lbl.farbe == zn44.GRAU,
+               and _l44.schloss_lbl.farbe == zn44.GREY,
                'und danach wieder offen und grau')
 
         # ⚠ Gemeldet von Haldjas (pr0) am 28.08.2026 zu rc91: „nach dem ersten
@@ -5380,7 +5380,7 @@ def main():
     pruefe("'auftrag_weg'" in _quelle58,
            'und eine Meldung, die das ausloest')
     _ah58 = _quelle58.split('def add_hinweis')[1].split('def add_catalog')[0]
-    pruefe("zeichen.zeile(row, 'ausblenden'" in _ah58,
+    pruefe("icons.line(row, 'ausblenden'" in _ah58,
            'die Zeile traegt dasselbe festgelegte Zeichen wie die Auftragsleiste')
 
     # ------------------------------------------------------------------
@@ -8004,7 +8004,7 @@ def main():
 
     _q85p = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    pruefe("zeichen.zeile(zeile, 'aufklappen'" in _q85p,
+    pruefe("icons.line(zeile, 'aufklappen'" in _q85p,
            'auch das Auswahlfeld nutzt das Klapp-Symbol des Projekts')
 
     # ⚠ **Ein Bild im ganzen Programm**: Werkstatt-Lager und Handelslager
@@ -8269,8 +8269,8 @@ def main():
 
     # Der Raffinerie-Block ist einklappbar — und merkt sich die Lage.
     _raffblock86 = _q86.split('def _raffinerie_block(')[-1].split('\ndef ')[0]
-    pruefe("symbol_tauschen('zuklappen')" in _raffblock86
-           and "symbol_tauschen('aufklappen')" in _raffblock86,
+    pruefe("swap_symbol('zuklappen')" in _raffblock86
+           and "swap_symbol('aufklappen')" in _raffblock86,
            'die Raffinerie-Ausbeute laesst sich ein- und ausklappen')
     # ⚠⚠ **Diese Pruefung hat den Fehler bis zum 03.09.2026 FESTGESCHRIEBEN.**
     # Sie verlangte woertlich `einstellung('lager_raffinerie_offen')` — also
@@ -9905,7 +9905,7 @@ def main():
     # Gesucht wird der Name als Zeichenkette im Quelltext — in einem Aufruf,
     # einem Woerterbuch oder einer Liste. Die Dateien, in denen die Namen
     # DEFINIERT werden, zaehlen dabei nicht als Verwendung.
-    from scbp import zeichen as _z103
+    from scbp import icons as _z103
 
     # Bekannte Ausnahmen. ⚠ Diese Liste ist zum LEEREN da, nicht zum Wachsen:
     # Jeder Eintrag ist ein Symbol, das erzeugt wird, ohne dass es jemand
@@ -9939,7 +9939,7 @@ def main():
 
     _wurzel103 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     _nicht103 = {
-        os.path.join(_wurzel103, 'scbp', 'zeichen.py'),
+        os.path.join(_wurzel103, 'scbp', 'icons.py'),
         os.path.join(_wurzel103, 'tools', 'symbole_bauen.py'),
         # ⚠⚠ **Diese Datei selbst gehoert dazu** — sonst findet die Pruefung
         # ihre eigene Ausnahmeliste und haelt jedes Symbol darin fuer benutzt.
@@ -9972,7 +9972,7 @@ def main():
     pruefe(len(_quellen103) > 5,
            'die Quelldateien wurden gefunden (%d)' % len(_quellen103))
     _tot103 = []
-    for _name103 in _z103.ALLE:
+    for _name103 in _z103.ALL_NAMES:
         _m103 = re.compile(r'["\']%s["\']' % re.escape(_name103))
         if not any(_m103.search(q) for q in _quellen103):
             _tot103.append(_name103)
@@ -10004,9 +10004,9 @@ def main():
 
     def _bekannte_namen(klasse):
         """Alles, was die Klasse selbst mitbringt."""
-        # ⚠ Von aussen angehaengte Namen (`w.faerben = ...` in `zeichen.py`)
+        # ⚠ Von aussen angehaengte Namen (`w.recolor = ...` in `icons.py`)
         # kann diese Pruefung nicht sehen — sie stehen hier.
-        namen = {'faerben', 'symbol_tauschen', 'groesse_nachziehen',
+        namen = {'recolor', 'swap_symbol', 'resize',
                  'zeichnen', 'setzen'}
         for k in _ast104.walk(klasse):
             if isinstance(k, (_ast104.FunctionDef, _ast104.AsyncFunctionDef)):
