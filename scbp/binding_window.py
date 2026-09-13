@@ -181,7 +181,7 @@ class BindingWindow:
         """
         def arbeit():
             try:
-                match = eingabe.warten(PATIENCE, cancel=lambda: not self._running)
+                match = eingabe.warten(PATIENCE, abbruch=lambda: not self._running)
             except Exception as ausnahme:
                 fehler.merken('binding_window.listen', ausnahme)
                 match = None

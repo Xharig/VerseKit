@@ -250,7 +250,7 @@ class CurvePlot:
         verlauf = kurven.verlauf(totzone, saturation,
                                  self.werte['exponent'],
                                  self.werte['kurve'],
-                                 schritte=SUPPORT_POINTS, whole=self.whole)
+                                 schritte=SUPPORT_POINTS, ganz=self.whole)
         points = []
         for on_state, off_state in verlauf:
             points.extend(self._punkt(on_state, off_state))

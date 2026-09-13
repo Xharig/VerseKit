@@ -282,7 +282,7 @@ class VersionWindow:
         frame.pack(fill='both', expand=True, padx=14, pady=12)
         canvas = tk.Canvas(frame, bg=BG, highlightthickness=0)
         from .hauptfenster import rundleiste
-        rolle = rundleiste(frame, canvas, bg_colour=BG)
+        rolle = rundleiste(frame, canvas, grund=BG)
         body = tk.Frame(canvas, bg=BG)
         body.bind('<Configure>', lambda e: canvas.configure(
             scrollregion=canvas.bbox('all')))
