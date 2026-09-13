@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.31.2 - 2026-09-13
+
+> **Axes & Curves works again.** The page still showed the buttons for your
+> devices, but nothing below them — no curve, no deadzone, no saturation.
+> Anyone wanting to fine-tune their sticks could not get at it. That is
+> fixed; your saved values were never at risk.
+
+### Fixed
+
+- **"Axes & Curves" no longer built itself.** The page stayed empty below the
+  device buttons, so deadzone, saturation and the curve could not be adjusted
+  any more. Only the display was affected — every value you had already saved
+  is unchanged and still active in the game
+
 ## v3.31.1 - 2026-09-13
 
 > **Two more pages are quick now.** After salvage value and joysticks, the

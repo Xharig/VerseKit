@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.31.2 - 2026-09-13
+
+> **Achsen & Kurven geht wieder.** Auf der Seite standen zwar noch die Knöpfe
+> für deine Geräte, darunter aber nichts mehr — keine Kurve, keine Totzone,
+> keine Sättigung. Wer seine Sticks feiner einstellen wollte, kam nicht
+> heran. Das ist behoben; deine gespeicherten Werte waren nie in Gefahr.
+
+### Behoben
+
+- **„Achsen & Kurven" baute sich nicht mehr auf.** Die Seite blieb unter den
+  Geräte-Knöpfen leer, sodass sich Totzone, Sättigung und Kurve nicht mehr
+  einstellen ließen. Betroffen war ausschließlich die Anzeige — alle bereits
+  gespeicherten Werte sind unverändert erhalten und im Spiel weiter aktiv
+
 ## v3.31.1 - 2026-09-13
 
 > **Zwei weitere Seiten kommen jetzt zügig.** Nach Zerlegen und Joysticks
