@@ -1022,7 +1022,7 @@ def main():
                 # Sprachwechsel **keinen Reiter verschluckt**. Dafür ist die
                 # Zahl davor das richtige Maß, nicht eine notierte Konstante.
                 _vorher_reiter = len(hf.buttons)
-                seitenmodul._einstellungen(hf)._sprache_waehlen('en')
+                seitenmodul._settings_parts(hf)._sprache_waehlen('en')
                 hf.root.update()
                 pruefe(fenster_zaehlen(hf.root) == 0,
                        'kein zweites Fenster beim Sprachwechsel')
@@ -1095,7 +1095,7 @@ def main():
                 from scbp import pfade as pf4
                 pruefe(pf4.einstellung('sprache') == 'en',
                        'die gewählte Sprache ist gespeichert')
-                pruefe(seitenmodul._einstellungen(hf).sprache_wahl.get() == 'en',
+                pruefe(seitenmodul._settings_parts(hf).sprache_wahl.get() == 'en',
                        'und die Markierung steht darauf')
             finally:
                 spr.setzen('de')
@@ -1964,7 +1964,7 @@ def main():
         class _Traeger21:
             f_small = _sch21
 
-        _wahl21 = se21._wahl(_Traeger21(), tk21.Frame(wurzel),
+        _wahl21 = se21._choice(_Traeger21(), tk21.Frame(wurzel),
                              [('popup', 'nur bei einem Neuzugang')],
                              'popup', lambda k: None)
         wurzel.update_idletasks()
@@ -2417,7 +2417,7 @@ def main():
         for _i29, _z29 in enumerate(quelle29):
             _m29 = _re29.search(r"_feld\(fenster, \w+, t\('([^']+)'\)", _z29)
             if _m29:
-                _ab29 = _z29.index('_feld(') + 5
+                _ab29 = _z29.index('_setting_row(') + 5
                 _voll29 = _aufruf29([_z29[_ab29:]] + quelle29[_i29 + 1:], 0)
                 offen29 = (_m29.group(1), 'breit=True' in _voll29, _i29 + 1)
             elif 'toggle_switch(' in _z29 and offen29:
@@ -4619,7 +4619,7 @@ def main():
                   ('s_lg_speichern', 's_lg_posten_weg')]
         _eng52b = []
         for _txt in _lang:
-            _k = _se52b._knopf(_f52b, _w52b, _txt, lambda: None)
+            _k = _se52b._button(_f52b, _w52b, _txt, lambda: None)
             # ⚠ Nur den TEXT messen. `bbox('all')` nimmt den Rahmen mit, und
             # der ist naturgemaess so breit wie die Leinwand — die Pruefung
             # schluege dann immer an.
@@ -4694,7 +4694,7 @@ def main():
         for _seite in ('bergbau', 'herstellung'):
             pruefe("on_show['%s']" % _seite in _qu52d,
                    'Seite %s meldet sich fuers erneute Anzeigen an' % _seite)
-        pruefe(_qu52d.count('_suche_leeren_kreuz(') >= 3,
+        pruefe(_qu52d.count('_search_clear(') >= 3,
                'beide Suchfelder haben ein Kreuz zum Leeren')
         # Und der Rueckruf muss auch wirklich leeren.
         _leer52d = []
@@ -6213,7 +6213,7 @@ def main():
                      encoding='utf-8').read()
     pruefe("t('s_he_nur_abbau')" in _seiten66,
            'fuer nicht kaufbare Rohstoffe steht ein eigener Text da')
-    pruefe('def _geld' in _seiten66,
+    pruefe('def _money' in _seiten66,
            'Betraege bekommen Tausenderpunkte (145789 liest sonst niemand)')
     # d) Der Abruf laeuft im Hintergrund, nicht beim Seitenaufbau.
     _haupt66 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
@@ -7850,7 +7850,7 @@ def main():
     # filtert beim Tippen selbst und laesst sich per Pfeil ganz aufklappen.
     # Geprueft wird deshalb, dass **beide** Felder ihre geschlossene Liste
     # bekommen — Waren aus den Preisdaten, Orte aus der Ortsliste.
-    pruefe('_auswahlfeld(fenster, block, var, quelle)' in _hlseite84
+    pruefe('_combo_box(fenster, block, var, quelle)' in _hlseite84
            and 'preisdaten.goods if var is ware else ortsliste.all_places'
            in _hlseite84,
            'Ware und Ort sind Auswahlfelder mit geschlossener Liste')
@@ -8044,7 +8044,7 @@ def main():
     # naechsten `def` ueberhaupt: Die Lager-Seite hat innere Funktionen, und
     # der Block endete sonst vor der Stelle, die geprueft werden soll.
     _lagerseite85 = _q85p.split('def _lager(')[-1].split('\ndef ')[0]
-    pruefe('_auswahlfeld(fenster, block, var,' in _lagerseite85,
+    pruefe('_combo_box(fenster, block, var,' in _lagerseite85,
            'auch „Mein Lager" nutzt das Auswahlfeld')
     pruefe('vorschlag_rahmen' not in _lagerseite85,
            'und nicht mehr die alte Vorschlagszeile daneben')
@@ -8085,11 +8085,11 @@ def main():
 
     # ⚠ **Rollstelle beim Loeschen halten.** Wer einen Posten weit unten
     # loescht, soll nicht oben landen.
-    pruefe('_rollstelle_halten(' in _q85p,
+    pruefe('_keep_scroll(' in _q85p,
            'Loeschen haelt die Rollstelle')
-    pruefe(_q85p.count('_rollstelle_halten(') >= 4,
+    pruefe(_q85p.count('_keep_scroll(') >= 4,
            'an allen Loeschstellen, nicht nur an einer (%d)'
-           % _q85p.count('_rollstelle_halten('))
+           % _q85p.count('_keep_scroll('))
 
     # ⚠ **„Wird noch gebaut" ist etwas anderes als „hol es selbst".** Wer in der
     # Luecke zwischen Tag und fertigem Bau auf „holen" klickt, findet auf der
@@ -8179,7 +8179,7 @@ def main():
         _wurzel85.update()
         _wurzel85.update_idletasks()
 
-    _st85k._knopfreihe(_rahmen85k, _knoepfe85k)
+    _st85k._button_row(_rahmen85k, _knoepfe85k)
     for _ in range(8):
         _wurzel85.update()
         _wurzel85.update_idletasks()
@@ -8876,7 +8876,7 @@ def main():
     # Und die Oberflaeche muss sie auch ZEIGEN, nicht nur wegschreiben.
     _q93 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _ab93 = _q93.split('def zuruecksetzen():')[-1].split('_knopf(')[0]
+    _ab93 = _q93.split('def zuruecksetzen():')[-1].split('_button(')[0]
     pruefe(_ab93.count('fenster.say') == 2,
            'beide Ausgaenge melden sich beim Nutzer')
     pruefe("t('s_be_reset_fehler'" in _ab93,
@@ -9020,7 +9020,7 @@ def main():
 
     def _knopfzeile95(schluessel):
         for _z95 in _be95.split(chr(10)):
-            if '_knopf(' in _z95 and schluessel in _z95:
+            if '_button(' in _z95 and schluessel in _z95:
                 return _z95
         return ''
 
@@ -16304,11 +16304,11 @@ def main():
 
         # --- Die Anzeige der Werte ----------------------------------------
         from scbp import seiten as _se173
-        pruefe(_se173._pa_zahl(975.0) == '975',
+        pruefe(_se173._patch_number(975.0) == '975',
                'eine Kommazahl ohne Nachkommastellen wird ganz angezeigt')
-        pruefe(_se173._pa_zahl(0.30000000000000004) == '0.3',
+        pruefe(_se173._patch_number(0.30000000000000004) == '0.3',
                'und eine krumme Kommazahl wird gerundet statt ausgeschrieben')
-        pruefe(_se173._pa_zahl(None) == '—',
+        pruefe(_se173._patch_number(None) == '—',
                'ein fehlender Wert wird zum Strich, nicht zu „None"')
     finally:
         if _alt173 is None:
@@ -18330,7 +18330,7 @@ def main():
         _daneben189.pack()
         _var189 = tk189.StringVar(master=_w189)
         _namen189 = ['Schiff %03d' % _i189 for _i189 in range(60)]
-        _zeile189, _liste189, _ = _se189._auswahlfeld(
+        _zeile189, _liste189, _ = _se189._combo_box(
             _Fenster189(), _block189, _var189, lambda: _namen189,
             rollbar=200)
         _zeile189.pack(fill='x')
