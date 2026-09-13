@@ -112,11 +112,11 @@ def _bauer_tabelle():
         'ordner':      _folders,
         'spiel':       _game,
         'bestand':     _bestand,
-        'wasistneu':   _wasistneu,
-        'patchaenderungen': _patchaenderungen,
-        'ueber':       _ueber,
-        'serverstatus': _serverstatus,
-        'danke':       _danke,
+        'wasistneu':   _whats_new,
+        'patchaenderungen': _patch_changes,
+        'ueber':       _about,
+        'serverstatus': _server_status,
+        'danke':       _thanks,
         'erkennung':   _detection,
         'joysticks':   _joysticks,
         'achsen':      _achsen,
@@ -3989,7 +3989,7 @@ def _joysticks(fenster, rahmen):
     fenster.on_show['joysticks'] = _auffrischen
 
 
-def _wasistneu(fenster, rahmen):
+def _whats_new(fenster, rahmen):
     """Die Änderungen — als Reiter, nicht als Fenster über dem Fenster.
 
     Zwei Dinge halten die Seite kurz, auch wenn zwanzig Versionen zusammenkommen:
@@ -4791,7 +4791,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     return rand
 
 
-def _serverstatus(fenster, rahmen):
+def _server_status(fenster, rahmen):
     """Läuft Star Citizen gerade? — was CIG auf seiner Statusseite meldet.
 
     ⚠ **Erst zeigen, dann holen.** Beim Öffnen steht sofort der letzte bekannte
@@ -5383,7 +5383,7 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
         teil.bind('<Button-1>', umschalten)
 
 
-def _danke(fenster, rahmen):
+def _thanks(fenster, rahmen):
     """Wem was gehört — und Dank an die, ohne die es das Werkzeug nicht gäbe.
 
     ⚠ Diese Seite gibt es seit v3.0.0-rc58. Vorher stand im ganzen Programm
@@ -5538,7 +5538,7 @@ def _danke(fenster, rahmen):
                 pady=(0, 20))
 
 
-def _ueber(fenster, rahmen):
+def _about(fenster, rahmen):
     from . import pfade
     _heading(fenster, rahmen, t('hf_ueber'), t('s_ub_lead'))
     innen = _scroll_area(rahmen)
@@ -16368,7 +16368,7 @@ def _pa_feldzeile(fenster, eltern, feld):
              anchor='w').pack(side='left', padx=(10, 0))
 
 
-def _patchaenderungen(fenster, rahmen):
+def _patch_changes(fenster, rahmen):
     """Was ein Spiel-Patch an Werten verändert hat — Stufe 4 der Erkul-Reihe.
 
     ⭐ **Der Gewinn steckt in der Ablage, nicht im Abruf.** Erkul hält nur die

@@ -3137,7 +3137,7 @@ def main():
             # sinnvolle Mass fuer „passt die Seite".
             PROBE_HOEHE23 = 760
             wurzel23.geometry('%dx%d' % (MB23, PROBE_HOEHE23))
-            se23._ueber(_Traeger23(), rahmen23)
+            se23._about(_Traeger23(), rahmen23)
             wurzel23.update_idletasks()
             wurzel23.update()
 
