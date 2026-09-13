@@ -104,14 +104,14 @@ def _bauer_tabelle():
     Verfügung, deshalb eine Funktion und keine Konstante ganz oben.
     """
     return {
-        'liste':       _liste,
-        'fortschritt': _fortschritt,
-        'auftragslog': _auftragslog,
+        'liste':       _blueprint_list,
+        'fortschritt': _progress,
+        'auftragslog': _contract_log,
         'allgemein':   _general,
         'anzeige':     _display,
         'ordner':      _folders,
         'spiel':       _game,
-        'bestand':     _bestand,
+        'bestand':     _collection,
         'wasistneu':   _whats_new,
         'patchaenderungen': _patch_changes,
         'ueber':       _about,
@@ -123,10 +123,10 @@ def _bauer_tabelle():
         'blickwinkel': _blickwinkel,
         'diagnose':    _diagnostics,
         'hangar':      _hangar,
-        'wunschliste': _wunschliste,
+        'wunschliste': _wishlist,
         'asop':        _asop,
-        'einkaufsliste': _einkaufsliste,
-        'farmliste':   _farmliste,
+        'einkaufsliste': _shopping_list,
+        'farmliste':   _farm_list,
         'bergung':     _bergung,
         'zerlegen':    _zerlegen,
         'herstellung': _herstellung,
@@ -1131,7 +1131,7 @@ def _setting_row(window, parent, caption, help_text, wide=False, top=False):
 
 
 # --------------------------------------------------------------------- Seiten
-def _liste(fenster, rahmen):
+def _blueprint_list(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
     from . import bestandsfenster
     # ⭐ Rückweg zum Hauptfenster — die Liste braucht ihn, um auf andere Seiten
@@ -1164,7 +1164,7 @@ def _liste(fenster, rahmen):
     fenster.on_show['liste'] = _frisch
 
 
-def _fortschritt(fenster, rahmen):
+def _progress(fenster, rahmen):
     """Wie weit bin ich? — nach Bereichen gegliedert, jeder Bereich aufklappbar.
 
     ⚠ Vorher standen hier alle 25 Kategorien in einer einzigen langen Liste. Bei
@@ -2418,7 +2418,7 @@ def _quelle_waehlen(fenster, e, wahl, kennung, danach):
     danach()
 
 
-def _bestand(fenster, rahmen):
+def _collection(fenster, rahmen):
     from . import export, importer
     _heading(fenster, rahmen, t('hf_bestand'), t('s_be_lead'))
     innen = _scroll_area(rahmen)
@@ -2714,7 +2714,7 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     k2.pack(side='left', padx=8)
 
 
-def _auftragslog(fenster, rahmen):
+def _contract_log(fenster, rahmen):
     """Welche Aufträge wann gespielt wurden — die Rückschau.
 
     ⚠ **Bewusst eine Liste und sonst nichts.** Keine Auswertung, keine
@@ -10729,7 +10729,7 @@ def _hangar(fenster, rahmen):
     _nachziehen_im_hintergrund()
 
 
-def _wunschliste(fenster, rahmen):
+def _wishlist(fenster, rahmen):
     """Schiffe, die man sich vornimmt — mit Preis, Ort und planbarer Ausstattung.
 
     ⭐ Vorschlag von Zwaersch (KRT) am 06.09.2026: „Also Unterpunkt könnte man
@@ -11190,7 +11190,7 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     feld.bind('<Return>', uebernehmen)
 
 
-def _einkaufsliste(fenster, rahmen):
+def _shopping_list(fenster, rahmen):
     """Alles, was noch zu besorgen ist — über alle Schiffe, wie eine Rechnung.
 
     ⭐⭐ **Der Reiter, der die ganze Ausstattungs-Arbeit zusammenführt.** Bis
@@ -11444,7 +11444,7 @@ def _zerlege_zeile(fenster, eltern, zeile):
              anchor='w').pack(side='left')
 
 
-def _farmliste(fenster, rahmen):
+def _farm_list(fenster, rahmen):
     """Was an Rohstoffen fehlt, um das Geplante selbst zu bauen.
 
     ⭐⭐ **Die Gegenrichtung zu „Was noch fehlt".** Dort steht, was die Schiffe

@@ -9063,7 +9063,7 @@ def main():
     #    einzige Unterschied — am fertigen Knopf ist er nur noch Pixel.
     _q95 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _be95 = rumpf(_q95, '_bestand')
+    _be95 = rumpf(_q95, '_collection')
 
     def _knopfzeile95(schluessel):
         for _z95 in _be95.split(chr(10)):
