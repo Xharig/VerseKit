@@ -2708,6 +2708,8 @@ def _auftragslog(fenster, rahmen):
     # fehlen. Dieselbe Falle wie bei der Patch-Liste: Weggelassen heißt nicht
     # verschwiegen.
     gezeigt = {'anzahl': ZEILEN_ZUERST_LOG}
+    # Der Fingerabdruck der zuletzt gezeichneten Liste — siehe `zeichnen()`.
+    zuletzt = {'stand': None}
 
     suche = tk.StringVar()
     liste_rahmen = tk.Frame(innen, bg=BG)
@@ -2775,6 +2777,17 @@ def _auftragslog(fenster, rahmen):
         """
         return 's_al_laeuft' if pfade.spiel_laeuft() else 's_al_offen'
 
+    def _anzeige_stand():
+        """Der Fingerabdruck dessen, was die Liste zeigen WÜRDE.
+
+        ⚠⚠ Er muss **jede** Quelle enthalten, aus der `zeichnen()` liest —
+        Daten **und** Anzeigezustand. Fehlt eine, bleibt die Liste still auf
+        dem alten Stand. Dieselbe Regel wie in der Bauplan-Liste, dort in
+        vier Prüfrunden teuer gelernt.
+        """
+        return (repr(daten['alle']), stand['art'], suche.get(),
+                gezeigt['anzahl'], _wort_laufend())
+
     def zeichnen(*_, neu_laden=False, mehr=False):
         # ⚠ Jede neue Auswahl fängt wieder oben an. Ohne das stünde nach einem
         # Filterwechsel „… 12 weitere anzeigen" über einer Liste, die längst
@@ -2786,6 +2799,25 @@ def _auftragslog(fenster, rahmen):
                 daten['alle'] = missionslog.laden()
             except Exception:
                 daten['alle'] = []
+
+        # ⭐⭐ **Nur neu zeichnen, wenn sich etwas geändert hat.**
+        #
+        # Diese Seite wurde bei JEDEM Anzeigen komplett neu gebaut — und nach
+        # der Nachlese im Hintergrund gleich noch einmal. Gemessen am
+        # 13.09.2026: 388 ms je Anzeigen, davon 332 ms in 1.859 Tk-Aufrufen.
+        # Wer nur kurz auf eine andere Seite und zurück klickt, wartete jedes
+        # Mal darauf, dass dieselbe Liste neu entsteht.
+        #
+        # ⚠ Der Abdruck wird am ENDE geschrieben, nicht hier — und nur auf
+        # einem erfolgreichen Weg. Bricht das Zeichnen ab, bleibt er ungültig
+        # und die Liste wird beim nächsten Mal neu gebaut. (Regel 5.12:
+        # „Wer zeichnet, schreibt den Abdruck", und: erst ungültig machen,
+        # dann zerstören.)
+        jetzt = _anzeige_stand()
+        if jetzt == zuletzt.get('stand'):
+            return
+        zuletzt['stand'] = None
+
         alle = daten['alle']
         # ⚠ Einmal je Durchlauf, nicht je Zeile: `spiel_laeuft()` sieht auf
         # die Datei, und die Liste hat hunderte Zeilen.
@@ -2803,6 +2835,7 @@ def _auftragslog(fenster, rahmen):
             tk.Label(liste_rahmen, text=t('s_al_leer'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w', justify='left',
                      wraplength=560).pack(fill='x', pady=8)
+            zuletzt['stand'] = _anzeige_stand()   # auch das ist ein Bild
             return
         # ⚠ **Erst filtern, dann suchen.** Der Kopf zaehlt, was am Ende
         # dasteht — sonst meldet er 386 und zeigt 62.
@@ -2814,13 +2847,17 @@ def _auftragslog(fenster, rahmen):
         if not treffer:
             tk.Label(liste_rahmen, text=t('s_al_nichts'), bg=BG, fg=SUB,
                      font=fenster.f_klein, anchor='w').pack(fill='x', pady=8)
+            zuletzt['stand'] = _anzeige_stand()
             return
         # ⚠ Nicht alles auf einmal: Wer hundert Auftraege gespielt hat, wartet
         # sonst beim Oeffnen. Dieselbe Grenze wie in der Bauplan-Liste.
+        # ⭐ Gebaut werden alle, gepackt nur die sichtbaren — Tk rechnet sonst
+        # die Geometrie auch für die Zeilen unter dem Fensterrand.
+        zeilen_log = []
         for eintrag in treffer[:gezeigt['anzahl']]:
             zustand = eintrag.get('zustand') or missionslog.LAEUFT
             zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
-            zeile.pack(fill='x', pady=1)
+            zeilen_log.append(zeile)
 
             tk.Label(zeile, text=(eintrag.get('wann') or '')[:10],
                      bg=FLAECHE, fg=SUB, font=fenster.f_klein, width=11,
@@ -2895,6 +2932,8 @@ def _auftragslog(fenster, rahmen):
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
                 _umbruch(bp_lab)
 
+        _nach_bedarf_packen(innen.leinwand, zeilen_log)
+
         # ⭐ **Was noch fehlt, steht darunter — und lädt auf Klick nach.**
         # Wortlaut und Verhalten wie in der Bauplan-Liste: gleiche Dinge an der
         # gleichen Stelle.
@@ -2909,6 +2948,11 @@ def _auftragslog(fenster, rahmen):
                             cursor='hand2', pady=10)
             mehr.pack(fill='x')
             mehr.bind('<Button-1>', mehr_zeigen)
+
+        # ⭐ **Wer zeichnet, schreibt den Abdruck** — am Ende, nach dem Aufbau.
+        # Bricht etwas ab, bleibt er auf `None` und die Liste entsteht beim
+        # nächsten Anzeigen neu.
+        zuletzt['stand'] = _anzeige_stand()
 
         # ⚠ **„Mehrfach gespielt" ist am 07.09.2026 entfernt worden.** Der
         # Block zählte unter der Liste auf, welcher Auftrag wie oft lief.

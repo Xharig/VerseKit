@@ -114,11 +114,51 @@ def _ini_dateien():
     return gefunden
 
 
+# {Quellenmarke: Formulierung} — siehe `_aus_ini()`.
+_INI_MERK = {}
+
+
+def _ini_marke(pfad):
+    """Woran man erkennt, dass diese `global.ini` sich geändert hat.
+
+    ⚠ Absichtlich **billig**: Pfad, Größe, Zeitstempel in Nanosekunden —
+    kein Lesen. Dieselbe Technik wie bei den Joystick-Klarnamen; die dortigen
+    Lehren gelten hier genauso (Sekundenrundung reicht nicht, und der Merker
+    gehört in das Modul, dem die Daten gehören).
+    """
+    try:
+        z = os.stat(pfad)
+        return '%s:%d:%d' % (os.path.realpath(pfad), z.st_size, z.st_mtime_ns)
+    except OSError:
+        return None
+
+
 def _aus_ini(pfad):
     """Die Formulierung aus einer `global.ini` — oder None.
 
     Gelesen wird zeilenweise und nur bis zum Treffer: Die Datei ist mehrere
-    Megabyte groß, sie komplett in den Speicher zu holen wäre unnötig."""
+    Megabyte groß, sie komplett in den Speicher zu holen wäre unnötig.
+
+    ⭐⭐ **Und das Ergebnis wird gemerkt.** Der Fehlerbericht fragt zweimal
+    nach den Formulierungen (`sammeln()` und `gemessene()`), und die
+    Diagnose-Seite baut den Bericht bei jedem Anzeigen neu. Gemessen am
+    13.09.2026: **97 ms allein für diese Funktion**, bei jedem Klick auf die
+    Seite — für eine Datei, die sich nur mit einem Spiel-Patch ändert.
+
+    ⚠ Der Merker hängt an der **Quellenmarke**, nicht an der Programmsitzung:
+    Ein Patch während des Betriebs wird erkannt.
+    """
+    marke = _ini_marke(pfad)
+    if marke is not None and marke in _INI_MERK:
+        return _INI_MERK[marke]
+    ergebnis = _aus_ini_lesen(pfad)
+    if marke is not None:
+        _INI_MERK[marke] = ergebnis
+    return ergebnis
+
+
+def _aus_ini_lesen(pfad):
+    """Der eigentliche Lesevorgang — ohne Merker, für `_aus_ini()`."""
     try:
         with open(pfad, encoding='utf-8-sig', errors='ignore') as f:
             for zeile in f:
