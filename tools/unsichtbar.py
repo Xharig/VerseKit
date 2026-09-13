@@ -111,6 +111,54 @@ def verstecken():
             setattr(klasse, name, lambda self, *a, **k: None)
 
 
+MESSPLATZ = 'SC_BP_MESSPLATZ'
+
+
+def messplatz():
+    """Wohin darf ein Messfenster? Die obere linke Ecke des OBERSTEN Monitors.
+
+    ⚠ Eine Stelle „weit daneben" (`+9000+9000`) ist keine: Windows holt ein
+    Fenster, das auf keinem Monitor liegt, auf den nächstgelegenen zurück —
+    und das ist bei einem Aufbau mit zwei Bildschirmen übereinander der
+    untere. Genau dort sitzt jemand und schaut zu.
+
+    Gefragt wird das Betriebssystem, nicht geraten. Klappt das nicht (kein
+    Windows, kein `ctypes`), bleibt der alte Wert — er ist auf einem
+    Einzelmonitor unauffällig, und mehr war er nie.
+    """
+    von_hand = os.environ.get(MESSPLATZ)
+    if von_hand:
+        return von_hand
+    if not sys.platform.startswith('win'):
+        return '+9000+9000'
+    try:
+        import ctypes
+
+        class _RECT(ctypes.Structure):
+            _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long),
+                        ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+
+        rueckruf_art = ctypes.WINFUNCTYPE(
+            ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong,
+            ctypes.POINTER(_RECT), ctypes.c_double)
+        monitore = []
+
+        def _sammeln(_h, _hdc, lprc, _daten):
+            r = lprc.contents
+            monitore.append((r.left, r.top))
+            return 1
+
+        ctypes.windll.user32.EnumDisplayMonitors(
+            0, 0, rueckruf_art(_sammeln), 0)
+        if not monitore:
+            return '+9000+9000'
+        # Der oberste Monitor; bei Gleichstand der am weitesten links.
+        links, oben = sorted(monitore, key=lambda m: (m[1], m[0]))[0]
+        return '+%d+%d' % (links, oben)
+    except Exception:
+        return '+9000+9000'
+
+
 def unsichtbar_machen():
     """Zweite Notlösung für Werkzeuge, die GRÖSSEN messen (Windows, Mac).
 
@@ -122,6 +170,19 @@ def unsichtbar_machen():
     ⚠ Das ist der schwächere Schutz: Das Fenster existiert wirklich, kann in
     der Fensterliste auftauchen und theoretisch Fokus ziehen. Deshalb nur dort
     einsetzen, wo gemessen wird — sonst `verstecken()`.
+
+    ⛔⛔ **„Weit daneben" ist unter Windows keine Adresse.** Bis zum 14.09.2026
+    stand hier `+9000+9000`. Das liegt außerhalb **jedes** Monitors, und
+    Windows schiebt ein vollständig unsichtbares Fenster auf den
+    nächstgelegenen zurück — bei einem Aufbau mit einem Bildschirm oben und
+    einem unten also ausgerechnet auf den unteren. Gemeldet am selben Tag:
+    „wenn du mir den Fokus klaust, kannst du das nicht wenigstens auf dem
+    oberen Bildschirm machen, unten schaue ich grad Serien."
+
+    Deshalb wird jetzt eine **gültige** Stelle gewählt: die obere linke Ecke
+    des obersten Monitors. Dort darf das Fenster stehen bleiben, und wenn es
+    doch einmal Fokus zieht, passiert das nicht mitten im Bild.
+    `SC_BP_MESSPLATZ='+x+y'` setzt die Stelle von Hand.
     """
     try:
         import tkinter as tk
@@ -133,11 +194,13 @@ def unsichtbar_machen():
             continue
         urspruenglich = klasse.__init__
 
-        def bauen(self, *a, _urspruenglich=urspruenglich, **k):
+        platz = messplatz()
+
+        def bauen(self, *a, _urspruenglich=urspruenglich, _platz=platz, **k):
             _urspruenglich(self, *a, **k)
             try:
                 self.attributes('-alpha', 0.0)
-                self.geometry('+9000+9000')
+                self.geometry(_platz)
             except Exception:
                 pass
 

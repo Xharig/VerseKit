@@ -33,12 +33,20 @@ os.environ.setdefault('SC_BP_HOME', tempfile.mkdtemp(prefix='randpruefung-'))
 os.environ['SC_BP_NO_NET'] = '1'
 
 import tkinter as tk                                          # noqa: E402
-from scbp import main_window, sprache                        # noqa: E402
+from scbp import main_window, seiten, sprache                # noqa: E402
 
-# Alle Reiter — die eingeklappten „für Fortgeschrittene" ausdrücklich mit,
-# dort schaut sonst nie jemand hin.
-SEITEN = ['liste', 'fortschritt', 'allgemein', 'anzeige', 'ordner', 'spiel',
-          'bestand', 'wasistneu', 'ueber', 'erkennung', 'diagnose']
+# ⛔⛔ **Keine feste Liste.** Hier standen bis zum 14.09.2026 elf Kennungen von
+# Hand — das Programm hatte längst **33**. Zweiundzwanzig Seiten wurden also
+# nie auf abgeschnittene Beschriftungen geprüft, darunter alle Werkstatt- und
+# Handelsseiten.
+#
+# Aufgefallen ist es, weil auf der Raffinerien-Seite bei „sehr groß" **drei
+# Spalten gar nicht angezeigt** wurden — in einer ausgelieferten Fassung. Genau
+# dafür gibt es dieses Werkzeug; es hat nur nie hingeschaut.
+#
+# Eine Liste von Hand ist am Tag ihrer Erweiterung still veraltet. Gefragt wird
+# deshalb das Programm selbst.
+SEITEN = list(seiten.kennungen())
 
 GROESSEN = ('1100x842', '1440x900')
 

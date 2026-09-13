@@ -20060,6 +20060,17 @@ def main():
     # woertlich „Checkmate — Stanton". Zwei verschiedene Stationen in einer
     # Zeile, und keine der beiden Angaben war fuer sich falsch.
     #
+    # ⛔⛔ **Die erste Reparatur war auch falsch.** Sie schrieb alle Systeme des
+    # Buendels in EINE Zelle — „Nyx, Pyro, Stanton". Noch am selben Tag:
+    # „das rafft niemand wie das gemeint ist, nichtmal ich verstehe es."
+    # Eine Spalte, die zu drei Orten gehoert, beantwortet keine Frage, die
+    # jemand hat. Gefragt wird „wohin fliege ich?".
+    #
+    # Jetzt wird **je System** gebuendelt: Jede Spalte gehoert zu genau einem
+    # Ort. Das kostet zwei Spalten (12 statt 10) und macht eine Aussage
+    # sichtbar, die vorher unterging - in Pyro sind alle fuenf Stationen
+    # gleich.
+    #
     # ⚠⚠ Dieselbe Stelle gibt es ZWEIMAL: `refinery_matrix()` (Uebersichtsseite)
     # und `refineries_for()` (Kasten auf der Bergbau-Seite). Beide gepruefen —
     # ein Fix an nur einer Stelle laesst den Fehler auf der anderen Seite stehen.
@@ -20067,7 +20078,7 @@ def main():
     # ⚠ Die Pruefung legt sich ihre Daten SELBST hin, statt die echten
     # Bergbaudaten zu verlangen: Die liegen im Wegwerf-Ordner nicht, und eine
     # Pruefung, die sich ueberspringt, prueft nichts (Lehre aus Pruefung 67).
-    print('\n206. Gebuendelte Raffinerien nennen ALLE ihre Systeme')
+    print('\n206. Jede Raffinerie-Spalte gehoert zu GENAU EINEM System')
     from scbp import mining as _bg206
 
     _echt206 = _bg206.load
@@ -20088,49 +20099,48 @@ def main():
     }
     try:
         _bg206.load = lambda: _daten206
+        # Wohin gehoert welche Station? Das ist die Wahrheit, gegen die
+        # geprueft wird — aus den Mockdaten selbst, nicht von Hand getippt.
+        _wo206 = dict((r['name'], r['system'])
+                      for r in _daten206['refineries'])
         _sp206, _ze206 = _bg206.refinery_matrix()
-        pruefe(len(_sp206) == 2, 'zwei Profile ergeben zwei Spalten (%d)'
+        # 1 Profil x 3 Systeme + 1 Profil x 1 System = 4 Spalten.
+        pruefe(len(_sp206) == 4,
+               'je System eine eigene Spalte: 4 erwartet, %d bekommen'
                % len(_sp206))
         pruefe(len(_ze206) == 2, 'beide Materialien stehen als Zeile da (%d)'
                % len(_ze206))
 
-        # Der Kern: Je Spalte muessen GENAU die Systeme ihrer Stationen
-        # dastehen — nicht das der ersten, nicht irgendeines.
-        _soll206 = {'gemeinsam': {'Nyx', 'Pyro', 'Stanton'},
-                    'allein': {'Nyx'}}
+        # ⛔ Der Kern: In einer Spalte stehen NUR Stationen desselben Systems,
+        # und die Ortsangabe ist genau dieses eine System.
         _schuld206 = []
         for _namen206, _sys206 in _sp206:
-            _pid206 = 'allein' if _namen206 == ['Levski'] else 'gemeinsam'
-            _ist206 = set(x.strip() for x in (_sys206 or '').split(',')
-                          if x.strip())
-            if _ist206 != _soll206[_pid206]:
-                _schuld206.append('%s: „%s" statt %s'
-                                  % (_namen206[0], _sys206 or '',
-                                     ', '.join(sorted(_soll206[_pid206]))))
+            _orte206 = set(_wo206.get(n) for n in _namen206)
+            if len(_orte206) != 1:
+                _schuld206.append('%s: Stationen aus %s in EINER Spalte'
+                                  % (_namen206[0],
+                                     ', '.join(sorted(str(o) for o in _orte206))))
+            elif _sys206 != _orte206.pop():
+                _schuld206.append('%s: Spalte sagt „%s", Station steht woanders'
+                                  % (_namen206[0], _sys206))
         pruefe(not _schuld206,
-               'refinery_matrix: jede Spalte nennt genau ihre Systeme%s'
+               'refinery_matrix: eine Spalte, ein System%s'
                % (' — FALSCH bei ' + ' | '.join(_schuld206)
                   if _schuld206 else ''))
 
-        # Und kein System darf aus der Gesamtschau verschwinden.
-        _alle206 = set(r['system'] for r in _daten206['refineries'])
-        _gezeigt206 = set()
-        for _n206, _s206 in _sp206:
-            _gezeigt206 |= set(x.strip() for x in (_s206 or '').split(',')
-                               if x.strip())
-        pruefe(_alle206 <= _gezeigt206,
-               'kein System faellt aus der Uebersicht%s'
-               % (' — FEHLT: ' + ', '.join(sorted(_alle206 - _gezeigt206))
-                  if _alle206 - _gezeigt206 else ''))
+        # Und keine Station darf dabei verlorengehen — 5 rein, 5 raus.
+        _gezeigt206 = [n for _ns206, _s206 in _sp206 for n in _ns206]
+        _fehlt206 = sorted(set(_wo206) - set(_gezeigt206))
+        pruefe(not _fehlt206 and len(_gezeigt206) == len(_wo206),
+               'jede Station steht in genau einer Spalte%s'
+               % (' — FEHLT: ' + ', '.join(_fehlt206) if _fehlt206 else ''))
 
-        # ⚠ Die zweite Stelle: derselbe Buendelfehler im Bergbau-Kasten.
+        # ⚠ Die zweite Stelle: dieselbe Regel im Bergbau-Kasten.
         _r206 = _bg206.refineries_for('Quartz')
         _schuld206b = []
         for _namen206, _sys206, _bonus206 in _r206:
-            _pid206 = 'allein' if _namen206 == ['Levski'] else 'gemeinsam'
-            _ist206 = set(x.strip() for x in (_sys206 or '').split(',')
-                          if x.strip())
-            if _ist206 != _soll206[_pid206]:
+            _orte206 = set(_wo206.get(n) for n in _namen206)
+            if len(_orte206) != 1 or _sys206 != list(_orte206)[0]:
                 _schuld206b.append('%s: „%s"' % (_namen206[0], _sys206 or ''))
         pruefe(bool(_r206) and not _schuld206b,
                'refineries_for: dasselbe im Bergbau-Kasten%s'
@@ -20141,11 +20151,57 @@ def main():
 
     # Und die Legende darf die Spalte nicht wie eine einzelne Station aussehen
     # lassen — „Checkmate" allein verschweigt sieben weitere.
+    from scbp import seiten as _se206
     _q206 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
     _ab206 = rumpf(_q206, '_refineries')
     pruefe("s_bg_raff_weitere" in _ab206,
            'die Legende nennt die Zahl der gebuendelten Stationen')
+
+    # ⛔⛔ Keine Spaltenueberschrift darf breiter sein als ihre Spalte.
+    # Gemessen am 14.09.2026: „Checkmate" braucht 63 px, die Spalte hat 46 —
+    # Tk kuerzte das ohne Meldung auf „Checkm". Jetzt bricht es zweizeilig um.
+    #
+    # ⚠ Diese Pruefung braucht KEIN Fenster: Die Spaltenbreite steht in
+    # Zeichen da, also wird in Zeichen geprueft. Eine Pixelmessung haette ein
+    # Fenster gebraucht und waere im Wegwerf-Ordner ohne Bergbaudaten
+    # uebersprungen worden — genau die Falle aus Pruefung 67.
+    _zu_breit206 = []
+    for _k206 in ('Checkmate', 'Pyro-Gate', 'Levski', 'ARC-L1', 'MIC-L5',
+                  'Orbituary', 'Ruin', 'Terra-Gate'):
+        for _zeile206 in _se206._raff_kopf(_k206).split(chr(10)):
+            if len(_zeile206) > _se206.SPALTE_WERT:
+                _zu_breit206.append('%s -> „%s" (%d Zeichen)'
+                                    % (_k206, _zeile206, len(_zeile206)))
+    pruefe(not _zu_breit206,
+           'keine Spaltenueberschrift ist breiter als ihre Spalte%s'
+           % (' — ZU BREIT: ' + ' | '.join(_zu_breit206)
+              if _zu_breit206 else ''))
+    # Und ein kurzes Kuerzel wird NICHT umgebrochen — ein Umbruch, wo keiner
+    # noetig ist, macht die Kopfzeile doppelt so hoch wie gebraucht.
+    pruefe(chr(10) not in _se206._raff_kopf('ARC-L1'),
+           'ein Kuerzel, das passt, bleibt einzeilig')
+    # ⚠ Die Systemleiste legt sich ueber `len(gruppe) * SPALTE_WERT` Zeichen.
+    # Faellt die Gruppierung auseinander, verrutscht sie gegen ihre Spalten.
+    #
+    # ⚠⚠ Die Probe nimmt **absichtlich unsortierte** Spalten (Nyx, Nyx, Pyro,
+    # Nyx). Mit sortierten kaeme dieselbe Antwort heraus, egal ob nach
+    # Nachbarschaft oder nach „kenne ich das System schon" gebuendelt wird —
+    # die Probe koennte die beiden gar nicht unterscheiden und waere gruen aus
+    # Versehen. Genau so gemessen beim Gegenpruefen am 14.09.2026.
+    #
+    # Richtig ist die Nachbarschaft: Eine Leiste kann sich nur ueber
+    # **nebeneinanderliegende** Spalten legen. Wer das dritte Nyx zum ersten
+    # dazuzaehlt, malt eine Leiste ueber Spalten, die woanders stehen.
+    _sp206b = [(['A'], 'Nyx'), (['B'], 'Nyx'), (['C'], 'Pyro'),
+               (['D'], 'Nyx'), (['E'], 'Stanton')]
+    _gr206 = _se206._raff_gruppen(_sp206b)
+    _ist206b = [(s, len(g)) for s, g in _gr206]
+    pruefe(_ist206b == [('Nyx', 2), ('Pyro', 1), ('Nyx', 1), ('Stanton', 1)],
+           'die Systemleiste fasst nur NEBENEINANDERLIEGENDE Spalten zusammen '
+           '(bekommen: %s)' % _ist206b)
+    pruefe(sum(len(g) for _s, g in _gr206) == len(_sp206b),
+           'und laesst dabei keine Spalte aus')
 
     # === 207 · Kein Werkzeug stirbt an seiner eigenen Ausgabe ===============
     #

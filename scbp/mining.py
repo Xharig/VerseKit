@@ -569,15 +569,24 @@ def refinery_matrix():
     ⚠ **Was nicht im Profil steht, ist 0 %**, nicht „unbekannt" — so hält es
     die Quelle, und so steht es auch in deren Tabelle.
 
-    ⚠ Raffinerien mit **demselben Profil** werden zu einer Spalte gebündelt:
-    20 Stationen teilen sich 10 Profile, sonst stünde jede Spalte doppelt.
+    ⚠⚠ **Gebündelt wird je System, nicht über Systeme hinweg.** Stationen mit
+    demselben Profil liefern dasselbe Ergebnis und stünden sonst als gleiche
+    Spalte mehrfach da — aber ein Bündel darf nicht über Systemgrenzen
+    reichen. Das kostet zwei Spalten (12 statt 10) und ist jeden Pixel wert:
 
-    ⚠⚠ **Ein Bündel kann über mehrere Systeme reichen** — deshalb ist `system`
-    eine Aufzählung, kein einzelner Name. Profil `3c47572dd971` deckt acht
-    Stationen in **Stanton, Pyro und Nyx** ab; wer sich nur das System der
-    ersten merkt, lässt alle fünf Pyro-Raffinerien aus der Übersicht
-    verschwinden. Genau so gemeldet am 14.09.2026: „sind in Pyro keine
-    Raffenerien?" Es sind welche — sie standen nur unter Stanton.
+    Am 14.09.2026 kam erst „sind in Pyro keine Raffenerien?" (ein Profil deckt
+    acht Stationen in drei Systemen ab, angezeigt wurde nur Stanton), und nach
+    der ersten Reparatur — die alle drei Systeme in **eine** Zelle schrieb —
+    sofort: *„Und bei checkmate stehen sogar nyx stanton und Pyro, das rafft
+    niemand wie das gemeint ist, nichtmal ich verstehe es."*
+
+    > **Eine Spalte, die zu drei Orten gehört, beantwortet keine Frage, die
+    > jemand hat.** Gefragt wird „wohin fliege ich?", und darauf ist „Nyx,
+    > Pyro, Stanton" keine Antwort.
+
+    Je System getrennt ergibt dagegen eine Aussage, die vorher unterging: In
+    **Pyro** sind alle fünf Stationen gleich — es ist egal, wohin man fliegt.
+    In **Nyx** ist Levski der Ausreißer gegenüber den beiden Gateways.
 
     ⚠ `bester_index` ist `None`, wenn alle Werte gleich sind — dann gibt es
     nichts hervorzuheben, und eine Markierung wäre eine erfundene Empfehlung.
@@ -594,18 +603,16 @@ def refinery_matrix():
         pid = r.get('profileId')
         if pid not in profiles:
             continue
-        entry = bundled.setdefault(pid, {'namen': [], 'systeme': set()})
-        entry['namen'].append(r.get('name') or '')
-        if r.get('system'):
-            entry['systeme'].add(r['system'])
+        # ⚠ Der Schlüssel ist (System, Profil) — NICHT das Profil allein.
+        bundled.setdefault((r.get('system') or '', pid), []).append(
+            r.get('name') or '')
     if not bundled:
         return [], []
-    for entry in bundled.values():
-        entry['system'] = ', '.join(sorted(entry['systeme']))
-    order = sorted(bundled, key=lambda p: (bundled[p]['system'] or '',
-                                           sorted(bundled[p]['namen'])))
-    columns = [(sorted(bundled[p]['namen']), bundled[p]['system'])
-               for p in order]
+    # Nach System, darin die größten Bündel zuerst: Wo mehrere Stationen
+    # dasselbe liefern, ist genau das die Nachricht („egal wohin").
+    order = sorted(bundled, key=lambda s: (s[0], -len(bundled[s]),
+                                           sorted(bundled[s])))
+    columns = [(sorted(bundled[s]), s[0]) for s in order]
 
     # Alle Materialien, die überhaupt vorkommen.
     materials = set()
@@ -615,7 +622,7 @@ def refinery_matrix():
     rows = []
     for material in sorted(materials, key=lambda s: s.lower()):
         werte = []
-        for pid in order:
+        for _system, pid in order:
             roh = (profiles.get(pid) or {}).get(material, 0)
             try:
                 werte.append(int(roh))
@@ -643,9 +650,10 @@ def refineries_for(material):
     `Aluminium (Ore)`. Ohne Angleichung findet man zu keinem Erz eine
     Raffinerie.
 
-    ⚠⚠ **`System` ist eine Aufzählung** — dieselbe Falle wie in
-    `refinery_matrix()`: Ein Profil kann Stationen in mehreren Systemen
-    buendeln, und wer nur das der ersten merkt, blendet ganze Systeme aus.
+    ⚠⚠ **Gebuendelt wird je System** — dieselbe Regel wie in
+    `refinery_matrix()`. Ein Profil kann Stationen in mehreren Systemen
+    abdecken; wer sie in eine Zeile wirft, schreibt dort „Nyx, Pyro, Stanton"
+    und beantwortet damit die Frage nicht, die jemand hat: wohin fliege ich?
     """
     from .crafting import norm_material
     current = load()
@@ -667,14 +675,13 @@ def refineries_for(material):
         pid = r.get('profileId')
         if pid not in bonus_per_profile:
             continue
-        entry = bundled.setdefault(pid, {'namen': [], 'systeme': set(),
-                                         'bonus': bonus_per_profile[pid]})
+        entry = bundled.setdefault((r.get('system') or '', pid),
+                                   {'namen': [],
+                                    'bonus': bonus_per_profile[pid]})
         entry['namen'].append(r.get('name') or '')
-        if r.get('system'):
-            entry['systeme'].add(r['system'])
-    result = [(e['namen'], ', '.join(sorted(e['systeme'])), e['bonus'])
-              for e in bundled.values()]
-    result.sort(key=lambda x: (-x[2], x[0][0] if x[0] else ''))
+    result = [(sorted(e['namen']), s[0], e['bonus'])
+              for s, e in bundled.items()]
+    result.sort(key=lambda x: (-x[2], x[1], x[0][0] if x[0] else ''))
     return result
 
 

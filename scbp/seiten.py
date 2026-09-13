@@ -9820,14 +9820,94 @@ def _mining(fenster, rahmen):
     _body_text(innen, t('s_bg_mehr_info'), fenster.f_small, fill='x')
 
 
+# Spaltenbreiten der Raffinerien-Tafel, in Zeichen. ⚠ Sie stehen hier oben,
+# weil die **Systemleiste** sich über `len(gruppe) * SPALTE_WERT` legt: Band,
+# Überschrift und Werte müssen dieselbe Zahl benutzen, sonst verrutscht die
+# Leiste gegenüber ihren Spalten. Zwei Stellen mit derselben Zahl sind eine
+# Stelle zu viel.
+SPALTE_MATERIAL = 18
+SPALTE_WERT = 6
+
+
+def _raff_kopf(kuerzel):
+    """Die Spaltenüberschrift — zweizeilig, statt abgeschnitten.
+
+    ⛔ „Checkmate" braucht bei normaler Schrift **63 px**, eine Spalte hat
+    46. Tk kürzt das ohne Meldung auf „Checkm". Umbrechen kostet dagegen nur
+    Höhe, und die ist hier reichlich da: Die Tafel ist breit, nicht hoch.
+
+    ⚠ Nicht mit `wraplength` lösen — das rechnet in Pixeln und müsste je
+    Schriftgröße nachgezogen werden. Hier wird nach **Zeichen** umgebrochen,
+    genau wie die Spaltenbreite in Zeichen angegeben ist.
+
+    ⚠ Und nicht `textwrap`: Das füllt die erste Zeile bis zum Anschlag und
+    lässt den Rest hängen — aus „Checkmate" wurde „Checkm" / „ate". Zwei
+    möglichst gleich lange Hälften lesen sich besser („Check" / „mate"), und
+    wo ein Trennzeichen nahe der Mitte steht, wird dort getrennt
+    („Pyro-" / „Gate").
+
+    ⚠ **Ab 13 Zeichen bricht es unschön** („Stanton-Gate" → „Stanto" /
+    „n-Gate"), weil keine Hälfte länger sein darf als die Spalte. In den
+    heutigen Daten kommt das nicht vor — die längste Überschrift hat neun
+    Zeichen —, und die Legende darunter schreibt ohnehin jede Station aus.
+    Wird es einmal gebraucht, ist die Spaltenbreite die Stellschraube, nicht
+    diese Funktion.
+    """
+    if len(kuerzel) <= SPALTE_WERT:
+        return kuerzel
+    mitte = (len(kuerzel) + 1) // 2
+    schnitt = mitte
+    for versatz in range(0, SPALTE_WERT):
+        for stelle in (mitte + versatz, mitte - versatz):
+            if 0 < stelle < len(kuerzel) and kuerzel[stelle - 1] in '- ':
+                schnitt = stelle
+                break
+        else:
+            continue
+        break
+    oben, unten = kuerzel[:schnitt].rstrip(), kuerzel[schnitt:]
+    if max(len(oben), len(unten)) > SPALTE_WERT:   # Notnagel: hart in der Mitte
+        oben, unten = kuerzel[:mitte], kuerzel[mitte:]
+    return oben + '\n' + unten
+
+
+def _raff_gruppen(spalten):
+    """Die Spalten nach System zusammengefasst: `[(system, [spalten])]`.
+
+    ⚠ Die Reihenfolge kommt aus `refinery_matrix()` und ist bereits nach
+    System sortiert — hier wird nur zusammengefasst, **nicht neu sortiert**.
+    Wer hier sortierte, könnte die Leiste gegen die Spalten verschieben.
+    """
+    gruppen = []
+    for eintrag in spalten:
+        system = eintrag[1]
+        if gruppen and gruppen[-1][0] == system:
+            gruppen[-1][1].append(eintrag)
+        else:
+            gruppen.append((system, [eintrag]))
+    return gruppen
+
+
 def _raff_kurz(namen):
     """Aus „ARC-L1 Wide Forest Station" wird „ARC-L1".
 
     ⚠ Dieselbe Regel wie im Raffinerie-Kasten der Bergbau-Seite. Zwei
     Schreibweisen für dieselbe Station wären ein Widerspruch im eigenen
     Programm — und genau die sind heute dreimal teuer geworden.
+
+    ⚠⚠ **Bei Gateways reicht das erste Wort nicht.** „Pyro Gateway (Nyx)"
+    steht in **Nyx** und hieße gekürzt „Pyro" — in einer Spalte, über der
+    „Nyx" steht. Das Wort davor benennt das Ziel des Sprungpunkts, nicht den
+    Ort. Deshalb bleibt „Gateway" dran (gekürzt), sonst widerspricht die
+    Überschrift der Ortsangabe daneben.
     """
-    kuerzel = list(dict.fromkeys((n or '').split(' ')[0] for n in namen if n))
+    kuerzel = []
+    for n in namen:
+        if not n:
+            continue
+        erstes = n.split(' ')[0]
+        kuerzel.append(erstes + '-Gate' if 'Gateway' in n else erstes)
+    kuerzel = list(dict.fromkeys(kuerzel))
     return kuerzel[0] if kuerzel else '—'
 
 
@@ -9869,24 +9949,44 @@ def _refineries(fenster, rahmen):
         _body_text(innen, t('s_rf_keine'), fenster.f_base, fill='x')
         return
 
-    # ⚠ Die Tabelle bekommt eine **eigene** waagerechte Rollfläche. Zehn
-    # Spalten passen bei „sehr groß" nicht mehr nebeneinander, und der
-    # Seitenkörper darf nie waagerecht rollen (Projektregel).
+    # ⛔⛔ **Jede Spalte kostet Platz, und Tk schneidet still ab.**
+    # Gemessen am 14.09.2026 bei 1100×842 (verfügbar: 852 px): Mit 20 Zeichen
+    # für das Material und 8 je Wert brauchte die Zeile 890 px bei normaler
+    # Schrift und **1354 px** bei „sehr groß" — dort fehlten fünf Spalten
+    # ersatzlos. Schon die ausgelieferte v3.34.0 verlor bei „sehr groß" drei.
+    #
+    # Ein Wert ist höchstens vier Zeichen breit (`+11`, `-9`). Die acht waren
+    # nur für die Überschrift da — und die passt jetzt zweizeilig.
     karte = _card(innen, pady=(0, 12))
 
+    # ⭐ Eine Leiste mit dem System über den Spalten. Sie beantwortet die
+    # Frage, die jemand wirklich hat („wohin fliege ich?"), ohne dass man in
+    # die Legende springen muss — und sie kostet nichts an Breite, weil sie
+    # sich über die Spalten ihres Systems legt.
+    band = tk.Frame(karte, bg=SURFACE)
+    band.pack(fill='x', padx=12, pady=(10, 0))
+    tk.Label(band, text='', bg=SURFACE, font=fenster.f_small,
+             width=SPALTE_MATERIAL).pack(side='left')
+    for system, gruppe in _raff_gruppen(spalten):
+        tk.Label(band, text=system or '—', bg=SURFACE, fg=ACCENT,
+                 font=fenster.f_small, anchor='w',
+                 width=len(gruppe) * SPALTE_WERT).pack(side='left')
+
     kopf = tk.Frame(karte, bg=SURFACE)
-    kopf.pack(fill='x', padx=12, pady=(10, 4))
+    kopf.pack(fill='x', padx=12, pady=(0, 4))
     tk.Label(kopf, text=t('s_rf_material'), bg=SURFACE, fg=SUB,
-             font=fenster.f_small, anchor='w', width=20).pack(side='left')
+             font=fenster.f_small, anchor='w',
+             width=SPALTE_MATERIAL).pack(side='left')
     for namen, _system in spalten:
-        tk.Label(kopf, text=_raff_kurz(namen), bg=SURFACE, fg=SUB,
-                 font=fenster.f_small, width=8, anchor='e').pack(side='left')
+        tk.Label(kopf, text=_raff_kopf(_raff_kurz(namen)), bg=SURFACE, fg=SUB,
+                 font=fenster.f_small, width=SPALTE_WERT,
+                 anchor='se', justify='right').pack(side='left', fill='y')
 
     for material, werte, bester in zeilen:
         z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=12, pady=1)
         tk.Label(z, text=material, bg=SURFACE, fg=FG, font=fenster.f_small,
-                 anchor='w', width=20).pack(side='left')
+                 anchor='w', width=SPALTE_MATERIAL).pack(side='left')
         for i, wert in enumerate(werte):
             # ⚠ Drei Zustände, drei Farben: Gewinn, Verlust, weder noch.
             # Eine 0 grau zu lassen ist wichtig — sie ist keine Empfehlung.
@@ -9898,25 +9998,32 @@ def _refineries(fenster, rahmen):
                 farbe = SUB
             tk.Label(z, text=('%+d' % wert) if wert else '·',
                      bg=SURFACE, fg=farbe, font=fenster.f_small,
-                     width=8, anchor='e').pack(side='left')
+                     width=SPALTE_WERT, anchor='e').pack(side='left')
 
+    # ⛔⛔ **Nach System gegliedert, nicht als Liste mit Ortsspalte.**
+    # Die erste Fassung schrieb je Zeile „Kürzel · System · Stationen". Sobald
+    # eine Spalte zu mehreren Orten gehörte, stand dort „Nyx, Pyro, Stanton" —
+    # und damit war die Zeile unlesbar. Jetzt trägt jede Spalte genau ein
+    # System, und das System steht als **Überschrift** darüber. Die Ortsspalte
+    # entfällt ersatzlos: Sie wiederholte nur, was schon oben steht.
     _body_text(innen, t('s_rf_legende'), fenster.f_small, fill='x')
+    _letztes = None
     for namen, system in spalten:
+        if system != _letztes:
+            tk.Label(innen, text=system or '—', bg=BG, fg=ACCENT,
+                     font=fenster.f_base, anchor='w').pack(
+                         fill='x', pady=(8, 2))
+            _letztes = system
         z = tk.Frame(innen, bg=BG)
         z.pack(fill='x', pady=1)
         # ⚠ Die Zahl dahinter ist wichtig: „Checkmate" allein sieht aus wie
-        # **eine** Station, tatsächlich stehen acht in dieser Spalte — und die
+        # **eine** Station, tatsächlich stehen fünf in dieser Spalte — und die
         # Überschrift nennt die alphabetisch erste, nicht die einzige.
         _kurz = _raff_kurz(namen)
         if len(namen) > 1:
             _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
-        tk.Label(z, text=_kurz, bg=BG, fg=FG,
-                 font=fenster.f_small, anchor='w', width=18).pack(side='left')
-        # ⚠ Breit genug für **mehrere** Systeme: Ein Profil bündelt Stationen
-        # aus Stanton, Pyro und Nyx — bei `width=10` wäre davon nur „Nyx, Pyr"
-        # zu lesen gewesen, und Tk schneidet still ab.
-        tk.Label(z, text=system or '', bg=BG, fg=SUB, font=fenster.f_small,
-                 anchor='w', width=22).pack(side='left')
+        tk.Label(z, text=_kurz, bg=BG, fg=FG, font=fenster.f_small,
+                 anchor='w', width=16).pack(side='left', padx=(12, 0))
         tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         fill='x', expand=True)
