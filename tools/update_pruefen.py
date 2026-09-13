@@ -18,6 +18,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scbp import updater                                   # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 APPIMAGE = os.path.expanduser('~/Programme/SC-BP-Watcher.AppImage')
 
 

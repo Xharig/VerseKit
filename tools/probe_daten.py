@@ -12,6 +12,10 @@ import json
 import os
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Ein kleiner, aber echter Ausschnitt: verschiedene Arten, Klassen, Größen,
 # mit und ohne Bezugsquelle. Genug, um Liste, Filter und Herkunft zu beurteilen.
 #

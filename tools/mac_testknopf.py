@@ -35,6 +35,10 @@ import os
 import re
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 HIER = os.path.dirname(os.path.abspath(__file__))
 PROJEKT = os.path.dirname(HIER)
 DESKTOP = os.path.expanduser('~/Desktop')

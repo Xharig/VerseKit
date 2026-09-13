@@ -49,6 +49,10 @@ import shutil
 import subprocess
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Merker im Kindprozess — ohne ihn würde er sich endlos weiter neu starten.
 SCHON_UNSICHTBAR = 'SC_BP_UNSICHTBAR'
 

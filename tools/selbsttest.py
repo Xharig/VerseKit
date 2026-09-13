@@ -45,6 +45,11 @@ import time
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, WURZEL)
+# ⛔ Vor der ersten Ausgabe: Der Selbsttest druckt ⭐ ⚠ ✅ ❌ ⛔ → ─ ├ └ — nichts
+# davon kennt die Windows-Konsole (`cp1252`). Siehe ausgabe.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
 
 # Prueflaeufe bauen echte Fenster. Ohne diese Umleitung blitzen sie ueber
 # einem laufenden Spiel auf und reissen den Fokus mit — siehe unsichtbar.py.
@@ -20080,6 +20085,65 @@ def main():
     _ab206 = _ab206[:_ab206.find('\ndef ', 10)]
     pruefe("s_bg_raff_weitere" in _ab206,
            'die Legende nennt die Zahl der gebuendelten Stationen')
+
+    # === 207 · Kein Werkzeug stirbt an seiner eigenen Ausgabe ===============
+    #
+    # ⛔⛔ Am 14.09.2026, beim Prueflauf VOR dem Release von v3.34.1:
+    # `launcher_pruefen.py` brach in Zeile 205 mit einem UnicodeEncodeError ab —
+    # an einem einzigen `↔`. Die Windows-Konsole schreibt `cp1252`; Umlaute
+    # gehen darin, Pfeile nicht. Inhaltlich war alles in Ordnung: Mit
+    # PYTHONIOENCODING=utf-8 lief derselbe Lauf durch und bestand.
+    #
+    # ⚠ Das Tueckische ist nicht der Absturz, sondern wie er aussieht: wie ein
+    # durchgefallener Pruflauf, kurz vor einer Veroeffentlichung. Wer da nicht
+    # genau hinsieht, sucht den Fehler im Geprueften.
+    #
+    # ⚠ Unter Linux ist die Ausgabe ohnehin UTF-8 — deshalb faellt so etwas beim
+    # Entwickeln nie auf und erst auf dem Zweitsystem.
+    #
+    # ⚠⚠ Die Pruefung fragt NICHT nach den acht Werkzeugen von damals, sondern
+    # nach der Eigenschaft: Wer solche Zeichen ueberhaupt in der Datei hat, ruft
+    # `ausgabe.utf8()`. Damit greift sie auch fuer das naechste Werkzeug, das
+    # noch niemand geschrieben hat. Eine Liste von Dateinamen waere am Tag ihrer
+    # Erweiterung still veraltet.
+    print('\n207. Kein Werkzeug stirbt an seiner eigenen Ausgabe')
+    _ohne207 = []
+    _mit207 = 0
+    for _n207 in sorted(os.listdir(os.path.join(WURZEL, 'tools'))):
+        if not _n207.endswith('.py') or _n207 in ('ausgabe.py',):
+            continue
+        # Entwuerfe sind per .gitignore ausgenommen und regeln es selbst.
+        if _n207.startswith('entwurf_'):
+            continue
+        _p207 = os.path.join(WURZEL, 'tools', _n207)
+        _t207 = io.open(_p207, encoding='utf-8').read()
+        _boese207 = set()
+        for _c207 in set(_t207):
+            if ord(_c207) > 127:
+                try:
+                    _c207.encode('cp1252')
+                except UnicodeEncodeError:
+                    _boese207.add(_c207)
+        if not _boese207:
+            continue
+        _mit207 += 1
+        if 'ausgabe.utf8()' not in _t207:
+            _ohne207.append('%s (%s)'
+                            % (_n207, ' '.join(sorted(_boese207))[:40]))
+    pruefe(_mit207 > 0,
+           'es gibt ueberhaupt Werkzeuge mit solchen Zeichen (%d)' % _mit207)
+    pruefe(not _ohne207,
+           'jedes Werkzeug mit cp1252-fremden Zeichen ruft ausgabe.utf8()%s'
+           % (' — FEHLT in: ' + ', '.join(_ohne207) if _ohne207 else ''))
+
+    # Und der Helfer selbst darf unter keinen Umstaenden werfen — er laeuft, bevor
+    # irgendetwas anderes laeuft.
+    _q207 = io.open(os.path.join(WURZEL, 'tools', 'ausgabe.py'),
+                    encoding='utf-8').read()
+    pruefe('except Exception:' in _q207,
+           'ausgabe.utf8() faengt ab, wenn die Ausgabe umgeleitet ist')
+    pruefe("errors='replace'" in _q207,
+           'und ersetzt unbekannte Zeichen, statt abzubrechen')
 
     print()
     if fehler:

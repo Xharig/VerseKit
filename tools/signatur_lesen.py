@@ -66,6 +66,10 @@ import struct
 import sys
 import zlib
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Die Ziffern werden vor dem Vergleich auf eine feste Größe gebracht. Damit
 # spielt es keine Rolle mehr, ob die Zahl auf 1080p oder auf einem Ultrawide
 # steht — verglichen wird immer dasselbe Raster.

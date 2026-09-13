@@ -5,6 +5,10 @@ import unsichtbar
 unsichtbar.sicherstellen(messend=True)
 import tkinter as tk
 from scbp import fields
+
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
 HINWEIS = 'Bauplan oder Auftrag suchen'
 w = tk.Tk(); w.geometry('400x100+30+30')
 var = tk.StringVar()

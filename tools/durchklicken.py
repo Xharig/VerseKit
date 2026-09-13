@@ -71,6 +71,10 @@ import shutil                                              # noqa: E402
 import tempfile                                            # noqa: E402
 import tkinter as tk                                       # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 
 fehler = []
 geprueft = [0]

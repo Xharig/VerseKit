@@ -71,6 +71,10 @@ import re
 import subprocess
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPERRLISTE = os.environ.get('SC_BP_SPERRLISTE') or os.path.join(WURZEL,
                                                                 '.sperrliste')

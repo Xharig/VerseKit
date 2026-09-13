@@ -83,6 +83,9 @@ sys.path.insert(0, HIER)
 from ablagen import ablage_module                           # noqa: E402
 import unsichtbar                                          # noqa: E402
 unsichtbar.sicherstellen()
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⭐` — siehe ausgabe.py.
+import ausgabe                                             # noqa: E402
+ausgabe.utf8()
 
 import glob                                                # noqa: E402
 import json                                                # noqa: E402

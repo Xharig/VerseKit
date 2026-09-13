@@ -23,6 +23,10 @@ import os
 import re
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 HIER = os.path.dirname(os.path.abspath(__file__))
 WURZEL = os.path.dirname(HIER)
 sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))

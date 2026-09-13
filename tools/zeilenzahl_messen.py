@@ -47,6 +47,10 @@ sys.path.insert(0, WURZEL)
 sys.path.insert(0, os.path.join(WURZEL, 'tools'))
 
 import unsichtbar                                            # noqa: E402
+
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
 unsichtbar.sicherstellen(messend=True)
 
 WIEDERHOLUNGEN = 4

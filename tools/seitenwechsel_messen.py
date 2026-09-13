@@ -83,6 +83,10 @@ unsichtbar.sicherstellen(messend=True)
 
 from scbp import main_window                                # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Die Methoden, die `open_page()` der Reihe nach ruft.
 SCHRITTE = ('_remember_action', '_open_group_of_tab',
             '_fill_page', '_recolor_tabs',

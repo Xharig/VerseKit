@@ -41,6 +41,10 @@ sie prueft die **Wirkung** (bleibt ein Fenster messbar?), nicht die Form.
 import importlib
 import pkgutil
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 
 def ablage_module(mit_fehlern=False):
     """Alle `scbp`-Module mit mindestens einer `uex.Store`-Instanz.

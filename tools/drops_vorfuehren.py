@@ -59,6 +59,10 @@ if not os.environ.get('SC_BP_HOME') and os.path.isdir(TEST_ABLAGE):
 
 from scbp import watchlist, pfade                      # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `→` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Ein Wegwerf-Spielordner neben der Ablage des Testlaufs — nicht im Projekt,
 # damit nichts davon je in einen Commit rutscht.
 ORDNER = os.path.join(os.path.expanduser('~'), 'Documents',

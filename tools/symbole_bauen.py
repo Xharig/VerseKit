@@ -50,6 +50,10 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `ℹ` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 try:
     from PIL import Image, ImageDraw
 except ImportError:                                   # pragma: no cover

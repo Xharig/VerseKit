@@ -36,6 +36,10 @@ unsichtbar.sicherstellen(messend=True)
 import tkinter as tk                                         # noqa: E402
 from scbp import bestandsfenster, catalog as katalog_modul   # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `─` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 OK = []
 
 

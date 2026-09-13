@@ -46,6 +46,11 @@ import os
 import re
 import sys
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `▶` — siehe ausgabe.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 HIER = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Benannte Argumente, deren Wert auf dem Bildschirm landet.

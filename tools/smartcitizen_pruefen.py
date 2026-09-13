@@ -46,6 +46,10 @@ heim = tempfile.mkdtemp(prefix='smartcitizen-')
 os.environ['SC_BP_HOME'] = heim
 from scbp import injektion
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 DE_ZIP = ('https://github.com/rjcncpt/StarCitizen-Deutsch-INI/releases/'
           'latest/download/StarCitizen.Deutsch.LIVE.zip')
 SC_GEN = ('https://raw.githubusercontent.com/Osiris-DevWorks/smart-citizen/'

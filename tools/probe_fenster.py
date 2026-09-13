@@ -37,6 +37,10 @@ import tkinter as tk                                         # noqa: E402
 from scbp import (version_window, binding_window,            # noqa: E402
                   curve_plot, fov_window)
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `─` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 OK = []
 
 

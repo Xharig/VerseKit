@@ -50,6 +50,10 @@ print('Marken vorher :', sum(1 for z in open(arbeit, encoding='utf-8', errors='i
 
 # Den echten Bestand des laufenden Systems holen, damit die Haken stimmen
 import json
+
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
 bestand = json.load(open(os.path.expanduser('~/Dokumente/SC BP Watcher/Bauplaene/bestand.json'), encoding='utf-8'))
 
 ok, n, meldung = injektion.entfernen(arbeit)

@@ -35,6 +35,11 @@ import urllib.request
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `↔` — siehe ausgabe.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 heim = tempfile.mkdtemp(prefix='launcher-')
 os.environ['SC_BP_HOME'] = heim
 from scbp import injektion

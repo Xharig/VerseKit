@@ -44,6 +44,9 @@ sys.path.insert(0, HIER)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import unsichtbar                                              # noqa: E402
 unsichtbar.sicherstellen()
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `→` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
 
 
 # Eine Wegwerf-Ablage, damit die Prüfung nichts am eigenen Stand ändert.

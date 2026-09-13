@@ -45,6 +45,10 @@ import struct
 import sys
 from collections import Counter, defaultdict
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 # Dieselbe Suche wie in extract_global_ini.py. Wer das Spiel woanders liegen
 # hat — zweites System, eingehaengte Fremdplatte — setzt SC_INSTALL_DIR.
 # ⚠ Hier stehen KEINE persoenlichen Pfade: Das Repo ist oeffentlich.

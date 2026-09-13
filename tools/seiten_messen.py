@@ -42,6 +42,10 @@ unsichtbar.sicherstellen(messend=True)
 
 from scbp import main_window                                # noqa: E402
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 WIEDERHOLUNGEN = 3
 
 

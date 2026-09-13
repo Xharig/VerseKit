@@ -62,6 +62,10 @@ import sys
 import tempfile
 from collections import OrderedDict
 
+# ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SELBSTTEST = os.path.join(WURZEL, 'tools', 'selbsttest.py')
 
