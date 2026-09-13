@@ -34,8 +34,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   shortcuts carry the new name. You still download it from the same place, and
   your data still lives in the same folder
 
+- **The SC Deutsch Launcher is a website now — and VerseKit speaks its
+  language.** Your blueprints can be read in from there and written back out
+  the same way. The export now sits in the folder alongside the other formats
+
 ### Improved
 
+- **A file that only holds wishlist blueprints now says so.** Both the
+  launcher website and scmdb can export the *marked* blueprints instead of the
+  unlocked ones. Nothing is taken from those — before, it just said “0 will be
+  added”, which looked like a failure
 - **“Salvage value” now opens in an instant** — it used to take over two
   seconds every time, and typing in the part field was sluggish. The same
   picker sits in the **hangar**, in **selling** and in **part lookup**; all of

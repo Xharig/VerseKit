@@ -33,8 +33,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Verknüpfungen tragen den neuen Namen. Heruntergeladen wird es weiter an
   derselben Stelle, und deine Daten liegen weiter im selben Ordner
 
+- **Der SC Deutsch Launcher ist jetzt eine Webseite — und VerseKit spricht
+  ihre Sprache.** Deine Baupläne lassen sich von dort einlesen und genauso
+  wieder dorthin ausgeben. Die Ausfuhr liegt ab sofort mit in der Ablage, so
+  wie die anderen Formate auch
+
 ### Verbessert
 
+- **Eine Datei, die nur Wunsch-Baupläne enthält, sagt das jetzt.** Sowohl die
+  Launcher-Webseite als auch scmdb können die *vorgemerkten* statt der
+  erspielten Baupläne ausgeben. Übernommen wird daraus nichts — vorher stand
+  dort nur „0 kommen dazu", was nach einem Fehler aussah
 - **„Zerlegen" öffnet jetzt in einem Augenblick** — vorher dauerte jeder
   Aufruf über zwei Sekunden, und das Tippen im Teile-Feld war zäh. Dieselbe
   Auswahlliste steckt im **Hangar**, beim **Verkauf** und in der

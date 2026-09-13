@@ -2399,6 +2399,14 @@ def _bestand(fenster, rahmen):
     for art, name, wofuer in (('basetool', 'KRT Profit Basetool',
                                t('s_be_n_bp') % anzahl),
                               ('scmdb', 'scmdb.net', t('s_be_n_bp') % anzahl),
+                              # ⚠ Die Web-Fassung des Launchers nimmt **nur**
+                              # ihr eigenes Format an (`blueprints[].key` +
+                              # `isDone`). Die drei anderen Versionen weist
+                              # sie mit „Ungültiges Dateiformat" ab — ohne
+                              # diese Zeile kommt der eigene Bestand dort
+                              # nicht hinein.
+                              ('launcher', 'SC Deutsch Launcher',
+                               t('s_be_n_bp') % anzahl),
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
         z = tk.Frame(karte, bg=FLAECHE)
         z.pack(fill='x', padx=16, pady=5)
@@ -2447,7 +2455,7 @@ def _bestand(fenster, rahmen):
         except Exception as ausnahme:
             fehler.merken('seiten.bestand.einzeln', ausnahme)
 
-    _knopf(fenster, reihe, t('s_be_alle_drei'), in_ablage,
+    _knopf(fenster, reihe, t('s_be_alle'), in_ablage,
            stark=True).pack(side='left')
     _knopf(fenster, reihe, t('s_be_ablage'),
            lambda: _ordner_zeigen(export.ablage_ordner())).pack(side='left',
@@ -2478,6 +2486,17 @@ def _bestand(fenster, rahmen):
         if not art:
             _status(fenster, vorschau_platz, '!', t('s_be_unbekannt'),
                     t('s_be_unbekannt_h'), farbe=ROT)
+            return
+        # ⚠⚠ **Erkannt und trotzdem leer** — das gibt es wirklich, und zwar
+        # ohne Fehler: Die Web-Fassung des Launchers gibt auf Wunsch die
+        # **vorgemerkten** Baupläne aus, scmdb die nur beobachteten. Beides
+        # sind Wunschzettel, keine erspielten Baupläne; wir übernehmen daraus
+        # nichts. Ohne diesen Hinweis stünde dort eine Vorschau „0 kommen
+        # dazu" mit einem Knopf „0 Baupläne übernehmen" — das sieht kaputt
+        # aus, obwohl alles richtig lief.
+        if not eintraege:
+            _status(fenster, vorschau_platz, '!', t('s_be_leer'),
+                    t('s_be_leer_h'), farbe=GOLD)
             return
         v = importer.preview(eintraege)
         _vorschau_zeigen(fenster, vorschau_platz, art, eintraege, v)
@@ -2604,7 +2623,11 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
                  # ⚠ Beide scmdb-Formate heißen für den Nutzer gleich — ihn
                  # geht nicht an, welche Fassung der Ausfuhr er erwischt hat.
                  'scmdb2': 'scmdb.net',
-                 'launcher': 'SC Deutsch Launcher'}.get(art, art),
+                 # ⚠ Ebenso bei den beiden Launcher-Formaten: Ob die Datei aus
+                 # dem Programm oder aus der Webseite kommt, ist unsere Sorge,
+                 # nicht seine.
+                 'launcher': 'SC Deutsch Launcher',
+                 'launcher2': 'SC Deutsch Launcher'}.get(art, art),
           ACCENT, fenster.f_klein).pack(side='right')
 
     zahlen = tk.Frame(innen, bg=FLAECHE)

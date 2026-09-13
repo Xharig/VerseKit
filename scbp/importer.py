@@ -35,6 +35,7 @@ stammt, erkennt das Programm am Inhalt:
   | scmdb.net (neuer) | `blueprints[].tag` + `name`, nur `completed: true` |
   | KRT Profit Basetool | `blueprints[].productName` (+ `receivedAt`) |
   | SC Deutsch Launcher | `blueprints[].key` |
+  | SC Deutsch Launcher (Web) | `blueprints[].key` + `isDone`, nur `isDone: true` |
 
 **Zusammenführen, nie ersetzen.** Vorhandenes bleibt, Neues kommt dazu. Wer
 wirklich ersetzen will, setzt vorher den Bestand zurück — dafür gibt es einen
@@ -55,7 +56,8 @@ würde; erst `merge()` schreibt.
 `erkennen`, `lesen`, `vorschau` und `uebernehmen` (Sprachumstellung P4,
 Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst gleich
 geblieben: die Formatkennungen (`'eigen'`, `'scmdb'`, `'scmdb2'`, `'basetool'`,
-`'launcher'`) — `seiten.py` holt darüber die Bezeichnung für die Anzeige —, die
+`'launcher'`, `'launcher2'`) — `seiten.py` holt darüber die Bezeichnung für
+die Anzeige —, die
 Schlüssel `name` und `zeit` der Einträge, die Schlüssel `neu`, `schon_da`,
 `unbekannt` und `gesamt` der Vorschau und der Quellwert `'import'`, der im
 Bestand jedes Nutzers steht.
@@ -94,6 +96,29 @@ def detect(data):
     if isinstance(items, list) and items:
         first = items[0] if isinstance(items[0], dict) else {}
         if 'key' in first:
+            # ⚠⚠ **Die Web-Fassung des SC Deutsch Launchers.** Seit September
+            # 2026 läuft er als Webseite; sie schreibt dieselben `key`-Einträge
+            # wie das alte Programm, hängt aber an jeden zwei Schalter:
+            #
+            #     alt:  {"blueprints": [{"key": …}]}
+            #     neu:  {"exported": …, "mode": "vollständig", "blueprints":
+            #            [{"key": …, "isDone": …, "isMarked": …}]}
+            #
+            # `isDone` heißt „habe ich", `isMarked` heißt „will ich".
+            #
+            # ⚠ Der Unterschied ist nicht kosmetisch: Die Web-Fassung bietet
+            # „Alle als JSON" an — dann steht **jeder** Bauplan der Datenbank
+            # in der Datei, die allermeisten mit `isDone: false`. Ohne diese
+            # Unterscheidung landete die halbe Datenbank im Bestand, und das
+            # Werkzeug meldete nie wieder einen Fund. Dieselbe Falle wie
+            # `completed` bei `scmdb2`.
+            #
+            # ⚠ Gesucht wird über **alle** Einträge, nicht nur den ersten:
+            # Welcher Bauplan vorn steht, entscheidet die Sortierung der
+            # Webseite, nicht das Format.
+            if any(isinstance(e, dict) and ('isDone' in e or 'isMarked' in e)
+                   for e in items):
+                return 'launcher2'
             return 'launcher'
         if 'exportSchemaVersion' in data or 'ts' in first:
             return 'scmdb'
@@ -166,6 +191,19 @@ def read(path):
     elif kind == 'launcher':
         for e in data.get('blueprints') or []:
             if isinstance(e, dict) and e.get('key'):
+                entries.append({'name': e['key'], 'zeit': None})
+    elif kind == 'launcher2':
+        # ⚠⚠ **Nur, was als erspielt markiert ist.** `isMarked` ist ein
+        # Wunschzettel, kein Besitz — wer seine vorgemerkten Baupläne ausgibt
+        # und hier einliest, hätte sonst genau die im Bestand, die er gerade
+        # erst sucht. Und `isDone: false` heißt schlicht „habe ich nicht".
+        #
+        # ⚠ Die Web-Fassung schreibt die englische Mengenangabe (`(8 Cap)`),
+        # die Log-Nachlese die des Spiels (`(8 Schuss)`). Das gleicht
+        # `collection.norm()` über `pfade.namensform()` an — hier ist dazu
+        # nichts zu tun, aber es erklärt, warum beides denselben Bauplan meint.
+        for e in data.get('blueprints') or []:
+            if isinstance(e, dict) and e.get('key') and e.get('isDone'):
                 entries.append({'name': e['key'], 'zeit': None})
     return kind, entries
 

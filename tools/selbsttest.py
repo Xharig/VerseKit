@@ -3151,13 +3151,10 @@ def main():
 
             liegt = set(os.listdir(ordner22))
             pruefe({'SC-Blueprints-Basetool.json', 'scmdb-import.json',
+                    'sc-launcher-import.json',
                     'SC-BP-Watcher-Bestand.json'} <= liegt,
-                   'speichern() schreibt alle drei Versionen mit')
+                   'speichern() schreibt alle Versionen mit')
 
-            # ⚠ Ohne Datum im Namen — sonst entstuenden taeglich drei neue
-            # Dateien, und niemand wuesste, welche die aktuelle ist.
-            be22.add(daten22, 'Testbauplan Beta', 'log')
-            be22.save(daten22)
             # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
             # `pfade.app_datei()` ALLES flach in denselben Ordner — im
             # Normalbetrieb liegen die internen Dateien dagegen unter
@@ -3165,11 +3162,34 @@ def main():
             # interne Modul als „zweite Garnitur", obwohl es keine ist
             # (05.09.2026 mit `spielzeit.json` genau so passiert).
             NICHT_AUSGABE = ('spielzeit.json',)
-            json_dateien = [d for d in os.listdir(ordner22)
-                            if d.endswith('.json') and d not in NICHT_AUSGABE]
-            pruefe(len(json_dateien) == 4,      # drei Versionen + fremde Datei
-                   'zweimal speichern erzeugt keine zweite Garnitur (%d Dateien: %s)'
-                   % (len(json_dateien), ', '.join(sorted(json_dateien))))
+
+            def _ausgabe22():
+                return set(d for d in os.listdir(ordner22)
+                           if d.endswith('.json') and d not in NICHT_AUSGABE)
+
+            # ⚠ Ohne Datum im Namen — sonst entstuenden taeglich neue Dateien,
+            # und niemand wuesste, welche die aktuelle ist.
+            #
+            # ⚠⚠ **Verglichen wird vorher gegen nachher, nicht gegen eine
+            # feste Zahl.** Hier stand `== 4` („drei Versionen + fremde
+            # Datei"). Das ist genau das, was die Pruefung gar nicht wissen
+            # will: Sie fragt, ob ein zweites Speichern eine zweite Garnitur
+            # anlegt — und wurde trotzdem jedes Mal rot, wenn eine Version
+            # dazukam (13.09.2026 mit der Launcher-Version genau so). Eine
+            # Zahl, die bei jeder Erweiterung nachgezogen werden muss, wird
+            # irgendwann gedankenlos hochgesetzt; dann prueft sie nichts mehr.
+            vorher22 = _ausgabe22()
+            be22.add(daten22, 'Testbauplan Beta', 'log')
+            be22.save(daten22)
+            nachher22 = _ausgabe22()
+            pruefe(nachher22 == vorher22,
+                   'zweimal speichern erzeugt keine zweite Garnitur (dazu: %s)'
+                   % (', '.join(sorted(nachher22 - vorher22)) or 'nichts'))
+            # ⚠ Gegenprobe: Die Pruefung hat ueberhaupt etwas in der Hand —
+            # ein leerer Ordner waere sonst auch „unveraendert".
+            pruefe(len(vorher22) >= 4,
+                   'Gegenprobe: es liegen ueberhaupt Ausgabedateien da (%d)'
+                   % len(vorher22))
 
             pruefe(os.path.isfile(os.path.join(ordner22, 'meine-notiz.json')),
                    'eine fremde Datei im Ordner bleibt unangetastet')
@@ -19036,6 +19056,105 @@ def main():
     pruefe(len(_bekannt195) > 500,
            'und die Namensliste ist vollstaendig genug (%d Namen aus %d '
            'Dateien)' % (len(_bekannt195), len(_baeume195)))
+
+    # ------------------------ Der SC Deutsch Launcher als Webseite (196)
+    print()
+    print('196. Die Web-Fassung des SC Deutsch Launchers — beide Richtungen')
+    # ⚠⚠ Der Launcher ist seit September 2026 eine Webseite. Sie schreibt
+    # dieselben `key`-Eintraege wie das Programm, haengt aber `isDone`
+    # („habe ich") und `isMarked` („will ich") an jeden — und sie bietet
+    # „Alle als JSON" an. Ohne Unterscheidung stuende danach die halbe
+    # Datenbank im Bestand und das Werkzeug meldete nie wieder einen Fund.
+    # Dieselbe Falle wie `completed` bei scmdb.
+    from scbp import importer as _imp196, export as _exp196
+
+    _web196 = {
+        'exported': '2026-09-13T10:00:00.000Z', 'mode': 'vollstaendig',
+        'total': 3, 'done_count': 1, 'mark_count': 1,
+        'blueprints': [
+            {'key': 'Habe ich', 'isDone': True, 'isMarked': False},
+            {'key': 'Will ich', 'isDone': False, 'isMarked': True},
+            {'key': 'Weder noch', 'isDone': False, 'isMarked': False},
+        ]}
+    pruefe(_imp196.detect(_web196) == 'launcher2',
+           'die Ausfuhr der Webseite wird als eigenes Format erkannt')
+    # ⚠ Das Format der alten Programm-Fassung darf dabei nicht verloren gehen.
+    pruefe(_imp196.detect({'blueprints': [{'key': 'Irgendwas'}]}) == 'launcher',
+           'die Ausfuhr des Launcher-PROGRAMMS weiterhin auch')
+    # ⚠ Erkannt wird ueber ALLE Eintraege, nicht nur den ersten: Welcher
+    # Bauplan vorn steht, entscheidet die Sortierung der Webseite.
+    pruefe(_imp196.detect({'blueprints': [
+        {'key': 'Ohne Schalter'},
+        {'key': 'Mit Schalter', 'isDone': True}]}) == 'launcher2',
+        'auch wenn der Schalter erst am zweiten Eintrag haengt')
+
+    _wiese196 = tempfile.mkdtemp(prefix='sc-bp-web-')
+    _alt196 = os.environ.get('SC_BP_HOME')
+    try:
+        os.environ['SC_BP_HOME'] = _wiese196
+        _datei196 = os.path.join(_wiese196, 'sc_blueprints.json')
+        with open(_datei196, 'w', encoding='utf-8') as _d196:
+            json.dump(_web196, _d196)
+        _art196, _ein196 = _imp196.read(_datei196)
+        _namen196 = [e['name'] for e in _ein196]
+        pruefe(_art196 == 'launcher2', 'die Datei wird als solche gelesen')
+        # ⭐⭐ **Der Kern.** Vorgemerkt ist ein Wunschzettel, kein Besitz.
+        pruefe(_namen196 == ['Habe ich'],
+               'nur erspielte Bauplaene kommen mit (%r)' % _namen196)
+
+        # ⚠ Gegenprobe: Ohne die Schalter (Programm-Fassung) kommt weiterhin
+        # ALLES mit — sonst hiesse die Verschaerfung, dass alte Dateien
+        # stillschweigend leer eingelesen werden.
+        _datei196b = os.path.join(_wiese196, 'sc_bp_erledigt.json')
+        with open(_datei196b, 'w', encoding='utf-8') as _d196:
+            json.dump({'blueprints': [{'key': 'A'}, {'key': 'B'}]}, _d196)
+        pruefe(len(_imp196.read(_datei196b)[1]) == 2,
+               'Gegenprobe: ohne Schalter kommen weiterhin alle Eintraege mit')
+
+        # --- Die Gegenrichtung: unser Bestand IN die Webseite --------------
+        # ⚠⚠ Ihr Import prueft auf `blueprints` und nimmt je Eintrag `key`
+        # und `isDone`. Basetool (`productName`), scmdb (`tag`) und die
+        # Vollsicherung (`bauplaene`) weist sie allesamt mit „Ungueltiges
+        # Dateiformat" ab — ohne diese Version kommt der eigene Stand dort
+        # nicht hinein.
+        _bestand196 = {'bauplaene': {
+            'habe ich': {'name': 'Habe ich', 'quelle': 'log'},
+            'und das auch': {'name': 'Und das auch', 'quelle': 'hand'}}}
+        _doc196 = _exp196.fuer_launcher(_bestand196)
+        pruefe(isinstance(_doc196.get('blueprints'), list)
+               and len(_doc196['blueprints']) == 2,
+               'die Launcher-Version schreibt eine Liste `blueprints`')
+        pruefe(all(e.get('key') and e.get('isDone') is True
+                   and e.get('isMarked') is False
+                   for e in _doc196['blueprints']),
+               'jeder Eintrag traegt `key` und `isDone: true`')
+        # ⭐ Und der Rundlauf: Was wir schreiben, lesen wir auch wieder ein.
+        pruefe(_imp196.detect(_doc196) == 'launcher2',
+               'die eigene Launcher-Version ist selbst wieder einlesbar')
+        _datei196c = os.path.join(_wiese196, 'sc-launcher-import.json')
+        _ok196, _meldung196 = _exp196.schreiben(_datei196c, art='launcher',
+                                                bestand=_bestand196)
+        pruefe(_ok196, 'sie laesst sich schreiben (%s)' % _meldung196)
+        pruefe(sorted(e['name'] for e in _imp196.read(_datei196c)[1])
+               == ['Habe ich', 'Und das auch'],
+               'und beide Bauplaene kommen unveraendert zurueck')
+        # ⚠ Der Dateiname darf NICHT `sc_bp_erledigt.json` sein — so heisst
+        # die Datei, die das Launcher-PROGRAMM schreibt und die der Watcher
+        # ueberwacht. Zwei gleichnamige Dateien mit entgegengesetzter
+        # Richtung merkt man erst, wenn der Bestand falsch ist.
+        pruefe('sc_bp_erledigt' not in _exp196.vorschlag('launcher'),
+               'ihr Dateiname kollidiert nicht mit dem des Launchers')
+        # ⚠ Und sie gehoert in die Ablage — wer „Alles in die Ablage" drueckt,
+        # meint alles. Geprueft am Quelltext, damit kein Lauf noetig ist.
+        import inspect as _in196
+        pruefe("'launcher'" in _in196.getsource(_exp196.ablegen),
+               'die Ablage schreibt sie mit')
+    finally:
+        if _alt196 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt196
+        shutil.rmtree(_wiese196, ignore_errors=True)
 
     print()
     if fehler:
