@@ -119,19 +119,19 @@ def _bauer_tabelle():
         'danke':       _thanks,
         'erkennung':   _detection,
         'joysticks':   _joysticks,
-        'achsen':      _achsen,
-        'blickwinkel': _blickwinkel,
+        'achsen':      _axes,
+        'blickwinkel': _view_angle,
         'diagnose':    _diagnostics,
         'hangar':      _hangar,
         'wunschliste': _wishlist,
         'asop':        _asop,
         'einkaufsliste': _shopping_list,
         'farmliste':   _farm_list,
-        'bergung':     _bergung,
-        'zerlegen':    _zerlegen,
-        'herstellung': _herstellung,
-        'bergbau':     _bergbau,
-        'raffinerien': _raffinerien,
+        'bergung':     _salvage,
+        'zerlegen':    _dismantle,
+        'herstellung': _crafting,
+        'bergbau':     _mining,
+        'raffinerien': _refineries,
         'lager':       _lager,
         'verkauf':     _verkauf,
         'handelslager': _handelslager,
@@ -6150,7 +6150,7 @@ def _duration(seconds):
     return t('s_he_std_min') % (seconds // 3600, (seconds % 3600) // 60)
 
 
-def _herstellung(fenster, rahmen):
+def _crafting(fenster, rahmen):
     """Alle herstellbaren Gegenstände, mit Rezept auf Klick."""
     from . import crafting as herst_modul
     _heading(fenster, rahmen, t('hf_herstellung'), t('s_he_lead'))
@@ -9353,7 +9353,7 @@ def _berg_anteil(fenster, zeile, anteil, stufe, grund, allein=False):
              fg=farbe, font=fenster.f_base, anchor='e').pack(side='right')
 
 
-def _bergung(fenster, rahmen):
+def _salvage(fenster, rahmen):
     """Was in einem Wrack steckt — und ob sich das Aussteigen lohnt.
 
     Der Wunsch kam von **Zwaersch (KRT)**; er ist der Grund, warum das
@@ -9599,7 +9599,7 @@ def _bergung_holen(name):
     return teile, treffer
 
 
-def _bergbau(fenster, rahmen):
+def _mining(fenster, rahmen):
     """Wo welches Erz abzubauen ist — **beide** Richtungen in einer Suche.
 
     Ohne Eingabe stehen die Orte da (man ist meistens irgendwo). Tippt man
@@ -9831,7 +9831,7 @@ def _raff_kurz(namen):
     return kuerzel[0] if kuerzel else '—'
 
 
-def _raffinerien(fenster, rahmen):
+def _refineries(fenster, rahmen):
     """Alle Raffinerien nebeneinander — Boni **und** Nachteile.
 
     ⭐ Gewünscht am 13.09.2026: „eine Seite, wo er sehen kann, welche Boni alle
@@ -11319,7 +11319,7 @@ def _shopping_list(fenster, rahmen):
     _aufbauen()
 
 
-def _zerlegen(fenster, rahmen):
+def _dismantle(fenster, rahmen):
     """Was ein Fabricator aus einem Teil zurückgibt — vor dem Ausbauen wissen.
 
     ⭐⭐ **Die Frage eines Bergungsspielers, bevor er den Schneidbrenner
@@ -14824,7 +14824,7 @@ def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
     return gesamt
 
 
-def _blickwinkel(fenster, rahmen):
+def _view_angle(fenster, rahmen):
     """Welcher Blickwinkel passt — und wo müsste man dafür sitzen?
 
     ## Die Rechnung
@@ -15061,7 +15061,7 @@ def _blickwinkel(fenster, rahmen):
     fenster.on_show['blickwinkel'] = _auffrischen
 
 
-def _achsen(fenster, rahmen):
+def _axes(fenster, rahmen):
     """Totzone, Sättigung und Kurve — und was davon überhaupt noch gilt.
 
     ## Warum diese Seite neben „Joysticks" steht

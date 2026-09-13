@@ -14284,7 +14284,7 @@ def main():
 
         import inspect as _ins145
         from scbp import seiten as _st145
-        for _name145 in ('_achsen', '_blickwinkel'):
+        for _name145 in ('_axes', '_view_angle'):
             # ⚠ Nicht `getattr(...)` blank: Fehlt der Name nach einer
             # Umbenennung, reisst der AttributeError den ganzen Lauf mit.
             _fn145 = getattr(_st145, _name145, None)
@@ -20143,7 +20143,7 @@ def main():
     # lassen — „Checkmate" allein verschweigt sieben weitere.
     _q206 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    _ab206 = rumpf(_q206, '_raffinerien')
+    _ab206 = rumpf(_q206, '_refineries')
     pruefe("s_bg_raff_weitere" in _ab206,
            'die Legende nennt die Zahl der gebuendelten Stationen')
 
