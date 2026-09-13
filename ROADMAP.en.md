@@ -37,7 +37,7 @@ Four things are deliberate and will stay that way:
 | ✅ | Setup wizard, repeatable at any time |
 | ✅ | German and English, switchable |
 | ✅ | Windows and Linux, with autostart on both |
-| ✅ | Export your inventory — for the KRT Profit Basetool, for scmdb.net and as a full backup |
+| ✅ | Export your inventory — for the KRT Profit Basetool, for scmdb.net, for the Baupläne DB · Star Citizen Deutsch and as a full backup; import works from the same sources |
 | ✅ | Collapse the overlay, for anyone on a single screen |
 | ✅ | **Tray icon**: next to the clock on Windows, in the application menu on Linux — the way back to the list and the settings while the overlay stays out of sight |
 | ✅ | **Item details in game** — class, size and grade at the tractor beam, seeker type for missiles |

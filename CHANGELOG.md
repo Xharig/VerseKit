@@ -13,6 +13,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 > **Zwei weitere Seiten kommen jetzt zügig.** Nach Zerlegen und Joysticks
 > waren noch das Auftragsprotokoll und die Diagnose dran — beide bauten sich
 > bei jedem Aufruf komplett neu auf, auch wenn sich nichts geändert hatte.
+> Dazu ein Name, der gestern falsch dastand: Die Seite, auf der du deine
+> Baupläne im Browser führst, heißt **Baupläne DB · Star Citizen Deutsch** —
+> und genau so steht sie jetzt auch beim Ausgeben.
 
 ### Verbessert
 
@@ -23,6 +26,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Die Diagnose-Seite kommt schneller.** Der Fehlerbericht wird weiterhin bei
   jedem Aufruf frisch erstellt — er soll ja den Stand von jetzt zeigen —, liest
   die Sprachdatei des Spiels dabei aber nicht mehr mehrfach
+
+### Behoben
+
+- **Der richtige Name für die Baupläne DB.** Beim Ausgeben hieß die Zeile noch
+  „SC Deutsch Launcher" — gemeint war aber die Bauplan-Übersicht im Browser,
+  **Baupläne DB · Star Citizen Deutsch**. Der Launcher selbst ist davon
+  unberührt und wird weiter als eigenes Format erkannt. Die Datei in der Ablage
+  heißt jetzt `bauplaene-db-import-*.json`; die alte kannst du löschen
 
 ## v3.31.0 - 2026-09-13
 

@@ -12,7 +12,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 > **Two more pages are quick now.** After salvage value and joysticks, the
 > mission log and the diagnostics page were next — both rebuilt themselves
-> from scratch on every visit, even when nothing had changed.
+> from scratch on every visit, even when nothing had changed. Plus a name that
+> was wrong yesterday: the page where you keep your blueprints in the browser
+> is called **Baupläne DB · Star Citizen Deutsch** — and that is what it says
+> on the export now.
 
 ### Improved
 
@@ -23,6 +26,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 - **The diagnostics page comes up faster.** The error report is still built
   fresh every time — it is meant to show the state right now — but it no
   longer reads the game's language file more than once
+
+### Fixed
+
+- **The right name for the Baupläne DB.** The export row still said “SC
+  Deutsch Launcher", but it meant the blueprint overview in the browser,
+  **Baupläne DB · Star Citizen Deutsch**. The launcher itself is unaffected and
+  is still recognised as its own format. The file in the export folder is now
+  called `bauplaene-db-import-*.json`; you can delete the old one
 
 ## v3.31.0 - 2026-09-13
 

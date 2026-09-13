@@ -37,7 +37,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | Einrichtungsassistent, jederzeit wiederholbar |
 | ✅ | Deutsch und Englisch, umschaltbar |
 | ✅ | Windows und Linux, mit Autostart auf beiden |
-| ✅ | Bestand ausgeben — für das KRT Profit Basetool, für scmdb.net und als vollständige Sicherung |
+| ✅ | Bestand ausgeben — für das KRT Profit Basetool, für scmdb.net, für die Baupläne DB · Star Citizen Deutsch und als vollständige Sicherung; einlesen geht aus denselben Quellen |
 | ✅ | Overlay einklappen, für alle mit einem Bildschirm |
 | ✅ | **Ablage-Symbol**: neben der Uhr unter Windows, im Startmenü unter Linux — der Weg zurück zu Liste und Einstellungen, während sich das Overlay zurückhält |
 | ✅ | **Angaben am Gegenstand im Spiel** — Klasse, Größe und Gütegrad am Traktorstrahl, bei Raketen der Suchkopf |
