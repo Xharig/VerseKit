@@ -132,11 +132,11 @@ def _bauer_tabelle():
         'herstellung': _crafting,
         'bergbau':     _mining,
         'raffinerien': _refineries,
-        'lager':       _lager,
-        'verkauf':     _verkauf,
-        'handelslager': _handelslager,
-        'laeden':      _laeden,
-        'routen':      _routen,
+        'lager':       _storage,
+        'verkauf':     _selling,
+        'handelslager': _trade_storage,
+        'laeden':      _shops,
+        'routen':      _routes,
     }
 
 
@@ -6612,7 +6612,7 @@ def _zum_bauplan(fenster, name):
         fenster.say(t('s_he_woher_nichts'))
 
 
-def _routen(fenster, rahmen):
+def _routes(fenster, rahmen):
     """Der Reiter „Routen": Wo stehe ich, wieviel passt rein — was lohnt sich?
 
     Gewünscht von **YoshimitsuDE** (04.09.2026).
@@ -7577,7 +7577,7 @@ SHIPYARD_PREFIX = 'werft:'
 AREA_SHIPS = '__schiffe'
 
 
-def _laeden(fenster, rahmen):
+def _shops(fenster, rahmen):
     """Der Reiter „Läden": Wo bekomme ich ein fertiges Teil, und was kostet es?
 
     ⚠ **Die Gegenrichtung zum Verkaufs-Reiter.** Dort geht es um Ware, die man
@@ -12841,7 +12841,7 @@ def _warenkorb_route(fenster, eltern, liste):
                     padx=(46, 16), pady=(6, 0), inset=78)
 
 
-def _lager(fenster, rahmen):
+def _storage(fenster, rahmen):
     """Das eigene Rohstoff-Lager: eintragen, ansehen, löschen."""
     from . import materials as lager
     _heading(fenster, rahmen, t('hf_lager'), t('s_lg_lead'))
@@ -13905,7 +13905,7 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     return zeile, liste, zeichnen
 
 
-def _verkauf(fenster, rahmen):
+def _selling(fenster, rahmen):
     """Wo man seine Ware los wird — die beste Stelle zuerst."""
     import threading
 
@@ -14402,7 +14402,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
                  anchor='e').pack(fill='x', pady=(4, 0))
 
 
-def _handelslager(fenster, rahmen):
+def _trade_storage(fenster, rahmen):
     """Was zum Verkauf im Laderaum liegt — eintragen, ansehen, löschen."""
     from . import trade_cargo as lager, places as ortsliste
     from . import selling as preisdaten

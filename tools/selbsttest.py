@@ -5027,8 +5027,8 @@ def main():
     with open(os.path.join(_wurzelpfad, 'scbp', 'seiten.py'),
               encoding='utf-8') as _fh52p:
         _qu52p = _fh52p.read()
-    # Der Lager-Abschnitt: zwischen `def _lager(` und der naechsten Seite.
-    _lager52p = rumpf(_qu52p, '_lager')
+    # Der Lager-Abschnitt: zwischen `def _storage(` und der naechsten Seite.
+    _lager52p = rumpf(_qu52p, '_storage')
     _ab52p = _lager52p.find('    def zeichnen():')
     pruefe(_ab52p >= 0, 'die Zeichenfunktion der Lager-Seite ist auffindbar')
     _zeichnen52p = _lager52p[_ab52p:] if _ab52p >= 0 else ''
@@ -6522,7 +6522,7 @@ def main():
 
         _rahmen68 = _tk68.Frame(_w68)
         _rahmen68.pack(fill='both', expand=True)
-        _se68._lager(_Fenster68(), _rahmen68)
+        _se68._storage(_Fenster68(), _rahmen68)
         _w68.update_idletasks()
 
         def _sammeln68(w, art, raus):
@@ -7883,7 +7883,7 @@ def main():
     # anderen darf jeder tippen, was er will.
     _q84s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    _hlseite84 = rumpf(_q84s, '_handelslager')
+    _hlseite84 = rumpf(_q84s, '_trade_storage')
     pruefe('preisdaten.known(name)' in _hlseite84,
            'die Ware wird gegen die Warenliste geprueft')
     pruefe('ortsliste.knows(ort.get())' in _hlseite84,
@@ -7902,7 +7902,7 @@ def main():
     # `norm_material` weiter oben — beim ersten Anlauf prompt wieder getappt.)
     pruefe('import ttk' not in _q84s and 'from tkinter.ttk' not in _q84s,
            'kein ttk-Systemelement in der Oberflaeche')
-    # ⚠ Nicht auf die Ausrichtung im Woerterbuch prueft: `'verkauf':     _verkauf,`
+    # ⚠ Nicht auf die Ausrichtung im Woerterbuch prueft: `'verkauf':     _selling,`
     # bricht schon, wenn jemand eine Leerstelle verschiebt. Gefragt ist, ob die
     # Kennung auf die Funktion zeigt — das beantwortet die Tabelle selbst.
     from scbp import seiten as _se84
@@ -8090,7 +8090,7 @@ def main():
     # ⚠ Beim naechsten **Modul**-`def` schneiden (Zeilenanfang), nicht beim
     # naechsten `def` ueberhaupt: Die Lager-Seite hat innere Funktionen, und
     # der Block endete sonst vor der Stelle, die geprueft werden soll.
-    _lagerseite85 = rumpf(_q85p, '_lager')
+    _lagerseite85 = rumpf(_q85p, '_storage')
     pruefe('_combo_box(fenster, block, var,' in _lagerseite85,
            'auch „Mein Lager" nutzt das Auswahlfeld')
     pruefe('vorschlag_rahmen' not in _lagerseite85,
@@ -8335,7 +8335,7 @@ def main():
     # dieselben, in derselben Reihenfolge.
     _q86 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _hlblock86 = rumpf(_q86, '_handelslager')
+    _hlblock86 = rumpf(_q86, '_trade_storage')
     for _schluessel86 in ("s_lg_aus_json", "s_lg_aus_csv", "s_lg_einlesen",
                           "s_lg_leeren"):
         pruefe("t('%s')" % _schluessel86 in _hlblock86,
