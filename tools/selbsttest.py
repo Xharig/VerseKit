@@ -1551,6 +1551,13 @@ def main():
             # Datenfeld der Übersetzungsquellen, nirgends angezeigt (geprüft)
             ('scbp/translation.py', 'Deutsche Übersetzung (rjcncpt)'),
             ('scbp/translation.py', 'StarStrings (aufgeräumte englische Texte)'),
+            # ⚠ **Ein Eigenname, kein Satz.** Die „Baupläne DB · Star Citizen
+            # Deutsch" heißt auch im englischen Fenster so — genau wie „KRT
+            # Profit Basetool" und „scmdb.net" daneben, die nur deshalb nicht
+            # anschlagen, weil sie zufällig kein deutsches Wort enthalten. Wer
+            # den Namen übersetzt, schickt den Nutzer zu einer Seite, die er
+            # unter diesem Namen nirgends findet.
+            ('scbp/seiten.py', 'Baupläne DB · Star Citizen Deutsch'),
         }
         # Ganze Dateien, deren deutsche Texte begründet fest sind
         _AUSNAHME_DATEIEN = {
@@ -3151,7 +3158,7 @@ def main():
 
             liegt = set(os.listdir(ordner22))
             pruefe({'SC-Blueprints-Basetool.json', 'scmdb-import.json',
-                    'sc-launcher-import.json',
+                    'bauplaene-db-import.json',
                     'SC-BP-Watcher-Bestand.json'} <= liegt,
                    'speichern() schreibt alle Versionen mit')
 
@@ -19057,15 +19064,20 @@ def main():
            'und die Namensliste ist vollstaendig genug (%d Namen aus %d '
            'Dateien)' % (len(_bekannt195), len(_baeume195)))
 
-    # ------------------------ Der SC Deutsch Launcher als Webseite (196)
+    # ---------------------------- Die Baupläne DB im Browser (196)
     print()
-    print('196. Die Web-Fassung des SC Deutsch Launchers — beide Richtungen')
-    # ⚠⚠ Der Launcher ist seit September 2026 eine Webseite. Sie schreibt
-    # dieselben `key`-Eintraege wie das Programm, haengt aber `isDone`
-    # („habe ich") und `isMarked` („will ich") an jeden — und sie bietet
-    # „Alle als JSON" an. Ohne Unterscheidung stuende danach die halbe
-    # Datenbank im Bestand und das Werkzeug meldete nie wieder einen Fund.
-    # Dieselbe Falle wie `completed` bei scmdb.
+    print('196. Die Bauplaene DB von Star Citizen Deutsch — beide Richtungen')
+    # ⚠⚠ Die Bauplan-Uebersicht im Browser
+    # (`rjcncpt.github.io/StarCitizen-Deutsch-INI/`). ⛔ Das ist NICHT „der
+    # Launcher als Webseite" — der SC Deutsch Launcher bleibt das Programm
+    # fuer die Uebersetzung. Am 13.09.2026 stand das einen Tag lang falsch,
+    # bis in den Changelog.
+    #
+    # Sie schreibt dieselben `key`-Eintraege wie das Launcher-Programm, haengt
+    # aber `isDone` („habe ich") und `isMarked` („will ich") an jeden — und
+    # sie bietet „Alle als JSON" an. Ohne Unterscheidung stuende danach die
+    # halbe Datenbank im Bestand und das Werkzeug meldete nie wieder einen
+    # Fund. Dieselbe Falle wie `completed` bei scmdb.
     from scbp import importer as _imp196, export as _exp196
 
     _web196 = {
@@ -19076,16 +19088,16 @@ def main():
             {'key': 'Will ich', 'isDone': False, 'isMarked': True},
             {'key': 'Weder noch', 'isDone': False, 'isMarked': False},
         ]}
-    pruefe(_imp196.detect(_web196) == 'launcher2',
-           'die Ausfuhr der Webseite wird als eigenes Format erkannt')
+    pruefe(_imp196.detect(_web196) == 'bpdb',
+           'die Ausfuhr der Bauplaene DB wird als eigenes Format erkannt')
     # ⚠ Das Format der alten Programm-Fassung darf dabei nicht verloren gehen.
     pruefe(_imp196.detect({'blueprints': [{'key': 'Irgendwas'}]}) == 'launcher',
            'die Ausfuhr des Launcher-PROGRAMMS weiterhin auch')
     # ⚠ Erkannt wird ueber ALLE Eintraege, nicht nur den ersten: Welcher
-    # Bauplan vorn steht, entscheidet die Sortierung der Webseite.
+    # Bauplan vorn steht, entscheidet die Sortierung der Seite.
     pruefe(_imp196.detect({'blueprints': [
         {'key': 'Ohne Schalter'},
-        {'key': 'Mit Schalter', 'isDone': True}]}) == 'launcher2',
+        {'key': 'Mit Schalter', 'isDone': True}]}) == 'bpdb',
         'auch wenn der Schalter erst am zweiten Eintrag haengt')
 
     _wiese196 = tempfile.mkdtemp(prefix='sc-bp-web-')
@@ -19097,7 +19109,7 @@ def main():
             json.dump(_web196, _d196)
         _art196, _ein196 = _imp196.read(_datei196)
         _namen196 = [e['name'] for e in _ein196]
-        pruefe(_art196 == 'launcher2', 'die Datei wird als solche gelesen')
+        pruefe(_art196 == 'bpdb', 'die Datei wird als solche gelesen')
         # ⭐⭐ **Der Kern.** Vorgemerkt ist ein Wunschzettel, kein Besitz.
         pruefe(_namen196 == ['Habe ich'],
                'nur erspielte Bauplaene kommen mit (%r)' % _namen196)
@@ -19111,7 +19123,7 @@ def main():
         pruefe(len(_imp196.read(_datei196b)[1]) == 2,
                'Gegenprobe: ohne Schalter kommen weiterhin alle Eintraege mit')
 
-        # --- Die Gegenrichtung: unser Bestand IN die Webseite --------------
+        # --- Die Gegenrichtung: unser Bestand IN die Bauplaene DB ----------
         # ⚠⚠ Ihr Import prueft auf `blueprints` und nimmt je Eintrag `key`
         # und `isDone`. Basetool (`productName`), scmdb (`tag`) und die
         # Vollsicherung (`bauplaene`) weist sie allesamt mit „Ungueltiges
@@ -19120,19 +19132,19 @@ def main():
         _bestand196 = {'bauplaene': {
             'habe ich': {'name': 'Habe ich', 'quelle': 'log'},
             'und das auch': {'name': 'Und das auch', 'quelle': 'hand'}}}
-        _doc196 = _exp196.fuer_launcher(_bestand196)
+        _doc196 = _exp196.fuer_bpdb(_bestand196)
         pruefe(isinstance(_doc196.get('blueprints'), list)
                and len(_doc196['blueprints']) == 2,
-               'die Launcher-Version schreibt eine Liste `blueprints`')
+               'die DB-Version schreibt eine Liste `blueprints`')
         pruefe(all(e.get('key') and e.get('isDone') is True
                    and e.get('isMarked') is False
                    for e in _doc196['blueprints']),
                'jeder Eintrag traegt `key` und `isDone: true`')
         # ⭐ Und der Rundlauf: Was wir schreiben, lesen wir auch wieder ein.
-        pruefe(_imp196.detect(_doc196) == 'launcher2',
-               'die eigene Launcher-Version ist selbst wieder einlesbar')
-        _datei196c = os.path.join(_wiese196, 'sc-launcher-import.json')
-        _ok196, _meldung196 = _exp196.schreiben(_datei196c, art='launcher',
+        pruefe(_imp196.detect(_doc196) == 'bpdb',
+               'die eigene DB-Version ist selbst wieder einlesbar')
+        _datei196c = os.path.join(_wiese196, 'bauplaene-db-import.json')
+        _ok196, _meldung196 = _exp196.schreiben(_datei196c, art='bpdb',
                                                 bestand=_bestand196)
         pruefe(_ok196, 'sie laesst sich schreiben (%s)' % _meldung196)
         pruefe(sorted(e['name'] for e in _imp196.read(_datei196c)[1])
@@ -19142,12 +19154,12 @@ def main():
         # die Datei, die das Launcher-PROGRAMM schreibt und die der Watcher
         # ueberwacht. Zwei gleichnamige Dateien mit entgegengesetzter
         # Richtung merkt man erst, wenn der Bestand falsch ist.
-        pruefe('sc_bp_erledigt' not in _exp196.vorschlag('launcher'),
+        pruefe('sc_bp_erledigt' not in _exp196.vorschlag('bpdb'),
                'ihr Dateiname kollidiert nicht mit dem des Launchers')
         # ⚠ Und sie gehoert in die Ablage — wer „Alles in die Ablage" drueckt,
         # meint alles. Geprueft am Quelltext, damit kein Lauf noetig ist.
         import inspect as _in196
-        pruefe("'launcher'" in _in196.getsource(_exp196.ablegen),
+        pruefe("'bpdb'" in _in196.getsource(_exp196.ablegen),
                'die Ablage schreibt sie mit')
     finally:
         if _alt196 is None:

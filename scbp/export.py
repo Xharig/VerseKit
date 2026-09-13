@@ -20,7 +20,7 @@
 Den eigenen Bauplan-Bestand als Datei ausgeben.
 
 Mehrere Formate, je eines pro Ziel — dazu `fuer_scmdb()` für **scmdb.net** und
-`fuer_launcher()` für die Web-Fassung des **SC Deutsch Launchers**. Die beiden
+`fuer_bpdb()` für die **Baupläne DB** von Star Citizen Deutsch. Die beiden
 Grundfälle:
 
 **1. Für das KRT Profit Basetool** (`profit-base.online`) — dessen Import nimmt
@@ -93,29 +93,31 @@ def fuer_basetool(bestand=None):
     return {'blueprints': eintraege}
 
 
-def fuer_launcher(bestand=None):
-    """Die Struktur, die die **Web-Fassung des SC Deutsch Launchers** einliest.
+def fuer_bpdb(bestand=None):
+    """Die Struktur, die die **Baupläne DB** von Star Citizen Deutsch einliest.
 
-    Der Launcher ist seit September 2026 eine Webseite. Sein Import erwartet
-    eine Liste `blueprints` mit `key` und einem Schalter je Eintrag:
+    Das ist die Bauplan-Übersicht im Browser
+    (`rjcncpt.github.io/StarCitizen-Deutsch-INI/`) — **nicht** der SC Deutsch
+    Launcher, der bleibt ein Programm. Ihr Import erwartet eine Liste
+    `blueprints` mit `key` und einem Schalter je Eintrag:
 
         {"blueprints": [{"key": "Manticore Helmet",
                          "isDone": true, "isMarked": false}]}
 
     `isDone` heißt „habe ich", `isMarked` „will ich". Wir schreiben deshalb
     **nur** erspielte Baupläne, jeden mit `isDone: true` — alles andere wäre
-    ein fremder Wunschzettel in seiner Liste.
+    ein fremder Wunschzettel in ihrer Liste.
 
     ⚠ **Ohne diese Version kommt der eigene Bestand dort nicht hinein.** Die
-    Webseite prüft auf `blueprints`; die Vollsicherung führt `bauplaene`, die
+    Seite prüft auf `blueprints`; die Vollsicherung führt `bauplaene`, die
     Basetool-Version `productName` und scmdb `tag`. Alle drei werden mit
     „Ungültiges Dateiformat" abgewiesen.
 
     ⚠ Einen Zeitpunkt gibt es in diesem Format nicht — er würde beim Import
-    ohnehin verworfen, die Webseite merkt sich nur „erspielt/vorgemerkt".
+    ohnehin verworfen, die Seite merkt sich nur „erspielt/vorgemerkt".
 
-    Die Umschlagfelder (`exported`, `mode`, `total`, …) schreibt die Webseite
-    in ihre eigenen Ausfuhren. Für den Import braucht sie keines davon; sie
+    Die Umschlagfelder (`exported`, `mode`, `total`, …) schreibt die Seite in
+    ihre eigenen Ausfuhren. Für den Import braucht sie keines davon; sie
     stehen trotzdem drin, damit die Datei zwischen ihren eigenen nicht wie ein
     Fremdkörper aussieht — und damit ein Mensch sie später zuordnen kann.
     """
@@ -261,8 +263,8 @@ def schreiben(pfad, art='basetool', bestand=None, katalog=None, version=''):
             doc = fuer_basetool(bestand)
         elif art == 'scmdb':
             doc = fuer_scmdb(bestand, version)
-        elif art == 'launcher':
-            doc = fuer_launcher(bestand)
+        elif art == 'bpdb':
+            doc = fuer_bpdb(bestand)
         else:
             doc = vollstaendig(bestand, katalog)
         anzahl = len(doc.get('blueprints') or doc.get('bauplaene') or [])
@@ -282,11 +284,11 @@ def schreiben(pfad, art='basetool', bestand=None, katalog=None, version=''):
 DATEINAMEN = {
     'basetool': 'SC-Blueprints-Basetool-%s.json',
     'scmdb':    'scmdb-import-%s.json',
-    # ⚠ Nicht `sc_bp_erledigt.json` — so heißt die Datei, die das alte
+    # ⚠ Nicht `sc_bp_erledigt.json` — so heißt die Datei, die das
     # Launcher-Programm selbst schreibt und die der Watcher überwacht. Zwei
     # Dateien mit demselben Namen und entgegengesetzter Richtung sind eine
     # Verwechslung, die man erst merkt, wenn der Bestand falsch ist.
-    'launcher': 'sc-launcher-import-%s.json',
+    'bpdb': 'bauplaene-db-import-%s.json',
     'voll':     'SC-BP-Watcher-Bestand-%s.json',
     'auftraege': 'SC-BP-Watcher-Auftraege-%s.json',
 }
@@ -387,7 +389,7 @@ def ablegen(bestand=None, katalog=None, version=''):
     # ⚠ Das Auftrags-Protokoll gehoert mit in die Ablage: Es ist eine eigene
     # Liste wie der Bestand, und wer seine Daten sichert, meint alle. Fehlt es
     # hier, merkt das niemand — bis der Rechner neu aufgesetzt ist.
-    for art in ('basetool', 'scmdb', 'launcher', 'voll', 'auftraege'):
+    for art in ('basetool', 'scmdb', 'bpdb', 'voll', 'auftraege'):
         ziel = os.path.join(ordner, vorschlag(art, mit_datum=False))
         ok, _meldung = schreiben(ziel, art, bestand, katalog, version)
         if ok:

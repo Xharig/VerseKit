@@ -2399,19 +2399,28 @@ def _bestand(fenster, rahmen):
     for art, name, wofuer in (('basetool', 'KRT Profit Basetool',
                                t('s_be_n_bp') % anzahl),
                               ('scmdb', 'scmdb.net', t('s_be_n_bp') % anzahl),
-                              # ⚠ Die Web-Fassung des Launchers nimmt **nur**
-                              # ihr eigenes Format an (`blueprints[].key` +
-                              # `isDone`). Die drei anderen Versionen weist
-                              # sie mit „Ungültiges Dateiformat" ab — ohne
-                              # diese Zeile kommt der eigene Bestand dort
-                              # nicht hinein.
-                              ('launcher', 'SC Deutsch Launcher',
+                              # ⚠ Die Baupläne DB nimmt **nur** ihr eigenes
+                              # Format an (`blueprints[].key` + `isDone`). Die
+                              # drei anderen Versionen weist sie mit
+                              # „Ungültiges Dateiformat" ab — ohne diese Zeile
+                              # kommt der eigene Bestand dort nicht hinein.
+                              #
+                              # ⛔ Sie heißt **nicht** „SC Deutsch Launcher".
+                              # Der Launcher ist das Programm für die
+                              # Übersetzung; die Baupläne DB ist die
+                              # Bauplan-Übersicht im Browser. Am 13.09.2026
+                              # stand hier einen Tag lang der falsche Name.
+                              ('bpdb', 'Baupläne DB · Star Citizen Deutsch',
                                t('s_be_n_bp') % anzahl),
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
         z = tk.Frame(karte, bg=FLAECHE)
         z.pack(fill='x', padx=16, pady=5)
+        # ⚠ Die Breite trägt den LÄNGSTEN Namen — „Baupläne DB · Star Citizen
+        # Deutsch". Ein Label mit zu kleiner `width` wächst über sie hinaus
+        # und schiebt die Spalte daneben nach rechts: Dann steht „413
+        # Baupläne" in jeder Zeile woanders.
         tk.Label(z, text=name, bg=FLAECHE, fg=FG, font=fenster.f_klein,
-                 width=26, anchor='w').pack(side='left')
+                 width=34, anchor='w').pack(side='left')
         tk.Label(z, text=wofuer, bg=FLAECHE, fg=SUB,
                  font=fenster.f_klein).pack(side='left')
         # ⚠ `a=art` als Vorgabewert, nicht `art` direkt. Ein Lambda merkt sich
@@ -2488,8 +2497,8 @@ def _bestand(fenster, rahmen):
                     t('s_be_unbekannt_h'), farbe=ROT)
             return
         # ⚠⚠ **Erkannt und trotzdem leer** — das gibt es wirklich, und zwar
-        # ohne Fehler: Die Web-Fassung des Launchers gibt auf Wunsch die
-        # **vorgemerkten** Baupläne aus, scmdb die nur beobachteten. Beides
+        # ohne Fehler: Die Baupläne DB gibt auf Wunsch die **vorgemerkten**
+        # Baupläne aus, scmdb die nur beobachteten. Beides
         # sind Wunschzettel, keine erspielten Baupläne; wir übernehmen daraus
         # nichts. Ohne diesen Hinweis stünde dort eine Vorschau „0 kommen
         # dazu" mit einem Knopf „0 Baupläne übernehmen" — das sieht kaputt
@@ -2623,11 +2632,8 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
                  # ⚠ Beide scmdb-Formate heißen für den Nutzer gleich — ihn
                  # geht nicht an, welche Fassung der Ausfuhr er erwischt hat.
                  'scmdb2': 'scmdb.net',
-                 # ⚠ Ebenso bei den beiden Launcher-Formaten: Ob die Datei aus
-                 # dem Programm oder aus der Webseite kommt, ist unsere Sorge,
-                 # nicht seine.
                  'launcher': 'SC Deutsch Launcher',
-                 'launcher2': 'SC Deutsch Launcher'}.get(art, art),
+                 'bpdb': 'Baupläne DB · Star Citizen Deutsch'}.get(art, art),
           ACCENT, fenster.f_klein).pack(side='right')
 
     zahlen = tk.Frame(innen, bg=FLAECHE)

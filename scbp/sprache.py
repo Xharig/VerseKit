@@ -1843,23 +1843,27 @@ TEXTE = {
     's_be_speichern':  ('Bestand speichern', 'Save inventory'),
     's_be_gespeichert': ('Gespeichert: %s', 'Saved: %s'),
     's_be_ein':        ('Bestand einlesen', 'Import inventory'),
-    's_be_ein_h':      ('Du hast deinen Stand schon woanders — im Basetool, bei scmdb, im SC Deutsch Launcher oder als Sicherung? Datei wählen, der Rest geht von selbst.',
-                          'Already have your inventory elsewhere — in the Basetool, at scmdb, in the SC Deutsch Launcher or as a backup? Pick the file, the rest happens on its own.'),
+    's_be_ein_h':      ('Du hast deinen Stand schon woanders — im Basetool, bei scmdb, in der Baupläne DB oder als Sicherung? Datei wählen, der Rest geht von selbst.',
+                          'Already have your inventory elsewhere — in the Basetool, at scmdb, in the Baupläne DB or as a backup? Pick the file, the rest happens on its own.'),
     's_be_waehlen':    ('Datei wählen …', 'Choose file …'),
-    's_be_erkannt':    ('Erkannt werden: eigene Sicherung · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher, Programm wie Webseite. Welches Format vorliegt, findet das Werkzeug selbst heraus.',
-                          'Recognised: your own backup · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher, both the program and the website. Which format it is, the tool works out by itself.'),
+    # ⛔ „Baupläne DB · Star Citizen Deutsch" ist die Bauplan-Übersicht im
+    # Browser, der „SC Deutsch Launcher" das Programm für die Übersetzung.
+    # Zwei verschiedene Dinge — am 13.09.2026 standen sie hier einen Tag lang
+    # als eines.
+    's_be_erkannt':    ('Erkannt werden: eigene Sicherung · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher · Baupläne DB · Star Citizen Deutsch. Welches Format vorliegt, findet das Werkzeug selbst heraus.',
+                          'Recognised: your own backup · KRT Profit Basetool · scmdb.net · SC Deutsch Launcher · Baupläne DB · Star Citizen Deutsch. Which format it is, the tool works out by itself.'),
     's_be_unbekannt':  ('Diese Datei kenne ich nicht.',
                           'I do not recognise this file.'),
-    's_be_unbekannt_h': ('Erwartet werden: eigene Sicherung, KRT Profit Basetool, scmdb.net oder eine Ausgabe des SC Deutsch Launchers.',
-                          'Expected: your own backup, KRT Profit Basetool, scmdb.net or an export from the SC Deutsch Launcher.'),
-    # ⚠ Erkannt, aber nichts darin: Der Launcher gibt auf Wunsch die
+    's_be_unbekannt_h': ('Erwartet werden: eigene Sicherung, KRT Profit Basetool, scmdb.net, SC Deutsch Launcher oder die Baupläne DB.',
+                          'Expected: your own backup, KRT Profit Basetool, scmdb.net, the SC Deutsch Launcher or the Baupläne DB.'),
+    # ⚠ Erkannt, aber nichts darin: Die Baupläne DB gibt auf Wunsch die
     # **vorgemerkten** Baupläne aus, scmdb die nur beobachteten. Beides sind
     # Wunschzettel — daraus wird nichts übernommen, und das muss dastehen,
     # sonst wirkt der leere Import wie ein Fehler.
     's_be_leer':       ('Diese Datei kenne ich — erspielte Baupläne stehen aber keine darin.',
                           'I recognise this file — but there are no unlocked blueprints in it.'),
-    's_be_leer_h':     ('Vermutlich sind es vorgemerkte Baupläne, also ein Wunschzettel. Übernommen wird nur, was du wirklich erspielt hast: im SC Deutsch Launcher „Erspielte als JSON", bei scmdb die abgehakten.',
-                          'These are probably blueprints you marked as wanted, not ones you own. Only what you have actually unlocked is taken over: in the SC Deutsch Launcher choose “unlocked as JSON”, at scmdb the completed ones.'),
+    's_be_leer_h':     ('Vermutlich sind es vorgemerkte Baupläne, also ein Wunschzettel. Übernommen wird nur, was du wirklich erspielt hast: in der Baupläne DB „Erspielte als JSON", bei scmdb die abgehakten.',
+                          'These are probably blueprints you marked as wanted, not ones you own. Only what you have actually unlocked is taken over: in the Baupläne DB choose “Erspielte als JSON”, at scmdb the completed ones.'),
     's_be_vorschau':   ('Vorschau — nichts ist bisher übernommen',
                           'Preview — nothing has been taken over yet'),
     's_be_eigen':      ('Eigene Sicherung', 'Your own backup'),
