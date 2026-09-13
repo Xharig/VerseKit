@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.34.1 - 2026-09-14
+
+> **Pyro war aus der neuen Raffinerien-Seite verschwunden.** Fünf Stationen
+> stehen dort, zu sehen war keine einzige — sie liefen alle unter Stanton, und
+> in der Legende stand allen Ernstes „Checkmate — Stanton", obwohl Checkmate in
+> Pyro liegt. Beides kam aus demselben Fehler. Jetzt nennt jede Spalte alle
+> ihre Systeme, und man sieht auch, wie viele Stationen sie zusammenfasst.
+
 ### Behoben
 
 - **In der Raffinerien-Übersicht fehlte Pyro komplett.** Stationen mit

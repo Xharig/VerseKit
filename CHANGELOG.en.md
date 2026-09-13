@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.34.1 - 2026-09-14
+
+> **Pyro had vanished from the new refineries page.** Five stations are listed
+> there, and not one of them was visible — they all ran under Stanton, and the
+> legend cheerfully claimed "Checkmate — Stanton" even though Checkmate is in
+> Pyro. Both came from the same bug. Every column now names all of its systems,
+> and you can see how many stations it bundles.
+
 ### Fixed
 
 - **Pyro was missing entirely from the refinery overview.** Stations with the
