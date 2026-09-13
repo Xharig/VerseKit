@@ -2279,6 +2279,18 @@ TEXTE = {
                               'that an empty search field never says what it '
                               'can find — which turned into the hint text in '
                               '**every** input field.'),
+    's_dk_zwaersch_bugs2':   ('Dass „ich sehe deine Angaben im Spiel nicht" '
+                              'zwei ganz verschiedene Ursachen haben kann — es '
+                              'steht nichts drin, oder es steht in der '
+                              'Sprachdatei, die das Spiel gar nicht lädt. Der '
+                              'Fehlerbericht nennt jetzt beide nebeneinander, '
+                              'und der Fall ist in einer Zeile zu sehen.',
+                              'That "I cannot see your entries in the game" can '
+                              'have two entirely different causes — nothing is '
+                              'written, or it is written to the language file '
+                              'the game does not load. The error report now '
+                              'names both side by side, and the case is '
+                              'readable in a single line.'),
     's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',

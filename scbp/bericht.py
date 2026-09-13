@@ -476,6 +476,29 @@ def _injektionslage():
                  else t('b_inj_hand'))
     if lage['quelle']:
         teile.append('%s %s' % (lage['quelle'], lage['stand'] or ''))
+    # ⭐⭐ **Welche Sprachdatei — und welche das Spiel wirklich lädt.**
+    #
+    # Es gibt `english/global.ini` und `german_(germany)/global.ini`, und der
+    # Watcher pflegt genau eine davon. Steht die Angabe in der anderen, sieht
+    # der Spieler **nichts** und meldet „funktioniert nicht" — ohne dass
+    # irgendetwas kaputt wäre.
+    #
+    # ⚠ Am 29.08.2026 kostete genau das einen Abend, und am 13.09.2026 kam
+    # dieselbe Meldung von einem zweiten Nutzer („bei Original habe ich keine
+    # Kästen gehabt"). Beide Male war die Frage „welche Datei gegen welche
+    # Sprache" nicht aus dem Bericht zu beantworten — sie musste erschlossen
+    # werden. Genau dafür ist der Bericht da.
+    #
+    # ⚠ Die Spielsprache steht als `g_language` in der `user.cfg`. Fehlt sie,
+    # startet Star Citizen auf Englisch; dann steht hier „—" und das ist die
+    # Auskunft, nicht ein fehlender Wert.
+    try:
+        ordner = os.path.basename(os.path.dirname(lage['datei'] or '')) or '?'
+        from . import translation
+        gespielt = translation.game_language() or '—'
+        teile.append('%s / Spiel: %s' % (ordner, gespielt))
+    except Exception as ausnahme:
+        fehler.merken('bericht.injektionssprache', ausnahme)
     return ' · '.join(x for x in teile if x)
 
 

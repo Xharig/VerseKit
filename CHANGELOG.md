@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.33.2 - 2026-09-13
+
+> **„Ich sehe deine Angaben im Spiel nicht."** Dieser Fall hat zwei Ursachen,
+> die sich bisher nicht unterscheiden ließen: Entweder steht nichts drin — oder
+> es steht in der Sprachdatei, die das Spiel gar nicht lädt. Der Fehlerbericht
+> nennt jetzt beides nebeneinander.
+
+### Verbessert
+
+- **Der Fehlerbericht nennt die gepflegte Sprachdatei UND die Sprache, die das
+  Spiel lädt.** Weichen sie voneinander ab, sieht man es in einer Zeile statt
+  nach einer halben Stunde Suche. Gemeldet von zwaersch
+
 ## v3.33.1 - 2026-09-13
 
 > **Die Baupläne je Region kamen bei niemandem an.** Die Funktion aus v3.33.0

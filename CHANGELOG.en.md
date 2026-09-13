@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.33.2 - 2026-09-13
+
+> **"I can't see your entries in the game."** That case has two causes which
+> could not be told apart so far: either nothing is written — or it is written
+> to the language file the game does not load. The error report now names both
+> side by side.
+
+### Improved
+
+- **The error report names the maintained language file AND the language the
+  game actually loads.** If the two differ, you see it in one line instead of
+  after half an hour of searching. Reported by zwaersch
+
 ## v3.33.1 - 2026-09-13
 
 > **The per-region blueprints never reached anyone.** The feature from v3.33.0

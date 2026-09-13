@@ -19749,6 +19749,42 @@ def main():
     finally:
         _au203._missionen, _au203._vertraege = _alt203
 
+    # === 204 · Der Bericht nennt BEIDE Sprachen ============================
+    #
+    # ⛔⛔ Zweimal derselbe Support-Fall, am 29.08.2026 und am 13.09.2026:
+    # „Ich sehe deine Angaben im Spiel nicht." Beide Male war nichts kaputt —
+    # der Watcher pflegte `english/global.ini`, das Spiel las
+    # `german_(germany)/global.ini`. Und beide Male liess sich das aus dem
+    # Bericht NICHT ablesen; es musste erschlossen werden.
+    #
+    # ⚠ Geprueft wird das VERHALTEN: Die Zeile muss beide Angaben tragen, und
+    # zwar unterscheidbar. Eine Textsuche nach `game_language` waere gruen,
+    # auch wenn die Zeile nur eine der beiden nennt.
+    print('\n204. Der Bericht nennt die gepflegte UND die gespielte Sprache')
+    from scbp import bericht as _be204, injektion as _inj204
+    from scbp import translation as _tr204
+    _alt204 = (_inj204.lage, _tr204.game_language)
+    try:
+        _inj204.lage = lambda: {
+            'datei': os.path.join('x', 'english', 'global.ini'),
+            'drin': True, 'quelle': 'original', 'stand': None}
+        _tr204.game_language = lambda: 'german_(germany)'
+        _zeile204 = _be204._injektionslage()
+        pruefe('english' in _zeile204,
+               'die gepflegte Sprachdatei steht in der Berichtszeile')
+        pruefe('german_(germany)' in _zeile204,
+               'und die Sprache, die das Spiel wirklich laedt')
+        # ⭐ Der Kern: Bei einem Unterschied muss man ihn SEHEN.
+        pruefe(_zeile204.count('english') and _zeile204.count('german'),
+               'bei Abweichung stehen beide da — der Fall ist ablesbar')
+        # ⚠ Und ohne Eintrag in der `user.cfg` steht dort ein Zeichen, kein
+        #   leerer Platz: Star Citizen startet dann auf Englisch.
+        _tr204.game_language = lambda: None
+        pruefe('—' in _be204._injektionslage(),
+               'ohne g_language steht ein Strich, nicht nichts')
+    finally:
+        _inj204.lage, _tr204.game_language = _alt204
+
     # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
     #
     # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:
