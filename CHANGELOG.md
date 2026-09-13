@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.33.1 - 2026-09-13
+
+> **Die Baupläne je Region kamen bei niemandem an.** Die Funktion aus v3.33.0
+> war gebaut und geprüft — und blieb im Betrieb wirkungslos, weil der Watcher
+> nach dem Neuaufbau des Katalogs weiter mit dem alten Stand rechnete. Dieses
+> Update behebt das; die Zahl im Overlay stimmt jetzt mit dem Auftragsfenster
+> überein.
+
+### Behoben
+
+- **Ein neu aufgebauter Katalog wirkt sofort statt erst beim nächsten
+  Programmstart.** Betroffen war alles, was der Katalog über Aufträge weiß —
+  am deutlichsten die Baupläne je Region aus v3.33.0, die dadurch gar nicht
+  erst sichtbar wurden
+
 ## v3.33.0 - 2026-09-13
 
 > **Die Auftragszeile zählt jetzt die Baupläne deiner Region.** Derselbe

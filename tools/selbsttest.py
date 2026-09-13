@@ -19719,6 +19719,36 @@ def main():
     pruefe(isinstance(_kat202._contracts({}), dict),
            'ohne Rohdaten kommt ein leeres Vertragsverzeichnis, kein Fehler')
 
+    # === 203 · Ein neuer Katalog wirkt SOFORT, nicht erst beim Neustart =====
+    #
+    # ⛔⛔ Gemeldet am 13.09.2026, keine halbe Stunde nach v3.33.0: Das Overlay
+    # zeigte weiter `Baupläne 27/54` statt `12/23`, obwohl der Katalog schon
+    # Format 3 mit 672 Vertraegen hatte.
+    #
+    # `auftraege` merkt sich `missionen` und `vertraege` beim ersten Zugriff —
+    # der Katalog ist rund 1 MB gross. `auftraege.vergessen()` gibt es genau
+    # dafuer, und sie hatte **keinen einzigen Aufrufer**. Die ganze Funktion
+    # war gebaut, belegt, ausgeliefert — und im Feld wirkungslos.
+    #
+    # ⚠ Geprueft wird ueber `__code__.co_names`, nicht ueber eine Textsuche:
+    # dieselbe Machart wie Pruefung 175 bei den zwei Schreibwegen. Ein
+    # Kommentar, der `vergessen()` erwaehnt, wuerde eine Textsuche gruen
+    # machen — der Aufruf ist aber die Sache.
+    print('\n203. Ein neuer Katalog wirkt sofort')
+    from scbp import catalog as _kat203, auftraege as _au203
+    pruefe('vergessen' in _kat203.update.__code__.co_names,
+           'der Katalog-Neubau leert die Zwischenspeicher von auftraege')
+    # Und die Gegenrichtung: Die Funktion muss es auch wirklich koennen.
+    _alt203 = (_au203._missionen, _au203._vertraege)
+    try:
+        _au203._missionen = {'x': {}}
+        _au203._vertraege = {'y': {}}
+        _au203.vergessen()
+        pruefe(_au203._missionen is None and _au203._vertraege is None,
+               'und vergessen() leert beide wirklich')
+    finally:
+        _au203._missionen, _au203._vertraege = _alt203
+
     # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
     #
     # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:

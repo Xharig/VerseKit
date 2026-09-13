@@ -1006,6 +1006,27 @@ def update(progress=None):
                            and present.get('format') == FORMAT):
             return False, 0, version or ''
         count, version = build(version, progress)
+        # ⛔⛔ **Die Zwischenspeicher gehoeren geleert — sonst wirkt der neue
+        # Katalog erst beim naechsten Programmstart.**
+        #
+        # `auftraege` merkt sich `missionen` und `vertraege` beim ersten
+        # Zugriff; der Katalog ist rund 1 MB gross, und bei jedem Auftrag neu
+        # zu lesen waere Verschwendung. Die Funktion `auftraege.vergessen()`
+        # gibt es genau dafuer — sie hatte bis zum 13.09.2026 **keinen
+        # einzigen Aufrufer**.
+        #
+        # ⚠ Aufgefallen ist es an v3.33.0: Die Bauplaene je Region waren
+        # gebaut, belegt und ausgeliefert — und blieben im Feld wirkungslos,
+        # weil der Speicher noch den Stand VOR dem Katalog-Neubau hielt. Das
+        # Overlay zeigte weiter die zusammengezaehlte Zahl.
+        #
+        # ⭐ Dieselbe Sorte wie die toten `getattr`-Namen, die Pruefung 195
+        # sucht: Der Code sieht vollstaendig aus, nur ruft ihn niemand.
+        try:
+            from . import auftraege
+            auftraege.vergessen()
+        except Exception as error:
+            fehler.merken('katalog.vergessen', error)
         return bool(count), count, version
     except Exception:
         return False, 0, ''

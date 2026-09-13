@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.33.1 - 2026-09-13
+
+> **The per-region blueprints never reached anyone.** The feature from v3.33.0
+> was built and verified — and stayed inert in practice, because the watcher
+> kept working from the old data after the catalogue was rebuilt. This update
+> fixes that; the number in the overlay now matches the contract window.
+
+### Fixed
+
+- **A rebuilt catalogue takes effect immediately** instead of only after the
+  next program start. This affected everything the catalogue knows about
+  contracts — most visibly the per-region blueprints from v3.33.0, which never
+  became visible at all
+
 ## v3.33.0 - 2026-09-13
 
 > **The contract line now counts the blueprints of your region.** The same
