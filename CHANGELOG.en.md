@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Pyro was missing entirely from the refinery overview.** Stations with the
+  same result share a column — but the column only carried the system of the
+  first station. One column covers eight refineries across Stanton, Pyro and
+  Nyx, of which only Stanton was shown, and the five Pyro refineries appeared
+  nowhere. Every column now names all of its systems
+- **The legend said "Checkmate — Stanton".** Checkmate is in Pyro: the heading
+  came from one station, the system from another. The number of stations a
+  column bundles is now shown as well — "Checkmate +7 others" instead of a name
+  that looks like a single station
+
 ## v3.34.0 - 2026-09-13
 
 > **Every refinery at a glance.** For some ores there are 18 percentage points

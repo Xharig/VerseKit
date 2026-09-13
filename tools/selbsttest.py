@@ -19975,6 +19975,112 @@ def main():
         _pf201.einstellung_setzen('overlay_modus', _alt201[2] or 'immer')
         _pf201.einstellung_setzen('eingeklappt', bool(_alt201[3]))
 
+    # === 206 · Ein Buendel darf kein System verschlucken ====================
+    #
+    # ⛔⛔ Gemeldet am 14.09.2026 zu v3.34.0: „sind in Pyro keine Raffenerien?
+    # sehe in der Raffenerien Uebersicht nur Stanton und Nyx." Es gibt fuenf in
+    # Pyro — sie standen nur unter Stanton.
+    #
+    # Raffinerien mit gleichem Profil werden zu EINER Spalte gebuendelt. Das
+    # Buendel merkte sich das System der **zuerst eingelesenen** Station. Profil
+    # `3c47572dd971` deckt acht Stationen in drei Systemen ab; die erste war
+    # HUR-L1 (Stanton), also hiess die ganze Spalte Stanton — und Pyro kam in
+    # der Uebersicht ueberhaupt nicht mehr vor.
+    #
+    # ⚠ Dazu der sichtbare Widerspruch: Die Spaltenueberschrift nimmt die
+    # **alphabetisch** erste Station (`Checkmate`, Pyro), das System kam von der
+    # **in den Daten** ersten (`HUR-L1`, Stanton). In der Legende stand deshalb
+    # woertlich „Checkmate — Stanton". Zwei verschiedene Stationen in einer
+    # Zeile, und keine der beiden Angaben war fuer sich falsch.
+    #
+    # ⚠⚠ Dieselbe Stelle gibt es ZWEIMAL: `refinery_matrix()` (Uebersichtsseite)
+    # und `refineries_for()` (Kasten auf der Bergbau-Seite). Beide gepruefen —
+    # ein Fix an nur einer Stelle laesst den Fehler auf der anderen Seite stehen.
+    #
+    # ⚠ Die Pruefung legt sich ihre Daten SELBST hin, statt die echten
+    # Bergbaudaten zu verlangen: Die liegen im Wegwerf-Ordner nicht, und eine
+    # Pruefung, die sich ueberspringt, prueft nichts (Lehre aus Pruefung 67).
+    print('\n206. Gebuendelte Raffinerien nennen ALLE ihre Systeme')
+    from scbp import mining as _bg206
+
+    _echt206 = _bg206.load
+    _daten206 = {
+        'refineries': [
+            {'name': 'HUR-L1 Green Glade Station', 'system': 'Stanton',
+             'profileId': 'gemeinsam'},
+            {'name': 'Checkmate', 'system': 'Pyro', 'profileId': 'gemeinsam'},
+            {'name': 'Orbituary', 'system': 'Pyro', 'profileId': 'gemeinsam'},
+            {'name': 'Pyro Gateway (Nyx)', 'system': 'Nyx',
+             'profileId': 'gemeinsam'},
+            {'name': 'Levski', 'system': 'Nyx', 'profileId': 'allein'},
+        ],
+        'refineryProfiles': {
+            'gemeinsam': {'Quartz (Raw)': 8, 'Tin (Ore)': -3},
+            'allein': {'Quartz (Raw)': 2, 'Tin (Ore)': 5},
+        },
+    }
+    try:
+        _bg206.load = lambda: _daten206
+        _sp206, _ze206 = _bg206.refinery_matrix()
+        pruefe(len(_sp206) == 2, 'zwei Profile ergeben zwei Spalten (%d)'
+               % len(_sp206))
+        pruefe(len(_ze206) == 2, 'beide Materialien stehen als Zeile da (%d)'
+               % len(_ze206))
+
+        # Der Kern: Je Spalte muessen GENAU die Systeme ihrer Stationen
+        # dastehen — nicht das der ersten, nicht irgendeines.
+        _soll206 = {'gemeinsam': {'Nyx', 'Pyro', 'Stanton'},
+                    'allein': {'Nyx'}}
+        _schuld206 = []
+        for _namen206, _sys206 in _sp206:
+            _pid206 = 'allein' if _namen206 == ['Levski'] else 'gemeinsam'
+            _ist206 = set(x.strip() for x in (_sys206 or '').split(',')
+                          if x.strip())
+            if _ist206 != _soll206[_pid206]:
+                _schuld206.append('%s: „%s" statt %s'
+                                  % (_namen206[0], _sys206 or '',
+                                     ', '.join(sorted(_soll206[_pid206]))))
+        pruefe(not _schuld206,
+               'refinery_matrix: jede Spalte nennt genau ihre Systeme%s'
+               % (' — FALSCH bei ' + ' | '.join(_schuld206)
+                  if _schuld206 else ''))
+
+        # Und kein System darf aus der Gesamtschau verschwinden.
+        _alle206 = set(r['system'] for r in _daten206['refineries'])
+        _gezeigt206 = set()
+        for _n206, _s206 in _sp206:
+            _gezeigt206 |= set(x.strip() for x in (_s206 or '').split(',')
+                               if x.strip())
+        pruefe(_alle206 <= _gezeigt206,
+               'kein System faellt aus der Uebersicht%s'
+               % (' — FEHLT: ' + ', '.join(sorted(_alle206 - _gezeigt206))
+                  if _alle206 - _gezeigt206 else ''))
+
+        # ⚠ Die zweite Stelle: derselbe Buendelfehler im Bergbau-Kasten.
+        _r206 = _bg206.refineries_for('Quartz')
+        _schuld206b = []
+        for _namen206, _sys206, _bonus206 in _r206:
+            _pid206 = 'allein' if _namen206 == ['Levski'] else 'gemeinsam'
+            _ist206 = set(x.strip() for x in (_sys206 or '').split(',')
+                          if x.strip())
+            if _ist206 != _soll206[_pid206]:
+                _schuld206b.append('%s: „%s"' % (_namen206[0], _sys206 or ''))
+        pruefe(bool(_r206) and not _schuld206b,
+               'refineries_for: dasselbe im Bergbau-Kasten%s'
+               % (' — FALSCH bei ' + ' | '.join(_schuld206b)
+                  if _schuld206b else ''))
+    finally:
+        _bg206.load = _echt206
+
+    # Und die Legende darf die Spalte nicht wie eine einzelne Station aussehen
+    # lassen — „Checkmate" allein verschweigt sieben weitere.
+    _q206 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                 encoding='utf-8').read()
+    _ab206 = _q206[_q206.find('def _raffinerien('):]
+    _ab206 = _ab206[:_ab206.find('\ndef ', 10)]
+    pruefe("s_bg_raff_weitere" in _ab206,
+           'die Legende nennt die Zahl der gebuendelten Stationen')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

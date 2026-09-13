@@ -572,6 +572,13 @@ def refinery_matrix():
     ⚠ Raffinerien mit **demselben Profil** werden zu einer Spalte gebündelt:
     20 Stationen teilen sich 10 Profile, sonst stünde jede Spalte doppelt.
 
+    ⚠⚠ **Ein Bündel kann über mehrere Systeme reichen** — deshalb ist `system`
+    eine Aufzählung, kein einzelner Name. Profil `3c47572dd971` deckt acht
+    Stationen in **Stanton, Pyro und Nyx** ab; wer sich nur das System der
+    ersten merkt, lässt alle fünf Pyro-Raffinerien aus der Übersicht
+    verschwinden. Genau so gemeldet am 14.09.2026: „sind in Pyro keine
+    Raffenerien?" Es sind welche — sie standen nur unter Stanton.
+
     ⚠ `bester_index` ist `None`, wenn alle Werte gleich sind — dann gibt es
     nichts hervorzuheben, und eine Markierung wäre eine erfundene Empfehlung.
     """
@@ -587,10 +594,14 @@ def refinery_matrix():
         pid = r.get('profileId')
         if pid not in profiles:
             continue
-        entry = bundled.setdefault(pid, {'namen': [], 'system': r.get('system')})
+        entry = bundled.setdefault(pid, {'namen': [], 'systeme': set()})
         entry['namen'].append(r.get('name') or '')
+        if r.get('system'):
+            entry['systeme'].add(r['system'])
     if not bundled:
         return [], []
+    for entry in bundled.values():
+        entry['system'] = ', '.join(sorted(entry['systeme']))
     order = sorted(bundled, key=lambda p: (bundled[p]['system'] or '',
                                            sorted(bundled[p]['namen'])))
     columns = [(sorted(bundled[p]['namen']), bundled[p]['system'])
@@ -631,6 +642,10 @@ def refineries_for(material):
     `Aluminum (Ore)`, die Rezepte `Aluminium`, die Bergbaudaten
     `Aluminium (Ore)`. Ohne Angleichung findet man zu keinem Erz eine
     Raffinerie.
+
+    ⚠⚠ **`System` ist eine Aufzählung** — dieselbe Falle wie in
+    `refinery_matrix()`: Ein Profil kann Stationen in mehreren Systemen
+    buendeln, und wer nur das der ersten merkt, blendet ganze Systeme aus.
     """
     from .crafting import norm_material
     current = load()
@@ -652,10 +667,13 @@ def refineries_for(material):
         pid = r.get('profileId')
         if pid not in bonus_per_profile:
             continue
-        entry = bundled.setdefault(pid, {'namen': [], 'system': r.get('system'),
+        entry = bundled.setdefault(pid, {'namen': [], 'systeme': set(),
                                          'bonus': bonus_per_profile[pid]})
         entry['namen'].append(r.get('name') or '')
-    result = [(e['namen'], e['system'], e['bonus']) for e in bundled.values()]
+        if r.get('system'):
+            entry['systeme'].add(r['system'])
+    result = [(e['namen'], ', '.join(sorted(e['systeme'])), e['bonus'])
+              for e in bundled.values()]
     result.sort(key=lambda x: (-x[2], x[0][0] if x[0] else ''))
     return result
 

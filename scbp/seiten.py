@@ -9904,10 +9904,19 @@ def _raffinerien(fenster, rahmen):
     for namen, system in spalten:
         z = tk.Frame(innen, bg=BG)
         z.pack(fill='x', pady=1)
-        tk.Label(z, text=_raff_kurz(namen), bg=BG, fg=FG,
-                 font=fenster.f_small, anchor='w', width=12).pack(side='left')
+        # ⚠ Die Zahl dahinter ist wichtig: „Checkmate" allein sieht aus wie
+        # **eine** Station, tatsächlich stehen acht in dieser Spalte — und die
+        # Überschrift nennt die alphabetisch erste, nicht die einzige.
+        _kurz = _raff_kurz(namen)
+        if len(namen) > 1:
+            _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
+        tk.Label(z, text=_kurz, bg=BG, fg=FG,
+                 font=fenster.f_small, anchor='w', width=18).pack(side='left')
+        # ⚠ Breit genug für **mehrere** Systeme: Ein Profil bündelt Stationen
+        # aus Stanton, Pyro und Nyx — bei `width=10` wäre davon nur „Nyx, Pyr"
+        # zu lesen gewesen, und Tk schneidet still ab.
         tk.Label(z, text=system or '', bg=BG, fg=SUB, font=fenster.f_small,
-                 anchor='w', width=10).pack(side='left')
+                 anchor='w', width=22).pack(side='left')
         tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         fill='x', expand=True)

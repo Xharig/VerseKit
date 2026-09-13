@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **In der Raffinerien-Übersicht fehlte Pyro komplett.** Stationen mit
+  gleichem Ergebnis stehen in einer Spalte — die Spalte trug aber nur das
+  System der ersten Station. Eine Spalte deckt acht Raffinerien in Stanton,
+  Pyro und Nyx ab, angezeigt wurde davon allein Stanton, und die fünf
+  Pyro-Raffinerien tauchten nirgends auf. Jetzt nennt jede Spalte alle ihre
+  Systeme
+- **In der Legende stand „Checkmate — Stanton".** Checkmate liegt in Pyro: Die
+  Überschrift kam von der einen Station, das System von einer anderen. Dazu
+  steht jetzt dabei, wie viele Stationen eine Spalte zusammenfasst — „Checkmate
+  +7 weitere" statt eines Namens, der nach einer einzelnen aussieht
+
 ## v3.34.0 - 2026-09-13
 
 > **Alle Raffinerien auf einen Blick.** Zwischen der besten und der
