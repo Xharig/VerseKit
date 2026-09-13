@@ -705,6 +705,16 @@ class Watcher(threading.Thread):
         # Star Citizen fuehrt beide Meldungen mit derselben MissionId, auch
         # ueber einen Neustart des Werkzeugs hinweg.
         self._auftrag_missionen = {}
+        # ⭐ Auftragsschluessel -> Vertragskennung (`contractDefinitionId` aus
+        # dem Log). Damit bekommt die Zeile die Bauplanliste **genau dieser
+        # Region** statt der ueber alle Regionen zusammengefassten.
+        # ⚠ Fehlt sie, gilt weiter der Titelweg — das ist kein Ausfall,
+        # sondern der Rueckfall (gemessen: 20 von 707 Annahmen).
+        self._auftrag_vertraege = {}
+        # ⚠ Womit die Zeile gebaut wurde — Vertragskennung oder None. Kommt
+        # spaeter ein Vertrag dazu, wird sie neu gebaut; siehe
+        # `_auftraege_melden`.
+        self._auftrag_zeile_quelle = {}
         # Und was zu diesen Auftraegen gerade ansteht. @@ **Der Auftrag sagt,
         # ob Bauplaene drin sind — das Ziel sagt, wofuer man gerade fliegt.**
         # Beides steht im Protokoll; die Buchfuehrung dazu in `auftraege.Ziele`.
@@ -1161,7 +1171,10 @@ class Watcher(threading.Thread):
         """
         try:
             ergebnis = auftraege.pruefen(
-                titel, lambda n: bestand_datei.norm(n) in self.bestand['bauplaene'])
+                titel, lambda n: bestand_datei.norm(n) in self.bestand['bauplaene'],
+                # ⭐ Wenn wir den Vertrag kennen, zaehlt SEINE Liste — die des
+                # Systems, in dem der Auftrag spielt. Sonst der Titelweg.
+                vertrag_id=self._auftrag_vertraege.get(rein))
         except Exception as ausnahme:
             fehler.merken('watcher.auftraege', ausnahme)
             return None
@@ -1219,6 +1232,15 @@ class Watcher(threading.Thread):
         # Auftraege spaeter im laufenden Betrieb, ist die MissionId oft das
         # Einzige, was die Endmeldung mit ihm verbindet.
         self._auftrag_missionen.update(missionen)
+        # ⭐ Und welcher Vertrag hinter welchem Auftrag steckt — die MissionId
+        # ist die Bruecke zwischen beiden Angaben aus demselben Text.
+        try:
+            je_mission = auftraege.vertraege_aus_text(text)
+            for mid, rein_ in missionen.items():
+                if mid in je_mission:
+                    self._auftrag_vertraege[rein_] = je_mission[mid]
+        except Exception as ausnahme:
+            fehler.merken('watcher.auftrag_vertraege', ausnahme)
         # ⚠ Die Ziele aus demselben Text. Ohne das stuende beim Start zwar der
         # Auftrag da, aber ohne das, was gerade zu tun ist — und genau danach
         # schaut man nach einem Neustart zuerst.
@@ -1234,6 +1256,7 @@ class Watcher(threading.Thread):
             # Beim Start nicht in die Verlaufsliste melden — das waere ein
             # Schwall alter Nachrichten. Nur der Stand wird gesetzt.
             self._auftraege_gesehen.add(rein)
+            self._auftrag_zeile_quelle[rein] = self._auftrag_vertraege.get(rein)
             self._offene_auftraege[rein] = (self._auftrag_zeile(titel, rein)
                                             or sprache.Satz('auftrag_zeile', rein))
         if self._offene_auftraege:
@@ -1268,6 +1291,9 @@ class Watcher(threading.Thread):
             return
         self.tail.missions = []
         self.tail.missions_done = []
+        # ⭐ Die Vertragskennungen desselben Abschnitts — vor dem Leeren holen.
+        vertraege_jetzt = getattr(self.tail, 'mission_contracts', None) or {}
+        self.tail.mission_contracts = {}
         self.tail.mission_events = []
         veraendert = False
 
@@ -1317,6 +1343,10 @@ class Watcher(threading.Thread):
                 offen_jetzt[rein] = titel
                 if mission_id:
                     self._auftrag_missionen[mission_id] = rein
+                    # ⭐ Der Vertrag zu dieser Mission, aus demselben Abschnitt.
+                    vertrag = vertraege_jetzt.get(mission_id)
+                    if vertrag:
+                        self._auftrag_vertraege[rein] = vertrag
                 continue
             # ⚠⚠ **Ein Ende darf titellos sein — gemeldet 06.09.2026.** Bricht
             # man einen Auftrag ab, schreibt das Spiel nur:
@@ -1376,9 +1406,23 @@ class Watcher(threading.Thread):
                 # nicht kennt. Steht unten ein Ergebnis, wird er ersetzt.
                 self._offene_auftraege[rein] = sprache.Satz('auftrag_zeile', rein)
                 veraendert = True
-            if rein in self._auftraege_gesehen:
+            # ⚠⚠ **Ein nachgereichter Vertrag laesst die Zeile neu bauen.**
+            #
+            # Das Spiel meldet „geteilt" und „angenommen" Sekunden auseinander.
+            # Die geteilte Meldung traegt die Nullkennung und findet daher nie
+            # einen Vertrag — die Zeile entstuende ueber den Titelweg, mit der
+            # ueber alle Regionen zusammengefassten Zahl. Liegen die beiden
+            # Meldungen im selben Abschnitt, faellt das nicht auf; liegen sie
+            # in zwei, bliebe die grobe Zahl fuer immer stehen.
+            #
+            # Deshalb wird nicht „schon gesehen" gefragt, sondern „mit
+            # derselben Quelle gesehen".
+            quelle = self._auftrag_vertraege.get(rein)
+            if (rein in self._auftraege_gesehen
+                    and self._auftrag_zeile_quelle.get(rein) == quelle):
                 continue
             self._auftraege_gesehen.add(rein)
+            self._auftrag_zeile_quelle[rein] = quelle
             zeile = self._auftrag_zeile(titel, rein)
             if zeile is None:
                 continue
@@ -1516,6 +1560,8 @@ class Watcher(threading.Thread):
         vorher = list(self._offene_auftraege)
         self._offene_auftraege = {}
         self._auftrag_missionen = {}
+        self._auftrag_vertraege = {}
+        self._auftrag_zeile_quelle = {}
         self._ziele = auftraege.Ziele()
         self._auftraege_beim_start()
         # Und die Zeilen in der Liste dazu: Was jetzt nicht mehr offen ist,

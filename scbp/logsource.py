@@ -415,6 +415,10 @@ class LogTail:
         # — die beiden Kennungen entscheiden, ob ein Ende den Auftrag
         # meint oder nur ein Zwischenziel (siehe `auftraege.ZUSATZ`).
         self.mission_events = []
+        # ⭐ `{mission_id: vertrag_id}` aus den `CreateMarker`-Zeilen desselben
+        # Abschnitts. Ein leeres Woerterbuch ist der Normalfall, solange kein
+        # Auftrag angenommen wurde.
+        self.mission_contracts = {}
         # Und die Zwischenziele desselben Abschnitts — was gerade zu tun ist.
         # ⚠ Zwei Sorten in einer Liste, roh: Zustandswechsel und Wortlaut.
         # Gewertet wird in `auftraege.Ziele`, damit Start und laufender Betrieb
@@ -475,6 +479,7 @@ class LogTail:
         self.missions = []
         self.missions_done = []
         self.mission_events = []
+        self.mission_contracts = {}
         self.objective_events = []
         if not self._locate():
             return []
@@ -503,6 +508,13 @@ class LogTail:
         self.missions_done = (self.mission_end_pattern.findall(text)
                                   if self.mission_end_pattern else [])
         self.mission_events = self._sort_events(text)
+        # ⭐ Und welcher VERTRAG hinter einer Mission steckt. Die Zeile steht im
+        # selben Abschnitt (`CreateMarker`) und nennt die
+        # `contractDefinitionId` — damit bekommt die Anzeige die Bauplanliste
+        # genau dieser Region statt der ueber alle Regionen zusammengefassten.
+        # Siehe `auftraege.vertraege_aus_text`.
+        self.mission_contracts = (auftraege.vertraege_aus_text(text)
+                                  if self.mission_pattern else {})
         # ⚠ Ohne Auftragsmuster gibt es auch keine Auftragsanzeige — dann
         # braucht niemand die Ziele, und das Suchen waere reine Arbeit.
         self.objective_events = (auftraege.ziel_ereignisse_aus_text(text)

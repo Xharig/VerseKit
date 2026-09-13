@@ -19627,6 +19627,98 @@ def main():
            'zwei geteilte Auftraege bleiben zwei — die Nullkennung wirft sie '
            'nicht zusammen')
 
+    # === 202 · Der Vertrag schlaegt den Titel (Region) ======================
+    #
+    # ⭐⭐ Gemeldet am 13.09.2026: „insgesamt gibt es in der quest ja noch mehr
+    # BP … du hast 3/14 z.b. oder wie würdest du es sinnig anzeigen?" — und
+    # dahinter steckte, dass die gemeldete Gesamtzahl gar nicht zum
+    # Auftragsfenster passte.
+    #
+    # Der Katalog fasst alle Varianten eines Auftragstexts zusammen (und das
+    # muss er, siehe `catalog._missions`, Morkhans Fund vom 28.08.2026):
+    #
+    #     Foxwell_DefendEntitesAndEscort_H_Title   54   zusammengefasst
+    #       ├─ …_Nyx_Hard      23
+    #       ├─ …_Pyro_Hard     19
+    #       └─ …_Stanton_Hard  12
+    #
+    # Der Log nennt den Vertrag aber selbst (`contractDefinitionId`), und der
+    # trifft genau einen. Gemessen: 687 von 707 Annahmen (97,2 %).
+    print('\n202. Der Vertrag schlaegt den Titel — Bauplaene je Region')
+    from scbp import auftraege as _au202
+    _alt202 = (_au202._missionen, _au202._index, _au202._muster_index,
+               _au202._vertraege)
+    try:
+        _au202._missionen = {'test_title': {'bp': ['A', 'B', 'C', 'D']}}
+        _au202._index = {'testauftrag': 'test_title'}
+        _au202._muster_index = []
+        _au202._vertraege = {
+            'vertrag-nyx': {'bp': ['A', 'B'], 'system': ['Nyx']},
+            'vertrag-pyro': {'bp': ['C', 'D'], 'system': ['Pyro']},
+        }
+        _hat202 = lambda n: n in ('A', 'C')
+
+        # a) Mit Vertrag zaehlt SEINE Liste, nicht die zusammengefasste.
+        pruefe(_au202.pruefen('Testauftrag', _hat202,
+                              vertrag_id='vertrag-nyx') == (2, ['B']),
+               'mit Vertragskennung zaehlt die Liste dieses Vertrags')
+        pruefe(_au202.pruefen('Testauftrag', _hat202,
+                              vertrag_id='vertrag-pyro') == (2, ['D']),
+               'und ein anderer Vertrag hat eine andere Liste')
+        # b) ⚠ Ohne Kennung bleibt alles wie bisher.
+        pruefe(_au202.pruefen('Testauftrag', _hat202) == (4, ['B', 'D']),
+               'ohne Vertragskennung gilt weiter der Titelweg')
+        # c) ⚠⚠ Und eine UNBEKANNTE Kennung faellt auf den Titelweg zurueck,
+        #    statt zu schweigen. 20 von 707 Annahmen tragen keinen Marker, und
+        #    ein Katalog vor FORMAT 3 kennt gar keine Vertraege — beides darf
+        #    die Anzeige nicht schlechter machen als vorher.
+        pruefe(_au202.pruefen('Testauftrag', _hat202,
+                              vertrag_id='gibt-es-nicht') == (4, ['B', 'D']),
+               'eine unbekannte Vertragskennung faellt auf den Titelweg zurueck')
+        # d) Ein Vertrag ohne Bauplaene ist wie keiner.
+        _au202._vertraege['leer'] = {'bp': []}
+        pruefe(_au202.pruefen('Testauftrag', _hat202,
+                              vertrag_id='leer') == (4, ['B', 'D']),
+               'ein Vertrag ohne Bauplaene faellt ebenfalls zurueck')
+    finally:
+        (_au202._missionen, _au202._index, _au202._muster_index,
+         _au202._vertraege) = _alt202
+
+    # e) Die Kennung muss aus einer ECHTEN Logzeile kommen — woertlich so, wie
+    #    sie am 13.09.2026 dastand.
+    _zeile202 = (
+        '<2026-09-13T17:08:02.053Z> [Notice] '
+        '<CLocalMissionPhaseMarker::CreateMarker> Creating objective marker: '
+        'missionId [7a12d7cf-936d-42e7-996e-db6364edc24d], generator name '
+        '[Foxwell_DefendEntitiesAndEscort], contract '
+        '[Foxwell_DefendEntitiesAndEscort_Nyx_Hard], '
+        'contractDefinitionId[6c4b94f2-3b43-4e0a-9be5-93186e0a957e], '
+        'objectiveId [ee12ac38-66f1-4c42-b39f-79a0556c58a6], markerEntityId '
+        '[28543], zoneHostId [783593057101] [Team_MissionFeatures][Missions]\n')
+    _karte202 = _au202.vertraege_aus_text(_zeile202)
+    pruefe(_karte202.get('7a12d7cf-936d-42e7-996e-db6364edc24d')
+           == '6c4b94f2-3b43-4e0a-9be5-93186e0a957e',
+           'die Vertragskennung wird aus der echten CreateMarker-Zeile gelesen')
+    pruefe(_au202.vertraege_aus_text('irgendetwas anderes\n') == {},
+           'und eine beliebige Zeile liefert nichts')
+
+    # f) ⚠ `vergessen()` muss ALLE Zwischenspeicher leeren. Bliebe der neue
+    #    stehen, arbeitete das Werkzeug nach einem Katalog-Update mit zwei
+    #    Staenden gleichzeitig — genau die Sorte Fehler, die niemand sieht.
+    _au202._vertraege = {'irgendwas': {'bp': ['X']}}
+    _au202.vergessen()
+    pruefe(_au202._vertraege is None,
+           'vergessen() leert auch den Vertrags-Zwischenspeicher')
+
+    # g) Der Katalog legt die Vertraege ueberhaupt an — und `load()` kommt mit
+    #    einem ALTEN Katalog ohne diesen Abschnitt klar.
+    from scbp import catalog as _kat202
+    pruefe(_kat202.FORMAT >= 3,
+           'die Katalog-Fassung ist hochgezaehlt (sonst behalten Bestands'
+           'nutzer die zusammengefasste Liste bis zum naechsten Patch)')
+    pruefe(isinstance(_kat202._contracts({}), dict),
+           'ohne Rohdaten kommt ein leeres Vertragsverzeichnis, kein Fehler')
+
     # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
     #
     # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:

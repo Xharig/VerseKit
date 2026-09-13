@@ -101,7 +101,12 @@ CACHE = 'katalog-cache.json'
 # Ohne diese Nummer hätte kein einziger Tester den Fix zu Gesicht bekommen.
 #
 # **Hochzählen, sobald `_missionen()` oder `_herkunft()` etwas anders ablegen.**
-FORMAT = 2
+#
+# 3 (13.09.2026): `_contracts()` kam dazu — jeder Vertrag einzeln, mit seiner
+# eigenen Bauplanliste und seinem System. Ohne Hochzählen behielte jeder
+# vorhandene Katalog die zusammengefasste Liste, und die Regionsanzeige wäre
+# für Bestandsnutzer bis zum nächsten Patch unsichtbar.
+FORMAT = 3
 # ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
 # alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
 USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
@@ -679,6 +684,60 @@ def _missions(merged):
     return result
 
 
+def _contracts(merged):
+    """Jeder Vertrag einzeln — die **Gegenrichtung** zu `_missions()`.
+
+    `_missions()` fasst alle Varianten eines Auftragstexts zusammen; das muss
+    so sein (siehe dort: Morkhans Fund vom 28.08.2026, 319 Verträge fielen
+    still weg). Für die Anzeige ist es aber zu grob:
+
+        Foxwell_DefendEntitesAndEscort_H_Title   54 Baupläne   (zusammengefasst)
+          ├─ …_Nyx_Hard       23
+          ├─ …_Pyro_Hard      19
+          └─ …_Stanton_Hard   12
+
+    Wer den Auftrag in Nyx annimmt, sieht im Spiel **23** — und der Watcher
+    meldete 54. Die Liste ist nicht falsch, aber sie beantwortet die Frage
+    nicht, die der Spieler hat.
+
+    ⭐ Und der Log nennt den Vertrag selbst:
+
+        CreateMarker … contractDefinitionId[6c4b94f2-3b43-4e0a-9be5-93186e0a957e]
+
+    Das ist genau die `id` hier. Keine Titelsuche, keine Marken, keine
+    Platzhalter, keine Sprache — und keine Namensabbildung über den Tippfehler
+    `Entities`/`Entites` in der Quelle.
+
+    ⚠ An 157 Log-Sicherungen gemessen (13.09.2026): **687 von 707** Annahmen
+    lassen sich so zuordnen (97,2 %). Die übrigen fallen auf den Titelweg
+    zurück — deshalb bleibt `_missions()` vollständig erhalten.
+
+    ⚠ Nur Verträge, die überhaupt Baupläne ausschütten: 672 von 1824.
+    """
+    pools = {}
+    for guid, pool in (merged.get('blueprintPools') or {}).items():
+        pools[guid] = [b.get('name') for b in (pool.get('blueprints') or [])
+                       if b.get('name')]
+    result = {}
+    for contract in ((merged.get('contracts') or [])
+                     + (merged.get('legacyContracts') or [])):
+        kennung = contract.get('id')
+        if not kennung:
+            continue
+        names = set()
+        for r in (contract.get('blueprintRewards') or []):
+            names |= set(pools.get(r.get('blueprintPool')) or [])
+        if not names:
+            continue
+        entry = {'bp': sorted(names)}
+        # Das System steht als eigenes Feld dabei — keine Namensrechnerei.
+        systems = contract.get('availableSystems') or contract.get('systems')
+        if isinstance(systems, list) and systems:
+            entry['system'] = sorted(str(s) for s in systems)
+        result[kennung] = entry
+    return result
+
+
 def build(version=None, progress=None, from_file=None):
     """Holt die Daten und legt den eigenen Katalog an. Gibt (anzahl, version) zurück.
 
@@ -776,7 +835,8 @@ def build(version=None, progress=None, from_file=None):
 
     data = {'version': version, 'format': FORMAT,
              'geholt': time.strftime('%Y-%m-%d %H:%M'),
-             'bauplaene': blueprints, 'missionen': _missions(merged)}
+             'bauplaene': blueprints, 'missionen': _missions(merged),
+             'vertraege': _contracts(merged)}
     target = pfade.app_datei(CACHE)
     temp = target + '.tmp'
     with open(temp, 'w', encoding='utf-8') as f:
@@ -808,11 +868,16 @@ def load():
             d = json.load(f)
         if isinstance(d.get('bauplaene'), dict):
             d.setdefault('missionen', {})    # Kataloge vor v2.0.0-rc5
+            # ⚠ Kataloge vor FORMAT 3 kennen die Vertragsliste nicht. Fehlt
+            # sie, faellt die Zuordnung auf den Titelweg zurueck — das ist
+            # genau das Verhalten bis v3.32.4, also kein Rueckschritt.
+            d.setdefault('vertraege', {})
             d['bauplaene'] = _align_keys(d['bauplaene'])
             return d
     except Exception:
         pass
-    return {'version': '', 'geholt': '', 'bauplaene': {}, 'missionen': {}}
+    return {'version': '', 'geholt': '', 'bauplaene': {}, 'missionen': {},
+            'vertraege': {}}
 
 
 def _align_keys(blueprints):

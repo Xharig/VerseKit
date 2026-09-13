@@ -170,6 +170,7 @@ NULLKENNUNG = '00000000-0000-0000-0000-000000000000'
 # einer ganz anderen Mission.
 _VARIANTE = re.compile(r',[A-Za-z]{1,3}$')
 
+_vertraege = None        # {vertrag_id: {'bp': [...], 'system': [...]}}
 _index = None            # {sauberer Titel: schluessel}
 _muster_index = None     # [(kompiliertes Muster, schluessel)] für Platzhalter-Titel
 _missionen = None        # Zwischenspeicher: der Katalog ist rund 1 MB gross
@@ -192,9 +193,13 @@ def missionen():
 
 
 def vergessen():
-    """Zwischenspeicher leeren — nach einem Katalog-Update aufzurufen."""
-    global _missionen, _index, _muster_index
-    _missionen, _index, _muster_index = None, None, None
+    """Zwischenspeicher leeren — nach einem Katalog-Update aufzurufen.
+
+    ⚠ **Alle** Zwischenspeicher, auch neue. Bliebe einer stehen, arbeitete das
+    Werkzeug nach einem Katalog-Update mit zwei Ständen gleichzeitig.
+    """
+    global _missionen, _index, _muster_index, _vertraege
+    _missionen, _index, _muster_index, _vertraege = None, None, None, None
 
 
 # Die `global.ini` schreibt die Meldung mit Platzhalter: `Auftrag angenommen: %s`.
@@ -312,6 +317,43 @@ def ende_muster():
 # ObjectiveId. Alle 111 waren Zwischenziele, und in allen 111 Fällen lief die
 # Mission danach nachweislich weiter.
 ZUSATZ = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\]')
+
+# ⭐⭐ **Der Log nennt den Vertrag selbst — samt Region und Stufe.**
+#
+#   <CLocalMissionPhaseMarker::CreateMarker> Creating objective marker:
+#     missionId [7a12d7cf-…], generator name [Foxwell_DefendEntitiesAndEscort],
+#     contract [Foxwell_DefendEntitiesAndEscort_Nyx_Hard],
+#     contractDefinitionId[6c4b94f2-3b43-4e0a-9be5-93186e0a957e], …
+#
+# Die `contractDefinitionId` ist die `id` eines Vertrags im Katalog
+# (`catalog._contracts`). Damit faellt der ganze Titel-Umweg weg: keine
+# Marken, keine Platzhalter, keine Sprache, keine Praefix-Muster — und keine
+# Namensabbildung ueber den Tippfehler `Entities`/`Entites` in der Quelle.
+#
+# ⚠ An 157 Log-Sicherungen gemessen (13.09.2026): Zu **687 von 707** Annahmen
+# laesst sich so ein Vertrag finden (97,2 %). Die uebrigen 20 tragen keinen
+# Marker — dort bleibt es beim Titelweg. Deshalb ersetzt das den alten Weg
+# nicht, es geht ihm nur vor.
+#
+# ⚠ `missionId` steht hier klein geschrieben und ohne Doppelpunkt — anders als
+# in `ZUSATZ`. Zwei Schreibweisen derselben Sache im selben Log.
+VERTRAGSMARKE = re.compile(
+    r'CreateMarker[^\n]*?missionId \[([0-9a-fA-F-]+)\][^\n]*?'
+    r'contractDefinitionId\[([0-9a-fA-F-]+)\]')
+
+
+def vertraege_aus_text(text):
+    """`{mission_id: vertrag_id}` — welcher Vertrag steckt hinter der Mission?
+
+    ⚠ Der **erste** Marker gewinnt. Ein Auftrag setzt im Lauf mehrere Ziele,
+    alle mit derselben `contractDefinitionId`; gemessen gab es ueber 157
+    Protokolle keinen Fall, in dem eine MissionId zwei verschiedene Vertraege
+    nannte. Faende sich doch einer, waere der erste der bei der Annahme.
+    """
+    gefunden = {}
+    for m in VERTRAGSMARKE.finditer(text):
+        gefunden.setdefault(m.group(1), m.group(2))
+    return gefunden
 
 # ⚠⚠ **Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.**
 # Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier Sekunden
@@ -750,13 +792,52 @@ def schluessel_zu(titel):
     return beste.pop()
 
 
-def pruefen(titel, hat_bereits):
+def vertraege():
+    """Die Verträge aus dem Katalog — einmal lesen, dann gemerkt.
+
+    ⚠ Fehlt der Abschnitt (Katalog vor FORMAT 3), kommt ein leeres
+    Wörterbuch — dann gilt weiter der Titelweg, wie bis v3.32.4.
+    """
+    global _vertraege
+    if _vertraege is None:
+        try:
+            _vertraege = catalog.load().get('vertraege') or {}
+        except Exception as ausnahme:
+            fehler.merken('auftraege.vertraege', ausnahme)
+            _vertraege = {}
+    return _vertraege
+
+
+def pruefen(titel, hat_bereits, vertrag_id=None):
     """Was bringt dieser Auftrag — und was davon fehlt noch?
 
     `hat_bereits` ist eine Funktion `name -> bool`. Rückgabe ist `None`, wenn
     der Auftrag unbekannt ist oder keine Baupläne bringt; sonst
     `(gesamtzahl, [fehlende Namen])`.
+
+    ⭐⭐ **`vertrag_id` schlägt den Titel.** Sie kommt aus der
+    `CreateMarker`-Zeile des Logs (`contractDefinitionId`, siehe
+    `vertraege_aus_text`) und trifft **genau einen** Vertrag — mit dessen
+    eigener Bauplanliste statt der über alle Regionen zusammengefassten:
+
+        Foxwell_DefendEntitesAndEscort_H_Title   54   (Titelweg)
+          ├─ …_Nyx_Hard      23                       (Vertragsweg)
+          ├─ …_Pyro_Hard     19
+          └─ …_Stanton_Hard  12
+
+    Wer den Auftrag in Nyx annimmt, sieht im Spiel 23 — und bekam bis v3.32.4
+    die 54 gemeldet. Nicht falsch, aber nicht die Frage, die er hat.
+
+    ⚠ **Der Titelweg bleibt der Rückfall**, nicht der Ersatz: Zu 20 von 707
+    gemessenen Annahmen gibt es keinen Marker, und ein Katalog vor FORMAT 3
+    kennt die Verträge gar nicht.
     """
+    if vertrag_id:
+        eintrag = vertraege().get(vertrag_id) or {}
+        namen = [n for n in (eintrag.get('bp') or []) if n]
+        if namen:
+            fehlend = [n for n in namen if not hat_bereits(n)]
+            return len(namen), fehlend
     schluessel = schluessel_zu(titel)
     if not schluessel:
         return None
