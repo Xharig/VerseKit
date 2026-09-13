@@ -8,6 +8,32 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.32.2 - 2026-09-13
+
+> **Die Auftragszeile zeigte die falschen Baupläne.** Bei manchen Aufträgen
+> stand dort „du hast alle", obwohl die Hälfte fehlte — der Watcher hatte den
+> Auftrag mit einem ähnlich benannten verwechselt. Das ist behoben, und die
+> Zeile sagt jetzt in einem Blick, wie viele es sind: `Baupläne 23/54`.
+
+### Behoben
+
+- **Es wurden die Baupläne eines anderen Auftrags angezeigt.** Trifft alle
+  Aufträge, deren Name im Spiel mit einem Platzhalter endet — darunter die
+  Foxwell-Schutzaufträge, Kopfgelder und die Headhunter-Aufträge. Passt
+  jetzt nur noch der ungenaue Anfang eines Namens, sagt der Watcher **nichts**,
+  statt zu raten
+- **16 Auftragsarten waren unsichtbar**, weil ihr Eintrag in den Spieldateien
+  eine Variantenkennung trägt. Darunter waren die umfangreichsten überhaupt
+- **Derselbe Auftrag stand zweimal in der Liste** — einmal mit dem rohen Namen
+  aus den Spieldateien, einmal mit dem lesbaren. Und er ging nicht von selbst
+  wieder weg: Der zweite Eintrag musste von Hand weggeklickt werden
+
+### Verbessert
+
+- **Die Auftragszeile zeigt jetzt einen Bruch:** `Baupläne 23/54` statt
+  „54 Baupläne". Das beantwortet die Frage, die man beim Annehmen hat — lohnt
+  sich der Auftrag noch? —, ohne dass man nachrechnen muss
+
 ## v3.32.1 - 2026-09-13
 
 > **Nachschlag zur Leiste unten.** Seit v3.32.0 kannst du wählen, ob die Leiste

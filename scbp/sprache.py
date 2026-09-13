@@ -398,13 +398,15 @@ TEXTE = {
     # Angenommener Auftrag (ab v3.2.0) — die Zeile im Overlay.
     'auftrag_zeile':     ('Auftrag angenommen: %s',
                           'Contract accepted: %s'),
-    'auftrag_fehlt':     ('%d Baupläne · dir fehlt: %s',
-                          '%d blueprints · you are missing: %s'),
-    'auftrag_fehlt_mehr': ('%d Baupläne · dir fehlen %d, darunter: %s',
-                          '%d blueprints · you are missing %d, among them: %s'),
+    # ⚠⚠ Der Bruch steht VORN und ist die eigentliche Auskunft: Er beantwortet
+    # in einem Blick, ob sich der Auftrag noch lohnt. Die nackte Gesamtzahl tat
+    # das nie — „54 Baupläne" sagt nichts darüber, wie viele davon neu wären.
+    'auftrag_stand':     ('Baupläne %d/%d', 'Blueprints %d/%d'),
+    'auftrag_fehlt':     ('Baupläne %d/%d · dir fehlt: %s',
+                          'Blueprints %d/%d · you are missing: %s'),
     # ⚠ „du hast alle", nicht „hast du alle" — das klingt sonst wie eine Frage.
-    'auftrag_komplett':  ('%d Baupläne · du hast alle',
-                          '%d blueprints · you have them all'),
+    'auftrag_komplett':  ('Baupläne %d/%d · du hast alle',
+                          'Blueprints %d/%d · you have them all'),
     'nachgelesen':       ('Nachgelesen: %d Baupläne aus %d früheren Sitzungen '
                           'übernommen.',
                           'Caught up: %d blueprints from %d earlier sessions.'),

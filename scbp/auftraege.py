@@ -147,6 +147,23 @@ _MARKEN = re.compile(
 )
 _PLATZHALTER = re.compile(r'~mission\([^)]*\)')
 
+# ⛔⛔ Der Schlüssel in der `global.ini` kann eine Variantenkennung tragen:
+#
+#   Foxwell_DefendDestructibleEntites_H_Title_001=Orange Lvl. Contract: …
+#   Foxwell_DefendEntitesAndEscort_H_Title,P=Orange Lvl. Contract: …
+#                                       ^^
+#
+# Das `,P` ist die CryEngine-Schreibweise für eine Textvariante. Wer die Zeile
+# schlicht bei `=` abschneidet, behält sie mit — und findet den Auftrag im
+# Katalog dann nicht mehr. **16 Missionen waren dadurch unsichtbar**, darunter
+# die mit 54 Bauplänen.
+#
+# ⚠ Und unsichtbar heißt hier nicht „keine Angabe": Der Platz wurde von einem
+# Nachbarn eingenommen, dessen Muster auf ein bloßes Präfix zusammenfällt
+# (siehe `_MUSTER_SCHWACH`). Gemeldet wurden dann dessen Baupläne — also die
+# einer ganz anderen Mission.
+_VARIANTE = re.compile(r',[A-Za-z]{1,3}$')
+
 _index = None            # {sauberer Titel: schluessel}
 _muster_index = None     # [(kompiliertes Muster, schluessel)] für Platzhalter-Titel
 _missionen = None        # Zwischenspeicher: der Katalog ist rund 1 MB gross
@@ -183,6 +200,16 @@ _PLATZHALTER_ENDE = re.compile(r'\s*:?\s*%[sd]\s*$')
 def sauber(titel):
     """Titel ohne unsere Marken und ohne doppelte Leerzeichen."""
     return ' '.join(_MARKEN.sub(' ', str(titel)).split())
+
+
+def _platzhalter_titel(titel):
+    """Steht in diesem Titel noch ein unaufgelöstes `~mission(...)`?
+
+    ⚠ So ein Titel ist nie der bessere: Er zeigt dem Spieler eine
+    Maschinenschreibweise statt des Namens, unter dem der Auftrag im Spiel
+    steht. Bei gleicher MissionId gewinnt deshalb der aufgelöste.
+    """
+    return bool(_PLATZHALTER.search(str(titel)))
 
 
 def _phrase_kuerzen(wert):
@@ -443,6 +470,22 @@ def stand_aus_text(text, muster_an=None, muster_aus=None):
         if not rein and not (mid and not ist_annahme):
             continue
         if ist_annahme:
+            # ⛔⛔ Dieselbe MissionId, ein anderer Titel — das ist EIN Auftrag.
+            #
+            # Das Spiel meldet die Annahme zweimal: einmal roh mit dem
+            # Platzhalter (`Protect ~mission(Objects) and Escort Employees`)
+            # und einmal aufgelöst (`Protect Fuel Tanks and …`). Wer über den
+            # Titel Buch führt, hat danach zwei Aufträge stehen.
+            #
+            # ⚠ Und sie gehen nicht von selbst wieder weg: Das Ende trägt nur
+            # EINEN der beiden Titel, der andere bleibt für immer in der Liste
+            # und muss von Hand weggeklickt werden. Am 13.09.2026 genau so
+            # gemeldet.
+            alt = missionen.get(mid) if mid else None
+            if alt is not None and alt != rein:
+                if _platzhalter_titel(rein) and not _platzhalter_titel(alt):
+                    continue          # der rohe kommt nach — der alte bleibt
+                offen.pop(alt, None)  # der aufgelöste löst den rohen ab
             offen.setdefault(rein, titel)
             if mid:
                 missionen[mid] = rein
@@ -612,7 +655,11 @@ def _index_bauen():
                         continue
                     schluessel = zeile[:trenner]
                     if schluessel not in bekannt:
-                        continue
+                        # ⛔ Variantenkennung abstreifen (`…_Title,P`) und noch
+                        # einmal nachsehen — siehe `_VARIANTE`.
+                        schluessel = _VARIANTE.sub('', schluessel)
+                        if schluessel not in bekannt:
+                            continue
                     titel = sauber(zeile[trenner + 1:])
                     if not titel:
                         continue
@@ -632,18 +679,59 @@ def _index_bauen():
             continue
 
 
+# ⛔⛔ Ein Muster, dessen Platzhalter am ZEILENENDE steht, endet auf `.+$` —
+# und ist damit nur noch ein Präfix. `^Orange Lvl. Contract: Protect .+$` passt
+# auf **jeden** Auftrag dieser Familie, nicht auf einen bestimmten.
+#
+# Der Kommentar bei `_index_bauen` verspricht, der Rest werde wörtlich
+# genommen, damit „High-Risk Bounty: X" nicht auf „Low-Risk Bounty: X" passt.
+# Das stimmt — aber nur, solange der Platzhalter **in der Mitte** steht.
+# Gemessen am 13.09.2026: **70 von 116** Mustern enden so.
+def _muster_schwach(muster):
+    """Fällt dieses Muster auf ein bloßes Präfix zusammen?"""
+    return muster.endswith('.+$')
+
+
+def _gewicht(muster):
+    """Wie viel wörtlicher Text steht in diesem Muster — je mehr, desto genauer."""
+    roh = muster[1:-1] if muster.startswith('^') and muster.endswith('$') else muster
+    return sum(len(teil.replace('\\', '')) for teil in roh.split('.+'))
+
+
 def schluessel_zu(titel):
-    """Der Missionsschlüssel zu einem angezeigten Titel, oder None."""
+    """Der Missionsschlüssel zu einem angezeigten Titel, oder None.
+
+    Drei Stufen, in dieser Reihenfolge:
+
+    1. Der **wörtliche** Titel — eindeutig, kein Spielraum.
+    2. Unter den passenden Mustern das **genaueste**: ein Muster mit
+       Platzhalter in der Mitte schlägt ein bloßes Präfix, und bei gleicher
+       Bauart gewinnt das mit mehr wörtlichem Text.
+    3. Zeigen die gleich guten Muster auf **verschiedene** Aufträge, wird
+       geschwiegen.
+
+    ⚠⚠ Punkt 3 ist der Kern. Vorher gewann schlicht das erste Muster in der
+    Liste — und damit meldete das Werkzeug die Baupläne einer **anderen**
+    Mission. `_auftrag_zeile` sagt es im eigenen Docstring: Eine erfundene
+    Bauplan-Angabe ist schlimmer als keine.
+    """
     if _index is None:
         _index_bauen()
     rein = sauber(titel)
     treffer = _index.get(rein.lower())
     if treffer:
         return treffer
-    for mst, schluessel in _muster_index:
-        if mst.match(rein):
-            return schluessel
-    return None
+    passend = [(mst.pattern, schluessel)
+               for mst, schluessel in _muster_index if mst.match(rein)]
+    if not passend:
+        return None
+    # Genauer heisst: kein blosses Praefix, und mehr woertlicher Text.
+    rang = max((not _muster_schwach(p), _gewicht(p)) for p, _s in passend)
+    beste = {s for p, s in passend
+             if (not _muster_schwach(p), _gewicht(p)) == rang}
+    if len(beste) != 1:
+        return None
+    return beste.pop()
 
 
 def pruefen(titel, hat_bereits):

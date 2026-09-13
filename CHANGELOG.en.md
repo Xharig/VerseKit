@@ -8,6 +8,31 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.32.2 - 2026-09-13
+
+> **The contract line showed the wrong blueprints.** For some contracts it said
+> "you have them all" while half of them were missing — the watcher had confused
+> the contract with a similarly named one. That is fixed, and the line now tells
+> you the count at a glance: `Blueprints 23/54`.
+
+### Fixed
+
+- **Another contract's blueprints were shown.** This affected every contract
+  whose in-game name ends in a placeholder — among them the Foxwell protection
+  contracts, bounties and the Headhunters contracts. If only the vague beginning
+  of a name matches, the watcher now says **nothing** instead of guessing
+- **16 contract types were invisible** because their entry in the game files
+  carries a variant marker. The largest ones were among them
+- **The same contract appeared twice in the list** — once with the raw name from
+  the game files, once with the readable one. And it did not go away on its own:
+  the second entry had to be dismissed by hand
+
+### Improved
+
+- **The contract line now shows a fraction:** `Blueprints 23/54` instead of
+  "54 blueprints". That answers the question you actually have when accepting a
+  contract — is there anything left here for me? — without any counting
+
 ## v3.32.1 - 2026-09-13
 
 > **A follow-up to the bar at the bottom.** Since v3.32.0 you can choose whether

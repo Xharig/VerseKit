@@ -4535,7 +4535,7 @@ def main():
 
     # e) Jeder Text der neuen Zeile muss in BEIDEN Sprachen dastehen.
     from scbp import sprache as _sp51
-    for _k51 in ('auftrag_zeile', 'auftrag_fehlt', 'auftrag_fehlt_mehr',
+    for _k51 in ('auftrag_zeile', 'auftrag_fehlt', 'auftrag_stand',
                  'auftrag_komplett'):
         _w51 = _sp51.TEXTE.get(_k51)
         pruefe(bool(_w51) and len(_w51) == 2 and all(_w51),
@@ -19474,6 +19474,118 @@ def main():
             _w199.destroy()
         except Exception:
             pass
+
+    # === 200 · Der richtige Auftrag — und lieber keiner als ein falscher =====
+    #
+    # ⛔⛔ Am 13.09.2026 meldete das Overlay „6 Baupläne · du hast alle" fuer
+    # einen Auftrag, von dem der Spieler zwei von sieben hatte. Es waren die
+    # Bauplaene einer **anderen** Mission. Drei Fehler in einer Kette:
+    #
+    #   1. Der ini-Schluessel `…_Title,P` wurde mit Variantenkennung verglichen
+    #      und fand den Katalog nicht -> 16 Missionen unsichtbar.
+    #   2. Den Platz nahm ein Nachbar ein, dessen Muster auf ein blosses
+    #      Praefix zusammenfaellt (`^Orange Lvl. Contract: Protect .+$`).
+    #   3. Derselbe Auftrag stand zweimal in der Liste, roh und aufgeloest.
+    #
+    # ⚠ Diese Pruefung prueft das VERHALTEN, nicht die Schreibweise: Sie baut
+    # die Lage nach und fragt nach dem Ergebnis. Eine Textsuche nach `_VARIANTE`
+    # waere gruen gewesen, waehrend der Fehler dastand.
+    print('200. Auftragszuordnung — der richtige Auftrag oder gar keiner')
+    import tempfile as _tmp200
+    from scbp import auftraege as _au200
+    _alt200 = (_au200._missionen, _au200._index, _au200._muster_index,
+               _au200._ini_dateien)
+    try:
+        _ordner200 = _tmp200.mkdtemp(prefix='scbp_auftrag_')
+        _ini200 = os.path.join(_ordner200, 'global.ini')
+        with open(_ini200, 'w', encoding='utf-8') as _f200:
+            # ⚠ Genau die Lage von damals: der GENAUE Auftrag traegt `,P`,
+            # der unspezifische Nachbar nicht.
+            #
+            # ⛔⛔ Und der unspezifische steht ZUERST — mit Absicht. Stand er
+            # hinten, traefe auch die alte Regel („das erste passende Muster
+            # gewinnt") zufaellig das Richtige, und die Pruefung waere gruen,
+            # ohne irgendetwas zu belegen. Genau so war ihre erste Fassung:
+            # Die Gegenprobe meldete 0 rote Pruefungen, obwohl die Korrektur
+            # ausgebaut war. Eine Pruefung, die von der Reihenfolge lebt,
+            # prueft die Reihenfolge — nicht die Regel.
+            _f200.write('Weit_Title_001=Orange Lvl. Contract: Protect '
+                        '~mission(Objects)\n')
+            _f200.write('Eng_Title,P=Orange Lvl. Contract: Protect '
+                        '~mission(Objects) and Escort Employees\n')
+        _au200._ini_dateien = lambda: [_ini200]
+        _au200._missionen = {
+            'Eng_Title':      {'bp': ['Panther', 'Rhino', 'Mammoth']},
+            'Weit_Title_001': {'bp': ['Antium']},
+        }
+        _au200._index, _au200._muster_index = None, None
+
+        _titel200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort Employees'
+        # a) Die Variantenkennung darf den Auftrag nicht verstecken.
+        pruefe(_au200.schluessel_zu(_titel200) == 'Eng_Title',
+               'ein ini-Schluessel mit `,P` findet seinen Katalogeintrag')
+        # b) Und das genauere Muster schlaegt das blosse Praefix.
+        pruefe(_au200.pruefen(_titel200, lambda n: False) == (3, ['Panther',
+                                                                 'Rhino',
+                                                                 'Mammoth']),
+               'das genauere Muster gewinnt gegen ein blosses Praefix')
+        # c) Fuer den Nachbarn selbst bleibt sein eigener Eintrag richtig.
+        pruefe(_au200.schluessel_zu('Orange Lvl. Contract: Protect Fuel Tanks')
+               == 'Weit_Title_001',
+               'der unspezifische Auftrag behaelt seinen eigenen Titel')
+
+        # d) ⚠⚠ Zwei gleich gute Muster auf VERSCHIEDENE Auftraege: schweigen.
+        with open(_ini200, 'w', encoding='utf-8') as _f200:
+            _f200.write('Eins_Title=Wanted: ~mission(Target)\n')
+            _f200.write('Zwei_Title=Wanted: ~mission(Person)\n')
+        _au200._missionen = {'Eins_Title': {'bp': ['A']},
+                             'Zwei_Title': {'bp': ['B', 'C']}}
+        _au200._index, _au200._muster_index = None, None
+        pruefe(_au200.schluessel_zu('Wanted: Jemand') is None,
+               'zwei gleich gute Muster auf verschiedene Auftraege: es wird '
+               'GESCHWIEGEN')
+        pruefe(_au200.pruefen('Wanted: Jemand', lambda n: False) is None,
+               'und damit steht auch keine erfundene Bauplan-Angabe da')
+    finally:
+        (_au200._missionen, _au200._index, _au200._muster_index,
+         _au200._ini_dateien) = _alt200
+
+    # e) Derselbe Auftrag unter zwei Titeln ist EIN Auftrag.
+    #
+    # ⚠ Der aufgeloeste Titel gewinnt — und zwar in BEIDER Reihenfolge. Das
+    # Spiel meldet mal erst den rohen, mal erst den aufgeloesten.
+    _mid200 = '7a12d7cf-936d-42e7-996e-db6364edc24d'
+    _roh200 = 'Orange Lvl. Contract: Protect ~mission(Objects) and Escort'
+    _fein200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort'
+    for _erst200, _zweit200 in ((_roh200, _fein200), (_fein200, _roh200)):
+        _text200 = (
+            'Added notification "Auftrag angenommen: %s: " '
+            'MissionId: [%s] ObjectiveId: []\n'
+            'Added notification "Auftrag angenommen: %s: " '
+            'MissionId: [%s] ObjectiveId: []\n' % (_erst200, _mid200,
+                                                   _zweit200, _mid200))
+        _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+        pruefe(len(_offen200) == 1,
+               'dieselbe MissionId unter zwei Titeln ergibt EINEN Eintrag '
+               '(%s zuerst)' % ('roh' if _erst200 is _roh200 else 'aufgeloest'))
+        pruefe(_offen200 and '~mission(' not in _offen200[0],
+               'und der aufgeloeste Titel ist der, der stehen bleibt '
+               '(%s zuerst)' % ('roh' if _erst200 is _roh200 else 'aufgeloest'))
+
+    # f) ⚠ Und ein Ende raeumt ihn dann auch wirklich weg. Genau das ging
+    #    vorher schief: Das Ende traf nur einen der beiden Titel, der andere
+    #    blieb fuer immer stehen und musste von Hand weggeklickt werden.
+    _text200 = (
+        'Added notification "Auftrag angenommen: %s: " MissionId: [%s] '
+        'ObjectiveId: []\n'
+        'Added notification "Auftrag angenommen: %s: " MissionId: [%s] '
+        'ObjectiveId: []\n'
+        'Added notification "Auftrag abgeschlossen: %s: " MissionId: [%s] '
+        'ObjectiveId: []\n' % (_roh200, _mid200, _fein200, _mid200,
+                               _fein200, _mid200))
+    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    pruefe(_offen200 == [],
+           'ein Ende raeumt beide Schreibweisen weg, nicht nur eine')
 
     print()
     if fehler:

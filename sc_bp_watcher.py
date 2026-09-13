@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.32.1'
+__version__ = '3.32.2'
 
 
 def _mitgeliefert(name):
@@ -1168,13 +1168,20 @@ class Watcher(threading.Thread):
         if ergebnis is None:
             return None
         gesamt, fehlend = ergebnis
+        # ⚠⚠ Der Bruch ist die Auskunft, nicht die Gesamtzahl. „54 Baupläne"
+        # beantwortet die Frage nicht, die der Spieler hat: Ist hier noch etwas
+        # zu holen? „23/54" beantwortet sie in einem Blick.
+        hat = gesamt - len(fehlend)
         if not fehlend:
-            zusatz = sprache.Satz('auftrag_komplett', gesamt)
+            zusatz = sprache.Satz('auftrag_komplett', hat, gesamt)
         elif len(fehlend) == 1:
-            zusatz = sprache.Satz('auftrag_fehlt', gesamt, fehlend[0])
+            zusatz = sprache.Satz('auftrag_fehlt', hat, gesamt, fehlend[0])
         else:
-            zusatz = sprache.Satz('auftrag_fehlt_mehr', gesamt, len(fehlend),
-                                  ', '.join(fehlend[:2]))
+            # ⚠ Ab zwei fehlenden werden KEINE Namen mehr genannt. Bei 31 von 54
+            # wäre „darunter: Aufeis, Avalanche" eine Auswahl ohne Aussagewert —
+            # sie sagt nichts darüber, ob der Auftrag sich lohnt, und kostet die
+            # halbe Zeilenbreite. Die vollständige Liste steht im Spiel.
+            zusatz = sprache.Satz('auftrag_stand', hat, gesamt)
         return '%s  →  %s' % (sprache.Satz('auftrag_zeile', rein), zusatz)
 
     def _auftraege_beim_start(self):
