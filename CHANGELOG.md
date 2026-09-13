@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.31.1 - 2026-09-13
+
+> **Zwei weitere Seiten kommen jetzt zügig.** Nach Zerlegen und Joysticks
+> waren noch das Auftragsprotokoll und die Diagnose dran — beide bauten sich
+> bei jedem Aufruf komplett neu auf, auch wenn sich nichts geändert hatte.
+
+### Verbessert
+
+- **Das Auftragsprotokoll öffnet sich sofort.** Es wurde bei jedem Aufruf neu
+  zusammengesetzt, obwohl meist dieselben Aufträge darin stehen. Neue
+  Einträge erscheinen weiterhin von allein — sie werden im Hintergrund
+  nachgelesen, während die Liste schon dasteht
+- **Die Diagnose-Seite kommt schneller.** Der Fehlerbericht wird weiterhin bei
+  jedem Aufruf frisch erstellt — er soll ja den Stand von jetzt zeigen —, liest
+  die Sprachdatei des Spiels dabei aber nicht mehr mehrfach
+
 ## v3.31.0 - 2026-09-13
 
 > **Der SC BP Watcher heißt jetzt VerseKit — und er ist deutlich schneller

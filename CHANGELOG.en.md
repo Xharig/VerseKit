@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.31.1 - 2026-09-13
+
+> **Two more pages are quick now.** After salvage value and joysticks, the
+> mission log and the diagnostics page were next — both rebuilt themselves
+> from scratch on every visit, even when nothing had changed.
+
+### Improved
+
+- **The mission log opens instantly.** It used to be reassembled on every
+  visit, even though it usually holds the same missions. New entries still
+  appear on their own — they are read in the background while the list is
+  already there
+- **The diagnostics page comes up faster.** The error report is still built
+  fresh every time — it is meant to show the state right now — but it no
+  longer reads the game's language file more than once
+
 ## v3.31.0 - 2026-09-13
 
 > **SC BP Watcher is now called VerseKit — and it got a lot faster.** It
