@@ -18362,7 +18362,7 @@ def main():
             pruefe(_offen189(), 'ein Klick ins Feld klappt die Liste auf')
             _leisten189 = [w for w in _alle189(_liste189)
                            if isinstance(w, tk189.Canvas)
-                           and getattr(w, 'auf_mass_gesetzt', False)]
+                           and getattr(w, 'sized', False)]
             pruefe(bool(_leisten189), 'die Liste hat ihre Rollleiste')
             if _leisten189:
                 _warten189(300)

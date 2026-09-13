@@ -95,12 +95,12 @@ def _durchgehen(w, gefunden):
             # Elemente, für die diese Prüfung gebaut wurde. Solange sie
             # ausgenommen waren, meldete sie nichts, während auf der
             # Über-Seite sichtbar „Einrichtung wiederho…" stand. Knöpfe
-            # tragen deshalb die Markierung `ist_knopf` und werden geprüft.
-            knopf = getattr(kind, 'ist_knopf', False)
+            # tragen deshalb die Markierung `is_button` und werden geprüft.
+            knopf = getattr(kind, 'is_button', False)
             rollend = ((kind.winfo_class() in ('Canvas', 'Text', 'Listbox',
                                                'Entry', 'Scrollbar')
                         and not knopf)
-                       or getattr(kind, 'auf_mass_gesetzt', False))
+                       or getattr(kind, 'sized', False))
             if gebraucht - bekommen > LUFT and not rollend:
                 gefunden.append((_beschriftung(kind), gebraucht - bekommen,
                                  kind.winfo_class()))

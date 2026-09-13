@@ -177,7 +177,7 @@ TRACKPAD_DIVISOR = 12
 FONT_LEVELS = {'klein': 0, 'normal': 1, 'gross': 3, 'sehrgross': 5}
 
 
-def _round_rect(leinwand, x1, y1, x2, y2, radius, **kw):
+def _round_rect(canvas, x1, y1, x2, y2, radius, **kw):
     """Ein Rechteck mit runden Ecken.
 
     Tk kennt so etwas nicht — aber ein Vieleck mit `smooth=True` rundet genau
@@ -190,7 +190,7 @@ def _round_rect(leinwand, x1, y1, x2, y2, radius, **kw):
         x2 - radius, y2, x1 + radius, y2, x1, y2,
         x1, y2 - radius, x1, y1 + radius, x1, y1,
     ]
-    return leinwand.create_polygon(points, smooth=True, **kw)
+    return canvas.create_polygon(points, smooth=True, **kw)
 
 
 def toggle_switch(eltern, an, toggle, grund=None):
@@ -212,18 +212,18 @@ def toggle_switch(eltern, an, toggle, grund=None):
                               fill='#2b3547', outline='')
     dot = c.create_oval(5, 6, 19, 20, fill=SUB, outline='')
 
-    def zeichnen(zustand):
-        c.itemconfigure(capsule, fill='#2a3a1c' if zustand else '#2b3547')
-        c.itemconfigure(dot, fill=ACCENT if zustand else SUB)
-        x = (breite - 24) if zustand else 0
+    def draw(state):
+        c.itemconfigure(capsule, fill='#2a3a1c' if state else '#2b3547')
+        c.itemconfigure(dot, fill=ACCENT if state else SUB)
+        x = (breite - 24) if state else 0
         c.coords(dot, 5 + x, 6, 19 + x, 20)
 
     def click(_=None):
-        zeichnen(bool(toggle()))
+        draw(bool(toggle()))
 
     c.bind('<Button-1>', click)
-    zeichnen(bool(an))
-    c.zeichnen = zeichnen
+    draw(bool(an))
+    c.draw = draw
     return c
 
 
@@ -304,7 +304,7 @@ def _wayland():
                 or os.environ.get('XDG_SESSION_TYPE') == 'wayland')
 
 
-def slider(eltern, von, bis, wert, on_drag, breite=190, grund=None):
+def slider(eltern, von, bis, value, on_drag, breite=190, grund=None):
     """Ein Schieberegler in der Machart des Fensters.
 
     Tk bringt zwar `Scale` mit, aber das ist ein Systemelement: Auf dem Mac ein
@@ -325,7 +325,7 @@ def slider(eltern, von, bis, wert, on_drag, breite=190, grund=None):
 
     span = float(max(1, bis - von))
 
-    def zeichnen(w):
+    def draw(w):
         fraction = max(0.0, min(1.0, (w - von) / span))
         x = 8 + fraction * (breite - 16)
         c.coords(filled, *([0, y - 3, x, y - 3, x, y - 3, x, y + 3,
@@ -337,14 +337,14 @@ def slider(eltern, von, bis, wert, on_drag, breite=190, grund=None):
         return int(round(von + fraction * span))
 
     def drag(ereignis):
-        neuer = from_x(ereignis)
-        zeichnen(neuer)
-        on_drag(neuer)
+        new_value = from_x(ereignis)
+        draw(new_value)
+        on_drag(new_value)
 
     c.bind('<Button-1>', drag)
     c.bind('<B1-Motion>', drag)
-    zeichnen(wert)
-    c.zeichnen = zeichnen
+    draw(value)
+    c.draw = draw
     return c
 
 
@@ -368,7 +368,7 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
     auf ihrer Anfangsgröße und schnitte alles ab.
 
     Zurück kommt der innere Rahmen — dort hinein wird gepackt wie gewohnt.
-    Am Rückgabewert hängen `.leinwand` und `.form`, falls die Randfarbe später
+    Am Rückgabewert hängen `.canvas` und `.shape`, falls die Randfarbe später
     wechseln soll (etwa bei einer Auswahl).
 
     ⚠⚠ **Nur für Kästen, die ohnehin die volle Breite bekommen — nie für kleine
@@ -390,12 +390,12 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
     nehmen.** Eckig, aber richtig bemessen.
     """
     base_color = base_color or eltern.cget('bg')
-    halter = tk.Frame(eltern, bg=base_color)
-    leinwand = tk.Canvas(halter, bg=base_color, highlightthickness=0, bd=0,
+    holder = tk.Frame(eltern, bg=base_color)
+    canvas = tk.Canvas(holder, bg=base_color, highlightthickness=0, bd=0,
                          height=10)
-    leinwand.pack(fill='both', expand=True)
-    inner = tk.Frame(leinwand, bg=grund)
-    form = _round_rect(leinwand, 1, 1, 100, 100, radius=radius,
+    canvas.pack(fill='both', expand=True)
+    inner = tk.Frame(canvas, bg=grund)
+    shape = _round_rect(canvas, 1, 1, 100, 100, radius=radius,
                             fill=grund, outline=border, width=1)
     # ⚠ Ein per `create_window` eingesetztes Widget liegt in Tk IMMER über
     # allem Gemalten — die Zeichenreihenfolge gilt dafür nicht. Säße der Inhalt
@@ -406,38 +406,38 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
     # die obere Hälfte des Bogens ab, und im Kasten sitzt sichtbar eine zweite,
     # eckige Kante — das sah nach doppeltem Rahmen aus.
     inset = radius
-    window_id = leinwand.create_window(inset, inset, window=inner,
+    window_id = canvas.create_window(inset, inset, window=inner,
                                         anchor='nw')
 
-    def nachziehen(_=None):
+    def refresh(_=None):
         # ⚠ Solange nichts gezeichnet ist, meldet `winfo_width` eine 1. Dann
         # die gewünschte Breite nehmen — sonst bliebe das Rechteck auf seinen
         # Anfangskoordinaten stehen, seine Rundungen lägen außerhalb der
         # Leinwand, und der Kasten sähe wieder eckig aus. Genau das ist bei den
         # schmalen Zahlenfeldern passiert.
-        breite = leinwand.winfo_width()
+        breite = canvas.winfo_width()
         if breite < 10:
-            breite = leinwand.winfo_reqwidth()
+            breite = canvas.winfo_reqwidth()
         hoehe = inner.winfo_reqheight()
         if breite < 10:
             return
-        leinwand.configure(height=hoehe + inset * 2)
-        leinwand.itemconfigure(window_id, width=breite - inset * 2)
-        leinwand.coords(form, *corners(1, 1, breite - 1,
+        canvas.configure(height=hoehe + inset * 2)
+        canvas.itemconfigure(window_id, width=breite - inset * 2)
+        canvas.coords(shape, *corners(1, 1, breite - 1,
                                      hoehe + inset * 2 - 1, radius))
 
-    inner.bind('<Configure>', nachziehen)
-    leinwand.bind('<Configure>', nachziehen)
-    leinwand.bind('<Map>', nachziehen)
+    inner.bind('<Configure>', refresh)
+    canvas.bind('<Configure>', refresh)
+    canvas.bind('<Map>', refresh)
     # Merkmal für die Randprüfung: Dieser Rahmen wird bewusst auf die
     # Kastenbreite gezwungen — sein Wunsch nach mehr Platz ist kein Fehler,
     # der Text darin bricht um. Ohne die Markierung meldet jede Karte einen
     # Fehlalarm.
-    inner.auf_mass_gesetzt = True
-    inner.nachziehen = nachziehen
-    inner.halter = halter
-    inner.leinwand = leinwand
-    inner.form = form
+    inner.sized = True
+    inner.refresh = refresh
+    inner.holder = holder
+    inner.canvas = canvas
+    inner.shape = shape
     return inner
 
 
@@ -469,50 +469,50 @@ def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
     radius = 8
     polster = 6
     hoehe = schrift.metrics('linespace') + polster * 2
-    leinwand = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
+    canvas = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
                          highlightthickness=0, bd=0)
-    form = _round_rect(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
+    shape = _round_rect(canvas, 1, 1, 100, hoehe - 1, radius=radius,
                             fill=grund, outline=border, width=1)
     if textvariable is not None:
         kw['textvariable'] = textvariable
-    field = tk.Entry(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
+    field = tk.Entry(canvas, bg=grund, fg=fg, font=schrift, relief='flat',
                     bd=0, highlightthickness=0, insertbackground=fg, **kw)
-    window_id = leinwand.create_window(polster + 2, hoehe / 2.0, window=field,
+    window_id = canvas.create_window(polster + 2, hoehe / 2.0, window=field,
                                         anchor='w')
     if placeholder:
         fields.hinweis(field, textvariable, placeholder, normal=fg, grau=SUB)
 
-    def nachziehen(_=None):
+    def refresh(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand
         # längst zerstört ist — beim Seitenwechsel passiert genau das.
         try:
-            if not leinwand.winfo_exists():
+            if not canvas.winfo_exists():
                 return
         except tk.TclError:
             return
-        b = leinwand.winfo_width()
+        b = canvas.winfo_width()
         if b < 10:
-            b = leinwand.winfo_reqwidth()
+            b = canvas.winfo_reqwidth()
         if b < 10:
             return
         try:
-            leinwand.coords(form, *corners(1, 1, b - 1, hoehe - 1, radius))
-            leinwand.itemconfigure(window_id, width=b - (polster + 2) * 2)
+            canvas.coords(shape, *corners(1, 1, b - 1, hoehe - 1, radius))
+            canvas.itemconfigure(window_id, width=b - (polster + 2) * 2)
         except tk.TclError:
             pass
 
-    leinwand.bind('<Configure>', nachziehen)
-    leinwand.bind('<Map>', nachziehen)
+    canvas.bind('<Configure>', refresh)
+    canvas.bind('<Map>', refresh)
     if breite:
         # Feste Breite: so viele Ziffern plus Luft. Ohne das zieht `fill='x'`
         # der Zeile das Feld über die halbe Seite.
-        leinwand.configure(width=schrift.measure('0') * breite + polster * 4)
-    field.halter = leinwand
-    leinwand.after(0, nachziehen)
+        canvas.configure(width=schrift.measure('0') * breite + polster * 4)
+    field.holder = canvas
+    canvas.after(0, refresh)
     field.bind('<FocusIn>',
-              lambda e: leinwand.itemconfigure(form, outline=accent), add='+')
+              lambda e: canvas.itemconfigure(shape, outline=accent), add='+')
     field.bind('<FocusOut>',
-              lambda e: leinwand.itemconfigure(form, outline=border), add='+')
+              lambda e: canvas.itemconfigure(shape, outline=border), add='+')
     return field
 
 
@@ -534,7 +534,7 @@ def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
     Der Rand wird deshalb genauso gemalt und wechselt beim Hineinklicken
     ebenso auf die Akzentfarbe.
 
-    Rückgabe ist das `Text` selbst; die Leinwand hängt als `.halter` daran —
+    Rückgabe ist das `Text` selbst; die Leinwand hängt als `.holder` daran —
     dieselbe Verabredung wie bei `round_entry`, damit beide sich gleich
     einbauen lassen.
     """
@@ -542,44 +542,44 @@ def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
     radius = 8
     polster = 8
     hoehe = schrift.metrics('linespace') * rows + polster * 2
-    leinwand = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
+    canvas = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
                          highlightthickness=0, bd=0)
-    form = _round_rect(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
+    shape = _round_rect(canvas, 1, 1, 100, hoehe - 1, radius=radius,
                             fill=grund, outline=border, width=1)
-    field = tk.Text(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
+    field = tk.Text(canvas, bg=grund, fg=fg, font=schrift, relief='flat',
                    bd=0, highlightthickness=0, insertbackground=fg,
                    height=rows, wrap='word', padx=0, pady=0, **kw)
-    window_id = leinwand.create_window(polster + 2, polster, window=field,
+    window_id = canvas.create_window(polster + 2, polster, window=field,
                                         anchor='nw')
 
-    def nachziehen(_=None):
+    def refresh(_=None):
         # ⚠ Wie bei `round_entry`: Der Rückruf aus `after(0, …)` kann
         # drankommen, wenn die Leinwand beim Seitenwechsel längst weg ist.
         try:
-            if not leinwand.winfo_exists():
+            if not canvas.winfo_exists():
                 return
         except tk.TclError:
             return
-        b = leinwand.winfo_width()
+        b = canvas.winfo_width()
         if b < 10:
-            b = leinwand.winfo_reqwidth()
+            b = canvas.winfo_reqwidth()
         if b < 10:
             return
         try:
-            leinwand.coords(form, *corners(1, 1, b - 1, hoehe - 1, radius))
-            leinwand.itemconfigure(window_id, width=b - (polster + 2) * 2,
+            canvas.coords(shape, *corners(1, 1, b - 1, hoehe - 1, radius))
+            canvas.itemconfigure(window_id, width=b - (polster + 2) * 2,
                                    height=hoehe - polster * 2)
         except tk.TclError:
             pass
 
-    leinwand.bind('<Configure>', nachziehen)
-    leinwand.bind('<Map>', nachziehen)
-    field.halter = leinwand
-    leinwand.after(0, nachziehen)
+    canvas.bind('<Configure>', refresh)
+    canvas.bind('<Map>', refresh)
+    field.holder = canvas
+    canvas.after(0, refresh)
     field.bind('<FocusIn>',
-              lambda e: leinwand.itemconfigure(form, outline=accent), add='+')
+              lambda e: canvas.itemconfigure(shape, outline=accent), add='+')
     field.bind('<FocusOut>',
-              lambda e: leinwand.itemconfigure(form, outline=border), add='+')
+              lambda e: canvas.itemconfigure(shape, outline=border), add='+')
     return field
 
 
@@ -615,24 +615,24 @@ def round_bar(eltern, hoehe, fraction, grund, empty_color, full_color, breite=No
         c.configure(width=breite)
     groove = _round_rect(c, 0, 0, 100, hoehe, radius=r, fill=empty_color,
                              outline='')
-    fuellung = _round_rect(c, 0, 0, 10, hoehe, radius=r, fill=full_color,
+    fill_color = _round_rect(c, 0, 0, 10, hoehe, radius=r, fill=full_color,
                                 outline='')
 
-    def nachziehen(_=None):
+    def refresh(_=None):
         b = c.winfo_width()
         if b < 4:
             return
         c.coords(groove, *corners(0, 0, b, hoehe, r))
         if fraction <= 0:
-            c.itemconfigure(fuellung, state='hidden')
+            c.itemconfigure(fill_color, state='hidden')
             return
-        c.itemconfigure(fuellung, state='normal')
+        c.itemconfigure(fill_color, state='normal')
         # Mindestens so breit wie hoch: Ein Balken bei 1 % wäre sonst ein
         # Strich, den man für einen Zeichenfehler hält.
         full_width = max(hoehe, b * fraction)
-        c.coords(fuellung, *corners(0, 0, full_width, hoehe, r))
+        c.coords(fill_color, *corners(0, 0, full_width, hoehe, r))
 
-    c.bind('<Configure>', nachziehen)
+    c.bind('<Configure>', refresh)
     return c
 
 
@@ -656,7 +656,7 @@ def _own_scroll(vom, bis):
     return None
 
 
-def bind_wheel(leinwand):
+def bind_wheel(canvas):
     """Das Mausrad an eine Rollfläche hängen — für das ganze Fenster.
 
     ⚠ Zwei Fehler steckten hier, und beide zusammen ließen das Rad wirkungslos
@@ -696,9 +696,9 @@ def bind_wheel(leinwand):
        eine ganze Zeile zusammenkommt; der Rest bleibt für das nächste
        Ereignis stehen.
     """
-    root_window = leinwand.winfo_toplevel()
-    if not hasattr(root_window, 'rollflaechen'):
-        root_window.rollflaechen = []
+    root_window = canvas.winfo_toplevel()
+    if not hasattr(root_window, 'scroll_areas'):
+        root_window.scroll_areas = []
         # Was noch keine ganze Zeile ergeben hat, wartet hier auf den Rest.
         accumulated = {'wert': 0.0}
 
@@ -737,7 +737,7 @@ def bind_wheel(leinwand):
             under = root_window.winfo_containing(e.x_root, e.y_root)
             start_widget = under
             while under is not None:
-                if under in root_window.rollflaechen:
+                if under in root_window.scroll_areas:
                     # Liegt auf dem Weg dorthin ein Textfeld, das ueberlaeuft,
                     # gehoert ihm das Rad.
                     own = _own_scroll(start_widget, under)
@@ -763,10 +763,10 @@ def bind_wheel(leinwand):
             Winzigkeit Luft, weil hier mit Fließkomma gerechnet wird.
             """
             try:
-                anfang, ende = target.yview()
+                first, last = target.yview()
             except (tk.TclError, TypeError, ValueError):
                 return True     # Im Zweifel rollen — nie eine Fläche sperren.
-            return (ende - anfang) < 0.999
+            return (last - first) < 0.999
 
         def scroll(e):
             target = surface_below(e)
@@ -818,12 +818,12 @@ def bind_wheel(leinwand):
             # Trackpads als Button-4/5, also fehlt nichts.
             pass
 
-    if leinwand not in root_window.rollflaechen:
-        root_window.rollflaechen.append(leinwand)
+    if canvas not in root_window.scroll_areas:
+        root_window.scroll_areas.append(canvas)
 
 
 
-def round_scrollbar(eltern, leinwand, grund=None, breite=10):
+def round_scrollbar(eltern, canvas, grund=None, breite=10):
     """Eine Rollleiste mit runden Enden — statt der des Betriebssystems.
 
     ⚠ `tk.Scrollbar` ist das einzige Bedienelement, das sich nicht einfärben
@@ -833,7 +833,7 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
     `#2b3547`; genau die wird hier nachgebaut.
 
     Bedienung wie gewohnt: ziehen, und ein Klick daneben springt eine Seite
-    weiter. `leinwand` ist die Rollfläche, an der sie hängt.
+    weiter. `canvas` ist die Rollfläche, an der sie hängt.
     """
     grund = grund or BG
     # ⚠⚠ **Ein Rollbalken, den man nicht sieht, ist keiner.** Der Griff war
@@ -854,15 +854,15 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
     groove = c.create_rectangle(0, 0, breite, 10, fill=groove_color, outline='')
     grip = _round_rect(c, 0, 0, breite, 30, radius=r,
                              fill=grip_color, outline='')
-    c.auf_mass_gesetzt = True        # die Randprüfung soll sie nicht melden
+    c.sized = True        # die Randprüfung soll sie nicht melden
 
-    pos = {'anfang': 0.0, 'ende': 1.0, 'griff_ab': 0, 'zieht': False}
+    pos = {'first': 0.0, 'last': 1.0, 'grip_offset': 0, 'dragging': False}
 
     def grip_pos():
         """Wo der Griff **wirklich** gezeichnet ist — als (oben, unten, hoehe).
 
         ⚠ Diese Rechnung muss an EINER Stelle stehen. Vorher zeichnete
-        `nachziehen` den Griff mit einer Mindesthöhe, während `springen` mit der
+        `refresh` den Griff mit einer Mindesthöhe, während `springen` mit der
         rechnerischen Höhe prüfte, ob man ihn getroffen hat. Bei 722 Bauplänen ist
         der Griff rechnerisch rund zwölf Pixel hoch und gezeichnet vierundzwanzig:
         Wer die untere Hälfte des sichtbaren Griffs anfasste, galt als „daneben“ —
@@ -870,20 +870,20 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
         und war es nicht.
         """
         hoehe = c.winfo_height() or 1
-        anfang, ende = pos['anfang'], pos['ende']
-        upper = anfang * hoehe
+        first, last = pos['first'], pos['last']
+        upper = first * hoehe
         # Der Griff bleibt greifbar, auch wenn 700 Baupläne in der Liste
         # stehen und er rechnerisch drei Pixel hoch wäre.
-        lower = max(upper + breite * 2.4, ende * hoehe)
+        lower = max(upper + breite * 2.4, last * hoehe)
         if lower > hoehe:                 # am unteren Ende nach oben schieben
             upper, lower = max(0.0, hoehe - (lower - upper)), hoehe
         return upper, lower, hoehe
 
     def nothing_to_scroll():
         """Passt alles ins Fenster? Dann ist diese Leiste ohne Aufgabe."""
-        return (pos['ende'] - pos['anfang']) >= 0.999
+        return (pos['last'] - pos['first']) >= 0.999
 
-    def nachziehen(*_):
+    def refresh(*_):
         hoehe = c.winfo_height()
         if hoehe < 4:
             return
@@ -901,14 +901,14 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
         upper, lower, _ = grip_pos()
         c.coords(grip, *corners(0, upper, breite, lower, r))
 
-    def setzen(anfang, ende):
+    def setzen(first, last):
         """Ruft Tk auf, wenn sich der sichtbare Ausschnitt ändert."""
-        pos['anfang'], pos['ende'] = float(anfang), float(ende)
-        nachziehen()
+        pos['first'], pos['last'] = float(first), float(last)
+        refresh()
 
     def jump(e):
         # ⚠⚠ **Ohne diese Frage rollt eine Seite, die ganz hineinpasst.**
-        # `nachziehen` versteckt zwar den Griff, wenn es nichts zu rollen
+        # `refresh` versteckt zwar den Griff, wenn es nichts zu rollen
         # gibt — die Bahn darunter nahm den Klick aber weiter an. Bei voller
         # Spanne rechnet die Zeile unten `e.y / hoehe - 0.5`: Ein Klick in
         # die untere Hälfte schob den Inhalt um eine halbe Fensterhöhe ins
@@ -922,13 +922,13 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
         if nothing_to_scroll():
             return
         upper, lower, hoehe = grip_pos()
-        span = pos['ende'] - pos['anfang']
+        span = pos['last'] - pos['first']
         if upper <= e.y <= lower:                  # auf dem Griff: ziehen
-            pos['zieht'] = True
-            pos['griff_ab'] = e.y - upper
+            pos['dragging'] = True
+            pos['grip_offset'] = e.y - upper
             return
         target = max(0.0, min(1.0, (e.y / hoehe) - span / 2.0))
-        leinwand.yview_moveto(target)
+        canvas.yview_moveto(target)
 
     def drag(e):
         """Den Griff mitnehmen.
@@ -939,35 +939,40 @@ def round_scrollbar(eltern, leinwand, grund=None, breite=10):
         Liste unerreichbar: Man zog bis ganz nach unten und war trotzdem nicht am
         Ende.
         """
-        if not pos['zieht'] or nothing_to_scroll():
+        if not pos['dragging'] or nothing_to_scroll():
             return
         upper, lower, hoehe = grip_pos()
         travel = max(1.0, hoehe - (lower - upper))
-        span = pos['ende'] - pos['anfang']
-        fraction = (e.y - pos['griff_ab']) / travel
-        leinwand.yview_moveto(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
+        span = pos['last'] - pos['first']
+        fraction = (e.y - pos['grip_offset']) / travel
+        canvas.yview_moveto(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
 
     def release(_=None):
-        pos['zieht'] = False
+        pos['dragging'] = False
 
     def enter(_=None):
         c.itemconfigure(grip, fill=grip_light)
 
     def leave(_=None):
-        if not pos['zieht']:
+        if not pos['dragging']:
             c.itemconfigure(grip, fill=grip_color)
 
-    c.bind('<Configure>', nachziehen)
+    c.bind('<Configure>', refresh)
     c.bind('<Button-1>', jump)
     c.bind('<B1-Motion>', drag)
     c.bind('<ButtonRelease-1>', release)
     c.bind('<Enter>', enter)
     c.bind('<Leave>', leave)
-    # ⚠ `set` heißt hier englisch, weil Tk selbst diesen Namen aufruft:
-    # `leinwand.configure(yscrollcommand=leiste.set)`. `setzen` steht daneben,
-    # damit der Rest des Programms bei seiner Sprache bleiben kann.
+    # ⛔ **`set` bleibt für immer.** Das ist der Name, unter dem Tk eine
+    # Rollleiste anspricht: `canvas.configure(yscrollcommand=leiste.set)`.
+    # Keine Entscheidung von uns.
+    #
+    # Daneben stand bis zum 13.09.2026 dieselbe Funktion noch einmal als
+    # `c.setzen` — „damit der Rest des Programms bei seiner Sprache bleiben
+    # kann". Nachgemessen: **niemand hat sie je gerufen.** Ein Zwilling, den
+    # keiner benutzt, ist kein Übersetzungsdienst, sondern eine zweite Stelle,
+    # die mitgepflegt werden will.
     c.set = setzen
-    c.setzen = setzen
     return c
 
 
@@ -1045,7 +1050,7 @@ _DC_EYE_RIGHT = (
 )
 
 
-def discord_glyph(leinwand, x, middle, hoehe, color):
+def discord_glyph(canvas, x, middle, hoehe, color):
     """Das Discord-Zeichen, gezeichnet aus den Originalumrissen.
 
     `x` ist die linke Kante, `mitte` die senkrechte Mitte, `hoehe` der
@@ -1064,12 +1069,12 @@ def discord_glyph(leinwand, x, middle, hoehe, color):
             flat.append(oy + ay * h)
         return flat
 
-    leinwand.create_polygon(path(_DC_OUTLINE), fill=color, outline=color)
+    canvas.create_polygon(path(_DC_OUTLINE), fill=color, outline=color)
     # Die Augen sind im SVG Aussparungen derselben Fläche. Tk kennt keine
     # Löcher, deshalb werden sie in der Farbe des Untergrunds darübergelegt.
-    grund = leinwand['bg']
+    grund = canvas['bg']
     for eye in (_DC_EYE_LEFT, _DC_EYE_RIGHT):
-        leinwand.create_polygon(path(eye), fill=grund, outline=grund)
+        canvas.create_polygon(path(eye), fill=grund, outline=grund)
 
 
 # Von am 26.08.2026 gemeldet bestätigt. ⚠ Wer sie ändert, prüft vorher, dass die
@@ -1078,7 +1083,7 @@ def discord_glyph(leinwand, x, middle, hoehe, color):
 KOFI_URL = 'https://ko-fi.com/xharig'
 
 
-def coffee_glyph(leinwand, x, middle, hoehe, color):
+def coffee_glyph(canvas, x, middle, hoehe, color):
     """Eine Kaffeetasse — für den Ko-fi-Knopf.
 
     ⚠ Gezeichnet, nicht getippt. Die Tassen-Zeichen in Unicode (`U+2615` ☕,
@@ -1100,13 +1105,13 @@ def coffee_glyph(leinwand, x, middle, hoehe, color):
 
     # Der Henkel — zuerst, damit der Becher ihn sauber überdeckt. Kräftig
     # genug, dass er auch bei zwölf Pixeln noch trägt.
-    leinwand.create_arc(lx + b * 0.60, oy + h * 0.28,
+    canvas.create_arc(lx + b * 0.60, oy + h * 0.28,
                         lx + b * 1.02, oy + h * 0.74,
                         start=270, extent=180, style='arc',
                         outline=color, width=max(2, int(h * 0.14)))
 
     # Der Becher: oben breit, nach unten leicht zulaufend.
-    leinwand.create_polygon(
+    canvas.create_polygon(
         lx + b * 0.06, oy + h * 0.24,
         lx + b * 0.74, oy + h * 0.24,
         lx + b * 0.64, oy + h * 0.92,
@@ -1115,18 +1120,18 @@ def coffee_glyph(leinwand, x, middle, hoehe, color):
 
     # Ein abgesetzter Streifen als Kaffeespiegel — das macht aus dem Umriss
     # erst eine gefüllte Tasse.
-    grund = leinwand['bg']
-    leinwand.create_rectangle(lx + b * 0.14, oy + h * 0.33,
+    grund = canvas['bg']
+    canvas.create_rectangle(lx + b * 0.14, oy + h * 0.33,
                               lx + b * 0.66, oy + h * 0.41,
                               fill=grund, outline=grund)
 
     # Die Untertasse — ein flacher Balken, der die Tasse auf den Boden stellt.
-    leinwand.create_rectangle(lx + b * 0.02, oy + h * 0.92,
+    canvas.create_rectangle(lx + b * 0.02, oy + h * 0.92,
                               lx + b * 0.78, oy + h * 1.00,
                               fill=color, outline=color)
 
 
-def round_button(eltern, text, tat, schrift, grund, fuellung, border, fg,
+def round_button(eltern, text, tat, schrift, grund, fill_color, border, fg,
               radius=6, polster=(10, 5), cursor='hand2', paint=None):
     """Ein klickbarer Knopf mit runden Ecken — der Standard im ganzen Programm.
 
@@ -1161,26 +1166,26 @@ def round_button(eltern, text, tat, schrift, grund, fuellung, border, fg,
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor=cursor)
 
-    zustand = {'fuellung': fuellung, 'rand': border, 'fg': fg}
+    state = {'fuellung': fill_color, 'rand': border, 'fg': fg}
 
-    def zeichnen(b=None, h=None):
+    def draw(b=None, h=None):
         b = b or int(c['width'])
         h = h or int(c['height'])
         c.delete('all')
-        c.form = _round_rect(c, 1, 1, b - 1, h - 1, radius=radius,
-                                  fill=zustand['fuellung'],
-                                  outline=zustand['rand'], width=1)
+        c.shape = _round_rect(c, 1, 1, b - 1, h - 1, radius=radius,
+                                  fill=state['fuellung'],
+                                  outline=state['rand'], width=1)
         if paint:
-            paint(c, polster[0], h / 2.0, h - polster[1] * 2, zustand['fg'])
+            paint(c, polster[0], h / 2.0, h - polster[1] * 2, state['fg'])
         # ⚠ Der Text sitzt in der Mitte des **Restes**, nicht der ganzen
         # Fläche. Sonst rückt ein Symbol links die Beschriftung nach rechts aus
         # der Mitte, und zwei Knöpfe untereinander stehen krumm.
         middle_x = (b + symbol_width) / 2.0 if paint else b / 2.0
-        c.beschriftung = c.create_text(middle_x, h / 2.0, text=text,
-                                       fill=zustand['fg'], font=schrift,
+        c.caption = c.create_text(middle_x, h / 2.0, text=text,
+                                       fill=state['fg'], font=schrift,
                                        anchor='center')
 
-    zeichnen(breite, hoehe)
+    draw(breite, hoehe)
 
     # ⚠ Nur bei echter Änderung neu malen. Tk schickt `<Configure>` auch dann,
     # wenn sich nichts an der Größe geändert hat — ein bedingungsloses
@@ -1191,27 +1196,27 @@ def round_button(eltern, text, tat, schrift, grund, fuellung, border, fg,
         if e.width == last_size['b'] and e.height == last_size['h']:
             return
         last_size['b'], last_size['h'] = e.width, e.height
-        zeichnen(e.width, e.height)
+        draw(e.width, e.height)
 
     c.bind('<Configure>', _resized)
 
-    def setzen(fuellung=None, neuer_rand=None, neues_fg=None):
-        if fuellung:
-            zustand['fuellung'] = fuellung
-            c.itemconfigure(c.form, fill=fuellung)
-        if neuer_rand:
-            zustand['rand'] = neuer_rand
-            c.itemconfigure(c.form, outline=neuer_rand)
-        if neues_fg:
-            zustand['fg'] = neues_fg
-            c.itemconfigure(c.beschriftung, fill=neues_fg)
+    def setzen(fill_color=None, border_color=None, fg_color=None):
+        if fill_color:
+            state['fuellung'] = fill_color
+            c.itemconfigure(c.shape, fill=fill_color)
+        if border_color:
+            state['rand'] = border_color
+            c.itemconfigure(c.shape, outline=border_color)
+        if fg_color:
+            state['fg'] = fg_color
+            c.itemconfigure(c.caption, fill=fg_color)
             if paint:
                 # Das Symbol traegt dieselbe Farbe wie die Schrift — neu malen
                 # ist einfacher, als sich jede Einzelform zu merken.
-                zeichnen()
+                draw()
 
-    c.setzen = setzen
-    c.ist_knopf = True          # damit tools/randpruefung.py ihn prüft
+    c.restyle = setzen
+    c.is_button = True          # damit tools/randpruefung.py ihn prüft
     if tat:
         c.bind('<Button-1>', lambda e: tat())
     return c
@@ -1250,11 +1255,11 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     """
     grund = grund or BG
     s = _as_font(schrift)
-    zustand = {'wert': selected, 'liste': None, 'zu_seit': 0.0, 'wachen': []}
+    state = {'wert': selected, 'liste': None, 'zu_seit': 0.0, 'wachen': []}
 
-    def caption_for(wert):
+    def caption_for(value):
         for w, text in entries:
-            if w == wert:
+            if w == value:
                 return text
         return entries[0][1] if entries else ''
 
@@ -1286,18 +1291,18 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
 
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor='hand2')
-    form = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+    shape = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                             fill='#0c1017', outline=BORDER, width=1)
     text_id = c.create_text(11, hoehe / 2.0,
                             text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
     pfeil = c.create_text(breite - 12, hoehe / 2.0, text='▾', fill=SUB,
                           font=s, anchor='e')
-    c.ist_knopf = True          # die Randprüfung soll ihn messen
+    c.is_button = True          # die Randprüfung soll ihn messen
 
     def faerben():
-        is_set = bool(zustand['wert'])
-        c.itemconfigure(form, outline=ACCENT if is_set else BORDER)
+        is_set = bool(state['wert'])
+        c.itemconfigure(shape, outline=ACCENT if is_set else BORDER)
         c.itemconfigure(text_id, fill=ACCENT if is_set else FG)
         c.itemconfigure(pfeil, fill=ACCENT if is_set else SUB)
 
@@ -1305,41 +1310,41 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         # ⚠ Zuerst die Wachen lösen. Die aufgeklappte Liste ist ein **eigenes
         # Fenster**; bleiben ihre Bindungen am Hauptfenster hängen, feuern sie
         # später ins Leere.
-        for ereignis, badge in zustand.get('wachen') or []:
+        for ereignis, badge in state.get('wachen') or []:
             try:
                 c.winfo_toplevel().unbind(ereignis, badge)
             except tk.TclError:
                 pass
-        zustand['wachen'] = []
-        if zustand['liste'] is not None:
+        state['wachen'] = []
+        if state['liste'] is not None:
             try:
-                zustand['liste'].destroy()
+                state['liste'].destroy()
             except tk.TclError:
                 pass
-            zustand['liste'] = None
-            zustand['zu_seit'] = time.time()
+            state['liste'] = None
+            state['zu_seit'] = time.time()
 
-    def choose(wert):
+    def choose(value):
         close_list()
-        zustand['wert'] = wert
-        c.itemconfigure(text_id, text=_fitting(caption_for(wert)))
+        state['wert'] = value
+        c.itemconfigure(text_id, text=_fitting(caption_for(value)))
         faerben()
-        on_select(wert)
+        on_select(value)
 
     def open_list(_=None):
-        if zustand['liste'] is not None:
+        if state['liste'] is not None:
             close_list()
             return
         # ⚠ Ein Klick, der die Liste gerade eben geschlossen hat, darf sie nicht
         # sofort wieder öffnen. Schließt das Fenster über `<FocusOut>`, kommt der
         # Klick anschließend hier an — man sah die Liste aufblitzen und sofort
         # wieder verschwinden, und erst der zweite Klick hielt sie offen.
-        if time.time() - zustand['zu_seit'] < 0.25:
+        if time.time() - state['zu_seit'] < 0.25:
             return
         window = tk.Toplevel(c)
         window.overrideredirect(True)        # kein Titelbalken, kein Rahmen
         window.configure(bg=BORDER)
-        zustand['liste'] = window
+        state['liste'] = window
 
         # ⚠ Die Liste muss rollen können. Bei 25 Arten ist sie höher als der
         # Platz unter dem Feld — steht das Fenster weit unten, waren die
@@ -1347,17 +1352,17 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         # Rollfläche, und wenn unten kein Platz ist, klappt sie nach oben.
         outer = tk.Frame(window, bg=SURFACE)
         outer.pack(fill='both', expand=True, padx=1, pady=1)
-        leinwand = tk.Canvas(outer, bg=SURFACE, highlightthickness=0, bd=0)
-        inner = tk.Frame(leinwand, bg=SURFACE)
-        window_id = leinwand.create_window((0, 0), window=inner, anchor='nw')
+        canvas = tk.Canvas(outer, bg=SURFACE, highlightthickness=0, bd=0)
+        inner = tk.Frame(canvas, bg=SURFACE)
+        window_id = canvas.create_window((0, 0), window=inner, anchor='nw')
 
-        for wert, text in entries:
-            an = (wert == zustand['wert'])
+        for value, text in entries:
+            an = (value == state['wert'])
             zeile = tk.Label(inner, text=text, bg=SURFACE,
                              fg=ACCENT if an else FG, font=s, anchor='w',
                              padx=11, pady=4, cursor='hand2')
             zeile.pack(fill='x')
-            zeile.bind('<Button-1>', lambda e, w=wert: choose(w))
+            zeile.bind('<Button-1>', lambda e, w=value: choose(w))
             zeile.bind('<Enter>', lambda e, z=zeile: z.configure(bg=BAR))
             zeile.bind('<Leave>', lambda e, z=zeile: z.configure(bg=SURFACE))
 
@@ -1426,8 +1431,8 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                 pass
         y = (c.winfo_rooty() - visible - 2) if upwards else lower
 
-        leinwand.configure(width=needed_width - 2, height=visible)
-        leinwand.pack(side='left', fill='both', expand=True)
+        canvas.configure(width=needed_width - 2, height=visible)
+        canvas.pack(side='left', fill='both', expand=True)
         if needed_height > visible:
             # ⚠ Gleiche Breite wie auf den Seiten. Acht Pixel waren schmaler
             # als alles andere im Fenster und dadurch noch schwerer zu sehen.
@@ -1442,12 +1447,12 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
             # selbst: **Was wichtig ist, gehört nach oben.** Standen die zwei
             # größten Gruppen (Rüstung 910, Waffen 270) alphabetisch an Position
             # 11 und 14, half auch der beste Balken nicht.
-            leiste = round_scrollbar(outer, leinwand, grund=SURFACE, breite=10)
+            leiste = round_scrollbar(outer, canvas, grund=SURFACE, breite=10)
             leiste.pack(side='right', fill='y')
-            leinwand.configure(yscrollcommand=leiste.set)
-        leinwand.configure(scrollregion=(0, 0, needed_width,
+            canvas.configure(yscrollcommand=leiste.set)
+        canvas.configure(scrollregion=(0, 0, needed_width,
                                          needed_height))
-        leinwand.itemconfigure(window_id, width=needed_width - 2)
+        canvas.itemconfigure(window_id, width=needed_width - 2)
 
         # ⚠⚠ **Das Rad muss HIER abgefangen werden, sonst rollt die Seite
         # dahinter.** `bind_wheel` haengt global am Programm (`bind_all`)
@@ -1478,7 +1483,7 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                         return 'break'
                     steps = -1 if amount > 0 else 1
                 try:
-                    leinwand.yview_scroll(steps, 'units')
+                    canvas.yview_scroll(steps, 'units')
                 except tk.TclError:
                     pass
             # Auch wenn nichts zu rollen ist: Das Rad darf nicht durchfallen.
@@ -1492,7 +1497,7 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                 vertical -= 0x10000
             if vertical and needed_height > visible:
                 try:
-                    leinwand.yview_scroll(1 if vertical > 0 else -1, 'units')
+                    canvas.yview_scroll(1 if vertical > 0 else -1, 'units')
                 except tk.TclError:
                     pass
             return 'break'
@@ -1557,21 +1562,21 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                                  '<Configure>'):
                     guards.append((ereignis,
                                    root_window.bind(ereignis, close_list, add='+')))
-                zustand['wachen'] = guards
+                state['wachen'] = guards
             except tk.TclError:
                 pass
 
         window.after(250, set_guard)
 
-    def stumm_setzen(wert):
+    def select_quiet(value):
         """Anzeige umstellen, ohne den Rückruf auszulösen.
 
         Gebraucht beim Zurücksetzen mehrerer Felder auf einmal: Sonst löst
         jedes einzelne einen vollen Neuaufbau der Liste aus.
         """
         close_list()
-        zustand['wert'] = wert
-        c.itemconfigure(text_id, text=caption_for(wert))
+        state['wert'] = value
+        c.itemconfigure(text_id, text=caption_for(value))
         faerben()
 
     c.bind('<Button-1>', open_list)
@@ -1596,9 +1601,9 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     c.bind('<Unmap>', _close_list)
     c.bind('<Destroy>', _close_list)
     faerben()
-    c.setzen = choose
-    c.stumm_setzen = stumm_setzen
-    c.wert = lambda: zustand['wert']
+    c.select = choose
+    c.select_quiet = select_quiet
+    c.value = lambda: state['wert']
     return c
 
 
@@ -1622,18 +1627,18 @@ def badge(eltern, text, color, schrift, grund=None, min_width=0):
     breite = max(min_width, schrift.measure(text) + 20)
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0)
-    c.blase = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
+    c.bubble = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
                                radius=max(4, hoehe // 3),
                                fill=grund, outline=color, width=1)
     c.create_text(breite / 2.0, hoehe / 2.0, text=text, fill=color,
                   font=schrift, anchor='center')
 
-    def hintergrund(neuer):
+    def set_background(new_bg):
         """Beim Einfärben der Zeile mitziehen — Leinwand und Blasenfüllung."""
-        c.configure(bg=neuer)
-        c.itemconfigure(c.blase, fill=neuer)
+        c.configure(bg=new_bg)
+        c.itemconfigure(c.bubble, fill=new_bg)
 
-    c.hintergrund = hintergrund
+    c.set_background = set_background
     return c
 
 
@@ -3017,7 +3022,7 @@ class MainWindow:
             for part in (zeile, z, b):
                 part.configure(bg=grund)
             if badge is not None:
-                badge.hintergrund(grund)
+                badge.set_background(grund)
             # ⚠ Ein Bild nimmt kein `fg` an — die passend eingefärbte Version
             # muss eingehängt werden.
             # ⚠ „Fehler melden“ traegt Rot — aber in zwei Stufen, damit die
@@ -3508,12 +3513,12 @@ def _dialog_button(eltern, text, tat, schrift, strong=False):
     surface = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                fill='#1d2a14' if strong else SURFACE,
                                outline=border, width=1)
-    beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
+    caption = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                  fill=color, font=schrift, anchor='center')
     c.bind('<Enter>', lambda _=None: (c.itemconfigure(surface, outline=ACCENT),
-                                      c.itemconfigure(beschriftung, fill=ACCENT)))
+                                      c.itemconfigure(caption, fill=ACCENT)))
     c.bind('<Leave>', lambda _=None: (c.itemconfigure(surface, outline=border),
-                                      c.itemconfigure(beschriftung, fill=color)))
+                                      c.itemconfigure(caption, fill=color)))
     c.bind('<Button-1>', lambda _=None: tat())
     return c
 
@@ -3549,8 +3554,8 @@ def ask_choice(eltern, title, text, button_a, button_b):
                  anchor='w', justify='left',
                  wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        def schliessen(wert):
-            answer['wert'] = wert
+        def schliessen(value):
+            answer['wert'] = value
             try:
                 win.grab_release()
             except tk.TclError:
@@ -3639,7 +3644,7 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
                  anchor='w', justify='left',
                  wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        wert = tk.StringVar(value=preset)
+        value = tk.StringVar(value=preset)
 
         if choices:
             if choices_title:
@@ -3659,7 +3664,7 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
                 zeile.pack(fill='x', pady=1)
 
                 def apply_entry(_=None, name=entry):
-                    wert.set(name)
+                    value.set(name)
                 zeile.bind('<Button-1>', apply_entry)
                 # Ein Klickziel muss sich als solches zeigen — sonst probiert
                 # es niemand aus.
@@ -3673,7 +3678,7 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
                          fg=SUB, font=font_small, anchor='w').pack(
                              fill='x', pady=(2, 3))
 
-        field = tk.Entry(rahmen, textvariable=wert, font=font_field,
+        field = tk.Entry(rahmen, textvariable=value, font=font_field,
                         bg=SURFACE, fg=FG, insertbackground=FG,
                         relief='flat', highlightthickness=1,
                         highlightbackground=BORDER, highlightcolor=ACCENT)
@@ -3682,7 +3687,7 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
         answer = {'wert': None}
 
         def schliessen(apply_entry):
-            answer['wert'] = wert.get().strip() if apply_entry else None
+            answer['wert'] = value.get().strip() if apply_entry else None
             try:
                 win.grab_release()
             except tk.TclError:
@@ -3761,8 +3766,8 @@ def ask_pick(eltern, title, text, entries, no_text=None):
 
         answer = {'wert': None}
 
-        def schliessen(wert):
-            answer['wert'] = wert
+        def schliessen(value):
+            answer['wert'] = value
             try:
                 win.grab_release()
             except tk.TclError:
@@ -3887,8 +3892,8 @@ def ask_yes_no(eltern, title, text, ja=None, no_text=None,
 
         answer = {'wert': False}
 
-        def schliessen(wert):
-            answer['wert'] = wert
+        def schliessen(value):
+            answer['wert'] = value
             try:
                 win.grab_release()
             except tk.TclError:
@@ -3992,8 +3997,8 @@ def ask_channel(eltern, entered, channels):
 
         selected = {'wert': None}
 
-        def schliessen(wert):
-            selected['wert'] = wert
+        def schliessen(value):
+            selected['wert'] = value
             try:
                 win.grab_release()
             except tk.TclError:

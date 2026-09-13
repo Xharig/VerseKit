@@ -188,7 +188,7 @@ class Assistent:
         from .main_window import round_entry
         feld = round_entry(zeile, self.pfad, mono(10), FLAECHE, LINIE, ACCENT, FG,
                            placeholder=t('s_pl_spielordner'))
-        feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
                          font=schrift(10), cursor='hand2', padx=8, pady=6)
         knopf.pack(side='right')

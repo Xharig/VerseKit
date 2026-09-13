@@ -219,7 +219,7 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
     # ⭐ Die Leinwand mitgeben. Seiten, die ihre Liste neu zeichnen (Lager,
     # Handelslager), brauchen sie, um die Rollposition zu halten — siehe
     # `_rollstelle_halten`.
-    innen_ziel.leinwand = leinwand
+    innen_ziel.canvas = leinwand
     return innen_ziel
 
 
@@ -502,7 +502,7 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
         for schluessel, w in gebaut.items():
             zustand[schluessel] = ''
             try:
-                w.stumm_setzen('')
+                w.select_quiet('')
             except Exception:
                 pass
         beim_wechsel()
@@ -639,7 +639,7 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
     c.bind('<Leave>', raus)
     c.bind('<Button-1>', lambda e: tat())
     c.beschriften = beschriften
-    c.ist_knopf = True          # damit tools/randpruefung.py ihn prüft
+    c.is_button = True          # damit tools/randpruefung.py ihn prüft
     return c
 
 
@@ -666,7 +666,7 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
                       ACCENT if an else LINIE)
         c.teile = (flaeche, beschr)
         c.bind('<Button-1>', lambda e, k=kennung: tat(k))
-        c.ist_knopf = True      # damit tools/randpruefung.py ihn prüft
+        c.is_button = True      # damit tools/randpruefung.py ihn prüft
         knoepfe[kennung] = c
 
     def setzen(gewaehlt):
@@ -676,7 +676,7 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
             c.itemconfigure(flaeche[0], outline=ACCENT if an else LINIE)
             c.itemconfigure(beschr, fill=ACCENT if an else SUB)
 
-    reihe.setzen = setzen
+    reihe.select = setzen
     return reihe
 
 
@@ -714,7 +714,7 @@ def _pfadfeld(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
     feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
-    feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
+    feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     if platzhalter and not wert.get():
         feld.configure(fg=SUB)
     _knopf(fenster, reihe, t('s_durchsuchen'), waehlen).pack(side='left')
@@ -1125,7 +1125,7 @@ def _feld(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
     # umschalten laesst (Menge im Lager: SCU ↔ cSCU), muss ihren eigenen Text
     # aendern koennen — sonst steht dort „Menge (SCU)", waehrend cSCU gemeint
     # ist, und die eingetragene Menge ist um den Faktor 100 daneben.
-    rechts.beschriftung = beschriftung
+    rechts.caption = beschriftung
     return rechts
 
 
@@ -1326,7 +1326,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
 
     from .main_window import round_frame
     kasten = round_frame(koerper, FLAECHE, LINIE, radius=8, base_color=BG)
-    kasten.halter.pack(fill='x', pady=(10, 0))
+    kasten.holder.pack(fill='x', pady=(10, 0))
     # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre keine
     # Antwort auf „was mache ich als Nächstes", sondern die nächste Suchaufgabe.
     # ⚠ **Der Annahmeort gehört an die Zeile.** Er lag von Anfang an vor —
@@ -1505,7 +1505,7 @@ def _allgemein(fenster, rahmen):
     wahl = _wahl(fenster, ziel,
                  [('auto', t('sprache_auto')), ('de', 'Deutsch'), ('en', 'English')],
                  pfade.einstellungen().get('sprache') or 'auto',
-                 lambda k: (wahl.setzen(k), e._sprache_waehlen(k)))
+                 lambda k: (wahl.select(k), e._sprache_waehlen(k)))
     wahl.pack()
 
     ziel = _feld(fenster, innen, t('e_ton'),
@@ -1555,7 +1555,7 @@ def _allgemein(fenster, rahmen):
         # Mitschalten, wenn der Autostart woanders umgestellt wird — etwa am
         # Symbol im Overlay, das ja gleichzeitig sichtbar ist.
         autostart.anzeige_anmelden(
-            lambda: schalter.zeichnen(autostart.ist_an()))
+            lambda: schalter.draw(autostart.ist_an()))
     else:
         tk.Label(ziel, text=t('s_nicht_moegl'), bg=BG, fg=SUB,
                  font=fenster.f_small).pack()
@@ -1617,10 +1617,10 @@ def _anzeige(fenster, rahmen):
     # ⭐ Zieht jemand das Overlay mit der Hand woandershin, hebt es die Ecke
     # selbst auf (`Overlay._verschoben`) — diese Liste muss das sehen, sonst
     # steht hier weiter „unten links", waehrend das Fenster woanders sitzt.
-    # ⚠ `stumm_setzen`: Die Auswahl soll sich nur neu beschriften, nicht den
+    # ⚠ `select_quiet`: Die Auswahl soll sich nur neu beschriften, nicht den
     # Rueckruf ausloesen — der wuerde die Ecke gleich wieder anwenden.
     from . import overlay as _ov_anzeige
-    _ov_anzeige.ECKEN_ANZEIGE[0] = lambda k: ecke.stumm_setzen(k)
+    _ov_anzeige.ECKEN_ANZEIGE[0] = lambda k: ecke.select_quiet(k)
 
     # ⭐ **Wo die Leiste sitzt, entscheidet der Nutzer** (13.09.2026). Bisher
     # hing das an der Ecke: untere Ecke = Leiste unten, sonst oben. Seit ein
@@ -1642,7 +1642,7 @@ def _anzeige(fenster, rahmen):
     dauer = _zahlfeld(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
                       breite=6, justify='right')
     dauer.insert(0, str(pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)))
-    dauer.halter.pack()
+    dauer.holder.pack()
 
     def dauer_merken(_=None):
         try:
@@ -1670,7 +1670,7 @@ def _anzeige(fenster, rahmen):
         def _nachziehen(zustand):
             try:
                 if _durch_schalter.winfo_exists():
-                    _durch_schalter.zeichnen(bool(zustand))
+                    _durch_schalter.draw(bool(zustand))
             except tk.TclError:
                 pass                     # Seite ist weg - nichts nachzuziehen
 
@@ -1705,7 +1705,7 @@ def _anzeige(fenster, rahmen):
                  # ⚠ Nur noch der eine Aufruf. `set_font_size()` baut
                  # das Fenster neu auf — damit zeichnet sich die Wahl selbst
                  # richtig, und die Rückmeldung kommt von dort, nach dem
-                 # Aufbau. Das frühere `wahl.setzen(k)` und `say()` hier
+                 # Aufbau. Das frühere `wahl.select(k)` und `say()` hier
                  # liefen beide ins Leere, sobald neu gezeichnet wurde.
                  lambda k: fenster.set_font_size(k))
     wahl.pack()
@@ -1761,7 +1761,7 @@ def _anzeige(fenster, rahmen):
     zahl = round_entry(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
                        breite=6, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('max_zeilen', 20, 5, 100)))
-    zahl.halter.pack()
+    zahl.holder.pack()
 
     def zahl_merken(_=None):
         try:
@@ -1964,7 +1964,7 @@ def _overlay_ecke(fenster, wahl, kennung):
     """
     pfade.einstellung_setzen('overlay_ecke', kennung)
     try:
-        wahl.setzen(kennung)
+        wahl.select(kennung)
     except Exception:
         pass
     from . import overlay as ov
@@ -1981,7 +1981,7 @@ def _overlay_leiste(fenster, wahl, kennung):
     """
     pfade.einstellung_setzen('overlay_leiste', kennung)
     try:
-        wahl.setzen(kennung)
+        wahl.select(kennung)
     except Exception:
         pass
     from . import overlay as ov
@@ -2015,7 +2015,7 @@ def _hotkey_feld(fenster, innen):
     feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT,
                        FG, breite=18)
     feld.insert(0, pfade.einstellung('hotkey') or hk.STANDARD)
-    feld.halter.pack(side='left')
+    feld.holder.pack(side='left')
 
     def merken(_=None):
         wunsch = feld.get().strip()
@@ -2082,7 +2082,7 @@ def _startbefehl_feld(fenster, innen):
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
     feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
-    feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
+    feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     _knopf(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
 
 
@@ -2152,7 +2152,7 @@ def _durchklick_um(fenster):
 def _overlay_modus(fenster, wahl, kennung):
     """Zwischen „immer sichtbar" und „nur bei Neuzugang" umstellen."""
     from . import overlay, pfade
-    wahl.setzen(kennung)
+    wahl.select(kennung)
     pfade.einstellung_setzen('overlay_modus', kennung)
     wurzel = overlay.OVERLAY_FENSTER[0] if overlay.OVERLAY_FENSTER else None
     if wurzel is not None:
@@ -2401,7 +2401,7 @@ def _quelle_waehlen(fenster, e, wahl, kennung, danach):
     im Fenster.
     """
     from . import pfade
-    wahl.setzen(kennung)
+    wahl.select(kennung)
     # ⚠ Die Wahl wird **vor** dem Einrichten gemerkt. Sie stand vorher dahinter,
     # und wenn das Herunterladen schiefging (kein Netz, Zertifikat, Server weg),
     # blieb die alte Quelle eingetragen — das Feld zeigte die neue, der Rest des
@@ -2702,13 +2702,13 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     def uebernehmen():
         dazu = importer.merge(eintraege)
         fenster.say(t('s_be_genommen') % dazu)
-        innen.halter.destroy()
+        innen.holder.destroy()
 
     k = _knopf(fenster, reihe, t('s_be_nimm') % len(v['neu']),
                uebernehmen, stark=True)
     k.configure(bg=FLAECHE)
     k.pack(side='left')
-    k2 = _knopf(fenster, reihe, t('abbrechen'), innen.halter.destroy)
+    k2 = _knopf(fenster, reihe, t('abbrechen'), innen.holder.destroy)
     k2.configure(bg=FLAECHE)
     k2.pack(side='left', padx=8)
 
@@ -2764,7 +2764,7 @@ def _auftragslog(fenster, rahmen):
     from .main_window import round_entry
     feld = round_entry(block, suche, fenster.f_small, '#0c1017', LINIE,
                        ACCENT, FG, placeholder=t('s_pl_auftrag'))
-    feld.halter.pack(fill='x', pady=(4, 0))
+    feld.holder.pack(fill='x', pady=(4, 0))
 
     # ⚠ Die Filterleiste wird weiter unten befuellt — die Farben und Woerter
     # dazu stehen erst danach. Gepackt wird sie hier, damit sie zwischen
@@ -2975,7 +2975,7 @@ def _auftragslog(fenster, rahmen):
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
                 _umbruch(bp_lab)
 
-        _nach_bedarf_packen(innen.leinwand, zeilen_log)
+        _nach_bedarf_packen(innen.canvas, zeilen_log)
 
         # ⭐ **Was noch fehlt, steht darunter — und lädt auf Klick nach.**
         # Wortlaut und Verhalten wie in der Bauplan-Liste: gleiche Dinge an der
@@ -3365,7 +3365,7 @@ def _joysticks(fenster, rahmen):
     from .main_window import round_entry
     feld = round_entry(werkzeug, suche, fenster.f_small, '#0c1017', LINIE,
                        ACCENT, FG, placeholder=t('s_pl_belegung'))
-    feld.halter.pack(fill='x')
+    feld.holder.pack(fill='x')
 
     def _kennung_kurz(k):
         """Nur der vordere, unterscheidende Teil der Kennung.
@@ -3816,7 +3816,7 @@ def _joysticks(fenster, rahmen):
                 _anfassen(kind)
 
         # ⭐ Jetzt erst packen — und nur so viele, wie hineinpassen.
-        _nach_bedarf_packen(innen.leinwand, gepackt)
+        _nach_bedarf_packen(innen.canvas, gepackt)
 
     def _uebernehmen(alt, neu):
         erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
@@ -4219,7 +4219,7 @@ def _karte(eltern, rand=None, **kw):
     """Ein abgesetzter Kasten mit runden Ecken (siehe `main_window.rundrahmen`)."""
     from .main_window import round_frame
     innen = round_frame(eltern, FLAECHE, rand or LINIE, radius=8, base_color=BG)
-    innen.halter.pack(fill='x', **kw)
+    innen.holder.pack(fill='x', **kw)
     return innen
 
 
@@ -4725,7 +4725,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     from .main_window import round_frame
     innen = round_frame(eltern, FLAECHE, ACCENT if gewaehlt else LINIE,
                        radius=8, base_color=BG)
-    rand = innen.halter
+    rand = innen.holder
     if untereinander:
         eltern.grid_columnconfigure(0, weight=1, uniform='')
         rand.grid(row=platz, column=0, sticky='ew', pady=(0, 10))
@@ -4738,8 +4738,8 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
                   padx=(0, 5) if platz == 0 else (5, 0))
     rand.configure(cursor='hand2')
     innen.configure(cursor='hand2')
-    innen.leinwand.configure(cursor='hand2')
-    leinwand = innen.leinwand
+    innen.canvas.configure(cursor='hand2')
+    leinwand = innen.canvas
 
     kopf = tk.Frame(innen, bg=FLAECHE)
     kopf.pack(fill='x', padx=14, pady=(12, 2))
@@ -5774,7 +5774,7 @@ def _erkennung(fenster, rahmen):
     zahl = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
                        breite=5, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)))
-    zahl.halter.pack(side='left')
+    zahl.holder.pack(side='left')
     tk.Label(reihe, text=t('s_er_sek'), bg=BG, fg=SUB,
              font=fenster.f_small).pack(side='left')
 
@@ -5859,7 +5859,7 @@ def _diagnose(fenster, rahmen):
     melder_feld = round_entry(ziel_melder, melder_var, fenster.f_small,
                               '#0c1017', LINIE, ACCENT, FG,
                               placeholder=t('s_pl_melder'))
-    melder_feld.halter.pack(fill='x', pady=(8, 0))
+    melder_feld.holder.pack(fill='x', pady=(8, 0))
 
     # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.**
     # Am 05.09.2026 schrieb Bushwick4712 seine Meldung („mission log updated
@@ -5891,7 +5891,7 @@ def _diagnose(fenster, rahmen):
                          breit=True)
     meldung_feld = round_textarea(ziel_meldung, fenster.f_small,
                                    '#0c1017', LINIE, ACCENT, FG, rows=4)
-    meldung_feld.halter.pack(fill='x', pady=(8, 0))
+    meldung_feld.holder.pack(fill='x', pady=(8, 0))
 
     def meldung_text():
         """Was gerade im Feld steht — ohne den Zeilenumbruch am Ende.
@@ -5914,7 +5914,7 @@ def _diagnose(fenster, rahmen):
 
     from .main_window import round_frame
     kasten = round_frame(innen, '#0c1017', LINIE, radius=8, base_color=BG)
-    kasten.halter.pack(fill='both', expand=True)
+    kasten.holder.pack(fill='both', expand=True)
     # ⚠ `highlightthickness` steht bei Text und Entry auf 1 und wird auf dem
     # Mac als helle Linie gezeichnet — im runden Kasten sah das aus wie ein
     # zweiter, eckiger Rahmen. `relief='flat'` und `bd=0` schalten das NICHT ab.
@@ -6211,7 +6211,7 @@ def _herstellung(fenster, rahmen):
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
                            LINIE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
-    suchfeld.halter.pack(fill='x', pady=(4, 12))
+    suchfeld.holder.pack(fill='x', pady=(4, 12))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
     _suche_leeren_kreuz(fenster, ziel_suche, suche_var)
@@ -7395,7 +7395,7 @@ def _routen(fenster, rahmen):
         geld_var.set('500000')
         if system_menue[0] is not None:
             try:
-                system_menue[0].stumm_setzen('')
+                system_menue[0].select_quiet('')
             except Exception:
                 pass
         _ortliste_leeren()
@@ -8797,8 +8797,8 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         from .main_window import round_entry as _rf_anzahl
         _anzahl_feld = _rf_anzahl(reihe, anzahl_var, fenster.f_small,
                                   '#0c1017', LINIE, ACCENT, FG)
-        _anzahl_feld.halter.configure(width=70)
-        _anzahl_feld.halter.pack(side='left')
+        _anzahl_feld.holder.configure(width=70)
+        _anzahl_feld.holder.pack(side='left')
         rueck.pack(side='left', padx=(10, 0))
 
         # ⭐⭐ **Vormerken — der kurze Weg zur Materialliste.** Bis v3.20.0
@@ -9277,7 +9277,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                     # `regler()` gibt seine Zeichenfunktion mit heraus —
                     # damit steht der Knopf wieder an der richtigen Stelle.
                     try:
-                        _s.zeichnen(stand[_m])
+                        _s.draw(stand[_m])
                     except Exception:
                         pass
                 werte_zeichnen()
@@ -9644,7 +9644,7 @@ def _bergbau(fenster, rahmen):
     ziel_suche = _feld(fenster, innen, t('s_bg_suche'), '')
     feld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
                        LINIE, ACCENT, FG)
-    feld.halter.pack(fill='x', pady=(4, 12))
+    feld.holder.pack(fill='x', pady=(4, 12))
     _suche_leeren_kreuz(fenster, ziel_suche, suche_var)
 
     # ⚠ Dieselben Auswahlfelder wie auf den anderen Seiten. Tippen bleibt
@@ -9722,7 +9722,7 @@ def _bergbau(fenster, rahmen):
     ziel_sig = _feld(fenster, innen, t('s_bg_sig_feld'), '')
     sig_feld = round_entry(ziel_sig, sig_var, fenster.f_small, '#0c1017',
                            LINIE, ACCENT, FG, placeholder=t('s_pl_signatur'))
-    sig_feld.halter.pack(fill='x', pady=(4, 2))
+    sig_feld.holder.pack(fill='x', pady=(4, 2))
     _fliesstext(innen, t('s_bg_sig_hilfe'), fenster.f_small, fill='x')
     sig_rahmen = tk.Frame(innen, bg=BG)
     sig_rahmen.pack(fill='x', pady=(2, 10))
@@ -10254,7 +10254,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     _oliste.pack(fill='x')
 
     kasten = round_frame(ziel, '#0c1017', LINIE, radius=8, base_color=BG)
-    kasten.halter.pack(fill='x', pady=(4, 6))
+    kasten.holder.pack(fill='x', pady=(4, 6))
     feld = tk.Text(kasten, bg='#0c1017', fg=FG, font=('Consolas', 10),
                    height=7, wrap='none', relief='flat', bd=0,
                    insertbackground=FG, highlightthickness=0)
@@ -10772,7 +10772,7 @@ def _asop(fenster, rahmen):
     from .main_window import round_entry as _rundes_feld_such
     such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_small,
                                   '#0c1017', LINIE, ACCENT, FG)
-    such_feld.halter.pack(side='left', fill='x', expand=True)
+    such_feld.holder.pack(side='left', fill='x', expand=True)
     _suche_leeren_kreuz(fenster, such_zeile, suche)
 
     such_platz = tk.Label(such_feld, text=t('s_as_suche'), bg='#0c1017',
@@ -11024,7 +11024,7 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
 
     from .main_window import round_entry
     feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
-    feld.halter.pack(side='left', fill='x', expand=True)
+    feld.holder.pack(side='left', fill='x', expand=True)
 
     def uebernehmen(*_):
         asop_modul.setzen(daten['stand'], e['schluessel'], wert.get(),
@@ -12823,7 +12823,7 @@ def _lager(fenster, rahmen):
             # schob es das Kästchen aus dem Fenster.
             _kaestchen(_mengenzeile, t('s_lg_cscu'), cscu, einheit_um,
                        fenster.f_small).pack(side='right', padx=(10, 0))
-            f.halter.pack(side='left', fill='both', expand=True)
+            f.holder.pack(side='left', fill='both', expand=True)
             if cscu[0]:
                 kopf_label.configure(text=t('s_lg_menge_cscu'))
             # ⭐⭐ **Die Vorschau ist die eigentliche Erklärung.** Wer beim
@@ -12835,7 +12835,7 @@ def _lager(fenster, rahmen):
         else:
             f = round_entry(block, var, fenster.f_small, '#0c1017', LINIE,
                             ACCENT, FG)
-            f.halter.pack(fill='x', pady=(4, 0))
+            f.holder.pack(fill='x', pady=(4, 0))
 
     # ℹ Die früheren „Meintest du:"-Zeilen für Rohstoff und Lagerort sind
     # entfallen: Das Auswahlfeld filtert beim Tippen selbst und zeigt auf
@@ -13286,7 +13286,7 @@ def _lager(fenster, rahmen):
              font=fenster.f_small).pack(side='left', padx=(0, 10))
     _such_feld = _rf_suche(_such_zeile, filter_var, fenster.f_small,
                            '#0c1017', LINIE, ACCENT, FG)
-    _such_feld.halter.pack(side='left', fill='x', expand=True)
+    _such_feld.holder.pack(side='left', fill='x', expand=True)
     _suche_leeren_kreuz(fenster, _such_zeile, filter_var)
 
     liste_rahmen.pack(fill='both', expand=True, pady=(6, 0))
@@ -13649,7 +13649,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     # Fenster. Genau der Fehler, der im Werkstatt-Lager beim cSCU-Kästchen
     # schon einmal auftrat.
     pfeil.pack(side='right')
-    feld.halter.pack(side='left', fill='both', expand=True)
+    feld.holder.pack(side='left', fill='both', expand=True)
 
     # ⭐⭐ **Ein Klick ins Feld klappt die Liste auf.** Am 05.09.2026 gemeldet:
     # „Erwarte, dass ich ins Feld klicke, was eingeben kann und auch vor der
@@ -14329,7 +14329,7 @@ def _handelslager(fenster, rahmen):
         if var is menge:
             feld = round_entry(block, var, fenster.f_small, '#0c1017', LINIE,
                                ACCENT, FG)
-            feld.halter.pack(fill='x', pady=(4, 0))
+            feld.holder.pack(fill='x', pady=(4, 0))
             continue
         quelle = (preisdaten.goods if var is ware else ortsliste.all_places)
         zeile, liste, zeichnen_ = _auswahlfeld(fenster, block, var, quelle)

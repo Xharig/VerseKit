@@ -516,7 +516,7 @@ class Bestandsfenster:
         # damit es dazugehörig aussieht und nicht wie ein weiterer Knopf.
         from .main_window import round_frame
         kasten = round_frame(leiste, FLAECHE, LINIE, radius=8, base_color=BG)
-        kasten.halter.pack(side='left', fill='x', expand=True, padx=(0, 10))
+        kasten.holder.pack(side='left', fill='x', expand=True, padx=(0, 10))
         feld = tk.Entry(kasten, textvariable=self.suche, bg=FLAECHE, fg=FG,
                         insertbackground=FG, relief='flat', bd=0,
                         highlightthickness=0, font=schrift(11))
@@ -1279,7 +1279,7 @@ class Bestandsfenster:
             for schluessel, w in self.fein_felder.items():
                 if merke.get(schluessel):
                     try:
-                        w.stumm_setzen(merke[schluessel])
+                        w.select_quiet(merke[schluessel])
                     except Exception:
                         pass
         except tk.TclError:
@@ -1321,7 +1321,7 @@ class Bestandsfenster:
         for schluessel in self.fein:
             self.fein[schluessel] = ''
         for feld in self.fein_felder.values():
-            feld.stumm_setzen('')
+            feld.select_quiet('')
         self.alle_zeigen = False
         if etwas_gesetzt:
             self._zeichnen(nach_oben=True)
@@ -1657,9 +1657,9 @@ class Bestandsfenster:
 
         for schluessel, knopf in self.knoepfe.items():
             an = schluessel == self.filter
-            knopf.setzen(fuellung=ACCENT if an else FLAECHE,
-                         neuer_rand=ACCENT if an else LINIE,
-                         neues_fg=BG if an else SUB)
+            knopf.restyle(fill_color=ACCENT if an else FLAECHE,
+                         border_color=ACCENT if an else LINIE,
+                         fg_color=BG if an else SUB)
 
         # (Hier standen die vier Bereichs-Knöpfe. Sie sind den fünf
         # Auswahlfeldern gewichen — die färben sich selbst, sobald etwas
@@ -2312,7 +2312,7 @@ class Bestandsfenster:
         farbe = ACCENT if quellen else GELB
         kasten = round_frame(self.herkunft_rahmen, FLAECHE, farbe, radius=8,
                             base_color=BG)
-        kasten.halter.pack(fill='x')
+        kasten.holder.pack(fill='x')
 
         kopf = tk.Frame(kasten, bg=FLAECHE)
         kopf.pack(fill='x', padx=14, pady=(10, 2))

@@ -227,7 +227,7 @@ class Einstellungsfenster:
         reihe.pack(fill='x')
         from .main_window import round_entry
         feld = round_entry(reihe, variable, schrift(10), FLAECHE, LINIE, ACCENT, FG)
-        feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(reihe, text=' %s ' % t('e_durchsuchen'), bg=FLAECHE,
                          fg=FG, font=schrift(10), cursor='hand2', padx=8, pady=6)
         knopf.pack(side='left')
@@ -284,7 +284,7 @@ class Einstellungsfenster:
         feld = round_entry(eltern, self.intervall, schrift(10), FLAECHE, LINIE,
                            ACCENT, FG, breite=8,
                            placeholder=t('s_pl_intervall'))
-        feld.halter.pack(anchor='w')
+        feld.holder.pack(anchor='w')
 
     def _tonfeld(self, eltern):
         self._titel(eltern, t('e_ton'), t('e_ton_hilfe'))
