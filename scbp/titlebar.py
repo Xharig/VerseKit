@@ -47,7 +47,7 @@ Leiste ist haesslich, ein Absturz beim Fensterbau waere schlimmer.
 import sys
 
 
-ATTRIBUTE = (20, 19)                 # neu zuerst, dann die alte Kennzahl
+ATTRIBUTES = (20, 19)                # neu zuerst, dann die alte Kennzahl
 
 # Fuer das Neuzeichnen des Rahmens. ⚠ NOACTIVATE ist Pflicht: Ohne das holt
 # sich das Fenster den Fokus — und wer gerade Star Citizen fliegt, landet
@@ -56,7 +56,7 @@ SWP_NOSIZE, SWP_NOMOVE, SWP_NOZORDER = 0x0001, 0x0002, 0x0004
 SWP_NOACTIVATE, SWP_FRAMECHANGED = 0x0010, 0x0020
 
 
-def _griff(fenster):
+def _handle(window):
     """Das Fenster-Handle, an dem die Titelleiste haengt.
 
     ⚠ `winfo_id()` liefert bei Tk den ZEICHENBEREICH, nicht den Rahmen. Die
@@ -64,32 +64,32 @@ def _griff(fenster):
     Fenster ohne Leiste, und der Aufruf meldet trotzdem Erfolg.
     """
     import ctypes
-    return ctypes.windll.user32.GetParent(fenster.winfo_id())
+    return ctypes.windll.user32.GetParent(window.winfo_id())
 
 
-def dunkel(fenster):
+def set_dark(window):
     """Die Titelleiste dieses Fensters dunkel stellen. Sagt, ob es klappte."""
     if not sys.platform.startswith('win'):
         return False
     try:
         import ctypes
         from ctypes import wintypes
-        griff = _griff(fenster)
-        if not griff:
+        handle = _handle(window)
+        if not handle:
             return False
-        wert = ctypes.c_int(1)
-        for kennzahl in ATTRIBUTE:
-            ergebnis = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                wintypes.HWND(griff), ctypes.c_uint(kennzahl),
-                ctypes.byref(wert), ctypes.sizeof(wert))
-            if ergebnis == 0:
+        value = ctypes.c_int(1)
+        for attribute in ATTRIBUTES:
+            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                wintypes.HWND(handle), ctypes.c_uint(attribute),
+                ctypes.byref(value), ctypes.sizeof(value))
+            if result == 0:
                 return True
     except Exception:
         pass                          # helle Leiste ist haesslich, nicht schlimm
     return False
 
 
-def rahmen_neu(fenster):
+def redraw_frame(window):
     """Windows zwingen, den Fensterrahmen neu zu zeichnen.
 
     ⚠⚠ **Ohne das bleibt die Leiste weiss.** Genau daran ist v3.6.0
@@ -107,11 +107,11 @@ def rahmen_neu(fenster):
         return False
     try:
         import ctypes
-        griff = _griff(fenster)
-        if not griff:
+        handle = _handle(window)
+        if not handle:
             return False
         ctypes.windll.user32.SetWindowPos(
-            ctypes.c_void_p(griff), None, 0, 0, 0, 0,
+            ctypes.c_void_p(handle), None, 0, 0, 0, 0,
             SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
             | SWP_FRAMECHANGED)
         return True
@@ -119,7 +119,7 @@ def rahmen_neu(fenster):
         return False
 
 
-def einrichten():
+def install():
     """Jedes Fenster des Programms bekommt die dunkle Leiste — auch kuenftige.
 
     ⚠⚠ **Eine Stelle statt sieben.** Das Programm baut an sieben Orten echte
@@ -139,13 +139,13 @@ def einrichten():
     except ImportError:
         return False
 
-    for klasse in (tk.Tk, tk.Toplevel):
-        if getattr(klasse, '_scbp_dunkle_leiste', False):
+    for cls in (tk.Tk, tk.Toplevel):
+        if getattr(cls, '_scbp_dark_titlebar', False):
             continue
-        urspruenglich = klasse.__init__
+        original = cls.__init__
 
-        def bauen(self, *a, _urspruenglich=urspruenglich, **k):
-            _urspruenglich(self, *a, **k)
+        def build(self, *a, _original=original, **k):
+            _original(self, *a, **k)
             try:
                 # ⚠⚠ **Erst beim Anzeigen, nicht schon hier.** Naheliegend
                 # waere, die Einstellung gleich beim Bauen zu setzen — dann
@@ -154,20 +154,20 @@ def einrichten():
                 # gar nicht** (`GetParent` liefert 0), der Aufruf ginge ins
                 # Leere und meldete das nicht einmal. Also nur `<Map>` — und
                 # dort dann mit erzwungenem Neuzeichnen.
-                self.bind('<Map>', lambda _e, w=self: _einmal(w), add='+')
+                self.bind('<Map>', lambda _e, w=self: _once(w), add='+')
             except Exception:
                 pass
 
-        klasse.__init__ = bauen
-        klasse._scbp_dunkle_leiste = True
+        cls.__init__ = build
+        cls._scbp_dark_titlebar = True
     return True
 
 
-NACHFASSEN = 10                  # Versuche, danach bis zum naechsten <Map> ruhen
-NACHFASSEN_MS = 50               # Abstand dazwischen
+RETRIES = 10                     # Versuche, danach bis zum naechsten <Map> ruhen
+RETRY_MS = 50                    # Abstand dazwischen
 
 
-def _einmal(fenster, versuch=0):
+def _once(window, attempt=0):
     """Beim ersten Anzeigen faerben — danach nie wieder.
 
     ⚠ `<Map>` feuert bei jedem Wiederherstellen aus der Taskleiste. Ohne
@@ -177,7 +177,7 @@ def _einmal(fenster, versuch=0):
     ⚠⚠ **Der Merker wird erst gesetzt, wenn es GEKLAPPT hat.** Bis zum
     02.09.2026 stand er eine Zeile zu frueh — vor dem Versuch. Lieferte
     `GetParent` in diesem Moment noch 0 (das Fenster war gemappt, der Rahmen
-    aber noch nicht fertig), gab `dunkel()` False zurueck, und das Fenster galt
+    aber noch nicht fertig), gab `set_dark()` False zurueck, und das Fenster galt
     trotzdem als erledigt: **fuer immer helle Leiste, ohne einen zweiten
     Versuch.** Es war ein Wettlauf, deshalb sah es zufaellig aus — Overlay und
     versteckte Fenster gewannen ihn, das jedes Mal neu gebaute Hauptfenster
@@ -188,19 +188,19 @@ def _einmal(fenster, versuch=0):
 
     ⚠ **Und bei Misserfolg wird der Merker NICHT gesetzt.** Dann versucht es
     das naechste `<Map>` erneut (Wiederherstellen aus der Taskleiste). Ein
-    Fenster, das nie faerbbar ist, kostet dadurch `NACHFASSEN` erfolglose
+    Fenster, das nie faerbbar ist, kostet dadurch `RETRIES` erfolglose
     Aufrufe pro Anzeigen — ein paar Millisekunden, und dafuer heilt sich der
     Fall selbst, statt dauerhaft hell zu bleiben.
     """
     try:
-        if getattr(fenster, '_scbp_leiste_gesetzt', False):
+        if getattr(window, '_scbp_titlebar_set', False):
             return
-        if dunkel(fenster):
-            fenster._scbp_leiste_gesetzt = True
-            rahmen_neu(fenster)
+        if set_dark(window):
+            window._scbp_titlebar_set = True
+            redraw_frame(window)
             return
-        if versuch + 1 < NACHFASSEN:
-            fenster.after(NACHFASSEN_MS,
-                          lambda: _einmal(fenster, versuch + 1))
+        if attempt + 1 < RETRIES:
+            window.after(RETRY_MS,
+                         lambda: _once(window, attempt + 1))
     except Exception:
         pass

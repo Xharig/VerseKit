@@ -9266,7 +9266,7 @@ def main():
     # gerade das, was in die Irre gefuehrt hat.
     print()
     print('98. Die Titelleiste ist wirklich dunkel')
-    from scbp import titelleiste as _tl98
+    from scbp import titlebar as _tl98
 
     if not sys.platform.startswith('win'):
         print('  [-]    kein Windows — die Leiste macht hier der Fenstermanager')
@@ -9274,7 +9274,7 @@ def main():
         import ctypes as _ct98
         from ctypes import wintypes as _wt98
 
-        pruefe(_tl98.einrichten() is True, 'der Haken laesst sich setzen')
+        pruefe(_tl98.install() is True, 'der Haken laesst sich setzen')
 
         import tkinter as tk98
         _wz98 = _wurzel()
@@ -9283,7 +9283,7 @@ def main():
         # ⚠ Weit neben jeden Bildschirm. Die Pruefung MUSS das Fenster
         # anzeigen — vorher gibt es kein Handle —, aber niemand soll es sehen.
         _top98.geometry('300x120+9000+9000')
-        pruefe(not _tl98._griff(_top98),
+        pruefe(not _tl98._handle(_top98),
                'vor dem Anzeigen gibt es noch kein Handle — der frueher hier '
                'stehende Aufruf war wirkungslos')
         _top98.deiconify()
@@ -9291,7 +9291,7 @@ def main():
             _wz98.update()
             _wz98.update_idletasks()
 
-        _h98 = _tl98._griff(_top98)
+        _h98 = _tl98._handle(_top98)
         pruefe(bool(_h98), 'nach dem Anzeigen gibt es eines')
 
         # ⚠⚠ **Hier wird von Hand ausgeloest, nicht auf `<Map>` gewartet.**
@@ -9299,8 +9299,8 @@ def main():
         # still — sonst blitzten die Fenster auf dem Bildschirm des Nutzers
         # auf. Damit feuert `<Map>` nie. Dass der Haken daran haengt, prueft
         # weiter unten der Quelltext; hier geht es um die WIRKUNG.
-        _tl98._einmal(_top98)
-        pruefe(getattr(_top98, '_scbp_leiste_gesetzt', False) is True,
+        _tl98._once(_top98)
+        pruefe(getattr(_top98, '_scbp_titlebar_set', False) is True,
                'der Haken merkt sich, dass er dieses Fenster erledigt hat')
 
         _wert98 = _ct98.c_int(-1)
@@ -9312,13 +9312,13 @@ def main():
                '%d)' % _wert98.value)
 
         # ⭐ Und das Neuzeichnen ist da — ohne das blieb sie weiss.
-        pruefe(_tl98.rahmen_neu(_top98) is True,
+        pruefe(_tl98.redraw_frame(_top98) is True,
                'der Rahmen laesst sich zum Neuzeichnen zwingen')
-        _q98 = open(os.path.join(WURZEL, 'scbp', 'titelleiste.py'),
+        _q98 = open(os.path.join(WURZEL, 'scbp', 'titlebar.py'),
                     encoding='utf-8').read()
         _code98 = chr(10).join(_z for _z in _q98.split(chr(10))
                                if not _z.strip().startswith('#'))
-        pruefe('rahmen_neu(fenster)' in _code98.split('def _einmal')[1],
+        pruefe('redraw_frame(window)' in _code98.split('def _once')[1],
                'und wird beim Anzeigen auch gerufen')
         # ⚠ Und der Haken haengt wirklich am Anzeigen — genau das laesst sich
         # unter `unsichtbar` nicht ausloesen, also wird es hier gelesen.
@@ -9337,7 +9337,7 @@ def main():
 
     # ⭐⭐ Der Merker steht ERST nach dem Erfolg (Fund vom 02.09.2026)
     #
-    # Bis dahin setzte `_einmal` ihn eine Zeile zu frueh — vor dem Versuch.
+    # Bis dahin setzte `_once` ihn eine Zeile zu frueh — vor dem Versuch.
     # Lieferte `GetParent` in diesem Moment noch 0, galt das Fenster trotzdem
     # als erledigt und bekam **nie wieder** einen Versuch: dauerhaft helle
     # Leiste. Weil es ein Wettlauf war, traf es mal das eine Fenster und mal
@@ -9352,7 +9352,7 @@ def main():
     print('98b. Ein misslungener Faerbe-Versuch sperrt das Fenster nicht aus')
 
     class _Attrappe98:
-        """Nur so viel Fenster, wie `_einmal` anfasst."""
+        """Nur so viel Fenster, wie `_once` anfasst."""
 
         def __init__(self):
             self.geplant = []
@@ -9360,34 +9360,34 @@ def main():
         def after(self, ms, rueckruf):
             self.geplant.append((ms, rueckruf))
 
-    _dunkel98, _rahmen98 = _tl98.dunkel, _tl98.rahmen_neu
+    _dunkel98, _rahmen98 = _tl98.set_dark, _tl98.redraw_frame
     try:
-        _tl98.dunkel = lambda _f: False
+        _tl98.set_dark = lambda _f: False
         _a98 = _Attrappe98()
-        _tl98._einmal(_a98)
-        pruefe(getattr(_a98, '_scbp_leiste_gesetzt', False) is False,
+        _tl98._once(_a98)
+        pruefe(getattr(_a98, '_scbp_titlebar_set', False) is False,
                'scheitert das Faerben, gilt das Fenster NICHT als erledigt')
         pruefe(len(_a98.geplant) == 1,
                'stattdessen wird nachgefasst (%d geplant)' % len(_a98.geplant))
 
-        # Und das Nachfassen laeuft nicht ewig: nach NACHFASSEN Versuchen ist
+        # Und das Nachfassen laeuft nicht ewig: nach RETRIES Versuchen ist
         # Ruhe, bis das naechste <Map> kommt.
         _b98 = _Attrappe98()
-        _tl98._einmal(_b98, _tl98.NACHFASSEN - 1)
+        _tl98._once(_b98, _tl98.RETRIES - 1)
         pruefe(not _b98.geplant,
                'beim letzten Versuch wird nicht weiter nachgefasst')
 
         # Klappt es, wird gemerkt — sonst liefe das Neuzeichnen bei jedem
         # Wiederherstellen aus der Taskleiste erneut.
-        _tl98.dunkel = lambda _f: True
-        _tl98.rahmen_neu = lambda _f: True
+        _tl98.set_dark = lambda _f: True
+        _tl98.redraw_frame = lambda _f: True
         _c98 = _Attrappe98()
-        _tl98._einmal(_c98)
-        pruefe(getattr(_c98, '_scbp_leiste_gesetzt', False) is True,
+        _tl98._once(_c98)
+        pruefe(getattr(_c98, '_scbp_titlebar_set', False) is True,
                'klappt es, wird es gemerkt')
         pruefe(not _c98.geplant, 'und nicht weiter nachgefasst')
     finally:
-        _tl98.dunkel, _tl98.rahmen_neu = _dunkel98, _rahmen98
+        _tl98.set_dark, _tl98.redraw_frame = _dunkel98, _rahmen98
 
 
     # 98c. Das Fenster baut NUR die gewuenschte Seite — und zeigt sich fertig

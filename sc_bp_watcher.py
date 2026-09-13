@@ -51,7 +51,7 @@ from scbp import (
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   einstellungsfenster, notice, injektion,
                   catalog as katalog_modul, shops, logsource, watchlist,
-                  pfade, phrasen, ships, gamebuild, titelleiste, sound,
+                  pfade, phrasen, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
 
 try:
@@ -4347,7 +4347,7 @@ if __name__ == '__main__':
     # ⚠⚠ **Vor dem ersten Fenster.** Sonst haette die Wurzel — und alles, was
     # vor diesem Aufruf entsteht — weiterhin die helle Leiste des Systems.
     # Unter Linux tut der Aufruf nichts und kostet nichts.
-    titelleiste.einrichten()
+    titlebar.install()
     wurzel = tk.Tk()
     wurzel.withdraw()
     # Die Knöpfe der System-Abfragen auf die Programmsprache bringen. Muss nach
