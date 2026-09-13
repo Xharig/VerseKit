@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.32.1 - 2026-09-13
+
+> **A follow-up to the bar at the bottom.** Since v3.32.0 you can choose whether
+> the bar sits at the top or the bottom of the overlay — only the resize grip
+> did not move along. It stayed at the bottom right, right on the icons, where
+> it covered the ✕. It now always sits on the side the bar is not on.
+
+### Fixed
+
+- **The resize grip now always sits on the side without the bar.** Choosing
+  "bar at the bottom" still put the drag triangle at the bottom right — right
+  on the bar's icons, where it covered the ✕. Dragging now grows the window
+  upwards, because the bottom edge counts as the fixed one
+
 ## v3.32.0 - 2026-09-13
 
 > **A click takes you somewhere else — now you can get back, too.** Clicking an

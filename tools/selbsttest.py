@@ -19440,6 +19440,31 @@ def main():
                'ein echtes Verschieben stellt auf „frei verschiebbar"')
         pruefe(_gerufen199 == ['frei'],
                'und die Auswahlliste in den Einstellungen erfaehrt davon')
+
+        # --- Der Ziehgriff gehoert auf die leistenfreie Seite ------------
+        # ⛔⛔ Gemeldet am 13.09.2026, unmittelbar nach v3.32.0: „wenn man
+        # unten auswaehlt, muss der Groessenschieber aber auch nach oben."
+        # Bis dahin bezog der Griff seine Ecke allein aus `overlay_ecke` —
+        # und das ging gut, solange die Leiste ihre Seite von der Ecke bezog.
+        # Seit sie eine eigene Einstellung ist, entsteht der alte Fehler ueber
+        # einen zweiten Weg: „frei verschiebbar" + „Leiste unten" setzte den
+        # Griff unten rechts, mitten auf die Symbole, und er deckte das ✕ zu.
+        #
+        # ⚠ Geprueft wird das VERHALTEN, nicht die Schreibweise: Vier
+        # Kombinationen aus Ecke und Leistenseite, und jedes Mal muss der
+        # Griff auf der Seite sitzen, auf der die Leiste NICHT ist.
+        for _ecke199, _leiste199, _erwartet199 in (
+                ('frei', 'oben', False),
+                ('frei', 'unten', True),
+                ('unten-links', 'oben', True),
+                ('oben-rechts', 'unten', True)):
+            _pf199.einstellung_setzen('overlay_ecke', _ecke199)
+            _pf199.einstellung_setzen('overlay_leiste', _leiste199)
+            _unten199, _ = _ov._verankert()
+            pruefe(_unten199 is _erwartet199,
+                   'Ecke %s + Leiste %s: Griff sitzt %s'
+                   % (_ecke199, _leiste199,
+                      'oben' if _erwartet199 else 'unten'))
     finally:
         try:
             if _pf199 is not None:

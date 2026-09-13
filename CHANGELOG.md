@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.32.1 - 2026-09-13
+
+> **Nachschlag zur Leiste unten.** Seit v3.32.0 kannst du wählen, ob die Leiste
+> oben oder unten am Overlay sitzt — nur ist der Griff zum Größenziehen nicht
+> mitgewandert. Er blieb unten rechts und lag damit genau auf den Symbolen, wo
+> er das ✕ zudeckte. Jetzt sitzt er immer auf der Seite, auf der die Leiste
+> nicht ist.
+
+### Behoben
+
+- **Der Größen-Griff sitzt jetzt immer auf der leistenfreien Seite.** Wer
+  „Leiste unten" wählt, bekam das Dreieck zum Ziehen weiter unten rechts — also
+  mitten auf die Symbole der Leiste, wo es das ✕ zudeckte. Das Ziehen wächst
+  dabei nach oben, weil die untere Kante dann als feste gilt
+
 ## v3.32.0 - 2026-09-13
 
 > **Ein Klick bringt dich woanders hin — jetzt kommst du auch wieder zurück.**

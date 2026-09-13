@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.32.0'
+__version__ = '3.32.1'
 
 
 def _mitgeliefert(name):
@@ -2677,12 +2677,25 @@ class Overlay:
         beiden Kanten duerfen sich beim Ziehen NICHT bewegen; waechst das
         Fenster, muss es in die freie Richtung wachsen. Ohne gewaehlte Ecke
         (`frei`) gilt das Uebliche: oben und links liegen fest.
+
+        ⛔⛔ **Die Leistenseite zaehlt mit** (13.09.2026). Der Griff sitzt in
+        der freien Ecke, und bis v3.32.0 war die freie Ecke immer auch die
+        leistenfreie — weil die Leiste ihre Seite von der Ecke bezog. Seit sie
+        eine eigene Einstellung ist, stimmt das nicht mehr: Wer „frei
+        verschiebbar" **und** „Leiste unten" waehlt, bekam den Griff unten
+        rechts, also mitten auf die Symbole der Leiste, und er deckte das ✕ zu.
+
+        Genau der Fall, den der Kommentar unten seit rc10 beschreibt — nur
+        entsteht er jetzt ueber einen zweiten Weg. Liegt die Leiste unten, gilt
+        die untere Kante als fest, und der Griff geht nach oben.
         """
         try:
             ecke = pfade.einstellung('overlay_ecke') or 'frei'
         except Exception:
             ecke = 'frei'
-        return (ecke.startswith('unten'), ecke.endswith('rechts'))
+        unten = (ecke.startswith('unten')
+                 or self._leiste_seite_wunsch() == 'bottom')
+        return (unten, ecke.endswith('rechts'))
 
     def _resize(self, e):
         """Das Fenster am Griff groesser ziehen — von der freien Ecke aus.
