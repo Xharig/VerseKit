@@ -142,7 +142,7 @@ class Einstellungsfenster:
         rahmen.pack(fill='both', expand=True)
         self.leinwand = tk.Canvas(rahmen, bg=BG, highlightthickness=0)
         from .main_window import round_scrollbar
-        rolle = round_scrollbar(rahmen, self.leinwand, grund=BG)
+        rolle = round_scrollbar(rahmen, self.leinwand, bg=BG)
         innen = tk.Frame(self.leinwand, bg=BG)
         innen.bind('<Configure>', lambda e: self.leinwand.configure(
             scrollregion=self.leinwand.bbox('all')))
@@ -282,7 +282,7 @@ class Einstellungsfenster:
         self._titel(eltern, t('e_intervall'), t('e_intervall_hilfe'))
         from .main_window import round_entry
         feld = round_entry(eltern, self.intervall, schrift(10), FLAECHE, LINIE,
-                           ACCENT, FG, breite=8,
+                           ACCENT, FG, width=8,
                            placeholder=t('s_pl_intervall'))
         feld.holder.pack(anchor='w')
 

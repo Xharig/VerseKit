@@ -2095,7 +2095,7 @@ class Overlay:
         # auch nicht passend". Die vier Rollbereiche im Hauptfenster hatten den
         # Umbau schon; hier stand er noch aus.
         from scbp.main_window import round_scrollbar
-        sb = round_scrollbar(wrap, self.canvas, grund=BG)
+        sb = round_scrollbar(wrap, self.canvas, bg=BG)
         self.list = tk.Frame(self.canvas, bg=BG)
         self.list.bind('<Configure>',
                        lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))

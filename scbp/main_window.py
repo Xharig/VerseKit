@@ -138,14 +138,14 @@ def remembered_size(root):
     haette sonst ein Fenster, dessen rechte Haelfte nicht erreichbar ist.
     """
     raw = (pfade.einstellung(SIZE_KEY) or '').strip().lower()
-    breite = hoehe = 0
+    width = height = 0
     if 'x' in raw:
         parts = raw.split('x', 1)
         if parts[0].isdigit() and parts[1].isdigit():
-            breite, hoehe = int(parts[0]), int(parts[1])
+            width, height = int(parts[0]), int(parts[1])
     try:
-        breite = min(breite, root.winfo_screenwidth())
-        hoehe = min(hoehe, root.winfo_screenheight())
+        width = min(width, root.winfo_screenwidth())
+        height = min(height, root.winfo_screenheight())
     except Exception:
         pass
     # ⚠⚠ **Die Mindestgroesse hat das letzte Wort — nach der Deckelung.**
@@ -154,9 +154,9 @@ def remembered_size(root):
     # obwohl `minsize` 1160x380 verlangt, und Tk zoege es beim ersten Zeichnen
     # ruckartig wieder auf. Gefunden hat das der Bau-Lauf von v3.4.2 — der
     # Windows-Rechner dort hat einen kleineren Schirm als jeder echte Nutzer.
-    breite = max(MIN_WIDTH, breite)
-    hoehe = max(MIN_HEIGHT, hoehe)
-    return breite, hoehe
+    width = max(MIN_WIDTH, width)
+    height = max(MIN_HEIGHT, height)
+    return width, height
 
 
 # Startbreite der Seitenleiste. Auch sie ist nur eine Untergrenze: Wie breit
@@ -193,7 +193,7 @@ def _round_rect(canvas, x1, y1, x2, y2, radius, **kw):
     return canvas.create_polygon(points, smooth=True, **kw)
 
 
-def toggle_switch(eltern, an, toggle, grund=None):
+def toggle_switch(parent, on, toggle, bg=None):
     """Ein runder Schiebeschalter — an oder aus, auf einen Blick.
 
     Tk kennt nur Kästchen zum Ankreuzen, und die sehen auf jedem System anders
@@ -204,25 +204,25 @@ def toggle_switch(eltern, an, toggle, grund=None):
     zurückgeben — gezeichnet wird erst danach, damit nichts leuchtet, was gar
     nicht gespeichert wurde.
     """
-    grund = grund or BG
-    breite, hoehe = 44, 24
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
+    bg = bg or BG
+    width, height = 44, 24
+    c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
-    capsule = _round_rect(c, 2, 3, breite - 2, hoehe - 3, radius=9,
+    capsule = _round_rect(c, 2, 3, width - 2, height - 3, radius=9,
                               fill='#2b3547', outline='')
     dot = c.create_oval(5, 6, 19, 20, fill=SUB, outline='')
 
     def draw(state):
         c.itemconfigure(capsule, fill='#2a3a1c' if state else '#2b3547')
         c.itemconfigure(dot, fill=ACCENT if state else SUB)
-        x = (breite - 24) if state else 0
+        x = (width - 24) if state else 0
         c.coords(dot, 5 + x, 6, 19 + x, 20)
 
     def click(_=None):
         draw(bool(toggle()))
 
     c.bind('<Button-1>', click)
-    draw(bool(an))
+    draw(bool(on))
     c.draw = draw
     return c
 
@@ -304,7 +304,7 @@ def _wayland():
                 or os.environ.get('XDG_SESSION_TYPE') == 'wayland')
 
 
-def slider(eltern, von, bis, value, on_drag, breite=190, grund=None):
+def slider(parent, minimum, maximum, value, on_drag, width=190, bg=None):
     """Ein Schieberegler in der Machart des Fensters.
 
     Tk bringt zwar `Scale` mit, aber das ist ein Systemelement: Auf dem Mac ein
@@ -312,32 +312,32 @@ def slider(eltern, von, bis, value, on_drag, breite=190, grund=None):
     wieder anders. Selbst gezeichnet sieht es überall gleich aus — und passt zu
     den Schaltern daneben.
     """
-    grund = grund or BG
-    hoehe = 26
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
+    bg = bg or BG
+    height = 26
+    c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
-    y = hoehe // 2
-    _round_rect(c, 0, y - 3, breite, y + 3, radius=3,
+    y = height // 2
+    _round_rect(c, 0, y - 3, width, y + 3, radius=3,
                      fill='#2b3547', outline='')
     filled = _round_rect(c, 0, y - 3, 10, y + 3, radius=3,
                                 fill=ACCENT, outline='')
     knob = c.create_oval(0, y - 8, 16, y + 8, fill=ACCENT, outline='')
 
-    span = float(max(1, bis - von))
+    span = float(max(1, maximum - minimum))
 
     def draw(w):
-        fraction = max(0.0, min(1.0, (w - von) / span))
-        x = 8 + fraction * (breite - 16)
+        fraction = max(0.0, min(1.0, (w - minimum) / span))
+        x = 8 + fraction * (width - 16)
         c.coords(filled, *([0, y - 3, x, y - 3, x, y - 3, x, y + 3,
                               x, y + 3, 0, y + 3, 0, y + 3, 0, y - 3]))
         c.coords(knob, x - 8, y - 8, x + 8, y + 8)
 
-    def from_x(ereignis):
-        fraction = max(0.0, min(1.0, (ereignis.x - 8) / float(breite - 16)))
-        return int(round(von + fraction * span))
+    def from_x(event):
+        fraction = max(0.0, min(1.0, (event.x - 8) / float(width - 16)))
+        return int(round(minimum + fraction * span))
 
-    def drag(ereignis):
-        new_value = from_x(ereignis)
+    def drag(event):
+        new_value = from_x(event)
         draw(new_value)
         on_drag(new_value)
 
@@ -359,7 +359,7 @@ def corners(x1, y1, x2, y2, r):
             x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
 
 
-def round_frame(eltern, grund, border, radius=8, base_color=None):
+def round_frame(parent, bg, border, radius=8, base_color=None):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
 
     Tk kann Rahmen nur eckig — deshalb liegt hinter dem Inhalt eine Leinwand
@@ -389,14 +389,14 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
     **Für kleine Elemente ein schlichtes `tk.Label` mit `bg` und `padx/pady`
     nehmen.** Eckig, aber richtig bemessen.
     """
-    base_color = base_color or eltern.cget('bg')
-    holder = tk.Frame(eltern, bg=base_color)
+    base_color = base_color or parent.cget('bg')
+    holder = tk.Frame(parent, bg=base_color)
     canvas = tk.Canvas(holder, bg=base_color, highlightthickness=0, bd=0,
                          height=10)
     canvas.pack(fill='both', expand=True)
-    inner = tk.Frame(canvas, bg=grund)
+    inner = tk.Frame(canvas, bg=bg)
     shape = _round_rect(canvas, 1, 1, 100, 100, radius=radius,
-                            fill=grund, outline=border, width=1)
+                            fill=bg, outline=border, width=1)
     # ⚠ Ein per `create_window` eingesetztes Widget liegt in Tk IMMER über
     # allem Gemalten — die Zeichenreihenfolge gilt dafür nicht. Säße der Inhalt
     # bündig in der Ecke, deckte sein rechteckiger Hintergrund die Rundung ab,
@@ -415,16 +415,16 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
         # Anfangskoordinaten stehen, seine Rundungen lägen außerhalb der
         # Leinwand, und der Kasten sähe wieder eckig aus. Genau das ist bei den
         # schmalen Zahlenfeldern passiert.
-        breite = canvas.winfo_width()
-        if breite < 10:
-            breite = canvas.winfo_reqwidth()
-        hoehe = inner.winfo_reqheight()
-        if breite < 10:
+        width = canvas.winfo_width()
+        if width < 10:
+            width = canvas.winfo_reqwidth()
+        height = inner.winfo_reqheight()
+        if width < 10:
             return
-        canvas.configure(height=hoehe + inset * 2)
-        canvas.itemconfigure(window_id, width=breite - inset * 2)
-        canvas.coords(shape, *corners(1, 1, breite - 1,
-                                     hoehe + inset * 2 - 1, radius))
+        canvas.configure(height=height + inset * 2)
+        canvas.itemconfigure(window_id, width=width - inset * 2)
+        canvas.coords(shape, *corners(1, 1, width - 1,
+                                     height + inset * 2 - 1, radius))
 
     inner.bind('<Configure>', refresh)
     canvas.bind('<Configure>', refresh)
@@ -441,8 +441,8 @@ def round_frame(eltern, grund, border, radius=8, base_color=None):
     return inner
 
 
-def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
-                breite=None, placeholder=None, **kw):
+def round_entry(parent, textvariable, font, bg, border, accent, fg,
+                width=None, placeholder=None, **kw):
     """Ein Eingabefeld mit runden Ecken — überall im Programm dasselbe.
 
     Das Feld selbst bleibt ein gewöhnliches `Entry` (nur so lässt sich tippen),
@@ -465,19 +465,19 @@ def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
         raise ValueError('round_entry: `placeholder` braucht eine `textvariable` '
                          '— sonst liest `feld.get()` den Hinweistext als '
                          'Eingabe')
-    schrift = _as_font(schrift)
+    font = _as_font(font)
     radius = 8
-    polster = 6
-    hoehe = schrift.metrics('linespace') + polster * 2
-    canvas = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
+    padding = 6
+    height = font.metrics('linespace') + padding * 2
+    canvas = tk.Canvas(parent, height=height, bg=parent.cget('bg'),
                          highlightthickness=0, bd=0)
-    shape = _round_rect(canvas, 1, 1, 100, hoehe - 1, radius=radius,
-                            fill=grund, outline=border, width=1)
+    shape = _round_rect(canvas, 1, 1, 100, height - 1, radius=radius,
+                            fill=bg, outline=border, width=1)
     if textvariable is not None:
         kw['textvariable'] = textvariable
-    field = tk.Entry(canvas, bg=grund, fg=fg, font=schrift, relief='flat',
+    field = tk.Entry(canvas, bg=bg, fg=fg, font=font, relief='flat',
                     bd=0, highlightthickness=0, insertbackground=fg, **kw)
-    window_id = canvas.create_window(polster + 2, hoehe / 2.0, window=field,
+    window_id = canvas.create_window(padding + 2, height / 2.0, window=field,
                                         anchor='w')
     if placeholder:
         fields.hinweis(field, textvariable, placeholder, normal=fg, grau=SUB)
@@ -496,17 +496,17 @@ def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
         if b < 10:
             return
         try:
-            canvas.coords(shape, *corners(1, 1, b - 1, hoehe - 1, radius))
-            canvas.itemconfigure(window_id, width=b - (polster + 2) * 2)
+            canvas.coords(shape, *corners(1, 1, b - 1, height - 1, radius))
+            canvas.itemconfigure(window_id, width=b - (padding + 2) * 2)
         except tk.TclError:
             pass
 
     canvas.bind('<Configure>', refresh)
     canvas.bind('<Map>', refresh)
-    if breite:
+    if width:
         # Feste Breite: so viele Ziffern plus Luft. Ohne das zieht `fill='x'`
         # der Zeile das Feld über die halbe Seite.
-        canvas.configure(width=schrift.measure('0') * breite + polster * 4)
+        canvas.configure(width=font.measure('0') * width + padding * 4)
     field.holder = canvas
     canvas.after(0, refresh)
     field.bind('<FocusIn>',
@@ -517,7 +517,7 @@ def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
 
 
 
-def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
+def round_textarea(parent, font, bg, border, accent, fg, rows=4, **kw):
     """Das mehrzeilige Gegenstück zu `round_entry` — gleiche Optik.
 
     ⚠⚠ **Wofür.** Ein `Entry` zeigt immer nur einen Ausschnitt: Wer zwei Sätze
@@ -538,18 +538,18 @@ def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
     dieselbe Verabredung wie bei `round_entry`, damit beide sich gleich
     einbauen lassen.
     """
-    schrift = _as_font(schrift)
+    font = _as_font(font)
     radius = 8
-    polster = 8
-    hoehe = schrift.metrics('linespace') * rows + polster * 2
-    canvas = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
+    padding = 8
+    height = font.metrics('linespace') * rows + padding * 2
+    canvas = tk.Canvas(parent, height=height, bg=parent.cget('bg'),
                          highlightthickness=0, bd=0)
-    shape = _round_rect(canvas, 1, 1, 100, hoehe - 1, radius=radius,
-                            fill=grund, outline=border, width=1)
-    field = tk.Text(canvas, bg=grund, fg=fg, font=schrift, relief='flat',
+    shape = _round_rect(canvas, 1, 1, 100, height - 1, radius=radius,
+                            fill=bg, outline=border, width=1)
+    field = tk.Text(canvas, bg=bg, fg=fg, font=font, relief='flat',
                    bd=0, highlightthickness=0, insertbackground=fg,
                    height=rows, wrap='word', padx=0, pady=0, **kw)
-    window_id = canvas.create_window(polster + 2, polster, window=field,
+    window_id = canvas.create_window(padding + 2, padding, window=field,
                                         anchor='nw')
 
     def refresh(_=None):
@@ -566,9 +566,9 @@ def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
         if b < 10:
             return
         try:
-            canvas.coords(shape, *corners(1, 1, b - 1, hoehe - 1, radius))
-            canvas.itemconfigure(window_id, width=b - (polster + 2) * 2,
-                                   height=hoehe - polster * 2)
+            canvas.coords(shape, *corners(1, 1, b - 1, height - 1, radius))
+            canvas.itemconfigure(window_id, width=b - (padding + 2) * 2,
+                                   height=height - padding * 2)
         except tk.TclError:
             pass
 
@@ -583,7 +583,7 @@ def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
     return field
 
 
-def _as_font(schrift):
+def _as_font(font):
     """Eine Schrift als messbares Objekt.
 
     Die älteren Fenster geben ihre Schrift als Tupel `('Helvetica', 10)`
@@ -591,14 +591,14 @@ def _as_font(schrift):
     braucht aber die Breite des Wortes, sonst schneidet er es ab. Also hier
     einmal umwandeln, statt an jeder Stelle daran zu denken.
     """
-    if isinstance(schrift, (tuple, list)):
-        return tkfont.Font(family=schrift[0], size=schrift[1],
-                           weight=schrift[2] if len(schrift) > 2 else 'normal')
-    return schrift
+    if isinstance(font, (tuple, list)):
+        return tkfont.Font(family=font[0], size=font[1],
+                           weight=font[2] if len(font) > 2 else 'normal')
+    return font
 
 
 
-def round_bar(eltern, hoehe, fraction, grund, empty_color, full_color, breite=None):
+def round_bar(parent, height, fraction, bg, empty_color, full_color, width=None):
     """Ein Fortschrittsbalken mit runden Enden.
 
     Zwei ineinandergeschobene Rahmen wären einfacher, hätten aber scharfe
@@ -609,42 +609,42 @@ def round_bar(eltern, hoehe, fraction, grund, empty_color, full_color, breite=No
     Seitenleiste ein- oder ausgeklappt) — deshalb `<Configure>` statt einer
     einmal ausgerechneten Pixelzahl.
     """
-    r = hoehe / 2.0
-    c = tk.Canvas(eltern, height=hoehe, bg=grund, highlightthickness=0, bd=0)
-    if breite:
-        c.configure(width=breite)
-    groove = _round_rect(c, 0, 0, 100, hoehe, radius=r, fill=empty_color,
+    r = height / 2.0
+    c = tk.Canvas(parent, height=height, bg=bg, highlightthickness=0, bd=0)
+    if width:
+        c.configure(width=width)
+    groove = _round_rect(c, 0, 0, 100, height, radius=r, fill=empty_color,
                              outline='')
-    fill_color = _round_rect(c, 0, 0, 10, hoehe, radius=r, fill=full_color,
+    fill_color = _round_rect(c, 0, 0, 10, height, radius=r, fill=full_color,
                                 outline='')
 
     def refresh(_=None):
         b = c.winfo_width()
         if b < 4:
             return
-        c.coords(groove, *corners(0, 0, b, hoehe, r))
+        c.coords(groove, *corners(0, 0, b, height, r))
         if fraction <= 0:
             c.itemconfigure(fill_color, state='hidden')
             return
         c.itemconfigure(fill_color, state='normal')
         # Mindestens so breit wie hoch: Ein Balken bei 1 % wäre sonst ein
         # Strich, den man für einen Zeichenfehler hält.
-        full_width = max(hoehe, b * fraction)
-        c.coords(fill_color, *corners(0, 0, full_width, hoehe, r))
+        full_width = max(height, b * fraction)
+        c.coords(fill_color, *corners(0, 0, full_width, height, r))
 
     c.bind('<Configure>', refresh)
     return c
 
 
-def _own_scroll(vom, bis):
+def _own_scroll(start, stop):
     """Ein Textfeld zwischen `vom` und `bis`, das selbst rollen kann — oder None.
 
     Geprüft wird, ob überhaupt etwas zu rollen **ist**: Ein Feld, dessen Inhalt
     hineinpasst, meldet `(0.0, 1.0)`. Dort soll weiter die Seite rollen, sonst
     bliebe der Zeiger über einem kurzen Feld hängen und nichts bewegte sich.
     """
-    node = vom
-    while node is not None and node is not bis:
+    node = start
+    while node is not None and node is not stop:
         if isinstance(node, tk.Text):
             try:
                 upper, lower = node.yview()
@@ -809,8 +809,8 @@ def bind_wheel(canvas):
             except tk.TclError:
                 pass
 
-        for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-            root_window.bind_all(ereignis, scroll, add='+')
+        for event in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            root_window.bind_all(event, scroll, add='+')
         try:
             root_window.bind_all('<TouchpadScroll>', swipe, add='+')
         except tk.TclError:
@@ -823,7 +823,7 @@ def bind_wheel(canvas):
 
 
 
-def round_scrollbar(eltern, canvas, grund=None, breite=10):
+def round_scrollbar(parent, canvas, bg=None, width=10):
     """Eine Rollleiste mit runden Enden — statt der des Betriebssystems.
 
     ⚠ `tk.Scrollbar` ist das einzige Bedienelement, das sich nicht einfärben
@@ -835,7 +835,7 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
     Bedienung wie gewohnt: ziehen, und ein Klick daneben springt eine Seite
     weiter. `canvas` ist die Rollfläche, an der sie hängt.
     """
-    grund = grund or BG
+    bg = bg or BG
     # ⚠⚠ **Ein Rollbalken, den man nicht sieht, ist keiner.** Der Griff war
     # `#2b3547` — auf der Fläche einer aufgeklappten Auswahlliste (`#161c28`)
     # ergibt das einen Kontrast von **1,6 : 1**. Am 30.08.2026 gemeldet: „ah es
@@ -848,11 +848,11 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
     # eine Bahn gibt, an der etwas entlangläuft — der Griff allein sieht aus
     # wie ein Strich.
     groove_color, grip_color, grip_light = '#0b0e14', '#5a6b85', '#7d90ad'
-    r = breite / 2.0
+    r = width / 2.0
 
-    c = tk.Canvas(eltern, width=breite, bg=grund, highlightthickness=0, bd=0)
-    groove = c.create_rectangle(0, 0, breite, 10, fill=groove_color, outline='')
-    grip = _round_rect(c, 0, 0, breite, 30, radius=r,
+    c = tk.Canvas(parent, width=width, bg=bg, highlightthickness=0, bd=0)
+    groove = c.create_rectangle(0, 0, width, 10, fill=groove_color, outline='')
+    grip = _round_rect(c, 0, 0, width, 30, radius=r,
                              fill=grip_color, outline='')
     c.sized = True        # die Randprüfung soll sie nicht melden
 
@@ -869,25 +869,25 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
         die Leiste sprang, statt sich ziehen zu lassen. Sie sah also greifbar aus
         und war es nicht.
         """
-        hoehe = c.winfo_height() or 1
+        height = c.winfo_height() or 1
         first, last = pos['first'], pos['last']
-        upper = first * hoehe
+        upper = first * height
         # Der Griff bleibt greifbar, auch wenn 700 Baupläne in der Liste
         # stehen und er rechnerisch drei Pixel hoch wäre.
-        lower = max(upper + breite * 2.4, last * hoehe)
-        if lower > hoehe:                 # am unteren Ende nach oben schieben
-            upper, lower = max(0.0, hoehe - (lower - upper)), hoehe
-        return upper, lower, hoehe
+        lower = max(upper + width * 2.4, last * height)
+        if lower > height:                 # am unteren Ende nach oben schieben
+            upper, lower = max(0.0, height - (lower - upper)), height
+        return upper, lower, height
 
     def nothing_to_scroll():
         """Passt alles ins Fenster? Dann ist diese Leiste ohne Aufgabe."""
         return (pos['last'] - pos['first']) >= 0.999
 
     def refresh(*_):
-        hoehe = c.winfo_height()
-        if hoehe < 4:
+        height = c.winfo_height()
+        if height < 4:
             return
-        c.coords(groove, 0, 0, breite, hoehe)
+        c.coords(groove, 0, 0, width, height)
         if nothing_to_scroll():
             c.itemconfigure(grip, state='hidden')
             # ⚠ **Auch die Rille verschwindet.** Eine sichtbare Bahn ohne
@@ -899,7 +899,7 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
         c.itemconfigure(groove, state='normal')
         c.itemconfigure(grip, state='normal')
         upper, lower, _ = grip_pos()
-        c.coords(grip, *corners(0, upper, breite, lower, r))
+        c.coords(grip, *corners(0, upper, width, lower, r))
 
     def setzen(first, last):
         """Ruft Tk auf, wenn sich der sichtbare Ausschnitt ändert."""
@@ -921,13 +921,13 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
         # jede, sobald ein Filter gesetzt war.
         if nothing_to_scroll():
             return
-        upper, lower, hoehe = grip_pos()
+        upper, lower, height = grip_pos()
         span = pos['last'] - pos['first']
         if upper <= e.y <= lower:                  # auf dem Griff: ziehen
             pos['dragging'] = True
             pos['grip_offset'] = e.y - upper
             return
-        target = max(0.0, min(1.0, (e.y / hoehe) - span / 2.0))
+        target = max(0.0, min(1.0, (e.y / height) - span / 2.0))
         canvas.yview_moveto(target)
 
     def drag(e):
@@ -941,8 +941,8 @@ def round_scrollbar(eltern, canvas, grund=None, breite=10):
         """
         if not pos['dragging'] or nothing_to_scroll():
             return
-        upper, lower, hoehe = grip_pos()
-        travel = max(1.0, hoehe - (lower - upper))
+        upper, lower, height = grip_pos()
+        travel = max(1.0, height - (lower - upper))
         span = pos['last'] - pos['first']
         fraction = (e.y - pos['grip_offset']) / travel
         canvas.yview_moveto(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
@@ -1050,14 +1050,14 @@ _DC_EYE_RIGHT = (
 )
 
 
-def discord_glyph(canvas, x, middle, hoehe, color):
+def discord_glyph(canvas, x, middle, height, color):
     """Das Discord-Zeichen, gezeichnet aus den Originalumrissen.
 
     `x` ist die linke Kante, `mitte` die senkrechte Mitte, `hoehe` der
     verfügbare Platz. Alle Punkte sind Anteile davon, das Zeichen wächst also
     mit der Schriftgröße mit.
     """
-    h = max(9.0, hoehe * 0.82)
+    h = max(9.0, height * 0.82)
     b = h                      # der viewBox ist quadratisch
     lx = x
     oy = middle - h / 2.0
@@ -1072,9 +1072,9 @@ def discord_glyph(canvas, x, middle, hoehe, color):
     canvas.create_polygon(path(_DC_OUTLINE), fill=color, outline=color)
     # Die Augen sind im SVG Aussparungen derselben Fläche. Tk kennt keine
     # Löcher, deshalb werden sie in der Farbe des Untergrunds darübergelegt.
-    grund = canvas['bg']
+    bg = canvas['bg']
     for eye in (_DC_EYE_LEFT, _DC_EYE_RIGHT):
-        canvas.create_polygon(path(eye), fill=grund, outline=grund)
+        canvas.create_polygon(path(eye), fill=bg, outline=bg)
 
 
 # Von am 26.08.2026 gemeldet bestätigt. ⚠ Wer sie ändert, prüft vorher, dass die
@@ -1083,7 +1083,7 @@ def discord_glyph(canvas, x, middle, hoehe, color):
 KOFI_URL = 'https://ko-fi.com/xharig'
 
 
-def coffee_glyph(canvas, x, middle, hoehe, color):
+def coffee_glyph(canvas, x, middle, height, color):
     """Eine Kaffeetasse — für den Ko-fi-Knopf.
 
     ⚠ Gezeichnet, nicht getippt. Die Tassen-Zeichen in Unicode (`U+2615` ☕,
@@ -1098,7 +1098,7 @@ def coffee_glyph(canvas, x, middle, hoehe, color):
     ohne dass das Motiv unklar wird, gehört weg. Bei einer Tasse tragen Becher
     und Henkel, der Dampf ist Zierde.
     """
-    h = max(9.0, hoehe * 0.72)
+    h = max(9.0, height * 0.72)
     b = h * 1.05
     lx = x
     oy = middle - h / 2.0
@@ -1120,10 +1120,10 @@ def coffee_glyph(canvas, x, middle, hoehe, color):
 
     # Ein abgesetzter Streifen als Kaffeespiegel — das macht aus dem Umriss
     # erst eine gefüllte Tasse.
-    grund = canvas['bg']
+    bg = canvas['bg']
     canvas.create_rectangle(lx + b * 0.14, oy + h * 0.33,
                               lx + b * 0.66, oy + h * 0.41,
-                              fill=grund, outline=grund)
+                              fill=bg, outline=bg)
 
     # Die Untertasse — ein flacher Balken, der die Tasse auf den Boden stellt.
     canvas.create_rectangle(lx + b * 0.02, oy + h * 0.92,
@@ -1131,8 +1131,8 @@ def coffee_glyph(canvas, x, middle, hoehe, color):
                               fill=color, outline=color)
 
 
-def round_button(eltern, text, tat, schrift, grund, fill_color, border, fg,
-              radius=6, polster=(10, 5), cursor='hand2', paint=None):
+def round_button(parent, text, action, font, bg, fill_color, border, fg,
+              radius=6, padding=(10, 5), cursor='hand2', paint=None):
     """Ein klickbarer Knopf mit runden Ecken — der Standard im ganzen Programm.
 
     Ein `Label` mit Hintergrundfarbe wäre einfacher, sähe aber überall eckig
@@ -1155,42 +1155,42 @@ def round_button(eltern, text, tat, schrift, grund, fill_color, border, fg,
     bei jedem Neuzeichnen erneut gerufen und muss ihre eigenen Formen anlegen;
     aufgeräumt wird vorher.
     """
-    schrift = _as_font(schrift)
+    font = _as_font(font)
     symbol_width = 0
     if paint:
         # Platz für das Symbol plus Abstand — an der Schrifthöhe bemessen,
         # damit es mit der Schriftgröße mitwächst.
-        symbol_width = schrift.metrics('linespace') + 8
-    breite = schrift.measure(text) + polster[0] * 2 + symbol_width
-    hoehe = schrift.metrics('linespace') + polster[1] * 2
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
+        symbol_width = font.metrics('linespace') + 8
+    width = font.measure(text) + padding[0] * 2 + symbol_width
+    height = font.metrics('linespace') + padding[1] * 2
+    c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor=cursor)
 
-    state = {'fuellung': fill_color, 'rand': border, 'fg': fg}
+    state = {'fill': fill_color, 'border': border, 'fg': fg}
 
     def draw(b=None, h=None):
         b = b or int(c['width'])
         h = h or int(c['height'])
         c.delete('all')
         c.shape = _round_rect(c, 1, 1, b - 1, h - 1, radius=radius,
-                                  fill=state['fuellung'],
-                                  outline=state['rand'], width=1)
+                                  fill=state['fill'],
+                                  outline=state['border'], width=1)
         if paint:
-            paint(c, polster[0], h / 2.0, h - polster[1] * 2, state['fg'])
+            paint(c, padding[0], h / 2.0, h - padding[1] * 2, state['fg'])
         # ⚠ Der Text sitzt in der Mitte des **Restes**, nicht der ganzen
         # Fläche. Sonst rückt ein Symbol links die Beschriftung nach rechts aus
         # der Mitte, und zwei Knöpfe untereinander stehen krumm.
         middle_x = (b + symbol_width) / 2.0 if paint else b / 2.0
         c.caption = c.create_text(middle_x, h / 2.0, text=text,
-                                       fill=state['fg'], font=schrift,
+                                       fill=state['fg'], font=font,
                                        anchor='center')
 
-    draw(breite, hoehe)
+    draw(width, height)
 
     # ⚠ Nur bei echter Änderung neu malen. Tk schickt `<Configure>` auch dann,
     # wenn sich nichts an der Größe geändert hat — ein bedingungsloses
     # Neuzeichnen darin läuft im Kreis.
-    last_size = {'b': breite, 'h': hoehe}
+    last_size = {'b': width, 'h': height}
 
     def _resized(e):
         if e.width == last_size['b'] and e.height == last_size['h']:
@@ -1202,10 +1202,10 @@ def round_button(eltern, text, tat, schrift, grund, fill_color, border, fg,
 
     def setzen(fill_color=None, border_color=None, fg_color=None):
         if fill_color:
-            state['fuellung'] = fill_color
+            state['fill'] = fill_color
             c.itemconfigure(c.shape, fill=fill_color)
         if border_color:
-            state['rand'] = border_color
+            state['border'] = border_color
             c.itemconfigure(c.shape, outline=border_color)
         if fg_color:
             state['fg'] = fg_color
@@ -1217,8 +1217,8 @@ def round_button(eltern, text, tat, schrift, grund, fill_color, border, fg,
 
     c.restyle = setzen
     c.is_button = True          # damit tools/randpruefung.py ihn prüft
-    if tat:
-        c.bind('<Button-1>', lambda e: tat())
+    if action:
+        c.bind('<Button-1>', lambda e: action())
     return c
 
 
@@ -1234,8 +1234,8 @@ MAX_CHOICE_ROWS = 15
 MAX_FIELD_CHARS = 18
 
 
-def round_select(eltern, entries, selected, on_select, schrift, grund=None,
-             breite=None):
+def round_select(parent, entries, selected, on_select, font, bg=None,
+             width=None):
     """Ein Auswahlfeld im Hausstil — Knopf mit ▾, der eine Liste aufklappt.
 
     ⚠ Warum selbst gebaut: Tk bringt `OptionMenu` und `ttk.Combobox` mit, und
@@ -1253,9 +1253,9 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     den Rand ihres Elternrahmens hinausragen, und genau das muss sie, wenn
     zwanzig Arten zur Wahl stehen.
     """
-    grund = grund or BG
-    s = _as_font(schrift)
-    state = {'wert': selected, 'liste': None, 'zu_seit': 0.0, 'wachen': []}
+    bg = bg or BG
+    s = _as_font(font)
+    state = {'value': selected, 'list': None, 'closed_since': 0.0, 'guards': []}
 
     def caption_for(value):
         for w, text in entries:
@@ -1274,14 +1274,14 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     # Die **aufgeklappte Liste** bleibt so breit, wie ihr längster Eintrag es
     # verlangt — dort ist der Platz da. Nur das Feld wird gedeckelt; ein zu
     # langer gewählter Wert bekommt am Ende ein „…".
-    if breite is None:
+    if width is None:
         needed = max(s.measure(text) for _, text in entries) + 42
-        breite = min(needed, s.measure('M' * MAX_FIELD_CHARS) + 42)
-    hoehe = s.metrics('linespace') + 14
+        width = min(needed, s.measure('M' * MAX_FIELD_CHARS) + 42)
+    height = s.metrics('linespace') + 14
 
     def _fitting(text):
         """Text so kürzen, dass er ins geschlossene Feld passt."""
-        space = breite - 34          # Rand links, Pfeil rechts
+        space = width - 34          # Rand links, Pfeil rechts
         if s.measure(text) <= space:
             return text
         shortened = text
@@ -1289,19 +1289,19 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
             shortened = shortened[:-1]
         return (shortened + '…') if shortened else text
 
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
+    c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
-    shape = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+    shape = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
                             fill='#0c1017', outline=BORDER, width=1)
-    text_id = c.create_text(11, hoehe / 2.0,
+    text_id = c.create_text(11, height / 2.0,
                             text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
-    pfeil = c.create_text(breite - 12, hoehe / 2.0, text='▾', fill=SUB,
+    pfeil = c.create_text(width - 12, height / 2.0, text='▾', fill=SUB,
                           font=s, anchor='e')
     c.is_button = True          # die Randprüfung soll ihn messen
 
     def faerben():
-        is_set = bool(state['wert'])
+        is_set = bool(state['value'])
         c.itemconfigure(shape, outline=ACCENT if is_set else BORDER)
         c.itemconfigure(text_id, fill=ACCENT if is_set else FG)
         c.itemconfigure(pfeil, fill=ACCENT if is_set else SUB)
@@ -1310,41 +1310,41 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         # ⚠ Zuerst die Wachen lösen. Die aufgeklappte Liste ist ein **eigenes
         # Fenster**; bleiben ihre Bindungen am Hauptfenster hängen, feuern sie
         # später ins Leere.
-        for ereignis, badge in state.get('wachen') or []:
+        for event, badge in state.get('guards') or []:
             try:
-                c.winfo_toplevel().unbind(ereignis, badge)
+                c.winfo_toplevel().unbind(event, badge)
             except tk.TclError:
                 pass
-        state['wachen'] = []
-        if state['liste'] is not None:
+        state['guards'] = []
+        if state['list'] is not None:
             try:
-                state['liste'].destroy()
+                state['list'].destroy()
             except tk.TclError:
                 pass
-            state['liste'] = None
-            state['zu_seit'] = time.time()
+            state['list'] = None
+            state['closed_since'] = time.time()
 
     def choose(value):
         close_list()
-        state['wert'] = value
+        state['value'] = value
         c.itemconfigure(text_id, text=_fitting(caption_for(value)))
         faerben()
         on_select(value)
 
     def open_list(_=None):
-        if state['liste'] is not None:
+        if state['list'] is not None:
             close_list()
             return
         # ⚠ Ein Klick, der die Liste gerade eben geschlossen hat, darf sie nicht
         # sofort wieder öffnen. Schließt das Fenster über `<FocusOut>`, kommt der
         # Klick anschließend hier an — man sah die Liste aufblitzen und sofort
         # wieder verschwinden, und erst der zweite Klick hielt sie offen.
-        if time.time() - state['zu_seit'] < 0.25:
+        if time.time() - state['closed_since'] < 0.25:
             return
         window = tk.Toplevel(c)
         window.overrideredirect(True)        # kein Titelbalken, kein Rahmen
         window.configure(bg=BORDER)
-        state['liste'] = window
+        state['list'] = window
 
         # ⚠ Die Liste muss rollen können. Bei 25 Arten ist sie höher als der
         # Platz unter dem Feld — steht das Fenster weit unten, waren die
@@ -1357,9 +1357,9 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         window_id = canvas.create_window((0, 0), window=inner, anchor='nw')
 
         for value, text in entries:
-            an = (value == state['wert'])
+            selected = (value == state['value'])
             zeile = tk.Label(inner, text=text, bg=SURFACE,
-                             fg=ACCENT if an else FG, font=s, anchor='w',
+                             fg=ACCENT if selected else FG, font=s, anchor='w',
                              padx=11, pady=4, cursor='hand2')
             zeile.pack(fill='x')
             zeile.bind('<Button-1>', lambda e, w=value: choose(w))
@@ -1369,10 +1369,10 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         c.update_idletasks()
         inner.update_idletasks()
         needed_height = inner.winfo_reqheight()
-        needed_width = max(breite, inner.winfo_reqwidth() + 2)
+        needed_width = max(width, inner.winfo_reqwidth() + 2)
 
         x = c.winfo_rootx()
-        lower = c.winfo_rooty() + hoehe + 2
+        lower = c.winfo_rooty() + height + 2
         # ⚠ Nicht `winfo_screenheight()`: Tk meldet damit die Höhe **aller**
         # Bildschirme zusammen. Bei zwei übereinander stehenden Monitoren passt
         # eine lange Liste rechnerisch immer nach unten — und klappt in
@@ -1447,7 +1447,7 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
             # selbst: **Was wichtig ist, gehört nach oben.** Standen die zwei
             # größten Gruppen (Rüstung 910, Waffen 270) alphabetisch an Position
             # 11 und 14, half auch der beste Balken nicht.
-            leiste = round_scrollbar(outer, canvas, grund=SURFACE, breite=10)
+            leiste = round_scrollbar(outer, canvas, bg=SURFACE, width=10)
             leiste.pack(side='right', fill='y')
             canvas.configure(yscrollcommand=leiste.set)
         canvas.configure(scrollregion=(0, 0, needed_width,
@@ -1502,8 +1502,8 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                     pass
             return 'break'
 
-        for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-            window.bind(ereignis, wheel_in_list)
+        for event in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            window.bind(event, wheel_in_list)
         try:
             window.bind('<TouchpadScroll>', swipe_in_list)
         except tk.TclError:
@@ -1558,11 +1558,11 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
                 # geändert wird: Die Liste stünde dann neben ihrem Feld.
                 root_window = c.winfo_toplevel()
                 guards = []
-                for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>',
+                for event in ('<MouseWheel>', '<Button-4>', '<Button-5>',
                                  '<Configure>'):
-                    guards.append((ereignis,
-                                   root_window.bind(ereignis, close_list, add='+')))
-                state['wachen'] = guards
+                    guards.append((event,
+                                   root_window.bind(event, close_list, add='+')))
+                state['guards'] = guards
             except tk.TclError:
                 pass
 
@@ -1575,7 +1575,7 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
         jedes einzelne einen vollen Neuaufbau der Liste aus.
         """
         close_list()
-        state['wert'] = value
+        state['value'] = value
         c.itemconfigure(text_id, text=caption_for(value))
         faerben()
 
@@ -1591,10 +1591,10 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     #
     # Also am Feld selbst horchen: Wird es ausgeblendet (`<Unmap>`) oder
     # abgeräumt (`<Destroy>`), ist die Liste dazu gegenstandslos.
-    def _close_list(ereignis=None):
+    def _close_list(event=None):
         # ⚠ Nur auf das Feld selbst hören. `<Destroy>` kommt auch für jedes
         # Kind und würde sonst beim Abräumen der Liste selbst wieder feuern.
-        if ereignis is not None and ereignis.widget is not c:
+        if event is not None and event.widget is not c:
             return
         close_list()
 
@@ -1603,11 +1603,11 @@ def round_select(eltern, entries, selected, on_select, schrift, grund=None,
     faerben()
     c.select = choose
     c.select_quiet = select_quiet
-    c.value = lambda: state['wert']
+    c.value = lambda: state['value']
     return c
 
 
-def badge(eltern, text, color, schrift, grund=None, min_width=0):
+def badge(parent, text, color, font, bg=None, min_width=0):
     """Eine abgerundete Blase mit farbigem Rand — „neu", „behoben" und Verwandte.
 
     Ein farbiges Wort geht in einer Liste unter; eine umrandete Blase liest man
@@ -1619,19 +1619,19 @@ def badge(eltern, text, color, schrift, grund=None, min_width=0):
     Ecken kann ein Label ohnehin nicht. Deshalb eine kleine Leinwand: Sie kostet
     ein paar Zeilen mehr und sieht auf allen drei Systemen gleich aus.
     """
-    grund = grund or SURFACE
-    hoehe = schrift.metrics('linespace') + 8
+    bg = bg or SURFACE
+    height = font.metrics('linespace') + 8
     # ⚠ Genug Luft, und alle Blasen einer Gruppe gleich breit: Sonst wird die
     # längste abgeschnitten, sobald der Platz feststeht — und die Wörter
     # flattern, weil jede Blase anders breit ist.
-    breite = max(min_width, schrift.measure(text) + 20)
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
+    width = max(min_width, font.measure(text) + 20)
+    c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0)
-    c.bubble = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
-                               radius=max(4, hoehe // 3),
-                               fill=grund, outline=color, width=1)
-    c.create_text(breite / 2.0, hoehe / 2.0, text=text, fill=color,
-                  font=schrift, anchor='center')
+    c.bubble = _round_rect(c, 1, 1, width - 1, height - 1,
+                               radius=max(4, height // 3),
+                               fill=bg, outline=color, width=1)
+    c.create_text(width / 2.0, height / 2.0, text=text, fill=color,
+                  font=font, anchor='center')
 
     def set_background(new_bg):
         """Beim Einfärben der Zeile mitziehen — Leinwand und Blasenfüllung."""
@@ -2072,7 +2072,7 @@ class MainWindow:
         # Genau so stand „Info" beim ersten Bau da: aufgeklappt und trotzdem
         # ohne einen einzigen Eintrag.
         self.sidebar_scrollbar = round_scrollbar(rollbereich, self.sidebar_canvas,
-                                         grund=SURFACE)
+                                         bg=SURFACE)
         self.sidebar_canvas.configure(
             yscrollcommand=self.sidebar_scrollbar.set)
         self.sidebar_scrollbar.pack(side='right', fill='y')
@@ -2325,7 +2325,7 @@ class MainWindow:
         rahmen_dc.pack(side='bottom', fill='x', padx=12, pady=(0, 6))
         self.discord_button = round_button(
             rahmen_dc, t('hf_discord'), self._open_discord, self.f_small,
-            SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
+            SURFACE, SURFACE, BORDER, SUB, radius=8, padding=(12, 6),
             paint=discord_glyph)
         self.discord_button.pack(fill='x')
 
@@ -2348,7 +2348,7 @@ class MainWindow:
         rahmen_kofi.pack(side='bottom', fill='x', padx=12, pady=(0, 2))
         self.kofi_button = round_button(
             rahmen_kofi, t('hf_kofi'), self._open_kofi, self.f_small,
-            SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
+            SURFACE, SURFACE, BORDER, SUB, radius=8, padding=(12, 6),
             paint=coffee_glyph)
         self.kofi_button.pack(fill='x')
 
@@ -2380,7 +2380,7 @@ class MainWindow:
             self.play_button = round_button(
                 rahmen_start, t('s_sp_start_knopf'),
                 self._start_game, self.f_small,
-                SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
+                SURFACE, ACCENT, ACCENT, BG, radius=8, padding=(12, 7))
             self.play_button.pack(fill='x')
 
     def _open_kofi(self):
@@ -2991,7 +2991,7 @@ class MainWindow:
         knopf = round_button(
             self.back_bar, t('hf_zurueck_zu') % name, self._back_jump,
             self.f_small, BG, SURFACE, BORDER, SUB,
-            radius=8, polster=(12, 5))
+            radius=8, padding=(12, 5))
         knopf.pack(side='left', padx=14, pady=(10, 0))
         # ⚠ `before=` ist Pflicht. Die Seiten werden bei jedem Wechsel neu
         # gepackt; ohne diesen Bezug landet die Leiste beim zweiten Mal
@@ -3498,32 +3498,32 @@ DIALOG_WIDTH = 620          # bewusst breit: Am 28.08.: "eher breiter statt hoch
 LIST_VISIBLE = 7
 
 
-def _dialog_button(eltern, text, tat, schrift, strong=False):
+def _dialog_button(parent, text, action, font, strong=False):
     """Knopf im Programmstil — dieselbe Machart wie `seiten._knopf`.
 
     Bewusst hier nachgebaut statt importiert: `seiten` importiert aus diesem
     Modul, andersherum gäbe es einen Ringschluss.
     """
-    hoehe = schrift.metrics('linespace') + 16
-    breite = schrift.measure(text) + 40
+    height = font.metrics('linespace') + 16
+    width = font.measure(text) + 40
     color = ACCENT if strong else FG
     border = ACCENT if strong else BORDER
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=BG,
+    c = tk.Canvas(parent, width=width, height=height, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
-    surface = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+    surface = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
                                fill='#1d2a14' if strong else SURFACE,
                                outline=border, width=1)
-    caption = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
-                                 fill=color, font=schrift, anchor='center')
+    caption = c.create_text(width / 2.0, height / 2.0, text=text,
+                                 fill=color, font=font, anchor='center')
     c.bind('<Enter>', lambda _=None: (c.itemconfigure(surface, outline=ACCENT),
                                       c.itemconfigure(caption, fill=ACCENT)))
     c.bind('<Leave>', lambda _=None: (c.itemconfigure(surface, outline=border),
                                       c.itemconfigure(caption, fill=color)))
-    c.bind('<Button-1>', lambda _=None: tat())
+    c.bind('<Button-1>', lambda _=None: action())
     return c
 
 
-def ask_choice(eltern, title, text, button_a, button_b):
+def ask_choice(parent, title, text, button_a, button_b):
     """Zwei Wege zur Auswahl stellen. Gibt `'a'`, `'b'` oder `''` zurueck.
 
     ⚠ **Warum nicht `ask_yes_no`.** Dort bedeutet Escape „nein" — bei einer
@@ -3534,11 +3534,11 @@ def ask_choice(eltern, title, text, button_a, button_b):
     """
     answer = {'wert': ''}
     try:
-        win = tk.Toplevel(eltern)
+        win = tk.Toplevel(parent)
         win.title(title)
         win.configure(bg=BG)
         win.resizable(False, False)
-        win.transient(eltern)
+        win.transient(parent)
         win.configure(highlightthickness=1, highlightbackground=BORDER,
                       highlightcolor=BORDER)
 
@@ -3573,24 +3573,24 @@ def ask_choice(eltern, title, text, button_a, button_b):
         win.protocol('WM_DELETE_WINDOW', lambda: schliessen(''))
 
         win.update_idletasks()
-        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
-        hoehe = win.winfo_reqheight()
+        width = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        height = win.winfo_reqheight()
         try:
-            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
-            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+            x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - height) // 3
         except tk.TclError:
             x = y = 200
-        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (width, height, max(0, x), max(0, y)))
 
         win.grab_set()
         win.focus_set()
-        eltern.wait_window(win)
+        parent.wait_window(win)
     except Exception as ausnahme:
-        fehler.merken('main_window.wahl_stellen', ausnahme)
+        fehler.merken('main_window.ask_choice', ausnahme)
     return answer['wert']
 
 
-def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
+def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
                  choices=(), choices_title=''):
     """Nach einem kurzen Text fragen — im Programmstil. Gibt den Text oder `None`.
 
@@ -3617,13 +3617,13 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
     dieselben Tasten (Eingabe = uebernehmen, Escape = abbrechen).
     """
     try:
-        ja = ja or t('e_speichern')
+        yes_text = yes_text or t('e_speichern')
         no_text = no_text or t('e_abbrechen')
-        win = tk.Toplevel(eltern)
+        win = tk.Toplevel(parent)
         win.title(title)
         win.configure(bg=BG)
         win.resizable(False, False)
-        win.transient(eltern)
+        win.transient(parent)
         win.configure(highlightthickness=1, highlightbackground=BORDER,
                       highlightcolor=BORDER)
 
@@ -3698,7 +3698,7 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
         row.pack(anchor='e', pady=(20, 0))
         _dialog_button(row, no_text, lambda: schliessen(False),
                       font_button).pack(side='right', padx=(8, 0))
-        _dialog_button(row, ja, lambda: schliessen(True),
+        _dialog_button(row, yes_text, lambda: schliessen(True),
                       font_button, strong=True).pack(side='right')
 
         win.bind('<Return>', lambda _=None: schliessen(True))
@@ -3706,29 +3706,29 @@ def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
         win.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
 
         win.update_idletasks()
-        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
-        hoehe = win.winfo_reqheight()
+        width = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        height = win.winfo_reqheight()
         try:
-            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
-            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+            x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - height) // 3
         except tk.TclError:
             x = y = 200
-        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (width, height, max(0, x), max(0, y)))
 
         win.grab_set()
         # Der Mauszeiger steht schon im Feld — wer tippen soll, soll tippen
         # koennen, ohne vorher zu klicken.
         field.focus_set()
         field.selection_range(0, 'end')
-        eltern.wait_window(win)
+        parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.text_stellen', ausnahme)
+        fehler.merken('main_window.ask_text', ausnahme)
         from tkinter import simpledialog
         return simpledialog.askstring(title, text, initialvalue=preset)
 
 
-def ask_pick(eltern, title, text, entries, no_text=None):
+def ask_pick(parent, title, text, entries, no_text=None):
     """Einen Eintrag aus einer Liste waehlen. Gibt den Eintrag oder `None`.
 
     ⚠ **Wozu, wenn es doch einen Dateiwaehler gibt:** Weil der Spieler seine
@@ -3742,11 +3742,11 @@ def ask_pick(eltern, title, text, entries, no_text=None):
     """
     try:
         no_text = no_text or t('e_abbrechen')
-        win = tk.Toplevel(eltern)
+        win = tk.Toplevel(parent)
         win.title(title)
         win.configure(bg=BG)
         win.resizable(False, False)
-        win.transient(eltern)
+        win.transient(parent)
         win.configure(highlightthickness=1, highlightbackground=BORDER,
                       highlightcolor=BORDER)
 
@@ -3800,25 +3800,25 @@ def ask_pick(eltern, title, text, entries, no_text=None):
         win.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
 
         win.update_idletasks()
-        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
-        hoehe = win.winfo_reqheight()
+        width = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        height = win.winfo_reqheight()
         try:
-            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
-            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+            x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - height) // 3
         except tk.TclError:
             x = y = 200
-        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (width, height, max(0, x), max(0, y)))
 
         win.grab_set()
         win.focus_set()
-        eltern.wait_window(win)
+        parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.auswahl_stellen', ausnahme)
+        fehler.merken('main_window.ask_pick', ausnahme)
         return None
 
 
-def center_over(window, eltern, breite=None, hoehe=None):
+def center_over(window, parent, width=None, height=None):
     """Ein Fenster mittig über sein Elternfenster setzen.
 
     ⚠⚠⚠ **Warum das keine Kosmetik ist.** Ein `Toplevel`, das nur eine Größe
@@ -3841,18 +3841,18 @@ def center_over(window, eltern, breite=None, hoehe=None):
     """
     try:
         window.update_idletasks()
-        b = breite or window.winfo_width() or window.winfo_reqwidth()
-        h = hoehe or window.winfo_height() or window.winfo_reqheight()
-        x = eltern.winfo_rootx() + (eltern.winfo_width() - b) // 2
-        y = eltern.winfo_rooty() + (eltern.winfo_height() - h) // 3
+        b = width or window.winfo_width() or window.winfo_reqwidth()
+        h = height or window.winfo_height() or window.winfo_reqheight()
+        x = parent.winfo_rootx() + (parent.winfo_width() - b) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 3
         window.geometry('%dx%d+%d+%d' % (b, h, max(0, x), max(0, y)))
         return True
     except Exception as ausnahme:
-        fehler.merken('main_window.mittig_ueber', ausnahme)
+        fehler.merken('main_window.center_over', ausnahme)
         return False
 
 
-def ask_yes_no(eltern, title, text, ja=None, no_text=None,
+def ask_yes_no(parent, title, text, yes_text=None, no_text=None,
                   only_ok=False):
     """Ja/Nein-Frage im Programmstil. Gibt True zurück, wenn bejaht wurde.
 
@@ -3863,13 +3863,13 @@ def ask_yes_no(eltern, title, text, ja=None, no_text=None,
     nicht stellen lässt, wäre schlimmer als eine hässliche.
     """
     try:
-        ja = ja or t('e_ja')
+        yes_text = yes_text or t('e_ja')
         no_text = no_text or t('e_nein')
-        win = tk.Toplevel(eltern)
+        win = tk.Toplevel(parent)
         win.title(title)
         win.configure(bg=BG)
         win.resizable(False, False)
-        win.transient(eltern)
+        win.transient(parent)
         # ⚠ Eigene Kante. Ohne sie ist der Dialog eine dunkle Flaeche auf
         # dunklem Grund — jeder andere Kasten im Programm (Zustandskasten,
         # Karten) hat eine sichtbare Linie, und ohne sie wirkt er nicht
@@ -3907,7 +3907,7 @@ def ask_yes_no(eltern, title, text, ja=None, no_text=None,
         if not only_ok:
             _dialog_button(row, no_text, lambda: schliessen(False),
                           font_button).pack(side='right', padx=(8, 0))
-        _dialog_button(row, ja, lambda: schliessen(True),
+        _dialog_button(row, yes_text, lambda: schliessen(True),
                       font_button, strong=True).pack(side='right')
 
         win.bind('<Return>', lambda _=None: schliessen(True))
@@ -3916,29 +3916,29 @@ def ask_yes_no(eltern, title, text, ja=None, no_text=None,
 
         # Mittig über das Elternfenster setzen — erst messen, dann schieben.
         win.update_idletasks()
-        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
-        hoehe = win.winfo_reqheight()
+        width = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        height = win.winfo_reqheight()
         try:
-            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
-            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+            x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - height) // 3
         except tk.TclError:
             x = y = 200
-        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (width, height, max(0, x), max(0, y)))
 
         win.grab_set()
         win.focus_set()
-        eltern.wait_window(win)
+        parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.frage_stellen', ausnahme)
+        fehler.merken('main_window.ask_yes_no', ausnahme)
         from tkinter import messagebox
         if only_ok:
-            messagebox.showinfo(title, text, parent=eltern)
+            messagebox.showinfo(title, text, parent=parent)
             return True
-        return bool(messagebox.askyesno(title, text, parent=eltern))
+        return bool(messagebox.askyesno(title, text, parent=parent))
 
 
-def ask_channel(eltern, entered, channels):
+def ask_channel(parent, entered, channels):
     """Fragen, aus welchem Spielordner ab jetzt gelesen wird. Gibt ihn zurueck.
 
     ⚠⚠ **Wofuer das da ist.** Legt CIG eine ausgebesserte Fassung neben LIVE,
@@ -3968,18 +3968,18 @@ def ask_channel(eltern, entered, channels):
         text = '%s\n%s\n\n%s' % (t('s_kn_weg') % os.path.basename(entered),
                                  t('s_kn_da') % name,
                                  t('s_kn_frage'))
-        if ask_yes_no(eltern, t('s_kn_titel'), text,
+        if ask_yes_no(parent, t('s_kn_titel'), text,
                          no_text=t('s_kn_spaeter')):
             return folder
         return None
 
     try:
-        win = tk.Toplevel(eltern)
+        win = tk.Toplevel(parent)
         win.title(t('s_kn_titel'))
         win.configure(bg=BG, highlightthickness=1, highlightbackground=BORDER,
                       highlightcolor=BORDER)
         win.resizable(False, False)
-        win.transient(eltern)
+        win.transient(parent)
 
         font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
         font_text = tkfont.Font(family='Segoe UI', size=10)
@@ -4030,24 +4030,24 @@ def ask_channel(eltern, entered, channels):
         win.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
 
         win.update_idletasks()
-        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
-        hoehe = win.winfo_reqheight()
+        width = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        height = win.winfo_reqheight()
         try:
-            x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
-            y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
+            x = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+            y = parent.winfo_rooty() + (parent.winfo_height() - height) // 3
         except tk.TclError:
             x = y = 200
-        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (width, height, max(0, x), max(0, y)))
 
         win.grab_set()
         win.focus_set()
-        eltern.wait_window(win)
+        parent.wait_window(win)
         return selected['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.kanal_waehlen', ausnahme)
+        fehler.merken('main_window.ask_channel', ausnahme)
         # Lieber die kurze Frage auf den neuesten Kanal als gar keine.
         name, folder, _s = channels[0]
-        if ask_yes_no(eltern, t('s_kn_titel'),
+        if ask_yes_no(parent, t('s_kn_titel'),
                          '%s\n%s\n\n%s' % (
                              t('s_kn_weg') % os.path.basename(entered),
                              t('s_kn_da') % name, t('s_kn_frage')),
@@ -4056,7 +4056,7 @@ def ask_channel(eltern, entered, channels):
         return None
 
 
-def show_result(eltern, title, text):
+def show_result(parent, title, text):
     """Ein Ergebnis zeigen, das nicht uebersehen werden darf.
 
     ⚠⚠ **Die Fusszeile reicht dafuer nicht.** Sie zeigt vier Sekunden lang
@@ -4068,4 +4068,4 @@ def show_result(eltern, title, text):
     ⚠ Ein Fenster nur fuer ein ERGEBNIS, nicht fuer jede Meldung. Ein Werkzeug,
     das staendig Fenster aufreisst, wird weggeklickt, ohne gelesen zu werden.
     """
-    ask_yes_no(eltern, title, text, ja=t('e_ok'), only_ok=True)
+    ask_yes_no(parent, title, text, yes_text=t('e_ok'), only_ok=True)

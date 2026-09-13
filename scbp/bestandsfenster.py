@@ -1166,7 +1166,7 @@ class Bestandsfenster:
             w = round_select(self.fein_rahmen, eintraege,
                          self.fein.get(schluessel) or '',
                          lambda wert, s=schluessel: self._fein_setzen(s, wert),
-                         schrift(10), grund=BG)
+                         schrift(10), bg=BG)
             self.fein_felder[schluessel] = w
 
         self.fein_felder = {}
@@ -1465,7 +1465,7 @@ class Bestandsfenster:
         self.liste_traeger = rahmen
         self.leinwand = tk.Canvas(rahmen, bg=BG, highlightthickness=0)
         from .main_window import round_scrollbar
-        rolle = round_scrollbar(rahmen, self.leinwand, grund=BG)
+        rolle = round_scrollbar(rahmen, self.leinwand, bg=BG)
         self.inhalt = tk.Frame(self.leinwand, bg=BG)
         self.inhalt.bind('<Configure>', lambda e: self._rollbereich_anmelden())
         self.fenster = self.leinwand.create_window((0, 0), window=self.inhalt,

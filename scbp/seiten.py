@@ -196,7 +196,7 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
     leinwand = tk.Canvas(aussen, bg=BG, highlightthickness=0,
                          **({'height': hoehe} if hoehe else {}))
     from .main_window import round_scrollbar
-    balken = round_scrollbar(aussen, leinwand, grund=BG)
+    balken = round_scrollbar(aussen, leinwand, bg=BG)
     innen = tk.Frame(leinwand, bg=BG)
     innen.bind('<Configure>',
                lambda e: leinwand.configure(scrollregion=leinwand.bbox('all')))
@@ -1419,7 +1419,7 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
             beschriftung.pack(side='left')
             teil = max(0.0, min(1.0, art_meine / float(art_gesamt or 1)))
             balken_zeile = round_bar(zeile, 7, teil, BG, '#222b3b', ACCENT,
-                                      breite=260)
+                                      width=260)
             balken_zeile.pack(side='left', padx=8)
             zahl = tk.Label(zeile, text='%d / %d' % (art_meine, art_gesamt),
                             bg=BG, fg=SUB, font=fenster.f_small, width=10,
@@ -1640,7 +1640,7 @@ def _anzeige(fenster, rahmen):
     ziel = _feld(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
     from .main_window import round_entry as _zahlfeld
     dauer = _zahlfeld(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
-                      breite=6, justify='right')
+                      width=6, justify='right')
     dauer.insert(0, str(pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)))
     dauer.holder.pack()
 
@@ -1759,7 +1759,7 @@ def _anzeige(fenster, rahmen):
                  t('s_zeilen_h'))
     from .main_window import round_entry
     zahl = round_entry(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
-                       breite=6, justify='right')
+                       width=6, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('max_zeilen', 20, 5, 100)))
     zahl.holder.pack()
 
@@ -1919,7 +1919,7 @@ def _ablage_wechseln(fenster, ablage, ziel):
         # Doppelstart. Seine Daten gehören ihm; wir fassen sie nicht an.
         if not ask_yes_no(fenster.root, t('s_ab_titel'),
                              t('s_ab_belegt') % fremde,
-                             ja=t('s_ab_belegt_ja'), no_text=t('e_abbrechen')):
+                             yes_text=t('s_ab_belegt_ja'), no_text=t('e_abbrechen')):
             return
         _ablage_setzen(fenster, ablage, ziel)
         fenster.say(t('s_ab_uebernommen'))
@@ -1932,7 +1932,7 @@ def _ablage_wechseln(fenster, ablage, ziel):
 
     if not ask_yes_no(fenster.root, t('s_ab_titel'),
                          t('s_ab_mitnehmen') % eigene,
-                         ja=t('s_ab_mitnehmen_ja'), no_text=t('s_ab_ohne')):
+                         yes_text=t('s_ab_mitnehmen_ja'), no_text=t('s_ab_ohne')):
         # Bewusst ohne Daten umstellen — auch das ist eine gültige Wahl.
         _ablage_setzen(fenster, ablage, ziel)
         fenster.say(t('e_neustart_noetig'))
@@ -2013,7 +2013,7 @@ def _hotkey_feld(fenster, innen):
 
     from .main_window import round_entry
     feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT,
-                       FG, breite=18)
+                       FG, width=18)
     feld.insert(0, pfade.einstellung('hotkey') or hk.STANDARD)
     feld.holder.pack(side='left')
 
@@ -4143,7 +4143,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
         z = tk.Frame(koerper, bg=BG)
         z.pack(fill='x', pady=3)
         badge(z, _art_wort(art), _ART_FARBE.get(art, SUB),
-              fenster.f_small, grund=BG,
+              fenster.f_small, bg=BG,
               min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
         # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
         # der Text zu spät um und der Rest wird stumm abgeschnitten.
@@ -5772,7 +5772,7 @@ def _erkennung(fenster, rahmen):
     reihe.pack()
     from .main_window import round_entry
     zahl = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
-                       breite=5, justify='right')
+                       width=5, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)))
     zahl.holder.pack(side='left')
     tk.Label(reihe, text=t('s_er_sek'), bg=BG, fg=SUB,
@@ -9246,7 +9246,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                     werte_zeichnen()
 
                 _schieber = schieberegler(reihe_r, 0, 1000, int(stand[_mat]),
-                                          gezogen, breite=200, grund='#0c1017')
+                                          gezogen, width=200, bg='#0c1017')
                 _schieber.pack(side='left')
                 _wert_lbl.pack(side='left', padx=(10, 0))
                 # Woher der Startwert kommt: eigener Lagerstand oder Mitte.
@@ -9514,7 +9514,7 @@ def _bergung(fenster, rahmen):
             return
         if not ask_yes_no(fenster.root, t('s_wr_vergessen'),
                              t('s_wr_vergessen_frage') % anzahl,
-                             ja=t('s_wr_vergessen_ja'), no_text=t('e_abbrechen')):
+                             yes_text=t('s_wr_vergessen_ja'), no_text=t('e_abbrechen')):
             return
         weg = bg.forget()
         for kind in ergebnis.winfo_children():
@@ -13543,7 +13543,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             leinwand = tk.Canvas(liste, bg=BG, highlightthickness=0,
                                  height=rollbar)
             from .main_window import round_scrollbar, bind_wheel
-            balken = round_scrollbar(liste, leinwand, grund=BG)
+            balken = round_scrollbar(liste, leinwand, bg=BG)
             halter = tk.Frame(leinwand, bg=BG)
             halter.bind('<Configure>', lambda _e: leinwand.configure(
                 scrollregion=leinwand.bbox('all')))
