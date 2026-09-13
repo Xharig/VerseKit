@@ -8030,7 +8030,7 @@ def main():
     # in Pruefung 95.
     _q85s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    pruefe("t('s_be_neu'), neu_einlesen, gefahr=True" not in _q85s,
+    pruefe("t('s_be_neu'), neu_einlesen, danger=True" not in _q85s,
            'der Knopf „Protokolle erneut einlesen" ist NICHT rot')
 
     _q85p = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
@@ -8293,7 +8293,7 @@ def main():
                           "s_lg_leeren"):
         pruefe("t('%s')" % _schluessel86 in _hlblock86,
                'das Handelslager hat den Knopf %s' % _schluessel86)
-    pruefe('gefahr=True' in _hlblock86,
+    pruefe('danger=True' in _hlblock86,
            'und „Lager loeschen" steht in Rot')
     pruefe("ask_yes_no(" in _hlblock86,
            'das Leeren fragt vorher nach')
@@ -9012,7 +9012,7 @@ def main():
            == 'launcher',
            'und stuft eine bessere Quelle nicht herunter')
 
-    # b) Die Farben. @ Geprueft wird der Aufruf, denn `gefahr=True` ist der
+    # b) Die Farben. @ Geprueft wird der Aufruf, denn `danger=True` ist der
     #    einzige Unterschied — am fertigen Knopf ist er nur noch Pixel.
     _q95 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
@@ -9028,7 +9028,7 @@ def main():
     _reset95 = _knopfzeile95("t('s_zuruecksetzen')")
     pruefe(_neu95 and 'gefahr' not in _neu95,
            '„Protokolle erneut einlesen" ist NICHT rot (%s)' % _neu95.strip())
-    pruefe(_reset95 and 'gefahr=True' in _reset95,
+    pruefe(_reset95 and 'danger=True' in _reset95,
            '„Bestand zuruecksetzen" ist weiterhin rot (%s)' % _reset95.strip())
 
     # c) Und es gibt nur noch EINEN Weg, die Protokolle neu zu lesen.
@@ -18332,7 +18332,7 @@ def main():
         _namen189 = ['Schiff %03d' % _i189 for _i189 in range(60)]
         _zeile189, _liste189, _ = _se189._combo_box(
             _Fenster189(), _block189, _var189, lambda: _namen189,
-            rollbar=200)
+            scrollable=200)
         _zeile189.pack(fill='x')
         _liste189.pack(fill='x')
         _w189.update()

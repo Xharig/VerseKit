@@ -152,20 +152,20 @@ def bauen(fenster, kennung, rahmen):
 
 
 # ------------------------------------------------------------------ Bausteine
-def _heading(fenster, rahmen, titel, lead=''):
-    tk.Label(rahmen, text=titel, bg=BG, fg=FG, font=fenster.f_title,
+def _heading(window, frame, title, lead=''):
+    tk.Label(frame, text=title, bg=BG, fg=FG, font=window.f_title,
              anchor='w').pack(fill='x', padx=24, pady=(20, 2))
     if lead:
         # `abzug=48` sind die beiden Ränder von je 24 — ohne sie rechnet der
         # Umbruch mit Platz, den es nicht gibt, und die letzten Wörter fallen
         # trotzdem heraus.
-        einleitung = tk.Label(rahmen, text=lead, bg=BG, fg=SUB,
-                              font=fenster.f_small, anchor='w', justify='left')
+        einleitung = tk.Label(frame, text=lead, bg=BG, fg=SUB,
+                              font=window.f_small, anchor='w', justify='left')
         einleitung.pack(fill='x', padx=24, pady=(0, 14))
-        _wrap(einleitung, abzug=48)
+        _wrap(einleitung, inset=48)
 
 
-def _scroll_area(rahmen, rand=24, hoehe=None):
+def _scroll_area(frame, inset=24, height=None):
     """Ein Bereich, der rollt. Leinwand + Balken, wie im Einstellungsfenster.
 
     ⚠ Die Fläche wird **zuletzt** gepackt und bekommt `expand=True` — alles,
@@ -182,19 +182,19 @@ def _scroll_area(rahmen, rand=24, hoehe=None):
     # eine Patch-Zeile 30 px, und die eigene Patch-Sammlung wächst absichtlich
     # über die zehn hinaus, die die Quelle vorhält. Bei 30 Patches blieben für
     # den eigentlichen Inhalt noch 41 px, bei 50 gar nichts mehr.
-    aussen = tk.Frame(rahmen, bg=BG)
-    aussen.pack(fill='both' if hoehe is None else 'x',
-                expand=(hoehe is None))
-    if hoehe:
+    aussen = tk.Frame(frame, bg=BG)
+    aussen.pack(fill='both' if height is None else 'x',
+                expand=(height is None))
+    if height:
         # ⚠ `height` am Canvas allein genügt NICHT: Er ist mit `expand=True`
         # gepackt und wird von seinem Inhalt gedehnt — gemessen 265 px bei
         # gesetzten 150, weil der Inhalt 300 px hoch war. Erst wenn der
         # umgebende Rahmen seine Größe nicht mehr vom Inhalt nimmt, hält die
         # Grenze.
         aussen.pack_propagate(False)
-        aussen.configure(height=hoehe)
+        aussen.configure(height=height)
     leinwand = tk.Canvas(aussen, bg=BG, highlightthickness=0,
-                         **({'height': hoehe} if hoehe else {}))
+                         **({'height': height} if height else {}))
     from .main_window import round_scrollbar
     balken = round_scrollbar(aussen, leinwand, bg=BG)
     innen = tk.Frame(leinwand, bg=BG)
@@ -207,9 +207,9 @@ def _scroll_area(rahmen, rand=24, hoehe=None):
     balken.pack(side='right', fill='y')
     leinwand.pack(side='left', fill='both', expand=True)
 
-    if rand:
+    if inset:
         polster = tk.Frame(innen, bg=BG)
-        polster.pack(fill='both', expand=True, padx=rand)
+        polster.pack(fill='both', expand=True, padx=inset)
         innen_ziel = polster
     else:
         innen_ziel = innen
@@ -378,7 +378,7 @@ def _nach_oben(widget):
         pass
 
 
-def _keep_scroll(widget, tat):
+def _keep_scroll(widget, action):
     """Etwas neu zeichnen, ohne dass die Seite nach oben springt.
 
     ⚠⚠ **Wer eine Liste neu aufbaut, verliert die Rollposition.** Beim Löschen
@@ -397,13 +397,13 @@ def _keep_scroll(widget, tat):
         leinwand = getattr(lauf, 'leinwand', None)
         lauf = getattr(lauf, 'master', None)
     if leinwand is None:
-        tat()
+        action()
         return
     try:
         stelle = leinwand.yview()[0]
     except Exception:
         stelle = None
-    tat()
+    action()
     if stelle is None:
         return
 
@@ -420,7 +420,7 @@ def _keep_scroll(widget, tat):
         pass
 
 
-def _search_clear(fenster, halter, var):
+def _search_clear(window, holder, var):
     """Ein × neben dem Suchfeld, das den Text wegnimmt.
 
     ⚠ Es erscheint nur, wenn wirklich etwas im Feld steht. Ein Kreuz an einem
@@ -431,8 +431,8 @@ def _search_clear(fenster, halter, var):
     Suchbegriff übersieht, hält die kurze Liste für den ganzen Bestand.
     """
     from . import notice
-    kreuz = tk.Label(halter, text='\u00d7', bg=BG, fg=SUB,
-                     font=fenster.f_base, cursor='hand2')
+    kreuz = tk.Label(holder, text='\u00d7', bg=BG, fg=SUB,
+                     font=window.f_base, cursor='hand2')
     notice.attach(kreuz, lambda: t('s_suche_leeren'))
     kreuz.bind('<Button-1>', lambda _e: var.set(''))
     kreuz.bind('<Enter>', lambda _e: kreuz.configure(fg=ACCENT))
@@ -449,7 +449,7 @@ def _search_clear(fenster, halter, var):
     return kreuz
 
 
-def _filter_bar(fenster, eltern, felder, beim_wechsel, zustand):
+def _filter_bar(window, parent, fields, on_change, state):
     """Eine Reihe Auswahlfelder plus „Auswahl zurücksetzen" — für jede Seite gleich.
 
     ⚠⚠ **Ein Bedienkonzept für das ganze Programm.** Xharig am 29.08.2026:
@@ -470,21 +470,21 @@ def _filter_bar(fenster, eltern, felder, beim_wechsel, zustand):
     Gibt eine Funktion zurück, die alles zurücksetzt.
     """
     from .main_window import round_select
-    reihe = tk.Frame(eltern, bg=BG)
+    reihe = tk.Frame(parent, bg=BG)
     reihe.pack(fill='x', pady=(0, 8))
     links = tk.Frame(reihe, bg=BG)
     links.pack(side='left', fill='x', expand=True)
 
     gebaut = {}
     reihenfolge = []
-    for schluessel, beschriftung, eintraege in felder:
+    for schluessel, beschriftung, eintraege in fields:
         if len(eintraege) <= 1:
             continue
         w = round_select(links, [('', beschriftung)] + list(eintraege),
-                     zustand.get(schluessel, ''),
-                     lambda wert, s=schluessel: (zustand.__setitem__(s, wert),
-                                                 beim_wechsel()),
-                     fenster.f_small)
+                     state.get(schluessel, ''),
+                     lambda wert, s=schluessel: (state.__setitem__(s, wert),
+                                                 on_change()),
+                     window.f_small)
         gebaut[schluessel] = w
         reihenfolge.append(w)
     # ⚠⚠ **Umbrechend, nicht abgeschnitten.** Tk schneidet eine zu breite
@@ -496,16 +496,16 @@ def _filter_bar(fenster, eltern, felder, beim_wechsel, zustand):
     # auf **alle** Seiten mit Filterleiste — die Bauplan-Liste hat sechs
     # Felder und lief in dieselbe Grenze.
     if reihenfolge:
-        _button_grid(links, reihenfolge, abstand=8)
+        _button_grid(links, reihenfolge, gap=8)
 
     def zuruecksetzen():
         for schluessel, w in gebaut.items():
-            zustand[schluessel] = ''
+            state[schluessel] = ''
             try:
                 w.select_quiet('')
             except Exception:
                 pass
-        beim_wechsel()
+        on_change()
 
     return zuruecksetzen, reihe, gebaut
 
@@ -552,19 +552,19 @@ def _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand):
     return nachmessen
 
 
-def _button(fenster, eltern, text, tat, stark=False, gefahr=False):
+def _button(window, parent, text, action, strong=False, danger=False):
     """Ein Knopf im Stil der Vorschau — Rand, Farbe beim Überfahren."""
     from .main_window import _round_rect
-    schrift = fenster.f_small
+    schrift = window.f_small
     hoehe = schrift.metrics('linespace') + 16
     breite = schrift.measure(text) + 30
     # ⚠ `gefahr` faerbt **dauerhaft**, nicht erst beim Überfahren. Ein Knopf,
     # der erst rot wird, wenn die Maus schon darauf steht, warnt niemanden —
     # gesehen hat man ihn dann längst. am 28.08.2026 gemeldet zum
     # Absende-Knopf: „der Button wird erst beim Überfahren rot."
-    farbe = RED if gefahr else (ACCENT if stark else FG)
-    rand = RED if gefahr else (ACCENT if stark else LINE)
-    c = tk.Canvas(eltern, width=breite, height=hoehe, bg=BG,
+    farbe = RED if danger else (ACCENT if strong else FG)
+    rand = RED if danger else (ACCENT if strong else LINE)
+    c = tk.Canvas(parent, width=breite, height=hoehe, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
     # ⚠ Erst der Text, dann der Rahmen — und dazwischen wird **nachgemessen**.
     # `schrift.measure()` sagt, wie breit Tk den Text glaubt; gezeichnet wird
@@ -575,8 +575,8 @@ def _button(fenster, eltern, text, tat, stark=False, gefahr=False):
     # sichtbar sein muss.
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                  fill=farbe, font=schrift, anchor='center')
-    fuellung = ('#2a1414' if gefahr
-                else ('#1d2a14' if stark else SURFACE))
+    fuellung = ('#2a1414' if danger
+                else ('#1d2a14' if strong else SURFACE))
     flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                 fill=fuellung, outline=rand, width=1)]
     c.tag_lower(flaeche[0], beschriftung)
@@ -584,8 +584,8 @@ def _button(fenster, eltern, text, tat, stark=False, gefahr=False):
     _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand)
 
     def rein(_=None):
-        c.itemconfigure(flaeche[0], outline=RED if gefahr else ACCENT)
-        c.itemconfigure(beschriftung, fill=RED if gefahr else ACCENT)
+        c.itemconfigure(flaeche[0], outline=RED if danger else ACCENT)
+        c.itemconfigure(beschriftung, fill=RED if danger else ACCENT)
 
     def raus(_=None):
         c.itemconfigure(flaeche[0], outline=rand)
@@ -637,20 +637,20 @@ def _button(fenster, eltern, text, tat, stark=False, gefahr=False):
     c.bind('<Configure>', mitwachsen, add='+')
     c.bind('<Enter>', rein)
     c.bind('<Leave>', raus)
-    c.bind('<Button-1>', lambda e: tat())
+    c.bind('<Button-1>', lambda e: action())
     c.beschriften = beschriften
     c.is_button = True          # damit tools/randpruefung.py ihn prüft
     return c
 
 
-def _choice(fenster, eltern, eintraege, aktiv, tat):
+def _choice(window, parent, entries, active, action):
     """Mehrere Möglichkeiten nebeneinander — die gewählte trägt den Akzentrand."""
     from .main_window import _round_rect
-    reihe = tk.Frame(eltern, bg=BG)
+    reihe = tk.Frame(parent, bg=BG)
     knoepfe = {}
-    schrift = fenster.f_small
-    for kennung, text in eintraege:
-        an = (kennung == aktiv)
+    schrift = window.f_small
+    for kennung, text in entries:
+        an = (kennung == active)
         hoehe = schrift.metrics('linespace') + 14
         breite = schrift.measure(text) + 26
         c = tk.Canvas(reihe, width=breite, height=hoehe, bg=BG,
@@ -665,7 +665,7 @@ def _choice(fenster, eltern, eintraege, aktiv, tat):
         _mass_sichern(c, beschr, flaeche, hoehe, SURFACE,
                       ACCENT if an else LINE)
         c.teile = (flaeche, beschr)
-        c.bind('<Button-1>', lambda e, k=kennung: tat(k))
+        c.bind('<Button-1>', lambda e, k=kennung: action(k))
         c.is_button = True      # damit tools/randpruefung.py ihn prüft
         knoepfe[kennung] = c
 
@@ -680,29 +680,29 @@ def _choice(fenster, eltern, eintraege, aktiv, tat):
     return reihe
 
 
-def _status(fenster, eltern, symbol, fett, rest, farbe=None):
+def _status(window, parent, symbol, bold, rest, color=None):
     """Ein Statuskasten mit farbigem Balken links — wie in der Vorschau.
 
     ⚠ `symbol` ist ein Name aus `scbp/icons.py` („haken", „offen"), kein
     Schriftzeichen mehr. Der Parameter hieß bis v3.0.0-rc55 `zeichen` und hätte
     das gleichnamige Modul verdeckt.
     """
-    farbe = farbe or ACCENT
-    innen = _card(eltern, rand=farbe, pady=(0, 14))
+    color = color or ACCENT
+    innen = _card(parent, border_color=color, pady=(0, 14))
     zeile = tk.Frame(innen, bg=SURFACE)
     zeile.pack(fill='x', padx=14, pady=12)
-    icons.line(zeile, symbol, background=SURFACE, font=fenster.f_base,
-                  color=icons.GREY if farbe == SUB else icons.GREEN
+    icons.line(zeile, symbol, background=SURFACE, font=window.f_base,
+                  color=icons.GREY if color == SUB else icons.GREEN
                   ).pack(side='left', padx=(0, 10), anchor='n')
     text = tk.Frame(zeile, bg=SURFACE)
     text.pack(side='left', fill='x', expand=True)
-    oben = tk.Label(text, text=fett, bg=SURFACE, fg=FG, font=fenster.f_bold,
+    oben = tk.Label(text, text=bold, bg=SURFACE, fg=FG, font=window.f_bold,
                     anchor='w', justify='left')
     oben.pack(fill='x')
     _wrap(oben)
     if rest:
         unten = tk.Label(text, text=rest, bg=SURFACE, fg=SUB,
-                         font=fenster.f_small, anchor='w', justify='left')
+                         font=window.f_small, anchor='w', justify='left')
         unten.pack(fill='x')
         _wrap(unten)
     return innen
@@ -747,7 +747,7 @@ def _masszahl(widget, wert, ersatz=0):
         return ersatz
 
 
-def _wrap(label, anteil=1.0, abzug=0, bezug=None, neben=None):
+def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
     """Den Zeilenumbruch an die tatsächliche Breite hängen.
 
     ⚠ Feste Werte wie `wraplength=560` sind der Grund, warum Text bei kleinem
@@ -765,7 +765,7 @@ def _wrap(label, anteil=1.0, abzug=0, bezug=None, neben=None):
     `neben` ist genau dieses Bedienelement. Seine gebrauchte Breite wird
     abgezogen, denn diesen Platz gibt es für den Text nicht.
     """
-    ziel = bezug if bezug is not None else label.master
+    ziel = reference if reference is not None else label.master
 
     def nachziehen(_=None):
         # ⚠ Erst nachsehen, ob es die Widgets noch gibt. `label.after(0, …)`
@@ -783,9 +783,9 @@ def _wrap(label, anteil=1.0, abzug=0, bezug=None, neben=None):
         except tk.TclError:
             return
         breite = ziel.winfo_width()
-        if neben is not None:
+        if beside is not None:
             try:
-                breite -= neben.winfo_reqwidth()
+                breite -= beside.winfo_reqwidth()
             except tk.TclError:
                 pass
         if breite > 40:
@@ -805,8 +805,8 @@ def _wrap(label, anteil=1.0, abzug=0, bezug=None, neben=None):
             except tk.TclError:
                 rand = 4
             try:
-                label.configure(wraplength=max(160, int(breite * anteil)
-                                               - abzug - rand))
+                label.configure(wraplength=max(160, int(breite * share)
+                                               - inset - rand))
             except tk.TclError:
                 pass          # zwischen Prüfung und Zugriff zerstört
 
@@ -821,7 +821,7 @@ def _wrap(label, anteil=1.0, abzug=0, bezug=None, neben=None):
     return label
 
 
-def _button_row(eltern, knoepfe, abstand=8):
+def _button_row(parent, buttons, gap=8):
     """Knöpfe nebeneinander — und untereinander, sobald der Platz nicht reicht.
 
     ⚠ Tk bricht eine Knopfreihe nicht um. Passt sie nicht, schneidet es den
@@ -834,15 +834,15 @@ def _button_row(eltern, knoepfe, abstand=8):
         # Wie bei `_umbruch`: Der Rückruf kann nach dem Seitenwechsel drankommen,
         # wenn die Knöpfe längst zerstört sind.
         try:
-            if not eltern.winfo_exists():
+            if not parent.winfo_exists():
                 return
-            if not all(k.winfo_exists() for k in knoepfe):
+            if not all(k.winfo_exists() for k in buttons):
                 return
         except tk.TclError:
             return
-        platz = eltern.winfo_width()
-        gebraucht = sum(k.winfo_reqwidth() for k in knoepfe) \
-            + abstand * (len(knoepfe) - 1)
+        platz = parent.winfo_width()
+        gebraucht = sum(k.winfo_reqwidth() for k in buttons) \
+            + gap * (len(buttons) - 1)
 
         # ⚠⚠ **Erst Platz schaffen, dann umbrechen.** Untereinander stehende
         # Knöpfe sehen aus wie ein Fehler — Xharig: „das sieht schrecklich
@@ -854,7 +854,7 @@ def _button_row(eltern, knoepfe, abstand=8):
         # Wayland fällt das messbar anders aus als hier. Zwei Anläufe mit
         # geschätzten Zahlen (1100, dann 1160) reichten beide nicht.
         try:
-            oben = eltern.winfo_toplevel()
+            oben = parent.winfo_toplevel()
             fehlend = gebraucht - platz
             if platz > 1 and fehlend > 0:
                 noetig = oben.winfo_width() + fehlend + 4
@@ -888,20 +888,20 @@ def _button_row(eltern, knoepfe, abstand=8):
             pass
 
         nebeneinander = platz <= 1 or gebraucht <= platz
-        if nebeneinander == getattr(eltern, 'zuletzt_nebeneinander', None):
+        if nebeneinander == getattr(parent, 'zuletzt_nebeneinander', None):
             return
-        eltern.zuletzt_nebeneinander = nebeneinander
-        for nummer, knopf in enumerate(knoepfe):
+        parent.zuletzt_nebeneinander = nebeneinander
+        for nummer, knopf in enumerate(buttons):
             knopf.pack_forget()
             if nebeneinander:
-                knopf.pack(side='left', padx=(0 if nummer == 0 else abstand, 0))
+                knopf.pack(side='left', padx=(0 if nummer == 0 else gap, 0))
             else:
                 knopf.pack(side='top', anchor='w',
                            pady=(0 if nummer == 0 else 6, 0))
 
-    eltern.bind('<Configure>', ordnen, add='+')
-    eltern.after(0, ordnen)
-    return eltern
+    parent.bind('<Configure>', ordnen, add='+')
+    parent.after(0, ordnen)
+    return parent
 
 
 def _gitter_ordnen(eltern):
@@ -976,7 +976,7 @@ def _gitter_ordnen(eltern):
                                     minsize=spaltenbreite)
 
 
-def _button_grid(eltern, knoepfe, abstand=6):
+def _button_grid(parent, buttons, gap=6):
     """Knöpfe nebeneinander — und in einer zweiten Zeile, wenn es eng wird.
 
     ⚠⚠ **Nicht dasselbe wie `_knopfreihe`.** Die kennt nur zwei Zustände,
@@ -993,17 +993,17 @@ def _button_grid(eltern, knoepfe, abstand=6):
     ⚠ Der Rahmen gehört **allein** dem Gitter: `grid` und `pack` vertragen
     sich im selben Behälter nicht.
     """
-    zustand = getattr(eltern, '_gitter', None)
+    zustand = getattr(parent, '_gitter', None)
     if zustand is None:
-        eltern._gitter = {'knoepfe': list(knoepfe), 'breite': 0,
-                          'abstand': abstand}
+        parent._gitter = {'knoepfe': list(buttons), 'breite': 0,
+                          'abstand': gap}
         # ⚠ Nur EINMAL binden. Diese Reihen werden neu bestückt, sobald sich
         # ein Gerät ändert — bei jedem Mal neu zu binden häufte die Rückrufe
         # an, bis dasselbe Ordnen zwanzigfach liefe.
-        eltern.bind('<Configure>', lambda _=None: _gitter_ordnen(eltern),
+        parent.bind('<Configure>', lambda _=None: _gitter_ordnen(parent),
                     add='+')
     else:
-        zustand['knoepfe'] = list(knoepfe)
+        zustand['knoepfe'] = list(buttons)
         zustand['breite'] = 0
 
     # ⚠⚠ **Die Höhe MUSS hier schon stehen, nicht erst in `_gitter_ordnen`.**
@@ -1016,11 +1016,11 @@ def _button_grid(eltern, knoepfe, abstand=6):
     # Deshalb hier eine Höhe aus der Wunschgröße der Knöpfe, bevor überhaupt
     # etwas gemessen wird. `_gitter_ordnen` korrigiert sie später auf die
     # tatsächliche Zeilenzahl.
-    eltern.after(0, lambda: _gitter_ordnen(eltern))
-    return eltern
+    parent.after(0, lambda: _gitter_ordnen(parent))
+    return parent
 
 
-def _body_text(eltern, text, schrift, farbe=SUB, grund=BG, abzug=0, **pack):
+def _body_text(parent, text, font, color=SUB, bg=BG, inset=0, **pack):
     """Ein Absatz, der mit dem Fenster mitgeht.
 
     Der Regelweg für jeden mehrzeiligen Text. Wer stattdessen `wraplength=600`
@@ -1034,10 +1034,10 @@ def _body_text(eltern, text, schrift, farbe=SUB, grund=BG, abzug=0, **pack):
     # Wer hier einen Text mit `**fett**` hineingibt, soll ihn nicht mit
     # Sternchen auf dem Bildschirm wiederfinden. Doppelt entschärfen schadet
     # nicht — `_ohne_marken` auf einem sauberen Text ändert nichts.
-    label = tk.Label(eltern, text=_strip_markup(text), bg=grund, fg=farbe,
-                     font=schrift, anchor='w', justify='left')
+    label = tk.Label(parent, text=_strip_markup(text), bg=bg, fg=color,
+                     font=font, anchor='w', justify='left')
     label.pack(**pack)
-    return _wrap(label, abzug=abzug)
+    return _wrap(label, inset=inset)
 
 
 def _strip_markup(text):
@@ -1060,7 +1060,7 @@ def _strip_markup(text):
     return text.replace('**', '').replace('`', '') if text else text
 
 
-def _setting_row(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
+def _setting_row(window, parent, caption, help_text, wide=False, top=False):
     """Eine Einstellungszeile: Bezeichnung, Erklärung, Platz für das Bedienelement.
 
     `oben=True` heftet die Beschriftung an die **Oberkante** statt sie
@@ -1069,20 +1069,20 @@ def _setting_row(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
     — und die Beschriftung stand dann auf halber Höhe irgendwo neben der Liste
     statt neben ihrem Feld.
     """
-    zeile = tk.Frame(eltern, bg=BG)
+    zeile = tk.Frame(parent, bg=BG)
     zeile.pack(fill='x', pady=(12, 0))
     links = tk.Frame(zeile, bg=BG)
     links.pack(side='left', fill='x', expand=True,
-               **({'anchor': 'n'} if oben else {}))
-    beschriftung = tk.Label(links, text=bezeichnung, bg=BG, fg=FG,
-                            font=fenster.f_bold, anchor='w')
+               **({'anchor': 'n'} if top else {}))
+    beschriftung = tk.Label(links, text=caption, bg=BG, fg=FG,
+                            font=window.f_bold, anchor='w')
     beschriftung.pack(fill='x')
     erklaerung = None
-    if hilfe:
-        erklaerung = tk.Label(links, text=_strip_markup(hilfe), bg=BG, fg=SUB,
-                              font=fenster.f_small, anchor='w', justify='left')
+    if help_text:
+        erklaerung = tk.Label(links, text=_strip_markup(help_text), bg=BG, fg=SUB,
+                              font=window.f_small, anchor='w', justify='left')
         erklaerung.pack(fill='x')
-    if breit:
+    if wide:
         # Breite Bedienelemente unter die Beschreibung statt daneben: Auf
         # Englisch sind die Wörter länger, und rechts wurde der letzte Knopf
         # abgeschnitten („Ve…" statt „Very large").
@@ -1096,12 +1096,12 @@ def _setting_row(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
         # Die Beschriftung braucht denselben Umbruch: Auf Englisch sind die
         # Wörter länger, und bisher hatte sie in diesem Zweig gar keinen.
         if erklaerung is not None:
-            _wrap(erklaerung, bezug=zeile, abzug=10)
-        _wrap(beschriftung, bezug=zeile, abzug=10)
+            _wrap(erklaerung, reference=zeile, inset=10)
+        _wrap(beschriftung, reference=zeile, inset=10)
     else:
         rechts = tk.Frame(zeile, bg=BG)
         rechts.pack(side='right', padx=(16, 0),
-                    **({'anchor': 'n'} if oben else {}))
+                    **({'anchor': 'n'} if top else {}))
         # ⚠ Hier NICHT an `links` messen: Der Rahmen ist in genau dem Moment
         # zu breit, in dem der Text überläuft — er würde den Fehler bestätigen
         # statt ihn zu beheben. Gemessen wird am gemeinsamen Elternrahmen
@@ -1112,9 +1112,9 @@ def _setting_row(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
         # Pixel dazwischen — gemessen fehlten 5 (tools/randpruefung.py). Mit
         # Luft bricht der Text minimal früher um, statt abgeschnitten zu werden.
         if erklaerung is not None:
-            _wrap(erklaerung, bezug=zeile, neben=rechts, abzug=26)
-        _wrap(beschriftung, bezug=zeile, neben=rechts, abzug=26)
-    tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
+            _wrap(erklaerung, reference=zeile, beside=rechts, inset=26)
+        _wrap(beschriftung, reference=zeile, beside=rechts, inset=26)
+    tk.Frame(parent, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
     # ⚠ Die linke Spalte haengt am Rueckgabewert. Manche Zeilen wollen dort
     # etwas unterbringen — der Namensvorschlag im Lager etwa gehoert neben das
     # Eingabefeld, nicht ans Seitenende. Ohne diesen Griff muesste der Aufrufer
@@ -1475,21 +1475,21 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
             pass
 
 
-def _settings_parts(fenster):
+def _settings_parts(window):
     """Die Bausteine des Einstellungsfensters — einmal erzeugt, mehrfach genutzt."""
-    if getattr(fenster, '_settings_window', None) is None:
+    if getattr(window, '_settings_window', None) is None:
         from . import einstellungsfenster
-        leer = tk.Frame(fenster.root, bg=BG)     # nur als Halter, wird nie gepackt
-        fenster._settings_window = einstellungsfenster.Einstellungsfenster(rahmen=leer)
+        leer = tk.Frame(window.root, bg=BG)     # nur als Halter, wird nie gepackt
+        window._settings_window = einstellungsfenster.Einstellungsfenster(rahmen=leer)
         # Ohne diesen Rückruf öffnet ein Sprachwechsel ein zweites Fenster.
-        fenster._settings_window.beim_sprachwechsel = fenster.rebuild
+        window._settings_window.beim_sprachwechsel = window.rebuild
         # ⚠ Und ohne diesen laufen alle Rückmeldungen ins Leere: Eingebettet gibt
         # es den Fuß des Einstellungsfensters nicht, also auch sein Meldungs-Label
         # nicht. Jeder Klick auf „Jetzt auffrischen", „Übersetzung prüfen" oder eine
         # Textquelle brach deshalb mit `AttributeError` ab, **bevor** überhaupt
         # etwas passierte — die Seite sah fertig aus und tat nichts.
-        fenster._settings_window.melder = fenster.say
-    return fenster._settings_window
+        window._settings_window.melder = window.say
+    return window._settings_window
 
 
 def _allgemein(fenster, rahmen):
@@ -1501,7 +1501,7 @@ def _allgemein(fenster, rahmen):
     e = _settings_parts(fenster)
 
     ziel = _setting_row(fenster, innen, t('e_sprache'), t('s_sprache_h'),
-                 breit=True)
+                 wide=True)
     wahl = _choice(fenster, ziel,
                  [('auto', t('sprache_auto')), ('de', 'Deutsch'), ('en', 'English')],
                  pfade.einstellungen().get('sprache') or 'auto',
@@ -1589,7 +1589,7 @@ def _anzeige(fenster, rahmen):
     # Angestoßen von einer Rückmeldung von Haldjas (pr0): „Das Overlay ist permanent
     # zu sehen und nicht durchklickbar. Wenn ich im Kampf mit der Maus
     # hineinkomme, wird das unangenehm."
-    ziel = _setting_row(fenster, innen, t('s_ov_modus'), t('s_ov_modus_h'), breit=True)
+    ziel = _setting_row(fenster, innen, t('s_ov_modus'), t('s_ov_modus_h'), wide=True)
     modus = _choice(fenster, ziel,
                   [('immer', t('s_ov_immer')), ('popup', t('s_ov_popup'))],
                   pfade.einstellung('overlay_modus') or 'immer',
@@ -1604,7 +1604,7 @@ def _anzeige(fenster, rahmen):
     # Overlay Mausklicks durch und laesst sich deshalb nicht ziehen. Ohne
     # diese Einstellung koennen diese Nutzer es ueberhaupt nicht
     # positionieren. Am 31.08.2026 gemeldet.
-    ziel = _setting_row(fenster, innen, t('s_ov_ecke'), t('s_ov_ecke_h'), breit=True)
+    ziel = _setting_row(fenster, innen, t('s_ov_ecke'), t('s_ov_ecke_h'), wide=True)
     ecke = _choice(fenster, ziel,
                  [('frei', t('s_ov_ecke_frei')),
                   ('oben-links', t('s_ov_ecke_ol')),
@@ -1627,7 +1627,7 @@ def _anzeige(fenster, rahmen):
     # Verschieben die Ecke auf „frei" stellt, waere sie damit immer oben — wer
     # sie unten hatte, haette sie verloren. Also eine eigene Einstellung.
     ziel = _setting_row(fenster, innen, t('s_ov_leiste'), t('s_ov_leiste_h'),
-                 breit=True)
+                 wide=True)
     leiste = _choice(fenster, ziel,
                    [('oben', t('s_ov_leiste_oben')),
                     ('unten', t('s_ov_leiste_unten'))],
@@ -1686,7 +1686,7 @@ def _anzeige(fenster, rahmen):
                  font=fenster.f_small, anchor='w', justify='left').pack(fill='x')
 
     ziel = _setting_row(fenster, innen, t('hf_schrift'), t('hf_schrift_hilfe'),
-                 breit=True)
+                 wide=True)
     # ⚠⚠ **„Sehr groß" ist bewusst NICHT mehr dabei.** Die Stufe vergrösserte
     # Schrift, Symbole und Knöpfe so weit, dass die daraus folgende
     # Mindesthöhe grösser wurde als ein Bildschirm — bei zwei übereinander
@@ -1817,7 +1817,7 @@ def _ordner(fenster, rahmen):
                 t('s_or_mitlesen') % gefunden)
     else:
         _status(fenster, innen, '!', t('s_sc_weg'),
-                t('s_sc_weg_h'), farbe=GOLD)
+                t('s_sc_weg_h'), color=GOLD)
 
     tk.Label(innen, text=t('e_spiel'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(6, 0))
@@ -2002,12 +2002,12 @@ def _hotkey_feld(fenster, innen):
     from . import hotkey as hk
     geht, grund = hk.moeglich()
     if not geht and grund == 'wayland':
-        _setting_row(fenster, innen, t('s_hk'), t('s_hk_wayland'), breit=True)
+        _setting_row(fenster, innen, t('s_hk'), t('s_hk_wayland'), wide=True)
         return
     if not geht:
         return                       # kein Bildschirm, kein Windows — still
 
-    ziel = _setting_row(fenster, innen, t('s_hk'), t('s_hk_h'), breit=True)
+    ziel = _setting_row(fenster, innen, t('s_hk'), t('s_hk_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack(anchor='w')
 
@@ -2063,7 +2063,7 @@ def _startbefehl_feld(fenster, innen):
     tk.Label(innen, text=t('s_or_start'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(20, 0))
     _body_text(innen, t('s_or_start_h'), fenster.f_small, fill='x')
-    _body_text(innen, t('s_or_start_bsp'), fenster.f_small, farbe=SUB,
+    _body_text(innen, t('s_or_start_bsp'), fenster.f_small, color=SUB,
                 fill='x', pady=(2, 0))
 
     wert = tk.StringVar(value=pfade.einstellung('spielstarter') or '')
@@ -2094,7 +2094,7 @@ def _menueeintrag_feld(fenster, innen):
     from . import desktop_entry
     if not desktop_entry.available():
         return
-    ziel = _setting_row(fenster, innen, t('s_menue'), t('s_menue_h'), breit=True)
+    ziel = _setting_row(fenster, innen, t('s_menue'), t('s_menue_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     stand = tk.Label(reihe, text='', bg=BG, fg=SUB, font=fenster.f_small)
@@ -2249,10 +2249,10 @@ def _spiel(fenster, rahmen):
             # am 28.08.2026 gemeldet im Test hängengeblieben.
             if lage['drin']:
                 _status(fenster, kasten, 'offen', t('s_sp_aus_rest'),
-                        t('s_sp_aus_rest_h'), farbe=SUB)
+                        t('s_sp_aus_rest_h'), color=SUB)
             else:
                 _status(fenster, kasten, 'offen', t('s_sp_aus_hinweis'), '',
-                        farbe=SUB)
+                        color=SUB)
             return
         if lage['drin']:
             zusatz = []
@@ -2264,7 +2264,7 @@ def _spiel(fenster, rahmen):
             _status(fenster, kasten, 'haken', t('s_sp_steht'), ' · '.join(zusatz))
         else:
             _status(fenster, kasten, 'offen', t('s_sp_nichts'), t('s_sp_nichts_h'),
-                    farbe=SUB)
+                    color=SUB)
 
     # Damit auch Aktionen im Einstellungsobjekt den Kasten auffrischen.
     e.lage_melder = lage_zeigen
@@ -2272,7 +2272,7 @@ def _spiel(fenster, rahmen):
 
     # --- Textquelle ----------------------------------------------------------
     ziel = _setting_row(fenster, innen, t('s_sp_quelle'), t('s_sp_quelle_h'),
-                 breit=True)
+                 wide=True)
     wahl = _choice(fenster, ziel,
                  [('deutsch', t('s_sp_q_de')), ('starstrings', t('s_sp_q_ss')),
                   ('original', t('s_sp_q_or'))],
@@ -2373,19 +2373,19 @@ def _spiel(fenster, rahmen):
                     pfade.einstellung_wahrheit(_inj.EINSTELLUNG_ANGABEN, True),
                     angaben_um).pack()
 
-    ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), breit=True)
+    ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     _button(fenster, reihe, t('s_sp_jetzt'),
            lambda: (e._inj_erneuern(), lage_zeigen()),
-           stark=True).pack(side='left')
+           strong=True).pack(side='left')
     _button(fenster, reihe, t('s_sp_pruefen'),
            lambda: (e._inj_pruefen(), lage_zeigen())).pack(side='left', padx=8)
     _button(fenster, reihe, t('s_sp_weg'),
            lambda: (e._inj_entfernen(), lage_zeigen()),
-           gefahr=True).pack(side='left')
+           danger=True).pack(side='left')
 
-    _status(fenster, innen, '!', t('s_sp_warn'), t('s_sp_warn_h'), farbe=GOLD)
+    _status(fenster, innen, '!', t('s_sp_warn'), t('s_sp_warn_h'), color=GOLD)
 
 
 # Welche Beschriftung zu welcher Quelle gehört — für den Zustandskasten.
@@ -2502,7 +2502,7 @@ def _bestand(fenster, rahmen):
             fehler.merken('seiten.bestand.einzeln', ausnahme)
 
     _button(fenster, reihe, t('s_be_alle'), in_ablage,
-           stark=True).pack(side='left')
+           strong=True).pack(side='left')
     _button(fenster, reihe, t('s_be_ablage'),
            lambda: _ordner_zeigen(export.ablage_ordner())).pack(side='left',
                                                                 padx=8)
@@ -2531,7 +2531,7 @@ def _bestand(fenster, rahmen):
             kind.destroy()
         if not art:
             _status(fenster, vorschau_platz, '!', t('s_be_unbekannt'),
-                    t('s_be_unbekannt_h'), farbe=RED)
+                    t('s_be_unbekannt_h'), color=RED)
             return
         # ⚠⚠ **Erkannt und trotzdem leer** — das gibt es wirklich, und zwar
         # ohne Fehler: Die Baupläne DB gibt auf Wunsch die **vorgemerkten**
@@ -2542,13 +2542,13 @@ def _bestand(fenster, rahmen):
         # aus, obwohl alles richtig lief.
         if not eintraege:
             _status(fenster, vorschau_platz, '!', t('s_be_leer'),
-                    t('s_be_leer_h'), farbe=GOLD)
+                    t('s_be_leer_h'), color=GOLD)
             return
         v = importer.preview(eintraege)
         _vorschau_zeigen(fenster, vorschau_platz, art, eintraege, v)
 
     _button(fenster, innen, t('s_be_waehlen'), einlesen,
-           stark=True).pack(anchor='w')
+           strong=True).pack(anchor='w')
     _body_text(innen, t('s_be_erkannt'), fenster.f_small,
                 fill='x', pady=(10, 0))
     vorschau_platz.pack(fill='x', pady=(14, 20))
@@ -2637,20 +2637,20 @@ def _bestand(fenster, rahmen):
             return
         fenster.say(t('s_be_reset_ok'))
 
-    _button(fenster, ziel, t('s_zuruecksetzen'), zuruecksetzen, gefahr=True).pack()
+    _button(fenster, ziel, t('s_zuruecksetzen'), zuruecksetzen, danger=True).pack()
 
     _status(fenster, innen, '!', t('s_be_reset_warn'), t('s_be_reset_warn_h'),
-            farbe=GOLD)
+            color=GOLD)
 
 
 def _leere_vorschau(fenster, eltern):
     """Der Vorschau-Kasten, bevor eine Datei gewählt wurde."""
-    innen = _card(eltern, rand=SUB)
+    innen = _card(eltern, border_color=SUB)
     tk.Label(innen, text=t('s_vorschau_leer'), bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=16,
                                                    pady=(12, 2))
     _body_text(innen, t('s_vorschau_leer_h'), fenster.f_small,
-                grund=SURFACE, abzug=32, fill='x', padx=16, pady=(0, 12))
+                bg=SURFACE, inset=32, fill='x', padx=16, pady=(0, 12))
     return innen
 
 
@@ -2658,7 +2658,7 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     """Was der Import täte — erst nach dem Knopf passiert wirklich etwas."""
     from . import importer
     from .main_window import badge as blase
-    innen = _card(eltern, rand=ACCENT)
+    innen = _card(eltern, border_color=ACCENT)
 
     kopf = tk.Frame(innen, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(12, 10))
@@ -2694,7 +2694,7 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
                                                       pady=(0, 8))
 
     _body_text(innen, t('s_be_merge'), fenster.f_small,
-                grund=SURFACE, abzug=32, fill='x', padx=16, pady=(0, 10))
+                bg=SURFACE, inset=32, fill='x', padx=16, pady=(0, 10))
 
     reihe = tk.Frame(innen, bg=SURFACE)
     reihe.pack(fill='x', padx=16, pady=(0, 14))
@@ -2705,7 +2705,7 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
         innen.holder.destroy()
 
     k = _button(fenster, reihe, t('s_be_nimm') % len(v['neu']),
-               uebernehmen, stark=True)
+               uebernehmen, strong=True)
     k.configure(bg=SURFACE)
     k.pack(side='left')
     k2 = _button(fenster, reihe, t('abbrechen'), innen.holder.destroy)
@@ -3237,7 +3237,7 @@ def _geraete_hub(fenster, eltern):
                      bg=SURFACE, fg=ACCENT, font=fenster.f_bold, anchor='w',
                      padx=12).pack(fill='x', pady=(10, 0))
             _body_text(kasten, t('s_gh_tausch_lang'), fenster.f_small,
-                        grund=SURFACE, fill='x', abzug=24)
+                        bg=SURFACE, fill='x', inset=24)
 
             def _umhaengen(neu=geraet, vorher=alt):
                 from . import joysticks
@@ -3263,7 +3263,7 @@ def _geraete_hub(fenster, eltern):
             reihe = tk.Frame(tafel, bg=BG)
             reihe.pack(fill='x', pady=(6, 0))
             _button(fenster, reihe, t('s_gh_tausch_knopf'), _umhaengen,
-                   stark=True).pack(side='left')
+                   strong=True).pack(side='left')
             return
 
         # Die beiden Fälle ohne Knopf: Da hilft kein Schreibvorgang, sondern
@@ -3272,7 +3272,7 @@ def _geraete_hub(fenster, eltern):
         rat = (t('s_gh_starten_rat') if vorschlag['art'] == device_hub.START
                else t('s_gh_anstecken_rat'))
         _body_text(kasten, rat.format(geraet['name'] or geraet['kurz']),
-                    fenster.f_small, grund=SURFACE, fill='x', abzug=24)
+                    fenster.f_small, bg=SURFACE, fill='x', inset=24)
         tk.Frame(kasten, bg=SURFACE, height=8).pack(fill='x')
 
     def _takt():
@@ -3446,7 +3446,7 @@ def _joysticks(fenster, rahmen):
                      font=fenster.f_small, anchor='w', justify='left',
                      wraplength=560).pack(fill='x', pady=(4, 0))
             _button(fenster, oben, t('s_js_uebernehmen'),
-                   lambda: _uebernehmen(alt, neu), stark=True).pack(
+                   lambda: _uebernehmen(alt, neu), strong=True).pack(
                        anchor='w', pady=(8, 0))
 
         # --- Block 1: was verbunden ist ---
@@ -3637,7 +3637,7 @@ def _joysticks(fenster, rahmen):
         # ein Knopf, der erst warnt, wenn die Maus schon darauf steht, warnt
         # niemanden.
         _button(fenster, gefahrleiste, t('s_js_zurueck'), _zuruecksetzen,
-               gefahr=True).pack(side='right')
+               danger=True).pack(side='right')
 
     def sicht_zeichnen():
         """Die drei Sichten: was ich geändert habe · alles · Werkseinstellung.
@@ -3671,7 +3671,7 @@ def _joysticks(fenster, rahmen):
                                    ('s_js_s_frei', joysticks.FREI)):
             knoepfe.append(_button(fenster, sicht_rahmen, t(schluessel),
                                   (lambda w=welche: _waehlen(w)),
-                                  stark=(nur['sicht'] == welche)))
+                                  strong=(nur['sicht'] == welche)))
         _button_grid(sicht_rahmen, knoepfe)
 
     def filter_zeichnen():
@@ -3704,7 +3704,7 @@ def _joysticks(fenster, rahmen):
         _button_grid(filter_rahmen,
                      [_button(fenster, filter_rahmen, text,
                              (lambda k=kennzeichen: _waehlen(k)),
-                             stark=(nur['geraet'] == kennzeichen))
+                             strong=(nur['geraet'] == kennzeichen))
                       for text, kennzeichen in knoepfe])
 
     def liste_zeichnen(*_):
@@ -4215,10 +4215,10 @@ def _saubere_zeile(zeile):
     return zeile.replace('`', '').strip()
 
 
-def _card(eltern, rand=None, **kw):
+def _card(parent, border_color=None, **kw):
     """Ein abgesetzter Kasten mit runden Ecken (siehe `main_window.rundrahmen`)."""
     from .main_window import round_frame
-    innen = round_frame(eltern, SURFACE, rand or LINE, radius=8, base_color=BG)
+    innen = round_frame(parent, SURFACE, border_color or LINE, radius=8, base_color=BG)
     innen.holder.pack(fill='x', **kw)
     return innen
 
@@ -4760,7 +4760,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     # gemessen fehlten 5 (tools/randpruefung.py). Mit etwas Luft bricht der Text
     # ein paar Pixel früher um, was niemand sieht, statt abgeschnitten zu
     # werden, was jeder sieht.
-    _wrap(beschreibung, abzug=36)
+    _wrap(beschreibung, inset=36)
 
     for teil in (rand, leinwand, innen, kopf):
         teil.bind('<Button-1>', lambda e: tat())
@@ -4774,7 +4774,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     # Bindungen oben angelegt: Sonst würde ihn die Schleife mit „Kanal wählen"
     # belegen, und ein Klick darauf täte etwas anderes als draufsteht.
     if holen is not None and holen_aktiv:
-        knopf = _button(fenster, innen, holen_text, holen, stark=gewaehlt)
+        knopf = _button(fenster, innen, holen_text, holen, strong=gewaehlt)
         knopf.pack(fill='x', padx=14, pady=(0, 12))
     elif holen is not None:
         # Kein Knopf, sondern eine Auskunft: Es gibt gerade nichts zu holen.
@@ -4829,7 +4829,7 @@ def _serverstatus(fenster, rahmen):
             return
         if ohne_netz:
             _body_text(behaelter, t('s_st_alt_ohne_netz'), fenster.f_small,
-                        farbe=GOLD, pady=(0, 8))
+                        color=GOLD, pady=(0, 8))
 
         # --- Kopfzeile, wie oben auf der Statusseite ---
         # Links „Zuletzt aktualisiert vor …", rechts die Zusammenfassung. Die
@@ -4902,7 +4902,7 @@ def _serverstatus(fenster, rahmen):
     # mehreren Bildschirmhöhen Text, und niemand rollt nach unten, um eine
     # Schaltfläche zu suchen, die er sofort erwartet.
     _button(fenster, innen, t('s_st_nachsehen'),
-           lambda: auffrischen(True), stark=True).pack(fill='x', pady=(0, 12))
+           lambda: auffrischen(True), strong=True).pack(fill='x', pady=(0, 12))
     behaelter.pack(fill='x')
 
     # --- Der laufende Takt ---
@@ -5186,8 +5186,8 @@ def _meldungskarte(fenster, eltern, meldung):
             zeile, fett = eintrag, False
         _body_text(karte, zeile,
                     fenster.f_bold if fett else fenster.f_small,
-                    farbe=FG if fett else SUB, grund=SURFACE,
-                    fill='x', padx=16, pady=(0, 3), abzug=48)
+                    color=FG if fett else SUB, bg=SURFACE,
+                    fill='x', padx=16, pady=(0, 3), inset=48)
     tk.Frame(karte, bg=SURFACE, height=10).pack()
 
 
@@ -5366,7 +5366,7 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
                            fg=farbe, font=fenster.f_small, anchor='w',
                            justify='left')
             lab.pack(fill='x', padx=(46, 16), pady=(0, 8))
-            _wrap(lab, abzug=62)
+            _wrap(lab, inset=62)
         gebaut.append(True)
 
     def umschalten(_=None):
@@ -5494,7 +5494,7 @@ def _danke(fenster, rahmen):
              anchor='w').pack(fill='x', pady=(18, 2))
     _body_text(innen, t('s_dk_leute_h'), fenster.f_small, fill='x',
                 pady=(0, 2))
-    _body_text(innen, t('s_dk_aufklappen'), fenster.f_small, farbe=SUB,
+    _body_text(innen, t('s_dk_aufklappen'), fenster.f_small, color=SUB,
                 fill='x', pady=(0, 10))
 
     for name, gruppe, idee, funde in (
@@ -5603,7 +5603,7 @@ def _ueber(fenster, rahmen):
                 pady=(10, 6))
     _button(fenster, innen, t('s_up_sofort'),
            lambda: _fassung_holen(fenster, True),
-           stark=True).pack(fill='x', pady=(0, 10))
+           strong=True).pack(fill='x', pady=(0, 10))
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(4, 4))
@@ -5793,7 +5793,7 @@ def _erkennung(fenster, rahmen):
     # Beschreibung lief der Kasten über die Fensterkante hinaus und war an
     # beiden Enden abgeschnitten — lesbar war weder Anfang noch Ende.
     ziel = _setting_row(fenster, innen, t('s_er_satz'), t('s_er_satz_h'),
-                 breit=True)
+                 wide=True)
     # ⚠ `sammeln()` gibt ein Paar zurueck: die Liste der Saetze und woher sie
     # stammt. Wer das Paar einfach zusammenschreibt, bekommt rohe
     # Python-Schreibweise ins Fenster — eckige Klammern, Anfuehrungszeichen,
@@ -5805,8 +5805,8 @@ def _erkennung(fenster, rahmen):
     except Exception as ausnahme:
         fehler.merken('seiten.erkennung.phrasen', ausnahme)
     kasten = _card(ziel)
-    _body_text(kasten, gefunden, fenster.f_small, farbe=FG,
-                grund=SURFACE, abzug=24, fill='x', padx=12, pady=8)
+    _body_text(kasten, gefunden, fenster.f_small, color=FG,
+                bg=SURFACE, inset=24, fill='x', padx=12, pady=8)
 
     ziel = _setting_row(fenster, innen, t('s_er_kat'), t('s_er_kat_h'))
 
@@ -5888,7 +5888,7 @@ def _diagnose(fenster, rahmen):
     # versehentlich zu einer zweiten Meldung mitgeschickt.
     from .main_window import round_textarea
     ziel_meldung = _setting_row(fenster, innen, t('s_meldung'), t('s_meldung_h'),
-                         breit=True)
+                         wide=True)
     meldung_feld = round_textarea(ziel_meldung, fenster.f_small,
                                    '#0c1017', LINE, ACCENT, FG, rows=4)
     meldung_feld.holder.pack(fill='x', pady=(8, 0))
@@ -6097,8 +6097,8 @@ def _diagnose(fenster, rahmen):
     # und speichert dort. Ein Knopf für einen Zwischenschritt, den niemand geht,
     # ist Ballast auf einer Seite, auf der man ohnehin schon Ärger hat.
     _button_row(reihe, [
-        _button(fenster, reihe, t('s_di_absenden'), absenden, gefahr=True),
-        _button(fenster, reihe, t('s_di_melden'), melden, stark=True),
+        _button(fenster, reihe, t('s_di_absenden'), absenden, danger=True),
+        _button(fenster, reihe, t('s_di_melden'), melden, strong=True),
         _button(fenster, reihe, t('s_di_kopieren'), kopieren),
     ])
 
@@ -6139,14 +6139,14 @@ def _zahl_bestand():
 CRAFT_MAX = 150          # so viele Zeilen auf einmal — mehr macht Tk zäh
 
 
-def _duration(sekunden):
+def _duration(seconds):
     """Herstellzeit lesbar: 45 s · 16 min · 2 h 30 min."""
-    sekunden = int(sekunden or 0)
-    if sekunden < 60:
-        return t('s_he_sekunden') % sekunden
-    if sekunden < 3600:
-        return t('s_he_minuten') % round(sekunden / 60.0)
-    return t('s_he_std_min') % (sekunden // 3600, (sekunden % 3600) // 60)
+    seconds = int(seconds or 0)
+    if seconds < 60:
+        return t('s_he_sekunden') % seconds
+    if seconds < 3600:
+        return t('s_he_minuten') % round(seconds / 60.0)
+    return t('s_he_std_min') % (seconds // 3600, (seconds % 3600) // 60)
 
 
 def _herstellung(fenster, rahmen):
@@ -6504,17 +6504,17 @@ def _herstellung(fenster, rahmen):
     zeichnen()
 
 
-def _money(betrag):
+def _money(amount):
     """Ein Geldbetrag mit Tausenderpunkten — 22700 wird zu „22.700".
 
     ⚠ Ohne Trennung liest niemand fünfstellige Zahlen richtig: „145789" und
     „14578" sehen im Vorbeigehen gleich aus. Punkt statt Komma, weil das Spiel
     es so schreibt.
     """
-    return '{:,.0f}'.format(float(betrag or 0)).replace(',', '.')
+    return '{:,.0f}'.format(float(amount or 0)).replace(',', '.')
 
 
-def _auec(betrag):
+def _auec(amount):
     """Ein Geldbetrag **mit Einheit** — „59.345 aUEC".
 
     ⚠⚠ **Eine nackte Zahl ist keine Auskunft.** Am 04.09.2026 stand im
@@ -6522,7 +6522,7 @@ def _auec(betrag):
     59.345, Eier, Pfannkuchen?" Berechtigt — in einer Zeile mit SCU-Mengen und
     Entfernungen sagt eine blanke Zahl gar nichts.
     """
-    return t('s_auec') % _money(betrag)
+    return t('s_auec') % _money(amount)
 
 
 def _hat_herkunft(name):
@@ -6998,7 +6998,7 @@ def _routen(fenster, rahmen):
     schalter_rahmen.pack(fill='x', pady=(10, 0))
 
     # Ab hier rollt es — der Kopf darüber steht fest.
-    innen = _scroll_area(rahmen, rand=0)
+    innen = _scroll_area(rahmen, inset=0)
     ergebnis = tk.Frame(innen, bg=BG)
     ergebnis.pack(fill='both', expand=True, padx=24, pady=(12, 20))
 
@@ -7654,7 +7654,7 @@ def _laeden(fenster, rahmen):
     ld_reset.pack(side='right')
 
     # Ab hier rollt es.
-    innen = _scroll_area(rahmen, rand=0)
+    innen = _scroll_area(rahmen, inset=0)
 
     vorschlag_rahmen = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
                                 highlightbackground=LINE)
@@ -8582,7 +8582,7 @@ def _passt_zeile(fenster, eltern, bauplan):
                        fg=GOLD, font=fenster.f_small, anchor='w',
                        justify='left')
         lbl.pack(fill='x', padx=12, pady=(6, 0))
-        _wrap(lbl, abzug=36)
+        _wrap(lbl, inset=36)
         _steckplaetze_nachziehen(lbl)
         return
 
@@ -8606,7 +8606,7 @@ def _passt_zeile(fenster, eltern, bauplan):
     lbl = tk.Label(eltern, text=text, bg='#0c1017', fg=farbe,
                    font=fenster.f_bold, anchor='w', justify='left')
     lbl.pack(fill='x', padx=12, pady=(8, 2))
-    _wrap(lbl, abzug=36)
+    _wrap(lbl, inset=36)
 
 
 def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
@@ -9368,10 +9368,10 @@ def _bergung(fenster, rahmen):
     # danach ist die Zahl schon im Kopf. Ein Spielerschiff wird unbrauchbar,
     # sobald die Versicherung beansprucht wird; ausgebaute Teile sind dann
     # wertlos, und nur das Abkratzen der Hülle lohnt.
-    warnung = _card(innen, rand=GOLD, pady=(0, 14))
+    warnung = _card(innen, border_color=GOLD, pady=(0, 14))
     _body_text(warnung, _strip_markup(t('s_wr_npc_warnung')), fenster.f_small,
-                farbe=GOLD, grund=SURFACE, fill='x', padx=16, pady=12,
-                abzug=56)
+                color=GOLD, bg=SURFACE, fill='x', padx=16, pady=12,
+                inset=56)
 
     schiff = tk.StringVar()
     ergebnis = tk.Frame(innen, bg=BG)
@@ -9380,14 +9380,14 @@ def _bergung(fenster, rahmen):
     tk.Label(innen, text=t('s_wr_schiff'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', padx=24)
     _body_text(innen, t('s_wr_such_hilfe'), fenster.f_small, fill='x',
-                padx=24, abzug=48)
+                padx=24, inset=48)
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(6, 0))
     zeile, auswahl, _ = _combo_box(fenster, block, schiff,
                                      alle_schiffe.all_names,
-                                     leer_text=t('s_hg_nichts_gefunden'),
-                                     rollbar=200)
+                                     empty_text=t('s_hg_nichts_gefunden'),
+                                     scrollable=200)
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
@@ -9402,7 +9402,7 @@ def _bergung(fenster, rahmen):
             schluessel = ('s_wr_konzept' if alle_schiffe.is_concept(name)
                           else 's_wr_unbekannt')
             _body_text(ergebnis, t(schluessel), fenster.f_small,
-                        farbe=GOLD, fill='x')
+                        color=GOLD, fill='x')
             return
         tk.Label(ergebnis, text=t('s_wr_ueberschrift') % name, bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x', pady=(0, 2))
@@ -9427,7 +9427,7 @@ def _bergung(fenster, rahmen):
                     fenster.f_small, fill='x', pady=(0, 6))
         if ohne:
             _body_text(ergebnis, t('s_wr_ohne_preis') % ohne,
-                        fenster.f_small, farbe=GOLD, fill='x', pady=(0, 6))
+                        fenster.f_small, color=GOLD, fill='x', pady=(0, 6))
 
         for teil in teile:
             karte = _card(ergebnis, pady=(0, 4))
@@ -9536,7 +9536,7 @@ def _bergung(fenster, rahmen):
             kind.destroy()
 
     _button_row(reihe, [
-        _button(fenster, reihe, t('s_wr_nachsehen'), nachsehen, stark=True),
+        _button(fenster, reihe, t('s_wr_nachsehen'), nachsehen, strong=True),
         _button(fenster, reihe, t('s_wr_leeren'), _feld_leeren),
         _button(fenster, reihe, t('s_wr_vergessen'), _vergessen),
     ])
@@ -10130,7 +10130,7 @@ def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
 # nicht dem Spiel.
 
 
-def _checkbox(eltern, text, an, umschalten, schrift_klein):
+def _checkbox(parent, text, on, toggle, small_font):
     """Ein anklickbares Kästchen mit Haken — für „ja/nein" neben einem Feld.
 
     ⚠ Warum kein `tk.Checkbutton`: Der ist ein Systemelement und sieht auf
@@ -10139,7 +10139,7 @@ def _checkbox(eltern, text, an, umschalten, schrift_klein):
     Fremdkörper. Gezeichnet wird nichts von Hand — der Haken ist das
     Symbol `abhaken` aus dem Satz.
     """
-    rahmen = tk.Frame(eltern, bg=BG, cursor='hand2')
+    rahmen = tk.Frame(parent, bg=BG, cursor='hand2')
     # ⚠ Nur Symbole aus dem festgelegten Satz — `haken` steht in
     # `icons.LINE_NAMES`. Ein frei erfundener Name (`abhaken` gibt es nur
     # als Knopf-Symbol) faellt still auf den Ersatztext zurueck, und die Zeile
@@ -10156,17 +10156,17 @@ def _checkbox(eltern, text, an, umschalten, schrift_klein):
                                else icons.GREY)
         symbol.pack(side='left')
         lbl = tk.Label(rahmen, text=text, bg=BG,
-                       fg=ACCENT if an_jetzt else SUB, font=schrift_klein)
+                       fg=ACCENT if an_jetzt else SUB, font=small_font)
         lbl.pack(side='left', padx=(4, 0))
         for teil in (symbol, lbl):
             teil.bind('<Button-1>', klick)
 
     def klick(_=None):
-        an[0] = not an[0]
-        _bauen(an[0])
-        umschalten(an[0])
+        on[0] = not on[0]
+        _bauen(on[0])
+        toggle(on[0])
 
-    _bauen(an[0])
+    _bauen(on[0])
     rahmen.bind('<Button-1>', klick)
     return rahmen
 
@@ -10222,7 +10222,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
                          fg=SUB, font=fenster.f_small, anchor='w',
                          justify='left')
     _rf_hilfe.pack(fill='x', pady=(2, 0))
-    _wrap(_rf_hilfe, bezug=kasten, abzug=10)
+    _wrap(_rf_hilfe, reference=kasten, inset=10)
     einheit = tk.StringVar(value='cscu')
     zeile = tk.Frame(ziel, bg=BG)
     zeile.pack(fill='x', pady=(6, 4))
@@ -10285,7 +10285,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
             w.destroy()
         if posten:
             _button(fenster, knopf_platz, t('s_rf_knopf') % len(posten),
-                   uebernehmen, stark=True).pack(side='left')
+                   uebernehmen, strong=True).pack(side='left')
 
     def uebernehmen():
         # ⚠ Geschlossene Liste wie überall: Was UEX nicht kennt, kommt nicht
@@ -10344,9 +10344,9 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     return feld
 
 
-def _amount_text(menge):
+def _amount_text(quantity):
     """Eine Menge kurz und ohne Nullen am Ende — 1,88 statt 1,8800."""
-    return ('%g' % round(menge, 4)).replace('.', ',')
+    return ('%g' % round(quantity, 4)).replace('.', ',')
 
 
 def _hangar(fenster, rahmen):
@@ -10376,11 +10376,11 @@ def _hangar(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=24,
                                                    pady=(18, 2))
     _body_text(innen, t('s_hg_import_text'), fenster.f_small, fill='x',
-                padx=24, abzug=48)
+                padx=24, inset=48)
     # ⚠ Der Hinweis auf JSON ist kein Geschmack: Bei einem echten Export vom
     # 06.09.2026 fehlten der CSV drei Schiffe, die in der JSON standen.
-    _body_text(innen, t('s_hg_import_json'), fenster.f_small, farbe=GOLD,
-                fill='x', padx=24, abzug=48)
+    _body_text(innen, t('s_hg_import_json'), fenster.f_small, color=GOLD,
+                fill='x', padx=24, inset=48)
 
     def importieren():
         pfad = file_picker.open_file(
@@ -10411,7 +10411,7 @@ def _hangar(fenster, rahmen):
     reihe_import.pack(fill='x', padx=24, pady=(10, 0))
     _button_row(reihe_import, [
         _button(fenster, reihe_import, t('s_hg_import_knopf'), importieren,
-               stark=True),
+               strong=True),
         _button(fenster, reihe_import, t('s_hg_erweiterung'),
                lambda: pfade.im_browser(XPLORER_PAGE)),
     ])
@@ -10421,12 +10421,12 @@ def _hangar(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=24,
                                                    pady=(18, 2))
     _body_text(innen, t('s_hg_hand_text'), fenster.f_small, fill='x',
-                padx=24, abzug=48)
+                padx=24, inset=48)
     # ⚠ Sagt, wie das Feld benutzt wird. Ohne diesen Satz haelt man die
     # sichtbare Liste fuer das ganze Angebot — genau das war die Rueckmeldung
     # vom 06.09.2026.
     _body_text(innen, t('s_hg_such_hilfe'), fenster.f_small, fill='x',
-                padx=24, abzug=48)
+                padx=24, inset=48)
 
     block = tk.Frame(innen, bg=BG)
     block.pack(fill='x', padx=24, pady=(8, 0))
@@ -10440,8 +10440,8 @@ def _hangar(fenster, rahmen):
     # 06.09.2026.
     zeile, auswahl, _ = _combo_box(fenster, block, schiff,
                                      alle_schiffe.all_names,
-                                     leer_text=t('s_hg_nichts_gefunden'),
-                                     rollbar=200)
+                                     empty_text=t('s_hg_nichts_gefunden'),
+                                     scrollable=200)
     zeile.pack(fill='x')
     auswahl.pack(fill='x')
 
@@ -10641,8 +10641,8 @@ def _wunschliste(fenster, rahmen):
     block.pack(fill='x', padx=24, pady=(14, 0))
     w_zeile, w_auswahl, _ = _combo_box(fenster, block, wunsch,
                                          alle_schiffe.all_names,
-                                         leer_text=t('s_hg_nichts_gefunden'),
-                                         rollbar=200)
+                                         empty_text=t('s_hg_nichts_gefunden'),
+                                         scrollable=200)
     w_zeile.pack(fill='x')
     w_auswahl.pack(fill='x')
 
@@ -10885,7 +10885,7 @@ def _asop(fenster, rahmen):
                 liste, text=t('s_as_ohne') % ', '.join(x['name'] for x in ohne),
                 bg=BG, fg=SUB, font=fenster.f_small, anchor='w', justify='left')
             hinweis_lbl.pack(fill='x', pady=(10, 0))
-            _wrap(hinweis_lbl, abzug=48)
+            _wrap(hinweis_lbl, inset=48)
 
     def _sagen(text, farbe):
         """Den Stand anzeigen — und stillhalten, wenn die Seite schon weg ist.
@@ -10980,9 +10980,9 @@ def _asop(fenster, rahmen):
 
     # --- und zuletzt die rollende Liste ------------------------------------
     innen = _scroll_area(rahmen)
-    _body_text(innen, t('s_as_grenze'), fenster.f_small, fill='x', abzug=48)
+    _body_text(innen, t('s_as_grenze'), fenster.f_small, fill='x', inset=48)
     _body_text(innen, t('s_as_patch_hinweis'), fenster.f_small, fill='x',
-                abzug=48, pady=(6, 0))
+                inset=48, pady=(6, 0))
     liste = tk.Frame(innen, bg=BG)
 
     suche.trace_add('write', lambda *_: (such_platz_zeigen(), _zeichnen()))
@@ -11137,7 +11137,7 @@ def _einkaufsliste(fenster, rahmen):
         if not posten:
             _body_text(koerper,
                         t('s_ek_alles_erledigt').format(n=len(fertige)),
-                        fenster.f_small, farbe=ACCENT, fill='x', pady=(0, 8))
+                        fenster.f_small, color=ACCENT, fill='x', pady=(0, 8))
             _ohne_daten_hinweis(fenster, koerper, werte)
             return
 
@@ -11187,7 +11187,7 @@ def _einkaufsliste(fenster, rahmen):
         # als erwartet.
         if fertige:
             _body_text(koerper, t('s_ek_abgehakt').format(n=len(fertige)),
-                        fenster.f_small, farbe=ACCENT, fill='x', pady=(6, 0))
+                        fenster.f_small, color=ACCENT, fill='x', pady=(6, 0))
 
         _warenkorb_summe(fenster, koerper, posten)
         _ohne_daten_hinweis(fenster, koerper, werte)
@@ -11253,7 +11253,7 @@ def _zerlegen(fenster, rahmen):
             # ⚠ Kein Rezept heisst nicht „gibt nichts zurück" — es heisst, dass
             # wir es nicht wissen. Der Unterschied gehört gesagt.
             _body_text(ergebnis, t('s_zl_kein_rezept').format(name=gesucht),
-                        fenster.f_small, farbe=GOLD, fill='x')
+                        fenster.f_small, color=GOLD, fill='x')
             return
 
         tk.Label(ergebnis, text=gesucht, bg=BG, fg=FG, font=fenster.f_bold,
@@ -11275,16 +11275,16 @@ def _zerlegen(fenster, rahmen):
                           else 's_zl_verloren').format(
                             n=len(verloren),
                             stoffe=', '.join(z['rohstoff'] for z in verloren)),
-                        fenster.f_small, farbe=GOLD, fill='x', pady=(10, 0))
+                        fenster.f_small, color=GOLD, fill='x', pady=(10, 0))
         else:
             _body_text(ergebnis, t('s_zl_alles_zurueck'), fenster.f_small,
-                        farbe=ACCENT, fill='x', pady=(10, 0))
+                        color=ACCENT, fill='x', pady=(10, 0))
 
     feld, liste, _ = _combo_box(fenster, block, gewaehlt, namen,
-                                  beim_waehlen=zeigen,
-                                  beim_bestaetigen=lambda *_a: zeigen(),
-                                  leer_text=t('s_hg_nichts_gefunden'),
-                                  rollbar=200)
+                                  on_pick=zeigen,
+                                  on_confirm=lambda *_a: zeigen(),
+                                  empty_text=t('s_hg_nichts_gefunden'),
+                                  scrollable=200)
     feld.pack(fill='x')
     liste.pack(fill='x')
 
@@ -11497,7 +11497,7 @@ def _farmliste(fenster, rahmen):
 
         if not fehlt:
             _body_text(koerper, t('s_fl_alles_da'), fenster.f_small,
-                        farbe=ACCENT, fill='x')
+                        color=ACCENT, fill='x')
         else:
             for eintrag in fehlt:
                 _farm_zeile(fenster, koerper, eintrag, fehlend=True)
@@ -11516,7 +11516,7 @@ def _farmliste(fenster, rahmen):
             _body_text(koerper,
                         t('s_fl_ohne_rezept').format(n=len(ohne),
                                                      teile=', '.join(ohne)),
-                        fenster.f_small, farbe=GOLD, fill='x', pady=(12, 0))
+                        fenster.f_small, color=GOLD, fill='x', pady=(12, 0))
 
     fenster.on_show['farmliste'] = neu_zeichnen
     _aufbauen()
@@ -11563,7 +11563,7 @@ def _farm_zeile(fenster, eltern, eintrag, fehlend):
             anchor='w').pack(side='left', padx=(10, 0))
 
 
-def _number(wert):
+def _number(value):
     """Eine Menge lesbar — ganze Zahlen ohne Komma, kleine Mengen genauer.
 
     ⚠ `4.4000000000000004` ist dieselbe Zahl wie `4,4`, sieht aber nach einem
@@ -11577,7 +11577,7 @@ def _number(wert):
     andere Zahl: Wer 0,32 zurückbekommt, hat nicht 0,3.
     """
     try:
-        z = float(wert or 0)
+        z = float(value or 0)
     except (TypeError, ValueError):
         return '0'
     if abs(z - round(z)) < 0.005:
@@ -11600,7 +11600,7 @@ def _ohne_daten_hinweis(fenster, eltern, werte):
     _body_text(eltern,
                 t('s_ek_ohne_daten').format(n=len(fehlen),
                                             schiffe=', '.join(fehlen)),
-                fenster.f_small, farbe=GOLD, fill='x', pady=(8, 0))
+                fenster.f_small, color=GOLD, fill='x', pady=(8, 0))
 
 
 def _einkauf_schiffkopf(fenster, eltern, eintrag):
@@ -11975,8 +11975,8 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     # 06.09.2026 bei jedem Bauplan.
     if zustand == cart.NO_DATA:
         _body_text(eltern, t('s_wk_keine_daten'), fenster.f_small,
-                    grund=SURFACE, fill='x', padx=(46, 16), pady=(0, 10),
-                    abzug=78)
+                    bg=SURFACE, fill='x', padx=(46, 16), pady=(0, 10),
+                    inset=78)
         return
 
     _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
@@ -11991,12 +11991,12 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
         # teuerste Auskunft dieser Seite zu verschweigen.
         if cart.fully_fitted(eintrag):
             _body_text(eltern, t('s_hg_fertig_hilfe'), fenster.f_small,
-                        farbe=GOLD, grund=SURFACE, fill='x', padx=(46, 16),
-                        pady=(4, 10), abzug=78)
+                        color=GOLD, bg=SURFACE, fill='x', padx=(46, 16),
+                        pady=(4, 10), inset=78)
         else:
             _body_text(eltern, t('s_wk_nichts_offen'), fenster.f_small,
-                        grund=SURFACE, fill='x', padx=(46, 16), pady=(4, 10),
-                        abzug=78)
+                        bg=SURFACE, fill='x', padx=(46, 16), pady=(4, 10),
+                        inset=78)
         return
 
     cart.enrich(liste)
@@ -12077,7 +12077,7 @@ def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _notice(fenster, titel, text):
+def _notice(window, title, text):
     """Ein Hinweis im Programmstil — **nie** der System-Dialog von Tk.
 
     ⚠⚠ **Warum das keine Stilfrage ist.** Ein `messagebox.showinfo` bringt
@@ -12099,13 +12099,13 @@ def _notice(fenster, titel, text):
     Programms und benutzt die eingestellte Sprache.
     """
     from .main_window import ask_yes_no
-    ask_yes_no(fenster.root, titel, text, only_ok=True)
+    ask_yes_no(window.root, title, text, only_ok=True)
 
 
-def _ask(fenster, titel, text):
+def _ask(window, title, text):
     """Eine Ja/Nein-Frage im Programmstil — siehe `_hinweis`."""
     from .main_window import ask_yes_no
-    return ask_yes_no(fenster.root, titel, text)
+    return ask_yes_no(window.root, title, text)
 
 
 def _teil_kennzeichen(teil):
@@ -12345,7 +12345,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
             # angeboten, aus dem nichts passt.
             _body_text(auswahl_rahmen, t('s_wk_kein_preis'), fenster.f_small,
-                        grund=SURFACE, fill='x', padx=(22, 0), abzug=90)
+                        bg=SURFACE, fill='x', padx=(22, 0), inset=90)
             return
         nach_name = dict((m['name'], m) for m in moeglich)
         gewaehlt_var = tk.StringVar()
@@ -12378,9 +12378,9 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         feld, liste, _ = _combo_box(
             fenster, auswahl_rahmen, gewaehlt_var,
             lambda: sorted(nach_name),
-            beim_waehlen=uebernehmen, beim_bestaetigen=uebernehmen,
-            leer_text=t('s_hg_nichts_gefunden'), rollbar=200,
-            zusatz=lambda n: _teil_kennzeichen(nach_name.get(n)))
+            on_pick=uebernehmen, on_confirm=uebernehmen,
+            empty_text=t('s_hg_nichts_gefunden'), scrollable=200,
+            extra=lambda n: _teil_kennzeichen(nach_name.get(n)))
         feld.pack(fill='x', padx=(22, 0))
         liste.pack(fill='x', padx=(22, 0))
 
@@ -12631,8 +12631,8 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
             _body_text(karte,
                         t('s_wk_ohne_preis').format(
                             rohstoffe=', '.join(angabe['ohne_preis'])),
-                        fenster.f_small, farbe=GOLD, grund='#0c1017',
-                        fill='x', padx=12, pady=(0, 6), abzug=90)
+                        fenster.f_small, color=GOLD, bg='#0c1017',
+                        fill='x', padx=12, pady=(0, 6), inset=90)
 
     tk.Frame(karte, bg='#0c1017', height=4).pack()
 
@@ -12674,7 +12674,7 @@ def _warenkorb_route(fenster, eltern, liste):
                                                    pady=(10, 2))
     if not stopps:
         _body_text(eltern, t('s_wk_route_leer'), fenster.f_small,
-                    grund=SURFACE, fill='x', padx=(46, 16), abzug=78)
+                    bg=SURFACE, fill='x', padx=(46, 16), inset=78)
         return
 
     zahlen = cart.route_total(stopps)
@@ -12717,8 +12717,8 @@ def _warenkorb_route(fenster, eltern, liste):
 
     if ohne:
         _body_text(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
-                    fenster.f_small, farbe=GOLD, grund=SURFACE, fill='x',
-                    padx=(46, 16), pady=(6, 0), abzug=78)
+                    fenster.f_small, color=GOLD, bg=SURFACE, fill='x',
+                    padx=(46, 16), pady=(6, 0), inset=78)
 
 
 def _lager(fenster, rahmen):
@@ -13256,14 +13256,14 @@ def _lager(fenster, rahmen):
                    eintragen).pack(side='left')
         else:
             _button(fenster, knopf_rahmen, t('s_lg_speichern'), eintragen,
-                   stark=True).pack(side='left')
+                   strong=True).pack(side='left')
             _button(fenster, knopf_rahmen, t('s_lg_abbrechen'),
                    verwerfen).pack(side='left', padx=(8, 0))
             # ⭐ Löschen genau dieses Postens — man hat ihn ja gerade offen.
             # Das „Löschen" an der Zeile bleibt daneben bestehen; hier ist es
             # der Weg für den, der schon in der Bearbeitung steckt.
             _button(fenster, knopf_rahmen, t('s_lg_posten_weg'), posten_weg,
-                   gefahr=True).pack(side='left', padx=(24, 0))
+                   danger=True).pack(side='left', padx=(24, 0))
 
     knoepfe_setzen()
     knopf_rahmen.pack(anchor='w', pady=(4, 10))
@@ -13363,7 +13363,7 @@ def _lager(fenster, rahmen):
         zeichnen()
 
     _button(fenster, _reihe_aus, t('s_lg_leeren'), _leeren,
-           gefahr=True).pack(side='left', padx=(24, 0))
+           danger=True).pack(side='left', padx=(24, 0))
     _body_text(innen, t('s_lg_aus_hilfe'), fenster.f_small, fill='x')
 
     zeichnen()
@@ -13400,11 +13400,11 @@ def _warteton(rest):
     return ACCENT
 
 
-def _age_text(sekunden):
+def _age_text(seconds):
     """Wie alt eine Meldung ist, in Worten — `None` ergibt `''`."""
-    if sekunden is None:
+    if seconds is None:
         return ''
-    stunden = sekunden / 3600.0
+    stunden = seconds / 3600.0
     if stunden < 1:
         return t('s_vk_alter_frisch')
     if stunden < 24:
@@ -13422,9 +13422,9 @@ def _ohne_trenner(text):
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
 
 
-def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
-                 beim_waehlen=None, beim_bestaetigen=None, leer_text=None,
-                 rollbar=0, zusatz=None):
+def _combo_box(window, parent, var, get_entries, at_most=10,
+                 on_pick=None, on_confirm=None, empty_text=None,
+                 scrollable=0, extra=None):
     """Ein Eingabefeld mit Aufklappliste — tippen **oder** aussuchen.
 
     Gibt `(rahmen, listen_rahmen, neu_zeichnen)` zurück. Der Aufrufer packt
@@ -13464,17 +13464,17 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
     """
     from .main_window import round_entry
 
-    zeile = tk.Frame(eltern, bg=BG)
-    liste = tk.Frame(eltern, bg=BG)
+    zeile = tk.Frame(parent, bg=BG)
+    liste = tk.Frame(parent, bg=BG)
     offen = {'ja': False}
 
-    feld = round_entry(zeile, var, fenster.f_small, '#0c1017', LINE, ACCENT,
+    feld = round_entry(zeile, var, window.f_small, '#0c1017', LINE, ACCENT,
                        FG)
 
     # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
     # nach Systemschrift anders aussieht als die gezeichneten Symbole daneben.
     pfeil = icons.line(zeile, 'aufklappen', background=BG,
-                          font=fenster.f_small)
+                          font=window.f_small)
     pfeil.configure(cursor='hand2')
 
     def _leeren():
@@ -13483,18 +13483,18 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
 
     def _zusatz_text(name):
         """Was rechts neben diesem Namen steht — oder ''."""
-        if zusatz is None:
+        if extra is None:
             return ''
         try:
-            return (zusatz(name) if callable(zusatz)
-                    else zusatz.get(name) or '')
+            return (extra(name) if callable(extra)
+                    else extra.get(name) or '')
         except Exception:
             return ''
 
     def zeichnen():
         _leeren()
         text = (var.get() or '').strip().lower()
-        alle = eintraege_holen()
+        alle = get_entries()
         # Steht genau der gewählte Eintrag im Feld, ist nichts mehr zu suchen.
         if text and any(text == e.lower() for e in alle) and not offen['ja']:
             liste.pack_forget()
@@ -13523,9 +13523,9 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
         pfeil.swap_symbol('zuklappen' if offen['ja'] else 'aufklappen')
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
-            tk.Label(liste, text=leer_text or t('s_vk_nichts_gefunden'),
+            tk.Label(liste, text=empty_text or t('s_vk_nichts_gefunden'),
                      bg=BG, fg=SUB,
-                     font=fenster.f_small, anchor='w').pack(fill='x', pady=3)
+                     font=window.f_small, anchor='w').pack(fill='x', pady=3)
             return
         liste.pack(fill='x', pady=(4, 0))
         # ⭐ **`rollbar`: alle Treffer, in einer Flaeche fester Hoehe.**
@@ -13538,9 +13538,9 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
         # wuerden die ganze Seite zuschuetten und den Knopf darunter
         # unerreichbar machen.
         halter = liste
-        if rollbar:
+        if scrollable:
             leinwand = tk.Canvas(liste, bg=BG, highlightthickness=0,
-                                 height=rollbar)
+                                 height=scrollable)
             from .main_window import round_scrollbar, bind_wheel
             balken = round_scrollbar(liste, leinwand, bg=BG)
             halter = tk.Frame(leinwand, bg=BG)
@@ -13557,14 +13557,14 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
             # Fallen (Trackpad, macOS, `bind_all` ohne `add='+'`).
             bind_wheel(leinwand)
 
-        zeigen = treffer if rollbar else treffer[:hoechstens]
+        zeigen = treffer if scrollable else treffer[:at_most]
 
         def _eintrag_bauen(nummer):
             name = zeigen[nummer]
             bei = _zusatz_text(name)
             if not bei:
                 eintrag = tk.Label(halter, text=name, bg=BG, fg=FG,
-                                   font=fenster.f_small, anchor='w',
+                                   font=window.f_small, anchor='w',
                                    cursor='hand2', padx=8, pady=3)
                 mitfaerben = (eintrag,)
             else:
@@ -13575,11 +13575,11 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
                 # franst die linke Kante bei jeder Zeile anders aus.
                 eintrag = tk.Frame(halter, bg=BG, cursor='hand2')
                 links = tk.Label(eintrag, text=name, bg=BG, fg=FG,
-                                 font=fenster.f_small, anchor='w',
+                                 font=window.f_small, anchor='w',
                                  cursor='hand2', padx=8, pady=3)
                 links.pack(side='left')
                 rechts = tk.Label(eintrag, text=bei, bg=BG, fg=SUB,
-                                  font=fenster.f_small, anchor='e',
+                                  font=window.f_small, anchor='e',
                                   cursor='hand2', padx=8, pady=3)
                 rechts.pack(side='right')
                 mitfaerben = (eintrag, links, rechts)
@@ -13598,24 +13598,24 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
         #
         # ⚠ Ohne Rollfläche (`rollbar=None`) bleibt alles wie bisher: Dort
         # deckelt `hoechstens` die Liste ohnehin auf wenige Zeilen.
-        if rollbar:
+        if scrollable:
             _nach_bedarf_bauen(leinwand, len(zeigen), _eintrag_bauen)
         else:
             for nummer in range(len(zeigen)):
                 _eintrag_bauen(nummer)
-        rest = 0 if rollbar else len(treffer) - hoechstens
+        rest = 0 if scrollable else len(treffer) - at_most
         if rest > 0:
             tk.Label(halter, text=t('s_af_weitere').format(n=rest), bg=BG,
-                     fg=SUB, font=fenster.f_small, anchor='w',
+                     fg=SUB, font=window.f_small, anchor='w',
                      padx=8).pack(fill='x', pady=(2, 0))
 
     def waehlen(name):
         offen['ja'] = False
-        if beim_waehlen is not None:
+        if on_pick is not None:
             # Der Verkaufs-Reiter sammelt mehrere Waren: Dort landet der Name
             # in der Auswahl, und das Feld wird wieder leer. Ohne diesen Weg
             # müsste der Aufrufer den Eintrag aus dem Feld zurücklesen.
-            beim_waehlen(name)
+            on_pick(name)
         else:
             var.set(name)
         # ⚠⚠ **Der Rückruf kann dieses Feld zerstört haben.** Bei der
@@ -13743,7 +13743,7 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
         _zumachen()
 
     try:
-        eltern.winfo_toplevel().bind('<Button-1>', _klick_im_fenster, add='+')
+        parent.winfo_toplevel().bind('<Button-1>', _klick_im_fenster, add='+')
     except tk.TclError:
         pass
 
@@ -13756,20 +13756,20 @@ def _combo_box(fenster, eltern, var, eintraege_holen, hoechstens=10,
     # Verkauf muss die Ware in den Preisdaten stehen, sonst käme ein Name in
     # die Auswahl, zu dem es nie ein Ergebnis geben kann.
     def _bestaetigen(_=None):
-        if beim_bestaetigen is None:
+        if on_confirm is None:
             return
         text = (var.get() or '').strip()
         if not text:
             return
         # Genau ein passender Eintrag? Dann ist die Sache eindeutig, auch
         # wenn nur ein Teil getippt wurde.
-        alle = eintraege_holen()
+        alle = get_entries()
         genau = [e for e in alle if e.lower() == text.lower()]
         teil = [e for e in alle if text.lower() in e.lower()]
         ziel = genau[0] if genau else (teil[0] if len(teil) == 1 else '')
         if ziel:
             offen['ja'] = False
-            beim_bestaetigen(ziel)
+            on_confirm(ziel)
 
     feld.bind('<Return>', _bestaetigen, add='+')
     feld.bind('<KP_Enter>', _bestaetigen, add='+')
@@ -13955,8 +13955,8 @@ def _verkauf(fenster, rahmen):
     # heisst, klappt die Liste auf und sucht sie aus.
     feldzeile, feldliste, such_zeichnen = _combo_box(
         fenster, suchzeile, suche, preisdaten.goods,
-        beim_waehlen=lambda name: waehlen(name),
-        beim_bestaetigen=lambda name: waehlen(name))
+        on_pick=lambda name: waehlen(name),
+        on_confirm=lambda name: waehlen(name))
     feldzeile.pack(fill='x', pady=(4, 0))
     feldliste.pack(fill='x')
 
@@ -14453,10 +14453,10 @@ def _handelslager(fenster, rahmen):
             w.destroy()
         if bearbeitung['nummer'] is None:
             _button(fenster, knopf_rahmen, t('s_hl_buchen'), eintragen,
-                   stark=True).pack(side='left')
+                   strong=True).pack(side='left')
         else:
             _button(fenster, knopf_rahmen, t('s_hl_speichern'), eintragen,
-                   stark=True).pack(side='left')
+                   strong=True).pack(side='left')
             _button(fenster, knopf_rahmen, t('s_hl_abbrechen'),
                    abbrechen).pack(side='left', padx=(8, 0))
 
@@ -14611,8 +14611,8 @@ def _handelslager(fenster, rahmen):
     _button(fenster, _reihe_aus, t('s_lg_einlesen'),
            _einlesen).pack(side='left', padx=(8, 0))
     _button(fenster, _reihe_aus, t('s_lg_leeren'), _lager_leeren,
-           gefahr=True).pack(side='left', padx=(24, 0))
-    _body_text(innen, t('s_hl_aus_hilfe'), fenster.f_small, abzug=48,
+           danger=True).pack(side='left', padx=(24, 0))
+    _body_text(innen, t('s_hl_aus_hilfe'), fenster.f_small, inset=48,
                 fill='x', padx=24, pady=(0, 20))
 
     neu_zeichnen()
@@ -14831,7 +14831,7 @@ def _blickwinkel(fenster, rahmen):
         reihe.pack(fill='x', pady=(10, 0))
         _button(fenster, reihe,
                t('s_fv_neu_messen') if breite_mm else t('s_fv_messen'),
-               _messen, stark=not breite_mm).pack(side='left')
+               _messen, strong=not breite_mm).pack(side='left')
 
         if not breite_mm:
             _body_text(inhalt, t('s_fv_nicht_gemessen'), fenster.f_small,
@@ -15408,7 +15408,7 @@ def _achsen(fenster, rahmen):
         knopfreihe = tk.Frame(links, bg=BG)
         knopfreihe.pack(fill='x', pady=(10, 0))
         _button(fenster, knopfreihe, t('s_ac_speichern'), _speichern,
-               stark=True).pack(side='left')
+               strong=True).pack(side='left')
         _button(fenster, knopfreihe, t('s_ac_verwerfen'),
                _auffrischen).pack(side='left', padx=(8, 0))
         _body_text(links, t('s_ac_spiel_zu'), fenster.f_small, fill='x')
@@ -15582,7 +15582,7 @@ def _achsen(fenster, rahmen):
             reihe_auf = tk.Frame(koerper, bg=BG)
             reihe_auf.pack(fill='x', pady=(8, 0))
             _button(fenster, reihe_auf, t('s_ac_aufraeumen'), _aufraeumen,
-                   stark=True).pack(side='left')
+                   strong=True).pack(side='left')
 
         if faelle:
             _body_text(koerper, t('s_ac_befund_warnung'), fenster.f_small,
@@ -15956,17 +15956,17 @@ _PATCH_MAX = 60
 _PATCH_LIST_HEIGHT = 150
 
 
-def _patch_number(wert, stellen=4):
+def _patch_number(value, digits=4):
     """Einen Wert aus den Patch-Daten anzeigbar machen.
 
     ⚠ Es kommen Zahlen, Texte, Wahrheitswerte und verschachtelte Gebilde
     durcheinander — `weapon.ammo.damage.physical` ist eine Zahl, `i18n.name`
     ein Text. Und Kommazahlen kommen mit voller Genauigkeit („0.30000000004"),
     was in einer Liste nur Lärm ist."""
-    if isinstance(wert, bool):
-        return 'ja' if wert else 'nein'
-    if isinstance(wert, float):
-        gerundet = round(wert, stellen)
+    if isinstance(value, bool):
+        return 'ja' if value else 'nein'
+    if isinstance(value, float):
+        gerundet = round(value, digits)
         # ⚠⚠ **Keine Exponentialschreibweise** (07.09.2026, gefragt mit
         # „1.25e-06 was soll das für nen wert sein?"). Zu Recht: `%g` kippt
         # unterhalb von 0,0001 auf `1.25e-06` um, und das liest niemand, der
@@ -15977,14 +15977,14 @@ def _patch_number(wert, stellen=4):
         # Also ausgeschrieben: `0.00000125`. Länger, aber jeder sieht sofort,
         # dass es eine sehr kleine Zahl ist — und wie klein.
         if gerundet and abs(gerundet) < 1e-4:
-            return ('%.*f' % (stellen, gerundet)).rstrip('0').rstrip('.')
+            return ('%.*f' % (digits, gerundet)).rstrip('0').rstrip('.')
         # `%g` wirft die Nullen weg und macht aus 975.0 wieder 975.
         return '%g' % gerundet
-    if wert is None:
+    if value is None:
         return '—'
-    if isinstance(wert, (list, dict)):
+    if isinstance(value, (list, dict)):
         return '…'
-    return str(wert)
+    return str(value)
 
 
 def _pa_paar(alt, neu):
@@ -16278,7 +16278,7 @@ def _patchaenderungen(fenster, rahmen):
     # wachsenden gepackt, schiebt der Inhalt ihn aus dem Fenster — genau die
     # Falle, die in diesem Projekt schon zweimal zugeschlagen hat.
     _body_text(rahmen, t('s_pa_sammlung'), fenster.f_small, fill='x',
-                padx=24, abzug=48)
+                padx=24, inset=48)
 
     kopf = tk.Frame(rahmen, bg=BG)
     kopf.pack(fill='x', padx=24, pady=(12, 0))
@@ -16298,7 +16298,7 @@ def _patchaenderungen(fenster, rahmen):
     # aus der Projekt-Anleitung: Ein fester Bereich mit veränderlichem Inhalt
     # braucht eine Höhengrenze **und** eine eigene Rollfläche — sonst wird er
     # irgendwann abgeschnitten, ohne dass es jemand merkt.
-    liste = _scroll_area(rahmen, hoehe=_PATCH_LIST_HEIGHT)
+    liste = _scroll_area(rahmen, height=_PATCH_LIST_HEIGHT)
     bereiche = tk.Frame(rahmen, bg=BG)
     bereiche.pack(fill='x', padx=24, pady=(10, 0))
 
@@ -16380,12 +16380,12 @@ def _patchaenderungen(fenster, rahmen):
         # die auch der Selbsttest nicht schließt.
         knoepfe = [_button(fenster, bereiche, t('s_pa_alle'),
                           lambda: _art_waehlen(None),
-                          stark=(zustand['art'] is None))]
+                          strong=(zustand['art'] is None))]
         for art, anzahl in pa.kategorien(version):
             knoepfe.append(_button(fenster, bereiche,
                                   '%s (%d)' % (art, anzahl),
                                   (lambda a=art: _art_waehlen(a)),
-                                  stark=(zustand['art'] == art)))
+                                  strong=(zustand['art'] == art)))
         _button_grid(bereiche, knoepfe)
 
     def _art_waehlen(art):
