@@ -152,6 +152,42 @@ def pruefe(bedingung, was):
         fehler.append(was)
 
 
+def rumpf(quelle, name):
+    """Der Quelltext **einer** Modulfunktion — und eine rote Prüfung, wenn es
+    sie nicht gibt.
+
+    ⛔⛔ **Warum das ein eigener Helfer ist.** Viele Prüfungen schneiden sich
+    eine Funktion per Textsuche aus `seiten.py` heraus. Das war in **vier**
+    Bauarten geschrieben, mit vier verschiedenen Ausfällen, sobald der Name sich
+    ändert (gemessen am 14.09.2026 vor P4 Stufe 7c):
+
+    | Bauart | Wenn der Name fehlt |
+    |---|---|
+    | `quelle.split('def _x(')[-1]` | gibt die **ganze Datei** zurück — die Prüfung sucht weiter und wird grün, ohne noch etwas zu prüfen |
+    | `quelle.find('def _x(')` ohne Nachfrage | `-1`, also die **letzten Zeichen** der Datei |
+    | `quelle.index(...)` / `.split(...)[1]` | wirft — der **ganze Lauf** endet, alle späteren Prüfungen fallen aus |
+    | `getattr(modul, '_x')` | dasselbe |
+
+    Ein Absturz ist nicht besser als stilles Durchwinken: Er reißt den Rest des
+    Laufs mit, und dann fehlen Prüfungen, die niemand vermisst.
+
+    Dieser Helfer macht daraus **einen** Fall: eine rote Prüfung, die die
+    gesuchte Funktion beim Namen nennt, und ein leerer Rumpf, mit dem die
+    folgenden Prüfungen sauber durchfallen statt zu explodieren.
+
+    ⚠ Geschnitten wird bis zum nächsten `def` **am Zeilenanfang** — innere
+    Funktionen gehören zur Seite und bleiben drin.
+    """
+    marke = 'def %s(' % name
+    start = quelle.find(marke)
+    pruefe(start >= 0, 'die Funktion %s ist auffindbar' % name)
+    if start < 0:
+        return ''
+    rest = quelle[start:]
+    ende = rest.find(chr(10) + 'def ', 1)
+    return rest if ende < 0 else rest[:ende]
+
+
 # ---------------------------------------------------------------------------
 # ⚠ Am 28.08.2026 stand in `release.yml` zweimal `shell: bash` untereinander.
 # YAML verbietet denselben Schlüssel zweimal in einer Map — GitHub lehnte die
@@ -4992,9 +5028,10 @@ def main():
               encoding='utf-8') as _fh52p:
         _qu52p = _fh52p.read()
     # Der Lager-Abschnitt: zwischen `def _lager(` und der naechsten Seite.
-    _von52p = _qu52p.index('def _lager(')
-    _lager52p = _qu52p[_von52p:]
-    _zeichnen52p = _lager52p[_lager52p.index('    def zeichnen():'):]
+    _lager52p = rumpf(_qu52p, '_lager')
+    _ab52p = _lager52p.find('    def zeichnen():')
+    pruefe(_ab52p >= 0, 'die Zeichenfunktion der Lager-Seite ist auffindbar')
+    _zeichnen52p = _lager52p[_ab52p:] if _ab52p >= 0 else ''
     # Bis zum Ende der Zeichenfunktion — der naechste Ausdruck auf gleicher
     # Ebene ist die Anmeldung des Filters.
     _zeichnen52p = _zeichnen52p.split('filter_var.trace_add')[0]
@@ -7846,7 +7883,7 @@ def main():
     # anderen darf jeder tippen, was er will.
     _q84s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    _hlseite84 = _q84s.split('def _handelslager(')[-1]
+    _hlseite84 = rumpf(_q84s, '_handelslager')
     pruefe('preisdaten.known(name)' in _hlseite84,
            'die Ware wird gegen die Warenliste geprueft')
     pruefe('ortsliste.knows(ort.get())' in _hlseite84,
@@ -7865,9 +7902,14 @@ def main():
     # `norm_material` weiter oben — beim ersten Anlauf prompt wieder getappt.)
     pruefe('import ttk' not in _q84s and 'from tkinter.ttk' not in _q84s,
            'kein ttk-Systemelement in der Oberflaeche')
-    pruefe("'verkauf':     _verkauf," in _q84s
-           and "'handelslager': _handelslager," in _q84s,
-           'beide Seiten sind angemeldet')
+    # ⚠ Nicht auf die Ausrichtung im Woerterbuch prueft: `'verkauf':     _verkauf,`
+    # bricht schon, wenn jemand eine Leerstelle verschiebt. Gefragt ist, ob die
+    # Kennung auf die Funktion zeigt — das beantwortet die Tabelle selbst.
+    from scbp import seiten as _se84
+    _tab84 = _se84._bauer_tabelle()
+    for _k84 in ('verkauf', 'handelslager'):
+        pruefe(callable(_tab84.get(_k84)),
+               'die Seite „%s" ist angemeldet' % _k84)
     pruefe("self._tab('verkauf', 'verkauf'" in open(
         os.path.join(WURZEL, 'scbp', 'main_window.py'),
         encoding='utf-8').read(), 'der Reiter steht in der Leiste')
@@ -8048,7 +8090,7 @@ def main():
     # ⚠ Beim naechsten **Modul**-`def` schneiden (Zeilenanfang), nicht beim
     # naechsten `def` ueberhaupt: Die Lager-Seite hat innere Funktionen, und
     # der Block endete sonst vor der Stelle, die geprueft werden soll.
-    _lagerseite85 = _q85p.split('def _lager(')[-1].split('\ndef ')[0]
+    _lagerseite85 = rumpf(_q85p, '_lager')
     pruefe('_combo_box(fenster, block, var,' in _lagerseite85,
            'auch „Mein Lager" nutzt das Auswahlfeld')
     pruefe('vorschlag_rahmen' not in _lagerseite85,
@@ -8293,7 +8335,7 @@ def main():
     # dieselben, in derselben Reihenfolge.
     _q86 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _hlblock86 = _q86.split('def _handelslager(')[-1].split('\ndef ')[0]
+    _hlblock86 = rumpf(_q86, '_handelslager')
     for _schluessel86 in ("s_lg_aus_json", "s_lg_aus_csv", "s_lg_einlesen",
                           "s_lg_leeren"):
         pruefe("t('%s')" % _schluessel86 in _hlblock86,
@@ -9021,7 +9063,7 @@ def main():
     #    einzige Unterschied — am fertigen Knopf ist er nur noch Pixel.
     _q95 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _be95 = _q95.split('def _bestand(')[1].split(chr(10) + 'def ')[0]
+    _be95 = rumpf(_q95, '_bestand')
 
     def _knopfzeile95(schluessel):
         for _z95 in _be95.split(chr(10)):
@@ -14230,7 +14272,14 @@ def main():
         import inspect as _ins145
         from scbp import seiten as _st145
         for _name145 in ('_achsen', '_blickwinkel'):
-            _quelle145 = _ins145.getsource(getattr(_st145, _name145))
+            # ⚠ Nicht `getattr(...)` blank: Fehlt der Name nach einer
+            # Umbenennung, reisst der AttributeError den ganzen Lauf mit.
+            _fn145 = getattr(_st145, _name145, None)
+            pruefe(_fn145 is not None,
+                   'die Funktion %s ist auffindbar' % _name145)
+            if _fn145 is None:
+                continue
+            _quelle145 = _ins145.getsource(_fn145)
             pruefe('from tkinter import messagebox' not in _quelle145,
                    '*%s öffnet keinen System-Dialog' % _name145)
             pruefe('ask_yes_no' in _quelle145,
@@ -20081,8 +20130,7 @@ def main():
     # lassen — „Checkmate" allein verschweigt sieben weitere.
     _q206 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    _ab206 = _q206[_q206.find('def _raffinerien('):]
-    _ab206 = _ab206[:_ab206.find('\ndef ', 10)]
+    _ab206 = rumpf(_q206, '_raffinerien')
     pruefe("s_bg_raff_weitere" in _ab206,
            'die Legende nennt die Zahl der gebuendelten Stationen')
 
