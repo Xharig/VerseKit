@@ -60,9 +60,9 @@ def main():
 
     liste = liste_finden(fenster.pages['joysticks'])
     gebaut = len(liste.winfo_children()) if liste else 0
-    p(gebaut > seiten.ZEILEN_SOFORT,
+    p(gebaut > seiten.ROWS_FIRST,
       'die Liste hat mehr Zeilen als sofort gezeigt werden (%d)' % gebaut)
-    if gebaut <= seiten.ZEILEN_SOFORT:
+    if gebaut <= seiten.ROWS_FIRST:
         fenster.root.destroy()
         return 1
 

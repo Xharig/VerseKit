@@ -40,17 +40,17 @@ from . import pfade, icons, fields
 from .sprache import t, pa_feld
 
 BG      = '#10141c'
-FLAECHE = '#161c28'
+SURFACE = '#161c28'
 BAR     = '#1b2230'
 FG      = '#e6edf3'
 SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
-LINIE   = '#232c3d'
+LINE   = '#232c3d'
 GOLD    = '#e8c353'
-ROT     = '#e05252'
+RED     = '#e05252'
 # Fuer Zustaende, die schiefgingen, ohne eine Stoerung zu sein (abgebrochen,
 # fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
-ROT_BLASS = '#c98a8a'
+RED_PALE = '#c98a8a'
 
 # Wie viele Zeilen das Auftrags-Protokoll zuerst zeigt — der Rest kommt auf
 # Klick nach.
@@ -63,7 +63,7 @@ ROT_BLASS = '#c98a8a'
 #
 # ⚠ 40, wie `ZEILEN_ZUERST` in der Bauplan-Liste. Zwei verschiedene Zahlen für
 # dieselbe Sache wären genau die Art Unterschied, die niemand begründen kann.
-ZEILEN_ZUERST_LOG = 40
+LOG_ROWS_FIRST = 40
 
 # ⚠ Die Klassen heißen in den Daten englisch; angezeigt werden sie übersetzt.
 #
@@ -72,7 +72,7 @@ ZEILEN_ZUERST_LOG = 40
 # Herstellung dieselbe Übersetzung brauchte, wäre die naheliegende Lösung eine
 # zweite Kopie gewesen. Genau so ist `namensform()` einmal dreifach im Programm
 # gelandet und auseinandergelaufen.
-KLASSEN_TEXTE = {'Civilian': 's_ld_kl_civilian',
+CLASS_LABELS = {'Civilian': 's_ld_kl_civilian',
                  'Military': 's_ld_kl_military',
                  'Industrial': 's_ld_kl_industrial',
                  'Stealth': 's_ld_kl_stealth',
@@ -88,7 +88,7 @@ KLASSEN_TEXTE = {'Civilian': 's_ld_kl_civilian',
 # ⚠ Die Projektseite und **nicht** ein einzelner Store: Welchen Browser der
 # Spieler benutzt, weiß das Werkzeug nicht, und dort stehen alle drei
 # nebeneinander (Chrome, Firefox, Opera).
-XPLORER_SEITE = 'https://github.com/dolkensp/HangarXPLOR'
+XPLORER_PAGE = 'https://github.com/dolkensp/HangarXPLOR'
 XPLORER_FIREFOX = ('https://addons.mozilla.org/en-US/firefox/addon/'
                    'star-citizen-hangar-xplorer/')
 XPLORER_CHROME = ('https://chrome.google.com/webstore/detail/hangarxplor/'
@@ -227,12 +227,12 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
 # ⚠ Der erste Wert muss die **sichtbare** Fläche sicher füllen — sonst sieht
 # man unten Leerraum und hält die Liste für zu Ende. 45 Zeilen decken auch
 # ein hohes Fenster ab.
-ZEILEN_SOFORT = 45
-ZEILEN_NACHSCHLAG = 45
+ROWS_FIRST = 45
+ROWS_MORE = 45
 
 
-def _nach_bedarf_packen(leinwand, zeilen, sofort=ZEILEN_SOFORT,
-                        schritt=ZEILEN_NACHSCHLAG):
+def _nach_bedarf_packen(leinwand, zeilen, sofort=ROWS_FIRST,
+                        schritt=ROWS_MORE):
     """Nur die sichtbaren Zeilen packen, den Rest beim Rollen nachlegen.
 
     ⚠⚠ **Warum das etwas bringt, obwohl die Zeilen längst gebaut sind:**
@@ -295,8 +295,8 @@ def _nach_bedarf_packen(leinwand, zeilen, sofort=ZEILEN_SOFORT,
     leinwand.configure(yscrollcommand=beim_rollen)
 
 
-def _nach_bedarf_bauen(leinwand, anzahl, bauer, sofort=ZEILEN_SOFORT,
-                       schritt=ZEILEN_NACHSCHLAG):
+def _nach_bedarf_bauen(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
+                       schritt=ROWS_MORE):
     """Nur die sichtbaren Einträge **bauen**, den Rest beim Rollen nachlegen.
 
     ⚠⚠ **Unterschied zu `_nach_bedarf_packen`:** Dort sind die Zeilen längst
@@ -562,8 +562,8 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
     # der erst rot wird, wenn die Maus schon darauf steht, warnt niemanden —
     # gesehen hat man ihn dann längst. am 28.08.2026 gemeldet zum
     # Absende-Knopf: „der Button wird erst beim Überfahren rot."
-    farbe = ROT if gefahr else (ACCENT if stark else FG)
-    rand = ROT if gefahr else (ACCENT if stark else LINIE)
+    farbe = RED if gefahr else (ACCENT if stark else FG)
+    rand = RED if gefahr else (ACCENT if stark else LINE)
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
     # ⚠ Erst der Text, dann der Rahmen — und dazwischen wird **nachgemessen**.
@@ -576,7 +576,7 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                  fill=farbe, font=schrift, anchor='center')
     fuellung = ('#2a1414' if gefahr
-                else ('#1d2a14' if stark else FLAECHE))
+                else ('#1d2a14' if stark else SURFACE))
     flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                 fill=fuellung, outline=rand, width=1)]
     c.tag_lower(flaeche[0], beschriftung)
@@ -584,8 +584,8 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
     _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand)
 
     def rein(_=None):
-        c.itemconfigure(flaeche[0], outline=ROT if gefahr else ACCENT)
-        c.itemconfigure(beschriftung, fill=ROT if gefahr else ACCENT)
+        c.itemconfigure(flaeche[0], outline=RED if gefahr else ACCENT)
+        c.itemconfigure(beschriftung, fill=RED if gefahr else ACCENT)
 
     def raus(_=None):
         c.itemconfigure(flaeche[0], outline=rand)
@@ -657,13 +657,13 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack(side='left', padx=(0, 6))
         flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
-                                    fill=FLAECHE, outline=ACCENT if an else LINIE,
+                                    fill=SURFACE, outline=ACCENT if an else LINE,
                                     width=1)]
         beschr = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                fill=ACCENT if an else SUB, font=schrift)
         # Dieselbe Falle wie beim gewoehnlichen Knopf — siehe `_nachmessen`.
-        _mass_sichern(c, beschr, flaeche, hoehe, FLAECHE,
-                      ACCENT if an else LINIE)
+        _mass_sichern(c, beschr, flaeche, hoehe, SURFACE,
+                      ACCENT if an else LINE)
         c.teile = (flaeche, beschr)
         c.bind('<Button-1>', lambda e, k=kennung: tat(k))
         c.is_button = True      # damit tools/randpruefung.py ihn prüft
@@ -673,7 +673,7 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
         for kennung, c in knoepfe.items():
             an = (kennung == gewaehlt)
             flaeche, beschr = c.teile
-            c.itemconfigure(flaeche[0], outline=ACCENT if an else LINIE)
+            c.itemconfigure(flaeche[0], outline=ACCENT if an else LINE)
             c.itemconfigure(beschr, fill=ACCENT if an else SUB)
 
     reihe.select = setzen
@@ -689,19 +689,19 @@ def _status(fenster, eltern, symbol, fett, rest, farbe=None):
     """
     farbe = farbe or ACCENT
     innen = _karte(eltern, rand=farbe, pady=(0, 14))
-    zeile = tk.Frame(innen, bg=FLAECHE)
+    zeile = tk.Frame(innen, bg=SURFACE)
     zeile.pack(fill='x', padx=14, pady=12)
-    icons.line(zeile, symbol, background=FLAECHE, font=fenster.f_base,
+    icons.line(zeile, symbol, background=SURFACE, font=fenster.f_base,
                   color=icons.GREY if farbe == SUB else icons.GREEN
                   ).pack(side='left', padx=(0, 10), anchor='n')
-    text = tk.Frame(zeile, bg=FLAECHE)
+    text = tk.Frame(zeile, bg=SURFACE)
     text.pack(side='left', fill='x', expand=True)
-    oben = tk.Label(text, text=fett, bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    oben = tk.Label(text, text=fett, bg=SURFACE, fg=FG, font=fenster.f_bold,
                     anchor='w', justify='left')
     oben.pack(fill='x')
     _umbruch(oben)
     if rest:
-        unten = tk.Label(text, text=rest, bg=FLAECHE, fg=SUB,
+        unten = tk.Label(text, text=rest, bg=SURFACE, fg=SUB,
                          font=fenster.f_small, anchor='w', justify='left')
         unten.pack(fill='x')
         _umbruch(unten)
@@ -713,7 +713,7 @@ def _pfadfeld(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
     reihe = tk.Frame(eltern, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINE, ACCENT, FG)
     feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     if platzhalter and not wert.get():
         feld.configure(fg=SUB)
@@ -1114,7 +1114,7 @@ def _feld(fenster, eltern, bezeichnung, hilfe, breit=False, oben=False):
         if erklaerung is not None:
             _umbruch(erklaerung, bezug=zeile, neben=rechts, abzug=26)
         _umbruch(beschriftung, bezug=zeile, neben=rechts, abzug=26)
-    tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
+    tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
     # ⚠ Die linke Spalte haengt am Rueckgabewert. Manche Zeilen wollen dort
     # etwas unterbringen — der Namensvorschlag im Lager etwa gehoert neben das
     # Eingabefeld, nicht ans Seitenende. Ohne diesen Griff muesste der Aufrufer
@@ -1196,13 +1196,13 @@ def _fortschritt(fenster, rahmen):
     schwund = bestand_datei.shrinkage_state()
     if schwund:
         jetzt_da, hoechst, frueher = schwund
-        kasten = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
+        kasten = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
                           highlightbackground=GOLD)
         kasten.pack(fill='x', pady=(0, 10))
-        tk.Label(kasten, text=t('s_schwund_titel'), bg=FLAECHE, fg=GOLD,
+        tk.Label(kasten, text=t('s_schwund_titel'), bg=SURFACE, fg=GOLD,
                  font=fenster.f_bold).pack(anchor='w', padx=12, pady=(10, 2))
         tk.Label(kasten, text=t('s_schwund_text') % (jetzt_da, hoechst),
-                 bg=FLAECHE, fg=FG, font=fenster.f_small, justify='left',
+                 bg=SURFACE, fg=FG, font=fenster.f_small, justify='left',
                  wraplength=720).pack(anchor='w', padx=12)
         # ⚠ Beide Pfade im Klartext — die Frage ist ja gerade „welcher Ordner
         # denn nun". Ohne sie ist die Meldung eine Feststellung ohne Ausweg.
@@ -1210,13 +1210,13 @@ def _fortschritt(fenster, rahmen):
                                   (t('s_schwund_jetzt'), pfade.app_ordner())):
             if not ort:
                 continue
-            tk.Label(kasten, text=beschriftung, bg=FLAECHE, fg=SUB,
+            tk.Label(kasten, text=beschriftung, bg=SURFACE, fg=SUB,
                      font=fenster.f_small).pack(anchor='w', padx=12,
                                                 pady=(6, 0))
-            tk.Label(kasten, text=ort, bg=FLAECHE, fg=ACCENT,
+            tk.Label(kasten, text=ort, bg=SURFACE, fg=ACCENT,
                      font=fenster.f_small, justify='left',
                      wraplength=720).pack(anchor='w', padx=24)
-        tk.Label(kasten, text=t('s_schwund_tipp'), bg=FLAECHE, fg=SUB,
+        tk.Label(kasten, text=t('s_schwund_tipp'), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, justify='left',
                  wraplength=720).pack(anchor='w', padx=12, pady=(8, 10))
 
@@ -1325,7 +1325,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
         return
 
     from .main_window import round_frame
-    kasten = round_frame(koerper, FLAECHE, LINIE, radius=8, base_color=BG)
+    kasten = round_frame(koerper, SURFACE, LINE, radius=8, base_color=BG)
     kasten.holder.pack(fill='x', pady=(10, 0))
     # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre keine
     # Antwort auf „was mache ich als Nächstes", sondern die nächste Suchaufgabe.
@@ -1338,13 +1338,13 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
     # hier nicht.
     from .bestandsfenster import ort_text
     for titel, fraktion, anzahl, uec, rang, wo in lohnend[:10]:
-        zeile = tk.Frame(kasten, bg=FLAECHE)
+        zeile = tk.Frame(kasten, bg=SURFACE)
         zeile.pack(fill='x', padx=14, pady=3)
-        tk.Label(zeile, text=str(anzahl), bg=FLAECHE, fg=ACCENT,
+        tk.Label(zeile, text=str(anzahl), bg=SURFACE, fg=ACCENT,
                  font=fenster.f_base, width=3, anchor='e').pack(side='left')
-        rechts = tk.Frame(zeile, bg=FLAECHE)
+        rechts = tk.Frame(zeile, bg=SURFACE)
         rechts.pack(side='left', fill='x', expand=True, padx=(10, 0))
-        tk.Label(rechts, text=titel, bg=FLAECHE, fg=FG, font=fenster.f_small,
+        tk.Label(rechts, text=titel, bg=SURFACE, fg=FG, font=fenster.f_small,
                  anchor='w').pack(fill='x')
         teile = [fraktion] if fraktion else []
         if uec:
@@ -1352,18 +1352,18 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
         if rang:
             teile.append(rang)
         teile.append(t('s_fo_lohnt_topf', anzahl))
-        tk.Label(rechts, text=' · '.join(teile), bg=FLAECHE, fg=SUB,
+        tk.Label(rechts, text=' · '.join(teile), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
         # Der Annahmeort steht direkt da — er beantwortet „wo finde ich den".
         ort = ort_text(wo)
         beschriftungen = []
         if ort:
-            ort_label = tk.Label(rechts, text=ort, bg=FLAECHE, fg=SUB,
+            ort_label = tk.Label(rechts, text=ort, bg=SURFACE, fg=SUB,
                                  font=fenster.f_small, anchor='w',
                                  justify='left')
             ort_label.pack(fill='x')
             beschriftungen.append(ort_label)
-        tk.Label(rechts, text=t('s_fo_lohnt_klick'), bg=FLAECHE, fg=SUB,
+        tk.Label(rechts, text=t('s_fo_lohnt_klick'), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
 
         # ⚠⚠ **Die Zahl ist keine Antwort, sie ist eine Frage.** „44" sagt
@@ -1382,7 +1382,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
         for kind in rechts.winfo_children():
             kind.config(cursor='hand2')
             kind.bind('<Button-1>', hinspringen)
-    tk.Label(kasten, text='', bg=FLAECHE).pack(pady=2)
+    tk.Label(kasten, text='', bg=SURFACE).pack(pady=2)
 
 
 def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
@@ -1639,7 +1639,7 @@ def _anzeige(fenster, rahmen):
 
     ziel = _feld(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
     from .main_window import round_entry as _zahlfeld
-    dauer = _zahlfeld(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
+    dauer = _zahlfeld(ziel, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                       width=6, justify='right')
     dauer.insert(0, str(pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)))
     dauer.holder.pack()
@@ -1758,7 +1758,7 @@ def _anzeige(fenster, rahmen):
     ziel = _feld(fenster, innen, t('s_zeilen'),
                  t('s_zeilen_h'))
     from .main_window import round_entry
-    zahl = round_entry(ziel, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
+    zahl = round_entry(ziel, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                        width=6, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('max_zeilen', 20, 5, 100)))
     zahl.holder.pack()
@@ -2012,7 +2012,7 @@ def _hotkey_feld(fenster, innen):
     reihe.pack(anchor='w')
 
     from .main_window import round_entry
-    feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT,
+    feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINE, ACCENT,
                        FG, width=18)
     feld.insert(0, pfade.einstellung('hotkey') or hk.STANDARD)
     feld.holder.pack(side='left')
@@ -2081,7 +2081,7 @@ def _startbefehl_feld(fenster, innen):
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINE, ACCENT, FG)
     feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
     _knopf(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
 
@@ -2258,7 +2258,7 @@ def _spiel(fenster, rahmen):
             zusatz = []
             if lage['quelle']:
                 zusatz.append(t('s_sp_quelle_ist')
-                              % t(_QUELLTEXT.get(lage['quelle'], 's_sp_q_or')))
+                              % t(_SOURCE_LABELS.get(lage['quelle'], 's_sp_q_or')))
             if lage['stand']:
                 zusatz.append(str(lage['stand']))
             _status(fenster, kasten, 'haken', t('s_sp_steht'), ' · '.join(zusatz))
@@ -2389,7 +2389,7 @@ def _spiel(fenster, rahmen):
 
 
 # Welche Beschriftung zu welcher Quelle gehört — für den Zustandskasten.
-_QUELLTEXT = {'deutsch': 's_sp_q_de', 'starstrings': 's_sp_q_ss',
+_SOURCE_LABELS = {'deutsch': 's_sp_q_de', 'starstrings': 's_sp_q_ss',
               'original': 's_sp_q_or'}
 
 
@@ -2408,7 +2408,7 @@ def _quelle_waehlen(fenster, e, wahl, kennung, danach):
     # Programms rechnete mit der alten. Erst gilt, was gewählt wurde; ob es auch
     # eingerichtet werden konnte, sagt der Kasten darüber.
     pfade.einstellung_setzen('inj_quelle', kennung)
-    fenster.say(t('s_sp_hole') % t(_QUELLTEXT.get(kennung, 's_sp_q_or')))
+    fenster.say(t('s_sp_hole') % t(_SOURCE_LABELS.get(kennung, 's_sp_q_or')))
     try:
         e._inj_wechseln(kennung)
     except Exception as ausnahme:
@@ -2450,15 +2450,15 @@ def _bestand(fenster, rahmen):
                               ('bpdb', 'Baupläne DB · Star Citizen Deutsch',
                                t('s_be_n_bp') % anzahl),
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
-        z = tk.Frame(karte, bg=FLAECHE)
+        z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=16, pady=5)
         # ⚠ Die Breite trägt den LÄNGSTEN Namen — „Baupläne DB · Star Citizen
         # Deutsch". Ein Label mit zu kleiner `width` wächst über sie hinaus
         # und schiebt die Spalte daneben nach rechts: Dann steht „413
         # Baupläne" in jeder Zeile woanders.
-        tk.Label(z, text=name, bg=FLAECHE, fg=FG, font=fenster.f_small,
+        tk.Label(z, text=name, bg=SURFACE, fg=FG, font=fenster.f_small,
                  width=34, anchor='w').pack(side='left')
-        tk.Label(z, text=wofuer, bg=FLAECHE, fg=SUB,
+        tk.Label(z, text=wofuer, bg=SURFACE, fg=SUB,
                  font=fenster.f_small).pack(side='left')
         # ⚠ `a=art` als Vorgabewert, nicht `art` direkt. Ein Lambda merkt sich
         # die **Variable**, nicht ihren Wert — ohne diese Zeile hätten alle drei
@@ -2531,7 +2531,7 @@ def _bestand(fenster, rahmen):
             kind.destroy()
         if not art:
             _status(fenster, vorschau_platz, '!', t('s_be_unbekannt'),
-                    t('s_be_unbekannt_h'), farbe=ROT)
+                    t('s_be_unbekannt_h'), farbe=RED)
             return
         # ⚠⚠ **Erkannt und trotzdem leer** — das gibt es wirklich, und zwar
         # ohne Fehler: Die Baupläne DB gibt auf Wunsch die **vorgemerkten**
@@ -2646,11 +2646,11 @@ def _bestand(fenster, rahmen):
 def _leere_vorschau(fenster, eltern):
     """Der Vorschau-Kasten, bevor eine Datei gewählt wurde."""
     innen = _karte(eltern, rand=SUB)
-    tk.Label(innen, text=t('s_vorschau_leer'), bg=FLAECHE, fg=FG,
+    tk.Label(innen, text=t('s_vorschau_leer'), bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=16,
                                                    pady=(12, 2))
     _fliesstext(innen, t('s_vorschau_leer_h'), fenster.f_small,
-                grund=FLAECHE, abzug=32, fill='x', padx=16, pady=(0, 12))
+                grund=SURFACE, abzug=32, fill='x', padx=16, pady=(0, 12))
     return innen
 
 
@@ -2660,9 +2660,9 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     from .main_window import badge as blase
     innen = _karte(eltern, rand=ACCENT)
 
-    kopf = tk.Frame(innen, bg=FLAECHE)
+    kopf = tk.Frame(innen, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(12, 10))
-    tk.Label(kopf, text=t('s_be_vorschau'), bg=FLAECHE,
+    tk.Label(kopf, text=t('s_be_vorschau'), bg=SURFACE,
              fg=FG, font=fenster.f_bold).pack(side='left')
     blase(kopf, {'eigen': t('s_be_eigen'), 'basetool': 'KRT Profit Basetool',
                  'scmdb': 'scmdb.net',
@@ -2673,30 +2673,30 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
                  'bpdb': 'Baupläne DB · Star Citizen Deutsch'}.get(art, art),
           ACCENT, fenster.f_small).pack(side='right')
 
-    zahlen = tk.Frame(innen, bg=FLAECHE)
+    zahlen = tk.Frame(innen, bg=SURFACE)
     zahlen.pack(fill='x', padx=16, pady=(0, 10))
     for wert, wofuer, farbe in ((len(v['neu']), t('s_be_dazu'), ACCENT),
                                 (len(v['schon_da']), t('s_be_schon'), FG),
                                 (len(v['unbekannt']), t('s_be_nicht_kat'), GOLD)):
-        s = tk.Frame(zahlen, bg=FLAECHE)
+        s = tk.Frame(zahlen, bg=SURFACE)
         s.pack(side='left', padx=(0, 30))
-        tk.Label(s, text=str(wert), bg=FLAECHE, fg=farbe,
+        tk.Label(s, text=str(wert), bg=SURFACE, fg=farbe,
                  font=fenster.f_title).pack(anchor='w')
-        tk.Label(s, text=wofuer, bg=FLAECHE, fg=SUB,
+        tk.Label(s, text=wofuer, bg=SURFACE, fg=SUB,
                  font=fenster.f_small).pack(anchor='w')
 
     if v['unbekannt']:
         tk.Label(innen, text=t('s_be_nicht_kat_h')
                              + ' · '.join(v['unbekannt'][:6])
                              + (' …' if len(v['unbekannt']) > 6 else ''),
-                 bg=FLAECHE, fg=SUB, font=fenster.f_small, anchor='w',
+                 bg=SURFACE, fg=SUB, font=fenster.f_small, anchor='w',
                  justify='left', wraplength=560).pack(fill='x', padx=16,
                                                       pady=(0, 8))
 
     _fliesstext(innen, t('s_be_merge'), fenster.f_small,
-                grund=FLAECHE, abzug=32, fill='x', padx=16, pady=(0, 10))
+                grund=SURFACE, abzug=32, fill='x', padx=16, pady=(0, 10))
 
-    reihe = tk.Frame(innen, bg=FLAECHE)
+    reihe = tk.Frame(innen, bg=SURFACE)
     reihe.pack(fill='x', padx=16, pady=(0, 14))
 
     def uebernehmen():
@@ -2706,10 +2706,10 @@ def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
 
     k = _knopf(fenster, reihe, t('s_be_nimm') % len(v['neu']),
                uebernehmen, stark=True)
-    k.configure(bg=FLAECHE)
+    k.configure(bg=SURFACE)
     k.pack(side='left')
     k2 = _knopf(fenster, reihe, t('abbrechen'), innen.holder.destroy)
-    k2.configure(bg=FLAECHE)
+    k2.configure(bg=SURFACE)
     k2.pack(side='left', padx=8)
 
 
@@ -2750,7 +2750,7 @@ def _auftragslog(fenster, rahmen):
     # Wer 392 Aufträge gespielt hat, sah 200 und erfuhr nirgends, dass 192
     # fehlen. Dieselbe Falle wie bei der Patch-Liste: Weggelassen heißt nicht
     # verschwiegen.
-    gezeigt = {'anzahl': ZEILEN_ZUERST_LOG}
+    gezeigt = {'anzahl': LOG_ROWS_FIRST}
     # Der Fingerabdruck der zuletzt gezeichneten Liste — siehe `zeichnen()`.
     zuletzt = {'stand': None}
 
@@ -2762,7 +2762,7 @@ def _auftragslog(fenster, rahmen):
     tk.Label(block, text=t('s_al_suche'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x')
     from .main_window import round_entry
-    feld = round_entry(block, suche, fenster.f_small, '#0c1017', LINIE,
+    feld = round_entry(block, suche, fenster.f_small, '#0c1017', LINE,
                        ACCENT, FG, placeholder=t('s_pl_auftrag'))
     feld.holder.pack(fill='x', pady=(4, 0))
 
@@ -2786,8 +2786,8 @@ def _auftragslog(fenster, rahmen):
     # („Fehler melden"). Ein aufgegebener Auftrag ist eine Notiz, keine
     # Stoerung — er soll auffallen, ohne wie ein Alarm auszusehen.
     farben = {missionslog.ABGESCHLOSSEN: ACCENT,
-              missionslog.ABGEBROCHEN: ROT_BLASS,
-              missionslog.FEHLGESCHLAGEN: ROT_BLASS,
+              missionslog.ABGEBROCHEN: RED_PALE,
+              missionslog.FEHLGESCHLAGEN: RED_PALE,
               missionslog.VERFALLEN: SUB,
               missionslog.LAEUFT: GOLD}
     worte = {missionslog.ABGESCHLOSSEN: 's_al_fertig',
@@ -2836,7 +2836,7 @@ def _auftragslog(fenster, rahmen):
         # Filterwechsel „… 12 weitere anzeigen" über einer Liste, die längst
         # vollständig ist.
         if not mehr:
-            gezeigt['anzahl'] = ZEILEN_ZUERST_LOG
+            gezeigt['anzahl'] = LOG_ROWS_FIRST
         if neu_laden or not daten['alle']:
             try:
                 daten['alle'] = missionslog.laden()
@@ -2899,11 +2899,11 @@ def _auftragslog(fenster, rahmen):
         zeilen_log = []
         for eintrag in treffer[:gezeigt['anzahl']]:
             zustand = eintrag.get('zustand') or missionslog.LAEUFT
-            zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
+            zeile = tk.Frame(liste_rahmen, bg=SURFACE)
             zeilen_log.append(zeile)
 
             tk.Label(zeile, text=(eintrag.get('wann') or '')[:10],
-                     bg=FLAECHE, fg=SUB, font=fenster.f_small, width=11,
+                     bg=SURFACE, fg=SUB, font=fenster.f_small, width=11,
                      anchor='w', padx=10, pady=7).pack(side='left')
             # ⚠ Breit genug fuer den laengsten Zustand — „nicht mehr offen"
             # hat 16 Zeichen, bei 14 stand dort ein Stumpf.
@@ -2913,17 +2913,17 @@ def _auftragslog(fenster, rahmen):
             schluessel = (wort_laufend if zustand == missionslog.LAEUFT
                           else worte.get(zustand, 's_al_laeuft'))
             tk.Label(zeile, text=t(schluessel),
-                     bg=FLAECHE, fg=farben.get(zustand, SUB),
+                     bg=SURFACE, fg=farben.get(zustand, SUB),
                      font=fenster.f_small, width=17,
                      anchor='w').pack(side='left')
 
-            mitte = tk.Frame(zeile, bg=FLAECHE)
+            mitte = tk.Frame(zeile, bg=SURFACE)
             mitte.pack(side='left', fill='x', expand=True)
             # ⚠ Lange Namen brechen um, statt rechts abgeschnitten zu werden.
             # Das Spiel liefert bis zu 109 Zeichen („Verified Bounty: … | HRT
             # (Großes Mehrbesatzungsschiff, mittlere Unterstützung)").
             name_lab = tk.Label(mitte, text=eintrag.get('name') or '',
-                                bg=FLAECHE, fg=FG, font=fenster.f_small,
+                                bg=SURFACE, fg=FG, font=fenster.f_small,
                                 anchor='w', justify='left')
             name_lab.pack(fill='x')
             _umbruch(name_lab)
@@ -2957,7 +2957,7 @@ def _auftragslog(fenster, rahmen):
                 tk.Label(mitte,
                          text=t('s_al_ziele', eintrag.get('ziele_fertig') or 0,
                                 eintrag['ziele_gesamt']),
-                         bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                         bg=SURFACE, fg=SUB, font=fenster.f_small,
                          anchor='w').pack(fill='x')
 
             # ⭐ Was dabei herauskam. Das ist der Grund, warum jemand nach einem
@@ -2969,7 +2969,7 @@ def _auftragslog(fenster, rahmen):
                     mitte,
                     text=t('s_al_bp' if len(bps) == 1 else 's_al_bp_mehr',
                            ' · '.join(bps)),
-                    bg=FLAECHE, fg=ACCENT, font=fenster.f_small,
+                    bg=SURFACE, fg=ACCENT, font=fenster.f_small,
                     anchor='w', justify='left')
                 bp_lab.pack(fill='x')
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
@@ -2983,7 +2983,7 @@ def _auftragslog(fenster, rahmen):
         rest = len(treffer) - gezeigt['anzahl']
         if rest > 0:
             def mehr_zeigen(_ereignis=None):
-                gezeigt['anzahl'] += ZEILEN_ZUERST_LOG
+                gezeigt['anzahl'] += LOG_ROWS_FIRST
                 zeichnen(mehr=True)
 
             mehr = tk.Label(liste_rahmen, text=t('weitere_anzeigen', rest),
@@ -3020,8 +3020,8 @@ def _auftragslog(fenster, rahmen):
     schalter = [('alle', 's_al_f_alle', ACCENT),
                 (missionslog.LAEUFT, 's_al_laeuft', GOLD),
                 (missionslog.ABGESCHLOSSEN, 's_al_fertig', ACCENT),
-                (missionslog.ABGEBROCHEN, 's_al_abbruch', ROT_BLASS),
-                (missionslog.FEHLGESCHLAGEN, 's_al_fehl', ROT_BLASS),
+                (missionslog.ABGEBROCHEN, 's_al_abbruch', RED_PALE),
+                (missionslog.FEHLGESCHLAGEN, 's_al_fehl', RED_PALE),
                 (missionslog.VERFALLEN, 's_al_verfallen', SUB)]
 
     def waehlen(art):
@@ -3162,7 +3162,7 @@ def _geraete_hub(fenster, eltern):
 
     wache = device_hub.Watchdog()
     farben = {device_hub.READY: ACCENT, device_hub.NO_NUMBER: GOLD,
-              device_hub.UNPLUGGED: ROT, device_hub.UNKNOWN: GOLD}
+              device_hub.UNPLUGGED: RED, device_hub.UNKNOWN: GOLD}
 
     def _zeichnen():
         for kind in list(tafel.winfo_children()):
@@ -3174,7 +3174,7 @@ def _geraete_hub(fenster, eltern):
             return
 
         for geraet in ueberblick['geraete']:
-            zeile = tk.Frame(tafel, bg=FLAECHE)
+            zeile = tk.Frame(tafel, bg=SURFACE)
             zeile.pack(fill='x', pady=(0, 2))
             streifen = tk.Frame(zeile, bg=farben.get(geraet['zustand'], SUB),
                                 width=3)
@@ -3185,17 +3185,17 @@ def _geraete_hub(fenster, eltern):
             # hat. Der Systempfad steht daneben, damit man beide auseinander
             # halten kann — genau daran scheitern sonst alle Anleitungen.
             nummer = ('js%d' % geraet['nummer']) if geraet['nummer'] else '—'
-            tk.Label(zeile, text=nummer, bg=FLAECHE,
+            tk.Label(zeile, text=nummer, bg=SURFACE,
                      fg=ACCENT if geraet['nummer'] else SUB,
                      font=fenster.f_bold, width=5,
                      anchor='w', padx=8).pack(side='left', pady=6)
-            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=FLAECHE,
+            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=SURFACE,
                      fg=FG, font=fenster.f_small,
                      anchor='w').pack(side='left', fill='x', expand=True)
-            tk.Label(zeile, text=geraet['systempfad'] or '—', bg=FLAECHE,
+            tk.Label(zeile, text=geraet['systempfad'] or '—', bg=SURFACE,
                      fg=SUB, font=fenster.f_small,
                      anchor='e', padx=10).pack(side='right')
-            tk.Label(zeile, text=t('s_gh_' + geraet['zustand']), bg=FLAECHE,
+            tk.Label(zeile, text=t('s_gh_' + geraet['zustand']), bg=SURFACE,
                      fg=farben.get(geraet['zustand'], SUB),
                      font=fenster.f_small, anchor='e',
                      padx=10).pack(side='right')
@@ -3225,7 +3225,7 @@ def _geraete_hub(fenster, eltern):
         from . import device_hub
 
         geraet = vorschlag['geraet']
-        kasten = tk.Frame(tafel, bg=FLAECHE)
+        kasten = tk.Frame(tafel, bg=SURFACE)
         kasten.pack(fill='x', pady=(6, 0))
 
         if vorschlag['art'] == device_hub.SWAP:
@@ -3234,10 +3234,10 @@ def _geraete_hub(fenster, eltern):
                      text=t('s_gh_tausch').format(
                          geraet['name'] or geraet['kurz'],
                          alt['name'] or alt['kurz']),
-                     bg=FLAECHE, fg=ACCENT, font=fenster.f_bold, anchor='w',
+                     bg=SURFACE, fg=ACCENT, font=fenster.f_bold, anchor='w',
                      padx=12).pack(fill='x', pady=(10, 0))
             _fliesstext(kasten, t('s_gh_tausch_lang'), fenster.f_small,
-                        grund=FLAECHE, fill='x', abzug=24)
+                        grund=SURFACE, fill='x', abzug=24)
 
             def _umhaengen(neu=geraet, vorher=alt):
                 from . import joysticks
@@ -3259,7 +3259,7 @@ def _geraete_hub(fenster, eltern):
 
             # ⚠ Der Knopf steht UNTER dem Kasten: `_knopf` zeichnet fest auf
             # `BG`, in einem `FLAECHE`-Kasten wäre das ein Farbklotz.
-            tk.Frame(kasten, bg=FLAECHE, height=10).pack(fill='x')
+            tk.Frame(kasten, bg=SURFACE, height=10).pack(fill='x')
             reihe = tk.Frame(tafel, bg=BG)
             reihe.pack(fill='x', pady=(6, 0))
             _knopf(fenster, reihe, t('s_gh_tausch_knopf'), _umhaengen,
@@ -3272,8 +3272,8 @@ def _geraete_hub(fenster, eltern):
         rat = (t('s_gh_starten_rat') if vorschlag['art'] == device_hub.START
                else t('s_gh_anstecken_rat'))
         _fliesstext(kasten, rat.format(geraet['name'] or geraet['kurz']),
-                    fenster.f_small, grund=FLAECHE, fill='x', abzug=24)
-        tk.Frame(kasten, bg=FLAECHE, height=8).pack(fill='x')
+                    fenster.f_small, grund=SURFACE, fill='x', abzug=24)
+        tk.Frame(kasten, bg=SURFACE, height=8).pack(fill='x')
 
     def _takt():
         # ⚠ `winfo_exists()` prüfen: Der Takt läuft weiter, während die Seite
@@ -3363,7 +3363,7 @@ def _joysticks(fenster, rahmen):
     liste_rahmen = tk.Frame(unten, bg=BG)
 
     from .main_window import round_entry
-    feld = round_entry(werkzeug, suche, fenster.f_small, '#0c1017', LINIE,
+    feld = round_entry(werkzeug, suche, fenster.f_small, '#0c1017', LINE,
                        ACCENT, FG, placeholder=t('s_pl_belegung'))
     feld.holder.pack(fill='x')
 
@@ -3423,7 +3423,7 @@ def _joysticks(fenster, rahmen):
 
         # --- Zustandszeile: die eine Aussage, wegen der man hier nachsieht ---
         farbe = {joysticks.PASST: ACCENT, joysticks.ERSETZT: GOLD,
-                 joysticks.FEHLT: ROT}.get(zustand, SUB)
+                 joysticks.FEHLT: RED}.get(zustand, SUB)
         if zustand == joysticks.PASST:
             satz = t('s_js_passt')
         elif zustand == joysticks.ERSETZT:
@@ -3454,34 +3454,34 @@ def _joysticks(fenster, rahmen):
                  font=fenster.f_bold, anchor='w').pack(fill='x', pady=(16, 4))
         nach_kennung = {z['kennung']: z for z in belegt if z['kennung']}
         for g in geraete:
-            zeile = tk.Frame(oben, bg=FLAECHE)
+            zeile = tk.Frame(oben, bg=SURFACE)
             zeile.pack(fill='x', pady=1)
-            tk.Label(zeile, text=t('s_js_platz', g['platz']), bg=FLAECHE,
+            tk.Label(zeile, text=t('s_js_platz', g['platz']), bg=SURFACE,
                      fg=SUB, font=fenster.f_small, width=9, anchor='w',
                      padx=10, pady=7).pack(side='left')
             zu = nach_kennung.get(g['kennung'])
             tk.Label(zeile, text=('js%d' % zu['nummer']) if zu
                      else t('s_js_ohne'),
-                     bg=FLAECHE, fg=ACCENT if zu else GOLD,
+                     bg=SURFACE, fg=ACCENT if zu else GOLD,
                      font=fenster.f_small, width=13, anchor='w').pack(
                          side='left')
-            tk.Label(zeile, text=g['name'], bg=FLAECHE, fg=FG,
+            tk.Label(zeile, text=g['name'], bg=SURFACE, fg=FG,
                      font=fenster.f_small, anchor='w').pack(side='left')
-            tk.Label(zeile, text=_kennung_kurz(g['kennung']), bg=FLAECHE,
+            tk.Label(zeile, text=_kennung_kurz(g['kennung']), bg=SURFACE,
                      fg=SUB, font=fenster.f_small, anchor='e',
                      padx=10).pack(side='right')
 
         # Belegte Geräte, die gerade fehlen — sonst sieht man nur, was da ist.
         for z in (v.get('fehlende') or []):
-            zeile = tk.Frame(oben, bg=FLAECHE)
+            zeile = tk.Frame(oben, bg=SURFACE)
             zeile.pack(fill='x', pady=1)
-            tk.Label(zeile, text='—', bg=FLAECHE, fg=ROT,
+            tk.Label(zeile, text='—', bg=SURFACE, fg=RED,
                      font=fenster.f_small, width=9, anchor='w', padx=10,
                      pady=7).pack(side='left')
-            tk.Label(zeile, text='js%d' % z['nummer'], bg=FLAECHE, fg=ROT,
+            tk.Label(zeile, text='js%d' % z['nummer'], bg=SURFACE, fg=RED,
                      font=fenster.f_small, width=13, anchor='w').pack(
                          side='left')
-            tk.Label(zeile, text=z['name'], bg=FLAECHE, fg=SUB,
+            tk.Label(zeile, text=z['name'], bg=SURFACE, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(side='left')
 
     def _zuruecksetzen():
@@ -3765,7 +3765,7 @@ def _joysticks(fenster, rahmen):
         # Wechsel auf diese Seite. Siehe `_nach_bedarf_packen`.
         gepackt = []
         for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
-            zeile = tk.Frame(liste_rahmen, bg=FLAECHE)
+            zeile = tk.Frame(liste_rahmen, bg=SURFACE)
             gepackt.append(zeile)
 
             # ⚠ Die Bindung muss auf **jedes** Kind gelegt werden, nicht nur
@@ -3779,11 +3779,11 @@ def _joysticks(fenster, rahmen):
                 kind.configure(cursor='hand2')
 
             _anfassen(zeile)
-            tk.Label(zeile, text=_geraetename(kennzeichen), bg=FLAECHE,
+            tk.Label(zeile, text=_geraetename(kennzeichen), bg=SURFACE,
                      fg=SUB, font=fenster.f_small, width=21, anchor='w',
                      padx=10, pady=6).pack(side='left')
             tk.Label(zeile, text=(lesbar or t('s_js_ohne_eingabe')),
-                     bg=FLAECHE, fg=(ACCENT if lesbar else SUB),
+                     bg=SURFACE, fg=(ACCENT if lesbar else SUB),
                      font=fenster.f_small, width=17, anchor='w').pack(
                          side='left')
             # ⚠⚠ **Die Marke rechts wird ZUERST gepackt.** In `tkinter`
@@ -3800,7 +3800,7 @@ def _joysticks(fenster, rahmen):
             # Schreiben daran denkt, deshalb prüft die Abnahme jetzt die
             # Textbreiten.
             if e.get('quelle') == joysticks.MEINE:
-                tk.Label(zeile, text=t('s_js_q_meine'), bg=FLAECHE, fg=ACCENT,
+                tk.Label(zeile, text=t('s_js_q_meine'), bg=SURFACE, fg=ACCENT,
                          font=fenster.f_small, anchor='e', padx=10).pack(
                              side='right')
             # ⚠ Grau heißt „das ist keine Bezeichnung des Spiels, sondern der
@@ -3809,7 +3809,7 @@ def _joysticks(fenster, rahmen):
             # ⚠ `expand=True`: Der Name darf schrumpfen, die Marke daneben
             # nicht — was nicht passt, wird beim Namen abgeschnitten, und der
             # steht immerhin am Anfang lesbar da.
-            tk.Label(zeile, text=(klar or e['aktion']), bg=FLAECHE,
+            tk.Label(zeile, text=(klar or e['aktion']), bg=SURFACE,
                      fg=(FG if echt else SUB), font=fenster.f_small,
                      anchor='w').pack(side='left', fill='x', expand=True)
             for kind in zeile.winfo_children():
@@ -4069,19 +4069,19 @@ def _chip(fenster, eltern, text, an, farbe=None):
                   highlightthickness=0, bd=0, cursor='hand2')
     blase = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
                              radius=max(5, hoehe // 3),
-                             fill=FLAECHE, outline=farbe if an else LINIE, width=1)
+                             fill=SURFACE, outline=farbe if an else LINE, width=1)
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0 + 1, text=text,
                                  fill=farbe if an else SUB, font=schrift)
 
     def setzen(gewaehlt):
-        c.itemconfigure(blase, outline=farbe if gewaehlt else LINIE)
+        c.itemconfigure(blase, outline=farbe if gewaehlt else LINE)
         c.itemconfigure(beschriftung, fill=farbe if gewaehlt else SUB)
 
     c.setzen = setzen
     return c
 
 
-_ART_FARBE = {'neu': ACCENT, 'bess': '#7db8e8', 'fix': GOLD}
+_KIND_COLOR = {'neu': ACCENT, 'bess': '#7db8e8', 'fix': GOLD}
 # ⚠ Eine Funktion, keine Konstante: Ein Wörterbuch auf Modulebene wird **einmal**
 # beim Import gefüllt — und behielte damit die Sprache, die beim Start galt. Wer
 # danach umschaltet, sähe die Marken weiter in der alten Sprache.
@@ -4142,7 +4142,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
     for art, zeile in punkte:
         z = tk.Frame(koerper, bg=BG)
         z.pack(fill='x', pady=3)
-        badge(z, _art_wort(art), _ART_FARBE.get(art, SUB),
+        badge(z, _art_wort(art), _KIND_COLOR.get(art, SUB),
               fenster.f_small, bg=BG,
               min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
         # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
@@ -4218,17 +4218,17 @@ def _saubere_zeile(zeile):
 def _karte(eltern, rand=None, **kw):
     """Ein abgesetzter Kasten mit runden Ecken (siehe `main_window.rundrahmen`)."""
     from .main_window import round_frame
-    innen = round_frame(eltern, FLAECHE, rand or LINIE, radius=8, base_color=BG)
+    innen = round_frame(eltern, SURFACE, rand or LINE, radius=8, base_color=BG)
     innen.holder.pack(fill='x', **kw)
     return innen
 
 
 def _wertzeile(fenster, eltern, bez, wert, farbe=None):
-    z = tk.Frame(eltern, bg=FLAECHE)
+    z = tk.Frame(eltern, bg=SURFACE)
     z.pack(fill='x', padx=16, pady=3)
-    tk.Label(z, text=bez, bg=FLAECHE, fg=SUB, font=fenster.f_small,
+    tk.Label(z, text=bez, bg=SURFACE, fg=SUB, font=fenster.f_small,
              width=24, anchor='w').pack(side='left')
-    tk.Label(z, text=str(wert), bg=FLAECHE, fg=farbe or FG,
+    tk.Label(z, text=str(wert), bg=SURFACE, fg=farbe or FG,
              font=fenster.f_small, anchor='w').pack(side='left')
 
 
@@ -4302,7 +4302,7 @@ def _jetzt_nachsehen(fenster):
 
 # Wie oft die Update-Seite von allein bei GitHub nachsieht, solange sie offen
 # ist. Fünf Minuten — siehe die Begründung in `_kanaele_auffrischen`.
-AUFFRISCH_MS = 5 * 60 * 1000
+REFRESH_MS = 5 * 60 * 1000
 
 
 def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
@@ -4350,7 +4350,7 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
                 # ganzen Tag offen lässt).
                 try:
                     kaesten.schon_gefragt = False
-                    kaesten.after(AUFFRISCH_MS, lambda: _kanaele_auffrischen(
+                    kaesten.after(REFRESH_MS, lambda: _kanaele_auffrischen(
                         fenster, kaesten, neu_zeichnen))
                 except tk.TclError:
                     pass
@@ -4395,7 +4395,7 @@ def _holen_moeglich(mit_vorab, eigene=''):
     fassung = freigabe.get('version') or ''
     # Nach einem geglueckten Update steht dort „Jetzt neu starten" — das ist
     # sehr wohl eine Tat.
-    if _BEREIT[0] and _BEREIT[0] == fassung:
+    if _READY[0] and _READY[0] == fassung:
         return True
     if eigene and fassung.lstrip('v') == eigene.lstrip('v'):
         return False                     # laeuft schon, nichts zu holen
@@ -4426,7 +4426,7 @@ def _holen_text(mit_vorab, eigene=''):
     # Nach einem geglückten Update ist die neue Version auf der Platte, aber der
     # laufende Prozess hält noch die alte. Statt „beim nächsten Start" zu sagen,
     # wird der Knopf zum Neustart-Knopf.
-    if _BEREIT[0] and _BEREIT[0] == fassung:
+    if _READY[0] and _READY[0] == fassung:
         return t('s_ub_neustart')
     if eigene:
         sauber = fassung.lstrip('v')
@@ -4438,10 +4438,10 @@ def _holen_text(mit_vorab, eigene=''):
 
 
 # Welche Version geholt und eingespielt wurde und nur noch einen Neustart braucht.
-_BEREIT = [None]
+_READY = [None]
 
 
-_IM_TK_GEMELDET = [False]      # siehe unten: nur der erste wird gemerkt
+_TK_REPORTED = [False]      # siehe unten: nur der erste wird gemerkt
 
 
 def _im_tk(fenster, tat):
@@ -4468,8 +4468,8 @@ def _im_tk(fenster, tat):
         fenster.root.after(0, tat)
         return True
     except Exception as ausnahme:
-        if not _IM_TK_GEMELDET[0]:
-            _IM_TK_GEMELDET[0] = True
+        if not _TK_REPORTED[0]:
+            _TK_REPORTED[0] = True
             fehler.merken('seiten.im_tk', ausnahme)
         return False
 
@@ -4570,7 +4570,7 @@ def _fassung_holen(fenster, mit_vorab):
         fenster.say(t('s_ub_holen_keine'))
         return
     # Schon geholt? Dann ist der Knopf jetzt der Neustart-Knopf.
-    if _BEREIT[0] and _BEREIT[0] == (freigabe.get('version') or ''):
+    if _READY[0] and _READY[0] == (freigabe.get('version') or ''):
         fenster.say(t('s_ub_startet_neu'))
         if not updater.restart():
             fenster.say(t('s_ub_neustart_nein'))
@@ -4632,7 +4632,7 @@ def _fassung_holen(fenster, mit_vorab):
                 _im_tk(fenster, lambda: fenster.say(
                     t('update_fehler', grund)))
                 return
-            _BEREIT[0] = freigabe.get('version') or ''
+            _READY[0] = freigabe.get('version') or ''
 
             # ⚠ Unter Windows ist hier **Schluss** — kein zweiter Klick mehr.
             #
@@ -4723,7 +4723,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     """
     from .main_window import badge as blase
     from .main_window import round_frame
-    innen = round_frame(eltern, FLAECHE, ACCENT if gewaehlt else LINIE,
+    innen = round_frame(eltern, SURFACE, ACCENT if gewaehlt else LINE,
                        radius=8, base_color=BG)
     rand = innen.holder
     if untereinander:
@@ -4741,18 +4741,18 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     innen.canvas.configure(cursor='hand2')
     leinwand = innen.canvas
 
-    kopf = tk.Frame(innen, bg=FLAECHE)
+    kopf = tk.Frame(innen, bg=SURFACE)
     kopf.pack(fill='x', padx=14, pady=(12, 2))
     # ⚠ **Kein Punkt vor dem Titel mehr** (07.09.2026). Er zeigte dasselbe wie
     # der Rahmen des Kastens, der bei der gewählten Fassung grün wird —
     # zweimal dieselbe Auskunft an derselben Stelle. Gemeldet mit „ist
     # unnötig, da der Kasten ja schon grün wird".
-    tk.Label(kopf, text=titel, bg=FLAECHE, fg=FG,
+    tk.Label(kopf, text=titel, bg=SURFACE, fg=FG,
              font=fenster.f_bold).pack(side='left')
     if marke_text:
         blase(kopf, marke_text, GOLD, fenster.f_small).pack(side='left', padx=8)
 
-    beschreibung = tk.Label(innen, text=text, bg=FLAECHE, fg=SUB,
+    beschreibung = tk.Label(innen, text=text, bg=SURFACE, fg=SUB,
                             font=fenster.f_small, anchor='w', justify='left')
     beschreibung.pack(fill='x', padx=14, pady=(0, 12))
     # ⚠ 28 gleicht nur `padx=14` links und rechts aus. Rahmen und Leinwand
@@ -4780,7 +4780,7 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
         # Kein Knopf, sondern eine Auskunft: Es gibt gerade nichts zu holen.
         # Gleiche Stelle, gleiche Breite, nur ohne Rahmen und ohne Handzeiger —
         # damit niemand darauf drueckt und sich fragt, warum nichts passiert.
-        auskunft = tk.Label(innen, text=holen_text, bg=FLAECHE, fg=SUB,
+        auskunft = tk.Label(innen, text=holen_text, bg=SURFACE, fg=SUB,
                             font=fenster.f_small, anchor='center')
         auskunft.pack(fill='x', padx=14, pady=(4, 16))
         # Ein Klick darauf soll dasselbe tun wie ein Klick auf den Kasten:
@@ -4838,18 +4838,18 @@ def _serverstatus(fenster, rahmen):
         _kopfstreifen(fenster, behaelter, lage)
 
         karte = _karte(behaelter, pady=(0, 6))
-        tk.Frame(karte, bg=FLAECHE, height=8).pack()
+        tk.Frame(karte, bg=SURFACE, height=8).pack()
         for sys_ in lage.get('systeme') or []:
             _systemzeile(fenster, karte, sys_)
-        tk.Frame(karte, bg=FLAECHE, height=10).pack()
+        tk.Frame(karte, bg=SURFACE, height=10).pack()
 
         fuss = _karte(behaelter, pady=(8, 6))
-        tk.Frame(fuss, bg=FLAECHE, height=8).pack()
+        tk.Frame(fuss, bg=SURFACE, height=8).pack()
         if lage.get('stand'):
             _wertzeile(fenster, fuss, t('s_st_stand'), _uhrzeit(lage['stand']))
         _wertzeile(fenster, fuss, t('s_st_geholt'), _uhrzeit(lage.get('geholt')))
         _quellzeile(fenster, fuss, t('s_st_quelle'), lage.get('quelle') or '')
-        tk.Frame(fuss, bg=FLAECHE, height=10).pack()
+        tk.Frame(fuss, bg=SURFACE, height=10).pack()
 
         _fliesstext(behaelter, t('s_st_hinweis'), fenster.f_small, pady=(10, 4))
 
@@ -4933,7 +4933,7 @@ def _serverstatus(fenster, rahmen):
                 if veraendert and lage:
                     fenster.root.after(0, lambda: behaelter.winfo_exists()
                                        and zeichnen(lage))
-                fenster.root.after(TAKT_MS, takt)
+                fenster.root.after(POLL_MS, takt)
             except (RuntimeError, tk.TclError):
                 pass
 
@@ -4941,13 +4941,13 @@ def _serverstatus(fenster, rahmen):
 
     zeichnen(serverstatus.stored_state())   # sofort, ohne Netz
     auffrischen()                                # und im Hintergrund nachziehen
-    fenster.root.after(TAKT_MS, takt)            # danach im Takt weiter
+    fenster.root.after(POLL_MS, takt)            # danach im Takt weiter
 
 
 # Wie oft nachgefragt wird, solange die Seite offen ist. Eine Minute ist
 # vertretbar, weil mit ETag gefragt wird und der unveränderte Fall den Server
 # fast nichts kostet.
-TAKT_MS = 60_000
+POLL_MS = 60_000
 
 
 def _relative_zeit(stempel):
@@ -4992,19 +4992,19 @@ def _kopfstreifen(fenster, eltern, lage):
     trägt dieselbe Aussage und kann nicht einklappen.
     """
     farbe = _ampelfarbe(lage)
-    streifen = tk.Frame(eltern, bg=FLAECHE)
+    streifen = tk.Frame(eltern, bg=SURFACE)
     streifen.pack(fill='x', pady=(0, 10))
     tk.Frame(streifen, bg=farbe, width=4).pack(side='left', fill='y')
 
-    inhalt = tk.Frame(streifen, bg=FLAECHE)
+    inhalt = tk.Frame(streifen, bg=SURFACE)
     inhalt.pack(side='left', fill='x', expand=True, padx=12, pady=10)
     alter = _relative_zeit(lage.get('geholt'))
     tk.Label(inhalt, text=t('s_st_zuletzt') % alter,
-             bg=FLAECHE, fg=SUB, font=fenster.f_small,
+             bg=SURFACE, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left')
     alles_gut = (lage.get('gesamt') or '').lower() == 'operational'
     tk.Label(inhalt, text=t('s_st_ok') if alles_gut else t('s_st_stoerung'),
-             bg=FLAECHE, fg=farbe, font=fenster.f_bold,
+             bg=SURFACE, fg=farbe, font=fenster.f_bold,
              anchor='e').pack(side='right')
 
 
@@ -5064,15 +5064,15 @@ def _quellzeile(fenster, eltern, bez, adresse):
 
     Eine Quelle, die man nur ablesen und abtippen kann, ist keine Quelle —
     besonders bei einer Angabe, die man im Zweifel selbst nachprüfen soll."""
-    z = tk.Frame(eltern, bg=FLAECHE)
+    z = tk.Frame(eltern, bg=SURFACE)
     z.pack(fill='x', padx=16, pady=3)
-    tk.Label(z, text=bez, bg=FLAECHE, fg=SUB, font=fenster.f_small,
+    tk.Label(z, text=bez, bg=SURFACE, fg=SUB, font=fenster.f_small,
              width=24, anchor='w').pack(side='left')
     if not adresse:
-        tk.Label(z, text='—', bg=FLAECHE, fg=FG, font=fenster.f_small,
+        tk.Label(z, text='—', bg=SURFACE, fg=FG, font=fenster.f_small,
                  anchor='w').pack(side='left')
         return
-    link = tk.Label(z, text=adresse, bg=FLAECHE, fg=ACCENT,
+    link = tk.Label(z, text=adresse, bg=SURFACE, fg=ACCENT,
                     font=fenster.f_small, anchor='w', cursor='hand2')
     link.pack(side='left')
 
@@ -5108,7 +5108,7 @@ def _ampelfarbe(lage):
 
 def _systemzeile(fenster, eltern, sys_):
     """Ein System: Farbbalken, Name, Zustand im Wortlaut von CIG."""
-    z = tk.Frame(eltern, bg=FLAECHE)
+    z = tk.Frame(eltern, bg=SURFACE)
     z.pack(fill='x', padx=16, pady=3)
     # Der Balken trägt die Aussage für alle, die Farben schlecht unterscheiden,
     # zusammen mit dem ausgeschriebenen Zustand daneben — nie die Farbe allein.
@@ -5119,9 +5119,9 @@ def _systemzeile(fenster, eltern, sys_):
     # Vorher entnommen, damit die Textprüfung die Schlüssel nicht für Sätze hält.
     name = sys_.get('name') or '?'
     zustand = sys_.get('status') or '—'
-    tk.Label(z, text=name, bg=FLAECHE, fg=FG,
+    tk.Label(z, text=name, bg=SURFACE, fg=FG,
              font=fenster.f_small, width=22, anchor='w').pack(side='left')
-    tk.Label(z, text=zustand, bg=FLAECHE,
+    tk.Label(z, text=zustand, bg=SURFACE,
              fg=sys_.get('farbe') or FG, font=fenster.f_small,
              anchor='w').pack(side='left')
 
@@ -5139,19 +5139,19 @@ def _meldungskarte(fenster, eltern, meldung):
     Aussage, die RSI nie gemacht hat — und bei einer Störungsmeldung ist genau
     das gefährlich."""
     karte = _karte(eltern, pady=(6, 2))
-    tk.Frame(karte, bg=FLAECHE, height=10).pack()
+    tk.Frame(karte, bg=SURFACE, height=10).pack()
 
     # Kopf: Titel links, Zustand rechts
-    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=16)
     # Der Titel kommt von CIG und bleibt, wie er dort steht.
     titel = meldung.get('titel') or '—'
-    tk.Label(kopf, text=titel, bg=FLAECHE, fg=FG,
+    tk.Label(kopf, text=titel, bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(side='left')
     erledigt = bool(meldung.get('erledigt'))
     tk.Label(kopf, text=(t('s_st_erledigt_kurz')) if erledigt
              else t('s_st_offen'),
-             bg=FLAECHE,
+             bg=SURFACE,
              # Erledigt grün wie auf der Statusseite; offen in Gold, damit es
              # auffällt — eine laufende Störung ist der Grund, warum jemand
              # überhaupt hier nachsieht.
@@ -5160,7 +5160,7 @@ def _meldungskarte(fenster, eltern, meldung):
 
     # Alter — wie auf der Seite („7h ago"), nicht das Datum
     wann = _relative_zeit(meldung.get('begonnen'))
-    tk.Label(karte, text=wann, bg=FLAECHE,
+    tk.Label(karte, text=wann, bg=SURFACE,
              fg=SUB, font=fenster.f_small, anchor='w').pack(
                  fill='x', padx=16, pady=(2, 6))
 
@@ -5186,9 +5186,9 @@ def _meldungskarte(fenster, eltern, meldung):
             zeile, fett = eintrag, False
         _fliesstext(karte, zeile,
                     fenster.f_bold if fett else fenster.f_small,
-                    farbe=FG if fett else SUB, grund=FLAECHE,
+                    farbe=FG if fett else SUB, grund=SURFACE,
                     fill='x', padx=16, pady=(0, 3), abzug=48)
-    tk.Frame(karte, bg=FLAECHE, height=10).pack()
+    tk.Frame(karte, bg=SURFACE, height=10).pack()
 
 
 def _etikett(fenster, eltern, text):
@@ -5200,7 +5200,7 @@ def _etikett(fenster, eltern, text):
     die halbe Karte. Bei großen Kästen fällt das nicht auf, hier schon: Aus
     kompakten Marken wurden Balken. Ein schlichtes Label kennt seine Größe.
     """
-    return tk.Label(eltern, text=text, bg=LINIE, fg=FG, font=fenster.f_small,
+    return tk.Label(eltern, text=text, bg=LINE, fg=FG, font=fenster.f_small,
                     padx=8, pady=3)
 
 
@@ -5224,14 +5224,14 @@ def _etikettenreihe(fenster, eltern, schwere, betroffen):
     unten* erhalten. Innerhalb des Systemblocks bricht `grid` die Systeme
     weiter um, sodass auch bei sehr schmalem Fenster keines verschwindet.
     """
-    reihe = tk.Frame(eltern, bg=FLAECHE)
+    reihe = tk.Frame(eltern, bg=SURFACE)
     reihe.pack(fill='x', padx=16, pady=(0, 6))
 
     ABSTAND = 6
 
     grund = _etikett(fenster, reihe, schwere) if schwere else None
 
-    systeme = tk.Frame(reihe, bg=FLAECHE)
+    systeme = tk.Frame(reihe, bg=SURFACE)
     schilder = [_etikett(fenster, systeme, name) for name in (betroffen or [])]
     if not grund and not schilder:
         return
@@ -5293,13 +5293,13 @@ def _uhrzeit(stempel):
 
 def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     """Ein Beitrag: wer, unter welcher Lizenz, wofür — und wo er zu finden ist."""
-    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', pady=(0, 8))
 
     from .main_window import badge as blase
-    kopf = tk.Frame(kasten, bg=FLAECHE)
+    kopf = tk.Frame(kasten, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(12, 2))
-    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    tk.Label(kopf, text=name, bg=SURFACE, fg=FG, font=fenster.f_bold,
              anchor='w').pack(side='left')
     # Die Lizenz als Blase daneben — sie gehört zum Namen, nicht in den Fließtext.
     blase(kopf, lizenz, ACCENT, fenster.f_small).pack(side='left', padx=8)
@@ -5308,7 +5308,7 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     # `**Krovax**` auf dem Bildschirm — die Sternchen sind für den Leser der
     # Sprachdatei gedacht, nicht für den Spieler. Gefunden am 09.09.2026 von
     # `tools/oberflaeche_pruefen.py`, drin seit die Quelle genannt wird.
-    text = tk.Label(kasten, text=_ohne_marken(was), bg=FLAECHE, fg=SUB,
+    text = tk.Label(kasten, text=_ohne_marken(was), bg=SURFACE, fg=SUB,
                     font=fenster.f_small, anchor='w', justify='left')
     text.pack(fill='x', padx=16, pady=(0, 10))
     _umbruch(text)
@@ -5317,7 +5317,7 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
         # ⚠ Nicht `_quellzeile`: die reserviert 24 Zeichen für eine
         # Beschriftung, und ohne Beschriftung stünde der Verweis eingerückt
         # mitten in der Karte statt am linken Rand wie der Text darüber.
-        link = tk.Label(kasten, text=adresse, bg=FLAECHE, fg=ACCENT,
+        link = tk.Label(kasten, text=adresse, bg=SURFACE, fg=ACCENT,
                         font=fenster.f_small, anchor='w', cursor='hand2')
         link.pack(fill='x', padx=16, pady=(0, 12))
 
@@ -5339,20 +5339,20 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
     daraufstehen — vollständig **und** überschaubar geht nur so.
     """
     from .main_window import badge as blase
-    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', pady=(0, 6))
 
-    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf = tk.Frame(kasten, bg=SURFACE, cursor='hand2')
     kopf.pack(fill='x', padx=16, pady=10)
-    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+    pfeil = icons.line(kopf, 'aufklappen', background=SURFACE,
                           font=fenster.f_small)
     pfeil.pack(side='left', padx=(0, 8))
-    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    tk.Label(kopf, text=name, bg=SURFACE, fg=FG, font=fenster.f_bold,
              anchor='w').pack(side='left')
     if gruppe:
         blase(kopf, gruppe, ACCENT, fenster.f_small).pack(side='left', padx=8)
 
-    koerper = tk.Frame(kasten, bg=FLAECHE)
+    koerper = tk.Frame(kasten, bg=SURFACE)
 
     gebaut = []
 
@@ -5362,7 +5362,7 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
         for text, farbe in ((idee, FG), (funde, SUB)):
             if not text:
                 continue
-            lab = tk.Label(koerper, text=_ohne_marken(text), bg=FLAECHE,
+            lab = tk.Label(koerper, text=_ohne_marken(text), bg=SURFACE,
                            fg=farbe, font=fenster.f_small, anchor='w',
                            justify='left')
             lab.pack(fill='x', padx=(46, 16), pady=(0, 8))
@@ -5414,7 +5414,7 @@ def _danke(fenster, rahmen):
              anchor='w').pack(fill='x', pady=(0, 12))
 
     autor = _karte(innen)
-    zeile = tk.Frame(autor, bg=FLAECHE)
+    zeile = tk.Frame(autor, bg=SURFACE)
     zeile.pack(fill='x', padx=16, pady=14)
     from .main_window import _bundled
     logo = _bundled(os.path.join('assets', 'xharig.png'))
@@ -5423,16 +5423,16 @@ def _danke(fenster, rahmen):
             voll = tk.PhotoImage(file=logo)
             teiler = max(1, voll.width() // 64)
             fenster._author_logo = voll.subsample(teiler, teiler)
-            tk.Label(zeile, image=fenster._author_logo, bg=FLAECHE).pack(
+            tk.Label(zeile, image=fenster._author_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 16))
         except Exception as ausnahme:
             fehler.merken('seiten.danke.logo', ausnahme)
-    rechts = tk.Frame(zeile, bg=FLAECHE)
+    rechts = tk.Frame(zeile, bg=SURFACE)
     rechts.pack(side='left', fill='x', expand=True)
-    tk.Label(rechts, text='Xharig', bg=FLAECHE, fg=ACCENT, font=fenster.f_title,
+    tk.Label(rechts, text='Xharig', bg=SURFACE, fg=ACCENT, font=fenster.f_title,
              anchor='w').pack(fill='x')
     tk.Label(rechts, text='%s %s · GPL-3.0-only'
-             % (t('hf_titel'), fenster.version or ''), bg=FLAECHE, fg=SUB,
+             % (t('hf_titel'), fenster.version or ''), bg=SURFACE, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
     _adresse(fenster, rechts, 'github.com/Xharig/SC-BP-Watcher',
              'https://github.com/Xharig/SC-BP-Watcher')
@@ -5467,7 +5467,7 @@ def _danke(fenster, rahmen):
     # steht hier, weil der Import ohne sie nichts wäre — und damit man sie
     # findet, ohne im Netz danach suchen zu müssen.
     _dankblock(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
-               'MIT', t('s_dk_xplorer'), XPLORER_SEITE)
+               'MIT', t('s_dk_xplorer'), XPLORER_PAGE)
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
     # der readme, GitHub meldet keine (geprueft 29.08.2026). Hier stand
     # 'CC BY-NC-SA 4.0'. Das war geraten, vermutlich von scmdb uebernommen,
@@ -5548,7 +5548,7 @@ def _ueber(fenster, rahmen):
     # Seite gar kein Bild mehr und wirkte nackt. Gemeldet am 27.08.2026: „bei
     # über muss oben zur Version noch das Watcher Logo (icon)".
     karte = _karte(innen, pady=(0, 6))
-    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(14, 6))
     from .main_window import _bundled
     symbol = _bundled(os.path.join('assets', 'icon.png'))
@@ -5559,21 +5559,21 @@ def _ueber(fenster, rahmen):
             # neben zwei Textzeilen sitzt, ohne die Karte auseinanderzuziehen.
             teiler = max(1, voll.width() // 48)
             fenster._about_logo = voll.subsample(teiler, teiler)
-            tk.Label(kopf, image=fenster._about_logo, bg=FLAECHE).pack(
+            tk.Label(kopf, image=fenster._about_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 14))
         except Exception as ausnahme:
             fehler.merken('seiten.ueber.symbol', ausnahme)
-    titel = tk.Frame(kopf, bg=FLAECHE)
+    titel = tk.Frame(kopf, bg=SURFACE)
     titel.pack(side='left', fill='x', expand=True)
     # ⚠ Produktname aus `sprache.py` — nie fest hier. Bei der Umbenennung zu
     # VerseKit (12.09.2026) stand er an vier Stellen hart im Code und wäre
     # teils alt geblieben.
-    tk.Label(titel, text=t('hf_titel'), bg=FLAECHE, fg=FG,
+    tk.Label(titel, text=t('hf_titel'), bg=SURFACE, fg=FG,
              font=fenster.f_title, anchor='w').pack(fill='x')
-    tk.Label(titel, text=fenster.version or '—', bg=FLAECHE, fg=ACCENT,
+    tk.Label(titel, text=fenster.version or '—', bg=SURFACE, fg=ACCENT,
              font=fenster.f_bold, anchor='w').pack(fill='x')
 
-    tk.Frame(karte, bg=FLAECHE, height=8).pack()
+    tk.Frame(karte, bg=SURFACE, height=8).pack()
     _wertzeile(fenster, karte, t('s_ub_bekannt'), _zahl_katalog())
     _wertzeile(fenster, karte, t('s_ub_davon'), _zahl_bestand())
     uebersicht = {}
@@ -5583,7 +5583,7 @@ def _ueber(fenster, rahmen):
         pass
     _wertzeile(fenster, karte, t('b_ordner'),
                uebersicht.get('app_ordner') or '—')
-    tk.Frame(karte, bg=FLAECHE, height=10).pack()
+    tk.Frame(karte, bg=SURFACE, height=10).pack()
 
     # --- Einmal holen, ohne etwas umzustellen ---
     #
@@ -5699,7 +5699,7 @@ def _adresse(fenster, eltern, text, ziel, grund=None):
     Klicken einlädt. Jetzt ist der Mauszeiger eine Hand, die Adresse unterstreicht
     sich beim Überfahren, und ein Klick öffnet sie.
     """
-    grund = grund or FLAECHE
+    grund = grund or SURFACE
     lbl = tk.Label(eltern, text=text, bg=grund, fg=ACCENT, font=fenster.f_small,
                    anchor='w', cursor='hand2')
     lbl.pack(fill='x', pady=(4, 0))
@@ -5742,7 +5742,7 @@ def _unterstrichen(schrift):
 def _schalter(fenster, eltern, schluessel, standard):
     """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf."""
     from . import pfade
-    k = tk.Label(eltern, text='', bg=FLAECHE, font=fenster.f_small,
+    k = tk.Label(eltern, text='', bg=SURFACE, font=fenster.f_small,
                  cursor='hand2', padx=10, pady=4)
     k.pack()
 
@@ -5771,7 +5771,7 @@ def _erkennung(fenster, rahmen):
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     from .main_window import round_entry
-    zahl = round_entry(reihe, None, fenster.f_small, '#0c1017', LINIE, ACCENT, FG,
+    zahl = round_entry(reihe, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                        width=5, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)))
     zahl.holder.pack(side='left')
@@ -5806,7 +5806,7 @@ def _erkennung(fenster, rahmen):
         fehler.merken('seiten.erkennung.phrasen', ausnahme)
     kasten = _karte(ziel)
     _fliesstext(kasten, gefunden, fenster.f_small, farbe=FG,
-                grund=FLAECHE, abzug=24, fill='x', padx=12, pady=8)
+                grund=SURFACE, abzug=24, fill='x', padx=12, pady=8)
 
     ziel = _feld(fenster, innen, t('s_er_kat'), t('s_er_kat_h'))
 
@@ -5857,7 +5857,7 @@ def _diagnose(fenster, rahmen):
     ziel_melder = _feld(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
     melder_feld = round_entry(ziel_melder, melder_var, fenster.f_small,
-                              '#0c1017', LINIE, ACCENT, FG,
+                              '#0c1017', LINE, ACCENT, FG,
                               placeholder=t('s_pl_melder'))
     melder_feld.holder.pack(fill='x', pady=(8, 0))
 
@@ -5890,7 +5890,7 @@ def _diagnose(fenster, rahmen):
     ziel_meldung = _feld(fenster, innen, t('s_meldung'), t('s_meldung_h'),
                          breit=True)
     meldung_feld = round_textarea(ziel_meldung, fenster.f_small,
-                                   '#0c1017', LINIE, ACCENT, FG, rows=4)
+                                   '#0c1017', LINE, ACCENT, FG, rows=4)
     meldung_feld.holder.pack(fill='x', pady=(8, 0))
 
     def meldung_text():
@@ -5913,7 +5913,7 @@ def _diagnose(fenster, rahmen):
         fehler.merken('seiten.diagnose', ausnahme)
 
     from .main_window import round_frame
-    kasten = round_frame(innen, '#0c1017', LINIE, radius=8, base_color=BG)
+    kasten = round_frame(innen, '#0c1017', LINE, radius=8, base_color=BG)
     kasten.holder.pack(fill='both', expand=True)
     # ⚠ `highlightthickness` steht bei Text und Entry auf 1 und wird auf dem
     # Mac als helle Linie gezeichnet — im runden Kasten sah das aus wie ein
@@ -6136,7 +6136,7 @@ def _zahl_bestand():
 # Was diese Seite dagegen kann und die Webseite nicht: Sie **weiß**, welche
 # Baupläne der Spieler hat.
 
-HERST_MAX = 150          # so viele Zeilen auf einmal — mehr macht Tk zäh
+CRAFT_MAX = 150          # so viele Zeilen auf einmal — mehr macht Tk zäh
 
 
 def _dauer(sekunden):
@@ -6210,7 +6210,7 @@ def _herstellung(fenster, rahmen):
     fenster.crafting_search = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
     suchfeld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
-                           LINIE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
+                           LINE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
     suchfeld.holder.pack(fill='x', pady=(4, 12))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
@@ -6494,10 +6494,10 @@ def _herstellung(fenster, rahmen):
                 _fliesstext(liste_rahmen, t('s_he_nichts'), fenster.f_small,
                             fill='x')
             return
-        for e in treffer[:HERST_MAX]:
+        for e in treffer[:CRAFT_MAX]:
             _herstellung_zeile(fenster, liste_rahmen, e, offen, zeichnen)
-        if len(treffer) > HERST_MAX:
-            _fliesstext(liste_rahmen, t('s_he_mehr') % (len(treffer) - HERST_MAX),
+        if len(treffer) > CRAFT_MAX:
+            _fliesstext(liste_rahmen, t('s_he_mehr') % (len(treffer) - CRAFT_MAX),
                         fenster.f_small, fill='x')
 
     suche_var.trace_add('write', zeichnen)
@@ -6654,8 +6654,8 @@ def _routen(fenster, rahmen):
     ortzeile = tk.Frame(kopf, bg=BG)
     ortzeile.pack(fill='x')
     ortfeld = tk.Entry(ortzeile, textvariable=ortsuche, font=fenster.f_base,
-                       bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
-                       highlightthickness=1, highlightbackground=LINIE,
+                       bg=SURFACE, fg=FG, insertbackground=FG, relief='flat',
+                       highlightthickness=1, highlightbackground=LINE,
                        highlightcolor=ACCENT)
     ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
     fields.hinweis(ortfeld, ortsuche, t('s_rt_wo_platz'), normal=FG, grau=SUB)
@@ -6725,9 +6725,9 @@ def _routen(fenster, rahmen):
         tk.Label(spalte, text=beschriftung, bg=BG, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
         zahlfeld = tk.Entry(spalte, textvariable=var, font=fenster.f_base,
-                            width=breite, bg=FLAECHE, fg=FG,
+                            width=breite, bg=SURFACE, fg=FG,
                             insertbackground=FG, relief='flat',
-                            highlightthickness=1, highlightbackground=LINIE,
+                            highlightthickness=1, highlightbackground=LINE,
                             highlightcolor=ACCENT)
         zahlfeld.pack(ipady=4)
         # ⚠ Der Hinweis nennt ein BEISPIEL, nicht die Beschriftung darüber —
@@ -6750,9 +6750,9 @@ def _routen(fenster, rahmen):
              font=fenster.f_small, anchor='w').pack(fill='x')
     schiffsuche = tk.StringVar()
     schifffeld = tk.Entry(schiff_rahmen, textvariable=schiffsuche,
-                          font=fenster.f_base, bg=FLAECHE, fg=FG,
+                          font=fenster.f_base, bg=SURFACE, fg=FG,
                           insertbackground=FG, relief='flat',
-                          highlightthickness=1, highlightbackground=LINIE,
+                          highlightthickness=1, highlightbackground=LINE,
                           highlightcolor=ACCENT)
     schifffeld.pack(fill='x', ipady=5)
     fields.hinweis(schifffeld, schiffsuche, t('s_rt_schiff_platz'),
@@ -6830,7 +6830,7 @@ def _routen(fenster, rahmen):
                              text='  %s  ·  %s' % (s['name'],
                                                    t('s_rt_scu_menge')
                                                    % s['scu']),
-                             bg=FLAECHE, fg=FG, font=fenster.f_small,
+                             bg=SURFACE, fg=FG, font=fenster.f_small,
                              anchor='w', cursor='hand2')
             zeile.pack(fill='x', pady=1)
             zeile.bind('<Button-1>',
@@ -6903,7 +6903,7 @@ def _routen(fenster, rahmen):
     ueberall = tk.Frame(kopf, bg=BG)
     ueberall.pack(fill='x', pady=(10, 0))
     ueberall_knopf = tk.Label(ueberall, text=t('s_rt_ueberall_suchen'),
-                              bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                              bg=SURFACE, fg=SUB, font=fenster.f_small,
                               cursor='hand2', padx=10)
     ueberall_knopf.pack(side='left', ipady=5)
     ueberall_stand = tk.Label(ueberall, text='', bg=BG, fg=SUB,
@@ -7023,7 +7023,7 @@ def _routen(fenster, rahmen):
             reihe.pack(fill='x', pady=(0, 4))
             for wert, beschriftung in eintraege:
                 aktiv = zustand[schluessel] == wert
-                k = tk.Label(reihe, text='  %s  ' % beschriftung, bg=FLAECHE,
+                k = tk.Label(reihe, text='  %s  ' % beschriftung, bg=SURFACE,
                              fg=ACCENT if aktiv else SUB,
                              font=fenster.f_small, cursor='hand2')
                 k.pack(side='left', padx=(0, 6), ipady=3)
@@ -7155,18 +7155,18 @@ def _routen(fenster, rahmen):
         im ersten Zweig, und der zweite konnte deshalb gar keine Ketten
         zeigen.
         """
-        kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
-                          highlightbackground=LINIE)
+        kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
+                          highlightbackground=LINE)
         kasten.pack(fill='x', pady=(0, 6))
-        oben = tk.Frame(kasten, bg=FLAECHE)
+        oben = tk.Frame(kasten, bg=SURFACE)
         oben.pack(fill='x', padx=12, pady=(6, 2))
         tk.Label(oben, text=t('s_rt_kette_gewinn') % _geld(gesamt),
-                 bg=FLAECHE, fg=ACCENT if hervor else FG,
+                 bg=SURFACE, fg=ACCENT if hervor else FG,
                  font=fenster.f_small, anchor='w').pack(side='left')
         strecke = sum(f.get('strecke') or 0 for f in weg)
         if strecke:
             tk.Label(oben, text=t('s_rt_strecke') % int(strecke),
-                     bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                     bg=SURFACE, fg=SUB, font=fenster.f_small,
                      anchor='e').pack(side='right')
         # ⭐⭐ **Was man vorstrecken muss.** Nur die erste Fahrt wird aus
         # eigener Tasche bezahlt; ab der zweiten kauft man vom Erlös der
@@ -7176,14 +7176,14 @@ def _routen(fenster, rahmen):
             if weg else 0
         if anfangs:
             tk.Label(kasten, text='   ' + t('s_rt_kette_einsatz')
-                     % _geld(anfangs), bg=FLAECHE, fg=SUB,
+                     % _geld(anfangs), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(fill='x', padx=12)
         # ⭐⭐ **Der ganze Weg auf einen Blick, vor den Einzelschritten.**
         # Ohne ihn stand da „120 SCU Copper → Rat's Nest", und niemand sah,
         # wo man dafür einkauft. Am 04.09.2026: „Wie fliegt man hier? Ich
         # versteh es nicht, User also auch nicht."
         weg_orte = [startname] + [f['zielname'] for f in weg]
-        tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=FLAECHE,
+        tk.Label(kasten, text='   ' + '  →  '.join(weg_orte), bg=SURFACE,
                  fg=FG, font=fenster.f_small, anchor='w',
                  wraplength=760, justify='left').pack(
                      fill='x', padx=12, pady=(0, 6))
@@ -7205,7 +7205,7 @@ def _routen(fenster, rahmen):
             if ek:
                 text += '  ·  ' + t('s_rt_schritt_ek') % _auec(ek)
             tk.Label(kasten, text=text,
-                     bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                     bg=SURFACE, fg=SUB, font=fenster.f_small,
                      anchor='w', wraplength=760, justify='left').pack(
                          fill='x', padx=12, pady=(0, 4))
 
@@ -7317,7 +7317,7 @@ def _routen(fenster, rahmen):
                                              system) if x)
             beschriftung = ('  %s  ·  %s' % (name, beiwerk) if beiwerk
                             else '  ' + name)
-            zeile = tk.Label(ortvorschlag, text=beschriftung, bg=FLAECHE,
+            zeile = tk.Label(ortvorschlag, text=beschriftung, bg=SURFACE,
                              fg=FG, font=fenster.f_small, anchor='w',
                              cursor='hand2')
             zeile.pack(fill='x', pady=1)
@@ -7408,7 +7408,7 @@ def _routen(fenster, rahmen):
 
     reset_knopf.bind('<Button-1>', _alles_zuruecksetzen)
     reset_knopf.bind('<Enter>',
-                     lambda _=None: reset_knopf.configure(fg=ROT))
+                     lambda _=None: reset_knopf.configure(fg=RED))
     reset_knopf.bind('<Leave>',
                      lambda _=None: reset_knopf.configure(fg=SUB))
 
@@ -7485,18 +7485,18 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
     globalen Bestenliste, wo jede Zeile woanders beginnt. Ohne ihn stünde da
     ein Gewinn ohne Angabe, wo man ihn holt.
     """
-    kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
-                      highlightbackground=LINIE)
+    kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
+                      highlightbackground=LINE)
     kasten.pack(fill='x', pady=(0, 4))
-    zeile = tk.Frame(kasten, bg=FLAECHE)
+    zeile = tk.Frame(kasten, bg=SURFACE)
     zeile.pack(fill='x', padx=12, pady=6)
-    tk.Label(zeile, text=_auec(fahrt['gewinn']), bg=FLAECHE,
+    tk.Label(zeile, text=_auec(fahrt['gewinn']), bg=SURFACE,
              fg=ACCENT if hervor else FG, font=fenster.f_small,
              width=16, anchor='w').pack(side='left')
-    tk.Label(zeile, text=t('s_rt_scu_menge') % fahrt['menge'], bg=FLAECHE,
+    tk.Label(zeile, text=t('s_rt_scu_menge') % fahrt['menge'], bg=SURFACE,
              fg=SUB, font=fenster.f_small, width=8, anchor='w').pack(
                  side='left')
-    tk.Label(zeile, text=fahrt['ware'], bg=FLAECHE, fg=FG,
+    tk.Label(zeile, text=fahrt['ware'], bg=SURFACE, fg=FG,
              font=fenster.f_small, anchor='w').pack(side='left')
     # ⚠⚠ **Beide Orte, beide beschriftet.** „→ Terra Gateway" allein sagt
     # nicht, wo man einkauft — das stand nur in der Überschrift darüber. Wer
@@ -7504,10 +7504,10 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
     # Pfeil ins Nichts.
     if fahrt.get('startname'):
         tk.Label(zeile, text='  ' + t('s_rt_ab') % fahrt['startname'],
-                 bg=FLAECHE, fg=FG, font=fenster.f_small,
+                 bg=SURFACE, fg=FG, font=fenster.f_small,
                  anchor='w').pack(side='left')
     tk.Label(zeile, text='  →  ' + t('s_rt_nach')
-             % (fahrt.get('zielname') or '?'), bg=FLAECHE,
+             % (fahrt.get('zielname') or '?'), bg=SURFACE,
              fg=SUB, font=fenster.f_small, anchor='w').pack(side='left')
 
     # ⭐⭐ **Der Einsatz gehört dazu — ohne ihn ist der Gewinn eine Behauptung.**
@@ -7520,26 +7520,26 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
     # sagt nicht, ob man ihn sich leisten kann.
     einsatz = (fahrt.get('ek') or 0) * fahrt['menge']
     if einsatz:
-        zweite = tk.Frame(kasten, bg=FLAECHE)
+        zweite = tk.Frame(kasten, bg=SURFACE)
         zweite.pack(fill='x', padx=12, pady=(0, 6))
-        tk.Label(zweite, text=t('s_rt_einsatz') % _geld(einsatz), bg=FLAECHE,
+        tk.Label(zweite, text=t('s_rt_einsatz') % _geld(einsatz), bg=SURFACE,
                  fg=SUB, font=fenster.f_small, anchor='w').pack(side='left')
         # Wieviel dort überhaupt liegt — die häufigste Enttäuschung: Man fliegt
         # hin und es sind zwei Kisten.
         if fahrt.get('vorrat'):
             tk.Label(zweite,
                      text='   ' + t('s_rt_vorrat') % fahrt['vorrat'],
-                     bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                     bg=SURFACE, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(side='left')
         # ⭐ Woran die Menge hängt. „69 von 120 SCU" sagt noch nicht, ob ein
         # größeres Schiff hilft — „begrenzt durch dein Geld" schon.
         if fahrt.get('grenze'):
-            tk.Label(zweite, text='   ' + t(fahrt['grenze']), bg=FLAECHE,
+            tk.Label(zweite, text='   ' + t(fahrt['grenze']), bg=SURFACE,
                      fg=GOLD, font=fenster.f_small,
                      anchor='w').pack(side='left')
     if fahrt.get('strecke'):
         tk.Label(zeile, text=t('s_rt_strecke') % int(fahrt['strecke']),
-                 bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                 bg=SURFACE, fg=SUB, font=fenster.f_small,
                  anchor='e').pack(side='right')
 
 
@@ -7549,27 +7549,27 @@ def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
 #
 # Gemessen am 04.09.2026: Schiffswaffen 96, FPS-Waffen 168, dazu 6 ohne
 # Unterart. Die sechs bleiben schlicht „Waffen" — geraten wird nicht.
-SCHIFFSWAFFEN = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
+SHIP_WEAPONS = frozenset(('laser', 'ballistic', 'distortion', 'neutron',
                            'tachyon'))
-FPS_WAFFEN = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
+FPS_WEAPONS = frozenset(('pistol', 'rifle', 'sniper', 'smg', 'shotgun', 'lmg'))
 
 # ⚠ Notdeckel für eine einzelne Warengruppe. Sie wird sonst **vollständig**
 # gezeigt — die größte echte Gruppe hat 201 Einträge. Die Zahl schützt nur
 # davor, dass ein Ausreißer in fremden Daten Tausende Zeilen baut.
-NOTDECKEL = 400
+EMERGENCY_CAP = 400
 
 # ⚠⚠ **Wie viele Zeilen je Warengruppe, wenn mehrere nebeneinanderstehen.**
 # Am 04.09.2026 gemeldet: „Was gehört alles zu Systemen? Blicke da nicht
 # durch." Bei 176 Treffern in vier Gruppen füllte allein die erste Gruppe die
 # ganze Liste — die anderen drei sah man nie. Ein Deckel **je Gruppe** zeigt
 # stattdessen von jeder etwas, und darunter steht, wie viele noch folgen.
-JE_GRUPPE = 12
+PER_GROUP = 12
 
 # Kennzeichen für Einträge, die kein Ladenteil sind. Sie müssen sich von jeder
 # echten Kennung unterscheiden — deshalb ein Doppelpunkt, den UUIDs nicht haben.
-SCHIFF_PRAEFIX = 'schiff:'
-WERFT_PRAEFIX = 'werft:'
-BEREICH_SCHIFFE = '__schiffe'
+SHIP_PREFIX = 'schiff:'
+SHIPYARD_PREFIX = 'werft:'
+AREA_SHIPS = '__schiffe'
 
 
 def _laeden(fenster, rahmen):
@@ -7623,8 +7623,8 @@ def _laeden(fenster, rahmen):
     such_rahmen = tk.Frame(kopf, bg=BG)
     such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
     feld = tk.Entry(such_rahmen, textvariable=suche, font=fenster.f_base,
-                    bg=FLAECHE, fg=FG, insertbackground=FG, relief='flat',
-                    highlightthickness=1, highlightbackground=LINIE,
+                    bg=SURFACE, fg=FG, insertbackground=FG, relief='flat',
+                    highlightthickness=1, highlightbackground=LINE,
                     highlightcolor=ACCENT)
     feld.pack(fill='x', ipady=5)
     fields.hinweis(feld, suche, t('s_ld_suche_platz'), normal=FG, grau=SUB)
@@ -7656,8 +7656,8 @@ def _laeden(fenster, rahmen):
     # Ab hier rollt es.
     innen = _rollflaeche(rahmen, rand=0)
 
-    vorschlag_rahmen = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
-                                highlightbackground=LINIE)
+    vorschlag_rahmen = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
+                                highlightbackground=LINE)
     vorschlag_rahmen.pack(fill='x', padx=24)
     ergebnis_rahmen = tk.Frame(innen, bg=BG)
     ergebnis_rahmen.pack(fill='both', expand=True, padx=24, pady=(10, 20))
@@ -7714,9 +7714,9 @@ def _laeden(fenster, rahmen):
                 from . import ships as schiff_modul
                 for s in schiff_modul.catalog():
                     raus.append({'name': s['name'],
-                                 'kennung': SCHIFF_PRAEFIX + s['name'],
-                                 'bereich': BEREICH_SCHIFFE,
-                                 'gruppe': WERFT_PRAEFIX + (s['werft'] or '?'),
+                                 'kennung': SHIP_PREFIX + s['name'],
+                                 'bereich': AREA_SHIPS,
+                                 'gruppe': SHIPYARD_PREFIX + (s['werft'] or '?'),
                                  'hersteller': '', 'groesse': '',
                                  'klasse': '', 'guete': ''})
             except Exception as ausnahme:
@@ -7753,9 +7753,9 @@ def _laeden(fenster, rahmen):
         if art != 'weapons':
             return art
         unterart = (b.get('unterart') or '').strip().lower()
-        if unterart in SCHIFFSWAFFEN:
+        if unterart in SHIP_WEAPONS:
             return 'weapons_schiff'
-        if unterart in FPS_WAFFEN:
+        if unterart in FPS_WEAPONS:
             return 'weapons_fps'
         return art
 
@@ -7775,9 +7775,9 @@ def _laeden(fenster, rahmen):
         bleibt der englische stehen. Ein geratenes deutsches Wort wäre
         schlechter als ein ehrliches englisches.
         """
-        if wert.startswith(WERFT_PRAEFIX):
+        if wert.startswith(SHIPYARD_PREFIX):
             # Eine Werft heißt überall gleich — Drake bleibt Drake.
-            return wert[len(WERFT_PRAEFIX):]
+            return wert[len(SHIPYARD_PREFIX):]
         schluessel = laden_modul.GROUP_KEYS.get(wert)
         if schluessel:
             return t(schluessel)
@@ -7785,7 +7785,7 @@ def _laeden(fenster, rahmen):
 
     def _bereichsname(wert):
         """Bereich lesbar — sonst wie `_gruppenname`."""
-        if wert == BEREICH_SCHIFFE:
+        if wert == AREA_SHIPS:
             return t('s_ld_ber_schiffe')
         schluessel = laden_modul.SECTION_KEYS.get(wert)
         return t(schluessel) if schluessel else wert
@@ -7801,7 +7801,7 @@ def _laeden(fenster, rahmen):
         if feld == 'guete':
             return t('s_ld_guete') % wert
         if feld == 'klasse':
-            schluessel = KLASSEN_TEXTE.get(wert)
+            schluessel = CLASS_LABELS.get(wert)
             return t(schluessel) if schluessel else wert
         return wert
 
@@ -7914,23 +7914,23 @@ def _laeden(fenster, rahmen):
                      font=fenster.f_small, anchor='w').pack(fill='x',
                                                             pady=(6, 2))
             for nummer, z in enumerate(stellen):
-                kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
+                kasten = tk.Frame(ergebnis_rahmen, bg=SURFACE,
                                   highlightthickness=1,
-                                  highlightbackground=LINIE)
+                                  highlightbackground=LINE)
                 kasten.pack(fill='x', pady=(0, 4))
-                zeile = tk.Frame(kasten, bg=FLAECHE)
+                zeile = tk.Frame(kasten, bg=SURFACE)
                 zeile.pack(fill='x', padx=12, pady=6)
-                tk.Label(zeile, text=_auec(z['preis']), bg=FLAECHE,
+                tk.Label(zeile, text=_auec(z['preis']), bg=SURFACE,
                          fg=ACCENT if nummer == 0 else FG,
                          font=fenster.f_small, width=16,
                          anchor='w').pack(side='left')
-                tk.Label(zeile, text=z.get('stelle') or '?', bg=FLAECHE,
+                tk.Label(zeile, text=z.get('stelle') or '?', bg=SURFACE,
                          fg=FG, font=fenster.f_small,
                          anchor='w').pack(side='left')
                 beiwerk = ' · '.join(x for x in (z.get('ort'), z.get('system'))
                                      if x)
                 if beiwerk:
-                    tk.Label(zeile, text='  ' + beiwerk, bg=FLAECHE, fg=SUB,
+                    tk.Label(zeile, text='  ' + beiwerk, bg=SURFACE, fg=SUB,
                              font=fenster.f_small,
                              anchor='w').pack(side='left')
         if not etwas:
@@ -7941,8 +7941,8 @@ def _laeden(fenster, rahmen):
         _leeren(ergebnis_rahmen)
         if not gewaehlt['kennung']:
             return
-        if gewaehlt['kennung'].startswith(SCHIFF_PRAEFIX):
-            _schiff_zeichnen(gewaehlt['kennung'][len(SCHIFF_PRAEFIX):])
+        if gewaehlt['kennung'].startswith(SHIP_PREFIX):
+            _schiff_zeichnen(gewaehlt['kennung'][len(SHIP_PREFIX):])
             return
         liste = laden_modul.shops_for(gewaehlt['kennung'])
         if liste is None:
@@ -7969,28 +7969,28 @@ def _laeden(fenster, rahmen):
                      anchor='e').pack(side='right')
 
         for nummer, z in enumerate(liste):
-            kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
-                              highlightthickness=1, highlightbackground=LINIE)
+            kasten = tk.Frame(ergebnis_rahmen, bg=SURFACE,
+                              highlightthickness=1, highlightbackground=LINE)
             kasten.pack(fill='x', pady=(0, 4))
-            zeile = tk.Frame(kasten, bg=FLAECHE)
+            zeile = tk.Frame(kasten, bg=SURFACE)
             zeile.pack(fill='x', padx=12, pady=6)
             # ⭐ Der billigste steht oben und wird als einziger hervorgehoben.
             # Zwei grüne Zeilen wären keine Empfehlung mehr.
-            tk.Label(zeile, text=_auec(z['preis']), bg=FLAECHE,
+            tk.Label(zeile, text=_auec(z['preis']), bg=SURFACE,
                      fg=ACCENT if nummer == 0 else FG, font=fenster.f_small,
                      width=16, anchor='w').pack(side='left')
-            tk.Label(zeile, text=z.get('laden') or '?', bg=FLAECHE, fg=FG,
+            tk.Label(zeile, text=z.get('laden') or '?', bg=SURFACE, fg=FG,
                      font=fenster.f_small, anchor='w').pack(side='left')
             beiwerk = ' · '.join(x for x in (z.get('ort'), z.get('system'))
                                  if x)
             if beiwerk:
-                tk.Label(zeile, text='  ' + beiwerk, bg=FLAECHE, fg=SUB,
+                tk.Label(zeile, text='  ' + beiwerk, bg=SURFACE, fg=SUB,
                          font=fenster.f_small, anchor='w').pack(side='left')
             # ⚠ Der Zustand gehört dazu: Gebrauchte Ware ist billiger **und**
             # weniger wert. Ein Preis ohne diese Zahl wäre die halbe Wahrheit.
             if z.get('zustand') and z['zustand'] < 100:
                 tk.Label(zeile, text=t('s_ld_zustand') % z['zustand'],
-                         bg=FLAECHE, fg=GOLD, font=fenster.f_small,
+                         bg=SURFACE, fg=GOLD, font=fenster.f_small,
                          anchor='e').pack(side='right')
 
     def _waehlen(name, kennung):
@@ -8004,7 +8004,7 @@ def _laeden(fenster, rahmen):
         _nach_oben(innen)
         # ⚠ Schiffe liegen schon vollständig vor — ihre Preise kommen aus den
         # drei Wochenlisten, nicht aus einem Abruf je Gegenstand.
-        if kennung.startswith(SCHIFF_PRAEFIX):
+        if kennung.startswith(SHIP_PREFIX):
             return
         if laden_modul.known(kennung) or laeuft['ja']:
             return
@@ -8109,9 +8109,9 @@ def _laeden(fenster, rahmen):
             sagt ihm nichts, dieselbe Liste mit „Größe 1 · Wen-Cassel" schon.
             """
             name, kennung = b['name'], b['kennung']
-            kasten = tk.Frame(vorschlag_rahmen, bg=FLAECHE, cursor='hand2')
+            kasten = tk.Frame(vorschlag_rahmen, bg=SURFACE, cursor='hand2')
             kasten.pack(fill='x')
-            zeile = tk.Label(kasten, text='   ' + name, bg=FLAECHE, fg=FG,
+            zeile = tk.Label(kasten, text='   ' + name, bg=SURFACE, fg=FG,
                              font=fenster.f_small, anchor='w',
                              cursor='hand2')
             zeile.pack(side='left', ipady=4)
@@ -8124,7 +8124,7 @@ def _laeden(fenster, rahmen):
                 b.get('hersteller') or '') if x)
             teile_der_zeile = [kasten, zeile]
             if beiwerk:
-                rechts = tk.Label(kasten, text=beiwerk + '   ', bg=FLAECHE,
+                rechts = tk.Label(kasten, text=beiwerk + '   ', bg=SURFACE,
                                   fg=SUB, font=fenster.f_small, anchor='e',
                                   cursor='hand2')
                 rechts.pack(side='right', ipady=4)
@@ -8161,14 +8161,14 @@ def _laeden(fenster, rahmen):
             # ⚠ Der Notdeckel bleibt, damit ein Ausreißer in fremden Daten
             # nicht Tausende Zeilen baut. Die größte echte Gruppe hat 201.
             (_nur_gruppe, eintraege), = gruppiert.items()
-            gezeigt = eintraege[:NOTDECKEL]
+            gezeigt = eintraege[:EMERGENCY_CAP]
             for b in gezeigt:
                 _zeile_bauen(b)
             if len(eintraege) > len(gezeigt):
                 tk.Label(vorschlag_rahmen,
                          text='   ' + t('s_ld_mehr_da') % (len(gezeigt),
                                                            len(eintraege)),
-                         bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                         bg=SURFACE, fg=SUB, font=fenster.f_small,
                          anchor='w').pack(fill='x', ipady=5)
             return
 
@@ -8177,11 +8177,11 @@ def _laeden(fenster, rahmen):
                                                        p[0].lower())):
             tk.Label(vorschlag_rahmen,
                      text='  %s (%d)' % (_gruppenname(gruppe), len(eintraege)),
-                     bg=FLAECHE, fg=ACCENT, font=fenster.f_bold,
+                     bg=SURFACE, fg=ACCENT, font=fenster.f_bold,
                      anchor='w').pack(fill='x', ipady=5)
-            for b in eintraege[:JE_GRUPPE]:
+            for b in eintraege[:PER_GROUP]:
                 _zeile_bauen(b)
-            rest = len(eintraege) - JE_GRUPPE
+            rest = len(eintraege) - PER_GROUP
             if rest > 0:
                 # ⚠⚠ **Anklickbar, nicht nur eine Feststellung.** Am
                 # 05.09.2026: „Gruppen zeigen zu wenig." Der Weg zum Rest war
@@ -8190,7 +8190,7 @@ def _laeden(fenster, rahmen):
                 # genau diese Warengruppe als Filter.
                 mehr = tk.Label(vorschlag_rahmen,
                                 text='   ' + t('s_ld_weitere') % rest,
-                                bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                                bg=SURFACE, fg=SUB, font=fenster.f_small,
                                 anchor='w', cursor='hand2')
                 mehr.pack(fill='x', ipady=4)
                 mehr.bind('<Button-1>',
@@ -8352,7 +8352,7 @@ def _laeden(fenster, rahmen):
         _nach_oben(innen)
 
     ld_reset.bind('<Button-1>', _ld_zuruecksetzen)
-    ld_reset.bind('<Enter>', lambda _=None: ld_reset.configure(fg=ROT))
+    ld_reset.bind('<Enter>', lambda _=None: ld_reset.configure(fg=RED))
     ld_reset.bind('<Leave>', lambda _=None: ld_reset.configure(fg=SUB))
 
     # ⚠ Beim erneuten Betreten der Seite steht sonst der alte Suchbegriff noch
@@ -8463,7 +8463,7 @@ def _bauplan_angaben(bauplan):
     if art.startswith('Char_') or art in ('WeaponPersonal', 'WeaponAttachment'):
         return ''
     teile = []
-    schluessel = KLASSEN_TEXTE.get(eintrag.get('c'))
+    schluessel = CLASS_LABELS.get(eintrag.get('c'))
     if schluessel:
         teile.append(t(schluessel))
     if eintrag.get('s'):
@@ -8500,9 +8500,9 @@ def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
     `danach` wird nach dem Holen im Oberflächen-Faden aufgerufen, damit die
     Seite die frischen Daten auch zeigt.
     """
-    if _NACHGEZOGEN[0] and not erzwingen:
+    if _REFRESHED[0] and not erzwingen:
         return
-    _NACHGEZOGEN[0] = True
+    _REFRESHED[0] = True
 
     def arbeit():
         geholt = 0
@@ -8523,7 +8523,7 @@ def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
 
 
 # Ob in diesem Programmlauf schon einmal nachgezogen wurde.
-_NACHGEZOGEN = [False]
+_REFRESHED = [False]
 
 
 def _passt_zeile(fenster, eltern, bauplan):
@@ -8796,7 +8796,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
                  font=fenster.f_small).pack(side='left', padx=(12, 6))
         from .main_window import round_entry as _rf_anzahl
         _anzahl_feld = _rf_anzahl(reihe, anzahl_var, fenster.f_small,
-                                  '#0c1017', LINIE, ACCENT, FG)
+                                  '#0c1017', LINE, ACCENT, FG)
         _anzahl_feld.holder.configure(width=70)
         _anzahl_feld.holder.pack(side='left')
         rueck.pack(side='left', padx=(10, 0))
@@ -9293,7 +9293,6 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
 # ------------------------------------------------------------------- Bergbau
 
-BERG_MAX = 60
 
 
 def _art_text(arten):
@@ -9371,7 +9370,7 @@ def _bergung(fenster, rahmen):
     # wertlos, und nur das Abkratzen der Hülle lohnt.
     warnung = _karte(innen, rand=GOLD, pady=(0, 14))
     _fliesstext(warnung, _ohne_marken(t('s_wr_npc_warnung')), fenster.f_small,
-                farbe=GOLD, grund=FLAECHE, fill='x', padx=16, pady=12,
+                farbe=GOLD, grund=SURFACE, fill='x', padx=16, pady=12,
                 abzug=56)
 
     schiff = tk.StringVar()
@@ -9432,12 +9431,12 @@ def _bergung(fenster, rahmen):
 
         for teil in teile:
             karte = _karte(ergebnis, pady=(0, 4))
-            kopf = tk.Frame(karte, bg=FLAECHE)
+            kopf = tk.Frame(karte, bg=SURFACE)
             kopf.pack(fill='x', padx=16, pady=(8, 8))
-            tk.Label(kopf, text=t('s_wr_stueck') % teil['anzahl'], bg=FLAECHE,
+            tk.Label(kopf, text=t('s_wr_stueck') % teil['anzahl'], bg=SURFACE,
                      fg=ACCENT, font=fenster.f_bold, width=4,
                      anchor='w').pack(side='left')
-            tk.Label(kopf, text=teil['name'], bg=FLAECHE, fg=FG,
+            tk.Label(kopf, text=teil['name'], bg=SURFACE, fg=FG,
                      font=fenster.f_small, anchor='w').pack(side='left')
             merkmale = [teil['art']]
             if teil.get('groesse'):
@@ -9445,10 +9444,10 @@ def _bergung(fenster, rahmen):
             preis = preis_von(teil['ref'])
             rechts = (_geld(preis * teil['anzahl']) + ' aUEC' if preis
                       else t('s_wr_kein_preis'))
-            tk.Label(kopf, text=rechts, bg=FLAECHE,
+            tk.Label(kopf, text=rechts, bg=SURFACE,
                      fg=FG if preis else SUB, font=fenster.f_small,
                      anchor='e').pack(side='right')
-            tk.Label(kopf, text='  ·  '.join(merkmale), bg=FLAECHE, fg=SUB,
+            tk.Label(kopf, text='  ·  '.join(merkmale), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, anchor='w').pack(side='left',
                                                             padx=(12, 0))
         if stand:
@@ -9458,7 +9457,7 @@ def _bergung(fenster, rahmen):
     def nachsehen():
         name = (schiff.get() or '').strip()
         if not alle_schiffe.knows(name):
-            hinweis.configure(text=t('s_wr_kein_schiff'), fg=ROT)
+            hinweis.configure(text=t('s_wr_kein_schiff'), fg=RED)
             return
         kennung = erkul.ident(name, '', '', '')
         gespeichert = bg.remembered(kennung) if kennung else None
@@ -9643,7 +9642,7 @@ def _bergbau(fenster, rahmen):
     fenster.mining_search = ''
     ziel_suche = _feld(fenster, innen, t('s_bg_suche'), '')
     feld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
-                       LINIE, ACCENT, FG)
+                       LINE, ACCENT, FG)
     feld.holder.pack(fill='x', pady=(4, 12))
     _suche_leeren_kreuz(fenster, ziel_suche, suche_var)
 
@@ -9721,7 +9720,7 @@ def _bergbau(fenster, rahmen):
     sig_var = tk.StringVar(value='')
     ziel_sig = _feld(fenster, innen, t('s_bg_sig_feld'), '')
     sig_feld = round_entry(ziel_sig, sig_var, fenster.f_small, '#0c1017',
-                           LINIE, ACCENT, FG, placeholder=t('s_pl_signatur'))
+                           LINE, ACCENT, FG, placeholder=t('s_pl_signatur'))
     sig_feld.holder.pack(fill='x', pady=(4, 2))
     _fliesstext(innen, t('s_bg_sig_hilfe'), fenster.f_small, fill='x')
     sig_rahmen = tk.Frame(innen, bg=BG)
@@ -10253,7 +10252,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     _ozeile.pack(fill='x', pady=(4, 0))
     _oliste.pack(fill='x')
 
-    kasten = round_frame(ziel, '#0c1017', LINIE, radius=8, base_color=BG)
+    kasten = round_frame(ziel, '#0c1017', LINE, radius=8, base_color=BG)
     kasten.holder.pack(fill='x', pady=(4, 6))
     feld = tk.Text(kasten, bg='#0c1017', fg=FG, font=('Consolas', 10),
                    height=7, wrap='none', relief='flat', bd=0,
@@ -10292,7 +10291,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         # ⚠ Geschlossene Liste wie überall: Was UEX nicht kennt, kommt nicht
         # ins Lager. Leer ist erlaubt — der Lagerort ist freiwillig.
         if not _orte_modul.knows((ort_raff.get() or '').strip()):
-            meldung.configure(text=t('s_rf_ort_unbekannt'), fg=ROT)
+            meldung.configure(text=t('s_rf_ort_unbekannt'), fg=RED)
             return
         # ⚠⚠ **Der Ort läuft NICHT durch `storage_name()`.** Die Funktion zieht
         # eine Eingabe auf einen bekannten **Rohstoff** — sie vergleicht gegen
@@ -10392,9 +10391,9 @@ def _hangar(fenster, rahmen):
             return
         eintraege, fehlertext = meine.read(pfad)
         if fehlertext:
-            meldung['text'], meldung['farbe'] = t('s_hg_import_fehler'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_import_fehler'), RED
         elif not eintraege:
-            meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), RED
         else:
             neu, alt = meine.import_entries(eintraege, daten['stand'])
             meldung['text'] = t('s_hg_import_ok').format(neu=neu, alt=alt)
@@ -10414,7 +10413,7 @@ def _hangar(fenster, rahmen):
         _knopf(fenster, reihe_import, t('s_hg_import_knopf'), importieren,
                stark=True),
         _knopf(fenster, reihe_import, t('s_hg_erweiterung'),
-               lambda: pfade.im_browser(XPLORER_SEITE)),
+               lambda: pfade.im_browser(XPLORER_PAGE)),
     ])
 
     # -------------------------------------------------------- Von Hand
@@ -10453,7 +10452,7 @@ def _hangar(fenster, rahmen):
         # Ende ein ausgedachter oder beleidigender Name im Werkzeug, und ein
         # Bildschirmfoto davon macht die Runde.
         if not alle_schiffe.knows(name):
-            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), RED
             neu_zeichnen()
             return
         # ⚠⚠ **Die Herkunft ist wählbar, nicht geraten.** Bis zum 06.09.2026
@@ -10476,7 +10475,7 @@ def _hangar(fenster, rahmen):
             schiff.set('')
             _steckplaetze_holen(still=True)
         else:
-            meldung['text'], meldung['farbe'] = t('s_hg_schon_da'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_schon_da'), RED
         neu_zeichnen()
 
     def _steckplaetze_holen(still=True):
@@ -10657,13 +10656,13 @@ def _wunschliste(fenster, rahmen):
     def eintragen():
         name = (wunsch.get() or '').strip()
         if not alle_schiffe.knows(name):
-            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_kein_name'), RED
             neu_zeichnen()
             return
         # ⚠ Was man hat, wünscht man sich nicht — und das wird gesagt, nicht
         # stillschweigend verschluckt.
         if meine.contains(daten['stand'], name):
-            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_schon_da'), RED
             neu_zeichnen()
             return
         # ⚠ **Den Hersteller gleich mitspeichern.** Ohne ihn findet `erkul`
@@ -10688,7 +10687,7 @@ def _wunschliste(fenster, rahmen):
             _steckplaetze_nachziehen(innen, erzwingen=True,
                                      danach=neu_zeichnen)
         else:
-            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), RED
         neu_zeichnen()
 
     reihe = tk.Frame(innen, bg=BG)
@@ -10771,7 +10770,7 @@ def _asop(fenster, rahmen):
     such_zeile.pack(fill='x', padx=24, pady=(0, 6))
     from .main_window import round_entry as _rundes_feld_such
     such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_small,
-                                  '#0c1017', LINIE, ACCENT, FG)
+                                  '#0c1017', LINE, ACCENT, FG)
     such_feld.holder.pack(side='left', fill='x', expand=True)
     _suche_leeren_kreuz(fenster, such_zeile, suche)
 
@@ -10813,7 +10812,7 @@ def _asop(fenster, rahmen):
     def sichern():
         """Merken — und gleich dafür sorgen, dass es auch im Spiel ankommt."""
         if not asop_modul.speichern(daten['stand']):
-            stand.configure(text=t('s_as_nicht_gespeichert'), fg=ROT)
+            stand.configure(text=t('s_as_nicht_gespeichert'), fg=RED)
             return False
         spaeter_einspielen()
         return True
@@ -10914,14 +10913,14 @@ def _asop(fenster, rahmen):
         try:
             pfad, sprachordner, _quelle = injektion.ini_datei()
             if not pfad:
-                _sagen(t('s_as_keine_ini'), ROT)
+                _sagen(t('s_as_keine_ini'), RED)
                 return
             ok, _anzahl, text = injektion.aktualisieren(pfad, sprachordner)
         except Exception as ausnahme:
             fehler.merken('seiten._asop.einspielen', ausnahme)
             ok, text = False, str(ausnahme)
         _sagen(t('s_as_steht') if ok else (t('s_as_schief') % text),
-               ACCENT if ok else ROT)
+               ACCENT if ok else RED)
 
     # ⚠⚠ **Der Knopf war der Fehler von v3.28.0.** Wer einen Namen eintippt,
     # hat ihn vergeben — und erwartet ihn im Spiel. Stattdessen musste er unter
@@ -10998,19 +10997,19 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     rechts. Ein Schalter, der auf einer Seite mittig steht und auf der nächsten
     rechts, sieht nach Zufall aus.
     """
-    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', pady=(0, 6))
 
-    kopf = tk.Frame(kasten, bg=FLAECHE)
+    kopf = tk.Frame(kasten, bg=SURFACE)
     kopf.pack(fill='x', padx=12, pady=(8, 2))
-    tk.Label(kopf, text=e['name'], bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    tk.Label(kopf, text=e['name'], bg=SURFACE, fg=FG, font=fenster.f_bold,
              anchor='w').pack(side='left')
     if e['werksname']:
-        tk.Label(kopf, text=e['werksname'], bg=FLAECHE, fg=SUB,
+        tk.Label(kopf, text=e['werksname'], bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left', padx=(10, 0))
 
     if not e['schluessel']:
-        tk.Label(kasten, text=t('s_as_zeile_ohne'), bg=FLAECHE, fg=SUB,
+        tk.Label(kasten, text=t('s_as_zeile_ohne'), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x', padx=12,
                                                         pady=(0, 8))
         return
@@ -11019,11 +11018,11 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     wert = tk.StringVar(value=eigen)
     stern_an = tk.BooleanVar(value=stern)
 
-    reihe = tk.Frame(kasten, bg=FLAECHE)
+    reihe = tk.Frame(kasten, bg=SURFACE)
     reihe.pack(fill='x', padx=12, pady=(0, 10))
 
     from .main_window import round_entry
-    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINIE, ACCENT, FG)
+    feld = round_entry(reihe, wert, fenster.f_small, '#0c1017', LINE, ACCENT, FG)
     feld.holder.pack(side='left', fill='x', expand=True)
 
     def uebernehmen(*_):
@@ -11041,7 +11040,7 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     #
     # ⚠ Und er sitzt **rechts** neben dem Feld, wie jedes Bedienelement seiner
     # Art im Programm. Symmetrie: Gleiches steht überall an der gleichen Stelle.
-    schalter = tk.Label(reihe, text='', bg=FLAECHE, font=fenster.f_small,
+    schalter = tk.Label(reihe, text='', bg=SURFACE, font=fenster.f_small,
                         cursor='hand2', padx=12, pady=4)
     schalter.pack(side='right', padx=(10, 0))
 
@@ -11049,7 +11048,7 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
         an = stern_an.get()
         schalter.configure(text=' %s ' % t('s_as_stern'),
                            fg=BG if an else SUB,
-                           bg=ACCENT if an else FLAECHE)
+                           bg=ACCENT if an else SURFACE)
 
     def stern_umschalten(_=None):
         stern_an.set(not stern_an.get())
@@ -11301,27 +11300,27 @@ def _zerlegen(fenster, rahmen):
 
 def _zerlege_zeile(fenster, eltern, zeile):
     """Ein Rohstoff: was drinsteckt, was zurückkommt."""
-    rahmen = tk.Frame(eltern, bg=FLAECHE)
+    rahmen = tk.Frame(eltern, bg=SURFACE)
     rahmen.pack(fill='x', pady=(0, 2))
 
-    tk.Label(rahmen, text=zeile.get('rohstoff') or '', bg=FLAECHE,
+    tk.Label(rahmen, text=zeile.get('rohstoff') or '', bg=SURFACE,
              fg=SUB if zeile.get('verloren') else FG, font=fenster.f_small,
              anchor='w', width=22).pack(side='left', padx=(12, 0), pady=4)
 
     # ⚠ **Der Rückgabewert steht rechts und in Farbe** — das ist die Zahl, wegen
     # der jemand diese Seite öffnet. „steckt drin" daneben erklärt sie.
     if zeile.get('verloren'):
-        tk.Label(rahmen, text=t('s_zl_nichts'), bg=FLAECHE, fg=GOLD,
+        tk.Label(rahmen, text=t('s_zl_nichts'), bg=SURFACE, fg=GOLD,
                  font=fenster.f_small, anchor='e').pack(side='right',
                                                         padx=(0, 12))
     else:
         tk.Label(rahmen, text=t('s_zl_zurueck').format(
             menge=_zahl(zeile.get('zurueck'))),
-            bg=FLAECHE, fg=ACCENT, font=fenster.f_small,
+            bg=SURFACE, fg=ACCENT, font=fenster.f_small,
             anchor='e').pack(side='right', padx=(0, 12))
 
     tk.Label(rahmen, text=t('s_zl_drin').format(menge=_zahl(zeile.get('drin'))),
-             bg=FLAECHE, fg=SUB, font=fenster.f_small,
+             bg=SURFACE, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left')
 
 
@@ -11525,10 +11524,10 @@ def _farmliste(fenster, rahmen):
 
 def _farm_zeile(fenster, eltern, eintrag, fehlend):
     """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt."""
-    zeile = tk.Frame(eltern, bg=FLAECHE)
+    zeile = tk.Frame(eltern, bg=SURFACE)
     zeile.pack(fill='x', pady=(0, 2))
 
-    tk.Label(zeile, text=eintrag.get('rohstoff') or '', bg=FLAECHE,
+    tk.Label(zeile, text=eintrag.get('rohstoff') or '', bg=SURFACE,
              fg=FG if fehlend else SUB, font=fenster.f_small, anchor='w',
              width=24).pack(side='left', padx=(12, 0), pady=4)
 
@@ -11538,17 +11537,17 @@ def _farm_zeile(fenster, eltern, eintrag, fehlend):
     if fehlend:
         tk.Label(zeile, text=t('s_fl_fehlt').format(
             menge=_zahl(eintrag.get('differenz'))),
-            bg=FLAECHE, fg=GOLD, font=fenster.f_small,
+            bg=SURFACE, fg=GOLD, font=fenster.f_small,
             anchor='e').pack(side='right', padx=(0, 12))
     else:
-        tk.Label(zeile, text=t('s_fl_genug'), bg=FLAECHE, fg=ACCENT,
+        tk.Label(zeile, text=t('s_fl_genug'), bg=SURFACE, fg=ACCENT,
                  font=fenster.f_small, anchor='e').pack(side='right',
                                                         padx=(0, 12))
 
     tk.Label(zeile, text=t('s_fl_stand').format(
         braucht=_zahl(eintrag.get('benoetigt')),
         hat=_zahl(eintrag.get('vorhanden'))),
-        bg=FLAECHE, fg=SUB, font=fenster.f_small,
+        bg=SURFACE, fg=SUB, font=fenster.f_small,
         anchor='w').pack(side='left')
 
     # ⚠ **Zu geringe Güte ist kein Bestand, aber auch kein Nichts.** Wer 20
@@ -11560,7 +11559,7 @@ def _farm_zeile(fenster, eltern, eintrag, fehlend):
         tk.Label(zeile, text=t('s_fl_zu_gering').format(
             menge=_zahl(zu_gering),
             guete=_zahl(eintrag.get('mindestguete'))),
-            bg=FLAECHE, fg=SUB, font=fenster.f_small,
+            bg=SURFACE, fg=SUB, font=fenster.f_small,
             anchor='w').pack(side='left', padx=(10, 0))
 
 
@@ -11627,7 +11626,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     from . import cart
 
     fertig = bool(eintrag.get('erledigt'))
-    zeile = tk.Frame(eltern, bg=FLAECHE)
+    zeile = tk.Frame(eltern, bg=SURFACE)
     zeile.pack(fill='x', pady=(0, 2))
 
     # ⭐⭐ **Der Haken ist die einzige Möglichkeit, das zu wissen.** Am
@@ -11637,7 +11636,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # Also wird nichts erraten, sondern abgehakt wie auf jedem Einkaufszettel.
     # Beim Selbstherstellen genauso: ein Haken für beide Wege.
     if abhaken is not None and eintrag.get('sorte') == cart.PART:
-        haken = icons.line(zeile, 'haken', background=FLAECHE,
+        haken = icons.line(zeile, 'haken', background=SURFACE,
                               color=icons.GREEN if fertig else icons.GREY,
                               font=fenster.f_small)
         haken.configure(cursor='hand2')
@@ -11650,17 +11649,17 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     # ⚠ Erledigtes bleibt lesbar, tritt aber zurück: Es ist erledigt, nicht
     # ungültig. Wer den Haken versehentlich setzt, muss die Zeile wiederfinden.
     haupt = SUB if fertig else FG
-    neben = LINIE if fertig else SUB
+    neben = LINE if fertig else SUB
 
     # Position (Steckplatz) — bei einem Schiff steht dort, dass es das Schiff
     # selbst ist, damit die Spalte nie leer bleibt.
     pos = eintrag.get('position') or ''
     if eintrag.get('sorte') == cart.SHIP:
         pos = t('s_ek_das_schiff')
-    tk.Label(zeile, text=pos, bg=FLAECHE, fg=neben, font=fenster.f_small,
+    tk.Label(zeile, text=pos, bg=SURFACE, fg=neben, font=fenster.f_small,
              anchor='w', width=22).pack(side='left', padx=rand, pady=4)
 
-    tk.Label(zeile, text=eintrag.get('name') or '', bg=FLAECHE, fg=haupt,
+    tk.Label(zeile, text=eintrag.get('name') or '', bg=SURFACE, fg=haupt,
              font=fenster.f_small, anchor='w').pack(side='left')
 
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
@@ -11668,7 +11667,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
     kennzeichen = (_teil_kennzeichen({'kennung': eintrag.get('ref')})
                    if eintrag.get('sorte') == cart.PART else '')
     if kennzeichen:
-        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=neben,
+        tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=neben,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
@@ -11688,11 +11687,11 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
         betrag, farbe = t('s_wk_nicht_geprueft'), SUB
     else:
         betrag, farbe = t('s_ek_kein_betrag'), GOLD
-    tk.Label(zeile, text=betrag, bg=FLAECHE, fg=farbe, font=fenster.f_small,
+    tk.Label(zeile, text=betrag, bg=SURFACE, fg=farbe, font=fenster.f_small,
              anchor='e').pack(side='right', padx=(0, 12))
     tk.Label(zeile, text=t('s_wk_kaufen') if weg == cart.BUY
              else t('s_wk_bauen'),
-             bg=FLAECHE, fg=neben, font=fenster.f_small,
+             bg=SURFACE, fg=neben, font=fenster.f_small,
              anchor='e').pack(side='right', padx=(0, 16))
 
 
@@ -11739,9 +11738,9 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
 
     name = eintrag.get('name') or ''
     karte = _karte(eltern, pady=(0, 6))
-    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(10, 2))
-    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    tk.Label(kopf, text=name, bg=SURFACE, fg=FG, font=fenster.f_bold,
              anchor='w').pack(side='left')
 
     def streichen():
@@ -11753,7 +11752,7 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     _knopf(fenster, kopf, t('s_hg_wunsch_streichen'), streichen).pack(
         side='right')
 
-    unten = tk.Frame(karte, bg=FLAECHE)
+    unten = tk.Frame(karte, bg=SURFACE)
     unten.pack(fill='x', padx=16, pady=(0, 10))
     kauf = alle_schiffe.buy_at(name)
     miete = alle_schiffe.rent_at(name)
@@ -11770,7 +11769,7 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # Auskunft, keine Lücke.
     tk.Label(unten, text='  ·  '.join(teile) if teile
              else t('s_hg_wunsch_kein_preis'),
-             bg=FLAECHE, fg=SUB if teile else GOLD, font=fenster.f_small,
+             bg=SURFACE, fg=SUB if teile else GOLD, font=fenster.f_small,
              anchor='w').pack(side='left')
 
     # Dieselbe Marke wie im Hangar — ein geplantes Wunschschiff hat oft mehr
@@ -11778,7 +11777,7 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     from . import cart as _wk_marke
     offen = _wk_marke.open_count(eintrag)
     if offen:
-        tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
+        tk.Label(unten, text=t('s_hg_offen').format(n=offen), bg=SURFACE,
                  fg=ACCENT, font=fenster.f_small,
                  anchor='w').pack(side='left', padx=(12, 0))
 
@@ -11807,9 +11806,9 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
                             eintrag.get('kurz', ''), eintrag.get('hkurz', ''))
     karte = _karte(eltern, pady=(0, 6))
 
-    kopf = tk.Frame(karte, bg=FLAECHE)
+    kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=16, pady=(10, 2))
-    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_bold,
+    tk.Label(kopf, text=name, bg=SURFACE, fg=FG, font=fenster.f_bold,
              anchor='w').pack(side='left')
 
     def austragen():
@@ -11853,9 +11852,9 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     else:
         teile.append(t('s_hg_ohne_daten'))
         farbe = SUB
-    unten = tk.Frame(karte, bg=FLAECHE)
+    unten = tk.Frame(karte, bg=SURFACE)
     unten.pack(fill='x', padx=16, pady=(0, 10))
-    tk.Label(unten, text='  ·  '.join(teile), bg=FLAECHE,
+    tk.Label(unten, text='  ·  '.join(teile), bg=SURFACE,
              fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')
 
@@ -11872,7 +11871,7 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # ⚠ Ein eigener Rahmen, damit sich die Marke nachziehen lässt, ohne die
     # ganze Zeile neu zu bauen — beim Abhaken darf die aufgeklappte
     # Ausstattung nicht zuklappen.
-    marke_rahmen = tk.Frame(unten, bg=FLAECHE)
+    marke_rahmen = tk.Frame(unten, bg=SURFACE)
     marke_rahmen.pack(side='left')
 
     def marke_setzen():
@@ -11901,14 +11900,14 @@ def _zeichne_marke(fenster, eltern, eintrag):
 
     offen = cart.open_count(eintrag)
     if offen:
-        tk.Label(eltern, text=t('s_hg_offen').format(n=offen), bg=FLAECHE,
+        tk.Label(eltern, text=t('s_hg_offen').format(n=offen), bg=SURFACE,
                  fg=ACCENT, font=fenster.f_small,
                  anchor='w').pack(side='left', padx=(12, 0))
     elif cart.fully_fitted(eintrag):
-        haken = icons.line(eltern, 'haken', background=FLAECHE,
+        haken = icons.line(eltern, 'haken', background=SURFACE,
                               color=icons.YELLOW, font=fenster.f_small)
         haken.pack(side='left', padx=(12, 4))
-        tk.Label(eltern, text=t('s_hg_fertig'), bg=FLAECHE, fg=GOLD,
+        tk.Label(eltern, text=t('s_hg_fertig'), bg=SURFACE, fg=GOLD,
                  font=fenster.f_small, anchor='w').pack(side='left')
 
 
@@ -11922,18 +11921,18 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     """
     from . import cart, fleet as meine
 
-    kasten = tk.Frame(karte, bg=FLAECHE)
+    kasten = tk.Frame(karte, bg=SURFACE)
     kasten.pack(fill='x')
 
-    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf = tk.Frame(kasten, bg=SURFACE, cursor='hand2')
     kopf.pack(fill='x', padx=16, pady=(0, 10))
-    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+    pfeil = icons.line(kopf, 'aufklappen', background=SURFACE,
                           font=fenster.f_small)
     pfeil.pack(side='left', padx=(0, 8))
-    tk.Label(kopf, text=t('s_wk_titel'), bg=FLAECHE, fg=FG,
+    tk.Label(kopf, text=t('s_wk_titel'), bg=SURFACE, fg=FG,
              font=fenster.f_small, anchor='w').pack(side='left')
 
-    koerper = tk.Frame(kasten, bg=FLAECHE)
+    koerper = tk.Frame(kasten, bg=SURFACE)
 
     def neu():
         """Den Block neu aufbauen — nach jeder Änderung an der Ausstattung.
@@ -11976,7 +11975,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     # 06.09.2026 bei jedem Bauplan.
     if zustand == cart.NO_DATA:
         _fliesstext(eltern, t('s_wk_keine_daten'), fenster.f_small,
-                    grund=FLAECHE, fill='x', padx=(46, 16), pady=(0, 10),
+                    grund=SURFACE, fill='x', padx=(46, 16), pady=(0, 10),
                     abzug=78)
         return
 
@@ -11992,11 +11991,11 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
         # teuerste Auskunft dieser Seite zu verschweigen.
         if cart.fully_fitted(eintrag):
             _fliesstext(eltern, t('s_hg_fertig_hilfe'), fenster.f_small,
-                        farbe=GOLD, grund=FLAECHE, fill='x', padx=(46, 16),
+                        farbe=GOLD, grund=SURFACE, fill='x', padx=(46, 16),
                         pady=(4, 10), abzug=78)
         else:
             _fliesstext(eltern, t('s_wk_nichts_offen'), fenster.f_small,
-                        grund=FLAECHE, fill='x', padx=(46, 16), pady=(4, 10),
+                        grund=SURFACE, fill='x', padx=(46, 16), pady=(4, 10),
                         abzug=78)
         return
 
@@ -12021,7 +12020,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     # „Zurücksetzen" wäre der falsche Weg zurück, das wirft auch die getroffene
     # Auswahl weg und stellt die Werksausstattung wieder her.
     tk.Label(eltern, text=t('s_wk_posten').format(n=len(noch_offen)),
-             bg=FLAECHE, fg=FG, font=fenster.f_bold, anchor='w').pack(
+             bg=SURFACE, fg=FG, font=fenster.f_bold, anchor='w').pack(
                  fill='x', padx=(46, 16), pady=(8, 4))
 
     for posten in noch_offen:
@@ -12138,7 +12137,7 @@ def _teil_kennzeichen(teil):
         klasse = klasse or nach.get('klasse') or ''
     teile = [guete] if guete else []
     if klasse:
-        schluessel = KLASSEN_TEXTE.get(klasse)
+        schluessel = CLASS_LABELS.get(klasse)
         teile.append(t(schluessel) if schluessel else klasse)
     # ⚠⚠ **Eine fehlende Klasse wird NICHT geraten.** Der Bauplan-Katalog
     # führt sie nur bei 240 von 738 Einträgen — der Militär-Antrieb Crossfield
@@ -12168,21 +12167,21 @@ def _teil_nachschlagen(kennung):
     einem Teil nur die Kennung bekannt (`werk.ref`) — dort fehlte sonst genau
     die Güte, die den Vergleich mit der Auswahl trägt.
     """
-    if _TEIL_VERZEICHNIS[0] is None:
+    if _PART_INDEX[0] is None:
         from . import shops
         try:
-            _TEIL_VERZEICHNIS[0] = dict(
+            _PART_INDEX[0] = dict(
                 (x.get('kennung'), {'guete': x.get('guete') or '',
                                     'klasse': x.get('klasse') or ''})
                 for x in shops.catalog_items() if x.get('kennung'))
         except Exception as ausnahme:
             fehler.merken('seiten.teil_nachschlagen', ausnahme)
-            _TEIL_VERZEICHNIS[0] = {}
-    return _TEIL_VERZEICHNIS[0].get(kennung) or {}
+            _PART_INDEX[0] = {}
+    return _PART_INDEX[0].get(kennung) or {}
 
 
 # Kennung -> {guete, klasse}, einmal je Programmlauf aufgebaut.
-_TEIL_VERZEICHNIS = [None]
+_PART_INDEX = [None]
 
 
 def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
@@ -12200,7 +12199,7 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
                                  eintrag.get('hkurz') or '')
     gewaehlt = cart.loadout(eintrag)
 
-    tk.Label(eltern, text=t('s_wk_auslegung'), bg=FLAECHE, fg=FG,
+    tk.Label(eltern, text=t('s_wk_auslegung'), bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=(46, 16),
                                                    pady=(0, 4))
 
@@ -12258,7 +12257,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # nächsten Zeichnen in „1 x geändert" und „15 x ab Werk", und niemand
     # verstünde, warum.
     alle_pfade = [(g.get('pfad') or '') for g in (gruppe or [platz])]
-    zeile = tk.Frame(eltern, bg=FLAECHE, cursor='hand2')
+    zeile = tk.Frame(eltern, bg=SURFACE, cursor='hand2')
     zeile.pack(fill='x', padx=(46, 16), pady=1)
 
     # Links: was für ein Platz das ist. Der Pfad wird **nicht** angezeigt — er
@@ -12271,7 +12270,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # findet, findet sie niemand.
     #
     # Überall sonst im Programm steht an aufklappbaren Zeilen dieser Pfeil.
-    pfeil = icons.line(zeile, 'aufklappen', background=FLAECHE,
+    pfeil = icons.line(zeile, 'aufklappen', background=SURFACE,
                           font=fenster.f_small)
     pfeil.pack(side='left', padx=(0, 6))
 
@@ -12283,7 +12282,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     anzahl = len(gruppe) if gruppe else 1
     if anzahl > 1:
         art_text = '%d x %s' % (anzahl, art_text)
-    tk.Label(zeile, text=art_text, bg=FLAECHE, fg=SUB, font=fenster.f_small,
+    tk.Label(zeile, text=art_text, bg=SURFACE, fg=SUB, font=fenster.f_small,
              anchor='w', width=22).pack(side='left')
 
     eigenes = gewaehlt.get(pfad) or {}
@@ -12294,7 +12293,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         text, farbe, kennung = werk['name'], SUB, werk.get('ref') or ''
     else:
         text, farbe, kennung = t('s_wk_ab_werk_leer'), SUB, ''
-    tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe, font=fenster.f_small,
+    tk.Label(zeile, text=text, bg=SURFACE, fg=farbe, font=fenster.f_small,
              anchor='w').pack(side='left')
 
     # ⚠ **Auch hier Güte und Klasse** — nicht nur in der Auswahlliste. Sonst
@@ -12303,7 +12302,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # Angabe die Hälfte einer Auskunft.
     kennzeichen = _teil_kennzeichen({'kennung': kennung}) if kennung else ''
     if kennzeichen:
-        tk.Label(zeile, text=kennzeichen, bg=FLAECHE, fg=SUB,
+        tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
@@ -12333,7 +12332,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
         _knopf(fenster, zeile, t('s_wk_zuruecksetzen'),
                platz_zuruecksetzen).pack(side='right')
 
-    auswahl_rahmen = tk.Frame(eltern, bg=FLAECHE)
+    auswahl_rahmen = tk.Frame(eltern, bg=SURFACE)
     gebaut = []
 
     def aufbauen():
@@ -12346,7 +12345,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             # Teile bekannt sind, wird das gesagt — nicht der halbe Katalog
             # angeboten, aus dem nichts passt.
             _fliesstext(auswahl_rahmen, t('s_wk_kein_preis'), fenster.f_small,
-                        grund=FLAECHE, fill='x', padx=(22, 0), abzug=90)
+                        grund=SURFACE, fill='x', padx=(22, 0), abzug=90)
             return
         nach_name = dict((m['name'], m) for m in moeglich)
         gewaehlt_var = tk.StringVar()
@@ -12448,19 +12447,19 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
     will sehen, was noch fehlt. Aufgeklappt steht jeder Posten mit seinem
     Haken da und lässt sich wieder öffnen.
     """
-    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', padx=(46, 16), pady=(6, 0))
 
-    kopf = tk.Frame(kasten, bg=FLAECHE, cursor='hand2')
+    kopf = tk.Frame(kasten, bg=SURFACE, cursor='hand2')
     kopf.pack(fill='x')
-    pfeil = icons.line(kopf, 'aufklappen', background=FLAECHE,
+    pfeil = icons.line(kopf, 'aufklappen', background=SURFACE,
                           font=fenster.f_small)
     pfeil.pack(side='left', padx=(0, 8))
     tk.Label(kopf, text=t('s_wk_eingebaut_n').format(n=len(fertig)),
-             bg=FLAECHE, fg=ACCENT, font=fenster.f_small,
+             bg=SURFACE, fg=ACCENT, font=fenster.f_small,
              anchor='w').pack(side='left')
 
-    koerper = tk.Frame(kasten, bg=FLAECHE)
+    koerper = tk.Frame(kasten, bg=SURFACE)
 
     def umschalten(_=None):
         if koerper.winfo_ismapped():
@@ -12643,25 +12642,25 @@ def _warenkorb_summe(fenster, eltern, liste):
     from . import cart
     zahlen = cart.total(liste)
 
-    kasten = tk.Frame(eltern, bg=FLAECHE)
+    kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', padx=(46, 16), pady=(4, 0))
     tk.Label(kasten, text=t('s_wk_summe').format(
-        preis=_geld(zahlen['gesamt'])), bg=FLAECHE, fg=ACCENT,
+        preis=_geld(zahlen['gesamt'])), bg=SURFACE, fg=ACCENT,
         font=fenster.f_bold, anchor='w').pack(fill='x')
 
     if zahlen['kaufen'] and zahlen['bauen']:
         tk.Label(kasten, text=t('s_wk_summe_teil').format(
             kaufen=_geld(zahlen['kaufen']), bauen=_geld(zahlen['bauen'])),
-            bg=FLAECHE, fg=SUB, font=fenster.f_small,
+            bg=SURFACE, fg=SUB, font=fenster.f_small,
             anchor='w').pack(fill='x')
     if zahlen['dauer']:
         tk.Label(kasten, text=t('s_wk_bauzeit').format(
-            dauer=_dauer(zahlen['dauer'])), bg=FLAECHE, fg=SUB,
+            dauer=_dauer(zahlen['dauer'])), bg=SURFACE, fg=SUB,
             font=fenster.f_small, anchor='w').pack(fill='x')
     # ⚠ Eine Summe, der Posten fehlen, sieht aus wie eine vollständige.
     if zahlen['offen']:
         tk.Label(kasten, text=t('s_wk_summe_offen').format(n=zahlen['offen']),
-                 bg=FLAECHE, fg=GOLD, font=fenster.f_small,
+                 bg=SURFACE, fg=GOLD, font=fenster.f_small,
                  anchor='w').pack(fill='x')
 
 
@@ -12670,12 +12669,12 @@ def _warenkorb_route(fenster, eltern, liste):
     from . import cart
     stopps, ohne = cart.route(liste)
 
-    tk.Label(eltern, text=t('s_wk_route'), bg=FLAECHE, fg=FG,
+    tk.Label(eltern, text=t('s_wk_route'), bg=SURFACE, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', padx=(46, 16),
                                                    pady=(10, 2))
     if not stopps:
         _fliesstext(eltern, t('s_wk_route_leer'), fenster.f_small,
-                    grund=FLAECHE, fill='x', padx=(46, 16), abzug=78)
+                    grund=SURFACE, fill='x', padx=(46, 16), abzug=78)
         return
 
     zahlen = cart.route_total(stopps)
@@ -12694,31 +12693,31 @@ def _warenkorb_route(fenster, eltern, liste):
     tk.Label(eltern, text='%s  ·  %s' % (
         t('s_wk_route_summe').format(preis=_geld(zahlen['gesamt'])),
         zahl_text),
-        bg=FLAECHE, fg=SUB, font=fenster.f_small, anchor='w').pack(
+        bg=SURFACE, fg=SUB, font=fenster.f_small, anchor='w').pack(
             fill='x', padx=(46, 16))
 
     for stopp in stopps:
-        zeile = tk.Frame(eltern, bg=FLAECHE)
+        zeile = tk.Frame(eltern, bg=SURFACE)
         zeile.pack(fill='x', padx=(58, 16), pady=(4, 0))
         wo = ' · '.join(x for x in (stopp['system'], stopp['ort']) if x)
-        tk.Label(zeile, text=wo, bg=FLAECHE, fg=FG, font=fenster.f_small,
+        tk.Label(zeile, text=wo, bg=SURFACE, fg=FG, font=fenster.f_small,
                  anchor='w').pack(side='left')
-        tk.Label(zeile, text=_auec(stopp['summe']), bg=FLAECHE, fg=SUB,
+        tk.Label(zeile, text=_auec(stopp['summe']), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right')
         for eintrag_posten in stopp['posten']:
-            unter = tk.Frame(eltern, bg=FLAECHE)
+            unter = tk.Frame(eltern, bg=SURFACE)
             unter.pack(fill='x', padx=(70, 16))
             tk.Label(unter, text='%s — %s' % (eintrag_posten['name'],
                                               eintrag_posten['laden']),
-                     bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                     bg=SURFACE, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(side='left')
-            tk.Label(unter, text=_geld(eintrag_posten['preis']), bg=FLAECHE,
+            tk.Label(unter, text=_geld(eintrag_posten['preis']), bg=SURFACE,
                      fg=SUB, font=fenster.f_small,
                      anchor='e').pack(side='right')
 
     if ohne:
         _fliesstext(eltern, t('s_wk_route_ohne').format(n=len(ohne)),
-                    fenster.f_small, farbe=GOLD, grund=FLAECHE, fill='x',
+                    fenster.f_small, farbe=GOLD, grund=SURFACE, fill='x',
                     padx=(46, 16), pady=(6, 0), abzug=78)
 
 
@@ -12807,7 +12806,7 @@ def _lager(fenster, rahmen):
             _mengenzeile = tk.Frame(block, bg=BG)
             _mengenzeile.pack(fill='x', pady=(4, 0))
             f = round_entry(_mengenzeile, var, fenster.f_small, '#0c1017',
-                            LINIE, ACCENT, FG)
+                            LINE, ACCENT, FG)
             mengen_beschriftung = kopf_label
 
             def einheit_um(an):
@@ -12833,7 +12832,7 @@ def _lager(fenster, rahmen):
                                        font=fenster.f_small, anchor='w')
             mengen_vorschau.pack(fill='x')
         else:
-            f = round_entry(block, var, fenster.f_small, '#0c1017', LINIE,
+            f = round_entry(block, var, fenster.f_small, '#0c1017', LINE,
                             ACCENT, FG)
             f.holder.pack(fill='x', pady=(4, 0))
 
@@ -12981,7 +12980,7 @@ def _lager(fenster, rahmen):
             offen = bearbeitung['nummer'] == nummer
             # Die offene Zeile bekommt Flaeche unter sich, damit man sieht,
             # welchen Posten die Felder oben gerade zeigen.
-            z_bg = FLAECHE if offen else BG
+            z_bg = SURFACE if offen else BG
             z = tk.Frame(liste_rahmen, bg=z_bg)
             z.pack(fill='x', pady=1)
             # ⚠ Erst in Variablen holen. `text=p.get('material')` liest
@@ -13285,7 +13284,7 @@ def _lager(fenster, rahmen):
     tk.Label(_such_zeile, text=t('s_lg_filter'), bg=BG, fg=SUB,
              font=fenster.f_small).pack(side='left', padx=(0, 10))
     _such_feld = _rf_suche(_such_zeile, filter_var, fenster.f_small,
-                           '#0c1017', LINIE, ACCENT, FG)
+                           '#0c1017', LINE, ACCENT, FG)
     _such_feld.holder.pack(side='left', fill='x', expand=True)
     _suche_leeren_kreuz(fenster, _such_zeile, filter_var)
 
@@ -13469,7 +13468,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     liste = tk.Frame(eltern, bg=BG)
     offen = {'ja': False}
 
-    feld = round_entry(zeile, var, fenster.f_small, '#0c1017', LINIE, ACCENT,
+    feld = round_entry(zeile, var, fenster.f_small, '#0c1017', LINE, ACCENT,
                        FG)
 
     # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
@@ -13588,7 +13587,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             for teil in mitfaerben:
                 teil.bind('<Button-1>', lambda _e, n=name: waehlen(n))
                 teil.bind('<Enter>', lambda _e, w=mitfaerben: [
-                    x.configure(bg=FLAECHE) for x in w])
+                    x.configure(bg=SURFACE) for x in w])
                 teil.bind('<Leave>', lambda _e, w=mitfaerben: [
                     x.configure(bg=BG) for x in w])
 
@@ -13859,7 +13858,7 @@ def _verkauf(fenster, rahmen):
                     meldung['text'], meldung['farbe'] = (t('s_vk_kein_netz_aus'),
                                                          SUB)
                 else:
-                    meldung['text'], meldung['farbe'] = t('s_vk_fehler'), ROT
+                    meldung['text'], meldung['farbe'] = t('s_vk_fehler'), RED
                 try:
                     if ergebnis_rahmen.winfo_exists():
                         neu_zeichnen()
@@ -14005,23 +14004,23 @@ def _verkauf(fenster, rahmen):
         reihe = tk.Frame(chip_rahmen, bg=BG)
         reihe.pack(fill='x')
         for name in auswahl:
-            marke = tk.Frame(reihe, bg=FLAECHE)
+            marke = tk.Frame(reihe, bg=SURFACE)
             marke.pack(side='left', padx=(0, 6), pady=2)
-            tk.Label(marke, text=name, bg=FLAECHE, fg=FG,
+            tk.Label(marke, text=name, bg=SURFACE, fg=FG,
                      font=fenster.f_small, padx=8, pady=3).pack(side='left')
 
             var = tk.StringVar(value=str(eigene_mengen.get(name) or ''))
             feld = tk.Entry(marke, textvariable=var, width=5,
                             font=fenster.f_small, bg='#0c1017', fg=FG,
                             insertbackground=FG, relief='flat',
-                            highlightthickness=1, highlightbackground=LINIE,
+                            highlightthickness=1, highlightbackground=LINE,
                             highlightcolor=ACCENT, justify='right')
             feld.pack(side='left', pady=3)
             # ⚠ Nur ein Wort: Das Feld ist fünf Zeichen breit. Ein
             # abgeschnittener Hinweis wäre schlimmer als keiner — und die
             # Einheit steht ohnehin als Etikett daneben.
             fields.hinweis(feld, var, t('s_pl_menge'), normal=FG, grau=SUB)
-            tk.Label(marke, text=t('s_vk_scu_kurz'), bg=FLAECHE, fg=SUB,
+            tk.Label(marke, text=t('s_vk_scu_kurz'), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, padx=4).pack(side='left')
 
             def _getippt(*_a, _n=name, _v=var):
@@ -14040,12 +14039,12 @@ def _verkauf(fenster, rahmen):
 
             var.trace_add('write', _getippt)
 
-            weg = tk.Label(marke, text='×', bg=FLAECHE, fg=SUB,
+            weg = tk.Label(marke, text='×', bg=SURFACE, fg=SUB,
                            font=fenster.f_small, padx=8, pady=3,
                            cursor='hand2')
             weg.pack(side='left')
             weg.bind('<Button-1>', lambda e, n=name: entfernen(n))
-            weg.bind('<Enter>', lambda e, w=weg: w.configure(fg=ROT))
+            weg.bind('<Enter>', lambda e, w=weg: w.configure(fg=RED))
             weg.bind('<Leave>', lambda e, w=weg: w.configure(fg=SUB))
 
     def _ergebnis():
@@ -14086,11 +14085,11 @@ def _verkauf(fenster, rahmen):
                      font=fenster.f_small, anchor='w').pack(fill='x',
                                                             pady=(14, 4))
             for preis, ware in spitze[:12]:
-                kasten = tk.Frame(ergebnis_rahmen, bg=FLAECHE,
+                kasten = tk.Frame(ergebnis_rahmen, bg=SURFACE,
                                   highlightthickness=1,
-                                  highlightbackground=LINIE)
+                                  highlightbackground=LINE)
                 kasten.pack(fill='x', pady=(0, 3))
-                zeile = tk.Frame(kasten, bg=FLAECHE)
+                zeile = tk.Frame(kasten, bg=SURFACE)
                 zeile.pack(fill='x', padx=12, pady=5)
                 for w in (kasten, zeile):
                     w.configure(cursor='hand2')
@@ -14103,10 +14102,10 @@ def _verkauf(fenster, rahmen):
                 p = tk.Label(zeile,
                              text=t('s_vk_je_scu').format(
                                  preis=_auec(preis)),
-                             bg=FLAECHE, fg=ACCENT, font=fenster.f_small,
+                             bg=SURFACE, fg=ACCENT, font=fenster.f_small,
                              width=20, anchor='w')
                 p.pack(side='left')
-                n = tk.Label(zeile, text=ware, bg=FLAECHE, fg=FG,
+                n = tk.Label(zeile, text=ware, bg=SURFACE, fg=FG,
                              font=fenster.f_small, anchor='w', cursor='hand2')
                 n.pack(side='left')
                 for w in (kasten, zeile, p, n):
@@ -14176,13 +14175,13 @@ def _verkauf(fenster, rahmen):
 def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
                    mit_kopf=False):
     """Ein Ankaufsort: wie viele Waren er nimmt, was er zahlt, wie alt das ist."""
-    kasten = tk.Frame(eltern, bg=FLAECHE, highlightthickness=1,
-                      highlightbackground=LINIE)
+    kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
+                      highlightbackground=LINE)
     kasten.pack(fill='x', pady=(0, 6))
-    innen = tk.Frame(kasten, bg=FLAECHE)
+    innen = tk.Frame(kasten, bg=SURFACE)
     innen.pack(fill='x', padx=12, pady=8)
 
-    kopf = tk.Frame(innen, bg=FLAECHE)
+    kopf = tk.Frame(innen, bg=SURFACE)
     kopf.pack(fill='x')
 
     # ⭐ Die Trefferzahl steht **vorn und farbig**. Sie ist die eigentliche
@@ -14190,21 +14189,21 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
     # Anflug — und das ist mehr wert als ein paar Prozent Aufpreis anderswo
     # (gemessen: 2 % Mehrerlös für zwei zusätzliche Stopps).
     voll = ort['anzahl'] >= gesucht
-    tk.Label(kopf, text='%d/%d' % (ort['anzahl'], gesucht), bg=FLAECHE,
+    tk.Label(kopf, text='%d/%d' % (ort['anzahl'], gesucht), bg=SURFACE,
              fg=ACCENT if voll else SUB, font=fenster.f_small,
              width=5, anchor='w').pack(side='left')
 
     name = ort['terminal']
     beiwerk = ' · '.join(x for x in (ort.get('ort'), ort.get('system')) if x)
-    tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_small,
+    tk.Label(kopf, text=name, bg=SURFACE, fg=FG, font=fenster.f_small,
              anchor='w').pack(side='left')
     if beiwerk:
-        tk.Label(kopf, text='  ' + beiwerk, bg=FLAECHE, fg=SUB,
+        tk.Label(kopf, text='  ' + beiwerk, bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left')
     if ort.get('nqa'):
         # Keine Wertung, nur eine Auskunft: Hier wird nicht nach der Herkunft
         # gefragt. Für saubere Ware ist das weder gut noch schlecht.
-        tk.Label(kopf, text='  ' + t('s_vk_nqa_marke'), bg=FLAECHE, fg=GOLD,
+        tk.Label(kopf, text='  ' + t('s_vk_nqa_marke'), bg=SURFACE, fg=GOLD,
                  font=fenster.f_small, anchor='w').pack(side='left')
 
     alterstext = _alterstext(ort.get('alter'))
@@ -14214,14 +14213,14 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
         # eine Zeile, die stillschweigend fehlt, lässt ihn das Werkzeug für
         # kaputt halten.
         zu_alt = (ort.get('alter') or 0) > 7 * 24 * 3600
-        tk.Label(kopf, text=alterstext, bg=FLAECHE, fg=GOLD if zu_alt else SUB,
+        tk.Label(kopf, text=alterstext, bg=SURFACE, fg=GOLD if zu_alt else SUB,
                  font=fenster.f_small, anchor='e').pack(side='right')
 
     # ⚠ Dasselbe Raster wie im Handelslager: Ware | SCU | Preis 1 SCU |
     # Gesamtpreis. Zwei Ansichten desselben Werkzeugs dürfen ihre Zahlen nicht
     # verschieden anordnen — wer die eine lesen kann, muss die andere blind
     # lesen können.
-    zeilen = tk.Frame(innen, bg=FLAECHE)
+    zeilen = tk.Frame(innen, bg=SURFACE)
     zeilen.pack(fill='x', pady=(4, 0))
     # ⚠⚠ **Feste Mindestbreiten, sonst steht jeder Kasten anders.** Jeder Ort
     # ist ein eigenes Raster, und Tk richtet Spalten nur **innerhalb** eines
@@ -14242,7 +14241,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
                       t('s_hl_sp_je_scu'),
                       t('s_hl_sp_gesamt') if hat_mengen else '')
         for spalte, titel in enumerate(kopf_zeile):
-            tk.Label(zeilen, text=titel, bg=FLAECHE, fg=SUB, padx=8,
+            tk.Label(zeilen, text=titel, bg=SURFACE, fg=SUB, padx=8,
                      font=fenster.f_small,
                      anchor='w' if spalte == 0 else 'e').grid(
                 row=0, column=spalte, sticky='ew')
@@ -14262,7 +14261,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
         if stand:
             schluessel, ist_warnung = stand
             warentext = '%s  %s' % (treffer['ware'], t(schluessel))
-            warenfarbe = ROT if ist_warnung else GOLD
+            warenfarbe = RED if ist_warnung else GOLD
         felder = (
             (warentext, warenfarbe, 'w'),
             (_menge_text(menge) if menge else '', FG, 'e'),
@@ -14270,7 +14269,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
             (_geld(summe) if menge else '', FG, 'e'),
         )
         for spalte, (text, farbe, seite) in enumerate(felder):
-            tk.Label(zeilen, text=text, bg=FLAECHE, fg=farbe, padx=8,
+            tk.Label(zeilen, text=text, bg=SURFACE, fg=farbe, padx=8,
                      font=fenster.f_small, anchor=seite).grid(
                 row=reihe, column=spalte, sticky='ew')
 
@@ -14279,7 +14278,7 @@ def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
     # nicht kennt — siehe `selling.places_for`.
     if erloes:
         tk.Label(innen, text=t('s_vk_erloes').format(summe=_geld(erloes)),
-                 bg=FLAECHE, fg=ACCENT, font=fenster.f_small,
+                 bg=SURFACE, fg=ACCENT, font=fenster.f_small,
                  anchor='e').pack(fill='x', pady=(4, 0))
 
 
@@ -14327,7 +14326,7 @@ def _handelslager(fenster, rahmen):
         tk.Label(block, text=beschriftung, bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x')
         if var is menge:
-            feld = round_entry(block, var, fenster.f_small, '#0c1017', LINIE,
+            feld = round_entry(block, var, fenster.f_small, '#0c1017', LINE,
                                ACCENT, FG)
             feld.holder.pack(fill='x', pady=(4, 0))
             continue
@@ -14366,7 +14365,7 @@ def _handelslager(fenster, rahmen):
         # ausgedachter oder beleidigender Name im Werkzeug, und ein Bildschirm-
         # foto davon macht die Runde.
         if not preisdaten.known(name):
-            meldung['text'], meldung['farbe'] = t('s_hl_unbekannt'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hl_unbekannt'), RED
             neu_zeichnen()
             return
         # ⚠⚠ **Der Ort wird genauso gesperrt wie die Ware.** Sonst steht in
@@ -14378,7 +14377,7 @@ def _handelslager(fenster, rahmen):
         # als gültig — der Lagerort ist freiwillig, und beim ersten Start ohne
         # Netz darf das Feld nicht blockieren.
         if not ortsliste.knows(ort.get()):
-            meldung['text'], meldung['farbe'] = t('s_hl_ort_unbekannt'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hl_ort_unbekannt'), RED
             neu_zeichnen()
             return
         if bearbeitung['nummer'] is None:
@@ -14400,7 +14399,7 @@ def _handelslager(fenster, rahmen):
             meldung['text'] = {'ware': t('s_hl_fehlt_ware'),
                                'menge': t('s_hl_fehlt_menge')}.get(
                                    grund, t('s_hl_fehler'))
-            meldung['farbe'] = ROT
+            meldung['farbe'] = RED
         neu_zeichnen()
 
     # Zeigt beim Tippen, was aus einer Rechnung herauskommt.
@@ -14431,7 +14430,7 @@ def _handelslager(fenster, rahmen):
         elif wert <= 0:
             # ⚠ Sagen, was **passieren würde** — nicht nur „geht nicht". Wer
             # `100-200` tippt, soll sehen, warum das abgelehnt wird.
-            vorschau.configure(text=t('s_hl_unter_null'), fg=ROT)
+            vorschau.configure(text=t('s_hl_unter_null'), fg=RED)
         else:
             vorschau.configure(text=t('s_hl_ergibt').format(
                 menge=_menge_text(wert)), fg=SUB)
@@ -14546,7 +14545,7 @@ def _handelslager(fenster, rahmen):
             meldung['farbe'] = SUB
         except Exception as ausnahme:
             fehler.merken('seiten.handelslager.ausgeben', ausnahme)
-            meldung['text'], meldung['farbe'] = t('s_hl_fehler'), ROT
+            meldung['text'], meldung['farbe'] = t('s_hl_fehler'), RED
         neu_zeichnen()
 
     def _einlesen():
@@ -14660,7 +14659,7 @@ def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
         # Zebra-Streifen statt Kästen: Die Zeilen bleiben unterscheidbar, ohne
         # dass jede ihren eigenen Rahmen und damit ihre eigene Breite bekommt.
         offen = (nummer == offen_nr)
-        grund = ACCENT if offen else (FLAECHE if nummer % 2 == 0 else BG)
+        grund = ACCENT if offen else (SURFACE if nummer % 2 == 0 else BG)
         vorne = BG if offen else FG
         blass = BG if offen else SUB
 
@@ -14699,7 +14698,7 @@ def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
                          font=fenster.f_small, cursor='hand2', padx=8)
         kreuz.grid(row=nummer + 1, column=5, sticky='ew', ipady=3)
         kreuz.bind('<Button-1>', lambda _e, n=nummer: loeschen(n))
-        kreuz.bind('<Enter>', lambda _e, w=kreuz: w.configure(fg=ROT))
+        kreuz.bind('<Enter>', lambda _e, w=kreuz: w.configure(fg=RED))
         kreuz.bind('<Leave>', lambda _e, w=kreuz, f=blass: w.configure(fg=f))
 
     return gesamt
@@ -14853,7 +14852,7 @@ def _blickwinkel(fenster, rahmen):
         if abstand_mm:
             zustand['abstand'].set('%g' % round(abstand_mm / 10.0, 1))
         feld = tk.Entry(zeile, textvariable=zustand['abstand'], width=6,
-                        bg=FLAECHE, fg=FG, insertbackground=FG,
+                        bg=SURFACE, fg=FG, insertbackground=FG,
                         font=fenster.f_base, relief='flat', justify='right')
         feld.pack(side='right', padx=(16, 0), ipady=3)
         # ⚠ An diesem Feld hängt schon ein `<FocusOut>`, das den Wert
@@ -14872,7 +14871,7 @@ def _blickwinkel(fenster, rahmen):
         # Die Falle gilt für JEDES Feld mit eigener Bindung: `bind()` ohne
         # `add='+'` wirft die vorhandene weg, ohne sich zu beschweren.
         feld.bind('<FocusOut>', _abstand_merken, add='+')
-        tk.Frame(inhalt, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
+        tk.Frame(inhalt, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
 
         if not abstand_mm:
             return
@@ -14904,7 +14903,7 @@ def _blickwinkel(fenster, rahmen):
 
         # --- 4. Rot / Gelb / Grün --------------------------------------
         note, abweichung = fov_modul.bewertung(abstand_mm, optimal_mm)
-        farbe = {'gruen': ACCENT, 'gelb': GOLD}.get(note, ROT)
+        farbe = {'gruen': ACCENT, 'gelb': GOLD}.get(note, RED)
         unterschied_cm = abs(abstand_mm - optimal_mm) / 10.0
         if note == 'gruen':
             text = t('s_fv_passt_gut')
@@ -14913,11 +14912,11 @@ def _blickwinkel(fenster, rahmen):
         else:
             text = t('s_fv_zu_nah').format(unterschied_cm)
 
-        kasten = tk.Frame(inhalt, bg=FLAECHE)
+        kasten = tk.Frame(inhalt, bg=SURFACE)
         kasten.pack(fill='x', pady=(16, 0))
         streifen = tk.Frame(kasten, bg=farbe, width=4)
         streifen.pack(side='left', fill='y')
-        tk.Label(kasten, text=text, bg=FLAECHE, fg=farbe,
+        tk.Label(kasten, text=text, bg=SURFACE, fg=farbe,
                  font=fenster.f_bold, anchor='w',
                  padx=12, pady=10).pack(side='left', fill='x', expand=True)
 
@@ -14936,7 +14935,7 @@ def _blickwinkel(fenster, rahmen):
                      anchor='w', justify='left').pack(fill='x')
         tk.Label(zeile, text=wert, bg=BG, fg=farbe, font=fenster.f_bold,
                  anchor='e').pack(side='right', padx=(16, 0))
-        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(12, 0))
+        tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
 
     _auffrischen()
     fenster.on_show['blickwinkel'] = _auffrischen
@@ -15015,10 +15014,10 @@ def _achsen(fenster, rahmen):
     from . import joysticks as _js_dateien
     _dateien = _js_dateien.alle_actionmaps()
     if len(_dateien) > 1:
-        _kasten = tk.Frame(innen, bg=FLAECHE, highlightthickness=1,
+        _kasten = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
                            highlightbackground=GOLD)
         _kasten.pack(fill='x', padx=24, pady=(8, 4))
-        tk.Label(_kasten, text=t('s_ac_doppelt'), bg=FLAECHE, fg=FG,
+        tk.Label(_kasten, text=t('s_ac_doppelt'), bg=SURFACE, fg=FG,
                  font=fenster.f_small, justify='left',
                  wraplength=760).pack(anchor='w', padx=12, pady=(10, 6))
         for _nr, _weg in enumerate(_dateien):
@@ -15034,7 +15033,7 @@ def _achsen(fenster, rahmen):
                      text='%s  ·  %s  ·  %s'
                           % (t('s_ac_gelesen') if _nr == 0
                              else t('s_ac_liegt'), _zeit, _weg),
-                     bg=FLAECHE, fg=ACCENT if _nr == 0 else SUB,
+                     bg=SURFACE, fg=ACCENT if _nr == 0 else SUB,
                      font=fenster.f_small, justify='left',
                      wraplength=760).pack(anchor='w', padx=12, pady=(0, 6))
 
@@ -15165,7 +15164,7 @@ def _achsen(fenster, rahmen):
                 _auffrischen()
 
             knopf = tk.Label(leiste, text=block['name'], bg=BAR if gewaehlt
-                             else FLAECHE, fg=BG if gewaehlt else FG,
+                             else SURFACE, fg=BG if gewaehlt else FG,
                              font=fenster.f_small, padx=10, pady=4,
                              cursor='hand2')
             if gewaehlt:
@@ -15327,7 +15326,7 @@ def _achsen(fenster, rahmen):
             schieber = tk.Scale(zeile, from_=0.0, to=1.0, resolution=0.001,
                                 orient='horizontal', variable=var,
                                 command=_vorschau, showvalue=False,
-                                bg=BG, fg=FG, troughcolor=FLAECHE,
+                                bg=BG, fg=FG, troughcolor=SURFACE,
                                 activebackground=ACCENT, highlightthickness=0,
                                 bd=0, sliderrelief='flat', length=200)
             schieber.pack(side='left', fill='x', expand=True)
@@ -15428,7 +15427,7 @@ def _achsen(fenster, rahmen):
         # bricht stattdessen um; es gibt es im Projekt genau dafür.
         andere = [b for b in aktive if b['kennung'] != gewaehlter['kennung']]
         if andere:
-            tk.Frame(links, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+            tk.Frame(links, bg=LINE, height=1).pack(fill='x', pady=(18, 0))
             tk.Label(links, text=t('s_ac_kopf_angleichen'), bg=BG, fg=FG,
                      font=fenster.f_bold, anchor='w').pack(fill='x',
                                                            pady=(14, 0))
@@ -15525,7 +15524,7 @@ def _achsen(fenster, rahmen):
         if not faelle and not anzahl:
             return
 
-        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+        tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(18, 0))
         kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
         kopf.pack(fill='x', pady=(12, 0))
         pfeil = icons.line(kopf, 'aufklappen', background=BG,
@@ -15595,7 +15594,7 @@ def _achsen(fenster, rahmen):
         """Ganze Einrichtungen unter einem Namen — „mit/ohne Pedale"."""
         from . import device_set
 
-        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+        tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(18, 0))
         tk.Label(eltern, text=t('s_gs_titel'), bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x', pady=(14, 0))
         _fliesstext(eltern, t('s_gs_lead'), fenster.f_small, fill='x')
@@ -15612,7 +15611,7 @@ def _achsen(fenster, rahmen):
         neu = tk.Frame(eltern, bg=BG)
         neu.pack(fill='x', pady=(12, 0))
         name = tk.StringVar()
-        feld = tk.Entry(neu, textvariable=name, bg=FLAECHE, fg=FG,
+        feld = tk.Entry(neu, textvariable=name, bg=SURFACE, fg=FG,
                         insertbackground=FG, font=fenster.f_small,
                         relief='flat', width=22)
         fields.hinweis(feld, name, t('s_pl_satzname'), normal=FG, grau=SUB)
@@ -15633,17 +15632,17 @@ def _achsen(fenster, rahmen):
         _knopf(fenster, neu, t('s_gs_speichern'), _sichern).pack(side='left')
 
     def _satz_zeile(eltern, satz, device_set):
-        zeile = tk.Frame(eltern, bg=FLAECHE)
+        zeile = tk.Frame(eltern, bg=SURFACE)
         zeile.pack(fill='x', pady=(6, 0))
-        links_teil = tk.Frame(zeile, bg=FLAECHE)
+        links_teil = tk.Frame(zeile, bg=SURFACE)
         links_teil.pack(side='left', fill='x', expand=True, padx=10, pady=8)
-        tk.Label(links_teil, text=satz['name'], bg=FLAECHE, fg=FG,
+        tk.Label(links_teil, text=satz['name'], bg=SURFACE, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x')
         tk.Label(links_teil,
                  text='%s  ·  %s' % (
                      t('s_gs_geraete').format(len(satz.get('geraete') or {})),
                      t('s_gs_stand').format(satz.get('stand', '—'))),
-                 bg=FLAECHE, fg=SUB, font=fenster.f_small,
+                 bg=SURFACE, fg=SUB, font=fenster.f_small,
                  anchor='w').pack(fill='x')
 
         def _anwenden(n=satz['name']):
@@ -15674,7 +15673,7 @@ def _achsen(fenster, rahmen):
         # damit kein Farbklotz entsteht (`_knopf` zeichnet fest auf `BG`).
         for text, tat, farbe in ((t('s_gs_anwenden'), _anwenden, ACCENT),
                                  (t('s_gs_loeschen'), _weg, SUB)):
-            knopf = tk.Label(zeile, text=text, bg=FLAECHE, fg=farbe,
+            knopf = tk.Label(zeile, text=text, bg=SURFACE, fg=farbe,
                              font=fenster.f_small, padx=12, pady=6,
                              cursor='hand2')
             knopf.pack(side='right', padx=(0, 8))
@@ -15738,7 +15737,7 @@ def _achsen(fenster, rahmen):
 
         funktionen = curves.game_axes_of(nummer, achse)
 
-        tk.Frame(eltern, bg=LINIE, height=1).pack(fill='x', pady=(18, 0))
+        tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(18, 0))
         tk.Label(eltern, text=t('s_ac_kopf_empf'), bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x', pady=(14, 0))
         _fliesstext(eltern, t('s_ac_lead_empf'), fenster.f_small, fill='x')
@@ -15796,7 +15795,7 @@ def _achsen(fenster, rahmen):
         schieber = tk.Scale(zeile, from_=0.2, to=4.0, resolution=0.05,
                             orient='horizontal', variable=var,
                             command=_gezogen, showvalue=False,
-                            bg=BG, fg=FG, troughcolor=FLAECHE,
+                            bg=BG, fg=FG, troughcolor=SURFACE,
                             activebackground=ACCENT, highlightthickness=0,
                             bd=0, sliderrelief='flat', length=200)
         schieber.pack(side='left', fill='x', expand=True)
@@ -15874,9 +15873,9 @@ def _achsen(fenster, rahmen):
         Zeile je Wert sagt dasselbe und passt auf den Bildschirm.
         """
         ziel_rahmen = wohin if wohin is not None else inhalt
-        kasten = tk.Frame(ziel_rahmen, bg=FLAECHE)
+        kasten = tk.Frame(ziel_rahmen, bg=SURFACE)
         kasten.pack(fill='x', pady=(8, 0))
-        tk.Label(kasten, text=fall['name'], bg=FLAECHE, fg=FG,
+        tk.Label(kasten, text=fall['name'], bg=SURFACE, fg=FG,
                  font=fenster.f_bold, anchor='w', padx=10).pack(fill='x',
                                                                 pady=(8, 0))
 
@@ -15894,9 +15893,9 @@ def _achsen(fenster, rahmen):
             tk.Label(kasten,
                      text='%s: %s %s → %s' % (name, t('s_ac_war'),
                                               _zahl(alt), wie),
-                     bg=FLAECHE, fg=FG, font=fenster.f_small, anchor='w',
+                     bg=SURFACE, fg=FG, font=fenster.f_small, anchor='w',
                      padx=10).pack(fill='x')
-            tk.Label(kasten, text='   ' + ', '.join(achsen), bg=FLAECHE,
+            tk.Label(kasten, text='   ' + ', '.join(achsen), bg=SURFACE,
                      fg=SUB, font=fenster.f_small, anchor='w',
                      padx=10).pack(fill='x')
 
@@ -15921,7 +15920,7 @@ def _achsen(fenster, rahmen):
             _hinweis(fenster, t('hf_achsen'), t('s_ac_gespeichert'))
             _auffrischen()
 
-        tk.Frame(kasten, bg=FLAECHE, height=8).pack(fill='x')
+        tk.Frame(kasten, bg=SURFACE, height=8).pack(fill='x')
         # ⚠ Der Knopf steht UNTER dem Kasten, nicht darin: `_knopf` zeichnet
         # seine Leinwand fest auf `BG`, und in einem `FLAECHE`-Kasten wäre das
         # ein sichtbarer Farbklotz. Die gemeinsame Funktion dafür umzubauen
@@ -15943,7 +15942,7 @@ def _achsen(fenster, rahmen):
 # gezeichnet wären das über tausend Etiketten in einem Rutsch. Tk zeichnet
 # einsträngig, das Fenster stünde sekundenlang. Der Rest steht als „… und N
 # weitere" darunter; wer mehr sehen will, schränkt den Bereich ein.
-_PA_HOECHSTENS = 60
+_PATCH_MAX = 60
 
 # ⚠ **Wie hoch die Patch-Liste höchstens wird.** Sie steht fest über dem
 # Inhalt, damit man beim Durchsehen der Werte nicht nach oben zurück muss — und
@@ -15954,7 +15953,7 @@ _PA_HOECHSTENS = 60
 # Die Zahl ist bewusst eine Höhe und keine Zeilenzahl: Bei größerer Schrift
 # werden die Zeilen höher, und dann sollen eben vier statt fünf hineinpassen —
 # nicht fünf, die unten abgeschnitten sind.
-_PA_LISTE_HOCH = 150
+_PATCH_LIST_HEIGHT = 150
 
 
 def _pa_zahl(wert, stellen=4):
@@ -16238,7 +16237,7 @@ def _pa_feldzeile(fenster, eltern, feld):
             else:
                 text = '%s → %s%s' % (vorher, nachher,
                                       _pa_prozent(feld['alt'], feld['neu']))
-                farbe = {1: ACCENT, -1: ROT}.get(richtung, FG)
+                farbe = {1: ACCENT, -1: RED}.get(richtung, FG)
     elif feld['hat_alt']:
         text = t('s_pa_weggefallen').format(alt=_pa_zahl(feld['alt']))
         farbe = GOLD
@@ -16299,7 +16298,7 @@ def _patchaenderungen(fenster, rahmen):
     # aus der Projekt-Anleitung: Ein fester Bereich mit veränderlichem Inhalt
     # braucht eine Höhengrenze **und** eine eigene Rollfläche — sonst wird er
     # irgendwann abgeschnitten, ohne dass es jemand merkt.
-    liste = _rollflaeche(rahmen, hoehe=_PA_LISTE_HOCH)
+    liste = _rollflaeche(rahmen, hoehe=_PATCH_LIST_HEIGHT)
     bereiche = tk.Frame(rahmen, bg=BG)
     bereiche.pack(fill='x', padx=24, pady=(10, 0))
 
@@ -16337,7 +16336,7 @@ def _patchaenderungen(fenster, rahmen):
             _fliesstext(ergebnis, t('s_pa_nichts_hier'), fenster.f_small,
                         fill='x')
             return
-        for eintrag in posten[:_PA_HOECHSTENS]:
+        for eintrag in posten[:_PATCH_MAX]:
             kasten = tk.Frame(ergebnis, bg=BG)
             kasten.pack(fill='x', pady=(0, 8))
             zeile = tk.Frame(kasten, bg=BG)
@@ -16357,7 +16356,7 @@ def _patchaenderungen(fenster, rahmen):
                          anchor='w').pack(side='left', padx=(8, 0))
             for feld in eintrag['felder']:
                 _pa_feldzeile(fenster, kasten, feld)
-        rest = len(posten) - _PA_HOECHSTENS
+        rest = len(posten) - _PATCH_MAX
         if rest > 0:
             _fliesstext(ergebnis, t('s_pa_mehr').format(n=rest),
                         fenster.f_small, fill='x', pady=(6, 0))

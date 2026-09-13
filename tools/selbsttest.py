@@ -4291,7 +4291,7 @@ def main():
     #   jeder Aufruf. Ein Bericht zeigte 50 von 50 Plaetzen mit derselben
     #   Meldung — jeder echte Fehler war daraus verdraengt.
     _s48 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
-    pruefe('_IM_TK_GEMELDET' in _s48,
+    pruefe('_TK_REPORTED' in _s48,
            'derselbe erwartete Fehler wird nur einmal gemerkt')
 
     print()
@@ -7874,8 +7874,8 @@ def main():
            and _se84._warteton(10 * 60) == _se84.GOLD
            and _se84._warteton(30) == _se84.ACCENT,
            'der Timer reift von grau ueber gold nach gruen')
-    pruefe(_se84._warteton(59 * 60) != _se84.ROT
-           and _se84._warteton(30) != _se84.ROT,
+    pruefe(_se84._warteton(59 * 60) != _se84.RED
+           and _se84._warteton(30) != _se84.RED,
            'der Timer wird nie rot')
     pruefe(_se84._wartetext(3599) == '59:59' and _se84._wartetext(0) == '',
            'die Restzeit steht als mm:ss da (%s)' % _se84._wartetext(3599))
@@ -13058,11 +13058,11 @@ def main():
     # und ohne Wort waere im Protokoll eine leere Zelle.
     _quelle134 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
-    pruefe('missionslog.FEHLGESCHLAGEN: ROT_BLASS' in _quelle134,
+    pruefe('missionslog.FEHLGESCHLAGEN: RED_PALE' in _quelle134,
            'fehlgeschlagen hat eine Farbe')
     pruefe("missionslog.FEHLGESCHLAGEN: 's_al_fehl'" in _quelle134,
            'fehlgeschlagen hat ein Wort')
-    pruefe('missionslog.ABGEBROCHEN: ROT_BLASS' in _quelle134,
+    pruefe('missionslog.ABGEBROCHEN: RED_PALE' in _quelle134,
            'abgebrochen steht in blassem Rot, nicht mehr in Grau')
     pruefe('missionslog.VERFALLEN: SUB' in _quelle134,
            'nicht mehr offen bleibt grau')
@@ -14701,8 +14701,8 @@ def main():
     from scbp import sprache as _sp153
 
     _alt153 = _sp153.aktuelle()
-    _vorher153 = _st153._TEIL_VERZEICHNIS[0]
-    _st153._TEIL_VERZEICHNIS[0] = {
+    _vorher153 = _st153._PART_INDEX[0]
+    _st153._PART_INDEX[0] = {
         'ref-tarn': {'guete': 'A', 'klasse': 'Stealth'},
         'ref-ohne': {'guete': '', 'klasse': ''},
     }
@@ -14741,7 +14741,7 @@ def main():
         pruefe('Stealth' not in _st153._teil_kennzeichen({'klasse': 'Stealth'}),
                'Gegenprobe: die englische Klasse steht nicht im deutschen Text')
     finally:
-        _st153._TEIL_VERZEICHNIS[0] = _vorher153
+        _st153._PART_INDEX[0] = _vorher153
         _sp153.setzen(_alt153)
 
     # ------------------------------------------------------------------
@@ -15078,8 +15078,8 @@ def main():
            'Gegenprobe: ein unerwarteter Wert wird nicht verworfen')
 
     _alt158 = _sp158.aktuelle()
-    _vorher158 = _st158._TEIL_VERZEICHNIS[0]
-    _st158._TEIL_VERZEICHNIS[0] = {}
+    _vorher158 = _st158._PART_INDEX[0]
+    _st158._PART_INDEX[0] = {}
     try:
         _sp158.setzen('de')
         pruefe(_st158._teil_kennzeichen(
@@ -15105,7 +15105,7 @@ def main():
              'herkunft': _wk158.BUYABLE}) == 'B · Zivil',
                '* und ein nur kaufbares ebenso wenig')
     finally:
-        _st158._TEIL_VERZEICHNIS[0] = _vorher158
+        _st158._PART_INDEX[0] = _vorher158
         _sp158.setzen(_alt158)
 
     # ------------------------------------------------------------------
