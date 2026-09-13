@@ -147,6 +147,12 @@ _MARKEN = re.compile(
 )
 _PLATZHALTER = re.compile(r'~mission\([^)]*\)')
 
+# ⛔ Die Kennung, die „keine Kennung" bedeutet. Jede **geteilte** Auftrags-
+# meldung traegt sie — an 157 Log-Sicherungen gemessen: 403 von 403.
+# Wer sie wie eine echte MissionId fuehrt, wirft alle geteilten Auftraege in
+# einen Topf; ein Ende raeumte dann den falschen weg.
+NULLKENNUNG = '00000000-0000-0000-0000-000000000000'
+
 # ⛔⛔ Der Schlüssel in der `global.ini` kann eine Variantenkennung tragen:
 #
 #   Foxwell_DefendDestructibleEntites_H_Title_001=Orange Lvl. Contract: …
@@ -470,24 +476,43 @@ def stand_aus_text(text, muster_an=None, muster_aus=None):
         if not rein and not (mid and not ist_annahme):
             continue
         if ist_annahme:
-            # ⛔⛔ Dieselbe MissionId, ein anderer Titel — das ist EIN Auftrag.
+            # ⛔⛔ **Ein Titel mit unaufgelöstem `~mission(...)` kommt nicht in
+            # die Liste.**
             #
-            # Das Spiel meldet die Annahme zweimal: einmal roh mit dem
-            # Platzhalter (`Protect ~mission(Objects) and Escort Employees`)
-            # und einmal aufgelöst (`Protect Fuel Tanks and …`). Wer über den
-            # Titel Buch führt, hat danach zwei Aufträge stehen.
+            # Das Spiel meldet denselben Auftrag zweimal, eine Sekunde
+            # auseinander:
             #
-            # ⚠ Und sie gehen nicht von selbst wieder weg: Das Ende trägt nur
-            # EINEN der beiden Titel, der andere bleibt für immer in der Liste
-            # und muss von Hand weggeklickt werden. Am 13.09.2026 genau so
-            # gemeldet.
-            alt = missionen.get(mid) if mid else None
-            if alt is not None and alt != rein:
-                if _platzhalter_titel(rein) and not _platzhalter_titel(alt):
-                    continue          # der rohe kommt nach — der alte bleibt
-                offen.pop(alt, None)  # der aufgelöste löst den rohen ab
+            #   "Auftrag geteilt:    … Protect ~mission(Objects) and Escort …"
+            #                        MissionId: [00000000-0000-0000-0000-…]
+            #   "Auftrag angenommen: … Protect Fuel Tanks and Escort …"
+            #                        MissionId: [7a12d7cf-936d-42e7-996e-…]
+            #
+            # Beide gelten als Annahme (`INI_SCHLUESSEL`), also standen zwei
+            # Zeilen da. ⚠ Und die zweite ging nicht von selbst weg: Das Ende
+            # trägt nur den aufgelösten Titel, der rohe blieb für immer stehen
+            # und musste von Hand weggeklickt werden.
+            #
+            # ⚠⚠ Über die MissionId ist das NICHT zu heilen — die geteilte
+            # Meldung trägt die Nullkennung, und die ist für alle dieselbe.
+            # Genau daran ist der erste Anlauf (v3.32.2) gescheitert.
+            #
+            # An allen 157 Log-Sicherungen gemessen (13.09.2026):
+            #
+            #     1109 Meldungen · 706 angenommen · 403 geteilt
+            #      146 mit Platzhalter — davon 146 geteilt, 0 angenommen
+            #      146 mit Platzhalter — davon 146 mit Nullkennung
+            #        0 Annahmen mit Nullkennung
+            #
+            # Ein Platzhalter-Titel kommt also **ausschliesslich** aus der
+            # geteilten Meldung. Er ist ohnehin unbrauchbar: `Protect
+            # ~mission(Objects)` ist Maschinenschrift, kein Auftragsname.
+            if _platzhalter_titel(rein):
+                continue
             offen.setdefault(rein, titel)
-            if mid:
+            # ⚠ Die Nullkennung ist keine Kennung. Sie als solche zu führen
+            # hiesse, alle geteilten Auftraege in einen Topf zu werfen — und
+            # ein Ende raeumte dann den falschen weg.
+            if mid and mid != NULLKENNUNG:
                 missionen[mid] = rein
             continue
         weg = beendet_welchen(rein, mid, oid, offen, missionen)

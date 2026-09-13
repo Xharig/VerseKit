@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.32.3 - 2026-09-13
+
+> **Zwei Nachzügler zu v3.32.2.** Ein geteilter Auftrag stand weiterhin doppelt
+> in der Liste — der zweite Eintrag ging auch nicht von selbst wieder weg. Und
+> wer die Leiste unten haben wollte, bekam sie nach jedem Neustart wieder oben,
+> mitsamt dem Größen-Griff auf denselben Symbolen.
+
+### Behoben
+
+- **Ein geteilter Auftrag stand doppelt in der Liste.** Das Spiel meldet ihn
+  zweimal: einmal beim Teilen mit einem unfertigen Namen (`Protect
+  ~mission(Objects) …`), einmal beim Annehmen mit dem lesbaren. Der unfertige
+  Name erscheint jetzt gar nicht mehr — und damit verschwindet der Auftrag beim
+  Abschließen auch vollständig, statt einen Eintrag zum Wegklicken zu
+  hinterlassen
+- **Die gewählte Leistenseite gilt jetzt auch nach einem Neustart.** Wer
+  „unten" eingestellt hatte und das Overlay frei stehen ließ, bekam die Leiste
+  bei jedem Start wieder oben. Der Größen-Griff richtete sich dagegen nach der
+  Einstellung und lag damit auf denselben Symbolen
+
 ## v3.32.2 - 2026-09-13
 
 > **Die Auftragszeile zeigte die falschen Baupläne.** Bei manchen Aufträgen

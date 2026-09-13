@@ -19550,42 +19550,135 @@ def main():
         (_au200._missionen, _au200._index, _au200._muster_index,
          _au200._ini_dateien) = _alt200
 
-    # e) Derselbe Auftrag unter zwei Titeln ist EIN Auftrag.
+    # e) ⛔⛔ Derselbe Auftrag, zweimal gemeldet — WÖRTLICH wie im echten Log.
     #
-    # ⚠ Der aufgeloeste Titel gewinnt — und zwar in BEIDER Reihenfolge. Das
-    # Spiel meldet mal erst den rohen, mal erst den aufgeloesten.
+    # ⚠⚠ Die erste Fassung dieser Pruefung baute den falschen Fall nach: zwei
+    # „angenommen" mit derselben MissionId. So steht es im Log NICHT — und die
+    # Korrektur, die daran gebaut wurde, half beim echten Fehler kein Stueck.
+    # Sie ging mit v3.32.2 raus und war beim ersten Neustart widerlegt.
+    #
+    # ⭐ Die Lehre: Wer eine Pruefung aus der Vorstellung baut statt aus der
+    # Quelle, prueft seine Vorstellung. Die echten Zeilen (13.09.2026):
+    _roh200 = 'Orange Lvl. Contract: Protect ~mission(Objects) and Escort Employees'
+    _fein200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort Employees'
+    _null200 = _au200.NULLKENNUNG
     _mid200 = '7a12d7cf-936d-42e7-996e-db6364edc24d'
-    _roh200 = 'Orange Lvl. Contract: Protect ~mission(Objects) and Escort'
-    _fein200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort'
-    for _erst200, _zweit200 in ((_roh200, _fein200), (_fein200, _roh200)):
-        _text200 = (
-            'Added notification "Auftrag angenommen: %s: " '
-            'MissionId: [%s] ObjectiveId: []\n'
-            'Added notification "Auftrag angenommen: %s: " '
-            'MissionId: [%s] ObjectiveId: []\n' % (_erst200, _mid200,
-                                                   _zweit200, _mid200))
-        _offen200, _kenn200 = _au200.stand_aus_text(_text200)
-        pruefe(len(_offen200) == 1,
-               'dieselbe MissionId unter zwei Titeln ergibt EINEN Eintrag '
-               '(%s zuerst)' % ('roh' if _erst200 is _roh200 else 'aufgeloest'))
-        pruefe(_offen200 and '~mission(' not in _offen200[0],
-               'und der aufgeloeste Titel ist der, der stehen bleibt '
-               '(%s zuerst)' % ('roh' if _erst200 is _roh200 else 'aufgeloest'))
-
-    # f) ⚠ Und ein Ende raeumt ihn dann auch wirklich weg. Genau das ging
-    #    vorher schief: Das Ende traf nur einen der beiden Titel, der andere
-    #    blieb fuer immer stehen und musste von Hand weggeklickt werden.
     _text200 = (
-        'Added notification "Auftrag angenommen: %s: " MissionId: [%s] '
-        'ObjectiveId: []\n'
-        'Added notification "Auftrag angenommen: %s: " MissionId: [%s] '
-        'ObjectiveId: []\n'
-        'Added notification "Auftrag abgeschlossen: %s: " MissionId: [%s] '
-        'ObjectiveId: []\n' % (_roh200, _mid200, _fein200, _mid200,
-                               _fein200, _mid200))
+        'Added notification "Auftrag geteilt: %s <EM4>[BP!]</EM4>: " to queue. '
+        'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        'Added notification "Auftrag angenommen: %s <EM4>[BP!]</EM4>: " to queue. '
+        'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        % (_roh200, _null200, _fein200, _mid200))
+    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    pruefe(len(_offen200) == 1,
+           'geteilt + angenommen ergibt EINEN Eintrag, nicht zwei')
+    pruefe(_offen200 and '~mission(' not in _offen200[0],
+           'und der Platzhalter-Titel steht nicht in der Liste')
+    pruefe(_null200 not in _kenn200,
+           'die Nullkennung wird nicht als MissionId gefuehrt')
+
+    # f) ⚠ Und das Ende raeumt ihn dann auch wirklich weg. Genau das ging
+    #    vorher schief: Der rohe Eintrag blieb fuer immer stehen und musste
+    #    von Hand weggeklickt werden.
+    _text200 += ('Added notification "Auftrag abgeschlossen: %s '
+                 '<EM4>[BP!]</EM4>: " to queue. New queue size: 1, '
+                 'MissionId: [%s], ObjectiveId: []\n' % (_fein200, _mid200))
     _offen200, _kenn200 = _au200.stand_aus_text(_text200)
     pruefe(_offen200 == [],
-           'ein Ende raeumt beide Schreibweisen weg, nicht nur eine')
+           'das Ende raeumt den Auftrag restlos weg — nichts bleibt stehen')
+
+    # g) ⚠ Zwei VERSCHIEDENE geteilte Auftraege duerfen sich ueber die
+    #    Nullkennung nicht gegenseitig abraeumen.
+    _text200 = (
+        'Added notification "Auftrag geteilt: Auftrag Eins: " to queue. '
+        'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        'Added notification "Auftrag geteilt: Auftrag Zwei: " to queue. '
+        'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
+        % (_null200, _null200))
+    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    pruefe(len(_offen200) == 2,
+           'zwei geteilte Auftraege bleiben zwei — die Nullkennung wirft sie '
+           'nicht zusammen')
+
+    # === 201 · Die gewaehlte Leistenseite gilt auch beim START ==============
+    #
+    # ⛔⛔ Gemeldet am 13.09.2026, direkt nach einem Neustart mit v3.32.2:
+    # „nach dem neustart ist die leiste auch oben und das dreieck zum groesse
+    # aendern auch." Eingestellt war „unten", Ecke „frei".
+    #
+    # `_leiste_ausrichten()` wurde nur aus den Einstellungen, beim Klappen und
+    # beim Ecke-Anwenden gerufen — nie im Aufbau. Bei Ecke „frei" passierte
+    # beim Start also gar nichts, und die Leiste blieb, wo sie gepackt wurde.
+    #
+    # ⚠ Und der Griff rechnet aus der EINSTELLUNG (`_verankert`), nicht aus dem
+    # tatsaechlichen Stand: Er setzte sich nach oben, auf dieselbe Seite wie
+    # die falsch gebliebene Leiste. Beide uebereinander.
+    #
+    # ⚠⚠ Diese Pruefung baut ein ECHTES Overlay und sieht nach, wo die Leiste
+    # haengt — nicht, ob irgendwo `_leiste_ausrichten` im Quelltext steht. Eine
+    # Textsuche waere gruen gewesen, waehrend der Fehler dastand: Die Funktion
+    # gab es ja, sie wurde nur nicht gerufen.
+    print('\n201. Die gewaehlte Leistenseite gilt auch nach einem Neustart')
+    import tkinter as _tk201
+    import sc_bp_watcher as _wat201
+    from scbp import pfade as _pf201
+    _alt201 = (_pf201.einstellung('overlay_leiste'),
+               _pf201.einstellung('overlay_ecke'),
+               _pf201.einstellung('overlay_modus'),
+               _pf201.einstellung('eingeklappt'))
+    _w201 = None
+    try:
+        for _seite201, _erwartet201 in (('unten', 'bottom'), ('oben', 'top')):
+            _pf201.einstellung_setzen('overlay_leiste', _seite201)
+            # ⚠ Ecke „frei" ist der gemeldete Fall: Dann greift auch
+            # `ecke_anwenden()` nicht, das sonst zufaellig mit ausrichtet.
+            _pf201.einstellung_setzen('overlay_ecke', 'frei')
+            # ⛔⛔ **Und der Anzeigemodus MUSS hier gesetzt werden.**
+            # Ihre erste Fassung liess ihn stehen, wie eine fruehere Pruefung
+            # ihn hinterlassen hatte. Der Klapp-Pfad (`klappzustand_setzen`)
+            # richtet die Leiste naemlich mit aus — damit war sie gruen, auch
+            # als der Startaufruf ganz fehlte. Die Gegenprobe hat es gemeldet:
+            # „0 rot", obwohl die Korrektur ausgebaut war. Zum zweiten Mal an
+            # einem Abend eine Pruefung, die einen Vorzustand misst statt der
+            # Sache.
+            _pf201.einstellung_setzen('overlay_modus', 'immer')
+            # ⛔⛔ **Und „eingeklappt" MUSS aus sein.** Steht es an, laeuft beim
+            # Start `klappzustand_setzen(True)` — und DAS richtet die Leiste
+            # nebenbei mit aus. Die Pruefung war dadurch gruen, auch als der
+            # Startaufruf ganz fehlte: Sie mass einen Zustand, den eine
+            # fruehere Pruefung hinterlassen hatte.
+            #
+            # ⚠ Dritter Anlauf an einem Abend. Zweimal war die Pruefung gruen,
+            # ohne etwas zu belegen — beide Male hat es die Gegenprobe gesagt,
+            # nicht der Lauf. Der gemeldete Fall ist: frei stehend, offen.
+            _pf201.einstellung_setzen('eingeklappt', False)
+            _w201 = _tk201.Tk()
+            _ov201 = _wat201.Overlay(wurzel=_w201)
+            _ov201.root.deiconify()
+            for _ in range(8):
+                _ov201.root.update()
+                _ov201.root.update_idletasks()
+            _tatsaechlich201 = str(_ov201.bar.pack_info().get('side'))
+            pruefe(_tatsaechlich201 == _erwartet201,
+                   'Leiste „%s" gewaehlt: sie haengt nach dem Aufbau %s (%s)'
+                   % (_seite201, _erwartet201, _tatsaechlich201))
+            # ⭐ Und der Griff gehoert auf die ANDERE Seite — sonst deckt er
+            # die Symbole zu. Genau das war zu sehen.
+            _unten201, _ = _ov201._verankert()
+            pruefe(_unten201 is (_erwartet201 == 'bottom'),
+                   'und der Groessen-Griff sitzt auf der leistenfreien Seite')
+            _w201.destroy()
+            _w201 = None
+    finally:
+        try:
+            if _w201 is not None:
+                _w201.destroy()
+        except Exception:
+            pass
+        _pf201.einstellung_setzen('overlay_leiste', _alt201[0] or '')
+        _pf201.einstellung_setzen('overlay_ecke', _alt201[1] or 'frei')
+        _pf201.einstellung_setzen('overlay_modus', _alt201[2] or 'immer')
+        _pf201.einstellung_setzen('eingeklappt', bool(_alt201[3]))
 
     print()
     if fehler:

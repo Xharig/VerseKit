@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.32.2'
+__version__ = '3.32.3'
 
 
 def _mitgeliefert(name):
@@ -1911,7 +1911,11 @@ class Overlay:
         # Sitzt das Overlay in einer UNTEREN Ecke, gehoert die Leiste an den
         # unteren Fensterrand — sonst klebt sie eine Fensterhoehe ueber dem
         # Bildschirmrand. Siehe `_leiste_ausrichten`.
-        self._leisten_seite = 'top'
+        # ⚠ Der Name muss zu dem passen, den `_leiste_ausrichten()` liest.
+        # Bis v3.32.2 stand hier `_leisten_seite` (mit n) — ein Feld, das
+        # niemand je gelesen hat. Dieselbe stille Sorte wie die toten
+        # `getattr`-Namen, die Pruefung 195 findet.
+        self._leiste_seite = 'top'
         # ⚠ Produktname aus `sprache.py` — siehe `root.title()` oben.
         titel_lbl = tk.Label(bar,
                              text='● %s v%s' % (sprache.t('hf_titel'),
@@ -2225,6 +2229,25 @@ class Overlay:
             # ist; ihn erneut zu schreiben wäre nur ein Schreibzugriff mehr.
             self.root.after(120, lambda: self.klappzustand_setzen(True,
                                                                  merken=False))
+
+        # ⛔⛔ **Die gewaehlte Leistenseite gilt auch beim START.**
+        #
+        # Bis v3.32.2 wurde `_leiste_ausrichten()` nur aus den Einstellungen,
+        # beim Klappen und beim Ecke-Anwenden gerufen — nie im Aufbau. Wer
+        # „unten" gewaehlt und die Ecke auf „frei" stehen hatte, bekam die
+        # Leiste nach jedem Neustart wieder oben.
+        #
+        # ⚠ Und es blieb nicht bei der Leiste: Der Groessen-Griff rechnet aus
+        # der EINSTELLUNG (`_verankert`), setzte sich also nach oben — auf
+        # dieselbe Seite wie die falsch gebliebene Leiste. Beide uebereinander,
+        # der Griff auf den Symbolen.
+        #
+        # ⛔ **Hier unten und nicht oben bei der Geometrie.** Genau dort stand
+        # der erste Anlauf — 24 Zeilen VOR `bar = tk.Frame(...)`. Die Funktion
+        # sucht ihre Bauteile ueber `pack_slaves()`, fand nichts und kehrte
+        # sofort zurueck: ein Aufruf, der nichts tut und dabei richtig aussieht.
+        # Gemerkt hat das erst die Messung, nicht das Lesen.
+        self._leiste_ausrichten()
 
         self.q = queue.Queue()
         self.watcher = Watcher(self.q)

@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.32.3 - 2026-09-13
+
+> **Two follow-ups to v3.32.2.** A shared contract still appeared twice in the
+> list — and the second entry did not go away on its own either. And if you
+> wanted the bar at the bottom, every restart put it back on top, with the
+> resize grip sitting on the very same icons.
+
+### Fixed
+
+- **A shared contract appeared twice in the list.** The game reports it twice:
+  once on sharing with an unfinished name (`Protect ~mission(Objects) …`), once
+  on accepting with the readable one. The unfinished name no longer shows at
+  all — so completing the contract now clears it entirely instead of leaving an
+  entry behind to dismiss
+- **The chosen bar side now survives a restart.** If you had picked "bottom"
+  and left the overlay floating, every start put the bar back on top. The
+  resize grip followed the setting instead and ended up on those same icons
+
 ## v3.32.2 - 2026-09-13
 
 > **The contract line showed the wrong blueprints.** For some contracts it said
