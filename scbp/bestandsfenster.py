@@ -312,10 +312,10 @@ class Bestandsfenster:
             # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
             # weil es modal war, ließ sich das Programm nicht einmal beenden.
             #
-            # `mittig_ueber` setzt beides und fällt auf die reine Größe
+            # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-            from .hauptfenster import mittig_ueber
-            if eltern is None or not mittig_ueber(self.root, eltern, 720, 780):
+            from .main_window import center_over
+            if eltern is None or not center_over(self.root, eltern, 720, 780):
                 self.root.geometry('720x780')
 
         # ⚠⚠ **Die Lücke, die der Bericht bisher nicht kannte.** Zwischen
@@ -407,8 +407,8 @@ class Bestandsfenster:
         for text, tat, abstand in (
                 (t('export_ablage'), self._in_ablage, (0, 14)),
                 (t('export_einzeln'), lambda: self._exportieren('basetool'), (0, 6))):
-            from .hauptfenster import rundknopf
-            k = rundknopf(bar, text, None, schrift(9), BAR, FLAECHE, LINIE, FG)
+            from .main_window import round_button
+            k = round_button(bar, text, None, schrift(9), BAR, FLAECHE, LINIE, FG)
             k.pack(side='right', padx=abstand)
             k.bind('<Button-1>', lambda e, f=tat: f())
             notice.attach(k, lambda: t('hinweis_export'))
@@ -514,8 +514,8 @@ class Bestandsfenster:
 
         # Suchfeld mit Löschkreuz: Das ✕ liegt im selben Kasten wie das Feld,
         # damit es dazugehörig aussieht und nicht wie ein weiterer Knopf.
-        from .hauptfenster import rundrahmen
-        kasten = rundrahmen(leiste, FLAECHE, LINIE, radius=8, grundfarbe=BG)
+        from .main_window import round_frame
+        kasten = round_frame(leiste, FLAECHE, LINIE, radius=8, base_color=BG)
         kasten.halter.pack(side='left', fill='x', expand=True, padx=(0, 10))
         feld = tk.Entry(kasten, textvariable=self.suche, bg=FLAECHE, fg=FG,
                         insertbackground=FG, relief='flat', bd=0,
@@ -552,8 +552,8 @@ class Bestandsfenster:
                                  ('merk', t('filter_merk')),
                                  ('neu', t('filter_neu')),
                                  ('deckel', t('filter_deckel'))):
-            from .hauptfenster import rundknopf
-            k = rundknopf(knopfzeile, text, None, schrift(10), BG, FLAECHE,
+            from .main_window import round_button
+            k = round_button(knopfzeile, text, None, schrift(10), BG, FLAECHE,
                           LINIE, SUB)
             k.bind('<Button-1>', lambda e, s=schluessel: self._filter_setzen(s))
             self.knoepfe[schluessel] = k
@@ -574,7 +574,7 @@ class Bestandsfenster:
         Die Einträge kommen aus dem Katalog, nicht aus einer festen Liste: Was
         es im Spiel nicht gibt, steht auch nicht zur Wahl.
         """
-        from .hauptfenster import rundwahl
+        from .main_window import round_select
 
         reihe = tk.Frame(self.root, bg=BG)
         reihe.pack(fill='x', padx=14, pady=(0, 8))
@@ -1158,12 +1158,12 @@ class Bestandsfenster:
         „Rüstung" die Rollen. Ohne Neuaufbau bliebe die Liste der vorigen Art
         stehen, und wer daraus wählt, bekommt eine leere Trefferliste.
         """
-        from .hauptfenster import rundwahl
+        from .main_window import round_select
 
         def feld(schluessel, eintraege):
             if len(eintraege) <= 1:      # nichts zu wählen — Feld weglassen
                 return
-            w = rundwahl(self.fein_rahmen, eintraege,
+            w = round_select(self.fein_rahmen, eintraege,
                          self.fein.get(schluessel) or '',
                          lambda wert, s=schluessel: self._fein_setzen(s, wert),
                          schrift(10), grund=BG)
@@ -1464,8 +1464,8 @@ class Bestandsfenster:
         # unter den Filtern steht und nicht unter der Liste.
         self.liste_traeger = rahmen
         self.leinwand = tk.Canvas(rahmen, bg=BG, highlightthickness=0)
-        from .hauptfenster import rundleiste
-        rolle = rundleiste(rahmen, self.leinwand, grund=BG)
+        from .main_window import round_scrollbar
+        rolle = round_scrollbar(rahmen, self.leinwand, grund=BG)
         self.inhalt = tk.Frame(self.leinwand, bg=BG)
         self.inhalt.bind('<Configure>', lambda e: self._rollbereich_anmelden())
         self.fenster = self.leinwand.create_window((0, 0), window=self.inhalt,
@@ -1485,8 +1485,8 @@ class Bestandsfenster:
         # Startseite ist, war die Bindung aller anderen Seiten sofort wieder
         # weg. Danach rollte das Rad überall nur noch diese Liste, auch wenn
         # sie gar nicht zu sehen war.
-        from .hauptfenster import rad_anschliessen
-        rad_anschliessen(self.leinwand)
+        from .main_window import bind_wheel
+        bind_wheel(self.leinwand)
 
     def _leinwand_breit(self, breite):
         """Der Inhalt ist so breit wie die Leinwand — im Blockmodus auch die Blöcke."""
@@ -2304,14 +2304,14 @@ class Bestandsfenster:
                      font=schrift(10), anchor='w').pack(fill='x', pady=(6, 2))
             return
 
-        # ⚠ `marke` misst die Textbreite und braucht deshalb ein Font-Objekt.
-        # Dieses Fenster reicht Schriften als Tupel weiter — `_als_schrift`
+        # ⚠ `badge` misst die Textbreite und braucht deshalb ein Font-Objekt.
+        # Dieses Fenster reicht Schriften als Tupel weiter — `_as_font`
         # wandelt um, sonst gibt es „'tuple' object has no attribute 'metrics'".
-        from .hauptfenster import marke as blase, rundrahmen, _als_schrift
+        from .main_window import badge as blase, round_frame, _as_font
         quellen = list(eintrag.get('q') or [])
         farbe = ACCENT if quellen else GELB
-        kasten = rundrahmen(self.herkunft_rahmen, FLAECHE, farbe, radius=8,
-                            grundfarbe=BG)
+        kasten = round_frame(self.herkunft_rahmen, FLAECHE, farbe, radius=8,
+                            base_color=BG)
         kasten.halter.pack(fill='x')
 
         kopf = tk.Frame(kasten, bg=FLAECHE)
@@ -2327,7 +2327,7 @@ class Bestandsfenster:
         if quellen:
             blase(kopf, t('hk_ein_weg') if len(quellen) == 1
                   else t('hk_wege') % len(quellen),
-                  ACCENT, _als_schrift(schrift(9))).pack(side='right',
+                  ACCENT, _as_font(schrift(9))).pack(side='right',
                                                         padx=8)
 
         # Unterzeile: Art, Klasse, Besitz — und der Hinweis auf die Sortierung.

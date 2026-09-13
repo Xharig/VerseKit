@@ -81,7 +81,7 @@ sys.path.insert(0, HIER)
 import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
-from scbp import hauptfenster                                # noqa: E402
+from scbp import main_window                                # noqa: E402
 
 # Die Methoden, die `oeffnen()` der Reihe nach ruft.
 SCHRITTE = ('_aktion_merken', '_gruppe_von_reiter_oeffnen',
@@ -114,7 +114,7 @@ def _huellen(fenster, konto):
 
 
 def main():
-    fenster = hauptfenster.Hauptfenster(version='mess')
+    fenster = main_window.Hauptfenster(version='mess')
     fenster.root.update()
     fenster.root.update_idletasks()
 

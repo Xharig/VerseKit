@@ -52,16 +52,16 @@ from . import screen, fehler, fields, notice, news, pfade, icons
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
-FLAECHE = '#161c28'
+SURFACE = '#161c28'
 BAR     = '#1b2230'
 FG      = '#e6edf3'
 SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
-LINIE   = '#232c3d'
+BORDER   = '#232c3d'
 GOLD    = '#e8c353'
 # Rot ist hier kein Zustand, sondern ein Wegweiser: Der Reiter „Fehler
 # melden“ traegt es, damit ihn niemand suchen muss.
-ROT     = '#e05252'
+RED     = '#e05252'
 
 # Mindestgröße: Darunter bricht die Bedienung, und keine Layout-Regel hilft mehr.
 # Kleinste Größe, auf die sich das Fenster ziehen lässt — zugleich die Startgröße.
@@ -91,7 +91,7 @@ ROT     = '#e05252'
 # Bildschirm mehr, und selbst auf grossen Schirmen liess es sich nicht kleiner
 # ziehen als 1028. Seit die Leiste rollt und ihre Gruppen klappbar sind, geht
 # nichts verloren, wenn das Fenster kürzer ist: Was nicht hinpasst, rollt.
-MIN_BREITE, MIN_HOEHE = 1160, 380
+MIN_WIDTH, MIN_HEIGHT = 1160, 380
 
 # ⚠⚠ **Der Seiten-Vorbau ist ABGESCHALTET (02.09.2026).**
 #
@@ -116,33 +116,33 @@ MIN_BREITE, MIN_HOEHE = 1160, 380
 #
 # Wer ihn wieder einschaltet, muss zuerst das Zeichnen der angeklickten Seite
 # sicherstellen — sonst kehrt genau dieses Bild zurueck.
-VORBAU_AN = False
+PREBUILD_ON = False
 
 # Die zuletzt eingestellte Fenstergroesse. Nur die **Groesse**, keine Lage:
 # Eine gemerkte Position zeigt auf einem anderen Rechner ins Nichts (siehe
 # `geometrie_pruefen` beim Overlay) — das Fenster geht deshalb weiter mittig auf.
-GROESSE_SCHLUESSEL = 'fenster_groesse'
+SIZE_KEY = 'fenster_groesse'
 
 
-def gemerkte_groesse(root):
+def remembered_size(root):
     """Die gemerkte Fenstergroesse als `(Breite, Hoehe)`.
 
     Faellt auf die Mindestgroesse zurueck, wenn nichts gemerkt ist oder der
     Eintrag unbrauchbar ist.
 
     ⚠ **Zweimal begrenzt, und beides ist noetig.** Nach unten auf
-    `MIN_BREITE`/`MIN_HOEHE` — sonst koennte ein alter Eintrag das Fenster
+    `MIN_WIDTH`/`MIN_HEIGHT` — sonst koennte ein alter Eintrag das Fenster
     kleiner machen, als seine Mindestgroesse zulaesst, und Tk zoege es beim
     ersten Zeichnen ruckartig wieder auf. Nach oben auf den Bildschirm: Wer
     seine Groesse am 4K-Schirm gemerkt hat und spaeter am Laptop startet,
     haette sonst ein Fenster, dessen rechte Haelfte nicht erreichbar ist.
     """
-    roh = (pfade.einstellung(GROESSE_SCHLUESSEL) or '').strip().lower()
+    raw = (pfade.einstellung(SIZE_KEY) or '').strip().lower()
     breite = hoehe = 0
-    if 'x' in roh:
-        teile = roh.split('x', 1)
-        if teile[0].isdigit() and teile[1].isdigit():
-            breite, hoehe = int(teile[0]), int(teile[1])
+    if 'x' in raw:
+        parts = raw.split('x', 1)
+        if parts[0].isdigit() and parts[1].isdigit():
+            breite, hoehe = int(parts[0]), int(parts[1])
     try:
         breite = min(breite, root.winfo_screenwidth())
         hoehe = min(hoehe, root.winfo_screenheight())
@@ -154,8 +154,8 @@ def gemerkte_groesse(root):
     # obwohl `minsize` 1160x380 verlangt, und Tk zoege es beim ersten Zeichnen
     # ruckartig wieder auf. Gefunden hat das der Bau-Lauf von v3.4.2 — der
     # Windows-Rechner dort hat einen kleineren Schirm als jeder echte Nutzer.
-    breite = max(MIN_BREITE, breite)
-    hoehe = max(MIN_HOEHE, hoehe)
+    breite = max(MIN_WIDTH, breite)
+    hoehe = max(MIN_HEIGHT, hoehe)
     return breite, hoehe
 
 
@@ -163,37 +163,37 @@ def gemerkte_groesse(root):
 # „Angaben im Spiel" oder das englische „In-game details" wirklich wird, hängt
 # wieder an Schrift und Skalierung — bei 125 % ragte der Text aus der Leiste
 # heraus und war abgeschnitten.
-LEISTE_BREITE = 210
+SIDEBAR_WIDTH = 210
 
 # Wie viel Streichweg auf dem Trackpad eine Zeile ergibt. Ein Trackpad meldet
 # viele kleine Schritte statt Rasten; ohne Teiler säuselt die Liste am Finger
 # vorbei. Der Wert ist ein Startwert zum Nachjustieren — größer heißt ruhiger.
-TRACKPAD_TEILER = 12
+TRACKPAD_DIVISOR = 12
 
 # Schriftgrößen als **eine** Stellschraube. Anlass: Das ⟳ in der Titelleiste war
 # mit Brille kaum zu erkennen. Alle Widgets teilen sich diese Font-Objekte —
 # `configure(size=…)` zieht damit die ganze Oberfläche mit, statt dass jede
 # Stelle einzeln angefasst werden müsste.
-STUFEN = {'klein': 0, 'normal': 1, 'gross': 3, 'sehrgross': 5}
+FONT_LEVELS = {'klein': 0, 'normal': 1, 'gross': 3, 'sehrgross': 5}
 
 
-def _rundes_rechteck(leinwand, x1, y1, x2, y2, radius, **kw):
+def _round_rect(leinwand, x1, y1, x2, y2, radius, **kw):
     """Ein Rechteck mit runden Ecken.
 
     Tk kennt so etwas nicht — aber ein Vieleck mit `smooth=True` rundet genau
     dort ab, wo Punkte dicht beieinander liegen. Deshalb sitzt an jeder Ecke ein
     Punktepaar im Abstand des Radius.
     """
-    punkte = [
+    points = [
         x1 + radius, y1, x2 - radius, y1, x2, y1,
         x2, y1 + radius, x2, y2 - radius, x2, y2,
         x2 - radius, y2, x1 + radius, y2, x1, y2,
         x1, y2 - radius, x1, y1 + radius, x1, y1,
     ]
-    return leinwand.create_polygon(punkte, smooth=True, **kw)
+    return leinwand.create_polygon(points, smooth=True, **kw)
 
 
-def schiebeschalter(eltern, an, umschalten, grund=None):
+def toggle_switch(eltern, an, toggle, grund=None):
     """Ein runder Schiebeschalter — an oder aus, auf einen Blick.
 
     Tk kennt nur Kästchen zum Ankreuzen, und die sehen auf jedem System anders
@@ -208,26 +208,26 @@ def schiebeschalter(eltern, an, umschalten, grund=None):
     breite, hoehe = 44, 24
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor='hand2')
-    kapsel = _rundes_rechteck(c, 2, 3, breite - 2, hoehe - 3, radius=9,
+    capsule = _round_rect(c, 2, 3, breite - 2, hoehe - 3, radius=9,
                               fill='#2b3547', outline='')
-    punkt = c.create_oval(5, 6, 19, 20, fill=SUB, outline='')
+    dot = c.create_oval(5, 6, 19, 20, fill=SUB, outline='')
 
     def zeichnen(zustand):
-        c.itemconfigure(kapsel, fill='#2a3a1c' if zustand else '#2b3547')
-        c.itemconfigure(punkt, fill=ACCENT if zustand else SUB)
+        c.itemconfigure(capsule, fill='#2a3a1c' if zustand else '#2b3547')
+        c.itemconfigure(dot, fill=ACCENT if zustand else SUB)
         x = (breite - 24) if zustand else 0
-        c.coords(punkt, 5 + x, 6, 19 + x, 20)
+        c.coords(dot, 5 + x, 6, 19 + x, 20)
 
-    def klick(_=None):
-        zeichnen(bool(umschalten()))
+    def click(_=None):
+        zeichnen(bool(toggle()))
 
-    c.bind('<Button-1>', klick)
+    c.bind('<Button-1>', click)
     zeichnen(bool(an))
     c.zeichnen = zeichnen
     return c
 
 
-def nach_vorn(fenster, fokus=False):
+def to_front(window, focus=False):
     """Ein vorhandenes Fenster nach vorn holen — **ohne aus dem Spiel zu werfen**.
 
     ⚠ **`lift()` allein genügt nicht.** Unter Wayland — und je nach
@@ -261,12 +261,12 @@ def nach_vorn(fenster, fokus=False):
     """
     try:
         # 1. Der sanfte Weg — reicht unter X11 und den meisten Oberflächen.
-        fenster.deiconify()
-        fenster.lift()
-        fenster.attributes('-topmost', True)
-        fenster.after(400, lambda: fenster.attributes('-topmost', False))
-        if fokus:
-            fenster.focus_force()
+        window.deiconify()
+        window.lift()
+        window.attributes('-topmost', True)
+        window.after(400, lambda: window.attributes('-topmost', False))
+        if focus:
+            window.focus_force()
 
         # 2. Wayland lässt das oft ins Leere laufen: Dort entscheidet der
         #    Compositor, wer vorne steht, und ein Fenster darf sich nicht
@@ -279,15 +279,15 @@ def nach_vorn(fenster, fokus=False):
         #    „Programm neu starten", und dazu Xharig am 29.08.2026:
         #    „nen user findet das nervig und wers nicht nervig findet rafft es
         #    nicht."
-        if _wayland() and not fenster.focus_displayof():
-            fenster.withdraw()
-            fenster.update_idletasks()
-            fenster.deiconify()
-            fenster.lift()
-            fenster.attributes('-topmost', True)
-            fenster.after(400, lambda: fenster.attributes('-topmost', False))
-            if fokus:
-                fenster.focus_force()
+        if _wayland() and not window.focus_displayof():
+            window.withdraw()
+            window.update_idletasks()
+            window.deiconify()
+            window.lift()
+            window.attributes('-topmost', True)
+            window.after(400, lambda: window.attributes('-topmost', False))
+            if focus:
+                window.focus_force()
         return True
     except tk.TclError:
         return False                 # ohne Fenstermanager nicht möglich
@@ -304,7 +304,7 @@ def _wayland():
                 or os.environ.get('XDG_SESSION_TYPE') == 'wayland')
 
 
-def regler(eltern, von, bis, wert, beim_ziehen, breite=190, grund=None):
+def slider(eltern, von, bis, wert, on_drag, breite=190, grund=None):
     """Ein Schieberegler in der Machart des Fensters.
 
     Tk bringt zwar `Scale` mit, aber das ist ein Systemelement: Auf dem Mac ein
@@ -317,39 +317,39 @@ def regler(eltern, von, bis, wert, beim_ziehen, breite=190, grund=None):
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor='hand2')
     y = hoehe // 2
-    _rundes_rechteck(c, 0, y - 3, breite, y + 3, radius=3,
+    _round_rect(c, 0, y - 3, breite, y + 3, radius=3,
                      fill='#2b3547', outline='')
-    gefuellt = _rundes_rechteck(c, 0, y - 3, 10, y + 3, radius=3,
+    filled = _round_rect(c, 0, y - 3, 10, y + 3, radius=3,
                                 fill=ACCENT, outline='')
-    knopf = c.create_oval(0, y - 8, 16, y + 8, fill=ACCENT, outline='')
+    knob = c.create_oval(0, y - 8, 16, y + 8, fill=ACCENT, outline='')
 
-    spanne = float(max(1, bis - von))
+    span = float(max(1, bis - von))
 
     def zeichnen(w):
-        anteil = max(0.0, min(1.0, (w - von) / spanne))
-        x = 8 + anteil * (breite - 16)
-        c.coords(gefuellt, *([0, y - 3, x, y - 3, x, y - 3, x, y + 3,
+        fraction = max(0.0, min(1.0, (w - von) / span))
+        x = 8 + fraction * (breite - 16)
+        c.coords(filled, *([0, y - 3, x, y - 3, x, y - 3, x, y + 3,
                               x, y + 3, 0, y + 3, 0, y + 3, 0, y - 3]))
-        c.coords(knopf, x - 8, y - 8, x + 8, y + 8)
+        c.coords(knob, x - 8, y - 8, x + 8, y + 8)
 
-    def aus_x(ereignis):
-        anteil = max(0.0, min(1.0, (ereignis.x - 8) / float(breite - 16)))
-        return int(round(von + anteil * spanne))
+    def from_x(ereignis):
+        fraction = max(0.0, min(1.0, (ereignis.x - 8) / float(breite - 16)))
+        return int(round(von + fraction * span))
 
-    def ziehen(ereignis):
-        neuer = aus_x(ereignis)
+    def drag(ereignis):
+        neuer = from_x(ereignis)
         zeichnen(neuer)
-        beim_ziehen(neuer)
+        on_drag(neuer)
 
-    c.bind('<Button-1>', ziehen)
-    c.bind('<B1-Motion>', ziehen)
+    c.bind('<Button-1>', drag)
+    c.bind('<B1-Motion>', drag)
     zeichnen(wert)
     c.zeichnen = zeichnen
     return c
 
 
 
-def ecken(x1, y1, x2, y2, r):
+def corners(x1, y1, x2, y2, r):
     """Die Punktfolge eines abgerundeten Rechtecks — für `coords`.
 
     Wird gebraucht, wenn ein schon gezeichnetes Rechteck seine Größe ändert:
@@ -359,7 +359,7 @@ def ecken(x1, y1, x2, y2, r):
             x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
 
 
-def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
+def round_frame(eltern, grund, border, radius=8, base_color=None):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
 
     Tk kann Rahmen nur eckig — deshalb liegt hinter dem Inhalt eine Leinwand
@@ -375,7 +375,7 @@ def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
     Elemente.**
 
     Der Inhalt sitzt per `create_window` auf der Leinwand und zählt damit
-    **nicht** zur Wunschgröße des Kastens. Ein `rundrahmen` weiß also nicht,
+    **nicht** zur Wunschgröße des Kastens. Ein `round_frame` weiß also nicht,
     wie groß er sein müsste: Er dehnt sich auf den verfügbaren Platz und bleibt
     in der Höhe auf seinem Anfangswert, bis ihn jemand nachzieht.
 
@@ -389,14 +389,14 @@ def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
     **Für kleine Elemente ein schlichtes `tk.Label` mit `bg` und `padx/pady`
     nehmen.** Eckig, aber richtig bemessen.
     """
-    grundfarbe = grundfarbe or eltern.cget('bg')
-    halter = tk.Frame(eltern, bg=grundfarbe)
-    leinwand = tk.Canvas(halter, bg=grundfarbe, highlightthickness=0, bd=0,
+    base_color = base_color or eltern.cget('bg')
+    halter = tk.Frame(eltern, bg=base_color)
+    leinwand = tk.Canvas(halter, bg=base_color, highlightthickness=0, bd=0,
                          height=10)
     leinwand.pack(fill='both', expand=True)
-    innen = tk.Frame(leinwand, bg=grund)
-    form = _rundes_rechteck(leinwand, 1, 1, 100, 100, radius=radius,
-                            fill=grund, outline=rand, width=1)
+    inner = tk.Frame(leinwand, bg=grund)
+    form = _round_rect(leinwand, 1, 1, 100, 100, radius=radius,
+                            fill=grund, outline=border, width=1)
     # ⚠ Ein per `create_window` eingesetztes Widget liegt in Tk IMMER über
     # allem Gemalten — die Zeichenreihenfolge gilt dafür nicht. Säße der Inhalt
     # bündig in der Ecke, deckte sein rechteckiger Hintergrund die Rundung ab,
@@ -405,8 +405,8 @@ def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
     # Der ganze Radius, nicht die Hälfte: Bei halbem Einzug deckt der Inhalt
     # die obere Hälfte des Bogens ab, und im Kasten sitzt sichtbar eine zweite,
     # eckige Kante — das sah nach doppeltem Rahmen aus.
-    einzug = radius
-    fenster_id = leinwand.create_window(einzug, einzug, window=innen,
+    inset = radius
+    window_id = leinwand.create_window(inset, inset, window=inner,
                                         anchor='nw')
 
     def nachziehen(_=None):
@@ -418,31 +418,31 @@ def rundrahmen(eltern, grund, rand, radius=8, grundfarbe=None):
         breite = leinwand.winfo_width()
         if breite < 10:
             breite = leinwand.winfo_reqwidth()
-        hoehe = innen.winfo_reqheight()
+        hoehe = inner.winfo_reqheight()
         if breite < 10:
             return
-        leinwand.configure(height=hoehe + einzug * 2)
-        leinwand.itemconfigure(fenster_id, width=breite - einzug * 2)
-        leinwand.coords(form, *ecken(1, 1, breite - 1,
-                                     hoehe + einzug * 2 - 1, radius))
+        leinwand.configure(height=hoehe + inset * 2)
+        leinwand.itemconfigure(window_id, width=breite - inset * 2)
+        leinwand.coords(form, *corners(1, 1, breite - 1,
+                                     hoehe + inset * 2 - 1, radius))
 
-    innen.bind('<Configure>', nachziehen)
+    inner.bind('<Configure>', nachziehen)
     leinwand.bind('<Configure>', nachziehen)
     leinwand.bind('<Map>', nachziehen)
     # Merkmal für die Randprüfung: Dieser Rahmen wird bewusst auf die
     # Kastenbreite gezwungen — sein Wunsch nach mehr Platz ist kein Fehler,
     # der Text darin bricht um. Ohne die Markierung meldet jede Karte einen
     # Fehlalarm.
-    innen.auf_mass_gesetzt = True
-    innen.nachziehen = nachziehen
-    innen.halter = halter
-    innen.leinwand = leinwand
-    innen.form = form
-    return innen
+    inner.auf_mass_gesetzt = True
+    inner.nachziehen = nachziehen
+    inner.halter = halter
+    inner.leinwand = leinwand
+    inner.form = form
+    return inner
 
 
-def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
-                breite=None, hinweis=None, **kw):
+def round_entry(eltern, textvariable, schrift, grund, border, accent, fg,
+                breite=None, placeholder=None, **kw):
     """Ein Eingabefeld mit runden Ecken — überall im Programm dasselbe.
 
     Das Feld selbst bleibt ein gewöhnliches `Entry` (nur so lässt sich tippen),
@@ -461,26 +461,26 @@ def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
     **verboten** und nicht etwa still wirkungslos: Ein stiller Ausfall wäre
     genau die Sorte Fehler, die erst beim Nutzer auffällt.
     """
-    if hinweis and textvariable is None:
-        raise ValueError('rundes_feld: `hinweis` braucht eine `textvariable` '
+    if placeholder and textvariable is None:
+        raise ValueError('round_entry: `placeholder` braucht eine `textvariable` '
                          '— sonst liest `feld.get()` den Hinweistext als '
                          'Eingabe')
-    schrift = _als_schrift(schrift)
+    schrift = _as_font(schrift)
     radius = 8
     polster = 6
     hoehe = schrift.metrics('linespace') + polster * 2
     leinwand = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
                          highlightthickness=0, bd=0)
-    form = _rundes_rechteck(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
-                            fill=grund, outline=rand, width=1)
+    form = _round_rect(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
+                            fill=grund, outline=border, width=1)
     if textvariable is not None:
         kw['textvariable'] = textvariable
-    feld = tk.Entry(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
+    field = tk.Entry(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
                     bd=0, highlightthickness=0, insertbackground=fg, **kw)
-    fenster_id = leinwand.create_window(polster + 2, hoehe / 2.0, window=feld,
+    window_id = leinwand.create_window(polster + 2, hoehe / 2.0, window=field,
                                         anchor='w')
-    if hinweis:
-        fields.hinweis(feld, textvariable, hinweis, normal=fg, grau=SUB)
+    if placeholder:
+        fields.hinweis(field, textvariable, placeholder, normal=fg, grau=SUB)
 
     def nachziehen(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand
@@ -496,8 +496,8 @@ def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
         if b < 10:
             return
         try:
-            leinwand.coords(form, *ecken(1, 1, b - 1, hoehe - 1, radius))
-            leinwand.itemconfigure(fenster_id, width=b - (polster + 2) * 2)
+            leinwand.coords(form, *corners(1, 1, b - 1, hoehe - 1, radius))
+            leinwand.itemconfigure(window_id, width=b - (polster + 2) * 2)
         except tk.TclError:
             pass
 
@@ -507,18 +507,18 @@ def rundes_feld(eltern, textvariable, schrift, grund, rand, akzent, fg,
         # Feste Breite: so viele Ziffern plus Luft. Ohne das zieht `fill='x'`
         # der Zeile das Feld über die halbe Seite.
         leinwand.configure(width=schrift.measure('0') * breite + polster * 4)
-    feld.halter = leinwand
+    field.halter = leinwand
     leinwand.after(0, nachziehen)
-    feld.bind('<FocusIn>',
-              lambda e: leinwand.itemconfigure(form, outline=akzent), add='+')
-    feld.bind('<FocusOut>',
-              lambda e: leinwand.itemconfigure(form, outline=rand), add='+')
-    return feld
+    field.bind('<FocusIn>',
+              lambda e: leinwand.itemconfigure(form, outline=accent), add='+')
+    field.bind('<FocusOut>',
+              lambda e: leinwand.itemconfigure(form, outline=border), add='+')
+    return field
 
 
 
-def rundes_textfeld(eltern, schrift, grund, rand, akzent, fg, zeilen=4, **kw):
-    """Das mehrzeilige Gegenstück zu `rundes_feld` — gleiche Optik.
+def round_textarea(eltern, schrift, grund, border, accent, fg, rows=4, **kw):
+    """Das mehrzeilige Gegenstück zu `round_entry` — gleiche Optik.
 
     ⚠⚠ **Wofür.** Ein `Entry` zeigt immer nur einen Ausschnitt: Wer zwei Sätze
     tippt, sieht das Ende und nicht mehr, was er geschrieben hat. Für eine
@@ -535,25 +535,25 @@ def rundes_textfeld(eltern, schrift, grund, rand, akzent, fg, zeilen=4, **kw):
     ebenso auf die Akzentfarbe.
 
     Rückgabe ist das `Text` selbst; die Leinwand hängt als `.halter` daran —
-    dieselbe Verabredung wie bei `rundes_feld`, damit beide sich gleich
+    dieselbe Verabredung wie bei `round_entry`, damit beide sich gleich
     einbauen lassen.
     """
-    schrift = _als_schrift(schrift)
+    schrift = _as_font(schrift)
     radius = 8
     polster = 8
-    hoehe = schrift.metrics('linespace') * zeilen + polster * 2
+    hoehe = schrift.metrics('linespace') * rows + polster * 2
     leinwand = tk.Canvas(eltern, height=hoehe, bg=eltern.cget('bg'),
                          highlightthickness=0, bd=0)
-    form = _rundes_rechteck(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
-                            fill=grund, outline=rand, width=1)
-    feld = tk.Text(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
+    form = _round_rect(leinwand, 1, 1, 100, hoehe - 1, radius=radius,
+                            fill=grund, outline=border, width=1)
+    field = tk.Text(leinwand, bg=grund, fg=fg, font=schrift, relief='flat',
                    bd=0, highlightthickness=0, insertbackground=fg,
-                   height=zeilen, wrap='word', padx=0, pady=0, **kw)
-    fenster_id = leinwand.create_window(polster + 2, polster, window=feld,
+                   height=rows, wrap='word', padx=0, pady=0, **kw)
+    window_id = leinwand.create_window(polster + 2, polster, window=field,
                                         anchor='nw')
 
     def nachziehen(_=None):
-        # ⚠ Wie bei `rundes_feld`: Der Rückruf aus `after(0, …)` kann
+        # ⚠ Wie bei `round_entry`: Der Rückruf aus `after(0, …)` kann
         # drankommen, wenn die Leinwand beim Seitenwechsel längst weg ist.
         try:
             if not leinwand.winfo_exists():
@@ -566,24 +566,24 @@ def rundes_textfeld(eltern, schrift, grund, rand, akzent, fg, zeilen=4, **kw):
         if b < 10:
             return
         try:
-            leinwand.coords(form, *ecken(1, 1, b - 1, hoehe - 1, radius))
-            leinwand.itemconfigure(fenster_id, width=b - (polster + 2) * 2,
+            leinwand.coords(form, *corners(1, 1, b - 1, hoehe - 1, radius))
+            leinwand.itemconfigure(window_id, width=b - (polster + 2) * 2,
                                    height=hoehe - polster * 2)
         except tk.TclError:
             pass
 
     leinwand.bind('<Configure>', nachziehen)
     leinwand.bind('<Map>', nachziehen)
-    feld.halter = leinwand
+    field.halter = leinwand
     leinwand.after(0, nachziehen)
-    feld.bind('<FocusIn>',
-              lambda e: leinwand.itemconfigure(form, outline=akzent), add='+')
-    feld.bind('<FocusOut>',
-              lambda e: leinwand.itemconfigure(form, outline=rand), add='+')
-    return feld
+    field.bind('<FocusIn>',
+              lambda e: leinwand.itemconfigure(form, outline=accent), add='+')
+    field.bind('<FocusOut>',
+              lambda e: leinwand.itemconfigure(form, outline=border), add='+')
+    return field
 
 
-def _als_schrift(schrift):
+def _as_font(schrift):
     """Eine Schrift als messbares Objekt.
 
     Die älteren Fenster geben ihre Schrift als Tupel `('Helvetica', 10)`
@@ -598,7 +598,7 @@ def _als_schrift(schrift):
 
 
 
-def rundbalken(eltern, hoehe, anteil, grund, leer, voll, breite=None):
+def round_bar(eltern, hoehe, fraction, grund, empty_color, full_color, breite=None):
     """Ein Fortschrittsbalken mit runden Enden.
 
     Zwei ineinandergeschobene Rahmen wären einfacher, hätten aber scharfe
@@ -613,50 +613,50 @@ def rundbalken(eltern, hoehe, anteil, grund, leer, voll, breite=None):
     c = tk.Canvas(eltern, height=hoehe, bg=grund, highlightthickness=0, bd=0)
     if breite:
         c.configure(width=breite)
-    rille = _rundes_rechteck(c, 0, 0, 100, hoehe, radius=r, fill=leer,
+    groove = _round_rect(c, 0, 0, 100, hoehe, radius=r, fill=empty_color,
                              outline='')
-    fuellung = _rundes_rechteck(c, 0, 0, 10, hoehe, radius=r, fill=voll,
+    fuellung = _round_rect(c, 0, 0, 10, hoehe, radius=r, fill=full_color,
                                 outline='')
 
     def nachziehen(_=None):
         b = c.winfo_width()
         if b < 4:
             return
-        c.coords(rille, *ecken(0, 0, b, hoehe, r))
-        if anteil <= 0:
+        c.coords(groove, *corners(0, 0, b, hoehe, r))
+        if fraction <= 0:
             c.itemconfigure(fuellung, state='hidden')
             return
         c.itemconfigure(fuellung, state='normal')
         # Mindestens so breit wie hoch: Ein Balken bei 1 % wäre sonst ein
         # Strich, den man für einen Zeichenfehler hält.
-        voll_breite = max(hoehe, b * anteil)
-        c.coords(fuellung, *ecken(0, 0, voll_breite, hoehe, r))
+        full_width = max(hoehe, b * fraction)
+        c.coords(fuellung, *corners(0, 0, full_width, hoehe, r))
 
     c.bind('<Configure>', nachziehen)
     return c
 
 
-def _eigenes_rollen(vom, bis):
+def _own_scroll(vom, bis):
     """Ein Textfeld zwischen `vom` und `bis`, das selbst rollen kann — oder None.
 
     Geprüft wird, ob überhaupt etwas zu rollen **ist**: Ein Feld, dessen Inhalt
     hineinpasst, meldet `(0.0, 1.0)`. Dort soll weiter die Seite rollen, sonst
     bliebe der Zeiger über einem kurzen Feld hängen und nichts bewegte sich.
     """
-    knoten = vom
-    while knoten is not None and knoten is not bis:
-        if isinstance(knoten, tk.Text):
+    node = vom
+    while node is not None and node is not bis:
+        if isinstance(node, tk.Text):
             try:
-                oben, unten = knoten.yview()
-                if (unten - oben) < 0.999:
-                    return knoten
+                upper, lower = node.yview()
+                if (lower - upper) < 0.999:
+                    return node
             except tk.TclError:
                 pass
-        knoten = getattr(knoten, 'master', None)
+        node = getattr(node, 'master', None)
     return None
 
 
-def rad_anschliessen(leinwand):
+def bind_wheel(leinwand):
     """Das Mausrad an eine Rollfläche hängen — für das ganze Fenster.
 
     ⚠ Zwei Fehler steckten hier, und beide zusammen ließen das Rad wirkungslos
@@ -696,30 +696,30 @@ def rad_anschliessen(leinwand):
        eine ganze Zeile zusammenkommt; der Rest bleibt für das nächste
        Ereignis stehen.
     """
-    wurzel = leinwand.winfo_toplevel()
-    if not hasattr(wurzel, 'rollflaechen'):
-        wurzel.rollflaechen = []
+    root_window = leinwand.winfo_toplevel()
+    if not hasattr(root_window, 'rollflaechen'):
+        root_window.rollflaechen = []
         # Was noch keine ganze Zeile ergeben hat, wartet hier auf den Rest.
-        angesammelt = {'wert': 0.0}
+        accumulated = {'wert': 0.0}
 
-        def schritte_aus(e):
+        def steps_out(e):
             """Wie viele Zeilen sollen es sein? Negativ heißt nach oben."""
-            nummer = getattr(e, 'num', 0)
-            if nummer == 4:                      # Linux: Rad nach oben
+            number = getattr(e, 'num', 0)
+            if number == 4:                      # Linux: Rad nach oben
                 return -1
-            if nummer == 5:                      # Linux: Rad nach unten
+            if number == 5:                      # Linux: Rad nach unten
                 return 1
-            betrag = float(getattr(e, 'delta', 0) or 0)
-            if betrag == 0:
+            amount = float(getattr(e, 'delta', 0) or 0)
+            if amount == 0:
                 return 0
-            if abs(betrag) >= 120:               # Windows: eine Raste = 120
-                betrag /= 120.0
-            angesammelt['wert'] += betrag
-            ganze = int(angesammelt['wert'])     # schneidet Richtung null ab
-            angesammelt['wert'] -= ganze
-            return -ganze                        # nach oben = negativ
+            if abs(amount) >= 120:               # Windows: eine Raste = 120
+                amount /= 120.0
+            accumulated['wert'] += amount
+            whole = int(accumulated['wert'])     # schneidet Richtung null ab
+            accumulated['wert'] -= whole
+            return -whole                        # nach oben = negativ
 
-        def flaeche_unter(e):
+        def surface_below(e):
             """Was unter dem Mauszeiger gerollt werden soll — oder nichts.
 
             ⚠ **Ein Textfeld rollt sich selbst.** Vorher zählten nur die
@@ -734,18 +734,18 @@ def rad_anschliessen(leinwand):
             Wie im Browser: Was unter dem Zeiger liegt und rollen kann, rollt
             — die Seite bewegt man daneben.
             """
-            unter = wurzel.winfo_containing(e.x_root, e.y_root)
-            erstes = unter
-            while unter is not None:
-                if unter in wurzel.rollflaechen:
+            under = root_window.winfo_containing(e.x_root, e.y_root)
+            start_widget = under
+            while under is not None:
+                if under in root_window.rollflaechen:
                     # Liegt auf dem Weg dorthin ein Textfeld, das ueberlaeuft,
                     # gehoert ihm das Rad.
-                    eigenes = _eigenes_rollen(erstes, unter)
-                    return eigenes if eigenes is not None else unter
-                unter = getattr(unter, 'master', None)
+                    own = _own_scroll(start_widget, under)
+                    return own if own is not None else under
+                under = getattr(under, 'master', None)
             return None
 
-        def hat_ueberhang(ziel):
+        def has_overflow(target):
             """Gibt es überhaupt etwas zu rollen?
 
             ⚠ **Ohne diese Frage rollt auch eine Seite, die ganz hineinpasst.**
@@ -763,67 +763,67 @@ def rad_anschliessen(leinwand):
             Winzigkeit Luft, weil hier mit Fließkomma gerechnet wird.
             """
             try:
-                anfang, ende = ziel.yview()
+                anfang, ende = target.yview()
             except (tk.TclError, TypeError, ValueError):
                 return True     # Im Zweifel rollen — nie eine Fläche sperren.
             return (ende - anfang) < 0.999
 
-        def rollen(e):
-            ziel = flaeche_unter(e)
-            if ziel is None or not hat_ueberhang(ziel):
+        def scroll(e):
+            target = surface_below(e)
+            if target is None or not has_overflow(target):
                 return
-            schritte = schritte_aus(e)
-            if not schritte:
+            steps = steps_out(e)
+            if not steps:
                 return
             try:
-                ziel.yview_scroll(schritte, 'units')
+                target.yview_scroll(steps, 'units')
             except tk.TclError:
                 pass
 
-        def streichen(e):
+        def swipe(e):
             """Trackpad: beide Richtungen stecken gepackt in einer Zahl."""
-            ziel = flaeche_unter(e)
+            target = surface_below(e)
             # Dieselbe Frage wie beim Rad — sonst schiebt eine Streichgeste
             # den Inhalt aus einem Fenster, in dem alles hineinpasst.
-            if ziel is None or not hat_ueberhang(ziel):
+            if target is None or not has_overflow(target):
                 return
-            roh = int(getattr(e, 'delta', 0) or 0)
-            senkrecht = (roh >> 16) & 0xFFFF
-            if senkrecht >= 0x8000:          # als vorzeichenbehaftet lesen
-                senkrecht -= 0x10000
-            if not senkrecht:
+            raw = int(getattr(e, 'delta', 0) or 0)
+            vertical = (raw >> 16) & 0xFFFF
+            if vertical >= 0x8000:          # als vorzeichenbehaftet lesen
+                vertical -= 0x10000
+            if not vertical:
                 return
             # Ein Streich meldet viele kleine Schritte. `TEILER` bestimmt, wie
             # weit eine Geste trägt — kleiner heißt schneller.
-            angesammelt['wert'] += senkrecht / float(TRACKPAD_TEILER)
-            ganze = int(angesammelt['wert'])
-            angesammelt['wert'] -= ganze
-            if not ganze:
+            accumulated['wert'] += vertical / float(TRACKPAD_DIVISOR)
+            whole = int(accumulated['wert'])
+            accumulated['wert'] -= whole
+            if not whole:
                 return
             # ⚠ Kein Minus wie beim Rad: `<TouchpadScroll>` zählt andersherum
             # als `<MouseWheel>`. Mit dem Vorzeichen des Rades rollte die Liste
             # genau falsch herum. Die vom Nutzer eingestellte Richtung
             # („natürliches Scrollen") hat das System da schon eingerechnet.
             try:
-                ziel.yview_scroll(ganze, 'units')
+                target.yview_scroll(whole, 'units')
             except tk.TclError:
                 pass
 
         for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-            wurzel.bind_all(ereignis, rollen, add='+')
+            root_window.bind_all(ereignis, scroll, add='+')
         try:
-            wurzel.bind_all('<TouchpadScroll>', streichen, add='+')
+            root_window.bind_all('<TouchpadScroll>', swipe, add='+')
         except tk.TclError:
             # Tk 8.6 und älter kennen das Ereignis nicht. Dort melden sich
             # Trackpads als Button-4/5, also fehlt nichts.
             pass
 
-    if leinwand not in wurzel.rollflaechen:
-        wurzel.rollflaechen.append(leinwand)
+    if leinwand not in root_window.rollflaechen:
+        root_window.rollflaechen.append(leinwand)
 
 
 
-def rundleiste(eltern, leinwand, grund=None, breite=10):
+def round_scrollbar(eltern, leinwand, grund=None, breite=10):
     """Eine Rollleiste mit runden Enden — statt der des Betriebssystems.
 
     ⚠ `tk.Scrollbar` ist das einzige Bedienelement, das sich nicht einfärben
@@ -847,18 +847,18 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
     # 3,8 : 1. Dazu eine sichtbare Rille: Erst sie zeigt, dass es überhaupt
     # eine Bahn gibt, an der etwas entlangläuft — der Griff allein sieht aus
     # wie ein Strich.
-    rille_farbe, griff_farbe, griff_hell = '#0b0e14', '#5a6b85', '#7d90ad'
+    groove_color, grip_color, grip_light = '#0b0e14', '#5a6b85', '#7d90ad'
     r = breite / 2.0
 
     c = tk.Canvas(eltern, width=breite, bg=grund, highlightthickness=0, bd=0)
-    rille = c.create_rectangle(0, 0, breite, 10, fill=rille_farbe, outline='')
-    griff = _rundes_rechteck(c, 0, 0, breite, 30, radius=r,
-                             fill=griff_farbe, outline='')
+    groove = c.create_rectangle(0, 0, breite, 10, fill=groove_color, outline='')
+    grip = _round_rect(c, 0, 0, breite, 30, radius=r,
+                             fill=grip_color, outline='')
     c.auf_mass_gesetzt = True        # die Randprüfung soll sie nicht melden
 
-    lage = {'anfang': 0.0, 'ende': 1.0, 'griff_ab': 0, 'zieht': False}
+    pos = {'anfang': 0.0, 'ende': 1.0, 'griff_ab': 0, 'zieht': False}
 
-    def griff_lage():
+    def grip_pos():
         """Wo der Griff **wirklich** gezeichnet ist — als (oben, unten, hoehe).
 
         ⚠ Diese Rechnung muss an EINER Stelle stehen. Vorher zeichnete
@@ -870,43 +870,43 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
         und war es nicht.
         """
         hoehe = c.winfo_height() or 1
-        anfang, ende = lage['anfang'], lage['ende']
-        oben = anfang * hoehe
+        anfang, ende = pos['anfang'], pos['ende']
+        upper = anfang * hoehe
         # Der Griff bleibt greifbar, auch wenn 700 Baupläne in der Liste
         # stehen und er rechnerisch drei Pixel hoch wäre.
-        unten = max(oben + breite * 2.4, ende * hoehe)
-        if unten > hoehe:                 # am unteren Ende nach oben schieben
-            oben, unten = max(0.0, hoehe - (unten - oben)), hoehe
-        return oben, unten, hoehe
+        lower = max(upper + breite * 2.4, ende * hoehe)
+        if lower > hoehe:                 # am unteren Ende nach oben schieben
+            upper, lower = max(0.0, hoehe - (lower - upper)), hoehe
+        return upper, lower, hoehe
 
-    def nichts_zu_rollen():
+    def nothing_to_scroll():
         """Passt alles ins Fenster? Dann ist diese Leiste ohne Aufgabe."""
-        return (lage['ende'] - lage['anfang']) >= 0.999
+        return (pos['ende'] - pos['anfang']) >= 0.999
 
     def nachziehen(*_):
         hoehe = c.winfo_height()
         if hoehe < 4:
             return
-        c.coords(rille, 0, 0, breite, hoehe)
-        if nichts_zu_rollen():
-            c.itemconfigure(griff, state='hidden')
+        c.coords(groove, 0, 0, breite, hoehe)
+        if nothing_to_scroll():
+            c.itemconfigure(grip, state='hidden')
             # ⚠ **Auch die Rille verschwindet.** Eine sichtbare Bahn ohne
             # Griff sagt „hier lässt sich etwas schieben" — und genau das
             # stimmt dann nicht. Sie bleibt als leerer Streifen stehen, damit
             # der Inhalt beim Ein- und Ausblenden nicht in der Breite springt.
-            c.itemconfigure(rille, state='hidden')
+            c.itemconfigure(groove, state='hidden')
             return
-        c.itemconfigure(rille, state='normal')
-        c.itemconfigure(griff, state='normal')
-        oben, unten, _ = griff_lage()
-        c.coords(griff, *ecken(0, oben, breite, unten, r))
+        c.itemconfigure(groove, state='normal')
+        c.itemconfigure(grip, state='normal')
+        upper, lower, _ = grip_pos()
+        c.coords(grip, *corners(0, upper, breite, lower, r))
 
     def setzen(anfang, ende):
         """Ruft Tk auf, wenn sich der sichtbare Ausschnitt ändert."""
-        lage['anfang'], lage['ende'] = float(anfang), float(ende)
+        pos['anfang'], pos['ende'] = float(anfang), float(ende)
         nachziehen()
 
-    def springen(e):
+    def jump(e):
         # ⚠⚠ **Ohne diese Frage rollt eine Seite, die ganz hineinpasst.**
         # `nachziehen` versteckt zwar den Griff, wenn es nichts zu rollen
         # gibt — die Bahn darunter nahm den Klick aber weiter an. Bei voller
@@ -919,18 +919,18 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
         # drin, ist scrollbar", „das ist bei sehr vielen Seiten so". Es traf
         # jede Seite, deren Inhalt kleiner ist als ihr Fenster — also fast
         # jede, sobald ein Filter gesetzt war.
-        if nichts_zu_rollen():
+        if nothing_to_scroll():
             return
-        oben, unten, hoehe = griff_lage()
-        spanne = lage['ende'] - lage['anfang']
-        if oben <= e.y <= unten:                  # auf dem Griff: ziehen
-            lage['zieht'] = True
-            lage['griff_ab'] = e.y - oben
+        upper, lower, hoehe = grip_pos()
+        span = pos['ende'] - pos['anfang']
+        if upper <= e.y <= lower:                  # auf dem Griff: ziehen
+            pos['zieht'] = True
+            pos['griff_ab'] = e.y - upper
             return
-        ziel = max(0.0, min(1.0, (e.y / hoehe) - spanne / 2.0))
-        leinwand.yview_moveto(ziel)
+        target = max(0.0, min(1.0, (e.y / hoehe) - span / 2.0))
+        leinwand.yview_moveto(target)
 
-    def ziehen(e):
+    def drag(e):
         """Den Griff mitnehmen.
 
         Gerechnet wird über den **Weg, den der Griff zurücklegen kann** — also die
@@ -939,30 +939,30 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
         Liste unerreichbar: Man zog bis ganz nach unten und war trotzdem nicht am
         Ende.
         """
-        if not lage['zieht'] or nichts_zu_rollen():
+        if not pos['zieht'] or nothing_to_scroll():
             return
-        oben, unten, hoehe = griff_lage()
-        weg = max(1.0, hoehe - (unten - oben))
-        spanne = lage['ende'] - lage['anfang']
-        anteil = (e.y - lage['griff_ab']) / weg
-        leinwand.yview_moveto(max(0.0, min(1.0, anteil * max(0.0, 1.0 - spanne))))
+        upper, lower, hoehe = grip_pos()
+        travel = max(1.0, hoehe - (lower - upper))
+        span = pos['ende'] - pos['anfang']
+        fraction = (e.y - pos['griff_ab']) / travel
+        leinwand.yview_moveto(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
 
-    def loslassen(_=None):
-        lage['zieht'] = False
+    def release(_=None):
+        pos['zieht'] = False
 
-    def rein(_=None):
-        c.itemconfigure(griff, fill=griff_hell)
+    def enter(_=None):
+        c.itemconfigure(grip, fill=grip_light)
 
-    def raus(_=None):
-        if not lage['zieht']:
-            c.itemconfigure(griff, fill=griff_farbe)
+    def leave(_=None):
+        if not pos['zieht']:
+            c.itemconfigure(grip, fill=grip_color)
 
     c.bind('<Configure>', nachziehen)
-    c.bind('<Button-1>', springen)
-    c.bind('<B1-Motion>', ziehen)
-    c.bind('<ButtonRelease-1>', loslassen)
-    c.bind('<Enter>', rein)
-    c.bind('<Leave>', raus)
+    c.bind('<Button-1>', jump)
+    c.bind('<B1-Motion>', drag)
+    c.bind('<ButtonRelease-1>', release)
+    c.bind('<Enter>', enter)
+    c.bind('<Leave>', leave)
     # ⚠ `set` heißt hier englisch, weil Tk selbst diesen Namen aufruft:
     # `leinwand.configure(yscrollcommand=leiste.set)`. `setzen` steht daneben,
     # damit der Rest des Programms bei seiner Sprache bleiben kann.
@@ -993,7 +993,7 @@ def rundleiste(eltern, leinwand, grund=None, breite=10):
 # keiner Schriftart. Ein erster Versuch hatte die Form nur **angedeutet**;
 # am 26.08.2026 gemeldet dazu: „und wieso nimmst du nicht das original logo, was
 # schärfer wäre und nicht so pixelig?" — zu Recht.
-_DC_UMRISS = (
+_DC_OUTLINE = (
 
     (0.8471, 0.1762), (0.8144, 0.1617), (0.7809, 0.1487), (0.7468, 0.1371),
     (0.7121, 0.1270), (0.6767, 0.1184), (0.6408, 0.1113), (0.6362, 0.1198),
@@ -1022,7 +1022,7 @@ _DC_UMRISS = (
     (0.8471, 0.1762),
 )
 
-_DC_AUGE_LINKS = (
+_DC_EYE_LEFT = (
 
     (0.3339, 0.6390), (0.3101, 0.6354), (0.2886, 0.6250), (0.2704, 0.6090),
     (0.2563, 0.5882), (0.2472, 0.5638), (0.2440, 0.5368), (0.2472, 0.5097),
@@ -1033,7 +1033,7 @@ _DC_AUGE_LINKS = (
     (0.3339, 0.6390),
 )
 
-_DC_AUGE_RECHTS = (
+_DC_EYE_RIGHT = (
 
     (0.6661, 0.6390), (0.6423, 0.6354), (0.6209, 0.6250), (0.6026, 0.6090),
     (0.5885, 0.5882), (0.5794, 0.5638), (0.5762, 0.5368), (0.5794, 0.5097),
@@ -1045,7 +1045,7 @@ _DC_AUGE_RECHTS = (
 )
 
 
-def discord_zeichen(leinwand, x, mitte, hoehe, farbe):
+def discord_glyph(leinwand, x, middle, hoehe, color):
     """Das Discord-Zeichen, gezeichnet aus den Originalumrissen.
 
     `x` ist die linke Kante, `mitte` die senkrechte Mitte, `hoehe` der
@@ -1055,30 +1055,30 @@ def discord_zeichen(leinwand, x, mitte, hoehe, farbe):
     h = max(9.0, hoehe * 0.82)
     b = h                      # der viewBox ist quadratisch
     lx = x
-    oy = mitte - h / 2.0
+    oy = middle - h / 2.0
 
-    def strecke(punkte):
-        flach = []
-        for ax, ay in punkte:
-            flach.append(lx + ax * b)
-            flach.append(oy + ay * h)
-        return flach
+    def path(points):
+        flat = []
+        for ax, ay in points:
+            flat.append(lx + ax * b)
+            flat.append(oy + ay * h)
+        return flat
 
-    leinwand.create_polygon(strecke(_DC_UMRISS), fill=farbe, outline=farbe)
+    leinwand.create_polygon(path(_DC_OUTLINE), fill=color, outline=color)
     # Die Augen sind im SVG Aussparungen derselben Fläche. Tk kennt keine
     # Löcher, deshalb werden sie in der Farbe des Untergrunds darübergelegt.
     grund = leinwand['bg']
-    for auge in (_DC_AUGE_LINKS, _DC_AUGE_RECHTS):
-        leinwand.create_polygon(strecke(auge), fill=grund, outline=grund)
+    for eye in (_DC_EYE_LEFT, _DC_EYE_RIGHT):
+        leinwand.create_polygon(path(eye), fill=grund, outline=grund)
 
 
 # Von am 26.08.2026 gemeldet bestätigt. ⚠ Wer sie ändert, prüft vorher, dass die
 # Seite wirklich erreichbar ist: Ein Knopf, der ins Leere führt, ist schlimmer
 # als keiner — wer ihn drückt, hält das Werkzeug für kaputt.
-KOFI_ADRESSE = 'https://ko-fi.com/xharig'
+KOFI_URL = 'https://ko-fi.com/xharig'
 
 
-def kaffee_zeichen(leinwand, x, mitte, hoehe, farbe):
+def coffee_glyph(leinwand, x, middle, hoehe, color):
     """Eine Kaffeetasse — für den Ko-fi-Knopf.
 
     ⚠ Gezeichnet, nicht getippt. Die Tassen-Zeichen in Unicode (`U+2615` ☕,
@@ -1096,14 +1096,14 @@ def kaffee_zeichen(leinwand, x, mitte, hoehe, farbe):
     h = max(9.0, hoehe * 0.72)
     b = h * 1.05
     lx = x
-    oy = mitte - h / 2.0
+    oy = middle - h / 2.0
 
     # Der Henkel — zuerst, damit der Becher ihn sauber überdeckt. Kräftig
     # genug, dass er auch bei zwölf Pixeln noch trägt.
     leinwand.create_arc(lx + b * 0.60, oy + h * 0.28,
                         lx + b * 1.02, oy + h * 0.74,
                         start=270, extent=180, style='arc',
-                        outline=farbe, width=max(2, int(h * 0.14)))
+                        outline=color, width=max(2, int(h * 0.14)))
 
     # Der Becher: oben breit, nach unten leicht zulaufend.
     leinwand.create_polygon(
@@ -1111,7 +1111,7 @@ def kaffee_zeichen(leinwand, x, mitte, hoehe, farbe):
         lx + b * 0.74, oy + h * 0.24,
         lx + b * 0.64, oy + h * 0.92,
         lx + b * 0.16, oy + h * 0.92,
-        fill=farbe, outline=farbe)
+        fill=color, outline=color)
 
     # Ein abgesetzter Streifen als Kaffeespiegel — das macht aus dem Umriss
     # erst eine gefüllte Tasse.
@@ -1123,11 +1123,11 @@ def kaffee_zeichen(leinwand, x, mitte, hoehe, farbe):
     # Die Untertasse — ein flacher Balken, der die Tasse auf den Boden stellt.
     leinwand.create_rectangle(lx + b * 0.02, oy + h * 0.92,
                               lx + b * 0.78, oy + h * 1.00,
-                              fill=farbe, outline=farbe)
+                              fill=color, outline=color)
 
 
-def rundknopf(eltern, text, tat, schrift, grund, fuellung, rand, fg,
-              radius=6, polster=(10, 5), cursor='hand2', malen=None):
+def round_button(eltern, text, tat, schrift, grund, fuellung, border, fg,
+              radius=6, polster=(10, 5), cursor='hand2', paint=None):
     """Ein klickbarer Knopf mit runden Ecken — der Standard im ganzen Programm.
 
     Ein `Label` mit Hintergrundfarbe wäre einfacher, sähe aber überall eckig
@@ -1150,33 +1150,33 @@ def rundknopf(eltern, text, tat, schrift, grund, fuellung, rand, fg,
     bei jedem Neuzeichnen erneut gerufen und muss ihre eigenen Formen anlegen;
     aufgeräumt wird vorher.
     """
-    schrift = _als_schrift(schrift)
-    symbolbreite = 0
-    if malen:
+    schrift = _as_font(schrift)
+    symbol_width = 0
+    if paint:
         # Platz für das Symbol plus Abstand — an der Schrifthöhe bemessen,
         # damit es mit der Schriftgröße mitwächst.
-        symbolbreite = schrift.metrics('linespace') + 8
-    breite = schrift.measure(text) + polster[0] * 2 + symbolbreite
+        symbol_width = schrift.metrics('linespace') + 8
+    breite = schrift.measure(text) + polster[0] * 2 + symbol_width
     hoehe = schrift.metrics('linespace') + polster[1] * 2
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor=cursor)
 
-    zustand = {'fuellung': fuellung, 'rand': rand, 'fg': fg}
+    zustand = {'fuellung': fuellung, 'rand': border, 'fg': fg}
 
     def zeichnen(b=None, h=None):
         b = b or int(c['width'])
         h = h or int(c['height'])
         c.delete('all')
-        c.form = _rundes_rechteck(c, 1, 1, b - 1, h - 1, radius=radius,
+        c.form = _round_rect(c, 1, 1, b - 1, h - 1, radius=radius,
                                   fill=zustand['fuellung'],
                                   outline=zustand['rand'], width=1)
-        if malen:
-            malen(c, polster[0], h / 2.0, h - polster[1] * 2, zustand['fg'])
+        if paint:
+            paint(c, polster[0], h / 2.0, h - polster[1] * 2, zustand['fg'])
         # ⚠ Der Text sitzt in der Mitte des **Restes**, nicht der ganzen
         # Fläche. Sonst rückt ein Symbol links die Beschriftung nach rechts aus
         # der Mitte, und zwei Knöpfe untereinander stehen krumm.
-        mitte_x = (b + symbolbreite) / 2.0 if malen else b / 2.0
-        c.beschriftung = c.create_text(mitte_x, h / 2.0, text=text,
+        middle_x = (b + symbol_width) / 2.0 if paint else b / 2.0
+        c.beschriftung = c.create_text(middle_x, h / 2.0, text=text,
                                        fill=zustand['fg'], font=schrift,
                                        anchor='center')
 
@@ -1185,15 +1185,15 @@ def rundknopf(eltern, text, tat, schrift, grund, fuellung, rand, fg,
     # ⚠ Nur bei echter Änderung neu malen. Tk schickt `<Configure>` auch dann,
     # wenn sich nichts an der Größe geändert hat — ein bedingungsloses
     # Neuzeichnen darin läuft im Kreis.
-    letzte = {'b': breite, 'h': hoehe}
+    last_size = {'b': breite, 'h': hoehe}
 
-    def _gewachsen(e):
-        if e.width == letzte['b'] and e.height == letzte['h']:
+    def _resized(e):
+        if e.width == last_size['b'] and e.height == last_size['h']:
             return
-        letzte['b'], letzte['h'] = e.width, e.height
+        last_size['b'], last_size['h'] = e.width, e.height
         zeichnen(e.width, e.height)
 
-    c.bind('<Configure>', _gewachsen)
+    c.bind('<Configure>', _resized)
 
     def setzen(fuellung=None, neuer_rand=None, neues_fg=None):
         if fuellung:
@@ -1205,7 +1205,7 @@ def rundknopf(eltern, text, tat, schrift, grund, fuellung, rand, fg,
         if neues_fg:
             zustand['fg'] = neues_fg
             c.itemconfigure(c.beschriftung, fill=neues_fg)
-            if malen:
+            if paint:
                 # Das Symbol traegt dieselbe Farbe wie die Schrift — neu malen
                 # ist einfacher, als sich jede Einzelform zu merken.
                 zeichnen()
@@ -1222,14 +1222,14 @@ def rundknopf(eltern, text, tat, schrift, grund, fuellung, rand, fg,
 # sondern damit die Liste ueberschaubar bleibt und die Rollleiste sichtbar
 # wird. Ohne diese Grenze reichte die Ortsliste im Bergbau (48 Eintraege) vom
 # Auswahlfeld bis weit unter das Fenster.
-MAX_WAHLZEILEN = 15
+MAX_CHOICE_ROWS = 15
 
 # So breit darf ein geschlossenes Auswahlfeld höchstens werden, in Zeichen.
-# Die aufgeklappte Liste ist davon nicht betroffen — siehe `rundwahl`.
-MAX_FELDZEICHEN = 18
+# Die aufgeklappte Liste ist davon nicht betroffen — siehe `round_select`.
+MAX_FIELD_CHARS = 18
 
 
-def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
+def round_select(eltern, entries, selected, on_select, schrift, grund=None,
              breite=None):
     """Ein Auswahlfeld im Hausstil — Knopf mit ▾, der eine Liste aufklappt.
 
@@ -1249,14 +1249,14 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
     zwanzig Arten zur Wahl stehen.
     """
     grund = grund or BG
-    s = _als_schrift(schrift)
-    zustand = {'wert': gewaehlt, 'liste': None, 'zu_seit': 0.0, 'wachen': []}
+    s = _as_font(schrift)
+    zustand = {'wert': selected, 'liste': None, 'zu_seit': 0.0, 'wachen': []}
 
-    def beschriftung_zu(wert):
-        for w, text in eintraege:
+    def caption_for(wert):
+        for w, text in entries:
             if w == wert:
                 return text
-        return eintraege[0][1] if eintraege else ''
+        return entries[0][1] if entries else ''
 
     # ⚠⚠ **Das geschlossene Feld muss NICHT so breit sein wie der längste
     # Eintrag.** Bis v3.3.0-rc40 war es das — und weil unter den 64
@@ -1270,44 +1270,44 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
     # verlangt — dort ist der Platz da. Nur das Feld wird gedeckelt; ein zu
     # langer gewählter Wert bekommt am Ende ein „…".
     if breite is None:
-        noetig = max(s.measure(text) for _, text in eintraege) + 42
-        breite = min(noetig, s.measure('M' * MAX_FELDZEICHEN) + 42)
+        needed = max(s.measure(text) for _, text in entries) + 42
+        breite = min(needed, s.measure('M' * MAX_FIELD_CHARS) + 42)
     hoehe = s.metrics('linespace') + 14
 
-    def _passend(text):
+    def _fitting(text):
         """Text so kürzen, dass er ins geschlossene Feld passt."""
-        platz = breite - 34          # Rand links, Pfeil rechts
-        if s.measure(text) <= platz:
+        space = breite - 34          # Rand links, Pfeil rechts
+        if s.measure(text) <= space:
             return text
-        gekuerzt = text
-        while gekuerzt and s.measure(gekuerzt + '…') > platz:
-            gekuerzt = gekuerzt[:-1]
-        return (gekuerzt + '…') if gekuerzt else text
+        shortened = text
+        while shortened and s.measure(shortened + '…') > space:
+            shortened = shortened[:-1]
+        return (shortened + '…') if shortened else text
 
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0, cursor='hand2')
-    form = _rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1, radius=5,
-                            fill='#0c1017', outline=LINIE, width=1)
+    form = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+                            fill='#0c1017', outline=BORDER, width=1)
     text_id = c.create_text(11, hoehe / 2.0,
-                            text=_passend(beschriftung_zu(gewaehlt)),
+                            text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
     pfeil = c.create_text(breite - 12, hoehe / 2.0, text='▾', fill=SUB,
                           font=s, anchor='e')
     c.ist_knopf = True          # die Randprüfung soll ihn messen
 
     def faerben():
-        gesetzt = bool(zustand['wert'])
-        c.itemconfigure(form, outline=ACCENT if gesetzt else LINIE)
-        c.itemconfigure(text_id, fill=ACCENT if gesetzt else FG)
-        c.itemconfigure(pfeil, fill=ACCENT if gesetzt else SUB)
+        is_set = bool(zustand['wert'])
+        c.itemconfigure(form, outline=ACCENT if is_set else BORDER)
+        c.itemconfigure(text_id, fill=ACCENT if is_set else FG)
+        c.itemconfigure(pfeil, fill=ACCENT if is_set else SUB)
 
-    def zuklappen(_=None):
+    def close_list(_=None):
         # ⚠ Zuerst die Wachen lösen. Die aufgeklappte Liste ist ein **eigenes
         # Fenster**; bleiben ihre Bindungen am Hauptfenster hängen, feuern sie
         # später ins Leere.
-        for ereignis, marke in zustand.get('wachen') or []:
+        for ereignis, badge in zustand.get('wachen') or []:
             try:
-                c.winfo_toplevel().unbind(ereignis, marke)
+                c.winfo_toplevel().unbind(ereignis, badge)
             except tk.TclError:
                 pass
         zustand['wachen'] = []
@@ -1319,16 +1319,16 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
             zustand['liste'] = None
             zustand['zu_seit'] = time.time()
 
-    def waehlen(wert):
-        zuklappen()
+    def choose(wert):
+        close_list()
         zustand['wert'] = wert
-        c.itemconfigure(text_id, text=_passend(beschriftung_zu(wert)))
+        c.itemconfigure(text_id, text=_fitting(caption_for(wert)))
         faerben()
-        beim_waehlen(wert)
+        on_select(wert)
 
-    def aufklappen(_=None):
+    def open_list(_=None):
         if zustand['liste'] is not None:
-            zuklappen()
+            close_list()
             return
         # ⚠ Ein Klick, der die Liste gerade eben geschlossen hat, darf sie nicht
         # sofort wieder öffnen. Schließt das Fenster über `<FocusOut>`, kommt der
@@ -1336,53 +1336,53 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # wieder verschwinden, und erst der zweite Klick hielt sie offen.
         if time.time() - zustand['zu_seit'] < 0.25:
             return
-        fenster = tk.Toplevel(c)
-        fenster.overrideredirect(True)        # kein Titelbalken, kein Rahmen
-        fenster.configure(bg=LINIE)
-        zustand['liste'] = fenster
+        window = tk.Toplevel(c)
+        window.overrideredirect(True)        # kein Titelbalken, kein Rahmen
+        window.configure(bg=BORDER)
+        zustand['liste'] = window
 
         # ⚠ Die Liste muss rollen können. Bei 25 Arten ist sie höher als der
         # Platz unter dem Feld — steht das Fenster weit unten, waren die
         # letzten Einträge unerreichbar. Also: Höhe begrenzen, eigene
         # Rollfläche, und wenn unten kein Platz ist, klappt sie nach oben.
-        aussen = tk.Frame(fenster, bg=FLAECHE)
-        aussen.pack(fill='both', expand=True, padx=1, pady=1)
-        leinwand = tk.Canvas(aussen, bg=FLAECHE, highlightthickness=0, bd=0)
-        innen = tk.Frame(leinwand, bg=FLAECHE)
-        fenster_id = leinwand.create_window((0, 0), window=innen, anchor='nw')
+        outer = tk.Frame(window, bg=SURFACE)
+        outer.pack(fill='both', expand=True, padx=1, pady=1)
+        leinwand = tk.Canvas(outer, bg=SURFACE, highlightthickness=0, bd=0)
+        inner = tk.Frame(leinwand, bg=SURFACE)
+        window_id = leinwand.create_window((0, 0), window=inner, anchor='nw')
 
-        for wert, text in eintraege:
+        for wert, text in entries:
             an = (wert == zustand['wert'])
-            zeile = tk.Label(innen, text=text, bg=FLAECHE,
+            zeile = tk.Label(inner, text=text, bg=SURFACE,
                              fg=ACCENT if an else FG, font=s, anchor='w',
                              padx=11, pady=4, cursor='hand2')
             zeile.pack(fill='x')
-            zeile.bind('<Button-1>', lambda e, w=wert: waehlen(w))
+            zeile.bind('<Button-1>', lambda e, w=wert: choose(w))
             zeile.bind('<Enter>', lambda e, z=zeile: z.configure(bg=BAR))
-            zeile.bind('<Leave>', lambda e, z=zeile: z.configure(bg=FLAECHE))
+            zeile.bind('<Leave>', lambda e, z=zeile: z.configure(bg=SURFACE))
 
         c.update_idletasks()
-        innen.update_idletasks()
-        gebraucht_hoehe = innen.winfo_reqheight()
-        gebraucht_breite = max(breite, innen.winfo_reqwidth() + 2)
+        inner.update_idletasks()
+        needed_height = inner.winfo_reqheight()
+        needed_width = max(breite, inner.winfo_reqwidth() + 2)
 
         x = c.winfo_rootx()
-        unten = c.winfo_rooty() + hoehe + 2
+        lower = c.winfo_rooty() + hoehe + 2
         # ⚠ Nicht `winfo_screenheight()`: Tk meldet damit die Höhe **aller**
         # Bildschirme zusammen. Bei zwei übereinander stehenden Monitoren passt
         # eine lange Liste rechnerisch immer nach unten — und klappt in
         # Wirklichkeit unterhalb des Bildes auf. Gemeldet als „Alle Arten und
         # Alle Quellen sind nicht auswählbar", also genau die beiden längsten
         # Listen. Maßgeblich ist der Bildschirm, auf dem das Feld steht.
-        _sx, schirm_oben, _sb, schirm_hoch = screen.screen_at(
+        _sx, screen_top, _sb, schirm_hoch = screen.screen_at(
             c, c.winfo_rootx(), c.winfo_rooty())
-        schirm_unten = schirm_oben + schirm_hoch
+        screen_bottom = screen_top + schirm_hoch
         # So viel Platz ist nach unten bzw. nach oben — mit etwas Luft zum Rand.
-        platz_unten = schirm_unten - unten - 20
-        platz_oben = c.winfo_rooty() - schirm_oben - 20
-        nach_oben = gebraucht_hoehe > platz_unten and platz_oben > platz_unten
-        sicht = min(gebraucht_hoehe, max(platz_oben if nach_oben
-                                         else platz_unten, 120))
+        space_below = screen_bottom - lower - 20
+        space_above = c.winfo_rooty() - screen_top - 20
+        upwards = needed_height > space_below and space_above > space_below
+        visible = min(needed_height, max(space_above if upwards
+                                         else space_below, 120))
         # ⚠ **Zweite Grenze: das Fenster selbst.** Der Bildschirm allein
         # genügt nicht — steht das Fenster weit unten im Bild, passt eine lange
         # Liste rechnerisch noch auf den Schirm, ragt aber weit darunter hinaus
@@ -1398,11 +1398,11 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # nach dem Verkleinern nicht mehr hineinpasst — und beim naechsten
         # Aufklappen unten abgeschnitten waere. Gefordert am 30.08.2026:
         # „Auswahlfenster duerfen die minimale Fensterhoehe NIE
-        # ueberschreiten." Also gilt immer `MIN_HOEHE`, auch im Vollbild.
+        # ueberschreiten." Also gilt immer `MIN_HEIGHT`, auch im Vollbild.
         try:
-            fenster_hoch = c.winfo_toplevel().winfo_height()
-            if fenster_hoch > 200:
-                sicht = min(sicht, min(fenster_hoch, MIN_HOEHE) - 40)
+            window_height = c.winfo_toplevel().winfo_height()
+            if window_height > 200:
+                visible = min(visible, min(window_height, MIN_HEIGHT) - 40)
         except tk.TclError:
             pass
         # ⚠ **Dritte Grenze, und die entscheidende: eine feste Zeilenzahl.**
@@ -1415,20 +1415,20 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # fuenfzehn Zeilen liest ohnehin niemand am Stueck — der Rest gehoert
         # gerollt, und dann ist auch die Rollleiste sichtbar und sagt, dass da
         # noch mehr kommt.
-        if len(eintraege) > MAX_WAHLZEILEN:
+        if len(entries) > MAX_CHOICE_ROWS:
             try:
-                kinder = innen.winfo_children()
-                if kinder:
-                    zeilenhoehe = kinder[0].winfo_reqheight()
-                    if zeilenhoehe > 0:
-                        sicht = min(sicht, zeilenhoehe * MAX_WAHLZEILEN)
+                children = inner.winfo_children()
+                if children:
+                    row_height = children[0].winfo_reqheight()
+                    if row_height > 0:
+                        visible = min(visible, row_height * MAX_CHOICE_ROWS)
             except tk.TclError:
                 pass
-        y = (c.winfo_rooty() - sicht - 2) if nach_oben else unten
+        y = (c.winfo_rooty() - visible - 2) if upwards else lower
 
-        leinwand.configure(width=gebraucht_breite - 2, height=sicht)
+        leinwand.configure(width=needed_width - 2, height=visible)
         leinwand.pack(side='left', fill='both', expand=True)
-        if gebraucht_hoehe > sicht:
+        if needed_height > visible:
             # ⚠ Gleiche Breite wie auf den Seiten. Acht Pixel waren schmaler
             # als alles andere im Fenster und dadurch noch schwerer zu sehen.
             #
@@ -1442,15 +1442,15 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
             # selbst: **Was wichtig ist, gehört nach oben.** Standen die zwei
             # größten Gruppen (Rüstung 910, Waffen 270) alphabetisch an Position
             # 11 und 14, half auch der beste Balken nicht.
-            leiste = rundleiste(aussen, leinwand, grund=FLAECHE, breite=10)
+            leiste = round_scrollbar(outer, leinwand, grund=SURFACE, breite=10)
             leiste.pack(side='right', fill='y')
             leinwand.configure(yscrollcommand=leiste.set)
-        leinwand.configure(scrollregion=(0, 0, gebraucht_breite,
-                                         gebraucht_hoehe))
-        leinwand.itemconfigure(fenster_id, width=gebraucht_breite - 2)
+        leinwand.configure(scrollregion=(0, 0, needed_width,
+                                         needed_height))
+        leinwand.itemconfigure(window_id, width=needed_width - 2)
 
         # ⚠⚠ **Das Rad muss HIER abgefangen werden, sonst rollt die Seite
-        # dahinter.** `rad_anschliessen` haengt global am Programm (`bind_all`)
+        # dahinter.** `bind_wheel` haengt global am Programm (`bind_all`)
         # und sucht sich die Rollflaeche, indem es vom Element unter dem Zeiger
         # nach oben durch die Elternkette geht. Die aufgeklappte Liste ist zwar
         # ein eigenes Fenster, ihr Elternteil ist aber das Auswahlfeld — die
@@ -1463,50 +1463,50 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # (Tk geht Widget → Klasse → Fenster → „all") und laeuft VOR der
         # globalen. `return 'break'` beendet die Kette — die Seite dahinter
         # bekommt das Rad gar nicht erst zu sehen.
-        def rad_in_liste(e):
-            if gebraucht_hoehe > sicht:
-                nummer = getattr(e, 'num', 0)
-                if nummer == 4:
-                    schritte = -1
-                elif nummer == 5:
-                    schritte = 1
+        def wheel_in_list(e):
+            if needed_height > visible:
+                number = getattr(e, 'num', 0)
+                if number == 4:
+                    steps = -1
+                elif number == 5:
+                    steps = 1
                 else:
                     # Nur die Richtung zaehlt, nie der Betrag: Windows meldet
                     # ±120, macOS ±1. Eine Division durch 120 ergaebe dort 0.
-                    betrag = float(getattr(e, 'delta', 0) or 0)
-                    if not betrag:
+                    amount = float(getattr(e, 'delta', 0) or 0)
+                    if not amount:
                         return 'break'
-                    schritte = -1 if betrag > 0 else 1
+                    steps = -1 if amount > 0 else 1
                 try:
-                    leinwand.yview_scroll(schritte, 'units')
+                    leinwand.yview_scroll(steps, 'units')
                 except tk.TclError:
                     pass
             # Auch wenn nichts zu rollen ist: Das Rad darf nicht durchfallen.
             return 'break'
 
-        def streich_in_liste(e):
+        def swipe_in_list(e):
             """Trackpad — beide Richtungen stecken gepackt in einer Zahl."""
-            roh = int(getattr(e, 'delta', 0) or 0)
-            senkrecht = (roh >> 16) & 0xFFFF
-            if senkrecht >= 0x8000:
-                senkrecht -= 0x10000
-            if senkrecht and gebraucht_hoehe > sicht:
+            raw = int(getattr(e, 'delta', 0) or 0)
+            vertical = (raw >> 16) & 0xFFFF
+            if vertical >= 0x8000:
+                vertical -= 0x10000
+            if vertical and needed_height > visible:
                 try:
-                    leinwand.yview_scroll(1 if senkrecht > 0 else -1, 'units')
+                    leinwand.yview_scroll(1 if vertical > 0 else -1, 'units')
                 except tk.TclError:
                     pass
             return 'break'
 
         for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
-            fenster.bind(ereignis, rad_in_liste)
+            window.bind(ereignis, wheel_in_list)
         try:
-            fenster.bind('<TouchpadScroll>', streich_in_liste)
+            window.bind('<TouchpadScroll>', swipe_in_list)
         except tk.TclError:
             # Tk 8.6 kennt das Ereignis nicht; dort melden sich Trackpads
             # ohnehin als Button-4/5.
             pass
 
-        fenster.geometry('%dx%d+%d+%d' % (gebraucht_breite, sicht + 2, x, y))
+        window.geometry('%dx%d+%d+%d' % (needed_width, visible + 2, x, y))
         # ⚠⚠ **Ohne das landet die Liste links oben am Bildschirmrand.**
         # Ein `overrideredirect`-Fenster wird angezeigt, sobald Tk dazu kommt —
         # und wenn das VOR dem Verarbeiten der Geometrie geschieht, sitzt es auf
@@ -1520,13 +1520,13 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # aus und war ein Zeitpunktfehler. Gefunden wurde es, weil ein
         # Messpunkt mit `update_idletasks()` den Fehler versehentlich behob.
         #
-        # ⚠ `rundwahl` selbst ist seit v3.9.1 unveraendert (344 Zeilen,
+        # ⚠ `round_select` selbst ist seit v3.9.1 unveraendert (344 Zeilen,
         # geprueft). Ausgeloest hat es vermutlich der Seiten-Vorbau, der die
         # Ereignisschleife staerker belegt und damit das Zeitfenster
         # verschiebt — das erklaert, warum derselbe Code vorher richtig lag.
-        fenster.update_idletasks()
-        fenster.lift()
-        fenster.focus_set()
+        window.update_idletasks()
+        window.lift()
+        window.focus_set()
 
         # Ein Klick irgendwo anders schließt die Liste — sonst bleibt sie stehen,
         # sobald man es sich anders überlegt.
@@ -1537,10 +1537,10 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         # genau dieses Nachzucken ab und schloss sich von selbst: Wer nach einer
         # Auswahl gleich das nächste Feld anklickte, sah die Liste aufblitzen und
         # verschwinden — erst der zweite Klick hielt. Genau so gemeldet.
-        def wache_setzen():
+        def set_guard():
             try:
-                fenster.bind('<FocusOut>', zuklappen)
-                fenster.bind('<Escape>', zuklappen)
+                window.bind('<FocusOut>', close_list)
+                window.bind('<Escape>', close_list)
                 # ⚠⚠ **Scrollen schliesst die Liste auch.** Sie schwebt als
                 # eigenes Fenster an einer festen Stelle des Bildschirms —
                 # rollt man die Seite darunter weg, bleibt sie stehen und legt
@@ -1551,17 +1551,17 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
                 #
                 # Dasselbe gilt, wenn das Fenster verschoben oder in der Grösse
                 # geändert wird: Die Liste stünde dann neben ihrem Feld.
-                wurzel = c.winfo_toplevel()
-                wachen = []
+                root_window = c.winfo_toplevel()
+                guards = []
                 for ereignis in ('<MouseWheel>', '<Button-4>', '<Button-5>',
                                  '<Configure>'):
-                    wachen.append((ereignis,
-                                   wurzel.bind(ereignis, zuklappen, add='+')))
-                zustand['wachen'] = wachen
+                    guards.append((ereignis,
+                                   root_window.bind(ereignis, close_list, add='+')))
+                zustand['wachen'] = guards
             except tk.TclError:
                 pass
 
-        fenster.after(250, wache_setzen)
+        window.after(250, set_guard)
 
     def stumm_setzen(wert):
         """Anzeige umstellen, ohne den Rückruf auszulösen.
@@ -1569,12 +1569,12 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
         Gebraucht beim Zurücksetzen mehrerer Felder auf einmal: Sonst löst
         jedes einzelne einen vollen Neuaufbau der Liste aus.
         """
-        zuklappen()
+        close_list()
         zustand['wert'] = wert
-        c.itemconfigure(text_id, text=beschriftung_zu(wert))
+        c.itemconfigure(text_id, text=caption_for(wert))
         faerben()
 
-    c.bind('<Button-1>', aufklappen)
+    c.bind('<Button-1>', open_list)
     # ⚠⚠ **Beim Seitenwechsel muss die Liste mitgehen.** Sie ist ein eigenes,
     # rahmenloses Fenster und hängt an keiner Seite: Wer sie in der Herstellung
     # aufklappt und dann links auf „Mein Lager" klickt, hatte sie bis
@@ -1586,23 +1586,23 @@ def rundwahl(eltern, eintraege, gewaehlt, beim_waehlen, schrift, grund=None,
     #
     # Also am Feld selbst horchen: Wird es ausgeblendet (`<Unmap>`) oder
     # abgeräumt (`<Destroy>`), ist die Liste dazu gegenstandslos.
-    def _weg_mit_der_liste(ereignis=None):
+    def _close_list(ereignis=None):
         # ⚠ Nur auf das Feld selbst hören. `<Destroy>` kommt auch für jedes
         # Kind und würde sonst beim Abräumen der Liste selbst wieder feuern.
         if ereignis is not None and ereignis.widget is not c:
             return
-        zuklappen()
+        close_list()
 
-    c.bind('<Unmap>', _weg_mit_der_liste)
-    c.bind('<Destroy>', _weg_mit_der_liste)
+    c.bind('<Unmap>', _close_list)
+    c.bind('<Destroy>', _close_list)
     faerben()
-    c.setzen = waehlen
+    c.setzen = choose
     c.stumm_setzen = stumm_setzen
     c.wert = lambda: zustand['wert']
     return c
 
 
-def marke(eltern, text, farbe, schrift, grund=None, mindestbreite=0):
+def badge(eltern, text, color, schrift, grund=None, min_width=0):
     """Eine abgerundete Blase mit farbigem Rand — „neu", „behoben" und Verwandte.
 
     Ein farbiges Wort geht in einer Liste unter; eine umrandete Blase liest man
@@ -1614,18 +1614,18 @@ def marke(eltern, text, farbe, schrift, grund=None, mindestbreite=0):
     Ecken kann ein Label ohnehin nicht. Deshalb eine kleine Leinwand: Sie kostet
     ein paar Zeilen mehr und sieht auf allen drei Systemen gleich aus.
     """
-    grund = grund or FLAECHE
+    grund = grund or SURFACE
     hoehe = schrift.metrics('linespace') + 8
     # ⚠ Genug Luft, und alle Blasen einer Gruppe gleich breit: Sonst wird die
     # längste abgeschnitten, sobald der Platz feststeht — und die Wörter
     # flattern, weil jede Blase anders breit ist.
-    breite = max(mindestbreite, schrift.measure(text) + 20)
+    breite = max(min_width, schrift.measure(text) + 20)
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=grund,
                   highlightthickness=0, bd=0)
-    c.blase = _rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1,
+    c.blase = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
                                radius=max(4, hoehe // 3),
-                               fill=grund, outline=farbe, width=1)
-    c.create_text(breite / 2.0, hoehe / 2.0, text=text, fill=farbe,
+                               fill=grund, outline=color, width=1)
+    c.create_text(breite / 2.0, hoehe / 2.0, text=text, fill=color,
                   font=schrift, anchor='center')
 
     def hintergrund(neuer):
@@ -1675,9 +1675,9 @@ class Hauptfenster:
         # ⭐ **Wer sein Fenster groesser zieht, findet es so wieder.** Vorher
         # ging es bei jedem Start wieder auf 1160x380 zurueck, und wer mit
         # langen Listen arbeitet, zog es jedes Mal von Hand auf.
-        _b_start, _h_start = gemerkte_groesse(self.root)
+        _b_start, _h_start = remembered_size(self.root)
         self.root.geometry(screen.centered(self.root, _b_start, _h_start))
-        self.root.minsize(MIN_BREITE, MIN_HOEHE)
+        self.root.minsize(MIN_WIDTH, MIN_HEIGHT)
         # Merker fuer die Drossel unten — solange etwas darin steht, ist ein
         # Speichern schon vorgemerkt.
         self._groesse_wartet = None
@@ -1742,8 +1742,8 @@ class Hauptfenster:
         ein Klick INS Feld natürlich schon.
         """
         try:
-            ziel = ereignis.widget if ereignis is not None else None
-            if ziel is not None and ziel.winfo_class() in ('Entry', 'Text',
+            target = ereignis.widget if ereignis is not None else None
+            if target is not None and target.winfo_class() in ('Entry', 'Text',
                                                            'TEntry', 'Spinbox'):
                 return
             # ⚠ Nur wegnehmen, wenn er auch wirklich in einem Feld steht —
@@ -1758,8 +1758,8 @@ class Hauptfenster:
             # beiseite, und drei Pruefungen liefen deshalb ins Leere.
             # `focus_lastfor()` beantwortet dieselbe Frage ohne aktives
             # Fenster: welches Widget den Fokus in diesem Toplevel hat.
-            if jetzt is None and ziel is not None:
-                jetzt = ziel.focus_lastfor()
+            if jetzt is None and target is not None:
+                jetzt = target.focus_lastfor()
 
             if jetzt is not None and jetzt.winfo_class() in ('Entry', 'Text',
                                                              'TEntry',
@@ -1768,14 +1768,14 @@ class Hauptfenster:
                 # Sonst landet der Fokus in der Wurzel, waehrend der Nutzer in
                 # einem eigenen Fenster steht — dort bliebe der Cursor stehen,
                 # also genau der gemeldete Fehler, nur eine Ebene hoeher.
-                (ziel.winfo_toplevel() if ziel is not None
+                (target.winfo_toplevel() if target is not None
                  else self.root).focus_set()
         except Exception:
             pass                 # ein Klick darf nie einen Fehler auslösen
 
     # ------------------------------------------------------------- Schriften
     def _schriften_anlegen(self):
-        stufe = STUFEN.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
+        stufe = FONT_LEVELS.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
         self.f_grund  = tkfont.Font(family='Segoe UI', size=10 + stufe)
         self.f_fett   = tkfont.Font(family='Segoe UI', size=10 + stufe, weight='bold')
         self.f_klein  = tkfont.Font(family='Segoe UI', size=9 + stufe)
@@ -1792,8 +1792,8 @@ class Hauptfenster:
         ⚠ **Die Schriften umzustellen reicht nicht.** Ein benanntes Tk-Font
         wirkt sofort auf jedes Widget, das es benutzt — aber nur auf den
         *Text*. Alles, was seine Größe beim Bauen **einmal gemessen** hat,
-        bleibt stehen: die gezeichneten Rundknöpfe (`_wahl`, `rundknopf`,
-        `rundes_feld`) legen ihre Leinwand auf `schrift.measure(text)` fest.
+        bleibt stehen: die gezeichneten Rundknöpfe (`_wahl`, `round_button`,
+        `round_entry`) legen ihre Leinwand auf `schrift.measure(text)` fest.
         Bei „sehr groß" ragte der Text deshalb aus dem Kasten heraus und war
         abgeschnitten — gemeldet von am 27.08.2026 gemeldet an der
         Overlay-Wahl („immer sichtbar" / „nur bei einem Neuzugang").
@@ -1806,7 +1806,7 @@ class Hauptfenster:
         ⚠ Die Rückmeldung kommt **nach** dem Neuaufbau. Vorher gesagt, wäre sie
         sofort wieder weg: `neu_aufbauen()` zerstört auch die Fußzeile.
         """
-        n = STUFEN.get(stufe, 1)
+        n = FONT_LEVELS.get(stufe, 1)
         for schrift, grund in ((self.f_grund, 10), (self.f_fett, 10),
                                (self.f_klein, 9), (self.f_titel, 12),
                                (self.f_zeichen, 13)):
@@ -1816,7 +1816,7 @@ class Hauptfenster:
             try:
                 self.beim_schriftwechsel(stufe)
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.schriftwechsel', ausnahme)
+                fehler.merken('main_window.schriftwechsel', ausnahme)
 
         # ⚠ Über `after`, nicht sofort: Wir stecken im Klick-Rückruf des
         # Knopfes, der gleich zerstört wird. Tk meldete sonst
@@ -1826,7 +1826,7 @@ class Hauptfenster:
                 self.neu_aufbauen()
                 self.sagen('%s: %s' % (t('hf_schrift'), t('hf_s_' + stufe)))
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.schriftgroesse_nachziehen',
+                fehler.merken('main_window.schriftgroesse_nachziehen',
                               ausnahme)
 
         self.root.after(0, nachziehen)
@@ -1856,13 +1856,13 @@ class Hauptfenster:
         """
         def ins_leere(ereignis):
             try:
-                ziel = ereignis.widget
+                target = ereignis.widget
                 # In ein Eingabefeld geklickt: alles in Ordnung, Finger weg.
-                if isinstance(ziel, (tk.Entry, tk.Text, tk.Spinbox,
+                if isinstance(target, (tk.Entry, tk.Text, tk.Spinbox,
                                      tk.Listbox)):
                     return
-                fokus = self.root.focus_get()
-                if isinstance(fokus, (tk.Entry, tk.Text, tk.Spinbox)):
+                focus = self.root.focus_get()
+                if isinstance(focus, (tk.Entry, tk.Text, tk.Spinbox)):
                     self.root.focus_set()
             except (tk.TclError, KeyError):
                 # `focus_get()` wirft, wenn der Fokus bei einem Fenster liegt,
@@ -1881,16 +1881,16 @@ class Hauptfenster:
 
         # Das Programm-Icon gehört hierhin — dort sucht man es.
         self._icon_bild = None
-        png = _mitgeliefert(os.path.join('assets', 'icon.png'))
+        png = _bundled(os.path.join('assets', 'icon.png'))
         if png and os.path.exists(png):
             try:
-                voll = tk.PhotoImage(file=png)
-                teiler = max(1, voll.width() // 22)
-                self._icon_bild = voll.subsample(teiler, teiler)
+                full_color = tk.PhotoImage(file=png)
+                teiler = max(1, full_color.width() // 22)
+                self._icon_bild = full_color.subsample(teiler, teiler)
                 tk.Label(bar, image=self._icon_bild, bg=BAR).pack(side='left',
                                                                  padx=(12, 8), pady=8)
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.icon', ausnahme)
+                fehler.merken('main_window.icon', ausnahme)
 
         tk.Label(bar, text=t('hf_titel'), bg=BAR, fg=FG,
                  font=self.f_fett).pack(side='left')
@@ -1981,7 +1981,7 @@ class Hauptfenster:
                     text = ' %s' % _sz.as_text(gesamt)
                 self.zeit_text.configure(text=text)
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.spielzeit', ausnahme)
+                fehler.merken('main_window.spielzeit', ausnahme)
             try:
                 self.root.after(self.ZEIT_TAKT_MS, nachziehen)
             except tk.TclError:
@@ -1996,8 +1996,8 @@ class Hauptfenster:
         z.pack(side='left')
         w = tk.Label(rahmen, text=' ' + wort, bg=BAR, fg=SUB, font=self.f_klein)
         w.pack(side='left')
-        for teil in (rahmen, z, w):
-            teil.bind('<Button-1>', lambda e, f=tat: f())
+        for part in (rahmen, z, w):
+            part.bind('<Button-1>', lambda e, f=tat: f())
         notice.attach(rahmen, lambda: erklaerung)
         rahmen.teile = (z, w)
         return rahmen
@@ -2009,7 +2009,7 @@ class Hauptfenster:
         self.meldung = tk.Label(fuss, text=t('hf_sofort'), bg=BAR, fg=SUB,
                                 font=self.f_klein)
         self.meldung.pack(side='left', padx=14, pady=9)
-        k = tk.Label(fuss, text=' %s ' % t('hf_schliessen'), bg=FLAECHE, fg=FG,
+        k = tk.Label(fuss, text=' %s ' % t('hf_schliessen'), bg=SURFACE, fg=FG,
                      font=self.f_klein, cursor='hand2', padx=10, pady=4)
         k.pack(side='right', padx=12)
         k.bind('<Button-1>', lambda e: self.schliessen())
@@ -2046,35 +2046,35 @@ class Hauptfenster:
         # ein Startknopf, den man erst herunterrollen muss, ist keiner. Deshalb
         # eine Spalte mit zwei Teilen: unten der feste Fuß, darüber die
         # rollende Leiste, die sich den Rest nimmt.
-        self.leisten_spalte = tk.Frame(self.root, bg=FLAECHE,
-                                       width=LEISTE_BREITE)
+        self.leisten_spalte = tk.Frame(self.root, bg=SURFACE,
+                                       width=SIDEBAR_WIDTH)
         self.leisten_spalte.pack(side='left', fill='y')
         self.leisten_spalte.pack_propagate(False)
 
-        self.leisten_fuss = tk.Frame(self.leisten_spalte, bg=FLAECHE)
+        self.leisten_fuss = tk.Frame(self.leisten_spalte, bg=SURFACE)
         self.leisten_fuss.pack(side='bottom', fill='x')
 
         # Zwischenrahmen, damit Rollbalken und Fläche nebeneinander liegen und
         # der Fuß darunter unberührt bleibt.
-        rollbereich = tk.Frame(self.leisten_spalte, bg=FLAECHE)
+        rollbereich = tk.Frame(self.leisten_spalte, bg=SURFACE)
         rollbereich.pack(side='top', fill='both', expand=True)
-        self.leisten_flaeche = tk.Canvas(rollbereich, bg=FLAECHE,
-                                         width=LEISTE_BREITE,
+        self.leisten_flaeche = tk.Canvas(rollbereich, bg=SURFACE,
+                                         width=SIDEBAR_WIDTH,
                                          highlightthickness=0, bd=0)
         # ⚠ **Ohne sichtbaren Balken sieht die Leiste kaputt aus.** Passt sie
         # nicht ganz, sind die unteren Einträge einfach weg — eine offene
         # Gruppe wirkt dann leer, und niemand kommt auf die Idee zu rollen.
         # Genau so stand „Info" beim ersten Bau da: aufgeklappt und trotzdem
         # ohne einen einzigen Eintrag.
-        self.leisten_balken = rundleiste(rollbereich, self.leisten_flaeche,
-                                         grund=FLAECHE)
+        self.leisten_balken = round_scrollbar(rollbereich, self.leisten_flaeche,
+                                         grund=SURFACE)
         self.leisten_flaeche.configure(
             yscrollcommand=self.leisten_balken.set)
         self.leisten_balken.pack(side='right', fill='y')
         self.leisten_flaeche.pack(side='left', fill='both', expand=True)
-        self.leiste = tk.Frame(self.leisten_flaeche, bg=FLAECHE)
+        self.leiste = tk.Frame(self.leisten_flaeche, bg=SURFACE)
         self._leisten_fenster = self.leisten_flaeche.create_window(
-            0, 0, window=self.leiste, anchor='nw', width=LEISTE_BREITE)
+            0, 0, window=self.leiste, anchor='nw', width=SIDEBAR_WIDTH)
 
         def _leiste_nachmessen(_=None):
             """Rollbereich auf den Inhalt setzen — und nur rollen, wenn nötig."""
@@ -2092,12 +2092,12 @@ class Hauptfenster:
         self.leisten_flaeche.bind('<Configure>', _leiste_nachmessen)
 
         # ⭐ **Mausrad über die vorhandene Stelle**, nicht selbst gebaut:
-        # `rad_anschliessen` kennt bereits alle Fallen, die hier schon einmal
+        # `bind_wheel` kennt bereits alle Fallen, die hier schon einmal
         # Arbeit gekostet haben — Trackpad-Streichgesten, macOS mit ±1 statt
         # ±120, und vor allem `bind_all` **ohne** `add='+'`, das jede andere
         # Bindung im Fenster stillschweigend ersetzt. Ein zweiter Eigenbau
         # daneben hätte genau das wieder aufgerissen.
-        rad_anschliessen(self.leisten_flaeche)
+        bind_wheel(self.leisten_flaeche)
         self._leiste_nachmessen = _leiste_nachmessen
 
         self.inhalt = tk.Frame(self.root, bg=BG)
@@ -2272,24 +2272,24 @@ class Hauptfenster:
         # Erkennung und der Bauplan-Bestand, also Dinge, die man **einstellt**.
         # „Info" erzählt etwas (Was ist neu, Über, Serverstatus, Danke) — dort
         # wäre es thematisch falsch einsortiert, auch wenn es optisch passte.
-        self.klapp = tk.Frame(g_einst, bg=FLAECHE)
+        self.klapp = tk.Frame(g_einst, bg=SURFACE)
         self.klapp.pack(fill='x', pady=(6, 4))
         # ⚠ Aufbau wie eine Gruppenüberschrift: Beschriftung links, Pfeil
         # rechts, dasselbe Symbol. Es ist dieselbe Handlung — etwas auf- und
         # zuklappen —, also muss es gleich aussehen (Wunsch vom 30.08.2026:
         # „gleiches Bild im gesamten Projekt").
-        self.klappkopf = tk.Frame(self.klapp, bg=FLAECHE, cursor='hand2')
+        self.klappkopf = tk.Frame(self.klapp, bg=SURFACE, cursor='hand2')
         self.klappkopf.pack(fill='x')
         self.klapppfeil = icons.line(self.klappkopf, 'aufklappen',
-                                        background=FLAECHE, font=self.f_klein)
+                                        background=SURFACE, font=self.f_klein)
         self.klapppfeil.pack(side='right', padx=(0, 12))
         self.klappknopf = tk.Label(self.klappkopf, text=t('hf_fortgeschritten'),
-                                   bg=FLAECHE, fg=SUB, font=self.f_klein,
+                                   bg=SURFACE, fg=SUB, font=self.f_klein,
                                    cursor='hand2', anchor='w', padx=16, pady=8)
         self.klappknopf.pack(side='left', fill='x', expand=True)
         for _teil in (self.klappkopf, self.klappknopf, self.klapppfeil):
             _teil.bind('<Button-1>', lambda e: self._klapp_umschalten())
-        self.klappinhalt = tk.Frame(self.klapp, bg=FLAECHE)
+        self.klappinhalt = tk.Frame(self.klapp, bg=SURFACE)
 
         # --- Discord -----------------------------------------------------
         # Wunsch von am 26.08.2026 gemeldet, nach dem Vorbild des
@@ -2300,12 +2300,12 @@ class Hauptfenster:
         # Discord ist ein Angebot. Zwei gleich laute Knöpfe nebeneinander nehmen
         # sich gegenseitig die Wirkung — das markante Grün trägt nur, solange es
         # an genau einer Stelle steht.
-        rahmen_dc = tk.Frame(self.leisten_fuss, bg=FLAECHE)
+        rahmen_dc = tk.Frame(self.leisten_fuss, bg=SURFACE)
         rahmen_dc.pack(side='bottom', fill='x', padx=12, pady=(0, 6))
-        self.discordknopf = rundknopf(
+        self.discordknopf = round_button(
             rahmen_dc, t('hf_discord'), self._discord_oeffnen, self.f_klein,
-            FLAECHE, FLAECHE, LINIE, SUB, radius=8, polster=(12, 6),
-            malen=discord_zeichen)
+            SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
+            paint=discord_glyph)
         self.discordknopf.pack(fill='x')
 
         # --- Ko-fi -------------------------------------------------------
@@ -2323,12 +2323,12 @@ class Hauptfenster:
         # **beiden** Dokumenten verboten bleibt und deshalb hier nie entstehen
         # darf: eine Bezahlschranke, ein Abo, Werbung. Der Knopf führt zu einer
         # freiwilligen Seite, das Werkzeug bleibt vollständig und kostenlos.
-        rahmen_kofi = tk.Frame(self.leisten_fuss, bg=FLAECHE)
+        rahmen_kofi = tk.Frame(self.leisten_fuss, bg=SURFACE)
         rahmen_kofi.pack(side='bottom', fill='x', padx=12, pady=(0, 2))
-        self.kofiknopf = rundknopf(
+        self.kofiknopf = round_button(
             rahmen_kofi, t('hf_kofi'), self._kofi_oeffnen, self.f_klein,
-            FLAECHE, FLAECHE, LINIE, SUB, radius=8, polster=(12, 6),
-            malen=kaffee_zeichen)
+            SURFACE, SURFACE, BORDER, SUB, radius=8, polster=(12, 6),
+            paint=coffee_glyph)
         self.kofiknopf.pack(fill='x')
 
         # --- Star Citizen starten ---------------------------------------
@@ -2354,17 +2354,17 @@ class Hauptfenster:
         except Exception:
             hat_starter = False
         if hat_starter:
-            rahmen_start = tk.Frame(self.leisten_fuss, bg=FLAECHE)
+            rahmen_start = tk.Frame(self.leisten_fuss, bg=SURFACE)
             rahmen_start.pack(side='bottom', fill='x', padx=12, pady=(8, 2))
-            self.spielknopf = rundknopf(
+            self.spielknopf = round_button(
                 rahmen_start, t('s_sp_start_knopf'),
                 self._spiel_starten, self.f_klein,
-                FLAECHE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
+                SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
             self.spielknopf.pack(fill='x')
 
     def _kofi_oeffnen(self):
         """Die Ko-fi-Seite im Browser aufmachen."""
-        self._adresse_auf(KOFI_ADRESSE, t('hf_kofi_auf'), 'hauptfenster.kofi')
+        self._adresse_auf(KOFI_URL, t('hf_kofi_auf'), 'main_window.kofi')
 
     def _discord_oeffnen(self):
         """Die Einladung im Browser aufmachen.
@@ -2374,7 +2374,7 @@ class Hauptfenster:
         führt Leute auf eine Fehlerseite und niemand merkt es.
         """
         self._adresse_auf('https://discord.gg/g2E7e6XxZC',
-                          t('hf_discord_auf'), 'hauptfenster.discord')
+                          t('hf_discord_auf'), 'main_window.discord')
 
     def _adresse_auf(self, adresse, meldung, stelle):
         """Eine Adresse aufmachen — und **sagen**, wenn es nicht geklappt hat.
@@ -2431,12 +2431,12 @@ class Hauptfenster:
         except Exception:
             hat_starter = False
         if hat_starter:
-            rahmen_start = tk.Frame(self.leisten_fuss, bg=FLAECHE)
+            rahmen_start = tk.Frame(self.leisten_fuss, bg=SURFACE)
             rahmen_start.pack(side='bottom', fill='x', padx=12, pady=(8, 2))
-            self.spielknopf = rundknopf(
+            self.spielknopf = round_button(
                 rahmen_start, t('s_sp_start_knopf'),
                 self._spiel_starten, self.f_klein,
-                FLAECHE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
+                SURFACE, ACCENT, ACCENT, BG, radius=8, polster=(12, 7))
             self.spielknopf.pack(fill='x')
 
     def _spiel_starten(self):
@@ -2493,7 +2493,7 @@ class Hauptfenster:
 
         # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
         # der wie ein Knopf aussieht und nicht reagiert, wirkt kaputt.
-        kopf = tk.Frame(self.leiste, bg=FLAECHE,
+        kopf = tk.Frame(self.leiste, bg=SURFACE,
                         cursor='' if fest else 'hand2')
         kopf.pack(fill='x', pady=(10, 0))
         # ⚠ **Dasselbe Symbol wie überall sonst im Programm.** Zuerst standen
@@ -2502,17 +2502,17 @@ class Hauptfenster:
         # und der Bestand aufklappen. Ein Werkzeug, das dieselbe Handlung an
         # zwei Stellen verschieden abbildet, muss zweimal gelernt werden.
         pfeil = icons.line(kopf, 'zuklappen' if offen else 'aufklappen',
-                              background=FLAECHE, font=self.f_klein)
+                              background=SURFACE, font=self.f_klein)
         # ⚠ Bei einer festgenagelten Gruppe gar kein Pfeil. Ein Pfeil ist ein
         # Versprechen („hier lässt sich klappen"); eines, das nicht eingelöst
         # wird, ist schlimmer als keines.
         if not fest:
             pfeil.pack(side='right', padx=(0, 12))
-        beschriftung = tk.Label(kopf, text=text.upper(), bg=FLAECHE, fg=SUB,
+        beschriftung = tk.Label(kopf, text=text.upper(), bg=SURFACE, fg=SUB,
                                 font=self.f_klein, anchor='w', padx=16, pady=6)
         beschriftung.pack(side='left', fill='x', expand=True)
 
-        inhalt = tk.Frame(self.leiste, bg=FLAECHE)
+        inhalt = tk.Frame(self.leiste, bg=SURFACE)
         if offen:
             inhalt.pack(fill='x')
 
@@ -2521,8 +2521,8 @@ class Hauptfenster:
                                  'reiter': []}
 
         if not fest:
-            for teil in (kopf, beschriftung, pfeil):
-                teil.bind('<Button-1>',
+            for part in (kopf, beschriftung, pfeil):
+                part.bind('<Button-1>',
                           lambda _e, k=kennung: self._gruppe_um(k))
         return inhalt
 
@@ -2566,26 +2566,26 @@ class Hauptfenster:
     # Prüfen lässt es sich mit `tkfont.Font.measure`: Ein fehlendes Zeichen ist
     # genauso breit wie das amtliche Ersatzzeichen `￿`.
     def _reiter(self, kennung, symbol, text, wohin=None):
-        ziel = wohin if wohin is not None else self.leiste
-        zeile = tk.Frame(ziel, bg=FLAECHE, cursor='hand2')
+        target = wohin if wohin is not None else self.leiste
+        zeile = tk.Frame(target, bg=SURFACE, cursor='hand2')
         zeile.pack(fill='x')
-        strich = tk.Frame(zeile, bg=FLAECHE, width=3)
+        strich = tk.Frame(zeile, bg=SURFACE, width=3)
         strich.pack(side='left', fill='y')
         # ⚠ `symbol` heißt der Parameter, nicht `zeichen` — sonst verdeckt er
         # das gleichnamige Modul, aus dem das Bild kommt.
-        z = icons.button(zeile, symbol, background=FLAECHE, font=self.f_zeichen)
+        z = icons.button(zeile, symbol, background=SURFACE, font=self.f_zeichen)
         z.pack(side='left', padx=(10, 4), pady=7)
-        b = tk.Label(zeile, text=text, bg=FLAECHE, fg=SUB, font=self.f_grund,
+        b = tk.Label(zeile, text=text, bg=SURFACE, fg=SUB, font=self.f_grund,
                      anchor='w')
         b.pack(side='left', fill='x', expand=True)
 
         marke_widget = None
         if news.is_new(kennung, self.version):
-            marke_widget = marke(zeile, t('hf_neu'), ACCENT, self.f_klein)
+            marke_widget = badge(zeile, t('hf_neu'), ACCENT, self.f_klein)
             marke_widget.pack(side='right', padx=10)
 
-        for teil in (zeile, z, b):
-            teil.bind('<Button-1>', lambda e, k=kennung: self.oeffnen(k))
+        for part in (zeile, z, b):
+            part.bind('<Button-1>', lambda e, k=kennung: self.oeffnen(k))
         self.knoepfe[kennung] = (zeile, strich, z, b, marke_widget)
 
     def _seitenleiste_bedarf(self):
@@ -2609,9 +2609,9 @@ class Hauptfenster:
             except Exception:
                 continue
             if isinstance(polster, str):
-                polster = sum(int(teil) for teil in polster.split())
+                polster = sum(int(part) for part in polster.split())
             elif isinstance(polster, (tuple, list)):
-                polster = sum(int(teil) for teil in polster)
+                polster = sum(int(part) for part in polster)
             hoch += kind.winfo_reqheight() + 2 * int(polster or 0)
         return hoch
 
@@ -2626,10 +2626,10 @@ class Hauptfenster:
         """
         try:
             breiten = []
-            for eintrag in self.knoepfe.values():
-                if not eintrag or not eintrag[0]:
+            for entry in self.knoepfe.values():
+                if not entry or not entry[0]:
                     continue
-                zeile, _strich, _z, beschriftung, _marke = eintrag
+                zeile, _strich, _z, beschriftung, _marke = entry
                 # ⚠ Der **aktive** Reiter wird fett gezeichnet, und fett ist breiter.
                 # Gemessen wird aber der Zustand, in dem die Zeile gerade ist — wer
                 # nur `winfo_reqwidth()` nimmt, misst bei allen anderen die schmale
@@ -2646,15 +2646,15 @@ class Hauptfenster:
             # ⚠ Den **Kopf** messen, nicht nur die Beschriftung: Seit der
             # Pfeil daneben sitzt, ist die Zeile breiter als ihr Text.
             breiten.append(self.klappkopf.winfo_reqwidth())
-            noetig = max(LEISTE_BREITE, max(breiten) + 12)
-            if noetig != self.leisten_spalte.winfo_width():
-                self.leisten_spalte.configure(width=noetig)
-                self.leisten_flaeche.configure(width=noetig)
+            needed = max(SIDEBAR_WIDTH, max(breiten) + 12)
+            if needed != self.leisten_spalte.winfo_width():
+                self.leisten_spalte.configure(width=needed)
+                self.leisten_flaeche.configure(width=needed)
                 self.leisten_flaeche.itemconfigure(self._leisten_fenster,
-                                                   width=noetig)
-            return noetig
+                                                   width=needed)
+            return needed
         except (tk.TclError, ValueError):
-            return LEISTE_BREITE
+            return SIDEBAR_WIDTH
 
     def _mindesthoehe_nachziehen(self, versuch=0):
         """Die Mindesthöhe an das anpassen, was die Seitenleiste braucht.
@@ -2703,7 +2703,7 @@ class Hauptfenster:
             # hinpasst, rollt. Die Mindesthöhe ist deshalb wieder eine feste
             # Zahl — `_seitenleiste_bedarf()` wird nur noch für den Rollbereich
             # gebraucht, nicht mehr für die Fenstergrösse.
-            noetig = MIN_HOEHE
+            needed = MIN_HEIGHT
             # ⚠⚠ **Die Mindesthöhe darf den Bildschirm nie überschreiten.**
             #
             # Ein `minsize`, das höher ist als der Monitor, lässt sich nicht
@@ -2721,18 +2721,18 @@ class Hauptfenster:
                 _, _, _, schirm_hoch = _bs.screen_at(
                     self.root, self.root.winfo_x(), self.root.winfo_y())
                 if schirm_hoch and schirm_hoch > 200:
-                    noetig = min(noetig, schirm_hoch)
+                    needed = min(needed, schirm_hoch)
             except Exception as ausnahme:
                 # Lieber die alte, womöglich zu große Höhe als gar kein Fenster.
-                fehler.merken('hauptfenster.schirmhoehe', ausnahme)
+                fehler.merken('main_window.schirmhoehe', ausnahme)
             # Wird die Leiste breiter, braucht auch das Fenster mehr — sonst geht
             # der Platz auf Kosten des Inhalts daneben.
             leiste_breit = self._leistenbreite_nachziehen()
-            breit = MIN_BREITE + max(0, leiste_breit - LEISTE_BREITE)
-            self.root.minsize(breit, noetig)
-            if self.root.winfo_height() < noetig or self.root.winfo_width() < breit:
+            breit = MIN_WIDTH + max(0, leiste_breit - SIDEBAR_WIDTH)
+            self.root.minsize(breit, needed)
+            if self.root.winfo_height() < needed or self.root.winfo_width() < breit:
                 self.root.geometry('%dx%d' % (max(breit, self.root.winfo_width()),
-                                              max(noetig, self.root.winfo_height())))
+                                              max(needed, self.root.winfo_height())))
             self._auf_den_schirm_holen()
         except tk.TclError:
             pass
@@ -2770,7 +2770,7 @@ class Hauptfenster:
             if (neu_b, neu_h, neu_x, neu_y) != (b, h, x, y):
                 self.root.geometry('%dx%d+%d+%d' % (neu_b, neu_h, neu_x, neu_y))
         except (tk.TclError, ValueError, TypeError) as ausnahme:
-            fehler.merken('hauptfenster.schirm', ausnahme)
+            fehler.merken('main_window.schirm', ausnahme)
 
     def _klapp_umschalten(self):
         self.fortgeschritten_offen = not self.fortgeschritten_offen
@@ -2834,10 +2834,10 @@ class Hauptfenster:
     # ------------------------------------------------------------ Seitenwahl
     def _gruppe_von_reiter_oeffnen(self, kennung):
         """Die Gruppe aufklappen, in der dieser Reiter sitzt."""
-        eintrag = self.knoepfe.get(kennung)
-        if not eintrag or not eintrag[0]:
+        entry = self.knoepfe.get(kennung)
+        if not entry or not entry[0]:
             return
-        elternrahmen = eintrag[0].master
+        elternrahmen = entry[0].master
         for name, g in self.gruppen.items():
             if g['inhalt'] is elternrahmen and not g['offen']:
                 self._gruppe_um(name, auf=True)
@@ -2894,7 +2894,7 @@ class Hauptfenster:
                 try:
                     ruf()
                 except Exception as ausnahme:
-                    fehler.merken('hauptfenster.zeigen:%s' % kennung, ausnahme)
+                    fehler.merken('main_window.zeigen:%s' % kennung, ausnahme)
         else:
             self.gezeichnet.add(kennung)
             # ⚠ Die Spur führt jetzt auch über die Bedienung, nicht nur über den
@@ -2907,7 +2907,7 @@ class Hauptfenster:
             try:
                 self._seite_fuellen(kennung, self.seiten[kennung])
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.seite:%s' % kennung, ausnahme)
+                fehler.merken('main_window.seite:%s' % kennung, ausnahme)
                 tk.Label(self.seiten[kennung], text='—', bg=BG, fg=SUB,
                          font=self.f_grund).pack(padx=20, pady=20)
 
@@ -2925,7 +2925,7 @@ class Hauptfenster:
         # Ketten parallel erzeugt.
         if not getattr(self, '_vorbau_laeuft', False):
             self._vorbau_laeuft = True
-            if VORBAU_AN:
+            if PREBUILD_ON:
                 self._letzte_aktion = time.monotonic()
                 # ⚠ Jede Eingabe verschiebt den Vorbau nach hinten — siehe
                 # `_seiten_vorbauen`. `add='+'` ist Pflicht, sonst verdraengt
@@ -2946,14 +2946,14 @@ class Hauptfenster:
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
         if news.is_new(kennung, self.version):
             news.mark_seen(kennung, self.version)
-            eintrag = self.knoepfe.get(kennung)
-            if eintrag and eintrag[4] is not None:
-                eintrag[4].destroy()
+            entry = self.knoepfe.get(kennung)
+            if entry and entry[4] is not None:
+                entry[4].destroy()
                 # ⚠ Und aus der Liste nehmen! Ein zerstörtes Widget bleibt sonst
                 # im Tupel stehen, und das nächste Einfärben greift ins Leere
                 # (`invalid command name`). Das schlug beim zweiten Reiterwechsel
                 # zu — also bei jedem Nutzer sofort.
-                zeile, strich, z, b, _ = eintrag
+                zeile, strich, z, b, _ = entry
                 self.knoepfe[kennung] = (zeile, strich, z, b, None)
 
     def _fehler_liegen_an(self):
@@ -2970,13 +2970,13 @@ class Hauptfenster:
             return False
 
     def _reiter_faerben(self):
-        for kennung, (zeile, strich, z, b, marke) in self.knoepfe.items():
+        for kennung, (zeile, strich, z, b, badge) in self.knoepfe.items():
             an = (kennung == self.aktuell)
-            grund = '#1d2634' if an else FLAECHE
-            for teil in (zeile, z, b):
-                teil.configure(bg=grund)
-            if marke is not None:
-                marke.hintergrund(grund)
+            grund = '#1d2634' if an else SURFACE
+            for part in (zeile, z, b):
+                part.configure(bg=grund)
+            if badge is not None:
+                badge.hintergrund(grund)
             # ⚠ Ein Bild nimmt kein `fg` an — die passend eingefärbte Version
             # muss eingehängt werden.
             # ⚠ „Fehler melden“ traegt Rot — aber in zwei Stufen, damit die
@@ -2995,9 +2995,9 @@ class Hauptfenster:
             rot = (kennung == 'diagnose')
             z.recolor(icons.RED if (rot and self._fehler_liegen_an())
                       else (icons.LIGHT if an else icons.GREY))
-            b.configure(fg=ROT if rot else (FG if an else SUB),
+            b.configure(fg=RED if rot else (FG if an else SUB),
                         font=self.f_fett if (an or rot) else self.f_grund)
-            strich.configure(bg=ACCENT if an else FLAECHE)
+            strich.configure(bg=ACCENT if an else SURFACE)
 
     # Die Seiten, auf denen der eigene Bauplan-Bestand steht. Ändert er sich,
     # sind ihre Zahlen falsch — und zwar still, ohne dass irgendetwas darauf
@@ -3039,7 +3039,7 @@ class Hauptfenster:
                 seite.neu_laden()
             except Exception as ausnahme:
                 from . import fehler
-                fehler.merken('hauptfenster.bestand_liste', ausnahme)
+                fehler.merken('main_window.bestand_liste', ausnahme)
 
         for kennung in self.BESTANDSSEITEN:
             if kennung == self.aktuell or kennung not in self.gezeichnet:
@@ -3053,7 +3053,7 @@ class Hauptfenster:
                 self.gezeichnet.discard(kennung)
             except Exception as ausnahme:
                 from . import fehler
-                fehler.merken('hauptfenster.bestand_verwerfen:%s' % kennung,
+                fehler.merken('main_window.bestand_verwerfen:%s' % kennung,
                               ausnahme)
 
     def neu_aufbauen(self):
@@ -3200,7 +3200,7 @@ class Hauptfenster:
                     # Eine Seite, die sich nicht bauen laesst, darf die
                     # anderen nicht aufhalten — beim Anklicken zeigt
                     # `oeffnen()` denselben Platzhalter.
-                    fehler.merken('hauptfenster.vorbau:%s' % kennung, ausnahme)
+                    fehler.merken('main_window.vorbau:%s' % kennung, ausnahme)
                 # Und zurueckgeben, was die vorgebaute Seite sich genommen hat.
                 # ⚠ Nur, wenn es das Widget noch gibt: Beim Neuaufbau des
                 # Fensters ist der alte Fokus-Halter schon zerstoert, und
@@ -3213,7 +3213,7 @@ class Hauptfenster:
             if rest:
                 self.root.after(60, lambda: self._seiten_vorbauen(rest))
         except Exception as ausnahme:
-            fehler.merken('hauptfenster.seiten_vorbauen', ausnahme)
+            fehler.merken('main_window.seiten_vorbauen', ausnahme)
 
     # ------------------------------------------------------------------ Tat
     def _was_ist_neu(self):
@@ -3229,7 +3229,7 @@ class Hauptfenster:
         try:
             assistent.starten(self.root)
         except Exception as ausnahme:
-            fehler.merken('hauptfenster.assistent', ausnahme)
+            fehler.merken('main_window.assistent', ausnahme)
 
     def _sicherung(self):
         """Alles Eigene in eine Datei — oder eine solche Datei einspielen.
@@ -3241,7 +3241,7 @@ class Hauptfenster:
         """
         from . import file_picker, backup
         try:
-            wahl = wahl_stellen(
+            wahl = ask_choice(
                 self.root, t('sich_titel'),
                 t('sich_lead') + '\n\n' + t('sich_was'),
                 t('sich_schreiben'), t('sich_lesen'))
@@ -3250,15 +3250,15 @@ class Hauptfenster:
             elif wahl == 'b':
                 self._sicherung_lesen(file_picker, backup)
         except Exception as ausnahme:
-            fehler.merken('hauptfenster.sicherung', ausnahme)
+            fehler.merken('main_window.sicherung', ausnahme)
 
     def _sicherung_schreiben(self, file_picker, sicherung):
-        ziel = file_picker.save_file(
+        target = file_picker.save_file(
             t('sich_schreiben'), suggestion=sicherung.suggestion(),
             extension='.zip', patterns=(('ZIP', '*.zip'),))
-        if not ziel:
+        if not target:
             return
-        ok, meldung, anzahl = sicherung.write(ziel, self.version)
+        ok, meldung, anzahl = sicherung.write(target, self.version)
         if ok:
             self.sagen(t('sich_fertig', anzahl, os.path.basename(meldung)))
         elif meldung == 'leer':
@@ -3279,10 +3279,10 @@ class Hauptfenster:
             if not (aktiv_dabei or profile):
                 return
             was = ', '.join(profile) if profile else t('sich_belegung_keine')
-            if not frage_stellen(self.root, t('sich_titel'),
+            if not ask_yes_no(self.root, t('sich_titel'),
                                  t('sich_belegung_frage', was)):
                 return
-            mit_aktiver = aktiv_dabei and frage_stellen(
+            mit_aktiver = aktiv_dabei and ask_yes_no(
                 self.root, t('sich_titel'), t('sich_belegung_aktiv'))
             ok, _meldung, geschrieben = sicherung.restore_bindings(
                 quelle, with_active=mit_aktiver)
@@ -3291,7 +3291,7 @@ class Hauptfenster:
         except Exception as ausnahme:
             # ⚠ Ein Fehler hier darf das Einspielen nicht mitreißen — der
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
-            fehler.merken('hauptfenster.belegung_anbieten', ausnahme)
+            fehler.merken('main_window.belegung_anbieten', ausnahme)
 
     def _sicherung_lesen(self, file_picker, sicherung):
         quelle = file_picker.open_file(t('sich_lesen'),
@@ -3300,12 +3300,12 @@ class Hauptfenster:
             return
         # ⚠ Erst nachsehen, dann fragen, dann erst schreiben. Wer sich in der
         # Datei vergreift, soll das erfahren, BEVOR sein Bestand weg ist.
-        gueltig, anzahl, wann = sicherung.check(quelle)
+        gueltig, anzahl, when = sicherung.check(quelle)
         if not gueltig:
             self.sagen(t('sich_ungueltig'))
             return
-        if not frage_stellen(self.root, t('sich_titel'),
-                             t('sich_frage', wann or '?', anzahl)):
+        if not ask_yes_no(self.root, t('sich_titel'),
+                             t('sich_frage', when or '?', anzahl)):
             return
         ok, meldung, anzahl = sicherung.restore(quelle)
         if not ok:
@@ -3333,7 +3333,7 @@ class Hauptfenster:
                 if not updater.restart():
                     self.sagen(t('sich_neustart_selbst'))
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.sicherung_neustart', ausnahme)
+                fehler.merken('main_window.sicherung_neustart', ausnahme)
                 self.sagen(t('sich_neustart_selbst'))
 
         self.root.after(1200, _neustart)
@@ -3375,12 +3375,12 @@ class Hauptfenster:
         except Exception:
             return
         # Solange nichts gezeichnet ist, meldet Tk eine 1 — das ist keine Groesse.
-        if breite < MIN_BREITE or hoehe < MIN_HOEHE:
+        if breite < MIN_WIDTH or hoehe < MIN_HEIGHT:
             return
         wert = '%dx%d' % (breite, hoehe)
-        if wert == (pfade.einstellung(GROESSE_SCHLUESSEL) or ''):
+        if wert == (pfade.einstellung(SIZE_KEY) or ''):
             return
-        pfade.einstellung_setzen(GROESSE_SCHLUESSEL, wert)
+        pfade.einstellung_setzen(SIZE_KEY, wert)
 
     def schliessen(self):
         # Beim Zumachen noch einmal sichern: Wer das Fenster kurz nach dem
@@ -3388,14 +3388,14 @@ class Hauptfenster:
         try:
             self._groesse_merken()
         except Exception as ausnahme:
-            fehler.merken('hauptfenster.groesse_merken', ausnahme)
+            fehler.merken('main_window.groesse_merken', ausnahme)
         # Offene Schreibauftraege der Seiten abarbeiten, bevor das Fenster weg
         # ist. Einer, der scheitert, darf die uebrigen nicht mitreissen.
         for auftrag in list(self.vor_dem_schliessen):
             try:
                 auftrag()
             except Exception as ausnahme:
-                fehler.merken('hauptfenster.vor_dem_schliessen', ausnahme)
+                fehler.merken('main_window.vor_dem_schliessen', ausnahme)
         try:
             if self.beim_schliessen:
                 self.beim_schliessen()
@@ -3417,16 +3417,16 @@ class Hauptfenster:
         """
         # Beim Start ausdrücklich MIT Fokus: Der Nutzer hat das Werkzeug
         # gerade selbst gestartet und will hin.
-        nach_vorn(self.root, fokus=True)
+        to_front(self.root, focus=True)
         self.root.mainloop()
 
 
-def _mitgeliefert(name):
+def _bundled(name):
     """Pfad zu einer mitgelieferten Datei — im Quellcode wie im fertigen Paket."""
     try:
-        basis = getattr(sys, '_MEIPASS', None) or os.path.dirname(
+        base = getattr(sys, '_MEIPASS', None) or os.path.dirname(
             os.path.dirname(os.path.abspath(__file__)))
-        return os.path.join(basis, name)
+        return os.path.join(base, name)
     except Exception:
         return None
 
@@ -3444,15 +3444,15 @@ def _mitgeliefert(name):
 #
 # Deshalb ein eigener. Er kostet wenig, sieht aus wie das Programm und ist in
 # beiden Sprachen richtig beschriftet.
-FRAGE_BREITE = 620          # bewusst breit: Am 28.08.: "eher breiter statt hoch"
+DIALOG_WIDTH = 620          # bewusst breit: Am 28.08.: "eher breiter statt hoch"
 
 # Wieviele Eintraege eine Auswahlliste im Dialog zeigt, bevor sie abkuerzt.
 # ⚠ Sieben, damit der Dialog nicht ueber den Bildschirmrand waechst und die
 # Knoepfe unten erreichbar bleiben — dieselbe Falle wie beim Overlay.
-LISTE_SICHTBAR = 7
+LIST_VISIBLE = 7
 
 
-def _dialog_knopf(eltern, text, tat, schrift, stark=False):
+def _dialog_button(eltern, text, tat, schrift, strong=False):
     """Knopf im Programmstil — dieselbe Machart wie `seiten._knopf`.
 
     Bewusst hier nachgebaut statt importiert: `seiten` importiert aus diesem
@@ -3460,92 +3460,92 @@ def _dialog_knopf(eltern, text, tat, schrift, stark=False):
     """
     hoehe = schrift.metrics('linespace') + 16
     breite = schrift.measure(text) + 40
-    farbe = ACCENT if stark else FG
-    rand = ACCENT if stark else LINIE
+    color = ACCENT if strong else FG
+    border = ACCENT if strong else BORDER
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
-    flaeche = _rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1, radius=5,
-                               fill='#1d2a14' if stark else FLAECHE,
-                               outline=rand, width=1)
+    surface = _round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+                               fill='#1d2a14' if strong else SURFACE,
+                               outline=border, width=1)
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
-                                 fill=farbe, font=schrift, anchor='center')
-    c.bind('<Enter>', lambda _=None: (c.itemconfigure(flaeche, outline=ACCENT),
+                                 fill=color, font=schrift, anchor='center')
+    c.bind('<Enter>', lambda _=None: (c.itemconfigure(surface, outline=ACCENT),
                                       c.itemconfigure(beschriftung, fill=ACCENT)))
-    c.bind('<Leave>', lambda _=None: (c.itemconfigure(flaeche, outline=rand),
-                                      c.itemconfigure(beschriftung, fill=farbe)))
+    c.bind('<Leave>', lambda _=None: (c.itemconfigure(surface, outline=border),
+                                      c.itemconfigure(beschriftung, fill=color)))
     c.bind('<Button-1>', lambda _=None: tat())
     return c
 
 
-def wahl_stellen(eltern, titel, text, knopf_a, knopf_b):
+def ask_choice(eltern, title, text, button_a, button_b):
     """Zwei Wege zur Auswahl stellen. Gibt `'a'`, `'b'` oder `''` zurueck.
 
-    ⚠ **Warum nicht `frage_stellen`.** Dort bedeutet Escape „nein" — bei einer
+    ⚠ **Warum nicht `ask_yes_no`.** Dort bedeutet Escape „nein" — bei einer
     Ja/Nein-Frage ist das richtig. Stehen aber zwei gleichwertige Handlungen zur
     Wahl, waere „nein" die zweite davon: Wer den Dialog wegklickt, haette
     ungewollt eine Sicherung eingespielt. Hier bricht Escape deshalb ab, ohne
     etwas zu tun, und beide Knoepfe muessen bewusst getroffen werden.
     """
-    antwort = {'wert': ''}
+    answer = {'wert': ''}
     try:
-        top = tk.Toplevel(eltern)
-        top.title(titel)
-        top.configure(bg=BG)
-        top.resizable(False, False)
-        top.transient(eltern)
-        top.configure(highlightthickness=1, highlightbackground=LINIE,
-                      highlightcolor=LINIE)
+        win = tk.Toplevel(eltern)
+        win.title(title)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(eltern)
+        win.configure(highlightthickness=1, highlightbackground=BORDER,
+                      highlightcolor=BORDER)
 
-        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
-        schrift_text = tkfont.Font(family='Segoe UI', size=10)
-        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+        font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        font_text = tkfont.Font(family='Segoe UI', size=10)
+        font_button = tkfont.Font(family='Segoe UI', size=9)
 
-        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen = tk.Frame(win, bg=BG, padx=26, pady=22)
         rahmen.pack(fill='both', expand=True)
-        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+        tk.Label(rahmen, text=title, bg=BG, fg=ACCENT, font=font_title,
                  anchor='w', justify='left').pack(fill='x')
-        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=font_text,
                  anchor='w', justify='left',
-                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+                 wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
         def schliessen(wert):
-            antwort['wert'] = wert
+            answer['wert'] = wert
             try:
-                top.grab_release()
+                win.grab_release()
             except tk.TclError:
                 pass
-            top.destroy()
+            win.destroy()
 
-        reihe = tk.Frame(rahmen, bg=BG)
-        reihe.pack(anchor='e', pady=(20, 0))
-        _dialog_knopf(reihe, knopf_b, lambda: schliessen('b'),
-                      schrift_knopf).pack(side='right', padx=(8, 0))
-        _dialog_knopf(reihe, knopf_a, lambda: schliessen('a'),
-                      schrift_knopf, stark=True).pack(side='right')
+        row = tk.Frame(rahmen, bg=BG)
+        row.pack(anchor='e', pady=(20, 0))
+        _dialog_button(row, button_b, lambda: schliessen('b'),
+                      font_button).pack(side='right', padx=(8, 0))
+        _dialog_button(row, button_a, lambda: schliessen('a'),
+                      font_button, strong=True).pack(side='right')
 
-        top.bind('<Escape>', lambda _=None: schliessen(''))
-        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(''))
+        win.bind('<Escape>', lambda _=None: schliessen(''))
+        win.protocol('WM_DELETE_WINDOW', lambda: schliessen(''))
 
-        top.update_idletasks()
-        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
-        hoehe = top.winfo_reqheight()
+        win.update_idletasks()
+        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        hoehe = win.winfo_reqheight()
         try:
             x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
             y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
         except tk.TclError:
             x = y = 200
-        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
 
-        top.grab_set()
-        top.focus_set()
-        eltern.wait_window(top)
+        win.grab_set()
+        win.focus_set()
+        eltern.wait_window(win)
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.wahl_stellen', ausnahme)
-    return antwort['wert']
+        fehler.merken('main_window.wahl_stellen', ausnahme)
+    return answer['wert']
 
 
-def text_stellen(eltern, titel, text, vorgabe='', ja=None, nein=None,
-                 liste=(), listentitel=''):
+def ask_text(eltern, title, text, preset='', ja=None, no_text=None,
+                 choices=(), choices_title=''):
     """Nach einem kurzen Text fragen — im Programmstil. Gibt den Text oder `None`.
 
     `None` heisst **abgebrochen**, `''` heisst „nichts eingetippt". Der
@@ -3572,117 +3572,117 @@ def text_stellen(eltern, titel, text, vorgabe='', ja=None, nein=None,
     """
     try:
         ja = ja or t('e_speichern')
-        nein = nein or t('e_abbrechen')
-        top = tk.Toplevel(eltern)
-        top.title(titel)
-        top.configure(bg=BG)
-        top.resizable(False, False)
-        top.transient(eltern)
-        top.configure(highlightthickness=1, highlightbackground=LINIE,
-                      highlightcolor=LINIE)
+        no_text = no_text or t('e_abbrechen')
+        win = tk.Toplevel(eltern)
+        win.title(title)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(eltern)
+        win.configure(highlightthickness=1, highlightbackground=BORDER,
+                      highlightcolor=BORDER)
 
-        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
-        schrift_text = tkfont.Font(family='Segoe UI', size=10)
-        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
-        schrift_klein = tkfont.Font(family='Segoe UI', size=9)
+        font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        font_text = tkfont.Font(family='Segoe UI', size=10)
+        font_button = tkfont.Font(family='Segoe UI', size=9)
+        font_small = tkfont.Font(family='Segoe UI', size=9)
         # ⚠ Feste Breite fuer das Eingabefeld: Ein Profilname ist kurz, aber
         # der Hinweistext darueber ist breit. Ohne eigene Schrift erbt das
         # Feld die des Systems und faellt aus dem Bild.
-        schrift_feld = tkfont.Font(family='Segoe UI', size=11)
+        font_field = tkfont.Font(family='Segoe UI', size=11)
 
-        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen = tk.Frame(win, bg=BG, padx=26, pady=22)
         rahmen.pack(fill='both', expand=True)
-        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+        tk.Label(rahmen, text=title, bg=BG, fg=ACCENT, font=font_title,
                  anchor='w', justify='left').pack(fill='x')
-        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=font_text,
                  anchor='w', justify='left',
-                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+                 wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        wert = tk.StringVar(value=vorgabe)
+        wert = tk.StringVar(value=preset)
 
-        if liste:
-            if listentitel:
-                tk.Label(rahmen, text=listentitel, bg=BG, fg=SUB,
-                         font=schrift_klein, anchor='w').pack(
+        if choices:
+            if choices_title:
+                tk.Label(rahmen, text=choices_title, bg=BG, fg=SUB,
+                         font=font_small, anchor='w').pack(
                              fill='x', pady=(14, 4))
-            kasten = tk.Frame(rahmen, bg=FLAECHE, highlightthickness=1,
-                              highlightbackground=LINIE)
-            kasten.pack(fill='x')
+            box = tk.Frame(rahmen, bg=SURFACE, highlightthickness=1,
+                              highlightbackground=BORDER)
+            box.pack(fill='x')
             # ⚠ Ab sieben Eintraegen rollt der Kasten, statt den Dialog ueber
             # den Bildschirmrand wachsen zu lassen. Wer zwanzig Profile hat,
             # soll trotzdem an die Knoepfe kommen.
-            for eintrag in liste[:LISTE_SICHTBAR]:
-                zeile = tk.Label(kasten, text='  ' + eintrag, bg=FLAECHE,
-                                 fg=FG, font=schrift_text, anchor='w',
+            for entry in choices[:LIST_VISIBLE]:
+                zeile = tk.Label(box, text='  ' + entry, bg=SURFACE,
+                                 fg=FG, font=font_text, anchor='w',
                                  cursor='hand2')
                 zeile.pack(fill='x', pady=1)
 
-                def uebernehmen(_=None, name=eintrag):
+                def apply_entry(_=None, name=entry):
                     wert.set(name)
-                zeile.bind('<Button-1>', uebernehmen)
+                zeile.bind('<Button-1>', apply_entry)
                 # Ein Klickziel muss sich als solches zeigen — sonst probiert
                 # es niemand aus.
                 zeile.bind('<Enter>',
                            lambda _=None, w=zeile: w.configure(fg=ACCENT))
                 zeile.bind('<Leave>',
                            lambda _=None, w=zeile: w.configure(fg=FG))
-            wenn_mehr = len(liste) - LISTE_SICHTBAR
-            if wenn_mehr > 0:
-                tk.Label(kasten, text=t('e_liste_mehr', wenn_mehr), bg=FLAECHE,
-                         fg=SUB, font=schrift_klein, anchor='w').pack(
+            if_more = len(choices) - LIST_VISIBLE
+            if if_more > 0:
+                tk.Label(box, text=t('e_liste_mehr', if_more), bg=SURFACE,
+                         fg=SUB, font=font_small, anchor='w').pack(
                              fill='x', pady=(2, 3))
 
-        feld = tk.Entry(rahmen, textvariable=wert, font=schrift_feld,
-                        bg=FLAECHE, fg=FG, insertbackground=FG,
+        field = tk.Entry(rahmen, textvariable=wert, font=font_field,
+                        bg=SURFACE, fg=FG, insertbackground=FG,
                         relief='flat', highlightthickness=1,
-                        highlightbackground=LINIE, highlightcolor=ACCENT)
-        feld.pack(fill='x', pady=(14, 0), ipady=5)
+                        highlightbackground=BORDER, highlightcolor=ACCENT)
+        field.pack(fill='x', pady=(14, 0), ipady=5)
 
-        antwort = {'wert': None}
+        answer = {'wert': None}
 
-        def schliessen(uebernehmen):
-            antwort['wert'] = wert.get().strip() if uebernehmen else None
+        def schliessen(apply_entry):
+            answer['wert'] = wert.get().strip() if apply_entry else None
             try:
-                top.grab_release()
+                win.grab_release()
             except tk.TclError:
                 pass
-            top.destroy()
+            win.destroy()
 
-        reihe = tk.Frame(rahmen, bg=BG)
-        reihe.pack(anchor='e', pady=(20, 0))
-        _dialog_knopf(reihe, nein, lambda: schliessen(False),
-                      schrift_knopf).pack(side='right', padx=(8, 0))
-        _dialog_knopf(reihe, ja, lambda: schliessen(True),
-                      schrift_knopf, stark=True).pack(side='right')
+        row = tk.Frame(rahmen, bg=BG)
+        row.pack(anchor='e', pady=(20, 0))
+        _dialog_button(row, no_text, lambda: schliessen(False),
+                      font_button).pack(side='right', padx=(8, 0))
+        _dialog_button(row, ja, lambda: schliessen(True),
+                      font_button, strong=True).pack(side='right')
 
-        top.bind('<Return>', lambda _=None: schliessen(True))
-        top.bind('<Escape>', lambda _=None: schliessen(False))
-        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
+        win.bind('<Return>', lambda _=None: schliessen(True))
+        win.bind('<Escape>', lambda _=None: schliessen(False))
+        win.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
 
-        top.update_idletasks()
-        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
-        hoehe = top.winfo_reqheight()
+        win.update_idletasks()
+        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        hoehe = win.winfo_reqheight()
         try:
             x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
             y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
         except tk.TclError:
             x = y = 200
-        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
 
-        top.grab_set()
+        win.grab_set()
         # Der Mauszeiger steht schon im Feld — wer tippen soll, soll tippen
         # koennen, ohne vorher zu klicken.
-        feld.focus_set()
-        feld.selection_range(0, 'end')
-        eltern.wait_window(top)
-        return antwort['wert']
+        field.focus_set()
+        field.selection_range(0, 'end')
+        eltern.wait_window(win)
+        return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.text_stellen', ausnahme)
+        fehler.merken('main_window.text_stellen', ausnahme)
         from tkinter import simpledialog
-        return simpledialog.askstring(titel, text, initialvalue=vorgabe)
+        return simpledialog.askstring(title, text, initialvalue=preset)
 
 
-def auswahl_stellen(eltern, titel, text, eintraege, nein=None):
+def ask_pick(eltern, title, text, entries, no_text=None):
     """Einen Eintrag aus einer Liste waehlen. Gibt den Eintrag oder `None`.
 
     ⚠ **Wozu, wenn es doch einen Dateiwaehler gibt:** Weil der Spieler seine
@@ -3695,84 +3695,84 @@ def auswahl_stellen(eltern, titel, text, eintraege, nein=None):
     zugeschickt bekommen hat, ist er der richtige Weg.
     """
     try:
-        nein = nein or t('e_abbrechen')
-        top = tk.Toplevel(eltern)
-        top.title(titel)
-        top.configure(bg=BG)
-        top.resizable(False, False)
-        top.transient(eltern)
-        top.configure(highlightthickness=1, highlightbackground=LINIE,
-                      highlightcolor=LINIE)
+        no_text = no_text or t('e_abbrechen')
+        win = tk.Toplevel(eltern)
+        win.title(title)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(eltern)
+        win.configure(highlightthickness=1, highlightbackground=BORDER,
+                      highlightcolor=BORDER)
 
-        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
-        schrift_text = tkfont.Font(family='Segoe UI', size=10)
-        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
-        schrift_klein = tkfont.Font(family='Segoe UI', size=9)
+        font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        font_text = tkfont.Font(family='Segoe UI', size=10)
+        font_button = tkfont.Font(family='Segoe UI', size=9)
+        font_small = tkfont.Font(family='Segoe UI', size=9)
 
-        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen = tk.Frame(win, bg=BG, padx=26, pady=22)
         rahmen.pack(fill='both', expand=True)
-        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+        tk.Label(rahmen, text=title, bg=BG, fg=ACCENT, font=font_title,
                  anchor='w', justify='left').pack(fill='x')
         if text:
-            tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+            tk.Label(rahmen, text=text, bg=BG, fg=FG, font=font_text,
                      anchor='w', justify='left',
-                     wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+                     wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        antwort = {'wert': None}
+        answer = {'wert': None}
 
         def schliessen(wert):
-            antwort['wert'] = wert
+            answer['wert'] = wert
             try:
-                top.grab_release()
+                win.grab_release()
             except tk.TclError:
                 pass
-            top.destroy()
+            win.destroy()
 
-        kasten = tk.Frame(rahmen, bg=FLAECHE, highlightthickness=1,
-                          highlightbackground=LINIE)
-        kasten.pack(fill='x', pady=(14, 0))
-        for eintrag in list(eintraege)[:LISTE_SICHTBAR]:
-            zeile = tk.Label(kasten, text='  ' + eintrag, bg=FLAECHE, fg=FG,
-                             font=schrift_text, anchor='w', cursor='hand2')
+        box = tk.Frame(rahmen, bg=SURFACE, highlightthickness=1,
+                          highlightbackground=BORDER)
+        box.pack(fill='x', pady=(14, 0))
+        for entry in list(entries)[:LIST_VISIBLE]:
+            zeile = tk.Label(box, text='  ' + entry, bg=SURFACE, fg=FG,
+                             font=font_text, anchor='w', cursor='hand2')
             zeile.pack(fill='x', pady=2)
             zeile.bind('<Button-1>',
-                       lambda _=None, n=eintrag: schliessen(n))
+                       lambda _=None, n=entry: schliessen(n))
             zeile.bind('<Enter>',
                        lambda _=None, w=zeile: w.configure(fg=ACCENT))
             zeile.bind('<Leave>', lambda _=None, w=zeile: w.configure(fg=FG))
-        mehr = len(list(eintraege)) - LISTE_SICHTBAR
-        if mehr > 0:
-            tk.Label(kasten, text=t('e_liste_mehr', mehr), bg=FLAECHE, fg=SUB,
-                     font=schrift_klein, anchor='w').pack(fill='x', pady=(2, 3))
+        extra = len(list(entries)) - LIST_VISIBLE
+        if extra > 0:
+            tk.Label(box, text=t('e_liste_mehr', extra), bg=SURFACE, fg=SUB,
+                     font=font_small, anchor='w').pack(fill='x', pady=(2, 3))
 
-        reihe = tk.Frame(rahmen, bg=BG)
-        reihe.pack(anchor='e', pady=(20, 0))
-        _dialog_knopf(reihe, nein, lambda: schliessen(None),
-                      schrift_knopf).pack(side='right')
+        row = tk.Frame(rahmen, bg=BG)
+        row.pack(anchor='e', pady=(20, 0))
+        _dialog_button(row, no_text, lambda: schliessen(None),
+                      font_button).pack(side='right')
 
-        top.bind('<Escape>', lambda _=None: schliessen(None))
-        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
+        win.bind('<Escape>', lambda _=None: schliessen(None))
+        win.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
 
-        top.update_idletasks()
-        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
-        hoehe = top.winfo_reqheight()
+        win.update_idletasks()
+        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        hoehe = win.winfo_reqheight()
         try:
             x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
             y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
         except tk.TclError:
             x = y = 200
-        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
 
-        top.grab_set()
-        top.focus_set()
-        eltern.wait_window(top)
-        return antwort['wert']
+        win.grab_set()
+        win.focus_set()
+        eltern.wait_window(win)
+        return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.auswahl_stellen', ausnahme)
+        fehler.merken('main_window.auswahl_stellen', ausnahme)
         return None
 
 
-def mittig_ueber(fenster, eltern, breite=None, hoehe=None):
+def center_over(window, eltern, breite=None, hoehe=None):
     """Ein Fenster mittig über sein Elternfenster setzen.
 
     ⚠⚠⚠ **Warum das keine Kosmetik ist.** Ein `Toplevel`, das nur eine Größe
@@ -3794,20 +3794,20 @@ def mittig_ueber(fenster, eltern, breite=None, hoehe=None):
     dort, wo man das Fenster nicht mehr greifen kann.
     """
     try:
-        fenster.update_idletasks()
-        b = breite or fenster.winfo_width() or fenster.winfo_reqwidth()
-        h = hoehe or fenster.winfo_height() or fenster.winfo_reqheight()
+        window.update_idletasks()
+        b = breite or window.winfo_width() or window.winfo_reqwidth()
+        h = hoehe or window.winfo_height() or window.winfo_reqheight()
         x = eltern.winfo_rootx() + (eltern.winfo_width() - b) // 2
         y = eltern.winfo_rooty() + (eltern.winfo_height() - h) // 3
-        fenster.geometry('%dx%d+%d+%d' % (b, h, max(0, x), max(0, y)))
+        window.geometry('%dx%d+%d+%d' % (b, h, max(0, x), max(0, y)))
         return True
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.mittig_ueber', ausnahme)
+        fehler.merken('main_window.mittig_ueber', ausnahme)
         return False
 
 
-def frage_stellen(eltern, titel, text, ja=None, nein=None,
-                  nur_ok=False):
+def ask_yes_no(eltern, title, text, ja=None, no_text=None,
+                  only_ok=False):
     """Ja/Nein-Frage im Programmstil. Gibt True zurück, wenn bejaht wurde.
 
     Ersatz für `messagebox.askyesno`. Modal, mittig über dem Elternfenster,
@@ -3818,81 +3818,81 @@ def frage_stellen(eltern, titel, text, ja=None, nein=None,
     """
     try:
         ja = ja or t('e_ja')
-        nein = nein or t('e_nein')
-        top = tk.Toplevel(eltern)
-        top.title(titel)
-        top.configure(bg=BG)
-        top.resizable(False, False)
-        top.transient(eltern)
+        no_text = no_text or t('e_nein')
+        win = tk.Toplevel(eltern)
+        win.title(title)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(eltern)
         # ⚠ Eigene Kante. Ohne sie ist der Dialog eine dunkle Flaeche auf
         # dunklem Grund — jeder andere Kasten im Programm (Zustandskasten,
         # Karten) hat eine sichtbare Linie, und ohne sie wirkt er nicht
         # dazugehoerig. Der Fensterrahmen des Systems ersetzt das nicht: Er
         # sieht auf jedem Schreibtisch anders aus, innen bleibt es randlos.
-        top.configure(highlightthickness=1, highlightbackground=LINIE,
-                      highlightcolor=LINIE)
+        win.configure(highlightthickness=1, highlightbackground=BORDER,
+                      highlightcolor=BORDER)
 
-        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
-        schrift_text = tkfont.Font(family='Segoe UI', size=10)
-        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+        font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        font_text = tkfont.Font(family='Segoe UI', size=10)
+        font_button = tkfont.Font(family='Segoe UI', size=9)
 
-        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen = tk.Frame(win, bg=BG, padx=26, pady=22)
         rahmen.pack(fill='both', expand=True)
-        tk.Label(rahmen, text=titel, bg=BG, fg=ACCENT, font=schrift_titel,
+        tk.Label(rahmen, text=title, bg=BG, fg=ACCENT, font=font_title,
                  anchor='w', justify='left').pack(fill='x')
-        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=schrift_text,
+        tk.Label(rahmen, text=text, bg=BG, fg=FG, font=font_text,
                  anchor='w', justify='left',
-                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+                 wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        antwort = {'wert': False}
+        answer = {'wert': False}
 
         def schliessen(wert):
-            antwort['wert'] = wert
+            answer['wert'] = wert
             try:
-                top.grab_release()
+                win.grab_release()
             except tk.TclError:
                 pass
-            top.destroy()
+            win.destroy()
 
-        reihe = tk.Frame(rahmen, bg=BG)
-        reihe.pack(anchor='e', pady=(20, 0))
+        row = tk.Frame(rahmen, bg=BG)
+        row.pack(anchor='e', pady=(20, 0))
         # ⚠ Beim blossen Bescheid gibt es nichts zu entscheiden — dann waere
         # ein zweiter Knopf eine Frage, die keine ist.
-        if not nur_ok:
-            _dialog_knopf(reihe, nein, lambda: schliessen(False),
-                          schrift_knopf).pack(side='right', padx=(8, 0))
-        _dialog_knopf(reihe, ja, lambda: schliessen(True),
-                      schrift_knopf, stark=True).pack(side='right')
+        if not only_ok:
+            _dialog_button(row, no_text, lambda: schliessen(False),
+                          font_button).pack(side='right', padx=(8, 0))
+        _dialog_button(row, ja, lambda: schliessen(True),
+                      font_button, strong=True).pack(side='right')
 
-        top.bind('<Return>', lambda _=None: schliessen(True))
-        top.bind('<Escape>', lambda _=None: schliessen(False))
-        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
+        win.bind('<Return>', lambda _=None: schliessen(True))
+        win.bind('<Escape>', lambda _=None: schliessen(False))
+        win.protocol('WM_DELETE_WINDOW', lambda: schliessen(False))
 
         # Mittig über das Elternfenster setzen — erst messen, dann schieben.
-        top.update_idletasks()
-        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
-        hoehe = top.winfo_reqheight()
+        win.update_idletasks()
+        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        hoehe = win.winfo_reqheight()
         try:
             x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
             y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
         except tk.TclError:
             x = y = 200
-        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
 
-        top.grab_set()
-        top.focus_set()
-        eltern.wait_window(top)
-        return antwort['wert']
+        win.grab_set()
+        win.focus_set()
+        eltern.wait_window(win)
+        return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.frage_stellen', ausnahme)
+        fehler.merken('main_window.frage_stellen', ausnahme)
         from tkinter import messagebox
-        if nur_ok:
-            messagebox.showinfo(titel, text, parent=eltern)
+        if only_ok:
+            messagebox.showinfo(title, text, parent=eltern)
             return True
-        return bool(messagebox.askyesno(titel, text, parent=eltern))
+        return bool(messagebox.askyesno(title, text, parent=eltern))
 
 
-def kanal_waehlen(eltern, eingetragen, kanaele):
+def ask_channel(eltern, entered, channels):
     """Fragen, aus welchem Spielordner ab jetzt gelesen wird. Gibt ihn zurueck.
 
     ⚠⚠ **Wofuer das da ist.** Legt CIG eine ausgebesserte Fassung neben LIVE,
@@ -3911,106 +3911,106 @@ def kanal_waehlen(eltern, eingetragen, kanaele):
     `pfade.kanaele_vorhanden()`, neueste zuerst. Rueckgabe: der gewaehlte Ordner
     oder None, wenn der Spieler es beim Alten lassen will.
     """
-    if not kanaele:
+    if not channels:
         return None
 
     # Der Normalfall ist genau ein Nachbarkanal (LIVE wurde zu HOTFIX). Dafuer
     # braucht es keine Liste — eine Frage mit Ja und Nein ist kuerzer und
     # beantwortet sich schneller.
-    if len(kanaele) == 1:
-        name, ordner, _stempel = kanaele[0]
-        text = '%s\n%s\n\n%s' % (t('s_kn_weg') % os.path.basename(eingetragen),
+    if len(channels) == 1:
+        name, folder, _stamp = channels[0]
+        text = '%s\n%s\n\n%s' % (t('s_kn_weg') % os.path.basename(entered),
                                  t('s_kn_da') % name,
                                  t('s_kn_frage'))
-        if frage_stellen(eltern, t('s_kn_titel'), text,
-                         nein=t('s_kn_spaeter')):
-            return ordner
+        if ask_yes_no(eltern, t('s_kn_titel'), text,
+                         no_text=t('s_kn_spaeter')):
+            return folder
         return None
 
     try:
-        top = tk.Toplevel(eltern)
-        top.title(t('s_kn_titel'))
-        top.configure(bg=BG, highlightthickness=1, highlightbackground=LINIE,
-                      highlightcolor=LINIE)
-        top.resizable(False, False)
-        top.transient(eltern)
+        win = tk.Toplevel(eltern)
+        win.title(t('s_kn_titel'))
+        win.configure(bg=BG, highlightthickness=1, highlightbackground=BORDER,
+                      highlightcolor=BORDER)
+        win.resizable(False, False)
+        win.transient(eltern)
 
-        schrift_titel = tkfont.Font(family='Segoe UI', size=12, weight='bold')
-        schrift_text = tkfont.Font(family='Segoe UI', size=10)
-        schrift_knopf = tkfont.Font(family='Segoe UI', size=9)
+        font_title = tkfont.Font(family='Segoe UI', size=12, weight='bold')
+        font_text = tkfont.Font(family='Segoe UI', size=10)
+        font_button = tkfont.Font(family='Segoe UI', size=9)
 
-        rahmen = tk.Frame(top, bg=BG, padx=26, pady=22)
+        rahmen = tk.Frame(win, bg=BG, padx=26, pady=22)
         rahmen.pack(fill='both', expand=True)
         tk.Label(rahmen, text=t('s_kn_titel'), bg=BG, fg=ACCENT,
-                 font=schrift_titel, anchor='w', justify='left').pack(fill='x')
+                 font=font_title, anchor='w', justify='left').pack(fill='x')
         tk.Label(rahmen,
-                 text='%s\n\n%s' % (t('s_kn_weg') % os.path.basename(eingetragen),
+                 text='%s\n\n%s' % (t('s_kn_weg') % os.path.basename(entered),
                                     t('s_kn_mehrere')),
-                 bg=BG, fg=FG, font=schrift_text, anchor='w', justify='left',
-                 wraplength=FRAGE_BREITE - 52).pack(fill='x', pady=(10, 0))
+                 bg=BG, fg=FG, font=font_text, anchor='w', justify='left',
+                 wraplength=DIALOG_WIDTH - 52).pack(fill='x', pady=(10, 0))
 
-        gewaehlt = {'wert': None}
+        selected = {'wert': None}
 
         def schliessen(wert):
-            gewaehlt['wert'] = wert
+            selected['wert'] = wert
             try:
-                top.grab_release()
+                win.grab_release()
             except tk.TclError:
                 pass
-            top.destroy()
+            win.destroy()
 
-        for name, ordner, stempel in kanaele:
-            wann = time.strftime('%d.%m.%Y %H:%M', time.localtime(stempel))
-            kasten = tk.Frame(rahmen, bg=FLAECHE, cursor='hand2',
-                              highlightthickness=1, highlightbackground=LINIE)
-            kasten.pack(fill='x', pady=(10, 0))
-            tk.Label(kasten, text=name, bg=FLAECHE, fg=FG, font=schrift_text,
+        for name, folder, stamp in channels:
+            when = time.strftime('%d.%m.%Y %H:%M', time.localtime(stamp))
+            box = tk.Frame(rahmen, bg=SURFACE, cursor='hand2',
+                              highlightthickness=1, highlightbackground=BORDER)
+            box.pack(fill='x', pady=(10, 0))
+            tk.Label(box, text=name, bg=SURFACE, fg=FG, font=font_text,
                      anchor='w', padx=12, pady=(8)).pack(fill='x')
-            tk.Label(kasten, text=t('s_kn_zuletzt') % wann, bg=FLAECHE, fg=SUB,
-                     font=schrift_knopf, anchor='w',
+            tk.Label(box, text=t('s_kn_zuletzt') % when, bg=SURFACE, fg=SUB,
+                     font=font_button, anchor='w',
                      padx=12).pack(fill='x', pady=(0, 8))
             # Auch auf den Beschriftungen — ein Klick daneben darf nicht ins
             # Leere gehen, sonst haelt man den Kasten fuer nicht anklickbar.
-            for teil in (kasten,) + tuple(kasten.winfo_children()):
-                teil.bind('<Button-1>',
-                          lambda _e, o=ordner: schliessen(o))
+            for part in (box,) + tuple(box.winfo_children()):
+                part.bind('<Button-1>',
+                          lambda _e, o=folder: schliessen(o))
 
-        reihe = tk.Frame(rahmen, bg=BG)
-        reihe.pack(anchor='e', pady=(20, 0))
-        _dialog_knopf(reihe, t('s_kn_spaeter'), lambda: schliessen(None),
-                      schrift_knopf).pack(side='right')
+        row = tk.Frame(rahmen, bg=BG)
+        row.pack(anchor='e', pady=(20, 0))
+        _dialog_button(row, t('s_kn_spaeter'), lambda: schliessen(None),
+                      font_button).pack(side='right')
 
-        top.bind('<Escape>', lambda _=None: schliessen(None))
-        top.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
+        win.bind('<Escape>', lambda _=None: schliessen(None))
+        win.protocol('WM_DELETE_WINDOW', lambda: schliessen(None))
 
-        top.update_idletasks()
-        breite = max(FRAGE_BREITE, top.winfo_reqwidth())
-        hoehe = top.winfo_reqheight()
+        win.update_idletasks()
+        breite = max(DIALOG_WIDTH, win.winfo_reqwidth())
+        hoehe = win.winfo_reqheight()
         try:
             x = eltern.winfo_rootx() + (eltern.winfo_width() - breite) // 2
             y = eltern.winfo_rooty() + (eltern.winfo_height() - hoehe) // 3
         except tk.TclError:
             x = y = 200
-        top.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
+        win.geometry('%dx%d+%d+%d' % (breite, hoehe, max(0, x), max(0, y)))
 
-        top.grab_set()
-        top.focus_set()
-        eltern.wait_window(top)
-        return gewaehlt['wert']
+        win.grab_set()
+        win.focus_set()
+        eltern.wait_window(win)
+        return selected['wert']
     except Exception as ausnahme:
-        fehler.merken('hauptfenster.kanal_waehlen', ausnahme)
+        fehler.merken('main_window.kanal_waehlen', ausnahme)
         # Lieber die kurze Frage auf den neuesten Kanal als gar keine.
-        name, ordner, _s = kanaele[0]
-        if frage_stellen(eltern, t('s_kn_titel'),
+        name, folder, _s = channels[0]
+        if ask_yes_no(eltern, t('s_kn_titel'),
                          '%s\n%s\n\n%s' % (
-                             t('s_kn_weg') % os.path.basename(eingetragen),
+                             t('s_kn_weg') % os.path.basename(entered),
                              t('s_kn_da') % name, t('s_kn_frage')),
-                         nein=t('s_kn_spaeter')):
-            return ordner
+                         no_text=t('s_kn_spaeter')):
+            return folder
         return None
 
 
-def bescheid_geben(eltern, titel, text):
+def show_result(eltern, title, text):
     """Ein Ergebnis zeigen, das nicht uebersehen werden darf.
 
     ⚠⚠ **Die Fusszeile reicht dafuer nicht.** Sie zeigt vier Sekunden lang
@@ -4022,4 +4022,4 @@ def bescheid_geben(eltern, titel, text):
     ⚠ Ein Fenster nur fuer ein ERGEBNIS, nicht fuer jede Meldung. Ein Werkzeug,
     das staendig Fenster aufreisst, wird weggeklickt, ohne gelesen zu werden.
     """
-    frage_stellen(eltern, titel, text, ja=t('e_ok'), nur_ok=True)
+    ask_yes_no(eltern, title, text, ja=t('e_ok'), only_ok=True)

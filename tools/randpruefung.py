@@ -30,7 +30,7 @@ os.environ.setdefault('SC_BP_HOME', tempfile.mkdtemp(prefix='randpruefung-'))
 os.environ['SC_BP_NO_NET'] = '1'
 
 import tkinter as tk                                          # noqa: E402
-from scbp import hauptfenster, sprache                        # noqa: E402
+from scbp import main_window, sprache                        # noqa: E402
 
 # Alle Reiter — die eingeklappten „für Fortgeschrittene" ausdrücklich mit,
 # dort schaut sonst nie jemand hin.
@@ -112,7 +112,7 @@ def _durchgehen(w, gefunden):
 
 def _eine_runde(groesse, kuerzel, treffer):
     sprache.setzen(kuerzel)
-    fenster = hauptfenster.Hauptfenster()
+    fenster = main_window.Hauptfenster()
     fenster.root.geometry(groesse)
     fenster.root.update_idletasks()
     for seite in SEITEN:

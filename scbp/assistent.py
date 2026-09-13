@@ -89,10 +89,10 @@ class Assistent:
         # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
         # weil es modal war, ließ sich das Programm nicht einmal beenden.
         #
-        # `mittig_ueber` setzt beides und fällt auf die reine Größe
+        # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-        from .hauptfenster import mittig_ueber
-        if eltern is None or not mittig_ueber(self.root, eltern, 640, 520):
+        from .main_window import center_over
+        if eltern is None or not center_over(self.root, eltern, 640, 520):
             self.root.geometry('640x520')
         self.root.protocol('WM_DELETE_WINDOW', self._abbrechen)
 
@@ -185,9 +185,9 @@ class Assistent:
         self.pfad.trace_add('write', lambda *_: self._pfad_pruefen())
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
-        from .hauptfenster import rundes_feld
-        feld = rundes_feld(zeile, self.pfad, mono(10), FLAECHE, LINIE, ACCENT, FG,
-                           hinweis=t('s_pl_spielordner'))
+        from .main_window import round_entry
+        feld = round_entry(zeile, self.pfad, mono(10), FLAECHE, LINIE, ACCENT, FG,
+                           placeholder=t('s_pl_spielordner'))
         feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
                          font=schrift(10), cursor='hand2', padx=8, pady=6)

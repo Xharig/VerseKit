@@ -91,10 +91,10 @@ class BindingWindow:
         # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
         # weil es modal war, ließ sich das Programm nicht einmal beenden.
         #
-        # `mittig_ueber` setzt beides und fällt auf die reine Größe
+        # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-        from .hauptfenster import mittig_ueber
-        if parent is None or not mittig_ueber(self.root, parent, 520, 340):
+        from .main_window import center_over
+        if parent is None or not center_over(self.root, parent, 520, 340):
             self.root.geometry('520x340')
         self.root.resizable(False, False)
         self.root.transient(parent)
@@ -287,18 +287,18 @@ class BindingWindow:
         # einmal mehr beenden. Dazu kommen die bekannten Punkte: heller Kasten
         # im dunklen Programm, Knöpfe in der Systemsprache.
         #
-        # `frage_stellen` setzt sich mittig über das Elternfenster und wird
+        # `ask_yes_no` setzt sich mittig über das Elternfenster und wird
         # mit ihm geschlossen.
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         ok_state, message, _ = joysticks.belegen(self.action, self.section,
                                                device_id, name)
         if ok_state:
-            frage_stellen(self.root, t('s_js_b_titel'),
-                          t('s_js_fertig', message), nur_ok=True)
+            ask_yes_no(self.root, t('s_js_b_titel'),
+                          t('s_js_fertig', message), only_ok=True)
             self.close(True)
         else:
-            frage_stellen(self.root, t('s_js_b_titel'),
-                          t('s_js_schief', t(message)), nur_ok=True)
+            ask_yes_no(self.root, t('s_js_b_titel'),
+                          t('s_js_schief', t(message)), only_ok=True)
 
     def close(self, changed=False):
         self._running = False

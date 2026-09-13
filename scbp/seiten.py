@@ -19,7 +19,7 @@
 """
 Was in den einzelnen Reitern des Hauptfensters steht.
 
-Getrennt von `hauptfenster.py`, weil das zwei verschiedene Fragen sind: Dort
+Getrennt von `main_window.py`, weil das zwei verschiedene Fragen sind: Dort
 geht es um den **Rahmen** (Reiterleiste, Umschalten, Größe), hier um den
 **Inhalt**. So bleibt jede Datei überschaubar, und eine neue Seite ist eine
 Funktion, kein Eingriff in den Rahmen.
@@ -195,8 +195,8 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
         aussen.configure(height=hoehe)
     leinwand = tk.Canvas(aussen, bg=BG, highlightthickness=0,
                          **({'height': hoehe} if hoehe else {}))
-    from .hauptfenster import rundleiste
-    balken = rundleiste(aussen, leinwand, grund=BG)
+    from .main_window import round_scrollbar
+    balken = round_scrollbar(aussen, leinwand, grund=BG)
     innen = tk.Frame(leinwand, bg=BG)
     innen.bind('<Configure>',
                lambda e: leinwand.configure(scrollregion=leinwand.bbox('all')))
@@ -214,8 +214,8 @@ def _rollflaeche(rahmen, rand=24, hoehe=None):
     else:
         innen_ziel = innen
 
-    from .hauptfenster import rad_anschliessen
-    rad_anschliessen(leinwand)
+    from .main_window import bind_wheel
+    bind_wheel(leinwand)
     # ⭐ Die Leinwand mitgeben. Seiten, die ihre Liste neu zeichnen (Lager,
     # Handelslager), brauchen sie, um die Rollposition zu halten — siehe
     # `_rollstelle_halten`.
@@ -456,7 +456,7 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
     *„egal wo, sollte das Bedienkonzept nicht jedes Mal ändern — die Leute
     wollen es nutzen und nicht erst lernen, wie sie es nutzen."* Wer die
     Bauplan-Liste bedienen kann, muss Herstellung und Bergbau ohne Umlernen
-    bedienen können. Deshalb dasselbe `rundwahl` wie dort, derselbe
+    bedienen können. Deshalb dasselbe `round_select` wie dort, derselbe
     Zurücksetzen-Knopf an derselben Stelle.
 
     `felder` ist eine Liste aus `(schluessel, beschriftung, eintraege)`:
@@ -469,7 +469,7 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
 
     Gibt eine Funktion zurück, die alles zurücksetzt.
     """
-    from .hauptfenster import rundwahl
+    from .main_window import round_select
     reihe = tk.Frame(eltern, bg=BG)
     reihe.pack(fill='x', pady=(0, 8))
     links = tk.Frame(reihe, bg=BG)
@@ -480,7 +480,7 @@ def _filterleiste(fenster, eltern, felder, beim_wechsel, zustand):
     for schluessel, beschriftung, eintraege in felder:
         if len(eintraege) <= 1:
             continue
-        w = rundwahl(links, [('', beschriftung)] + list(eintraege),
+        w = round_select(links, [('', beschriftung)] + list(eintraege),
                      zustand.get(schluessel, ''),
                      lambda wert, s=schluessel: (zustand.__setitem__(s, wert),
                                                  beim_wechsel()),
@@ -527,7 +527,7 @@ def _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand):
     Leinwand, wird der Rahmen neu gezeichnet, sonst endet er mitten im Wort;
     die Liste hält die neue Kennung fest, damit die Farbwechsel weiter greifen.
     """
-    from .hauptfenster import _rundes_rechteck
+    from .main_window import _round_rect
 
     def nachmessen(_=None):
         try:
@@ -542,7 +542,7 @@ def _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand):
         c.configure(width=noetig)
         c.coords(beschriftung, noetig / 2.0, hoehe / 2.0)
         c.delete(flaeche[0])
-        flaeche[0] = _rundes_rechteck(c, 1, 1, noetig - 1, hoehe - 1, radius=5,
+        flaeche[0] = _round_rect(c, 1, 1, noetig - 1, hoehe - 1, radius=5,
                                       fill=fuellung, outline=rand, width=1)
         c.tag_lower(flaeche[0], beschriftung)
 
@@ -554,7 +554,7 @@ def _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand):
 
 def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
     """Ein Knopf im Stil der Vorschau — Rand, Farbe beim Überfahren."""
-    from .hauptfenster import _rundes_rechteck
+    from .main_window import _round_rect
     schrift = fenster.f_klein
     hoehe = schrift.metrics('linespace') + 16
     breite = schrift.measure(text) + 30
@@ -577,7 +577,7 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
                                  fill=farbe, font=schrift, anchor='center')
     fuellung = ('#2a1414' if gefahr
                 else ('#1d2a14' if stark else FLAECHE))
-    flaeche = [_rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+    flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                 fill=fuellung, outline=rand, width=1)]
     c.tag_lower(flaeche[0], beschriftung)
 
@@ -609,7 +609,7 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
         neue_breite = c.winfo_width()
         if neue_breite <= 10 or abs(neue_breite - breite) < 2:
             return
-        punkte = _rundes_rechteck(c, 1, 1, neue_breite - 1, hoehe - 1,
+        punkte = _round_rect(c, 1, 1, neue_breite - 1, hoehe - 1,
                                   radius=5, fill='', outline='')
         c.coords(flaeche, *c.coords(punkte))
         c.delete(punkte)
@@ -645,7 +645,7 @@ def _knopf(fenster, eltern, text, tat, stark=False, gefahr=False):
 
 def _wahl(fenster, eltern, eintraege, aktiv, tat):
     """Mehrere Möglichkeiten nebeneinander — die gewählte trägt den Akzentrand."""
-    from .hauptfenster import _rundes_rechteck
+    from .main_window import _round_rect
     reihe = tk.Frame(eltern, bg=BG)
     knoepfe = {}
     schrift = fenster.f_klein
@@ -656,7 +656,7 @@ def _wahl(fenster, eltern, eintraege, aktiv, tat):
         c = tk.Canvas(reihe, width=breite, height=hoehe, bg=BG,
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack(side='left', padx=(0, 6))
-        flaeche = [_rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1, radius=5,
+        flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                     fill=FLAECHE, outline=ACCENT if an else LINIE,
                                     width=1)]
         beschr = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
@@ -712,8 +712,8 @@ def _pfadfeld(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
     """Ein Pfad mit Knopf daneben."""
     reihe = tk.Frame(eltern, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
+    from .main_window import round_entry
+    feld = round_entry(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
     feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
     if platzhalter and not wert.get():
         feld.configure(fg=SUB)
@@ -872,7 +872,7 @@ def _knopfreihe(eltern, knoepfe, abstand=8):
                     # eine Seite mit breiter Knopfreihe öffnete, konnte es nie
                     # wieder niedriger ziehen. Gemeldet mit `Fenster 1770×899,
                     # mindestens 1770×899` — beide Maße gleich, das Fenster saß
-                    # in seiner eigenen Größe fest, obwohl `MIN_HOEHE` 380 ist.
+                    # in seiner eigenen Größe fest, obwohl `MIN_HEIGHT` 380 ist.
                     #
                     # Es ist derselbe Fehler wie in Falle 4 der Projektnotiz,
                     # nur andersherum: Dort blieb `minsize` beim Verkleinern
@@ -1243,8 +1243,8 @@ def _fortschritt(fenster, rahmen):
              % (gesamt_alle, 100.0 * meine_alle / gesamt_alle),
              bg=BG, fg=SUB, font=fenster.f_klein).pack(side='left')
 
-    from .hauptfenster import rundbalken
-    rundbalken(innen, 9, meine_alle / float(gesamt_alle), BG, '#222b3b',
+    from .main_window import round_bar
+    round_bar(innen, 9, meine_alle / float(gesamt_alle), BG, '#222b3b',
                ACCENT).pack(fill='x', pady=(6, 18))
 
     for bereich in katalog_modul.TOP_GROUPS:
@@ -1324,8 +1324,8 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
                     fill='x', pady=(8, 0))
         return
 
-    from .hauptfenster import rundrahmen
-    kasten = rundrahmen(koerper, FLAECHE, LINIE, radius=8, grundfarbe=BG)
+    from .main_window import round_frame
+    kasten = round_frame(koerper, FLAECHE, LINIE, radius=8, base_color=BG)
     kasten.halter.pack(fill='x', pady=(10, 0))
     # ⚠ Nur die ersten zehn. Es sind 170 — eine vollständige Liste wäre keine
     # Antwort auf „was mache ich als Nächstes", sondern die nächste Suchaufgabe.
@@ -1387,7 +1387,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
 
 def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
     """Ein Bereich mit Gesamtbalken — die Kategorien darin klappen auf."""
-    from .hauptfenster import rundbalken
+    from .main_window import round_bar
     zustand = {'offen': False}
 
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
@@ -1401,7 +1401,7 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
              font=fenster.f_klein, anchor='w').pack(side='left')
 
     anteil = max(0.0, min(1.0, meine / float(gesamt or 1)))
-    balken = rundbalken(eltern, 9, anteil, BG, '#222b3b', ACCENT)
+    balken = round_bar(eltern, 9, anteil, BG, '#222b3b', ACCENT)
     balken.pack(fill='x', pady=(2, 0))
 
     koerper = tk.Frame(eltern, bg=BG)
@@ -1418,7 +1418,7 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
                                     anchor='w')
             beschriftung.pack(side='left')
             teil = max(0.0, min(1.0, art_meine / float(art_gesamt or 1)))
-            balken_zeile = rundbalken(zeile, 7, teil, BG, '#222b3b', ACCENT,
+            balken_zeile = round_bar(zeile, 7, teil, BG, '#222b3b', ACCENT,
                                       breite=260)
             balken_zeile.pack(side='left', padx=8)
             zahl = tk.Label(zeile, text='%d / %d' % (art_meine, art_gesamt),
@@ -1494,7 +1494,7 @@ def _einstellungen(fenster):
 
 def _allgemein(fenster, rahmen):
     from . import autostart, pfade
-    from .hauptfenster import schiebeschalter
+    from .main_window import toggle_switch
     _ueberschrift(fenster, rahmen, t('hf_allgemein'),
                   t('s_allg_lead'))
     innen = _rollflaeche(rahmen)
@@ -1517,7 +1517,7 @@ def _allgemein(fenster, rahmen):
         fenster.sagen('%s: %s' % (t('e_ton'), t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('signalton', True),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('signalton', True),
                     ton_um).pack()
 
     # ⚠ Standardmaessig AUS (Wunsch 05.09.2026). Gezaehlt wird trotzdem von
@@ -1535,7 +1535,7 @@ def _allgemein(fenster, rahmen):
         fenster.root.after(60, fenster.neu_aufbauen)
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('spielzeit_zeigen', False),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('spielzeit_zeigen', False),
                     zeit_um).pack()
 
     ziel = _feld(fenster, innen,
@@ -1550,7 +1550,7 @@ def _allgemein(fenster, rahmen):
                           % (t('e_an') if neu_wert else t('e_aus')))
             return autostart.ist_an()
 
-        schalter = schiebeschalter(ziel, autostart.ist_an(), autostart_um)
+        schalter = toggle_switch(ziel, autostart.ist_an(), autostart_um)
         schalter.pack()
         # Mitschalten, wenn der Autostart woanders umgestellt wird — etwa am
         # Symbol im Overlay, das ja gleichzeitig sichtbar ist.
@@ -1570,7 +1570,7 @@ def _allgemein(fenster, rahmen):
             pfade.einstellung_setzen('tray', neu_wert)
             return neu_wert
 
-        schiebeschalter(ziel, pfade.einstellung_wahrheit('tray', True),
+        toggle_switch(ziel, pfade.einstellung_wahrheit('tray', True),
                         tray_um).pack()
     else:
         tk.Label(ziel, text=t('s_nur_win'), bg=BG, fg=SUB,
@@ -1579,7 +1579,7 @@ def _allgemein(fenster, rahmen):
 
 def _anzeige(fenster, rahmen):
     from . import pfade
-    from .hauptfenster import schiebeschalter
+    from .main_window import toggle_switch
     _ueberschrift(fenster, rahmen, t('hf_anzeige'),
                   t('s_anz_lead'))
     innen = _rollflaeche(rahmen)
@@ -1618,7 +1618,7 @@ def _anzeige(fenster, rahmen):
     _hotkey_feld(fenster, innen)
 
     ziel = _feld(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
-    from .hauptfenster import rundes_feld as _zahlfeld
+    from .main_window import round_entry as _zahlfeld
     dauer = _zahlfeld(ziel, None, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG,
                       breite=6, justify='right')
     dauer.insert(0, str(pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)))
@@ -1639,7 +1639,7 @@ def _anzeige(fenster, rahmen):
     if _durchklick_moeglich():
         # ⚠ Nicht `_schalter` nennen — so heisst in dieser Datei bereits eine
         # Funktion, und ein lokaler Name wuerde sie verdecken (Selbsttest 67).
-        _durch_schalter = schiebeschalter(
+        _durch_schalter = toggle_switch(
             ziel, pfade.einstellung_wahrheit('durchklickbar', False),
             lambda: _durchklick_um(fenster))
         _durch_schalter.pack()
@@ -1676,7 +1676,7 @@ def _anzeige(fenster, rahmen):
     # trotzdem beschnitten. Eine Einstellung, die das Fenster unbrauchbar
     # macht, gehört nicht angeboten.
     #
-    # ⚠ Der Wert bleibt im Programm gültig (`STUFEN`, `icons.py`): Wer ihn
+    # ⚠ Der Wert bleibt im Programm gültig (`FONT_LEVELS`, `icons.py`): Wer ihn
     # gespeichert hat, verliert nichts — er kann ihn nur nicht neu wählen.
     wahl = _wahl(fenster, ziel,
                  [(s, t('hf_s_' + s))
@@ -1692,7 +1692,7 @@ def _anzeige(fenster, rahmen):
 
     ziel = _feld(fenster, innen, t('e_deckkraft'),
                  t('s_deck_h'))
-    from .hauptfenster import regler as schieberegler
+    from .main_window import slider as schieberegler
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     wertlabel = tk.Label(reihe, text='%d %%' % e.deckkraft.get(), bg=BG,
@@ -1719,7 +1719,7 @@ def _anzeige(fenster, rahmen):
         pfade.einstellung_setzen('eingeklappt', neu_wert)
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('eingeklappt', False),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('eingeklappt', False),
                     klapp_um).pack()
 
     ziel = _feld(fenster, innen, t('s_vorne'),
@@ -1732,13 +1732,13 @@ def _anzeige(fenster, rahmen):
                       % (t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('immer_vorne', True),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('immer_vorne', True),
                     vorne_um).pack()
 
     ziel = _feld(fenster, innen, t('s_zeilen'),
                  t('s_zeilen_h'))
-    from .hauptfenster import rundes_feld
-    zahl = rundes_feld(ziel, None, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG,
+    from .main_window import round_entry
+    zahl = round_entry(ziel, None, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG,
                        breite=6, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('max_zeilen', 20, 5, 100)))
     zahl.halter.pack()
@@ -1879,7 +1879,7 @@ def _ablage_wechseln(fenster, ablage, ziel):
     | Ziel hat schon Dateien | fragen „die dort benutzen?" — nichts überschreiben |
     | nichts zu kopieren | still umstellen, es gibt nichts zu erzählen |
     """
-    from .hauptfenster import frage_stellen
+    from .main_window import ask_yes_no
     alt = pfade.app_ordner()
     if os.path.abspath(alt) == os.path.abspath(ziel):
         return
@@ -1897,9 +1897,9 @@ def _ablage_wechseln(fenster, ablage, ziel):
     if fremde:
         # Am Ziel liegt schon eine Ablage — der zweite Rechner beim
         # Doppelstart. Seine Daten gehören ihm; wir fassen sie nicht an.
-        if not frage_stellen(fenster.root, t('s_ab_titel'),
+        if not ask_yes_no(fenster.root, t('s_ab_titel'),
                              t('s_ab_belegt') % fremde,
-                             ja=t('s_ab_belegt_ja'), nein=t('e_abbrechen')):
+                             ja=t('s_ab_belegt_ja'), no_text=t('e_abbrechen')):
             return
         _ablage_setzen(fenster, ablage, ziel)
         fenster.sagen(t('s_ab_uebernommen'))
@@ -1910,9 +1910,9 @@ def _ablage_wechseln(fenster, ablage, ziel):
         fenster.sagen(t('e_neustart_noetig'))
         return
 
-    if not frage_stellen(fenster.root, t('s_ab_titel'),
+    if not ask_yes_no(fenster.root, t('s_ab_titel'),
                          t('s_ab_mitnehmen') % eigene,
-                         ja=t('s_ab_mitnehmen_ja'), nein=t('s_ab_ohne')):
+                         ja=t('s_ab_mitnehmen_ja'), no_text=t('s_ab_ohne')):
         # Bewusst ohne Daten umstellen — auch das ist eine gültige Wahl.
         _ablage_setzen(fenster, ablage, ziel)
         fenster.sagen(t('e_neustart_noetig'))
@@ -1974,8 +1974,8 @@ def _hotkey_feld(fenster, innen):
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack(anchor='w')
 
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(reihe, None, fenster.f_klein, '#0c1017', LINIE, ACCENT,
+    from .main_window import round_entry
+    feld = round_entry(reihe, None, fenster.f_klein, '#0c1017', LINIE, ACCENT,
                        FG, breite=18)
     feld.insert(0, pfade.einstellung('hotkey') or hk.STANDARD)
     feld.halter.pack(side='left')
@@ -2043,8 +2043,8 @@ def _startbefehl_feld(fenster, innen):
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
+    from .main_window import round_entry
+    feld = round_entry(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
     feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
     _knopf(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
 
@@ -2186,7 +2186,7 @@ def _ordner_zeigen(pfad):
 def _spiel(fenster, rahmen):
     """Auftragstexte — Textquelle wählen und die Bauplan-Angaben eintragen."""
     from . import pfade
-    from .hauptfenster import schiebeschalter
+    from .main_window import toggle_switch
     _ueberschrift(fenster, rahmen, t('hf_spiel'), t('s_sp_lead'))
     innen = _rollflaeche(rahmen)
     e = _einstellungen(fenster)
@@ -2252,7 +2252,7 @@ def _spiel(fenster, rahmen):
                       % (t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('inj_auto', True),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('inj_auto', True),
                     inj_auto_um).pack()
 
     # --- An oder aus ---------------------------------------------------------
@@ -2289,7 +2289,7 @@ def _spiel(fenster, rahmen):
         lage_zeigen()
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('inj_an', True),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('inj_an', True),
                     inj_an_um).pack()
 
     # --- Angaben am Gegenstand ----------------------------------------------
@@ -2332,7 +2332,7 @@ def _spiel(fenster, rahmen):
         return neu_wert
 
     from . import injektion as _inj
-    schiebeschalter(ziel,
+    toggle_switch(ziel,
                     pfade.einstellung_wahrheit(_inj.EINSTELLUNG_ANGABEN, True),
                     angaben_um).pack()
 
@@ -2562,7 +2562,7 @@ def _bestand(fenster, rahmen):
     ziel = _feld(fenster, innen, t('s_be_reset'), t('s_be_reset_h'))
 
     def zuruecksetzen():
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
 
         # ⚠⚠ **Die Zahlen NENNEN, nicht nur warnen.** Am 05.09.2026 hat ein
         # Melder seinen Bestand von **232 auf 3** zurückgesetzt — die Warnung
@@ -2587,7 +2587,7 @@ def _bestand(fenster, rahmen):
         except Exception as ausnahme:
             fehler.merken('seiten.bestand.reset_zahlen', ausnahme)
 
-        if not frage_stellen(fenster.root, t('s_be_reset'), frage):
+        if not ask_yes_no(fenster.root, t('s_be_reset'), frage):
             return
         # ⚠⚠ **Jeder Ausgang sagt etwas.** Ein Knopf, der nach der
         # Warnfrage schweigt, ist von einem kaputten nicht zu unterscheiden.
@@ -2620,7 +2620,7 @@ def _leere_vorschau(fenster, eltern):
 def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
     """Was der Import täte — erst nach dem Knopf passiert wirklich etwas."""
     from . import importer
-    from .hauptfenster import marke as blase
+    from .main_window import badge as blase
     innen = _karte(eltern, rand=ACCENT)
 
     kopf = tk.Frame(innen, bg=FLAECHE)
@@ -2724,9 +2724,9 @@ def _auftragslog(fenster, rahmen):
     block.pack(fill='x', padx=24, pady=(14, 0))
     tk.Label(block, text=t('s_al_suche'), bg=BG, fg=FG, font=fenster.f_fett,
              anchor='w').pack(fill='x')
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(block, suche, fenster.f_klein, '#0c1017', LINIE,
-                       ACCENT, FG, hinweis=t('s_pl_auftrag'))
+    from .main_window import round_entry
+    feld = round_entry(block, suche, fenster.f_klein, '#0c1017', LINIE,
+                       ACCENT, FG, placeholder=t('s_pl_auftrag'))
     feld.halter.pack(fill='x', pady=(4, 0))
 
     # ⚠ Die Filterleiste wird weiter unten befuellt — die Farben und Woerter
@@ -3099,18 +3099,18 @@ def _geraete_hub(fenster, eltern):
 
         @staticmethod
         def showinfo(titel, text):
-            from .hauptfenster import frage_stellen
-            frage_stellen(eltern.winfo_toplevel(), titel, text, nur_ok=True)
+            from .main_window import ask_yes_no
+            ask_yes_no(eltern.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def showwarning(titel, text):
-            from .hauptfenster import frage_stellen
-            frage_stellen(eltern.winfo_toplevel(), titel, text, nur_ok=True)
+            from .main_window import ask_yes_no
+            ask_yes_no(eltern.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def askyesno(titel, text):
-            from .hauptfenster import frage_stellen
-            return frage_stellen(eltern.winfo_toplevel(), titel, text)
+            from .main_window import ask_yes_no
+            return ask_yes_no(eltern.winfo_toplevel(), titel, text)
 
     kopf = tk.Label(eltern, text=t('s_gh_titel'), bg=BG, fg=FG,
                     font=fenster.f_fett, anchor='w')
@@ -3325,9 +3325,9 @@ def _joysticks(fenster, rahmen):
                        anchor='w')
     liste_rahmen = tk.Frame(unten, bg=BG)
 
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(werkzeug, suche, fenster.f_klein, '#0c1017', LINIE,
-                       ACCENT, FG, hinweis=t('s_pl_belegung'))
+    from .main_window import round_entry
+    feld = round_entry(werkzeug, suche, fenster.f_klein, '#0c1017', LINIE,
+                       ACCENT, FG, placeholder=t('s_pl_belegung'))
     feld.halter.pack(fill='x')
 
     def _kennung_kurz(k):
@@ -3496,15 +3496,15 @@ def _joysticks(fenster, rahmen):
         sich dort unter seinem Namen laden. Das ist der Weg, den man sonst nur
         über die Spielkonsole hat.
         """
-        from .hauptfenster import text_stellen
+        from .main_window import ask_text
         vorhandene = joysticks.profile()
         # ⚠ **Nicht `simpledialog.askstring`.** Der Systemdialog kommt grau, in
         # der Systemschrift und mit englischem „Cancel" — auf dem dunklen Grund
         # ein Fremdkörper. `text_stellen()` ist derselbe Dialog im Programmstil.
-        name = text_stellen(
+        name = ask_text(
             fenster.root, t('s_js_profil'), t('s_js_profil_frage'),
-            liste=vorhandene,
-            listentitel=t('s_js_profil_liste') if vorhandene else '')
+            choices=vorhandene,
+            choices_title=t('s_js_profil_liste') if vorhandene else '')
         if name is None:
             return                       # abgebrochen, nicht leer bestätigt
         ok, meldung = joysticks.name_pruefen(name)
@@ -3529,7 +3529,7 @@ def _joysticks(fenster, rahmen):
 
     def _einlesen():
         from . import file_picker
-        from .hauptfenster import auswahl_stellen, wahl_stellen
+        from .main_window import ask_pick, ask_choice
         # ⚠ Erst die eigenen Profile anbieten, dann den Dateiwähler. Der
         # Spieler kennt seine Belegung am **Namen**, nicht am Pfad — und der
         # Mappings-Ordner liegt auf jedem Rechner woanders. Wer eine
@@ -3537,12 +3537,12 @@ def _joysticks(fenster, rahmen):
         quelle = None
         vorhandene = joysticks.profile()
         if vorhandene:
-            wahl = wahl_stellen(fenster.root, t('s_js_einlesen'),
+            wahl = ask_choice(fenster.root, t('s_js_einlesen'),
                                 t('s_js_einlesen_woher'),
                                 t('s_js_einlesen_profil'),
                                 t('s_js_einlesen_datei'))
             if wahl == 'a':
-                name = auswahl_stellen(fenster.root, t('s_js_einlesen'),
+                name = ask_pick(fenster.root, t('s_js_einlesen'),
                                        t('s_js_einlesen_waehlen'), vorhandene)
                 if not name:
                     return
@@ -4023,14 +4023,14 @@ def _chip(fenster, eltern, text, an, farbe=None):
     Zeilen, die er zeigt. Ohne Angabe bleibt es beim Grün, so wie auf der Seite
     „Was ist neu", wo alle Filter gleichrangig sind.
     """
-    from .hauptfenster import _rundes_rechteck
+    from .main_window import _round_rect
     farbe = farbe or ACCENT
     schrift = fenster.f_klein
     hoehe = schrift.metrics('linespace') + 12
     breite = schrift.measure(text) + 26
     c = tk.Canvas(eltern, width=breite, height=hoehe, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
-    blase = _rundes_rechteck(c, 1, 1, breite - 1, hoehe - 1,
+    blase = _round_rect(c, 1, 1, breite - 1, hoehe - 1,
                              radius=max(5, hoehe // 3),
                              fill=FLAECHE, outline=farbe if an else LINIE, width=1)
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0 + 1, text=text,
@@ -4073,7 +4073,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
     if offen:
         koerper.pack(fill='x')
 
-    from .hauptfenster import marke
+    from .main_window import badge
     # Der Vorstellungssatz der Version steht **hier**, unter ihrer Überschrift —
     # nicht irgendwo am Seitenende. Wer eine Version aufklappt, will zuerst wissen,
     # worum es ging, und dann die Einzelheiten.
@@ -4105,9 +4105,9 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
     for art, zeile in punkte:
         z = tk.Frame(koerper, bg=BG)
         z.pack(fill='x', pady=3)
-        marke(z, _art_wort(art), _ART_FARBE.get(art, SUB),
+        badge(z, _art_wort(art), _ART_FARBE.get(art, SUB),
               fenster.f_klein, grund=BG,
-              mindestbreite=breiteste).pack(side='left', anchor='n', padx=(0, 14))
+              min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
         # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
         # der Text zu spät um und der Rest wird stumm abgeschnitten.
         #
@@ -4179,9 +4179,9 @@ def _saubere_zeile(zeile):
 
 
 def _karte(eltern, rand=None, **kw):
-    """Ein abgesetzter Kasten mit runden Ecken (siehe `hauptfenster.rundrahmen`)."""
-    from .hauptfenster import rundrahmen
-    innen = rundrahmen(eltern, FLAECHE, rand or LINIE, radius=8, grundfarbe=BG)
+    """Ein abgesetzter Kasten mit runden Ecken (siehe `main_window.rundrahmen`)."""
+    from .main_window import round_frame
+    innen = round_frame(eltern, FLAECHE, rand or LINIE, radius=8, base_color=BG)
     innen.halter.pack(fill='x', **kw)
     return innen
 
@@ -4684,10 +4684,10 @@ def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
     uniform=…)` ist die einzige Zusage in Tk, die zwei Spalten wirklich gleich
     breit macht; bei `pack` gibt es nichts Vergleichbares.
     """
-    from .hauptfenster import marke as blase
-    from .hauptfenster import rundrahmen
-    innen = rundrahmen(eltern, FLAECHE, ACCENT if gewaehlt else LINIE,
-                       radius=8, grundfarbe=BG)
+    from .main_window import badge as blase
+    from .main_window import round_frame
+    innen = round_frame(eltern, FLAECHE, ACCENT if gewaehlt else LINIE,
+                       radius=8, base_color=BG)
     rand = innen.halter
     if untereinander:
         eltern.grid_columnconfigure(0, weight=1, uniform='')
@@ -4949,7 +4949,7 @@ def _kopfstreifen(fenster, eltern, lage):
     die Seite überhaupt öffnet — deshalb steht sie oben und nicht in einer
     Werteliste.
 
-    ⚠ **Kein `rundrahmen`.** Dessen Leinwand bleibt auf ihrer Anfangshöhe,
+    ⚠ **Kein `round_frame`.** Dessen Leinwand bleibt auf ihrer Anfangshöhe,
     wenn der Inhalt nicht mitgemessen wird — der Streifen erschien als leerer
     grüner Rahmen. Ein schlichter Frame mit farbigem Balken am linken Rand
     trägt dieselbe Aussage und kann nicht einklappen.
@@ -5157,7 +5157,7 @@ def _meldungskarte(fenster, eltern, meldung):
 def _etikett(fenster, eltern, text):
     """Ein kleines graues Schild, wie die Marken auf der Statusseite.
 
-    ⚠ **Bewusst kein `rundrahmen`.** Der setzt seinen Inhalt per
+    ⚠ **Bewusst kein `round_frame`.** Der setzt seinen Inhalt per
     `create_window` auf eine Leinwand — dadurch trägt der Inhalt nicht zur
     Wunschgröße bei, das Schild hat keine eigene Breite und dehnt sich über
     die halbe Karte. Bei großen Kästen fällt das nicht auf, hier schon: Aus
@@ -5259,7 +5259,7 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     kasten = tk.Frame(eltern, bg=FLAECHE)
     kasten.pack(fill='x', pady=(0, 8))
 
-    from .hauptfenster import marke as blase
+    from .main_window import badge as blase
     kopf = tk.Frame(kasten, bg=FLAECHE)
     kopf.pack(fill='x', padx=16, pady=(12, 2))
     tk.Label(kopf, text=name, bg=FLAECHE, fg=FG, font=fenster.f_fett,
@@ -5301,7 +5301,7 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
     Liste soll vollständig bleiben, auch wenn irgendwann fünfzig Leute
     daraufstehen — vollständig **und** überschaubar geht nur so.
     """
-    from .hauptfenster import marke as blase
+    from .main_window import badge as blase
     kasten = tk.Frame(eltern, bg=FLAECHE)
     kasten.pack(fill='x', pady=(0, 6))
 
@@ -5379,8 +5379,8 @@ def _danke(fenster, rahmen):
     autor = _karte(innen)
     zeile = tk.Frame(autor, bg=FLAECHE)
     zeile.pack(fill='x', padx=16, pady=14)
-    from .hauptfenster import _mitgeliefert
-    logo = _mitgeliefert(os.path.join('assets', 'xharig.png'))
+    from .main_window import _bundled
+    logo = _bundled(os.path.join('assets', 'xharig.png'))
     if logo and os.path.exists(logo):
         try:
             voll = tk.PhotoImage(file=logo)
@@ -5512,8 +5512,8 @@ def _ueber(fenster, rahmen):
     karte = _karte(innen, pady=(0, 6))
     kopf = tk.Frame(karte, bg=FLAECHE)
     kopf.pack(fill='x', padx=16, pady=(14, 6))
-    from .hauptfenster import _mitgeliefert
-    symbol = _mitgeliefert(os.path.join('assets', 'icon.png'))
+    from .main_window import _bundled
+    symbol = _bundled(os.path.join('assets', 'icon.png'))
     if symbol and os.path.exists(symbol):
         try:
             voll = tk.PhotoImage(file=symbol)
@@ -5732,8 +5732,8 @@ def _erkennung(fenster, rahmen):
     ziel = _feld(fenster, innen, t('s_er_takt'), t('s_er_takt_h'))
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
-    from .hauptfenster import rundes_feld
-    zahl = rundes_feld(reihe, None, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG,
+    from .main_window import round_entry
+    zahl = round_entry(reihe, None, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG,
                        breite=5, justify='right')
     zahl.insert(0, str(pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)))
     zahl.halter.pack(side='left')
@@ -5801,7 +5801,7 @@ def _erkennung(fenster, rahmen):
 
 def _diagnose(fenster, rahmen):
     from . import pfade
-    from .hauptfenster import schiebeschalter
+    from .main_window import toggle_switch
     _ueberschrift(fenster, rahmen, t('hf_diagnose'), t('s_di_lead'))
     innen = _rollflaeche(rahmen)
 
@@ -5817,10 +5817,10 @@ def _diagnose(fenster, rahmen):
     # mitgeschickter Name wäre ein Wortbruch.
     melder_var = tk.StringVar(value=(pfade.einstellung('melder_name') or ''))
     ziel_melder = _feld(fenster, innen, t('s_melder'), t('s_melder_h'))
-    from .hauptfenster import rundes_feld
-    melder_feld = rundes_feld(ziel_melder, melder_var, fenster.f_klein,
+    from .main_window import round_entry
+    melder_feld = round_entry(ziel_melder, melder_var, fenster.f_klein,
                               '#0c1017', LINIE, ACCENT, FG,
-                              hinweis=t('s_pl_melder'))
+                              placeholder=t('s_pl_melder'))
     melder_feld.halter.pack(fill='x', pady=(8, 0))
 
     # ⭐⭐ **Ein Feld für die Meldung selbst — direkt unter dem Namen.**
@@ -5848,11 +5848,11 @@ def _diagnose(fenster, rahmen):
     # ⚠ **Nicht gespeichert.** Anders als der Name gehört ein Satz zu *einem*
     # Bericht; beim nächsten Öffnen stünde er sonst noch da und würde
     # versehentlich zu einer zweiten Meldung mitgeschickt.
-    from .hauptfenster import rundes_textfeld
+    from .main_window import round_textarea
     ziel_meldung = _feld(fenster, innen, t('s_meldung'), t('s_meldung_h'),
                          breit=True)
-    meldung_feld = rundes_textfeld(ziel_meldung, fenster.f_klein,
-                                   '#0c1017', LINIE, ACCENT, FG, zeilen=4)
+    meldung_feld = round_textarea(ziel_meldung, fenster.f_klein,
+                                   '#0c1017', LINIE, ACCENT, FG, rows=4)
     meldung_feld.halter.pack(fill='x', pady=(8, 0))
 
     def meldung_text():
@@ -5874,8 +5874,8 @@ def _diagnose(fenster, rahmen):
     except Exception as ausnahme:
         fehler.merken('seiten.diagnose', ausnahme)
 
-    from .hauptfenster import rundrahmen
-    kasten = rundrahmen(innen, '#0c1017', LINIE, radius=8, grundfarbe=BG)
+    from .main_window import round_frame
+    kasten = round_frame(innen, '#0c1017', LINIE, radius=8, base_color=BG)
     kasten.halter.pack(fill='both', expand=True)
     # ⚠ `highlightthickness` steht bei Text und Entry auf 1 und wird auf dem
     # Mac als helle Linie gezeichnet — im runden Kasten sah das aus wie ein
@@ -5932,7 +5932,7 @@ def _diagnose(fenster, rahmen):
     # Fehler an einer Zahl, die längst anders ist.
     #
     # ⚠ **Diese Seite wird bewusst NICHT verworfen** wie die übrigen Seiten mit
-    # Bestandszahlen (`hauptfenster.BESTANDSSEITEN`). Ein Neubau würde das
+    # Bestandszahlen (`main_window.BESTANDSSEITEN`). Ein Neubau würde das
     # Meldungsfeld leeren — jemand tippt seine Fehlerbeschreibung, wechselt
     # kurz auf eine andere Seite, um etwas nachzusehen, und der Text ist weg.
     # Genau auf dieser Seite darf das am wenigsten passieren.
@@ -6023,8 +6023,8 @@ def _diagnose(fenster, rahmen):
         Gefragt wird trotzdem: Etwas ins Netz zu schicken, ohne dass jemand
         zugestimmt hat, macht dieses Werkzeug nicht.
         """
-        from .hauptfenster import frage_stellen
-        if not frage_stellen(fenster.root, t('s_di_ab_frage_t'),
+        from .main_window import ask_yes_no
+        if not ask_yes_no(fenster.root, t('s_di_ab_frage_t'),
                              t('s_di_ab_frage')):
             return
         fenster.sagen(t('s_di_ab_laeuft'))
@@ -6071,7 +6071,7 @@ def _diagnose(fenster, rahmen):
         pfade.einstellung_setzen('fehler_mitschreiben', neu_wert)
         return neu_wert
 
-    schiebeschalter(ziel, pfade.einstellung_wahrheit('fehler_mitschreiben', True),
+    toggle_switch(ziel, pfade.einstellung_wahrheit('fehler_mitschreiben', True),
                     mitschreiben_um).pack()
 
 
@@ -6152,8 +6152,8 @@ def _herstellung(fenster, rahmen):
         tk.Label(kopf, text=t('s_he_dazu_unklar') % unklar, bg=BG, fg=SUB,
                  font=fenster.f_klein).pack(side='left')
 
-    from .hauptfenster import rundbalken, rundes_feld
-    rundbalken(innen, 9, sicher / float(gesamt or 1), BG, '#222b3b',
+    from .main_window import round_bar, round_entry
+    round_bar(innen, 9, sicher / float(gesamt or 1), BG, '#222b3b',
                ACCENT).pack(fill='x', pady=(6, 14))
 
     # ⚠ Beschriftetes Feld wie auf den anderen Seiten (siehe „Dein Name" auf
@@ -6171,8 +6171,8 @@ def _herstellung(fenster, rahmen):
     suche_var = tk.StringVar(value=gesprungen)
     fenster.herstellung_suche = ''
     ziel_suche = _feld(fenster, innen, t('s_he_suche'), '')
-    suchfeld = rundes_feld(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
-                           LINIE, ACCENT, FG, hinweis=t('s_pl_herstellung'))
+    suchfeld = round_entry(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
+                           LINIE, ACCENT, FG, placeholder=t('s_pl_herstellung'))
     suchfeld.halter.pack(fill='x', pady=(4, 12))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
@@ -6665,13 +6665,13 @@ def _routen(fenster, rahmen):
         zustand['stumm'] = False
         _ortvorschlaege()
 
-    from .hauptfenster import rundwahl
+    from .main_window import round_select
     systeme = _systeme()
     # ⚠ Gemerkt, damit „Zurücksetzen" die Anzeige mitnehmen kann — ohne das
     # stünde dort weiter „Stanton (128)", während intern schon alles offen ist.
     system_menue = [None]
     if systeme:
-        system_menue[0] = rundwahl(
+        system_menue[0] = round_select(
             ortzeile, [('', t('s_rt_alle_systeme'))] + systeme,
             zustand.get('system', ''), _system_gewechselt, fenster.f_klein)
         system_menue[0].pack(side='left', padx=(8, 0))
@@ -8756,7 +8756,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
         _knopf(fenster, reihe, t('s_lg_bauen'), hergestellt).pack(side='left')
         tk.Label(reihe, text=t('s_lg_anzahl'), bg='#0c1017', fg=SUB,
                  font=fenster.f_klein).pack(side='left', padx=(12, 6))
-        from .hauptfenster import rundes_feld as _rf_anzahl
+        from .main_window import round_entry as _rf_anzahl
         _anzahl_feld = _rf_anzahl(reihe, anzahl_var, fenster.f_klein,
                                   '#0c1017', LINIE, ACCENT, FG)
         _anzahl_feld.halter.configure(width=70)
@@ -9149,7 +9149,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
             # Dieselbe Frage, die man sonst auf scmdb.net von Hand stellt:
             # „Und mit besserem Erz?" Nur dass hier der eigene Lagerstand der
             # Ausgangspunkt ist — je Material einzeln.
-            from .hauptfenster import regler as schieberegler
+            from .main_window import slider as schieberegler
             tk.Label(block, text=t('s_he_regler_kopf'), bg='#0c1017', fg=FG,
                      font=fenster.f_grund, anchor='w').pack(
                          fill='x', padx=12, pady=(10, 2))
@@ -9463,20 +9463,20 @@ def _bergung(fenster, rahmen):
         ⚠ Ohne diesen Knopf müsste jemand `bergung.json` von Hand löschen. Ein
         Zwischenspeicher, den nur der Entwickler leeren kann, ist keiner.
         """
-        # ⚠⚠ **`frage_stellen`, nicht `messagebox.askyesno`.** Der
+        # ⚠⚠ **`ask_yes_no`, nicht `messagebox.askyesno`.** Der
         # System-Dialog sieht auf jedem Schreibtisch anders aus — unter Linux
         # weißer Kasten mit fetter Schrift und englischen Knöpfen („Yes"/„No")
         # mitten in einem deutschen, dunklen Programm. Rückmeldung dazu am
         # 06.09.2026 in zwei Worten: „sieht kacke aus." Der eigene Dialog
         # steht seit v3.0.0 bereit und wird überall sonst benutzt.
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         anzahl = len(bg.load().get('schiffe') or {})
         if not anzahl:
             hinweis.configure(text=t('s_wr_nichts_gemerkt'), fg=SUB)
             return
-        if not frage_stellen(fenster.root, t('s_wr_vergessen'),
+        if not ask_yes_no(fenster.root, t('s_wr_vergessen'),
                              t('s_wr_vergessen_frage') % anzahl,
-                             ja=t('s_wr_vergessen_ja'), nein=t('e_abbrechen')):
+                             ja=t('s_wr_vergessen_ja'), no_text=t('e_abbrechen')):
             return
         weg = bg.forget()
         for kind in ergebnis.winfo_children():
@@ -9599,12 +9599,12 @@ def _bergbau(fenster, rahmen):
     # hier", und dann ist ein winziger Fleck plötzlich die beste Adresse.
     _fliesstext(kopf, t('s_bg_anteil_hilfe'), fenster.f_klein, fill='x')
 
-    from .hauptfenster import rundes_feld
+    from .main_window import round_entry
     # Der Sprung aus einem Rezept setzt hier den Rohstoff hinein.
     suche_var = tk.StringVar(value=getattr(fenster, 'bergbau_suche', '') or '')
     fenster.bergbau_suche = ''
     ziel_suche = _feld(fenster, innen, t('s_bg_suche'), '')
-    feld = rundes_feld(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
+    feld = round_entry(ziel_suche, suche_var, fenster.f_klein, '#0c1017',
                        LINIE, ACCENT, FG)
     feld.halter.pack(fill='x', pady=(4, 12))
     _suche_leeren_kreuz(fenster, ziel_suche, suche_var)
@@ -9682,8 +9682,8 @@ def _bergbau(fenster, rahmen):
     # Suchfeld im Lager (v3.3.0-rc21).
     sig_var = tk.StringVar(value='')
     ziel_sig = _feld(fenster, innen, t('s_bg_sig_feld'), '')
-    sig_feld = rundes_feld(ziel_sig, sig_var, fenster.f_klein, '#0c1017',
-                           LINIE, ACCENT, FG, hinweis=t('s_pl_signatur'))
+    sig_feld = round_entry(ziel_sig, sig_var, fenster.f_klein, '#0c1017',
+                           LINIE, ACCENT, FG, placeholder=t('s_pl_signatur'))
     sig_feld.halter.pack(fill='x', pady=(4, 2))
     _fliesstext(innen, t('s_bg_sig_hilfe'), fenster.f_klein, fill='x')
     sig_rahmen = tk.Frame(innen, bg=BG)
@@ -10152,7 +10152,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     """
     from . import crafting as herst_lager
     from . import places as _orte_modul
-    from .hauptfenster import rundrahmen
+    from .main_window import round_frame
 
     # ⭐ **Zugeklappt, bis er gebraucht wird.** Der Block ist der laengste auf
     # der Seite — Einheitenwahl, Lagerort mit Auswahlliste, ein sieben Zeilen
@@ -10191,9 +10191,9 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     zeile.pack(fill='x', pady=(6, 4))
     tk.Label(zeile, text=t('s_rf_einheit'), bg=BG, fg=SUB,
              font=fenster.f_klein).pack(side='left', padx=(0, 8))
-    from .hauptfenster import rundwahl
+    from .main_window import round_select
     # ⚠ Reihenfolge: (eltern, eintraege, gewaehlt, beim_waehlen, schrift).
-    rundwahl(zeile, [('cscu', 'cSCU'), ('scu', 'SCU')], 'cscu',
+    round_select(zeile, [('cscu', 'cSCU'), ('scu', 'SCU')], 'cscu',
              lambda k: (einheit.set(k), pruefen()),
              fenster.f_klein).pack(side='left')
 
@@ -10215,7 +10215,7 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     _ozeile.pack(fill='x', pady=(4, 0))
     _oliste.pack(fill='x')
 
-    kasten = rundrahmen(ziel, '#0c1017', LINIE, radius=8, grundfarbe=BG)
+    kasten = round_frame(ziel, '#0c1017', LINIE, radius=8, base_color=BG)
     kasten.halter.pack(fill='x', pady=(4, 6))
     feld = tk.Text(kasten, bg='#0c1017', fg=FG, font=('Consolas', 10),
                    height=7, wrap='none', relief='flat', bd=0,
@@ -10731,7 +10731,7 @@ def _asop(fenster, rahmen):
     suche = tk.StringVar()
     such_zeile = tk.Frame(kopf, bg=BG)
     such_zeile.pack(fill='x', padx=24, pady=(0, 6))
-    from .hauptfenster import rundes_feld as _rundes_feld_such
+    from .main_window import round_entry as _rundes_feld_such
     such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_klein,
                                   '#0c1017', LINIE, ACCENT, FG)
     such_feld.halter.pack(side='left', fill='x', expand=True)
@@ -10984,8 +10984,8 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     reihe = tk.Frame(kasten, bg=FLAECHE)
     reihe.pack(fill='x', padx=12, pady=(0, 10))
 
-    from .hauptfenster import rundes_feld
-    feld = rundes_feld(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
+    from .main_window import round_entry
+    feld = round_entry(reihe, wert, fenster.f_klein, '#0c1017', LINIE, ACCENT, FG)
     feld.halter.pack(side='left', fill='x', expand=True)
 
     def uebernehmen(*_):
@@ -12058,17 +12058,17 @@ def _hinweis(fenster, titel, text):
        („Fenster spawnt irgendwo unten, wo niemand hinschaut, was genau zu
        diesem Fehler geführt hat")
 
-    `frage_stellen` steht mittig über dem Elternfenster, trägt die Farben des
+    `ask_yes_no` steht mittig über dem Elternfenster, trägt die Farben des
     Programms und benutzt die eingestellte Sprache.
     """
-    from .hauptfenster import frage_stellen
-    frage_stellen(fenster.root, titel, text, nur_ok=True)
+    from .main_window import ask_yes_no
+    ask_yes_no(fenster.root, titel, text, only_ok=True)
 
 
 def _fragen(fenster, titel, text):
     """Eine Ja/Nein-Frage im Programmstil — siehe `_hinweis`."""
-    from .hauptfenster import frage_stellen
-    return frage_stellen(fenster.root, titel, text)
+    from .main_window import ask_yes_no
+    return ask_yes_no(fenster.root, titel, text)
 
 
 def _teil_kennzeichen(teil):
@@ -12692,7 +12692,7 @@ def _lager(fenster, rahmen):
 
     _fliesstext(innen, t('s_lg_hinweis'), fenster.f_klein, fill='x')
 
-    from .hauptfenster import rundes_feld
+    from .main_window import round_entry
     material = tk.StringVar()
     menge = tk.StringVar()
     guete = tk.StringVar()
@@ -12768,7 +12768,7 @@ def _lager(fenster, rahmen):
             # damit die Einheit dort steht, wo die Zahl entsteht.
             _mengenzeile = tk.Frame(block, bg=BG)
             _mengenzeile.pack(fill='x', pady=(4, 0))
-            f = rundes_feld(_mengenzeile, var, fenster.f_klein, '#0c1017',
+            f = round_entry(_mengenzeile, var, fenster.f_klein, '#0c1017',
                             LINIE, ACCENT, FG)
             mengen_beschriftung = kopf_label
 
@@ -12795,7 +12795,7 @@ def _lager(fenster, rahmen):
                                        font=fenster.f_klein, anchor='w')
             mengen_vorschau.pack(fill='x')
         else:
-            f = rundes_feld(block, var, fenster.f_klein, '#0c1017', LINIE,
+            f = round_entry(block, var, fenster.f_klein, '#0c1017', LINIE,
                             ACCENT, FG)
             f.halter.pack(fill='x', pady=(4, 0))
 
@@ -13028,7 +13028,7 @@ def _lager(fenster, rahmen):
 
     def posten_weg(*_):
         """Den gerade offenen Posten löschen — mit Rückfrage."""
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         nummer = bearbeitung['nummer']
         if nummer is None:
             return
@@ -13036,7 +13036,7 @@ def _lager(fenster, rahmen):
         if not (0 <= nummer < len(alle)):
             return
         p_ = alle[nummer]
-        if not frage_stellen(fenster.root, t('s_lg_posten_frage_t'),
+        if not ask_yes_no(fenster.root, t('s_lg_posten_frage_t'),
                              t('s_lg_posten_frage') % (p_.get('material') or '?',
                                                        float(p_.get('menge') or 0))):
             return
@@ -13241,7 +13241,7 @@ def _lager(fenster, rahmen):
     # bei Eingabe im Suchfeld tabt man automatisch raus".
     #
     # Alles, woran ein Cursor stehen kann, gehört ausserhalb der Zeichenroutine.
-    from .hauptfenster import rundes_feld as _rf_suche
+    from .main_window import round_entry as _rf_suche
     _such_zeile = tk.Frame(innen, bg=BG)
     _such_zeile.pack(fill='x', pady=(6, 0))
     tk.Label(_such_zeile, text=t('s_lg_filter'), bg=BG, fg=SUB,
@@ -13313,11 +13313,11 @@ def _lager(fenster, rahmen):
         Frage auch die Zahl der Posten — „4 Posten werden entfernt" wiegt
         anders als „wirklich löschen?".
         """
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         anzahl = len(lager.load())
         if not anzahl:
             return
-        if not frage_stellen(fenster.root, t('s_lg_leeren_frage_t'),
+        if not ask_yes_no(fenster.root, t('s_lg_leeren_frage_t'),
                              t('s_lg_leeren_frage') % anzahl):
             return
         lager.save([])
@@ -13425,13 +13425,13 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
     Tarn-Komponenten und nicht ein Teil namens Stealth — eine Liste, die den
     Text zeigt, aber nicht darauf reagiert, wirkt kaputt.
     """
-    from .hauptfenster import rundes_feld
+    from .main_window import round_entry
 
     zeile = tk.Frame(eltern, bg=BG)
     liste = tk.Frame(eltern, bg=BG)
     offen = {'ja': False}
 
-    feld = rundes_feld(zeile, var, fenster.f_klein, '#0c1017', LINIE, ACCENT,
+    feld = round_entry(zeile, var, fenster.f_klein, '#0c1017', LINIE, ACCENT,
                        FG)
 
     # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
@@ -13504,8 +13504,8 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
         if rollbar:
             leinwand = tk.Canvas(liste, bg=BG, highlightthickness=0,
                                  height=rollbar)
-            from .hauptfenster import rundleiste, rad_anschliessen
-            balken = rundleiste(liste, leinwand, grund=BG)
+            from .main_window import round_scrollbar, bind_wheel
+            balken = round_scrollbar(liste, leinwand, grund=BG)
             halter = tk.Frame(leinwand, bg=BG)
             halter.bind('<Configure>', lambda _e: leinwand.configure(
                 scrollregion=leinwand.bbox('all')))
@@ -13518,7 +13518,7 @@ def _auswahlfeld(fenster, eltern, var, eintraege_holen, hoechstens=10,
             leinwand.pack(side='left', fill='both', expand=True)
             # ⚠ Ueber die vorhandene Stelle, nie selbst gebaut — sie kennt die
             # Fallen (Trackpad, macOS, `bind_all` ohne `add='+'`).
-            rad_anschliessen(leinwand)
+            bind_wheel(leinwand)
 
         zeigen = treffer if rollbar else treffer[:hoechstens]
 
@@ -13753,7 +13753,7 @@ def _verkauf(fenster, rahmen):
     import threading
 
     from . import trade_cargo, selling as preisdaten
-    from .hauptfenster import rundes_feld
+    from .main_window import round_entry
 
     _ueberschrift(fenster, rahmen, t('hf_verkauf'), t('s_vk_lead'))
     innen = _rollflaeche(rahmen)
@@ -14249,7 +14249,7 @@ def _handelslager(fenster, rahmen):
     """Was zum Verkauf im Laderaum liegt — eintragen, ansehen, löschen."""
     from . import trade_cargo as lager, places as ortsliste
     from . import selling as preisdaten
-    from .hauptfenster import rundes_feld
+    from .main_window import round_entry
 
     _ueberschrift(fenster, rahmen, t('hf_handelslager'), t('s_hl_lead'))
     innen = _rollflaeche(rahmen)
@@ -14289,7 +14289,7 @@ def _handelslager(fenster, rahmen):
         tk.Label(block, text=beschriftung, bg=BG, fg=FG,
                  font=fenster.f_fett, anchor='w').pack(fill='x')
         if var is menge:
-            feld = rundes_feld(block, var, fenster.f_klein, '#0c1017', LINIE,
+            feld = round_entry(block, var, fenster.f_klein, '#0c1017', LINIE,
                                ACCENT, FG)
             feld.halter.pack(fill='x', pady=(4, 0))
             continue
@@ -14553,11 +14553,11 @@ def _handelslager(fenster, rahmen):
         löschen?" — und nach einem Patch-Wisch ist genau das der Griff, der
         gemeint ist.
         """
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         anzahl = len(lager.load())
         if not anzahl:
             return
-        if not frage_stellen(fenster.root, t('s_hl_leeren_frage_t'),
+        if not ask_yes_no(fenster.root, t('s_hl_leeren_frage_t'),
                              t('s_hl_leeren_frage') % anzahl):
             return
         lager.clear()
@@ -14701,26 +14701,26 @@ def _blickwinkel(fenster, rahmen):
 
         @staticmethod
         def showinfo(titel, text):
-            from .hauptfenster import frage_stellen
-            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            from .main_window import ask_yes_no
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `ask_yes_no`
             # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
             # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
             # landete dadurch unten rechts statt in der Fenstermitte.
-            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+            ask_yes_no(rahmen.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def showwarning(titel, text):
-            from .hauptfenster import frage_stellen
-            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            from .main_window import ask_yes_no
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `ask_yes_no`
             # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
             # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
             # landete dadurch unten rechts statt in der Fenstermitte.
-            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+            ask_yes_no(rahmen.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def askyesno(titel, text):
-            from .hauptfenster import frage_stellen
-            return frage_stellen(rahmen.winfo_toplevel(), titel, text)
+            from .main_window import ask_yes_no
+            return ask_yes_no(rahmen.winfo_toplevel(), titel, text)
 
     _ueberschrift(fenster, rahmen, t('hf_blickwinkel'), t('s_fv_lead'))
     innen = _rollflaeche(rahmen)
@@ -14939,26 +14939,26 @@ def _achsen(fenster, rahmen):
 
         @staticmethod
         def showinfo(titel, text):
-            from .hauptfenster import frage_stellen
-            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            from .main_window import ask_yes_no
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `ask_yes_no`
             # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
             # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
             # landete dadurch unten rechts statt in der Fenstermitte.
-            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+            ask_yes_no(rahmen.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def showwarning(titel, text):
-            from .hauptfenster import frage_stellen
-            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `frage_stellen`
+            from .main_window import ask_yes_no
+            # ⚠ Das TOPLEVEL übergeben, nicht den Seitenrahmen. `ask_yes_no`
             # setzt den Dialog mittig über sein Elternteil — der Seitenrahmen
             # beginnt aber erst rechts neben der Reiterleiste, und der Dialog
             # landete dadurch unten rechts statt in der Fenstermitte.
-            frage_stellen(rahmen.winfo_toplevel(), titel, text, nur_ok=True)
+            ask_yes_no(rahmen.winfo_toplevel(), titel, text, only_ok=True)
 
         @staticmethod
         def askyesno(titel, text):
-            from .hauptfenster import frage_stellen
-            return frage_stellen(rahmen.winfo_toplevel(), titel, text)
+            from .main_window import ask_yes_no
+            return ask_yes_no(rahmen.winfo_toplevel(), titel, text)
 
     _ueberschrift(fenster, rahmen, t('hf_achsen'), t('s_ac_lead'))
     innen = _rollflaeche(rahmen)

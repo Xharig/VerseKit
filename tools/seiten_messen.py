@@ -15,8 +15,8 @@ Der zweite Fall MUSS nahe null liegen. Tut er das nicht, arbeitet beim
 Einblenden noch etwas — und das trifft den Nutzer bei **jedem** Klick, nicht
 nur beim ersten.
 
-⚠ Der Seiten-Vorbau ist seit dem 02.09.2026 abgeschaltet (siehe `VORBAU_AN` in
-`hauptfenster.py`). Die erste Anzeige kostet deshalb genau die Bauzeit. Das ist
+⚠ Der Seiten-Vorbau ist seit dem 02.09.2026 abgeschaltet (siehe `PREBUILD_ON` in
+`main_window.py`). Die erste Anzeige kostet deshalb genau die Bauzeit. Das ist
 gewollt — er hat nie etwas beschleunigt, sondern die Arbeit nur vorverlegt und
 dabei die Oberfläche 1,7 Sekunden eingefroren.
 
@@ -40,7 +40,7 @@ sys.path.insert(0, HIER)
 import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
-from scbp import hauptfenster                                # noqa: E402
+from scbp import main_window                                # noqa: E402
 
 WIEDERHOLUNGEN = 3
 
@@ -63,7 +63,7 @@ def _durchlauf(fenster, kennung):
 
 
 def main():
-    fenster = hauptfenster.Hauptfenster(version='mess')
+    fenster = main_window.Hauptfenster(version='mess')
     fenster.root.update()
     fenster.root.update_idletasks()
 

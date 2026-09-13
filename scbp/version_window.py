@@ -104,10 +104,10 @@ class VersionWindow:
         # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
         # weil es modal war, ließ sich das Programm nicht einmal beenden.
         #
-        # `mittig_ueber` setzt beides und fällt auf die reine Größe
+        # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-        from .hauptfenster import mittig_ueber
-        if parent is None or not mittig_ueber(self.root, parent, 700, 740):
+        from .main_window import center_over
+        if parent is None or not center_over(self.root, parent, 700, 740):
             self.root.geometry('700x740')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
 
@@ -281,8 +281,8 @@ class VersionWindow:
         frame = tk.Frame(self.root, bg=BG)
         frame.pack(fill='both', expand=True, padx=14, pady=12)
         canvas = tk.Canvas(frame, bg=BG, highlightthickness=0)
-        from .hauptfenster import rundleiste
-        rolle = rundleiste(frame, canvas, grund=BG)
+        from .main_window import round_scrollbar
+        rolle = round_scrollbar(frame, canvas, grund=BG)
         body = tk.Frame(canvas, bg=BG)
         body.bind('<Configure>', lambda e: canvas.configure(
             scrollregion=canvas.bbox('all')))
@@ -292,8 +292,8 @@ class VersionWindow:
         canvas.configure(yscrollcommand=rolle.set)
         canvas.pack(side='left', fill='both', expand=True)
         rolle.pack(side='right', fill='y')
-        from .hauptfenster import rad_anschliessen
-        rad_anschliessen(canvas)
+        from .main_window import bind_wheel
+        bind_wheel(canvas)
 
         entries = updater.history()
         if not entries:

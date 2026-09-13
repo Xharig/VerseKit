@@ -105,7 +105,7 @@ ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 # Wer mehr Schärfe will, muss also die Symbole **größer** machen (die Zahlen
 # oben), nicht feiner auflösen.
 
-# Die Farben stammen aus `scbp/hauptfenster.py`. Bleibt eine Farbe dort nicht
+# Die Farben stammen aus `scbp/main_window.py`. Bleibt eine Farbe dort nicht
 # gleich, muss sie hier mitgezogen und das Skript neu gestartet werden.
 FARBEN = {
     'grau':  '#8b98a5',      # SUB    — der Normalzustand

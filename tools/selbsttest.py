@@ -745,6 +745,11 @@ def main():
         # der Seite „Update & Über": Der Code lud `assets/xharig.png`, der Bau
         # lieferte nur `assets/icon.png`. Gemeldet am 26.08.2026 ,
         # dem es im Bild eines Testers auffiel.
+        # ⚠ **Beide Schreibweisen**, solange die Sprachmigration laeuft:
+        # `main_window` und `icons` heissen schon `_bundled`,
+        # `sc_bp_watcher.py` noch `_mitgeliefert`. Nur eine davon zu suchen
+        # laesst die Haelfte der mitgelieferten Dateien unbewacht — und die
+        # Pruefung sieht dabei gruen aus, sie findet nur weniger.
         import re as re_
         bauplan = open(os.path.join(WURZEL, '.github', 'workflows',
                                     'release.yml'), encoding='utf-8').read()
@@ -754,7 +759,8 @@ def main():
                     os.path.join(WURZEL, 'scbp')) if n.endswith('.py')):
             quelle_ = open(os.path.join(WURZEL, datei), encoding='utf-8').read()
             for treffer in re_.finditer(
-                    r"_mitgeliefert\(\s*(?:os\.path\.join\()?([^)]+)\)", quelle_):
+                    r"(?:_bundled|_mitgeliefert)\("
+                    r"\s*(?:os\.path\.join\()?([^)]+)\)", quelle_):
                 teile = re_.findall(r"'([^']+)'", treffer.group(1))
                 if teile:
                     gebraucht.add(teile[-1])
@@ -987,10 +993,10 @@ def main():
         if ANZEIGE:
             print()
             print('14b. Sprachwechsel im Hauptfenster')
-            from scbp import hauptfenster, seiten as seitenmodul, sprache as spr
+            from scbp import main_window, seiten as seitenmodul, sprache as spr
             import tkinter as _tk
             spr.setzen('de')
-            hf = hauptfenster.Hauptfenster(version='3.0.0')
+            hf = main_window.Hauptfenster(version='3.0.0')
             hf.root.withdraw()
             try:
                 hf.oeffnen('allgemein')
@@ -1610,7 +1616,7 @@ def main():
             uebersprungen('Seiten in beiden Sprachen bauen')
         else:
             import tkinter as _tk
-            from scbp import hauptfenster as _hf, seiten as _st
+            from scbp import main_window as _hf, seiten as _st
             _schluesselartig = _re.compile(r'^[a-z][a-z0-9]*(_[a-z0-9]+){1,}$')
 
             def _durchsuchen(widget, gefunden):
@@ -1950,7 +1956,7 @@ def main():
         import tkinter as tk21
         import tkinter.font as tkfont21
         from scbp import seiten as se21
-        from scbp.hauptfenster import Hauptfenster as HF21
+        from scbp.main_window import Hauptfenster as HF21
 
         wurzel = _wurzel()
         _sch21 = tkfont21.Font(root=wurzel, family='Segoe UI', size=10)
@@ -2165,7 +2171,7 @@ def main():
                'und einen fuer den harten Abbruch')
         pruefe("'Seite diagnose' in seiten[-1]" in quelle26,
                'die Diagnose-Seite selbst steht nicht als letzte Zeile drin')
-        quelle26b = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+        quelle26b = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                          encoding='utf-8').read()
         # ⚠ Drei Stellen seit dem 28.08.2026: „bauen beginnt" beim ersten
         # Aufbauen, „zeigen" beim erneuten Einblenden, „steht" am Ende. Vorher
@@ -2414,7 +2420,7 @@ def main():
                 _ab29 = _z29.index('_feld(') + 5
                 _voll29 = _aufruf29([_z29[_ab29:]] + quelle29[_i29 + 1:], 0)
                 offen29 = (_m29.group(1), 'breit=True' in _voll29, _i29 + 1)
-            elif 'schiebeschalter(' in _z29 and offen29:
+            elif 'toggle_switch(' in _z29 and offen29:
                 if offen29[1]:
                     falsch29.append('%s (Zeile %d)' % (offen29[0], offen29[2]))
                 offen29 = None
@@ -2877,7 +2883,7 @@ def main():
         # der Diagnose-Seite liess sich erst rollen, NACHDEM man die ganze
         # Seite nach unten geschoben hatte. Das Rad ging an die Rollflaeche
         # dahinter, weil ein `tk.Text` keine registrierte Flaeche ist.
-        from scbp import hauptfenster as hf35
+        from scbp import main_window as hf35
         import tkinter as tk35
         w35 = tk35.Tk()
         # ⚠ Zeigen, sonst rechnet Tk das Layout nicht — `yview()` liefert dann
@@ -2906,16 +2912,16 @@ def main():
                 print('  [--]   Tk rechnet dieses Fenster nicht durch — '
                       'Rollpruefung uebersprungen')
             else:
-                pruefe(hf35._eigenes_rollen(feld35, rahmen35) is None,
+                pruefe(hf35._own_scroll(feld35, rahmen35) is None,
                        'ein Feld ohne Ueberlauf gibt das Rad an die Seite weiter')
             # Langer Inhalt: laeuft ueber, also gehoert ihm das Rad.
             feld35.insert('end', '\n'.join('Zeile %d' % i for i in range(60)))
             w35.update()
-            pruefe(hf35._eigenes_rollen(feld35, rahmen35) is feld35,
+            pruefe(hf35._own_scroll(feld35, rahmen35) is feld35,
                    'ein ueberlaufendes Feld rollt sich selbst')
             # Und Widgets ohne Textfeld dazwischen aendern nichts.
             marke35 = tk35.Label(rahmen35, text='x')
-            pruefe(hf35._eigenes_rollen(marke35, rahmen35) is None,
+            pruefe(hf35._own_scroll(marke35, rahmen35) is None,
                    'eine Beschriftung faengt das Rad nicht ab')
         finally:
             w35.destroy()
@@ -2928,14 +2934,14 @@ def main():
         #   * Das Symbol wird NUR rot, wenn wirklich Fehler mitgeschrieben
         #     wurden. Sonst stuende der Reiter dauerhaft auf Alarm, obwohl
         #     alles laeuft — und niemand naehme ihn noch ernst.
-        quelle36 = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+        quelle36 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                         encoding='utf-8').read()
         stelle36 = quelle36[quelle36.index('def _reiter_faerben'):][:2200]
         pruefe("rot = (kennung == 'diagnose')" in stelle36,
                'der Reiter diagnose wird gesondert behandelt')
         pruefe('_fehler_liegen_an()' in stelle36,
                'das Symbol haengt an tatsaechlichen Fehlern, nicht am Reiter')
-        pruefe('fg=ROT if rot' in stelle36,
+        pruefe('fg=RED if rot' in stelle36,
                'das Wort ist unabhaengig davon rot')
         # Die Farbe muss es als Bild wirklich geben, sonst bleibt es unsichtbar
         # — genau so ist heute Nacht schon einmal ein X verschwunden.
@@ -3064,7 +3070,7 @@ def main():
         import tkinter as tk23
         import tkinter.font as tkfont23
         from scbp import seiten as se23
-        from scbp.hauptfenster import MIN_BREITE as MB23, MIN_HOEHE as MH23
+        from scbp.main_window import MIN_WIDTH as MB23, MIN_HEIGHT as MH23
 
         wurzel23 = tk23.Tk()
         _k23 = tkfont23.Font(root=wurzel23, family='Segoe UI', size=10)
@@ -3081,7 +3087,7 @@ def main():
         try:
             rahmen23 = tk23.Frame(wurzel23)
             rahmen23.pack(fill='both', expand=True)
-            # ⚠ **Feste Probehoehe, nicht `MIN_HOEHE`.** Geprueft wird, ob die
+            # ⚠ **Feste Probehoehe, nicht `MIN_HEIGHT`.** Geprueft wird, ob die
             # Update-Seite bei vernuenftiger Fenstergroesse vollstaendig
             # hineinpasst — das hat mit der **Mindest**hoehe nichts zu tun.
             # Seit die Leiste rollt, darf die bei 380 px liegen (30.08.2026);
@@ -4018,7 +4024,7 @@ def main():
         #   Wartezeit vorweg. Zwei Dinge muessen dabei stimmen, sonst wird es
         #   schlimmer statt besser.
         _hf46 = os.path.join(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__))), 'scbp', 'hauptfenster.py')
+            os.path.abspath(__file__))), 'scbp', 'main_window.py')
         if os.path.isfile(_hf46):
             with open(_hf46, encoding='utf-8') as _f46:
                 _q46 = _f46.read()
@@ -4574,7 +4580,7 @@ def main():
     print('52b. Knoepfe schneiden ihre Beschriftung nicht ab')
     import tkinter as _tk52b
     from scbp import seiten as _se52b
-    from scbp.hauptfenster import Hauptfenster as _HF52b
+    from scbp.main_window import Hauptfenster as _HF52b
     _w52b = _tk52b.Tk()
     try:
         _f52b = _HF52b(_w52b, version='knopfprobe')
@@ -4962,7 +4968,7 @@ def main():
     # Bis zum Ende der Zeichenfunktion — der naechste Ausdruck auf gleicher
     # Ebene ist die Anmeldung des Filters.
     _zeichnen52p = _zeichnen52p.split('filter_var.trace_add')[0]
-    pruefe('rundes_feld' not in _zeichnen52p,
+    pruefe('round_entry' not in _zeichnen52p,
            'im Lager baut die Zeichenfunktion kein Eingabefeld mehr')
     pruefe('_such_feld' in _lager52p,
            'das Suchfeld entsteht einmal, ausserhalb')
@@ -5394,22 +5400,22 @@ def main():
     print()
     print('59. Aufgeklappte Auswahlliste bleibt ueberschaubar')
     import tkinter as _tk59
-    from scbp import hauptfenster as _hf59
+    from scbp import main_window as _hf59
 
-    pruefe(getattr(_hf59, 'MAX_WAHLZEILEN', 0) >= 8,
+    pruefe(getattr(_hf59, 'MAX_CHOICE_ROWS', 0) >= 8,
            'es gibt eine Obergrenze fuer die Zeilenzahl (%s)'
-           % getattr(_hf59, 'MAX_WAHLZEILEN', '—'))
+           % getattr(_hf59, 'MAX_CHOICE_ROWS', '—'))
 
     _w59 = _tk59.Tk()
     try:
         _w59.geometry('1200x1130+0+0')
         _w59.update_idletasks()
         _hoehen59 = {}
-        for _n59 in (5, _hf59.MAX_WAHLZEILEN, 48):
+        for _n59 in (5, _hf59.MAX_CHOICE_ROWS, 48):
             _ein59 = ([('', 'Alle Orte')] +
                       [('o%d' % _i59, 'Ort Nummer %d' % _i59)
                        for _i59 in range(_n59 - 1)])
-            _f59 = _hf59.rundwahl(_w59, _ein59, '', lambda _v: None,
+            _f59 = _hf59.round_select(_w59, _ein59, '', lambda _v: None,
                                   ('TkDefaultFont', 10))
             _f59.pack()
             _w59.update_idletasks()
@@ -5424,10 +5430,10 @@ def main():
             _f59.destroy()
 
         pruefe(_hoehen59[5] > 0, 'eine kurze Liste klappt auf')
-        pruefe(_hoehen59[48] <= _hoehen59[_hf59.MAX_WAHLZEILEN],
+        pruefe(_hoehen59[48] <= _hoehen59[_hf59.MAX_CHOICE_ROWS],
                'eine lange Liste wird NICHT hoeher als die Obergrenze '
                '(48 Eintraege: %d px, Grenze: %d px)'
-               % (_hoehen59[48], _hoehen59[_hf59.MAX_WAHLZEILEN]))
+               % (_hoehen59[48], _hoehen59[_hf59.MAX_CHOICE_ROWS]))
         pruefe(_hoehen59[48] < 1090,
                'und bleibt deutlich unter der Fensterhoehe (%d px)'
                % _hoehen59[48])
@@ -5442,7 +5448,7 @@ def main():
         _w59.update_idletasks()
         _ein59 = [('', 'Alle')] + [('o%d' % _i59, 'Eintrag %d' % _i59)
                                    for _i59 in range(199)]
-        _f59 = _hf59.rundwahl(_w59, _ein59, '', lambda _v: None,
+        _f59 = _hf59.round_select(_w59, _ein59, '', lambda _v: None,
                               ('TkDefaultFont', 10))
         _f59.pack()
         _w59.update_idletasks()
@@ -5452,10 +5458,10 @@ def main():
                   if isinstance(k, _tk59.Toplevel)]
         _hoch59 = (int(_auf59[0].wm_geometry().split('x')[1].split('+')[0])
                    if _auf59 else 0)
-        pruefe(0 < _hoch59 <= _hf59.MIN_HOEHE,
+        pruefe(0 < _hoch59 <= _hf59.MIN_HEIGHT,
                'auch bei 200 Eintraegen und grossem Fenster nie hoeher als das '
                'kleinstmoegliche Fenster (%d px, Grenze %d px)'
-               % (_hoch59, _hf59.MIN_HOEHE))
+               % (_hoch59, _hf59.MIN_HEIGHT))
         for _tl59 in _auf59:
             _tl59.destroy()
         _f59.destroy()
@@ -5471,7 +5477,7 @@ def main():
         _unten59.pack(side='bottom', fill='x')
         _ein59 = [('', 'Alle')] + [('o%d' % _i59, 'Ort %d' % _i59)
                                    for _i59 in range(47)]
-        _f59 = _hf59.rundwahl(_unten59, _ein59, '', lambda _v: None,
+        _f59 = _hf59.round_select(_unten59, _ein59, '', lambda _v: None,
                               ('TkDefaultFont', 10))
         _f59.pack()
         _w59.update_idletasks()
@@ -5503,7 +5509,7 @@ def main():
     # man so wie jeder user es versucht zu scrollen, scrollt das fenster
     # dahinter und man kann die abgeschnittenen daten NICHT erreichen."
     #
-    # Ursache: `rad_anschliessen` haengt global am Programm und sucht die
+    # Ursache: `bind_wheel` haengt global am Programm und sucht die
     # Rollflaeche, indem es vom Element unter dem Zeiger durch die Elternkette
     # nach oben geht. Die aufgeklappte Liste ist ein eigenes Fenster, ihr
     # Elternteil ist aber das Auswahlfeld — und das steht mitten in der
@@ -5516,7 +5522,7 @@ def main():
     print()
     print('60. Mausrad rollt die Klappliste, nicht die Seite dahinter')
     import tkinter as _tk60
-    from scbp import hauptfenster as _hf60
+    from scbp import main_window as _hf60
 
     _w60 = _tk60.Tk()
     try:
@@ -5528,14 +5534,14 @@ def main():
 
         _ein60 = [('', 'Alle')] + [('h%d' % _i60, 'Eintrag %d' % _i60)
                                    for _i60 in range(47)]
-        _feld60 = _hf60.rundwahl(_inhalt60, _ein60, '', lambda _v: None,
+        _feld60 = _hf60.round_select(_inhalt60, _ein60, '', lambda _v: None,
                                  ('TkDefaultFont', 10))
         _feld60.pack()
         for _i60 in range(200):
             _tk60.Label(_inhalt60, text='Zeile %d' % _i60).pack()
         _w60.update_idletasks()
         _seite60.configure(scrollregion=(0, 0, 400, _inhalt60.winfo_reqheight()))
-        _hf60.rad_anschliessen(_seite60)
+        _hf60.bind_wheel(_seite60)
 
         _w60.update_idletasks()
         _feld60.event_generate('<Button-1>', x=5, y=5)
@@ -5636,7 +5642,7 @@ def main():
     finally:
         _w60.destroy()
 
-    # Und: Jedes Auswahlfeld im Programm muss ueber `rundwahl` laufen — nur
+    # Und: Jedes Auswahlfeld im Programm muss ueber `round_select` laufen — nur
     # dort steckt die Rad-Behandlung. Ein selbstgebautes `OptionMenu` oder eine
     # `ttk.Combobox` haette den Fehler sofort wieder.
     _fremde60 = []
@@ -6025,7 +6031,7 @@ def main():
     # ⚠ Das Eingabefeld darf NICHT im Neuzeichnen gebaut werden.
     _q64b = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
     _vor64 = _q64b.split('def sig_zeichnen')[0]
-    pruefe('sig_feld = rundes_feld' in _vor64,
+    pruefe('sig_feld = round_entry' in _vor64,
            'das Scan-Feld steht ausserhalb des Neuzeichnens (Cursor bleibt)')
     from scbp import sprache as _sp64
     for _k64 in ('s_bg_sig_feld', 's_bg_sig_hilfe', 's_bg_sig_treffer',
@@ -7833,7 +7839,7 @@ def main():
            and "'handelslager': _handelslager," in _q84s,
            'beide Seiten sind angemeldet')
     pruefe("self._reiter('verkauf', 'verkauf'" in open(
-        os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+        os.path.join(WURZEL, 'scbp', 'main_window.py'),
         encoding='utf-8').read(), 'der Reiter steht in der Leiste')
 
     # ⚠ Kein Rot im herunterzaehlenden Knopf: Der ist gesperrt, *weil* der
@@ -7859,7 +7865,7 @@ def main():
     print()
     print('85. Das Fenster passt auf den Bildschirm')
     from scbp import screen as _bs85
-    from scbp import hauptfenster as _hf85
+    from scbp import main_window as _hf85
 
     # ⚠ **`Hauptfenster` legt ein eigenes Toplevel an** — `hf.root` ist nicht
     # das uebergebene Fenster. Wer die uebergebene Wurzel misst, liest immer
@@ -7921,9 +7927,9 @@ def main():
            and _fenster85.leisten_flaeche.winfo_class() == 'Canvas',
            'die Leiste sitzt auf einer Rollflaeche')
 
-    _q85 = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+    _q85 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                 encoding='utf-8').read()
-    pruefe('rad_anschliessen(self.leisten_flaeche)' in _q85,
+    pruefe('bind_wheel(self.leisten_flaeche)' in _q85,
            'das Mausrad haengt an der gemeinsamen Stelle, nicht am Eigenbau')
 
     # ⭐ Klappbare Gruppen — der dritte Hebel gegen die Fensterhoehe.
@@ -8042,14 +8048,14 @@ def main():
     # ⚠⚠ **Die Mindesthoehe haengt NICHT mehr am Leistenbedarf.** Sie tat es,
     # solange die Leiste ein fester Rahmen war; mit jedem neuen Reiter wuchs
     # das Fenster mit, und am Ende liess es sich nicht mehr kleiner ziehen.
-    from scbp.hauptfenster import MIN_HOEHE as _MH85
+    from scbp.main_window import MIN_HEIGHT as _MH85
     pruefe(_MH85 <= 400,
            'die Mindesthoehe ist klein genug zum Kleinerziehen (%d px)' % _MH85)
     pruefe(_MH85 < _bedarf85,
            'und liegt unter dem Platzbedarf der Leiste (%d < %d)'
            % (_MH85, _bedarf85))
-    pruefe('noetig = MIN_HOEHE' in _q85
-           and 'noetig = max(MIN_HOEHE' not in _q85,
+    pruefe('needed = MIN_HEIGHT' in _q85
+           and 'needed = max(MIN_HEIGHT' not in _q85,
            'die Mindesthoehe wird nicht mehr aus dem Bedarf gerechnet')
 
     # ⚠ **Rollstelle beim Loeschen halten.** Wer einen Posten weit unten
@@ -8098,7 +8104,7 @@ def main():
     #
     # Gemeldet als `Fenster 1770x899, mindestens 1770x899` — beide Masse
     # gleich, das Fenster sass in seiner eigenen Groesse fest, obwohl
-    # `MIN_HOEHE` 380 ist.
+    # `MIN_HEIGHT` 380 ist.
     #
     # ⚠ Die vorhandene Warnung `b_fenster_zu_hoch` schlaegt dabei NICHT an:
     # Sie greift erst, wenn die Mindesthoehe den BILDSCHIRM ueberschreitet.
@@ -8112,7 +8118,7 @@ def main():
     #
     # ⚠ Bewusst ein EIGENES Toplevel statt des Hauptfensters: Dort haengt
     # `_mindesthoehe_nachziehen` am `<Configure>` und setzt `minsize` gleich
-    # wieder auf `MIN_HOEHE` zurueck. Die Pruefung waere gruen geworden, ohne
+    # wieder auf `MIN_HEIGHT` zurueck. Die Pruefung waere gruen geworden, ohne
     # dass der Fehler behoben ist — genau die Falle aus Pruefung 83.
     print()
     print('85b. Die Knopfreihe hebt die Mindesthoehe nicht an')
@@ -8264,7 +8270,7 @@ def main():
                'das Handelslager hat den Knopf %s' % _schluessel86)
     pruefe('gefahr=True' in _hlblock86,
            'und „Lager loeschen" steht in Rot')
-    pruefe("frage_stellen(" in _hlblock86,
+    pruefe("ask_yes_no(" in _hlblock86,
            'das Leeren fragt vorher nach')
 
     # Der Raffinerie-Block ist einklappbar — und merkt sich die Lage.
@@ -8298,7 +8304,7 @@ def main():
     # beim Overlay, siehe `geometrie_pruefen`).
     print()
     print('87. Das Fenster behaelt die eingestellte Groesse')
-    from scbp import hauptfenster as _hf87
+    from scbp import main_window as _hf87
     from scbp import pfade as _pf87
 
     # ⚠⚠ **Geprueft wird die RECHNUNG, nicht das gezeichnete Fenster.** Die
@@ -8322,29 +8328,29 @@ def main():
     _gross87 = _Schirm87(3840, 2160)
     _klein87 = _Schirm87(1024, 768)          # kleiner als die Mindestgroesse!
 
-    _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, None)
-    pruefe(_hf87.gemerkte_groesse(_gross87) == (_hf87.MIN_BREITE, _hf87.MIN_HOEHE),
+    _pf87.einstellung_setzen(_hf87.SIZE_KEY, None)
+    pruefe(_hf87.remembered_size(_gross87) == (_hf87.MIN_WIDTH, _hf87.MIN_HEIGHT),
            'ohne gemerkte Groesse gilt die Mindestgroesse')
 
-    _b87, _h87 = _hf87.MIN_BREITE + 240, _hf87.MIN_HOEHE + 300
-    _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, '%dx%d' % (_b87, _h87))
-    pruefe(_hf87.gemerkte_groesse(_gross87) == (_b87, _h87),
+    _b87, _h87 = _hf87.MIN_WIDTH + 240, _hf87.MIN_HEIGHT + 300
+    _pf87.einstellung_setzen(_hf87.SIZE_KEY, '%dx%d' % (_b87, _h87))
+    pruefe(_hf87.remembered_size(_gross87) == (_b87, _h87),
            'eine gemerkte Groesse wird unveraendert zurueckgegeben')
 
     # Unbrauchbares faellt zurueck — sonst verkruemelt ein kaputter Eintrag das
     # Fenster unter seine eigene Mindestgroesse.
     for _muell87 in ('', 'kaputt', '0x0', '12x9', '-100x-100', '1160', 'axb'):
-        _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, _muell87)
-        if _hf87.gemerkte_groesse(_gross87) != (_hf87.MIN_BREITE, _hf87.MIN_HOEHE):
+        _pf87.einstellung_setzen(_hf87.SIZE_KEY, _muell87)
+        if _hf87.remembered_size(_gross87) != (_hf87.MIN_WIDTH, _hf87.MIN_HEIGHT):
             pruefe(False, 'unbrauchbarer Eintrag %r faellt nicht zurueck' % _muell87)
             break
     else:
         pruefe(True, 'unbrauchbare Eintraege fallen auf die Mindestgroesse zurueck')
 
     # Eine Groesse vom grossen Schirm darf am kleinen nicht ueberstehen …
-    _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, '3000x1800')
-    _bg87, _hg87 = _hf87.gemerkte_groesse(_klein87)
-    pruefe(_bg87 <= max(1024, _hf87.MIN_BREITE) and _hg87 <= max(768, _hf87.MIN_HOEHE),
+    _pf87.einstellung_setzen(_hf87.SIZE_KEY, '3000x1800')
+    _bg87, _hg87 = _hf87.remembered_size(_klein87)
+    pruefe(_bg87 <= max(1024, _hf87.MIN_WIDTH) and _hg87 <= max(768, _hf87.MIN_HEIGHT),
            'eine Groesse groesser als der Bildschirm wird gedeckelt')
 
     # ⚠⚠ … und die Deckelung darf die Mindestgroesse NICHT unterbieten. Genau
@@ -8352,9 +8358,9 @@ def main():
     # einen kleineren Schirm als jeder echte Nutzer, heraus kam 1024x768 —
     # unterhalb des eigenen `minsize` von 1160x380.
     for _eintrag87 in (None, '', '3000x1800', 'kaputt'):
-        _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, _eintrag87)
-        _bk87, _hk87 = _hf87.gemerkte_groesse(_klein87)
-        if _bk87 < _hf87.MIN_BREITE or _hk87 < _hf87.MIN_HOEHE:
+        _pf87.einstellung_setzen(_hf87.SIZE_KEY, _eintrag87)
+        _bk87, _hk87 = _hf87.remembered_size(_klein87)
+        if _bk87 < _hf87.MIN_WIDTH or _hk87 < _hf87.MIN_HEIGHT:
             pruefe(False, 'kleiner Schirm + Eintrag %r ergibt %dx%d — unter der '
                           'Mindestgroesse' % (_eintrag87, _bk87, _hk87))
             break
@@ -8363,7 +8369,7 @@ def main():
                      'trotzdem die Mindestgroesse')
 
     # Und der Weg von der Rechnung ins Fenster muss auch gegangen werden.
-    _q87 = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+    _q87 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                 encoding='utf-8').read()
     # ⚠⚠ Suchte bis zum 12.09.2026 den **kompletten Aufruf als Zeichenkette**
     # (`'bildschirm.mittig(self.root, _b_start, _h_start)'`). Ein anderer
@@ -8371,7 +8377,7 @@ def main():
     # Moduls fiel sie um. Geprueft wird jetzt, ob die Aufbau-Funktion beide
     # Dinge wirklich **nachschlaegt** — rekursiv, damit verschachtelte
     # Rueckrufe mitzaehlen (siehe Pruefung 187).
-    from scbp import hauptfenster as _hf87
+    from scbp import main_window as _hf87
 
     def _namen87(code):
         heraus = set(code.co_names)
@@ -8381,11 +8387,11 @@ def main():
         return heraus
 
     _ruft87 = _namen87(_hf87.Hauptfenster.__init__.__code__)
-    pruefe('gemerkte_groesse' in _ruft87 and 'centered' in _ruft87,
+    pruefe('remembered_size' in _ruft87 and 'centered' in _ruft87,
            'der Start benutzt die gemerkte Groesse — und bleibt mittig (%s)'
            % ', '.join(sorted(n for n in _ruft87
-                              if n in ('gemerkte_groesse', 'centered'))))
-    pruefe('self.root.minsize(MIN_BREITE, MIN_HOEHE)' in _q87,
+                              if n in ('remembered_size', 'centered'))))
+    pruefe('self.root.minsize(MIN_WIDTH, MIN_HEIGHT)' in _q87,
            'die Mindestgroesse wird unveraendert gesetzt')
     pruefe("self.root.bind('<Configure>', self._groesse_beobachten" in _q87
            and 'after_cancel' in _q87,
@@ -8393,7 +8399,7 @@ def main():
     pruefe("self.root.state() != 'normal'" in _q87,
            'im maximierten Zustand wird nichts gemerkt')
 
-    _pf87.einstellung_setzen(_hf87.GROESSE_SCHLUESSEL, None)
+    _pf87.einstellung_setzen(_hf87.SIZE_KEY, None)
 
     # 88. Kein Funktionsname zweimal in derselben Funktion
     #
@@ -9034,9 +9040,9 @@ def main():
     # stehen koennte. Dann bleibt die Zeile — verschluckt wird das Ergebnis nie.
     print()
     print('96. Das Ergebnis des Einlesens geht nicht in der Leiste unter')
-    from scbp import hauptfenster as _hf96
+    from scbp import main_window as _hf96
 
-    pruefe(hasattr(_hf96, 'bescheid_geben'),
+    pruefe(hasattr(_hf96, 'show_result'),
            'es gibt einen Weg, ein Ergebnis als Fenster zu zeigen')
 
     _q96 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
@@ -9061,7 +9067,7 @@ def main():
     #    versucht. Ohne das waere ein zugeklapptes Hauptfenster gleich­
     #    bedeutend mit „Ergebnis weg".
     _bz96 = _code96.split('def _bescheid_zeigen')[1].split(chr(10) + '    def ')[0]
-    pruefe(_bz96.index('_status_setzen') < _bz96.index('bescheid_geben'),
+    pruefe(_bz96.index('_status_setzen') < _bz96.index('show_result'),
            'die Leiste wird gesetzt, BEVOR ein Fenster versucht wird')
     pruefe('if fenster is None' in _bz96,
            'ohne Hauptfenster bleibt es bei der Leiste, ohne Fehler')
@@ -9070,9 +9076,9 @@ def main():
     from scbp import sprache as _sp96
     pruefe(_sp96.t('e_ok') and _sp96.t('e_ok') != 'e_ok',
            'der Knopf des Bescheids hat einen Text')
-    _hq96 = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+    _hq96 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                  encoding='utf-8').read()
-    pruefe('nur_ok' in _hq96 and 'if not nur_ok:' in _hq96,
+    pruefe('only_ok' in _hq96 and 'if not only_ok:' in _hq96,
            'beim Bescheid entfaellt der zweite Knopf — es gibt nichts zu waehlen')
 
     # e) Und die Zusage in der Leiste darf nicht mehr „steht in der Leiste"
@@ -9412,7 +9418,7 @@ def main():
     print()
     print('98c. Das Fenster baut nur die gewuenschte Seite')
 
-    from scbp import hauptfenster as _hf98c
+    from scbp import main_window as _hf98c
     _wz98c = _wurzel()
     _f98c = _hf98c.Hauptfenster(_wz98c, version='pruefung',
                                 startseite='allgemein')
@@ -9428,7 +9434,7 @@ def main():
     pruefe('liste' in _f98d.seiten,
            'ohne Angabe bleibt es bei der Liste')
 
-    _q98c = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+    _q98c = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                  encoding='utf-8').read()
     _init98c = _q98c.split('def __init__')[1].split(chr(10) + '    def ')[0]
     _code98c = chr(10).join(_z for _z in _init98c.split(chr(10))
@@ -9525,16 +9531,16 @@ def main():
     # Seite sicherstellen und diese Pruefung mit anfassen.
     print()
     print('98e. Der Seiten-Vorbau ist abgeschaltet')
-    _q98e = open(os.path.join(WURZEL, 'scbp', 'hauptfenster.py'),
+    _q98e = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                  encoding='utf-8').read()
-    pruefe('VORBAU_AN = False' in _q98e,
+    pruefe('PREBUILD_ON = False' in _q98e,
            'die Abschaltung steht als eigene Konstante da')
     _code98e = chr(10).join(_z for _z in _q98e.split(chr(10))
                             if not _z.strip().startswith('#'))
-    pruefe('if VORBAU_AN:' in _code98e,
+    pruefe('if PREBUILD_ON:' in _code98e,
            'und der Start haengt wirklich daran')
     _start98e = _code98e.index('after(400, self._seiten_vorbauen)')
-    _schalter98e = _code98e.index('if VORBAU_AN:')
+    _schalter98e = _code98e.index('if PREBUILD_ON:')
     pruefe(_schalter98e < _start98e,
            'der Schalter steht VOR dem Start, nicht daneben')
 
@@ -9912,8 +9918,8 @@ def main():
     # sieht. Wer eines ergaenzt, sollte den Grund danebenschreiben.
     _AUSNAHMEN103 = {
         # ⚠ **Bewusste Ausnahme, kein Versehen** (entschieden 02.09.2026).
-        # Der Ko-fi-Knopf malt seine Tasse selbst (`kaffee_zeichen` in
-        # `hauptfenster.py`), obwohl `coffee.svg` im Satz liegt und 24 fertige
+        # Der Ko-fi-Knopf malt seine Tasse selbst (`coffee_glyph` in
+        # `main_window.py`), obwohl `coffee.svg` im Satz liegt und 24 fertige
         # Bilder daraus erzeugt werden.
         #
         # Grund: Direkt daneben sitzt der Discord-Knopf, und **Discord gibt es
@@ -11601,7 +11607,7 @@ def main():
     # baut, die `bestand_datei` liest, faellt hier auf, statt es niemandem zu
     # sagen. Genau so ist der gemeldete Fehler entstanden — die Seiten kamen
     # nach und nach dazu, und niemand ging die alten noch einmal durch.
-    from scbp.hauptfenster import Hauptfenster as _HF117
+    from scbp.main_window import Hauptfenster as _HF117
 
     _seiten117 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
@@ -11641,7 +11647,7 @@ def main():
     # dort waere still, die Seite zoege einfach nie nach.
     _reiter117 = set(re.findall(r"_reiter\('([a-z_]+)'",
                                 open(os.path.join(WURZEL, 'scbp',
-                                                  'hauptfenster.py'),
+                                                  'main_window.py'),
                                      encoding='utf-8').read()))
     _tot117 = sorted(set(_HF117.BESTANDSSEITEN) - _reiter117)
     pruefe(not _tot117,
@@ -11783,7 +11789,7 @@ def main():
     try:
         _w120.deiconify()
         _w120.geometry('1200x900')
-        from scbp import hauptfenster as _hf120
+        from scbp import main_window as _hf120
         _f120 = _hf120.Hauptfenster(_w120, version='0.0.0-pruefung')
         _f120.oeffnen('diagnose')
         _w120.update_idletasks()
@@ -12002,7 +12008,7 @@ def main():
     # die Mindesthoehe des Fensters, zugeklappte Gruppen sparen rund 400 px.
     # Wer hier alles festnagelt, holt den alten Fehler zurueck.
     import tkinter as tk122
-    from scbp import pfade as _pf122, hauptfenster as _hf122
+    from scbp import pfade as _pf122, main_window as _hf122
 
     _alt122 = {k: _pf122.einstellung('gruppe_zu_%s' % k)
                for k in ('info', 'werkstatt')}
@@ -12367,7 +12373,7 @@ def main():
     try:
         _w126.deiconify()
         _w126.geometry('1200x900')
-        from scbp import hauptfenster as _hf126
+        from scbp import main_window as _hf126
         _f126 = _hf126.Hauptfenster(_w126, version='0.0.0-pruefung')
         _f126.oeffnen('diagnose')
         _w126.update_idletasks()
@@ -14197,7 +14203,7 @@ def main():
             _quelle145 = _ins145.getsource(getattr(_st145, _name145))
             pruefe('from tkinter import messagebox' not in _quelle145,
                    '*%s öffnet keinen System-Dialog' % _name145)
-            pruefe('frage_stellen' in _quelle145,
+            pruefe('ask_yes_no' in _quelle145,
                    '%s benutzt den Dialog im Programmstil' % _name145)
     finally:
         if _heim145 is None:
@@ -15276,14 +15282,14 @@ def main():
     # haben. Eine Regel, die man an jeder Stelle einzeln befolgen muss, wird
     # irgendwo nicht befolgt. Deshalb prueft das hier den ganzen Quelltext.
     #
-    # ⚠ Die **eine** erlaubte Stelle ist der Notnagel in `hauptfenster.py`:
-    # Scheitert `frage_stellen` selbst, ist ein haesslicher Dialog besser als
+    # ⚠ Die **eine** erlaubte Stelle ist der Notnagel in `main_window.py`:
+    # Scheitert `ask_yes_no` selbst, ist ein haesslicher Dialog besser als
     # gar keiner.
     print()
     print('161. Kein System-Dialog im Programm')
     import re as _re161
 
-    _erlaubt161 = 'scbp/hauptfenster.py'
+    _erlaubt161 = 'scbp/main_window.py'
     _fund161 = []
     for _datei161 in sorted(_versionierte_dateien(WURZEL, ('.py',))):
         if not _datei161.startswith('scbp/'):
@@ -15340,7 +15346,7 @@ def main():
     # Arbeitsplatz mit drei Bildschirmen ist das ein Gluecksspiel.
     #
     # Diese Pruefung ist der Standard: Sie geht jedes `geometry(` im Programm
-    # durch und verlangt entweder eine Position im Aufruf oder `mittig_ueber`
+    # durch und verlangt entweder eine Position im Aufruf oder `center_over`
     # in der Naehe. Eine Regel, die man an jeder Stelle einzeln befolgen muss,
     # wird irgendwo nicht befolgt — deshalb prueft es der Selbsttest.
     print()
@@ -15359,15 +15365,15 @@ def main():
                                   _z162)
             if not _m162 or _z162.strip().startswith('#'):
                 continue
-            # Steht in den drei Zeilen davor ein `mittig_ueber`, ist es der
+            # Steht in den drei Zeilen davor ein `center_over`, ist es der
             # Rueckfall fuer den Start ohne Elternfenster — das ist richtig so.
             _umfeld162 = '\n'.join(_zeilen162[max(0, _nr162 - 4):_nr162 + 2])
-            if 'mittig_ueber' in _umfeld162:
+            if 'center_over' in _umfeld162:
                 continue
             _fund162.append('%s:%d' % (_datei162, _nr162 + 1))
 
     pruefe(not _fund162,
-           'kein `geometry` ohne Position und ohne `mittig_ueber` '
+           'kein `geometry` ohne Position und ohne `center_over` '
            '(gefunden: %s)'
            % (', '.join(_fund162[:4]) if _fund162 else 'keine'))
 
@@ -15380,9 +15386,9 @@ def main():
            'Gegenprobe: eine Zeile MIT Position schlaegt nicht an')
 
     # Und die Funktion selbst rechnet richtig.
-    from scbp import hauptfenster as _hf162
-    pruefe(callable(getattr(_hf162, 'mittig_ueber', None)),
-           '`mittig_ueber` steht als gemeinsamer Standard bereit')
+    from scbp import main_window as _hf162
+    pruefe(callable(getattr(_hf162, 'center_over', None)),
+           '`center_over` steht als gemeinsamer Standard bereit')
 
     # ------------------------------------------------------------------
     # 163. Speichern wirft nichts weg
@@ -16529,7 +16535,7 @@ def main():
     #    `global.ini` aber nicht — im Spiel also weiter der Werksname, ohne
     #    jeden Hinweis. Dasselbe Bild wie beim Fehler von v3.28.0, nur mit
     #    anderer Ursache. `vor_dem_schliessen` holt den Auftrag nach.
-    from scbp import hauptfenster as _hf175
+    from scbp import main_window as _hf175
     _wz175 = _wurzel()
     _f175 = _hf175.Hauptfenster(_wz175, version='0.0.0-test')
     _gelaufen175 = []
@@ -16628,7 +16634,7 @@ def main():
     # selben Ergebnis herein. Und sie baut sich ihre Zeile selbst — an der
     # ganzen Seite haengt eine `global.ini`, die es im Wegwerf-Ordner nicht
     # gibt, und die Pruefung waere still uebersprungen.
-    from scbp import asop as _as176, hauptfenster as _hf176, seiten as _se176
+    from scbp import asop as _as176, main_window as _hf176, seiten as _se176
 
     _w176 = _wurzel()
     _w176.deiconify()          # ⚠ sonst ist nichts gemappt und kein Klick kommt an

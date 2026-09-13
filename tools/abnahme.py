@@ -624,7 +624,7 @@ def schriftgroessen_pruefen():
     Geprüft wird die **Mindesthöhe der Seitenleiste** gegen die Fensterhöhe:
     Passt die Leiste nicht mehr, sind Reiter unerreichbar.
     """
-    from scbp import hauptfenster, pfade, icons
+    from scbp import main_window, pfade, icons
 
     alt_stufe = pfade.einstellung('schriftgroesse') or 'normal'
     gemessen_stufen = {}
@@ -632,7 +632,7 @@ def schriftgroessen_pruefen():
         for stufe in ('klein', 'normal', 'gross', 'sehrgross'):
             pfade.einstellung_setzen('schriftgroesse', stufe)
             icons.set_level(stufe)
-            hf = hauptfenster.Hauptfenster(version='0.0.0-abnahme')
+            hf = main_window.Hauptfenster(version='0.0.0-abnahme')
             hf.root.withdraw()
             try:
                 hf.root.update()
@@ -866,7 +866,7 @@ def bilder_pruefen():
 
 def fenster_pruefen(hf):
     """Öffnen sich Dialoge über dem Hauptfenster?"""
-    from scbp import hauptfenster
+    from scbp import main_window
 
     hf.root.deiconify()
     hf.root.geometry('1100x800+300+200')
@@ -886,8 +886,8 @@ def fenster_pruefen(hf):
             hf.root.after(30, lambda: spaeter(rest - 1))
 
     hf.root.after(60, spaeter)
-    hauptfenster.frage_stellen(hf.root, 'Abnahme', 'Steht das mittig?',
-                               nur_ok=True)
+    main_window.ask_yes_no(hf.root, 'Abnahme', 'Steht das mittig?',
+                               only_ok=True)
     if pruefe(bool(gemessen), 'ein Dialog lässt sich öffnen und messen'):
         eltern_x = hf.root.winfo_rootx()
         eltern_b = hf.root.winfo_width()
@@ -979,7 +979,7 @@ def protokoll_pruefen():
 def main():
     ordner, kopiert = ablage_vorbereiten()
     try:
-        from scbp import hauptfenster, sprache
+        from scbp import main_window, sprache
 
         print('Abnahme — die Oberfläche wirklich bedienen')
         print('Echte Spieldaten übernommen: %d Dateien%s'
@@ -995,7 +995,7 @@ def main():
 
         print('1. Jede Seite auf Deutsch')
         sprache.setzen('de')
-        hf = hauptfenster.Hauptfenster(version='0.0.0-abnahme')
+        hf = main_window.Hauptfenster(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
             print('   (zuerst die Auswahllisten — sie brauchen frische '
@@ -1017,7 +1017,7 @@ def main():
         print()
         print('5. Dieselben Seiten auf Englisch')
         sprache.setzen('en')
-        hf = hauptfenster.Hauptfenster(version='0.0.0-abnahme')
+        hf = main_window.Hauptfenster(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
             seiten_pruefen(hf, 'en')

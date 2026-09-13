@@ -51,7 +51,7 @@ os.environ.setdefault('SC_BP_HOME', '/tmp/sc-bp-oberflaechenpruefung')
 os.environ.setdefault('SC_BP_NO_NET', '1')
 
 from scbp import sprache                                  # noqa: E402
-from scbp.hauptfenster import Hauptfenster                 # noqa: E402
+from scbp.main_window import Hauptfenster                 # noqa: E402
 
 # ⚠⚠ **ALLE Seiten, die `scbp/seiten.py` kennt** — nicht nur die, die es beim
 # Bau dieser Pruefung schon gab. Bis 31.08.2026 fehlten hier sechs: die ganze

@@ -666,7 +666,7 @@ def main():
 
     import tkinter as tk
     from scbp import sprache
-    from scbp.hauptfenster import Hauptfenster
+    from scbp.main_window import Hauptfenster
 
     sprache.setzen('en' if englisch else 'de')
 

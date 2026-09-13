@@ -96,10 +96,10 @@ class CalibrationWindow:
             # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
             # weil es modal war, ließ sich das Programm nicht einmal beenden.
             #
-            # `mittig_ueber` setzt beides und fällt auf die reine Größe
+            # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-            from .hauptfenster import mittig_ueber
-            if parent is None or not mittig_ueber(self.window, parent, 1200, 800):
+            from .main_window import center_over
+            if parent is None or not center_over(self.window, parent, 1200, 800):
                 self.window.geometry('1200x800')
         self.window.bind('<Escape>', lambda _e: self.close())
 

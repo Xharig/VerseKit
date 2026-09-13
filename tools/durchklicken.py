@@ -166,7 +166,7 @@ def _ablage_vorbereiten():
 def main():
     ordner = _ablage_vorbereiten()
     try:
-        from scbp import cart, hauptfenster, seiten, sprache
+        from scbp import cart, main_window, seiten, sprache
         sprache.setzen('de')
 
         print('Die Oberflaeche wirklich bedienen')
@@ -211,7 +211,7 @@ def main():
         # ---------------------------------------------------------------
         print()
         print('2. Das ganze Fenster: Seiten oeffnen und lesen')
-        hf = hauptfenster.Hauptfenster(version='0.0.0-pruefung')
+        hf = main_window.Hauptfenster(version='0.0.0-pruefung')
         hf.root.withdraw()
         try:
             for name in ('hangar', 'wunschliste', 'einkaufsliste',

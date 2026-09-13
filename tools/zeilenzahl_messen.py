@@ -63,7 +63,7 @@ def messen(anteil):
     """Die Joystick-Seite mit `anteil` der Belegungen bauen und messen."""
     # ⚠ Frisches Fenster je Durchgang: Eine einmal gebaute Seite wird nicht
     # neu gebaut, und genau darum geht es hier.
-    from scbp import joysticks, hauptfenster
+    from scbp import joysticks, main_window
 
     echt = joysticks.sicht
 
@@ -81,7 +81,7 @@ def messen(anteil):
 
     joysticks.sicht = gekuerzt
     try:
-        fenster = hauptfenster.Hauptfenster(version='mess')
+        fenster = main_window.Hauptfenster(version='mess')
         fenster.root.update()
         fenster.root.update_idletasks()
         fenster.oeffnen('joysticks')

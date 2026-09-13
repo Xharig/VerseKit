@@ -83,10 +83,10 @@ class Einstellungsfenster:
             # so am 06.09.2026 ein Fenster außerhalb des sichtbaren Bereichs;
             # weil es modal war, ließ sich das Programm nicht einmal beenden.
             #
-            # `mittig_ueber` setzt beides und fällt auf die reine Größe
+            # `center_over` setzt beides und fällt auf die reine Größe
             # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
-            from .hauptfenster import mittig_ueber
-            if eltern is None or not mittig_ueber(self.root, eltern, 660, 900):
+            from .main_window import center_over
+            if eltern is None or not center_over(self.root, eltern, 660, 900):
                 self.root.geometry('660x900')
 
         # Werte laden. Leere Felder heißen „selbst suchen" — das bleibt so,
@@ -141,8 +141,8 @@ class Einstellungsfenster:
         rahmen = tk.Frame(self.root, bg=BG)
         rahmen.pack(fill='both', expand=True)
         self.leinwand = tk.Canvas(rahmen, bg=BG, highlightthickness=0)
-        from .hauptfenster import rundleiste
-        rolle = rundleiste(rahmen, self.leinwand, grund=BG)
+        from .main_window import round_scrollbar
+        rolle = round_scrollbar(rahmen, self.leinwand, grund=BG)
         innen = tk.Frame(self.leinwand, bg=BG)
         innen.bind('<Configure>', lambda e: self.leinwand.configure(
             scrollregion=self.leinwand.bbox('all')))
@@ -225,8 +225,8 @@ class Einstellungsfenster:
         self._titel(eltern, titel, hilfe)
         reihe = tk.Frame(eltern, bg=BG)
         reihe.pack(fill='x')
-        from .hauptfenster import rundes_feld
-        feld = rundes_feld(reihe, variable, schrift(10), FLAECHE, LINIE, ACCENT, FG)
+        from .main_window import round_entry
+        feld = round_entry(reihe, variable, schrift(10), FLAECHE, LINIE, ACCENT, FG)
         feld.halter.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(reihe, text=' %s ' % t('e_durchsuchen'), bg=FLAECHE,
                          fg=FG, font=schrift(10), cursor='hand2', padx=8, pady=6)
@@ -280,10 +280,10 @@ class Einstellungsfenster:
 
     def _intervallfeld(self, eltern):
         self._titel(eltern, t('e_intervall'), t('e_intervall_hilfe'))
-        from .hauptfenster import rundes_feld
-        feld = rundes_feld(eltern, self.intervall, schrift(10), FLAECHE, LINIE,
+        from .main_window import round_entry
+        feld = round_entry(eltern, self.intervall, schrift(10), FLAECHE, LINIE,
                            ACCENT, FG, breite=8,
-                           hinweis=t('s_pl_intervall'))
+                           placeholder=t('s_pl_intervall'))
         feld.halter.pack(anchor='w')
 
     def _tonfeld(self, eltern):
@@ -400,10 +400,10 @@ class Einstellungsfenster:
         if quelle in gemerkt.split(','):
             return True
 
-        from .hauptfenster import frage_stellen
+        from .main_window import ask_yes_no
         name = {'deutsch': t('s_sp_q_de'),
                 'starstrings': t('s_sp_q_ss')}.get(quelle, quelle)
-        if not frage_stellen(self.root, t('s_sp_warnung_titel'),
+        if not ask_yes_no(self.root, t('s_sp_warnung_titel'),
                              t('s_sp_warnung') % name):
             return False
         neu = [x for x in gemerkt.split(',') if x] + [quelle]
@@ -613,8 +613,8 @@ def oeffnen(eltern=None):
         try:
             # ⚠ `lift()` allein wird unter Wayland ignoriert, und ein
             # minimiertes Fenster bliebe minimiert — siehe `nach_vorn()`.
-            from .hauptfenster import nach_vorn
-            nach_vorn(vorhanden.root)
+            from .main_window import to_front
+            to_front(vorhanden.root)
             return vorhanden
         except tk.TclError:
             pass

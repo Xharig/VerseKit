@@ -2089,8 +2089,8 @@ class Overlay:
         # Bild faellt. Genau so gemeldet: "scrollbalken im watcher selber ist
         # auch nicht passend". Die vier Rollbereiche im Hauptfenster hatten den
         # Umbau schon; hier stand er noch aus.
-        from scbp.hauptfenster import rundleiste
-        sb = rundleiste(wrap, self.canvas, grund=BG)
+        from scbp.main_window import round_scrollbar
+        sb = round_scrollbar(wrap, self.canvas, grund=BG)
         self.list = tk.Frame(self.canvas, bg=BG)
         self.list.bind('<Configure>',
                        lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
@@ -2241,13 +2241,13 @@ class Overlay:
             # ⚠ Lokal importiert wie überall in dieser Datei — `hauptfenster`
             # zieht selbst wieder Bausteine nach, auf Modulebene wäre das ein
             # Zirkelbezug.
-            from scbp import hauptfenster as _hf
+            from scbp import main_window as _hf
             eingetragen, _benutzt, kanaele = lage
-            gewaehlt = _hf.kanal_waehlen(self.root, eingetragen, kanaele)
+            gewaehlt = _hf.ask_channel(self.root, eingetragen, kanaele)
             if not gewaehlt:
                 return
             pfade.einstellung_setzen('spiel_ordner', gewaehlt)
-            _hf.bescheid_geben(
+            _hf.show_result(
                 self.root, sprache.t('s_kn_titel'),
                 sprache.t('s_kn_umgestellt') % os.path.basename(gewaehlt))
         except Exception as ausnahme:
@@ -2277,8 +2277,8 @@ class Overlay:
                      ('f_sub', 'Segoe UI', 7))
 
     def _stufe(self):
-        from scbp.hauptfenster import STUFEN
-        return STUFEN.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
+        from scbp.main_window import FONT_LEVELS
+        return FONT_LEVELS.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
 
     def _schriften_anlegen(self):
         n = self._stufe()
@@ -2292,8 +2292,8 @@ class Overlay:
         das die Schrift benutzt. Deshalb genügt es, die drei Objekte zu ändern,
         statt die Zeilen neu zu bauen.
         """
-        from scbp.hauptfenster import STUFEN
-        n = STUFEN.get(stufe, self._stufe()) if stufe else self._stufe()
+        from scbp.main_window import FONT_LEVELS
+        n = FONT_LEVELS.get(stufe, self._stufe()) if stufe else self._stufe()
         for (name, _, grund) in self.OVERLAY_GRUND:
             try:
                 getattr(self, name).configure(size=grund + n)
@@ -2956,9 +2956,9 @@ class Overlay:
         if fenster is None:
             return
         try:
-            from scbp.hauptfenster import bescheid_geben, nach_vorn
-            nach_vorn(fenster.root)
-            bescheid_geben(fenster.root, str(titel), str(text))
+            from scbp.main_window import show_result, to_front
+            to_front(fenster.root)
+            show_result(fenster.root, str(titel), str(text))
         except Exception as ausnahme:
             fehler.merken('oberflaeche.bescheid', ausnahme)
 
@@ -2968,8 +2968,8 @@ class Overlay:
         vorhanden = getattr(self, '_versionen', None)
         if vorhanden is not None:
             try:
-                from scbp.hauptfenster import nach_vorn
-                nach_vorn(vorhanden.root)
+                from scbp.main_window import to_front
+                to_front(vorhanden.root)
                 return
             except Exception:
                 pass
@@ -3419,14 +3419,14 @@ class Overlay:
         Ein zweiter Klick holt das vorhandene Fenster nach vorn und wechselt die
         Seite, statt ein zweites aufzumachen. Zwei gleiche Fenster nebeneinander
         sind für niemanden nachvollziehbar."""
-        from scbp.hauptfenster import Hauptfenster
+        from scbp.main_window import Hauptfenster
         vorhanden = getattr(self, '_fenster', None)
         if vorhanden is not None:
             try:
                 # ⚠ Über `nach_vorn()`: `lift()` allein wird unter Wayland
                 # ignoriert, und ein minimiertes Fenster bliebe minimiert.
-                from scbp.hauptfenster import nach_vorn
-                nach_vorn(vorhanden.root)
+                from scbp.main_window import to_front
+                to_front(vorhanden.root)
                 vorhanden.oeffnen(seite)
                 return
             except Exception:

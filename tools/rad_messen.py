@@ -34,7 +34,7 @@ Fenster öffnet sich, dann:
   3. Fenster schließen.
 
 Zum Schluss steht in der Zusammenfassung, welche Beträge angekommen sind.
-Genau die braucht `hauptfenster.rad_anschliessen()`.
+Genau die braucht `main_window.rad_anschliessen()`.
 """
 import os
 import sys

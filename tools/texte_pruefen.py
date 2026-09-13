@@ -25,8 +25,8 @@ nie geprüft. Deshalb konnte es passieren, dass die englischen Seiten an einem
 guten Dutzend Stellen deutschen Text zeigten, ohne dass etwas Alarm schlug.
 
 Gesucht wird im Quelltext (nicht im laufenden Fenster): Jeder Aufruf, der einen
-sichtbaren Text bekommt — `text=`, `title=` und die Hausbausteine `rundknopf`,
-`marke`, `_feld` und Verwandte — und dort eine feste Zeichenkette stehen hat
+sichtbaren Text bekommt — `text=`, `title=` und die Hausbausteine `round_button`,
+`badge`, `_feld` und Verwandte — und dort eine feste Zeichenkette stehen hat
 statt eines `t('schluessel')`.
 
 Rauschen wird ausgesiebt: reine Platzhalter (`%d / %d`), einzelne Zeichen
@@ -55,8 +55,8 @@ SICHTBAR = ('text', 'title', 'label', 'placeholder', 'platzhalter', 'lead')
 # in derselben Datei zu finden ist. Die Zahl ist das wievielte Argument, das
 # der Mensch liest, gezählt ab null.
 FREMDE_BAUSTEINE = {
-    'rundknopf': (1,),            # (eltern, text, tat, …)
-    'marke':     (1,),
+    'round_button': (1,),            # (eltern, text, tat, …)
+    'badge':     (1,),
     '_chip':     (1,),
 }
 

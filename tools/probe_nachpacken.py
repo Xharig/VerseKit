@@ -22,7 +22,7 @@ import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
 import tkinter as tk
-from scbp import seiten, hauptfenster                        # noqa: E402
+from scbp import seiten, main_window                        # noqa: E402
 
 OK = []
 
@@ -51,7 +51,7 @@ def gepackt(rahmen):
 
 
 def main():
-    fenster = hauptfenster.Hauptfenster(version='mess')
+    fenster = main_window.Hauptfenster(version='mess')
     fenster.root.update()
     fenster.oeffnen('joysticks')
     for _ in range(3):
