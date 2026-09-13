@@ -11683,8 +11683,19 @@ def main():
 
     _seiten117 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
-    # Jede Seitenfunktion heisst `_<kennung>(fenster, rahmen)` — der Rumpf
-    # reicht bis zur naechsten Funktion auf Modulebene.
+    # ⛔⛔ **Nicht die Kennung aus dem Funktionsnamen schnitzen.** Bis zum
+    # 14.09.2026 hiess jede Seitenfunktion `_<kennung>(fenster, rahmen)`, und
+    # diese Pruefung schnitt das Wort hinter dem Unterstrich heraus. Mit P4
+    # Stufe 7c fallen die deutschen Funktionsnamen — `_diagnose` wurde
+    # `_diagnostics`, die Kennung blieb `diagnose`. Die Pruefung meldete prompt
+    # „fehlt: diagnostics": Sie verglich einen Funktionsnamen mit einer Liste
+    # von Kennungen.
+    #
+    # Die Zuordnung steht an genau einer Stelle im Programm — dort wird sie
+    # jetzt auch geholt. Damit ueberlebt die Pruefung jede weitere Umbenennung.
+    from scbp import seiten as _se117
+    _kennung117 = dict((_f117.__name__, _k117)
+                       for _k117, _f117 in _se117._bauer_tabelle().items())
     _stellen117 = [m.start() for m in
                    re.finditer(r'^def _[a-z_]+\(fenster, rahmen\)',
                                _seiten117, re.M)]
@@ -11692,9 +11703,11 @@ def main():
     _liest117 = set()
     for _i117 in range(len(_stellen117) - 1):
         _stueck117 = _seiten117[_stellen117[_i117]:_stellen117[_i117 + 1]]
-        _name117 = re.match(r'^def _([a-z_]+)\(', _stueck117).group(1)
+        _fn117 = re.match(r'^def (_[a-z_]+)\(', _stueck117).group(1)
         if 'bestand_datei.load()' in _stueck117 or '_zahl_bestand()' in _stueck117:
-            _liest117.add(_name117)
+            # Kein Seitenbauer? Dann steht er nicht in der Tabelle — der
+            # Funktionsname ist dann der ehrlichere Hinweis als ein Ratewort.
+            _liest117.add(_kennung117.get(_fn117, _fn117))
 
     pruefe(bool(_liest117),
            'die Seiten mit Bestandszahlen sind auffindbar (%d gefunden)'
@@ -11762,7 +11775,7 @@ def main():
     # Die Diagnose-Seite herausschneiden — `melden` und `kopieren` heissen
     # anderswo genauso, und ohne den Schnitt zaehlte die Pruefung fremde
     # Funktionen mit.
-    _start118 = _sei118.find('def _diagnose(')
+    _start118 = _sei118.find('def _diagnostics(')
     pruefe(_start118 > 0, 'die Diagnose-Seite ist auffindbar')
     _ende118 = _sei118.find('\ndef ', _sei118.find('def aktueller_bericht'))
     _block118 = _sei118[_start118:_ende118 if _ende118 > 0 else len(_sei118)]

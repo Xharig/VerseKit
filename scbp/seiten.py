@@ -107,21 +107,21 @@ def _bauer_tabelle():
         'liste':       _liste,
         'fortschritt': _fortschritt,
         'auftragslog': _auftragslog,
-        'allgemein':   _allgemein,
-        'anzeige':     _anzeige,
-        'ordner':      _ordner,
-        'spiel':       _spiel,
+        'allgemein':   _general,
+        'anzeige':     _display,
+        'ordner':      _folders,
+        'spiel':       _game,
         'bestand':     _bestand,
         'wasistneu':   _wasistneu,
         'patchaenderungen': _patchaenderungen,
         'ueber':       _ueber,
         'serverstatus': _serverstatus,
         'danke':       _danke,
-        'erkennung':   _erkennung,
+        'erkennung':   _detection,
         'joysticks':   _joysticks,
         'achsen':      _achsen,
         'blickwinkel': _blickwinkel,
-        'diagnose':    _diagnose,
+        'diagnose':    _diagnostics,
         'hangar':      _hangar,
         'wunschliste': _wunschliste,
         'asop':        _asop,
@@ -1493,7 +1493,7 @@ def _settings_parts(window):
     return window._settings_window
 
 
-def _allgemein(fenster, rahmen):
+def _general(fenster, rahmen):
     from . import autostart, pfade
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_allgemein'),
@@ -1578,7 +1578,7 @@ def _allgemein(fenster, rahmen):
                  font=fenster.f_small).pack()
 
 
-def _anzeige(fenster, rahmen):
+def _display(fenster, rahmen):
     from . import pfade
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_anzeige'),
@@ -1801,7 +1801,7 @@ def _anzeige(fenster, rahmen):
     _button(fenster, ziel, t('s_zuruecksetzen'), lage_weg).pack()
 
 
-def _ordner(fenster, rahmen):
+def _folders(fenster, rahmen):
     from . import pfade
     _heading(fenster, rahmen, t('hf_ordner'),
                   t('s_ordner_lead'))
@@ -2221,7 +2221,7 @@ def _ordner_zeigen(pfad):
         return False
 
 
-def _spiel(fenster, rahmen):
+def _game(fenster, rahmen):
     """Auftragstexte — Textquelle wählen und die Bauplan-Angaben eintragen."""
     from . import pfade
     from .main_window import toggle_switch
@@ -5763,7 +5763,7 @@ def _schalter(fenster, eltern, schluessel, standard):
     return k
 
 
-def _erkennung(fenster, rahmen):
+def _detection(fenster, rahmen):
     from . import catalog as katalog_modul, pfade, phrasen
     _heading(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _scroll_area(rahmen)
@@ -5838,7 +5838,7 @@ def _erkennung(fenster, rahmen):
     # schwaecheren erwischt, glaubt, das Werkzeug koenne es nicht.
 
 
-def _diagnose(fenster, rahmen):
+def _diagnostics(fenster, rahmen):
     from . import pfade
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_diagnose'), t('s_di_lead'))
