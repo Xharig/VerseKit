@@ -46,7 +46,7 @@ from scbp import main_window, seiten, sprache                # noqa: E402
 #
 # Eine Liste von Hand ist am Tag ihrer Erweiterung still veraltet. Gefragt wird
 # deshalb das Programm selbst.
-SEITEN = list(seiten.kennungen())
+SEITEN = list(seiten.page_ids())
 
 GROESSEN = ('1100x842', '1440x900')
 

@@ -1685,7 +1685,7 @@ def main():
                 for _seite in _SEITEN:
                     _rahmen = _tk.Frame(_f.root)
                     try:
-                        _st.bauen(_f, _seite, _rahmen)
+                        _st.build(_f, _seite, _rahmen)
                         _f.root.update()
                         _durchsuchen(_rahmen, _rohe)
                     except Exception as _fehler:
@@ -1724,7 +1724,7 @@ def main():
             for _seite in ('joysticks',):
                 _rahmen = _tk.Frame(_f.root)
                 try:
-                    _st.bauen(_f, _seite, _rahmen)
+                    _st.build(_f, _seite, _rahmen)
                     _f.root.update()
 
                     def _eingaben(w, raus):
@@ -7910,7 +7910,7 @@ def main():
     # bricht schon, wenn jemand eine Leerstelle verschiebt. Gefragt ist, ob die
     # Kennung auf die Funktion zeigt — das beantwortet die Tabelle selbst.
     from scbp import seiten as _se84
-    _tab84 = _se84._bauer_tabelle()
+    _tab84 = _se84._builders()
     for _k84 in ('verkauf', 'handelslager'):
         pruefe(callable(_tab84.get(_k84)),
                'die Seite „%s" ist angemeldet' % _k84)
@@ -11699,7 +11699,7 @@ def main():
     # jetzt auch geholt. Damit ueberlebt die Pruefung jede weitere Umbenennung.
     from scbp import seiten as _se117
     _kennung117 = dict((_f117.__name__, _k117)
-                       for _k117, _f117 in _se117._bauer_tabelle().items())
+                       for _k117, _f117 in _se117._builders().items())
     _stellen117 = [m.start() for m in
                    re.finditer(r'^def _[a-z_]+\(fenster, rahmen\)',
                                _seiten117, re.M)]

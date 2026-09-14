@@ -65,27 +65,32 @@ from scbp.main_window import MainWindow                 # noqa: E402
 #
 # Wer eine Seite dazubaut, traegt sie **hier mit ein**. `_alle_seiten_dabei()`
 # unten haelt das fest und schlaegt an, wenn eine fehlt.
-SEITEN = ('liste', 'fortschritt', 'allgemein', 'anzeige', 'spiel', 'bestand',
-          'wasistneu', 'ueber', 'serverstatus', 'danke',
+SEITEN = ('liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
+          'spiel', 'bestand',
+          'wasistneu', 'patchaenderungen', 'ueber', 'serverstatus', 'danke',
           'ordner', 'erkennung', 'diagnose',
-          'herstellung', 'bergbau', 'lager', 'verkauf', 'handelslager')
+          'joysticks', 'achsen', 'blickwinkel',
+          'hangar', 'wunschliste', 'asop', 'einkaufsliste', 'farmliste',
+          'bergung', 'zerlegen',
+          'herstellung', 'bergbau', 'raffinerien', 'lager',
+          'verkauf', 'handelslager', 'laeden', 'routen')
 
 
 def _alle_seiten_dabei():
     """Meldet Seiten, die es gibt, die hier aber nicht besucht werden.
 
-    Gelesen wird das Verzeichnis in `scbp/seiten.py` — die Zeilen der Form
-    `'kennung': _bauer,`. Kein Import, keine Oberflaeche: Es geht nur darum,
-    dass die Liste oben vollstaendig bleibt.
+    Gefragt wird `seiten.page_ids()` — das Verzeichnis selbst, nicht seine
+    Schreibweise.
+
+    ⛔ Vorher stand hier eine Textsuche nach dem Block zwischen `bauer = {` und
+    `}.get(kennung)`. Seit das Verzeichnis in eine eigene Funktion gewandert
+    ist, findet sie nichts mehr und die Pruefung meldete `[]` — also
+    "vollstaendig", ohne eine einzige Kennung gesehen zu haben. Eine Pruefung,
+    die ihren Gegenstand per Textmuster sucht, geht bei der naechsten
+    Umbenennung still aus.
     """
-    import re
-    quelle = io_lesen(os.path.join(HIER, 'scbp', 'seiten.py'))
-    # Der Block zwischen `bauer = {` und `}.get(kennung)`.
-    block = re.search(r"bauer = \{(.*?)\}\.get\(kennung\)", quelle, re.S)
-    if not block:
-        return []
-    kennungen = re.findall(r"'([a-z]+)':\s*_", block.group(1))
-    return [k for k in kennungen if k not in SEITEN]
+    from scbp import seiten
+    return [k for k in seiten.page_ids() if k not in SEITEN]
 
 
 def _sollbestand():

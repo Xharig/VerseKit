@@ -3647,7 +3647,7 @@ TEXTE = {
     's_pa_dazugekommen': ('neu: {neu}', 'new: {neu}'),
     's_pa_mehr':         ('… und {n} weitere', '… and {n} more'),
     # ⚠ Für verschachtelte Werte, die als Ganzes verglichen werden — siehe
-    # `_pa_struktur` in seiten.py. Ohne sie stand dort nur „… → …".
+    # `_pc_struct` in seiten.py. Ohne sie stand dort nur „… → …".
     's_pa_feld_weg':     ('{feld} fällt weg', '{feld} removed'),
     's_pa_feld_neu':     ('{feld} neu: {wert}', '{feld} new: {wert}'),
     # ⚠ Der ehrliche Fall: Der Patch hat das Feld angefasst, aber kein

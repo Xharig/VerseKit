@@ -95,7 +95,7 @@ XPLORER_CHROME = ('https://chrome.google.com/webstore/detail/hangarxplor/'
                   'bhkgemjdepodofcnmekdobmmbifemhkc/')
 
 
-def _bauer_tabelle():
+def _builders():
     """Welche Kennung von welcher Funktion gebaut wird.
 
     ⚠ Als eigene Funktion, damit das Hauptfenster die Kennungen abfragen kann,
@@ -140,14 +140,14 @@ def _bauer_tabelle():
     }
 
 
-def kennungen():
+def page_ids():
     """Alle Seiten-Kennungen — für das Vorbauen im Leerlauf."""
-    return tuple(_bauer_tabelle())
+    return tuple(_builders())
 
 
-def bauen(fenster, kennung, rahmen):
+def build(fenster, kennung, rahmen):
     """Eine Seite füllen. `fenster` ist das Hauptfenster (Schriften, Meldungen)."""
-    bauer = _bauer_tabelle().get(kennung)
+    bauer = _builders().get(kennung)
     if bauer:
         bauer(fenster, rahmen)
 
@@ -1969,7 +1969,7 @@ def _folders(fenster, rahmen):
         # ⚠ Vorher lief das über `e._waehlen(...)`, und das übergibt
         # `parent=self.root` — eingebettet ist das ein Rahmen, der nie gepackt
         # wird. Der Dialog erschien deshalb nicht: „beim Klick passiert nichts".
-        gewaehlt = ordner_waehlen(t('e_spiel'), e.spiel.get())
+        gewaehlt = choose_folder(t('e_spiel'), e.spiel.get())
         if gewaehlt:
             e.spiel.set(gewaehlt)
             e._speichern()
@@ -1995,7 +1995,7 @@ def _folders(fenster, rahmen):
         # ⚠ Hier stand nur ein Hinweis in der Fußzeile („lässt sich in den
         # Einstellungen hinterlegen") — auf der Seite, die genau diese Einstellung
         # IST. Für den Nutzer sah es aus, als täte der Knopf nichts.
-        gewaehlt = ordner_waehlen(t('s_eigene'), ablage.get())
+        gewaehlt = choose_folder(t('s_eigene'), ablage.get())
         if not gewaehlt:
             return
         _move_storage(fenster, ablage, gewaehlt)
@@ -2006,7 +2006,7 @@ def _folders(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x', pady=(20, 0))
     _body_text(innen, t('e_launcher_hilfe'), fenster.f_small, fill='x')
     def launcher_waehlen():
-        gewaehlt = ordner_waehlen(t('e_launcher'), e.launcher.get())
+        gewaehlt = choose_folder(t('e_launcher'), e.launcher.get())
         if gewaehlt:
             e.launcher.set(gewaehlt)
             e._speichern()
@@ -2314,7 +2314,7 @@ def _overlay_mode(fenster, wahl, kennung):
         fenster.say(t('s_ov_modus_sagen') % t('s_ov_immer'))
 
 
-def saubere_umgebung():
+def clean_environment():
     """Weiterleitung — die Wahrheit steht in `file_picker` (bis 11.09.2026 `dateiwahl`).
 
     ⚠ Sie stand jahrelang hier, weil sie hier zuerst gebraucht wurde. Seit die
@@ -2327,7 +2327,7 @@ def saubere_umgebung():
     return pfade_modul.saubere_umgebung()
 
 
-def ordner_waehlen(titel, start=None):
+def choose_folder(titel, start=None):
     """Weiterleitung — siehe `file_picker.choose_folder`."""
     from . import file_picker
     return file_picker.choose_folder(titel, start)
@@ -2355,7 +2355,7 @@ def _show_folder(pfad):
         elif sys.platform == 'darwin':
             subprocess.Popen(['open', pfad])
         else:
-            subprocess.Popen(['xdg-open', pfad], env=saubere_umgebung())
+            subprocess.Popen(['xdg-open', pfad], env=clean_environment())
         return True
     except Exception as ausnahme:
         fehler.merken('seiten.ordner_zeigen', ausnahme, pfad)
@@ -16445,7 +16445,7 @@ def _patch_number(value, digits=4):
     return str(value)
 
 
-def _pa_paar(alt, neu):
+def _pc_pair(alt, neu):
     """Alt und neu so darstellen, dass ein Unterschied auch SICHTBAR ist.
 
     ⚠⚠ **Das ist keine Kosmetik — ohne das log die Seite** (07.09.2026).
@@ -16488,7 +16488,7 @@ def _pa_paar(alt, neu):
     return _patch_number(alt), _patch_number(neu)
 
 
-def _pa_prozent(alt, neu):
+def _pc_percent(alt, neu):
     """Um wie viel Prozent hat sich der Wert verändert — als fertiger Zusatz.
 
     ⚠⚠ **Das ist bei kleinen Zahlen die einzige lesbare Aussage** (07.09.2026).
@@ -16520,7 +16520,7 @@ def _pa_prozent(alt, neu):
     return '  (%+d %%)' % round(anteil)
 
 
-def _pa_richtung(alt, neu):
+def _pc_direction(alt, neu):
     """Ist der Wert gestiegen (1), gefallen (-1) oder keins von beidem (0)?
 
     ⚠ **Die Farbe zeigt die RICHTUNG, nicht ob es besser wurde.** Grün heißt
@@ -16545,7 +16545,7 @@ def _pa_richtung(alt, neu):
     return 0
 
 
-def _pa_blaetter(wert, pfad='', aus=None):
+def _pc_leaves(wert, pfad='', aus=None):
     """Alle Einzelwerte einer verschachtelten Struktur, mit ihrem Pfad.
 
     Aus `[{'consumes': [{'resource': 'Power', 'units': 4}]}]` wird
@@ -16554,18 +16554,18 @@ def _pa_blaetter(wert, pfad='', aus=None):
     aus = {} if aus is None else aus
     if isinstance(wert, dict):
         for schluessel, unterwert in wert.items():
-            _pa_blaetter(unterwert,
+            _pc_leaves(unterwert,
                          '%s.%s' % (pfad, schluessel) if pfad else schluessel,
                          aus)
     elif isinstance(wert, list):
         for nummer, unterwert in enumerate(wert):
-            _pa_blaetter(unterwert, '%s[%d]' % (pfad, nummer), aus)
+            _pc_leaves(unterwert, '%s[%d]' % (pfad, nummer), aus)
     else:
         aus[pfad] = wert
     return aus
 
 
-def _pa_kurzpfad(pfad):
+def _pc_short_path(pfad):
     """Nur der sprechende Rest eines Blattpfads — `consumes[0].units` → `units`.
 
     ⚠ Vorher noch in der Feldtabelle nachsehen: Steht der volle Pfad dort, ist
@@ -16578,7 +16578,7 @@ def _pa_kurzpfad(pfad):
     return letzte or pfad
 
 
-def _pa_struktur(alt, neu, hoechstens=3):
+def _pc_struct(alt, neu, hoechstens=3):
     """Was sich in zwei verschachtelten Werten wirklich unterscheidet.
 
     ⚠⚠ **Warum es diese Funktion gibt** (07.09.2026, gemeldet als „da sind gar
@@ -16598,12 +16598,12 @@ def _pa_struktur(alt, neu, hoechstens=3):
     genau das, statt einen Unterschied vorzutäuschen. Gemessen am 07.09.2026
     trifft das auf rund ein Fünftel der Posten in 4.10.0 zu.
     """
-    a, b = _pa_blaetter(alt), _pa_blaetter(neu)
+    a, b = _pc_leaves(alt), _pc_leaves(neu)
     teile = []
     for schluessel in sorted(set(a) | set(b)):
         if a.get(schluessel) == b.get(schluessel):
             continue
-        kurz = _pa_kurzpfad(schluessel)
+        kurz = _pc_short_path(schluessel)
         if schluessel not in b:
             teile.append(t('s_pa_feld_weg').format(feld=kurz))
         elif schluessel not in a:
@@ -16621,7 +16621,7 @@ def _pa_struktur(alt, neu, hoechstens=3):
     return ', '.join(teile)
 
 
-def _pa_feldzeile(fenster, eltern, feld):
+def _pc_field_row(fenster, eltern, feld):
     """Eine einzelne Feldänderung: Pfad und was aus dem Wert wurde."""
     zeile = tk.Frame(eltern, bg=BG)
     zeile.pack(fill='x', padx=(18, 0))
@@ -16636,10 +16636,10 @@ def _pa_feldzeile(fenster, eltern, feld):
     # Wert, den es nicht gibt. Gemessen an der C-788 Cannon (07.09.2026).
     if feld['hat_alt'] and feld['hat_neu']:
         # ⚠ Verschachtelte Werte NICHT als „… → …" abtun — dann steht dort
-        # nichts. Bei ihnen zeigt `_pa_struktur` den echten Unterschied.
+        # nichts. Bei ihnen zeigt `_pc_struct` den echten Unterschied.
         if isinstance(feld['alt'], (list, dict)) \
                 or isinstance(feld['neu'], (list, dict)):
-            text = _pa_struktur(feld['alt'], feld['neu'])
+            text = _pc_struct(feld['alt'], feld['neu'])
             farbe = FG
         else:
             # ⚠⚠ **Verglichen wird der ROHWERT, nicht die Anzeige.**
@@ -16648,10 +16648,10 @@ def _pa_feldzeile(fenster, eltern, feld):
             # Das klang vernünftig und war falsch: Wenn die Anzeige zwei
             # verschiedene Werte gleich aussehen lässt, ist die ANZEIGE das
             # Problem — dann muss sie genauer werden, nicht die Änderung
-            # verschwinden. `_pa_paar` erhöht die Genauigkeit so weit, bis der
+            # verschwinden. `_pc_pair` erhöht die Genauigkeit so weit, bis der
             # Unterschied dasteht.
-            vorher, nachher = _pa_paar(feld['alt'], feld['neu'])
-            richtung = _pa_richtung(feld['alt'], feld['neu'])
+            vorher, nachher = _pc_pair(feld['alt'], feld['neu'])
+            richtung = _pc_direction(feld['alt'], feld['neu'])
             # ⚠ `0 → 0` ist keine Auskunft, sondern Lärm — und davon steht
             # reichlich in den Daten: Erkul führt ein Feld auch dann im Diff,
             # wenn der Wert derselbe geblieben ist. Gemessen am 07.09.2026:
@@ -16694,7 +16694,7 @@ def _pa_feldzeile(fenster, eltern, feld):
                 text, farbe = '%s → %s' % (vorher, nachher), SUB
             else:
                 text = '%s → %s%s' % (vorher, nachher,
-                                      _pa_prozent(feld['alt'], feld['neu']))
+                                      _pc_percent(feld['alt'], feld['neu']))
                 farbe = {1: ACCENT, -1: RED}.get(richtung, FG)
     elif feld['hat_alt']:
         text = t('s_pa_weggefallen').format(alt=_patch_number(feld['alt']))
@@ -16813,7 +16813,7 @@ def _patch_changes(fenster, rahmen):
                          bg=BG, fg=SUB, font=fenster.f_small,
                          anchor='w').pack(side='left', padx=(8, 0))
             for feld in eintrag['felder']:
-                _pa_feldzeile(fenster, kasten, feld)
+                _pc_field_row(fenster, kasten, feld)
         rest = len(posten) - _PATCH_MAX
         if rest > 0:
             _body_text(ergebnis, t('s_pa_mehr').format(n=rest),

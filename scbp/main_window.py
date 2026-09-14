@@ -3191,7 +3191,7 @@ class MainWindow:
     def _fill_page(self, kennung, rahmen):
         """Hier hängen die Seiten ein — geliefert von `seiten.py`."""
         from . import seiten
-        seiten.bauen(self, kennung, rahmen)
+        seiten.build(self, kennung, rahmen)
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche
@@ -3238,7 +3238,7 @@ class MainWindow:
         try:
             if rest is None:
                 from . import seiten
-                rest = [k for k in seiten.kennungen()
+                rest = [k for k in seiten.page_ids()
                         if k not in self.drawn]
             if not rest:
                 return
