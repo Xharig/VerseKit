@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.36.0 - 2026-09-14
+
+> **Four buttons did nothing at all.** "Measure again", showing the curve full
+> size, changing a binding, the version window — you clicked, and nothing
+> happened. All four work again. Plus something you notice right away: icons
+> light up as the mouse passes over them, so you can tell what is clickable at
+> all. And two words are now named the way you know them from the game.
+
 ### Improved
 
 - **Icons light up as the mouse passes over them** — so you can tell what can

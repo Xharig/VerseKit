@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.36.0 - 2026-09-14
+
+> **Vier Knöpfe taten gar nichts.** „Neu ausmessen", die Kurve groß anzeigen,
+> eine Belegung ändern, das Versionsfenster — angeklickt, und nichts
+> passierte. Alle vier sind jetzt heil. Dazu etwas, das man sofort sieht:
+> Symbole hellen sich auf, sobald die Maus darüberfährt, damit man erkennt,
+> was überhaupt anklickbar ist. Und zwei Wörter heißen jetzt so, wie man sie
+> im Spiel kennt.
+
 ### Verbessert
 
 - **Symbole hellen sich auf, sobald die Maus darüberfährt** — so sieht man,
