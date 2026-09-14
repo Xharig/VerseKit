@@ -4474,7 +4474,7 @@ TEXTE = {
     # ⚠ Kein gemaltes Sternzeichen als Beschriftung: Das Projekt malt keine
     # Symbole, und `U+2605` kennt cp1252 nicht — daran ist am 06.09.2026 schon
     # ein Bau-Lauf gestorben (Pruefung 144). Das Sternchen selbst steht in
-    # `asop.STERN` und geht in die Sprachdatei des Spiels, nicht in die
+    # `asop.STAR` und geht in die Sprachdatei des Spiels, nicht in die
     # Oberflaeche.
     's_as_stern':        ('Sternchen', 'Star'),
     # ⚠ Diese drei sagen, ob der Name wirklich im Spiel steht. Ohne sie sieht

@@ -1647,14 +1647,14 @@ def main():
             'scbp/autostart.py', 'scbp/desktop_entry.py',
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
             # zum fehlenden Entpacker — beides kein Oberflächentext.
-            'scbp/pfade.py', 'scbp/spieltexte.py', 'scbp/phrasen.py',
+            'scbp/pfade.py', 'scbp/gametext.py', 'scbp/phrasen.py',
             # Feldnamen der `global.ini` („Gütegrad:", „Verfolgungssignal:") —
             # damit wird in der Spieldatei GESUCHT, angezeigt wird nichts
             # davon. Gleiche Lage wie bei `phrasen.py` eine Zeile höher.
             'scbp/specs.py',
             # Erklärender Kopf in der patch-historie.json. Steht in der Datei,
             # damit man sie im Repo ohne Quelltext versteht — nie im Fenster.
-            'scbp/patchhistorie.py',
+            'scbp/patchhistory.py',
         }
         _oberflaeche = ['sc_bp_watcher.py'] + [
             'scbp/' + _n for _n in sorted(os.listdir(os.path.join(_wurzelpfad, 'scbp')))
@@ -1702,7 +1702,7 @@ def main():
                     _durchsuchen(_kind, gefunden)
 
             _SEITEN = ('liste', 'fortschritt', 'allgemein', 'anzeige', 'pfade',
-                       'spieltexte', 'bestand', 'wasistneu', 'ueber')
+                       'gametext', 'bestand', 'wasistneu', 'ueber')
             _vorher = _spr.aktuelle()
             _kaputt, _rohe = [], []
             for _kuerzel in ('de', 'en'):
@@ -1902,7 +1902,7 @@ def main():
         # sonst bis zum nächsten Patch, und der wäre obendrein stumm geblieben.
         print()
         print('19. Der Katalog holt fehlende Patch-Stempel nach')
-        from scbp import catalog as kat19, patchhistorie as ph19
+        from scbp import catalog as kat19, patchhistory as ph19
 
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'stempel')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
@@ -1911,7 +1911,7 @@ def main():
                                     'neu': ['Alter Bauplan']},
                    '4.10.0-live.2': {'datum': '2026-08-26',
                                      'neu': ['Neuer Bauplan']}}
-        ph19._schreib(os.path.join(os.environ['SC_BP_HOME'],
+        ph19._write(os.path.join(os.environ['SC_BP_HOME'],
                            'patch-historie.json'), _hist19)
 
         def _katalog_schreiben(version, **zusatz):
@@ -1948,14 +1948,14 @@ def main():
         #    Patch meldete NULL Zugänge. Der vorhandene Katalog ist die
         #    richtige Grundlage — was darin steht, war vorher im Spiel.
         _katalog_schreiben('4.10.0-live.2')
-        pruefe(not ph19.gesehen(), 'Ausgangslage: keine Vergleichsgrundlage')
+        pruefe(not ph19.seen(), 'Ausgangslage: keine Vergleichsgrundlage')
         pruefe(kat19._baseline() == {'alter bauplan', 'neuer bauplan'},
                'ersatzweise gilt der vorhandene Katalog als Grundlage')
         pruefe('quantum drive' not in kat19._baseline(),
                'was der Katalog nicht kennt, bleibt ein Zugang')
 
         # Ist die Grundlage vorhanden, gilt sie — und nicht der Katalog.
-        ph19.gesehen_setzen({'alter bauplan'})
+        ph19.set_seen({'alter bauplan'})
         pruefe(kat19._baseline() == {'alter bauplan'},
                'die eigene Grundlage schlaegt den Katalog')
 
@@ -2420,27 +2420,27 @@ def main():
         # `global.ini` auf der Platte, nur die `Data.p4k`. Ohne `g_language`
         # liest Star Citizen eine dort abgelegte Datei nicht einmal an.
         # Gemeldet: „sonst kann man das nie ohne eine übersetzung nutzen."
-        from scbp import spieltexte as st28
-        quelle_st = open(os.path.join(WURZEL, 'scbp', 'spieltexte.py'),
+        from scbp import gametext as st28
+        quelle_st = open(os.path.join(WURZEL, 'scbp', 'gametext.py'),
                          encoding='utf-8').read()
-        pruefe('_sprache_eintragen(' in quelle_st,
-               'holen() traegt g_language selbst ein, nicht der Aufrufer')
-        pruefe(quelle_st.count('_sprache_eintragen(sprache, spielordner)') >= 2,
+        pruefe('_set_language(' in quelle_st,
+               'fetch() traegt g_language selbst ein, nicht der Aufrufer')
+        pruefe(quelle_st.count('_set_language(sprache, spielordner)') >= 2,
                'auch wenn die Datei schon da war — sonst bleibt sie ungelesen')
         # Kein Aufrufer darf sich mehr darauf verlassen, es selbst zu tun.
         for datei_st in ('assistent.py', 'einstellungsfenster.py'):
             inhalt_st = open(os.path.join(WURZEL, 'scbp', datei_st),
                              encoding='utf-8').read()
-            block_st = inhalt_st[inhalt_st.index('spieltexte.holen('):][:900]
+            block_st = inhalt_st[inhalt_st.index('gametext.fetch('):][:900]
             pruefe('set_user_cfg(' not in block_st,
-                   '%s verlaesst sich auf holen(), statt es zu wiederholen'
+                   '%s verlaesst sich auf fetch(), statt es zu wiederholen'
                    % datei_st)
         # Und der englische Zielordner entsteht genauso von selbst.
         orig28 = os.path.join(basis, 'englischoriginal', 'LIVE')
         os.makedirs(orig28)
         ziel_or = ue28.target_ini('english', orig28)
         os.makedirs(os.path.dirname(ziel_or), exist_ok=True)
-        st28._sprache_eintragen('english', orig28)
+        st28._set_language('english', orig28)
         cfg_or = open(os.path.join(orig28, 'user.cfg'), encoding='utf-8').read()
         pruefe('g_language = english' in cfg_or,
                'englisch original: g_language wird ebenfalls gesetzt')
@@ -3719,46 +3719,46 @@ def main():
     #
     # Ursache: `laden()` legte die eigene Historie per `update()` über die
     # mitgelieferte. Bei gleichem Versionsschlüssel gewann die eigene komplett.
-    # Nur: Was `eintragen()` schreibt, ist immer bloß der **Zuwachs seit dem
+    # Nur: Was `record()` schreibt, ist immer bloß der **Zuwachs seit dem
     # letzten Lauf** — hier drei Waffen, die scmdb zwei Tage später nachreichte.
     # Als vollständige Patch-Liste gelesen ist das zwangsläufig falsch.
     #
     # Diese Prüfung hält beide Richtungen fest: mitgeliefert + eigen, und eigen
     # + eigen. Fällt eine heraus, frisst der nächste Nachzügler wieder den Patch.
     import tempfile as _tf42
-    from scbp import patchhistorie as ph42
+    from scbp import patchhistory as ph42
     _alt_home42 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf42.mkdtemp(prefix='sc-bp-historie-')
     try:
-        _mit42 = ph42._lies(ph42.pfade.programm_datei(ph42.MITGELIEFERT))
-        _v42 = sorted(_mit42, key=ph42.rang)[-1]
+        _mit42 = ph42._read(ph42.pfade.programm_datei(ph42.BUNDLED))
+        _v42 = sorted(_mit42, key=ph42.rank)[-1]
         _vorher42 = len(_mit42[_v42].get('neu') or [])
         pruefe(_vorher42 > 1,
                'die mitgelieferte Historie fuehrt mehrere Bauplaene (%d)'
                % _vorher42)
 
         # a) Der Fall vom 28.08.2026: zwei Nachzuegler in derselben Version.
-        ph42.eintragen(_v42, ['Testwaffe A', 'Testwaffe B'], datum='2099-12-31')
-        pruefe(len(ph42.laden()[_v42]['neu']) == _vorher42 + 2,
+        ph42.record(_v42, ['Testwaffe A', 'Testwaffe B'], datum='2099-12-31')
+        pruefe(len(ph42.load()[_v42]['neu']) == _vorher42 + 2,
                'eigene Funde kommen dazu, statt den Patch zu ersetzen')
-        pruefe(ph42.laden()[_v42]['datum'] == _mit42[_v42].get('datum'),
+        pruefe(ph42.load()[_v42]['datum'] == _mit42[_v42].get('datum'),
                'und das fruehere Datum bleibt stehen')
 
         # b) Und der zweite eigene Fund wirft den ersten nicht weg.
-        ph42.eintragen(_v42, ['Testwaffe C'])
-        pruefe(len(ph42.laden()[_v42]['neu']) == _vorher42 + 3,
+        ph42.record(_v42, ['Testwaffe C'])
+        pruefe(len(ph42.load()[_v42]['neu']) == _vorher42 + 3,
                'ein zweiter eigener Fund loescht den ersten nicht')
 
         # c) Was schon dasteht, darf nicht doppelt gezaehlt werden.
-        ph42.eintragen(_v42, [_mit42[_v42]['neu'][0], 'Testwaffe A'])
-        pruefe(len(ph42.laden()[_v42]['neu']) == _vorher42 + 3,
+        ph42.record(_v42, [_mit42[_v42]['neu'][0], 'Testwaffe A'])
+        pruefe(len(ph42.load()[_v42]['neu']) == _vorher42 + 3,
                'bekannte Namen kommen nicht ein zweites Mal hinein')
 
         # d) ⚠ Und der Bericht muss die Zahlen zeigen. Ohne diese Zeile stand im
         #    Bericht nur der Katalogstand — der war in Ordnung, die Historie
         #    darunter nicht. Genau deshalb blieb der Fehler unsichtbar.
         from scbp import bericht as ber42
-        pruefe('(%d)' % (_vorher42 + 3) in (ber42._patchhistorie() or ''),
+        pruefe('(%d)' % (_vorher42 + 3) in (ber42._patch_history() or ''),
                'der Bericht nennt die Anzahl je Patch')
 
         # e) ⚠ Zwei Spielversionen mit derselben Nummer duerfen im Bericht nicht
@@ -3769,8 +3769,8 @@ def main():
         #    Zuordnen gibt (siehe d).
         _kurz42 = _v42.split('-')[0]
         _zwei42 = _kurz42 + '-live.99999999'
-        ph42.eintragen(_zwei42, ['Testwaffe D'])
-        _zeile42 = ber42._patchhistorie() or ''
+        ph42.record(_zwei42, ['Testwaffe D'])
+        _zeile42 = ber42._patch_history() or ''
         pruefe(_kurz42 + ' (' not in _zeile42,
                'gleiche Patch-Nummern werden nicht auf die Kurzform verkuerzt')
         pruefe(_v42 in _zeile42 and _zwei42 in _zeile42,
@@ -3796,12 +3796,12 @@ def main():
     # laeuft (gemessen: Fenster 10:44:02, Stempel 10:44:03 — eine Sekunde zu
     # spaet, und die Liste blieb bis zum naechsten Oeffnen falsch).
     import tempfile as _tf43
-    from scbp import catalog as kat43, patchhistorie as ph43
+    from scbp import catalog as kat43, patchhistory as ph43
     _alt_home43 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf43.mkdtemp(prefix='sc-bp-patchfeld-')
     try:
         # Die Historie kennt DREI Bauplaene, der Katalog fuehrt nur zwei davon.
-        ph43._schreib(ph43.pfade.app_datei('patch-historie.json'),
+        ph43._write(ph43.pfade.app_datei('patch-historie.json'),
                       {'4.10.0-live.7': {'datum': '2026-08-26',
                                          'neu': ['Erster Bauplan',
                                                  'Zweiter Bauplan',
@@ -4099,7 +4099,7 @@ def main():
         #   Pruefung deckt beide Stellen ab, damit es nicht an einer dritten
         #   wieder auftaucht.
         for _datei48, _funktion48, _wo48 in (
-                ('bericht.py', 'def _patchhistorie', 'im Bericht'),
+                ('bericht.py', 'def _patch_history', 'im Bericht'),
                 ('bestandsfenster.py', 'def _patches', 'im Patch-Menue')):
             _p48 = os.path.join(os.path.dirname(os.path.dirname(
                 os.path.abspath(__file__))), 'scbp', _datei48)
@@ -16524,7 +16524,7 @@ def main():
          'kurz': 'ANVL_F7C_M_Super_Hornet_Mk_I'},
         {'name': 'Paladin', 'kurz': 'ANVL_Paladin'},           # gibt es nicht
     ]
-    _zu175 = {e['name']: e for e in _as175.zuordnen(_schiffe175, _tab175)}
+    _zu175 = {e['name']: e for e in _as175.match_ships(_schiffe175, _tab175)}
     pruefe(_zu175['Ursa Medivac']['schluessel'] == 'vehicle_NameRSI_URSA_Medivac',
            'die Ursa Medivac findet ihren Schluessel, nicht die blosse Ursa')
     pruefe(_zu175['Railen']['schluessel'] == 'vehicle_NameXIAN_Railen',
@@ -16541,7 +16541,7 @@ def main():
            'was nicht in der Datei steht, bekommt keinen geratenen Schluessel')
 
     # -- ⚠ Und nie raten: mehrere Kandidaten heisst KEIN Treffer.
-    _mehr175 = _as175.zuordnen([{'name': 'Hornet', 'kurz': ''}], _tab175)
+    _mehr175 = _as175.match_ships([{'name': 'Hornet', 'kurz': ''}], _tab175)
     pruefe(not _mehr175[0]['schluessel'],
            'bei mehreren moeglichen Schiffen wird keines gewaehlt')
 
@@ -16558,7 +16558,7 @@ def main():
         'vehicle_NameRSI_Aurora_MR': 'RSI Aurora MR',
         'vehicle_NameRSIAuroraMR': 'RSI Aurora MR (Umbau)',
     }
-    _gleich175 = _as175.zuordnen(
+    _gleich175 = _as175.match_ships(
         [{'name': 'Drake Cutlass Black', 'kurz': ''},
          {'name': 'Aurora', 'kurz': 'RSI_Aurora_MR'}], _doppel175)
     _nach175 = {e['name']: e for e in _gleich175}
@@ -16570,13 +16570,13 @@ def main():
            'zwei Schluessel gleicher Schreibweise ergeben ebenfalls keinen')
 
     # -- Der angezeigte Name
-    pruefe(_as175.anzeigename('Anvil F7C-M', '', True) == '*Anvil F7C-M',
+    pruefe(_as175.display_name('Anvil F7C-M', '', True) == '*Anvil F7C-M',
            'nur ein Stern laesst den Werksnamen stehen')
-    pruefe(_as175.anzeigename('Anvil F7C-M', 'Leitschiff', False) == 'Leitschiff',
+    pruefe(_as175.display_name('Anvil F7C-M', 'Leitschiff', False) == 'Leitschiff',
            'ein eigener Name ersetzt den Werksnamen')
-    pruefe(_as175.anzeigename('Anvil F7C-M', '*Leitschiff', True) == '*Leitschiff',
+    pruefe(_as175.display_name('Anvil F7C-M', '*Leitschiff', True) == '*Leitschiff',
            'kein zweiter Stern, wenn schon einer davor steht')
-    pruefe(_as175.anzeigename('Anvil F7C-M', '', False) == 'Anvil F7C-M',
+    pruefe(_as175.display_name('Anvil F7C-M', '', False) == 'Anvil F7C-M',
            'ohne alles bleibt der Werksname unveraendert')
 
     # -- Die Tabelle fuer die Injektion traegt den WUNSCH, nicht den Text.
@@ -16584,14 +16584,14 @@ def main():
     #    laufenden Datei — beim zweiten Lauf also unser eigener von vorhin.
     _zeilen175 = ['%s=%s' % (k, w) for k, w in _tab175.items()]
     _zeilen175.append('vehicle_NameANVL_Hornet_F7CM_short=F7C-M Mk I')
-    pruefe(_as175.tabelle_bauen(_zeilen175, _as175.leer()) == {},
+    pruefe(_as175.build_table(_zeilen175, _as175.empty()) == {},
            'ohne eigene Namen wird keine einzige Zeile angefasst')
-    _d175 = _as175.setzen(_as175.leer(), 'vehicle_NameXIAN_Railen', 'Packesel', True)
-    pruefe(_as175.tabelle_bauen(_zeilen175, _d175)
+    _d175 = _as175.set_name(_as175.empty(), 'vehicle_NameXIAN_Railen', 'Packesel', True)
+    pruefe(_as175.build_table(_zeilen175, _d175)
            == {'vehicle_NameXIAN_Railen': ('Packesel', True)},
            'der Wunsch steht in der Tabelle, nicht der fertige Text')
-    _weg175 = _as175.setzen(_d175, 'vehicle_NameXIAN_Railen', '', False)
-    pruefe(_as175.tabelle_bauen(_zeilen175, _weg175) == {},
+    _weg175 = _as175.set_name(_d175, 'vehicle_NameXIAN_Railen', '', False)
+    pruefe(_as175.build_table(_zeilen175, _weg175) == {},
            'ein geleertes Feld nimmt das Schiff wieder heraus')
 
     # -- ⚠⚠ BEIDE Schreibwege muessen die eigenen Namen kennen.
@@ -16635,7 +16635,7 @@ def main():
 
         # Der Wunsch muss in der abgelegten Datei stehen — beide Wege holen ihn
         # sich von dort, nicht aus einem Aufrufparameter.
-        _as175.speichern(_as175.setzen(_as175.leer(), _schl175, 'Packesel', True))
+        _as175.save(_as175.set_name(_as175.empty(), _schl175, 'Packesel', True))
         _erwartet175 = '%s=*Packesel' % _schl175
 
         # -- Weg 1: der Rueckfallweg, ohne Vertragsdaten.
@@ -16686,7 +16686,7 @@ def main():
     # -- Die Kurzfassungen bleiben draussen: sonst waere der Name doppelt zu
     #    pflegen, und im Fleet Manager steht die lange.
     pruefe('vehicle_NameANVL_Hornet_F7CM_short'
-           not in _as175.schluessel_lesen(_zeilen175),
+           not in _as175.read_keys(_zeilen175),
            'die _short-Fassungen werden nicht mitgelesen')
 
     print('\n177. Beim Quellenwechsel bleibt keine Datei liegen')
@@ -16782,7 +16782,7 @@ def main():
                    'schluessel': 'vehicle_NameXIAN_Railen',
                    'werksname': 'Gatac Railen', 'weg': 'wertende'}
     _gesichert176 = []
-    _daten176 = {'stand': _as176.leer()}
+    _daten176 = {'stand': _as176.empty()}
     _se176._asop_row(_f176, _rahmen176, _eintrag176, _daten176, _as176,
                        lambda: _gesichert176.append(True) or True)
     _w176.update_idletasks()
@@ -16811,7 +16811,7 @@ def main():
     if _schalter176:
         _schalter176[0].umschalten()
         _w176.update_idletasks()
-        _name176, _stern176 = _as176.eintrag(_daten176['stand'],
+        _name176, _stern176 = _as176.entry(_daten176['stand'],
                                              'vehicle_NameXIAN_Railen')
         pruefe(_stern176, 'ein Klick setzt den Stern wirklich')
         pruefe(bool(_gesichert176), 'und sichert sofort, ohne Speichern-Knopf')
@@ -18970,11 +18970,11 @@ def main():
                 _rumpf193 = _rumpf193[1:]
             _mark193 = '\n'.join(_ast193.dump(_s193) for _s193 in _rumpf193)
     # ⚠ Nicht nach `'Data.p4k'` suchen: Den Pfad baut niemand mehr selbst
-    # zusammen, er kommt aus `p4k_pfad()`. Geprueft wird die **Kette** —
+    # zusammen, er kommt aus `p4k_path()`. Geprueft wird die **Kette** —
     # sonst prueft die Wache eine Schreibweise statt einer Wirkung.
     pruefe('_p4k_marke' in _mark193,
            'die Quellenmarke deckt das Archiv ab (ueber `_p4k_marke`)')
-    pruefe('p4k_pfad' in _ast193.dump(
+    pruefe('p4k_path' in _ast193.dump(
         [k for k in _ast193.walk(_ast193.parse(_q193))
          if isinstance(k, _ast193.FunctionDef)
          and k.name == '_p4k_marke'][0]),

@@ -19,10 +19,10 @@
 """
 Was hat der Patch an den Werten geändert — dauerhaft festgehalten.
 
-**Nicht zu verwechseln mit `patchhistorie.py`.** Die beiden beantworten zwei
+**Nicht zu verwechseln mit `patchhistory.py`.** Die beiden beantworten zwei
 verschiedene Fragen und haben zwei verschiedene Quellen:
 
-    patchhistorie.py    welche BAUPLÄNE ein Patch gebracht hat
+    patchhistory.py    welche BAUPLÄNE ein Patch gebracht hat
                         Quelle: eigene Beobachtung des Watchers
     patchaenderungen.py welche WERTE ein Patch geändert hat
                         Quelle: erkul (fertige Diffs, CIG-Daten)
@@ -62,7 +62,7 @@ import json
 import os
 import re
 
-from . import erkul, fehler, patchhistorie, pfade
+from . import erkul, fehler, patchhistory, pfade
 
 ORDNER = 'Patches'
 
@@ -142,7 +142,7 @@ def angebotene():
             'path': p.get('path') or '',
             'bytes': _zahl(p.get('bytes')),
         })
-    raus.sort(key=lambda e: patchhistorie.rang(e['version']), reverse=True)
+    raus.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
     return raus
 
 
@@ -169,7 +169,7 @@ def gespeicherte():
             eintrag = _lesen_datei(os.path.join(_ordner(), name))
             if eintrag and eintrag.get('version'):
                 versionen.append(eintrag['version'])
-    versionen.sort(key=patchhistorie.rang, reverse=True)
+    versionen.sort(key=patchhistory.rank, reverse=True)
     return versionen
 
 
@@ -275,7 +275,7 @@ def uebersicht():
             zusammen[version] = eintrag
         eintrag['abgelegt'] = True
     raus = list(zusammen.values())
-    raus.sort(key=lambda e: patchhistorie.rang(e['version']), reverse=True)
+    raus.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
     return raus
 
 

@@ -60,9 +60,9 @@ import time
 
 from . import pfade
 
-MITGELIEFERT = 'patch-historie.json'
-LOKAL = 'patch-historie.json'
-GESEHEN = 'bauplaene-gesehen.json'
+BUNDLED = 'patch-historie.json'
+LOCAL = 'patch-historie.json'
+SEEN = 'bauplaene-gesehen.json'
 
 
 def _norm(s):
@@ -71,7 +71,7 @@ def _norm(s):
 
 
 # ----------------------------------------------------------------- Historie
-def _lies(pfad):
+def _read(pfad):
     try:
         with open(pfad, encoding='utf-8') as f:
             d = json.load(f)
@@ -80,7 +80,7 @@ def _lies(pfad):
         return {}
 
 
-def _vereinen(alt, neu):
+def _merge(alt, neu):
     """Zwei Einträge derselben Spielversion zu einem zusammenfassen.
 
     ⚠ **Vereinigen, nicht ersetzen.** Hier stand einmal schlicht ein `update()`,
@@ -89,7 +89,7 @@ def _vereinen(alt, neu):
     4.10.0, schrieb sie als *die* Zugänge dieser Version — und aus dem Filter
     „4.10.0" verschwanden die 21 mitgelieferten Baupläne. Von 24 blieben 3.
 
-    Der Grund liegt in der Natur der eigenen Funde: Was `eintragen()` schreibt,
+    Der Grund liegt in der Natur der eigenen Funde: Was `record()` schreibt,
     ist immer nur der **Zuwachs seit dem letzten Lauf**, nie die vollständige
     Liste eines Patches. Als vollständige Liste gelesen ist sie zwangsläufig
     falsch, sobald eine Quelle etwas nachreicht.
@@ -106,21 +106,21 @@ def _vereinen(alt, neu):
     return {'datum': min(daten) if daten else '', 'neu': sorted(namen)}
 
 
-def laden():
+def load():
     """Die ganze Historie: was mitgeliefert wurde, ergänzt um eigene Funde.
 
     Bei gleicher Spielversion werden beide Listen **vereinigt** — was in
-    `_vereinen()` steht, gilt hier: keine der beiden Seiten kennt den Patch
+    `_merge()` steht, gilt hier: keine der beiden Seiten kennt den Patch
     vollständig, erst zusammen ergeben sie ihn."""
     zusammen = {}
-    for pfad in (pfade.programm_datei(MITGELIEFERT), pfade.app_datei(LOKAL)):
-        for version, eintrag in _lies(pfad).items():
+    for pfad in (pfade.programm_datei(BUNDLED), pfade.app_datei(LOCAL)):
+        for version, eintrag in _read(pfad).items():
             alt = zusammen.get(version)
-            zusammen[version] = _vereinen(alt, eintrag) if alt else dict(eintrag)
+            zusammen[version] = _merge(alt, eintrag) if alt else dict(eintrag)
     return zusammen
 
 
-def eintragen(version, namen, datum=None):
+def record(version, namen, datum=None):
     """Einen Patch in die **eigene** Historie schreiben. Die mitgelieferte Datei
     bleibt unangetastet — sie gehört zum Programm, nicht zum Nutzer.
 
@@ -128,15 +128,15 @@ def eintragen(version, namen, datum=None):
     Spielversion später etwas nach, wäre der erste eigene Fund sonst weg."""
     if not version or not namen:
         return
-    ziel = pfade.app_datei(LOKAL)
-    eigene = _lies(ziel)
+    ziel = pfade.app_datei(LOCAL)
+    eigene = _read(ziel)
     neu = {'datum': datum or time.strftime('%Y-%m-%d'), 'neu': sorted(namen)}
-    eigene[version] = (_vereinen(eigene[version], neu)
+    eigene[version] = (_merge(eigene[version], neu)
                        if version in eigene else neu)
-    _schreib(ziel, eigene)
+    _write(ziel, eigene)
 
 
-def _schreib(ziel, patches):
+def _write(ziel, patches):
     daten = {
         'hinweis': ('Welcher Patch welche Baupläne gebracht hat. Nur die '
                     'Zugänge je Spielversion, nie der ganze Katalog.'),
@@ -154,20 +154,20 @@ def _schreib(ziel, patches):
         pass
 
 
-def version_je_bauplan():
+def version_per_blueprint():
     """Vergleichsform -> Spielversion, in der der Bauplan zuerst auftauchte.
 
     Taucht derselbe Name in mehreren Patches auf (kann passieren, wenn eine
     Quelle ihn zwischendurch verliert und wiederbringt), gilt der **früheste**
     Eintrag — sonst wandert ein alter Bauplan bei jedem Wackler nach vorn."""
     ergebnis = {}
-    for version, eintrag in sorted(laden().items(), key=lambda p: rang(p[0])):
+    for version, eintrag in sorted(load().items(), key=lambda p: rank(p[0])):
         for name in eintrag.get('neu') or []:
             ergebnis.setdefault(_norm(name), version)
     return ergebnis
 
 
-def rang(version):
+def rank(version):
     """Sortierschlüssel: 4.10.0 gehört hinter 4.9.0, nicht davor.
 
     Als Text verglichen käme „4.9" nach „4.10", weil „9" größer ist als „1"."""
@@ -177,34 +177,34 @@ def rang(version):
 
 def patches():
     """[(volle Version, kurze Version, Anzahl), …] — neueste zuerst."""
-    d = laden()
+    d = load()
     return [(v, (v.split('-')[0] or v), len(d[v].get('neu') or []))
-            for v in sorted(d, key=rang, reverse=True)]
+            for v in sorted(d, key=rank, reverse=True)]
 
 
-def neueste():
+def latest():
     """Die jüngste Spielversion der Historie, oder ''."""
-    d = laden()
-    return sorted(d, key=rang)[-1] if d else ''
+    d = load()
+    return sorted(d, key=rank)[-1] if d else ''
 
 
 # ------------------------------------------------------- Alle je gesehenen
-def gesehen():
+def seen():
     """Alle Baupläne, die dieses Gerät je im Katalog gesehen hat (Vergleichsform).
 
     Das ist die Vergleichsgrundlage — **nicht** der letzte Katalog. Der Unterschied
     zählt: Verliert eine Quelle zwischendurch Einträge und bringt sie später
     zurück, gelten sie sonst als neu, obwohl sich im Spiel nichts getan hat."""
     try:
-        with open(pfade.app_datei(GESEHEN), encoding='utf-8') as f:
+        with open(pfade.app_datei(SEEN), encoding='utf-8') as f:
             return set(json.load(f).get('namen') or [])
     except Exception:
         return set()
 
 
-def gesehen_setzen(schluessel):
+def set_seen(schluessel):
     """Die Vergleichsgrundlage überschreiben."""
-    ziel = pfade.app_datei(GESEHEN)
+    ziel = pfade.app_datei(SEEN)
     try:
         os.makedirs(os.path.dirname(ziel), exist_ok=True)
         temp = ziel + '.tmp'

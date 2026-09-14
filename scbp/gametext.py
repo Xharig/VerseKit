@@ -55,7 +55,7 @@ from .sprache import t
 # 7-Zip nur als letzter Strohhalm für altes Python. Es kann CIGs zstd meist
 # **nicht** — auf dem Testrechner scheiterte es mit „Headers Error". Der Eintrag
 # bleibt für den Fall, dass jemand eine Version mit zstd-Unterstützung hat.
-SIEBENZIP = [
+SEVENZIP = [
     os.environ.get('SEVENZIP', ''),
     '/usr/bin/7z', '/usr/bin/7za', '/usr/local/bin/7z',
     r'C:\Program Files\7-Zip\7z.exe',
@@ -63,11 +63,11 @@ SIEBENZIP = [
 ]
 
 # Die Sprachordner im Archiv heißen wie die Ordner im Dateisystem.
-def archivpfad(sprache='english'):
+def archive_path(sprache='english'):
     return 'Data/Localization/%s/global.ini' % sprache
 
 
-def p4k_pfad(spielordner=None):
+def p4k_path(spielordner=None):
     """Die Data.p4k der Installation — oder None."""
     wurzel = spielordner or pfade.spiel_ordner()
     if not wurzel:
@@ -76,7 +76,7 @@ def p4k_pfad(spielordner=None):
     return p if os.path.isfile(p) else None
 
 
-def lies_verzeichnis(f, groesse):
+def read_directory(f, groesse):
     """Gibt den rohen Block des zentralen Inhaltsverzeichnisses zurück."""
     f.seek(max(0, groesse - 66000))
     ende = f.read()
@@ -93,7 +93,7 @@ def lies_verzeichnis(f, groesse):
     return f.read(cd_size), anzahl
 
 
-def suche(cd, zielname):
+def find_entry(cd, zielname):
     """Findet den Eintrag und löst die ZIP64-Platzhalter im Extra-Feld auf.
     Gibt (methode, komprimierte_groesse, rohgroesse, lokaler_offset) zurück."""
     ziel = zielname.lower().replace('/', '\\')
@@ -128,7 +128,7 @@ def suche(cd, zielname):
     return None
 
 
-def hole_block(f, lokal_off, cs):
+def fetch_block(f, lokal_off, cs):
     """Liest die komprimierten Bytes. Der lokale Kopf hat eigene Namens- und
     Extra-Längen — die echten Daten beginnen erst dahinter."""
     f.seek(lokal_off)
@@ -140,7 +140,7 @@ def hole_block(f, lokal_off, cs):
     return f.read(cs)
 
 
-def entpacke_zstd(roh, erwartet):
+def unpack_zstd(roh, erwartet):
     """Versucht der Reihe nach: Standardbibliothek, Fremdmodul, 7-Zip."""
     try:
         from compression import zstd as _z          # Python >= 3.14
@@ -156,7 +156,7 @@ def entpacke_zstd(roh, erwartet):
             return m.decompress(roh), modul
         except Exception:
             continue
-    for exe in SIEBENZIP:
+    for exe in SEVENZIP:
         if exe and os.path.exists(exe):
             tmp = tempfile.mkdtemp(prefix='p4k-')
             quelle = os.path.join(tmp, 'block.zst')
@@ -176,17 +176,17 @@ def entpacke_zstd(roh, erwartet):
         '  * pip install zstandard\n'
         '  * 7-Zip ab Version 22 installieren (Pfad notfalls über SEVENZIP setzen)')
 
-def _sprache_eintragen(sprache, spielordner):
+def _set_language(sprache, spielordner):
     """`g_language` setzen — Fehlschlag ist kein Grund, den Rest wegzuwerfen."""
     try:
         from . import translation
         translation.set_user_cfg(sprache, None, spielordner)
     except Exception as ausnahme:
         from . import fehler
-        fehler.merken('spieltexte._sprache_eintragen', ausnahme)
+        fehler.merken('gametext._set_language', ausnahme)
 
 
-def holen(sprache='english', spielordner=None, fortschritt=None,
+def fetch(sprache='english', spielordner=None, fortschritt=None,
           sprache_eintragen=True):
     """Die `global.ini` einer Sprache aus dem Archiv holen. (Erfolg, Meldung).
 
@@ -211,7 +211,7 @@ def holen(sprache='english', spielordner=None, fortschritt=None,
         if fortschritt:
             fortschritt(text)
 
-    archiv = p4k_pfad(spielordner)
+    archiv = p4k_path(spielordner)
     if not archiv:
         return False, t('m_kein_p4k')
     ziel = None
@@ -227,22 +227,22 @@ def holen(sprache='english', spielordner=None, fortschritt=None,
         # Eintrag nicht gelesen. Wer sie von Hand hingelegt hat, säße sonst vor
         # einem Ergebnis, das es gar nicht gibt.
         if sprache_eintragen:
-            _sprache_eintragen(sprache, spielordner)
+            _set_language(sprache, spielordner)
         return True, 'vorhandene Datei behalten'
 
     melde(t('z_originaltexte'))
     try:
         groesse = os.path.getsize(archiv)
         with open(archiv, 'rb') as f:
-            cd, _anzahl = lies_verzeichnis(f, groesse)
-            treffer = suche(cd, archivpfad(sprache))
+            cd, _anzahl = read_directory(f, groesse)
+            treffer = find_entry(cd, archive_path(sprache))
             if not treffer:
                 return False, t('m_keine_ini_archiv')
             methode, cs, rs, off = treffer
-            roh = hole_block(f, off, cs)
+            roh = fetch_block(f, off, cs)
         # entpacke_zstd gibt (Daten, benutztes Verfahren) zurück
         if methode == 100:
-            daten, weg = entpacke_zstd(roh, rs)
+            daten, weg = unpack_zstd(roh, rs)
             melde(t('z_entpackt') % weg)
         else:
             daten = roh
@@ -257,7 +257,7 @@ def holen(sprache='english', spielordner=None, fortschritt=None,
         from . import injektion
         injektion.urtext_verwerfen()
         if sprache_eintragen:
-            _sprache_eintragen(sprache, spielordner)
+            _set_language(sprache, spielordner)
         return True, '%.1f MB' % (len(daten) / 1048576.0)
     except Exception as e:
         return False, str(e)

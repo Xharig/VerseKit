@@ -56,7 +56,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, patchhistorie, pfade, sprache
+from . import fehler, patchhistory, pfade, sprache
 from .sprache import t
 
 
@@ -858,7 +858,7 @@ def build(version=None, progress=None, from_file=None):
     #
     # Verglichen wird gegen **alle je gesehenen** Baupläne, nicht gegen den
     # Katalog von letzter Woche. Der Unterschied ist der ganze Grund für
-    # `patchhistorie`: Am 26.08.2026 meldete der Vergleich gegen den letzten
+    # `patchhistory`: Am 26.08.2026 meldete der Vergleich gegen den letzten
     # Katalog 74 Zugänge, von denen 53 längst im Spiel waren — die Quelle hatte
     # sie zwischendurch schlicht nicht geführt.
     #
@@ -876,13 +876,13 @@ def build(version=None, progress=None, from_file=None):
     if known:
         access = [e['n'] for k, e in blueprints.items() if k not in known]
         if access:
-            patchhistorie.eintragen(version, access)
-    patchhistorie.gesehen_setzen(known | set(blueprints))
+            patchhistory.record(version, access)
+    patchhistory.set_seen(known | set(blueprints))
 
     # Der Stempel kommt aus der Historie, nicht aus diesem Lauf. Dadurch trägt
     # auch ein frisch gebauter Katalog die Herkunft aller früheren Patches —
     # die mitgelieferte Historie reicht weiter zurück als das eigene Zusehen.
-    origin = patchhistorie.version_je_bauplan()
+    origin = patchhistory.version_per_blueprint()
     for k, entry in blueprints.items():
         if k in origin:
             entry['seit'] = origin[k]
@@ -966,7 +966,7 @@ def _baseline():
 
     Leer ist das Ergebnis nur beim allerersten Katalogbau — dann ist es richtig
     so, sonst stünden alle 738 Baupläne als „neu" da."""
-    return patchhistorie.gesehen() or set(load().get('bauplaene') or {})
+    return patchhistory.seen() or set(load().get('bauplaene') or {})
 
 
 def refresh_stamp():
@@ -990,7 +990,7 @@ def refresh_stamp():
         blueprints = d.get('bauplaene') or {}
         if not blueprints:
             return 0
-        origin = patchhistorie.version_je_bauplan()
+        origin = patchhistory.version_per_blueprint()
         changed = 0
         for k, entry in blueprints.items():
             since = origin.get(k)
@@ -1103,7 +1103,7 @@ def patches(data=None):
     die man vergessen könnte.
 
     ⚠ **Gezählt wird der Katalog, nicht die Historie.** Hier stand ein
-    `return patchhistorie.patches()`, und damit versprach das Auswahlfeld etwas,
+    `return patchhistory.patches()`, und damit versprach das Auswahlfeld etwas,
     das die Liste darunter nicht einlösen konnte: Am 28.08.2026 stand im Feld
     „4.10.0 (24)" und darunter drei Zeilen. Das Feld las die Historie, der
     Filter prüft den Stempel im Katalog — zwei Quellen für dieselbe Frage, und
@@ -1121,7 +1121,7 @@ def patches(data=None):
         if since:
             counter[since] = counter.get(since, 0) + 1
     return [(v, version_short(v), counter[v])
-            for v in sorted(counter, key=patchhistorie.rang, reverse=True)]
+            for v in sorted(counter, key=patchhistory.rank, reverse=True)]
 
 
 def new_ones(data=None):

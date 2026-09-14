@@ -69,53 +69,53 @@ import re
 
 from . import fehler, pfade
 
-DATEI = 'asop.json'
+FILE = 'asop.json'
 FORMAT = 1
 
-VORSATZ = 'vehicle_Name'
-KURZ_ENDE = '_short'
+PREFIX = 'vehicle_Name'
+SHORT_SUFFIX = '_short'
 
 # Das Sternchen als Merker vor dem Namen. Ein Zeichen, das im Fleet Manager
 # sofort auffällt und in keinem Werksnamen vorkommt.
-STERN = '*'
+STAR = '*'
 
 # ⚠ Obergrenze für einen eigenen Namen. Nicht willkürlich: Der längste
 # Werksname in der gemessenen Datei hat 38 Zeichen, und der Fleet Manager
 # schneidet ab, statt umzubrechen. Wer 200 Zeichen einträgt, sieht im Spiel
 # weniger als vorher.
-MAX_LAENGE = 40
+MAX_LENGTH = 40
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def path():
+    return pfade.app_datei(FILE)
 
 
-def leer():
+def empty():
     return {'format': FORMAT, 'namen': {}}
 
 
-def laden():
+def load():
     """Die eigenen Namen — oder eine leere Sammlung."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
+        with open(path(), encoding='utf-8') as f:
             daten = json.load(f)
         if daten.get('format') == FORMAT and isinstance(daten.get('namen'), dict):
             return daten
     except FileNotFoundError:
         pass
     except Exception as ausnahme:
-        fehler.merken('asop.laden', ausnahme)
-    return leer()
+        fehler.merken('asop.load', ausnahme)
+    return empty()
 
 
-def speichern(daten):
+def save(daten):
     """Atomar ablegen. Gibt zurück, ob es geklappt hat.
 
     ⚠ Der Rückgabewert wird ausgewertet — ein stilles `False` ist genau der
     Fehler, der an anderer Stelle monatelang dafür sorgte, dass eine nicht
     gespeicherte Einstellung nach dem Neustart wieder alt war.
     """
-    ziel = pfad()
+    ziel = path()
     try:
         os.makedirs(os.path.dirname(ziel), exist_ok=True)
         with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
@@ -123,18 +123,18 @@ def speichern(daten):
         os.replace(ziel + '.tmp', ziel)
         return True
     except Exception as ausnahme:
-        fehler.merken('asop.speichern', ausnahme)
+        fehler.merken('asop.save', ausnahme)
         return False
 
 
-def setzen(daten, schluessel, name, stern=False):
+def set_name(daten, schluessel, name, stern=False):
     """Einen eigenen Namen eintragen — oder wieder löschen.
 
     Ein leerer Name **ohne** Stern löscht den Eintrag: Wer das Feld leert, will
     den Werksnamen zurück, und ein leerer Eintrag in der Datei wäre nur Ballast.
     """
     namen = daten.setdefault('namen', {})
-    name = (name or '').strip()[:MAX_LAENGE]
+    name = (name or '').strip()[:MAX_LENGTH]
     if not name and not stern:
         namen.pop(schluessel, None)
     else:
@@ -142,22 +142,22 @@ def setzen(daten, schluessel, name, stern=False):
     return daten
 
 
-def eintrag(daten, schluessel):
+def entry(daten, schluessel):
     e = (daten.get('namen') or {}).get(schluessel) or {}
     return (e.get('name') or ''), bool(e.get('stern'))
 
 
-def anzahl(daten=None):
-    return len((daten or laden()).get('namen') or {})
+def count(daten=None):
+    return len((daten or load()).get('namen') or {})
 
 
 # ------------------------------------------------------------ Zuordnung
 
-def _schlank(text):
+def _slim(text):
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
 
 
-def schluessel_lesen(zeilen):
+def read_keys(zeilen):
     """Aus den Zeilen der `global.ini` die Fahrzeugnamen holen.
 
     Gibt `{schluessel: wert}` für die **langen** Namen zurück. Die
@@ -166,20 +166,20 @@ def schluessel_lesen(zeilen):
     """
     tabelle = {}
     for zeile in zeilen:
-        if not zeile.startswith(VORSATZ) or '=' not in zeile:
+        if not zeile.startswith(PREFIX) or '=' not in zeile:
             continue
         schluessel, wert = zeile.split('=', 1)
         # ⚠ Ein Schlüssel kann einen Zusatz tragen (`,P=…`). Der gehört nicht
         # zum Namen — `_zeile_zerlegen` in `injektion.py` trennt ihn ebenso ab.
         if ',' in schluessel:
             continue
-        if schluessel[len(VORSATZ):].lower().endswith(KURZ_ENDE):
+        if schluessel[len(PREFIX):].lower().endswith(SHORT_SUFFIX):
             continue
         tabelle[schluessel] = wert.rstrip('\r\n')
     return tabelle
 
 
-def zuordnen(schiffe, tabelle):
+def match_ships(schiffe, tabelle):
     """Zu jedem Schiff den passenden `vehicle_Name`-Schlüssel suchen.
 
     Gibt eine Liste `{'name', 'kurz', 'schluessel', 'werksname', 'weg'}` zurück,
@@ -201,9 +201,9 @@ def zuordnen(schiffe, tabelle):
     # genau ein Kandidat, sonst gar keiner.
     nach_schluessel, nach_wert = {}, {}
     for schluessel, wert in tabelle.items():
-        nach_schluessel.setdefault(_schlank(schluessel[len(VORSATZ):]),
+        nach_schluessel.setdefault(_slim(schluessel[len(PREFIX):]),
                                    []).append(schluessel)
-        nach_wert.setdefault(_schlank(wert), []).append(schluessel)
+        nach_wert.setdefault(_slim(wert), []).append(schluessel)
 
     ergebnis = []
     for s in schiffe:
@@ -211,7 +211,7 @@ def zuordnen(schiffe, tabelle):
         if not name:
             continue
         kurz = (s.get('kurz') or '').strip()
-        schluessel, weg = _leiter(name, kurz, tabelle, nach_schluessel, nach_wert)
+        schluessel, weg = _ladder(name, kurz, tabelle, nach_schluessel, nach_wert)
         ergebnis.append({'name': name, 'kurz': kurz, 'schluessel': schluessel or '',
                          'werksname': tabelle.get(schluessel, '') if schluessel else '',
                          'weg': weg})
@@ -219,13 +219,13 @@ def zuordnen(schiffe, tabelle):
     return ergebnis
 
 
-def _leiter(name, kurz, tabelle, nach_schluessel, nach_wert):
+def _ladder(name, kurz, tabelle, nach_schluessel, nach_wert):
     """Genau zuerst, unscharf zuletzt — und nie bei mehreren Kandidaten.
 
     Die Reihenfolge ist an echten Daten entstanden (siehe Modulkopf); jede
     Stufe hat dort mindestens einen Fall, den keine frühere löst.
     """
-    n, k = _schlank(name), _schlank(kurz)
+    n, k = _slim(name), _slim(kurz)
     # Eine Stufe, die mehrere Kandidaten hat, entscheidet nichts — sie gibt an
     # die naechste ab. Nur wenn am Ende gar nichts uebrig bleibt, wird aus der
     # gesehenen Mehrdeutigkeit die Begruendung: „mehrdeutig" sagt dem Nutzer,
@@ -243,18 +243,18 @@ def _leiter(name, kurz, tabelle, nach_schluessel, nach_wert):
             return treffer[0], 'name'
         mehrdeutig = mehrdeutig or len(treffer) > 1
     if n:
-        treffer = [s for s, w in tabelle.items() if _schlank(w).endswith(n)]
+        treffer = [s for s, w in tabelle.items() if _slim(w).endswith(n)]
         if len(treffer) == 1:
             return treffer[0], 'wertende'
         mehrdeutig = mehrdeutig or len(treffer) > 1
     if k:
         treffer = [s for s in tabelle
-                   if _schlank(s[len(VORSATZ):]).startswith(k)]
+                   if _slim(s[len(PREFIX):]).startswith(k)]
         if len(treffer) == 1:
             return treffer[0], 'kurzanfang'
         mehrdeutig = mehrdeutig or len(treffer) > 1
     if n:
-        treffer = [s for s, w in tabelle.items() if n in _schlank(w)]
+        treffer = [s for s, w in tabelle.items() if n in _slim(w)]
         if len(treffer) == 1:
             return treffer[0], 'imwert'
         mehrdeutig = mehrdeutig or len(treffer) > 1
@@ -263,7 +263,7 @@ def _leiter(name, kurz, tabelle, nach_schluessel, nach_wert):
 
 # ------------------------------------------------------------ Einspielen
 
-def anzeigename(werksname, eigener, stern):
+def display_name(werksname, eigener, stern):
     """Wie der Name im Spiel stehen soll.
 
     Ohne eigenen Namen bleibt der Werksname — nur der Stern kommt davor. So
@@ -272,11 +272,11 @@ def anzeigename(werksname, eigener, stern):
     grund = (eigener or '').strip() or (werksname or '')
     # ⚠ Einen schon vorhandenen Stern abschneiden. Sonst steht nach dem zweiten
     # Einspielen `**Name` da — und nach dem dritten `***Name`.
-    grund = grund.lstrip(STERN).strip()
-    return (STERN + grund) if stern else grund
+    grund = grund.lstrip(STAR).strip()
+    return (STAR + grund) if stern else grund
 
 
-def tabelle_bauen(zeilen, daten=None):
+def build_table(zeilen, daten=None):
     """`{schluessel: (eigener Name, Stern)}` für die Injektion — oder leer.
 
     ⚠⚠ **Hier steht der Wunsch, nicht der fertige Text.** Den Werksnamen setzt
@@ -290,11 +290,11 @@ def tabelle_bauen(zeilen, daten=None):
     Namen vergeben hat, soll auch keine geänderte Zeile in seiner `global.ini`
     haben.
     """
-    daten = daten if daten is not None else laden()
+    daten = daten if daten is not None else load()
     namen = daten.get('namen') or {}
     if not namen:
         return {}
-    vorhanden = schluessel_lesen(zeilen)
+    vorhanden = read_keys(zeilen)
     fertig = {}
     for schluessel, e in namen.items():
         if schluessel not in vorhanden:

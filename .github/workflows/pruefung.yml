@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
-          # ⚠ 3.14 wie im Bau — `scbp/spieltexte.py` braucht
+          # ⚠ 3.14 wie im Bau — `scbp/gametext.py` braucht
           # `compression.zstd` aus der Standardbibliothek.
           python-version: '3.14'
 

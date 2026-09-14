@@ -103,7 +103,7 @@ jobs:
         with:
           # ⚠ 3.14 ist Absicht, keine Modepflege: Erst ab dieser Fassung
           # bringt Python `compression.zstd` in der Standardbibliothek mit —
-          # und genau das braucht `scbp/spieltexte.py`, um die englische
+          # und genau das braucht `scbp/gametext.py`, um die englische
           # `global.ini` aus CIGs `Data.p4k` zu holen (CIG komprimiert mit
           # zstd). Mit 3.12 blieb dem Nutzer nur „installier dir 7-Zip", und
           # damit stand jeder vor einer Wand, der englisch spielt und bloss die

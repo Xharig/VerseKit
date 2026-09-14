@@ -978,9 +978,9 @@ def _p4k_marke(spielordner=None):
     Lesen. Der aeussere Merker in `klarnamen()` kann das nicht heilen; er
     liegt im Arbeitsspeicher, dieser hier auf der Platte.
     """
-    from . import spieltexte
+    from . import gametext
     try:
-        weg = spieltexte.p4k_pfad(spielordner)
+        weg = gametext.p4k_path(spielordner)
         if not weg:
             return ''
         weg = os.path.realpath(weg)
@@ -1025,18 +1025,18 @@ def _profil(spielordner=None):
     except Exception:
         pass
 
-    from . import cryxml, spieltexte
+    from . import cryxml, gametext
     heraus = {'fassung': MERK_FASSUNG, 'stand': stand,
               'etiketten': {}, 'standard': {}, 'gruppen': {}}
     try:
-        p4k = spieltexte.p4k_pfad(spielordner)
+        p4k = gametext.p4k_path(spielordner)
         with open(p4k, 'rb') as f:
-            verzeichnis, _ = spieltexte.lies_verzeichnis(
+            verzeichnis, _ = gametext.read_directory(
                 f, os.path.getsize(p4k))
-            methode, cs, rs, off = spieltexte.suche(
+            methode, cs, rs, off = gametext.find_entry(
                 verzeichnis, 'Data/Libs/Config/defaultProfile.xml')
-            roh = spieltexte.hole_block(f, off, cs)
-        daten = (spieltexte.entpacke_zstd(roh, rs)[0] if methode == 100
+            roh = gametext.fetch_block(f, off, cs)
+        daten = (gametext.unpack_zstd(roh, rs)[0] if methode == 100
                  else __import__('zlib').decompress(roh, -15))
         wurzel = cryxml.read(daten)
         # ⚠ Über die **Gruppen** gehen, nicht flach über alle `action`-Knoten:

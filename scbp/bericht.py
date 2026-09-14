@@ -284,7 +284,7 @@ def _spielsprache():
     return ' · '.join(teile)
 
 
-def _patchhistorie():
+def _patch_history():
     """Was die Historie je Spielversion führt — mit Anzahl.
 
     ⚠ Diese Zeile gibt es, weil ein Fehler sich hier drei Wochen lang verstecken
@@ -300,8 +300,8 @@ def _patchhistorie():
     welcher Patch welche Zugänge brachte — ausgerechnet in der Zeile, die es
     zum Zuordnen gibt. Darum: Kurzform nur, solange sie eindeutig ist, sonst
     die volle Version."""
-    from . import patchhistorie
-    liste = patchhistorie.patches()
+    from . import patchhistory
+    liste = patchhistory.patches()
     if not liste:
         return None
     liste = liste[:5]
@@ -656,7 +656,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # nicht den im Netz: Interessant ist, welchen Katalog der Nutzer hat.
     zeile(t('b_katalog'), _sicher(lambda: (__import__(
         'scbp.catalog', fromlist=['load']).load().get('version') or None)))
-    zeile(t('b_historie'), _sicher(_patchhistorie))
+    zeile(t('b_historie'), _sicher(_patch_history))
 
     # ⚠ Die drei Werkstatt-Seiten (ab v3.3.0). Ohne sie liesse sich eine
     # Meldung wie „bei mir bleibt die Herstellung leer" nicht beurteilen —

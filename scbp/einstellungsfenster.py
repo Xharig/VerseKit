@@ -41,7 +41,7 @@ import tkinter as tk
 
 from . import injektion
 from . import pfade
-from . import spieltexte
+from . import gametext
 from . import sprache
 from . import translation
 from .sprache import t, fenstertitel
@@ -422,11 +422,11 @@ class Einstellungsfenster:
                 # Holt die englische global.ini aus dem Data.p4k des Spielers —
                 # dadurch braucht die Auszeichnung **keine** Fremdquelle.
                 sprache_ordner = 'english'
-                ok, meldung = spieltexte.holen(sprache_ordner, fortschritt=melde)
+                ok, meldung = gametext.fetch(sprache_ordner, fortschritt=melde)
                 if not ok:
                     self._melden(t('inj_fehler', meldung), ROT)
                     return
-                # `g_language` setzt `spieltexte.holen()` selbst.
+                # `g_language` setzt `gametext.fetch()` selbst.
                 ziel = translation.target_ini(sprache_ordner)
                 translation.note('original', 'Data.p4k')
             else:

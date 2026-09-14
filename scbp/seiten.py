@@ -11180,7 +11180,7 @@ def _asop(fenster, rahmen):
     # Liste."
     _heading(fenster, rahmen, t('hf_asop'), t('s_as_lead'))
 
-    daten = {'stand': asop_modul.laden()}
+    daten = {'stand': asop_modul.load()}
     alles = {'zuordnung': []}
 
     # --- fester Kopf: Suche und Stand -------------------------------------
@@ -11237,7 +11237,7 @@ def _asop(fenster, rahmen):
 
     def sichern():
         """Merken — und gleich dafür sorgen, dass es auch im Spiel ankommt."""
-        if not asop_modul.speichern(daten['stand']):
+        if not asop_modul.save(daten['stand']):
             stand.configure(text=t('s_as_nicht_gespeichert'), fg=RED)
             return False
         spaeter_einspielen()
@@ -11247,7 +11247,7 @@ def _asop(fenster, rahmen):
         """Die Daten holen — Sprachdatei und Hangar. Das Zeichnen macht `_zeichnen`."""
         alles['zuordnung'] = []
         zeilen = zeilen_der_ini()
-        tabelle = asop_modul.schluessel_lesen(zeilen) if zeilen else {}
+        tabelle = asop_modul.read_keys(zeilen) if zeilen else {}
         if not tabelle:
             # ⚠ Ehrlich statt leer: Ohne Sprachdatei gibt es nichts zu
             # benennen, und das ist kein Fehler des Nutzers.
@@ -11261,7 +11261,7 @@ def _asop(fenster, rahmen):
             meldung.pack(fill='x', padx=24, pady=(8, 0))
             _zeichnen()
             return
-        alles['zuordnung'] = asop_modul.zuordnen(schiffe, tabelle)
+        alles['zuordnung'] = asop_modul.match_ships(schiffe, tabelle)
         ohne = [e for e in alles['zuordnung'] if not e['schluessel']]
         meldung.configure(
             text=t('s_as_stand') % (len(alles['zuordnung']) - len(ohne),
@@ -11283,7 +11283,7 @@ def _asop(fenster, rahmen):
             return True
         eigen = ''
         if e['schluessel']:
-            eigen = asop_modul.eintrag(daten['stand'], e['schluessel'])[0]
+            eigen = asop_modul.entry(daten['stand'], e['schluessel'])[0]
         return any(text in (x or '').lower()
                    for x in (e['name'], e['werksname'], eigen))
 
@@ -11440,7 +11440,7 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
                                                         pady=(0, 8))
         return
 
-    eigen, stern = asop_modul.eintrag(daten['stand'], e['schluessel'])
+    eigen, stern = asop_modul.entry(daten['stand'], e['schluessel'])
     wert = tk.StringVar(value=eigen)
     stern_an = tk.BooleanVar(value=stern)
 
@@ -11452,7 +11452,7 @@ def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
     feld.holder.pack(side='left', fill='x', expand=True)
 
     def uebernehmen(*_):
-        asop_modul.setzen(daten['stand'], e['schluessel'], wert.get(),
+        asop_modul.set_name(daten['stand'], e['schluessel'], wert.get(),
                           stern_an.get())
         sichern()
 

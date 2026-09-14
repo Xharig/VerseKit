@@ -720,7 +720,7 @@ def _asop_tabelle(zeilen):
     Eigene Fehler dürfen die Injektion nicht anhalten: Wer seine Schiffe nicht
     umbenannt hat, soll trotzdem seine Bauplan-Angaben bekommen."""
     try:
-        return asop_modul.tabelle_bauen(zeilen)
+        return asop_modul.build_table(zeilen)
     except Exception as ausnahme:
         fehler.merken('injektion._asop_tabelle', ausnahme)
         return {}
@@ -1205,7 +1205,7 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         angefasst = False
         if schluessel in eigene_schiffe:
             eigen, stern = eigene_schiffe[schluessel]
-            sauber = asop_modul.anzeigename(grundlage, eigen, stern)
+            sauber = asop_modul.display_name(grundlage, eigen, stern)
             angefasst = sauber != grundlage
         elif schluessel in namens_zusatz:
             sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
@@ -1365,7 +1365,7 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
                 # laufenden Datei stünde beim nächsten Mal ein Stern vor dem
                 # Stern.
                 eigen, stern = eigene_schiffe[schluessel]
-                sauber = asop_modul.anzeigename(grundlage, eigen, stern)
+                sauber = asop_modul.display_name(grundlage, eigen, stern)
                 angefasst = sauber != grundlage
             elif schluessel in namens_zusatz:
                 sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
