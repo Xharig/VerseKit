@@ -62,7 +62,7 @@ import re
 import time
 import urllib.request
 
-from . import angaben as angaben_modul
+from . import specs
 from . import asop as asop_modul
 from . import fehler, collection as bestand_datei
 from . import catalog as katalog_modul
@@ -708,7 +708,7 @@ def _namens_tabelle(zeilen, nur_entfernen=False):
     if nur_entfernen or not pfade.einstellung_wahrheit(EINSTELLUNG_ANGABEN, True):
         return {}
     try:
-        return angaben_modul.tabelle_bauen(zeilen)
+        return specs.build_table(zeilen)
     except Exception as ausnahme:
         fehler.merken('injektion._namens_tabelle', ausnahme)
         return {}
@@ -737,7 +737,7 @@ def _name_mit_angabe(text, kuerzel):
     sie ein zweites Mal anzuhängen, macht den Namen nur länger und falscher."""
     if FREMDES_KUERZEL.match(text):
         return text
-    return '%s %s' % (angaben_modul.zusatz_entfernen(text).rstrip(), kuerzel)
+    return '%s %s' % (specs.strip_tag(text).rstrip(), kuerzel)
 
 
 def bestand_marke(bestand=None):

@@ -50,7 +50,7 @@ from .sprache import t, Satz, Zeitpunkt
 # Bewusst eng gefasst (nur die bekannten Kürzel), damit echte Namens-Klammern
 # wie „(30 cap)" oder „Singe Cannon (S2)" unangetastet bleiben.
 #
-# ⚠ **Die Liste muss zu `scbp/angaben.py` passen.** Seit v3.0.0 schreibt das
+# ⚠ **Die Liste muss zu `scbp/specs.py` passen.** Seit v3.0.0 schreibt das
 # Werkzeug diese Zusätze selbst an die Gegenstandsnamen (Angaben am
 # Traktorstrahl) — und das Spiel schreibt den Namen anschließend **mitsamt
 # Zusatz** in die Game.log. Wird hier einer nicht erkannt, landet der Bauplan

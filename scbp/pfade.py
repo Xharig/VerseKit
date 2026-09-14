@@ -1764,7 +1764,7 @@ ANFUEHRUNG = str.maketrans({
 #
 # Bewusst eng: Nur die bekannten Kürzel, damit echte Namensklammern wie
 # `Singe Cannon (S2)` oder `(30 cap)` stehen bleiben. Die Liste muss zu
-# `scbp/angaben.py` passen — Selbsttest 32 wacht darüber.
+# `scbp/specs.py` passen — Selbsttest 32 wacht darüber.
 _KLASSEN_KURZ = ('civ|mil|ind|sth|cmp'
                  '|las|ele|pla|dis|mic|bal'
                  '|nah|min|slv|med|tool|trc')

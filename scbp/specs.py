@@ -93,7 +93,7 @@ import re
 # Kandidaten: CIGs Originaldatei steckt in der `Data.p4k` und lag zum Zeitpunkt
 # des Baus nicht vor. Es werden alle gleichzeitig gesucht — ein Feldname, den es
 # in der eigenen Sprache nicht gibt, kostet nichts.
-FELDER = {
+FIELDS = {
     'groesse': ('Größe', 'Grösse', 'Size'),
     'guete':   ('Gütegrad', 'Guetegrad', 'Grade'),
     'klasse':  ('Klasse', 'Class'),
@@ -105,7 +105,7 @@ FELDER = {
 # Die ersten fünf sind **CIGs eigene** Kürzel: Star Citizen schreibt sie selbst
 # so in die Game.log (`7CA 'Nargun' (Civ/3/A)`), und `logsource.py` zerlegt sie
 # seit Langem. Die übrigen folgen demselben Muster.
-KLASSEN = (
+CLASSES = (
     (('civilian', 'zivil'),                        'Civ'),
     (('military', 'militär', 'militaer'),          'Mil'),
     (('industrial', 'industrie'),                  'Ind'),
@@ -126,11 +126,11 @@ KLASSEN = (
 
 # Welche Kürzel eine Waffenart bezeichnen (im Gegensatz zur Fraktion). Bei
 # diesen genügt die Klasse allein für einen Zusatz — siehe `aus_beschreibung()`.
-WAFFENKLASSEN = frozenset(
+WEAPON_CLASSES = frozenset(
     ('Las', 'Ele', 'Pla', 'Dis', 'Mic', 'Bal', 'Nah', 'Min', 'Slv', 'Med'))
 
 # Suchkopf einer Rakete. `CS` = Cross Section (Querschnitt) — der Radarquerschnitt.
-LENKUNGEN = (
+GUIDANCE = (
     (('infrarot', 'infrared'),                     'IR'),
     (('elektromagnet', 'electromagnet'),           'EM'),
     (('querschnitt', 'cross'),                     'CS'),
@@ -140,63 +140,63 @@ LENKUNGEN = (
 # eigene (`(Mil/3/A)`, auch die des SC Deutsch Launchers) und die der Raketen
 # (`(IR1)`). Wird vor dem Anhängen entfernt — sonst stünde nach einem zweiten
 # Lauf `Spark I-G Missile (CS1) (CS1)` da.
-VORHANDEN_RE = re.compile(
+PRESENT_RE = re.compile(
     r'\s*\((?:[A-Za-z]{2,4}|–|-)/(?:\d{1,2}|–|-)/(?:[A-Z]|–|-)\)\s*$'
     r'|\s*\((?:IR|EM|CS)\d{1,2}\)\s*$')
 
 
-def _feld(text, name):
+def _field(text, name):
     """Den Wert eines Feldes aus einer Beschreibung ziehen — oder None.
 
     Die Zeilen einer Beschreibung sind in der `global.ini` nicht getrennt,
     sondern durch die zwei Zeichen `\\n` aneinandergehängt. Deshalb wird bis
     dorthin gelesen, nicht bis zum Zeilenende."""
-    for schreibweise in FELDER[name]:
-        treffer = re.search(re.escape(schreibweise) + r':\s*([^\\]+?)(?:\\n|$)',
-                            text)
-        if treffer:
-            wert = treffer.group(1).strip()
-            if wert:
-                return wert
+    for spelling in FIELDS[name]:
+        hit = re.search(re.escape(spelling) + r':\s*([^\\]+?)(?:\\n|$)',
+                        text)
+        if hit:
+            value = hit.group(1).strip()
+            if value:
+                return value
     return None
 
 
-def _kuerzel(wert, tabelle):
+def _tag(value, table):
     """Wortteil-Vergleich gegen eine der Tabellen oben. None, wenn nichts passt."""
-    if not wert:
+    if not value:
         return None
-    klein = wert.lower()
-    for teile, kurz in tabelle:
-        if any(teil in klein for teil in teile):
-            return kurz
+    lower = value.lower()
+    for parts, short in table:
+        if any(part in lower for part in parts):
+            return short
     return None
 
 
-def _zahl(groesse):
+def _number(size):
     """`'S3'` → `'3'`. Alles, was keine schlichte Größe ist, fällt weg.
 
     In der Datei stehen auch Werte wie `'S2 (Nur Fahrzeuge)'` oder `'Large'` —
     die gehören nicht in ein Kürzel, das drei Zeichen breit sein soll."""
-    if not groesse:
+    if not size:
         return None
-    treffer = re.fullmatch(r'S(\d{1,2})', groesse.strip())
-    return treffer.group(1) if treffer else None
+    hit = re.fullmatch(r'S(\d{1,2})', size.strip())
+    return hit.group(1) if hit else None
 
 
-def _guete(wert):
+def _grade(value):
     """`'A'` … `'D'` — sonst None.
 
     ⚠ Es steht nicht immer ein Buchstabe da. Gemessen an der echten Datei:
     sechsmal `'Individuell angefertigt'` und dreimal `'N/A'`. Wer einfach den
     ersten Buchstaben nimmt, schreibt `(Ind/4/I)` und `(Civ/1/N)` in den Namen —
     Gütegrade, die es nicht gibt."""
-    if not wert:
+    if not value:
         return None
-    kurz = wert.strip().upper()
-    return kurz if kurz in ('A', 'B', 'C', 'D') else None
+    short = value.strip().upper()
+    return short if short in ('A', 'B', 'C', 'D') else None
 
 
-def aus_beschreibung(text):
+def from_description(text):
     """Das Kürzel für einen Gegenstand — oder None, wenn es sich nicht lohnt.
 
     Rückgabe ist der fertige Zusatz **ohne** führendes Leerzeichen, also
@@ -205,39 +205,39 @@ def aus_beschreibung(text):
         return None
 
     # Raketen zuerst: Sie haben einen Suchkopf und keine Fraktions-Klasse.
-    lenkung = _kuerzel(_feld(text, 'lenkung'), LENKUNGEN)
-    if lenkung:
-        groesse = _zahl(_feld(text, 'groesse'))
-        return '(%s%s)' % (lenkung, groesse) if groesse else '(%s)' % lenkung
+    guidance = _tag(_field(text, 'lenkung'), GUIDANCE)
+    if guidance:
+        size = _number(_field(text, 'groesse'))
+        return '(%s%s)' % (guidance, size) if size else '(%s)' % guidance
 
-    klasse = _kuerzel(_feld(text, 'klasse'), KLASSEN)
-    groesse = _zahl(_feld(text, 'groesse'))
-    guete = _guete(_feld(text, 'guete'))
+    item_class = _tag(_field(text, 'klasse'), CLASSES)
+    size = _number(_field(text, 'groesse'))
+    grade = _grade(_field(text, 'guete'))
 
     # Bei einer Waffe ist die Klasse für sich schon die Auskunft: ballistisch
     # oder Laser entscheidet, ob sie gegen Schilde etwas ausrichtet. Gemessen
     # haben **342** Waffen nur dieses eine Feld — Größe und Gütegrad gibt es bei
     # FPS-Waffen gar nicht. Eine starre Zwei-Felder-Regel hätte ausgerechnet die
     # ausgeschlossen, um die es ging.
-    if klasse in WAFFENKLASSEN and not (groesse or guete):
-        return '(%s)' % klasse
+    if item_class in WEAPON_CLASSES and not (size or grade):
+        return '(%s)' % item_class
 
     # Sonst: mindestens zwei der drei. Ein `(–/3/–)` wäre Lärm statt Angabe —
     # und die Größe steht bei Gestellen und Türmen ohnehin schon im Namen.
-    if sum(1 for wert in (klasse, groesse, guete) if wert) < 2:
+    if sum(1 for value in (item_class, size, grade) if value) < 2:
         return None
-    return '(%s/%s/%s)' % (klasse or '–', groesse or '–', guete or '–')
+    return '(%s/%s/%s)' % (item_class or '–', size or '–', grade or '–')
 
 
-def zusatz_entfernen(name):
+def strip_tag(name):
     """Einen früher angehängten Zusatz wieder abschneiden.
 
     Fängt auch den des SC Deutsch Launchers (`(CS1)`, `(Mil/3/A)`) — wer von
     dort kommt, soll keinen doppelten Klammerausdruck im Namen haben."""
-    return VORHANDEN_RE.sub('', name) if name else name
+    return PRESENT_RE.sub('', name) if name else name
 
 
-def tabelle_bauen(zeilen):
+def build_table(lines):
     """Aus den Zeilen einer `global.ini` die Tabelle *Namensschlüssel → Kürzel*.
 
     Erwartet die Zeilen roh, wie sie in der Datei stehen. Gearbeitet wird über
@@ -245,26 +245,26 @@ def tabelle_bauen(zeilen):
     `item_NameAMRS_LaserCannon_S1` teilen sich alles nach dem Wortanfang.
     Deshalb braucht es keine Namenssuche und keinen Katalog — die Zuordnung ist
     eindeutig."""
-    beschreibungen = {}
-    namen_stamm = {}
-    for zeile in zeilen:
-        trenner = zeile.find('=')
-        if trenner < 1:
+    descriptions = {}
+    name_stems = {}
+    for line in lines:
+        sep = line.find('=')
+        if sep < 1:
             continue
-        kopf = zeile[:trenner]
-        schluessel = kopf.split(',', 1)[0]
-        klein = schluessel.lower()
-        if klein.startswith('item_desc'):
-            beschreibungen[klein[9:]] = zeile[trenner + 1:]
-        elif klein.startswith('item_name'):
-            namen_stamm[klein[9:]] = schluessel
+        head = line[:sep]
+        key = head.split(',', 1)[0]
+        lower = key.lower()
+        if lower.startswith('item_desc'):
+            descriptions[lower[9:]] = line[sep + 1:]
+        elif lower.startswith('item_name'):
+            name_stems[lower[9:]] = key
 
-    tabelle = {}
-    for stamm, schluessel in namen_stamm.items():
-        text = beschreibungen.get(stamm)
+    table = {}
+    for stem, key in name_stems.items():
+        text = descriptions.get(stem)
         if not text:
             continue
-        kuerzel = aus_beschreibung(text)
-        if kuerzel:
-            tabelle[schluessel] = kuerzel
-    return tabelle
+        tag = from_description(text)
+        if tag:
+            table[key] = tag
+    return table

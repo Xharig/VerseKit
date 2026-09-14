@@ -1651,7 +1651,7 @@ def main():
             # Feldnamen der `global.ini` („Gütegrad:", „Verfolgungssignal:") —
             # damit wird in der Spieldatei GESUCHT, angezeigt wird nichts
             # davon. Gleiche Lage wie bei `phrasen.py` eine Zeile höher.
-            'scbp/angaben.py',
+            'scbp/specs.py',
             # Erklärender Kopf in der patch-historie.json. Steht in der Datei,
             # damit man sie im Repo ohne Quelltext versteht — nie im Fenster.
             'scbp/patchhistorie.py',
@@ -2266,50 +2266,50 @@ def main():
         # (27.08.2026) stand sechsmal `Individuell angefertigt` und dreimal
         # `N/A` im Feld Guetegrad; wer den ersten Buchstaben nimmt, schreibt
         # `(Ind/4/I)` in einen Spielnamen. So etwas sieht man erst im Spiel.
-        from scbp import angaben as an27
+        from scbp import specs as an27
 
         def besch27(**felder):
             """Eine Beschreibungszeile bauen — `\\n` ist die ZEICHENFOLGE."""
             return '\\n'.join('%s: %s' % (k, v) for k, v in felder.items())
 
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S1', 'Gütegrad': 'A',
                               'Klasse': 'Military (Militär)'})) == '(Mil/1/A)',
                'Komponente wird zu Klasse/Groesse/Guete')
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S2', 'Verfolgungssignal': 'Infrarot'}))
                == '(IR2)',
                'Rakete bekommt den Suchkopf, keine Fraktion')
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Klasse': 'Ballistisch'})) == '(Bal)',
                'Waffe: die Klasse allein genuegt (FPS-Waffen haben keine Groesse)')
-        pruefe(an27.aus_beschreibung(besch27(**{'Größe': 'S3'})) is None,
+        pruefe(an27.from_description(besch27(**{'Größe': 'S3'})) is None,
                'Groesse allein gibt KEINEN Zusatz (waere Laerm im Namen)')
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S4', 'Gütegrad': 'Individuell angefertigt',
                               'Klasse': 'Industrial (Industrie)'})) == '(Ind/4/–)',
                'ein Guetegrad, den es nicht gibt, wird zum Strich')
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S1', 'Gütegrad': 'N/A',
                               'Klasse': 'Zivil'})) == '(Civ/1/–)',
                '`N/A` ebenso — und die Kurzform `Zivil` wird erkannt')
-        pruefe(an27.aus_beschreibung(
+        pruefe(an27.from_description(
                    besch27(**{'Größe': 'S2 (Nur Fahrzeuge)',
                               'Klasse': 'Military', 'Gütegrad': 'B'}))
                == '(Mil/–/B)',
                'eine Groesse mit Zusatztext gehoert nicht ins Kuerzel')
         # Die Uebersetzung ist uneinheitlich: dieselbe Klasse in drei Formen.
-        pruefe(len({an27.aus_beschreibung(
+        pruefe(len({an27.from_description(
                         besch27(**{'Größe': 'S1', 'Gütegrad': 'C', 'Klasse': k}))
                     for k in ('Civilian (Zivil)', 'Zivil', 'Civilian')}) == 1,
                'alle drei Schreibweisen derselben Klasse ergeben dasselbe')
-        pruefe(an27.zusatz_entfernen('Spark I-G Missile (CS1)')
+        pruefe(an27.strip_tag('Spark I-G Missile (CS1)')
                == 'Spark I-G Missile',
                'ein Zusatz des SC Deutsch Launchers wird abgeschnitten')
-        pruefe(an27.zusatz_entfernen('Inspire Advanced (Ind/2/C)')
+        pruefe(an27.strip_tag('Inspire Advanced (Ind/2/C)')
                == 'Inspire Advanced',
                'und der eigene ebenso — sonst stapeln sie sich')
-        pruefe(an27.zusatz_entfernen('Omnisky III Cannon')
+        pruefe(an27.strip_tag('Omnisky III Cannon')
                == 'Omnisky III Cannon',
                'ein Name ohne Zusatz bleibt unangetastet')
         # Der ganze Weg: Tabelle aus Rohzeilen, ueber den gemeinsamen Stamm.
@@ -2318,7 +2318,7 @@ def main():
                                                      'Klasse': 'Stealth (Tarnung)'}),
                     'item_NameXY_Test=Testkuehler',
                     'item_NameOhne_Beschreibung=Einsam']
-        tab27 = an27.tabelle_bauen(zeilen27)
+        tab27 = an27.build_table(zeilen27)
         pruefe(tab27.get('item_NameXY_Test') == '(Sth/3/B)',
                'Beschreibung und Name finden ueber den Schluesselstamm zusammen')
         pruefe('item_NameOhne_Beschreibung' not in tab27,
@@ -2643,7 +2643,7 @@ def main():
         # Nachgehen einer Frage von Morkhan.
         #
         # Seit rc76 schreibt das Werkzeug die Angaben selbst an die
-        # Gegenstandsnamen (`scbp/angaben.py`). Das Spiel schreibt den Namen
+        # Gegenstandsnamen (`scbp/specs.py`). Das Spiel schreibt den Namen
         # anschliessend **mitsamt Zusatz** in die Game.log:
         #
         #     Bauplan erhalten: Spectre (Sth/1/A)
@@ -2679,12 +2679,12 @@ def main():
                       'Ding (Alpha/1/A)', 'Sache (Mil/1/Z)'):
             pruefe(tn32(roh32)[0] == roh32,
                    'unangetastet: %s' % roh32)
-        # Die Kuerzel-Liste MUSS zu angaben.py passen — sonst reisst genau
+        # Die Kuerzel-Liste MUSS zu specs.py passen — sonst reisst genau
         # diese Luecke beim naechsten neuen Kuerzel wieder auf.
-        from scbp import angaben as an32, logsource as lq32
-        for _teile32, kurz32 in an32.KLASSEN:
+        from scbp import specs as an32, logsource as lq32
+        for _teile32, kurz32 in an32.CLASSES:
             pruefe(kurz32.lower() in lq32._ABBREV.lower(),
-                   'logsource kennt das Kuerzel %s aus angaben.py' % kurz32)
+                   'logsource kennt das Kuerzel %s aus specs.py' % kurz32)
 
         print()
         print('33. Bestand und Liste finden zueinander, egal woher der Name kam')
