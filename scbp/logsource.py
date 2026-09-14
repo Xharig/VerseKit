@@ -42,7 +42,7 @@ import os
 import re
 import time
 
-from . import auftraege, pfade, phrasen
+from . import auftraege, pfade, phrases
 from .sprache import t, Satz, Zeitpunkt
 
 # Schiffskomponenten stehen im Log MIT Zusatz „(Klasse/Size/Grade)", z. B.
@@ -95,7 +95,7 @@ def _names_from_text(text, pattern):
     """Die Bauplan-Namen aus einem Textabschnitt.
 
     ⚠ **Die erste gefüllte Gruppe zählt, nicht stur Gruppe 1.** Seit
-    `phrasen.muster()` auch umgestellte Formulierungen erkennt („%s ist
+    `phrases.pattern()` auch umgestellte Formulierungen erkennt („%s ist
     eingetroffen"), kann der Ausdruck mehrere Klammergruppen haben — je
     Alternative eine. `m.group(1)` wäre bei einem Treffer der zweiten
     Alternative `None`.
@@ -191,7 +191,7 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
     `bericht` sagt, was passiert ist: wie viele Dateien gelesen wurden, ob eine
     Lücke bleibt und warum."""
     state = state or ReadState()
-    pattern = pattern or phrasen.muster()
+    pattern = pattern or phrases.pattern()
     all_names = pfade.log_sicherungen()
     # Vergleichswert VOR dem Lauf festhalten — `stand.merke()` schreibt ihn
     # gleich fort, danach ließe sich keine Lücke mehr erkennen.
@@ -388,7 +388,7 @@ class LogTail:
 
     def __init__(self, state=None, pattern=None):
         self.state = state or ReadState()
-        self.pattern = pattern or phrasen.muster()
+        self.pattern = pattern or phrases.pattern()
         self.path, self.offset = None, 0
         # Zweites Muster fuer angenommene Auftraege (ab v3.2.0). Wird von aussen
         # gesetzt; ist es None, aendert sich am Verhalten nichts.

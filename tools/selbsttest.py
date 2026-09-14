@@ -618,7 +618,7 @@ def main():
         sprache.setzen('de')
 
         print('\n8. Spielsprache selbst erkennen')
-        from scbp import phrasen as ph
+        from scbp import phrases as ph
         # Eine Sprache, die nirgends im Code steht: Der Katalog mit den
         # Bauplan-Namen verrät, welcher Text davor die Bauplan-Meldung ist.
         fremd = os.path.join(basis, 'fremd')
@@ -632,14 +632,14 @@ def main():
         katalognamen = ['Attrition-5 Repeater', 'Singe Cannon (S2)',
                         '10-Series Greatsword Cannon']
         sicherungen = [os.path.join(fremd, 'logbackups', 'alt.log')]
-        gefunden = ph.selbst_finden(katalognamen, sicherungen)
+        gefunden = ph.find_self(katalognamen, sicherungen)
         pruefe(gefunden == 'Plan de construction reçu',
                'unbekannte Sprache wird erkannt (%r)' % gefunden)
         # Ein einzelner Treffer reicht nicht — das könnte Zufall sein
         with open(os.path.join(fremd, 'logbackups', 'einzeln.log'), 'w',
                   encoding='utf-8') as f:
             f.write(zeile('Irgendein Text: Attrition-5 Repeater', 1))
-        einzeln = ph.selbst_finden(
+        einzeln = ph.find_self(
             katalognamen, [os.path.join(fremd, 'logbackups', 'einzeln.log')])
         pruefe(einzeln is None, 'ein einzelner Treffer gilt nicht als Beleg')
 
@@ -869,7 +869,7 @@ def main():
                 os.environ['SC_BP_HOME'] = alt_home
 
         # ⚠ Die Zeile „Spielsprache" stand drei Übergaben lang auf „—", weil
-        # `phrasen.sammeln()` ein Tupel liefert und der Bericht es wie eine
+        # `phrases.collect()` ein Tupel liefert und der Bericht es wie eine
         # Liste behandelte. Der TypeError wurde von `_sicher()` verschluckt.
         # Geprüft wird deshalb der Wert selbst, nicht nur dass der Bericht baut.
         pruefe(bericht._spielsprache() and 'Bauplan erhalten'
@@ -1647,10 +1647,10 @@ def main():
             'scbp/autostart.py', 'scbp/desktop_entry.py',
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
             # zum fehlenden Entpacker — beides kein Oberflächentext.
-            'scbp/pfade.py', 'scbp/gametext.py', 'scbp/phrasen.py',
+            'scbp/pfade.py', 'scbp/gametext.py', 'scbp/phrases.py',
             # Feldnamen der `global.ini` („Gütegrad:", „Verfolgungssignal:") —
             # damit wird in der Spieldatei GESUCHT, angezeigt wird nichts
-            # davon. Gleiche Lage wie bei `phrasen.py` eine Zeile höher.
+            # davon. Gleiche Lage wie bei `phrases.py` eine Zeile höher.
             'scbp/specs.py',
             # Erklärender Kopf in der patch-historie.json. Steht in der Datei,
             # damit man sie im Repo ohne Quelltext versteht — nie im Fenster.
@@ -6155,13 +6155,13 @@ def main():
     print()
     print('65. Umgestellte Uebersetzung')
     import re as _re65
-    from scbp import phrasen as _ph65
+    from scbp import phrases as _ph65
     from scbp import logsource as _lq65
 
     # a) ⚠ Der Normalfall MUSS unveraendert sein — Zeichen fuer Zeichen.
-    _liste65 = _ph65.sammeln()[0]
-    _alt65 = _ph65.RAHMEN % '|'.join(_re65.escape(_p) for _p in _liste65)
-    pruefe(_ph65.muster().pattern == _alt65,
+    _liste65 = _ph65.collect()[0]
+    _alt65 = _ph65.FRAME % '|'.join(_re65.escape(_p) for _p in _liste65)
+    pruefe(_ph65.pattern().pattern == _alt65,
            'ohne umgestellte Formulierung ist der Ausdruck zeichengleich '
            'mit dem alten')
 
@@ -6173,7 +6173,7 @@ def main():
     #     gar nicht stehen kann (Schweizerdeutsch, aus der Tabelle).
     from scbp import bericht as _ber65, sprache as _sp65
     _zeile65 = _ber65._spielsprache() or ''
-    _eigene65, _ini65 = _ph65.gemessene()
+    _eigene65, _ini65 = _ph65.measured()
     _rueck65 = [_p for _p in _liste65 if _p not in _eigene65 + _ini65]
     if _rueck65:
         pruefe(_sp65.t('b_woher_tabelle') in _zeile65,
@@ -6195,11 +6195,11 @@ def main():
             ('%s ist eingetroffen', ('', 'ist eingetroffen')),
             ('Bauplan: %s erhalten', ('Bauplan', 'erhalten')),
             ('Received Blueprint', ('Received Blueprint', ''))):
-        pruefe(_ph65.zerlegen(_phrase65) == _soll65,
-               'zerlegen(%r) -> %r' % (_phrase65, _ph65.zerlegen(_phrase65)))
+        pruefe(_ph65.split_phrase(_phrase65) == _soll65,
+               'split_phrase(%r) -> %r' % (_phrase65, _ph65.split_phrase(_phrase65)))
 
     # c) Und die Erkennung an echten Zeilenformen.
-    _m65 = _ph65.muster(['Bauplan erhalten', '%s ist eingetroffen',
+    _m65 = _ph65.pattern(['Bauplan erhalten', '%s ist eingetroffen',
                          'Bauplan: %s erhalten'])
     for _zeile65, _soll65 in (
             ('Added notification "Bauplan erhalten: Yubarev Pistol: " [3] to queue.',
@@ -6221,12 +6221,12 @@ def main():
                'eine Auftrags-Meldung loest nichts aus')
 
     # e) Die schweizerdeutsche Fassung steht in der Rueckfall-Tabelle.
-    pruefe(any('überchoo' in _p for _p in _ph65.TABELLE.get('de', [])),
+    pruefe(any('überchoo' in _p for _p in _ph65.TABLE.get('de', [])),
            'die live-CH-Formulierung ist dabei')
 
     # f) Ohne jede Formulierung darf der Ausdruck NIE treffen — ein Muster,
     #    das auf alles passt, waere schlimmer als gar keines.
-    pruefe(not _ph65.muster([]).findall(
+    pruefe(not _ph65.pattern([]).findall(
                'Added notification "Irgendwas: Irgendwer: " [9] to queue.'),
            'eine leere Liste ergibt einen Ausdruck, der nie trifft')
 

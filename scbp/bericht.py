@@ -267,11 +267,11 @@ def _spielsprache():
     überchoo" (Schweizerdeutsch) aus der Tabelle kommt und dort gar nicht stehen
     kann. Ein Bericht, der eine falsche Herkunft behauptet, schickt die
     Fehlersuche in die Irre — genau das, was er verhindern soll."""
-    from . import phrasen as phrasen_modul
-    gefunden, _herkunft = phrasen_modul.sammeln()
+    from . import phrases
+    gefunden, _herkunft = phrases.collect()
     if not gefunden:
         return None
-    eigene, aus_ini = phrasen_modul.gemessene()
+    eigene, aus_ini = phrases.measured()
     belegt = eigene + aus_ini
     rueckfall = [p for p in gefunden if p not in belegt]
     teile = []
@@ -621,7 +621,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # Fehler erklären würde, gehört in den Bericht, bevor er das nächste Mal
     # gemeldet wird.
     zeile(t('b_starter'), _sicher(_spielstarter))
-    # ⚠ `sammeln()` gibt ein **Tupel** zurück — (phrasen, herkunft). Hier stand
+    # ⚠ `collect()` gibt ein **Tupel** zurück — (phrases, herkunft). Hier stand
     # `', '.join(sammeln())`, was eine Liste mit einem String zusammenfügen
     # wollte und mit einem TypeError abbrach. `_sicher()` verschluckte den, und
     # im Bericht stand nur ein Strich. Drei Übergaben lang galt das als

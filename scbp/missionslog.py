@@ -286,7 +286,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         ziele.setdefault(zust[1], {})[zust[2]] = zust[3]
 
                 # ⭐ Welcher Bauplan bei welchem Auftrag herauskam. Erkannt wird
-                # er mit demselben Muster wie im Bestand (`phrasen.py`) — die
+                # er mit demselben Muster wie im Bestand (`phrases.py`) — die
                 # Formulierung steht in der `global.ini` des Spielers, nicht
                 # hier. Die Zuordnung macht der Zeitpunkt: Ein Bauplan faellt
                 # waehrend eines Auftrags oder kurz nach dem Abgeben.
@@ -439,8 +439,8 @@ def aus_dateien(pfade):
     # ohne die Bauplan-Zeilen: Ein Auftrags-Protokoll ohne Belohnungen ist
     # brauchbar, gar keines waere es nicht.
     try:
-        from . import phrasen
-        bp_muster = phrasen.muster()
+        from . import phrases
+        bp_muster = phrases.pattern()
     except Exception as ausnahme:
         fehler.merken('missionslog.bp_muster', ausnahme)
         bp_muster = None

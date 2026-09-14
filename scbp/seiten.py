@@ -5931,7 +5931,7 @@ def _switch(fenster, eltern, schluessel, standard):
 
 
 def _detection(fenster, rahmen):
-    from . import catalog as katalog_modul, pfade, phrasen
+    from . import catalog as katalog_modul, pfade, phrases
     _heading(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _scroll_area(rahmen)
 
@@ -5968,10 +5968,10 @@ def _detection(fenster, rahmen):
     # am Ende ein loses „tabelle". Genau so stand es dort.
     gefunden = '—'
     try:
-        saetze, woher = phrasen.sammeln()
+        saetze, woher = phrases.collect()
         gefunden = ' · '.join(str(x) for x in (saetze or [])) or '—'
     except Exception as ausnahme:
-        fehler.merken('seiten.erkennung.phrasen', ausnahme)
+        fehler.merken('seiten.erkennung.phrases', ausnahme)
     kasten = _card(ziel)
     _body_text(kasten, gefunden, fenster.f_small, color=FG,
                 bg=SURFACE, inset=24, fill='x', padx=12, pady=8)

@@ -73,7 +73,7 @@ LAUNCHER = ('/Volumes/06_Spiele/PC Games/Star Citizen/SC-Deutsch-Launcher/'
             'blueprints')
 
 # Die Zeile, die Star Citizen beim Freischalten schreibt. Wortlaut aus
-# `scbp/phrasen.py` — wird der dort geändert, muss er hier mitziehen.
+# `scbp/phrases.py` — wird der dort geändert, muss er hier mitziehen.
 ZEILE = ('<%s> [Notice] <SHUDEvent_OnNotification> Added notification '
          '"Bauplan erhalten: %s: " [136]\n')
 

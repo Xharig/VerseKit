@@ -51,7 +51,7 @@ from scbp import (
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   settings_window, notice, injektion,
                   catalog as katalog_modul, shops, logsource, watchlist,
-                  pfade, phrasen, ships, gamebuild, titlebar, sound,
+                  pfade, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
 
 try:
@@ -522,7 +522,7 @@ def meta_of(key):
 # Das Lesen der Log steckt seit v1.6 in `scbp/logsource.py` — samt Nachlese der
 # aufgehobenen Sitzungen und einem Lesestand, der Programmneustarts übersteht.
 # Welche Formulierung im Log steht, hängt an der Spielsprache; darum kümmert
-# sich `scbp/phrasen.py`. Hier bleibt nur, was mit der ANZEIGE zu tun hat.
+# sich `scbp/phrases.py`. Hier bleibt nur, was mit der ANZEIGE zu tun hat.
 
 
 def kuerzel_aus_zusatz(zusatz):
@@ -1483,16 +1483,16 @@ class Watcher(threading.Thread):
         auch den Text davor.
 
         Läuft nur, solange die Formulierung nicht ohnehin feststeht — und nur
-        einmal, denn danach steht sie in `phrasen.json`."""
+        einmal, denn danach steht sie in `phrases.json`."""
         try:
-            if phrasen.bestaetigt():
+            if phrases.confirmed():
                 return
             namen = [e['n'] for e in katalog_modul.load()['bauplaene'].values()]
             if not namen:
                 return
-            gefunden = phrasen.selbst_finden(namen, pfade.log_sicherungen())
-            if gefunden and phrasen.merken(gefunden):
-                self.tail.pattern = phrasen.muster()
+            gefunden = phrases.find_self(namen, pfade.log_sicherungen())
+            if gefunden and phrases.remember(gefunden):
+                self.tail.pattern = phrases.pattern()
                 self.q.put(('hinweis', sprache.Satz('sprache_erkannt', gefunden)))
         except Exception:
             pass            # ohne Erkennung gilt die mitgelieferte Tabelle
@@ -1517,7 +1517,7 @@ class Watcher(threading.Thread):
         Gemeldet wird immer, auch die Null: Wer einen Knopf drückt, will wissen,
         dass etwas passiert ist."""
         try:
-            funde, bericht = logsource.read_all(phrasen.muster())
+            funde, bericht = logsource.read_all(phrases.pattern())
         except Exception as ausnahme:
             fehler.merken('watcher.neu_einlesen', ausnahme)
             self.q.put(('bescheid', sprache.Satz('s_be_neu'),
