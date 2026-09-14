@@ -680,14 +680,14 @@ def main():
         # Geprüft wird die Zählfunktion selbst, nicht der Bericht: Sie hängt
         # nicht davon ab, wie viel gerade im Bestand steht.
         import json as json_pruef
-        import scbp.bericht as bericht_pruef
+        import scbp.report as bericht_pruef
         probe = os.path.join(basis, 'zaehlprobe.json')
         with open(probe, 'w', encoding='utf-8') as f:
             json_pruef.dump({'version': 1, 'stand': 'x',
                              'bauplaene': {'a': 1, 'b': 2, 'c': 3, 'd': 4}}, f)
-        pruefe(bericht_pruef._json_groesse(probe, 'bauplaene') == 4,
+        pruefe(bericht_pruef._json_size(probe, 'bauplaene') == 4,
                'die Zählung im Bericht nimmt die Einträge, nicht die Felder')
-        pruefe(bericht_pruef._json_groesse(probe, 'gibtsnicht') == '—',
+        pruefe(bericht_pruef._json_size(probe, 'gibtsnicht') == '—',
                'ein fehlender Schlüssel gibt „—" statt einer erfundenen Zahl')
 
         # Testdaten mit ausgedachten Art-Kennungen sehen aus wie ein Fehler
@@ -774,7 +774,7 @@ def main():
         print('12. Fehler werden mitgeschrieben')
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'fehlerbuch')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
-        from scbp import fehler as fehlerbuch, bericht
+        from scbp import fehler as fehlerbuch, report
         importlib.reload(fehlerbuch)
 
         fehlerbuch.leeren()
@@ -800,7 +800,7 @@ def main():
         pruefe(fehlerbuch.anzahl() == fehlerbuch.HOECHSTENS,
                'es bleiben höchstens %d Einträge liegen' % fehlerbuch.HOECHSTENS)
 
-        text = bericht.bauen(version='0.0.0-test')
+        text = report.build(version='0.0.0-test')
         pruefe(bool(text) and 'VerseKit' in text, 'der Bericht wird gebaut')
 
         # ⚠ Ein Schreibfehler darf nicht spurlos verschwinden. Bis zum
@@ -872,8 +872,8 @@ def main():
         # `phrases.collect()` ein Tupel liefert und der Bericht es wie eine
         # Liste behandelte. Der TypeError wurde von `_sicher()` verschluckt.
         # Geprüft wird deshalb der Wert selbst, nicht nur dass der Bericht baut.
-        pruefe(bericht._spielsprache() and 'Bauplan erhalten'
-               in bericht._spielsprache(),
+        pruefe(report._game_language() and 'Bauplan erhalten'
+               in report._game_language(),
                'die Spielsprache-Zeile nennt die gesuchten Formulierungen')
         for zeile_ in text.split('\n'):
             if zeile_.startswith('Spielsprache') or zeile_.startswith('Game language'):
@@ -2235,7 +2235,7 @@ def main():
                 del fe26.spur._offen
 
         # Beides muss auch wirklich im Bericht landen, sonst nuetzt es nichts.
-        quelle26 = open(os.path.join(WURZEL, 'scbp', 'bericht.py'),
+        quelle26 = open(os.path.join(WURZEL, 'scbp', 'report.py'),
                         encoding='utf-8').read()
         pruefe("t('b_spur_seiten')" in quelle26,
                'der Bericht hat einen eigenen Abschnitt fuer die Seiten')
@@ -2813,7 +2813,7 @@ def main():
         # Kopieren und in Discord einfuegen scheitert dreifach: Der Bericht
         # steckt unter „Fortgeschritten", er ist zu lang fuer eine Nachricht,
         # und man muss wissen, wohin damit.
-        from scbp import report_target as bz34, bericht as be34
+        from scbp import report_target as bz34, report as be34
         pruefe(bz34.target() == '',
                'im Repo steht KEINE Adresse — sie ist ein Geheimnis')
         pruefe(not bz34.available(),
@@ -2827,7 +2827,7 @@ def main():
         stelle34 = quelle34[quelle34.index("s_di_absenden"):][:200]
         pruefe('if ' not in stelle34.split(chr(10))[0],
                'der Knopf haengt an keiner Bedingung')
-        ok34, grund34 = be34.absenden('Probe', '3.0.0-test')
+        ok34, grund34 = be34.submit('Probe', '3.0.0-test')
         pruefe(ok34 is False, 'ohne Ziel wird nichts gesendet')
         pruefe('http' not in grund34.lower(),
                'und die Meldung verraet die Adresse nicht')
@@ -3037,7 +3037,7 @@ def main():
         # aber nur in der einstellungen.json — fuer jemanden, der spielen und
         # nicht schrauben will, heisst das: gibt es nicht.
         from scbp import pfade as pf25
-        from scbp import bericht as be25
+        from scbp import report as be25
 
         # Ein Befehl mit Argumenten muss zerlegt werden, eine echte Datei NICHT.
         skript25 = os.path.join(basis, 'mein start skript.sh')
@@ -3067,13 +3067,13 @@ def main():
         # ⚠ Und er muss im BERICHT stehen. Ohne diese Zeile ist "der Startknopf
         # tut nichts" nicht zu beantworten, ohne den Nutzer auszufragen — genau
         # das kostete am 27.08.2026 zwei Stunden.
-        pruefe(hasattr(be25, '_spielstarter'),
+        pruefe(hasattr(be25, '_game_launcher'),
                'der Bericht kennt eine Starter-Zeile')
-        quelle25 = open(os.path.join(WURZEL, 'scbp', 'bericht.py'),
+        quelle25 = open(os.path.join(WURZEL, 'scbp', 'report.py'),
                         encoding='utf-8').read()
-        pruefe("zeile(t('b_starter')" in quelle25,
+        pruefe("line(t('b_starter')" in quelle25,
                'und gibt sie auch aus')
-        pruefe('kuerzen(' in quelle25.split('def _spielstarter')[1][:900],
+        pruefe('kuerzen(' in quelle25.split('def _game_launcher')[1][:900],
                'gekuerzt — kein Benutzername im oeffentlichen Bericht')
 
         print()
@@ -3363,7 +3363,7 @@ def main():
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
-    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `missionslog`, `bericht`, `assistent`, der Watcher |
+    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `missionslog`, `report`, `assistent`, der Watcher |
     #   | 2 | `pfade.game_log()` | `logsource`, `playtime`, `joysticks`, der Watcher |
     #   | 3 | `missionslog.nachlese()` | baut sich den Pfad zur laufenden Datei **selbst** (`missionslog.py`) und geht an 2 vorbei |
     #
@@ -3546,7 +3546,7 @@ def main():
     # etwas eingetragen war, musste erschlossen werden statt abgelesen.
     print()
     print('39. Der Bericht sagt, ob die Angaben im Spiel stehen')
-    from scbp import bericht as ber39, injektion as inj39
+    from scbp import report as ber39, injektion as inj39
     # ⚠ Eigener Ordner statt `basis`: Der ist an dieser Stelle bereits
     # aufgeräumt, und ein Schreibversuch darin bricht den ganzen Lauf ab.
     _ordner39 = tempfile.mkdtemp(prefix='sc-bp-inj39-')
@@ -3557,7 +3557,7 @@ def main():
         with open(_ini39, 'w', encoding='utf-8') as f:
             f.write('mission_a_desc=Deliver cargo.\n')
         inj39.ini_datei = lambda: (_ini39, 'german_(germany)', 'deutsch')
-        _l39 = ber39._injektionslage()
+        _l39 = ber39._injection_state()
         pruefe('NICHT' in _l39 or 'NOT' in _l39,
                'ohne Angaben in der Datei sagt der Bericht das auch')
 
@@ -3567,7 +3567,7 @@ def main():
         # „steht drin", sobald jemand StarStrings frisch eingesetzt hatte.
         with open(_ini39, 'a', encoding='utf-8') as f:
             f.write('mission_b_title=Bounty <EM4>[BP]</EM4>\n')
-        _l39ss = ber39._injektionslage()
+        _l39ss = ber39._injection_state()
         pruefe('NICHT' in _l39ss or 'NOT' in _l39ss,
                'MrKrakens blankes [BP] allein gilt NICHT als eigene Injektion')
 
@@ -3577,7 +3577,7 @@ def main():
             f.write('mission_c_desc=Deliver cargo.\\n\\n--------------------'
                     '\\nMÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP\\n'
                     '    [x] Atzkav Sniper Rifle\n')
-        _l39b = ber39._injektionslage()
+        _l39b = ber39._injection_state()
         pruefe('NICHT' not in _l39b and 'NOT' not in _l39b,
                'und mit Angaben meldet er sie als eingetragen')
 
@@ -3585,7 +3585,7 @@ def main():
         # Linux ohne Übersetzung ist das der Normalzustand, und eine Warnung
         # davor wäre eine Warnung vor nichts.
         inj39.ini_datei = lambda: (None, 'english', None)
-        _l39c = ber39._injektionslage()
+        _l39c = ber39._injection_state()
         pruefe('NICHT' not in _l39c and 'NOT' not in _l39c,
                'ohne Textdatei warnt er NICHT vor dem Normalzustand')
     finally:
@@ -3757,7 +3757,7 @@ def main():
         # d) ⚠ Und der Bericht muss die Zahlen zeigen. Ohne diese Zeile stand im
         #    Bericht nur der Katalogstand — der war in Ordnung, die Historie
         #    darunter nicht. Genau deshalb blieb der Fehler unsichtbar.
-        from scbp import bericht as ber42
+        from scbp import report as ber42
         pruefe('(%d)' % (_vorher42 + 3) in (ber42._patch_history() or ''),
                'der Bericht nennt die Anzahl je Patch')
 
@@ -4099,7 +4099,7 @@ def main():
         #   Pruefung deckt beide Stellen ab, damit es nicht an einer dritten
         #   wieder auftaucht.
         for _datei48, _funktion48, _wo48 in (
-                ('bericht.py', 'def _patch_history', 'im Bericht'),
+                ('report.py', 'def _patch_history', 'im Bericht'),
                 ('bestandsfenster.py', 'def _patches', 'im Patch-Menue')):
             _p48 = os.path.join(os.path.dirname(os.path.dirname(
                 os.path.abspath(__file__))), 'scbp', _datei48)
@@ -6171,8 +6171,8 @@ def main():
     #     die eingebaute Rueckfalltabelle. Am 01.09.2026 kostete das drei
     #     Suchlaeufe in einer 12-MB-Datei nach „Bauplan ueberchoo", das dort
     #     gar nicht stehen kann (Schweizerdeutsch, aus der Tabelle).
-    from scbp import bericht as _ber65, sprache as _sp65
-    _zeile65 = _ber65._spielsprache() or ''
+    from scbp import report as _ber65, sprache as _sp65
+    _zeile65 = _ber65._game_language() or ''
     _eigene65, _ini65 = _ph65.measured()
     _rueck65 = [_p for _p in _liste65 if _p not in _eigene65 + _ini65]
     if _rueck65:
@@ -6978,7 +6978,7 @@ def main():
     print()
     print('72. Der Startverlauf im Bericht bleibt lesbar')
     from scbp import fehler as _fh72
-    from scbp import bericht as _br72
+    from scbp import report as _br72
 
     # a) Die Grenze muss die Zeile sein, die das Programm wirklich schreibt.
     _quelle72 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
@@ -7010,7 +7010,7 @@ def main():
            'Bedienung nach dem Start faellt nicht in den Startverlauf')
 
     # c) Zwoelf gleiche Zeilen werden zu einer mit Zaehler.
-    _knapp72 = _br72._gedraengt(_bedien72)
+    _knapp72 = _br72._dense(_bedien72)
     pruefe(len(_knapp72) == 2,
            'zwoelf gleiche Zeilen werden zusammengefasst (%d Zeilen uebrig)'
            % len(_knapp72))
@@ -7018,7 +7018,7 @@ def main():
            'die Zusammenfassung nennt die Anzahl')
 
     # d) Und der Ausschnitt, den der Bericht zeigt, enthaelt den Start noch.
-    _sichtbar72 = _br72._gedraengt(_start72)[-12:]
+    _sichtbar72 = _br72._dense(_start72)[-12:]
     pruefe(any('Start, Version' in _z for _z in _sichtbar72)
            and any(_fh72.SPUR_GRENZE in _z for _z in _sichtbar72),
            'im sichtbaren Ausschnitt stehen erster und letzter Startschritt')
@@ -7111,11 +7111,11 @@ def main():
     # Uebersetzungsquellen und die Auftragsdaten des SCDL-Teams nicht. Wer die
     # Schalterstellung ernst nimmt, muss sich darauf verlassen koennen.
     #
-    # Ausgenommen ist einzig `bericht.py`: Es sendet nur, wenn jemand den Knopf
+    # Ausgenommen ist einzig `report.py`: Es sendet nur, wenn jemand den Knopf
     # drueckt, und sagt dabei selbst, was es tut.
     print()
     print('74. Netzabrufe halten sich an SC_BP_NO_NET')
-    _ausnahmen74 = {'bericht.py'}       # nur auf Knopfdruck, siehe oben
+    _ausnahmen74 = {'report.py'}       # nur auf Knopfdruck, siehe oben
     _offen74 = []
     for _name74 in sorted(os.listdir(os.path.join(WURZEL, 'scbp'))):
         if not _name74.endswith('.py') or _name74 in _ausnahmen74:
@@ -7333,7 +7333,7 @@ def main():
     _q77 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
     _baum77 = _ast77.parse(_q77)
-    _versand77 = {'issue_oeffnen', 'in_die_ablage', 'speichern', 'absenden'}
+    _versand77 = {'open_issue', 'to_archive', 'save', 'submit'}
     _falsch77 = []
     _richtig77 = 0
     for _k77 in _ast77.walk(_baum77):
@@ -7341,7 +7341,7 @@ def main():
                 and isinstance(_k77.func, _ast77.Attribute)
                 and _k77.func.attr in _versand77
                 and isinstance(_k77.func.value, _ast77.Name)
-                and _k77.func.value.id == 'bericht'):
+                and _k77.func.value.id == 'report'):
             continue
         if not _k77.args:
             continue
@@ -8191,7 +8191,7 @@ def main():
 
     # Der Bericht muss den Fehler zeigen koennen — sonst raet man beim
     # naechsten Mal wieder.
-    _q85b = open(os.path.join(WURZEL, 'scbp', 'bericht.py'),
+    _q85b = open(os.path.join(WURZEL, 'scbp', 'report.py'),
                  encoding='utf-8').read()
     pruefe("t('b_fenstermass')" in _q85b and "t('b_fenster_zu_hoch')" in _q85b,
            'der Bericht nennt Fenstermass und Mindestmass')
@@ -8978,7 +8978,7 @@ def main():
     # | 462 · 462 durchgesehen · 380 daraus | alles in Ordnung |
     print()
     print('94. Der Bericht sagt selbst, ob die Log-Erkennung greift')
-    from scbp import bericht as _be94, collection as _bd94
+    from scbp import report as _be94, collection as _bd94
 
     def _zahlen94(text):
         return [int(_x) for _x in re.findall(r'\d+', text)]
@@ -9010,8 +9010,8 @@ def main():
                         for _i94 in range(_n94)]
             w.pfade.log_sicherungen = (
                 lambda *_a, _l94=_liste94, **_k: list(_l94))
-            _gemessen94.append(_zahlen94(_be94._protokollzeile())[0])
-        _zeile94 = _be94._protokollzeile()
+            _gemessen94.append(_zahlen94(_be94._log_line())[0])
+        _zeile94 = _be94._log_line()
     finally:
         w.pfade.log_sicherungen = _echt94
     pruefe(_gemessen94 == [0, 1, 3, 4],
@@ -9033,7 +9033,7 @@ def main():
     _bd94.add(_daten94, 'Von Hand', 'hand')
     _bd94.add(_daten94, 'Startbauplan', 'start')
     _bd94.save(_daten94)
-    _z94b = _zahlen94(_be94._protokollzeile())
+    _z94b = _zahlen94(_be94._log_line())
     pruefe(_z94b[2] == 2,
            'nur die zwei aus Protokollen werden gezaehlt, nicht alle fuenf '
            '(gezaehlt: %d)' % _z94b[2])
@@ -9046,7 +9046,7 @@ def main():
     try:
         _kaputt94 = None
         try:
-            _be94._protokollzeile()
+            _be94._log_line()
         except Exception as _f94:
             _kaputt94 = _f94
     finally:
@@ -11839,10 +11839,10 @@ def main():
 
     print()
     print('119. Die Melde-Adresse kommt nicht in den oeffentlichen Bericht')
-    # ⚠⚠ **Gemessen am 05.09.2026, nicht vermutet.** `bericht.absenden()` gibt
+    # ⚠⚠ **Gemessen am 05.09.2026, nicht vermutet.** `report.submit()` gibt
     # den Grund eines gescheiterten Sendeversuchs bewusst NICHT zurueck, weil
     # die Adresse geheim ist — eine Zeile darueber steht aber
-    # `fehler.merken('bericht.absenden', ausnahme)`, und das Fehlerprotokoll
+    # `fehler.merken('report.submit', ausnahme)`, und das Fehlerprotokoll
     # steht im Bericht, und der Bericht landet in einem oeffentlichen Issue.
     #
     # Vier realistische Fehlerfaelle durchgespielt: drei harmlos (urllib nennt
@@ -17167,7 +17167,7 @@ def main():
     # ⚠⚠ Sprachumstellung P4 (ab 11.09.2026). Jede Umbenennung traegt sich in
     # `_p4_190` ein: alter Modulname -> neuer. Mehr ist nicht zu tun.
     #
-    # ⚠ Gesucht wird nicht nur nach `import`-Zeilen. `bericht.py` holte die
+    # ⚠ Gesucht wird nicht nur nach `import`-Zeilen. `report.py` holte die
     # Merkliste per `__import__('scbp.merkliste', …)` — eine Zeichenkette, die
     # weder eine Suche nach Importen noch pyflakes als Modulbezug sieht. Ein
     # Rest dort fiele erst auf, wenn ein Nutzer einen Fehlerbericht baut.
@@ -19885,7 +19885,7 @@ def main():
     # zwar unterscheidbar. Eine Textsuche nach `game_language` waere gruen,
     # auch wenn die Zeile nur eine der beiden nennt.
     print('\n204. Der Bericht nennt die gepflegte UND die gespielte Sprache')
-    from scbp import bericht as _be204, injektion as _inj204
+    from scbp import report as _be204, injektion as _inj204
     from scbp import translation as _tr204
     _alt204 = (_inj204.lage, _tr204.game_language)
     try:
@@ -19893,7 +19893,7 @@ def main():
             'datei': os.path.join('x', 'english', 'global.ini'),
             'drin': True, 'quelle': 'original', 'stand': None}
         _tr204.game_language = lambda: 'german_(germany)'
-        _zeile204 = _be204._injektionslage()
+        _zeile204 = _be204._injection_state()
         pruefe('english' in _zeile204,
                'die gepflegte Sprachdatei steht in der Berichtszeile')
         pruefe('german_(germany)' in _zeile204,
@@ -19904,7 +19904,7 @@ def main():
         # ⚠ Und ohne Eintrag in der `user.cfg` steht dort ein Zeichen, kein
         #   leerer Platz: Star Citizen startet dann auf Englisch.
         _tr204.game_language = lambda: None
-        pruefe('—' in _be204._injektionslage(),
+        pruefe('—' in _be204._injection_state(),
                'ohne g_language steht ein Strich, nicht nichts')
     finally:
         _inj204.lage, _tr204.game_language = _alt204

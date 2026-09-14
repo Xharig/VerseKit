@@ -35,7 +35,7 @@ import threading
 import time
 import tkinter as tk
 
-from . import bericht, collection as bestand_datei, fehler, catalog as katalog_modul
+from . import report, collection as bestand_datei, fehler, catalog as katalog_modul
 from . import pfade, icons, fields
 from .sprache import t, pa_feld
 
@@ -6076,7 +6076,7 @@ def _diagnostics(fenster, rahmen):
 
     text = ''
     try:
-        text = bericht.bauen(version=fenster.version, wurzel=fenster.root)
+        text = report.build(version=fenster.version, root=fenster.root)
     except Exception as ausnahme:
         fehler.merken('seiten.diagnose', ausnahme)
 
@@ -6100,9 +6100,9 @@ def _diagnostics(fenster, rahmen):
         Auffrischen stünde der eben eingetippte Text nicht darin — man sähe
         „nicht angegeben" und hielte das Feld für kaputt."""
         try:
-            frisch = bericht.bauen(version=fenster.version,
-                                   wurzel=fenster.root,
-                                   meldung=meldung_text())
+            frisch = report.build(version=fenster.version,
+                                   root=fenster.root,
+                                   message=meldung_text())
         except Exception as ausnahme:
             fehler.merken('seiten.diagnose_melder', ausnahme)
             return
@@ -6207,14 +6207,14 @@ def _diagnostics(fenster, rahmen):
                 fehler.merken('seiten.diagnose_meldung_leeren', ausnahme)
 
     def melden():
-        if bericht.issue_oeffnen(aktueller_bericht()):
+        if report.open_issue(aktueller_bericht()):
             fenster.say(t('s_di_browser_ok'))
             _meldung_verbraucht()
         else:
             fenster.say(t('s_di_browser_weg'))
 
     def kopieren():
-        if bericht.in_die_ablage(aktueller_bericht(), fenster.root):
+        if report.to_archive(aktueller_bericht(), fenster.root):
             fenster.say(t('s_di_kopiert'))
             _meldung_verbraucht()
 
@@ -6235,7 +6235,7 @@ def _diagnostics(fenster, rahmen):
             return
         fenster.say(t('s_di_ab_laeuft'))
         fenster.root.update_idletasks()
-        geklappt, grund = bericht.absenden(aktueller_bericht(), fenster.version)
+        geklappt, grund = report.submit(aktueller_bericht(), fenster.version)
         fenster.say(t('s_di_ab_ok') if geklappt
                       else t('s_di_ab_weg') % grund)
         # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz, Dienst weg —,

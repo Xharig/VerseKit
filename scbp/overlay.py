@@ -198,7 +198,7 @@ LOCK_CALLBACK = [None]
 # selben Arbeitsgang mitgebaut. Eine Zeile im Bericht haette die Messungen
 # eines ganzen Abends ersetzt.
 #
-# Das Overlay haengt seine Auskunft hier ein; `bericht.bauen()` fragt sie ab.
+# Das Overlay haengt seine Auskunft hier ein; `report.build()` fragt sie ab.
 # Ueber ein Modul, weil der Bericht aus `seiten.py` gebaut wird und von dort
 # das Overlay nicht erreichbar ist — derselbe Weg wie beim Schloss-Rueckruf.
 STATE_REPORT = [None]

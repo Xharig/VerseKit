@@ -45,7 +45,7 @@ ihre eigenen Fehler ab: Ein Protokoll, das den Programmstart verhindert, wäre
 schlimmer als gar keines.
 
 Geschrieben wird **nur lokal**. Verschickt wird nichts — was in einen
-Fehlerbericht wandert, entscheidet der Spieler in `scbp/bericht.py`.
+Fehlerbericht wandert, entscheidet der Spieler in `scbp/report.py`.
 """
 import faulthandler
 import json

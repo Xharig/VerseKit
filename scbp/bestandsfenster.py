@@ -899,7 +899,7 @@ class Bestandsfenster:
         welcher ist. Gemeldet am 02.09.2026 aus dem laufenden Betrieb.
 
         Genau dieser Fehler wurde in v3.9.1 schon **im Bericht** behoben
-        (`bericht.py`, `_patch_historie`) — hier war er noch. Wer eine Regel
+        (`report.py`, `_patch_history`) — hier war er noch. Wer eine Regel
         an einer Stelle repariert, muss die anderen Stellen mitnehmen: Der
         Bericht führt die Liste nur auf, das Menü lässt danach **auswählen**.
         Falsch beschriftet ist es hier also schädlicher.

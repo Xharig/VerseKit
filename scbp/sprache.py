@@ -2492,7 +2492,7 @@ TEXTE = {
     's_ub_q_vorbild':  ('Vorbild für die Einspielung ins Spiel',
                           'the model for writing into the game'),
 
-    # -- Fehlerbericht (bericht.py) --
+    # -- Fehlerbericht (report.py) --
     # Der Bericht steht im Fenster und wird von dort in ein öffentliches Issue
     # kopiert. Er MUSS der Oberflächensprache folgen: Die Diagnose-Seite
     # verspricht „Du siehst vorher genau, was du verschickst" — auf Englisch

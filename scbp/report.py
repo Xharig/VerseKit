@@ -47,7 +47,7 @@ from . import fehler, overlay, pfade
 from .sprache import t
 
 
-def _sicher(f, standard='—'):
+def _safe(f, default='—'):
     """Eine Angabe holen und dabei nichts riskieren.
 
     ⚠ Ein leerer Wert ist normal (kein Spiel installiert, keine Merkliste) —
@@ -57,20 +57,20 @@ def _sicher(f, standard='—'):
     gefunden", war aber ein TypeError.
     """
     try:
-        wert = f()
-        if wert is None or wert == '':
-            return standard
-        return wert
-    except Exception as ausnahme:
+        value = f()
+        if value is None or value == '':
+            return default
+        return value
+    except Exception as exception:
         try:
             from . import fehler
-            fehler.merken('bericht.angabe', ausnahme)
+            fehler.merken('report.angabe', exception)
         except Exception:
             pass              # das Melden darf den Bericht nie umwerfen
-        return standard
+        return default
 
 
-def _umbrechen(text, breite):
+def _wrap(text, width):
     """Einen Satz auf mehrere Zeilen verteilen, ohne Wörter zu zerschneiden.
 
     ⚠ Kein `textwrap`: Der Bericht soll auch dann noch stehen, wenn jemand
@@ -91,31 +91,31 @@ def _umbrechen(text, breite):
     genau die Abfolge ist das, was eine Meldung brauchbar macht. Umbrochen
     wird deshalb **je Zeile**; leere Zeilen bleiben als Absatztrenner.
     """
-    ergebnis = []
-    for absatz in (text or '').split('\n'):
-        if not absatz.strip():
+    result = []
+    for paragraph in (text or '').split('\n'):
+        if not paragraph.strip():
             # Eine Leerzeile trennt Absätze. Nicht mehrere hintereinander —
             # wer dreimal Enter drückt, soll den Bericht nicht auseinander
             # ziehen.
-            if ergebnis and ergebnis[-1] != '':
-                ergebnis.append('')
+            if result and result[-1] != '':
+                result.append('')
             continue
-        laufend = ''
-        for wort in absatz.split():
-            if laufend and len(laufend) + 1 + len(wort) > breite:
-                ergebnis.append(laufend)
-                laufend = wort
+        running = ''
+        for word in paragraph.split():
+            if running and len(running) + 1 + len(word) > width:
+                result.append(running)
+                running = word
             else:
-                laufend = (laufend + ' ' + wort) if laufend else wort
-        if laufend:
-            ergebnis.append(laufend)
+                running = (running + ' ' + word) if running else word
+        if running:
+            result.append(running)
     # Ein Absatztrenner ganz am Ende wäre nur eine Leerzeile im Bericht.
-    while ergebnis and ergebnis[-1] == '':
-        ergebnis.pop()
-    return ergebnis or ['']
+    while result and result[-1] == '':
+        result.pop()
+    return result or ['']
 
 
-def _gedraengt(eintraege):
+def _dense(entries):
     """Gleiche Zeilen hintereinander zu einer zusammenfassen.
 
     ⚠ Wozu: Der Bericht zeigt je Topf nur zwölf Zeilen. Eine Liste, die sich
@@ -127,18 +127,18 @@ def _gedraengt(eintraege):
     Uhrzeit der ersten Zeile bleibt stehen — sonst ginge die Reihenfolge oder
     der Zeitpunkt verloren.
     """
-    heraus = []
-    for eintrag in eintraege:
-        text = eintrag.split('  ', 1)[-1].strip()
-        if heraus and heraus[-1][1] == text:
-            heraus[-1][2] += 1
+    out = []
+    for entry in entries:
+        text = entry.split('  ', 1)[-1].strip()
+        if out and out[-1][1] == text:
+            out[-1][2] += 1
             continue
-        heraus.append([eintrag, text, 1])
-    return [zeile if zahl == 1 else '%s  (%d×)' % (zeile, zahl)
-            for zeile, _text, zahl in heraus]
+        out.append([entry, text, 1])
+    return [line if number == 1 else '%s  (%d×)' % (line, number)
+            for line, _text, number in out]
 
 
-def _protokollzeile():
+def _log_line():
     """Wie viele Protokolle da sind, wie viele gelesen wurden — und was dabei
     herauskam.
 
@@ -161,39 +161,39 @@ def _protokollzeile():
     Launcher, von Hand oder aus den Startbauplaenen kam, sagt ueber die
     Log-Erkennung nichts aus — und genau die steht hier zur Frage.
     """
-    from . import collection as bestand_modul
-    from . import logsource, pfade as pfade_modul
+    from . import collection as collection_module
+    from . import logsource, pfade as paths_module
 
     # ⚠ **Jeder Schritt fuer sich abgesichert, auch der erste.** Diese Zeile
     # steht in einem Bericht, den jemand abschickt, WEIL schon etwas kaputt
     # ist — eine ausgehaengte Platte darf ihn nicht um den Rest bringen. Beim
     # Bauen lag der erste Aufruf zunaechst ausserhalb; Selbsttest 94 hat es
     # sofort gemeldet.
-    sicherungen = []
+    backups = []
     try:
-        sicherungen = pfade_modul.log_sicherungen()
+        backups = paths_module.log_sicherungen()
     except Exception:
         pass
     # ⚠ Einzahl beachten: „1 Protokolle" stand so im Bericht (02.09.2026).
-    teile = [t('b_protokolle_1' if len(sicherungen) == 1 else 'b_protokolle')
-             % len(sicherungen)]
+    parts = [t('b_protokolle_1' if len(backups) == 1 else 'b_protokolle')
+             % len(backups)]
     try:
-        stand = logsource.ReadState()
-        gelesen = sum(1 for p in sicherungen if stand.knows(p))
-        teile.append(t('b_logs_gelesen') % gelesen)
+        state_value = logsource.ReadState()
+        read_count = sum(1 for p in backups if state_value.knows(p))
+        parts.append(t('b_logs_gelesen') % read_count)
     except Exception:
         pass
     try:
-        quellen = bestand_modul.by_source(bestand_modul.load())
-        aus_logs = quellen.get('log', 0) + quellen.get('nachlese', 0)
-        teile.append(t('b_logs_funde_1' if aus_logs == 1 else 'b_logs_funde')
-                     % aus_logs)
+        sources = collection_module.by_source(collection_module.load())
+        from_logs = sources.get('log', 0) + sources.get('nachlese', 0)
+        parts.append(t('b_logs_funde_1' if from_logs == 1 else 'b_logs_funde')
+                     % from_logs)
     except Exception:
         pass
-    return ' · '.join(teile)
+    return ' · '.join(parts)
 
 
-def _bestandzeile():
+def _collection_line():
     """Wie viele Baupläne — und wie viele davon die Bauplan-Liste zeigt.
 
     ⚠⚠ **Warum zwei Zahlen.** Der Bericht zählt die Einträge in `bestand.json`,
@@ -206,20 +206,20 @@ def _bestandzeile():
     muss. Sie ist auch die interessantere Angabe: Sie sagt, wie weit Katalog und
     eigener Stand auseinanderlaufen.
     """
-    from . import collection as bestand_modul
-    from . import catalog as katalog_modul
-    daten = bestand_modul.load()
-    gesamt = bestand_modul.count(daten)
+    from . import collection as collection_module
+    from . import catalog as catalog_module
+    data = collection_module.load()
+    total = collection_module.count(data)
     try:
-        bekannt = set(katalog_modul.load().get('bauplaene') or {})
+        known = set(catalog_module.load().get('bauplaene') or {})
     except Exception:
-        bekannt = set()
-    if not bekannt:
-        return t('b_n_bauplaene') % gesamt
-    im_katalog = len(bestand_modul.keys(daten) & bekannt)
-    if im_katalog == gesamt:
-        return t('b_n_bauplaene') % gesamt
-    return t('b_n_bp_katalog') % (gesamt, im_katalog, gesamt - im_katalog)
+        known = set()
+    if not known:
+        return t('b_n_bauplaene') % total
+    in_catalog = len(collection_module.keys(data) & known)
+    if in_catalog == total:
+        return t('b_n_bauplaene') % total
+    return t('b_n_bp_katalog') % (total, in_catalog, total - in_catalog)
 
 
 # Wie viele Namen der Bericht höchstens aufzählt. Mehr macht ihn unlesbar,
@@ -227,7 +227,7 @@ def _bestandzeile():
 UNBEKANNT_MAX = 12
 
 
-def _unbekannte_bauplaene():
+def _unknown_blueprints():
     """Die Baupläne im eigenen Bestand, die der Katalog nicht kennt.
 
     ⚠ Die Zahl allein („23 unbekannt") sagt nur, dass etwas nicht zusammenpasst.
@@ -236,27 +236,27 @@ def _unbekannte_bauplaene():
     Schreibweise. Ohne sie muss jemand die Datei von Hand mit dem Katalog
     vergleichen; damit ist die Angabe im Bericht wertlos.
     """
-    from . import collection as bestand_modul
-    from . import catalog as katalog_modul
+    from . import collection as collection_module
+    from . import catalog as catalog_module
     try:
-        bekannt = set(katalog_modul.load().get('bauplaene') or {})
+        known = set(catalog_module.load().get('bauplaene') or {})
     except Exception:
         return ''
-    if not bekannt:
+    if not known:
         return ''
-    daten = bestand_modul.load()
-    fehlend = sorted((e.get('name') or k)
-                     for k, e in daten['bauplaene'].items() if k not in bekannt)
-    if not fehlend:
+    data = collection_module.load()
+    missing = sorted((e.get('name') or k)
+                     for k, e in data['bauplaene'].items() if k not in known)
+    if not missing:
         return ''
-    gezeigt = fehlend[:UNBEKANNT_MAX]
-    text = ' · '.join(gezeigt)
-    if len(fehlend) > UNBEKANNT_MAX:
-        text += '  ' + t('b_und_weitere') % (len(fehlend) - UNBEKANNT_MAX)
+    shown = missing[:UNBEKANNT_MAX]
+    text = ' · '.join(shown)
+    if len(missing) > UNBEKANNT_MAX:
+        text += '  ' + t('b_und_weitere') % (len(missing) - UNBEKANNT_MAX)
     return text
 
 
-def _spielsprache():
+def _game_language():
     """Wonach im Log gesucht wird — und woher **jede** Formulierung stammt.
 
     ⚠ Hier stand eine einzige Herkunft hinter der **ganzen** Liste. Die Liste
@@ -268,20 +268,20 @@ def _spielsprache():
     kann. Ein Bericht, der eine falsche Herkunft behauptet, schickt die
     Fehlersuche in die Irre — genau das, was er verhindern soll."""
     from . import phrases
-    gefunden, _herkunft = phrases.collect()
-    if not gefunden:
+    found, _origin = phrases.collect()
+    if not found:
         return None
-    eigene, aus_ini = phrases.measured()
-    belegt = eigene + aus_ini
-    rueckfall = [p for p in gefunden if p not in belegt]
-    teile = []
-    if eigene:
-        teile.append('%s (%s)' % (', '.join(eigene), t('b_woher_eigen')))
-    if aus_ini:
-        teile.append('%s (%s)' % (', '.join(aus_ini), t('b_woher_ini')))
-    if rueckfall:
-        teile.append('%s (%s)' % (', '.join(rueckfall), t('b_woher_tabelle')))
-    return ' · '.join(teile)
+    own_ones, from_ini = phrases.measured()
+    used = own_ones + from_ini
+    fallback = [p for p in found if p not in used]
+    parts = []
+    if own_ones:
+        parts.append('%s (%s)' % (', '.join(own_ones), t('b_woher_eigen')))
+    if from_ini:
+        parts.append('%s (%s)' % (', '.join(from_ini), t('b_woher_ini')))
+    if fallback:
+        parts.append('%s (%s)' % (', '.join(fallback), t('b_woher_tabelle')))
+    return ' · '.join(parts)
 
 
 def _patch_history():
@@ -301,17 +301,17 @@ def _patch_history():
     zum Zuordnen gibt. Darum: Kurzform nur, solange sie eindeutig ist, sonst
     die volle Version."""
     from . import patchhistory
-    liste = patchhistory.patches()
-    if not liste:
+    listing = patchhistory.patches()
+    if not listing:
         return None
-    liste = liste[:5]
-    kurzformen = [kurz for _voll, kurz, _anzahl in liste]
+    listing = listing[:5]
+    short_forms = [short for _full, short, _count in listing]
     return ', '.join(
-        '%s (%d)' % (kurz if kurzformen.count(kurz) == 1 else voll, anzahl)
-        for voll, kurz, anzahl in liste)
+        '%s (%d)' % (short if short_forms.count(short) == 1 else full, anzahl)
+        for full, short, anzahl in listing)
 
 
-def _json_groesse(pfad_, schluessel):
+def _json_size(path_, key):
     """Wie viele Einträge stehen in einer unserer JSON-Dateien?
 
     ⚠ Hier stand `daten.get(schluessel, daten)` — fehlte der Schlüssel, wurde
@@ -328,35 +328,35 @@ def _json_groesse(pfad_, schluessel):
     zwar auffing, aber als Fehler in den Bericht schrieb. Im Bericht vom
     26.08.2026 stand er ganz oben, direkt über den echten Altlasten:
 
-        bericht.angabe  FileNotFoundError: .../Bauplaene/watchlist.json
+        report.angabe  FileNotFoundError: .../Bauplaene/watchlist.json
 
     Wer einen Fehler sucht, soll in dieser Liste keine Zeilen finden, die gar
     keine sind. Der Docstring von `_sicher` sagt es schon: „Ein leerer Wert ist
     normal (kein Spiel installiert, keine Merkliste) — eine Ausnahme ist es
     nicht."
     """
-    if not os.path.exists(pfad_):
+    if not os.path.exists(path_):
         return '—'
-    with open(pfad_, encoding='utf-8') as f:
-        daten = json.load(f)
-    if schluessel not in daten:
+    with open(path_, encoding='utf-8') as f:
+        data = json.load(f)
+    if key not in data:
         return '—'
-    wert = daten[schluessel]
-    return len(wert) if hasattr(wert, '__len__') else '—'
+    value = data[key]
+    return len(value) if hasattr(value, '__len__') else '—'
 
 
 def _system():
     name = platform.system()
     if name == 'Linux':
-        kennung = _sicher(lambda: platform.freedesktop_os_release().get('PRETTY_NAME'), '')
-        sitzung = os.environ.get('XDG_SESSION_TYPE', '')
-        return ' · '.join(x for x in ('Linux', kennung, platform.release(), sitzung) if x)
+        ident = _safe(lambda: platform.freedesktop_os_release().get('PRETTY_NAME'), '')
+        session = os.environ.get('XDG_SESSION_TYPE', '')
+        return ' · '.join(x for x in ('Linux', ident, platform.release(), session) if x)
     if name == 'Windows':
         return 'Windows %s · Build %s' % (platform.release(), platform.version())
     return '%s %s' % (name, platform.release())
 
 
-def _tk_fassung():
+def _tk_version():
     """Die Tk-Fassung — so genau, wie sie zu bekommen ist.
 
     ⚠ `tkinter.TkVersion` ist eine Fliesskommazahl und meldet nur „9.0", auch
@@ -368,15 +368,15 @@ def _tk_fassung():
     """
     import tkinter
     try:
-        wurzel = tkinter._default_root
-        if wurzel is not None:
-            return str(wurzel.tk.call('info', 'patchlevel'))
+        root = tkinter._default_root
+        if root is not None:
+            return str(root.tk.call('info', 'patchlevel'))
     except Exception:
         pass
     return str(tkinter.TkVersion)
 
 
-def _verpackung_lesbar():
+def _packaging_readable():
     """Die Kennung aus `updater` in einen lesbaren Namen übersetzen.
 
     ⚠ Nur hier, nur für die Anzeige: Die Kennung selbst wird anderswo
@@ -388,22 +388,22 @@ def _verpackung_lesbar():
     # im Projekt, die weder der Syntaxbaum-Scanner noch der Selbsttest
     # gemeldet hätte: Sie bricht erst, wenn jemand einen Fehlerbericht baut.
     # Gefunden per Textsuche über das ganze Repo, nachdem alles grün war.
-    art = __import__('scbp.updater',
+    kind = __import__('scbp.updater',
                      fromlist=['packaging']).packaging()
     return {'quellcode': t('b_v_quellcode'),
             'exe': t('b_v_exe'),
-            'appimage': t('b_v_appimage')}.get(art, art)
+            'appimage': t('b_v_appimage')}.get(kind, kind)
 
 
-def _bildschirme(wurzel):
+def _screens(root):
     """Größe und Skalierung — hier lagen schon zwei Fehler begraben."""
-    if wurzel is None:
+    if root is None:
         return '—'
-    breite = wurzel.winfo_screenwidth()
-    hoehe = wurzel.winfo_screenheight()
+    width = root.winfo_screenwidth()
+    height = root.winfo_screenheight()
     # 72 Punkte je Zoll ist Tks Bezug; daraus wird die Skalierung lesbar.
-    skalierung = round(float(wurzel.tk.call('tk', 'scaling')) * 72 / 96 * 100)
-    zeile = t('b_skalierung') % (breite, hoehe, skalierung)
+    scaling = round(float(root.tk.call('tk', 'scaling')) * 72 / 96 * 100)
+    line = t('b_skalierung') % (width, height, scaling)
     # ⭐ **Fenstermaße dazu.** Am 30.08.2026 meldete ein Nutzer, das Fenster sei
     # zu groß und er komme „nicht mehr an alles ran" — im Bericht stand dazu
     # keine einzige Zahl. Sichtbar war nur der Bildschirm, nicht das Fenster
@@ -412,37 +412,37 @@ def _bildschirme(wurzel):
     # Verkleinern. Genau diese drei Zahlen nebeneinander beantworten die Frage
     # in einer Zeile.
     try:
-        fb, fh = wurzel.winfo_width(), wurzel.winfo_height()
-        mb, mh = wurzel.minsize()
+        fb, fh = root.winfo_width(), root.winfo_height()
+        mb, mh = root.minsize()
         if fb > 50 and fh > 50:
-            zeile += t('b_fenstermass') % (fb, fh, mb, mh)
-            if mh > hoehe:
-                zeile += t('b_fenster_zu_hoch')
+            line += t('b_fenstermass') % (fb, fh, mb, mh)
+            if mh > height:
+                line += t('b_fenster_zu_hoch')
     except Exception:
         pass
-    return zeile
+    return line
 
 
-def _spielstarter():
+def _game_launcher():
     """Der Weg, auf dem Star Citizen gestartet würde — gekürzt und eingeordnet.
 
     Drei Auskünfte in einer Zeile: **ob** etwas gefunden wurde, **was**, und ob
     es der selbst eingetragene Startbefehl ist. Genau diese drei Fragen standen
     am 27.08.2026 zwei Stunden lang im Raum.
     """
-    from . import pfade as pfade_modul
-    from . import sprache as sprache_modul
-    starter = pfade_modul.spielstarter()
-    if not starter:
-        return sprache_modul.t('b_starter_kein')
-    kurz = pfade_modul.kuerzen(str(starter))
-    eigen = (pfade_modul.einstellung('spielstarter') or '').strip()
-    if eigen:
-        return sprache_modul.t('b_starter_eigen', kurz)
-    return kurz
+    from . import pfade as paths_module
+    from . import sprache as language_module
+    launcher = paths_module.spielstarter()
+    if not launcher:
+        return language_module.t('b_starter_kein')
+    short = paths_module.kuerzen(str(launcher))
+    own_flag = (paths_module.einstellung('spielstarter') or '').strip()
+    if own_flag:
+        return language_module.t('b_starter_eigen', short)
+    return short
 
 
-def _injektionslage():
+def _injection_state():
     """Stehen die Bauplan-Angaben im Spiel? Eine Zeile, die einen Anruf spart.
 
     ⚠ Der häufigste Support-Fall lautet „ich sehe deine Angaben im Spiel nicht
@@ -465,17 +465,17 @@ def _injektionslage():
     # wäre ein fettes „NICHT eingetragen" eine Warnung vor dem Normalzustand.
     if not lage['datei']:
         return t('b_inj_keine')
-    teile = [t('b_inj_drin') if lage['drin'] else t('b_inj_weg')]
+    parts = [t('b_inj_drin') if lage['drin'] else t('b_inj_weg')]
     # ⚠ Beide Schalter stehen auf „an", solange niemand sie anfasst — dann
     # tauchen sie in `selbst_gesetzt` NICHT auf. Ohne diese zwei Angaben liest
     # man „nicht eingetragen" und weiß nicht, ob das Absicht ist.
     if not pfade.einstellung_wahrheit('inj_an', True):
-        teile.append(t('b_inj_aus'))
-    teile.append(t('b_inj_auto')
+        parts.append(t('b_inj_aus'))
+    parts.append(t('b_inj_auto')
                  if pfade.einstellung_wahrheit('inj_auto', True)
                  else t('b_inj_hand'))
     if lage['quelle']:
-        teile.append('%s %s' % (lage['quelle'], lage['stand'] or ''))
+        parts.append('%s %s' % (lage['quelle'], lage['stand'] or ''))
     # ⭐⭐ **Welche Sprachdatei — und welche das Spiel wirklich lädt.**
     #
     # Es gibt `english/global.ini` und `german_(germany)/global.ini`, und der
@@ -493,16 +493,16 @@ def _injektionslage():
     # startet Star Citizen auf Englisch; dann steht hier „—" und das ist die
     # Auskunft, nicht ein fehlender Wert.
     try:
-        ordner = os.path.basename(os.path.dirname(lage['datei'] or '')) or '?'
+        folder = os.path.basename(os.path.dirname(lage['datei'] or '')) or '?'
         from . import translation
-        gespielt = translation.game_language() or '—'
-        teile.append('%s / Spiel: %s' % (ordner, gespielt))
-    except Exception as ausnahme:
-        fehler.merken('bericht.injektionssprache', ausnahme)
-    return ' · '.join(x for x in teile if x)
+        played = translation.game_language() or '—'
+        parts.append('%s / Spiel: %s' % (folder, played))
+    except Exception as exception:
+        fehler.merken('report.injektionssprache', exception)
+    return ' · '.join(x for x in parts if x)
 
 
-def _absturz_kurz(zeilen, grenze):
+def _crash_brief(lines, limit):
     """Aus einem harten Abbruch die Zeilen, die etwas sagen.
 
     ⛔⛔ **Der schuldige Faden zuerst — sonst steht im Bericht Beiwerk.**
@@ -526,46 +526,46 @@ def _absturz_kurz(zeilen, grenze):
     # ⚠ Der Kopf ist alles VOR dem ersten Faden — nicht „die ersten drei
     # Zeilen". Sonst rutscht eine Zeile aus einem wartenden Faden mit nach
     # oben und sieht aus, als gehöre sie zur Fehlermeldung.
-    erster = next((i for i, z in enumerate(zeilen)
+    first = next((i for i, z in enumerate(lines)
                    if z.lower().startswith(('thread ', 'current thread'))),
-                  len(zeilen))
-    kopf = zeilen[:erster]
-    stelle = next((i for i, z in enumerate(zeilen)
+                  len(lines))
+    head = lines[:first]
+    place = next((i for i, z in enumerate(lines)
                    if z.lower().startswith('current thread')), None)
-    if stelle is None:
-        return zeilen[:grenze]
+    if place is None:
+        return lines[:limit]
     # Der schuldige Block reicht bis zum nächsten Faden.
-    ende = next((i for i in range(stelle + 1, len(zeilen))
-                 if zeilen[i].lower().startswith(('thread ', 'current thread'))),
-                len(zeilen))
-    schuld = zeilen[stelle:ende]
-    rest = [z for i, z in enumerate(zeilen)
-            if i >= erster and not (stelle <= i < ende)]
-    return (kopf + schuld + rest)[:grenze]
+    end = next((i for i in range(place + 1, len(lines))
+                 if lines[i].lower().startswith(('thread ', 'current thread'))),
+                len(lines))
+    blame = lines[place:end]
+    rest = [z for i, z in enumerate(lines)
+            if i >= first and not (place <= i < end)]
+    return (head + blame + rest)[:limit]
 
 
-def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
+def build(version='', root=None, fehleranzahl=8, message=''):
     """Den Bericht als Text zusammensetzen."""
-    zeilen = []
+    lines = []
 
-    def zeile(bez, wert):
-        zeilen.append('%-18s%s' % (bez, pfade.kuerzen(wert)))
+    def line(label, value):
+        lines.append('%-18s%s' % (label, pfade.kuerzen(value)))
 
-    zeilen.append(t('b_kopf')
+    lines.append(t('b_kopf')
                   % (version or '—', datetime.now().strftime(t('b_datum'))))
-    zeilen.append('')
+    lines.append('')
 
     # ⭐ Wer meldet das? Steht bewusst ganz oben — mit vielen Nutzern ist ein
     # Bericht ohne Absender kaum zuzuordnen, und Rückfragen laufen ins Leere.
     # **Freiwillig**: Ist nichts eingetragen, steht hier „nicht angegeben"; der
     # Watcher füllt das Feld nie von selbst.
-    melder = (pfade.einstellung('melder_name') or '').strip()
+    reporter = (pfade.einstellung('melder_name') or '').strip()
     # ⚠ **Ohne `kuerzen()`.** Jede andere Zeile läuft durch die Anonymisierung,
     # die Benutzernamen durch `<benutzer>` ersetzt — und genau das traf den
     # Melder-Namen, wenn er dem Systemkonto gleicht („Xharig"). Ausgerechnet
     # die einzige Angabe, die der Nutzer BEWUSST macht, verschwand dadurch.
     # Aufgefallen am 29.08.2026 auf einem Bildschirmfoto, nicht im Test.
-    zeilen.append('%-18s%s' % (t('b_melder'), melder or t('s_melder_leer')))
+    lines.append('%-18s%s' % (t('b_melder'), reporter or t('s_melder_leer')))
     # ⭐⭐ **Was ist passiert — in eigenen Worten, ganz oben.** Ohne dieses Feld
     # landete die Meldung im Namen: „BUSHWICK mission log updated niocht"
     # (05.09.2026). Der Hinweis war da, nur an der falschen Stelle.
@@ -577,23 +577,23 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     #
     # ⚠ Mehrzeilig eingerückt, damit ein langer Satz die Spaltenform nicht
     # sprengt — und durch `kuerzen()`, denn hier kann ein Pfad drinstehen.
-    hinweis = (meldung or '').strip()
-    if hinweis:
-        zeilen.append('')
-        zeilen.append(t('b_meldung'))
-        for stueck in _umbrechen(pfade.kuerzen(hinweis), 76):
-            zeilen.append('  ' + stueck)
-    zeilen.append('')
+    note = (message or '').strip()
+    if note:
+        lines.append('')
+        lines.append(t('b_meldung'))
+        for piece in _wrap(pfade.kuerzen(note), 76):
+            lines.append('  ' + piece)
+    lines.append('')
 
-    uebersicht = _sicher(pfade.uebersicht, {})
+    uebersicht = _safe(pfade.uebersicht, {})
     if not isinstance(uebersicht, dict):
         uebersicht = {}
 
-    zeile(t('b_system'), _sicher(_system))
-    zeile(t('b_verpackung'), _sicher(_verpackung_lesbar))
-    zeile(t('b_python'), '%s / %s' % (platform.python_version(),
-                                      _sicher(_tk_fassung)))
-    zeile(t('b_bildschirm'), _sicher(lambda: _bildschirme(wurzel)))
+    line(t('b_system'), _safe(_system))
+    line(t('b_verpackung'), _safe(_packaging_readable))
+    line(t('b_python'), '%s / %s' % (platform.python_version(),
+                                      _safe(_tk_version)))
+    line(t('b_bildschirm'), _safe(lambda: _screens(root)))
     # ⭐ **Wie das Overlay gerade steht.** Am 13.09.2026 kostete eine Meldung
     # ueber das schwebende Schloss einen ganzen Abend Messungen, weil hier
     # nichts davon stand: keine Fenstergroesse, kein Klappzustand, keine
@@ -603,24 +603,24 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # ⚠ Nur Zahlen und Zustaende; der Bericht landet in einem oeffentlichen
     # Issue. Steht kein Overlay (Pruefstand, reines Fensterprogramm), bleibt
     # die Zeile weg statt „unbekannt" zu melden.
-    _lage = _sicher(lambda: (overlay.STATE_REPORT[0] or (lambda: ''))())
-    if _lage:
-        zeile(t('b_overlay'), _lage)
-    zeilen.append('')
+    _state = _safe(lambda: (overlay.STATE_REPORT[0] or (lambda: ''))())
+    if _state:
+        line(t('b_overlay'), _state)
+    lines.append('')
 
-    zeile(t('b_spiel'), _sicher(lambda: uebersicht.get('spiel_ordner')
+    line(t('b_spiel'), _safe(lambda: uebersicht.get('spiel_ordner')
                                  or t('b_nicht_gefunden')))
-    zeile(t('b_gamelog'), _sicher(lambda: uebersicht.get('game_log')
+    line(t('b_gamelog'), _safe(lambda: uebersicht.get('game_log')
                                    or t('b_nicht_gefunden')))
-    zeile(t('b_sicherungen'), _sicher(_protokollzeile))
-    zeile(t('b_launcher'), _sicher(lambda: uebersicht.get('launcher')
+    line(t('b_sicherungen'), _safe(_log_line))
+    line(t('b_launcher'), _safe(lambda: uebersicht.get('launcher')
                                     or t('b_nicht_da')))
     # ⚠ **Womit sich das Spiel starten ließe — und ob das jemand von Hand
     # eingetragen hat.** Ohne diese Zeile ist „der Startknopf tut nichts" nicht
     # zu beantworten, ohne den Nutzer auszufragen. Siehe die Regel: Was einen
     # Fehler erklären würde, gehört in den Bericht, bevor er das nächste Mal
     # gemeldet wird.
-    zeile(t('b_starter'), _sicher(_spielstarter))
+    line(t('b_starter'), _safe(_game_launcher))
     # ⚠ `collect()` gibt ein **Tupel** zurück — (phrases, herkunft). Hier stand
     # `', '.join(sammeln())`, was eine Liste mit einem String zusammenfügen
     # wollte und mit einem TypeError abbrach. `_sicher()` verschluckte den, und
@@ -631,18 +631,18 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # der echten `global.ini` des Spielers stammt oder nur aus unserer Tabelle
     # geraten ist — genau die Auskunft, die man bei „er erkennt meine Baupläne
     # nicht" als Erstes braucht.
-    zeile(t('b_spielsprache'), _sicher(_spielsprache))
-    zeile(t('b_inj'), _sicher(_injektionslage))
-    zeile(t('b_inj_datei'), _sicher(
+    line(t('b_spielsprache'), _safe(_game_language))
+    line(t('b_inj'), _safe(_injection_state))
+    line(t('b_inj_datei'), _safe(
         lambda: __import__('scbp.injektion', fromlist=['ini_datei'])
         .ini_datei()[0] or t('b_inj_keine')))
-    zeilen.append('')
+    lines.append('')
 
-    zeile(t('b_bestand'), _sicher(_bestandzeile))
-    _unbekannt = _sicher(_unbekannte_bauplaene, '')
-    if _unbekannt and _unbekannt != '—':
-        zeile(t('b_unbekannt'), _unbekannt)
-    zeile(t('b_merkliste'), _sicher(lambda: t('b_n_eintraege') % _json_groesse(
+    line(t('b_bestand'), _safe(_collection_line))
+    _unknown = _safe(_unknown_blueprints, '')
+    if _unknown and _unknown != '—':
+        line(t('b_unbekannt'), _unknown)
+    line(t('b_merkliste'), _safe(lambda: t('b_n_eintraege') % _json_size(
         __import__('scbp.watchlist', fromlist=['path']).path(), 'eintraege')))
     # ⚠⚠ **Der gespeicherte Stand, kein Netzabruf.** Hier stand
     # `aktuelle_version()` — und die fragt scmdb.net. Ohne Internet wartete der
@@ -654,40 +654,40 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     #
     # Der Bericht soll ohnehin den **Ist-Zustand auf diesem Rechner** zeigen,
     # nicht den im Netz: Interessant ist, welchen Katalog der Nutzer hat.
-    zeile(t('b_katalog'), _sicher(lambda: (__import__(
+    line(t('b_katalog'), _safe(lambda: (__import__(
         'scbp.catalog', fromlist=['load']).load().get('version') or None)))
-    zeile(t('b_historie'), _sicher(_patch_history))
+    line(t('b_historie'), _safe(_patch_history))
 
     # ⚠ Die drei Werkstatt-Seiten (ab v3.3.0). Ohne sie liesse sich eine
     # Meldung wie „bei mir bleibt die Herstellung leer" nicht beurteilen —
     # man saehe nicht, ob die Daten ueberhaupt geladen sind.
-    def _lagerzeile():
+    def _storage_line():
         from . import materials
-        posten = materials.load()
-        arten = {(p_.get('material') or '').strip().lower() for p_ in posten}
-        return t('b_n_posten') % (len(posten), len(arten - {''}))
+        items = materials.load()
+        kinds = {(p_.get('material') or '').strip().lower() for p_ in items}
+        return t('b_n_posten') % (len(items), len(kinds - {''}))
 
-    def _rezeptzeile():
+    def _recipe_line():
         from . import crafting
-        stand = crafting.current_build()
-        if not stand:
+        state_value = crafting.current_build()
+        if not state_value:
             return t('b_nicht_geladen')
-        return t('b_n_bauplaene_kurz') % (len(crafting.all_items()), stand)
+        return t('b_n_bauplaene_kurz') % (len(crafting.all_items()), state_value)
 
-    def _bergbauzeile():
+    def _mining_line():
         from . import mining
-        stand = mining.current_build()
-        if not stand:
+        state_value = mining.current_build()
+        if not state_value:
             return t('b_nicht_geladen')
-        return t('b_n_orte') % (len(mining.locations()), stand)
+        return t('b_n_orte') % (len(mining.locations()), state_value)
 
-    zeile(t('b_lager'), _sicher(_lagerzeile))
-    zeile(t('b_rezepte'), _sicher(_rezeptzeile))
-    zeile(t('b_bergbaudaten'), _sicher(_bergbauzeile))
-    zeilen.append('')
+    line(t('b_lager'), _safe(_storage_line))
+    line(t('b_rezepte'), _safe(_recipe_line))
+    line(t('b_bergbaudaten'), _safe(_mining_line))
+    lines.append('')
 
-    zeile(t('b_ordner'), _sicher(lambda: uebersicht.get('app_ordner')))
-    zeile(t('b_einstellungen'), _sicher(lambda: ', '.join(
+    line(t('b_ordner'), _safe(lambda: uebersicht.get('app_ordner')))
+    line(t('b_einstellungen'), _safe(lambda: ', '.join(
         '%s=%s' % (k, v) for k, v in sorted(
             (uebersicht.get('selbst_gesetzt') or {}).items()))
         or t('b_standard')))
@@ -699,24 +699,24 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # und die letzten zwölf Zeilen zu nehmen, war der Fehler in rc74: Fünf Klicks
     # genügten, und der komplette Startverlauf war aus dem Bericht verdrängt —
     # ausgerechnet der Teil, für den die Spur gebaut wurde.
-    start, seiten = _sicher(fehler.spur_geteilt, ([], []))
+    start, seiten = _safe(fehler.spur_geteilt, ([], []))
     # ⚠ Erst zusammenfassen, dann die letzten zwölf nehmen — andersherum wäre
     # der Ausschnitt schon leergeräumt, bevor das Zusammenfassen greift.
-    start = _gedraengt(start)
+    start = _dense(start)
     if start:
-        zeilen.append('')
-        zeilen.append(t('b_spur'))
-        for eintrag in start[-12:]:
-            zeilen.append('  ' + eintrag)
+        lines.append('')
+        lines.append(t('b_spur'))
+        for entry in start[-12:]:
+            lines.append('  ' + entry)
     # Die Diagnose-Seite selbst gehört nicht in die Liste: Der Bericht entsteht,
     # **während** sie gebaut wird, und stünde sonst in jedem Bericht als letzte,
     # unfertige Zeile — es sähe jedes Mal so aus, als wäre genau dort Schluss.
     while seiten and 'Seite diagnose' in seiten[-1]:
         seiten.pop()
-    seiten = _gedraengt(seiten)
+    seiten = _dense(seiten)
     if seiten:
-        zeilen.append('')
-        zeilen.append(t('b_spur_seiten'))
+        lines.append('')
+        lines.append(t('b_spur_seiten'))
         # ⚠⚠ **24 Zeilen, nicht 12 — der Weg zum Bericht frisst die Spur.**
         # Jede Seite belegt zwei Zeilen; zwölf zeigten also sechs Seiten. Wer
         # den Bericht holt, klickt sich aber erst durch die Info-Seiten dorthin
@@ -726,28 +726,28 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
         #
         # Ein Bericht, dessen Beschaffung die Beobachtung zerstört, ist kein
         # Bericht. `SPUR_REST` hebt 60 Zeilen auf, der Platz war also da.
-        for eintrag in seiten[-24:]:
-            zeilen.append('  ' + eintrag)
+        for entry in seiten[-24:]:
+            lines.append('  ' + entry)
 
     # ⚠ Und danach der harte Abbruch, falls es einen gab. Er steht **vor** den
     # Fehlern, weil er der schwerere Befund ist: Ein Eintrag in der Fehlerliste
     # heißt, das Programm hat weitergelebt; hier war es mitten im Befehl weg.
     # Nur die erste Handvoll Zeilen — der volle Aufrufweg aller Fäden füllt
     # Seiten, und der Melder soll den Bericht noch verschicken können.
-    absturz = _sicher(fehler.letzter_absturz, [])
-    if absturz:
-        zeilen.append('')
-        zeilen.append(t('b_absturz'))
-        for eintrag in _absturz_kurz(absturz, 14):
-            zeilen.append('  ' + eintrag)
-        if len(absturz) > 14:
-            zeilen.append('  … (%d)' % (len(absturz) - 14))
+    crash = _safe(fehler.letzter_absturz, [])
+    if crash:
+        lines.append('')
+        lines.append(t('b_absturz'))
+        for entry in _crash_brief(crash, 14):
+            lines.append('  ' + entry)
+        if len(crash) > 14:
+            lines.append('  … (%d)' % (len(crash) - 14))
 
-    letzte = _sicher(lambda: fehler.letzte(fehleranzahl), [])
-    gesamt = _sicher(fehler.anzahl, 0)
-    zeilen.append('')
+    letzte = _safe(lambda: fehler.letzte(fehleranzahl), [])
+    total = _safe(fehler.anzahl, 0)
+    lines.append('')
     if letzte:
-        zeilen.append(t('b_fehler') % (len(letzte), gesamt))
+        lines.append(t('b_fehler') % (len(letzte), total))
         # ⚠ **Gleichartige Fehler zusammenfassen.** Ein einziger Vorfall kann
         # den ganzen Speicher belegen: Am 28.08.2026 stand in einem Bericht
         # **50 von 50** Plätzen dieselbe Zeile, alle innerhalb von acht Sekunden
@@ -759,17 +759,17 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
         # wiederkommen: Jeder Fehler in einer Schleife tut das. Deshalb wird hier
         # gebündelt, was sich nur in der Uhrzeit unterscheidet — dieselbe Stelle,
         # dieselbe Art, dieselbe Meldung, dieselbe Fassung.
-        gebuendelt = []
+        bundled = []
         for e in letzte:
-            kennung = (e.get('fassung'), e.get('stelle'), e.get('art'),
+            ident = (e.get('fassung'), e.get('stelle'), e.get('art'),
                        e.get('meldung'))
-            if gebuendelt and gebuendelt[-1][0] == kennung:
-                gebuendelt[-1][2] += 1
-                gebuendelt[-1][3] = e.get('zeit', '—')
+            if bundled and bundled[-1][0] == ident:
+                bundled[-1][2] += 1
+                bundled[-1][3] = e.get('zeit', '—')
             else:
-                gebuendelt.append([kennung, e, 1, e.get('zeit', '—')])
+                bundled.append([ident, e, 1, e.get('zeit', '—')])
 
-        for _kennung, e, wieoft, bis in gebuendelt:
+        for _ident, e, how_often, bis in bundled:
             # ⚠ Die Version dazuschreiben und kennzeichnen, was **nicht** aus
             # der laufenden Fassung stammt. Ohne die Angabe sucht der Nächste
             # nach einem Fehler, den es vielleicht nicht mehr gibt.
@@ -780,24 +780,24 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
             # Update gemacht hat, schickt aus einer alten Version einen Fehler,
             # den wir noch nie gesehen haben. Eine Bemerkung, die zum Abhaken
             # einlädt, ist dann genau das Gegenteil einer Hilfe.
-            fassung = e.get('fassung') or '?'
-            alt_marke = ''
-            if version and fassung not in ('?', '') and fassung != version:
-                alt_marke = '  ' + t('b_fehler_alt')
-            zeilen.append('  %s  %-10s %-24s %s: %s%s'
-                          % (e.get('zeit', '—'), fassung, e.get('stelle', '—'),
-                             e.get('art', '—'), e.get('meldung', '—'), alt_marke))
-            if wieoft > 1:
-                zeilen.append(t('b_fehler_mehrfach') % (wieoft, bis))
+            version_text = e.get('fassung') or '?'
+            old_mark = ''
+            if version and version_text not in ('?', '') and version_text != version:
+                old_mark = '  ' + t('b_fehler_alt')
+            lines.append('  %s  %-10s %-24s %s: %s%s'
+                          % (e.get('zeit', '—'), version_text, e.get('stelle', '—'),
+                             e.get('art', '—'), e.get('meldung', '—'), old_mark))
+            if how_often > 1:
+                lines.append(t('b_fehler_mehrfach') % (how_often, bis))
     else:
-        zeilen.append(t('b_fehler_keine'))
+        lines.append(t('b_fehler_keine'))
 
-    zeilen.append('')
-    zeilen.append(t('b_fuss'))
-    return '\n'.join(zeilen)
+    lines.append('')
+    lines.append(t('b_fuss'))
+    return '\n'.join(lines)
 
 
-def absenden(text, version=''):
+def submit(text, version=''):
     """Den Bericht an den eingebauten Kanal schicken. (Erfolg, Meldung).
 
     ⚠ **Der einzige Weg, der bei Nicht-Bastlern ankommt.** Kopieren und in
@@ -815,50 +815,50 @@ def absenden(text, version=''):
     zudem das, was man lesen und aufheben kann.
     """
     from . import report_target
-    ziel = report_target.target()
+    target = report_target.target()
     if not report_target.available():
         return False, t('m_bericht_kein_ziel')
 
     import urllib.request
     import uuid
-    grenze = uuid.uuid4().hex
+    limit = uuid.uuid4().hex
     name = 'bericht-%s.txt' % datetime.now().strftime('%Y-%m-%d-%H%M')
-    kopf = ('**Fehlerbericht** · %s' % (version or '?'))[:1900]
+    head = ('**Fehlerbericht** · %s' % (version or '?'))[:1900]
 
-    teile = []
-    for feld, wert in (('content', kopf),):
-        teile.append('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n'
-                     % (grenze, feld, wert))
-    teile.append('--%s\r\nContent-Disposition: form-data; name="files[0]"; '
+    parts = []
+    for field, value in (('content', head),):
+        parts.append('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n'
+                     % (limit, field, value))
+    parts.append('--%s\r\nContent-Disposition: form-data; name="files[0]"; '
                  'filename="%s"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s\r\n'
-                 % (grenze, name, text))
-    teile.append('--%s--\r\n' % grenze)
-    leib = ''.join(teile).encode('utf-8')
+                 % (limit, name, text))
+    parts.append('--%s--\r\n' % limit)
+    torso = ''.join(parts).encode('utf-8')
 
     try:
-        anfrage = urllib.request.Request(
-            ziel, data=leib, method='POST',
-            headers={'Content-Type': 'multipart/form-data; boundary=%s' % grenze,
+        request = urllib.request.Request(
+            target, data=torso, method='POST',
+            headers={'Content-Type': 'multipart/form-data; boundary=%s' % limit,
                      'User-Agent': 'VerseKit (ehemals SC-BP-Watcher)'})
-        with urllib.request.urlopen(anfrage, timeout=30) as antwort:
-            if 200 <= antwort.status < 300:
+        with urllib.request.urlopen(request, timeout=30) as answer:
+            if 200 <= answer.status < 300:
                 return True, ''
-            return False, 'HTTP %s' % antwort.status
-    except Exception as ausnahme:
-        fehler.merken('bericht.absenden', ausnahme)
+            return False, 'HTTP %s' % answer.status
+    except Exception as exception:
+        fehler.merken('report.submit', exception)
         # ⚠ Den Grund NICHT durchreichen: In der Fehlermeldung einer
         # fehlgeschlagenen Anfrage steht die Adresse, und die ist geheim.
         return False, t('m_bericht_weg')
 
 
-def in_die_ablage(text, wurzel=None):
+def to_archive(text, root=None):
     """Den Bericht in die Zwischenablage legen. True, wenn es geklappt hat."""
     try:
-        if wurzel is None:
+        if root is None:
             return False
-        wurzel.clipboard_clear()
-        wurzel.clipboard_append(text)
-        wurzel.update()          # ohne das ist die Ablage nach dem Beenden leer
+        root.clipboard_clear()
+        root.clipboard_append(text)
+        root.update()          # ohne das ist die Ablage nach dem Beenden leer
         return True
     except Exception:
         return False
@@ -870,7 +870,7 @@ URL_GRENZE = 6000
 ISSUE_ADRESSE = 'https://github.com/Xharig/SC-BP-Watcher/issues/new'
 
 
-def _vorlage_zur_sprache():
+def _template_for_language():
     """Deutsche Oberfläche → deutsches Formular, sonst das englische.
 
     ⚠ **Der Rückfall ist seit 31.08.2026 das deutsche Formular** — Deutsch ist
@@ -891,7 +891,7 @@ def _vorlage_zur_sprache():
         return 'fehler.yml'
 
 
-def issue_adresse(text, titel='', vorlage=None):
+def issue_url(text, title='', template=None):
     """Eine Adresse, die bei GitHub ein **vorausgefülltes** Formular öffnet.
 
     Warum dieser Weg und kein Absenden aus dem Programm heraus: Ein Issue
@@ -906,43 +906,43 @@ def issue_adresse(text, titel='', vorlage=None):
     """
     from urllib.parse import urlencode
 
-    koerper = text or ''
-    if len(koerper) > URL_GRENZE:
-        koerper = koerper[:URL_GRENZE] + t('m_bericht_gekuerzt')
+    body = text or ''
+    if len(body) > URL_GRENZE:
+        body = body[:URL_GRENZE] + t('m_bericht_gekuerzt')
 
-    werte = {'template': vorlage or _vorlage_zur_sprache(), 'bericht': koerper}
-    if titel:
-        werte['title'] = titel
-    return ISSUE_ADRESSE + '?' + urlencode(werte)
+    values = {'template': template or _template_for_language(), 'bericht': body}
+    if title:
+        values['title'] = title
+    return ISSUE_ADRESSE + '?' + urlencode(values)
 
 
-def issue_oeffnen(text, titel=''):
+def open_issue(text, title=''):
     """Das vorausgefüllte Formular im Browser öffnen. True, wenn es startete.
 
     ⚠ Über `pfade.im_browser`, nicht über `webbrowser.open()` — im AppImage
     öffnet das nichts und meldet trotzdem Erfolg (Begründung dort).
     """
     try:
-        return pfade.im_browser(issue_adresse(text, titel))
+        return pfade.im_browser(issue_url(text, title))
     except Exception:
         return False
 
 
-def speichern(text, pfad_=None):
+def save(text, path_=None):
     """Den Bericht als Datei ablegen; gibt den Pfad zurück oder None."""
     try:
-        pfad_ = pfad_ or pfade.app_datei('bericht.txt')
-        with open(pfad_, 'w', encoding='utf-8') as f:
+        path_ = path_ or pfade.app_datei('bericht.txt')
+        with open(path_, 'w', encoding='utf-8') as f:
             f.write(text)
-        return pfad_
-    except Exception as ausnahme:
+        return path_
+    except Exception as exception:
         try:
             from . import fehler
-            fehler.merken('bericht.speichern', ausnahme)
+            fehler.merken('report.save', exception)
         except Exception:
             pass
         return None
 
 
 if __name__ == '__main__':
-    sys.stdout.write(bauen(version='3.0.0-dev') + '\n')
+    sys.stdout.write(build(version='3.0.0-dev') + '\n')
