@@ -206,6 +206,41 @@ def unsichtbar_machen():
 
         klasse.__init__ = bauen
         klasse._scbp_beiseite = True
+
+        # ⛔⛔ **Einmal setzen reicht nicht — das Programm setzt nach.**
+        # Am 14.09.2026 lag mitten im Selbsttest ein Overlay mit Prüfdaten
+        # sichtbar über einem laufenden Film: „es ist immer noch auf dem
+        # unteren bildschirm ^^". Das Overlay holt seine gemerkte Lage aus
+        # den Einstellungen und seine Durchsichtigkeit aus dem Regler —
+        # **nach** dem Bauen. Was hier oben gesetzt wurde, war da längst
+        # überschrieben.
+        #
+        # Deshalb werden `geometry` und `attributes` umgeleitet: Die **Größe**
+        # darf das Programm bestimmen (sonst misst man nichts Echtes), die
+        # **Lage** nicht, und die Durchsichtigkeit bleibt bei 0.
+        # ⚠ Beide Namen zuweisen, nicht über `getattr` erraten: In `tkinter`
+        # heißt die Methode `wm_geometry`, und `geometry` ist nur ein zweiter
+        # Name dafür. Wer einen von beiden stehen lässt, hat die Umleitung
+        # nicht gebaut — und der Selbsttest verbietet zu Recht, Namen als
+        # Zeichenkette zu raten.
+        ur_lage = klasse.wm_geometry
+        ur_durchsicht = klasse.wm_attributes
+
+        def lage(self, neu=None, _ur=ur_lage, _platz=platz):
+            if isinstance(neu, str) and ('+' in neu or '-' in neu[1:]):
+                groesse = neu.split('+')[0].split('-')[0]
+                return _ur(self, (groesse or '') + _platz)
+            return _ur(self, neu) if neu is not None else _ur(self)
+
+        def durchsicht(self, *a, _ur=ur_durchsicht, **k):
+            if len(a) >= 2 and a[0] == '-alpha':
+                return _ur(self, '-alpha', 0.0)
+            return _ur(self, *a, **k)
+
+        klasse.wm_geometry = lage
+        klasse.geometry = lage
+        klasse.wm_attributes = durchsicht
+        klasse.attributes = durchsicht
         # Nach vorn holen bleibt auch hier verboten.
         setattr(klasse, 'lift', lambda self, *a, **k: None)
 
