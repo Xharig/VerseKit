@@ -16021,22 +16021,35 @@ def main():
         # mehreren Anlaeufen nicht entfernen, ist das ein BEFUND mit Grund,
         # kein stilles Ueberspringen. Die Pruefung darunter braucht sie weg —
         # sonst prueft sie etwas anderes, als ihr Text behauptet.
-        shutil.rmtree(os.path.dirname(erst), ignore_errors=True)
-        _weg169 = None
-        for _versuch169 in range(20):
-            try:
-                os.remove(zweit)
-                _weg169 = True
-                break
-            except FileNotFoundError:
-                _weg169 = True
-                break
-            except OSError as _sperre169:
-                _weg169 = _sperre169
-                time.sleep(0.05)
-        if _weg169 is not True:
-            pruefe(False, 'die Zweitschrift laesst sich entfernen (gesperrt: %s)'
-                   % _weg169)
+        # ⛔⛔ **`ignore_errors=True` heisst: es kann stehen bleiben.** Am
+        # 14.09.2026 fiel die Pruefung darunter einmal rot aus („ohne jeden
+        # Zeiger kommt None zurueck") — nicht weil `_ablage_aus_datei()` etwas
+        # falsch macht, sondern weil der SICHTBARE Zeiger den `rmtree`
+        # ueberlebt hatte. Die Zweitschrift wurde unten hartnaeckig entfernt,
+        # der sichtbare gar nicht geprueft. Eine Pruefung, deren Vorbedingung
+        # nur meistens gilt, meldet einen Fehler, den es nicht gibt — und
+        # schickt die naechste Sitzung auf die falsche Faehrte.
+        _ab169 = []
+        for _weg_datei169 in (erst, zweit):
+            shutil.rmtree(os.path.dirname(_weg_datei169), ignore_errors=True)
+            _ergebnis169 = None
+            for _versuch169 in range(20):
+                try:
+                    os.remove(_weg_datei169)
+                    _ergebnis169 = True
+                    break
+                except FileNotFoundError:
+                    _ergebnis169 = True
+                    break
+                except OSError as _sperre169:
+                    _ergebnis169 = _sperre169
+                    time.sleep(0.05)
+            if _ergebnis169 is not True:
+                _ab169.append('%s (%s)' % (os.path.basename(_weg_datei169),
+                                           _ergebnis169))
+        if _ab169:
+            pruefe(False, 'beide Zeiger lassen sich entfernen (gesperrt: %s)'
+                   % ', '.join(_ab169))
         else:
             pruefe(_pf169._ablage_aus_datei() is None,
                    'ohne jeden Zeiger kommt None zurueck')
