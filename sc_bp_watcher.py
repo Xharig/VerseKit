@@ -4265,7 +4265,7 @@ class Overlay:
         Klappt es nicht, wird die Einstellung **zurückgenommen**. Ein
         gespeichertes „an", während in Wahrheit nichts durchgereicht wird, wäre
         das schlechteste von beidem — genauso hält es der Schalter in den
-        Einstellungen (`seiten._durchklick_um`)."""
+        Einstellungen (`seiten._click_through_toggle`)."""
         pfade.einstellung_setzen('durchklickbar', True)
         if self.durchklick_anwenden():
             self._status_setzen(sprache.Satz('ov_schloss_zu'))

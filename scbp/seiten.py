@@ -781,7 +781,7 @@ def _status(window, parent, symbol, bold, rest, color=None):
     return innen
 
 
-def _pfadfeld(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
+def _path_field(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
     """Ein Pfad mit Knopf daneben."""
     reihe = tk.Frame(eltern, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
@@ -797,7 +797,7 @@ def _pfadfeld(fenster, eltern, wert, waehlen, oeffnen=None, platzhalter=''):
 
 
 
-def _masszahl(widget, wert, ersatz=0):
+def _pixels(widget, wert, ersatz=0):
     """Eine Tk-Massangabe als ganze Zahl lesen.
 
     ⚠ `cget()` liefert je nach Widget und Option mal ein `int`, mal einen
@@ -912,9 +912,9 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
             # Erfragt statt geschätzt, damit es auch bei anderer Darstellung
             # stimmt.
             try:
-                rand = 2 * (_masszahl(label, label.cget('borderwidth'))
-                            + _masszahl(label, label.cget('padx'))
-                            + _masszahl(label, label.cget('highlightthickness')))
+                rand = 2 * (_pixels(label, label.cget('borderwidth'))
+                            + _pixels(label, label.cget('padx'))
+                            + _pixels(label, label.cget('highlightthickness')))
             except tk.TclError:
                 rand = 4
             try:
@@ -1688,7 +1688,7 @@ def _general(fenster, rahmen):
         tk.Label(ziel, text=t('s_nicht_moegl'), bg=BG, fg=SUB,
                  font=fenster.f_small).pack()
 
-    _menueeintrag_feld(fenster, innen)
+    _menu_entry_field(fenster, innen)
 
     ziel = _setting_row(fenster, innen, t('s_tray'),
                  t('s_tray_h'))
@@ -1721,7 +1721,7 @@ def _display(fenster, rahmen):
     modus = _choice(fenster, ziel,
                   [('immer', t('s_ov_immer')), ('popup', t('s_ov_popup'))],
                   pfade.einstellung('overlay_modus') or 'immer',
-                  lambda k: _overlay_modus(fenster, modus, k))
+                  lambda k: _overlay_mode(fenster, modus, k))
     modus.pack()
 
     # ⚠⚠ **Die Tastenkombination.** Star Citizen laeuft im Vollbild und blendet
@@ -1740,7 +1740,7 @@ def _display(fenster, rahmen):
                   ('unten-links', t('s_ov_ecke_ul')),
                   ('unten-rechts', t('s_ov_ecke_ur'))],
                  pfade.einstellung('overlay_ecke') or 'frei',
-                 lambda k: _overlay_ecke(fenster, ecke, k))
+                 lambda k: _overlay_corner(fenster, ecke, k))
     ecke.pack()
     # ⭐ Zieht jemand das Overlay mit der Hand woandershin, hebt es die Ecke
     # selbst auf (`Overlay._verschoben`) — diese Liste muss das sehen, sonst
@@ -1760,10 +1760,10 @@ def _display(fenster, rahmen):
                    [('oben', t('s_ov_leiste_oben')),
                     ('unten', t('s_ov_leiste_unten'))],
                    pfade.einstellung('overlay_leiste') or 'oben',
-                   lambda k: _overlay_leiste(fenster, leiste, k))
+                   lambda k: _overlay_bar(fenster, leiste, k))
     leiste.pack()
 
-    _hotkey_feld(fenster, innen)
+    _hotkey_field(fenster, innen)
 
     ziel = _setting_row(fenster, innen, t('s_ov_dauer'), t('s_ov_dauer_h'))
     from .main_window import round_entry as _zahlfeld
@@ -1784,12 +1784,13 @@ def _display(fenster, rahmen):
     dauer.bind('<Return>', dauer_merken)
 
     ziel = _setting_row(fenster, innen, t('s_ov_durch'), t('s_ov_durch_h'))
-    if _durchklick_moeglich():
-        # ⚠ Nicht `_schalter` nennen — so heisst in dieser Datei bereits eine
+    if _click_through_possible():
+        # ⚠ Nicht `_switch` nennen — so heisst in dieser Datei bereits eine
         # Funktion, und ein lokaler Name wuerde sie verdecken (Selbsttest 67).
+        # (Bis P4 Stufe 7d hiess sie `_schalter`.)
         _durch_schalter = toggle_switch(
             ziel, pfade.einstellung_wahrheit('durchklickbar', False),
-            lambda: _durchklick_um(fenster))
+            lambda: _click_through_toggle(fenster))
         _durch_schalter.pack()
 
         # ⚠ Das Durchreichen laesst sich auch am Schloss des Overlays umlegen.
@@ -1974,9 +1975,9 @@ def _folders(fenster, rahmen):
             e._speichern()
             fenster.say(t('e_neustart_noetig'))
 
-    _pfadfeld(fenster, innen, e.spiel, spiel_waehlen,
+    _path_field(fenster, innen, e.spiel, spiel_waehlen,
               oeffnen=lambda: fenster.say(
-                  t('s_or_geoeffnet') if _ordner_zeigen(e.spiel.get())
+                  t('s_or_geoeffnet') if _show_folder(e.spiel.get())
                   else t('s_or_nicht_auf')))
 
     tk.Label(innen, text=t('s_eigene'), bg=BG, fg=FG, font=fenster.f_bold,
@@ -1987,7 +1988,7 @@ def _folders(fenster, rahmen):
     def ablage_oeffnen():
         # Nur melden, was auch stimmt: „Ordner geöffnet" zu sagen, während gar
         # nichts aufgeht, ist schlimmer als eine ehrliche Fehlanzeige.
-        fenster.say(t('s_or_geoeffnet') if _ordner_zeigen(pfade.app_ordner())
+        fenster.say(t('s_or_geoeffnet') if _show_folder(pfade.app_ordner())
                       else t('s_or_nicht_auf'))
 
     def ablage_waehlen():
@@ -1997,9 +1998,9 @@ def _folders(fenster, rahmen):
         gewaehlt = ordner_waehlen(t('s_eigene'), ablage.get())
         if not gewaehlt:
             return
-        _ablage_wechseln(fenster, ablage, gewaehlt)
+        _move_storage(fenster, ablage, gewaehlt)
 
-    _pfadfeld(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen)
+    _path_field(fenster, innen, ablage, ablage_waehlen, oeffnen=ablage_oeffnen)
 
     tk.Label(innen, text='%s  —  %s' % (t('e_launcher'), t('s_optional')), bg=BG, fg=FG,
              font=fenster.f_bold, anchor='w').pack(fill='x', pady=(20, 0))
@@ -2011,13 +2012,13 @@ def _folders(fenster, rahmen):
             e._speichern()
             fenster.say(t('e_neustart_noetig'))
 
-    _pfadfeld(fenster, innen, e.launcher, launcher_waehlen,
+    _path_field(fenster, innen, e.launcher, launcher_waehlen,
               platzhalter=t('s_or_leer'))
 
-    _startbefehl_feld(fenster, innen)
+    _start_command_field(fenster, innen)
 
 
-def _ablage_wechseln(fenster, ablage, ziel):
+def _move_storage(fenster, ablage, ziel):
     """Den Ablage-Ordner umstellen — **und die Daten mitnehmen**.
 
     ⚠⚠ **Bis v3.19.0 setzte der Knopf nur die Einstellung.** Verschoben wurde
@@ -2062,12 +2063,12 @@ def _ablage_wechseln(fenster, ablage, ziel):
                              t('s_ab_belegt') % fremde,
                              yes_text=t('s_ab_belegt_ja'), no_text=t('e_abbrechen')):
             return
-        _ablage_setzen(fenster, ablage, ziel)
+        _set_storage(fenster, ablage, ziel)
         fenster.say(t('s_ab_uebernommen'))
         return
 
     if not eigene:
-        _ablage_setzen(fenster, ablage, ziel)
+        _set_storage(fenster, ablage, ziel)
         fenster.say(t('e_neustart_noetig'))
         return
 
@@ -2075,7 +2076,7 @@ def _ablage_wechseln(fenster, ablage, ziel):
                          t('s_ab_mitnehmen') % eigene,
                          yes_text=t('s_ab_mitnehmen_ja'), no_text=t('s_ab_ohne')):
         # Bewusst ohne Daten umstellen — auch das ist eine gültige Wahl.
-        _ablage_setzen(fenster, ablage, ziel)
+        _set_storage(fenster, ablage, ziel)
         fenster.say(t('e_neustart_noetig'))
         return
 
@@ -2086,17 +2087,17 @@ def _ablage_wechseln(fenster, ablage, ziel):
         # vollständige liegt am alten Ort, den niemand mehr ansieht.
         fenster.say(t('s_ab_misslungen') % (misslungen, kopiert))
         return
-    _ablage_setzen(fenster, ablage, ziel)
+    _set_storage(fenster, ablage, ziel)
     fenster.say(t('s_ab_fertig') % (kopiert, pfade.kuerzen(alt)))
 
 
-def _ablage_setzen(fenster, ablage, ziel):
+def _set_storage(fenster, ablage, ziel):
     """Die Einstellung schreiben und das Feld nachziehen."""
     pfade.einstellung_setzen('ablage_ordner', ziel)
     ablage.set(ziel)
 
 
-def _overlay_ecke(fenster, wahl, kennung):
+def _overlay_corner(fenster, wahl, kennung):
     """Die Ecke merken und sofort anwenden.
 
     ⚠ Sofort, nicht erst beim naechsten Start: Wer eine Ecke waehlt, will
@@ -2114,7 +2115,7 @@ def _overlay_ecke(fenster, wahl, kennung):
         steuerung.ecke_anwenden()
 
 
-def _overlay_leiste(fenster, wahl, kennung):
+def _overlay_bar(fenster, wahl, kennung):
     """Die Leiste nach oben oder unten haengen — sofort.
 
     ⚠ Sofort und nicht erst beim naechsten Start: Wer eine Seite waehlt, will
@@ -2131,7 +2132,7 @@ def _overlay_leiste(fenster, wahl, kennung):
         steuerung.leiste_anwenden()
 
 
-def _hotkey_feld(fenster, innen):
+def _hotkey_field(fenster, innen):
     """Die Tastenkombination einstellen — oder ehrlich sagen, warum nicht.
 
     ⚠⚠ **Unter Wayland steht hier keine Eingabe, sondern die Erklaerung.** Ein
@@ -2189,7 +2190,7 @@ def _hotkey_feld(fenster, innen):
                                                             padx=(8, 0))
 
 
-def _startbefehl_feld(fenster, innen):
+def _start_command_field(fenster, innen):
     """Ein eigener Startbefehl für Star Citizen — für alle ohne LUG Helper.
 
     ⚠ Diese Einstellung gab es schon lange (`spielstarter`), nur **nirgends in
@@ -2227,7 +2228,7 @@ def _startbefehl_feld(fenster, innen):
     _button(fenster, reihe, t('s_or_uebernehmen'), uebernehmen).pack(side='left')
 
 
-def _menueeintrag_feld(fenster, innen):
+def _menu_entry_field(fenster, innen):
     """Startmenü-Eintrag anlegen oder entfernen — nur unter Linux sinnvoll.
 
     Unter Windows erledigt das der Installer; dort wäre der Punkt nur Ballast.
@@ -2260,7 +2261,7 @@ def _menueeintrag_feld(fenster, innen):
     zeigen()
 
 
-def _durchklick_moeglich():
+def _click_through_possible():
     from . import overlay
     try:
         return overlay.durchklickbar_moeglich()
@@ -2268,7 +2269,7 @@ def _durchklick_moeglich():
         return False
 
 
-def _durchklick_um(fenster):
+def _click_through_toggle(fenster):
     """Klicks durchreichen ein- oder ausschalten — und sofort anwenden."""
     from . import overlay, pfade
     neu_wert = not pfade.einstellung_wahrheit('durchklickbar', False)
@@ -2290,7 +2291,7 @@ def _durchklick_um(fenster):
     return neu_wert
 
 
-def _overlay_modus(fenster, wahl, kennung):
+def _overlay_mode(fenster, wahl, kennung):
     """Zwischen „immer sichtbar" und „nur bei Neuzugang" umstellen."""
     from . import overlay, pfade
     wahl.select(kennung)
@@ -2319,7 +2320,7 @@ def saubere_umgebung():
     ⚠ Sie stand jahrelang hier, weil sie hier zuerst gebraucht wurde. Seit die
     Dateiauswahl ein eigenes Modul hat, gehört sie dorthin: Beide brauchen
     dieselbe Wäsche, und zwei Versionen davon wären eine zu viel. Die
-    Weiterleitung bleibt, weil `_ordner_zeigen` und der Spielstart sie hier
+    Weiterleitung bleibt, weil `_show_folder` und der Spielstart sie hier
     aufrufen.
     """
     from . import pfade as pfade_modul
@@ -2338,7 +2339,7 @@ def _im_pfad(name):
     return bool(shutil.which(name))
 
 
-def _ordner_zeigen(pfad):
+def _show_folder(pfad):
     """Den Ordner im Dateiverwalter öffnen — auf jedem System anders.
 
     ⚠ Auch hier die saubere Umgebung: Im AppImage würde `xdg-open` sonst unsere
@@ -2418,7 +2419,7 @@ def _game(fenster, rahmen):
                  [('deutsch', t('s_sp_q_de')), ('starstrings', t('s_sp_q_ss')),
                   ('original', t('s_sp_q_or'))],
                  pfade.einstellung('inj_quelle') or '',
-                 lambda k: _quelle_waehlen(fenster, e, wahl, k, lage_zeigen))
+                 lambda k: _choose_source(fenster, e, wahl, k, lage_zeigen))
     wahl.pack()
 
     ziel = _setting_row(fenster, innen, t('s_sp_auto'), t('s_sp_auto_h'))
@@ -2534,7 +2535,7 @@ _SOURCE_LABELS = {'deutsch': 's_sp_q_de', 'starstrings': 's_sp_q_ss',
               'original': 's_sp_q_or'}
 
 
-def _quelle_waehlen(fenster, e, wahl, kennung, danach):
+def _choose_source(fenster, e, wahl, kennung, danach):
     """Eine Textquelle einrichten — das dauert, also erst ansagen.
 
     ⚠ Ohne Ansage sieht es aus, als sei nichts passiert: Das Herunterladen und
@@ -2616,7 +2617,7 @@ def _collection(fenster, rahmen):
             ergebnis = export.ablegen()
             wieviele = ergebnis[1] if isinstance(ergebnis, tuple) else ergebnis
             fenster.say(t('s_be_geschrieben') % wieviele)
-            _ordner_zeigen(export.ablage_ordner())
+            _show_folder(export.ablage_ordner())
         except Exception as ausnahme:
             fehler.merken('seiten.bestand.ablegen', ausnahme)
             fenster.say(t('s_be_schiefging'))
@@ -2645,7 +2646,7 @@ def _collection(fenster, rahmen):
     _button(fenster, reihe, t('s_be_alle'), in_ablage,
            strong=True).pack(side='left')
     _button(fenster, reihe, t('s_be_ablage'),
-           lambda: _ordner_zeigen(export.ablage_ordner())).pack(side='left',
+           lambda: _show_folder(export.ablage_ordner())).pack(side='left',
                                                                 padx=8)
 
     # Der Satz nimmt die häufigste Frage vorweg: „Muss ich das jedes Mal von
@@ -2686,7 +2687,7 @@ def _collection(fenster, rahmen):
                     t('s_be_leer_h'), color=GOLD)
             return
         v = importer.preview(eintraege)
-        _vorschau_zeigen(fenster, vorschau_platz, art, eintraege, v)
+        _show_preview(fenster, vorschau_platz, art, eintraege, v)
 
     _button(fenster, innen, t('s_be_waehlen'), einlesen,
            strong=True).pack(anchor='w')
@@ -2695,7 +2696,7 @@ def _collection(fenster, rahmen):
     vorschau_platz.pack(fill='x', pady=(14, 20))
     # Der Kasten steht von Anfang an da — sonst wirkt die Seite unfertig, und
     # niemand weiß, dass vor dem Übernehmen noch eine Vorschau kommt.
-    _leere_vorschau(fenster, vorschau_platz)
+    _empty_preview(fenster, vorschau_platz)
 
     # ⚠ **Protokolle erneut einlesen.** Steht hier unten und nicht oben: Es ist
     # kein Weg, den man täglich geht, sondern einer für den Fall, dass etwas
@@ -2784,7 +2785,7 @@ def _collection(fenster, rahmen):
             color=GOLD)
 
 
-def _leere_vorschau(fenster, eltern):
+def _empty_preview(fenster, eltern):
     """Der Vorschau-Kasten, bevor eine Datei gewählt wurde."""
     innen = _card(eltern, border_color=SUB)
     tk.Label(innen, text=t('s_vorschau_leer'), bg=SURFACE, fg=FG,
@@ -2795,7 +2796,7 @@ def _leere_vorschau(fenster, eltern):
     return innen
 
 
-def _vorschau_zeigen(fenster, eltern, art, eintraege, v):
+def _show_preview(fenster, eltern, art, eintraege, v):
     """Was der Import täte — erst nach dem Knopf passiert wirklich etwas."""
     from . import importer
     from .main_window import badge as blase
@@ -4185,7 +4186,7 @@ def _whats_new(fenster, rahmen):
             gezeigt += 1
             # Nur die neueste Version offen; ältere sind einen Klick entfernt.
             offen = (nummer == 0) or stand['art'] != 'alle'
-            _fassung(fenster, behaelter, e, punkte, offen)
+            _version_box(fenster, behaelter, e, punkte, offen)
         if not gezeigt:
             tk.Label(behaelter, text=t('s_wn_nichts'), bg=BG, fg=SUB,
                      font=fenster.f_small).pack(anchor='w', pady=12)
@@ -4245,7 +4246,7 @@ def _art_wort(art):
             'fix': t('s_wn_f_fix')}.get(art, '')
 
 
-def _fassung(fenster, eltern, eintrag, punkte, offen):
+def _version_box(fenster, eltern, eintrag, punkte, offen):
     """Eine Version mit Kopfzeile zum Auf- und Zuklappen."""
     zustand = {'offen': offen}
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
@@ -4282,7 +4283,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
         def lead_umbruch(ereignis, lab=satz):
             passend = max(200, ereignis.width - 8)
             try:
-                if abs(_masszahl(lab, lab.cget('wraplength'))
+                if abs(_pixels(lab, lab.cget('wraplength'))
                        - passend) > 4:
                     lab.configure(wraplength=passend)
             except tk.TclError:
@@ -4323,7 +4324,7 @@ def _fassung(fenster, eltern, eintrag, punkte, offen):
             # Höhe, das löst wieder ein <Configure> aus.
             passend = max(200, ereignis.width - 8)
             try:
-                if abs(_masszahl(lab, lab.cget('wraplength'))
+                if abs(_pixels(lab, lab.cget('wraplength'))
                        - passend) > 4:
                     lab.configure(wraplength=passend)
             except tk.TclError:
@@ -4387,7 +4388,7 @@ def _wertzeile(fenster, eltern, bez, wert, farbe=None):
              font=fenster.f_small, anchor='w').pack(side='left')
 
 
-def _jetzt_nachsehen(fenster):
+def _check_now(fenster):
     """Wirklich bei GitHub nachfragen und sagen, was dabei herauskam.
 
     ⚠ Hier stand nur `fenster.sagen(t('s_ub_sucht'))` — der Knopf **meldete**, dass
@@ -4456,11 +4457,11 @@ def _jetzt_nachsehen(fenster):
 
 
 # Wie oft die Update-Seite von allein bei GitHub nachsieht, solange sie offen
-# ist. Fünf Minuten — siehe die Begründung in `_kanaele_auffrischen`.
+# ist. Fünf Minuten — siehe die Begründung in `_refresh_channels`.
 REFRESH_MS = 5 * 60 * 1000
 
 
-def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
+def _refresh_channels(fenster, kaesten, neu_zeichnen):
     """Im Hintergrund nachsehen und die Knöpfe nachziehen — höchstens einmal.
 
     Läuft in einem eigenen Faden: Die Abfrage geht ins Netz und darf die Seite
@@ -4472,8 +4473,8 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
     if getattr(kaesten, 'schon_gefragt', False):
         return
     kaesten.schon_gefragt = True
-    vorher = (_holen_text(False, fenster.version),
-              _holen_text(True, fenster.version))
+    vorher = (_fetch_label(False, fenster.version),
+              _fetch_label(True, fenster.version))
 
     def arbeit():
         try:
@@ -4505,12 +4506,12 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
                 # ganzen Tag offen lässt).
                 try:
                     kaesten.schon_gefragt = False
-                    kaesten.after(REFRESH_MS, lambda: _kanaele_auffrischen(
+                    kaesten.after(REFRESH_MS, lambda: _refresh_channels(
                         fenster, kaesten, neu_zeichnen))
                 except tk.TclError:
                     pass
-                if (_holen_text(False, fenster.version),
-                        _holen_text(True, fenster.version)) == vorher:
+                if (_fetch_label(False, fenster.version),
+                        _fetch_label(True, fenster.version)) == vorher:
                     return              # nichts Neues, kein Flackern
                 for kind in kaesten.winfo_children():
                     kind.destroy()
@@ -4526,10 +4527,10 @@ def _kanaele_auffrischen(fenster, kaesten, neu_zeichnen):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _holen_moeglich(mit_vorab, eigene=''):
+def _can_fetch(mit_vorab, eigene=''):
     """Steckt hinter dem Knopf ueberhaupt eine Tat? Sonst ist er keiner.
 
-    ⚠ `_holen_text` liefert **nur** die Beschriftung, und zwei ihrer Ergebnisse
+    ⚠ `_fetch_label` liefert **nur** die Beschriftung, und zwei ihrer Ergebnisse
     sind gar keine Aufforderung, sondern eine Zustandsmeldung: „v3.0.0-rc41 ist
     schon da" und „Erst oben auf ‚Jetzt nachsehen' druecken". Der Knopf blieb
     trotzdem ein Knopf — wer auf „ist schon da" drueckte, bekam die laufende
@@ -4538,7 +4539,7 @@ def _holen_moeglich(mit_vorab, eigene=''):
     installieren."
 
     Was aussieht wie ein Knopf, muss etwas tun. Sonst wird daraus ein ruhiger
-    Hinweis (siehe `_kanalkasten`).
+    Hinweis (siehe `_channel_box`).
     """
     from . import updater
     try:
@@ -4558,11 +4559,11 @@ def _holen_moeglich(mit_vorab, eigene=''):
 
 
 
-def _holen_text(mit_vorab, eigene=''):
+def _fetch_label(mit_vorab, eigene=''):
     """Die Beschriftung des Knopfes — mit der Version, die dahinter steckt.
 
     Aus dem Zwischenspeicher, ohne ins Netz zu gehen: Die Seite soll sofort
-    stehen. Kurz darauf frischt `_kanaele_auffrischen` sie auf.
+    stehen. Kurz darauf frischt `_refresh_channels` sie auf.
 
     ⚠ Und sie sagt, **wohin** es geht. „v2.0.0 holen" neben einer laufenden
     v3.0.0-rc15 sieht aus wie ein Update und ist ein Rückschritt — der Autor ist
@@ -4629,7 +4630,7 @@ def _im_tk(fenster, tat):
         return False
 
 
-def _nach_neustart_abtreten(fenster):
+def _hand_over_after_restart(fenster):
     """Erst nachsehen, ob die neue Version lebt — dann erst selbst gehen.
 
     ⚠ Vorher trat die alte Version **sofort** ab. War die neue schon tot (unter
@@ -4646,7 +4647,7 @@ def _nach_neustart_abtreten(fenster):
         lebt = updater.new_version_alive()
         def melden():
             if lebt:
-                _abtreten(fenster)
+                _hand_over(fenster)
             elif updater.roll_back():
                 # ⚠ Ohne Rückweg liefe die alte Fassung nur noch aus ihrer
                 # offenen Inode weiter — wer sie schließt, stünde ohne Watcher
@@ -4663,7 +4664,7 @@ def _nach_neustart_abtreten(fenster):
     threading.Thread(target=pruefen, daemon=True).start()
 
 
-def _abtreten(fenster, notausgang=2.0, gleich=400):
+def _hand_over(fenster, notausgang=2.0, gleich=400):
     """Den Prozess beenden — verlaesslich, auch wenn Tk schon haengt.
 
     ⚠ `quit()` allein reicht nicht: Es beendet die Ereignisschleife, nicht den
@@ -4698,7 +4699,7 @@ def _abtreten(fenster, notausgang=2.0, gleich=400):
 
 
 
-def _fassung_holen(fenster, mit_vorab):
+def _fetch_version(fenster, mit_vorab):
     """Die neueste Version dieses Kanals holen und einspielen.
 
     ⚠ Nicht `nachsehen()` benutzen: Das meldet nur, was **neuer** ist als die
@@ -4730,7 +4731,7 @@ def _fassung_holen(fenster, mit_vorab):
         if not updater.restart():
             fenster.say(t('s_ub_neustart_nein'))
             return
-        _nach_neustart_abtreten(fenster)
+        _hand_over_after_restart(fenster)
         return
     art = updater.packaging()
     if art == 'quellcode':
@@ -4817,7 +4818,7 @@ def _fassung_holen(fenster, mit_vorab):
             if art == 'exe':
                 uebergeben = True
                 _im_tk(fenster, lambda: fenster.say(t('up_wird_eingespielt')))
-                _abtreten(fenster)
+                _hand_over(fenster)
                 return
 
             # Linux: Das AppImage ist getauscht, die alte Fassung gesichert.
@@ -4829,7 +4830,7 @@ def _fassung_holen(fenster, mit_vorab):
             def _neustart():
                 fenster.say(t('s_ub_startet_neu'))
                 if updater.restart():
-                    _nach_neustart_abtreten(fenster)
+                    _hand_over_after_restart(fenster)
                     return
                 # ⚠ Erst zeichnen, dann melden: Der Neuaufbau macht aus
                 # „holen" ein „Jetzt neu starten" und zerstoert dabei die
@@ -4854,7 +4855,7 @@ def _fassung_holen(fenster, mit_vorab):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _kanalkasten(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
+def _channel_box(fenster, eltern, titel, text, gewaehlt, tat, marke_text='',
                  untereinander=False, holen=None, holen_text='',
                  holen_aktiv=True, platz=0):
     """Eine Wahlmöglichkeit als Kasten — wie in der Vorschau.
@@ -5769,7 +5770,7 @@ def _about(fenster, rahmen):
     _body_text(innen, t('s_up_sofort_h'), fenster.f_small,
                 pady=(10, 6))
     _button(fenster, innen, t('s_up_sofort'),
-           lambda: _fassung_holen(fenster, True),
+           lambda: _fetch_version(fenster, True),
            strong=True).pack(fill='x', pady=(0, 10))
 
     reihe = tk.Frame(innen, bg=BG)
@@ -5779,7 +5780,7 @@ def _about(fenster, rahmen):
         # der Hol-Knopf darüber. Zwei starke Knöpfe nebeneinander heben sich
         # gegenseitig auf — dann sticht keiner mehr hervor.
         _button(fenster, reihe, t('s_ub_nachsehen'),
-               lambda: _jetzt_nachsehen(fenster)),
+               lambda: _check_now(fenster)),
         _button(fenster, reihe, t('hf_wasistneu'),
                lambda: fenster.jump_to('wasistneu')),
         _button(fenster, reihe, t('s_ub_einrichtung'), fenster._open_wizard),
@@ -5815,18 +5816,18 @@ def _about(fenster, rahmen):
             breite = kaesten.winfo_toplevel().winfo_width()
         eng = breite < SCHMAL
         kaesten.zuletzt_eng = eng
-        _kanalkasten(fenster, kaesten, t('s_ub_fertig'), t('s_ub_fertig_h'),
+        _channel_box(fenster, kaesten, t('s_ub_fertig'), t('s_ub_fertig_h'),
                      not an, lambda: kanal_setzen(False), untereinander=eng,
                      platz=0,
-                     holen=lambda: _fassung_holen(fenster, False),
-                     holen_text=_holen_text(False, fenster.version),
-                     holen_aktiv=_holen_moeglich(False, fenster.version))
-        _kanalkasten(fenster, kaesten, t('s_ub_test'), t('s_ub_test_h'),
+                     holen=lambda: _fetch_version(fenster, False),
+                     holen_text=_fetch_label(False, fenster.version),
+                     holen_aktiv=_can_fetch(False, fenster.version))
+        _channel_box(fenster, kaesten, t('s_ub_test'), t('s_ub_test_h'),
                      an, lambda: kanal_setzen(True), marke_text='rc',
                      untereinander=eng, platz=1,
-                     holen=lambda: _fassung_holen(fenster, True),
-                     holen_text=_holen_text(True, fenster.version),
-                     holen_aktiv=_holen_moeglich(True, fenster.version))
+                     holen=lambda: _fetch_version(fenster, True),
+                     holen_text=_fetch_label(True, fenster.version),
+                     holen_aktiv=_can_fetch(True, fenster.version))
         # ⚠ Die Beschriftungen kommen aus dem Zwischenspeicher, damit die Seite
         # sofort steht. Der frischt sich aber nur einmal am Tag auf — auf einem
         # Bildschirmfoto vom 25.08.2026 bot der Knopf „v3.0.0-rc9 holen" an,
@@ -5834,7 +5835,7 @@ def _about(fenster, rahmen):
         # richtige Version (er sieht vorher nach), aber was draufsteht, führt in
         # die Irre. Deshalb einmal im Hintergrund nachsehen und die Kästen neu
         # zeichnen, wenn sich etwas geändert hat.
-        _kanaele_auffrischen(fenster, kaesten, kanal_zeichnen)
+        _refresh_channels(fenster, kaesten, kanal_zeichnen)
 
     # ⚠ Der Tagesschalter steht **hinter** den Kanal-Kästen, nicht davor. Davor
     # drückte er die Kästen bei der Mindestgröße des Fensters unter die Kante —
@@ -5843,7 +5844,7 @@ def _about(fenster, rahmen):
     # Der Schalter ist eine Nebeneinstellung, die Kästen sind der Zweck der
     # Seite; also gehören sie nach oben.
     ziel = _setting_row(fenster, innen, t('s_ub_taeglich'), t('s_ub_taeglich_h'))
-    _schalter(fenster, ziel, 'update_pruefen', True)
+    _switch(fenster, ziel, 'update_pruefen', True)
 
     def kanal_pruefen(_=None):
         """Nur neu bauen, wenn die Anordnung wirklich kippt — sonst flackert es."""
@@ -5906,7 +5907,7 @@ def _unterstrichen(schrift):
         return schrift
 
 
-def _schalter(fenster, eltern, schluessel, standard):
+def _switch(fenster, eltern, schluessel, standard):
     """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf."""
     from . import pfade
     k = tk.Label(eltern, text='', bg=SURFACE, font=fenster.f_small,
@@ -11459,7 +11460,7 @@ def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
     # „zu klein, sieht niemand, und sieht anders aus als der Rest im Projekt".
     # Beides stimmt: Tk malt sein Kästchen im Systemstil, also hell, winzig und
     # in einer anderen Handschrift als jede andere Seite. Das Projekt hat einen
-    # eigenen Schalter (`_schalter`) — der hängt an einer Einstellung und passt
+    # eigenen Schalter (`_switch`) — der hängt an einer Einstellung und passt
     # hier nicht, sein **Aussehen** aber schon: eine Schaltfläche, die im
     # Akzentgrün steht, wenn sie an ist.
     #

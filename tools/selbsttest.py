@@ -1428,14 +1428,18 @@ def main():
         # nicht, würde ein dort gestarteter Faden nie laufen — und der Prozess
         # liefe weiter, während sein Temp-Ordner schon abgeräumt wird.
         #
-        # ⚠ Geprüft wird **innerhalb** von `_abtreten()`. Früher lag der
-        # Notausgang direkt in `_fassung_holen`, und der Test schnitt die Quelle
-        # bei `def _abtreten` ab — damals der Name der dortigen *lokalen*
-        # Funktion. Seit `_abtreten()` eine eigene Funktion ist (beide
-        # Abtritts-Wege teilen sie sich), traf dieser Schnitt ins Leere.
+        # ⚠ Geprüft wird **innerhalb** von `_hand_over()` (bis P4 Stufe 7d
+        # `_abtreten`). Früher lag der Notausgang direkt in `_fetch_version`,
+        # und der Test schnitt die Quelle bei `def _abtreten` ab — damals der
+        # Name der dortigen *lokalen* Funktion. Seit es eine eigene Funktion
+        # ist (beide Abtritts-Wege teilen sie sich), traf der Schnitt ins Leere.
+        #
+        # ⚠ Über `rumpf()`: Ein `split(...)[1]` wirft bei einer Umbenennung
+        # einen IndexError und reisst den GANZEN Lauf mit. `rumpf()` macht
+        # daraus eine rote Pruefung, die den Namen nennt.
         quelle = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
-        block = quelle.split('def _abtreten')[1].split('\ndef ')[0]
+        block = rumpf(quelle, '_hand_over')
         vor_rueckruf = block.split('fenster.root.after')[0]
         pruefe('os._exit(0)' in vor_rueckruf,
                'der Notausgang steht vor dem Tk-Rückruf, nicht darin')
@@ -2075,9 +2079,9 @@ def main():
             version = '0.0.0'
 
         _t21 = _Traeger21b()
-        se21._kanalkasten(_t21, _rahmen21, 'Kurz', 'Zwei Woerter.',
+        se21._channel_box(_t21, _rahmen21, 'Kurz', 'Zwei Woerter.',
                           True, lambda: None, platz=0)
-        se21._kanalkasten(_t21, _rahmen21, 'Deutlich laenger',
+        se21._channel_box(_t21, _rahmen21, 'Deutlich laenger',
                           'Ein merklich laengerer Satz, der mehr Platz braucht '
                           'als der andere Kasten daneben.',
                           False, lambda: None, platz=1)
@@ -3848,7 +3852,7 @@ def main():
     #   zurueckgenommen werden. Ein gespeichertes „an", waehrend in Wahrheit
     #   nichts durchgereicht wird, ist das schlechteste von beidem — der Nutzer
     #   sieht einen Zustand, den es nicht gibt. Der Schalter in den
-    #   Einstellungen macht es genauso (`seiten._durchklick_um`).
+    #   Einstellungen macht es genauso (`seiten._click_through_toggle`).
     _alt_home44 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf44.mkdtemp(prefix='sc-bp-schloss-')
     try:
@@ -18255,7 +18259,7 @@ def main():
         print('\n187. Ein Klick: kein Quittungsfenster, kein zweiter Knopf, der Schalter wirkt')
         import inspect as _in187
         from scbp import seiten as _se187
-        _q187 = _in187.getsource(_se187._fassung_holen)
+        _q187 = _in187.getsource(_se187._fetch_version)
         pruefe('s_ub_hinweis_neustart' not in _q187,
                'kein Hinweisfenster mehr vor dem Einspielen')
         # ⚠⚠ **Diese Pruefung ist am 12.09.2026 rot geworden** — durch die
@@ -18280,7 +18284,7 @@ def main():
                     heraus |= _namen187(wert)
             return heraus
 
-        _ruft187 = _namen187(_se187._fassung_holen.__code__)
+        _ruft187 = _namen187(_se187._fetch_version.__code__)
         pruefe('take_lock' in _ruft187 and 'release_lock' in _ruft187,
                'die Sperre wird genommen und freigegeben (%s)'
                % ', '.join(sorted(n for n in _ruft187 if 'lock' in n)))
