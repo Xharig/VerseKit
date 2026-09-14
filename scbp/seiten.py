@@ -16718,7 +16718,7 @@ def _patch_changes(fenster, rahmen):
     Vormerken-Knopf: Ein Netzabruf im Oberflächen-Faden hält ohne Netz das
     ganze Fenster fest, bis das Zeitlimit greift.
     """
-    from . import patchaenderungen as pa
+    from . import patch_changes as pa
 
     _heading(fenster, rahmen, t('hf_patchaenderungen'), t('s_pa_lead'))
 
@@ -16781,7 +16781,7 @@ def _patch_changes(fenster, rahmen):
             # etwas Auswählbares liegt. Solange nichts abgelegt ist, führt der
             # Satz in die Irre: Man wählt, bekommt nichts, und hält die Seite
             # für leer — dabei fehlt bloß ein Druck auf den Knopf darüber.
-            if pa.gespeicherte():
+            if pa.stored():
                 _body_text(ergebnis, t('s_pa_waehlen'), fenster.f_small,
                             fill='x')
             else:
@@ -16789,7 +16789,7 @@ def _patch_changes(fenster, rahmen):
                             t('s_pa_erst_holen').format(knopf=t('s_pa_suchen')),
                             fenster.f_small, fill='x')
             return
-        posten = pa.aenderungen(version, zustand['art'])
+        posten = pa.changes(version, zustand['art'])
         if not posten:
             _body_text(ergebnis, t('s_pa_nichts_hier'), fenster.f_small,
                         fill='x')
@@ -16822,7 +16822,7 @@ def _patch_changes(fenster, rahmen):
     def _bereiche_zeigen():
         _leeren(bereiche)
         version = zustand['patch']
-        if not version or not pa.laden(version):
+        if not version or not pa.load(version):
             return
         # ⚠⚠ **`_knopfgitter` will fertige KNÖPFE, keine Beschriftungspaare.**
         # Hier standen bis zum 07.09.2026 `(Text, Rückruf)`-Tupel, und das ist
@@ -16839,7 +16839,7 @@ def _patch_changes(fenster, rahmen):
         knoepfe = [_button(fenster, bereiche, t('s_pa_alle'),
                           lambda: _art_waehlen(None),
                           strong=(zustand['art'] is None))]
-        for art, anzahl in pa.kategorien(version):
+        for art, anzahl in pa.categories(version):
             knoepfe.append(_button(fenster, bereiche,
                                   '%s (%d)' % (art, anzahl),
                                   (lambda a=art: _art_waehlen(a)),
@@ -16856,7 +16856,7 @@ def _patch_changes(fenster, rahmen):
 
     def _eintrag_zu(version):
         """Der Übersichtseintrag zu einer Version — oder None."""
-        for eintrag in pa.uebersicht():
+        for eintrag in pa.overview():
             if eintrag['version'] == version:
                 return eintrag
         return None
@@ -16875,9 +16875,9 @@ def _patch_changes(fenster, rahmen):
         # ist das dasselbe (ships 184), aber nicht immer: In 4.9.0 sind es
         # `weapons` mit 135, ships kommt dort nur auf 70. Fest `ships` würde
         # bei einem Waffen-Patch also wieder am Wesentlichen vorbeizeigen —
-        # und `kategorien()` liefert ohnehin schon nach Größe sortiert.
+        # und `categories()` liefert ohnehin schon nach Größe sortiert.
         zustand['art'] = None
-        if not pa.laden(version):
+        if not pa.load(version):
             # ⚠⚠ **Zwei völlig verschiedene Gründe, warum hier nichts liegt** —
             # und bis zum 07.09.2026 bekamen beide denselben Satz zu sehen:
             # „nicht abgelegt, die Quelle meldet keine Änderungen".
@@ -16902,7 +16902,7 @@ def _patch_changes(fenster, rahmen):
                 _body_text(ergebnis, t('s_pa_leer_klick'), fenster.f_small,
                             fill='x')
             return
-        bereiche_da = pa.kategorien(version)
+        bereiche_da = pa.categories(version)
         zustand['art'] = bereiche_da[0][0] if bereiche_da else None
         _bereiche_zeigen()
         _posten_zeigen()
@@ -16923,7 +16923,7 @@ def _patch_changes(fenster, rahmen):
         # sei der Abruf unvollständig — und genau dieser Verdacht („da sind gar
         # keine Infos drin") war der Anlass, den Reiter zu überarbeiten.
         # Weglassen ja, verschweigen nein.
-        alle = pa.uebersicht()
+        alle = pa.overview()
         gezeigt = [e for e in alle if not e['leer']]
         weggelassen = len(alle) - len(gezeigt)
 
@@ -16976,9 +16976,9 @@ def _patch_changes(fenster, rahmen):
 
         def arbeit():
             try:
-                neu = pa.abgleichen()
+                neu = pa.sync()
             except Exception as ausnahme:
-                fehler.merken('seiten.patchaenderungen.abgleich', ausnahme)
+                fehler.merken('seiten.patch_changes.sync', ausnahme)
                 neu = None
 
             # ⚠ Zurück in den Oberflächen-Faden — Tk verträgt keine Zugriffe

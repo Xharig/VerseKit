@@ -24,7 +24,7 @@ verschiedene Fragen und haben zwei verschiedene Quellen:
 
     patchhistory.py    welche BAUPLÄNE ein Patch gebracht hat
                         Quelle: eigene Beobachtung des Watchers
-    patchaenderungen.py welche WERTE ein Patch geändert hat
+    patch_changes.py     welche WERTE ein Patch geändert hat
                         Quelle: erkul (fertige Diffs, CIG-Daten)
 
 Sie liegen bewusst getrennt: andere Quelle, andere Lizenzlage, anderer
@@ -64,15 +64,15 @@ import re
 
 from . import erkul, fehler, patchhistory, pfade
 
-ORDNER = 'Patches'
+FOLDER = 'Patches'
 
 # Die Zusammenfassung, die erkul je Patch im Inhaltsverzeichnis mitliefert.
 # `unchanged` steht bewusst nicht dabei: Ein Patch, bei dem sich nichts geändert
 # hat, führt trotzdem tausende unveränderte Einträge — das ist kein Inhalt.
-ZAEHLER = ('added', 'removed', 'modified')
+COUNTER = ('added', 'removed', 'modified')
 
 
-def _sicherer_name(version):
+def _safe_name(version):
     """Dateiname aus einer Spielversion — ohne alles, was Ordner sprengt.
 
     ⚠ Die Version kommt aus dem Netz und landet als Dateiname auf der Platte.
@@ -82,119 +82,119 @@ def _sicherer_name(version):
     return re.sub(r'[^0-9A-Za-z.\-]', '_', version or 'unbekannt')
 
 
-def _ordner():
+def _folder():
     """Der Ablageordner für die Patch-Dateien — angelegt, falls er fehlt.
 
     ⚠ Bei gesetztem `SC_BP_HOME` (Selbsttest, Wegwerf-Ordner) bleibt es flach,
     genau wie `pfade.app_datei()` es dort auch tut. Dort geht es um einen
     isolierten Ordner, nicht um Übersicht."""
-    basis = pfade.app_ordner()
+    base = pfade.app_ordner()
     if os.environ.get('SC_BP_HOME'):
-        return basis
-    ziel = os.path.join(basis, ORDNER)
+        return base
+    target = os.path.join(base, FOLDER)
     try:
-        os.makedirs(ziel, exist_ok=True)
+        os.makedirs(target, exist_ok=True)
     except OSError:
-        return basis
-    return ziel
+        return base
+    return target
 
 
-def _datei(version):
-    return os.path.join(_ordner(), 'patch-%s.json' % _sicherer_name(version))
+def _file(version):
+    return os.path.join(_folder(), 'patch-%s.json' % _safe_name(version))
 
 
 # --------------------------------------------------------------- Die Quelle
-def _zahl(wert):
+def _number(value):
     """`summary`-Werte kommen als Zahl, könnten aber auch fehlen."""
     try:
-        return int(wert or 0)
+        return int(value or 0)
     except (TypeError, ValueError):
         return 0
 
 
-def _hat_inhalt(zusammenfassung):
+def _has_content(summary):
     """Hat dieser Patch überhaupt etwas geändert?
 
     Das ist die Regel „die leeren wegwerfen" an genau einer Stelle. Sie wird
     zweimal gebraucht — beim Abholen und beim Anzeigen —, deshalb steht sie
     hier und nicht doppelt."""
-    z = zusammenfassung or {}
-    return any(_zahl(z.get(k)) for k in ZAEHLER)
+    z = summary or {}
+    return any(_number(z.get(k)) for k in COUNTER)
 
 
-def angebotene():
+def offered():
     """Was erkul gerade vorhält: [{version, datum, summary, path, bytes}, …].
 
     Neueste zuerst. Ohne Netz eine leere Liste — wie überall im Werkzeug
     läuft es dann einfach ohne diese Angaben weiter."""
-    kat = erkul.ship_catalog()
-    if not kat:
+    cat = erkul.ship_catalog()
+    if not cat:
         return []
-    raus = []
-    for p in kat.get('patches') or []:
+    out = []
+    for p in cat.get('patches') or []:
         version = p.get('dataVersion') or ''
         if not version:
             continue
-        raus.append({
+        out.append({
             'version': version,
             'datum': (p.get('generatedAt') or '')[:10],
             'summary': p.get('summary') or {},
             'path': p.get('path') or '',
-            'bytes': _zahl(p.get('bytes')),
+            'bytes': _number(p.get('bytes')),
         })
-    raus.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
-    return raus
+    out.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
+    return out
 
 
-def _abrufen(eintrag):
+def _fetch(entry):
     """Die Änderungsliste eines Patches von erkul holen — oder `None`.
 
     ⚠ Der Zweig-Präfix ist Pflicht (siehe Modulkopf)."""
-    pfad = eintrag.get('path')
-    if not pfad:
+    path = entry.get('path')
+    if not path:
         return None
-    return erkul._fetch('%s/%s' % (erkul.BRANCH, pfad), 'changelog')
+    return erkul._fetch('%s/%s' % (erkul.BRANCH, path), 'changelog')
 
 
 # --------------------------------------------------------------- Die Ablage
-def gespeicherte():
+def stored():
     """Die Spielversionen, die hier schon liegen — neueste zuerst."""
     try:
-        namen = os.listdir(_ordner())
+        names = os.listdir(_folder())
     except OSError:
         return []
-    versionen = []
-    for name in namen:
+    versions = []
+    for name in names:
         if name.startswith('patch-') and name.endswith('.json'):
-            eintrag = _lesen_datei(os.path.join(_ordner(), name))
-            if eintrag and eintrag.get('version'):
-                versionen.append(eintrag['version'])
-    versionen.sort(key=patchhistory.rank, reverse=True)
-    return versionen
+            entry = _read_file(os.path.join(_folder(), name))
+            if entry and entry.get('version'):
+                versions.append(entry['version'])
+    versions.sort(key=patchhistory.rank, reverse=True)
+    return versions
 
 
-def _lesen_datei(pfad):
+def _read_file(path):
     try:
-        with open(pfad, encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return None
 
 
-def laden(version):
+def load(version):
     """Die abgelegte Änderungsliste einer Spielversion — oder `None`."""
-    return _lesen_datei(_datei(version))
+    return _read_file(_file(version))
 
 
-def _schreiben(version, daten):
+def _write(version, data):
     """Eine Patch-Datei ablegen. Erst daneben, dann umbenennen.
 
     ⚠ Ohne den Umweg über `.tmp` stünde bei einem Abbruch mitten im Schreiben
     eine halbe JSON-Datei da, die beim nächsten Lesen still als „kaputt" gilt —
     und der Patch wäre verloren, obwohl erkul ihn längst nicht mehr vorhält."""
-    ziel = _datei(version)
+    target = _file(version)
     try:
-        temp = ziel + '.tmp'
+        temp = target + '.tmp'
         with open(temp, 'w', encoding='utf-8') as f:
             # ⚠ **Kompakt, ohne Einrückung** — anders als `patch-historie.json`.
             # Die liegt im Repo und soll lesbar sein; diese hier liest niemand
@@ -202,16 +202,16 @@ def _schreiben(version, daten):
             # mit `indent=1` sind es 570 KB für zwei Patches, ohne 373 KB —
             # 35 % Aufschlag für Leerzeichen, die keiner sieht. Der Plan
             # rechnete mit den kleineren Zahlen.
-            json.dump(daten, f, ensure_ascii=False, separators=(',', ':'))
-        os.replace(temp, ziel)
+            json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+        os.replace(temp, target)
         return True
-    except Exception as ausnahme:
-        fehler.merken('patchaenderungen.schreiben', ausnahme)
+    except Exception as exception:
+        fehler.merken('patch_changes._write', exception)
         return False
 
 
 # ------------------------------------------------------------- Der Abgleich
-def abgleichen():
+def sync():
     """Neue Patches von erkul holen und ablegen. Gibt die neu abgelegten zurück.
 
     Der Ablauf in einem Satz: **was erkul anbietet, was hier noch fehlt, und
@@ -224,62 +224,62 @@ def abgleichen():
 
     Wirft nie: Ohne Netz kommt eine leere Liste zurück, und das Werkzeug läuft
     weiter wie vorher."""
-    vorhanden = set(gespeicherte())
-    neu = []
-    for eintrag in angebotene():
-        version = eintrag['version']
-        if version in vorhanden or not _hat_inhalt(eintrag['summary']):
+    present = set(stored())
+    new = []
+    for entry in offered():
+        version = entry['version']
+        if version in present or not _has_content(entry['summary']):
             continue
-        daten = _abrufen(eintrag)
-        if not daten:
+        data = _fetch(entry)
+        if not data:
             continue
-        daten['version'] = version
-        daten['datum'] = eintrag['datum']
-        daten['quelle'] = 'erkul.games'
-        if _schreiben(version, daten):
-            neu.append(version)
-    return neu
+        data['version'] = version
+        data['datum'] = entry['datum']
+        data['quelle'] = 'erkul.games'
+        if _write(version, data):
+            new.append(version)
+    return new
 
 
 # ------------------------------------------------------------- Aufbereitung
-def uebersicht():
+def overview():
     """Alles, was sich anzeigen lässt: [{version, kurz, datum, …}, …].
 
     **Vereinigt beide Seiten** — was erkul gerade anbietet und was hier liegt.
     Genau darin steckt der Gewinn der lokalen Ablage: Ein Patch, den erkul
     inzwischen fallen gelassen hat, steht hier weiter, und zwar mit
     `bei_erkul=False`. Wer nur eine der beiden Seiten liest, verliert ihn."""
-    zusammen = {}
-    for eintrag in angebotene():
-        zusammen[eintrag['version']] = {
-            'version': eintrag['version'],
-            'kurz': eintrag['version'].split('-')[0],
-            'datum': eintrag['datum'],
-            'summary': eintrag['summary'],
-            'leer': not _hat_inhalt(eintrag['summary']),
+    combined = {}
+    for entry in offered():
+        combined[entry['version']] = {
+            'version': entry['version'],
+            'kurz': entry['version'].split('-')[0],
+            'datum': entry['datum'],
+            'summary': entry['summary'],
+            'leer': not _has_content(entry['summary']),
             'bei_erkul': True,
             'abgelegt': False,
         }
-    for version in gespeicherte():
-        daten = laden(version) or {}
-        eintrag = zusammen.get(version)
-        if eintrag is None:
-            eintrag = {
+    for version in stored():
+        data = load(version) or {}
+        entry = combined.get(version)
+        if entry is None:
+            entry = {
                 'version': version,
                 'kurz': version.split('-')[0],
-                'datum': daten.get('datum') or '',
-                'summary': daten.get('summary') or {},
+                'datum': data.get('datum') or '',
+                'summary': data.get('summary') or {},
                 'leer': False,
                 'bei_erkul': False,
             }
-            zusammen[version] = eintrag
-        eintrag['abgelegt'] = True
-    raus = list(zusammen.values())
-    raus.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
-    return raus
+            combined[version] = entry
+        entry['abgelegt'] = True
+    out = list(combined.values())
+    out.sort(key=lambda e: patchhistory.rank(e['version']), reverse=True)
+    return out
 
 
-def _wert(eintrag, schluessel):
+def _value(entry, key):
     """`oldValue`/`newValue` — beide dürfen fehlen, und das ist die Aussage.
 
     ⚠ **Fehlt einer, ist das kein Datenfehler, sondern der Inhalt.** Gemessen
@@ -287,58 +287,58 @@ def _wert(eintrag, schluessel):
     `oldValue` — das Feld ist mit dem Patch **weggefallen**. Wer stumpf
     `eintrag['newValue']` liest, bekommt hier einen `KeyError` und reißt die
     ganze Anzeige mit. Zurück kommt deshalb `(wert, vorhanden)`."""
-    return eintrag.get(schluessel), schluessel in eintrag
+    return entry.get(key), key in entry
 
 
-def aenderungen(version, art=None):
+def changes(version, wanted=None):
     """Die Änderungen eines Patches, flach und anzeigefertig.
 
     Liefert je Eintrag: Kategorie, was passiert ist (`neu`/`weg`/`geaendert`),
     Name, Größe und die einzelnen Feldänderungen mit altem und neuem Wert.
-    Mit `art` lässt sich auf eine Kategorie einschränken (`'weapons'` …)."""
-    daten = laden(version)
-    if not daten:
+    Mit `wanted` lässt sich auf eine Kategorie einschränken (`'weapons'` …)."""
+    data = load(version)
+    if not data:
         return []
-    raus = []
-    for kategorie in daten.get('categories') or []:
-        kind = kategorie.get('kind') or ''
-        if art and kind != art:
+    out = []
+    for category in data.get('categories') or []:
+        kind = category.get('kind') or ''
+        if wanted and kind != wanted:
             continue
-        for zustand, schluessel in (('neu', 'added'), ('weg', 'removed'),
+        for state, key in (('neu', 'added'), ('weg', 'removed'),
                                     ('geaendert', 'modified')):
             # ⚠ `unchanged` ist eine ZAHL, die anderen drei sind LISTEN — im
             # selben Feld derselben Datei. Ein `for x in kategorie[…]` über
             # `unchanged` liefe über eine Zahl und wirft.
-            posten = kategorie.get(schluessel)
-            if not isinstance(posten, list):
+            items = category.get(key)
+            if not isinstance(items, list):
                 continue
-            for p in posten:
-                felder = []
-                for aenderung in p.get('changes') or []:
-                    alt, hat_alt = _wert(aenderung, 'oldValue')
-                    neu, hat_neu = _wert(aenderung, 'newValue')
-                    felder.append({
-                        'pfad': aenderung.get('path') or '',
-                        'alt': alt, 'hat_alt': hat_alt,
-                        'neu': neu, 'hat_neu': hat_neu,
+            for p in items:
+                fields = []
+                for change in p.get('changes') or []:
+                    old, has_old = _value(change, 'oldValue')
+                    new, has_new = _value(change, 'newValue')
+                    fields.append({
+                        'pfad': change.get('path') or '',
+                        'alt': old, 'hat_alt': has_old,
+                        'neu': new, 'hat_neu': has_new,
                     })
-                raus.append({
+                out.append({
                     'art': kind,
-                    'zustand': zustand,
+                    'zustand': state,
                     'id': p.get('id') or '',
                     'name': p.get('name') or p.get('className') or p.get('id') or '',
                     'groesse': p.get('size'),
-                    'felder': felder,
+                    'felder': fields,
                 })
-    return raus
+    return out
 
 
-def kategorien(version):
+def categories(version):
     """[(Kategorie, Anzahl geänderter Posten), …] — nur was sich geändert hat.
 
     Für die Filterleiste: Eine Auswahl mit 24 Einträgen, von denen 20 leer
     sind, ist keine Auswahl."""
-    zaehler = {}
-    for eintrag in aenderungen(version):
-        zaehler[eintrag['art']] = zaehler.get(eintrag['art'], 0) + 1
-    return sorted(zaehler.items(), key=lambda p: (-p[1], p[0]))
+    counter = {}
+    for entry in changes(version):
+        counter[entry['art']] = counter.get(entry['art'], 0) + 1
+    return sorted(counter.items(), key=lambda p: (-p[1], p[0]))

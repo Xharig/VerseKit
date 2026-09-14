@@ -16315,25 +16315,25 @@ def main():
     _alt173 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _heim173
     try:
-        from scbp import patchaenderungen as _pa173
+        from scbp import patch_changes as _pa173
 
         # --- Die Regel „die leeren wegwerfen" -----------------------------
-        pruefe(not _pa173._hat_inhalt({'added': 0, 'removed': 0,
+        pruefe(not _pa173._has_content({'added': 0, 'removed': 0,
                                        'modified': 0, 'unchanged': 2568}),
                'ein Patch ohne Änderungen gilt als leer')
         # ⚠ Gegenprobe: `unchanged` allein darf einen Patch NICHT zum Inhalt
         # machen — sonst wären alle zehn „voll" und würden abgerufen.
-        pruefe(_pa173._hat_inhalt({'added': 0, 'removed': 0, 'modified': 1,
+        pruefe(_pa173._has_content({'added': 0, 'removed': 0, 'modified': 1,
                                    'unchanged': 0}),
                'Gegenprobe: eine einzige Änderung reicht als Inhalt')
 
         # --- Ein Dateiname aus dem Netz darf nicht aus dem Ordner führen ---
         # ⚠ Die Version kommt von erkul und landet ungefiltert als Dateiname
         # auf der Platte. Ein `../` darin wäre ein Weg nach draußen.
-        pruefe('/' not in _pa173._sicherer_name('../../etc/passwd')
-               and '\\' not in _pa173._sicherer_name('..\\..\\windows'),
+        pruefe('/' not in _pa173._safe_name('../../etc/passwd')
+               and '\\' not in _pa173._safe_name('..\\..\\windows'),
                'ein Dateiname mit .. führt nicht aus dem Ablageordner heraus')
-        pruefe(_pa173._sicherer_name('4.10.0-LIVE.12519617')
+        pruefe(_pa173._safe_name('4.10.0-LIVE.12519617')
                == '4.10.0-LIVE.12519617',
                'Gegenprobe: eine echte Spielversion bleibt unverändert')
 
@@ -16356,13 +16356,13 @@ def main():
                               ]}],
             }],
         }
-        pruefe(_pa173._schreiben('9.9.9-LIVE.1', _probe173),
+        pruefe(_pa173._write('9.9.9-LIVE.1', _probe173),
                'eine Patch-Datei lässt sich ablegen')
-        pruefe(_pa173.gespeicherte() == ['9.9.9-LIVE.1'],
+        pruefe(_pa173.stored() == ['9.9.9-LIVE.1'],
                'und steht danach in der Liste der abgelegten')
 
         # --- Die drei Zustände ---------------------------------------------
-        _alle173 = _pa173.aenderungen('9.9.9-LIVE.1')
+        _alle173 = _pa173.changes('9.9.9-LIVE.1')
         _zust173 = sorted(e['zustand'] for e in _alle173)
         pruefe(_zust173 == ['geaendert', 'neu', 'weg'],
                'neu, entfernt und geändert werden auseinandergehalten')
@@ -16387,18 +16387,18 @@ def main():
                'und ein neu dazugekommenes Feld ebenso')
 
         # --- Einschränken auf einen Bereich --------------------------------
-        pruefe(len(_pa173.aenderungen('9.9.9-LIVE.1', 'weapons')) == 3,
+        pruefe(len(_pa173.changes('9.9.9-LIVE.1', 'weapons')) == 3,
                'die Einschränkung auf einen Bereich liefert dessen Posten')
-        pruefe(_pa173.aenderungen('9.9.9-LIVE.1', 'ships') == [],
+        pruefe(_pa173.changes('9.9.9-LIVE.1', 'ships') == [],
                'Gegenprobe: ein Bereich ohne Änderungen bleibt leer')
-        pruefe(_pa173.kategorien('9.9.9-LIVE.1') == [('weapons', 3)],
+        pruefe(_pa173.categories('9.9.9-LIVE.1') == [('weapons', 3)],
                'die Bereichsliste zählt nur, was sich geändert hat')
 
         # --- ⭐ Der eigentliche Zweck der lokalen Ablage --------------------
         # Ohne Netz bietet die Quelle nichts an. Der abgelegte Patch muss
         # trotzdem erscheinen — sonst wäre die Sammlung wertlos, sobald erkul
         # ihn fallen lässt.
-        _sicht173 = _pa173.uebersicht()
+        _sicht173 = _pa173.overview()
         _nur173 = [e for e in _sicht173 if e['version'] == '9.9.9-LIVE.1']
         pruefe(len(_nur173) == 1,
                'ein abgelegter Patch steht auch ohne Quelle in der Übersicht')
@@ -16407,11 +16407,11 @@ def main():
                'und ist als „nur noch bei dir" gekennzeichnet')
 
         # --- Ohne Netz darf nichts abstürzen -------------------------------
-        pruefe(_pa173.angebotene() == [],
+        pruefe(_pa173.offered() == [],
                'ohne Netz bietet die Quelle nichts an, statt zu scheitern')
-        pruefe(_pa173.abgleichen() == [],
+        pruefe(_pa173.sync() == [],
                'und der Abgleich läuft durch, ohne etwas kaputtzumachen')
-        pruefe(_pa173.laden('gibt-es-nicht') is None,
+        pruefe(_pa173.load('gibt-es-nicht') is None,
                'ein unbekannter Patch liefert None statt eines Fehlers')
 
         # --- Die Anzeige der Werte ----------------------------------------
