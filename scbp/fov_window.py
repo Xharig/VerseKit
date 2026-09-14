@@ -167,7 +167,7 @@ class CalibrationWindow:
         # Das Seitenverhältnis der Karte ist genormt — die Höhe folgt daraus
         # und wird NICHT getrennt eingestellt. Zwei Regler wären zwei
         # Fehlerquellen für dieselbe Messung.
-        card_height = card_width * (fov.KARTE_HOEHE_MM / fov.KARTE_BREITE_MM)
+        card_height = card_width * (fov.CARD_HEIGHT_MM / fov.CARD_WIDTH_MM)
 
         mx, my = width_px / 2.0, height_px / 2.0 - 30
         x1, y1 = mx - card_width / 2.0, my - card_height / 2.0
@@ -190,9 +190,9 @@ class CalibrationWindow:
             mx, y2 + 40, text=t('s_fv_masse'), fill=SUB, font=self.small,
             anchor='center')
 
-        mm_per_pixel = fov.mm_pro_pixel(card_width)
+        mm_per_pixel = fov.mm_per_pixel(card_width)
         if mm_per_pixel:
-            total = fov.bildschirmbreite_mm(width_px, mm_per_pixel)
+            total = fov.screen_width_mm(width_px, mm_per_pixel)
             self.value.configure(
                 text=t('s_fv_stand').format(int(card_width),
                                             (total or 0) / 10.0))

@@ -2614,10 +2614,10 @@ def _collection(fenster, rahmen):
 
     def in_ablage():
         try:
-            ergebnis = export.ablegen()
+            ergebnis = export.archive()
             wieviele = ergebnis[1] if isinstance(ergebnis, tuple) else ergebnis
             fenster.say(t('s_be_geschrieben') % wieviele)
-            _show_folder(export.ablage_ordner())
+            _show_folder(export.archive_folder())
         except Exception as ausnahme:
             fehler.merken('seiten.bestand.ablegen', ausnahme)
             fenster.say(t('s_be_schiefging'))
@@ -2633,12 +2633,12 @@ def _collection(fenster, rahmen):
         """
         from . import file_picker
         ziel = file_picker.save_file(
-            t('s_be_speichern'), suggestion=export.vorschlag(art),
-            extension='.json', start=export.ablage_ordner())
+            t('s_be_speichern'), suggestion=export.suggestion(art),
+            extension='.json', start=export.archive_folder())
         if not ziel:
             return
         try:
-            export.schreiben(ziel, art=art)
+            export.write(ziel, kind=art)
             fenster.say(t('s_be_gespeichert') % os.path.basename(ziel))
         except Exception as ausnahme:
             fehler.merken('seiten.bestand.einzeln', ausnahme)
@@ -2646,7 +2646,7 @@ def _collection(fenster, rahmen):
     _button(fenster, reihe, t('s_be_alle'), in_ablage,
            strong=True).pack(side='left')
     _button(fenster, reihe, t('s_be_ablage'),
-           lambda: _show_folder(export.ablage_ordner())).pack(side='left',
+           lambda: _show_folder(export.archive_folder())).pack(side='left',
                                                                 padx=8)
 
     # Der Satz nimmt die häufigste Frage vorweg: „Muss ich das jedes Mal von
@@ -15207,12 +15207,12 @@ def _view_angle(fenster, rahmen):
     zustand = {'abstand': tk.StringVar(value='')}
 
     def _gespeichertes():
-        daten = fov_modul.gespeichert()
+        daten = fov_modul.stored()
         return (daten.get('fov_mm_je_pixel'), daten.get('fov_pixelbreite'),
                 daten.get('fov_abstand_mm'))
 
     def _fertig_gemessen(karte_px, bildschirm_px, vollbild=True):
-        mm_je_pixel = fov_modul.mm_pro_pixel(karte_px)
+        mm_je_pixel = fov_modul.mm_per_pixel(karte_px)
         if not mm_je_pixel:
             return
         # ⚠ Ohne echtes Vollbild ist `bildschirm_px` die FENSTERbreite, nicht
@@ -15222,8 +15222,8 @@ def _view_angle(fenster, rahmen):
             _notice(fenster, t('hf_blickwinkel'),
                                    t('s_fv_kein_vollbild'))
             return
-        fov_modul.merken(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
-        breite = fov_modul.bildschirmbreite_mm(bildschirm_px, mm_je_pixel)
+        fov_modul.remember(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
+        breite = fov_modul.screen_width_mm(bildschirm_px, mm_je_pixel)
         _notice(fenster, 
             t('hf_blickwinkel'),
             t('s_fv_gespeichert').format((breite or 0) / 10.0))
@@ -15236,7 +15236,7 @@ def _view_angle(fenster, rahmen):
         if mm_je_pixel:
             # Dort weitermachen, wo zuletzt aufgehört wurde — wer nachjustiert,
             # soll nicht wieder bei einer beliebigen Größe anfangen.
-            start = fov_modul.KARTE_BREITE_MM / mm_je_pixel
+            start = fov_modul.CARD_WIDTH_MM / mm_je_pixel
         # ⛔⛔ **Rückstand der Sprachumstellung.** Hier standen bis zum
         # 14.09.2026 noch die deutschen Schlüsselwörter `schrift=`, `klein=`
         # und `startbreite=`; `calibrate()` heißt seine Parameter längst
@@ -15257,7 +15257,7 @@ def _view_angle(fenster, rahmen):
         except ValueError:
             return
         if zentimeter > 0:
-            fov_modul.merken(abstand_mm=zentimeter * 10.0)
+            fov_modul.remember(abstand_mm=zentimeter * 10.0)
         _auffrischen()
 
     def _auffrischen():
@@ -15270,7 +15270,7 @@ def _view_angle(fenster, rahmen):
             kind.destroy()
 
         mm_je_pixel, pixelbreite, abstand_mm = _gespeichertes()
-        breite_mm = (fov_modul.bildschirmbreite_mm(pixelbreite, mm_je_pixel)
+        breite_mm = (fov_modul.screen_width_mm(pixelbreite, mm_je_pixel)
                      if (mm_je_pixel and pixelbreite) else None)
 
         # --- 1. Ausmessen ----------------------------------------------
@@ -15324,13 +15324,13 @@ def _view_angle(fenster, rahmen):
             return
 
         # --- 3. Das Ergebnis -------------------------------------------
-        neutral = fov_modul.blickwinkel(breite_mm, abstand_mm)
+        neutral = fov_modul.field_of_view(breite_mm, abstand_mm)
         if neutral is None:
             return
         _wert_zeile(inhalt, t('s_fv_neutral'), '%.1f°' % neutral,
                     hilfe=t('s_fv_neutral_hilfe'), farbe=ACCENT)
 
-        spiel = fov_modul.spiel_einstellung()
+        spiel = fov_modul.game_setting()
         if spiel.get('fov') is None:
             _body_text(inhalt, t('s_fv_kein_spielwert'), fenster.f_small,
                         fill='x')
@@ -15341,7 +15341,7 @@ def _view_angle(fenster, rahmen):
         # ⭐ Der Optimalpunkt: nicht „stell dein Spiel um", sondern „so weit
         # müsstest du sitzen". Wer sein FOV kennt und mag, will seinen Stuhl
         # rücken — nicht seine Einstellung.
-        optimal_mm = fov_modul.abstand_fuer(breite_mm, spiel['fov'])
+        optimal_mm = fov_modul.distance_for(breite_mm, spiel['fov'])
         if optimal_mm is None:
             return
         _wert_zeile(inhalt, t('s_fv_optimalpunkt'),
@@ -15349,7 +15349,7 @@ def _view_angle(fenster, rahmen):
                     hilfe=t('s_fv_optimalpunkt_hilfe'))
 
         # --- 4. Rot / Gelb / Grün --------------------------------------
-        note, abweichung = fov_modul.bewertung(abstand_mm, optimal_mm)
+        note, abweichung = fov_modul.rating(abstand_mm, optimal_mm)
         farbe = {'gruen': ACCENT, 'gelb': GOLD}.get(note, RED)
         unterschied_cm = abs(abstand_mm - optimal_mm) / 10.0
         if note == 'gruen':

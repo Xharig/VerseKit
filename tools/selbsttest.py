@@ -3224,7 +3224,7 @@ def main():
             _imp22.reload(ex22)
             _imp22.reload(be22)
 
-            ordner22 = ex22.ablage_ordner()
+            ordner22 = ex22.archive_folder()
             # Altbestand aus der Zeit der datierten Namen — und eine fremde
             # Datei, die auf keinen Fall angefasst werden darf.
             for name in ('SC-Blueprints-Basetool-2026-08-01.json',
@@ -3280,14 +3280,14 @@ def main():
 
             pruefe(os.path.isfile(os.path.join(ordner22, 'meine-notiz.json')),
                    'eine fremde Datei im Ordner bleibt unangetastet')
-            aelter = os.path.join(ordner22, ex22.ALTORDNER)
+            aelter = os.path.join(ordner22, ex22.OLD_FOLDER)
             pruefe(os.path.isdir(aelter) and len(os.listdir(aelter)) == 2,
                    'die alten datierten Versionen sind weggeraeumt, nicht geloescht')
 
             # Der Speichern-Dialog dagegen behaelt das Datum: Dort haelt jemand
             # bewusst einen Stand fest.
-            pruefe('2026' in ex22.vorschlag('scmdb') or
-                   time.strftime('%Y') in ex22.vorschlag('scmdb'),
+            pruefe('2026' in ex22.suggestion('scmdb') or
+                   time.strftime('%Y') in ex22.suggestion('scmdb'),
                    'der Speichern-Dialog schlaegt weiterhin einen Namen mit Datum vor')
 
             # Und der Knopf je Zeile muss die Version durchreichen, statt
@@ -3296,7 +3296,7 @@ def main():
                             encoding='utf-8').read()
             pruefe('def einzeln(art):' in quelle22,
                    'Einzeln speichern nimmt die Version entgegen')
-            pruefe("export.schreiben(ziel, art=art)" in quelle22,
+            pruefe("export.write(ziel, kind=art)" in quelle22,
                    'und gibt sie auch weiter (nicht mehr fest basetool)')
         finally:
             if alt_heim22 is None:
@@ -13010,7 +13010,7 @@ def main():
         'a': {'name': 'Omnisky VI Cannon'},
         'b': {'name': 'Kennt-scmdb-nicht'},
     }}
-    _doc132 = _ex132.fuer_scmdb(_bestand132, version='9.9.9', tags=_tags132)
+    _doc132 = _ex132.for_scmdb(_bestand132, version='9.9.9', tags=_tags132)
 
     pruefe(_doc132.get('version') == 3,
            'der Umschlag traegt version 3 (ist: %r)' % _doc132.get('version'))
@@ -13049,7 +13049,7 @@ def main():
 
     # ⚠ Und ohne Rezeptdaten? Der Export darf nicht am Netz haengen — er
     # laeuft dann eben ohne Tags weiter, statt zu scheitern.
-    _leer132 = _ex132.fuer_scmdb(_bestand132, version='9.9.9', tags={})
+    _leer132 = _ex132.for_scmdb(_bestand132, version='9.9.9', tags={})
     pruefe(len(_leer132.get('blueprints') or []) == 2,
            'ohne Rezeptdaten laeuft der Export trotzdem durch')
 
@@ -14352,63 +14352,63 @@ def main():
 
     # Ein Bildschirm, der genau so breit ist wie der Abstand: Der Winkel muss
     # 2·arctan(0,5) = 53,13° sein. Von Hand nachrechenbar.
-    pruefe(_gl143(_fv143.blickwinkel(1000, 1000), 53.13010235, 1e-6),
+    pruefe(_gl143(_fv143.field_of_view(1000, 1000), 53.13010235, 1e-6),
            'gleich breit wie weit -> 53,13°')
     # Der klassische rechte Winkel: Breite = 2 × Abstand → 90°.
-    pruefe(_gl143(_fv143.blickwinkel(2000, 1000), 90.0, 1e-9),
+    pruefe(_gl143(_fv143.field_of_view(2000, 1000), 90.0, 1e-9),
            'doppelt so breit wie weit -> genau 90°')
     # Hin und zurück muss dasselbe herauskommen.
-    _w143 = _fv143.blickwinkel(1193, 900)
-    pruefe(_gl143(_fv143.abstand_fuer(1193, _w143), 900.0, 1e-6),
+    _w143 = _fv143.field_of_view(1193, 900)
+    pruefe(_gl143(_fv143.distance_for(1193, _w143), 900.0, 1e-6),
            'Winkel und Abstand rechnen sauber ineinander um')
 
     # ⚠ Unbrauchbare Eingaben dürfen NICHTS liefern, nicht abstürzen und
     # nicht raten. Ein Rechner, der bei Abstand 0 eine Zahl ausgibt, ist
     # schlimmer als einer, der schweigt.
-    pruefe(_fv143.blickwinkel(1193, 0) is None
-           and _fv143.blickwinkel(0, 900) is None
-           and _fv143.blickwinkel('x', 900) is None,
+    pruefe(_fv143.field_of_view(1193, 0) is None
+           and _fv143.field_of_view(0, 900) is None
+           and _fv143.field_of_view('x', 900) is None,
            'unbrauchbare Eingaben liefern nichts')
-    pruefe(_fv143.abstand_fuer(1193, 0) is None
-           and _fv143.abstand_fuer(1193, 180) is None,
+    pruefe(_fv143.distance_for(1193, 0) is None
+           and _fv143.distance_for(1193, 180) is None,
            'ein Winkel von 0 oder 180 Grad wird abgelehnt')
 
     # Die Umrechnung waagerecht ↔ senkrecht muss sich aufheben.
-    _s143 = _fv143.senkrecht_aus_waagerecht(90.0, 16 / 9)
-    pruefe(_gl143(_fv143.waagerecht_aus_senkrecht(_s143, 16 / 9), 90.0, 1e-9),
+    _s143 = _fv143.vertical_from_horizontal(90.0, 16 / 9)
+    pruefe(_gl143(_fv143.horizontal_from_vertical(_s143, 16 / 9), 90.0, 1e-9),
            'waagerecht und senkrecht rechnen sauber ineinander um')
     # Breiter Bildschirm heißt mehr waagerecht bei gleichem senkrecht.
-    pruefe(_fv143.waagerecht_aus_senkrecht(50.0, 32 / 9)
-           > _fv143.waagerecht_aus_senkrecht(50.0, 16 / 9),
+    pruefe(_fv143.horizontal_from_vertical(50.0, 32 / 9)
+           > _fv143.horizontal_from_vertical(50.0, 16 / 9),
            'ein breiterer Bildschirm ergibt mehr waagerechten Winkel')
 
     # Die Kartenmessung.
-    pruefe(_gl143(_fv143.mm_pro_pixel(367.2), 85.60 / 367.2, 1e-9),
+    pruefe(_gl143(_fv143.mm_per_pixel(367.2), 85.60 / 367.2, 1e-9),
            'aus der Kartenbreite wird die Pixelgröße')
-    pruefe(_gl143(_fv143.bildschirmbreite_mm(5120, 85.60 / 367.2),
+    pruefe(_gl143(_fv143.screen_width_mm(5120, 85.60 / 367.2),
                   5120 * 85.60 / 367.2, 1e-6),
            'daraus die Bildschirmbreite')
-    pruefe(_fv143.mm_pro_pixel(0) is None
-           and _fv143.bildschirmbreite_mm(5120, 0) is None,
+    pruefe(_fv143.mm_per_pixel(0) is None
+           and _fv143.screen_width_mm(5120, 0) is None,
            'auch hier liefern unbrauchbare Eingaben nichts')
 
     # ⭐ Die Ampel. Das Vorzeichen sagt die Richtung — positiv heißt zu weit
     # weg. Wer das verdreht, schickt den Spieler in die falsche Richtung.
-    pruefe(_fv143.bewertung(900, 900)[0] == 'gruen',
+    pruefe(_fv143.rating(900, 900)[0] == 'gruen',
            'genau am Punkt ist grün')
-    pruefe(_fv143.bewertung(940, 900)[0] == 'gruen',
+    pruefe(_fv143.rating(940, 900)[0] == 'gruen',
            'ein paar Zentimeter daneben bleibt grün')
-    _n143, _a143 = _fv143.bewertung(1050, 900)
+    _n143, _a143 = _fv143.rating(1050, 900)
     pruefe(_n143 == 'gelb' and _a143 > 0,
            '* deutlich zu weit weg ist gelb, mit positivem Vorzeichen')
-    _n143, _a143 = _fv143.bewertung(500, 900)
+    _n143, _a143 = _fv143.rating(500, 900)
     pruefe(_n143 == 'rot' and _a143 < 0,
            '* viel zu nah ist rot, mit negativem Vorzeichen')
-    pruefe(_fv143.bewertung(900, 0)[0] == 'rot',
+    pruefe(_fv143.rating(900, 0)[0] == 'rot',
            'ein unmöglicher Sollwert wird nicht schöngerechnet')
 
     # Die Kartenmaße sind eine Norm, kein Schätzwert.
-    pruefe(_fv143.KARTE_BREITE_MM == 85.60 and _fv143.KARTE_HOEHE_MM == 53.98,
+    pruefe(_fv143.CARD_WIDTH_MM == 85.60 and _fv143.CARD_HEIGHT_MM == 53.98,
            'die Kartenmaße entsprechen ISO/IEC 7810 ID-1')
 
     # ------------------------------------------------------------------
@@ -19342,7 +19342,7 @@ def main():
         _bestand196 = {'bauplaene': {
             'habe ich': {'name': 'Habe ich', 'quelle': 'log'},
             'und das auch': {'name': 'Und das auch', 'quelle': 'hand'}}}
-        _doc196 = _exp196.fuer_bpdb(_bestand196)
+        _doc196 = _exp196.for_bpdb(_bestand196)
         pruefe(isinstance(_doc196.get('blueprints'), list)
                and len(_doc196['blueprints']) == 2,
                'die DB-Version schreibt eine Liste `blueprints`')
@@ -19354,8 +19354,8 @@ def main():
         pruefe(_imp196.detect(_doc196) == 'bpdb',
                'die eigene DB-Version ist selbst wieder einlesbar')
         _datei196c = os.path.join(_wiese196, 'bauplaene-db-import.json')
-        _ok196, _meldung196 = _exp196.schreiben(_datei196c, art='bpdb',
-                                                bestand=_bestand196)
+        _ok196, _meldung196 = _exp196.write(_datei196c, kind='bpdb',
+                                            collection=_bestand196)
         pruefe(_ok196, 'sie laesst sich schreiben (%s)' % _meldung196)
         pruefe(sorted(e['name'] for e in _imp196.read(_datei196c)[1])
                == ['Habe ich', 'Und das auch'],
@@ -19364,12 +19364,12 @@ def main():
         # die Datei, die das Launcher-PROGRAMM schreibt und die der Watcher
         # ueberwacht. Zwei gleichnamige Dateien mit entgegengesetzter
         # Richtung merkt man erst, wenn der Bestand falsch ist.
-        pruefe('sc_bp_erledigt' not in _exp196.vorschlag('bpdb'),
+        pruefe('sc_bp_erledigt' not in _exp196.suggestion('bpdb'),
                'ihr Dateiname kollidiert nicht mit dem des Launchers')
         # ⚠ Und sie gehoert in die Ablage — wer „Alles in die Ablage" drueckt,
         # meint alles. Geprueft am Quelltext, damit kein Lauf noetig ist.
         import inspect as _in196
-        pruefe("'bpdb'" in _in196.getsource(_exp196.ablegen),
+        pruefe("'bpdb'" in _in196.getsource(_exp196.archive),
                'die Ablage schreibt sie mit')
     finally:
         if _alt196 is None:

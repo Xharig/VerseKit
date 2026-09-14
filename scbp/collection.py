@@ -354,7 +354,7 @@ def _update_exports(data):
     """
     try:
         from . import export
-        export.ablegen(data)
+        export.archive(data)
     except Exception as exc:
         fehler.merken('collection.update_exports', exc)
 

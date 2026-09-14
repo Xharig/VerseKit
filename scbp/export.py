@@ -19,8 +19,8 @@
 """
 Den eigenen Bauplan-Bestand als Datei ausgeben.
 
-Mehrere Formate, je eines pro Ziel — dazu `fuer_scmdb()` für **scmdb.net** und
-`fuer_bpdb()` für die **Baupläne DB** von Star Citizen Deutsch. Die beiden
+Mehrere Formate, je eines pro Ziel — dazu `for_scmdb()` für **scmdb.net** und
+`for_bpdb()` für die **Baupläne DB** von Star Citizen Deutsch. Die beiden
 Grundfälle:
 
 **1. Für das KRT Profit Basetool** (`profit-base.online`) — dessen Import nimmt
@@ -45,8 +45,8 @@ import json
 import os
 import time
 
-from . import collection as bestand_datei
-from . import catalog as katalog_modul
+from . import collection as collection_file
+from . import catalog as catalog_module
 
 # ⚠⚠ Das Feld `werkzeug` in einer eigenen Exportdatei — daran erkennt
 # `importer.detect()` unsere Dateien wieder.
@@ -58,42 +58,42 @@ from . import catalog as katalog_modul
 # ⭐ Bis zum 12.09.2026 stand hier `'SC BP Watcher'` fest, und `detect()`
 # verglich genauso fest. Dass ein neuer Name trotzdem erkannt würde, lag nur
 # am Rückfall `or 'bauplaene' in data` — Zufall, kein Entwurf.
-WERKZEUGNAME = 'VerseKit'
+TOOL_NAME = 'VerseKit'
 
 
-def _iso(zeit_text):
+def _iso(time_string):
     """„2026-08-24 07:57:59" -> „2026-08-24T07:57:59Z" oder None.
 
     Der Bestand hält die Zeit in lesbarer Form; das Basetool erwartet ISO 8601.
     Lässt sich der Wert nicht deuten, wird das Feld **weggelassen** — laut
     Format ist es optional, und ein erfundener Zeitpunkt wäre schlechter als
     gar keiner."""
-    if not zeit_text:
+    if not time_string:
         return None
     try:
-        t = time.strptime(str(zeit_text), '%Y-%m-%d %H:%M:%S')
+        t = time.strptime(str(time_string), '%Y-%m-%d %H:%M:%S')
         return time.strftime('%Y-%m-%dT%H:%M:%SZ', t)
     except (ValueError, TypeError):
         return None
 
 
-def fuer_basetool(bestand=None):
+def for_basetool(collection=None):
     """Die Struktur, die `profit-base.online` beim Import erwartet."""
-    daten = bestand if bestand is not None else bestand_datei.load()
-    eintraege = []
-    for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
+    data = collection if collection is not None else collection_file.load()
+    entries = []
+    for key, e in sorted((data.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue                     # leere Namen fliegen beim Import raus
-        satz = {'productName': name}
-        zeit = _iso(e.get('zeit'))
-        if zeit:
-            satz['receivedAt'] = zeit
-        eintraege.append(satz)
-    return {'blueprints': eintraege}
+        entry = {'productName': name}
+        time_text = _iso(e.get('zeit'))
+        if time_text:
+            entry['receivedAt'] = time_text
+        entries.append(entry)
+    return {'blueprints': entries}
 
 
-def fuer_bpdb(bestand=None):
+def for_bpdb(collection=None):
     """Die Struktur, die die **Baupläne DB** von Star Citizen Deutsch einliest.
 
     Das ist die Bauplan-Übersicht im Browser
@@ -121,20 +121,20 @@ def fuer_bpdb(bestand=None):
     stehen trotzdem drin, damit die Datei zwischen ihren eigenen nicht wie ein
     Fremdkörper aussieht — und damit ein Mensch sie später zuordnen kann.
     """
-    daten = bestand if bestand is not None else bestand_datei.load()
-    eintraege = []
-    for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
+    data = collection if collection is not None else collection_file.load()
+    entries = []
+    for key, e in sorted((data.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue
-        eintraege.append({'key': name, 'isDone': True, 'isMarked': False})
+        entries.append({'key': name, 'isDone': True, 'isMarked': False})
     return {
         'exported': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
         'mode': 'erspielt',
-        'total': len(eintraege),
-        'done_count': len(eintraege),
+        'total': len(entries),
+        'done_count': len(entries),
         'mark_count': 0,
-        'blueprints': eintraege,
+        'blueprints': entries,
     }
 
 
@@ -150,22 +150,22 @@ def _scmdb_tags():
     ⚠ Liegen keine Rezeptdaten vor (frische Installation, kein Netz), ist die
     Zuordnung leer. Der Export läuft dann trotzdem, nur ohne Tags — er darf
     nicht am Netz hängen."""
-    tabelle = {}
+    table = {}
     try:
         from . import crafting
         for r in crafting.all_items():
             tag = (r.get('tag') or '').strip()
             if not tag:
                 continue
-            for schluessel in (r.get('name'), r.get('basis')):
-                if schluessel:
-                    tabelle.setdefault(schluessel.strip().lower(), tag)
+            for key in (r.get('name'), r.get('basis')):
+                if key:
+                    table.setdefault(key.strip().lower(), tag)
     except Exception:
         return {}
-    return tabelle
+    return table
 
 
-def fuer_scmdb(bestand=None, version='', tags=None):
+def for_scmdb(collection=None, version='', tags=None):
     """Die Struktur, die der Import von **scmdb.net** erwartet.
 
     Abgelesen an einer echten Exportdatei von scmdb.net (05.09.2026): ein
@@ -188,100 +188,100 @@ def fuer_scmdb(bestand=None, version='', tags=None):
 
     `missions` bleibt leer. Ihre Einträge tragen einen `hash` aus dem
     Auftragssystem von scmdb, den wir nicht haben und nicht erfinden."""
-    daten = bestand if bestand is not None else bestand_datei.load()
-    tabelle = _scmdb_tags() if tags is None else tags
-    eintraege = []
-    for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
+    data = collection if collection is not None else collection_file.load()
+    table = _scmdb_tags() if tags is None else tags
+    entries = []
+    for key, e in sorted((data.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue
-        satz = {'tag': tabelle.get(name.lower(), ''), 'name': name}
-        if satz['tag']:
-            satz['url'] = SCMDB_URL % satz['tag']
-        satz['completed'] = True
-        satz['favorite'] = False
-        eintraege.append(satz)
+        entry = {'tag': table.get(name.lower(), ''), 'name': name}
+        if entry['tag']:
+            entry['url'] = SCMDB_URL % entry['tag']
+        entry['completed'] = True
+        entry['favorite'] = False
+        entries.append(entry)
     return {
         'version': 3,
         'exportedAt': time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime()),
         'missions': [],
-        'blueprints': eintraege,
+        'blueprints': entries,
     }
 
 
-def vollstaendig(bestand=None, katalog=None):
+def complete(collection=None, catalog=None):
     """Alles, was das Werkzeug über den eigenen Bestand weiß."""
-    daten = bestand if bestand is not None else bestand_datei.load()
-    kat = (katalog if katalog is not None else katalog_modul.load())
-    kb = kat.get('bauplaene') or {}
-    eintraege = []
-    for schluessel, e in sorted((daten.get('bauplaene') or {}).items()):
-        k = kb.get(schluessel) or {}
-        satz = {
+    data = collection if collection is not None else collection_file.load()
+    cat = (catalog if catalog is not None else catalog_module.load())
+    kb = cat.get('bauplaene') or {}
+    entries = []
+    for key, e in sorted((data.get('bauplaene') or {}).items()):
+        k = kb.get(key) or {}
+        entry = {
             'name': e.get('name'),
             'quelle': e.get('quelle'),
             'zeit': e.get('zeit'),
-            'art': katalog_modul.kind_readable(k.get('a')) if k.get('a') else None,
+            'art': catalog_module.kind_readable(k.get('a')) if k.get('a') else None,
             'klasse': k.get('c'),
             'size': k.get('s'),
             'grade': k.get('g'),
             'hersteller': k.get('m'),
         }
-        eintraege.append({kk: v for kk, v in satz.items() if v not in (None, '')})
+        entries.append({kk: v for kk, v in entry.items() if v not in (None, '')})
     return {
-        'werkzeug': WERKZEUGNAME,
+        'werkzeug': TOOL_NAME,
         'erstellt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-        'spielversion': kat.get('version') or None,
-        'anzahl': len(eintraege),
-        'bauplaene': eintraege,
+        'spielversion': cat.get('version') or None,
+        'anzahl': len(entries),
+        'bauplaene': entries,
     }
 
 
-def schreiben(pfad, art='basetool', bestand=None, katalog=None, version=''):
+def write(path, kind='basetool', collection=None, catalog=None, version=''):
     """Eine Version in eine Datei schreiben. (Erfolg, Meldung)."""
     try:
         # ⚠ Das Auftrags-Protokoll ist kein Bauplan-Bestand: eigene Struktur,
         # eigene Leer-Pruefung. Es faellt deshalb VOR der gemeinsamen Zaehlung
         # heraus — sonst gaelte es als „leerer Bestand" und wuerde nie
         # geschrieben.
-        if art == 'auftraege':
+        if kind == 'auftraege':
             from . import missionslog
-            eintraege = missionslog.laden()
-            if not eintraege:
+            entries = missionslog.laden()
+            if not entries:
                 # ⚠ Knapp wie „leerer Bestand" unten, kein ganzer Satz: Diese
                 # Rueckmeldungen gehen ins Protokoll, nicht auf die Seite.
                 return False, 'leeres Protokoll'
-            ordner = os.path.dirname(os.path.abspath(pfad))
-            if ordner:
-                os.makedirs(ordner, exist_ok=True)
-            with open(pfad + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
-                f.write(missionslog.als_json(eintraege))
-            os.replace(pfad + '.tmp', pfad)
-            return True, str(len(eintraege))
+            folder = os.path.dirname(os.path.abspath(path))
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+            with open(path + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
+                f.write(missionslog.als_json(entries))
+            os.replace(path + '.tmp', path)
+            return True, str(len(entries))
 
-        if art == 'basetool':
-            doc = fuer_basetool(bestand)
-        elif art == 'scmdb':
-            doc = fuer_scmdb(bestand, version)
-        elif art == 'bpdb':
-            doc = fuer_bpdb(bestand)
+        if kind == 'basetool':
+            doc = for_basetool(collection)
+        elif kind == 'scmdb':
+            doc = for_scmdb(collection, version)
+        elif kind == 'bpdb':
+            doc = for_bpdb(collection)
         else:
-            doc = vollstaendig(bestand, katalog)
-        anzahl = len(doc.get('blueprints') or doc.get('bauplaene') or [])
-        if not anzahl:
+            doc = complete(collection, catalog)
+        count = len(doc.get('blueprints') or doc.get('bauplaene') or [])
+        if not count:
             return False, 'leerer Bestand'
-        ordner = os.path.dirname(os.path.abspath(pfad))
-        if ordner:
-            os.makedirs(ordner, exist_ok=True)
-        with open(pfad + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
+        folder = os.path.dirname(os.path.abspath(path))
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(path + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
             json.dump(doc, f, ensure_ascii=False, indent=1)
-        os.replace(pfad + '.tmp', pfad)
-        return True, str(anzahl)
+        os.replace(path + '.tmp', path)
+        return True, str(count)
     except OSError as fehler:
         return False, str(fehler)
 
 
-DATEINAMEN = {
+FILENAMES = {
     'basetool': 'SC-Blueprints-Basetool-%s.json',
     'scmdb':    'scmdb-import-%s.json',
     # ⚠ Nicht `sc_bp_erledigt.json` — so heißt die Datei, die das
@@ -294,7 +294,7 @@ DATEINAMEN = {
 }
 
 
-def vorschlag(art='basetool', mit_datum=True):
+def suggestion(kind='basetool', with_date=True):
     """Ein sinnvoller Dateiname.
 
     ⚠ **Mit Datum nur im Speichern-Dialog.** Wer von Hand speichert, hält einen
@@ -304,33 +304,33 @@ def vorschlag(art='basetool', mit_datum=True):
     heraussuchen. Genau das Suchen sollte die Ablage abschaffen. Dort steht
     deshalb immer derselbe Name, und die Datei ist immer die aktuelle.
     """
-    name = DATEINAMEN.get(art, DATEINAMEN['voll'])
-    if not mit_datum:
+    name = FILENAMES.get(kind, FILENAMES['voll'])
+    if not with_date:
         # „…-%s.json" → „….json", ohne den Bindestrich davor stehen zu lassen.
         return name.replace('-%s', '').replace('%s', '')
     return name % time.strftime('%Y-%m-%d')
 
 
-def ablage_ordner():
+def archive_folder():
     """Wohin die Ablage schreibt. Eigener Ordner neben den übrigen Dateien.
 
     Ein fester Ort statt jedes Mal ein Dateidialog: Wer den Bestand regelmäßig
     hochlädt, will nicht dreimal durch einen Speichern-Dialog klicken. Der
     Dialog bleibt für den Einzelfall daneben bestehen."""
     from . import pfade
-    eigen = pfade.einstellung('export_ordner')
-    ordner = eigen or os.path.join(pfade.app_ordner(), 'export')
+    own = pfade.einstellung('export_ordner')
+    folder = own or os.path.join(pfade.app_ordner(), 'export')
     try:
-        os.makedirs(ordner, exist_ok=True)
+        os.makedirs(folder, exist_ok=True)
     except OSError:
         pass
-    return ordner
+    return folder
 
 
-ALTORDNER = 'Ältere'
+OLD_FOLDER = 'Ältere'
 
 
-def _altbestand_wegraeumen(ordner):
+def _tidy_old_files(folder):
     """Früher abgelegte Dateien **mit Datum** in einen Unterordner schieben.
 
     ⚠ Bis rc65 trug jede abgelegte Datei den Tag im Namen. Wer die Ablage ein
@@ -343,55 +343,55 @@ def _altbestand_wegraeumen(ordner):
     einem unserer drei Namensmuster passt. Was jemand sonst in den Ordner gelegt
     hat, bleibt unangetastet — es ist sein Ordner, nicht unserer.
     """
-    muster = [(name.split('-%s')[0], name.split('%s')[-1])
-              for name in DATEINAMEN.values()]
-    umzug = []
+    pattern = [(name.split('-%s')[0], name.split('%s')[-1])
+              for name in FILENAMES.values()]
+    moved = []
     try:
-        vorhanden = os.listdir(ordner)
+        present = os.listdir(folder)
     except OSError:
         return
-    for datei in vorhanden:
-        voll = os.path.join(ordner, datei)
-        if not os.path.isfile(voll):
+    for file in present:
+        full = os.path.join(folder, file)
+        if not os.path.isfile(full):
             continue
         # Nur die alten, datierten Versionen: Anfang und Endung wie bei uns,
         # aber länger als der feste Name — das Datum steckt dazwischen.
-        for anfang, endung in muster:
-            if (datei.startswith(anfang) and datei.endswith(endung)
-                    and len(datei) > len(anfang) + len(endung)):
-                umzug.append(datei)
+        for start, extension in pattern:
+            if (file.startswith(start) and file.endswith(extension)
+                    and len(file) > len(start) + len(extension)):
+                moved.append(file)
                 break
-    if not umzug:
+    if not moved:
         return
-    alt = os.path.join(ordner, ALTORDNER)
+    old = os.path.join(folder, OLD_FOLDER)
     try:
-        os.makedirs(alt, exist_ok=True)
-        for datei in umzug:
-            ziel = os.path.join(alt, datei)
-            if os.path.exists(ziel):
-                os.remove(os.path.join(ordner, datei))   # liegt dort schon
+        os.makedirs(old, exist_ok=True)
+        for file in moved:
+            target = os.path.join(old, file)
+            if os.path.exists(target):
+                os.remove(os.path.join(folder, file))   # liegt dort schon
             else:
-                os.replace(os.path.join(ordner, datei), ziel)
-    except OSError as ausnahme:
+                os.replace(os.path.join(folder, file), target)
+    except OSError as exception:
         from . import fehler
-        fehler.merken('export.altbestand', ausnahme, ordner)
+        fehler.merken('export._tidy_old_files', exception, folder)
 
 
-def ablegen(bestand=None, katalog=None, version=''):
+def archive(collection=None, catalog=None, version=''):
     """**Alle** Versionen auf einmal in die Ablage schreiben.
 
     Gibt (Erfolg, Ordner, Liste der Dateien) zurück. Ein Fehler bei einer
     Version lässt die anderen nicht ausfallen — lieber zwei von drei Dateien
     als gar keine."""
-    ordner = ablage_ordner()
-    _altbestand_wegraeumen(ordner)
-    geschrieben = []
+    folder = archive_folder()
+    _tidy_old_files(folder)
+    written = []
     # ⚠ Das Auftrags-Protokoll gehoert mit in die Ablage: Es ist eine eigene
     # Liste wie der Bestand, und wer seine Daten sichert, meint alle. Fehlt es
     # hier, merkt das niemand — bis der Rechner neu aufgesetzt ist.
-    for art in ('basetool', 'scmdb', 'bpdb', 'voll', 'auftraege'):
-        ziel = os.path.join(ordner, vorschlag(art, mit_datum=False))
-        ok, _meldung = schreiben(ziel, art, bestand, katalog, version)
+    for kind in ('basetool', 'scmdb', 'bpdb', 'voll', 'auftraege'):
+        target = os.path.join(folder, suggestion(kind, with_date=False))
+        ok, _message = write(target, kind, collection, catalog, version)
         if ok:
-            geschrieben.append(os.path.basename(ziel))
-    return bool(geschrieben), ordner, geschrieben
+            written.append(os.path.basename(target))
+    return bool(written), folder, written
