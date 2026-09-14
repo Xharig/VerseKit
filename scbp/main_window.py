@@ -823,8 +823,17 @@ def bind_wheel(canvas):
 
 
 
-def round_scrollbar(parent, canvas, bg=None, width=10):
+def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
     """Eine Rollleiste mit runden Enden — statt der des Betriebssystems.
+
+    `orient='horizontal'` dreht sie um 90°. ⚠ **Die Geometrie steht trotzdem
+    nur einmal da**: Statt zwei Fassungen gibt es eine Achse. `laenge()` ist
+    die Strecke, an der der Griff entlangläuft, `entlang(e)` die Mausposition
+    darauf, `ecken()` legt das Rechteck in die richtige Richtung. Zwei
+    Fassungen wären zwei Stellen, an denen dieselbe Falle steckt — und die
+    senkrechte hat bereits vier gekostet (Mindesthöhe, Klick bei voller
+    Spanne, Ziehweg, Trefferfläche). Sie alle ein zweites Mal zu machen, wäre
+    absehbar gewesen.
 
     ⚠ `tk.Scrollbar` ist das einzige Bedienelement, das sich nicht einfärben
     lässt: Tk reicht es an das System durch. Unter Linux ist sie grau, auf dem
@@ -849,11 +858,28 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
     # wie ein Strich.
     groove_color, grip_color, grip_light = '#0b0e14', '#5a6b85', '#7d90ad'
     r = width / 2.0
+    quer = orient == 'horizontal'
 
-    c = tk.Canvas(parent, width=width, bg=bg, highlightthickness=0, bd=0)
-    groove = c.create_rectangle(0, 0, width, 10, fill=groove_color, outline='')
-    grip = _round_rect(c, 0, 0, width, 30, radius=r,
-                             fill=grip_color, outline='')
+    def laenge():
+        """Die Strecke, an der der Griff entlangläuft."""
+        return (c.winfo_width() if quer else c.winfo_height()) or 1
+
+    def entlang(e):
+        """Wo auf dieser Strecke die Maus sitzt."""
+        return e.x if quer else e.y
+
+    def ecken(von, bis):
+        """Ein Rechteck von `von` bis `bis` — quer oder längs."""
+        return ((von, 0, bis, width) if quer else (0, von, width, bis))
+
+    def hinrollen(anteil):
+        (canvas.xview_moveto if quer else canvas.yview_moveto)(anteil)
+
+    c = tk.Canvas(parent, bg=bg, highlightthickness=0, bd=0,
+                  **({'height': width} if quer else {'width': width}))
+    groove = c.create_rectangle(*ecken(0, 10), fill=groove_color, outline='')
+    grip = _round_rect(c, *ecken(0, 30), radius=r,
+                       fill=grip_color, outline='')
     c.sized = True        # die Randprüfung soll sie nicht melden
 
     pos = {'first': 0.0, 'last': 1.0, 'grip_offset': 0, 'dragging': False}
@@ -869,7 +895,7 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
         die Leiste sprang, statt sich ziehen zu lassen. Sie sah also greifbar aus
         und war es nicht.
         """
-        height = c.winfo_height() or 1
+        height = laenge()
         first, last = pos['first'], pos['last']
         upper = first * height
         # Der Griff bleibt greifbar, auch wenn 700 Baupläne in der Liste
@@ -884,10 +910,10 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
         return (pos['last'] - pos['first']) >= 0.999
 
     def refresh(*_):
-        height = c.winfo_height()
+        height = laenge()
         if height < 4:
             return
-        c.coords(groove, 0, 0, width, height)
+        c.coords(groove, *ecken(0, height))
         if nothing_to_scroll():
             c.itemconfigure(grip, state='hidden')
             # ⚠ **Auch die Rille verschwindet.** Eine sichtbare Bahn ohne
@@ -899,7 +925,7 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
         c.itemconfigure(groove, state='normal')
         c.itemconfigure(grip, state='normal')
         upper, lower, _ = grip_pos()
-        c.coords(grip, *corners(0, upper, width, lower, r))
+        c.coords(grip, *corners(*(ecken(upper, lower) + (r,))))
 
     def setzen(first, last):
         """Ruft Tk auf, wenn sich der sichtbare Ausschnitt ändert."""
@@ -923,12 +949,13 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
             return
         upper, lower, height = grip_pos()
         span = pos['last'] - pos['first']
-        if upper <= e.y <= lower:                  # auf dem Griff: ziehen
+        wo = entlang(e)
+        if upper <= wo <= lower:                   # auf dem Griff: ziehen
             pos['dragging'] = True
-            pos['grip_offset'] = e.y - upper
+            pos['grip_offset'] = wo - upper
             return
-        target = max(0.0, min(1.0, (e.y / height) - span / 2.0))
-        canvas.yview_moveto(target)
+        target = max(0.0, min(1.0, (wo / height) - span / 2.0))
+        hinrollen(target)
 
     def drag(e):
         """Den Griff mitnehmen.
@@ -944,8 +971,8 @@ def round_scrollbar(parent, canvas, bg=None, width=10):
         upper, lower, height = grip_pos()
         travel = max(1.0, height - (lower - upper))
         span = pos['last'] - pos['first']
-        fraction = (e.y - pos['grip_offset']) / travel
-        canvas.yview_moveto(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
+        fraction = (entlang(e) - pos['grip_offset']) / travel
+        hinrollen(max(0.0, min(1.0, fraction * max(0.0, 1.0 - span))))
 
     def release(_=None):
         pos['dragging'] = False

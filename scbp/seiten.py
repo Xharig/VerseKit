@@ -166,6 +166,50 @@ def _heading(window, frame, title, lead=''):
         _wrap(einleitung, inset=48)
 
 
+def _wide_area(frame, bg=None):
+    """Ein Bereich, der **waagerecht** rollt — für breite Tabellen.
+
+    ⛔⛔ **Der Seitenkörper darf nie waagerecht rollen** (Projektregel). Zu
+    breiter Inhalt bekommt deshalb seine eigene Fläche, statt die Seite zu
+    dehnen — oder, was bis zum 14.09.2026 geschah, **still abgeschnitten** zu
+    werden: Auf der Raffinerien-Seite fehlten bei „sehr groß" drei Spalten,
+    und zwar in einer ausgelieferten Fassung. Tk meckert dabei nicht.
+
+    ⚠ Im Quelltext stand seit dem ersten Tag ein Kommentar, die Tabelle habe
+    so eine Fläche. Sie hatte sie nie. **Ein Kommentar ist kein Bauteil.**
+
+    ⚠ Anders als `_scroll_area()` wird die Breite des inneren Rahmens **nicht**
+    auf die Leinwand gezwungen — genau die soll er ja überschreiten dürfen.
+
+    ⚠ Der Balken erscheint nur, wenn es etwas zu rollen gibt. Eine Bahn ohne
+    Aufgabe sagt „hier lässt sich schieben", und das stimmt dann nicht.
+    """
+    bg = bg or SURFACE
+    aussen = tk.Frame(frame, bg=bg)
+    aussen.pack(fill='x')
+    leinwand = tk.Canvas(aussen, bg=bg, highlightthickness=0)
+    from .main_window import round_scrollbar
+    balken = round_scrollbar(aussen, leinwand, bg=bg, orient='horizontal')
+    innen = tk.Frame(leinwand, bg=bg)
+    leinwand.create_window((0, 0), window=innen, anchor='nw')
+    leinwand.configure(xscrollcommand=balken.set)
+
+    def _nachmessen(_e=None):
+        leinwand.configure(scrollregion=leinwand.bbox('all'))
+        # ⚠ Die Höhe muss mitwachsen: Eine Leinwand ist von sich aus 100 px
+        # hoch, egal was darin steht — die Tabelle wäre unten abgeschnitten.
+        leinwand.configure(height=innen.winfo_reqheight())
+        if innen.winfo_reqwidth() <= leinwand.winfo_width():
+            balken.pack_forget()
+        else:
+            balken.pack(side='bottom', fill='x', pady=(4, 0))
+
+    innen.bind('<Configure>', _nachmessen)
+    leinwand.bind('<Configure>', _nachmessen)
+    leinwand.pack(side='top', fill='x', expand=True)
+    return innen
+
+
 def _scroll_area(frame, inset=24, height=None):
     """Ein Bereich, der rollt. Leinwand + Balken, wie im Einstellungsfenster.
 
@@ -9958,6 +10002,11 @@ def _refineries(fenster, rahmen):
     # Ein Wert ist höchstens vier Zeichen breit (`+11`, `-9`). Die acht waren
     # nur für die Überschrift da — und die passt jetzt zweizeilig.
     karte = _card(innen, pady=(0, 12))
+    # ⭐ Ab hier rollt die Tafel waagerecht in ihrer eigenen Fläche. Schmalere
+    # Spalten und zweizeilige Überschriften (siehe unten) holen genug heraus,
+    # dass bei normaler und großer Schrift gar nicht gerollt werden muss —
+    # der Balken erscheint nur bei „sehr groß".
+    karte = _wide_area(karte)
 
     # ⭐ Eine Leiste mit dem System über den Spalten. Sie beantwortet die
     # Frage, die jemand wirklich hat („wohin fliege ich?"), ohne dass man in

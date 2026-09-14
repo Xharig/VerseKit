@@ -20203,6 +20203,40 @@ def main():
     pruefe(sum(len(g) for _s, g in _gr206) == len(_sp206b),
            'und laesst dabei keine Spalte aus')
 
+    # ⛔⛔ Die Tafel rollt waagerecht in EIGENER Flaeche.
+    #
+    # Im Quelltext stand seit dem ersten Tag ein Kommentar, sie habe eine —
+    # sie hatte sie nie. Bei zehn Spalten fiel das nicht auf; ausgeliefert
+    # fehlten bei „sehr gross" drei Spalten, weil Tk still abschneidet.
+    # **Ein Kommentar ist kein Bauteil**, deshalb fragt diese Pruefung nach
+    # dem Aufruf und nicht nach dem Kommentar.
+    #
+    # ⛔⛔ **Im Syntaxbaum suchen, nicht im Text.** Die erste Fassung fragte
+    # `'_wide_area(' in _ab206` — und blieb beim Gegenpruefen am 14.09.2026
+    # gruen, obwohl der Aufruf weg war: Die Sabotage hatte ihn als
+    # **Kommentar** stehen lassen, und der Name stand damit weiter im Text.
+    # Eine Textsuche kann Code nicht von einem Kommentar unterscheiden.
+    import ast as _ast206
+    _baum206 = _ast206.parse(_q206)
+    _fn206 = next((f for f in _baum206.body
+                   if isinstance(f, _ast206.FunctionDef)
+                   and f.name == '_refineries'), None)
+    pruefe(_fn206 is not None, 'die Seite _refineries gibt es')
+    _ruft206 = _fn206 is not None and any(
+        isinstance(k, _ast206.Call) and isinstance(k.func, _ast206.Name)
+        and k.func.id == '_wide_area' for k in _ast206.walk(_fn206))
+    pruefe(_ruft206,
+           'die Raffinerien-Tafel liegt in einer waagerechten Rollflaeche')
+    pruefe(hasattr(_se206, '_wide_area'),
+           'und den Baustein dafuer gibt es')
+    # Und der Rollbalken kann ueberhaupt quer — sonst waere die Flaeche
+    # gebaut und trotzdem unbedienbar. Gefragt wird die **Signatur**, nicht
+    # der Quelltext: Ein Vorgabewert laesst sich nicht wegkommentieren.
+    import inspect as _ins206
+    from scbp import main_window as _mw206
+    pruefe('orient' in _ins206.signature(_mw206.round_scrollbar).parameters,
+           'der Rollbalken kennt die waagerechte Richtung')
+
     # === 207 · Kein Werkzeug stirbt an seiner eigenen Ausgabe ===============
     #
     # ⛔⛔ Am 14.09.2026, beim Prueflauf VOR dem Release von v3.34.1:
