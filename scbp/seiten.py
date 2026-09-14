@@ -820,6 +820,46 @@ def _masszahl(widget, wert, ersatz=0):
         return ersatz
 
 
+def _wrap_self(label):
+    """Umbrechen auf die Breite, die das Label **selbst** bekommen hat.
+
+    ⭐ Der Fall, für den `_wrap()` nicht taugt: ein Label, das mit
+    `fill='x', expand=True` in einer Zeile sitzt, in der rechts noch mehrere
+    Dinge stehen. Der Elternrahmen ist dann deutlich breiter als das, was das
+    Label wirklich abbekommt — `_wrap()` würde zu großzügig rechnen, und Tk
+    schneidet weiter ab. `beside=` hilft nur bei **einem** Nachbarn.
+
+    Hier wird gar nicht gerechnet: Das Label fragt nach jedem `<Configure>`
+    seine eigene Breite ab. Die kennt es genau.
+
+    ⚠ **Nur setzen, wenn sich der Wert ändert.** Ein neues `wraplength` ändert
+    die Höhe, das löst wieder ein `<Configure>` aus — ohne diese Bremse dreht
+    sich das im Kreis.
+
+    > **Woher:** 14.09.2026. In der Belegungsliste stand ausdrücklich, das
+    > Abschneiden sei Absicht („der Name steht immerhin am Anfang lesbar da").
+    > Bei „sehr groß" brauchte ein Aktionsname 446 px und bekam 296 — ein
+    > Drittel fehlte. Und ausgerechnet wer diese Stufe wählt, tut das, **weil**
+    > er lesen können will.
+    """
+    def nachziehen(_=None):
+        try:
+            if not label.winfo_exists():
+                return
+            breite = label.winfo_width()
+            if breite <= 40:
+                return
+            neu = breite - 4
+            if int(label.cget('wraplength') or 0) != neu:
+                label.configure(wraplength=neu, justify='left')
+        except tk.TclError:
+            pass
+
+    label.bind('<Configure>', nachziehen, add='+')
+    label.after(0, nachziehen)
+    return label
+
+
 def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
     """Den Zeilenumbruch an die tatsächliche Breite hängen.
 
@@ -3908,11 +3948,21 @@ def _joysticks(fenster, rahmen):
             # aufbereitete technische Name" — 382 Aktionen haben keine.
             #
             # ⚠ `expand=True`: Der Name darf schrumpfen, die Marke daneben
-            # nicht — was nicht passt, wird beim Namen abgeschnitten, und der
-            # steht immerhin am Anfang lesbar da.
-            tk.Label(zeile, text=(klar or e['aktion']), bg=SURFACE,
-                     fg=(FG if echt else SUB), font=fenster.f_small,
-                     anchor='w').pack(side='left', fill='x', expand=True)
+            # nicht.
+            #
+            # ⭐ **Was nicht passt, wird UMGEBROCHEN statt abgeschnitten**
+            # (14.09.2026). Hier stand vorher, das Abschneiden sei Absicht —
+            # „der Name steht immerhin am Anfang lesbar da". Bei „sehr groß"
+            # brauchte ein Aktionsname 446 px und bekam 296: Ein Drittel
+            # fehlte. Und wer diese Schriftstufe wählt, tut das, **weil** er
+            # lesen können will. Eine Zeile mehr kostet nichts, ein
+            # abgeschnittener Name kostet die Auskunft.
+            _name_lbl = tk.Label(zeile, text=(klar or e['aktion']),
+                                 bg=SURFACE,
+                                 fg=(FG if echt else SUB),
+                                 font=fenster.f_small, anchor='w')
+            _name_lbl.pack(side='left', fill='x', expand=True)
+            _wrap_self(_name_lbl)
             for kind in zeile.winfo_children():
                 _anfassen(kind)
 
@@ -7769,6 +7819,9 @@ def _shops(fenster, rahmen):
     stand_rahmen.pack(fill='x', padx=24, pady=(6, 0))
     stand_zeile = tk.Label(stand_rahmen, text='', bg=BG, fg=GOLD,
                            font=fenster.f_small, anchor='w')
+    # ⭐ Umbrechen statt abschneiden: Die Standmeldung ist ein ganzer
+    # Satz und stand bei „sehr groß" 81 px über den Rand hinaus.
+    _wrap_self(stand_zeile)
     ld_reset = tk.Label(stand_rahmen, text=t('s_zuruecksetzen'), bg=BG,
                         fg=SUB, font=fenster.f_small, cursor='hand2',
                         padx=10)
@@ -8334,7 +8387,7 @@ def _shops(fenster, rahmen):
             stand_zeile.pack_forget()
             return
         stand_zeile.configure(text=t('s_ld_nur_kaufbar') % anzahl, fg=SUB)
-        stand_zeile.pack(side='left')
+        stand_zeile.pack(side='left', fill='x', expand=True)
 
     def _katalog_anstossen():
         if laden_modul.catalog_ready() or zustand_katalog['laeuft']:
@@ -8346,7 +8399,7 @@ def _shops(fenster, rahmen):
         # Rollfläche. Bei 168 Zeilen darüber sähe den Hinweis sonst niemand;
         # am 04.09.2026 genau so passiert: Die Liste war ungefiltert, der
         # Grund stand außer Sicht, und das Werkzeug wirkte schlicht kaputt.
-        stand_zeile.pack(side='left')
+        stand_zeile.pack(side='left', fill='x', expand=True)
 
         def arbeit():
             def melden(fertig, gesamt):
@@ -15927,9 +15980,13 @@ def _axes(fenster, rahmen):
         pfeil.pack(side='left', padx=(0, 6))
         tk.Label(kopf, text=t('s_ac_befund'), bg=BG, fg=SUB,
                  font=fenster.f_bold, anchor='w').pack(side='left')
-        tk.Label(kopf, text='  ' + t('s_ac_befund_kopf').format(anzahl),
-                 bg=BG, fg=SUB, font=fenster.f_small,
-                 anchor='w').pack(side='left')
+        # ⭐ Umbrechen statt abschneiden: Bei „sehr groß" braucht diese
+        # Zeile 394 px und bekommt 201 — die Hälfte fiele weg.
+        _befund_lbl = tk.Label(
+            kopf, text='  ' + t('s_ac_befund_kopf').format(anzahl),
+            bg=BG, fg=SUB, font=fenster.f_small, anchor='w')
+        _befund_lbl.pack(side='left', fill='x', expand=True)
+        _wrap_self(_befund_lbl)
 
         koerper = tk.Frame(eltern, bg=BG)
         zustand = {'offen': False}
@@ -16246,9 +16303,14 @@ def _axes(fenster, rahmen):
                     klar = funktionen[0].get('achse') or ''
             else:
                 klar = t('s_ac_mehrere_funktionen').format(n=len(funktionen))
-            tk.Label(zeile, text=klar, bg=zeile['bg'],
-                     fg=ACCENT if gewaehlt else SUB, font=fenster.f_small,
-                     anchor='e', padx=8).pack(side='right')
+            # ⭐ Umbrechen statt abschneiden: „Umsehen links/rechts"
+            # braucht bei „sehr groß" 200 px und bekommt 148 — die
+            # Zeile ist voll, und Tk kürzt wortlos.
+            _fn_lbl = tk.Label(zeile, text=klar, bg=zeile['bg'],
+                               fg=ACCENT if gewaehlt else SUB,
+                               font=fenster.f_small, anchor='e', padx=8)
+            _fn_lbl.pack(side='right')
+            _wrap_self(_fn_lbl)
 
         if achse in block['mehrfach']:
             marke = tk.Label(zeile, text='⚠', bg=zeile['bg'], fg=GOLD,

@@ -8,6 +8,38 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.38.0 - 2026-09-14
+
+> **„Sehr groß" gibt es wieder** — für alle, die den Text sonst schlecht
+> lesen. Damit dabei nichts verlorengeht, brechen lange Bezeichnungen jetzt
+> um, statt abgeschnitten zu werden. Und zwei alte Ärgernisse sind weg: Beim
+> Löschen im Rohstofflager und beim Aufklappen eines Erzes springt die Seite
+> nicht mehr nach oben.
+
+### Neu
+
+- **Schriftgröße „Sehr groß" ist wieder wählbar.** Sie war entfernt worden,
+  weil das Fenster damit größer wurde als mancher Bildschirm — das stimmt
+  nicht mehr. Auf Wunsch von Bomb20 und Haldjas
+
+### Verbessert
+
+- **Lange Bezeichnungen werden umgebrochen statt abgeschnitten** — in der
+  Belegungsliste, bei den Achsen und in der Standmeldung der Shops. Vorher
+  fehlte bei großer Schrift bis zu einem Drittel des Namens
+- **Auch Zeilen ohne Symbol heben sich beim Überfahren ab** — die Erze im
+  Bergbau, „Löschen" im Rohstofflager, die Klappköpfe. Vorher wirkten diese
+  Listen tot. Gemeldet von Blackd0g84 (KRT)
+- **Das Listen-Symbol im Overlay bleibt nicht mehr grün**, während das große
+  Fenster offen ist. Grün heißt jetzt „hier kannst du klicken" — zwei
+  Bedeutungen auf einer Farbe wären eine zu viel
+
+### Behoben
+
+- **Seiten sprangen beim Neuzeichnen nach oben.** Wer im Rohstofflager etwas
+  löschte oder im Bergbau ein Erz aufklappte, landete wieder ganz oben und
+  musste zurückscrollen. Betroffen waren auch Handelslager, FOV und Achsen
+
 ## v3.37.0 - 2026-09-14
 
 > **Man sieht jetzt, was man anklicken kann.** Fährt die Maus über ein Symbol,

@@ -8,6 +8,37 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.38.0 - 2026-09-14
+
+> **"Very large" is back** — for everyone who otherwise struggles to read the
+> text. So that nothing is lost at that size, long names now wrap instead of
+> being cut off. And two old annoyances are gone: deleting in raw storage or
+> expanding an ore no longer throws you back to the top of the page.
+
+### New
+
+- **The "Very large" font size can be chosen again.** It had been removed
+  because the window grew larger than some screens — that is no longer the
+  case. Requested by Bomb20 and Haldjas
+
+### Improved
+
+- **Long names wrap instead of being cut off** — in the binding list, on the
+  axes page and in the shops status line. Before, up to a third of a name was
+  missing at large font sizes
+- **Rows without an icon now highlight too** — the ores in mining, "Delete" in
+  raw storage, the collapsible headers. These lists used to feel dead.
+  Reported by Blackd0g84 (KRT)
+- **The list icon in the overlay no longer stays green** while the main window
+  is open. Green now means "you can click this" — two meanings on one colour
+  would be one too many
+
+### Fixed
+
+- **Pages jumped to the top when redrawn.** Deleting something in raw storage
+  or expanding an ore in mining sent you back to the top, and you had to
+  scroll down again. Trade storage, FOV and the axes page were affected too
+
 ## v3.37.0 - 2026-09-14
 
 > **You can now see what is clickable.** Move the mouse over an icon and it
