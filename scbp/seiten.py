@@ -9024,7 +9024,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 stand, _mz_name, ref=_mz_ref, count=wieviel)
             # ⚠ Der Gesamtstand wird gespeichert, nicht eine Teilmenge —
             # dieselbe Falle, die einmal die komplette Wunschliste gelöscht
-            # hat (siehe `_eintrag_speichern`).
+            # hat (siehe `_save_entry`).
             _mz_hangar.save(stand)
             # ⚠ Der Knopf ist eine Leinwand mit gezeichnetem Text und lässt
             # sich nicht umbeschriften. Die Rückmeldung steht deshalb daneben —
@@ -10988,7 +10988,7 @@ def _hangar(fenster, rahmen):
         ohne = 0
         for eintrag in sorted(schiffsliste,
                               key=lambda s: (s.get('name') or '').lower()):
-            ohne += _hangar_zeile(fenster, liste_rahmen, eintrag, daten,
+            ohne += _hangar_row(fenster, liste_rahmen, eintrag, daten,
                                   meldung, neu_zeichnen)
         if ohne:
             _body_text(liste_rahmen,
@@ -11137,7 +11137,7 @@ def _wishlist(fenster, rahmen):
                         fill='x')
             return
         for eintrag in liste:
-            _wunsch_zeile(fenster, liste_rahmen, eintrag, daten, meldung,
+            _wish_row(fenster, liste_rahmen, eintrag, daten, meldung,
                           neu_zeichnen)
 
     # ⚠ Beim erneuten Öffnen frisch laden: Die Seite wird nur **einmal** gebaut
@@ -11304,7 +11304,7 @@ def _asop(fenster, rahmen):
                      font=fenster.f_small, anchor='w').pack(fill='x', pady=(6, 0))
             return
         for e in zeigen:
-            _asop_zeile(fenster, liste, e, daten, asop_modul, sichern)
+            _asop_row(fenster, liste, e, daten, asop_modul, sichern)
         ohne = [e for e in zeigen if not e['schluessel']]
         if ohne:
             hinweis_lbl = tk.Label(
@@ -11416,7 +11416,7 @@ def _asop(fenster, rahmen):
     _fuellen()
 
 
-def _asop_zeile(fenster, eltern, e, daten, asop_modul, sichern):
+def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):
     """Eine Schiffszeile: Werksname, Eingabefeld, Stern.
 
     ⚠ Die Reihenfolge ist überall dieselbe — Beschriftung links, Bedienelement
@@ -11567,7 +11567,7 @@ def _shopping_list(fenster, rahmen):
             _no_data_note(fenster, koerper, werte)
             return
 
-        _einkauf_preise_holen(posten, koerper, neu_zeichnen)
+        _fetch_buy_prices(posten, koerper, neu_zeichnen)
 
         # ⚠⚠ **Der Kopf zählt, was noch zu tun ist — nicht, was einmal
         # geplant war.** Bis zum 06.09.2026 stand „8 Positionen aus 2
@@ -11603,8 +11603,8 @@ def _shopping_list(fenster, rahmen):
         for eintrag in posten:
             if eintrag.get('schiff') != aktuelles:
                 aktuelles = eintrag.get('schiff')
-                _einkauf_schiffkopf(fenster, koerper, eintrag)
-            _einkauf_zeile(fenster, koerper, eintrag, abhaken=abhaken)
+                _buy_ship_head(fenster, koerper, eintrag)
+            _buy_row(fenster, koerper, eintrag, abhaken=abhaken)
 
         # Wie viel schon erledigt ist — sonst sieht eine halb abgearbeitete
         # Liste aus wie eine unangetastete.
@@ -11615,9 +11615,9 @@ def _shopping_list(fenster, rahmen):
             _body_text(koerper, t('s_ek_abgehakt').format(n=len(fertige)),
                         fenster.f_small, color=ACCENT, fill='x', pady=(6, 0))
 
-        _warenkorb_summe(fenster, koerper, posten)
+        _cart_total(fenster, koerper, posten)
         _no_data_note(fenster, koerper, werte)
-        _warenkorb_route(fenster, koerper, posten)
+        _cart_route(fenster, koerper, posten)
 
     # ⚠ Beim erneuten Öffnen frisch rechnen: Die Seite wird nur einmal gebaut,
     # und zwischen zwei Besuchen ändert sich im Hangar fast immer etwas.
@@ -11689,7 +11689,7 @@ def _dismantle(fenster, rahmen):
                                                                pady=(0, 8))
 
         for zeile in zeilen:
-            _zerlege_zeile(fenster, ergebnis, zeile)
+            _dismantle_row(fenster, ergebnis, zeile)
 
         # ⭐ Die Kurzfassung unter dem Strich: Lohnt es sich überhaupt?
         verloren = [z for z in zeilen if z['verloren']]
@@ -11724,7 +11724,7 @@ def _dismantle(fenster, rahmen):
     fenster.on_show['zerlegen'] = _beim_zeigen
 
 
-def _zerlege_zeile(fenster, eltern, zeile):
+def _dismantle_row(fenster, eltern, zeile):
     """Ein Rohstoff: was drinsteckt, was zurückkommt."""
     rahmen = tk.Frame(eltern, bg=SURFACE)
     rahmen.pack(fill='x', pady=(0, 2))
@@ -11926,14 +11926,14 @@ def _farm_list(fenster, rahmen):
                         color=ACCENT, fill='x')
         else:
             for eintrag in fehlt:
-                _farm_zeile(fenster, koerper, eintrag, fehlend=True)
+                _farm_row(fenster, koerper, eintrag, fehlend=True)
 
         if reicht:
             tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(reicht)),
                      bg=BG, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(fill='x', pady=(14, 4))
             for eintrag in reicht:
-                _farm_zeile(fenster, koerper, eintrag, fehlend=False)
+                _farm_row(fenster, koerper, eintrag, fehlend=False)
 
         # ⚠ Was gar nicht gerechnet werden konnte, wird genannt — eine Liste,
         # der stillschweigend Posten fehlen, ist schlimmer als eine kurze.
@@ -11948,7 +11948,7 @@ def _farm_list(fenster, rahmen):
     _aufbauen()
 
 
-def _farm_zeile(fenster, eltern, eintrag, fehlend):
+def _farm_row(fenster, eltern, eintrag, fehlend):
     """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt."""
     zeile = tk.Frame(eltern, bg=SURFACE)
     zeile.pack(fill='x', pady=(0, 2))
@@ -12029,7 +12029,7 @@ def _no_data_note(fenster, eltern, werte):
                 fenster.f_small, color=GOLD, fill='x', pady=(8, 0))
 
 
-def _einkauf_schiffkopf(fenster, eltern, eintrag):
+def _buy_ship_head(fenster, eltern, eintrag):
     """Die Zwischenüberschrift je Schiff — mit Herkunft."""
     from . import cart
 
@@ -12047,7 +12047,7 @@ def _einkauf_schiffkopf(fenster, eltern, eintrag):
              anchor='w').pack(side='left', padx=(10, 0))
 
 
-def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
+def _buy_row(fenster, eltern, eintrag, abhaken=None):
     """Eine Rechnungsposition: wo, was, wie, wie viel — und ein Haken davor."""
     from . import cart
 
@@ -12090,7 +12090,7 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
 
     # Güte und Klasse — dieselbe Angabe wie in der Teileauswahl. Auf einer
     # Rechnung sagt „Fortitude" wenig, „Fortitude · C · Industrie" viel.
-    kennzeichen = (_teil_kennzeichen({'kennung': eintrag.get('ref')})
+    kennzeichen = (_part_label({'kennung': eintrag.get('ref')})
                    if eintrag.get('sorte') == cart.PART else '')
     if kennzeichen:
         tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=neben,
@@ -12121,10 +12121,10 @@ def _einkauf_zeile(fenster, eltern, eintrag, abhaken=None):
              anchor='e').pack(side='right', padx=(0, 16))
 
 
-def _einkauf_preise_holen(posten, widget, neu_zeichnen):
+def _fetch_buy_prices(posten, widget, neu_zeichnen):
     """Fehlende Ladenpreise der Rechnung im Hintergrund nachholen.
 
-    ⚠ Dieselbe Begründung wie bei `_warenkorb_preise_holen`: `rechnung()`
+    ⚠ Dieselbe Begründung wie bei `_fetch_cart_prices`: `rechnung()`
     fasst bewusst kein Netz an — zwölf Posten wären zwölf Netzrunden, während
     die Oberfläche steht. Das Holen gehört hierher.
     """
@@ -12152,7 +12152,7 @@ def _einkauf_preise_holen(posten, widget, neu_zeichnen):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
+def _wish_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     """Ein Schiff auf der Wunschliste — mit dem, was es kostet und wo es steht.
 
     ⚠ **Die Preise stehen schon im Werkzeug**, es wird nichts nachgeladen:
@@ -12220,10 +12220,10 @@ def _wunsch_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # ⚠ Was hier geplant wird, bleibt **Planung**: Ein Wunschschiff taucht
     # nirgends in „passt in dein Schiff" auf. Sonst würde das Werkzeug über
     # ein Schiff Auskunft geben, das dem Spieler gar nicht gehört.
-    _warenkorb_block(fenster, karte, eintrag, daten)
+    _cart_box(fenster, karte, eintrag, daten)
 
 
-def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
+def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     """Eine Schiffszeile. Gibt `1` zurück, wenn Steckplätze fehlen."""
     from . import fleet as meine, erkul
 
@@ -12303,17 +12303,17 @@ def _hangar_zeile(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     def marke_setzen():
         for kind in marke_rahmen.winfo_children():
             kind.destroy()
-        _zeichne_marke(fenster, marke_rahmen, eintrag)
+        _draw_badge(fenster, marke_rahmen, eintrag)
 
     marke_setzen()
     offen = _wk_marke.open_count(eintrag)
     # Ausstattung und Warenkorb — aufklappbar, damit ein Hangar mit vierzig
     # Schiffen eine Liste bleibt und keine Bleiwüste wird.
-    _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=marke_setzen)
+    _cart_box(fenster, karte, eintrag, daten, beim_aendern=marke_setzen)
     return 0 if plaetze else 1
 
 
-def _zeichne_marke(fenster, eltern, eintrag):
+def _draw_badge(fenster, eltern, eintrag):
     """Die Marke an einer Schiffszeile: offene Posten oder „fertig gefittet".
 
     ⚠⚠ **Die Fertig-Marke ist eine Warnung, keine Auszeichnung.** Ein neu
@@ -12337,7 +12337,7 @@ def _zeichne_marke(fenster, eltern, eintrag):
                  font=fenster.f_small, anchor='w').pack(side='left')
 
 
-def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
+def _cart_box(fenster, karte, eintrag, daten, beim_aendern=None):
     """„Ausstattung & Warenkorb" unter einer Schiffszeile — erst auf Klick.
 
     ⚠ Gebaut wird der Inhalt **beim ersten Aufklappen**, nicht beim Zeichnen
@@ -12371,7 +12371,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
         """
         for kind in koerper.winfo_children():
             kind.destroy()
-        _warenkorb_inhalt(fenster, koerper, eintrag, daten, neu)
+        _cart_content(fenster, koerper, eintrag, daten, neu)
         if beim_aendern is not None:
             beim_aendern()
 
@@ -12392,7 +12392,7 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
     # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
     icons.hover_group(kopf, pfeil)
 
-def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
+def _cart_content(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
     from . import cart, fleet as meine
 
@@ -12409,7 +12409,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
                     inset=78)
         return
 
-    _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen)
+    _slot_list(fenster, eltern, eintrag, daten, neu_zeichnen)
 
     if zustand == cart.NOTHING_OPEN:
         # ⚠⚠ **Zwei Gründe für „nichts offen", zwei verschiedene Sätze.**
@@ -12430,7 +12430,7 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
         return
 
     cart.enrich(liste)
-    _warenkorb_preise_holen(liste, eltern, neu_zeichnen)
+    _fetch_cart_prices(liste, eltern, neu_zeichnen)
 
     # ⚠ **Zählt, was noch zu tun ist.** Derselbe Fehler wie im Kopf der
     # Sammelliste: „Warenkorb (2)" blieb bei zwei stehen, obwohl beide Posten
@@ -12454,16 +12454,16 @@ def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
                  fill='x', padx=(46, 16), pady=(8, 4))
 
     for posten in noch_offen:
-        _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen)
+        _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen)
 
     if fertig:
-        _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen)
+        _installed_items(fenster, eltern, eintrag, fertig, neu_zeichnen)
 
-    _warenkorb_summe(fenster, eltern, liste)
-    _warenkorb_route(fenster, eltern, liste)
+    _cart_total(fenster, eltern, liste)
+    _cart_route(fenster, eltern, liste)
 
 
-def _warenkorb_preise_holen(liste, widget, neu_zeichnen):
+def _fetch_cart_prices(liste, widget, neu_zeichnen):
     """Fehlende Ladenpreise im Hintergrund nachholen, dann neu zeichnen.
 
     ⚠⚠ **Ohne das steht „wird nachgeschlagen …" für immer da.** Der Zustand
@@ -12538,7 +12538,7 @@ def _ask(window, title, text):
     return ask_yes_no(window.root, title, text)
 
 
-def _teil_kennzeichen(teil):
+def _part_label(teil):
     """„C · Industrie" — Güte und Klasse eines Teils, kurz.
 
     ⭐⭐ **Das ist die Angabe, nach der ausgesucht wird.** Ein Schiff wird auf
@@ -12562,7 +12562,7 @@ def _teil_kennzeichen(teil):
     guete = (teil.get('guete') or '').strip()
     klasse = (teil.get('klasse') or '').strip()
     if (not guete or not klasse) and teil.get('kennung'):
-        nach = _teil_nachschlagen(teil['kennung'])
+        nach = _lookup_part(teil['kennung'])
         guete = guete or nach.get('guete') or ''
         klasse = klasse or nach.get('klasse') or ''
     teile = [guete] if guete else []
@@ -12586,7 +12586,7 @@ def _teil_kennzeichen(teil):
     return ' · '.join(teile)
 
 
-def _teil_nachschlagen(kennung):
+def _lookup_part(kennung):
     """Güte und Klasse eines Teils aus dem Laden-Katalog — über die Kennung.
 
     ⚠ Einmal je Programmlauf gebaut, nicht je Zeile: Der Katalog hat über
@@ -12614,7 +12614,7 @@ def _teil_nachschlagen(kennung):
 _PART_INDEX = [None]
 
 
-def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
+def _slot_list(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Die Steckplätze des Schiffs, jeder mit dem, was darin sitzt.
 
     ⚠ Gezeigt wird immer die **Werksausstattung** als Ausgangspunkt, auch wenn
@@ -12643,12 +12643,12 @@ def _steckplatz_liste(fenster, eltern, eintrag, daten, neu_zeichnen):
     # gleiches Teil ab Werk **und** dieselbe eigene Wahl. Sobald jemand einen
     # einzelnen Platz anders belegt, löst er sich aus der Gruppe und steht für
     # sich — sonst verschwände seine Abweichung hinter einem „16x".
-    for gruppe in _plaetze_buendeln(plaetze, gewaehlt):
-        _steckplatz_zeile(fenster, eltern, eintrag, gruppe[0], gewaehlt,
+    for gruppe in _bundle_slots(plaetze, gewaehlt):
+        _slot_row(fenster, eltern, eintrag, gruppe[0], gewaehlt,
                           neu_zeichnen, gruppe=gruppe)
 
 
-def _plaetze_buendeln(plaetze, gewaehlt):
+def _bundle_slots(plaetze, gewaehlt):
     """Gleichartige Steckplätze zusammenfassen; gibt Gruppen zurück.
 
     Die Reihenfolge bleibt erhalten: Die Gruppe steht dort, wo ihr erster Platz
@@ -12670,7 +12670,7 @@ def _plaetze_buendeln(plaetze, gewaehlt):
     return gruppen
 
 
-def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
+def _slot_row(fenster, eltern, eintrag, platz, gewaehlt,
                       neu_zeichnen, gruppe=None):
     """Ein Steckplatz — anklickbar, die Teileauswahl klappt darunter auf.
 
@@ -12730,14 +12730,14 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     # sieht man zwar, dass die Auswahl ein „A · Tarnung" anbietet, aber nicht,
     # dass ab Werk längst ein A drinsteckt. Ohne den Vergleich ist die eine
     # Angabe die Hälfte einer Auskunft.
-    kennzeichen = _teil_kennzeichen({'kennung': kennung}) if kennung else ''
+    kennzeichen = _part_label({'kennung': kennung}) if kennung else ''
     if kennzeichen:
         tk.Label(zeile, text=kennzeichen, bg=SURFACE, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(side='left',
                                                         padx=(10, 0))
 
     def speichern():
-        _eintrag_speichern(eintrag)
+        _save_entry(eintrag)
 
     if eigenes.get('ref'):
         # ⚠⚠ **Diese Funktion darf nicht schlicht „zurücksetzen" heißen.**
@@ -12810,7 +12810,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
             lambda: sorted(nach_name),
             on_pick=uebernehmen, on_confirm=uebernehmen,
             empty_text=t('s_hg_nichts_gefunden'), scrollable=200,
-            extra=lambda n: _teil_kennzeichen(nach_name.get(n)))
+            extra=lambda n: _part_label(nach_name.get(n)))
         feld.pack(fill='x', padx=(22, 0))
         liste.pack(fill='x', padx=(22, 0))
 
@@ -12833,7 +12833,7 @@ def _steckplatz_zeile(fenster, eltern, eintrag, platz, gewaehlt,
     zeile.bind('<Button-1>', umschalten)
 
 
-def _eintrag_speichern(eintrag):
+def _save_entry(eintrag):
     """Diesen Eintrag in die Datei zurückschreiben — Hangar **oder** Wunsch.
 
     ⚠⚠⚠ **Der Vorgänger hat Daten vernichtet.** `_hangar_liste()` gab nur die
@@ -12870,7 +12870,7 @@ def _eintrag_speichern(eintrag):
     return gefunden
 
 
-def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
+def _installed_items(fenster, eltern, eintrag, fertig, neu_zeichnen):
     """Was eingebaut ist: eine Zeile, auf Klick die Liste.
 
     ⚠ Zugeklappt, weil es die häufigere Lage ist — wer am Schiff arbeitet,
@@ -12899,7 +12899,7 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
             for kind in koerper.winfo_children():
                 kind.destroy()
             for posten in fertig:
-                _warenkorb_posten(fenster, koerper, eintrag, posten,
+                _cart_item(fenster, koerper, eintrag, posten,
                                   neu_zeichnen, eingerueckt=False)
             koerper.pack(fill='x', after=kopf)
             pfeil.swap_symbol('zuklappen')
@@ -12912,7 +12912,7 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
     # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
     icons.hover_group(kopf, pfeil)
 
-def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
+def _cart_item(fenster, eltern, eintrag, posten, neu_zeichnen,
                       eingerueckt=True):
     """Ein Posten mit **beiden** Wegen nebeneinander — kaufen und bauen.
 
@@ -12939,7 +12939,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     # einem ein, dass das Teil längst drin ist, nicht zwei Reiter weiter.
     def abhaken(_e=None):
         if cart.set_done(eintrag, posten['pfad'], not fertig):
-            _eintrag_speichern(eintrag)
+            _save_entry(eintrag)
             neu_zeichnen()
 
     haken = icons.line(kopf, 'haken', background='#0c1017',
@@ -12977,7 +12977,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     def waehlen(weg):
         def tat():
             if cart.set_method(eintrag, posten['pfad'], weg):
-                _eintrag_speichern(eintrag)
+                _save_entry(eintrag)
                 neu_zeichnen()
         return tat
 
@@ -13071,7 +13071,7 @@ def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
     tk.Frame(karte, bg='#0c1017', height=4).pack()
 
 
-def _warenkorb_summe(fenster, eltern, liste):
+def _cart_total(fenster, eltern, liste):
     """Was der Warenkorb kostet — nach der getroffenen Wahl."""
     from . import cart
     zahlen = cart.total(liste)
@@ -13098,7 +13098,7 @@ def _warenkorb_summe(fenster, eltern, liste):
                  anchor='w').pack(fill='x')
 
 
-def _warenkorb_route(fenster, eltern, liste):
+def _cart_route(fenster, eltern, liste):
     """Die Einkaufsroute für alles, was gekauft wird."""
     from . import cart
     stopps, ohne = cart.route(liste)
@@ -14568,7 +14568,7 @@ def _selling(fenster, rahmen):
             # In jedem zu wiederholen war der erste Bau: Bei 40 Orten stand
             # „Ware · SCU · Preis 1 SCU · Gesamtpreis" vierzigmal da und machte
             # die Liste unruhiger, statt sie zu erklären.
-            _verkauf_zeile(fenster, ergebnis_rahmen, ort, len(auswahl),
+            _selling_row(fenster, ergebnis_rahmen, ort, len(auswahl),
                            lagermengen, mit_kopf=(nummer == 0))
 
     def neu_zeichnen():
@@ -14610,7 +14610,7 @@ def _selling(fenster, rahmen):
     # Umschalten erneut.
 
 
-def _verkauf_zeile(fenster, eltern, ort, gesucht, lagermengen,
+def _selling_row(fenster, eltern, ort, gesucht, lagermengen,
                    mit_kopf=False):
     """Ein Ankaufsort: wie viele Waren er nimmt, was er zahlt, wie alt das ist."""
     kasten = tk.Frame(eltern, bg=SURFACE, highlightthickness=1,
@@ -14933,7 +14933,7 @@ def _trade_storage(fenster, rahmen):
         # keine Zeile ist, erklärt etwas, das man gar nicht tun kann.
         _body_text(liste_rahmen, t('s_hl_aendern_hinweis'), fenster.f_small,
                     fill='x', pady=(0, 8))
-        gesamt = _handelslager_tabelle(
+        gesamt = _trade_table(
             fenster, liste_rahmen, posten, preisdaten.best_price,
             lambda n: _keep_scroll(
                 liste_rahmen, lambda: (lager.remove(n), abbrechen())),
@@ -15056,7 +15056,7 @@ def _trade_storage(fenster, rahmen):
     neu_zeichnen()
 
 
-def _handelslager_tabelle(fenster, eltern, posten, preis_von, loeschen,
+def _trade_table(fenster, eltern, posten, preis_von, loeschen,
                           bearbeiten, offen_nr):
     """Das Lager als echte Tabelle. Gibt den Gesamtwert zurück.
 

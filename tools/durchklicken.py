@@ -187,7 +187,7 @@ def main():
         stand = meine.load()
         schiff = (stand.get('schiffe') or [{}])[0]
 
-        seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)
+        seiten._draw_badge(_fenster(wurzel), rahmen, schiff)
         wurzel.update_idletasks()
         gelesen = ' '.join(texte(rahmen))
         pruefe('2' in gelesen,
@@ -196,7 +196,7 @@ def main():
         cart.set_done(schiff, 'hardpoint_cooler_01', True)
         for kind in rahmen.winfo_children():
             kind.destroy()
-        seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)
+        seiten._draw_badge(_fenster(wurzel), rahmen, schiff)
         wurzel.update_idletasks()
         gelesen = ' '.join(texte(rahmen))
         pruefe('1' in gelesen and '2' not in gelesen,
@@ -205,7 +205,7 @@ def main():
         cart.set_done(schiff, 'hardpoint_cooler_02', True)
         for kind in rahmen.winfo_children():
             kind.destroy()
-        seiten._zeichne_marke(_fenster(wurzel), rahmen, schiff)
+        seiten._draw_badge(_fenster(wurzel), rahmen, schiff)
         wurzel.update_idletasks()
         gelesen = ' '.join(texte(rahmen))
         pruefe('besorgen' not in gelesen,

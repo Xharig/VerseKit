@@ -14779,37 +14779,37 @@ def main():
     }
     try:
         _sp153.setzen('de')
-        pruefe(_st153._teil_kennzeichen({'guete': 'C', 'klasse': 'Industrial'})
+        pruefe(_st153._part_label({'guete': 'C', 'klasse': 'Industrial'})
                == 'C · Industrie',
                'Guete und Klasse stehen zusammen, Klasse uebersetzt')
         _sp153.setzen('en')
-        pruefe(_st153._teil_kennzeichen({'guete': 'C', 'klasse': 'Industrial'})
+        pruefe(_st153._part_label({'guete': 'C', 'klasse': 'Industrial'})
                == 'C · Industrial',
                '* und auf Englisch ebenso')
         _sp153.setzen('de')
 
         # Nur die Kennung bekannt — so liegt es in der Steckplatz-Zeile vor.
-        pruefe(_st153._teil_kennzeichen({'kennung': 'ref-tarn'})
+        pruefe(_st153._part_label({'kennung': 'ref-tarn'})
                == 'A · Tarnung',
                'aus der blossen Kennung werden beide Angaben nachgeschlagen')
 
         # Die Guete bleibt ein Buchstabe — sie wird nicht uebersetzt.
-        pruefe(_st153._teil_kennzeichen({'guete': 'A'}) == 'A',
+        pruefe(_st153._part_label({'guete': 'A'}) == 'A',
                'die Guete allein bleibt der Buchstabe')
-        pruefe(_st153._teil_kennzeichen({'klasse': 'Stealth'}) == 'Tarnung',
+        pruefe(_st153._part_label({'klasse': 'Stealth'}) == 'Tarnung',
                'die Klasse allein steht auch fuer sich')
 
         # Gegenproben: Nichts erfinden, wo nichts ist.
-        pruefe(_st153._teil_kennzeichen({'kennung': 'ref-ohne'}) == '',
+        pruefe(_st153._part_label({'kennung': 'ref-ohne'}) == '',
                'Gegenprobe: ein Teil ohne beide Angaben liefert nichts')
-        pruefe(_st153._teil_kennzeichen({'kennung': 'gibt-es-nicht'}) == '',
+        pruefe(_st153._part_label({'kennung': 'gibt-es-nicht'}) == '',
                'Gegenprobe: eine unbekannte Kennung liefert nichts')
-        pruefe(_st153._teil_kennzeichen(None) == '',
+        pruefe(_st153._part_label(None) == '',
                'Gegenprobe: gar kein Teil liefert nichts')
 
         # ⚠ Und die Gegenprobe zur Pruefung selbst: Wuerde die Klasse NICHT
         # uebersetzt, muesste das hier auffallen.
-        pruefe('Stealth' not in _st153._teil_kennzeichen({'klasse': 'Stealth'}),
+        pruefe('Stealth' not in _st153._part_label({'klasse': 'Stealth'}),
                'Gegenprobe: die englische Klasse steht nicht im deutschen Text')
     finally:
         _st153._PART_INDEX[0] = _vorher153
@@ -14863,7 +14863,7 @@ def main():
                   'kauf': kauf,
                   'bau': {'zustand': _wk155.KNOWN, 'material': 17120,
                           'dauer': 2940}}
-        _st155._warenkorb_posten(_f155, rahmen, {'name': 'T', 'belegung': {}},
+        _st155._cart_item(_f155, rahmen, {'name': 'T', 'belegung': {}},
                                  posten, lambda: None)
         wurzel155.update_idletasks()
         texte = []
@@ -15153,25 +15153,25 @@ def main():
     _st158._PART_INDEX[0] = {}
     try:
         _sp158.setzen('de')
-        pruefe(_st158._teil_kennzeichen(
+        pruefe(_st158._part_label(
             {'guete': 'A', 'klasse': 'Military',
              'herkunft': _wk158.CRAFTABLE}) == 'A · Militär · nur über Bauplan',
                'ein Militaerteil zeigt Guete, Klasse und die Herkunft')
         # ⭐ Der Fall Crossfield: keine Klasse, aber eine nuetzliche Auskunft.
-        pruefe(_st158._teil_kennzeichen(
+        pruefe(_st158._part_label(
             {'guete': '', 'klasse': '',
              'herkunft': _wk158.CRAFTABLE}) == 'nur über Bauplan',
                'ohne Klasse steht die Herkunft da, keine geratene Klasse')
-        pruefe('Zivil' not in _st158._teil_kennzeichen(
+        pruefe('Zivil' not in _st158._part_label(
             {'guete': '', 'klasse': '', 'herkunft': _wk158.CRAFTABLE}),
                'Gegenprobe: es wird KEINE Standardklasse eingesetzt')
         # Der Normalfall bekommt keinen Zusatz — sonst staende an jedem
         # zweiten Teil dasselbe Wort.
-        pruefe(_st158._teil_kennzeichen(
+        pruefe(_st158._part_label(
             {'guete': 'B', 'klasse': 'Civilian',
              'herkunft': _wk158.BOTH}) == 'B · Zivil',
                'ein auch kaufbares Teil bekommt keinen Herkunfts-Zusatz')
-        pruefe(_st158._teil_kennzeichen(
+        pruefe(_st158._part_label(
             {'guete': 'B', 'klasse': 'Civilian',
              'herkunft': _wk158.BUYABLE}) == 'B · Zivil',
                '* und ein nur kaufbares ebenso wenig')
@@ -15312,7 +15312,7 @@ def main():
                           'p2': {'ref': 'r2', 'name': 'Teil B',
                                  'weg': _wk160.BUY}}}
         _rahmen160 = _tk160.Frame(_wurzel160, bg='#0d1117')
-        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _st160._draw_badge(_f160, _rahmen160, _schiff160)
         _wurzel160.update_idletasks()
         _vorher160 = ' '.join(_texte160(_rahmen160))
         pruefe('2' in _vorher160,
@@ -15324,7 +15324,7 @@ def main():
         _wk160.set_done(_schiff160, 'p1', True)
         for _k160 in _rahmen160.winfo_children():
             _k160.destroy()
-        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _st160._draw_badge(_f160, _rahmen160, _schiff160)
         _wurzel160.update_idletasks()
         _nachher160 = ' '.join(_texte160(_rahmen160))
         pruefe('1' in _nachher160 and '2' not in _nachher160,
@@ -15335,7 +15335,7 @@ def main():
         _wk160.set_done(_schiff160, 'p2', True)
         for _k160 in _rahmen160.winfo_children():
             _k160.destroy()
-        _st160._zeichne_marke(_f160, _rahmen160, _schiff160)
+        _st160._draw_badge(_f160, _rahmen160, _schiff160)
         _wurzel160.update_idletasks()
         _fertig160 = ' '.join(_texte160(_rahmen160))
         pruefe('Claim' in _fertig160 or 'claim' in _fertig160,
@@ -15350,7 +15350,7 @@ def main():
         _leer160 = {'name': 'Leer', 'belegung': {}}
         for _k160 in _rahmen160.winfo_children():
             _k160.destroy()
-        _st160._zeichne_marke(_f160, _rahmen160, _leer160)
+        _st160._draw_badge(_f160, _rahmen160, _leer160)
         _wurzel160.update_idletasks()
         pruefe(not _texte160(_rahmen160),
                'ein Schiff ohne Planung bekommt keine Marke')
@@ -15504,7 +15504,7 @@ def main():
     #
     # ⚠ Eine Pruefung, die nur `speichern()` aufruft, findet das nicht: Die
     # Funktion war richtig. Falsch war, WAS ihr uebergeben wurde. Geprueft
-    # wird deshalb der Weg ueber `_eintrag_speichern`, so wie die Oberflaeche
+    # wird deshalb der Weg ueber `_save_entry`, so wie die Oberflaeche
     # ihn geht.
     print()
     print('163. Speichern wirft weder Schiffe noch Wuensche weg')
@@ -15538,7 +15538,7 @@ def main():
         # An einem HANGAR-Schiff etwas aendern.
         _schiff163 = _stand163['schiffe'][0]
         _wk163.set_part(_schiff163, 'p1', 'ref-1', 'BlastChill')
-        _st163._eintrag_speichern(_schiff163)
+        _st163._save_entry(_schiff163)
         _neu163 = _hg163.load()
         pruefe(len(_neu163.get('wunsch') or []) == 1,
                'die Wunschliste ueberlebt eine Aenderung am Hangar-Schiff')
@@ -15548,7 +15548,7 @@ def main():
         # An einem WUNSCH-Schiff etwas aendern.
         _wunsch163 = _neu163['wunsch'][0]
         _wk163.set_part(_wunsch163, 'p9', 'ref-2', 'FR-66')
-        _st163._eintrag_speichern(_wunsch163)
+        _st163._save_entry(_wunsch163)
         _zuletzt163 = _hg163.load()
         pruefe(len(_zuletzt163.get('schiffe') or []) == 1,
                'der Hangar ueberlebt eine Aenderung am Wunschschiff')
@@ -15558,7 +15558,7 @@ def main():
                '* die des Hangar-Schiffs steht auch noch da')
 
         # Gegenprobe: Ein Eintrag, den es nirgends gibt, wird gemeldet.
-        pruefe(not _st163._eintrag_speichern({'name': 'Gibt es nicht',
+        pruefe(not _st163._save_entry({'name': 'Gibt es nicht',
                                               'hersteller': 'X'}),
                'Gegenprobe: ein unbekannter Eintrag meldet, dass er fehlt')
     finally:
@@ -16742,7 +16742,7 @@ def main():
                    'werksname': 'Gatac Railen', 'weg': 'wertende'}
     _gesichert176 = []
     _daten176 = {'stand': _as176.leer()}
-    _se176._asop_zeile(_f176, _rahmen176, _eintrag176, _daten176, _as176,
+    _se176._asop_row(_f176, _rahmen176, _eintrag176, _daten176, _as176,
                        lambda: _gesichert176.append(True) or True)
     _w176.update_idletasks()
 
