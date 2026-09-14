@@ -8,6 +8,36 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.35.0 - 2026-09-14
+
+> **The refineries page now tells you where to fly.** Until now a column was
+> headed by a station name with "Nyx, Pyro, Stanton" next to it — nobody
+> understood that. Every column now belongs to exactly one system, with a band
+> above it. That brings out something which used to be hidden: in Pyro all
+> five stations give the same result, so it makes no difference where you go.
+> The table was also simply too wide at larger font sizes — three columns were
+> missing, without a word. It scrolls sideways now.
+
+### Improved
+
+- **Refineries sorted by system.** Each column belongs to **one** place, with
+  the system named above it. The legend below is grouped by system as well and
+  names every station in a column that gives the same result
+- **Column headings wrap instead of being cut off** — "Checkm" is "Check/mate"
+  again
+
+### Fixed
+
+- **At "large" and "very large", three columns of the refineries table were
+  missing.** It was wider than the page, and that was cut off silently. The
+  table now scrolls sideways when space runs short — at normal font size it is
+  not needed at all
+- **On the credits page the last line of every source description was cut
+  off**, in both languages
+- **Button rows asked for more room than they needed** when the window had
+  been wider before. Nothing was visibly wrong, but it made pages needlessly
+  wide
+
 ## v3.34.1 - 2026-09-14
 
 > **Pyro had vanished from the new refineries page.** Five stations are listed

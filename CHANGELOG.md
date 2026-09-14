@@ -8,6 +8,36 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.35.0 - 2026-09-14
+
+> **Die Raffinerien-Seite sagt jetzt, wohin du fliegen sollst.** Bisher stand
+> über einer Spalte ein Stationsname und daneben „Nyx, Pyro, Stanton" — das
+> verstand niemand. Jetzt gehört jede Spalte zu genau einem System, mit einer
+> Leiste darüber. Dabei kommt heraus, was vorher unterging: In Pyro liefern
+> alle fünf Stationen dasselbe Ergebnis, da ist es egal, wohin du fliegst.
+> Außerdem war die Tabelle bei größerer Schrift schlicht zu breit — es fehlten
+> drei Spalten, ohne jeden Hinweis. Sie rollt jetzt seitwärts.
+
+### Verbessert
+
+- **Raffinerien nach System sortiert.** Jede Spalte gehört zu **einem** Ort,
+  darüber steht das System. Die Legende darunter ist ebenfalls nach System
+  gegliedert und nennt zu jeder Spalte alle Stationen, die dasselbe liefern
+- **Spaltenüberschriften brechen um, statt abgeschnitten zu werden** — aus
+  „Checkm" wird wieder „Check/mate"
+
+### Behoben
+
+- **Bei „groß" und „sehr groß" fehlten drei Spalten der Raffinerien-Tabelle.**
+  Sie war breiter als die Seite, und das wurde wortlos abgeschnitten. Jetzt
+  rollt die Tabelle seitwärts, sobald es eng wird — bei normaler Schrift
+  braucht es das gar nicht erst
+- **Auf der Danke-Seite war die letzte Zeile jeder Quellenbeschreibung
+  abgeschnitten**, in beiden Sprachen
+- **Knopfreihen forderten mehr Platz an, als sie brauchten**, wenn das Fenster
+  vorher breiter war. Sichtbar war davon nichts, es machte die Seiten aber
+  unnötig breit
+
 ## v3.34.1 - 2026-09-14
 
 > **Pyro war aus der neuen Raffinerien-Seite verschwunden.** Fünf Stationen
