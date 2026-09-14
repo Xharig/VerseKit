@@ -20345,7 +20345,11 @@ def main():
                 (_ic208.button, 'diagnose', _ic208.RED)):
             _r208, _d208, _z208, _w208 = _probe208(
                 _bauer208, _name208, _farbe208, True)
-            _soll208 = _ic208._HOVER.get(_farbe208, _ic208.LIGHT)
+            # ⚠ Der Vorgabewert muss derselbe sein wie in `icons.show()`.
+            # Steht er hier falsch, prueft die Pruefung ihre eigene
+            # Vorstellung — sie war am 14.09.2026 auf `LIGHT` stehengeblieben,
+            # nachdem die Rueckmeldung auf die Markenfarbe umgestellt wurde.
+            _soll208 = _ic208._HOVER.get(_farbe208, _ic208.GREEN)
             _erw208 = str(_ic208.photo(
                 _name208, _w208.symbol_sizes.get('normal'), _soll208, _w208))
             pruefe(_d208 == _erw208 and _d208 != _r208,
@@ -20460,6 +20464,45 @@ def main():
                'jedes sichtbare Symbol der Reiterleiste hebt sich ab%s'
                % (' — STUMM: ' + ', '.join(sorted(set(_stumm208))[:8])
                   if _stumm208 else ''))
+
+        # ⛔⛔ **Die Hervorhebung darf beim Weiterfahren nicht abreissen.**
+        # Tk schickt der Zeile ein `<Leave>`, sobald die Maus in ein KIND
+        # darin wandert — von aussen ist das kein Verlassen. Gemeldet am
+        # 14.09.2026: „er erscheint kurz ist aber sofort wieder weg links in
+        # der Leiste."
+        #
+        # ⚠ Genau diese Folge wird hier nachgestellt: Zeile betreten, Zeile
+        # verlassen, Kind betreten. `event_generate('<Enter>')` allein
+        # reproduziert den Fehler NICHT — es erzeugt kein `<Leave>`.
+        _zeile208 = _symbol208 = _text208 = None
+        for _k208, _teile208 in _f208.buttons.items():
+            if _teile208[0].winfo_ismapped():
+                _zeile208, _symbol208, _text208 = (_teile208[0], _teile208[2],
+                                                   _teile208[3])
+                break
+        if _zeile208 is not None:
+            def _takt208():
+                _f208.root.update_idletasks()
+                _f208.root.update()
+
+            _ruhe208 = str(_symbol208.cget('image'))
+            _zeile208.event_generate('<Enter>')
+            _takt208()
+            _hell208 = str(_symbol208.cget('image'))
+            pruefe(_hell208 != _ruhe208, 'die Reiterzeile hebt ihr Symbol an')
+            for _ziel208 in (_symbol208, _text208):
+                _zeile208.event_generate('<Leave>')
+                _ziel208.event_generate('<Enter>')
+                _takt208()
+                pruefe(str(_symbol208.cget('image')) == _hell208,
+                       '  und bleibt hell, wenn die Maus auf %s weiterfaehrt'
+                       % ('das Symbol' if _ziel208 is _symbol208
+                          else 'die Beschriftung'))
+            _text208.event_generate('<Leave>')
+            _zeile208.event_generate('<Leave>')
+            _takt208()
+            pruefe(str(_symbol208.cget('image')) == _ruhe208,
+                   '  und geht aus, wenn die Maus die Zeile wirklich verlaesst')
     finally:
         _f208.root.destroy()
 

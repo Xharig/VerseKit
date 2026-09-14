@@ -65,16 +65,20 @@ _SET_COLORS = {
 # melden“ traegt sie, damit ihn niemand sucht, wenn gerade etwas klemmt.
 RED = 'rot'
 
-# ⭐ Welcher Satz beim Überfahren gezeigt wird. Standard ist `hell` — das ist
-# der aufgehellte Satz, den es für jedes Symbol ohnehin gibt.
+# ⭐ Welcher Satz beim Überfahren gezeigt wird. Standard ist die **Markenfarbe**
+# — ein Signal, keine Andeutung.
 #
-# ⚠ **Zwei Ausnahmen, damit sich überhaupt etwas ändert.** Ein Symbol, das
-# schon `hell` ist, würde beim Überfahren gleich aussehen; es wechselt deshalb
-# auf die Markenfarbe. Und ein rotes bleibt rot-hell wäre es nicht — Rot ist
-# hier ein Wegweiser („Fehler melden"), und den auf Grün zu drehen, sobald die
-# Maus darüberfährt, kehrte die Aussage um. Rot geht deshalb auf `hell`, was
-# es sichtbar aufhellt, ohne die Bedeutung zu wechseln.
-_HOVER = {LIGHT: GREEN, GREEN: LIGHT}
+# ⚠⚠ Zuerst stand hier `hell` (`#e6edf3`). Das ist gegenüber `grau`
+# (`#8b98a5`) nur ein Helligkeitssprung, und die Rückmeldung am 14.09.2026
+# lautete: *„oben bei Sicherung und so funktioniert es, ist aber auch wenig
+# sichtbar, wäre eine Signalfarbe evtl nicht besser geeignet?"* — ja. Ein
+# Farbwechsel sieht man aus dem Augenwinkel, einen Helligkeitswechsel nicht.
+#
+# ⚠ **Zwei Ausnahmen.** Ein Symbol, das ohnehin schon grün ist, würde sich
+# nicht ändern — es geht auf `hell`. Und ein rotes bleibt rot: Rot ist hier
+# ein Wegweiser („Fehler melden"), und es auf Grün zu drehen, sobald die Maus
+# darüberfährt, kehrte die Aussage um. Es wird nur aufgehellt.
+_HOVER = {GREEN: LIGHT, RED: LIGHT}
 
 # ⚠ Muss zu `KNOPF`/`ZEILE` in `tools/symbole_bauen.py` passen. Zwei Skalen,
 # weil es auf den Einsatzort ankommt: ein Knopf in der Leiste ist etwas anderes
@@ -219,7 +223,7 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
         # Farbe bleibt aber `w.symbol_color`. Sonst überschriebe ein Zustands-
         # wechsel während des Überfahrens (grün → rot) die Rückkehrfarbe, und
         # das Symbol bliebe hell hängen, sobald die Maus weiterzieht.
-        farbe = _HOVER.get(w.symbol_color, LIGHT) if getattr(
+        farbe = _HOVER.get(w.symbol_color, GREEN) if getattr(
             w, 'hovered', False) else w.symbol_color
         n = photo(w.symbol, w.symbol_sizes.get(_LEVEL[0], 22), farbe, w)
         if n is not None:
@@ -276,7 +280,7 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
             show()
             if text:
                 w.configure(fg=_SET_COLORS.get(_HOVER.get(w.symbol_color,
-                                                          LIGHT), TEXT_COLOR))
+                                                          GREEN), TEXT_COLOR))
 
         def _raus(_=None):
             w.hovered = False
@@ -320,18 +324,58 @@ def hover_group(trigger, *symbols):
     if not symbols:
         return trigger
 
-    def _rein(_=None):
+    def _setzen(an):
         for s in symbols:
-            s.hovered = True
+            s.hovered = an
             s.resize()
 
+    def _rein(_=None):
+        _setzen(True)
+
+    def _drin(w):
+        """Steckt `w` im überwachten Bereich?"""
+        while w is not None:
+            if w is trigger:
+                return True
+            w = getattr(w, 'master', None)
+        return False
+
     def _raus(_=None):
-        for s in symbols:
-            s.hovered = False
-            s.resize()
+        # ⛔⛔ **Tk schickt der Zeile ein `<Leave>`, sobald die Maus in ein
+        # KIND darin wandert.** Von außen ist das kein Verlassen — der Zeiger
+        # steht weiter über der Zeile, nur eben über dem Symbol oder der
+        # Beschriftung. Wer das für „Maus ist weg" nimmt, lässt die
+        # Hervorhebung genau in dem Augenblick fallen, in dem der Nutzer das
+        # Ziel erreicht.
+        #
+        # Gemeldet am 14.09.2026, Stunden nach dem Einbau: „beim
+        # Einstellungsmenü ist er nicht gut umgesetzt, er erscheint kurz ist
+        # aber sofort wieder weg links in der Leiste."
+        #
+        # ⚠ `event.detail` (`NotifyInferior`) wäre die saubere Antwort —
+        # tkinter reicht das Feld aber **nicht** durch. Also wird gefragt,
+        # worüber der Zeiger gerade wirklich steht.
+        try:
+            unter = trigger.winfo_containing(*trigger.winfo_pointerxy())
+        except Exception:
+            unter = None
+        if _drin(unter):
+            return
+        _setzen(False)
 
     trigger.bind('<Enter>', _rein, add='+')
     trigger.bind('<Leave>', _raus, add='+')
+    # ⚠ **Und die Kinder betreten den Bereich mit.** Der Zeigerabgleich oben
+    # greift nur, solange Tk die Position kennt; kommt das `<Leave>` der Zeile
+    # vor dem `<Enter>` des Kindes, stellt dieses die Hervorhebung ohnehin
+    # sofort wieder her. Zwei Wege für denselben Fall — hier ist das richtig,
+    # weil ein Aussetzer sichtbar ist und ein doppeltes Setzen nicht.
+    def _anhaengen(w):
+        for kind in w.winfo_children():
+            kind.bind('<Enter>', _rein, add='+')
+            _anhaengen(kind)
+
+    _anhaengen(trigger)
     return trigger
 
 

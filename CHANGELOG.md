@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Die Hervorhebung beim Überfahren ist jetzt die Markenfarbe** statt eines
+  helleren Grau — ein Farbwechsel fällt aus dem Augenwinkel auf, ein
+  Helligkeitswechsel nicht. Angeregt von Blackd0g84 (KRT)
+
+### Behoben
+
+- **Die Hervorhebung riss ab, sobald man das Ziel erreichte.** In der
+  Reiterleiste leuchtete ein Eintrag kurz auf und ging sofort wieder aus, wenn
+  die Maus vom Rand auf das Symbol oder die Beschriftung wanderte. Gemeldet
+  von Blackd0g84 (KRT)
+
 ## v3.36.0 - 2026-09-14
 
 > **Vier Knöpfe taten gar nichts.** „Neu ausmessen", die Kurve groß anzeigen,

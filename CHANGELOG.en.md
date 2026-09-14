@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **The hover highlight is now the brand colour** instead of a lighter grey —
+  a change of colour catches the eye, a change of brightness does not.
+  Suggested by Blackd0g84 (KRT)
+
+### Fixed
+
+- **The highlight broke off the moment you reached the target.** In the tab
+  bar an entry lit up briefly and went out again as soon as the mouse moved
+  from the edge onto the icon or the label. Reported by Blackd0g84 (KRT)
+
 ## v3.36.0 - 2026-09-14
 
 > **Four buttons did nothing at all.** "Measure again", showing the curve full
