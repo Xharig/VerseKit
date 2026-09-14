@@ -1019,6 +1019,21 @@ def _gitter_ordnen(eltern):
     for spalte in range(spalten):
         eltern.grid_columnconfigure(spalte, uniform='knopf',
                                     minsize=spaltenbreite)
+    # ⚠⚠ **Spalten von früher wieder freigeben.** `grid_columnconfigure` bleibt
+    # stehen, auch wenn in der Spalte nichts mehr steht: Eine Spalte mit
+    # `minsize` fordert ihren Platz weiter an. Beim ersten Ordnen liegen alle
+    # Knöpfe einspaltig, bei einem breiten Fenster in acht Spalten — wird das
+    # Fenster danach schmaler, blieben die alten acht `minsize` erhalten.
+    #
+    # Gemessen am 14.09.2026 auf der Joystick-Seite: Der Rahmen forderte
+    # **1344 px** an, obwohl fünf Spalten à 168 px nur 840 brauchen. Sichtbar
+    # abgeschnitten war nichts — die Knöpfe saßen alle richtig —, aber die
+    # überhöhte Wunschbreite reicht nach oben durch, und die Randprüfung
+    # meldete dreimal einen Überstand, den es gar nicht gab.
+    spalte = spalten
+    while eltern.grid_columnconfigure(spalte).get('minsize'):
+        eltern.grid_columnconfigure(spalte, uniform='', minsize=0)
+        spalte += 1
 
 
 def _button_grid(parent, buttons, gap=6):
@@ -5356,7 +5371,14 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     text = tk.Label(kasten, text=_strip_markup(was), bg=SURFACE, fg=SUB,
                     font=fenster.f_small, anchor='w', justify='left')
     text.pack(fill='x', padx=16, pady=(0, 10))
-    _wrap(text)
+    # ⚠⚠ `inset` MUSS die Polsterung aus `pack` nennen — hier 2 × 16.
+    # `_wrap` misst den Elternrahmen; was das Label per `padx` abgibt, sieht
+    # es nicht. Ohne die 32 stand `wraplength` auf 886, verfügbar waren 860,
+    # und die letzte Zeile jeder Quellenbeschreibung wurde still abgeschnitten
+    # (gemessen 14.09.2026: +8 bis +27 px auf der Danke-Seite, in beiden
+    # Sprachen). Gefunden hat es `tools/randpruefung.py` — aber erst, seit es
+    # nicht mehr nur elf von 33 Seiten anschaut.
+    _wrap(text, inset=32)
 
     if adresse:
         # ⚠ Nicht `_quellzeile`: die reserviert 24 Zeichen für eine

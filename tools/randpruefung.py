@@ -112,6 +112,30 @@ def _durchgehen(w, gefunden):
                                                'Entry', 'Scrollbar')
                         and not knopf)
                        or getattr(kind, 'sized', False))
+            # ⛔⛔ **Eine Knopfreihe, die selbst umbricht, ist kein Befund.**
+            # `_button_grid` legt seine Knöpfe in mehrere Zeilen, sobald es eng
+            # wird — genau dafür wurde es gebaut. Seine `winfo_reqwidth()` ist
+            # dabei die Breite EINER Zeile mit allen Knöpfen, also immer zu
+            # groß. Am 14.09.2026 meldete diese Prüfung deshalb dreimal
+            # „+566 px" auf der Joystick-Seite, während in Wirklichkeit
+            # **0 von 16** Knöpfen herausragten und die dritte Reihe sauber
+            # zweizeilig stand.
+            #
+            # Bei so einem Rahmen zählt nicht die Wunschbreite, sondern wo die
+            # Knöpfe wirklich sitzen.
+            if getattr(kind, '_gitter', None) is not None:
+                for knopf_kind in kind.winfo_children():
+                    try:
+                        if not knopf_kind.winfo_ismapped():
+                            continue
+                        ueber = (knopf_kind.winfo_x() + knopf_kind.winfo_width()
+                                 - kind.winfo_width())
+                        if ueber > LUFT:
+                            gefunden.append((_beschriftung(knopf_kind), ueber,
+                                             knopf_kind.winfo_class()))
+                    except tk.TclError:
+                        continue
+                continue
             if gebraucht - bekommen > LUFT and not rollend:
                 gefunden.append((_beschriftung(kind), gebraucht - bekommen,
                                  kind.winfo_class()))
