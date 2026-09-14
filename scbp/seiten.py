@@ -402,10 +402,24 @@ def _nach_oben(widget):
     Am 04.09.2026 gemeldet: „Wieso ist da so viel leerer Raum … verschenkter
     Platz." Genau dieser Fall.
     """
+    # ⛔⛔ Das Attribut heisst `canvas`, nicht `leinwand` — `_scroll_area`
+    # setzt es so (`innen_ziel.canvas = leinwand`). Bis zum 14.09.2026
+    # stand hier der alte deutsche Name, ein Rueckstand der
+    # Sprachumstellung. `getattr(..., None)` liefert dann brav `None`,
+    # und die Funktion steigt **stillschweigend** aus: kein Fehler,
+    # keine Meldung, nur eine Seite, die beim Neuzeichnen nach oben
+    # springt.
     leinwand = None
     lauf = widget
     while lauf is not None and leinwand is None:
-        leinwand = getattr(lauf, 'leinwand', None)
+        # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
+        # (`_scroll_area`), die beiden eigenstaendigen Fenster
+        # `bestandsfenster.py` und `einstellungsfenster.py` weiterhin
+        # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
+        # und zwar lautlos, weil `getattr(..., None)` brav `None`
+        # liefert und die Funktion einfach aussteigt.
+        leinwand = (getattr(lauf, 'canvas', None)
+                    or getattr(lauf, 'leinwand', None))
         lauf = getattr(lauf, 'master', None)
     if leinwand is None:
         return
@@ -436,10 +450,24 @@ def _keep_scroll(widget, action):
     dazwischen ändert sich die Höhe des Inhalts, deshalb erst nach einem
     Leerlauf, wenn Tk den neuen Rollbereich kennt.
     """
+    # ⛔⛔ Das Attribut heisst `canvas`, nicht `leinwand` — `_scroll_area`
+    # setzt es so (`innen_ziel.canvas = leinwand`). Bis zum 14.09.2026
+    # stand hier der alte deutsche Name, ein Rueckstand der
+    # Sprachumstellung. `getattr(..., None)` liefert dann brav `None`,
+    # und die Funktion steigt **stillschweigend** aus: kein Fehler,
+    # keine Meldung, nur eine Seite, die beim Neuzeichnen nach oben
+    # springt.
     leinwand = None
     lauf = widget
     while lauf is not None and leinwand is None:
-        leinwand = getattr(lauf, 'leinwand', None)
+        # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
+        # (`_scroll_area`), die beiden eigenstaendigen Fenster
+        # `bestandsfenster.py` und `einstellungsfenster.py` weiterhin
+        # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
+        # und zwar lautlos, weil `getattr(..., None)` brav `None`
+        # liefert und die Funktion einfach aussteigt.
+        leinwand = (getattr(lauf, 'canvas', None)
+                    or getattr(lauf, 'leinwand', None))
         lauf = getattr(lauf, 'master', None)
     if leinwand is None:
         action()
@@ -1747,20 +1775,33 @@ def _display(fenster, rahmen):
 
     ziel = _setting_row(fenster, innen, t('hf_schrift'), t('hf_schrift_hilfe'),
                  wide=True)
-    # ⚠⚠ **„Sehr groß" ist bewusst NICHT mehr dabei.** Die Stufe vergrösserte
-    # Schrift, Symbole und Knöpfe so weit, dass die daraus folgende
-    # Mindesthöhe grösser wurde als ein Bildschirm — bei zwei übereinander
-    # stehenden Monitoren lief das Fenster in den zweiten hinein (30.08.2026
-    # gemeldet). Das Fenster wird jetzt zwar auf seinem Monitor gehalten
-    # (`_onto_screen`), aber dann wäre es randvoll und der Inhalt
-    # trotzdem beschnitten. Eine Einstellung, die das Fenster unbrauchbar
-    # macht, gehört nicht angeboten.
+    # ⭐⭐ **„Sehr groß" ist seit 14.09.2026 wieder dabei** — und die Geschichte
+    # dazu gehört hierher, weil sie zeigt, wann ein festgeschriebener Rückbau
+    # überprüft werden muss.
     #
-    # ⚠ Der Wert bleibt im Programm gültig (`FONT_LEVELS`, `icons.py`): Wer ihn
-    # gespeichert hat, verliert nichts — er kann ihn nur nicht neu wählen.
+    # **Warum es raus war (30.08.2026):** Die Stufe vergrösserte Schrift,
+    # Symbole und Knöpfe so weit, dass die daraus folgende **Mindesthöhe
+    # grösser wurde als ein Bildschirm** — bei zwei übereinander stehenden
+    # Monitoren lief das Fenster in den zweiten hinein. Eine Einstellung, die
+    # das Fenster unbrauchbar macht, gehört nicht angeboten. Das war richtig.
+    #
+    # **Warum es zurück ist:** Nachgemessen am 14.09.2026 beträgt die
+    # Mindestgrösse dort **1215 × 380 px** — auch nachdem alle 33 Seiten
+    # gebaut sind. Sie passt damit auf jeden üblichen Bildschirm. Der Grund
+    # für den Rückbau hat sich erledigt, ohne dass es jemandem aufgefallen
+    # wäre: Die Mindesthöhe hängt seit der `minsize()`-Reparatur nicht mehr
+    # an der Schriftstufe.
+    #
+    # ⚠⚠ **Ein festgeschriebener Rückbau ist ein Zeitstempel, keine
+    # Wahrheit.** Genau dieselbe Lehre wie beim Titelleisten-Umbau, der nach
+    # vier Anläufen als unmöglich galt und danach im ersten gelang.
+    #
+    # **Und der Anlass war kein technischer:** Bomb20 und Haldjas wollten die
+    # Stufe zurück — sie lesen den Text sonst schlecht. Eine Einstellung, die
+    # niemandem schadet und zwei Leuten das Lesen ermöglicht, wird angeboten.
     wahl = _choice(fenster, ziel,
                  [(s, t('hf_s_' + s))
-                  for s in ('klein', 'normal', 'gross')],
+                  for s in ('klein', 'normal', 'gross', 'sehrgross')],
                  pfade.einstellung('schriftgroesse') or 'normal',
                  # ⚠ Nur noch der eine Aufruf. `set_font_size()` baut
                  # das Fenster neu auf — damit zeichnet sich die Wahl selbst
@@ -5453,6 +5494,10 @@ def _person(fenster, eltern, name, gruppe, idee, funde):
         teil.bind('<Button-1>', umschalten)
 
 
+    # ⭐ Der Pfeil hebt sich ab, wenn die Maus die Kopfzeile
+    # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
+    icons.hover_group(kopf, pfeil)
+
 def _thanks(fenster, rahmen):
     """Wem was gehört — und Dank an die, ohne die es das Werkzeug nicht gäbe.
 
@@ -8719,6 +8764,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
     for w in (zeile,) + tuple(zeile.winfo_children()):
         w.bind('<Button-1>', umschalten)
+    icons.hover_row(zeile, BG, SURFACE)
 
     if offen['name'] != eintrag['name']:
         return
@@ -9847,6 +9893,21 @@ def _mining(fenster, rahmen):
     liste_rahmen.pack(fill='both', expand=True)
     offen = {'name': None}
 
+    def aufklappen(*_):
+        """Neu zeichnen, **ohne** die Rollstelle zu verlieren.
+
+        ⛔⛔ Ein Klick auf ein Erz baut die ganze Liste neu — und die Seite
+        sprang dabei nach oben. Gemeldet am 14.09.2026: „klickt man ein Erz an,
+        um die Infos zu sehen, rollt das Fenster nach oben, und man muss neu
+        runterscrollen … der User denkt, da sei was defekt, und meldet mir
+        Fehler."
+
+        ⚠ **Nur beim Aufklappen, nicht beim Suchen.** Wer etwas Neues eintippt,
+        will das erste Ergebnis sehen — dort ist der Sprung nach oben richtig.
+        Deshalb zwei Wege auf dieselbe Zeichenfunktion statt eines.
+        """
+        _keep_scroll(innen, zeichnen)
+
     def zeichnen(*_):
         for w in liste_rahmen.winfo_children():
             w.destroy()
@@ -9862,7 +9923,8 @@ def _mining(fenster, rahmen):
             if geraet and not _hat_geraet(e, geraet):
                 continue
             if not text or text in e['name'].lower():
-                _berg_erz(fenster, liste_rahmen, e, offen, zeichnen, geraet)
+                _berg_erz(fenster, liste_rahmen, e, offen, aufklappen,
+                          geraet)
         # Orte danach — sie beantworten die zweite Frage („was gibt es hier?").
         #
         # ⚠ **Ohne Eingabe stehen sie NICHT da** (07.09.2026). Vorher hingen
@@ -9879,8 +9941,8 @@ def _mining(fenster, rahmen):
                     continue
                 if (text in o['name'].lower()
                         or text in (o['system'] or '').lower()):
-                    _berg_ort(fenster, liste_rahmen, o, offen, zeichnen,
-                              geraet)
+                    _berg_ort(fenster, liste_rahmen, o, offen,
+                              aufklappen, geraet)
 
         if not liste_rahmen.winfo_children():
             _body_text(liste_rahmen, t('s_he_nichts'), fenster.f_small,
@@ -10118,6 +10180,9 @@ def _berg_kopfzeile(fenster, eltern, links, rechts, farbe, aufklappen):
                  anchor='e').pack(side='right', padx=(8, 4))
     for w in (zeile,) + tuple(zeile.winfo_children()):
         w.bind('<Button-1>', aufklappen)
+    # ⭐ Diese Zeile hat kein Symbol — sie hebt sich ueber den Hintergrund
+    # ab, sonst wirkt die ganze Bergbau-Seite tot.
+    icons.hover_row(zeile, BG, SURFACE)
     return zeile
 
 
@@ -10632,6 +10697,10 @@ def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     # Pfeil von zwoelf Pixeln ist kein Ziel, das man treffen will.
     for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
         teil.bind('<Button-1>', _umschalten)
+    # ⭐ Der Pfeil hebt sich ab, wenn die Maus die Kopfzeile
+    # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
+    icons.hover_group(kopf, pfeil)
+
     # ⚠⚠ **`einstellung_wahrheit`, nicht `einstellung`.** Letztere liefert
     # einen PFAD und ruft dafür `.strip()` auf dem Wert auf. Hier steht aber
     # ein Ja/Nein: Sobald der Block einmal aufgeklappt war, lag `True` in der
@@ -12265,6 +12334,10 @@ def _warenkorb_block(fenster, karte, eintrag, daten, beim_aendern=None):
         teil.bind('<Button-1>', umschalten)
 
 
+    # ⭐ Der Pfeil hebt sich ab, wenn die Maus die Kopfzeile
+    # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
+    icons.hover_group(kopf, pfeil)
+
 def _warenkorb_inhalt(fenster, eltern, eintrag, daten, neu_zeichnen):
     """Der Inhalt: Steckplätze, Warenkorb, Summe, Kaufroute."""
     from . import cart, fleet as meine
@@ -12780,6 +12853,10 @@ def _fertige_posten(fenster, eltern, eintrag, fertig, neu_zeichnen):
     for teil in (kopf, pfeil) + tuple(kopf.winfo_children()):
         teil.bind('<Button-1>', umschalten)
 
+
+    # ⭐ Der Pfeil hebt sich ab, wenn die Maus die Kopfzeile
+    # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
+    icons.hover_group(kopf, pfeil)
 
 def _warenkorb_posten(fenster, eltern, eintrag, posten, neu_zeichnen,
                       eingerueckt=True):
@@ -13311,6 +13388,10 @@ def _storage(fenster, rahmen):
                      lambda _e, n=nummer: _keep_scroll(
                          weg, lambda: (lager.remove(n),
                                        verwerfen(), zeichnen())))
+            # ⭐ „Löschen" ist ein Wort, kein Symbol — es hebt sich über
+            # die Schriftfarbe ab. ⚠ Rot, nicht Markenfarbe: Die
+            # Warnung gehört zur Aussage.
+            icons.hover_fg(weg, SUB, RED_PALE)
 
             spalten_labels = []
             for wert, (_k, _tk, breite, anker_), farbe, schrift in (

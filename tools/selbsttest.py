@@ -20559,6 +20559,30 @@ def main():
     finally:
         _f208.root.destroy()
 
+    # ⛔ **Grün heißt genau eine Sache: „die Maus ist drauf".**
+    # Das Listen-Symbol im Overlay blieb grün, solange das grosse Fenster offen
+    # war — eine zweite Bedeutung auf derselben Farbe, seit die Hervorhebung
+    # die Markenfarbe benutzt. Die Angabe war ohnehin ueberfluessig: Das
+    # Fenster steht sichtbar da, und ein zweiter Klick holt es nur nach vorn.
+    #
+    # ⚠ Glocke und Schloss behalten ihr Gruen — die tragen eine Angabe, die
+    # man sonst nirgends sieht, und wechseln beim Ueberfahren auf `hell`.
+    _q208w = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                     encoding='utf-8').read()
+    import ast as _a208
+    _treffer208 = []
+    for _k208 in _a208.walk(_a208.parse(_q208w)):
+        if (isinstance(_k208, _a208.Call)
+                and isinstance(_k208.func, _a208.Attribute)
+                and _k208.func.attr == 'recolor'
+                and isinstance(_k208.func.value, _a208.Attribute)
+                and _k208.func.value.attr == 'liste_lbl'):
+            _treffer208.append(_k208.lineno)
+    pruefe(not _treffer208,
+           'das Listen-Symbol im Overlay wird nicht mehr umgefaerbt%s'
+           % (' — noch in Zeile ' + ', '.join(map(str, _treffer208))
+              if _treffer208 else ''))
+
     # Und der Dank steht an allen DREI Stellen (Projektregel).
     from scbp import sprache as _sp208
     _w208t = _sp208.TEXTE.get('s_dk_blackdog_idee')

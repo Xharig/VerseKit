@@ -428,6 +428,92 @@ def hover_group(trigger, *symbols):
     return trigger
 
 
+def hover_row(trigger, ruhe, aktiv):
+    """Eine ganze Zeile hebt sich ab — für Zeilen **ohne** Symbol.
+
+    ⛔ `hover_group()` färbt Symbole um. Es gibt aber anklickbare Zeilen, die
+    gar keins haben: Die Erz- und Ortszeilen der Bergbau-Seite bestehen aus
+    zwei Textlabels. Dort passiert beim Überfahren nichts, und gemeldet wurde
+    am 14.09.2026 genau das: *„bei Bergbau funktioniert der Hover-Effekt auch
+    nicht bei den Erzen, das Fenster wirkt dadurch tot im Vergleich zu dem
+    gesamten restlichen."*
+
+    ⚠ **Der Hintergrund wechselt, nicht die Schriftfarbe.** Die Beschriftungen
+    tragen dort bereits eine Bedeutung in der Farbe (Zustand des Rohstoffs);
+    sie umzufärben hieße, zwei Aussagen auf eine Farbe zu legen — derselbe
+    Fehler, der beim Listen-Symbol im Overlay gerade behoben wurde.
+
+    ⚠ Umgefärbt wird nur, was **jetzt** auf `ruhe` steht. Ein Kind mit eigenem
+    Hintergrund (eine Blase, ein Kasten) behält seinen.
+    """
+    def _faerben(von, nach):
+        def lauf(w):
+            try:
+                if str(w.cget('bg')) == von:
+                    w.configure(bg=nach)
+            except tk.TclError:
+                return
+            for kind in w.winfo_children():
+                lauf(kind)
+        lauf(trigger)
+
+    def _rein(_=None):
+        _faerben(ruhe, aktiv)
+
+    def _drin(w):
+        while w is not None:
+            if w is trigger:
+                return True
+            w = getattr(w, 'master', None)
+        return False
+
+    def _raus(_=None):
+        # Dieselbe Falle wie in `hover_group`: Tk meldet ein `<Leave>`, sobald
+        # der Zeiger in ein Kind wandert.
+        try:
+            unter = trigger.winfo_containing(*trigger.winfo_pointerxy())
+        except Exception:
+            unter = None
+        if _drin(unter):
+            return
+        _faerben(aktiv, ruhe)
+
+    trigger.bind('<Enter>', _rein, add='+')
+    trigger.bind('<Leave>', _raus, add='+')
+    for kind in trigger.winfo_children():
+        kind.bind('<Enter>', _rein, add='+')
+    return trigger
+
+
+def hover_fg(widget, ruhe, aktiv):
+    """Eine anklickbare **Beschriftung** hebt sich ab — ohne Symbol, ohne Kasten.
+
+    ⛔ Der dritte Fall neben `hover_group()` (Symbol) und `hover_row()` (ganze
+    Zeile): ein einzelnes Wort, das ein Bedienelement ist — „Löschen" im
+    Rohstofflager, das Sternchen an einem Schiff. Am 14.09.2026 gemeldet, dass
+    genau dort nichts passiert.
+
+    ⚠ `aktiv` ist bewusst ein Parameter: Bei „Löschen" ist Rot die richtige
+    Antwort, bei einem gewöhnlichen Verweis die Markenfarbe. Eine Farbe für
+    alles wäre hier falsch — die Warnung ist Teil der Aussage.
+    """
+    def _rein(_=None):
+        try:
+            widget.configure(fg=aktiv)
+        except tk.TclError:
+            pass
+
+    def _raus(_=None):
+        try:
+            widget.configure(fg=ruhe)
+        except tk.TclError:
+            pass
+
+    widget.bind('<Enter>', _rein, add='+')
+    widget.bind('<Leave>', _raus, add='+')
+    return widget
+
+
 def button(parent, name, action=None, color=GREY, background=None,
            fallback='', text='', font=None):
     """Ein anklickbares Symbol in einer Leiste (Melde-Leiste, Reiter, Titel).

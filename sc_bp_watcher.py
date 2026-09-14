@@ -3666,11 +3666,28 @@ class Overlay:
                                      version=__version__,
                                      on_font_change=self.schriftgroesse_anwenden,
                                      start_page=seite)
-        self.liste_lbl.recolor(icons.GREEN)
+        # ⛔ **Kein Grün mehr, solange das Fenster offen ist** (14.09.2026).
+        #
+        # Das Symbol blieb grün, während das große Fenster offen war. Gemeldet:
+        # „ich weiß nicht, wann oder warum wir das gebaut hatten, vermutlich
+        # mal ganz am Anfang, wo es nur Baupläne gab."
+        #
+        # Zwei Gründe, es wegzulassen:
+        #
+        # 1. **Es sagt nichts, was man nicht sieht.** Das Fenster steht auf dem
+        #    Bildschirm. Und es verhindert auch nichts: Ein zweiter Klick holt
+        #    das vorhandene Fenster nach vorn (`fenster_oeffnen`), öffnet also
+        #    ohnehin kein zweites.
+        # 2. ⚠⚠ **Seit heute ist Grün die Farbe für „die Maus ist drauf".** Ein
+        #    dauerhaft grünes Symbol ist von einem überfahrenen nicht mehr zu
+        #    unterscheiden — zwei Bedeutungen auf einer Farbe.
+        #
+        # ⚠ Die Glocke (neue Baupläne) und das Schloss (durchklickbar) behalten
+        # ihr Grün: Die tragen eine Angabe, die man **sonst nirgends** sieht.
+        # Beim Überfahren wechseln sie auf `hell`, bleiben also unterscheidbar.
 
     def _liste_zu(self):
         self._fenster = None
-        self.liste_lbl.recolor(icons.GREY)
         # ⚠ Genau hier zieht eine geänderte Anzeigeart. Stellt jemand in den
         # Einstellungen auf „nur bei einem Neuzugang" um, darf das Overlay nicht
         # sofort verschwinden — er steht ja noch davor und will das Ergebnis
