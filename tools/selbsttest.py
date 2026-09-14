@@ -188,6 +188,33 @@ def rumpf(quelle, name):
     return rest if ende < 0 else rest[:ende]
 
 
+def methode(quelle, klasse, name):
+    """Der Quelltext EINER Methode — ueber den Syntaxbaum, nicht per Textsuche.
+
+    ⛔⛔ Dasselbe Problem wie bei `rumpf()`, eine Ebene tiefer. Hier stand bis
+    zum 14.09.2026:
+
+        quelle.split('class _Windows')[1].split('def nachsehen')[1]
+
+    Sobald die Methode anders heisst, wirft der zweite `split` — und reisst den
+    ganzen Lauf mit. Ein Textmuster kennt seinen Gegenstand nicht; der
+    Syntaxbaum schon. Fehlt die Methode, gibt es hier eine **rote Pruefung mit
+    Namen** und einen leeren Rumpf, mit dem die folgenden sauber durchfallen.
+    """
+    import ast as _ast
+    zeilen = quelle.split(chr(10))
+    for k in _ast.walk(_ast.parse(quelle)):
+        if not (isinstance(k, _ast.ClassDef) and k.name == klasse):
+            continue
+        for m in k.body:
+            if isinstance(m, (_ast.FunctionDef, _ast.AsyncFunctionDef)) \
+                    and m.name == name:
+                pruefe(True, '%s.%s ist auffindbar' % (klasse, name))
+                return chr(10).join(zeilen[m.lineno - 1:m.end_lineno])
+    pruefe(False, '%s.%s ist auffindbar' % (klasse, name))
+    return ''
+
+
 # ---------------------------------------------------------------------------
 # ⚠ Am 28.08.2026 stand in `release.yml` zweimal `shell: bash` untereinander.
 # YAML verbietet denselben Schlüssel zweimal in einer Map — GitHub lehnte die
@@ -9674,36 +9701,36 @@ def main():
     print('100. Die Tastenkombination — und was sie NICHT tut')
     from scbp import hotkey as _hk100
 
-    pruefe(_hk100.zerlegen('Strg+Alt+B') == ({'strg', 'alt'}, 'B'),
+    pruefe(_hk100.parse('Strg+Alt+B') == ({'strg', 'alt'}, 'B'),
            'eine gewoehnliche Kombination wird verstanden')
-    pruefe(_hk100.zerlegen('ctrl-shift-F5') == ({'strg', 'umschalt'}, 'F5'),
+    pruefe(_hk100.parse('ctrl-shift-F5') == ({'strg', 'umschalt'}, 'F5'),
            'englische Namen, Bindestriche und F-Tasten auch')
-    pruefe(_hk100.zerlegen('  alt + 7 ') == ({'alt'}, '7'),
+    pruefe(_hk100.parse('  alt + 7 ') == ({'alt'}, '7'),
            'Leerzeichen und Ziffern stoeren nicht')
 
     # ⭐ Der wichtigste Fall: OHNE Modifikator wird abgelehnt.
     # ⚠ Eine nackte Taste global zu belegen hiesse, sie im Spiel unbrauchbar
     # zu machen — und der Nutzer sucht den Grund dann ueberall, nur nicht hier.
-    pruefe(_hk100.zerlegen('B') == (None, None),
+    pruefe(_hk100.parse('B') == (None, None),
            'eine nackte Taste wird ABGELEHNT')
-    pruefe(_hk100.zerlegen('Strg+Alt') == (None, None),
+    pruefe(_hk100.parse('Strg+Alt') == (None, None),
            'Modifikatoren allein ergeben keine Kombination')
-    pruefe(_hk100.zerlegen('Strg+A+B') == (None, None),
+    pruefe(_hk100.parse('Strg+A+B') == (None, None),
            'zwei gewoehnliche Tasten auch nicht')
-    pruefe(_hk100.zerlegen('') == (None, None)
-           and _hk100.zerlegen(None) == (None, None),
+    pruefe(_hk100.parse('') == (None, None)
+           and _hk100.parse(None) == (None, None),
            'und leer erst recht nicht')
-    pruefe(_hk100.zerlegen('Strg+F13') == (None, None),
+    pruefe(_hk100.parse('Strg+F13') == (None, None),
            'F13 gibt es nicht — es wird nicht durchgereicht')
 
     # Der Standard muss selbst durch die eigene Pruefung kommen.
-    pruefe(_hk100.zerlegen(_hk100.STANDARD)[0],
-           'die voreingestellte Kombination ist gueltig (%s)' % _hk100.STANDARD)
+    pruefe(_hk100.parse(_hk100.DEFAULT)[0],
+           'die voreingestellte Kombination ist gueltig (%s)' % _hk100.DEFAULT)
 
     # ⚠⚠ **Ehrlich sagen, was nicht geht.** Unter Wayland kann kein Programm
     # eine systemweite Kombination selbst belegen. Ein leeres Feld, das nichts
     # bewirkt, waere schlimmer als gar keins.
-    _geht100, _grund100 = _hk100.moeglich()
+    _geht100, _grund100 = _hk100.possible()
     pruefe(isinstance(_geht100, bool) and isinstance(_grund100, str),
            'das System sagt, ob es geht — und wenn nicht, warum (%s)'
            % (_grund100 or 'geht'))
@@ -9714,19 +9741,19 @@ def main():
            'unter Wayland steht die Erklaerung statt eines toten Feldes')
 
     # Die Wache selbst: anmelden, nachsehen, abmelden — ohne Tastendruck.
-    _w100 = _hk100.Wache()
-    pruefe(_w100.nachsehen() is False,
+    _w100 = _hk100.Watch()
+    pruefe(_w100.poll() is False,
            'ohne Anmeldung meldet die Wache nichts')
     if _geht100:
-        _ok100, _warum100 = _w100.anmelden(_hk100.STANDARD)
+        _ok100, _warum100 = _w100.register(_hk100.DEFAULT)
         pruefe(_ok100 or _warum100 == 'belegt',
                'die Kombination laesst sich anmelden — oder sie ist belegt, '
                'und das wird gesagt (%s)' % (_warum100 or 'angemeldet'))
-        pruefe(_w100.nachsehen() is False,
+        pruefe(_w100.poll() is False,
                'und meldet nichts, solange niemand drueckt')
-        _w100.abmelden()
-        pruefe(_w100.helfer is None, 'abmelden raeumt auf')
-    pruefe(_w100.anmelden('kein Hotkey')[1] == 'kombination',
+        _w100.unregister()
+        pruefe(_w100.helper is None, 'unregister raeumt auf')
+    pruefe(_w100.register('kein Hotkey')[1] == 'kombination',
            'Unsinn wird als Unsinn gemeldet, nicht als Systemfehler')
 
     # ⚠ Und der Weg nach vorn ist der, den es schon gab.
@@ -9754,8 +9781,7 @@ def main():
     # ohne Tk 3 von 3 angekommen, mit laufendem Tk 0 von 3.
     _hq100 = open(os.path.join(WURZEL, 'scbp', 'hotkey.py'),
                   encoding='utf-8').read()
-    _nachsehen100 = (_hq100.split('class _Windows')[1].split('def nachsehen')[1]
-                     .split(chr(10) + chr(10) + chr(10))[0])
+    _nachsehen100 = methode(_hq100, '_Windows', 'poll')
     pruefe('Message' not in _nachsehen100,
            'nachgesehen wird an einer Fahne, NICHT in der Nachrichtenschlange '
            'des Tk-Fadens — dort raeumt Tk vorher weg')
@@ -9775,22 +9801,22 @@ def main():
     if sys.platform.startswith('win'):
         import ctypes as _ct100
         import tkinter as _tkk100
-        _w100b = _hk100.Wache()
+        _w100b = _hk100.Watch()
         # ⚠ Bewusst NICHT die Standardkombination: Laeuft der Watcher gerade,
         # ist die belegt, und die Pruefung wuerde sich selbst ueberspringen.
-        _ok100b, _warum100b = _w100b.anmelden('Strg+Alt+Umschalt+F9')
+        _ok100b, _warum100b = _w100b.register('Strg+Alt+Umschalt+F9')
         try:
             if _ok100b:
                 _wz100 = _tkk100.Tk()
                 _wz100.withdraw()       # kein Fenster, kein Fokusklau
                 _ct100.windll.user32.PostThreadMessageW(
-                    _ct100.c_uint(_w100b.helfer._tid),
+                    _ct100.c_uint(_w100b.helper._tid),
                     _ct100.c_uint(_hk100.WM_HOTKEY),
-                    _ct100.c_size_t(_hk100.KENNUNG), _ct100.c_ssize_t(0))
+                    _ct100.c_size_t(_hk100.HOTKEY_ID), _ct100.c_ssize_t(0))
                 _an100 = 0
                 for _ in range(20):     # hoechstens 2 Sekunden, dann ist es weg
                     _wz100.update()     # <- genau hier raeumte Tk frueher ab
-                    if _w100b.nachsehen():
+                    if _w100b.poll():
                         _an100 += 1
                         break
                     time.sleep(0.1)
@@ -9807,7 +9833,7 @@ def main():
         finally:
             # ⚠ Immer abmelden: Bleibt der Faden stehen, haengt am Ende der
             # Prozess statt der Pruefung.
-            _w100b.abmelden()
+            _w100b.unregister()
 
 
 

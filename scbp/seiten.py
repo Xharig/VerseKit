@@ -2142,7 +2142,7 @@ def _hotkey_field(fenster, innen):
     daneben.
     """
     from . import hotkey as hk
-    geht, grund = hk.moeglich()
+    geht, grund = hk.possible()
     if not geht and grund == 'wayland':
         _setting_row(fenster, innen, t('s_hk'), t('s_hk_wayland'), wide=True)
         return
@@ -2156,12 +2156,12 @@ def _hotkey_field(fenster, innen):
     from .main_window import round_entry
     feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINE, ACCENT,
                        FG, width=18)
-    feld.insert(0, pfade.einstellung('hotkey') or hk.STANDARD)
+    feld.insert(0, pfade.einstellung('hotkey') or hk.DEFAULT)
     feld.holder.pack(side='left')
 
     def merken(_=None):
         wunsch = feld.get().strip()
-        mods, taste = hk.zerlegen(wunsch)
+        mods, taste = hk.parse(wunsch)
         if not mods:
             fenster.say(t('s_hk_falsch'))
             return
@@ -2174,7 +2174,7 @@ def _hotkey_field(fenster, innen):
         if wache is None:
             fenster.say(t('e_neustart_noetig'))
             return
-        ok, warum = wache.anmelden(wunsch)
+        ok, warum = wache.register(wunsch)
         # ⚠ Getrennte Zweige statt eines Ausdrucks: Pruefung 10 liest, was in
         # `say()` steht, und haelt einen Vergleichswert sonst fuer einen
         # sichtbaren Text. Sie hat recht, so herum ist es ohnehin lesbarer.
@@ -6830,7 +6830,7 @@ def _routes(fenster, rahmen):
                        highlightthickness=1, highlightbackground=LINE,
                        highlightcolor=ACCENT)
     ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
-    fields.hinweis(ortfeld, ortsuche, t('s_rt_wo_platz'), normal=FG, grau=SUB)
+    fields.hint(ortfeld, ortsuche, t('s_rt_wo_platz'), normal=FG, grey=SUB)
     # ⚠⚠ **Nicht gepackt, solange leer.** Ein geleerter Rahmen behält seine
     # Höhe — gemessen 920 px bei null Kindern. Am 05.09.2026 im Routen-Reiter
     # gemeldet: „Oben entsteht mega viel Leerraum, ich scrolle, um nichts zu
@@ -6904,7 +6904,7 @@ def _routes(fenster, rahmen):
         zahlfeld.pack(ipady=4)
         # ⚠ Der Hinweis nennt ein BEISPIEL, nicht die Beschriftung darüber —
         # „Frachtraum (SCU)" zweimal zu sagen hilft niemandem.
-        fields.hinweis(zahlfeld, var, beispiel, normal=FG, grau=SUB)
+        fields.hint(zahlfeld, var, beispiel, normal=FG, grey=SUB)
 
     # ⭐⭐ **Schiff wählen statt Zahl tippen — als Suchfeld, nicht als Fenster.**
     #
@@ -6927,8 +6927,8 @@ def _routes(fenster, rahmen):
                           highlightthickness=1, highlightbackground=LINE,
                           highlightcolor=ACCENT)
     schifffeld.pack(fill='x', ipady=5)
-    fields.hinweis(schifffeld, schiffsuche, t('s_rt_schiff_platz'),
-                   normal=FG, grau=SUB)
+    fields.hint(schifffeld, schiffsuche, t('s_rt_schiff_platz'),
+                   normal=FG, grey=SUB)
     # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Am 05.09.2026: „Dropdown
     # hast du mir für Schiffe unter Routen versprochen — Spieler kennen ja
     # nicht alle Schiffe und deren SCU-Kapazität." Richtig: Ein Suchfeld, das
@@ -7799,7 +7799,7 @@ def _shops(fenster, rahmen):
                     highlightthickness=1, highlightbackground=LINE,
                     highlightcolor=ACCENT)
     feld.pack(fill='x', ipady=5)
-    fields.hinweis(feld, suche, t('s_ld_suche_platz'), normal=FG, grau=SUB)
+    fields.hint(feld, suche, t('s_ld_suche_platz'), normal=FG, grey=SUB)
 
     # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
     # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah
@@ -14457,7 +14457,7 @@ def _selling(fenster, rahmen):
             # ⚠ Nur ein Wort: Das Feld ist fünf Zeichen breit. Ein
             # abgeschnittener Hinweis wäre schlimmer als keiner — und die
             # Einheit steht ohnehin als Etikett daneben.
-            fields.hinweis(feld, var, t('s_pl_menge'), normal=FG, grau=SUB)
+            fields.hint(feld, var, t('s_pl_menge'), normal=FG, grey=SUB)
             tk.Label(marke, text=t('s_vk_scu_kurz'), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, padx=4).pack(side='left')
 
@@ -15306,11 +15306,11 @@ def _view_angle(fenster, rahmen):
         # speichert. Das verträgt sich: `_abstand_merken` steigt bei leerem
         # Text aus (`float('')` wirft), und genau leer ist die Variable,
         # solange der Hinweis steht.
-        fields.hinweis(feld, zustand['abstand'], t('s_pl_abstand'),
-                       normal=FG, grau=SUB)
+        fields.hint(feld, zustand['abstand'], t('s_pl_abstand'),
+                       normal=FG, grey=SUB)
         feld.bind('<Return>', _abstand_merken)
         # ⚠⚠ `add='+'` ist hier PFLICHT. Ohne das ersetzt diese Bindung die,
-        # die `fields.hinweis()` gerade gesetzt hat — und der Hinweis kommt
+        # die `fields.hint()` gerade gesetzt hat — und der Hinweis kommt
         # nach dem ersten Verlassen des Feldes nie wieder. Vom Prüfer
         # nachgestellt (12.09.2026): leeres Feld → Return → Fokus weg, Hinweis
         # bleibt verschwunden.
@@ -16067,7 +16067,7 @@ def _axes(fenster, rahmen):
         feld = tk.Entry(neu, textvariable=name, bg=SURFACE, fg=FG,
                         insertbackground=FG, font=fenster.f_small,
                         relief='flat', width=22)
-        fields.hinweis(feld, name, t('s_pl_satzname'), normal=FG, grau=SUB)
+        fields.hint(feld, name, t('s_pl_satzname'), normal=FG, grey=SUB)
         feld.pack(side='left', ipady=4, padx=(0, 8))
 
         def _sichern():

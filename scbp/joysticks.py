@@ -1038,12 +1038,12 @@ def _profil(spielordner=None):
             roh = spieltexte.hole_block(f, off, cs)
         daten = (spieltexte.entpacke_zstd(roh, rs)[0] if methode == 100
                  else __import__('zlib').decompress(roh, -15))
-        wurzel = cryxml.lesen(daten)
+        wurzel = cryxml.read(daten)
         # ⚠ Über die **Gruppen** gehen, nicht flach über alle `action`-Knoten:
         # Nur so kommt mit, in welchem `actionmap` eine Aktion lebt. Ohne die
         # Gruppe landet eine neu angelegte Belegung in der falschen Sektion,
         # und das Spiel findet sie nicht.
-        for gruppe in cryxml.alle(wurzel, 'actionmap'):
+        for gruppe in cryxml.find_all(wurzel, 'actionmap'):
             bereich = (gruppe.get('attribute') or {}).get('name', '')
             for knoten in (gruppe.get('kinder') or []):
                 if knoten.get('name') != 'action':
@@ -1052,7 +1052,7 @@ def _profil(spielordner=None):
                 name = at.get('name')
                 if name and bereich:
                     heraus.setdefault('gruppen', {})[name] = bereich
-        for knoten in cryxml.alle(wurzel, 'action'):
+        for knoten in cryxml.find_all(wurzel, 'action'):
             at = knoten.get('attribute') or {}
             name = at.get('name')
             if not name:

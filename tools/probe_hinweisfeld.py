@@ -13,7 +13,7 @@ HINWEIS = 'Bauplan oder Auftrag suchen'
 w = tk.Tk(); w.geometry('400x100+30+30')
 var = tk.StringVar()
 f = tk.Entry(w, textvariable=var); f.pack()
-steht = fields.hinweis(f, var, HINWEIS)
+steht = fields.hint(f, var, HINWEIS)
 w.update()
 ok = []
 def p(b, t): ok.append((b, t)); print('  [%s] %s' % ('ok' if b else 'XX', t))

@@ -71,77 +71,77 @@ import tkinter as tk
 # hier und nicht fest im Code: Neun Dateien führen ihre eigene Kopie von
 # `FG`/`SUB`, und dieser Baustein soll aus jeder davon benutzbar sein.
 NORMAL = '#e6edf3'
-GRAU = '#8b98a5'
+GREY = '#8b98a5'
 
 # Tasten, die den Hinweis NICHT vertreiben — sie ändern den Inhalt nicht.
 # ⚠ Ohne diese Liste verschwände der Hinweis schon beim Tabben oder beim
 # Drücken von Umschalt, und das Feld stünde grundlos leer da.
-_STILLE_TASTEN = frozenset((
+_SILENT_KEYS = frozenset((
     'Tab', 'ISO_Left_Tab', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R',
     'Alt_L', 'Alt_R', 'Caps_Lock', 'Escape', 'Up', 'Down', 'Left', 'Right',
     'Home', 'End', 'Prior', 'Next', 'Win_L', 'Win_R', 'Super_L', 'Super_R',
 ))
 
 
-def hinweis(feld, variable, text, normal=NORMAL, grau=GRAU):
+def hint(field, variable, text, normal=NORMAL, grey=GREY):
     """Einen Hinweistext in ein Eingabefeld legen.
 
-    `feld` ist das `tk.Entry`, `variable` seine `StringVar`, `text` der
+    `field` ist das `tk.Entry`, `variable` seine `StringVar`, `text` der
     Hinweis. Rueckgabe ist eine Funktion, die sagt, ob der Hinweis gerade
     steht — der Aufrufer braucht sie selten, der Selbsttest schon.
 
     ⚠ Der Aufrufer muss nichts weiter tun: Solange er den Wert ueber die
-    **Variable** liest (und nicht ueber `feld.get()`), bekommt er nie den
+    **Variable** liest (und nicht ueber `field.get()`), bekommt er nie den
     Hinweis zu sehen.
     """
     # ⚠⚠ `sperre` ist nicht Zierde, sondern verhindert einen Kreis.
     #
-    # `verstecken()` haengt die Variable wieder an. Genau das laesst Tk die
+    # `hide()` haengt die Variable wieder an. Genau das laesst Tk die
     # Beobachtung feuern — die sieht „Variable leer" und zeigt den Hinweis
     # sofort wieder an. Ergebnis: Der erste Tastendruck raeumte ihn weg und
     # holte ihn im selben Atemzug zurueck.
     #
     # Gefunden vom Selbsttest am 12.09.2026, nicht beim Lesen des Codes.
-    zustand = {'an': False, 'sperre': False}
+    state = {'on': False, 'lock': False}
 
-    def zeigen():
-        if zustand['an'] or variable.get():
+    def show():
+        if state['on'] or variable.get():
             return
         try:
-            zustand['sperre'] = True
-            feld.configure(textvariable='')
-            feld.delete(0, 'end')
-            feld.insert(0, text)
-            feld.configure(fg=grau)
-            zustand['an'] = True
+            state['lock'] = True
+            field.configure(textvariable='')
+            field.delete(0, 'end')
+            field.insert(0, text)
+            field.configure(fg=grey)
+            state['on'] = True
         except tk.TclError:
             pass                      # Feld schon zerstoert (Seitenwechsel)
         finally:
-            zustand['sperre'] = False
+            state['lock'] = False
 
-    def verstecken(_ereignis=None):
-        if not zustand['an']:
+    def hide(_event=None):
+        if not state['on']:
             return
         try:
-            zustand['sperre'] = True
-            feld.delete(0, 'end')
-            feld.configure(fg=normal, textvariable=variable)
-            zustand['an'] = False
+            state['lock'] = True
+            field.delete(0, 'end')
+            field.configure(fg=normal, textvariable=variable)
+            state['on'] = False
         except tk.TclError:
             pass
         finally:
-            zustand['sperre'] = False
+            state['lock'] = False
 
-    def bei_taste(ereignis):
+    def on_key(event):
         # ⚠ Erst pruefen, DANN durchlassen: Diese Bindung laeuft vor der
         # Klassenbindung, die das Zeichen einsetzt. Wer hier nicht raeumt,
         # bekommt das Zeichen mitten in den Hinweistext geschrieben.
-        if ereignis.keysym in _STILLE_TASTEN:
+        if event.keysym in _SILENT_KEYS:
             return None
-        verstecken()
+        hide()
         return None
 
-    def bei_variable(*_args):
+    def on_variable(*_args):
         """Das Programm setzt die Suche selbst — dann muss der Hinweis weg.
 
         ⚠⚠ **Ohne das bleibt der Hinweis stehen, waehrend die Liste schon
@@ -160,15 +160,15 @@ def hinweis(feld, variable, text, normal=NORMAL, grau=GRAU):
         einem leeren Kasten, und das war der Ausgangszustand, den diese ganze
         Datei behebt.
         """
-        if zustand['sperre']:
+        if state['lock']:
             return                    # wir selbst schalten gerade um
         if variable.get():
-            verstecken()
+            hide()
         else:
-            zeigen()
+            show()
 
-    feld.bind('<Key>', bei_taste, add='+')
-    feld.bind('<FocusOut>', lambda _e: zeigen(), add='+')
-    variable.trace_add('write', bei_variable)
-    zeigen()
-    return lambda: zustand['an']
+    field.bind('<Key>', on_key, add='+')
+    field.bind('<FocusOut>', lambda _e: show(), add='+')
+    variable.trace_add('write', on_variable)
+    show()
+    return lambda: state['on']

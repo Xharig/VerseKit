@@ -450,7 +450,7 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     Hineinklicken wechselt der Rand auf die Akzentfarbe, damit man sieht, wo
     man schreibt.
 
-    `hinweis` ist der graue Text im leeren Feld — er sagt, was hineingehört.
+    `placeholder` ist der graue Text im leeren Feld — er sagt, was hineingehört.
     Er steht **im Feld**, nicht als Bauteil darüber; warum das so sein muss,
     steht in `scbp/fields.py`.
 
@@ -480,7 +480,7 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     window_id = canvas.create_window(padding + 2, height / 2.0, window=field,
                                         anchor='w')
     if placeholder:
-        fields.hinweis(field, textvariable, placeholder, normal=fg, grau=SUB)
+        fields.hint(field, textvariable, placeholder, normal=fg, grey=SUB)
 
     def refresh(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand

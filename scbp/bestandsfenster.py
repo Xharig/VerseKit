@@ -1424,7 +1424,7 @@ class Bestandsfenster:
         klickte nicht ins Feld; man musste **daneben** treffen. Gemeldet als
         „alles andere als intuitiv".
 
-        Jetzt steht der Hinweis **im Feld selbst** (`fields.hinweis`), also
+        Jetzt steht der Hinweis **im Feld selbst** (`fields.hint`), also
         gibt es nichts mehr, was einen Klick abfangen könnte. Warum das die
         Textvariable nicht stört, steht ausführlich in `scbp/fields.py`.
         """
@@ -1433,8 +1433,8 @@ class Bestandsfenster:
         # Textvariable abgehängt — ein Suchen „nach dem Feld mit dieser
         # Variable" fände es dann gar nicht und griffe ein beliebiges anderes.
         self.suchfeld = feld
-        self._hinweis_steht = fields.hinweis(
-            feld, self.suche, t('s_bp_suche_platz'), normal=FG, grau=SUB)
+        self._hinweis_steht = fields.hint(
+            feld, self.suche, t('s_bp_suche_platz'), normal=FG, grey=SUB)
 
     def _loeschkreuz_zeigen(self):
         """Das ✕ nur zeigen, wenn es etwas zu löschen gibt."""

@@ -1881,7 +1881,7 @@ class Overlay:
         # Die Tastenkombination, die auch im Spiel greift. ⚠ Angemeldet wird
         # erst, wenn die Hauptschleife laeuft (`hotkey_anmelden`) — vorher
         # gibt es den Faden noch nicht, an dem die Meldung haengt.
-        self.hotkey = hotkey_modul.Wache()
+        self.hotkey = hotkey_modul.Watch()
         _WURZEL[0] = self.root                    # damit signalton() klingeln kann
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
         # setzen kann, ohne dass `seiten.py` das Hauptprogramm importieren müsste.
@@ -4532,8 +4532,8 @@ class Overlay:
             if pfade.einstellungen().get('hotkey_an') is False:
                 fehler.spur('Hotkey: ausgeschaltet')
                 return
-            kombi = (pfade.einstellung('hotkey') or hotkey_modul.STANDARD)
-            ok, grund = self.hotkey.anmelden(kombi)
+            kombi = (pfade.einstellung('hotkey') or hotkey_modul.DEFAULT)
+            ok, grund = self.hotkey.register(kombi)
             fehler.spur('Hotkey: %s (%s)'
                         % ('%s angemeldet' % kombi if ok else 'entfaellt',
                            grund or 'ok'))
@@ -4550,7 +4550,7 @@ class Overlay:
         Seither haelt ein eigener Faden die Stellung, siehe `scbp/hotkey.py`.
         """
         try:
-            if self.hotkey.nachsehen():
+            if self.hotkey.poll():
                 self.hervorholen()
         except Exception:
             pass

@@ -62,16 +62,16 @@ import threading
 # Was sich kombinieren laesst. ⚠ Bewusst klein gehalten: Modifikatoren plus
 # EINE gewoehnliche Taste. Wer eine Kombination aus drei Buchstaben zulaesst,
 # baut sich Konflikte mit den Spiel-Belegungen, die niemand mehr findet.
-MODIFIKATOREN = {
+MODIFIERS = {
     'strg': 'strg', 'ctrl': 'strg', 'control': 'strg',
     'alt': 'alt',
     'umschalt': 'umschalt', 'shift': 'umschalt',
 }
 
-STANDARD = 'Strg+Alt+B'          # B wie Bauplan
+DEFAULT = 'Strg+Alt+B'          # B wie Bauplan
 
 
-def zerlegen(kombination):
+def parse(kombination):
     """`"Strg+Alt+B"` -> `({'strg', 'alt'}, 'B')`. Bei Unsinn: `(None, None)`.
 
     ⚠ Grosz/klein und Leerzeichen sind egal — die Kombination steht in einer
@@ -85,8 +85,8 @@ def zerlegen(kombination):
         if not teil:
             continue
         klein = teil.lower()
-        if klein in MODIFIKATOREN:
-            mods.add(MODIFIKATOREN[klein])
+        if klein in MODIFIERS:
+            mods.add(MODIFIERS[klein])
             continue
         if taste is not None:
             return None, None            # zwei gewoehnliche Tasten
@@ -109,7 +109,7 @@ def _wayland():
             or (os.environ.get('WAYLAND_DISPLAY') and not os.environ.get('DISPLAY')))
 
 
-def moeglich():
+def possible():
     """Geht ein echter Hotkey auf diesem System? Gibt `(ja, grund)` zurueck."""
     if sys.platform.startswith('win'):
         return True, ''
@@ -141,7 +141,7 @@ def moeglich():
 #
 # Deshalb meldet jetzt ein eigener Faden an und wartet dort mit `GetMessage`
 # auf **seiner** Schlange, die ihm niemand leerraeumt. Er setzt nur eine Fahne;
-# `nachsehen()` nimmt sie im Tk-Takt herunter. Am Wesentlichen aendert das
+# `poll()` nimmt sie im Tk-Takt herunter. Am Wesentlichen aendert das
 # nichts: Es kommt weiterhin ausschliesslich die eine angemeldete Kombination
 # an, mitgelesen wird nichts.
 WM_HOTKEY = 0x0312
@@ -149,7 +149,7 @@ WM_QUIT = 0x0012
 PM_NOREMOVE = 0x0000
 MOD_ALT, MOD_CONTROL, MOD_SHIFT = 0x0001, 0x0002, 0x0004
 MOD_NOREPEAT = 0x4000            # nicht dauerfeuern, solange man haelt
-KENNUNG = 0xB9CB                 # irgendeine Zahl, nur fuer uns
+HOTKEY_ID = 0xB9CB                 # irgendeine Zahl, nur fuer uns
 
 
 def _vk(taste):
@@ -170,7 +170,7 @@ class _Windows:
         self._bereit = threading.Event()
         self._ergebnis = (False, 'faden')
 
-    def anmelden(self, mods, taste):
+    def register(self, mods, taste):
         flaggen = MOD_NOREPEAT
         flaggen |= MOD_CONTROL if 'strg' in mods else 0
         flaggen |= MOD_ALT if 'alt' in mods else 0
@@ -178,11 +178,11 @@ class _Windows:
         code = _vk(taste)
         if code is None:
             return False, 'taste'
-        self.abmelden()
+        self.unregister()
         self._treffer.clear()
         self._bereit.clear()
         self._ergebnis = (False, 'faden')
-        self._faden = threading.Thread(target=self._schleife,
+        self._faden = threading.Thread(target=self._loop,
                                        args=(flaggen, code),
                                        name='sc-bp-hotkey', daemon=True)
         self._faden.start()
@@ -196,7 +196,7 @@ class _Windows:
         self.angemeldet = ok
         return ok, warum
 
-    def _schleife(self, flaggen, code):
+    def _loop(self, flaggen, code):
         """Der eigene Faden: anmelden, warten, aufraeumen.
 
         ⚠ Anmelden und Warten muessen im SELBEN Faden passieren — die
@@ -217,7 +217,7 @@ class _Windows:
             # ⚠ Die Schlange entsteht erst, wenn sie einmal angefasst wurde.
             # Ohne das geht ein `PostThreadMessage` von aussen ins Leere.
             u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, PM_NOREMOVE)
-            if not u32.RegisterHotKey(None, KENNUNG, flaggen, code):
+            if not u32.RegisterHotKey(None, HOTKEY_ID, flaggen, code):
                 # ⚠⚠ **Belegt heisst belegt.** Hat ein anderes Programm die
                 # Kombination, gibt Windows sie nicht her — daran laesst sich
                 # nichts drehen. Der Nutzer muss es erfahren, sonst sucht er
@@ -236,17 +236,17 @@ class _Windows:
                 stand = u32.GetMessageW(ctypes.byref(msg), None, 0, 0)
                 if stand == 0 or stand == -1:      # 0 = WM_QUIT, -1 = Fehler
                     break
-                if msg.message == WM_HOTKEY and msg.wParam == KENNUNG:
+                if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
                     self._treffer.set()
         except Exception:
             pass
         finally:
             try:
-                u32.UnregisterHotKey(None, KENNUNG)
+                u32.UnregisterHotKey(None, HOTKEY_ID)
             except Exception:
                 pass
 
-    def abmelden(self):
+    def unregister(self):
         faden, tid = self._faden, self._tid
         self._faden, self._tid = None, 0
         self.angemeldet = False
@@ -263,7 +263,7 @@ class _Windows:
             pass
         faden.join(1.0)
 
-    def nachsehen(self):
+    def poll(self):
         """Wurde gedrueckt? Nimmt die Fahne herunter, die der Faden gesetzt hat.
 
         ⚠ Bewusst eine Fahne und keine Zaehlung: Zweimal schnell hintereinander
@@ -293,7 +293,7 @@ GRAB_ASYNC = 1
 # reine Kombination anmeldet, bekommt sie nicht mehr, sobald jemand Num-Lock
 # eingeschaltet hat — und das ist der Normalzustand an einer Tastatur mit
 # Ziffernblock. Deshalb alle vier Spielarten anmelden.
-ZUSATZ = (0, LOCK_MASK, MOD2_MASK, LOCK_MASK | MOD2_MASK)
+EXTRA = (0, LOCK_MASK, MOD2_MASK, LOCK_MASK | MOD2_MASK)
 
 
 class _X11:
@@ -303,7 +303,7 @@ class _X11:
         self.wurzel = None
         self.gegriffen = []
 
-    def _laden(self):
+    def _load(self):
         if self.lib is not None:
             return True
         import ctypes
@@ -327,9 +327,9 @@ class _X11:
         self.wurzel = self.lib.XDefaultRootWindow(self.anzeige)
         return True
 
-    def anmelden(self, mods, taste):
+    def register(self, mods, taste):
         import ctypes
-        if not self._laden():
+        if not self._load():
             return False, 'kein_x11'
         maske = 0
         maske |= CONTROL_MASK if 'strg' in mods else 0
@@ -343,8 +343,8 @@ class _X11:
         code = self.lib.XKeysymToKeycode(self.anzeige, keysym)
         if not code:
             return False, 'taste'
-        self.abmelden()
-        for zusatz in ZUSATZ:
+        self.unregister()
+        for zusatz in EXTRA:
             self.lib.XGrabKey(ctypes.c_void_p(self.anzeige), ctypes.c_int(code),
                               ctypes.c_uint(maske | zusatz),
                               ctypes.c_ulong(self.wurzel), ctypes.c_int(1),
@@ -356,7 +356,7 @@ class _X11:
         # Taste wirkt; eine Falschmeldung „belegt" waere hier geraten.
         return True, ''
 
-    def abmelden(self):
+    def unregister(self):
         if not self.gegriffen or self.lib is None:
             self.gegriffen = []
             return
@@ -371,7 +371,7 @@ class _X11:
             pass
         self.gegriffen = []
 
-    def nachsehen(self):
+    def poll(self):
         if not self.gegriffen or self.lib is None:
             return False
         try:
@@ -394,7 +394,7 @@ class _X11:
 # ---------------------------------------------------------------------------
 
 
-class Wache:
+class Watch:
     """Meldet die Kombination an und sagt auf Nachfrage, ob gedrückt wurde.
 
     ⚠⚠ **Es wird NICHT mitgehört.** Angemeldet wird genau eine Kombination;
@@ -405,57 +405,57 @@ class Wache:
     landet der Druck in der Schlange genau des Fadens, der angemeldet hat —
     und wenn das der Tk-Faden ist, räumt Tk ihn selbst weg, bevor jemand
     nachsieht (gemessen am 31.08.2026: 0 von 3 kamen an). Deshalb hält ein
-    eigener Faden die Stellung und setzt eine Fahne; `nachsehen()` nimmt sie
+    eigener Faden die Stellung und setzt eine Fahne; `poll()` nimmt sie
     im selben Takt wie die übrige Warteschlange herunter.
     """
 
     def __init__(self):
-        self.helfer = None
+        self.helper = None
         self.kombination = ''
         self.grund = ''
 
-    def anmelden(self, kombination):
+    def register(self, kombination):
         """Sagt `(ja, grund)`. `grund` ist ein Kürzel, kein fertiger Satz —
         die Oberfläche macht daraus einen Text in der richtigen Sprache."""
-        self.abmelden()
+        self.unregister()
         # ⚠ **Erst die Eingabe, dann das System.** Umgekehrt kam die
         # Eingabeprüfung unter Wayland nie dran: Dort meldete `moeglich()`
         # sofort `wayland`, und eine unsinnige Kombination bekam dieselbe
         # Auskunft wie eine gültige. Der Nutzer las „geht unter Wayland
         # nicht", obwohl schon das Eingetippte keine Kombination war.
         # Unter Wayland aufgefallen, als Prüfung 100 dort rot lief.
-        mods, taste = zerlegen(kombination)
+        mods, taste = parse(kombination)
         if not mods:
             self.grund = 'kombination'
             return False, 'kombination'
-        geht, warum = moeglich()
+        geht, warum = possible()
         if not geht:
             self.grund = warum
             return False, warum
-        helfer = _Windows() if sys.platform.startswith('win') else _X11()
-        ok, warum = helfer.anmelden(mods, taste)
+        helper = _Windows() if sys.platform.startswith('win') else _X11()
+        ok, warum = helper.register(mods, taste)
         if not ok:
             self.grund = warum
             return False, warum
-        self.helfer = helfer
+        self.helper = helper
         self.kombination = kombination
         self.grund = ''
         return True, ''
 
-    def abmelden(self):
-        if self.helfer is not None:
+    def unregister(self):
+        if self.helper is not None:
             try:
-                self.helfer.abmelden()
+                self.helper.unregister()
             except Exception:
                 pass
-        self.helfer = None
+        self.helper = None
         self.kombination = ''
 
-    def nachsehen(self):
+    def poll(self):
         """Wurde die Kombination seit dem letzten Mal gedrückt?"""
-        if self.helfer is None:
+        if self.helper is None:
             return False
         try:
-            return bool(self.helfer.nachsehen())
+            return bool(self.helper.poll())
         except Exception:
             return False

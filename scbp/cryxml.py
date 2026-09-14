@@ -65,23 +65,23 @@ vorgesehen, weil nicht gebraucht.
 """
 import struct
 
-SIGNATUR = b'CryXmlB\0'
+SIGNATURE = b'CryXmlB\0'
 
 
-class NichtCryXml(Exception):
+class NotCryXml(Exception):
     """Die Daten sind kein CryXmlB — der Aufrufer soll es als XML versuchen."""
 
 
-class Kaputt(Exception):
+class Broken(Exception):
     """Die Struktur passt nicht zusammen — lieber abbrechen als raten."""
 
 
-def ist_cryxml(daten):
+def is_cryxml(daten):
     """Faengt die Datei mit der Signatur an?"""
-    return bool(daten) and daten[:8] == SIGNATUR
+    return bool(daten) and daten[:8] == SIGNATURE
 
 
-def lesen(daten):
+def read(daten):
     """Den Baum aufmachen. Liefert den Wurzelknoten.
 
     Ein Knoten ist ein Woerterbuch:
@@ -92,10 +92,10 @@ def lesen(daten):
     # landen im Fehlerprotokoll, nie auf dem Bildschirm. Ganze deutsche Saetze
     # wuerden hier die Zweisprachigkeits-Wache (Pruefung 17) ausloesen, die
     # nicht unterscheiden kann, was sichtbar wird und was nicht.
-    if not ist_cryxml(daten):
-        raise NichtCryXml('signature')
+    if not is_cryxml(daten):
+        raise NotCryXml('signature')
     if len(daten) < 44:
-        raise Kaputt('header')
+        raise Broken('header')
 
     (laenge, n_off, n_zahl, a_off, a_zahl, k_off, k_zahl,
      s_off, _s_gr) = struct.unpack('<9I', daten[8:44])
@@ -103,7 +103,7 @@ def lesen(daten):
         # Nur ein Hinweis, kein Abbruch: Ein Block darf hinten aufgefuellt sein.
         pass
     if not n_zahl or s_off >= len(daten):
-        raise Kaputt('tables')
+        raise Broken('tables')
 
     # ⚠ Satzlaengen nachrechnen statt annehmen — siehe Kopf des Moduls.
     grenzen = sorted([(n_off, 'knoten', n_zahl),
@@ -116,13 +116,13 @@ def lesen(daten):
             continue
         ende = grenzen[i + 1][0]
         if zahl <= 0 or ende <= off:
-            raise Kaputt('empty table: %s' % name)
+            raise Broken('empty table: %s' % name)
         rest = (ende - off) % zahl
         if rest:
-            raise Kaputt('record size: %s' % name)
+            raise Broken('record size: %s' % name)
         breite[name] = (ende - off) // zahl
     if breite['knoten'] < 28 or breite['attribute'] < 8 or breite['kinder'] < 4:
-        raise Kaputt('record sizes %r' % (breite,))
+        raise Broken('record sizes %r' % (breite,))
 
     def text(abstand):
         """Eine Zeichenkette aus der Texttabelle."""
@@ -165,7 +165,7 @@ def lesen(daten):
     return roh[0]
 
 
-def alle(knoten, name):
+def find_all(knoten, name):
     """Jeden Knoten dieses Namens im Baum, in Dokumentreihenfolge.
 
     Bewusst iterativ: Die Spieldateien sind flach genug, aber eine kaputte
