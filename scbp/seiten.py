@@ -4241,7 +4241,7 @@ _KIND_COLOR = {'neu': ACCENT, 'bess': '#7db8e8', 'fix': GOLD}
 # ⚠ Eine Funktion, keine Konstante: Ein Wörterbuch auf Modulebene wird **einmal**
 # beim Import gefüllt — und behielte damit die Sprache, die beim Start galt. Wer
 # danach umschaltet, sähe die Marken weiter in der alten Sprache.
-def _art_wort(art):
+def _kind_word(art):
     return {'neu': t('s_wn_f_neu'), 'bess': t('s_wn_f_bess'),
             'fix': t('s_wn_f_fix')}.get(art, '')
 
@@ -4293,12 +4293,12 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
 
     # Alle Blasen so breit wie die längste Beschriftung — sonst flattern sie
     # und die Texte daneben fangen an unterschiedlichen Stellen an.
-    breiteste = max(fenster.f_small.measure(_art_wort(a))
+    breiteste = max(fenster.f_small.measure(_kind_word(a))
                     for a in ('neu', 'bess', 'fix')) + 20
     for art, zeile in punkte:
         z = tk.Frame(koerper, bg=BG)
         z.pack(fill='x', pady=3)
-        badge(z, _art_wort(art), _KIND_COLOR.get(art, SUB),
+        badge(z, _kind_word(art), _KIND_COLOR.get(art, SUB),
               fenster.f_small, bg=BG,
               min_width=breiteste).pack(side='left', anchor='n', padx=(0, 14))
         # ⚠ `wraplength` muss zur wirklichen Breite passen. Steht er zu hoch, bricht
@@ -4313,7 +4313,7 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
         # Jetzt wird nicht mehr gerechnet, sondern genommen, was das Label
         # tatsächlich bekommt — und bei jeder Größenänderung neu. Damit stimmt es
         # auch, wenn jemand das Fenster zieht.
-        etikett = tk.Label(z, text=_saubere_zeile(zeile), bg=BG, fg=FG,
+        etikett = tk.Label(z, text=_clean_row(zeile), bg=BG, fg=FG,
                            font=fenster.f_small, anchor='w', justify='left',
                            wraplength=max(360, (fenster.root.winfo_width()
                                                 or 980) - 340))
@@ -4359,7 +4359,7 @@ def _version_box(fenster, eltern, eintrag, punkte, offen):
             pass
 
 
-def _saubere_zeile(zeile):
+def _clean_row(zeile):
     """Markdown-Auszeichnung raus — Tk zeigt sie sonst als Sternchen."""
     import re
     zeile = re.sub(r'\*\*(.+?)\*\*', r'\1', zeile)
@@ -4379,7 +4379,7 @@ def _card(parent, border_color=None, **kw):
     return innen
 
 
-def _wertzeile(fenster, eltern, bez, wert, farbe=None):
+def _value_row(fenster, eltern, bez, wert, farbe=None):
     z = tk.Frame(eltern, bg=SURFACE)
     z.pack(fill='x', padx=16, pady=3)
     tk.Label(z, text=bez, bg=SURFACE, fg=SUB, font=fenster.f_small,
@@ -4991,20 +4991,20 @@ def _server_status(fenster, rahmen):
         # Links „Zuletzt aktualisiert vor …", rechts die Zusammenfassung. Die
         # Seite hinterlegt diesen Streifen in der Ampelfarbe; das ist ihr
         # auffälligstes Element und die Antwort auf die eigentliche Frage.
-        _kopfstreifen(fenster, behaelter, lage)
+        _status_banner(fenster, behaelter, lage)
 
         karte = _card(behaelter, pady=(0, 6))
         tk.Frame(karte, bg=SURFACE, height=8).pack()
         for sys_ in lage.get('systeme') or []:
-            _systemzeile(fenster, karte, sys_)
+            _system_row(fenster, karte, sys_)
         tk.Frame(karte, bg=SURFACE, height=10).pack()
 
         fuss = _card(behaelter, pady=(8, 6))
         tk.Frame(fuss, bg=SURFACE, height=8).pack()
         if lage.get('stand'):
-            _wertzeile(fenster, fuss, t('s_st_stand'), _uhrzeit(lage['stand']))
-        _wertzeile(fenster, fuss, t('s_st_geholt'), _uhrzeit(lage.get('geholt')))
-        _quellzeile(fenster, fuss, t('s_st_quelle'), lage.get('quelle') or '')
+            _value_row(fenster, fuss, t('s_st_stand'), _clock(lage['stand']))
+        _value_row(fenster, fuss, t('s_st_geholt'), _clock(lage.get('geholt')))
+        _source_row(fenster, fuss, t('s_st_quelle'), lage.get('quelle') or '')
         tk.Frame(fuss, bg=SURFACE, height=10).pack()
 
         _body_text(behaelter, t('s_st_hinweis'), fenster.f_small, pady=(10, 4))
@@ -5017,7 +5017,7 @@ def _server_status(fenster, rahmen):
         meldungsraum = tk.Frame(behaelter, bg=BG)
         meldungsraum.pack(fill='x')
         _body_text(meldungsraum, t('s_st_laedt'), fenster.f_small, pady=(2, 4))
-        _meldungen_laden(fenster, meldungsraum, lage.get('quelle') or '')
+        _load_notices(fenster, meldungsraum, lage.get('quelle') or '')
 
     def auffrischen(erzwingen=False):
         if erzwingen:
@@ -5106,7 +5106,7 @@ def _server_status(fenster, rahmen):
 POLL_MS = 60_000
 
 
-def _relative_zeit(stempel):
+def _relative_time(stempel):
     """„gerade eben", „vor 7 Std.", „vor 2 Monaten" — wie auf der Statusseite.
 
     Die Seite schreibt das Alter, nicht das Datum („Last updated just now",
@@ -5134,7 +5134,7 @@ def _relative_zeit(stempel):
     return form(max(1, int(alter // (30 * 86400))), 's_st_vor_monat')
 
 
-def _kopfstreifen(fenster, eltern, lage):
+def _status_banner(fenster, eltern, lage):
     """Der Streifen ganz oben: links das Alter, rechts die Zusammenfassung.
 
     Bildet nach, was die Statusseite dort zeigt („Last updated just now" /
@@ -5147,14 +5147,14 @@ def _kopfstreifen(fenster, eltern, lage):
     grüner Rahmen. Ein schlichter Frame mit farbigem Balken am linken Rand
     trägt dieselbe Aussage und kann nicht einklappen.
     """
-    farbe = _ampelfarbe(lage)
+    farbe = _status_color(lage)
     streifen = tk.Frame(eltern, bg=SURFACE)
     streifen.pack(fill='x', pady=(0, 10))
     tk.Frame(streifen, bg=farbe, width=4).pack(side='left', fill='y')
 
     inhalt = tk.Frame(streifen, bg=SURFACE)
     inhalt.pack(side='left', fill='x', expand=True, padx=12, pady=10)
-    alter = _relative_zeit(lage.get('geholt'))
+    alter = _relative_time(lage.get('geholt'))
     tk.Label(inhalt, text=t('s_st_zuletzt') % alter,
              bg=SURFACE, fg=SUB, font=fenster.f_small,
              anchor='w').pack(side='left')
@@ -5164,7 +5164,7 @@ def _kopfstreifen(fenster, eltern, lage):
              anchor='e').pack(side='right')
 
 
-def _meldungen_laden(fenster, raum, quelle):
+def _load_notices(fenster, raum, quelle):
     """Die letzten Meldungen holen und einsetzen — im eigenen Faden.
 
     ⚠ Jeder Volltext ist ein eigener Abruf; beim ersten Mal dauert das ein paar
@@ -5182,9 +5182,9 @@ def _meldungen_laden(fenster, raum, quelle):
             _body_text(raum, t('s_st_keine'), fenster.f_small, pady=(2, 4))
         else:
             for meldung in liste:
-                _meldungskarte(fenster, raum, meldung)
+                _notice_card(fenster, raum, meldung)
         if quelle:
-            _quellink(fenster, raum, t('s_st_alle_zeigen'), quelle)
+            _source_link(fenster, raum, t('s_st_alle_zeigen'), quelle)
 
     def arbeit():
         try:
@@ -5197,7 +5197,7 @@ def _meldungen_laden(fenster, raum, quelle):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _quellink(fenster, eltern, text, adresse):
+def _source_link(fenster, eltern, text, adresse):
     """Ein anklickbarer Verweis als eigene Zeile."""
     link = tk.Label(eltern, text=text, bg=BG, fg=ACCENT, font=fenster.f_small,
                     anchor='w', cursor='hand2')
@@ -5215,8 +5215,8 @@ def _quellink(fenster, eltern, text, adresse):
     link.bind('<Leave>', lambda e: link.configure(fg=ACCENT))
 
 
-def _quellzeile(fenster, eltern, bez, adresse):
-    """Wie `_wertzeile`, aber die Adresse lässt sich anklicken.
+def _source_row(fenster, eltern, bez, adresse):
+    """Wie `_value_row`, aber die Adresse lässt sich anklicken.
 
     Eine Quelle, die man nur ablesen und abtippen kann, ist keine Quelle —
     besonders bei einer Angabe, die man im Zweifel selbst nachprüfen soll."""
@@ -5249,7 +5249,7 @@ def _quellzeile(fenster, eltern, bez, adresse):
     link.bind('<Leave>', lambda e: link.configure(fg=ACCENT))
 
 
-def _ampelfarbe(lage):
+def _status_color(lage):
     """Die Farbe der Gesamtlage — die schlechteste, die vorkommt.
 
     „Alles grün außer einem" ist nicht grün. Wer nur die Zusammenfassung liest,
@@ -5262,7 +5262,7 @@ def _ampelfarbe(lage):
     return (schlimmste or {}).get('farbe') or FG
 
 
-def _systemzeile(fenster, eltern, sys_):
+def _system_row(fenster, eltern, sys_):
     """Ein System: Farbbalken, Name, Zustand im Wortlaut von CIG."""
     z = tk.Frame(eltern, bg=SURFACE)
     z.pack(fill='x', padx=16, pady=3)
@@ -5282,7 +5282,7 @@ def _systemzeile(fenster, eltern, sys_):
              anchor='w').pack(side='left')
 
 
-def _meldungskarte(fenster, eltern, meldung):
+def _notice_card(fenster, eltern, meldung):
     """Eine Meldung im Aufbau der Statusseite.
 
         Live Deployment                              ✔ Erledigt
@@ -5315,13 +5315,13 @@ def _meldungskarte(fenster, eltern, meldung):
              font=fenster.f_small, anchor='e').pack(side='right')
 
     # Alter — wie auf der Seite („7h ago"), nicht das Datum
-    wann = _relative_zeit(meldung.get('begonnen'))
+    wann = _relative_time(meldung.get('begonnen'))
     tk.Label(karte, text=wann, bg=SURFACE,
              fg=SUB, font=fenster.f_small, anchor='w').pack(
                  fill='x', padx=16, pady=(2, 6))
 
     # Etiketten: Schweregrad links, betroffene Systeme rechts — wie auf der Seite
-    _etikettenreihe(fenster, karte, meldung.get('schwere'),
+    _tag_row(fenster, karte, meldung.get('schwere'),
                     meldung.get('betroffen') or [])
 
     # ⚠ `fill='x'` ist Pflicht. Das Label ist zwar linksbündig gesetzt, aber
@@ -5347,7 +5347,7 @@ def _meldungskarte(fenster, eltern, meldung):
     tk.Frame(karte, bg=SURFACE, height=10).pack()
 
 
-def _etikett(fenster, eltern, text):
+def _tag(fenster, eltern, text):
     """Ein kleines graues Schild, wie die Marken auf der Statusseite.
 
     ⚠ **Bewusst kein `round_frame`.** Der setzt seinen Inhalt per
@@ -5360,7 +5360,7 @@ def _etikett(fenster, eltern, text):
                     padx=8, pady=3)
 
 
-def _etikettenreihe(fenster, eltern, schwere, betroffen):
+def _tag_row(fenster, eltern, schwere, betroffen):
     """Die Etiketten einer Meldung — **warum** links, **was betroffen ist** rechts.
 
     Die Trennung ist keine Kosmetik, sie trägt die Aussage: Links steht der
@@ -5385,10 +5385,10 @@ def _etikettenreihe(fenster, eltern, schwere, betroffen):
 
     ABSTAND = 6
 
-    grund = _etikett(fenster, reihe, schwere) if schwere else None
+    grund = _tag(fenster, reihe, schwere) if schwere else None
 
     systeme = tk.Frame(reihe, bg=SURFACE)
-    schilder = [_etikett(fenster, systeme, name) for name in (betroffen or [])]
+    schilder = [_tag(fenster, systeme, name) for name in (betroffen or [])]
     if not grund and not schilder:
         return
 
@@ -5438,7 +5438,7 @@ def _etikettenreihe(fenster, eltern, schwere, betroffen):
     reihe.after(0, ordnen)
 
 
-def _uhrzeit(stempel):
+def _clock(stempel):
     """Ein Zeitpunkt als Ortszeit. Die Quelle rechnet in UTC — hier steht,
     was die Uhr des Nutzers zeigt, sonst rechnet jeder selbst um."""
     import time as _t
@@ -5447,7 +5447,7 @@ def _uhrzeit(stempel):
     return _t.strftime('%d.%m.%Y %H:%M', _t.localtime(stempel))
 
 
-def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
+def _credit_box(fenster, eltern, name, lizenz, was, adresse=None):
     """Ein Beitrag: wer, unter welcher Lizenz, wofür — und wo er zu finden ist."""
     kasten = tk.Frame(eltern, bg=SURFACE)
     kasten.pack(fill='x', pady=(0, 8))
@@ -5477,7 +5477,7 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
     _wrap(text, inset=32)
 
     if adresse:
-        # ⚠ Nicht `_quellzeile`: die reserviert 24 Zeichen für eine
+        # ⚠ Nicht `_source_row`: die reserviert 24 Zeichen für eine
         # Beschriftung, und ohne Beschriftung stünde der Verweis eingerückt
         # mitten in der Karte statt am linken Rand wie der Text darüber.
         link = tk.Label(kasten, text=adresse, bg=SURFACE, fg=ACCENT,
@@ -5493,7 +5493,7 @@ def _dankblock(fenster, eltern, name, lizenz, was, adresse=None):
         link.bind('<Leave>', lambda e: link.configure(fg=ACCENT))
 
 
-def _person(fenster, eltern, name, gruppe, idee, funde):
+def _contributor(fenster, eltern, name, gruppe, idee, funde):
     """Ein Name in der Dankliste — aufklappbar.
 
     Sichtbar ist immer nur die Kopfzeile (Name + Gruppe). Was die Person
@@ -5601,7 +5601,7 @@ def _thanks(fenster, rahmen):
     tk.Label(rechts, text='%s %s · GPL-3.0-only'
              % (t('hf_titel'), fenster.version or ''), bg=SURFACE, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
-    _adresse(fenster, rechts, 'github.com/Xharig/SC-BP-Watcher',
+    _link(fenster, rechts, 'github.com/Xharig/SC-BP-Watcher',
              'https://github.com/Xharig/SC-BP-Watcher')
     _body_text(innen, t('s_dk_selbst_h'), fenster.f_small, fill='x',
                 pady=(10, 0))
@@ -5611,7 +5611,7 @@ def _thanks(fenster, rahmen):
              anchor='w').pack(fill='x', pady=(18, 2))
     _body_text(innen, t('s_dk_dabei_h'), fenster.f_small, fill='x',
                 pady=(0, 10))
-    _dankblock(fenster, innen, 'Lucide', 'ISC', t('s_dk_symbole'),
+    _credit_box(fenster, innen, 'Lucide', 'ISC', t('s_dk_symbole'),
                'https://lucide.dev')
 
     # --- Wird geladen, nicht mitgeliefert ---
@@ -5619,35 +5619,35 @@ def _thanks(fenster, rahmen):
              anchor='w').pack(fill='x', pady=(18, 2))
     _body_text(innen, t('s_dk_extern_h'), fenster.f_small, fill='x',
                 pady=(0, 10))
-    _dankblock(fenster, innen, 'Star Citizen Mission DataBase',
+    _credit_box(fenster, innen, 'Star Citizen Mission DataBase',
                'CC BY-NC-ND 4.0', t('s_dk_scmdb'), 'https://scmdb.net')
     # ⚠ Seit v3.3.0-rc39 kommen die Rohstoffpreise von hier. Wer eine Quelle
     # benutzt, nennt sie — sie stand bis rc40 nirgends.
-    _dankblock(fenster, innen, 'UEX Corp',
+    _credit_box(fenster, innen, 'UEX Corp',
                t('s_dk_keine_lizenz'), t('s_dk_uex'), 'https://uexcorp.space')
     # ⚠ Seit v3.19.0 kommen die Steckplätze der Schiffe von hier. Wer eine
     # Quelle benutzt, nennt sie — und zwar bevor jemand danach fragt.
-    _dankblock(fenster, innen, 'erkul.games',
+    _credit_box(fenster, innen, 'erkul.games',
                t('s_dk_keine_lizenz'), t('s_dk_erkul'), 'https://erkul.games')
     # ⚠ Kein Datenlieferant, sondern fremdes **Werkzeug**: Ohne diese
     # Erweiterung müsste jeder seine vierzig Schiffe von Hand eintippen. Sie
     # steht hier, weil der Import ohne sie nichts wäre — und damit man sie
     # findet, ohne im Netz danach suchen zu müssen.
-    _dankblock(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
+    _credit_box(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
                'MIT', t('s_dk_xplorer'), XPLORER_PAGE)
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
     # der readme, GitHub meldet keine (geprueft 29.08.2026). Hier stand
     # 'CC BY-NC-SA 4.0'. Das war geraten, vermutlich von scmdb uebernommen,
     # und es schrieb MrKraken eine Lizenz zu, die er nie vergeben hat.
-    _dankblock(fenster, innen, 'StarStrings (MrKraken)',
+    _credit_box(fenster, innen, 'StarStrings (MrKraken)',
                t('s_dk_keine_lizenz'),
                t('s_dk_ss'), 'https://starstrings.app')
-    _dankblock(fenster, innen, 'SC Deutsch Launcher', t('s_dk_freiwillig'),
+    _credit_box(fenster, innen, 'SC Deutsch Launcher', t('s_dk_freiwillig'),
                t('s_dk_scdl'), 'https://www.sc-deutsch-launcher.de/')
     # ⚠⚠ Die Übersetzung selbst hat einen eigenen Urheber und eine eigene
     # Lizenz (CC BY-NC-SA 4.0). Die verlangt ausdrücklich Name UND Repository —
     # der Verteiler allein genügt nicht.
-    _dankblock(fenster, innen, 'StarCitizen-Deutsch-INI (rjcncpt)',
+    _credit_box(fenster, innen, 'StarCitizen-Deutsch-INI (rjcncpt)',
                'CC BY-NC-SA 4.0', t('s_dk_ini'),
                'https://github.com/rjcncpt/StarCitizen-Deutsch-INI')
 
@@ -5668,7 +5668,7 @@ def _thanks(fenster, rahmen):
             ('Haldjas', 'pr0', t('s_dk_haldjas_idee'),
              t('s_dk_haldjas_bugs')),
             # ⚠ Zwei Bausteine hintereinander: die frühen Funde samt
-            # Nitro-Dank und der Fund vom 11.09. `_person` nimmt einen Text —
+            # Nitro-Dank und der Fund vom 11.09. `_contributor` nimmt einen Text —
             # also hier zusammensetzen, statt die Funktion für einen
             # Sonderfall umzubauen.
             #
@@ -5689,7 +5689,7 @@ def _thanks(fenster, rahmen):
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), '')):
-        _person(fenster, innen, name, gruppe, idee, funde)
+        _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
     _body_text(innen, t('s_dk_marken'), fenster.f_small, fill='x',
@@ -5742,14 +5742,14 @@ def _about(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x')
 
     tk.Frame(karte, bg=SURFACE, height=8).pack()
-    _wertzeile(fenster, karte, t('s_ub_bekannt'), _zahl_katalog())
-    _wertzeile(fenster, karte, t('s_ub_davon'), _zahl_bestand())
+    _value_row(fenster, karte, t('s_ub_bekannt'), _zahl_katalog())
+    _value_row(fenster, karte, t('s_ub_davon'), _zahl_bestand())
     uebersicht = {}
     try:
         uebersicht = pfade.uebersicht() or {}
     except Exception:
         pass
-    _wertzeile(fenster, karte, t('b_ordner'),
+    _value_row(fenster, karte, t('b_ordner'),
                uebersicht.get('app_ordner') or '—')
     tk.Frame(karte, bg=SURFACE, height=10).pack()
 
@@ -5859,7 +5859,7 @@ def _about(fenster, rahmen):
 
 
 
-def _adresse(fenster, eltern, text, ziel, grund=None):
+def _link(fenster, eltern, text, ziel, grund=None):
     """Eine anklickbare Adresse — öffnet den Browser.
 
     ⚠ Vorher war das ein gewöhnliches Label in der Akzentfarbe: Es **sah aus wie
@@ -5885,7 +5885,7 @@ def _adresse(fenster, eltern, text, ziel, grund=None):
         fenster.say(t('s_ub_auf') % ziel if geklappt else t('s_ub_auf_nein') % ziel)
 
     def rein(_=None):
-        lbl.configure(font=_unterstrichen(fenster.f_small))
+        lbl.configure(font=_underlined(fenster.f_small))
 
     def raus(_=None):
         lbl.configure(font=fenster.f_small)
@@ -5896,7 +5896,7 @@ def _adresse(fenster, eltern, text, ziel, grund=None):
     return lbl
 
 
-def _unterstrichen(schrift):
+def _underlined(schrift):
     """Dieselbe Schrift, nur unterstrichen — für die Maus-über-Anzeige."""
     import tkinter.font as tkfont
     try:

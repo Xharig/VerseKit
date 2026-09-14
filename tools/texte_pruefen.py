@@ -68,7 +68,7 @@ FREMDE_BAUSTEINE = {
 # Parameternamen, hinter denen ein sichtbarer Text steckt. Bausteine der
 # geprüften Datei werden darüber **selbst gefunden** — sonst müsste man die
 # Tabelle bei jedem neuen Baustein von Hand nachziehen, und genau das geht
-# schief: `_wertzeile` fehlte, und deshalb stand „Baupläne bekannt" monatelang
+# schief: `_value_row` fehlte, und deshalb stand „Baupläne bekannt" monatelang
 # unübersetzt auf der englischen Über-Seite, während die Prüfung grün meldete.
 TEXTNAMEN = ('text', 'titel', 'bez', 'bezeichnung', 'hilfe', 'lead', 'fett',
              'rest', 'beschriftung', 'wofuer', 'platzhalter')
