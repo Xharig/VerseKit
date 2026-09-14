@@ -161,7 +161,7 @@ def blueprints_for_contract(catalog_data, title):
     Vorher rechneten zwei Seiten es sich selbst aus — jede mit einem
     **wörtlichen** Vergleich gegen `q['auftrag']`:
 
-        seiten._zum_auftrag()            (ob anklickbar)
+        seiten._to_contract()            (ob anklickbar)
         bestandsfenster.zum_auftrag()    (Liste umstellen)
 
     Das trifft alles, was aus der Liste selbst kommt, und **nichts**, was aus

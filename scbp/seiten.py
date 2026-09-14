@@ -276,7 +276,7 @@ ROWS_FIRST = 45
 ROWS_MORE = 45
 
 
-def _nach_bedarf_packen(leinwand, zeilen, sofort=ROWS_FIRST,
+def _pack_on_demand(leinwand, zeilen, sofort=ROWS_FIRST,
                         schritt=ROWS_MORE):
     """Nur die sichtbaren Zeilen packen, den Rest beim Rollen nachlegen.
 
@@ -340,11 +340,11 @@ def _nach_bedarf_packen(leinwand, zeilen, sofort=ROWS_FIRST,
     leinwand.configure(yscrollcommand=beim_rollen)
 
 
-def _nach_bedarf_bauen(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
+def _build_on_demand(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
                        schritt=ROWS_MORE):
     """Nur die sichtbaren Einträge **bauen**, den Rest beim Rollen nachlegen.
 
-    ⚠⚠ **Unterschied zu `_nach_bedarf_packen`:** Dort sind die Zeilen längst
+    ⚠⚠ **Unterschied zu `_pack_on_demand`:** Dort sind die Zeilen längst
     gebaut und es geht nur ums Layout. Hier werden sie gar nicht erst
     erzeugt — weil nicht das Anzeigen teuer ist, sondern das **Wegwerfen**
     beim nächsten Tastendruck.
@@ -390,7 +390,7 @@ def _nach_bedarf_bauen(leinwand, anzahl, bauer, sofort=ROWS_FIRST,
     leinwand.configure(yscrollcommand=beim_rollen)
 
 
-def _nach_oben(widget):
+def _scroll_to_top(widget):
     """Die Rollfläche wieder an den Anfang setzen.
 
     ⚠⚠ **Nicht dasselbe wie `_rollstelle_halten`.** Der Helfer dort merkt sich
@@ -583,7 +583,7 @@ def _filter_bar(window, parent, fields, on_change, state):
     return zuruecksetzen, reihe, gebaut
 
 
-def _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand):
+def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand):
     """Sorgt dafür, dass eine Knopf-Leinwand ihren Text wirklich fasst.
 
     ⚠ **Einmal beim Bauen zu messen reicht nicht.** `schrift.measure()` sagt,
@@ -654,7 +654,7 @@ def _button(window, parent, text, action, strong=False, danger=False):
                                 fill=fuellung, outline=rand, width=1)]
     c.tag_lower(flaeche[0], beschriftung)
 
-    _mass_sichern(c, beschriftung, flaeche, hoehe, fuellung, rand)
+    _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand)
 
     def rein(_=None):
         c.itemconfigure(flaeche[0], outline=RED if danger else ACCENT)
@@ -735,7 +735,7 @@ def _choice(window, parent, entries, active, action):
         beschr = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                fill=ACCENT if an else SUB, font=schrift)
         # Dieselbe Falle wie beim gewoehnlichen Knopf — siehe `_nachmessen`.
-        _mass_sichern(c, beschr, flaeche, hoehe, SURFACE,
+        _ensure_size(c, beschr, flaeche, hoehe, SURFACE,
                       ACCENT if an else LINE)
         c.teile = (flaeche, beschr)
         c.bind('<Button-1>', lambda e, k=kennung: action(k))
@@ -1017,7 +1017,7 @@ def _button_row(parent, buttons, gap=8):
     return parent
 
 
-def _gitter_ordnen(eltern):
+def _reflow_grid(eltern):
     """Die Knöpfe eines `_knopfgitter` auf so viele Zeilen verteilen wie nötig."""
     zustand = getattr(eltern, '_gitter', None)
     if zustand is None:
@@ -1046,7 +1046,7 @@ def _gitter_ordnen(eltern):
     if platz <= 1:
         for nummer, knopf in enumerate(knoepfe):
             knopf.grid(row=nummer, column=0, sticky='w', pady=(0, 4))
-        eltern.after(50, lambda: _gitter_ordnen(eltern))
+        eltern.after(50, lambda: _reflow_grid(eltern))
         return
     if platz == zustand['breite']:
         return
@@ -1128,23 +1128,23 @@ def _button_grid(parent, buttons, gap=6):
         # ⚠ Nur EINMAL binden. Diese Reihen werden neu bestückt, sobald sich
         # ein Gerät ändert — bei jedem Mal neu zu binden häufte die Rückrufe
         # an, bis dasselbe Ordnen zwanzigfach liefe.
-        parent.bind('<Configure>', lambda _=None: _gitter_ordnen(parent),
+        parent.bind('<Configure>', lambda _=None: _reflow_grid(parent),
                     add='+')
     else:
         zustand['knoepfe'] = list(buttons)
         zustand['breite'] = 0
 
-    # ⚠⚠ **Die Höhe MUSS hier schon stehen, nicht erst in `_gitter_ordnen`.**
+    # ⚠⚠ **Die Höhe MUSS hier schon stehen, nicht erst in `_reflow_grid`.**
     # Seit die Knöpfe per `place` sitzen, hat der Rahmen keine Kinder mehr, aus
     # denen er seine Größe ableiten könnte — er bliebe 1 px hoch. Und
-    # `_gitter_ordnen` steigt aus, solange die Breite noch nicht steht
+    # `_reflow_grid` steigt aus, solange die Breite noch nicht steht
     # (`platz <= 1`), setzt die Höhe also unter Umständen nie. Ergebnis:
     # neun Bereichsknöpfe, alle unsichtbar.
     #
     # Deshalb hier eine Höhe aus der Wunschgröße der Knöpfe, bevor überhaupt
-    # etwas gemessen wird. `_gitter_ordnen` korrigiert sie später auf die
+    # etwas gemessen wird. `_reflow_grid` korrigiert sie später auf die
     # tatsächliche Zeilenzahl.
-    parent.after(0, lambda: _gitter_ordnen(parent))
+    parent.after(0, lambda: _reflow_grid(parent))
     return parent
 
 
@@ -1381,13 +1381,13 @@ def _progress(fenster, rahmen):
             continue
         gesamt = sum(g for g, _ in zaehler.values())
         meine = sum(m for _, m in zaehler.values())
-        _fortschritt_bereich(fenster, innen, t('gruppe_' + bereich), gesamt,
+        _progress_section(fenster, innen, t('gruppe_' + bereich), gesamt,
                              meine, zaehler)
 
-    _lohnende_auftraege(fenster, innen, katalog, habe)
+    _best_contracts(fenster, innen, katalog, habe)
 
 
-def _lohnende_auftraege(fenster, eltern, katalog, habe):
+def _best_contracts(fenster, eltern, katalog, habe):
     """„Was bringt am meisten?" — die Aufträge mit den meisten fehlenden BPs.
 
     ⚠ Die Frage nach dem Fortschritt endet sonst bei „55 Prozent" und lässt
@@ -1410,7 +1410,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
     # ich", die Aufträge sind die Antwort auf „und was mache ich als
     # Nächstes".
     #
-    # ⚠ Kopfaufbau bewusst Zeichen für Zeichen wie in `_fortschritt_bereich`:
+    # ⚠ Kopfaufbau bewusst Zeichen für Zeichen wie in `_progress_section`:
     # Pfeil, Titel, Zahl — gleiche Dinge stehen an der gleichen Stelle.
     zustand = {'offen': False}
     kopf = tk.Frame(eltern, bg=BG, cursor='hand2')
@@ -1502,7 +1502,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
         # hier aus nur nicht erreichbar: Man musste den Auftragsnamen von Hand
         # ins Suchfeld tippen und dann die Auftragszeile anklicken.
         def hinspringen(_ereignis=None, titel=titel):
-            _zum_auftrag(fenster, titel)
+            _to_contract(fenster, titel)
 
         for teil in [zeile, rechts] + beschriftungen:
             teil.config(cursor='hand2')
@@ -1513,7 +1513,7 @@ def _lohnende_auftraege(fenster, eltern, katalog, habe):
     tk.Label(kasten, text='', bg=SURFACE).pack(pady=2)
 
 
-def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
+def _progress_section(fenster, eltern, titel, gesamt, meine, kategorien):
     """Ein Bereich mit Gesamtbalken — die Kategorien darin klappen auf."""
     from .main_window import round_bar
     zustand = {'offen': False}
@@ -1561,7 +1561,7 @@ def _fortschritt_bereich(fenster, eltern, titel, gesamt, meine, kategorien):
             # („bei einem Klick auf Cooler, Schild, Radar wird man auf die
             # Baupläne geschickt und die Vorauswahl getroffen").
             def hinspringen(_ereignis=None, art=art):
-                _zur_art(fenster, art)
+                _to_kind(fenster, art)
 
             for teil_widget in (zeile, beschriftung, balken_zeile, zahl):
                 teil_widget.bind('<Button-1>', hinspringen)
@@ -2333,7 +2333,7 @@ def ordner_waehlen(titel, start=None):
     return file_picker.choose_folder(titel, start)
 
 
-def _im_pfad(name):
+def _in_path(name):
     """Gibt es dieses Programm auf dem Rechner?"""
     import shutil
     return bool(shutil.which(name))
@@ -2564,7 +2564,7 @@ def _collection(fenster, rahmen):
     _heading(fenster, rahmen, t('hf_bestand'), t('s_be_lead'))
     innen = _scroll_area(rahmen)
 
-    anzahl = _zahl_bestand()
+    anzahl = _count_collection()
     tk.Label(innen, text=t('s_be_aus'), bg=BG, fg=FG,
              font=fenster.f_title, anchor='w').pack(fill='x', pady=(0, 2))
     _body_text(innen, t('s_be_aus_h'), fenster.f_small,
@@ -3075,12 +3075,12 @@ def _contract_log(fenster, rahmen):
             # hast du gespielt" — die Anschlussfrage ist „und was bringt der
             # eigentlich?". Der Klick stellt die Bauplan-Liste auf ihn ein.
             #
-            # ⚠ `_zum_auftrag` sieht vorher nach: Kennt kein Bauplan diesen
+            # ⚠ `_to_contract` sieht vorher nach: Kennt kein Bauplan diesen
             # Auftrag als Quelle, wird NICHT gesprungen, sondern gemeldet. Das
             # ist hier der Normalfall — die meisten Aufträge im Protokoll
             # bringen keinen Bauplan.
             def zur_bauplanliste(_ereignis=None, titel=eintrag.get('name') or ''):
-                _zum_auftrag(fenster, titel)
+                _to_contract(fenster, titel)
 
             for teil in (name_lab, mitte):
                 teil.bind('<Button-1>', zur_bauplanliste)
@@ -3117,7 +3117,7 @@ def _contract_log(fenster, rahmen):
                 # Bei mehreren Funden wird diese Zeile laenger als der Name.
                 _wrap(bp_lab)
 
-        _nach_bedarf_packen(innen.canvas, zeilen_log)
+        _pack_on_demand(innen.canvas, zeilen_log)
 
         # ⭐ **Was noch fehlt, steht darunter — und lädt auf Klick nach.**
         # Wortlaut und Verhalten wie in der Bauplan-Liste: gleiche Dinge an der
@@ -3245,7 +3245,7 @@ def _contract_log(fenster, rahmen):
     _auffrischen()
 
 
-def _geraete_hub(fenster, eltern):
+def _device_hub(fenster, eltern):
     """Alle Eingabegeräte an einem Ort — mit laufender Überwachung.
 
     ## Warum das oben auf der Steuerungsseite steht
@@ -3463,7 +3463,7 @@ def _joysticks(fenster, rahmen):
     # ⭐ Der Geräte-Hub steht GANZ OBEN, vor allem anderen. Bevor jemand
     # fragt „was liegt auf welcher Taste", muss klar sein, welches Gerät
     # überhaupt welches ist — und dass System und Spiel verschieden zählen.
-    _geraete_hub(fenster, innen)
+    _device_hub(fenster, innen)
 
     daten = {}
     suche = tk.StringVar()
@@ -3904,7 +3904,7 @@ def _joysticks(fenster, rahmen):
         # ⭐⭐ **Gebaut werden alle, gepackt nur die sichtbaren.**
         # Tk rechnet die Geometrie für jedes gepackte Kind — auch für die 170
         # Zeilen unter dem Fensterrand. Gemessen: 635 ms gegen 192 ms beim
-        # Wechsel auf diese Seite. Siehe `_nach_bedarf_packen`.
+        # Wechsel auf diese Seite. Siehe `_pack_on_demand`.
         gepackt = []
         for kennzeichen, e, klar, lesbar, echt in gezeigt[:200]:
             zeile = tk.Frame(liste_rahmen, bg=SURFACE)
@@ -3968,7 +3968,7 @@ def _joysticks(fenster, rahmen):
                 _anfassen(kind)
 
         # ⭐ Jetzt erst packen — und nur so viele, wie hineinpassen.
-        _nach_bedarf_packen(innen.canvas, gepackt)
+        _pack_on_demand(innen.canvas, gepackt)
 
     def _uebernehmen(alt, neu):
         erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
@@ -4600,7 +4600,7 @@ _READY = [None]
 _TK_REPORTED = [False]      # siehe unten: nur der erste wird gemerkt
 
 
-def _im_tk(fenster, tat):
+def _in_tk(fenster, tat):
     """Etwas im Tk-Faden erledigen — und daran nicht scheitern.
 
     ⚠ **Zeichnen ist Beiwerk, die Arbeit ist der Zweck.** `root.after()` aus
@@ -4771,7 +4771,7 @@ def _fetch_version(fenster, mit_vorab):
         uebergeben = False
         try:
             ziel = updater.download(
-                datei, progress=lambda p: _im_tk(
+                datei, progress=lambda p: _in_tk(
                     fenster, lambda: fenster.say(t('wird_geladen', p))),
                 release=freigabe)
 
@@ -4785,7 +4785,7 @@ def _fetch_version(fenster, mit_vorab):
                 ziel, target_version=freigabe.get('version') or '',
                 previous_version=fenster.version or '')
             if not geklappt:
-                _im_tk(fenster, lambda: fenster.say(
+                _in_tk(fenster, lambda: fenster.say(
                     t('update_fehler', grund)))
                 return
             _READY[0] = freigabe.get('version') or ''
@@ -4817,7 +4817,7 @@ def _fetch_version(fenster, mit_vorab):
             # gehoert ab hier dem Helfer; er gibt sie am Ende frei.
             if art == 'exe':
                 uebergeben = True
-                _im_tk(fenster, lambda: fenster.say(t('up_wird_eingespielt')))
+                _in_tk(fenster, lambda: fenster.say(t('up_wird_eingespielt')))
                 _hand_over(fenster)
                 return
 
@@ -4843,11 +4843,11 @@ def _fetch_version(fenster, mit_vorab):
                 except Exception:
                     pass
 
-            _im_tk(fenster, _neustart)
+            _in_tk(fenster, _neustart)
         except Exception as ausnahme:
             grund = str(ausnahme)
             fehler.merken('seiten.fassung_holen', ausnahme)
-            _im_tk(fenster, lambda: fenster.say(t('update_fehler', grund)))
+            _in_tk(fenster, lambda: fenster.say(t('update_fehler', grund)))
         finally:
             if not uebergeben:
                 update_run.release_lock()
@@ -5742,8 +5742,8 @@ def _about(fenster, rahmen):
              font=fenster.f_bold, anchor='w').pack(fill='x')
 
     tk.Frame(karte, bg=SURFACE, height=8).pack()
-    _value_row(fenster, karte, t('s_ub_bekannt'), _zahl_katalog())
-    _value_row(fenster, karte, t('s_ub_davon'), _zahl_bestand())
+    _value_row(fenster, karte, t('s_ub_bekannt'), _count_catalog())
+    _value_row(fenster, karte, t('s_ub_davon'), _count_collection())
     uebersicht = {}
     try:
         uebersicht = pfade.uebersicht() or {}
@@ -5982,7 +5982,7 @@ def _detection(fenster, rahmen):
         fenster.say(t('s_er_kat_holt'))
         try:
             katalog_modul.update()
-            fenster.say(t('s_er_kat_da') % _zahl_katalog())
+            fenster.say(t('s_er_kat_da') % _count_catalog())
         except Exception as ausnahme:
             fehler.merken('seiten.erkennung.katalog', ausnahme)
             fenster.say(t('s_er_kat_weg'))
@@ -6282,14 +6282,14 @@ def _diagnostics(fenster, rahmen):
 
 
 
-def _zahl_katalog():
+def _count_catalog():
     try:
         return len((katalog_modul.load().get('bauplaene') or {}))
     except Exception:
         return '—'
 
 
-def _zahl_bestand():
+def _count_collection():
     try:
         return len((bestand_datei.load().get('bauplaene') or {}))
     except Exception:
@@ -6693,7 +6693,7 @@ def _auec(amount):
     return t('s_auec') % _money(amount)
 
 
-def _hat_herkunft(name):
+def _has_source(name):
     """Kennt der Katalog diesen Bauplan — und weiss er, woher es ihn gibt?
 
     ⚠ Beides zusammen. Ein Katalogeintrag ohne `q` hat keine Bezugsquelle
@@ -6713,7 +6713,7 @@ def _hat_herkunft(name):
     return False
 
 
-def _zum_auftrag(fenster, titel):
+def _to_contract(fenster, titel):
     """Zur Bauplan-Liste, gefiltert auf diesen Auftrag.
 
     Gerufen von „Was bringt am meisten?" und vom Auftrags-Protokoll.
@@ -6754,7 +6754,7 @@ def _zum_auftrag(fenster, titel):
         fehler.merken('seiten.zum_auftrag', ausnahme)
 
 
-def _zur_art(fenster, art):
+def _to_kind(fenster, art):
     """Vom Bauplan-Fortschritt zur Liste, gefiltert auf diese Kategorie."""
     try:
         fenster.jump_to('liste')
@@ -6766,7 +6766,7 @@ def _zur_art(fenster, art):
         fehler.merken('seiten.zur_art', ausnahme)
 
 
-def _zum_bauplan(fenster, name):
+def _to_blueprint(fenster, name):
     """Von der Herstellung zur Bauplan-Liste — mit aufgeschlagener Herkunft."""
     try:
         fenster.jump_to('liste')
@@ -7401,7 +7401,7 @@ def _routes(fenster, rahmen):
         _ortliste_leeren()
         # ⚠ Die Vorschlagsliste war eben noch acht Zeilen hoch; ohne das hier
         # bleibt die Rollfläche stehen, wo sie war, und oben klafft eine Lücke.
-        _nach_oben(ergebnis)
+        _scroll_to_top(ergebnis)
         if routen_modul.trips(kennung) is not None:
             _zeichnen()
             return
@@ -7576,7 +7576,7 @@ def _routes(fenster, rahmen):
         _schiff_zeigen()
         _schalter_zeichnen()
         _zeichnen()
-        _nach_oben(innen)
+        _scroll_to_top(innen)
 
     reset_knopf.bind('<Button-1>', _alles_zuruecksetzen)
     reset_knopf.bind('<Enter>',
@@ -8176,7 +8176,7 @@ def _shops(fenster, rahmen):
         # ⚠ Wer aus einer langen Liste auswählt, steht weit unten. Die Antwort
         # erscheint oben — ohne diesen Sprung sieht er weiter die Stelle, an
         # der eben noch seine Auswahl stand.
-        _nach_oben(innen)
+        _scroll_to_top(innen)
         # ⚠ Schiffe liegen schon vollständig vor — ihre Preise kommen aus den
         # drei Wochenlisten, nicht aus einem Abruf je Gegenstand.
         if kennung.startswith(SHIP_PREFIX):
@@ -8524,7 +8524,7 @@ def _shops(fenster, rahmen):
         _leeren(ergebnis_rahmen)
         _filter_bauen()
         _stand_melden()
-        _nach_oben(innen)
+        _scroll_to_top(innen)
 
     ld_reset.bind('<Button-1>', _ld_zuruecksetzen)
     ld_reset.bind('<Enter>', lambda _=None: ld_reset.configure(fg=RED))
@@ -8867,9 +8867,9 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     # ⚠ **Und nur, wenn dahinter wirklich etwas steht.** Der Katalog kennt 738
     # Bauplaene, die Rezepte sind 1607; ein Knopf, der auf eine leere Liste
     # fuehrt, ist schlimmer als keiner.
-    if eintrag['habe'] is not True and _hat_herkunft(eintrag.get('basis')):
+    if eintrag['habe'] is not True and _has_source(eintrag.get('basis')):
         _button(fenster, block, t('s_he_woher_bp'),
-               lambda n=eintrag.get('basis'): _zum_bauplan(fenster, n)).pack(
+               lambda n=eintrag.get('basis'): _to_blueprint(fenster, n)).pack(
                    anchor='w', padx=12, pady=(8, 0))
     # ⭐⭐ **„Lohnt sich das Bauen überhaupt?"** Die Zutatenkosten stehen
     # unten schon Stück für Stück da — was fehlte, war die andere Hälfte:
@@ -9471,13 +9471,13 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
 
 
-def _art_text(arten):
+def _kind_text(arten):
     """Die Abbauarten lesbar: „FPS · Schiff"."""
     reihenfolge = ('fps', 'fahrzeug', 'schiff', 'schiff_selten')
     return ' · '.join(t('s_bg_art_' + a) for a in reihenfolge if a in arten)
 
 
-def _hat_geraet(erz, geraet):
+def _has_tool(erz, geraet):
     """Lässt sich dieses Erz mit dem gewählten Gerät abbauen?"""
     from .mining import _pot
     for eintrag in erz.get('orte') or []:
@@ -9974,7 +9974,7 @@ def _mining(fenster, rahmen):
         # stehen, da sucht man als Erstes nach."
         geraet = berg_wahl['geraet']
         for e in erze:
-            if geraet and not _hat_geraet(e, geraet):
+            if geraet and not _has_tool(e, geraet):
                 continue
             if not text or text in e['name'].lower():
                 _berg_erz(fenster, liste_rahmen, e, offen, aufklappen,
@@ -10299,7 +10299,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                  anchor='w').pack(side='left')
         tk.Label(z, text=system, bg='#0c1017', fg=SUB, font=fenster.f_small,
                  anchor='w').pack(side='left', padx=(10, 0))
-        tk.Label(z, text=_art_text(arten), bg='#0c1017', fg=SUB,
+        tk.Label(z, text=_kind_text(arten), bg='#0c1017', fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right', padx=12)
         _berg_anteil(fenster, z, anteil, stufe, '#0c1017', allein)
 
@@ -11548,7 +11548,7 @@ def _shopping_list(fenster, rahmen):
         if not posten:
             _body_text(koerper, t('s_ek_nichts_offen'), fenster.f_small,
                         fill='x')
-            _ohne_daten_hinweis(fenster, koerper, werte)
+            _no_data_note(fenster, koerper, werte)
             return
         # ⚠⚠ **Die Seite heißt „Was noch fehlt" — dann steht hier auch nur
         # das.** Am 06.09.2026: „hier kann, was eingebaut ist, auch raus, ist
@@ -11564,7 +11564,7 @@ def _shopping_list(fenster, rahmen):
             _body_text(koerper,
                         t('s_ek_alles_erledigt').format(n=len(fertige)),
                         fenster.f_small, color=ACCENT, fill='x', pady=(0, 8))
-            _ohne_daten_hinweis(fenster, koerper, werte)
+            _no_data_note(fenster, koerper, werte)
             return
 
         _einkauf_preise_holen(posten, koerper, neu_zeichnen)
@@ -11616,7 +11616,7 @@ def _shopping_list(fenster, rahmen):
                         fenster.f_small, color=ACCENT, fill='x', pady=(6, 0))
 
         _warenkorb_summe(fenster, koerper, posten)
-        _ohne_daten_hinweis(fenster, koerper, werte)
+        _no_data_note(fenster, koerper, werte)
         _warenkorb_route(fenster, koerper, posten)
 
     # ⚠ Beim erneuten Öffnen frisch rechnen: Die Seite wird nur einmal gebaut,
@@ -12013,7 +12013,7 @@ def _number(value):
     return ('%.1f' % z).replace('.', ',')
 
 
-def _ohne_daten_hinweis(fenster, eltern, werte):
+def _no_data_note(fenster, eltern, werte):
     """Welche Schiffe gar nicht mitgerechnet werden konnten.
 
     ⚠ **Verschwiegen wäre schlimmer als unvollständig.** Ohne diesen Satz
@@ -13808,14 +13808,14 @@ def _storage(fenster, rahmen):
 
 
 
-def _wartetext(rest):
+def _cooldown_text(rest):
     """Die Restzeit der Sperre als `43:12` — oder `''`, wenn sie abgelaufen ist."""
     if rest <= 0:
         return ''
     return '%d:%02d' % (rest // 60, rest % 60)
 
 
-def _warteton(rest):
+def _cooldown_color(rest):
     """Welche Farbe die Restzeit hat.
 
     ⭐ **Kein Rot.** Der Knopf ist gesperrt, *weil* der Abruf eben geklappt hat —
@@ -13850,7 +13850,7 @@ def _age_text(seconds):
     return t('s_vk_alter_tage').format(n=int(stunden / 24))
 
 
-def _ohne_trenner(text):
+def _squashed(text):
     """Kleinschreibung ohne Punkte, Bindestriche und Leerzeichen.
 
     Damit findet „ATLS" auch „A.T.L.S.", und „F7C-M" auch „F7CM". Dieselbe
@@ -13947,15 +13947,15 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         # Feld sein eigenes Schiff nicht: Der Pledge-Store schreibt „A.T.L.S.",
         # UEX schreibt „Argo ATLS IKTI", und beide sind dasselbe Ding.
         # Gemeldet am 06.09.2026 beim Handeintrag im Hangar.
-        schlank = _ohne_trenner(text)
+        schlank = _squashed(text)
 
         def _passt(name):
-            if schlank in _ohne_trenner(name):
+            if schlank in _squashed(name):
                 return True
             # Der Zusatz zaehlt mit: „stealth" findet die Tarn-Teile, „a"
             # allein nicht (ein einzelner Buchstabe traefe jede Guete).
             bei = _zusatz_text(name)
-            return len(schlank) > 1 and bei and schlank in _ohne_trenner(bei)
+            return len(schlank) > 1 and bei and schlank in _squashed(bei)
 
         treffer = [e for e in alle if _passt(e)] if text else list(alle)
         pfeil.swap_symbol('zuklappen' if offen['ja'] else 'aufklappen')
@@ -14032,12 +14032,12 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         # ⭐⭐ **Nur die sichtbaren Einträge bauen.** Bei 400 Teilen entstanden
         # sonst über 1.600 Bauteile — und beim nächsten Tastendruck wurden sie
         # alle wieder zerstört. Gemessen: 1,03 von 1,24 s gingen allein für
-        # das `destroy()` drauf. Siehe `_nach_bedarf_bauen`.
+        # das `destroy()` drauf. Siehe `_build_on_demand`.
         #
         # ⚠ Ohne Rollfläche (`rollbar=None`) bleibt alles wie bisher: Dort
         # deckelt `hoechstens` die Liste ohnehin auf wenige Zeilen.
         if scrollable:
-            _nach_bedarf_bauen(leinwand, len(zeigen), _eintrag_bauen)
+            _build_on_demand(leinwand, len(zeigen), _eintrag_bauen)
         else:
             for nummer in range(len(zeigen)):
                 _eintrag_bauen(nummer)
@@ -14329,7 +14329,7 @@ def _selling(fenster, rahmen):
             return
         rest = preisdaten.wait_time()
         if rest:
-            knopf.beschriften(_wartetext(rest), _warteton(rest))
+            knopf.beschriften(_cooldown_text(rest), _cooldown_color(rest))
         else:
             knopf.beschriften(t('s_vk_holen'), None)
         alter = preisdaten.age()
@@ -16826,7 +16826,7 @@ def _patch_changes(fenster, rahmen):
             return
         # ⚠⚠ **`_knopfgitter` will fertige KNÖPFE, keine Beschriftungspaare.**
         # Hier standen bis zum 07.09.2026 `(Text, Rückruf)`-Tupel, und das ist
-        # kein Schönheitsfehler: `_gitter_ordnen` ruft `winfo_exists()` auf
+        # kein Schönheitsfehler: `_reflow_grid` ruft `winfo_exists()` auf
         # jedem Eintrag, ein Tupel hat das nicht — beim Klick auf einen
         # abgelegten Patch flog `AttributeError: 'tuple' object has no
         # attribute 'winfo_exists'`, und zwar aus einem `after`-Rückruf heraus.

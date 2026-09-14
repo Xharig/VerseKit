@@ -7674,7 +7674,7 @@ def main():
 
     _q82b = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    pruefe('_lohnende_auftraege(fenster, innen, katalog, habe)' in _q82b,
+    pruefe('_best_contracts(fenster, innen, katalog, habe)' in _q82b,
            'die Fortschritt-Seite zeigt es an')
 
     # ------------------------------------------------------------------
@@ -7921,15 +7921,15 @@ def main():
     # ⚠ Kein Rot im herunterzaehlenden Knopf: Der ist gesperrt, *weil* der
     # Abruf geklappt hat — Rot ist in diesem Programm die Fehlerfarbe.
     from scbp import seiten as _se84
-    pruefe(_se84._warteton(59 * 60) == _se84.SUB
-           and _se84._warteton(10 * 60) == _se84.GOLD
-           and _se84._warteton(30) == _se84.ACCENT,
+    pruefe(_se84._cooldown_color(59 * 60) == _se84.SUB
+           and _se84._cooldown_color(10 * 60) == _se84.GOLD
+           and _se84._cooldown_color(30) == _se84.ACCENT,
            'der Timer reift von grau ueber gold nach gruen')
-    pruefe(_se84._warteton(59 * 60) != _se84.RED
-           and _se84._warteton(30) != _se84.RED,
+    pruefe(_se84._cooldown_color(59 * 60) != _se84.RED
+           and _se84._cooldown_color(30) != _se84.RED,
            'der Timer wird nie rot')
-    pruefe(_se84._wartetext(3599) == '59:59' and _se84._wartetext(0) == '',
-           'die Restzeit steht als mm:ss da (%s)' % _se84._wartetext(3599))
+    pruefe(_se84._cooldown_text(3599) == '59:59' and _se84._cooldown_text(0) == '',
+           'die Restzeit steht als mm:ss da (%s)' % _se84._cooldown_text(3599))
 
     # 85. Das Fenster passt auf den Bildschirm
     #
@@ -9181,9 +9181,9 @@ def main():
     # a) Der Knopf erscheint nur, wo er hinfuehrt. ⚠ Der Katalog kennt 738
     #    Bauplaene, die Rezepte sind 1607 — ein Knopf auf eine leere Liste
     #    waere schlimmer als keiner.
-    pruefe(_se97._hat_herkunft('gibt es nicht') is False,
+    pruefe(_se97._has_source('gibt es nicht') is False,
            'ein unbekannter Name bekommt keinen Knopf')
-    pruefe(_se97._hat_herkunft('') is False and _se97._hat_herkunft(None) is False,
+    pruefe(_se97._has_source('') is False and _se97._has_source(None) is False,
            'und ein leerer Name auch nicht')
 
     from scbp import catalog as _kat97
@@ -9206,12 +9206,12 @@ def main():
     _ohne_q97 = [e.get('n') for e in (_kat97.load().get('bauplaene') or {}).values()
                  if not e.get('q') and e.get('n')]
     if _mit_q97:
-        pruefe(_se97._hat_herkunft(_mit_q97[0]),
+        pruefe(_se97._has_source(_mit_q97[0]),
                'ein Bauplan MIT Bezugsquelle bekommt ihn (%s)' % _mit_q97[0])
     else:
         print('  [-]    kein Katalog mit Bezugsquellen — uebersprungen')
     if _ohne_q97:
-        pruefe(not _se97._hat_herkunft(_ohne_q97[0]),
+        pruefe(not _se97._has_source(_ohne_q97[0]),
                'ein Bauplan OHNE Bezugsquelle bekommt keinen (%s)' % _ohne_q97[0])
 
     # b) Der Weg dorthin gibt es, und er sagt ehrlich, wenn er nichts findet.
@@ -9324,7 +9324,7 @@ def main():
     _sq97 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
     _hz97 = _sq97.split('def _herstellung_zeile')[1].split(chr(10) + 'def ')[0]
-    pruefe("eintrag['habe'] is not True and _hat_herkunft" in _hz97,
+    pruefe("eintrag['habe'] is not True and _has_source" in _hz97,
            'der Knopf steht nur, wo der Bauplan fehlt UND es ihn irgendwo gibt')
 
 
@@ -11708,7 +11708,7 @@ def main():
     for _i117 in range(len(_stellen117) - 1):
         _stueck117 = _seiten117[_stellen117[_i117]:_stellen117[_i117 + 1]]
         _fn117 = re.match(r'^def (_[a-z_]+)\(', _stueck117).group(1)
-        if 'bestand_datei.load()' in _stueck117 or '_zahl_bestand()' in _stueck117:
+        if 'bestand_datei.load()' in _stueck117 or '_count_collection()' in _stueck117:
             # Kein Seitenbauer? Dann steht er nicht in der Tabelle — der
             # Funktionsname ist dann der ehrlichere Hinweis als ein Ratewort.
             _liest117.add(_kennung117.get(_fn117, _fn117))
@@ -19875,7 +19875,7 @@ def main():
     # kein Bauplan in der Liste".
     #
     # Zwei Stellen verglichen den Titel WOERTLICH gegen `q['auftrag']` —
-    # `seiten._zum_auftrag()` und `bestandsfenster.zum_auftrag()`. In den
+    # `seiten._to_contract()` und `bestandsfenster.zum_auftrag()`. In den
     # Herkunftsdaten steht aber `'Stop Rival Attack at [LOCATION]'`, im Spiel
     # der aufgeloeste Name. Ein exakter Vergleich kann das nie treffen.
     #
@@ -19923,7 +19923,7 @@ def main():
     # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Genau daran ist
     #    v3.32.3 gescheitert: Der Filter sass in einer von zwei Stellen.
     import ast as _ast205
-    for _datei205, _funk205 in (('scbp/seiten.py', '_zum_auftrag'),
+    for _datei205, _funk205 in (('scbp/seiten.py', '_to_contract'),
                                 ('scbp/bestandsfenster.py', 'zum_auftrag')):
         _q205 = open(os.path.join(WURZEL, _datei205), encoding='utf-8').read()
         _gefunden205 = False
