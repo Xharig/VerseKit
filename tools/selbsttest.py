@@ -20174,7 +20174,7 @@ def main():
     for _k206 in ('Checkmate', 'Pyro-Gate', 'Levski', 'ARC-L1', 'MIC-L5',
                   'Orbituary', 'Ruin', 'Terra-Gate'):
         for _zeile206 in _se206._refinery_head(_k206).split(chr(10)):
-            if len(_zeile206) > _se206.SPALTE_WERT:
+            if len(_zeile206) > _se206.COLUMN_VALUE:
                 _zu_breit206.append('%s -> „%s" (%d Zeichen)'
                                     % (_k206, _zeile206, len(_zeile206)))
     pruefe(not _zu_breit206,
@@ -20185,7 +20185,7 @@ def main():
     # noetig ist, macht die Kopfzeile doppelt so hoch wie gebraucht.
     pruefe(chr(10) not in _se206._refinery_head('ARC-L1'),
            'ein Kuerzel, das passt, bleibt einzeilig')
-    # ⚠ Die Systemleiste legt sich ueber `len(gruppe) * SPALTE_WERT` Zeichen.
+    # ⚠ Die Systemleiste legt sich ueber `len(gruppe) * COLUMN_VALUE` Zeichen.
     # Faellt die Gruppierung auseinander, verrutscht sie gegen ihre Spalten.
     #
     # ⚠⚠ Die Probe nimmt **absichtlich unsortierte** Spalten (Nyx, Nyx, Pyro,

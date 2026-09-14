@@ -10008,12 +10008,12 @@ def _mining(fenster, rahmen):
 
 
 # Spaltenbreiten der Raffinerien-Tafel, in Zeichen. ⚠ Sie stehen hier oben,
-# weil die **Systemleiste** sich über `len(gruppe) * SPALTE_WERT` legt: Band,
+# weil die **Systemleiste** sich über `len(gruppe) * COLUMN_VALUE` legt: Band,
 # Überschrift und Werte müssen dieselbe Zahl benutzen, sonst verrutscht die
 # Leiste gegenüber ihren Spalten. Zwei Stellen mit derselben Zahl sind eine
 # Stelle zu viel.
-SPALTE_MATERIAL = 18
-SPALTE_WERT = 6
+COLUMN_MATERIAL = 18
+COLUMN_VALUE = 6
 
 
 def _refinery_head(kuerzel):
@@ -10040,11 +10040,11 @@ def _refinery_head(kuerzel):
     Wird es einmal gebraucht, ist die Spaltenbreite die Stellschraube, nicht
     diese Funktion.
     """
-    if len(kuerzel) <= SPALTE_WERT:
+    if len(kuerzel) <= COLUMN_VALUE:
         return kuerzel
     mitte = (len(kuerzel) + 1) // 2
     schnitt = mitte
-    for versatz in range(0, SPALTE_WERT):
+    for versatz in range(0, COLUMN_VALUE):
         for stelle in (mitte + versatz, mitte - versatz):
             if 0 < stelle < len(kuerzel) and kuerzel[stelle - 1] in '- ':
                 schnitt = stelle
@@ -10053,7 +10053,7 @@ def _refinery_head(kuerzel):
             continue
         break
     oben, unten = kuerzel[:schnitt].rstrip(), kuerzel[schnitt:]
-    if max(len(oben), len(unten)) > SPALTE_WERT:   # Notnagel: hart in der Mitte
+    if max(len(oben), len(unten)) > COLUMN_VALUE:   # Notnagel: hart in der Mitte
         oben, unten = kuerzel[:mitte], kuerzel[mitte:]
     return oben + '\n' + unten
 
@@ -10158,27 +10158,27 @@ def _refineries(fenster, rahmen):
     band = tk.Frame(karte, bg=SURFACE)
     band.pack(fill='x', padx=12, pady=(10, 0))
     tk.Label(band, text='', bg=SURFACE, font=fenster.f_small,
-             width=SPALTE_MATERIAL).pack(side='left')
+             width=COLUMN_MATERIAL).pack(side='left')
     for system, gruppe in _refinery_groups(spalten):
         tk.Label(band, text=system or '—', bg=SURFACE, fg=ACCENT,
                  font=fenster.f_small, anchor='w',
-                 width=len(gruppe) * SPALTE_WERT).pack(side='left')
+                 width=len(gruppe) * COLUMN_VALUE).pack(side='left')
 
     kopf = tk.Frame(karte, bg=SURFACE)
     kopf.pack(fill='x', padx=12, pady=(0, 4))
     tk.Label(kopf, text=t('s_rf_material'), bg=SURFACE, fg=SUB,
              font=fenster.f_small, anchor='w',
-             width=SPALTE_MATERIAL).pack(side='left')
+             width=COLUMN_MATERIAL).pack(side='left')
     for namen, _system in spalten:
         tk.Label(kopf, text=_refinery_head(_refinery_short(namen)), bg=SURFACE, fg=SUB,
-                 font=fenster.f_small, width=SPALTE_WERT,
+                 font=fenster.f_small, width=COLUMN_VALUE,
                  anchor='se', justify='right').pack(side='left', fill='y')
 
     for material, werte, bester in zeilen:
         z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=12, pady=1)
         tk.Label(z, text=material, bg=SURFACE, fg=FG, font=fenster.f_small,
-                 anchor='w', width=SPALTE_MATERIAL).pack(side='left')
+                 anchor='w', width=COLUMN_MATERIAL).pack(side='left')
         for i, wert in enumerate(werte):
             # ⚠ Drei Zustände, drei Farben: Gewinn, Verlust, weder noch.
             # Eine 0 grau zu lassen ist wichtig — sie ist keine Empfehlung.
@@ -10190,7 +10190,7 @@ def _refineries(fenster, rahmen):
                 farbe = SUB
             tk.Label(z, text=('%+d' % wert) if wert else '·',
                      bg=SURFACE, fg=farbe, font=fenster.f_small,
-                     width=SPALTE_WERT, anchor='e').pack(side='left')
+                     width=COLUMN_VALUE, anchor='e').pack(side='left')
 
     # ⛔⛔ **Nach System gegliedert, nicht als Liste mit Ortsspalte.**
     # Die erste Fassung schrieb je Zeile „Kürzel · System · Stationen". Sobald
