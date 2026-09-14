@@ -16,9 +16,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Suggested by Blackd0g84 (KRT)
 - **"Läden" is now "Shops" in German as well** — the term is common in games
   and has long been in everyday German use
+- **"Blickwinkel" is now "FOV"** — the name everyone knows from the game
 
 ### Fixed
 
+- **Four buttons did nothing at all.** "Measure again" on the FOV page,
+  showing the curve full size on the axes page, changing a binding and the
+  version window — all four still called the old internal names and failed
+  silently. Reported by Blackd0g84 (KRT), who noticed it while measuring;
+  the other three turned up while looking for the cause
 - **After a hard crash the error report showed the wrong threads.** It took
   the first lines of the crash log — usually parts of the program that were
   merely waiting, while the one that actually crashed stood further down and

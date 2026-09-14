@@ -16,9 +16,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   bleibt bewusst unverändert. Vorgeschlagen von Blackd0g84 (KRT)
 - **„Läden" heißt jetzt „Shops"**, auch auf Deutsch — der Begriff ist in
   Spielen üblich und im Deutschen längst gebräuchlich
+- **„Blickwinkel" heißt jetzt „FOV"** — so kennt es jeder aus dem Spiel
 
 ### Behoben
 
+- **Vier Knöpfe taten gar nichts.** „Neu ausmessen" auf der FOV-Seite, die
+  Kurve groß anzeigen auf der Achsen-Seite, eine Belegung ändern und das
+  Versionsfenster — alle vier riefen intern noch die alten Bezeichnungen auf
+  und brachen wortlos ab. Gemeldet von Blackd0g84 (KRT), der es beim
+  Ausmessen bemerkt hat; die drei anderen kamen bei der Suche danach zutage
 - **Nach einem harten Absturz zeigte der Fehlerbericht die falschen Fäden.**
   Er nahm die ersten Zeilen des Absturzprotokolls — und das waren meist
   Programmteile, die nur warteten, während der tatsächlich abgestürzte weiter

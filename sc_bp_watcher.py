@@ -3199,9 +3199,12 @@ class Overlay:
                 return
             except Exception:
                 pass
+        # ⛔ Rueckstand der Sprachumstellung: `VersionWindow` heisst seine
+        # Parameter `own_version`/`on_close`. Mit den alten deutschen Namen
+        # warf der Aufruf TypeError — das Fenster ging nicht auf.
         self._versionen = VersionWindow(
-            self.root, eigene_version=__version__,
-            beim_schliessen=lambda: setattr(self, '_versionen', None))
+            self.root, own_version=__version__,
+            on_close=lambda: setattr(self, '_versionen', None))
 
     # Wie oft nach einer neuen Fassung gesehen wird, in Millisekunden.
     # Dasselbe Maß wie `updater.ABSTAND` (eine Stunde) — die Abfrage

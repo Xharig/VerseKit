@@ -1370,12 +1370,12 @@ TEXTE = {
                            'The sets could not be saved.'),
 
     # -- Seite „Blickwinkel" + Kalibrierfenster --
-    'hf_blickwinkel':  ('Blickwinkel', 'Field of view'),
-    's_fv_lead':       ('Welcher Blickwinkel zu deinem Bildschirm passt — und '
+    'hf_blickwinkel':  ('FOV', 'Field of view'),
+    's_fv_lead':       ('Welches FOV zu deinem Bildschirm passt — und '
                         'wo du dafür sitzen müsstest.',
                           'Which field of view fits your screen — and where '
                           'you would have to sit for it.'),
-    's_fv_erklaerung': ('Es gibt genau einen Blickwinkel, bei dem das Bild so '
+    's_fv_erklaerung': ('Es gibt genau ein FOV, bei dem das Bild so '
                         'groß erscheint wie das Gezeigte in Wirklichkeit '
                         'wäre. Dann stimmen Größen und Entfernungen: Ein '
                         'Schiff, das nah aussieht, ist auch nah. Weiter '
@@ -1417,7 +1417,7 @@ TEXTE = {
                            'Zentimetern.',
                              'From your eyes to the middle of the screen, in '
                              'centimetres.'),
-    's_fv_neutral':    ('Neutraler Blickwinkel', 'Neutral field of view'),
+    's_fv_neutral':    ('Neutrales FOV', 'Neutral field of view'),
     's_fv_neutral_hilfe': ('Diesen Wert im Spiel eintragen, wenn Größen und '
                            'Entfernungen stimmen sollen.',
                              'Enter this value in the game if sizes and '
@@ -1444,7 +1444,7 @@ TEXTE = {
                               'No value found in the game yet — start Star '
                               'Citizen once.'),
     's_fv_hinweis_deutung': ('Die Zahl im Spiel wird hier als waagerechter '
-                             'Blickwinkel deiner Auflösung gelesen. Das ist an '
+                             'FOV deiner Auflösung gelesen. Das ist an '
                              'einem 32:9-Aufbau gegengeprüft, aber nicht im '
                              'Spiel selbst nachgemessen — der neutrale Winkel '
                              'oben stimmt unabhängig davon.',

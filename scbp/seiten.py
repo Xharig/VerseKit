@@ -3909,10 +3909,14 @@ def _joysticks(fenster, rahmen):
             # wird, entscheidet der Knopf, den der Spieler gleich drückt.
             kennzeichen = ''
         try:
+            # ⛔ Rückstand der Sprachumstellung, wie bei `calibrate()` weiter
+            # unten: `BindingWindow` heißt seine Parameter `plain_name`,
+            # `previous`, `done`. Mit den alten deutschen Namen warf der
+            # Aufruf `TypeError` — das Fenster ging schlicht nicht auf.
             BindingWindow(fenster.root, eintrag['aktion'], bereich,
-                           kennzeichen, klarname=klar,
-                           bisher=eintrag.get('eingabe', ''),
-                           fertig=_auffrischen)
+                          kennzeichen, plain_name=klar,
+                          previous=eintrag.get('eingabe', ''),
+                          done=_auffrischen)
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_belegen', ausnahme)
 
@@ -15098,9 +15102,18 @@ def _view_angle(fenster, rahmen):
             # Dort weitermachen, wo zuletzt aufgehört wurde — wer nachjustiert,
             # soll nicht wieder bei einer beliebigen Größe anfangen.
             start = fov_modul.KARTE_BREITE_MM / mm_je_pixel
+        # ⛔⛔ **Rückstand der Sprachumstellung.** Hier standen bis zum
+        # 14.09.2026 noch die deutschen Schlüsselwörter `schrift=`, `klein=`
+        # und `startbreite=`; `calibrate()` heißt seine Parameter längst
+        # `font`, `small`, `start_width`. Der Klick auf „Neu ausmessen" warf
+        # deshalb `TypeError: calibrate() got an unexpected keyword argument
+        # 'schrift'` — es passierte schlicht nichts. Gefunden von Blackd0g84
+        # (KRT). Dieselbe Bauart wie der `CurvePlot(breite=…)`-Fehler auf der
+        # Achsen-Seite: Ein Schlüsselwort gehört der **empfangenden**
+        # Funktion, und ein falsches fällt erst beim Aufruf auf.
         fov_window.calibrate(rahmen, _fertig_gemessen,
-                               schrift=fenster.f_base, klein=fenster.f_small,
-                               startbreite=start)
+                             font=fenster.f_base, small=fenster.f_small,
+                             start_width=start)
 
     def _abstand_merken(*_e):
         text = (zustand['abstand'].get() or '').replace(',', '.').strip()
@@ -15518,8 +15531,10 @@ def _axes(fenster, rahmen):
                          saturation=werte.get('saturation'),
                          exponent=_exponent_fuer(ueberblick, gewaehlter,
                                                  wahl['achse']),
-                         ganz=wahl['ganz'],
-                         schrift=fenster.f_base, klein=fenster.f_small)
+                         # ⛔ Rückstand der Sprachumstellung: `show_large`
+                         # heißt seine Parameter `whole`, `font`, `small`.
+                         whole=wahl['ganz'],
+                         font=fenster.f_base, small=fenster.f_small)
 
         _button(fenster, schalter,
                t('s_kv_quadrant') if wahl['ganz'] else t('s_kv_ganz'),

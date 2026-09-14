@@ -2215,6 +2215,7 @@ class Bestandsfenster:
         haken.configure(cursor='hand2', padx=10, pady=6)
         haken.pack(side='left')
         haken.bind('<Button-1>', lambda e, n=name: self._umschalten(n))
+        icons.hover_group(haken)
 
         mitte = tk.Frame(zeile, bg=FLAECHE)
         mitte.pack(side='left', fill='x', expand=True)
@@ -2280,6 +2281,7 @@ class Bestandsfenster:
             info.configure(cursor='hand2', padx=12, fg=ACCENT)
             info.pack(side='right')
             info.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
+            icons.hover_group(info)
             notice.attach(info, lambda: t('hinweis_quellen'))
         elif eintrag.get('start'):
             # Startbaupläne: hat jeder von Anfang an, stehen in keinem Pool und
@@ -2314,6 +2316,7 @@ class Bestandsfenster:
             stern.configure(cursor='hand2', padx=10)
             stern.pack(side='right')
             stern.bind('<Button-1>', lambda e, n=name: self._merken(n))
+            icons.hover_group(stern)
             notice.attach(stern, lambda n=name: t('nicht_mehr_merken')
                               if merk.contains(n) else t('merken'))
 

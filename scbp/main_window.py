@@ -2030,6 +2030,7 @@ class MainWindow:
         w.pack(side='left')
         for part in (rahmen, z, w):
             part.bind('<Button-1>', lambda e, f=tat: f())
+        icons.hover_group(rahmen, z)
         notice.attach(rahmen, lambda: erklaerung)
         rahmen.teile = (z, w)
         return rahmen
@@ -2342,6 +2343,7 @@ class MainWindow:
         self.collapse_button.pack(side='left', fill='x', expand=True)
         for _teil in (self.collapse_head, self.collapse_button, self.collapse_arrow):
             _teil.bind('<Button-1>', lambda e: self._collapse_toggle())
+        icons.hover_group(self.collapse_head, self.collapse_arrow)
         self.collapse_body = tk.Frame(self.collapse, bg=SURFACE)
 
         # --- Discord -----------------------------------------------------
@@ -2535,6 +2537,10 @@ class MainWindow:
             for part in (kopf, beschriftung, pfeil):
                 part.bind('<Button-1>',
                           lambda _e, k=kennung: self._group_toggle(k))
+            # ⚠ Nur bei einer Gruppe, die sich wirklich klappen lässt. Bei
+            # einer festgenagelten gibt es keinen Pfeil — und aufleuchten zu
+            # lassen, was nicht reagiert, wäre genau das falsche Versprechen.
+            icons.hover_group(kopf, pfeil)
         return inhalt
 
     def _group_toggle(self, kennung, auf=None):
@@ -2597,6 +2603,11 @@ class MainWindow:
 
         for part in (zeile, z, b):
             part.bind('<Button-1>', lambda e, k=kennung: self.open_page(k))
+        # ⭐ Der Reiter hellt sein Symbol auf, sobald die Maus die **Zeile**
+        # trifft — anklickbar ist hier die Zeile, nicht das Symbol allein.
+        # Ohne das blieb die Reiterleiste als einziger Bereich ohne
+        # Rückmeldung (gemessen: Overlay 9 von 9, Reiterleiste 0 von 39).
+        icons.hover_group(zeile, z)
         self.buttons[kennung] = (zeile, strich, z, b, marke_widget)
 
     def _sidebar_needed_height(self):

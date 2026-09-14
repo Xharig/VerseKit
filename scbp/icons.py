@@ -289,6 +289,52 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
     return w
 
 
+def hover_group(trigger, *symbols):
+    """Ein ganzer Bereich hebt seine Symbole hervor, wenn die Maus ihn trifft.
+
+    ⛔⛔ **Warum es das braucht.** `button(..., action)` hängt die Rückmeldung
+    an das Symbol selbst — das genügt nur, wenn das Symbol auch das
+    Bedienelement ist. In der Reiterleiste ist es das **nicht**: Dort ist die
+    ganze Zeile anklickbar, und das Symbol wird ohne `action` gebaut.
+
+    Am 14.09.2026 gemessen, nachdem die Rückmeldung schon als fertig galt:
+    **Overlay 9 von 9 Symbolen, Reiterleiste 0 von 39.** Die Prüfung war
+    trotzdem grün — sie baute eigene Symbole, statt die echte Oberfläche zu
+    fragen. Eine Prüfung, die sich ihren Prüfling selbst baut, prüft den
+    Prüfling, nicht das Programm.
+
+    `trigger` ist der Bereich, über den die Maus fährt (die Zeile), `symbols`
+    sind die Symbole, die sich aufhellen sollen.
+
+    ⚠ Auf dem **Bereich** binden, nicht auf jedem Kind: Wer von der Zeile auf
+    das Symbol darin fährt, löst sonst ein `<Leave>` der Zeile aus, und die
+    Hervorhebung flackert.
+    """
+    symbols = [s for s in symbols if s is not None]
+    if not symbols and hasattr(trigger, 'resize'):
+        # ⚠ Ohne weitere Angabe ist das Symbol sein eigener Auslöser. Das ist
+        # der Fall, in dem der Klick direkt am Symbol hängt und es trotzdem
+        # ohne `action` gebaut wurde — häufig dort, wo der Rückruf den Namen
+        # der Zeile braucht (`lambda e, n=name: …`).
+        symbols = [trigger]
+    if not symbols:
+        return trigger
+
+    def _rein(_=None):
+        for s in symbols:
+            s.hovered = True
+            s.resize()
+
+    def _raus(_=None):
+        for s in symbols:
+            s.hovered = False
+            s.resize()
+
+    trigger.bind('<Enter>', _rein, add='+')
+    trigger.bind('<Leave>', _raus, add='+')
+    return trigger
+
+
 def button(parent, name, action=None, color=GREY, background=None,
            fallback='', text='', font=None):
     """Ein anklickbares Symbol in einer Leiste (Melde-Leiste, Reiter, Titel).

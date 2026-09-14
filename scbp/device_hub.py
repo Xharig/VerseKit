@@ -255,8 +255,10 @@ def reassign(old_id, new_id, filename=None, folder=None):
     Kennung im Kopf der Datei; alle `js<n>_`-Zeilen zeigen danach wieder auf
     ein Gerät, das da ist.
     """
+    # ⛔ `kennung_tauschen` heisst seine Parameter noch `datei`/`ordner` —
+    # die Sprachumstellung hat den Aufrufer erwischt, nicht die Funktion.
     return joysticks.kennung_tauschen(old_id, new_id,
-                                      filename=filename, folder=folder)
+                                      datei=filename, ordner=folder)
 
 
 class Watchdog:

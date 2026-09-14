@@ -20383,6 +20383,86 @@ def main():
     finally:
         _wurzel208.destroy()
 
+    # ⛔⛔ **Und jetzt die ECHTE Oberflaeche.** Die Proben oben bauen eigene
+    # Symbole — das prueft den Baustein, nicht das Programm. Genau daran ist
+    # es am 14.09.2026 vorbeigegangen: Pruefung 208 war gruen, und gemessen
+    # hob sich im Overlay 9 von 9 Symbolen ab, in der **Reiterleiste 0 von
+    # 39**. Dort wird das Symbol ohne `action` gebaut, anklickbar ist die
+    # ganze Zeile.
+    #
+    # > Eine Pruefung, die sich ihren Prueflíng selbst baut, prueft den
+    # > Prueflíng — nicht das Programm.
+    #
+    # ⚠ `update()` statt nur `update_idletasks()`, und das Fenster darf NICHT
+    # versteckt sein: Auf einem nicht eingeblendeten Widget feuert `<Enter>`
+    # nicht, und dann sieht jede Rueckmeldung kaputt aus, die es gar nicht ist.
+    print('  · und in der echten Oberflaeche:')
+    from scbp import main_window as _mw208
+    _f208 = _mw208.MainWindow()
+    try:
+        _f208.root.geometry('1100x842')
+        for _ in range(3):
+            _f208.root.update_idletasks()
+            _f208.root.update()
+        _sym208 = []
+
+        def _sammeln208(w):
+            for k in w.winfo_children():
+                if hasattr(k, 'symbol') and hasattr(k, 'resize'):
+                    _sym208.append(k)
+                _sammeln208(k)
+
+        _sammeln208(_f208.root)
+        _sichtbar208 = [s for s in _sym208 if s.winfo_ismapped()]
+        _stumm208 = []
+        def _kette208(w):
+            """Das Symbol und seine Vorfahren bis zum Fenster.
+
+            ⚠⚠ Eine echte Maus betritt **erst die Zeile, dann das Symbol** —
+            Tk stellt beiden ein `<Enter>` zu. `event_generate` tut das
+            NICHT: Es laeuft nur die Bindungsmarken des einen Widgets ab, der
+            Elternrahmen bleibt aussen vor. Wer nur auf dem Symbol ausloest,
+            misst deshalb jede Rueckmeldung als fehlend, die auf der Zeile
+            haengt — und in der Reiterleiste haengt sie genau dort.
+            """
+            kette, p = [], w
+            for _tiefe in range(4):
+                kette.append(p)
+                p = p.master
+                if p is None or p is _f208.root:
+                    break
+            return kette
+
+        for _s208 in _sichtbar208:
+            _k208 = _kette208(_s208)
+            # ⚠ Gefordert wird die Rueckmeldung nur dort, wo es auch etwas zu
+            # klicken gibt — am Symbol selbst oder an der Zeile darum. Ein
+            # Statuspunkt ist Anzeige, kein Bedienelement; ihn aufleuchten zu
+            # lassen waere genau das Versprechen, gegen das dieser Wunsch
+            # geschrieben wurde.
+            if not any(_teil208.bind('<Button-1>') for _teil208 in _k208):
+                continue
+            _vor208 = str(_s208.cget('image'))
+            for _teil208 in reversed(_k208):
+                _teil208.event_generate('<Enter>')
+            _f208.root.update_idletasks()
+            _f208.root.update()
+            if str(_s208.cget('image')) == _vor208:
+                _stumm208.append(_s208.symbol)
+            for _teil208 in _k208:
+                _teil208.event_generate('<Leave>')
+            _f208.root.update_idletasks()
+            _f208.root.update()
+        pruefe(len(_sichtbar208) >= 20,
+               'die Reiterleiste hat ueberhaupt Symbole (%d)'
+               % len(_sichtbar208))
+        pruefe(not _stumm208,
+               'jedes sichtbare Symbol der Reiterleiste hebt sich ab%s'
+               % (' — STUMM: ' + ', '.join(sorted(set(_stumm208))[:8])
+                  if _stumm208 else ''))
+    finally:
+        _f208.root.destroy()
+
     # Und der Dank steht an allen DREI Stellen (Projektregel).
     from scbp import sprache as _sp208
     _w208t = _sp208.TEXTE.get('s_dk_blackdog_idee')
@@ -20392,6 +20472,91 @@ def main():
                     encoding='utf-8').read()
     pruefe("('Blackd0g84', 'KRT'" in _q208,
            'und ist in der Personenliste der Danke-Seite eingetragen')
+
+    # === 209 · Kein Aufruf mit einem Schluesselwort, das es nicht gibt ======
+    #
+    # ⛔⛔ Gemeldet am 14.09.2026 von Blackd0g84 (KRT): „Neu ausmessen bei
+    # Blickwinkel — da kommt nichts." Nachgestellt und reproduziert:
+    #
+    #     TypeError: calibrate() got an unexpected keyword argument 'schrift'
+    #
+    # Rueckstand der Sprachumstellung (P4): Die Funktion heisst ihre Parameter
+    # laengst `font`/`small`/`start_width`, der Aufrufer gab weiter die
+    # deutschen Namen. Der Knopf tat dann nichts.
+    #
+    # ⚠⚠ **Das faellt beim Bauen NICHT auf.** Ein falsches Schluesselwort ist
+    # gueltiger Python-Code; es knallt erst, wenn der Aufruf wirklich laeuft —
+    # also beim Klick des Nutzers. Genau deshalb ueberlebte derselbe Fehler in
+    # vier weiteren Aufrufen bis in die ausgelieferte Fassung:
+    # `VersionWindow`, `BindingWindow`, `show_large`, `kennung_tauschen`.
+    #
+    # ⚠ Nur Funktionen mit **eindeutigem** Namen und **ohne** `**kwargs`
+    # werden geprueft — sonst raet die Pruefung, welche gemeint ist, und
+    # `**kwargs` nimmt ohnehin jedes Wort an (Regel 7.40).
+    print('\n209. Kein Aufruf mit einem Schluesselwort, das es nicht gibt')
+    import ast as _ast209
+
+    _dateien209 = ['sc_bp_watcher.py']
+    for _w209, _o209, _n209 in os.walk(os.path.join(WURZEL, 'scbp')):
+        for _f209 in _n209:
+            if _f209.endswith('.py'):
+                _dateien209.append(os.path.relpath(
+                    os.path.join(_w209, _f209), WURZEL))
+
+    def _parameter209(knoten):
+        _a209 = knoten.args
+        return (set(x.arg for x in
+                    _a209.args + _a209.kwonlyargs + _a209.posonlyargs),
+                bool(_a209.kwarg))
+
+    _sig209 = {}
+    _quellen209 = {}
+    for _d209 in _dateien209:
+        _quellen209[_d209] = io.open(os.path.join(WURZEL, _d209),
+                                     encoding='utf-8').read()
+        for _k209 in _ast209.walk(_ast209.parse(_quellen209[_d209])):
+            if isinstance(_k209, _ast209.FunctionDef):
+                _sig209.setdefault(_k209.name, []).append(
+                    _parameter209(_k209))
+            elif isinstance(_k209, _ast209.ClassDef):
+                for _kk209 in _k209.body:
+                    if (isinstance(_kk209, _ast209.FunctionDef)
+                            and _kk209.name == '__init__'):
+                        _sig209.setdefault(_k209.name, []).append(
+                            _parameter209(_kk209))
+
+    _schuld209 = []
+    for _d209 in _dateien209:
+        for _k209 in _ast209.walk(_ast209.parse(_quellen209[_d209])):
+            if not isinstance(_k209, _ast209.Call):
+                continue
+            _name209 = (_k209.func.attr
+                        if isinstance(_k209.func, _ast209.Attribute)
+                        else _k209.func.id
+                        if isinstance(_k209.func, _ast209.Name) else None)
+            _eintrag209 = _sig209.get(_name209)
+            if not _eintrag209 or len(_eintrag209) != 1:
+                continue
+            _erlaubt209, _hat_kwargs209 = _eintrag209[0]
+            if _hat_kwargs209:
+                continue
+            for _kw209 in _k209.keywords:
+                if _kw209.arg and _kw209.arg not in _erlaubt209:
+                    _schuld209.append('%s:%d %s(%s=…)'
+                                      % (_d209.replace(os.sep, '/'),
+                                         _k209.lineno, _name209, _kw209.arg))
+    # ⚠ `baum.write(encoding=…)` ist ElementTree, nicht `backup.write` —
+    # gleicher Name, fremde Funktion. Die Pruefung kann das nicht wissen,
+    # deshalb steht diese eine Namensgleichheit hier ausdruecklich drin.
+    _schuld209 = [s for s in _schuld209
+                  if not s.endswith(('write(encoding=…)',
+                                     'write(xml_declaration=…)'))]
+    pruefe(not _schuld209,
+           'jedes Schluesselwort gehoert der Funktion, die es empfaengt%s'
+           % (' — FALSCH: ' + ' | '.join(_schuld209[:6])
+              if _schuld209 else ''))
+    pruefe(len(_sig209) > 200,
+           'die Pruefung kennt ueberhaupt Signaturen (%d)' % len(_sig209))
 
     print()
     if fehler:
