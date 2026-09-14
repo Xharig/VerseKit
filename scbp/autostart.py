@@ -111,7 +111,7 @@ def _win_set(an):
         # Ohne Meldung sieht er beim nächsten Start nur, dass nichts passiert.
         try:
             from . import fehler
-            fehler.merken('autostart.set', ausnahme)
+            fehler.merken('autostart.set_on', ausnahme)
         except Exception:
             pass
         return False
@@ -168,7 +168,7 @@ def is_on():
 # Schiebeschalter in den Einstellungen. Beide lasen ihren Zustand bisher nur
 # einmal — beim Zeichnen. Schaltete man an der einen Stelle um, blieb die andere
 # auf ihrem alten Stand stehen: Im Overlay leuchtete es grün, in den Einstellungen
-# stand „aus". Deshalb meldet `set()` jede Änderung an alle Anzeigen.
+# stand „aus". Deshalb meldet `set_on()` jede Änderung an alle Anzeigen.
 DISPLAYS = []
 
 
@@ -195,7 +195,7 @@ def _notify():
                 pass
 
 
-def set(an):
+def set_on(an):
     """Ein- oder ausschalten. Gibt zurück, ob es geklappt hat."""
     geklappt = _win_set(an) if pfade.WINDOWS else _linux_set(an)
     if geklappt:

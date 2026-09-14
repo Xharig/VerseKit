@@ -1673,7 +1673,7 @@ def _general(fenster, rahmen):
     if autostart.possible():
         def autostart_um():
             neu_wert = not autostart.is_on()
-            autostart.set(neu_wert)
+            autostart.set_on(neu_wert)
             fenster.say(t('s_al_autostart')
                           % (t('e_an') if neu_wert else t('e_aus')))
             return autostart.is_on()

@@ -20710,6 +20710,48 @@ def main():
     pruefe(len(_sig209) > 200,
            'die Pruefung kennt ueberhaupt Signaturen (%d)' % len(_sig209))
 
+    # ----------------------------------------------------------------- 210 --
+    # === 210 · Kein Modulname verdeckt einen eingebauten Namen ========
+    print('\n210. Kein Modulname verdeckt einen eingebauten Namen')
+    # ⚠⚠ **Beinahe passiert am 14.09.2026.** In der Sprachumstellung wurde
+    # `autostart.setzen` zu `autostart.set` — und damit hiess eine Funktion auf
+    # Modulebene wie der eingebaute Typ `set`. In DIESER Datei wurde `set()`
+    # gerade nicht gebraucht, also fiel nichts auf; wer dort spaeter ein
+    # `set(...)` schreibt, schaltet den Autostart.
+    #
+    # ⛔ Kein Werkzeug faengt das: `pyflakes` schweigt, der Selbsttest lief
+    # gruen, und der Fehler zeigt sich erst in einer spaeteren Aenderung an
+    # ganz anderer Stelle. Deshalb die Regel statt der Aufmerksamkeit.
+    #
+    # Gefragt wird nach der **Eigenschaft** (traegt ein Modulname denselben
+    # Namen wie ein eingebauter?), nicht nach einer Liste bekannter Faelle.
+    import ast as _ast210
+    import builtins as _bi210
+    _schuld210 = []
+    _dateien210 = 0
+    for _n210 in sorted(os.listdir(os.path.join(WURZEL, 'scbp'))):
+        if not _n210.endswith('.py'):
+            continue
+        _dateien210 += 1
+        _b210 = _ast210.parse(open(os.path.join(WURZEL, 'scbp', _n210),
+                               encoding='utf-8').read())
+        for _k210 in _b210.body:
+            _namen210 = []
+            if isinstance(_k210, (_ast210.FunctionDef, _ast210.AsyncFunctionDef,
+                                  _ast210.ClassDef)):
+                _namen210 = [_k210.name]
+            elif isinstance(_k210, _ast210.Assign):
+                _namen210 = [_z.id for _z in _k210.targets
+                             if isinstance(_z, _ast210.Name)]
+            for _name210 in _namen210:
+                if hasattr(_bi210, _name210):
+                    _schuld210.append('scbp/%s: %s' % (_n210, _name210))
+    pruefe(not _schuld210,
+           'kein Name auf Modulebene heisst wie ein eingebauter%s'
+           % (' — FALSCH: ' + ', '.join(_schuld210[:6]) if _schuld210 else ''))
+    pruefe(_dateien210 > 40,
+           'die Pruefung hat die Module ueberhaupt gelesen (%d)' % _dateien210)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
