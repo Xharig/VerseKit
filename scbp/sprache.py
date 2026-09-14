@@ -596,7 +596,7 @@ TEXTE = {
     's_lg_abbau_fahrzeug': ('Fahrzeug', 'Vehicle'),
     's_lg_abbau_schiff': ('Schiff', 'Ship'),
     's_lg_suche':        ('Im Lager suchen …', 'Search stock …'),
-    's_ld_suche_platz':  ('Ware, Laden oder Ort suchen',
+    's_ld_suche_platz':  ('Ware, Shop oder Ort suchen',
                           'Search commodity, shop or location'),
     # ⭐⭐ Hinweise IM Eingabefeld — Regel seit 12.09.2026: In JEDEM Feld
     # steht, was hineingehört. Zwei Bedingungen, beide bewusst:
@@ -2261,6 +2261,16 @@ TEXTE = {
                               'and the only way back was the sidebar, which lost '
                               'your search and your filter. Now there is a button '
                               'that takes you back.'),
+    's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
+                              'dass man den Symbolen im Overlay nicht ansieht, '
+                              'welche davon etwas tun — jetzt hellt sich jedes '
+                              'auf, sobald die Maus darüberfährt. Gilt überall '
+                              'im Programm, nicht nur im Overlay.',
+                              '**What can be clicked should show it.** The note '
+                              'that you cannot tell which of the overlay icons '
+                              'actually do something — each one now lights up '
+                              'as the mouse passes over it. Everywhere in the '
+                              'program, not just in the overlay.'),
     's_dk_zwaersch_idee':    ('**Was steckt in einem Wrack?** Der Wunsch, vor '
                               'dem Aussteigen zu wissen, ob sich das Bergen '
                               'lohnt — daraus ist der ganze Anschluss an die '
@@ -2971,7 +2981,7 @@ TEXTE = {
     's_he_fertig_kaufen': ('Fertig kaufen: %s  ·  %s',
                              'Buy it finished: %s  ·  %s'),
     # --- Reiter „Läden" ---
-    'hf_laeden':         ('Läden', 'Shops'),
+    'hf_laeden':         ('Shops', 'Shops'),
     's_ld_lead':         ('Wo ein fertiges Teil im Regal steht — und was es '
                           'dort kostet.',
                             'Where a finished part sits on the shelf — and '
@@ -2979,7 +2989,7 @@ TEXTE = {
     's_ld_sucht':        ('Wird nachgeschlagen …', 'Looking it up …'),
     # ⚠ „Nirgends im Handel" wäre eine Behauptung über das Spiel. Wir wissen
     # nur, dass unsere Quelle es nicht führt — und die hat Lücken.
-    's_ld_unbekannt':    ('Zu diesem Teil liegen keine Ladenpreise vor. Das '
+    's_ld_unbekannt':    ('Zu diesem Teil liegen keine Shop-Preise vor. Das '
                           'heißt nicht, dass es niemand verkauft — unsere '
                           'Preisquelle kennt es nur nicht.',
                             'No shop prices are available for this part. That '
@@ -3289,9 +3299,9 @@ TEXTE = {
                           'either.'),
     's_wr_hole':         ('Wird nachgeschlagen …', 'Looking it up …'),
     's_wr_ueberschrift': ('Ab Werk verbaut in %s', 'Factory loadout of %s'),
-    's_wr_wert':         ('Ladenwert zusammen: %s aUEC', 'Shop value in total: %s aUEC'),
+    's_wr_wert':         ('Shop-Wert zusammen: %s aUEC', 'Shop value in total: %s aUEC'),
     # ⚠ Die Zahl bekommt ihre Einordnung mit, nicht in einer Fußnote.
-    's_wr_wert_hinweis': ('Das ist, was du für dieselben Teile im Laden '
+    's_wr_wert_hinweis': ('Das ist, was du für dieselben Teile im Shop '
                           'bezahlen müsstest — **kein Verkaufserlös.** '
                           'Verkaufspreise für Schiffsteile führt kaum ein '
                           'Händler; die Zahl sagt, was sich lohnt '
@@ -3762,7 +3772,7 @@ TEXTE = {
     's_wk_bauen':        ('Selbst herstellen', 'Craft it yourself'),
     's_wk_kauf_preis':   ('{preis} aUEC bei {laden} · {ort}',
                           '{preis} aUEC at {laden} · {ort}'),
-    's_wk_kein_preis':   ('kein Ladenpreis bekannt', 'no shop price known'),
+    's_wk_kein_preis':   ('kein Shop-Preis bekannt', 'no shop price known'),
     's_wk_nicht_geprueft': ('wird nachgeschlagen …', 'looking it up …'),
     's_wk_kein_rezept':  ('nur kaufbar — dafür gibt es keinen Bauplan',
                           'buy only — there is no blueprint for this'),
@@ -3771,7 +3781,7 @@ TEXTE = {
     # ⚠⚠ **Ein Rohstoff ohne Kaufpreis ist nicht kostenlos, sondern nicht
     # kaufbar.** Ohne diesen Satz sieht Selberbauen billiger aus, als es ist —
     # dieselbe Falle wie bei den Ankaufgeboten im Verkauf.
-    's_wk_ohne_preis':   ('Mindestens — {rohstoffe} gibt es in keinem Laden, '
+    's_wk_ohne_preis':   ('Mindestens — {rohstoffe} gibt es in keinem Shop, '
                           'das musst du abbauen.',
                           'At least — {rohstoffe} is not sold anywhere, you have '
                           'to mine it.'),
@@ -3797,11 +3807,11 @@ TEXTE = {
     # Satz für „alles Einzahl" und „alles Mehrzahl" — und schrieb bei zwei
     # Läden an einem Ort „2 Läden · 1 Stopps". Die beiden Zahlen sind
     # unabhängig, also braucht jede ihre eigene Form.
-    's_wk_laden':        ('{n} Laden', '{n} shop'),
-    's_wk_laeden':       ('{n} Läden', '{n} shops'),
+    's_wk_laden':        ('{n} Shop', '{n} shop'),
+    's_wk_laeden':       ('{n} Shops', '{n} shops'),
     's_wk_stopp':        ('{n} Stopp', '{n} stop'),
     's_wk_stopps':       ('{n} Stopps', '{n} stops'),
-    's_wk_route_ohne':   ('Für {n} Posten ist kein Laden bekannt.',
+    's_wk_route_ohne':   ('Für {n} Posten ist kein Shop bekannt.',
                           'No shop known for {n} items.'),
     's_wk_route_leer':   ('Nichts zu kaufen — du stellst alles selbst her.',
                           'Nothing to buy — you craft everything yourself.'),

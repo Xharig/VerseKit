@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Icons light up as the mouse passes over them** — so you can tell what can
+  be clicked and what is just there. Everywhere: overlay, settings, tab bar,
+  blueprint list. An icon **without** a function deliberately stays unchanged.
+  Suggested by Blackd0g84 (KRT)
+- **"Läden" is now "Shops" in German as well** — the term is common in games
+  and has long been in everyday German use
+
+### Fixed
+
+- **After a hard crash the error report showed the wrong threads.** It took
+  the first lines of the crash log — usually parts of the program that were
+  merely waiting, while the one that actually crashed stood further down and
+  was cut off. It now comes first
+
 ## v3.35.0 - 2026-09-14
 
 > **The refineries page now tells you where to fly.** Until now a column was

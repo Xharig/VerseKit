@@ -65,6 +65,17 @@ _SET_COLORS = {
 # melden“ traegt sie, damit ihn niemand sucht, wenn gerade etwas klemmt.
 RED = 'rot'
 
+# ⭐ Welcher Satz beim Überfahren gezeigt wird. Standard ist `hell` — das ist
+# der aufgehellte Satz, den es für jedes Symbol ohnehin gibt.
+#
+# ⚠ **Zwei Ausnahmen, damit sich überhaupt etwas ändert.** Ein Symbol, das
+# schon `hell` ist, würde beim Überfahren gleich aussehen; es wechselt deshalb
+# auf die Markenfarbe. Und ein rotes bleibt rot-hell wäre es nicht — Rot ist
+# hier ein Wegweiser („Fehler melden"), und den auf Grün zu drehen, sobald die
+# Maus darüberfährt, kehrte die Aussage um. Rot geht deshalb auf `hell`, was
+# es sichtbar aufhellt, ohne die Bedeutung zu wechseln.
+_HOVER = {LIGHT: GREEN, GREEN: LIGHT}
+
 # ⚠ Muss zu `KNOPF`/`ZEILE` in `tools/symbole_bauen.py` passen. Zwei Skalen,
 # weil es auf den Einsatzort ankommt: ein Knopf in der Leiste ist etwas anderes
 # als ein Statuspunkt **in** einer Textzeile.
@@ -204,8 +215,13 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
     w.symbol_color = color
 
     def show():
-        n = photo(w.symbol, w.symbol_sizes.get(_LEVEL[0], 22),
-                 w.symbol_color, w)
+        # ⚠ Beim Überfahren wird der **hellere** Satz gezeigt, die gemerkte
+        # Farbe bleibt aber `w.symbol_color`. Sonst überschriebe ein Zustands-
+        # wechsel während des Überfahrens (grün → rot) die Rückkehrfarbe, und
+        # das Symbol bliebe hell hängen, sobald die Maus weiterzieht.
+        farbe = _HOVER.get(w.symbol_color, LIGHT) if getattr(
+            w, 'hovered', False) else w.symbol_color
+        n = photo(w.symbol, w.symbol_sizes.get(_LEVEL[0], 22), farbe, w)
         if n is not None:
             w.configure(image=n)
             w.image = n
@@ -244,6 +260,32 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
 
     if action:
         w.bind('<Button-1>', lambda e: action())
+        # ⭐ **Anklickbares hebt sich beim Überfahren ab.** Gewünscht von
+        # Blackd0g84 (KRT) am 14.09.2026: „wenn man über Symbole hovert,
+        # sollten diese farblich markiert werden, damit man besser weiß, was
+        # die Maus anklicken würde."
+        #
+        # ⚠ Die Bindung sitzt **hier**, nicht an den einzelnen Aufrufstellen:
+        # `_build` ist der gemeinsame Kern von `button()`, `tappable()` und
+        # `line()`. Damit bekommt jedes anklickbare Symbol im Programm die
+        # Rückmeldung — Overlay, Einstellungen, Reiterleiste, Bauplanliste —
+        # und niemand muss daran denken. Ein Symbol **ohne** `action` bekommt
+        # sie bewusst nicht: Es reagiert auf einen Klick ja auch nicht.
+        def _rein(_=None):
+            w.hovered = True
+            show()
+            if text:
+                w.configure(fg=_SET_COLORS.get(_HOVER.get(w.symbol_color,
+                                                          LIGHT), TEXT_COLOR))
+
+        def _raus(_=None):
+            w.hovered = False
+            show()
+            if text:
+                w.configure(fg=TEXT_COLOR)
+
+        w.bind('<Enter>', _rein, add='+')
+        w.bind('<Leave>', _raus, add='+')
     return w
 
 

@@ -502,6 +502,48 @@ def _injektionslage():
     return ' · '.join(x for x in teile if x)
 
 
+def _absturz_kurz(zeilen, grenze):
+    """Aus einem harten Abbruch die Zeilen, die etwas sagen.
+
+    ⛔⛔ **Der schuldige Faden zuerst — sonst steht im Bericht Beiwerk.**
+    Python schreibt bei einem harten Abbruch **alle** Fäden weg und markiert
+    den, in dem es knallte, mit `Current thread`. Wo der in der Liste steht,
+    ist Zufall.
+
+    Bis zum 14.09.2026 nahm der Bericht schlicht die ersten 14 Zeilen. In einem
+    echten Bericht dieses Tages (Heap-Korruption `0xc0000374`) waren das drei
+    Fäden, die alle nur **warteten**: `GetMessageW` im Tastenkürzel-Faden,
+    `socket.accept` im Overlay, die Tray-Schleife. Der Faden, der abgestürzt
+    ist, stand weiter unten und wurde von „… (19)" verschluckt.
+
+    > **Ein Bericht, der die Ursache abschneidet und die Zuschauer zeigt, ist
+    > schlimmer als keiner — er schickt den Leser in die falsche Richtung.**
+
+    Deshalb: Der Block ab `Current thread` kommt nach vorn, der Kopf (die
+    Fehlermeldung selbst) bleibt darüber. Was dann noch Platz hat, folgt in
+    ursprünglicher Reihenfolge.
+    """
+    # ⚠ Der Kopf ist alles VOR dem ersten Faden — nicht „die ersten drei
+    # Zeilen". Sonst rutscht eine Zeile aus einem wartenden Faden mit nach
+    # oben und sieht aus, als gehöre sie zur Fehlermeldung.
+    erster = next((i for i, z in enumerate(zeilen)
+                   if z.lower().startswith(('thread ', 'current thread'))),
+                  len(zeilen))
+    kopf = zeilen[:erster]
+    stelle = next((i for i, z in enumerate(zeilen)
+                   if z.lower().startswith('current thread')), None)
+    if stelle is None:
+        return zeilen[:grenze]
+    # Der schuldige Block reicht bis zum nächsten Faden.
+    ende = next((i for i in range(stelle + 1, len(zeilen))
+                 if zeilen[i].lower().startswith(('thread ', 'current thread'))),
+                len(zeilen))
+    schuld = zeilen[stelle:ende]
+    rest = [z for i, z in enumerate(zeilen)
+            if i >= erster and not (stelle <= i < ende)]
+    return (kopf + schuld + rest)[:grenze]
+
+
 def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     """Den Bericht als Text zusammensetzen."""
     zeilen = []
@@ -696,7 +738,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     if absturz:
         zeilen.append('')
         zeilen.append(t('b_absturz'))
-        for eintrag in absturz[:14]:
+        for eintrag in _absturz_kurz(absturz, 14):
             zeilen.append('  ' + eintrag)
         if len(absturz) > 14:
             zeilen.append('  … (%d)' % (len(absturz) - 14))

@@ -20296,6 +20296,103 @@ def main():
     pruefe("errors='replace'" in _q207,
            'und ersetzt unbekannte Zeichen, statt abzubrechen')
 
+    # === 208 · Anklickbare Symbole heben sich beim Ueberfahren ab ===========
+    #
+    # ⭐ Gewuenscht von Blackd0g84 (KRT) am 14.09.2026: „wenn man ueber Symbole
+    # hovert, sollten diese farblich markiert werden, damit man besser weiss,
+    # was die Maus anklicken wuerde."
+    #
+    # ⚠⚠ Die Pruefung baut ECHTE Symbole und loest ECHTE Ereignisse aus. Eine
+    # Textsuche nach `bind('<Enter>'` waere gruen geblieben, sobald die Zeile
+    # irgendwo steht — auch auskommentiert, und auch wenn der Bildwechsel
+    # dahinter nicht funktioniert (Regel 7.48).
+    #
+    # ⚠ `update()` statt nur `update_idletasks()`: Ein frisch gepacktes Label
+    # ist sonst noch nicht fertig, und `<Enter>` feuert nicht. Beim Messen am
+    # 14.09.2026 sah es dadurch zweimal so aus, als greife die Rueckmeldung
+    # nicht — sie griff, nur war das Widget noch nicht da.
+    print('\n208. Anklickbare Symbole heben sich beim Ueberfahren ab')
+    import tkinter as _tk208
+    from scbp import icons as _ic208
+
+    _wurzel208 = _tk208.Tk()
+    try:
+        _wurzel208.configure(bg='#0b0e14')
+
+        def _probe208(bauer, name, farbe, anklickbar):
+            w = bauer(_wurzel208, name,
+                      (lambda: None) if anklickbar else None,
+                      color=farbe, background='#0b0e14')
+            w.pack()
+            _wurzel208.update_idletasks()
+            _wurzel208.update()
+            ruhe = str(w.cget('image'))
+            w.event_generate('<Enter>')
+            _wurzel208.update_idletasks()
+            _wurzel208.update()
+            drauf = str(w.cget('image'))
+            w.event_generate('<Leave>')
+            _wurzel208.update_idletasks()
+            _wurzel208.update()
+            return ruhe, drauf, str(w.cget('image')), w
+
+        # 1. Jede der drei Bauarten hebt sich ab — und zwar im richtigen Satz.
+        for _bauer208, _name208, _farbe208 in (
+                (_ic208.button, 'einstellungen', _ic208.GREY),
+                (_ic208.line, 'ausblenden', _ic208.GREY),
+                (_ic208.tappable, 'hinweiszeile', _ic208.GREY),
+                (_ic208.button, 'glocke', _ic208.GREEN),
+                (_ic208.button, 'diagnose', _ic208.RED)):
+            _r208, _d208, _z208, _w208 = _probe208(
+                _bauer208, _name208, _farbe208, True)
+            _soll208 = _ic208._HOVER.get(_farbe208, _ic208.LIGHT)
+            _erw208 = str(_ic208.photo(
+                _name208, _w208.symbol_sizes.get('normal'), _soll208, _w208))
+            pruefe(_d208 == _erw208 and _d208 != _r208,
+                   '%s(%s, %s) zeigt beim Ueberfahren den Satz „%s"'
+                   % (_bauer208.__name__, _name208, _farbe208, _soll208))
+            pruefe(_z208 == _r208,
+                   '  und kehrt danach zur Ausgangsfarbe zurueck')
+
+        # 2. ⛔ Ein Symbol OHNE Aufgabe darf sich NICHT abheben — sonst sagt
+        #    die Oberflaeche „hier kannst du klicken", wo nichts passiert.
+        #    Genau das ist der Punkt des Wunsches.
+        _r208, _d208, _z208, _ = _probe208(_ic208.button, 'einstellungen',
+                                           _ic208.GREY, False)
+        pruefe(_d208 == _r208,
+               'ein Symbol ohne Aufgabe bleibt beim Ueberfahren unveraendert')
+
+        # 3. ⚠ Ein Zustandswechsel WAEHREND des Ueberfahrens darf nicht
+        #    verlorengehen: Die gemerkte Farbe ist die des Zustands, nicht die
+        #    des Hovers. Sonst bliebe das Symbol hell haengen.
+        _w208 = _ic208.button(_wurzel208, 'glocke', lambda: None,
+                              color=_ic208.GREY, background='#0b0e14')
+        _w208.pack()
+        _wurzel208.update_idletasks()
+        _wurzel208.update()
+        _w208.event_generate('<Enter>')
+        _wurzel208.update_idletasks()
+        _w208.recolor(_ic208.GREEN)
+        _w208.event_generate('<Leave>')
+        _wurzel208.update_idletasks()
+        _wurzel208.update()
+        pruefe(str(_w208.cget('image')) == str(_ic208.photo(
+                   'glocke', _w208.symbol_sizes.get('normal'),
+                   _ic208.GREEN, _w208)),
+               'ein Zustandswechsel waehrend des Ueberfahrens bleibt erhalten')
+    finally:
+        _wurzel208.destroy()
+
+    # Und der Dank steht an allen DREI Stellen (Projektregel).
+    from scbp import sprache as _sp208
+    _w208t = _sp208.TEXTE.get('s_dk_blackdog_idee')
+    pruefe(bool(_w208t) and len(_w208t) == 2 and all(_w208t),
+           'Blackd0g84 steht mit Text auf der Danke-Seite, deutsch und englisch')
+    _q208 = io.open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                    encoding='utf-8').read()
+    pruefe("('Blackd0g84', 'KRT'" in _q208,
+           'und ist in der Personenliste der Danke-Seite eingetragen')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

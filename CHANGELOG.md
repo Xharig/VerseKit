@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Symbole hellen sich auf, sobald die Maus darüberfährt** — so sieht man,
+  was sich anklicken lässt und was nur dasteht. Gilt überall: Overlay,
+  Einstellungen, Reiterleiste, Bauplan-Liste. Ein Symbol **ohne** Funktion
+  bleibt bewusst unverändert. Vorgeschlagen von Blackd0g84 (KRT)
+- **„Läden" heißt jetzt „Shops"**, auch auf Deutsch — der Begriff ist in
+  Spielen üblich und im Deutschen längst gebräuchlich
+
+### Behoben
+
+- **Nach einem harten Absturz zeigte der Fehlerbericht die falschen Fäden.**
+  Er nahm die ersten Zeilen des Absturzprotokolls — und das waren meist
+  Programmteile, die nur warteten, während der tatsächlich abgestürzte weiter
+  unten stand und abgeschnitten wurde. Jetzt steht er ganz oben
+
 ## v3.35.0 - 2026-09-14
 
 > **Die Raffinerien-Seite sagt jetzt, wohin du fliegen sollst.** Bisher stand
