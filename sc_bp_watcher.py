@@ -49,7 +49,7 @@ from scbp import (
     auftraege,tray_icon, updater, assistent, autostart, places, prices,
                   screen, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
-                  einstellungsfenster, notice, injektion,
+                  settings_window, notice, injektion,
                   catalog as katalog_modul, shops, logsource, watchlist,
                   pfade, phrasen, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
@@ -3633,7 +3633,7 @@ class Overlay:
 
     def einrichtung_erneut(self):
         """Den Assistenten noch einmal durchlaufen lassen."""
-        fertig, zeige_liste = assistent.starten(self.root)
+        fertig, zeige_liste = assistent.start(self.root)
         if fertig and zeige_liste:
             self.liste_oeffnen()
 
@@ -4726,11 +4726,11 @@ if __name__ == '__main__':
     fehler.spur('Tk-Wurzel steht')
 
     zeige_liste = False
-    if assistent.noetig():
+    if assistent.needed():
         fehler.spur('Assistent beginnt')
-        fertig, zeige_liste = assistent.starten(eltern=wurzel)
+        fertig, zeige_liste = assistent.start(eltern=wurzel)
         fehler.spur('Assistent fertig (Liste zeigen: %s)' % zeige_liste)
-        if not fertig and not assistent.eingerichtet():
+        if not fertig and not assistent.is_configured():
             # ⚠⚠ **Abbrechen beendet nur beim ECHTEN ersten Start.**
             # Bis rc44 beendete jeder Abbruch das Programm — und zwar
             # wortlos. Wer schon eingerichtet war und den unerwarteten

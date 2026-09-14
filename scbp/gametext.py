@@ -201,7 +201,7 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
     Wer englisch spielt, hat diesen Ordner nämlich **gar nicht**; er entsteht
     erst hier. Genau deshalb steht der Eintrag jetzt in dieser Funktion und
     nicht bei den Aufrufern: Dort stand er zweimal, in `assistent.py` und in
-    `einstellungsfenster.py`, und ein dritter Weg hätte ihn vergessen.
+    `settings_window.py`, und ein dritter Weg hätte ihn vergessen.
     (Hinweis von gemeldet, 27.08.2026: „auch da ist dann die user cfg wieder
     mit wichtig, sonst kann man das nie ohne eine übersetzung nutzen.")
 

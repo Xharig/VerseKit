@@ -3316,7 +3316,7 @@ class MainWindow:
     def _open_wizard(self):
         from . import assistent
         try:
-            assistent.starten(self.root)
+            assistent.start(self.root)
         except Exception as ausnahme:
             fehler.merken('main_window.assistent', ausnahme)
 

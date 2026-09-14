@@ -36,15 +36,15 @@ from . import updater, pfade, sprache
 from .sprache import t, fenstertitel
 
 BG      = '#10141c'
-FLAECHE = '#161c28'
+SURFACE = '#161c28'
 BAR     = '#1b2230'
 FG      = '#e6edf3'
 SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
-GELB    = '#d8a03a'
+YELLOW    = '#d8a03a'
 
 
-def schrift(size, bold=False):
+def font(size, bold=False):
     fam = 'Segoe UI' if pfade.WINDOWS else 'Helvetica'
     return (fam, size, 'bold' if bold else 'normal')
 
@@ -114,11 +114,11 @@ class VersionWindow:
         head = tk.Frame(self.root, bg=BAR)
         head.pack(fill='x')
         tk.Label(head, text=t('was_ist_neu'), bg=BAR, fg=FG,
-                 font=schrift(12, True)).pack(side='left', padx=16, pady=11)
+                 font=font(12, True)).pack(side='left', padx=16, pady=11)
         # Von Hand nachsehen — nötig, weil die Abfrage sonst höchstens
         # stündlich läuft und man sonst nicht weiß, ob gerade geprüft wurde.
-        self.check_label = tk.Label(head, text=' %s ' % t('inj_pruefen'), bg=FLAECHE,
-                                  fg=FG, font=schrift(10), cursor='hand2',
+        self.check_label = tk.Label(head, text=' %s ' % t('inj_pruefen'), bg=SURFACE,
+                                  fg=FG, font=font(10), cursor='hand2',
                                   padx=10, pady=5)
         self.check_label.pack(side='right', padx=16)
         self.check_label.bind('<Button-1>', lambda e: self._check_now())
@@ -147,28 +147,28 @@ class VersionWindow:
     # ------------------------------------------------------------------ Banner
     def _banner(self):
         """Der Hinweis auf die neue Version — nur wenn es eine gibt."""
-        self.banner = tk.Frame(self.root, bg=FLAECHE)
+        self.banner = tk.Frame(self.root, bg=SURFACE)
         self.banner.pack(fill='x', padx=14, pady=(12, 0))
         if not self.newer:
-            tk.Label(self.banner, text=t('aktuelle_fassung'), bg=FLAECHE, fg=SUB,
-                     font=schrift(10), anchor='w', padx=14,
+            tk.Label(self.banner, text=t('aktuelle_fassung'), bg=SURFACE, fg=SUB,
+                     font=font(10), anchor='w', padx=14,
                      pady=10).pack(fill='x')
             return
 
-        top = tk.Frame(self.banner, bg=FLAECHE)
+        top = tk.Frame(self.banner, bg=SURFACE)
         top.pack(fill='x', padx=14, pady=(12, 4))
         tk.Label(top, text=t('neue_version_da', self.newer['version']),
-                 bg=FLAECHE, fg=ACCENT, font=schrift(13, True),
+                 bg=SURFACE, fg=ACCENT, font=font(13, True),
                  anchor='w').pack(side='left')
-        tk.Label(top, text=t('du_hast', self.own_value), bg=FLAECHE, fg=SUB,
-                 font=schrift(9), anchor='e').pack(side='right')
+        tk.Label(top, text=t('du_hast', self.own_value), bg=SURFACE, fg=SUB,
+                 font=font(9), anchor='e').pack(side='right')
 
-        self.message = tk.Label(self.banner, text='', bg=FLAECHE, fg=SUB,
-                                font=schrift(10), anchor='w', justify='left',
+        self.message = tk.Label(self.banner, text='', bg=SURFACE, fg=SUB,
+                                font=font(10), anchor='w', justify='left',
                                 wraplength=620)
         self.message.pack(fill='x', padx=14)
 
-        buttons = tk.Frame(self.banner, bg=FLAECHE)
+        buttons = tk.Frame(self.banner, bg=SURFACE)
         buttons.pack(fill='x', padx=14, pady=(8, 12))
         kind = updater.packaging()
         asset = updater.matching_asset(self.newer)
@@ -178,7 +178,7 @@ class VersionWindow:
             self.message.configure(text=t('selbst_holen'))
         else:
             self.fetch = tk.Label(buttons, text='  %s  ' % t('jetzt_holen'),
-                                  bg=ACCENT, fg=BG, font=schrift(10, True),
+                                  bg=ACCENT, fg=BG, font=font(10, True),
                                   cursor='hand2', padx=10, pady=6)
             self.fetch.pack(side='left')
             self.fetch.bind('<Button-1>', lambda e, d=asset: self._fetch(d))
@@ -207,7 +207,7 @@ class VersionWindow:
     def _outcome(self, collapsed, bg_colour):
         if not collapsed:
             self.message.configure(text=t('update_fehler', bg_colour) + '\n'
-                                   + t('selbst_holen'), fg=GELB)
+                                   + t('selbst_holen'), fg=YELLOW)
             return
 
         # ⚠ Hier stand nur „Beim nächsten Start läuft die neue Version" — und
@@ -222,18 +222,18 @@ class VersionWindow:
         # er nie eingebaut.
         self.message.configure(text=t('neustart_noetig'), fg=ACCENT)
         try:
-            self._neustart_knopf()
+            self._restart_button()
         except Exception as ausnahme:
             from . import fehler
             fehler.merken('version_window.restart_button', ausnahme)
 
-    def _neustart_knopf(self):
+    def _restart_button(self):
         """Aus „geladen" wird ein Knopf, der den Neustart auch ausführt."""
         bar = getattr(self, '_knopfleiste', None)
         if bar is None:
             return
         button = tk.Label(bar, text='  %s  ' % t('s_ub_neustart'),
-                         bg=ACCENT, fg=BG, font=schrift(10, True),
+                         bg=ACCENT, fg=BG, font=font(10, True),
                          cursor='hand2', padx=10, pady=6)
         button.pack(side='left', padx=(8, 0))
         button.bind('<Button-1>', lambda e: self._restart())
@@ -248,7 +248,7 @@ class VersionWindow:
         """
         import os
         if not updater.restart():
-            self.message.configure(text=t('s_ub_neustart_nein'), fg=GELB)
+            self.message.configure(text=t('s_ub_neustart_nein'), fg=YELLOW)
             return
 
         # ⚠ **Erst nachsehen, ob die neue Version lebt.** Vorher wurde der
@@ -261,7 +261,7 @@ class VersionWindow:
 
             def weiter():
                 if not alive:
-                    self.message.configure(text=t('s_ub_neustart_tot'), fg=GELB)
+                    self.message.configure(text=t('s_ub_neustart_tot'), fg=YELLOW)
                     return
                 threading.Timer(2.0, lambda: os._exit(0)).start()
                 try:
@@ -298,12 +298,12 @@ class VersionWindow:
         entries = updater.history()
         if not entries:
             tk.Label(body, text=t('keine_versionen'), bg=BG, fg=SUB,
-                     font=schrift(11), pady=20).pack()
+                     font=font(11), pady=20).pack()
             return
         for e in entries:
-            self._eintrag(body, e)
+            self._entry(body, e)
 
-    def _eintrag(self, parent, e):
+    def _entry(self, parent, e):
         block = tk.Frame(parent, bg=BG)
         block.pack(fill='x', pady=(0, 18))
         head = tk.Frame(block, bg=BG)
@@ -313,16 +313,16 @@ class VersionWindow:
         own = (updater._parts(e['version'])
                  == updater._parts(self.own_value))
         tk.Label(head, text=e['version'], bg=BG, fg=ACCENT if own else FG,
-                 font=schrift(12, True), anchor='w').pack(side='left')
+                 font=font(12, True), anchor='w').pack(side='left')
         rechts = e['datum']
         if own:
             rechts = (rechts + '  ·  ' if rechts else '') + t('du_hast', '').strip(' %s')
         if rechts:
-            tk.Label(head, text=rechts, bg=BG, fg=SUB, font=schrift(9),
+            tk.Label(head, text=rechts, bg=BG, fg=SUB, font=font(9),
                      anchor='e').pack(side='right')
-        tk.Frame(block, bg=FLAECHE, height=1).pack(fill='x', pady=(4, 8))
+        tk.Frame(block, bg=SURFACE, height=1).pack(fill='x', pady=(4, 8))
         tk.Label(block, text=prepare(language_part(e['text'])) or '—', bg=BG, fg=SUB,
-                 font=schrift(10), anchor='w', justify='left',
+                 font=font(10), anchor='w', justify='left',
                  wraplength=630).pack(fill='x')
 
     def close(self):

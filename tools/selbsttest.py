@@ -456,7 +456,7 @@ def main():
         os.environ.pop('SC_INSTALL_DIR', None)
         echte_wurzeln6 = pf2._spiel_wurzeln
         pf2._spiel_wurzeln = lambda: []        # siehe Abschnitt 5
-        pruefe(assi.noetig(), 'Assistent meldet sich beim ersten Start')
+        pruefe(assi.needed(), 'Assistent meldet sich beim ersten Start')
         pruefe(pf2.spiel_ordner() is None, 'ohne Angabe und ohne Fundort: nichts')
         pf2._spiel_wurzeln = echte_wurzeln6
         # Der Spieler wählt irgendeine Ebene — auch die falsche muss reichen
@@ -503,7 +503,7 @@ def main():
         pruefe(bd.count(frischer_bestand) == len(ERWARTET) + 1,
                'Bestand kommt aus den Logs, ohne dass jemand etwas eintippt (%d)'
                % bd.count(frischer_bestand))
-        pruefe(not assi.noetig(),
+        pruefe(not assi.needed(),
                'beim nächsten Mal läuft der Assistent nicht mehr von allein')
 
         # ⚠⚠ Ein Lesefehler darf den ganzen Lauf nicht kippen. Bis 01.09.2026
@@ -575,17 +575,17 @@ def main():
         # Der Assistent muss sich wiederholen lassen — für Leute, die sich nicht
         # durch Menüs klicken wollen. Vier Schritte, ohne Absturz durchgereicht.
         if ANZEIGE:
-            a = assi.Assistent()
+            a = assi.Wizard()
             a.root.withdraw()
             titel = []
-            for _ in range(assi.SCHRITTE):
+            for _ in range(assi.STEPS):
                 titel.append(a.titel.cget('text'))
                 if a.schritt == 2:
                     a.pfad.set(live)
-                a._weiter()
-            pruefe(len(set(titel)) == assi.SCHRITTE,
+                a._next()
+            pruefe(len(set(titel)) == assi.STEPS,
                    'Assistent hat %d unterschiedliche Schritte' % len(set(titel)))
-            pruefe(assi.noetig() is False, 'nach dem Durchlauf ist alles gesetzt')
+            pruefe(assi.needed() is False, 'nach dem Durchlauf ist alles gesetzt')
         else:
             uebersprungen('Assistent-Durchlauf')
 
@@ -1090,7 +1090,7 @@ def main():
                 # Sprachwechsel **keinen Reiter verschluckt**. Dafür ist die
                 # Zahl davor das richtige Maß, nicht eine notierte Konstante.
                 _vorher_reiter = len(hf.buttons)
-                seitenmodul._settings_parts(hf)._sprache_waehlen('en')
+                seitenmodul._settings_parts(hf)._choose_language('en')
                 hf.root.update()
                 pruefe(fenster_zaehlen(hf.root) == 0,
                        'kein zweites Fenster beim Sprachwechsel')
@@ -2428,7 +2428,7 @@ def main():
         pruefe(quelle_st.count('_set_language(sprache, spielordner)') >= 2,
                'auch wenn die Datei schon da war — sonst bleibt sie ungelesen')
         # Kein Aufrufer darf sich mehr darauf verlassen, es selbst zu tun.
-        for datei_st in ('assistent.py', 'einstellungsfenster.py'):
+        for datei_st in ('assistent.py', 'settings_window.py'):
             inhalt_st = open(os.path.join(WURZEL, 'scbp', datei_st),
                              encoding='utf-8').read()
             block_st = inhalt_st[inhalt_st.index('gametext.fetch('):][:900]
@@ -3658,7 +3658,7 @@ def main():
                 encoding='utf-8').read()
     i41 = se41.index('def angaben_um():')
     rumpf41 = se41[i41:se41.index('return neu_wert', i41)]
-    pruefe('_inj_erneuern' in rumpf41,
+    pruefe('_inj_refresh' in rumpf41,
            'Umlegen schreibt die Textdatei neu')
     pruefe('lage_zeigen' in rumpf41,
            'und der Zustandskasten wird danach aufgefrischt')
@@ -3675,9 +3675,9 @@ def main():
     # das liest niemand. Aus heißt jetzt weg, an heißt da.
     i41b = se41.index('def inj_an_um():')
     rumpf41b = se41[i41b:se41.index('return neu_wert', i41b)]
-    pruefe('_inj_entfernen' in rumpf41b,
+    pruefe('_inj_remove' in rumpf41b,
            'Ausschalten nimmt vorhandene Angaben heraus')
-    pruefe('_inj_erneuern' in rumpf41b,
+    pruefe('_inj_refresh' in rumpf41b,
            'und Einschalten trägt sie wieder ein')
     # ⚠ Der Hilfetext MUSS mitziehen, sonst behauptet er das Gegenteil des
     # Verhaltens — schlimmer als gar kein Hinweis.
@@ -7280,21 +7280,21 @@ def main():
         _pf76.einstellung_setzen('spiel_ordner', _spiel76)
         with open(_pf76.app_datei('logstand.json'), 'w', encoding='utf-8') as _f76:
             _f76.write('{}')
-        pruefe(not _as76.noetig(),
+        pruefe(not _as76.needed(),
                'ein eingerichtetes Werkzeug meldet keinen Assistenten')
 
         # Und jetzt genau das, was der Knopf tut.
         os.remove(_pf76.app_datei('logstand.json'))
-        pruefe(_as76.eingerichtet(),
+        pruefe(_as76.is_configured(),
                'ohne Lesestand gilt es weiterhin als eingerichtet')
-        pruefe(not _as76.noetig(),
+        pruefe(not _as76.needed(),
                'nach „Protokolle neu einlesen" kommt KEIN Assistent')
 
         # Gegenprobe: ein wirklich frischer Ordner meldet ihn sehr wohl.
         _frisch76 = os.path.join(basis, 'frisch76')
         os.makedirs(_frisch76, exist_ok=True)
         os.environ['SC_BP_HOME'] = _frisch76
-        pruefe(_as76.noetig(),
+        pruefe(_as76.needed(),
                'beim echten ersten Start meldet er sich weiterhin')
     finally:
         _pf76._spiel_wurzeln = _wurzeln76
@@ -7305,7 +7305,7 @@ def main():
 
     # b) Abbrechen darf nur beim echten ersten Start beenden.
     _q76 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
-    pruefe('if not fertig and not assistent.eingerichtet():' in _q76,
+    pruefe('if not fertig and not assistent.is_configured():' in _q76,
            'Abbrechen beendet nur, wenn noch nichts eingerichtet ist')
     # ⚠ Nicht alle `sys.exit(0)` zaehlen — der zweite ist die zweite Instanz,
     # die dem laufenden Fenster Bescheid sagt und sich dann verabschiedet. Der

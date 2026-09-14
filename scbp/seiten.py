@@ -25,7 +25,7 @@ geht es um den **Rahmen** (Reiterleiste, Umschalten, Größe), hier um den
 Funktion, kein Eingriff in den Rahmen.
 
 Die großen Seiten leihen sich die vorhandenen Fenster: `bestandsfenster` und
-`einstellungsfenster` können seit v3.0.0 auch in einen übergebenen Rahmen
+`settings_window` können seit v3.0.0 auch in einen übergebenen Rahmen
 zeichnen, statt ein eigenes Fenster aufzumachen.
 """
 import os
@@ -414,7 +414,7 @@ def _scroll_to_top(widget):
     while lauf is not None and leinwand is None:
         # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
         # (`_scroll_area`), die beiden eigenstaendigen Fenster
-        # `bestandsfenster.py` und `einstellungsfenster.py` weiterhin
+        # `bestandsfenster.py` und `settings_window.py` weiterhin
         # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
         # und zwar lautlos, weil `getattr(..., None)` brav `None`
         # liefert und die Funktion einfach aussteigt.
@@ -462,7 +462,7 @@ def _keep_scroll(widget, action):
     while lauf is not None and leinwand is None:
         # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
         # (`_scroll_area`), die beiden eigenstaendigen Fenster
-        # `bestandsfenster.py` und `einstellungsfenster.py` weiterhin
+        # `bestandsfenster.py` und `settings_window.py` weiterhin
         # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
         # und zwar lautlos, weil `getattr(..., None)` brav `None`
         # liefert und die Funktion einfach aussteigt.
@@ -1606,9 +1606,9 @@ def _progress_section(fenster, eltern, titel, gesamt, meine, kategorien):
 def _settings_parts(window):
     """Die Bausteine des Einstellungsfensters — einmal erzeugt, mehrfach genutzt."""
     if getattr(window, '_settings_window', None) is None:
-        from . import einstellungsfenster
+        from . import settings_window
         leer = tk.Frame(window.root, bg=BG)     # nur als Halter, wird nie gepackt
-        window._settings_window = einstellungsfenster.Einstellungsfenster(rahmen=leer)
+        window._settings_window = settings_window.SettingsWindow(rahmen=leer)
         # Ohne diesen Rückruf öffnet ein Sprachwechsel ein zweites Fenster.
         window._settings_window.beim_sprachwechsel = window.rebuild
         # ⚠ Und ohne diesen laufen alle Rückmeldungen ins Leere: Eingebettet gibt
@@ -1633,7 +1633,7 @@ def _general(fenster, rahmen):
     wahl = _choice(fenster, ziel,
                  [('auto', t('sprache_auto')), ('de', 'Deutsch'), ('en', 'English')],
                  pfade.einstellungen().get('sprache') or 'auto',
-                 lambda k: (wahl.select(k), e._sprache_waehlen(k)))
+                 lambda k: (wahl.select(k), e._choose_language(k)))
     wahl.pack()
 
     ziel = _setting_row(fenster, innen, t('e_ton'),
@@ -1864,7 +1864,7 @@ def _display(fenster, rahmen):
         e.deckkraft.set(w)
         wertlabel.configure(text='%d %%' % w)
         try:
-            e._deckkraft_vorfuehren(w)
+            e._preview_opacity(w)
         except Exception:
             pass
         pfade.einstellung_setzen('deckkraft_prozent', w)
@@ -1966,13 +1966,13 @@ def _folders(fenster, rahmen):
     _body_text(innen, t('e_spiel_hilfe'), fenster.f_small, fill='x')
 
     def spiel_waehlen():
-        # ⚠ Vorher lief das über `e._waehlen(...)`, und das übergibt
+        # ⚠ Vorher lief das über `e._choose(...)`, und das übergibt
         # `parent=self.root` — eingebettet ist das ein Rahmen, der nie gepackt
         # wird. Der Dialog erschien deshalb nicht: „beim Klick passiert nichts".
         gewaehlt = choose_folder(t('e_spiel'), e.spiel.get())
         if gewaehlt:
             e.spiel.set(gewaehlt)
-            e._speichern()
+            e._save()
             fenster.say(t('e_neustart_noetig'))
 
     _path_field(fenster, innen, e.spiel, spiel_waehlen,
@@ -2009,7 +2009,7 @@ def _folders(fenster, rahmen):
         gewaehlt = choose_folder(t('e_launcher'), e.launcher.get())
         if gewaehlt:
             e.launcher.set(gewaehlt)
-            e._speichern()
+            e._save()
             fenster.say(t('e_neustart_noetig'))
 
     _path_field(fenster, innen, e.launcher, launcher_waehlen,
@@ -2379,7 +2379,7 @@ def _game(fenster, rahmen):
         for kind in kasten.winfo_children():
             kind.destroy()
         try:
-            lage = e.inj_lage()
+            lage = e.inj_state()
         except Exception as ausnahme:
             fehler.merken('seiten.spiel.lage', ausnahme)
             return
@@ -2460,9 +2460,9 @@ def _game(fenster, rahmen):
             from . import injektion as inj_modul
             drin = bool(inj_modul.lage().get('drin'))
             if neu_wert and not drin:
-                e._inj_erneuern()
+                e._inj_refresh()
             elif not neu_wert and drin:
-                e._inj_entfernen()
+                e._inj_remove()
         except Exception as ausnahme:
             fehler.merken('seiten.inj_an_um', ausnahme)
         lage_zeigen()
@@ -2504,7 +2504,7 @@ def _game(fenster, rahmen):
         try:
             if (pfade.einstellung_wahrheit('inj_an', True)
                     and inj_modul.lage().get('drin')):
-                e._inj_erneuern()
+                e._inj_refresh()
                 lage_zeigen()
         except Exception as ausnahme:
             fehler.merken('seiten.angaben_um', ausnahme)
@@ -2519,12 +2519,12 @@ def _game(fenster, rahmen):
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
     _button(fenster, reihe, t('s_sp_jetzt'),
-           lambda: (e._inj_erneuern(), lage_zeigen()),
+           lambda: (e._inj_refresh(), lage_zeigen()),
            strong=True).pack(side='left')
     _button(fenster, reihe, t('s_sp_pruefen'),
-           lambda: (e._inj_pruefen(), lage_zeigen())).pack(side='left', padx=8)
+           lambda: (e._inj_check(), lage_zeigen())).pack(side='left', padx=8)
     _button(fenster, reihe, t('s_sp_weg'),
-           lambda: (e._inj_entfernen(), lage_zeigen()),
+           lambda: (e._inj_remove(), lage_zeigen()),
            danger=True).pack(side='left')
 
     _status(fenster, innen, '!', t('s_sp_warn'), t('s_sp_warn_h'), color=GOLD)
@@ -2552,7 +2552,7 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     pfade.einstellung_setzen('inj_quelle', kennung)
     fenster.say(t('s_sp_hole') % t(_SOURCE_LABELS.get(kennung, 's_sp_q_or')))
     try:
-        e._inj_wechseln(kennung)
+        e._inj_switch(kennung)
     except Exception as ausnahme:
         fehler.merken('seiten.spiel.quelle', ausnahme)
         fenster.say(t('inj_fehler', ausnahme))

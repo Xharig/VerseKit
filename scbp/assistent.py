@@ -50,10 +50,10 @@ SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
 GELB    = '#d8a03a'
 
-SCHRITTE = 5
+STEPS = 5
 
 
-def schrift(groesse, fett=False, unterstrichen=False):
+def font(groesse, fett=False, unterstrichen=False):
     """Die Schrift des Assistenten.
 
     `unterstrichen` ist für Textlinks — im Haus die Auszeichnung dafür, dass
@@ -72,7 +72,7 @@ def mono(groesse):
     return ('Consolas' if pfade.WINDOWS else 'Menlo', groesse)
 
 
-class Assistent:
+class Wizard:
     def __init__(self, eltern=None, nur_wenn_noetig=False):
         self.abgebrochen = False
         self.liste_zeigen = False
@@ -94,15 +94,15 @@ class Assistent:
         from .main_window import center_over
         if eltern is None or not center_over(self.root, eltern, 640, 520):
             self.root.geometry('640x520')
-        self.root.protocol('WM_DELETE_WINDOW', self._abbrechen)
+        self.root.protocol('WM_DELETE_WINDOW', self._cancel)
 
         self.kopf = tk.Frame(self.root, bg=BAR)
         self.kopf.pack(fill='x')
         self.titel = tk.Label(self.kopf, text='', bg=BAR, fg=FG,
-                              font=schrift(13, True))
+                              font=font(13, True))
         self.titel.pack(side='left', padx=18, pady=12)
         self.zaehler = tk.Label(self.kopf, text='', bg=BAR, fg=SUB,
-                                font=schrift(9))
+                                font=font(9))
         self.zaehler.pack(side='right', padx=18)
 
         self.buehne = tk.Frame(self.root, bg=BG)
@@ -111,50 +111,50 @@ class Assistent:
         fuss = tk.Frame(self.root, bg=BAR)
         fuss.pack(fill='x', side='bottom')
         self.zurueck = tk.Label(fuss, text=t('zurueck'), bg=BAR, fg=SUB,
-                                font=schrift(10), cursor='hand2', padx=16, pady=13)
+                                font=font(10), cursor='hand2', padx=16, pady=13)
         self.zurueck.pack(side='left')
-        self.zurueck.bind('<Button-1>', lambda e: self._zurueck())
+        self.zurueck.bind('<Button-1>', lambda e: self._back())
         self.weiter = tk.Label(fuss, text='', bg=ACCENT, fg=BG,
-                               font=schrift(10, True), cursor='hand2',
+                               font=font(10, True), cursor='hand2',
                                padx=14, pady=7)
         self.weiter.pack(side='right', padx=16, pady=6)
-        self.weiter.bind('<Button-1>', lambda e: self._weiter())
-        self.root.bind('<Return>', lambda e: self._weiter())
+        self.weiter.bind('<Button-1>', lambda e: self._next())
+        self.root.bind('<Return>', lambda e: self._next())
 
-        self._zeichnen()
+        self._draw()
 
     # ------------------------------------------------------------ Gerüst
-    def _leeren(self):
+    def _clear(self):
         for kind in self.buehne.winfo_children():
             kind.destroy()
 
-    def _flaeche(self):
+    def _area(self):
         f = tk.Frame(self.buehne, bg=BG, padx=24, pady=20)
         f.pack(fill='both', expand=True)
         return f
 
-    def _absatz(self, eltern, text, farbe=SUB, groesse=10, oben=0, fett=False):
-        tk.Label(eltern, text=text, bg=BG, fg=farbe, font=schrift(groesse, fett),
+    def _paragraph(self, eltern, text, farbe=SUB, groesse=10, oben=0, fett=False):
+        tk.Label(eltern, text=text, bg=BG, fg=farbe, font=font(groesse, fett),
                  anchor='w', justify='left', wraplength=560).pack(
                      fill='x', pady=(oben, 0))
 
-    def _zeichnen(self):
-        self._leeren()
-        self.zaehler.configure(text=t('schritt_von', self.schritt, SCHRITTE))
+    def _draw(self):
+        self._clear()
+        self.zaehler.configure(text=t('schritt_von', self.schritt, STEPS))
         self.zurueck.configure(fg=SUB if self.schritt > 1 else BG,
                                cursor='hand2' if self.schritt > 1 else '')
-        self.weiter.configure(text='  %s  ' % (t('fertig') if self.schritt == SCHRITTE
+        self.weiter.configure(text='  %s  ' % (t('fertig') if self.schritt == STEPS
                                                else t('weiter')),
                               bg=ACCENT, fg=BG, cursor='hand2')
-        {1: self._schritt_sprache, 2: self._schritt_spiel,
-         3: self._schritt_lesen, 4: self._schritt_texte,
-         5: self._schritt_fertig}[self.schritt]()
+        {1: self._step_language, 2: self._step_game,
+         3: self._step_read, 4: self._step_texts,
+         5: self._step_done}[self.schritt]()
 
     # ------------------------------------------------------- 1. Sprache
-    def _schritt_sprache(self):
+    def _step_language(self):
         self.titel.configure(text=t('schritt_sprache'))
-        f = self._flaeche()
-        self._absatz(f, t('schritt_sprache_text'), FG, 11)
+        f = self._area()
+        self._paragraph(f, t('schritt_sprache_text'), FG, 11)
         reihe = tk.Frame(f, bg=BG)
         reihe.pack(fill='x', pady=(20, 0))
         aktiv = sprache.gewaehlt()
@@ -162,27 +162,27 @@ class Assistent:
                            ('en', 'English')):
             an = wert == aktiv
             k = tk.Label(reihe, text=' %s ' % text, bg=ACCENT if an else FLAECHE,
-                         fg=BG if an else FG, font=schrift(10), cursor='hand2',
+                         fg=BG if an else FG, font=font(10), cursor='hand2',
                          padx=12, pady=8)
             k.pack(side='left', padx=(0, 8))
-            k.bind('<Button-1>', lambda e, w=wert: self._sprache(w))
+            k.bind('<Button-1>', lambda e, w=wert: self._language(w))
 
-    def _sprache(self, wert):
+    def _language(self, wert):
         pfade.einstellung_setzen('sprache', wert)
         sprache.setzen(wert)
         self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('assistent')))
-        self._zeichnen()
+        self._draw()
 
     # -------------------------------------------------- 2. Star Citizen
-    def _schritt_spiel(self):
+    def _step_game(self):
         self.titel.configure(text=t('schritt_spiel'))
-        f = self._flaeche()
+        f = self._area()
         gefunden = pfade.spiel_ordner()
-        self._absatz(f, t('schritt_spiel_text'), FG, 11)
-        self._absatz(f, t('schritt_spiel_hilfe'), SUB, 10, oben=10)
+        self._paragraph(f, t('schritt_spiel_text'), FG, 11)
+        self._paragraph(f, t('schritt_spiel_hilfe'), SUB, 10, oben=10)
 
         self.pfad = tk.StringVar(value=gefunden or '')
-        self.pfad.trace_add('write', lambda *_: self._pfad_pruefen())
+        self.pfad.trace_add('write', lambda *_: self._check_path())
         zeile = tk.Frame(f, bg=BG)
         zeile.pack(fill='x', pady=(18, 0))
         from .main_window import round_entry
@@ -190,23 +190,23 @@ class Assistent:
                            placeholder=t('s_pl_spielordner'))
         feld.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
         knopf = tk.Label(zeile, text=' %s ' % t('durchsuchen'), bg=BAR, fg=FG,
-                         font=schrift(10), cursor='hand2', padx=8, pady=6)
+                         font=font(10), cursor='hand2', padx=8, pady=6)
         knopf.pack(side='right')
-        knopf.bind('<Button-1>', lambda e: self._waehlen())
+        knopf.bind('<Button-1>', lambda e: self._choose())
 
-        self.rueckmeldung = tk.Label(f, text='', bg=BG, fg=SUB, font=schrift(10),
+        self.rueckmeldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
                                      anchor='w', justify='left', wraplength=560)
         self.rueckmeldung.pack(fill='x', pady=(10, 0))
 
         if not gefunden:
-            self._absatz(f, t('gesucht_wurde_hier'), SUB, 9, oben=16)
+            self._paragraph(f, t('gesucht_wurde_hier'), SUB, 9, oben=16)
             for ort in pfade.gesuchte_spielorte(4):
                 tk.Label(f, text=ort, bg=BG, fg=SUB, font=mono(8), anchor='w',
                          justify='left', wraplength=560).pack(fill='x')
 
             # ⚠ Ohne diesen Ausweg sitzt fest, wer Star Citizen nicht auf
             # diesem Rechner hat: Der Weiter-Knopf bleibt grau, und weil
-            # `noetig()` am fehlenden Spielordner hängt, kommt der Assistent
+            # `needed()` am fehlenden Spielordner hängt, kommt der Assistent
             # bei jedem Start wieder. Genau so ging es beim Ansehen auf einem
             # Zweitrechner — man kam nie über diese Seite hinaus.
             # ⚠ Als schlichter grauer Text sieht das aus wie ein Hinweis, nicht
@@ -214,22 +214,22 @@ class Assistent:
             # übersehen. Deshalb unterstrichen und in der Akzentfarbe: Das ist
             # im Haus die Auszeichnung für „hier kann man klicken".
             ohne = tk.Label(f, text='→  ' + t('ohne_spiel'), bg=BG, fg=ACCENT,
-                            font=schrift(10, unterstrichen=True),
+                            font=font(10, unterstrichen=True),
                             cursor='hand2')
             ohne.pack(anchor='w', pady=(18, 0))
-            ohne.bind('<Button-1>', lambda e: self._ohne_spiel())
+            ohne.bind('<Button-1>', lambda e: self._without_game())
             ohne.bind('<Enter>', lambda e: ohne.configure(fg=FG))
             ohne.bind('<Leave>', lambda e: ohne.configure(fg=ACCENT))
-        self._pfad_pruefen()
+        self._check_path()
 
-    def _ohne_spiel(self):
+    def _without_game(self):
         """Weiter ohne Spielordner — bewusst und einmalig gemerkt."""
         self.ohne_spielordner = True
         pfade.einstellung_setzen('einrichtung_ohne_spiel', True)
-        self.schritt = SCHRITTE
-        self._zeichnen()
+        self.schritt = STEPS
+        self._draw()
 
-    def _waehlen(self):
+    def _choose(self):
         # ⚠ Siehe `file_picker`: Der Tk-Dialog wäre hier besonders unglücklich —
         # das ist der allererste Bildschirm, den ein neuer Nutzer sieht.
         from . import file_picker
@@ -237,7 +237,7 @@ class Assistent:
         if ordner:
             self.pfad.set(ordner)
 
-    def _pfad_pruefen(self):
+    def _check_path(self):
         input_device = self.pfad.get().strip()
         self.gedeutet = pfade.spielordner_deuten(input_device) if input_device else None
         if not input_device:
@@ -254,22 +254,22 @@ class Assistent:
                               cursor='hand2' if an else '')
 
     # ----------------------------------------------------- 3. Nachlesen
-    def _schritt_lesen(self):
+    def _step_read(self):
         self.titel.configure(text=t('schritt_lesen'))
-        f = self._flaeche()
-        self._absatz(f, t('schritt_lesen_text'), FG, 11)
+        f = self._area()
+        self._paragraph(f, t('schritt_lesen_text'), FG, 11)
         self.ergebnis = tk.Label(f, text=t('lese_logs'), bg=BG, fg=SUB,
-                                 font=schrift(11), anchor='w', justify='left',
+                                 font=font(11), anchor='w', justify='left',
                                  wraplength=560)
         self.ergebnis.pack(fill='x', pady=(20, 0))
-        self.luecke = tk.Label(f, text='', bg=BG, fg=GELB, font=schrift(10),
+        self.luecke = tk.Label(f, text='', bg=BG, fg=GELB, font=font(10),
                                anchor='w', justify='left', wraplength=560)
         self.luecke.pack(fill='x', pady=(12, 0))
         self.root.update()
         if not self.nachlese_gelaufen:
-            self._nachlesen()
+            self._reread()
 
-    def _nachlesen(self):
+    def _reread(self):
         """Läuft von selbst — hier muss niemand etwas tun."""
         self.nachlese_gelaufen = True
         fehler.spur('Assistent: Logs nachlesen beginnt')
@@ -289,7 +289,7 @@ class Assistent:
             fehler.spur('Assistent: nachgelesen (%d neu)' % neu)
             self.ergebnis.configure(
                 text=t('nachgelesen_gross', neu, bericht.get('dateien', 0)),
-                fg=FG, font=schrift(12))
+                fg=FG, font=font(12))
             if bericht.get('luecke') and bericht.get('grund'):
                 self.luecke.configure(text=bericht['grund'] + '\n\n'
                                       + t('nachtragen_hinweis'))
@@ -299,32 +299,32 @@ class Assistent:
             self.ergebnis.configure(text=t('nachgelesen_gross', 0, 0), fg=SUB)
 
     # ------------------------------------------- 4. Bauplan-Angaben im Spiel
-    def _schritt_texte(self):
+    def _step_texts(self):
         """Die einzige Stelle, an der dieses Werkzeug etwas am Spiel verändert —
         deshalb wird hier **gefragt**, nicht stillschweigend gemacht.
 
         Drei Wege plus „jetzt nicht". Voreingestellt ist nichts: Wer weiterklickt,
         ohne etwas zu wählen, behält seine Installation unverändert."""
         self.titel.configure(text=t('schritt_spiel_texte'))
-        f = self._flaeche()
-        self._absatz(f, t('inj_text'), FG, 11)
-        self._absatz(f, t('inj_wie'), SUB, 10, oben=10)
+        f = self._area()
+        self._paragraph(f, t('inj_text'), FG, 11)
+        self._paragraph(f, t('inj_wie'), SUB, 10, oben=10)
 
-        self.inj_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=schrift(10),
+        self.inj_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
                                     anchor='w', justify='left', wraplength=560)
 
         for schluessel, quelle in (('inj_quelle_de', 'deutsch'),
                                    ('inj_quelle_ss', 'starstrings'),
                                    ('inj_quelle_orig', 'original')):
             k = tk.Label(f, text='  %s  ' % t(schluessel), bg=FLAECHE, fg=FG,
-                         font=schrift(11), cursor='hand2', padx=10, pady=8)
+                         font=font(11), cursor='hand2', padx=10, pady=8)
             k.pack(anchor='w', pady=(14 if schluessel.endswith('_de') else 6, 0))
-            k.bind('<Button-1>', lambda e, q=quelle: self._texte_holen(q))
+            k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
 
-        self._absatz(f, t('inj_fremd'), SUB, 9, oben=16)
+        self._paragraph(f, t('inj_fremd'), SUB, 9, oben=16)
         self.inj_meldung.pack(fill='x', pady=(14, 0))
 
-    def _texte_holen(self, quelle):
+    def _fetch_texts(self, quelle):
         """Herunterladen, einsetzen, Bauplan-Angaben eintragen — in einem Zug."""
         from . import injektion, gametext, translation
         # ⚠ Die Wahl **vor** dem Einrichten merken — genau wie auf der
@@ -376,31 +376,31 @@ class Assistent:
             self.inj_meldung.configure(text=t('inj_fehler', e), fg=GELB)
 
     # -------------------------------------------------------- 5. Fertig
-    def _schritt_fertig(self):
+    def _step_done(self):
         if getattr(self, 'ohne_spielordner', False):
-            self._schritt_fertig_ohne_spiel()
+            self._step_done_no_game()
             return
         self.titel.configure(text=t('schritt_fertig'))
-        f = self._flaeche()
+        f = self._area()
         b = bestand_datei.load()
-        self._absatz(f, t('bauplaene') + ': %d' % bestand_datei.count(b),
+        self._paragraph(f, t('bauplaene') + ': %d' % bestand_datei.count(b),
                      ACCENT, 15, fett=True)
-        self._absatz(f, t('schritt_fertig_text'), FG, 11, oben=14)
+        self._paragraph(f, t('schritt_fertig_text'), FG, 11, oben=14)
         # ⚠ Ohne führendes Zeichen. Hier stand `☰`, das es seit rc55 gar nicht
         # mehr gibt (durch das Klemmbrett ersetzt) — der Tipp zeigte also auf
         # ein Zeichen, das im Programm nicht vorkam. Die Texte benennen die
         # Symbole jetzt in Worten.
-        self._absatz(f, t('tipp_liste'), SUB, 10, oben=18)
-        self._absatz(f, t('tipp_erneut'), SUB, 10, oben=8)
+        self._paragraph(f, t('tipp_liste'), SUB, 10, oben=18)
+        self._paragraph(f, t('tipp_erneut'), SUB, 10, oben=8)
 
-        self._menueeintrag_anbieten(f)
+        self._offer_menu_entry(f)
 
         knopf = tk.Label(f, text=' %s ' % t('liste_oeffnen'), bg=FLAECHE, fg=FG,
-                         font=schrift(10), cursor='hand2', padx=12, pady=7)
+                         font=font(10), cursor='hand2', padx=12, pady=7)
         knopf.pack(anchor='w', pady=(22, 0))
-        knopf.bind('<Button-1>', lambda e: self._mit_liste())
+        knopf.bind('<Button-1>', lambda e: self._with_list())
 
-    def _menueeintrag_anbieten(self, flaeche):
+    def _offer_menu_entry(self, flaeche):
         """Unter Linux einen Startmenü-Eintrag anbieten.
 
         ⚠ Warum überhaupt: Unter Windows legt der Installer alles an. Unter Linux
@@ -415,8 +415,8 @@ class Assistent:
         from . import desktop_entry
         if not desktop_entry.available() or desktop_entry.exists():
             return
-        self._absatz(flaeche, t('as_menue_frage'), FG, 11, oben=18)
-        meldung = tk.Label(flaeche, text='', bg=BG, fg=SUB, font=schrift(9),
+        self._paragraph(flaeche, t('as_menue_frage'), FG, 11, oben=18)
+        meldung = tk.Label(flaeche, text='', bg=BG, fg=SUB, font=font(9),
                            anchor='w', justify='left')
 
         def anlegen(_=None):
@@ -426,38 +426,38 @@ class Assistent:
                               fg=ACCENT if geklappt else SUB)
 
         knopf = tk.Label(flaeche, text=' %s ' % t('as_menue_knopf'), bg=FLAECHE,
-                         fg=FG, font=schrift(10), cursor='hand2', padx=12, pady=6)
+                         fg=FG, font=font(10), cursor='hand2', padx=12, pady=6)
         knopf.pack(anchor='w', pady=(8, 0))
         knopf.bind('<Button-1>', anlegen)
         meldung.pack(anchor='w', pady=(6, 0), fill='x')
 
-    def _schritt_fertig_ohne_spiel(self):
+    def _step_done_no_game(self):
         """Der Abschluss, wenn kein Spielordner eingetragen wurde.
 
         Ehrlich sagen, was jetzt nicht geht — und was sehr wohl. Ein
         „fertig eingerichtet" wäre gelogen, ein Abbruch wäre unnötig.
         """
         self.titel.configure(text=t('ohne_spiel_titel'))
-        f = self._flaeche()
-        self._absatz(f, t('ohne_spiel_text'), FG, 11)
-        self._absatz(f, t('ohne_spiel_wo'), SUB, 10, oben=14)
+        f = self._area()
+        self._paragraph(f, t('ohne_spiel_text'), FG, 11)
+        self._paragraph(f, t('ohne_spiel_wo'), SUB, 10, oben=14)
 
         knopf = tk.Label(f, text=' %s ' % t('liste_oeffnen'), bg=FLAECHE, fg=FG,
-                         font=schrift(10), cursor='hand2', padx=12, pady=7)
+                         font=font(10), cursor='hand2', padx=12, pady=7)
         knopf.pack(anchor='w', pady=(22, 0))
-        knopf.bind('<Button-1>', lambda e: self._mit_liste())
+        knopf.bind('<Button-1>', lambda e: self._with_list())
 
-    def _mit_liste(self):
+    def _with_list(self):
         self.liste_zeigen = True
-        self._beenden()
+        self._close()
 
     # ------------------------------------------------------------ Steuerung
-    def _weiter(self):
+    def _next(self):
         if self.schritt == 2 and not self.gedeutet:
             return                                  # ohne Spielordner geht nichts
         if self.schritt == 2:
             pfade.einstellung_setzen('spiel_ordner', self.gedeutet)
-        if self.schritt >= SCHRITTE:
+        if self.schritt >= STEPS:
             # ⚠ Hier wird festgehalten, dass die Einrichtung durch ist — und
             # zwar in einer eigenen Einstellung. Vorher galt die Datei
             # `logstand.json` als Beleg dafür; die ist aber der **Lesestand im
@@ -466,33 +466,33 @@ class Assistent:
             # Wer den drückte, bekam beim nächsten Start den ganzen Assistenten
             # vorgesetzt (30.08.2026 gemeldet).
             pfade.einstellung_setzen('einrichtung_fertig', True)
-            self._beenden()
+            self._close()
             return
         self.schritt += 1
-        self._zeichnen()
+        self._draw()
 
-    def _zurueck(self):
+    def _back(self):
         if self.schritt > 1:
             self.schritt -= 1
-            self._zeichnen()
+            self._draw()
 
-    def _abbrechen(self):
+    def _cancel(self):
         self.abgebrochen = True
-        self._beenden()
+        self._close()
 
-    def _beenden(self):
+    def _close(self):
         try:
             self.root.quit()
         except Exception:
             pass
         self.root.destroy()
 
-    def durchlaufen(self):
+    def run(self):
         self.root.mainloop()
         return not self.abgebrochen
 
 
-def eingerichtet():
+def is_configured():
     """Ist dieses Werkzeug hier schon einmal eingerichtet worden?
 
     ⚠⚠ **Nicht am Lesestand festmachen.** Bis rc44 galt: keine `logstand.json`,
@@ -514,7 +514,7 @@ def eingerichtet():
     return bool(pfade.einstellung('spiel_ordner'))
 
 
-def noetig():
+def needed():
     """Muss der Assistent laufen? Beim ersten Mal, oder wenn das Spiel fehlt.
 
     ⚠ Wer bewusst ohne Spielordner weitergemacht hat, bekommt ihn nicht bei
@@ -524,16 +524,16 @@ def noetig():
     """
     if pfade.einstellung_wahrheit('einrichtung_ohne_spiel', False):
         return False
-    return not eingerichtet() or not pfade.spiel_ordner()
+    return not is_configured() or not pfade.spiel_ordner()
 
 
-def starten(eltern=None):
+def start(eltern=None):
     """Assistent durchlaufen. Gibt (fertig, liste_zeigen) zurück."""
-    a = Assistent(eltern)
+    a = Wizard(eltern)
     fertig = a.durchlaufen()
     return fertig, a.liste_zeigen
 
 
 if __name__ == '__main__':
-    print('nötig:', noetig())
-    print('Ergebnis:', starten())
+    print('nötig:', needed())
+    print('Ergebnis:', start())
