@@ -6298,7 +6298,7 @@ def main():
     #
     # Der Selbsttest hat es nicht gesehen, weil er die Seite **baute**, aber
     # nie eine Zeile aufklappte. Genau das tut er jetzt: Ohne aufgeklapptes
-    # Rezept laeuft `_herstellung_zeile` gar nicht bis zu der Stelle.
+    # Rezept laeuft `_crafting_row` gar nicht bis zu der Stelle.
     print()
     print('67. Ein Rezept aufklappen')
     import tkinter as _tk67
@@ -6400,7 +6400,7 @@ def main():
                 _offen67 = {'name': _kandidat67}      # ⭐ AUFGEKLAPPT
                 _fehler67 = None
                 try:
-                    _se67._herstellung_zeile(_Fenster67(), _rahmen67,
+                    _se67._crafting_row(_Fenster67(), _rahmen67,
                                              _eintrag67, _offen67,
                                              lambda: None)
                 except Exception as _aus67:
@@ -6661,7 +6661,7 @@ def main():
 
             _rahmen69 = _tk69.Frame(_w69)
             _rahmen69.pack(fill='both', expand=True)
-            _se69._herstellung_zeile(
+            _se69._crafting_row(
                 _Fenster69(), _rahmen69,
                 {'name': _kandidat69, 'basis': _kandidat69, 'habe': True,
                  'hersteller': 'Behring'},
@@ -7733,7 +7733,7 @@ def main():
 
     _q83 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    pruefe('_raffinerie_block(fenster, innen, lager, ort, zeichnen, meldung)'
+    pruefe('_refinery_box(fenster, innen, lager, ort, zeichnen, meldung)'
            in _q83, 'die Lager-Seite bietet die Maske an')
 
     # 84. Verkauf — wo die Ware hin soll
@@ -8111,7 +8111,7 @@ def main():
     pruefe(_he85.storage_name('Levski') is None,
            'lager_name() kennt keine Orte — das war die Ursache')
 
-    _raffblock85 = _q85p.split('def _raffinerie_block(')[-1].split('\ndef ')[0]
+    _raffblock85 = _q85p.split('def _refinery_box(')[-1].split('\ndef ')[0]
     # ⚠ Nicht auf `lager_name(` allein pruefen — fuer die **Materialnamen** ist
     # sie genau richtig und wird dort weiter gebraucht. Falsch war nur, sie auf
     # den **Ort** anzuwenden.
@@ -8350,7 +8350,7 @@ def main():
            'das Leeren fragt vorher nach')
 
     # Der Raffinerie-Block ist einklappbar — und merkt sich die Lage.
-    _raffblock86 = _q86.split('def _raffinerie_block(')[-1].split('\ndef ')[0]
+    _raffblock86 = _q86.split('def _refinery_box(')[-1].split('\ndef ')[0]
     pruefe("swap_symbol('zuklappen')" in _raffblock86
            and "swap_symbol('aufklappen')" in _raffblock86,
            'die Raffinerie-Ausbeute laesst sich ein- und ausklappen')
@@ -9323,7 +9323,7 @@ def main():
     # d) Und in der Herstellung steht er nur bei einem FEHLENDEN Bauplan.
     _sq97 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                  encoding='utf-8').read()
-    _hz97 = _sq97.split('def _herstellung_zeile')[1].split(chr(10) + 'def ')[0]
+    _hz97 = _sq97.split('def _crafting_row')[1].split(chr(10) + 'def ')[0]
     pruefe("eintrag['habe'] is not True and _has_source" in _hz97,
            'der Knopf steht nur, wo der Bauplan fehlt UND es ihn irgendwo gibt')
 
@@ -9636,7 +9636,7 @@ def main():
     print('99. Man sieht, welcher Bauplan in der Herstellung aufgeklappt ist')
     _q99 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                 encoding='utf-8').read()
-    _hz99 = _q99.split('def _herstellung_zeile')[1].split(chr(10) + 'def ')[0]
+    _hz99 = _q99.split('def _crafting_row')[1].split(chr(10) + 'def ')[0]
     _code99 = chr(10).join(_z for _z in _hz99.split(chr(10))
                            if not _z.strip().startswith('#'))
 
@@ -10388,7 +10388,7 @@ def main():
     print()
     print('108. Ja/Nein-Einstellungen killen keine Seite mehr')
     # ⚠⚠ **Der Fehler, der eine ganze Seite gefressen hat (03.09.2026).**
-    # `_raffinerie_block` rief `pfade.einstellung('lager_raffinerie_offen')`.
+    # `_refinery_box` rief `pfade.einstellung('lager_raffinerie_offen')`.
     # Diese Funktion liefert einen PFAD und ruft dafuer `.strip()` auf dem
     # Wert. Sobald der Block einmal aufgeklappt war, stand `True` in der
     # Datei — `True.strip()` warf einen AttributeError, und der riss den
@@ -20173,7 +20173,7 @@ def main():
     _zu_breit206 = []
     for _k206 in ('Checkmate', 'Pyro-Gate', 'Levski', 'ARC-L1', 'MIC-L5',
                   'Orbituary', 'Ruin', 'Terra-Gate'):
-        for _zeile206 in _se206._raff_kopf(_k206).split(chr(10)):
+        for _zeile206 in _se206._refinery_head(_k206).split(chr(10)):
             if len(_zeile206) > _se206.SPALTE_WERT:
                 _zu_breit206.append('%s -> „%s" (%d Zeichen)'
                                     % (_k206, _zeile206, len(_zeile206)))
@@ -20183,7 +20183,7 @@ def main():
               if _zu_breit206 else ''))
     # Und ein kurzes Kuerzel wird NICHT umgebrochen — ein Umbruch, wo keiner
     # noetig ist, macht die Kopfzeile doppelt so hoch wie gebraucht.
-    pruefe(chr(10) not in _se206._raff_kopf('ARC-L1'),
+    pruefe(chr(10) not in _se206._refinery_head('ARC-L1'),
            'ein Kuerzel, das passt, bleibt einzeilig')
     # ⚠ Die Systemleiste legt sich ueber `len(gruppe) * SPALTE_WERT` Zeichen.
     # Faellt die Gruppierung auseinander, verrutscht sie gegen ihre Spalten.
@@ -20199,7 +20199,7 @@ def main():
     # dazuzaehlt, malt eine Leiste ueber Spalten, die woanders stehen.
     _sp206b = [(['A'], 'Nyx'), (['B'], 'Nyx'), (['C'], 'Pyro'),
                (['D'], 'Nyx'), (['E'], 'Stanton')]
-    _gr206 = _se206._raff_gruppen(_sp206b)
+    _gr206 = _se206._refinery_groups(_sp206b)
     _ist206b = [(s, len(g)) for s, g in _gr206]
     pruefe(_ist206b == [('Nyx', 2), ('Pyro', 1), ('Nyx', 1), ('Stanton', 1)],
            'die Systemleiste fasst nur NEBENEINANDERLIEGENDE Spalten zusammen '

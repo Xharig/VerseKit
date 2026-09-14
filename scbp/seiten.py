@@ -6663,7 +6663,7 @@ def _crafting(fenster, rahmen):
                             fill='x')
             return
         for e in treffer[:CRAFT_MAX]:
-            _herstellung_zeile(fenster, liste_rahmen, e, offen, zeichnen)
+            _crafting_row(fenster, liste_rahmen, e, offen, zeichnen)
         if len(treffer) > CRAFT_MAX:
             _body_text(liste_rahmen, t('s_he_mehr') % (len(treffer) - CRAFT_MAX),
                         fenster.f_small, fill='x')
@@ -7260,8 +7260,8 @@ def _routes(fenster, rahmen):
                 return
             for nummer, e in enumerate(beste):
                 if nummer == 0:
-                    _routen_kopfzeile(fenster, ergebnis)
-                _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0),
+                    _route_header(fenster, ergebnis)
+                _route_row(fenster, ergebnis, e, hervor=(nummer == 0),
                               mit_start=True)
             return
 
@@ -7291,13 +7291,13 @@ def _routes(fenster, rahmen):
                  font=fenster.f_small, anchor='w').pack(fill='x', pady=(4, 4))
         for nummer, e in enumerate(einzeln[:6]):
             if nummer == 0:
-                _routen_kopfzeile(fenster, ergebnis)
+                _route_header(fenster, ergebnis)
             # ⚠ Der Startort steht sonst nur in der Überschrift — in der Zeile
             # bliebe ein Pfeil ohne Anfang. `einzelfahrten` kennt ihn nicht,
             # er kommt aus der Auswahl darüber.
             e = dict(e)
             e['startname'] = zustand['startname']
-            _routen_zeile(fenster, ergebnis, e, hervor=(nummer == 0))
+            _route_row(fenster, ergebnis, e, hervor=(nummer == 0))
 
         ketten = routen_modul.chain(zustand['start'], scu, geld,
                                     short=zustand['kurz'], most=3,
@@ -7629,7 +7629,7 @@ def _routes(fenster, rahmen):
     _schiffe_sicherstellen()
 
 
-def _routen_kopfzeile(fenster, eltern):
+def _route_header(fenster, eltern):
     """Die Spaltenüberschrift über der ersten Fahrt.
 
     ⚠⚠ **Ohne sie ist die größte Zahl mehrdeutig.** Am 04.09.2026 stand da
@@ -7650,7 +7650,7 @@ def _routen_kopfzeile(fenster, eltern):
              font=fenster.f_small, anchor='w').pack(side='left')
 
 
-def _routen_zeile(fenster, eltern, fahrt, hervor=False, mit_start=False):
+def _route_row(fenster, eltern, fahrt, hervor=False, mit_start=False):
     """Eine Einzelfahrt: Gewinn, Menge, Ware, Ziel, Strecke.
 
     `mit_start=True` nennt zusätzlich den **Einkaufsort** — nötig in der
@@ -8540,7 +8540,7 @@ def _shops(fenster, rahmen):
     _katalog_anstossen()
 
 
-def _laden_zeile(fenster, eltern, bauplan):
+def _shop_row(fenster, eltern, bauplan):
     """„Fertig kaufen: X aUEC bei Y" — oder gar nichts.
 
     ⚠⚠ **Der Abruf läuft im Hintergrund, nicht im Klick.** Wer einen Bauplan
@@ -8612,7 +8612,7 @@ def _laden_zeile(fenster, eltern, bauplan):
     threading.Thread(target=arbeit, daemon=True).start()
 
 
-def _bauplan_angaben(bauplan):
+def _blueprint_specs(bauplan):
     """Klasse, Größe und Güte eines Bauplans, ausgeschrieben — oder `''`.
 
     Beispiel: `Militär · Größe 4 · Güte A`
@@ -8649,7 +8649,7 @@ def _bauplan_angaben(bauplan):
     return '  ·  '.join(teile)
 
 
-def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
+def _fetch_slots(widget, erzwingen=False, danach=None):
     """Fehlende Steckplatz-Daten im Hintergrund holen.
 
     ⚠ Nicht nur auf der Hangar-Seite: Wer nach einem Update zuerst die
@@ -8701,7 +8701,7 @@ def _steckplaetze_nachziehen(widget, erzwingen=False, danach=None):
 _REFRESHED = [False]
 
 
-def _passt_zeile(fenster, eltern, bauplan):
+def _fits_row(fenster, eltern, bauplan):
     """„Passt in dein Schiff" — die Antwort auf die Frage nach dem Bauplan.
 
     ⭐⭐ Das ist die Auskunft, die **keine fremde Seite geben kann**: Erkul
@@ -8758,7 +8758,7 @@ def _passt_zeile(fenster, eltern, bauplan):
                        justify='left')
         lbl.pack(fill='x', padx=12, pady=(6, 0))
         _wrap(lbl, inset=36)
-        _steckplaetze_nachziehen(lbl)
+        _fetch_slots(lbl)
         return
 
     treffer = erkul.matching_ships(art, groesse, schiffe)
@@ -8784,7 +8784,7 @@ def _passt_zeile(fenster, eltern, bauplan):
     _wrap(lbl, inset=36)
 
 
-def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
+def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
     """Eine Zeile der Herstellungs-Liste, auf Klick klappt das Rezept auf."""
     from . import crafting as herst_modul
     zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
@@ -8849,7 +8849,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     # weil dort 738 Zeilen untereinander stehen und jede Spalte zählt. Hier
     # steht eine einzige Zeile über einem langen Kasten — da hilft „Militär ·
     # Größe 4 · Güte A" mehr als drei Buchstaben, die man erst übersetzen muss.
-    angaben = _bauplan_angaben(eintrag.get('basis'))
+    angaben = _blueprint_specs(eintrag.get('basis'))
     if angaben:
         tk.Label(_kopf, text='  ·  %s' % angaben, bg='#0c1017',
                  fg=FG, font=fenster.f_small, anchor='w').pack(side='left')
@@ -8878,12 +8878,12 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
     # ⚠ Zugeordnet wird über die **Entitäts-Kennung**, nie über den Namen.
     # Über Namen ist es hier schon einmal schiefgegangen (`Gold` lieferte
     # `Golden Medmon` mit). Siehe `scbp/shops.py`.
-    _laden_zeile(fenster, block, eintrag.get('basis'))
+    _shop_row(fenster, block, eintrag.get('basis'))
     # ⭐⭐ **„Und passt das überhaupt in mein Schiff?"** Die Frage, die auf
     # jeden neuen Bauplan folgt. Steht direkt unter dem Ladenpreis, weil beide
     # dieselbe Entscheidung tragen: bauen, kaufen — oder gar nicht, weil es
     # nirgends hineinpasst.
-    _passt_zeile(fenster, block, eintrag.get('basis'))
+    _fits_row(fenster, block, eintrag.get('basis'))
 
     rez = herst_modul.recipe(eintrag['basis'])
     from . import materials as lager
@@ -8995,7 +8995,7 @@ def _herstellung_zeile(fenster, eltern, eintrag, offen, neu_zeichnen):
 
         # ⚠ Der Name kommt aus dem Eintrag der Herstellungsliste — `bauplan`
         # gibt es in dieser Funktion nicht, das ist die Nachbarfunktion
-        # `_passt_zeile`.
+        # `_fits_row`.
         _mz_name = eintrag.get('name') or ''
         # ⚠⚠⚠ **NUR eine echte Entitäts-Kennung, niemals der Name.** Hier
         # stand `eintrag.get('ref') or eintrag.get('basis')` — und `basis` ist
@@ -9487,7 +9487,7 @@ def _has_tool(erz, geraet):
     return False
 
 
-def _berg_anteil(fenster, zeile, anteil, stufe, grund, allein=False):
+def _mining_share(fenster, zeile, anteil, stufe, grund, allein=False):
     """Rechts an eine Bergbau-Zeile: „18 % · viel".
 
     ⚠ **Erst die Abbauart packen, dann das hier** — bei `side='right'` sitzt
@@ -9649,7 +9649,7 @@ def _salvage(fenster, rahmen):
         # fremden Fäden — zurück geht es über `after(0, …)`.
         def arbeit():
             try:
-                teile, gefunden = _bergung_holen(name)
+                teile, gefunden = _load_salvage(name)
             except Exception as ausnahme:
                 fehler.merken('seiten.bergung.holen', ausnahme)
                 teile, gefunden = [], ''
@@ -9720,7 +9720,7 @@ def _salvage(fenster, rahmen):
     ergebnis.pack(fill='x', padx=24, pady=(14, 20))
 
 
-def _bergung_holen(name):
+def _load_salvage(name):
     """Die Werksausstattung eines Schiffs holen — samt Ladenpreisen.
 
     Läuft **außerhalb** des Oberflächen-Fadens. Gibt `(teile, kennung)` zurück.
@@ -9797,7 +9797,7 @@ def _mining(fenster, rahmen):
     # Bergbaudaten — sie steht fest im Programm. Stünde sie weiter unten, wäre
     # sie ausgerechnet für den weg, der ohne Netz unterwegs ist: Der Abbruch
     # darunter beendet die Seite, sobald die Daten fehlen.
-    _methodenblock(fenster, innen)
+    _method_box(fenster, innen)
 
     if not orte:
         _body_text(innen, t('s_bg_keine_daten'), fenster.f_small, fill='x')
@@ -9977,7 +9977,7 @@ def _mining(fenster, rahmen):
             if geraet and not _has_tool(e, geraet):
                 continue
             if not text or text in e['name'].lower():
-                _berg_erz(fenster, liste_rahmen, e, offen, aufklappen,
+                _mining_ore(fenster, liste_rahmen, e, offen, aufklappen,
                           geraet)
         # Orte danach — sie beantworten die zweite Frage („was gibt es hier?").
         #
@@ -9995,7 +9995,7 @@ def _mining(fenster, rahmen):
                     continue
                 if (text in o['name'].lower()
                         or text in (o['system'] or '').lower()):
-                    _berg_ort(fenster, liste_rahmen, o, offen,
+                    _mining_place(fenster, liste_rahmen, o, offen,
                               aufklappen, geraet)
 
         if not liste_rahmen.winfo_children():
@@ -10016,7 +10016,7 @@ SPALTE_MATERIAL = 18
 SPALTE_WERT = 6
 
 
-def _raff_kopf(kuerzel):
+def _refinery_head(kuerzel):
     """Die Spaltenüberschrift — zweizeilig, statt abgeschnitten.
 
     ⛔ „Checkmate" braucht bei normaler Schrift **63 px**, eine Spalte hat
@@ -10058,7 +10058,7 @@ def _raff_kopf(kuerzel):
     return oben + '\n' + unten
 
 
-def _raff_gruppen(spalten):
+def _refinery_groups(spalten):
     """Die Spalten nach System zusammengefasst: `[(system, [spalten])]`.
 
     ⚠ Die Reihenfolge kommt aus `refinery_matrix()` und ist bereits nach
@@ -10075,7 +10075,7 @@ def _raff_gruppen(spalten):
     return gruppen
 
 
-def _raff_kurz(namen):
+def _refinery_short(namen):
     """Aus „ARC-L1 Wide Forest Station" wird „ARC-L1".
 
     ⚠ Dieselbe Regel wie im Raffinerie-Kasten der Bergbau-Seite. Zwei
@@ -10159,7 +10159,7 @@ def _refineries(fenster, rahmen):
     band.pack(fill='x', padx=12, pady=(10, 0))
     tk.Label(band, text='', bg=SURFACE, font=fenster.f_small,
              width=SPALTE_MATERIAL).pack(side='left')
-    for system, gruppe in _raff_gruppen(spalten):
+    for system, gruppe in _refinery_groups(spalten):
         tk.Label(band, text=system or '—', bg=SURFACE, fg=ACCENT,
                  font=fenster.f_small, anchor='w',
                  width=len(gruppe) * SPALTE_WERT).pack(side='left')
@@ -10170,7 +10170,7 @@ def _refineries(fenster, rahmen):
              font=fenster.f_small, anchor='w',
              width=SPALTE_MATERIAL).pack(side='left')
     for namen, _system in spalten:
-        tk.Label(kopf, text=_raff_kopf(_raff_kurz(namen)), bg=SURFACE, fg=SUB,
+        tk.Label(kopf, text=_refinery_head(_refinery_short(namen)), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, width=SPALTE_WERT,
                  anchor='se', justify='right').pack(side='left', fill='y')
 
@@ -10211,7 +10211,7 @@ def _refineries(fenster, rahmen):
         # ⚠ Die Zahl dahinter ist wichtig: „Checkmate" allein sieht aus wie
         # **eine** Station, tatsächlich stehen fünf in dieser Spalte — und die
         # Überschrift nennt die alphabetisch erste, nicht die einzige.
-        _kurz = _raff_kurz(namen)
+        _kurz = _refinery_short(namen)
         if len(namen) > 1:
             _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
         tk.Label(z, text=_kurz, bg=BG, fg=FG, font=fenster.f_small,
@@ -10224,7 +10224,7 @@ def _refineries(fenster, rahmen):
                pady=(12, 0))
 
 
-def _berg_kopfzeile(fenster, eltern, links, rechts, farbe, aufklappen):
+def _mining_header(fenster, eltern, links, rechts, farbe, aufklappen):
     zeile = tk.Frame(eltern, bg=BG, cursor='hand2')
     zeile.pack(fill='x', pady=1)
     tk.Label(zeile, text=links, bg=BG, fg=farbe, font=fenster.f_base,
@@ -10240,7 +10240,7 @@ def _berg_kopfzeile(fenster, eltern, links, rechts, farbe, aufklappen):
     return zeile
 
 
-def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
+def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     """Ein Rohstoff — aufgeklappt stehen seine Fundorte darunter.
 
     `geraet` ist die Wahl aus „Womit?" (`''` = alle). Sie entscheidet nicht
@@ -10265,7 +10265,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     fundorte = [e for e in erz['orte']
                 if not geraet
                 or any(_pot(a) == geraet for a in (e[2] if len(e) > 2 else ()))]
-    _berg_kopfzeile(fenster, eltern, erz['name'],
+    _mining_header(fenster, eltern, erz['name'],
                     t('s_bg_nur_orte') % len(fundorte),
                     ACCENT, umschalten)
     if offen['name'] != schluessel:
@@ -10301,7 +10301,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                  anchor='w').pack(side='left', padx=(10, 0))
         tk.Label(z, text=_kind_text(arten), bg='#0c1017', fg=SUB,
                  font=fenster.f_small, anchor='e').pack(side='right', padx=12)
-        _berg_anteil(fenster, z, anteil, stufe, '#0c1017', allein)
+        _mining_share(fenster, z, anteil, stufe, '#0c1017', allein)
 
     # ⭐ **Wohin damit?** Die Frage nach dem Fundort ist nur die halbe. Zwanzig
     # Raffinerien teilen sich zehn Profile, und der Unterschied ist kein
@@ -10361,7 +10361,7 @@ def _berg_erz(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
                     anchor='w', padx=12, pady=(6, 10))
 
 
-def _methodenblock(fenster, eltern):
+def _method_box(fenster, eltern):
     """„Welche Verarbeitungsmethode?" — die dritte Frage der Kette.
 
     Wo baue ich ab → wohin bringe ich es → **wie lasse ich es verarbeiten.**
@@ -10483,7 +10483,7 @@ def _methodenblock(fenster, eltern):
     zeichnen()
 
 
-def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
+def _mining_place(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
     """Ein Ort — aufgeklappt steht darunter, was es dort gibt.
 
     ⚠⚠ **Nach Gerät gruppiert, nicht in einer Liste.** Vorher standen auf
@@ -10499,7 +10499,7 @@ def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
         offen['name'] = None if offen['name'] == schluessel else schluessel
         neu_zeichnen()
 
-    _berg_kopfzeile(fenster, eltern, ort['name'],
+    _mining_header(fenster, eltern, ort['name'],
                     '%s · %s' % (ort['system'], ort['typ']), FG, umschalten)
     if offen['name'] != schluessel:
         return
@@ -10537,7 +10537,7 @@ def _berg_ort(fenster, eltern, ort, offen, neu_zeichnen, geraet=''):
             # „Fahrzeug" ist Rauschen — und bei einem Erz, das zu zwei Geräten
             # gehört (Carinite), stünde in beiden Blöcken dasselbe Paar und
             # damit zweimal etwas Falsches.
-            _berg_anteil(fenster, z, anteil, stufe, '#0c1017',
+            _mining_share(fenster, z, anteil, stufe, '#0c1017',
                          len(werte) <= 1)
 
 
@@ -10593,7 +10593,7 @@ def _checkbox(parent, text, on, toggle, small_font):
     return rahmen
 
 
-def _raffinerie_block(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
+def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     """Eine ganze Raffinerie-Ausbeute auf einmal eintragen.
 
     ⚠⚠ **Warum das nicht automatisch geht.** Der Raffinerie-Auftrag steht
@@ -11110,7 +11110,7 @@ def _wishlist(fenster, rahmen):
             #
             # `danach` zeichnet neu, sobald wirklich etwas geholt wurde — sonst
             # müsste man den Reiter wechseln, damit die Ausstattung erscheint.
-            _steckplaetze_nachziehen(innen, erzwingen=True,
+            _fetch_slots(innen, erzwingen=True,
                                      danach=neu_zeichnen)
         else:
             meldung['text'], meldung['farbe'] = t('s_hg_wunsch_doppelt'), RED
@@ -11150,7 +11150,7 @@ def _wishlist(fenster, rahmen):
         _fuellen()
 
     fenster.on_show['wunschliste'] = _beim_zeigen
-    _steckplaetze_nachziehen(innen)
+    _fetch_slots(innen)
     _fuellen()
 
 
@@ -13707,7 +13707,7 @@ def _storage(fenster, rahmen):
     knopf_rahmen.pack(anchor='w', pady=(4, 10))
     meldung.pack(fill='x')
 
-    _raffinerie_block(fenster, innen, lager, ort, zeichnen, meldung)
+    _refinery_box(fenster, innen, lager, ort, zeichnen, meldung)
     # ⚠⚠ **Das Suchfeld wird EINMAL gebaut — nicht in `zeichnen()`.** Dort
     # stand es bis rc28, und `zeichnen()` räumt bei jeder Änderung den ganzen
     # Listenbereich leer: Mit jedem getippten Buchstaben zerstörte sich das
