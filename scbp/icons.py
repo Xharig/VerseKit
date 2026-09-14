@@ -151,6 +151,31 @@ def width(sizes=None):
     return (sizes or BUTTON).get(_LEVEL[0], 22)
 
 
+# Die Stufenfolge — dieselbe Reihenfolge wie in `BUTTON`/`LINE`.
+_STUFEN = ('klein', 'normal', 'gross', 'sehrgross')
+
+
+def hover_px(sizes=None):
+    """Kantenlänge beim Überfahren — **eine Stufe größer** als die aktuelle.
+
+    ⭐ Gewünscht von Blackd0g84 (KRT) am 14.09.2026, zusammen mit der
+    Signalfarbe: *„eine leichte Vergrößerung dessen, worüber man hovert"* —
+    „deutlich sichtbarer und verständlich ohne Erklärung".
+
+    ⚠ Auf der obersten Stufe gibt es keine nächste. Dort wird um denselben
+    Betrag weitergerechnet, den die Stufen sonst auseinanderliegen (4 px),
+    statt die Vergrößerung stillschweigend ausfallen zu lassen — sonst
+    bekämen ausgerechnet die Nutzer mit der größten Schrift keine
+    Rückmeldung.
+    """
+    sizes = sizes or BUTTON
+    hier = _STUFEN.index(_LEVEL[0]) if _LEVEL[0] in _STUFEN else 1
+    jetzt = sizes.get(_LEVEL[0], 22)
+    if hier + 1 < len(_STUFEN):
+        return sizes.get(_STUFEN[hier + 1], jetzt + 4)
+    return jetzt + 4
+
+
 def photo(name, px, color=GREY, master=None):
     """Ein Symbol als `tk.PhotoImage` — beim zweiten Mal aus dem Speicher.
 
@@ -223,9 +248,24 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
         # Farbe bleibt aber `w.symbol_color`. Sonst überschriebe ein Zustands-
         # wechsel während des Überfahrens (grün → rot) die Rückkehrfarbe, und
         # das Symbol bliebe hell hängen, sobald die Maus weiterzieht.
-        farbe = _HOVER.get(w.symbol_color, GREEN) if getattr(
-            w, 'hovered', False) else w.symbol_color
-        n = photo(w.symbol, w.symbol_sizes.get(_LEVEL[0], 22), farbe, w)
+        drauf = getattr(w, 'hovered', False)
+        farbe = _HOVER.get(w.symbol_color, GREEN) if drauf else w.symbol_color
+        ruhe = w.symbol_sizes.get(_LEVEL[0], 22)
+        gross = hover_px(w.symbol_sizes)
+        if getattr(w, 'hoverable', False):
+            # ⭐⭐ **Der Kasten steht immer in der GROSSEN Stufe.** Tauscht man
+            # nur das Bild, wächst das Label mit — gemessen: Eine Reiterzeile
+            # springt von 36 auf 40 px, und alles darunter verrutscht. Der
+            # reservierte Kasten kostet die vier Pixel **einmal** beim Aufbau
+            # und danach nie wieder.
+            #
+            # ⚠ Nur ohne Beschriftung: Bei `compound` rechnet Tk `width` in
+            # ZEICHEN statt in Pixeln, und aus 26 px würden 26 Zeichen.
+            try:
+                w.configure(width=gross, height=gross)
+            except tk.TclError:
+                pass
+        n = photo(w.symbol, gross if drauf else ruhe, farbe, w)
         if n is not None:
             w.configure(image=n)
             w.image = n
@@ -263,6 +303,10 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
     _WIDGETS.append(w)
 
     if action:
+        # ⚠ **Vor dem ersten `show()`**: Die Markierung entscheidet, ob der
+        # Kasten in der grossen Stufe reserviert wird.
+        w.hoverable = not text
+        show()
         w.bind('<Button-1>', lambda e: action())
         # ⭐ **Anklickbares hebt sich beim Überfahren ab.** Gewünscht von
         # Blackd0g84 (KRT) am 14.09.2026: „wenn man über Symbole hovert,
@@ -315,6 +359,11 @@ def hover_group(trigger, *symbols):
     Hervorhebung flackert.
     """
     symbols = [s for s in symbols if s is not None]
+    for s in symbols:
+        # Auch hier: Kasten reservieren, damit spaeter nichts springt.
+        if not str(s.cget('text')):
+            s.hoverable = True
+            s.resize()
     if not symbols and hasattr(trigger, 'resize'):
         # ⚠ Ohne weitere Angabe ist das Symbol sein eigener Auslöser. Das ist
         # der Fall, in dem der Klick direkt am Symbol hängt und es trotzdem

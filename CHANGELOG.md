@@ -8,11 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.37.0 - 2026-09-14
+
+> **Man sieht jetzt, was man anklicken kann.** Fährt die Maus über ein Symbol,
+> leuchtet es in der Markenfarbe auf und wird eine Spur größer — im Overlay,
+> in der Leiste, überall. Was nicht anklickbar ist, bleibt ruhig. Dazu
+> behoben: Die Hervorhebung riss ab, sobald man das Symbol tatsächlich
+> erreichte.
+
 ### Verbessert
 
-- **Die Hervorhebung beim Überfahren ist jetzt die Markenfarbe** statt eines
-  helleren Grau — ein Farbwechsel fällt aus dem Augenwinkel auf, ein
-  Helligkeitswechsel nicht. Angeregt von Blackd0g84 (KRT)
+- **Anklickbares leuchtet beim Überfahren in der Markenfarbe auf und wird
+  etwas größer.** Ein Farbwechsel fällt aus dem Augenwinkel auf, ein
+  Helligkeitswechsel nicht — vorher war es nur ein helleres Grau. Dabei
+  springt nichts: Der Platz für die größere Darstellung ist von vornherein
+  da. Angeregt von Blackd0g84 (KRT)
 
 ### Behoben
 

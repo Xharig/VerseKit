@@ -20350,8 +20350,13 @@ def main():
             # Vorstellung — sie war am 14.09.2026 auf `LIGHT` stehengeblieben,
             # nachdem die Rueckmeldung auf die Markenfarbe umgestellt wurde.
             _soll208 = _ic208._HOVER.get(_farbe208, _ic208.GREEN)
+            # ⚠ Beim Ueberfahren ist das Bild **eine Stufe groesser** — die
+            # Ruhegroesse hier zu erwarten war der Stand vor der
+            # Vergroesserung und haette die Pruefung rot gemacht, obwohl
+            # alles stimmt.
             _erw208 = str(_ic208.photo(
-                _name208, _w208.symbol_sizes.get('normal'), _soll208, _w208))
+                _name208, _ic208.hover_px(_w208.symbol_sizes),
+                _soll208, _w208))
             pruefe(_d208 == _erw208 and _d208 != _r208,
                    '%s(%s, %s) zeigt beim Ueberfahren den Satz „%s"'
                    % (_bauer208.__name__, _name208, _farbe208, _soll208))
@@ -20503,6 +20508,54 @@ def main():
             _takt208()
             pruefe(str(_symbol208.cget('image')) == _ruhe208,
                    '  und geht aus, wenn die Maus die Zeile wirklich verlaesst')
+
+            # ⭐⭐ **Groesser werden — ohne dass etwas springt.**
+            # Gewuenscht von Blackd0g84 (KRT) zusammen mit der Signalfarbe.
+            # Der Kasten steht deshalb immer in der GROSSEN Stufe; nur das
+            # Bild darin wechselt. Taeuscht man sich hier, springt die ganze
+            # Liste darunter um vier Pixel (gemessen: Zeile 36 -> 40 px).
+            _kasten208 = (_symbol208.winfo_width(), _symbol208.winfo_height())
+            _zeilenhoehe208 = _zeile208.winfo_height()
+            _klein208 = (_symbol208.image.width(), _symbol208.image.height())
+            _zeile208.event_generate('<Enter>')
+            _takt208()
+            _gross208 = (_symbol208.image.width(), _symbol208.image.height())
+            pruefe(_gross208[0] > _klein208[0] and _gross208[1] > _klein208[1],
+                   'das Symbol wird beim Ueberfahren groesser (%dx%d -> %dx%d)'
+                   % (_klein208 + _gross208))
+            pruefe((_symbol208.winfo_width(),
+                    _symbol208.winfo_height()) == _kasten208
+                   and _zeile208.winfo_height() == _zeilenhoehe208,
+                   '  und weder Kasten noch Zeile springen dabei')
+            _zeile208.event_generate('<Leave>')
+            _takt208()
+            pruefe((_symbol208.image.width(),
+                    _symbol208.image.height()) == _klein208,
+                   '  danach ist es wieder so gross wie vorher')
+            # Und die Vergroesserung gilt in jeder Stufe, die es im CODE gibt.
+            #
+            # ⚠ Das sind vier — die Oberflaeche bietet aber nur **drei** an:
+            # „sehr gross" ist seit dem 30.08.2026 nicht mehr waehlbar (die
+            # Mindesthoehe wurde damals groesser als ein Bildschirm). Der Wert
+            # bleibt gueltig fuer alle, die ihn frueher gespeichert haben —
+            # deshalb wird er hier mitgeprueft, und deshalb heisst es „Stufe",
+            # nicht „waehlbare Schriftgroesse".
+            _ohne208 = [s for s in _ic208._STUFEN
+                        if _ic208.BUTTON[s] >= _ic208.hover_px(_ic208.BUTTON)]
+            _merk208 = _ic208.level()
+            try:
+                _ohne208 = []
+                for _s208 in _ic208._STUFEN:
+                    _ic208.set_level(_s208)
+                    if _ic208.hover_px(_ic208.BUTTON) <= _ic208.BUTTON[_s208]:
+                        _ohne208.append(_s208)
+            finally:
+                _ic208.set_level(_merk208)
+            pruefe(not _ohne208,
+                   '  in jeder der %d Stufen im Code (waehlbar sind 3)%s'
+                   % (len(_ic208._STUFEN),
+                      ' — NICHT bei: ' + ', '.join(_ohne208)
+                      if _ohne208 else ''))
     finally:
         _f208.root.destroy()
 

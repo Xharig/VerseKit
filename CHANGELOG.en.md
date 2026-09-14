@@ -8,11 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.37.0 - 2026-09-14
+
+> **You can now see what is clickable.** Move the mouse over an icon and it
+> lights up in the brand colour and grows a touch — in the overlay, in the
+> sidebar, everywhere. Anything that is not clickable stays quiet. Also fixed:
+> the highlight broke off the moment you actually reached the icon.
+
 ### Improved
 
-- **The hover highlight is now the brand colour** instead of a lighter grey —
-  a change of colour catches the eye, a change of brightness does not.
-  Suggested by Blackd0g84 (KRT)
+- **Anything clickable lights up in the brand colour and grows a little as
+  the mouse passes over it.** A change of colour catches the eye, a change of
+  brightness does not — before it was only a lighter grey. Nothing jumps:
+  the room for the larger version is reserved from the start. Suggested by
+  Blackd0g84 (KRT)
 
 ### Fixed
 
