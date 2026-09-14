@@ -4983,7 +4983,7 @@ def anmelden(rueckruf):
     Englisch stellte, hatte danach ein englisches Hauptfenster und eine
     deutsche Melde-Leiste. Wer hier anmeldet, wird mitgezogen.
 
-    Dasselbe Muster wie `autostart.anzeige_anmelden()`."""
+    Dasselbe Muster wie `autostart.register_display()`."""
     if rueckruf not in _zuhoerer:
         _zuhoerer.append(rueckruf)
 

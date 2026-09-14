@@ -38,7 +38,7 @@ darf dort nicht mithoeren, was in einem anderen Fenster getippt wird — genau
 das braeuchte ein globaler Hotkey. Der Weg dorthin fuehrt ueber die
 Tastenkombinationen des Schreibtischs; `grund()` sagt das, und die
 Einstellungsseite zeigt den fertigen Befehl zum Hinterlegen. Der Doppelstart
-holt das laufende Programm schon heute nach vorn (siehe `overlay.zeigen_bitte`).
+holt das laufende Programm schon heute nach vorn (siehe `overlay.please_show`).
 
 ⚠ **Frueher stand hier: „unter Windows fragil".** Das galt fuer
 Tastatur-Haken (`SetWindowsHookEx`), die tief im System sitzen und von
@@ -419,7 +419,7 @@ class Watch:
         die Oberfläche macht daraus einen Text in der richtigen Sprache."""
         self.unregister()
         # ⚠ **Erst die Eingabe, dann das System.** Umgekehrt kam die
-        # Eingabeprüfung unter Wayland nie dran: Dort meldete `moeglich()`
+        # Eingabeprüfung unter Wayland nie dran: Dort meldete `possible()`
         # sofort `wayland`, und eine unsinnige Kombination bekam dieselbe
         # Auskunft wie eine gültige. Der Nutzer las „geht unter Wayland
         # nicht", obwohl schon das Eingetippte keine Kombination war.

@@ -603,7 +603,7 @@ def bauen(version='', wurzel=None, fehleranzahl=8, meldung=''):
     # ⚠ Nur Zahlen und Zustaende; der Bericht landet in einem oeffentlichen
     # Issue. Steht kein Overlay (Pruefstand, reines Fensterprogramm), bleibt
     # die Zeile weg statt „unbekannt" zu melden.
-    _lage = _sicher(lambda: (overlay.LAGE_BERICHT[0] or (lambda: ''))())
+    _lage = _sicher(lambda: (overlay.STATE_REPORT[0] or (lambda: ''))())
     if _lage:
         zeile(t('b_overlay'), _lage)
     zeilen.append('')

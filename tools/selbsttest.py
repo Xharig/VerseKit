@@ -2599,18 +2599,18 @@ def main():
         # bleibt — dasselbe macht jetzt ein eigenes kleines Fenster, das nie
         # durchlaessig gemacht wird.
         from scbp import overlay as ov31
-        pruefe(hasattr(ov31, 'SCHLOSS_RUECKRUF'),
+        pruefe(hasattr(ov31, 'LOCK_CALLBACK'),
                'overlay kennt den Rueckruf fuers Schloss')
         # Der Rueckruf MUSS beim Umschalten kommen — sonst bliebe das Schloss
         # stehen, obwohl niemand mehr durchklickt (oder umgekehrt).
         gerufen31 = []
-        alt31 = ov31.SCHLOSS_RUECKRUF[0]
-        ov31.SCHLOSS_RUECKRUF[0] = lambda an: gerufen31.append(an)
+        alt31 = ov31.LOCK_CALLBACK[0]
+        ov31.LOCK_CALLBACK[0] = lambda an: gerufen31.append(an)
         try:
-            ov31.durchklickbar_setzen(None, False)
+            ov31.set_click_through(None, False)
         except Exception:
             pass
-        ov31.SCHLOSS_RUECKRUF[0] = alt31
+        ov31.LOCK_CALLBACK[0] = alt31
         pruefe(len(gerufen31) == 1,
                'jedes Umschalten meldet sich beim Schloss (%d Rufe)' % len(gerufen31))
         # ⚠ Scheitert das Durchreichen, darf KEIN Schloss stehen — es waere ein
@@ -2618,13 +2618,13 @@ def main():
         pruefe(gerufen31 == [False],
                'ohne wirksames Durchreichen kommt auch kein Schloss')
         # Ein Rueckruf, der wirft, darf das Schalten nicht kippen.
-        ov31.SCHLOSS_RUECKRUF[0] = lambda an: 1 / 0
+        ov31.LOCK_CALLBACK[0] = lambda an: 1 / 0
         try:
-            ov31.durchklickbar_setzen(None, False)
+            ov31.set_click_through(None, False)
             heil31 = True
         except ZeroDivisionError:
             heil31 = False
-        ov31.SCHLOSS_RUECKRUF[0] = alt31
+        ov31.LOCK_CALLBACK[0] = alt31
         pruefe(heil31, 'ein Fehler im Schloss reisst das Umschalten nicht mit')
         # Die Symbole muessen da sein — sonst ist das Schloss unsichtbar, und
         # genau das ist heute schon einmal passiert (das X im Herkunftskasten).
@@ -3091,20 +3091,20 @@ def main():
         # Absturz, sondern ein geordneter Abgang.
         import socket as so24
         from scbp import overlay as ov24
-        alt_port24 = ov24.WAECHTER_PORT
-        ov24.WAECHTER_PORT = 47990
+        alt_port24 = ov24.WATCHDOG_PORT
+        ov24.WATCHDOG_PORT = 47990
         try:
-            gestartet24 = ov24.waechter_starten(lambda: None)
+            gestartet24 = ov24.start_watchdog(lambda: None)
             pruefe(gestartet24, 'der Waechter laesst sich starten')
             time.sleep(0.2)
-            ov24.waechter_stoppen()
+            ov24.stop_watchdog()
             time.sleep(0.3)
             probe24 = so24.socket(so24.AF_INET, so24.SOCK_STREAM)
             probe24.setsockopt(so24.SOL_SOCKET, so24.SO_REUSEADDR, 1)
             frei24 = True
             grund24 = ''
             try:
-                probe24.bind(('127.0.0.1', ov24.WAECHTER_PORT))
+                probe24.bind(('127.0.0.1', ov24.WATCHDOG_PORT))
                 probe24.listen(4)
             except OSError as ausnahme24:
                 frei24 = False
@@ -3120,13 +3120,15 @@ def main():
                             encoding='utf-8').read()
             # ⚠ Bis zur naechsten Funktion schneiden, nicht auf Zeichenzahl —
             # ein langer Kommentar schob den Aufruf sonst aus dem Fenster.
-            block24 = quelle24.split('def waechter_stoppen')[1].split('\ndef ')[0]
+            # ⛔ Und ueber `rumpf()`, nicht ueber `split(...)[1]`: Der warf bei
+            # der Umbenennung und riss den ganzen Lauf mit. → Regel 7.51
+            block24 = rumpf(quelle24, 'stop_watchdog')
             pruefe('shutdown(' in block24,
-                   'waechter_stoppen bricht das wartende accept() ab')
+                   'stop_watchdog bricht das wartende accept() ab')
         finally:
-            ov24.WAECHTER_PORT = alt_port24
+            ov24.WATCHDOG_PORT = alt_port24
             try:
-                ov24.waechter_stoppen()
+                ov24.stop_watchdog()
             except Exception:
                 pass
 
@@ -3861,7 +3863,7 @@ def main():
            'in der Overlay-Leiste steht ein offenes Schloss')
     # ⚠ Nur, wo das System es kann. Unter nativem Wayland waere ein Knopf ohne
     #   Wirkung schlimmer als keiner — dieselbe Regel wie beim Schalter.
-    pruefe(_q44.index('overlay.durchklickbar_moeglich()')
+    pruefe(_q44.index('overlay.click_through_possible()')
            < _q44.index("icons.button(bar, 'schloss_auf'"),
            'und zwar nur, wenn das System Klicks durchreichen kann')
     pruefe(os.path.exists(os.path.join(WURZEL, 'assets', 'symbole',
@@ -4329,7 +4331,7 @@ def main():
     #    am Overlay (dort merkt man den fehlenden Bauplan) und in den
     #    Einstellungen (dort sucht man danach).
     from scbp import overlay as ov47
-    pruefe(hasattr(ov47, 'neu_einlesen_anstossen'),
+    pruefe(hasattr(ov47, 'request_rescan'),
            'der Anstoss geht ueber einen Rueckruf wie beim Schloss')
     _w47 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
     pruefe('self.neulesen_lbl' in _w47, 'ein Knopf sitzt in der Overlay-Leiste')
@@ -4513,7 +4515,7 @@ def main():
         os.environ['APPIMAGE'] = '/home/wer/Programme/SC-BP-Watcher.AppImage'
         sys.frozen = True
         _im50.reload(_as50)
-        _befehl50 = _as50.befehl()
+        _befehl50 = _as50.command()
         pruefe('/tmp/.mount' not in _befehl50,
                'kein Wegwerf-Pfad aus dem AppImage-Einhaengepunkt')
         pruefe(_befehl50 == '/home/wer/Programme/SC-BP-Watcher.AppImage',
@@ -9116,9 +9118,9 @@ def main():
     # Knopf weg ist — der Text erwaehnt ihn ja. Geprueft wird der CODE.
     _code95 = chr(10).join(_z for _z in _q95.split(chr(10))
                            if not _z.strip().startswith('#'))
-    pruefe(_code95.count('neu_einlesen_anstossen') == 1,
+    pruefe(_code95.count('request_rescan') == 1,
            'nur eine Stelle stoesst das erneute Einlesen an (%d)'
-           % _code95.count('neu_einlesen_anstossen'))
+           % _code95.count('request_rescan'))
     pruefe('logstand.json' not in _code95,
            'der zweite Knopf unter „Erkennung" ist weg — kein Loeschen des '
            'Lesestands mehr in der Oberflaeche')
@@ -19537,7 +19539,7 @@ def main():
 
         # --- Verschieben hebt die Ecke auf ------------------------------
         _gerufen199 = []
-        _ov199.ECKEN_ANZEIGE[0] = lambda k: _gerufen199.append(k)
+        _ov199.CORNER_DISPLAY[0] = lambda k: _gerufen199.append(k)
         _pf199.einstellung_setzen('overlay_ecke', 'unten-links')
         _ov._drag_von = (_ov.root.winfo_x(), _ov.root.winfo_y())
         _ov._verschoben()
@@ -19579,7 +19581,7 @@ def main():
             if _pf199 is not None:
                 _pf199.einstellung_setzen('overlay_ecke', 'frei')
                 _pf199.einstellung_setzen('overlay_leiste', '')
-            _ov199.ECKEN_ANZEIGE[0] = None
+            _ov199.CORNER_DISPLAY[0] = None
             _w199.destroy()
         except Exception:
             pass

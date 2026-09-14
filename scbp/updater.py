@@ -1343,7 +1343,7 @@ def restart():
     if packaging() == 'quellcode':
         return False
     try:
-        overlay_modul.waechter_stoppen()
+        overlay_modul.stop_watchdog()
 
         # Wartet ein Hilfsskript darauf, die Datei zu tauschen, ist unser Teil
         # hier **erledigt** — es startet die neue Version selbst. Siehe die

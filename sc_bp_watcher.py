@@ -1707,7 +1707,7 @@ class Watcher(threading.Thread):
         # 5) Alles, was schon im Bestand steht, gilt als bekannt — es wird nicht
         #    als „neu" gemeldet.
         self.seen = set(bestand_datei.keys(self.bestand))
-        overlay.NEULESEN_RUECKRUF[0] = self.neu_einlesen_anstossen
+        overlay.RESCAN_CALLBACK[0] = self.neu_einlesen_anstossen
         self.tail.new_names()          # Lesestand der Game.log setzen/fortführen
         # ⚠ Was dieser Aufruf an Auftragsereignissen aufgesammelt hat, ist
         # Vergangenheit — es steht in der Log, die gleich ohnehin ganz gelesen
@@ -1886,14 +1886,14 @@ class Overlay:
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
         # setzen kann, ohne dass `seiten.py` das Hauptprogramm importieren müsste.
         screen.OVERLAY[0] = self.root
-        overlay.OVERLAY_FENSTER[0] = self.root
+        overlay.OVERLAY_WINDOW[0] = self.root
         # Merken, ob der Zeiger auf dem Overlay steht — das entscheidet, ob eine
         # Einblendung stehen bleibt. Echte Ereignisse statt Positionsabfrage.
         self.root.bind('<Enter>', lambda e: setattr(self, '_maus_drauf', True),
                        add='+')
         self.root.bind('<Leave>', lambda e: setattr(self, '_maus_drauf', False),
                        add='+')
-        overlay.OVERLAY_STEUERUNG[0] = self
+        overlay.OVERLAY_CONTROL[0] = self
         # Damit jeder festgehaltene Fehler weiß, aus welcher Version er stammt.
         fehler.VERSION[0] = __version__
         # ⚠ Der Produktname steht NUR in `sprache.py` (`hf_titel`). Hier stand
@@ -1915,9 +1915,9 @@ class Overlay:
         self._schloss_folgt = False    # Merker fuer `_schloss_lage_folgen`
         # Das Schloss zieht mit, egal wer das Durchreichen umschaltet — hier im
         # Overlay oder drüben in den Einstellungen.
-        overlay.SCHLOSS_RUECKRUF[0] = self._schloss_anwenden
+        overlay.LOCK_CALLBACK[0] = self._schloss_anwenden
         # Damit die Lage des Overlays im Fehlerbericht steht — siehe dort.
-        overlay.LAGE_BERICHT[0] = self._lage_bericht
+        overlay.STATE_REPORT[0] = self._lage_bericht
         self._maus_drauf = False
         # Durchsichtigkeit einstellbar (30–100 %). Wer nur **einen** Monitor hat,
         # legt das Overlay zwangsläufig übers Spiel — dann muss man hindurchsehen
@@ -2019,7 +2019,7 @@ class Overlay:
         # Nur, wo das System es überhaupt kann: Unter nativem Wayland wäre ein
         # Knopf ohne Wirkung schlimmer als keiner — dieselbe Regel wie beim
         # Schalter in den Einstellungen.
-        if overlay.durchklickbar_moeglich():
+        if overlay.click_through_possible():
             self.schloss_lbl = icons.button(bar, 'schloss_auf',
                                              self._schloss_zusperren,
                                              font=self.f_title)
@@ -2645,7 +2645,7 @@ class Overlay:
             pfade.einstellung_setzen('overlay_ecke', 'frei')
             # Die Auswahlliste auf der Seite „Anzeige" mitziehen, falls sie
             # gerade offen ist — sonst steht dort weiter die alte Ecke.
-            ruf = overlay.ECKEN_ANZEIGE[0]
+            ruf = overlay.CORNER_DISPLAY[0]
             if ruf is not None:
                 ruf('frei')
         except Exception as ausnahme:
@@ -3788,7 +3788,7 @@ class Overlay:
             return True                  # nie eingeschaltet gewesen: nichts zu tun
         self._durchklick_war_an = an
         try:
-            geklappt = overlay.durchklickbar_setzen(self.root, an)
+            geklappt = overlay.set_click_through(self.root, an)
         except Exception as ausnahme:
             fehler.merken('overlay.durchklick', ausnahme)
             geklappt = False
@@ -3804,7 +3804,7 @@ class Overlay:
         # Einstellung ohnehin zurueckgenommen — dann darf der Schalter nicht
         # „an" zeigen.
         try:
-            anzeigen = overlay.DURCHKLICK_ANZEIGE[0]
+            anzeigen = overlay.CLICK_THROUGH_DISPLAY[0]
             if anzeigen is not None:
                 anzeigen(an and geklappt)
         except Exception as ausnahme:
@@ -4250,7 +4250,7 @@ class Overlay:
 
         Die Arbeit macht der Watcher-Faden, hier wird nur gebeten. Läuft keiner,
         wird das gesagt, statt so zu tun als sei etwas passiert."""
-        if overlay.neu_einlesen_anstossen():
+        if overlay.request_rescan():
             self._status_setzen(sprache.Satz('s_be_neu_los'))
         else:
             self._status_setzen(sprache.Satz('s_be_neu_kein'))
@@ -4655,7 +4655,7 @@ class Overlay:
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
         # deshalb die Arbeit per `after` an Tk übergeben, nicht dort erledigen.
-        overlay.waechter_starten(
+        overlay.start_watchdog(
             lambda: self.root.after(0, self.hervorholen))
         self.hotkey_anmelden()
         self.root.mainloop()
@@ -4675,7 +4675,7 @@ if __name__ == '__main__':
     # ⚠ Läuft schon eine Version? Dann keine zweite öffnen, sondern der
     # vorhandenen sagen, sie soll sich zeigen. Genau darüber führt der Weg zurück,
     # wenn das Overlay im Pop-up-Betrieb unsichtbar ist.
-    if overlay.zeigen_bitte():
+    if overlay.please_show():
         sys.exit(0)
 
     # ⚠ Windows-Kennzeichen, damit der Installer uns findet und vor dem
@@ -4687,7 +4687,7 @@ if __name__ == '__main__':
     #
     # Der Name muss mit `AppMutex` in `packaging/installer.iss` übereinstimmen.
     # Das Kennzeichen wird nur gesetzt, nie abgefragt — den Einzelstart regelt
-    # `overlay.zeigen_bitte()` oben.
+    # `overlay.please_show()` oben.
     if pfade.WINDOWS:
         try:
             import ctypes
@@ -4707,7 +4707,7 @@ if __name__ == '__main__':
     # Sie bleibt versteckt, bis das Overlay sie übernimmt: Ein leeres graues
     # Fenster hinter dem Assistenten hätte niemand erklären können.
     # ⚠ Erst hier, nicht weiter oben: Eine zweite Instanz beendet sich in
-    # `zeigen_bitte()` wieder, und die legt sonst die Absturzspur der laufenden
+    # `please_show()` wieder, und die legt sonst die Absturzspur der laufenden
     # beiseite. Ab dieser Zeile ist ein harter Abbruch nachlesbar — ein SIGSEGV
     # aus Tk hinterlässt sonst nichts, was man melden könnte.
     fehler.absturzfaenger()

@@ -1670,20 +1670,20 @@ def _general(fenster, rahmen):
                  t('autostart_win') if sys.platform.startswith('win')
                  else t('autostart_linux'),
                  t('s_autostart_h'))
-    if autostart.moeglich():
+    if autostart.possible():
         def autostart_um():
-            neu_wert = not autostart.ist_an()
-            autostart.setzen(neu_wert)
+            neu_wert = not autostart.is_on()
+            autostart.set(neu_wert)
             fenster.say(t('s_al_autostart')
                           % (t('e_an') if neu_wert else t('e_aus')))
-            return autostart.ist_an()
+            return autostart.is_on()
 
-        schalter = toggle_switch(ziel, autostart.ist_an(), autostart_um)
+        schalter = toggle_switch(ziel, autostart.is_on(), autostart_um)
         schalter.pack()
         # Mitschalten, wenn der Autostart woanders umgestellt wird — etwa am
         # Symbol im Overlay, das ja gleichzeitig sichtbar ist.
-        autostart.anzeige_anmelden(
-            lambda: schalter.draw(autostart.ist_an()))
+        autostart.register_display(
+            lambda: schalter.draw(autostart.is_on()))
     else:
         tk.Label(ziel, text=t('s_nicht_moegl'), bg=BG, fg=SUB,
                  font=fenster.f_small).pack()
@@ -1748,7 +1748,7 @@ def _display(fenster, rahmen):
     # ⚠ `select_quiet`: Die Auswahl soll sich nur neu beschriften, nicht den
     # Rueckruf ausloesen — der wuerde die Ecke gleich wieder anwenden.
     from . import overlay as _ov_anzeige
-    _ov_anzeige.ECKEN_ANZEIGE[0] = lambda k: ecke.select_quiet(k)
+    _ov_anzeige.CORNER_DISPLAY[0] = lambda k: ecke.select_quiet(k)
 
     # ⭐ **Wo die Leiste sitzt, entscheidet der Nutzer** (13.09.2026). Bisher
     # hing das an der Ecke: untere Ecke = Leiste unten, sonst oben. Seit ein
@@ -1806,7 +1806,7 @@ def _display(fenster, rahmen):
         # ⚠ `overlay` wird hier lokal geholt wie ueberall in dieser Datei:
         # Auf Modulebene waere es ein Zirkelbezug.
         from . import overlay as _ov
-        _ov.DURCHKLICK_ANZEIGE[0] = _nachziehen
+        _ov.CLICK_THROUGH_DISPLAY[0] = _nachziehen
     else:
         # Ehrlich statt still: Unter nativem Wayland kann ein gewöhnliches Fenster
         # keine Klicks weiterreichen. Ein Schalter, der nichts bewirkt, wäre
@@ -2110,7 +2110,7 @@ def _overlay_corner(fenster, wahl, kennung):
     except Exception:
         pass
     from . import overlay as ov
-    steuerung = ov.OVERLAY_STEUERUNG[0]
+    steuerung = ov.OVERLAY_CONTROL[0]
     if steuerung is not None and hasattr(steuerung, 'ecke_anwenden'):
         steuerung.ecke_anwenden()
 
@@ -2127,7 +2127,7 @@ def _overlay_bar(fenster, wahl, kennung):
     except Exception:
         pass
     from . import overlay as ov
-    steuerung = ov.OVERLAY_STEUERUNG[0]
+    steuerung = ov.OVERLAY_CONTROL[0]
     if steuerung is not None and hasattr(steuerung, 'leiste_anwenden'):
         steuerung.leiste_anwenden()
 
@@ -2170,7 +2170,7 @@ def _hotkey_field(fenster, innen):
         # erfaehrt man sonst zu einem Zeitpunkt, an dem niemand mehr weiss,
         # dass er etwas eingestellt hat.
         from . import overlay as ov
-        wache = getattr(ov.OVERLAY_STEUERUNG[0], 'hotkey', None)
+        wache = getattr(ov.OVERLAY_CONTROL[0], 'hotkey', None)
         if wache is None:
             fenster.say(t('e_neustart_noetig'))
             return
@@ -2264,7 +2264,7 @@ def _menu_entry_field(fenster, innen):
 def _click_through_possible():
     from . import overlay
     try:
-        return overlay.durchklickbar_moeglich()
+        return overlay.click_through_possible()
     except Exception:
         return False
 
@@ -2275,10 +2275,10 @@ def _click_through_toggle(fenster):
     neu_wert = not pfade.einstellung_wahrheit('durchklickbar', False)
     pfade.einstellung_setzen('durchklickbar', neu_wert)
     geklappt = True
-    wurzel = overlay.OVERLAY_FENSTER[0] if overlay.OVERLAY_FENSTER else None
+    wurzel = overlay.OVERLAY_WINDOW[0] if overlay.OVERLAY_WINDOW else None
     if wurzel is not None:
         try:
-            geklappt = overlay.durchklickbar_setzen(wurzel, neu_wert)
+            geklappt = overlay.set_click_through(wurzel, neu_wert)
         except Exception as ausnahme:
             fehler.merken('seiten.durchklick', ausnahme)
             geklappt = False
@@ -2296,7 +2296,7 @@ def _overlay_mode(fenster, wahl, kennung):
     from . import overlay, pfade
     wahl.select(kennung)
     pfade.einstellung_setzen('overlay_modus', kennung)
-    wurzel = overlay.OVERLAY_FENSTER[0] if overlay.OVERLAY_FENSTER else None
+    wurzel = overlay.OVERLAY_WINDOW[0] if overlay.OVERLAY_WINDOW else None
     if wurzel is not None:
         try:
             if kennung == 'popup':
@@ -2703,14 +2703,14 @@ def _collection(fenster, rahmen):
     # fehlt. Denselben Knopf gibt es am Overlay — dort ist er näher an dem
     # Moment, in dem jemand merkt, dass ein Bauplan nicht angekommen ist.
     #
-    # Die Arbeit macht der Watcher-Faden (`overlay.neu_einlesen_anstossen`),
+    # Die Arbeit macht der Watcher-Faden (`overlay.request_rescan`),
     # nicht diese Seite: Der Bestand wird an genau einer Stelle geschrieben,
     # sonst überschreibt der Faden das Ergebnis beim nächsten Fund.
     ziel = _setting_row(fenster, innen, t('s_be_neu'), t('s_be_neu_h'))
 
     def neu_einlesen():
         from . import overlay as ov
-        fenster.say(t('s_be_neu_los') if ov.neu_einlesen_anstossen()
+        fenster.say(t('s_be_neu_los') if ov.request_rescan()
                       else t('s_be_neu_kein'))
 
     # ⚠⚠ **Nicht rot — der Knopf kann nichts kaputt machen.** Bis v3.5.1 war er

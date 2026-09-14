@@ -29,7 +29,7 @@ Zwei getrennte Antworten darauf, beide abschaltbar:
 **1. Nur zeigen, wenn es etwas zu sagen gibt.** Statt dauernd dazustehen bleibt das
 Overlay unsichtbar und taucht bei einem neuen Bauplan für ein paar Sekunden auf.
 Was dann noch fehlt, ist ein Weg zurück — den liefert der Einzelinstanz-Wächter
-(siehe `zeigen_bitte`): Das Programm ein zweites Mal starten holt das vorhandene
+(siehe `please_show`): Das Programm ein zweites Mal starten holt das vorhandene
 Fenster hervor, statt eine zweite Version zu öffnen. Damit reicht eine ganz normale
 Tastenkombination des Systems auf die Verknüpfung.
 
@@ -58,22 +58,22 @@ WINDOWS = sys.platform.startswith('win')
 
 # Fester Port auf dem eigenen Rechner für den Einzelinstanz-Wächter. Nichts
 # davon geht ins Netz: gebunden wird ausschließlich an 127.0.0.1.
-WAECHTER_PORT = 47913
-_waechter = [None]
+WATCHDOG_PORT = 47913
+_watchdog = [None]
 
 # Das Overlay-Fenster selbst. Das Hauptprogramm trägt sich beim Start ein, damit
 # die Einstellungsseite eine Änderung sofort anwenden kann, ohne das
 # Hauptprogramm importieren zu müssen (das gäbe einen Ringschluss).
-OVERLAY_FENSTER = [None]
+OVERLAY_WINDOW = [None]
 
 # Das Overlay-Objekt selbst (nicht nur sein Tk-Fenster). Darüber kann die
 # Einstellungsseite eine Änderung sofort anwenden lassen.
-OVERLAY_STEUERUNG = [None]
+OVERLAY_CONTROL = [None]
 
 
 # --------------------------------------------------------- Mausklicks durchreichen
 
-def _windows_durchklickbar(fenster, an):
+def _windows_click_through(fenster, an):
     try:
         fenster.update_idletasks()
         kennung = ctypes.windll.user32.GetParent(fenster.winfo_id()) or fenster.winfo_id()
@@ -95,7 +95,7 @@ def _windows_durchklickbar(fenster, an):
         return False
 
 
-def _x11_durchklickbar(fenster, an):
+def _x11_click_through(fenster, an):
     """Die Eingabe-Region auf leer setzen — dann fällt jeder Klick hindurch.
 
     ⚠ Die Typen müssen von Hand gesetzt werden. Ohne `restype` nimmt ctypes für
@@ -162,7 +162,7 @@ def _x11_durchklickbar(fenster, an):
         return False
 
 
-def durchklickbar_moeglich():
+def click_through_possible():
     """Lässt sich auf diesem System überhaupt durchklicken?"""
     if WINDOWS:
         return True
@@ -184,7 +184,7 @@ def durchklickbar_moeglich():
 # „der zweite Programmstart ist die denkbar dümmste Lösung, weil man dann
 # raustabben muss aus dem Spiel." Ryze löst es beim TeamSpeak-Plugin mit einem
 # Schloss, das anklickbar bleibt — denselben Weg gehen wir.
-SCHLOSS_RUECKRUF = [None]
+LOCK_CALLBACK = [None]
 
 # ⭐ **Der Bericht muss mitwachsen.** Am 13.09.2026 kam die Meldung „im
 # eingeklappten Zustand sitzt das Schloss nicht ganz genau da, wo es sitzen
@@ -201,7 +201,7 @@ SCHLOSS_RUECKRUF = [None]
 # Das Overlay haengt seine Auskunft hier ein; `bericht.bauen()` fragt sie ab.
 # Ueber ein Modul, weil der Bericht aus `seiten.py` gebaut wird und von dort
 # das Overlay nicht erreichbar ist — derselbe Weg wie beim Schloss-Rueckruf.
-LAGE_BERICHT = [None]
+STATE_REPORT = [None]
 
 # ⚠⚠ **Der Schalter in den Einstellungen muss mitgehen.** Das Durchreichen
 # laesst sich an ZWEI Stellen umlegen: mit dem Schloss am Overlay und mit dem
@@ -212,7 +212,7 @@ LAGE_BERICHT = [None]
 #
 # Die Seite haengt hier ihre Zeichenfunktion ein; das Overlay ruft sie nach
 # jeder Aenderung. `None` heisst schlicht: Die Seite wurde nie gebaut.
-DURCHKLICK_ANZEIGE = [None]
+CLICK_THROUGH_DISPLAY = [None]
 
 # ⭐ **Dasselbe fuer die Ecken-Auswahl** (13.09.2026). Wer das Overlay mit der
 # Hand an eine andere Stelle zieht, hat damit gesagt „hier will ich es" — die
@@ -225,7 +225,7 @@ DURCHKLICK_ANZEIGE = [None]
 # die Auswahlliste auf der Seite „Anzeige" muss das sehen. Sonst steht dort
 # weiter „unten links", waehrend das Fenster woanders sitzt: zwei Anzeigen fuer
 # denselben Zustand, die sich widersprechen.
-ECKEN_ANZEIGE = [None]
+CORNER_DISPLAY = [None]
 
 # Dasselbe für „Protokolle erneut einlesen". Beide Bedienelemente — der Knopf am
 # Overlay und der in den Einstellungen — rufen hier an; die Arbeit macht der
@@ -236,15 +236,15 @@ ECKEN_ANZEIGE = [None]
 # speicherte, überschriebe der Faden das beim nächsten Fund mit seinem eigenen,
 # älteren Stand — die neu gefundenen Baupläne wären wieder weg. Es gibt genau
 # einen Ort, an dem der Bestand angefasst wird, und das bleibt so.
-NEULESEN_RUECKRUF = [None]
+RESCAN_CALLBACK = [None]
 
 
-def neu_einlesen_anstossen():
+def request_rescan():
     """Bitten, alle Protokolle noch einmal durchzusehen.
 
     Gibt zurück, ob jemand zugehört hat — ohne laufenden Watcher passiert
     nichts, und der Aufrufer soll das sagen können statt so zu tun."""
-    ruf = NEULESEN_RUECKRUF[0]
+    ruf = RESCAN_CALLBACK[0]
     if ruf is None:
         return False
     try:
@@ -254,11 +254,11 @@ def neu_einlesen_anstossen():
         return False
 
 
-def durchklickbar_setzen(fenster, an):
+def set_click_through(fenster, an):
     """Klicks durchreichen (oder wieder abfangen). Gibt zurück, ob es geklappt hat."""
-    geklappt = (_windows_durchklickbar(fenster, an) if WINDOWS
-                else _x11_durchklickbar(fenster, an))
-    ruf = SCHLOSS_RUECKRUF[0]
+    geklappt = (_windows_click_through(fenster, an) if WINDOWS
+                else _x11_click_through(fenster, an))
+    ruf = LOCK_CALLBACK[0]
     if ruf is not None:
         try:
             ruf(an and geklappt)
@@ -269,7 +269,7 @@ def durchklickbar_setzen(fenster, an):
 
 # ------------------------------------------------ Zweiter Start holt das Fenster
 
-def waechter_starten(beim_ruf):
+def start_watchdog(beim_ruf):
     """Lauschen, ob jemand das Fenster hervorholen möchte.
 
     Warum überhaupt: Im Pop-up-Betrieb ist das Overlay die meiste Zeit unsichtbar.
@@ -287,11 +287,11 @@ def waechter_starten(beim_ruf):
     try:
         horcher = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         horcher.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        horcher.bind(('127.0.0.1', WAECHTER_PORT))
+        horcher.bind(('127.0.0.1', WATCHDOG_PORT))
         horcher.listen(4)
     except OSError:
         return False                     # läuft schon — wir sind die zweite Version
-    _waechter[0] = horcher
+    _watchdog[0] = horcher
 
     def lauschen():
         while True:
@@ -316,7 +316,7 @@ def waechter_starten(beim_ruf):
     return True
 
 
-def waechter_stoppen():
+def stop_watchdog():
     """Den Horcher schließen — nötig vor einem Neustart des Programms.
 
     ⚠ Ohne das kann sich das Programm nicht selbst neu starten: Die frisch
@@ -324,8 +324,8 @@ def waechter_stoppen():
     sagt der alten „zeig dich" und beendet sich. Man bliebe ewig auf der alten
     Version sitzen und wüsste nicht, warum.
     """
-    horcher = _waechter[0]
-    _waechter[0] = None
+    horcher = _watchdog[0]
+    _watchdog[0] = None
     if horcher is None:
         return
     # ⚠ **`close()` allein genügt nicht** — und daran ist der Selbst-Neustart
@@ -354,10 +354,10 @@ def waechter_stoppen():
         pass
 
 
-def zeigen_bitte():
+def please_show():
     """Einer laufenden Version sagen, sie soll sich zeigen. True = ausgerichtet."""
     try:
-        with socket.create_connection(('127.0.0.1', WAECHTER_PORT), timeout=2) as s:
+        with socket.create_connection(('127.0.0.1', WATCHDOG_PORT), timeout=2) as s:
             s.sendall(b'zeigen')
         return True
     except OSError:
