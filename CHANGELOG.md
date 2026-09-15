@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.42.0 - 2026-09-15
+
+> **Jetzt siehst du, wie lange jedes Schiff versichert ist.** Der CSV-Export
+> der Hangar Extension bringt LTI oder die Laufzeit mit — „10 Jahre", „6
+> Monate" — und VerseKit schreibt es an jedes Schiff im Hangar.
+
+### Neu
+
+- **Der Hangar-Import liest auch den CSV-Export der Hangar Extension — und
+  damit die Versicherung.** Bei jedem Schiff steht jetzt LTI oder die Laufzeit
+  („10 Jahre Versicherung", „6 Monate Versicherung"). Am besten JSON und CSV
+  nacheinander einlesen: Das eine bringt die Paketzugehörigkeit, das andere
+  die Versicherung, doppelt wird nichts
+
 ## v3.41.0 - 2026-09-15
 
 > **Der Hangar weiß jetzt, was zusammengehört.** Kam ein Schiff als Beilage

@@ -21153,6 +21153,106 @@ def main():
            in _q215w,
            'das Symbol ruft das Tk-Menue ueber `after` in den Tk-Faden')
 
+    print('\n216. Das CSV der Hangar Extension bringt die Versicherungsdauer')
+    # Der Komplett-Export der Erweiterung: eine Zeile je Pledge-Inhalt, die
+    # Versicherung als eigene Zeile je Pledge („Lifetime Insurance", „120
+    # Month Insurance"). Nachgebaut nach einem echten Export vom 15.09.2026
+    # (751 Zeilen, 42 Schiffe) — mit erfundenen Nummern und Preisen.
+    from scbp import fleet as _fl216
+    _csv216 = '\n'.join([
+        'Pledge ID,Pledge Date,Pledge Cost,Meltable,Giftable,Pledge Name,'
+        'Pledge Content,Content Type',
+        '"1","September 10, 2026","0.00 USD","no","no","Gutschein",'
+        '"Coupon Code: X","Coupon"',
+        '"2","May 01, 2026","45.00 USD","yes","yes","Pulse","Mirai Pulse","Ship"',
+        '"2","May 01, 2026","45.00 USD","yes","yes","Pulse",'
+        '"120 Month Insurance","Insurance"',
+        '"3","May 02, 2026","120.00 USD","yes","yes","Dragonfly Black",'
+        '"Drake Dragonfly Black","Ship"',
+        '"3","May 02, 2026","120.00 USD","yes","yes","Dragonfly Black",'
+        '"Dragonfly - Paint","Skin"',
+        '"3","May 02, 2026","120.00 USD","yes","yes","Dragonfly Black",'
+        '"6 Month Insurance","Insurance"',
+        '"4","May 03, 2026","1.00 USD","yes","no","Paket",'
+        '"Aegis Idris-P","Ship"',
+        '"4","May 03, 2026","1.00 USD","yes","no","Paket",'
+        '"ARGO MPUV Personnel","Included Ship"',
+        '"4","May 03, 2026","1.00 USD","yes","no","Paket",'
+        '"Lifetime Insurance","Insurance"',
+        '"5","May 04, 2026","2.00 USD","yes","no","Wolf",'
+        '"Kruger L-22 Alpha Wolf","Ship"',
+        '"6","May 05, 2026","3.00 USD","yes","no","Unbekannt",'
+        '"Fremdwerk Sondermodell","Ship"',
+    ]) + '\n'
+    _s216 = _fl216._from_csv(_csv216)
+    _n216 = {s['name']: s for s in _s216}
+    pruefe(sorted(_n216) == ['Dragonfly Black', 'Fremdwerk Sondermodell',
+                             'Idris-P', 'L-22 Alpha Wolf', 'MPUV Personnel',
+                             'Pulse'],
+           'Schiffe und Beilagen werden gelesen, Farben und Gutscheine nicht '
+           '(%r)' % sorted(_n216))
+    pruefe(_n216['Pulse']['hersteller'] == 'Mirai'
+           and _n216['Pulse']['hkurz'] == 'MRAI'
+           and _n216['Idris-P']['hkurz'] == 'AEGS'
+           and _n216['L-22 Alpha Wolf']['hersteller'] == 'Kruger',
+           'der Hersteller wird vom Namen getrennt und bekommt sein Kuerzel')
+    pruefe(_n216['Fremdwerk Sondermodell']['hersteller'] == ''
+           and _n216['Fremdwerk Sondermodell']['hkurz'] == '',
+           'ein unbekannter Hersteller bleibt im Namen, nichts geht verloren')
+    pruefe(_n216['Pulse']['versicherung'] == 120
+           and _n216['Pulse']['lti'] is False,
+           '„120 Month Insurance" wird zu 120 Monaten ohne LTI')
+    pruefe(_n216['Dragonfly Black']['versicherung'] == 6,
+           '„6 Month Insurance" wird zu 6 Monaten')
+    pruefe(_n216['Idris-P']['lti'] is True
+           and _n216['Idris-P'].get('versicherung') is None
+           and _n216['MPUV Personnel']['lti'] is True,
+           '„Lifetime Insurance" gilt fuer jedes Schiff des Pledges, ohne Monate')
+    pruefe(_n216['MPUV Personnel']['paket'] == 'Idris-P',
+           'die Beilage nennt das Schiff ihres Pledges als Paket')
+    pruefe(_n216['Pulse']['gekauft'] == 'May 01, 2026'
+           and _n216['Pulse']['preis'] == '45.00 USD',
+           'Datum und Preis kommen vom Pledge')
+    # Der XPLORer-CSV bleibt, wie er war
+    _alt216 = _fl216._from_csv('Manufacturer, Ship, Lti, Warbond, Pledge, '
+                               'Date, Cost\nDrake, Cutlass Black, true, '
+                               'false, Standalone Ship, May 1, $100\n')
+    pruefe(len(_alt216) == 1 and _alt216[0]['name'] == 'Cutlass Black'
+           and _alt216[0]['lti'] is True,
+           'das CSV des XPLORer wird weiterhin erkannt')
+    # Zusammenfuehren mit dem JSON-Import: erst JSON (Kuerzel, kein LTI),
+    # dann CSV (Versicherung) — ein Eintrag, beide Angaben. Und „Idris-P
+    # Frigate" (XPLORer) trifft „Idris-P" (CSV) ueber das Herstellerkuerzel.
+    _d216 = {'format': 1, 'schiffe': []}
+    _fl216.import_entries([{'name': 'Pulse', 'hersteller': 'Mirai',
+                            'kurz': 'MRAI_Pulse', 'hkurz': 'MRAI',
+                            'lti': False, 'warbond': False, 'paket': '',
+                            'gekauft': '', 'preis': ''},
+                           {'name': 'Idris-P Frigate',
+                            'hersteller': 'Aegis Dynamics', 'kurz': '',
+                            'hkurz': 'AEGS', 'lti': True, 'warbond': False,
+                            'paket': '', 'gekauft': '', 'preis': ''}],
+                          data=_d216, save_now=False)
+    _neu216, _alt_n216 = _fl216.import_entries(_s216, data=_d216,
+                                               save_now=False)
+    _pulse216 = _fl216.find(_d216, 'Pulse', 'Mirai', hkurz='MRAI')
+    pruefe(_neu216 == 4 and _alt_n216 == 2 and _pulse216['kurz'] == 'MRAI_Pulse'
+           and _pulse216['versicherung'] == 120
+           and len([s for s in _d216['schiffe'] if 'Idris' in s['name']]) == 1,
+           'JSON- und CSV-Import ergaenzen sich zu einem Eintrag (%r, %r)'
+           % (_neu216, _alt_n216))
+    # Die Schiffszeile zeigt Jahre, wenn es glatt aufgeht, sonst Monate.
+    _q216 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                 encoding='utf-8').read()
+    _z216 = _q216.split('def _hangar_row')[1].split('\ndef ')[0]
+    pruefe("t('s_hg_vers_jahre')" in _z216 and "t('s_hg_vers_monate')" in _z216
+           and 'monate % 12 == 0' in _z216,
+           'die Schiffszeile zeigt „10 Jahre" bzw. „6 Monate Versicherung"')
+    from scbp import sprache as _sp216
+    pruefe('CSV' in _sp216.t('s_hg_import_text')
+           and 'CSV' in _sp216.t('s_hg_import_json'),
+           'die Hilfetexte nennen den CSV-Export')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

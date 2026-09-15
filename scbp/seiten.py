@@ -10810,8 +10810,9 @@ def _hangar(fenster, rahmen):
                                                    pady=(18, 2))
     _body_text(innen, t('s_hg_import_text'), fenster.f_small, fill='x',
                 padx=24, inset=48)
-    # ⚠ Der Hinweis auf JSON ist kein Geschmack: Bei einem echten Export vom
-    # 06.09.2026 fehlten der CSV drei Schiffe, die in der JSON standen.
+    # ⚠ Bis 15.09.2026 stand hier „nimm die JSON" — beim XPLORer fehlten der
+    # CSV drei Schiffe. Bei der Hangar Extension ergänzen sich beide: JSON
+    # bringt Kürzel und Paketbeziehung, CSV die Versicherungsdauer.
     _body_text(innen, t('s_hg_import_json'), fenster.f_small, color=GOLD,
                 fill='x', padx=24, inset=48)
 
@@ -12258,6 +12259,14 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              else t('s_hg_ingame')]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
+    else:
+        # Versicherungsdauer aus dem CSV der Hangar Extension: „120 Month
+        # Insurance" → „10 Jahre Versicherung", „6 Month" → „6 Monate".
+        monate = int(eintrag.get('versicherung') or 0)
+        if monate >= 12 and monate % 12 == 0:
+            teile.append(t('s_hg_vers_jahre').format(n=monate // 12))
+        elif monate > 0:
+            teile.append(t('s_hg_vers_monate').format(n=monate))
     # Kam das Schiff mit einem anderen aus dem Hangar (URSA der Carrack)?
     # Steht nur da, wenn das Paket ein eigenes Schiff nennt — Pledge-Namen
     # des XPLORer („Standalone Ship") bleiben weg. Vorschlag AlyxOne.

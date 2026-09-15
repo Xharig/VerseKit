@@ -3413,30 +3413,31 @@ TEXTE = {
     's_hg_import_titel': ('Aus dem Pledge-Store holen', 'Import from the pledge store'),
     's_hg_import_text':  ('Die Browser-Erweiterung „Star Citizen: Hangar '
                           'Extension" (AlyxOne) setzt auf deiner Pledge-Seite '
-                          'Export-Knöpfe. Lade dort den JSON-Export herunter und '
-                          'wähle die Datei hier aus. Der ältere Hangar XPLORer '
-                          'wird weiterhin gelesen.',
+                          'Export-Knöpfe. Lade dort den JSON- oder CSV-Export '
+                          'herunter und wähle die Datei hier aus. Der ältere '
+                          'Hangar XPLORer wird weiterhin gelesen.',
                           'The browser add-on “Star Citizen: Hangar Extension” '
                           '(AlyxOne) adds export buttons to your pledge page. '
-                          'Download the JSON export there and pick the file '
-                          'here. The older Hangar XPLORer is still read as well.'),
+                          'Download the JSON or CSV export there and pick the '
+                          'file here. The older Hangar XPLORer is still read as '
+                          'well.'),
     # ⚠ Der Hinweis auf JSON steht bewusst dabei: Bei einem echten Export vom
     # 06.09.2026 fehlten der CSV-Fassung drei Schiffe, die in der JSON standen.
     # Gelesen werden beide — empfohlen wird nur eines.
-    's_hg_import_json':  ('Nimm die JSON-Datei. Die CSV wird auch gelesen, ist '
-                          'aber unvollständig — bei einem echten Export fehlten '
-                          'darin drei Schiffe.',
-                          'Use the JSON file. CSV is read as well but comes out '
-                          'incomplete — in a real export three ships were '
-                          'missing from it.'),
+    's_hg_import_json':  ('Am besten beide Dateien nacheinander: Die JSON bringt '
+                          'die Paketzugehörigkeit, die CSV die Versicherung '
+                          '(LTI oder Laufzeit). Doppelt wird dabei nichts.',
+                          'Best import both files one after the other: the JSON '
+                          'brings the bundle relations, the CSV the insurance '
+                          '(LTI or duration). Nothing gets duplicated.'),
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
     's_hg_import_leer':  ('In der Datei stand kein einziges Schiff. Ist das der '
-                          'JSON-Export der Hangar Extension oder des Hangar '
-                          'XPLORer?',
+                          'JSON- oder CSV-Export der Hangar Extension oder des '
+                          'Hangar XPLORer?',
                           'There was not a single ship in that file. Is this the '
-                          'JSON export of the Hangar Extension or Hangar '
+                          'JSON or CSV export of the Hangar Extension or Hangar '
                           'XPLORer?'),
     's_hg_import_fehler': ('Die Datei ließ sich nicht lesen.',
                            'That file could not be read.'),
@@ -3726,6 +3727,10 @@ TEXTE = {
     # Carrack) — kommt aus `includedWith` der Hangar Extension. Vorschlag
     # AlyxOne, 15.09.2026.
     's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
+    # Versicherungsdauer ohne LTI — aus dem CSV der Hangar Extension
+    # („120 Month Insurance"). Gewünscht am 15.09.2026.
+    's_hg_vers_jahre':   ('{n} Jahre Versicherung', '{n} years insurance'),
+    's_hg_vers_monate':  ('{n} Monate Versicherung', '{n} months insurance'),
     's_hg_plaetze':      ('{n} Steckplätze', '{n} slots'),
     's_hg_entfernen':    ('Austragen', 'Remove'),
     # ⚠ Kein „unbekannt": Erkul führt nur Schiffe, die im Spiel flugfähig sind.

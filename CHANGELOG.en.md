@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.42.0 - 2026-09-15
+
+> **Now you can see how long each ship is insured.** The CSV export of the
+> Hangar Extension brings LTI or the duration — “10 years”, “6 months” — and
+> VerseKit writes it next to every ship in your hangar.
+
+### New
+
+- **The hangar import also reads the CSV export of the Hangar Extension — and
+  with it the insurance.** Every ship now shows LTI or the duration (“10 years
+  insurance”, “6 months insurance”). Best import JSON and CSV one after the
+  other: one brings the bundle relations, the other the insurance, nothing
+  gets duplicated
+
 ## v3.41.0 - 2026-09-15
 
 > **The hangar now knows what belongs together.** If a ship came bundled

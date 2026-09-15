@@ -42,14 +42,17 @@ eingetragen hat und dessen Spiel von 78 spricht, dem fehlt etwas.
 
 | Weg | bringt | bringt **nicht** |
 |---|---|---|
-| Import aus der **Star Citizen: Hangar Extension** (AlyxOne) | alle Echtgeld-Schiffe samt Hersteller, Code und Paketzugehörigkeit | im Spiel gekaufte Schiffe; LTI und Preis (nur im CSV der Erweiterung) |
+| Import aus der **Star Citizen: Hangar Extension** (AlyxOne), JSON | alle Echtgeld-Schiffe samt Hersteller, Code und Paketzugehörigkeit | im Spiel gekaufte Schiffe; LTI, Versicherungsdauer, Preis |
+| dieselbe Erweiterung, **CSV** (Komplett-Export) | Schiffe samt **LTI oder Versicherungsdauer in Monaten** (`versicherung`), Paketname, Datum, Preis | im Spiel gekaufte Schiffe; Schiffskürzel |
 | Import aus **Star Citizen Hangar XPLORer** (dolkensp) | alle Echtgeld-Pledges samt LTI und Paketname | im Spiel gekaufte Schiffe |
 | **Von Hand** eintragen | alles Übrige | — |
 
 Beide Erweiterungen setzen auf der Pledge-Seite Export-Knöpfe. Gelesen wird
-der JSON-Export beider und das CSV des XPLORer — erkannt am Inhalt, nicht am
-Dateinamen (`_from_json`). Empfohlen wird seit 15.09.2026 die Hangar
-Extension: Sie wird gepflegt, der XPLORer nicht mehr.
+JSON und CSV beider — erkannt am Inhalt, nicht am Dateinamen (`_from_json`,
+`_from_csv`). Empfohlen wird seit 15.09.2026 die Hangar Extension: Sie wird
+gepflegt, der XPLORer nicht mehr. Wer JSON **und** CSV der Extension
+einliest, bekommt Kürzel und Paketbeziehung aus dem einen und die
+Versicherung aus dem anderen — `_same_ship` führt sie zusammen.
 
 ⚠ **Der Export kennt nur Gekauftes.** Wer sich im Spiel eine Cutlass erflogen
 hat, findet sie dort nie — deshalb ist der Handeintrag kein Notbehelf, sondern
@@ -354,11 +357,17 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
     if (e_kurz and _slim(kurz) and e_kurz == _slim(kurz)
             and _names_compatible(_slim(entry.get('name')), wanted)):
         return True
-    if not wanted or _slim(entry.get('name')) != wanted:
+    e_name = _slim(entry.get('name'))
+    if not wanted:
         return False
     e_hkurz = _slim(entry.get('hkurz'))
     if e_hkurz and _slim(hkurz) and e_hkurz == _slim(hkurz):
-        return True
+        # Mit Herstellerkürzel darf der Name um ein Klassenwort abweichen —
+        # das CSV der Extension hat kein Schiffskürzel, und „Idris-P" muss
+        # trotzdem die „Idris-P Frigate" des XPLORer treffen.
+        return _names_compatible(e_name, wanted)
+    if e_name != wanted:
+        return False
     return _slim(entry.get('hersteller')) == _slim(manufacturer)
 
 
@@ -398,7 +407,8 @@ def contains(data, name, manufacturer='', kurz='', hkurz=''):
     return find(data, name, manufacturer, kurz, hkurz) is not None
 
 
-_IMPORT_KEYS = ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft', 'preis')
+_IMPORT_KEYS = ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft', 'preis',
+                'versicherung')
 
 
 def _fill(entry, **rest):
@@ -418,7 +428,7 @@ def _fill(entry, **rest):
                 entry[key] = True
                 changed = True
             continue
-        if entry.get(key) in (None, ''):
+        if entry.get(key) in (None, '', 0):
             entry[key] = value
             changed = True
     return changed
@@ -607,15 +617,126 @@ def _from_json(text):
     return result
 
 
-def _from_csv(text):
-    """Der CSV-Export von Hangar XPLORer.
+# Wie die Hangar Extension den Hersteller im CSV vor den Schiffsnamen setzt
+# („Aegis Idris-P", „RSI Galaxy", „Kruger L-22 Alpha Wolf") → Kürzel, wie es
+# ihr JSON-Export und erkul führen. Längste Namen zuerst, damit „Consolidated
+# Outland" nicht an „Consolidated" scheitert.
+_CSV_MAKERS = (
+    ('Roberts Space Industries', 'RSI'), ('Consolidated Outland', 'CNOU'),
+    ('Musashi Industrial & Starflight Concern', 'MISC'),
+    ('Aegis', 'AEGS'), ('Anvil', 'ANVL'), ('Aopoa', 'AOPO'), ('ARGO', 'ARGO'),
+    ('Argo', 'ARGO'), ('Banu', 'BANU'), ('Crusader', 'CRUS'), ('CNOU', 'CNOU'),
+    ('Drake', 'DRAK'), ('Esperia', 'ESPR'), ('Gatac', 'GAMA'),
+    ('Greycat', 'GRIN'), ('Kruger', 'KRIG'), ('MISC', 'MISC'),
+    ('Mirai', 'MRAI'), ('Origin', 'ORIG'), ('RSI', 'RSI'), ('Tumbril', 'TMBL'),
+    ('Vanduul', 'VNCL'), ("Xi'an", 'XIAN'), ('Xian', 'XIAN'),
+)
 
-    ⚠ Die Kopfzeile trägt **Leerzeichen hinter den Kommas** (`Manufacturer,
-    Ship, Lti, …`). Ohne `skipinitialspace` heißt die zweite Spalte `' Ship'`
-    und wird nie gefunden.
+_MONTHS = re.compile(r'^\s*(\d+)\s*month', re.IGNORECASE)
+
+
+def _split_maker(full):
+    """„Aegis Idris-P" → (`Aegis`, `AEGS`, `Idris-P`); ohne Treffer bleibt der Name ganz."""
+    full = (full or '').strip()
+    for maker, code in _CSV_MAKERS:
+        if full.lower().startswith(maker.lower() + ' '):
+            return maker, code, full[len(maker):].strip()
+    return '', '', full
+
+
+def _insurance(content):
+    """„Lifetime Insurance" → (True, 0) · „120 Month Insurance" → (False, 120)."""
+    text = (content or '').strip()
+    if 'lifetime' in text.lower():
+        return True, 0
+    match = _MONTHS.match(text)
+    return False, int(match.group(1)) if match else 0
+
+
+def _from_extension_csv(rows):
+    """Der CSV-Export der **Hangar Extension** — der Komplett-Export je Pledge.
+
+    Eine Zeile je **Inhalt** eines Pledges: Schiffe, Farben, Ausrüstung,
+    Versicherung. Zusammengehalten über `Pledge ID`. Gemessen an einem echten
+    Export vom 15.09.2026 (751 Zeilen, 42 Schiffe):
+
+    | `Content Type` | was es ist | wird |
+    |---|---|---|
+    | `Ship` | „Aegis Idris-P" — Hersteller und Name in einem Feld | ein Schiff |
+    | `Included Ship` | Beilage eines Pakets („ARGO MPUV Personnel") | ein Schiff, `paket` = das Schiff des Pledges, sonst der Pledge-Name |
+    | `Insurance` | „Lifetime Insurance", „120 Month Insurance" — **eine je Pledge** | `lti` bzw. `versicherung` (Monate) für jedes Schiff des Pledges |
+    | alles andere | Farben, Anzüge, Möbel, Gutscheine | übergangen |
+
+    ⭐ **Das ist die Datei mit der Versicherungsdauer.** Der JSON-Export der
+    Erweiterung kennt sie (noch) nicht — dafür kennt er Kürzel und
+    Paketbeziehung. Wer beide einliest, bekommt beides; die Doppelerkennung
+    (`_same_ship`) führt die Angaben zusammen.
+
+    ⚠ `Pledge ID` und `Pledge Cost` sind privat — sie bleiben im Hangar und
+    kommen nie in einen Bericht (siehe Modulkopf).
     """
+    pledges = {}
+    order = []
+    for row in rows:
+        pid = (row.get('Pledge ID') or '').strip()
+        if pid not in pledges:
+            pledges[pid] = {'ships': [], 'included': [], 'lti': False,
+                            'months': 0,
+                            'name': (row.get('Pledge Name') or '').strip(),
+                            'date': (row.get('Pledge Date') or '').strip(),
+                            'cost': (row.get('Pledge Cost') or '').strip()}
+            order.append(pid)
+        kind = (row.get('Content Type') or '').strip().lower()
+        content = (row.get('Pledge Content') or '').strip()
+        if kind == 'ship' and content:
+            pledges[pid]['ships'].append(content)
+        elif kind == 'included ship' and content:
+            pledges[pid]['included'].append(content)
+        elif kind == 'insurance':
+            lti, months = _insurance(content)
+            pledges[pid]['lti'] = pledges[pid]['lti'] or lti
+            pledges[pid]['months'] = max(pledges[pid]['months'], months)
     result = []
-    for row in csv.DictReader(io.StringIO(text), skipinitialspace=True):
+    for pid in order:
+        p = pledges[pid]
+        for full, included in ([(s, False) for s in p['ships']]
+                               + [(s, True) for s in p['included']]):
+            maker, code, name = _split_maker(full)
+            if not name:
+                continue
+            # Beilage: bei genau einem Schiff im Pledge ist das der Träger;
+            # bei einem Paket mit vielen Schiffen bleibt es der Paketname.
+            if included and len(p['ships']) == 1:
+                paket = _split_maker(p['ships'][0])[2]
+            else:
+                paket = p['name']
+            result.append({
+                'name': name, 'hersteller': maker, 'kurz': '', 'hkurz': code,
+                'lti': p['lti'], 'warbond': False, 'paket': paket,
+                'gekauft': p['date'], 'preis': p['cost'],
+                # Monate nur ohne LTI — LTI ist die Dauer.
+                'versicherung': (p['months'] if p['months'] and not p['lti']
+                                 else None),
+            })
+    return result
+
+
+def _from_csv(text):
+    """Der CSV-Export — vom Hangar XPLORer **oder** von der Hangar Extension.
+
+    Erkannt an der Kopfzeile: Die Extension schreibt `Pledge ID` und
+    `Content Type`, der XPLORer `Manufacturer, Ship, Lti, …`.
+
+    ⚠ Die XPLORer-Kopfzeile trägt **Leerzeichen hinter den Kommas**. Ohne
+    `skipinitialspace` heißt die zweite Spalte `' Ship'` und wird nie
+    gefunden.
+    """
+    reader = csv.DictReader(io.StringIO(text), skipinitialspace=True)
+    fields = [(f or '').strip() for f in (reader.fieldnames or [])]
+    if 'Pledge ID' in fields and 'Content Type' in fields:
+        return _from_extension_csv(list(reader))
+    result = []
+    for row in reader:
         name = (row.get('Ship') or '').strip()
         # ⚠ Der Export schreibt bei unbekannten Stücken wörtlich `undefined`
         # in die Namensspalte — das ist kein Schiff, sondern eine Lücke.
@@ -668,7 +789,8 @@ def import_entries(entries, data=None, save_now=True):
                origin=PLEDGE, kurz=e.get('kurz'),
                hkurz=e.get('hkurz'), lti=e.get('lti'),
                warbond=e.get('warbond'), paket=e.get('paket'),
-               gekauft=e.get('gekauft'), preis=e.get('preis')):
+               gekauft=e.get('gekauft'), preis=e.get('preis'),
+               versicherung=e.get('versicherung')):
             new += 1
     if save_now:
         save(data)
