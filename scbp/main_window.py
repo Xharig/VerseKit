@@ -1108,6 +1108,10 @@ def discord_glyph(canvas, x, middle, height, color):
 # Seite wirklich erreichbar ist: Ein Knopf, der ins Leere führt, ist schlimmer
 # als keiner — wer ihn drückt, hält das Werkzeug für kaputt.
 KOFI_URL = 'https://ko-fi.com/xharig'
+# ⚠ Die dauerhafte Einladung (`CODE_OF_CONDUCT.md` nennt dieselbe). Ein Link,
+# der irgendwann abläuft, führt Leute auf eine Fehlerseite und niemand merkt
+# es. Steht hier einmal — Seitenleiste und Symbol neben der Uhr nutzen ihn.
+DISCORD_URL = 'https://discord.gg/g2E7e6XxZC'
 
 
 def coffee_glyph(canvas, x, middle, height, color):
@@ -2424,11 +2428,9 @@ class MainWindow:
     def _open_discord(self):
         """Die Einladung im Browser aufmachen.
 
-        ⚠ Die Adresse steht **fest** im Code und ist die dauerhafte Einladung
-        (`CODE_OF_CONDUCT.md` nennt dieselbe). Ein Link, der irgendwann abläuft,
-        führt Leute auf eine Fehlerseite und niemand merkt es.
+        Die Adresse steht fest im Code — siehe `DISCORD_URL`.
         """
-        self._open_address('https://discord.gg/g2E7e6XxZC',
+        self._open_address(DISCORD_URL,
                           t('hf_discord_auf'), 'main_window.discord')
 
     def _open_address(self, adresse, meldung, stelle):

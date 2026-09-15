@@ -68,6 +68,8 @@ IDI_APPLICATION = 32512
 
 TPM_RIGHTBUTTON = 0x0002
 MF_STRING = 0x0000
+MF_GRAYED = 0x0001
+MF_SEPARATOR = 0x0800
 
 # ⚠ Windows schickt diese Nachricht an ALLE obersten Fenster, wenn die
 # Taskleiste neu entsteht — beim Explorer-Neustart, aber auch, wenn ein
@@ -80,8 +82,9 @@ MF_STRING = 0x0000
 # Setup wieder startet — da ist die Taskleiste manchmal noch nicht bereit.
 WM_TASKBARCREATED = None          # wird beim Start registriert
 
-CMD_SHOW = 1001
-CMD_QUIT = 1002
+# Die erste Befehlsnummer im Menü; jeder anklickbare Eintrag bekommt die
+# nächste. Windows meldet einen Klick als WM_COMMAND mit genau dieser Nummer.
+CMD_FIRST = 1001
 
 
 
@@ -219,6 +222,10 @@ class TrayIcon(object):
         self.fenster = None
         self._faden = None
         self._laeuft = False
+        # Das Rechtsklick-Menü: `[(nummer, text, flags, tat), …]` — gebaut in
+        # `menu_set()`, gelesen von `_show_menu()` und `_handle()`.
+        self._eintraege = []
+        self._befehle = {}
         # ⚠ Muss als Attribut gehalten werden. Ein Rückruf, den nur Windows
         # kennt, wird von Python sonst irgendwann aufgeräumt — und der nächste
         # Klick auf das Symbol beendet das Programm mit einem Speicherauszug.
@@ -304,8 +311,40 @@ class TrayIcon(object):
             pass
         return False
 
+    def menu_set(self, eintraege):
+        """Das Rechtsklick-Menü festlegen — ohne dass Windows dafür laufen muss.
+
+        `eintraege` ist eine Liste aus
+
+        * `(text, tat)` — ein anklickbarer Punkt; `tat` wird beim Klick gerufen
+        * `(text, None)` — eine ausgegraute Auskunftszeile (z. B. die Version)
+        * `None` — eine Trennlinie
+
+        ⚠ Bis zum 15.09.2026 hatte das Menü genau zwei Punkte, „Fenster zeigen"
+        und „Beenden". Gewünscht wurde, was der SC Deutsch Launcher dort bietet:
+        RSI Launcher, Einstellungen, Übersetzung, Discord, Ko-fi, Version.
+        Die Texte kommen vom Aufrufer — dieses Modul hängt nicht an `sprache`.
+
+        Gibt die Zuordnung Befehlsnummer → Tat zurück (für Prüfungen).
+        """
+        self._eintraege = []
+        self._befehle = {}
+        nummer = CMD_FIRST
+        for eintrag in eintraege or ():
+            if eintrag is None:
+                self._eintraege.append((0, None, MF_SEPARATOR, None))
+                continue
+            text, tat = eintrag
+            if tat is None:
+                self._eintraege.append((0, text, MF_STRING | MF_GRAYED, None))
+                continue
+            self._eintraege.append((nummer, text, MF_STRING, tat))
+            self._befehle[nummer] = tat
+            nummer += 1
+        return dict(self._befehle)
+
     def _show_menu(self):
-        """Das Rechtsklick-Menü — zwei Punkte, mehr braucht niemand."""
+        """Das Rechtsklick-Menü aus `_eintraege` aufbauen und zeigen."""
         benutzer = ctypes.windll.user32
         menue = benutzer.CreatePopupMenu()
         if not menue:
@@ -313,9 +352,8 @@ class TrayIcon(object):
         try:
             # Der Rückgabewert wurde bisher weggeworfen — deshalb fiel ein
             # leeres Menü niemandem auf. Jetzt steht es im Fehlerbericht.
-            for kennung, beschriftung in ((CMD_SHOW, self._text_zeigen),
-                                          (CMD_QUIT, self._text_beenden)):
-                if not benutzer.AppendMenuW(menue, MF_STRING, kennung,
+            for kennung, beschriftung, flags, _tat in self._eintraege:
+                if not benutzer.AppendMenuW(menue, flags, kennung,
                                             beschriftung):
                     from . import fehler
                     fehler.merken('tray_icon.show_menu',
@@ -349,10 +387,7 @@ class TrayIcon(object):
                 return 0
             if nachricht == WM_COMMAND:
                 befehl = wparam & 0xFFFF
-                if befehl == CMD_SHOW:
-                    self._call(self.beim_zeigen)
-                elif befehl == CMD_QUIT:
-                    self._call(self.beim_beenden)
+                self._call(self._befehle.get(befehl))
                 return 0
             if nachricht == WM_DESTROY:
                 ctypes.windll.user32.PostQuitMessage(0)
@@ -371,12 +406,18 @@ class TrayIcon(object):
                 pass
 
     # ------------------------------------------------------------ Betrieb
-    def start(self, text_zeigen='Fenster zeigen', text_beenden='Beenden'):
-        """Symbol anlegen. Gibt zurück, ob es geklappt hat."""
+    def start(self, text_zeigen='Fenster zeigen', text_beenden='Beenden',
+              menue=None):
+        """Symbol anlegen. Gibt zurück, ob es geklappt hat.
+
+        `menue` — siehe `menu_set()`. Ohne Angabe bleibt es beim alten Paar
+        „Fenster zeigen" / „Beenden"."""
         if not WINDOWS or self._laeuft:
             return False
-        self._text_zeigen = text_zeigen
-        self._text_beenden = text_beenden
+        if menue is None:
+            menue = [(text_zeigen, self.beim_zeigen),
+                     (text_beenden, self.beim_beenden)]
+        self.menu_set(menue)
         bereit = threading.Event()
         self._geklappt = False
         self._faden = threading.Thread(target=self._loop, args=(bereit,),

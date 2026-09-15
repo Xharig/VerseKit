@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Das Menü am Symbol neben der Uhr kann mehr** (Windows): VerseKit öffnen,
+  Einstellungen öffnen, RSI Launcher starten, Übersetzung prüfen und neu
+  eintragen, Hilfe im Discord, Kaffee spendieren, die laufende Version mit
+  dem Weg zur Update-Prüfung — und Beenden. Vorher gab es dort nur „Fenster
+  zeigen" und „Beenden"
+
+### Verbessert
+
+- **Der Startknopf heißt jetzt „RSI Launcher starten"** statt „Star Citizen
+  starten" — im Overlay, im großen Fenster und in der Hilfe. Er öffnet den
+  Launcher, nicht das Spiel; mehrere Nutzer hatten das zu Recht angemerkt
+
 ### Behoben
 
 - **„Original" ersetzt jetzt StarStrings, wenn das Werkzeug es selbst

@@ -20864,6 +20864,51 @@ def main():
             os.environ['SC_BP_HOME'] = _altheim211
         shutil.rmtree(_wiese211, ignore_errors=True)
 
+    print('\n212. Das Menue neben der Uhr kennt seine Punkte')
+    # Gewuenscht am 15.09.2026 nach dem Vorbild des SC Deutsch Launchers:
+    # Statt „Fenster zeigen"/„Beenden" ein Menue mit Launcher, Einstellungen,
+    # Uebersetzung, Discord, Ko-fi und Version. Geprueft wird ohne Windows:
+    # `menu_set()` und die Befehlszuordnung in `_handle()` sind reines Python,
+    # nur `_show_menu()` braucht die Taskleiste.
+    from scbp import tray_icon as _ti212
+    _ab212 = _ti212.TrayIcon()
+    _getan212 = []
+    _zu212 = _ab212.menu_set([('Oeffnen', lambda: _getan212.append('auf')),
+                              None,
+                              ('Version 1.0', None),
+                              ('Beenden', lambda: _getan212.append('zu'))])
+    pruefe(sorted(_zu212) == [_ti212.CMD_FIRST, _ti212.CMD_FIRST + 1],
+           'nur anklickbare Punkte bekommen eine Befehlsnummer (%r)'
+           % sorted(_zu212))
+    pruefe(len(_ab212._eintraege) == 4
+           and _ab212._eintraege[1][2] == _ti212.MF_SEPARATOR
+           and _ab212._eintraege[2][2] & _ti212.MF_GRAYED,
+           'Trennlinie und Auskunftszeile stehen im Menue, sind aber nicht '
+           'anklickbar')
+    _ab212._handle(None, _ti212.WM_COMMAND, _ti212.CMD_FIRST + 1, 0)
+    pruefe(_getan212 == ['zu'],
+           'ein Klick ruft genau die Tat seines Punkts (%r)' % _getan212)
+    _ab212._handle(None, _ti212.WM_COMMAND, 4711, 0)
+    pruefe(_getan212 == ['zu'], 'eine unbekannte Nummer tut nichts')
+    # ⚠ Ohne `menue=` bleibt es beim alten Paar — der Aufrufer darf nicht
+    # ploetzlich ein leeres Menue bekommen.
+    _alt212 = _ti212.TrayIcon(beim_zeigen=lambda: _getan212.append('zeigen'))
+    _alt212.menu_set([('Fenster zeigen', _alt212.beim_zeigen)])
+    _alt212._handle(None, _ti212.WM_COMMAND, _ti212.CMD_FIRST, 0)
+    pruefe(_getan212[-1] == 'zeigen', 'der Rueckruf „zeigen" haengt am Punkt')
+    # Und der Watcher baut jeden Punkt aus einem Sprachschluessel — ein
+    # fest verdrahteter deutscher Text erschiene englischen Nutzern deutsch.
+    _q212 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                 encoding='utf-8').read()
+    _blk212 = _q212.split('def _ablage_menue')[1].split('\n    def ')[0]
+    for _k212 in ('tray_zeigen', 'tray_einstellungen', 'tray_launcher',
+                  'tray_uebersetzung', 'tray_discord', 'hf_kofi',
+                  'tray_version', 'tray_beenden'):
+        pruefe("'%s'" % _k212 in _blk212,
+               'das Menue neben der Uhr hat den Punkt %s' % _k212)
+    pruefe('root.after(0' in _blk212,
+           'jeder Punkt ruft ueber `after` in den Tk-Faden zurueck')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

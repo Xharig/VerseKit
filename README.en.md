@@ -371,7 +371,7 @@ The narrow bar sits above the game and reports new finds. Everything else is beh
 | Symbol | What it does |
 |---|---|
 | <img src="assets/symbole/22/glocke-grau.png" width="22" alt=""> | **Bell** — a new build is available; turns green as soon as there is one |
-| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rocket** — launch Star Citizen. Only appears if a way to start it was found |
+| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rocket** — launch the RSI Launcher. Only appears if a way to start it was found |
 | <img src="assets/symbole/22/einstellungen-grau.png" width="22" alt=""> | **Gear** — open the settings |
 | <img src="assets/symbole/22/liste-grau.png" width="22" alt=""> | **Clipboard** — blueprint list: search, filter, tick off, look up where things drop |
 | <img src="assets/symbole/22/schloss_auf-grau.png" width="22" alt=""> | **Lock** — pass mouse clicks through to the game. It turns green and closed while they do; one click on it catches them again |

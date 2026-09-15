@@ -696,8 +696,11 @@ TEXTE = {
                         'noch gibt)',
                           '(not from the running version — check whether it '
                           'still occurs)'),
-    's_sp_start_knopf': ('Star Citizen starten', 'Launch Star Citizen'),
-    's_sp_start_lauft': ('Star Citizen wird gestartet …', 'Starting Star Citizen …'),
+    # ⚠ „RSI Launcher starten", nicht „Star Citizen starten" (15.09.2026):
+    # Der Knopf öffnet den Launcher, nicht das Spiel — mehrere Nutzer meldeten,
+    # das Spiel starte mit dem Knopf ja gar nicht. Stimmt; er sagt es jetzt.
+    's_sp_start_knopf': ('RSI Launcher starten', 'Launch RSI Launcher'),
+    's_sp_start_lauft': ('RSI Launcher wird gestartet …', 'Starting the RSI Launcher …'),
     's_sp_kein_starter': ('kein Starter gefunden', 'no launcher found'),
     'up_fremde_quelle': ('Datei kommt nicht von GitHub',
                           'File does not come from GitHub'),
@@ -777,7 +780,17 @@ TEXTE = {
                           'The update to %s did not finish. Details are in the '
                           'diagnostics.'),
     's_sp_start_nein': ('Start nicht möglich: %s', 'Could not start: %s'),
-    'tray_zeigen':     ('Fenster zeigen', 'Show window'),
+    # Das Rechtsklick-Menü am Symbol neben der Uhr (Windows). Erweitert am
+    # 15.09.2026 nach dem Vorbild des SC Deutsch Launchers — vorher gab es nur
+    # „Fenster zeigen" und „Beenden".
+    'tray_zeigen':     ('VerseKit öffnen', 'Open VerseKit'),
+    'tray_einstellungen': ('Einstellungen öffnen', 'Open settings'),
+    'tray_launcher':   ('RSI Launcher starten', 'Launch RSI Launcher'),
+    'tray_uebersetzung': ('Übersetzung prüfen und neu eintragen',
+                          'Check and re-insert translation'),
+    'tray_discord':    ('Hilfe im Discord', 'Help on Discord'),
+    'tray_version':    ('Version %s · nach Updates sehen',
+                        'Version %s · check for updates'),
     'tray_beenden':    ('Beenden', 'Quit'),
     's_menue':         ('Eintrag im Startmenü', 'Entry in the application menu'),
     's_menue_h':       ('Legt einen Eintrag für dich an — dort lässt sich auch eine Tastenkombination hinterlegen, mit der du das Fenster zurückholst.',
@@ -2001,12 +2014,12 @@ TEXTE = {
     # funktionierendes."
     's_or_start':      ('Startbefehl für Star Citizen  —  optional',
                         'Launch command for Star Citizen  —  optional'),
-    's_or_start_h':    ('Leer lassen, wenn der Knopf „Star Citizen starten" bei dir '
+    's_or_start_h':    ('Leer lassen, wenn der Knopf „RSI Launcher starten" bei dir '
                         'funktioniert. Er findet das Startskript des LUG Helper von '
                         'allein. Wer über Lutris, Heroic oder Flatpak spielt, trägt '
                         'hier seinen eigenen Befehl ein — dann erscheint der Knopf '
                         'auch bei ihm.',
-                        'Leave empty if the "Launch Star Citizen" button works for '
+                        'Leave empty if the "Launch RSI Launcher" button works for '
                         'you. It finds the LUG Helper launch script by itself. If you '
                         'play through Lutris, Heroic or Flatpak, enter your own '
                         'command here — then the button appears for you too.'),
@@ -2449,7 +2462,7 @@ TEXTE = {
     # `t()`/`Satz()`-Aufruf mit festem Schlüssel aus dem ganzen Programm und
     # gleicht ihn hier ab (Selbsttest, Abschnitt 49). Von Hand ist das nicht zu
     # halten — es sind über 600 Einträge.
-    's_sp_start':      ('Star Citizen starten', 'Launch Star Citizen'),
+    's_sp_start':      ('RSI Launcher starten', 'Launch RSI Launcher'),
     'm_keine_fassung': ('Keine Fassung zum Herunterladen gefunden.',
                         'No version found to download.'),
     'aktuelle_fassung': ('Du hast die neueste Fassung.',

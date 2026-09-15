@@ -4555,6 +4555,90 @@ class Overlay:
         except Exception:
             pass
 
+    def _ablage_menue(self):
+        """Das Rechtsklick-Menü am Symbol neben der Uhr — siehe `tray_icon.menu_set`.
+
+        ⚠ Nach dem Vorbild des SC Deutsch Launchers (Wunsch vom 15.09.2026):
+        Bis dahin standen dort nur „Fenster zeigen" und „Beenden". Jeder Punkt
+        ruft über `root.after(0, …)` in den Tk-Faden zurück — das Menü läuft im
+        Faden des Symbols, und Tk verträgt keine fremden Fäden.
+
+        Die Texte kommen aus `sprache`; das Symbol-Modul kennt sie nicht.
+        """
+        from scbp.main_window import DISCORD_URL, KOFI_URL
+
+        def im_tk(tat, *args):
+            return lambda: self.root.after(0, lambda: tat(*args))
+
+        eintraege = [
+            (sprache.t('tray_zeigen'), im_tk(self.hervorholen)),
+            (sprache.t('tray_einstellungen'), im_tk(self.einstellungen_oeffnen)),
+            None,
+        ]
+        # ⚠ Wie der Knopf im Overlay: nur, wenn wirklich ein Startweg da ist.
+        # Ein Menüpunkt, der nichts tut, ist schlimmer als keiner.
+        if pfade.spielstarter():
+            eintraege.append((sprache.t('tray_launcher'),
+                              im_tk(self._spiel_starten)))
+        eintraege += [
+            (sprache.t('tray_uebersetzung'), im_tk(self._uebersetzung_erneuern)),
+            None,
+            (sprache.t('tray_discord'),
+             im_tk(self._adresse_oeffnen, DISCORD_URL, 'overlay.discord')),
+            (sprache.t('hf_kofi'),
+             im_tk(self._adresse_oeffnen, KOFI_URL, 'overlay.kofi')),
+            None,
+            # Die Version als Auskunft UND als Weg: Der Klick öffnet die Seite
+            # „Update & Über", dort steht die Update-Prüfung.
+            (sprache.t('tray_version', __version__),
+             im_tk(self.fenster_oeffnen, 'ueber')),
+            None,
+            (sprache.t('tray_beenden'), im_tk(self._ganz_beenden)),
+        ]
+        return eintraege
+
+    def _uebersetzung_erneuern(self):
+        """Aus dem Menü neben der Uhr: die Bauplan-Angaben neu ins Spiel schreiben.
+
+        Dasselbe wie „Jetzt eintragen" auf der Einstellungsseite
+        (`settings_window._inj_refresh`), nur ohne Fenster: frische
+        Vertragsdaten holen und neu eintragen. Läuft in einem Faden, weil es
+        die 10-MB-Datei neu schreibt; die Statuszeile meldet das Ergebnis.
+        """
+        import threading
+        pfad, sprache_ordner, _quelle = injektion.ini_datei()
+        if not pfad:
+            self._status_setzen(sprache.Satz('inj_fehler', 'global.ini'))
+            return
+        self._status_setzen(sprache.Satz('inj_laeuft'))
+
+        def arbeit():
+            try:
+                ok, n, meldung = injektion.aktualisieren(pfad, sprache_ordner)
+            except Exception as ausnahme:
+                ok, n, meldung = False, 0, str(ausnahme)
+                fehler.merken('overlay.uebersetzung_erneuern', ausnahme)
+            satz = (sprache.Satz('inj_aktiv', n) if ok
+                    else sprache.Satz('inj_fehler', meldung))
+            self.root.after(0, lambda: self._status_setzen(satz))
+
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def _adresse_oeffnen(self, adresse, stelle):
+        """Eine Adresse im Browser aufmachen — und sagen, wenn es nicht ging.
+
+        Dieselbe Regel wie in `main_window._open_address`: Im AppImage öffnet
+        `webbrowser` nichts und meldet auch nichts; dann steht wenigstens die
+        Adresse in der Statuszeile.
+        """
+        try:
+            geklappt = pfade.im_browser(adresse)
+        except Exception as ausnahme:
+            fehler.merken(stelle, ausnahme, adresse)
+            geklappt = False
+        if not geklappt:
+            self._status_setzen(sprache.Satz('s_ub_auf_nein', adresse))
+
     def hervorholen(self):
         """Von außen gerufen: Fenster her, egal in welchem Betrieb.
 
@@ -4597,7 +4681,8 @@ class Overlay:
                 # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
                 titel=sprache.t('hf_titel'))
             geklappt = self._ablage.start(sprache.t('tray_zeigen'),
-                                            sprache.t('tray_beenden'))
+                                            sprache.t('tray_beenden'),
+                                            menue=self._ablage_menue())
             fehler.spur('Ablagesymbol: %s'
                         % ('steht' if geklappt else 'NICHT angelegt'))
             if not geklappt:

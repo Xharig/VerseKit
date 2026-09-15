@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **The tray icon menu does more** (Windows): open VerseKit, open settings,
+  launch the RSI Launcher, check and re-insert the translation, help on
+  Discord, buy me a coffee, the running version with a way to the update
+  check — and quit. Before, it only offered "Show window" and "Quit"
+
+### Improved
+
+- **The launch button is now called "Launch RSI Launcher"** instead of
+  "Launch Star Citizen" — in the overlay, the main window and the help. It
+  opens the launcher, not the game; several users had rightly pointed that out
+
 ### Fixed
 
 - **"Original" now replaces StarStrings when the tool had installed it

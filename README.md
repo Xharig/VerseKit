@@ -375,7 +375,7 @@ Die schmale Leiste liegt über dem Spiel und meldet Neuzugänge. Alles Weitere s
 | Zeichen | Was es tut |
 |---|---|
 | <img src="assets/symbole/22/glocke-grau.png" width="22" alt=""> | **Glocke** — neue Version verfügbar; färbt sich grün, sobald es eine gibt |
-| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rakete** — Star Citizen starten. Erscheint nur, wenn ein Weg dorthin gefunden wurde |
+| <img src="assets/symbole/22/starten-grau.png" width="22" alt=""> | **Rakete** — RSI Launcher starten. Erscheint nur, wenn ein Weg dorthin gefunden wurde |
 | <img src="assets/symbole/22/einstellungen-grau.png" width="22" alt=""> | **Zahnrad** — Einstellungen öffnen |
 | <img src="assets/symbole/22/liste-grau.png" width="22" alt=""> | **Klemmbrett** — Bauplan-Liste: durchsuchen, filtern, abhaken, Herkunft nachschlagen |
 | <img src="assets/symbole/22/schloss_auf-grau.png" width="22" alt=""> | **Schloss** — Mausklicks ins Spiel durchreichen. Es wird grün und zu, solange sie durchgehen; ein Klick darauf fängt sie wieder ab |
