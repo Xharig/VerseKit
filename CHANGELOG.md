@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.41.0 - 2026-09-15
+
+> **Der Hangar weiß jetzt, was zusammengehört.** Kam ein Schiff als Beilage
+> zu einem anderen, steht es dabei — etwa die URSA im Paket der Carrack. Und
+> das Menü am Symbol neben der Uhr trägt endlich die Farben des Werkzeugs.
+
 ### Neu
 
 - **Der Hangar zeigt, welches Schiff als Beilage zu einem anderen kam** — etwa

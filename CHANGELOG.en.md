@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.41.0 - 2026-09-15
+
+> **The hangar now knows what belongs together.** If a ship came bundled
+> with another, it says so — the URSA bundled with the Carrack, for example.
+> And the tray icon menu finally wears the tool's own colours.
+
 ### New
 
 - **The hangar shows which ship came bundled with another** — e.g. “bundled
