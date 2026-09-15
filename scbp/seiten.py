@@ -2867,7 +2867,7 @@ def _contract_log(fenster, rahmen):
     * **Läuft noch** → mit Stand, wenn er sich eindeutig zuordnen lässt.
     * **Beendet** → eine Zeile, mehr braucht es nicht.
     """
-    from . import missionslog
+    from . import mission_log
 
     _heading(fenster, rahmen, t('hf_auftragslog'), t('s_al_lead'))
     innen = _scroll_area(rahmen)
@@ -2927,18 +2927,18 @@ def _contract_log(fenster, rahmen):
     # ⚠ Blass, nicht `ROT`: Das kraeftige Rot gehoert den echten Fehlern
     # („Fehler melden"). Ein aufgegebener Auftrag ist eine Notiz, keine
     # Stoerung — er soll auffallen, ohne wie ein Alarm auszusehen.
-    farben = {missionslog.ABGESCHLOSSEN: ACCENT,
-              missionslog.ABGEBROCHEN: RED_PALE,
-              missionslog.FEHLGESCHLAGEN: RED_PALE,
-              missionslog.VERFALLEN: SUB,
-              missionslog.LAEUFT: GOLD}
-    worte = {missionslog.ABGESCHLOSSEN: 's_al_fertig',
-             missionslog.ABGEBROCHEN: 's_al_abbruch',
-             missionslog.FEHLGESCHLAGEN: 's_al_fehl',
+    farben = {mission_log.COMPLETED: ACCENT,
+              mission_log.ABORTED: RED_PALE,
+              mission_log.FAILED: RED_PALE,
+              mission_log.EXPIRED: SUB,
+              mission_log.RUNNING: GOLD}
+    worte = {mission_log.COMPLETED: 's_al_fertig',
+             mission_log.ABORTED: 's_al_abbruch',
+             mission_log.FAILED: 's_al_fehl',
              # Zurueckhaltend in Grau: Es ist keine Leistung und kein Abbruch,
              # nur das Ende der Spur.
-             missionslog.VERFALLEN: 's_al_verfallen',
-             missionslog.LAEUFT: 's_al_laeuft'}
+             mission_log.EXPIRED: 's_al_verfallen',
+             mission_log.RUNNING: 's_al_laeuft'}
 
     def _wort_laufend():
         """„läuft" nur, solange das Spiel wirklich schreibt.
@@ -2949,7 +2949,7 @@ def _contract_log(fenster, rahmen):
 
         Ausloggen beendet keinen Auftrag — das Spiel schreibt dafür nichts ins
         Protokoll. Aufgeräumt wird so ein Fall erst, wenn eine **spätere**
-        Sitzung ihn nicht mehr nennt (`_verfallene_schliessen`); beim letzten
+        Sitzung ihn nicht mehr nennt (`_close_expired`); beim letzten
         Auftrag vor dem Ausloggen gibt es die noch nicht. Gemessen an 381
         Aufträgen: 68 waren so bereits aufgelöst, genau einer blieb übrig —
         der jüngste.
@@ -2981,7 +2981,7 @@ def _contract_log(fenster, rahmen):
             gezeigt['anzahl'] = LOG_ROWS_FIRST
         if neu_laden or not daten['alle']:
             try:
-                daten['alle'] = missionslog.laden()
+                daten['alle'] = mission_log.load()
             except Exception:
                 daten['alle'] = []
 
@@ -3026,8 +3026,8 @@ def _contract_log(fenster, rahmen):
         # dasteht — sonst meldet er 386 und zeigt 62.
         if stand['art'] != 'alle':
             alle = [e for e in alle
-                    if (e.get('zustand') or missionslog.LAEUFT) == stand['art']]
-        treffer = missionslog.suchen(alle, suche.get())
+                    if (e.get('zustand') or mission_log.RUNNING) == stand['art']]
+        treffer = mission_log.search(alle, suche.get())
         kopf.configure(text=t('s_al_anzahl', len(treffer)))
         if not treffer:
             tk.Label(liste_rahmen, text=t('s_al_nichts'), bg=BG, fg=SUB,
@@ -3040,7 +3040,7 @@ def _contract_log(fenster, rahmen):
         # die Geometrie auch für die Zeilen unter dem Fensterrand.
         zeilen_log = []
         for eintrag in treffer[:gezeigt['anzahl']]:
-            zustand = eintrag.get('zustand') or missionslog.LAEUFT
+            zustand = eintrag.get('zustand') or mission_log.RUNNING
             zeile = tk.Frame(liste_rahmen, bg=SURFACE)
             zeilen_log.append(zeile)
 
@@ -3052,7 +3052,7 @@ def _contract_log(fenster, rahmen):
             # ⚠ Der laufende Zustand heisst je nach Lage anders — siehe
             # `_wort_laufend`. Einmal je Durchlauf gefragt, nicht je Zeile:
             # Das ist ein Dateizugriff, und die Liste hat hunderte Zeilen.
-            schluessel = (wort_laufend if zustand == missionslog.LAEUFT
+            schluessel = (wort_laufend if zustand == mission_log.RUNNING
                           else worte.get(zustand, 's_al_laeuft'))
             tk.Label(zeile, text=t(schluessel),
                      bg=SURFACE, fg=farben.get(zustand, SUB),
@@ -3094,7 +3094,7 @@ def _contract_log(fenster, rahmen):
             notice.attach(name_lab, lambda: t('s_al_klick'))
             # Der Stand gehoert nur an einen laufenden Auftrag. Bei einem
             # beendeten waere er Ballast — er ist ja fertig.
-            if (zustand == missionslog.LAEUFT
+            if (zustand == mission_log.RUNNING
                     and eintrag.get('ziele_gesamt')):
                 tk.Label(mitte,
                          text=t('s_al_ziele', eintrag.get('ziele_fertig') or 0,
@@ -3146,7 +3146,7 @@ def _contract_log(fenster, rahmen):
         # Einträge plus zwei Bedienelemente je Wiederholung — auf einer Seite,
         # die ohnehin die teuerste im Programm war.
         #
-        # `missionslog.zusammenfassen()` bleibt bestehen: Die Funktion ist
+        # `mission_log.summarize()` bleibt bestehen: Die Funktion ist
         # geprüft und harmlos, sie wird hier nur nicht mehr angezeigt.
 
     # ⚠⚠ **Die Filterknoepfe tragen die Farbe ihres Zustands** (06.09.2026):
@@ -3160,11 +3160,11 @@ def _contract_log(fenster, rahmen):
     # das Ungewisse.
     chips = {}
     schalter = [('alle', 's_al_f_alle', ACCENT),
-                (missionslog.LAEUFT, 's_al_laeuft', GOLD),
-                (missionslog.ABGESCHLOSSEN, 's_al_fertig', ACCENT),
-                (missionslog.ABGEBROCHEN, 's_al_abbruch', RED_PALE),
-                (missionslog.FEHLGESCHLAGEN, 's_al_fehl', RED_PALE),
-                (missionslog.VERFALLEN, 's_al_verfallen', SUB)]
+                (mission_log.RUNNING, 's_al_laeuft', GOLD),
+                (mission_log.COMPLETED, 's_al_fertig', ACCENT),
+                (mission_log.ABORTED, 's_al_abbruch', RED_PALE),
+                (mission_log.FAILED, 's_al_fehl', RED_PALE),
+                (mission_log.EXPIRED, 's_al_verfallen', SUB)]
 
     def waehlen(art):
         stand['art'] = art
@@ -3213,7 +3213,7 @@ def _contract_log(fenster, rahmen):
 
         def nachlesen():
             try:
-                missionslog.nachlese()
+                mission_log.scan_backlog()
             except Exception as ausnahme:
                 # Ein fehlgeschlagenes Nachlesen darf die Seite nicht leer
                 # lassen — der gespeicherte Stand ist besser als nichts.

@@ -909,7 +909,7 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     # Eine fehlende Zeile und eine leere Angabe sehen gleich aus, meinen aber
     # Verschiedenes. Steht sie da, weiss der Spieler: nachgesehen wurde, es
     # gibt schlicht nichts. Dieselbe Zurueckhaltung wie beim Zustand
-    # `VERFALLEN` — feststellen, nicht behaupten.
+    # `mission_log.EXPIRED` — feststellen, nicht behaupten.
     #
     # ⚠ Nur wenn WIRKLICH keine steht — weder eine eigene noch eine, die
     # schon im Text ist. Sonst stuenden zwei Ruf-Zeilen untereinander, eine

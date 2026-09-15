@@ -30,7 +30,7 @@ immer gezaehlt. Was aus den Logs verschwindet, bleibt hier stehen.
 ## Was gezaehlt wird
 
 Eine Sitzung zaehlt, wenn der Spieler wirklich im Spiel angekommen ist
-(`missionslog.SPAWN_MARKE`). Ein Start, der nie so weit kam, ist keine
+(`mission_log.SPAWN_MARKER`). Ein Start, der nie so weit kam, ist keine
 Spielzeit — auch wenn das Protokoll zwanzig Minuten lang ist, weil jemand im
 Ladebildschirm haengen blieb.
 
@@ -127,8 +127,8 @@ def span_from_log(log_path, spawn_mark=None):
     Ladebildschirm, in dem jemand zwanzig Minuten haengt, ist keine Spielzeit.
     """
     if spawn_mark is None:
-        from .missionslog import SPAWN_MARKE
-        spawn_mark = SPAWN_MARKE
+        from .mission_log import SPAWN_MARKER
+        spawn_mark = SPAWN_MARKER
     erste = letzte = None
     drin = False
     try:

@@ -476,7 +476,7 @@ def main():
         # weg, die Suche greift, und auf einem Spielrechner findet sie die
         # **echte** Star-Citizen-Installation.
         #
-        # Gemessen am 12.09.2026: Ein Hintergrund-`nachlese()` (es läuft beim
+        # Gemessen am 12.09.2026: Ein Hintergrund-`scan_backlog()` (es läuft beim
         # Öffnen der Auftragslog-Seite) las daraufhin die echten `logbackups/`
         # und schrieb **390 echte Auftraege** in die Testdatei von Prüfung 113.
         # Die meldete „396 statt 2" — ein Fehler, den es im Programm nicht gab.
@@ -3314,7 +3314,7 @@ def main():
     # Abschnitt 5 entfernt `SC_INSTALL_DIR` („Suche muss jetzt scheitern") und
     # setzt es nie wieder; die nachgebaute Installation ist gerade geloescht
     # worden. Danach findet `pfade` auf einem Spielrechner die **echte**
-    # Installation — und ein `missionslog.nachlese()` im Hintergrundfaden (es
+    # Installation — und ein `mission_log.scan_backlog()` im Hintergrundfaden (es
     # startet beim Oeffnen der Auftragslog-Seite) liest deren `logbackups/` und
     # schreibt sie in Bestand und Protokoll.
     #
@@ -3324,11 +3324,11 @@ def main():
     #   113: „das Protokoll steht in der eigenen Datei (396)" statt 2
     #    94: „nur die zwei aus Protokollen werden gezaehlt (gezaehlt: 164)"
     #
-    # ⚠⚠⚠ **Die Isolation gehoert an `nachlese()` — nicht an eine seiner
+    # ⚠⚠⚠ **Die Isolation gehoert an `scan_backlog()` — nicht an eine seiner
     # Quellen.** Das ist die Lehre vom 12.09.2026, und sie hat zwei Anlaeufe
     # gekostet:
     #
-    # `nachlese()` liest ZWEI Quellen, und beide zeigen auf den Spieler:
+    # `scan_backlog()` liest ZWEI Quellen, und beide zeigen auf den Spieler:
     #
     #   | Quelle | kommt aus |
     #   |---|---|
@@ -3344,7 +3344,7 @@ def main():
     # wurde.** Und wer einen groben Schutz durch einen feinen ersetzt, zaehlt
     # vorher ALLE Wege der Quelle auf.
     #
-    # Warum `nachlese()` die richtige Stelle ist — gemessen, nicht vermutet:
+    # Warum `scan_backlog()` die richtige Stelle ist — gemessen, nicht vermutet:
     # Kein Pruefabschnitt testet die Funktion selbst. Die einzigen Aufrufer
     # sind `seiten.py` (Hintergrundfaden beim Oeffnen der Auftragslog-Seite)
     # und `sc_bp_watcher.py` beim Start. Hier faellt also nichts aus.
@@ -3363,11 +3363,11 @@ def main():
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
-    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `missionslog`, `report`, `assistent`, der Watcher |
+    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `mission_log`, `report`, `assistent`, der Watcher |
     #   | 2 | `pfade.game_log()` | `logsource`, `playtime`, `joysticks`, der Watcher |
-    #   | 3 | `missionslog.nachlese()` | baut sich den Pfad zur laufenden Datei **selbst** (`missionslog.py`) und geht an 2 vorbei |
+    #   | 3 | `mission_log.scan_backlog()` | baut sich den Pfad zur laufenden Datei **selbst** (`mission_log.py`) und geht an 2 vorbei |
     #
-    # Riegel 3 gaebe es nicht, wenn `missionslog` ueber `pfade.game_log()`
+    # Riegel 3 gaebe es nicht, wenn `mission_log` ueber `pfade.game_log()`
     # ginge. Das zu aendern waere Programmcode — und der wird in einem
     # Umbenennungs-Zweig nicht angefasst. Also hier ein dritter Riegel.
     #
@@ -3443,8 +3443,8 @@ def main():
 
     _pf_iso.log_sicherungen = _sicherungen_iso
     _pf_iso.game_log = _gamelog_iso
-    _ml_iso = __import__('scbp.missionslog', fromlist=['nachlese'])
-    _ml_iso.nachlese = _nachlese_iso
+    _ml_iso = __import__('scbp.mission_log', fromlist=['scan_backlog'])
+    _ml_iso.scan_backlog = _nachlese_iso
 
     print()
     print('37. Ein Auftrag mit mehreren Preisstufen verliert keine Bauplaene')
@@ -10804,7 +10804,7 @@ def main():
     # Jede dieser fuenf Fallen hat hier ihren eigenen Fall. Ohne sie faellt
     # niemandem auf, wenn eine davon zurueckkommt: Das Protokoll sieht immer
     # plausibel aus, es zaehlt nur falsch.
-    from scbp import missionslog as _ml113
+    from scbp import mission_log as _ml113
 
     _wiese113 = tempfile.mkdtemp(prefix='sc-bp-protokoll-')
     _altheim113 = os.environ.get('SC_BP_HOME')
@@ -10816,7 +10816,7 @@ def main():
     # Mit dem frischen Ablageordner oben ist die Einstellung `spiel_ordner`
     # weg. Traegt `SC_INSTALL_DIR` nicht (Abschnitt 5 entfernt sie), faellt
     # `pfade` auf die Suche zurueck und findet auf einem Spielrechner die
-    # **echte** Star-Citizen-Installation. Ein Hintergrund-`nachlese()` — es
+    # **echte** Star-Citizen-Installation. Ein Hintergrund-`scan_backlog()` — es
     # laeuft beim Oeffnen der Auftragslog-Seite — liest dann die echten
     # `logbackups/` und schreibt sie in die Testdatei hier drunter.
     #
@@ -10851,7 +10851,7 @@ def main():
     #   b) **Struktur:** Alle drei Riegel liegen ueberhaupt.
     #
     # (a) allein genuegt nicht: Riegel 3 deckt einen Weg, der strukturell offen
-    # ist (`missionslog` baut den Pfad selbst und geht an `game_log()` vorbei),
+    # ist (`mission_log` baut den Pfad selbst und geht an `game_log()` vorbei),
     # bei diesem Spielstand aber gerade nichts hergibt — gemessen am 12.09.2026:
     # ohne Riegel 3 bleibt (a) gruen. Wer sich auf (a) verliesse, koennte Riegel
     # 3 entfernen, ohne dass etwas auffaellt. Genau diese Sorte Entfernung war
@@ -10860,17 +10860,17 @@ def main():
     # (b) allein genuegt auch nicht: Sie prueft nur, dass ich etwas gesetzt habe,
     # nicht dass es wirkt.
     _pf113 = __import__('scbp.pfade', fromlist=['log_sicherungen'])
-    _ml113 = __import__('scbp.missionslog', fromlist=['nachlese'])
+    _ml113 = __import__('scbp.mission_log', fromlist=['scan_backlog'])
 
     # ⚠⚠⚠ **Die Struktur ZUERST — vor jedem Aufruf.** Die erste Fassung rief
     # die Funktionen auf und prueefte erst danach, ob ueberhaupt die Riegel
-    # drinstecken. Ist `nachlese` versehentlich wieder das Original, liest die
+    # drinstecken. Ist `scan_backlog` versehentlich wieder das Original, liest die
     # Wache selbst die echten Daten ein, bevor sie den Fehler meldet — und
     # `pruefe()` sammelt nur, es bricht nicht ab.
     _riegel113 = [
         ('log_sicherungen', _pf113.log_sicherungen is _sicherungen_iso),
         ('game_log', _pf113.game_log is _gamelog_iso),
-        ('nachlese', _ml113.nachlese is _nachlese_iso),
+        ('nachlese', _ml113.scan_backlog is _nachlese_iso),
     ]
     _fehlt113 = [_n113 for _n113, _da113 in _riegel113 if not _da113]
     pruefe(not _fehlt113,
@@ -10917,8 +10917,8 @@ def main():
                                  % len(_pf113.log_sicherungen()))
             if _pf113.game_log():
                 _offen113.append('game_log: laufende Datei')
-            if _ml113.nachlese() != (0, 0):
-                _offen113.append('nachlese: %r' % (_ml113.nachlese(),))
+            if _ml113.scan_backlog() != (0, 0):
+                _offen113.append('nachlese: %r' % (_ml113.scan_backlog(),))
             # Der eigentliche Nachweis: aussen gesperrt, obwohl Dateien da sind.
             if _pf113.game_log(_sp_draus):
                 _offen113.append('game_log(ausserhalb) liefert eine Datei')
@@ -11006,7 +11006,7 @@ def main():
         for _p113 in (_log1, _log2, _log3):
             os.utime(_p113, (1750000000, 1750000000))
 
-        _alle113 = _ml113.aus_ordner(_wiese113)
+        _alle113 = _ml113.from_folder(_wiese113)
         _namen113 = [e['name'] for e in _alle113]
 
         pruefe(all(n == 'Testauftrag' for n in _namen113),
@@ -11019,9 +11019,9 @@ def main():
                'Wiederaufnahme zaehlen nicht mit' % len(_alle113))
 
         _zustaende113 = {e['wann'][:10]: e['zustand'] for e in _alle113}
-        pruefe(_zustaende113.get('2026-08-01') == _ml113.ABGESCHLOSSEN,
+        pruefe(_zustaende113.get('2026-08-01') == _ml113.COMPLETED,
                'der erste Durchlauf ist abgeschlossen')
-        pruefe(_zustaende113.get('2026-08-03') == _ml113.LAEUFT,
+        pruefe(_zustaende113.get('2026-08-03') == _ml113.RUNNING,
                'der zweite laeuft noch')
         # Falle 5 schlaegt genau hier zu: Bei falscher Reihenfolge bekommt der
         # spaetere Durchlauf das Ende des frueheren.
@@ -11040,7 +11040,7 @@ def main():
         _echt113 = _ml113.contracts.clean
         _ml113.contracts.clean = lambda t: (t or '').strip()
         try:
-            _roh113 = _ml113.aus_ordner(_wiese113)
+            _roh113 = _ml113.from_folder(_wiese113)
             pruefe(len({e['name'] for e in _roh113}) > 1,
                    'Gegenprobe: ohne Putzen zerfaellt der Auftrag in mehrere '
                    '(%d Namen)' % len({e['name'] for e in _roh113}))
@@ -11049,32 +11049,32 @@ def main():
 
         # Fortschreiben: Das Protokoll muss stehen bleiben, wenn die Logs fort
         # sind — genau dafuer gibt es die Datei.
-        _ml113.nachtragen(_wiese113)
-        _gespeichert113 = _ml113.laden()
+        _ml113.catch_up(_wiese113)
+        _gespeichert113 = _ml113.load()
         pruefe(len(_gespeichert113) == 2,
                'das Protokoll steht in der eigenen Datei (%d)'
                % len(_gespeichert113))
-        _ml113.nachtragen(_wiese113)
-        pruefe(len(_ml113.laden()) == 2,
+        _ml113.catch_up(_wiese113)
+        pruefe(len(_ml113.load()) == 2,
                'ein zweiter Lauf legt nichts doppelt an (%d)'
-               % len(_ml113.laden()))
-        _ml113.nachtragen(os.path.join(_wiese113, 'gibtsnicht'))
-        pruefe(len(_ml113.laden()) == 2,
+               % len(_ml113.load()))
+        _ml113.catch_up(os.path.join(_wiese113, 'gibtsnicht'))
+        pruefe(len(_ml113.load()) == 2,
                'ohne Logs bleibt das Protokoll erhalten (%d)'
-               % len(_ml113.laden()))
+               % len(_ml113.load()))
 
         # Ein abgeschlossener Auftrag darf nicht zurueckfallen, bloss weil in
         # einem noch vorhandenen Log nur sein Anfang steht.
-        _zurueck113 = _ml113.zusammenfuehren(
+        _zurueck113 = _ml113.merge(
             [{'name': 'X', 'wann': '2026-01-01T10:00',
-              'zustand': _ml113.ABGESCHLOSSEN, 'bis': '2026-01-01T11:00'}],
+              'zustand': _ml113.COMPLETED, 'bis': '2026-01-01T11:00'}],
             [{'name': 'X', 'wann': '2026-01-01T10:00',
-              'zustand': _ml113.LAEUFT}])
-        pruefe(_zurueck113[0]['zustand'] == _ml113.ABGESCHLOSSEN,
+              'zustand': _ml113.RUNNING}])
+        pruefe(_zurueck113[0]['zustand'] == _ml113.COMPLETED,
                'ein abgeschlossener Auftrag faellt nicht auf „laeuft" zurueck')
 
-        pruefe(len(_ml113.suchen(_gespeichert113, 'testauf')) == 2
-               and not _ml113.suchen(_gespeichert113, 'gibtsnicht'),
+        pruefe(len(_ml113.search(_gespeichert113, 'testauf')) == 2
+               and not _ml113.search(_gespeichert113, 'gibtsnicht'),
                'die Suche findet ueber den Auftragsnamen')
 
         # ⭐ Der Bauplan gehoert an den Auftrag, bei dem er herauskam.
@@ -11096,14 +11096,14 @@ def main():
                       'Bauplan erhalten: Spaetzuender', 4),
         ])
         os.utime(_log4, (1750000000, 1750000000))
-        _beute113 = [e for e in _ml113.aus_dateien([_log4])
+        _beute113 = [e for e in _ml113.from_files([_log4])
                      if e['name'] == 'Beuteauftrag']
         pruefe(len(_beute113) == 1 and _beute113[0].get('bauplaene') ==
                ['Testhelm'],
                'der Bauplan haengt am Auftrag, bei dem er herauskam (%s)'
                % (_beute113[0].get('bauplaene') if _beute113 else 'kein Auftrag'))
         pruefe(all('Spaetzuender' not in (e.get('bauplaene') or [])
-                   for e in _ml113.aus_dateien([_log4])),
+                   for e in _ml113.from_files([_log4])),
                'ein Fund lange nach dem Ende wird keinem Auftrag angehaengt')
 
         # ⭐⭐ Ein Auftrag gibt HOECHSTENS EINEN Bauplan her — Spielregel.
@@ -11118,7 +11118,7 @@ def main():
                       'Bauplan erhalten: Zweiter', 3),
         ])
         os.utime(_log5, (1750000100, 1750000100))
-        _sammel113 = [e for e in _ml113.aus_dateien([_log5])
+        _sammel113 = [e for e in _ml113.from_files([_log5])
                       if e['name'] == 'Sammelauftrag']
         pruefe(_sammel113 and len(_sammel113[0].get('bauplaene') or []) == 1,
                'ein Auftrag bekommt hoechstens EINEN Bauplan (%d)'
@@ -11140,9 +11140,9 @@ def main():
         ])
         os.utime(_log6a, (1750000200, 1750000200))
         os.utime(_log6b, (1750000300, 1750000300))
-        _spaet113 = {e['name']: e for e in _ml113.aus_dateien([_log6a, _log6b])}
+        _spaet113 = {e['name']: e for e in _ml113.from_files([_log6a, _log6b])}
         pruefe(_spaet113.get('Vergessener', {}).get('zustand')
-               == _ml113.VERFALLEN,
+               == _ml113.EXPIRED,
                'ein Auftrag, den die naechste Sitzung nicht kennt, gilt als '
                'nicht mehr offen')
         pruefe(not (_spaet113.get('Vergessener', {}).get('bauplaene')),
@@ -11157,8 +11157,8 @@ def main():
             _zeile113('2026-09-05T10:00:00.000', 'Nichts von Belang', 1),
         ])
         os.utime(_log6c, (1750000400, 1750000400))
-        _stumm113 = {e['name']: e for e in _ml113.aus_dateien([_log6a, _log6c])}
-        pruefe(_stumm113.get('Vergessener', {}).get('zustand') == _ml113.LAEUFT,
+        _stumm113 = {e['name']: e for e in _ml113.from_files([_log6a, _log6c])}
+        pruefe(_stumm113.get('Vergessener', {}).get('zustand') == _ml113.RUNNING,
                'eine stumme Sitzung beendet keinen Auftrag')
     finally:
         if _altheim113 is None:
@@ -12195,7 +12195,7 @@ def main():
     #
     # Ausloggen beendet keinen Auftrag — das Spiel schreibt dafuer nichts.
     # Aufgeraeumt wird so ein Fall erst, wenn eine SPAETERE Sitzung ihn nicht
-    # mehr nennt (`_verfallene_schliessen`); beim letzten Auftrag vor dem
+    # mehr nennt (`_close_expired`); beim letzten Auftrag vor dem
     # Ausloggen gibt es die noch nicht. Gemessen an 381 echten Auftraegen:
     # 68 waren so bereits aufgeloest, genau einer blieb uebrig — der juengste.
     #
@@ -12285,7 +12285,7 @@ def main():
     # Fehler nur gegen einen schlimmeren getauscht: Ein faelschlich
     # geschlossener Auftrag ist schlimmer als eine ehrliche Karteileiche.
     import importlib as _il124
-    _ml124 = _il124.import_module('scbp.missionslog')
+    _ml124 = _il124.import_module('scbp.mission_log')
 
     _wiese124 = tempfile.mkdtemp(prefix='sc-bp-stumm-')
     _altheim124 = os.environ.get('SC_BP_HOME')
@@ -12322,9 +12322,9 @@ def main():
         ])
         os.utime(_kurz, (1750000400, 1750000400))
 
-        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _kurz])}
+        stand = {e['name']: e for e in _ml124.from_files([_s1, _kurz])}
         pruefe(stand.get('Retake Platforms From Nine Tails', {})
-               .get('zustand') == _ml124.LAEUFT,
+               .get('zustand') == _ml124.RUNNING,
                'ein kurzer Fehlstart beendet KEINEN Auftrag')
 
         # Sitzung 2b: LANG (3 Stunden) und ohne Auftrag — hier zaehlt das
@@ -12336,9 +12336,9 @@ def main():
         ])
         os.utime(_lang, (1750000400, 1750000400))
 
-        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _lang])}
+        stand = {e['name']: e for e in _ml124.from_files([_s1, _lang])}
         pruefe(stand.get('Retake Platforms From Nine Tails', {})
-               .get('zustand') == _ml124.VERFALLEN,
+               .get('zustand') == _ml124.EXPIRED,
                'eine lange Sitzung ohne Auftrag raeumt die Karteileiche ab')
 
         # ⚠ Und ohne Spawn zaehlt auch eine lange Datei nicht: Ein Log, das
@@ -12348,16 +12348,16 @@ def main():
             _zeile124('2026-09-05T13:00:00', 'Nichts von Belang'),
         ])
         os.utime(_ohne_spawn, (1750000400, 1750000400))
-        stand = {e['name']: e for e in _ml124.aus_dateien([_s1, _ohne_spawn])}
+        stand = {e['name']: e for e in _ml124.from_files([_s1, _ohne_spawn])}
         pruefe(stand.get('Retake Platforms From Nine Tails', {})
-               .get('zustand') == _ml124.LAEUFT,
+               .get('zustand') == _ml124.RUNNING,
                'ohne Spawn beweist auch eine lange Datei nichts')
 
         # Die Grenze selbst — sie ist gemessen, nicht geschaetzt, und darf
         # nicht unbemerkt unter eine Stunde rutschen.
-        pruefe(_ml124.SITZUNG_ZAEHLT_SEK >= 3600,
+        pruefe(_ml124.SESSION_COUNTS_SEC >= 3600,
                'die Mindestdauer bleibt bei mindestens einer Stunde (%d s)'
-               % _ml124.SITZUNG_ZAEHLT_SEK)
+               % _ml124.SESSION_COUNTS_SEC)
     finally:
         if _altheim124 is None:
             os.environ.pop('SC_BP_HOME', None)
@@ -13129,34 +13129,34 @@ def main():
     # wertete nur `Abandon` aus — `Fail` und `Deactivate` fielen unter
     # „abgeschlossen". An einem gewachsenen Protokoll waren das **52**
     # gescheiterte Auftraege, die gruen als Erfolg dastanden.
-    from scbp import missionslog as _ml134
+    from scbp import mission_log as _ml134
 
-    pruefe(_ml134._zustand_zu('Complete') == _ml134.ABGESCHLOSSEN,
+    pruefe(_ml134._state_for('Complete') == _ml134.COMPLETED,
            'Complete bleibt abgeschlossen')
-    pruefe(_ml134._zustand_zu('Abandon') == _ml134.ABGEBROCHEN,
+    pruefe(_ml134._state_for('Abandon') == _ml134.ABORTED,
            'Abandon bleibt abgebrochen')
-    pruefe(_ml134._zustand_zu('Fail') == _ml134.FEHLGESCHLAGEN,
+    pruefe(_ml134._state_for('Fail') == _ml134.FAILED,
            'Fail ist fehlgeschlagen — nicht abgeschlossen')
-    pruefe(_ml134._zustand_zu('Deactivate') == _ml134.VERFALLEN,
+    pruefe(_ml134._state_for('Deactivate') == _ml134.EXPIRED,
            'Deactivate ist verfallen — das Spiel zog ihn selbst zurueck')
     # ⚠ Ein unbekannter oder fehlender Ausgang faellt auf den alten Stand
     # zurueck. Ein Ende ohne <EndMission> steht nur als Mitteilung im Log.
-    pruefe(_ml134._zustand_zu('') == _ml134.ABGESCHLOSSEN,
+    pruefe(_ml134._state_for('') == _ml134.COMPLETED,
            'ohne Angabe gilt weiter abgeschlossen')
-    pruefe(_ml134._zustand_zu('WasGanzNeues') == _ml134.ABGESCHLOSSEN,
+    pruefe(_ml134._state_for('WasGanzNeues') == _ml134.COMPLETED,
            'ein unbekannter Ausgang faellt nicht durch')
 
     # ⚠ Und die Anzeige muss den neuen Zustand kennen — ein Zustand ohne Farbe
     # und ohne Wort waere im Protokoll eine leere Zelle.
     _quelle134 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                       encoding='utf-8').read()
-    pruefe('missionslog.FEHLGESCHLAGEN: RED_PALE' in _quelle134,
+    pruefe('mission_log.FAILED: RED_PALE' in _quelle134,
            'fehlgeschlagen hat eine Farbe')
-    pruefe("missionslog.FEHLGESCHLAGEN: 's_al_fehl'" in _quelle134,
+    pruefe("mission_log.FAILED: 's_al_fehl'" in _quelle134,
            'fehlgeschlagen hat ein Wort')
-    pruefe('missionslog.ABGEBROCHEN: RED_PALE' in _quelle134,
+    pruefe('mission_log.ABORTED: RED_PALE' in _quelle134,
            'abgebrochen steht in blassem Rot, nicht mehr in Grau')
-    pruefe('missionslog.VERFALLEN: SUB' in _quelle134,
+    pruefe('mission_log.EXPIRED: SUB' in _quelle134,
            'nicht mehr offen bleibt grau')
 
     print()
@@ -13176,10 +13176,10 @@ def main():
     pruefe(bool(_fa135 and _sc135),
            'Farbtabelle und Knopfliste sind beide da')
     if _fa135 and _sc135:
-        _zust135 = dict(re.findall(r'missionslog\.(\w+):\s*(\w+)',
+        _zust135 = dict(re.findall(r'mission_log\.(\w+):\s*(\w+)',
                                    _fa135.group(1)))
         _knopf135 = dict((k, f) for k, _w, f in
-                         re.findall(r'missionslog\.(\w+),\s*\'([^\']+)\',\s*(\w+)',
+                         re.findall(r'mission_log\.(\w+),\s*\'([^\']+)\',\s*(\w+)',
                                     _sc135.group(1)))
         _ohne = sorted(set(_zust135) - set(_knopf135))
         pruefe(not _ohne,
@@ -17248,6 +17248,11 @@ def main():
         # Die Daten-Schluessel `'auftraege'` (Auftragslog-Datei, Export,
         # Ruf-Tabelle, Warteschlange im Watcher) bleiben deutsch.
         'auftraege': 'contracts',
+        # Stufe 10b — das Auftrags-Protokoll. ⚠ Die Datei `auftragslog.json`,
+        # ihre Schluessel und die Zustands-WERTE (`'laeuft'`, `'abgeschlossen'`
+        # …) bleiben deutsch — sie sind gespeichert und werden zurueckgelesen.
+        # Nur die Konstanten-NAMEN wandern (`LAEUFT` -> `RUNNING`).
+        'missionslog': 'mission_log',
     }
 
     def _reste190(quelle, name, alte):

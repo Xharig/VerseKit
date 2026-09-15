@@ -61,7 +61,7 @@ import re
 
 from . import contracts, fehler, pfade
 
-DATEI = 'auftragslog.json'
+FILE = 'auftragslog.json'
 # ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
 # sich nicht nachtraeglich glattziehen lassen — Auftraege, die ewig „laeuft"
 # blieben, und Bauplaene, die dadurch am falschen Auftrag haengen. Beides
@@ -71,19 +71,19 @@ DATEI = 'auftragslog.json'
 FORMAT = 2
 
 # Der Zeitstempel am Zeilenanfang: <2026-08-29T16:02:14.792Z>
-_ZEIT = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
+_TIME = re.compile(r'<(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)')
 
 # Abgeschlossen oder abgebrochen — nur diese Zeile sagt es.
-_ENDE_ART = re.compile(r'<EndMission>.*?MissionId\[(?P<mid>[^\]]*)\]'
+_END_KIND = re.compile(r'<EndMission>.*?MissionId\[(?P<mid>[^\]]*)\]'
                        r'.*?CompletionType\[(?P<art>[^\]]*)\]')
 
-ABGESCHLOSSEN = 'abgeschlossen'
-ABGEBROCHEN = 'abgebrochen'
-LAEUFT = 'laeuft'
-# ⚠ Kein Ende im Log, aber sicher nicht mehr offen — siehe `_verfallene_schliessen`.
+COMPLETED = 'abgeschlossen'
+ABORTED = 'abgebrochen'
+RUNNING = 'laeuft'
+# ⚠ Kein Ende im Log, aber sicher nicht mehr offen — siehe `_close_expired`.
 # Bewusst NICHT als „abgebrochen" gefuehrt: Wir wissen nur, dass er nicht mehr
 # laeuft, nicht warum. Eine Behauptung waere schlimmer als eine ehrliche Luecke.
-VERFALLEN = 'verfallen'
+EXPIRED = 'verfallen'
 # ⚠⚠ **Neu am 06.09.2026 — vorher galt Scheitern als Erfolg.** Das Spiel kennt
 # vier Ausgaenge, ausgewertet wurde nur einer davon:
 #
@@ -94,29 +94,29 @@ VERFALLEN = 'verfallen'
 #
 # 57 gescheiterte Auftraege standen gruen im Protokoll. Wer nachsieht, wie oft
 # ihm ein Auftrag misslungen ist, bekam die falsche Antwort.
-FEHLGESCHLAGEN = 'fehlgeschlagen'
+FAILED = 'fehlgeschlagen'
 
 
-def _zustand_zu(art):
+def _state_for(kind):
     """Aus `CompletionType[…]` den Zustand — der Ausgang steht im Log.
 
     ⚠ `Deactivate` (2 von 485) heisst, dass das Spiel den Auftrag selbst
     zurueckgezogen hat. Weder Leistung noch Aufgabe des Spielers, deshalb
-    `VERFALLEN`: Die Spur endet, ueber das Warum wird nichts behauptet —
-    dieselbe Zurueckhaltung wie bei `VERFALLEN` selbst.
+    `EXPIRED`: Die Spur endet, ueber das Warum wird nichts behauptet —
+    dieselbe Zurueckhaltung wie bei `EXPIRED` selbst.
 
     ⚠ Ein unbekannter oder fehlender Ausgang gilt weiter als abgeschlossen.
     Das ist der Stand von vorher und deckt jedes Ende ab, das ohne
     `<EndMission>` nur als Mitteilung im Log steht.
     """
-    art = (art or '').lower()
-    if art.startswith('abandon'):
-        return ABGEBROCHEN
-    if art.startswith('fail'):
-        return FEHLGESCHLAGEN
-    if art.startswith('deactivate'):
-        return VERFALLEN
-    return ABGESCHLOSSEN
+    kind = (kind or '').lower()
+    if kind.startswith('abandon'):
+        return ABORTED
+    if kind.startswith('fail'):
+        return FAILED
+    if kind.startswith('deactivate'):
+        return EXPIRED
+    return COMPLETED
 
 
 # Woran man erkennt, dass der Spieler wirklich im Spiel angekommen ist.
@@ -124,7 +124,7 @@ def _zustand_zu(art):
 # vor, und in KEINEM einzigen wurde ein Auftrag genannt, ohne dass sie davor
 # stand. Sie ist damit die verlaessliche Grenze zwischen „Spiel gestartet" und
 # „Spieler ist drin".
-SPAWN_MARKE = 'OnClientSpawned'
+SPAWN_MARKER = 'OnClientSpawned'
 
 # Wie lange eine Sitzung gelaufen sein muss, damit ihr SCHWEIGEN etwas beweist.
 #
@@ -151,12 +151,12 @@ SPAWN_MARKE = 'OnClientSpawned'
 # Genommen sind 90 Minuten: Das kostet gegenueber 60 genau EINEN aufgeraeumten
 # Auftrag und verdoppelt den Abstand zur Fehlergrenze. Eine ehrliche
 # Karteileiche ist besser als ein faelschlich geschlossener Auftrag — dieselbe
-# Abwaegung wie bei `VERFALLEN` selbst.
-SITZUNG_ZAEHLT_SEK = 90 * 60
+# Abwaegung wie bei `EXPIRED` selbst.
+SESSION_COUNTS_SEC = 90 * 60
 
 
-def _zeit(zeile):
-    m = _ZEIT.search(zeile)
+def _time_of(line):
+    m = _TIME.search(line)
     return m.group(1) if m else ''
 
 
@@ -167,27 +167,27 @@ def _zeit(zeile):
 # „H4-PBF Ammo Carrier" kam 17:42:54 — 54 Sekunden spaeter. Ohne Nachlauf
 # stuende er bei keinem Auftrag. Fuenf Minuten sind grosszuegig genug fuer eine
 # lahme Serververbindung und kurz genug, dass er nicht beim naechsten Auftrag
-# landet; laeuft ohnehin schon der naechste, gewinnt der (siehe `_bp_zuordnen`).
-BP_NACHLAUF_SEK = 300
+# landet; laeuft ohnehin schon der naechste, gewinnt der (siehe `_assign_bp`).
+BP_GRACE_SEC = 300
 
 
-def _eintrag(titel, wann, quelle):
-    return {'name': titel, 'wann': wann, 'zustand': LAEUFT,
+def _entry(title, when, source):
+    return {'name': title, 'wann': when, 'zustand': RUNNING,
             'ziele_fertig': 0, 'ziele_gesamt': 0, 'bauplaene': [],
-            'quelle': quelle}
+            'quelle': source}
 
 
-def _sekunden(stempel):
+def _seconds(stamp):
     """Ein Zeitstempel als Zahl — fuer den Abstand zwischen zwei Ereignissen."""
     try:
         import calendar
         import time as _t
-        return calendar.timegm(_t.strptime(stempel[:19], '%Y-%m-%dT%H:%M:%S'))
+        return calendar.timegm(_t.strptime(stamp[:19], '%Y-%m-%dT%H:%M:%S'))
     except Exception:
         return None
 
 
-def _bp_zuordnen(name, wann, offen, fertig, gemeldet=None):
+def _assign_bp(name, when, pending, done, reported=None):
     """Einen gefundenen Bauplan dem Auftrag zuschreiben, zu dem er gehoert.
 
     ⚠ **Laufender Auftrag zuerst, erst dann der gerade beendete.** Wer einen
@@ -210,7 +210,7 @@ def _bp_zuordnen(name, wann, offen, fertig, gemeldet=None):
     ⚠⚠ **`gemeldet` sind die Auftraege DIESER Sitzung.** Ein offener Auftrag
     aus einer frueheren Sitzung, den das Spiel hier nicht mehr nennt, laeuft
     nicht mehr — er darf nichts bekommen. Das Aufraeumen in
-    `_verfallene_schliessen()` allein genuegt dafuer nicht: Es kann erst
+    `_close_expired()` allein genuegt dafuer nicht: Es kann erst
     greifen, wenn die Datei durch ist, waehrend der Bauplan mittendrin faellt.
 
     Gemessen am 04.09.2026: „Willkommen im System" endete um 07:21:55, eine
@@ -221,28 +221,28 @@ def _bp_zuordnen(name, wann, offen, fertig, gemeldet=None):
     laufenden Auftrag erneut meldet, also am ANFANG der Datei — lange vor
     jedem Bauplan-Fund darin.
     """
-    for ziel in reversed(offen):
-        if ziel.get('bauplaene'):
+    for target in reversed(pending):
+        if target.get('bauplaene'):
             continue            # hat seinen Bauplan schon — Spielregel
-        if gemeldet is not None and ziel['name'] not in gemeldet:
+        if reported is not None and target['name'] not in reported:
             continue            # laeuft in dieser Sitzung gar nicht
-        ziel.setdefault('bauplaene', []).append(name)
+        target.setdefault('bauplaene', []).append(name)
         return True
-    jetzt = _sekunden(wann)
-    if jetzt is None:
+    now = _seconds(when)
+    if now is None:
         return False
-    for eintrag in reversed(fertig):
-        if eintrag.get('bauplaene'):
+    for entry in reversed(done):
+        if entry.get('bauplaene'):
             continue
-        ende = _sekunden(eintrag.get('bis') or '')
-        if ende is not None and 0 <= jetzt - ende <= BP_NACHLAUF_SEK:
-            eintrag.setdefault('bauplaene', []).append(name)
+        end = _seconds(entry.get('bis') or '')
+        if end is not None and 0 <= now - end <= BP_GRACE_SEC:
+            entry.setdefault('bauplaene', []).append(name)
             return True
     return False
 
 
-def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
-           bp_muster=None):
+def _read(path, pending, done, seen, ident, start_pat, end_pat,
+           bp_pattern=None):
     """Ein Log lesen und die Buchfuehrung fortschreiben.
 
     `offen` und `fertig` werden ueber Dateigrenzen hinweg weitergereicht —
@@ -251,76 +251,76 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
     Gibt `(gemeldet, aussagekraeftig)` zurueck:
 
     - `gemeldet` sind die Titel, die diese Sitzung als angenommen gemeldet hat
-      — **auch die Wiederaufnahmen**. `_verfallene_schliessen()` braucht das.
+      — **auch die Wiederaufnahmen**. `_close_expired()` braucht das.
     - `aussagekraeftig` sagt, ob man einer Sitzung OHNE jeden Auftrag glauben
-      darf, dass wirklich keiner mehr offen war. Siehe `SITZUNG_ZAEHLT_SEK`.
+      darf, dass wirklich keiner mehr offen war. Siehe `SESSION_COUNTS_SEC`.
     """
-    quelle = os.path.basename(pfad)
-    enden = {}          # mission_id -> 'Complete' | 'Abandon'
-    ziele = {}          # mission_id -> {objective_id: zustand}
-    gemeldet = set()    # welche Auftraege diese Sitzung ueberhaupt nennt
+    source = os.path.basename(path)
+    endings = {}          # mission_id -> 'Complete' | 'Abandon'
+    objectives = {}          # mission_id -> {objective_id: zustand}
+    reported = set()    # welche Auftraege diese Sitzung ueberhaupt nennt
     # Fuer die Frage, ob eine stumme Sitzung etwas beweist: War der Spieler
     # ueberhaupt im Spiel, und wie lange lief es?
     spawn = False
-    erste_zeit = letzte_zeit = None
+    first_time = last_time = None
 
     try:
-        with open(pfad, encoding='utf-8', errors='replace') as f:
-            for zeile in f:
-                if not spawn and SPAWN_MARKE in zeile:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if not spawn and SPAWN_MARKER in line:
                     spawn = True
-                _t = _ZEIT.search(zeile)
+                _t = _TIME.search(line)
                 if _t:
-                    if erste_zeit is None:
-                        erste_zeit = _t.group(1)
-                    letzte_zeit = _t.group(1)
+                    if first_time is None:
+                        first_time = _t.group(1)
+                    last_time = _t.group(1)
                 # Die Art des Endes merken, bevor das Ereignis selbst kommt —
                 # im Log steht EndMission vor der Mitteilung.
-                a = _ENDE_ART.search(zeile)
+                a = _END_KIND.search(line)
                 if a:
-                    enden[a.group('mid')] = a.group('art')
+                    endings[a.group('mid')] = a.group('art')
 
                 # ('zustand', mission_id, objective_id, zustand, kennzeichen)
-                for zust in contracts.objective_events_from_text(zeile):
-                    if zust and zust[0] == 'zustand':
-                        ziele.setdefault(zust[1], {})[zust[2]] = zust[3]
+                for obj_event in contracts.objective_events_from_text(line):
+                    if obj_event and obj_event[0] == 'zustand':
+                        objectives.setdefault(obj_event[1], {})[obj_event[2]] = obj_event[3]
 
                 # ⭐ Welcher Bauplan bei welchem Auftrag herauskam. Erkannt wird
                 # er mit demselben Muster wie im Bestand (`phrases.py`) — die
                 # Formulierung steht in der `global.ini` des Spielers, nicht
                 # hier. Die Zuordnung macht der Zeitpunkt: Ein Bauplan faellt
                 # waehrend eines Auftrags oder kurz nach dem Abgeben.
-                if bp_muster is not None:
-                    for treffer in bp_muster.finditer(zeile):
-                        roh_bp = next((g for g in treffer.groups() if g), '')
-                        name_bp = contracts.clean(roh_bp)
-                        if not name_bp:
+                if bp_pattern is not None:
+                    for hit in bp_pattern.finditer(line):
+                        raw_bp = next((g for g in hit.groups() if g), '')
+                        bp_name = contracts.clean(raw_bp)
+                        if not bp_name:
                             continue
-                        bp_wann = _zeit(zeile)
-                        if (bp_wann, name_bp, 'bp') in gesehen:
+                        bp_when = _time_of(line)
+                        if (bp_when, bp_name, 'bp') in seen:
                             continue    # dieselbe Doppelmeldung wie oben
-                        gesehen.add((bp_wann, name_bp, 'bp'))
-                        _bp_zuordnen(name_bp, bp_wann, offen, fertig, gemeldet)
+                        seen.add((bp_when, bp_name, 'bp'))
+                        _assign_bp(bp_name, bp_when, pending, done, reported)
 
-                ereignisse = contracts.events_from_text(
-                    zeile, muster_an, muster_aus)
-                if not ereignisse:
+                events = contracts.events_from_text(
+                    line, start_pat, end_pat)
+                if not events:
                     continue
-                wann = _zeit(zeile)
+                when = _time_of(line)
 
-                for ist_annahme, roh, mission_id, objective_id in ereignisse:
-                    # ⚠ IMMER durch `sauber()`. Im Log steht der Titel mal als
+                for is_accept, raw, mission_id, objective_id in events:
+                    # ⚠ IMMER durch `clean()`. Im Log steht der Titel mal als
                     # „Retake Platforms From Nine Tails <EM4>[BP!]</EM4>", mal
                     # mit „[SCBPW] … [/SCBPW]" — je nachdem, was der Watcher
                     # gerade ins Spiel eingetragen hat. Ungeputzt gilt derselbe
                     # Auftrag als zwei verschiedene: gemessen 3× und 2× statt 5×.
-                    titel = contracts.clean(roh)
-                    schluessel = (wann, titel, ist_annahme)
-                    if schluessel in gesehen:
+                    title = contracts.clean(raw)
+                    key = (when, title, is_accept)
+                    if key in seen:
                         continue        # Doppelmeldung, siehe Modulkopf
-                    gesehen.add(schluessel)
+                    seen.add(key)
 
-                    if ist_annahme is None:
+                    if is_accept is None:
                         # ⚠⚠ Spielwelt verlassen — hier NICHT raeumen.
                         #
                         # `contracts.py` raeumt an dieser Stelle auf, und das ist
@@ -336,19 +336,19 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         # uebrig, die in derselben Sitzung endeten.
                         continue
 
-                    if ist_annahme:
+                    if is_accept:
                         # ⚠ Titel mit rohem Platzhalter gehoeren nicht ins
                         # Protokoll: `Ling Family - Rang: ~mission(ReputationRank)`
                         # setzt das Spiel erst beim Anzeigen ein, die Werte
                         # stehen nirgends im Log. Als eigener Eintrag waere das
                         # ein zweiter Auftrag, den es nie gab — daneben stand
                         # derselbe mit aufgeloestem Rang („NEULING").
-                        if not titel or '~mission(' in titel:
+                        if not title or '~mission(' in title:
                             continue
                         # ⚠ VOR der Wiederaufnahme-Pruefung merken: Gerade die
                         # Wiederaufnahme ist der Beweis, dass der Auftrag in
                         # dieser Sitzung noch lief.
-                        gemeldet.add(titel)
+                        reported.add(title)
                         # ⚠⚠ **Wiederaufnahme ist keine neue Annahme.** Beim
                         # Einloggen meldet das Spiel jeden laufenden Auftrag
                         # erneut als angenommen. Ohne diese Pruefung stand
@@ -362,16 +362,16 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         # nicht raeumen (sonst fehlen Auftraege ueber zwei
                         # Abende) und muss die Wiederaufnahme deshalb hier
                         # abfangen.
-                        schon_offen = any(
-                            e['name'] == titel for e in offen) or (
-                                mission_id and mission_id in kennung
-                                and any(e['name'] == kennung[mission_id]
-                                        for e in offen))
-                        if schon_offen:
+                        already_pending = any(
+                            e['name'] == title for e in pending) or (
+                                mission_id and mission_id in ident
+                                and any(e['name'] == ident[mission_id]
+                                        for e in pending))
+                        if already_pending:
                             continue
-                        offen.append(_eintrag(titel, wann, quelle))
+                        pending.append(_entry(title, when, source))
                         if mission_id:
-                            kennung[mission_id] = titel
+                            ident[mission_id] = title
                         continue
 
                     # ⚠⚠ Ein Ende — aber WELCHES? Die Zuordnung macht
@@ -385,118 +385,118 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                     # Und wenn nichts zugeordnet werden kann, wird NICHTS
                     # eingetragen. Ein erfundener Auftrag ist schlimmer als ein
                     # fehlender.
-                    treffer = contracts.which_ended(
-                        titel, mission_id, objective_id,
-                        [e['name'] for e in offen], kennung)
-                    if not treffer:
+                    hit = contracts.which_ended(
+                        title, mission_id, objective_id,
+                        [e['name'] for e in pending], ident)
+                    if not hit:
                         continue
-                    zustand = _zustand_zu(enden.get(mission_id, ''))
+                    state = _state_for(endings.get(mission_id, ''))
                     # ⚠ Den AELTESTEN passenden schliessen, nicht den juengsten.
                     # Sonst bekommt ein Auftrag das Ende eines spaeteren
                     # Durchlaufs und im Protokoll steht ein Ende vor seinem
                     # Anfang („21:26 abgeschlossen → 17:42").
-                    for eintrag in offen:
-                        if eintrag['name'] == treffer:
-                            eintrag['zustand'] = zustand
-                            eintrag['bis'] = wann
-                            offen.remove(eintrag)
-                            fertig.append(eintrag)
+                    for entry in pending:
+                        if entry['name'] == hit:
+                            entry['zustand'] = state
+                            entry['bis'] = when
+                            pending.remove(entry)
+                            done.append(entry)
                             break
-    except OSError as ausnahme:
-        fehler.merken('missionslog.lesen', ausnahme)
-        return gemeldet
+    except OSError as exception:
+        fehler.merken('mission_log.read', exception)
+        return reported
 
     # Fortschritt nur, wo die Zuordnung eindeutig ist: Das Log verbindet Titel
     # und Missionskennung nirgends. Bei genau einem offenen Auftrag und genau
     # einer Kennung kann es nur diese sein — sonst bliebe es Raten, und eine
     # falsche Zahl ist schlechter als keine.
-    if len(offen) == 1 and len(ziele) == 1:
-        stand = list(ziele.values())[0]
+    if len(pending) == 1 and len(objectives) == 1:
+        progress = list(objectives.values())[0]
         # Phasen-Ziele beschreiben den Abschnitt, nicht eine Aufgabe, die der
         # Spieler abhakt — sie gehoeren nicht in „3 von 5".
-        echte = {k: v for k, v in stand.items() if not str(k).startswith('phase_')}
-        if echte:
-            offen[0]['ziele_gesamt'] = len(echte)
-            offen[0]['ziele_fertig'] = sum(
-                1 for v in echte.values() if str(v).upper().endswith('COMPLETED'))
+        real = {k: v for k, v in progress.items() if not str(k).startswith('phase_')}
+        if real:
+            pending[0]['ziele_gesamt'] = len(real)
+            pending[0]['ziele_fertig'] = sum(
+                1 for v in real.values() if str(v).upper().endswith('COMPLETED'))
 
-    dauer = 0
-    a, b = _sekunden(erste_zeit or ''), _sekunden(letzte_zeit or '')
+    duration = 0
+    a, b = _seconds(first_time or ''), _seconds(last_time or '')
     if a and b:
-        dauer = b - a
-    return gemeldet, (spawn and dauer >= SITZUNG_ZAEHLT_SEK)
+        duration = b - a
+    return reported, (spawn and duration >= SESSION_COUNTS_SEC)
 
 
-def aus_dateien(pfade):
+def from_files(paths):
     """Mehrere Logs als EINE Geschichte auswerten, neuester Auftrag zuerst."""
     # `kennung` merkt sich mission_id -> Titel. `which_ended()` greift
     # darauf zurueck, wenn der Titel beim Ende anders lautet als bei der
     # Annahme — laut Messung dort 62 von 362 Faellen.
-    offen, fertig, gesehen, kennung = [], [], set(), {}
-    muster_an, muster_aus = contracts.start_pattern(), contracts.end_pattern()
+    pending, done, seen, ident = [], [], set(), {}
+    start_pat, end_pat = contracts.start_pattern(), contracts.end_pattern()
     # ⚠ Dasselbe Muster wie im Bauplan-Bestand — die Formulierung steht in der
     # `global.ini` des Spielers. Faellt es aus, laeuft das Protokoll weiter, nur
     # ohne die Bauplan-Zeilen: Ein Auftrags-Protokoll ohne Belohnungen ist
     # brauchbar, gar keines waere es nicht.
     try:
         from . import phrases
-        bp_muster = phrases.pattern()
-    except Exception as ausnahme:
-        fehler.merken('missionslog.bp_muster', ausnahme)
-        bp_muster = None
-    for pfad in pfade:
-        gemeldet, zaehlt = _lesen(pfad, offen, fertig, gesehen, kennung,
-                                  muster_an, muster_aus, bp_muster)
-        _verfallene_schliessen(offen, fertig, gemeldet, _spielzeit(pfad),
-                               stumm_zaehlt=zaehlt)
-    return sorted(fertig + offen, key=lambda e: e.get('wann') or '',
+        bp_pattern = phrases.pattern()
+    except Exception as exception:
+        fehler.merken('mission_log.bp_pattern', exception)
+        bp_pattern = None
+    for path in paths:
+        reported, counts = _read(path, pending, done, seen, ident,
+                                  start_pat, end_pat, bp_pattern)
+        _close_expired(pending, done, reported, _session_start(path),
+                               silent_counts=counts)
+    return sorted(done + pending, key=lambda e: e.get('wann') or '',
                   reverse=True)
 
 
-def _gemeldete_titel(pfad_log):
+def _reported_titles(log_path):
     """`(gemeldete Titel, zaehlt ihr Schweigen)` — ohne die volle Auswertung.
 
     ⚠ Wird gebraucht, um den **gespeicherten** Bestand nachzubewerten. Die
-    volle Auswertung (`_lesen`) schreibt dabei in `offen`/`fertig` und
+    volle Auswertung (`_read`) schreibt dabei in `offen`/`fertig` und
     verdoppelte Eintraege; hier geht es nur um die zwei Fragen, die
-    `_verfallene_schliessen()` stellt: Welche Auftraege nennt diese Sitzung,
+    `_close_expired()` stellt: Welche Auftraege nennt diese Sitzung,
     und darf ihr Schweigen etwas beweisen?
     """
-    gemeldet = set()
+    reported = set()
     spawn = False
-    erste = letzte = None
-    muster_an, muster_aus = contracts.start_pattern(), contracts.end_pattern()
-    with open(pfad_log, encoding='utf-8', errors='replace') as f:
-        for zeile in f:
-            if not spawn and SPAWN_MARKE in zeile:
+    first = last = None
+    start_pat, end_pat = contracts.start_pattern(), contracts.end_pattern()
+    with open(log_path, encoding='utf-8', errors='replace') as f:
+        for line in f:
+            if not spawn and SPAWN_MARKER in line:
                 spawn = True
-            treffer = _ZEIT.search(zeile)
-            if treffer:
-                if erste is None:
-                    erste = treffer.group(1)
-                letzte = treffer.group(1)
-            for muster in (muster_an, muster_aus):
-                t = muster.search(zeile)
+            hit = _TIME.search(line)
+            if hit:
+                if first is None:
+                    first = hit.group(1)
+                last = hit.group(1)
+            for pattern in (start_pat, end_pat):
+                t = pattern.search(line)
                 if t:
-                    gemeldet.add(contracts.clean(t.group(1)))
+                    reported.add(contracts.clean(t.group(1)))
                     break
-    dauer = 0
-    a, b = _sekunden(erste or ''), _sekunden(letzte or '')
+    duration = 0
+    a, b = _seconds(first or ''), _seconds(last or '')
     if a and b:
-        dauer = b - a
-    return gemeldet, (spawn and dauer >= SITZUNG_ZAEHLT_SEK)
+        duration = b - a
+    return reported, (spawn and duration >= SESSION_COUNTS_SEC)
 
 
-def _verfallene_schliessen(offen, fertig, gemeldet, sitzung,
-                           stumm_zaehlt=False):
+def _close_expired(pending, done, reported, session,
+                           silent_counts=False):
     """Auftraege beenden, die eine spaetere Sitzung nicht mehr kennt.
 
     ⚠⚠ **Das ist die Obergrenze, die dem Protokoll gefehlt hat.** Ausloggen
-    beendet keinen Auftrag (siehe `_lesen`) — aber irgendwann ist er trotzdem
+    beendet keinen Auftrag (siehe `_read`) — aber irgendwann ist er trotzdem
     vorbei, und ohne diese Regel stand er fuer immer auf „laeuft". Gemessen am
     04.09.2026: **43** solcher Karteileichen, die aelteste vom 23.06., und sie
     richteten Folgeschaden an — ein scheinbar laufender Auftrag sammelt jeden
-    spaeter gefundenen Bauplan ein (siehe `_bp_zuordnen`).
+    spaeter gefundenen Bauplan ein (siehe `_assign_bp`).
 
     Die Regel kommt aus dem Spiel selbst, nicht aus einer Zeitschaetzung:
     **Beim Einloggen meldet Star Citizen jeden noch laufenden Auftrag erneut
@@ -519,58 +519,58 @@ def _verfallene_schliessen(offen, fertig, gemeldet, sitzung,
     Wer 90 Minuten im Spiel ist und in dieser ganzen Zeit keinen Auftrag im
     Journal hat, hat keinen — anders als bei einem Fehlstart nach zwei
     Minuten. Wo die Grenze liegt und warum genau dort, steht bei
-    `SITZUNG_ZAEHLT_SEK`; sie ist gemessen, nicht geschaetzt.
+    `SESSION_COUNTS_SEC`; sie ist gemessen, nicht geschaetzt.
 
-    ⚠ Der Zustand heisst `VERFALLEN`, nicht `ABGEBROCHEN`: Ob der Auftrag
+    ⚠ Der Zustand heisst `EXPIRED`, nicht `ABORTED`: Ob der Auftrag
     abgegeben oder aufgegeben wurde, steht in keinem vorhandenen Log.
     """
-    if not offen:
+    if not pending:
         return
-    if not gemeldet:
+    if not reported:
         # Nur eine lange, vollstaendige Sitzung darf aus ihrem Schweigen
         # etwas folgern.
-        if not stumm_zaehlt:
+        if not silent_counts:
             return
-        for eintrag in list(offen):
-            eintrag['zustand'] = VERFALLEN
-            offen.remove(eintrag)
-            fertig.append(eintrag)
+        for entry in list(pending):
+            entry['zustand'] = EXPIRED
+            pending.remove(entry)
+            done.append(entry)
         return
-    for eintrag in list(offen):
-        if eintrag['name'] in gemeldet:
+    for entry in list(pending):
+        if entry['name'] in reported:
             continue
         # ⚠ Nur was VOR dieser Sitzung begann. Ein Auftrag, der in genau
         # dieser Sitzung angenommen wurde, steht ohnehin in `gemeldet` — und
         # ohne diese Grenze wuerde die Reihenfolge innerhalb einer Datei
         # zaehlen statt der Sitzungswechsel.
-        if (eintrag.get('wann') or '') >= (sitzung or ''):
+        if (entry.get('wann') or '') >= (session or ''):
             continue
-        eintrag['zustand'] = VERFALLEN
-        offen.remove(eintrag)
-        fertig.append(eintrag)
+        entry['zustand'] = EXPIRED
+        pending.remove(entry)
+        done.append(entry)
 
 
-def aus_ordner(ordner, laufende=None):
+def from_folder(folder, running_log=None):
     """Alle Logs eines Ordners auswerten — `ordner` darf eine Liste sein.
 
     Windows und Linux sichern in getrennte Ordner; wer auf beiden spielt, will
     ein Protokoll, nicht zwei. `laufende` ist die gerade beschriebene
     `Game.log`, falls sie mitgelesen werden soll.
     """
-    ordnerliste = [ordner] if isinstance(ordner, str) else list(ordner or [])
-    dateien = []
-    for o in ordnerliste:
+    folders = [folder] if isinstance(folder, str) else list(folder or [])
+    files = []
+    for o in folders:
         if o and os.path.isdir(o):
             for name in os.listdir(o):
                 if name.lower().endswith('.log'):
-                    dateien.append(os.path.join(o, name))
-    if laufende and os.path.isfile(laufende):
-        dateien.append(laufende)
+                    files.append(os.path.join(o, name))
+    if running_log and os.path.isfile(running_log):
+        files.append(running_log)
 
-    return aus_dateien(sorted(set(dateien), key=_spielzeit))
+    return from_files(sorted(set(files), key=_session_start))
 
 
-def _spielzeit(pfad):
+def _session_start(path):
     """Wann diese Sitzung gespielt wurde — aus dem ersten Zeitstempel im Log.
 
     ⚠⚠ **Nicht die Aenderungszeit der Datei nehmen.** Auf einer Sicherung ist
@@ -582,37 +582,37 @@ def _spielzeit(pfad):
     ⚠ Auch der Dateiname taugt nicht: „30 Aug 26" sortiert alphabetisch falsch.
     """
     try:
-        with open(pfad, encoding='utf-8', errors='replace') as f:
+        with open(path, encoding='utf-8', errors='replace') as f:
             for _ in range(200):        # der Stempel steht ganz oben
-                zeile = f.readline()
-                if not zeile:
+                line = f.readline()
+                if not line:
                     break
-                wann = _zeit(zeile)
-                if wann:
-                    return wann
+                when = _time_of(line)
+                if when:
+                    return when
     except OSError:
         pass
     # Ohne Stempel ans Ende — lieber hinten anstellen als die Reihe verdrehen.
     return '9999'
 
 
-def suchen(eintraege, text):
+def search(entries, text):
     """Nach Auftragsnamen filtern, ohne Ruecksicht auf Gross- und Kleinschreibung."""
     text = (text or '').strip().lower()
     if not text:
-        return eintraege
-    return [e for e in eintraege if text in (e.get('name') or '').lower()]
+        return entries
+    return [e for e in entries if text in (e.get('name') or '').lower()]
 
 
-def zusammenfassen(eintraege):
+def summarize(entries):
     """Wie oft wurde welcher Auftrag gespielt? Name -> (gesamt, abgeschlossen)."""
-    zaehler = {}
-    for e in eintraege:
-        gesamt, fertig = zaehler.get(e['name'], (0, 0))
-        zaehler[e['name']] = (gesamt + 1,
-                              fertig + (1 if e['zustand'] == ABGESCHLOSSEN
+    counter = {}
+    for e in entries:
+        total, done = counter.get(e['name'], (0, 0))
+        counter[e['name']] = (total + 1,
+                              done + (1 if e['zustand'] == COMPLETED
                                         else 0))
-    return zaehler
+    return counter
 
 
 # --------------------------------------------------------------- Fortschreiben
@@ -625,52 +625,52 @@ def zusammenfassen(eintraege):
 # Bauplan-Bestand auch.
 
 
-def pfad():
-    return pfade.app_datei(DATEI)
+def file_path():
+    return pfade.app_datei(FILE)
 
 
-def laden():
+def load():
     """Das gespeicherte Protokoll — oder eine leere Liste."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') == FORMAT:
-            return _titel_nachputzen(daten.get('auftraege') or [])
+        with open(file_path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') == FORMAT:
+            return _clean_titles(data.get('auftraege') or [])
     except Exception:
         pass
     return []
 
 
-def _titel_nachputzen(eintraege):
+def _clean_titles(entries):
     """Marken aus Titeln holen, die vor dem Putz-Fix gespeichert wurden.
 
     ⚠ **Ohne das bliebe der Fix unsichtbar.** Die Titel werden beim Lesen
-    geputzt (`_lesen`), nicht beim Anzeigen — was einmal mit Marke im Protokoll
+    geputzt (`_read`), nicht beim Anzeigen — was einmal mit Marke im Protokoll
     steht, behaelt sie. Und neu gelesen wird eine Logdatei nie wieder: Der
-    Lesestand merkt sie sich (siehe `nachlese`). Ein Protokoll, das vor dem Fix
+    Lesestand merkt sie sich (siehe `scan_backlog`). Ein Protokoll, das vor dem Fix
     entstand, zeigte die Marken also dauerhaft weiter.
 
     Laeuft bei jedem Laden, macht aber nur beim ersten Mal Arbeit — danach
     findet sie nichts mehr und gibt die Liste unveraendert zurueck.
     """
-    geputzt, veraendert = [], False
-    for e in eintraege:
+    cleaned, changed = [], False
+    for e in entries:
         name = e.get('name') or ''
-        rein = contracts.clean(name)
-        if rein and rein != name:
-            e = dict(e, name=rein)
-            veraendert = True
-        geputzt.append(e)
-    if not veraendert:
-        return eintraege
-    # ⚠ Ueber `zusammenfuehren`, nicht roh zurueck: Zwei Eintraege koennen nach
+        plain = contracts.clean(name)
+        if plain and plain != name:
+            e = dict(e, name=plain)
+            changed = True
+        cleaned.append(e)
+    if not changed:
+        return entries
+    # ⚠ Ueber `merge`, nicht roh zurueck: Zwei Eintraege koennen nach
     # dem Putzen denselben Schluessel tragen (gleicher Auftrag, einmal mit und
     # einmal ohne Marke). Sie gehoeren dann zusammen — und ein abgeschlossener
     # darf dabei nicht auf „laeuft" zurueckfallen.
-    return zusammenfuehren(geputzt, [])
+    return merge(cleaned, [])
 
 
-def sichern(eintraege):
+def save(entries):
     """Das Protokoll schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ `pfade.json_sichern` legt die Vorgaengerfassung (`.bak.json`) an. Ein
@@ -678,19 +678,19 @@ def sichern(eintraege):
     waere ein leer geschriebener Stand endgueltig.
     """
     try:
-        return pfade.json_sichern(pfad(), {'format': FORMAT,
-                                           'auftraege': eintraege})
-    except Exception as ausnahme:
-        fehler.merken('missionslog.sichern', ausnahme)
+        return pfade.json_sichern(file_path(), {'format': FORMAT,
+                                           'auftraege': entries})
+    except Exception as exception:
+        fehler.merken('mission_log.save', exception)
         return False
 
 
-def _schluessel(e):
+def _key(e):
     """Was einen Auftragsdurchlauf eindeutig macht: Name plus Startzeitpunkt."""
     return ((e.get('name') or ''), (e.get('wann') or ''))
 
 
-def zusammenfuehren(alt, neu):
+def merge(old, new):
     """Gespeichertes und frisch Gelesenes vereinen — ohne etwas zu verlieren.
 
     ⚠ **Der neue Stand gewinnt nur, wenn er mehr weiss.** Ein Auftrag, der
@@ -699,34 +699,34 @@ def zusammenfuehren(alt, neu):
     steht. Umgekehrt soll ein Ende, das erst jetzt im Log auftaucht, den alten
     Eintrag ergaenzen.
     """
-    zusammen = {}
-    for e in list(alt) + list(neu):
-        s = _schluessel(e)
-        vorher = zusammen.get(s)
-        if vorher is None:
-            zusammen[s] = dict(e)
+    merged = {}
+    for e in list(old) + list(new):
+        s = _key(e)
+        before = merged.get(s)
+        if before is None:
+            merged[s] = dict(e)
             continue
         # Ein beendeter Zustand sticht „laeuft" — egal aus welcher Quelle.
-        if vorher.get('zustand') == LAEUFT and e.get('zustand') != LAEUFT:
-            vorher.update({k: v for k, v in e.items() if v not in (None, '')})
-        elif e.get('zustand') == LAEUFT:
+        if before.get('zustand') == RUNNING and e.get('zustand') != RUNNING:
+            before.update({k: v for k, v in e.items() if v not in (None, '')})
+        elif e.get('zustand') == RUNNING:
             # Nur fehlende Felder auffuellen, den Zustand nicht anfassen.
             for k, v in e.items():
-                if k != 'zustand' and not vorher.get(k) and v:
-                    vorher[k] = v
+                if k != 'zustand' and not before.get(k) and v:
+                    before[k] = v
         else:
-            vorher.update({k: v for k, v in e.items() if v not in (None, '')})
-    return sorted(zusammen.values(), key=lambda e: e.get('wann') or '',
+            before.update({k: v for k, v in e.items() if v not in (None, '')})
+    return sorted(merged.values(), key=lambda e: e.get('wann') or '',
                   reverse=True)
 
 
-def neu_bewerten(ordner=None, laufende=None):
+def reassess(folder=None, running_log=None):
     """Alle Protokolle noch einmal auswerten — auch die schon gelesenen.
 
     Gibt `(gesamt, neu_dazu, berichtigt)` zurueck.
 
     ⚠⚠ **Warum es das braucht (06.09.2026).** Ein gespeicherter Auftrag wird
-    nie wieder angefasst: `nachlese()` liest nur Dateien hinter dem Lesestand.
+    nie wieder angefasst: `scan_backlog()` liest nur Dateien hinter dem Lesestand.
     Wird die Auswertung verbessert — an dem Tag lernte sie, `Fail` von
     `Complete` zu unterscheiden —, wirkt das ausschliesslich auf kuenftige
     Auftraege. Die 52 bereits falsch einsortierten blieben falsch, fuer immer.
@@ -739,48 +739,48 @@ def neu_bewerten(ordner=None, laufende=None):
     sie verlieren. Genau dieser Unterschied hat am 05.09.2026 einem Melder
     seinen Bestand von 232 auf 3 gebracht.
     """
-    alt = laden()
-    vorher = {_schluessel(e): e.get('zustand') for e in alt}
-    # ⚠⚠ **Nicht `aus_ordner`.** Das sieht nur direkt in den uebergebenen
+    old = load()
+    before = {_key(e): e.get('zustand') for e in old}
+    # ⚠⚠ **Nicht `from_folder`.** Das sieht nur direkt in den uebergebenen
     # Ordner — die aufgehobenen Sitzungen liegen aber eine Ebene tiefer in
     # `logbackups/`. Damit fand der erste Anlauf genau EINE Datei statt 199
     # und berichtigte nichts. `pfade.log_sicherungen` kennt den richtigen Ort
     # und nimmt seit v3.17.3 auch die Nachbarkanaele mit.
-    dateien = list(pfade.log_sicherungen(ordner) if ordner else [])
-    if laufende and os.path.isfile(laufende):
-        dateien.append(laufende)
-    neu = aus_dateien(sorted(set(dateien), key=_spielzeit)) if dateien else []
-    if not neu:
-        return len(alt), 0, 0
-    zusammen = zusammenfuehren(alt, neu)
-    dazu = beric = 0
-    for e in zusammen:
-        s = _schluessel(e)
-        if s not in vorher:
-            dazu += 1
-        elif e.get('zustand') != vorher[s]:
-            beric += 1
-    sichern(zusammen)
-    return len(zusammen), dazu, beric
+    files = list(pfade.log_sicherungen(folder) if folder else [])
+    if running_log and os.path.isfile(running_log):
+        files.append(running_log)
+    new = from_files(sorted(set(files), key=_session_start)) if files else []
+    if not new:
+        return len(old), 0, 0
+    merged = merge(old, new)
+    added = corrected = 0
+    for e in merged:
+        s = _key(e)
+        if s not in before:
+            added += 1
+        elif e.get('zustand') != before[s]:
+            corrected += 1
+    save(merged)
+    return len(merged), added, corrected
 
 
-def nachtragen(ordner=None, laufende=None):
+def catch_up(folder=None, running_log=None):
     """Logs lesen, ins gespeicherte Protokoll einpflegen, sichern.
 
     Gibt `(gesamt, neu_dazugekommen)` zurueck.
     """
-    alt = laden()
-    neu = aus_ordner(ordner, laufende) if (ordner or laufende) else []
-    if not neu:
-        return len(alt), 0
-    bekannt = {_schluessel(e) for e in alt}
-    zusammen = zusammenfuehren(alt, neu)
-    dazu = sum(1 for e in zusammen if _schluessel(e) not in bekannt)
-    sichern(zusammen)
-    return len(zusammen), dazu
+    old = load()
+    new = from_folder(folder, running_log) if (folder or running_log) else []
+    if not new:
+        return len(old), 0
+    known = {_key(e) for e in old}
+    merged = merge(old, new)
+    added = sum(1 for e in merged if _key(e) not in known)
+    save(merged)
+    return len(merged), added
 
 
-def nachlese():
+def scan_backlog():
     """Beim Start: die aufgehobenen Logs des Spielers durchsehen.
 
     Genau wie beim Bauplan-Bestand — wer den Watcher zum ersten Mal startet,
@@ -792,30 +792,30 @@ def nachlese():
     spuerbar bremsen — und seit die Sicherung auf der NAS 100 statt 10 Dateien
     aufhebt, waere es noch mehr. Gemerkt wird Name und Groesse: Waechst eine
     Datei (die laufende `Game.log` tut das staendig), wird sie erneut gelesen.
-    Dubletten entstehen dabei nicht, dafuer sorgt `zusammenfuehren()`.
+    Dubletten entstehen dabei nicht, dafuer sorgt `merge()`.
     """
     try:
-        sicherungen = list(pfade.log_sicherungen() or [])
-    except Exception as ausnahme:
-        fehler.merken('missionslog.nachlese', ausnahme)
+        backups = list(pfade.log_sicherungen() or [])
+    except Exception as exception:
+        fehler.merken('mission_log.scan_backlog', exception)
         return 0, 0
 
-    laufende = None
-    spiel = pfade.spiel_ordner()
-    if spiel:
-        kandidat = os.path.join(spiel, 'Game.log')
-        if os.path.isfile(kandidat):
-            laufende = kandidat
+    running_log = None
+    game = pfade.spiel_ordner()
+    if game:
+        candidate = os.path.join(game, 'Game.log')
+        if os.path.isfile(candidate):
+            running_log = candidate
 
-    gelesen = _gelesene_laden()
-    offen_dateien = []
-    for pfad_log in sicherungen + ([laufende] if laufende else []):
+    read_marks = _load_read_marks()
+    pending_files = []
+    for log_path in backups + ([running_log] if running_log else []):
         try:
-            marke = '%d' % os.path.getsize(pfad_log)
+            mark = '%d' % os.path.getsize(log_path)
         except OSError:
             continue
-        if gelesen.get(os.path.basename(pfad_log)) != marke:
-            offen_dateien.append((pfad_log, marke))
+        if read_marks.get(os.path.basename(log_path)) != mark:
+            pending_files.append((log_path, mark))
 
     # ⚠⚠⚠ **Hier stand einmal eine Begrenzung auf die neuesten 20 Protokolle
     # — und sie war falsch.** Gemessen am 06.09.2026:
@@ -844,11 +844,11 @@ def nachlese():
     # Lesestand und ueberspringt selbst, was es kennt.
     try:
         from . import playtime as _sz
-        _sz.catch_up(sicherungen + ([laufende] if laufende else []))
-    except Exception as ausnahme:
-        fehler.merken('missionslog.spielzeit', ausnahme)
+        _sz.catch_up(backups + ([running_log] if running_log else []))
+    except Exception as exception:
+        fehler.merken('mission_log.playtime', exception)
 
-    alt = laden()
+    old = load()
 
     # ⚠⚠ **Die Nachbewertung läuft AUCH, wenn nichts Neues da ist.** Genau
     # das war der Fehler im ersten Anlauf: Sie stand hinter dem frühen
@@ -859,40 +859,40 @@ def nachlese():
     # noch offen ist, entscheidet die letzte Sitzung, nicht die zuletzt
     # gelesene Datei. Drei reichen und kosten fast nichts; alle 195 zu lesen
     # wäre bei jedem Start eine Sekunde für nichts.
-    _kandidaten = sorted(sicherungen + ([laufende] if laufende else []),
-                         key=_spielzeit)[-3:]
-    _offen_jetzt = [e for e in alt if e.get('zustand') == LAEUFT]
-    if _offen_jetzt:
-        _erledigt = []
-        for _pfad in _kandidaten:
+    _candidates = sorted(backups + ([running_log] if running_log else []),
+                         key=_session_start)[-3:]
+    _pending_now = [e for e in old if e.get('zustand') == RUNNING]
+    if _pending_now:
+        _done = []
+        for _path in _candidates:
             try:
-                _gemeldet, _zaehlt = _gemeldete_titel(_pfad)
-            except Exception as ausnahme:
-                fehler.merken('missionslog.nachbewerten', ausnahme)
+                _reported, _counts = _reported_titles(_path)
+            except Exception as exception:
+                fehler.merken('mission_log.reassess', exception)
                 continue
-            _verfallene_schliessen(_offen_jetzt, _erledigt, _gemeldet,
-                                   _spielzeit(_pfad), stumm_zaehlt=_zaehlt)
-        if _erledigt:
-            sichern(alt)
+            _close_expired(_pending_now, _done, _reported,
+                                   _session_start(_path), silent_counts=_counts)
+        if _done:
+            save(old)
 
-    if not offen_dateien:
-        return len(alt), 0
-    bekannt = {_schluessel(e) for e in alt}
+    if not pending_files:
+        return len(old), 0
+    known = {_key(e) for e in old}
     # ⚠ Chronologisch, sonst bekommt ein Auftrag das Ende eines fremden
-    # Durchlaufs — siehe `_spielzeit`.
-    frische = sorted((p for p, _m in offen_dateien), key=_spielzeit)
-    neu = aus_dateien(frische)
-    zusammen = zusammenfuehren(alt, neu)
+    # Durchlaufs — siehe `_session_start`.
+    fresh = sorted((p for p, _m in pending_files), key=_session_start)
+    new = from_files(fresh)
+    merged = merge(old, new)
 
-    dazu = sum(1 for e in zusammen if _schluessel(e) not in bekannt)
-    if sichern(zusammen):
-        for pfad_log, marke in offen_dateien:
-            gelesen[os.path.basename(pfad_log)] = marke
-        _gelesene_sichern(gelesen)
-    return len(zusammen), dazu
+    added = sum(1 for e in merged if _key(e) not in known)
+    if save(merged):
+        for log_path, mark in pending_files:
+            read_marks[os.path.basename(log_path)] = mark
+        _save_read_marks(read_marks)
+    return len(merged), added
 
 
-def _gelesene_laden():
+def _load_read_marks():
     """Welche Logs schon gelesen wurden — leer bei veraltetem Format.
 
     ⚠⚠ **Der Lesestand muss mit dem Format mitziehen.** Sonst passiert beim
@@ -901,50 +901,50 @@ def _gelesene_laden():
     Nutzer steht vor einem **leeren** Protokoll ohne jede Fehlermeldung.
     """
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        if daten.get('format') != FORMAT:
+        with open(file_path(), encoding='utf-8') as f:
+            data = json.load(f)
+        if data.get('format') != FORMAT:
             return {}
-        return daten.get('gelesen') or {}
+        return data.get('gelesen') or {}
     except Exception:
         return {}
 
 
-def _gelesene_sichern(gelesen):
+def _save_read_marks(read_marks):
     """Den Lesestand neben das Protokoll schreiben — in dieselbe Datei."""
     try:
-        with open(pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        daten['gelesen'] = gelesen
-        pfade.json_sichern(pfad(), daten)
-    except Exception as ausnahme:
-        fehler.merken('missionslog.lesestand', ausnahme)
+        with open(file_path(), encoding='utf-8') as f:
+            data = json.load(f)
+        data['gelesen'] = read_marks
+        pfade.json_sichern(file_path(), data)
+    except Exception as exception:
+        fehler.merken('mission_log.read_marks', exception)
 
 
 # ------------------------------------------------------------------- Ausgeben
 
 
-def als_csv(eintraege=None):
+def as_csv(entries=None):
     """Das Protokoll als Tabelle — oeffnet sich in jedem Tabellenprogramm.
 
     Dieselbe Bauform wie beim Handelslager: Semikolon als Trenner, damit
     deutsche Excel-Fassungen die Spalten von allein trennen.
     """
-    eintraege = laden() if eintraege is None else eintraege
-    zeilen = ['Auftrag;Angenommen;Beendet;Zustand;Ziele erledigt;Ziele gesamt']
-    for e in eintraege:
-        zeilen.append(';'.join((
+    entries = load() if entries is None else entries
+    lines = ['Auftrag;Angenommen;Beendet;Zustand;Ziele erledigt;Ziele gesamt']
+    for e in entries:
+        lines.append(';'.join((
             (e.get('name') or '').replace(';', ','),
             (e.get('wann') or '').replace('T', ' '),
             (e.get('bis') or '').replace('T', ' '),
             e.get('zustand') or '',
             str(e.get('ziele_fertig') or ''),
             str(e.get('ziele_gesamt') or ''))))
-    return '\n'.join(zeilen) + '\n'
+    return '\n'.join(lines) + '\n'
 
 
-def als_json(eintraege=None):
+def as_json(entries=None):
     """Das Protokoll als JSON-Text — fuer die Sicherung neben den anderen Listen."""
-    eintraege = laden() if eintraege is None else eintraege
-    return json.dumps({'format': FORMAT, 'auftraege': eintraege},
+    entries = load() if entries is None else entries
+    return json.dumps({'format': FORMAT, 'auftraege': entries},
                       ensure_ascii=False, indent=2) + '\n'

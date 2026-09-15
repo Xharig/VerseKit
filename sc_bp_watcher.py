@@ -1361,7 +1361,7 @@ class Watcher(threading.Thread):
             #
             # Sichtbar wurde es daran, dass ein abgebrochener Auftrag im
             # Auftrags-Protokoll richtig als „abgebrochen" stand (anderer Weg,
-            # ueber `missionslog`) und im Overlay trotzdem weiter als laufend.
+            # ueber `mission_log`) und im Overlay trotzdem weiter als laufend.
             #
             # ⚠ Ohne Titel UND ohne Kennung wird nichts geraten. Pauschal zu
             # raeumen hat in v3.4.4 laufende Auftraege mitgerissen.
@@ -1535,11 +1535,11 @@ class Watcher(threading.Thread):
         # wurde er als „Protokolle erneut einlesen", raeumte aber nur eine
         # Haelfte auf. Wer die Auswertung verbessert, erreicht damit nur
         # kuenftige Auftraege; die schon eingetragenen bleiben, wie sie sind.
-        # Begruendung und Vorsichtsmassnahmen: `missionslog.neu_bewerten`.
-        from scbp import missionslog as _ml
+        # Begruendung und Vorsichtsmassnahmen: `mission_log.reassess`.
+        from scbp import mission_log as _ml
         a_neu = a_ber = 0
         try:
-            _, a_neu, a_ber = _ml.neu_bewerten(pfade.spiel_ordner())
+            _, a_neu, a_ber = _ml.reassess(pfade.spiel_ordner())
         except Exception as ausnahme:
             # ⚠ Kein Abbruch: Die Bauplaene sind zu diesem Zeitpunkt schon
             # gesichert, und der Spieler soll seine Zahl bekommen.
@@ -1586,8 +1586,8 @@ class Watcher(threading.Thread):
         # eigenen `try`: Geht hier etwas schief, darf der Bestand trotzdem
         # nachgelesen werden.
         try:
-            from scbp import missionslog as _ml
-            _gesamt, _dazu = _ml.nachlese()
+            from scbp import mission_log as _ml
+            _gesamt, _dazu = _ml.scan_backlog()
             if _dazu:
                 fehler.spur('Auftrags-Protokoll: %d neu, %d gesamt'
                             % (_dazu, _gesamt))

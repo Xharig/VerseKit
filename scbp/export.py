@@ -245,8 +245,8 @@ def write(path, kind='basetool', collection=None, catalog=None, version=''):
         # heraus — sonst gaelte es als „leerer Bestand" und wuerde nie
         # geschrieben.
         if kind == 'auftraege':
-            from . import missionslog
-            entries = missionslog.laden()
+            from . import mission_log
+            entries = mission_log.load()
             if not entries:
                 # ⚠ Knapp wie „leerer Bestand" unten, kein ganzer Satz: Diese
                 # Rueckmeldungen gehen ins Protokoll, nicht auf die Seite.
@@ -255,7 +255,7 @@ def write(path, kind='basetool', collection=None, catalog=None, version=''):
             if folder:
                 os.makedirs(folder, exist_ok=True)
             with open(path + '.tmp', 'w', encoding='utf-8', newline='\n') as f:
-                f.write(missionslog.als_json(entries))
+                f.write(mission_log.as_json(entries))
             os.replace(path + '.tmp', path)
             return True, str(len(entries))
 
