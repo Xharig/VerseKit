@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Razor, Fury, Guardian und Pulse standen doppelt im Hangar**, wenn der
+  eine Export sie noch unter MISC führte und der andere unter Mirai. Bei
+  gleichem Namen gilt das jetzt als ein Schiff; vorhandene Doppelte
+  verschwinden beim nächsten Start
+
 ## v3.42.0 - 2026-09-15
 
 > **Jetzt siehst du, wie lange jedes Schiff versichert ist.** Der CSV-Export

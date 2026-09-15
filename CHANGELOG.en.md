@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Razor, Fury, Guardian and Pulse appeared twice in the hangar** when one
+  export still listed them under MISC and the other under Mirai. Same name
+  now counts as one ship; existing duplicates disappear on the next start
+
 ## v3.42.0 - 2026-09-15
 
 > **Now you can see how long each ship is insured.** The CSV export of the

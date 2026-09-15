@@ -21039,6 +21039,20 @@ def main():
            and not _fl214._names_compatible('atlsgeo', 'atls')
            and not _fl214._names_compatible('cutlassblack', 'cutlassred'),
            'Namen duerfen sich nur um ein Klassenwort unterscheiden')
+    # ⚠ Razor EX: XPLORer sagt MISC (`MISC_Razor_EX`), die Extension Mirai
+    # (`MRAI_Razor_EX`) — CIG hat die Marke gewechselt. Gleicher Name, die
+    # beiden Kuerzel gelten als Zwillinge → ein Schiff. Andere Hersteller
+    # bleiben getrennt.
+    _fl214.add(_d214, 'Razor EX', 'Musashi Industrial & Starflight Concern',
+               origin='pledge', kurz='MISC_Razor_EX', hkurz='MISC', lti=True)
+    pruefe(not _fl214.add(_d214, 'Razor EX', 'Mirai', origin='pledge',
+                          kurz='MRAI_Razor_EX', hkurz='MRAI', lti=False)
+           and _fl214.find(_d214, 'Razor EX', 'Mirai', hkurz='MRAI')['lti']
+           is True,
+           'MISC und Mirai sind bei gleichem Namen dasselbe Schiff, LTI bleibt')
+    pruefe(_fl214.add(_d214, 'Razor EX', 'Anvil Aerospace', origin='pledge',
+                      kurz='ANVL_Razor_EX', hkurz='ANVL'),
+           'ein anderer Hersteller mit gleichem Namen bleibt ein eigenes Schiff')
     # Ein Hangar, der VOR diesem Fix doppelt importiert wurde, raeumt sich
     # beim Laden selbst auf — und die Belegung des ersten Eintrags bleibt.
     _alt214 = os.environ.get('SC_BP_HOME')

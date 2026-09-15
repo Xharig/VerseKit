@@ -361,7 +361,9 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
     if not wanted:
         return False
     e_hkurz = _slim(entry.get('hkurz'))
-    if e_hkurz and _slim(hkurz) and e_hkurz == _slim(hkurz):
+    if e_hkurz and _slim(hkurz) and (
+            e_hkurz == _slim(hkurz)
+            or frozenset((e_hkurz, _slim(hkurz))) in _MAKER_TWINS):
         # Mit Herstellerkürzel darf der Name um ein Klassenwort abweichen —
         # das CSV der Extension hat kein Schiffskürzel, und „Idris-P" muss
         # trotzdem die „Idris-P Frigate" des XPLORer treffen.
@@ -375,6 +377,12 @@ def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
 # Frigate"), die Hangar Extension aber nicht („Idris-P"). Nur um so ein Wort
 # dürfen sich zwei Namen bei gleichem Kürzel unterscheiden.
 _CLASS_WORDS = ('frigate', 'destroyer', 'corvette', 'carrier', 'cruiser')
+
+# Herstellerkürzel, die für dasselbe Schiff nebeneinander vorkommen: Razor,
+# Fury, Guardian und Pulse liefen bei CIG von MISC zu Mirai — der XPLORer
+# schreibt noch `MISC_Razor_EX`, die Hangar Extension `MRAI_Razor_EX`. Bei
+# gleichem Namen ist das ein Schiff, nicht zwei (echter Hangar, 15.09.2026).
+_MAKER_TWINS = {frozenset(('misc', 'mrai'))}
 
 
 def _names_compatible(a, b):
