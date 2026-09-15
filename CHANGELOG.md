@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Ein zweiter Hangar-Import aus einer anderen Quelle stellt Schiffe nicht
+  mehr doppelt hin.** Wer nach dem Hangar XPLORer die Hangar Extension
+  importiert hat, sah Endeavor, Merchantman, Prospector und Idris-P zweimal —
+  die beiden Quellen schreiben den Hersteller verschieden. Vorhandene Doppelte
+  räumt VerseKit beim nächsten Start von selbst auf; LTI und Ausstattung des
+  ersten Eintrags bleiben
+
 ## v3.40.0 - 2026-09-15
 
 > **Dein Hangar kommt jetzt über die Star Citizen: Hangar Extension ins

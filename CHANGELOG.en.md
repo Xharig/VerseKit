@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **A second hangar import from a different source no longer duplicates
+  ships.** Importing the Hangar Extension after the Hangar XPLORer showed
+  Endeavor, Merchantman, Prospector and Idris-P twice — the two sources spell
+  the manufacturer differently. Existing duplicates are cleaned up
+  automatically on the next start; LTI and loadout of the first entry are kept
+
 ## v3.40.0 - 2026-09-15
 
 > **Your hangar now comes into the tool through the Star Citizen: Hangar

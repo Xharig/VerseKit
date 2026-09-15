@@ -114,6 +114,8 @@ def load():
         with open(path(), encoding='utf-8') as f:
             data = json.load(f)
         if data.get('format') == FORMAT and isinstance(data.get('schiffe'), list):
+            if merge_duplicates(data):
+                save(data)
             return data
     except FileNotFoundError:
         pass
@@ -328,38 +330,150 @@ def notepad_set_count(data, name, count):
     return False
 
 
-def contains(data, name, manufacturer=''):
-    """Steht dieses Schiff schon drin?
+def _same_ship(entry, name, manufacturer='', kurz='', hkurz=''):
+    """Meint dieser Hangar-Eintrag dasselbe Schiff?
 
-    ⚠ Verglichen wird über Hersteller **und** Name in schlanker Schreibweise.
-    „Cutlass Black" von Drake und eine gleichnamige Variante eines anderen
-    Herstellers wären sonst dasselbe.
+    Drei Wege, jeder für sich reicht:
+
+    1. **Schiffskürzel** (`MISC_Endeavor`) — der sicherste. Beide Exporte
+       (Hangar XPLORer und Hangar Extension) tragen dasselbe Kürzel.
+    2. **Herstellerkürzel + Name** (`MISC` + `Endeavor`).
+    3. **Herstellername + Name** in schlanker Schreibweise — der einzige Weg
+       für Einträge von Hand, die kein Kürzel haben.
+
+    ⚠ Der Name allein reicht nicht: „Cutlass Black" von Drake und eine
+    gleichnamige Variante eines anderen Herstellers wären sonst dasselbe.
+
+    ⚠ Warum drei Wege: Der XPLORer schreibt „Musashi Industrial & Starflight
+    Concern", die Hangar Extension „MISC" — beim ersten Import aus der
+    Erweiterung in einen XPLORer-Hangar (15.09.2026) standen deshalb vier
+    Schiffe doppelt da, bei gleichem Kürzel.
     """
-    wanted = _slim(manufacturer) + _slim(name)
+    wanted = _slim(name)
+    e_kurz = _slim(entry.get('kurz'))
+    if (e_kurz and _slim(kurz) and e_kurz == _slim(kurz)
+            and _names_compatible(_slim(entry.get('name')), wanted)):
+        return True
+    if not wanted or _slim(entry.get('name')) != wanted:
+        return False
+    e_hkurz = _slim(entry.get('hkurz'))
+    if e_hkurz and _slim(hkurz) and e_hkurz == _slim(hkurz):
+        return True
+    return _slim(entry.get('hersteller')) == _slim(manufacturer)
+
+
+# Klassenwörter, die der Hangar XPLORer an manche Namen hängt („Idris-P
+# Frigate"), die Hangar Extension aber nicht („Idris-P"). Nur um so ein Wort
+# dürfen sich zwei Namen bei gleichem Kürzel unterscheiden.
+_CLASS_WORDS = ('frigate', 'destroyer', 'corvette', 'carrier', 'cruiser')
+
+
+def _names_compatible(a, b):
+    """Meinen zwei geschliffene Namen bei gleichem Kürzel dasselbe Schiff?
+
+    ⚠ Gleiches Kürzel heißt **nicht** gleiches Schiff: Der XPLORer gibt der
+    „ATLS GEO" dasselbe Kürzel wie der „ATLS" (`ARGO_ATLS`), die Extension
+    kennt `ARGO_ATLS_GEO`. Wer nur das Kürzel vergleicht, macht aus zwei
+    Schiffen eines — gemessen am 15.09.2026 an einem echten Hangar. Deshalb
+    müssen die Namen gleich sein oder sich um ein Klassenwort unterscheiden.
+    """
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    long, short = (a, b) if len(a) > len(b) else (b, a)
+    return long.startswith(short) and long[len(short):] in _CLASS_WORDS
+
+
+def find(data, name, manufacturer='', kurz='', hkurz=''):
+    """Der vorhandene Eintrag zu diesem Schiff — oder `None`."""
     for s in (data.get('schiffe') or []):
-        if _slim(s.get('hersteller')) + _slim(s.get('name')) == wanted:
-            return True
-    return False
+        if _same_ship(s, name, manufacturer, kurz, hkurz):
+            return s
+    return None
+
+
+def contains(data, name, manufacturer='', kurz='', hkurz=''):
+    """Steht dieses Schiff schon drin? Siehe `_same_ship`."""
+    return find(data, name, manufacturer, kurz, hkurz) is not None
+
+
+_IMPORT_KEYS = ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft', 'preis')
+
+
+def _fill(entry, **rest):
+    """Fehlende Angaben nachtragen, vorhandene nicht anrühren.
+
+    ⚠ `lti` wird nur **gesetzt**, nie zurückgenommen: Die Hangar Extension
+    liefert bis zu ihrem Oktober-Update kein LTI und meldet überall `False` —
+    das darf ein LTI aus dem XPLORer-Import nicht löschen.
+    """
+    changed = False
+    for key in _IMPORT_KEYS:
+        value = rest.get(key)
+        if value in (None, ''):
+            continue
+        if key in ('lti', 'warbond'):
+            if value is True and entry.get(key) is not True:
+                entry[key] = True
+                changed = True
+            continue
+        if entry.get(key) in (None, ''):
+            entry[key] = value
+            changed = True
+    return changed
 
 
 def add(data, name, manufacturer='', origin=INGAME, **rest):
     """Ein Schiff eintragen. Gibt zurück, ob es neu war.
 
     Doppelte werden still übergangen — wer zweimal importiert, soll nicht jedes
-    Schiff doppelt im Hangar stehen haben.
+    Schiff doppelt im Hangar stehen haben. Bringt der zweite Import Angaben
+    mit, die dem vorhandenen Eintrag fehlen (Kürzel, Paket), werden sie
+    nachgetragen.
     """
     if not (name or '').strip():
         return False
-    if contains(data, name, manufacturer):
+    found = find(data, name, manufacturer, rest.get('kurz'), rest.get('hkurz'))
+    if found is not None:
+        _fill(found, **rest)
         return False
     entry = {'name': name.strip(), 'hersteller': (manufacturer or '').strip(),
              'herkunft': origin, 'belegung': {}}
-    for key in ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft',
-                'preis'):
+    for key in _IMPORT_KEYS:
         if rest.get(key) not in (None, ''):
             entry[key] = rest[key]
     data.setdefault('schiffe', []).append(entry)
     return True
+
+
+def merge_duplicates(data):
+    """Doppelte Einträge zusammenführen. Gibt zurück, ob sich etwas änderte.
+
+    Der **erste** Eintrag bleibt (er trägt die Belegung und die älteren
+    Angaben wie LTI), die späteren geben ab, was ihm fehlt, und verschwinden.
+    Läuft bei jedem Laden — so räumt sich ein Hangar, der vor diesem Fix
+    doppelt importiert wurde, von selbst auf.
+    """
+    kept = []
+    changed = False
+    for s in (data.get('schiffe') or []):
+        match = None
+        for k in kept:
+            if _same_ship(k, s.get('name'), s.get('hersteller'),
+                          s.get('kurz'), s.get('hkurz')):
+                match = k
+                break
+        if match is None:
+            kept.append(s)
+            continue
+        changed = True
+        _fill(match, **{key: s.get(key) for key in _IMPORT_KEYS})
+        if not match.get('belegung') and s.get('belegung'):
+            match['belegung'] = s['belegung']
+    if changed:
+        data['schiffe'] = kept
+    return changed
 
 
 def remove(data, name, manufacturer=''):

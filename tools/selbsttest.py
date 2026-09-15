@@ -20987,6 +20987,100 @@ def main():
     pruefe('Hangar Extension' in _sp213.t('s_hg_import_text'),
            'der Hangar-Hilfetext nennt die empfohlene Erweiterung')
 
+    print('\n214. Ein zweiter Hangar-Import aus einer anderen Quelle verdoppelt nichts')
+    # ⚠ Am 15.09.2026 standen nach dem ersten Import aus der Hangar Extension
+    # in einen XPLORer-Hangar vier Schiffe doppelt: Der XPLORer schreibt
+    # „Musashi Industrial & Starflight Concern" / „Banu Souli", die Extension
+    # „MISC" / „Banu" — und Doppelte wurden nur ueber Herstellername + Name
+    # erkannt. Dazu „Idris-P Frigate" gegen „Idris-P" bei gleichem Kuerzel.
+    # ⚠ Und die Gegenrichtung: Der XPLORer gibt der „ATLS GEO" dasselbe
+    # Kuerzel wie der „ATLS" — ein Kuerzel allein darf NICHT zusammenfuehren.
+    from scbp import fleet as _fl214
+    _d214 = {'format': 1, 'schiffe': []}
+    _fl214.add(_d214, 'Endeavor', 'Musashi Industrial & Starflight Concern',
+               origin='pledge', kurz='MISC_Endeavor', hkurz='MISC', lti=True,
+               paket='Package - Dominus Pack')
+    _fl214.add(_d214, 'Merchantman', 'Banu Souli', origin='pledge',
+               kurz='BANU_Merchantman', hkurz='BANU', lti=True)
+    _fl214.add(_d214, 'Idris-P Frigate', 'Aegis Dynamics', origin='pledge',
+               kurz='AEGS_Idris_P', hkurz='AEGS', lti=True)
+    _fl214.add(_d214, 'ATLS', 'ARGO Astronautics', origin='pledge',
+               kurz='ARGO_ATLS', hkurz='ARGO')
+    _fl214.add(_d214, 'ATLS GEO', 'ARGO Astronautics', origin='pledge',
+               kurz='ARGO_ATLS', hkurz='ARGO', lti=True)
+    pruefe(len(_d214['schiffe']) == 5, 'fuenf verschiedene Schiffe eingetragen')
+    _neu214 = [
+        _fl214.add(_d214, 'Endeavor', 'MISC', origin='pledge',
+                   kurz='MISC_Endeavor', hkurz='MISC', lti=False),
+        _fl214.add(_d214, 'Merchantman', 'Banu', origin='pledge',
+                   kurz='BANU_Merchantman', hkurz='BANU', lti=False),
+        _fl214.add(_d214, 'Idris-P', 'Aegis Dynamics', origin='pledge',
+                   kurz='AEGS_Idris_P', hkurz='AEGS', lti=False),
+        _fl214.add(_d214, 'ATLS', 'Argo Astronautics', origin='pledge',
+                   kurz='ARGO_ATLS', hkurz='ARGO', lti=False),
+        _fl214.add(_d214, 'ATLS GEO', 'Argo Astronautics', origin='pledge',
+                   kurz='ARGO_ATLS_GEO', hkurz='ARGO', lti=False),
+    ]
+    pruefe(_neu214 == [False] * 5 and len(_d214['schiffe']) == 5,
+           'der Import aus der Extension traegt nichts doppelt ein (%r, %d)'
+           % (_neu214, len(_d214['schiffe'])))
+    _endeavor214 = _fl214.find(_d214, 'Endeavor', 'MISC', hkurz='MISC')
+    pruefe(_fl214.find(_d214, 'Endeavor', 'MISC') is None,
+           'ueber den Herstellernamen allein ist „MISC" nicht „Musashi …"')
+    pruefe(_endeavor214 is not None and _endeavor214['lti'] is True
+           and _endeavor214['hersteller'].startswith('Musashi'),
+           'der vorhandene Eintrag behaelt LTI und Herstellernamen')
+    pruefe(_fl214.add(_d214, 'Cutlass Black', 'Drake Interplanetary')
+           and not _fl214.add(_d214, 'Cutlass Black', 'Drake Interplanetary')
+           and _fl214.add(_d214, 'Cutlass Black', 'Anderer Hersteller'),
+           'ohne Kuerzel entscheidet weiter Hersteller + Name')
+    # Gegenprobe zum Kuerzel-Weg: gleiches Kuerzel, unvertraegliche Namen
+    pruefe(_fl214._names_compatible('idrispfrigate', 'idrisp')
+           and not _fl214._names_compatible('atlsgeo', 'atls')
+           and not _fl214._names_compatible('cutlassblack', 'cutlassred'),
+           'Namen duerfen sich nur um ein Klassenwort unterscheiden')
+    # Ein Hangar, der VOR diesem Fix doppelt importiert wurde, raeumt sich
+    # beim Laden selbst auf — und die Belegung des ersten Eintrags bleibt.
+    _alt214 = os.environ.get('SC_BP_HOME')
+    _heim214 = tempfile.mkdtemp(prefix='sc-bp-hangar-doppelt-')
+    try:
+        os.environ['SC_BP_HOME'] = _heim214
+        _doppelt214 = {'format': 1, 'schiffe': [
+            {'name': 'Endeavor', 'hersteller': 'Musashi Industrial & Starflight Concern',
+             'herkunft': 'pledge', 'belegung': {'a': 1}, 'kurz': 'MISC_Endeavor',
+             'hkurz': 'MISC', 'lti': True},
+            {'name': 'ATLS', 'hersteller': 'ARGO Astronautics', 'herkunft': 'pledge',
+             'belegung': {}, 'kurz': 'ARGO_ATLS', 'hkurz': 'ARGO'},
+            {'name': 'ATLS GEO', 'hersteller': 'ARGO Astronautics',
+             'herkunft': 'pledge', 'belegung': {}, 'kurz': 'ARGO_ATLS',
+             'hkurz': 'ARGO', 'lti': True},
+            {'name': 'Endeavor', 'hersteller': 'MISC', 'herkunft': 'pledge',
+             'belegung': {}, 'kurz': 'MISC_Endeavor', 'hkurz': 'MISC',
+             'lti': False, 'paket': 'nachgetragen'},
+        ]}
+        pruefe(_fl214.save(_doppelt214), 'Hangar mit Doppelten abgelegt')
+        _geladen214 = _fl214.load()
+        _namen214 = [s['name'] for s in _geladen214['schiffe']]
+        pruefe(_namen214 == ['Endeavor', 'ATLS', 'ATLS GEO'],
+               'beim Laden bleibt je Schiff ein Eintrag, ATLS GEO getrennt (%r)'
+               % _namen214)
+        _e214 = _geladen214['schiffe'][0]
+        pruefe(_e214['lti'] is True and _e214['belegung'] == {'a': 1}
+               and _e214.get('paket') == 'nachgetragen',
+               'der erste Eintrag bleibt, der zweite gibt nur Fehlendes ab')
+        with open(_fl214.path(), encoding='utf-8') as _f214:
+            _auf_platte214 = json.load(_f214)
+        pruefe(len(_auf_platte214['schiffe']) == 3,
+               'die bereinigte Fassung liegt auch auf der Platte')
+        pruefe(_fl214.merge_duplicates(_geladen214) is False,
+               'ein sauberer Hangar meldet keine Aenderung')
+    finally:
+        if _alt214 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt214
+        shutil.rmtree(_heim214, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
