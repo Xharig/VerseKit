@@ -21131,10 +21131,17 @@ def main():
     _q215w = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                   encoding='utf-8').read()
     _blk215 = _q215w.split('def _ablage_menue_zeigen')[1].split('\n    def ')[0]
-    pruefe('activebackground=ACCENT' in _blk215 and 'bg=SURFACE' in _blk215
-           and 'tk_popup' in _blk215 and 'add_separator' in _blk215
-           and "state='disabled'" in _blk215,
-           'das Tk-Menue traegt Markenfarbe, Trennlinien und Auskunftszeile')
+    # ⚠ Kein `tk.Menu`: Dessen Rahmen zeichnet Windows — weiss um ein dunkles
+    # Menue (15.09.2026, „sieht unschoen aus"). Eigenes rahmenloses Fenster
+    # wie die Auswahllisten, mit BORDER aussen und ACCENT beim Ueberfahren.
+    pruefe('overrideredirect(True)' in _blk215 and 'bg=BORDER' in _blk215
+           and 'bg=ACCENT' in _blk215 and 'fg=SUB' in _blk215
+           and 'tk.Menu(' not in _blk215,
+           'das Menue ist ein eigenes Fenster mit Rahmen- und Markenfarbe, '
+           'kein Windows-Menue')
+    pruefe("'<FocusOut>'" in _blk215 and 'screen_at' in _blk215
+           and 'y = y - hoch' in _blk215,
+           'es schliesst bei Fokusverlust und klappt am unteren Rand nach oben')
     pruefe('beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen)'
            in _q215w,
            'das Symbol ruft das Tk-Menue ueber `after` in den Tk-Faden')

@@ -4598,47 +4598,91 @@ class Overlay:
         return eintraege
 
     def _ablage_menue_zeigen(self):
-        """Das Menü neben der Uhr als Tk-Menü in den Markenfarben aufklappen.
+        """Das Menü neben der Uhr als eigenes Fenster in den Markenfarben.
 
         ⚠ Läuft im Tk-Faden (das Symbol ruft über `root.after` hierher). Das
         Windows-Standardmenü aus `tray_icon._show_menu()` ist weiß mit
         Systemschrift und passt nicht zum Werkzeug (Wunsch vom 15.09.2026:
-        Markenfarben). Ein `tk.Menu` zeichnet Tk unter Windows selbst
-        (owner-drawn), deshalb greifen Hintergrund, Schrift und die Markenfarbe
-        beim Überfahren; die Position am Bildschirmrand regelt Windows.
+        Markenfarben).
 
-        ⚠ Ohne Vordergrund bleibt ein aufgeklapptes Menü stehen, bis man ein
-        zweites Mal klickt — derselbe Windows-Sonderfall wie im Symbol-Modul.
-        Deshalb vorher `SetForegroundWindow` auf das (auch unsichtbare)
-        Hauptfenster.
+        ⚠ **Kein `tk.Menu`.** Der erste Anlauf war eines — die Einträge
+        zeichnet Tk unter Windows zwar selbst, den **Rahmen** aber Windows:
+        ein weißer Rand um ein dunkles Menü, „sieht unschön aus". Deshalb
+        dasselbe Rezept wie bei den Auswahllisten in `main_window`: ein
+        rahmenloses `Toplevel`, ein Pixel `BORDER` außen, Zeilen als Labels
+        mit der Markenfarbe beim Überfahren. Schließt sich, sobald es den
+        Fokus verliert (Klick daneben) oder bei Escape, und klappt nach oben,
+        wenn unten kein Platz ist — neben der Uhr ist das der Normalfall.
         """
-        from scbp.main_window import SURFACE, FG, SUB, ACCENT, BG
-        menue = tk.Menu(self.root, tearoff=0, bg=SURFACE, fg=FG,
-                        activebackground=ACCENT, activeforeground=BG,
-                        disabledforeground=SUB, bd=0, relief='flat',
-                        activeborderwidth=0,
-                        font=tkfont.Font(family='Segoe UI', size=10))
+        from scbp.main_window import SURFACE, FG, SUB, ACCENT, BG, BORDER
+        self._ablage_menue_schliessen()
+        fenster = tk.Toplevel(self.root)
+        fenster.overrideredirect(True)      # kein Titelbalken, kein Windows-Rahmen
+        fenster.configure(bg=BORDER)
+        fenster.attributes('-topmost', True)
+        self._ablage_fenster = fenster
+        innen = tk.Frame(fenster, bg=SURFACE)
+        innen.pack(fill='both', expand=True, padx=1, pady=1)
+        schrift = tkfont.Font(family='Segoe UI', size=10)
+
+        def klick(tat):
+            def _ausfuehren(_ereignis=None):
+                self._ablage_menue_schliessen()
+                tat()
+            return _ausfuehren
+
         for eintrag in self._ablage_menue():
             if eintrag is None:
-                menue.add_separator()
+                tk.Frame(innen, bg=BORDER, height=1).pack(fill='x', padx=6,
+                                                          pady=4)
                 continue
             text, tat = eintrag
             if tat is None:
-                menue.add_command(label=text, state='disabled')
-            else:
-                menue.add_command(label=text, command=tat)
+                tk.Label(innen, text=text, bg=SURFACE, fg=SUB, font=schrift,
+                         anchor='w', padx=14, pady=4).pack(fill='x')
+                continue
+            zeile = tk.Label(innen, text=text, bg=SURFACE, fg=FG, font=schrift,
+                             anchor='w', padx=14, pady=4, cursor='hand2')
+            zeile.pack(fill='x')
+            zeile.bind('<Button-1>', klick(tat))
+            zeile.bind('<Enter>', lambda e, z=zeile: z.configure(bg=ACCENT,
+                                                                 fg=BG))
+            zeile.bind('<Leave>', lambda e, z=zeile: z.configure(bg=SURFACE,
+                                                                 fg=FG))
+
+        fenster.update_idletasks()
+        breit = max(innen.winfo_reqwidth() + 2, 240)
+        hoch = innen.winfo_reqheight() + 2
+        x, y = self.root.winfo_pointerxy()
+        links, oben, schirm_breit, schirm_hoch = screen.screen_at(fenster, x, y)
+        # Neben der Uhr ist unten kein Platz — dann nach oben aufklappen.
+        if y + hoch > oben + schirm_hoch - 8:
+            y = y - hoch
+        x = min(x, links + schirm_breit - breit - 8)
+        fenster.geometry('%dx%d+%d+%d' % (breit, hoch, max(x, links),
+                                          max(y, oben)))
+        fenster.bind('<Escape>', lambda e: self._ablage_menue_schliessen())
+        fenster.bind('<FocusOut>', lambda e: self._ablage_menue_schliessen())
+        # ⚠ Ohne Vordergrund bekommt das Fenster keinen Fokus — und ohne Fokus
+        # merkt es nicht, wenn daneben geklickt wird. Derselbe
+        # Windows-Sonderfall wie im Symbol-Modul.
         try:
             import ctypes
-            benutzer = ctypes.windll.user32
-            benutzer.SetForegroundWindow(benutzer.GetParent(self.root.winfo_id())
-                                         or self.root.winfo_id())
+            ctypes.windll.user32.SetForegroundWindow(
+                ctypes.windll.user32.GetParent(fenster.winfo_id())
+                or fenster.winfo_id())
         except Exception:
             pass
-        x, y = self.root.winfo_pointerxy()
-        try:
-            menue.tk_popup(x, y)
-        finally:
-            menue.grab_release()
+        fenster.focus_force()
+
+    def _ablage_menue_schliessen(self):
+        fenster = getattr(self, '_ablage_fenster', None)
+        self._ablage_fenster = None
+        if fenster is not None:
+            try:
+                fenster.destroy()
+            except tk.TclError:
+                pass
 
     def _uebersetzung_erneuern(self):
         """Aus dem Menü neben der Uhr: die Bauplan-Angaben neu ins Spiel schreiben.
