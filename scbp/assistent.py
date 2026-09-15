@@ -338,8 +338,9 @@ class Wizard:
         try:
             if quelle == 'original':
                 # Kein Download nötig: Die englische Version liegt im Data.p4k
-                # des Spielers und wird von dort geholt (0,2 s). Eine bereits
-                # vorhandene Datei wird nicht ersetzt.
+                # des Spielers und wird von dort geholt (0,2 s). Eine fremde
+                # vorhandene Datei wird nicht ersetzt — eine vom Werkzeug
+                # eingesetzte (StarStrings) schon, siehe `gametext._placed_by_us`.
                 sprache_ordner = 'english'
                 ok, meldung = gametext.fetch(
                     sprache_ordner,

@@ -148,9 +148,7 @@ def _note():
         return {}
 
 
-def _note_set(source, ident):
-    d = _note()
-    d[source] = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+def _note_write(d):
     target = pfade.app_datei(NOTE_FILE)
     try:
         with open(target + '.tmp', 'w', encoding='utf-8') as f:
@@ -158,6 +156,27 @@ def _note_set(source, ident):
         os.replace(target + '.tmp', target)
     except OSError:
         pass
+
+
+def _note_set(source, ident):
+    d = _note()
+    d[source] = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+    _note_write(d)
+
+
+def forget_note(source):
+    """Den Vermerk einer Quelle löschen — ihre Datei wurde ersetzt.
+
+    Gebraucht von `gametext.fetch()`: Ersetzt „Original" eine StarStrings-Datei,
+    die das Werkzeug selbst eingesetzt hatte, darf die Quelle nicht weiter als
+    eingerichtet gelten. Sonst meldet die Lage „StarStrings", obwohl das
+    Original drinsteht — und der nächste Wechsel auf Original würde die frische
+    Originaldatei gleich noch einmal ersetzen."""
+    d = _note()
+    if source not in d:
+        return
+    del d[source]
+    _note_write(d)
 
 
 def note(source, ident):

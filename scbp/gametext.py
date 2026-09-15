@@ -191,9 +191,17 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
     """Die `global.ini` einer Sprache aus dem Archiv holen. (Erfolg, Meldung).
 
     Geschrieben wird direkt an den Ort, an dem das Spiel sie erwartet. Eine
-    **vorhandene Datei wird nicht angetastet** — dort könnte die Übersetzung
-    eines anderen Projekts liegen, und die zu überschreiben, weil jemand auf
-    „Originaltexte" geklickt hat, wäre ein handfester Verlust.
+    **vorhandene fremde Datei wird nicht angetastet** — dort könnte die
+    Übersetzung eines anderen Projekts liegen, und die zu überschreiben, weil
+    jemand auf „Originaltexte" geklickt hat, wäre ein handfester Verlust.
+
+    ⚠⚠ **Mit einer Ausnahme, seit 15.09.2026: eine Datei, die das Werkzeug
+    SELBST hingelegt hat.** Wer im Werkzeug StarStrings wählt, bekommt
+    MrKrakens Datei nach `english/` — genau dorthin, wo „Original" schreibt.
+    Bis dahin galt sie beim Wechsel auf „Original" als fremd und blieb liegen,
+    samt MrKrakens Kennzeichnungen; „Original" war damit gar nicht das
+    Original. Gemeldet von zwaersch. Was das Werkzeug selbst eingesetzt und
+    vermerkt hat, ersetzt es auch wieder — siehe `_placed_by_us()`.
 
     ⚠ **Die Datei allein reicht nicht.** Ohne `g_language` in der `user.cfg`
     liest Star Citizen sie gar nicht erst, sondern bleibt bei den Texten aus
@@ -222,7 +230,8 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
         pass
     if not ziel:
         return False, 'Zielordner unbekannt'
-    if os.path.isfile(ziel):
+    ersetzt = _placed_by_us(sprache)
+    if os.path.isfile(ziel) and not ersetzt:
         # ⚠ Auch hier eintragen: Die Datei liegt richtig, wird aber ohne den
         # Eintrag nicht gelesen. Wer sie von Hand hingelegt hat, säße sonst vor
         # einem Ergebnis, das es gar nicht gibt.
@@ -256,8 +265,38 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
         # Datei. Siehe `injektion.urtext_verwerfen()`.
         from . import injektion
         injektion.urtext_verwerfen()
+        # ⚠ Der Vermerk der ersetzten Quelle muss mit weg: Sonst gilt
+        # StarStrings weiter als eingerichtet, die Lage zeigt es an, und der
+        # nächste Wechsel auf „Original" ersetzt die frische Datei noch einmal.
+        if ersetzt:
+            from . import translation
+            for quelle in ersetzt:
+                translation.forget_note(quelle)
         if sprache_eintragen:
             _set_language(sprache, spielordner)
         return True, '%.1f MB' % (len(daten) / 1048576.0)
     except Exception as e:
         return False, str(e)
+
+
+def _placed_by_us(sprache):
+    """Welche Fremdquellen DIESES Werkzeug in den Sprachordner gelegt hat.
+
+    ⚠⚠ Gemeldet von zwaersch am 15.09.2026: StarStrings im Werkzeug gewählt,
+    danach „Original" — und MrKrakens Kennzeichnungen standen weiter im Spiel.
+    `fetch()` ließ eine vorhandene Datei grundsätzlich liegen, weil sie von
+    einem fremden Projekt stammen könnte. Das stimmt für eine von Hand
+    hingelegte Datei — nicht für eine, die das Werkzeug selbst eingesetzt und
+    dabei vermerkt hat (`translation.installed`). „Original" heißt dann: die
+    eigene Fremdquelle raus, das Original rein.
+
+    Gibt die Quellen-Kennungen zurück; leer heißt „die Datei ist fremd oder es
+    gibt keine". Wirft nie — ein Fehler im Vermerk darf den Abruf nicht
+    anhalten, dann gilt die alte, vorsichtige Regel.
+    """
+    from . import translation
+    try:
+        return [q for q, d in translation.SOURCES.items()
+                if d.get('sprache') == sprache and translation.installed(q)]
+    except Exception:
+        return []

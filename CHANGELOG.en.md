@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **"Original" now replaces StarStrings when the tool had installed it
+  itself.** Before, the StarStrings file stayed in place, MrKraken's marks
+  included, because "Original" never touched an existing file — so the
+  original was not the original at all. Files the tool never wrote remain
+  untouched. Reported by zwaersch
+
 ## v3.38.0 - 2026-09-14
 
 > **"Very large" is back** — for everyone who otherwise struggles to read the

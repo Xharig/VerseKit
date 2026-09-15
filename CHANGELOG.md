@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **„Original" ersetzt jetzt StarStrings, wenn das Werkzeug es selbst
+  eingesetzt hatte.** Vorher blieb die StarStrings-Datei samt MrKrakens
+  Kennzeichnungen liegen, weil „Original" eine vorhandene Datei grundsätzlich
+  nicht anfasste — das Original war damit gar nicht das Original. Dateien,
+  die das Werkzeug nie geschrieben hat, bleiben weiter unangetastet.
+  Gemeldet von zwaersch
+
 ## v3.38.0 - 2026-09-14
 
 > **„Sehr groß" gibt es wieder** — für alle, die den Text sonst schlecht

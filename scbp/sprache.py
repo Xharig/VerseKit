@@ -1769,8 +1769,8 @@ TEXTE = {
     # aus." Das ist so gewollt (der Watcher braucht eine global.ini, in die er
     # schreibt), aber niemand rechnet damit: Wer einen Bauplan-Melder
     # installiert, erwartet keine Spielübersetzung.
-    's_sp_quelle_h':   ('Woher die Grundlage kommt, in die geschrieben wird. ⚠ Deutsch und StarStrings ersetzen die Textdatei des Spiels vollständig — danach ist das **ganze Spiel** in dieser Sprache, nicht nur die Bauplan-Angaben. „Original" lässt deine Installation, wie sie ist. Übersetzung und StarStrings sind fremde Projekte und werden beim Klick von deren eigener Adresse geladen, nicht mitgeliefert.',
-                          'Where the base text comes from that gets written into. ⚠ German and StarStrings replace the game’s text file completely — after that the **whole game** is in that language, not just the blueprint details. „Original" leaves your installation as it is. The translation and StarStrings are other projects and are fetched from their own address when you click, not shipped along.'),
+    's_sp_quelle_h':   ('Woher die Grundlage kommt, in die geschrieben wird. ⚠ Deutsch und StarStrings ersetzen die Textdatei des Spiels vollständig — danach ist das **ganze Spiel** in dieser Sprache, nicht nur die Bauplan-Angaben. „Original" holt die englischen Originaltexte aus dem Spiel; hatte das Werkzeug vorher StarStrings eingesetzt, wird das dabei ersetzt — eine Datei, die du selbst hingelegt hast, bleibt. Übersetzung und StarStrings sind fremde Projekte und werden beim Klick von deren eigener Adresse geladen, nicht mitgeliefert.',
+                          'Where the base text comes from that gets written into. ⚠ German and StarStrings replace the game’s text file completely — after that the **whole game** is in that language, not just the blueprint details. „Original" fetches the game’s own English texts; if the tool had put StarStrings there before, that gets replaced — a file you placed yourself is kept. The translation and StarStrings are other projects and are fetched from their own address when you click, not shipped along.'),
 
     # Rückfrage, bevor die Textdatei des Spiels zum ersten Mal ersetzt wird.
     's_sp_warnung_titel': ('Das übersetzt das ganze Spiel',
@@ -2304,13 +2304,18 @@ TEXTE = {
                               'steht nichts drin, oder es steht in der '
                               'Sprachdatei, die das Spiel gar nicht lädt. Der '
                               'Fehlerbericht nennt jetzt beide nebeneinander, '
-                              'und der Fall ist in einer Zeile zu sehen.',
+                              'und der Fall ist in einer Zeile zu sehen. Und '
+                              'dass „Original" nach StarStrings gar nicht das '
+                              'Original war — die Datei blieb liegen, samt '
+                              'fremder Kennzeichnungen.',
                               'That "I cannot see your entries in the game" can '
                               'have two entirely different causes — nothing is '
                               'written, or it is written to the language file '
                               'the game does not load. The error report now '
                               'names both side by side, and the case is '
-                              'readable in a single line.'),
+                              'readable in a single line. And that "Original" '
+                              'after StarStrings was not the original at all — '
+                              'the file stayed, foreign marks included.'),
     's_dk_rurudotorg_bugs2': ('Dass die Schiffsauswahl bei „Was steckt drin?" '
                               'zuklappte, sobald man die Rollleiste anfasste — '
                               'mit dem Mausrad ging es, mit der Leiste nicht.',

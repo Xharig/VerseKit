@@ -20776,6 +20776,94 @@ def main():
     pruefe(_dateien210 > 40,
            'die Pruefung hat die Module ueberhaupt gelesen (%d)' % _dateien210)
 
+    print('\n211. „Original" ersetzt StarStrings, wenn das Werkzeug es selbst eingesetzt hat')
+    # ⚠⚠ Gemeldet von zwaersch am 15.09.2026: StarStrings im Werkzeug gewaehlt,
+    # danach auf „Original" — und MrKrakens Kennzeichnungen standen weiter im
+    # Spiel. Ursache: `gametext.fetch()` liess eine vorhandene englische Datei
+    # grundsaetzlich liegen („dort koennte die Uebersetzung eines anderen
+    # Projekts liegen"), und StarStrings liegt in genau diesem Ordner. Die
+    # Regel schuetzt fremde Dateien zu Recht — nur war diese nicht fremd: Das
+    # Werkzeug hatte sie selbst hingelegt und wusste das (Vermerk in
+    # `uebersetzung.json`).
+    #
+    # Geprueft wird die WIRKUNG an einer Wegwerf-Installation, mit einer
+    # Archiv-Attrappe: Die vier Leseschritte aus dem `Data.p4k` sind ersetzt,
+    # der Rest von `fetch()` laeuft echt — Zielpfad, Vermerk, Schreiben.
+    import tempfile as _tf211
+    from scbp import gametext as _gt211, translation as _tr211
+    _wiese211 = _tf211.mkdtemp(prefix='sc-bp-original-')
+    _altheim211 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(_wiese211, 'heim')
+    os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
+    _spiel211 = os.path.join(_wiese211, 'LIVE')
+    _ziel211 = _tr211.target_ini('english', _spiel211)
+    os.makedirs(os.path.dirname(_ziel211), exist_ok=True)
+    _archiv211 = os.path.join(_wiese211, 'Data.p4k')
+    with open(_archiv211, 'wb') as _f211:
+        _f211.write(b'attrappe')
+    _echt211 = (_gt211.p4k_path, _gt211.read_directory,
+                _gt211.find_entry, _gt211.fetch_block, _gt211._placed_by_us)
+
+    def _fremd211():
+        with open(_ziel211, 'w', encoding='utf-8') as _f:
+            _f.write('Fremde Fassung <EM4>[BP]</EM4>\n')
+
+    def _inhalt211():
+        with open(_ziel211, encoding='utf-8') as _f:
+            return _f.read()
+
+    try:
+        _gt211.p4k_path = lambda spielordner=None: _archiv211
+        _gt211.read_directory = lambda f, groesse: ({}, 1)
+        _gt211.find_entry = lambda cd, name: (8, 0, 0, 0)
+        _gt211.fetch_block = lambda f, off, cs: b'Originaltext ohne Marke\n'
+
+        # a) Eine Datei OHNE Vermerk ist fremd und bleibt — die alte Regel gilt.
+        _fremd211()
+        _ok211, _m211 = _gt211.fetch('english', _spiel211,
+                                     sprache_eintragen=False)
+        pruefe(_ok211 and 'behalten' in _m211
+               and _inhalt211().startswith('Fremde'),
+               'eine Datei ohne Vermerk bleibt unangetastet (%s)' % _m211)
+
+        # b) Hat das Werkzeug StarStrings selbst eingesetzt, ersetzt „Original"
+        #    sie durch die Originaltexte — und vergisst den Vermerk.
+        _tr211.note('starstrings', 'probe')
+        pruefe(_tr211.installed('starstrings') == 'probe', 'der Vermerk sitzt')
+        _ok211, _m211 = _gt211.fetch('english', _spiel211,
+                                     sprache_eintragen=False)
+        _text211 = _inhalt211()
+        pruefe(_ok211 and 'behalten' not in _m211
+               and _text211.startswith('Originaltext'),
+               'nach „Original" steht das Original da, nicht StarStrings (%s)'
+               % _m211)
+        pruefe('[BP]' not in _text211, 'keine MrKraken-Marke bleibt uebrig')
+        pruefe(_tr211.installed('starstrings') is None,
+               'der StarStrings-Vermerk ist danach geloescht')
+
+        # c) Und ein zweites „Original" laesst die frische Datei in Ruhe.
+        _ok211, _m211 = _gt211.fetch('english', _spiel211,
+                                     sprache_eintragen=False)
+        pruefe(_ok211 and 'behalten' in _m211,
+               'ohne Vermerk wird die Originaldatei beim naechsten Mal behalten')
+
+        # d) ⚠ Gegenprobe: Ohne die neue Entscheidung bliebe StarStrings
+        #    stehen — sonst prueft b) nur, dass nichts geknallt ist.
+        _tr211.note('starstrings', 'probe')
+        _fremd211()
+        _gt211._placed_by_us = lambda sprache: []
+        _gt211.fetch('english', _spiel211, sprache_eintragen=False)
+        pruefe(_inhalt211().startswith('Fremde'),
+               'Gegenprobe: ohne die Regel bliebe StarStrings liegen')
+    finally:
+        (_gt211.p4k_path, _gt211.read_directory, _gt211.find_entry,
+         _gt211.fetch_block, _gt211._placed_by_us) = _echt211
+        if _altheim211 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim211
+        shutil.rmtree(_wiese211, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
