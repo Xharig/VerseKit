@@ -8,6 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Der Hangar zeigt, welches Schiff als Beilage zu einem anderen kam** — etwa
+  „im Paket der Carrack" bei der URSA. Die Angabe kommt aus dem Export der
+  Hangar Extension. Vorschlag von AlyxOne
+
+### Verbessert
+
+- **Das Menü am Symbol neben der Uhr erscheint in den Farben des Werkzeugs**
+  statt im weißen Windows-Standard
+
 ## v3.40.1 - 2026-09-15
 
 > **Kein doppelter Hangar mehr.** Wer nach dem Hangar XPLORer die Hangar

@@ -12258,6 +12258,12 @@ def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
              else t('s_hg_ingame')]
     if eintrag.get('lti'):
         teile.append(t('s_hg_lti'))
+    # Kam das Schiff mit einem anderen aus dem Hangar (URSA der Carrack)?
+    # Steht nur da, wenn das Paket ein eigenes Schiff nennt — Pledge-Namen
+    # des XPLORer („Standalone Ship") bleiben weg. Vorschlag AlyxOne.
+    beilage = meine.bundled_with(daten['stand'], eintrag)
+    if beilage:
+        teile.append(t('s_hg_beilage').format(schiff=beilage))
 
     # ⚠⚠ **Drei Zustände, nicht zwei** — und der Unterschied ist der ganze
     # Punkt. Bis zum 06.09.2026 stand bei jedem Schiff ohne Steckplatz-Daten

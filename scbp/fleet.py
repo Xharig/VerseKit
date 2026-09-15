@@ -447,6 +447,27 @@ def add(data, name, manufacturer='', origin=INGAME, **rest):
     return True
 
 
+def bundled_with(data, entry):
+    """Der Name des Hangar-Schiffs, in dessen Paket dieses Schiff steckt — oder `''`.
+
+    Die Hangar Extension schreibt unter `includedWith` das Schiff, mit dem
+    eines mitkam (die URSA der Carrack, die MPUV Personnel der Idris-P). Beim
+    XPLORer steht unter `paket` dagegen der **Pledge-Name** („Standalone
+    Ship", „Package - Dominus Pack") — das ist keine Beilage. Unterschieden
+    wird deshalb daran, ob der Wert ein Schiff **im eigenen Hangar** nennt.
+    Vorschlag AlyxOne, 15.09.2026.
+    """
+    wanted = _slim(entry.get('paket'))
+    if not wanted or wanted == _slim(entry.get('name')):
+        return ''
+    for s in (data.get('schiffe') or []):
+        if s is entry:
+            continue
+        if _slim(s.get('name')) == wanted:
+            return s.get('name') or ''
+    return ''
+
+
 def merge_duplicates(data):
     """Doppelte Einträge zusammenführen. Gibt zurück, ob sich etwas änderte.
 

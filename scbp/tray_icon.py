@@ -215,9 +215,16 @@ class TrayIcon(object):
     # `sprache.t('hf_titel')`. Er wurde bei der Umbenennung (12.09.2026)
     # trotzdem mitgezogen — ein Standardwert mit altem Namen ist eine
     # Zeitbombe fuer den Fall, dass der Aufrufer ihn einmal weglaesst.
-    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='VerseKit'):
+    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='VerseKit',
+                 beim_menue=None):
         self.beim_zeigen = beim_zeigen
         self.beim_beenden = beim_beenden
+        # ⭐ Ist `beim_menue` gesetzt, zeichnet der Aufrufer das Menü selbst
+        # (der Watcher als Tk-Menü in den Markenfarben — Wunsch vom
+        # 15.09.2026, das Windows-Standardmenü war weiß). `_show_menu()` mit
+        # dem grauen Windows-Menü bleibt als Rückfall für alle, die nur
+        # `menu_set()` benutzen.
+        self.beim_menue = beim_menue
         self.titel = titel
         self.fenster = None
         self._faden = None
@@ -383,7 +390,10 @@ class TrayIcon(object):
                 if lparam == WM_LBUTTONUP:
                     self._call(self.beim_zeigen)
                 elif lparam == WM_RBUTTONUP:
-                    self._show_menu()
+                    if self.beim_menue:
+                        self._call(self.beim_menue)
+                    else:
+                        self._show_menu()
                 return 0
             if nachricht == WM_COMMAND:
                 befehl = wparam & 0xFFFF

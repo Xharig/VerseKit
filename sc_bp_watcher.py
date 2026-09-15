@@ -4597,6 +4597,49 @@ class Overlay:
         ]
         return eintraege
 
+    def _ablage_menue_zeigen(self):
+        """Das Menü neben der Uhr als Tk-Menü in den Markenfarben aufklappen.
+
+        ⚠ Läuft im Tk-Faden (das Symbol ruft über `root.after` hierher). Das
+        Windows-Standardmenü aus `tray_icon._show_menu()` ist weiß mit
+        Systemschrift und passt nicht zum Werkzeug (Wunsch vom 15.09.2026:
+        Markenfarben). Ein `tk.Menu` zeichnet Tk unter Windows selbst
+        (owner-drawn), deshalb greifen Hintergrund, Schrift und die Markenfarbe
+        beim Überfahren; die Position am Bildschirmrand regelt Windows.
+
+        ⚠ Ohne Vordergrund bleibt ein aufgeklapptes Menü stehen, bis man ein
+        zweites Mal klickt — derselbe Windows-Sonderfall wie im Symbol-Modul.
+        Deshalb vorher `SetForegroundWindow` auf das (auch unsichtbare)
+        Hauptfenster.
+        """
+        from scbp.main_window import SURFACE, FG, SUB, ACCENT, BG
+        menue = tk.Menu(self.root, tearoff=0, bg=SURFACE, fg=FG,
+                        activebackground=ACCENT, activeforeground=BG,
+                        disabledforeground=SUB, bd=0, relief='flat',
+                        activeborderwidth=0,
+                        font=tkfont.Font(family='Segoe UI', size=10))
+        for eintrag in self._ablage_menue():
+            if eintrag is None:
+                menue.add_separator()
+                continue
+            text, tat = eintrag
+            if tat is None:
+                menue.add_command(label=text, state='disabled')
+            else:
+                menue.add_command(label=text, command=tat)
+        try:
+            import ctypes
+            benutzer = ctypes.windll.user32
+            benutzer.SetForegroundWindow(benutzer.GetParent(self.root.winfo_id())
+                                         or self.root.winfo_id())
+        except Exception:
+            pass
+        x, y = self.root.winfo_pointerxy()
+        try:
+            menue.tk_popup(x, y)
+        finally:
+            menue.grab_release()
+
     def _uebersetzung_erneuern(self):
         """Aus dem Menü neben der Uhr: die Bauplan-Angaben neu ins Spiel schreiben.
 
@@ -4677,6 +4720,8 @@ class Overlay:
             self._ablage = tray_icon.TrayIcon(
                 beim_zeigen=lambda: self.root.after(0, self.hervorholen),
                 beim_beenden=lambda: self.root.after(0, self._ganz_beenden),
+                # Das Menü zeichnet der Watcher selbst, in den Markenfarben.
+                beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen),
                 # ⚠ Produktname von hier, nicht aus dem Standardwert des
                 # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
                 titel=sprache.t('hf_titel'))

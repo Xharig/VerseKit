@@ -3722,6 +3722,10 @@ TEXTE = {
     's_hg_pledge':       ('gekauft', 'pledged'),
     's_hg_ingame':       ('im Spiel gekauft', 'bought in-game'),
     's_hg_lti':          ('LTI', 'LTI'),
+    # Beilage eines anderen Schiffs aus demselben Paket (z. B. der URSA der
+    # Carrack) — kommt aus `includedWith` der Hangar Extension. Vorschlag
+    # AlyxOne, 15.09.2026.
+    's_hg_beilage':      ('im Paket der {schiff}', 'bundled with the {schiff}'),
     's_hg_plaetze':      ('{n} Steckplätze', '{n} slots'),
     's_hg_entfernen':    ('Austragen', 'Remove'),
     # ⚠ Kein „unbekannt": Erkul führt nur Schiffe, die im Spiel flugfähig sind.

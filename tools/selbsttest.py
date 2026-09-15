@@ -21081,6 +21081,64 @@ def main():
             os.environ['SC_BP_HOME'] = _alt214
         shutil.rmtree(_heim214, ignore_errors=True)
 
+    print('\n215. Paketbeilage im Hangar und das Menue neben der Uhr in Markenfarben')
+    # Vorschlag AlyxOne (15.09.2026): „bei einer Carrack ob der URSA davon
+    # herruehrt" — `includedWith` aus der Hangar Extension nennt das Schiff.
+    # ⚠ Beim XPLORer steht unter `paket` der Pledge-Name („Standalone Ship"),
+    # der darf NICHT als Beilage erscheinen: Beilage ist nur, was ein anderes
+    # Schiff im eigenen Hangar nennt.
+    from scbp import fleet as _fl215
+    _d215 = {'format': 1, 'schiffe': []}
+    _fl215.add(_d215, 'Carrack', 'Anvil Aerospace', origin='pledge',
+               kurz='ANVL_Carrack', paket='Standalone Ship')
+    _fl215.add(_d215, 'URSA', 'Roberts Space Industries', origin='pledge',
+               kurz='RSI_Ursa', paket='Carrack')
+    _fl215.add(_d215, 'Prospector', 'MISC', origin='pledge',
+               kurz='MISC_Prospector', paket='Package - Dominus Pack')
+    _fl215.add(_d215, 'Nomad', 'Consolidated Outland', origin='pledge',
+               kurz='CNOU_Nomad', paket='Nomad')
+    _s215 = {s['name']: s for s in _d215['schiffe']}
+    pruefe(_fl215.bundled_with(_d215, _s215['URSA']) == 'Carrack',
+           'die URSA nennt die Carrack als Paket')
+    pruefe(_fl215.bundled_with(_d215, _s215['Carrack']) == ''
+           and _fl215.bundled_with(_d215, _s215['Prospector']) == '',
+           'Pledge-Namen des XPLORer sind keine Beilage')
+    pruefe(_fl215.bundled_with(_d215, _s215['Nomad']) == '',
+           'ein Schiff ist nicht seine eigene Beilage')
+    _q215 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                 encoding='utf-8').read()
+    _zeile215 = _q215.split('def _hangar_row')[1].split('\ndef ')[0]
+    pruefe("t('s_hg_beilage')" in _zeile215 and 'bundled_with' in _zeile215,
+           'die Schiffszeile zeigt die Beilage ueber den Sprachschluessel')
+    from scbp import sprache as _sp215
+    pruefe('{schiff}' in _sp215.t('s_hg_beilage'),
+           'der Text nennt das Schiff, nicht nur „Beilage"')
+    # Markenfarben: Ist `beim_menue` gesetzt, ruft ein Rechtsklick den
+    # Aufrufer, nicht das weisse Windows-Menue — und der Watcher baut daraus
+    # ein Tk-Menue mit ACCENT beim Ueberfahren.
+    from scbp import tray_icon as _ti215
+    _getan215 = []
+    _ab215 = _ti215.TrayIcon(beim_menue=lambda: _getan215.append('menue'))
+    _ab215._show_menu = lambda: _getan215.append('windows')
+    _ab215._handle(None, _ti215.MESSAGE, 0, _ti215.WM_RBUTTONUP)
+    pruefe(_getan215 == ['menue'],
+           'mit `beim_menue` zeichnet der Aufrufer das Menue (%r)' % _getan215)
+    _ohne215 = _ti215.TrayIcon()
+    _ohne215._show_menu = lambda: _getan215.append('windows')
+    _ohne215._handle(None, _ti215.MESSAGE, 0, _ti215.WM_RBUTTONUP)
+    pruefe(_getan215[-1] == 'windows',
+           'ohne `beim_menue` bleibt das Windows-Menue als Rueckfall')
+    _q215w = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                  encoding='utf-8').read()
+    _blk215 = _q215w.split('def _ablage_menue_zeigen')[1].split('\n    def ')[0]
+    pruefe('activebackground=ACCENT' in _blk215 and 'bg=SURFACE' in _blk215
+           and 'tk_popup' in _blk215 and 'add_separator' in _blk215
+           and "state='disabled'" in _blk215,
+           'das Tk-Menue traegt Markenfarbe, Trennlinien und Auskunftszeile')
+    pruefe('beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen)'
+           in _q215w,
+           'das Symbol ruft das Tk-Menue ueber `after` in den Tk-Faden')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

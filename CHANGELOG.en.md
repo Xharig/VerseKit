@@ -8,6 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **The hangar shows which ship came bundled with another** — e.g. “bundled
+  with the Carrack” on the URSA. The information comes from the Hangar
+  Extension export. Suggested by AlyxOne
+
+### Improved
+
+- **The tray icon menu now appears in the tool's own colours** instead of the
+  white Windows default
+
 ## v3.40.1 - 2026-09-15
 
 > **No more doubled hangar.** Importing the Hangar Extension after the Hangar
