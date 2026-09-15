@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.40.1 - 2026-09-15
+
+> **Kein doppelter Hangar mehr.** Wer nach dem Hangar XPLORer die Hangar
+> Extension importiert hat, sah manche Schiffe zweimal. Das ist behoben, und
+> vorhandene Doppelte räumt VerseKit beim nächsten Start von selbst auf.
+
 ### Behoben
 
 - **Ein zweiter Hangar-Import aus einer anderen Quelle stellt Schiffe nicht

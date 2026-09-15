@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.40.1 - 2026-09-15
+
+> **No more doubled hangar.** Importing the Hangar Extension after the Hangar
+> XPLORer showed some ships twice. That is fixed, and existing duplicates are
+> cleaned up automatically on the next start.
+
 ### Fixed
 
 - **A second hangar import from a different source no longer duplicates
