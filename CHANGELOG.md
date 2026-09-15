@@ -26,6 +26,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Verbessert
 
+- **Das Projekt heißt auf GitHub jetzt `Xharig/VerseKit`.** Die alte Adresse
+  `Xharig/SC-BP-Watcher` leitet dauerhaft um — Lesezeichen, Klone und
+  vorhandene Installationen finden ihre Updates weiter
 - **Der Startknopf heißt jetzt „RSI Launcher starten"** statt „Star Citizen
   starten" — im Overlay, im großen Fenster und in der Hilfe. Er öffnet den
   Launcher, nicht das Spiel; mehrere Nutzer hatten das zu Recht angemerkt

@@ -57,7 +57,11 @@ import urllib.request
 from . import fehler
 from . import pfade
 
-REPO = 'Xharig/SC-BP-Watcher'
+# ⚠ Seit 15.09.2026 heisst das Repo `Xharig/VerseKit`. GitHub leitet die alte
+# Adresse `Xharig/SC-BP-Watcher` dauerhaft um (Web, Clone und API) — solange
+# nie wieder ein Repo mit dem alten Namen angelegt wird. Aeltere Installationen
+# fragen weiter die alte Adresse und landen ueber die Umleitung hier.
+REPO = 'Xharig/VerseKit'
 API = 'https://api.github.com/repos/%s/releases' % REPO
 # ⚠ **Kein `/releases/latest` mehr (28.08.2026).** Der Link führte auf
 # **v2.0.0**: GitHub blendet dort Vorabversionen aus, und alle rc-Fassungen
@@ -68,8 +72,7 @@ PAGE = 'https://github.com/%s/releases' % REPO
 # ⚠ Der User-Agent geht an FREMDE Server (GitHub, scmdb, UEX) — ihre Betreiber
 # sehen ihn. Deshalb nennt er nach der Umbenennung (12.09.2026) **beide** Namen:
 # Wer den alten in einer Freigabeliste stehen hat, erkennt uns weiter, und wer
-# nur den neuen kennt, auch. Die Adresse bleibt ohnehin dieselbe, weil `REPO`
-# nicht umbenannt wird.
+# nur den neuen kennt, auch. Die Adresse dahinter ist seit 15.09.2026 die neue.
 USER_AGENT = 'VerseKit (ehemals SC-BP-Watcher) (+https://github.com/%s)' % REPO
 CACHE = 'versionen.json'
 # Wie lange ein Blick auf GitHub gilt. Früher standen hier 24 Stunden — „einmal

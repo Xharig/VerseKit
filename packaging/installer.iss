@@ -16,7 +16,7 @@
 
 #define AppName "VerseKit"
 #define AppPublisher "Xharig"
-#define AppURL "https://github.com/Xharig/SC-BP-Watcher"
+#define AppURL "https://github.com/Xharig/VerseKit"
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif

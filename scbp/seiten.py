@@ -5601,8 +5601,8 @@ def _thanks(fenster, rahmen):
     tk.Label(rechts, text='%s %s · GPL-3.0-only'
              % (t('hf_titel'), fenster.version or ''), bg=SURFACE, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
-    _link(fenster, rechts, 'github.com/Xharig/SC-BP-Watcher',
-             'https://github.com/Xharig/SC-BP-Watcher')
+    _link(fenster, rechts, 'github.com/Xharig/VerseKit',
+             'https://github.com/Xharig/VerseKit')
     _body_text(innen, t('s_dk_selbst_h'), fenster.f_small, fill='x',
                 pady=(10, 0))
 

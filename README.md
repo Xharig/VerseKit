@@ -10,8 +10,8 @@
 
 <sub>Windows · Linux · ohne Konto, ohne Cloud — Installer unter Windows, einzelne Datei unter Linux</sub>
 
-[![Version](https://img.shields.io/github/v/release/Xharig/SC-BP-Watcher?include_prereleases&label=Version&color=5fa522)](../../releases)
-[![Heruntergeladen](https://img.shields.io/github/downloads/Xharig/SC-BP-Watcher/total?label=Heruntergeladen&color=5fa522)](../../releases)
+[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](../../releases)
+[![Heruntergeladen](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Heruntergeladen&color=5fa522)](../../releases)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-beitreten-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Kaffee%20spendieren-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -354,7 +354,7 @@ Unter **Linux** gibt es diese Meldung nicht — dort muss die Datei nur einmal a
 Dafür brauchst du [Python 3.8+](https://www.python.org/downloads/) — unter Windows beim Setup **„Add Python to PATH"** anhaken. Zusatzpakete sind keine nötig.
 
 ```bash
-git clone https://github.com/Xharig/SC-BP-Watcher.git
+git clone https://github.com/Xharig/VerseKit.git
 ```
 
 | System | Starten mit |
@@ -610,7 +610,7 @@ VerseKit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keine
 
 Es wird weitergebaut — was genau, steht in keiner Liste. Was eine Version gebracht hat, liest du im [`CHANGELOG.md`](CHANGELOG.md) oder direkt im Werkzeug unter **„Was ist neu"**.
 
-**An welcher Version gerade gearbeitet wird**, steht im Änderungsprotokoll des Arbeitszweigs: [CHANGELOG auf `arbeit`](https://github.com/Xharig/SC-BP-Watcher/blob/arbeit/CHANGELOG.md). Dort sammelt sich, was fertig gebaut, aber noch nicht veröffentlicht ist — wer eine [Testfassung](https://github.com/Xharig/SC-BP-Watcher/releases) ausprobiert, liest dort nach, was drin ist. Diese Seite hier zeigt immer die **veröffentlichte** Version.
+**An welcher Version gerade gearbeitet wird**, steht im Änderungsprotokoll des Arbeitszweigs: [CHANGELOG auf `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.md). Dort sammelt sich, was fertig gebaut, aber noch nicht veröffentlicht ist — wer eine [Testfassung](https://github.com/Xharig/VerseKit/releases) ausprobiert, liest dort nach, was drin ist. Diese Seite hier zeigt immer die **veröffentlichte** Version.
 
 Wünsche und Fehlermeldungen gern als [Issue](../../issues) oder im [Discord](https://discord.gg/g2E7e6XxZC) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
 

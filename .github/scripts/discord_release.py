@@ -36,7 +36,7 @@ sys.path.insert(0, HIER)
 
 import release_text                                          # noqa: E402
 
-REPO = 'Xharig/SC-BP-Watcher'
+REPO = 'Xharig/VerseKit'
 GRUEN = 0x9ce430          # Xharig-Neongrün für dunklen Grund
 GOLD = 0xd8a03a           # Testfassungen
 LOGO = ('https://raw.githubusercontent.com/%s/main/assets/icon.png' % REPO)

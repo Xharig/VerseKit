@@ -110,7 +110,7 @@ FORMAT = 3
 # ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
 # alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
 USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
-              '(+https://github.com/Xharig/SC-BP-Watcher)')
+              '(+https://github.com/Xharig/VerseKit)')
 TIMEOUT = 120
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 

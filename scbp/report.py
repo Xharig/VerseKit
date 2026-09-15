@@ -867,7 +867,7 @@ def to_archive(text, root=None):
 # GitHub schneidet sehr lange Adressen ab. Der Bericht ist normalerweise gut
 # 1 KB groß; die Grenze greift erst, wenn jemand mit 50 Fehlern im Gepäck meldet.
 URL_GRENZE = 6000
-ISSUE_ADRESSE = 'https://github.com/Xharig/SC-BP-Watcher/issues/new'
+ISSUE_ADRESSE = 'https://github.com/Xharig/VerseKit/issues/new'
 
 
 def _template_for_language():

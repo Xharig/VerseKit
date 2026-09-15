@@ -5,7 +5,7 @@
 ## Eine Sicherheitslücke melden
 
 Bitte melde Sicherheitsprobleme **nicht** als öffentliches Issue, sondern über
-das [Formular für Sicherheitshinweise](https://github.com/Xharig/SC-BP-Watcher/security/advisories/new)
+das [Formular für Sicherheitshinweise](https://github.com/Xharig/VerseKit/security/advisories/new)
 von GitHub. Du bekommst innerhalb weniger Tage eine Antwort.
 
 ## Wie die Programmdateien entstehen

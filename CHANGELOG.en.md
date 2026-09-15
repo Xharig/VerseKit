@@ -25,6 +25,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Improved
 
+- **The project now lives at `Xharig/VerseKit` on GitHub.** The old address
+  `Xharig/SC-BP-Watcher` redirects permanently — bookmarks, clones and
+  existing installations keep finding their updates
 - **The launch button is now called "Launch RSI Launcher"** instead of
   "Launch Star Citizen" — in the overlay, the main window and the help. It
   opens the launcher, not the game; several users had rightly pointed that out

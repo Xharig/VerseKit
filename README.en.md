@@ -10,8 +10,8 @@
 
 <sub>Windows · Linux · no account, no cloud — installer on Windows, single file on Linux</sub>
 
-[![Version](https://img.shields.io/github/v/release/Xharig/SC-BP-Watcher?include_prereleases&label=Version&color=5fa522)](../../releases)
-[![Downloads](https://img.shields.io/github/downloads/Xharig/SC-BP-Watcher/total?label=Downloads&color=5fa522)](../../releases)
+[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](../../releases)
+[![Downloads](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Downloads&color=5fa522)](../../releases)
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -350,7 +350,7 @@ On **Linux** this message does not exist — the file just needs to be made exec
 You need [Python 3.8+](https://www.python.org/downloads/) — on Windows tick **„Add Python to PATH"** during setup. No extra packages required.
 
 ```bash
-git clone https://github.com/Xharig/SC-BP-Watcher.git
+git clone https://github.com/Xharig/VerseKit.git
 ```
 
 | System | Start with |
@@ -566,7 +566,7 @@ VerseKit is an independent, unofficial companion tool with **no** official conne
 
 Work continues — what exactly is not on a list. What a build brought you can read in [`CHANGELOG.en.md`](CHANGELOG.en.md) or right in the tool under **„What's new"**.
 
-**Which version is being worked on right now** is in the changelog of the working branch: [CHANGELOG on `arbeit`](https://github.com/Xharig/SC-BP-Watcher/blob/arbeit/CHANGELOG.en.md). That is where finished but unreleased work collects — if you try a [test build](https://github.com/Xharig/SC-BP-Watcher/releases), that is where you read what is in it. This page always shows the **released** version.
+**Which version is being worked on right now** is in the changelog of the working branch: [CHANGELOG on `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.en.md). That is where finished but unreleased work collects — if you try a [test build](https://github.com/Xharig/VerseKit/releases), that is where you read what is in it. This page always shows the **released** version.
 
 Wishes and bug reports are welcome as an [issue](../../issues) or on [Discord](https://discord.gg/g2E7e6XxZC) — suggestions make it into the next build more reliably than mind reading.
 

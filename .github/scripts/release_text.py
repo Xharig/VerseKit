@@ -61,7 +61,7 @@ def vorab_kopf(tag):
     if not ist_vorab(tag):
         return ''
     grund = grundversion(tag)
-    vergleich = ('https://github.com/Xharig/SC-BP-Watcher/compare/'
+    vergleich = ('https://github.com/Xharig/VerseKit/compare/'
                  'v%s...%s' % (VORIGER[0], tag)) if VORIGER[0] else ''
     zeilen = [
         '> ### 🧪 Testfassung für v%s' % grund,

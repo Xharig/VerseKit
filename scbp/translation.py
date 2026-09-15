@@ -53,7 +53,7 @@ from . import pfade
 from .sprache import t
 
 NOTE_FILE = 'uebersetzung.json'
-USER_AGENT = 'SC-BP-Watcher (+https://github.com/Xharig/SC-BP-Watcher)'
+USER_AGENT = 'SC-BP-Watcher (+https://github.com/Xharig/VerseKit)'
 TIMEOUT = 60
 
 # Die Fremdquellen. `sprache` ist der Ordnername, unter dem Star Citizen die

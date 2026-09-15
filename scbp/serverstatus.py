@@ -88,7 +88,7 @@ LIGHTS = {
 
 def _ident():
     from sc_bp_watcher import __version__ as v
-    return 'SC-BP-Watcher/%s (+https://github.com/Xharig/SC-BP-Watcher)' % v
+    return 'SC-BP-Watcher/%s (+https://github.com/Xharig/VerseKit)' % v
 
 
 def _fetch(path, etag=None):

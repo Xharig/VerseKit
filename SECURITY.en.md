@@ -5,7 +5,7 @@
 ## Reporting a vulnerability
 
 Please report security issues privately via GitHub's
-[security advisory form](https://github.com/Xharig/SC-BP-Watcher/security/advisories/new)
+[security advisory form](https://github.com/Xharig/VerseKit/security/advisories/new)
 rather than as a public issue. You will get an answer within a few days.
 
 ## How releases are built
