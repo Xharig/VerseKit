@@ -2156,12 +2156,17 @@ TEXTE = {
                         'Which slots a ship has, and in what size. This lets '
                         'the tool answer the question that follows every new '
                         'blueprint: does the part even fit any of your ships?'),
-    's_dk_xplorer':    ('Die Browser-Erweiterung, mit der du deinen Hangar aus '
-                        'dem Pledge-Store holst — sonst müsste jedes Schiff von '
-                        'Hand eingetippt werden.',
-                        'The browser add-on that gets your hangar out of the '
-                        'pledge store — otherwise every ship would have to be '
-                        'typed in by hand.'),
+    's_dk_hangarext':  ('Die gepflegte Browser-Erweiterung, mit der du deinen '
+                        'Hangar aus dem Pledge-Store holst — ein Export, und '
+                        'die Flotte steht hier. Seit 15.09.2026 der empfohlene '
+                        'Weg.',
+                        'The maintained browser add-on that gets your hangar '
+                        'out of the pledge store — one export, and your fleet '
+                        'is in here. The recommended way since 2026-09-15.'),
+    's_dk_xplorer':    ('Die ursprüngliche Browser-Erweiterung für den '
+                        'Hangar-Export — ihre Dateien werden weiterhin gelesen.',
+                        'The original browser add-on for the hangar export — '
+                        'its files are still read.'),
     's_dk_tester':     ('Tester', 'tester'),
     's_dk_leute':      ('Und Danke an', 'And thanks to'),
     's_dk_leute_h':    ('Wer einen Fehler findet oder einen guten Vorschlag macht, '
@@ -3406,13 +3411,15 @@ TEXTE = {
                           'you: either from the export below, or by hand.'),
     # --- Import
     's_hg_import_titel': ('Aus dem Pledge-Store holen', 'Import from the pledge store'),
-    's_hg_import_text':  ('Die Browser-Erweiterung Star Citizen Hangar XPLORer '
-                          'setzt auf deiner Pledge-Seite zwei Knöpfe. Lade dort '
-                          '„Download JSON" herunter und wähle die Datei hier '
-                          'aus.',
-                          'The browser add-on Star Citizen Hangar XPLORer adds '
-                          'two buttons to your pledge page. Use „Download JSON" '
-                          'there and pick the file here.'),
+    's_hg_import_text':  ('Die Browser-Erweiterung „Star Citizen: Hangar '
+                          'Extension" (AlyxOne) setzt auf deiner Pledge-Seite '
+                          'Export-Knöpfe. Lade dort den JSON-Export herunter und '
+                          'wähle die Datei hier aus. Der ältere Hangar XPLORer '
+                          'wird weiterhin gelesen.',
+                          'The browser add-on “Star Citizen: Hangar Extension” '
+                          '(AlyxOne) adds export buttons to your pledge page. '
+                          'Download the JSON export there and pick the file '
+                          'here. The older Hangar XPLORer is still read as well.'),
     # ⚠ Der Hinweis auf JSON steht bewusst dabei: Bei einem echten Export vom
     # 06.09.2026 fehlten der CSV-Fassung drei Schiffe, die in der JSON standen.
     # Gelesen werden beide — empfohlen wird nur eines.
@@ -3426,9 +3433,11 @@ TEXTE = {
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
     's_hg_import_leer':  ('In der Datei stand kein einziges Schiff. Ist das der '
-                          'Export von Hangar XPLORer?',
+                          'JSON-Export der Hangar Extension oder des Hangar '
+                          'XPLORer?',
                           'There was not a single ship in that file. Is this the '
-                          'Hangar XPLORer export?'),
+                          'JSON export of the Hangar Extension or Hangar '
+                          'XPLORer?'),
     's_hg_import_fehler': ('Die Datei ließ sich nicht lesen.',
                            'That file could not be read.'),
     's_hg_erweiterung':  ('Erweiterung holen', 'Get the add-on'),

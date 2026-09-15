@@ -88,6 +88,11 @@ CLASS_LABELS = {'Civilian': 's_ld_kl_civilian',
 # ⚠ Die Projektseite und **nicht** ein einzelner Store: Welchen Browser der
 # Spieler benutzt, weiß das Werkzeug nicht, und dort stehen alle drei
 # nebeneinander (Chrome, Firefox, Opera).
+# ⭐ Seit 15.09.2026 die empfohlene Erweiterung für den Hangar-Import: ein
+# gepflegter Fork des XPLORer (MIT, AlyxOne), für Chrome, Firefox und Edge. Der
+# Hub-Beitrag nennt alle drei Stores; Quellcode-Seite gibt es keine.
+HANGAR_EXT_PAGE = ('https://robertsspaceindustries.com/community-hub/post/'
+                   'star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W')
 XPLORER_PAGE = 'https://github.com/dolkensp/HangarXPLOR'
 XPLORER_FIREFOX = ('https://addons.mozilla.org/en-US/firefox/addon/'
                    'star-citizen-hangar-xplorer/')
@@ -5633,6 +5638,8 @@ def _thanks(fenster, rahmen):
     # Erweiterung müsste jeder seine vierzig Schiffe von Hand eintippen. Sie
     # steht hier, weil der Import ohne sie nichts wäre — und damit man sie
     # findet, ohne im Netz danach suchen zu müssen.
+    _credit_box(fenster, innen, 'Star Citizen: Hangar Extension (AlyxOne)',
+               'MIT', t('s_dk_hangarext'), HANGAR_EXT_PAGE)
     _credit_box(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
                'MIT', t('s_dk_xplorer'), XPLORER_PAGE)
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
@@ -10839,7 +10846,7 @@ def _hangar(fenster, rahmen):
         _button(fenster, reihe_import, t('s_hg_import_knopf'), importieren,
                strong=True),
         _button(fenster, reihe_import, t('s_hg_erweiterung'),
-               lambda: pfade.im_browser(XPLORER_PAGE)),
+               lambda: pfade.im_browser(HANGAR_EXT_PAGE)),
     ])
 
     # -------------------------------------------------------- Von Hand

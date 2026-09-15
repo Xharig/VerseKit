@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Der Hangar-Import liest jetzt auch den JSON-Export der „Star Citizen:
+  Hangar Extension"** von AlyxOne — die gepflegte Erweiterung, die den alten
+  Hangar XPLORer ablöst (Chrome, Firefox, Edge). Sie ist ab jetzt der
+  empfohlene Weg; Dateien des XPLORer werden weiterhin gelesen. Die
+  Danke-Seite nennt beide
+
 ## v3.39.0 - 2026-09-15
 
 > **Das Symbol neben der Uhr kann jetzt mehr.** Ein Rechtsklick öffnet

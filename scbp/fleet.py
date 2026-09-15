@@ -42,11 +42,14 @@ eingetragen hat und dessen Spiel von 78 spricht, dem fehlt etwas.
 
 | Weg | bringt | bringt **nicht** |
 |---|---|---|
-| Import aus **Star Citizen Hangar XPLORer** | alle Echtgeld-Pledges samt LTI und Paketname | im Spiel gekaufte Schiffe |
+| Import aus der **Star Citizen: Hangar Extension** (AlyxOne) | alle Echtgeld-Schiffe samt Hersteller, Code und Paketzugehörigkeit | im Spiel gekaufte Schiffe; LTI und Preis (nur im CSV der Erweiterung) |
+| Import aus **Star Citizen Hangar XPLORer** (dolkensp) | alle Echtgeld-Pledges samt LTI und Paketname | im Spiel gekaufte Schiffe |
 | **Von Hand** eintragen | alles Übrige | — |
 
-Die Erweiterung (`github.com/dolkensp/HangarXPLOR`) setzt auf der Pledge-Seite
-zwei Knöpfe *Download CSV* und *Download JSON*. Beide Formate werden gelesen.
+Beide Erweiterungen setzen auf der Pledge-Seite Export-Knöpfe. Gelesen wird
+der JSON-Export beider und das CSV des XPLORer — erkannt am Inhalt, nicht am
+Dateinamen (`_from_json`). Empfohlen wird seit 15.09.2026 die Hangar
+Extension: Sie wird gepflegt, der XPLORer nicht mehr.
 
 ⚠ **Der Export kennt nur Gekauftes.** Wer sich im Spiel eine Cutlass erflogen
 hat, findet sie dort nie — deshalb ist der Handeintrag kein Notbehelf, sondern
@@ -371,14 +374,73 @@ def remove(data, name, manufacturer=''):
 
 # ---------------------------------------------------------------- Import
 
+def _hangar_extension_entry(entry):
+    """Ein Schiff aus dem JSON der **Star Citizen: Hangar Extension** (AlyxOne).
+
+    Seit 15.09.2026 die empfohlene Erweiterung — ein Fork des XPLORer, MIT,
+    von seinem Autor gepflegt. Ihr Export sieht anders aus:
+
+        {"manufacturer": {"code": "ARGO", "name": "Argo Astronautics",
+                          "shortName": "ARGO"},
+         "code": "ARGO_ATLS", "matrix": "ATLS", "name": "ATLS",
+         "focus": "Cargo", "status": "Flight-Ready",
+         "includedWith": "Idris-P"}            # nur bei Paket-Beilagen
+
+    ⚠ `name` vor `matrix` — dieselbe Regel wie beim XPLORer (`name` vor
+    `ship_name`): `matrix` ist der Grundtyp („L-22 Alpha Wolf"), `name` die
+    Ausführung, wie der Store sie führt („L22-AlphaWolf"). Gemessen am Export
+    vom 15.09.2026: 43 Schiffe, genau ein Unterschied.
+
+    ⚠ **Keine Pledge-Angaben.** LTI, Warbond, Kaufdatum und Preis stehen nur
+    im CSV-Export der Erweiterung — der JSON führt Schiffe und Fahrzeuge samt
+    ihrer Beziehungen. `includedWith` nennt das Paket, mit dem ein Schiff kam
+    (die MPUV Personnel der Idris-P); das ist die Angabe, die beim XPLORer
+    `pledge_name` heißt, und landet deshalb unter `paket`.
+    """
+    maker = entry.get('manufacturer') or {}
+    name = (entry.get('name') or entry.get('matrix') or '').strip()
+    if not name:
+        return None
+    return {
+        'name': name,
+        'hersteller': (maker.get('name') or '').strip(),
+        'kurz': (entry.get('code') or '').strip(),
+        'hkurz': (maker.get('code') or maker.get('shortName') or '').strip(),
+        'lti': False,
+        'warbond': False,
+        'paket': (entry.get('includedWith') or '').strip(),
+        'gekauft': '',
+        'preis': '',
+    }
+
+
 def _from_json(text):
-    """Der JSON-Export von Hangar XPLORer."""
+    """Der JSON-Export — vom Hangar XPLORer **oder** von der Hangar Extension.
+
+    Zwei Werkzeuge, zwei Formen, ein Erkenner:
+
+    | | Hangar XPLORer (dolkensp) | Hangar Extension (AlyxOne) |
+    |---|---|---|
+    | Eintrag | flach: `name`, `ship_name`, `manufacturer_name`, `manufacturer_code`, `ship_code`, `lti`, `pledge_*` | `name`, `matrix`, `code`, `manufacturer` als **Wörterbuch** |
+    | Umfang | Schiffe **und** Ausrüstung, Farben, Anzüge (`entity_type`) | nur Schiffe und Fahrzeuge |
+    | Pledge-Angaben | LTI, Warbond, Paket, Datum, Preis | keine (siehe `_hangar_extension_entry`) |
+
+    Erkannt wird **je Eintrag** am Wörterbuch `manufacturer` — kein Werkzeug
+    schreibt das Feld des anderen. Beide dürfen weiter eingelesen werden: Wer
+    seinen XPLORer-Export von vor Wochen noch hat, soll ihn nicht neu ziehen
+    müssen.
+    """
     raw = json.loads(text)
     if not isinstance(raw, list):
         return []
     result = []
     for entry in raw:
         if not isinstance(entry, dict):
+            continue
+        if isinstance(entry.get('manufacturer'), dict):
+            ship = _hangar_extension_entry(entry)
+            if ship:
+                result.append(ship)
             continue
         # ⚠ Nur Schiffe. Der Export führt auch Ausrüstung, Farben und Anzüge —
         # ein „Bosco Weapon Display Rack" hat keine Steckplätze.

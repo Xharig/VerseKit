@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **The hangar import now also reads the JSON export of the “Star Citizen:
+  Hangar Extension”** by AlyxOne — the maintained add-on that replaces the
+  old Hangar XPLORer (Chrome, Firefox, Edge). It is the recommended way from
+  now on; XPLORer files are still read. The thanks page names both
+
 ## v3.39.0 - 2026-09-15
 
 > **The tray icon does more now.** A right-click opens VerseKit or the

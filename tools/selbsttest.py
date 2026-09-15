@@ -20909,6 +20909,84 @@ def main():
     pruefe('root.after(0' in _blk212,
            'jeder Punkt ruft ueber `after` in den Tk-Faden zurueck')
 
+    print('\n213. Der Hangar-Import liest die Hangar Extension UND den XPLORer')
+    # ⚠ Seit 15.09.2026 die empfohlene Erweiterung: AlyxOnes Fork des XPLORer
+    # schreibt ein anderes JSON — `manufacturer` als Woerterbuch, `code` statt
+    # `ship_code`, keine Pledge-Angaben, dafuer `includedWith`. Beide Formen
+    # muessen durch denselben Erkenner, auch gemischt in einer Datei; die
+    # Erkennung haengt am Woerterbuch, nicht am Dateinamen. Nachgebaut aus dem
+    # echten Export vom 15.09.2026 (43 Schiffe), hier drei davon.
+    from scbp import fleet as _fl213
+    _ext213 = json.dumps([
+        {'manufacturer': {'code': 'ARGO', 'name': 'Argo Astronautics',
+                          'shortName': 'ARGO'},
+         'code': 'ARGO_ATLS', 'matrix': 'ATLS', 'focus': 'Cargo',
+         'status': 'Flight-Ready', 'name': 'ATLS'},
+        {'manufacturer': {'code': 'AEGS', 'name': 'Aegis Dynamics',
+                          'shortName': 'Aegis'},
+         'code': 'AEGS_Idris_P', 'matrix': 'Idris-P', 'focus': 'Frigate',
+         'status': 'Flight-Ready', 'name': 'Idris-P',
+         'includedShips': ['MPUV Personnel']},
+        {'manufacturer': {'code': 'ARGO', 'name': 'Argo Astronautics',
+                          'shortName': 'ARGO'},
+         'code': 'ARGO_MPUV_Personnel', 'matrix': 'MPUV Personnel',
+         'focus': 'Passenger', 'status': 'Flight-Ready',
+         'name': 'MPUV Personnel', 'includedWith': 'Idris-P'},
+        # ⚠ `name` vor `matrix` — die Ausfuehrung, nicht der Grundtyp.
+        {'manufacturer': {'code': 'TMBL', 'name': 'Tumbril', 'shortName': 'Tumbril'},
+         'code': 'TMBL_L22_AlphaWolf', 'matrix': 'L-22 Alpha Wolf',
+         'focus': 'Fighter', 'status': 'In-Concept', 'name': 'L22-AlphaWolf'},
+        # Ein XPLORer-Eintrag in derselben Liste — und ein Nicht-Schiff daraus.
+        {'name': 'Vulture', 'ship_name': 'Vulture', 'manufacturer_name': 'Drake',
+         'manufacturer_code': 'DRAK', 'ship_code': 'DRAK_Vulture', 'lti': True,
+         'warbond': False, 'pledge_name': 'Vulture - LTI', 'pledge_date': '2024',
+         'pledge_cost': '$175.00', 'entity_type': 'ship'},
+        {'name': 'Bosco Weapon Display Rack', 'entity_type': 'item'},
+    ])
+    _s213 = _fl213._from_json(_ext213)
+    _namen213 = [s['name'] for s in _s213]
+    pruefe(_namen213 == ['ATLS', 'Idris-P', 'MPUV Personnel', 'L22-AlphaWolf',
+                         'Vulture'],
+           'beide Formen werden gelesen, das Nicht-Schiff nicht (%r)' % _namen213)
+    _atls213 = _s213[0]
+    pruefe(_atls213['hersteller'] == 'Argo Astronautics'
+           and _atls213['hkurz'] == 'ARGO' and _atls213['kurz'] == 'ARGO_ATLS',
+           'Hersteller, Herstellerkuerzel und Schiffs-Code kommen aus dem '
+           'Woerterbuch (%r)' % _atls213)
+    pruefe(_s213[2]['paket'] == 'Idris-P',
+           'die Paketzugehoerigkeit landet unter `paket` (%r)' % _s213[2]['paket'])
+    pruefe(_s213[3]['name'] == 'L22-AlphaWolf',
+           '`name` schlaegt `matrix` — die Ausfuehrung, nicht der Grundtyp')
+    pruefe(_s213[4]['lti'] is True and _s213[4]['paket'] == 'Vulture - LTI',
+           'der XPLORer-Eintrag behaelt LTI und Paketname')
+    pruefe(all(s['lti'] is False for s in _s213[:4]),
+           'die Extension kennt kein LTI — es wird nicht erfunden')
+    # Und ueber `read()`: erkannt am Inhalt, gemeldet mit leerem Fehlertext.
+    _wiese213 = tempfile.mkdtemp(prefix='sc-bp-hangar-ext-')
+    try:
+        _datei213 = os.path.join(_wiese213, 'my-fleet-2026-09-15.json')
+        with open(_datei213, 'w', encoding='utf-8') as _f213:
+            _f213.write(_ext213)
+        _gelesen213, _fehl213 = _fl213.read(_datei213)
+        pruefe(len(_gelesen213) == 5 and _fehl213 == '',
+               'read() erkennt die Datei am Inhalt (%d, %r)'
+               % (len(_gelesen213), _fehl213))
+        # Gegenprobe: Ein Eintrag ohne Namen faellt heraus statt zu knallen.
+        _leer213 = _fl213._from_json(json.dumps(
+            [{'manufacturer': {'code': 'X', 'name': 'X'}, 'code': 'X_Y'}]))
+        pruefe(_leer213 == [], 'ohne `name` und `matrix` gibt es kein Schiff')
+    finally:
+        shutil.rmtree(_wiese213, ignore_errors=True)
+    # Die Danke-Seite und der Hangar-Hilfetext nennen die Erweiterung.
+    _q213 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+                 encoding='utf-8').read()
+    pruefe("'Star Citizen: Hangar Extension (AlyxOne)'" in _q213
+           and 'HANGAR_EXT_PAGE' in _q213,
+           'die Danke-Seite nennt die Hangar Extension mit Adresse')
+    from scbp import sprache as _sp213
+    pruefe('Hangar Extension' in _sp213.t('s_hg_import_text'),
+           'der Hangar-Hilfetext nennt die empfohlene Erweiterung')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
