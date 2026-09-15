@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.39.0 - 2026-09-15
+
+> **The tray icon does more now.** A right-click opens VerseKit or the
+> settings, launches the RSI Launcher, re-inserts the translation and takes
+> you to Discord. The launch button now says what it does: it starts the
+> launcher, not the game. And switching from StarStrings back to "Original"
+> really gives you the original.
+
 ### New
 
 - **The tray icon menu does more** (Windows): open VerseKit, open settings,

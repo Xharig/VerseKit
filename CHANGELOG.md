@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.39.0 - 2026-09-15
+
+> **Das Symbol neben der Uhr kann jetzt mehr.** Ein Rechtsklick öffnet
+> VerseKit oder die Einstellungen, startet den RSI Launcher, trägt die
+> Übersetzung neu ein und führt zum Discord. Der Startknopf sagt jetzt auch,
+> was er tut: Er startet den Launcher, nicht das Spiel. Und wer von
+> StarStrings zurück auf „Original" wechselt, bekommt wirklich das Original.
+
 ### Neu
 
 - **Das Menü am Symbol neben der Uhr kann mehr** (Windows): VerseKit öffnen,
