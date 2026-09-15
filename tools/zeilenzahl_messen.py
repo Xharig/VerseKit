@@ -69,7 +69,7 @@ def messen(anteil):
     # neu gebaut, und genau darum geht es hier.
     from scbp import joysticks, main_window
 
-    echt = joysticks.sicht
+    echt = joysticks.view
 
     def gekuerzt(*a, **k):
         voll = echt(*a, **k) or {}
@@ -83,7 +83,7 @@ def messen(anteil):
                 heraus[schluessel] = liste
         return heraus
 
-    joysticks.sicht = gekuerzt
+    joysticks.view = gekuerzt
     try:
         fenster = main_window.MainWindow(version='mess')
         fenster.root.update()
@@ -110,7 +110,7 @@ def messen(anteil):
         mittel = sum(zeiten[:-1]) / max(1, len(zeiten) - 1)
         return n, mittel, zeiten
     finally:
-        joysticks.sicht = echt
+        joysticks.view = echt
 
 
 def main():

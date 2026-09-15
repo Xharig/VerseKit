@@ -11377,16 +11377,16 @@ def main():
                 ' </ActionProfiles>' + chr(10) +
                 '</ActionMaps>' + chr(10))
 
-        _vorher115 = _js115.belegungen(datei=_datei115)
+        _vorher115 = _js115.bindings(filename=_datei115)
         pruefe(len(_vorher115.get('js1', [])) == 2
                and len(_vorher115.get('kb1', [])) == 1,
                'die Ausgangslage wird richtig gelesen')
 
         # 1. Eine Stick-Belegung aendern.
-        _ok115, _m115, _ = _js115.belegen('v_eject', 'spaceship_general',
+        _ok115, _m115, _ = _js115.bind_action('v_eject', 'spaceship_general',
                                           'js1', 'button22',
-                                          datei=_datei115)
-        _nach115 = _js115.belegungen(datei=_datei115)
+                                          filename=_datei115)
+        _nach115 = _js115.bindings(filename=_datei115)
         _eject_js = [e for e in _nach115.get('js1', [])
                      if e['aktion'] == 'v_eject']
         pruefe(_ok115 and len(_eject_js) == 1
@@ -11409,20 +11409,20 @@ def main():
                'vor dem Schreiben entsteht eine Sicherung')
 
         # 3. Konflikte werden gemeldet, BEVOR etwas passiert.
-        _konflikt115 = _js115.konflikte('v_eject', 'js1', 'button9',
-                                        datei=_datei115)
+        _konflikt115 = _js115.conflicts('v_eject', 'js1', 'button9',
+                                        filename=_datei115)
         pruefe(any(k['aktion'] == 'v_lights' for k in _konflikt115),
                'eine doppelte Belegung wird vorher gemeldet')
 
         # 4. Loeschen heisst leere Eingabe — nicht Eintrag weg. Nur so laesst
         #    das Spiel die Werkseinstellung ebenfalls aus.
-        _js115.belegen('v_eject', 'spaceship_general', 'js1', '',
-                       datei=_datei115)
+        _js115.bind_action('v_eject', 'spaceship_general', 'js1', '',
+                       filename=_datei115)
         with open(_datei115, encoding='utf-8') as _f115:
             _roh115 = _f115.read()
         pruefe('js1_"' in _roh115 or 'js1_' in _roh115,
                'das Entfernen schreibt eine leere Eingabe')
-        _leer115 = _js115.belegungen(datei=_datei115)
+        _leer115 = _js115.bindings(filename=_datei115)
         pruefe(not [e for e in _leer115.get('js1', [])
                     if e['aktion'] == 'v_eject' and e['eingabe']],
                'die entfernte Belegung erscheint nicht mehr als belegt')
@@ -11439,11 +11439,11 @@ def main():
         # 6. Sichern und wieder einspielen — der Weg, den man sonst nur ueber
         #    die Spielkonsole hat.
         _kopie115 = os.path.join(_wiese115, 'gesichert.xml')
-        _ok115, _ = _js115.ausgeben(_kopie115, 'de', datei=_datei115)
+        _ok115, _ = _js115.export_file(_kopie115, 'de', filename=_datei115)
         pruefe(_ok115 and os.path.isfile(_kopie115),
                'die Belegung laesst sich als Datei sichern')
         _liste115 = os.path.join(_wiese115, 'liste.csv')
-        _js115.ausgeben(_liste115, 'de', datei=_datei115)
+        _js115.export_file(_liste115, 'de', filename=_datei115)
         with open(_liste115, encoding='utf-8-sig') as _f115:
             _csv115 = _f115.read()
         pruefe(_csv115.startswith('Geraet;') and 'v_lights' in _csv115,
@@ -11453,7 +11453,7 @@ def main():
         _fremd115 = os.path.join(_wiese115, 'fremd.xml')
         with open(_fremd115, 'w', encoding='utf-8') as _f115:
             _f115.write('<Etwas><Anderes/></Etwas>')
-        _ok115, _, _ = _js115.einlesen(_fremd115, datei=_datei115)
+        _ok115, _, _ = _js115.import_file(_fremd115, filename=_datei115)
         pruefe(not _ok115, 'eine fremde XML-Datei wird abgelehnt')
 
         # 7. ⚠⚠ Zuruecksetzen wirft die Belegungen weg — aber NICHT die
@@ -11467,18 +11467,18 @@ def main():
         with open(_datei115, 'w', encoding='utf-8') as _f115:
             _f115.write(_vor115.replace('  <actionmap', '  ' + _dev115
                                         + '<actionmap', 1))
-        _ok115, _m115, _n115 = _js115.zuruecksetzen(datei=_datei115)
+        _ok115, _m115, _n115 = _js115.reset(filename=_datei115)
         with open(_datei115, encoding='utf-8') as _f115:
             _nach115 = _f115.read()
         pruefe(_ok115 and _n115 >= 1, 'das Zuruecksetzen entfernt die Gruppen')
-        pruefe(not _js115.belegungen(datei=_datei115),
+        pruefe(not _js115.bindings(filename=_datei115),
                'danach ist keine eigene Belegung mehr da')
         pruefe('deadzone' in _nach115,
                'Totzonen und Kurven bleiben beim Zuruecksetzen stehen')
 
         # 8. Und die Sicherung von vorhin laesst sich wieder einspielen.
-        _ok115, _m115, _n115 = _js115.einlesen(_kopie115, datei=_datei115)
-        pruefe(_ok115 and _js115.belegungen(datei=_datei115),
+        _ok115, _m115, _n115 = _js115.import_file(_kopie115, filename=_datei115)
+        pruefe(_ok115 and _js115.bindings(filename=_datei115),
                'die gesicherte Belegung laesst sich zurueckholen')
 
         # 9. ⚠⚠ **Eigene Belegung verdraengt den Standard nur auf DEM GERAET.**
@@ -11493,9 +11493,9 @@ def main():
         # Der Standard kommt sonst aus dem `Data.p4k`, das hier nicht liegt.
         # Deshalb wird er fuer diese Pruefung untergeschoben — kein Abruf,
         # keine Nutzerdatei.
-        _echt115 = _js115._profil
+        _echt115 = _js115._profile
         try:
-            _js115._profil = lambda *a, **k: {
+            _js115._profile = lambda *a, **k: {
                 'etiketten': {'v_lights': ['@ui_x', ''],
                               'crouch': ['@ui_y', '']},
                 'standard': {'v_lights': {'keyboard': 'l', 'joystick': 'button3'},
@@ -11510,7 +11510,7 @@ def main():
                     '<rebind input="js1_button31"/>'
                     '</action></actionmap>'
                     '</ActionProfiles></ActionMaps>')
-            _alles115 = _js115.sicht(_js115.ALLES, datei=_datei115)
+            _alles115 = _js115.view(_js115.ALL, filename=_datei115)
             _wo115 = [(k, e['eingabe']) for k, li in _alles115.items()
                       for e in li if e['aktion'] == 'v_lights']
             pruefe(('js1', 'button31') in _wo115,
@@ -11519,13 +11519,13 @@ def main():
                    'die Werks-TASTE derselben Aktion bleibt trotzdem stehen')
             pruefe(('js1', 'button3') not in _wo115,
                    'die Werks-STICK-Belegung wird dagegen verdraengt')
-            _frei115 = _js115.sicht(_js115.FREI, datei=_datei115)
+            _frei115 = _js115.view(_js115.FREE, filename=_datei115)
             _freinamen = {e['aktion'] for li in _frei115.values() for e in li}
             pruefe('v_lights' not in _freinamen and 'crouch' not in _freinamen,
                    'was ab Werk belegt ist, steht nicht unter „nicht belegt"')
         finally:
-            _js115._profil = _echt115
-            _js115.vergessen()
+            _js115._profile = _echt115
+            _js115.forget()
     finally:
         shutil.rmtree(_wiese115, ignore_errors=True)
 
@@ -14188,8 +14188,8 @@ def main():
 
         _vor145 = _produkte145()
         _tz_a145, _tz_b145 = _totzone145(_A145), _totzone145(_B145)
-        _ok145, _m145, _n145 = _js145.belegungen_tauschen(_A145, _B145,
-                                                          datei=_d145)
+        _ok145, _m145, _n145 = _js145.swap_bindings(_A145, _B145,
+                                                          filename=_d145)
         pruefe(_ok145, 'Tausch gelingt (%s)' % ('ok' if _ok145 else _m145))
         _nach145 = _produkte145()
         pruefe(_nach145.get(1) == _B145 and _nach145.get(2) == _A145,
@@ -14202,13 +14202,13 @@ def main():
         pruefe(_totzone145(_A145) == _tz_a145
                and _totzone145(_B145) == _tz_b145,
                '*die Totzonen blieben beim physischen Gerät')
-        _js145.belegungen_tauschen(_A145, _B145, datei=_d145)
+        _js145.swap_bindings(_A145, _B145, filename=_d145)
         pruefe(_produkte145() == _vor145,
                'zweimal tauschen ergibt wieder den Anfang')
-        pruefe(not _js145.belegungen_tauschen(_A145, _A145, datei=_d145)[0],
+        pruefe(not _js145.swap_bindings(_A145, _A145, filename=_d145)[0],
                'ein Gerät mit sich selbst wird abgelehnt')
-        pruefe(not _js145.belegungen_tauschen(_A145, 'FFFF9999',
-                                              datei=_d145)[0],
+        pruefe(not _js145.swap_bindings(_A145, 'FFFF9999',
+                                              filename=_d145)[0],
                'eine unbekannte Kennung wird abgelehnt')
 
         # --- Gerätesätze ---
@@ -14492,7 +14492,7 @@ def main():
     _C150 = 'CCCC3333-0000-0000-0000-504944564944'
     _D150 = 'DDDD4444-0000-0000-0000-504944564944'
 
-    _echt150 = (_ei150.devices, _js150.geraete, _js150.zuordnung)
+    _echt150 = (_ei150.devices, _js150.devices, _js150.assignment)
     try:
         # ⭐ Der Aufbau bildet genau die vier Lagen ab, die es geben kann:
         #   A — angesteckt, bekannt, hat eine Nummer        → bereit
@@ -14504,12 +14504,12 @@ def main():
             {'pfad': '/dev/input/js1', 'name': 'System C', 'kennung': _C150},
             {'pfad': '/dev/input/js2', 'name': 'System D', 'kennung': _D150},
         ]
-        _js150.geraete = lambda ordner=None: [
+        _js150.devices = lambda ordner=None: [
             {'name': 'Log A', 'kennung': _A150},
             {'name': 'Log B', 'kennung': _B150},
             {'name': 'Log C', 'kennung': _C150},
         ]
-        _js150.zuordnung = lambda datei=None, ordner=None: [
+        _js150.assignment = lambda datei=None, ordner=None: [
             {'nummer': 2, 'name': 'Belegung A', 'kennung': _A150},
             {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
         ]
@@ -14585,10 +14585,10 @@ def main():
         _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'Neu', 'kennung': _C150},
         ]
-        _js150.geraete = lambda ordner=None: [
+        _js150.devices = lambda ordner=None: [
             {'name': 'Log C', 'kennung': _C150},
         ]
-        _js150.zuordnung = lambda datei=None, ordner=None: [
+        _js150.assignment = lambda datei=None, ordner=None: [
             {'nummer': 1, 'name': 'Belegung B', 'kennung': _B150},
         ]
         _v150 = _hub150.suggestions()
@@ -14601,7 +14601,7 @@ def main():
         # ⚠⚠ Die Gegenprobe, auf die es ankommt: Bei ZWEI fehlenden Geräten
         # darf NICHT geraten werden. Ein falsch geratener Ersatz vertauscht
         # zwei Sticks, und das merkt man erst im Gefecht.
-        _js150.zuordnung = lambda datei=None, ordner=None: [
+        _js150.assignment = lambda datei=None, ordner=None: [
             {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150},
             {'nummer': 2, 'name': 'Belegung B', 'kennung': _B150},
         ]
@@ -14614,8 +14614,8 @@ def main():
 
         # Ein Gerät, das das Spiel noch nie gesehen hat, aber auch nichts
         # ersetzt: Da hilft nur, einmal damit zu starten.
-        _js150.geraete = lambda ordner=None: []
-        _js150.zuordnung = lambda datei=None, ordner=None: []
+        _js150.devices = lambda ordner=None: []
+        _js150.assignment = lambda datei=None, ordner=None: []
         _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'Frisch', 'kennung': _D150},
         ]
@@ -14624,16 +14624,16 @@ def main():
                'ein voellig neues Geraet -> einmal starten')
 
         # Alles in Ordnung heisst: kein Vorschlag.
-        _js150.geraete = lambda ordner=None: [
+        _js150.devices = lambda ordner=None: [
             {'name': 'Log A', 'kennung': _A150}]
-        _js150.zuordnung = lambda datei=None, ordner=None: [
+        _js150.assignment = lambda datei=None, ordner=None: [
             {'nummer': 1, 'name': 'Belegung A', 'kennung': _A150}]
         _ei150.devices = lambda: [
             {'pfad': '/dev/input/js0', 'name': 'System A', 'kennung': _A150}]
         pruefe(_hub150.suggestions() == [],
                '* wenn alles passt, schlaegt der Assistent nichts vor')
     finally:
-        _ei150.devices, _js150.geraete, _js150.zuordnung = _echt150
+        _ei150.devices, _js150.devices, _js150.assignment = _echt150
 
     print()
     print('151. Die Einkaufsliste rechnet ueber alle Schiffe')
@@ -15759,7 +15759,7 @@ def main():
     # Geraets — und das sah aus wie ein Bedienfehler des Spielers.
     #
     # Unter Windows sind `USER` und `user` derselbe Ordner, unter Linux nicht.
-    # Die Lehre stand zu dem Zeitpunkt schon im Code: `_pfad_mappings` nimmt
+    # Die Lehre stand zu dem Zeitpunkt schon im Code: `_mappings_path` nimmt
     # seit dem 04.09.2026 den zuletzt geaenderten Ordner, aus genau diesem
     # Grund. Bei den Belegungsdateien war sie nicht gezogen worden.
     # **Eine Lehre, die nur an einer von zwei Stellen sitzt, ist keine.**
@@ -15788,7 +15788,7 @@ def main():
         # ⚠⚠ **Unterscheidet dieses Dateisystem ueberhaupt?** Unter Linux sind
         # es zwei Dateien, unter Windows eine. Beides ist gueltig — aber es
         # sind zwei verschiedene Pruefungen. Gemessen statt angenommen:
-        _getrennt = len(_js166.alle_actionmaps(_ordner166)) == 2
+        _getrennt = len(_js166.all_actionmaps(_ordner166)) == 2
 
         if _getrennt:
             # Der Fall, der den Fehler ausgeloest hat: zwei echte Dateien.
@@ -15796,17 +15796,17 @@ def main():
             # vorn. Genau das war der Fehler: Reihenfolge schlug Alter.
             os.utime(_gross, (1000, 1000))
             os.utime(_klein, (2000, 2000))
-            pruefe(_js166._pfad_actionmaps(_ordner166) == _klein,
+            pruefe(_js166._actionmaps_path(_ordner166) == _klein,
                    'die juengere (klein geschrieben) gewinnt gegen die '
                    'zuerst gesuchte')
 
             os.utime(_gross, (3000, 3000))
-            pruefe(_js166._pfad_actionmaps(_ordner166) == _gross,
+            pruefe(_js166._actionmaps_path(_ordner166) == _gross,
                    'Gegenprobe: ist die grosse juenger, gewinnt sie')
 
-            pruefe(len(_js166.alle_actionmaps(_ordner166)) == 2,
+            pruefe(len(_js166.all_actionmaps(_ordner166)) == 2,
                    'beide Dateien werden gefunden, nicht nur eine')
-            pruefe(_js166.alle_actionmaps(_ordner166)[0] == _gross,
+            pruefe(_js166.all_actionmaps(_ordner166)[0] == _gross,
                    'die Liste kommt sortiert, neueste zuerst')
         else:
             # ⚠⚠ **Windows — und hier zaehlt das Gegenteil.** Dort zeigen alle
@@ -15814,14 +15814,14 @@ def main():
             # entdoppelt statt ueber die Datei-Kennung, meldete der Watcher
             # vier Dateien und einen Hinweis auf ein Problem, das es nicht
             # gibt. Die Entdopplung ist also nicht Kosmetik.
-            pruefe(len(_js166.alle_actionmaps(_ordner166)) == 1,
+            pruefe(len(_js166.all_actionmaps(_ordner166)) == 1,
                    'auf diesem Dateisystem ist es EINE Datei — keine '
                    'Schein-Dubletten durch Schreibweisen')
-            pruefe(_js166._pfad_actionmaps(_ordner166) is not None,
+            pruefe(_js166._actionmaps_path(_ordner166) is not None,
                    'und sie wird gefunden')
 
         # Das gilt auf beiden Systemen: aus dem Nichts kommt nichts.
-        pruefe(os.path.basename(_js166._pfad_actionmaps(_ordner166))
+        pruefe(os.path.basename(_js166._actionmaps_path(_ordner166))
                == 'actionmaps.xml',
                'zurueck kommt eine actionmaps.xml, kein Ordner')
     finally:
@@ -15830,9 +15830,9 @@ def main():
     # ⚠ Und ohne jede Datei darf es nicht knallen, sondern `None` geben.
     _leer = _tf166.mkdtemp(prefix='actionmaps-leer-')
     try:
-        pruefe(_js166._pfad_actionmaps(_leer) is None,
+        pruefe(_js166._actionmaps_path(_leer) is None,
                'ohne Datei kommt None zurueck, kein Absturz')
-        pruefe(_js166.alle_actionmaps(_leer) == [],
+        pruefe(_js166.all_actionmaps(_leer) == [],
                'und eine leere Liste')
     finally:
         shutil.rmtree(_leer, ignore_errors=True)
@@ -18949,8 +18949,8 @@ def main():
 
     _q193 = open(os.path.join(WURZEL, 'scbp', 'joysticks.py'),
                  encoding='utf-8').read()
-    _name193, _mal193 = _merk_schluessel193(_q193, 'klarnamen', '_KLARNAMEN')
-    pruefe(_name193 is not None, 'klarnamen() legt unter einem Namen ab')
+    _name193, _mal193 = _merk_schluessel193(_q193, 'labels', '_LABELS')
+    pruefe(_name193 is not None, 'labels() legt unter einem Namen ab')
     pruefe(_mal193 == 1,
            'der Merker-Schluessel %r wird genau EINMAL belegt (%d)'
            % (_name193, _mal193))
@@ -18974,7 +18974,7 @@ def main():
     _mark193 = ''
     for _k193 in _ast193.walk(_ast193.parse(_q193)):
         if (isinstance(_k193, _ast193.FunctionDef)
-                and _k193.name == '_quellenmarke'):
+                and _k193.name == '_source_mark'):
             _rumpf193 = _k193.body
             if (_rumpf193 and isinstance(_rumpf193[0], _ast193.Expr)
                     and isinstance(_rumpf193[0].value, _ast193.Constant)):
@@ -18983,13 +18983,13 @@ def main():
     # ⚠ Nicht nach `'Data.p4k'` suchen: Den Pfad baut niemand mehr selbst
     # zusammen, er kommt aus `p4k_path()`. Geprueft wird die **Kette** —
     # sonst prueft die Wache eine Schreibweise statt einer Wirkung.
-    pruefe('_p4k_marke' in _mark193,
-           'die Quellenmarke deckt das Archiv ab (ueber `_p4k_marke`)')
+    pruefe('_p4k_mark' in _mark193,
+           'die Quellenmarke deckt das Archiv ab (ueber `_p4k_mark`)')
     pruefe('p4k_path' in _ast193.dump(
         [k for k in _ast193.walk(_ast193.parse(_q193))
          if isinstance(k, _ast193.FunctionDef)
-         and k.name == '_p4k_marke'][0]),
-        'und `_p4k_marke` fragt dieselbe Stelle wie `_profil()`')
+         and k.name == '_p4k_mark'][0]),
+        'und `_p4k_mark` fragt dieselbe Stelle wie `_profile()`')
     pruefe('defaultProfile' not in _mark193,
            'und NICHT die lose defaultProfile.xml — die gibt es gar nicht')
     pruefe('st_mtime_ns' in _mark193,
@@ -19057,7 +19057,7 @@ def main():
         'jeder Ausgang von `_bloecke_pflegen()` meldet einen Wert')
 
     # Der Merker auf der Platte darf nicht mehr auf Sekunden runden.
-    pruefe('_p4k_marke' in _q193,
+    pruefe('_p4k_mark' in _q193,
            'das Archiv hat eine eigene Marke (Pfad, Groesse, Nanosekunden)')
     pruefe('int(os.path.getmtime' not in _q193,
            'und nirgends mehr ein auf Sekunden gerundeter Zeitstempel')
@@ -19837,7 +19837,7 @@ def main():
     pruefe(_au202.contracts_from_text('irgendetwas anderes\n') == {},
            'und eine beliebige Zeile liefert nichts')
 
-    # f) ⚠ `vergessen()` muss ALLE Zwischenspeicher leeren. Bliebe der neue
+    # f) ⚠ `forget()` muss ALLE Zwischenspeicher leeren. Bliebe der neue
     #    stehen, arbeitete das Werkzeug nach einem Katalog-Update mit zwei
     #    Staenden gleichzeitig — genau die Sorte Fehler, die niemand sieht.
     _au202._contract_defs = {'irgendwas': {'bp': ['X']}}
@@ -20664,7 +20664,7 @@ def main():
     # gueltiger Python-Code; es knallt erst, wenn der Aufruf wirklich laeuft —
     # also beim Klick des Nutzers. Genau deshalb ueberlebte derselbe Fehler in
     # vier weiteren Aufrufen bis in die ausgelieferte Fassung:
-    # `VersionWindow`, `BindingWindow`, `show_large`, `kennung_tauschen`.
+    # `VersionWindow`, `BindingWindow`, `show_large`, `swap_id`.
     #
     # ⚠ Nur Funktionen mit **eindeutigem** Namen und **ohne** `**kwargs`
     # werden geprueft — sonst raet die Pruefung, welche gemeint ist, und

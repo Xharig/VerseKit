@@ -54,8 +54,8 @@ Woher eine Kennung ihre Gültigkeit bezieht:
 
 | Quelle | Bedeutung |
 |---|---|
-| `joysticks.geraete()` — die Game.log | das Gerät war zuletzt wirklich angeschlossen |
-| `joysticks.zuordnung()` — die Belegung | das Gerät hat eine `js`-Nummer, Belegungen hängen daran |
+| `joysticks.devices()` — die Game.log | das Gerät war zuletzt wirklich angeschlossen |
+| `joysticks.assignment()` — die Belegung | das Gerät hat eine `js`-Nummer, Belegungen hängen daran |
 
 Steht eine Kennung in **keiner** von beiden, ist ihr Block eine Karteileiche.
 
@@ -82,7 +82,7 @@ als das, was sie ist — eine begründete Annahme, keine Messung.
 
 Es schreibt nichts von allein — wie das ganze Nachbarmodul `joysticks.py`.
 Gelesen wird jederzeit, geschrieben nur auf Knopfdruck, und dann über
-`joysticks._schreiben()`, das vorher eine Sicherung anlegt.
+`joysticks._write()`, das vorher eine Sicherung anlegt.
 """
 import os
 import re
@@ -176,13 +176,13 @@ def valid_idents(folder=None, filename=None):
     """
     alive = set()
     try:
-        for device in joysticks.geraete(folder) or []:
+        for device in joysticks.devices(folder) or []:
             if device.get('kennung'):
                 alive.add(device['kennung'].upper())
     except Exception:
         pass
     try:
-        for entry in joysticks.zuordnung(filename, folder) or []:
+        for entry in joysticks.assignment(filename, folder) or []:
             if entry.get('kennung'):
                 alive.add(entry['kennung'].upper())
     except Exception:
@@ -207,7 +207,7 @@ def device_axes(filename=None, folder=None):
     Datei, sie sehen echt aus, und das Spiel ignoriert sie. Die Oberfläche muss
     das deutlich zeigen — sonst stellt der Spieler etwas ein, das nichts tut.
     """
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return []
     try:
@@ -426,7 +426,7 @@ def game_axes(filename=None, folder=None):
     ihn an, füllt ihn aber erst, wenn der Spieler im Kurven-Bildschirm etwas
     verschiebt. Eine leere Kurve bedeutet „gerade Linie", nicht „kaputt".
     """
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return []
     try:
@@ -741,7 +741,7 @@ def apply(ident, axis, prop, value, filename=None, folder=None):
 
     from . import fehler
 
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return False, 's_js_f_datei', 0
     if prop not in PROPERTIES:
@@ -813,7 +813,7 @@ def apply(ident, axis, prop, value, filename=None, folder=None):
             keep.set('input', axis)
         keep.set(prop, text)
 
-    return joysticks._schreiben(gone, tree, 1 + removed)
+    return joysticks._write(gone, tree, 1 + removed)
 
 
 def apply_to_game(number, axis, prop, value, filename=None, folder=None):
@@ -829,7 +829,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
 
     from . import fehler
 
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return False, 's_js_f_datei', 0
     if prop not in GAME_PROPERTIES:
@@ -875,7 +875,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
         text = ('%d' % int(value)) if prop == 'invert' else ('%g' % value)
         node.set(prop, text)
 
-    return joysticks._schreiben(gone, tree, 1)
+    return joysticks._write(gone, tree, 1)
 
 
 # Wie die Aktion in der Belegung zum Element in `<options>` heißt.
@@ -914,7 +914,7 @@ def functions_per_axis(number, axes, filename=None, folder=None):
 
     Gibt `{achse: [funktionen]}` zurück; Achsen ohne Funktion fehlen.
     """
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return {}
     try:
@@ -946,7 +946,7 @@ def game_axes_of(number, axis, filename=None, folder=None):
     Liefert je Treffer ein Wörterbuch mit `achse` (Name in `<options>`),
     `aktion` (Name in der Belegung), `exponent` und `invert`.
     """
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
         return []
     try:
@@ -1010,7 +1010,7 @@ def clean_up(filename=None, folder=None, count_only=False):
     """
     from . import fehler
 
-    gone = filename or joysticks._pfad_actionmaps(folder)
+    gone = filename or joysticks._actionmaps_path(folder)
     if not gone or not os.path.isfile(gone):
         return False, 's_js_f_datei', 0
     try:

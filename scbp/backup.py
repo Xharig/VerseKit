@@ -113,7 +113,7 @@ def _binding_files(folder=None):
     | die **gespeicherten Profile** | `controls/mappings/*.xml` | Kampf, Bergbau, Frachtflug — wer sie sich angelegt hat, verliert sonst alles ausser dem zuletzt geladenen |
 
     ⚠ Den Mappings-Ordner gibt es in mehreren Schreibweisen (siehe
-    `joysticks.MAPPING_ORDNER`). Gleichnamige Dateien werden **entdoppelt**,
+    `joysticks.MAPPING_FOLDERS`). Gleichnamige Dateien werden **entdoppelt**,
     die neuere gewinnt — sonst laege dieselbe Belegung zweimal im Archiv, und
     beim Zurueckholen entschiede der Zufall.
 
@@ -126,7 +126,7 @@ def _binding_files(folder=None):
     """
     from . import joysticks
     found = {}
-    active = joysticks._pfad_actionmaps(folder)
+    active = joysticks._actionmaps_path(folder)
     if active and os.path.isfile(active):
         found['actionmaps.xml'] = active
         # Die Spieleinstellungen liegen im selben Ordner. Ueber den Pfad der
@@ -137,7 +137,7 @@ def _binding_files(folder=None):
             found['attributes.xml'] = neighbour
     # ⚠ Ueber **alle** Schreibweisen des Ordners sammeln, nicht nur ueber den,
     # in den geschrieben wuerde. Beim Sichern zaehlt Vollstaendigkeit.
-    for mappings in joysticks.alle_mapping_ordner(folder):
+    for mappings in joysticks.all_mapping_folders(folder):
         try:
             for name in os.listdir(mappings):
                 if not name.lower().endswith('.xml'):
@@ -360,8 +360,8 @@ def restore_bindings(source, with_active=False, game_folder=None):
     if not ok:
         return False, 'ungueltig', 0
 
-    target_folder = joysticks._pfad_mappings(game_folder, anlegen=True)
-    active_target = joysticks._pfad_actionmaps(game_folder)
+    target_folder = joysticks._mappings_path(game_folder, create=True)
+    active_target = joysticks._actionmaps_path(game_folder)
     written = 0
     fallback = ''
     try:

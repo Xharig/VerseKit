@@ -66,79 +66,79 @@ def main():
         # Rueckgabewert wuerde hier nichts verraten — er ist in beiden
         # Faellen derselbe.
         gelesen = [0]
-        echt_ini = joysticks._ini_texte
-        echt_profil = joysticks._profil
+        echt_ini = joysticks._ini_texts
+        echt_profil = joysticks._profile
 
         def zaehl_ini(sprache, spielordner=None):
             gelesen[0] += 1
             return echt_ini(sprache, spielordner)
 
         # ⚠ Ohne Etiketten laeuft die Schleife gar nicht, und genau in ihr
-        # steckte der Fehler — der echte `_profil()` kann aus einem
+        # steckte der Fehler — der echte `_profile()` kann aus einem
         # Wegwerf-Archiv nichts holen, also wird er ersetzt.
-        joysticks._ini_texte = zaehl_ini
-        joysticks._profil = lambda spielordner=None: {
+        joysticks._ini_texts = zaehl_ini
+        joysticks._profile = lambda spielordner=None: {
             'etiketten': {'v_eject': ['@ui_CIEject', '@ui_CIEjectDesc'],
                           'v_flare': ['@ui_CIFlare', '']},
             'standard': {}, 'gruppen': {}}
         try:
-            joysticks.vergessen()
-            joysticks.klarnamen('de', tmp)
+            joysticks.forget()
+            joysticks.labels('de', tmp)
             erste = gelesen[0]
-            joysticks.klarnamen('de', tmp)
+            joysticks.labels('de', tmp)
             p(gelesen[0] == erste,
               'zweiter Aufruf liest nichts nach (%d -> %d Lesevorgaenge)'
               % (erste, gelesen[0]))
             p(all(isinstance(s, tuple) and len(s) == 2
-                  for s in joysticks._KLARNAMEN),
+                  for s in joysticks._LABELS),
               'abgelegt unter (Sprache, Marke) — nicht unter einem Etikett '
-              '(%r)' % [type(s).__name__ for s in joysticks._KLARNAMEN])
+              '(%r)' % [type(s).__name__ for s in joysticks._LABELS])
         finally:
-            joysticks._ini_texte = echt_ini
-            joysticks._profil = echt_profil
-            joysticks.vergessen()
+            joysticks._ini_texts = echt_ini
+            joysticks._profile = echt_profil
+            joysticks.forget()
 
         # ── 2. Sieht die Marke die echten Quellen? ────────────────────────
-        vorher = joysticks._quellenmarke('de', tmp)
-        p(joysticks._quellenmarke('de', tmp) == vorher,
+        vorher = joysticks._source_mark('de', tmp)
+        p(joysticks._source_mark('de', tmp) == vorher,
           'nichts geaendert -> gleiche Marke')
 
         os.utime(p4k, ns=(1, 1))
-        p(joysticks._quellenmarke('de', tmp) != vorher,
+        p(joysticks._source_mark('de', tmp) != vorher,
           'Data.p4k geaendert -> andere Marke')
 
         # Die englische INI zaehlt AUCH bei deutscher Oberflaeche: Sie
         # fuellt jede Luecke der Uebersetzung.
-        vorher = joysticks._quellenmarke('de', tmp)
+        vorher = joysticks._source_mark('de', tmp)
         with open(en_ini, 'a', encoding='utf-8') as f:
             f.write('ui_Neu=neu\n')
-        p(joysticks._quellenmarke('de', tmp) != vorher,
+        p(joysticks._source_mark('de', tmp) != vorher,
           'englische global.ini geaendert -> andere Marke (bei Sprache de)')
 
-        vorher = joysticks._quellenmarke('de', tmp)
+        vorher = joysticks._source_mark('de', tmp)
         with open(de_ini, 'a', encoding='utf-8') as f:
             f.write('ui_Neu=neu\n')
-        p(joysticks._quellenmarke('de', tmp) != vorher,
+        p(joysticks._source_mark('de', tmp) != vorher,
           'deutsche global.ini geaendert -> andere Marke')
 
-        p(joysticks._quellenmarke('de', tmp)
-          != joysticks._quellenmarke('en', tmp),
+        p(joysticks._source_mark('de', tmp)
+          != joysticks._source_mark('en', tmp),
           'andere Sprache -> andere Marke')
 
         # ── 3. Gleiche Groesse, gleiche Sekunde ──────────────────────────
         with open(de_ini, 'w', encoding='utf-8') as f:
             f.write('ui_A=1\n')
         os.utime(de_ini, ns=(1_000_100_000_000, 1_000_100_000_000))
-        eins = joysticks._quellenmarke('de', tmp)
+        eins = joysticks._source_mark('de', tmp)
         with open(de_ini, 'w', encoding='utf-8') as f:
             f.write('ui_B=2\n')            # gleiche Laenge, anderer Inhalt
         os.utime(de_ini, ns=(1_000_900_000_000, 1_000_900_000_000))
-        p(joysticks._quellenmarke('de', tmp) != eins,
+        p(joysticks._source_mark('de', tmp) != eins,
           'gleiche Groesse, .1 und .9 derselben Sekunde -> andere Marke')
 
         # ── 4. Der Merker auf der Platte (`aktionsnamen.json`) ───────────
         #
-        # ⚠ Er ist der gefaehrlichere von beiden: Der Merker in `klarnamen()`
+        # ⚠ Er ist der gefaehrlichere von beiden: Der Merker in `labels()`
         # lebt im Arbeitsspeicher und ist nach einem Neustart weg — dieser
         # hier ueberlebt ihn. Ein falscher Eintrag haelt sich also.
         #
@@ -150,7 +150,7 @@ def main():
             gleich = (1_700_000_000_000_000_000, 1_700_000_000_000_000_000)
             os.utime(p4k, ns=gleich)
             os.utime(os.path.join(zweit, 'Data.p4k'), ns=gleich)
-            marke = getattr(joysticks, '_p4k_marke', None)
+            marke = getattr(joysticks, '_p4k_mark', None)
             p(marke is not None, 'es gibt eine Marke fuer das Archiv')
             # ⭐ **Die Gegenprobe steht auf eigenen Fuessen.** Statt die alte
             # Fassung zu laden (die es nach dem Umbau nicht mehr gibt), wird

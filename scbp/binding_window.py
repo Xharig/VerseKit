@@ -208,7 +208,7 @@ class BindingWindow:
         if not tag:
             return ''
         try:
-            for z in joysticks.zuordnung():
+            for z in joysticks.assignment():
                 if (z.get('kennung') or '').upper() == tag.upper():
                     return 'js%d' % z['nummer']
         except Exception as ausnahme:
@@ -250,13 +250,13 @@ class BindingWindow:
             self._listen()
 
         try:
-            others = joysticks.konflikte(self.action, device_id, name)
+            others = joysticks.conflicts(self.action, device_id, name)
         except Exception:
             others = []
         if others:
             names = []
             try:
-                label = joysticks.klarnamen(_language())
+                label = joysticks.labels(_language())
             except Exception:
                 label = {}
             for e in others[:3]:
@@ -290,7 +290,7 @@ class BindingWindow:
         # `ask_yes_no` setzt sich mittig über das Elternfenster und wird
         # mit ihm geschlossen.
         from .main_window import ask_yes_no
-        ok_state, message, _ = joysticks.belegen(self.action, self.section,
+        ok_state, message, _ = joysticks.bind_action(self.action, self.section,
                                                device_id, name)
         if ok_state:
             ask_yes_no(self.root, t('s_js_b_titel'),

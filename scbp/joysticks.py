@@ -68,12 +68,12 @@ nichts anfasst.
 
 Der erste Entwurf wollte genau das: Position im Protokoll mit Nummer in der
 Belegung vergleichen und bei Abweichung alles durchnummerieren. **Das war
-falsch** — die Begruendung steht ausfuehrlich ueber `vergleich()`. Kurz: Das
+falsch** — die Begruendung steht ausfuehrlich ueber `compare()`. Kurz: Das
 Spiel erkennt seine Geraete an der gespeicherten Kennung wieder, nicht an der
 Fundreihenfolge. Wer die Nummern anfasst, zerstoert eine gesunde Belegung.
 
 Repariert wird deshalb nur der eine Fall, in dem wirklich etwas kaputt ist:
-ein Geraet meldet sich unter **neuer Kennung** (`kennung_tauschen`).
+ein Geraet meldet sich unter **neuer Kennung** (`swap_id`).
 
 ## Was dieses Modul bewusst NICHT tut
 
@@ -101,25 +101,25 @@ from . import pfade
 # ⚠ Der Name wird "nicht gierig" gelesen (`.+?`) und die Leerzeichen davor
 # abgeschnitten: Zwischen Name und Kennung stehen im echten Log zwei
 # Leerzeichen, bei anderen Geraeten eines.
-VERBUNDEN = re.compile(
+CONNECTED = re.compile(
     r'Connected joystick(\d+):\s*(.+?)\s*\{([0-9A-Fa-f-]+)\}')
 
 # Aus einer Kennung in der `actionmaps.xml` das reine Kennungs-Teil holen.
-KENNUNG_IM_NAMEN = re.compile(r'\{([0-9A-Fa-f-]+)\}')
+ID_IN_NAME = re.compile(r'\{([0-9A-Fa-f-]+)\}')
 
 # Jede Eingabe-Vorsilbe in der actionmaps.xml: js1_button10, js2_x, js3_hat1_up
-JS_VORSILBE = re.compile(r'\bjs(\d+)_')
+JS_PREFIX = re.compile(r'\bjs(\d+)_')
 
 # Wieviele Joystick-Plaetze Star Citizen kennt. Mehr als acht meldet das Spiel
 # selbst als Grenzfall; die `actionmaps.xml` legt acht leere Plaetze an.
-PLAETZE = 8
+SLOTS = 8
 
 # ⚠⚠ **Der Mappings-Ordner heisst in beiden Schreibweisen** — genau wie
 # `USER`/`user` weiter oben. Am 04.09.2026 lagen auf einem Linux-Rechner
 # `controls/mappings` **und** `Controls/mappings` nebeneinander, mit
 # verschiedenen Dateien darin (verschiedene Inodes). Deshalb wird auch hier
 # gesucht statt geraten — und beim Auflisten nach Namen entdoppelt.
-MAPPING_ORDNER = (('controls', 'mappings'), ('Controls', 'mappings'),
+MAPPING_FOLDERS = (('controls', 'mappings'), ('Controls', 'mappings'),
                   ('controls', 'Mappings'), ('Controls', 'Mappings'))
 
 # Die Rubriken im Kopfblock eines Profils. Sie stammen aus einer echten Ausgabe
@@ -128,7 +128,7 @@ MAPPING_ORDNER = (('controls', 'mappings'), ('Controls', 'mappings'),
 #
 # ⚠ Kommen mit einem Patch Rubriken dazu, gehoert die Liste nachgezogen. Sie
 # beschreibt, was im Belegungs-Bildschirm als Abschnitt auftaucht.
-PROFIL_RUBRIKEN = (
+PROFILE_CATEGORIES = (
     '@ui_CCSeatGeneral', '@ui_CCSpaceFlight', '@ui_CGLightControllerDesc',
     '@ui_CCFPS', '@ui_CCEVA', '@ui_CCVehicle', '@ui_CGEASpectator',
     '@ui_CGUIGeneral', '@ui_CGOpticalTracking', '@ui_CGInteraction',
@@ -137,10 +137,10 @@ PROFIL_RUBRIKEN = (
 
 # Was in einem Profilnamen nichts zu suchen hat. Der Name wird zum Dateinamen,
 # und ueber ihn laedt das Spiel das Profil (`pp_rebindkeys load <Name>`).
-NAME_VERBOTEN = re.compile(r'[^A-Za-z0-9_\-]')
+NAME_FORBIDDEN = re.compile(r'[^A-Za-z0-9_\-]')
 
 
-def alle_actionmaps(ordner=None):
+def all_actionmaps(folder=None):
     """**Alle** vorhandenen Belegungsdateien, neueste zuerst.
 
     ⚠⚠⚠ **Es kann mehrere geben, und sie haben verschiedene Inhalte.** Unter
@@ -164,34 +164,34 @@ def alle_actionmaps(ordner=None):
     liest, zeigt dem Spieler also nicht nur veraltete Werte, sondern die Werte
     des **falschen Geraets**.
     """
-    basis = ordner or pfade.spiel_ordner()
-    if not basis:
+    base = folder or pfade.spiel_ordner()
+    if not base:
         return []
-    gefunden = []
-    for oben in ('USER', 'user'):
-        for mitte in ('Client', 'client'):
-            weg = os.path.join(basis, oben, mitte, '0', 'Profiles', 'default',
+    found = []
+    for top in ('USER', 'user'):
+        for mid in ('Client', 'client'):
+            path = os.path.join(base, top, mid, '0', 'Profiles', 'default',
                                'actionmaps.xml')
-            if not os.path.isfile(weg):
+            if not os.path.isfile(path):
                 continue
             # ⚠ Auf einem Dateisystem, das Gross-/Kleinschreibung NICHT
             # unterscheidet, zeigen mehrere Schreibweisen auf **dieselbe**
             # Datei. Ueber die Inode entdoppeln, nicht ueber den Namen.
             try:
-                kennung = os.stat(weg).st_ino
+                ident = os.stat(path).st_ino
             except OSError:
                 continue
-            if kennung not in [k for k, _ in gefunden]:
-                gefunden.append((kennung, weg))
-    wege = [w for _, w in gefunden]
+            if ident not in [k for k, _ in found]:
+                found.append((ident, path))
+    paths = [w for _, w in found]
     try:
-        wege.sort(key=os.path.getmtime, reverse=True)
+        paths.sort(key=os.path.getmtime, reverse=True)
     except OSError:
         pass
-    return wege
+    return paths
 
 
-def _pfad_actionmaps(ordner=None):
+def _actionmaps_path(folder=None):
     """Wo die Belegungsdatei liegt, **mit der das Spiel wirklich arbeitet**.
 
     ⚠⚠⚠ **Die erste Fassung nahm stur `USER` zuerst** — die erste Schreibweise,
@@ -200,7 +200,7 @@ def _pfad_actionmaps(ordner=None):
     Spiel ueberall 1,00 stand — gemeldet mit einem berechtigten „mir reicht
     es langsam".
 
-    Dabei stand die Loesung schon im selben Modul — `_pfad_mappings()` nimmt
+    Dabei stand die Loesung schon im selben Modul — `_mappings_path()` nimmt
     seit dem 04.09.2026 den **zuletzt geaenderten** Ordner, aus genau diesem
     Grund. Hier wurde sie nicht angewendet. Eine Lehre, die nur an einer von
     zwei Stellen gezogen wird, ist keine.
@@ -209,11 +209,11 @@ def _pfad_actionmaps(ordner=None):
     juengste — die Wahl korrigiert sich damit von selbst und bleibt richtig,
     auch wenn der Spieler die Installation wechselt.
     """
-    wege = alle_actionmaps(ordner)
-    return wege[0] if wege else None
+    paths = all_actionmaps(folder)
+    return paths[0] if paths else None
 
 
-def alle_mapping_ordner(ordner=None):
+def all_mapping_folders(folder=None):
     """**Alle** vorhandenen Mappings-Ordner, neuester zuerst.
 
     ⚠⚠ Auf einem Linux-Rechner lagen am 04.09.2026 `controls/mappings` **und**
@@ -223,80 +223,80 @@ def alle_mapping_ordner(ordner=None):
 
     | Frage | Antwort |
     |---|---|
-    | „Wohin schreibe ich ein Profil?" | **einer** — `_pfad_mappings()` |
+    | „Wohin schreibe ich ein Profil?" | **einer** — `_mappings_path()` |
     | „Was ist an Profilen da?" | **alle** — diese Funktion |
 
     Wer beim Sichern nur einen Ordner liest, laesst die Profile des anderen
     zurueck, ohne dass es auffaellt.
     """
-    basis = ordner or pfade.spiel_ordner()
-    if not basis:
+    base = folder or pfade.spiel_ordner()
+    if not base:
         return []
-    gefunden = []
-    for oben in ('USER', 'user'):
-        for mitte in ('Client', 'client'):
-            for teile in MAPPING_ORDNER:
-                weg = os.path.join(basis, oben, mitte, '0', *teile)
-                if os.path.isdir(weg) and weg not in gefunden:
-                    gefunden.append(weg)
+    found = []
+    for top in ('USER', 'user'):
+        for mid in ('Client', 'client'):
+            for parts in MAPPING_FOLDERS:
+                path = os.path.join(base, top, mid, '0', *parts)
+                if os.path.isdir(path) and path not in found:
+                    found.append(path)
     try:
-        gefunden.sort(key=os.path.getmtime, reverse=True)
+        found.sort(key=os.path.getmtime, reverse=True)
     except OSError:
         pass
-    return gefunden
+    return found
 
 
-def _pfad_mappings(ordner=None, anlegen=False):
+def _mappings_path(folder=None, create=False):
     """Wohin ein neues Profil geschrieben wird — **ein** Ordner oder `None`.
 
-    ⚠ Gibt es ihn mehrfach (siehe `alle_mapping_ordner`), gewinnt der **zuletzt
+    ⚠ Gibt es ihn mehrfach (siehe `all_mapping_folders`), gewinnt der **zuletzt
     geaenderte**: Das ist der, in den das Spiel selbst zuletzt geschrieben hat,
     und damit der, in dem es auch sucht.
     """
-    gefunden = alle_mapping_ordner(ordner)
-    if gefunden:
-        return gefunden[0]
-    if not anlegen:
+    found = all_mapping_folders(folder)
+    if found:
+        return found[0]
+    if not create:
         return None
     # Noch keiner da — dann neben der `actionmaps.xml` anlegen, damit die
     # Gross- und Kleinschreibung zur vorhandenen Installation passt.
-    aktiv = _pfad_actionmaps(ordner)
-    if not aktiv:
+    active = _actionmaps_path(folder)
+    if not active:
         return None
     # …/<USER>/<client>/0/Profiles/default/actionmaps.xml -> …/<client>/0
-    null = os.path.dirname(os.path.dirname(os.path.dirname(aktiv)))
-    weg = os.path.join(null, 'controls', 'mappings')
+    zero = os.path.dirname(os.path.dirname(os.path.dirname(active)))
+    path = os.path.join(zero, 'controls', 'mappings')
     try:
-        os.makedirs(weg, exist_ok=True)
+        os.makedirs(path, exist_ok=True)
     except OSError:
         return None
-    return weg
+    return path
 
 
-def profile(ordner=None):
+def profiles(folder=None):
     """Die gespeicherten Profile, alphabetisch — nur die ladbaren.
 
     ⚠ Star Citizen legt beim eigenen Export **zwei** Dateien an: `<Name>.xml`
     und `layout_<Name>_exported.xml`. Geladen wird ueber die erste; die zweite
     ist eine Zweitschrift und wuerde die Liste nur verdoppeln.
     """
-    namen = set()
+    names = set()
     # ⚠ Ueber **alle** Ordner, nicht nur den, in den geschrieben wuerde —
     # sonst fehlen dem Spieler in der Liste Profile, die er sehr wohl hat.
-    for weg in alle_mapping_ordner(ordner):
+    for path in all_mapping_folders(folder):
         try:
-            for datei in os.listdir(weg):
-                if not datei.lower().endswith('.xml'):
+            for filename in os.listdir(path):
+                if not filename.lower().endswith('.xml'):
                     continue
-                if datei.lower().startswith('layout_'):
+                if filename.lower().startswith('layout_'):
                     continue
-                namen.add(datei[:-4])
+                names.add(filename[:-4])
         except OSError:
             continue
-    return sorted(namen, key=str.lower)
+    return sorted(names, key=str.lower)
 
 
-def profil_datei(name, ordner=None):
+def profile_file(name, folder=None):
     """Der Pfad zu einem gespeicherten Profil — oder `None`.
 
     ⚠ Gesucht wird in **allen** Schreibweisen des Mappings-Ordners, neuester
@@ -305,15 +305,15 @@ def profil_datei(name, ordner=None):
     """
     if not (name or '').strip():
         return None
-    gesucht = name.strip() + '.xml'
-    for weg in alle_mapping_ordner(ordner):
-        voll = os.path.join(weg, gesucht)
-        if os.path.isfile(voll):
-            return voll
+    wanted = name.strip() + '.xml'
+    for path in all_mapping_folders(folder):
+        full = os.path.join(path, wanted)
+        if os.path.isfile(full):
+            return full
     return None
 
 
-def name_pruefen(name):
+def check_name(name):
     """Taugt der Name als Profilname? Gibt `(ok, Meldungsschluessel)`.
 
     Er wird zum Dateinamen und ist zugleich das, was der Spieler im Spiel
@@ -322,14 +322,14 @@ def name_pruefen(name):
     name = (name or '').strip()
     if not name:
         return False, 's_js_f_name_leer'
-    if NAME_VERBOTEN.search(name):
+    if NAME_FORBIDDEN.search(name):
         return False, 's_js_f_name_zeichen'
     if len(name) > 60:
         return False, 's_js_f_name_lang'
     return True, ''
 
 
-def als_profil(name, datei=None, ordner=None):
+def as_profile(name, filename=None, folder=None):
     """Aus der aktiven Belegung einen Baum im **Profil-Format** des Spiels.
 
     ⚠⚠ **Die beiden Formate sind nicht dasselbe** — gemessen am 04.09.2026 an
@@ -346,49 +346,49 @@ def als_profil(name, datei=None, ordner=None):
 
     Liefert `(baum, None)` oder `(None, Meldungsschluessel)`.
     """
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return None, 's_js_f_datei'
     try:
-        wurzel = ET.parse(weg).getroot()
+        root = ET.parse(path).getroot()
     except Exception:
         return None, 's_js_f_fremd'
-    profile_knoten = wurzel.find('ActionProfiles')
-    if profile_knoten is None:
+    profiles_node = root.find('ActionProfiles')
+    if profiles_node is None:
         # Schon im Profil-Format (jemand hat eine Ausgabe uebergeben).
-        profile_knoten = wurzel
+        profiles_node = root
 
-    neu = ET.Element('ActionMaps')
-    for schluessel in ('version', 'optionsVersion', 'rebindVersion'):
-        wert = profile_knoten.get(schluessel)
-        if wert is not None:
-            neu.set(schluessel, wert)
-    neu.set('profileName', name)
+    new = ET.Element('ActionMaps')
+    for key in ('version', 'optionsVersion', 'rebindVersion'):
+        value = profiles_node.get(key)
+        if value is not None:
+            new.set(key, value)
+    new.set('profileName', name)
 
-    kopf = ET.SubElement(neu, 'CustomisationUIHeader',
+    head = ET.SubElement(new, 'CustomisationUIHeader',
                          {'label': name, 'description': '', 'image': ''})
-    geraete_knoten = ET.SubElement(kopf, 'devices')
-    ET.SubElement(geraete_knoten, 'keyboard', {'instance': '1'})
-    ET.SubElement(geraete_knoten, 'mouse', {'instance': '1'})
+    devices_node = ET.SubElement(head, 'devices')
+    ET.SubElement(devices_node, 'keyboard', {'instance': '1'})
+    ET.SubElement(devices_node, 'mouse', {'instance': '1'})
     # ⚠ **Nur Plaetze mit `Product`.** Die `actionmaps.xml` legt acht
     # Joystick-Plaetze an, auch leere; eine Messung fand fuenf davon unbelegt.
     # Leere Plaetze im Kopf wuerden Geraete versprechen, die es nicht gibt.
-    for wahl in profile_knoten.findall('options'):
-        if wahl.get('type') == 'joystick' and wahl.get('Product'):
-            ET.SubElement(geraete_knoten, 'joystick',
-                          {'instance': wahl.get('instance') or '1'})
-    rubriken = ET.SubElement(kopf, 'categories')
-    for label in PROFIL_RUBRIKEN:
-        ET.SubElement(rubriken, 'category', {'label': label})
+    for option in profiles_node.findall('options'):
+        if option.get('type') == 'joystick' and option.get('Product'):
+            ET.SubElement(devices_node, 'joystick',
+                          {'instance': option.get('instance') or '1'})
+    categories = ET.SubElement(head, 'categories')
+    for label in PROFILE_CATEGORIES:
+        ET.SubElement(categories, 'category', {'label': label})
 
     # Alles Uebrige unveraendert eine Ebene hoeher haengen — die Belegung
     # selbst wird **nicht** angefasst.
-    for kind in list(profile_knoten):
-        neu.append(kind)
-    return ET.ElementTree(neu), None
+    for child in list(profiles_node):
+        new.append(child)
+    return ET.ElementTree(new), None
 
 
-def profil_speichern(name, datei=None, ordner=None, ueberschreiben=False):
+def save_profile(name, filename=None, folder=None, overwrite=False):
     """Die aktive Belegung als ladbares Profil ablegen.
 
     Danach kennt das Spiel sie unter diesem Namen — im Spiel zu laden mit
@@ -397,55 +397,55 @@ def profil_speichern(name, datei=None, ordner=None, ueberschreiben=False):
     Liefert `(erfolg, Meldung_oder_Pfad)`.
     """
     from . import fehler
-    ok, meldung = name_pruefen(name)
+    ok, message = check_name(name)
     if not ok:
-        return False, meldung
+        return False, message
     name = name.strip()
-    ziel_ordner = _pfad_mappings(ordner, anlegen=True)
-    if not ziel_ordner:
+    target_folder = _mappings_path(folder, create=True)
+    if not target_folder:
         return False, 's_js_f_datei'
-    ziel = os.path.join(ziel_ordner, name + '.xml')
-    if os.path.exists(ziel) and not ueberschreiben:
+    target = os.path.join(target_folder, name + '.xml')
+    if os.path.exists(target) and not overwrite:
         return False, 's_js_f_name_belegt'
-    baum, meldung = als_profil(name, datei, ordner)
-    if baum is None:
-        return False, meldung
+    tree, message = as_profile(name, filename, folder)
+    if tree is None:
+        return False, message
     try:
         # Erst daneben schreiben, dann umlegen: Bricht es ab, steht kein
         # halbes Profil im Ordner, das das Spiel zu laden versucht.
-        vorlaeufig = ziel + '.tmp'
-        baum.write(vorlaeufig, encoding='utf-8', xml_declaration=False)
-        os.replace(vorlaeufig, ziel)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.profil_speichern', ausnahme)
+        temp = target + '.tmp'
+        tree.write(temp, encoding='utf-8', xml_declaration=False)
+        os.replace(temp, target)
+    except Exception as exception:
+        fehler.merken('joysticks.save_profile', exception)
         return False, 's_js_f_schreiben'
-    return True, ziel
+    return True, target
 
 
-def geraete_aus_text(text):
+def devices_from_text(text):
     """Die verbundenen Geraete aus einem Log-Text, in Fundreihenfolge.
 
     Liefert je Geraet ein Woerterbuch mit `platz` (die Zahl, die das Spiel
     vergibt), `name` und `kennung`.
     """
-    gefunden = []
-    gesehen = set()
-    for treffer in VERBUNDEN.finditer(text or ''):
-        platz = int(treffer.group(1))
-        kennung = treffer.group(3).upper()
+    found = []
+    seen = set()
+    for hit in CONNECTED.finditer(text or ''):
+        slot = int(hit.group(1))
+        ident = hit.group(3).upper()
         # ⚠ Innerhalb einer Sitzung kann dieselbe Zeile mehrfach auftauchen
         # (Neuverbinden im laufenden Spiel). Der erste Fund gilt.
-        if platz in gesehen:
+        if slot in seen:
             continue
-        gesehen.add(platz)
-        gefunden.append({'platz': platz,
-                         'name': treffer.group(2).strip(),
-                         'kennung': kennung})
-    gefunden.sort(key=lambda g: g['platz'])
-    return gefunden
+        seen.add(slot)
+        found.append({'platz': slot,
+                         'name': hit.group(2).strip(),
+                         'kennung': ident})
+    found.sort(key=lambda g: g['platz'])
+    return found
 
 
-def geraete(ordner=None):
+def devices(folder=None):
     """Die Geraete aus dem neuesten Protokoll des Spiels.
 
     Zuerst die laufende `Game.log`; steht dort nichts (das Spiel lief seit dem
@@ -453,30 +453,30 @@ def geraete(ordner=None):
     Spielstart gibt es keine Geraeteliste — dann bleibt die Liste leer, und
     die Oberflaeche sagt das auch so.
     """
-    dateien = []
-    laufend = pfade.game_log(ordner)
-    if laufend and os.path.isfile(laufend):
-        dateien.append(laufend)
+    files = []
+    running = pfade.game_log(folder)
+    if running and os.path.isfile(running):
+        files.append(running)
     try:
-        dateien.extend(pfade.log_sicherungen(ordner) or [])
+        files.extend(pfade.log_sicherungen(folder) or [])
     except Exception:
         pass
-    for datei in dateien:
+    for filename in files:
         try:
             # Die Geraetezeilen stehen in den ersten Hundert Zeilen. Eine
             # 13-MB-Datei dafuer ganz zu lesen waere Verschwendung — beim
             # Oeffnen der Seite faellt das sofort auf.
-            with open(datei, 'r', encoding='utf-8', errors='replace') as f:
-                kopf = f.read(200000)
+            with open(filename, 'r', encoding='utf-8', errors='replace') as f:
+                head = f.read(200000)
         except Exception:
             continue
-        treffer = geraete_aus_text(kopf)
-        if treffer:
-            return treffer
+        hit = devices_from_text(head)
+        if hit:
+            return hit
     return []
 
 
-def zuordnung(datei=None, ordner=None):
+def assignment(filename=None, folder=None):
     """Welche Nummer in der `actionmaps.xml` welchem Geraet gehoert.
 
     Liefert je belegtem Platz ein Woerterbuch mit `nummer` (die `instance`,
@@ -484,41 +484,41 @@ def zuordnung(datei=None, ordner=None):
     (`<options type="joystick" instance="7"/>`) kommen nicht mit — sie sagen
     nichts aus.
     """
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return []
     try:
-        baum = ET.parse(weg)
+        tree = ET.parse(path)
     except Exception:
         # Eine kaputte oder halb geschriebene Datei ist kein Grund
         # abzustuerzen — die Seite zeigt dann „nicht lesbar".
         return []
-    heraus = []
-    for knoten in baum.getroot().iter('options'):
-        if (knoten.get('type') or '').lower() != 'joystick':
+    out = []
+    for node in tree.getroot().iter('options'):
+        if (node.get('type') or '').lower() != 'joystick':
             continue
-        produkt = knoten.get('Product') or ''
-        if not produkt.strip():
+        product = node.get('Product') or ''
+        if not product.strip():
             continue
         try:
-            nummer = int(knoten.get('instance') or 0)
+            number = int(node.get('instance') or 0)
         except ValueError:
             continue
-        kennung = KENNUNG_IM_NAMEN.search(produkt)
-        heraus.append({
-            'nummer': nummer,
-            'name': KENNUNG_IM_NAMEN.sub('', produkt).strip(),
-            'kennung': (kennung.group(1).upper() if kennung else ''),
+        ident = ID_IN_NAME.search(product)
+        out.append({
+            'nummer': number,
+            'name': ID_IN_NAME.sub('', product).strip(),
+            'kennung': (ident.group(1).upper() if ident else ''),
         })
-    heraus.sort(key=lambda z: z['nummer'])
-    return heraus
+    out.sort(key=lambda z: z['nummer'])
+    return out
 
 
 # Die Zustaende, die ein Vergleich haben kann.
-PASST   = 'passt'    # jedes belegte Geraet ist verbunden — alles in Ordnung
-ERSETZT = 'ersetzt'  # ein Geraet meldet sich unter NEUER Kennung (reparierbar)
-FEHLT   = 'fehlt'    # ein belegtes Geraet ist gar nicht verbunden
-LEER    = 'leer'     # keine Daten (noch nie gespielt, Datei fehlt)
+MATCHES   = 'passt'    # jedes belegte Geraet ist verbunden — alles in Ordnung
+REPLACED = 'ersetzt'  # ein Geraet meldet sich unter NEUER Kennung (reparierbar)
+MISSING   = 'fehlt'    # ein belegtes Geraet ist gar nicht verbunden
+EMPTY    = 'leer'     # keine Daten (noch nie gespielt, Datei fehlt)
 
 
 # ⚠⚠ **Die Position im Protokoll ist NICHT die Nummer in der Belegung.**
@@ -546,10 +546,10 @@ LEER    = 'leer'     # keine Daten (noch nie gespielt, Datei fehlt)
 # Spuren davon stehen im Testaufbau: drei `deviceoptions`-Bloecke mit
 # demselben Geraetenamen und drei verschiedenen Kennungen.
 #
-# Genau diesen Fall — und nur diesen — meldet `ERSETZT`.
+# Genau diesen Fall — und nur diesen — meldet `REPLACED`.
 
 
-def vergleich(ordner=None, datei=None):
+def compare(folder=None, filename=None):
     """Ist jedes belegte Geraet noch da — und unter derselben Kennung?
 
     Das Ergebnis traegt alles, was die Oberflaeche braucht:
@@ -574,39 +574,39 @@ def vergleich(ordner=None, datei=None):
     eine kuerzt „links" zu einem Buchstaben, die andere schreibt es aus). Ein
     Namensvergleich waere Ratearbeit mit gutem Gefuehl.
     """
-    gefunden = geraete(ordner)
-    gespeichert = zuordnung(datei, ordner)
-    ergebnis = {'zustand': LEER, 'geraete': gefunden,
-                'zuordnung': gespeichert, 'fehlende': [], 'neue': [],
-                'ersatz': [], 'datei': datei or _pfad_actionmaps(ordner)}
-    if not gefunden or not gespeichert:
-        return ergebnis
+    found = devices(folder)
+    stored = assignment(filename, folder)
+    result = {'zustand': EMPTY, 'geraete': found,
+                'zuordnung': stored, 'fehlende': [], 'neue': [],
+                'ersatz': [], 'datei': filename or _actionmaps_path(folder)}
+    if not found or not stored:
+        return result
 
-    belegte = {z['kennung'] for z in gespeichert if z['kennung']}
-    verbunden = {g['kennung'] for g in gefunden}
+    bound_ids = {z['kennung'] for z in stored if z['kennung']}
+    connected = {g['kennung'] for g in found}
 
-    ergebnis['fehlende'] = [z for z in gespeichert
-                            if z['kennung'] and z['kennung'] not in verbunden]
-    ergebnis['neue'] = [g for g in gefunden if g['kennung'] not in belegte]
+    result['fehlende'] = [z for z in stored
+                            if z['kennung'] and z['kennung'] not in connected]
+    result['neue'] = [g for g in found if g['kennung'] not in bound_ids]
 
-    if len(ergebnis['fehlende']) == 1 and len(ergebnis['neue']) == 1:
-        ergebnis['ersatz'] = [(ergebnis['fehlende'][0], ergebnis['neue'][0])]
-        ergebnis['zustand'] = ERSETZT
-    elif ergebnis['fehlende']:
-        ergebnis['zustand'] = FEHLT
+    if len(result['fehlende']) == 1 and len(result['neue']) == 1:
+        result['ersatz'] = [(result['fehlende'][0], result['neue'][0])]
+        result['zustand'] = REPLACED
+    elif result['fehlende']:
+        result['zustand'] = MISSING
     else:
-        ergebnis['zustand'] = PASST
-    return ergebnis
+        result['zustand'] = MATCHES
+    return result
 
 
 # Jede Geraeteart, die in der `actionmaps.xml` vorkommt, mit ihrer Vorsilbe.
 # ⚠ Die Reihenfolge ist die, in der die Geraete in der Oberflaeche erscheinen.
-ARTEN = (('joystick', 'js'), ('tastatur', 'kb'), ('maus', 'mo'),
+KINDS = (('joystick', 'js'), ('tastatur', 'kb'), ('maus', 'mo'),
          ('gamepad', 'gp'))
-VORSILBE = re.compile(r'^(js|kb|mo|gp)(\d+)_')
+PREFIX = re.compile(r'^(js|kb|mo|gp)(\d+)_')
 
 
-def belegungen(datei=None, ordner=None):
+def bindings(filename=None, folder=None):
     """Was auf den Geraeten liegt — je Geraet eine Liste von Belegungen.
 
     ⭐ **Das geht fuer JEDES Geraet, ohne eine einzige Geraetevorlage.** Die
@@ -627,41 +627,41 @@ def belegungen(datei=None, ordner=None):
     * `bereich` — die Gruppe drumherum: `spaceship_movement`
     * `art` — `joystick`, `tastatur`, `maus` oder `gamepad`
     """
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return {}
     try:
-        baum = ET.parse(weg)
+        tree = ET.parse(path)
     except Exception:
         return {}
-    nach_vorsilbe = {kuerzel: art for art, kuerzel in ARTEN}
-    heraus = {}
-    for gruppe in baum.getroot().iter('actionmap'):
-        bereich = gruppe.get('name') or ''
-        for aktion in gruppe.iter('action'):
-            name = aktion.get('name') or ''
-            for bindung in aktion.iter('rebind'):
-                input_device = (bindung.get('input') or '').strip()
-                treffer = VORSILBE.match(input_device)
-                if not treffer:
+    by_prefix = {abbrev: kind for kind, abbrev in KINDS}
+    out = {}
+    for group in tree.getroot().iter('actionmap'):
+        section = group.get('name') or ''
+        for action in group.iter('action'):
+            name = action.get('name') or ''
+            for binding in action.iter('rebind'):
+                input_device = (binding.get('input') or '').strip()
+                hit = PREFIX.match(input_device)
+                if not hit:
                     continue
-                kennzeichen = treffer.group(1) + treffer.group(2)
-                heraus.setdefault(kennzeichen, []).append({
-                    'eingabe': input_device[treffer.end():],
+                device_id = hit.group(1) + hit.group(2)
+                out.setdefault(device_id, []).append({
+                    'eingabe': input_device[hit.end():],
                     'aktion': name,
-                    'bereich': bereich,
-                    'art': nach_vorsilbe.get(treffer.group(1), ''),
+                    'bereich': section,
+                    'art': by_prefix.get(hit.group(1), ''),
                 })
-    for liste in heraus.values():
+    for entries in out.values():
         # Achsen zuerst, dann Knoepfe nach Nummer, dann der Rest — dieselbe
         # Reihenfolge, in der man ein Geraet auch anschaut.
-        liste.sort(key=_sortierschluessel)
-    return heraus
+        entries.sort(key=_sort_key)
+    return out
 
 
 # Tastennamen des Spiels, die als Kuerzel nicht zu verstehen sind. Was hier
 # nicht steht, wird gross geschrieben durchgereicht (`f5` → `F5`, `a` → `A`).
-TASTE_LESBAR = {
+KEY_READABLE = {
     'lshift': 's_js_t_lshift', 'rshift': 's_js_t_rshift',
     'lctrl': 's_js_t_lctrl', 'rctrl': 's_js_t_rctrl',
     'lalt': 's_js_t_lalt', 'ralt': 's_js_t_ralt',
@@ -680,11 +680,11 @@ TASTE_LESBAR = {
     'mwheel_down': 's_js_t_mwheel_down',
 }
 
-ACHSEN_LESBAR = {'x': 'X', 'y': 'Y', 'z': 'Z'}
-DREHACHSEN = {'rotx': 'X', 'roty': 'Y', 'rotz': 'Z'}
+AXES_READABLE = {'x': 'X', 'y': 'Y', 'z': 'Z'}
+ROTATION_AXES = {'rotx': 'X', 'roty': 'Y', 'rotz': 'Z'}
 
 
-def eingabe_lesbar(input_device, art=''):
+def input_readable(input_device, kind=''):
     """Aus `x` wird „Achse X", aus `button12` „Knopf 12".
 
     ⚠⚠ **Warum das noetig ist:** In der Spalte stand nur `x` — und `x` ist
@@ -699,62 +699,62 @@ def eingabe_lesbar(input_device, art=''):
         return ''
     # Zusammengesetzte Eingaben: `ralt+y` → „Alt rechts + Y"
     if '+' in input_device:
-        return ' + '.join(eingabe_lesbar(teil, art)
-                          for teil in input_device.split('+') if teil)
-    if art in ('tastatur', 'maus') or input_device in TASTE_LESBAR:
-        schluessel = TASTE_LESBAR.get(input_device)
-        if schluessel:
-            return t(schluessel)
+        return ' + '.join(input_readable(part, kind)
+                          for part in input_device.split('+') if part)
+    if kind in ('tastatur', 'maus') or input_device in KEY_READABLE:
+        key = KEY_READABLE.get(input_device)
+        if key:
+            return t(key)
         if input_device.startswith('np_'):
             return t('s_js_t_np', input_device[3:].upper())
         return input_device.upper()
-    if input_device in ACHSEN_LESBAR:
-        return t('s_js_e_achse', ACHSEN_LESBAR[input_device])
-    if input_device in DREHACHSEN:
-        return t('s_js_e_drehachse', DREHACHSEN[input_device])
-    treffer = re.match(r'^button(\d+)$', input_device)
-    if treffer:
-        return t('s_js_e_knopf', int(treffer.group(1)))
-    treffer = re.match(r'^slider(\d+)$', input_device)
-    if treffer:
-        return t('s_js_e_schieber', int(treffer.group(1)))
-    treffer = re.match(r'^hat(\d+)_(\w+)$', input_device)
-    if treffer:
-        richtungen = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
-        pfeil = richtungen.get(treffer.group(2), treffer.group(2))
-        return t('s_js_e_hut', int(treffer.group(1)), pfeil)
+    if input_device in AXES_READABLE:
+        return t('s_js_e_achse', AXES_READABLE[input_device])
+    if input_device in ROTATION_AXES:
+        return t('s_js_e_drehachse', ROTATION_AXES[input_device])
+    hit = re.match(r'^button(\d+)$', input_device)
+    if hit:
+        return t('s_js_e_knopf', int(hit.group(1)))
+    hit = re.match(r'^slider(\d+)$', input_device)
+    if hit:
+        return t('s_js_e_schieber', int(hit.group(1)))
+    hit = re.match(r'^hat(\d+)_(\w+)$', input_device)
+    if hit:
+        directions = {'up': '↑', 'down': '↓', 'left': '←', 'right': '→'}
+        arrow = directions.get(hit.group(2), hit.group(2))
+        return t('s_js_e_hut', int(hit.group(1)), arrow)
     return input_device
 
 
-def art_von(kennzeichen):
+def kind_of(device_id):
     """Aus `js1` wird `joystick`, aus `kb1` `tastatur`."""
-    for art, kuerzel in ARTEN:
-        if kennzeichen.startswith(kuerzel):
-            return art
+    for kind, abbrev in KINDS:
+        if device_id.startswith(abbrev):
+            return kind
     return ''
 
 
 # Welches Feld der `defaultProfile.xml` zu welcher Vorsilbe gehoert.
-STANDARD_FELD = {'keyboard': 'kb1', 'joystick': 'js1', 'mouse': 'mo1',
+DEFAULT_FIELD = {'keyboard': 'kb1', 'joystick': 'js1', 'mouse': 'mo1',
                  'gamepad': 'gp1'}
 
 # Die vier Sichten, die es zu sehen gibt.
-MEINE    = 'meine'     # nur, was der Spieler selbst geaendert hat
-STANDARD = 'standard'  # nur die Werkseinstellung des Spiels
-ALLES    = 'alles'     # beides zusammengefuehrt — die wirkliche Belegung
-FREI     = 'frei'      # Aktionen, auf die noch gar nichts zeigt
+MINE    = 'meine'     # nur, was der Spieler selbst geaendert hat
+DEFAULT = 'standard'  # nur die Werkseinstellung des Spiels
+ALL    = 'alles'     # beides zusammengefuehrt — die wirkliche Belegung
+FREE     = 'frei'      # Aktionen, auf die noch gar nichts zeigt
 
 
-def gruppe_von(aktion, spielordner=None):
+def group_of(action, game_folder=None):
     """In welchem `actionmap` lebt eine Aktion?
 
     Wird beim Neubelegen gebraucht: Star Citizen sortiert Aktionen in
     Gruppen, und eine Belegung in der falschen Gruppe findet das Spiel nicht.
     """
-    return ((_profil(spielordner) or {}).get('gruppen') or {}).get(aktion, '')
+    return ((_profile(game_folder) or {}).get('gruppen') or {}).get(action, '')
 
 
-def unbelegte(spielordner=None, datei=None):
+def unbound(game_folder=None, filename=None):
     """Aktionen, auf die weder eigene noch Werksbelegung zeigt.
 
     ⭐ **Ohne diese Liste kaeme man an sie gar nicht heran.** Die Belegungs-
@@ -763,71 +763,71 @@ def unbelegte(spielordner=None, datei=None):
     zu belegen. Am 04.09.2026 gemessen: **411 von 646** benannten Aktionen
     sind ab Werk unbelegt (Emotes, Bergbau-Feinheiten, Notfallbefehle).
 
-    Liefert dieselbe Form wie `sicht()`, unter dem Schluessel `frei`, mit
+    Liefert dieselbe Form wie `view()`, unter dem Schluessel `frei`, mit
     leerer `input_device`.
     """
-    profil = _profil(spielordner) or {}
-    benannt = profil.get('etiketten') or {}
-    belegt = set()
-    for liste in (sicht(ALLES, datei, spielordner) or {}).values():
-        for e in liste:
-            belegt.add(e['aktion'])
-    gruppen = profil.get('gruppen') or {}
-    heraus = []
-    for aktion, paar in benannt.items():
-        if aktion in belegt or not (paar or [''])[0]:
+    profile_data = _profile(game_folder) or {}
+    named = profile_data.get('etiketten') or {}
+    bound_actions = set()
+    for entries in (view(ALL, filename, game_folder) or {}).values():
+        for e in entries:
+            bound_actions.add(e['aktion'])
+    groups = profile_data.get('gruppen') or {}
+    out = []
+    for action, pair in named.items():
+        if action in bound_actions or not (pair or [''])[0]:
             continue
-        heraus.append({'eingabe': '', 'aktion': aktion,
-                       'bereich': gruppen.get(aktion, ''),
-                       'art': '', 'quelle': FREI})
+        out.append({'eingabe': '', 'aktion': action,
+                       'bereich': groups.get(action, ''),
+                       'art': '', 'quelle': FREE})
     # Nach Gruppe, dann nach Name — so stehen zusammengehoerige Aktionen
     # beieinander (alle Emotes, alle Bergbau-Befehle).
-    heraus.sort(key=lambda e: (e['bereich'], e['aktion']))
-    return {FREI: heraus} if heraus else {}
+    out.sort(key=lambda e: (e['bereich'], e['aktion']))
+    return {FREE: out} if out else {}
 
 
-def standardbelegungen(spielordner=None):
-    """Die Werkseinstellung des Spiels, im Format von `belegungen()`.
+def default_bindings(game_folder=None):
+    """Die Werkseinstellung des Spiels, im Format von `bindings()`.
 
     ⚠ Der Standard kennt nur **ein** Geraet je Art (`js1`, `kb1` …) — das
     Spiel legt seine Vorgaben nicht je angeschlossenem Stick ab. Wer zwei
     Sticks fliegt, findet die Vorgaben deshalb komplett unter `js1`.
     """
-    profil = _profil(spielordner) or {}
-    standard = profil.get('standard') or {}
+    profile_data = _profile(game_folder) or {}
+    defaults = profile_data.get('standard') or {}
     # ⚠ **Nur Aktionen, die das Spiel selbst benennt.** Ohne `UILabel` taucht
     # eine Aktion auch in den Spieloptionen nicht auf — es sind interne und
     # Entwickler-Befehle (`retry`, `flycam_play`, `hacking_minigame_abort`).
     # Sie mit anzuzeigen blaeht die Liste um rund 180 Zeilen auf, die niemand
     # belegen kann. Eigene Belegungen bleiben davon unberuehrt: Was der
     # Spieler selbst eingetragen hat, wird immer gezeigt.
-    benannt = profil.get('etiketten') or {}
-    heraus = {}
-    for aktion, felder in standard.items():
-        if not (benannt.get(aktion) or [''])[0]:
+    named = profile_data.get('etiketten') or {}
+    out = {}
+    for action, fields in defaults.items():
+        if not (named.get(action) or [''])[0]:
             continue
-        for feld, input_device in felder.items():
-            kennzeichen = STANDARD_FELD.get(feld)
-            if not kennzeichen or not input_device:
+        for field, input_device in fields.items():
+            device_id = DEFAULT_FIELD.get(field)
+            if not device_id or not input_device:
                 continue
             # Im Standard steht die Eingabe teils mit, teils ohne Vorsilbe.
-            treffer = VORSILBE.match(input_device)
-            rein = input_device[treffer.end():] if treffer else input_device
-            if treffer:
-                kennzeichen = treffer.group(1) + treffer.group(2)
-            heraus.setdefault(kennzeichen, []).append({
-                'eingabe': rein,
-                'aktion': aktion,
+            hit = PREFIX.match(input_device)
+            plain = input_device[hit.end():] if hit else input_device
+            if hit:
+                device_id = hit.group(1) + hit.group(2)
+            out.setdefault(device_id, []).append({
+                'eingabe': plain,
+                'aktion': action,
                 'bereich': '',
-                'art': art_von(kennzeichen),
-                'quelle': STANDARD,
+                'art': kind_of(device_id),
+                'quelle': DEFAULT,
             })
-    for liste in heraus.values():
-        liste.sort(key=_sortierschluessel)
-    return heraus
+    for entries in out.values():
+        entries.sort(key=_sort_key)
+    return out
 
 
-def sicht(welche=ALLES, datei=None, ordner=None):
+def view(which=ALL, filename=None, folder=None):
     """Die Belegungen in einer der drei Sichten.
 
     | Sicht | Was drinsteht |
@@ -854,45 +854,45 @@ def sicht(welche=ALLES, datei=None, ordner=None):
     Spieler hat die Werksvorgabe bewusst entfernt. Sie verdraengt den
     Standard, erscheint aber selbst nicht in der Liste — genau wie im Spiel.
     """
-    if welche == FREI:
-        return unbelegte(ordner, datei)
-    eigene = belegungen(datei, ordner)
-    if welche == MEINE:
-        for liste in eigene.values():
-            for e in liste:
-                e['quelle'] = MEINE
-        return {k: [e for e in v if e['eingabe']] for k, v in eigene.items()}
-    if welche == STANDARD:
-        return standardbelegungen(ordner)
+    if which == FREE:
+        return unbound(folder, filename)
+    own = bindings(filename, folder)
+    if which == MINE:
+        for entries in own.values():
+            for e in entries:
+                e['quelle'] = MINE
+        return {k: [e for e in v if e['eingabe']] for k, v in own.items()}
+    if which == DEFAULT:
+        return default_bindings(folder)
 
     # Zusammenfuehren: erst merken, welche Aktion der Spieler auf welcher
     # **Geraeteart** angefasst hat — siehe die Warnung oben.
-    angefasst = set()
-    for kennzeichen, liste in eigene.items():
-        art = art_von(kennzeichen)
-        for e in liste:
-            angefasst.add((e['aktion'], art))
+    touched = set()
+    for device_id, entries in own.items():
+        kind = kind_of(device_id)
+        for e in entries:
+            touched.add((e['aktion'], kind))
 
-    heraus = {}
-    for kennzeichen, liste in standardbelegungen(ordner).items():
-        art = art_von(kennzeichen)
-        rest = [dict(e) for e in liste
-                if (e['aktion'], art) not in angefasst]
-        if rest:
-            heraus[kennzeichen] = rest
-    for kennzeichen, liste in eigene.items():
-        for e in liste:
+    out = {}
+    for device_id, entries in default_bindings(folder).items():
+        kind = kind_of(device_id)
+        remainder = [dict(e) for e in entries
+                if (e['aktion'], kind) not in touched]
+        if remainder:
+            out[device_id] = remainder
+    for device_id, entries in own.items():
+        for e in entries:
             if not e['eingabe']:
                 continue           # geloeschte Belegung — nichts anzuzeigen
-            neu = dict(e)
-            neu['quelle'] = MEINE
-            heraus.setdefault(kennzeichen, []).append(neu)
-    for liste in heraus.values():
-        liste.sort(key=_sortierschluessel)
-    return heraus
+            new = dict(e)
+            new['quelle'] = MINE
+            out.setdefault(device_id, []).append(new)
+    for entries in out.values():
+        entries.sort(key=_sort_key)
+    return out
 
 
-def _sortierschluessel(eintrag):
+def _sort_key(entry):
     """Achsen vor Knoepfen, Knoepfe nach Zahl statt nach Text.
 
     Ohne das steht `button10` vor `button2`, was beim Nachschlagen jedes Mal
@@ -903,22 +903,22 @@ def _sortierschluessel(eintrag):
     Tastatur an den Anfang. Tastatur und Maus werden deshalb alphabetisch
     sortiert.
     """
-    e = eintrag['eingabe']
-    if eintrag.get('art') in ('tastatur', 'maus'):
+    e = entry['eingabe']
+    if entry.get('art') in ('tastatur', 'maus'):
         return (0, 0, e)
-    achsen = ('x', 'y', 'z', 'rotx', 'roty', 'rotz')
-    if e in achsen:
-        return (0, achsen.index(e), '')
+    axes = ('x', 'y', 'z', 'rotx', 'roty', 'rotz')
+    if e in axes:
+        return (0, axes.index(e), '')
     if e.startswith('slider'):
-        return (1, _zahl_am_ende(e), e)
+        return (1, _trailing_number(e), e)
     if e.startswith('button'):
-        return (2, _zahl_am_ende(e), e)
+        return (2, _trailing_number(e), e)
     return (3, 0, e)
 
 
-def _zahl_am_ende(text):
-    treffer = re.search(r'(\d+)', text)
-    return int(treffer.group(1)) if treffer else 0
+def _trailing_number(text):
+    hit = re.search(r'(\d+)', text)
+    return int(hit.group(1)) if hit else 0
 
 
 # ---------------------------------------------------------------- Klarnamen
@@ -944,26 +944,26 @@ def _zahl_am_ende(text):
 
 # Welcher Ordner der Lokalisierung zu welcher Programmsprache gehoert.
 # ⚠ Deutsch heisst dort `german_(germany)`, mit Unterstrichen und Klammern.
-INI_ORDNER = {'de': ('german_(germany)', 'german'), 'en': ('english',)}
+INI_FOLDERS = {'de': ('german_(germany)', 'german'), 'en': ('english',)}
 
 # {(sprache, Quellenmarke): {aktion: (name, beschreibung)}}
 # ⚠ Die Marke gehoert in den Schluessel, nicht nur die Sprache — siehe
-# `_quellenmarke()`. Aendert sich der Spielordner oder eine Uebersetzungsdatei,
+# `_source_mark()`. Aendert sich der Spielordner oder eine Uebersetzungsdatei,
 # entsteht dadurch von selbst ein neuer Eintrag.
-_KLARNAMEN = {}
+_LABELS = {}
 
 
-# ⚠ Aendert sich, was `_profil()` merkt, muss diese Zahl hoch — sonst liest
+# ⚠ Aendert sich, was `_profile()` merkt, muss diese Zahl hoch — sonst liest
 # eine neue Fassung den Merker der alten und findet die neuen Felder nicht.
 #
 # ⭐ **4 seit dem 12.09.2026**, und diesmal aus einem anderen Grund: Nicht der
 # Inhalt hat sich geaendert, sondern die Art, wie der Stand gebildet wird
-# (siehe `_p4k_marke()`). Alte Eintraege tragen einen Stand, der nach der
+# (siehe `_p4k_mark()`). Alte Eintraege tragen einen Stand, der nach der
 # neuen Regel nicht mehr zustande kaeme — sie muessen weg.
-MERK_FASSUNG = 4
+CACHE_VERSION = 4
 
 
-def _p4k_marke(spielordner=None):
+def _p4k_mark(game_folder=None):
     """Woran man erkennt, dass ein ANDERES Archiv vorliegt.
 
     ⚠⚠ **Der blosse Zeitstempel reicht nicht**, und die Begruendung „die
@@ -975,22 +975,22 @@ def _p4k_marke(spielordner=None):
     Vom Pruefer am 12.09.2026 nachgestellt.
 
     Deshalb: **Pfad, Groesse und `st_mtime_ns`** — reine Metadaten, kein
-    Lesen. Der aeussere Merker in `klarnamen()` kann das nicht heilen; er
+    Lesen. Der aeussere Merker in `labels()` kann das nicht heilen; er
     liegt im Arbeitsspeicher, dieser hier auf der Platte.
     """
     from . import gametext
     try:
-        weg = gametext.p4k_path(spielordner)
-        if not weg:
+        path = gametext.p4k_path(game_folder)
+        if not path:
             return ''
-        weg = os.path.realpath(weg)
-        zustand = os.stat(weg)
-        return '%s:%d:%d' % (weg, zustand.st_size, zustand.st_mtime_ns)
+        path = os.path.realpath(path)
+        st_info = os.stat(path)
+        return '%s:%d:%d' % (path, st_info.st_size, st_info.st_mtime_ns)
     except Exception:
         return ''
 
 
-def _profil(spielordner=None):
+def _profile(game_folder=None):
     """Alles, was in der `defaultProfile.xml` des Spiels steht.
 
     Zwei Dinge in einem Durchgang, weil beide aus derselben Datei kommen:
@@ -1011,127 +1011,127 @@ def _profil(spielordner=None):
     einem Spiel-Patch.
     """
     from . import fehler
-    leer = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
-    merk = pfade.app_datei('aktionsnamen.json')
-    stand = _p4k_marke(spielordner)
+    empty_result = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
+    cache_file = pfade.app_datei('aktionsnamen.json')
+    mark = _p4k_mark(game_folder)
     try:
-        if os.path.isfile(merk):
-            with open(merk, 'r', encoding='utf-8') as f:
-                gemerkt = json.load(f)
-            if (gemerkt.get('fassung') == MERK_FASSUNG
-                    and gemerkt.get('stand') == stand
-                    and gemerkt.get('etiketten')):
-                return gemerkt
+        if os.path.isfile(cache_file):
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+            if (cached.get('fassung') == CACHE_VERSION
+                    and cached.get('stand') == mark
+                    and cached.get('etiketten')):
+                return cached
     except Exception:
         pass
 
     from . import cryxml, gametext
-    heraus = {'fassung': MERK_FASSUNG, 'stand': stand,
+    out = {'fassung': CACHE_VERSION, 'stand': mark,
               'etiketten': {}, 'standard': {}, 'gruppen': {}}
     try:
-        p4k = gametext.p4k_path(spielordner)
+        p4k = gametext.p4k_path(game_folder)
         with open(p4k, 'rb') as f:
-            verzeichnis, _ = gametext.read_directory(
+            directory, _ = gametext.read_directory(
                 f, os.path.getsize(p4k))
-            methode, cs, rs, off = gametext.find_entry(
-                verzeichnis, 'Data/Libs/Config/defaultProfile.xml')
-            roh = gametext.fetch_block(f, off, cs)
-        daten = (gametext.unpack_zstd(roh, rs)[0] if methode == 100
-                 else __import__('zlib').decompress(roh, -15))
-        wurzel = cryxml.read(daten)
+            method, cs, rs, off = gametext.find_entry(
+                directory, 'Data/Libs/Config/defaultProfile.xml')
+            raw = gametext.fetch_block(f, off, cs)
+        data = (gametext.unpack_zstd(raw, rs)[0] if method == 100
+                 else __import__('zlib').decompress(raw, -15))
+        root = cryxml.read(data)
         # ⚠ Über die **Gruppen** gehen, nicht flach über alle `action`-Knoten:
         # Nur so kommt mit, in welchem `actionmap` eine Aktion lebt. Ohne die
         # Gruppe landet eine neu angelegte Belegung in der falschen Sektion,
         # und das Spiel findet sie nicht.
-        for gruppe in cryxml.find_all(wurzel, 'actionmap'):
-            bereich = (gruppe.get('attribute') or {}).get('name', '')
-            for knoten in (gruppe.get('kinder') or []):
-                if knoten.get('name') != 'action':
+        for group in cryxml.find_all(root, 'actionmap'):
+            section = (group.get('attribute') or {}).get('name', '')
+            for node in (group.get('kinder') or []):
+                if node.get('name') != 'action':
                     continue
-                at = knoten.get('attribute') or {}
+                at = node.get('attribute') or {}
                 name = at.get('name')
-                if name and bereich:
-                    heraus.setdefault('gruppen', {})[name] = bereich
-        for knoten in cryxml.find_all(wurzel, 'action'):
-            at = knoten.get('attribute') or {}
+                if name and section:
+                    out.setdefault('gruppen', {})[name] = section
+        for node in cryxml.find_all(root, 'action'):
+            at = node.get('attribute') or {}
             name = at.get('name')
             if not name:
                 continue
-            heraus['etiketten'][name] = [at.get('UILabel', ''),
+            out['etiketten'][name] = [at.get('UILabel', ''),
                                          at.get('UIDescription', '')]
-            vorgabe = {}
-            for feld in ('keyboard', 'joystick', 'mouse', 'gamepad'):
-                wert = (at.get(feld) or '').strip()
+            preset = {}
+            for field in ('keyboard', 'joystick', 'mouse', 'gamepad'):
+                value = (at.get(field) or '').strip()
                 # ⚠ Ein leeres Feld heisst „ab Werk nicht belegt" und ist
                 # etwas anderes als „gar kein Feld". Beides kommt vor.
-                if wert:
-                    vorgabe[feld] = wert
-            if vorgabe:
-                heraus['standard'][name] = vorgabe
-    except Exception as ausnahme:
+                if value:
+                    preset[field] = value
+            if preset:
+                out['standard'][name] = preset
+    except Exception as exception:
         # Ohne diese Datei bleibt die Liste benutzbar — dann stehen dort die
         # technischen Namen und nur die eigenen Aenderungen. Schlechter, aber
         # nicht kaputt.
-        fehler.merken('joysticks.profil', ausnahme)
-        return leer
+        fehler.merken('joysticks.profile', exception)
+        return empty_result
 
     try:
-        pfade.json_sichern(merk, heraus)
+        pfade.json_sichern(cache_file, out)
     except Exception:
         pass
-    return heraus
+    return out
 
 
-def _ini_texte(sprache, spielordner=None):
+def _ini_texts(language, game_folder=None):
     """Die `ui_…`-Zeilen der `global.ini` in der gewuenschten Sprache.
 
     Gelesen werden nur Zeilen, die mit `ui_` beginnen — die Datei hat rund
     12 MB, und alles andere wird hier nicht gebraucht.
     """
-    basis = os.path.join(spielordner or pfade.spiel_ordner() or '',
+    base = os.path.join(game_folder or pfade.spiel_ordner() or '',
                          'data', 'Localization')
-    if not os.path.isdir(basis):
-        basis = os.path.join(spielordner or pfade.spiel_ordner() or '',
+    if not os.path.isdir(base):
+        base = os.path.join(game_folder or pfade.spiel_ordner() or '',
                              'Data', 'Localization')
-    heraus = {}
-    for ordner in INI_ORDNER.get(sprache, ('english',)):
-        weg = os.path.join(basis, ordner, 'global.ini')
-        if not os.path.isfile(weg):
+    out = {}
+    for folder in INI_FOLDERS.get(language, ('english',)):
+        path = os.path.join(base, folder, 'global.ini')
+        if not os.path.isfile(path):
             continue
         try:
-            with open(weg, 'r', encoding='utf-8', errors='replace') as f:
-                for zeile in f:
-                    if not zeile.startswith('ui_'):
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if not line.startswith('ui_'):
                         continue
-                    schluessel, _, wert = zeile.partition('=')
-                    if wert:
-                        heraus[schluessel.strip()] = wert.strip()
+                    key, _, value = line.partition('=')
+                    if value:
+                        out[key.strip()] = value.strip()
         except Exception:
             continue
-        if heraus:
+        if out:
             break
-    return heraus
+    return out
 
 
-def _quellenmarke(sprache, spielordner=None):
+def _source_mark(language, game_folder=None):
     """Woran man erkennt, dass die Klarnamen-Quellen sich geaendert haben.
 
     ⚠⚠ **Der Merker allein nach Sprache reicht nicht.** Die Namen kommen aus
     zwei Dateien im SPIELORDNER — `defaultProfile.xml` und der `global.ini`
     der jeweiligen Sprache. Wer den Spielordner umstellt oder das Spiel
-    aktualisiert, bekam bisher weiter die alten Namen; nur ein `vergessen()`
+    aktualisiert, bekam bisher weiter die alten Namen; nur ein `forget()`
     half, und das wurde aus Tempogruenden seltener gerufen.
 
     Vom Pruefer am 12.09.2026 nachgestellt: Uebersetzungsquelle aendern,
-    Sprache gleich lassen — `klarnamen()` lieferte den alten Namen.
+    Sprache gleich lassen — `labels()` lieferte den alten Namen.
 
     Die Marke ist absichtlich **billig**: Pfad, Groesse und Zeitstempel, kein
     Lesen des Inhalts. Die `global.ini` hat rund 12 MB.
 
     ⚠⚠ **Sie muss die Dateien beobachten, die WIRKLICH gelesen werden.** Die
     erste Fassung nahm eine lose `Data/defaultProfile.xml` — die gibt es gar
-    nicht: `_profil()` holt sie aus dem Archiv `Data.p4k`. Und bei deutscher
-    Oberflaeche fehlte die englische `global.ini`, obwohl `klarnamen()`
+    nicht: `_profile()` holt sie aus dem Archiv `Data.p4k`. Und bei deutscher
+    Oberflaeche fehlte die englische `global.ini`, obwohl `labels()`
     daraus jede fehlende Uebersetzung nachtraegt. Beide echten Quellen
     konnten sich also aendern, ohne dass die Marke sich ruehrte — vom Pruefer
     am 12.09.2026 nachgestellt.
@@ -1147,33 +1147,33 @@ def _quellenmarke(sprache, spielordner=None):
     gross, gleicher Zeitstempel, anderer Inhalt. Wer das sicher erkennen
     will, braucht eine Inhaltspruefung — und die kostet bei 12 MB je Anzeige
     mehr, als der ganze Merker einspart. Wer hier kuenftig selbst schreibt,
-    ohne den Zeitstempel zu aendern, ruft `vergessen()`.
+    ohne den Zeitstempel zu aendern, ruft `forget()`.
     """
-    ordner = spielordner or pfade.spiel_ordner() or ''
+    folder = game_folder or pfade.spiel_ordner() or ''
     # Das Archiv, aus dem die Etiketten kommen — ueber **dieselbe** Funktion
     # wie der Merker auf der Platte, damit beide dasselbe Archiv meinen.
-    wege = []
-    # Jede `global.ini`, die `klarnamen()` anfassen kann — die der Sprache
+    paths = []
+    # Jede `global.ini`, die `labels()` anfassen kann — die der Sprache
     # UND die englische, denn sie fuellt die Luecken der Uebersetzung.
-    ordnernamen = list(INI_ORDNER.get(sprache, ('english',)))
-    if sprache != 'en':
-        ordnernamen += [n for n in INI_ORDNER['en'] if n not in ordnernamen]
-    for unter in ('data', 'Data'):
-        for name in ordnernamen:
-            wege.append(os.path.join(ordner, unter, 'Localization', name,
+    folder_names = list(INI_FOLDERS.get(language, ('english',)))
+    if language != 'en':
+        folder_names += [n for n in INI_FOLDERS['en'] if n not in folder_names]
+    for sub in ('data', 'Data'):
+        for name in folder_names:
+            paths.append(os.path.join(folder, sub, 'Localization', name,
                                      'global.ini'))
-    teile = [ordner, sprache, _p4k_marke(spielordner)]
-    for weg in wege:
+    parts = [folder, language, _p4k_mark(game_folder)]
+    for path in paths:
         try:
-            zustand = os.stat(weg)
-            teile.append('%s:%d:%d' % (weg, zustand.st_size,
-                                       zustand.st_mtime_ns))
+            st_info = os.stat(path)
+            parts.append('%s:%d:%d' % (path, st_info.st_size,
+                                       st_info.st_mtime_ns))
         except OSError:
             continue                  # Datei gibt es nicht — zaehlt als „leer"
-    return '|'.join(teile)
+    return '|'.join(parts)
 
 
-def klarnamen(sprache='de', spielordner=None):
+def labels(language='de', game_folder=None):
     """Aktion → (lesbarer Name, Beschreibung) in der gewuenschten Sprache.
 
     Fehlt eine der Quellen, kommt ein leeres Woerterbuch zurueck und die
@@ -1183,19 +1183,19 @@ def klarnamen(sprache='de', spielordner=None):
     """
     # ⚠ Der Schluessel ist NICHT nur die Sprache, sondern auch der Zustand der
     # Quelldateien — sonst bleiben die Namen stehen, wenn sich der Spielordner
-    # oder das Spiel geaendert hat. Siehe `_quellenmarke()`.
-    schluessel = (sprache, _quellenmarke(sprache, spielordner))
-    merk = _KLARNAMEN.get(schluessel)
-    if merk is not None:
-        return merk
-    etiketten = (_profil(spielordner) or {}).get('etiketten') or {}
-    texte = _ini_texte(sprache, spielordner)
+    # oder das Spiel geaendert hat. Siehe `_source_mark()`.
+    key = (language, _source_mark(language, game_folder))
+    cache_file = _LABELS.get(key)
+    if cache_file is not None:
+        return cache_file
+    label_pairs = (_profile(game_folder) or {}).get('etiketten') or {}
+    texts = _ini_texts(language, game_folder)
     # ⚠ Rueckfall auf Englisch: Wo CIG keinen deutschen Text hinterlegt hat,
     # ist der englische immer noch besser als ein technisches Kuerzel.
-    ersatz = (_ini_texte('en', spielordner) if sprache != 'en' else {})
-    heraus = {}
-    for aktion, paar in (etiketten or {}).items():
-        label, beschreibung = ((paar or []) + ['', ''])[:2]
+    fallback = (_ini_texts('en', game_folder) if language != 'en' else {})
+    out = {}
+    for action, pair in (label_pairs or {}).items():
+        label, description = ((pair or []) + ['', ''])[:2]
         # ⚠⚠ **Nicht `schluessel` nennen.** Genau das hiess hier bis zum
         # 12.09.2026 so wie der Merker-Schluessel oben — die Schleife
         # ueberschrieb ihn, und abgelegt wurde am Ende unter dem letzten
@@ -1203,10 +1203,10 @@ def klarnamen(sprache='de', spielordner=None):
         # Merker traf nie, die 12-MB-INI wurde bei **jedem** Aufruf neu
         # gelesen. Vom Pruefer nachgestellt — zwei unveraenderte Aufrufe,
         # zwei Lesevorgaenge.
-        l_schluessel = (label or '').lstrip('@')
-        name = texte.get(l_schluessel) or ersatz.get(l_schluessel) or ''
-        h_schluessel = (beschreibung or '').lstrip('@')
-        hinweis = texte.get(h_schluessel) or ersatz.get(h_schluessel) or ''
+        l_key = (label or '').lstrip('@')
+        name = texts.get(l_key) or fallback.get(l_key) or ''
+        h_key = (description or '').lstrip('@')
+        hint = texts.get(h_key) or fallback.get(h_key) or ''
         if not name:
             # ⚠⚠ **Dritte Stufe, und sie ist noetig.** Gemessen am 04.09.2026:
             # 314 Aktionen haben gar kein Etikett, bei weiteren 68 zeigt es
@@ -1217,46 +1217,46 @@ def klarnamen(sprache='de', spielordner=None):
             # zu Leerzeichen, Wortanfaenge gross. Das ist Formatierung, kein
             # Erfinden — und die Oberflaeche zeigt solche Namen grau, damit
             # der Unterschied zu einer echten Bezeichnung sichtbar bleibt.
-            name = _technisch_lesbar(aktion)
-            heraus[aktion] = (name, hinweis, False)
+            name = _technical_readable(action)
+            out[action] = (name, hint, False)
             continue
-        heraus[aktion] = (name, hinweis, True)
-    _KLARNAMEN[schluessel] = heraus
-    return heraus
+        out[action] = (name, hint, True)
+    _LABELS[key] = out
+    return out
 
 
 # Die Vorsilben, mit denen das Spiel seine Aktionen sortiert. Sie sagen nur,
 # in welchem Zusammenhang die Aktion steht, und stehen in der Anzeige im Weg.
-VORSILBEN_AKTION = ('v_', 'pl_', 'ui_', 'mg_', 'ca_', 'sc_')
+ACTION_PREFIXES = ('v_', 'pl_', 'ui_', 'mg_', 'ca_', 'sc_')
 
 
-def _technisch_lesbar(aktion):
+def _technical_readable(action):
     """`v_ads_stable_max_zoom_hold` → `Ads Stable Max Zoom Hold`."""
-    rest = aktion
-    for v in VORSILBEN_AKTION:
-        if rest.startswith(v):
-            rest = rest[len(v):]
+    remainder = action
+    for v in ACTION_PREFIXES:
+        if remainder.startswith(v):
+            remainder = remainder[len(v):]
             break
-    rest = rest.replace('_', ' ').strip()
-    return ' '.join(w[:1].upper() + w[1:] for w in rest.split()) or aktion
+    remainder = remainder.replace('_', ' ').strip()
+    return ' '.join(w[:1].upper() + w[1:] for w in remainder.split()) or action
 
 
-def vergessen():
+def forget():
     """Den Merker leeren — nach einem Sprachwechsel."""
-    _KLARNAMEN.clear()
+    _LABELS.clear()
 
 
-def _actionmap_finden(wurzel, bereich):
+def _find_actionmap(root, section):
     """Den `<actionmap>`-Block einer Gruppe holen oder anlegen."""
-    for knoten in wurzel.iter('actionmap'):
-        if (knoten.get('name') or '') == bereich:
-            return knoten
-    neu = ET.SubElement(wurzel, 'actionmap')
-    neu.set('name', bereich)
-    return neu
+    for node in root.iter('actionmap'):
+        if (node.get('name') or '') == section:
+            return node
+    new = ET.SubElement(root, 'actionmap')
+    new.set('name', section)
+    return new
 
 
-def belegen(aktion, bereich, kennzeichen, input_device, datei=None, ordner=None):
+def bind_action(action, section, device_id, input_device, filename=None, folder=None):
     """Eine Aktion auf eine Eingabe legen — in der `actionmaps.xml` des Spielers.
 
     | | |
@@ -1285,63 +1285,63 @@ def belegen(aktion, bereich, kennzeichen, input_device, datei=None, ordner=None)
     """
     from . import fehler
 
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return False, 's_js_f_datei', 0
-    if not aktion or not kennzeichen:
+    if not action or not device_id:
         return False, 's_js_f_nichts', 0
-    treffer = re.match(r'^([a-z]+)(\d+)$', kennzeichen)
-    if not treffer:
+    hit = re.match(r'^([a-z]+)(\d+)$', device_id)
+    if not hit:
         return False, 's_js_f_nichts', 0
-    vorsilbe = treffer.group(1)
+    prefix = hit.group(1)
 
     try:
-        baum = ET.parse(weg)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.belegen_lesen', ausnahme)
+        tree = ET.parse(path)
+    except Exception as exception:
+        fehler.merken('joysticks.bind_action_read', exception)
         return False, 's_js_f_lesen', 0
-    wurzel = baum.getroot()
+    root = tree.getroot()
 
     # Das Spiel legt die Aktionen unter `<ActionProfiles>` ab, nicht direkt
     # unter der Wurzel. Fehlt der Block, ist die Datei nicht die, für die wir
     # sie halten — dann lieber abbrechen.
-    eltern = wurzel.find('ActionProfiles')
-    if eltern is None:
-        eltern = wurzel
-    gruppe = _actionmap_finden(eltern, bereich or 'spaceship_general')
+    parent = root.find('ActionProfiles')
+    if parent is None:
+        parent = root
+    group = _find_actionmap(parent, section or 'spaceship_general')
 
-    ziel = None
-    for knoten in gruppe.findall('action'):
-        if (knoten.get('name') or '') == aktion:
-            ziel = knoten
+    target = None
+    for node in group.findall('action'):
+        if (node.get('name') or '') == action:
+            target = node
             break
-    if ziel is None:
-        ziel = ET.SubElement(gruppe, 'action')
-        ziel.set('name', aktion)
+    if target is None:
+        target = ET.SubElement(group, 'action')
+        target.set('name', action)
 
-    voll = ('%s_%s' % (kennzeichen, input_device)) if input_device else (kennzeichen + '_')
-    ersetzt = False
-    for bindung in list(ziel.findall('rebind')):
-        vorhanden = (bindung.get('input') or '').strip()
-        art = VORSILBE.match(vorhanden)
+    full = ('%s_%s' % (device_id, input_device)) if input_device else (device_id + '_')
+    replaced = False
+    for binding in list(target.findall('rebind')):
+        existing = (binding.get('input') or '').strip()
+        kind = PREFIX.match(existing)
         # Nur Eintraege desselben Geraetetyps anfassen — eine Tastenbelegung
         # darf beim Setzen einer Stick-Belegung nicht verschwinden.
-        if art and art.group(1) == vorsilbe:
-            if ersetzt:
-                ziel.remove(bindung)
+        if kind and kind.group(1) == prefix:
+            if replaced:
+                target.remove(binding)
             else:
-                bindung.set('input', voll)
-                ersetzt = True
-        elif not vorhanden and not art:
-            ziel.remove(bindung)
-    if not ersetzt:
-        neu = ET.SubElement(ziel, 'rebind')
-        neu.set('input', voll)
+                binding.set('input', full)
+                replaced = True
+        elif not existing and not kind:
+            target.remove(binding)
+    if not replaced:
+        new = ET.SubElement(target, 'rebind')
+        new.set('input', full)
 
-    return _schreiben(weg, baum, 1)
+    return _write(path, tree, 1)
 
 
-def _schreiben(weg, baum, anzahl):
+def _write(path, tree, anzahl):
     """Den geaenderten Baum sichern und zurueckschreiben.
 
     ⚠ Hier **muss** ueber den XML-Baum geschrieben werden — anders als beim
@@ -1349,25 +1349,25 @@ def _schreiben(weg, baum, anzahl):
     immer eine Sicherung: Geht etwas schief, ist der Rueckweg ein Umbenennen.
     """
     from . import fehler
-    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(weg, sicherung)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.sicherung', ausnahme)
+        shutil.copy2(path, backup_file)
+    except Exception as exception:
+        fehler.merken('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
-        baum.write(weg, encoding='utf-8', xml_declaration=False)
-    except Exception as ausnahme:
+        tree.write(path, encoding='utf-8', xml_declaration=False)
+    except Exception as exception:
         try:
-            shutil.copy2(sicherung, weg)
+            shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.schreiben', ausnahme)
+        fehler.merken('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
-    return True, sicherung, anzahl
+    return True, backup_file, anzahl
 
 
-def konflikte(aktion, kennzeichen, input_device, datei=None, ordner=None):
+def conflicts(action, device_id, input_device, filename=None, folder=None):
     """Wer sitzt schon auf dieser Eingabe? Liefert die betroffenen Aktionen.
 
     ⭐ **Wird VOR dem Belegen gefragt.** Eine Taste doppelt zu belegen ist in
@@ -1378,17 +1378,17 @@ def konflikte(aktion, kennzeichen, input_device, datei=None, ordner=None):
     """
     if not input_device:
         return []
-    heraus = []
-    for kz, liste in (sicht(ALLES, datei, ordner) or {}).items():
-        if kz != kennzeichen:
+    out = []
+    for kz, entries in (view(ALL, filename, folder) or {}).items():
+        if kz != device_id:
             continue
-        for e in liste:
-            if e['eingabe'] == input_device and e['aktion'] != aktion:
-                heraus.append(e)
-    return heraus
+        for e in entries:
+            if e['eingabe'] == input_device and e['aktion'] != action:
+                out.append(e)
+    return out
 
 
-def zuruecksetzen(datei=None, ordner=None):
+def reset(filename=None, folder=None):
     """Alle eigenen Belegungen verwerfen — zurueck auf Werkseinstellung.
 
     ⚠⚠ **Das ist der Knopf, der am meisten kaputtmachen kann.** Er wirft die
@@ -1406,29 +1406,29 @@ def zuruecksetzen(datei=None, ordner=None):
     Liefert `(erfolg, meldung, anzahl geloeschter Gruppen)`.
     """
     from . import fehler
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return False, 's_js_f_datei', 0
     try:
-        baum = ET.parse(weg)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.zuruecksetzen_lesen', ausnahme)
+        tree = ET.parse(path)
+    except Exception as exception:
+        fehler.merken('joysticks.reset_read', exception)
         return False, 's_js_f_lesen', 0
 
-    wurzel = baum.getroot()
-    eltern = wurzel.find('ActionProfiles')
-    if eltern is None:
-        eltern = wurzel
-    weggeworfen = 0
-    for gruppe in list(eltern.findall('actionmap')):
-        eltern.remove(gruppe)
-        weggeworfen += 1
-    if not weggeworfen:
+    root = tree.getroot()
+    parent = root.find('ActionProfiles')
+    if parent is None:
+        parent = root
+    removed = 0
+    for group in list(parent.findall('actionmap')):
+        parent.remove(group)
+        removed += 1
+    if not removed:
         return False, 's_js_f_gleich', 0
-    return _schreiben(weg, baum, weggeworfen)
+    return _write(path, tree, removed)
 
 
-def ausgeben(ziel, sprache='de', datei=None, ordner=None):
+def export_file(target, language='de', filename=None, folder=None):
     """Die Belegung als lesbare Datei ausgeben.
 
     Zwei Formate, am Dateinamen erkannt:
@@ -1445,36 +1445,36 @@ def ausgeben(ziel, sprache='de', datei=None, ordner=None):
     Liefert `(erfolg, meldung)`.
     """
     from . import fehler
-    quelle = datei or _pfad_actionmaps(ordner)
-    if not quelle or not os.path.isfile(quelle):
+    source = filename or _actionmaps_path(folder)
+    if not source or not os.path.isfile(source):
         return False, 's_js_f_datei'
     try:
-        if ziel.lower().endswith('.csv'):
-            namen = klarnamen(sprache, ordner)
-            zeilen = ['Geraet;Eingabe;Aktion;Bezeichnung;Gruppe;Quelle']
-            for kennzeichen, liste in sorted(sicht(ALLES, datei,
-                                                   ordner).items()):
-                for e in liste:
-                    klar = (namen.get(e['aktion']) or ('', '', False))[0]
-                    zeilen.append(';'.join(
+        if target.lower().endswith('.csv'):
+            names = labels(language, folder)
+            lines = ['Geraet;Eingabe;Aktion;Bezeichnung;Gruppe;Quelle']
+            for device_id, entries in sorted(view(ALL, filename,
+                                                   folder).items()):
+                for e in entries:
+                    label_text = (names.get(e['aktion']) or ('', '', False))[0]
+                    lines.append(';'.join(
                         # ⚠ Semikolon im Text wuerde die Spalten zerreissen —
                         # es kommt in Bezeichnungen des Spiels tatsaechlich vor.
-                        (feld or '').replace(';', ',')
-                        for feld in (kennzeichen, e['eingabe'], e['aktion'],
-                                     klar, e['bereich'], e.get('quelle', ''))))
-            with open(ziel, 'w', encoding='utf-8-sig', newline='') as f:
+                        (field or '').replace(';', ',')
+                        for field in (device_id, e['eingabe'], e['aktion'],
+                                     label_text, e['bereich'], e.get('quelle', ''))))
+            with open(target, 'w', encoding='utf-8-sig', newline='') as f:
                 # ⚠ `utf-8-sig`: Excel liest UTF-8 ohne Vorspann als
                 # Windows-1252 und macht aus „Schleudersitz" Buchstabensalat.
-                f.write(chr(10).join(zeilen) + chr(10))
+                f.write(chr(10).join(lines) + chr(10))
         else:
-            shutil.copy2(quelle, ziel)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.ausgeben', ausnahme)
+            shutil.copy2(source, target)
+    except Exception as exception:
+        fehler.merken('joysticks.export_file', exception)
         return False, 's_js_f_schreiben'
-    return True, ziel
+    return True, target
 
 
-def _als_aktive_form(wurzel):
+def _as_active_form(root):
     """Ein Profil zurueck in die Form der `actionmaps.xml` bringen.
 
     ⚠⚠ **Der Rueckweg gehoert zum Hinweg.** Ein Profil aus dem Mappings-Ordner
@@ -1486,60 +1486,60 @@ def _als_aktive_form(wurzel):
     Steckt die Datei schon in der aktiven Form, wird sie unveraendert
     zurueckgegeben.
     """
-    if wurzel.find('ActionProfiles') is not None:
-        return wurzel
-    neu = ET.Element('ActionMaps')
-    profile_knoten = ET.SubElement(neu, 'ActionProfiles')
-    for schluessel in ('version', 'optionsVersion', 'rebindVersion'):
-        wert = wurzel.get(schluessel)
-        if wert is not None:
-            profile_knoten.set(schluessel, wert)
+    if root.find('ActionProfiles') is not None:
+        return root
+    new = ET.Element('ActionMaps')
+    profiles_node = ET.SubElement(new, 'ActionProfiles')
+    for key in ('version', 'optionsVersion', 'rebindVersion'):
+        value = root.get(key)
+        if value is not None:
+            profiles_node.set(key, value)
     # ⚠ Die aktive Belegung heisst im Spiel immer `default` — der Profilname
     # aus der Datei gilt nur fuer das Profil, nicht fuer die aktive Steuerung.
-    profile_knoten.set('profileName', 'default')
-    for kind in list(wurzel):
-        if kind.tag == 'CustomisationUIHeader':
+    profiles_node.set('profileName', 'default')
+    for child in list(root):
+        if child.tag == 'CustomisationUIHeader':
             continue          # der Kopf gehoert nur ins Profil
-        profile_knoten.append(kind)
-    return neu
+        profiles_node.append(child)
+    return new
 
 
-def einlesen(quelle, datei=None, ordner=None):
+def import_file(source, filename=None, folder=None):
     """Eine zuvor ausgegebene Belegung wieder einspielen.
 
     Nimmt **beide** Formen an: die Kopie einer `actionmaps.xml` und ein Profil
-    aus dem Mappings-Ordner (siehe `_als_aktive_form`).
+    aus dem Mappings-Ordner (siehe `_as_active_form`).
 
     ⚠ Es wird geprueft, ob die Datei ueberhaupt danach aussieht — sonst
     landet irgendeine XML-Datei als Steuerung im Spiel. Und auch hier gilt:
     erst Sicherung, dann schreiben.
     """
     from . import fehler
-    ziel = datei or _pfad_actionmaps(ordner)
-    if not ziel or not os.path.isfile(ziel):
+    target = filename or _actionmaps_path(folder)
+    if not target or not os.path.isfile(target):
         return False, 's_js_f_datei', 0
-    if not quelle or not os.path.isfile(quelle):
+    if not source or not os.path.isfile(source):
         return False, 's_js_f_datei', 0
     try:
-        baum = ET.parse(quelle)
+        tree = ET.parse(source)
     except Exception:
         return False, 's_js_f_fremd', 0
-    wurzel = baum.getroot()
-    if wurzel.tag != 'ActionMaps':
+    root = tree.getroot()
+    if root.tag != 'ActionMaps':
         return False, 's_js_f_fremd', 0
-    anzahl = len(list(wurzel.iter('actionmap')))
+    anzahl = len(list(root.iter('actionmap')))
     try:
-        sicherung = '%s.scbpw-%s' % (ziel, time.strftime('%Y%m%d-%H%M%S'))
-        shutil.copy2(ziel, sicherung)
-        ET.ElementTree(_als_aktive_form(wurzel)).write(
-            ziel, encoding='utf-8', xml_declaration=False)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.einlesen', ausnahme)
+        backup_file = '%s.scbpw-%s' % (target, time.strftime('%Y%m%d-%H%M%S'))
+        shutil.copy2(target, backup_file)
+        ET.ElementTree(_as_active_form(root)).write(
+            target, encoding='utf-8', xml_declaration=False)
+    except Exception as exception:
+        fehler.merken('joysticks.import_file', exception)
         return False, 's_js_f_schreiben', 0
-    return True, sicherung, anzahl
+    return True, backup_file, anzahl
 
 
-def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
+def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
     """Ein Geraet unter neuer Kennung an seine alte Belegung anschliessen.
 
     Der Fall: Ein Stick meldet sich mit anderer Kennung (anderer Anschluss,
@@ -1564,58 +1564,58 @@ def kennung_tauschen(alte, neue, neuer_name='', datei=None, ordner=None):
     # Modulebene waere das ein Zirkelbezug.
     from . import fehler
 
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return False, 's_js_f_datei', 0
-    if not alte or not neue or alte == neue:
+    if not old_id or not new_id or old_id == new_id:
         return False, 's_js_f_nichts', 0
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
-            inhalt = f.read()
-    except Exception as ausnahme:
-        fehler.merken('joysticks.lesen', ausnahme)
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except Exception as exception:
+        fehler.merken('joysticks.read', exception)
         return False, 's_js_f_lesen', 0
 
     # ⚠ Gross-/Kleinschreibung der Kennung kann sich zwischen Protokoll und
     # Datei unterscheiden — deshalb wird ohne Ruecksicht darauf gesucht, aber
     # in der Schreibweise ersetzt, die in der Datei steht.
-    muster = re.compile(re.escape(alte), re.IGNORECASE)
-    treffer = len(muster.findall(inhalt))
-    if not treffer:
+    pattern = re.compile(re.escape(old_id), re.IGNORECASE)
+    hit = len(pattern.findall(content))
+    if not hit:
         return False, 's_js_f_unbekannt', 0
 
-    neu = muster.sub(neue, inhalt)
+    new = pattern.sub(new_id, content)
 
     # Hat das Spiel fuer das Geraet bereits einen zweiten, leeren Eintrag
     # angelegt, staende die neue Kennung nun zweimal da. Der spaetere (leere)
     # Eintrag wird geleert, damit genau eine Zuordnung uebrig bleibt.
-    neu = _doppelten_eintrag_leeren(neu, neue)
+    new = _clear_duplicate_entry(new, new_id)
 
-    if neu == inhalt:
+    if new == content:
         return False, 's_js_f_gleich', 0
 
-    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(weg, sicherung)
-    except Exception as ausnahme:
+        shutil.copy2(path, backup_file)
+    except Exception as exception:
         # Ohne Sicherung wird nicht geschrieben. Lieber gar nicht helfen als
         # ohne Rueckweg — hier haengt die komplette Steuerung dran.
-        fehler.merken('joysticks.sicherung', ausnahme)
+        fehler.merken('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
-        with open(weg, 'w', encoding='utf-8', newline='') as f:
-            f.write(neu)
-    except Exception as ausnahme:
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            f.write(new)
+    except Exception as exception:
         try:
-            shutil.copy2(sicherung, weg)
+            shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.schreiben', ausnahme)
+        fehler.merken('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
-    return True, sicherung, treffer
+    return True, backup_file, hit
 
 
-def belegungen_tauschen(kennung_a, kennung_b, datei=None, ordner=None):
+def swap_bindings(id_a, id_b, filename=None, folder=None):
     """Zwei Geraete ueber Kreuz: Was auf dem einen lag, liegt danach auf dem anderen.
 
     Der Fall: Nach einem Neustart oder einem anderen USB-Anschluss hat das
@@ -1635,7 +1635,7 @@ def belegungen_tauschen(kennung_a, kennung_b, datei=None, ordner=None):
     weiterhin, egal welche Belegung gerade auf ihm liegt. Wer hier stur die
     ganze Datei durchtauscht, verschiebt sie auf das falsche Geraet.
 
-    ⚠⚠ **Und es geschieht in EINEM Durchgang.** Zweimal `kennung_tauschen`
+    ⚠⚠ **Und es geschieht in EINEM Durchgang.** Zweimal `swap_id`
     (A→B, dann B→A) waere falsch: Der zweite Lauf fande auch die gerade
     geschriebenen B's und drehte alles zurueck. Deshalb ersetzt ein einziger
     Ausdruck beide Kennungen gleichzeitig.
@@ -1644,89 +1644,89 @@ def belegungen_tauschen(kennung_a, kennung_b, datei=None, ordner=None):
     """
     from . import fehler
 
-    weg = datei or _pfad_actionmaps(ordner)
-    if not weg or not os.path.isfile(weg):
+    path = filename or _actionmaps_path(folder)
+    if not path or not os.path.isfile(path):
         return False, 's_js_f_datei', 0
-    a = (kennung_a or '').strip()
-    b = (kennung_b or '').strip()
+    a = (id_a or '').strip()
+    b = (id_b or '').strip()
     if not a or not b or a.upper() == b.upper():
         return False, 's_js_f_nichts', 0
 
     try:
-        with open(weg, 'r', encoding='utf-8', errors='replace') as f:
-            inhalt = f.read()
-    except Exception as ausnahme:
-        fehler.merken('joysticks.tausch_lesen', ausnahme)
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except Exception as exception:
+        fehler.merken('joysticks.swap_read', exception)
         return False, 's_js_f_lesen', 0
 
     # Nur die Joystick-Bloecke — `<deviceoptions>` bleiben aussen vor.
-    block_muster = re.compile(
+    block_pattern = re.compile(
         r'<options\b[^>]*\btype="joystick"[^>]*/>|'
         r'<options\b[^>]*\btype="joystick"[^>]*>.*?</options>', re.S)
-    paar = re.compile('(%s|%s)' % (re.escape(a), re.escape(b)),
+    pair = re.compile('(%s|%s)' % (re.escape(a), re.escape(b)),
                       re.IGNORECASE)
-    getauscht = [0]
+    swapped = [0]
 
-    def kreuz(treffer):
+    def cross(hit):
         """Jede gefundene Kennung durch die jeweils andere ersetzen."""
-        gefunden = treffer.group(0)
-        getauscht[0] += 1
-        return b if gefunden.upper() == a.upper() else a
+        found = hit.group(0)
+        swapped[0] += 1
+        return b if found.upper() == a.upper() else a
 
-    def block_umschreiben(treffer):
-        return paar.sub(kreuz, treffer.group(0))
+    def rewrite_block(hit):
+        return pair.sub(cross, hit.group(0))
 
-    neu = block_muster.sub(block_umschreiben, inhalt)
+    new = block_pattern.sub(rewrite_block, content)
 
-    if getauscht[0] < 2:
+    if swapped[0] < 2:
         # Weniger als zwei Treffer heisst: Mindestens eines der beiden Geraete
         # hat gar keinen Block — dann gaebe es nichts zu tauschen, und ein
         # halber Tausch waere schlimmer als keiner.
         return False, 's_js_f_unbekannt', 0
-    if neu == inhalt:
+    if new == content:
         return False, 's_js_f_gleich', 0
 
-    sicherung = '%s.scbpw-%s' % (weg, time.strftime('%Y%m%d-%H%M%S'))
+    backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
-        shutil.copy2(weg, sicherung)
-    except Exception as ausnahme:
-        fehler.merken('joysticks.sicherung', ausnahme)
+        shutil.copy2(path, backup_file)
+    except Exception as exception:
+        fehler.merken('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
-        with open(weg, 'w', encoding='utf-8', newline='') as f:
-            f.write(neu)
-    except Exception as ausnahme:
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            f.write(new)
+    except Exception as exception:
         try:
-            shutil.copy2(sicherung, weg)
+            shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.tausch_schreiben', ausnahme)
+        fehler.merken('joysticks.swap_write', exception)
         return False, 's_js_f_schreiben', 0
-    return True, sicherung, getauscht[0]
+    return True, backup_file, swapped[0]
 
 
-def _doppelten_eintrag_leeren(inhalt, kennung):
+def _clear_duplicate_entry(content, ident):
     """Steht dieselbe Kennung in zwei `<options>`-Koepfen, bleibt der erste.
 
     Der zweite wird zu einem leeren Platz (`<options type="joystick"
     instance="N"/>`) — genau die Form, die das Spiel fuer unbelegte Plaetze
     selbst schreibt.
     """
-    kopf = re.compile(r'<options\b[^>]*?\btype="joystick"[^>]*?>')
-    gesehen = [False]
+    head = re.compile(r'<options\b[^>]*?\btype="joystick"[^>]*?>')
+    seen = [False]
 
-    def ersetzen(treffer):
-        ganz = treffer.group(0)
-        if kennung.upper() not in ganz.upper():
-            return ganz
-        if not gesehen[0]:
-            gesehen[0] = True
-            return ganz
-        nummer = re.search(r'instance="(\d+)"', ganz)
-        if not nummer:
-            return ganz
-        return '<options type="joystick" instance="%s"/>' % nummer.group(1)
+    def ersetzen(hit):
+        whole = hit.group(0)
+        if ident.upper() not in whole.upper():
+            return whole
+        if not seen[0]:
+            seen[0] = True
+            return whole
+        number = re.search(r'instance="(\d+)"', whole)
+        if not number:
+            return whole
+        return '<options type="joystick" instance="%s"/>' % number.group(1)
 
-    return kopf.sub(ersetzen, inhalt)
+    return head.sub(ersetzen, content)
 
 

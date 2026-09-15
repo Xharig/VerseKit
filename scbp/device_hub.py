@@ -25,8 +25,8 @@ keine davon ist für sich vollständig:
 | Quelle | Was sie weiß | Was sie nicht weiß |
 |---|---|---|
 | **das System** (`input_device.devices()`) | was **jetzt** angesteckt ist | nichts über das Spiel |
-| **die Game.log** (`joysticks.geraete()`) | was das Spiel zuletzt gesehen hat | ob es noch da ist |
-| **die actionmaps.xml** (`joysticks.zuordnung()`) | welche `js`-Nummer die Belegung meint | ob es das Gerät gibt |
+| **die Game.log** (`joysticks.devices()`) | was das Spiel zuletzt gesehen hat | ob es noch da ist |
+| **die actionmaps.xml** (`joysticks.assignment()`) | welche `js`-Nummer die Belegung meint | ob es das Gerät gibt |
 
 ⚠⚠ **Und die Nummern stimmen nicht überein.** Gemessen am 06.09.2026 an
 einem Aufbau mit drei Geräten:
@@ -98,12 +98,12 @@ def overview(folder=None, filename=None):
             live[device['kennung'].upper()] = device
 
     seen = {}
-    for device in joysticks.geraete(folder) or []:
+    for device in joysticks.devices(folder) or []:
         if device.get('kennung'):
             seen[device['kennung'].upper()] = device
 
     in_use = {}
-    for entry in joysticks.zuordnung(filename, folder) or []:
+    for entry in joysticks.assignment(filename, folder) or []:
         if entry.get('kennung'):
             in_use[entry['kennung'].upper()] = entry
 
@@ -194,7 +194,7 @@ def suggestions(folder=None, filename=None):
     ganze Belegung hängt) und einmal als `ohne_nummer` (die neue, die das
     Spiel noch nicht kennt). Wer das nicht weiß, sieht zwei Probleme, wo
     eines ist — und die Lösung ist ein einziger Handgriff:
-    `joysticks.kennung_tauschen()` hängt die alte Belegung an die neue
+    `joysticks.swap_id()` hängt die alte Belegung an die neue
     Kennung, ohne eine einzige Belegungszeile anzufassen.
 
     ## ⚠⚠ Geraten wird nicht
@@ -203,7 +203,7 @@ def suggestions(folder=None, filename=None):
     fehlt und genau **ein** neues ohne Nummer dasteht. Bei mehreren wäre die
     Zuordnung Ratearbeit — und ein falsch geratener Ersatz vertauscht zwei
     Sticks, was man erst im Gefecht merkt. Dieselbe Vorsicht wie in
-    `joysticks.vergleich()`, aus demselben Grund.
+    `joysticks.compare()`, aus demselben Grund.
 
     ⚠ Der **Name** spielt dabei keine Rolle, auch wenn er verlockend wäre.
     Dasselbe Gerät heißt an den drei Stellen verschieden; ein Namensvergleich
@@ -247,7 +247,7 @@ def suggestions(folder=None, filename=None):
 def reassign(old_id, new_id, filename=None, folder=None):
     """Die Belegung eines Geräts auf seine neue Kennung umhängen.
 
-    Reicht an `joysticks.kennung_tauschen()` durch — der Schritt, den der
+    Reicht an `joysticks.swap_id()` durch — der Schritt, den der
     Vorschlag `tausch` anbietet. Steht hier, damit die Oberfläche nur ein
     Modul kennen muss.
 
@@ -255,10 +255,10 @@ def reassign(old_id, new_id, filename=None, folder=None):
     Kennung im Kopf der Datei; alle `js<n>_`-Zeilen zeigen danach wieder auf
     ein Gerät, das da ist.
     """
-    # ⛔ `kennung_tauschen` heisst seine Parameter noch `datei`/`ordner` —
-    # die Sprachumstellung hat den Aufrufer erwischt, nicht die Funktion.
-    return joysticks.kennung_tauschen(old_id, new_id,
-                                      datei=filename, ordner=folder)
+    # ⛔ Schluesselwort-Aufruf: Die Parameter heissen seit P4 Stufe 10c
+    # `filename`/`folder` — wer sie hier umbenennt, zieht `swap_id` mit.
+    return joysticks.swap_id(old_id, new_id,
+                                      filename=filename, folder=folder)
 
 
 class Watchdog:

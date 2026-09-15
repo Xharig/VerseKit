@@ -3383,7 +3383,7 @@ def _device_hub(fenster, eltern):
 
             def _umhaengen(neu=geraet, vorher=alt):
                 from . import joysticks
-                zeilen = len(joysticks.belegungen() or {})
+                zeilen = len(joysticks.bindings() or {})
                 if not _ask(fenster, 
                         t('hf_joysticks'),
                         t('s_gh_tausch_frage').format(
@@ -3467,7 +3467,7 @@ def _joysticks(fenster, rahmen):
 
     daten = {}
     suche = tk.StringVar()
-    nur = {'geraet': '', 'sicht': joysticks.ALLES}
+    nur = {'geraet': '', 'sicht': joysticks.ALL}
 
     # ⚠⚠ **Das Suchfeld wird EINMAL gebaut und danach nie wieder angefasst.**
     #
@@ -3534,9 +3534,9 @@ def _joysticks(fenster, rahmen):
         # In der Sicht „noch nicht belegt" gibt es kein Gerät — die Aktion
         # gehört noch zu keinem. Ein Strich sagt das; „frei" sähe aus wie ein
         # Gerätename.
-        if kennzeichen == joysticks.FREI:
+        if kennzeichen == joysticks.FREE:
             return t('s_js_ohne_eingabe')
-        art = joysticks.art_von(kennzeichen)
+        art = joysticks.kind_of(kennzeichen)
         if art in ('tastatur', 'maus', 'gamepad'):
             return t('s_js_a_' + art)
         name = (daten.get('geraetenamen') or {}).get(kennzeichen, '')
@@ -3555,7 +3555,7 @@ def _joysticks(fenster, rahmen):
         v = daten.get('vergleich') or {}
         geraete = v.get('geraete') or []
         belegt = v.get('zuordnung') or []
-        zustand = v.get('zustand') or joysticks.LEER
+        zustand = v.get('zustand') or joysticks.EMPTY
 
         if not geraete:
             tk.Label(oben, text=t('s_js_leer'), bg=BG, fg=SUB,
@@ -3564,13 +3564,13 @@ def _joysticks(fenster, rahmen):
             return
 
         # --- Zustandszeile: die eine Aussage, wegen der man hier nachsieht ---
-        farbe = {joysticks.PASST: ACCENT, joysticks.ERSETZT: GOLD,
-                 joysticks.FEHLT: RED}.get(zustand, SUB)
-        if zustand == joysticks.PASST:
+        farbe = {joysticks.MATCHES: ACCENT, joysticks.REPLACED: GOLD,
+                 joysticks.MISSING: RED}.get(zustand, SUB)
+        if zustand == joysticks.MATCHES:
             satz = t('s_js_passt')
-        elif zustand == joysticks.ERSETZT:
+        elif zustand == joysticks.REPLACED:
             satz = t('s_js_ersetzt')
-        elif zustand == joysticks.FEHLT:
+        elif zustand == joysticks.MISSING:
             satz = t('s_js_fehlt', len(v.get('fehlende') or []))
         else:
             satz = t('s_js_keine_datei')
@@ -3578,7 +3578,7 @@ def _joysticks(fenster, rahmen):
                  anchor='w', justify='left', wraplength=560).pack(fill='x')
 
         # --- Der eine reparierbare Fall: Gerät unter neuer Kennung ---
-        if zustand == joysticks.ERSETZT and v.get('ersatz'):
+        if zustand == joysticks.REPLACED and v.get('ersatz'):
             alt, neu = v['ersatz'][0]
             tk.Label(oben, text=t('s_js_ersatz_frage', alt['name'],
                                   neu['name']),
@@ -3635,12 +3635,12 @@ def _joysticks(fenster, rahmen):
         eine Entscheidung darauf zu stützen.
         """
         eigene = 0
-        for liste in (joysticks.sicht(joysticks.MEINE) or {}).values():
+        for liste in (joysticks.view(joysticks.MINE) or {}).values():
             eigene += len(liste)
         if not _ask(fenster, t('s_js_zurueck'),
                                    t('s_js_zurueck_frage', eigene)):
             return
-        erfolg, meldung, _ = joysticks.zuruecksetzen()
+        erfolg, meldung, _ = joysticks.reset()
         if erfolg:
             _notice(fenster, t('hf_joysticks'),
                                 t('s_js_zurueck_ok', meldung))
@@ -3659,7 +3659,7 @@ def _joysticks(fenster, rahmen):
             suggestion='actionmaps' + endung, extension=endung)
         if not ziel:
             return
-        erfolg, meldung = joysticks.ausgeben(ziel, aktuelle())
+        erfolg, meldung = joysticks.export_file(ziel, aktuelle())
         if erfolg:
             _notice(fenster, t('hf_joysticks'),
                                 t('s_js_ausgabe_ok', meldung))
@@ -3676,7 +3676,7 @@ def _joysticks(fenster, rahmen):
         über die Spielkonsole hat.
         """
         from .main_window import ask_text
-        vorhandene = joysticks.profile()
+        vorhandene = joysticks.profiles()
         # ⚠ **Nicht `simpledialog.askstring`.** Der Systemdialog kommt grau, in
         # der Systemschrift und mit englischem „Cancel" — auf dem dunklen Grund
         # ein Fremdkörper. `text_stellen()` ist derselbe Dialog im Programmstil.
@@ -3686,20 +3686,20 @@ def _joysticks(fenster, rahmen):
             choices_title=t('s_js_profil_liste') if vorhandene else '')
         if name is None:
             return                       # abgebrochen, nicht leer bestätigt
-        ok, meldung = joysticks.name_pruefen(name)
+        ok, meldung = joysticks.check_name(name)
         if not ok:
             _notice(fenster, t('hf_joysticks'), t(meldung))
             return
         name = name.strip()
-        erfolg, meldung = joysticks.profil_speichern(name)
+        erfolg, meldung = joysticks.save_profile(name)
         # Ein vorhandenes Profil wird nicht stillschweigend überschrieben —
         # dahinter kann die Belegung eines ganzen Abends stecken.
         if not erfolg and meldung == 's_js_f_name_belegt':
             if not _ask(fenster, t('s_js_profil'),
                                        t('s_js_profil_ersetzen', name)):
                 return
-            erfolg, meldung = joysticks.profil_speichern(
-                name, ueberschreiben=True)
+            erfolg, meldung = joysticks.save_profile(
+                name, overwrite=True)
         if erfolg:
             _notice(fenster, t('hf_joysticks'),
                                 t('s_js_profil_ok', name, name))
@@ -3714,7 +3714,7 @@ def _joysticks(fenster, rahmen):
         # Mappings-Ordner liegt auf jedem Rechner woanders. Wer eine
         # zugeschickte Datei hat, nimmt weiter den zweiten Weg.
         quelle = None
-        vorhandene = joysticks.profile()
+        vorhandene = joysticks.profiles()
         if vorhandene:
             wahl = ask_choice(fenster.root, t('s_js_einlesen'),
                                 t('s_js_einlesen_woher'),
@@ -3725,7 +3725,7 @@ def _joysticks(fenster, rahmen):
                                        t('s_js_einlesen_waehlen'), vorhandene)
                 if not name:
                     return
-                quelle = joysticks.profil_datei(name)
+                quelle = joysticks.profile_file(name)
                 if not quelle:
                     _notice(fenster, t('hf_joysticks'),
                                            t('s_js_f_datei'))
@@ -3740,7 +3740,7 @@ def _joysticks(fenster, rahmen):
         if not _ask(fenster, t('s_js_einlesen'),
                                    t('s_js_einlesen_frage')):
             return
-        erfolg, meldung, anzahl = joysticks.einlesen(quelle)
+        erfolg, meldung, anzahl = joysticks.import_file(quelle)
         if erfolg:
             _notice(fenster, t('hf_joysticks'),
                                 t('s_js_einlesen_ok', anzahl, meldung))
@@ -3802,15 +3802,15 @@ def _joysticks(fenster, rahmen):
             liste_zeichnen()
 
         knoepfe = [beschriftung]
-        for schluessel, welche in ((('s_js_s_meine'), joysticks.MEINE),
-                                   ('s_js_s_alles', joysticks.ALLES),
-                                   ('s_js_s_standard', joysticks.STANDARD),
+        for schluessel, welche in ((('s_js_s_meine'), joysticks.MINE),
+                                   ('s_js_s_alles', joysticks.ALL),
+                                   ('s_js_s_standard', joysticks.DEFAULT),
                                    # ⭐ Ohne diese Sicht käme man an 411
                                    # Aktionen gar nicht heran: Was nirgends
                                    # belegt ist, steht in keiner Liste — und
                                    # was in keiner Liste steht, kann man auch
                                    # nicht anklicken, um es zu belegen.
-                                   ('s_js_s_frei', joysticks.FREI)):
+                                   ('s_js_s_frei', joysticks.FREE)):
             knoepfe.append(_button(fenster, sicht_rahmen, t(schluessel),
                                   (lambda w=welche: _waehlen(w)),
                                   strong=(nur['sicht'] == welche)))
@@ -3835,8 +3835,8 @@ def _joysticks(fenster, rahmen):
 
         knoepfe = [(t('s_js_alle'), '')]
         # Nach Art gruppiert, damit Tastatur und Maus nicht zwischen den
-        # Sticks stehen — die Reihenfolge kommt aus `joysticks.ARTEN`.
-        for art, kuerzel in joysticks.ARTEN:
+        # Sticks stehen — die Reihenfolge kommt aus `joysticks.KINDS`.
+        for art, kuerzel in joysticks.KINDS:
             for kennzeichen in sorted(k for k in alle
                                       if k.startswith(kuerzel)):
                 knoepfe.append((_geraetename(kennzeichen), kennzeichen))
@@ -3862,7 +3862,7 @@ def _joysticks(fenster, rahmen):
         namen = daten.get('namen') or {}
         gezeigt = []
         gesehen = set()
-        arten = list(joysticks.ARTEN) + [('frei', joysticks.FREI)]
+        arten = list(joysticks.KINDS) + [('frei', joysticks.FREE)]
         for _art, kuerzel in arten:
             for kennzeichen in sorted(k for k in alle
                                       if k.startswith(kuerzel)):
@@ -3871,7 +3871,7 @@ def _joysticks(fenster, rahmen):
                 for e in alle[kennzeichen]:
                     klar, hinweis, echt = (namen.get(e['aktion'])
                                            or ('', '', False))
-                    lesbar = joysticks.eingabe_lesbar(e['eingabe'],
+                    lesbar = joysticks.input_readable(e['eingabe'],
                                                       e.get('art', ''))
                     # ⚠ Dieselbe Aktion steht in mehreren Gruppen der
                     # Spieldatei. Ohne Entdoppelung erschien sie doppelt in
@@ -3893,7 +3893,7 @@ def _joysticks(fenster, rahmen):
 
         zaehler.configure(text='%s   ·   %s' % (
             t('s_js_bindungen', len(gezeigt)),
-            t('s_js_frei_hinweis') if nur['sicht'] == joysticks.FREI
+            t('s_js_frei_hinweis') if nur['sicht'] == joysticks.FREE
             else t('s_js_b_hinweis')))
         if not gezeigt:
             tk.Label(liste_rahmen, text=t('s_js_nichts'), bg=BG, fg=SUB,
@@ -3941,7 +3941,7 @@ def _joysticks(fenster, rahmen):
             # Langem in den Projektnotizen — sie greift nur, wenn man beim
             # Schreiben daran denkt, deshalb prüft die Abnahme jetzt die
             # Textbreiten.
-            if e.get('quelle') == joysticks.MEINE:
+            if e.get('quelle') == joysticks.MINE:
                 tk.Label(zeile, text=t('s_js_q_meine'), bg=SURFACE, fg=ACCENT,
                          font=fenster.f_small, anchor='e', padx=10).pack(
                              side='right')
@@ -3971,7 +3971,7 @@ def _joysticks(fenster, rahmen):
         _pack_on_demand(innen.canvas, gepackt)
 
     def _uebernehmen(alt, neu):
-        erfolg, meldung, _ = joysticks.kennung_tauschen(alt['kennung'],
+        erfolg, meldung, _ = joysticks.swap_id(alt['kennung'],
                                                         neu['kennung'],
                                                         neu['name'])
         if erfolg:
@@ -3994,9 +3994,9 @@ def _joysticks(fenster, rahmen):
         """
         from .binding_window import BindingWindow
         bereich = (eintrag.get('bereich')
-                   or joysticks.gruppe_von(eintrag['aktion'])
+                   or joysticks.group_of(eintrag['aktion'])
                    or _bereich_suchen(eintrag['aktion']))
-        if kennzeichen == joysticks.FREI:
+        if kennzeichen == joysticks.FREE:
             # Eine unbelegte Aktion gehört noch zu keinem Gerät — welches es
             # wird, entscheidet der Knopf, den der Spieler gleich drückt.
             kennzeichen = ''
@@ -4017,10 +4017,10 @@ def _joysticks(fenster, rahmen):
 
         Die Werkseinstellung nennt die Gruppe nicht mit — sie steht nur in
         der eigenen `actionmaps.xml`. Findet sich dort nichts, bleibt die
-        Gruppe leer, und `joysticks.belegen()` legt sie unter der
+        Gruppe leer, und `joysticks.bind_action()` legt sie unter der
         gebräuchlichsten an.
         """
-        for liste in (joysticks.belegungen() or {}).values():
+        for liste in (joysticks.bindings() or {}).values():
             for e in liste:
                 if e['aktion'] == aktion and e.get('bereich'):
                     return e['bereich']
@@ -4029,7 +4029,7 @@ def _joysticks(fenster, rahmen):
     def _laden():
         """Die Belegungen in der gewählten Sicht holen."""
         try:
-            daten['belegungen'] = joysticks.sicht(nur['sicht'])
+            daten['belegungen'] = joysticks.view(nur['sicht'])
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_sicht', ausnahme)
             daten['belegungen'] = {}
@@ -4040,7 +4040,7 @@ def _joysticks(fenster, rahmen):
     def _auffrischen(erzwingen=False):
         from .sprache import aktuelle
         try:
-            daten['vergleich'] = joysticks.vergleich()
+            daten['vergleich'] = joysticks.compare()
             # Nummer → Produktname, damit in der Liste nicht `js1` steht.
             daten['geraetenamen'] = {
                 'js%d' % z['nummer']: z['name']
@@ -4056,7 +4056,7 @@ def _joysticks(fenster, rahmen):
             # nach der Spielsprache: Wer den englischen Client fährt, aber die
             # Oberfläche auf Deutsch hat, will deutsche Aktionsnamen.
             #
-            # ⚠⚠ **Hier steht bewusst KEIN `vergessen()` mehr.**
+            # ⚠⚠ **Hier steht bewusst KEIN `forget()` mehr.**
             #
             # Die Geschichte dazu in drei Schritten, weil sie lehrreich ist:
             #
@@ -4070,11 +4070,11 @@ def _joysticks(fenster, rahmen):
             #    aktualisiert, bekam weiter die alten Namen.
             #
             # ⭐ Die Gültigkeit gehört dorthin, wo die Daten herkommen:
-            # `joysticks.klarnamen()` schlüsselt seinen Merker jetzt selbst
+            # `joysticks.labels()` schlüsselt seinen Merker jetzt selbst
             # nach Sprache **und** Zustand der Quelldateien. Diese Seite muss
             # gar nichts mehr darüber wissen — und bekommt trotzdem immer den
             # richtigen Stand.
-            daten['namen'] = joysticks.klarnamen(aktuelle())
+            daten['namen'] = joysticks.labels(aktuelle())
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_namen', ausnahme)
             daten['namen'] = {}
@@ -4088,10 +4088,10 @@ def _joysticks(fenster, rahmen):
         # Anfänger das gebaut".
         #
         # ⚠⚠ **Der Vergleich steht HIER — nach `_laden()`, nicht davor.**
-        # Die erste Fassung verglich nur `vergleich()`, und das enthält Geräte,
+        # Die erste Fassung verglich nur `compare()`, und das enthält Geräte,
         # Zuordnung und Dateipfad, **nicht die Belegungen**. Die kommen erst
-        # über `_laden()` → `joysticks.sicht()`. Der Prüfer hat es nachgestellt:
-        # `js1_x` auf `js1_y` umlegen — `vergleich()` bleibt gleich, die
+        # über `_laden()` → `joysticks.view()`. Der Prüfer hat es nachgestellt:
+        # `js1_x` auf `js1_y` umlegen — `compare()` bleibt gleich, die
         # Belegung ändert sich, und die Seite hätte den alten Stand gezeigt.
         # Importierte und im Werkzeug neu gesetzte Belegungen wären unsichtbar
         # geblieben.
@@ -4115,7 +4115,7 @@ def _joysticks(fenster, rahmen):
         kopf_zeichnen()
         # Die feste Hülle erst zeigen, wenn es wirklich Belegungen gibt —
         # ein Suchfeld über einer leeren Liste ist nur Ballast.
-        if daten.get('belegungen') or nur['sicht'] != joysticks.ALLES:
+        if daten.get('belegungen') or nur['sicht'] != joysticks.ALL:
             kopfzeile.pack(fill='x', pady=(16, 4))
             werkzeugleiste.pack(fill='x', pady=(0, 2))
             gefahrleiste.pack(fill='x', pady=(0, 10))
@@ -15454,12 +15454,12 @@ def _axes(fenster, rahmen):
     # in der alten Datei die Geräte anders durchnummeriert waren, die Werte
     # des falschen Sticks dazu. Nichts davon war zu sehen.
     #
-    # Gelesen wird jetzt die zuletzt geänderte (`joysticks.alle_actionmaps`).
+    # Gelesen wird jetzt die zuletzt geänderte (`joysticks.all_actionmaps`).
     # Das allein reicht aber nicht: Solange die Karteileiche danebenliegt,
     # kann sie beim nächsten Kopiervorgang wieder die jüngere sein. Deshalb
     # steht hier, was gefunden wurde — und welche davon zählt.
     from . import joysticks as _js_dateien
-    _dateien = _js_dateien.alle_actionmaps()
+    _dateien = _js_dateien.all_actionmaps()
     if len(_dateien) > 1:
         _kasten = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
                            highlightbackground=GOLD)
@@ -15542,13 +15542,13 @@ def _axes(fenster, rahmen):
         from . import device_set as _gs
         from . import joysticks as _js
         try:
-            weg = _js._pfad_actionmaps()
+            weg = _js._actionmaps_path()
             roh = b''
             if weg and os.path.exists(weg):
                 with open(weg, 'rb') as f:
                     roh = f.read()
             # ⚠⚠ Der XML-Hash allein reicht NICHT. `zusammenfassung()` hängt
-            # zusätzlich an `gueltige_kennungen()` → `joysticks.geraete()`,
+            # zusätzlich an `gueltige_kennungen()` → `joysticks.devices()`,
             # und die kommen aus dem **Spielprotokoll**, nicht aus der XML.
             # Vom Prüfer nachgestellt: dieselbe XML, eine Gerätekennung im
             # Protokoll ergänzt — ein Geräteblock wechselt von `aktiv=False`
@@ -15935,7 +15935,7 @@ def _axes(fenster, rahmen):
                             + '\n\n' + t('s_ac_spiel_zu')):
                         return
                     from . import joysticks
-                    erfolg, meldung, _ = joysticks.belegungen_tauschen(
+                    erfolg, meldung, _ = joysticks.swap_bindings(
                         gewaehlter['kennung'], z['kennung'])
                     if not erfolg:
                         _notice(fenster, t('hf_achsen'), t(meldung))
