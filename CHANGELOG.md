@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.40.0 - 2026-09-15
+
+> **Dein Hangar kommt jetzt über die Star Citizen: Hangar Extension ins
+> Werkzeug.** Die gepflegte Erweiterung von AlyxOne löst den alten Hangar
+> XPLORer als empfohlenen Weg ab — ein Klick auf der Pledge-Seite, und die
+> Flotte steht hier. Alte XPLORer-Dateien liest VerseKit weiterhin.
+
 ### Neu
 
 - **Der Hangar-Import liest jetzt auch den JSON-Export der „Star Citizen:

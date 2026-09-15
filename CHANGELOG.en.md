@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.40.0 - 2026-09-15
+
+> **Your hangar now comes into the tool through the Star Citizen: Hangar
+> Extension.** AlyxOne's maintained add-on replaces the old Hangar XPLORer as
+> the recommended way — one click on the pledge page, and your fleet is in
+> here. Old XPLORer files are still read.
+
 ### New
 
 - **The hangar import now also reads the JSON export of the “Star Citizen:
