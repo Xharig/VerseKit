@@ -1621,11 +1621,11 @@ def main():
             ('scbp/catalog.py', 'geschütz'),
             # Wortlaut des SPIELS, mit dem im Log GESUCHT wird — angezeigt
             # wird er nie. Rueckfall, falls die `global.ini` fehlt.
-            ('scbp/auftraege.py', 'Auftrag zurückgezogen'),
+            ('scbp/contracts.py', 'Auftrag zurückgezogen'),
             # ⚠ Die schweizerdeutsche Fassung (live-CH) derselben
             # Rueckfall-Tabelle. Kein Anzeigetext, sondern ein Suchmuster
             # fuer die Log-Zeile.
-            ('scbp/auftraege.py', 'Uftrag zurückgezogen'),
+            ('scbp/contracts.py', 'Uftrag zurückgezogen'),
             # Datenfeld der Übersetzungsquellen, nirgends angezeigt (geprüft)
             ('scbp/translation.py', 'Deutsche Übersetzung (rjcncpt)'),
             ('scbp/translation.py', 'StarStrings (aufgeräumte englische Texte)'),
@@ -4540,7 +4540,7 @@ def main():
     # "meldet nichts". Die Daten werden nachgebaut — auf dem Bau-Rechner gibt es
     # weder Spiel noch Katalog.
     import importlib as _im51
-    from scbp import auftraege as _au51
+    from scbp import contracts as _au51
 
     # a) Die Marken des eigenen Werkzeugs muessen aus dem Titel verschwinden.
     _faelle51 = [
@@ -4559,19 +4559,19 @@ def main():
         ('Ganz normaler Titel', 'Ganz normaler Titel'),
     ]
     for _roh51, _soll51 in _faelle51:
-        pruefe(_au51.sauber(_roh51) == _soll51, 'Marken entfernt: %s' % _soll51[:34])
+        pruefe(_au51.clean(_roh51) == _soll51, 'Marken entfernt: %s' % _soll51[:34])
 
     # b) ⚠ Die Phrase kommt aus der global.ini MIT Platzhalter (`... : %s`).
     #    Bliebe er stehen, passte die Zeile nie — die Funktion waere tot und
     #    niemand haette es gemerkt.
-    pruefe(_au51._phrase_kuerzen('Auftrag angenommen: %s') == 'Auftrag angenommen',
+    pruefe(_au51._shorten_phrase('Auftrag angenommen: %s') == 'Auftrag angenommen',
            'der Platzhalter am Phrasen-Ende faellt weg')
 
     # c) Das Suchmuster muss die echte Logzeile treffen — und die Zwischenziele
     #    in Ruhe lassen. ⚠ Auf Deutsch heissen `MissionEvent_Available` UND
     #    `ObjectiveEvent_Activated` beide "Neuer Auftrag"; wer darauf hoert,
     #    meldet bei jedem Etappenziel.
-    _m51 = _au51.muster()
+    _m51 = _au51.start_pattern()
     _treffer51 = _m51.findall(
         'Added notification "Auftrag angenommen: Retake Platforms: "\n'
         'Added notification "Contract Accepted: Data Transfer: "\n')
@@ -4583,29 +4583,29 @@ def main():
            'ein zurueckgezogener Auftrag loest NICHTS aus')
 
     # d) Die Auswertung selbst, mit nachgebautem Katalog.
-    _alt51 = _au51._missionen, _au51._index, _au51._muster_index
+    _alt51 = _au51._missions, _au51._index, _au51._pattern_index
     try:
-        _au51._missionen = {'test_title_001': {'bp': ['Alpha BP', 'Beta BP', 'Gamma BP']}}
+        _au51._missions = {'test_title_001': {'bp': ['Alpha BP', 'Beta BP', 'Gamma BP']}}
         _au51._index = {'testauftrag': 'test_title_001'}
-        _au51._muster_index = []
+        _au51._pattern_index = []
         _hat51 = lambda n: n in ('Alpha BP', 'Beta BP')
-        pruefe(_au51.pruefen('Testauftrag', _hat51) == (3, ['Gamma BP']),
+        pruefe(_au51.check('Testauftrag', _hat51) == (3, ['Gamma BP']),
                'meldet Gesamtzahl und was davon fehlt')
-        pruefe(_au51.pruefen('Testauftrag', lambda n: True) == (3, []),
+        pruefe(_au51.check('Testauftrag', lambda n: True) == (3, []),
                'hat man alles, bleibt die Liste leer')
-        pruefe(_au51.pruefen('Voellig unbekannter Auftrag', _hat51) is None,
+        pruefe(_au51.check('Voellig unbekannter Auftrag', _hat51) is None,
                'unbekannter Auftrag: es wird GESCHWIEGEN, nicht geraten')
         # ⚠ Platzhalter-Titel: 58 von 353 tragen `~mission(...)`, ein woertlicher
         #    Vergleich scheitert dort. Der Rest muss trotzdem woertlich passen.
         _au51._index = {}
-        _au51._muster_index = [(__import__('re').compile(r'^High\-Risk Bounty: .+$'),
+        _au51._pattern_index = [(__import__('re').compile(r'^High\-Risk Bounty: .+$'),
                                 'test_title_001')]
-        pruefe(_au51.pruefen('High-Risk Bounty: Jemand', _hat51) == (3, ['Gamma BP']),
+        pruefe(_au51.check('High-Risk Bounty: Jemand', _hat51) == (3, ['Gamma BP']),
                'Platzhalter-Titel werden ueber ein Muster gefunden')
-        pruefe(_au51.pruefen('Low-Risk Bounty: Jemand', _hat51) is None,
+        pruefe(_au51.check('Low-Risk Bounty: Jemand', _hat51) is None,
                'und das Muster passt nicht auf einen anderen Auftragstyp')
     finally:
-        _au51._missionen, _au51._index, _au51._muster_index = _alt51
+        _au51._missions, _au51._index, _au51._pattern_index = _alt51
 
     # e) Jeder Text der neuen Zeile muss in BEIDEN Sprachen dastehen.
     from scbp import sprache as _sp51
@@ -5407,7 +5407,7 @@ def main():
     print()
     print('58. Abgeschlossener Auftrag bleibt abgeschlossen')
     from scbp import logsource as _lq58
-    from scbp import auftraege as _au58
+    from scbp import contracts as _au58
     from scbp import pfade as _pf58
 
     _log58 = os.path.join(tempfile.mkdtemp(), 'Game.log')
@@ -5435,8 +5435,8 @@ def main():
     try:
         _pf58.game_log = lambda: _log58
         _t58 = _lq58.LogTail(_Stand58())
-        _t58.mission_pattern = _au58.muster()
-        _t58.mission_end_pattern = _au58.ende_muster()
+        _t58.mission_pattern = _au58.start_pattern()
+        _t58.mission_end_pattern = _au58.end_pattern()
 
         _t58.new_names()
         pruefe(len(_t58.missions) == 1 and len(_t58.missions_done) == 1,
@@ -5461,7 +5461,7 @@ def main():
 
         # c) Und die Gesamtrechnung ueber die ganze Datei: nichts offen.
         _text58 = open(_log58, encoding='utf-8').read()
-        pruefe(_au58.offene_aus_text(_text58, _t58.mission_pattern,
+        pruefe(_au58.open_from_text(_text58, _t58.mission_pattern,
                                      _t58.mission_end_pattern) == [],
                'ueber die ganze Log gerechnet ist KEIN Auftrag mehr offen')
     finally:
@@ -8570,7 +8570,7 @@ def main():
     # die MissionId. Es muss also weder geraten noch geräumt werden.
     print()
     print('89. Ein Ende meint den Auftrag — oder nur ein Zwischenziel')
-    from scbp import auftraege as _au89
+    from scbp import contracts as _au89
 
     def _zeile89(art, titel, mid='11111111-1111-1111-1111-111111111111', oid=''):
         return ('Added notification "%s: %s: " [1] to queue. New queue size: 1,'
@@ -8591,23 +8591,23 @@ def main():
                       mid='33333333-3333-3333-3333-333333333333')
 
     # a) Der Kern des Fehlers vom 31.08.2026.
-    _laeuft89 = _au89.offene_aus_text(_an89 + _ziel89 + _zielweg89)
+    _laeuft89 = _au89.open_from_text(_an89 + _ziel89 + _zielweg89)
     pruefe(len(_laeuft89) == 1 and 'Retake Platforms' in _laeuft89[0],
            'ein zurueckgezogenes ZIEL laesst den Auftrag stehen')
 
     # b) Und er reisst auch keinen zweiten mit — das war v3.4.4.
-    pruefe(len(_au89.offene_aus_text(_an89 + _neu89 + _zielweg89)) == 2,
+    pruefe(len(_au89.open_from_text(_an89 + _neu89 + _zielweg89)) == 2,
            'und raeumt schon gar nicht die ganze Liste')
 
     # c) Der echte Abbruch verschwindet trotzdem — ueber die MissionId, auch
     #    wenn der Endtitel voellig anders lautet (Morkhans Fall).
-    _nach89 = _au89.offene_aus_text(_an89 + _neu89 + _weg89)
+    _nach89 = _au89.open_from_text(_an89 + _neu89 + _weg89)
     pruefe(len(_nach89) == 1 and 'Kill the king' in _nach89[0],
            'ein echter Abbruch trifft ueber die MissionId genau seinen Auftrag')
 
-    pruefe(_au89.offene_aus_text(_an89 + _fertig89) == [],
+    pruefe(_au89.open_from_text(_an89 + _fertig89) == [],
            'ein sauber abgeschlossener verschwindet weiterhin')
-    pruefe(len(_au89.offene_aus_text(_an89)) == 1,
+    pruefe(len(_au89.open_from_text(_an89)) == 1,
            'ein laufender Auftrag bleibt stehen')
 
     # d) Ohne die Kennungen — fremdes Format, aeltere Spielfassung — muss
@@ -8615,21 +8615,21 @@ def main():
     #    kuenftigen Log-Aenderung still auf „nichts geht mehr" zurueck.
     _alt89 = 'Added notification "Auftrag angenommen: Secure Our Airspace: " [1]' + '\n'
     _altweg89 = 'Added notification "Auftrag abgeschlossen: Secure Our Airspace: " [2]' + '\n'
-    pruefe(len(_au89.offene_aus_text(_alt89)) == 1
-           and _au89.offene_aus_text(_alt89 + _altweg89) == [],
+    pruefe(len(_au89.open_from_text(_alt89)) == 1
+           and _au89.open_from_text(_alt89 + _altweg89) == [],
            'ohne MissionId zaehlt weiterhin der Titel')
 
     # e) Die Kennungen kommen auch wirklich mit heraus — der laufende Betrieb
     #    braucht sie, um ein spaeteres Ende zuzuordnen.
-    _ereig89 = _au89.ereignisse_aus_text(_an89 + _zielweg89)
+    _ereig89 = _au89.events_from_text(_an89 + _zielweg89)
     pruefe(len(_ereig89) == 2 and len(_ereig89[0]) == 4
            and _ereig89[0][2].startswith('11111111')
            and _ereig89[0][3] == '' and _ereig89[1][3].startswith('22222222'),
-           'ereignisse_aus_text liefert MissionId und ObjectiveId mit')
+           'events_from_text liefert MissionId und ObjectiveId mit')
 
-    _offen89, _mid89 = _au89.stand_aus_text(_an89)
+    _offen89, _mid89 = _au89.state_from_text(_an89)
     pruefe(list(_mid89) == ['11111111-1111-1111-1111-111111111111'],
-           'stand_aus_text gibt die Missions-Kennungen zurueck')
+           'state_from_text gibt die Missions-Kennungen zurueck')
 
     # f) Und das Hauptprogramm darf NICHT pauschal raeumen.
     #
@@ -8643,10 +8643,10 @@ def main():
     # | Auslöser | räumen? | warum |
     # |---|---|---|
     # | Ende, das sich keinem Auftrag zuordnen lässt | **nein** | geraten — das war v3.4.4 |
-    # | Spielwelt verlassen (`VERLASSEN`) | **ja** | das Spiel sagt es selbst |
+    # | Spielwelt verlassen (`LEFT_GAME`) | **ja** | das Spiel sagt es selbst |
     _fremd89 = _zeile89('Auftrag abgeschlossen', 'Nie angenommener Auftrag',
                         mid='99999999-9999-9999-9999-999999999999')
-    pruefe(len(_au89.offene_aus_text(_an89 + _neu89 + _fremd89)) == 2,
+    pruefe(len(_au89.open_from_text(_an89 + _neu89 + _fremd89)) == 2,
            'ein unzuordenbares Ende raeumt NICHTS (die v3.4.4-Falle)')
 
     # g) Ausloggen dagegen raeumt — und zwar alles.
@@ -8658,30 +8658,30 @@ def main():
     # Auftrag hat eines ueberlebt.
     _raus89 = ('<2026-08-30T12:27:22.352Z> [CSessionManager::RequestFrontEnd]'
                ' Started - RequestFrontEndReason="OnLobbyPostGameUnload"!') + '\n'
-    pruefe(_au89.offene_aus_text(_an89 + _neu89 + _raus89) == [],
+    pruefe(_au89.open_from_text(_an89 + _neu89 + _raus89) == [],
            'Ausloggen raeumt die Liste')
-    pruefe(len(_au89.offene_aus_text(_an89 + _raus89 + _neu89)) == 1,
+    pruefe(len(_au89.open_from_text(_an89 + _raus89 + _neu89)) == 1,
            'was DANACH angenommen wird, bleibt stehen')
 
     # ⚠ Die Gegenprobe: Ohne den Marker muesste der alte Fehler wieder da
     # sein. Ist er das nicht, prueft der Test oben nichts.
     import re as _re89
-    _merk89 = _au89.VERLASSEN
-    _au89.VERLASSEN = _re89.compile(r'(?!x)x')
-    _ohne89 = _au89.offene_aus_text(_an89 + _neu89 + _raus89)
-    _au89.VERLASSEN = _merk89
+    _merk89 = _au89.LEFT_GAME
+    _au89.LEFT_GAME = _re89.compile(r'(?!x)x')
+    _ohne89 = _au89.open_from_text(_an89 + _neu89 + _raus89)
+    _au89.LEFT_GAME = _merk89
     pruefe(len(_ohne89) == 2,
            'ohne den Marker stuenden sie wieder da (Gegenprobe)')
 
     # h) Das Ereignis traegt keinen Titel — wer `sauber(titel)` zuerst prueft,
     #    wirft es weg und raeumt nie. Genau diese Reihenfolge ist die Falle.
-    _ev89 = _au89.ereignisse_aus_text(_an89 + _raus89)
+    _ev89 = _au89.events_from_text(_an89 + _raus89)
     pruefe([e[0] for e in _ev89] == [True, None],
            'das Verlassen kommt als eigenes Ereignis (ist_annahme is None)')
     _w89 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                 encoding='utf-8').read()
     _ab89 = _w89.split('def _auftraege_melden')[1].split('def _emit')[0]
-    pruefe('beendet_welchen' in _ab89,
+    pruefe('which_ended' in _ab89,
            'der laufende Betrieb entscheidet ueber dieselbe Stelle wie der Start')
 
     # 90. Der Seitenwechsel zeichnet nur, wenn es etwas zu zeichnen gibt
@@ -8802,7 +8802,7 @@ def main():
     # zählt Ziele als Aufträge.
     print()
     print('92. Was gerade zu tun ist — Zwischenziele unter dem Auftrag')
-    from scbp import auftraege as _au92
+    from scbp import contracts as _au92
 
     _m92 = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
 
@@ -8818,35 +8818,35 @@ def main():
                 ' [Team_GameServices][Missions]'
                 % (_m92, oid, zustand, flags)) + '\n'
 
-    _z92 = _au92.Ziele()
-    _z92.aufnehmen(_au92.ziel_ereignisse_aus_text(
+    _z92 = _au92.Objectives()
+    _z92.absorb(_au92.objective_events_from_text(
         _mld92('Neuer Auftrag', 'Solanki-Plattform erreichen', 'aaaa1111')
         + _zst92('aaaa1111', 'INPROGRESS')))
-    pruefe(_z92.offen(_m92) == ['Solanki-Plattform erreichen'],
+    pruefe(_z92.open_for(_m92) == ['Solanki-Plattform erreichen'],
            'ein angefangenes Ziel steht da')
 
     # a) Der halbe Maschinenraum bleibt draussen: Zaehler und Zonenwaechter
     #    laufen als Ziele mit, gehoeren aber in kein Auftragsbuch.
-    _z92.aufnehmen(_au92.ziel_ereignisse_aus_text(
+    _z92.absorb(_au92.objective_events_from_text(
         _zst92('cccc3333', 'INPROGRESS', 'SilentUpdates|')))
-    pruefe(_z92.offen(_m92) == ['Solanki-Plattform erreichen'],
+    pruefe(_z92.open_for(_m92) == ['Solanki-Plattform erreichen'],
            'ein internes Ziel ohne ShowInLog taucht NICHT auf')
 
     # b) Ohne Wortlaut wird geschwiegen — dieselbe Linie wie ueberall.
-    _z92.aufnehmen(_au92.ziel_ereignisse_aus_text(_zst92('eeee5555', 'INPROGRESS')))
-    pruefe(_z92.offen(_m92) == ['Solanki-Plattform erreichen'],
+    _z92.absorb(_au92.objective_events_from_text(_zst92('eeee5555', 'INPROGRESS')))
+    pruefe(_z92.open_for(_m92) == ['Solanki-Plattform erreichen'],
            'ein Ziel ohne bekannten Wortlaut wird nicht erfunden')
 
     # c) Erledigt heisst weg — und zurueckgezogen auch.
-    _geaendert92 = _z92.aufnehmen(_au92.ziel_ereignisse_aus_text(
+    _geaendert92 = _z92.absorb(_au92.objective_events_from_text(
         _zst92('aaaa1111', 'COMPLETED')
         + _mld92('Neuer Auftrag', 'Dach erreichen', 'dddd4444')
         + _zst92('dddd4444', 'INPROGRESS')))
-    pruefe(_z92.offen(_m92) == ['Dach erreichen'],
+    pruefe(_z92.open_for(_m92) == ['Dach erreichen'],
            'ein erledigtes Ziel macht dem naechsten Platz')
     pruefe(_geaendert92 is True,
            'die Buchfuehrung meldet, dass sich etwas geaendert hat')
-    pruefe(_z92.aufnehmen([]) is False,
+    pruefe(_z92.absorb([]) is False,
            'und meldet nichts, wenn nichts kam')
 
     # d) ⚠⚠ **Das war der Fehler vom 31.08.2026.** Ein zurueckgezogenes ZIEL
@@ -8857,15 +8857,15 @@ def main():
                + _zst92('dddd4444', 'INPROGRESS')
                + _mld92('Auftrag zurückgezogen', 'Dach erreichen', 'dddd4444')
                + _zst92('dddd4444', 'WITHDRAWN'))
-    _offen92, _mid92 = _au92.stand_aus_text(_text92)
-    _z92b = _au92.Ziele()
-    _z92b.aufnehmen(_au92.ziel_ereignisse_aus_text(_text92))
-    pruefe(len(_offen92) == 1 and _z92b.offen(_m92) == [],
+    _offen92, _mid92 = _au92.state_from_text(_text92)
+    _z92b = _au92.Objectives()
+    _z92b.absorb(_au92.objective_events_from_text(_text92))
+    pruefe(len(_offen92) == 1 and _z92b.open_for(_m92) == [],
            'das Ziel ist weg, der Auftrag bleibt')
 
     # e) Und der Auftrag nimmt seine Ziele mit, wenn er endet.
-    _z92b.vergessen(_m92)
-    pruefe(_z92b.offen(_m92) == [],
+    _z92b.forget(_m92)
+    pruefe(_z92b.open_for(_m92) == [],
            'ein beendeter Auftrag laesst keine Ziele zurueck')
 
     # f) Die Anzeige. @ Geprueft wird, was dasteht — nicht, was im Quelltext
@@ -8892,13 +8892,13 @@ def main():
            'ein Auftrag ohne Ziele wird weiterhin angezeigt')
 
     # h) Was nicht mehr passt, wird gezaehlt statt verschwiegen.
-    _viele92 = ['Ziel %d' % _i for _i in range(_au92.ZIELE_MAX + 3)]
+    _viele92 = ['Ziel %d' % _i for _i in range(_au92.OBJECTIVES_MAX + 3)]
     _ov92.auftraege_zeigen([('viel', 'Auftrag: Viele Ziele', _viele92)])
     for _ in range(4):
         _wz92.update()
         _wz92.update_idletasks()
-    pruefe(len(_texte91(_ov92, 'Ziel ')) == _au92.ZIELE_MAX,
-           'hoechstens %d Ziele stehen untereinander' % _au92.ZIELE_MAX)
+    pruefe(len(_texte91(_ov92, 'Ziel ')) == _au92.OBJECTIVES_MAX,
+           'hoechstens %d Ziele stehen untereinander' % _au92.OBJECTIVES_MAX)
     pruefe(len(_texte91(_ov92, '3')) >= 1,
            'und der Rest wird gezaehlt, nicht verschwiegen')
 
@@ -11037,15 +11037,15 @@ def main():
 
         # Gegenprobe: Ohne das Putzen der Marken zerfaellt derselbe Auftrag in
         # mehrere. Wenn die Wache das NICHT bemerkt, prueft sie nichts.
-        _echt113 = _ml113.auftraege.sauber
-        _ml113.auftraege.sauber = lambda t: (t or '').strip()
+        _echt113 = _ml113.contracts.clean
+        _ml113.contracts.clean = lambda t: (t or '').strip()
         try:
             _roh113 = _ml113.aus_ordner(_wiese113)
             pruefe(len({e['name'] for e in _roh113}) > 1,
                    'Gegenprobe: ohne Putzen zerfaellt der Auftrag in mehrere '
                    '(%d Namen)' % len({e['name'] for e in _roh113}))
         finally:
-            _ml113.auftraege.sauber = _echt113
+            _ml113.contracts.clean = _echt113
 
         # Fortschreiben: Das Protokoll muss stehen bleiben, wenn die Logs fort
         # sind — genau dafuer gibt es die Datei.
@@ -11262,7 +11262,7 @@ def main():
     # laufende Auftraege, im Spiel war einer.
     print()
     print('113f. Ein Auftrag endet auch ohne Meldung')
-    _au113f = importlib.import_module('scbp.auftraege')
+    _au113f = importlib.import_module('scbp.contracts')
     _mid113f = 'e0b968d5-7575-48b6-9a50-5eaa1ad96745'
     _log113f = (
         '<2026-09-04T11:27:47.000Z> [Notice] <SHUDEvent_OnNotification> Added '
@@ -11272,7 +11272,7 @@ def main():
         'player. MissionId[%s] Player[Spieler] CompletionType[Abandon] '
         'Reason[Player left] [Team_MissionFeatures][Missions]\n'
         % (_mid113f, _mid113f))
-    _offen113f, _ = _au113f.stand_aus_text(_log113f)
+    _offen113f, _ = _au113f.state_from_text(_log113f)
     pruefe(_offen113f == [],
            'ein stilles Ende raeumt den Auftrag weg (offen: %r)'
            % [_au113f.sauber(t) for t in _offen113f])
@@ -11280,7 +11280,7 @@ def main():
     # ⚠ Gegenprobe 1: OHNE das Ende muss er stehen bleiben — sonst raeumt die
     # Regel Auftraege weg, die wirklich laufen.
     _nur_an113f = _log113f.split(chr(10))[0] + chr(10)
-    _offen113g, _ = _au113f.stand_aus_text(_nur_an113f)
+    _offen113g, _ = _au113f.state_from_text(_nur_an113f)
     pruefe(len(_offen113g) == 1,
            'ohne das Ende bleibt der Auftrag offen (%d)' % len(_offen113g))
 
@@ -11289,7 +11289,7 @@ def main():
         '<2026-09-04T11:30:00.000Z> [Notice] <EndMission> Ending mission for '
         'player. MissionId[11111111-2222-3333-4444-555555555555] '
         'CompletionType[Complete]\n')
-    _offen113h, _ = _au113f.stand_aus_text(_fremd113f)
+    _offen113h, _ = _au113f.state_from_text(_fremd113f)
     pruefe(len(_offen113h) == 1,
            'ein fremdes Ende laesst den Auftrag in Ruhe (%d)'
            % len(_offen113h))
@@ -13062,9 +13062,9 @@ def main():
     #     <EndMission> … MissionId[7dc679f3-…] CompletionType[Abandon]
     #
     # Kein Titel. Der Watcher warf jedes titellose Ereignis weg, bevor
-    # `beendet_welchen` gefragt wurde — und deren dritter Schritt haette es
+    # `which_ended` gefragt wurde — und deren dritter Schritt haette es
     # ueber die MissionId aufgeloest.
-    from scbp import auftraege as _au133
+    from scbp import contracts as _au133
 
     _echt133 = (
         '<2026-09-05T22:20:29.057Z> [Notice] <SHUDEvent_OnNotification> Added'
@@ -13077,7 +13077,7 @@ def main():
         ' Player[Xharig] PlayerId[207671730209] CompletionType[Abandon]'
         ' Reason[Player left] [Team_MissionFeatures][Missions]\n')
 
-    _ev133 = list(_au133.ereignisse_aus_text(_echt133))
+    _ev133 = list(_au133.events_from_text(_echt133))
     pruefe(len(_ev133) == 2, 'beide Ereignisse werden gelesen')
     pruefe(_ev133[1][1] == '' and _ev133[1][2],
            'das Ende kommt titellos, aber mit MissionId')
@@ -13086,7 +13086,7 @@ def main():
         """Der Ablauf aus `sc_bp_watcher`, auf das Noetige eingedampft."""
         offen, missionen = {}, {}
         for _annahme, _titel, _mid, _oid in _ev133:
-            _rein = _au133.sauber(_titel)
+            _rein = _au133.clean(_titel)
             if _annahme:
                 if not _rein:
                     continue
@@ -13099,7 +13099,7 @@ def main():
                     continue
             elif not _rein and not _mid:
                 continue
-            _weg = _au133.beendet_welchen(_rein, _mid, _oid, offen, missionen)
+            _weg = _au133.which_ended(_rein, _mid, _oid, offen, missionen)
             if _weg is not None:
                 offen.pop(_weg, None)
         return offen
@@ -13116,10 +13116,10 @@ def main():
     _blind133[1] = (False, '', '', '')
     _offen133 = {'Irgendein Auftrag': 'Irgendein Auftrag'}
     for _a, _t, _m, _o in _blind133[1:]:
-        _r = _au133.sauber(_t)
+        _r = _au133.clean(_t)
         if not _r and not _m:
             continue
-        _offen133.pop(_au133.beendet_welchen(_r, _m, _o, _offen133, {}), None)
+        _offen133.pop(_au133.which_ended(_r, _m, _o, _offen133, {}), None)
     pruefe(len(_offen133) == 1,
            'ohne Titel und ohne Kennung wird nichts geraeumt')
 
@@ -17242,6 +17242,12 @@ def main():
         # ⚠ Die Klasse `LogTail` bleibt, wie sie heisst — schon englisch,
         # und es ist der Fachbegriff fuers Mitlesen am Dateiende.
         'logquelle': 'logsource',
+        # Stufe 10a — die Auftraege aus dem Log
+        #
+        # ⚠ `contracts` ist der Begriff des Spiels („Contract Accepted").
+        # Die Daten-Schluessel `'auftraege'` (Auftragslog-Datei, Export,
+        # Ruf-Tabelle, Warteschlange im Watcher) bleiben deutsch.
+        'auftraege': 'contracts',
     }
 
     def _reste190(quelle, name, alte):
@@ -19612,13 +19618,13 @@ def main():
     #   3. Derselbe Auftrag stand zweimal in der Liste, roh und aufgeloest.
     #
     # ⚠ Diese Pruefung prueft das VERHALTEN, nicht die Schreibweise: Sie baut
-    # die Lage nach und fragt nach dem Ergebnis. Eine Textsuche nach `_VARIANTE`
+    # die Lage nach und fragt nach dem Ergebnis. Eine Textsuche nach `_VARIANT`
     # waere gruen gewesen, waehrend der Fehler dastand.
     print('200. Auftragszuordnung — der richtige Auftrag oder gar keiner')
     import tempfile as _tmp200
-    from scbp import auftraege as _au200
-    _alt200 = (_au200._missionen, _au200._index, _au200._muster_index,
-               _au200._ini_dateien)
+    from scbp import contracts as _au200
+    _alt200 = (_au200._missions, _au200._index, _au200._pattern_index,
+               _au200._ini_files)
     try:
         _ordner200 = _tmp200.mkdtemp(prefix='scbp_auftrag_')
         _ini200 = os.path.join(_ordner200, 'global.ini')
@@ -19637,24 +19643,24 @@ def main():
                         '~mission(Objects)\n')
             _f200.write('Eng_Title,P=Orange Lvl. Contract: Protect '
                         '~mission(Objects) and Escort Employees\n')
-        _au200._ini_dateien = lambda: [_ini200]
-        _au200._missionen = {
+        _au200._ini_files = lambda: [_ini200]
+        _au200._missions = {
             'Eng_Title':      {'bp': ['Panther', 'Rhino', 'Mammoth']},
             'Weit_Title_001': {'bp': ['Antium']},
         }
-        _au200._index, _au200._muster_index = None, None
+        _au200._index, _au200._pattern_index = None, None
 
         _titel200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort Employees'
         # a) Die Variantenkennung darf den Auftrag nicht verstecken.
-        pruefe(_au200.schluessel_zu(_titel200) == 'Eng_Title',
+        pruefe(_au200.key_for(_titel200) == 'Eng_Title',
                'ein ini-Schluessel mit `,P` findet seinen Katalogeintrag')
         # b) Und das genauere Muster schlaegt das blosse Praefix.
-        pruefe(_au200.pruefen(_titel200, lambda n: False) == (3, ['Panther',
+        pruefe(_au200.check(_titel200, lambda n: False) == (3, ['Panther',
                                                                  'Rhino',
                                                                  'Mammoth']),
                'das genauere Muster gewinnt gegen ein blosses Praefix')
         # c) Fuer den Nachbarn selbst bleibt sein eigener Eintrag richtig.
-        pruefe(_au200.schluessel_zu('Orange Lvl. Contract: Protect Fuel Tanks')
+        pruefe(_au200.key_for('Orange Lvl. Contract: Protect Fuel Tanks')
                == 'Weit_Title_001',
                'der unspezifische Auftrag behaelt seinen eigenen Titel')
 
@@ -19662,17 +19668,17 @@ def main():
         with open(_ini200, 'w', encoding='utf-8') as _f200:
             _f200.write('Eins_Title=Wanted: ~mission(Target)\n')
             _f200.write('Zwei_Title=Wanted: ~mission(Person)\n')
-        _au200._missionen = {'Eins_Title': {'bp': ['A']},
+        _au200._missions = {'Eins_Title': {'bp': ['A']},
                              'Zwei_Title': {'bp': ['B', 'C']}}
-        _au200._index, _au200._muster_index = None, None
-        pruefe(_au200.schluessel_zu('Wanted: Jemand') is None,
+        _au200._index, _au200._pattern_index = None, None
+        pruefe(_au200.key_for('Wanted: Jemand') is None,
                'zwei gleich gute Muster auf verschiedene Auftraege: es wird '
                'GESCHWIEGEN')
-        pruefe(_au200.pruefen('Wanted: Jemand', lambda n: False) is None,
+        pruefe(_au200.check('Wanted: Jemand', lambda n: False) is None,
                'und damit steht auch keine erfundene Bauplan-Angabe da')
     finally:
-        (_au200._missionen, _au200._index, _au200._muster_index,
-         _au200._ini_dateien) = _alt200
+        (_au200._missions, _au200._index, _au200._pattern_index,
+         _au200._ini_files) = _alt200
 
     # e) ⛔⛔ Derselbe Auftrag, zweimal gemeldet — WÖRTLICH wie im echten Log.
     #
@@ -19685,7 +19691,7 @@ def main():
     # Quelle, prueft seine Vorstellung. Die echten Zeilen (13.09.2026):
     _roh200 = 'Orange Lvl. Contract: Protect ~mission(Objects) and Escort Employees'
     _fein200 = 'Orange Lvl. Contract: Protect Fuel Tanks and Escort Employees'
-    _null200 = _au200.NULLKENNUNG
+    _null200 = _au200.NULL_ID
     _mid200 = '7a12d7cf-936d-42e7-996e-db6364edc24d'
     _text200 = (
         'Added notification "Auftrag geteilt: %s <EM4>[BP!]</EM4>: " to queue. '
@@ -19695,23 +19701,23 @@ def main():
         % (_roh200, _null200, _fein200, _mid200))
     # ⛔⛔ **BEIDE Buchfuehrungen pruefen — nicht nur eine.**
     #
-    # v3.32.3 filterte den Platzhalter-Titel in `stand_aus_text`. Das ist die
+    # v3.32.3 filterte den Platzhalter-Titel in `state_from_text`. Das ist die
     # Buchfuehrung fuer den START. Der laufende Betrieb (`_auftraege_melden`
-    # im Watcher) baut seine Liste aber DIREKT aus `ereignisse_aus_text` —
+    # im Watcher) baut seine Liste aber DIREKT aus `events_from_text` —
     # dort griff nichts. Beim naechsten angenommenen Auftrag stand der
     # Doppeleintrag wieder da, und zwar bei einem ganz anderen Auftrag
     # („Stop Rival Attack at ~mission(Location)"), also kein Einzelfall.
     #
     # Dieselbe Falle wie bei den zwei Schreibwegen in die `global.ini`: Wer
     # eine von zwei Stellen anfasst, baut die Haelfte.
-    _roh_ereignisse200 = [e for e in _au200.ereignisse_aus_text(_text200)
+    _roh_ereignisse200 = [e for e in _au200.events_from_text(_text200)
                           if e[0] is True]
     pruefe(all('~mission(' not in (e[1] or '') for e in _roh_ereignisse200),
            'schon die QUELLE gibt keine Annahme mit Platzhalter-Titel heraus')
     pruefe(len(_roh_ereignisse200) == 1,
            'und damit sieht auch der laufende Betrieb nur EINE Annahme')
 
-    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    _offen200, _kenn200 = _au200.state_from_text(_text200)
     pruefe(len(_offen200) == 1,
            'geteilt + angenommen ergibt EINEN Eintrag, nicht zwei')
     pruefe(_offen200 and '~mission(' not in _offen200[0],
@@ -19721,7 +19727,7 @@ def main():
 
     # ⚠ Ein ENDE mit Platzhalter muss durch — sonst bliebe der Auftrag fuer
     # immer stehen, und das ist der schlimmere Fehler.
-    _ende200 = _au200.ereignisse_aus_text(
+    _ende200 = _au200.events_from_text(
         'Added notification "Auftrag abgeschlossen: Irgendwas '
         '~mission(Location): " to queue. New queue size: 1, '
         'MissionId: [%s], ObjectiveId: []\n' % _mid200)
@@ -19734,7 +19740,7 @@ def main():
     _text200 += ('Added notification "Auftrag abgeschlossen: %s '
                  '<EM4>[BP!]</EM4>: " to queue. New queue size: 1, '
                  'MissionId: [%s], ObjectiveId: []\n' % (_fein200, _mid200))
-    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    _offen200, _kenn200 = _au200.state_from_text(_text200)
     pruefe(_offen200 == [],
            'das Ende raeumt den Auftrag restlos weg — nichts bleibt stehen')
 
@@ -19746,7 +19752,7 @@ def main():
         'Added notification "Auftrag geteilt: Auftrag Zwei: " to queue. '
         'New queue size: 1, MissionId: [%s], ObjectiveId: []\n'
         % (_null200, _null200))
-    _offen200, _kenn200 = _au200.stand_aus_text(_text200)
+    _offen200, _kenn200 = _au200.state_from_text(_text200)
     pruefe(len(_offen200) == 2,
            'zwei geteilte Auftraege bleiben zwei — die Nullkennung wirft sie '
            'nicht zusammen')
@@ -19769,44 +19775,44 @@ def main():
     # Der Log nennt den Vertrag aber selbst (`contractDefinitionId`), und der
     # trifft genau einen. Gemessen: 687 von 707 Annahmen (97,2 %).
     print('\n202. Der Vertrag schlaegt den Titel — Bauplaene je Region')
-    from scbp import auftraege as _au202
-    _alt202 = (_au202._missionen, _au202._index, _au202._muster_index,
-               _au202._vertraege)
+    from scbp import contracts as _au202
+    _alt202 = (_au202._missions, _au202._index, _au202._pattern_index,
+               _au202._contract_defs)
     try:
-        _au202._missionen = {'test_title': {'bp': ['A', 'B', 'C', 'D']}}
+        _au202._missions = {'test_title': {'bp': ['A', 'B', 'C', 'D']}}
         _au202._index = {'testauftrag': 'test_title'}
-        _au202._muster_index = []
-        _au202._vertraege = {
+        _au202._pattern_index = []
+        _au202._contract_defs = {
             'vertrag-nyx': {'bp': ['A', 'B'], 'system': ['Nyx']},
             'vertrag-pyro': {'bp': ['C', 'D'], 'system': ['Pyro']},
         }
         _hat202 = lambda n: n in ('A', 'C')
 
         # a) Mit Vertrag zaehlt SEINE Liste, nicht die zusammengefasste.
-        pruefe(_au202.pruefen('Testauftrag', _hat202,
-                              vertrag_id='vertrag-nyx') == (2, ['B']),
+        pruefe(_au202.check('Testauftrag', _hat202,
+                              contract_id='vertrag-nyx') == (2, ['B']),
                'mit Vertragskennung zaehlt die Liste dieses Vertrags')
-        pruefe(_au202.pruefen('Testauftrag', _hat202,
-                              vertrag_id='vertrag-pyro') == (2, ['D']),
+        pruefe(_au202.check('Testauftrag', _hat202,
+                              contract_id='vertrag-pyro') == (2, ['D']),
                'und ein anderer Vertrag hat eine andere Liste')
         # b) ⚠ Ohne Kennung bleibt alles wie bisher.
-        pruefe(_au202.pruefen('Testauftrag', _hat202) == (4, ['B', 'D']),
+        pruefe(_au202.check('Testauftrag', _hat202) == (4, ['B', 'D']),
                'ohne Vertragskennung gilt weiter der Titelweg')
         # c) ⚠⚠ Und eine UNBEKANNTE Kennung faellt auf den Titelweg zurueck,
         #    statt zu schweigen. 20 von 707 Annahmen tragen keinen Marker, und
         #    ein Katalog vor FORMAT 3 kennt gar keine Vertraege — beides darf
         #    die Anzeige nicht schlechter machen als vorher.
-        pruefe(_au202.pruefen('Testauftrag', _hat202,
-                              vertrag_id='gibt-es-nicht') == (4, ['B', 'D']),
+        pruefe(_au202.check('Testauftrag', _hat202,
+                              contract_id='gibt-es-nicht') == (4, ['B', 'D']),
                'eine unbekannte Vertragskennung faellt auf den Titelweg zurueck')
         # d) Ein Vertrag ohne Bauplaene ist wie keiner.
-        _au202._vertraege['leer'] = {'bp': []}
-        pruefe(_au202.pruefen('Testauftrag', _hat202,
-                              vertrag_id='leer') == (4, ['B', 'D']),
+        _au202._contract_defs['leer'] = {'bp': []}
+        pruefe(_au202.check('Testauftrag', _hat202,
+                              contract_id='leer') == (4, ['B', 'D']),
                'ein Vertrag ohne Bauplaene faellt ebenfalls zurueck')
     finally:
-        (_au202._missionen, _au202._index, _au202._muster_index,
-         _au202._vertraege) = _alt202
+        (_au202._missions, _au202._index, _au202._pattern_index,
+         _au202._contract_defs) = _alt202
 
     # e) Die Kennung muss aus einer ECHTEN Logzeile kommen — woertlich so, wie
     #    sie am 13.09.2026 dastand.
@@ -19819,19 +19825,19 @@ def main():
         'contractDefinitionId[6c4b94f2-3b43-4e0a-9be5-93186e0a957e], '
         'objectiveId [ee12ac38-66f1-4c42-b39f-79a0556c58a6], markerEntityId '
         '[28543], zoneHostId [783593057101] [Team_MissionFeatures][Missions]\n')
-    _karte202 = _au202.vertraege_aus_text(_zeile202)
+    _karte202 = _au202.contracts_from_text(_zeile202)
     pruefe(_karte202.get('7a12d7cf-936d-42e7-996e-db6364edc24d')
            == '6c4b94f2-3b43-4e0a-9be5-93186e0a957e',
            'die Vertragskennung wird aus der echten CreateMarker-Zeile gelesen')
-    pruefe(_au202.vertraege_aus_text('irgendetwas anderes\n') == {},
+    pruefe(_au202.contracts_from_text('irgendetwas anderes\n') == {},
            'und eine beliebige Zeile liefert nichts')
 
     # f) ⚠ `vergessen()` muss ALLE Zwischenspeicher leeren. Bliebe der neue
     #    stehen, arbeitete das Werkzeug nach einem Katalog-Update mit zwei
     #    Staenden gleichzeitig — genau die Sorte Fehler, die niemand sieht.
-    _au202._vertraege = {'irgendwas': {'bp': ['X']}}
-    _au202.vergessen()
-    pruefe(_au202._vertraege is None,
+    _au202._contract_defs = {'irgendwas': {'bp': ['X']}}
+    _au202.forget()
+    pruefe(_au202._contract_defs is None,
            'vergessen() leert auch den Vertrags-Zwischenspeicher')
 
     # g) Der Katalog legt die Vertraege ueberhaupt an — und `load()` kommt mit
@@ -19849,29 +19855,29 @@ def main():
     # zeigte weiter `Baupläne 27/54` statt `12/23`, obwohl der Katalog schon
     # Format 3 mit 672 Vertraegen hatte.
     #
-    # `auftraege` merkt sich `missionen` und `vertraege` beim ersten Zugriff —
-    # der Katalog ist rund 1 MB gross. `auftraege.vergessen()` gibt es genau
+    # `contracts` merkt sich `missions` und `contract_definitions` beim ersten
+    # Zugriff — der Katalog ist rund 1 MB gross. `contracts.forget()` gibt es genau
     # dafuer, und sie hatte **keinen einzigen Aufrufer**. Die ganze Funktion
     # war gebaut, belegt, ausgeliefert — und im Feld wirkungslos.
     #
     # ⚠ Geprueft wird ueber `__code__.co_names`, nicht ueber eine Textsuche:
     # dieselbe Machart wie Pruefung 175 bei den zwei Schreibwegen. Ein
-    # Kommentar, der `vergessen()` erwaehnt, wuerde eine Textsuche gruen
+    # Kommentar, der `forget()` erwaehnt, wuerde eine Textsuche gruen
     # machen — der Aufruf ist aber die Sache.
     print('\n203. Ein neuer Katalog wirkt sofort')
-    from scbp import catalog as _kat203, auftraege as _au203
-    pruefe('vergessen' in _kat203.update.__code__.co_names,
-           'der Katalog-Neubau leert die Zwischenspeicher von auftraege')
+    from scbp import catalog as _kat203, contracts as _au203
+    pruefe('forget' in _kat203.update.__code__.co_names,
+           'der Katalog-Neubau leert die Zwischenspeicher von contracts')
     # Und die Gegenrichtung: Die Funktion muss es auch wirklich koennen.
-    _alt203 = (_au203._missionen, _au203._vertraege)
+    _alt203 = (_au203._missions, _au203._contract_defs)
     try:
-        _au203._missionen = {'x': {}}
-        _au203._vertraege = {'y': {}}
-        _au203.vergessen()
-        pruefe(_au203._missionen is None and _au203._vertraege is None,
-               'und vergessen() leert beide wirklich')
+        _au203._missions = {'x': {}}
+        _au203._contract_defs = {'y': {}}
+        _au203.forget()
+        pruefe(_au203._missions is None and _au203._contract_defs is None,
+               'und forget() leert beide wirklich')
     finally:
-        _au203._missionen, _au203._vertraege = _alt203
+        _au203._missions, _au203._contract_defs = _alt203
 
     # === 204 · Der Bericht nennt BEIDE Sprachen ============================
     #
@@ -19933,12 +19939,12 @@ def main():
                      'q': [{'auftrag': 'Stop Rival Attack at [LOCATION]'}]},
         'gamma bp': {'n': 'Gamma BP', 'q': [{'auftrag': 'Ganz was anderes'}]},
     }}
-    from scbp import auftraege as _au205
-    _alt205 = (_au205._missionen, _au205._index, _au205._muster_index)
+    from scbp import contracts as _au205
+    _alt205 = (_au205._missions, _au205._index, _au205._pattern_index)
     try:
-        _au205._missionen = {'rival_title': {'bp': ['Alpha BP', 'Beta BP']}}
+        _au205._missions = {'rival_title': {'bp': ['Alpha BP', 'Beta BP']}}
         _au205._index = {}
-        _au205._muster_index = [
+        _au205._pattern_index = [
             (__import__('re').compile(r'^Stop Rival Attack at .+$'),
              'rival_title')]
 
@@ -19959,7 +19965,7 @@ def main():
         pruefe(_kat205.blueprints_for_contract(_kat205data, '') == set(),
                'und ein leerer Titel auch')
     finally:
-        _au205._missionen, _au205._index, _au205._muster_index = _alt205
+        _au205._missions, _au205._index, _au205._pattern_index = _alt205
 
     # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Genau daran ist
     #    v3.32.3 gescheitert: Der Filter sass in einer von zwei Stellen.

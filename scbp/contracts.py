@@ -78,7 +78,7 @@ from . import fehler, catalog, pfade
 # nichts kostet: Steht der Titel schon in der Liste, bleibt es bei einem
 # Eintrag. Faellt die Annahme in einer kuenftigen Spielfassung einmal weg,
 # steht der Auftrag trotzdem da.
-INI_SCHLUESSEL = ('mobiGlas_ui_MissionEvent_Activated',
+INI_KEYS = ('mobiGlas_ui_MissionEvent_Activated',
                   'mobiGlas_ui_Mission_Shared')
 
 # Und die drei Arten, wie ein Auftrag endet. ⚠ Ohne sie hielte der Watcher
@@ -86,7 +86,7 @@ INI_SCHLUESSEL = ('mobiGlas_ui_MissionEvent_Activated',
 # Zeilen stehen, von denen neun erledigt sind.
 #
 # `Deactivate` heisst im Spiel „zurückgezogen" — das ist der Abbruch von Hand.
-INI_ENDE = (
+INI_END_KEYS = (
     'mobiGlas_ui_MissionEvent_Complete',      # abgeschlossen
     'mobiGlas_ui_MissionEvent_Deactivate',    # zurückgezogen (abgebrochen)
     'mobiGlas_ui_MissionEvent_Fail',          # fehlgeschlagen
@@ -95,7 +95,7 @@ INI_ENDE = (
 # Rückfall, falls die `global.ini` nicht vorliegt. Beide an echten Logs gemessen
 # (aus echten Log-Sicherungen, 29.08.2026: 701 Annahmen, 303 Abschluesse, 112
 # Ruecknahmen, 57 Fehlschlaege).
-TABELLE = {
+TABLE = {
     # ⚠ Schweizerdeutsch ist eine **eigene Fassung** derselben Übersetzung
     # (`live-CH`) und schreibt „Uftrag" statt „Auftrag". Am 30.08.2026 direkt
     # in der Quelle nachgesehen (`rjcncpt/StarCitizen-Deutsch-INI`, Ordner
@@ -113,7 +113,7 @@ TABELLE = {
 }
 
 # ⚠ „Auftrag geteilt" gehoert NICHT hierher — das ist ein Anfang, kein Ende.
-TABELLE_ENDE = {
+END_TABLE = {
     # ⚠ Auch hier die Schweizer Fassung — und die weicht bei JEDEM der drei
     # Enden ab: „abgschlosse", „fehlgschlage". Nur „zurückgezogen" ist gleich.
     'de': ['Auftrag abgeschlossen', 'Auftrag zurückgezogen',
@@ -125,7 +125,7 @@ TABELLE_ENDE = {
 
 # Dieselbe Zeilenform wie bei den Bauplänen — sie ist zu eigen, als dass sie
 # zufällig entstünde.
-RAHMEN = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
+FRAME = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 
 # Bauplan-Marken im Titel — vor jedem Vergleich weg, sonst gilt derselbe
 # Auftrag als zwei verschiedene.
@@ -141,17 +141,17 @@ RAHMEN = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 # 103 von 347 Titeln ungeputzt stehen. Bewusst dieselbe Form wie
 # `injektion.TITELMARKE`: zwei Verstaendnisse derselben Marke laufen
 # auseinander, sobald jemand nur eines von beiden pflegt.
-_MARKEN = re.compile(
+_MARKS = re.compile(
     r'\[SCBPW\].*?\[/SCBPW\]'                       # der ganze eingefügte Block
     r'|<EM4>[^<>]*\[(?:BP|Bauplan)[^\]]*\][^<>]*</EM4>'   # nur die Blase
 )
-_PLATZHALTER = re.compile(r'~mission\([^)]*\)')
+_PLACEHOLDER = re.compile(r'~mission\([^)]*\)')
 
 # ⛔ Die Kennung, die „keine Kennung" bedeutet. Jede **geteilte** Auftrags-
 # meldung traegt sie — an 157 Log-Sicherungen gemessen: 403 von 403.
 # Wer sie wie eine echte MissionId fuehrt, wirft alle geteilten Auftraege in
 # einen Topf; ein Ende raeumte dann den falschen weg.
-NULLKENNUNG = '00000000-0000-0000-0000-000000000000'
+NULL_ID = '00000000-0000-0000-0000-000000000000'
 
 # ⛔⛔ Der Schlüssel in der `global.ini` kann eine Variantenkennung tragen:
 #
@@ -166,92 +166,92 @@ NULLKENNUNG = '00000000-0000-0000-0000-000000000000'
 #
 # ⚠ Und unsichtbar heißt hier nicht „keine Angabe": Der Platz wurde von einem
 # Nachbarn eingenommen, dessen Muster auf ein bloßes Präfix zusammenfällt
-# (siehe `_MUSTER_SCHWACH`). Gemeldet wurden dann dessen Baupläne — also die
+# (siehe `_pattern_weak`). Gemeldet wurden dann dessen Baupläne — also die
 # einer ganz anderen Mission.
-_VARIANTE = re.compile(r',[A-Za-z]{1,3}$')
+_VARIANT = re.compile(r',[A-Za-z]{1,3}$')
 
-_vertraege = None        # {vertrag_id: {'bp': [...], 'system': [...]}}
+_contract_defs = None        # {vertrag_id: {'bp': [...], 'system': [...]}}
 _index = None            # {sauberer Titel: schluessel}
-_muster_index = None     # [(kompiliertes Muster, schluessel)] für Platzhalter-Titel
-_missionen = None        # Zwischenspeicher: der Katalog ist rund 1 MB gross
+_pattern_index = None     # [(kompiliertes Muster, schluessel)] für Platzhalter-Titel
+_missions = None        # Zwischenspeicher: der Katalog ist rund 1 MB gross
 
 
-def missionen():
+def missions():
     """Die Missionen aus dem Katalog — einmal lesen, dann gemerkt.
 
     `catalog.load()` liest jedes Mal die ganze Datei. Bei einem Auftrag alle
     paar Minuten faellt das nicht auf, aber es waere unnoetige Arbeit.
     """
-    global _missionen
-    if _missionen is None:
+    global _missions
+    if _missions is None:
         try:
-            _missionen = catalog.load().get('missionen') or {}
-        except Exception as ausnahme:
-            fehler.merken('auftraege.katalog', ausnahme)
-            _missionen = {}
-    return _missionen
+            _missions = catalog.load().get('missionen') or {}
+        except Exception as exception:
+            fehler.merken('contracts.catalog', exception)
+            _missions = {}
+    return _missions
 
 
-def vergessen():
+def forget():
     """Zwischenspeicher leeren — nach einem Katalog-Update aufzurufen.
 
     ⚠ **Alle** Zwischenspeicher, auch neue. Bliebe einer stehen, arbeitete das
     Werkzeug nach einem Katalog-Update mit zwei Ständen gleichzeitig.
     """
-    global _missionen, _index, _muster_index, _vertraege
-    _missionen, _index, _muster_index, _vertraege = None, None, None, None
+    global _missions, _index, _pattern_index, _contract_defs
+    _missions, _index, _pattern_index, _contract_defs = None, None, None, None
 
 
 # Die `global.ini` schreibt die Meldung mit Platzhalter: `Auftrag angenommen: %s`.
 # Fuer die Suche zaehlt nur der Wortlaut davor — mit dem Platzhalter passt die
 # Zeile nie, weil im Log der echte Titel steht.
-_PLATZHALTER_ENDE = re.compile(r'\s*:?\s*%[sd]\s*$')
+_PLACEHOLDER_END = re.compile(r'\s*:?\s*%[sd]\s*$')
 
 
-def sauber(titel):
+def clean(title):
     """Titel ohne unsere Marken und ohne doppelte Leerzeichen."""
-    return ' '.join(_MARKEN.sub(' ', str(titel)).split())
+    return ' '.join(_MARKS.sub(' ', str(title)).split())
 
 
-def _phrase_kuerzen(wert):
+def _shorten_phrase(value):
     """Aus `Auftrag angenommen: %s` wird `Auftrag angenommen`."""
-    return _PLATZHALTER_ENDE.sub('', sauber(wert)).strip()
+    return _PLACEHOLDER_END.sub('', clean(value)).strip()
 
 
-def _phrasen_zu(schluessel, rueckfall):
+def _phrases_for(key, fallback):
     """Den Wortlaut zu einem oder mehreren `global.ini`-Schlüsseln holen.
 
     Erst aus der `global.ini` des Spiels — die ist immer richtig, auch in
     Sprachen, die wir nie gesehen haben. Sonst die mitgelieferte Tabelle.
     """
-    schluessel = (schluessel,) if isinstance(schluessel, str) else tuple(schluessel)
-    anfaenge = tuple(s + '=' for s in schluessel)
-    gefunden = []
-    for pfad in _ini_dateien():
+    key = (key,) if isinstance(key, str) else tuple(key)
+    prefixes = tuple(s + '=' for s in key)
+    found = []
+    for path in _ini_files():
         try:
-            with open(pfad, encoding='utf-8', errors='ignore') as f:
-                for zeile in f:
+            with open(path, encoding='utf-8', errors='ignore') as f:
+                for line in f:
                     # ⚠ Kein `break` nach dem ersten Treffer mehr — es sind
                     # jetzt mehrere Schlüssel je Datei zu holen.
-                    if zeile.startswith(anfaenge):
-                        wert = _phrase_kuerzen(zeile.split('=', 1)[1])
-                        if wert and wert not in gefunden:
-                            gefunden.append(wert)
+                    if line.startswith(prefixes):
+                        value = _shorten_phrase(line.split('=', 1)[1])
+                        if value and value not in found:
+                            found.append(value)
         except OSError:
             continue
-    for liste in rueckfall.values():
-        for p in liste:
-            if p not in gefunden:
-                gefunden.append(p)
-    return gefunden
+    for candidates in fallback.values():
+        for p in candidates:
+            if p not in found:
+                found.append(p)
+    return found
 
 
-def phrasen():
+def start_phrases():
     """Womit ein Auftrag bei mir anfaengt — angenommen oder geteilt bekommen."""
-    return _phrasen_zu(INI_SCHLUESSEL, TABELLE)
+    return _phrases_for(INI_KEYS, TABLE)
 
 
-def ende_phrasen():
+def end_phrases():
     """Wie die drei Enden heißen — abgeschlossen, zurückgezogen, gescheitert.
 
     ⚠ Der Watcher braucht sie nicht, um etwas zu melden, sondern um etwas
@@ -259,43 +259,43 @@ def ende_phrasen():
     als gar keine Anzeige: Nach einem Abend mit zehn Auftraegen stuende dort
     eine Liste, von der nichts mehr stimmt.
     """
-    return _phrasen_zu(INI_ENDE, TABELLE_ENDE)
+    return _phrases_for(INI_END_KEYS, END_TABLE)
 
 
-def _ini_dateien():
+def _ini_files():
     """Alle vorhandenen `global.ini` der Installation."""
     try:
-        basis = os.path.join(pfade.spiel_ordner() or '', 'data', 'Localization')
+        base = os.path.join(pfade.spiel_ordner() or '', 'data', 'Localization')
     except Exception:
         return []
-    if not os.path.isdir(basis):
+    if not os.path.isdir(base):
         return []
-    gefunden = []
+    found = []
     try:
-        for name in sorted(os.listdir(basis)):
-            p = os.path.join(basis, name, 'global.ini')
+        for name in sorted(os.listdir(base)):
+            p = os.path.join(base, name, 'global.ini')
             if os.path.isfile(p):
-                gefunden.append(p)
+                found.append(p)
     except OSError:
         pass
-    return gefunden
+    return found
 
 
-def muster():
+def start_pattern():
     """Das fertige Suchmuster für die Log-Zeile — angenommene Auftraege."""
-    teile = '|'.join(re.escape(p) for p in phrasen())
-    return re.compile(RAHMEN % teile)
+    parts = '|'.join(re.escape(p) for p in start_phrases())
+    return re.compile(FRAME % parts)
 
 
-def ende_muster():
+def end_pattern():
     """Dasselbe für die drei Enden — abgeschlossen, zurückgezogen, gescheitert.
 
     Bewusst ein zweites Muster statt eines gemeinsamen mit Gruppen: Die beiden
     Listen kommen aus verschiedenen Schlüsseln, und ein Fehlgriff hiesse, dass
     ein abgeschlossener Auftrag als neu angenommen gilt.
     """
-    teile = '|'.join(re.escape(p) for p in ende_phrasen())
-    return re.compile(RAHMEN % teile)
+    parts = '|'.join(re.escape(p) for p in end_phrases())
+    return re.compile(FRAME % parts)
 
 
 # ⚠⚠ **Der Zusatz hinter der Meldung entscheidet, ob ein Ende zählt.**
@@ -316,7 +316,7 @@ def ende_muster():
 # An allen 153 Protokollen gemessen (31.08.2026): 473 Enden, davon **111 mit**
 # ObjectiveId. Alle 111 waren Zwischenziele, und in allen 111 Fällen lief die
 # Mission danach nachweislich weiter.
-ZUSATZ = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\]')
+SUFFIX = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\]')
 
 # ⭐⭐ **Der Log nennt den Vertrag selbst — samt Region und Stufe.**
 #
@@ -336,13 +336,13 @@ ZUSATZ = re.compile(r'MissionId:\s*\[([^\]]*)\][^\n]*?ObjectiveId:\s*\[([^\]]*)\
 # nicht, es geht ihm nur vor.
 #
 # ⚠ `missionId` steht hier klein geschrieben und ohne Doppelpunkt — anders als
-# in `ZUSATZ`. Zwei Schreibweisen derselben Sache im selben Log.
-VERTRAGSMARKE = re.compile(
+# in `SUFFIX`. Zwei Schreibweisen derselben Sache im selben Log.
+CONTRACT_MARKER = re.compile(
     r'CreateMarker[^\n]*?missionId \[([0-9a-fA-F-]+)\][^\n]*?'
     r'contractDefinitionId\[([0-9a-fA-F-]+)\]')
 
 
-def vertraege_aus_text(text):
+def contracts_from_text(text):
     """`{mission_id: vertrag_id}` — welcher Vertrag steckt hinter der Mission?
 
     ⚠ Der **erste** Marker gewinnt. Ein Auftrag setzt im Lauf mehrere Ziele,
@@ -350,10 +350,10 @@ def vertraege_aus_text(text):
     Protokolle keinen Fall, in dem eine MissionId zwei verschiedene Vertraege
     nannte. Faende sich doch einer, waere der erste der bei der Annahme.
     """
-    gefunden = {}
-    for m in VERTRAGSMARKE.finditer(text):
-        gefunden.setdefault(m.group(1), m.group(2))
-    return gefunden
+    found = {}
+    for m in CONTRACT_MARKER.finditer(text):
+        found.setdefault(m.group(1), m.group(2))
+    return found
 
 # ⚠⚠ **Ein Auftrag kann enden, ohne dass es eine Meldung dazu gibt.**
 # Gemeldet am 04.09.2026: Ein Auftrag wurde angenommen und war vier Sekunden
@@ -367,7 +367,7 @@ def vertraege_aus_text(text):
 # laufend — im Overlay standen zwei, im Spiel war einer.
 #
 # ⚠ Die Kennung steht hier **ohne** Doppelpunkt und ohne ObjectiveId daneben,
-# `ZUSATZ` greift also nicht. Sie wird deshalb gleich hier mitgelesen.
+# `SUFFIX` greift also nicht. Sie wird deshalb gleich hier mitgelesen.
 #
 # ⚠ Bewusst ohne Blick auf `CompletionType`: Ob abgeschlossen oder abgebrochen
 # — beides heisst, dass der Auftrag nicht mehr laeuft. Fuer die Live-Anzeige
@@ -395,25 +395,25 @@ ENDMISSION = re.compile(r'<EndMission>[^\n]*?MissionId\[([^\]]*)\]')
 # das sich keinem Auftrag zuordnen ließ — geraten also. Hier sagt das Spiel
 # selbst, dass die Spielwelt verlassen wurde. Der Unterschied ist der zwischen
 # „ich weiß nicht, was das war" und „der Spieler ist raus".
-VERLASSEN = re.compile(r'CSessionManager::RequestFrontEnd\]\s*Started')
+LEFT_GAME = re.compile(r'CSessionManager::RequestFrontEnd\]\s*Started')
 
 
-def kennungen(text, stelle):
+def identifiers(text, position):
     """`(MissionId, ObjectiveId)` der Meldung, die bei `stelle` beginnt.
 
     Beide stehen am Ende **derselben** Logzeile. Fehlen sie — fremdes Format,
     ältere Spielfassung, ein von Hand gebauter Testtext —, kommt zweimal `''`
     zurück und es wird wie früher über den Titel gerechnet.
     """
-    ende = text.find('\n', stelle)
-    zeile = text[stelle:ende if ende >= 0 else len(text)]
-    treffer = ZUSATZ.search(zeile)
-    if not treffer:
+    end = text.find('\n', position)
+    line = text[position:end if end >= 0 else len(text)]
+    hit = SUFFIX.search(line)
+    if not hit:
         return '', ''
-    return treffer.group(1).strip(), treffer.group(2).strip()
+    return hit.group(1).strip(), hit.group(2).strip()
 
 
-def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
+def events_from_text(text, start_pat=None, end_pat=None):
     """Alle Auftrags-Ereignisse dieses Textes, in der Reihenfolge des Logs.
 
     Einträge: `(ist_annahme, titel, mission_id, objective_id)`.
@@ -424,30 +424,30 @@ def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
     |---|---|
     | `True` | Auftrag angenommen |
     | `False` | Auftrag beendet (abgeschlossen, abgebrochen, gescheitert) |
-    | `None` | **Spielwelt verlassen** — alles Offene ist weg, siehe `VERLASSEN` |
+    | `None` | **Spielwelt verlassen** — alles Offene ist weg, siehe `LEFT_GAME` |
 
     ⚠ Die **eine** Stelle, die Auftragsmeldungen aus einem Logtext holt: Der
     Start liest damit die ganze `Game.log`, der laufende Betrieb damit jeden
     neuen Abschnitt. Zwei Auswertungen mit eigener Buchführung liefen früher
     auseinander.
     """
-    muster_an = muster_an or muster()
-    muster_aus = muster_aus or ende_muster()
-    gefunden = []
-    for m in muster_an.finditer(text):
-        gefunden.append((m.start(), True, m.group(1), None))
-    for m in muster_aus.finditer(text):
-        gefunden.append((m.start(), False, m.group(1), None))
-    for m in VERLASSEN.finditer(text):
-        gefunden.append((m.start(), None, '', None))
+    start_pat = start_pat or start_pattern()
+    end_pat = end_pat or end_pattern()
+    found = []
+    for m in start_pat.finditer(text):
+        found.append((m.start(), True, m.group(1), None))
+    for m in end_pat.finditer(text):
+        found.append((m.start(), False, m.group(1), None))
+    for m in LEFT_GAME.finditer(text):
+        found.append((m.start(), None, '', None))
     # ⚠ Das stille Ende — siehe `ENDMISSION`. Ohne Titel, dafuer mit der
-    # Kennung: `beendet_welchen` findet den Auftrag ueber sie (Schritt 3 dort).
+    # Kennung: `which_ended` findet den Auftrag ueber sie (Schritt 3 dort).
     for m in ENDMISSION.finditer(text):
-        gefunden.append((m.start(), False, '', m.group(1).strip()))
+        found.append((m.start(), False, '', m.group(1).strip()))
     # Die Fundstelle ist die Wahrheit: Sie sagt, was im Spiel zuerst geschah.
-    gefunden.sort(key=lambda e: e[0])
-    ergebnis = []
-    for stelle, ist_annahme, titel, mid in gefunden:
+    found.sort(key=lambda e: e[0])
+    result = []
+    for position, is_accept, title, mid in found:
         # ⛔⛔ **Eine ANNAHME mit unaufgelöstem `~mission(...)` fällt hier raus
         # — an der Quelle, nicht in der Buchführung.**
         #
@@ -458,12 +458,12 @@ def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
         #   "Auftrag angenommen: … Stop Rival Attack at Asteroiden Bergbau…: "
         #                        MissionId: [4f1e…]
         #
-        # Beide gelten als Annahme (`INI_SCHLUESSEL`), also standen zwei Zeilen
+        # Beide gelten als Annahme (`INI_KEYS`), also standen zwei Zeilen
         # da — und die erste ging nicht von selbst weg, weil das Ende nur den
         # aufgelösten Titel trägt.
         #
-        # ⚠⚠ **v3.32.3 hat das in `stand_aus_text` gefiltert. Das war zu weit
-        # unten.** Es gibt ZWEI Buchführungen: `stand_aus_text` für den Start
+        # ⚠⚠ **v3.32.3 hat das in `state_from_text` gefiltert. Das war zu weit
+        # unten.** Es gibt ZWEI Buchführungen: `state_from_text` für den Start
         # und `_auftraege_melden()` im Watcher für den laufenden Betrieb — und
         # die zweite baut ihre Liste direkt aus diesen Ereignissen. Der Filter
         # griff also nur beim Start; beim nächsten angenommenen Auftrag stand
@@ -475,25 +475,25 @@ def ereignisse_aus_text(text, muster_an=None, muster_aus=None):
         #
         # ⚠ Nur Annahmen. Ein ENDE mit Platzhalter muss durch — sonst bliebe
         # der Auftrag für immer stehen, und das ist der schlimmere Fehler.
-        if ist_annahme is True and _PLATZHALTER.search(titel or ''):
+        if is_accept is True and _PLACEHOLDER.search(title or ''):
             continue
         if mid is None:
-            ergebnis.append((ist_annahme, titel) + kennungen(text, stelle))
+            result.append((is_accept, title) + identifiers(text, position))
         else:
             # ⚠ Keine ObjectiveId: Ein `EndMission` beendet den ganzen Auftrag,
             # nie ein Zwischenziel. Stuende hier eine, wuerde
-            # `beendet_welchen` das Ende als Zwischenziel abtun.
-            ergebnis.append((ist_annahme, titel, mid, ''))
-    return ergebnis
+            # `which_ended` das Ende als Zwischenziel abtun.
+            result.append((is_accept, title, mid, ''))
+    return result
 
 
-def beendet_welchen(rein, mission_id, objective_id, offen, missionen):
+def which_ended(plain, mission_id, objective_id, pending, mission_keys):
     """Welchen offenen Auftrag beendet dieses Ende — oder keinen (`None`)?
 
     Drei Schritte, in dieser Reihenfolge:
 
     1. **Steht eine ObjectiveId dabei, endet nur ein Zwischenziel.** Der
-       Auftrag läuft weiter. Der Grund steht oben bei `ZUSATZ`.
+       Auftrag läuft weiter. Der Grund steht oben bei `SUFFIX`.
     2. Sonst über den Titel — der Normalfall, 300 von 362 gemessen.
     3. Sonst über die MissionId. Sie steht bei **jeder** der 1102 gemessenen
        Annahmen und bei **jedem** der 362 Missions-Enden. Damit sind auch die
@@ -506,12 +506,12 @@ def beendet_welchen(rein, mission_id, objective_id, offen, missionen):
     """
     if objective_id:
         return None
-    if rein in offen:
-        return rein
-    return missionen.get(mission_id) if mission_id else None
+    if plain in pending:
+        return plain
+    return mission_keys.get(mission_id) if mission_id else None
 
 
-def stand_aus_text(text, muster_an=None, muster_aus=None):
+def state_from_text(text, start_pat=None, end_pat=None):
     """Was laut diesem Logtext noch offen ist — mit den Missions-Kennungen.
 
     Rückgabe: `(titel_liste, {mission_id: schlüssel})`. Die zweite Hälfte
@@ -519,58 +519,58 @@ def stand_aus_text(text, muster_an=None, muster_aus=None):
     Start des Werkzeugs angenommen wurde, ist die MissionId die einzige
     Brücke zurück zu seiner Zeile.
     """
-    offen, missionen = {}, {}
-    for ist_annahme, titel, mid, oid in ereignisse_aus_text(text, muster_an,
-                                                            muster_aus):
+    pending, mission_keys = {}, {}
+    for is_accept, title, mid, oid in events_from_text(text, start_pat,
+                                                            end_pat):
         # ⚠ Vor der Titelprüfung: Das Verlassen trägt keinen Titel.
-        if ist_annahme is None:
-            offen.clear()
-            missionen.clear()
+        if is_accept is None:
+            pending.clear()
+            mission_keys.clear()
             continue
-        rein = sauber(titel)
+        plain = clean(title)
         # ⚠⚠ **Ein Ende darf titellos sein, eine Annahme nicht.** Das stille
         # Ende aus `<EndMission>` (siehe `ENDMISSION`) traegt nur die Kennung —
-        # und genau die genuegt, `beendet_welchen` findet den Auftrag darueber.
+        # und genau die genuegt, `which_ended` findet den Auftrag darueber.
         # Stand hier bis zum 04.09.2026 ein pauschales `if not rein: continue`,
         # wurde es verworfen, bevor es zum Zuge kam: Ein Auftrag, den ein
         # anderer Spieler wegschnappte, blieb fuer immer als laufend stehen.
-        if not rein and not (mid and not ist_annahme):
+        if not plain and not (mid and not is_accept):
             continue
-        if ist_annahme:
-            # ⚠ Platzhalter-Titel sind hier schon weg — `ereignisse_aus_text`
+        if is_accept:
+            # ⚠ Platzhalter-Titel sind hier schon weg — `events_from_text`
             # laesst sie gar nicht erst durch. Dort steht auch, warum: Es gibt
             # ZWEI Buchfuehrungen, und ein Filter an nur einer wirkt nur zur
             # Haelfte. Genau daran ist v3.32.3 gescheitert.
-            offen.setdefault(rein, titel)
+            pending.setdefault(plain, title)
             # ⚠ Die Nullkennung ist keine Kennung. Sie als solche zu führen
             # hiesse, alle geteilten Auftraege in einen Topf zu werfen — und
             # ein Ende raeumte dann den falschen weg.
-            if mid and mid != NULLKENNUNG:
-                missionen[mid] = rein
+            if mid and mid != NULL_ID:
+                mission_keys[mid] = plain
             continue
-        weg = beendet_welchen(rein, mid, oid, offen, missionen)
-        if weg is None:
+        gone = which_ended(plain, mid, oid, pending, mission_keys)
+        if gone is None:
             continue
-        offen.pop(weg, None)
-        for kennung in [k for k, v in missionen.items() if v == weg]:
-            del missionen[kennung]
-    return list(offen.values()), missionen
+        pending.pop(gone, None)
+        for ident in [k for k, v in mission_keys.items() if v == gone]:
+            del mission_keys[ident]
+    return list(pending.values()), mission_keys
 
 
-def offene_aus_text(text, muster_an=None, muster_aus=None):
+def open_from_text(text, start_pat=None, end_pat=None):
     """Welche Aufträge laut diesem Log-Text noch offen sind.
 
     Geht den Text **in seiner Reihenfolge** durch und führt Buch: Eine Annahme
     legt den Titel ab, ein Ende nimmt ihn wieder weg. Was am Schluss übrig
     bleibt, lief zu diesem Zeitpunkt noch.
 
-    ⚠ Verglichen wird über `sauber()`, also ohne unsere eingefügten Marken —
+    ⚠ Verglichen wird über `clean()`, also ohne unsere eingefügten Marken —
     im Log steht der Titel mit `[SCBPW]…[/SCBPW]` darin, und beim Abschluss
     kann die Bauplan-Blase eine andere Zahl tragen als bei der Annahme.
 
     Gibt die Titel in der Reihenfolge der Annahme zurück.
     """
-    return stand_aus_text(text, muster_an, muster_aus)[0]
+    return state_from_text(text, start_pat, end_pat)[0]
 
 
 # ---------------------------------------------------------------------------
@@ -593,11 +593,11 @@ def offene_aus_text(text, muster_an=None, muster_aus=None):
 # ⚠ **Der Wortlaut wird über die ObjectiveId zugeordnet, nicht über die
 # Phrase.** Damit ist es egal, wie die Meldung heißt und in welcher Sprache
 # sie steht.
-ZIEL_ZUSTAND = re.compile(
+OBJECTIVE_STATE = re.compile(
     r'<ObjectiveUpserted>[^\n]*?mission_id (\S+) - objective_id (\S+) - '
     r'state MISSION_OBJECTIVE_STATE_(\w+)[^\n]*?flags=(\S*)')
 
-ZIEL_TITEL = re.compile(
+OBJECTIVE_TITLE = re.compile(
     r'Added notification "[^"\n]*?:\s*(.+?)\s*:\s*"[^\n]*?'
     r'ObjectiveId: \[([0-9a-fA-F][0-9a-fA-F-]{7,})\]')
 
@@ -607,16 +607,16 @@ ZIEL_TITEL = re.compile(
 # Zielen tragen 456 zwar `ShowInLog`, aber keinen Wortlaut; **kein einziges**
 # hat einen Wortlaut ohne `ShowInLog`. Das Kennzeichen kostet also nichts und
 # hält den halben Maschinenraum draußen.
-ZIEL_SICHTBAR = 'ShowInLog'
+OBJECTIVE_VISIBLE = 'ShowInLog'
 
 # Wie viele Ziele höchstens untereinander stehen. Gemessen an denselben
 # Protokollen: 182 von 226 Aufträgen haben **ein** offenes Ziel, der Ausreißer
 # hatte sechs. Die Grenze schützt nur vor dem unbekannten Fall — das Overlay
 # darf nicht die Bauplan-Liste vom Bildschirm schieben.
-ZIELE_MAX = 6
+OBJECTIVES_MAX = 6
 
 
-def ziel_ereignisse_aus_text(text):
+def objective_events_from_text(text):
     """Alle Ziel-Meldungen dieses Textes, in der Reihenfolge des Logs.
 
     Zwei Sorten, beide als Tupel:
@@ -624,19 +624,19 @@ def ziel_ereignisse_aus_text(text):
     * `('zustand', mission_id, objective_id, zustand, kennzeichen)`
     * `('titel', objective_id, wortlaut)`
 
-    Roh und ungewertet — was daraus wird, entscheidet `Ziele`.
+    Roh und ungewertet — was daraus wird, entscheidet `Objectives`.
     """
-    gefunden = []
-    for m in ZIEL_ZUSTAND.finditer(text):
-        gefunden.append((m.start(), ('zustand', m.group(1), m.group(2),
+    found = []
+    for m in OBJECTIVE_STATE.finditer(text):
+        found.append((m.start(), ('zustand', m.group(1), m.group(2),
                                      m.group(3), m.group(4))))
-    for m in ZIEL_TITEL.finditer(text):
-        gefunden.append((m.start(), ('titel', m.group(2), m.group(1).strip())))
-    gefunden.sort(key=lambda e: e[0])
-    return [e for _stelle, e in gefunden]
+    for m in OBJECTIVE_TITLE.finditer(text):
+        found.append((m.start(), ('titel', m.group(2), m.group(1).strip())))
+    found.sort(key=lambda e: e[0])
+    return [e for _stelle, e in found]
 
 
-class Ziele:
+class Objectives:
     """Buchführung über die Zwischenziele — was zu diesem Auftrag ansteht.
 
     Ein Zustand, keine Verlaufsliste: `aufnehmen()` frisst Abschnitt für
@@ -646,93 +646,93 @@ class Ziele:
     """
 
     def __init__(self):
-        self._titel = {}          # objective_id -> Wortlaut
-        self._stand = {}          # mission_id -> {objective_id: (zustand, kennz.)}
+        self._titles = {}          # objective_id -> Wortlaut
+        self._states = {}          # mission_id -> {objective_id: (zustand, kennz.)}
 
-    def aufnehmen(self, ereignisse):
+    def absorb(self, events):
         """Einen Abschnitt verbuchen. Sagt, ob sich etwas geändert hat.
 
         ⚠ Der Rückgabewert ist wichtig: Ziele wechseln, **ohne** dass sich die
         Auftragsliste ändert. Ohne dieses Ja stünde in der Leiste noch das
         Ziel von vor zwanzig Minuten.
         """
-        veraendert = False
-        for e in ereignisse or ():
+        changed = False
+        for e in events or ():
             if e[0] == 'titel':
-                _art, oid, wortlaut = e
-                if wortlaut and self._titel.get(oid) != wortlaut:
-                    self._titel[oid] = wortlaut
-                    veraendert = True
+                _kind, oid, wording = e
+                if wording and self._titles.get(oid) != wording:
+                    self._titles[oid] = wording
+                    changed = True
                 continue
-            _art, mid, oid, zustand, kennzeichen = e
-            je_mission = self._stand.setdefault(mid, {})
-            if je_mission.get(oid) != (zustand, kennzeichen):
-                je_mission[oid] = (zustand, kennzeichen)
-                veraendert = True
-        return veraendert
+            _kind, mid, oid, state, flags = e
+            per_mission = self._states.setdefault(mid, {})
+            if per_mission.get(oid) != (state, flags):
+                per_mission[oid] = (state, flags)
+                changed = True
+        return changed
 
-    def offen(self, mission_id):
+    def open_for(self, mission_id):
         """Die offenen Ziele dieses Auftrags, in der Reihenfolge des Logs.
 
         ⚠ **Ohne Wortlaut wird geschwiegen.** Ein Ziel, dessen Meldung wir nicht
         gesehen haben, bekommt hier keine Zeile — dieselbe Linie wie überall:
         lieber nichts zeigen als etwas Falsches behaupten.
         """
-        namen = []
-        for oid, (zustand, kennzeichen) in self._stand.get(mission_id,
+        names = []
+        for oid, (state, flags) in self._states.get(mission_id,
                                                            {}).items():
-            if zustand != 'INPROGRESS' or ZIEL_SICHTBAR not in kennzeichen:
+            if state != 'INPROGRESS' or OBJECTIVE_VISIBLE not in flags:
                 continue
-            wortlaut = self._titel.get(oid)
-            if wortlaut and wortlaut not in namen:
-                namen.append(wortlaut)
-        return namen
+            wording = self._titles.get(oid)
+            if wording and wording not in names:
+                names.append(wording)
+        return names
 
-    def vergessen(self, mission_id):
+    def forget(self, mission_id):
         """Der Auftrag ist vorbei — seine Ziele auch."""
-        self._stand.pop(mission_id, None)
+        self._states.pop(mission_id, None)
 
 
-def _index_bauen():
+def _build_index():
     """Titel → Missionsschlüssel, aus der `global.ini` und dem Katalog.
 
     Es werden nur die Schlüssel aufgenommen, die der Katalog überhaupt kennt —
     die `global.ini` hat über 9.000 Einträge, davon sind 353 für uns relevant.
     """
-    global _index, _muster_index
-    _index, _muster_index = {}, []
-    bekannt = set(missionen())
-    if not bekannt:
+    global _index, _pattern_index
+    _index, _pattern_index = {}, []
+    known = set(missions())
+    if not known:
         return
-    for pfad in _ini_dateien():
+    for path in _ini_files():
         try:
-            with open(pfad, encoding='utf-8', errors='ignore') as f:
-                for zeile in f:
-                    trenner = zeile.find('=')
-                    if trenner < 1:
+            with open(path, encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    sep = line.find('=')
+                    if sep < 1:
                         continue
-                    schluessel = zeile[:trenner]
-                    if schluessel not in bekannt:
+                    key = line[:sep]
+                    if key not in known:
                         # ⛔ Variantenkennung abstreifen (`…_Title,P`) und noch
-                        # einmal nachsehen — siehe `_VARIANTE`.
-                        schluessel = _VARIANTE.sub('', schluessel)
-                        if schluessel not in bekannt:
+                        # einmal nachsehen — siehe `_VARIANT`.
+                        key = _VARIANT.sub('', key)
+                        if key not in known:
                             continue
-                    titel = sauber(zeile[trenner + 1:])
-                    if not titel:
+                    title = clean(line[sep + 1:])
+                    if not title:
                         continue
-                    if '~mission(' in titel:
+                    if '~mission(' in title:
                         # Platzhalter -> Muster. Der Rest wird woertlich
                         # genommen, damit „High-Risk Bounty: X" nicht auf
                         # „Low-Risk Bounty: X" passt.
-                        roh = '^' + '.+'.join(
-                            re.escape(t) for t in _PLATZHALTER.split(titel)) + '$'
+                        raw = '^' + '.+'.join(
+                            re.escape(t) for t in _PLACEHOLDER.split(title)) + '$'
                         try:
-                            _muster_index.append((re.compile(roh), schluessel))
+                            _pattern_index.append((re.compile(raw), key))
                         except re.error:
                             pass
                     else:
-                        _index.setdefault(titel.lower(), schluessel)
+                        _index.setdefault(title.lower(), key)
         except OSError:
             continue
 
@@ -741,22 +741,22 @@ def _index_bauen():
 # und ist damit nur noch ein Präfix. `^Orange Lvl. Contract: Protect .+$` passt
 # auf **jeden** Auftrag dieser Familie, nicht auf einen bestimmten.
 #
-# Der Kommentar bei `_index_bauen` verspricht, der Rest werde wörtlich
+# Der Kommentar bei `_build_index` verspricht, der Rest werde wörtlich
 # genommen, damit „High-Risk Bounty: X" nicht auf „Low-Risk Bounty: X" passt.
 # Das stimmt — aber nur, solange der Platzhalter **in der Mitte** steht.
 # Gemessen am 13.09.2026: **70 von 116** Mustern enden so.
-def _muster_schwach(muster):
+def _pattern_weak(pattern):
     """Fällt dieses Muster auf ein bloßes Präfix zusammen?"""
-    return muster.endswith('.+$')
+    return pattern.endswith('.+$')
 
 
-def _gewicht(muster):
+def _weight(pattern):
     """Wie viel wörtlicher Text steht in diesem Muster — je mehr, desto genauer."""
-    roh = muster[1:-1] if muster.startswith('^') and muster.endswith('$') else muster
-    return sum(len(teil.replace('\\', '')) for teil in roh.split('.+'))
+    raw = pattern[1:-1] if pattern.startswith('^') and pattern.endswith('$') else pattern
+    return sum(len(teil.replace('\\', '')) for teil in raw.split('.+'))
 
 
-def schluessel_zu(titel):
+def key_for(title):
     """Der Missionsschlüssel zu einem angezeigten Titel, oder None.
 
     Drei Stufen, in dieser Reihenfolge:
@@ -774,41 +774,41 @@ def schluessel_zu(titel):
     Bauplan-Angabe ist schlimmer als keine.
     """
     if _index is None:
-        _index_bauen()
-    rein = sauber(titel)
-    treffer = _index.get(rein.lower())
-    if treffer:
-        return treffer
-    passend = [(mst.pattern, schluessel)
-               for mst, schluessel in _muster_index if mst.match(rein)]
-    if not passend:
+        _build_index()
+    plain = clean(title)
+    hit = _index.get(plain.lower())
+    if hit:
+        return hit
+    matching = [(mst.pattern, key)
+               for mst, key in _pattern_index if mst.match(plain)]
+    if not matching:
         return None
     # Genauer heisst: kein blosses Praefix, und mehr woertlicher Text.
-    rang = max((not _muster_schwach(p), _gewicht(p)) for p, _s in passend)
-    beste = {s for p, s in passend
-             if (not _muster_schwach(p), _gewicht(p)) == rang}
-    if len(beste) != 1:
+    rank = max((not _pattern_weak(p), _weight(p)) for p, _s in matching)
+    best = {s for p, s in matching
+             if (not _pattern_weak(p), _weight(p)) == rank}
+    if len(best) != 1:
         return None
-    return beste.pop()
+    return best.pop()
 
 
-def vertraege():
+def contract_definitions():
     """Die Verträge aus dem Katalog — einmal lesen, dann gemerkt.
 
     ⚠ Fehlt der Abschnitt (Katalog vor FORMAT 3), kommt ein leeres
     Wörterbuch — dann gilt weiter der Titelweg, wie bis v3.32.4.
     """
-    global _vertraege
-    if _vertraege is None:
+    global _contract_defs
+    if _contract_defs is None:
         try:
-            _vertraege = catalog.load().get('vertraege') or {}
-        except Exception as ausnahme:
-            fehler.merken('auftraege.vertraege', ausnahme)
-            _vertraege = {}
-    return _vertraege
+            _contract_defs = catalog.load().get('vertraege') or {}
+        except Exception as exception:
+            fehler.merken('contracts.contract_definitions', exception)
+            _contract_defs = {}
+    return _contract_defs
 
 
-def pruefen(titel, hat_bereits, vertrag_id=None):
+def check(title, has_already, contract_id=None):
     """Was bringt dieser Auftrag — und was davon fehlt noch?
 
     `hat_bereits` ist eine Funktion `name -> bool`. Rückgabe ist `None`, wenn
@@ -817,7 +817,7 @@ def pruefen(titel, hat_bereits, vertrag_id=None):
 
     ⭐⭐ **`vertrag_id` schlägt den Titel.** Sie kommt aus der
     `CreateMarker`-Zeile des Logs (`contractDefinitionId`, siehe
-    `vertraege_aus_text`) und trifft **genau einen** Vertrag — mit dessen
+    `contracts_from_text`) und trifft **genau einen** Vertrag — mit dessen
     eigener Bauplanliste statt der über alle Regionen zusammengefassten:
 
         Foxwell_DefendEntitesAndEscort_H_Title   54   (Titelweg)
@@ -832,18 +832,18 @@ def pruefen(titel, hat_bereits, vertrag_id=None):
     gemessenen Annahmen gibt es keinen Marker, und ein Katalog vor FORMAT 3
     kennt die Verträge gar nicht.
     """
-    if vertrag_id:
-        eintrag = vertraege().get(vertrag_id) or {}
-        namen = [n for n in (eintrag.get('bp') or []) if n]
-        if namen:
-            fehlend = [n for n in namen if not hat_bereits(n)]
-            return len(namen), fehlend
-    schluessel = schluessel_zu(titel)
-    if not schluessel:
+    if contract_id:
+        entry = contract_definitions().get(contract_id) or {}
+        names = [n for n in (entry.get('bp') or []) if n]
+        if names:
+            missing = [n for n in names if not has_already(n)]
+            return len(names), missing
+    key = key_for(title)
+    if not key:
         return None
-    eintrag = missionen().get(schluessel) or {}
-    namen = [n for n in (eintrag.get('bp') or []) if n]
-    if not namen:
+    entry = missions().get(key) or {}
+    names = [n for n in (entry.get('bp') or []) if n]
+    if not names:
         return None
-    fehlend = [n for n in namen if not hat_bereits(n)]
-    return len(namen), fehlend
+    missing = [n for n in names if not has_already(n)]
+    return len(names), missing

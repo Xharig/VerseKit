@@ -46,7 +46,7 @@ from scbp import icons
 from scbp import fehler
 from scbp import notice
 from scbp import (
-    auftraege,tray_icon, updater, assistent, autostart, places, prices,
+    contracts, tray_icon, updater, assistent, autostart, places, prices,
                   screen, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   settings_window, notice, injektion,
@@ -688,10 +688,10 @@ class Watcher(threading.Thread):
         self.stand = logsource.ReadState()
         self.tail = logsource.LogTail(self.stand)
         # Zweites Muster: angenommene Auftraege (ab v3.2.0). Faellt der Katalog
-        # aus, meldet `auftraege` einfach nichts — der Bauplan-Weg bleibt heil.
+        # aus, meldet `contracts` einfach nichts — der Bauplan-Weg bleibt heil.
         try:
-            self.tail.mission_pattern = auftraege.muster()
-            self.tail.mission_end_pattern = auftraege.ende_muster()
+            self.tail.mission_pattern = contracts.start_pattern()
+            self.tail.mission_end_pattern = contracts.end_pattern()
         except Exception as ausnahme:
             fehler.merken('watcher.mission_pattern', ausnahme)
         self._auftraege_gesehen = set()   # je Programmlauf, gegen Doppelmeldungen
@@ -717,8 +717,8 @@ class Watcher(threading.Thread):
         self._auftrag_zeile_quelle = {}
         # Und was zu diesen Auftraegen gerade ansteht. @@ **Der Auftrag sagt,
         # ob Bauplaene drin sind — das Ziel sagt, wofuer man gerade fliegt.**
-        # Beides steht im Protokoll; die Buchfuehrung dazu in `auftraege.Ziele`.
-        self._ziele = auftraege.Ziele()
+        # Beides steht im Protokoll; die Buchfuehrung dazu in `contracts.Objectives`.
+        self._ziele = contracts.Objectives()
         # ⚠ Messpunkte im Startverlauf. Zwischen „Overlay wird gebaut" und
         # „Overlay steht" lagen bei einem Nutzer **vier Sekunden**, bei einem
         # anderen eine — und dazwischen stand nichts, woran man das haette
@@ -1134,15 +1134,15 @@ class Watcher(threading.Thread):
         """Was die Anzeige braucht: `(Schluessel, Zeile, Zwischenziele)`.
 
         ⚠⚠ **Die eine Stelle, die den Auftragsstand nach aussen gibt.** Vorher
-        stand `list(self._offene_auftraege.items())` an vier Stellen im Code;
+        stand `list(self._offene_contracts.items())` an vier Stellen im Code;
         eine davon zu vergessen hiesse, dass die Leiste je nach Anlass etwas
         anderes zeigt.
         """
         zu_mission = {}
         for kennung, rein in self._auftrag_missionen.items():
             zu_mission.setdefault(rein, kennung)
-        return [(rein, zeile, self._ziele.offen(zu_mission.get(rein)))
-                for rein, zeile in self._offene_auftraege.items()]
+        return [(rein, zeile, self._ziele.open_for(zu_mission.get(rein)))
+                for rein, zeile in self._offene_contracts.items()]
 
     def auftrag_wegklicken(self, rein):
         """Einen Auftrag von Hand aus der Anzeige nehmen.
@@ -1156,7 +1156,7 @@ class Watcher(threading.Thread):
         Der Titel bleibt in `_auftraege_gesehen`, damit er nicht beim naechsten
         Log-Abschnitt wieder auftaucht.
         """
-        if self._offene_auftraege.pop(rein, None) is not None:
+        if self._offene_contracts.pop(rein, None) is not None:
             self.q.put(('auftraege', self._auftragsstand()))
         # Auch dann melden, wenn er in der Leiste schon weg war: Die Zeile in
         # der Liste kann trotzdem noch stehen, und genau die will man los.
@@ -1170,11 +1170,11 @@ class Watcher(threading.Thread):
         gemeldet hat. Eine erfundene Bauplan-Angabe waere schlimmer als keine.
         """
         try:
-            ergebnis = auftraege.pruefen(
+            ergebnis = contracts.check(
                 titel, lambda n: bestand_datei.norm(n) in self.bestand['bauplaene'],
                 # ⭐ Wenn wir den Vertrag kennen, zaehlt SEINE Liste — die des
                 # Systems, in dem der Auftrag spielt. Sonst der Titelweg.
-                vertrag_id=self._auftrag_vertraege.get(rein))
+                contract_id=self._auftrag_vertraege.get(rein))
         except Exception as ausnahme:
             fehler.merken('watcher.auftraege', ausnahme)
             return None
@@ -1223,7 +1223,7 @@ class Watcher(threading.Thread):
             return
 
         try:
-            offen, missionen = auftraege.stand_aus_text(
+            offen, missionen = contracts.state_from_text(
                 text, self.tail.mission_pattern, self.tail.mission_end_pattern)
         except Exception as ausnahme:
             fehler.merken('watcher.auftraege_start', ausnahme)
@@ -1235,7 +1235,7 @@ class Watcher(threading.Thread):
         # ⭐ Und welcher Vertrag hinter welchem Auftrag steckt — die MissionId
         # ist die Bruecke zwischen beiden Angaben aus demselben Text.
         try:
-            je_mission = auftraege.vertraege_aus_text(text)
+            je_mission = contracts.contracts_from_text(text)
             for mid, rein_ in missionen.items():
                 if mid in je_mission:
                     self._auftrag_vertraege[rein_] = je_mission[mid]
@@ -1245,12 +1245,12 @@ class Watcher(threading.Thread):
         # Auftrag da, aber ohne das, was gerade zu tun ist — und genau danach
         # schaut man nach einem Neustart zuerst.
         try:
-            self._ziele.aufnehmen(auftraege.ziel_ereignisse_aus_text(text))
+            self._ziele.absorb(contracts.objective_events_from_text(text))
         except Exception as ausnahme:
             fehler.merken('watcher.ziele_start', ausnahme)
 
         for titel in offen:
-            rein = auftraege.sauber(titel)
+            rein = contracts.clean(titel)
             if not rein:
                 continue
             # Beim Start nicht in die Verlaufsliste melden — das waere ein
@@ -1278,7 +1278,7 @@ class Watcher(threading.Thread):
         # zum naechsten angenommenen Auftrag das Ziel von vor zwanzig Minuten.
         ziele_neu = False
         try:
-            ziele_neu = self._ziele.aufnehmen(
+            ziele_neu = self._ziele.absorb(
                 getattr(self.tail, 'objective_events', None))
         except Exception as ausnahme:
             fehler.merken('watcher.ziele', ausnahme)
@@ -1320,7 +1320,7 @@ class Watcher(threading.Thread):
             # geprueft wird, denn dieses Ereignis hat keinen. Das Spiel meldet
             # beim Verlassen der Spielwelt kein einziges Auftrags-Ende, im
             # Auftragsbuch ist danach trotzdem alles weg. Begruendung und
-            # Messung stehen bei `auftraege.VERLASSEN`.
+            # Messung stehen bei `contracts.LEFT_GAME`.
             if ist_annahme is None:
                 offen_jetzt.clear()
                 for weg in list(self._offene_auftraege):
@@ -1331,10 +1331,10 @@ class Watcher(threading.Thread):
                     # wieder gemeldet wird — man nimmt ihn ja erneut an.
                     self._auftraege_gesehen.discard(weg)
                 for kennung in list(self._auftrag_missionen):
-                    self._ziele.vergessen(kennung)
+                    self._ziele.forget(kennung)
                     del self._auftrag_missionen[kennung]
                 continue
-            rein = auftraege.sauber(titel)
+            rein = contracts.clean(titel)
             if ist_annahme:
                 # Eine Annahme ohne Titel ist wertlos — sie soll ja einen
                 # Auftrag in die Leiste setzen.
@@ -1355,7 +1355,7 @@ class Watcher(threading.Thread):
             #
             # Kein Titel, nur die Kennung. Bis hierher galt fuer JEDES Ereignis
             # „ohne Titel kein Auftrag" — damit flog genau dieses Ende heraus,
-            # bevor `beendet_welchen` ueberhaupt gefragt wurde. Die Funktion
+            # bevor `which_ended` ueberhaupt gefragt wurde. Die Funktion
             # haette es gekonnt: Ihr dritter Schritt loest ueber die MissionId
             # auf, und die stand die ganze Zeit daneben.
             #
@@ -1370,14 +1370,14 @@ class Watcher(threading.Thread):
             # ⚠⚠ **Nicht jedes Ende meint den Auftrag.** Traegt die Meldung
             # eine ObjectiveId, endet nur ein Zwischenziel — der Auftrag
             # laeuft weiter. Welcher Auftrag gemeint ist, entscheidet
-            # `auftraege.beendet_welchen`; dort steht auch, woran das gemessen
+            # `contracts.which_ended`; dort steht auch, woran das gemessen
             # ist.
             # ⚠ Gesucht wird in BEIDEN Buechern: was dieser Abschnitt neu
             # gebracht hat, und was laengst offen stand. Sonst faende ein
             # Ende seinen Auftrag nur, wenn beide im selben Abschnitt liegen.
             bekannt = dict(self._offene_auftraege)
             bekannt.update(offen_jetzt)
-            weg = auftraege.beendet_welchen(rein, mission_id, objective_id,
+            weg = contracts.which_ended(rein, mission_id, objective_id,
                                             bekannt, self._auftrag_missionen)
             if weg is None:
                 # Zwischenziel — oder ein Missions-Ende ohne auffindbaren
@@ -1387,11 +1387,11 @@ class Watcher(threading.Thread):
                 # hat in v3.4.4 laufende Auftraege mitgerissen.
                 continue
             offen_jetzt.pop(weg, None)
-            if self._offene_auftraege.pop(weg, None) is not None:
+            if self._offene_contracts.pop(weg, None) is not None:
                 veraendert = True
             for kennung in [k for k, v in self._auftrag_missionen.items()
                             if v == weg]:
-                self._ziele.vergessen(kennung)
+                self._ziele.forget(kennung)
                 del self._auftrag_missionen[kennung]
             self.q.put(('auftrag_weg', weg))
             # Damit dieselbe Mission spaeter wieder gemeldet wird. Ohne das
@@ -1562,7 +1562,7 @@ class Watcher(threading.Thread):
         self._auftrag_missionen = {}
         self._auftrag_vertraege = {}
         self._auftrag_zeile_quelle = {}
-        self._ziele = auftraege.Ziele()
+        self._ziele = contracts.Objectives()
         self._auftraege_beim_start()
         # Und die Zeilen in der Liste dazu: Was jetzt nicht mehr offen ist,
         # darf auch nicht mehr als laufender Auftrag dastehen.
@@ -2988,7 +2988,7 @@ class Overlay:
         abgeschnittene Liste, die sich fuer vollstaendig ausgibt, waere
         schlimmer als gar keine.
         """
-        for name in ziele[:auftraege.ZIELE_MAX]:
+        for name in ziele[:contracts.OBJECTIVES_MAX]:
             zz = tk.Frame(self.auftragsleiste, bg=BG)
             zz.pack(fill='x', padx=(14, 0))
             raute = icons.line(zz, 'standard', color=icons.GREY, background=BG,
@@ -2998,7 +2998,7 @@ class Overlay:
                           anchor='w', justify='left')
             zl.pack(side='left', fill='x', expand=True, anchor='w')
             self._wrap_labels.append(zl)
-        rest = len(ziele) - auftraege.ZIELE_MAX
+        rest = len(ziele) - contracts.OBJECTIVES_MAX
         if rest > 0:
             mehr = tk.Label(self.auftragsleiste,
                             text=sprache.t('ov_ziele_mehr', rest),

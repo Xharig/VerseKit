@@ -22,7 +22,7 @@ oft**. Keine Belohnungen, keine Kategorien — das steht nicht im Log.
 
 ## ⚠⚠ Dieses Modul erkennt KEINE Auftraege
 
-Das tut `auftraege.py`, und zwar besser, als es hier je entstehen wuerde: Es
+Das tut `contracts.py`, und zwar besser, als es hier je entstehen wuerde: Es
 holt die Formulierungen („Auftrag angenommen") aus der `global.ini` des
 Spielers statt sie einzutragen, geht auf den Missions-**Schluessel** statt auf
 den Wortlaut (sonst gilt jedes Zwischenziel als Auftrag), putzt die eigenen
@@ -31,15 +31,15 @@ Bauplan-Marken aus dem Titel und kennt drei Enden statt einem.
 Der erste Entwurf dieses Moduls hat all das danebengebaut und dieselben Fallen
 einzeln neu entdeckt. **Zwei Auswertungen derselben Logzeilen laufen beim
 naechsten Patch auseinander** — deshalb kommt hier jede Auftragserkennung aus
-`auftraege.py`.
+`contracts.py`.
 
 Was dieses Modul beitraegt, ist genau das, was dort fehlt:
 
 | | |
 |---|---|
-| **Wann** | `auftraege.ereignisse_aus_text()` liefert keinen Zeitpunkt — hier wird Zeile fuer Zeile gelesen, damit der Zeitstempel danebensteht |
+| **Wann** | `contracts.events_from_text()` liefert keinen Zeitpunkt — hier wird Zeile fuer Zeile gelesen, damit der Zeitstempel danebensteht |
 | **Ueber Sitzungen hinweg** | Jedes Einloggen beginnt eine neue `Game.log`. Ein Auftrag, abends angenommen und morgens beendet, steht in zwei Dateien |
-| **Abgeschlossen oder abgebrochen** | `auftraege.py` kennt nur „beendet". Der Unterschied steht in `<EndMission> … CompletionType[Complete\\|Abandon]` |
+| **Abgeschlossen oder abgebrochen** | `contracts.py` kennt nur „beendet". Der Unterschied steht in `<EndMission> … CompletionType[Complete\\|Abandon]` |
 | **Wie oft, und Suche** | Zaehlen und Filtern ueber den Namen |
 
 ## ⚠ Die Doppelmeldung
@@ -59,7 +59,7 @@ import json
 import os
 import re
 
-from . import auftraege, fehler, pfade
+from . import contracts, fehler, pfade
 
 DATEI = 'auftragslog.json'
 # ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
@@ -281,7 +281,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                     enden[a.group('mid')] = a.group('art')
 
                 # ('zustand', mission_id, objective_id, zustand, kennzeichen)
-                for zust in auftraege.ziel_ereignisse_aus_text(zeile):
+                for zust in contracts.objective_events_from_text(zeile):
                     if zust and zust[0] == 'zustand':
                         ziele.setdefault(zust[1], {})[zust[2]] = zust[3]
 
@@ -293,7 +293,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                 if bp_muster is not None:
                     for treffer in bp_muster.finditer(zeile):
                         roh_bp = next((g for g in treffer.groups() if g), '')
-                        name_bp = auftraege.sauber(roh_bp)
+                        name_bp = contracts.clean(roh_bp)
                         if not name_bp:
                             continue
                         bp_wann = _zeit(zeile)
@@ -302,7 +302,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         gesehen.add((bp_wann, name_bp, 'bp'))
                         _bp_zuordnen(name_bp, bp_wann, offen, fertig, gemeldet)
 
-                ereignisse = auftraege.ereignisse_aus_text(
+                ereignisse = contracts.events_from_text(
                     zeile, muster_an, muster_aus)
                 if not ereignisse:
                     continue
@@ -314,7 +314,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                     # mit „[SCBPW] … [/SCBPW]" — je nachdem, was der Watcher
                     # gerade ins Spiel eingetragen hat. Ungeputzt gilt derselbe
                     # Auftrag als zwei verschiedene: gemessen 3× und 2× statt 5×.
-                    titel = auftraege.sauber(roh)
+                    titel = contracts.clean(roh)
                     schluessel = (wann, titel, ist_annahme)
                     if schluessel in gesehen:
                         continue        # Doppelmeldung, siehe Modulkopf
@@ -323,7 +323,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                     if ist_annahme is None:
                         # ⚠⚠ Spielwelt verlassen — hier NICHT raeumen.
                         #
-                        # `auftraege.py` raeumt an dieser Stelle auf, und das ist
+                        # `contracts.py` raeumt an dieser Stelle auf, und das ist
                         # dort richtig: Das Overlay soll nach dem Ausloggen keine
                         # Auftraege mehr anzeigen, die nicht mehr anstehen.
                         #
@@ -356,7 +356,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         # obwohl es fuenf Durchlaeufe waren — einmal je Sitzung,
                         # in der er offen war.
                         #
-                        # Das ist auch der Grund, warum `auftraege.py` beim
+                        # Das ist auch der Grund, warum `contracts.py` beim
                         # Verlassen der Welt raeumt: Fuer die Live-Anzeige ist
                         # Raeumen die einfachere Loesung. Ein Protokoll darf
                         # nicht raeumen (sonst fehlen Auftraege ueber zwei
@@ -375,7 +375,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                         continue
 
                     # ⚠⚠ Ein Ende — aber WELCHES? Die Zuordnung macht
-                    # `beendet_welchen()`, nicht dieses Modul. Sein erster
+                    # `which_ended()`, nicht dieses Modul. Sein erster
                     # Schritt ist der entscheidende: Steht eine ObjectiveId
                     # dabei, endet nur ein Zwischenziel und der Auftrag laeuft
                     # weiter. Ohne diesen Filter landete „Obere Plattform
@@ -385,7 +385,7 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
                     # Und wenn nichts zugeordnet werden kann, wird NICHTS
                     # eingetragen. Ein erfundener Auftrag ist schlimmer als ein
                     # fehlender.
-                    treffer = auftraege.beendet_welchen(
+                    treffer = contracts.which_ended(
                         titel, mission_id, objective_id,
                         [e['name'] for e in offen], kennung)
                     if not treffer:
@@ -429,11 +429,11 @@ def _lesen(pfad, offen, fertig, gesehen, kennung, muster_an, muster_aus,
 
 def aus_dateien(pfade):
     """Mehrere Logs als EINE Geschichte auswerten, neuester Auftrag zuerst."""
-    # `kennung` merkt sich mission_id -> Titel. `beendet_welchen()` greift
+    # `kennung` merkt sich mission_id -> Titel. `which_ended()` greift
     # darauf zurueck, wenn der Titel beim Ende anders lautet als bei der
     # Annahme — laut Messung dort 62 von 362 Faellen.
     offen, fertig, gesehen, kennung = [], [], set(), {}
-    muster_an, muster_aus = auftraege.muster(), auftraege.ende_muster()
+    muster_an, muster_aus = contracts.start_pattern(), contracts.end_pattern()
     # ⚠ Dasselbe Muster wie im Bauplan-Bestand — die Formulierung steht in der
     # `global.ini` des Spielers. Faellt es aus, laeuft das Protokoll weiter, nur
     # ohne die Bauplan-Zeilen: Ein Auftrags-Protokoll ohne Belohnungen ist
@@ -465,7 +465,7 @@ def _gemeldete_titel(pfad_log):
     gemeldet = set()
     spawn = False
     erste = letzte = None
-    muster_an, muster_aus = auftraege.muster(), auftraege.ende_muster()
+    muster_an, muster_aus = contracts.start_pattern(), contracts.end_pattern()
     with open(pfad_log, encoding='utf-8', errors='replace') as f:
         for zeile in f:
             if not spawn and SPAWN_MARKE in zeile:
@@ -478,7 +478,7 @@ def _gemeldete_titel(pfad_log):
             for muster in (muster_an, muster_aus):
                 t = muster.search(zeile)
                 if t:
-                    gemeldet.add(auftraege.sauber(t.group(1)))
+                    gemeldet.add(contracts.clean(t.group(1)))
                     break
     dauer = 0
     a, b = _sekunden(erste or ''), _sekunden(letzte or '')
@@ -656,7 +656,7 @@ def _titel_nachputzen(eintraege):
     geputzt, veraendert = [], False
     for e in eintraege:
         name = e.get('name') or ''
-        rein = auftraege.sauber(name)
+        rein = contracts.clean(name)
         if rein and rein != name:
             e = dict(e, name=rein)
             veraendert = True

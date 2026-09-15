@@ -855,7 +855,7 @@ def property_name(name, key=None):
     ⚠⚠ **Der SCHLÜSSEL entscheidet, nicht der englische Text.**
     `propertyKey` ist sprachneutral und ändert sich nicht, wenn CIG die
     Beschriftung umformuliert — dieselbe Regel wie bei den Auftragsmeldungen
-    (`auftraege.INI_SCHLUESSEL`). Über den englischen Namen zu gehen hieße:
+    (`contracts.INI_KEYS`). Über den englischen Namen zu gehen hieße:
     beim nächsten Patch fällt die Hälfte still auf Englisch zurück.
     """
     from . import sprache

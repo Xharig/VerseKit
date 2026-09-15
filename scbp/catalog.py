@@ -176,7 +176,7 @@ def blueprints_for_contract(catalog_data, title):
 
     1. Der Name, wie er in den Herkunftsdaten steht. Das ist der Klick in der
        eigenen Liste, und er muss weiter funktionieren.
-    2. Über den **Missionsschlüssel** (`auftraege.schluessel_zu`) — derselbe
+    2. Über den **Missionsschlüssel** (`contracts.key_for`) — derselbe
        Weg, den das Overlay seit jeher geht. Er löst Platzhalter auf.
 
     ⚠ Gibt es zu einem Titel auf beiden Wegen etwas, gewinnt Weg 1: Er ist
@@ -194,11 +194,11 @@ def blueprints_for_contract(catalog_data, title):
         return treffer
     # Weg 2 — über den Missionsschlüssel.
     try:
-        from . import auftraege
-        schluessel = auftraege.schluessel_zu(title)
+        from . import contracts
+        schluessel = contracts.key_for(title)
         if not schluessel:
             return set()
-        namen = (auftraege.missionen().get(schluessel) or {}).get('bp') or []
+        namen = (contracts.missions().get(schluessel) or {}).get('bp') or []
     except Exception as error:
         fehler.merken('katalog.auftrag_aufloesen', error)
         return set()
@@ -1063,9 +1063,9 @@ def update(progress=None):
         # ⛔⛔ **Die Zwischenspeicher gehoeren geleert — sonst wirkt der neue
         # Katalog erst beim naechsten Programmstart.**
         #
-        # `auftraege` merkt sich `missionen` und `vertraege` beim ersten
+        # `contracts` merkt sich `missions` und `contract_definitions` beim ersten
         # Zugriff; der Katalog ist rund 1 MB gross, und bei jedem Auftrag neu
-        # zu lesen waere Verschwendung. Die Funktion `auftraege.vergessen()`
+        # zu lesen waere Verschwendung. Die Funktion `contracts.forget()`
         # gibt es genau dafuer — sie hatte bis zum 13.09.2026 **keinen
         # einzigen Aufrufer**.
         #
@@ -1077,8 +1077,8 @@ def update(progress=None):
         # ⭐ Dieselbe Sorte wie die toten `getattr`-Namen, die Pruefung 195
         # sucht: Der Code sieht vollstaendig aus, nur ruft ihn niemand.
         try:
-            from . import auftraege
-            auftraege.vergessen()
+            from . import contracts
+            contracts.forget()
         except Exception as error:
             fehler.merken('katalog.vergessen', error)
         return bool(count), count, version

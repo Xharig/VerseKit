@@ -42,7 +42,7 @@ import os
 import re
 import time
 
-from . import auftraege, pfade, phrases
+from . import contracts, pfade, phrases
 from .sprache import t, Satz, Zeitpunkt
 
 # Schiffskomponenten stehen im Log MIT Zusatz „(Klasse/Size/Grade)", z. B.
@@ -413,7 +413,7 @@ class LogTail:
         # obwohl er laengst erledigt ist. Genau so am 30.08.2026 gemessen.
         # Eintraege sind `(ist_annahme, titel, mission_id, objective_id)`
         # — die beiden Kennungen entscheiden, ob ein Ende den Auftrag
-        # meint oder nur ein Zwischenziel (siehe `auftraege.ZUSATZ`).
+        # meint oder nur ein Zwischenziel (siehe `contracts.SUFFIX`).
         self.mission_events = []
         # ⭐ `{mission_id: vertrag_id}` aus den `CreateMarker`-Zeilen desselben
         # Abschnitts. Ein leeres Woerterbuch ist der Normalfall, solange kein
@@ -421,7 +421,7 @@ class LogTail:
         self.mission_contracts = {}
         # Und die Zwischenziele desselben Abschnitts — was gerade zu tun ist.
         # ⚠ Zwei Sorten in einer Liste, roh: Zustandswechsel und Wortlaut.
-        # Gewertet wird in `auftraege.Ziele`, damit Start und laufender Betrieb
+        # Gewertet wird in `contracts.Objectives`, damit Start und laufender Betrieb
         # nicht wieder eigene Rechenwege bekommen.
         self.objective_events = []
 
@@ -512,19 +512,19 @@ class LogTail:
         # selben Abschnitt (`CreateMarker`) und nennt die
         # `contractDefinitionId` — damit bekommt die Anzeige die Bauplanliste
         # genau dieser Region statt der ueber alle Regionen zusammengefassten.
-        # Siehe `auftraege.vertraege_aus_text`.
-        self.mission_contracts = (auftraege.vertraege_aus_text(text)
+        # Siehe `contracts.contracts_from_text`.
+        self.mission_contracts = (contracts.contracts_from_text(text)
                                   if self.mission_pattern else {})
         # ⚠ Ohne Auftragsmuster gibt es auch keine Auftragsanzeige — dann
         # braucht niemand die Ziele, und das Suchen waere reine Arbeit.
-        self.objective_events = (auftraege.ziel_ereignisse_aus_text(text)
+        self.objective_events = (contracts.objective_events_from_text(text)
                                 if self.mission_pattern else [])
         return _names_from_text(text, self.pattern)
 
     def _sort_events(self, text):
         """Annahmen und Enden dieses Abschnitts in der Reihenfolge des Logs.
 
-        ⚠ Das Auslesen selbst liegt in `auftraege.ereignisse_aus_text` — eine
+        ⚠ Das Auslesen selbst liegt in `contracts.events_from_text` — eine
         Stelle für beide Wege. Der Start rechnet dort über die ganze
         `Game.log`, der laufende Betrieb hier über den neuen Abschnitt; liefen
         die beiden auseinander, verschwände ein Auftrag beim Neustart oder
@@ -532,7 +532,7 @@ class LogTail:
         """
         if not self.mission_pattern and not self.mission_end_pattern:
             return []
-        return auftraege.ereignisse_aus_text(text, self.mission_pattern,
+        return contracts.events_from_text(text, self.mission_pattern,
                                              self.mission_end_pattern)
 
 
