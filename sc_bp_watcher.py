@@ -4616,7 +4616,15 @@ class Overlay:
         """
         from scbp.main_window import SURFACE, FG, SUB, ACCENT, BG, BORDER
         self._ablage_menue_schliessen()
+        # ⚠ Den Zeiger von Windows holen, nicht von Tk: Der Klick kam aus dem
+        # Faden des Symbols, und `winfo_pointerxy` misst aus Sicht des
+        # (eingeklappten, evtl. anders skalierten) Hauptfensters. Beim ersten
+        # Versuch am 15.09.2026 stand das Menü oben links bei 0/0 — auf drei
+        # Bildschirmen leicht zu übersehen. `GetCursorPos` liefert dieselben
+        # Koordinaten, mit denen Windows selbst das Symbol trifft.
+        x, y = self._zeiger_lage()
         fenster = tk.Toplevel(self.root)
+        fenster.withdraw()                  # erst platzieren, dann zeigen
         fenster.overrideredirect(True)      # kein Titelbalken, kein Windows-Rahmen
         fenster.configure(bg=BORDER)
         fenster.attributes('-topmost', True)
@@ -4653,14 +4661,31 @@ class Overlay:
         fenster.update_idletasks()
         breit = max(innen.winfo_reqwidth() + 2, 240)
         hoch = innen.winfo_reqheight() + 2
-        x, y = self.root.winfo_pointerxy()
-        links, oben, schirm_breit, schirm_hoch = screen.screen_at(fenster, x, y)
+        try:
+            links, oben, schirm_breit, schirm_hoch = screen.screen_at(fenster,
+                                                                      x, y)
+        except Exception as ausnahme:
+            fehler.merken('overlay.ablage_menue.schirm', ausnahme)
+            links, oben, schirm_breit, schirm_hoch = 0, 0, x + breit, y + hoch
         # Neben der Uhr ist unten kein Platz — dann nach oben aufklappen.
         if y + hoch > oben + schirm_hoch - 8:
             y = y - hoch
         x = min(x, links + schirm_breit - breit - 8)
-        fenster.geometry('%dx%d+%d+%d' % (breit, hoch, max(x, links),
-                                          max(y, oben)))
+        # ⚠ `+%d`, nicht `%+d`: Ein Bildschirm links vom Hauptschirm hat
+        # negative x-Werte, und Tk liest `-1500` als „vom rechten Rand",
+        # `+-1500` dagegen als Koordinate.
+        lage = '%dx%d+%d+%d' % (breit, hoch, max(x, links), max(y, oben))
+        fenster.geometry(lage)
+        fenster.deiconify()
+        fenster.update_idletasks()
+        # ⚠ Tk setzt bei rahmenlosen Fenstern die erste Lage unter Windows
+        # nicht immer durch — nachmessen und notfalls ein zweites Mal setzen.
+        if (fenster.winfo_x(), fenster.winfo_y()) != (max(x, links),
+                                                      max(y, oben)):
+            fenster.geometry(lage)
+        fehler.spur('Ablagemenü: Zeiger %d/%d, Schirm %r, Lage %s, steht bei %d/%d'
+                    % (x, y, (links, oben, schirm_breit, schirm_hoch), lage,
+                       fenster.winfo_x(), fenster.winfo_y()))
         fenster.bind('<Escape>', lambda e: self._ablage_menue_schliessen())
         fenster.bind('<FocusOut>', lambda e: self._ablage_menue_schliessen())
         # ⚠ Ohne Vordergrund bekommt das Fenster keinen Fokus — und ohne Fokus
@@ -4674,6 +4699,22 @@ class Overlay:
         except Exception:
             pass
         fenster.focus_force()
+
+    def _zeiger_lage(self):
+        """Wo der Mauszeiger steht — von Windows, sonst von Tk."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class POINT(ctypes.Structure):
+                _fields_ = [('x', wintypes.LONG), ('y', wintypes.LONG)]
+
+            punkt = POINT()
+            if ctypes.windll.user32.GetCursorPos(ctypes.byref(punkt)):
+                return int(punkt.x), int(punkt.y)
+        except Exception:
+            pass
+        return self.root.winfo_pointerxy()
 
     def _ablage_menue_schliessen(self):
         fenster = getattr(self, '_ablage_fenster', None)

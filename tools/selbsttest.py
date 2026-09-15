@@ -21142,6 +21142,13 @@ def main():
     pruefe("'<FocusOut>'" in _blk215 and 'screen_at' in _blk215
            and 'y = y - hoch' in _blk215,
            'es schliesst bei Fokusverlust und klappt am unteren Rand nach oben')
+    # ⚠ Erster Bildschirmtest (15.09.2026): Menue stand bei 0/0 statt am
+    # Zeiger. Deshalb: Zeiger von Windows (`GetCursorPos`), Fenster erst
+    # platzieren, dann zeigen, Lage nachmessen und in den Startverlauf.
+    pruefe('_zeiger_lage()' in _blk215 and 'fenster.withdraw()' in _blk215
+           and 'fenster.deiconify()' in _blk215
+           and "fehler.spur('Ablagemen" in _blk215,
+           'Zeiger von Windows, erst platzieren, dann zeigen, Lage in der Spur')
     pruefe('beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen)'
            in _q215w,
            'das Symbol ruft das Tk-Menue ueber `after` in den Tk-Faden')
