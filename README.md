@@ -12,6 +12,7 @@
 
 [![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
 [![Heruntergeladen](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Heruntergeladen&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
+[![Webseite](https://img.shields.io/badge/Webseite-Rundgang%20ansehen-5fa522)](https://xharig.github.io/VerseKit/)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-beitreten-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Kaffee%20spendieren-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -26,6 +27,8 @@
 ---
 
 Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald ein neuer Bauplan (Blueprint) dazukommt — inklusive Name, Art und Uhrzeit. Ohne Account, ohne Cloud. Läuft unter **Windows und Linux**.
+
+> 🌐 **Es gibt eine Webseite.** Auf **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
 
 > 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
@@ -249,6 +252,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Herstellung** | Zu jedem der **1.597** herstellbaren Gegenstände die Zutaten mit Menge und die Herstellzeit — und ob du den Bauplan dafür hast. Ein Klick auf einen Rohstoff springt zu seinen Fundorten |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Bergbau** | Beide Richtungen in einer Suche: Rohstoff eintippen → seine Fundorte (Iron: 27 Orte). Ort eintippen → was es dort gibt (Daymar: 14 Erze). Dazu je Fundort die **Konzentration** — welcher Anteil der Brocken dort dieses Erz ist, von „kaum etwas" bis „fast nur das", und die Liste steht nach Ergiebigkeit. Ein Auswahlfeld **„Womit?"** trennt Schiff, Fahrzeug und Handabbau, denn die drei sehen völlig verschiedene Vorkommen. Mit **Raffinerie-Vergleich** je Erz (welche Station den besten Bonus gibt — bei Bexalite liegen 18 Prozentpunkte dazwischen) und der **Scan-Signatur** zum Wiedererkennen im Spiel |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Welche Verarbeitungsmethode?** | Das Terminal bietet neun Methoden an und zeigt zu jeder nur eine Zeile. Sag stattdessen, was dir wichtig ist — **Ertrag, Kosten oder Geschwindigkeit** — und du bekommst die Methode dazu. Zwei der neun lohnen sich übrigens nie: Sie werden von einer anderen in jeder Hinsicht geschlagen, und das steht dann auch da |
+| <img src="assets/symbole/22/raffinerie-gruen.png" width="22" alt=""> **Raffinerien** | **Welche Station am meisten aus deinem Erz macht — als eine Tafel.** Eine Zeile je Material, eine Spalte je Raffinerie, und in jeder Zelle der Aufschlag oder Abschlag dieser Station. **Grün ist der beste Wert der Zeile, Rot kostet dich Ausbeute**; über den Spalten steht das System, damit du sofort siehst, ob sich der weitere Weg überhaupt lohnt. Die Gegenrichtung zu „Welche Verarbeitungsmethode?": Dort wählst du die Methode, hier die Station |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Rohstofflager** | Trag ein, was du an Rohstoffen hast — **Material, Menge, Qualität, Lagerort**. Im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab, wenn du etwas herstellst. **Und weil die Rezepte mittragen, wie die Materialqualität die Werte des Produkts verändert, siehst du, was mit *deinem* Material herauskäme** |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Preise** | Was ein Rohstoff am Terminal kostet und was er einbringt — die Zahlen kommen von **[UEX Corp](https://uexcorp.space/)** und frischen sich täglich auf. Damit beantwortet die Herstellung nicht nur „was fehlt mir", sondern auch „was kostet mich das". Ohne Netz bleibt das Feld einfach leer |
 | <img src="assets/symbole/22/handelslager-gruen.png" width="22" alt=""> **Handelslager** | Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Rohstofflager: Das eine ist Baumaterial, das du behältst, das andere Ladung, die du loswerden willst. Ware, Ort und SCU eintragen; im Mengenfeld darfst du rechnen (`100+5`). Statt einer Güte gibt es den Haken **„als gestohlen markiert"** — beim Verkauf zählt die Qualität nicht, und erbeutete Ware hat ohnehin immer Q 0 |
