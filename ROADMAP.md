@@ -22,7 +22,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | Live-Erkennung neuer Baupläne aus der Spiel-Log, Anzeige im Overlay |
 | ✅ | **Eigener Bauplan-Bestand** — der SC Deutsch Launcher ist nicht nötig |
 | ✅ | **Nachlese**: beim Start werden frühere Spielsitzungen ausgewertet |
-| ✅ | **Bauplan-Liste** zum Nachschlagen, Filtern und Abhaken, mit Fortschritt — die Suche findet **auch Aufträge** und filtert die Liste auf einen davon |
+| ✅ | **Bauplan-Liste** zum Nachschlagen, Filtern und Abhaken, mit Fortschritt (auch nur für die Merkliste) — die Suche findet **auch Aufträge** und filtert die Liste auf einen davon |
 | ✅ | **Herkunft je Bauplan** — Fraktion, Auftrag, nötiger Ruf, Belohnung; aus der Herstellung führt ein Knopf direkt hin |
 | ✅ | **Beim Annehmen eines Auftrags**: bringt er Baupläne, und welche fehlen dir noch? |
 | ✅ | **Was gerade zu tun ist** — die offenen Zwischenziele stehen unter ihrem Auftrag |
@@ -73,6 +73,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
 | ✅ | **Geprüfte Updates**: jedes Release bringt seine Prüfsumme mit, und eingespielt wird nur, was ihr entspricht — sonst gar nichts, mit Hinweis auf den Download von Hand |
 | ✅ | **Ein-Klick-Update**: ein Klick lädt, prüft, spielt ein und startet den Watcher von selbst neu — beim nächsten Start sagt er, was daraus wurde |
+| ✅ | **Automatisches Update**: neue Versionen kommen von selbst, gleich nach Spielende — nie, während Star Citizen läuft; abschaltbar |
 
 ## Woran gearbeitet wird
 

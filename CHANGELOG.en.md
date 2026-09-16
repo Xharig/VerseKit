@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.45.0 - 2026-09-16
+
+> **How far along are you with the blueprints you actually want?** Blueprint
+> progress now shows that for your watchlist alone. For that, unlocked
+> blueprints stay ticked off on the watchlist instead of disappearing.
+
 ### New
 
 - **Blueprint progress for your watchlist only.** At the top of the page pick
