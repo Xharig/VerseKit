@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.46.1 - 2026-09-17
+
+> **Das automatische Update verpasst keine neue Version mehr.** Wer kurz vor
+> einer Veröffentlichung von Hand nachgesehen hatte, bekam die neue Version
+> bis zu eine halbe Stunde später als nötig. Jetzt fragt VerseKit bei jedem
+> Durchgang wirklich nach.
+
+### Behoben
+
+- **Ein Blick auf „Update & Über" verschob das automatische Update um bis zu
+  30 Minuten.** VerseKit merkte sich die Antwort und fragte beim nächsten
+  Durchgang nicht erneut. Jetzt sieht jeder Durchgang wirklich nach
+
 ## v3.46.0 - 2026-09-17
 
 > **Was du farmen musst — und wo.** Die Farmliste zeigt jetzt zu jedem

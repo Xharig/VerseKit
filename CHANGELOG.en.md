@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.46.1 - 2026-09-17
+
+> **Automatic updates no longer miss a new version.** If you had checked by
+> hand shortly before a release, the new version arrived up to half an hour
+> later than necessary. VerseKit now really asks on every round.
+
+### Fixed
+
+- **A look at "Update & About" delayed the automatic update by up to 30
+  minutes.** VerseKit remembered the answer and did not ask again on the
+  next round. Every round now really checks
+
 ## v3.46.0 - 2026-09-17
 
 > **What you need to farm — and where.** The farm list now shows the best

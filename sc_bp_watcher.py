@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.46.0'
+__version__ = '3.46.1'
 
 
 def _mitgeliefert(name):
@@ -3366,6 +3366,15 @@ class Overlay:
                 self.root.after(self.VERSION_TAKT, self._nach_version_sehen)
             except tk.TclError:
                 return                   # Fenster ist zu, dann reicht es auch
+            # ⚠⚠ **Der Takt fragt IMMER wirklich nach** (17.09.2026). Vorher
+            # lieferte `updater.check` innerhalb von 30 Minuten nach JEDEM
+            # Nachsehen den Zwischenspeicher — auch nach einem Blick von Hand
+            # auf „Update & Über". Gemessen: um 00:45:13 von Hand nachgesehen,
+            # um 00:46:31 kam v3.46.0, der Takt um 01:09 fragte deshalb gar
+            # nicht, erst der um 01:39. Ein Blick von Hand verschob das
+            # automatische Update so um eine halbe Stunde. Mehr Abfragen
+            # entstehen dadurch nicht: Der Takt selbst ist die Grenze.
+            erzwingen = True
         # ⚠ **Der Schalter „Nach neuen Versionen sehen" wirkt erst seit hier.**
         # Er wurde geschrieben, aber nirgends gelesen — wer ihn ausschaltete,
         # änderte nichts. Eine beschriftete Einstellung, die nichts tut, ist
