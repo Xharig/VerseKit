@@ -21342,6 +21342,137 @@ def main():
     pruefe(not _fremd217,
            'die Seite laedt nichts von fremden Servern (%r)' % _fremd217)
 
+    print('\n218. Jeder Methodenaufruf trifft eine Methode, die es gibt')
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Am 16.09.2026 rief
+    # `assistent.start()` noch `a.durchlaufen()`, obwohl die Methode bei der
+    # Umbenennung `run()` geworden war. Python merkt das erst beim Ausfuehren —
+    # und ausgerechnet diese Zeile laeuft **nur beim allerersten Start**. Jeder
+    # Tester hatte das Werkzeug laengst eingerichtet, also fiel es niemandem
+    # auf. Gesehen hat es zuerst ein Nutzer, bei dem gar nichts mehr ansprang.
+    #
+    # ⚠ `pyflakes` findet das nicht — es prueft keine Attributzugriffe. Die
+    # Umbenennung laeuft weiter, also braucht es eine Wache, die mitlaeuft.
+    #
+    # ⭐ **Bewusst vorsichtig.** Gemeldet wird nur, was sicher ins Leere geht:
+    # Klassen **ohne** Basisklasse (sonst koennte die Methode geerbt sein) und
+    # Module **ohne** `setattr` (sonst koennte sie zur Laufzeit entstehen).
+    # Lieber ein paar Faelle nicht sehen als Fehlalarme sammeln — eine Pruefung,
+    # der man nicht traut, wird abgeschaltet.
+    import ast as _ast218
+    _tot218 = []
+    for _rel218 in sorted(_versionierte_dateien(WURZEL, ('.py',))):
+        if _rel218.startswith(('tools/', 'build/', 'dist/')):
+            continue
+        _voll218 = os.path.join(WURZEL, _rel218)
+        try:
+            _q218 = io.open(_voll218, encoding='utf-8').read()
+            _baum218 = _ast218.parse(_q218, filename=_rel218)
+        except Exception:
+            continue
+        _dyn218 = 'setattr' in _q218
+        # Je Klasse: eigene Methoden plus alles, was irgendwo als
+        # `self.<name> = …` gesetzt wird (zugewiesene Funktionen, Widgets).
+        _kl218 = {}
+        for _k218 in _ast218.walk(_baum218):
+            if not isinstance(_k218, _ast218.ClassDef):
+                continue
+            _namen218 = {_m218.name for _m218 in _k218.body
+                         if isinstance(_m218, (_ast218.FunctionDef,
+                                               _ast218.AsyncFunctionDef))}
+            for _m218 in _k218.body:
+                if isinstance(_m218, _ast218.Assign):
+                    for _z218 in _m218.targets:
+                        if isinstance(_z218, _ast218.Name):
+                            _namen218.add(_z218.id)
+            for _t218 in _ast218.walk(_k218):
+                if (isinstance(_t218, _ast218.Attribute)
+                        and isinstance(_t218.ctx, _ast218.Store)
+                        and isinstance(_t218.value, _ast218.Name)
+                        and _t218.value.id == 'self'):
+                    _namen218.add(_t218.attr)
+            _kl218[_k218.name] = (_namen218, bool(_k218.bases))
+        if _dyn218:
+            continue
+        # Weg 1: `self.x()` in einer Klasse ohne Basisklasse.
+        for _k218 in _ast218.walk(_baum218):
+            if not isinstance(_k218, _ast218.ClassDef):
+                continue
+            _erlaubt218, _hat_basis218 = _kl218[_k218.name]
+            if _hat_basis218:
+                continue
+            for _t218 in _ast218.walk(_k218):
+                if (isinstance(_t218, _ast218.Call)
+                        and isinstance(_t218.func, _ast218.Attribute)
+                        and isinstance(_t218.func.value, _ast218.Name)
+                        and _t218.func.value.id == 'self'
+                        and _t218.func.attr not in _erlaubt218):
+                    _tot218.append('%s:%d self.%s()'
+                                   % (_rel218, _t218.lineno, _t218.func.attr))
+        # Weg 2: `var = Klasse(…)` im selben Modul, danach `var.x()`.
+        for _f218 in _ast218.walk(_baum218):
+            if not isinstance(_f218, (_ast218.FunctionDef,
+                                      _ast218.AsyncFunctionDef)):
+                continue
+            _bind218 = {}
+            for _t218 in _ast218.walk(_f218):
+                if (isinstance(_t218, _ast218.Assign)
+                        and len(_t218.targets) == 1
+                        and isinstance(_t218.targets[0], _ast218.Name)
+                        and isinstance(_t218.value, _ast218.Call)
+                        and isinstance(_t218.value.func, _ast218.Name)
+                        and _t218.value.func.id in _kl218):
+                    _bind218[_t218.targets[0].id] = _t218.value.func.id
+            for _t218 in _ast218.walk(_f218):
+                if (isinstance(_t218, _ast218.Call)
+                        and isinstance(_t218.func, _ast218.Attribute)
+                        and isinstance(_t218.func.value, _ast218.Name)
+                        and _t218.func.value.id in _bind218):
+                    _erlaubt218, _hat_basis218 = _kl218[
+                        _bind218[_t218.func.value.id]]
+                    if _hat_basis218:
+                        continue
+                    if _t218.func.attr not in _erlaubt218:
+                        _tot218.append(
+                            '%s:%d %s.%s()'
+                            % (_rel218, _t218.lineno, _t218.func.value.id,
+                               _t218.func.attr))
+    pruefe(not _tot218,
+           'kein Aufruf geht ins Leere (%r)' % _tot218[:5])
+
+    print('\n219. Jeder sichtbare Text im Installer folgt der Sprachwahl')
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Bis v3.42.2 standen „Mit Windows
+    # starten" und die Ueberschrift darueber **fest** im Installer. Wer ihn auf
+    # Englisch durchlief, bekam zwei deutsche Zeilen mitten in einer englischen
+    # Maske. Aufgefallen ist es einem Nutzer, nicht uns — die Datei wird beim
+    # Bauen nie auf Englisch angesehen.
+    #
+    # ⚠ `texte_pruefen.py` greift hier nicht: Es liest Python, nicht `.iss`.
+    _iss219 = io.open(os.path.join(WURZEL, 'packaging', 'installer.iss'),
+                      encoding='utf-8').read()
+    _zeilen219 = [z for z in _iss219.split('\n') if not z.lstrip().startswith(';')]
+    # Jeder angezeigte Text laeuft ueber `{cm:…}` — entweder ueber eine eingebaute
+    # Inno-Nachricht oder ueber einen eigenen Eintrag aus `[CustomMessages]`.
+    _hart219 = [z.strip() for z in _zeilen219
+                if 'Description:' in z and '{cm:' not in z]
+    pruefe(not _hart219,
+           'kein fest verdrahteter Anzeigetext (%r)' % _hart219)
+    # ⭐ Und die eigenen Eintraege muss es in **jeder** Sprache geben. Ein
+    # Schluessel, den nur eine Sprache kennt, faellt sonst erst dem Nutzer auf,
+    # der die andere waehlt — genau der Fall, den diese Pruefung verhindern soll.
+    _sprachen219 = set(re.findall(r'^Name: "([^"]+)"; MessagesFile:',
+                                  _iss219, re.M))
+    _eigene219 = re.findall(r'^([A-Za-z]+)\.([A-Za-z0-9_]+)=', _iss219, re.M)
+    _schluessel219 = {s for _, s in _eigene219}
+    pruefe(len(_sprachen219) >= 2 and _schluessel219,
+           'der Installer hat mehrere Sprachen und eigene Texte (%d / %d)'
+           % (len(_sprachen219), len(_schluessel219)))
+    _fehlt219 = ['%s.%s' % (_spr219, _s219)
+                 for _s219 in sorted(_schluessel219)
+                 for _spr219 in sorted(_sprachen219)
+                 if (_spr219, _s219) not in _eigene219]
+    pruefe(not _fehlt219,
+           'jeder eigene Text steht in jeder Sprache (fehlt: %r)' % _fehlt219)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
