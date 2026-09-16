@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.42.3 - 2026-09-16
+
+> **Der englische Installer spricht jetzt Englisch.** Zwei Zeilen standen fest
+> auf Deutsch darin — wer VerseKit auf Englisch installierte, bekam mitten in
+> einer englischen Maske einen deutschen Satz zu lesen. Wer auf Deutsch
+> installiert, merkt von dieser Fassung nichts.
+
 ### Behoben
 
 - **Der englische Installer zeigte zwei deutsche Zeilen.** „Mit Windows
