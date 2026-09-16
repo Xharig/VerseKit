@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.44.0'
+__version__ = '3.44.1'
 
 
 def _mitgeliefert(name):
@@ -970,6 +970,38 @@ class Watcher(threading.Thread):
 
         threading.Thread(target=arbeit, daemon=True).start()
 
+    def _spielsprache_pruefen(self, quelle=None):
+        """Steht die Sprache der gewählten Übersetzung in der `user.cfg`?
+
+        Fehlt `g_language` (oder steht dort eine andere Sprache), trägt es sie
+        wieder ein. Gibt zurück, ob etwas geschrieben wurde.
+
+        ⚠ Nur wenn eine Übersetzung **im Werkzeug gewählt** ist (`deutsch`,
+        `starstrings`) und ihre Datei auch da liegt. Wer nie eine gewählt hat,
+        dessen `user.cfg` bleibt unberührt — Finger weg von fremden Installationen.
+        """
+        try:
+            if quelle is None:
+                quelle = next((q for q in translation.SOURCES
+                               if translation.installed(q)), None)
+            if not quelle:
+                return False
+            sprache_ordner = translation.SOURCES[quelle]['sprache']
+            ziel = translation.target_ini(sprache_ordner)
+            if not ziel or not os.path.isfile(ziel):
+                return False
+            if translation.game_language() == sprache_ordner:
+                return False
+            if not translation.set_user_cfg(
+                    sprache_ordner, translation.SOURCES[quelle].get('ton')):
+                return False
+            self.q.put(('status', language.Phrase('spielsprache_repariert',
+                                                  sprache_ordner)))
+            return True
+        except Exception as ausnahme:
+            fehler.merken('watcher.spielsprache', ausnahme)
+            return False
+
     def _bestandsmarke_neu(self):
         """Hat sich der eigene Bestand seit dem letzten Einspielen geändert?
 
@@ -999,6 +1031,25 @@ class Watcher(threading.Thread):
             return
         kuerzel = injection._lang_code(sprache_ordner)
         neu_noetig = False
+
+        # 0. ⚠⚠ **Liest das Spiel die Datei überhaupt?** (16.09.2026) Ohne
+        #    `g_language` in der `user.cfg` bleibt Star Citizen englisch, egal
+        #    was in `german_(germany)/global.ini` steht. Gesetzt wurde die Zeile
+        #    bisher nur beim Holen einer neuen Übersetzungsfassung — fiel sie
+        #    danach weg (die `user.cfg` von Hand oder von einem anderen Werkzeug
+        #    umgeschrieben), merkte das niemand: Die Kästchen standen in der
+        #    Datei, die Punkte 1 bis 4 fanden alles in Ordnung, und der Spieler
+        #    sah nach dem nächsten Spielstart englische Texte.
+        #
+        #    Gewählt ist die Quelle vom Spieler selbst — wer „Deutsch" eingestellt
+        #    hat, will Deutsch. Nur ergänzt, nie gelöscht: `set_user_cfg` lässt
+        #    alle anderen Zeilen stehen.
+        #
+        #    Läuft außerdem bei JEDEM Start, unabhängig von `inj_an`/`inj_auto`
+        #    (siehe `run`) — hier nur, damit ein über Stunden laufendes Werkzeug
+        #    es ebenfalls bemerkt.
+        if not nur_bestand:
+            self._spielsprache_pruefen(quelle)
 
         # 1. Neue Version der Übersetzung? Die schreibt die Datei komplett neu,
         #    danach ist die Injektion in jedem Fall weg.
@@ -1691,6 +1742,10 @@ class Watcher(threading.Thread):
         #    Nachlese mit der falschen Formulierung und findet nichts.
         self._sprache_erschliessen()
 
+        # 1b) Liest das Spiel die gewählte Übersetzung auch? Bei JEDEM Start —
+        #     unabhängig davon, ob die Auftragstexte gerade eingeschaltet sind.
+        self._spielsprache_pruefen()
+
         # 2) Startbaupläne eintragen — die hat jeder Spieler von Anfang an,
         #    sie stehen deshalb in **keinem** Log und in keinem Belohnungs-Pool.
         #    Ohne diesen Schritt fehlen sie dauerhaft im Bestand, und der
@@ -2318,6 +2373,8 @@ class Overlay:
         self.root.after(200, self._poll_queue)
         # ⚠ **Und danach stündlich wieder** — siehe `_nach_version_sehen`.
         self.root.after(2000, self._nach_version_sehen)   # nicht beim Start drängeln
+        # Und sobald das Spiel zugeht, gleich noch einmal — siehe dort.
+        self.root.after(60 * 1000, self._spielende_wache)
         # Kurz nach dem Start fragen, falls der Spielordner umgezogen ist.
         # Vor der Versionsprüfung: Ohne Spielordner nützt die neueste Fassung
         # nichts, und zwei Fenster hintereinander will niemand.
@@ -3232,8 +3289,55 @@ class Overlay:
     # `auto_update.CHECK_INTERVAL_S` und `updater.MIN_INTERVAL`.
     VERSION_TAKT = 30 * 60 * 1000
 
-    def _nach_version_sehen(self):
+    # Wie lange nach einem erzwungenen Nachsehen beim Spielende kein weiteres
+    # erzwungen wird. Stürzt das Spiel in Schleife ab, fragte VerseKit sonst
+    # jede Minute bei GitHub nach — ohne Anmeldung sind 60 Abfragen je Stunde
+    # erlaubt, und die teilen sich alle Rechner hinter einem Router.
+    SPIELENDE_ABSTAND_S = 5 * 60
+
+    def _spielende_wache(self):
+        """Beim Spielende sofort nach einer neuen Fassung sehen (16.09.2026).
+
+        ⚠ **Wozu.** Das automatische Update spielt nie mitten im Spiel ein.
+        Wird eine Fassung WÄHREND des Spiels gefunden, wartet `_auto_update`
+        und fragt jede Minute nach — sie kommt also gleich nach Spielende. Aber
+        erschien sie erst, nachdem zuletzt nachgesehen wurde, lag zwischen
+        Spielende und Update bis zu eine halbe Stunde. Wunsch: *„nach
+        Spielende sollten es eher weniger sein"*. Statt den Takt für alle zu
+        verkürzen, wird genau dieser Moment genutzt.
+
+        Gefragt wird im Nebenfaden — die Prozessliste zu lesen dauert unter
+        Windows einige Millisekunden, und Tk soll dafür nicht stehen.
+        """
+        try:
+            self.root.after(60 * 1000, self._spielende_wache)
+        except tk.TclError:
+            return
+        if getattr(self, '_spielende_laeuft', False):
+            return
+        self._spielende_laeuft = True
+
+        def arbeit():
+            try:
+                from scbp import auto_update
+                laeuft = auto_update.game_running()
+                vorher = getattr(self, '_spiel_lief', None)
+                self._spiel_lief = laeuft
+                if vorher and not laeuft:
+                    self.root.after(
+                        0, lambda: self._nach_version_sehen(spielende=True))
+            except Exception as ausnahme:
+                fehler.merken('overlay.spielende_wache', ausnahme)
+            finally:
+                self._spielende_laeuft = False
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def _nach_version_sehen(self, spielende=False):
         """Im Hintergrund nachsehen, ob es etwas Neues gibt.
+
+        `spielende=True` kommt aus `_spielende_wache`: kein neuer Takt, und die
+        Abfrage wird erzwungen (höchstens alle `SPIELENDE_ABSTAND_S`), sonst
+        lieferte der Zwischenspeicher den Stand von vor bis zu 30 Minuten.
 
         Im Nebenläufer, damit der Start nicht auf das Netz wartet — und still,
         wenn nichts da ist. Ein Werkzeug, das beim Spielen im Vordergrund liegt,
@@ -3250,10 +3354,22 @@ class Overlay:
         """
         # Erst den nächsten Blick einplanen, dann arbeiten: Wirft das Nachsehen,
         # hört die Reihe sonst still auf.
-        try:
-            self.root.after(self.VERSION_TAKT, self._nach_version_sehen)
-        except tk.TclError:
-            return                       # Fenster ist zu, dann reicht es auch
+        erzwingen = False
+        if spielende:
+            from scbp import auto_update
+            if not auto_update.enabled():
+                return
+            jetzt = time.time()
+            if jetzt - getattr(self, '_spielende_gefragt', 0) < \
+                    self.SPIELENDE_ABSTAND_S:
+                return
+            self._spielende_gefragt = jetzt
+            erzwingen = True
+        else:
+            try:
+                self.root.after(self.VERSION_TAKT, self._nach_version_sehen)
+            except tk.TclError:
+                return                   # Fenster ist zu, dann reicht es auch
         # ⚠ **Der Schalter „Nach neuen Versionen sehen" wirkt erst seit hier.**
         # Er wurde geschrieben, aber nirgends gelesen — wer ihn ausschaltete,
         # änderte nichts. Eine beschriftete Einstellung, die nichts tut, ist
@@ -3264,7 +3380,7 @@ class Overlay:
 
         def arbeit():
             try:
-                neu = updater.check(__version__)
+                neu = updater.check(__version__, force=erzwingen)
             except Exception:
                 return
             if neu:

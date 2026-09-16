@@ -8,6 +8,32 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.44.1 - 2026-09-16
+
+> **The German translation now stays switched on.** When the language setting
+> dropped out of `user.cfg`, Star Citizen stayed in English although the
+> German file was in place — and VerseKit never noticed. It now checks on
+> every start and puts the language back. Ships with a paint name in their
+> package name can be renamed again, too, and an update now arrives right
+> after you quit the game instead of at the next scheduled check.
+
+### Improved
+
+- **Updates arrive right after you quit the game.** As soon as you close Star
+  Citizen, VerseKit checks for a new version immediately instead of waiting up
+  to half an hour for the next check.
+
+### Fixed
+
+- **The chosen translation is checked on every start.** If `user.cfg` lacks
+  the language setting, VerseKit adds it back and says so in the status line
+  — effective from the next game start. Until now this only happened when a
+  new translation version was downloaded.
+- **Ships with a paint name attached can be renamed.** When a ship came in
+  from the pledge import with its package name appended — say "ATLS IKTI
+  Akuma" —, "Rename ships" only showed "Not found in the language file". It
+  is now matched to its vehicle, as long as that is unambiguous.
+
 ## v3.44.0 - 2026-09-16
 
 > **VerseKit now keeps itself up to date.** Every 30 minutes it checks for a

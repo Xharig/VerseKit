@@ -8,6 +8,33 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.44.1 - 2026-09-16
+
+> **Die deutsche Übersetzung bleibt jetzt eingeschaltet.** Fiel die
+> Spracheinstellung aus der `user.cfg` heraus, blieb Star Citizen englisch,
+> obwohl die deutsche Datei dalag — und VerseKit merkte davon nichts. Jetzt
+> sieht es bei jedem Start nach und trägt die Sprache wieder ein. Dazu lassen
+> sich Schiffe mit Lackierung im Paketnamen wieder benennen, und ein Update
+> kommt jetzt gleich nach Spielende statt erst beim nächsten Nachsehen.
+
+### Verbessert
+
+- **Updates kommen gleich nach Spielende.** Sobald du Star Citizen schließt,
+  sieht VerseKit sofort nach einer neuen Version, statt bis zu einer halben
+  Stunde auf das nächste Nachsehen zu warten.
+
+### Behoben
+
+- **Die gewählte Übersetzung wird bei jedem Start geprüft.** Fehlt in der
+  `user.cfg` die Spracheinstellung, trägt VerseKit sie wieder ein und sagt es
+  in der Statuszeile — wirksam ab dem nächsten Spielstart. Bisher geschah das
+  nur beim Laden einer neuen Übersetzungsfassung.
+- **Schiffe mit Lackierung im Namen lassen sich benennen.** Kam ein Schiff aus
+  dem Pledge-Import mit angehängtem Paketnamen herein — etwa „ATLS IKTI
+  Akuma" —, stand unter „Schiffe benennen" nur „In der Sprachdatei nicht
+  gefunden". Jetzt wird es seinem Fahrzeug zugeordnet, solange das eindeutig
+  ist.
+
 ## v3.44.0 - 2026-09-16
 
 > **VerseKit hält sich jetzt selbst aktuell.** Alle 30 Minuten sieht es nach

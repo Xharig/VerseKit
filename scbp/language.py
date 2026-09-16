@@ -5078,6 +5078,10 @@ TEXTS = {
     'inj_pruefen':       ('Auf Updates prüfen', 'Check for updates'),
     'texte_erneuert':    ('Übersetzung aktualisiert (%s)',
                           'Translation updated (%s)'),
+    'spielsprache_repariert': ('Spielsprache wieder eingetragen (%s) — gilt '
+                               'ab dem nächsten Spielstart',
+                               'Game language restored (%s) — takes effect '
+                               'on the next game start'),
     'bpdaten_erneuert':  ('Neue Bauplan-Daten (%s)',
                           'New blueprint data (%s)'),
 
