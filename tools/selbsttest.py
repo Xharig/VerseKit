@@ -21267,6 +21267,77 @@ def main():
            and 'CSV' in _sp216.t('s_hg_import_json'),
            'die Hilfetexte nennen den CSV-Export')
 
+    print('\n217. Die Projektseite zeigt dieselben Reiter wie das Programm')
+    # ⚠⚠ **Warum es diese Pruefung gibt.** `index.html` ist die Projektseite
+    # auf GitHub Pages. Ihr Rundgang baut die Seitenleiste des Programms nach —
+    # und trägt die Reiternamen als **eigene Zeichenketten**. Das ist eine
+    # zweite Wahrheit: Wer in `main_window.py` einen Reiter umbenennt oder
+    # verschiebt, aendert die Seite nicht mit, und niemand merkt es. Genau so
+    # ist die README in vier Wochen veraltet — nachgewiesen am 16.09.2026, als
+    # sie noch „Blickwinkel" und „Laeden" nannte, waehrend das Programm laengst
+    # `FOV` und `Shops` sagte.
+    #
+    # ⭐ **Geprueft wird das PAAR (deutsch, englisch), nicht jede Sprache fuer
+    # sich.** Wer nur eine Seite umbenennt, faellt sonst durchs Raster: Beide
+    # Zeichenketten gaebe es ja noch, nur nicht mehr am selben Reiter.
+    _html217 = open(os.path.join(WURZEL, 'index.html'), encoding='utf-8').read()
+    pruefe('var GRUPPEN = [' in _html217,
+           'die Seite hat einen Rundgang, der sich pruefen laesst')
+    _tour217 = _html217.split('var GRUPPEN = [')[1].split('\n];')[0]
+    _grp217 = re.findall(r'\{de:"([^"]*)", en:"([^"]*)", eintraege:', _tour217)
+    _ein217 = re.findall(r'\{bild:"([^"]*)", de:"([^"]*)", en:"([^"]*)"',
+                         _tour217)
+    pruefe(len(_grp217) >= 7 and len(_ein217) >= 20,
+           'der Rundgang hat Gruppen und Eintraege (%d / %d)'
+           % (len(_grp217), len(_ein217)))
+
+    # Alle Paare, die es im Programm ueberhaupt gibt.
+    _paare217 = set()
+    for _w217 in _sp216.TEXTE.values():
+        if isinstance(_w217, tuple) and len(_w217) == 2 \
+                and all(isinstance(x, str) for x in _w217):
+            _paare217.add(_w217)
+
+    # ⚠ **Eine einzige Ausnahme, und die ist begruendet:** Das Overlay ist
+    # kein Reiter, sondern das kleine Fenster ueber dem Spiel. Es hat deshalb
+    # keinen `hf_`-Text. Wer hier weitere Ausnahmen eintraegt, hebelt die
+    # Pruefung aus — dann lieber den Namen im Programm nachziehen.
+    _frei217 = {('Overlay', 'Overlay')}
+
+    _fehl217 = [d for _b, d, e in _ein217
+                if (d, e) not in _paare217 and (d, e) not in _frei217]
+    pruefe(not _fehl217,
+           'jeder Reiter der Seite heisst wie im Programm (unbekannt: %r)'
+           % _fehl217)
+    _fehlg217 = [d for d, e in _grp217
+                 if (d, e) not in _paare217 and (d, e) not in _frei217]
+    pruefe(not _fehlg217,
+           'jede Gruppe der Seite heisst wie im Programm (unbekannt: %r)'
+           % _fehlg217)
+
+    # ⭐ Und die Bilder muessen es beide Male geben — die Seite schaltet auf
+    # Englisch um, indem sie `-en` vor die Endung setzt. Fehlt ein englisches
+    # Bild, bleibt beim Umschalten ein leerer Rahmen stehen.
+    _ohne217 = []
+    for _b217, _d217, _e217 in _ein217:
+        _stamm217, _punkt217, _end217 = _b217.rpartition('.')
+        for _n217 in (_b217, '%s-en%s%s' % (_stamm217, _punkt217, _end217)):
+            if not os.path.exists(os.path.join(WURZEL, 'assets', _n217)):
+                _ohne217.append(_n217)
+    pruefe(not _ohne217,
+           'zu jedem Eintrag gibt es das Bild in beiden Sprachen (fehlt: %r)'
+           % _ohne217)
+
+    # Die Seite darf nichts von aussen nachladen — kein CDN, keine Schriften,
+    # keine Statistik. Sonst gehen die Adressen der Besucher an Dritte.
+    _fremd217 = [u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"',
+                                       _html217)
+                 if not u.startswith(('https://github.com/Xharig/',
+                                      'https://discord.gg/',
+                                      'https://ko-fi.com/'))]
+    pruefe(not _fremd217,
+           'die Seite laedt nichts von fremden Servern (%r)' % _fremd217)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
