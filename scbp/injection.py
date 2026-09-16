@@ -83,12 +83,12 @@ from .sprache import t
 # Lizenz CC-BY-NC-SA-4.0: geholt wird zur Laufzeit von der Original-Adresse,
 # nichts davon liegt in diesem Repo. Die Herkunft wird im eingefügten Text
 # genannt.
-SCDL_ROH = ('https://raw.githubusercontent.com/rjcncpt/'
+SCDL_RAW = ('https://raw.githubusercontent.com/rjcncpt/'
             'StarCitizen-Deutsch-INI/master/blueprints/Data/%s')
-SCDL_DATEI = {'de': 'bp-contracts_short.json',
+SCDL_FILE = {'de': 'bp-contracts_short.json',
               'en': 'bp-contracts_short_en.json'}
 SCDL_CACHE = 'bp-contracts-%s.json'
-BP_ZEILE = re.compile(r'^(\s*)- (.+)$')
+BP_LINE = re.compile(r'^(\s*)- (.+)$')
 
 # ⚠ Eine Listenzeile ist **nicht** automatisch ein Bauplan. Die Blöcke des
 # SCDL-Teams gliedern mit `#`-Überschriften, und unter dreien davon stehen
@@ -107,14 +107,14 @@ BP_ZEILE = re.compile(r'^(\s*)- (.+)$')
 #
 # Ohne `#`-Überschrift steht keine einzige Listenzeile (nachgezählt: 0), der
 # Zustand ist also immer bekannt.
-UEBERSCHRIFT_ZEILE = re.compile(r'^\s*#')
-BP_UEBERSCHRIFT = re.compile(r'^\s*#\s*(?:Baupläne|Blueprints)', re.I)
+HEADING_LINE = re.compile(r'^\s*#')
+BP_HEADING = re.compile(r'^\s*#\s*(?:Baupläne|Blueprints)', re.I)
 
 # Die Marken. Bewusst unauffällig und ohne Sonderzeichen, damit sie das Spiel
 # nicht stören, aber eindeutig genug, um sie sicher wiederzufinden.
-AUF = '[SCBPW]'
-ZU = '[/SCBPW]'
-MARKE = re.compile(re.escape(AUF) + '.*?' + re.escape(ZU))
+OPEN = '[SCBPW]'
+CLOSE = '[/SCBPW]'
+MARK = re.compile(re.escape(OPEN) + '.*?' + re.escape(CLOSE))
 
 # Wie eine Einfügung **ohne** Marke aussieht — der Notnagel beim Entfernen.
 #
@@ -149,7 +149,7 @@ MARKE = re.compile(re.escape(AUF) + '.*?' + re.escape(ZU))
 # vom Spiel dynamisch erzeugt" (84 der 363 Blöcke). Im Test ohne Merkdatei blieben
 # genau diese 90 Zeilen halb stehen — der Anfang war weg, der Rest stand noch da.
 # Gezählt, nicht geraten: 279 + 84 je Sprache.
-_UEBERSCHRIFTEN = (
+_HEADINGS = (
     'BAUPLÄNE AUS DIESEM AUFTRAG', 'BLUEPRINTS FROM THIS CONTRACT',
     'MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP',
     'POSSIBLE BLUEPRINTS FOR THIS MISSION TYPE',
@@ -167,26 +167,26 @@ _UEBERSCHRIFTEN = (
 # Sicher sind: die alte Marke, unsere Block-Überschriften (in keiner der beiden
 # Fremdquellen enthalten — am 29.08.2026 in beiden Fassungen nachgezählt: 0) und
 # die zählende bzw. rufende Titelform, die es nur bei uns gibt.
-ZAEHLENDER_TITEL = re.compile(r'<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+|!)\]</EM4>')
+COUNTING_TITLE = re.compile(r'<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+|!)\]</EM4>')
 
 # Eine Bauplan-Marke am Titel — **von wem auch immer**. Deckt die eigene Form
 # `[BP]`/`[BP!]`, die alte `[BP 3/12]`, MrKrakens kombinierte
 # `<EM4>[10 Rep] [BP]</EM4>` und die des SC Deutsch Launchers ab.
-TITELMARKE = re.compile(r'<EM4>[^<>]*\[(?:BP|Bauplan)[^\]]*\][^<>]*</EM4>')
+TITLE_MARK = re.compile(r'<EM4>[^<>]*\[(?:BP|Bauplan)[^\]]*\][^<>]*</EM4>')
 
-EIGENER_NACHWEIS = re.compile(
-    '|'.join(re.escape(u) for u in _UEBERSCHRIFTEN))
+OWN_TRACE = re.compile(
+    '|'.join(re.escape(u) for u in _HEADINGS))
 
 # Derselbe Notnagel **ohne** den Titelzusatz — für Grundlagen, die die Titel
 # selbst kennzeichnen (StarStrings). Dort setzt der Watcher gar keinen
 # Titelzusatz, also gibt es dort auch keinen von ihm zu entfernen; was am Titel
 # steht, gehört MrKraken. Der Block darunter dagegen ist unserer und muss weg.
-OHNE_MARKE_BLOCK = re.compile(
+UNMARKED_BLOCK = re.compile(
     # ⚠ `<EM\d>` wie bei OHNE_MARKE — siehe die Begründung dort.
     r'(?:\\n){1,2}?\s*-{20,}(?:\\n|\s|<EM\d>)*(?:%s).*$'
-    % '|'.join(re.escape(u) for u in _UEBERSCHRIFTEN), re.S)
+    % '|'.join(re.escape(u) for u in _HEADINGS), re.S)
 
-OHNE_MARKE = re.compile(
+UNMARKED = re.compile(
     r'(?:\s*<EM4>\[(?:BP|Bauplan)(?:\s+\d+/\d+)?!?\]</EM4>\s*$'
     # ⚠ Höchstens **zwei** Umbrüche vor der Linie schlucken, nicht beliebig viele.
     # So viele bringt unser Block selbst mit; alles darüber gehört zu CIGs Text.
@@ -207,12 +207,12 @@ OHNE_MARKE = re.compile(
     # Zurücksetzen nicht mehr aus seiner `global.ini` heraus. Gefunden erst,
     # als Prüfung 102 den Notnagel zum ersten Mal ohne Merkdatei ansprach.
     r'|(?:\\n){1,2}?\s*-{20,}(?:\\n|\s|<EM\d>)*(?:%s).*$)'
-    % '|'.join(re.escape(u) for u in _UEBERSCHRIFTEN), re.S)
+    % '|'.join(re.escape(u) for u in _HEADINGS), re.S)
 
 # Aufbau nach dem Vorbild des SC Deutsch Launchers — die **Gliederung** ist die
 # nützliche Erkenntnis (was ein Spieler vor dem Annehmen wissen will), die
 # Formulierungen sind eigene. Alle Angaben stammen aus scmdb.
-TEXTE = {
+TEXTS = {
     'de': {
         'kurz':      'BP',
         # ⚠ **„Missionstyp", nicht „dieser Auftrag" (28.08.2026).** Hier stand
@@ -309,7 +309,7 @@ TEXTE = {
 # Absichtlich NICHT erfasst: unsere eigene Linie (57 Bindestriche, dahinter
 # `<EM4>`) und die des SC Deutsch Launchers — die werden schon von
 # `_fremdblock_trennen` behandelt. `{3,20}` schließt sie aus.
-FREMDER_ANHANG = re.compile(
+FOREIGN_APPENDIX = re.compile(
     r'(?:\\n\s*){2}(?:'
     r'-{3,20}\s*[A-Za-z][A-Za-z ]{1,30}\s*-{3,20}'      # --- STATS ---
     r'|={2,20}\s*[A-Za-z][A-Za-z ]{1,30}\s*={2,20}'     # == Stats ==
@@ -318,7 +318,7 @@ FREMDER_ANHANG = re.compile(
     r')')
 
 
-def _anhaengen(grundlage, block):
+def _append_block(base_text, block):
     """Unseren Block anhängen — aber **vor** einem fremden Anhang, wenn da einer ist.
 
     Ohne Fremdanhang ist das schlichtes `grundlage + block`, wie bisher.
@@ -328,32 +328,32 @@ def _anhaengen(grundlage, block):
     abräumen, schneiden „ab dem eigenen Marker bis zum Ende". Alles davor
     überlebt, alles dahinter nicht.
     """
-    treffer = FREMDER_ANHANG.search(grundlage)
-    if not treffer:
-        return grundlage + block
-    return grundlage[:treffer.start()] + block + grundlage[treffer.start():]
+    hit = FOREIGN_APPENDIX.search(base_text)
+    if not hit:
+        return base_text + block
+    return base_text[:hit.start()] + block + base_text[hit.start():]
 
 
-KASTEN_HAB = '<EM4>[x]</EM4>'
-KASTEN_FEHLT = '[  ]'
-LINIE = '-' * 57
+BOX_HAVE = '<EM4>[x]</EM4>'
+BOX_MISSING = '[  ]'
+LINE = '-' * 57
 
 
-def _sprachkuerzel(sprache):
+def _lang_code(language):
     """`german_(germany)` -> 'de', alles andere -> 'en'."""
-    return 'de' if str(sprache).lower().startswith('german') else 'en'
+    return 'de' if str(language).lower().startswith('german') else 'en'
 
 
-def _zeile_zerlegen(zeile):
+def _split_line(line):
     """'SCHLUESSEL,P=Text' -> ('SCHLUESSEL', ',P', 'Text'). Sonst None."""
-    trenner = zeile.find('=')
-    if trenner < 1:
+    sep = line.find('=')
+    if sep < 1:
         return None
-    kopf, text = zeile[:trenner], zeile[trenner + 1:]
-    if ',' in kopf:
-        schluessel, _, zusatz = kopf.partition(',')
-        return schluessel, ',' + zusatz, text
-    return kopf, '', text
+    head, text = line[:sep], line[sep + 1:]
+    if ',' in head:
+        key, _, suffix = head.partition(',')
+        return key, ',' + suffix, text
+    return head, '', text
 
 
 # Wo die Originaltexte liegen, bevor etwas eingefügt wird.
@@ -369,25 +369,25 @@ def _zeile_zerlegen(zeile):
 # der **Originaltext** jeder angefassten Zeile hier festgehalten. Damit braucht es
 # im Spieltext gar keine Marke mehr, und das Zurücksetzen ist genauer als vorher:
 # Es stellt den Wortlaut wieder her, statt eine Einfügung herauszuschneiden.
-URTEXT_DATEI = 'injektion-urtext.json'
+ORIGTEXT_FILE = 'injektion-urtext.json'
 
 
-def _urtext_datei():
+def _origtext_file():
     """Der ganze Inhalt der Merkdatei — leer, wenn es sie nicht gibt."""
     try:
-        with open(pfade.app_datei(URTEXT_DATEI), encoding='utf-8') as f:
-            daten = json.load(f)
-        return daten if isinstance(daten, dict) else {}
+        with open(pfade.app_datei(ORIGTEXT_FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
 
 
-def urtext_laden():
+def load_origtext():
     """Die gemerkten Originaltexte — leer, wenn es noch keine gibt."""
-    return _urtext_datei().get('texte') or {}
+    return _origtext_file().get('texte') or {}
 
 
-def ist_frisch():
+def is_fresh():
     """Liegt dort eine eben erst eingesetzte Grundlage, in der noch nie
     injiziert wurde?
 
@@ -401,10 +401,10 @@ def ist_frisch():
     der bereits geschnittene Wortlaut gemerkt wurde, kamen sie auch beim
     Zurücksetzen nie wieder.
     """
-    return bool(_urtext_datei().get('frisch'))
+    return bool(_origtext_file().get('frisch'))
 
 
-def urtext_verwerfen():
+def discard_origtext():
     """Die gemerkten Originaltexte wegwerfen und die Datei als frisch merken.
 
     Gehört zu **jedem** Einsetzen einer neuen Grundlage (`translation.fetch()`):
@@ -412,32 +412,32 @@ def urtext_verwerfen():
     Stand zurückschreiben; das Kennzeichen `frisch` schützt den fremden Text
     beim ersten Lauf (siehe `ist_frisch()`)."""
     try:
-        ziel = pfade.app_datei(URTEXT_DATEI)
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel, 'w', encoding='utf-8') as f:
+        target = pfade.app_datei(ORIGTEXT_FILE)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, 'w', encoding='utf-8') as f:
             json.dump({'stand': time.strftime('%Y-%m-%d %H:%M:%S'),
                        'frisch': True, 'texte': {}}, f, ensure_ascii=False)
         return True
-    except Exception as ausnahme:
-        fehler.merken('injektion.urtext_verwerfen', ausnahme)
+    except Exception as exc:
+        fehler.merken('injection.discard_origtext', exc)
         return False
 
 
-def urtext_sichern(texte, ini_pfad):
+def save_origtext(texts_map, ini_path):
     """Die Originaltexte festhalten. Fehlschlag ist kein Grund abzubrechen."""
     try:
-        ziel = pfade.app_datei(URTEXT_DATEI)
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
-        with open(ziel, 'w', encoding='utf-8') as f:
-            json.dump({'datei': ini_pfad, 'stand': time.strftime('%Y-%m-%d %H:%M:%S'),
-                       'texte': texte}, f, ensure_ascii=False)
+        target = pfade.app_datei(ORIGTEXT_FILE)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, 'w', encoding='utf-8') as f:
+            json.dump({'datei': ini_path, 'stand': time.strftime('%Y-%m-%d %H:%M:%S'),
+                       'texte': texts_map}, f, ensure_ascii=False)
         return True
-    except Exception as ausnahme:
-        fehler.merken('injektion.urtext_sichern', ausnahme)
+    except Exception as exc:
+        fehler.merken('injection.save_origtext', exc)
         return False
 
 
-def _saeubern(text, schluessel='', urtext=None, notnagel=OHNE_MARKE):
+def _strip_old(text, key='', origtext=None, fallback=UNMARKED):
     """Frühere Einfügungen entfernen — damit sich nichts stapelt.
 
     Drei Wege, in dieser Reihenfolge:
@@ -461,93 +461,93 @@ def _saeubern(text, schluessel='', urtext=None, notnagel=OHNE_MARKE):
     (`ASD_FluffText_Eng_5,P=HIGH LEVELS OF\\nRADIATION DETECTED `). Beim ersten
     Vergleichslauf waren das über 3 KB stiller Textschaden an Stellen, mit denen
     dieses Werkzeug nichts zu tun hat."""
-    if urtext and schluessel in urtext:
-        return urtext[schluessel]
-    if AUF in text:
-        return MARKE.sub('', text).rstrip()
-    if not notnagel:
+    if origtext and key in origtext:
+        return origtext[key]
+    if OPEN in text:
+        return MARK.sub('', text).rstrip()
+    if not fallback:
         return text
-    treffer = notnagel.search(text)
-    if treffer:
-        weg = text[treffer.start():]
+    hit = fallback.search(text)
+    if hit:
+        drop = text[hit.start():]
         # ⚠ Ein Block mit unserer Überschrift, aber **ohne Kästchen**, ist nicht
         # unserer — er kommt aus derselben Quelle, gesetzt vom SC Deutsch
         # Launcher. Der bleibt stehen; er gehört dem Spieler.
-        if EIGENER_NACHWEIS.search(weg) and not _hat_kaestchen(weg):
+        if OWN_TRACE.search(drop) and not _has_box(drop):
             return text
         # ⚠ Der Notnagel schneidet „ab hier bis zum Ende" — seit unser Block
         # **vor** einem fremden Anhang sitzt (`_anhaengen`), läge der fremde
         # Text mit im Schnitt. Also nur bis dorthin schneiden und den Rest
         # wieder anfügen. Ohne das nähme das Zurücksetzen Smart Citizens
         # Stats-Blöcke mit — genau der Schaden, den wir gerade verhindern.
-        fremd = FREMDER_ANHANG.search(weg)
-        rest = weg[fremd.start():] if fremd else ''
-        return text[:treffer.start()].rstrip() + rest
+        foreign = FOREIGN_APPENDIX.search(drop)
+        rest = drop[foreign.start():] if foreign else ''
+        return text[:hit.start()].rstrip() + rest
     return text
 
 
-def _zahl(wert, worte):
+def _group_digits(value, words):
     """1234567 -> '1.234.567' bzw. '1,234,567' — je nach Sprache."""
-    return format(int(wert), ',d').replace(',', worte['trenner'])
+    return format(int(value), ',d').replace(',', words['trenner'])
 
 
-def _block(eintrag, habe, worte):
+def _build_block(entry, owned, words):
     """Der Textblock, der an die Beschreibung gehängt wird.
 
     Erst die Eckdaten als kurze Liste, dann die Baupläne mit Kästchen. Die
     Reihenfolge ist Absicht: Ob sich der Auftrag überhaupt lohnt, entscheidet
     man an Chance und Reputation — die Namensliste liest man erst danach."""
-    z = ['', LINIE, '', '<EM4>%s</EM4>' % worte['ueberschr'], '']
+    z = ['', LINE, '', '<EM4>%s</EM4>' % words['ueberschr'], '']
 
-    chance = eintrag.get('chance')
+    chance = entry.get('chance')
     if chance:
-        z.append('# %s: %d%%' % (worte['chance'], round(chance * 100)))
-    if eintrag.get('rang'):
-        z.append('# %s: %s (%s XP)' % (worte['rep_min'], eintrag['rang'],
-                                       _zahl(eintrag.get('rep') or 0, worte)))
-    if eintrag.get('rang_max'):
-        z.append('# %s: %s (%s XP)' % (worte['rep_max'], eintrag['rang_max'],
-                                       _zahl(eintrag.get('rep_max') or 0, worte)))
-    if eintrag.get('uec'):
-        z.append('# %s: %s aUEC' % (worte['lohn'], _zahl(eintrag['uec'], worte)))
-    if eintrag.get('ruf'):
-        z.append('# %s: %s XP' % (worte['ruf'], _zahl(eintrag['ruf'], worte)))
-    if eintrag.get('cooldown'):
-        z.append('# %s: %s %s' % (worte['cooldown'],
-                                  _zahl(eintrag['cooldown'], worte),
-                                  worte['minuten']))
-    if 'teilbar' in eintrag:
-        z.append('# %s: %s' % (worte['teilbar'],
-                               worte['ja'] if eintrag['teilbar'] else worte['nein']))
+        z.append('# %s: %d%%' % (words['chance'], round(chance * 100)))
+    if entry.get('rang'):
+        z.append('# %s: %s (%s XP)' % (words['rep_min'], entry['rang'],
+                                       _group_digits(entry.get('rep') or 0, words)))
+    if entry.get('rang_max'):
+        z.append('# %s: %s (%s XP)' % (words['rep_max'], entry['rang_max'],
+                                       _group_digits(entry.get('rep_max') or 0, words)))
+    if entry.get('uec'):
+        z.append('# %s: %s aUEC' % (words['lohn'], _group_digits(entry['uec'], words)))
+    if entry.get('ruf'):
+        z.append('# %s: %s XP' % (words['ruf'], _group_digits(entry['ruf'], words)))
+    if entry.get('cooldown'):
+        z.append('# %s: %s %s' % (words['cooldown'],
+                                  _group_digits(entry['cooldown'], words),
+                                  words['minuten']))
+    if 'teilbar' in entry:
+        z.append('# %s: %s' % (words['teilbar'],
+                               words['ja'] if entry['teilbar'] else words['nein']))
 
     # ⚠ **Ohne „3 von 12", seit dem 28.08.2026** — aus demselben Grund wie im
     # Titel (siehe `_titel_zusatz`): Die Liste führt alle Preisstufen zusammen,
     # die Zahl wäre eine Behauptung über etwas, das gar nicht auflösbar ist.
     # Die Kästchen sagen dasselbe, nur ehrlich: angehakt heißt „hab ich".
-    z += ['', '# ' + worte['liste'] + ':']
+    z += ['', '# ' + words['liste'] + ':']
 
     # Wo sich die Stufen unterscheiden, steht der nötige Rang hinter dem Namen.
     # ⚠ Das ist **nur Text**. Es blendet nichts aus und hakt nichts anders ab:
     # Wer den Bauplan hat, hat ihn — auch wenn diese Stufe ihn nicht hergibt.
-    ab = eintrag.get('ab') or {}
-    breite = max([len(n) for n in eintrag['bp']] or [0])
-    for name in eintrag['bp']:
-        drin = katalog_modul._norm(name) in habe
-        bed = ab.get(name)
-        zeile = '   %s %s' % (KASTEN_HAB if drin else KASTEN_FEHLT, name)
-        if bed:
-            zeile += '%s  %s %s (%s XP)' % (' ' * (breite - len(name)),
-                                            worte['ab_rang'], bed['rang'],
-                                            _zahl(bed['rep'], worte))
-        z.append(zeile)
+    frm = entry.get('ab') or {}
+    width = max([len(n) for n in entry['bp']] or [0])
+    for name in entry['bp']:
+        inside = katalog_modul._norm(name) in owned
+        cond = frm.get(name)
+        line = '   %s %s' % (BOX_HAVE if inside else BOX_MISSING, name)
+        if cond:
+            line += '%s  %s %s (%s XP)' % (' ' * (width - len(name)),
+                                            words['ab_rang'], cond['rang'],
+                                            _group_digits(cond['rep'], words))
+        z.append(line)
 
     # Gibt es Stufen dieses Auftrags, die leer ausgehen, gehört das dazu —
     # sonst fliegt jemand für eine Liste hin, die seine Stufe nie hergibt.
     # Genau das ist Morkhan am 28.08.2026 passiert.
-    if eintrag.get('leer'):
-        z += ['', '# ' + (worte['leere_stufen']
-                          % (eintrag['leer'], eintrag['stufen']))]
-    z += ['', worte['quelle']]
+    if entry.get('leer'):
+        z += ['', '# ' + (words['leere_stufen']
+                          % (entry['leer'], entry['stufen']))]
+    z += ['', words['quelle']]
     # Ohne Marken — sie standen sichtbar im Spiel. Zurückgesetzt wird über die
     # gemerkten Originaltexte (siehe `URTEXT_DATEI`).
     return '\\n' + '\\n'.join(z)
@@ -557,10 +557,10 @@ def _block(eintrag, habe, worte):
 # So schreibt MrKraken seine Angaben (136 Namen in der Fassung vom 29.08.2026),
 # der Watcher setzt seine dahinter in runde Klammern. Ohne diese Prüfung stünde
 # im Spiel `[CS1] Spark-G Missile (CS1)`.
-FREMDES_KUERZEL = re.compile(r'^\[[A-Za-z0-9/. -]{1,14}\]\s')
+FOREIGN_TAG = re.compile(r'^\[[A-Za-z0-9/. -]{1,14}\]\s')
 
 
-def _hat_kaestchen(text):
+def _has_box(text):
     """Steht in diesem Stück ein Kästchen von uns?
 
     **Das ist das Unterscheidungsmerkmal.** Watcher und SC Deutsch Launcher
@@ -569,10 +569,10 @@ def _hat_kaestchen(text):
     Der einzige Unterschied ist der, der das Werkzeug ausmacht: In den Rohdaten
     steht `    - Atzkav Sniper Rifle`, bei uns `    [x] Atzkav Sniper Rifle`.
     Wo kein Kästchen steht, hat nicht der Watcher geschrieben."""
-    return '[x]' in text or KASTEN_FEHLT in text
+    return '[x]' in text or BOX_MISSING in text
 
 
-def _hat_angaben(text):
+def _has_details(text):
     """Stehen die Auftragsangaben schon im Text?
 
     ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
@@ -584,14 +584,14 @@ def _hat_angaben(text):
     Wortlaut allein: Sonst gaelte fremder Text als „noch nichts da", und der
     Spieler haette die Angabe zweimal untereinander.
     """
-    ohne_farbe = (text or '').replace(FARBE_AUF, '').replace(FARBE_ZU, '')
-    klein = ohne_farbe.lower()
-    return any(wort in klein for wort in (
+    plain = (text or '').replace(COLOR_OPEN, '').replace(COLOR_CLOSE, '')
+    lowered = plain.lower()
+    return any(word in lowered for word in (
         'rufpunkte', 'cooldown', 'reputation awarded', 'reputation gain',
         'abklingzeit'))
 
 
-def _hat_titelmarke(text):
+def _has_title_mark(text):
     """Trägt dieser Titel schon eine Bauplan-Marke — von wem auch immer?
 
     Drei Werkzeuge schreiben dieselbe: der Watcher, MrKrakens StarStrings
@@ -599,10 +599,10 @@ def _hat_titelmarke(text):
     Launcher (die Rohdaten geben `title` = ` <EM4>[BP]</EM4>` für 369 der 818
     Aufträge vor). Steht sie schon da, kommt keine zweite dazu — egal, wer sie
     gesetzt hat. Sie bedeutet ohnehin dasselbe: hier gibt es Baupläne."""
-    return bool(TITELMARKE.search(text))
+    return bool(TITLE_MARK.search(text))
 
 
-def _fremdblock_trennen(text):
+def _split_foreign_block(text):
     """Einen fremden Bauplan-Block abtrennen: (Text ohne ihn, der Block).
 
     Fremd heißt: unsere Überschrift, aber **keine Kästchen** — also der Block
@@ -611,13 +611,13 @@ def _fremdblock_trennen(text):
     verworfen (er gehört dem Spieler), sondern **ersetzt**: Unserer tritt an
     seine Stelle, und weil der Urtext ihn behält, kommt er beim Zurücksetzen
     wieder."""
-    treffer = OHNE_MARKE_BLOCK.search(text)
-    if treffer and not _hat_kaestchen(text[treffer.start():]):
-        return text[:treffer.start()].rstrip(), text[treffer.start():]
+    hit = UNMARKED_BLOCK.search(text)
+    if hit and not _has_box(text[hit.start():]):
+        return text[:hit.start()].rstrip(), text[hit.start():]
     return text, ''
 
 
-def _notnagel(urtext_alt, ini_pfad):
+def _fallback_form(origtext_old, ini_path):
     """Welcher Formen-Notnagel darf greifen — oder gar keiner?
 
     Er erkennt frühere Einfügungen **nur an ihrer Form** und ist deshalb der
@@ -633,12 +633,12 @@ def _notnagel(urtext_alt, ini_pfad):
         Watcher hier nie geschrieben, gehört es jemand anderem.
       * sonst → der volle Notnagel (fehlende Merkdatei, anderer Rechner).
     """
-    if ist_frisch() or urtext_alt:
+    if is_fresh() or origtext_old:
         return None
-    return OHNE_MARKE if ist_drin(ini_pfad) else OHNE_MARKE_BLOCK
+    return UNMARKED if is_applied(ini_path) else UNMARKED_BLOCK
 
 
-def _titel_zusatz(eintrag, habe, worte):
+def _title_suffix(entry, owned, words):
     """Kürzel für die Auftragsliste: sieht man, ohne aufzuklappen.
 
     ⚠ **Ohne Zählung, seit dem 28.08.2026.** Hier stand `[BP 3/12]`. Die Zahl
@@ -653,43 +653,43 @@ def _titel_zusatz(eintrag, habe, worte):
     und eh nicht wahr." Ein schlichtes `[BP]` sagt, was stimmt: Hier gibt es
     Baupläne. Was man davon hat, sagen die Kästchen in der Liste.
     """
-    zeichen = '!' if (eintrag.get('bpnote') or '').strip() else ''
-    return ' <EM4>[%s%s]</EM4>' % (worte['kurz'], zeichen)
+    chars = '!' if (entry.get('bpnote') or '').strip() else ''
+    return ' <EM4>[%s%s]</EM4>' % (words['kurz'], chars)
 
 
-def scdl_holen(sprachkuerzel, fortschritt=None):
+def scdl_fetch(lang_code, progress=None):
     """Die Vertragsdaten des SCDL-Teams holen und ablegen. (Erfolg, Anzahl)."""
     from .catalog import OFF
-    datei = SCDL_DATEI.get(sprachkuerzel)
-    if not datei or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
+    filename = SCDL_FILE.get(lang_code)
+    if not filename or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
         return False, 0
     try:
-        if fortschritt:
-            fortschritt('Bauplan-Daten werden geladen …')
+        if progress:
+            progress('Bauplan-Daten werden geladen …')
         req = urllib.request.Request(
-            SCDL_ROH % datei,
+            SCDL_RAW % filename,
             headers={'User-Agent': 'SC-BP-Watcher'})
         with urllib.request.urlopen(req, timeout=60) as r:
-            roh = json.loads(r.read().decode('utf-8'))
-        eintraege = roh.get('entries') or []
-        if not eintraege:
+            raw = json.loads(r.read().decode('utf-8'))
+        entries = raw.get('entries') or []
+        if not entries:
             return False, 0
-        ziel = pfade.app_datei(SCDL_CACHE % sprachkuerzel)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(roh, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
-        return True, len(eintraege)
+        target = pfade.app_datei(SCDL_CACHE % lang_code)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(raw, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
+        return True, len(entries)
     except Exception:
         return False, 0
 
 
-def scdl_laden(sprachkuerzel):
+def scdl_load(lang_code):
     """Die abgelegten Vertragsdaten — oder None."""
     try:
-        with open(pfade.app_datei(SCDL_CACHE % sprachkuerzel),
+        with open(pfade.app_datei(SCDL_CACHE % lang_code),
                   encoding='utf-8') as f:
-            roh = json.load(f)
-        return roh if roh.get('entries') else None
+            raw = json.load(f)
+        return raw if raw.get('entries') else None
     except Exception:
         return None
 
@@ -697,36 +697,36 @@ def scdl_laden(sprachkuerzel):
 # Name der Einstellung, mit der sich die Angaben am Gegenstand abschalten
 # lassen. Standard ist **an**: Wer die Injektion einschaltet, will Angaben im
 # Spiel sehen — und genau dafür ist dieses Werkzeug da.
-EINSTELLUNG_ANGABEN = 'angaben_am_gegenstand'
+SETTING_DETAILS = 'angaben_am_gegenstand'
 
 
-def _namens_tabelle(zeilen, nur_entfernen=False):
+def _name_table(lines, remove_only=False):
     """Tabelle *Namensschlüssel → Kürzel* — oder leer, wenn abgeschaltet.
 
     Beim reinen Entfernen bleibt sie leer: Dann stellt der Urtext-Weg die
     ursprünglichen Namen wieder her, und es soll nichts Neues dazukommen."""
-    if nur_entfernen or not pfade.einstellung_wahrheit(EINSTELLUNG_ANGABEN, True):
+    if remove_only or not pfade.einstellung_wahrheit(SETTING_DETAILS, True):
         return {}
     try:
-        return specs.build_table(zeilen)
-    except Exception as ausnahme:
-        fehler.merken('injektion._namens_tabelle', ausnahme)
+        return specs.build_table(lines)
+    except Exception as exc:
+        fehler.merken('injection._name_table', exc)
         return {}
 
 
-def _asop_tabelle(zeilen):
+def _asop_table(lines):
     """Tabelle *Fahrzeugschlüssel → (eigener Name, Stern)* — oder leer.
 
     Eigene Fehler dürfen die Injektion nicht anhalten: Wer seine Schiffe nicht
     umbenannt hat, soll trotzdem seine Bauplan-Angaben bekommen."""
     try:
-        return asop_modul.build_table(zeilen)
-    except Exception as ausnahme:
-        fehler.merken('injektion._asop_tabelle', ausnahme)
+        return asop_modul.build_table(lines)
+    except Exception as exc:
+        fehler.merken('injection._asop_table', exc)
         return {}
 
 
-def _name_mit_angabe(text, kuerzel):
+def _name_with_detail(text, tag):
     """Den Zusatz an einen Namen hängen — vorhandene Klammer vorher abschneiden.
 
     Der SC Deutsch Launcher hängt seinerseits `(CS1)` an. Ohne das Abschneiden
@@ -735,12 +735,12 @@ def _name_mit_angabe(text, kuerzel):
     ⚠ Steht das Kürzel schon **vorn** (`[CS1] Spark-G Missile`), bleibt der Name
     unangetastet. Das ist MrKrakens Schreibweise, und es ist dieselbe Angabe —
     sie ein zweites Mal anzuhängen, macht den Namen nur länger und falscher."""
-    if FREMDES_KUERZEL.match(text):
+    if FOREIGN_TAG.match(text):
         return text
-    return '%s %s' % (specs.strip_tag(text).rstrip(), kuerzel)
+    return '%s %s' % (specs.strip_tag(text).rstrip(), tag)
 
 
-def bestand_marke(bestand=None):
+def stock_mark(stock=None):
     """Ein kurzer Fingerabdruck des eigenen Bestands.
 
     ⚠ Wozu: Die Kästchen in den Auftragstexten zeigen, was der Spieler schon
@@ -755,13 +755,13 @@ def bestand_marke(bestand=None):
     """
     import hashlib
     from . import collection as bestand_datei
-    namen = bestand_datei.keys(
-        bestand if bestand is not None else bestand_datei.load())
-    roh = '\n'.join(sorted(namen)).encode('utf-8', 'replace')
-    return '%d-%s' % (len(namen), hashlib.sha1(roh).hexdigest()[:12])
+    names = bestand_datei.keys(
+        stock if stock is not None else bestand_datei.load())
+    raw = '\n'.join(sorted(names)).encode('utf-8', 'replace')
+    return '%d-%s' % (len(names), hashlib.sha1(raw).hexdigest()[:12])
 
 
-def _kaestchen_setzen(text, habe):
+def _set_boxes(text, owned):
     """In einem fertigen SCDL-Block die Bauplan-Zeilen ankreuzen.
 
     Aus `    - Atzkav Sniper Rifle` wird `    [x] Atzkav Sniper Rifle`, wenn er
@@ -773,27 +773,27 @@ def _kaestchen_setzen(text, habe):
     `BP_UEBERSCHRIFT`).
 
     Gezählt wird nebenbei, damit das Titel-Kürzel dieselbe Zahl zeigt."""
-    zeilen = text.split('\\n')
-    meine = gesamt = 0
-    in_liste = False
-    for i, zeile in enumerate(zeilen):
-        if UEBERSCHRIFT_ZEILE.match(zeile):
-            in_liste = bool(BP_UEBERSCHRIFT.match(zeile))
+    lines = text.split('\\n')
+    mine = total = 0
+    in_list = False
+    for i, line in enumerate(lines):
+        if HEADING_LINE.match(line):
+            in_list = bool(BP_HEADING.match(line))
             continue
-        if not in_liste:
+        if not in_list:
             continue
-        m = BP_ZEILE.match(zeile)
+        m = BP_LINE.match(line)
         if not m:
             continue
-        einzug, name = m.group(1), m.group(2).strip()
+        indent, name = m.group(1), m.group(2).strip()
         if name.startswith('#') or not name:
             continue
-        gesamt += 1
-        drin = katalog_modul._norm(name) in habe
-        if drin:
-            meine += 1
-        zeilen[i] = '%s%s %s' % (einzug, KASTEN_HAB if drin else KASTEN_FEHLT, name)
-    return '\\n'.join(zeilen), meine, gesamt
+        total += 1
+        inside = katalog_modul._norm(name) in owned
+        if inside:
+            mine += 1
+        lines[i] = '%s%s %s' % (indent, BOX_HAVE if inside else BOX_MISSING, name)
+    return '\\n'.join(lines), mine, total
 
 
 # Die Auszeichnung, mit der das Spiel Text hervorhebt — dasselbe Blau, in dem
@@ -807,26 +807,26 @@ def _kaestchen_setzen(text, habe):
 # ⚠ Gemessen in der `global.ini` eines Spielers: `<EM4>` kommt 3.974 Mal vor,
 # die uebrigen Stufen zusammen achtmal. Es ist die Auszeichnung, die das Spiel
 # wirklich benutzt — nicht geraten.
-FARBE_AUF = '<EM4>'
-FARBE_ZU = '</EM4>'
+COLOR_OPEN = '<EM4>'
+COLOR_CLOSE = '</EM4>'
 
 
-def _blau(zeile):
+def _highlight(line):
     """Eine Zeile hervorheben — aber nur, wenn sie es nicht schon ist.
 
     ⚠ Doppelte Auszeichnung zeigt das Spiel als Text an: Aus zwei `<EM4>`
     wird kein kraeftigeres Blau, sondern ein sichtbares `<EM4>` im Fenster.
     """
-    zeile = zeile.strip()
-    if not zeile or FARBE_AUF in zeile:
-        return zeile
-    return '%s%s%s' % (FARBE_AUF, zeile, FARBE_ZU)
+    line = line.strip()
+    if not line or COLOR_OPEN in line:
+        return line
+    return '%s%s%s' % (COLOR_OPEN, line, COLOR_CLOSE)
 
 
-RUF_WORTE = ('reputation', 'rufpunkte')
+REP_WORDS = ('reputation', 'rufpunkte')
 
 
-def _ruf_einfaerben(block):
+def _highlight_rep(block):
     """Die Ruf-Zeilen im eigenen Block blau setzen.
 
     ⚠⚠ **Warum das noetig ist (06.09.2026).** Die Rohdaten liefern zwei
@@ -853,17 +853,17 @@ def _ruf_einfaerben(block):
     gliedern den Block, sie sind keine Angabe. Waere alles blau, waere nichts
     hervorgehoben.
     """
-    zeilen = (block or '').split('\\n')
-    for i, zeile in enumerate(zeilen):
-        nackt = zeile.strip()
-        if not nackt.startswith('#') or FARBE_AUF in zeile:
+    lines = (block or '').split('\\n')
+    for i, line in enumerate(lines):
+        bare = line.strip()
+        if not bare.startswith('#') or COLOR_OPEN in line:
             continue
-        if any(w in nackt.lower() for w in RUF_WORTE):
-            zeilen[i] = _blau(nackt)
-    return '\\n'.join(zeilen)
+        if any(w in bare.lower() for w in REP_WORDS):
+            lines[i] = _highlight(bare)
+    return '\\n'.join(lines)
 
 
-def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
+def _detail_lines(entry, present='', words=None, rep_table=None):
     """Die Angabezeilen eines Auftrags — hervorgehoben und ohne Dubletten.
 
     ⚠ Verglichen wird gegen den Text OHNE Auszeichnung: Sonst gilt eine Zeile
@@ -877,27 +877,27 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     diese Unterscheidung: „auf SCMDB sieht man auch ob es Standing oder Rep
     bekommt, das muss auf jeden fall mit in den Questtext."
     """
-    ohne_farbe = (vorhanden or '').replace(FARBE_AUF, '').replace(FARBE_ZU, '')
-    raus = []
-    for feld in ('contractInfo', 'dropChance'):
-        for zeile in (eintrag.get(feld) or '').split('\\n'):
-            zeile = zeile.strip()
-            if zeile and zeile not in ohne_farbe:
-                raus.append(_blau(zeile))
+    plain = (present or '').replace(COLOR_OPEN, '').replace(COLOR_CLOSE, '')
+    out = []
+    for field in ('contractInfo', 'dropChance'):
+        for line in (entry.get(field) or '').split('\\n'):
+            line = line.strip()
+            if line and line not in plain:
+                out.append(_highlight(line))
 
-    if ruftabelle is not None:
+    if rep_table is not None:
         try:
             from . import reputation
-            zeile = reputation.line(
-                eintrag.get('titleLocKey') or '',
-                (worte or {}).get('ruf_bei') or 'Ruf', ruftabelle)
+            line = reputation.line(
+                entry.get('titleLocKey') or '',
+                (words or {}).get('ruf_bei') or 'Ruf', rep_table)
             # ⚠ Der Dublettenschutz vergleicht nur den ANFANG bis zum
             # Doppelpunkt: Der Rest wechselt mit den Zahlen, und nach einem
             # Patch stuenden sonst zwei Ruf-Zeilen untereinander.
-            if zeile and zeile.split(':')[0] not in ohne_farbe:
-                raus.append(_blau(zeile))
-        except Exception as ausnahme:
-            fehler.merken('injektion.ruf_zeile', ausnahme)
+            if line and line.split(':')[0] not in plain:
+                out.append(_highlight(line))
+        except Exception as exc:
+            fehler.merken('injection.ruf_zeile', exc)
 
     # ⚠⚠ **Lieber „keine Angaben" als gar nichts (06.09.2026).** 109 Auftraege
     # bekamen ueberhaupt keine Ruf-Zeile — die Quelle fuehrt fuer sie keine
@@ -914,15 +914,15 @@ def _angabenzeilen(eintrag, vorhanden='', worte=None, ruftabelle=None):
     # ⚠ Nur wenn WIRKLICH keine steht — weder eine eigene noch eine, die
     # schon im Text ist. Sonst stuenden zwei Ruf-Zeilen untereinander, eine
     # davon leer.
-    _hat_ruf = any(any(w in z.lower() for w in RUF_WORTE) for z in raus)
-    if not _hat_ruf and not any(w in ohne_farbe.lower() for w in RUF_WORTE):
-        raus.insert(0, _blau('# %s: %s' % (
-            (worte or {}).get('ruf_erwartet') or 'Zu erwartende Rufpunkte',
-            (worte or {}).get('keine_angabe') or 'Keine Angaben')))
-    return raus
+    _has_rep = any(any(w in z.lower() for w in REP_WORDS) for z in out)
+    if not _has_rep and not any(w in plain.lower() for w in REP_WORDS):
+        out.insert(0, _highlight('# %s: %s' % (
+            (words or {}).get('ruf_erwartet') or 'Zu erwartende Rufpunkte',
+            (words or {}).get('keine_angabe') or 'Keine Angaben')))
+    return out
 
 
-def _auftragsangaben(block, eintrag, worte=None, ruftabelle=None):
+def _contract_details(block, entry, words=None, rep_table=None):
     """Rufpunkte, Abklingzeit, Teilbarkeit und Bauplan-Chance einsetzen.
 
     ⚠⚠ **Gewünscht von Bushwick4712 (KRT) am 04.09.2026:** „XP und Abklingzeit
@@ -953,29 +953,29 @@ def _auftragsangaben(block, eintrag, worte=None, ruftabelle=None):
     anderes Werkzeug sie geschrieben hat oder wir selbst beim letzten Lauf),
     bleibt sie stehen — dieselbe Regel wie bei den Marken.
     """
-    zusatz = _angabenzeilen(eintrag, block, worte, ruftabelle)
-    if not zusatz:
+    suffix = _detail_lines(entry, block, words, rep_table)
+    if not suffix:
         return block
 
-    zeilen = block.split('\\n')
+    lines = block.split('\\n')
     # Vor die Bauplan-Überschrift, sonst ans Ende der Kopfzeilen.
-    stelle = None
-    for i, zeile in enumerate(zeilen):
-        if BP_UEBERSCHRIFT.match(zeile):
-            stelle = i
+    pos = None
+    for i, line in enumerate(lines):
+        if BP_HEADING.match(line):
+            pos = i
             break
-    if stelle is None:
-        return '\\n'.join(zeilen + [''] + zusatz)
+    if pos is None:
+        return '\\n'.join(lines + [''] + suffix)
     # Eine Leerzeile davor, wenn dort nicht schon eine steht — sonst kleben
     # die neuen Zeilen an der Reputationsangabe.
-    davor = zusatz + ['']
-    if stelle > 0 and zeilen[stelle - 1].strip():
-        davor = [''] + davor
-    zeilen[stelle:stelle] = davor
-    return '\\n'.join(zeilen)
+    before = suffix + ['']
+    if pos > 0 and lines[pos - 1].strip():
+        before = [''] + before
+    lines[pos:pos] = before
+    return '\\n'.join(lines)
 
 
-def _stamm(schluessel):
+def _stem(key):
     """Der Namensanfang, den Titel und Beschreibungen eines Auftrags teilen.
 
     Aus `Covalex_HaulCargo_AToB_title` und `Covalex_HaulCargo_AtoB_desc_ToRuinStation`
@@ -983,11 +983,11 @@ def _stamm(schluessel):
     weg, der Rest wird kleingeschrieben — in den Spieldaten wechselt die
     Schreibweise mitten im Wort.
     """
-    klein = (schluessel or '').lower()
-    for trenner in ('_title', '_desc'):
-        stelle = klein.find(trenner)
-        if stelle > 0:
-            return klein[:stelle]
+    lowered = (key or '').lower()
+    for sep in ('_title', '_desc'):
+        pos = lowered.find(sep)
+        if pos > 0:
+            return lowered[:pos]
     return ''
 
 
@@ -1005,10 +1005,10 @@ def _stamm(schluessel):
 #
 # Damit bleibt die Linie des Werkzeugs gewahrt: Was wir nicht wissen,
 # behaupten wir nicht.
-REIHEN_SUFFIX = re.compile(r'^[A-Za-z0-9]{1,2}$')
+SERIES_SUFFIX = re.compile(r'^[A-Za-z0-9]{1,2}$')
 
 
-def _reihen_stamm(stamm, bekannte):
+def _series_stem(stem, known):
     """Zu einem Teilauftrag den Stamm seiner Reihe — oder `None`.
 
     ⚠⚠ **Warum es das braucht** (03.09.2026): Mehrteilige Auftragsreihen
@@ -1026,33 +1026,33 @@ def _reihen_stamm(stamm, bekannte):
     Der längste passende Stamm gewinnt: Gäbe es `battaglia_story0` und
     `battaglia_story01`, gehört `battaglia_story01b` zum zweiten.
     """
-    if not stamm or stamm in bekannte:
+    if not stem or stem in known:
         return None
-    beste = None
-    for kandidat in bekannte:
-        if kandidat == stamm or not stamm.startswith(kandidat):
+    best = None
+    for candidate in known:
+        if candidate == stem or not stem.startswith(candidate):
             continue
-        rest = stamm[len(kandidat):]
-        if not rest or not REIHEN_SUFFIX.match(rest):
+        rest = stem[len(candidate):]
+        if not rest or not SERIES_SUFFIX.match(rest):
             continue
-        if beste is None or len(kandidat) > len(beste):
-            beste = kandidat
-    return beste
+        if best is None or len(candidate) > len(best):
+            best = candidate
+    return best
 
 
-def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
+def apply_scdl(ini_path, lang_code, stock=None):
     """Injektion aus den SCDL-Vertragsdaten — der vollständigere Weg.
 
     Gibt (Erfolg, Anzahl, Meldung) zurück wie `einspielen()`."""
-    daten = scdl_laden(sprachkuerzel)
-    if not daten:
+    data = scdl_load(lang_code)
+    if not data:
         return False, 0, t('m_keine_scdl')
-    if not ini_pfad or not os.path.isfile(ini_pfad):
+    if not ini_path or not os.path.isfile(ini_path):
         return False, 0, t('m_keine_ini')
 
-    habe = bestand_datei.keys(bestand if bestand is not None
+    owned = bestand_datei.keys(stock if stock is not None
                                     else bestand_datei.load())
-    worte = TEXTE[sprachkuerzel]
+    words = TEXTS[lang_code]
 
     # ⚠⚠ **Wem der Auftrag Ruf bringt — aus einer eigenen Quelle.** Die
     # Vertragsdaten kennen nur die Zahl („150 XP"), nicht die Partei und nicht
@@ -1061,7 +1061,7 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     #
     # ⚠ Scheitert der Abruf, laeuft alles Uebrige weiter: Eine fehlende
     # Ruf-Zeile ist ein Verlust, ein abgebrochener Einbau waere ein Schaden.
-    ruftabelle = None
+    rep_table = None
     try:
         from . import reputation, gamebuild
         try:
@@ -1069,11 +1069,11 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         except Exception:
             version = ''
         reputation.refresh(version)
-        ruftabelle = reputation.load()
-    except Exception as ausnahme:
-        fehler.merken('injektion.reputation', ausnahme)
+        rep_table = reputation.load()
+    except Exception as exc:
+        fehler.merken('injection.reputation', exc)
 
-    titel_an, text_an = {}, {}
+    title_by_key, text_by_key = {}, {}
     # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
     # trotzdem** (05.09.2026). Gemessen an den Vertragsdaten: **816 von 818**
     # Auftraegen bringen Rufpunkte und Abklingzeit mit, aber nur **367** haben
@@ -1089,32 +1089,32 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     # den wir setzen koennten — die Zeilen werden an den **vorhandenen
     # Spieltext angehaengt**. Deshalb eine eigene Tabelle statt `text_an`:
     # `text_an` ERSETZT, das hier ERGAENZT.
-    angaben_an = {}
-    for e in daten['entries']:
+    details_by_key = {}
+    for e in data['entries']:
         if not e.get('description') and e.get('descriptionLocKey'):
-            zeilen_zu = _angabenzeilen(e, '', worte, ruftabelle)
-            if zeilen_zu:
+            entry_lines = _detail_lines(e, '', words, rep_table)
+            if entry_lines:
                 # ⚠ **Eine Leerzeile davor.** Ohne sie klebt die erste Angabe
                 # unmittelbar am letzten Satz des Auftragstextes — gemessen
                 # kam „…erinnert daran.# Zu erwartende Rufpunkte: 20 XP"
                 # heraus. Der Block ist eine eigene Auskunft, keine
                 # Fortsetzung des Auftraggeber-Textes.
-                angaben_an[e['descriptionLocKey']] = (
-                    '\\n\\n' + '\\n'.join(zeilen_zu))
+                details_by_key[e['descriptionLocKey']] = (
+                    '\\n\\n' + '\\n'.join(entry_lines))
 
-    for e in daten['entries']:
+    for e in data['entries']:
         block = e.get('description') or ''
         if not block:
             continue
-        block, meine, gesamt = _kaestchen_setzen(block, habe)
+        block, mine, total = _set_boxes(block, owned)
         # ⚠ Erst jetzt einfaerben: Die Kaestchen sind gesetzt, der Block ist
         # damit nachweislich unserer. Siehe `_ruf_einfaerben`.
-        block = _ruf_einfaerben(block)
+        block = _highlight_rep(block)
         # ⭐ Rufpunkte, Abklingzeit, Teilbarkeit, Bauplan-Chance — sie standen
         # in der Quelle, aber nicht im Spiel. Siehe `_auftragsangaben`.
-        block = _auftragsangaben(block, e, worte, ruftabelle)
+        block = _contract_details(block, e, words, rep_table)
         if e.get('descriptionLocKey'):
-            text_an[e['descriptionLocKey']] = block
+            text_by_key[e['descriptionLocKey']] = block
         if e.get('titleLocKey'):
             # Statt des schlichten [BP] die eigene Zählung — das ist der
             # Mehrwert gegenüber der reinen Fremdfassung.
@@ -1131,14 +1131,14 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
             # (Neuling, 49.750 aUEC), Bauplan-Zähler im Titel gesehen — geben
             # konnte die Stufe nie einen. Ein Zeichen im Titel kostet nichts und
             # erspart die vergebliche Mission.
-            zeichen = '!' if (e.get('bpnote') or '').strip() else ''
-            titel_an[e['titleLocKey']] = (' <EM4>[%s%s]</EM4>'
-                                          % (worte['kurz'], zeichen))
+            chars = '!' if (e.get('bpnote') or '').strip() else ''
+            title_by_key[e['titleLocKey']] = (' <EM4>[%s%s]</EM4>'
+                                          % (words['kurz'], chars))
 
-    geaendert = 0
+    changed = 0
     try:
-        with open(ini_pfad, encoding='utf-8', errors='ignore') as f:
-            zeilen = f.read().splitlines()
+        with open(ini_path, encoding='utf-8', errors='ignore') as f:
+            lines = f.read().splitlines()
     except OSError as e:
         return False, 0, 'Lesen fehlgeschlagen: %s' % e
 
@@ -1156,28 +1156,28 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     # demselben Block versehen. Groß- und Kleinschreibung zählt dabei nicht —
     # in den Spieldaten steht `Covalex_HaulCargo_AToB_title` neben
     # `Covalex_HaulCargo_AtoB_desc_ToRuinStation`, mit unterschiedlichem „to".
-    stamm_an = {}
-    for e in daten['entries']:
-        block = text_an.get(e.get('descriptionLocKey') or '')
-        stamm = _stamm(e.get('titleLocKey') or e.get('descriptionLocKey') or '')
-        if block and stamm and stamm not in stamm_an:
-            stamm_an[stamm] = block
+    stem_by_key = {}
+    for e in data['entries']:
+        block = text_by_key.get(e.get('descriptionLocKey') or '')
+        stem = _stem(e.get('titleLocKey') or e.get('descriptionLocKey') or '')
+        if block and stem and stem not in stem_by_key:
+            stem_by_key[stem] = block
 
     # Dasselbe für die TITEL — die Voraussetzung für mehrteilige Reihen.
     # Ohne diese Tabelle gäbe es nur den exakten Schlüsselvergleich, und ein
     # Teilauftrag (`…Story01B_title`) findet den Zusatz seiner Reihe nie.
-    titel_stamm_an = {}
-    for schluessel, zusatz in titel_an.items():
-        stamm = _stamm(schluessel)
-        if stamm and stamm not in titel_stamm_an:
-            titel_stamm_an[stamm] = zusatz
+    title_stem_by_key = {}
+    for key, suffix in title_by_key.items():
+        stem = _stem(key)
+        if stem and stem not in title_stem_by_key:
+            title_stem_by_key[stem] = suffix
 
     # ⚠ Ohne Marken im Text: Was hier angefasst wird, kommt vorher in die
     # Merkdatei. Siehe `URTEXT_DATEI` — die Marken waren im Spiel sichtbar.
-    urtext_alt = urtext_laden()
-    urtext_neu = {}
-    notnagel = _notnagel(urtext_alt, ini_pfad)
-    namens_zusatz = _namens_tabelle(zeilen)
+    origtext_old = load_origtext()
+    origtext_new = {}
+    fallback = _fallback_form(origtext_old, ini_path)
+    name_suffix = _name_table(lines)
     # ⚠⚠ **Es gibt ZWEI Schreibwege, und beide brauchen das hier.**
     # `einrichten()` nimmt bevorzugt diesen (die gepflegten SCDL-Vertragstexte)
     # und fällt nur ohne sie auf `einspielen()` zurück. In v3.28.0 hingen die
@@ -1188,73 +1188,73 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
     #
     # ⚠ Wer hier eine neue Art von Einfügung baut, baut sie an **beiden**
     # Stellen ein — oder er baut sie für die Hälfte der Nutzer gar nicht.
-    eigene_schiffe = _asop_tabelle(zeilen)
+    own_ships = _asop_table(lines)
 
-    neu = []
-    for zeile in zeilen:
-        teile = _zeile_zerlegen(zeile)
-        if not teile:
-            neu.append(zeile)
+    new = []
+    for line in lines:
+        parts = _split_line(line)
+        if not parts:
+            new.append(line)
             continue
-        schluessel, zusatz, text = teile
+        key, suffix, text = parts
         # Der Wortlaut ohne UNSERE Einfügung. Ein fremder Block (Launcher) kann
         # darin noch stehen — er wird gleich abgetrennt, aber nicht verworfen.
-        ur = _saeubern(text, schluessel, urtext_alt, notnagel)
-        grundlage, _fremd = _fremdblock_trennen(ur)
-        sauber = grundlage
-        angefasst = False
-        if schluessel in eigene_schiffe:
-            eigen, stern = eigene_schiffe[schluessel]
-            sauber = asop_modul.display_name(grundlage, eigen, stern)
-            angefasst = sauber != grundlage
-        elif schluessel in namens_zusatz:
-            sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
-            angefasst = True
-        elif schluessel in titel_an:
+        orig = _strip_old(text, key, origtext_old, fallback)
+        base_text, _foreign = _split_foreign_block(orig)
+        clean = base_text
+        touched = False
+        if key in own_ships:
+            own, star = own_ships[key]
+            clean = asop_modul.display_name(base_text, own, star)
+            touched = clean != base_text
+        elif key in name_suffix:
+            clean = _name_with_detail(base_text, name_suffix[key])
+            touched = True
+        elif key in title_by_key:
             # ⚠ Steht die Marke schon da, kommt keine zweite dazu — gleich, ob
             # StarStrings oder der SC Deutsch Launcher sie gesetzt hat.
-            if not _hat_titelmarke(grundlage):
-                sauber, angefasst = grundlage + titel_an[schluessel], True
-        elif schluessel in text_an:
-            sauber, angefasst = _anhaengen(grundlage, text_an[schluessel]), True
-        elif schluessel in angaben_an:
+            if not _has_title_mark(base_text):
+                clean, touched = base_text + title_by_key[key], True
+        elif key in text_by_key:
+            clean, touched = _append_block(base_text, text_by_key[key]), True
+        elif key in details_by_key:
             # ⚠ Ein Auftrag ohne eigenen Block: Die Angaben kommen an den
             # SPIELTEXT, der schon dasteht. Steht die Angabe dort bereits
             # (weil ein anderes Werkzeug sie geschrieben hat oder wir beim
             # letzten Lauf), bleibt sie stehen — dieselbe Regel wie bei den
             # Marken.
-            if not _hat_angaben(grundlage):
-                sauber = _anhaengen(grundlage, angaben_an[schluessel])
-                angefasst = True
-        elif schluessel.lower().endswith('_title'):
+            if not _has_details(base_text):
+                clean = _append_block(base_text, details_by_key[key])
+                touched = True
+        elif key.lower().endswith('_title'):
             # Keine eigene Angabe — aber vielleicht ist es ein SCHRITT einer
             # Reihe, deren Hauptauftrag Baupläne bringt (siehe
             # `_reihen_stamm`). Der Spieler sieht im Auftragsfenster genau
             # diesen Schritt; ohne den Zusatz erfährt er dort nichts.
-            haupt = _reihen_stamm(_stamm(schluessel), titel_stamm_an)
-            if haupt and not _hat_titelmarke(grundlage):
-                sauber, angefasst = grundlage + titel_stamm_an[haupt], True
-        elif '_desc' in schluessel.lower():
+            main = _series_stem(_stem(key), title_stem_by_key)
+            if main and not _has_title_mark(base_text):
+                clean, touched = base_text + title_stem_by_key[main], True
+        elif '_desc' in key.lower():
             # Keine eigene Angabe — aber vielleicht gehört die Beschreibung zu
             # einem Auftrag, für den wir welche haben.
-            block = stamm_an.get(_stamm(schluessel))
+            block = stem_by_key.get(_stem(key))
             if not block:
                 # Wie beim Titel: auch Schritte einer Reihe versorgen, sonst
                 # steht im Schritt `[BP!]` und darunter keine Bauplan-Liste.
-                haupt = _reihen_stamm(_stamm(schluessel), stamm_an)
-                if haupt:
-                    block = stamm_an[haupt]
+                main = _series_stem(_stem(key), stem_by_key)
+                if main:
+                    block = stem_by_key[main]
             if block:
-                sauber, angefasst = _anhaengen(grundlage, block), True
-        if angefasst:
+                clean, touched = _append_block(base_text, block), True
+        if touched:
             # Den Wortlaut VOR der Einfügung merken, nicht danach — und **mit**
             # dem fremden Block, damit das Zurücksetzen ihn wiederbringt.
-            urtext_neu[schluessel] = ur
-            geaendert += 1
+            origtext_new[key] = orig
+            changed += 1
         else:
             # Nichts beigesteuert: dann bleibt auch der fremde Block, wo er war.
-            sauber = ur
-        neu.append('%s%s=%s' % (schluessel, zusatz, sauber))
+            clean = orig
+        new.append('%s%s=%s' % (key, suffix, clean))
 
     try:
         # ⚠⚠ **`newline=''` ist Pflicht — sonst wird die ganze Datei umgeschrieben.**
@@ -1267,59 +1267,59 @@ def einspielen_scdl(ini_pfad, sprachkuerzel, bestand=None):
         # aufgefallen — `tools/starstrings_pruefen.py` schlug unter Windows
         # trotzdem fehl („Nach dem Zuruecksetzen weicht der Wortlaut ab"), und
         # zwar schon in v3.9.4.
-        with open(ini_pfad + '.tmp', 'w', encoding='utf-8', newline='') as f:
-            f.write('\n'.join(neu) + '\n')
-        os.replace(ini_pfad + '.tmp', ini_pfad)
+        with open(ini_path + '.tmp', 'w', encoding='utf-8', newline='') as f:
+            f.write('\n'.join(new) + '\n')
+        os.replace(ini_path + '.tmp', ini_path)
     except OSError as e:
         return False, 0, 'Schreiben fehlgeschlagen: %s' % e
-    urtext_sichern(urtext_neu, ini_pfad)
-    meta = daten.get('_meta') or {}
-    return True, geaendert, '%d Textstellen (SCDL %s)' % (geaendert,
+    save_origtext(origtext_new, ini_path)
+    meta = data.get('_meta') or {}
+    return True, changed, '%d Textstellen (SCDL %s)' % (changed,
                                                           meta.get('version', '?'))
 
 
-def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
-               nur_entfernen=False):
+def apply_texts(ini_path, language, catalog_data=None, stock=None,
+               remove_only=False):
     """Die Angaben in eine `global.ini` schreiben.
 
     Gibt (Erfolg, Anzahl geänderter Zeilen, Meldung) zurück. Die Datei wird
     erst vollständig neu geschrieben und dann umbenannt — bricht etwas ab,
     bleibt die alte Version unversehrt."""
-    if not ini_pfad or not os.path.isfile(ini_pfad):
+    if not ini_path or not os.path.isfile(ini_path):
         return False, 0, t('m_keine_ini')
 
-    katalog = katalog if katalog is not None else katalog_modul.load()
-    missionen = katalog.get('missionen') or {}
-    if not missionen and not nur_entfernen:
+    catalog_data = catalog_data if catalog_data is not None else katalog_modul.load()
+    missions = catalog_data.get('missionen') or {}
+    if not missions and not remove_only:
         return False, 0, t('m_keine_missionen')
 
-    habe = bestand_datei.keys(bestand if bestand is not None
+    owned = bestand_datei.keys(stock if stock is not None
                                     else bestand_datei.load())
-    worte = TEXTE[_sprachkuerzel(sprache)]
+    words = TEXTS[_lang_code(language)]
 
     # Beide Schlüssel-Arten in eine Tabelle: Titel bekommen das Kürzel,
     # Beschreibungen die Liste.
-    titel_keys, text_keys = {}, {}
-    for eintrag in missionen.values():
-        if eintrag.get('titel_key'):
-            titel_keys[eintrag['titel_key']] = eintrag
-        if eintrag.get('text_key'):
-            text_keys[eintrag['text_key']] = eintrag
+    title_keys, text_keys = {}, {}
+    for entry in missions.values():
+        if entry.get('titel_key'):
+            title_keys[entry['titel_key']] = entry
+        if entry.get('text_key'):
+            text_keys[entry['text_key']] = entry
 
-    geaendert = 0
+    changed = 0
     try:
-        with open(ini_pfad, encoding='utf-8', errors='ignore') as f:
-            zeilen = f.read().splitlines()
+        with open(ini_path, encoding='utf-8', errors='ignore') as f:
+            lines = f.read().splitlines()
     except OSError as e:
         return False, 0, 'Lesen fehlgeschlagen: %s' % e
 
-    urtext_alt = urtext_laden()
-    urtext_neu = {}
-    notnagel = _notnagel(urtext_alt, ini_pfad)
-    namens_zusatz = _namens_tabelle(zeilen, nur_entfernen)
+    origtext_old = load_origtext()
+    origtext_new = {}
+    fallback = _fallback_form(origtext_old, ini_path)
+    name_suffix = _name_table(lines, remove_only)
     # Eigene Schiffsnamen im Fleet Manager. Beim reinen Entfernen bleibt die
     # Tabelle leer — dann stellt der Urtext-Weg die Werksnamen wieder her.
-    eigene_schiffe = {} if nur_entfernen else _asop_tabelle(zeilen)
+    own_ships = {} if remove_only else _asop_table(lines)
 
     # ⚠ Eine Mission hat im Spiel **mehr** Beschreibungen, als der Katalog
     # kennt. Gemessen am 28.08.2026: `Covalex_HaulCargo_SingleToMulti` führt
@@ -1334,66 +1334,66 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
     # Namensanfang; hier fehlte es. Deshalb derselbe Weg auch für den eigenen
     # Katalog: Zu jedem Titel, der Angaben bekommt, bekommen **alle**
     # Beschreibungen desselben Auftrags denselben Block.
-    stamm_block = {}
-    if not nur_entfernen:
-        for eintrag in missionen.values():
-            stamm = _stamm(eintrag.get('titel_key')
-                           or eintrag.get('text_key') or '')
-            if stamm and stamm not in stamm_block:
-                stamm_block[stamm] = eintrag
+    stem_block = {}
+    if not remove_only:
+        for entry in missions.values():
+            stem = _stem(entry.get('titel_key')
+                           or entry.get('text_key') or '')
+            if stem and stem not in stem_block:
+                stem_block[stem] = entry
 
-    neu = []
-    for zeile in zeilen:
-        teile = _zeile_zerlegen(zeile)
-        if not teile:
-            neu.append(zeile)
+    new = []
+    for line in lines:
+        parts = _split_line(line)
+        if not parts:
+            new.append(line)
             continue
-        schluessel, zusatz, text = teile
-        ur = _saeubern(text, schluessel, urtext_alt, notnagel)
-        if ur != text:
-            geaendert += 1
-        sauber = ur
-        if not nur_entfernen:
+        key, suffix, text = parts
+        orig = _strip_old(text, key, origtext_old, fallback)
+        if orig != text:
+            changed += 1
+        clean = orig
+        if not remove_only:
             # Ein fremder Block (SC Deutsch Launcher) wird abgetrennt und durch
             # unseren ersetzt — der Urtext behält ihn, also kommt er beim
             # Zurücksetzen wieder.
-            grundlage, _fremd = _fremdblock_trennen(ur)
-            angefasst = False
-            if schluessel in eigene_schiffe:
+            base_text, _foreign = _split_foreign_block(orig)
+            touched = False
+            if key in own_ships:
                 # ⚠ `grundlage` ist der **zurückgesetzte** Werksname. Nur so
                 # bleibt ein zweiter Lauf folgenlos; mit dem Wert aus der
                 # laufenden Datei stünde beim nächsten Mal ein Stern vor dem
                 # Stern.
-                eigen, stern = eigene_schiffe[schluessel]
-                sauber = asop_modul.display_name(grundlage, eigen, stern)
-                angefasst = sauber != grundlage
-            elif schluessel in namens_zusatz:
-                sauber = _name_mit_angabe(grundlage, namens_zusatz[schluessel])
-                angefasst = True
-            elif schluessel in titel_keys:
+                own, star = own_ships[key]
+                clean = asop_modul.display_name(base_text, own, star)
+                touched = clean != base_text
+            elif key in name_suffix:
+                clean = _name_with_detail(base_text, name_suffix[key])
+                touched = True
+            elif key in title_keys:
                 # ⚠ Keine zweite Marke, wo schon eine steht.
-                if not _hat_titelmarke(grundlage):
-                    sauber = grundlage + _titel_zusatz(titel_keys[schluessel],
-                                                       habe, worte)
-                    angefasst = True
-            elif schluessel in text_keys:
-                sauber = _anhaengen(grundlage,
-                                    _block(text_keys[schluessel], habe, worte))
-                angefasst = True
-            elif '_desc' in schluessel.lower():
+                if not _has_title_mark(base_text):
+                    clean = base_text + _title_suffix(title_keys[key],
+                                                       owned, words)
+                    touched = True
+            elif key in text_keys:
+                clean = _append_block(base_text,
+                                    _build_block(text_keys[key], owned, words))
+                touched = True
+            elif '_desc' in key.lower():
                 # Keine eigene Angabe — aber vielleicht gehört die Beschreibung
                 # zu einem Auftrag, für den wir welche haben (siehe oben).
-                eintrag = stamm_block.get(_stamm(schluessel))
-                if eintrag:
-                    sauber = _anhaengen(grundlage,
-                                        _block(eintrag, habe, worte))
-                    angefasst = True
-            if angefasst:
-                urtext_neu[schluessel] = ur
-                geaendert += 1
+                entry = stem_block.get(_stem(key))
+                if entry:
+                    clean = _append_block(base_text,
+                                        _build_block(entry, owned, words))
+                    touched = True
+            if touched:
+                origtext_new[key] = orig
+                changed += 1
             else:
-                sauber = ur
-        neu.append('%s%s=%s' % (schluessel, zusatz, sauber))
+                clean = orig
+        new.append('%s%s=%s' % (key, suffix, clean))
 
     try:
         # ⚠⚠ **`newline=''` ist Pflicht — sonst wird die ganze Datei umgeschrieben.**
@@ -1406,84 +1406,84 @@ def einspielen(ini_pfad, sprache, katalog=None, bestand=None,
         # aufgefallen — `tools/starstrings_pruefen.py` schlug unter Windows
         # trotzdem fehl („Nach dem Zuruecksetzen weicht der Wortlaut ab"), und
         # zwar schon in v3.9.4.
-        with open(ini_pfad + '.tmp', 'w', encoding='utf-8', newline='') as f:
-            f.write('\n'.join(neu) + '\n')
-        os.replace(ini_pfad + '.tmp', ini_pfad)
+        with open(ini_path + '.tmp', 'w', encoding='utf-8', newline='') as f:
+            f.write('\n'.join(new) + '\n')
+        os.replace(ini_path + '.tmp', ini_path)
     except OSError as e:
         return False, 0, 'Schreiben fehlgeschlagen: %s' % e
     # Beim reinen Entfernen ist nichts mehr zu merken — die Datei wird geleert,
     # damit ein späterer Lauf nicht auf einen überholten Stand zurücksetzt.
-    urtext_sichern(urtext_neu, ini_pfad)
+    save_origtext(origtext_new, ini_path)
 
-    return True, geaendert, '%d Textstellen' % geaendert
+    return True, changed, '%d Textstellen' % changed
 
 
-def einrichten(ini_pfad, sprache, fortschritt=None, bestand=None):
+def setup(ini_path, language, progress=None, stock=None):
     """Die Bauplan-Angaben eintragen — auf dem jeweils besten Weg.
 
     Zuerst die Vertragsdaten des SCDL-Teams: 813 Verträge mit gepflegten
     Texten. Sind sie nicht erreichbar, tut es der eigene Aufbau aus den
     scmdb-Daten (349 Verträge) — dann fehlen Feinheiten wie Region und
     Gefahrenstufe, aber die Baupläne stehen da, und darum geht es."""
-    kuerzel = _sprachkuerzel(sprache)
-    if not scdl_laden(kuerzel):
-        scdl_holen(kuerzel, fortschritt)
-    if scdl_laden(kuerzel):
-        ok, n, meldung = einspielen_scdl(ini_pfad, kuerzel, bestand)
+    tag = _lang_code(language)
+    if not scdl_load(tag):
+        scdl_fetch(tag, progress)
+    if scdl_load(tag):
+        ok, n, message = apply_scdl(ini_path, tag, stock)
         if ok:
-            return ok, n, meldung
-    return einspielen(ini_pfad, sprache, bestand=bestand)
+            return ok, n, message
+    return apply_texts(ini_path, language, stock=stock)
 
 
-def aktualisieren(ini_pfad, sprache, fortschritt=None, bestand=None):
+def refresh(ini_path, language, progress=None, stock=None):
     """Frische Vertragsdaten holen und neu eintragen.
 
     Gebraucht nach jedem Übersetzungs-Update und nach jedem Spiel-Patch: Beide
     schreiben die `global.ini` neu, die Angaben sind dann stillschweigend weg."""
-    scdl_holen(_sprachkuerzel(sprache), fortschritt)
-    return einrichten(ini_pfad, sprache, fortschritt, bestand)
+    scdl_fetch(_lang_code(language), progress)
+    return setup(ini_path, language, progress, stock)
 
 
-def scdl_update_da(sprachkuerzel):
+def scdl_update_available(lang_code):
     """Gibt es bei den Vertragsdaten etwas Neueres? (ja/nein, neue Kennung).
 
     Verglichen wird die Kennung aus `_meta.version` (z. B. „LIVE 20.08.2026").
     Geholt wird dafür die ganze Datei — sie hat keine eigene Versionsauskunft,
     und 2,4 MB einmal am Tag sind kein Grund, dafür etwas zu bauen."""
     from .catalog import OFF
-    alt = scdl_stand(sprachkuerzel)
-    datei = SCDL_DATEI.get(sprachkuerzel)
-    if not datei or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
+    old = scdl_version(lang_code)
+    filename = SCDL_FILE.get(lang_code)
+    if not filename or OFF:          # ⚠ SC_BP_NO_NET gilt auch hier
         return False, None
     try:
-        req = urllib.request.Request(SCDL_ROH % datei,
+        req = urllib.request.Request(SCDL_RAW % filename,
                                      headers={'User-Agent': 'SC-BP-Watcher'})
         with urllib.request.urlopen(req, timeout=60) as r:
-            roh = json.loads(r.read().decode('utf-8'))
-    except Exception as ausnahme:
-        fehler.merken('injektion.scdl_holen', ausnahme, datei)
+            raw = json.loads(r.read().decode('utf-8'))
+    except Exception as exc:
+        fehler.merken('injection.scdl_fetch', exc, filename)
         return False, None
-    neu_kennung = (roh.get('_meta') or {}).get('version')
-    if not roh.get('entries') or neu_kennung == alt:
-        return False, alt
+    new_id = (raw.get('_meta') or {}).get('version')
+    if not raw.get('entries') or new_id == old:
+        return False, old
     # Schon mal ablegen — der Abruf ist gelaufen, ein zweiter wäre Verschwendung.
     try:
-        ziel = pfade.app_datei(SCDL_CACHE % sprachkuerzel)
-        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
-            json.dump(roh, f, ensure_ascii=False)
-        os.replace(ziel + '.tmp', ziel)
+        target = pfade.app_datei(SCDL_CACHE % lang_code)
+        with open(target + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(raw, f, ensure_ascii=False)
+        os.replace(target + '.tmp', target)
     except Exception:
-        return False, alt
-    return True, neu_kennung
+        return False, old
+    return True, new_id
 
 
-def scdl_stand(sprachkuerzel):
+def scdl_version(lang_code):
     """Welche Version der Vertragsdaten liegt hier? Oder None."""
-    d = scdl_laden(sprachkuerzel)
+    d = scdl_load(lang_code)
     return (d.get('_meta') or {}).get('version') if d else None
 
 
-def altlast(neuer_pfad):
+def leftover_file(new_path):
     """Die Datei, in der noch unsere Einfügungen stehen, obwohl sie niemand
     mehr pflegt — oder `None`.
 
@@ -1491,21 +1491,21 @@ def altlast(neuer_pfad):
     zuletzt geschrieben wurde. Zeigt sie woandershin als das neue Ziel, ist das
     genau die verwaiste.
     """
-    alt = (_urtext_datei().get('datei') or '').strip()
-    if not alt or not (_urtext_datei().get('texte') or {}):
+    old = (_origtext_file().get('datei') or '').strip()
+    if not old or not (_origtext_file().get('texte') or {}):
         return None
     try:
-        if neuer_pfad and os.path.samefile(alt, neuer_pfad):
+        if new_path and os.path.samefile(old, new_path):
             return None
     except OSError:
         # Eine der beiden Dateien gibt es nicht mehr — dann entscheidet der
         # Wortlaut. `samefile` braucht beide.
-        if neuer_pfad and os.path.normpath(alt) == os.path.normpath(neuer_pfad):
+        if new_path and os.path.normpath(old) == os.path.normpath(new_path):
             return None
-    return alt if os.path.isfile(alt) else None
+    return old if os.path.isfile(old) else None
 
 
-def altlast_aufraeumen(neuer_pfad):
+def clean_leftover(new_path):
     """Vor einem Quellenwechsel die alte Datei zurücksetzen.
 
     ⚠⚠ **Warum das sein muss.** Die Textquellen schreiben in **verschiedene**
@@ -1526,31 +1526,31 @@ def altlast_aufraeumen(neuer_pfad):
 
     Gibt `(aufgeraeumt, anzahl)` zurück — `aufgeraeumt` ist der Pfad oder None.
     """
-    alt = altlast(neuer_pfad)
-    if not alt:
+    old = leftover_file(new_path)
+    if not old:
         return None, 0
-    ordner = os.path.basename(os.path.dirname(alt)) or 'english'
+    folder = os.path.basename(os.path.dirname(old)) or 'english'
     try:
-        ok, anzahl, _meldung = entfernen(alt, ordner)
-    except Exception as ausnahme:
+        ok, count, _message = remove_texts(old, folder)
+    except Exception as exc:
         # ⚠ Ein misslungenes Aufräumen darf den Wechsel nicht anhalten. Der
         # Spieler steht sonst ohne beides da: alte Quelle weg, neue nicht
         # eingerichtet.
-        fehler.merken('injektion.altlast_aufraeumen', ausnahme)
+        fehler.merken('injection.clean_leftover', exc)
         return None, 0
-    return (alt, anzahl) if ok else (None, 0)
+    return (old, count) if ok else (None, 0)
 
 
-def entfernen(ini_pfad, sprache='english'):
+def remove_texts(ini_path, language='english'):
     """Alle Einfügungen zurücknehmen — die Datei bleibt sonst unverändert.
 
     ⚠ Zurück heißt: so, wie der Spieler die Datei hatte. Hat der SC Deutsch
     Launcher oder StarStrings dort etwas stehen, bleibt das stehen — der Urtext
     bewahrt es."""
-    return einspielen(ini_pfad, sprache, nur_entfernen=True)
+    return apply_texts(ini_path, language, remove_only=True)
 
 
-def ist_drin(ini_pfad):
+def is_applied(ini_path):
     """Steckt in dieser Datei schon eine Injektion?
 
     Seit v3.0.0 stehen keine Marken mehr im Text (sie waren im Spiel sichtbar),
@@ -1569,14 +1569,14 @@ def ist_drin(ini_pfad):
     in einer Datei mit über hunderttausend Zeilen.
     """
     try:
-        with open(ini_pfad, encoding='utf-8', errors='ignore') as f:
-            for zeile in f:
-                if AUF in zeile or ZAEHLENDER_TITEL.search(zeile):
+        with open(ini_path, encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if OPEN in line or COUNTING_TITLE.search(line):
                     return True
                 # ⚠ Die Überschrift allein genügt nicht: Der SC Deutsch Launcher
                 # schreibt dieselbe, aus derselben Quelle. Erst das Kästchen
                 # macht den Block zu unserem.
-                if EIGENER_NACHWEIS.search(zeile) and _hat_kaestchen(zeile):
+                if OWN_TRACE.search(line) and _has_box(line):
                     return True
     except OSError:
         pass
@@ -1596,7 +1596,7 @@ def ist_drin(ini_pfad):
 #
 # Jetzt stehen sie frei, und Fenster wie Bericht fragen dieselbe Stelle.
 
-def _sprachreihenfolge(rueckfall=('english', 'german_(germany)')):
+def _lang_order(fallback_lang=('english', 'german_(germany)')):
     """In welcher Reihenfolge die Sprachordner geprüft werden.
 
     Vorn steht, was in der `user.cfg` als `g_language` eingetragen ist — das
@@ -1605,20 +1605,20 @@ def _sprachreihenfolge(rueckfall=('english', 'german_(germany)')):
     bisherige Reihenfolge richtig.
     """
     from . import translation
-    ordnung = list(rueckfall)
+    order = list(fallback_lang)
     try:
-        sprache = translation.game_language()
-    except Exception as ausnahme:
-        fehler.merken('injektion.spielsprache', ausnahme)
-        return ordnung
-    if not sprache:
-        return ordnung
-    if sprache in ordnung:
-        ordnung.remove(sprache)
-    return [sprache] + ordnung
+        language = translation.game_language()
+    except Exception as exc:
+        fehler.merken('injection.spielsprache', exc)
+        return order
+    if not language:
+        return order
+    if language in order:
+        order.remove(language)
+    return [language] + order
 
 
-def ini_datei():
+def ini_file():
     """Die `global.ini`, um die es geht. (Pfad, Sprachordner, Quelle).
 
     ⚠ Maßgeblich ist die **gewählte** Textquelle, nicht die zuerst gefundene.
@@ -1629,12 +1629,12 @@ def ini_datei():
     Die Reihenfolge greift nur, solange nichts gewählt wurde.
     """
     from . import translation
-    gewaehlt = pfade.einstellung('inj_quelle')
-    reihenfolge = ['deutsch', 'starstrings']
-    if gewaehlt in reihenfolge:
-        reihenfolge.remove(gewaehlt)
-        reihenfolge.insert(0, gewaehlt)
-    elif gewaehlt == 'original':
+    chosen = pfade.einstellung('inj_quelle')
+    order_list = ['deutsch', 'starstrings']
+    if chosen in order_list:
+        order_list.remove(chosen)
+        order_list.insert(0, chosen)
+    elif chosen == 'original':
         # Die Originaltexte kommen aus dem Spiel selbst, nicht aus einem
         # fremden Projekt — dort gibt es keine Version zu vermerken.
         #
@@ -1645,30 +1645,30 @@ def ini_datei():
         # `user.cfg`), bekam die Angaben in die englische Datei geschrieben, die
         # das Spiel nie liest. Eingetragen wurde korrekt, angekommen ist nichts,
         # und die Statuszeile meldete trotzdem Erfolg. Am 29.08.2026 gemeldet.
-        for sprache_ordner in _sprachreihenfolge():
-            pfad = translation.target_ini(sprache_ordner)
-            if pfad and os.path.isfile(pfad):
-                return pfad, sprache_ordner, None
-    for quelle in reihenfolge:
-        if translation.installed(quelle):
-            sprache_ordner = translation.SOURCES[quelle]['sprache']
-            return translation.target_ini(sprache_ordner), sprache_ordner, quelle
+        for lang_folder in _lang_order():
+            path = translation.target_ini(lang_folder)
+            if path and os.path.isfile(path):
+                return path, lang_folder, None
+    for source in order_list:
+        if translation.installed(source):
+            lang_folder = translation.SOURCES[source]['sprache']
+            return translation.target_ini(lang_folder), lang_folder, source
     # Nichts vermerkt: dann die Datei nehmen, die tatsächlich daliegt — aber in
     # der Reihenfolge, die das Spiel vorgibt. Hier stand `german_(germany)`
     # zuerst; für dieses eine Haus richtig, für jeden mit englischem Spiel
     # falsch. Geraten wird nicht mehr.
-    for sprache_ordner in _sprachreihenfolge(('german_(germany)', 'english')):
-        p = translation.target_ini(sprache_ordner)
+    for lang_folder in _lang_order(('german_(germany)', 'english')):
+        p = translation.target_ini(lang_folder)
         if p and os.path.isfile(p):
-            return p, sprache_ordner, None
+            return p, lang_folder, None
     return None, 'english', None
 
 
-def lage():
+def status():
     """Steht etwas im Spiel, und aus welcher Quelle? (dict)"""
     from . import translation
-    pfad, _sprache, quelle = ini_datei()
-    da = bool(pfad and os.path.isfile(pfad))
-    drin = bool(da and ist_drin(pfad))
-    return {'datei': pfad, 'drin': drin, 'quelle': quelle,
-            'stand': translation.installed(quelle) if quelle else None}
+    path, _language, source = ini_file()
+    exists = bool(path and os.path.isfile(path))
+    inside = bool(exists and is_applied(path))
+    return {'datei': path, 'drin': inside, 'quelle': source,
+            'stand': translation.installed(source) if source else None}

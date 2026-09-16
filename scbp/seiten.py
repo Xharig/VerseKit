@@ -2459,11 +2459,11 @@ def _game(fenster, rahmen):
         # „ich schalte es auf aus, also ist es weg.“
         #
         # Gefahrlos, weil verlustfrei: Der Urtext ist gemerkt
-        # (`injektion.URTEXT_DATEI`), das Entfernen stellt den Wortlaut auf den
+        # (`injection.ORIGTEXT_FILE`), das Entfernen stellt den Wortlaut auf den
         # Buchstaben genau wieder her, und Einschalten trägt neu ein.
         try:
-            from . import injektion as inj_modul
-            drin = bool(inj_modul.lage().get('drin'))
+            from . import injection as inj_modul
+            drin = bool(inj_modul.status().get('drin'))
             if neu_wert and not drin:
                 e._inj_refresh()
             elif not neu_wert and drin:
@@ -2483,10 +2483,10 @@ def _game(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_sp_angaben'), t('s_sp_angaben_h'))
 
     def angaben_um():
-        from . import injektion as inj_modul
-        neu_wert = not pfade.einstellung_wahrheit(inj_modul.EINSTELLUNG_ANGABEN,
+        from . import injection as inj_modul
+        neu_wert = not pfade.einstellung_wahrheit(inj_modul.SETTING_DETAILS,
                                                   True)
-        pfade.einstellung_setzen(inj_modul.EINSTELLUNG_ANGABEN, neu_wert)
+        pfade.einstellung_setzen(inj_modul.SETTING_DETAILS, neu_wert)
         fenster.say(t('s_sp_angaben_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
         # ⚠ **Umlegen muss sofort wirken.** Bis rc83 setzte dieser Schalter nur
@@ -2508,16 +2508,16 @@ def _game(fenster, rahmen):
         # Schalter lässt Vorhandenes mit Absicht stehen (PTU-Fall).
         try:
             if (pfade.einstellung_wahrheit('inj_an', True)
-                    and inj_modul.lage().get('drin')):
+                    and inj_modul.status().get('drin')):
                 e._inj_refresh()
                 lage_zeigen()
         except Exception as ausnahme:
             fehler.merken('seiten.angaben_um', ausnahme)
         return neu_wert
 
-    from . import injektion as _inj
+    from . import injection as _inj
     toggle_switch(ziel,
-                    pfade.einstellung_wahrheit(_inj.EINSTELLUNG_ANGABEN, True),
+                    pfade.einstellung_wahrheit(_inj.SETTING_DETAILS, True),
                     angaben_um).pack()
 
     ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
@@ -11178,7 +11178,7 @@ def _asop(fenster, rahmen):
     des Spiels. Niemand benennt ein Schiff um, das er nicht hat, und eine
     Liste, die man erst durchsuchen muss, ist ein Bausatz.
     """
-    from . import asop as asop_modul, fleet as meine, injektion
+    from . import asop as asop_modul, fleet as meine, injection
 
     # ⚠⚠ **Reihenfolge ist hier alles.** Erst alles Feste packen (Kopf oben,
     # Fuß unten), **danach** die rollende Fläche mit `expand=True`. Wer die
@@ -11235,7 +11235,7 @@ def _asop(fenster, rahmen):
     def zeilen_der_ini():
         """Die Zeilen der Sprachdatei, die das Spiel gerade lädt — oder nichts."""
         try:
-            pfad, _sprachordner, _quelle = injektion.ini_datei()
+            pfad, _sprachordner, _quelle = injection.ini_file()
             if pfad and os.path.isfile(pfad):
                 with open(pfad, encoding='utf-8', errors='ignore') as f:
                     return f.read().splitlines()
@@ -11345,11 +11345,11 @@ def _asop(fenster, rahmen):
         except Exception:
             pass
         try:
-            pfad, sprachordner, _quelle = injektion.ini_datei()
+            pfad, sprachordner, _quelle = injection.ini_file()
             if not pfad:
                 _sagen(t('s_as_keine_ini'), RED)
                 return
-            ok, _anzahl, text = injektion.aktualisieren(pfad, sprachordner)
+            ok, _anzahl, text = injection.refresh(pfad, sprachordner)
         except Exception as ausnahme:
             fehler.merken('seiten._asop.einspielen', ausnahme)
             ok, text = False, str(ausnahme)

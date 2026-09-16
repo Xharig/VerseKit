@@ -326,7 +326,7 @@ class Wizard:
 
     def _fetch_texts(self, quelle):
         """Herunterladen, einsetzen, Bauplan-Angaben eintragen — in einem Zug."""
-        from . import injektion, gametext, translation
+        from . import injection, gametext, translation
         # ⚠ Die Wahl **vor** dem Einrichten merken — genau wie auf der
         # Einstellungsseite. Fehlte das hier, holte der Assistent zwar die Texte,
         # aber unter „Angaben im Spiel" stand danach keine der drei Quellen
@@ -365,9 +365,9 @@ class Wizard:
                 sprache_ordner = translation.SOURCES[quelle]['sprache']
                 ziel = translation.target_ini(sprache_ordner)
 
-            ok, anzahl, meldung = injektion.einrichten(
+            ok, anzahl, meldung = injection.setup(
                 ziel, sprache_ordner,
-                fortschritt=lambda x: (self.inj_meldung.configure(text=x),
+                progress=lambda x: (self.inj_meldung.configure(text=x),
                                        self.root.update()))
             if ok:
                 self.inj_meldung.configure(text=t('inj_aktiv', anzahl), fg=ACCENT)

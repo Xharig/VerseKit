@@ -600,7 +600,7 @@ def _missions(merged):
 
     Das ist die **Gegenrichtung** zu `_herkunft()`: dort „welcher Bauplan kommt
     woher", hier „welche Baupläne gibt diese Mission". Gebraucht wird sie von
-    `scbp/injektion.py`, das die Angaben in die Textdatei des Spiels schreibt.
+    `scbp/injection.py`, das die Angaben in die Textdatei des Spiels schreibt.
 
     Angehängt wird an den **Textschlüssel** (`descriptionLocKey`,
     `titleLocKey`), nicht an den Missionsnamen: Der Schlüssel ist in jeder

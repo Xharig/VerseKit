@@ -1141,7 +1141,7 @@ def _source_mark(language, game_folder=None):
     kostet nichts und schliesst eine Luecke.
 
     ⚠ Sie bleibt trotzdem eine **Heuristik**, kein Inhaltsbeweis. Eigene
-    Schreibwege (`injektion`) sind gedeckt — sie schreiben die Datei neu und
+    Schreibwege (`injection`) sind gedeckt — sie schreiben die Datei neu und
     aendern damit Groesse und Zeitstempel. Nicht gedeckt ist eine
     Ruecksicherung oder Kopie **mit erhaltenem Aenderungsdatum**: gleich
     gross, gleicher Zeitstempel, anderer Inhalt. Wer das sicher erkennen

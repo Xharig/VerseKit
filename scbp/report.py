@@ -454,12 +454,12 @@ def _injection_state():
     überhaupt etwas eingetragen war, ließ sich daraus nicht ablesen; es musste
     erschlossen werden. Genau dafür gibt es den Bericht.
 
-    Die Auskunft kommt aus `injektion.lage()` — derselben Stelle, die auch das
+    Die Auskunft kommt aus `injection.status()` — derselben Stelle, die auch das
     Einstellungsfenster anzeigt. Kosten: rund 20 ms für eine 9-MB-Datei,
     gemessen; das fällt neben dem Rest nicht auf.
     """
-    from . import injektion
-    lage = injektion.lage()
+    from . import injection
+    lage = injection.status()
     # ⚠ „Keine Datei" ist NICHT dasselbe wie „nicht eingetragen". Wer unter
     # Linux ohne Übersetzung spielt, hat schlicht keine `global.ini` — dort
     # wäre ein fettes „NICHT eingetragen" eine Warnung vor dem Normalzustand.
@@ -634,8 +634,8 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     line(t('b_spielsprache'), _safe(_game_language))
     line(t('b_inj'), _safe(_injection_state))
     line(t('b_inj_datei'), _safe(
-        lambda: __import__('scbp.injektion', fromlist=['ini_datei'])
-        .ini_datei()[0] or t('b_inj_keine')))
+        lambda: __import__('scbp.injection', fromlist=['ini_file'])
+        .ini_file()[0] or t('b_inj_keine')))
     lines.append('')
 
     line(t('b_bestand'), _safe(_collection_line))

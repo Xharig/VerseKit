@@ -131,7 +131,7 @@ FRAME = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 # Auftrag als zwei verschiedene.
 #
 # ⚠ Nicht nur unsere eigenen. Dieselbe Marke setzen auch MrKraken StarStrings
-# und der SC Deutsch Launcher, und zwar in Formen, die `injektion.py` längst
+# und der SC Deutsch Launcher, und zwar in Formen, die `injection.py` längst
 # kennt (`TITELMARKE`) — hier fehlten sie:
 #
 #   `<EM4>[BP]?</EM4>`            Zusatz HINTER der Klammer, nicht darin
@@ -139,7 +139,7 @@ FRAME = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 #
 # Die alte Fassung erlaubte nur `!` INNERHALB der Klammer und liess deshalb
 # 103 von 347 Titeln ungeputzt stehen. Bewusst dieselbe Form wie
-# `injektion.TITELMARKE`: zwei Verstaendnisse derselben Marke laufen
+# `injection.TITLE_MARK`: zwei Verstaendnisse derselben Marke laufen
 # auseinander, sobald jemand nur eines von beiden pflegt.
 _MARKS = re.compile(
     r'\[SCBPW\].*?\[/SCBPW\]'                       # der ganze eingefügte Block

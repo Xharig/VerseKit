@@ -170,7 +170,7 @@ def read_keys(zeilen):
             continue
         schluessel, wert = zeile.split('=', 1)
         # ⚠ Ein Schlüssel kann einen Zusatz tragen (`,P=…`). Der gehört nicht
-        # zum Namen — `_zeile_zerlegen` in `injektion.py` trennt ihn ebenso ab.
+        # zum Namen — `_split_line` in `injection.py` trennt ihn ebenso ab.
         if ',' in schluessel:
             continue
         if schluessel[len(PREFIX):].lower().endswith(SHORT_SUFFIX):

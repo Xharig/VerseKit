@@ -680,8 +680,8 @@ def schalter_pruefen():
     Geprüft wird stellvertretend die Injektion: Nach dem Ausschalten darf die
     Textdatei keine eigenen Marken mehr tragen.
     """
-    from scbp import injektion, pfade
-    pruefe(hasattr(injektion, 'ist_drin') and hasattr(injektion, 'entfernen'),
+    from scbp import injection, pfade
+    pruefe(hasattr(injection, 'is_applied') and hasattr(injection, 'remove_texts'),
            'die Injektion kann ihren eigenen Stand prüfen und zurücknehmen')
 
 
