@@ -12,8 +12,17 @@ technisch für Discord (dort gibt es **keine Tabellen**, und bei 2000 Zeichen is
 Schluss). Von Hand kürzen heißt: jedes Mal neu entscheiden, was wegfällt — und
 irgendwann bleibt die Meldung ganz aus.
 
-    python3 tools/discord_post.py v2.1.0          # deutsch
-    python3 tools/discord_post.py v2.1.0 --en     # englisch
+    python3 tools/discord_post.py v2.1.0          # beide Sprachen, EINE Nachricht
+    python3 tools/discord_post.py v2.1.0 --de     # nur deutsch
+    python3 tools/discord_post.py v2.1.0 --en     # nur englisch
+
+⭐ **Standard ist zweisprachig** (16.09.2026). Ins Discord kommen zunehmend
+englischsprachige Spieler; zwei getrennte Meldungen je Version verdoppeln aber
+den Kanal, und wer die falsche Sprache zuerst sieht, scrollt weiter. Deshalb
+eine Nachricht mit beiden Fassungen — Kopfzeile, Download-Link und Fußzeile
+stehen darin nur **einmal**, das spart den Platz, den die zweite Sprache
+braucht. Reicht es trotzdem nicht, fallen erst Aufzählungspunkte weg und
+zuletzt wird der Vorspann auf seine ersten Sätze gekürzt.
 
 Was herauskommt, ist zum **Kopieren** gedacht. Automatisch posten könnte man über
 einen Discord-Webhook — das wäre ein Zugangsschlüssel mehr und eine Nachricht,
@@ -33,6 +42,10 @@ sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))
 
 GRENZE = 2000            # Discord nimmt nicht mehr je Nachricht
 PUNKTE = 6               # mehr liest im Vorbeiscrollen niemand
+# ⭐ In der zweisprachigen Meldung steht alles doppelt — da sind sechs Punkte je
+# Sprache zu viel, noch bevor die Zeichengrenze greift. Drei sagen, worum es
+# geht; alles Weitere steht im CHANGELOG, der direkt darunter verlinkt ist.
+PUNKTE_ZWEI = 3
 REPO = 'https://github.com/Xharig/VerseKit'
 # Eine Vorabfassung erkennt man am Anhängsel: v3.9.2-rc7, auch -beta / -alpha.
 _VORAB = re.compile(r'-(?:rc|beta|alpha)', re.I)
@@ -252,13 +265,137 @@ def bauen(tag, sprache='de'):
     return text
 
 
+def _erste_saetze(text, wieviele):
+    """Die ersten `wieviele` Sätze — die Notbremse, wenn es sonst nicht passt.
+
+    ⚠ **Zuletzt greifen, nicht zuerst.** Der Vorspann ist von Hand geschrieben
+    und der einzige Teil der Meldung, der Lust auf die Version macht. Erst
+    fallen Aufzählungspunkte weg, erst dann wird hier gekürzt.
+
+    Getrennt wird an Satzzeichen mit folgendem Leerzeichen. Eine Abkürzung wie
+    „z. B." bricht das — die steht hier aber nicht drin, weil der Schreibstil
+    des Projekts Abkürzungen ohnehin vermeidet.
+    """
+    saetze = re.split(r'(?<=[.!?]) +', text.strip())
+    return ' '.join(saetze[:wieviele]).strip()
+
+
+def _kappen(text, zeichen):
+    """Hart auf `zeichen` kürzen — aber an einer Wortgrenze, mit Auslassung."""
+    text = text.strip()
+    if len(text) <= zeichen:
+        return text
+    stueck = text[:zeichen].rsplit(' ', 1)[0].rstrip(' ,;:-–—')
+    return (stueck or text[:zeichen]) + ' …'
+
+
+def _teile(tag, sprache):
+    """Vorspann und Punkte einer Sprache — die Bausteine der Meldung."""
+    import release_text
+
+    datei = release_text.DATEIEN['de' if sprache == 'de' else 'en']
+    block = release_text.abschnitt(os.path.join(WURZEL, datei), tag)
+    if not block:
+        return '', []
+    # Wie in `bauen`: Der handgeschriebene Vorspann schlägt die Aufzählung.
+    vorspann = vorspann_aus(block)
+    if vorspann:
+        return vorspann, []
+    return '', punkte_aus(block)[:PUNKTE_ZWEI]
+
+
+def bauen_zweisprachig(tag):
+    """Eine Nachricht, beide Sprachen — der Standard seit 16.09.2026.
+
+    Kopf, Download-Link und Fußzeile stehen nur einmal darin. Das ist nicht nur
+    kürzer, es ist auch richtiger: Die Datei ist dieselbe, egal in welcher
+    Sprache jemand liest.
+    """
+    de_vor, de_pkt = _teile(tag, 'de')
+    en_vor, en_pkt = _teile(tag, 'en')
+    if not (de_vor or de_pkt or en_vor or en_pkt):
+        return ''
+    holen = herunterladen_link(tag)
+
+    def zusammen(dv=None, ev=None, punkte_de=None, punkte_en=None):
+        dv = de_vor if dv is None else dv
+        ev = en_vor if ev is None else ev
+        pd = de_pkt if punkte_de is None else punkte_de
+        pe = en_pkt if punkte_en is None else punkte_en
+        text = '## VerseKit %s\n\n**Deutsch**\n' % tag
+        if dv:
+            text += '%s\n' % dv
+        for p in pd:
+            text += '· %s\n' % p
+        text += '\n**English**\n'
+        if ev:
+            text += '%s\n' % ev
+        for p in pe:
+            text += '· %s\n' % p
+        # ⚠ **Zwei Changelog-Links, nicht einer.** Es gibt den CHANGELOG in
+        # beiden Sprachen; ein gemeinsamer Link schickt die halbe Leserschaft in
+        # die falsche Fassung — und zwar genau die, für die diese Meldung
+        # überhaupt zweisprachig geworden ist.
+        text += ('\n**Herunterladen / Download:** <%s>\n'
+                 'Alle Änderungen: <%s/blob/main/CHANGELOG.md>\n'
+                 'Full changelog: <%s/blob/main/CHANGELOG.en.md>\n'
+                 'Fehler oder Frage? Bitte in die passenden Kanäle — '
+                 'bug or question? Please use the matching channels.'
+                 % (holen, REPO, REPO))
+        return text
+
+    text = zusammen()
+    if len(text) <= GRENZE:
+        return text
+    # Stufe 1: Aufzählungspunkte von hinten weg, abwechselnd beide Sprachen —
+    # sonst steht am Ende in einer Sprache mehr als in der anderen.
+    pd, pe = list(de_pkt), list(en_pkt)
+    while (pd or pe) and len(text) > GRENZE:
+        if len(pd) >= len(pe) and pd:
+            pd.pop()
+        elif pe:
+            pe.pop()
+        text = zusammen(punkte_de=pd, punkte_en=pe)
+    # Stufe 2: den Vorspann kürzen — erst auf drei Sätze, dann auf einen.
+    dv, ev = de_vor, en_vor
+    for wieviele in (3, 2, 1):
+        if len(text) <= GRENZE:
+            break
+        dv, ev = _erste_saetze(de_vor, wieviele), _erste_saetze(en_vor, wieviele)
+        text = zusammen(dv=dv, ev=ev, punkte_de=pd, punkte_en=pe)
+    if len(text) <= GRENZE:
+        return text
+    # ⚠⚠ **Notbremse.** Nach Satzenden zu kürzen hilft nicht, wenn es keine
+    # gibt: Ein einziger überlanger Satz stand in der Probe bei 6270 Zeichen,
+    # und Discord hätte die Nachricht schlicht abgewiesen. Deshalb wird zuletzt
+    # hart gekappt — der Platz, der nach Kopf, Links und Fußzeile übrig ist,
+    # geteilt durch die zwei Sprachen.
+    #
+    # ⭐ Gekappt wird der **Vorspann**, nie die ganze Nachricht: Der
+    # Download-Link ist das Einzige, was in dieser Meldung wirklich gebraucht
+    # wird. Eine Meldung ohne ihn wäre sinnlos, eine mit halbem Text nicht.
+    # ⚠ Die vier Zeichen sind kein Sicherheitspuffer, sondern Rechnung:
+    # `_kappen` hängt je Sprache ` …` an — zwei Zeichen, zweimal. Mit nur zwei
+    # abgezogen landete die Probe bei 2002 statt 2000 und fiel durch. Prüfung
+    # 220 hält den Fall fest.
+    gerippe = len(zusammen(dv='', ev='', punkte_de=pd, punkte_en=pe))
+    platz = max(60, (GRENZE - gerippe - 4) // 2)
+    text = zusammen(dv=_kappen(dv, platz), ev=_kappen(ev, platz),
+                    punkte_de=pd, punkte_en=pe)
+    return text
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__.strip())
         return 2
     tag = sys.argv[1]
-    sprache = 'en' if '--en' in sys.argv else 'de'
-    text = bauen(tag, sprache)
+    if '--en' in sys.argv:
+        text = bauen(tag, 'en')
+    elif '--de' in sys.argv:
+        text = bauen(tag, 'de')
+    else:
+        text = bauen_zweisprachig(tag)
     if not text:
         print('Kein CHANGELOG-Abschnitt zu %s gefunden.' % tag, file=sys.stderr)
         return 1
