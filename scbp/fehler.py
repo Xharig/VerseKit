@@ -279,6 +279,19 @@ def letzter_absturz():
         return []
 
 
+def absturz_zeitpunkt():
+    """Wann der festgehaltene Abbruch geschah — als Zeitstempel, oder None.
+
+    ⚠ Die Datei bleibt liegen, bis ein neuer Abbruch sie ersetzt. Ohne Datum
+    stand ein Absturz vom 12.09.2026 am 16.09. noch als „beim vorigen Lauf" im
+    Bericht — aus einer Fassung, deren Dateinamen es längst nicht mehr gab.
+    """
+    try:
+        return os.path.getmtime(pfade.app_datei(ABSTURZ_VORIG))
+    except Exception:
+        return None
+
+
 def absturz_abhaken():
     """Den festgehaltenen Abbruch wegräumen — er ist gemeldet und erledigt."""
     try:

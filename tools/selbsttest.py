@@ -21736,6 +21736,92 @@ def main():
         # in diesem Projekt schon zwei Pruefungen blind gemacht hat.
         _dp220._teile = _echt220
 
+    # ------------------------------------------------------------------
+    # 222. Die Geraeteliste unter Windows fasst keinen Joystick-Treiber an
+    #
+    # ⛔⛔ Am 12.09.2026 riss ein harter Absturz VerseKit herunter:
+    # `Windows fatal exception: code 0xc0000374` in `joyGetDevCapsW`, gerufen
+    # alle drei Sekunden vom Takt der Geraete-Seite — waehrend `wait()` in
+    # einem eigenen Faden ebenfalls `winmm` abfragen kann. Seit v3.43.1 kommt
+    # die Liste ueber Raw Input. Die Pruefung haelt fest, dass `winmm` nicht
+    # zurueck in den Takt wandert, und dass jeder ctypes-Aufruf dort Typen hat.
+    #
+    # Und der Bericht: Die Absturzdatei ueberlebt beliebig viele saubere
+    # Laeufe. Ohne Datum stand der Absturz vom 12.09. am 16.09. noch als
+    # „beim vorigen Lauf" im Bericht.
+    print()
+    print('222. Geraeteliste ohne winmm, Absturz mit Datum')
+    import ast as _ast222
+    import datetime as _dt222
+    from scbp import input_device as _ed222
+    _baum222 = _ast222.parse(open(os.path.join(WURZEL, 'scbp', 'input_device.py'),
+                                  encoding='utf-8').read())
+    _fn222 = {n.name: n for n in _baum222.body
+              if isinstance(n, _ast222.FunctionDef)}
+    for _name222 in ('_windows_devices', '_windows_product_name'):
+        _knoten222 = _fn222.get(_name222)
+        pruefe(_knoten222 is not None, '%s gibt es' % _name222)
+        if _knoten222 is None:
+            continue
+        _namen222 = {n.attr for n in _ast222.walk(_knoten222)
+                     if isinstance(n, _ast222.Attribute)}
+        _winmm222 = sorted(x for x in _namen222 if x.startswith('joy'))
+        pruefe(not _winmm222, '%s ruft kein winmm (%s)'
+               % (_name222, ', '.join(_winmm222) or 'sauber'))
+        # Jede Funktion, die aus einer DLL geholt wird, bekommt argtypes UND
+        # restype — sonst werden Griffe auf 64 Bit als 32-Bit-Zahl gereicht.
+        _gesetzt222 = {}
+        for n in _ast222.walk(_knoten222):
+            if isinstance(n, _ast222.Assign):
+                for ziel in n.targets:
+                    if (isinstance(ziel, _ast222.Attribute)
+                            and ziel.attr in ('argtypes', 'restype')
+                            and isinstance(ziel.value, _ast222.Name)):
+                        _gesetzt222.setdefault(ziel.value.id, set()).add(ziel.attr)
+        _ohne222 = sorted(k for k, v in _gesetzt222.items()
+                          if v != {'argtypes', 'restype'})
+        pruefe(_gesetzt222 and not _ohne222,
+               '%s: jeder DLL-Aufruf hat argtypes und restype (%s)'
+               % (_name222, ', '.join(_ohne222) or '%d Aufrufe' % len(_gesetzt222)))
+    if sys.platform == 'win32':
+        _liste222 = _ed222._windows_devices()
+        pruefe(isinstance(_liste222, list)
+               and all(set(d) >= {'pfad', 'name', 'kennung'} for d in _liste222),
+               'die Raw-Input-Liste laeuft auf diesem Windows (%d Geraete)'
+               % len(_liste222))
+        _pfade222 = [d['pfad'].lower() for d in _liste222]
+        import re as _re222
+        _schluessel222 = [_re222.sub(r'&col[0-9a-f]+', '', p) for p in _pfade222]
+        pruefe(len(_schluessel222) == len(set(_schluessel222)),
+               'ein Geraet mit mehreren Funktionsbloecken steht nur einmal drin')
+    else:
+        print('  [–]    Raw-Input-Lauf nur unter Windows — hier nur der Aufbau')
+
+    # b) Der Bericht nennt das Datum des Absturzes.
+    from scbp import fehler as _fe222, report as _rp222, pfade as _pf222
+    _datei222 = _pf222.app_datei(_fe222.ABSTURZ_VORIG)
+    os.makedirs(os.path.dirname(_datei222), exist_ok=True)
+    try:
+        with open(_datei222, 'w', encoding='utf-8') as _f222:
+            _f222.write('Windows fatal exception: code 0xc0000374\n')
+        _stempel222 = _dt222.datetime(2026, 9, 12, 23, 46).timestamp()
+        os.utime(_datei222, (_stempel222, _stempel222))
+        _bericht222 = _rp222.build(version='0.0.0-test')
+        from scbp.language import t as _t222
+        _soll222 = _dt222.datetime(2026, 9, 12, 23, 46).strftime(
+            _t222('b_datum'))
+        pruefe(_soll222 in _bericht222,
+               'der Bericht nennt, wann der Absturz festgehalten wurde (%s)'
+               % _soll222)
+        pruefe('vorigen Lauf' not in _bericht222
+               and 'previous run' not in _bericht222,
+               'und behauptet nicht mehr „beim vorigen Lauf"')
+    finally:
+        try:
+            os.remove(_datei222)
+        except OSError:
+            pass
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

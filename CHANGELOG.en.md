@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **The devices page shows the real joystick names** — such as "L-VPC Stick
+  WarBRD-D" instead of "Microsoft PC joystick driver". Also when binding by
+  pressing a button.
+- **The error report states when a hard crash was recorded**, instead of always
+  calling it "during the previous run".
+
+### Fixed
+
+- **VerseKit could crash hard on Windows with joysticks connected.** The device
+  list queried the joystick driver every three seconds and could corrupt the
+  program's memory doing so. It now comes through a route that does not touch
+  the driver.
+
 ## v3.43.0 - 2026-09-16
 
 > **Crafting now shows what you actually end up with.** At the top there is a

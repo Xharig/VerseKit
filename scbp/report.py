@@ -737,7 +737,11 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     crash = _safe(fehler.letzter_absturz, [])
     if crash:
         lines.append('')
-        lines.append(t('b_absturz'))
+        # ⚠ Mit Datum: Die Datei überlebt beliebig viele saubere Läufe. Der
+        # Vermerk stellt fest, wann — er urteilt nicht, ob es noch zutrifft.
+        wann = _safe(fehler.absturz_zeitpunkt, None)
+        lines.append(t('b_absturz') % (
+            datetime.fromtimestamp(wann).strftime(t('b_datum')) if wann else '—'))
         for entry in _crash_brief(crash, 14):
             lines.append('  ' + entry)
         if len(crash) > 14:
