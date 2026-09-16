@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.42.3 - 2026-09-16
+
+> **The English installer speaks English now.** Two lines in it were hard-coded
+> in German — install VerseKit in English and you got a German sentence in the
+> middle of an English screen. If you install in German, this build changes
+> nothing for you.
+
 ### Fixed
 
 - **The English installer showed two German lines.** "Start with Windows" and
