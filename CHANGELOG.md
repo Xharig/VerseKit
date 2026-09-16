@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Der englische Installer zeigte zwei deutsche Zeilen.** „Mit Windows
+  starten" und die Überschrift darüber standen fest im Installer, statt der
+  gewählten Sprache zu folgen. Gemeldet von KynoTnis (ADI)
+
 ## v3.42.2 - 2026-09-16
 
 > **Wer VerseKit neu installiert, kommt jetzt auch hinein.** Der

@@ -158,11 +158,23 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "deutsch"; MessagesFile: "compiler:Languages\German.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+; ⚠ Jeder sichtbare Text im Installer gehoert hierher — sonst steht er in
+; **beiden** Sprachfassungen gleich da. Bis v3.42.2 waren „Mit Windows starten"
+; und die Ueberschrift darueber fest verdrahtet: Wer den englischen Installer
+; nahm, bekam zwei deutsche Zeilen mitten in einer englischen Maske. Gemeldet
+; von KynoTnis (ADI). Der Wortlaut folgt `autostart_win` in `scbp/language.py`,
+; damit Installer und Programm dasselbe sagen.
+[CustomMessages]
+deutsch.AutostartTask=Mit Windows starten
+deutsch.AfterInstallGroup=Nach der Installation:
+english.AutostartTask=Start with Windows
+english.AfterInstallGroup=After installation:
+
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; \
   GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "Mit Windows starten"; \
-  GroupDescription: "Nach der Installation:"; Flags: unchecked
+Name: "autostart"; Description: "{cm:AutostartTask}"; \
+  GroupDescription: "{cm:AfterInstallGroup}"; Flags: unchecked
 
 [Files]
 Source: "..\dist\SC-BP-Watcher.exe"; DestDir: "{app}"; Flags: ignoreversion
