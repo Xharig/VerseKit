@@ -16745,6 +16745,31 @@ def main():
     pruefe(not _nach175['Aurora']['schluessel'],
            'zwei Schluessel gleicher Schreibweise ergeben ebenfalls keinen')
 
+    # -- ⚠⚠ **Ein Anhaengsel am Paketnamen** (16.09.2026): Der Pledge-Import
+    #    schreibt `ATLS IKTI Akuma`, ohne Kurznamen — im Spiel heisst das
+    #    Fahrzeug `Argo ATLS IKTI`. Die Nachbarn stehen mit Absicht dabei:
+    #    GEO IKTI und IKTI Rad duerfen nicht getroffen werden, und `ATLS`
+    #    allein (unter zwei Worte gekuerzt) nicht das Grundmodell.
+    _ikti175 = {
+        'vehicle_NameARGO_ATLS': 'Argo ATLS',
+        'vehicle_NameARGO_ATLS_IKTI': 'Argo ATLS IKTI',
+        'vehicle_NameARGO_ATLS_GEO_IKTI': 'Argo ATLS GEO IKTI',
+        'vehicle_NameARGO_ATLS_IKTI_Rad': 'Argo ATLS IKTI Rad',
+    }
+    _ik175 = {e['name']: e for e in _as175.match_ships(
+        [{'name': 'ATLS IKTI Akuma', 'hkurz': 'ARGO'},
+         {'name': 'ATLS Sonderlack', 'hkurz': 'ARGO'}], _ikti175)}
+    pruefe(_ik175['ATLS IKTI Akuma']['schluessel'] == 'vehicle_NameARGO_ATLS_IKTI',
+           'ein Lackierungsname hinten findet das Fahrzeug trotzdem (%r)'
+           % (_ik175['ATLS IKTI Akuma']['schluessel'],))
+    pruefe(not _ik175['ATLS Sonderlack']['schluessel'],
+           'unter zwei Worte wird nicht gekuerzt — kein Grundmodell geraten (%r)'
+           % (_ik175['ATLS Sonderlack']['schluessel'],))
+    _cut175 = _as175.match_ships([{'name': 'Drake Cutlass Black Edition'}],
+                                 _doppel175)[0]
+    pruefe(not _cut175['schluessel'],
+           'auch gekuerzt gilt: mehrere Kandidaten ergeben keinen Treffer')
+
     # -- Der angezeigte Name
     pruefe(_as175.display_name('Anvil F7C-M', '', True) == '*Anvil F7C-M',
            'nur ein Stern laesst den Werksnamen stehen')
@@ -21984,6 +22009,195 @@ def main():
          _up223.install, _au223.game_running, _au223.enabled,
          _ur223.take_lock, _ur223.release_lock) = _alt223
         _w223.destroy()
+
+    # 224. Die Spielsprache wird bei jedem Start geprueft (16.09.2026)
+    #
+    # Gemeldet: Nach einem Spiel-Patch war das Spiel englisch, obwohl die
+    # deutsche Datei dalag — in der `user.cfg` fehlte `g_language`. Gesetzt
+    # wurde die Zeile nur beim Holen einer neuen Uebersetzungsfassung; beim
+    # Start und in der Sechs-Stunden-Wache fragte niemand nach.
+    print()
+    print('224. Spielsprache in der user.cfg')
+    import queue as _qu224
+    import tempfile as _tf224
+    import types as _ty224
+    from scbp import translation as _tr224, paths as _pf224
+    import sc_bp_watcher as _sw224
+
+    _spiel224 = _tf224.mkdtemp(prefix='scbp-sprache-')
+    _ini224 = os.path.join(_spiel224, 'data', 'Localization',
+                           'german_(germany)', 'global.ini')
+    os.makedirs(os.path.dirname(_ini224))
+    with open(_ini224, 'w', encoding='utf-8') as _f224:
+        _f224.write('x=y\n')
+    _cfg224 = os.path.join(_spiel224, 'user.cfg')
+    with open(_cfg224, 'w', encoding='utf-8') as _f224:
+        _f224.write('r_displayinfo = 3\nsys_maxfps = 0\n')
+    _alt224 = (_pf224.game_folder, _tr224.installed)
+    _pf224.game_folder = lambda: _spiel224
+    _tr224.installed = lambda q: 'v1' if q == 'deutsch' else None
+    try:
+        _ich224 = _ty224.SimpleNamespace(q=_qu224.Queue())
+        _ok224 = _sw224.Watcher._spielsprache_pruefen(_ich224)
+        _inhalt224 = open(_cfg224, encoding='utf-8').read()
+        pruefe(_ok224 and 'g_language = german_(germany)' in _inhalt224,
+               'fehlt g_language, wird die gewaehlte Sprache eingetragen (%r)'
+               % _inhalt224)
+        pruefe('r_displayinfo = 3' in _inhalt224 and 'sys_maxfps = 0' in _inhalt224,
+               'die Grafikeinstellungen daneben bleiben stehen')
+        pruefe(not _ich224.q.empty(),
+               'und der Spieler bekommt eine Statusmeldung')
+        pruefe(not _sw224.Watcher._spielsprache_pruefen(_ich224),
+               'steht sie schon drin, wird nichts geschrieben')
+        # Ohne gewaehlte Uebersetzung bleibt eine fremde user.cfg unberuehrt.
+        with open(_cfg224, 'w', encoding='utf-8') as _f224:
+            _f224.write('r_displayinfo = 3\n')
+        _tr224.installed = lambda q: None
+        pruefe(not _sw224.Watcher._spielsprache_pruefen(_ich224)
+               and 'g_language' not in open(_cfg224, encoding='utf-8').read(),
+               'ohne gewaehlte Uebersetzung wird die user.cfg nicht angefasst')
+        # Und der Aufruf steht wirklich beim Start und in der Wache.
+        import ast as _ast224
+        _baum224 = _ast224.parse(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                                      encoding='utf-8').read())
+        _ruft224 = {}
+        for _k224 in _ast224.walk(_baum224):
+            if isinstance(_k224, _ast224.ClassDef) and _k224.name == 'Watcher':
+                for _m224 in _k224.body:
+                    if isinstance(_m224, _ast224.FunctionDef):
+                        _ruft224[_m224.name] = {
+                            _c224.func.attr for _c224 in _ast224.walk(_m224)
+                            if isinstance(_c224, _ast224.Call)
+                            and isinstance(_c224.func, _ast224.Attribute)}
+        pruefe('_spielsprache_pruefen' in _ruft224.get('run', set()),
+               'geprueft wird bei jedem Start (Watcher.run)')
+        pruefe('_spielsprache_pruefen' in _ruft224.get('_texte_abgleichen', set()),
+               'und in der Sechs-Stunden-Wache')
+    finally:
+        _pf224.game_folder, _tr224.installed = _alt224
+        import shutil as _sh224
+        _sh224.rmtree(_spiel224, ignore_errors=True)
+
+    # 225. Beim Spielende sofort nach einer neuen Fassung sehen (16.09.2026)
+    #
+    # Wunsch: Nach Spielende soll das Update nicht bis zu 30 Minuten auf den
+    # naechsten Takt warten. Die teuren Fehler waeren: gar nicht fragen, den
+    # Zwischenspeicher fragen (dann kommt nichts Neues), oder bei einem
+    # abstuerzenden Spiel jede Minute GitHub anfragen.
+    print()
+    print('225. Nachsehen beim Spielende')
+    import time as _ti225
+    from scbp import auto_update as _au225, updater as _up225
+    import sc_bp_watcher as _sw225
+
+    class _Root225:
+        def __init__(self):
+            self.geplant = []
+
+        def after(self, ms, fn):
+            if ms == 0:
+                fn()
+            else:
+                self.geplant.append((ms, fn))
+
+    class _Ov225:
+        SPIELENDE_ABSTAND_S = _sw225.Overlay.SPIELENDE_ABSTAND_S
+        VERSION_TAKT = _sw225.Overlay.VERSION_TAKT
+        _spielende_wache = _sw225.Overlay._spielende_wache
+        _nach_version_sehen = _sw225.Overlay._nach_version_sehen
+
+        def __init__(self):
+            self.root = _Root225()
+            self.auto = []
+
+        def _version_melden(self, neu):
+            pass
+
+        def _auto_update(self, neu, erneut=False):
+            self.auto.append(neu)
+
+    _spiel225 = [True]
+    _fragen225 = []
+    _an225 = [True]
+    _alt225 = (_au225.game_running, _au225.enabled, _up225.check)
+    _au225.game_running = lambda: _spiel225[0]
+    _au225.enabled = lambda: _an225[0]
+    _up225.check = lambda v, force=False: (_fragen225.append(force)
+                                           or {'version': 'v9.9.9'})
+
+    def _warten225(bedingung, sek=5.0):
+        _ende = _ti225.time() + sek
+        while _ti225.time() < _ende and not bedingung():
+            _ti225.sleep(0.02)
+
+    def _tick225(ov):
+        ov._spielende_wache()
+        _warten225(lambda: not getattr(ov, '_spielende_laeuft', False))
+        _ti225.sleep(0.1)
+
+    try:
+        # Ist das Spiel schon beim Start zu, ist das kein Spielende — sonst
+        # fragte jedes Werkzeug ohne laufendes Spiel alle fuenf Minuten.
+        _spiel225[0] = False
+        ov0 = _Ov225()
+        _tick225(ov0)
+        _tick225(ov0)
+        _ti225.sleep(0.2)
+        pruefe(not _fragen225,
+               'ohne vorher laufendes Spiel gilt nichts als Spielende (%r)'
+               % _fragen225)
+        _spiel225[0] = True
+        ov = _Ov225()
+        _tick225(ov)                      # Spiel laeuft
+        pruefe(not _fragen225, 'solange das Spiel laeuft, wird nicht gefragt')
+        _spiel225[0] = False
+        _tick225(ov)                      # Spiel geht zu
+        _warten225(lambda: bool(_fragen225))
+        pruefe(_fragen225 == [True],
+               'beim Spielende wird sofort und ERZWUNGEN gefragt (%r)'
+               % _fragen225)
+        _warten225(lambda: bool(ov.auto))
+        pruefe(ov.auto == [{'version': 'v9.9.9'}],
+               'und eine neue Fassung geht an das automatische Update')
+        pruefe(not any(ms == ov.VERSION_TAKT for ms, _f in ov.root.geplant),
+               'das Nachsehen beim Spielende plant keinen zweiten 30-Minuten-Takt')
+        _tick225(ov)                      # Spiel bleibt zu
+        pruefe(len(_fragen225) == 1, 'bleibt das Spiel zu, wird nicht erneut gefragt')
+        _spiel225[0] = True
+        _tick225(ov)
+        _spiel225[0] = False
+        _tick225(ov)                      # Absturz in Schleife: gleich wieder zu
+        _ti225.sleep(0.2)
+        pruefe(len(_fragen225) == 1,
+               'ein zweites Spielende binnen %d s fragt nicht erneut bei GitHub'
+               % ov.SPIELENDE_ABSTAND_S)
+        # Automatik aus: dann auch kein Nachsehen beim Spielende.
+        ov2 = _Ov225()
+        _an225[0] = False
+        _spiel225[0] = True
+        _tick225(ov2)
+        _spiel225[0] = False
+        _tick225(ov2)
+        _ti225.sleep(0.2)
+        pruefe(len(_fragen225) == 1,
+               'ist das automatische Update aus, fragt das Spielende nicht')
+        # Die Wache wird beim Start wirklich angemeldet.
+        import ast as _ast225
+        _baum225 = _ast225.parse(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                                      encoding='utf-8').read())
+        _init225 = set()
+        for _k225 in _ast225.walk(_baum225):
+            if isinstance(_k225, _ast225.ClassDef) and _k225.name == 'Overlay':
+                for _m225 in _k225.body:
+                    if (isinstance(_m225, _ast225.FunctionDef)
+                            and _m225.name == '__init__'):
+                        _init225 = {
+                            _a225.attr for _a225 in _ast225.walk(_m225)
+                            if isinstance(_a225, _ast225.Attribute)}
+        pruefe('_spielende_wache' in _init225,
+               'die Wache wird beim Start des Overlays angemeldet')
+    finally:
+        _au225.game_running, _au225.enabled, _up225.check = _alt225
 
     print()
     if fehler:

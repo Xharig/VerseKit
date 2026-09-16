@@ -258,6 +258,27 @@ def _ladder(name, kurz, tabelle, nach_schluessel, nach_wert):
         if len(treffer) == 1:
             return treffer[0], 'imwert'
         mehrdeutig = mehrdeutig or len(treffer) > 1
+    # ⚠⚠ **Ein Anhängsel hinten am Namen** (16.09.2026). Der Pledge-Import
+    # schreibt den Paketnamen samt Lackierung: `ATLS IKTI Akuma` — im Spiel
+    # heißt das Fahrzeug `Argo ATLS IKTI`, und einen Kurznamen bringt so ein
+    # Eintrag nicht mit. Keine Stufe darüber fand ihn; der Spieler sah „In der
+    # Sprachdatei nicht gefunden" an einem Schiff, das dort steht.
+    #
+    # Deshalb Wort für Wort von hinten kürzen — mit denselben zwei Regeln wie
+    # oben: nur bei genau EINEM Treffer, und nie unter zwei Wörter. `ATLS`
+    # allein endete eindeutig auf `Argo ATLS` und machte aus jedem ATLS-Paket
+    # das Grundmodell.
+    worte = name.split()
+    if not mehrdeutig:
+        for ende in range(len(worte) - 1, 1, -1):
+            kurz_n = _slim(' '.join(worte[:ende]))
+            treffer = [s for s, w in tabelle.items()
+                       if _slim(w).endswith(kurz_n)]
+            if len(treffer) == 1:
+                return treffer[0], 'gekuerzt'
+            if len(treffer) > 1:
+                mehrdeutig = True
+                break
     return None, ('mehrdeutig' if mehrdeutig else 'nichts')
 
 
