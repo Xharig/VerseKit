@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.44.2 - 2026-09-16
+
+> **The search on "My hangar" now looks through your own ships, too.** Type
+> something at the top and only what matches stays in the list below — with
+> forty ships, the quickest way to the one you are after.
+
+### Improved
+
+- **The search on "My hangar" now filters your ships as well.** Type or pick a
+  ship at the top and the list below only shows the matching ones — "Ikti"
+  shows just the ATLS IKTI instead of every ship.
+
 ## v3.44.1 - 2026-09-16
 
 > **The German translation now stays switched on.** When the language setting
