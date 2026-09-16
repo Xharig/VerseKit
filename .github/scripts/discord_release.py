@@ -47,13 +47,17 @@ MAX_BESCHREIBUNG = 3800
 MAX_TITEL = 250
 
 
-def nur_diese_fassung(tag):
+def nur_diese_fassung(tag, datei='CHANGELOG.md'):
     """Der Changelog-Block **genau** zu diesem Tag — sonst nichts.
 
     Gibt `None` zurück, wenn es keinen eigenen Abschnitt gibt. Der Aufrufer
     postet dann nur den Link statt eines fremden Textes.
+
+    ⚠ `datei` wählt die Sprachfassung. Bis zum 16.09.2026 stand hier fest
+    `CHANGELOG.md` — die Meldung im Discord war dadurch **immer deutsch**,
+    auch nachdem der Server zweisprachig geworden war.
     """
-    pfad = os.path.join(os.path.dirname(HIER), '..', 'CHANGELOG.md')
+    pfad = os.path.join(os.path.dirname(HIER), '..', datei)
     pfad = os.path.normpath(pfad)
     try:
         with open(pfad, encoding='utf-8') as f:
@@ -130,13 +134,35 @@ def bauen(tag):
     inhalt = nur_diese_fassung(tag)
     link = 'https://github.com/%s/releases/tag/%s' % (REPO, tag)
 
-    if inhalt:
+    # ⭐ **Zweisprachig seit 16.09.2026.** Ins Discord kommen zunehmend
+    # englischsprachige Spieler; eine rein deutsche Versionsmeldung erreicht
+    # sie nicht. Beide Fassungen stehen in **einer** Karte untereinander —
+    # zwei Karten wären zwei Benachrichtigungen für dieselbe Version.
+    #
+    # ⚠ Fehlt der englische Block, wird die Karte trotzdem gebaut: Eine
+    # deutsche Meldung ist besser als gar keine, und der Bau darf daran nicht
+    # scheitern.
+    inhalt_en = nur_diese_fassung(tag, 'CHANGELOG.en.md')
+
+    if inhalt and inhalt_en:
+        beschreibung = '**Deutsch**\n%s\n\n**English**\n%s' % (
+            fuer_discord(inhalt), fuer_discord(inhalt_en))
+    elif inhalt:
         beschreibung = fuer_discord(inhalt)
+    elif inhalt_en:
+        beschreibung = fuer_discord(inhalt_en)
     else:
         # Lieber ehrlich kurz als versehentlich der Sammelblock einer
         # anderen Version.
         beschreibung = ('Im Changelog steht zu dieser Version noch nichts — '
                         'was drin ist, sagt die [Release-Seite](%s).' % link)
+
+    # ⚠⚠ Zwei Sprachen können die Karte sprengen. Discord schneidet eine zu
+    # lange Beschreibung **wortlos** ab — deshalb selbst kürzen und sagen, wo
+    # der Rest steht, statt mitten im Satz zu enden.
+    if len(beschreibung) > MAX_BESCHREIBUNG:
+        rest = '\n\n… [vollständig auf der Release-Seite](%s)' % link
+        beschreibung = beschreibung[:MAX_BESCHREIBUNG - len(rest)] + rest
 
     einbettung = {
         'title': ('VerseKit %s' % tag.lstrip('v'))[:MAX_TITEL],
