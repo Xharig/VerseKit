@@ -8,12 +8,25 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.46.0 - 2026-09-17
+
+> **What you need to farm — and where.** The farm list now shows the best
+> locations for each missing material and the places where you get several at
+> once. And updates arrive about a minute after you quit the game instead of
+> five.
+
 ### New
 
 - **"What to farm" shows where to find it.** Each missing material
   lists its richest locations, followed by the places where you get several
   of them at once — for planning a route. A click opens Mining.
   Suggested by Aeternitas26 (KRT)
+
+### Improved
+
+- **Updates arrive about a minute after you quit the game** instead of
+  five. VerseKit checks the process list to see whether Star Citizen is
+  still running. Suggested by Bushwick4712 (KRT)
 
 ## v3.45.0 - 2026-09-16
 

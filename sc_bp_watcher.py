@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.45.0'
+__version__ = '3.46.0'
 
 
 def _mitgeliefert(name):
@@ -2367,7 +2367,7 @@ class Overlay:
         # ⚠ **Und danach stündlich wieder** — siehe `_nach_version_sehen`.
         self.root.after(2000, self._nach_version_sehen)   # nicht beim Start drängeln
         # Und sobald das Spiel zugeht, gleich noch einmal — siehe dort.
-        self.root.after(60 * 1000, self._spielende_wache)
+        self.root.after(self.SPIELENDE_TAKT_MS, self._spielende_wache)
         # Kurz nach dem Start fragen, falls der Spielordner umgezogen ist.
         # Vor der Versionsprüfung: Ohne Spielordner nützt die neueste Fassung
         # nichts, und zwei Fenster hintereinander will niemand.
@@ -3287,6 +3287,9 @@ class Overlay:
     # jede Minute bei GitHub nach — ohne Anmeldung sind 60 Abfragen je Stunde
     # erlaubt, und die teilen sich alle Rechner hinter einem Router.
     SPIELENDE_ABSTAND_S = 5 * 60
+    # Wie oft die Spielende-Wache nachsieht (20 s, Wunsch Bushwick4712: das
+    # Update gut eine Minute nach Spielende). Gleich `auto_update.GAME_POLL_S`.
+    SPIELENDE_TAKT_MS = 20 * 1000
 
     def _spielende_wache(self):
         """Beim Spielende sofort nach einer neuen Fassung sehen (16.09.2026).
@@ -3303,7 +3306,7 @@ class Overlay:
         Windows einige Millisekunden, und Tk soll dafür nicht stehen.
         """
         try:
-            self.root.after(60 * 1000, self._spielende_wache)
+            self.root.after(self.SPIELENDE_TAKT_MS, self._spielende_wache)
         except tk.TclError:
             return
         if getattr(self, '_spielende_laeuft', False):

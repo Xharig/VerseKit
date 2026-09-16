@@ -8,12 +8,25 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.46.0 - 2026-09-17
+
+> **Was du farmen musst — und wo.** Die Farmliste zeigt jetzt zu jedem
+> fehlenden Rohstoff die besten Fundorte und die Orte, an denen du mehrere auf
+> einmal bekommst. Und Updates kommen gut eine Minute nach dem Spiel statt
+> erst nach fünf.
+
 ### Neu
 
 - **„Was ich farmen muss" zeigt, wo es liegt.** Unter jedem fehlenden
   Rohstoff stehen die ergiebigsten Fundorte, darunter die Orte, an denen du
   mehrere davon auf einmal bekommst — für die Route. Ein Klick öffnet den
   Bergbau. Angeregt von Aeternitas26 (KRT)
+
+### Verbessert
+
+- **Updates kommen gut eine Minute nach Spielende** statt erst nach fünf
+  Minuten. VerseKit sieht in der Prozessliste nach, ob Star Citizen noch
+  läuft. Angeregt von Bushwick4712 (KRT)
 
 ## v3.45.0 - 2026-09-16
 

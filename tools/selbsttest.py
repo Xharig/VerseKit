@@ -22108,6 +22108,7 @@ def main():
 
     class _Ov225:
         SPIELENDE_ABSTAND_S = _sw225.Overlay.SPIELENDE_ABSTAND_S
+        SPIELENDE_TAKT_MS = _sw225.Overlay.SPIELENDE_TAKT_MS
         VERSION_TAKT = _sw225.Overlay.VERSION_TAKT
         _spielende_wache = _sw225.Overlay._spielende_wache
         _nach_version_sehen = _sw225.Overlay._nach_version_sehen
@@ -22387,6 +22388,45 @@ def main():
     _q229 = _ast228.get_source_segment(_q228, _fns228['_farm_list'])
     pruefe('farm_locations(' in _q229 and '_farm_gathering(' in _q229,
            'die Farmliste zeigt Fundorte und Sammelorte an')
+
+    # 230. Update gut eine Minute nach Spielende (17.09.2026)
+    #
+    # Wunsch Bushwick4712 (KRT). Bis dahin galt das Spiel immer noch fuenf
+    # Minuten nach dem letzten Log-Eintrag als laufend — auch wenn die
+    # Prozessliste laengst sagte, dass es zu ist.
+    print()
+    print('230. Spielende ueber die Prozessliste')
+    from scbp import auto_update as _au230, paths as _pf230
+    import sc_bp_watcher as _sw230
+    _alt230 = (_au230._windows_game_process, _au230._linux_game_process,
+               _au230._log_quiet_for, _pf230.game_running)
+    _zust230 = {'proc': None, 'still': None, 'log5': False}
+    _au230._windows_game_process = lambda: _zust230['proc']
+    _au230._linux_game_process = lambda: _zust230['proc']
+    _au230._log_quiet_for = lambda: _zust230['still']
+    _pf230.game_running = lambda *a, **k: _zust230['log5']
+
+    def _fall230(proc, still, log5=False):
+        _zust230.update(proc=proc, still=still, log5=log5)
+        return _au230.game_running()
+
+    try:
+        pruefe(_fall230(True, 999) is True, 'Spiel in der Prozessliste: laeuft')
+        pruefe(_fall230(False, 10, log5=True) is True,
+               'Prozess weg, Log eben noch geschrieben: kurz abwarten')
+        pruefe(_fall230(False, 45, log5=True) is False,
+               'Prozess weg und Log 45 s still: zu — nicht fuenf Minuten warten')
+        pruefe(_fall230(False, None) is False,
+               'Prozess weg und keine Log: zu')
+        pruefe(_fall230(None, 45, log5=True) is True,
+               'Prozessliste nicht lesbar: weiter die lange Frist ueber die Log')
+    finally:
+        (_au230._windows_game_process, _au230._linux_game_process,
+         _au230._log_quiet_for, _pf230.game_running) = _alt230
+    pruefe(_au230.EXIT_QUIET_S <= 60 and _au230.GAME_POLL_S <= 20
+           and _sw230.Overlay.SPIELENDE_TAKT_MS <= 20000,
+           'Stille-Frist und Nachfrage-Takt erlauben ein Update binnen gut einer Minute '
+           '(%d s still, %d s Takt)' % (_au230.EXIT_QUIET_S, _au230.GAME_POLL_S))
 
     print()
     if fehler:
