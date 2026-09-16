@@ -377,13 +377,17 @@ def lock_held():
 
 # --------------------------------------------------------------- Laufmarke
 
-def begin_run(target, previous, installer, checksum):
-    """Festhalten, was gleich passiert — bevor der Watcher abtritt."""
+def begin_run(target, previous, installer, checksum, automatic=False):
+    """Festhalten, was gleich passiert — bevor der Watcher abtritt.
+
+    `automatic`: Das Update kam ohne Klick (`scbp/auto_update.py`). Der nächste
+    Start öffnet dann **kein** Hauptfenster — niemand hat danach gefragt.
+    """
     _remove(_path(RESULT_FILE))
     _json_write(_path(RUN_FILE), {
         'ziel': str(target or ''), 'alt': str(previous or ''),
         'installer': str(installer or ''), 'sha256': str(checksum or ''),
-        'start': time.time(),
+        'start': time.time(), 'automatisch': bool(automatic),
     })
 
 
@@ -458,7 +462,8 @@ def evaluate(own_version):
             % (target or '?', own_version or '?', previous or '?',
                '–' if code is None else code)))
     return {'art': kind, 'ziel': target, 'alt': previous, 'code': code,
-            'eigen': str(own_version or '')}
+            'eigen': str(own_version or ''),
+            'automatisch': bool(run.get('automatisch'))}
 
 
 def message(result):

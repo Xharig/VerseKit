@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.43.1'
+__version__ = '3.44.0'
 
 
 def _mitgeliefert(name):
@@ -3227,7 +3227,10 @@ class Overlay:
     # Dasselbe Maß wie `updater.ABSTAND` (eine Stunde) — die Abfrage
     # selbst hat ihren eigenen Zwischenspeicher, hier geht es nur darum, dass
     # überhaupt jemand fragt.
-    VERSION_TAKT = 3600 * 1000
+    #
+    # ⚠ Seit dem automatischen Update (16.09.2026) alle 30 Minuten — gleich
+    # `auto_update.CHECK_INTERVAL_S` und `updater.MIN_INTERVAL`.
+    VERSION_TAKT = 30 * 60 * 1000
 
     def _nach_version_sehen(self):
         """Im Hintergrund nachsehen, ob es etwas Neues gibt.
@@ -3266,7 +3269,115 @@ class Overlay:
                 return
             if neu:
                 self.root.after(0, lambda: self._version_melden(neu))
+                self.root.after(0, lambda: self._auto_update(neu))
         threading.Thread(target=arbeit, daemon=True).start()
+
+    def _auto_update(self, neu, erneut=False):
+        """Eine neue Fassung von selbst einspielen — siehe `scbp/auto_update.py`.
+
+        Ablauf: reif? → Spiel zu? → laden (mit Prüfsumme) → einspielen →
+        übergeben. Läuft das Spiel, wird jede Minute erneut gefragt, bis es zu
+        ist. Alles, was wartet oder das Netz braucht, läuft im Nebenfaden;
+        zurück in Tk nur über `after`.
+        """
+        from scbp import auto_update, update_run
+        # ⚠ **Höchstens EINE Warteschleife.** Der 30-Minuten-Takt ruft hier
+        # jedes Mal an; läuft schon eine Wiederholung (Spiel offen, Freigabe zu
+        # frisch), würde sonst an einem langen Spielabend Schleife um Schleife
+        # dazukommen. Nur die Wiederholung selbst (`erneut`) darf weiter.
+        if erneut:
+            self._auto_geplant = False
+        elif getattr(self, '_auto_geplant', False):
+            return
+        if getattr(self, '_auto_laeuft', False):
+            return
+        if not auto_update.enabled() or updater.packaging() == 'quellcode':
+            return
+
+        def spaeter(sekunden):
+            self._auto_geplant = True
+            self.root.after(sekunden * 1000,
+                            lambda: self._auto_update(neu, erneut=True))
+
+        if not auto_update.ripe(neu):
+            # Gerade erst veröffentlicht — nach der Wartezeit noch einmal.
+            spaeter(auto_update.FRESH_WAIT_S)
+            return
+        self._auto_laeuft = True
+        version = neu.get('version') or ''
+
+        def arbeit():
+            weiter_warten = False
+            uebergeben = False
+            try:
+                if auto_update.game_running():
+                    weiter_warten = True
+                    if getattr(self, '_auto_gemeldet', '') != version:
+                        self._auto_gemeldet = version
+                        self.q.put(('hinweis', language.Phrase(
+                            'up_auto_wartet', version)))
+                    return
+                datei = updater.matching_asset(neu)
+                if not datei:
+                    return               # wird noch gebaut — nächster Takt
+                if not update_run.take_lock():
+                    return               # ein Klick war schneller
+                try:
+                    fehler.spur('Auto-Update: %s wird geladen' % version)
+                    ziel = updater.download(datei, release=neu)
+                    # ⚠ Zwischen Laden und Einspielen kann das Spiel gestartet
+                    # worden sein — der Download dauert Sekunden bis Minuten.
+                    if auto_update.game_running():
+                        weiter_warten = True
+                        return
+                    geklappt, grund = updater.install(
+                        ziel, target_version=version,
+                        previous_version=__version__, automatic=True)
+                    if not geklappt:
+                        fehler.merken('overlay.auto_update',
+                                      RuntimeError(str(grund)))
+                        return
+                    uebergeben = True
+                    fehler.spur('Auto-Update: %s wird eingespielt' % version)
+                    self.root.after(0, lambda: self._auto_uebergeben(version))
+                finally:
+                    if not uebergeben:
+                        update_run.release_lock()
+            except Exception as ausnahme:
+                fehler.merken('overlay.auto_update', ausnahme)
+            finally:
+                self._auto_laeuft = False
+                if weiter_warten:
+                    # Sofort vormerken, nicht erst im Tk-Faden — sonst schlüpft
+                    # ein Takt in die Lücke und startet eine zweite Schleife.
+                    self._auto_geplant = True
+                    try:
+                        self.root.after(0, lambda: spaeter(
+                            auto_update.GAME_POLL_S))
+                    except Exception:
+                        pass
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    def _auto_uebergeben(self, version):
+        """Abtreten, damit der Helfer (Windows) bzw. die neue Datei (Linux) übernimmt."""
+        from scbp import seiten
+        self.q.put(('hinweis', language.Phrase('up_auto_laeuft', version)))
+        self._save_geo()
+
+        class _Anzeige:
+            # `seiten._hand_over*` erwarten ein Fenster mit `root` und `say`.
+            root = self.root
+
+            @staticmethod
+            def say(text):
+                self.q.put(('hinweis', text))
+
+        if updater.packaging() == 'exe':
+            seiten._hand_over(_Anzeige)
+        elif updater.restart():
+            seiten._hand_over_after_restart(_Anzeige)
+        else:
+            self.q.put(('hinweis', language.Phrase('s_ub_neustart_nein')))
 
     def _version_melden(self, neu):
         try:
@@ -4890,8 +5001,12 @@ class Overlay:
                 # 16.09.2026: Installer 18:49:13 fertig, Start 18:49:16).
                 # Ein Update beginnt immer mit einem Klick im Programm; wer
                 # dort war, erwartet es danach wieder vor sich.
-                fehler.spur('Nach Update: Hauptfenster wird geöffnet')
-                self.root.after(300, self.liste_oeffnen)
+                # ⚠ Nicht nach einem AUTOMATISCHEN Update: Da hat niemand
+                # geklickt, und ein Fenster, das von selbst aufgeht, ist
+                # genau der Fokusklau, den das Werkzeug sonst vermeidet.
+                if not ergebnis.get('automatisch'):
+                    fehler.spur('Nach Update: Hauptfenster wird geöffnet')
+                    self.root.after(300, self.liste_oeffnen)
         except Exception as ausnahme:
             fehler.merken('start.update_ergebnis', ausnahme)
 

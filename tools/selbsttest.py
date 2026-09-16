@@ -21822,6 +21822,169 @@ def main():
         except OSError:
             pass
 
+    # ------------------------------------------------------------------
+    # 223. Automatisches Update — nie mitten im Spiel, nie doppelt
+    #
+    # Seit v3.44.0 spielt VerseKit neue Fassungen selbst ein (alle 30 Minuten
+    # nachsehen). Die teuren Fehler waeren: mitten im Flug abtreten, eine
+    # Warteschleife je Takt ansammeln, nach dem Update ungefragt ein Fenster
+    # aufreissen, oder eine frisch hochgeladene Datei im Schneckentempo holen.
+    print()
+    print('223. Automatisches Update')
+    import tempfile as _tf223
+    import threading as _th223
+    import time as _ti223
+    import tkinter as _tk223
+    from scbp import auto_update as _au223, updater as _up223, \
+        update_run as _ur223, pfade as _pf223, language as _sp223
+    import sc_bp_watcher as _sw223
+
+    # a) Frisch veroeffentlicht wird noch nicht geholt.
+    _jetzt223 = _ti223.time()
+    _iso223 = lambda s: _ti223.strftime('%Y-%m-%dT%H:%M:%SZ', _ti223.gmtime(s))
+    pruefe(not _au223.ripe({'zeit': _iso223(_jetzt223 - 60)}, now=_jetzt223),
+           'eine Minute alte Freigabe wird noch nicht geholt')
+    pruefe(_au223.ripe({'zeit': _iso223(_jetzt223 - 11 * 60)}, now=_jetzt223),
+           'elf Minuten alt ist reif')
+    pruefe(_au223.ripe({}), 'ohne Zeitpunkt (alter Zwischenspeicher) gilt reif')
+
+    # b) Die Prozesserkennung unter Wine — an einem nachgebauten /proc.
+    _proc223 = _tf223.mkdtemp()
+    def _prozess223(pid, befehl):
+        os.makedirs(os.path.join(_proc223, str(pid)))
+        with open(os.path.join(_proc223, str(pid), 'cmdline'), 'wb') as _f:
+            _f.write(befehl.replace(' ', '\0').encode())
+    _prozess223(1, '/usr/bin/bash')
+    _prozess223(2, 'C:\\Program Files\\RSI\\RSI Launcher\\RSI Launcher.exe')
+    pruefe(_au223._linux_game_process(_proc223) is False,
+           'Launcher allein ist kein laufendes Spiel')
+    _prozess223(3, 'C:\\Games\\StarCitizen\\LIVE\\Bin64\\StarCitizen.exe -no_login_dialog')
+    pruefe(_au223._linux_game_process(_proc223) is True,
+           'StarCitizen.exe unter Wine wird erkannt')
+
+    # c) Schweigt das Log, laeuft der Prozess aber, gilt das Spiel als laufend
+    #    — und umgekehrt.
+    _alt_win223, _alt_lin223 = _au223._windows_game_process, _au223._linux_game_process
+    _alt_log223 = _pf223.spiel_laeuft
+    try:
+        _au223._windows_game_process = _au223._linux_game_process = lambda *a: True
+        _pf223.spiel_laeuft = lambda *a: False
+        pruefe(_au223.game_running(), 'Prozess da, Log still -> Spiel laeuft')
+        _au223._windows_game_process = _au223._linux_game_process = lambda *a: None
+        _pf223.spiel_laeuft = lambda *a: True
+        pruefe(_au223.game_running(), 'Prozessliste unlesbar, Log aktiv -> Spiel laeuft')
+        _pf223.spiel_laeuft = lambda *a: False
+        _au223._windows_game_process = _au223._linux_game_process = lambda *a: False
+        pruefe(not _au223.game_running(), 'weder Prozess noch Log -> Spiel ist zu')
+    finally:
+        _au223._windows_game_process, _au223._linux_game_process = _alt_win223, _alt_lin223
+        _pf223.spiel_laeuft = _alt_log223
+
+    # d) Schalter: Standard an; aus, wenn gar nicht nachgesehen wird.
+    _pf223.einstellung_setzen('update_pruefen', True)
+    _pf223.einstellung_setzen(_au223.SETTING, True)
+    pruefe(_au223.enabled(), 'automatisches Update ist standardmaessig an')
+    _pf223.einstellung_setzen('update_pruefen', False)
+    pruefe(not _au223.enabled(), 'wer nicht nachsehen laesst, bekommt nichts eingespielt')
+    _pf223.einstellung_setzen('update_pruefen', True)
+
+    # e) Die Laufmarke traegt „automatisch", und dann geht kein Fenster auf.
+    _ur223.begin_run('9.9.9', '0.0.1', '', '', automatic=True)
+    pruefe((_ur223.read_run() or {}).get('automatisch') is True,
+           'die Laufmarke merkt sich, dass das Update automatisch kam')
+    _ur223._cleanup(_ur223.read_run() or {})
+    _q223 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
+    _m223 = _q223[_q223.index('def _update_ergebnis_melden'):]
+    _m223 = _m223[:_m223.index('\n    def ')]
+    pruefe("if not ergebnis.get('automatisch')" in _m223
+           and _m223.index("if not ergebnis.get('automatisch')")
+           < _m223.index('self.liste_oeffnen'),
+           'nach einem automatischen Update oeffnet sich kein Fenster')
+
+    # f) Der echte Ablauf in `Overlay._auto_update` — mit Attrappen fuer Netz,
+    #    Installer und Spiel. Erst laeuft das Spiel, dann nicht mehr.
+    _w223 = _tk223.Tk()
+    _w223.withdraw()
+    _merk223 = {'geladen': 0, 'install': [], 'uebergeben': []}
+    _spiel223 = [True]
+    _alt223 = (_up223.packaging, _up223.matching_asset, _up223.download,
+               _up223.install, _au223.game_running, _au223.enabled,
+               _ur223.take_lock, _ur223.release_lock)
+    try:
+        import queue as _qu223
+        class _Wurzel223:
+            # Attrappe statt echter Tk-Wurzel: `root.after` aus einem
+            # Nebenfaden geht nur bei laufender Ereignisschleife - im
+            # Programm ja, in dieser Pruefung nicht. `after(0, ...)` fuehrt
+            # sofort aus, spaetere Termine werden nur vorgemerkt.
+            termine = []
+
+            def after(self, ms, fn):
+                if ms == 0:
+                    fn()
+                else:
+                    self.termine.append(ms)
+
+        class _Ov223:
+            root = _Wurzel223()
+            q = _qu223.Queue()
+            _save_geo = lambda self: None
+            def _auto_uebergeben(self, version):
+                _merk223['uebergeben'].append(version)
+        _Ov223._auto_update = _sw223.Overlay._auto_update
+        _up223.packaging = lambda: 'exe'
+        _up223.matching_asset = lambda rel, kind=None: {'name': 'VerseKit-Setup.exe'}
+        def _laden223(datei, progress=None, release=None):
+            _merk223['geladen'] += 1
+            return 'setup.exe'
+        _up223.download = _laden223
+        def _einspielen223(ziel, target_version='', previous_version='', automatic=False):
+            _merk223['install'].append(automatic)
+            return True, ''
+        _up223.install = _einspielen223
+        _au223.game_running = lambda: _spiel223[0]
+        _au223.enabled = lambda: True
+        _ur223.take_lock = lambda: True
+        _ur223.release_lock = lambda: None
+
+        def _warten223(bis, sek=3.0):
+            ende = _ti223.time() + sek
+            while _ti223.time() < ende and not bis():
+                _w223.update()
+                _ti223.sleep(0.02)
+
+        ov = _Ov223()
+        neu = {'version': 'v9.9.9', 'zeit': ''}
+        ov._auto_update(neu)
+        _warten223(lambda: getattr(ov, '_auto_geplant', False)
+                   and not getattr(ov, '_auto_laeuft', False))
+        _hinweise223 = []
+        while not ov.q.empty():
+            _hinweise223.append(str(ov.q.get()[1]))
+        pruefe(_merk223['geladen'] == 0 and not _merk223['install'],
+               'laeuft das Spiel, wird weder geladen noch eingespielt')
+        pruefe(any(_sp223.t('up_auto_wartet') % 'v9.9.9' == h for h in _hinweise223),
+               'und der Hinweis sagt, dass nach dem Spiel eingespielt wird')
+        # Ein weiterer 30-Minuten-Takt darf keine zweite Schleife starten.
+        _threads_vorher223 = _th223.active_count()
+        ov._auto_update(neu)
+        pruefe(_th223.active_count() == _threads_vorher223,
+               'ein weiterer Takt startet keine zweite Warteschleife')
+        # Spiel zu — die Wiederholung spielt ein.
+        _spiel223[0] = False
+        ov._auto_update(neu, erneut=True)
+        _warten223(lambda: bool(_merk223['uebergeben']))
+        pruefe(_merk223['geladen'] == 1 and _merk223['install'] == [True],
+               'Spiel zu: einmal geladen, als automatisch eingespielt (%s)'
+               % _merk223['install'])
+        pruefe(_merk223['uebergeben'] == ['v9.9.9'],
+               'und danach wird an den Helfer uebergeben')
+    finally:
+        (_up223.packaging, _up223.matching_asset, _up223.download,
+         _up223.install, _au223.game_running, _au223.enabled,
+         _ur223.take_lock, _ur223.release_lock) = _alt223
+        _w223.destroy()
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

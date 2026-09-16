@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.44.0 - 2026-09-16
+
+> **VerseKit hält sich jetzt selbst aktuell.** Alle 30 Minuten sieht es nach
+> einer neuen Version und spielt sie von selbst ein — nur nie, während du
+> Star Citizen spielst. Dann wartet es, bis das Spiel zu ist. Wer lieber
+> selbst entscheidet, schaltet es unter „Update & Über" ab.
+
+### Neu
+
+- **Updates kommen jetzt von selbst.** VerseKit sieht alle 30 Minuten nach
+  einer neuen Version, holt sie und spielt sie ein — aber nie, während Star
+  Citizen läuft: Dann wartet es, bis das Spiel zu ist. Abschaltbar unter
+  „Update & Über". Testversionen kommen nur automatisch, wer dort
+  „Testversion" gewählt hat.
+
 ## v3.43.1 - 2026-09-16
 
 > **Mit Joysticks läuft VerseKit unter Windows jetzt stabil.** Die Geräteliste

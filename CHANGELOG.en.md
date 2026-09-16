@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.44.0 - 2026-09-16
+
+> **VerseKit now keeps itself up to date.** Every 30 minutes it checks for a
+> new version and installs it on its own — just never while you are playing
+> Star Citizen. It then waits until the game is closed. If you would rather
+> decide yourself, switch it off under "Update & About".
+
+### New
+
+- **Updates now arrive on their own.** VerseKit checks for a new version every
+  30 minutes, downloads and installs it — but never while Star Citizen is
+  running: it waits until the game is closed. Can be switched off under
+  "Update & About". Test versions only arrive automatically for those who
+  picked "Test version" there.
+
 ## v3.43.1 - 2026-09-16
 
 > **VerseKit now runs stable on Windows with joysticks connected.** The device

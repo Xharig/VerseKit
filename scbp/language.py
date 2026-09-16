@@ -2507,9 +2507,24 @@ TEXTS = {
     'aktuelle_fassung': ('Du hast die neueste Fassung.',
                          'You have the latest version.'),
     's_ub_taeglich':   ('Nach neuen Versionen sehen',
-                          'Check daily for new versions'),
-    's_ub_taeglich_h': ('Einmal pro Stunde, ausschließlich bei GitHub. Ist etwas da, färbt sich die Glocke in der Titelleiste grün.',
-                          'Once an hour, only at GitHub. If there is something, the bell in the title bar turns green.'),
+                          'Check for new versions'),
+    's_ub_taeglich_h': ('Alle 30 Minuten, ausschließlich bei GitHub. Ist etwas da, färbt sich die Glocke in der Titelleiste grün.',
+                          'Every 30 minutes, only at GitHub. If there is something, the bell in the title bar turns green.'),
+    # --- Automatisches Update (`scbp/auto_update.py`, 16.09.2026) ---
+    's_ub_auto':       ('Updates automatisch einspielen',
+                          'Install updates automatically'),
+    's_ub_auto_h':     ('Eine neue Version wird von selbst geholt und eingespielt — '
+                        'aber nie, während Star Citizen läuft. Dann wartet sie, '
+                        'bis das Spiel zu ist. Testversionen nur, wenn du oben '
+                        '„Testversion" gewählt hast.',
+                        'A new version is downloaded and installed on its own — '
+                        'but never while Star Citizen is running. It then waits '
+                        'until the game is closed. Test versions only if you '
+                        'picked "Test version" above.'),
+    'up_auto_wartet':  ('%s ist da und wird eingespielt, sobald Star Citizen zu ist.',
+                        '%s is ready and will be installed once Star Citizen is closed.'),
+    'up_auto_laeuft':  ('%s wird automatisch eingespielt — VerseKit startet gleich neu.',
+                        'Installing %s automatically — VerseKit restarts in a moment.'),
     's_up_sofort':     ('Jetzt die neueste Version holen',
                         'Get the latest version now'),
     's_up_sofort_h':   ('Holt sofort, was es gerade gibt — auch eine Testversion. '
