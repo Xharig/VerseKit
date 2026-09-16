@@ -8,6 +8,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.47.0 - 2026-09-17
+
 > **Dein Hangar bleibt beim Einlesen aktuell.** Wer ein Schiff per Upgrade
 > umgebaut hat, sieht nach dem nächsten Export nur noch das neue. Dazu ein X
 > in jedem Suchfeld, und die Warnung beim Zurücksetzen nennt wieder die

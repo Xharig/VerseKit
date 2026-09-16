@@ -8,6 +8,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.47.0 - 2026-09-17
+
 > **Your hangar stays current when you import.** If you upgraded a ship, the
 > next export shows only the new one. Plus an X in every search field, and the
 > warning when resetting your inventory shows the right numbers again.
