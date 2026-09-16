@@ -5872,6 +5872,11 @@ def _about(fenster, rahmen):
     # Seite; also gehören sie nach oben.
     ziel = _setting_row(fenster, innen, t('s_ub_taeglich'), t('s_ub_taeglich_h'))
     _switch(fenster, ziel, 'update_pruefen', True)
+    # ⭐ Direkt darunter, weil es davon abhängt: Wer nicht nachsehen lässt,
+    # bekommt auch nichts eingespielt (`auto_update.enabled`).
+    from . import auto_update as _au
+    ziel = _setting_row(fenster, innen, t('s_ub_auto'), t('s_ub_auto_h'))
+    _switch(fenster, ziel, _au.SETTING, True)
 
     def kanal_pruefen(_=None):
         """Nur neu bauen, wenn die Anordnung wirklich kippt — sonst flackert es."""

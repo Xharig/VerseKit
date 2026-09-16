@@ -82,7 +82,11 @@ CACHE = 'versionen.json'
 #
 # Eine Stunde ist der Kompromiss: Beim Starten wird praktisch immer nachgesehen,
 # im Dauerbetrieb bleibt es bei ein paar Abfragen am Tag.
-MIN_INTERVAL = 3600
+#
+# ⚠ Seit dem automatischen Update (16.09.2026) eine halbe Stunde — im Takt von
+# `auto_update.CHECK_INTERVAL_S`. Das sind höchstens 48 Anfragen am Tag, weit
+# unter GitHubs 60 je Stunde ohne Anmeldung.
+MIN_INTERVAL = 1800
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 ALLOWED_HOSTS = ('github.com', 'objects.githubusercontent.com')
 
@@ -229,6 +233,9 @@ def check(own_version, force=False):
                     'version': f.get('tag_name'),
                     'name': f.get('name'),
                     'datum': (f.get('published_at') or '')[:10],
+                    # Der volle Zeitpunkt — `auto_update.ripe()` wartet nach
+                    # dem Veröffentlichen, bis die Datei verteilt ist.
+                    'zeit': f.get('published_at') or '',
                     'text': f.get('body') or '',
                     'vorab': bool(f.get('prerelease')),
                     'dateien': [{'name': a.get('name'), 'url':
@@ -1028,7 +1035,7 @@ def roll_back():
         return False
 
 
-def install(new_file, target_version='', previous_version=''):
+def install(new_file, target_version='', previous_version='', automatic=False):
     """Die laufende Version durch die neue ersetzen.
 
     Zwei Wege, je nach Verpackung:
@@ -1233,7 +1240,8 @@ def install(new_file, target_version='', previous_version=''):
 
         # Erst die Laufmarke, dann der Helfer: Stirbt irgendetwas danach, weiß
         # der nächste Start, dass ein Update begonnen hatte.
-        update_run.begin_run(target_version, previous_version, new_file, checksum)
+        update_run.begin_run(target_version, previous_version, new_file, checksum,
+                             automatic=automatic)
         update_run.start_helper(new_file, checksum, own_dir,
                                    log_file, env, flags,
                                    exe=sys.executable)
