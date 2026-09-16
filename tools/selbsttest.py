@@ -22188,6 +22188,17 @@ def main():
         _ti225.sleep(0.2)
         pruefe(len(_fragen225) == 1,
                'ist das automatische Update aus, fragt das Spielende nicht')
+        # ⚠ Der normale 30-Minuten-Takt fragt WIRKLICH nach (17.09.2026) —
+        # sonst verschiebt ein Blick von Hand auf „Update & Über" das
+        # automatische Update um eine halbe Stunde (Zwischenspeicher).
+        ov3 = _Ov225()
+        _vorher225 = len(_fragen225)
+        ov3._nach_version_sehen()
+        _warten225(lambda: len(_fragen225) > _vorher225)
+        pruefe(_fragen225[_vorher225:] == [True],
+               'der normale Takt fragt erzwungen nach (%r)' % _fragen225[_vorher225:])
+        pruefe(any(ms == ov3.VERSION_TAKT for ms, _f in ov3.root.geplant),
+               'und plant den naechsten Takt')
         # Die Wache wird beim Start wirklich angemeldet.
         import ast as _ast225
         _baum225 = _ast225.parse(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
