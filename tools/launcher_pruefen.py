@@ -42,7 +42,7 @@ ausgabe.utf8()
 
 heim = tempfile.mkdtemp(prefix='launcher-')
 os.environ['SC_BP_HOME'] = heim
-from scbp import injektion
+from scbp import injection
 
 DE_ZIP = ('https://github.com/rjcncpt/StarCitizen-Deutsch-INI/releases/'
           'latest/download/StarCitizen.Deutsch.LIVE.zip')
@@ -79,7 +79,7 @@ for e in daten['entries']:
 
 zeilen, gesetzt = [], 0
 for zeile in grund.splitlines():
-    teile = injektion._zeile_zerlegen(zeile)
+    teile = injection._split_line(zeile)
     if teile and teile[0] in anhang:
         schluessel, zusatz, text = teile
         zeilen.append('%s%s=%s%s' % (schluessel, zusatz, text,
@@ -107,7 +107,7 @@ def doppelt_je_zeile(text, was):
 
 vorher = lies(arbeit)
 bloecke_vorher = vorher.count(UEBERSCHRIFT)
-marken_vorher = len(injektion.TITELMARKE.findall(vorher))
+marken_vorher = len(injection.TITLE_MARK.findall(vorher))
 # ⚠ Grundlinie: CIG hat selbst eine Zeile im Format `\n    - `. Ohne sie
 # abzuziehen meldet die Prüfung einen Launcher-Rest, der keiner ist.
 ohne_kasten_vorher = 0
@@ -117,20 +117,20 @@ print('Launcher-Stand nachgebaut: %d Einträge ergänzt, %d Blöcke, %d Titelmar
 fehler = []
 
 # ---- 0) Der Watcher hat hier nie geschrieben -------------------------------
-if injektion.ist_drin(arbeit):
+if injection.is_applied(arbeit):
     fehler.append('ist_drin() hält den Launcher-Stand für eine eigene '
                   'Injektion.')
 print('\n0) nur der Launcher   -> ist_drin=%s (muss False sein)'
-      % injektion.ist_drin(arbeit))
+      % injection.is_applied(arbeit))
 
 # ---- 1) Einspielen --------------------------------------------------------
-ok, n, meldung = injektion.einrichten(arbeit, 'german_(germany)')
+ok, n, meldung = injection.setup(arbeit, 'german_(germany)')
 nachher = lies(arbeit)
 bloecke = nachher.count(UEBERSCHRIFT)
 doppelblock = doppelt_je_zeile(nachher, UEBERSCHRIFT)
 doppelmarke = len(re.findall(r'<EM4>\[BP\]</EM4>\s*<EM4>\[BP[^\]]*\]</EM4>',
                              nachher))
-marken = len(injektion.TITELMARKE.findall(nachher))
+marken = len(injection.TITLE_MARK.findall(nachher))
 kaestchen = nachher.count('[x]') + nachher.count('[  ]')
 # ⚠ Ein echter Launcher-Rest ist eine Bauplan-Zeile ohne Kästchen in einem
 # Eintrag, der **überhaupt keine** Kästchen hat — dann wurde sein Block nicht
@@ -138,8 +138,8 @@ kaestchen = nachher.count('[x]') + nachher.count('[  ]')
 # (die Rohdaten führen unter `# Region:` ebenfalls Listenzeilen).
 ohne_kasten = sum(1 for z in nachher.splitlines()
                   if re.search(r'\\n    - ', z)
-                  and injektion.EIGENER_NACHWEIS.search(z)
-                  and not injektion._hat_kaestchen(z))
+                  and injection.OWN_TRACE.search(z)
+                  and not injection._has_box(z))
 print('\n1) Einspielen         ->', ok, meldung)
 print('   Blöcke             : %d (vorher %d)' % (bloecke, bloecke_vorher))
 print('   doppelte Blöcke    : %d' % doppelblock)
@@ -174,23 +174,23 @@ def marken_schluessel(text):
     raus = set()
     for z in text.splitlines():
         k, _, v = z.partition('=')
-        if k and injektion.TITELMARKE.search(v):
+        if k and injection.TITLE_MARK.search(v):
             raus.add(k.strip())
     return raus
 
 
 alte_marken = marken_schluessel(vorher)
 neue_marken = marken_schluessel(nachher) - alte_marken
-bekannte_staemme = {injektion._stamm(k) for k in alte_marken}
+bekannte_staemme = {injection._stem(k) for k in alte_marken}
 bekannte_staemme.discard('')
 
 unerklaert = [k for k in neue_marken
-              if not injektion._reihen_stamm(injektion._stamm(k),
+              if not injection._series_stem(injection._stem(k),
                                              bekannte_staemme)]
 print('   neue Marken        : %d (davon unerklärt: %d)'
       % (len(neue_marken), len(unerklaert)))
 for k in sorted(neue_marken)[:8]:
-    grund = injektion._reihen_stamm(injektion._stamm(k), bekannte_staemme)
+    grund = injection._series_stem(injection._stem(k), bekannte_staemme)
     print('     %-42s %s' % (k, ('Schritt von ' + grund) if grund
                              else '⚠ OHNE GRUND'))
 if unerklaert:
@@ -203,7 +203,7 @@ if ohne_kasten:
                   'Launchers wurde nicht ersetzt.' % ohne_kasten)
 
 # ---- 2) Entfernen ---------------------------------------------------------
-ok, n, meldung = injektion.entfernen(arbeit, 'german_(germany)')
+ok, n, meldung = injection.remove_texts(arbeit, 'german_(germany)')
 print('\n2) Entfernen          ->', ok, meldung)
 a, b = lies(arbeit).splitlines(), lies(launcherstand).splitlines()
 abweichung = [i for i, (x, y) in enumerate(zip(a, b)) if x != y]

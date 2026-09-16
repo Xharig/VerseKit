@@ -1642,7 +1642,7 @@ def main():
             # Was ins SPIEL geschrieben wird, folgt der Spielsprache — nicht
             # der Sprache des Werkzeugs. Wer das deutsche Sprachpaket fährt,
             # will deutsche Auftragstexte, auch wenn das Fenster englisch ist.
-            'scbp/injektion.py',
+            'scbp/injection.py',
             # `.desktop`-Dateien: Das Betriebssystem zeigt sie, nicht wir.
             'scbp/autostart.py', 'scbp/desktop_entry.py',
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
@@ -3546,17 +3546,17 @@ def main():
     # etwas eingetragen war, musste erschlossen werden statt abgelesen.
     print()
     print('39. Der Bericht sagt, ob die Angaben im Spiel stehen')
-    from scbp import report as ber39, injektion as inj39
+    from scbp import report as ber39, injection as inj39
     # ⚠ Eigener Ordner statt `basis`: Der ist an dieser Stelle bereits
     # aufgeräumt, und ein Schreibversuch darin bricht den ganzen Lauf ab.
     _ordner39 = tempfile.mkdtemp(prefix='sc-bp-inj39-')
     _ini39 = os.path.join(_ordner39, 'global39.ini')
-    _echt39 = inj39.ini_datei
+    _echt39 = inj39.ini_file
     try:
         # Datei da, Angaben vom Launcher hinausgeworfen — Morkhans Lage.
         with open(_ini39, 'w', encoding='utf-8') as f:
             f.write('mission_a_desc=Deliver cargo.\n')
-        inj39.ini_datei = lambda: (_ini39, 'german_(germany)', 'deutsch')
+        inj39.ini_file = lambda: (_ini39, 'german_(germany)', 'deutsch')
         _l39 = ber39._injection_state()
         pruefe('NICHT' in _l39 or 'NOT' in _l39,
                'ohne Angaben in der Datei sagt der Bericht das auch')
@@ -3584,12 +3584,12 @@ def main():
         # ⚠ Gar keine Datei ist NICHT dasselbe wie „nicht eingetragen": Unter
         # Linux ohne Übersetzung ist das der Normalzustand, und eine Warnung
         # davor wäre eine Warnung vor nichts.
-        inj39.ini_datei = lambda: (None, 'english', None)
+        inj39.ini_file = lambda: (None, 'english', None)
         _l39c = ber39._injection_state()
         pruefe('NICHT' not in _l39c and 'NOT' not in _l39c,
                'ohne Textdatei warnt er NICHT vor dem Normalzustand')
     finally:
-        inj39.ini_datei = _echt39
+        inj39.ini_file = _echt39
         shutil.rmtree(_ordner39, ignore_errors=True)
 
 
@@ -4552,7 +4552,7 @@ def main():
         # nur `[BP!]` kannte — also nur das Zeichen INNEN.
         ('Blackbox Retrieval <EM4>[BP]?</EM4>', 'Blackbox Retrieval'),
         ('Verified Bounty: Chen Bey <EM4>[BP]*</EM4>', 'Verified Bounty: Chen Bey'),
-        # Fremde Marken mit Vorspann — `injektion.py` kennt sie laengst.
+        # Fremde Marken mit Vorspann — `injection.py` kennt sie laengst.
         ('Bounty <EM4>[10 Rep] [BP]</EM4>', 'Bounty'),
         # ⚠ Gegenprobe: Was KEIN Bauplan-Zusatz ist, muss stehen bleiben.
         ('Auftrag <EM4>[x]</EM4>', 'Auftrag <EM4>[x]</EM4>'),
@@ -4639,13 +4639,13 @@ def main():
     # Datei (Bloecke werden mehrfach verwendet).
     print()
     print('52. Kaestchen nur an Bauplaenen, nicht an Regionen')
-    from scbp import injektion as _inj52
+    from scbp import injection as _inj52
     _block52 = ('\\n# Baupläne:\\n    - Atzkav Sniper Rifle\\n    - Aril Arms'
                 '\\n\\n# Region: \\n    - Stanton-System - Gefahr 4-6/10'
                 '\\n    - \\n    - Nyx-System - Gefahr 3-6/10'
                 '\\n\\n# Abgabe:\\n    - Port Olisar')
     _habe52 = {catalog._norm('Aril Arms')}
-    _neu52, _meine52, _gesamt52 = _inj52._kaestchen_setzen(_block52, _habe52)
+    _neu52, _meine52, _gesamt52 = _inj52._set_boxes(_block52, _habe52)
     pruefe('[  ] Atzkav Sniper Rifle' in _neu52,
            'ein Bauplan, den man nicht hat, bekommt ein leeres Kaestchen')
     pruefe('[x]' in _neu52 and 'Aril Arms' in _neu52,
@@ -4663,7 +4663,7 @@ def main():
     _en52 = ('\\n# Blueprints:\\n    - Atzkav Sniper Rifle'
              '\\n\\n# Region: \\n    - Stanton System'
              '\\n\\n# Delivery:\\n    - Port Olisar')
-    _neu52en, _m52en, _g52en = _inj52._kaestchen_setzen(_en52, set())
+    _neu52en, _m52en, _g52en = _inj52._set_boxes(_en52, set())
     pruefe('[  ] Atzkav Sniper Rifle' in _neu52en and _g52en == 1,
            'englisch: nur unter "# Blueprints" wird angekreuzt')
     pruefe('- Stanton System' in _neu52en and '- Port Olisar' in _neu52en,
@@ -6914,7 +6914,7 @@ def main():
     #
     # Bisher blieb sie stehen, weil die Injektion den Schluessel schlicht nicht
     # anfasst — also zufaellig. Diese Pruefung macht daraus eine Zusage.
-    _inj71 = open(os.path.join(WURZEL, 'scbp', 'injektion.py'),
+    _inj71 = open(os.path.join(WURZEL, 'scbp', 'injection.py'),
                   encoding='utf-8').read()
     pruefe('Frontend_PU_Version' not in _inj71
            or 'nicht anfassen' in _inj71,
@@ -7555,7 +7555,7 @@ def main():
     # die Zeile seit jeher — gelesen hat es sie nie.
     print()
     print('81. Die Spielsprache entscheidet ueber die Zieldatei')
-    from scbp import injektion as _in81
+    from scbp import injection as _in81
     from scbp import translation as _ue81
     from scbp import pfade as _pf81
 
@@ -7586,13 +7586,13 @@ def main():
         pruefe(_ue81.game_language() == 'german_(germany)',
                'g_language wird aus der user.cfg gelesen (%s)'
                % _ue81.game_language())
-        _pfad81, _spr81, _ = _in81.ini_datei()
+        _pfad81, _spr81, _ = _in81.ini_file()
         pruefe(_spr81 == 'german_(germany)',
                'deutsches Spiel -> deutsche global.ini (%s)' % _spr81)
 
         # Gegenprobe: englisches Spiel, dieselben zwei Dateien.
         _cfg81('english')
-        _pfad81, _spr81, _ = _in81.ini_datei()
+        _pfad81, _spr81, _ = _in81.ini_file()
         pruefe(_spr81 == 'english',
                'englisches Spiel -> englische global.ini (%s)' % _spr81)
 
@@ -7601,7 +7601,7 @@ def main():
         _cfg81(None)
         pruefe(_ue81.game_language() is None,
                'ohne Eintrag meldet die Sprache sich als unbekannt')
-        _pfad81, _spr81, _ = _in81.ini_datei()
+        _pfad81, _spr81, _ = _in81.ini_file()
         pruefe(_spr81 == 'english',
                'ohne Eintrag gilt der Rueckfall Englisch (%s)' % _spr81)
     finally:
@@ -9952,7 +9952,7 @@ def main():
     # (Smart Citizen), schneiden "ab dem eigenen Marker bis zum Ende". Alles
     # davor ueberlebt, alles dahinter nicht. Gemessen am 02.09.2026 verlor
     # unser Block dadurch 398 von 398 gemeinsamen Eintraegen.
-    from scbp import injektion as _in102
+    from scbp import injection as _in102
 
     # ⚠ Die **echte** Ueberschrift nehmen, nicht eine ausgedachte: Der Notnagel
     # beim Zuruecksetzen erkennt den eigenen Block an genau diesen Woertern
@@ -9965,39 +9965,39 @@ def main():
     # prueft der Test also das Gegenteil dessen, was er soll — am 02.09.2026
     # genau so passiert, zweimal hintereinander.
     _UNSER = ('\\n\\n' + ('-' * 57) + '\\n\\n<EM4>%s</EM4>\\n\\n%s Atzkav'
-              % (_in102._UEBERSCHRIFTEN[0], _in102.KASTEN_HAB))
+              % (_in102._HEADINGS[0], _in102.BOX_HAVE))
 
     # -- Richtung 1: erkennen, was erkannt werden MUSS ----------------------
     for _marke102 in ('\\n\\n--- STATS ---', '\\n\\n<EM3>MISSION DETAILS</EM3>',
                       '\\n\\n<EM3>STATS</EM3>', '\\n\\n== Stats ==',
                       '\\n\\n<EM3>== Mission Details ==</EM3>'):
-        pruefe(bool(_in102.FREMDER_ANHANG.search('CIG-Text' + _marke102
+        pruefe(bool(_in102.FOREIGN_APPENDIX.search('CIG-Text' + _marke102
                                                  + '\\nWert: 5')),
                'ein fremder Anhang %s wird erkannt' % _marke102.strip())
 
     # -- Richtung 2: NICHT erkennen, was uns gehoert ------------------------
-    pruefe(not _in102.FREMDER_ANHANG.search('CIG-Text' + _UNSER),
+    pruefe(not _in102.FOREIGN_APPENDIX.search('CIG-Text' + _UNSER),
            'die eigene Linie gilt nicht als fremder Anhang')
-    pruefe(not _in102.FREMDER_ANHANG.search(
+    pruefe(not _in102.FOREIGN_APPENDIX.search(
         'Ein Satz.\\n\\nEin zweiter Absatz ohne jede Ueberschrift.'),
         'ein gewoehnlicher Absatz von CIG gilt nicht als fremder Anhang')
 
     # -- Die Wirkung: wo landet der Block? ----------------------------------
     _mit102 = 'CIG-Text\\n\\n--- STATS ---\\nDPS: 157'
-    _erg102 = _in102._anhaengen(_mit102, _UNSER)
+    _erg102 = _in102._append_block(_mit102, _UNSER)
     pruefe(_erg102.index('AUFTRAG') < _erg102.index('--- STATS ---'),
            'bei fremdem Anhang steht unser Block davor')
     pruefe('DPS: 157' in _erg102,
            'und der fremde Anhang bleibt vollstaendig erhalten')
 
-    _ohne102 = _in102._anhaengen('Nur CIG-Text', _UNSER)
+    _ohne102 = _in102._append_block('Nur CIG-Text', _UNSER)
     pruefe(_ohne102 == 'Nur CIG-Text' + _UNSER,
            'ohne fremden Anhang bleibt es schlichtes Anhaengen')
 
     # -- Und das Zuruecksetzen darf den Fremdtext nicht mitnehmen -----------
     # ⚠ Der Notnagel schnitt frueher "ab unserer Linie bis zum Ende". Seit
     # unser Block davor sitzt, laege der fremde Text mit im Schnitt.
-    _zurueck102 = _in102._saeubern(_erg102)
+    _zurueck102 = _in102._strip_old(_erg102)
     pruefe('AUFTRAG' not in _zurueck102,
            'das Zuruecksetzen entfernt unseren Block')
     pruefe('DPS: 157' in _zurueck102,
@@ -10296,7 +10296,7 @@ def main():
     # nur, weil die Wirkung VOR dem scharfen Lauf an den echten Daten
     # gemessen wurde. Diese Faelle stehen hier, damit die Grenze nicht wieder
     # aufweicht.
-    from scbp import injektion as _inj106
+    from scbp import injection as _inj106
 
     # Die bekannten Hauptauftraege, wie sie `einspielen_scdl` aufbaut.
     _bekannt106 = {
@@ -10328,26 +10328,26 @@ def main():
     ]
 
     for _stamm106, _soll106, _was106 in FAELLE106:
-        _ist106 = _inj106._reihen_stamm(_stamm106, _bekannt106)
+        _ist106 = _inj106._series_stem(_stamm106, _bekannt106)
         pruefe(_ist106 == _soll106,
                '%s (%r -> %r)' % (_was106, _stamm106, _ist106))
 
     # ⭐ Der laengste passende Stamm gewinnt — sonst landet ein Schritt bei der
     # falschen Reihe, sobald es `…story0` und `…story01` nebeneinander gibt.
-    pruefe(_inj106._reihen_stamm('battaglia_story01b',
+    pruefe(_inj106._series_stem('battaglia_story01b',
                                  {'battaglia_story0', 'battaglia_story01'})
            == 'battaglia_story01',
            'der laengste passende Stamm gewinnt')
 
     # Und der Weg von der Funktion in die Injektion muss auch gegangen werden:
     # eine Funktion, die niemand aufruft, behebt nichts.
-    _q106 = open(os.path.join(WURZEL, 'scbp', 'injektion.py'),
+    _q106 = open(os.path.join(WURZEL, 'scbp', 'injection.py'),
                  encoding='utf-8').read()
-    pruefe('_reihen_stamm(_stamm(schluessel), titel_stamm_an)' in _q106,
+    pruefe('_series_stem(_stem(key), title_stem_by_key)' in _q106,
            'die Titel benutzen die Reihen-Zuordnung')
-    pruefe('_reihen_stamm(_stamm(schluessel), stamm_an)' in _q106,
+    pruefe('_series_stem(_stem(key), stem_by_key)' in _q106,
            'die Beschreibungen ebenso — sonst Marke ohne Liste darunter')
-    pruefe('titel_stamm_an[stamm] = zusatz' in _q106,
+    pruefe('title_stem_by_key[stem] = suffix' in _q106,
            'und die Stamm-Tabelle fuer Titel wird ueberhaupt gefuellt')
 
     # -----------------------------------------------------------------------
@@ -11225,30 +11225,30 @@ def main():
     # seit zehn Tagen im Bestand lagen und im Spiel ungehakt blieben.
     print()
     print('113d. Die Kaestchen folgen dem eigenen Bestand')
-    _inj113d = importlib.import_module('scbp.injektion')
+    _inj113d = importlib.import_module('scbp.injection')
     _a113d = {'bauplaene': {'marlin': {'name': 'Marlin'}}}
     _b113d = {'bauplaene': {'marlin': {'name': 'Marlin'},
                             'rn-7s': {'name': 'RN-7s'}}}
     # ⚠ Gleiche Anzahl, andere Namen — genau das erzeugt `bestand.angleichen`
     # beim Umbenennen. Eine Marke ueber die Anzahl wuerde das nicht bemerken.
     _c113d = {'bauplaene': {'marlin (ind/1/a)': {'name': 'Marlin (Ind/1/A)'}}}
-    pruefe(_inj113d.bestand_marke(_a113d) == _inj113d.bestand_marke(_a113d),
+    pruefe(_inj113d.stock_mark(_a113d) == _inj113d.stock_mark(_a113d),
            'derselbe Bestand ergibt dieselbe Marke')
-    pruefe(_inj113d.bestand_marke(_a113d) != _inj113d.bestand_marke(_b113d),
+    pruefe(_inj113d.stock_mark(_a113d) != _inj113d.stock_mark(_b113d),
            'ein neuer Bauplan aendert die Marke')
-    pruefe(_inj113d.bestand_marke(_a113d) != _inj113d.bestand_marke(_c113d),
+    pruefe(_inj113d.stock_mark(_a113d) != _inj113d.stock_mark(_c113d),
            'ein umbenannter Bauplan aendert die Marke (gleiche Anzahl)')
 
     # ⚠ Und die Kaestchen selbst: Was im Bestand liegt, wird angekreuzt.
     _block113d = ('# Baupläne:' + chr(92) + 'n'
                   '    - Marlin' + chr(92) + 'n'
                   '    - RN-7s' + chr(92) + 'n')
-    _neu113d, _meine113d, _ges113d = _inj113d._kaestchen_setzen(
+    _neu113d, _meine113d, _ges113d = _inj113d._set_boxes(
         _block113d, set(_b113d['bauplaene']))
     pruefe(_ges113d == 2 and _meine113d == 2,
            'beide Bauplaene werden als vorhanden erkannt (%d von %d)'
            % (_meine113d, _ges113d))
-    _neu113e, _meine113e, _ges113e = _inj113d._kaestchen_setzen(
+    _neu113e, _meine113e, _ges113e = _inj113d._set_boxes(
         _block113d, set(_a113d['bauplaene']))
     pruefe(_ges113e == 2 and _meine113e == 1,
            'was fehlt, bleibt ungehakt (%d von %d)' % (_meine113e, _ges113e))
@@ -12687,38 +12687,38 @@ def main():
     # Dazu die Hervorhebung: „Mach die XP blau geschrieben … damit allgemein
     # spieler es schneller sehen." Der Melder hatte sie uebersehen, weil sie
     # unauffaellig mitten im Text standen.
-    from scbp import injektion as _inj127
+    from scbp import injection as _inj127
 
-    pruefe(_inj127.FARBE_AUF == '<EM4>',
+    pruefe(_inj127.COLOR_OPEN == '<EM4>',
            'die Hervorhebung ist die, die das Spiel benutzt')
-    pruefe(_inj127._blau('# Rufpunkte: 5') ==
+    pruefe(_inj127._highlight('# Rufpunkte: 5') ==
            '<EM4># Rufpunkte: 5</EM4>',
            'eine Zeile wird hervorgehoben')
     # ⚠ Doppelte Auszeichnung zeigt das Spiel als TEXT an — aus zwei <EM4>
     # wird kein kraeftigeres Blau, sondern ein sichtbares „<EM4>".
-    pruefe(_inj127._blau('<EM4>schon da</EM4>') == '<EM4>schon da</EM4>',
+    pruefe(_inj127._highlight('<EM4>schon da</EM4>') == '<EM4>schon da</EM4>',
            'und keine zweite darueber')
 
     # Dubletten: Was schon dasteht, kommt nicht noch einmal — auch dann nicht,
     # wenn es beim letzten Lauf noch ungefaerbt war.
     _e127 = {'contractInfo': '# Zu erwartende Rufpunkte: 50 XP'}
-    pruefe(_inj127._angabenzeilen(_e127, '') ==
+    pruefe(_inj127._detail_lines(_e127, '') ==
            ['<EM4># Zu erwartende Rufpunkte: 50 XP</EM4>'],
            'in leeren Text wird eingesetzt')
-    pruefe(_inj127._angabenzeilen(
+    pruefe(_inj127._detail_lines(
         _e127, 'Text # Zu erwartende Rufpunkte: 50 XP') == [],
         'was schon dasteht, kommt nicht doppelt')
-    pruefe(_inj127._angabenzeilen(
+    pruefe(_inj127._detail_lines(
         _e127, 'Text <EM4># Zu erwartende Rufpunkte: 50 XP</EM4>') == [],
         'auch wenn es bereits hervorgehoben ist')
 
     # ⚠⚠ **Fremder Text wird nicht verdoppelt.** MrKraken StarStrings schreibt
     # eine eigene Reputationszeile; wo eine steht, kommt keine zweite dazu.
-    pruefe(_inj127._hat_angaben('Reputation Awarded: 50'),
+    pruefe(_inj127._has_details('Reputation Awarded: 50'),
            'eine fremde Reputationszeile wird erkannt')
-    pruefe(_inj127._hat_angaben('<EM4># Zu erwartende Rufpunkte: 5</EM4>'),
+    pruefe(_inj127._has_details('<EM4># Zu erwartende Rufpunkte: 5</EM4>'),
            'die eigene ebenso')
-    pruefe(not _inj127._hat_angaben('Ein ganz gewoehnlicher Auftragstext'),
+    pruefe(not _inj127._has_details('Ein ganz gewoehnlicher Auftragstext'),
            'ein gewoehnlicher Text gilt NICHT als schon versorgt')
 
     print()
@@ -12784,18 +12784,18 @@ def main():
 
     # ⚠ Und die Verbindung zur Injektion: Ohne sie stuende das Modul da und
     # niemand riefe es.
-    from scbp import injektion as _inj128
+    from scbp import injection as _inj128
     _e128 = {'titleLocKey': 'headhunters_test_title_001',
              'contractInfo': '# Zu erwartende Rufpunkte: 150 XP'}
-    _zeilen128 = _inj128._angabenzeilen(_e128, '', {'ruf_bei': 'Ruf'},
+    _zeilen128 = _inj128._detail_lines(_e128, '', {'ruf_bei': 'Ruf'},
                                         _tab128)
     pruefe(any('Headhunters +150 Standing' in z for z in _zeilen128),
            'die Injektion setzt die Ruf-Zeile ein')
-    pruefe(all(z.startswith(_inj128.FARBE_AUF) for z in _zeilen128),
+    pruefe(all(z.startswith(_inj128.COLOR_OPEN) for z in _zeilen128),
            'und hebt sie hervor wie die uebrigen Angaben')
     # Dublettenschutz: Steht schon eine Ruf-Zeile da, kommt keine zweite —
     # auch wenn sich die Zahl geaendert hat.
-    _zeilen128 = _inj128._angabenzeilen(
+    _zeilen128 = _inj128._detail_lines(
         _e128, '# Ruf: Headhunters +99 Standing',
         {'ruf_bei': 'Ruf'}, _tab128)
     pruefe(not any('# Ruf:' in z for z in _zeilen128),
@@ -13215,7 +13215,7 @@ def main():
     # der Bauplan-Block. In letzterem stehen zwei weitere Ruf-Zeilen, die
     # unveraendert uebernommen wurden — also schwarz, mitten zwischen den
     # blauen. Gemessen in einer echten global.ini: 435 + 435 + 129 Zeilen.
-    from scbp import injektion as _in136
+    from scbp import injection as _in136
 
     _block136 = ('MÖGLICHE BAUPLÄNE FÜR DIESEN MISSIONSTYP\\n'
                  '# Min. Reputation: Auftragnehmer Junior (800 XP)\\n'
@@ -13223,11 +13223,11 @@ def main():
                  '# Baupläne:\\n'
                  '    [  ] Atzkav Sniper Rifle\\n'
                  '# Region: Stanton-System - Gefahr 4-6/10')
-    _neu136 = _in136._ruf_einfaerben(_block136)
+    _neu136 = _in136._highlight_rep(_block136)
 
-    pruefe(_neu136.count(_in136.FARBE_AUF) == 2,
+    pruefe(_neu136.count(_in136.COLOR_OPEN) == 2,
            'beide Ruf-Zeilen sind blau (gefunden: %d)'
-           % _neu136.count(_in136.FARBE_AUF))
+           % _neu136.count(_in136.COLOR_OPEN))
     pruefe('<EM4># Min. Reputation: Auftragnehmer Junior (800 XP)</EM4>'
            in _neu136, 'die Min-Zeile steht vollstaendig in Blau')
 
@@ -13235,7 +13235,7 @@ def main():
     # nichts hervorgehoben.
     for _wort136 in ('# Baupläne:', '# Region:'):
         _zeile136 = [z for z in _neu136.split('\\n') if z.startswith(_wort136)]
-        pruefe(_zeile136 and _in136.FARBE_AUF not in _zeile136[0],
+        pruefe(_zeile136 and _in136.COLOR_OPEN not in _zeile136[0],
                '%s bleibt schwarz' % _wort136)
 
     # ⚠ Die Bauplan-Zeile darf sich nicht veraendern — an ihrem Kaestchen
@@ -13245,12 +13245,12 @@ def main():
 
     # ⚠ Nichts doppelt: Ein zweiter Lauf darf nicht `<EM4><EM4>` erzeugen —
     # das zeigt das Spiel als sichtbaren Text an.
-    pruefe(_in136._ruf_einfaerben(_neu136) == _neu136,
+    pruefe(_in136._highlight_rep(_neu136) == _neu136,
            'ein zweiter Lauf aendert nichts mehr')
 
     # ⚠ Gegenprobe: Ohne den Aufruf bliebe alles schwarz — sonst prueft die
     # erste Zeile nichts.
-    pruefe(_in136.FARBE_AUF not in _block136,
+    pruefe(_in136.COLOR_OPEN not in _block136,
            'Gegenprobe: der Ausgangsblock ist schwarz')
 
     print()
@@ -13259,20 +13259,20 @@ def main():
     # Ruf-Zeile, weil die Quelle fuer sie keine Rufwerte fuehrt. Im Spiel
     # standen dort nur Abklingzeit und Teilbarkeit — und die Luecke sah aus
     # wie ein Aussetzer des Werkzeugs statt wie fehlende Daten.
-    _worte137 = _in136.TEXTE['de']
+    _worte137 = _in136.TEXTS['de']
 
     # Ein Auftrag, dessen Quelle keine Rufangabe hat.
     _leer137 = {'titleLocKey': 'probe_ohne_ruf',
                 'contractInfo': '# Cooldown für Mission: 1 Minute\\n'
                                 '# Mission kann geteilt werden? Ja'}
-    _z137 = _in136._angabenzeilen(_leer137, '', _worte137, None)
+    _z137 = _in136._detail_lines(_leer137, '', _worte137, None)
     _ruf137 = [z for z in _z137
-               if any(w in z.lower() for w in _in136.RUF_WORTE)]
+               if any(w in z.lower() for w in _in136.REP_WORDS)]
     pruefe(len(_ruf137) == 1,
            'genau eine Ruf-Zeile kommt dazu (gefunden: %d)' % len(_ruf137))
     pruefe(_ruf137 and 'Keine Angaben' in _ruf137[0],
            'sie sagt „Keine Angaben"')
-    pruefe(_ruf137 and _ruf137[0].startswith(_in136.FARBE_AUF),
+    pruefe(_ruf137 and _ruf137[0].startswith(_in136.COLOR_OPEN),
            'auch der Platzhalter ist blau')
     # ⚠ Er steht OBEN, bei den anderen Angaben — nicht unten angehaengt.
     pruefe(_z137 and _z137[0] is _ruf137[0] if _ruf137 else False,
@@ -13282,24 +13282,24 @@ def main():
     _hat137 = {'titleLocKey': 'probe_mit_ruf',
                'contractInfo': '# Zu erwartende Rufpunkte: 150 XP\\n'
                                '# Cooldown für Mission: 1 Minute'}
-    _z137b = _in136._angabenzeilen(_hat137, '', _worte137, None)
+    _z137b = _in136._detail_lines(_hat137, '', _worte137, None)
     _ruf137b = [z for z in _z137b
-                if any(w in z.lower() for w in _in136.RUF_WORTE)]
+                if any(w in z.lower() for w in _in136.REP_WORDS)]
     pruefe(len(_ruf137b) == 1 and 'Keine Angaben' not in _ruf137b[0],
            'wo Rufwerte da sind, kommt kein Platzhalter dazu')
 
     # …noch eine, die schon im Text des Spiels steht (anderes Werkzeug).
-    _z137c = _in136._angabenzeilen(
+    _z137c = _in136._detail_lines(
         _leer137, '# Min. Reputation: Auftragnehmer Junior', _worte137, None)
     _ruf137c = [z for z in _z137c
-                if any(w in z.lower() for w in _in136.RUF_WORTE)]
+                if any(w in z.lower() for w in _in136.REP_WORDS)]
     pruefe(not _ruf137c,
            'steht schon eine Rufangabe im Text, kommt keine zweite')
 
     # ⚠ Gegenprobe: Ohne die Ergaenzung waere die Liste ruflos — sonst
     # prueft die erste Zeile nichts.
     pruefe(not [z for z in (_leer137['contractInfo'] or '').split('\\n')
-                if any(w in z.lower() for w in _in136.RUF_WORTE)],
+                if any(w in z.lower() for w in _in136.REP_WORDS)],
            'Gegenprobe: die Quelle selbst nennt keinen Ruf')
 
     print()
@@ -16609,7 +16609,7 @@ def main():
     # 10.09.2026 wird deshalb an einer echten Wegwerf-`global.ini` geschrieben
     # und der Name im Ergebnis **nachgelesen**, einmal ueber jeden Weg.
     import tempfile as _tf175
-    from scbp import injektion as _in175
+    from scbp import injection as _in175
 
     _heim175 = _tf175.mkdtemp(prefix='pruefung175-')
     _altheim175 = os.environ.get('SC_BP_HOME')
@@ -16640,8 +16640,8 @@ def main():
 
         # -- Weg 1: der Rueckfallweg, ohne Vertragsdaten.
         _ini_frisch175()
-        _ok1_175, _, _meld1_175 = _in175.einspielen(_ini175, 'english',
-                                                    katalog=_kat175)
+        _ok1_175, _, _meld1_175 = _in175.apply_texts(_ini175, 'english',
+                                                    catalog_data=_kat175)
         pruefe(_ok1_175, 'der Rueckfallweg laeuft wirklich an (%s)' % _meld1_175)
         pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
                'einspielen() schreibt den eigenen Schiffsnamen wirklich hinein')
@@ -16654,7 +16654,7 @@ def main():
         with open(_scdl175, 'w', encoding='utf-8') as _f:
             json.dump({'entries': [{}]}, _f)
         _ini_frisch175()
-        _ok175, _, _meld175 = _in175.einspielen_scdl(_ini175, 'en')
+        _ok175, _, _meld175 = _in175.apply_scdl(_ini175, 'en')
         pruefe(_ok175, 'der SCDL-Weg laeuft in der Pruefung wirklich an (%s)'
                % _meld175)
         pruefe(_erwartet175 in open(_ini175, encoding='utf-8').read(),
@@ -16702,7 +16702,7 @@ def main():
     # ⚠ Geprueft wird an zwei echten Dateien in zwei Ordnern, nicht an einer
     # Zusicherung im Quelltext — und der Wortlaut zeichengenau.
     import tempfile as _tf177
-    from scbp import injektion as _in177
+    from scbp import injection as _in177
 
     _heim177 = _tf177.mkdtemp(prefix='pruefung177-')
     _alt_heim177 = os.environ.get('SC_BP_HOME')
@@ -16729,30 +16729,30 @@ def main():
         _schreiben177(_en177)
         _ur177 = open(_de177, encoding='utf-8').read()
 
-        _in177.einspielen(_de177, 'german_(germany)', katalog=_kat177)
-        pruefe(_in177.ist_drin(_de177),
+        _in177.apply_texts(_de177, 'german_(germany)', catalog_data=_kat177)
+        pruefe(_in177.is_applied(_de177),
                'die zuerst gewaehlte Datei traegt unsere Eintraege')
 
-        _fund177 = _in177.altlast(_en177)
+        _fund177 = _in177.leftover_file(_en177)
         pruefe(_fund177 is not None and os.path.samefile(_fund177, _de177),
                'beim Wechsel wird die alte Datei als verwaist erkannt')
-        pruefe(_in177.altlast(_de177) is None,
+        pruefe(_in177.leftover_file(_de177) is None,
                'dasselbe Ziel gilt NICHT als Altlast — sonst raeumt es sich selbst ab')
 
-        _weg177, _n177 = _in177.altlast_aufraeumen(_en177)
+        _weg177, _n177 = _in177.clean_leftover(_en177)
         pruefe(_weg177 is not None, 'und sie wird zurueckgesetzt')
         pruefe(open(_de177, encoding='utf-8').read() == _ur177,
                'zeichengenau auf den Wortlaut von vorher')
-        pruefe(not _in177.ist_drin(_de177), 'es steht nichts mehr von uns darin')
+        pruefe(not _in177.is_applied(_de177), 'es steht nichts mehr von uns darin')
 
         # -- Und die Gegenrichtung, sonst prueft es nur den halben Weg.
-        _in177.einspielen(_en177, 'english', katalog=_kat177)
+        _in177.apply_texts(_en177, 'english', catalog_data=_kat177)
         _ur_en177 = open(_en177, encoding='utf-8').read()
-        _zurueck177, _ = _in177.altlast_aufraeumen(_de177)
+        _zurueck177, _ = _in177.clean_leftover(_de177)
         pruefe(_zurueck177 is not None and os.path.samefile(_zurueck177, _en177),
                'zurueck gewechselt ist die englische die Altlast')
         pruefe(open(_en177, encoding='utf-8').read() != _ur_en177
-               and not _in177.ist_drin(_en177),
+               and not _in177.is_applied(_en177),
                'auch sie wird sauber zurueckgesetzt')
     finally:
         if _alt_heim177 is None:
@@ -19896,11 +19896,11 @@ def main():
     # zwar unterscheidbar. Eine Textsuche nach `game_language` waere gruen,
     # auch wenn die Zeile nur eine der beiden nennt.
     print('\n204. Der Bericht nennt die gepflegte UND die gespielte Sprache')
-    from scbp import report as _be204, injektion as _inj204
+    from scbp import report as _be204, injection as _inj204
     from scbp import translation as _tr204
-    _alt204 = (_inj204.lage, _tr204.game_language)
+    _alt204 = (_inj204.status, _tr204.game_language)
     try:
-        _inj204.lage = lambda: {
+        _inj204.status = lambda: {
             'datei': os.path.join('x', 'english', 'global.ini'),
             'drin': True, 'quelle': 'original', 'stand': None}
         _tr204.game_language = lambda: 'german_(germany)'
@@ -19918,7 +19918,7 @@ def main():
         pruefe('—' in _be204._injection_state(),
                'ohne g_language steht ein Strich, nicht nichts')
     finally:
-        _inj204.lage, _tr204.game_language = _alt204
+        _inj204.status, _tr204.game_language = _alt204
 
     # === 205 · Auftragstitel mit Platzhalter sind anklickbar ===============
     #

@@ -44,7 +44,7 @@ import zipfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 heim = tempfile.mkdtemp(prefix='smartcitizen-')
 os.environ['SC_BP_HOME'] = heim
-from scbp import injektion
+from scbp import injection
 
 # ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `⚠` — siehe ausgabe.py.
 import ausgabe                                                 # noqa: E402
@@ -118,20 +118,20 @@ print('0) Nachbildung: %d von %d Markern im Original wiedergefunden'
 if abweichend:
     print('   nicht gefunden:', ', '.join(repr(m) for m in abweichend))
     # ⚠ Das ist die dritte Sicherung und muss **fehlschlagen**, nicht nur
-    # melden. `FREMDER_ANHANG` in `scbp/injektion.py` setzt darauf, dass deren
+    # melden. `FREMDER_ANHANG` in `scbp/injection.py` setzt darauf, dass deren
     # Marker in der Form `--- WORT ---` / `== Wort ==` / `<EMn>Wort</EMn>`
     # bleiben. Verschwindet einer aus deren Quelle, ist entweder die Form
     # gewandert oder unsere Nachbildung veraltet — beides heißt: hinsehen,
     # bevor das nächste Release rausgeht.
     fehler.append('%d Marker stehen nicht mehr in Smart Citizens Quelle: %s. '
                   'Entweder haben sie umbenannt (dann FREMDER_ANHANG in '
-                  'scbp/injektion.py gegenprüfen) oder diese Nachbildung ist '
+                  'scbp/injection.py gegenprüfen) oder diese Nachbildung ist '
                   'veraltet.'
                   % (len(abweichend), ', '.join(repr(m) for m in abweichend)))
 
 # Und die Gegenprobe: greift unser Muster auf **jeden** ihrer Marker?
 nicht_erkannt = [m for m in SC_MARKER
-                 if not injektion.FREMDER_ANHANG.search('Text' + m + '\\nWert')]
+                 if not injection.FOREIGN_APPENDIX.search('Text' + m + '\\nWert')]
 print('   unser Muster erkennt: %d von %d ihrer Marken'
       % (len(SC_MARKER) - len(nicht_erkannt), len(SC_MARKER)))
 if nicht_erkannt:
@@ -158,7 +158,7 @@ BLOCK = ('Weight: 10.0 kg\\nFire Rate: 650 RPM\\nAlpha Dmg: 14.5 (Phys) | '
 # Konflikt harmlos aus.
 zeilen, gesetzt, ihre_schluessel = [], 0, set()
 for zeile in grund.splitlines():
-    teile = injektion._zeile_zerlegen(zeile)
+    teile = injection._split_line(zeile)
     if teile and re.search(r'desc', teile[0], re.I):
         schluessel, zusatz, text = teile
         zeilen.append('%s%s=%s' % (schluessel, zusatz,
@@ -182,17 +182,17 @@ print('\nSmart-Citizen-Stand nachgebaut: %d Blöcke in %d Beschreibungen'
 # ---------------------------------------------------------------------------
 # 1) Erkennt der Watcher deren Stand fälschlich als eigenen?
 # ---------------------------------------------------------------------------
-if injektion.ist_drin(arbeit):
+if injection.is_applied(arbeit):
     fehler.append('ist_drin() hält Smart Citizens Stand für eine eigene '
                   'Injektion — dann meldet der Watcher "steht schon drin" und '
                   'trägt nie etwas ein.')
 print('\n1) nur Smart Citizen  -> ist_drin=%s (muss False sein)'
-      % injektion.ist_drin(arbeit))
+      % injection.is_applied(arbeit))
 
 # ---------------------------------------------------------------------------
 # 2) Wir schreiben über deren Stand
 # ---------------------------------------------------------------------------
-ok, n, meldung = injektion.einrichten(arbeit, 'german_(germany)')
+ok, n, meldung = injection.setup(arbeit, 'german_(germany)')
 nachher = lies(arbeit)
 stats_nachher = nachher.count('--- STATS ---')
 zerschnitten = sum(1 for z in nachher.splitlines()
@@ -201,20 +201,20 @@ print('\n2) Einspielen         ->', ok, n, meldung)
 print('   ihre Stats-Blöcke  : %d von %d unverändert'
       % (stats_nachher, stats_vorher))
 print('   doppelte Blöcke    : %d' % zerschnitten)
-print('   ist_drin           :', injektion.ist_drin(arbeit))
+print('   ist_drin           :', injection.is_applied(arbeit))
 
 if stats_nachher != stats_vorher:
     fehler.append('%d ihrer Stats-Blöcke sind beim Einspielen verschwunden.'
                   % (stats_vorher - stats_nachher))
 if zerschnitten:
     fehler.append('%d Einträge tragen den Stats-Block doppelt.' % zerschnitten)
-if not injektion.ist_drin(arbeit):
+if not injection.is_applied(arbeit):
     fehler.append('ist_drin() erkennt die eigene Injektion nicht.')
 
 # ---------------------------------------------------------------------------
 # 3) Zurücksetzen — kommt ihr Wortlaut zeichengenau zurück?
 # ---------------------------------------------------------------------------
-ok, n, meldung = injektion.entfernen(arbeit, 'german_(germany)')
+ok, n, meldung = injection.remove_texts(arbeit, 'german_(germany)')
 gleich = filecmp.cmp(arbeit, urfassung, shallow=False)
 print('\n3) Entfernen          ->', ok, n, meldung)
 print('   Wortlaut wie Smart Citizen ihn schrieb:', 'JA' if gleich else 'NEIN')
@@ -235,20 +235,20 @@ if not gleich:
 # ab dem ersten eigenen Marker alles weg. Steht unser Bauplan-Block dahinter,
 # ist er beim nächsten Smart-Citizen-Lauf still verschwunden.
 shutil.copyfile(urfassung, arbeit)
-injektion.einrichten(arbeit, 'german_(germany)')
+injection.setup(arbeit, 'german_(germany)')
 mit_uns = lies(arbeit)
 
 verloren, geprueft = 0, 0
 for zeile in mit_uns.splitlines():
-    teile = injektion._zeile_zerlegen(zeile)
+    teile = injection._split_line(zeile)
     if not teile or teile[0] not in ihre_schluessel:
         continue
     text = teile[2]
-    if not injektion.EIGENER_NACHWEIS.search(text):
+    if not injection.OWN_TRACE.search(text):
         continue          # an dieser Zeile haben wir gar nichts geschrieben
     geprueft += 1
     danach = sc_anhaengen(text, BLOCK)
-    if not injektion.EIGENER_NACHWEIS.search(danach):
+    if not injection.OWN_TRACE.search(danach):
         verloren += 1
 
 print('\n4) Ihr Lauf über unseren Stand')

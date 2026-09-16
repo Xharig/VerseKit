@@ -262,9 +262,9 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
             f.write(daten)
         os.replace(ziel + '.tmp', ziel)
         # Frische Grundlage — die gemerkten Originaltexte gehören zur alten
-        # Datei. Siehe `injektion.urtext_verwerfen()`.
-        from . import injektion
-        injektion.urtext_verwerfen()
+        # Datei. Siehe `injection.discard_origtext()`.
+        from . import injection
+        injection.discard_origtext()
         # ⚠ Der Vermerk der ersetzten Quelle muss mit weg: Sonst gilt
         # StarStrings weiter als eingerichtet, die Lage zeigt es an, und der
         # nächste Wechsel auf „Original" ersetzt die frische Datei noch einmal.

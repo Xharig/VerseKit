@@ -41,7 +41,7 @@ ausgabe.utf8()
 
 heim = tempfile.mkdtemp(prefix='starstrings-')
 os.environ['SC_BP_HOME'] = heim
-from scbp import injektion
+from scbp import injection
 
 ADRESSE = ('https://github.com/MrKraken/StarStrings/releases/download/'
            'latest/StarStrings-LIVE.zip')
@@ -91,7 +91,7 @@ def markierte_schluessel(text):
         # `<EM4>[10 Rep] [BP]</EM4>` und `<EM4>[150 Rep] [BP]*</EM4>` (allein
         # die letzte 267 mal). Der erste Anlauf hier suchte nach `[BP]</EM4>`
         # und prüfte damit 47 statt 314 Einträge.
-        if injektion.TITELMARKE.search(wert):
+        if injection.TITLE_MARK.search(wert):
             treffer.add(schluessel)
     return treffer
 
@@ -100,7 +100,7 @@ vorher = lies(arbeit)
 marken_vorher = len(FREMDE_MARKE.findall(vorher))
 seine_schluessel = markierte_schluessel(vorher)
 namen_vorher = len([z for z in vorher.splitlines()
-                    if injektion.FREMDES_KUERZEL.search(z.split('=', 1)[-1])])
+                    if injection.FOREIGN_TAG.search(z.split('=', 1)[-1])])
 print('StarStrings: %d KB, %d Kennzeichnungen [BP], %d Namen mit Kürzel'
       % (len(vorher) // 1024, marken_vorher, namen_vorher))
 
@@ -108,23 +108,23 @@ fehler = []
 
 # ---------------------------------------------------------------- 0) frisch?
 # So, wie es nach `translation.fetch()` aussieht: eben eingesetzt, nie berührt.
-injektion.urtext_verwerfen()
-if not injektion.ist_frisch():
+injection.discard_origtext()
+if not injection.is_fresh():
     fehler.append('Die eingesetzte Datei gilt nicht als frisch.')
-if injektion.ist_drin(arbeit):
+if injection.is_applied(arbeit):
     fehler.append('ist_drin() meldet eine Injektion, obwohl nur MrKrakens '
                   'eigene Kennzeichnungen dastehen.')
 print('\n0) frisch eingesetzt  -> ist_frisch=%s  ist_drin=%s'
-      % (injektion.ist_frisch(), injektion.ist_drin(arbeit)))
+      % (injection.is_fresh(), injection.is_applied(arbeit)))
 
 # ------------------------------------------------------------ 1) einspielen
-ok, n, meldung = injektion.einrichten(arbeit, 'english')
+ok, n, meldung = injection.setup(arbeit, 'english')
 print('\n1) Einspielen         ->', ok, n, meldung)
 nachher = lies(arbeit)
 marken_nachher = len(FREMDE_MARKE.findall(nachher))
 doppelt = len(re.findall(r'<EM4>\[BP\]</EM4>\s*<EM4>\[BP\]</EM4>', nachher))
 namen_nachher = len([z for z in nachher.splitlines()
-                     if injektion.FREMDES_KUERZEL.search(z.split('=', 1)[-1])])
+                     if injection.FOREIGN_TAG.search(z.split('=', 1)[-1])])
 kaestchen = nachher.count('[x]') + nachher.count('[  ]')
 behalten = seine_schluessel & markierte_schluessel(nachher)
 print('   MrKrakens Einträge : %d von %d behalten ihre Marke'
@@ -136,7 +136,7 @@ print('   doppelte Marken    : %d' % doppelt)
 print('   Namen mit Kürzel   : %d von %d unverändert' % (namen_nachher,
                                                          namen_vorher))
 print('   eigene Kästchen    : %d' % kaestchen)
-print('   ist_drin           :', injektion.ist_drin(arbeit))
+print('   ist_drin           :', injection.is_applied(arbeit))
 
 if behalten != seine_schluessel:
     fehler.append('MrKrakens Kennzeichnungen: %d von %d verloren.'
@@ -148,11 +148,11 @@ if namen_nachher != namen_vorher:
                   % (namen_vorher - namen_nachher))
 if not kaestchen:
     fehler.append('Keine Kästchen eingetragen — der eigene Beitrag fehlt.')
-if not injektion.ist_drin(arbeit):
+if not injection.is_applied(arbeit):
     fehler.append('ist_drin() erkennt die eigene Injektion nicht.')
 
 # ------------------------------------------------------------- 2) entfernen
-ok, n, meldung = injektion.entfernen(arbeit, 'english')
+ok, n, meldung = injection.remove_texts(arbeit, 'english')
 print('\n2) Entfernen          ->', ok, n, meldung)
 gleich = filecmp.cmp(arbeit, urfassung, shallow=False)
 print('   Wortlaut wie MrKraken ihn schrieb:', 'JA' if gleich else 'NEIN')

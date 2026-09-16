@@ -49,7 +49,7 @@ from scbp import (
     contracts, tray_icon, updater, assistent, autostart, places, prices,
                   screen, overlay,
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
-                  settings_window, notice, injektion,
+                  settings_window, notice, injection,
                   catalog as katalog_modul, shops, logsource, watchlist,
                   pfade, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
@@ -970,7 +970,7 @@ class Watcher(threading.Thread):
         machen. Gemeldet wird sie im Sechs-Stunden-Lauf, dort stört sie nicht.
         """
         try:
-            return injektion.bestand_marke() != pfade.einstellung('inj_bestand')
+            return injection.stock_mark() != pfade.einstellung('inj_bestand')
         except Exception:
             return False
 
@@ -987,7 +987,7 @@ class Watcher(threading.Thread):
         ziel = translation.target_ini(sprache_ordner)
         if not ziel:
             return
-        kuerzel = injektion._sprachkuerzel(sprache_ordner)
+        kuerzel = injection._lang_code(sprache_ordner)
         neu_noetig = False
 
         # 1. Neue Version der Übersetzung? Die schreibt die Datei komplett neu,
@@ -1002,7 +1002,7 @@ class Watcher(threading.Thread):
 
         # 2. Neue Vertragsdaten? Nach einem Patch geben Missionen anderes aus.
         if not nur_bestand:
-            da, kennung = injektion.scdl_update_da(kuerzel)
+            da, kennung = injection.scdl_update_available(kuerzel)
             if da:
                 self.q.put(('status',
                             sprache.Satz('bpdaten_erneuert', kennung)))
@@ -1010,7 +1010,7 @@ class Watcher(threading.Thread):
 
         # 3. Ist die Auszeichnung überhaupt noch drin? Ein Spiel-Patch ersetzt
         #    die Datei, ohne dass jemand etwas davon merkt.
-        if not neu_noetig and not nur_bestand and not injektion.ist_drin(ziel):
+        if not neu_noetig and not nur_bestand and not injection.is_applied(ziel):
             neu_noetig = True
 
         # 4. ⚠⚠ **Hat sich der eigene Bestand geändert?** Bis zum 04.09.2026
@@ -1040,21 +1040,21 @@ class Watcher(threading.Thread):
         marke = None
         if not neu_noetig:
             try:
-                marke = injektion.bestand_marke()
+                marke = injection.stock_mark()
                 if marke != pfade.einstellung('inj_bestand'):
                     neu_noetig = True
             except Exception as ausnahme:
                 fehler.merken('watcher.inj_bestandsmarke', ausnahme)
 
         if neu_noetig and os.path.isfile(ziel):
-            ok, anzahl, _meldung = injektion.einrichten(ziel, sprache_ordner)
+            ok, anzahl, _meldung = injection.setup(ziel, sprache_ordner)
             if ok:
                 self.q.put(('status', sprache.Satz('inj_aktiv', anzahl)))
                 # Erst nach dem Schreiben merken: Scheitert das Einrichten,
                 # soll es beim nächsten Durchlauf erneut versucht werden.
                 try:
                     pfade.einstellung_setzen(
-                        'inj_bestand', marke or injektion.bestand_marke())
+                        'inj_bestand', marke or injection.stock_mark())
                 except Exception as ausnahme:
                     fehler.merken('watcher.inj_marke_merken', ausnahme)
 
@@ -4734,7 +4734,7 @@ class Overlay:
         die 10-MB-Datei neu schreibt; die Statuszeile meldet das Ergebnis.
         """
         import threading
-        pfad, sprache_ordner, _quelle = injektion.ini_datei()
+        pfad, sprache_ordner, _quelle = injection.ini_file()
         if not pfad:
             self._status_setzen(sprache.Satz('inj_fehler', 'global.ini'))
             return
@@ -4742,7 +4742,7 @@ class Overlay:
 
         def arbeit():
             try:
-                ok, n, meldung = injektion.aktualisieren(pfad, sprache_ordner)
+                ok, n, meldung = injection.refresh(pfad, sprache_ordner)
             except Exception as ausnahme:
                 ok, n, meldung = False, 0, str(ausnahme)
                 fehler.merken('overlay.uebersetzung_erneuern', ausnahme)

@@ -38,7 +38,7 @@ Drei mögliche Grundlagen:
 > Vorgehen wie beim Bauplan-Katalog von scmdb.
 
 Was der Watcher **selbst** beisteuert, ist die Bauplan-Auszeichnung obendrauf
-(`scbp/injektion.py`): welche Missionen einen Bauplan geben und welche davon
+(`scbp/injection.py`): welche Missionen einen Bauplan geben und welche davon
 man **schon hat**. Das kann keine der Fremdquellen leisten — den eigenen
 Bestand kennt nur dieses Werkzeug.
 """
@@ -242,7 +242,7 @@ def game_language(game_dir=None):
 
     ⚠⚠ **Warum es das braucht.** Das Werkzeug **schrieb** `g_language` schon
     lange (`user_cfg_setzen`), gelesen hat es die Zeile nie. Bei der Textquelle
-    „Original" nahm `injektion.ini_datei()` deshalb eine feste Reihenfolge —
+    „Original" nahm `injection.ini_file()` deshalb eine feste Reihenfolge —
     erst `english`, dann `german_(germany)` — und beide Dateien gibt es fast
     immer. Ergebnis: Wir schrieben in die englische, das Spiel las die deutsche.
     Eingetragen wurde also korrekt, angekommen ist nie etwas, und die Statuszeile
@@ -357,6 +357,6 @@ def fetch(source, progress=None, game_dir=None):
     # injiziert wurde. Ohne diesen Vermerk schneidet der Formen-Notnagel beim
     # ersten Lauf fremde Kennzeichnungen heraus — bei StarStrings 17 Stück,
     # und wegen des dann falsch gemerkten „Urtextes" für immer.
-    from . import injektion
-    injektion.urtext_verwerfen()
+    from . import injection
+    injection.discard_origtext()
     return True, '%s (%s), %.1f MB' % (q['name'], ident, len(ini) / 1048576.0)

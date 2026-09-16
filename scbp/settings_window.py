@@ -39,7 +39,7 @@ Ersteinrichtung; dieses Fenster ist zum gezielten Nachstellen einer Sache.
 import os
 import tkinter as tk
 
-from . import injektion
+from . import injection
 from . import pfade
 from . import gametext
 from . import sprache
@@ -443,11 +443,11 @@ class SettingsWindow:
             # dauerhaft einen alten Stand. Die Reihenfolge ist Pflicht:
             # `einrichten()` überschreibt den Urtext, den das Zurücksetzen
             # braucht.
-            alt, alt_n = injektion.altlast_aufraeumen(ziel)
+            alt, alt_n = injection.clean_leftover(ziel)
             if alt:
                 melde(t('inj_alt_aufgeraeumt', alt_n))
-            ok, n, meldung = injektion.einrichten(ziel, sprache_ordner,
-                                                  fortschritt=melde)
+            ok, n, meldung = injection.setup(ziel, sprache_ordner,
+                                                  progress=melde)
             self._say(t('inj_aktiv', n) if ok else t('inj_fehler', meldung),
                          SUB if ok else RED)
         except Exception as e:
@@ -455,17 +455,17 @@ class SettingsWindow:
         self._show_inj_state()
 
     def _inj_ini(self):
-        """Die `global.ini`, um die es geht — siehe `injektion.ini_datei()`.
+        """Die `global.ini`, um die es geht — siehe `injection.ini_file()`.
 
         ⚠ Die Logik steht bewusst NICHT mehr hier, sondern frei im Modul
-        `injektion`: Der Diagnosebericht braucht dieselbe Auskunft und hat
+        `injection`: Der Diagnosebericht braucht dieselbe Auskunft und hat
         kein Fenster. Zwei Kopien wären zwei Wahrheiten.
         """
-        return injektion.ini_datei()
+        return injection.ini_file()
 
     def inj_state(self=None):
         """Steht etwas im Spiel, und aus welcher Quelle? (dict für die Seite)"""
-        return injektion.lage()
+        return injection.status()
 
     def _show_inj_state(self):
         lage = self.inj_state()
@@ -494,9 +494,9 @@ class SettingsWindow:
             return
         self._say(t('inj_laeuft'))
         self._continue()
-        ok, n, meldung = injektion.aktualisieren(
+        ok, n, meldung = injection.refresh(
             pfad, sprache_ordner,
-            fortschritt=lambda x: (self._say(x), self._continue()))
+            progress=lambda x: (self._say(x), self._continue()))
         self._say(t('inj_aktiv', n) if ok else t('inj_fehler', meldung),
                      SUB if ok else RED)
         self._show_inj_state()
@@ -505,14 +505,14 @@ class SettingsWindow:
         pfad, sprache_ordner, _ = self._inj_ini()
         if not pfad:
             return
-        ok, n, meldung = injektion.entfernen(pfad, sprache_ordner)
+        ok, n, meldung = injection.remove_texts(pfad, sprache_ordner)
         self._say(meldung, SUB if ok else RED)
         self._show_inj_state()
 
     def _inj_check(self):
         """Gibt es bei der benutzten Quelle etwas Neues?"""
         pfad, _sprache, quelle = self._inj_ini()
-        drin = bool(pfad and os.path.isfile(pfad) and injektion.ist_drin(pfad))
+        drin = bool(pfad and os.path.isfile(pfad) and injection.is_applied(pfad))
         if not quelle:
             # Keine Übersetzung vermerkt — dann bleibt nur die Aussage, ob die
             # Angaben gerade im Spiel stehen.
