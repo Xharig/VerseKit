@@ -2279,6 +2279,15 @@ TEXTS = {
                               '**Reputation and cooldown in the contract texts** — '
                               'asked twice, persistently, until they were not just '
                               'there but actually noticeable.'),
+    's_dk_bushwick_bugs2':   ('Die Frage, was eine selbst gebaute **NDB-30** '
+                              'wirklich besser kann. Die Herstellung zeigte '
+                              'nur Faktoren je Material, aber nicht, was am '
+                              'Ende an Schaden und DPS herauskommt — jetzt '
+                              'steht beides in einer Tabelle.',
+                              'The question of what a self-built **NDB-30** '
+                              'actually does better. Crafting only showed a '
+                              'factor per material, not the damage and DPS you '
+                              'end up with — now both are in a table.'),
     's_dk_bushwick_idee3':   ('**Der Rückweg nach einem Seitensprung** — wer in '
                               'der Bauplan-Liste einen Eintrag anklickt, landet '
                               'in der Herstellung und kam von dort nur über die '
@@ -4399,6 +4408,106 @@ TEXTS = {
     # BUL-H4 Armor).
     's_he_ohne_wirkung': ('verändert keine Eigenschaft',
                           'changes no property'),
+    # --- Produktwerte: Grundwert gegen gebauten Wert (`scbp/product_stats.py`)
+    # ⚠ Gerechnet wie auf scmdb.net, damit beide dieselbe Zahl zeigen.
+    's_ps_sp_wert':      ('Eigenschaft', 'Property'),
+    's_ps_sp_grund':     ('Grundwert', 'Base'),
+    's_ps_sp_gebaut':    ('Gebaut', 'Crafted'),
+    's_ps_sp_diff':      ('Änderung', 'Change'),
+    's_ps_keine':        ('Zu diesem Gegenstand liefern die Daten keine '
+                          'Grundwerte. Was jedes Material verändert, steht '
+                          'rechts neben seinem Regler.',
+                          'The data has no base stats for this item. What each '
+                          'material changes is shown next to its slider.'),
+    's_ps_nachladen':    ('Die Grundwerte fehlen noch — sie kommen beim '
+                          'nächsten Auffrischen des Katalogs mit.',
+                          'Base stats are not loaded yet — they arrive with the '
+                          'next catalogue refresh.'),
+    's_ps_groesse':      ('Größe %s', 'Size %s'),
+    's_ps_reichweite_m': ('Reichweite ~%d m', 'Range ~%d m'),
+    's_ps_reichweite':   ('Reichweite %s', '%s range'),
+    's_ps_magazin':      ('Magazin %s', 'Mag %s'),
+    's_ps_komponente':   ('Komponente', 'Component'),
+    's_ps_integritaet':  ('Integrität', 'Integrity'),
+    's_ps_strom':        ('Stromverbrauch', 'Power draw'),
+    's_ps_em':           ('EM-Signatur', 'EM signature'),
+    's_ps_ir':           ('IR-Signatur', 'IR signature'),
+    's_ps_reparatur':    ('Selbstreparatur', 'Repair time'),
+    's_ps_laserkraft':   ('Laserkraft', 'Laser power'),
+    's_ps_extraktion':   ('Extraktion', 'Extraction'),
+    's_ps_dps':          ('DPS', 'DPS'),
+    's_ps_voll_bis':     ('Volle Wirkung bis', 'Full strength to'),
+    's_ps_null_ab':      ('Keine Wirkung ab', 'Zero damage at'),
+    's_ps_feuerrate':    ('Feuerrate', 'Fire rate'),
+    's_ps_schaden':      ('Schaden je Schuss', 'Damage / shot'),
+    's_ps_schaden_art':  ('Schaden je Schuss (%s)', '%s damage / shot'),
+    's_ps_detonation':   ('(Detonation)', '(detonation)'),
+    's_ps_dmg_physical': ('Physisch', 'Physical'),
+    's_ps_dmg_energy':   ('Energie', 'Energy'),
+    's_ps_dmg_distortion': ('Distortion', 'Distortion'),
+    's_ps_dmg_thermal':  ('Thermisch', 'Thermal'),
+    's_ps_dmg_biochemical': ('Biochemisch', 'Biochemical'),
+    's_ps_dmg_stun':     ('Betäubung', 'Stun'),
+    's_ps_rueck_pitch':  ('Rückstoß — Nicken', 'Recoil pitch'),
+    's_ps_rueck_yaw':    ('Rückstoß — Gieren', 'Recoil yaw'),
+    's_ps_rueck_glatt':  ('Rückstoß — Glättung', 'Recoil smooth'),
+    's_ps_streuung':     ('Streuung', 'Spread'),
+    's_ps_geschoss':     ('Geschossgeschwindigkeit', 'Ammo speed'),
+    's_ps_hitze':        ('Hitze je Schuss', 'Heat / shot'),
+    's_ps_schild':       ('Schild', 'Shield'),
+    's_ps_schild_hp':    ('Schildstärke', 'Shield HP'),
+    's_ps_regen':        ('Regeneration', 'Regen'),
+    's_ps_down_delay':   ('Neustart nach Ausfall', 'Down delay'),
+    's_ps_dmg_delay':    ('Pause nach Treffer', 'Damage delay'),
+    's_ps_radar':        ('Radar', 'Radar'),
+    's_ps_empfindlich':  ('Empfindlichkeit', 'Sensitivity'),
+    's_ps_durchdringung': ('Durchdringung', 'Piercing'),
+    's_ps_ping':         ('Ping-Abklingzeit', 'Ping cooldown'),
+    's_ps_hilfe_min':    ('Zielhilfe ab', 'Assist min'),
+    's_ps_hilfe_max':    ('Zielhilfe bis', 'Assist max'),
+    's_ps_hilfe':        ('Zielhilfe', 'Aim assist'),
+    's_ps_kraftwerk':    ('Kraftwerk', 'Power plant'),
+    's_ps_leistung':     ('Leistung', 'Power output'),
+    's_ps_kuehler':      ('Kühler', 'Cooler'),
+    's_ps_kuehlrate':    ('Kühlleistung', 'Cooling rate'),
+    's_ps_traktor':      ('Traktorstrahl', 'Tractor beam'),
+    's_ps_kraft_min':    ('Kraft min.', 'Min force'),
+    's_ps_kraft_max':    ('Kraft max.', 'Max force'),
+    's_ps_max_dist':     ('Reichweite', 'Max distance'),
+    's_ps_max_vol':      ('Größtes Volumen', 'Max volume'),
+    's_ps_bergung':      ('Bergungsmodul', 'Salvage module'),
+    's_ps_tempo':        ('Geschwindigkeit', 'Speed'),
+    's_ps_radius':       ('Radius', 'Radius'),
+    's_ps_effizienz':    ('Ausbeute', 'Efficiency'),
+    's_ps_duese':        ('Tankdüse', 'Nozzle'),
+    's_ps_wasserstoff':  ('Wasserstoff-Durchsatz', 'Hydrogen fuel rate'),
+    's_ps_quantum_rate': ('Quantum-Durchsatz', 'Quantum fuel rate'),
+    's_ps_quantum':      ('Quantenantrieb', 'Quantum drive'),
+    's_ps_tempo_q':      ('Reisegeschwindigkeit', 'Drive speed'),
+    's_ps_verbrauch':    ('Verbrauch je 10 Mkm', 'Fuel / 10 Mkm'),
+    's_ps_spool':        ('Aufladen', 'Spool up'),
+    's_ps_abkuehlen':    ('Abkühlen', 'Cooldown'),
+    's_ps_erzkapsel':    ('Erzkapsel', 'Ore pod'),
+    's_ps_fracht':       ('Fassungsvermögen', 'Cargo capacity'),
+    's_ps_modul':        ('Bergbaumodul', 'Mining module'),
+    's_ps_ladungen':     ('Ladungen', 'Charges'),
+    's_ps_mm_instability': ('Instabilität', 'Instability'),
+    's_ps_mm_optimalchargewindowsize': ('Optimales Ladefenster',
+                                        'Optimal charge window'),
+    's_ps_mm_resistance': ('Widerstand', 'Resistance'),
+    's_ps_mm_shatterdamage': ('Zersplitterschaden', 'Shatter damage'),
+    's_ps_mm_clusterfactor': ('Clusterfaktor', 'Cluster factor'),
+    's_ps_mm_optimalchargerate': ('Optimale Laderate', 'Optimal charge rate'),
+    's_ps_mm_catastrophicchargerate': ('Überladungsrate', 'Overcharge rate'),
+    's_ps_mm_filter':    ('Filter für taubes Gestein',
+                          'Inert material filtering'),
+    's_ps_widerstand':   ('Schadensminderung', 'Damage resistance'),
+    's_ps_temperatur':   ('Temperatur', 'Temperature'),
+    's_ps_temp_min':     ('Kälte bis', 'Min'),
+    's_ps_temp_max':     ('Hitze bis', 'Max'),
+    's_ps_strahlung':    ('Strahlung', 'Radiation'),
+    's_ps_rad_schutz':   ('Strahlenschutz', 'Radiation protection'),
+    's_ps_rad_abbau':    ('Strahlungsabbau', 'Radiation scrub rate'),
     's_lg_hinweis':      ('Der Watcher kennt deinen Frachtraum nicht — das hier '
                           'ist deine eigene Liste. Sie sagt dir, was fehlen '
                           'könnte, nicht ob du bauen kannst.',

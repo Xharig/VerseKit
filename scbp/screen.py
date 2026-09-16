@@ -157,6 +157,33 @@ def primary(root):
     return gefunden or _whole_area(root)
 
 
+def detected_screens():
+    """Die wirklich erkannten Bildschirme — oder `[]`, wenn keiner erkannt wurde.
+
+    ⚠ Anders als `all_screens()` ohne Rückfall auf die Tk-Gesamtfläche. Die
+    kennt unter Windows negative Lagen nicht; wer damit „liegt das Fenster im
+    Bild?" beantwortet, schiebt ein Fenster vom oberen Monitor zu Unrecht weg.
+    """
+    try:
+        return (_windows_all_screens() if WINDOWS else _linux_all_screens()) or []
+    except Exception:
+        return []
+
+
+def title_visible(x, y, width, screens, grip=40):
+    """Liegt der obere Streifen eines Fensters sichtbar auf einem Bildschirm?
+
+    Gezählt wird der Streifen, an dem man ein Fenster anfasst — mindestens
+    `grip` Pixel breit und ein paar Pixel hoch müssen auf EINEM Schirm liegen.
+    """
+    for sx, sy, sb, sh in screens:
+        breit = min(x + width, sx + sb) - max(x, sx)
+        hoch = min(y + 20, sy + sh) - max(y, sy)
+        if breit >= min(grip, width) and hoch >= 10:
+            return True
+    return False
+
+
 def all_screens(root):
     """Alle Bildschirme als (x, y, breite, hoehe) — oder die Gesamtfläche."""
     if WINDOWS:

@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.42.4'
+__version__ = '3.43.0'
 
 
 def _mitgeliefert(name):
@@ -593,8 +593,18 @@ def geometrie_pruefen(geom, root):
         sh = max(root.winfo_screenheight(), root.winfo_vrootheight())
     except Exception:
         return geom
-    # Bis zum Zweifachen der Bildschirmgröße nach jeder Seite gilt als plausibel:
-    # Das deckt übliche Mehrschirm-Aufbauten ab, ohne Fantasiewerte durchzulassen.
+    # ⚠⚠ **Gegen die echten Monitore prüfen, wo sie bekannt sind.** Bis
+    # v3.42.4 galt hier nur „bis zum Dreifachen der Bildschirmgröße" — bei drei
+    # Monitoren von Y −1440 bis +1152 ließ das Y = 2526 durch, und das Overlay
+    # startete nach einem Update unterhalb aller Bildschirme. Es lief, war aber
+    # nirgends zu sehen (gemeldet am 16.09.2026).
+    schirme = screen.detected_screens()
+    if schirme:
+        if screen.title_visible(int(x), int(y), int(breite), schirme):
+            return geom
+        return '%sx%s' % (breite, hoehe)
+    # Ohne erkannte Monitore bleibt die grobe Schranke: bis zum Zweifachen der
+    # Bildschirmgröße nach jeder Seite gilt als plausibel.
     if -2 * sb <= int(x) <= 3 * sb and -2 * sh <= int(y) <= 3 * sh:
         return geom
     return '%sx%s' % (breite, hoehe)
@@ -2233,6 +2243,13 @@ class Overlay:
         # Bindung die Zeile darüber.
         self.root.bind('<Configure>', self._schloss_lage_folgen, add='+')
         self.root.bind('<Map>', self._schloss_lage_folgen, add='+')
+        # ⚠⚠ **Die Lage beim Verschieben merken, nicht erst beim Schließen.**
+        # Bis v3.42.4 schrieb sie nur `quit()`. Das Update (`_hand_over`) und
+        # „Beenden" am Symbol neben der Uhr enden über `os._exit` — ohne
+        # `quit()`. Nach dem Update stand das Overlay deshalb an einer alten
+        # gespeicherten Stelle statt dort, wo man es hingezogen hatte.
+        self._lage_nach = None
+        self.root.bind('<Configure>', self._lage_merken_bald, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
         notice.attach(self.grip, lambda: language.t('hinweis_groesse'))
 
@@ -3704,6 +3721,33 @@ class Overlay:
     def _save_geo(self, e=None):
         save_geometry(self._current_geom())
 
+    def _lage_merken_bald(self, e=None):
+        """Nach dem Verschieben kurz warten, dann die Lage schreiben.
+
+        ⚠ Gebündelt: Beim Ziehen feuert `<Configure>` dutzendfach je Sekunde,
+        geschrieben wird erst, wenn eine Dreiviertelsekunde Ruhe ist.
+        """
+        if e is not None and e.widget is not self.root:
+            return
+        try:
+            if self._lage_nach is not None:
+                self.root.after_cancel(self._lage_nach)
+            self._lage_nach = self.root.after(750, self._lage_merken)
+        except Exception:
+            pass
+
+    def _lage_merken(self):
+        self._lage_nach = None
+        try:
+            # ⚠ Ein verstecktes Fenster (Pop-up-Betrieb) meldet 1×1 an Stelle
+            # 0,0 — das darf die gemerkte Lage nicht überschreiben.
+            if (not self.root.winfo_viewable()
+                    or self.root.winfo_width() < 50):
+                return
+            save_geometry(self._current_geom())
+        except Exception as ausnahme:
+            fehler.merken('overlay.lage_merken', ausnahme)
+
     def quit(self):
         self._save_geo()
         self.watcher.stop()
@@ -4838,6 +4882,16 @@ class Overlay:
             ergebnis = update_run.evaluate(__version__)
             if ergebnis:
                 self.q.put(('hinweis', update_run.message(ergebnis)))
+                # ⚠⚠ **Nach einem Update geht das Hauptfenster wieder auf.**
+                # Bis v3.42.4 startete der Helfer nur das Overlay — das
+                # Fenster, aus dem heraus man „Update" geklickt hatte, blieb
+                # zu. Steht das Overlay auf einem anderen Bildschirm, sieht das
+                # aus wie „nicht wieder gestartet", obwohl es lief (gemeldet am
+                # 16.09.2026: Installer 18:49:13 fertig, Start 18:49:16).
+                # Ein Update beginnt immer mit einem Klick im Programm; wer
+                # dort war, erwartet es danach wieder vor sich.
+                fehler.spur('Nach Update: Hauptfenster wird geöffnet')
+                self.root.after(300, self.liste_oeffnen)
         except Exception as ausnahme:
             fehler.merken('start.update_ergebnis', ausnahme)
 
