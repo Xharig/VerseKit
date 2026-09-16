@@ -135,7 +135,7 @@ def desktop_content(befehl, symbol):
     `beschriftung_nachziehen()` eine vorhandene Datei aktualisiert. Getrennt
     gepflegt wären sie nach dem ersten Wortwechsel auseinander.
     """
-    # Lokal importiert, weil `sprache` selbst auf `pfade` aufsetzt.
+    # Lokal importiert, weil `sprache` selbst auf `paths` aufsetzt.
     from . import language
     name = language.t('hf_titel')
     return (

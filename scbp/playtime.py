@@ -57,7 +57,7 @@ import json
 import os
 import re
 
-from . import fehler, pfade
+from . import fehler, paths
 
 FILE = 'spielzeit.json'
 FORMAT = 1
@@ -82,7 +82,7 @@ def _seconds(stamp):
 
 
 def path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def load():
@@ -275,8 +275,8 @@ def _running_span():
     solange dieselbe Datei dieselbe Sitzung ist; faengt das Spiel neu an, wird
     die Datei **kuerzer** — daran ist der Wechsel zu erkennen.
     """
-    filename = pfade.game_log()
-    if not filename or not pfade.spiel_laeuft():
+    filename = paths.game_log()
+    if not filename or not paths.game_running():
         return None
     try:
         size = os.path.getsize(filename)

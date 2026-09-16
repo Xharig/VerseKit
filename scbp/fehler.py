@@ -55,7 +55,7 @@ import threading
 import traceback
 from datetime import datetime
 
-from . import pfade
+from . import paths
 
 DATEI = 'fehler.json'
 HOECHSTENS = 50          # so viele Einträge bleiben aufgehoben
@@ -65,7 +65,7 @@ _schloss = threading.Lock()
 
 
 def _pfad():
-    return pfade.app_datei(DATEI)
+    return paths.app_file(DATEI)
 
 
 def _lesen():
@@ -110,7 +110,7 @@ def spur(schritt):
     zeigen, kein Tagebuch sein.
     """
     try:
-        pfad = pfade.app_datei(SPUR_DATEI)
+        pfad = paths.app_file(SPUR_DATEI)
         art = 'a' if getattr(spur, '_offen', False) else 'w'
         spur._offen = True
         with open(pfad, art, encoding='utf-8') as f:
@@ -196,7 +196,7 @@ def _grenz_stelle(zeilen):
 def letzte_spur():
     """Die Spur des letzten Laufs — Startschritte und Bedienung, wie sie kam."""
     try:
-        with open(pfade.app_datei(SPUR_DATEI), encoding='utf-8') as f:
+        with open(paths.app_file(SPUR_DATEI), encoding='utf-8') as f:
             return [z.rstrip() for z in f if z.strip()]
     except Exception:
         return []
@@ -247,8 +247,8 @@ def absturzfaenger():
     nächsten Start wird sie zur Seite gelegt und landet im Bericht.
     """
     try:
-        jetzt = pfade.app_datei(ABSTURZ_DATEI)
-        vorig = pfade.app_datei(ABSTURZ_VORIG)
+        jetzt = paths.app_file(ABSTURZ_DATEI)
+        vorig = paths.app_file(ABSTURZ_VORIG)
         # Was vom letzten Lauf noch drinsteht, ist ein Absturz — beiseitelegen,
         # damit der Bericht ihn zeigen kann, auch wenn dieser Lauf sauber ist.
         try:
@@ -273,7 +273,7 @@ def absturzfaenger():
 def letzter_absturz():
     """Der Aufrufweg des letzten harten Abbruchs — leer, wenn es keinen gab."""
     try:
-        with open(pfade.app_datei(ABSTURZ_VORIG), encoding='utf-8') as f:
+        with open(paths.app_file(ABSTURZ_VORIG), encoding='utf-8') as f:
             return [z.rstrip() for z in f if z.strip()]
     except Exception:
         return []
@@ -287,7 +287,7 @@ def absturz_zeitpunkt():
     Bericht — aus einer Fassung, deren Dateinamen es längst nicht mehr gab.
     """
     try:
-        return os.path.getmtime(pfade.app_datei(ABSTURZ_VORIG))
+        return os.path.getmtime(paths.app_file(ABSTURZ_VORIG))
     except Exception:
         return None
 
@@ -295,7 +295,7 @@ def absturz_zeitpunkt():
 def absturz_abhaken():
     """Den festgehaltenen Abbruch wegräumen — er ist gemeldet und erledigt."""
     try:
-        os.remove(pfade.app_datei(ABSTURZ_VORIG))
+        os.remove(paths.app_file(ABSTURZ_VORIG))
         return True
     except Exception:
         return False
@@ -317,17 +317,17 @@ def merken(stelle, ausnahme=None, hinweis=''):
             'fassung': VERSION[0],
             'stelle': str(stelle),
             'art': type(ausnahme).__name__ if ausnahme else 'Hinweis',
-            'meldung': pfade.kuerzen(str(ausnahme) if ausnahme else hinweis),
+            'meldung': paths.redact(str(ausnahme) if ausnahme else hinweis),
         }
         if hinweis and ausnahme is not None:
-            eintrag['hinweis'] = pfade.kuerzen(str(hinweis))
+            eintrag['hinweis'] = paths.redact(str(hinweis))
 
         if ausnahme is not None:
             spur = traceback.format_exception(type(ausnahme), ausnahme,
                                               ausnahme.__traceback__)
             # Nur der Schwanz der Rückverfolgung — dort steht, wo es knallte.
             # Die Zeilen davor sind bei einem Overlay fast immer dieselben.
-            eintrag['spur'] = pfade.kuerzen(''.join(spur[-SPUR_ZEILEN:]).strip())
+            eintrag['spur'] = paths.redact(''.join(spur[-SPUR_ZEILEN:]).strip())
 
         with _schloss:
             eintraege = _lesen()

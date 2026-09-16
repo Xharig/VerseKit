@@ -59,7 +59,7 @@ import json
 import os
 import re
 
-from . import contracts, fehler, pfade
+from . import contracts, fehler, paths
 
 FILE = 'auftragslog.json'
 # ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
@@ -626,7 +626,7 @@ def summarize(entries):
 
 
 def file_path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def load():
@@ -673,12 +673,12 @@ def _clean_titles(entries):
 def save(entries):
     """Das Protokoll schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
-    ⚠ `pfade.json_sichern` legt die Vorgaengerfassung (`.bak.json`) an. Ein
+    ⚠ `paths.save_json` legt die Vorgaengerfassung (`.bak.json`) an. Ein
     Protokoll laesst sich nicht neu aufbauen, sobald die Logs fort sind — hier
     waere ein leer geschriebener Stand endgueltig.
     """
     try:
-        return pfade.json_sichern(file_path(), {'format': FORMAT,
+        return paths.save_json(file_path(), {'format': FORMAT,
                                            'auftraege': entries})
     except Exception as exception:
         fehler.merken('mission_log.save', exception)
@@ -744,9 +744,9 @@ def reassess(folder=None, running_log=None):
     # ⚠⚠ **Nicht `from_folder`.** Das sieht nur direkt in den uebergebenen
     # Ordner — die aufgehobenen Sitzungen liegen aber eine Ebene tiefer in
     # `logbackups/`. Damit fand der erste Anlauf genau EINE Datei statt 199
-    # und berichtigte nichts. `pfade.log_sicherungen` kennt den richtigen Ort
+    # und berichtigte nichts. `paths.log_backups` kennt den richtigen Ort
     # und nimmt seit v3.17.3 auch die Nachbarkanaele mit.
-    files = list(pfade.log_sicherungen(folder) if folder else [])
+    files = list(paths.log_backups(folder) if folder else [])
     if running_log and os.path.isfile(running_log):
         files.append(running_log)
     new = from_files(sorted(set(files), key=_session_start)) if files else []
@@ -795,13 +795,13 @@ def scan_backlog():
     Dubletten entstehen dabei nicht, dafuer sorgt `merge()`.
     """
     try:
-        backups = list(pfade.log_sicherungen() or [])
+        backups = list(paths.log_backups() or [])
     except Exception as exception:
         fehler.merken('mission_log.scan_backlog', exception)
         return 0, 0
 
     running_log = None
-    game = pfade.spiel_ordner()
+    game = paths.game_folder()
     if game:
         candidate = os.path.join(game, 'Game.log')
         if os.path.isfile(candidate):
@@ -916,7 +916,7 @@ def _save_read_marks(read_marks):
         with open(file_path(), encoding='utf-8') as f:
             data = json.load(f)
         data['gelesen'] = read_marks
-        pfade.json_sichern(file_path(), data)
+        paths.save_json(file_path(), data)
     except Exception as exception:
         fehler.merken('mission_log.read_marks', exception)
 

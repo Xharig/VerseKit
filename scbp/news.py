@@ -44,7 +44,7 @@ wieder markiert.
 """
 import json
 
-from . import pfade
+from . import paths
 
 FILE = 'gesehen.json'
 
@@ -87,7 +87,7 @@ def _parts(version):
 
 def _read():
     try:
-        with open(pfade.app_datei(FILE), encoding='utf-8') as f:
+        with open(paths.app_file(FILE), encoding='utf-8') as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except Exception:
@@ -96,7 +96,7 @@ def _read():
 
 def _write(data):
     try:
-        with open(pfade.app_datei(FILE), 'w', encoding='utf-8') as f:
+        with open(paths.app_file(FILE), 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=1)
         return True
     except Exception as exc:

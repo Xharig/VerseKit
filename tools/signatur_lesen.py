@@ -754,8 +754,8 @@ def main():
         # echten Bildschirms und hat in einem oeffentlichen Repo nichts zu
         # suchen (am 09.09.2026 waere es beinahe mitcommittet worden).
         # Es landet deshalb in der Ablage, die ohnehin privat ist.
-        from scbp import pfade as _pf
-        ziel = _pf.app_datei('signatur-ausschnitt.png')
+        from scbp import paths as _pf
+        ziel = _pf.app_file('signatur-ausschnitt.png')
         png_schreiben(raster, ziel)
         print('PNG: %s' % ziel)
 

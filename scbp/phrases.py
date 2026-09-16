@@ -57,7 +57,7 @@ import json
 import os
 import re
 
-from . import pfade
+from . import paths
 
 # Der sprachneutrale Schlüssel — er ist in allen Sprachen derselbe.
 INI_KEY = 'crafting_hud_notification_received_blueprint'
@@ -100,7 +100,7 @@ FRAME_OPEN = re.compile(r'Added notification "([^":]{3,60}):\s*(.+?)\s*:\s*"')
 
 def _ini_files():
     """Alle entpackten `global.ini` der Installation (kann leer sein)."""
-    folder = pfade.lokalisierung_ordner()
+    folder = paths.localization_folder()
     if not folder:
         return []
     found = []
@@ -195,7 +195,7 @@ def _own():
 
     Format:  {"phrasen": ["Blueprint Received"]}"""
     try:
-        with open(pfade.app_datei('phrasen.json'), encoding='utf-8') as f:
+        with open(paths.app_file('phrasen.json'), encoding='utf-8') as f:
             values = json.load(f).get('phrasen') or []
         return [str(p).strip() for p in values if str(p).strip()]
     except Exception:
@@ -254,7 +254,7 @@ def remember(phrase):
     if phrase in existing:
         return False
     try:
-        with open(pfade.app_datei('phrasen.json'), 'w', encoding='utf-8') as f:
+        with open(paths.app_file('phrasen.json'), 'w', encoding='utf-8') as f:
             json.dump({'phrasen': existing + [phrase],
                        '_hinweis': 'Formulierungen, an denen ein neuer Bauplan '
                                    'im Spiel-Log erkannt wird. Selbst gefundene '

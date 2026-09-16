@@ -44,7 +44,7 @@ import json
 import os
 import time
 
-from . import curves, pfade
+from . import curves, paths
 
 FILE = 'joystick-saetze.json'
 
@@ -54,12 +54,12 @@ NAME_MAX = 40
 
 
 def _load():
-    # ⚠ `pfade` hat ein `json_sichern`, aber kein Gegenstück zum Lesen —
+    # ⚠ `paths` hat ein `save_json`, aber kein Gegenstück zum Lesen —
     # deshalb hier von Hand. Eine fehlende oder kaputte Datei ist kein Grund
     # abzustürzen: Dann gibt es eben noch keine Sätze.
     data = None
     try:
-        gone = pfade.app_datei(FILE)
+        gone = paths.app_file(FILE)
         if os.path.isfile(gone):
             with open(gone, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -74,7 +74,7 @@ def _load():
 
 def _save(data):
     try:
-        return bool(pfade.json_sichern(pfade.app_datei(FILE), data))
+        return bool(paths.save_json(paths.app_file(FILE), data))
     except Exception as ausnahme:
         from . import fehler
         fehler.merken('device_set.save', ausnahme)

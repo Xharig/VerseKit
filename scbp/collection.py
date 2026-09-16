@@ -60,7 +60,7 @@ import json
 import os
 import time
 
-from . import fehler, pfade
+from . import fehler, paths
 
 # 3 (29.08.2026): `namensform()` gleicht jetzt auch die SPRACHE der Mengenangabe
 #   an — `(16 Schuss)` und `(16 cap)` sind derselbe Bauplan. Gespeicherte
@@ -74,8 +74,8 @@ RANK = {'log': 1, 'nachlese': 1, 'start': 2, 'hand': 3, 'launcher': 4}
 
 
 def norm(s):
-    """Vergleichsform eines Namens — siehe `pfade.namensform`."""
-    return pfade.namensform(s)
+    """Vergleichsform eines Namens — siehe `paths.name_key`."""
+    return paths.name_key(s)
 
 
 def _now():
@@ -83,7 +83,7 @@ def _now():
 
 
 def path():
-    return pfade.app_datei('bestand.json')
+    return paths.app_file('bestand.json')
 
 
 def empty():
@@ -173,7 +173,7 @@ def _high_water_file():
     ankommt. Die Marke liegt im Konfigurationsordner, dort, wo auch der
     Zweitzeiger sitzt.
     """
-    return os.path.join(os.path.dirname(pfade._zweitzeiger()), 'hochwasser.json')
+    return os.path.join(os.path.dirname(paths._second_pointer()), 'hochwasser.json')
 
 
 def check_shrinkage(data):
@@ -219,7 +219,7 @@ def check_shrinkage(data):
             os.makedirs(os.path.dirname(mark), exist_ok=True)
             tmp = mark + '.tmp'
             with open(tmp, 'w', encoding='utf-8') as f:
-                json.dump({'bauplaene': now, 'ordner': pfade.app_ordner(),
+                json.dump({'bauplaene': now, 'ordner': paths.app_folder(),
                            'stand': _now()}, f, ensure_ascii=False,
                           indent=2)
             os.replace(tmp, mark)

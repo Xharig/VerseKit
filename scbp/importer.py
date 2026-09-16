@@ -210,7 +210,7 @@ def read(path):
         #
         # ⚠ Die DB-Seite schreibt die englische Mengenangabe (`(8 Cap)`),
         # die Log-Nachlese die des Spiels (`(8 Schuss)`). Das gleicht
-        # `collection.norm()` über `pfade.namensform()` an — hier ist dazu
+        # `collection.norm()` über `paths.name_key()` an — hier ist dazu
         # nichts zu tun, aber es erklärt, warum beides denselben Bauplan meint.
         for e in data.get('blueprints') or []:
             if isinstance(e, dict) and e.get('key') and e.get('isDone'):

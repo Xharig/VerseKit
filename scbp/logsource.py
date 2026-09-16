@@ -42,7 +42,7 @@ import os
 import re
 import time
 
-from . import contracts, pfade, phrases
+from . import contracts, paths, phrases
 from .language import t, Phrase, Moment
 
 # Schiffskomponenten stehen im Log MIT Zusatz „(Klasse/Size/Grade)", z. B.
@@ -114,7 +114,7 @@ class ReadState:
     """Merkt sich, was schon gelesen wurde — über Programmneustarts hinweg."""
 
     def __init__(self):
-        self.path = pfade.app_datei('logstand.json')
+        self.path = paths.app_file('logstand.json')
         self.data = self._load()
 
     def _load(self):
@@ -192,7 +192,7 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
     Lücke bleibt und warum."""
     state = state or ReadState()
     pattern = pattern or phrases.pattern()
-    all_names = pfade.log_sicherungen()
+    all_names = paths.log_backups()
     # Vergleichswert VOR dem Lauf festhalten — `stand.merke()` schreibt ihn
     # gleich fort, danach ließe sich keine Lücke mehr erkennen.
     before = state.data.get('letzte_sitzung', 0.0)
@@ -291,11 +291,11 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
 def _safe_game_log():
     """Die laufende `Game.log` — oder None, wenn der Pfad nicht zu holen ist.
 
-    ⚠ `pfade.game_log()` sieht auf dem Dateisystem nach. Eine ausgehaengte
+    ⚠ `paths.game_log()` sieht auf dem Dateisystem nach. Eine ausgehaengte
     Platte oder ein Netzpfad, der gerade nicht antwortet, hat den ganzen
     Nachlese-Lauf gekippt, samt der bereits gelesenen Sicherungen."""
     try:
-        return pfade.game_log()
+        return paths.game_log()
     except Exception:
         return None
 
@@ -426,7 +426,7 @@ class LogTail:
         self.objective_events = []
 
     def _locate(self):
-        p = pfade.game_log()
+        p = paths.game_log()
         if p and p != self.path:
             self.path = p
             remembered = self.state.get_active(p)

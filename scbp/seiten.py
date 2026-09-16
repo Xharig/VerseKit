@@ -36,7 +36,7 @@ import time
 import tkinter as tk
 
 from . import report, collection as bestand_datei, fehler, catalog as katalog_modul
-from . import pfade, icons, fields
+from . import paths, icons, fields
 from .language import t, pa_field
 
 BG      = '#10141c'
@@ -1359,7 +1359,7 @@ def _progress(fenster, rahmen):
         # ⚠ Beide Pfade im Klartext — die Frage ist ja gerade „welcher Ordner
         # denn nun". Ohne sie ist die Meldung eine Feststellung ohne Ausweg.
         for beschriftung, ort in ((t('s_schwund_wo'), frueher),
-                                  (t('s_schwund_jetzt'), pfade.app_ordner())):
+                                  (t('s_schwund_jetzt'), paths.app_folder())):
             if not ort:
                 continue
             tk.Label(kasten, text=beschriftung, bg=SURFACE, fg=SUB,
@@ -1645,7 +1645,7 @@ def _settings_parts(window):
 
 
 def _general(fenster, rahmen):
-    from . import autostart, pfade
+    from . import autostart, paths
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_allgemein'),
                   t('s_allg_lead'))
@@ -1656,7 +1656,7 @@ def _general(fenster, rahmen):
                  wide=True)
     wahl = _choice(fenster, ziel,
                  [('auto', t('sprache_auto')), ('de', 'Deutsch'), ('en', 'English')],
-                 pfade.einstellungen().get('sprache') or 'auto',
+                 paths.settings().get('sprache') or 'auto',
                  lambda k: (wahl.select(k), e._choose_language(k)))
     wahl.pack()
 
@@ -1664,12 +1664,12 @@ def _general(fenster, rahmen):
                  t('s_ton_h'))
 
     def ton_um():
-        neu_wert = not pfade.einstellung_wahrheit('signalton', True)
-        pfade.einstellung_setzen('signalton', neu_wert)
+        neu_wert = not paths.setting_bool('signalton', True)
+        paths.set_setting('signalton', neu_wert)
         fenster.say('%s: %s' % (t('e_ton'), t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('signalton', True),
+    toggle_switch(ziel, paths.setting_bool('signalton', True),
                     ton_um).pack()
 
     # ⚠ Standardmaessig AUS (Wunsch 05.09.2026). Gezaehlt wird trotzdem von
@@ -1679,15 +1679,15 @@ def _general(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_zeit'), t('s_zeit_h'))
 
     def zeit_um():
-        neu_wert = not pfade.einstellung_wahrheit('spielzeit_zeigen', False)
-        pfade.einstellung_setzen('spielzeit_zeigen', neu_wert)
+        neu_wert = not paths.setting_bool('spielzeit_zeigen', False)
+        paths.set_setting('spielzeit_zeigen', neu_wert)
         # ⚠ Die Kopfzeile wird beim Fensterbau EINMAL zusammengesetzt. Ohne
         # Neuaufbau bliebe der Schalter wirkungslos, bis das Programm neu
         # startet — und das sieht aus, als tue er nichts.
         fenster.root.after(60, fenster.rebuild)
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('spielzeit_zeigen', False),
+    toggle_switch(ziel, paths.setting_bool('spielzeit_zeigen', False),
                     zeit_um).pack()
 
     ziel = _setting_row(fenster, innen,
@@ -1718,11 +1718,11 @@ def _general(fenster, rahmen):
                  t('s_tray_h'))
     if sys.platform.startswith('win'):
         def tray_um():
-            neu_wert = not pfade.einstellung_wahrheit('tray', True)
-            pfade.einstellung_setzen('tray', neu_wert)
+            neu_wert = not paths.setting_bool('tray', True)
+            paths.set_setting('tray', neu_wert)
             return neu_wert
 
-        toggle_switch(ziel, pfade.einstellung_wahrheit('tray', True),
+        toggle_switch(ziel, paths.setting_bool('tray', True),
                         tray_um).pack()
     else:
         tk.Label(ziel, text=t('s_nur_win'), bg=BG, fg=SUB,
@@ -1730,7 +1730,7 @@ def _general(fenster, rahmen):
 
 
 def _display(fenster, rahmen):
-    from . import pfade
+    from . import paths
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_anzeige'),
                   t('s_anz_lead'))
@@ -1744,7 +1744,7 @@ def _display(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_ov_modus'), t('s_ov_modus_h'), wide=True)
     modus = _choice(fenster, ziel,
                   [('immer', t('s_ov_immer')), ('popup', t('s_ov_popup'))],
-                  pfade.einstellung('overlay_modus') or 'immer',
+                  paths.setting('overlay_modus') or 'immer',
                   lambda k: _overlay_mode(fenster, modus, k))
     modus.pack()
 
@@ -1763,7 +1763,7 @@ def _display(fenster, rahmen):
                   ('oben-rechts', t('s_ov_ecke_or')),
                   ('unten-links', t('s_ov_ecke_ul')),
                   ('unten-rechts', t('s_ov_ecke_ur'))],
-                 pfade.einstellung('overlay_ecke') or 'frei',
+                 paths.setting('overlay_ecke') or 'frei',
                  lambda k: _overlay_corner(fenster, ecke, k))
     ecke.pack()
     # ⭐ Zieht jemand das Overlay mit der Hand woandershin, hebt es die Ecke
@@ -1783,7 +1783,7 @@ def _display(fenster, rahmen):
     leiste = _choice(fenster, ziel,
                    [('oben', t('s_ov_leiste_oben')),
                     ('unten', t('s_ov_leiste_unten'))],
-                   pfade.einstellung('overlay_leiste') or 'oben',
+                   paths.setting('overlay_leiste') or 'oben',
                    lambda k: _overlay_bar(fenster, leiste, k))
     leiste.pack()
 
@@ -1793,13 +1793,13 @@ def _display(fenster, rahmen):
     from .main_window import round_entry as _zahlfeld
     dauer = _zahlfeld(ziel, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                       width=6, justify='right')
-    dauer.insert(0, str(pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)))
+    dauer.insert(0, str(paths.setting_int('popup_sekunden', 6, 2, 60)))
     dauer.holder.pack()
 
     def dauer_merken(_=None):
         try:
             wert = max(2, min(60, int(dauer.get())))
-            pfade.einstellung_setzen('popup_sekunden', wert)
+            paths.set_setting('popup_sekunden', wert)
             fenster.say(t('s_ov_dauer_sagen') % wert)
         except ValueError:
             pass
@@ -1813,7 +1813,7 @@ def _display(fenster, rahmen):
         # Funktion, und ein lokaler Name wuerde sie verdecken (Selbsttest 67).
         # (Bis P4 Stufe 7d hiess sie `_schalter`.)
         _durch_schalter = toggle_switch(
-            ziel, pfade.einstellung_wahrheit('durchklickbar', False),
+            ziel, paths.setting_bool('durchklickbar', False),
             lambda: _click_through_toggle(fenster))
         _durch_schalter.pack()
 
@@ -1867,7 +1867,7 @@ def _display(fenster, rahmen):
     wahl = _choice(fenster, ziel,
                  [(s, t('hf_s_' + s))
                   for s in ('klein', 'normal', 'gross', 'sehrgross')],
-                 pfade.einstellung('schriftgroesse') or 'normal',
+                 paths.setting('schriftgroesse') or 'normal',
                  # ⚠ Nur noch der eine Aufruf. `set_font_size()` baut
                  # das Fenster neu auf — damit zeichnet sich die Wahl selbst
                  # richtig, und die Rückmeldung kommt von dort, nach dem
@@ -1891,7 +1891,7 @@ def _display(fenster, rahmen):
             e._preview_opacity(w)
         except Exception:
             pass
-        pfade.einstellung_setzen('deckkraft_prozent', w)
+        paths.set_setting('deckkraft_prozent', w)
 
     schieberegler(reihe, 30, 100, e.deckkraft.get(),
                   deckkraft_setzen).pack(side='left')
@@ -1901,24 +1901,24 @@ def _display(fenster, rahmen):
                  t('s_klapp_h'))
 
     def klapp_um():
-        neu_wert = not pfade.einstellung_wahrheit('eingeklappt', False)
-        pfade.einstellung_setzen('eingeklappt', neu_wert)
+        neu_wert = not paths.setting_bool('eingeklappt', False)
+        paths.set_setting('eingeklappt', neu_wert)
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('eingeklappt', False),
+    toggle_switch(ziel, paths.setting_bool('eingeklappt', False),
                     klapp_um).pack()
 
     ziel = _setting_row(fenster, innen, t('s_vorne'),
                  t('s_vorne_h'))
 
     def vorne_um():
-        neu_wert = not pfade.einstellung_wahrheit('immer_vorne', True)
-        pfade.einstellung_setzen('immer_vorne', neu_wert)
+        neu_wert = not paths.setting_bool('immer_vorne', True)
+        paths.set_setting('immer_vorne', neu_wert)
         fenster.say(t('s_an_vorne')
                       % (t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('immer_vorne', True),
+    toggle_switch(ziel, paths.setting_bool('immer_vorne', True),
                     vorne_um).pack()
 
     ziel = _setting_row(fenster, innen, t('s_zeilen'),
@@ -1926,12 +1926,12 @@ def _display(fenster, rahmen):
     from .main_window import round_entry
     zahl = round_entry(ziel, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                        width=6, justify='right')
-    zahl.insert(0, str(pfade.einstellung_zahl('max_zeilen', 20, 5, 100)))
+    zahl.insert(0, str(paths.setting_int('max_zeilen', 20, 5, 100)))
     zahl.holder.pack()
 
     def zahl_merken(_=None):
         try:
-            pfade.einstellung_setzen('max_zeilen',
+            paths.set_setting('max_zeilen',
                                      max(5, min(100, int(zahl.get()))))
             fenster.say(t('s_an_zeilen') % zahl.get())
         except ValueError:
@@ -1952,7 +1952,7 @@ def _display(fenster, rahmen):
         # wissen wir nicht; die Mitte des Hauptbildschirms passt überall.
         from . import screen
         try:
-            os.remove(pfade.app_datei('watcher.json'))
+            os.remove(paths.app_file('watcher.json'))
         except OSError:
             pass
         overlay = screen.OVERLAY[0]
@@ -1967,7 +1967,7 @@ def _display(fenster, rahmen):
 
 
 def _folders(fenster, rahmen):
-    from . import pfade
+    from . import paths
     _heading(fenster, rahmen, t('hf_ordner'),
                   t('s_ordner_lead'))
     innen = _scroll_area(rahmen)
@@ -1975,7 +1975,7 @@ def _folders(fenster, rahmen):
 
     gefunden = None
     try:
-        gefunden = pfade.spiel_ordner()
+        gefunden = paths.game_folder()
     except Exception:
         pass
     if gefunden:
@@ -2007,12 +2007,12 @@ def _folders(fenster, rahmen):
     tk.Label(innen, text=t('s_eigene'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(20, 0))
     _body_text(innen, t('s_eigene_h'), fenster.f_small, fill='x')
-    ablage = tk.StringVar(value=pfade.app_ordner())
+    ablage = tk.StringVar(value=paths.app_folder())
 
     def ablage_oeffnen():
         # Nur melden, was auch stimmt: „Ordner geöffnet" zu sagen, während gar
         # nichts aufgeht, ist schlimmer als eine ehrliche Fehlanzeige.
-        fenster.say(t('s_or_geoeffnet') if _show_folder(pfade.app_ordner())
+        fenster.say(t('s_or_geoeffnet') if _show_folder(paths.app_folder())
                       else t('s_or_nicht_auf'))
 
     def ablage_waehlen():
@@ -2066,19 +2066,19 @@ def _move_storage(fenster, ablage, ziel):
     | nichts zu kopieren | still umstellen, es gibt nichts zu erzählen |
     """
     from .main_window import ask_yes_no
-    alt = pfade.app_ordner()
+    alt = paths.app_folder()
     if os.path.abspath(alt) == os.path.abspath(ziel):
         return
 
-    schreibbar, fremde, grund = pfade.ablage_lage(ziel)
+    schreibbar, fremde, grund = paths.storage_status(ziel)
     if not schreibbar:
         # ⚠ Genau hier landet eine nur lesend eingehängte Windows-Platte. Ohne
         # diese Prüfung stünde der neue Pfad in den Einstellungen, und beim
         # nächsten Start wäre der Ordner unbrauchbar.
-        fenster.say(t('s_ab_nicht_schreibbar') % pfade.kuerzen(grund))
+        fenster.say(t('s_ab_nicht_schreibbar') % paths.redact(grund))
         return
 
-    eigene = len(pfade._dateien_der_ablage(alt))
+    eigene = len(paths._storage_files(alt))
 
     if fremde:
         # Am Ziel liegt schon eine Ablage — der zweite Rechner beim
@@ -2104,7 +2104,7 @@ def _move_storage(fenster, ablage, ziel):
         fenster.say(t('e_neustart_noetig'))
         return
 
-    kopiert, uebersprungen, misslungen = pfade.ablage_umziehen(alt, ziel)
+    kopiert, uebersprungen, misslungen = paths.move_storage(alt, ziel)
     if misslungen:
         # ⚠⚠ **Bei einem Fehler wird NICHT umgestellt.** Sonst zeigt die
         # Einstellung auf einen Ordner mit lückenhaftem Bestand, und der
@@ -2112,12 +2112,12 @@ def _move_storage(fenster, ablage, ziel):
         fenster.say(t('s_ab_misslungen') % (misslungen, kopiert))
         return
     _set_storage(fenster, ablage, ziel)
-    fenster.say(t('s_ab_fertig') % (kopiert, pfade.kuerzen(alt)))
+    fenster.say(t('s_ab_fertig') % (kopiert, paths.redact(alt)))
 
 
 def _set_storage(fenster, ablage, ziel):
     """Die Einstellung schreiben und das Feld nachziehen."""
-    pfade.einstellung_setzen('ablage_ordner', ziel)
+    paths.set_setting('ablage_ordner', ziel)
     ablage.set(ziel)
 
 
@@ -2128,7 +2128,7 @@ def _overlay_corner(fenster, wahl, kennung):
     sehen, ob sie die richtige ist — und im Pop-up-Betrieb kann er das Fenster
     danach nicht selbst hinschieben.
     """
-    pfade.einstellung_setzen('overlay_ecke', kennung)
+    paths.set_setting('overlay_ecke', kennung)
     try:
         wahl.select(kennung)
     except Exception:
@@ -2145,7 +2145,7 @@ def _overlay_bar(fenster, wahl, kennung):
     ⚠ Sofort und nicht erst beim naechsten Start: Wer eine Seite waehlt, will
     sehen, ob sie die richtige ist. Dieselbe Begruendung wie bei der Ecke.
     """
-    pfade.einstellung_setzen('overlay_leiste', kennung)
+    paths.set_setting('overlay_leiste', kennung)
     try:
         wahl.select(kennung)
     except Exception:
@@ -2180,7 +2180,7 @@ def _hotkey_field(fenster, innen):
     from .main_window import round_entry
     feld = round_entry(reihe, None, fenster.f_small, '#0c1017', LINE, ACCENT,
                        FG, width=18)
-    feld.insert(0, pfade.einstellung('hotkey') or hk.DEFAULT)
+    feld.insert(0, paths.setting('hotkey') or hk.DEFAULT)
     feld.holder.pack(side='left')
 
     def merken(_=None):
@@ -2189,7 +2189,7 @@ def _hotkey_field(fenster, innen):
         if not mods:
             fenster.say(t('s_hk_falsch'))
             return
-        pfade.einstellung_setzen('hotkey', wunsch)
+        paths.set_setting('hotkey', wunsch)
         # ⚠ Sofort ausprobieren, nicht erst beim naechsten Start: „belegt"
         # erfaehrt man sonst zu einem Zeitpunkt, an dem niemand mehr weiss,
         # dass er etwas eingestellt hat.
@@ -2224,7 +2224,7 @@ def _start_command_field(fenster, innen):
 
     Ein Weg, den man nur kennt, wenn man den Quelltext gelesen hat, ist kein Weg.
     """
-    from . import pfade
+    from . import paths
 
     tk.Label(innen, text=t('s_or_start'), bg=BG, fg=FG, font=fenster.f_bold,
              anchor='w').pack(fill='x', pady=(20, 0))
@@ -2232,11 +2232,11 @@ def _start_command_field(fenster, innen):
     _body_text(innen, t('s_or_start_bsp'), fenster.f_small, color=SUB,
                 fill='x', pady=(2, 0))
 
-    wert = tk.StringVar(value=pfade.einstellung('spielstarter') or '')
+    wert = tk.StringVar(value=paths.setting('spielstarter') or '')
 
     def uebernehmen():
         text = (wert.get() or '').strip()
-        pfade.einstellung_setzen('spielstarter', text)
+        paths.set_setting('spielstarter', text)
         fenster.say(t('s_or_start_ok') if text else t('s_or_start_weg'))
         # Der Startknopf hängt daran — die Leiste muss ihn neu bewerten.
         try:
@@ -2295,9 +2295,9 @@ def _click_through_possible():
 
 def _click_through_toggle(fenster):
     """Klicks durchreichen ein- oder ausschalten — und sofort anwenden."""
-    from . import overlay, pfade
-    neu_wert = not pfade.einstellung_wahrheit('durchklickbar', False)
-    pfade.einstellung_setzen('durchklickbar', neu_wert)
+    from . import overlay, paths
+    neu_wert = not paths.setting_bool('durchklickbar', False)
+    paths.set_setting('durchklickbar', neu_wert)
     geklappt = True
     wurzel = overlay.OVERLAY_WINDOW[0] if overlay.OVERLAY_WINDOW else None
     if wurzel is not None:
@@ -2308,7 +2308,7 @@ def _click_through_toggle(fenster):
             geklappt = False
     if neu_wert and not geklappt:
         fenster.say(t('ov_durchklick_geht_nicht'))
-        pfade.einstellung_setzen('durchklickbar', False)
+        paths.set_setting('durchklickbar', False)
         return False
     fenster.say(t('s_ov_durch_sagen')
                   % (t('e_an') if neu_wert else t('e_aus')))
@@ -2317,9 +2317,9 @@ def _click_through_toggle(fenster):
 
 def _overlay_mode(fenster, wahl, kennung):
     """Zwischen „immer sichtbar" und „nur bei Neuzugang" umstellen."""
-    from . import overlay, pfade
+    from . import overlay, paths
     wahl.select(kennung)
-    pfade.einstellung_setzen('overlay_modus', kennung)
+    paths.set_setting('overlay_modus', kennung)
     wurzel = overlay.OVERLAY_WINDOW[0] if overlay.OVERLAY_WINDOW else None
     if wurzel is not None:
         try:
@@ -2347,8 +2347,8 @@ def clean_environment():
     Weiterleitung bleibt, weil `_show_folder` und der Spielstart sie hier
     aufrufen.
     """
-    from . import pfade as pfade_modul
-    return pfade_modul.saubere_umgebung()
+    from . import paths as paths_module
+    return paths_module.clean_environment()
 
 
 def choose_folder(titel, start=None):
@@ -2388,7 +2388,7 @@ def _show_folder(pfad):
 
 def _game(fenster, rahmen):
     """Auftragstexte — Textquelle wählen und die Bauplan-Angaben eintragen."""
-    from . import pfade
+    from . import paths
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_spiel'), t('s_sp_lead'))
     innen = _scroll_area(rahmen)
@@ -2407,7 +2407,7 @@ def _game(fenster, rahmen):
         except Exception as ausnahme:
             fehler.merken('seiten.spiel.lage', ausnahme)
             return
-        if not pfade.einstellung_wahrheit('inj_an', True):
+        if not paths.setting_bool('inj_an', True):
             # ⚠ „Ausgeschaltet“ allein ist die halbe Wahrheit. Bleibt etwas in der
             # Datei stehen (Entfernen scheiterte, oder es wurde von Hand
             # abgeschaltet), sieht der Spieler seine Angaben weiter im Spiel —
@@ -2442,20 +2442,20 @@ def _game(fenster, rahmen):
     wahl = _choice(fenster, ziel,
                  [('deutsch', t('s_sp_q_de')), ('starstrings', t('s_sp_q_ss')),
                   ('original', t('s_sp_q_or'))],
-                 pfade.einstellung('inj_quelle') or '',
+                 paths.setting('inj_quelle') or '',
                  lambda k: _choose_source(fenster, e, wahl, k, lage_zeigen))
     wahl.pack()
 
     ziel = _setting_row(fenster, innen, t('s_sp_auto'), t('s_sp_auto_h'))
 
     def inj_auto_um():
-        neu_wert = not pfade.einstellung_wahrheit('inj_auto', True)
-        pfade.einstellung_setzen('inj_auto', neu_wert)
+        neu_wert = not paths.setting_bool('inj_auto', True)
+        paths.set_setting('inj_auto', neu_wert)
         fenster.say(t('s_sp_auto_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('inj_auto', True),
+    toggle_switch(ziel, paths.setting_bool('inj_auto', True),
                     inj_auto_um).pack()
 
     # --- An oder aus ---------------------------------------------------------
@@ -2465,8 +2465,8 @@ def _game(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_sp_an'), t('s_sp_an_h'))
 
     def inj_an_um():
-        neu_wert = not pfade.einstellung_wahrheit('inj_an', True)
-        pfade.einstellung_setzen('inj_an', neu_wert)
+        neu_wert = not paths.setting_bool('inj_an', True)
+        paths.set_setting('inj_an', neu_wert)
         fenster.say(t('s_sp_an_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
         # ⚠ **Aus heißt weg, an heißt da.** Bis rc83 setzte der Schalter nur die
@@ -2492,7 +2492,7 @@ def _game(fenster, rahmen):
         lage_zeigen()
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('inj_an', True),
+    toggle_switch(ziel, paths.setting_bool('inj_an', True),
                     inj_an_um).pack()
 
     # --- Angaben am Gegenstand ----------------------------------------------
@@ -2503,9 +2503,9 @@ def _game(fenster, rahmen):
 
     def angaben_um():
         from . import injection as inj_modul
-        neu_wert = not pfade.einstellung_wahrheit(inj_modul.SETTING_DETAILS,
+        neu_wert = not paths.setting_bool(inj_modul.SETTING_DETAILS,
                                                   True)
-        pfade.einstellung_setzen(inj_modul.SETTING_DETAILS, neu_wert)
+        paths.set_setting(inj_modul.SETTING_DETAILS, neu_wert)
         fenster.say(t('s_sp_angaben_sagen')
                       % (t('e_an') if neu_wert else t('e_aus')))
         # ⚠ **Umlegen muss sofort wirken.** Bis rc83 setzte dieser Schalter nur
@@ -2526,7 +2526,7 @@ def _game(fenster, rahmen):
         # Einfügung anstoßen, die der Nutzer gar nicht wollte — der obere
         # Schalter lässt Vorhandenes mit Absicht stehen (PTU-Fall).
         try:
-            if (pfade.einstellung_wahrheit('inj_an', True)
+            if (paths.setting_bool('inj_an', True)
                     and inj_modul.status().get('drin')):
                 e._inj_refresh()
                 lage_zeigen()
@@ -2536,7 +2536,7 @@ def _game(fenster, rahmen):
 
     from . import injection as _inj
     toggle_switch(ziel,
-                    pfade.einstellung_wahrheit(_inj.SETTING_DETAILS, True),
+                    paths.setting_bool(_inj.SETTING_DETAILS, True),
                     angaben_um).pack()
 
     ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
@@ -2566,14 +2566,14 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     Einsetzen braucht mehrere Sekunden, und in dieser Zeit stand vorher nichts
     im Fenster.
     """
-    from . import pfade
+    from . import paths
     wahl.select(kennung)
     # ⚠ Die Wahl wird **vor** dem Einrichten gemerkt. Sie stand vorher dahinter,
     # und wenn das Herunterladen schiefging (kein Netz, Zertifikat, Server weg),
     # blieb die alte Quelle eingetragen — das Feld zeigte die neue, der Rest des
     # Programms rechnete mit der alten. Erst gilt, was gewählt wurde; ob es auch
     # eingerichtet werden konnte, sagt der Kasten darüber.
-    pfade.einstellung_setzen('inj_quelle', kennung)
+    paths.set_setting('inj_quelle', kennung)
     fenster.say(t('s_sp_hole') % t(_SOURCE_LABELS.get(kennung, 's_sp_q_or')))
     try:
         e._inj_switch(kennung)
@@ -2984,7 +2984,7 @@ def _contract_log(fenster, rahmen):
         behauptet aber „jetzt gerade" — und das stimmt bei geschlossenem Spiel
         nicht. „Noch offen" stimmt in beiden Fällen.
         """
-        return 's_al_laeuft' if pfade.spiel_laeuft() else 's_al_offen'
+        return 's_al_laeuft' if paths.game_running() else 's_al_offen'
 
     def _anzeige_stand():
         """Der Fingerabdruck dessen, was die Liste zeigen WÜRDE.
@@ -3028,7 +3028,7 @@ def _contract_log(fenster, rahmen):
         zuletzt['stand'] = None
 
         alle = daten['alle']
-        # ⚠ Einmal je Durchlauf, nicht je Zeile: `spiel_laeuft()` sieht auf
+        # ⚠ Einmal je Durchlauf, nicht je Zeile: `game_running()` sieht auf
         # die Datei, und die Liste hat hunderte Zeilen.
         wort_laufend = _wort_laufend()
         for kind in liste_rahmen.winfo_children():
@@ -5228,10 +5228,10 @@ def _source_link(fenster, eltern, text, adresse):
     link.pack(fill='x', pady=(10, 4))
 
     def oeffnen(_=None):
-        # ⚠ Über `pfade.im_browser` — nie `webbrowser.open()` direkt. Warum:
+        # ⚠ Über `paths.open_in_browser` — nie `webbrowser.open()` direkt. Warum:
         # siehe die Begründung dort (im AppImage öffnet es nichts und meldet
         # trotzdem Erfolg).
-        if not pfade.im_browser(adresse):
+        if not paths.open_in_browser(adresse):
             fenster.say(t('s_ub_auf_nein') % adresse)
 
     link.bind('<Button-1>', oeffnen)
@@ -5257,7 +5257,7 @@ def _source_row(fenster, eltern, bez, adresse):
     link.pack(side='left')
 
     def oeffnen(_=None):
-        if not pfade.im_browser(adresse):
+        if not paths.open_in_browser(adresse):
             fenster.say(t('s_ub_auf_nein') % adresse)
 
     link.bind('<Button-1>', oeffnen)
@@ -5509,7 +5509,7 @@ def _credit_box(fenster, eltern, name, lizenz, was, adresse=None):
         link.pack(fill='x', padx=16, pady=(0, 12))
 
         def oeffnen(_=None):
-            if not pfade.im_browser(adresse):
+            if not paths.open_in_browser(adresse):
                 fenster.say(t('s_ub_auf_nein') % adresse)
 
         link.bind('<Button-1>', oeffnen)
@@ -5733,7 +5733,7 @@ def _thanks(fenster, rahmen):
 
 
 def _about(fenster, rahmen):
-    from . import pfade
+    from . import paths
     _heading(fenster, rahmen, t('hf_ueber'), t('s_ub_lead'))
     innen = _scroll_area(rahmen)
 
@@ -5773,7 +5773,7 @@ def _about(fenster, rahmen):
     _value_row(fenster, karte, t('s_ub_davon'), _count_collection())
     uebersicht = {}
     try:
-        uebersicht = pfade.uebersicht() or {}
+        uebersicht = paths.overview() or {}
     except Exception:
         pass
     _value_row(fenster, karte, t('b_ordner'),
@@ -5823,7 +5823,7 @@ def _about(fenster, rahmen):
     kaesten.pack(fill='x')
 
     def kanal_setzen(wert):
-        pfade.einstellung_setzen('vorabversionen', wert)
+        paths.set_setting('vorabversionen', wert)
         fenster.say(t('e_vorab') + ': ' + (t('e_an') if wert else t('e_aus')))
         for kind in kaesten.winfo_children():
             kind.destroy()
@@ -5835,7 +5835,7 @@ def _about(fenster, rahmen):
     SCHMAL = 620
 
     def kanal_zeichnen():
-        an = pfade.einstellung_wahrheit('vorabversionen', False)
+        an = paths.setting_bool('vorabversionen', False)
         breite = kaesten.winfo_width()
         # Vor dem ersten Zeichnen meldet Tk eine 1 — dann entscheidet das
         # Fenster, nicht der Platzhalter.
@@ -5906,11 +5906,11 @@ def _link(fenster, eltern, text, ziel, grund=None):
 
     def oeffnen(_=None):
         # Die saubere Umgebung und der Rückfall auf `xdg-open` stecken jetzt in
-        # `pfade.im_browser` — an EINER Stelle, damit nicht die Hälfte der
+        # `paths.open_in_browser` — an EINER Stelle, damit nicht die Hälfte der
         # Verweise sie hat und die andere nicht. Genau daran hingen „Kaffee
         # spendieren" und „Discord" (30.08.2026 gemeldet).
         try:
-            geklappt = pfade.im_browser(ziel)
+            geklappt = paths.open_in_browser(ziel)
         except Exception as ausnahme:
             fehler.merken('seiten.adresse', ausnahme, ziel)
             geklappt = False
@@ -5941,19 +5941,19 @@ def _underlined(schrift):
 
 def _switch(fenster, eltern, schluessel, standard):
     """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf."""
-    from . import pfade
+    from . import paths
     k = tk.Label(eltern, text='', bg=SURFACE, font=fenster.f_small,
                  cursor='hand2', padx=10, pady=4)
     k.pack()
 
     def zeichnen():
-        an = pfade.einstellung_wahrheit(schluessel, standard)
+        an = paths.setting_bool(schluessel, standard)
         k.configure(text=' %s ' % (t('e_an') if an else t('e_aus')),
                     fg=ACCENT if an else SUB)
 
     def umschalten():
-        neu = not pfade.einstellung_wahrheit(schluessel, standard)
-        pfade.einstellung_setzen(schluessel, neu)
+        neu = not paths.setting_bool(schluessel, standard)
+        paths.set_setting(schluessel, neu)
         zeichnen()
         fenster.say(t('e_an') if neu else t('e_aus'))
 
@@ -5963,7 +5963,7 @@ def _switch(fenster, eltern, schluessel, standard):
 
 
 def _detection(fenster, rahmen):
-    from . import catalog as katalog_modul, pfade, phrases
+    from . import catalog as katalog_modul, paths, phrases
     _heading(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _scroll_area(rahmen)
 
@@ -5973,14 +5973,14 @@ def _detection(fenster, rahmen):
     from .main_window import round_entry
     zahl = round_entry(reihe, None, fenster.f_small, '#0c1017', LINE, ACCENT, FG,
                        width=5, justify='right')
-    zahl.insert(0, str(pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)))
+    zahl.insert(0, str(paths.setting_int('pruefintervall_sekunden', 3, 1, 60)))
     zahl.holder.pack(side='left')
     tk.Label(reihe, text=t('s_er_sek'), bg=BG, fg=SUB,
              font=fenster.f_small).pack(side='left')
 
     def takt_merken(_=None):
         try:
-            pfade.einstellung_setzen('pruefintervall_sekunden',
+            paths.set_setting('pruefintervall_sekunden',
                                      max(1, min(60, int(zahl.get()))))
             fenster.say(t('s_er_takt_sagen') % zahl.get())
         except ValueError:
@@ -6038,7 +6038,7 @@ def _detection(fenster, rahmen):
 
 
 def _diagnostics(fenster, rahmen):
-    from . import pfade
+    from . import paths
     from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_diagnose'), t('s_di_lead'))
     innen = _scroll_area(rahmen)
@@ -6053,7 +6053,7 @@ def _diagnostics(fenster, rahmen):
     # Benutzernamen des Systems. Das Werkzeug sammelt sonst nichts über den
     # Nutzer, und in der Ankündigung steht „no telemetry". Ein heimlich
     # mitgeschickter Name wäre ein Wortbruch.
-    melder_var = tk.StringVar(value=(pfade.einstellung('melder_name') or ''))
+    melder_var = tk.StringVar(value=(paths.setting('melder_name') or ''))
     ziel_melder = _setting_row(fenster, innen, t('s_melder'), t('s_melder_h'))
     from .main_window import round_entry
     melder_feld = round_entry(ziel_melder, melder_var, fenster.f_small,
@@ -6146,8 +6146,8 @@ def _diagnostics(fenster, rahmen):
     def melder_uebernehmen(*_):
         """Den Namen sichern — er gilt dauerhaft, anders als die Meldung."""
         neu_wert = melder_var.get().strip()
-        if neu_wert != (pfade.einstellung('melder_name') or ''):
-            pfade.einstellung_setzen('melder_name', neu_wert)
+        if neu_wert != (paths.setting('melder_name') or ''):
+            paths.set_setting('melder_name', neu_wert)
         _bericht_neu()
 
     melder_feld.bind('<FocusOut>', melder_uebernehmen)
@@ -6319,11 +6319,11 @@ def _diagnostics(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_di_mit'), t('s_di_mit_h'))
 
     def mitschreiben_um():
-        neu_wert = not pfade.einstellung_wahrheit('fehler_mitschreiben', True)
-        pfade.einstellung_setzen('fehler_mitschreiben', neu_wert)
+        neu_wert = not paths.setting_bool('fehler_mitschreiben', True)
+        paths.set_setting('fehler_mitschreiben', neu_wert)
         return neu_wert
 
-    toggle_switch(ziel, pfade.einstellung_wahrheit('fehler_mitschreiben', True),
+    toggle_switch(ziel, paths.setting_bool('fehler_mitschreiben', True),
                     mitschreiben_um).pack()
 
 
@@ -8671,7 +8671,7 @@ def _blueprint_specs(bauplan):
     from . import catalog as kat_daten
     from .bestandsfenster import GRAD_BUCHSTABE
     eintrag = (kat_daten.load().get('bauplaene') or {}).get(
-        pfade.namensform(bauplan or ''))
+        paths.name_key(bauplan or ''))
     if not eintrag:
         return ''
     # ⚠⚠ **Bei Rüstung und FPS-Waffen wird NICHTS gezeigt.** In den Rohdaten
@@ -8770,7 +8770,7 @@ def _fits_row(fenster, eltern, bauplan):
     from . import erkul, fleet as meine, catalog as kat_daten
 
     eintrag = (kat_daten.load().get('bauplaene') or {}).get(
-        pfade.namensform(bauplan or ''))
+        paths.name_key(bauplan or ''))
     if not eintrag:
         return
     art, groesse = eintrag.get('a'), eintrag.get('s')
@@ -10857,14 +10857,14 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
         if ziel.winfo_ismapped():
             ziel.pack_forget()
             pfeil.swap_symbol('aufklappen')
-            pfade.einstellung_setzen('lager_raffinerie_offen', False)
+            paths.set_setting('lager_raffinerie_offen', False)
         else:
             # ⚠ `after=kopf` — sonst haengt der Koerper beim zweiten Aufklappen
             # unter allem, was inzwischen dazugekommen ist, statt unter seiner
             # eigenen Kopfzeile.
             ziel.pack(fill='x', after=kopf)
             pfeil.swap_symbol('zuklappen')
-            pfade.einstellung_setzen('lager_raffinerie_offen', True)
+            paths.set_setting('lager_raffinerie_offen', True)
 
     # Die ganze Kopfzeile ist die Schaltflaeche, nicht nur das Symbol: Ein
     # Pfeil von zwoelf Pixeln ist kein Ziel, das man treffen will.
@@ -10874,7 +10874,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     # trifft — anklickbar ist hier die Zeile, nicht der Pfeil.
     icons.hover_group(kopf, pfeil)
 
-    # ⚠⚠ **`einstellung_wahrheit`, nicht `einstellung`.** Letztere liefert
+    # ⚠⚠ **`setting_bool`, nicht `setting`.** Letztere liefert
     # einen PFAD und ruft dafür `.strip()` auf dem Wert auf. Hier steht aber
     # ein Ja/Nein: Sobald der Block einmal aufgeklappt war, lag `True` in der
     # Datei — und `True.strip()` warf einen AttributeError. Der traf nicht nur
@@ -10884,7 +10884,7 @@ def _refinery_box(fenster, eltern, lager, ort_var, neu_zeichnen, meldung):
     #
     # ⚠ Und es blieb kaputt, bis das Programm neu startete — eine Seite wird
     # nur EINMAL gebaut (siehe `open_page()`). Zuklappen half also nicht.
-    if pfade.einstellung_wahrheit('lager_raffinerie_offen', False):
+    if paths.setting_bool('lager_raffinerie_offen', False):
         _umschalten()
     return feld
 
@@ -10959,7 +10959,7 @@ def _hangar(fenster, rahmen):
         _button(fenster, reihe_import, t('s_hg_import_knopf'), importieren,
                strong=True),
         _button(fenster, reihe_import, t('s_hg_erweiterung'),
-               lambda: pfade.im_browser(HANGAR_EXT_PAGE)),
+               lambda: paths.open_in_browser(HANGAR_EXT_PAGE)),
     ])
 
     # -------------------------------------------------------- Von Hand
@@ -13303,13 +13303,13 @@ def _storage(fenster, rahmen):
     guete = tk.StringVar()
     # Der zuletzt benutzte Lagerort steht schon drin — siehe unten beim
     # Eintragen, warum.
-    ort = tk.StringVar(value=pfade.einstellung('lager_ort') or '')
+    ort = tk.StringVar(value=paths.setting('lager_ort') or '')
     # ⭐ In welcher Einheit das Mengenfeld rechnet. Das Raffinerie-Terminal im
     # Spiel zeigt **cSCU**, die Gegenstands-Anzeige im Lager **SCU** — und vom
     # Terminal abzutippen ist bequemer, weil man dort nicht jeden Stapel
     # einzeln mit der Maus anfahren muss (Wunsch vom 30.08.2026). Das Kästchen
     # neben dem Feld schaltet um; die Beschriftung sagt immer, was gerade gilt.
-    cscu = [pfade.einstellung('lager_einheit') == 'cscu']
+    cscu = [paths.setting('lager_einheit') == 'cscu']
 
     def _faktor():
         return lager.CSCU if cscu[0] else 1.0
@@ -13380,7 +13380,7 @@ def _storage(fenster, rahmen):
             def einheit_um(an):
                 mengen_beschriftung.configure(
                     text=t('s_lg_menge_cscu') if an else t('s_lg_menge'))
-                pfade.einstellung_setzen('lager_einheit',
+                paths.set_setting('lager_einheit',
                                          'cscu' if an else 'scu')
                 mengen_vorschau_zeigen()
 
@@ -13658,7 +13658,7 @@ def _storage(fenster, rahmen):
             return
         bearbeitung['nummer'] = None
         material.set(''); menge.set(''); guete.set('')
-        ort.set(pfade.einstellung('lager_ort') or '')
+        ort.set(paths.setting('lager_ort') or '')
         meldung.configure(text='', fg=SUB)
         rechenhinweis.configure(text='')
         knoepfe_setzen()
@@ -13747,7 +13747,7 @@ def _storage(fenster, rahmen):
                 lager.remove(nr)
                 bearbeitung['nummer'] = None
                 material.set(''); menge.set(''); guete.set('')
-                ort.set(pfade.einstellung('lager_ort') or '')
+                ort.set(paths.setting('lager_ort') or '')
                 meldung.configure(text=t('s_lg_alles_weg') % name, fg=SUB)
                 knoepfe_setzen()
                 zeichnen()
@@ -13803,7 +13803,7 @@ def _storage(fenster, rahmen):
         # geleert, der Ort nicht; er wird zusätzlich gemerkt, damit er auch
         # beim nächsten Programmstart noch dasteht.
         material.set(''); menge.set(''); guete.set('')
-        pfade.einstellung_setzen('lager_ort', ort.get().strip())
+        paths.set_setting('lager_ort', ort.get().strip())
         frei['name'] = None
         # Bestätigen: Man soll sehen, dass es angekommen ist.
         meldung.configure(text=hinweis, fg=SUB)
@@ -14866,7 +14866,7 @@ def _trade_storage(fenster, rahmen):
 
     ware = tk.StringVar()
     menge = tk.StringVar()
-    ort = tk.StringVar(value=pfade.einstellung('handel_ort') or '')
+    ort = tk.StringVar(value=paths.setting('handel_ort') or '')
     gestohlen = [False]
     meldung = {'text': '', 'farbe': SUB}
     # Welche Zeile gerade zum Ändern offen ist. `None` heisst: neuer Posten.
@@ -14963,7 +14963,7 @@ def _trade_storage(fenster, rahmen):
             # Der Lagerort bleibt stehen: Wer eine Ladung bucht, bucht meist
             # mehrere Posten am selben Ort. Dasselbe Verhalten wie im
             # Werkstatt-Lager.
-            pfade.einstellung_setzen('handel_ort', ort.get() or '')
+            paths.set_setting('handel_ort', ort.get() or '')
             ware.set('')
             menge.set('')
             meldung['text'], meldung['farbe'] = t('s_hl_gebucht'), ACCENT

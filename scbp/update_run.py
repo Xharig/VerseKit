@@ -46,7 +46,7 @@ import os
 import sys
 import time
 
-from . import pfade
+from . import paths
 
 RUN_FILE = 'update-lauf.json'
 RESULT_FILE = 'update-ergebnis.txt'
@@ -163,7 +163,7 @@ goto :eof
 # ------------------------------------------------------------------ Grundlagen
 
 def _path(name):
-    return pfade.app_datei(name)
+    return paths.app_file(name)
 
 
 def _make_dir(path):
@@ -235,7 +235,7 @@ def pid_alive(pid):
         return False
     if pid <= 0:
         return False
-    if pfade.WINDOWS:
+    if paths.WINDOWS:
         import ctypes
         from ctypes import wintypes
         k = _kernel32()
@@ -264,7 +264,7 @@ def pid_alive(pid):
 
 def _process_image(pid):
     """Die Programmdatei eines Prozesses (nur Windows), sonst None."""
-    if not pfade.WINDOWS:
+    if not paths.WINDOWS:
         return None
     import ctypes
     from ctypes import wintypes
@@ -410,12 +410,12 @@ def _cleanup(run):
     installer = str(run.get('installer') or '')
     # Nur eine Datei, die erkennbar uns gehört — nie etwas Fremdes.
     #
-    # ⚠⚠ Die Prüfung geht über `pfade.gehoert_uns()`, weil sie BEIDE
+    # ⚠⚠ Die Prüfung geht über `paths.is_ours()`, weil sie BEIDE
     # Namen kennen muss. Bis zum 12.09.2026 stand hier nur
     # 'sc-bp-watcher' — ein `VerseKit-Setup.exe` wäre nach dem Update
     # liegen geblieben, während die Laufmarke gelöscht wurde. Vom Prüfer
     # mit einer protokollierenden Attrappe nachgewiesen (F04).
-    if installer and pfade.gehoert_uns(installer):
+    if installer and paths.is_ours(installer):
         _remove(installer)
 
 

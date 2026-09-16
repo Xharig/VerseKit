@@ -317,9 +317,9 @@ def archive_folder():
     Ein fester Ort statt jedes Mal ein Dateidialog: Wer den Bestand regelmäßig
     hochlädt, will nicht dreimal durch einen Speichern-Dialog klicken. Der
     Dialog bleibt für den Einzelfall daneben bestehen."""
-    from . import pfade
-    own = pfade.einstellung('export_ordner')
-    folder = own or os.path.join(pfade.app_ordner(), 'export')
+    from . import paths
+    own = paths.setting('export_ordner')
+    folder = own or os.path.join(paths.app_folder(), 'export')
     try:
         os.makedirs(folder, exist_ok=True)
     except OSError:

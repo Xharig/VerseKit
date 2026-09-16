@@ -100,12 +100,12 @@ LAUFEND = [zeile('Bauplan erhalten: Scalpel Sniper Rifle Magazine (12 Schuss)', 
 ERWARTET = {
     'attrition-5 repeater',
     "7ca 'nargun'",
-    # ⚠ `(30)` statt `(30 cap)`: `pfade.namensform()` laesst die ZAHL stehen und
+    # ⚠ `(30)` statt `(30 cap)`: `paths.name_key()` laesst die ZAHL stehen und
     # wirft nur das Wort weg — sonst waeren `(16 cap)` (Launcher, englisch) und
     # `(16 Schuss)` (Log-Nachlese, deutsch) zwei Eintraege fuer dieselbe Kiste.
     'arclight pistol battery (30)',
     # ⚠ Einfache Anführungszeichen, obwohl die Log-Zeile oben doppelte hat:
-    # `pfade.namensform()` zieht alle Anführungszeichen auf ein einfaches `'`,
+    # `paths.name_key()` zieht alle Anführungszeichen auf ein einfaches `'`,
     # damit derselbe Bauplan aus Launcher-Export und scmdb-Katalog denselben
     # Schlüssel bekommt.
     "cf-117 bulldog 'hazard-zone' repeater",
@@ -332,7 +332,7 @@ def main():
     os.environ['SC_BP_HOME'] = os.path.join(basis, 'eigene')
     os.environ['SC_BP_NO_NET'] = '1'
     # Leer heisst ausdruecklich 'kein Launcher' - nur zu loeschen reicht
-    # nicht: dann sucht pfade.py weiter und findet womoeglich einen
+    # nicht: dann sucht paths.py weiter und findet womoeglich einen
     # echten Launcher-Stand auf einer eingehaengten Windows-Platte.
     os.environ['SC_BP_LAUNCHER'] = ''
     os.environ.pop('SC_BP_OVERRIDES', None)
@@ -343,8 +343,8 @@ def main():
         from scbp import collection as bd
 
         print('\n1. Pfade finden')
-        pruefe(w.pfade.spiel_ordner() == live, 'Spielordner gefunden')
-        pruefe(len(w.pfade.log_sicherungen()) == 2, 'beide Sicherungen gefunden')
+        pruefe(w.paths.game_folder() == live, 'Spielordner gefunden')
+        pruefe(len(w.paths.log_backups()) == 2, 'beide Sicherungen gefunden')
         pruefe(not w.HAT_LAUNCHER, 'läuft ohne SC Deutsch Launcher')
 
         print('\n2. Nachlese und laufende Sitzung')
@@ -404,7 +404,7 @@ def main():
 
         print('\n5. Eigener Pfad statt Suche')
         import json
-        from scbp import pfade as pf
+        from scbp import paths as pf
         os.environ.pop('SC_INSTALL_DIR')        # Suche muss jetzt scheitern
         anders = os.path.join(basis, 'woanders', 'LIVE')
         os.makedirs(anders)
@@ -415,17 +415,17 @@ def main():
         # war er deshalb rot, obwohl das Programm richtig arbeitete. Also werden
         # die Suchwurzeln für diesen Abschnitt geleert; gesucht wird gleich
         # nochmal ausdrücklich MIT Wurzel.
-        echte_wurzeln = pf._spiel_wurzeln
-        pf._spiel_wurzeln = lambda: []
-        pruefe(pf.spiel_ordner() is None,
+        echte_wurzeln = pf._game_roots
+        pf._game_roots = lambda: []
+        pruefe(pf.game_folder() is None,
                'ohne Eintrag und ohne Fundort wird nichts gefunden')
-        datei = pf.vorlage_anlegen()
+        datei = pf.create_template()
         pruefe(os.path.exists(datei), 'Einstellungsdatei wird zum Ausfüllen angelegt')
         d = json.load(open(datei, encoding='utf-8'))
         d['spiel_ordner'] = anders
         json.dump(d, open(datei, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-        pruefe(pf.spiel_ordner() == anders, 'selbst eingetragener Pfad wird genommen')
-        orte = pf.gesuchte_spielorte()
+        pruefe(pf.game_folder() == anders, 'selbst eingetragener Pfad wird genommen')
+        orte = pf.searched_game_locations()
         pruefe(bool(orte), 'Suchorte werden genannt, auch wenn nichts gefunden wurde')
         d2 = json.load(open(datei, encoding='utf-8'))
         pruefe('_spiel_ordner_gesucht_wird_hier' in d2,
@@ -440,31 +440,31 @@ def main():
         with open(datei, 'w', encoding='utf-8') as f:
             json.dump(ohne, f, ensure_ascii=False, indent=2)
         wurzel_mit_spiel = os.path.join(basis, 'installiert')
-        echt = os.path.join(wurzel_mit_spiel, pf.SC_UNTERPFAD, 'LIVE')
+        echt = os.path.join(wurzel_mit_spiel, pf.SC_SUBPATH, 'LIVE')
         os.makedirs(echt)
         open(os.path.join(echt, 'Game.log'), 'w').close()
-        pf._spiel_wurzeln = lambda: [wurzel_mit_spiel]
-        pruefe(pf.spiel_ordner() == echt, 'ein Spiel an einem Suchort wird gefunden')
-        pf._spiel_wurzeln = echte_wurzeln
+        pf._game_roots = lambda: [wurzel_mit_spiel]
+        pruefe(pf.game_folder() == echt, 'ein Spiel an einem Suchort wird gefunden')
+        pf._game_roots = echte_wurzeln
 
         print('\n6. Erster Start nimmt dem Spieler die Arbeit ab')
-        from scbp import assistent as assi, pfade as pf2
+        from scbp import assistent as assi, paths as pf2
         # Frischer Ordner, damit "erster Start" wirklich zutrifft
         frisch = os.path.join(basis, 'frisch')
         os.makedirs(frisch)
         os.environ['SC_BP_HOME'] = frisch
         os.environ.pop('SC_INSTALL_DIR', None)
-        echte_wurzeln6 = pf2._spiel_wurzeln
-        pf2._spiel_wurzeln = lambda: []        # siehe Abschnitt 5
+        echte_wurzeln6 = pf2._game_roots
+        pf2._game_roots = lambda: []        # siehe Abschnitt 5
         pruefe(assi.needed(), 'Assistent meldet sich beim ersten Start')
-        pruefe(pf2.spiel_ordner() is None, 'ohne Angabe und ohne Fundort: nichts')
-        pf2._spiel_wurzeln = echte_wurzeln6
+        pruefe(pf2.game_folder() is None, 'ohne Angabe und ohne Fundort: nichts')
+        pf2._game_roots = echte_wurzeln6
         # Der Spieler wählt irgendeine Ebene — auch die falsche muss reichen
-        gedeutet = pf2.spielordner_deuten(os.path.dirname(live))
+        gedeutet = pf2.resolve_game_folder(os.path.dirname(live))
         pruefe(gedeutet == live,
                'Elternordner wird zum richtigen Ordner gedeutet')
-        pf2.einstellung_setzen('spiel_ordner', gedeutet)
-        pruefe(pf2.spiel_ordner() == live, 'Angabe wirkt sofort, ohne Neustart')
+        pf2.set_setting('spiel_ordner', gedeutet)
+        pruefe(pf2.game_folder() == live, 'Angabe wirkt sofort, ohne Neustart')
 
         # ⚠⚠⚠ **Ab hier zeigt SC_INSTALL_DIR wieder auf die NACHGEBAUTE
         # Installation — und das ist keine Kosmetik.**
@@ -512,7 +512,7 @@ def main():
         # wurde nie erreicht, und ALLE in diesem Lauf gelesenen Dateien galten
         # wieder als ungelesen. Am alten Stand gemessen: 0 von 23 gemerkt,
         # beim naechsten Start dasselbe von vorn, ohne jede Meldung.
-        _sicherungen6 = pf2.log_sicherungen()
+        _sicherungen6 = pf2.log_backups()
         pruefe(len(_sicherungen6) > 0,
                'es liegen Sicherungen zum Pruefen bereit (%d)' % len(_sicherungen6))
         # ⚠ **Und sie stammen aus dem Wegwerf-Ordner, nicht vom Spieler.**
@@ -706,14 +706,14 @@ def main():
         # „fehlt", obwohl er im Bestand stand. Hier wird geprüft, dass alle
         # drei Module dieselbe Form liefern.
         from scbp import collection as b_norm, catalog as k_norm
-        from scbp import watchlist as m_norm, pfade as p_norm
+        from scbp import watchlist as m_norm, paths as p_norm
         proben = ('7MA "Lorica"', "7MA 'Lorica'", 'CF-117 „Hazard" Repeater',
                   'Test\xa0Name')
         gleich = all(b_norm.norm(x) == k_norm._norm(x) == m_norm._norm(x)
-                     == p_norm.namensform(x) for x in proben)
+                     == p_norm.name_key(x) for x in proben)
         pruefe(gleich, 'alle Module vergleichen Namen gleich')
-        pruefe(p_norm.namensform('7MA "Lorica"')
-               == p_norm.namensform("7MA 'Lorica'"),
+        pruefe(p_norm.name_key('7MA "Lorica"')
+               == p_norm.name_key("7MA 'Lorica'"),
                'gerade und einfache Anführungszeichen gelten als derselbe Name')
 
         formatfehler = probe_daten.formate_pruefen()
@@ -856,13 +856,13 @@ def main():
         alt_home = os.environ.get('SC_BP_HOME')
         os.environ['SC_BP_HOME'] = sperr
         try:
-            from scbp import pfade as pf_sperr
+            from scbp import paths as pf_sperr
             fehlerbuch.leeren()
-            geschrieben = pf_sperr.einstellung_setzen('probe', 2)
+            geschrieben = pf_sperr.set_setting('probe', 2)
             pruefe(not geschrieben,
                    'ein blockiertes Ziel meldet einen Fehlschlag')
             stellen = [e.get('stelle') for e in fehlerbuch.letzte(3)]
-            pruefe('pfade.einstellungen_schreiben' in stellen,
+            pruefe('paths.set_setting' in stellen,
                    'und der Grund steht im Fehlerprotokoll')
         finally:
             if alt_home:
@@ -946,39 +946,39 @@ def main():
         # 04.09.2026: „bei jedem Neustart ist der alte Pfad wieder drin".
         #
         # ⚠ Der Fehler zeigt sich NUR, wenn bereits ein eigener Ort gesetzt
-        # ist. Dann schreibt `einstellung_setzen` ueber `app_datei()` in den
-        # ALTEN Ordner, waehrend `_ablage_aus_datei()` weiter den unveraenderten
+        # ist. Dann schreibt `set_setting` ueber `app_file()` in den
+        # ALTEN Ordner, waehrend `_storage_from_file()` weiter den unveraenderten
         # Zeiger unter Dokumente liest. Ein Test, der bei Standard-Ablage
         # anfaengt, laeuft gruen durch und beweist nichts — dort sind Zeiger
         # und Ablage dieselbe Datei.
         print()
         print('13b. Der gewaehlte Ablage-Ort ueberlebt den Neustart')
-        _pf13b = importlib.import_module('scbp.pfade')
+        _pf13b = importlib.import_module('scbp.paths')
         _dok13b = os.path.join(basis, 'dokumente13b')
         _alt13b = os.path.join(basis, 'ablage_alt13b')
         _neu13b = os.path.join(basis, 'ablage_neu13b')
         for _o in (_dok13b, _alt13b, _neu13b):
             os.makedirs(_o, exist_ok=True)
         _home13b = os.environ.pop('SC_BP_HOME', None)   # sonst sticht sie alles
-        _echt13b = _pf13b._dokumente
-        _pf13b._dokumente = lambda: _dok13b
+        _echt13b = _pf13b._documents
+        _pf13b._documents = lambda: _dok13b
         try:
             # Ausgangslage: ein eigener Ort ist bereits gesetzt.
-            _zeiger13b = _pf13b.zeiger_datei()
+            _zeiger13b = _pf13b.pointer_file()
             os.makedirs(os.path.dirname(_zeiger13b), exist_ok=True)
             with open(_zeiger13b, 'w', encoding='utf-8') as _f13b:
                 json.dump({'ablage_ordner': _alt13b}, _f13b)
-            pruefe(_pf13b.app_ordner() == _alt13b,
+            pruefe(_pf13b.app_folder() == _alt13b,
                    'Ausgangslage: der Watcher liegt im alten Ordner')
 
             # Der Nutzer stellt um.
-            _pf13b.einstellung_setzen('ablage_ordner', _neu13b)
+            _pf13b.set_setting('ablage_ordner', _neu13b)
 
             with open(_zeiger13b, encoding='utf-8') as _f13b:
                 _steht13b = json.load(_f13b).get('ablage_ordner')
             pruefe(_steht13b == _neu13b,
                    'der neue Ort steht in der Zeiger-Datei')
-            pruefe(_pf13b.app_ordner() == _neu13b,
+            pruefe(_pf13b.app_folder() == _neu13b,
                    'nach dem Neustart gilt der neue Ort')
 
             # ⚠ Und er darf NICHT zusaetzlich im alten Ordner liegen — zwei
@@ -992,7 +992,7 @@ def main():
             pruefe('ablage_ordner' not in _rest13b,
                    'der alte Ordner behaelt keinen zweiten Ablage-Ort')
         finally:
-            _pf13b._dokumente = _echt13b
+            _pf13b._documents = _echt13b
             if _home13b is not None:
                 os.environ['SC_BP_HOME'] = _home13b
 
@@ -1160,8 +1160,8 @@ def main():
                 # Die Wahl muss festgehalten werden — ohne Speichern-Knopf gibt
                 # es keinen zweiten Versuch. Vorher stand die Markierung
                 # danach weiter auf der alten Sprache.
-                from scbp import pfade as pf4
-                pruefe(pf4.einstellung('sprache') == 'en',
+                from scbp import paths as pf4
+                pruefe(pf4.setting('sprache') == 'en',
                        'die gewählte Sprache ist gespeichert')
                 pruefe(seitenmodul._settings_parts(hf).sprache_wahl.get() == 'en',
                        'und die Markierung steht darauf')
@@ -1178,7 +1178,7 @@ def main():
         print()
         print('15. Umzug in den sichtbaren Ordner')
         import json as _json
-        from scbp import pfade as pf3
+        from scbp import paths as pf3
         importlib.reload(pf3)
 
         alt_ordner = os.path.join(basis, 'alt-appdata')
@@ -1187,8 +1187,8 @@ def main():
         os.makedirs(neu_ordner, exist_ok=True)
         os.environ.pop('SC_BP_HOME', None)
         # ⚠⚠ **Auch den Zweitzeiger stilllegen.** Seit dem 06.09.2026 liest
-        # `app_ordner()` einen zweiten Zeiger im Konfigurationsordner (siehe
-        # `pfade._zweitzeiger`). Auf einem Rechner, auf dem der gesetzt ist,
+        # `app_folder()` einen zweiten Zeiger im Konfigurationsordner (siehe
+        # `paths._second_pointer`). Auf einem Rechner, auf dem der gesetzt ist,
         # zog der Umzug sonst in den ECHTEN Ablageordner des Benutzers statt
         # in den Testordner — die Pruefung fiel um und hatte recht damit.
         _kon3 = tempfile.mkdtemp(prefix='umzug-konf-')
@@ -1196,9 +1196,9 @@ def main():
                     for k in ('XDG_CONFIG_HOME', 'APPDATA')}
         os.environ['XDG_CONFIG_HOME'] = _kon3
         os.environ['APPDATA'] = _kon3
-        echte_alt, echte_dok = pf3.alter_app_ordner, pf3._dokumente
-        pf3.alter_app_ordner = lambda: alt_ordner
-        pf3._dokumente = lambda: neu_ordner
+        echte_alt, echte_dok = pf3.legacy_app_folder, pf3._documents
+        pf3.legacy_app_folder = lambda: alt_ordner
+        pf3._documents = lambda: neu_ordner
         try:
             with open(os.path.join(alt_ordner, 'bestand.json'), 'w',
                       encoding='utf-8') as f:
@@ -1207,8 +1207,8 @@ def main():
                       encoding='utf-8') as f:
                 _json.dump({'x': 1}, f)
 
-            pruefe(pf3.umzug_noetig(), 'ein alter Ordner wird erkannt')
-            anzahl = pf3.umziehen()
+            pruefe(pf3.migration_needed(), 'ein alter Ordner wird erkannt')
+            anzahl = pf3.migrate()
             pruefe(anzahl == 2, 'beide Dateien wandern mit')
             pruefe(os.path.exists(os.path.join(neu_ordner, 'SC BP Watcher',
                                                'Bauplaene', 'bestand.json')),
@@ -1218,22 +1218,22 @@ def main():
                    'technischer Kleinkram landet unter „Intern"')
             pruefe(os.path.exists(os.path.join(alt_ordner, 'bestand.json')),
                    'der alte Ordner bleibt unangetastet liegen')
-            pruefe(not pf3.umzug_noetig(), 'ein zweiter Umzug ist nicht nötig')
-            pruefe(pf3.umziehen() == 0, 'und überschreibt nichts')
+            pruefe(not pf3.migration_needed(), 'ein zweiter Umzug ist nicht nötig')
+            pruefe(pf3.migrate() == 0, 'und überschreibt nichts')
 
-            # ⚠ Die Ablage-Einstellung darf `app_ordner()` nicht in eine Schleife
+            # ⚠ Die Ablage-Einstellung darf `app_folder()` nicht in eine Schleife
             # schicken. Ein scharfes Rekursionslimit macht das sofort sichtbar.
             grenze = sys.getrecursionlimit()
             sys.setrecursionlimit(120)
             try:
-                pf3.app_datei('bestand.json')
+                pf3.app_file('bestand.json')
                 pruefe(True, 'kein Kreisverkehr zwischen Ordner und Einstellungen')
             except RecursionError:
                 pruefe(False, 'kein Kreisverkehr zwischen Ordner und Einstellungen')
             finally:
                 sys.setrecursionlimit(grenze)
         finally:
-            pf3.alter_app_ordner, pf3._dokumente = echte_alt, echte_dok
+            pf3.legacy_app_folder, pf3._documents = echte_alt, echte_dok
             for _k3, _v3 in _sicher3.items():
                 if _v3 is None:
                     os.environ.pop(_k3, None)
@@ -1340,16 +1340,16 @@ def main():
         launcher = os.path.join(rsi, 'RSI Launcher', 'RSI Launcher.exe')
         open(launcher, 'w').close()
 
-        from scbp import pfade as pf_start
+        from scbp import paths as pf_start
         alt_windows = pf_start.WINDOWS
-        alt_ordner = pf_start.spiel_ordner
-        alt_einst = pf_start.einstellung
+        alt_ordner = pf_start.game_folder
+        alt_einst = pf_start.setting
         # ⚠ Die Registry-Suche muss ebenfalls stillgelegt werden. Sie geht an
         # den umgebogenen Umgebungsvariablen vorbei und findet auf einem Rechner
         # mit echtem Spiel den richtigen Launcher — der Test praeft sonst wieder
         # den Rechner statt den Code.
-        alt_registry = pf_start._launcher_aus_registry
-        pf_start._launcher_aus_registry = lambda: None
+        alt_registry = pf_start._launcher_from_registry
+        pf_start._launcher_from_registry = lambda: None
 
         # ⚠ Die Umgebungsvariablen MÜSSEN mit umgebogen werden. `spielstarter()`
         # sucht nach dem Spielordner noch feste Orte unter `LOCALAPPDATA`,
@@ -1367,21 +1367,21 @@ def main():
             os.environ[schluessel] = starter_basis
         try:
             pf_start.WINDOWS = True
-            pf_start.spiel_ordner = lambda: spiel_pfad
-            pf_start.einstellung = lambda name: None
-            pruefe(pf_start.spielstarter() == launcher,
+            pf_start.game_folder = lambda: spiel_pfad
+            pf_start.setting = lambda name: None
+            pruefe(pf_start.game_starter() == launcher,
                    'der Launcher wird neben dem Spielordner gefunden')
 
             # Ohne Launcher darf KEIN Pfad zurückkommen — sonst erschiene ein
             # Knopf, der nichts tut.
             os.remove(launcher)
-            pruefe(pf_start.spielstarter() is None,
+            pruefe(pf_start.game_starter() is None,
                    'ohne Launcher gibt es keinen Knopf')
         finally:
             pf_start.WINDOWS = alt_windows
-            pf_start.spiel_ordner = alt_ordner
-            pf_start.einstellung = alt_einst
-            pf_start._launcher_aus_registry = alt_registry
+            pf_start.game_folder = alt_ordner
+            pf_start.setting = alt_einst
+            pf_start._launcher_from_registry = alt_registry
             for schluessel, wert in alt_umgebung.items():
                 if wert is None:
                     os.environ.pop(schluessel, None)
@@ -1410,21 +1410,21 @@ def main():
         os.environ['HOME'] = os.path.join(basis, 'linuxprobe', 'leeres-heim')
         try:
             pf_start.WINDOWS = False
-            pf_start.spiel_ordner = lambda: linux_spiel
-            pf_start.einstellung = lambda name: None
-            pruefe(pf_start.spielstarter() == skript,
+            pf_start.game_folder = lambda: linux_spiel
+            pf_start.setting = lambda name: None
+            pruefe(pf_start.game_starter() == skript,
                    'unter Linux wird sc-launch.sh über drive_c gefunden')
 
             # Ohne Startskript darf KEIN Pfad kommen — auch dann nicht, wenn auf
             # dem Rechner ein `lug-helper` im Suchpfad liegt. Genau der wurde
             # früher zurückgegeben, und der Knopf tat nichts.
             os.remove(skript)
-            pruefe(pf_start.spielstarter() is None,
+            pruefe(pf_start.game_starter() is None,
                    'ohne sc-launch.sh gibt es unter Linux keinen Knopf')
         finally:
             pf_start.WINDOWS = alt_windows
-            pf_start.spiel_ordner = alt_ordner
-            pf_start.einstellung = alt_einst
+            pf_start.game_folder = alt_ordner
+            pf_start.setting = alt_einst
             if alt_heim is None:
                 os.environ.pop('HOME', None)
             else:
@@ -1608,7 +1608,7 @@ def main():
         # Die erste Version prüfte eine Handauswahl von Oberflächen-Dateien —
         # und ließ `logsource.py` aus, weil das nach Hintergrund klingt. Genau
         # von dort kam aber „Zwischen … hat Star Citizen Logs weggeräumt", und
-        # der Satz stand fest auf Deutsch im Overlay. Auch `pfade.py` gab „kein
+        # der Satz stand fest auf Deutsch im Overlay. Auch `paths.py` gab „kein
         # Starter gefunden" in die Statuszeile.
         #
         # Wer entscheidet, was „sichtbar" ist, irrt sich. Deshalb: alles
@@ -1647,7 +1647,7 @@ def main():
             'scbp/autostart.py', 'scbp/desktop_entry.py',
             # Kommentare in der einstellungen.json und eine Entwickler-Hilfe
             # zum fehlenden Entpacker — beides kein Oberflächentext.
-            'scbp/pfade.py', 'scbp/gametext.py', 'scbp/phrases.py',
+            'scbp/paths.py', 'scbp/gametext.py', 'scbp/phrases.py',
             # Feldnamen der `global.ini` („Gütegrad:", „Verfolgungssignal:") —
             # damit wird in der Spieldatei GESUCHT, angezeigt wird nichts
             # davon. Gleiche Lage wie bei `phrases.py` eine Zeile höher.
@@ -1961,7 +1961,7 @@ def main():
 
         # ⚠ Beim allerersten Katalogbau gibt es beides nicht — dann MUSS die
         # Grundlage leer bleiben, sonst staenden alle 738 als „neu" da.
-        os.remove(kat19.pfade.app_datei('bauplaene-gesehen.json'))
+        os.remove(kat19.paths.app_file('bauplaene-gesehen.json'))
         os.remove(_kat19)
         pruefe(kat19._baseline() == set(),
                'beim allerersten Bau bleibt sie leer')
@@ -2139,13 +2139,13 @@ def main():
         # Ein rc74-Bericht zeigte keinen einzigen Startschritt mehr.
         import os as os26
         from scbp import fehler as fe26
-        from scbp import pfade as pf26
+        from scbp import paths as pf26
 
         ordner26 = os.path.join(basis, 'spur26')
         os26.makedirs(ordner26, exist_ok=True)
-        alt_datei26 = pf26.app_datei
+        alt_datei26 = pf26.app_file
         try:
-            pf26.app_datei = lambda name: os26.path.join(ordner26, name)
+            pf26.app_file = lambda name: os26.path.join(ordner26, name)
             if hasattr(fe26.spur, '_offen'):
                 del fe26.spur._offen
 
@@ -2172,7 +2172,7 @@ def main():
             # Oeffnen** ueber `after()` und schreibt dann `Vorbau xy: N ms` in
             # die Spur. Hat eine fruehere Pruefung ein Fenster gebaut, faellt
             # dieser Rueckruf mitten in diese hier — und landet in der Datei,
-            # auf die `app_datei` gerade umgebogen ist. Ob er trifft, haengt am
+            # auf die `app_file` gerade umgebogen ist. Ob er trifft, haengt am
             # Zeitpunkt; deshalb mal 80, mal 81.
             #
             # Die Zahl aufzuweichen (`>= 80`) waere der falsche Ausweg: Dann
@@ -2189,7 +2189,7 @@ def main():
                            % (len(_fremd26), _fremd26[0][:50])))
 
             # Und jetzt der Punkt, der in rc74 fehlte.
-            fe26._spur_kuerzen(pf26.app_datei(fe26.SPUR_DATEI))
+            fe26._spur_kuerzen(pf26.app_file(fe26.SPUR_DATEI))
             start27, seiten27 = fe26.spur_geteilt()
             pruefe(len(start27) == 3,
                    'der Startverlauf ueberlebt das Kuerzen')
@@ -2222,7 +2222,7 @@ def main():
                       else ', davon %d fremde' % len(_fremd27)))
 
             # Der Absturzfaenger legt einen vorigen Lauf beiseite.
-            with open(pf26.app_datei(fe26.ABSTURZ_DATEI), 'w', encoding='utf-8') as f26:
+            with open(pf26.app_file(fe26.ABSTURZ_DATEI), 'w', encoding='utf-8') as f26:
                 f26.write('Current thread 0x0000 (most recent call first):\n')
             pruefe(fe26.absturzfaenger(), 'der Absturzfaenger laesst sich setzen')
             pruefe(len(fe26.letzter_absturz()) == 1,
@@ -2230,7 +2230,7 @@ def main():
             pruefe(fe26.absturz_abhaken() and not fe26.letzter_absturz(),
                    'und laesst sich abhaken')
         finally:
-            pf26.app_datei = alt_datei26
+            pf26.app_file = alt_datei26
             if hasattr(fe26.spur, '_offen'):
                 del fe26.spur._offen
 
@@ -2690,7 +2690,7 @@ def main():
         print('33. Bestand und Liste finden zueinander, egal woher der Name kam')
         # ⚠ Der Fehler, der Morkhans leere Kaestchen erklaert (28.08.2026).
         #
-        # `pfade.namensform()` nennt sich selbst „die EINZIGE Stelle" fuer
+        # `paths.name_key()` nennt sich selbst „die EINZIGE Stelle" fuer
         # Vergleichsschluessel — schnitt den Klassen-Zusatz aber nicht ab. Das
         # tat nur `logsource.split_names()`. Also:
         #
@@ -2702,7 +2702,7 @@ def main():
         # fehlend, obwohl er im Bestand stand. Betroffen war jeder, der seinen
         # Stand aus dem SC Deutsch Launcher oder einer Sicherung mitbrachte —
         # also genau die Leute, die schon laenger spielen.
-        from scbp.pfade import namensform as nfm33
+        from scbp.paths import name_key as nfm33
         gleich33 = [
             ('XL-1 (Mil/2/A)',            'XL-1'),
             ('7CA \'Nargun\' (Civ/3/A)',   "7CA 'Nargun'"),
@@ -2742,7 +2742,7 @@ def main():
         os.environ['SC_BP_HOME'] = heim33
         try:
             import importlib as im33
-            from scbp import pfade as pf33
+            from scbp import paths as pf33
             im33.reload(pf33)
             from scbp import collection as be33
             im33.reload(be33)
@@ -3036,33 +3036,33 @@ def main():
         # Startknopf. Der Ausweg (Einstellung `spielstarter`) existierte, stand
         # aber nur in der einstellungen.json — fuer jemanden, der spielen und
         # nicht schrauben will, heisst das: gibt es nicht.
-        from scbp import pfade as pf25
+        from scbp import paths as pf25
         from scbp import report as be25
 
         # Ein Befehl mit Argumenten muss zerlegt werden, eine echte Datei NICHT.
         skript25 = os.path.join(basis, 'mein start skript.sh')
         open(skript25, 'w').close()
-        pruefe(pf25._startbefehl(skript25) == [skript25],
+        pruefe(pf25._start_command(skript25) == [skript25],
                'eine vorhandene Datei mit Leerzeichen bleibt ganz')
-        pruefe(pf25._startbefehl('lutris rungame/star-citizen')
+        pruefe(pf25._start_command('lutris rungame/star-citizen')
                == ['lutris', 'rungame/star-citizen'],
                'ein Befehl mit Argumenten wird zerlegt')
-        pruefe(pf25._startbefehl('flatpak run org.starcitizen-lug.Helper')
+        pruefe(pf25._start_command('flatpak run org.starcitizen-lug.Helper')
                == ['flatpak', 'run', 'org.starcitizen-lug.Helper'],
                'auch der Flatpak-Aufruf')
         # Unpaariges Anfuehrungszeichen darf nicht in eine Ausnahme laufen.
-        pruefe(pf25._startbefehl('kaputt "offen') == ['kaputt "offen'],
+        pruefe(pf25._start_command('kaputt "offen') == ['kaputt "offen'],
                'ein unpaariges Anfuehrungszeichen wirft nicht')
 
         # Der eingetragene Befehl schlaegt die Suche.
-        alt_einst25 = pf25.einstellung
+        alt_einst25 = pf25.setting
         try:
-            pf25.einstellung = lambda name: ('mein-eigener-start --jetzt'
+            pf25.setting = lambda name: ('mein-eigener-start --jetzt'
                                              if name == 'spielstarter' else None)
-            pruefe(pf25.spielstarter() == 'mein-eigener-start --jetzt',
+            pruefe(pf25.game_starter() == 'mein-eigener-start --jetzt',
                    'der eingetragene Startbefehl schlaegt die Suche')
         finally:
-            pf25.einstellung = alt_einst25
+            pf25.setting = alt_einst25
 
         # ⚠ Und er muss im BERICHT stehen. Ohne diese Zeile ist "der Startknopf
         # tut nichts" nicht zu beantworten, ohne den Nutzer auszufragen — genau
@@ -3073,7 +3073,7 @@ def main():
                         encoding='utf-8').read()
         pruefe("line(t('b_starter')" in quelle25,
                'und gibt sie auch aus')
-        pruefe('kuerzen(' in quelle25.split('def _game_launcher')[1][:900],
+        pruefe('redact(' in quelle25.split('def _game_launcher')[1][:900],
                'gekuerzt — kein Benutzername im oeffentlichen Bericht')
 
         print()
@@ -3218,7 +3218,7 @@ def main():
         alt_heim22 = os.environ.get('SC_BP_HOME')
         os.environ['SC_BP_HOME'] = heim22
         try:
-            from scbp import pfade as pf22
+            from scbp import paths as pf22
             _imp22.reload(pf22)
             from scbp import collection as be22, export as ex22
             _imp22.reload(ex22)
@@ -3243,7 +3243,7 @@ def main():
                    'speichern() schreibt alle Versionen mit')
 
             # ⚠ Nur zaehlen, was zur Ausgabe gehoert. Unter `SC_BP_HOME` legt
-            # `pfade.app_datei()` ALLES flach in denselben Ordner — im
+            # `paths.app_file()` ALLES flach in denselben Ordner — im
             # Normalbetrieb liegen die internen Dateien dagegen unter
             # `Intern/`. Ohne diese Ausnahme meldet die Pruefung jedes neue
             # interne Modul als „zweite Garnitur", obwohl es keine ist
@@ -3303,7 +3303,7 @@ def main():
                 os.environ.pop('SC_BP_HOME', None)
             else:
                 os.environ['SC_BP_HOME'] = alt_heim22
-            from scbp import pfade as pf22b
+            from scbp import paths as pf22b
             _imp22.reload(pf22b)
 
     finally:
@@ -3313,7 +3313,7 @@ def main():
     #
     # Abschnitt 5 entfernt `SC_INSTALL_DIR` („Suche muss jetzt scheitern") und
     # setzt es nie wieder; die nachgebaute Installation ist gerade geloescht
-    # worden. Danach findet `pfade` auf einem Spielrechner die **echte**
+    # worden. Danach findet `paths` auf einem Spielrechner die **echte**
     # Installation — und ein `mission_log.scan_backlog()` im Hintergrundfaden (es
     # startet beim Oeffnen der Auftragslog-Seite) liest deren `logbackups/` und
     # schreibt sie in Bestand und Protokoll.
@@ -3332,10 +3332,10 @@ def main():
     #
     #   | Quelle | kommt aus |
     #   |---|---|
-    #   | die aufgehobenen Sicherungen | `pfade.log_sicherungen()` |
-    #   | die **laufende** `Game.log`   | `pfade.spiel_ordner()` |
+    #   | die aufgehobenen Sicherungen | `paths.log_backups()` |
+    #   | die **laufende** `Game.log`   | `paths.game_folder()` |
     #
-    # ⛔ Der erste Versuch legte nur `log_sicherungen()` stille — und die
+    # ⛔ Der erste Versuch legte nur `log_backups()` stille — und die
     # **Wache dazu fragte genau diese Funktion ab**. Sie war gruen und konnte
     # gar nicht rot werden, waehrend der Lauf weiter 1,2 MB echte `Game.log`
     # mit 80 Auftragszeilen las. Gefunden hat es erst ein fremder Pruefer.
@@ -3356,14 +3356,14 @@ def main():
     # | `SC_INSTALL_DIR` zurueck auf die nachgebaute Installation | wirkungslos, der Ordner ist geloescht |
     # | `SC_INSTALL_DIR` auf einen leeren Ersatz | zerbricht Pruefung 111 und 123 — die Variable sticht die Einstellungsdatei, ueber die beide ihren Spielordner setzen |
     # | Suchwurzeln leeren | kostet VIER `global.ini`-Pruefungen, die die echte Sprachdatei brauchen (und laut Projektregel duerfen). Der Lauf war gruen — mit 2090 statt 2094 Pruefungen |
-    # | nur `log_sicherungen()` stilllegen | laesst die laufende `Game.log` durch; die Wache dazu misst ihre eigene Stilllegung |
+    # | nur `log_backups()` stilllegen | laesst die laufende `Game.log` durch; die Wache dazu misst ihre eigene Stilllegung |
     #
     # ⭐⭐ **Es sind DREI Wege, nicht einer.** Aufgezaehlt statt vermutet — das
     # ist der Kern der Lehre:
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
-    #   | 1 | `pfade.log_sicherungen()` | `logsource`, `mission_log`, `report`, `assistent`, der Watcher |
+    #   | 1 | `paths.log_backups()` | `logsource`, `mission_log`, `report`, `assistent`, der Watcher |
     #   | 2 | `pfade.game_log()` | `logsource`, `playtime`, `joysticks`, der Watcher |
     #   | 3 | `mission_log.scan_backlog()` | baut sich den Pfad zur laufenden Datei **selbst** (`mission_log.py`) und geht an 2 vorbei |
     #
@@ -3383,8 +3383,8 @@ def main():
     # ⛔ **Warum die Sperrliste durchlaessig war** — der Pruefer hat beides
     # gefunden, die Messung hat es bestaetigt:
     #
-    #   1. **Nachbarkanaele.** `log_sicherungen()` liest ausdruecklich auch
-    #      HOTFIX (`_kanal_geschwister`, Wunsch vom 05.09.2026). HOTFIX ist ein
+    #   1. **Nachbarkanaele.** `log_backups()` liest ausdruecklich auch
+    #      HOTFIX (`_channel_siblings`, Wunsch vom 05.09.2026). HOTFIX ist ein
     #      GESCHWISTER von LIVE, kein Unterordner — eine Sperre auf LIVE laesst
     #      es durch. Gemessen: 2 Sicherungen und die laufende Datei kamen an.
     #   2. **Gross-/Kleinschreibung.** `commonpath` vergleicht Zeichenketten;
@@ -3405,8 +3405,8 @@ def main():
     #
     # ⚠ Steht bewusst HINTER Abschnitt 6: Der braucht die Sicherungen der
     # nachgebauten Installation („es liegen Sicherungen zum Pruefen bereit").
-    _pf_iso = __import__('scbp.pfade', fromlist=['log_sicherungen'])
-    _echte_sicherungen = _pf_iso.log_sicherungen
+    _pf_iso = __import__('scbp.paths', fromlist=['log_backups'])
+    _echte_sicherungen = _pf_iso.log_backups
     _echte_gamelog = _pf_iso.game_log
     # ⚠⚠ **Die Wurzel DIESES Laufs, nicht der allgemeine Temp-Ordner.**
     # `gettempdir()` waere viel zu weit: Dort liegen fremde Werkzeuge und
@@ -3441,7 +3441,7 @@ def main():
     def _nachlese_iso(*_a, **_k):
         return (0, 0)
 
-    _pf_iso.log_sicherungen = _sicherungen_iso
+    _pf_iso.log_backups = _sicherungen_iso
     _pf_iso.game_log = _gamelog_iso
     _ml_iso = __import__('scbp.mission_log', fromlist=['scan_backlog'])
     _ml_iso.scan_backlog = _nachlese_iso
@@ -3730,7 +3730,7 @@ def main():
     _alt_home42 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf42.mkdtemp(prefix='sc-bp-historie-')
     try:
-        _mit42 = ph42._read(ph42.pfade.programm_datei(ph42.BUNDLED))
+        _mit42 = ph42._read(ph42.paths.bundled_file(ph42.BUNDLED))
         _v42 = sorted(_mit42, key=ph42.rank)[-1]
         _vorher42 = len(_mit42[_v42].get('neu') or [])
         pruefe(_vorher42 > 1,
@@ -3801,12 +3801,12 @@ def main():
     os.environ['SC_BP_HOME'] = _tf43.mkdtemp(prefix='sc-bp-patchfeld-')
     try:
         # Die Historie kennt DREI Bauplaene, der Katalog fuehrt nur zwei davon.
-        ph43._write(ph43.pfade.app_datei('patch-historie.json'),
+        ph43._write(ph43.paths.app_file('patch-historie.json'),
                       {'4.10.0-live.7': {'datum': '2026-08-26',
                                          'neu': ['Erster Bauplan',
                                                  'Zweiter Bauplan',
                                                  'Nicht im Katalog']}})
-        with open(kat43.pfade.app_datei('katalog-cache.json'), 'w',
+        with open(kat43.paths.app_file('katalog-cache.json'), 'w',
                   encoding='utf-8') as f:
             json.dump({'version': '4.10.0-live.7', 'geholt': '',
                        'bauplaene': {'erster bauplan': {'n': 'Erster Bauplan'},
@@ -3855,7 +3855,7 @@ def main():
     # ist es weg, und der Hinweg fuehrte allein ueber Einstellungen -> Overlay.
     # Ein Weg hin und her gehoert an dieselbe Stelle.
     import tempfile as _tf44
-    from scbp import pfade as pf44, language as sp44
+    from scbp import paths as pf44, language as sp44
     import sc_bp_watcher as w44
     _q44 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
 
@@ -3898,14 +3898,14 @@ def main():
 
         _o44 = _Ohne44()
         w44.Overlay._schloss_zusperren(_o44)
-        pruefe(pf44.einstellung_wahrheit('durchklickbar', False) is False,
+        pruefe(pf44.setting_bool('durchklickbar', False) is False,
                'geht das Durchreichen nicht, wird die Einstellung zurueckgenommen')
         pruefe(_o44.gemeldet is None,
                'und es wird kein Erfolg gemeldet, den es nicht gab')
 
         _o44.klappt = True
         w44.Overlay._schloss_zusperren(_o44)
-        pruefe(pf44.einstellung_wahrheit('durchklickbar', False) is True,
+        pruefe(pf44.setting_bool('durchklickbar', False) is True,
                'klappt es, bleibt das Durchreichen an')
         pruefe(_o44.gemeldet is not None,
                'und der Nutzer erfaehrt, wie er zurueckkommt')
@@ -4208,7 +4208,7 @@ def main():
                'und zwar ohne vorher eines an der falschen Stelle zu bauen')
         _nach44 = _q44[_q44.index('def _nachfassen'):]
         _nach44 = _nach44[:_nach44.index('def _leistenschloss')]
-        pruefe("einstellung_wahrheit('durchklickbar'" in _nach44,
+        pruefe("setting_bool('durchklickbar'" in _nach44,
                'und zwar nur, solange das Durchreichen ueberhaupt noch an ist')
         # ⚠ Begrenzt — sonst liefe es ewig weiter, solange das Overlay
         #   eingeklappt oder im Pop-up-Betrieb versteckt ist.
@@ -5408,7 +5408,7 @@ def main():
     print('58. Abgeschlossener Auftrag bleibt abgeschlossen')
     from scbp import logsource as _lq58
     from scbp import contracts as _au58
-    from scbp import pfade as _pf58
+    from scbp import paths as _pf58
 
     _log58 = os.path.join(tempfile.mkdtemp(), 'Game.log')
     with open(_log58, 'w', encoding='utf-8') as _f58:
@@ -6373,8 +6373,8 @@ def main():
                                     'propertyName': 'Max Temp',
                                     'propertyKey': 'armor_temperaturemax'}]}]}]}],
             'dismantle': {'returnPercentage': 50, 'blacklistedResources': []}}
-        from scbp import pfade as _pf67
-        with open(_pf67.app_datei(_he67.CACHE), 'w', encoding='utf-8') as _f67:
+        from scbp import paths as _pf67
+        with open(_pf67.app_file(_he67.CACHE), 'w', encoding='utf-8') as _f67:
             json.dump(_mini67, _f67)
         _he67.forget()
 
@@ -7102,10 +7102,10 @@ def main():
     # ist CIGs eigene und traegt keine; sie mit zu pruefen hiesse, einen Fehler
     # zu melden, wo keiner sein kann. Genau so lief mein erster Anlauf: Er nahm
     # die erste Datei im Ordner — die englische — und schlug an.
-    from scbp import pfade as _pf71
+    from scbp import paths as _pf71
     _dateien71 = []
     try:
-        _basis71 = os.path.join(_pf71.spiel_ordner() or '', 'data', 'Localization')
+        _basis71 = os.path.join(_pf71.game_folder() or '', 'data', 'Localization')
         for _ordner71 in (sorted(os.listdir(_basis71))
                           if os.path.isdir(_basis71) else []):
             _kandidat71 = os.path.join(_basis71, _ordner71, 'global.ini')
@@ -7318,14 +7318,14 @@ def main():
     # stirbt genau dieses Programm sofort an unseren Bibliothekspfaden.
     #
     # Die Hälfte der Verweise hatte die Umgebungswaesche schon, die andere
-    # nicht. Deshalb geht jetzt **alles** durch `pfade.im_browser` — und hier
+    # nicht. Deshalb geht jetzt **alles** durch `paths.open_in_browser` — und hier
     # wird nachgezaehlt, dass kein `webbrowser.open()` daran vorbei geht.
     #
-    # ⚠ Geprueft wird **ohne** irgendetwas zu oeffnen: `browser_befehle` liefert
-    # nur die Liste, und `im_browser` bekommt ein untergeschobenes `Popen`.
+    # ⚠ Geprueft wird **ohne** irgendetwas zu oeffnen: `browser_commands` liefert
+    # nur die Liste, und `open_in_browser` bekommt ein untergeschobenes `Popen`.
     print()
-    print('75. Verweise gehen ueber pfade.im_browser')
-    from scbp import pfade as _pf75
+    print('75. Verweise gehen ueber paths.open_in_browser')
+    from scbp import paths as _pf75
 
     # ⚠ Über den Syntaxbaum, nicht über Textsuche: In den Kommentaren steht
     # `webbrowser.open()` mehrfach als Begründung, warum es NICHT benutzt wird.
@@ -7333,7 +7333,7 @@ def main():
     import ast as _ast75
     _direkt75 = []
     for _name75 in sorted(os.listdir(os.path.join(WURZEL, 'scbp'))):
-        if not _name75.endswith('.py') or _name75 == 'pfade.py':
+        if not _name75.endswith('.py') or _name75 == 'paths.py':
             continue
         _baum75 = _ast75.parse(open(os.path.join(WURZEL, 'scbp', _name75),
                                     encoding='utf-8').read())
@@ -7346,9 +7346,9 @@ def main():
                 _direkt75.append('%s:%d' % (_name75, _k75.lineno))
     pruefe(not _direkt75,
            'kein Modul ruft webbrowser.open() direkt (%s)'
-           % (', '.join(_direkt75) or 'alle über pfade.im_browser'))
+           % (', '.join(_direkt75) or 'alle über paths.open_in_browser'))
 
-    _befehle75 = _pf75.browser_befehle('https://example.invalid/x')
+    _befehle75 = _pf75.browser_commands('https://example.invalid/x')
     if sys.platform.startswith('linux'):
         pruefe(_befehle75 and _befehle75[0][0] == 'xdg-open',
                'unter Linux wird zuerst xdg-open versucht (%s)' % _befehle75)
@@ -7370,9 +7370,9 @@ def main():
     # ⚠⚠ **`webbrowser.open` MUSS mit abgefangen werden** (07.09.2026, unter
     # Windows gemeldet: „bei mir geht ein Browser auf").
     #
-    # Abgefangen war bis dahin nur `subprocess.Popen` — der Weg, den `im_browser`
-    # unter LINUX geht. Unter Windows liefert `browser_befehle()` bewusst eine
-    # leere Liste (dort macht `webbrowser` es richtig), und `im_browser` faellt
+    # Abgefangen war bis dahin nur `subprocess.Popen` — der Weg, den `open_in_browser`
+    # unter LINUX geht. Unter Windows liefert `browser_commands()` bewusst eine
+    # leere Liste (dort macht `webbrowser` es richtig), und `open_in_browser` faellt
     # auf `webbrowser.open()` zurueck. Das lief hier ungebremst: Bei jedem
     # Selbsttest sprang der echte Standardbrowser mit `example.invalid` auf.
     #
@@ -7393,7 +7393,7 @@ def main():
         _sp75.Popen = _Lauf75
         _wb75.open = lambda adresse, *a, **k: (_wb75_gerufen.append(adresse),
                                                True)[1]
-        _geklappt75 = _pf75.im_browser('https://example.invalid/x')
+        _geklappt75 = _pf75.open_in_browser('https://example.invalid/x')
     finally:
         _sp75.Popen = _echt75
         _wb75.open = _echt_wb75
@@ -7434,7 +7434,7 @@ def main():
     print()
     print('76. Der Lesestand ist kein Einrichtungsmerkmal')
     from scbp import assistent as _as76
-    from scbp import pfade as _pf76
+    from scbp import paths as _pf76
 
     _heim76 = os.environ.get('SC_BP_HOME')
     _ordner76 = os.path.join(basis, 'einrichtung76')
@@ -7442,25 +7442,25 @@ def main():
     os.makedirs(_ordner76, exist_ok=True)
     os.makedirs(_spiel76, exist_ok=True)
     # ⚠ Der eingetragene Ordner muss eine **echte** `Game.log` enthalten —
-    # `pfade.spiel_ordner()` prueft das und raet nicht. Ein leerer Wegwerf-Ordner
+    # `paths.game_folder()` prueft das und raet nicht. Ein leerer Wegwerf-Ordner
     # reicht nicht: Auf dem Entwicklungsrechner sprang dann die automatische
     # Suche ein und fand die echte Installation, im Bau-Laeufer nicht. Die
     # Pruefung war gruen, wo sie nichts prueft, und rot, wo sie zaehlt.
     with open(os.path.join(_spiel76, 'Game.log'), 'w', encoding='utf-8') as _f76:
         _f76.write('')
-    _wurzeln76 = _pf76._spiel_wurzeln
-    _pf76._spiel_wurzeln = lambda: []      # keine automatische Suche dazwischen
+    _wurzeln76 = _pf76._game_roots
+    _pf76._game_roots = lambda: []      # keine automatische Suche dazwischen
     try:
         os.environ['SC_BP_HOME'] = _ordner76
         # Ein eingerichtetes Werkzeug: Spielordner eingetragen, Lesestand da.
-        _pf76.einstellung_setzen('spiel_ordner', _spiel76)
-        with open(_pf76.app_datei('logstand.json'), 'w', encoding='utf-8') as _f76:
+        _pf76.set_setting('spiel_ordner', _spiel76)
+        with open(_pf76.app_file('logstand.json'), 'w', encoding='utf-8') as _f76:
             _f76.write('{}')
         pruefe(not _as76.needed(),
                'ein eingerichtetes Werkzeug meldet keinen Assistenten')
 
         # Und jetzt genau das, was der Knopf tut.
-        os.remove(_pf76.app_datei('logstand.json'))
+        os.remove(_pf76.app_file('logstand.json'))
         pruefe(_as76.is_configured(),
                'ohne Lesestand gilt es weiterhin als eingerichtet')
         pruefe(not _as76.needed(),
@@ -7473,7 +7473,7 @@ def main():
         pruefe(_as76.needed(),
                'beim echten ersten Start meldet er sich weiterhin')
     finally:
-        _pf76._spiel_wurzeln = _wurzeln76
+        _pf76._game_roots = _wurzeln76
         if _heim76 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:
@@ -7683,7 +7683,7 @@ def main():
     # ------------------------------------------------------------------
     # 80. Anfuehrungszeichen duerfen Namen nicht trennen
     #
-    # ⚠⚠ Bis zum 30.08.2026 fehlte in `pfade.ANFUEHRUNG` ausgerechnet das
+    # ⚠⚠ Bis zum 30.08.2026 fehlte in `paths.QUOTES` ausgerechnet das
     # **oeffnende** typografische Anfuehrungszeichen. Aus
     # `SW16BR1 “Buzzsaw” Repeater` wurde `sw16br1 “buzzsaw' repeater` — das
     # schliessende angeglichen, das oeffnende nicht. Drei Katalog-Bauplaene
@@ -7694,14 +7694,14 @@ def main():
     # „fehlt", und niemand vermutet ein Anfuehrungszeichen dahinter.
     print()
     print('80. Anfuehrungszeichen trennen keine Namen')
-    from scbp import pfade as _pf80
+    from scbp import paths as _pf80
 
     _formen80 = ['SW16BR1 "Buzzsaw" Repeater']
     for _paar80 in (('\u201c', '\u201d'), ('\u2018', '\u2019'),
                     ('\u201e', '\u201c'), ('\u00ab', '\u00bb'),
                     ('\u2039', '\u203a'), ("'", "'")):
         _formen80.append('SW16BR1 %sBuzzsaw%s Repeater' % _paar80)
-    _keys80 = {_pf80.namensform(_f80) for _f80 in _formen80}
+    _keys80 = {_pf80.name_key(_f80) for _f80 in _formen80}
     pruefe(len(_keys80) == 1,
            'alle Anfuehrungs-Schreibweisen ergeben denselben Schluessel (%d '
            'verschiedene: %s)' % (len(_keys80), sorted(_keys80)[:3]))
@@ -7711,7 +7711,7 @@ def main():
     # genauso lange nicht auf.
     _fehlend80 = [c for c in '\u201c\u201d\u201e\u2018\u2019\u201a'
                             '\u00ab\u00bb\u2039\u203a"'
-                  if ord(c) not in _pf80.ANFUEHRUNG]
+                  if ord(c) not in _pf80.QUOTES]
     pruefe(not _fehlend80,
            'die Tabelle kennt alle gaengigen Anfuehrungszeichen (%s)'
            % (', '.join('U+%04X' % ord(c) for c in _fehlend80) or 'alle'))
@@ -7733,7 +7733,7 @@ def main():
     print('81. Die Spielsprache entscheidet ueber die Zieldatei')
     from scbp import injection as _in81
     from scbp import translation as _ue81
-    from scbp import pfade as _pf81
+    from scbp import paths as _pf81
 
     _spiel81 = os.path.join(basis, 'spiel81', 'LIVE')
     for _s81 in ('english', 'german_(germany)'):
@@ -7748,8 +7748,8 @@ def main():
     _altquelle81 = None
     try:
         os.environ['SC_INSTALL_DIR'] = _spiel81
-        _altquelle81 = _pf81.einstellung('inj_quelle')
-        _pf81.einstellung_setzen('inj_quelle', 'original')
+        _altquelle81 = _pf81.setting('inj_quelle')
+        _pf81.set_setting('inj_quelle', 'original')
 
         def _cfg81(wert):
             with open(os.path.join(_spiel81, 'user.cfg'), 'w',
@@ -7782,9 +7782,9 @@ def main():
                'ohne Eintrag gilt der Rueckfall Englisch (%s)' % _spr81)
     finally:
         if _altquelle81 is None:
-            _pf81.einstellung_setzen('inj_quelle', None)
+            _pf81.set_setting('inj_quelle', None)
         else:
-            _pf81.einstellung_setzen('inj_quelle', _altquelle81)
+            _pf81.set_setting('inj_quelle', _altquelle81)
         if _altspiel81 is None:
             os.environ.pop('SC_INSTALL_DIR', None)
         else:
@@ -8560,7 +8560,7 @@ def main():
            and "swap_symbol('aufklappen')" in _raffblock86,
            'die Raffinerie-Ausbeute laesst sich ein- und ausklappen')
     # ⚠⚠ **Diese Pruefung hat den Fehler bis zum 03.09.2026 FESTGESCHRIEBEN.**
-    # Sie verlangte woertlich `einstellung('lager_raffinerie_offen')` — also
+    # Sie verlangte woertlich `setting('lager_raffinerie_offen')` — also
     # genau den falschen Aufruf: Die Funktion liefert einen PFAD und ruft
     # `.strip()` auf dem Wert. Bei `True` warf das einen AttributeError und
     # riss den Aufbau der ganzen Lager-Seite ab.
@@ -8569,10 +8569,10 @@ def main():
     # pruefen, haelt einen Fehler fest, sobald er einmal drin ist. Hier steht
     # deshalb jetzt, WAS gelten muss: ein Ja/Nein wird mit dem Ja/Nein-Leser
     # gelesen, nie mit dem Pfad-Leser.
-    pruefe(_raffblock86.count("einstellung_setzen('lager_raffinerie_offen'") >= 2
-           and "einstellung_wahrheit('lager_raffinerie_offen'" in _raffblock86,
+    pruefe(_raffblock86.count("set_setting('lager_raffinerie_offen'") >= 2
+           and "setting_bool('lager_raffinerie_offen'" in _raffblock86,
            'und die Lage ueberlebt den Neustart — in BEIDE Richtungen')
-    pruefe("einstellung('lager_raffinerie_offen')" not in _raffblock86,
+    pruefe("setting('lager_raffinerie_offen')" not in _raffblock86,
            'gelesen wird sie als Ja/Nein, nicht als Pfad')
 
     # 87. Das Fenster behaelt die eingestellte Groesse
@@ -8586,7 +8586,7 @@ def main():
     print()
     print('87. Das Fenster behaelt die eingestellte Groesse')
     from scbp import main_window as _hf87
-    from scbp import pfade as _pf87
+    from scbp import paths as _pf87
 
     # ⚠⚠ **Geprueft wird die RECHNUNG, nicht das gezeichnete Fenster.** Die
     # erste Fassung mass `winfo_width()` an einem echten Fenster — und fiel auf
@@ -8609,19 +8609,19 @@ def main():
     _gross87 = _Schirm87(3840, 2160)
     _klein87 = _Schirm87(1024, 768)          # kleiner als die Mindestgroesse!
 
-    _pf87.einstellung_setzen(_hf87.SIZE_KEY, None)
+    _pf87.set_setting(_hf87.SIZE_KEY, None)
     pruefe(_hf87.remembered_size(_gross87) == (_hf87.MIN_WIDTH, _hf87.MIN_HEIGHT),
            'ohne gemerkte Groesse gilt die Mindestgroesse')
 
     _b87, _h87 = _hf87.MIN_WIDTH + 240, _hf87.MIN_HEIGHT + 300
-    _pf87.einstellung_setzen(_hf87.SIZE_KEY, '%dx%d' % (_b87, _h87))
+    _pf87.set_setting(_hf87.SIZE_KEY, '%dx%d' % (_b87, _h87))
     pruefe(_hf87.remembered_size(_gross87) == (_b87, _h87),
            'eine gemerkte Groesse wird unveraendert zurueckgegeben')
 
     # Unbrauchbares faellt zurueck — sonst verkruemelt ein kaputter Eintrag das
     # Fenster unter seine eigene Mindestgroesse.
     for _muell87 in ('', 'kaputt', '0x0', '12x9', '-100x-100', '1160', 'axb'):
-        _pf87.einstellung_setzen(_hf87.SIZE_KEY, _muell87)
+        _pf87.set_setting(_hf87.SIZE_KEY, _muell87)
         if _hf87.remembered_size(_gross87) != (_hf87.MIN_WIDTH, _hf87.MIN_HEIGHT):
             pruefe(False, 'unbrauchbarer Eintrag %r faellt nicht zurueck' % _muell87)
             break
@@ -8629,7 +8629,7 @@ def main():
         pruefe(True, 'unbrauchbare Eintraege fallen auf die Mindestgroesse zurueck')
 
     # Eine Groesse vom grossen Schirm darf am kleinen nicht ueberstehen …
-    _pf87.einstellung_setzen(_hf87.SIZE_KEY, '3000x1800')
+    _pf87.set_setting(_hf87.SIZE_KEY, '3000x1800')
     _bg87, _hg87 = _hf87.remembered_size(_klein87)
     pruefe(_bg87 <= max(1024, _hf87.MIN_WIDTH) and _hg87 <= max(768, _hf87.MIN_HEIGHT),
            'eine Groesse groesser als der Bildschirm wird gedeckelt')
@@ -8639,7 +8639,7 @@ def main():
     # einen kleineren Schirm als jeder echte Nutzer, heraus kam 1024x768 —
     # unterhalb des eigenen `minsize` von 1160x380.
     for _eintrag87 in (None, '', '3000x1800', 'kaputt'):
-        _pf87.einstellung_setzen(_hf87.SIZE_KEY, _eintrag87)
+        _pf87.set_setting(_hf87.SIZE_KEY, _eintrag87)
         _bk87, _hk87 = _hf87.remembered_size(_klein87)
         if _bk87 < _hf87.MIN_WIDTH or _hk87 < _hf87.MIN_HEIGHT:
             pruefe(False, 'kleiner Schirm + Eintrag %r ergibt %dx%d — unter der '
@@ -8680,7 +8680,7 @@ def main():
     pruefe("self.root.state() != 'normal'" in _q87,
            'im maximierten Zustand wird nichts gemerkt')
 
-    _pf87.einstellung_setzen(_hf87.SIZE_KEY, None)
+    _pf87.set_setting(_hf87.SIZE_KEY, None)
 
     # 88. Kein Funktionsname zweimal in derselben Funktion
     #
@@ -9098,9 +9098,9 @@ def main():
     # ohne Fenster — auf jedem System und im Bau-Lauf.
     print()
     print('93. „Bestand zuruecksetzen" sagt immer, was passiert ist')
-    from scbp import collection as _bd93, pfade as _pf93
+    from scbp import collection as _bd93, paths as _pf93
 
-    _datei93 = _pf93.app_datei('bestand.json')
+    _datei93 = _pf93.app_file('bestand.json')
     _bd93.save({'bauplaene': {'xl-1': {'name': 'XL-1'}}})
     pruefe(os.path.exists(_datei93), 'ein Bestand liegt da')
 
@@ -9162,9 +9162,9 @@ def main():
     _bd94.save(_bd94.empty())
 
     # ⚠⚠⚠ **Die erste Zahl wird gegen eine FESTE Liste geprueft, nicht gegen
-    # `log_sicherungen()`.** Bis zum 12.09.2026 stand hier
+    # `log_backups()`.** Bis zum 12.09.2026 stand hier
     #
-    #     pruefe(_z94[0] == len(w.pfade.log_sicherungen()), ...)
+    #     pruefe(_z94[0] == len(w.paths.log_backups()), ...)
     #
     # — beide Seiten holten ihren Wert aus derselben Funktion. Die Pruefung
     # konnte gar nicht rot werden; sie verglich die Funktion mit sich selbst.
@@ -9178,18 +9178,18 @@ def main():
     # eine fest eingebaute 3 durchgehen; die Gegenprobe „vier Pfade, erwartet
     # drei" zeigt nur, dass eine absichtlich falsche Erwartung scheitert. Erst
     # eine Reihe belegt, dass wirklich GEZAEHLT wird.
-    _echt94 = w.pfade.log_sicherungen
+    _echt94 = w.paths.log_backups
     _gemessen94 = []
     try:
         for _n94 in (0, 1, 3, 4):
             _liste94 = [os.path.join('nirgendwo', 'Game_%d.log' % _i94)
                         for _i94 in range(_n94)]
-            w.pfade.log_sicherungen = (
+            w.paths.log_backups = (
                 lambda *_a, _l94=_liste94, **_k: list(_l94))
             _gemessen94.append(_zahlen94(_be94._log_line())[0])
         _zeile94 = _be94._log_line()
     finally:
-        w.pfade.log_sicherungen = _echt94
+        w.paths.log_backups = _echt94
     pruefe(_gemessen94 == [0, 1, 3, 4],
            'die erste Zahl zaehlt die Protokolle wirklich '
            '(0/1/3/4 -> %r)' % (_gemessen94,))
@@ -9216,8 +9216,8 @@ def main():
 
     # ⚠ Und die Zeile darf NIE stuerzen — sie steht in einem Bericht, den
     # jemand abschickt, weil ohnehin schon etwas kaputt ist.
-    _echt94 = w.pfade.log_sicherungen
-    w.pfade.log_sicherungen = lambda *_a, **_k: (_ for _ in ()).throw(
+    _echt94 = w.paths.log_backups
+    w.paths.log_backups = lambda *_a, **_k: (_ for _ in ()).throw(
         OSError('Platte weg'))
     try:
         _kaputt94 = None
@@ -9226,7 +9226,7 @@ def main():
         except Exception as _f94:
             _kaputt94 = _f94
     finally:
-        w.pfade.log_sicherungen = _echt94
+        w.paths.log_backups = _echt94
     pruefe(_kaputt94 is None,
            'die Zeile bricht den Bericht nicht ab (%s)' % _kaputt94)
 
@@ -9392,7 +9392,7 @@ def main():
            'und ein leerer Name auch nicht')
 
     from scbp import catalog as _kat97
-    from scbp import pfade as _pf97
+    from scbp import paths as _pf97
 
     # ⚠⚠ **Notfalls eigene Daten hinlegen.** Der Selbsttest arbeitet in einem
     # Wegwerf-Ordner, dort liegt kein Katalog — ohne das hier waeren genau die
@@ -9400,7 +9400,7 @@ def main():
     # frischen Rechner und im Bau-Lauf sowieso. Dieselbe Falle wie bei
     # Pruefung 67: Eine Pruefung, die nur bei ihrem Autor anschlaegt, ist keine.
     if not (_kat97.load().get('bauplaene') or {}):
-        with open(_pf97.app_datei(_kat97.CACHE), 'w', encoding='utf-8') as _f97:
+        with open(_pf97.app_file(_kat97.CACHE), 'w', encoding='utf-8') as _f97:
             json.dump({'bauplaene': {
                 'mit-quelle': {'n': 'Pruefling Mit Quelle',
                                'q': [{'f': 'Foxwell', 'a': 'Testauftrag'}]},
@@ -10038,7 +10038,7 @@ def main():
     print()
     print('101. Das Overlay laesst sich in eine Ecke legen')
     import sc_bp_watcher as _w101
-    from scbp import screen as _bs101, pfade as _pf101
+    from scbp import screen as _bs101, paths as _pf101
 
     class _Wurzel101:
         def winfo_x(self): return 500
@@ -10061,7 +10061,7 @@ def main():
     _bs101.work_area = lambda *_a, **_k: (0, 0, 1920, 1080)
     _o101 = _Ov101()
     try:
-        _pf101.einstellung_setzen('overlay_ecke', 'frei')
+        _pf101.set_setting('overlay_ecke', 'frei')
         pruefe(_o101._klapp_ecke(300, 30) == (500, 400),
                '„frei" laesst das Fenster stehen, wo es steht')
 
@@ -10071,7 +10071,7 @@ def main():
                                       ('unten-links',  (8, 1080 - 30 - 8)),
                                       ('unten-rechts', (1920 - 300 - 8,
                                                         1080 - 30 - 8))):
-            _pf101.einstellung_setzen('overlay_ecke', _kennung101)
+            _pf101.set_setting('overlay_ecke', _kennung101)
             _ist101 = _o101._klapp_ecke(300, 30)
             pruefe(_ist101 == _soll101,
                    '%s sitzt richtig (%s)' % (_kennung101, _ist101))
@@ -10079,18 +10079,18 @@ def main():
         # ⚠ Auf DEM Schirm, auf dem es steht — nicht auf dem ersten. Bei drei
         # Monitoren nebeneinander waere „oben rechts" sonst immer der linke.
         _bs101.work_area = lambda *_a, **_k: (1920, 0, 2560, 1440)
-        _pf101.einstellung_setzen('overlay_ecke', 'oben-rechts')
+        _pf101.set_setting('overlay_ecke', 'oben-rechts')
         pruefe(_o101._klapp_ecke(300, 30) == (1920 + 2560 - 300 - 8, 8),
                'und auf dem zweiten Bildschirm genauso')
 
         # ⚠⚠ Unsinn in der Einstellung darf nichts verschieben — sonst landet
         # das Overlay nach einem Tippfehler in der Datei im Nirgendwo.
-        _pf101.einstellung_setzen('overlay_ecke', 'schraeg-hinten')
+        _pf101.set_setting('overlay_ecke', 'schraeg-hinten')
         pruefe(_o101._klapp_ecke(300, 30) == (500, 400),
                'eine unbekannte Ecke laesst alles, wie es ist')
     finally:
         _bs101.work_area = _echt101
-        _pf101.einstellung_setzen('overlay_ecke', 'frei')
+        _pf101.set_setting('overlay_ecke', 'frei')
 
     # Und das Einklappen nimmt die Breite mit.
     _q101 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
@@ -10592,7 +10592,7 @@ def main():
     print()
     print('108. Ja/Nein-Einstellungen killen keine Seite mehr')
     # ⚠⚠ **Der Fehler, der eine ganze Seite gefressen hat (03.09.2026).**
-    # `_refinery_box` rief `pfade.einstellung('lager_raffinerie_offen')`.
+    # `_refinery_box` rief `paths.setting('lager_raffinerie_offen')`.
     # Diese Funktion liefert einen PFAD und ruft dafuer `.strip()` auf dem
     # Wert. Sobald der Block einmal aufgeklappt war, stand `True` in der
     # Datei — `True.strip()` warf einen AttributeError, und der riss den
@@ -10600,39 +10600,39 @@ def main():
     # sie nur nicht mehr. Drin seit v3.4.1, aufgefallen erst in v3.9.7.
     #
     # Zwei Wachen, weil beide Ebenen falsch waren:
-    from scbp import pfade as _pf108
+    from scbp import paths as _pf108
 
-    # 1) `einstellung()` darf an KEINEM Werttyp mehr sterben. Ein Pfad ist
+    # 1) `setting()` darf an KEINEM Werttyp mehr sterben. Ein Pfad ist
     #    immer Text; alles andere ist ein Aufruf an der falschen Adresse.
-    _echt108 = _pf108.einstellungen
+    _echt108 = _pf108.settings
     try:
         for _wert108 in (True, False, 0, 1, 42, 3.5, None, [], {}, ['a']):
-            _pf108.einstellungen = lambda w=_wert108: {'probe': w}
+            _pf108.settings = lambda w=_wert108: {'probe': w}
             try:
-                _ist108 = _pf108.einstellung('probe')
+                _ist108 = _pf108.setting('probe')
                 _ok108 = _ist108 is None
             except Exception as _a108:
                 _ok108 = False
                 _ist108 = '%s: %s' % (type(_a108).__name__, _a108)
             pruefe(_ok108,
-                   'einstellung() vertraegt %-14r -> %r'
+                   'setting() vertraegt %-14r -> %r'
                    % (_wert108, _ist108))
         # Und Text funktioniert weiterhin wie bisher.
-        _pf108.einstellungen = lambda: {'probe': '  /tmp/pfad  '}
-        pruefe(_pf108.einstellung('probe') == '/tmp/pfad',
+        _pf108.settings = lambda: {'probe': '  /tmp/pfad  '}
+        pruefe(_pf108.setting('probe') == '/tmp/pfad',
                'ein echter Pfad kommt weiter sauber zurueck')
-        _pf108.einstellungen = lambda: {'probe': '   '}
-        pruefe(_pf108.einstellung('probe') is None,
+        _pf108.settings = lambda: {'probe': '   '}
+        pruefe(_pf108.setting('probe') is None,
                'nur Leerzeichen gelten als nicht gesetzt')
     finally:
-        _pf108.einstellungen = _echt108
+        _pf108.settings = _echt108
 
-    # 2) ⭐ Und niemand darf `einstellung()` mehr fuer ein Ja/Nein benutzen.
+    # 2) ⭐ Und niemand darf `setting()` mehr fuer ein Ja/Nein benutzen.
     #    Diese Wache findet den naechsten Fall von selbst — sie sucht jeden
     #    Schluessel, der irgendwo mit einem bool GESETZT wird, und prueft, ob
     #    er anderswo als Pfad GELESEN wird.
     # ⚠⚠ **Über `ast`, nicht über Suchmuster.** Die erste Fassung suchte per
-    # Regex — und meldete prompt einen Treffer in `pfade.py`, wo der
+    # Regex — und meldete prompt einen Treffer in `paths.py`, wo der
     # Schlüsselname nur im KOMMENTAR steht, der den Fehler erklärt. Dieselbe
     # Falle wie beim Riegel und bei `tee`: Ein Wort im Text ist kein Aufruf.
     # Der Syntaxbaum kennt den Unterschied.
@@ -10657,12 +10657,12 @@ def main():
                     and isinstance(_erstes108.value, str)):
                 continue
             _schluessel108 = _erstes108.value
-            if _name108 == 'einstellung_setzen' and len(_k108.args) > 1:
+            if _name108 == 'set_setting' and len(_k108.args) > 1:
                 _zweites108 = _k108.args[1]
                 if (isinstance(_zweites108, _ast108.Constant)
                         and isinstance(_zweites108.value, bool)):
                     _bool_schluessel108.add(_schluessel108)
-            elif _name108 == 'einstellung':
+            elif _name108 == 'setting':
                 _gelesen108.setdefault(_schluessel108,
                                        os.path.basename(_datei108))
 
@@ -10815,15 +10815,15 @@ def main():
     #      **daneben** — wer sein Spiel nicht am Standardort hat, fand seinen
     #      Nachbarkanal auch mit (a) nicht.
     import shutil as _sh111
-    from scbp import pfade as _pf111
+    from scbp import paths as _pf111
 
-    pruefe('HOTFIX' in _pf111.KANAELE,
+    pruefe('HOTFIX' in _pf111.CHANNELS,
            'HOTFIX steht in der Kanalliste')
 
     _wiese111 = tempfile.mkdtemp(prefix='sc-bp-kanal-')
-    _altordner111 = _pf111.einstellung('spiel_ordner')
+    _altordner111 = _pf111.setting('spiel_ordner')
     # ⚠⚠ **Nur im Wegwerf-Ordner suchen — sonst zaehlt das echte Spiel mit.**
-    # `kanaele_vorhanden()` geht die ueblichen Installationsorte ab. Auf einem
+    # `available_channels()` geht die ueblichen Installationsorte ab. Auf einem
     # Rechner, auf dem Star Citizen liegt, findet es dort LIVE und PTU — und
     # diese Pruefung, die genau eine Liste erwartet, war damit **auf dem
     # Entwicklungsrechner nie gruen zu bekommen**. Im Bau-Lauf lief sie durch,
@@ -10833,7 +10833,7 @@ def main():
     # Eine Pruefung darf sich nicht darauf verlassen, dass etwas NICHT auf dem
     # Rechner ist. Sie schneidet die Suche deshalb auf ihren eigenen Ordner zu —
     # so wie sie es mit `KANAELE` weiter unten ohnehin schon tut.
-    _altbasen111 = _pf111._kanal_basen
+    _altbasen111 = _pf111._channel_bases
     try:
         def _kanal111(name):
             _o = os.path.join(_wiese111, 'Roberts Space Industries',
@@ -10844,20 +10844,20 @@ def main():
             return _o
 
         _live111 = _kanal111('LIVE')
-        _pf111.einstellung_setzen('spiel_ordner', _live111)
-        # Ab hier sucht `kanaele_vorhanden()` ausschliesslich hier.
+        _pf111.set_setting('spiel_ordner', _live111)
+        # Ab hier sucht `available_channels()` ausschliesslich hier.
         _basis111 = os.path.dirname(_live111)
-        _pf111._kanal_basen = lambda: [_basis111]
+        _pf111._channel_bases = lambda: [_basis111]
 
         # a) Solange LIVE steht, darf nichts gemeldet werden — eine Wache, die
         #    im Normalfall anschlaegt, wird weggeklickt.
-        pruefe(_pf111.kanal_abweichung() is None,
+        pruefe(_pf111.channel_mismatch() is None,
                'ein vorhandener Spielordner loest keine Frage aus')
 
         # b) Jetzt der echte Fall.
         _hotfix111 = os.path.join(os.path.dirname(_live111), 'HOTFIX')
         _sh111.move(_live111, _hotfix111)
-        _lage111 = _pf111.kanal_abweichung()
+        _lage111 = _pf111.channel_mismatch()
         pruefe(_lage111 is not None,
                'LIVE ist weg, HOTFIX daneben -> es wird gefragt')
         if _lage111:
@@ -10870,23 +10870,23 @@ def main():
         # c) ⚠ Gegenprobe mit dem ALTEN Stand: ohne HOTFIX in der Liste findet
         #    derselbe Aufbau gar nichts. Ohne diesen Lauf wuerde (b) nur zeigen,
         #    dass der neue Code laeuft — nicht, dass er etwas repariert.
-        _merk111 = _pf111.KANAELE
-        _pf111.KANAELE = tuple(k for k in _merk111 if k != 'HOTFIX')
+        _merk111 = _pf111.CHANNELS
+        _pf111.CHANNELS = tuple(k for k in _merk111 if k != 'HOTFIX')
         try:
-            pruefe(not _pf111.kanaele_vorhanden(),
+            pruefe(not _pf111.available_channels(),
                    'Gegenprobe: ohne HOTFIX in der Liste war der Ordner unsichtbar')
         finally:
-            _pf111.KANAELE = _merk111
+            _pf111.CHANNELS = _merk111
 
         # d) Und der zuletzt bespielte Kanal gewinnt — gemessen, nicht geraten.
         _ptu111 = _kanal111('PTU')
         os.utime(os.path.join(_hotfix111, 'Game.log'), (2000000, 2000000))
-        _neu111 = _pf111.kanaele_vorhanden()
+        _neu111 = _pf111.available_channels()
         pruefe(_neu111 and _neu111[0][0] == 'PTU',
                'der zuletzt bespielte Kanal steht oben (PTU vor altem HOTFIX)')
     finally:
-        _pf111._kanal_basen = _altbasen111
-        _pf111.einstellung_setzen('spiel_ordner', _altordner111 or '')
+        _pf111._channel_bases = _altbasen111
+        _pf111.set_setting('spiel_ordner', _altordner111 or '')
         _sh111.rmtree(_wiese111, ignore_errors=True)
 
     print()
@@ -10991,7 +10991,7 @@ def main():
     #
     # Mit dem frischen Ablageordner oben ist die Einstellung `spiel_ordner`
     # weg. Traegt `SC_INSTALL_DIR` nicht (Abschnitt 5 entfernt sie), faellt
-    # `pfade` auf die Suche zurueck und findet auf einem Spielrechner die
+    # `paths` auf die Suche zurueck und findet auf einem Spielrechner die
     # **echte** Star-Citizen-Installation. Ein Hintergrund-`scan_backlog()` — es
     # laeuft beim Oeffnen der Auftragslog-Seite — liest dann die echten
     # `logbackups/` und schreibt sie in die Testdatei hier drunter.
@@ -11002,8 +11002,8 @@ def main():
     # wie diese Zeile.
     #
     # ⚠⚠⚠ **Diese Wache darf NICHT abfragen, was Abschnitt 37 stillgelegt hat.**
-    # Die erste Fassung tat genau das (`log_sicherungen()` fragen, nachdem
-    # `log_sicherungen()` stillgelegt wurde) — sie war gruen und konnte
+    # Die erste Fassung tat genau das (`log_backups()` fragen, nachdem
+    # `log_backups()` stillgelegt wurde) — sie war gruen und konnte
     # strukturell nicht rot werden, waehrend die laufende `Game.log` weiter
     # gelesen wurde. Eine Wache auf dem eigenen Eingriff ist keine.
     #
@@ -11035,7 +11035,7 @@ def main():
     #
     # (b) allein genuegt auch nicht: Sie prueft nur, dass ich etwas gesetzt habe,
     # nicht dass es wirkt.
-    _pf113 = __import__('scbp.pfade', fromlist=['log_sicherungen'])
+    _pf113 = __import__('scbp.paths', fromlist=['log_backups'])
     _ml113 = __import__('scbp.mission_log', fromlist=['scan_backlog'])
 
     # ⚠⚠⚠ **Die Struktur ZUERST — vor jedem Aufruf.** Die erste Fassung rief
@@ -11044,7 +11044,7 @@ def main():
     # Wache selbst die echten Daten ein, bevor sie den Fehler meldet — und
     # `pruefe()` sammelt nur, es bricht nicht ab.
     _riegel113 = [
-        ('log_sicherungen', _pf113.log_sicherungen is _sicherungen_iso),
+        ('log_backups', _pf113.log_backups is _sicherungen_iso),
         ('game_log', _pf113.game_log is _gamelog_iso),
         ('nachlese', _ml113.scan_backlog is _nachlese_iso),
     ]
@@ -11088,9 +11088,9 @@ def main():
             _sp_draus = os.path.join(_drauss113, 'StarCitizen', 'LIVE')
 
             _offen113 = []
-            if _pf113.log_sicherungen():
-                _offen113.append('log_sicherungen: %d Dateien'
-                                 % len(_pf113.log_sicherungen()))
+            if _pf113.log_backups():
+                _offen113.append('log_backups: %d Dateien'
+                                 % len(_pf113.log_backups()))
             if _pf113.game_log():
                 _offen113.append('game_log: laufende Datei')
             if _ml113.scan_backlog() != (0, 0):
@@ -11098,9 +11098,9 @@ def main():
             # Der eigentliche Nachweis: aussen gesperrt, obwohl Dateien da sind.
             if _pf113.game_log(_sp_draus):
                 _offen113.append('game_log(ausserhalb) liefert eine Datei')
-            if _pf113.log_sicherungen(_sp_draus):
-                _offen113.append('log_sicherungen(ausserhalb) liefert %d'
-                                 % len(_pf113.log_sicherungen(_sp_draus)))
+            if _pf113.log_backups(_sp_draus):
+                _offen113.append('log_backups(ausserhalb) liefert %d'
+                                 % len(_pf113.log_backups(_sp_draus)))
             pruefe(not _offen113,
                    'kein Weg fuehrt zu Protokollen ausserhalb des Laufordners '
                    '(%s)' % ('; '.join(_offen113) or 'alle dicht'))
@@ -11110,10 +11110,10 @@ def main():
             # ebenfalls gruen — und der Prueflauf saehe seine eigenen Daten
             # nicht mehr.
             pruefe(bool(_pf113.game_log(_sp_drin))
-                   and len(_pf113.log_sicherungen(_sp_drin) or []) == 1,
+                   and len(_pf113.log_backups(_sp_drin) or []) == 1,
                    'der eigene Laufordner wird durchgelassen (%r / %d)'
                    % (bool(_pf113.game_log(_sp_drin)),
-                      len(_pf113.log_sicherungen(_sp_drin) or [])))
+                      len(_pf113.log_backups(_sp_drin) or [])))
 
             # ⚠ Die Filterentscheidung direkt — unabhaengig davon, ob eine
             # Funktion zufaellig nichts findet.
@@ -11380,7 +11380,7 @@ def main():
     # seinen Katalog-Eintrag — bei einem Melder vier von 26 Bauplaenen.
     print()
     print('113c. Das Kuerzel wird auch vorangestellt erkannt')
-    _pf113c = importlib.import_module('scbp.pfade')
+    _pf113c = importlib.import_module('scbp.paths')
     for _roh113c, _soll113c in (
             ('Ind/2/B Citadel', 'citadel'),
             ('Sth/1/B Zephyr', 'zephyr'),
@@ -11389,7 +11389,7 @@ def main():
             ('Singe Cannon (S2)', 'singe cannon (s2)'),
             ('Ind/2/B', 'ind/2/b'),                # nur das Kuerzel, kein Name
     ):
-        pruefe(_pf113c.namensform(_roh113c) == _soll113c,
+        pruefe(_pf113c.name_key(_roh113c) == _soll113c,
                'Namensform: %r -> %r' % (_roh113c, _soll113c))
 
     # --------------------------------------------------------------------- 113d
@@ -12028,7 +12028,7 @@ def main():
     #
     # Wer den Webhook hat, kann in den Kanal schreiben. Deshalb eine Wache und
     # nicht nur ein Kommentar.
-    from scbp import pfade as _pf119
+    from scbp import paths as _pf119
 
     for _name119, _text119, _darf_nicht119 in (
             # privacy-ok: erfundene Adressen — genau sie sind das Pruefmaterial
@@ -12045,7 +12045,7 @@ def main():
             ('Token als Parameter',
              'https://dienst.de/x?token=eyJhbGciOiJIUzI1NiJ9geheim',
              'eyJhbGciOiJIUzI1NiJ9geheim')):
-        pruefe(_darf_nicht119 not in _pf119.kuerzen(_text119),
+        pruefe(_darf_nicht119 not in _pf119.redact(_text119),
                '%s wird unkenntlich gemacht' % _name119)
 
     # ⚠⚠ **Und die Gegenrichtung — sonst waere die Wache eine Verschlechterung.**
@@ -12059,7 +12059,7 @@ def main():
             ('UEX-Route',
              'https://api.uexcorp.uk/2.0/commodities_routes'
              '?id_terminal_origin=42')):
-        pruefe(_pf119.kuerzen(_bleibt119) == _bleibt119,
+        pruefe(_pf119.redact(_bleibt119) == _bleibt119,
                '%s bleibt lesbar' % _name119)
 
     print()
@@ -12180,16 +12180,16 @@ def main():
     # anklicken. Ein zugeklapptes Overlay schaltete damit genau die Funktion
     # ab, fuer die es da ist.
     import tkinter as tk121
-    from scbp import pfade as _pf121
+    from scbp import paths as _pf121
 
     _alt121 = {
-        'sek': _pf121.einstellung('popup_sekunden'),
-        'modus': _pf121.einstellung('overlay_modus'),
+        'sek': _pf121.setting('popup_sekunden'),
+        'modus': _pf121.setting('overlay_modus'),
     }
     try:
         # Kurze Zeit, damit die Pruefung nicht sekundenlang dasteht.
-        _pf121.einstellung_setzen('popup_sekunden', 2)
-        _pf121.einstellung_setzen('overlay_modus', 'immer')
+        _pf121.set_setting('popup_sekunden', 2)
+        _pf121.set_setting('overlay_modus', 'immer')
 
         import sc_bp_watcher as _w121
         _ov121 = _w121.Overlay()
@@ -12201,7 +12201,7 @@ def main():
         _ov121.klappzustand_setzen(True)
         _ov121.root.update_idletasks()
         pruefe(_ov121.eingeklappt, 'das Overlay laesst sich einklappen')
-        pruefe(_pf121.einstellung_wahrheit('eingeklappt', False),
+        pruefe(_pf121.setting_bool('eingeklappt', False),
                'der Wunsch „zugeklappt" wird gemerkt')
 
         _ov121.add_new('Pruef-Bauplan', 'WeaponGun', '', '12:00:00')
@@ -12213,7 +12213,7 @@ def main():
         # ⚠ Der Blick darf den gemerkten Wunsch NICHT umschreiben — sonst
         # staende das Overlay beim naechsten Start offen, obwohl der Spieler
         # es zugeklappt haben wollte.
-        pruefe(_pf121.einstellung_wahrheit('eingeklappt', False),
+        pruefe(_pf121.setting_bool('eingeklappt', False),
                'der gemerkte Wunsch bleibt trotzdem „zugeklappt"')
 
         # ⚠⚠ **Der Mauszeiger muss festgehalten werden.** Unter Xvfb steht er
@@ -12285,7 +12285,7 @@ def main():
         for _s121, _wert121 in (('popup_sekunden', _alt121['sek']),
                                 ('overlay_modus', _alt121['modus'])):
             if _wert121 is not None:
-                _pf121.einstellung_setzen(_s121, _wert121)
+                _pf121.set_setting(_s121, _wert121)
 
     print()
     print('122. „Info" laesst sich nicht zuklappen — dort steht Fehler melden')
@@ -12301,17 +12301,17 @@ def main():
     # die Mindesthoehe des Fensters, zugeklappte Gruppen sparen rund 400 px.
     # Wer hier alles festnagelt, holt den alten Fehler zurueck.
     import tkinter as tk122
-    from scbp import pfade as _pf122, main_window as _hf122
+    from scbp import paths as _pf122, main_window as _hf122
 
-    _alt122 = {k: _pf122.einstellung('gruppe_zu_%s' % k)
+    _alt122 = {k: _pf122.setting('gruppe_zu_%s' % k)
                for k in ('info', 'werkstatt')}
     _w122 = _wurzel()
     try:
         # ⚠ Der harte Fall: Jemand hatte die Gruppe FRUEHER zugeklappt. Genau
         # bei dem muss sie jetzt wieder aufgehen — sonst hilft die Aenderung
         # niemandem, den sie betrifft.
-        _pf122.einstellung_setzen('gruppe_zu_info', 'ja')
-        _pf122.einstellung_setzen('gruppe_zu_werkstatt', 'ja')
+        _pf122.set_setting('gruppe_zu_info', 'ja')
+        _pf122.set_setting('gruppe_zu_werkstatt', 'ja')
 
         _w122.deiconify()
         _w122.geometry('1200x900')
@@ -12361,7 +12361,7 @@ def main():
             pass
         for _k122, _v122 in _alt122.items():
             if _v122 is not None:
-                _pf122.einstellung_setzen('gruppe_zu_%s' % _k122, _v122)
+                _pf122.set_setting('gruppe_zu_%s' % _k122, _v122)
 
     print()
     print('123. „laeuft" nur, solange das Spiel wirklich schreibt')
@@ -12380,36 +12380,36 @@ def main():
     # erneut. Ihn zu beenden waere gelogen. „laeuft" behauptet aber „jetzt
     # gerade" — „noch offen" stimmt in beiden Faellen.
     import time as _t123
-    from scbp import pfade as _pf123
+    from scbp import paths as _pf123
 
     _wiese123 = tempfile.mkdtemp(prefix='sc-bp-laeuft-')
-    _altordner123 = _pf123.einstellung('spiel_ordner')
+    _altordner123 = _pf123.setting('spiel_ordner')
     try:
         _spiel123 = os.path.join(_wiese123, 'StarCitizen', 'LIVE')
         os.makedirs(_spiel123)
         _log123 = os.path.join(_spiel123, 'Game.log')
         with open(_log123, 'w', encoding='utf-8') as _d123:
             _d123.write('<2026-09-04T20:31:27.000Z> Probe\n')
-        _pf123.einstellung_setzen('spiel_ordner', _spiel123)
+        _pf123.set_setting('spiel_ordner', _spiel123)
 
         os.utime(_log123, None)
-        pruefe(_pf123.spiel_laeuft(),
+        pruefe(_pf123.game_running(),
                'ein gerade geschriebenes Log heisst: das Spiel laeuft')
 
         _alt123 = _t123.time() - 1800
         os.utime(_log123, (_alt123, _alt123))
-        pruefe(not _pf123.spiel_laeuft(),
+        pruefe(not _pf123.game_running(),
                'ein 30 Minuten stilles Log heisst: das Spiel ist aus')
 
         # ⚠ Der Grenzfall gehoert dazu: Ein haengender Ladebildschirm darf
         # nicht schon als „Spiel aus" durchgehen.
-        _knapp123 = _t123.time() - (_pf123.SPIEL_STILL_SEK - 30)
+        _knapp123 = _t123.time() - (_pf123.GAME_IDLE_SEC - 30)
         os.utime(_log123, (_knapp123, _knapp123))
-        pruefe(_pf123.spiel_laeuft(),
+        pruefe(_pf123.game_running(),
                'ein kurzer Haenger gilt noch nicht als „Spiel aus"')
 
         # ⚠⚠ **Den Ordner ausdruecklich uebergeben, nicht eintragen.**
-        # `pfade.spiel_ordner()` faellt auf eine SUCHE zurueck, wenn der
+        # `paths.game_folder()` faellt auf eine SUCHE zurueck, wenn der
         # eingetragene Pfad nichts hergibt — auf einem Rechner mit Star
         # Citizen findet es dann das echte Spiel, und die Pruefung misst
         # dessen Zustand statt des Programms. Zweimal genau so fehlgeschlagen:
@@ -12417,11 +12417,11 @@ def main():
         # Mit `ordner=` wird die Suche gar nicht erst gefragt.
         _leer123 = os.path.join(_wiese123, 'ohne-spiel')
         os.makedirs(_leer123)
-        pruefe(not _pf123.spiel_laeuft(ordner=_leer123),
+        pruefe(not _pf123.game_running(folder=_leer123),
                'ohne Game.log im Ordner wird nichts behauptet')
     finally:
         if _altordner123 is not None:
-            _pf123.einstellung_setzen('spiel_ordner', _altordner123)
+            _pf123.set_setting('spiel_ordner', _altordner123)
         shutil.rmtree(_wiese123, ignore_errors=True)
 
     # Die beiden Woerter muessen in die Spalte passen — sie ist 17 Zeichen
@@ -12438,7 +12438,7 @@ def main():
     # die Funktion da und keiner ruft sie.
     _sei123 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                    encoding='utf-8').read()
-    pruefe('spiel_laeuft()' in _sei123,
+    pruefe('game_running()' in _sei123,
            'die Auftragsliste fragt nach, ob das Spiel laeuft')
     pruefe("'s_al_offen'" in _sei123,
            'und benutzt dafuer das andere Wort')
@@ -12575,7 +12575,7 @@ def main():
 
         _sz125.catch_up([_a125, _b125])
         # ⚠⚠ **`mit_laufender=False`, sonst misst die Pruefung den Rechner,
-        # auf dem sie laeuft.** `pfade.spiel_ordner()` faellt auf eine Suche
+        # auf dem sie laeuft.** `paths.game_folder()` faellt auf eine Suche
         # zurueck, wenn kein gueltiger Pfad eingetragen ist — auf einem
         # Rechner MIT Star Citizen findet es das echte Spiel, und wenn dort
         # gerade gespielt wird, zaehlt die laufende Sitzung mit. Genau so
@@ -13101,7 +13101,7 @@ def main():
     #
     # Es ist dieselbe Person mit demselben Spielstand; nur der Kanal ist ein
     # anderer. Ein Kanalwechsel darf die Vorgeschichte nicht kosten.
-    from scbp import pfade as _pf131
+    from scbp import paths as _pf131
 
     _wiese131 = tempfile.mkdtemp(prefix='sc-bp-kanal-')
     try:
@@ -13121,7 +13121,7 @@ def main():
         _kanal131('HOTFIX', 221)
         _kanal131('PTU', 7)
 
-        _gefunden131 = _pf131.log_sicherungen(_live131)
+        _gefunden131 = _pf131.log_backups(_live131)
         # ⚠⚠ **PTU bleibt DRAUSSEN** — 224, nicht 231. Die Testumgebungen
         # laufen auf eigenen Spielstaenden; dort freigeschaltete Bauplaene hat
         # man auf LIVE nicht. Sie mitzulesen wuerde einen Bestand behaupten,
@@ -13139,9 +13139,9 @@ def main():
         # ⚠ Wer SELBST auf PTU spielt, bekommt sein eigenes Protokoll — nur
         # Nachbarn werden gefiltert, nicht der eingetragene Ordner.
         _ptu131 = os.path.join(_sc131, 'PTU')
-        pruefe(len(_pf131.log_sicherungen(_ptu131)) == 7,
+        pruefe(len(_pf131.log_backups(_ptu131)) == 7,
                'wer auf PTU spielt, bekommt seine eigenen 7 (%d)'
-               % len(_pf131.log_sicherungen(_ptu131)))
+               % len(_pf131.log_backups(_ptu131)))
 
         # ⚠⚠ **Gegenprobe: NICHT wildern.** Ohne sie waere „nimm alles aus der
         # Nachbarschaft" ebenso gruen — und wer sein Spiel woanders liegen hat,
@@ -13150,7 +13150,7 @@ def main():
         os.makedirs(os.path.join(_fremd131, 'logbackups'))
         with open(os.path.join(_fremd131, 'logbackups', 'a.log'), 'w') as _d:
             _d.write('x')
-        pruefe(len(_pf131.log_sicherungen(_fremd131)) == 1,
+        pruefe(len(_pf131.log_backups(_fremd131)) == 1,
                'ein Ordner, der kein Kanal ist, bekommt nur sich selbst')
 
         # Und ein Ordner, der zwar LIVE heisst, aber nicht unter StarCitizen
@@ -13160,7 +13160,7 @@ def main():
         with open(os.path.join(_falsch131, 'logbackups', 'a.log'), 'w') as _d:
             _d.write('x')
         os.makedirs(os.path.join(_wiese131, 'Sonstwo', 'HOTFIX', 'logbackups'))
-        pruefe(len(_pf131.log_sicherungen(_falsch131)) == 1,
+        pruefe(len(_pf131.log_backups(_falsch131)) == 1,
                'ein LIVE ausserhalb von StarCitizen zieht keine Nachbarn')
     finally:
         shutil.rmtree(_wiese131, ignore_errors=True)
@@ -13668,7 +13668,7 @@ def main():
     # Programm und hielt seinen Bauplan-Bestand für verloren.
     import shutil as _sh140
     import tempfile as _tf140
-    from scbp import pfade as _pf140
+    from scbp import paths as _pf140
 
     _von140 = _tf140.mkdtemp(prefix='sc-bp-alt-')
     _nach140 = _tf140.mkdtemp(prefix='sc-bp-neu-')
@@ -13682,14 +13682,14 @@ def main():
         # ⚠ Rekursiv: Die Ablage sortiert seit v3.0.0 in Unterordner. Ein
         # flacher Durchlauf fände hier **nichts** und meldete „nichts zu tun",
         # während der ganze Bestand danebenliegt.
-        pruefe(len(_pf140._dateien_der_ablage(_von140)) == 2,
+        pruefe(len(_pf140._storage_files(_von140)) == 2,
                'Dateien werden auch in Unterordnern gefunden')
 
-        _schreibbar140, _fremde140, _ = _pf140.ablage_lage(_nach140)
+        _schreibbar140, _fremde140, _ = _pf140.storage_status(_nach140)
         pruefe(_schreibbar140 and _fremde140 == 0,
                'ein leeres, beschreibbares Ziel wird als solches erkannt')
 
-        _kop140, _ueber140, _fehl140 = _pf140.ablage_umziehen(_von140, _nach140)
+        _kop140, _ueber140, _fehl140 = _pf140.move_storage(_von140, _nach140)
         pruefe((_kop140, _ueber140, _fehl140) == (2, 0, 0),
                'beide Dateien kommen an (bekam: %s)'
                % ((_kop140, _ueber140, _fehl140),))
@@ -13703,11 +13703,11 @@ def main():
         # ⚠ Zweiter Lauf: Vorhandenes am Ziel wird NICHT ueberschrieben. Wer
         # auf einen Ordner wechselt, in dem schon ein Bestand liegt, will
         # dessen Daten behalten.
-        _zweit140 = _pf140.ablage_umziehen(_von140, _nach140)
+        _zweit140 = _pf140.move_storage(_von140, _nach140)
         pruefe(_zweit140 == (0, 2, 0),
                'ein zweiter Lauf ueberschreibt nichts (bekam: %s)' % (_zweit140,))
 
-        _belegt140 = _pf140.ablage_lage(_nach140)
+        _belegt140 = _pf140.storage_status(_nach140)
         pruefe(_belegt140[1] == 2,
                'ein belegtes Ziel wird als belegt gemeldet')
 
@@ -13716,7 +13716,7 @@ def main():
         _ro140 = _tf140.mkdtemp(prefix='sc-bp-ro-')
         try:
             os.chmod(_ro140, 0o500)
-            _ok140, _, _grund140 = _pf140.ablage_lage(_ro140)
+            _ok140, _, _grund140 = _pf140.storage_status(_ro140)
             # ⚠ Als root ist jeder Ordner beschreibbar — dann sagt die Probe
             # nichts aus und wird uebersprungen statt falsch bestanden.
             if os.name != 'nt' and os.geteuid() != 0:
@@ -16139,22 +16139,22 @@ def main():
     # angelegt.
     print()
     print('169. Zwei Zeiger auf den Datenordner heilen einander')
-    from scbp import pfade as _pf169
+    from scbp import paths as _pf169
 
     _daten = _tf166.mkdtemp(prefix='ablage-')
     _dok = _tf166.mkdtemp(prefix='dokumente-')
     _kon = _tf166.mkdtemp(prefix='konfig-')
     _sicher = {k: os.environ.get(k) for k in
                ('SC_BP_HOME', 'XDG_CONFIG_HOME', 'APPDATA', 'HOME')}
-    _echt_dok = _pf169._dokumente
+    _echt_dok = _pf169._documents
     try:
         os.environ.pop('SC_BP_HOME', None)     # sonst gewinnt die Umgebung
         os.environ['XDG_CONFIG_HOME'] = _kon
         os.environ['APPDATA'] = _kon
-        _pf169._dokumente = lambda: _dok
+        _pf169._documents = lambda: _dok
 
-        erst = _pf169.zeiger_datei()
-        zweit = _pf169._zweitzeiger()
+        erst = _pf169.pointer_file()
+        zweit = _pf169._second_pointer()
         pruefe(os.path.dirname(erst) != os.path.dirname(zweit),
                'die beiden Zeiger liegen an verschiedenen Orten')
 
@@ -16162,14 +16162,14 @@ def main():
         os.makedirs(os.path.dirname(erst), exist_ok=True)
         with io.open(erst, 'w', encoding='utf-8') as _f:
             json.dump({'ablage_ordner': _daten}, _f)
-        pruefe(_pf169._ablage_aus_datei() == _daten,
+        pruefe(_pf169._storage_from_file() == _daten,
                'der sichtbare Zeiger wird gelesen')
         pruefe(os.path.isfile(zweit),
                'und legt dabei die Zweitschrift an')
 
         # 2. ⚠⚠ Der Fall, um den es geht: der sichtbare wird weggeraeumt.
         shutil.rmtree(os.path.dirname(erst), ignore_errors=True)
-        pruefe(_pf169._ablage_aus_datei() == _daten,
+        pruefe(_pf169._storage_from_file() == _daten,
                'nach dem Loeschen des sichtbaren springt die Zweitschrift ein')
         pruefe(os.path.isfile(erst),
                'und stellt den sichtbaren wieder her')
@@ -16178,7 +16178,7 @@ def main():
         #    nicht gewinnen — sonst entsteht ein leerer Bestand am falschen Ort.
         with io.open(erst, 'w', encoding='utf-8') as _f:
             json.dump({'ablage_ordner': os.path.join(_daten, 'gibtsnicht')}, _f)
-        pruefe(_pf169._ablage_aus_datei() == _daten,
+        pruefe(_pf169._storage_from_file() == _daten,
                'Gegenprobe: ein Zeiger ins Leere verliert gegen den gueltigen')
 
         # 4. Gar kein Zeiger -> None, und der Standardordner greift.
@@ -16199,7 +16199,7 @@ def main():
         # sonst prueft sie etwas anderes, als ihr Text behauptet.
         # ⛔⛔ **`ignore_errors=True` heisst: es kann stehen bleiben.** Am
         # 14.09.2026 fiel die Pruefung darunter einmal rot aus („ohne jeden
-        # Zeiger kommt None zurueck") — nicht weil `_ablage_aus_datei()` etwas
+        # Zeiger kommt None zurueck") — nicht weil `_storage_from_file()` etwas
         # falsch macht, sondern weil der SICHTBARE Zeiger den `rmtree`
         # ueberlebt hatte. Die Zweitschrift wurde unten hartnaeckig entfernt,
         # der sichtbare gar nicht geprueft. Eine Pruefung, deren Vorbedingung
@@ -16227,10 +16227,10 @@ def main():
             pruefe(False, 'beide Zeiger lassen sich entfernen (gesperrt: %s)'
                    % ', '.join(_ab169))
         else:
-            pruefe(_pf169._ablage_aus_datei() is None,
+            pruefe(_pf169._storage_from_file() is None,
                    'ohne jeden Zeiger kommt None zurueck')
     finally:
-        _pf169._dokumente = _echt_dok
+        _pf169._documents = _echt_dok
         for _k, _v in _sicher.items():
             if _v is None:
                 os.environ.pop(_k, None)
@@ -16825,7 +16825,7 @@ def main():
         # -- Weg 2: der bevorzugte SCDL-Weg. Ohne Vertragsdaten steigt er
         #    sofort aus — also legt die Pruefung sich welche hin, statt sich
         #    selbst zu ueberspringen (dieselbe Lehre wie bei Pruefung 67).
-        _scdl175 = _in175.pfade.app_datei(_in175.SCDL_CACHE % 'en')
+        _scdl175 = _in175.paths.app_file(_in175.SCDL_CACHE % 'en')
         os.makedirs(os.path.dirname(_scdl175), exist_ok=True)
         with open(_scdl175, 'w', encoding='utf-8') as _f:
             json.dump({'entries': [{}]}, _f)
@@ -17320,7 +17320,7 @@ def main():
                 raus.append(n)
         return raus
 
-    pruefe(_fehlen183(_namen183('from scbp import (pfade, gibtesnicht_xyz)\n'))
+    pruefe(_fehlen183(_namen183('from scbp import (paths, gibtesnicht_xyz)\n'))
            == ['gibtesnicht_xyz'],
            'der Einzelimport erkennt einen erfundenen Modulnamen')
     _sn183 = _namen183(open(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'),
@@ -18520,12 +18520,12 @@ def main():
                'unter Linux startet es gleich neu — ohne zweiten Klick')
         _w187 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
         _nv187 = _w187[_w187.index('def _nach_version_sehen'):][:3000]
-        pruefe("einstellung_wahrheit('update_pruefen'" in _nv187,
+        pruefe("setting_bool('update_pruefen'" in _nv187,
                'der Schalter „Nach neuen Versionen sehen" wird gelesen')
         pruefe('self._update_ergebnis_melden()' in _w187,
                'der Start meldet, was aus dem letzten Update wurde')
-        from scbp import pfade as _pf187
-        pruefe(_pf187.UNTERORDNER.get('update-helfer.txt') == 'Diagnose',
+        from scbp import paths as _pf187
+        pruefe(_pf187.SUBFOLDERS.get('update-helfer.txt') == 'Diagnose',
                'das Helfer-Protokoll liegt bei der Diagnose')
 
         print('\n188. Der Helfer laeuft wirklich — mit Pfaden, an denen cmd scheitern koennte')
@@ -18705,16 +18705,16 @@ def main():
     # ⚠ Wer hier einen Wert aendert, muss zuerst erklaeren, wie die vorhandene
     # Installation den neuen findet. Ohne Migrationsweg ist die Antwort: nicht.
     # ⚠ Je Anker die ERWARTETE ANZAHL, nicht blosse Anwesenheit. Der
-    # Ablageordner steht zweimal in pfade.py — eine Wache, die nur fragt
+    # Ablageordner steht zweimal in paths.py — eine Wache, die nur fragt
     # "kommt der Text vor", merkt es nicht, wenn eines der beiden
     # Vorkommen wechselt. Gefunden von der Gegenprobe am 12.09.2026.
     _anker191 = [
         ('packaging/installer.iss', 1,
          'AppId={{7C4B1E93-2A6F-4D58-B0E1-9F3A5C8D2461}',
          'Installer-Kennung — sonst legt der Installer eine ZWEITE Installation an'),
-        ('scbp/pfade.py', 1, "ORDNERNAME = 'SC BP Watcher'",
+        ('scbp/paths.py', 1, "FOLDER_NAME = 'SC BP Watcher'",
          'Ordner unter Dokumente — dort liegt der Zeiger auf die Bauplan-Daten'),
-        ('scbp/pfade.py', 2, "'sc-bp-watcher')",
+        ('scbp/paths.py', 2, "'sc-bp-watcher')",
          'Ablageordner in APPDATA bzw. ~/.config — BEIDE Stellen'),
         ('scbp/backup.py', 1, "MARKER = 'SC-BP-Watcher-Sicherung'",
          'Marker der Sicherungsdateien — wird geschrieben UND gelesen'),
@@ -18729,12 +18729,12 @@ def main():
          'Verknuepfung — sonst zwei Eintraege im Startmenue'),
         ('scbp/desktop_entry.py', 1, "ICON_NAME = 'sc-bp-watcher.png'",
          'Symboldatei der Verknuepfung'),
-        ('scbp/pfade.py', 1,
-         "EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')",
+        ('scbp/paths.py', 1,
+         "OWN_FILENAMES = ('sc-bp-watcher', 'versekit')",
          'BEIDE Dateinamen — Bestandsnutzer UND Neuinstallation'),
-        ('scbp/updater.py', 2, 'if not pfade.gehoert_uns(',
+        ('scbp/updater.py', 2, 'if not paths.is_ours(',
          'AppImage-Erkennung und Ueberschreib-Riegel, EINE gemeinsame Quelle'),
-        ('scbp/update_run.py', 1, 'and pfade.gehoert_uns(installer)',
+        ('scbp/update_run.py', 1, 'and paths.is_ours(installer)',
          'Installer-Aufraeumen kennt beide Namen (sonst bleibt er liegen)'),
         ('scbp/updater.py', 1,
          # ⚠ Der Anker ist die **GUID**, nicht der Name der Konstanten. Der
@@ -19714,7 +19714,7 @@ def main():
     _w199 = _tk199.Tk()
     _altecke199 = _pf199 = None
     try:
-        from scbp import pfade as _pf199
+        from scbp import paths as _pf199
         _ov = _wat199.Overlay(wurzel=_w199)
         _ov.root.deiconify()
         for _ in range(8):
@@ -19722,12 +19722,12 @@ def main():
             _ov.root.update_idletasks()
 
         # --- Die Leistenseite ist eine eigene Entscheidung ---------------
-        _pf199.einstellung_setzen('overlay_leiste', '')
-        _pf199.einstellung_setzen('overlay_ecke', 'unten-links')
+        _pf199.set_setting('overlay_leiste', '')
+        _pf199.set_setting('overlay_ecke', 'unten-links')
         pruefe(_ov._leiste_seite_wunsch() == 'bottom',
                'ohne eigene Einstellung entscheidet weiter die Ecke '
                '(Bestandsnutzer behalten ihre Leiste unten)')
-        _pf199.einstellung_setzen('overlay_leiste', 'oben')
+        _pf199.set_setting('overlay_leiste', 'oben')
         pruefe(_ov._leiste_seite_wunsch() == 'top',
                'die eigene Einstellung sticht die Ecke aus')
         _ov.leiste_anwenden()
@@ -19740,14 +19740,14 @@ def main():
         # --- Verschieben hebt die Ecke auf ------------------------------
         _gerufen199 = []
         _ov199.CORNER_DISPLAY[0] = lambda k: _gerufen199.append(k)
-        _pf199.einstellung_setzen('overlay_ecke', 'unten-links')
+        _pf199.set_setting('overlay_ecke', 'unten-links')
         _ov._drag_von = (_ov.root.winfo_x(), _ov.root.winfo_y())
         _ov._verschoben()
-        pruefe(_pf199.einstellung('overlay_ecke') == 'unten-links',
+        pruefe(_pf199.setting('overlay_ecke') == 'unten-links',
                'ein Klick ohne Bewegung laesst die Ecke in Ruhe')
         _ov._drag_von = (_ov.root.winfo_x() - 300, _ov.root.winfo_y())
         _ov._verschoben()
-        pruefe(_pf199.einstellung('overlay_ecke') == 'frei',
+        pruefe(_pf199.setting('overlay_ecke') == 'frei',
                'ein echtes Verschieben stellt auf „frei verschiebbar"')
         pruefe(_gerufen199 == ['frei'],
                'und die Auswahlliste in den Einstellungen erfaehrt davon')
@@ -19769,8 +19769,8 @@ def main():
                 ('frei', 'unten', True),
                 ('unten-links', 'oben', True),
                 ('oben-rechts', 'unten', True)):
-            _pf199.einstellung_setzen('overlay_ecke', _ecke199)
-            _pf199.einstellung_setzen('overlay_leiste', _leiste199)
+            _pf199.set_setting('overlay_ecke', _ecke199)
+            _pf199.set_setting('overlay_leiste', _leiste199)
             _unten199, _ = _ov._verankert()
             pruefe(_unten199 is _erwartet199,
                    'Ecke %s + Leiste %s: Griff sitzt %s'
@@ -19779,8 +19779,8 @@ def main():
     finally:
         try:
             if _pf199 is not None:
-                _pf199.einstellung_setzen('overlay_ecke', 'frei')
-                _pf199.einstellung_setzen('overlay_leiste', '')
+                _pf199.set_setting('overlay_ecke', 'frei')
+                _pf199.set_setting('overlay_leiste', '')
             _ov199.CORNER_DISPLAY[0] = None
             _w199.destroy()
         except Exception:
@@ -20215,18 +20215,18 @@ def main():
     print('\n201. Die gewaehlte Leistenseite gilt auch nach einem Neustart')
     import tkinter as _tk201
     import sc_bp_watcher as _wat201
-    from scbp import pfade as _pf201
-    _alt201 = (_pf201.einstellung('overlay_leiste'),
-               _pf201.einstellung('overlay_ecke'),
-               _pf201.einstellung('overlay_modus'),
-               _pf201.einstellung('eingeklappt'))
+    from scbp import paths as _pf201
+    _alt201 = (_pf201.setting('overlay_leiste'),
+               _pf201.setting('overlay_ecke'),
+               _pf201.setting('overlay_modus'),
+               _pf201.setting('eingeklappt'))
     _w201 = None
     try:
         for _seite201, _erwartet201 in (('unten', 'bottom'), ('oben', 'top')):
-            _pf201.einstellung_setzen('overlay_leiste', _seite201)
+            _pf201.set_setting('overlay_leiste', _seite201)
             # ⚠ Ecke „frei" ist der gemeldete Fall: Dann greift auch
             # `ecke_anwenden()` nicht, das sonst zufaellig mit ausrichtet.
-            _pf201.einstellung_setzen('overlay_ecke', 'frei')
+            _pf201.set_setting('overlay_ecke', 'frei')
             # ⛔⛔ **Und der Anzeigemodus MUSS hier gesetzt werden.**
             # Ihre erste Fassung liess ihn stehen, wie eine fruehere Pruefung
             # ihn hinterlassen hatte. Der Klapp-Pfad (`klappzustand_setzen`)
@@ -20235,7 +20235,7 @@ def main():
             # „0 rot", obwohl die Korrektur ausgebaut war. Zum zweiten Mal an
             # einem Abend eine Pruefung, die einen Vorzustand misst statt der
             # Sache.
-            _pf201.einstellung_setzen('overlay_modus', 'immer')
+            _pf201.set_setting('overlay_modus', 'immer')
             # ⛔⛔ **Und „eingeklappt" MUSS aus sein.** Steht es an, laeuft beim
             # Start `klappzustand_setzen(True)` — und DAS richtet die Leiste
             # nebenbei mit aus. Die Pruefung war dadurch gruen, auch als der
@@ -20245,7 +20245,7 @@ def main():
             # ⚠ Dritter Anlauf an einem Abend. Zweimal war die Pruefung gruen,
             # ohne etwas zu belegen — beide Male hat es die Gegenprobe gesagt,
             # nicht der Lauf. Der gemeldete Fall ist: frei stehend, offen.
-            _pf201.einstellung_setzen('eingeklappt', False)
+            _pf201.set_setting('eingeklappt', False)
             _w201 = _tk201.Tk()
             _ov201 = _wat201.Overlay(wurzel=_w201)
             _ov201.root.deiconify()
@@ -20269,10 +20269,10 @@ def main():
                 _w201.destroy()
         except Exception:
             pass
-        _pf201.einstellung_setzen('overlay_leiste', _alt201[0] or '')
-        _pf201.einstellung_setzen('overlay_ecke', _alt201[1] or 'frei')
-        _pf201.einstellung_setzen('overlay_modus', _alt201[2] or 'immer')
-        _pf201.einstellung_setzen('eingeklappt', bool(_alt201[3]))
+        _pf201.set_setting('overlay_leiste', _alt201[0] or '')
+        _pf201.set_setting('overlay_ecke', _alt201[1] or 'frei')
+        _pf201.set_setting('overlay_modus', _alt201[2] or 'immer')
+        _pf201.set_setting('eingeklappt', bool(_alt201[3]))
 
     # === 206 · Ein Buendel darf kein System verschlucken ====================
     #
@@ -21798,8 +21798,8 @@ def main():
         print('  [–]    Raw-Input-Lauf nur unter Windows — hier nur der Aufbau')
 
     # b) Der Bericht nennt das Datum des Absturzes.
-    from scbp import fehler as _fe222, report as _rp222, pfade as _pf222
-    _datei222 = _pf222.app_datei(_fe222.ABSTURZ_VORIG)
+    from scbp import fehler as _fe222, report as _rp222, paths as _pf222
+    _datei222 = _pf222.app_file(_fe222.ABSTURZ_VORIG)
     os.makedirs(os.path.dirname(_datei222), exist_ok=True)
     try:
         with open(_datei222, 'w', encoding='utf-8') as _f222:
@@ -21836,7 +21836,7 @@ def main():
     import time as _ti223
     import tkinter as _tk223
     from scbp import auto_update as _au223, updater as _up223, \
-        update_run as _ur223, pfade as _pf223, language as _sp223
+        update_run as _ur223, paths as _pf223, language as _sp223
     import sc_bp_watcher as _sw223
 
     # a) Frisch veroeffentlicht wird noch nicht geholt.
@@ -21865,28 +21865,28 @@ def main():
     # c) Schweigt das Log, laeuft der Prozess aber, gilt das Spiel als laufend
     #    — und umgekehrt.
     _alt_win223, _alt_lin223 = _au223._windows_game_process, _au223._linux_game_process
-    _alt_log223 = _pf223.spiel_laeuft
+    _alt_log223 = _pf223.game_running
     try:
         _au223._windows_game_process = _au223._linux_game_process = lambda *a: True
-        _pf223.spiel_laeuft = lambda *a: False
+        _pf223.game_running = lambda *a: False
         pruefe(_au223.game_running(), 'Prozess da, Log still -> Spiel laeuft')
         _au223._windows_game_process = _au223._linux_game_process = lambda *a: None
-        _pf223.spiel_laeuft = lambda *a: True
+        _pf223.game_running = lambda *a: True
         pruefe(_au223.game_running(), 'Prozessliste unlesbar, Log aktiv -> Spiel laeuft')
-        _pf223.spiel_laeuft = lambda *a: False
+        _pf223.game_running = lambda *a: False
         _au223._windows_game_process = _au223._linux_game_process = lambda *a: False
         pruefe(not _au223.game_running(), 'weder Prozess noch Log -> Spiel ist zu')
     finally:
         _au223._windows_game_process, _au223._linux_game_process = _alt_win223, _alt_lin223
-        _pf223.spiel_laeuft = _alt_log223
+        _pf223.game_running = _alt_log223
 
     # d) Schalter: Standard an; aus, wenn gar nicht nachgesehen wird.
-    _pf223.einstellung_setzen('update_pruefen', True)
-    _pf223.einstellung_setzen(_au223.SETTING, True)
+    _pf223.set_setting('update_pruefen', True)
+    _pf223.set_setting(_au223.SETTING, True)
     pruefe(_au223.enabled(), 'automatisches Update ist standardmaessig an')
-    _pf223.einstellung_setzen('update_pruefen', False)
+    _pf223.set_setting('update_pruefen', False)
     pruefe(not _au223.enabled(), 'wer nicht nachsehen laesst, bekommt nichts eingespielt')
-    _pf223.einstellung_setzen('update_pruefen', True)
+    _pf223.set_setting('update_pruefen', True)
 
     # e) Die Laufmarke traegt „automatisch", und dann geht kein Fenster auf.
     _ur223.begin_run('9.9.9', '0.0.1', '', '', automatic=True)

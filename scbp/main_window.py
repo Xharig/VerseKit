@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import screen, fehler, fields, notice, news, pfade, icons
+from . import screen, fehler, fields, notice, news, paths, icons
 from .language import t, window_title
 
 BG      = '#10141c'
@@ -137,7 +137,7 @@ def remembered_size(root):
     seine Groesse am 4K-Schirm gemerkt hat und spaeter am Laptop startet,
     haette sonst ein Fenster, dessen rechte Haelfte nicht erreichbar ist.
     """
-    raw = (pfade.einstellung(SIZE_KEY) or '').strip().lower()
+    raw = (paths.setting(SIZE_KEY) or '').strip().lower()
     width = height = 0
     if 'x' in raw:
         parts = raw.split('x', 1)
@@ -1813,7 +1813,7 @@ class MainWindow:
 
     # ------------------------------------------------------------- Schriften
     def _build_fonts(self):
-        stufe = FONT_LEVELS.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
+        stufe = FONT_LEVELS.get(paths.setting('schriftgroesse') or 'normal', 1)
         self.f_base  = tkfont.Font(family='Segoe UI', size=10 + stufe)
         self.f_bold   = tkfont.Font(family='Segoe UI', size=10 + stufe, weight='bold')
         self.f_small  = tkfont.Font(family='Segoe UI', size=9 + stufe)
@@ -1821,7 +1821,7 @@ class MainWindow:
         # Siehe `Overlay.ZEICHEN_SCHRIFT`: `Segoe UI` enthält die Symbole nicht,
         # Windows fällt sonst auf die **farbige** Segoe UI Emoji zurück.
         self.f_icon = tkfont.Font(
-            family='Segoe UI Symbol' if pfade.WINDOWS else 'Segoe UI',
+            family='Segoe UI Symbol' if paths.WINDOWS else 'Segoe UI',
             size=13 + stufe)
 
     def set_font_size(self, stufe):
@@ -1849,7 +1849,7 @@ class MainWindow:
                                (self.f_small, 9), (self.f_title, 12),
                                (self.f_icon, 13)):
             schrift.configure(size=grund + n)
-        pfade.einstellung_setzen('schriftgroesse', stufe)
+        paths.set_setting('schriftgroesse', stufe)
         if self.on_font_change:
             try:
                 self.on_font_change(stufe)
@@ -1983,7 +1983,7 @@ class MainWindow:
         # beim Einschalten an, und die Protokolle davor waeren dann laengst
         # weggeraeumt. Was nichts kostet und sich nicht nachholen laesst,
         # sammelt man besser mit.
-        if not pfade.einstellung_wahrheit('spielzeit_zeigen', False):
+        if not paths.setting_bool('spielzeit_zeigen', False):
             self.time_label = None
             return
 
@@ -2410,8 +2410,8 @@ class MainWindow:
         # der RSI Launcher, unter Linux der lug-helper. Ein Knopf, der nichts
         # tut, wäre schlimmer als keiner.
         try:
-            from . import pfade as pfade_start
-            hat_starter = bool(pfade_start.spielstarter())
+            from . import paths as paths_module
+            hat_starter = bool(paths_module.game_starter())
         except Exception:
             hat_starter = False
         if hat_starter:
@@ -2439,16 +2439,16 @@ class MainWindow:
         """Eine Adresse aufmachen — und **sagen**, wenn es nicht geklappt hat.
 
         ⚠ Beide Knöpfe riefen bis rc43 `webbrowser.open()` direkt auf. Im
-        AppImage öffnet das nichts (siehe `pfade.im_browser`), meldet aber auch
+        AppImage öffnet das nichts (siehe `paths.open_in_browser`), meldet aber auch
         keinen Fehler: Die Statuszeile sagte „wird geöffnet", und dann passierte
         nie etwas. Ein Knopf, der schweigend nichts tut, ist schlimmer als einer,
         der sagt, dass er nicht kann — dann steht wenigstens die Adresse da.
         """
-        from . import pfade as pfade_browser
+        from . import paths as paths_module
         self.say(meldung)
         self.root.update_idletasks()
         try:
-            geklappt = pfade_browser.im_browser(adresse)
+            geklappt = paths_module.open_in_browser(adresse)
         except Exception as ausnahme:
             from . import fehler
             fehler.merken(stelle, ausnahme, adresse)
@@ -2458,10 +2458,10 @@ class MainWindow:
 
     def _start_game(self):
         """Star Citizen aus dem Werkzeug heraus hochfahren."""
-        from . import pfade as pfade_start
+        from . import paths as paths_module
         self.say(t('s_sp_start_lauft'))
         try:
-            ok, grund = pfade_start.spiel_starten()
+            ok, grund = paths_module.start_game()
         except Exception as ausnahme:
             ok, grund = False, str(ausnahme)
         if not ok:
@@ -2505,7 +2505,7 @@ class MainWindow:
         # Einstellungen noch ein „zu" von früher liegt. Sonst bliebe sie bei
         # allen zu, die sie einmal zugeklappt hatten — also genau bei denen,
         # um die es hier geht.
-        offen = fest or not pfade.einstellung_wahrheit(
+        offen = fest or not paths.setting_bool(
             'gruppe_zu_%s' % kennung, False)
 
         # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
@@ -2575,7 +2575,7 @@ class MainWindow:
                 g['inhalt'].pack_forget()
             g['pfeil'].swap_symbol('zuklappen' if neu_offen
                                        else 'aufklappen')
-            pfade.einstellung_setzen('gruppe_zu_%s' % kennung,
+            paths.set_setting('gruppe_zu_%s' % kennung,
                                      'nein' if neu_offen else 'ja')
         except tk.TclError:
             pass
@@ -3471,9 +3471,9 @@ class MainWindow:
         if breite < MIN_WIDTH or hoehe < MIN_HEIGHT:
             return
         wert = '%dx%d' % (breite, hoehe)
-        if wert == (pfade.einstellung(SIZE_KEY) or ''):
+        if wert == (paths.setting(SIZE_KEY) or ''):
             return
-        pfade.einstellung_setzen(SIZE_KEY, wert)
+        paths.set_setting(SIZE_KEY, wert)
 
     def close(self):
         # Beim Zumachen noch einmal sichern: Wer das Fenster kurz nach dem
@@ -4001,7 +4001,7 @@ def ask_channel(parent, entered, channels):
     haette sonst ploetzlich die falschen Baupläne gezaehlt.
 
     `kanaele` sind Tupel `(Name, Ordner, Zeitstempel)` aus
-    `pfade.kanaele_vorhanden()`, neueste zuerst. Rueckgabe: der gewaehlte Ordner
+    `paths.available_channels()`, neueste zuerst. Rueckgabe: der gewaehlte Ordner
     oder None, wenn der Spieler es beim Alten lassen will.
     """
     if not channels:

@@ -66,7 +66,7 @@ läuft unverändert weiter.
 import os
 import re
 
-from . import fehler, catalog, pfade
+from . import fehler, catalog, paths
 
 # Der sprachneutrale Schlüssel für „Auftrag angenommen" — in jeder Sprache derselbe.
 # Dazu das Teilen in der Gruppe: Wer einen Auftrag geteilt **bekommt**, soll
@@ -265,7 +265,7 @@ def end_phrases():
 def _ini_files():
     """Alle vorhandenen `global.ini` der Installation."""
     try:
-        base = os.path.join(pfade.spiel_ordner() or '', 'data', 'Localization')
+        base = os.path.join(paths.game_folder() or '', 'data', 'Localization')
     except Exception:
         return []
     if not os.path.isdir(base):

@@ -93,7 +93,7 @@ import shutil
 import time
 import xml.etree.ElementTree as ET
 
-from . import pfade
+from . import paths
 
 # Die Zeile, die das Spiel beim Start schreibt. Der Name darf Leerzeichen
 # enthalten, die Kennung steht in geschweiften Klammern dahinter.
@@ -164,7 +164,7 @@ def all_actionmaps(folder=None):
     liest, zeigt dem Spieler also nicht nur veraltete Werte, sondern die Werte
     des **falschen Geraets**.
     """
-    base = folder or pfade.spiel_ordner()
+    base = folder or paths.game_folder()
     if not base:
         return []
     found = []
@@ -183,12 +183,12 @@ def all_actionmaps(folder=None):
                 continue
             if ident not in [k for k, _ in found]:
                 found.append((ident, path))
-    paths = [w for _, w in found]
+    map_paths = [w for _, w in found]
     try:
-        paths.sort(key=os.path.getmtime, reverse=True)
+        map_paths.sort(key=os.path.getmtime, reverse=True)
     except OSError:
         pass
-    return paths
+    return map_paths
 
 
 def _actionmaps_path(folder=None):
@@ -229,7 +229,7 @@ def all_mapping_folders(folder=None):
     Wer beim Sichern nur einen Ordner liest, laesst die Profile des anderen
     zurueck, ohne dass es auffaellt.
     """
-    base = folder or pfade.spiel_ordner()
+    base = folder or paths.game_folder()
     if not base:
         return []
     found = []
@@ -454,11 +454,11 @@ def devices(folder=None):
     die Oberflaeche sagt das auch so.
     """
     files = []
-    running = pfade.game_log(folder)
+    running = paths.game_log(folder)
     if running and os.path.isfile(running):
         files.append(running)
     try:
-        files.extend(pfade.log_sicherungen(folder) or [])
+        files.extend(paths.log_backups(folder) or [])
     except Exception:
         pass
     for filename in files:
@@ -1012,7 +1012,7 @@ def _profile(game_folder=None):
     """
     from . import fehler
     empty_result = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
-    cache_file = pfade.app_datei('aktionsnamen.json')
+    cache_file = paths.app_file('aktionsnamen.json')
     mark = _p4k_mark(game_folder)
     try:
         if os.path.isfile(cache_file):
@@ -1076,7 +1076,7 @@ def _profile(game_folder=None):
         return empty_result
 
     try:
-        pfade.json_sichern(cache_file, out)
+        paths.save_json(cache_file, out)
     except Exception:
         pass
     return out
@@ -1088,10 +1088,10 @@ def _ini_texts(language, game_folder=None):
     Gelesen werden nur Zeilen, die mit `ui_` beginnen — die Datei hat rund
     12 MB, und alles andere wird hier nicht gebraucht.
     """
-    base = os.path.join(game_folder or pfade.spiel_ordner() or '',
+    base = os.path.join(game_folder or paths.game_folder() or '',
                          'data', 'Localization')
     if not os.path.isdir(base):
-        base = os.path.join(game_folder or pfade.spiel_ordner() or '',
+        base = os.path.join(game_folder or paths.game_folder() or '',
                              'Data', 'Localization')
     out = {}
     for folder in INI_FOLDERS.get(language, ('english',)):
@@ -1149,10 +1149,10 @@ def _source_mark(language, game_folder=None):
     mehr, als der ganze Merker einspart. Wer hier kuenftig selbst schreibt,
     ohne den Zeitstempel zu aendern, ruft `forget()`.
     """
-    folder = game_folder or pfade.spiel_ordner() or ''
+    folder = game_folder or paths.game_folder() or ''
     # Das Archiv, aus dem die Etiketten kommen — ueber **dieselbe** Funktion
     # wie der Merker auf der Platte, damit beide dasselbe Archiv meinen.
-    paths = []
+    ini_paths = []
     # Jede `global.ini`, die `labels()` anfassen kann — die der Sprache
     # UND die englische, denn sie fuellt die Luecken der Uebersetzung.
     folder_names = list(INI_FOLDERS.get(language, ('english',)))
@@ -1160,10 +1160,10 @@ def _source_mark(language, game_folder=None):
         folder_names += [n for n in INI_FOLDERS['en'] if n not in folder_names]
     for sub in ('data', 'Data'):
         for name in folder_names:
-            paths.append(os.path.join(folder, sub, 'Localization', name,
-                                     'global.ini'))
+            ini_paths.append(os.path.join(folder, sub, 'Localization', name,
+                                          'global.ini'))
     parts = [folder, language, _p4k_mark(game_folder)]
-    for path in paths:
+    for path in ini_paths:
         try:
             st_info = os.stat(path)
             parts.append('%s:%d:%d' % (path, st_info.st_size,
@@ -1560,7 +1560,7 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
     ⚠ **Nur bei geschlossenem Spiel.** Star Citizen schreibt die Datei beim
     Beenden selbst und wuerde die Aenderung sonst ueberschreiben.
     """
-    # ⚠ `fehler` lokal importieren — das Modul zieht selbst `pfade`, auf
+    # ⚠ `fehler` lokal importieren — das Modul zieht selbst `paths`, auf
     # Modulebene waere das ein Zirkelbezug.
     from . import fehler
 

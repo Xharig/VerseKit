@@ -28,7 +28,7 @@ was steht im Katalog — und was ist zuletzt schiefgegangen.
 
 Drei Regeln, die nicht verhandelbar sind:
 
-  1. **Keine Namen.** Jeder Wert läuft durch `pfade.kuerzen()`; aus
+  1. **Keine Namen.** Jeder Wert läuft durch `paths.redact()`; aus
      `/home/spieler/…` wird `<heim>/…`. Ein Bericht landet in einem
      **öffentlichen** Issue.
   2. **Nichts wird verschickt.** Das Modul gibt Text zurück, mehr nicht. Ob er
@@ -43,7 +43,7 @@ import platform
 import sys
 from datetime import datetime
 
-from . import fehler, overlay, pfade
+from . import fehler, overlay, paths
 from .language import t
 
 
@@ -162,7 +162,7 @@ def _log_line():
     Log-Erkennung nichts aus — und genau die steht hier zur Frage.
     """
     from . import collection as collection_module
-    from . import logsource, pfade as paths_module
+    from . import logsource, paths as paths_module
 
     # ⚠ **Jeder Schritt fuer sich abgesichert, auch der erste.** Diese Zeile
     # steht in einem Bericht, den jemand abschickt, WEIL schon etwas kaputt
@@ -171,7 +171,7 @@ def _log_line():
     # sofort gemeldet.
     backups = []
     try:
-        backups = paths_module.log_sicherungen()
+        backups = paths_module.log_backups()
     except Exception:
         pass
     # ⚠ Einzahl beachten: „1 Protokolle" stand so im Bericht (02.09.2026).
@@ -430,13 +430,13 @@ def _game_launcher():
     es der selbst eingetragene Startbefehl ist. Genau diese drei Fragen standen
     am 27.08.2026 zwei Stunden lang im Raum.
     """
-    from . import pfade as paths_module
+    from . import paths as paths_module
     from . import language as language_module
-    launcher = paths_module.spielstarter()
+    launcher = paths_module.game_starter()
     if not launcher:
         return language_module.t('b_starter_kein')
-    short = paths_module.kuerzen(str(launcher))
-    own_flag = (paths_module.einstellung('spielstarter') or '').strip()
+    short = paths_module.redact(str(launcher))
+    own_flag = (paths_module.setting('spielstarter') or '').strip()
     if own_flag:
         return language_module.t('b_starter_eigen', short)
     return short
@@ -469,10 +469,10 @@ def _injection_state():
     # ⚠ Beide Schalter stehen auf „an", solange niemand sie anfasst — dann
     # tauchen sie in `selbst_gesetzt` NICHT auf. Ohne diese zwei Angaben liest
     # man „nicht eingetragen" und weiß nicht, ob das Absicht ist.
-    if not pfade.einstellung_wahrheit('inj_an', True):
+    if not paths.setting_bool('inj_an', True):
         parts.append(t('b_inj_aus'))
     parts.append(t('b_inj_auto')
-                 if pfade.einstellung_wahrheit('inj_auto', True)
+                 if paths.setting_bool('inj_auto', True)
                  else t('b_inj_hand'))
     if lage['quelle']:
         parts.append('%s %s' % (lage['quelle'], lage['stand'] or ''))
@@ -549,7 +549,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     lines = []
 
     def line(label, value):
-        lines.append('%-18s%s' % (label, pfade.kuerzen(value)))
+        lines.append('%-18s%s' % (label, paths.redact(value)))
 
     lines.append(t('b_kopf')
                   % (version or '—', datetime.now().strftime(t('b_datum'))))
@@ -559,7 +559,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     # Bericht ohne Absender kaum zuzuordnen, und Rückfragen laufen ins Leere.
     # **Freiwillig**: Ist nichts eingetragen, steht hier „nicht angegeben"; der
     # Watcher füllt das Feld nie von selbst.
-    reporter = (pfade.einstellung('melder_name') or '').strip()
+    reporter = (paths.setting('melder_name') or '').strip()
     # ⚠ **Ohne `kuerzen()`.** Jede andere Zeile läuft durch die Anonymisierung,
     # die Benutzernamen durch `<benutzer>` ersetzt — und genau das traf den
     # Melder-Namen, wenn er dem Systemkonto gleicht („Xharig"). Ausgerechnet
@@ -581,11 +581,11 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     if note:
         lines.append('')
         lines.append(t('b_meldung'))
-        for piece in _wrap(pfade.kuerzen(note), 76):
+        for piece in _wrap(paths.redact(note), 76):
             lines.append('  ' + piece)
     lines.append('')
 
-    uebersicht = _safe(pfade.uebersicht, {})
+    uebersicht = _safe(paths.overview, {})
     if not isinstance(uebersicht, dict):
         uebersicht = {}
 
@@ -812,7 +812,7 @@ def submit(text, version=''):
 
     Verschickt wird **nur auf Knopfdruck** und erst, nachdem der Nutzer den
     vollen Wortlaut gesehen hat. Der Text ist derselbe, der auf der Seite steht
-    — durch `pfade.kuerzen()` von Namen und Pfaden befreit.
+    — durch `paths.redact()` von Namen und Pfaden befreit.
 
     Als **Datei**, nicht als Nachricht: Discord nimmt höchstens 2000 Zeichen je
     Nachricht, ein Bericht ist regelmäßig länger. Eine angehängte `.txt` ist
@@ -923,11 +923,11 @@ def issue_url(text, title='', template=None):
 def open_issue(text, title=''):
     """Das vorausgefüllte Formular im Browser öffnen. True, wenn es startete.
 
-    ⚠ Über `pfade.im_browser`, nicht über `webbrowser.open()` — im AppImage
+    ⚠ Über `paths.open_in_browser`, nicht über `webbrowser.open()` — im AppImage
     öffnet das nichts und meldet trotzdem Erfolg (Begründung dort).
     """
     try:
-        return pfade.im_browser(issue_url(text, title))
+        return paths.open_in_browser(issue_url(text, title))
     except Exception:
         return False
 
@@ -935,7 +935,7 @@ def open_issue(text, title=''):
 def save(text, path_=None):
     """Den Bericht als Datei ablegen; gibt den Pfad zurück oder None."""
     try:
-        path_ = path_ or pfade.app_datei('bericht.txt')
+        path_ = path_ or paths.app_file('bericht.txt')
         with open(path_, 'w', encoding='utf-8') as f:
             f.write(text)
         return path_

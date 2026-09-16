@@ -66,7 +66,7 @@ from . import specs
 from . import asop as asop_modul
 from . import fehler, collection as bestand_datei
 from . import catalog as katalog_modul
-from . import pfade
+from . import paths
 from .language import t
 
 # ---------------------------------------------------------------------------
@@ -375,7 +375,7 @@ ORIGTEXT_FILE = 'injektion-urtext.json'
 def _origtext_file():
     """Der ganze Inhalt der Merkdatei — leer, wenn es sie nicht gibt."""
     try:
-        with open(pfade.app_datei(ORIGTEXT_FILE), encoding='utf-8') as f:
+        with open(paths.app_file(ORIGTEXT_FILE), encoding='utf-8') as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except Exception:
@@ -412,7 +412,7 @@ def discard_origtext():
     Stand zurückschreiben; das Kennzeichen `frisch` schützt den fremden Text
     beim ersten Lauf (siehe `ist_frisch()`)."""
     try:
-        target = pfade.app_datei(ORIGTEXT_FILE)
+        target = paths.app_file(ORIGTEXT_FILE)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, 'w', encoding='utf-8') as f:
             json.dump({'stand': time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -426,7 +426,7 @@ def discard_origtext():
 def save_origtext(texts_map, ini_path):
     """Die Originaltexte festhalten. Fehlschlag ist kein Grund abzubrechen."""
     try:
-        target = pfade.app_datei(ORIGTEXT_FILE)
+        target = paths.app_file(ORIGTEXT_FILE)
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, 'w', encoding='utf-8') as f:
             json.dump({'datei': ini_path, 'stand': time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -674,7 +674,7 @@ def scdl_fetch(lang_code, progress=None):
         entries = raw.get('entries') or []
         if not entries:
             return False, 0
-        target = pfade.app_datei(SCDL_CACHE % lang_code)
+        target = paths.app_file(SCDL_CACHE % lang_code)
         with open(target + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(raw, f, ensure_ascii=False)
         os.replace(target + '.tmp', target)
@@ -686,7 +686,7 @@ def scdl_fetch(lang_code, progress=None):
 def scdl_load(lang_code):
     """Die abgelegten Vertragsdaten — oder None."""
     try:
-        with open(pfade.app_datei(SCDL_CACHE % lang_code),
+        with open(paths.app_file(SCDL_CACHE % lang_code),
                   encoding='utf-8') as f:
             raw = json.load(f)
         return raw if raw.get('entries') else None
@@ -705,7 +705,7 @@ def _name_table(lines, remove_only=False):
 
     Beim reinen Entfernen bleibt sie leer: Dann stellt der Urtext-Weg die
     ursprünglichen Namen wieder her, und es soll nichts Neues dazukommen."""
-    if remove_only or not pfade.einstellung_wahrheit(SETTING_DETAILS, True):
+    if remove_only or not paths.setting_bool(SETTING_DETAILS, True):
         return {}
     try:
         return specs.build_table(lines)
@@ -1468,7 +1468,7 @@ def scdl_update_available(lang_code):
         return False, old
     # Schon mal ablegen — der Abruf ist gelaufen, ein zweiter wäre Verschwendung.
     try:
-        target = pfade.app_datei(SCDL_CACHE % lang_code)
+        target = paths.app_file(SCDL_CACHE % lang_code)
         with open(target + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(raw, f, ensure_ascii=False)
         os.replace(target + '.tmp', target)
@@ -1629,7 +1629,7 @@ def ini_file():
     Die Reihenfolge greift nur, solange nichts gewählt wurde.
     """
     from . import translation
-    chosen = pfade.einstellung('inj_quelle')
+    chosen = paths.setting('inj_quelle')
     order_list = ['deutsch', 'starstrings']
     if chosen in order_list:
         order_list.remove(chosen)

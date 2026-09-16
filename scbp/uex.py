@@ -92,7 +92,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, pfade
+from . import fehler, paths
 from .catalog import OFF, USER_AGENT
 
 # Die übliche Frist zwischen zwei Abrufen derselben Liste.
@@ -215,7 +215,7 @@ class Store:
         self._cached = {'stand': None, 'daten': None}
 
     def path(self):
-        return pfade.app_datei(self.filename)
+        return paths.app_file(self.filename)
 
     def load(self):
         """Der abgelegte Stand — oder `{}`, wenn keiner (brauchbar) da ist.

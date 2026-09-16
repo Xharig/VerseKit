@@ -32,7 +32,7 @@ import tkinter as tk
 
 import re
 
-from . import updater, pfade, language
+from . import updater, paths, language
 from .language import t, window_title
 
 BG      = '#10141c'
@@ -45,7 +45,7 @@ YELLOW    = '#d8a03a'
 
 
 def font(size, bold=False):
-    fam = 'Segoe UI' if pfade.WINDOWS else 'Helvetica'
+    fam = 'Segoe UI' if paths.WINDOWS else 'Helvetica'
     return (fam, size, 'bold' if bold else 'normal')
 
 

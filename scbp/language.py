@@ -45,7 +45,7 @@ import locale
 import os
 import time
 
-from . import pfade
+from . import paths
 
 LANGUAGES = ('de', 'en')
 DEFAULT_LANG = 'de'
@@ -814,7 +814,7 @@ TEXTS = {
     's_sc_weg_h':      ('Trag den Ordner unten ein — der LIVE-Ordner reicht, auch der darüber oder das Wine-Präfix.',
                           'Enter the folder below — the LIVE folder is enough, as is the one above it or the Wine prefix.'),
     # ⚠ Der Spielordner ist weg, ein Nachbarkanal steht daneben — siehe
-    # `pfade.kanal_abweichung()`. Wer LIVE in HOTFIX umbenennt (der uebliche Weg
+    # `paths.channel_mismatch()`. Wer LIVE in HOTFIX umbenennt (der uebliche Weg
     # zu einer ausgebesserten Fassung), soll das nicht selbst nachtragen muessen.
     's_kn_titel':      ('Spielordner hat sich geändert',
                           'Game folder has changed'),
@@ -5144,7 +5144,7 @@ def system_language():
 
 def chosen():
     """Was der Nutzer eingestellt hat: 'de', 'en' oder 'auto'."""
-    value = (pfade.einstellungen().get('sprache') or 'auto').strip().lower()
+    value = (paths.settings().get('sprache') or 'auto').strip().lower()
     return value if value in LANGUAGES + ('auto',) else 'auto'
 
 

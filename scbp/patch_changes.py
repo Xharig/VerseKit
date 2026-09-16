@@ -62,7 +62,7 @@ import json
 import os
 import re
 
-from . import erkul, fehler, patchhistory, pfade
+from . import erkul, fehler, patchhistory, paths
 
 FOLDER = 'Patches'
 
@@ -86,9 +86,9 @@ def _folder():
     """Der Ablageordner für die Patch-Dateien — angelegt, falls er fehlt.
 
     ⚠ Bei gesetztem `SC_BP_HOME` (Selbsttest, Wegwerf-Ordner) bleibt es flach,
-    genau wie `pfade.app_datei()` es dort auch tut. Dort geht es um einen
+    genau wie `paths.app_file()` es dort auch tut. Dort geht es um einen
     isolierten Ordner, nicht um Übersicht."""
-    base = pfade.app_ordner()
+    base = paths.app_folder()
     if os.environ.get('SC_BP_HOME'):
         return base
     target = os.path.join(base, FOLDER)

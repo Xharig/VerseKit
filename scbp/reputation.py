@@ -55,7 +55,7 @@ import json
 import os
 import re
 
-from . import fehler, pfade
+from . import fehler, paths
 
 CACHE_FILE = 'auftragsruf.json'
 FORMAT = 1
@@ -101,7 +101,7 @@ def _key(raw):
 
 
 def path():
-    return pfade.app_datei(CACHE_FILE)
+    return paths.app_file(CACHE_FILE)
 
 
 def load():

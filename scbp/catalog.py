@@ -56,7 +56,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, patchhistory, pfade, language
+from . import fehler, patchhistory, paths, language
 from .language import t
 
 
@@ -393,8 +393,8 @@ QUOTES = str.maketrans({
 
 
 def _norm(s):
-    """Vergleichsform eines Namens — siehe `pfade.namensform`."""
-    return pfade.namensform(s)
+    """Vergleichsform eines Namens — siehe `paths.name_key`."""
+    return paths.name_key(s)
 
 
 def _values(raw_items):
@@ -891,7 +891,7 @@ def build(version=None, progress=None, from_file=None):
              'geholt': time.strftime('%Y-%m-%d %H:%M'),
              'bauplaene': blueprints, 'missionen': _missions(merged),
              'vertraege': _contracts(merged)}
-    target = pfade.app_datei(CACHE)
+    target = paths.app_file(CACHE)
     temp = target + '.tmp'
     with open(temp, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
@@ -918,7 +918,7 @@ def load():
     geschrieben wurden — sie werden aus dem Namen neu gebildet.
     """
     try:
-        with open(pfade.app_datei(CACHE), encoding='utf-8') as f:
+        with open(paths.app_file(CACHE), encoding='utf-8') as f:
             d = json.load(f)
         if isinstance(d.get('bauplaene'), dict):
             d.setdefault('missionen', {})    # Kataloge vor v2.0.0-rc5
@@ -999,7 +999,7 @@ def refresh_stamp():
                 changed += 1
         if not changed:
             return 0
-        target = pfade.app_datei(CACHE)
+        target = paths.app_file(CACHE)
         temp = target + '.tmp'
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(d, f, ensure_ascii=False)
@@ -1254,7 +1254,7 @@ if __name__ == '__main__':
     with_ = sum(1 for e in d['bauplaene'].values() if e.get('q'))
     print('Version %s · %d Baupläne · %d mit Herkunft'
           % (d['version'], len(d['bauplaene']), with_))
-    print('Datei  :', pfade.app_datei(CACHE),
-          '(%.0f KB)' % (os.path.getsize(pfade.app_datei(CACHE)) / 1024))
+    print('Datei  :', paths.app_file(CACHE),
+          '(%.0f KB)' % (os.path.getsize(paths.app_file(CACHE)) / 1024))
     for kind, rows in sorted(by_kind(d).items(), key=lambda x: -len(x[1]))[:8]:
         print('   %4d  %s' % (len(rows), kind))

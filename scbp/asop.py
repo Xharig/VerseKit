@@ -67,7 +67,7 @@ import json
 import os
 import re
 
-from . import fehler, pfade
+from . import fehler, paths
 
 FILE = 'asop.json'
 FORMAT = 1
@@ -87,7 +87,7 @@ MAX_LENGTH = 40
 
 
 def path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def empty():

@@ -48,25 +48,25 @@ gleich geblieben, weil sie in der Datei jedes Nutzers stehen: die Schlüssel
 `namen`, `eintraege`, `titel` und `muster`. Ebenso die Schlüssel, die
 `all_entries()` für die Anzeige liefert (`titel`, `art`, `muster`), und die
 Fehlerkennung wechselt nur ihren Namen, nicht ihre Bedeutung. Der alte
-Dateiname `merkliste.json` steht weiter in `pfade.UNTERORDNER` — er gehört zu
+Dateiname `merkliste.json` steht weiter in `paths.SUBFOLDERS` — er gehört zu
 Ablagen aus früheren Fassungen, nicht zu diesem Modul.
 """
 import re
 import json
 import os
 
-from . import pfade
+from . import paths
 
 FILE = 'watchlist.json'
 
 
 def _norm(s):
-    """Vergleichsform eines Namens — siehe `pfade.namensform`."""
-    return pfade.namensform(s)
+    """Vergleichsform eines Namens — siehe `paths.name_key`."""
+    return paths.name_key(s)
 
 
 def path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def load():
