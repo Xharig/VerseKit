@@ -2316,6 +2316,12 @@ TEXTS = {
                               'you are with the blueprints you actually want. For '
                               'that, finished ones now stay ticked off on the '
                               'watchlist.'),
+    's_dk_aeternitas_idee2': ('**Farmen mit Fundorten** — was man farmen muss '
+                              'und wo es liegt, samt den Orten, an denen man '
+                              'mehrere Rohstoffe auf einmal bekommt.',
+                              '**Farming with locations** — what you need to '
+                              'farm and where it is, plus the places where '
+                              'you get several materials at once.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '
@@ -3624,6 +3630,18 @@ TEXTS = {
     # schlimmer: Der Spieler sieht das Erz ja in seinem Lager liegen.
     's_fl_zu_gering':    ('({menge} liegen da, aber unter Güte {guete})',
                           '({menge} in stock, but below quality {guete})'),
+    # ⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): was ich farmen muss UND wo.
+    's_fl_fundorte':     ('Fundorte: %s', 'Found at: %s'),
+    's_fl_sammel_kopf':  ('Wo du das meiste auf einmal findest',
+                          'Where you find the most at once'),
+    's_fl_sammel_hilfe': ('Orte, an denen mehrere deiner fehlenden Rohstoffe '
+                          'vorkommen — für die Route. Ein Klick zeigt den Ort '
+                          'im Bergbau.',
+                          'Places where several of your missing materials '
+                          'occur — for planning a route. Click one to see it '
+                          'in Mining.'),
+    's_fl_sammel_zeile': ('{n} deiner Rohstoffe: {erze}',
+                          '{n} of your materials: {erze}'),
     's_fl_ohne_rezept':  ('{n} Teile konnten nicht gerechnet werden, weil kein '
                           'Bauplan vorliegt: {teile}',
                           '{n} parts could not be calculated because no '
