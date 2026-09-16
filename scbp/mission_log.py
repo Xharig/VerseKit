@@ -59,7 +59,7 @@ import json
 import os
 import re
 
-from . import contracts, fehler, paths
+from . import contracts, errors, paths
 
 FILE = 'auftragslog.json'
 # ⚠ 2 seit dem 04.09.2026. Ein Protokoll im Format 1 enthaelt zwei Fehler, die
@@ -403,7 +403,7 @@ def _read(path, pending, done, seen, ident, start_pat, end_pat,
                             done.append(entry)
                             break
     except OSError as exception:
-        fehler.merken('mission_log.read', exception)
+        errors.record('mission_log.read', exception)
         return reported
 
     # Fortschritt nur, wo die Zuordnung eindeutig ist: Das Log verbindet Titel
@@ -442,7 +442,7 @@ def from_files(paths):
         from . import phrases
         bp_pattern = phrases.pattern()
     except Exception as exception:
-        fehler.merken('mission_log.bp_pattern', exception)
+        errors.record('mission_log.bp_pattern', exception)
         bp_pattern = None
     for path in paths:
         reported, counts = _read(path, pending, done, seen, ident,
@@ -681,7 +681,7 @@ def save(entries):
         return paths.save_json(file_path(), {'format': FORMAT,
                                            'auftraege': entries})
     except Exception as exception:
-        fehler.merken('mission_log.save', exception)
+        errors.record('mission_log.save', exception)
         return False
 
 
@@ -797,7 +797,7 @@ def scan_backlog():
     try:
         backups = list(paths.log_backups() or [])
     except Exception as exception:
-        fehler.merken('mission_log.scan_backlog', exception)
+        errors.record('mission_log.scan_backlog', exception)
         return 0, 0
 
     running_log = None
@@ -846,7 +846,7 @@ def scan_backlog():
         from . import playtime as _sz
         _sz.catch_up(backups + ([running_log] if running_log else []))
     except Exception as exception:
-        fehler.merken('mission_log.playtime', exception)
+        errors.record('mission_log.playtime', exception)
 
     old = load()
 
@@ -868,7 +868,7 @@ def scan_backlog():
             try:
                 _reported, _counts = _reported_titles(_path)
             except Exception as exception:
-                fehler.merken('mission_log.reassess', exception)
+                errors.record('mission_log.reassess', exception)
                 continue
             _close_expired(_pending_now, _done, _reported,
                                    _session_start(_path), silent_counts=_counts)
@@ -918,7 +918,7 @@ def _save_read_marks(read_marks):
         data['gelesen'] = read_marks
         paths.save_json(file_path(), data)
     except Exception as exception:
-        fehler.merken('mission_log.read_marks', exception)
+        errors.record('mission_log.read_marks', exception)
 
 
 # ------------------------------------------------------------------- Ausgeben

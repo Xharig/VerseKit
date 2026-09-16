@@ -55,7 +55,7 @@ import json
 import os
 import re
 
-from . import fehler, paths
+from . import errors, paths
 
 CACHE_FILE = 'auftragsruf.json'
 FORMAT = 1
@@ -115,7 +115,7 @@ def load():
     except (OSError, ValueError):
         pass
     except Exception as error:
-        fehler.merken('reputation.load', error)
+        errors.record('reputation.load', error)
     return {'format': FORMAT, 'version': '', 'auftraege': {}}
 
 
@@ -132,7 +132,7 @@ def save(data):
         os.replace(tentative, target)
         return True
     except Exception as error:
-        fehler.merken('reputation.save', error)
+        errors.record('reputation.save', error)
         return False
 
 
@@ -240,7 +240,7 @@ def refresh(game_version=''):
                  'auftraege': contract_map})
         return len(contract_map)
     except Exception as error:
-        fehler.merken('reputation.refresh', error)
+        errors.record('reputation.refresh', error)
         return len(old['auftraege'])
 
 

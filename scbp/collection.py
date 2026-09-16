@@ -60,7 +60,7 @@ import json
 import os
 import time
 
-from . import fehler, paths
+from . import errors, paths
 
 # 3 (29.08.2026): `namensform()` gleicht jetzt auch die SPRACHE der Mengenangabe
 #   an — `(16 Schuss)` und `(16 cap)` sind derselbe Bauplan. Gespeicherte
@@ -159,7 +159,7 @@ def load():
             try:
                 save(data)
             except Exception as exc:
-                fehler.merken('collection.renew_keys', exc)
+                errors.record('collection.renew_keys', exc)
         else:
             data['version'] = FILE_VERSION
     data.setdefault('version', FILE_VERSION)
@@ -321,7 +321,7 @@ def save(data):
     except Exception as exc:
         # Hier ist der eigene Bauplan-Bestand betroffen — das Wichtigste, was
         # das Werkzeug hat. Ein stiller Fehlschlag wäre nicht zu verzeihen.
-        fehler.merken('collection.save', exc, target)
+        errors.record('collection.save', exc, target)
         try:
             os.remove(tmp)
         except OSError:
@@ -356,7 +356,7 @@ def _update_exports(data):
         from . import export
         export.archive(data)
     except Exception as exc:
-        fehler.merken('collection.update_exports', exc)
+        errors.record('collection.update_exports', exc)
 
 
 SUFFIX_RE = __import__('re').compile(r'\s*\([^()]*\)\s*$')

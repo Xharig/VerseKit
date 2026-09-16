@@ -31,7 +31,7 @@ alles ältere fällt hinten heraus, damit die Datei nicht wächst.
 
 Drei Wege hinein:
 
-  1. **Zentrale Haken** (`haken_setzen`) — fangen, was sonst niemand fängt:
+  1. **Zentrale Haken** (`install_hooks`) — fangen, was sonst niemand fängt:
      Fehler im Hauptstrang, im Watcher-Thread und in den Rückrufen der
      Oberfläche. Gerade der letzte Fall ist bei `tkinter` der übliche Weg, auf
      dem Fehler verschwinden: Tk schreibt sie auf die Standardausgabe, und die
@@ -57,23 +57,23 @@ from datetime import datetime
 
 from . import paths
 
-DATEI = 'fehler.json'
-HOECHSTENS = 50          # so viele Einträge bleiben aufgehoben
-SPUR_ZEILEN = 6          # so viele Zeilen Rückverfolgung je Eintrag
+FILE = 'fehler.json'
+MAX_ENTRIES = 50          # so viele Einträge bleiben aufgehoben
+TRACE_LINES = 6          # so viele Zeilen Rückverfolgung je Eintrag
 
-_schloss = threading.Lock()
-
-
-def _pfad():
-    return paths.app_file(DATEI)
+_lock = threading.Lock()
 
 
-def _lesen():
+def _path():
+    return paths.app_file(FILE)
+
+
+def _read():
     try:
-        with open(_pfad(), encoding='utf-8') as f:
-            daten = json.load(f)
-        eintraege = daten.get('eintraege')
-        return eintraege if isinstance(eintraege, list) else []
+        with open(_path(), encoding='utf-8') as f:
+            data = json.load(f)
+        entries = data.get('eintraege')
+        return entries if isinstance(entries, list) else []
     except Exception:
         return []
 
@@ -89,10 +89,10 @@ def _lesen():
 VERSION = ['']
 
 
-SPUR_DATEI = 'start-spur.txt'
+TRAIL_FILE = 'start-spur.txt'
 
 
-def spur(schritt):
+def trail(step):
     """Festhalten, wie weit der Start gekommen ist — überlebt einen Absturz.
 
     ⚠ Wozu: Ein `SIGSEGV` beendet den Prozess **sofort**. Kein `except` greift,
@@ -110,31 +110,31 @@ def spur(schritt):
     zeigen, kein Tagebuch sein.
     """
     try:
-        pfad = paths.app_file(SPUR_DATEI)
-        art = 'a' if getattr(spur, '_offen', False) else 'w'
-        spur._offen = True
-        with open(pfad, art, encoding='utf-8') as f:
-            f.write('%s  %s\n' % (datetime.now().strftime('%H:%M:%S'), schritt))
+        path = paths.app_file(TRAIL_FILE)
+        mode = 'a' if getattr(trail, '_offen', False) else 'w'
+        trail._offen = True
+        with open(path, mode, encoding='utf-8') as f:
+            f.write('%s  %s\n' % (datetime.now().strftime('%H:%M:%S'), step))
             f.flush()
             os.fsync(f.fileno())
         # ⚠ Seit die Spur auch die Bedienung mitschreibt, wächst sie mit jedem
         # Klick. Nach oben deckeln, sonst steht am Ende ein Tagebuch aus
         # hunderten Reiterwechseln da. Gekürzt wird selten und nur um Zeilen,
         # die der Bericht ohnehin nicht mehr zeigt — er nimmt die letzten zwölf.
-        spur._zahl = getattr(spur, '_zahl', 0) + 1
-        if spur._zahl >= SPUR_DECKEL:
-            spur._zahl = 0
-            _spur_kuerzen(pfad)
+        trail._zahl = getattr(trail, '_zahl', 0) + 1
+        if trail._zahl >= TRAIL_CAP:
+            trail._zahl = 0
+            _trim_trail(path)
     except Exception:
         pass
 
 
-# Ab so vielen neuen Zeilen wird nachgesehen und auf `SPUR_REST` gekürzt.
-SPUR_DECKEL = 200
-SPUR_REST = 60
+# Ab so vielen neuen Zeilen wird nachgesehen und auf `TRAIL_KEEP` gekürzt.
+TRAIL_CAP = 200
+TRAIL_KEEP = 60
 
 
-def _spur_kuerzen(pfad):
+def _trim_trail(path):
     """Die Spur eindampfen — **ohne** den Startverlauf zu opfern.
 
     ⚠ Vorne abzuschneiden wäre das Naheliegende und wäre falsch: Vorne steht
@@ -142,20 +142,20 @@ def _spur_kuerzen(pfad):
     deshalb nur der Bedienteil.
     """
     try:
-        with open(pfad, encoding='utf-8') as f:
-            alle = f.readlines()
-        if len(alle) <= SPUR_REST:
+        with open(path, encoding='utf-8') as f:
+            all_lines = f.readlines()
+        if len(all_lines) <= TRAIL_KEEP:
             return
-        stelle = _grenz_stelle(alle)
-        if stelle is None:
+        boundary = _boundary_index(all_lines)
+        if boundary is None:
             # Der Start ist noch nicht durch und schreibt trotzdem schon
             # hunderte Zeilen — dann steckt die Ursache am Anfang, nicht am
             # Ende. Hier ausnahmsweise hinten abschneiden.
-            kopf, rest = alle[:SPUR_REST], []
+            head, tail = all_lines[:TRAIL_KEEP], []
         else:
-            kopf, rest = alle[:stelle + 1], alle[stelle + 1:]
-        with open(pfad, 'w', encoding='utf-8') as f:
-            f.writelines(kopf + rest[-SPUR_REST:])
+            head, tail = all_lines[:boundary + 1], all_lines[boundary + 1:]
+        with open(path, 'w', encoding='utf-8') as f:
+            f.writelines(head + tail[-TRAIL_KEEP:])
     except OSError:
         pass
 
@@ -177,32 +177,32 @@ def _spur_kuerzen(pfad):
 #
 # ⚠ Wer die Zeile in `sc_bp_watcher.py` umbenennt, muss sie hier mitziehen;
 # Prüfung 72 im Selbsttest schlägt sonst an.
-SPUR_GRENZE = 'Hauptschleife läuft'
+TRAIL_BOUNDARY = 'Hauptschleife läuft'
 
 
-def _grenz_stelle(zeilen):
+def _boundary_index(lines):
     """Wo der Start endet — Platz der Grenzzeile, oder `None`.
 
     `None` heißt: Der Start ist gar nicht durchgelaufen. Dann ist alles
     Startverlauf, und das ist die richtige Antwort — bei einem Absturz während
     des Starts gibt es keine Bedienung.
     """
-    for i, zeile in enumerate(zeilen):
-        if zeile.rstrip().endswith(SPUR_GRENZE):
+    for i, line in enumerate(lines):
+        if line.rstrip().endswith(TRAIL_BOUNDARY):
             return i
     return None
 
 
-def letzte_spur():
+def last_trail():
     """Die Spur des letzten Laufs — Startschritte und Bedienung, wie sie kam."""
     try:
-        with open(paths.app_file(SPUR_DATEI), encoding='utf-8') as f:
+        with open(paths.app_file(TRAIL_FILE), encoding='utf-8') as f:
             return [z.rstrip() for z in f if z.strip()]
     except Exception:
         return []
 
 
-def spur_geteilt():
+def split_trail():
     """Die Spur in zwei Teile: (Startschritte, Seitenwechsel).
 
     ⚠ Wozu die Trennung: Der Bericht zeigt nur die letzten Zeilen, sonst wird
@@ -211,27 +211,27 @@ def spur_geteilt():
     die Spur überhaupt gibt. Im ersten rc74-Bericht (27.08.2026) stand kein
     einziger Startschritt mehr. Beide Teile werden deshalb getrennt gedeckelt.
 
-    Getrennt wird an `SPUR_GRENZE` — siehe die Begründung dort.
+    Getrennt wird an `TRAIL_BOUNDARY` — siehe die Begründung dort.
     """
-    alle = letzte_spur()
-    stelle = _grenz_stelle(alle)
-    if stelle is None:
-        return alle, []
-    return alle[:stelle + 1], alle[stelle + 1:]
+    all_lines = last_trail()
+    boundary = _boundary_index(all_lines)
+    if boundary is None:
+        return all_lines, []
+    return all_lines[:boundary + 1], all_lines[boundary + 1:]
 
 
-ABSTURZ_DATEI = 'absturz.txt'
-ABSTURZ_VORIG = 'absturz-letzter.txt'
+CRASH_FILE = 'absturz.txt'
+CRASH_PREVIOUS = 'absturz-letzter.txt'
 
 # Der offene Schreibkanal, in den `faulthandler` schreibt. Er muss den ganzen
 # Lauf offen bleiben — deshalb steht er hier und nicht in einer Funktion.
-_ABSTURZ_KANAL = [None]
+_CRASH_STREAM = [None]
 
 
-def absturzfaenger():
+def install_crash_handler():
     """Einen harten Abbruch festhalten — dort, wo kein `except` mehr greift.
 
-    ⚠ Wozu, obwohl es `haken_setzen` schon gibt: Die drei Haken dort fangen
+    ⚠ Wozu, obwohl es `install_hooks` schon gibt: Die drei Haken dort fangen
     **Python**-Ausnahmen. Ein `SIGSEGV` aus der Tk-Bibliothek ist keine —
     der Prozess ist weg, mitten im Befehl. Es gibt dann keinen Fehlereintrag,
     keine Meldung, nichts; der Nutzer kann nur sagen „es stürzt ab".
@@ -247,22 +247,22 @@ def absturzfaenger():
     nächsten Start wird sie zur Seite gelegt und landet im Bericht.
     """
     try:
-        jetzt = paths.app_file(ABSTURZ_DATEI)
-        vorig = paths.app_file(ABSTURZ_VORIG)
+        current = paths.app_file(CRASH_FILE)
+        previous = paths.app_file(CRASH_PREVIOUS)
         # Was vom letzten Lauf noch drinsteht, ist ein Absturz — beiseitelegen,
         # damit der Bericht ihn zeigen kann, auch wenn dieser Lauf sauber ist.
         try:
-            if os.path.isfile(jetzt) and os.path.getsize(jetzt) > 0:
-                if os.path.isfile(vorig):
-                    os.remove(vorig)
-                os.replace(jetzt, vorig)
-            elif os.path.isfile(jetzt):
-                os.remove(jetzt)
+            if os.path.isfile(current) and os.path.getsize(current) > 0:
+                if os.path.isfile(previous):
+                    os.remove(previous)
+                os.replace(current, previous)
+            elif os.path.isfile(current):
+                os.remove(current)
         except OSError:
             pass
-        kanal = open(jetzt, 'w', encoding='utf-8')
-        _ABSTURZ_KANAL[0] = kanal
-        faulthandler.enable(file=kanal, all_threads=True)
+        stream = open(current, 'w', encoding='utf-8')
+        _CRASH_STREAM[0] = stream
+        faulthandler.enable(file=stream, all_threads=True)
         return True
     except Exception:
         # Ohne Fänger läuft das Programm normal weiter — er ist Diagnose,
@@ -270,16 +270,16 @@ def absturzfaenger():
         return False
 
 
-def letzter_absturz():
+def last_crash():
     """Der Aufrufweg des letzten harten Abbruchs — leer, wenn es keinen gab."""
     try:
-        with open(paths.app_file(ABSTURZ_VORIG), encoding='utf-8') as f:
+        with open(paths.app_file(CRASH_PREVIOUS), encoding='utf-8') as f:
             return [z.rstrip() for z in f if z.strip()]
     except Exception:
         return []
 
 
-def absturz_zeitpunkt():
+def crash_time():
     """Wann der festgehaltene Abbruch geschah — als Zeitstempel, oder None.
 
     ⚠ Die Datei bleibt liegen, bis ein neuer Abbruch sie ersetzt. Ohne Datum
@@ -287,21 +287,21 @@ def absturz_zeitpunkt():
     Bericht — aus einer Fassung, deren Dateinamen es längst nicht mehr gab.
     """
     try:
-        return os.path.getmtime(paths.app_file(ABSTURZ_VORIG))
+        return os.path.getmtime(paths.app_file(CRASH_PREVIOUS))
     except Exception:
         return None
 
 
-def absturz_abhaken():
+def clear_crash():
     """Den festgehaltenen Abbruch wegräumen — er ist gemeldet und erledigt."""
     try:
-        os.remove(paths.app_file(ABSTURZ_VORIG))
+        os.remove(paths.app_file(CRASH_PREVIOUS))
         return True
     except Exception:
         return False
 
 
-def merken(stelle, ausnahme=None, hinweis=''):
+def record(label, exc=None, note=''):
     """Einen Fehler festhalten. Gibt True zurück, wenn es geklappt hat.
 
     `stelle` ist der Ort im Programm ('catalog.update') — er sagt beim
@@ -309,65 +309,65 @@ def merken(stelle, ausnahme=None, hinweis=''):
     aus der Ausnahme nicht hervorgeht (welche Datei, welche Adresse).
     """
     try:
-        if ausnahme is None:
-            ausnahme = sys.exc_info()[1]
+        if exc is None:
+            exc = sys.exc_info()[1]
 
-        eintrag = {
+        entry = {
             'zeit': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'fassung': VERSION[0],
-            'stelle': str(stelle),
-            'art': type(ausnahme).__name__ if ausnahme else 'Hinweis',
-            'meldung': paths.redact(str(ausnahme) if ausnahme else hinweis),
+            'stelle': str(label),
+            'art': type(exc).__name__ if exc else 'Hinweis',
+            'meldung': paths.redact(str(exc) if exc else note),
         }
-        if hinweis and ausnahme is not None:
-            eintrag['hinweis'] = paths.redact(str(hinweis))
+        if note and exc is not None:
+            entry['hinweis'] = paths.redact(str(note))
 
-        if ausnahme is not None:
-            spur = traceback.format_exception(type(ausnahme), ausnahme,
-                                              ausnahme.__traceback__)
+        if exc is not None:
+            tb = traceback.format_exception(type(exc), exc,
+                                              exc.__traceback__)
             # Nur der Schwanz der Rückverfolgung — dort steht, wo es knallte.
             # Die Zeilen davor sind bei einem Overlay fast immer dieselben.
-            eintrag['spur'] = paths.redact(''.join(spur[-SPUR_ZEILEN:]).strip())
+            entry['spur'] = paths.redact(''.join(tb[-TRACE_LINES:]).strip())
 
-        with _schloss:
-            eintraege = _lesen()
-            eintraege.append(eintrag)
-            eintraege = eintraege[-HOECHSTENS:]
-            with open(_pfad(), 'w', encoding='utf-8') as f:
-                json.dump({'eintraege': eintraege}, f, ensure_ascii=False, indent=1)
+        with _lock:
+            entries = _read()
+            entries.append(entry)
+            entries = entries[-MAX_ENTRIES:]
+            with open(_path(), 'w', encoding='utf-8') as f:
+                json.dump({'eintraege': entries}, f, ensure_ascii=False, indent=1)
         return True
     except Exception:
         return False          # ein Protokoll darf nie das Programm mitreißen
 
 
-def letzte(anzahl=10):
+def latest(count=10):
     """Die jüngsten Einträge, neueste zuerst."""
     try:
-        return list(reversed(_lesen()))[:max(0, int(anzahl))]
+        return list(reversed(_read()))[:max(0, int(count))]
     except Exception:
         return []
 
 
-def anzahl():
+def count():
     """Wie viele Einträge liegen vor?"""
-    return len(_lesen())
+    return len(_read())
 
 
-def leeren():
+def clear():
     """Alles vergessen — z. B. nachdem ein Problem behoben wurde."""
     try:
-        with _schloss:
-            with open(_pfad(), 'w', encoding='utf-8') as f:
+        with _lock:
+            with open(_path(), 'w', encoding='utf-8') as f:
                 json.dump({'eintraege': []}, f)
         return True
     except Exception:
         return False
 
 
-class gefangen(object):
+class caught(object):
     """Kontextmanager: Der Abschnitt darf scheitern, aber nicht schweigen.
 
-        with fehler.gefangen('catalog.update'):
+        with errors.caught('catalog.update'):
             catalog.holen()
 
     Der Fehler wird festgehalten und **verschluckt** — der Aufrufer läuft
@@ -375,62 +375,62 @@ class gefangen(object):
     Fehler weiterreichen will, nimmt `gefangen(..., weiterreichen=True)`.
     """
 
-    def __init__(self, stelle, hinweis='', weiterreichen=False):
-        self.stelle = stelle
-        self.hinweis = hinweis
-        self.weiterreichen = weiterreichen
+    def __init__(self, label, note='', reraise=False):
+        self.label = label
+        self.note = note
+        self.reraise = reraise
 
     def __enter__(self):
         return self
 
-    def __exit__(self, art, wert, spur):
-        if wert is None:
+    def __exit__(self, exc_type, exc_value, tb):
+        if exc_value is None:
             return False
-        merken(self.stelle, wert, self.hinweis)
-        return not self.weiterreichen
+        record(self.label, exc_value, self.note)
+        return not self.reraise
 
 
-def haken_setzen(wurzel=None):
+def install_hooks(root=None):
     """Die drei Wege abfangen, auf denen Fehler sonst unbemerkt verschwinden.
 
     `wurzel` ist das Tk-Hauptfenster, falls schon eines da ist. Ohne Oberfläche
     (Selbsttest, Werkzeuge) werden nur die ersten beiden Haken gesetzt.
     """
     try:
-        frueher = sys.excepthook
+        previous_hook = sys.excepthook
 
-        def haupt(art, wert, spur):
-            merken('unbehandelt', wert)
-            frueher(art, wert, spur)
+        def main_hook(exc_type, exc_value, tb):
+            record('unbehandelt', exc_value)
+            previous_hook(exc_type, exc_value, tb)
 
-        sys.excepthook = haupt
+        sys.excepthook = main_hook
     except Exception:
         pass
 
     try:
         # Ohne diesen Haken stirbt der Watcher-Thread still, und das Overlay
         # steht danach da, als liefe alles — es kommt nur nie wieder etwas an.
-        def im_thread(angaben):
-            merken('thread:%s' % getattr(angaben.thread, 'name', '?'),
-                   angaben.exc_value)
+        def thread_hook(hook_args):
+            record('thread:%s' % getattr(hook_args.thread, 'name', '?'),
+                   hook_args.exc_value)
 
-        threading.excepthook = im_thread
+        threading.excepthook = thread_hook
     except Exception:
         pass
 
-    if wurzel is not None:
+    if root is not None:
         try:
-            def in_der_oberflaeche(art, wert, spur):
-                merken('oberflaeche', wert)
+            def ui_hook(exc_type, exc_value, tb):
+                record('oberflaeche', exc_value)
 
-            wurzel.report_callback_exception = in_der_oberflaeche
+            root.report_callback_exception = ui_hook
         except Exception:
             pass
 
 
 if __name__ == '__main__':
-    print('Protokoll:', _pfad())
-    with gefangen('probe'):
+    print('Protokoll:', _path())
+    with caught('probe'):
         raise ValueError('nur ein Versuch')
-    for e in letzte(3):
+    for e in latest(3):
         print('  %s  %-22s %s: %s' % (e['zeit'], e['stelle'], e['art'], e['meldung']))

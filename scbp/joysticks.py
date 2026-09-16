@@ -396,7 +396,7 @@ def save_profile(name, filename=None, folder=None, overwrite=False):
 
     Liefert `(erfolg, Meldung_oder_Pfad)`.
     """
-    from . import fehler
+    from . import errors
     ok, message = check_name(name)
     if not ok:
         return False, message
@@ -417,7 +417,7 @@ def save_profile(name, filename=None, folder=None, overwrite=False):
         tree.write(temp, encoding='utf-8', xml_declaration=False)
         os.replace(temp, target)
     except Exception as exception:
-        fehler.merken('joysticks.save_profile', exception)
+        errors.record('joysticks.save_profile', exception)
         return False, 's_js_f_schreiben'
     return True, target
 
@@ -1010,7 +1010,7 @@ def _profile(game_folder=None):
     einmal aufzuschlagen dauert spuerbar, und die Daten aendern sich nur mit
     einem Spiel-Patch.
     """
-    from . import fehler
+    from . import errors
     empty_result = {'etiketten': {}, 'standard': {}, 'gruppen': {}}
     cache_file = paths.app_file('aktionsnamen.json')
     mark = _p4k_mark(game_folder)
@@ -1072,7 +1072,7 @@ def _profile(game_folder=None):
         # Ohne diese Datei bleibt die Liste benutzbar — dann stehen dort die
         # technischen Namen und nur die eigenen Aenderungen. Schlechter, aber
         # nicht kaputt.
-        fehler.merken('joysticks.profile', exception)
+        errors.record('joysticks.profile', exception)
         return empty_result
 
     try:
@@ -1283,7 +1283,7 @@ def bind_action(action, section, device_id, input_device, filename=None, folder=
     Liefert `(erfolg, meldung, anzahl)`; `meldung` ist bei Erfolg der Pfad der
     Sicherung, sonst ein Sprachschluessel.
     """
-    from . import fehler
+    from . import errors
 
     path = filename or _actionmaps_path(folder)
     if not path or not os.path.isfile(path):
@@ -1298,7 +1298,7 @@ def bind_action(action, section, device_id, input_device, filename=None, folder=
     try:
         tree = ET.parse(path)
     except Exception as exception:
-        fehler.merken('joysticks.bind_action_read', exception)
+        errors.record('joysticks.bind_action_read', exception)
         return False, 's_js_f_lesen', 0
     root = tree.getroot()
 
@@ -1348,12 +1348,12 @@ def _write(path, tree, anzahl):
     Kennungstausch, der eine reine Textersetzung ist. Deshalb entsteht vorher
     immer eine Sicherung: Geht etwas schief, ist der Rueckweg ein Umbenennen.
     """
-    from . import fehler
+    from . import errors
     backup_file = '%s.scbpw-%s' % (path, time.strftime('%Y%m%d-%H%M%S'))
     try:
         shutil.copy2(path, backup_file)
     except Exception as exception:
-        fehler.merken('joysticks.backup', exception)
+        errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
         tree.write(path, encoding='utf-8', xml_declaration=False)
@@ -1362,7 +1362,7 @@ def _write(path, tree, anzahl):
             shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.write', exception)
+        errors.record('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, anzahl
 
@@ -1405,14 +1405,14 @@ def reset(filename=None, folder=None):
 
     Liefert `(erfolg, meldung, anzahl geloeschter Gruppen)`.
     """
-    from . import fehler
+    from . import errors
     path = filename or _actionmaps_path(folder)
     if not path or not os.path.isfile(path):
         return False, 's_js_f_datei', 0
     try:
         tree = ET.parse(path)
     except Exception as exception:
-        fehler.merken('joysticks.reset_read', exception)
+        errors.record('joysticks.reset_read', exception)
         return False, 's_js_f_lesen', 0
 
     root = tree.getroot()
@@ -1444,7 +1444,7 @@ def export_file(target, language='de', filename=None, folder=None):
 
     Liefert `(erfolg, meldung)`.
     """
-    from . import fehler
+    from . import errors
     source = filename or _actionmaps_path(folder)
     if not source or not os.path.isfile(source):
         return False, 's_js_f_datei'
@@ -1469,7 +1469,7 @@ def export_file(target, language='de', filename=None, folder=None):
         else:
             shutil.copy2(source, target)
     except Exception as exception:
-        fehler.merken('joysticks.export_file', exception)
+        errors.record('joysticks.export_file', exception)
         return False, 's_js_f_schreiben'
     return True, target
 
@@ -1514,7 +1514,7 @@ def import_file(source, filename=None, folder=None):
     landet irgendeine XML-Datei als Steuerung im Spiel. Und auch hier gilt:
     erst Sicherung, dann schreiben.
     """
-    from . import fehler
+    from . import errors
     target = filename or _actionmaps_path(folder)
     if not target or not os.path.isfile(target):
         return False, 's_js_f_datei', 0
@@ -1534,7 +1534,7 @@ def import_file(source, filename=None, folder=None):
         ET.ElementTree(_as_active_form(root)).write(
             target, encoding='utf-8', xml_declaration=False)
     except Exception as exception:
-        fehler.merken('joysticks.import_file', exception)
+        errors.record('joysticks.import_file', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, anzahl
 
@@ -1560,9 +1560,9 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
     ⚠ **Nur bei geschlossenem Spiel.** Star Citizen schreibt die Datei beim
     Beenden selbst und wuerde die Aenderung sonst ueberschreiben.
     """
-    # ⚠ `fehler` lokal importieren — das Modul zieht selbst `paths`, auf
+    # ⚠ `errors` lokal importieren — das Modul zieht selbst `paths`, auf
     # Modulebene waere das ein Zirkelbezug.
-    from . import fehler
+    from . import errors
 
     path = filename or _actionmaps_path(folder)
     if not path or not os.path.isfile(path):
@@ -1573,7 +1573,7 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
         with open(path, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
     except Exception as exception:
-        fehler.merken('joysticks.read', exception)
+        errors.record('joysticks.read', exception)
         return False, 's_js_f_lesen', 0
 
     # ⚠ Gross-/Kleinschreibung der Kennung kann sich zwischen Protokoll und
@@ -1600,7 +1600,7 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
     except Exception as exception:
         # Ohne Sicherung wird nicht geschrieben. Lieber gar nicht helfen als
         # ohne Rueckweg — hier haengt die komplette Steuerung dran.
-        fehler.merken('joysticks.backup', exception)
+        errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
         with open(path, 'w', encoding='utf-8', newline='') as f:
@@ -1610,7 +1610,7 @@ def swap_id(old_id, new_id, new_name='', filename=None, folder=None):
             shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.write', exception)
+        errors.record('joysticks.write', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, hit
 
@@ -1642,7 +1642,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
 
     Liefert `(erfolg, meldung, anzahl)` wie die Nachbarfunktionen.
     """
-    from . import fehler
+    from . import errors
 
     path = filename or _actionmaps_path(folder)
     if not path or not os.path.isfile(path):
@@ -1656,7 +1656,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
         with open(path, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
     except Exception as exception:
-        fehler.merken('joysticks.swap_read', exception)
+        errors.record('joysticks.swap_read', exception)
         return False, 's_js_f_lesen', 0
 
     # Nur die Joystick-Bloecke — `<deviceoptions>` bleiben aussen vor.
@@ -1690,7 +1690,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
     try:
         shutil.copy2(path, backup_file)
     except Exception as exception:
-        fehler.merken('joysticks.backup', exception)
+        errors.record('joysticks.backup', exception)
         return False, 's_js_f_sicherung', 0
     try:
         with open(path, 'w', encoding='utf-8', newline='') as f:
@@ -1700,7 +1700,7 @@ def swap_bindings(id_a, id_b, filename=None, folder=None):
             shutil.copy2(backup_file, path)
         except Exception:
             pass
-        fehler.merken('joysticks.swap_write', exception)
+        errors.record('joysticks.swap_write', exception)
         return False, 's_js_f_schreiben', 0
     return True, backup_file, swapped[0]
 

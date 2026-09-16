@@ -277,8 +277,8 @@ def write(path, kind='basetool', collection=None, catalog=None, version=''):
             json.dump(doc, f, ensure_ascii=False, indent=1)
         os.replace(path + '.tmp', path)
         return True, str(count)
-    except OSError as fehler:
-        return False, str(fehler)
+    except OSError as err:
+        return False, str(err)
 
 
 FILENAMES = {
@@ -373,8 +373,8 @@ def _tidy_old_files(folder):
             else:
                 os.replace(os.path.join(folder, file), target)
     except OSError as exception:
-        from . import fehler
-        fehler.merken('export._tidy_old_files', exception, folder)
+        from . import errors
+        errors.record('export._tidy_old_files', exception, folder)
 
 
 def archive(collection=None, catalog=None, version=''):

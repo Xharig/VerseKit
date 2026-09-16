@@ -68,7 +68,7 @@ import re
 import time
 
 from . import collection
-from . import fehler
+from . import errors
 
 SOURCE = 'import'
 
@@ -172,7 +172,7 @@ def read(path):
         with open(path, encoding='utf-8-sig') as f:
             data = json.load(f)
     except Exception as exc:
-        fehler.merken('importer.read', exc, os.path.basename(path or ''))
+        errors.record('importer.read', exc, os.path.basename(path or ''))
         return None, []
 
     kind = detect(data)

@@ -66,7 +66,7 @@ läuft unverändert weiter.
 import os
 import re
 
-from . import fehler, catalog, paths
+from . import errors, catalog, paths
 
 # Der sprachneutrale Schlüssel für „Auftrag angenommen" — in jeder Sprache derselbe.
 # Dazu das Teilen in der Gruppe: Wer einen Auftrag geteilt **bekommt**, soll
@@ -187,7 +187,7 @@ def missions():
         try:
             _missions = catalog.load().get('missionen') or {}
         except Exception as exception:
-            fehler.merken('contracts.catalog', exception)
+            errors.record('contracts.catalog', exception)
             _missions = {}
     return _missions
 
@@ -803,7 +803,7 @@ def contract_definitions():
         try:
             _contract_defs = catalog.load().get('vertraege') or {}
         except Exception as exception:
-            fehler.merken('contracts.contract_definitions', exception)
+            errors.record('contracts.contract_definitions', exception)
             _contract_defs = {}
     return _contract_defs
 

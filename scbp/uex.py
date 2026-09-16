@@ -92,7 +92,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, paths
+from . import errors, paths
 from .catalog import OFF, USER_AGENT
 
 # Die übliche Frist zwischen zwei Abrufen derselben Liste.
@@ -142,7 +142,7 @@ def fetch(url, label, timeout=TIMEOUT):
             raw_text = response.read().decode('utf-8')
         raw = json.loads(raw_text)
     except Exception as ausnahme:
-        fehler.merken('uex.fetch.' + label, ausnahme)
+        errors.record('uex.fetch.' + label, ausnahme)
         return None
     items = raw.get('data')
     if items is None:
@@ -176,7 +176,7 @@ def fetch(url, label, timeout=TIMEOUT):
     # Deckel sitzt. Alles darüber beweist, dass es für diese Abfrage keinen
     # gibt.
     if isinstance(items, list) and len(items) == CAP:
-        fehler.merken(
+        errors.record(
             'uex.fetch.' + label,
             RuntimeError('Antwort bei %d Zeilen — vermutlich abgeschnitten, '
                          'Abruf enger zuschneiden: %s' % (len(items), url)))
@@ -319,7 +319,7 @@ class Store:
             self._cached['stand'] = None
             return True
         except Exception as ausnahme:
-            fehler.merken('uex.save.' + self.filename, ausnahme)
+            errors.record('uex.save.' + self.filename, ausnahme)
             # ⚠ Die halbe Datei nicht liegen lassen — sie hieße sonst für immer
             # `…12345.tmp` im Ablageordner des Nutzers.
             try:

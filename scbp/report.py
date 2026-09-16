@@ -43,7 +43,7 @@ import platform
 import sys
 from datetime import datetime
 
-from . import fehler, overlay, paths
+from . import errors, overlay, paths
 from .language import t
 
 
@@ -63,8 +63,8 @@ def _safe(f, default='—'):
         return value
     except Exception as exception:
         try:
-            from . import fehler
-            fehler.merken('report.angabe', exception)
+            from . import errors
+            errors.record('report.angabe', exception)
         except Exception:
             pass              # das Melden darf den Bericht nie umwerfen
         return default
@@ -498,7 +498,7 @@ def _injection_state():
         played = translation.game_language() or '—'
         parts.append('%s / Spiel: %s' % (folder, played))
     except Exception as exception:
-        fehler.merken('report.injektionssprache', exception)
+        errors.record('report.injektionssprache', exception)
     return ' · '.join(x for x in parts if x)
 
 
@@ -699,7 +699,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     # und die letzten zwölf Zeilen zu nehmen, war der Fehler in rc74: Fünf Klicks
     # genügten, und der komplette Startverlauf war aus dem Bericht verdrängt —
     # ausgerechnet der Teil, für den die Spur gebaut wurde.
-    start, seiten = _safe(fehler.spur_geteilt, ([], []))
+    start, seiten = _safe(errors.split_trail, ([], []))
     # ⚠ Erst zusammenfassen, dann die letzten zwölf nehmen — andersherum wäre
     # der Ausschnitt schon leergeräumt, bevor das Zusammenfassen greift.
     start = _dense(start)
@@ -725,7 +725,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # gesucht", und im Bericht stand keine Zeile davon.
         #
         # Ein Bericht, dessen Beschaffung die Beobachtung zerstört, ist kein
-        # Bericht. `SPUR_REST` hebt 60 Zeilen auf, der Platz war also da.
+        # Bericht. `TRAIL_KEEP` hebt 60 Zeilen auf, der Platz war also da.
         for entry in seiten[-24:]:
             lines.append('  ' + entry)
 
@@ -734,12 +734,12 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     # heißt, das Programm hat weitergelebt; hier war es mitten im Befehl weg.
     # Nur die erste Handvoll Zeilen — der volle Aufrufweg aller Fäden füllt
     # Seiten, und der Melder soll den Bericht noch verschicken können.
-    crash = _safe(fehler.letzter_absturz, [])
+    crash = _safe(errors.last_crash, [])
     if crash:
         lines.append('')
         # ⚠ Mit Datum: Die Datei überlebt beliebig viele saubere Läufe. Der
         # Vermerk stellt fest, wann — er urteilt nicht, ob es noch zutrifft.
-        wann = _safe(fehler.absturz_zeitpunkt, None)
+        wann = _safe(errors.crash_time, None)
         lines.append(t('b_absturz') % (
             datetime.fromtimestamp(wann).strftime(t('b_datum')) if wann else '—'))
         for entry in _crash_brief(crash, 14):
@@ -747,8 +747,8 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         if len(crash) > 14:
             lines.append('  … (%d)' % (len(crash) - 14))
 
-    letzte = _safe(lambda: fehler.letzte(fehleranzahl), [])
-    total = _safe(fehler.anzahl, 0)
+    letzte = _safe(lambda: errors.latest(fehleranzahl), [])
+    total = _safe(errors.count, 0)
     lines.append('')
     if letzte:
         lines.append(t('b_fehler') % (len(letzte), total))
@@ -849,7 +849,7 @@ def submit(text, version=''):
                 return True, ''
             return False, 'HTTP %s' % answer.status
     except Exception as exception:
-        fehler.merken('report.submit', exception)
+        errors.record('report.submit', exception)
         # ⚠ Den Grund NICHT durchreichen: In der Fehlermeldung einer
         # fehlgeschlagenen Anfrage steht die Adresse, und die ist geheim.
         return False, t('m_bericht_weg')
@@ -941,8 +941,8 @@ def save(text, path_=None):
         return path_
     except Exception as exception:
         try:
-            from . import fehler
-            fehler.merken('report.save', exception)
+            from . import errors
+            errors.record('report.save', exception)
         except Exception:
             pass
         return None

@@ -43,7 +43,7 @@ from tkinter import font as tkfont
 # unterscheidet — der Rest dieser Datei muss das Betriebssystem nicht kennen.
 from scbp import language
 from scbp import icons
-from scbp import fehler
+from scbp import errors
 from scbp import notice
 from scbp import (
     contracts, tray_icon, updater, assistent, autostart, places, prices,
@@ -703,7 +703,7 @@ class Watcher(threading.Thread):
             self.tail.mission_pattern = contracts.start_pattern()
             self.tail.mission_end_pattern = contracts.end_pattern()
         except Exception as ausnahme:
-            fehler.merken('watcher.mission_pattern', ausnahme)
+            errors.record('watcher.mission_pattern', ausnahme)
         self._auftraege_gesehen = set()   # je Programmlauf, gegen Doppelmeldungen
         # Was gerade laeuft — Titel (ohne unsere Marken) → fertige Zeile.
         # ⚠ Ein Zustand, keine Verlaufsliste: Beim Abschluss muss der Auftrag
@@ -734,9 +734,9 @@ class Watcher(threading.Thread):
         # anderen eine — und dazwischen stand nichts, woran man das haette
         # festmachen koennen. Ein Bericht, der nur Anfang und Ende kennt, sagt
         # bei genau der Frage nichts, fuer die man ihn braucht.
-        fehler.spur('Overlay: Bestand wird geladen')
+        errors.trail('Overlay: Bestand wird geladen')
         self.bestand = bestand_datei.load()   # der eigene, dauerhafte Bestand
-        fehler.spur('Overlay: Bestand geladen (%d Bauplaene)'
+        errors.trail('Overlay: Bestand geladen (%d Bauplaene)'
                     % len(self.bestand.get('bauplaene') or {}))
         # ⚠ Einmal beim Start die Namen an den Katalog angleichen. Was der
         # Watcher vor v3.3.3 aus dem Log gelesen hat, trägt womöglich die
@@ -747,11 +747,11 @@ class Watcher(threading.Thread):
             berichtigt = bestand_datei.align(self.bestand)
             if berichtigt:
                 self._bestand_sichern()
-                fehler.spur('Bestand: %d Namen an den Katalog angeglichen'
+                errors.trail('Bestand: %d Namen an den Katalog angeglichen'
                             % berichtigt)
         except Exception as ausnahme:
-            fehler.merken('watcher.bestand_angleichen', ausnahme)
-        fehler.spur('Overlay: Bestand am Katalog geprueft')
+            errors.record('watcher.bestand_angleichen', ausnahme)
+        errors.trail('Overlay: Bestand am Katalog geprueft')
         # ⚠⚠ **Merkposten austragen, die längst im Bestand stehen.**
         # `_merkliste_erledigen` greift nur beim FUND — wer etwas merkt, das er
         # schon hat, behält den Posten für immer. Gemeldet am 06.09.2026: „da
@@ -760,9 +760,9 @@ class Watcher(threading.Thread):
             _weg = watchlist.prune(
                 (self.bestand.get('bauplaene') or {}).keys())
             if _weg:
-                fehler.spur('Merkliste: %d erledigte Posten ausgetragen' % _weg)
+                errors.trail('Merkliste: %d erledigte Posten ausgetragen' % _weg)
         except Exception as ausnahme:
-            fehler.merken('watcher.merkliste_aufraeumen', ausnahme)
+            errors.record('watcher.merkliste_aufraeumen', ausnahme)
         # ⚠⚠⚠ **Ist der Bestand kleiner als je zuvor?** Dann stimmt etwas mit
         # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Am
         # 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413,
@@ -776,11 +776,11 @@ class Watcher(threading.Thread):
             self.schwund = bestand_datei.check_shrinkage(self.bestand)
             if self.schwund:
                 jetzt, hoechst, wo = self.schwund
-                fehler.spur('Bestand: SCHWUND %d statt %d (frueher in %s)'
+                errors.trail('Bestand: SCHWUND %d statt %d (frueher in %s)'
                             % (jetzt, hoechst, wo or '?'))
         except Exception as ausnahme:
             self.schwund = None
-            fehler.merken('watcher.schwund_pruefen', ausnahme)
+            errors.record('watcher.schwund_pruefen', ausnahme)
         self._neu_einlesen = False            # Auftrag von außen, siehe unten
         self.running = True
         self.cat_next = 0.0     # nächster Katalog-Check (Zeitstempel)
@@ -821,16 +821,16 @@ class Watcher(threading.Thread):
         try:
             gamebuild.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.gamebuild', ausnahme)
+            errors.record('watcher.gamebuild', ausnahme)
         try:
             prices.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.prices', ausnahme)
+            errors.record('watcher.prices', ausnahme)
         # Die Lagerorte dazu — hoechstens einmal pro Woche, siehe `places.py`.
         try:
             places.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.orte', ausnahme)
+            errors.record('watcher.orte', ausnahme)
         # Und die Ankaufpreise je Terminal fuer den Verkaufs-Reiter — ebenfalls
         # hoechstens einmal am Tag. ⚠ Bewusst **hier** und nicht beim Oeffnen
         # der Seite: Wer den Reiter aufmacht, soll Daten vorfinden statt auf
@@ -838,13 +838,13 @@ class Watcher(threading.Thread):
         try:
             selling.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.verkauf', ausnahme)
+            errors.record('watcher.verkauf', ausnahme)
         # Und die Schiffsliste — höchstens einmal pro Woche, siehe
         # `scbp/ships.py`. Sie liefert den Frachtraum für den Routen-Reiter.
         try:
             ships.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.ships', ausnahme)
+            errors.record('watcher.ships', ausnahme)
         # ⭐⭐ **Und der Warengruppen-Katalog für den Laden-Reiter — zuletzt.**
         #
         # Er ist der teuerste der Abrufe (76 Stück, gemessen rund 50 s) und
@@ -860,7 +860,7 @@ class Watcher(threading.Thread):
         try:
             shops.fetch_catalog()
         except Exception as ausnahme:
-            fehler.merken('watcher.laeden_katalog', ausnahme)
+            errors.record('watcher.laeden_katalog', ausnahme)
 
     # ---- Bauplan-Katalog holen und frisch halten ----
     def _katalog_tick(self):
@@ -999,7 +999,7 @@ class Watcher(threading.Thread):
                                                   sprache_ordner)))
             return True
         except Exception as ausnahme:
-            fehler.merken('watcher.spielsprache', ausnahme)
+            errors.record('watcher.spielsprache', ausnahme)
             return False
 
     def _bestandsmarke_neu(self):
@@ -1105,7 +1105,7 @@ class Watcher(threading.Thread):
                 if marke != paths.setting('inj_bestand'):
                     neu_noetig = True
             except Exception as ausnahme:
-                fehler.merken('watcher.inj_bestandsmarke', ausnahme)
+                errors.record('watcher.inj_bestandsmarke', ausnahme)
 
         if neu_noetig and os.path.isfile(ziel):
             ok, anzahl, _meldung = injection.setup(ziel, sprache_ordner)
@@ -1117,7 +1117,7 @@ class Watcher(threading.Thread):
                     paths.set_setting(
                         'inj_bestand', marke or injection.stock_mark())
                 except Exception as ausnahme:
-                    fehler.merken('watcher.inj_marke_merken', ausnahme)
+                    errors.record('watcher.inj_marke_merken', ausnahme)
 
     # ---- Katalog-Wache: was ist NEU craftbar im Spiel? ----
     def _catalog_tick(self):
@@ -1237,7 +1237,7 @@ class Watcher(threading.Thread):
                 # Systems, in dem der Auftrag spielt. Sonst der Titelweg.
                 contract_id=self._auftrag_vertraege.get(rein))
         except Exception as ausnahme:
-            fehler.merken('watcher.auftraege', ausnahme)
+            errors.record('watcher.auftraege', ausnahme)
             return None
         if ergebnis is None:
             return None
@@ -1280,14 +1280,14 @@ class Watcher(threading.Thread):
             with open(pfad, 'rb') as f:
                 text = f.read().decode('utf-8', 'ignore')
         except OSError as ausnahme:
-            fehler.merken('watcher.auftraege_start', ausnahme)
+            errors.record('watcher.auftraege_start', ausnahme)
             return
 
         try:
             offen, missionen = contracts.state_from_text(
                 text, self.tail.mission_pattern, self.tail.mission_end_pattern)
         except Exception as ausnahme:
-            fehler.merken('watcher.auftraege_start', ausnahme)
+            errors.record('watcher.auftraege_start', ausnahme)
             return
         # ⚠ Die Kennungen mitnehmen, nicht nur die Titel: Endet einer dieser
         # Auftraege spaeter im laufenden Betrieb, ist die MissionId oft das
@@ -1301,14 +1301,14 @@ class Watcher(threading.Thread):
                 if mid in je_mission:
                     self._auftrag_vertraege[rein_] = je_mission[mid]
         except Exception as ausnahme:
-            fehler.merken('watcher.auftrag_vertraege', ausnahme)
+            errors.record('watcher.auftrag_vertraege', ausnahme)
         # ⚠ Die Ziele aus demselben Text. Ohne das stuende beim Start zwar der
         # Auftrag da, aber ohne das, was gerade zu tun ist — und genau danach
         # schaut man nach einem Neustart zuerst.
         try:
             self._ziele.absorb(contracts.objective_events_from_text(text))
         except Exception as ausnahme:
-            fehler.merken('watcher.ziele_start', ausnahme)
+            errors.record('watcher.ziele_start', ausnahme)
 
         for titel in offen:
             rein = contracts.clean(titel)
@@ -1342,7 +1342,7 @@ class Watcher(threading.Thread):
             ziele_neu = self._ziele.absorb(
                 getattr(self.tail, 'objective_events', None))
         except Exception as ausnahme:
-            fehler.merken('watcher.ziele', ausnahme)
+            errors.record('watcher.ziele', ausnahme)
         self.tail.objective_events = []
 
         ereignisse = getattr(self.tail, 'mission_events', None) or []
@@ -1580,7 +1580,7 @@ class Watcher(threading.Thread):
         try:
             funde, bericht = logsource.read_all(phrases.pattern())
         except Exception as ausnahme:
-            fehler.merken('watcher.neu_einlesen', ausnahme)
+            errors.record('watcher.neu_einlesen', ausnahme)
             self.q.put(('bescheid', language.Phrase('s_be_neu'),
                         language.Phrase('neu_gelesen_fehler')))
             return
@@ -1604,7 +1604,7 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             # ⚠ Kein Abbruch: Die Bauplaene sind zu diesem Zeitpunkt schon
             # gesichert, und der Spieler soll seine Zahl bekommen.
-            fehler.merken('watcher.neu_einlesen_auftraege', ausnahme)
+            errors.record('watcher.neu_einlesen_auftraege', ausnahme)
         # ⚠ Als Bescheid, nicht nur als Zeile: Wer diesen Lauf anstoesst,
         # wartet auf genau diese Zahl.
         self.q.put(('bescheid', language.Phrase('s_be_neu'),
@@ -1650,10 +1650,10 @@ class Watcher(threading.Thread):
             from scbp import mission_log as _ml
             _gesamt, _dazu = _ml.scan_backlog()
             if _dazu:
-                fehler.spur('Auftrags-Protokoll: %d neu, %d gesamt'
+                errors.trail('Auftrags-Protokoll: %d neu, %d gesamt'
                             % (_dazu, _gesamt))
         except Exception as ausnahme:
-            fehler.merken('watcher.auftragsprotokoll', ausnahme)
+            errors.record('watcher.auftragsprotokoll', ausnahme)
 
         try:
             funde, bericht = logsource.read_backlog(self.stand)
@@ -1913,7 +1913,7 @@ class Overlay:
         try:
             updater.update_windows_entry(__version__)
         except Exception as ausnahme:
-            fehler.merken('start.windows_eintrag', ausnahme)
+            errors.record('start.windows_eintrag', ausnahme)
 
         self.umzug_meldung = ''
         try:
@@ -1924,7 +1924,7 @@ class Overlay:
                                                    paths.app_folder())
                     sys.stdout.write(self.umzug_meldung + '\n')
         except Exception as ausnahme:
-            fehler.merken('start.umzug', ausnahme)
+            errors.record('start.umzug', ausnahme)
 
         # ⚠ **Nur eine einzige `tk.Tk()` im ganzen Programm.** Vorher legte der
         # Assistent eine eigene an, zerstörte sie am Ende — und hier entstand eine
@@ -1942,7 +1942,7 @@ class Overlay:
         # Ab hier werden auch Fehler in Rückrufen der Oberfläche festgehalten.
         # Ohne diesen Haken schreibt Tk sie auf die Standardausgabe — und die
         # sieht in einer .exe oder einem AppImage niemand.
-        fehler.haken_setzen(self.root)
+        errors.install_hooks(self.root)
         # Die Tastenkombination, die auch im Spiel greift. ⚠ Angemeldet wird
         # erst, wenn die Hauptschleife laeuft (`hotkey_anmelden`) — vorher
         # gibt es den Faden noch nicht, an dem die Meldung haengt.
@@ -1960,7 +1960,7 @@ class Overlay:
                        add='+')
         overlay.OVERLAY_CONTROL[0] = self
         # Damit jeder festgehaltene Fehler weiß, aus welcher Version er stammt.
-        fehler.VERSION[0] = __version__
+        errors.VERSION[0] = __version__
         # ⚠ Der Produktname steht NUR in `language.py` (`hf_titel`). Hier stand
         # er bis zum 12.09.2026 fest im Code — bei der Umbenennung zu VerseKit
         # zeigte das Hauptfenster deshalb den neuen Namen und das Overlay noch
@@ -2412,7 +2412,7 @@ class Overlay:
                 self.root, language.t('s_kn_titel'),
                 language.t('s_kn_umgestellt') % os.path.basename(gewaehlt))
         except Exception as ausnahme:
-            fehler.merken('watcher.kanal_pruefen', ausnahme)
+            errors.record('watcher.kanal_pruefen', ausnahme)
 
     # ---- Drag & Resize ----
     # ---- Schalter „mit dem Rechner starten" ----
@@ -2459,7 +2459,7 @@ class Overlay:
             try:
                 getattr(self, name).configure(size=grund + n)
             except Exception as ausnahme:
-                fehler.merken('overlay.schriftgroesse', ausnahme)
+                errors.record('overlay.schriftgroesse', ausnahme)
         # ⚠ Die Symbole hängen **nicht** an einer Schrift, also müssen sie
         # eigens nachgezogen werden — sonst bleibt die Leiste bei „groß" auf
         # kleinen Symbolen stehen. Die Leistenhöhe wächst mit, sonst ragen sie
@@ -2469,7 +2469,7 @@ class Overlay:
                 paths.setting('schriftgroesse') or 'normal'))
             self.bar.configure(height=icons.width() + 4)
         except Exception as ausnahme:
-            fehler.merken('overlay.symbolgroesse', ausnahme)
+            errors.record('overlay.symbolgroesse', ausnahme)
         # ⛔⛔ **Und die Mindestbreite muss mit** (13.09.2026). Größere Symbole
         # brauchen mehr Platz — die offene Grenze stand aber weiter auf dem
         # Wert vom Programmstart. Damit ließ sich das Fenster schmaler ziehen,
@@ -2497,7 +2497,7 @@ class Overlay:
             self._status_setzen(language.Phrase('s_sp_start_lauft'))
         else:
             self._status_setzen(language.Phrase('s_sp_start_nein', grund))
-            fehler.merken('overlay.spiel_starten', OSError(str(grund)))
+            errors.record('overlay.spiel_starten', OSError(str(grund)))
 
     def _ganz_beenden(self):
         """Beenden über das Symbol neben der Uhr — und zwar wirklich.
@@ -2541,7 +2541,7 @@ class Overlay:
                 self._icon_bild = tk.PhotoImage(file=png)
                 self.root.iconphoto(True, self._icon_bild)
         except Exception as ausnahme:
-            fehler.merken('oberflaeche.icon', ausnahme)
+            errors.record('oberflaeche.icon', ausnahme)
 
         if sys.platform.startswith('win'):
             # Zusätzlich unter Windows: Die .ico bringt mehrere Auflösungen mit
@@ -2613,7 +2613,7 @@ class Overlay:
                     if language.is_refreshable(quelle):
                         teil.config(text=str(quelle))
         except Exception as ausnahme:
-            fehler.merken('overlay._neu_beschriften', ausnahme)
+            errors.record('overlay._neu_beschriften', ausnahme)
 
     # ⚠ Der Autostart-Schalter ist am 27.08.2026 aus der Melde-Leiste
     # entfallen — mitsamt `_show_autostart` und `_toggle_autostart`. Zwei
@@ -2684,7 +2684,7 @@ class Overlay:
             # umgezogen, also muss es hinterher.
             self._schloss_nachziehen()
         except Exception as ausnahme:
-            fehler.merken('overlay.leiste_anwenden', ausnahme)
+            errors.record('overlay.leiste_anwenden', ausnahme)
 
     def _verschoben(self, e=None):
         """Nach dem Ziehen: Lage merken — und die Ecke aufheben.
@@ -2723,7 +2723,7 @@ class Overlay:
             if ruf is not None:
                 ruf('frei')
         except Exception as ausnahme:
-            fehler.merken('overlay.verschoben', ausnahme)
+            errors.record('overlay.verschoben', ausnahme)
     def _mindestgroesse_setzen(self, versuch=0):
         """Das Overlay darf nicht schmaler werden als seine Symbolleiste.
 
@@ -2772,7 +2772,7 @@ class Overlay:
                 self.root.geometry('%dx%d' % (
                     breite, max(120, self.root.winfo_height())))
         except Exception as ausnahme:
-            fehler.merken('overlay.mindestgroesse', ausnahme)
+            errors.record('overlay.mindestgroesse', ausnahme)
 
     def _mindestbreite(self):
         """Wie schmal das Overlay hoechstens werden darf.
@@ -2982,7 +2982,7 @@ class Overlay:
         try:
             fenster.stock_changed()
         except Exception as ausnahme:
-            fehler.merken('oberflaeche.liste_nachziehen', ausnahme)
+            errors.record('oberflaeche.liste_nachziehen', ausnahme)
 
     def auftraege_zeigen(self, paare):
         """Die laufenden Auftraege setzen — die Leiste zeigt immer den Stand.
@@ -3085,7 +3085,7 @@ class Overlay:
         try:
             self.watcher.auftrag_wegklicken(rein)
         except Exception as ausnahme:
-            fehler.merken('fenster.auftrag_weg', ausnahme)
+            errors.record('fenster.auftrag_weg', ausnahme)
 
     def hinweis_entfernen(self, auftrag):
         """Die Zeile zu einem Auftrag aus der Liste nehmen.
@@ -3260,7 +3260,7 @@ class Overlay:
             to_front(fenster.root)
             show_result(fenster.root, str(titel), str(text))
         except Exception as ausnahme:
-            fehler.merken('oberflaeche.bescheid', ausnahme)
+            errors.record('oberflaeche.bescheid', ausnahme)
 
     def versionen_zeigen(self):
         """Das Fenster „Was ist neu" öffnen."""
@@ -3327,7 +3327,7 @@ class Overlay:
                     self.root.after(
                         0, lambda: self._nach_version_sehen(spielende=True))
             except Exception as ausnahme:
-                fehler.merken('overlay.spielende_wache', ausnahme)
+                errors.record('overlay.spielende_wache', ausnahme)
             finally:
                 self._spielende_laeuft = False
         threading.Thread(target=arbeit, daemon=True).start()
@@ -3439,7 +3439,7 @@ class Overlay:
                 if not update_run.take_lock():
                     return               # ein Klick war schneller
                 try:
-                    fehler.spur('Auto-Update: %s wird geladen' % version)
+                    errors.trail('Auto-Update: %s wird geladen' % version)
                     ziel = updater.download(datei, release=neu)
                     # ⚠ Zwischen Laden und Einspielen kann das Spiel gestartet
                     # worden sein — der Download dauert Sekunden bis Minuten.
@@ -3450,17 +3450,17 @@ class Overlay:
                         ziel, target_version=version,
                         previous_version=__version__, automatic=True)
                     if not geklappt:
-                        fehler.merken('overlay.auto_update',
+                        errors.record('overlay.auto_update',
                                       RuntimeError(str(grund)))
                         return
                     uebergeben = True
-                    fehler.spur('Auto-Update: %s wird eingespielt' % version)
+                    errors.trail('Auto-Update: %s wird eingespielt' % version)
                     self.root.after(0, lambda: self._auto_uebergeben(version))
                 finally:
                     if not uebergeben:
                         update_run.release_lock()
             except Exception as ausnahme:
-                fehler.merken('overlay.auto_update', ausnahme)
+                errors.record('overlay.auto_update', ausnahme)
             finally:
                 self._auto_laeuft = False
                 if weiter_warten:
@@ -3705,7 +3705,7 @@ class Overlay:
                 kind.pack(**info)
             self._leiste_seite = seite
         except (tk.TclError, IndexError) as ausnahme:
-            fehler.merken('overlay.leiste_ausrichten', ausnahme)
+            errors.record('overlay.leiste_ausrichten', ausnahme)
 
     def _klapp_ecke(self, breite, hoehe):
         """Wohin das Fenster gehoert — Ecke oder da, wo es steht.
@@ -3747,7 +3747,7 @@ class Overlay:
             y = max(sy, y)
             return int(x), int(y)
         except Exception as ausnahme:
-            fehler.merken('overlay.klapp_ecke', ausnahme)
+            errors.record('overlay.klapp_ecke', ausnahme)
             return x, y
 
     def ecke_anwenden(self):
@@ -3787,7 +3787,7 @@ class Overlay:
                 self._letzte_lage = '%dx%d+%d+%d' % (b, h, x, y)
                 self._anfasser_zeigen()
         except Exception as ausnahme:
-            fehler.merken('overlay.ecke_anwenden', ausnahme)
+            errors.record('overlay.ecke_anwenden', ausnahme)
 
     def _grip_nachziehen(self, _e=None):
         """Den Ziehgriff zeigen oder verstecken, je nach Klappzustand.
@@ -3973,7 +3973,7 @@ class Overlay:
                 return
             save_geometry(self._current_geom())
         except Exception as ausnahme:
-            fehler.merken('overlay.lage_merken', ausnahme)
+            errors.record('overlay.lage_merken', ausnahme)
 
     def quit(self):
         self._save_geo()
@@ -4028,7 +4028,7 @@ class Overlay:
                     lambda: self.klappzustand_setzen(self.eingeklappt,
                                                      merken=False))
         except Exception as ausnahme:
-            fehler.merken('overlay.ecke_beim_start', ausnahme)
+            errors.record('overlay.ecke_beim_start', ausnahme)
         self.anzeigeart = paths.setting('overlay_modus') or 'immer'
         if self.anzeigeart == 'popup':
             # ⚠ Die Lage merken, **bevor** versteckt wird. Ein Fenster, das noch
@@ -4061,7 +4061,7 @@ class Overlay:
         try:
             geklappt = overlay.set_click_through(self.root, an)
         except Exception as ausnahme:
-            fehler.merken('overlay.durchklick', ausnahme)
+            errors.record('overlay.durchklick', ausnahme)
             geklappt = False
         if an and not geklappt:
             self._status_setzen(language.Phrase('ov_durchklick_geht_nicht'))
@@ -4079,7 +4079,7 @@ class Overlay:
             if anzeigen is not None:
                 anzeigen(an and geklappt)
         except Exception as ausnahme:
-            fehler.merken('overlay.durchklick_anzeige', ausnahme)
+            errors.record('overlay.durchklick_anzeige', ausnahme)
         # ⚠ Der Rückgabewert wird gebraucht: Der Schloss-Knopf in der Leiste
         # muss die Einstellung zurücknehmen, wenn das System nicht mitspielt —
         # sonst steht dort „durchklickbar an", während nichts durchgereicht wird.
@@ -4321,7 +4321,7 @@ class Overlay:
         except tk.TclError:
             pass
         except Exception as ausnahme:
-            fehler.merken('overlay.schloss', ausnahme)
+            errors.record('overlay.schloss', ausnahme)
 
     def _wird_noch_gezeichnet(self):
         """Fehlt der Knopf, weil Tk noch malt — oder weil das Fenster weg soll?
@@ -4801,15 +4801,15 @@ class Overlay:
         """
         try:
             if paths.settings().get('hotkey_an') is False:
-                fehler.spur('Hotkey: ausgeschaltet')
+                errors.trail('Hotkey: ausgeschaltet')
                 return
             kombi = (paths.setting('hotkey') or hotkey_modul.DEFAULT)
             ok, grund = self.hotkey.register(kombi)
-            fehler.spur('Hotkey: %s (%s)'
+            errors.trail('Hotkey: %s (%s)'
                         % ('%s angemeldet' % kombi if ok else 'entfaellt',
                            grund or 'ok'))
         except Exception as ausnahme:
-            fehler.merken('overlay.hotkey', ausnahme)
+            errors.record('overlay.hotkey', ausnahme)
 
     def _hotkey_nachsehen(self):
         """Im selben Takt wie die Warteschlange nachfragen.
@@ -4936,7 +4936,7 @@ class Overlay:
             links, oben, schirm_breit, schirm_hoch = screen.screen_at(fenster,
                                                                       x, y)
         except Exception as ausnahme:
-            fehler.merken('overlay.ablage_menue.schirm', ausnahme)
+            errors.record('overlay.ablage_menue.schirm', ausnahme)
             links, oben, schirm_breit, schirm_hoch = 0, 0, x + breit, y + hoch
         # Neben der Uhr ist unten kein Platz — dann nach oben aufklappen.
         if y + hoch > oben + schirm_hoch - 8:
@@ -4954,7 +4954,7 @@ class Overlay:
         if (fenster.winfo_x(), fenster.winfo_y()) != (max(x, links),
                                                       max(y, oben)):
             fenster.geometry(lage)
-        fehler.spur('Ablagemenü: Zeiger %d/%d, Schirm %r, Lage %s, steht bei %d/%d'
+        errors.trail('Ablagemenü: Zeiger %d/%d, Schirm %r, Lage %s, steht bei %d/%d'
                     % (x, y, (links, oben, schirm_breit, schirm_hoch), lage,
                        fenster.winfo_x(), fenster.winfo_y()))
         fenster.bind('<Escape>', lambda e: self._ablage_menue_schliessen())
@@ -5016,7 +5016,7 @@ class Overlay:
                 ok, n, meldung = injection.refresh(pfad, sprache_ordner)
             except Exception as ausnahme:
                 ok, n, meldung = False, 0, str(ausnahme)
-                fehler.merken('overlay.uebersetzung_erneuern', ausnahme)
+                errors.record('overlay.uebersetzung_erneuern', ausnahme)
             satz = (language.Phrase('inj_aktiv', n) if ok
                     else language.Phrase('inj_fehler', meldung))
             self.root.after(0, lambda: self._status_setzen(satz))
@@ -5033,7 +5033,7 @@ class Overlay:
         try:
             geklappt = paths.open_in_browser(adresse)
         except Exception as ausnahme:
-            fehler.merken(stelle, ausnahme, adresse)
+            errors.record(stelle, ausnahme, adresse)
             geklappt = False
         if not geklappt:
             self._status_setzen(language.Phrase('s_ub_auf_nein', adresse))
@@ -5052,7 +5052,7 @@ class Overlay:
             self.root.attributes('-topmost', True)
             self.liste_oeffnen()
         except Exception as ausnahme:
-            fehler.merken('overlay.hervorholen', ausnahme)
+            errors.record('overlay.hervorholen', ausnahme)
 
     def ablagesymbol_starten(self):
         """Das Symbol neben der Uhr — nur unter Windows und nur, wenn gewünscht.
@@ -5067,10 +5067,10 @@ class Overlay:
         # Bericht zeigte weder einen Fehler noch eine Spur. Eine Zeile im
         # Startverlauf beantwortet das beim nächsten Bericht sofort.
         if not tray_icon.available():
-            fehler.spur('Ablagesymbol: entfällt (nicht Windows)')
+            errors.trail('Ablagesymbol: entfällt (nicht Windows)')
             return
         if not paths.setting_bool('tray', True):
-            fehler.spur('Ablagesymbol: abgeschaltet (Einstellung „tray")')
+            errors.trail('Ablagesymbol: abgeschaltet (Einstellung „tray")')
             return
         try:
             self._ablage = tray_icon.TrayIcon(
@@ -5084,17 +5084,17 @@ class Overlay:
             geklappt = self._ablage.start(language.t('tray_zeigen'),
                                             language.t('tray_beenden'),
                                             menue=self._ablage_menue())
-            fehler.spur('Ablagesymbol: %s'
+            errors.trail('Ablagesymbol: %s'
                         % ('steht' if geklappt else 'NICHT angelegt'))
             if not geklappt:
                 # Der Rückgabewert wurde bisher weggeworfen. Ein „nein" ist
                 # aber genau die Auskunft, die in den Bericht gehört.
-                fehler.merken('overlay.ablagesymbol',
+                errors.record('overlay.ablagesymbol',
                               OSError('TrayIcon.start() meldet, dass es '
                                       'nicht angelegt werden konnte'))
         except Exception as ausnahme:
-            fehler.spur('Ablagesymbol: Fehler beim Anlegen')
-            fehler.merken('overlay.ablagesymbol', ausnahme)
+            errors.trail('Ablagesymbol: Fehler beim Anlegen')
+            errors.record('overlay.ablagesymbol', ausnahme)
 
     def _update_ergebnis_melden(self):
         """Sagen, was aus dem letzten Update geworden ist — einmal, beim Start.
@@ -5121,10 +5121,10 @@ class Overlay:
                 # geklickt, und ein Fenster, das von selbst aufgeht, ist
                 # genau der Fokusklau, den das Werkzeug sonst vermeidet.
                 if not ergebnis.get('automatisch'):
-                    fehler.spur('Nach Update: Hauptfenster wird geöffnet')
+                    errors.trail('Nach Update: Hauptfenster wird geöffnet')
                     self.root.after(300, self.liste_oeffnen)
         except Exception as ausnahme:
-            fehler.merken('start.update_ergebnis', ausnahme)
+            errors.record('start.update_ergebnis', ausnahme)
 
     def _beschriftung_nachziehen(self):
         """Eine vorhandene Linux-Verknüpfung auf den aktuellen Namen bringen.
@@ -5143,9 +5143,9 @@ class Overlay:
             # Lokal importiert: Das Modul wird nur unter Linux gebraucht.
             from scbp import desktop_entry
             if desktop_entry.refresh_label():
-                fehler.spur('Verknuepfung auf den aktuellen Namen gebracht')
+                errors.trail('Verknuepfung auf den aktuellen Namen gebracht')
         except Exception as ausnahme:
-            fehler.merken('start.beschriftung', ausnahme)
+            errors.record('start.beschriftung', ausnahme)
 
     def run(self):
         self.verhalten_anwenden()
@@ -5194,7 +5194,7 @@ if __name__ == '__main__':
             ctypes.windll.kernel32.CreateMutexW(
                 None, False, 'SC-BP-Watcher-Einzelstart')
         except Exception as ausnahme:
-            fehler.merken('start.mutex', ausnahme)
+            errors.record('start.mutex', ausnahme)
 
     # ⚠ Die **eine** Tk-Instanz des Programms. Sie entsteht hier und wird an alles
     # weitergereicht — Assistent wie Overlay. Vorher legte der Assistent eine
@@ -5210,9 +5210,9 @@ if __name__ == '__main__':
     # `please_show()` wieder, und die legt sonst die Absturzspur der laufenden
     # beiseite. Ab dieser Zeile ist ein harter Abbruch nachlesbar — ein SIGSEGV
     # aus Tk hinterlässt sonst nichts, was man melden könnte.
-    fehler.absturzfaenger()
-    fehler.VERSION[0] = __version__
-    fehler.spur('Start, Version %s, %s' % (__version__, sys.platform))
+    errors.install_crash_handler()
+    errors.VERSION[0] = __version__
+    errors.trail('Start, Version %s, %s' % (__version__, sys.platform))
     # ⚠⚠ **Vor dem ersten Fenster.** Sonst haette die Wurzel — und alles, was
     # vor diesem Aufruf entsteht — weiterhin die helle Leiste des Systems.
     # Unter Linux tut der Aufruf nichts und kostet nichts.
@@ -5223,13 +5223,13 @@ if __name__ == '__main__':
     # dem Tk-Start stehen und vor der ersten Abfrage — der Assistent kann schon
     # eine zeigen.
     language.localize_buttons(wurzel)
-    fehler.spur('Tk-Wurzel steht')
+    errors.trail('Tk-Wurzel steht')
 
     zeige_liste = False
     if assistent.needed():
-        fehler.spur('Assistent beginnt')
+        errors.trail('Assistent beginnt')
         fertig, zeige_liste = assistent.start(eltern=wurzel)
-        fehler.spur('Assistent fertig (Liste zeigen: %s)' % zeige_liste)
+        errors.trail('Assistent fertig (Liste zeigen: %s)' % zeige_liste)
         if not fertig and not assistent.is_configured():
             # ⚠⚠ **Abbrechen beendet nur beim ECHTEN ersten Start.**
             # Bis rc44 beendete jeder Abbruch das Programm — und zwar
@@ -5241,17 +5241,17 @@ if __name__ == '__main__':
             #
             # Ist das Werkzeug schon eingerichtet, ist der Assistent nur ein
             # Angebot. Wer ihn wegklickt, will weiterarbeiten, nicht aufhören.
-            fehler.spur('Assistent abgebrochen — erster Start, Ende')
+            errors.trail('Assistent abgebrochen — erster Start, Ende')
             sys.exit(0)
         if not fertig:
-            fehler.spur('Assistent abgebrochen — weiter mit dem Overlay')
-    fehler.spur('Overlay wird gebaut')
+            errors.trail('Assistent abgebrochen — weiter mit dem Overlay')
+    errors.trail('Overlay wird gebaut')
     fenster = Overlay(wurzel=wurzel)
-    fehler.spur('Overlay steht')
+    errors.trail('Overlay steht')
     if zeige_liste:
-        fehler.spur('Bauplan-Liste wird geöffnet')
+        errors.trail('Bauplan-Liste wird geöffnet')
         fenster.liste_oeffnen()
-        fehler.spur('Bauplan-Liste steht')
+        errors.trail('Bauplan-Liste steht')
     # ⚠⚠⚠ **Die Steckplatz-Daten JETZT holen, nicht beim ersten Seitenaufruf.**
     #
     # Bis v3.22.2 stieß erst „Mein Hangar" den Abruf an. Der lief zwar im
@@ -5278,10 +5278,10 @@ if __name__ == '__main__':
             from scbp import fleet as _hg
             anzahl = _hg.fetch_missing() or 0
             if anzahl:
-                fehler.spur('Vorladen: Steckplaetze fuer %d Schiffe geholt'
+                errors.trail('Vorladen: Steckplaetze fuer %d Schiffe geholt'
                             % anzahl)
         except Exception as ausnahme:
-            fehler.merken('watcher.steckplaetze_vorladen', ausnahme)
+            errors.record('watcher.steckplaetze_vorladen', ausnahme)
             return
         # ⚠⚠ **Und danach die Preise** — sonst wandert die Wartezeit nur
         # weiter. Nach dem ersten Fix stand „Was noch fehlt" bei 14 ms, dafür
@@ -5300,17 +5300,17 @@ if __name__ == '__main__':
             from scbp import prices as _pr
             _pr.update()
         except Exception as ausnahme:
-            fehler.merken('watcher.rohstoffpreise_vorladen', ausnahme)
+            errors.record('watcher.rohstoffpreise_vorladen', ausnahme)
         try:
             from scbp import cart as _wk, fleet as _hg2, shops as _ld
             offen = _wk.missing_prices(_wk.invoice(_hg2.load())['posten'])
             for kennung in offen:
                 _ld.fetch(kennung)
             if offen:
-                fehler.spur('Vorladen: %d Preise geholt' % len(offen))
+                errors.trail('Vorladen: %d Preise geholt' % len(offen))
         except Exception as ausnahme:
-            fehler.merken('watcher.prices_vorladen', ausnahme)
+            errors.record('watcher.prices_vorladen', ausnahme)
 
     threading.Thread(target=_steckplaetze_vorladen, daemon=True).start()
-    fehler.spur('Hauptschleife läuft')
+    errors.trail('Hauptschleife läuft')
     fenster.run()

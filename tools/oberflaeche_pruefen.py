@@ -159,8 +159,8 @@ def pruefe():
     # Handelslager-Seite unbemerkt, obwohl dieser Lauf die Seite aufgebaut hat:
     # Es gab nichts zu fangen, und gemeldet hat es niemand. Ein `try/except`
     # allein prueft hier also NICHTS.
-    from scbp import fehler as fehlerbuch
-    fehlerbuch.leeren()
+    from scbp import errors as errors_module
+    errors_module.clear()
 
     for seite in SEITEN:
         try:
@@ -179,7 +179,7 @@ def pruefe():
             print('  ! Seite %s ließ sich nicht aufbauen: %s' % (seite, ausnahme))
 
     # Was beim Aufbauen still ins Protokoll gewandert ist, zaehlt genauso.
-    for eintrag in (fehlerbuch.letzte(50) or []):
+    for eintrag in (errors_module.latest(50) or []):
         if not isinstance(eintrag, dict):
             continue
         kaputt.append((eintrag.get('stelle') or '?',

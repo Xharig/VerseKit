@@ -67,7 +67,7 @@ import json
 import os
 import re
 
-from . import fehler, paths
+from . import errors, paths
 
 FILE = 'asop.json'
 FORMAT = 1
@@ -104,7 +104,7 @@ def load():
     except FileNotFoundError:
         pass
     except Exception as ausnahme:
-        fehler.merken('asop.load', ausnahme)
+        errors.record('asop.load', ausnahme)
     return empty()
 
 
@@ -123,7 +123,7 @@ def save(daten):
         os.replace(ziel + '.tmp', ziel)
         return True
     except Exception as ausnahme:
-        fehler.merken('asop.save', ausnahme)
+        errors.record('asop.save', ausnahme)
         return False
 
 

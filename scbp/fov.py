@@ -308,6 +308,6 @@ def remember(mm_per_px=None, width_px=None, distance_mm=None):
             paths.set_setting(key, float(value))
             written += 1
         except Exception:
-            from . import fehler
-            fehler.merken('fov.remember', Exception('%s' % key))
+            from . import errors
+            errors.record('fov.remember', Exception('%s' % key))
     return written

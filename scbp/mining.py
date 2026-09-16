@@ -67,7 +67,7 @@ import json
 import re
 import os
 
-from . import fehler, paths
+from . import errors, paths
 from .catalog import OFF, fetch_file
 from .crafting import norm_material
 from .language import t
@@ -175,7 +175,7 @@ def _save(data):
         _cached['stand'] = None
         return True
     except Exception as exc:
-        fehler.merken('mining._save', exc)
+        errors.record('mining._save', exc)
         return False
 
 

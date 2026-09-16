@@ -62,7 +62,7 @@ import json
 import os
 import re
 
-from . import erkul, fehler, patchhistory, paths
+from . import erkul, errors, patchhistory, paths
 
 FOLDER = 'Patches'
 
@@ -206,7 +206,7 @@ def _write(version, data):
         os.replace(temp, target)
         return True
     except Exception as exception:
-        fehler.merken('patch_changes._write', exception)
+        errors.record('patch_changes._write', exception)
         return False
 
 

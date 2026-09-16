@@ -61,7 +61,7 @@ import json
 import re
 import os
 
-from . import fehler, paths
+from . import errors, paths
 from .crafting import norm_material
 
 FILE = 'rohstoffe.json'
@@ -92,7 +92,7 @@ def save(entries):
     try:
         return paths.save_json(target, {'format': FORMAT, 'posten': entries})
     except Exception as exc:
-        fehler.merken('materials.save', exc)
+        errors.record('materials.save', exc)
         return False
 
 
@@ -415,7 +415,7 @@ def refinery_lines(text, unit='cscu'):
         Heart of the Woods 500 12
 
     Gibt `(posten, fehler)` zurück — `posten` als Liste
-    `(material, menge_scu, qualitaet)`, `fehler` als Liste `(zeile, grund)`.
+    `(material, menge_scu, qualitaet)`, `errors` als Liste `(zeile, grund)`.
 
     ⚠⚠ **Die Zahlen von hinten lesen, nicht von vorn.** Fünf der 52
     einlagerbaren Namen haben Leerzeichen (`Heart of the Woods`,

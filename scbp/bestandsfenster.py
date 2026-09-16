@@ -38,7 +38,7 @@ import os
 import time
 import tkinter as tk
 
-from . import fehler
+from . import errors
 from . import collection as bestand_datei
 from . import export as export_modul
 from . import notice
@@ -347,7 +347,7 @@ class Bestandsfenster:
         _t_kat = time.perf_counter()
         self.katalog = katalog_modul.load()
         _ms_katalog = (time.perf_counter() - _t_kat) * 1000
-        fehler.spur('Liste: Daten gelesen (Bestand %d ms, Stempel %d ms, '
+        errors.trail('Liste: Daten gelesen (Bestand %d ms, Stempel %d ms, '
                     'Katalog %d ms, %d Bauplaene)'
                     % (round(_ms_bestand), round(_ms_stempel),
                        round(_ms_katalog),
@@ -379,14 +379,14 @@ class Bestandsfenster:
         _t_li = time.perf_counter()
         self._liste()
         _ms_li = (time.perf_counter() - _t_li) * 1000
-        fehler.spur('Liste: Rahmen gebaut (Kopf %d ms, Leiste %d ms, '
+        errors.trail('Liste: Rahmen gebaut (Kopf %d ms, Leiste %d ms, '
                     'Herkunft %d ms, Rollflaeche %d ms)'
                     % (round(_ms_kopf), round(_ms_wz), round(_ms_hk),
                        round(_ms_li)))
         self._zeichnen()
         # ⚠ Der Schlussstrich unter den ganzen Aufbau: Diese Zahl ist die, die
         # der Nutzer als Wartezeit erlebt. Alles davor sind Teilstücke.
-        fehler.spur('Liste: Fenster fertig (%d ms gesamt)'
+        errors.trail('Liste: Fenster fertig (%d ms gesamt)'
                     % round((time.perf_counter() - _t_bau) * 1000))
 
     # ------------------------------------------------------------------ Aufbau
@@ -962,7 +962,7 @@ class Bestandsfenster:
                 and not self.suche.get().strip()
             if not wenn_nur_art:
                 return
-            fehler.merken(
+            errors.record(
                 'bestandsfenster.filter_leer',
                 RuntimeError('Kategorie %r verspricht %d Bauplaene, '
                              'die Liste zeigt keinen'
@@ -1077,7 +1077,7 @@ class Bestandsfenster:
         try:
             merk.save(merk.remove_entry(titel))
         except Exception as ausnahme:
-            fehler.merken('bestandsfenster.eigene_weg', ausnahme)
+            errors.record('bestandsfenster.eigene_weg', ausnahme)
         self._zeichnen(nach_oben=False)
 
     def _treffer_zeigen(self, gruppen):
@@ -1407,7 +1407,7 @@ class Bestandsfenster:
             if self._anzeige_stand() != getattr(self, '_letzter_stand', None):
                 self._zeichnen()
         except Exception as ausnahme:
-            fehler.merken('bestandsfenster.neu_laden', ausnahme)
+            errors.record('bestandsfenster.neu_laden', ausnahme)
 
     def _platzhalter(self, feld):
         """Der graue Hinweis im leeren Suchfeld.
@@ -1713,7 +1713,7 @@ class Bestandsfenster:
         # Zahl der Symbolbilder), bis die Millisekunden im Bericht standen.
         # Deshalb hier drei Zahlen statt einer: Auswahl, Zeilen, gesamt.
         _t_start = time.perf_counter()
-        fehler.spur('Liste: zeichnen beginnt')
+        errors.trail('Liste: zeichnen beginnt')
         _t_auswahl = time.perf_counter()
         gruppen = self._auswahl()
         _ms_auswahl = (time.perf_counter() - _t_auswahl) * 1000
@@ -1804,7 +1804,7 @@ class Bestandsfenster:
         # ⚠ Der Gegenwert zu `_t_start` oben. Steht bewusst VOR den
         # `after_idle`-Sprüngen: Was danach kommt, läuft erst im Leerlauf und
         # gehört nicht mehr zum Zeichnen.
-        fehler.spur('Liste: gezeichnet (%d Zeilen, Auswahl %d ms, Zeilen %s, '
+        errors.trail('Liste: gezeichnet (%d Zeilen, Auswahl %d ms, Zeilen %s, '
                     'gesamt %d ms)'
                     % (gezeichnet, round(_ms_auswahl),
                        ('%d ms' % round(_ms_zeilen)) if _ms_zeilen is not None
@@ -2581,7 +2581,7 @@ class Bestandsfenster:
             hf.crafting_search = name
             hf.jump_to('herstellung')
         except Exception as ausnahme:
-            fehler.merken('bestandsfenster.zur_herstellung', ausnahme)
+            errors.record('bestandsfenster.zur_herstellung', ausnahme)
 
     def zur_art(self, art):
         """Die Liste auf eine Katalog-Art stellen — „Cooler", „Schild", „Helm".

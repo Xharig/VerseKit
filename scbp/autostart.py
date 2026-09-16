@@ -110,8 +110,8 @@ def _win_set(an):
         # Der Spieler hat den Schalter umgelegt und erwartet, dass es wirkt.
         # Ohne Meldung sieht er beim nächsten Start nur, dass nichts passiert.
         try:
-            from . import fehler
-            fehler.merken('autostart.set_on', ausnahme)
+            from . import errors
+            errors.record('autostart.set_on', ausnahme)
         except Exception:
             pass
         return False

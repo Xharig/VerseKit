@@ -308,8 +308,8 @@ class TrayIcon(object):
             if versuch + 1 < versuche:
                 time.sleep(1.0)
         try:
-            from . import fehler
-            fehler.merken('tray_icon.create_icon',
+            from . import errors
+            errors.record('tray_icon.create_icon',
                           OSError('Shell_NotifyIcon: Fehler %d nach %d '
                                   'Versuchen'
                                   % (ctypes.windll.kernel32.GetLastError(),
@@ -362,8 +362,8 @@ class TrayIcon(object):
             for kennung, beschriftung, flags, _tat in self._eintraege:
                 if not benutzer.AppendMenuW(menue, flags, kennung,
                                             beschriftung):
-                    from . import fehler
-                    fehler.merken('tray_icon.show_menu',
+                    from . import errors
+                    errors.record('tray_icon.show_menu',
                                   OSError('AppendMenuW ist gescheitert (%s), '
                                           'Fehler %d'
                                           % (beschriftung,
@@ -477,8 +477,8 @@ class TrayIcon(object):
                 # dann „keine Fehler" und trotzdem fehlte das Symbol — genau so
                 # bei Haldjas am 25.08.2026 gemeldet. Ohne Meldung ist eine
                 # Nutzerrückmeldung wertlos.
-                from . import fehler
-                fehler.merken('tray_icon.window',
+                from . import errors
+                errors.record('tray_icon.window',
                               OSError('CreateWindowExW lieferte kein Fenster, '
                                       'Fehler %d'
                                       % ctypes.windll.kernel32.GetLastError()))
@@ -514,8 +514,8 @@ class TrayIcon(object):
             # verschwand spurlos. Der Bericht meldete „none recorded", während
             # das Symbol fehlte, und jede Ursachensuche lief ins Leere.
             try:
-                from . import fehler
-                fehler.merken('tray_icon.loop', ausnahme)
+                from . import errors
+                errors.record('tray_icon.loop', ausnahme)
             except Exception:
                 pass                  # selbst das Melden darf nichts umwerfen
             bereit.set()

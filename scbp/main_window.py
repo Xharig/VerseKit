@@ -48,7 +48,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import screen, fehler, fields, notice, news, paths, icons
+from . import screen, errors, fields, notice, news, paths, icons
 from .language import t, window_title
 
 BG      = '#10141c'
@@ -1854,7 +1854,7 @@ class MainWindow:
             try:
                 self.on_font_change(stufe)
             except Exception as ausnahme:
-                fehler.merken('main_window.schriftwechsel', ausnahme)
+                errors.record('main_window.schriftwechsel', ausnahme)
 
         # ⚠ Über `after`, nicht sofort: Wir stecken im Klick-Rückruf des
         # Knopfes, der gleich zerstört wird. Tk meldete sonst
@@ -1864,7 +1864,7 @@ class MainWindow:
                 self.rebuild()
                 self.say('%s: %s' % (t('hf_schrift'), t('hf_s_' + stufe)))
             except Exception as ausnahme:
-                fehler.merken('main_window.schriftgroesse_nachziehen',
+                errors.record('main_window.schriftgroesse_nachziehen',
                               ausnahme)
 
         self.root.after(0, nachziehen)
@@ -1928,7 +1928,7 @@ class MainWindow:
                 tk.Label(bar, image=self._icon_image, bg=BAR).pack(side='left',
                                                                  padx=(12, 8), pady=8)
             except Exception as ausnahme:
-                fehler.merken('main_window.icon', ausnahme)
+                errors.record('main_window.icon', ausnahme)
 
         tk.Label(bar, text=t('hf_titel'), bg=BAR, fg=FG,
                  font=self.f_bold).pack(side='left')
@@ -2019,7 +2019,7 @@ class MainWindow:
                     text = ' %s' % _sz.as_text(gesamt)
                 self.time_label.configure(text=text)
             except Exception as ausnahme:
-                fehler.merken('main_window.spielzeit', ausnahme)
+                errors.record('main_window.spielzeit', ausnahme)
             try:
                 self.root.after(self.TIME_TICK_MS, nachziehen)
             except tk.TclError:
@@ -2450,8 +2450,8 @@ class MainWindow:
         try:
             geklappt = paths_module.open_in_browser(adresse)
         except Exception as ausnahme:
-            from . import fehler
-            fehler.merken(stelle, ausnahme, adresse)
+            from . import errors
+            errors.record(stelle, ausnahme, adresse)
             geklappt = False
         if not geklappt:
             self.say(t('s_ub_auf_nein') % adresse)
@@ -2700,7 +2700,7 @@ class MainWindow:
         # ⚠⚠ **Erst nachsehen, ob es das Fenster noch gibt.** Diese Funktion
         # wird per `after(30, …)` eingeplant — wird das Fenster in dieser Zeit
         # geschlossen, läuft sie ins Leere und Tk meldet `bad window path
-        # name`. Abgestürzt ist dabei nie etwas (der Haken in `fehler.py`
+        # name`. Abgestürzt ist dabei nie etwas (der Haken in `errors.py`
         # fängt es), es füllte nur das Fehlerprotokoll des Nutzers. Beim
         # Durchklicken am 06.09.2026 aufgefallen.
         try:
@@ -2750,7 +2750,7 @@ class MainWindow:
                     needed = min(needed, schirm_hoch)
             except Exception as ausnahme:
                 # Lieber die alte, womöglich zu große Höhe als gar kein Fenster.
-                fehler.merken('main_window.schirmhoehe', ausnahme)
+                errors.record('main_window.schirmhoehe', ausnahme)
             # Wird die Leiste breiter, braucht auch das Fenster mehr — sonst geht
             # der Platz auf Kosten des Inhalts daneben.
             leiste_breit = self._sidebar_width_update()
@@ -2796,7 +2796,7 @@ class MainWindow:
             if (neu_b, neu_h, neu_x, neu_y) != (b, h, x, y):
                 self.root.geometry('%dx%d+%d+%d' % (neu_b, neu_h, neu_x, neu_y))
         except (tk.TclError, ValueError, TypeError) as ausnahme:
-            fehler.merken('main_window.schirm', ausnahme)
+            errors.record('main_window.schirm', ausnahme)
 
     def _collapse_toggle(self):
         self.advanced_open = not self.advanced_open
@@ -2915,7 +2915,7 @@ class MainWindow:
         # bleibt es beim Raten.
         _beginn = time.perf_counter()
         if kennung in self.drawn:
-            fehler.spur('Seite %s: zeigen' % kennung)
+            errors.trail('Seite %s: zeigen' % kennung)
             # ⚠ Eine Seite wird **einmal** gebaut und danach nur noch ein- und
             # ausgeblendet. Alles, was beim erneuten Aufrufen frisch sein soll,
             # muss sich deshalb hier melden — sonst steht der Suchbegriff von
@@ -2926,7 +2926,7 @@ class MainWindow:
                 try:
                     ruf()
                 except Exception as ausnahme:
-                    fehler.merken('main_window.zeigen:%s' % kennung, ausnahme)
+                    errors.record('main_window.zeigen:%s' % kennung, ausnahme)
         else:
             self.drawn.add(kennung)
             # ⚠ Die Spur führt jetzt auch über die Bedienung, nicht nur über den
@@ -2935,11 +2935,11 @@ class MainWindow:
             # nichts davon. Die Fehlerhaken greifen nur bei Python-Ausnahmen,
             # und die Spur endete beim letzten Startschritt. Fehlt die zweite
             # Zeile hier, hat es beim Bauen genau dieser Seite geknallt.
-            fehler.spur('Seite %s: bauen beginnt' % kennung)
+            errors.trail('Seite %s: bauen beginnt' % kennung)
             try:
                 self._fill_page(kennung, self.pages[kennung])
             except Exception as ausnahme:
-                fehler.merken('main_window.seite:%s' % kennung, ausnahme)
+                errors.record('main_window.seite:%s' % kennung, ausnahme)
                 tk.Label(self.pages[kennung], text='—', bg=BG, fg=SUB,
                          font=self.f_base).pack(padx=20, pady=20)
 
@@ -2949,7 +2949,7 @@ class MainWindow:
         self.current = kennung
         self.came_from = zurueck_zu
         self._back_bar_update()
-        fehler.spur('Seite %s: steht (%.0f ms)'
+        errors.trail('Seite %s: steht (%.0f ms)'
                     % (kennung, (time.perf_counter() - _beginn) * 1000))
         # ⚠ Erst JETZT die restlichen Seiten im Leerlauf vorbauen — nachdem die
         # angeklickte steht. Vorher gestartet, wuerde der Vorbau genau die
@@ -3057,8 +3057,8 @@ class MainWindow:
         ohnehin weiter, und dann steht die Farbe.
         """
         try:
-            from . import fehler as fehler_modul
-            return fehler_modul.anzahl() > 0
+            from . import errors as errors_module
+            return errors_module.count() > 0
         except Exception:
             return False
 
@@ -3131,8 +3131,8 @@ class MainWindow:
             try:
                 seite.neu_laden()
             except Exception as ausnahme:
-                from . import fehler
-                fehler.merken('main_window.bestand_liste', ausnahme)
+                from . import errors
+                errors.record('main_window.bestand_liste', ausnahme)
 
         for kennung in self.STOCK_PAGES:
             if kennung == self.current or kennung not in self.drawn:
@@ -3145,8 +3145,8 @@ class MainWindow:
                     kind.destroy()
                 self.drawn.discard(kennung)
             except Exception as ausnahme:
-                from . import fehler
-                fehler.merken('main_window.bestand_verwerfen:%s' % kennung,
+                from . import errors
+                errors.record('main_window.bestand_verwerfen:%s' % kennung,
                               ausnahme)
 
     def rebuild(self):
@@ -3286,14 +3286,14 @@ class MainWindow:
                     # „bauplan liste weiterhin langsam", obwohl der Aufbau
                     # selbst nur noch 88 ms braucht. Ohne Zahlen bleibt es
                     # beim Raten, welche Seite wie lange blockiert.
-                    fehler.spur('Vorbau %s: %d ms'
+                    errors.trail('Vorbau %s: %d ms'
                                 % (kennung,
                                    round((time.perf_counter() - _t_vor) * 1000)))
                 except Exception as ausnahme:
                     # Eine Seite, die sich nicht bauen laesst, darf die
                     # anderen nicht aufhalten — beim Anklicken zeigt
                     # `open_page()` denselben Platzhalter.
-                    fehler.merken('main_window.vorbau:%s' % kennung, ausnahme)
+                    errors.record('main_window.vorbau:%s' % kennung, ausnahme)
                 # Und zurueckgeben, was die vorgebaute Seite sich genommen hat.
                 # ⚠ Nur, wenn es das Widget noch gibt: Beim Neuaufbau des
                 # Fensters ist der alte Fokus-Halter schon zerstoert, und
@@ -3306,7 +3306,7 @@ class MainWindow:
             if rest:
                 self.root.after(60, lambda: self._prebuild_pages(rest))
         except Exception as ausnahme:
-            fehler.merken('main_window.seiten_vorbauen', ausnahme)
+            errors.record('main_window.seiten_vorbauen', ausnahme)
 
     # ------------------------------------------------------------------ Tat
     def _whats_new(self):
@@ -3322,7 +3322,7 @@ class MainWindow:
         try:
             assistent.start(self.root)
         except Exception as ausnahme:
-            fehler.merken('main_window.assistent', ausnahme)
+            errors.record('main_window.assistent', ausnahme)
 
     def _backup(self):
         """Alles Eigene in eine Datei — oder eine solche Datei einspielen.
@@ -3343,7 +3343,7 @@ class MainWindow:
             elif wahl == 'b':
                 self._backup_read(file_picker, backup)
         except Exception as ausnahme:
-            fehler.merken('main_window.sicherung', ausnahme)
+            errors.record('main_window.sicherung', ausnahme)
 
     def _backup_write(self, file_picker, sicherung):
         target = file_picker.save_file(
@@ -3384,7 +3384,7 @@ class MainWindow:
         except Exception as ausnahme:
             # ⚠ Ein Fehler hier darf das Einspielen nicht mitreißen — der
             # Bestand ist zu diesem Zeitpunkt bereits zurück.
-            fehler.merken('main_window.belegung_anbieten', ausnahme)
+            errors.record('main_window.belegung_anbieten', ausnahme)
 
     def _backup_read(self, file_picker, sicherung):
         quelle = file_picker.open_file(t('sich_lesen'),
@@ -3426,7 +3426,7 @@ class MainWindow:
                 if not updater.restart():
                     self.say(t('sich_neustart_selbst'))
             except Exception as ausnahme:
-                fehler.merken('main_window.sicherung_neustart', ausnahme)
+                errors.record('main_window.sicherung_neustart', ausnahme)
                 self.say(t('sich_neustart_selbst'))
 
         self.root.after(1200, _neustart)
@@ -3481,14 +3481,14 @@ class MainWindow:
         try:
             self._remember_size()
         except Exception as ausnahme:
-            fehler.merken('main_window.groesse_merken', ausnahme)
+            errors.record('main_window.groesse_merken', ausnahme)
         # Offene Schreibauftraege der Seiten abarbeiten, bevor das Fenster weg
         # ist. Einer, der scheitert, darf die uebrigen nicht mitreissen.
         for auftrag in list(self.before_close):
             try:
                 auftrag()
             except Exception as ausnahme:
-                fehler.merken('main_window.vor_dem_schliessen', ausnahme)
+                errors.record('main_window.vor_dem_schliessen', ausnahme)
         try:
             if self.on_close:
                 self.on_close()
@@ -3633,7 +3633,7 @@ def ask_choice(parent, title, text, button_a, button_b):
         win.focus_set()
         parent.wait_window(win)
     except Exception as ausnahme:
-        fehler.merken('main_window.ask_choice', ausnahme)
+        errors.record('main_window.ask_choice', ausnahme)
     return answer['wert']
 
 
@@ -3770,7 +3770,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
         parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.ask_text', ausnahme)
+        errors.record('main_window.ask_text', ausnahme)
         from tkinter import simpledialog
         return simpledialog.askstring(title, text, initialvalue=preset)
 
@@ -3861,7 +3861,7 @@ def ask_pick(parent, title, text, entries, no_text=None):
         parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.ask_pick', ausnahme)
+        errors.record('main_window.ask_pick', ausnahme)
         return None
 
 
@@ -3895,7 +3895,7 @@ def center_over(window, parent, width=None, height=None):
         window.geometry('%dx%d+%d+%d' % (b, h, max(0, x), max(0, y)))
         return True
     except Exception as ausnahme:
-        fehler.merken('main_window.center_over', ausnahme)
+        errors.record('main_window.center_over', ausnahme)
         return False
 
 
@@ -3977,7 +3977,7 @@ def ask_yes_no(parent, title, text, yes_text=None, no_text=None,
         parent.wait_window(win)
         return answer['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.ask_yes_no', ausnahme)
+        errors.record('main_window.ask_yes_no', ausnahme)
         from tkinter import messagebox
         if only_ok:
             messagebox.showinfo(title, text, parent=parent)
@@ -4091,7 +4091,7 @@ def ask_channel(parent, entered, channels):
         parent.wait_window(win)
         return selected['wert']
     except Exception as ausnahme:
-        fehler.merken('main_window.ask_channel', ausnahme)
+        errors.record('main_window.ask_channel', ausnahme)
         # Lieber die kurze Frage auf den neuesten Kanal als gar keine.
         name, folder, _s = channels[0]
         if ask_yes_no(parent, t('s_kn_titel'),

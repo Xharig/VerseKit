@@ -36,7 +36,7 @@ nur, wer muss — und nur das, was wirklich keine Logdatei mehr hergibt.
 import os
 import tkinter as tk
 
-from . import fehler
+from . import errors
 from . import collection as bestand_datei
 from . import logsource, paths, language
 from .language import t, window_title
@@ -272,7 +272,7 @@ class Wizard:
     def _reread(self):
         """Läuft von selbst — hier muss niemand etwas tun."""
         self.nachlese_gelaufen = True
-        fehler.spur('Assistent: Logs nachlesen beginnt')
+        errors.trail('Assistent: Logs nachlesen beginnt')
         try:
             anzahl_dateien = len(paths.log_backups())
             if anzahl_dateien:
@@ -286,7 +286,7 @@ class Wizard:
                     neu += 1
             if neu:
                 bestand_datei.save(b)
-            fehler.spur('Assistent: nachgelesen (%d neu)' % neu)
+            errors.trail('Assistent: nachgelesen (%d neu)' % neu)
             self.ergebnis.configure(
                 text=t('nachgelesen_gross', neu, bericht.get('dateien', 0)),
                 fg=FG, font=font(12))

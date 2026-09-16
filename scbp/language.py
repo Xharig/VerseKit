@@ -5246,8 +5246,8 @@ def set_language(lang):
             # Ein Fenster, das sich nicht neu beschriften lässt, darf die
             # anderen nicht mitreißen — und stumm verschwinden soll es auch
             # nicht.
-            from . import fehler                # lokal: sonst Zirkelbezug
-            fehler.merken('sprache.setzen', exc)
+            from . import errors                # lokal: sonst Zirkelbezug
+            errors.record('sprache.setzen', exc)
 
 
 # ---------------------------------------------------------------------------

@@ -739,7 +739,7 @@ def apply(ident, axis, prop, value, filename=None, folder=None):
     """
     import xml.etree.ElementTree as ET
 
-    from . import fehler
+    from . import errors
 
     gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
@@ -762,7 +762,7 @@ def apply(ident, axis, prop, value, filename=None, folder=None):
     try:
         tree = ET.parse(gone)
     except Exception as ausnahme:
-        fehler.merken('curves.setzen_lesen', ausnahme)
+        errors.record('curves.setzen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
     target = None
@@ -827,7 +827,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
     """
     import xml.etree.ElementTree as ET
 
-    from . import fehler
+    from . import errors
 
     gone = filename or joysticks._actionmaps_path(folder)
     if not gone:
@@ -846,7 +846,7 @@ def apply_to_game(number, axis, prop, value, filename=None, folder=None):
     try:
         tree = ET.parse(gone)
     except Exception as ausnahme:
-        fehler.merken('curves.spiel_setzen_lesen', ausnahme)
+        errors.record('curves.spiel_setzen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
     target = None
@@ -1008,7 +1008,7 @@ def clean_up(filename=None, folder=None, count_only=False):
 
     Liefert `(erfolg, meldung, anzahl)`.
     """
-    from . import fehler
+    from . import errors
 
     gone = filename or joysticks._actionmaps_path(folder)
     if not gone or not os.path.isfile(gone):
@@ -1017,7 +1017,7 @@ def clean_up(filename=None, folder=None, count_only=False):
         with open(gone, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
     except Exception as ausnahme:
-        fehler.merken('curves.aufraeumen_lesen', ausnahme)
+        errors.record('curves.aufraeumen_lesen', ausnahme)
         return False, 's_js_f_lesen', 0
 
     alive = valid_idents(folder, filename)
@@ -1054,7 +1054,7 @@ def clean_up(filename=None, folder=None, count_only=False):
     try:
         shutil.copy2(gone, backup)
     except Exception as ausnahme:
-        fehler.merken('curves.aufraeumen_sicherung', ausnahme)
+        errors.record('curves.aufraeumen_sicherung', ausnahme)
         return False, 's_js_f_sicherung', 0
     try:
         with open(gone, 'w', encoding='utf-8', newline='') as f:
@@ -1064,7 +1064,7 @@ def clean_up(filename=None, folder=None, count_only=False):
             shutil.copy2(backup, gone)
         except Exception:
             pass
-        fehler.merken('curves.aufraeumen_schreiben', ausnahme)
+        errors.record('curves.aufraeumen_schreiben', ausnahme)
         return False, 's_js_f_schreiben', 0
     return True, backup, len(cuts)
 

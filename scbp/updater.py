@@ -54,7 +54,7 @@ import tempfile
 import time
 import urllib.request
 
-from . import fehler
+from . import errors
 from . import paths
 
 # ⚠ Seit 15.09.2026 heisst das Repo `Xharig/VerseKit`. GitHub leitet die alte
@@ -254,7 +254,7 @@ def check(own_version, force=False):
             _FETCH['ok'] = False
             _FETCH['grenze'] = '403' in str(ausnahme) or 'rate limit' in str(
                 ausnahme).lower()
-            fehler.merken('updater.check', ausnahme)
+            errors.record('updater.check', ausnahme)
             # Der letzte bekannte Stand gilt weiter — ohne Netz ist das besser
             # als gar nichts.
 
@@ -787,7 +787,7 @@ def fetch_checksums(release):
                 text = r.read(64 * 1024).decode('utf-8', 'replace')
             return parse_checksums(text), ''
         except Exception as ausnahme:
-            fehler.merken('updater.fetch_checksums', ausnahme)
+            errors.record('updater.fetch_checksums', ausnahme)
             return {}, 'netz'
     return {}, 'fehlt'
 
@@ -905,7 +905,7 @@ def _discard(target):
     except FileNotFoundError:
         pass
     except OSError as ausnahme:
-        fehler.merken('updater.discard', ausnahme)
+        errors.record('updater.discard', ausnahme)
 
 
 def _fetch_and_verify(url, target, expected, progress=None):
@@ -1009,7 +1009,7 @@ def _backup(target):
         shutil.copy2(target, before)
         return os.path.getsize(before) == os.path.getsize(target)
     except OSError as ausnahme:
-        fehler.merken('updater.backup', ausnahme)
+        errors.record('updater.backup', ausnahme)
         return False
 
 
@@ -1031,7 +1031,7 @@ def roll_back():
         os.chmod(target, 0o755)
         return True
     except OSError as ausnahme:
-        fehler.merken('updater.roll_back', ausnahme)
+        errors.record('updater.roll_back', ausnahme)
         return False
 
 
@@ -1052,9 +1052,10 @@ def install(new_file, target_version='', previous_version='', automatic=False):
     Gibt (True, '') zurück, wenn der Weg angetreten ist. Bei (False, Grund) muss
     der Nutzer selbst ran.
 
-    ⚠ In dieser Funktion **kein** `fehler.merken`: Das `except … as fehler`
-    unten macht `fehler` hier zur lokalen Variable, ein Aufruf davor fiele mit
-    `UnboundLocalError` um."""
+    ⚠ Die Ausnahme unten heißt `err`, nicht wie ein Modul. Bis P4 Stufe 12
+    stand dort `except … as fehler` — das machte das Modul `fehler` in der
+    ganzen Funktion zur lokalen Variable, ein Aufruf davor wäre mit
+    `UnboundLocalError` umgefallen."""
     kind = packaging()
     if kind == 'quellcode':
         return False, 'quellcode'
@@ -1246,8 +1247,8 @@ def install(new_file, target_version='', previous_version='', automatic=False):
                                    log_file, env, flags,
                                    exe=sys.executable)
         return True, ''
-    except Exception as fehler:
-        return False, str(fehler)
+    except Exception as err:
+        return False, str(err)
 
 
 if __name__ == '__main__':
@@ -1331,7 +1332,7 @@ def _report_death(exit_code):
             text = (asset.read() or '').strip()[-800:]
         except Exception:
             text = ''
-    fehler.merken('updater.report_death',
+    errors.record('updater.report_death',
                   RuntimeError('Rückgabewert %s%s' % (
                       exit_code, (' — ' + text) if text else
                       ' — keine Ausgabe')))
@@ -1423,7 +1424,7 @@ def restart():
             stderr=_OUTPUT[0] or subprocess.DEVNULL)
         return True
     except Exception as ausnahme:
-        fehler.merken('updater.restart', ausnahme)
+        errors.record('updater.restart', ausnahme)
         return False
 
 
@@ -1470,7 +1471,7 @@ def update_windows_entry(own_version):
         except PermissionError:
             continue          # HKLM ohne Administratorrechte — hinnehmen
         except Exception as ausnahme:
-            from . import fehler
-            fehler.merken('updater.update_windows_entry', ausnahme)
+            from . import errors
+            errors.record('updater.update_windows_entry', ausnahme)
             return False
     return False

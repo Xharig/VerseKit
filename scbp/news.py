@@ -101,8 +101,8 @@ def _write(data):
         return True
     except Exception as exc:
         try:
-            from . import fehler
-            fehler.merken('news.write', exc)
+            from . import errors
+            errors.record('news.write', exc)
         except Exception:
             pass
         return False

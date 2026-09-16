@@ -82,7 +82,7 @@ import os
 import re
 import time
 
-from . import fehler, paths
+from . import errors, paths
 from .catalog import OFF, fetch_file, _norm
 from .language import t
 
@@ -159,7 +159,7 @@ def _save(data):
         _raw_cache['geprueft'] = 0.0
         return True
     except Exception as exc:
-        fehler.merken('crafting._save', exc)
+        errors.record('crafting._save', exc)
         return False
 
 
@@ -207,7 +207,7 @@ def update(build, progress=None):
         products = product_stats.compact(
             fetch_file(product_stats.SOURCE % build), items)
     except Exception as exc:
-        fehler.merken('crafting.update.products', exc)
+        errors.record('crafting.update.products', exc)
     # ⚠ Nicht nur die Bauplaene sichern. Im selben Abruf steht, welche
     # Rohstoffe beim Zerlegen NICHT zurueckkommen (`dismantle`) — sechs
     # Stueck, darunter Lindinium und Quantainium. Das gehoert ans Rezept:
@@ -987,7 +987,7 @@ def storable():
     except Exception as exc:
         # Ohne Bergbaudaten bleibt es bei den Rezept-Materialien. Weniger
         # Auswahl ist hinnehmbar — ein offenes Textfeld nicht.
-        fehler.merken('crafting.storable', exc)
+        errors.record('crafting.storable', exc)
     return sorted(by_key.values(), key=str.lower)
 
 
