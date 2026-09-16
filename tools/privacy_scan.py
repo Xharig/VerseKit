@@ -111,7 +111,7 @@ ERLAUBT = (
     # Eine Ausnahme muss so eng sein, dass sie nur das durchlaesst, was sie
     # durchlassen soll.
     '@example.', '@beispiel.', '@invalid',
-    # Die Kuerzungen aus `pfade.kuerzen()` — genau die sollen dastehen.
+    # Die Kuerzungen aus `paths.redact()` — genau die sollen dastehen.
     '<heim>', '<benutzer>', '<user>', '<home>',
 )
 

@@ -58,7 +58,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import pfade
+from . import paths
 
 BASE = 'https://status.robertsspaceindustries.com'
 CACHE = 'serverstatus.json'
@@ -185,14 +185,14 @@ def _timestamp(raw):
 # ------------------------------------------------------------------- Abruf
 def _cache_read():
     try:
-        with open(pfade.app_datei(CACHE), encoding='utf-8') as f:
+        with open(paths.app_file(CACHE), encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return {}
 
 
 def _cache_write(data):
-    target = pfade.app_datei(CACHE)
+    target = paths.app_file(CACHE)
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         temp = target + '.tmp'

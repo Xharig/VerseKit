@@ -49,7 +49,7 @@ import subprocess
 import sys
 import tempfile
 
-from . import pfade
+from . import paths
 from .language import t
 
 # 7-Zip nur als letzter Strohhalm für altes Python. Es kann CIGs zstd meist
@@ -69,7 +69,7 @@ def archive_path(sprache='english'):
 
 def p4k_path(spielordner=None):
     """Die Data.p4k der Installation — oder None."""
-    wurzel = spielordner or pfade.spiel_ordner()
+    wurzel = spielordner or paths.game_folder()
     if not wurzel:
         return None
     p = os.path.join(wurzel, 'Data.p4k')

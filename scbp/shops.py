@@ -489,7 +489,7 @@ def fetch(ident, name='', force=False):
     # falscher Aufruf soll gar nicht erst hinausgehen.
     if any(z.isspace() for z in ident) or '"' in ident:
         # ⚠ `fehler` lokal importieren — auf Modulebene wäre es ein
-        # Zirkelbezug (`fehler.py` importiert selbst `pfade`). Steht so in den
+        # Zirkelbezug (`fehler.py` importiert selbst `paths`). Steht so in den
         # Projektregeln; beim ersten Anlauf stand der Aufruf hier ohne jeden
         # Import und hätte beim ersten Auslösen einen `NameError` geworfen.
         from . import fehler as _f

@@ -40,7 +40,7 @@ import os
 import tkinter as tk
 
 from . import injection
-from . import pfade
+from . import paths
 from . import gametext
 from . import language
 from . import translation
@@ -91,17 +91,17 @@ class SettingsWindow:
 
         # Werte laden. Leere Felder heißen „selbst suchen" — das bleibt so,
         # ein leeres Feld ist hier kein Fehler.
-        self.sprache_wahl = tk.StringVar(value=pfade.einstellungen().get('sprache')
+        self.sprache_wahl = tk.StringVar(value=paths.settings().get('sprache')
                                          or 'auto')
-        self.spiel = tk.StringVar(value=pfade.einstellungen().get('spiel_ordner') or '')
-        self.launcher = tk.StringVar(value=pfade.einstellungen().get('launcher_ordner')
+        self.spiel = tk.StringVar(value=paths.settings().get('spiel_ordner') or '')
+        self.launcher = tk.StringVar(value=paths.settings().get('launcher_ordner')
                                      or '')
         self.intervall = tk.StringVar(
-            value=str(pfade.einstellung_zahl('pruefintervall_sekunden', 3,
+            value=str(paths.setting_int('pruefintervall_sekunden', 3,
                                              INTERVALL_MIN, INTERVALL_MAX)))
-        self.ton = tk.BooleanVar(value=pfade.einstellung_wahrheit('signalton', True))
+        self.ton = tk.BooleanVar(value=paths.setting_bool('signalton', True))
         self.deckkraft = tk.IntVar(
-            value=pfade.einstellung_zahl('deckkraft_prozent', 93, 30, 100))
+            value=paths.setting_int('deckkraft_prozent', 93, 30, 100))
 
         if self.eingebettet:
             return                     # die Bausteine holt sich `seiten.py`
@@ -209,7 +209,7 @@ class SettingsWindow:
         # umgestellt: Die Oberfläche sprach Deutsch, die Markierung stand
         # weiter auf der alten Sprache, und nach einem Neustart war alles beim
         # Alten. Das sah aus wie ein Anzeigefehler, war aber verlorene Eingabe.
-        pfade.einstellung_setzen('sprache', wert)
+        paths.set_setting('sprache', wert)
         self._colour_language_buttons()
         self._relabel()
 
@@ -396,7 +396,7 @@ class SettingsWindow:
         Einmal bestätigt, wird nicht wieder gefragt — wer die Quelle schon
         benutzt, weiß, was sie tut. Gemerkt wird das in den Einstellungen.
         """
-        gemerkt = pfade.einstellung('inj_bestaetigt') or ''
+        gemerkt = paths.setting('inj_bestaetigt') or ''
         if quelle in gemerkt.split(','):
             return True
 
@@ -407,7 +407,7 @@ class SettingsWindow:
                              t('s_sp_warnung') % name):
             return False
         neu = [x for x in gemerkt.split(',') if x] + [quelle]
-        pfade.einstellung_setzen('inj_bestaetigt', ','.join(neu))
+        paths.set_setting('inj_bestaetigt', ','.join(neu))
         return True
 
     def _inj_switch_now(self, quelle):
@@ -590,12 +590,12 @@ class SettingsWindow:
         takt = max(INTERVALL_MIN, min(INTERVALL_MAX, takt))
         self.intervall.set(str(takt))
 
-        pfade.einstellung_setzen('sprache', self.sprache_wahl.get())
-        pfade.einstellung_setzen('spiel_ordner', self.spiel.get().strip())
-        pfade.einstellung_setzen('launcher_ordner', self.launcher.get().strip())
-        pfade.einstellung_setzen('pruefintervall_sekunden', takt)
-        pfade.einstellung_setzen('signalton', bool(self.ton.get()))
-        pfade.einstellung_setzen('deckkraft_prozent', int(self.deckkraft.get()))
+        paths.set_setting('sprache', self.sprache_wahl.get())
+        paths.set_setting('spiel_ordner', self.spiel.get().strip())
+        paths.set_setting('launcher_ordner', self.launcher.get().strip())
+        paths.set_setting('pruefintervall_sekunden', takt)
+        paths.set_setting('signalton', bool(self.ton.get()))
+        paths.set_setting('deckkraft_prozent', int(self.deckkraft.get()))
 
         # Ehrlich sagen, was sofort gilt und was nicht: Die Sprache schaltet
         # dieses Fenster gerade selbst um, Ordner und Takt liest der laufende

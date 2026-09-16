@@ -30,7 +30,7 @@ wurden: Ein behobener Fehler soll alle erreichen, ohne dass jemand klickt.
 | Während Star Citizen läuft? | **nein** — erst, wenn das Spiel zu ist |
 
 ⚠⚠ **„Läuft das Spiel?" wird hier strenger beantwortet als anderswo.**
-`pfade.spiel_laeuft()` schaut nur, ob die `Game.log` in den letzten fünf
+`paths.game_running()` schaut nur, ob die `Game.log` in den letzten fünf
 Minuten geschrieben wurde — dort kostet ein Irrtum ein falsches Wort. Hier
 kostet er das Overlay mitten im Flug, samt Fokussprung in den Desktop. Deshalb
 zählt zusätzlich die **Prozessliste**: Steht `StarCitizen.exe` darin, wird
@@ -50,7 +50,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from . import pfade
+from . import paths
 
 # Wie oft nachgesehen wird. `updater.MIN_INTERVAL` passt dazu.
 CHECK_INTERVAL_S = 30 * 60
@@ -71,8 +71,8 @@ def enabled():
     ⚠ Nur, wenn überhaupt nach Versionen gesehen wird — wer „Nach neuen
     Versionen sehen" ausschaltet, meint damit auch: nichts von selbst holen.
     """
-    return (pfade.einstellung_wahrheit('update_pruefen', True)
-            and pfade.einstellung_wahrheit(SETTING, True))
+    return (paths.setting_bool('update_pruefen', True)
+            and paths.setting_bool(SETTING, True))
 
 
 def ripe(release, now=None):
@@ -175,4 +175,4 @@ def game_running():
         process = None
     if process:
         return True
-    return bool(pfade.spiel_laeuft())
+    return bool(paths.game_running())

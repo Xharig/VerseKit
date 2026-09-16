@@ -74,7 +74,7 @@ WINDOWS = sys.platform.startswith('win')
 # fehlte. Genau so gesehen am 03.09.2026 bei Haldjas: eingetragen war
 # `…\StarCitizen\LIVE`, im Bericht standen „Spiel nicht gefunden", keine
 # Game.log und 0 gelesene Protokolle.
-KANAELE = ('LIVE', 'HOTFIX', 'PTU', 'EPTU', 'TECH-PREVIEW')
+CHANNELS = ('LIVE', 'HOTFIX', 'PTU', 'EPTU', 'TECH-PREVIEW')
 
 # ⚠⚠ **Nur diese beiden teilen sich EINEN Bauplan-Bestand.**
 #
@@ -92,10 +92,10 @@ KANAELE = ('LIVE', 'HOTFIX', 'PTU', 'EPTU', 'TECH-PREVIEW')
 # HOTFIX ist der Sonderfall, für den es diese Liste überhaupt gibt — er läuft
 # auf demselben Spielstand wie LIVE und wird nur angelegt, wenn eine Ausbesserung
 # neben der laufenden Fassung erscheint.
-KANAELE_EIN_BESTAND = ('LIVE', 'HOTFIX')
+SHARED_STOCK_CHANNELS = ('LIVE', 'HOTFIX')
 
 # Unterpfad ab dem Wurzelverzeichnis eines Laufwerks bis zum Spielkanal.
-SC_UNTERPFAD = os.path.join('Roberts Space Industries', 'StarCitizen')
+SC_SUBPATH = os.path.join('Roberts Space Industries', 'StarCitizen')
 
 
 # ------------------------------------------------------------ 1. Eigene Dateien
@@ -103,7 +103,7 @@ SC_UNTERPFAD = os.path.join('Roberts Space Industries', 'StarCitizen')
 # seins ist — Baupläne und Ausgaben getrennt vom technischen Kleinkram.
 # Was hier nicht steht, landet in „Intern"; das sind Zwischenspeicher und
 # Lesestände, die niemanden interessieren.
-UNTERORDNER = {
+SUBFOLDERS = {
     'bestand.json':      'Bauplaene',
     'bestand.bak.json':  'Bauplaene',
     'merkliste.json':    'Bauplaene',
@@ -126,8 +126,8 @@ UNTERORDNER = {
     'update-helfer.txt':   'Diagnose',
     'update-helfer.1.txt': 'Diagnose',
 }
-ORDNERNAME = 'SC BP Watcher'
-EINSTELLUNGEN = 'einstellungen.json'
+FOLDER_NAME = 'SC BP Watcher'
+SETTINGS_FILE = 'einstellungen.json'
 
 # ⚠⚠⚠ Die Dateinamen, unter denen eine Datei UNS gehört — beide dauerhaft.
 #
@@ -145,66 +145,66 @@ EINSTELLUNGEN = 'einstellungen.json'
 #
 # ⛔ Keinen streichen. Wer den alten entfernt, lässt die Hälfte der Nutzer
 # stehen; wer den neuen entfernt, die andere Hälfte.
-EIGENE_DATEINAMEN = ('sc-bp-watcher', 'versekit')
+OWN_FILENAMES = ('sc-bp-watcher', 'versekit')
 
 
-def gehoert_uns(dateiname):
+def is_ours(filename):
     """Gehört diese Datei zu diesem Programm? (nach ihrem NAMEN)
 
     Der Maßstab ist der Dateiname, nicht der Pfad — beim AppImage ist das die
     einzige verlässliche Angabe, weil `sys.executable` im Einhängepunkt liegt.
     """
-    klein = os.path.basename(dateiname or '').lower()
-    return any(n in klein for n in EIGENE_DATEINAMEN)
+    lower = os.path.basename(filename or '').lower()
+    return any(n in lower for n in OWN_FILENAMES)
 
 
-def _dokumente():
+def _documents():
     """Der Dokumente-Ordner des Nutzers — oder das Heimatverzeichnis."""
-    heim = os.path.expanduser('~')
+    home = os.path.expanduser('~')
     if WINDOWS:
         # Der Ordner kann umbenannt oder verschoben sein; die Registry weiß es.
         try:
             import winreg
-            schluessel = (r'Software\Microsoft\Windows\CurrentVersion'
+            key_path = (r'Software\Microsoft\Windows\CurrentVersion'
                           r'\Explorer\Shell Folders')
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, schluessel) as k:
-                wert = winreg.QueryValueEx(k, 'Personal')[0]
-                if wert and os.path.isdir(os.path.expandvars(wert)):
-                    return os.path.expandvars(wert)
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as k:
+                value = winreg.QueryValueEx(k, 'Personal')[0]
+                if value and os.path.isdir(os.path.expandvars(value)):
+                    return os.path.expandvars(value)
         except Exception:
             pass
     else:
         # Unter Linux sagt es die XDG-Angabe; sie ist übersetzt („Dokumente").
         try:
-            konfig = os.path.join(os.environ.get('XDG_CONFIG_HOME')
-                                  or os.path.join(heim, '.config'),
+            config_file = os.path.join(os.environ.get('XDG_CONFIG_HOME')
+                                  or os.path.join(home, '.config'),
                                   'user-dirs.dirs')
-            with open(konfig, encoding='utf-8') as f:
-                for zeile in f:
-                    if zeile.startswith('XDG_DOCUMENTS_DIR'):
-                        wert = zeile.split('=', 1)[1].strip().strip('"')
-                        wert = wert.replace('$HOME', heim)
-                        if os.path.isdir(wert):
-                            return wert
+            with open(config_file, encoding='utf-8') as f:
+                for line in f:
+                    if line.startswith('XDG_DOCUMENTS_DIR'):
+                        value = line.split('=', 1)[1].strip().strip('"')
+                        value = value.replace('$HOME', home)
+                        if os.path.isdir(value):
+                            return value
         except Exception:
             pass
     for name in ('Documents', 'Dokumente'):
-        p = os.path.join(heim, name)
+        p = os.path.join(home, name)
         if os.path.isdir(p):
             return p
-    return heim
+    return home
 
 
-def alter_app_ordner():
+def legacy_app_folder():
     """Wo die Dateien bis v2.x lagen — Rückfall und Quelle für den Umzug."""
     if WINDOWS:
         return os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')),
                             'sc-bp-watcher')
-    basis = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
-    return os.path.join(basis, 'sc-bp-watcher')
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+    return os.path.join(base, 'sc-bp-watcher')
 
 
-def _zweitzeiger():
+def _second_pointer():
     """Der Ablage-Ort ein zweites Mal — dort, wo niemand aufraeumt.
 
     ⚠⚠⚠ **Warum es diese Datei gibt.** Der Ablage-Ort haengt an einer einzigen
@@ -229,45 +229,45 @@ def _zweitzeiger():
     einander:** Fehlt eine, wird sie aus der anderen wieder angelegt.
     """
     if os.name == 'nt':
-        basis = os.environ.get('APPDATA') or os.path.expanduser('~')
+        base = os.environ.get('APPDATA') or os.path.expanduser('~')
     else:
-        basis = (os.environ.get('XDG_CONFIG_HOME')
+        base = (os.environ.get('XDG_CONFIG_HOME')
                  or os.path.join(os.path.expanduser('~'), '.config'))
-    return os.path.join(basis, 'sc-bp-watcher', 'ablage.json')
+    return os.path.join(base, 'sc-bp-watcher', 'ablage.json')
 
 
-def _ort_lesen(weg):
+def _read_pointer(pointer_path):
     """Den Ablage-Ort aus einer Zeiger-Datei holen, oder `None`."""
     try:
-        if not os.path.isfile(weg):
+        if not os.path.isfile(pointer_path):
             return None
-        with open(weg, encoding='utf-8') as f:
-            wert = json.load(f).get('ablage_ordner')
-        if not isinstance(wert, str) or not wert.strip():
+        with open(pointer_path, encoding='utf-8') as f:
+            value = json.load(f).get('ablage_ordner')
+        if not isinstance(value, str) or not value.strip():
             return None
-        return wert.strip()
+        return value.strip()
     except Exception:
         return None
 
 
-def _ort_schreiben(weg, wert):
+def _write_pointer(pointer_path, value):
     """Einen Zeiger anlegen — still, denn er ist nur die Zweitschrift."""
     try:
-        os.makedirs(os.path.dirname(weg), exist_ok=True)
-        temp = weg + '.tmp'
+        os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+        temp = pointer_path + '.tmp'
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump({'ablage_ordner': wert}, f, ensure_ascii=False, indent=2)
-        os.replace(temp, weg)
+            json.dump({'ablage_ordner': value}, f, ensure_ascii=False, indent=2)
+        os.replace(temp, pointer_path)
         return True
     except Exception:
         return False
 
 
-def _ablage_aus_datei():
-    """Einen selbst gewählten Ablage-Ort lesen — **ohne** `einstellung()`.
+def _storage_from_file():
+    """Einen selbst gewählten Ablage-Ort lesen — **ohne** `setting()`.
 
-    ⚠ Hier lauert eine Schleife: `einstellung()` liest ihre Datei über
-    `app_datei()`, und das fragt wieder `app_ordner()`. Wer an dieser Stelle die
+    ⚠ Hier lauert eine Schleife: `setting()` liest ihre Datei über
+    `app_file()`, und das fragt wieder `app_folder()`. Wer an dieser Stelle die
     normale Einstellungs-Funktion benutzt, baut eine Endlosrekursion — die
     obendrein unsichtbar bleibt, weil ringsherum `try/except` steht. Deshalb
     wird die Datei hier am Standardort direkt gelesen.
@@ -279,27 +279,27 @@ def _ablage_aus_datei():
     den es nicht mehr gibt, ist schlimmer als keiner, denn er wuerde einen
     leeren Ordner an falscher Stelle erzeugen.
     """
-    erst = zeiger_datei()
-    zweit = _zweitzeiger()
-    a, b = _ort_lesen(erst), _ort_lesen(zweit)
+    first = pointer_file()
+    second = _second_pointer()
+    a, b = _read_pointer(first), _read_pointer(second)
 
-    for wert, fehlt_bei in ((a, zweit), (b, erst)):
-        if wert is None:
+    for value, missing_at in ((a, second), (b, first)):
+        if value is None:
             continue
-        if not os.path.isdir(os.path.expanduser(wert)):
+        if not os.path.isdir(os.path.expanduser(value)):
             # ⚠ Zeigt ins Leere — etwa weil eine externe Platte nicht
             # eingehaengt ist. Dann lieber den anderen fragen.
             continue
-        if _ort_lesen(fehlt_bei) != wert:
-            _ort_schreiben(fehlt_bei, wert)
-        return wert
+        if _read_pointer(missing_at) != value:
+            _write_pointer(missing_at, value)
+        return value
 
     # Keiner von beiden taugt: den ersten unveraendert zurueckgeben, damit
     # eine Platte, die gerade nicht da ist, nicht stillschweigend verfaellt.
     return a or b
 
 
-def app_ordner():
+def app_folder():
     """Ordner für unsere eigenen Dateien. Wird bei Bedarf angelegt.
 
     Seit v3.0.0 liegt er **sichtbar** unter Dokumente statt versteckt in
@@ -307,9 +307,9 @@ def app_ordner():
     Bauplan-Bestand sollte er finden können. Ein eigener Ort geht weiterhin über
     `SC_BP_HOME` oder die Einstellung `ablage_ordner`.
     """
-    eigen = os.environ.get('SC_BP_HOME') or _ablage_aus_datei()
-    p = (os.path.expanduser(eigen) if eigen
-         else os.path.join(_dokumente(), ORDNERNAME))
+    custom = os.environ.get('SC_BP_HOME') or _storage_from_file()
+    p = (os.path.expanduser(custom) if custom
+         else os.path.join(_documents(), FOLDER_NAME))
     try:
         os.makedirs(p, exist_ok=True)
     except OSError:
@@ -317,57 +317,57 @@ def app_ordner():
     return p
 
 
-def programm_datei(name):
+def bundled_file(name):
     """Voller Pfad zu einer **mitgelieferten** Datei aus dem Ordner `daten/`.
 
     Das sind Dateien, die zum Programm gehören und nur gelesen werden — im
-    Gegensatz zu `app_datei()`, wo die Daten des Nutzers liegen.
+    Gegensatz zu `app_file()`, wo die Daten des Nutzers liegen.
 
     ⚠ Zwei Fälle: Läuft das Programm aus dem Quellcode, liegt `daten/` neben
     `scbp/`. Ist es zu einer Datei gepackt (PyInstaller, AppImage), entpackt
     sich alles in einen Wegwerf-Ordner, dessen Pfad in `sys._MEIPASS` steht.
     Wer das nicht abfängt, sucht im gepackten Programm an der falschen Stelle
     und findet nichts."""
-    gepackt = getattr(sys, '_MEIPASS', None)
-    basis = gepackt or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(basis, 'daten', name)
+    bundled = getattr(sys, '_MEIPASS', None)
+    base = bundled or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, 'daten', name)
 
 
-def app_datei(name):
+def app_file(name):
     """Voller Pfad zu einer eigenen Datei, z. B. app_datei('bestand.json').
 
-    Sortiert nach `UNTERORDNER` in Unterordner ein. Wer ein `SC_BP_HOME` gesetzt
+    Sortiert nach `SUBFOLDERS` in Unterordner ein. Wer ein `SC_BP_HOME` gesetzt
     hat (Selbsttest, Sonderfälle), bekommt den flachen Ordner von früher — dort
     geht es um Wegwerf-Ordner, nicht um Übersicht.
     """
-    basis = app_ordner()
+    base = app_folder()
     if os.environ.get('SC_BP_HOME'):
-        return os.path.join(basis, name)
-    unter = UNTERORDNER.get(name, 'Intern')
-    ziel = os.path.join(basis, unter)
+        return os.path.join(base, name)
+    subfolder = SUBFOLDERS.get(name, 'Intern')
+    target = os.path.join(base, subfolder)
     try:
-        os.makedirs(ziel, exist_ok=True)
+        os.makedirs(target, exist_ok=True)
     except OSError:
-        return os.path.join(basis, name)
-    return os.path.join(ziel, name)
+        return os.path.join(base, name)
+    return os.path.join(target, name)
 
 
-def umzug_noetig():
+def migration_needed():
     """Liegen im alten Ordner Dateien, die im neuen fehlen?"""
-    alt = alter_app_ordner()
-    if not os.path.isdir(alt) or os.environ.get('SC_BP_HOME'):
+    old = legacy_app_folder()
+    if not os.path.isdir(old) or os.environ.get('SC_BP_HOME'):
         return False
     try:
-        vorhanden = [n for n in os.listdir(alt) if n.endswith(('.json', '.txt'))]
+        existing = [n for n in os.listdir(old) if n.endswith(('.json', '.txt'))]
     except OSError:
         return False
-    if not vorhanden:
+    if not existing:
         return False
     # Schon umgezogen? Dann liegt der Bestand am neuen Ort.
-    return not os.path.exists(app_datei('bestand.json'))
+    return not os.path.exists(app_file('bestand.json'))
 
 
-def umziehen():
+def migrate():
     """Die Dateien aus dem alten Ordner in den neuen **kopieren**.
 
     Kopieren, nicht verschieben: Geht beim Umzug etwas schief — Rechte, ein
@@ -378,26 +378,26 @@ def umziehen():
     Gibt die Zahl der kopierten Dateien zurück.
     """
     import shutil
-    alt = alter_app_ordner()
-    kopiert = 0
+    old = legacy_app_folder()
+    copied = 0
     try:
-        namen = sorted(os.listdir(alt))
+        names = sorted(os.listdir(old))
     except OSError:
         return 0
-    for name in namen:
-        quelle = os.path.join(alt, name)
-        if not os.path.isfile(quelle):
+    for name in names:
+        source = os.path.join(old, name)
+        if not os.path.isfile(source):
             continue
-        ziel = app_datei(name)
-        if os.path.exists(ziel):
+        target = app_file(name)
+        if os.path.exists(target):
             continue                     # nichts überschreiben
         try:
-            os.makedirs(os.path.dirname(ziel), exist_ok=True)
-            shutil.copy2(quelle, ziel)
-            kopiert += 1
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copy2(source, target)
+            copied += 1
         except OSError:
             pass
-    return kopiert
+    return copied
 
 
 # ------------------------------------------- Ablage-Ordner wechseln (v3.19.0)
@@ -405,10 +405,10 @@ def umziehen():
 # Was beim Wechsel mitkommt. Alles andere im Ordner geht uns nichts an — wer
 # seinen Ablage-Ordner auf einen Ordner legt, in dem noch etwas anderes liegt,
 # soll das behalten dürfen.
-UMZUG_ENDUNGEN = ('.json', '.txt')
+MOVE_EXTENSIONS = ('.json', '.txt')
 
 
-def _dateien_der_ablage(ordner):
+def _storage_files(folder):
     """Alle eigenen Dateien eines Ablage-Ordners, mit ihrem Unterordner.
 
     Gibt Paare `(voller Pfad, Name)` zurück — **rekursiv**, weil die Ablage
@@ -416,17 +416,17 @@ def _dateien_der_ablage(ordner):
     sortiert. Ein flacher Durchlauf fände dort **nichts** und meldete „nichts zu
     tun", während der ganze Bestand danebenliegt.
     """
-    raus = []
-    if not os.path.isdir(ordner):
-        return raus
-    for wurzel, _unter, dateien in os.walk(ordner):
-        for name in dateien:
-            if name.endswith(UMZUG_ENDUNGEN):
-                raus.append((os.path.join(wurzel, name), name))
-    return raus
+    result = []
+    if not os.path.isdir(folder):
+        return result
+    for root, _subdirs, files in os.walk(folder):
+        for name in files:
+            if name.endswith(MOVE_EXTENSIONS):
+                result.append((os.path.join(root, name), name))
+    return result
 
 
-def ablage_lage(ziel):
+def storage_status(target):
     """Was am Zielort los ist — bevor irgendetwas angefasst wird.
 
     Gibt `(schreibbar, eigene_dateien, grund)` zurück:
@@ -442,36 +442,36 @@ def ablage_lage(ziel):
     die Hälfte am alten Ort — und der Nutzer weiß von beidem nichts.
     """
     try:
-        os.makedirs(ziel, exist_ok=True)
-    except OSError as ausnahme:
-        return False, 0, str(ausnahme)
-    probe = os.path.join(ziel, '.schreibprobe')
+        os.makedirs(target, exist_ok=True)
+    except OSError as exc:
+        return False, 0, str(exc)
+    probe = os.path.join(target, '.schreibprobe')
     try:
         with open(probe, 'w', encoding='utf-8') as f:
             f.write('x')
         os.remove(probe)
-    except OSError as ausnahme:
+    except OSError as exc:
         # ⚠ Der häufigste Fall bei Doppelstart: eine Systemplatte, die im
         # anderen System **nur lesend** eingehängt ist. Sie sieht aus wie ein
         # gültiger Ordner, lässt sich auswählen — und nimmt nichts an.
-        return False, 0, str(ausnahme)
-    return True, len(_dateien_der_ablage(ziel)), ''
+        return False, 0, str(exc)
+    return True, len(_storage_files(target)), ''
 
 
-def _pruefsumme(pfad):
+def _checksum(path):
     """SHA-256 einer Datei — oder `''`, wenn sie sich nicht lesen lässt."""
     import hashlib
-    haken = hashlib.sha256()
+    digest = hashlib.sha256()
     try:
-        with open(pfad, 'rb') as f:
+        with open(path, 'rb') as f:
             for block in iter(lambda: f.read(65536), b''):
-                haken.update(block)
+                digest.update(block)
     except OSError:
         return ''
-    return haken.hexdigest()
+    return digest.hexdigest()
 
 
-def ablage_umziehen(von, nach):
+def move_storage(source_dir, target_dir):
     """Die eigenen Dateien in den neuen Ablage-Ordner kopieren — geprüft.
 
     Gibt `(kopiert, uebersprungen, misslungen)` zurück.
@@ -494,38 +494,38 @@ def ablage_umziehen(von, nach):
     eigener Vorgang, kein Nebeneffekt eines Pfadwechsels.
     """
     import shutil
-    kopiert = uebersprungen = misslungen = 0
-    if not os.path.isdir(von) or os.path.abspath(von) == os.path.abspath(nach):
+    copied = skipped = failed = 0
+    if not os.path.isdir(source_dir) or os.path.abspath(source_dir) == os.path.abspath(target_dir):
         return 0, 0, 0
-    for quelle, name in _dateien_der_ablage(von):
-        unter = UNTERORDNER.get(name, 'Intern')
-        ziel = os.path.join(nach, unter, name)
-        if os.path.exists(ziel):
-            uebersprungen += 1
+    for source, name in _storage_files(source_dir):
+        subfolder = SUBFOLDERS.get(name, 'Intern')
+        target = os.path.join(target_dir, subfolder, name)
+        if os.path.exists(target):
+            skipped += 1
             continue
         try:
-            os.makedirs(os.path.dirname(ziel), exist_ok=True)
-            shutil.copy2(quelle, ziel)
-        except OSError as ausnahme:
-            _melden('pfade.ablage_umziehen.' + name, ausnahme)
-            misslungen += 1
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copy2(source, target)
+        except OSError as exc:
+            _report_error('paths.move_storage.' + name, exc)
+            failed += 1
             continue
         # Die Gegenprobe. Stimmt sie nicht, gilt die Datei als misslungen und
         # die halbe Kopie wird weggeräumt — sie wäre schlimmer als keine.
-        if _pruefsumme(quelle) != _pruefsumme(ziel):
-            misslungen += 1
+        if _checksum(source) != _checksum(target):
+            failed += 1
             try:
-                os.remove(ziel)
+                os.remove(target)
             except OSError:
                 pass
             continue
-        kopiert += 1
-    return kopiert, uebersprungen, misslungen
+        copied += 1
+    return copied, skipped, failed
 
 
 # ------------------------------------------------------- Selbst gesetzte Pfade
 
-def gesuchte_spielorte(hoechstens=6):
+def searched_game_locations(limit=6):
     """Die Orte, an denen tatsächlich nach Star Citizen gesucht wird.
 
     Wird dem Nutzer angezeigt, wenn nichts gefunden wurde. Ohne diese Angabe
@@ -533,48 +533,48 @@ def gesuchte_spielorte(hoechstens=6):
     soll, ist ohne Vorbild schwer zu erraten. Vorhandene Ordner kommen zuerst:
     Wer seine Installation dort halb wiederfindet, sieht sofort, wie der Rest
     aussehen muss."""
-    kandidaten = []
-    for wurzel in _spiel_wurzeln():
-        p = os.path.join(wurzel, SC_UNTERPFAD, KANAELE[0])
-        if p not in kandidaten:
-            kandidaten.append(p)
+    candidates = []
+    for root in _game_roots():
+        p = os.path.join(root, SC_SUBPATH, CHANNELS[0])
+        if p not in candidates:
+            candidates.append(p)
     # Wenn gar nichts zusammenkommt, sind auf diesem Rechner weder Wine-Präfixe
     # noch Programmordner da — und ausgerechnet dann braucht der Nutzer das
     # Vorbild am dringendsten. Also die typischen Orte zeigen, auch wenn es sie
     # hier nicht gibt.
-    if not kandidaten:
-        heim = os.path.expanduser('~')
+    if not candidates:
+        home = os.path.expanduser('~')
         if WINDOWS:
-            kandidaten = [os.path.join('C:\\Program Files', SC_UNTERPFAD,
-                                       KANAELE[0])]
+            candidates = [os.path.join('C:\\Program Files', SC_SUBPATH,
+                                       CHANNELS[0])]
         else:
-            for praefix in (os.path.join(heim, 'Games', 'star-citizen'),
-                            os.path.join(heim, '.wine')):
-                kandidaten.append(os.path.join(praefix, 'drive_c', 'Program Files',
-                                               SC_UNTERPFAD, KANAELE[0]))
-            kandidaten.append(os.path.join(
-                heim, '.local', 'share', 'lutris', 'prefixes', '<Name>', 'drive_c',
-                'Program Files', SC_UNTERPFAD, KANAELE[0]))
+            for prefix in (os.path.join(home, 'Games', 'star-citizen'),
+                            os.path.join(home, '.wine')):
+                candidates.append(os.path.join(prefix, 'drive_c', 'Program Files',
+                                               SC_SUBPATH, CHANNELS[0]))
+            candidates.append(os.path.join(
+                home, '.local', 'share', 'lutris', 'prefixes', '<Name>', 'drive_c',
+                'Program Files', SC_SUBPATH, CHANNELS[0]))
     # existierende zuerst, Reihenfolge sonst beibehalten
-    da = [p for p in kandidaten if os.path.isdir(os.path.dirname(p))]
-    rest = [p for p in kandidaten if p not in da]
-    return (da + rest)[:hoechstens]
+    da = [p for p in candidates if os.path.isdir(os.path.dirname(p))]
+    rest = [p for p in candidates if p not in da]
+    return (da + rest)[:limit]
 
 
-def gesuchte_launcherorte(hoechstens=3):
+def searched_launcher_locations(limit=3):
     """Dasselbe für den Blueprint-Ordner des SC Deutsch Launchers."""
     if WINDOWS:
         return [os.path.join(os.environ.get('APPDATA', '%APPDATA%'),
                              'sc-deutsch-launcher', 'blueprints')]
-    orte = list(_windows_launcher())
-    for praefix in _wine_praefixe()[:hoechstens]:
-        orte.append(os.path.join(praefix, 'drive_c', 'users', '<Benutzer>',
+    places = list(_windows_launcher())
+    for prefix in _wine_prefixes()[:limit]:
+        places.append(os.path.join(prefix, 'drive_c', 'users', '<Benutzer>',
                                  'AppData', 'Roaming', 'sc-deutsch-launcher',
                                  'blueprints'))
-    return orte[:hoechstens]
+    return places[:limit]
 
 
-def _vorlage():
+def _template():
     """Der Inhalt der Einstellungsdatei — mit den echten Suchorten dieses Rechners.
 
     Die Hinweiszeilen stehen bewusst **direkt unter** dem jeweiligen Feld: In
@@ -589,7 +589,7 @@ def _vorlage():
         'spiel_ordner': '',
         '_spiel_ordner_gemeint_ist': 'Der Ordner, in dem die Game.log liegt — '
                                      'meist "LIVE".',
-        '_spiel_ordner_gesucht_wird_hier': gesuchte_spielorte(),
+        '_spiel_ordner_gesucht_wird_hier': searched_game_locations(),
         'sprache': 'auto',
         '_sprache_moeglich': 'auto (Systemsprache), de, en',
         'pruefintervall_sekunden': 3,
@@ -605,15 +605,15 @@ def _vorlage():
         '_launcher_ordner_gemeint_ist': 'Optional. Der Ordner "blueprints" des '
                                         'SC Deutsch Launchers. Ohne ihn laeuft '
                                         'der Watcher trotzdem.',
-        '_launcher_ordner_gesucht_wird_hier': gesuchte_launcherorte(),
+        '_launcher_ordner_gesucht_wird_hier': searched_launcher_locations(),
     }
 
 
-def _melden(stelle, ausnahme):
+def _report_error(label, exc):
     """Einen Fehler ins Protokoll geben, ohne dabei selbst zu scheitern.
 
     ⚠ Der Import steht **absichtlich** in der Funktion: `scbp/fehler.py`
-    importiert seinerseits `pfade`. Auf Modulebene wäre das ein Zirkelbezug und
+    importiert seinerseits `paths`. Auf Modulebene wäre das ein Zirkelbezug und
     keines der beiden Module ließe sich mehr laden.
 
     ⚠ Und das Melden hängt in einem eigenen `try`: Wenn schon das Schreiben der
@@ -623,46 +623,46 @@ def _melden(stelle, ausnahme):
     """
     try:
         from . import fehler
-        fehler.merken(stelle, ausnahme)
+        fehler.merken(label, exc)
     except Exception:
         pass
 
 
-def einstellungen():
+def settings():
     """Die selbst eingetragenen Pfade. Fehlt die Datei, ist sie leer."""
     try:
-        with open(app_datei(EINSTELLUNGEN), encoding='utf-8') as f:
-            daten = json.load(f)
-        return daten if isinstance(daten, dict) else {}
+        with open(app_file(SETTINGS_FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
     except Exception:
         return {}
 
 
-def einstellung(name):
+def setting(name):
     """Ein einzelner selbst gesetzter Pfad — oder None, wenn nichts eingetragen ist.
 
     ⚠⚠ **Alles, was kein Text ist, gilt als „nicht gesetzt".** Vorher stand
     hier `(… or '').strip()`. Bei einem Ja/Nein-Wert überlebt `True` das
     `or ''` und `.strip()` fliegt mit einem AttributeError — und zwar nicht
     leise: Am 03.09.2026 hat ein einziger falscher Aufruf
-    (`einstellung('lager_raffinerie_offen')` statt `einstellung_wahrheit`) den
+    (`setting('lager_raffinerie_offen')` statt `setting_bool`) den
     Aufbau der ganzen Lager-Seite abgerissen. Die Liste der Posten fehlte,
     die Daten waren unversehrt, und weil eine Seite nur einmal gebaut wird,
     half auch Zuklappen nicht mehr.
 
     Ein Pfad ist immer Text. Kommt etwas anderes, ist das ein Aufruf an der
     falschen Adresse — dann `None` zurückzugeben ist richtig und kostet
-    niemanden eine Seite. Für Ja/Nein gibt es `einstellung_wahrheit`, für
-    Zahlen `einstellung_zahl`.
+    niemanden eine Seite. Für Ja/Nein gibt es `setting_bool`, für
+    Zahlen `setting_int`.
     """
-    wert = einstellungen().get(name)
-    if not isinstance(wert, str):
+    value = settings().get(name)
+    if not isinstance(value, str):
         return None
-    wert = wert.strip()
-    return os.path.expanduser(wert) if wert else None
+    value = value.strip()
+    return os.path.expanduser(value) if value else None
 
 
-def json_sichern(ziel, daten, einzug=1, sortiert=False):
+def save_json(target, data, indent=1, sort_keys=False):
     """JSON schreiben — ohne Halbfertiges und mit Vorgängerfassung.
 
     Erst in eine Nebendatei, dann umbenennen: Stürzt der Rechner mitten im
@@ -678,30 +678,30 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
 
     ⚠ **Meldet nichts selbst.** Der Aufrufer weiss, unter welchem Namen der
     Fehler ins Protokoll gehört (`materials.save` gegen
-    `trade_cargo.save`) — und `pfade` darf `fehler` nicht einbinden, das
+    `trade_cargo.save`) — und `paths` darf `fehler` nicht einbinden, das
     gäbe einen Ringschluss. Bei einem Fehlschlag fliegt die Ausnahme; die
     Nebendatei ist dann schon weggeräumt.
     """
-    temp = ziel + '.tmp'
+    temp = target + '.tmp'
     try:
-        ordner = os.path.dirname(ziel)
-        if ordner:
-            os.makedirs(ordner, exist_ok=True)
+        folder = os.path.dirname(target)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=einzug,
-                      sort_keys=sortiert)
-        if os.path.exists(ziel):
+            json.dump(data, f, ensure_ascii=False, indent=indent,
+                      sort_keys=sort_keys)
+        if os.path.exists(target):
             # ⚠ Nicht `ziel.replace('.json', …)` — das trifft auch einen
             # Ordnernamen, in dem „.json" vorkommt. Nur die Endung zählt.
-            sicherung = (ziel[:-5] + '.bak.json' if ziel.endswith('.json')
-                         else ziel + '.bak')
+            backup = (target[:-5] + '.bak.json' if target.endswith('.json')
+                         else target + '.bak')
             try:
-                os.replace(ziel, sicherung)
+                os.replace(target, backup)
             except OSError:
                 # Kein Grund abzubrechen: Die Vorgängerfassung ist der Gürtel,
                 # das atomare Schreiben der Hosenträger. Einer genügt.
                 pass
-        os.replace(temp, ziel)
+        os.replace(temp, target)
         return True
     except Exception:
         try:
@@ -711,25 +711,25 @@ def json_sichern(ziel, daten, einzug=1, sortiert=False):
         raise
 
 
-def zeiger_datei():
+def pointer_file():
     """Die Datei, aus der der Ablage-Ort gelesen wird — immer am Standardort.
 
     ⚠ Sie ist NICHT dieselbe wie die Einstellungsdatei in der Ablage, sobald
-    ein eigener Ablage-Ort gesetzt ist. `_ablage_aus_datei()` liest ausschliesslich
+    ein eigener Ablage-Ort gesetzt ist. `_storage_from_file()` liest ausschliesslich
     hier; alles andere steht in der Ablage selbst.
     """
-    return os.path.join(_dokumente(), ORDNERNAME, 'Einstellungen',
-                        EINSTELLUNGEN)
+    return os.path.join(_documents(), FOLDER_NAME, 'Einstellungen',
+                        SETTINGS_FILE)
 
 
-def _ablage_ordner_setzen(wert):
+def _set_storage_folder(value):
     """Den Ablage-Ort in die Zeiger-Datei schreiben — nicht in die Ablage.
 
     ⚠⚠ **Sonst merkt sich das Programm den neuen Ort an einer Stelle, die es
-    nie wieder liest.** `einstellung_setzen()` schreibt ueber `app_datei()`,
+    nie wieder liest.** `set_setting()` schreibt ueber `app_file()`,
     und das zeigt in den **aktuellen** Ablage-Ordner. Der neue Ort landete
     damit in der Einstellungsdatei des ALTEN Ordners, waehrend
-    `_ablage_aus_datei()` weiter den unveraenderten Zeiger unter Dokumente las.
+    `_storage_from_file()` weiter den unveraenderten Zeiger unter Dokumente las.
     Ergebnis: Die Umstellung liess sich speichern, war aber nach jedem Neustart
     wieder weg — gemeldet am 04.09.2026, „bei jedem Neustart ist der alte Pfad
     wieder drin".
@@ -738,169 +738,169 @@ def _ablage_ordner_setzen(wert):
     Einstellungsdateien wuerden garantiert auseinanderlaufen, und gelesen wird
     hier ohnehin nichts anderes.
     """
-    ziel = zeiger_datei()
-    vorhanden = {}
+    target = pointer_file()
+    existing = {}
     try:
-        with open(ziel, encoding='utf-8') as f:
-            geladen = json.load(f)
-        if isinstance(geladen, dict):
-            vorhanden = geladen
+        with open(target, encoding='utf-8') as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            existing = loaded
     except Exception:
         pass
-    vorhanden['ablage_ordner'] = wert
-    temp = ziel + '.tmp'
+    existing['ablage_ordner'] = value
+    temp = target + '.tmp'
     try:
-        os.makedirs(os.path.dirname(ziel), exist_ok=True)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(vorhanden, f, ensure_ascii=False, indent=2)
-        os.replace(temp, ziel)
+            json.dump(existing, f, ensure_ascii=False, indent=2)
+        os.replace(temp, target)
         # ⚠⚠ **Immer beide schreiben** (siehe `_zweitzeiger`). Wuerde nur der
         # sichtbare gepflegt, waere die Zweitschrift nach der ersten Umstellung
         # veraltet — und wenn sie dann einspringt, landet der Spieler in einem
         # Ordner, den er vor Wochen verlassen hat. Ein falscher Zeiger ist
         # schlimmer als keiner.
-        _ort_schreiben(_zweitzeiger(), wert)
+        _write_pointer(_second_pointer(), value)
         return True
-    except OSError as ausnahme:
-        _melden('pfade.ablage_ordner_setzen', ausnahme)
+    except OSError as exc:
+        _report_error('paths._set_storage_folder', exc)
         return False
 
 
-def einstellung_setzen(name, wert):
+def set_setting(name, value):
     """Einen Pfad dauerhaft merken — ohne die Erklärzeilen zu verlieren.
 
     Gelesen wird die vorhandene Datei (oder die Vorlage), geändert nur das eine
     Feld. So bleiben die Hinweise mit den Suchorten stehen, auch wenn das
     Programm die Datei schreibt."""
     if name == 'ablage_ordner':
-        # ⚠ Sonderweg, siehe `_ablage_ordner_setzen`: Dieses eine Feld gehoert
+        # ⚠ Sonderweg, siehe `_set_storage_folder`: Dieses eine Feld gehoert
         # in die Zeiger-Datei, sonst wirkt die Umstellung nur bis zum Neustart.
-        return _ablage_ordner_setzen(wert)
-    daten = einstellungen() or _vorlage()
-    daten[name] = wert
-    ziel = app_datei(EINSTELLUNGEN)
-    temp = ziel + '.tmp'
+        return _set_storage_folder(value)
+    data = settings() or _template()
+    data[name] = value
+    target = app_file(SETTINGS_FILE)
+    temp = target + '.tmp'
     try:
         with open(temp, 'w', encoding='utf-8') as f:
-            json.dump(daten, f, ensure_ascii=False, indent=2)
-        os.replace(temp, ziel)
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(temp, target)
         return True
-    except OSError as ausnahme:
+    except OSError as exc:
         # ⚠ Niemand prüft den Rückgabewert dieser Funktion — geprüft am
         # 26.08.2026, alle Aufrufer werfen ihn weg. Scheitert das Schreiben
         # (volle Platte, fehlende Rechte, Ordner weg), wäre die Einstellung
         # nach dem Neustart einfach wieder alt, ohne jeden Hinweis.
-        _melden('pfade.einstellungen_schreiben', ausnahme)
+        _report_error('paths.set_setting', exc)
         return False
 
 
-def einstellung_zahl(name, standard, kleinstes=None, groesstes=None):
+def setting_int(name, default, minimum=None, maximum=None):
     """Eine Zahl aus den Einstellungen, mit Grenzen.
 
     Unsinnige Werte werden auf den erlaubten Bereich gezogen statt abgelehnt:
     Wer 0 einträgt, meint „so oft wie möglich" und soll kein Programm bekommen,
     das die Platte durchdreht — aber auch keine Fehlermeldung."""
-    wert = einstellungen().get(name)
+    value = settings().get(name)
     try:
-        zahl = int(wert)
+        number = int(value)
     except (TypeError, ValueError):
-        return standard
-    if kleinstes is not None:
-        zahl = max(kleinstes, zahl)
-    if groesstes is not None:
-        zahl = min(groesstes, zahl)
-    return zahl
+        return default
+    if minimum is not None:
+        number = max(minimum, number)
+    if maximum is not None:
+        number = min(maximum, number)
+    return number
 
 
-def einstellung_wahrheit(name, standard):
+def setting_bool(name, default):
     """Ein Ja/Nein aus den Einstellungen. Fehlt es, gilt der Standard."""
-    wert = einstellungen().get(name)
-    if isinstance(wert, bool):
-        return wert
-    if isinstance(wert, str):
-        return wert.strip().lower() in ('ja', 'yes', 'true', '1', 'an', 'on')
-    return standard
+    value = settings().get(name)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ('ja', 'yes', 'true', '1', 'an', 'on')
+    return default
 
 
-def vorlage_anlegen():
+def create_template():
     """Legt `einstellungen.json` zum Ausfüllen an, falls sie noch fehlt.
 
     Passiert genau dann, wenn das Spiel nicht gefunden wurde: Dann braucht der
     Nutzer die Datei, und sie soll schon dastehen, statt dass er sie nach
     Anleitung selbst erzeugen muss."""
-    ziel = app_datei(EINSTELLUNGEN)
-    if os.path.exists(ziel):
-        return ziel
+    target = app_file(SETTINGS_FILE)
+    if os.path.exists(target):
+        return target
     try:
-        with open(ziel, 'w', encoding='utf-8') as f:
-            json.dump(_vorlage(), f, ensure_ascii=False, indent=2)
+        with open(target, 'w', encoding='utf-8') as f:
+            json.dump(_template(), f, ensure_ascii=False, indent=2)
     except OSError:
         pass
-    return ziel
+    return target
 
 
 # --------------------------------------------------------- 2. Star Citizen selbst
-def _wine_praefixe():
+def _wine_prefixes():
     """Mögliche Wine-Präfixe unter Linux — die Orte, an denen die verbreiteten
     Installationswege (lug-helper, Lutris, Bottles, Heroic) landen. Reihenfolge
     ist Absicht: der lug-helper-Standard zuerst, er ist unter Linux der übliche Weg."""
-    heim = os.path.expanduser('~')
-    fest = [
-        os.path.join(heim, 'Games', 'star-citizen'),
-        os.path.join(heim, '.wine'),
-        os.path.join(heim, 'Games', 'star-citizen-live'),
+    home = os.path.expanduser('~')
+    fixed = [
+        os.path.join(home, 'Games', 'star-citizen'),
+        os.path.join(home, '.wine'),
+        os.path.join(home, 'Games', 'star-citizen-live'),
     ]
-    muster = [
-        os.path.join(heim, '.local', 'share', 'lutris', 'prefixes', '*'),
-        os.path.join(heim, '.var', 'app', 'net.lutris.Lutris', 'data', 'lutris',
+    patterns = [
+        os.path.join(home, '.local', 'share', 'lutris', 'prefixes', '*'),
+        os.path.join(home, '.var', 'app', 'net.lutris.Lutris', 'data', 'lutris',
                      'prefixes', '*'),
-        os.path.join(heim, '.local', 'share', 'bottles', 'bottles', '*'),
-        os.path.join(heim, 'Games', '*'),
+        os.path.join(home, '.local', 'share', 'bottles', 'bottles', '*'),
+        os.path.join(home, 'Games', '*'),
     ]
-    gefunden = list(fest)
-    for m in muster:
-        gefunden.extend(sorted(glob.glob(m)))
+    found = list(fixed)
+    for m in patterns:
+        found.extend(sorted(glob.glob(m)))
     # Doppelte raus, Reihenfolge behalten
-    gesehen, ergebnis = set(), []
-    for p in gefunden:
-        if p not in gesehen:
-            gesehen.add(p)
-            ergebnis.append(p)
-    return ergebnis
+    seen, unique = set(), []
+    for p in found:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    return unique
 
 
-def _spiel_wurzeln():
+def _game_roots():
     """Verzeichnisse, unter denen `Roberts Space Industries\\StarCitizen` liegen kann."""
     if WINDOWS:
-        wurzeln = []
-        for laufwerk in 'CDEFGH':
-            for programme in ('Program Files', 'Program Files (x86)'):
-                wurzeln.append('%s:\\%s' % (laufwerk, programme))
-        return wurzeln
-    wurzeln = []
-    for praefix in _wine_praefixe():
-        c = os.path.join(praefix, 'drive_c')
+        roots = []
+        for drive in 'CDEFGH':
+            for programs_dir in ('Program Files', 'Program Files (x86)'):
+                roots.append('%s:\\%s' % (drive, programs_dir))
+        return roots
+    roots = []
+    for prefix in _wine_prefixes():
+        c = os.path.join(prefix, 'drive_c')
         if not os.path.isdir(c):
             continue
-        wurzeln.append(os.path.join(c, 'Program Files'))
-        wurzeln.append(os.path.join(c, 'Program Files (x86)'))
-        wurzeln.append(c)                      # manche installieren direkt nach C:\
-    return wurzeln
+        roots.append(os.path.join(c, 'Program Files'))
+        roots.append(os.path.join(c, 'Program Files (x86)'))
+        roots.append(c)                      # manche installieren direkt nach C:\
+    return roots
 
 
-def spiel_ordner():
+def game_folder():
     """Ordner des Spielkanals (enthält die Game.log) oder None.
 
     Erst die Umgebungsvariable, dann die üblichen Orte. Es wird nur nachgesehen,
     ob die Game.log dort liegt — geraten wird nicht."""
-    for eigen in (os.environ.get('SC_INSTALL_DIR'), einstellung('spiel_ordner')):
-        if not eigen:
+    for custom in (os.environ.get('SC_INSTALL_DIR'), setting('spiel_ordner')):
+        if not custom:
             continue
-        eigen = os.path.expanduser(eigen)
-        if os.path.isfile(os.path.join(eigen, 'Game.log')):
-            return eigen
-        for k in KANAELE:                      # auch der Ordner darüber ist erlaubt
-            p = os.path.join(eigen, k)
+        custom = os.path.expanduser(custom)
+        if os.path.isfile(os.path.join(custom, 'Game.log')):
+            return custom
+        for k in CHANNELS:                      # auch der Ordner darüber ist erlaubt
+            p = os.path.join(custom, k)
             if os.path.isfile(os.path.join(p, 'Game.log')):
                 return p
         # ⚠ Und **neben** ihm. Wird LIVE in HOTFIX umbenannt (der uebliche Weg
@@ -909,57 +909,57 @@ def spiel_ordner():
         # Zweig fand nur derjenige sein Spiel wieder, der es am Standardort
         # installiert hat — wer es auf einer zweiten Platte liegen hat, stand
         # ohne Grund vor „Star Citizen nicht gefunden".
-        eltern = os.path.dirname(eigen.rstrip(os.sep))
-        if eltern and os.path.isdir(eltern):
-            geschwister = []
-            for k in KANAELE:
-                p = os.path.join(eltern, k)
+        parent = os.path.dirname(custom.rstrip(os.sep))
+        if parent and os.path.isdir(parent):
+            siblings = []
+            for k in CHANNELS:
+                p = os.path.join(parent, k)
                 log = os.path.join(p, 'Game.log')
                 if not os.path.isfile(log):
                     continue
                 try:
-                    geschwister.append((os.path.getmtime(log), p))
+                    siblings.append((os.path.getmtime(log), p))
                 except OSError:
-                    geschwister.append((0.0, p))
-            if geschwister:
+                    siblings.append((0.0, p))
+            if siblings:
                 # Der zuletzt bespielte Kanal gewinnt — gemessen, nicht geraten.
-                return max(geschwister)[1]
-    for wurzel in _spiel_wurzeln():
-        basis = os.path.join(wurzel, SC_UNTERPFAD)
-        if not os.path.isdir(basis):
+                return max(siblings)[1]
+    for root in _game_roots():
+        base = os.path.join(root, SC_SUBPATH)
+        if not os.path.isdir(base):
             continue
-        for k in KANAELE:
-            p = os.path.join(basis, k)
+        for k in CHANNELS:
+            p = os.path.join(base, k)
             if os.path.isfile(os.path.join(p, 'Game.log')):
                 return p
     return None
 
 
-def _kanal_basen():
+def _channel_bases():
     """Ordner, in denen die Kanäle nebeneinander liegen können.
 
     Der eingetragene Spielordner zuerst: Wer sein Spiel auf einer anderen Platte
     hat, findet sich in den Standardorten nicht wieder — sein Nachbarkanal liegt
     aber genau eine Ebene über dem, was er eingetragen hat.
     """
-    basen = []
-    for eigen in (os.environ.get('SC_INSTALL_DIR'), einstellung('spiel_ordner')):
-        if not eigen:
+    bases = []
+    for custom in (os.environ.get('SC_INSTALL_DIR'), setting('spiel_ordner')):
+        if not custom:
             continue
-        eigen = os.path.expanduser(eigen).rstrip(os.sep)
+        custom = os.path.expanduser(custom).rstrip(os.sep)
         # Der eingetragene Pfad kann der Kanal selbst sein oder der Ordner
         # darüber — beide Deutungen kommen mit hinein, doppelt schadet nicht.
-        for kandidat in (os.path.dirname(eigen), eigen):
-            if kandidat and kandidat not in basen:
-                basen.append(kandidat)
-    for wurzel in _spiel_wurzeln():
-        basis = os.path.join(wurzel, SC_UNTERPFAD)
-        if basis not in basen:
-            basen.append(basis)
-    return basen
+        for candidate in (os.path.dirname(custom), custom):
+            if candidate and candidate not in bases:
+                bases.append(candidate)
+    for root in _game_roots():
+        base = os.path.join(root, SC_SUBPATH)
+        if base not in bases:
+            bases.append(base)
+    return bases
 
 
-def kanaele_vorhanden():
+def available_channels():
     """Jeder Spielkanal, in dem wirklich eine Game.log liegt — neueste zuerst.
 
     Liefert Tupel `(Kanalname, Ordner, Zeitstempel der Game.log)`.
@@ -968,26 +968,26 @@ def kanaele_vorhanden():
     in `KANAELE`. Wer zuletzt gespielt hat, hat dort die frischeste Datei — das
     ist eine gemessene Tatsache und keine Annahme darüber, was jemand „meint".
     """
-    gefunden = {}
-    for basis in _kanal_basen():
-        if not os.path.isdir(basis):
+    found = {}
+    for base in _channel_bases():
+        if not os.path.isdir(base):
             continue
-        for k in KANAELE:
-            ordner = os.path.join(basis, k)
-            log = os.path.join(ordner, 'Game.log')
+        for k in CHANNELS:
+            folder = os.path.join(base, k)
+            log = os.path.join(folder, 'Game.log')
             if not os.path.isfile(log):
                 continue
-            if ordner in gefunden:
+            if folder in found:
                 continue
             try:
-                stempel = os.path.getmtime(log)
+                stamp = os.path.getmtime(log)
             except OSError:
-                stempel = 0.0
-            gefunden[ordner] = (k, ordner, stempel)
-    return sorted(gefunden.values(), key=lambda e: e[2], reverse=True)
+                stamp = 0.0
+            found[folder] = (k, folder, stamp)
+    return sorted(found.values(), key=lambda e: e[2], reverse=True)
 
 
-def kanal_abweichung():
+def channel_mismatch():
     r"""Es wird aus einem anderen Kanal gelesen als eingetragen ist — oder None.
 
     ⚠⚠ **Der Fall, für den es das gibt.** Legt CIG eine ausgebesserte Fassung
@@ -1005,55 +1005,55 @@ def kanal_abweichung():
     Gibt `(eingetragen, benutzt, alle_kanaele)` zurück; `benutzt` kann None
     sein, wenn gar nichts mehr gefunden wird.
     """
-    eingetragen = einstellung('spiel_ordner')
-    if not eingetragen:
+    configured = setting('spiel_ordner')
+    if not configured:
         return None                       # nie etwas eingetragen: nichts zu melden
-    eingetragen = os.path.expanduser(eingetragen).rstrip(os.sep)
-    if os.path.isfile(os.path.join(eingetragen, 'Game.log')):
+    configured = os.path.expanduser(configured).rstrip(os.sep)
+    if os.path.isfile(os.path.join(configured, 'Game.log')):
         return None                       # der eingetragene Ordner trägt noch
-    kanaele = kanaele_vorhanden()
-    if not kanaele:
+    channels = available_channels()
+    if not channels:
         return None                       # gar kein Kanal da — das ist die
                                           # bekannte Meldung „nicht gefunden",
                                           # dafür braucht es keine Auswahl
-    benutzt = spiel_ordner()
-    return (eingetragen, benutzt, kanaele)
+    used = game_folder()
+    return (configured, used, channels)
 
 
-def spielordner_deuten(gewaehlt):
+def resolve_game_folder(chosen):
     """Aus einem vom Nutzer gewählten Ordner den tatsächlichen Spielordner machen.
 
     Nimmt ihm die Sucherei ab: Er darf den LIVE-Ordner treffen, den darüber
     (`StarCitizen`), den Programme-Ordner oder gleich das ganze Wine-Präfix —
     solange irgendwo darunter eine `Game.log` liegt, wird sie gefunden.
     Gibt den Ordner mit der Game.log zurück oder None."""
-    if not gewaehlt:
+    if not chosen:
         return None
-    gewaehlt = os.path.expanduser(gewaehlt.strip().rstrip(os.sep)) or os.sep
-    if os.path.isfile(gewaehlt):                 # jemand hat die Game.log selbst gewählt
-        gewaehlt = os.path.dirname(gewaehlt)
-    if os.path.isfile(os.path.join(gewaehlt, 'Game.log')):
-        return gewaehlt
+    chosen = os.path.expanduser(chosen.strip().rstrip(os.sep)) or os.sep
+    if os.path.isfile(chosen):                 # jemand hat die Game.log selbst gewählt
+        chosen = os.path.dirname(chosen)
+    if os.path.isfile(os.path.join(chosen, 'Game.log')):
+        return chosen
     # Eine Ebene tiefer: der Kanal (LIVE/PTU/…)
-    for k in KANAELE:
-        p = os.path.join(gewaehlt, k)
+    for k in CHANNELS:
+        p = os.path.join(chosen, k)
         if os.path.isfile(os.path.join(p, 'Game.log')):
             return p
     # Tiefer suchen, aber begrenzt — ein ganzes Laufwerk durchzugehen wäre
     # unhöflich. Vier Ebenen decken Wine-Präfix -> drive_c -> Programme ->
     # Roberts Space Industries -> StarCitizen -> LIVE ab.
-    wurzel_tiefe = gewaehlt.rstrip(os.sep).count(os.sep)
-    for basis, ordner, dateien in os.walk(gewaehlt):
-        if basis.count(os.sep) - wurzel_tiefe > 5:
-            ordner[:] = []
+    root_depth = chosen.rstrip(os.sep).count(os.sep)
+    for base, subdirs, files in os.walk(chosen):
+        if base.count(os.sep) - root_depth > 5:
+            subdirs[:] = []
             continue
-        if 'Game.log' in dateien:
-            return basis
+        if 'Game.log' in files:
+            return base
     return None
 
 
 
-def _launcher_aus_registry():
+def _launcher_from_registry():
     r"""Wo der RSI Launcher laut Windows installiert ist — oder None.
 
     ⚠ Feste Pfadlisten gehen genau dann schief, wenn jemand woanders
@@ -1079,7 +1079,7 @@ def _launcher_aus_registry():
     except ImportError:
         return None
 
-    zweige = (
+    branches = (
         (winreg.HKEY_LOCAL_MACHINE,
          r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'),
         (winreg.HKEY_LOCAL_MACHINE,
@@ -1087,17 +1087,17 @@ def _launcher_aus_registry():
         (winreg.HKEY_CURRENT_USER,
          r'Software\Microsoft\Windows\CurrentVersion\Uninstall'),
     )
-    for wurzel, pfad in zweige:
+    for root, path in branches:
         try:
-            with winreg.OpenKey(wurzel, pfad) as liste:
-                anzahl = winreg.QueryInfoKey(liste)[0]
-                for i in range(anzahl):
+            with winreg.OpenKey(root, path) as uninstall_key:
+                count = winreg.QueryInfoKey(uninstall_key)[0]
+                for i in range(count):
                     try:
-                        name = winreg.EnumKey(liste, i)
-                        with winreg.OpenKey(liste, name) as eintrag:
-                            gefunden = _launcher_aus_eintrag(winreg, eintrag)
-                            if gefunden:
-                                return gefunden
+                        name = winreg.EnumKey(uninstall_key, i)
+                        with winreg.OpenKey(uninstall_key, name) as entry:
+                            found = _launcher_from_entry(winreg, entry)
+                            if found:
+                                return found
                     except OSError:
                         continue      # einzelner Eintrag unlesbar — weiter
         except OSError:
@@ -1105,34 +1105,34 @@ def _launcher_aus_registry():
     return None
 
 
-def _launcher_aus_eintrag(winreg, eintrag):
+def _launcher_from_entry(winreg, entry):
     """Aus einem Deinstallations-Eintrag den Launcher-Pfad ziehen — oder None."""
-    def wert(feld):
+    def value(field):
         try:
-            return str(winreg.QueryValueEx(eintrag, feld)[0] or '')
+            return str(winreg.QueryValueEx(entry, field)[0] or '')
         except OSError:
             return ''
 
-    if 'rsi launcher' not in wert('DisplayName').lower():
+    if 'rsi launcher' not in value('DisplayName').lower():
         return None
 
-    kandidaten = []
-    ort = wert('InstallLocation').strip('" ')
-    if ort:
-        kandidaten.append(os.path.join(ort, 'RSI Launcher.exe'))
+    candidates = []
+    place = value('InstallLocation').strip('" ')
+    if place:
+        candidates.append(os.path.join(place, 'RSI Launcher.exe'))
     # `DisplayIcon` zeigt auf eine Datei **im** Launcher-Ordner.
-    symbol = wert('DisplayIcon').split(',')[0].strip('" ')
+    symbol = value('DisplayIcon').split(',')[0].strip('" ')
     if symbol:
-        kandidaten.append(os.path.join(os.path.dirname(symbol),
+        candidates.append(os.path.join(os.path.dirname(symbol),
                                        'RSI Launcher.exe'))
-    for pfad in kandidaten:
-        if pfad and os.path.isfile(pfad):
-            return pfad
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
     return None
 
 
 
-def saubere_umgebung():
+def clean_environment():
     """Umgebung für fremde Programme — ohne unsere eigenen Bibliothekspfade.
 
     ⚠ Das ist im AppImage entscheidend. Dort zeigen `LD_LIBRARY_PATH`,
@@ -1142,7 +1142,7 @@ def saubere_umgebung():
     Nutzer sieht es aus, als täte der Knopf nichts. AppImage legt die
     ursprünglichen Werte unter `*_ORIG` ab; die gelten hier wieder.
     """
-    umgebung = dict(os.environ)
+    env = dict(os.environ)
     # ⚠⚠ **Die Spuren des PyInstaller-Bootloaders müssen raus.** Eine gepackte
     # `.exe` startet sich zweimal: Der Bootloader entpackt und startet sich
     # selbst als Kind — woran das Kind sich erkennt, steht in `_PYI_*` (früher
@@ -1152,35 +1152,35 @@ def saubere_umgebung():
     # 11.09.2026 war das Update fertig eingespielt — und der Neustart
     # scheiterte genau daran. Für jedes andere Programm sind die Variablen
     # ohnehin bedeutungslos.
-    for name in list(umgebung):
+    for name in list(env):
         if name.upper().startswith(('_PYI_', '_MEI')):
-            umgebung.pop(name, None)
+            env.pop(name, None)
     for name in ('LD_LIBRARY_PATH', 'PYTHONHOME', 'PYTHONPATH',
                  'PYTHONDONTWRITEBYTECODE', 'QT_PLUGIN_PATH', 'GTK_PATH',
                  'GDK_PIXBUF_MODULE_FILE', 'GI_TYPELIB_PATH', 'XDG_DATA_DIRS',
                  'PERLLIB', 'GSETTINGS_SCHEMA_DIR'):
-        urspruenglich = umgebung.pop(name + '_ORIG', None)
-        if urspruenglich:
-            umgebung[name] = urspruenglich
+        original = env.pop(name + '_ORIG', None)
+        if original:
+            env[name] = original
         else:
-            umgebung.pop(name, None)
-    return umgebung
+            env.pop(name, None)
+    return env
 
 
-def browser_befehle(adresse):
+def browser_commands(url):
     """Die Wege, eine Adresse zu öffnen — in der Reihenfolge, in der es
-    versucht wird. Getrennt von `im_browser()`, damit sich das **prüfen** lässt,
+    versucht wird. Getrennt von `open_in_browser()`, damit sich das **prüfen** lässt,
     ohne dabei einen Browser aufzureißen: Ein Prüflauf, der Fenster öffnet,
     reißt den Tastaturfokus mit und wirft den Spieler aus dem Spiel.
     """
     if sys.platform.startswith('linux'):
-        return [['xdg-open', adresse], ['gio', 'open', adresse]]
+        return [['xdg-open', url], ['gio', 'open', url]]
     if sys.platform == 'darwin':
-        return [['open', adresse]]
+        return [['open', url]]
     return []                      # Windows: `webbrowser` macht es richtig
 
 
-def im_browser(adresse):
+def open_in_browser(url):
     """Eine Adresse im Browser aufmachen. Gibt zurück, ob es geklappt hat.
 
     ⚠⚠ **Warum nicht einfach `webbrowser.open()`.** Im AppImage zeigen
@@ -1192,15 +1192,15 @@ def im_browser(adresse):
     spendieren" und „Discord", und im Fehlerbericht stand dazu **keine Zeile**,
     weil auch keine Ausnahme flog.
 
-    Deshalb: `xdg-open` selbst starten, mit der Umgebung von `saubere_umgebung()`,
+    Deshalb: `xdg-open` selbst starten, mit der Umgebung von `clean_environment()`,
     und kurz nachsehen, ob es überlebt. Erst danach `webbrowser` als Rückfall.
     """
     import subprocess
     import webbrowser
-    umgebung = saubere_umgebung()
-    for befehl in browser_befehle(adresse):
+    env = clean_environment()
+    for command in browser_commands(url):
         try:
-            lauf = subprocess.Popen(befehl, env=umgebung,
+            proc = subprocess.Popen(command, env=env,
                                     stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL)
         except OSError:
@@ -1208,24 +1208,24 @@ def im_browser(adresse):
         try:
             # Läuft es nach einer knappen Sekunde noch, hat es die Adresse
             # angenommen. Beendet es sich mit einem Fehler, war es nichts.
-            if lauf.wait(1.0) != 0:
+            if proc.wait(1.0) != 0:
                 continue
         except subprocess.TimeoutExpired:
             pass
         return True
-    alt = dict(os.environ)
+    old = dict(os.environ)
     try:
         os.environ.clear()
-        os.environ.update(umgebung)
-        return bool(webbrowser.open(adresse))
+        os.environ.update(env)
+        return bool(webbrowser.open(url))
     except Exception:
         return False
     finally:
         os.environ.clear()
-        os.environ.update(alt)
+        os.environ.update(old)
 
 
-def spielstarter():
+def game_starter():
     """Womit sich Star Citizen starten lässt — oder `None`.
 
     Auf beiden Systemen dieselbe Frage, nur ein anderer Ort:
@@ -1244,12 +1244,12 @@ def spielstarter():
     Wird nichts gefunden, gibt es auch keinen Knopf. Ein Knopf, der nichts tut,
     ist schlimmer als keiner.
     """
-    eigen = (einstellung('spielstarter') or '').strip()
-    if eigen:
-        return eigen if os.path.exists(os.path.expanduser(eigen)) else eigen
+    custom = (setting('spielstarter') or '').strip()
+    if custom:
+        return custom if os.path.exists(os.path.expanduser(custom)) else custom
 
     if WINDOWS:
-        orte = []
+        places = []
 
         # ⚠ **Zuerst neben dem Spielordner suchen** — das ist der einzige Ort,
         # den wir sicher kennen. Der Launcher legt sich standardmäßig neben die
@@ -1267,36 +1267,36 @@ def spielstarter():
         #
         # Vom Spielordner aus zu suchen trifft jede Installation, egal wohin sie
         # gelegt wurde — statt immer neue feste Pfade nachzutragen.
-        spiel = spiel_ordner()
-        if spiel:
+        game = game_folder()
+        if game:
             # …\StarCitizen\LIVE  →  zwei Ebenen hoch  →  …\Roberts Space Industries
-            rsi = os.path.dirname(os.path.dirname(spiel))
-            orte.append(os.path.join(rsi, 'RSI Launcher', 'RSI Launcher.exe'))
+            rsi = os.path.dirname(os.path.dirname(game))
+            places.append(os.path.join(rsi, 'RSI Launcher', 'RSI Launcher.exe'))
             # Eine Ebene weiter hoch, falls jemand ohne Zweig-Ordner installiert
-            orte.append(os.path.join(os.path.dirname(rsi), 'RSI Launcher',
+            places.append(os.path.join(os.path.dirname(rsi), 'RSI Launcher',
                                      'RSI Launcher.exe'))
 
         # ⚠ **Vor** den festen Orten: Was Windows selbst weiss, schlaegt jede
         # Liste. Wer den Launcher auf ein anderes Laufwerk gelegt hat, faellt
         # sonst durch — genau so fehlte auf einem fremden Rechner der Startknopf.
-        aus_registry = _launcher_aus_registry()
-        if aus_registry:
-            orte.append(aus_registry)
+        from_registry = _launcher_from_registry()
+        if from_registry:
+            places.append(from_registry)
 
 
-        for umgebung in ('LOCALAPPDATA', 'PROGRAMFILES', 'PROGRAMW6432'):
-            wurzel = os.environ.get(umgebung)
-            if not wurzel:
+        for env in ('LOCALAPPDATA', 'PROGRAMFILES', 'PROGRAMW6432'):
+            root = os.environ.get(env)
+            if not root:
                 continue
-            orte.append(os.path.join(wurzel, 'Programs', 'RSI Launcher',
+            places.append(os.path.join(root, 'Programs', 'RSI Launcher',
                                      'RSI Launcher.exe'))
-            orte.append(os.path.join(wurzel, 'RSI Launcher',
+            places.append(os.path.join(root, 'RSI Launcher',
                                      'RSI Launcher.exe'))
-            orte.append(os.path.join(wurzel, 'Roberts Space Industries',
+            places.append(os.path.join(root, 'Roberts Space Industries',
                                      'RSI Launcher', 'RSI Launcher.exe'))
-        for ort in orte:
-            if os.path.isfile(ort):
-                return ort
+        for place in places:
+            if os.path.isfile(place):
+                return place
         return None
 
     # ⚠ **Der `lug-helper` startet das Spiel nicht.** Hier stand er trotzdem —
@@ -1319,30 +1319,30 @@ def spielstarter():
     # Deshalb derselbe Gedanke wie im Windows-Zweig oben: **vom Spielordner aus
     # suchen**, statt Orte zu raten. Über `drive_c` liegt das Präfix, egal wohin
     # jemand installiert hat und wie er den Helper eingerichtet hat.
-    SKRIPT = 'sc-launch.sh'
-    orte = []
-    spiel = spiel_ordner()
-    if spiel:
-        pfad = os.path.abspath(spiel)
+    SCRIPT = 'sc-launch.sh'
+    places = []
+    game = game_folder()
+    if game:
+        path = os.path.abspath(game)
         # Hochsteigen, bis `drive_c` erreicht ist — eine Ebene darüber liegt das
         # Präfix. Die Schleife endet spätestens an der Wurzel.
         while True:
-            eltern = os.path.dirname(pfad)
-            if eltern == pfad:
+            parent = os.path.dirname(path)
+            if parent == path:
                 break
-            if os.path.basename(pfad).lower() == 'drive_c':
-                orte.append(os.path.join(eltern, SKRIPT))
+            if os.path.basename(path).lower() == 'drive_c':
+                places.append(os.path.join(parent, SCRIPT))
                 break
-            pfad = eltern
+            path = parent
 
     # Rückfall: der Standardort des LUG Helper, falls der Spielordner (noch)
     # nicht bekannt ist.
-    heim = os.path.expanduser('~')
-    orte.append(os.path.join(heim, 'Games', 'star-citizen', SKRIPT))
+    home = os.path.expanduser('~')
+    places.append(os.path.join(home, 'Games', 'star-citizen', SCRIPT))
 
-    for ort in orte:
-        if os.path.isfile(ort) and os.access(ort, os.X_OK):
-            return ort
+    for place in places:
+        if os.path.isfile(place) and os.access(place, os.X_OK):
+            return place
 
     # ⚠ Bewusst **kein** Rückfall auf `lug-helper`: Er würde gefunden, der Knopf
     # erschiene — und täte wieder nichts. „Ein Knopf, der nichts tut, ist
@@ -1351,7 +1351,7 @@ def spielstarter():
     return None
 
 
-def _startbefehl(starter):
+def _start_command(starter):
     """Aus dem eingetragenen Text die Liste machen, die `Popen` braucht.
 
     ⚠ **Ein Startbefehl ist nicht immer ein Dateiname.** Hier stand
@@ -1371,18 +1371,18 @@ def _startbefehl(starter):
         return [starter]
     try:
         import shlex
-        teile = shlex.split(starter, posix=not WINDOWS)
+        parts = shlex.split(starter, posix=not WINDOWS)
     except ValueError:
         return [starter]              # unpaariges Anführungszeichen o. ä.
-    return teile or [starter]
+    return parts or [starter]
 
 
-def spiel_starten():
+def start_game():
     """Star Citizen starten. Gibt (True, '') oder (False, Grund) zurück."""
-    starter = spielstarter()
+    starter = game_starter()
     if not starter:
         # ⚠ Dieser Grund landet über `s_sp_start_nein` sichtbar in der
-        # Statuszeile — also übersetzen. `sprache` lokal holen: `pfade` wird
+        # Statuszeile — also übersetzen. `sprache` lokal holen: `paths` wird
         # sehr früh geladen, ein Import oben wäre ein Zirkelbezug.
         from . import language
         return False, language.t('s_sp_kein_starter')
@@ -1390,24 +1390,24 @@ def spiel_starten():
         import subprocess
         # Losgelöst starten: Der Watcher soll weiterlaufen und nicht am Spiel
         # hängen — und beim Beenden das Spiel nicht mitreißen.
-        zusatz = {}
+        extra = {}
         if WINDOWS:
-            zusatz['creationflags'] = getattr(subprocess, 'DETACHED_PROCESS', 0)
+            extra['creationflags'] = getattr(subprocess, 'DETACHED_PROCESS', 0)
         else:
-            zusatz['start_new_session'] = True
-        subprocess.Popen(_startbefehl(starter), stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, **zusatz)
+            extra['start_new_session'] = True
+        subprocess.Popen(_start_command(starter), stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, **extra)
         return True, ''
-    except Exception as ausnahme:
-        return False, str(ausnahme)
+    except Exception as exc:
+        return False, str(exc)
 
 
-def game_log(ordner=None):
+def game_log(folder=None):
     """Pfad zur aktiven Game.log oder None."""
-    ordner = ordner or spiel_ordner()
-    if not ordner:
+    folder = folder or game_folder()
+    if not folder:
         return None
-    p = os.path.join(ordner, 'Game.log')
+    p = os.path.join(folder, 'Game.log')
     return p if os.path.isfile(p) else None
 
 
@@ -1417,10 +1417,10 @@ def game_log(ordner=None):
 # Herumstehen. Fünf Minuten sind deshalb sehr großzügig gewählt: Sie decken
 # einen hängenden Ladebildschirm ab und liegen trotzdem weit unter der Zeit,
 # nach der ein Mensch fragt „warum steht da noch läuft?".
-SPIEL_STILL_SEK = 300
+GAME_IDLE_SEC = 300
 
 
-def spiel_laeuft(ordner=None):
+def game_running(folder=None):
     """Schreibt das Spiel gerade noch — läuft es also?
 
     ⚠⚠ **Wozu das gebraucht wird (05.09.2026).** Das Auftrags-Protokoll führte
@@ -1443,15 +1443,15 @@ def spiel_laeuft(ordner=None):
     """
     import time
     try:
-        datei = game_log(ordner)
-        if not datei:
+        log_file = game_log(folder)
+        if not log_file:
             return False
-        return (time.time() - os.path.getmtime(datei)) < SPIEL_STILL_SEK
+        return (time.time() - os.path.getmtime(log_file)) < GAME_IDLE_SEC
     except Exception:
         return False
 
 
-def log_sicherungen(ordner=None):
+def log_backups(folder=None):
     """Die aufgehobenen Logs vergangener Sitzungen, älteste zuerst.
 
     Star Citizen legt bei jedem Spielstart die vorige Game.log unter
@@ -1469,7 +1469,7 @@ def log_sicherungen(ordner=None):
     wir die aus allen Ordner also Live und HOTFIX in die log durchsuchung
     einbeziehen?"
 
-    ⚠⚠ **Nur LIVE und HOTFIX** — siehe `KANAELE_EIN_BESTAND`. PTU, EPTU und
+    ⚠⚠ **Nur LIVE und HOTFIX** — siehe `SHARED_STOCK_CHANNELS`. PTU, EPTU und
     TECH-PREVIEW laufen auf eigenen Spielständen; ihre Baupläne hat man auf
     LIVE nicht, und sie mitzulesen hieße, einen Bestand zu behaupten, den es
     nicht gibt.
@@ -1478,34 +1478,34 @@ def log_sicherungen(ordner=None):
     `…/StarCitizen/LIVE` liegt `HOTFIX`. Doppelt gelesen wird nichts — jeder
     Kanal hat sein eigenes `logbackups/`.
     """
-    ordner = ordner or spiel_ordner()
-    if not ordner:
+    folder = folder or game_folder()
+    if not folder:
         return []
     # Bewusst alles nehmen, was dort liegt: Star Citizen hat die Benennung der
     # Sicherungen über die Jahre mehrfach geändert (mal `Game.log.<Datum>`, mal
     # mit Endung dahinter). Ein Muster auf `*.log` verpasst dann die Hälfte.
     # Ausgenommen sind nur Dinge, die sicher kein Text sind.
-    ausser = ('.zip', '.7z', '.gz', '.rar', '.dmp', '.mdmp', '.png', '.jpg')
-    treffer = []
-    gesehen = set()
-    for kanal_ordner in _kanal_geschwister(ordner):
-        for p in glob.glob(os.path.join(kanal_ordner, 'logbackups', '*')):
-            if not os.path.isfile(p) or p.lower().endswith(ausser):
+    skip_ext = ('.zip', '.7z', '.gz', '.rar', '.dmp', '.mdmp', '.png', '.jpg')
+    hits = []
+    seen = set()
+    for channel_dir in _channel_siblings(folder):
+        for p in glob.glob(os.path.join(channel_dir, 'logbackups', '*')):
+            if not os.path.isfile(p) or p.lower().endswith(skip_ext):
                 continue
             # ⚠ Über den echten Pfad entdoppeln: Ist der eingetragene Ordner
             # selbst schon ein Kanal, steht er zweimal in der Liste.
-            echt = os.path.realpath(p)
-            if echt in gesehen:
+            real = os.path.realpath(p)
+            if real in seen:
                 continue
-            gesehen.add(echt)
-            treffer.append(p)
-    return sorted(treffer, key=lambda p: (_mtime(p), p))
+            seen.add(real)
+            hits.append(p)
+    return sorted(hits, key=lambda p: (_mtime(p), p))
 
 
-def _kanal_geschwister(ordner):
+def _channel_siblings(folder):
     """Der Ordner selbst und die Kanäle daneben, die denselben Bestand haben.
 
-    ⚠⚠ **Nur `KANAELE_EIN_BESTAND`** — also LIVE und HOTFIX. Ein PTU-Ordner
+    ⚠⚠ **Nur `SHARED_STOCK_CHANNELS`** — also LIVE und HOTFIX. Ein PTU-Ordner
     daneben bleibt unangetastet, auch wenn er voller Protokolle steckt: Dort
     freigeschaltete Baupläne hat man auf LIVE nicht.
 
@@ -1518,23 +1518,23 @@ def _kanal_geschwister(ordner):
     Kanäle ist. Wer sein Spiel woanders liegen hat, bekommt genau seinen
     Ordner — und nichts, was zufällig danebensteht.
     """
-    raus = [ordner]
+    result = [folder]
     try:
-        eltern = os.path.dirname(os.path.normpath(ordner))
-        name = os.path.basename(os.path.normpath(ordner)).upper()
-        if name not in KANAELE_EIN_BESTAND:
-            return raus
-        if os.path.basename(eltern).lower() != 'starcitizen':
-            return raus
-        for kanal in KANAELE_EIN_BESTAND:
-            if kanal == name:
+        parent = os.path.dirname(os.path.normpath(folder))
+        name = os.path.basename(os.path.normpath(folder)).upper()
+        if name not in SHARED_STOCK_CHANNELS:
+            return result
+        if os.path.basename(parent).lower() != 'starcitizen':
+            return result
+        for channel in SHARED_STOCK_CHANNELS:
+            if channel == name:
                 continue
-            nachbar = os.path.join(eltern, kanal)
-            if os.path.isdir(os.path.join(nachbar, 'logbackups')):
-                raus.append(nachbar)
+            neighbour = os.path.join(parent, channel)
+            if os.path.isdir(os.path.join(neighbour, 'logbackups')):
+                result.append(neighbour)
     except Exception:
         pass
-    return raus
+    return result
 
 
 def _mtime(p):
@@ -1544,18 +1544,18 @@ def _mtime(p):
         return 0.0
 
 
-def lokalisierung_ordner(ordner=None):
+def localization_folder(folder=None):
     """`data/Localization` im Spielordner — dort liegen die entpackten `global.ini`,
     sofern welche vorhanden sind (der SC Deutsch Launcher legt die deutsche dort ab)."""
-    ordner = ordner or spiel_ordner()
-    if not ordner:
+    folder = folder or game_folder()
+    if not folder:
         return None
-    p = os.path.join(ordner, 'data', 'Localization')
+    p = os.path.join(folder, 'data', 'Localization')
     return p if os.path.isdir(p) else None
 
 
 # ---------------------------------------------------- 3. SC Deutsch Launcher (optional)
-def launcher_ordner():
+def launcher_folder():
     """Blueprint-Ordner des SC Deutsch Launchers oder None.
 
     Unter Windows liegt er in %APPDATA%. Unter Linux nur dann, wenn jemand den
@@ -1565,20 +1565,20 @@ def launcher_ordner():
     # nimmt das Programm klammheimlich einen anderen Launcher-Stand her als den
     # angegebenen. (Fiel im Selbsttest auf: Der baut eine Installation ohne
     # Launcher nach, bekam aber den echten von der Windows-Platte untergeschoben.)
-    for eigen in (os.environ.get('SC_BP_LAUNCHER'), einstellung('launcher_ordner')):
-        if eigen is not None and eigen != '':
-            eigen = os.path.expanduser(eigen)
-            return eigen if os.path.isdir(eigen) else None
+    for custom in (os.environ.get('SC_BP_LAUNCHER'), setting('launcher_ordner')):
+        if custom is not None and custom != '':
+            custom = os.path.expanduser(custom)
+            return custom if os.path.isdir(custom) else None
     if os.environ.get('SC_BP_LAUNCHER') == '':
         return None                    # ausdrücklich abgeschaltet
     if WINDOWS:
         p = os.path.join(os.environ.get('APPDATA', ''), 'sc-deutsch-launcher',
                          'blueprints')
         return p if os.path.isdir(p) else None
-    for praefix in _wine_praefixe():
-        muster = os.path.join(praefix, 'drive_c', 'users', '*', 'AppData',
+    for prefix in _wine_prefixes():
+        pattern = os.path.join(prefix, 'drive_c', 'users', '*', 'AppData',
                               'Roaming', 'sc-deutsch-launcher', 'blueprints')
-        for p in sorted(glob.glob(muster)):
+        for p in sorted(glob.glob(pattern)):
             if os.path.isdir(p):
                 return p
     # Dual-Boot: Der Launcher läuft unter Windows, seine Daten liegen auf der
@@ -1592,29 +1592,29 @@ def launcher_ordner():
 
 def _windows_launcher():
     """Launcher-Daten auf einer eingehängten Windows-Platte."""
-    heim = os.path.expanduser('~')
-    orte = ['/run/media/*/*', '/media/*/*', '/mnt/*',
-            os.path.join(heim, '.local', 'share', '*')]
-    for ort in orte:
-        muster = os.path.join(ort, 'Users', '*', 'AppData', 'Roaming',
+    home = os.path.expanduser('~')
+    places = ['/run/media/*/*', '/media/*/*', '/mnt/*',
+            os.path.join(home, '.local', 'share', '*')]
+    for place in places:
+        pattern = os.path.join(place, 'Users', '*', 'AppData', 'Roaming',
                               'sc-deutsch-launcher', 'blueprints')
-        for p in sorted(glob.glob(muster)):
+        for p in sorted(glob.glob(pattern)):
             if os.path.isdir(p):
                 yield p
 
 
-def launcher_datei(name, ordner=None):
+def launcher_file(name, folder=None):
     """Pfad zu einer Launcher-Datei, auch wenn es den Launcher nicht gibt.
 
     Gibt immer einen Pfad zurück (nie None), damit die aufrufende Stelle wie
     bisher einfach versuchen kann, ihn zu öffnen. Ohne Launcher zeigt er ins
     Leere und das Öffnen scheitert — genau das ist gewollt."""
-    ordner = ordner if ordner is not None else (launcher_ordner() or '')
-    return os.path.join(ordner, name)
+    folder = folder if folder is not None else (launcher_folder() or '')
+    return os.path.join(folder, name)
 
 
 # ------------------------------------------------------------------ Übersicht
-def kuerzen(text):
+def redact(text):
     """Persönliches aus einem Text nehmen — für Fehlerprotokoll und Bericht.
 
     Pfade verraten den Benutzernamen (`C:\\Users\\Spieler\\…`,
@@ -1626,34 +1626,34 @@ def kuerzen(text):
     """
     try:
         text = str(text)
-        heim = os.path.expanduser('~')
-        name = os.path.basename(heim.rstrip('\\/'))
+        home = os.path.expanduser('~')
+        name = os.path.basename(home.rstrip('\\/'))
 
-        for was in (heim, heim.replace('\\', '/'), heim.replace('/', '\\')):
-            if was and len(was) > 3:
-                text = text.replace(was, '<heim>')
+        for variant in (home, home.replace('\\', '/'), home.replace('/', '\\')):
+            if variant and len(variant) > 3:
+                text = text.replace(variant, '<heim>')
 
         if name and len(name) > 2:
             text = re.sub(re.escape(name), '<benutzer>', text, flags=re.I)
 
-        return _geheimnisse_kuerzen(text)
+        return _redact_secrets(text)
     except Exception:
         return str(text)
 
 
 # Adressen, die ein Geheimnis IM PFAD tragen. Bei einem Discord-Webhook ist der
 # hintere Teil der Schlüssel: Wer ihn hat, kann in den Melde-Kanal schreiben.
-_WEBHOOK = re.compile(
+_WEBHOOK_RE = re.compile(
     r'https://[\w.-]*discord(?:app)?\.com/api/webhooks/\S+', re.I)
 # Und Parameter, die nach Zugang klingen. ⚠ Bewusst eng: `?id_category=3` und
 # `?uuid=…` bleiben stehen — sie sagen, WELCHER Abruf schiefging, und ohne sie
 # ist ein Netzfehler nicht mehr zu deuten.
-_ZUGANG = re.compile(
+_CREDENTIAL_RE = re.compile(
     r'([?&](?:token|key|api[_-]?key|apikey|secret|auth|password|passwd|pw|'
     r'access[_-]?token|signature|sig)=)[^&\s]+', re.I)
 
 
-def _geheimnisse_kuerzen(text):
+def _redact_secrets(text):
     """Zugangsdaten aus einem Text nehmen, der öffentlich werden kann.
 
     ⚠⚠ **Warum das nötig ist — gemessen, nicht vermutet (05.09.2026).** Der
@@ -1679,40 +1679,40 @@ def _geheimnisse_kuerzen(text):
     # Weiterleitung), greift es nicht. Hier wird ersetzt, was tatsächlich
     # eingetragen ist, ganz gleich wie es aussieht.
     #
-    # ⚠ Lokal importiert: `report_target` kommt ohne `pfade` aus, aber ein
+    # ⚠ Lokal importiert: `report_target` kommt ohne `paths` aus, aber ein
     # Import auf Modulebene würde diese Reihenfolge für immer festschreiben.
     try:
         from . import report_target
-        adresse = report_target.target()
+        url = report_target.target()
         # Die Längenschwelle ist kein Schmuck: Ohne sie würde ein leeres Ziel
         # jede Stelle im Text treffen und den ganzen Bericht zerlegen.
-        if adresse and len(adresse) > 12:
-            text = text.replace(adresse, '<meldeadresse>')
+        if url and len(url) > 12:
+            text = text.replace(url, '<meldeadresse>')
     except Exception:
         pass                    # lieber ungekürzt als gar kein Bericht
 
-    text = _WEBHOOK.sub('<meldeadresse>', text)
-    return _ZUGANG.sub(r'\1<geheim>', text)
+    text = _WEBHOOK_RE.sub('<meldeadresse>', text)
+    return _CREDENTIAL_RE.sub(r'\1<geheim>', text)
 
 
-def uebersicht():
+def overview():
     """Was wurde gefunden — für Statusanzeige und Fehlersuche."""
-    spiel = spiel_ordner()
+    game = game_folder()
     return {
         'system': 'Windows' if WINDOWS else sys.platform,
-        'app_ordner': app_ordner(),
-        'spiel_ordner': spiel,
-        'game_log': game_log(spiel),
-        'sicherungen': len(log_sicherungen(spiel)),
-        'launcher': launcher_ordner(),
-        'einstellungen': app_datei(EINSTELLUNGEN),
-        'selbst_gesetzt': {k: v for k, v in einstellungen().items()
+        'app_ordner': app_folder(),
+        'spiel_ordner': game,
+        'game_log': game_log(game),
+        'sicherungen': len(log_backups(game)),
+        'launcher': launcher_folder(),
+        'einstellungen': app_file(SETTINGS_FILE),
+        'selbst_gesetzt': {k: v for k, v in settings().items()
                            if not k.startswith('_') and v},
     }
 
 
 if __name__ == '__main__':
-    for k, v in uebersicht().items():
+    for k, v in overview().items():
         print('%-14s %s' % (k, v))
 
 
@@ -1733,7 +1733,7 @@ if __name__ == '__main__':
 #
 # Prüfung 80 im Selbsttest zieht alle hier gelisteten Zeichen durch
 # `namensform()` und verlangt dasselbe Ergebnis.
-ANFUEHRUNG = str.maketrans({
+QUOTES = str.maketrans({
     '"': "'",
     '\u201c': "'",      # “  oeffnend, typografisch — fehlte bis 30.08.2026
     '\u201d': "'",      # ”  schliessend, typografisch
@@ -1765,18 +1765,18 @@ ANFUEHRUNG = str.maketrans({
 # Bewusst eng: Nur die bekannten Kürzel, damit echte Namensklammern wie
 # `Singe Cannon (S2)` oder `(30 cap)` stehen bleiben. Die Liste muss zu
 # `scbp/specs.py` passen — Selbsttest 32 wacht darüber.
-_KLASSEN_KURZ = ('civ|mil|ind|sth|cmp'
+_CLASS_CODES = ('civ|mil|ind|sth|cmp'
                  '|las|ele|pla|dis|mic|bal'
                  '|nah|min|slv|med|tool|trc')
-KUERZEL_RE = re.compile(
+CLASS_CODE_RE = re.compile(
     r'\s*\((?:(?:%s)/(?:\d{1,2}|\u2013|-)/(?:[a-d]|\u2013|-)'
     r'|(?:%s)'
-    r'|(?:ir|em|cs)\d{1,2})\)\s*$' % (_KLASSEN_KURZ, _KLASSEN_KURZ))
+    r'|(?:ir|em|cs)\d{1,2})\)\s*$' % (_CLASS_CODES, _CLASS_CODES))
 
 # \u26a0\u26a0 **MrKraken StarStrings stellt dasselbe K\u00fcrzel VORAN \u2014 ohne Klammern.**
 # Wer StarStrings einsetzt, hat im Spiel `Ind/2/B Citadel` stehen, wo der
 # Katalog `Citadel` kennt; die uebliche Schreibweise waere `Citadel (Ind/2/B)`.
-# `KUERZEL_RE` oben faengt nur die Klammerform. Die vorangestellte blieb stehen,
+# `CLASS_CODE_RE` oben faengt nur die Klammerform. Die vorangestellte blieb stehen,
 # der Name fand seinen Katalog-Eintrag nicht und galt als \u201enicht im Katalog".
 #
 # Gemessen am 04.09.2026 in der ausgelieferten StarStrings-Datei: **465**
@@ -1791,9 +1791,9 @@ KUERZEL_RE = re.compile(
 # Genauso eng gehalten wie oben: nur die bekannten Kuerzel, nur am Anfang, und
 # es muss ein Leerzeichen samt Namen folgen. `Ind/2/B` allein bleibt stehen \u2014
 # ein Name, der nur aus dem Kuerzel besteht, waere sonst leer.
-KUERZEL_VORN_RE = re.compile(
+CLASS_CODE_PREFIX_RE = re.compile(
     r'^\s*(?:%s)/(?:\d{1,2}|\u2013|-)/(?:[a-d]|\u2013|-)\s+(?=\S)'
-    % _KLASSEN_KURZ)
+    % _CLASS_CODES)
 
 
 # Die Mengenangabe am Namensende — `(16 cap)`, `(16 Schuss)`, `(40 rounds)`.
@@ -1809,10 +1809,10 @@ KUERZEL_VORN_RE = re.compile(
 # verschiedene Bauplaene. Deshalb wird `(16 Schuss)` zu `(16)`, nicht zu nichts.
 # Und es greift nur, wenn die Klammer mit einer Ziffer beginnt und danach ein
 # Wort folgt: `Singe Cannon (S2)` und `(1/A)` bleiben unangetastet.
-MENGE_RE = re.compile(r'\((\d+)\s+[^)]*\)')
+QUANTITY_RE = re.compile(r'\((\d+)\s+[^)]*\)')
 
 
-def namensform(s):
+def name_key(s):
     """Ein Bauplan-Name als Vergleichsschlüssel — die EINZIGE Stelle dafür.
 
     ⚠ Diese Funktion stand dreimal im Programm: in `collection.py`, `catalog.py`
@@ -1830,12 +1830,12 @@ def namensform(s):
       und der Bauplan gilt als „fehlt", obwohl er im Bestand steht. Gefunden
       an einem echten Bestand mit 392 Bauplänen — genau einer fiel durch.
     * **Die Sprache der Mengenangabe** (`(16 cap)` ↔ `(16 Schuss)`) — siehe
-      `MENGE_RE` oben. Die Zahl bleibt stehen, nur das Wort faellt weg.
+      `QUANTITY_RE` oben. Die Zahl bleibt stehen, nur das Wort faellt weg.
     """
-    return MENGE_RE.sub(r'(\1)',
-                        KUERZEL_VORN_RE.sub(
+    return QUANTITY_RE.sub(r'(\1)',
+                        CLASS_CODE_PREFIX_RE.sub(
                             '',
-                            KUERZEL_RE.sub('', str(s).lower()
+                            CLASS_CODE_RE.sub('', str(s).lower()
 .replace('\xa0', ' ')
 .replace('\ufffd', ' ')
-.translate(ANFUEHRUNG)).strip())).strip()
+.translate(QUOTES)).strip())).strip()

@@ -38,7 +38,7 @@ import tkinter as tk
 
 from . import fehler
 from . import collection as bestand_datei
-from . import logsource, pfade, language
+from . import logsource, paths, language
 from .language import t, window_title
 
 BG      = '#10141c'
@@ -60,7 +60,7 @@ def font(groesse, fett=False, unterstrichen=False):
     man auf etwas klicken kann. Ohne sie sieht ein Textlink aus wie ein
     Hinweis und wird übersehen.
     """
-    fam = 'Segoe UI' if pfade.WINDOWS else 'Helvetica'
+    fam = 'Segoe UI' if paths.WINDOWS else 'Helvetica'
     teile = [fam, groesse]
     stil = ' '.join(x for x, an in (('bold', fett),
                                     ('underline', unterstrichen)) if an)
@@ -69,7 +69,7 @@ def font(groesse, fett=False, unterstrichen=False):
 
 
 def mono(groesse):
-    return ('Consolas' if pfade.WINDOWS else 'Menlo', groesse)
+    return ('Consolas' if paths.WINDOWS else 'Menlo', groesse)
 
 
 class Wizard:
@@ -168,7 +168,7 @@ class Wizard:
             k.bind('<Button-1>', lambda e, w=wert: self._language(w))
 
     def _language(self, wert):
-        pfade.einstellung_setzen('sprache', wert)
+        paths.set_setting('sprache', wert)
         language.set_language(wert)
         self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
         self._draw()
@@ -177,7 +177,7 @@ class Wizard:
     def _step_game(self):
         self.titel.configure(text=t('schritt_spiel'))
         f = self._area()
-        gefunden = pfade.spiel_ordner()
+        gefunden = paths.game_folder()
         self._paragraph(f, t('schritt_spiel_text'), FG, 11)
         self._paragraph(f, t('schritt_spiel_hilfe'), SUB, 10, oben=10)
 
@@ -200,7 +200,7 @@ class Wizard:
 
         if not gefunden:
             self._paragraph(f, t('gesucht_wurde_hier'), SUB, 9, oben=16)
-            for ort in pfade.gesuchte_spielorte(4):
+            for ort in paths.searched_game_locations(4):
                 tk.Label(f, text=ort, bg=BG, fg=SUB, font=mono(8), anchor='w',
                          justify='left', wraplength=560).pack(fill='x')
 
@@ -225,7 +225,7 @@ class Wizard:
     def _without_game(self):
         """Weiter ohne Spielordner — bewusst und einmalig gemerkt."""
         self.ohne_spielordner = True
-        pfade.einstellung_setzen('einrichtung_ohne_spiel', True)
+        paths.set_setting('einrichtung_ohne_spiel', True)
         self.schritt = STEPS
         self._draw()
 
@@ -239,7 +239,7 @@ class Wizard:
 
     def _check_path(self):
         input_device = self.pfad.get().strip()
-        self.gedeutet = pfade.spielordner_deuten(input_device) if input_device else None
+        self.gedeutet = paths.resolve_game_folder(input_device) if input_device else None
         if not input_device:
             self.rueckmeldung.configure(text='', fg=SUB)
         elif self.gedeutet:
@@ -274,7 +274,7 @@ class Wizard:
         self.nachlese_gelaufen = True
         fehler.spur('Assistent: Logs nachlesen beginnt')
         try:
-            anzahl_dateien = len(pfade.log_sicherungen())
+            anzahl_dateien = len(paths.log_backups())
             if anzahl_dateien:
                 self.ergebnis.configure(text=t('lese_logs_n', anzahl_dateien))
                 self.root.update()
@@ -332,7 +332,7 @@ class Wizard:
         # aber unter „Angaben im Spiel" stand danach keine der drei Quellen
         # angewählt: Der Assistent schrieb `inj_quelle` nie. Gemeldet von
         # Haldjas, 25.08.2026 — „alle 3 Buttons sind nicht ausgewählt".
-        pfade.einstellung_setzen('inj_quelle', quelle)
+        paths.set_setting('inj_quelle', quelle)
         self.inj_meldung.configure(text=t('inj_laeuft'), fg=SUB)
         self.root.update()
         try:
@@ -457,7 +457,7 @@ class Wizard:
         if self.schritt == 2 and not self.gedeutet:
             return                                  # ohne Spielordner geht nichts
         if self.schritt == 2:
-            pfade.einstellung_setzen('spiel_ordner', self.gedeutet)
+            paths.set_setting('spiel_ordner', self.gedeutet)
         if self.schritt >= STEPS:
             # ⚠ Hier wird festgehalten, dass die Einrichtung durch ist — und
             # zwar in einer eigenen Einstellung. Vorher galt die Datei
@@ -466,7 +466,7 @@ class Wizard:
             # Programm löscht sie absichtlich („alte Protokolle neu einlesen").
             # Wer den drückte, bekam beim nächsten Start den ganzen Assistenten
             # vorgesetzt (30.08.2026 gemeldet).
-            pfade.einstellung_setzen('einrichtung_fertig', True)
+            paths.set_setting('einrichtung_fertig', True)
             self._close()
             return
         self.schritt += 1
@@ -510,9 +510,9 @@ def is_configured():
     automatisch gefundener zählt nicht, sonst bekäme ein neuer Nutzer mit
     installiertem Spiel den Assistenten nie zu sehen.
     """
-    if pfade.einstellung_wahrheit('einrichtung_fertig', False):
+    if paths.setting_bool('einrichtung_fertig', False):
         return True
-    return bool(pfade.einstellung('spiel_ordner'))
+    return bool(paths.setting('spiel_ordner'))
 
 
 def needed():
@@ -523,9 +523,9 @@ def needed():
     Spiel — auf einem Rechner ohne Star Citizen hieß das: jedes Mal wieder von
     vorn, und über die zweite Seite kam man nie hinaus.
     """
-    if pfade.einstellung_wahrheit('einrichtung_ohne_spiel', False):
+    if paths.setting_bool('einrichtung_ohne_spiel', False):
         return False
-    return not is_configured() or not pfade.spiel_ordner()
+    return not is_configured() or not paths.game_folder()
 
 
 def start(eltern=None):

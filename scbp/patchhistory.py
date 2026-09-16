@@ -58,7 +58,7 @@ import json
 import os
 import time
 
-from . import pfade
+from . import paths
 
 BUNDLED = 'patch-historie.json'
 LOCAL = 'patch-historie.json'
@@ -67,7 +67,7 @@ SEEN = 'bauplaene-gesehen.json'
 
 def _norm(s):
     """Vergleichsform — dieselbe wie im Katalog, damit beide zueinander passen."""
-    return pfade.namensform(s)
+    return paths.name_key(s)
 
 
 # ----------------------------------------------------------------- Historie
@@ -113,7 +113,7 @@ def load():
     `_merge()` steht, gilt hier: keine der beiden Seiten kennt den Patch
     vollständig, erst zusammen ergeben sie ihn."""
     zusammen = {}
-    for pfad in (pfade.programm_datei(BUNDLED), pfade.app_datei(LOCAL)):
+    for pfad in (paths.bundled_file(BUNDLED), paths.app_file(LOCAL)):
         for version, eintrag in _read(pfad).items():
             alt = zusammen.get(version)
             zusammen[version] = _merge(alt, eintrag) if alt else dict(eintrag)
@@ -128,7 +128,7 @@ def record(version, namen, datum=None):
     Spielversion später etwas nach, wäre der erste eigene Fund sonst weg."""
     if not version or not namen:
         return
-    ziel = pfade.app_datei(LOCAL)
+    ziel = paths.app_file(LOCAL)
     eigene = _read(ziel)
     neu = {'datum': datum or time.strftime('%Y-%m-%d'), 'neu': sorted(namen)}
     eigene[version] = (_merge(eigene[version], neu)
@@ -196,7 +196,7 @@ def seen():
     zählt: Verliert eine Quelle zwischendurch Einträge und bringt sie später
     zurück, gelten sie sonst als neu, obwohl sich im Spiel nichts getan hat."""
     try:
-        with open(pfade.app_datei(SEEN), encoding='utf-8') as f:
+        with open(paths.app_file(SEEN), encoding='utf-8') as f:
             return set(json.load(f).get('namen') or [])
     except Exception:
         return set()
@@ -204,7 +204,7 @@ def seen():
 
 def set_seen(schluessel):
     """Die Vergleichsgrundlage überschreiben."""
-    ziel = pfade.app_datei(SEEN)
+    ziel = paths.app_file(SEEN)
     try:
         os.makedirs(os.path.dirname(ziel), exist_ok=True)
         temp = ziel + '.tmp'

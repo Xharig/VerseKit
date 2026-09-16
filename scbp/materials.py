@@ -61,7 +61,7 @@ import json
 import re
 import os
 
-from . import fehler, pfade
+from . import fehler, paths
 from .crafting import norm_material
 
 FILE = 'rohstoffe.json'
@@ -71,7 +71,7 @@ FORMAT = 1
 def load():
     """Alle Posten — oder eine leere Liste."""
     try:
-        with open(pfade.app_datei(FILE), encoding='utf-8') as f:
+        with open(paths.app_file(FILE), encoding='utf-8') as f:
             data = json.load(f)
         if data.get('format') == FORMAT:
             return data.get('posten') or []
@@ -84,13 +84,13 @@ def save(entries):
     """Die Posten schreiben. Meldet einen Fehlschlag, statt ihn zu schlucken.
 
     ⚠ Die **Vorgängerfassung** (`rohstoffe.bak.json`) legt
-    `pfade.json_sichern` an. Bis 31.08.2026 fehlte sie hier: Geschrieben wurde
+    `paths.save_json` an. Bis 31.08.2026 fehlte sie hier: Geschrieben wurde
     atomar, aber ohne Rückfall — ein leer gespeichertes Lager war endgültig
     weg. Ein Lager sind eigene Eingaben, die kein Neuaufbau zurückholt.
     """
-    target = pfade.app_datei(FILE)
+    target = paths.app_file(FILE)
     try:
-        return pfade.json_sichern(target, {'format': FORMAT, 'posten': entries})
+        return paths.save_json(target, {'format': FORMAT, 'posten': entries})
     except Exception as exc:
         fehler.merken('materials.save', exc)
         return False

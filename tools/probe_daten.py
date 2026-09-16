@@ -102,13 +102,13 @@ def main():
                 bestand[schluessel] = {'name': e.get('n') or schluessel,
                                        'quelle': 'log',
                                        'zeit': '2026-08-25 01:14:03'}
-        # ⚠ NICHT flach in den Zielordner schreiben: `pfade.app_datei()`
+        # ⚠ NICHT flach in den Zielordner schreiben: `paths.app_file()`
         # sortiert die Dateien seit v3.0.0 in Unterordner (Bauplaene/,
         # Intern/, Einstellungen/). Flach abgelegt findet das Programm sie
         # nicht — die Liste bleibt leer, und es sieht aus, als fehlten die
         # Daten. Genau so ist es passiert.
-        from scbp import pfade as pfade_modul
-        with open(pfade_modul.app_datei('bestand.json'), 'w',
+        from scbp import paths as pfade_modul
+        with open(pfade_modul.app_file('bestand.json'), 'w',
                   encoding='utf-8') as f:
             json.dump({'version': 1, 'stand': '2026-08-25 01:14:03',
                        'bauplaene': bestand}, f, ensure_ascii=False)
@@ -187,12 +187,12 @@ def _beispiele(ziel):
             bestand[k] = {'name': name, 'quelle': 'log',
                           'zeit': '2026-08-25 01:14:03'}
 
-    from scbp import pfade as pfade_modul
-    with open(pfade_modul.app_datei('katalog-cache.json'), 'w',
+    from scbp import paths as pfade_modul
+    with open(pfade_modul.app_file('katalog-cache.json'), 'w',
               encoding='utf-8') as f:
         json.dump({'version': 'probe', 'geholt': '2026-08-25',
                    'bauplaene': bauplaene, 'missionen': {}}, f, ensure_ascii=False)
-    with open(pfade_modul.app_datei('bestand.json'), 'w',
+    with open(pfade_modul.app_file('bestand.json'), 'w',
               encoding='utf-8') as f:
         json.dump({'version': 1, 'stand': '2026-08-25 01:14:03',
                    'bauplaene': bestand}, f, ensure_ascii=False)

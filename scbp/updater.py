@@ -55,7 +55,7 @@ import time
 import urllib.request
 
 from . import fehler
-from . import pfade
+from . import paths
 
 # ⚠ Seit 15.09.2026 heisst das Repo `Xharig/VerseKit`. GitHub leitet die alte
 # Adresse `Xharig/SC-BP-Watcher` dauerhaft um (Web, Clone und API) — solange
@@ -156,7 +156,7 @@ def _fetch(url, timeout=20):
 
 def _cache_read():
     try:
-        with open(pfade.app_datei(CACHE), encoding='utf-8') as f:
+        with open(paths.app_file(CACHE), encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return {}
@@ -164,7 +164,7 @@ def _cache_read():
 
 def _cache_write(data):
     try:
-        with open(pfade.app_datei(CACHE), 'w', encoding='utf-8') as f:
+        with open(paths.app_file(CACHE), 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False)
     except OSError:
         pass
@@ -271,7 +271,7 @@ def check(own_version, force=False):
     #      "neuer" als jede Vorabfassung (siehe `ist_neuer`), also endet der
     #      Testkanal nie in einer Sackgasse.
     own_is_prerelease = (_is_prerelease(own_version)
-                        or pfade.einstellung_wahrheit('vorabversionen', False))
+                        or paths.setting_bool('vorabversionen', False))
     # ⚠ **Nicht** den ersten Treffer nehmen, sondern den höchsten.
     # GitHub gibt die Freigaben nach Erstellungszeit des Tags zurück, nicht nach
     # Versionsnummer — und das ist nicht dasselbe: In der Liste stand `rc10`
@@ -536,7 +536,7 @@ def history_grouped():
 
 
 # ------------------------------------------------------------------- Holen
-# ⚠⚠ Welche Dateien uns gehoeren, steht in `pfade.EIGENE_DATEINAMEN` —
+# ⚠⚠ Welche Dateien uns gehoeren, steht in `paths.OWN_FILENAMES` —
 # an EINER Stelle fuer alle drei Pruefungen (hier zweimal, dazu
 # `update_run._aufraeumen()`). Zwei Listen waeren nach dem ersten
 # Namenswechsel auseinander.
@@ -583,7 +583,7 @@ def own_appimage():
     # Hälfte der Nutzer nicht mehr selbst erkennt: `verpackung()` fällt auf
     # `'exe'` zurück, das Programm geht in den Windows-Zweig und stirbt mit
     # `[Errno 2] No such file or directory: 'cmd'`.
-    if not pfade.gehoert_uns(path):
+    if not paths.is_ours(path):
         return None
     return path
 
@@ -1065,8 +1065,8 @@ def install(new_file, target_version='', previous_version='', automatic=False):
     # keine fremde Datei ersetzt. Genau dieser Riegel hätte den Unfall vom
     # 25.08.2026 verhindert, bei dem ein fremdes AppImage überschrieben wurde,
     # weil `APPIMAGE` auf ein anderes Programm zeigte.
-    # ⚠⚠ Auch hier beide Namen — siehe `pfade.gehoert_uns()`.
-    if not pfade.gehoert_uns(target):
+    # ⚠⚠ Auch hier beide Namen — siehe `paths.is_ours()`.
+    if not paths.is_ours(target):
         from . import language
         return False, language.t('up_fremde_datei', os.path.basename(target))
     try:
@@ -1144,9 +1144,9 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         # was vom laufenden PyInstaller stammt, zeigt entweder in dessen Ordner
         # unter `%TEMP%`, den er gleich aufraeumt (siehe `neu_starten()`), oder
         # führt den neuen Bootloader in die Irre (siehe oben). Deshalb über
-        # `saubere_umgebung()`, nicht `dict(os.environ)`: Dort fliegen auch die
+        # `clean_environment()`, nicht `dict(os.environ)`: Dort fliegen auch die
         # `_PYI_*`-Variablen raus.
-        env = pfade.saubere_umgebung()
+        env = paths.clean_environment()
         for name in ('_MEIPASS', '_MEIPASS2', 'TCL_LIBRARY', 'TK_LIBRARY',
                      'TIX_LIBRARY', 'MATPLOTLIBDATA'):
             env.pop(name, None)
@@ -1179,11 +1179,11 @@ def install(new_file, target_version='', previous_version='', automatic=False):
         # um den letzten Versuch, nicht um ein Tagebuch.
         log_file = ''
         try:
-            # ⚠ Kein `from . import pfade` hier: Ein Import in der Funktion
-            # macht `pfade` für die GANZE Funktion lokal — und
-            # `pfade.saubere_umgebung()` weiter oben fiele mit
+            # ⚠ Kein `from . import paths` hier: Ein Import in der Funktion
+            # macht `paths` für die GANZE Funktion lokal — und
+            # `paths.clean_environment()` weiter oben fiele mit
             # `UnboundLocalError` um. Prüfung 185 hat genau das gefangen.
-            log_file = pfade.app_datei('update-setup.txt')
+            log_file = paths.app_file('update-setup.txt')
         except Exception:
             pass                     # ohne Protokoll ist der Weg derselbe
 
@@ -1373,11 +1373,11 @@ def restart():
         # Für den Nutzer sah das so aus: „es geht dann aus aber startet nicht"
         # (Bomb20, 27.08.2026), am selben Tag nachgestellt.
         #
-        # `pfade.saubere_umgebung()` macht genau diese Wäsche — sie war längst da,
+        # `paths.clean_environment()` macht genau diese Wäsche — sie war längst da,
         # nur benutzte der Neustart eine eigene, unvollständige Version davon.
         # Zwei Wäschen sind eine zu viel.
-        from . import pfade as pfade_modul
-        env = pfade_modul.saubere_umgebung()
+        from . import paths as paths_module
+        env = paths_module.clean_environment()
         # Die Variablen des laufenden AppImage gehören der **alten** Version.
         for name in ('APPIMAGE', 'APPDIR', 'OWD', 'ARGV0'):
             env.pop(name, None)
@@ -1413,7 +1413,7 @@ def restart():
         # `neue_fassung_laeuft()` hängt es ins Fehlerprotokoll, wo es im Bericht
         # auftaucht.
         try:
-            _OUTPUT[0] = open(pfade_modul.app_datei(RESTART_OUTPUT_FILE), 'w+',
+            _OUTPUT[0] = open(paths_module.app_file(RESTART_OUTPUT_FILE), 'w+',
                                encoding='utf-8', errors='replace')
         except Exception:
             _OUTPUT[0] = None

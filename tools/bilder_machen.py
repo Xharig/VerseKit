@@ -179,16 +179,16 @@ def datenstand_kopieren():
 
     Gibt den Pfad zurück. Der echte Ordner wird **nur gelesen**.
     """
-    from scbp import pfade
-    # ⚠⚠ **`app_ordner()`, nicht `app_datei('')`.** Der zweite Weg landet im
+    from scbp import paths
+    # ⚠⚠ **`app_folder()`, nicht `app_datei('')`.** Der zweite Weg landet im
     # Unterordner „Intern" — dort liegen Zwischenspeicher, aber weder Bestand
     # (`Bauplaene/`) noch Einstellungen (`Einstellungen/`). Die ersten Bilder
     # zeigten deshalb „0 von 738 (0 %)": ein Werkzeug, das aussieht, als könne
     # es nichts.
     #
     # ⚠ Mit `SC_BP_HOME` legt der Watcher alles **flach** ab (siehe
-    # `app_datei`) — die Unterordner der Vorlage werden deshalb eingeebnet.
-    quelle = pfade.app_ordner()
+    # `app_file`) — die Unterordner der Vorlage werden deshalb eingeebnet.
+    quelle = paths.app_folder()
     # ⚠⚠ **Nicht unter %TEMP%, sondern in einem Ordner ohne Benutzernamen.**
     # Der Pfad steht auf der Seite „Update & Über" im Bild — unter Windows hiess
     # er `C:\Users\<name>\AppData\Local\Temp\…`, und die Bilder sind

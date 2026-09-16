@@ -45,7 +45,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# ⚠ **Muss vor dem Import von `scbp` stehen.** `pfade` liest `SC_BP_HOME` beim
+# ⚠ **Muss vor dem Import von `scbp` stehen.** `paths` liest `SC_BP_HOME` beim
 # Laden aus; wird die Variable danach gesetzt, wirkt sie nicht mehr.
 #
 # Und sie muss überhaupt gesetzt werden: Die Startdatei auf dem Desktop legt den
@@ -57,7 +57,7 @@ TEST_ABLAGE = os.path.join(os.path.expanduser('~'), 'Documents',
 if not os.environ.get('SC_BP_HOME') and os.path.isdir(TEST_ABLAGE):
     os.environ['SC_BP_HOME'] = TEST_ABLAGE
 
-from scbp import watchlist, pfade                      # noqa: E402
+from scbp import watchlist, paths                      # noqa: E402
 
 # ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `→` — siehe ausgabe.py.
 import ausgabe                                                 # noqa: E402
@@ -117,9 +117,9 @@ def einrichten():
     if not os.path.exists(log):
         with open(log, 'w', encoding='utf-8') as f:
             f.write('<%s> [Notice] <Legacy> Spiel gestartet\n' % _stempel())
-    vorher = pfade.einstellung('spiel_ordner')
+    vorher = paths.setting('spiel_ordner')
     if vorher != ORDNER:
-        pfade.einstellung_setzen('spiel_ordner', ORDNER)
+        paths.set_setting('spiel_ordner', ORDNER)
         print('  Spielordner eingetragen: %s' % ORDNER)
     return log
 
@@ -137,8 +137,8 @@ def launcher_anschliessen():
         print('  · NAS nicht eingehängt — ohne Launcher bleibt alles grün')
         print('    (%s)' % LAUNCHER)
         return False
-    if pfade.einstellung('launcher_ordner') != LAUNCHER:
-        pfade.einstellung_setzen('launcher_ordner', LAUNCHER)
+    if paths.setting('launcher_ordner') != LAUNCHER:
+        paths.set_setting('launcher_ordner', LAUNCHER)
         print('  Launcher angemeldet: %s' % LAUNCHER)
     return True
 
@@ -170,7 +170,7 @@ def _katalogstand_beschneiden():
     im Zweifel eine Minute und weiß nicht, warum nichts kommt.
     """
     import json
-    stand = pfade.app_datei('catalog-seen.json')
+    stand = paths.app_file('catalog-seen.json')
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import sc_bp_watcher as app
     alle = sorted(app.load_types() or {})
@@ -246,11 +246,11 @@ def aufraeumen():
     if watchlist.contains(GEMERKT[0]):
         watchlist.save(watchlist.remove(GEMERKT[0]))
         print('  Von der Merkliste genommen: %s' % GEMERKT[0])
-    if pfade.einstellung('launcher_ordner') == LAUNCHER:
-        pfade.einstellung_setzen('launcher_ordner', '')
+    if paths.setting('launcher_ordner') == LAUNCHER:
+        paths.set_setting('launcher_ordner', '')
         print('  Launcher-Eintrag zurückgenommen')
-    if pfade.einstellung('spiel_ordner') == ORDNER:
-        pfade.einstellung_setzen('spiel_ordner', '')
+    if paths.setting('spiel_ordner') == ORDNER:
+        paths.set_setting('spiel_ordner', '')
         print('  Spielordner-Eintrag zurückgenommen')
     log = os.path.join(ORDNER, 'Game.log')
     if os.path.exists(log):
@@ -273,14 +273,14 @@ def aufraeumen():
 
     # ⚠ Und den Lesestand zurücksetzen. Er merkt sich, bis wohin die Log gelesen
     # wurde — ohne das würden dieselben Zeilen beim nächsten Mal übersprungen.
-    stand = pfade.app_datei('logstand.json')
+    stand = paths.app_file('logstand.json')
     if os.path.exists(stand):
         os.remove(stand)
         print('  Lesestand zurückgesetzt')
 
     # Den Katalogstand wieder vollständig machen, sonst meldet der Watcher die
     # zwei bei jedem Start erneut.
-    katstand = pfade.app_datei('catalog-seen.json')
+    katstand = paths.app_file('catalog-seen.json')
     if os.path.exists(katstand):
         os.remove(katstand)
         print('  Katalogstand zurückgesetzt (wird beim nächsten Start neu gesetzt)')

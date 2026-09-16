@@ -62,7 +62,7 @@ gleichberechtigt. Jedes Schiff trägt seine `herkunft`.
 
 `pledge_cost` und `pledge_id` sind private Angaben. Sie werden abgelegt, weil
 sie dem Spieler gehören und er sie sehen will — aber sie dürfen **nie** in den
-Fehlerbericht geraten. Dieselbe Linie wie `pfade.kuerzen()` bei den Pfaden.
+Fehlerbericht geraten. Dieselbe Linie wie `paths.redact()` bei den Pfaden.
 
 ## Aufbau der Datei (`hangar.json` im eigenen Ordner)
 
@@ -92,7 +92,7 @@ import json
 import os
 import re
 
-from . import erkul, fehler, pfade
+from . import erkul, fehler, paths
 
 FILE = 'hangar.json'
 FORMAT = 1
@@ -104,7 +104,7 @@ INGAME = 'ingame'
 
 
 def path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def empty():

@@ -33,7 +33,7 @@ Werte:      Art/Größe/Gütegrad/Klasse aus dem Launcher-Katalog, sonst von
 Anzeige:    kleines, immer-im-Vordergrund Overlay-Fenster (verschiebbar).
 
 Reines Python-Standardbibliothek-Tool (tkinter) — keine Zusatzpakete nötig.
-Läuft unter **Windows und Linux**; wo die Dateien jeweils liegen, weiß `scbp/pfade.py`.
+Läuft unter **Windows und Linux**; wo die Dateien jeweils liegen, weiß `scbp/paths.py`.
 """
 import os, re, sys, json, time, threading, queue
 import tkinter as tk
@@ -51,7 +51,7 @@ from scbp import (
                   collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
                   settings_window, notice, injection,
                   catalog as katalog_modul, shops, logsource, watchlist,
-                  pfade, phrases, ships, gamebuild, titlebar, sound,
+                  paths, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
 
 try:
@@ -77,30 +77,30 @@ def _mitgeliefert(name):
         return None
 
 # ---------------------------------------------------------------- Konfiguration
-# Wo die Dateien liegen, entscheidet `scbp/pfade.py` je nach Betriebssystem.
+# Wo die Dateien liegen, entscheidet `scbp/paths.py` je nach Betriebssystem.
 # Der SC Deutsch Launcher ist ab jetzt **optional**: Ist er da, wird er genutzt;
 # fehlt er (immer unter Linux), fällt nur seine Bestätigung weg — gemeldet wird
 # trotzdem, denn die Game.log ist die eigentliche Quelle.
-BP_DIR   = pfade.launcher_ordner() or ''
-BP_FILE  = pfade.launcher_datei('sc_bp_erledigt.json', BP_DIR)
-TYPE_FILE = pfade.launcher_datei('bp_item_types.json', BP_DIR)
-CAT_DIR  = pfade.launcher_datei('catalog', BP_DIR)               # Launcher-Katalog (Size/Grade/Klasse)
+BP_DIR   = paths.launcher_folder() or ''
+BP_FILE  = paths.launcher_file('sc_bp_erledigt.json', BP_DIR)
+TYPE_FILE = paths.launcher_file('bp_item_types.json', BP_DIR)
+CAT_DIR  = paths.launcher_file('catalog', BP_DIR)               # Launcher-Katalog (Size/Grade/Klasse)
 HAT_LAUNCHER = bool(BP_DIR) and os.path.isdir(BP_DIR)
 # Manuelle Korrekturen an Size/Grade/Klasse, Vorrang vor dem Launcher-Katalog.
 # Standard: neben den eigenen Einstellungen in %APPDATA%\sc-bp-watcher\.
 # Wer die Datei woanders pflegt, setzt die
 # Umgebungsvariable SC_BP_OVERRIDES auf den vollen Pfad. Fehlt beides, gilt der
 # Katalog unverändert — die Datei ist optional.
-OVERRIDES_FILE = os.environ.get('SC_BP_OVERRIDES') or pfade.app_datei(
+OVERRIDES_FILE = os.environ.get('SC_BP_OVERRIDES') or paths.app_file(
     'bp-overrides.json')
 # Wie oft die Game.log angesehen wird. Einstellbar über `pruefintervall_sekunden`
 # in der `einstellungen.json`; 3 Sekunden sind ein guter Mittelweg zwischen
 # „steht sofort da" und „liest dauernd die Platte". Grenzen 1–60, damit eine
 # vertippte 0 keine Dauerschleife wird.
-POLL_SEC = pfade.einstellung_zahl('pruefintervall_sekunden', 3, 1, 60)
+POLL_SEC = paths.setting_int('pruefintervall_sekunden', 3, 1, 60)
 # Signalton bei einem Fund — manche wollen im Spiel keinen zusätzlichen Ton.
-TON_AN = pfade.einstellung_wahrheit('signalton', True)
-DECKKRAFT = pfade.einstellung_zahl('deckkraft_prozent', 93, 30, 100)
+TON_AN = paths.setting_bool('signalton', True)
+DECKKRAFT = paths.setting_int('deckkraft_prozent', 93, 30, 100)
 # So viele Neuzugänge bleiben im Overlay stehen, ältere rutschen heraus.
 #
 # ⚠ Zweierlei war hier falsch. Erstens war die Zahl **fest** — die Einstellung
@@ -115,7 +115,7 @@ def max_zeilen():
     """Wie viele Zeilen das Overlay behält — jedes Mal frisch gelesen, damit
     eine Änderung in den Einstellungen sofort wirkt und nicht erst nach einem
     Neustart."""
-    return pfade.einstellung_zahl('max_zeilen', MAX_ROWS_VORGABE, 5, 100)
+    return paths.setting_int('max_zeilen', MAX_ROWS_VORGABE, 5, 100)
 
 # --- Katalog-Wache (ab v1.3.0) ---------------------------------------------
 # `bp_item_types.json` listet, was im Spiel überhaupt craftbar ist. Der Launcher
@@ -123,13 +123,13 @@ def max_zeilen():
 # unabhängig davon, ob man es freigeschaltet hat. Der Stand liegt bewusst in einer
 # eigenen Datei, damit ein zweites Werkzeug auf denselben Daten dem Watcher
 # nicht die Meldung wegnimmt.
-APP_DIR    = pfade.app_ordner()
-CAT_SEEN   = pfade.app_datei('catalog-seen.json')
+APP_DIR    = paths.app_folder()
+CAT_SEEN   = paths.app_file('catalog-seen.json')
 # Optionale Beobachtungsliste: Gegenstände, auf die man besonders wartet.
 # Format: {"eintraege": [{"titel": "…", "muster": ["teilstring", …]}, …]} — Muster
 # kleingeschrieben, Treffer per Teilstring. Fehlt die Datei, meldet der Watcher
 # einfach jeden Katalog-Zuwachs.
-WATCHLIST  = pfade.app_datei('watchlist.json')
+WATCHLIST  = paths.app_file('watchlist.json')
 CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur bei Patches)
 
 # --- scmdb-Craftdaten (ab v1.5.0) ------------------------------------------
@@ -149,7 +149,7 @@ CAT_POLL   = 60         # Katalogdatei nur jede Minute prüfen (ändert sich nur
 # `components.ini` übereinstimmend B sagen (auch der Hersteller ist dort falsch).
 # Eine sehr gute Quelle, aber keine unfehlbare.
 SCMDB_BASE     = 'https://scmdb.net/data'
-SCMDB_CACHE    = pfade.app_datei('scmdb-items.json')   # aufbereitet, klein
+SCMDB_CACHE    = paths.app_file('scmdb-items.json')   # aufbereitet, klein
 SCMDB_POLL_SEC = 6 * 3600    # nur alle 6 Stunden nach einer neuen Spielversion sehen
 # Übersetzung und Bauplan-Angaben: beim Start und danach alle sechs Stunden.
 # Häufiger bringt nichts — die Quellen aktualisieren im Tagesrhythmus.
@@ -184,7 +184,7 @@ GRADE_LETTER = {1: 'A', 2: 'B', 3: 'C', 4: 'D'}
 # Rechner falsch, und gar keine Position lässt Tk nach `+0+0` platzieren — bei einem
 # hochkant stehenden Monitor links außen ist dort schlicht kein Bild.
 DEFAULT_GEOM  = os.environ.get('SC_BP_GEOMETRIE') or '440x1000'
-SETTINGS_FILE = pfade.app_datei('watcher.json')
+SETTINGS_FILE = paths.app_file('watcher.json')
 
 # Farben (dunkles Overlay)
 # Xharig-Grün für dunklen Grund. Bis v1.5.0 stand hier noch #47aa42 — die alte
@@ -923,10 +923,10 @@ class Watcher(threading.Thread):
         #   `inj_auto` — hält es sich von selbst aktuell?
         # Der erste fehlte ganz: Ausschalten ging nur über „Wieder entfernen",
         # und beim nächsten Start schrieb das Werkzeug wieder hinein.
-        if not pfade.einstellung_wahrheit('inj_an', True):
+        if not paths.setting_bool('inj_an', True):
             self.texte_next = time.time() + TEXTE_POLL_SEC
             return
-        if not pfade.einstellung_wahrheit('inj_auto', True):
+        if not paths.setting_bool('inj_auto', True):
             self.texte_next = time.time() + TEXTE_POLL_SEC
             return
 
@@ -980,7 +980,7 @@ class Watcher(threading.Thread):
         machen. Gemeldet wird sie im Sechs-Stunden-Lauf, dort stört sie nicht.
         """
         try:
-            return injection.stock_mark() != pfade.einstellung('inj_bestand')
+            return injection.stock_mark() != paths.setting('inj_bestand')
         except Exception:
             return False
 
@@ -1051,7 +1051,7 @@ class Watcher(threading.Thread):
         if not neu_noetig:
             try:
                 marke = injection.stock_mark()
-                if marke != pfade.einstellung('inj_bestand'):
+                if marke != paths.setting('inj_bestand'):
                     neu_noetig = True
             except Exception as ausnahme:
                 fehler.merken('watcher.inj_bestandsmarke', ausnahme)
@@ -1063,7 +1063,7 @@ class Watcher(threading.Thread):
                 # Erst nach dem Schreiben merken: Scheitert das Einrichten,
                 # soll es beim nächsten Durchlauf erneut versucht werden.
                 try:
-                    pfade.einstellung_setzen(
+                    paths.set_setting(
                         'inj_bestand', marke or injection.stock_mark())
                 except Exception as ausnahme:
                     fehler.merken('watcher.inj_marke_merken', ausnahme)
@@ -1223,7 +1223,7 @@ class Watcher(threading.Thread):
         if not getattr(self.tail, 'mission_pattern', None):
             return
         try:
-            pfad = pfade.game_log()
+            pfad = paths.game_log()
             if not pfad or not os.path.isfile(pfad):
                 return
             with open(pfad, 'rb') as f:
@@ -1500,7 +1500,7 @@ class Watcher(threading.Thread):
             namen = [e['n'] for e in katalog_modul.load()['bauplaene'].values()]
             if not namen:
                 return
-            gefunden = phrases.find_self(namen, pfade.log_sicherungen())
+            gefunden = phrases.find_self(namen, paths.log_backups())
             if gefunden and phrases.remember(gefunden):
                 self.tail.pattern = phrases.pattern()
                 self.q.put(('hinweis', language.Phrase('sprache_erkannt', gefunden)))
@@ -1549,7 +1549,7 @@ class Watcher(threading.Thread):
         from scbp import mission_log as _ml
         a_neu = a_ber = 0
         try:
-            _, a_neu, a_ber = _ml.reassess(pfade.spiel_ordner())
+            _, a_neu, a_ber = _ml.reassess(paths.game_folder())
         except Exception as ausnahme:
             # ⚠ Kein Abbruch: Die Bauplaene sind zu diesem Zeitpunkt schon
             # gesichert, und der Spieler soll seine Zahl bekommen.
@@ -1828,7 +1828,7 @@ class Watcher(threading.Thread):
 # Mauszeiger heißen je Fenstersystem anders. `size_nw_se` gibt es nur unter
 # Windows — unter Linux und macOS wirft tkinter dafür einen Fehler und das
 # Fenster kommt gar nicht erst hoch. `hand2` dagegen kennen alle drei.
-CURSOR_GROESSE = 'size_nw_se' if pfade.WINDOWS else 'bottom_right_corner'
+CURSOR_GROESSE = 'size_nw_se' if paths.WINDOWS else 'bottom_right_corner'
 
 
 def sicherer_cursor(name):
@@ -1862,11 +1862,11 @@ class Overlay:
 
         self.umzug_meldung = ''
         try:
-            if pfade.umzug_noetig():
-                anzahl = pfade.umziehen()
+            if paths.migration_needed():
+                anzahl = paths.migrate()
                 if anzahl:
                     self.umzug_meldung = language.t('umzug_fertig', anzahl,
-                                                   pfade.app_ordner())
+                                                   paths.app_folder())
                     sys.stdout.write(self.umzug_meldung + '\n')
         except Exception as ausnahme:
             fehler.merken('start.umzug', ausnahme)
@@ -1917,7 +1917,7 @@ class Overlay:
         # Wie sich das Fenster im Spiel verhält — siehe scbp/overlay.py.
         # 'immer' = steht dauerhaft da (wie bisher), 'popup' = zeigt sich nur,
         # wenn wirklich ein Bauplan dazukommt.
-        self.anzeigeart = pfade.einstellung('overlay_modus') or 'immer'
+        self.anzeigeart = paths.setting('overlay_modus') or 'immer'
         self._popup_uhr = None
         self._letzte_lage = ''
         self._anfasser = None
@@ -1952,7 +1952,7 @@ class Overlay:
         # der nichts eingestellt hat, sieht plötzlich ein anderes Overlay.
         (self.f_title, self.f_item, self.f_sub) = self._schriften_anlegen()
         # Die Symbolgröße hängt an derselben Stufe wie die Schriften.
-        icons.set_level(pfade.einstellung('schriftgroesse') or 'normal')
+        icons.set_level(paths.setting('schriftgroesse') or 'normal')
 
         # --- Titelleiste (Drag-Griff + Schließen) ---
         # ⚠ Die Höhe wächst mit der Schriftgröße mit. Sie stand lange fest auf
@@ -2087,13 +2087,13 @@ class Overlay:
         #
         # Wer das Spiel starten will, hat das große Fenster nicht offen; er
         # sieht das Overlay. Deshalb steht das Zeichen hier, in Grün — und nur
-        # dann, wenn wirklich ein Weg gefunden wurde (`pfade.spielstarter()`).
+        # dann, wenn wirklich ein Weg gefunden wurde (`paths.game_starter()`).
         #
         # ⚠ Eine Rakete, kein Abspielpfeil. Ein `▶` heißt überall „Video ab",
         # nicht „Programm starten"; eine Rakete sagt beides — starten und
         # Weltraum. Gemeldet am 27.08.2026: „SC Starten ist das symbol nicht
         # eindeutig genug".
-        if pfade.spielstarter():
+        if paths.game_starter():
             self.start_lbl = icons.button(bar, 'starten', self._spiel_starten,
                                            color=icons.GREEN,
                                            font=self.f_title)
@@ -2281,12 +2281,12 @@ class Overlay:
         # ⚠ Nur wenn das Fenster offen gespeichert wurde. War es eingeklappt,
         # ist die gemerkte Groesse die des Streifens — die als „offen" zu
         # uebernehmen hiesse, es liesse sich nie wieder richtig aufklappen.
-        if not pfade.einstellung_wahrheit('eingeklappt', False):
+        if not paths.setting_bool('eingeklappt', False):
             _m_lage = GEOM_RE.match(load_geometry() or '')
             if _m_lage:
                 self.breite_offen = int(_m_lage.group(1))
                 self.hoehe_offen = int(_m_lage.group(2))
-        if pfade.einstellung_wahrheit('eingeklappt', False):
+        if paths.setting_bool('eingeklappt', False):
             # Zustand **setzen**, nicht umschalten — siehe `klappzustand_setzen`.
             # `merken=False`: Es ist genau der Zustand, der schon gespeichert
             # ist; ihn erneut zu schreiben wäre nur ein Schreibzugriff mehr.
@@ -2339,7 +2339,7 @@ class Overlay:
             return
         self._kanal_gefragt = True
         try:
-            lage = pfade.kanal_abweichung()
+            lage = paths.channel_mismatch()
             if not lage:
                 return
             # ⚠ Lokal importiert wie überall in dieser Datei — `hauptfenster`
@@ -2350,7 +2350,7 @@ class Overlay:
             gewaehlt = _hf.ask_channel(self.root, eingetragen, kanaele)
             if not gewaehlt:
                 return
-            pfade.einstellung_setzen('spiel_ordner', gewaehlt)
+            paths.set_setting('spiel_ordner', gewaehlt)
             _hf.show_result(
                 self.root, language.t('s_kn_titel'),
                 language.t('s_kn_umgestellt') % os.path.basename(gewaehlt))
@@ -2382,7 +2382,7 @@ class Overlay:
 
     def _stufe(self):
         from scbp.main_window import FONT_LEVELS
-        return FONT_LEVELS.get(pfade.einstellung('schriftgroesse') or 'normal', 1)
+        return FONT_LEVELS.get(paths.setting('schriftgroesse') or 'normal', 1)
 
     def _schriften_anlegen(self):
         n = self._stufe()
@@ -2409,7 +2409,7 @@ class Overlay:
         # oben und unten heraus.
         try:
             icons.set_level(stufe or (
-                pfade.einstellung('schriftgroesse') or 'normal'))
+                paths.setting('schriftgroesse') or 'normal'))
             self.bar.configure(height=icons.width() + 4)
         except Exception as ausnahme:
             fehler.merken('overlay.symbolgroesse', ausnahme)
@@ -2435,7 +2435,7 @@ class Overlay:
 
     def _spiel_starten(self):
         """Star Citizen starten — über den Weg, den der Spieler ohnehin nutzt."""
-        ok, grund = pfade.spiel_starten()
+        ok, grund = paths.start_game()
         if ok:
             self._status_setzen(language.Phrase('s_sp_start_lauft'))
         else:
@@ -2519,7 +2519,7 @@ class Overlay:
 
     def _autostart_titel(self):
         """Wie der Schalter heißt — je nach System und **aktueller** Sprache."""
-        return language.t('autostart_win' if pfade.WINDOWS
+        return language.t('autostart_win' if paths.WINDOWS
                          else 'autostart_linux')
 
     def _neu_beschriften(self):
@@ -2607,13 +2607,13 @@ class Overlay:
         gesehen zu haben.
         """
         try:
-            wunsch = (pfade.einstellung('overlay_leiste') or '').strip()
+            wunsch = (paths.setting('overlay_leiste') or '').strip()
         except Exception:
             wunsch = ''
         if wunsch in ('oben', 'unten'):
             return 'bottom' if wunsch == 'unten' else 'top'
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
         except Exception:
             ecke = 'frei'
         return 'bottom' if ecke.startswith('unten') else 'top'
@@ -2657,9 +2657,9 @@ class Overlay:
                    + abs(self.root.winfo_y() - von[1]))
             if weg <= 2:
                 return
-            if (pfade.einstellung('overlay_ecke') or 'frei') == 'frei':
+            if (paths.setting('overlay_ecke') or 'frei') == 'frei':
                 return
-            pfade.einstellung_setzen('overlay_ecke', 'frei')
+            paths.set_setting('overlay_ecke', 'frei')
             # Die Auswahlliste auf der Seite „Anzeige" mitziehen, falls sie
             # gerade offen ist — sonst steht dort weiter die alte Ecke.
             ruf = overlay.CORNER_DISPLAY[0]
@@ -2783,7 +2783,7 @@ class Overlay:
         die untere Kante als fest, und der Griff geht nach oben.
         """
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
         except Exception:
             ecke = 'frei'
         unten = (ecke.startswith('unten')
@@ -3259,7 +3259,7 @@ class Overlay:
         # änderte nichts. Eine beschriftete Einstellung, die nichts tut, ist
         # schlimmer als gar keine. Die Reihe oben läuft trotzdem weiter, damit
         # das Wiedereinschalten ohne Neustart greift.
-        if not pfade.einstellung_wahrheit('update_pruefen', True):
+        if not paths.setting_bool('update_pruefen', True):
             return
 
         def arbeit():
@@ -3499,7 +3499,7 @@ class Overlay:
                 self._letzte_lage = '%dx%d+%d+%d' % (breite, hoehe, x, y)
                 self._anfasser_zeigen()
             if merken:
-                pfade.einstellung_setzen('eingeklappt', zu)
+                paths.set_setting('eingeklappt', zu)
         except tk.TclError:
             pass
 
@@ -3606,7 +3606,7 @@ class Overlay:
         """
         x, y = self.root.winfo_x(), self.root.winfo_y()
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
             if ecke not in self.ECKEN or ecke == 'frei':
                 return x, y
             # ⚠⚠ **Arbeitsflaeche, nicht die volle Bildschirmflaeche.** Unten
@@ -3743,7 +3743,7 @@ class Overlay:
                 # Gedacht, um die Stelle zu finden, die ihn nach dem Start
                 # wieder einblendet — ohne dass man das Fenster sehen muss.
                 import traceback
-                with open(pfade.app_datei('griff-protokoll.txt'), 'a',
+                with open(paths.app_file('griff-protokoll.txt'), 'a',
                           encoding='utf-8') as f:
                     f.write('%s  eingeklappt=%s  war_platziert=%s\n'
                             % (time.strftime('%H:%M:%S'), self.eingeklappt,
@@ -3899,7 +3899,7 @@ class Overlay:
         # — gemessen am 02.09.2026: 120 px statt 22, das Fenster ragte 86 px
         # unter den Bildschirmrand und nahm die Leiste mit.
         try:
-            if (pfade.einstellung('overlay_ecke') or 'frei') != 'frei':
+            if (paths.setting('overlay_ecke') or 'frei') != 'frei':
                 # ⚠⚠ Die Methode heisst `klappzustand_setzen`. Hier stand bis
                 # v3.9.2 `self._klappen(...)` — ein Name, den es nie gab. Der
                 # Aufruf starb bei JEDEM Start mit AttributeError, das
@@ -3913,7 +3913,7 @@ class Overlay:
                                                      merken=False))
         except Exception as ausnahme:
             fehler.merken('overlay.ecke_beim_start', ausnahme)
-        self.anzeigeart = pfade.einstellung('overlay_modus') or 'immer'
+        self.anzeigeart = paths.setting('overlay_modus') or 'immer'
         if self.anzeigeart == 'popup':
             # ⚠ Die Lage merken, **bevor** versteckt wird. Ein Fenster, das noch
             # nie zu sehen war, meldet `1x1+0+0` — die Mauswache suchte dann in der
@@ -3938,7 +3938,7 @@ class Overlay:
 
     def durchklick_anwenden(self):
         """Klicks durchreichen, wenn eingestellt — und melden, wenn es nicht geht."""
-        an = pfade.einstellung_wahrheit('durchklickbar', False)
+        an = paths.setting_bool('durchklickbar', False)
         if not an and not getattr(self, '_durchklick_war_an', False):
             return True                  # nie eingeschaltet gewesen: nichts zu tun
         self._durchklick_war_an = an
@@ -4145,7 +4145,7 @@ class Overlay:
                     # was ueber den Bildschirmrand rutscht — der Streifen
                     # klebt dort ja schon an der Kante.
                     try:
-                        ecke = pfade.einstellung('overlay_ecke') or 'frei'
+                        ecke = paths.setting('overlay_ecke') or 'frei'
                     except Exception:
                         ecke = 'frei'
                     if ecke.endswith('rechts'):
@@ -4235,7 +4235,7 @@ class Overlay:
         beim Auf- und Zublenden. Steht kein Schloss, passiert nichts."""
         try:
             if (self._schloss is not None and self._schloss.winfo_exists()
-                    and pfade.einstellung_wahrheit('durchklickbar', False)):
+                    and paths.setting_bool('durchklickbar', False)):
                 self._schloss_anwenden(True)
         except Exception:
             pass
@@ -4276,12 +4276,12 @@ class Overlay:
         except (tk.TclError, AttributeError):
             pass
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
         except Exception:
             ecke = '?'
         teile.append('Ecke %s' % ecke)
         try:
-            durch = pfade.einstellung_wahrheit('durchklickbar', False)
+            durch = paths.setting_bool('durchklickbar', False)
         except Exception:
             durch = False
         teile.append('durchklickbar %s' % ('ja' if durch else 'nein'))
@@ -4363,7 +4363,7 @@ class Overlay:
         Zwischenzeit entsperrt, dürfte ein Nachzügler das Schloss nicht wieder
         aufbauen."""
         try:
-            if pfade.einstellung_wahrheit('durchklickbar', False):
+            if paths.setting_bool('durchklickbar', False):
                 self._schloss_anwenden(True, versuch)
         except Exception:
             pass
@@ -4395,7 +4395,7 @@ class Overlay:
 
     def _schloss_loesen(self):
         """Klick aufs Schloss: Klicks wieder abfangen, Overlay ist bedienbar."""
-        pfade.einstellung_setzen('durchklickbar', False)
+        paths.set_setting('durchklickbar', False)
         self._durchklick_war_an = True   # damit `durchklick_anwenden` es aufhebt
         self.durchklick_anwenden()
         self._status_setzen(language.Phrase('ov_schloss_offen'))
@@ -4421,11 +4421,11 @@ class Overlay:
         gespeichertes „an", während in Wahrheit nichts durchgereicht wird, wäre
         das schlechteste von beidem — genauso hält es der Schalter in den
         Einstellungen (`seiten._click_through_toggle`)."""
-        pfade.einstellung_setzen('durchklickbar', True)
+        paths.set_setting('durchklickbar', True)
         if self.durchklick_anwenden():
             self._status_setzen(language.Phrase('ov_schloss_zu'))
         else:
-            pfade.einstellung_setzen('durchklickbar', False)
+            paths.set_setting('durchklickbar', False)
 
     ANFASSER_BREITE = 54
     ANFASSER_HOEHE = 5
@@ -4443,7 +4443,7 @@ class Overlay:
         Seite, an die er gehoeren wuerde.
         """
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
         except Exception:
             ecke = 'frei'
         if ecke.endswith('links'):
@@ -4466,7 +4466,7 @@ class Overlay:
         gemerkten Lage; oben und ohne Ecke bleibt es die Oberkante.
         """
         try:
-            ecke = pfade.einstellung('overlay_ecke') or 'frei'
+            ecke = paths.setting('overlay_ecke') or 'frei'
         except Exception:
             ecke = 'frei'
         if ecke.startswith('unten'):
@@ -4565,7 +4565,7 @@ class Overlay:
                 self.root.after_cancel(self._zuklapp_uhr)
             except (tk.TclError, ValueError):
                 pass
-        sekunden = pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)
+        sekunden = paths.setting_int('popup_sekunden', 6, 2, 60)
         self._zuklapp_uhr = self.root.after(sekunden * 1000,
                                             self._wieder_zuklappen)
 
@@ -4616,7 +4616,7 @@ class Overlay:
                 self.root.after_cancel(self._popup_uhr)
             except (tk.TclError, ValueError):
                 pass
-        sekunden = pfade.einstellung_zahl('popup_sekunden', 6, 2, 60)
+        sekunden = paths.setting_int('popup_sekunden', 6, 2, 60)
         if wegen_maus:
             # Von der Maus geholt: nicht nach ein paar Sekunden wieder wegnehmen,
             # während jemand hinsieht. Es verschwindet, wenn die Maus weg ist —
@@ -4684,10 +4684,10 @@ class Overlay:
         Einstellungsseite — dort, wo jemand danach sucht.
         """
         try:
-            if pfade.einstellungen().get('hotkey_an') is False:
+            if paths.settings().get('hotkey_an') is False:
                 fehler.spur('Hotkey: ausgeschaltet')
                 return
-            kombi = (pfade.einstellung('hotkey') or hotkey_modul.DEFAULT)
+            kombi = (paths.setting('hotkey') or hotkey_modul.DEFAULT)
             ok, grund = self.hotkey.register(kombi)
             fehler.spur('Hotkey: %s (%s)'
                         % ('%s angemeldet' % kombi if ok else 'entfaellt',
@@ -4732,7 +4732,7 @@ class Overlay:
         ]
         # ⚠ Wie der Knopf im Overlay: nur, wenn wirklich ein Startweg da ist.
         # Ein Menüpunkt, der nichts tut, ist schlimmer als keiner.
-        if pfade.spielstarter():
+        if paths.game_starter():
             eintraege.append((language.t('tray_launcher'),
                               im_tk(self._spiel_starten)))
         eintraege += [
@@ -4915,7 +4915,7 @@ class Overlay:
         Adresse in der Statuszeile.
         """
         try:
-            geklappt = pfade.im_browser(adresse)
+            geklappt = paths.open_in_browser(adresse)
         except Exception as ausnahme:
             fehler.merken(stelle, ausnahme, adresse)
             geklappt = False
@@ -4953,7 +4953,7 @@ class Overlay:
         if not tray_icon.available():
             fehler.spur('Ablagesymbol: entfällt (nicht Windows)')
             return
-        if not pfade.einstellung_wahrheit('tray', True):
+        if not paths.setting_bool('tray', True):
             fehler.spur('Ablagesymbol: abgeschaltet (Einstellung „tray")')
             return
         try:
@@ -5021,7 +5021,7 @@ class Overlay:
         Legt nie etwas an und fasst `Exec`, `Icon` und den Dateinamen nicht an
         — siehe `desktop_entry.refresh_label()`.
         """
-        if pfade.WINDOWS:
+        if paths.WINDOWS:
             return
         try:
             # Lokal importiert: Das Modul wird nur unter Linux gebraucht.
@@ -5072,7 +5072,7 @@ if __name__ == '__main__':
     # Der Name muss mit `AppMutex` in `packaging/installer.iss` übereinstimmen.
     # Das Kennzeichen wird nur gesetzt, nie abgefragt — den Einzelstart regelt
     # `overlay.please_show()` oben.
-    if pfade.WINDOWS:
+    if paths.WINDOWS:
         try:
             import ctypes
             ctypes.windll.kernel32.CreateMutexW(

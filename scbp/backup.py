@@ -52,7 +52,7 @@ import os
 import time
 import zipfile
 
-from . import fehler, pfade
+from . import fehler, paths
 
 # Die Kennung im Kopf der Datei — daran ist eine Sicherung dieses Programms zu
 # erkennen, auch wenn jemand sie umbenannt hat.
@@ -170,7 +170,7 @@ def _include(rel):
 
 def _files():
     """Alle mitzunehmenden Dateien der Ablage — (voller Pfad, Name in der Datei)."""
-    root = pfade.app_ordner()
+    root = paths.app_folder()
     found = []
     for folder, _sub, names in os.walk(root):
         for name in names:
@@ -284,7 +284,7 @@ def restore(source):
         # englischen Oberflaeche gelandet.
         return False, 'ungueltig', 0
 
-    root = pfade.app_ordner()
+    root = paths.app_folder()
     fallback = os.path.join(
         os.path.dirname(root.rstrip(os.sep)) or root,
         'SC-BP-Watcher-vorher-%s.zip' % time.strftime('%Y-%m-%d-%H%M%S'))
@@ -438,7 +438,7 @@ def _clear_foreign_paths(root):
     stehen, wuerde das Programm nach dem Einspielen woanders hinschauen als
     dorthin, wo der Spieler die Sicherung gerade eingespielt hat.
     """
-    target = os.path.join(root, 'Einstellungen', pfade.EINSTELLUNGEN)
+    target = os.path.join(root, 'Einstellungen', paths.SETTINGS_FILE)
     if not os.path.isfile(target):
         return
     try:
@@ -455,6 +455,6 @@ def _clear_foreign_paths(root):
                 data[field] = ''
                 changed = True
         if changed:
-            pfade.json_sichern(target, data)
+            paths.save_json(target, data)
     except Exception as exc:
         fehler.merken('backup.clear_foreign_paths', exc)

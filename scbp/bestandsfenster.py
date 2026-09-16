@@ -45,7 +45,7 @@ from . import notice
 from . import catalog as katalog_modul
 from . import watchlist as merk
 from . import icons
-from . import pfade
+from . import paths
 from . import fields
 from .language import t, window_title
 
@@ -109,14 +109,14 @@ def schrift(groesse, fett=False, unterstrichen=False):
     `unterstrichen` ist für Textlinks — im Haus die Auszeichnung dafür, dass
     man klicken kann. Ohne sie sieht ein Textlink aus wie ein Hinweis.
     """
-    fam = 'Segoe UI' if pfade.WINDOWS else 'Helvetica'
+    fam = 'Segoe UI' if paths.WINDOWS else 'Helvetica'
     stil = ' '.join(x for x, an in (('bold', fett),
                                     ('underline', unterstrichen)) if an)
     return (fam, groesse, stil or 'normal')
 
 
 def mono(groesse):
-    return ('Consolas' if pfade.WINDOWS else 'Menlo', groesse)
+    return ('Consolas' if paths.WINDOWS else 'Menlo', groesse)
 
 
 def kuerzel(eintrag):

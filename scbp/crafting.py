@@ -82,7 +82,7 @@ import os
 import re
 import time
 
-from . import fehler, pfade
+from . import fehler, paths
 from .catalog import OFF, fetch_file, _norm
 from .language import t
 
@@ -121,7 +121,7 @@ _cached = {'stand': None, 'daten': None}
 
 def load():
     """Der abgelegte Stand — aus dem Speicher, wenn die Datei unverändert ist."""
-    path = pfade.app_datei(CACHE)
+    path = paths.app_file(CACHE)
     try:
         st = os.stat(path)
         stamp = (st.st_mtime_ns, st.st_size)
@@ -140,7 +140,7 @@ def load():
     return EMPTY.copy()
 
 def _save(data):
-    target = pfade.app_datei(CACHE)
+    target = paths.app_file(CACHE)
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target + '.tmp', 'w', encoding='utf-8') as f:

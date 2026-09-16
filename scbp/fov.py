@@ -61,7 +61,7 @@ import math
 import os
 import re
 
-from . import pfade
+from . import paths
 
 # ISO/IEC 7810 ID-1 — Bankkarte, Führerschein, Personalausweis.
 # ⚠ Diese Zahlen sind eine Norm, keine Schätzung. Nicht „glätten".
@@ -181,7 +181,7 @@ def rating(actual_distance_mm, target_distance_mm):
 def _attribute_file(game_folder=None):
     """Die `attributes.xml` des Spielers — dort steht der eingestellte Wert."""
     try:
-        root = game_folder or pfade.spiel_ordner()
+        root = game_folder or paths.game_folder()
     except Exception:
         root = None
     if not root:
@@ -269,14 +269,14 @@ def stored():
     """Die zuletzt gespeicherte Kalibrierung, falls es eine gibt.
 
     ⚠⚠ **Gelesen wird direkt aus dem Wörterbuch, nicht über die Helfer.**
-    `pfade.einstellung()` ist für **Pfade** gedacht und gibt bei allem, was
+    `paths.setting()` ist für **Pfade** gedacht und gibt bei allem, was
     kein Text ist, `None` zurück — die Kalibrierung war damit nach jedem
-    Neustart weg, ohne eine einzige Fehlermeldung. `einstellung_zahl()`
+    Neustart weg, ohne eine einzige Fehlermeldung. `setting_int()`
     wiederum liefert `int`, und „0,2330 mm je Pixel" ist keine ganze Zahl.
     Für Fließkommawerte gibt es hier keinen passenden Helfer.
     """
     try:
-        all_hits = pfade.einstellungen() or {}
+        all_hits = paths.settings() or {}
     except Exception:
         return {}
     data = {}
@@ -305,7 +305,7 @@ def remember(mm_per_px=None, width_px=None, distance_mm=None):
         if value is None:
             continue
         try:
-            pfade.einstellung_setzen(key, float(value))
+            paths.set_setting(key, float(value))
             written += 1
         except Exception:
             from . import fehler

@@ -45,7 +45,7 @@ TK_IS_NATIVE = sys.platform.startswith(('win', 'darwin'))
 
 
 def clean_environment():
-    """Weiterleitung — die Wahrheit steht in `pfade`.
+    """Weiterleitung — die Wahrheit steht in `paths`.
 
     ⚠ Sie stand hier, weil die Dateiauswahl sie zuerst brauchte. Am 27.08.2026
     stellte sich heraus, dass der **Neustart nach einem Update** dieselbe Wäsche
@@ -53,8 +53,8 @@ def clean_environment():
     dass sich das Werkzeug unter Linux nicht selbst neu starten konnte. Eine
     Wäsche an einer Stelle, benutzt von allen.
     """
-    from . import pfade
-    return pfade.saubere_umgebung()
+    from . import paths
+    return paths.clean_environment()
 
 
 def _on_path(name):

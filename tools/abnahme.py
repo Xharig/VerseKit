@@ -244,13 +244,13 @@ def ablage_vorbereiten():
     # ⚠⚠ **Den Ablageort das Programm sagen lassen.** Der erste Anlauf riet
     # ihn (`~/Dokumente/SC BP Watcher`) und fand nichts — der Nutzer hatte ihn
     # verlegt. Ergebnis: „keine Spieldaten vorhanden", und ausgerechnet die
-    # Plausibilitätsprüfung fiel aus. `pfade` kennt den richtigen Ort, samt
+    # Plausibilitätsprüfung fiel aus. `paths` kennt den richtigen Ort, samt
     # Umgebungsvariable und Einstellungsdatei.
     quellen = []
     alt_heim = os.environ.pop('SC_BP_HOME', None)
     try:
-        from scbp import pfade as _pf
-        echt = _pf.app_ordner()
+        from scbp import paths as _pf
+        echt = _pf.app_folder()
         for kandidat in (os.path.join(echt or '', 'Intern'), echt):
             if kandidat and os.path.isdir(kandidat):
                 quellen.append(kandidat)
@@ -627,13 +627,13 @@ def schriftgroessen_pruefen():
     Geprüft wird die **Mindesthöhe der Seitenleiste** gegen die Fensterhöhe:
     Passt die Leiste nicht mehr, sind Reiter unerreichbar.
     """
-    from scbp import main_window, pfade, icons
+    from scbp import main_window, paths, icons
 
-    alt_stufe = pfade.einstellung('schriftgroesse') or 'normal'
+    alt_stufe = paths.setting('schriftgroesse') or 'normal'
     gemessen_stufen = {}
     try:
         for stufe in ('klein', 'normal', 'gross', 'sehrgross'):
-            pfade.einstellung_setzen('schriftgroesse', stufe)
+            paths.set_setting('schriftgroesse', stufe)
             icons.set_level(stufe)
             hf = main_window.MainWindow(version='0.0.0-abnahme')
             hf.root.withdraw()
@@ -656,7 +656,7 @@ def schriftgroessen_pruefen():
             finally:
                 hf.root.destroy()
     finally:
-        pfade.einstellung_setzen('schriftgroesse', alt_stufe)
+        paths.set_setting('schriftgroesse', alt_stufe)
         icons.set_level(alt_stufe)
 
     # ⚠⚠ **Die Mindestbreite muss mit der Schrift wachsen.** „Bei sehr groß
@@ -680,7 +680,7 @@ def schalter_pruefen():
     Geprüft wird stellvertretend die Injektion: Nach dem Ausschalten darf die
     Textdatei keine eigenen Marken mehr tragen.
     """
-    from scbp import injection, pfade
+    from scbp import injection, paths
     pruefe(hasattr(injection, 'is_applied') and hasattr(injection, 'remove_texts'),
            'die Injektion kann ihren eigenen Stand prüfen und zurücknehmen')
 

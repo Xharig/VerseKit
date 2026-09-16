@@ -49,7 +49,7 @@ import time
 import urllib.request
 import zipfile
 
-from . import pfade
+from . import paths
 from .language import t
 
 NOTE_FILE = 'uebersetzung.json'
@@ -141,7 +141,7 @@ def latest(source):
 
 def _note():
     try:
-        with open(pfade.app_datei(NOTE_FILE), encoding='utf-8') as f:
+        with open(paths.app_file(NOTE_FILE), encoding='utf-8') as f:
             d = json.load(f)
         return d if isinstance(d, dict) else {}
     except Exception:
@@ -149,7 +149,7 @@ def _note():
 
 
 def _note_write(d):
-    target = pfade.app_datei(NOTE_FILE)
+    target = paths.app_file(NOTE_FILE)
     try:
         with open(target + '.tmp', 'w', encoding='utf-8') as f:
             json.dump(d, f, ensure_ascii=False, indent=1)
@@ -224,7 +224,7 @@ def _ini_from_zip(content, sprache):
 def target_ini(sprache, game_dir=None):
     """Wohin die Datei gehört. Ein vorhandener `Data`-Ordner wird beibehalten,
     sonst wird `data` angelegt — Linux unterscheidet die beiden."""
-    root = game_dir or pfade.spiel_ordner()
+    root = game_dir or paths.game_folder()
     if not root:
         return None
     for spelling in ('data', 'Data'):
@@ -249,7 +249,7 @@ def game_language(game_dir=None):
     meldete trotzdem Erfolg. Am 29.08.2026 gemeldet; es erklärt vermutlich
     monatelang nicht ankommende Auftragstexte.
     """
-    root = game_dir or pfade.spiel_ordner()
+    root = game_dir or paths.game_folder()
     if not root:
         return None
     path = os.path.join(root, 'user.cfg')
@@ -276,7 +276,7 @@ def set_user_cfg(sprache, audio=None, game_dir=None):
     überschreiben, weil man eine Zeile ändern will, wäre ein handfester
     Schaden — deshalb wird zeilenweise gelesen und nur die betroffene Zeile
     ausgetauscht."""
-    root = game_dir or pfade.spiel_ordner()
+    root = game_dir or paths.game_folder()
     if not root:
         return False
     path = os.path.join(root, 'user.cfg')

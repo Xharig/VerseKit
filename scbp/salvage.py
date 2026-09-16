@@ -103,7 +103,7 @@ import json
 import os
 import time
 
-from . import erkul, fehler, pfade
+from . import erkul, fehler, paths
 
 FILE = 'bergung.json'
 FORMAT = 1
@@ -128,7 +128,7 @@ REMOVABLE = frozenset((
 
 
 def _store_path():
-    return pfade.app_datei(FILE)
+    return paths.app_file(FILE)
 
 
 def load():

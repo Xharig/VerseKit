@@ -31,7 +31,7 @@ laufen könnte.
 import os
 import sys
 
-from . import pfade
+from . import paths
 
 NAME = 'SC BP Watcher'
 
@@ -71,8 +71,8 @@ def command():
     if appimage:
         return appimage
     if getattr(sys, 'frozen', False):
-        return '"%s"' % sys.executable if pfade.WINDOWS else sys.executable
-    if pfade.WINDOWS:
+        return '"%s"' % sys.executable if paths.WINDOWS else sys.executable
+    if paths.WINDOWS:
         pyw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')
         if not os.path.exists(pyw):
             pyw = sys.executable
@@ -159,7 +159,7 @@ def _linux_set(an):
 # ------------------------------------------------------------------ Nach außen
 def is_on():
     """Startet der Watcher mit dem System? Fehler gelten als „aus"."""
-    return _win_on() if pfade.WINDOWS else _linux_on()
+    return _win_on() if paths.WINDOWS else _linux_on()
 
 
 # Wer den Autostart anzeigt, trägt sich hier ein.
@@ -197,7 +197,7 @@ def _notify():
 
 def set_on(an):
     """Ein- oder ausschalten. Gibt zurück, ob es geklappt hat."""
-    geklappt = _win_set(an) if pfade.WINDOWS else _linux_set(an)
+    geklappt = _win_set(an) if paths.WINDOWS else _linux_set(an)
     if geklappt:
         _notify()
     return geklappt
@@ -205,11 +205,11 @@ def set_on(an):
 
 def possible():
     """Lässt sich der Autostart auf diesem System überhaupt schalten?"""
-    return winreg is not None if pfade.WINDOWS else True
+    return winreg is not None if paths.WINDOWS else True
 
 
 if __name__ == '__main__':
     print('möglich:', possible(), '· an:', is_on())
     print('Befehl :', command())
-    if not pfade.WINDOWS:
+    if not paths.WINDOWS:
         print('Datei  :', _desktop_file())
