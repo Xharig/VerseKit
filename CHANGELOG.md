@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.45.0 - 2026-09-16
+
+> **Wie weit bist du mit den Bauplänen, die du wirklich willst?** Der
+> Bauplan-Fortschritt zeigt das jetzt auch nur für deine Merkliste. Dafür
+> bleiben freigeschaltete Baupläne abgehakt auf der Merkliste stehen, statt
+> zu verschwinden.
+
 ### Neu
 
 - **Bauplan-Fortschritt nur für die Merkliste.** Oben auf der Seite wählst du
