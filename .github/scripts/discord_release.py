@@ -109,7 +109,33 @@ def fuer_discord(text):
             zeilen.append('> %s **%s**' % (marke, titel) if titel else '> %s' % marke)
             continue
         zeilen.append(zeile)
-    text = '\n'.join(zeilen)
+
+    # ⚠⚠ **Mehrzeilige Blockzitate zu EINER Zeile zusammenziehen** (16.09.2026).
+    #
+    # Der Vorspann jeder Version ist ein Blockzitat und im Changelog auf rund
+    # 76 Zeichen umbrochen, damit er sich im Editor lesen lässt. Die Glättung
+    # weiter unten lässt `>`-Zeilen bewusst in Ruhe — dadurch stand der
+    # Vorspann in **jeder** Discord-Karte zerhackt da, mitten im Satz
+    # umgebrochen („Zwei Zeilen standen fest / auf Deutsch darin — wer …").
+    #
+    # Hier werden Folgezeilen angehängt und ihr `> ` entfernt. Eine Zeile mit
+    # **Hinweis-Marke** (⚠️ ❗ ✅ ℹ️, oben erzeugt) bleibt eigenständig: Sie ist
+    # die Überschrift eines Kastens, kein Satzteil.
+    marken = ('⚠️', '❗', '✅', 'ℹ️')
+    zusammen = []
+    for zeile in zeilen:
+        ist_zitat = zeile.lstrip().startswith('>')
+        rumpf = zeile.lstrip().lstrip('>').strip()
+        ueberschrift = any(rumpf.startswith(m) for m in marken)
+        vorher_zitat = (zusammen
+                        and zusammen[-1].lstrip().startswith('>')
+                        and not any(zusammen[-1].lstrip().lstrip('>').strip()
+                                    .startswith(m) for m in marken))
+        if ist_zitat and rumpf and not ueberschrift and vorher_zitat:
+            zusammen[-1] = zusammen[-1].rstrip() + ' ' + rumpf
+            continue
+        zusammen.append(zeile)
+    text = '\n'.join(zusammen)
 
     # ⚠ Weiche Umbrüche zusammenziehen. Der Changelog bricht bei ~80 Zeichen um,
     # damit er sich im Editor lesen lässt. Discord bricht selbst um — die harten
