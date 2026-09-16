@@ -34,8 +34,6 @@ Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald 
 
 > 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](https://github.com/Xharig/VerseKit/releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Info → Update & Über → „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — genau dafür sind sie da.
 
-> ℹ️ **Der SC Deutsch Launcher ist nicht mehr Voraussetzung.** Die eigentliche Quelle ist die `Game.log` von Star Citizen — dort steht jeder freigeschaltete Bauplan im Klartext. Ist der Launcher da, wird er weiter genutzt: Er liefert deutsche Bezeichnungen und meldet nach, was in den Protokollen nicht mehr steht. Ist er nicht da (unter Linux immer), läuft der Watcher trotzdem.
-
 <table>
 <tr>
 <td width="32%" valign="top" align="center">
