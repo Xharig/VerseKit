@@ -21473,6 +21473,52 @@ def main():
     pruefe(not _fehlt219,
            'jeder eigene Text steht in jeder Sprache (fehlt: %r)' % _fehlt219)
 
+    print('\n221. Jede Auswahlreihe kann `select` UND `select_quiet`')
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Es gibt **zwei** Fassungen einer
+    # Auswahlreihe: `main_window.choice` und `seiten._choice`. Die eine hing
+    # `select` **und** `select_quiet` an das Widget, die andere nur `select`.
+    # Fuenf Stellen rufen `select_quiet` auf — bei der zweiten Fassung endete
+    # das in `AttributeError: 'Frame' object has no attribute 'select_quiet'`.
+    #
+    # ⚠ **Vier dieser fuenf Stellen stehen in `try/except`** und haben den
+    # Fehler verschluckt: Die Auswahl frischte sich dort nie auf, ohne jede
+    # Spur. Sichtbar wurde es nur an der einen ungekapselten Stelle (Overlay-
+    # Ecke), und zwar im Fehlerbericht eines Nutzers — nicht bei uns.
+    #
+    # ⭐ **Pruefung 218 kann das nicht sehen:** Das Widget ist ein `tk.Frame`,
+    # also eine Klasse **mit** Basisklasse, und die ueberspringt sie bewusst,
+    # um Fehlalarme zu vermeiden. Zwei Wachen mit unterschiedlichem Zuschnitt
+    # sind hier billiger als eine, die beides halb kann.
+    import ast as _ast221
+    _fehlt221 = []
+    # ⚠ Die beiden heissen **unterschiedlich** — `_choice` hier, `round_select`
+    # dort. Genau deshalb fiel der Unterschied so lange nicht auf: Wer die eine
+    # kennt, sucht die andere nicht.
+    for _datei221, _funktion221 in (('scbp/seiten.py', '_choice'),
+                                    ('scbp/main_window.py', 'round_select')):
+        _pfad221 = os.path.join(WURZEL, _datei221)
+        if not os.path.exists(_pfad221):
+            _fehlt221.append('%s fehlt' % _datei221)
+            continue
+        _baum221 = _ast221.parse(io.open(_pfad221, encoding='utf-8').read())
+        _treffer221 = [k for k in _ast221.walk(_baum221)
+                       if isinstance(k, _ast221.FunctionDef)
+                       and k.name == _funktion221]
+        if not _treffer221:
+            _fehlt221.append('%s: %s()' % (_datei221, _funktion221))
+            continue
+        # Welche Namen haengt die Funktion an ihr Rueckgabe-Widget?
+        _gesetzt221 = {t.attr for k in _treffer221
+                       for t in _ast221.walk(k)
+                       if isinstance(t, _ast221.Attribute)
+                       and isinstance(t.ctx, _ast221.Store)}
+        for _name221 in ('select', 'select_quiet'):
+            if _name221 not in _gesetzt221:
+                _fehlt221.append('%s: %s() setzt kein .%s'
+                                 % (_datei221, _funktion221, _name221))
+    pruefe(not _fehlt221,
+           'beide Auswahlreihen bieten select und select_quiet (%r)' % _fehlt221)
+
     print('\n220. Die Versionsmeldung passt in eine Discord-Nachricht')
     # ⚠⚠ **Warum es diese Pruefung gibt.** Die zweisprachige Meldung (seit
     # 16.09.2026) stellt deutsch und englisch untereinander — damit ist die

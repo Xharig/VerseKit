@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.42.4 - 2026-09-16
+
+> **Reporting a bug needs no GitHub account — and now the page says so.** On the
+> "Report a problem" page the GitHub route was the most visible one, even though
+> the red button works without any account at all. One more sentence spells that
+> out, and points to Discord for anyone who would rather write than click.
+
+### Improved
+
+- **The "Report a problem" page now states that both routes work without a
+  GitHub account.** Click "GitHub issue" while signed out and the button appears
+  greyed out — from the outside that looks like a restriction. Spotted thanks to
+  KynoTnis (ADI)
+
+### Fixed
+
+- **After moving the overlay, the settings still showed the old corner.** Drag
+  the overlay somewhere else and it switches to "free" — the selector above it
+  never noticed. This also affected resetting the filters in the blueprint
+  inventory and in the menu next to the clock
+
 ## v3.42.3 - 2026-09-16
 
 > **The English installer speaks English now.** Two lines in it were hard-coded
