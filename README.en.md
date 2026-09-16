@@ -34,8 +34,6 @@ A small, borderless overlay that tells you **in real time** when a new blueprint
 
 > 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
 
-> ℹ️ **The SC Deutsch Launcher is no longer required.** The actual source is Star Citizen's own `Game.log` — every unlocked blueprint is written there in plain text. If the launcher is installed it is still used: it confirms finds and supplies German names. If it isn't (always the case on Linux), the watcher works anyway.
-
 <table>
 <tr>
 <td width="32%" valign="top" align="center">
