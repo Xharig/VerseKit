@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.43.1 - 2026-09-16
+
+> **VerseKit now runs stable on Windows with joysticks connected.** The device
+> list queried the driver so often that the program could crash hard — it now
+> uses a route that does not touch the driver. As a bonus, the real names of
+> your sticks and pedals finally show up there.
+
 ### Improved
 
 - **The devices page shows the real joystick names** — such as "L-VPC Stick

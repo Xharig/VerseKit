@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.43.1 - 2026-09-16
+
+> **Mit Joysticks läuft VerseKit unter Windows jetzt stabil.** Die Geräteliste
+> fragte den Treiber so oft ab, dass das Programm hart abstürzen konnte — sie
+> kommt jetzt über einen Weg, der den Treiber nicht anspricht. Nebenbei stehen
+> dort endlich die echten Namen deiner Sticks und Pedale.
+
 ### Verbessert
 
 - **Die Geräte-Seite zeigt die echten Namen der Joysticks** — etwa „L-VPC
