@@ -128,13 +128,37 @@ def _linux_devices():
     return out
 
 
-def _windows_devices():
-    """Die Joysticks des Systems unter Windows, ueber `winmm`.
+# HID-Verwendungen, die als Eingabegeraet fuer ein Spiel zaehlen
+# (Usage Page 0x01 „Generic Desktop"): Joystick, Gamepad, Mehrachsen-Geraet.
+_GAME_USAGES = (0x04, 0x05, 0x08)
 
-    Dasselbe Ergebnis wie `_linux_geraete()`: `[{'pfad', 'name', 'kennung'}]`.
-    `pfad` ist hier keine Datei, sondern die Nummer, unter der `winmm` das
-    Geraet fuehrt (`joy0`, `joy1`, …) — es gibt unter Windows keinen Pfad,
-    und die Nummer ist das Einzige, was ein Geraet dort identifiziert.
+# Gerätename je Systempfad — einmal gelesen, danach gemerkt. Siehe
+# `_windows_devices`, warum das Oeffnen nicht bei jedem Takt passieren soll.
+_names_by_path = {}
+
+
+def _windows_devices():
+    """Die Joysticks des Systems unter Windows, ueber Raw Input.
+
+    Dasselbe Ergebnis wie `_linux_devices()`: `[{'pfad', 'name', 'kennung'}]`.
+    `pfad` ist der Geraetepfad des Systems (`\\\\?\\HID#VID_…`).
+
+    ⛔⛔ **Nicht mehr ueber `winmm`** (16.09.2026). Bis v3.43.0 stand hier
+    `joyGetNumDevs()` mit `joyGetDevCapsW()` fuer jeden der 16 Plaetze — und
+    die Geraete-Seite ruft das **alle drei Sekunden**. Am 12.09.2026 riss das
+    ein Windows mit HOTAS-Aufbau hart herunter:
+    `Windows fatal exception: code 0xc0000374` (Heap-Beschaedigung), mitten in
+    `joyGetDevCapsW`. Die Struktur war richtig (728 Byte wie `JOYCAPSW`); die
+    Beschaedigung entsteht im Treiberpfad dahinter, und dagegen hilft auf
+    Python-Seite kein `try` — der Prozess ist einfach weg.
+
+    `GetRawInputDeviceList` fragt nur die Geraeteliste des Systems ab und
+    spricht keinen Joystick-Treiber an. Den Namen gibt es danach nur ueber ein
+    kurzes Oeffnen des Geraets (`HidD_GetProductString`) — das geschieht
+    **einmal je Geraet** und wird gemerkt, nicht bei jedem Takt.
+
+    ⚠ Alle Aufrufe mit `argtypes`/`restype`: Ohne sie reicht `ctypes` Griffe
+    als 32-Bit-Zahl durch, und auf 64 Bit ist ein Griff breiter.
 
     ⚠ **Das ist NICHT die Nummer, die Star Citizen benutzt.** Wie unter Linux
     auch: Die Reihenfolge des Systems und die des Spiels sind zwei
@@ -144,42 +168,141 @@ def _windows_devices():
     import ctypes
     from ctypes import wintypes
 
-    class JOYCAPS(ctypes.Structure):
-        _fields_ = [('wMid', wintypes.WORD), ('wPid', wintypes.WORD),
-                    ('szPname', wintypes.WCHAR * 32),
-                    ('wXmin', wintypes.UINT), ('wXmax', wintypes.UINT),
-                    ('wYmin', wintypes.UINT), ('wYmax', wintypes.UINT),
-                    ('wZmin', wintypes.UINT), ('wZmax', wintypes.UINT),
-                    ('wNumButtons', wintypes.UINT),
-                    ('wPeriodMin', wintypes.UINT),
-                    ('wPeriodMax', wintypes.UINT),
-                    ('wRmin', wintypes.UINT), ('wRmax', wintypes.UINT),
-                    ('wUmin', wintypes.UINT), ('wUmax', wintypes.UINT),
-                    ('wVmin', wintypes.UINT), ('wVmax', wintypes.UINT),
-                    ('wCaps', wintypes.UINT),
-                    ('wMaxAxes', wintypes.UINT),
-                    ('wNumAxes', wintypes.UINT),
-                    ('wMaxButtons', wintypes.UINT),
-                    ('szRegKey', wintypes.WCHAR * 32),
-                    ('szOEMVxD', wintypes.WCHAR * 260)]
+    class RAWINPUTDEVICELIST(ctypes.Structure):
+        _fields_ = [('hDevice', wintypes.HANDLE), ('dwType', wintypes.DWORD)]
+
+    class RID_DEVICE_INFO_HID(ctypes.Structure):
+        _fields_ = [('dwVendorId', wintypes.DWORD),
+                    ('dwProductId', wintypes.DWORD),
+                    ('dwVersionNumber', wintypes.DWORD),
+                    ('usUsagePage', wintypes.USHORT),
+                    ('usUsage', wintypes.USHORT)]
+
+    class _Union(ctypes.Union):
+        # Die Tastatur-Variante ist mit 24 Byte die groesste — sie bestimmt die
+        # Groesse, die Windows in `cbSize` erwartet (32 Byte insgesamt).
+        _fields_ = [('hid', RID_DEVICE_INFO_HID),
+                    ('keyboard', wintypes.DWORD * 6)]
+
+    class RID_DEVICE_INFO(ctypes.Structure):
+        _fields_ = [('cbSize', wintypes.DWORD), ('dwType', wintypes.DWORD),
+                    ('u', _Union)]
+
+    RIM_TYPEHID = 2
+    RIDI_DEVICENAME = 0x20000007
+    RIDI_DEVICEINFO = 0x2000000b
+    FAIL = ctypes.c_uint(-1).value
 
     out = []
     try:
-        winmm = ctypes.WinDLL('winmm')
-        for number in range(winmm.joyGetNumDevs()):
-            caps = JOYCAPS()
-            if winmm.joyGetDevCapsW(number, ctypes.byref(caps),
-                                    ctypes.sizeof(caps)) != 0:
-                # Kein Geraet auf diesem Platz — das ist der Normalfall,
-                # `joyGetNumDevs()` meldet die Zahl der Plaetze, nicht der
-                # angeschlossenen Geraete.
+        user32 = ctypes.WinDLL('user32', use_last_error=True)
+        list_fn = user32.GetRawInputDeviceList
+        list_fn.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.UINT),
+                            wintypes.UINT]
+        list_fn.restype = wintypes.UINT
+        info_fn = user32.GetRawInputDeviceInfoW
+        info_fn.argtypes = [wintypes.HANDLE, wintypes.UINT, ctypes.c_void_p,
+                            ctypes.POINTER(wintypes.UINT)]
+        info_fn.restype = wintypes.UINT
+
+        entry_size = ctypes.sizeof(RAWINPUTDEVICELIST)
+        count = wintypes.UINT(0)
+        if list_fn(None, ctypes.byref(count), entry_size) == FAIL:
+            return []
+        # Zwischen Zaehlen und Holen kann ein Geraet dazukommen — dann ist der
+        # Puffer zu klein, und es wird mit der neuen Zahl noch einmal versucht.
+        for _attempt in range(3):
+            slots = max(1, count.value)
+            buffer = (RAWINPUTDEVICELIST * slots)()
+            count.value = slots          # Eingang: Groesse des Puffers
+            got = list_fn(buffer, ctypes.byref(count), entry_size)
+            if got != FAIL:
+                break
+        else:
+            return []
+
+        seen = set()
+        for entry in buffer[:got]:
+            if entry.dwType != RIM_TYPEHID:
                 continue
-            out.append({'pfad': 'joy%d' % number,
-                           'name': caps.szPname,
-                           'kennung': ident_from_ids(caps.wMid, caps.wPid)})
+            info = RID_DEVICE_INFO()
+            info.cbSize = ctypes.sizeof(RID_DEVICE_INFO)
+            size = wintypes.UINT(info.cbSize)
+            if info_fn(entry.hDevice, RIDI_DEVICEINFO, ctypes.byref(info),
+                       ctypes.byref(size)) == FAIL:
+                continue
+            hid = info.u.hid
+            if hid.usUsagePage != 0x01 or hid.usUsage not in _GAME_USAGES:
+                continue
+
+            size = wintypes.UINT(0)
+            info_fn(entry.hDevice, RIDI_DEVICENAME, None, ctypes.byref(size))
+            if not size.value:
+                continue
+            name_buf = ctypes.create_unicode_buffer(size.value + 1)
+            if info_fn(entry.hDevice, RIDI_DEVICENAME, name_buf,
+                       ctypes.byref(size)) == FAIL:
+                continue
+            path = name_buf.value
+            # Ein Geraet mit mehreren Funktionsbloecken taucht mehrfach auf
+            # (`…&Col01`, `…&Col02`) — es ist trotzdem EIN Stick.
+            key = re.sub(r'&col[0-9a-f]+', '', path.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+
+            if path not in _names_by_path:
+                _names_by_path[path] = _windows_product_name(path)
+            out.append({'pfad': path,
+                        'name': _names_by_path[path],
+                        'kennung': ident_from_ids(hid.dwVendorId & 0xFFFF,
+                                                  hid.dwProductId & 0xFFFF)})
     except Exception:
         return []
     return out
+
+
+def _windows_product_name(path):
+    """Der Produktname eines HID-Geraets — oder `''`.
+
+    ⚠ Geoeffnet wird **ohne Lese- und Schreibrecht** (Zugriff 0). Das reicht
+    fuer die Beschreibung und kollidiert nicht mit dem Spiel, das den Stick
+    gerade benutzt.
+    """
+    import ctypes
+    from ctypes import wintypes
+    try:
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        hid = ctypes.WinDLL('hid')
+        create = kernel32.CreateFileW
+        create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                           ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD,
+                           wintypes.HANDLE]
+        create.restype = wintypes.HANDLE
+        close = kernel32.CloseHandle
+        close.argtypes = [wintypes.HANDLE]
+        close.restype = wintypes.BOOL
+        product = hid.HidD_GetProductString
+        product.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.ULONG]
+        product.restype = wintypes.BOOLEAN
+
+        FILE_SHARE_READ_WRITE = 0x1 | 0x2
+        OPEN_EXISTING = 3
+        handle = create(path, 0, FILE_SHARE_READ_WRITE, None, OPEN_EXISTING,
+                        0, None)
+        if not handle or handle == ctypes.c_void_p(-1).value:
+            return ''
+        try:
+            # 126 Zeichen ist die Obergrenze, die HID fuer Zeichenketten
+            # vorsieht; der Puffer ist in Byte anzugeben.
+            text = ctypes.create_unicode_buffer(127)
+            if product(handle, text, ctypes.sizeof(text)):
+                return text.value.strip()
+            return ''
+        finally:
+            close(handle)
+    except Exception:
+        return ''
 
 
 def devices():
@@ -309,17 +432,31 @@ def _windows_wait(duration, stop_flag=None):
 
     try:
         winmm = ctypes.WinDLL('winmm')
+        # ⚠ Feste Typangaben — ohne sie reicht `ctypes` Zeiger und Nummern
+        # geraten durch (siehe `_windows_devices`).
+        winmm.joyGetNumDevs.argtypes = []
+        winmm.joyGetNumDevs.restype = wintypes.UINT
+        winmm.joyGetDevCapsW.argtypes = [ctypes.c_size_t, ctypes.c_void_p,
+                                         wintypes.UINT]
+        winmm.joyGetDevCapsW.restype = wintypes.UINT
+        winmm.joyGetPosEx.argtypes = [wintypes.UINT, ctypes.c_void_p]
+        winmm.joyGetPosEx.restype = wintypes.UINT
         count = winmm.joyGetNumDevs()
         if not count:
             return None
+        # `winmm` nennt jeden HID-Stick „Microsoft-PC-Joysticktreiber"; den
+        # echten Namen kennt die Raw-Input-Liste, verbunden über die Kennung.
+        real_names = {d['kennung']: d['name'] for d in _windows_devices()
+                      if d.get('name')}
         devices = {}
         for i in range(count):
             caps = JOYCAPS()
             if winmm.joyGetDevCapsW(i, ctypes.byref(caps),
                                     ctypes.sizeof(caps)) != 0:
                 continue
-            devices[i] = {'name': caps.szPname,
-                          'kennung': ident_from_ids(caps.wMid, caps.wPid)}
+            ident = ident_from_ids(caps.wMid, caps.wPid)
+            devices[i] = {'name': real_names.get(ident) or caps.szPname,
+                          'kennung': ident}
         if not devices:
             return None
 

@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Die Geräte-Seite zeigt die echten Namen der Joysticks** — etwa „L-VPC
+  Stick WarBRD-D" statt „Microsoft-PC-Joysticktreiber". Auch beim Belegen per
+  Knopfdruck.
+- **Der Fehlerbericht nennt, wann ein harter Absturz festgehalten wurde**,
+  statt ihn immer als „beim vorigen Lauf" zu führen.
+
+### Behoben
+
+- **VerseKit konnte unter Windows mit angeschlossenen Joysticks hart
+  abstürzen.** Die Geräteliste fragte alle drei Sekunden den Joystick-Treiber
+  ab und konnte dabei den Speicher des Programms beschädigen. Sie kommt jetzt
+  über einen Weg, der den Treiber nicht anspricht.
+
 ## v3.43.0 - 2026-09-16
 
 > **Die Herstellung zeigt jetzt, was am Ende herauskommt.** Oben steht eine

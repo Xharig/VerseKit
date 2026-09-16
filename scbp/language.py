@@ -682,8 +682,8 @@ TEXTS = {
                           'Start trace of the last run (the last line shows how far it got)'),
     'b_spur_seiten':   ('Zuletzt geöffnete Seiten (die letzte Zeile ohne „steht“ ist die, an der es hing)',
                           'Pages opened last (the last line without "ready" is where it hung)'),
-    'b_absturz':       ('Harter Abbruch beim vorigen Lauf — das Programm wurde mitten im Befehl beendet',
-                          'Hard crash during the previous run — the program was killed mid-instruction'),
+    'b_absturz':       ('Harter Abbruch, festgehalten am %s — das Programm wurde mitten im Befehl beendet',
+                          'Hard crash, recorded on %s — the program was killed mid-instruction'),
     # ⚠⚠ **Nur feststellen, nicht bewerten.** Bis 05.09.2026 stand hier
     # „vermutlich längst behoben". Das ist eine Behauptung, und sie kann
     # falsch sein: Wer lange kein Update gemacht hat, meldet aus einer alten
