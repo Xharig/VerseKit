@@ -53,6 +53,12 @@ PAARE = [
     # ausgerechnet die Sicherheitsseite die falsche Stelle zum Sparen.
     ('SECURITY.en.md', 'SECURITY.md', 'abschnitte'),
     ('CODE_OF_CONDUCT.en.md', 'CODE_OF_CONDUCT.md', 'abschnitte'),
+    # ⚠ Seit 16.09.2026. `SUPPORT.md` sagt, wohin ein Fehler gemeldet wird —
+    # eine Seite, die ausgerechnet fuer die halb fehlen wuerde, die hier auf
+    # Englisch ankommen. Diese Liste ist fest verdrahtet: **Wer eine neue
+    # zweisprachige Seite anlegt, traegt sie hier ein**, sonst wacht niemand
+    # darueber.
+    ('SUPPORT.en.md', 'SUPPORT.md', 'abschnitte'),
 ]
 
 
