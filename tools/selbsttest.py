@@ -21473,6 +21473,47 @@ def main():
     pruefe(not _fehlt219,
            'jeder eigene Text steht in jeder Sprache (fehlt: %r)' % _fehlt219)
 
+    print('\n220. Die Versionsmeldung passt in eine Discord-Nachricht')
+    # ⚠⚠ **Warum es diese Pruefung gibt.** Die zweisprachige Meldung (seit
+    # 16.09.2026) stellt deutsch und englisch untereinander — damit ist die
+    # Zeichengrenze von Discord zum ersten Mal wirklich erreichbar. Die
+    # Kuerzung dafuer lief am echten CHANGELOG **nie** an: Jede bisherige
+    # Version blieb unter 1400 Zeichen. Ungeprueft war sie damit genau bis zu
+    # dem Tag, an dem sie gebraucht wird.
+    #
+    # ⭐ Die Pruefung legt sich ihre Faelle deshalb **selbst** hin, statt auf
+    # einen langen CHANGELOG zu warten. Der letzte ist der, der beim ersten
+    # Versuch durchfiel: Ein einziger ueberlanger Satz laesst sich nicht an
+    # Satzenden kuerzen — die Meldung stand bei 6270 Zeichen.
+    import discord_post as _dp220
+    _echt220 = _dp220._teile
+    try:
+        _lang220 = '**Ein langer Vorspann.** ' + 'Noch ein Satz dazu. ' * 40
+        _pkt220 = ['Ein Punkt, der einiges an Platz braucht %d' % _i
+                   for _i in range(6)]
+        _satz220 = '**' + 'Ein Satz ohne Punkt der ewig weitergeht ' * 60
+        for _name220, _de220, _en220 in (
+                ('lange Vorspaenne', (_lang220, []), (_lang220, [])),
+                ('viele Punkte', ('', _pkt220), ('', _pkt220)),
+                ('beides zusammen', (_lang220, _pkt220), (_lang220, _pkt220)),
+                ('ein einziger Riesensatz', (_satz220, []), (_satz220, []))):
+            _dp220._teile = (lambda _t, _s, _d=_de220, _e=_en220:
+                             _d if _s == 'de' else _e)
+            _text220 = _dp220.bauen_zweisprachig('v9.9.9')
+            pruefe(len(_text220) <= _dp220.GRENZE,
+                   'passt in eine Nachricht: %s (%d Zeichen)'
+                   % (_name220, len(_text220)))
+            # ⚠ Kuerzen darf nie den Download-Link kosten — ohne ihn ist die
+            # ganze Meldung wertlos. Genau das waere beim stumpfen Abschneiden
+            # der fertigen Nachricht passiert.
+            pruefe('**Herunterladen / Download:**' in _text220,
+                   'der Download-Link ueberlebt das Kuerzen: %s' % _name220)
+    finally:
+        # ⚠⚠ Ohne das nimmt jede spaetere Pruefung im selben Lauf die
+        # Attrappe statt der echten Funktion — ein Zustand von vorher, der
+        # in diesem Projekt schon zwei Pruefungen blind gemacht hat.
+        _dp220._teile = _echt220
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
