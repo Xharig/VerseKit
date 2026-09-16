@@ -34,7 +34,7 @@ import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
 import tkinter as tk                                         # noqa: E402
-from scbp import bestandsfenster, catalog as katalog_modul   # noqa: E402
+from scbp import collection_window, catalog as katalog_modul   # noqa: E402
 
 # ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `─` — siehe ausgabe.py.
 import ausgabe                                                 # noqa: E402
@@ -69,7 +69,7 @@ def main():
     wurzel.geometry('720x780')
     rahmen = tk.Frame(wurzel)
     rahmen.pack(fill='both', expand=True)
-    seite = bestandsfenster.Bestandsfenster(rahmen=rahmen)
+    seite = collection_window.Bestandsfenster(rahmen=rahmen)
     wurzel.update()
 
     # ── 1. Der Weg ueber den leeren Katalog ──────────────────────────────

@@ -963,7 +963,7 @@ class Bestandsfenster:
             if not wenn_nur_art:
                 return
             errors.record(
-                'bestandsfenster.filter_leer',
+                'collection_window.filter_leer',
                 RuntimeError('Kategorie %r verspricht %d Bauplaene, '
                              'die Liste zeigt keinen'
                              % (self.fein['art'], erwartet)))
@@ -1077,7 +1077,7 @@ class Bestandsfenster:
         try:
             merk.save(merk.remove_entry(titel))
         except Exception as ausnahme:
-            errors.record('bestandsfenster.eigene_weg', ausnahme)
+            errors.record('collection_window.eigene_weg', ausnahme)
         self._zeichnen(nach_oben=False)
 
     def _treffer_zeigen(self, gruppen):
@@ -1407,7 +1407,7 @@ class Bestandsfenster:
             if self._anzeige_stand() != getattr(self, '_letzter_stand', None):
                 self._zeichnen()
         except Exception as ausnahme:
-            errors.record('bestandsfenster.neu_laden', ausnahme)
+            errors.record('collection_window.neu_laden', ausnahme)
 
     def _platzhalter(self, feld):
         """Der graue Hinweis im leeren Suchfeld.
@@ -2581,7 +2581,7 @@ class Bestandsfenster:
             hf.crafting_search = name
             hf.jump_to('herstellung')
         except Exception as ausnahme:
-            errors.record('bestandsfenster.zur_herstellung', ausnahme)
+            errors.record('collection_window.zur_herstellung', ausnahme)
 
     def zur_art(self, art):
         """Die Liste auf eine Katalog-Art stellen — „Cooler", „Schild", „Helm".

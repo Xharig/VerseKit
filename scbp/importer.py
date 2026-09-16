@@ -56,7 +56,7 @@ würde; erst `merge()` schreibt.
 `erkennen`, `lesen`, `vorschau` und `uebernehmen` (Sprachumstellung P4,
 Stufe 1). **Nur Bezeichner sind umbenannt, keine Zeichenketten.** Bewusst gleich
 geblieben: die Formatkennungen (`'eigen'`, `'scmdb'`, `'scmdb2'`, `'basetool'`,
-`'launcher'`, `'bpdb'`) — `seiten.py` holt darüber die Bezeichnung für
+`'launcher'`, `'bpdb'`) — `pages.py` holt darüber die Bezeichnung für
 die Anzeige —, die
 Schlüssel `name` und `zeit` der Einträge, die Schlüssel `neu`, `schon_da`,
 `unbekannt` und `gesamt` der Vorschau und der Quellwert `'import'`, der im

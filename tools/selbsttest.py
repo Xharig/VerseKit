@@ -157,7 +157,7 @@ def rumpf(quelle, name):
     sie nicht gibt.
 
     ⛔⛔ **Warum das ein eigener Helfer ist.** Viele Prüfungen schneiden sich
-    eine Funktion per Textsuche aus `seiten.py` heraus. Das war in **vier**
+    eine Funktion per Textsuche aus `pages.py` heraus. Das war in **vier**
     Bauarten geschrieben, mit vier verschiedenen Ausfällen, sobald der Name sich
     ändert (gemessen am 14.09.2026 vor P4 Stufe 7c):
 
@@ -448,7 +448,7 @@ def main():
         pf._game_roots = echte_wurzeln
 
         print('\n6. Erster Start nimmt dem Spieler die Arbeit ab')
-        from scbp import assistent as assi, paths as pf2
+        from scbp import wizard as assi, paths as pf2
         # Frischer Ordner, damit "erster Start" wirklich zutrifft
         frisch = os.path.join(basis, 'frisch')
         os.makedirs(frisch)
@@ -1061,7 +1061,7 @@ def main():
         if ANZEIGE:
             print()
             print('14b. Sprachwechsel im Hauptfenster')
-            from scbp import main_window, seiten as seitenmodul, language as spr
+            from scbp import main_window, pages as seitenmodul, language as spr
             import tkinter as _tk
             spr.set_language('de')
             hf = main_window.MainWindow(version='3.0.0')
@@ -1464,7 +1464,7 @@ def main():
         # ⚠ Über `rumpf()`: Ein `split(...)[1]` wirft bei einer Umbenennung
         # einen IndexError und reisst den GANZEN Lauf mit. `rumpf()` macht
         # daraus eine rote Pruefung, die den Namen nennt.
-        quelle = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+        quelle = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                       encoding='utf-8').read()
         block = rumpf(quelle, '_hand_over')
         vor_rueckruf = block.split('fenster.root.after')[0]
@@ -1635,7 +1635,7 @@ def main():
             # anschlagen, weil sie zufällig kein deutsches Wort enthalten. Wer
             # den Namen übersetzt, schickt den Nutzer zu einer Seite, die er
             # unter diesem Namen nirgends findet.
-            ('scbp/seiten.py', 'Baupläne DB · Star Citizen Deutsch'),
+            ('scbp/pages.py', 'Baupläne DB · Star Citizen Deutsch'),
         }
         # Ganze Dateien, deren deutsche Texte begründet fest sind
         _AUSNAHME_DATEIEN = {
@@ -1688,7 +1688,7 @@ def main():
             uebersprungen('Seiten in beiden Sprachen bauen')
         else:
             import tkinter as _tk
-            from scbp import main_window as _hf, seiten as _st
+            from scbp import main_window as _hf, pages as _st
             _schluesselartig = _re.compile(r'^[a-z][a-z0-9]*(_[a-z0-9]+){1,}$')
 
             def _durchsuchen(widget, gefunden):
@@ -2027,7 +2027,7 @@ def main():
         print('21. Groessere Schrift sprengt keine Knoepfe mehr')
         import tkinter as tk21
         import tkinter.font as tkfont21
-        from scbp import seiten as se21
+        from scbp import pages as se21
         from scbp.main_window import MainWindow as HF21
 
         wurzel = _wurzel()
@@ -2428,7 +2428,7 @@ def main():
         pruefe(quelle_st.count('_set_language(sprache, spielordner)') >= 2,
                'auch wenn die Datei schon da war — sonst bleibt sie ungelesen')
         # Kein Aufrufer darf sich mehr darauf verlassen, es selbst zu tun.
-        for datei_st in ('assistent.py', 'settings_window.py'):
+        for datei_st in ('wizard.py', 'settings_window.py'):
             inhalt_st = open(os.path.join(WURZEL, 'scbp', datei_st),
                              encoding='utf-8').read()
             block_st = inhalt_st[inhalt_st.index('gametext.fetch('):][:900]
@@ -2462,7 +2462,7 @@ def main():
         # Englisch sonst abgeschnitten werden). Ein Schiebeschalter ist schmal
         # und gehoert nach rechts — wie in jeder Einstellungsliste.
         import re as _re29
-        quelle29 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+        quelle29 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                         encoding='utf-8').read().split('\n')
 
         def _aufruf29(zeilen, start):
@@ -2822,7 +2822,7 @@ def main():
         # Ihn auszublenden traf nur den Quellcode, also den Entwickler selbst:
         # „nicht mal ICH finde den" (28.08.2026). Ein fehlender Knopf sieht aus
         # wie ein Fehler.
-        quelle34 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+        quelle34 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                         encoding='utf-8').read()
         stelle34 = quelle34[quelle34.index("s_di_absenden"):][:200]
         pruefe('if ' not in stelle34.split(chr(10))[0],
@@ -3143,7 +3143,7 @@ def main():
         # bei der Groesse, die der Entwickler zufaellig offen hat.
         import tkinter as tk23
         import tkinter.font as tkfont23
-        from scbp import seiten as se23
+        from scbp import pages as se23
         from scbp.main_window import MIN_WIDTH as MB23, MIN_HEIGHT as MH23
 
         wurzel23 = tk23.Tk()
@@ -3292,7 +3292,7 @@ def main():
 
             # Und der Knopf je Zeile muss die Version durchreichen, statt
             # 'basetool' fest verdrahtet zu haben.
-            quelle22 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+            quelle22 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                             encoding='utf-8').read()
             pruefe('def einzeln(art):' in quelle22,
                    'Einzeln speichern nimmt die Version entgegen')
@@ -3346,7 +3346,7 @@ def main():
     #
     # Warum `scan_backlog()` die richtige Stelle ist — gemessen, nicht vermutet:
     # Kein Pruefabschnitt testet die Funktion selbst. Die einzigen Aufrufer
-    # sind `seiten.py` (Hintergrundfaden beim Oeffnen der Auftragslog-Seite)
+    # sind `pages.py` (Hintergrundfaden beim Oeffnen der Auftragslog-Seite)
     # und `sc_bp_watcher.py` beim Start. Hier faellt also nichts aus.
     #
     # Verworfen wurden ausserdem, jeweils mit Gegenprobe:
@@ -3363,7 +3363,7 @@ def main():
     #
     #   | # | Weg | wer ihn nimmt |
     #   |---|---|---|
-    #   | 1 | `paths.log_backups()` | `logsource`, `mission_log`, `report`, `assistent`, der Watcher |
+    #   | 1 | `paths.log_backups()` | `logsource`, `mission_log`, `report`, `wizard`, der Watcher |
     #   | 2 | `pfade.game_log()` | `logsource`, `playtime`, `joysticks`, der Watcher |
     #   | 3 | `mission_log.scan_backlog()` | baut sich den Pfad zur laufenden Datei **selbst** (`mission_log.py`) und geht an 2 vorbei |
     #
@@ -3654,7 +3654,7 @@ def main():
     #
     # Der Schalter stößt das Neuschreiben jetzt selbst an. Diese Prüfung hält das
     # fest — fällt es heraus, ist der Fehler zurück, und zwar unsichtbar.
-    se41 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    se41 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     i41 = se41.index('def angaben_um():')
     rumpf41 = se41[i41:se41.index('return neu_wert', i41)]
@@ -3832,7 +3832,7 @@ def main():
 
         # d) ⚠ Und das Fenster muss stempeln, BEVOR es liest. Andersherum sieht
         #    es beim ersten Start nach einem Update den alten Stand.
-        _q43 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+        _q43 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                     encoding='utf-8').read()
         pruefe('katalog_modul.refresh_stamp()' in _q43
                and (_q43.index('katalog_modul.refresh_stamp()')
@@ -3881,7 +3881,7 @@ def main():
     #   zurueckgenommen werden. Ein gespeichertes „an", waehrend in Wahrheit
     #   nichts durchgereicht wird, ist das schlechteste von beidem — der Nutzer
     #   sieht einen Zustand, den es nicht gibt. Der Schalter in den
-    #   Einstellungen macht es genauso (`seiten._click_through_toggle`).
+    #   Einstellungen macht es genauso (`pages._click_through_toggle`).
     _alt_home44 = os.environ.get('SC_BP_HOME')
     os.environ['SC_BP_HOME'] = _tf44.mkdtemp(prefix='sc-bp-schloss-')
     try:
@@ -4100,7 +4100,7 @@ def main():
         #   wieder auftaucht.
         for _datei48, _funktion48, _wo48 in (
                 ('report.py', 'def _patch_history', 'im Bericht'),
-                ('bestandsfenster.py', 'def _patches', 'im Patch-Menue')):
+                ('collection_window.py', 'def _patches', 'im Patch-Menue')):
             _p48 = os.path.join(os.path.dirname(os.path.dirname(
                 os.path.abspath(__file__))), 'scbp', _datei48)
             if not os.path.isfile(_p48):
@@ -4335,7 +4335,7 @@ def main():
            'der Anstoss geht ueber einen Rueckruf wie beim Schloss')
     _w47 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
     pruefe('self.neulesen_lbl' in _w47, 'ein Knopf sitzt in der Overlay-Leiste')
-    _s47 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _s47 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe("t('s_be_neu')" in _s47, 'und einer in den Einstellungen')
     # ⚠ Die Arbeit gehoert in den Watcher-Faden. Laese die Seite selbst ein und
     #   speicherte, ueberschriebe der Faden das beim naechsten Fund mit seinem
@@ -4364,7 +4364,7 @@ def main():
     #   kommt der Fortschritt im Sekundentakt; geht dabei das Fenster zu, wirft
     #   jeder Aufruf. Ein Bericht zeigte 50 von 50 Plaetzen mit derselben
     #   Meldung — jeder echte Fehler war daraus verdraengt.
-    _s48 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _s48 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe('_TK_REPORTED' in _s48,
            'derselbe erwartete Fehler wird nur einmal gemerkt')
 
@@ -4420,7 +4420,7 @@ def main():
             #
             # ⚠ **Gemerkt wird der AUFRUF, nicht der Variablenname.** Der erste
             # Entwurf ordnete die Werte dem Namen zu und galt damit fuer die
-            # ganze Datei. In `seiten.py` heisst ein Funktionsparameter ebenfalls
+            # ganze Datei. In `pages.py` heisst ein Funktionsparameter ebenfalls
             # `schluessel` (`def form(anzahl, schluessel)`) — der bekam prompt die
             # Werte einer ganz anderen Schleife untergeschoben und wurde dreimal
             # grundlos angemahnt. Eine Pruefung, die falsch anschlaegt, schaltet
@@ -4678,7 +4678,7 @@ def main():
     print()
     print('52b. Knoepfe schneiden ihre Beschriftung nicht ab')
     import tkinter as _tk52b
-    from scbp import seiten as _se52b
+    from scbp import pages as _se52b
     from scbp.main_window import MainWindow as _HF52b
     _w52b = _tk52b.Tk()
     try:
@@ -4762,7 +4762,7 @@ def main():
         # ⚠ Im Wegwerf-Ordner fehlen Bergbau- und Rezeptdaten; die Seiten
         # brechen dann vor dem Suchfeld ab. Ob sie sich anmelden, steht
         # deshalb im Quelltext — datenunabhaengig und trotzdem verbindlich.
-        with open(os.path.join(_wurzelpfad, 'scbp', 'seiten.py'),
+        with open(os.path.join(_wurzelpfad, 'scbp', 'pages.py'),
                   encoding='utf-8') as _fh52d:
             _qu52d = _fh52d.read()
         for _seite in ('bergbau', 'herstellung'):
@@ -4906,7 +4906,7 @@ def main():
     # Frage waren genau eine zu viel.
     print()
     print('52h. Kategorie-Pruefung nur an einer Stelle')
-    with open(os.path.join(_wurzelpfad, 'scbp', 'bestandsfenster.py'),
+    with open(os.path.join(_wurzelpfad, 'scbp', 'collection_window.py'),
               encoding='utf-8') as _fh52h:
         _qu52h = _fh52h.read()
     pruefe("art_kennung(liste[0])" not in _qu52h,
@@ -4921,7 +4921,7 @@ def main():
     # herausspringt.
     print()
     print('52i. Nach Auftrag, Fraktion und Auftragsart suchen')
-    from scbp import bestandsfenster as _bf52i
+    from scbp import collection_window as _bf52i
     _bp52i = {'n': 'Test-Bauplan', 'a': 'Cooler', 'q': [
         {'auftrag': 'Retake Platforms From Nine Tails', 'typ': 'Mercenary',
          'fraktion': 'Headhunters', 'wo': {'ort': 'Stanton'}}]}
@@ -4945,7 +4945,7 @@ def main():
     # anklickbar sein, sonst bringt das nichts." Ein Filter, aus dem man nicht
     # herauskommt, waere allerdings schlimmer als keiner — deshalb schaltet
     # derselbe Auftrag beim zweiten Klick wieder ab.
-    with open(os.path.join(_wurzelpfad, 'scbp', 'bestandsfenster.py'),
+    with open(os.path.join(_wurzelpfad, 'scbp', 'collection_window.py'),
               encoding='utf-8') as _fh52j:
         _qu52j = _fh52j.read()
     pruefe('_auftrag_waehlen' in _qu52j,
@@ -5043,7 +5043,7 @@ def main():
                'Text %s gibt es deutsch und englisch' % _k52n)
     # ⚠ Das Suchfeld im Lager erscheint nicht mehr erst ab fuenf Posten — wer
     # viel hat, findet sonst nichts mehr.
-    with open(os.path.join(_wurzelpfad, 'scbp', 'seiten.py'),
+    with open(os.path.join(_wurzelpfad, 'scbp', 'pages.py'),
               encoding='utf-8') as _fh52n:
         _qu52n = _fh52n.read()
     pruefe('if len(posten) > 5:' not in _qu52n,
@@ -5057,7 +5057,7 @@ def main():
     # Eingabe im Suchfeld tabt man automatisch raus" (30.08.2026).
     print()
     print('52p. Suchfelder werden nicht beim Zeichnen neu gebaut')
-    with open(os.path.join(_wurzelpfad, 'scbp', 'seiten.py'),
+    with open(os.path.join(_wurzelpfad, 'scbp', 'pages.py'),
               encoding='utf-8') as _fh52p:
         _qu52p = _fh52p.read()
     # Der Lager-Abschnitt: zwischen `def _storage(` und der naechsten Seite.
@@ -5845,7 +5845,7 @@ def main():
 
     # f) Die Oberflaeche muss die Stueckzahl wirklich durchreichen — und je
     #    Material einen eigenen Regler bauen.
-    _seiten61 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _seiten61 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
     # ⚠ Seit v3.43.0 geht die Liste durch `_zutaten_jetzt()` — dieselben
     # Zutaten, nur mit der Reglerqualitaet als Mindestguete (Pruefung 67b).
@@ -5968,7 +5968,7 @@ def main():
            'ohne Angaben wird nichts behauptet')
 
     # e) Die Anzeige muss die Richtung auch benutzen.
-    _seiten62 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _seiten62 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
     pruefe("w.get('besser_hoch', True)" in _seiten62,
            'die Anzeige faerbt nach der Richtung, nicht stur nach der Zahl')
@@ -6131,7 +6131,7 @@ def main():
     pruefe("current.get('elemente') is not None" in _q64,
            'und eine alte Ablage ohne sie wird einmal neu geholt')
     # ⚠ Das Eingabefeld darf NICHT im Neuzeichnen gebaut werden.
-    _q64b = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q64b = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     _vor64 = _q64b.split('def sig_zeichnen')[0]
     pruefe('sig_feld = round_entry' in _vor64,
            'das Scan-Feld steht ausserhalb des Neuzeichnens (Cursor bleibt)')
@@ -6286,7 +6286,7 @@ def main():
         _pr66.load = _echt66
 
     # c) Die Anzeige darf „nicht kaufbar" NIE als „0 aUEC" schreiben.
-    _seiten66 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _seiten66 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
     pruefe("t('s_he_nur_abbau')" in _seiten66,
            'fuer nicht kaufbare Rohstoffe steht ein eigener Text da')
@@ -6333,7 +6333,7 @@ def main():
     print()
     print('67. Ein Rezept aufklappen')
     import tkinter as _tk67
-    from scbp import seiten as _se67
+    from scbp import pages as _se67
     from scbp import crafting as _he67
 
     # ⚠⚠ **Notfalls eigene Daten hinlegen.** Die Rezepte sind ein
@@ -6519,7 +6519,7 @@ def main():
     print('67b. Produkt-Tabelle und Lagerzeile folgen dem Regler')
     import tkinter as _tk67b
     import tkinter.font as _tkfont67b
-    from scbp import seiten as _se67b
+    from scbp import pages as _se67b
     from scbp import crafting as _he67b
     from scbp import materials as _lg67b
     from scbp import product_stats as _ps67b
@@ -6685,7 +6685,7 @@ def main():
     # ⚠ Kein lokaler Name darf eine Funktion derselben Datei verdecken.
     # Statische Gegenprobe fuer genau diesen Fehler.
     import re as _re67
-    _q67 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q67 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     _funktionen67 = set(_re67.findall(r'^def (_?\w+)\(', _q67, _re67.M))
     _verdeckt67 = []
     for _m67 in _re67.finditer(r'^\s+([_a-zA-Z][\w, ]*?)\s*=\s*\S', _q67, _re67.M):
@@ -6710,7 +6710,7 @@ def main():
     print('68. Namensvorschlag am Eingabefeld')
     import tkinter as _tk68
     import tkinter.font as _tkfont68
-    from scbp import seiten as _se68
+    from scbp import pages as _se68
 
     _w68 = _tk68.Tk()
     _w68.withdraw()                      # ⚠ kein Fenster ins Bild schieben
@@ -6828,7 +6828,7 @@ def main():
     print('69. Nichts wird abgeschnitten')
     import tkinter as _tk69
     import tkinter.font as _tkfont69
-    from scbp import seiten as _se69
+    from scbp import pages as _se69
     from scbp import crafting as _he69
 
     _rez69 = _he69.load().get('blueprints') or []
@@ -6949,7 +6949,7 @@ def main():
     from scbp import places as _or70
 
     # a) Der Ausweg-Knopf ist WEG und darf nicht zurueckkommen.
-    _q70 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q70 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe("t('s_lg_trotzdem')" not in _q70,
            'es gibt keinen Knopf „Trotzdem eintragen" mehr')
     # ⚠ Auch der TEXT muss weg. Beim Aufraeumen blieb `s_lg_unbekannt` stehen
@@ -7070,7 +7070,7 @@ def main():
 
     # Und der Urheber muss genannt sein — Name UND Repository, so verlangt es
     # die Lizenz.
-    _q71 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q71 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe('rjcncpt' in _q71,
            'der Urheber der Uebersetzung ist im Programm genannt')
     pruefe('CC BY-NC-SA 4.0' in _q71,
@@ -7433,7 +7433,7 @@ def main():
     #   b) Abbrechen beendete das Programm **immer**, nicht nur beim ersten Mal.
     print()
     print('76. Der Lesestand ist kein Einrichtungsmerkmal')
-    from scbp import assistent as _as76
+    from scbp import wizard as _as76
     from scbp import paths as _pf76
 
     _heim76 = os.environ.get('SC_BP_HOME')
@@ -7481,7 +7481,7 @@ def main():
 
     # b) Abbrechen darf nur beim echten ersten Start beenden.
     _q76 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
-    pruefe('if not fertig and not assistent.is_configured():' in _q76,
+    pruefe('if not fertig and not wizard.is_configured():' in _q76,
            'Abbrechen beendet nur, wenn noch nichts eingerichtet ist')
     # ⚠ Nicht alle `sys.exit(0)` zaehlen — der zweite ist die zweite Instanz,
     # die dem laufenden Fenster Bescheid sagt und sich dann verabschiedet. Der
@@ -7506,7 +7506,7 @@ def main():
     print()
     print('77. Verschickt wird, was im Kasten steht')
     import ast as _ast77
-    _q77 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q77 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     _baum77 = _ast77.parse(_q77)
     _versand77 = {'open_issue', 'to_archive', 'save', 'submit'}
@@ -7826,7 +7826,7 @@ def main():
            'ein Bauplan ohne Auftrag meldet nichts')
 
     # Und der Filter muss in der Liste angeboten werden.
-    _q82 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+    _q82 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                 encoding='utf-8').read()
     pruefe("('deckel', t('filter_deckel'))" in _q82,
            'die Bauplan-Liste bietet den Filter an')
@@ -7877,7 +7877,7 @@ def main():
            'die hoechste Belohnung des Auftrags wird genannt (%s)'
            % _lohnt82[0][3])
 
-    _q82b = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q82b = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe('_best_contracts(fenster, innen, katalog, habe)' in _q82b,
            'die Fortschritt-Seite zeigt es an')
@@ -7936,7 +7936,7 @@ def main():
     finally:
         _he83.storable = _echt83
 
-    _q83 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q83 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     pruefe('_refinery_box(fenster, innen, lager, ort, zeichnen, meldung)'
            in _q83, 'die Lager-Seite bietet die Maske an')
@@ -8090,7 +8090,7 @@ def main():
     # ⚠ **Beide Felder sperren gleich.** Ware und Lagerort kommen aus
     # geschlossenen Listen — sonst steht in dem einen Feld eine Liste und im
     # anderen darf jeder tippen, was er will.
-    _q84s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q84s = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     _hlseite84 = rumpf(_q84s, '_trade_storage')
     pruefe('preisdaten.known(name)' in _hlseite84,
@@ -8114,7 +8114,7 @@ def main():
     # ⚠ Nicht auf die Ausrichtung im Woerterbuch prueft: `'verkauf':     _selling,`
     # bricht schon, wenn jemand eine Leerstelle verschiebt. Gefragt ist, ob die
     # Kennung auf die Funktion zeigt — das beantwortet die Tabelle selbst.
-    from scbp import seiten as _se84
+    from scbp import pages as _se84
     _tab84 = _se84._builders()
     for _k84 in ('verkauf', 'handelslager'):
         pruefe(callable(_tab84.get(_k84)),
@@ -8125,7 +8125,7 @@ def main():
 
     # ⚠ Kein Rot im herunterzaehlenden Knopf: Der ist gesperrt, *weil* der
     # Abruf geklappt hat — Rot ist in diesem Programm die Fehlerfarbe.
-    from scbp import seiten as _se84
+    from scbp import pages as _se84
     pruefe(_se84._cooldown_color(59 * 60) == _se84.SUB
            and _se84._cooldown_color(10 * 60) == _se84.GOLD
            and _se84._cooldown_color(30) == _se84.ACCENT,
@@ -8284,12 +8284,12 @@ def main():
     # Bedeutungen fuer dieselbe Farbe heissen, dass die Farbe nicht mehr warnt.
     # Gemeldet von Haldjas, der den harmlosen drueckte. Das Ganze steht jetzt
     # in Pruefung 95.
-    _q85s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q85s = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("t('s_be_neu'), neu_einlesen, danger=True" not in _q85s,
            'der Knopf „Protokolle erneut einlesen" ist NICHT rot')
 
-    _q85p = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q85p = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("icons.line(zeile, 'aufklappen'" in _q85p,
            'auch das Auswahlfeld nutzt das Klapp-Symbol des Projekts')
@@ -8350,7 +8350,7 @@ def main():
     # ⚠ **„Wird noch gebaut" ist etwas anderes als „hol es selbst".** Wer in der
     # Luecke zwischen Tag und fertigem Bau auf „holen" klickt, findet auf der
     # Releases-Seite auch nichts — die alte Meldung schickte ihn ins Leere.
-    _q85u = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q85u = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("if not (freigabe.get('dateien') or []):" in _q85u
            and "t('s_ub_wird_gebaut')" in _q85u,
@@ -8376,7 +8376,7 @@ def main():
     # 85b. Eine breite Knopfreihe macht das Fenster BREITER, nicht hoeher
     # ------------------------------------------------------------------
     # ⚠⚠ **Der Fehler, den diese Pruefung bewacht.** `_knopfreihe` in
-    # `seiten.py` fordert Breite an, wenn die Knoepfe nebeneinander nicht
+    # `pages.py` fordert Breite an, wenn die Knoepfe nebeneinander nicht
     # hineinpassen — und setzte dabei bis 3.9.5
     # `minsize(noetig, oben.winfo_height())`. Die zweite Zahl ist die GERADE
     # AKTUELLE Fensterhoehe. Wer sein Fenster hoch gezogen hatte und danach
@@ -8404,7 +8404,7 @@ def main():
     print()
     print('85b. Die Knopfreihe hebt die Mindesthoehe nicht an')
     import tkinter as tk85k
-    from scbp import seiten as _st85k
+    from scbp import pages as _st85k
 
     _fenster85k = tk85k.Toplevel(_wurzel85)
     # Definierte Ausgangslage: eine Mindesthoehe, die klein genug ist, dass
@@ -8542,7 +8542,7 @@ def main():
 
     # Und die Oberflaeche muss die Griffe auch anbieten — beide Lager
     # dieselben, in derselben Reihenfolge.
-    _q86 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q86 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     _hlblock86 = rumpf(_q86, '_trade_storage')
     for _schluessel86 in ("s_lg_aus_json", "s_lg_aus_csv", "s_lg_einlesen",
@@ -8874,7 +8874,7 @@ def main():
     # sonst steht der Suchbegriff von vorhin wieder da (29.08.2026 gemeldet).
     print()
     print('90. Der Seitenwechsel zeichnet nur, wenn noetig')
-    _q90 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+    _q90 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                 encoding='utf-8').read()
     _fein90 = _q90.split('def _fein_leeren(')[1].split('\n    def ')[0]
     pruefe('etwas_gesetzt' in _fein90 and 'if etwas_gesetzt:' in _fein90,
@@ -8883,7 +8883,7 @@ def main():
     pruefe('if self.suche.get():' in _suche90,
            'und das Suchfeld wird nur angefasst, wenn etwas drinsteht')
 
-    _q90s = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q90s = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     _herst90 = _q90s.split('def _herst_frisch(')[1].split('\n    fenster.on_show')[0]
     pruefe('if not etwas_gesetzt:' in _herst90 and 'return' in _herst90,
            'dasselbe auf der Herstellungs-Seite')
@@ -9094,7 +9094,7 @@ def main():
     # unterscheiden, obwohl der Zustand genau der gewünschte war.
     #
     # ⚠ **Geprüft wird das Modul, nicht die Oberfläche.** Genau dafür ist die
-    # Entscheidung aus `seiten.py` herausgezogen worden: So läuft die Prüfung
+    # Entscheidung aus `pages.py` herausgezogen worden: So läuft die Prüfung
     # ohne Fenster — auf jedem System und im Bau-Lauf.
     print()
     print('93. „Bestand zuruecksetzen" sagt immer, was passiert ist')
@@ -9130,7 +9130,7 @@ def main():
            'eine echte Stoerung kommt zurueck statt verschluckt zu werden')
 
     # Und die Oberflaeche muss sie auch ZEIGEN, nicht nur wegschreiben.
-    _q93 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q93 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     _ab93 = _q93.split('def zuruecksetzen():')[-1].split('_button(')[0]
     pruefe(_ab93.count('fenster.say') == 2,
@@ -9270,7 +9270,7 @@ def main():
 
     # b) Die Farben. @ Geprueft wird der Aufruf, denn `danger=True` ist der
     #    einzige Unterschied — am fertigen Knopf ist er nur noch Pixel.
-    _q95 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q95 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     _be95 = rumpf(_q95, '_collection')
 
@@ -9381,7 +9381,7 @@ def main():
     #    der es gebaut hat.
     print()
     print('97. Von der Herstellung zum Bauplan — und den Knopf auch finden')
-    from scbp import seiten as _se97, language as _sp97
+    from scbp import pages as _se97, language as _sp97
 
     # a) Der Knopf erscheint nur, wo er hinfuehrt. ⚠ Der Katalog kennt 738
     #    Bauplaene, die Rezepte sind 1607 — ein Knopf auf eine leere Liste
@@ -9420,7 +9420,7 @@ def main():
                'ein Bauplan OHNE Bezugsquelle bekommt keinen (%s)' % _ohne_q97[0])
 
     # b) Der Weg dorthin gibt es, und er sagt ehrlich, wenn er nichts findet.
-    from scbp import bestandsfenster as _bf97
+    from scbp import collection_window as _bf97
     pruefe(hasattr(_bf97.Bestandsfenster, 'zum_bauplan'),
            'die Bauplan-Liste laesst sich von aussen auf einen Bauplan stellen')
 
@@ -9518,7 +9518,7 @@ def main():
         pass
 
     # c) Der Knopf traegt jetzt ein Wort, nicht nur ein Zeichen.
-    _bq97 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+    _bq97 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                  encoding='utf-8').read()
     pruefe("text=t('hk_knopf')" in _bq97,
            'der Herkunfts-Knopf in der Liste ist beschriftet')
@@ -9526,7 +9526,7 @@ def main():
            'und die Beschriftung gibt es in beiden Sprachen')
 
     # d) Und in der Herstellung steht er nur bei einem FEHLENDEN Bauplan.
-    _sq97 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _sq97 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     _hz97 = _sq97.split('def _crafting_row')[1].split(chr(10) + 'def ')[0]
     pruefe("eintrag['habe'] is not True and _has_source" in _hz97,
@@ -9839,7 +9839,7 @@ def main():
     # genuetzt, sobald die Zeile aus dem Bild gerollt ist.
     print()
     print('99. Man sieht, welcher Bauplan in der Herstellung aufgeklappt ist')
-    _q99 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q99 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                 encoding='utf-8').read()
     _hz99 = _q99.split('def _crafting_row')[1].split(chr(10) + 'def ')[0]
     _code99 = chr(10).join(_z for _z in _hz99.split(chr(10))
@@ -9913,7 +9913,7 @@ def main():
            'das System sagt, ob es geht — und wenn nicht, warum (%s)'
            % (_grund100 or 'geht'))
 
-    _sq100 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _sq100 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                   encoding='utf-8').read()
     pruefe("grund == 'wayland'" in _sq100 and "t('s_hk_wayland')" in _sq100,
            'unter Wayland steht die Erklaerung statt eines toten Feldes')
@@ -10446,7 +10446,7 @@ def main():
            % (_txt105[0],))
 
     # … und die Kopfzeile muss ihn auch benutzen, abhaengig von `unklar`.
-    _q105 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q105 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("t('s_he_dazu_unklar') % unklar" in _q105 and 'if unklar:' in _q105,
            'die Kopfzeile zeigt ihn, sobald es unklare gibt')
@@ -11889,7 +11889,7 @@ def main():
     # nach und nach dazu, und niemand ging die alten noch einmal durch.
     from scbp.main_window import MainWindow as _HF117
 
-    _seiten117 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _seiten117 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                       encoding='utf-8').read()
     # ⛔⛔ **Nicht die Kennung aus dem Funktionsnamen schnitzen.** Bis zum
     # 14.09.2026 hiess jede Seitenfunktion `_<kennung>(fenster, rahmen)`, und
@@ -11901,7 +11901,7 @@ def main():
     #
     # Die Zuordnung steht an genau einer Stelle im Programm — dort wird sie
     # jetzt auch geholt. Damit ueberlebt die Pruefung jede weitere Umbenennung.
-    from scbp import seiten as _se117
+    from scbp import pages as _se117
     _kennung117 = dict((_f117.__name__, _k117)
                        for _k117, _f117 in _se117._builders().items())
     _stellen117 = [m.start() for m in
@@ -11948,7 +11948,7 @@ def main():
            % (', '.join(_tot117) or 'keine'))
 
     # Die Liste selbst muss den eigenen Weg wirklich haben.
-    from scbp import bestandsfenster as _bf117
+    from scbp import collection_window as _bf117
     pruefe(hasattr(_bf117.Bestandsfenster, 'neu_laden'),
            'die Bauplan-Liste kann sich ohne Neubau auffrischen')
 
@@ -11977,7 +11977,7 @@ def main():
     # ist ein Fix, der beim naechsten Nutzer wieder auffaellt.
     #
     # ⚠ Diese Wache faengt den VIERTEN Weg, den jemand spaeter baut.
-    _sei118 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _sei118 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                    encoding='utf-8').read()
 
     # Die Diagnose-Seite herausschneiden — `melden` und `kopieren` heissen
@@ -12436,7 +12436,7 @@ def main():
 
     # Und die Anzeige muss die Unterscheidung wirklich benutzen — sonst steht
     # die Funktion da und keiner ruft sie.
-    _sei123 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _sei123 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                    encoding='utf-8').read()
     pruefe('game_running()' in _sei123,
            'die Auftragsliste fragt nach, ob das Spiel laeuft')
@@ -13080,7 +13080,7 @@ def main():
                'ein reiner Protokoll-Bestand verliert nichts')
 
         # Und die Anzeige muss die Zahlen wirklich benutzen.
-        _sei130 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+        _sei130 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                        encoding='utf-8').read()
         pruefe("s_be_reset_zahlen" in _sei130,
                'die Warnfrage benutzt den Text')
@@ -13324,7 +13324,7 @@ def main():
 
     # ⚠ Und die Anzeige muss den neuen Zustand kennen — ein Zustand ohne Farbe
     # und ohne Wort waere im Protokoll eine leere Zelle.
-    _quelle134 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _quelle134 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                       encoding='utf-8').read()
     pruefe('mission_log.FAILED: RED_PALE' in _quelle134,
            'fehlgeschlagen hat eine Farbe')
@@ -14491,7 +14491,7 @@ def main():
                'die Datei ist noch vollständig')
 
         import inspect as _ins145
-        from scbp import seiten as _st145
+        from scbp import pages as _st145
         for _name145 in ('_axes', '_view_angle'):
             # ⚠ Nicht `getattr(...)` blank: Fehlt der Name nach einer
             # Umbenennung, reisst der AttributeError den ganzen Lauf mit.
@@ -14972,7 +14972,7 @@ def main():
     # Pruefung, die deshalb ueberspringt, prueft nichts (siehe 67).
     print()
     print('153. Guete und Klasse stehen an der Teileauswahl')
-    from scbp import seiten as _st153
+    from scbp import pages as _st153
     from scbp import language as _sp153
 
     _alt153 = _sp153.current()
@@ -15053,7 +15053,7 @@ def main():
     print('155. Der Warenkorb-Knopf steht vor dem Preistext')
     import tkinter as _tk155
     from tkinter import font as _fo155
-    from scbp import seiten as _st155
+    from scbp import pages as _st155
     from scbp import cart as _wk155
 
     class _F155:
@@ -15336,7 +15336,7 @@ def main():
     # sagt die Herkunft, dass es das Teil in keinem Laden gibt.
     print()
     print('158. Guete als Buchstabe, Klasse nie geraten')
-    from scbp import seiten as _st158
+    from scbp import pages as _st158
     from scbp import language as _sp158
     from scbp import cart as _wk158
 
@@ -15483,7 +15483,7 @@ def main():
     print('160. Ein Klick auf den Haken zieht die Anzeige nach')
     import tkinter as _tk160
     from tkinter import font as _fo160
-    from scbp import seiten as _st160
+    from scbp import pages as _st160
     from scbp import cart as _wk160
 
     class _F160:
@@ -15715,7 +15715,7 @@ def main():
     import json as _js163
     import shutil as _sh163
     import tempfile as _tf163
-    from scbp import seiten as _st163
+    from scbp import pages as _st163
     from scbp import cart as _wk163
 
     _ordner163 = _tf163.mkdtemp(prefix='sc-bp-speichern-')
@@ -16591,7 +16591,7 @@ def main():
                'ein unbekannter Patch liefert None statt eines Fehlers')
 
         # --- Die Anzeige der Werte ----------------------------------------
-        from scbp import seiten as _se173
+        from scbp import pages as _se173
         pruefe(_se173._patch_number(975.0) == '975',
                'eine Kommazahl ohne Nachkommastellen wird ganz angezeigt')
         pruefe(_se173._patch_number(0.30000000000000004) == '0.3',
@@ -16972,7 +16972,7 @@ def main():
     # selben Ergebnis herein. Und sie baut sich ihre Zeile selbst — an der
     # ganzen Seite haengt eine `global.ini`, die es im Wegwerf-Ordner nicht
     # gibt, und die Pruefung waere still uebersprungen.
-    from scbp import asop as _as176, main_window as _hf176, seiten as _se176
+    from scbp import asop as _as176, main_window as _hf176, pages as _se176
 
     _w176 = _wurzel()
     _w176.deiconify()          # ⚠ sonst ist nichts gemappt und kein Klick kommt an
@@ -18511,7 +18511,7 @@ def main():
 
         print('\n187. Ein Klick: kein Quittungsfenster, kein zweiter Knopf, der Schalter wirkt')
         import inspect as _in187
-        from scbp import seiten as _se187
+        from scbp import pages as _se187
         _q187 = _in187.getsource(_se187._fetch_version)
         pruefe('s_ub_hinweis_neustart' not in _q187,
                'kein Hinweisfenster mehr vor dem Einspielen')
@@ -18638,7 +18638,7 @@ def main():
     # erste Pruefung rot — die Liste ist nach 200 ms weg.
     import tkinter as tk189
     import tkinter.font as tkf189
-    from scbp import seiten as _se189
+    from scbp import pages as _se189
     _w189 = _wurzel()
     try:
         _w189.deiconify()
@@ -19061,7 +19061,7 @@ def main():
     #
     # ⭐ Geprueft wird die Wirkung am **frischen** Fenster: was im Feld steht,
     # und was die Filtervariable sieht. Nicht, welches Bauteil es gibt.
-    from scbp import bestandsfenster as _bf192, language as _sp192
+    from scbp import collection_window as _bf192, language as _sp192
     _wz192 = _wurzel()
     _liste192 = _bf192.Bestandsfenster(_wz192)
     for _ in range(3):
@@ -19208,7 +19208,7 @@ def main():
                 return a >= 0 and b >= 0 and a < b
         return False
 
-    _q193b = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+    _q193b = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                   encoding='utf-8').read()
     # ⭐ Erst ungueltig machen, dann zerstoeren. Danach schreibt jeder
     # erfolgreiche Ausgang den Abdruck selbst wieder.
@@ -19643,7 +19643,7 @@ def main():
         # `open_page` als Sprung?** Die Reiterleiste darf es (sie IST der
         # Reiterklick), die Seiten nicht.
         _q197 = ''
-        for _d197 in ('scbp/seiten.py', 'scbp/bestandsfenster.py'):
+        for _d197 in ('scbp/pages.py', 'scbp/collection_window.py'):
             with open(os.path.join(WURZEL, _d197), encoding='utf-8') as _fh197:
                 _q197 += _fh197.read()
         pruefe(_q197.count('.jump_to(') >= 6,
@@ -20128,7 +20128,7 @@ def main():
     # kein Bauplan in der Liste".
     #
     # Zwei Stellen verglichen den Titel WOERTLICH gegen `q['auftrag']` —
-    # `seiten._to_contract()` und `bestandsfenster.zum_auftrag()`. In den
+    # `pages._to_contract()` und `collection_window.zum_auftrag()`. In den
     # Herkunftsdaten steht aber `'Stop Rival Attack at [LOCATION]'`, im Spiel
     # der aufgeloeste Name. Ein exakter Vergleich kann das nie treffen.
     #
@@ -20176,8 +20176,8 @@ def main():
     # d) ⚠⚠ **Beide Nutzer der Aufloesung**, nicht nur einer. Genau daran ist
     #    v3.32.3 gescheitert: Der Filter sass in einer von zwei Stellen.
     import ast as _ast205
-    for _datei205, _funk205 in (('scbp/seiten.py', '_to_contract'),
-                                ('scbp/bestandsfenster.py', 'zum_auftrag')):
+    for _datei205, _funk205 in (('scbp/pages.py', '_to_contract'),
+                                ('scbp/collection_window.py', 'zum_auftrag')):
         _q205 = open(os.path.join(WURZEL, _datei205), encoding='utf-8').read()
         _gefunden205 = False
         for _k205 in _ast205.walk(_ast205.parse(_q205)):
@@ -20197,7 +20197,7 @@ def main():
     # Gegenprobe hat ihn entlarvt: Nimmt man eine Zuweisung weg, stimmt die
     # Zahl immer noch. **Eine Zaehlung ist keine Pruefung** — gefragt wird
     # jetzt je Funktion, nicht in Summe.
-    _q205 = open(os.path.join(WURZEL, 'scbp', 'bestandsfenster.py'),
+    _q205 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
                  encoding='utf-8').read()
     _fehlt205 = []
     for _k205 in _ast205.walk(_ast205.parse(_q205)):
@@ -20408,8 +20408,8 @@ def main():
 
     # Und die Legende darf die Spalte nicht wie eine einzelne Station aussehen
     # lassen — „Checkmate" allein verschweigt sieben weitere.
-    from scbp import seiten as _se206
-    _q206 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    from scbp import pages as _se206
+    _q206 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     _ab206 = rumpf(_q206, '_refineries')
     pruefe("s_bg_raff_weitere" in _ab206,
@@ -20845,7 +20845,7 @@ def main():
     _w208t = _sp208.TEXTS.get('s_dk_blackdog_idee')
     pruefe(bool(_w208t) and len(_w208t) == 2 and all(_w208t),
            'Blackd0g84 steht mit Text auf der Danke-Seite, deutsch und englisch')
-    _q208 = io.open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q208 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                     encoding='utf-8').read()
     pruefe("('Blackd0g84', 'KRT'" in _q208,
            'und ist in der Personenliste der Danke-Seite eingetragen')
@@ -21179,7 +21179,7 @@ def main():
     finally:
         shutil.rmtree(_wiese213, ignore_errors=True)
     # Die Danke-Seite und der Hangar-Hilfetext nennen die Erweiterung.
-    _q213 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q213 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     pruefe("'Star Citizen: Hangar Extension (AlyxOne)'" in _q213
            and 'HANGAR_EXT_PAGE' in _q213,
@@ -21320,7 +21320,7 @@ def main():
            'Pledge-Namen des XPLORer sind keine Beilage')
     pruefe(_fl215.bundled_with(_d215, _s215['Nomad']) == '',
            'ein Schiff ist nicht seine eigene Beilage')
-    _q215 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q215 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     _zeile215 = _q215.split('def _hangar_row')[1].split('\ndef ')[0]
     pruefe("t('s_hg_beilage')" in _zeile215 and 'bundled_with' in _zeile215,
@@ -21457,7 +21457,7 @@ def main():
            'JSON- und CSV-Import ergaenzen sich zu einem Eintrag (%r, %r)'
            % (_neu216, _alt_n216))
     # Die Schiffszeile zeigt Jahre, wenn es glatt aufgeht, sonst Monate.
-    _q216 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
+    _q216 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
     _z216 = _q216.split('def _hangar_row')[1].split('\ndef ')[0]
     pruefe("t('s_hg_vers_jahre')" in _z216 and "t('s_hg_vers_monate')" in _z216
@@ -21545,7 +21545,7 @@ def main():
 
     print('\n218. Jeder Methodenaufruf trifft eine Methode, die es gibt')
     # ⚠⚠ **Warum es diese Pruefung gibt.** Am 16.09.2026 rief
-    # `assistent.start()` noch `a.durchlaufen()`, obwohl die Methode bei der
+    # `wizard.start()` noch `a.durchlaufen()`, obwohl die Methode bei der
     # Umbenennung `run()` geworden war. Python merkt das erst beim Ausfuehren —
     # und ausgerechnet diese Zeile laeuft **nur beim allerersten Start**. Jeder
     # Tester hatte das Werkzeug laengst eingerichtet, also fiel es niemandem
@@ -21676,7 +21676,7 @@ def main():
 
     print('\n221. Jede Auswahlreihe kann `select` UND `select_quiet`')
     # ⚠⚠ **Warum es diese Pruefung gibt.** Es gibt **zwei** Fassungen einer
-    # Auswahlreihe: `main_window.choice` und `seiten._choice`. Die eine hing
+    # Auswahlreihe: `main_window.choice` und `pages._choice`. Die eine hing
     # `select` **und** `select_quiet` an das Widget, die andere nur `select`.
     # Fuenf Stellen rufen `select_quiet` auf — bei der zweiten Fassung endete
     # das in `AttributeError: 'Frame' object has no attribute 'select_quiet'`.
@@ -21695,7 +21695,7 @@ def main():
     # ⚠ Die beiden heissen **unterschiedlich** — `_choice` hier, `round_select`
     # dort. Genau deshalb fiel der Unterschied so lange nicht auf: Wer die eine
     # kennt, sucht die andere nicht.
-    for _datei221, _funktion221 in (('scbp/seiten.py', '_choice'),
+    for _datei221, _funktion221 in (('scbp/pages.py', '_choice'),
                                     ('scbp/main_window.py', 'round_select')):
         _pfad221 = os.path.join(WURZEL, _datei221)
         if not os.path.exists(_pfad221):
@@ -22202,7 +22202,7 @@ def main():
     # 226. Das Suchfeld im Hangar filtert auch „Meine Schiffe" (16.09.2026)
     print()
     print('226. Hangar-Suche filtert die eigene Liste')
-    from scbp import seiten as _se226
+    from scbp import pages as _se226
     _ikti226 = {'name': 'ATLS IKTI Akuma', 'hersteller': 'ARGO', 'hkurz': 'ARGO',
                 'paket': 'ATLS IKTI Akuma'}
     _atls226 = {'name': 'A.T.L.S.', 'kurz': 'ARGO_A_T_L_S_'}
@@ -22220,7 +22220,7 @@ def main():
     pruefe(_m226(_f7_226, '') and _m226(_f7_226, '   '),
            'ein leeres Feld zeigt alles')
     import ast as _ast226
-    _q226 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _q226 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     _fn226 = next(k for k in _ast226.parse(_q226).body
                   if isinstance(k, _ast226.FunctionDef) and k.name == '_hangar')
     _ruft226 = {c.func.attr if isinstance(c.func, _ast226.Attribute) else

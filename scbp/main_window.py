@@ -3193,9 +3193,9 @@ class MainWindow:
         self.root.after(50, self._min_height_update)
 
     def _fill_page(self, kennung, rahmen):
-        """Hier hängen die Seiten ein — geliefert von `seiten.py`."""
-        from . import seiten
-        seiten.build(self, kennung, rahmen)
+        """Hier hängen die Seiten ein — geliefert von `pages.py`."""
+        from . import pages
+        pages.build(self, kennung, rahmen)
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche
@@ -3241,8 +3241,8 @@ class MainWindow:
         """
         try:
             if rest is None:
-                from . import seiten
-                rest = [k for k in seiten.page_ids()
+                from . import pages
+                rest = [k for k in pages.page_ids()
                         if k not in self.drawn]
             if not rest:
                 return
@@ -3318,9 +3318,9 @@ class MainWindow:
         self.open_page('wasistneu')
 
     def _open_wizard(self):
-        from . import assistent
+        from . import wizard
         try:
-            assistent.start(self.root)
+            wizard.start(self.root)
         except Exception as ausnahme:
             errors.record('main_window.assistent', ausnahme)
 
@@ -3546,9 +3546,9 @@ LIST_VISIBLE = 7
 
 
 def _dialog_button(parent, text, action, font, strong=False):
-    """Knopf im Programmstil — dieselbe Machart wie `seiten._knopf`.
+    """Knopf im Programmstil — dieselbe Machart wie `pages._knopf`.
 
-    Bewusst hier nachgebaut statt importiert: `seiten` importiert aus diesem
+    Bewusst hier nachgebaut statt importiert: `pages` importiert aus diesem
     Modul, andersherum gäbe es einen Ringschluss.
     """
     height = font.metrics('linespace') + 16

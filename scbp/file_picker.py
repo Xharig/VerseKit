@@ -13,7 +13,7 @@ fast jedem System). Ist keiner da, bleibt der Tk-Dialog als Rückfall — hässl
 aber funktionierend ist besser als gar nichts. **Nichts hängt davon ab.**
 
 ⚠ **Warum dieses Modul überhaupt entstand, obwohl es die Ordnerwahl schon gab:**
-Für Ordner stand der ganze Ablauf bereits in `seiten.py` — für das Öffnen und
+Für Ordner stand der ganze Ablauf bereits in `pages.py` — für das Öffnen und
 Speichern von **Dateien** aber nicht, dort lief weiterhin `filedialog`. Beim
 Vorführen des Werkzeugs fiel es auf (gemeldet 27.08.2026: „bei Datei wählen
 kommt auch diese hässliche unübersichtliche Ordner-Auswahl"). Die drei Wege

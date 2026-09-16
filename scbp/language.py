@@ -2048,7 +2048,7 @@ TEXTS = {
                           'empty — found automatically'),
 
     # -- Seite „Was ist neu" --
-    # ⚠ Diese vier standen bis v3.0.0-rc58 **fest im Code** (`seiten.py`) und
+    # ⚠ Diese vier standen bis v3.0.0-rc58 **fest im Code** (`pages.py`) und
     # blieben deshalb auch auf Englisch deutsch — sichtbar auf dem Reiter
     # „Was ist neu", direkt neben einem sauber übersetzten Changelog.
     's_wn_f_alle':     ('Alles', 'All'),
@@ -3724,7 +3724,7 @@ TEXTS = {
     's_pa_dazugekommen': ('neu: {neu}', 'new: {neu}'),
     's_pa_mehr':         ('… und {n} weitere', '… and {n} more'),
     # ⚠ Für verschachtelte Werte, die als Ganzes verglichen werden — siehe
-    # `_pc_struct` in seiten.py. Ohne sie stand dort nur „… → …".
+    # `_pc_struct` in pages.py. Ohne sie stand dort nur „… → …".
     's_pa_feld_weg':     ('{feld} fällt weg', '{feld} removed'),
     's_pa_feld_neu':     ('{feld} neu: {wert}', '{feld} new: {wert}'),
     # ⚠ Der ehrliche Fall: Der Patch hat das Feld angefasst, aber kein
@@ -5443,7 +5443,7 @@ if __name__ == '__main__':
 # verschiedene Pfade, aber die häufigsten **25 decken 93 %** aller Vorkommen.
 # Ein überschaubares Wörterbuch bringt also fast alles.
 #
-# ⚠ **Unbekanntes bleibt roh stehen** (`_pa_feldname` in seiten.py). Ein Pfad,
+# ⚠ **Unbekanntes bleibt roh stehen** (`_pa_feldname` in pages.py). Ein Pfad,
 # den hier niemand eingetragen hat, ist immer noch besser als ein geratener
 # deutscher Name — und CIG legt mit jedem Patch neue an.
 #

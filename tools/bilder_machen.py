@@ -113,7 +113,7 @@ if sys.platform != 'win32':
     WEIT_WEG = (0, 0)
 
 # Welche Seite unter welchem Namen abgelegt wird. Die Kennungen sind die aus
-# `scbp/seiten.py`.
+# `scbp/pages.py`.
 SEITEN = {
     'liste':        'screenshot-liste',
     'fortschritt':  'screenshot-fortschritt',

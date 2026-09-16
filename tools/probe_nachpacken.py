@@ -22,7 +22,7 @@ import unsichtbar                                            # noqa: E402
 unsichtbar.sicherstellen(messend=True)
 
 import tkinter as tk
-from scbp import seiten, main_window                        # noqa: E402
+from scbp import pages, main_window                        # noqa: E402
 
 # ⛔ Vor der ersten Ausgabe: Die Windows-Konsole kann kein `─` — siehe ausgabe.py.
 import ausgabe                                                 # noqa: E402
@@ -64,9 +64,9 @@ def main():
 
     liste = liste_finden(fenster.pages['joysticks'])
     gebaut = len(liste.winfo_children()) if liste else 0
-    p(gebaut > seiten.ROWS_FIRST,
+    p(gebaut > pages.ROWS_FIRST,
       'die Liste hat mehr Zeilen als sofort gezeigt werden (%d)' % gebaut)
-    if gebaut <= seiten.ROWS_FIRST:
+    if gebaut <= pages.ROWS_FIRST:
         fenster.root.destroy()
         return 1
 
