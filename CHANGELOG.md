@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.44.3 - 2026-09-16
+
+> **Aufträge und Baupläne erscheinen wieder im Overlay.** Seit v3.39.0 konnte
+> der erste angenommene Auftrag das Mitlesen der Game.log stillschweigend
+> beenden — danach kam im Overlay nichts mehr an, bis VerseKit neu gestartet
+> wurde. Das ist behoben.
+
+### Behoben
+
+- **Das Overlay hört nach einem Auftrag nicht mehr auf mitzulesen.** Ein
+  interner Fehler beendete beim Anzeigen der Aufträge den Teil von VerseKit,
+  der die Game.log liest. Neue Aufträge und freigeschaltete Baupläne kamen
+  danach nicht mehr an.
+
 ## v3.44.2 - 2026-09-16
 
 > **Die Suche in „Mein Hangar" findet jetzt auch in deinen eigenen Schiffen.**

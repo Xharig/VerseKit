@@ -22229,6 +22229,72 @@ def main():
     pruefe('_hangar_matches' in _ruft226, 'die Liste wird wirklich gefiltert')
     pruefe('trace_add' in _ruft226, 'und beim Tippen neu gezeichnet')
 
+    # 227. Kein Feld wird gelesen, das nirgends gesetzt wird (16.09.2026)
+    #
+    # Seit P4 Stufe 10a (v3.39.0) las der Watcher `self._offene_contracts` —
+    # das Feld hiess weiter `_offene_auftraege`. Beim ersten Auftrag starb der
+    # Watcher-Faden mit AttributeError, und das Overlay zeigte weder Auftraege
+    # noch Bauplaene mehr an. Kein Pruefpunkt rief den Weg; pyflakes sieht
+    # Attribute nicht. Deshalb hier fuer das GANZE Projekt: Jedes `self.X`,
+    # das gelesen wird, muss irgendwo gesetzt werden (Zuweisung, Methode,
+    # Klassenattribut oder setattr).
+    print()
+    print('227. Gelesene Felder existieren')
+    import ast as _ast227
+    import subprocess as _sp227
+    _dateien227 = [p for p in _sp227.run(['git', '-C', WURZEL, 'ls-files', '*.py'],
+                                         capture_output=True, text=True).stdout.split()]
+    _baeume227 = {}
+    for _p227 in _dateien227:
+        try:
+            _baeume227[_p227] = _ast227.parse(
+                open(os.path.join(WURZEL, _p227), encoding='utf-8').read())
+        except Exception:
+            pass
+    _gesetzt227 = set()
+    for _t227 in _baeume227.values():
+        for _k227 in _ast227.walk(_t227):
+            if (isinstance(_k227, _ast227.Attribute)
+                    and isinstance(_k227.ctx, (_ast227.Store, _ast227.Del))):
+                _gesetzt227.add(_k227.attr)
+            elif isinstance(_k227, (_ast227.FunctionDef, _ast227.AsyncFunctionDef,
+                                    _ast227.ClassDef)):
+                _gesetzt227.add(_k227.name)
+            elif isinstance(_k227, _ast227.Assign):
+                _gesetzt227.update(_z.id for _z in _k227.targets
+                                   if isinstance(_z, _ast227.Name))
+            elif (isinstance(_k227, _ast227.Call)
+                  and getattr(_k227.func, 'id', '') == 'setattr'
+                  and len(_k227.args) > 1
+                  and isinstance(_k227.args[1], _ast227.Constant)):
+                _gesetzt227.add(_k227.args[1].value)
+    _tot227 = []
+    for _p227, _t227 in _baeume227.items():
+        for _c227 in [k for k in _ast227.walk(_t227) if isinstance(k, _ast227.ClassDef)]:
+            for _k227 in _ast227.walk(_c227):
+                if (isinstance(_k227, _ast227.Attribute)
+                        and isinstance(_k227.ctx, _ast227.Load)
+                        and isinstance(_k227.value, _ast227.Name)
+                        and _k227.value.id == 'self'
+                        and _k227.attr not in _gesetzt227):
+                    _tot227.append('%s:%d %s.%s' % (_p227, _k227.lineno,
+                                                    _c227.name, _k227.attr))
+    pruefe(not _tot227, 'kein self-Feld wird gelesen, das es nirgends gibt (%s)'
+           % (', '.join(_tot227[:6]) or 'keines'))
+    # Und der Weg, der gestorben ist, laeuft wirklich.
+    import types as _ty227
+    import sc_bp_watcher as _sw227
+    _ich227 = _ty227.SimpleNamespace(
+        _auftrag_missionen={'m1': 'Auftrag A'},
+        _offene_auftraege={'Auftrag A': 'Zeile A'},
+        _ziele=_ty227.SimpleNamespace(open_for=lambda k: []))
+    try:
+        _stand227 = _sw227.Watcher._auftragsstand(_ich227)
+    except Exception as _a227:
+        _stand227 = _a227
+    pruefe(_stand227 == [('Auftrag A', 'Zeile A', [])],
+           'der Auftragsstand fuer die Anzeige laesst sich bilden (%r)' % (_stand227,))
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

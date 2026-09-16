@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.44.3 - 2026-09-16
+
+> **Contracts and blueprints show up in the overlay again.** Since v3.39.0 the
+> first accepted contract could silently stop VerseKit from reading the
+> Game.log — after that nothing reached the overlay until VerseKit was
+> restarted. This is fixed.
+
+### Fixed
+
+- **The overlay no longer stops reading after a contract.** An internal error
+  while showing contracts ended the part of VerseKit that reads the Game.log.
+  New contracts and unlocked blueprints no longer arrived afterwards.
+
 ## v3.44.2 - 2026-09-16
 
 > **The search on "My hangar" now looks through your own ships, too.** Type
