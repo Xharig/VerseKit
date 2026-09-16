@@ -242,7 +242,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 |---|---|
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Sofort-Meldung** | Liest die Star-Citizen-`Game.log` mit → der Bauplan steht **in Sekunden** in der Liste |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Tastenkombination** | **Strg+Alt+B** holt die Bauplan-Liste nach vorn — mitten aus dem Vollbild-Spiel, ohne blind nach dem Fenster zu suchen. Angemeldet wird genau diese eine Kombination; mitgehört wird nichts |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Bauplan-Liste** | Alle Baupläne durchsuchen, nach Art gruppiert, Filter *alle / habe ich / fehlt mir / beobachtet / neu im Spiel*. Häkchen per Klick. Der eigene Reiter **Bauplan-Fortschritt** zeigt je Art, wie weit du bist |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Bauplan-Liste** | Alle Baupläne durchsuchen, nach Art gruppiert, Filter *alle / habe ich / fehlt mir / beobachtet / neu im Spiel*. Häkchen per Klick. Der eigene Reiter **Bauplan-Fortschritt** zeigt je Art, wie weit du bist — für alle Baupläne oder nur für deine Merkliste |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Herkunft je Bauplan** | Der Knopf **„Woher?"** zeigt Fraktion, Auftrag, nötigen Rang und Belohnung — für **670 von 738** Bauplänen, sortiert nach dem leichtesten Weg. Aus der **Herstellung** führt ein Knopf direkt dorthin: fehlt dir der Bauplan, siehst du mit einem Klick, welchen Auftrag du dafür machen musst |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Auftrag angenommen** | Nimmst du einen Auftrag an, steht sofort da, ob Baupläne dabei sind — und **welche dir davon noch fehlen**. Kennt der Katalog den Auftrag nicht, wird geschwiegen statt geraten |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Was gerade zu tun ist** | Unter jedem laufenden Auftrag stehen seine **offenen Zwischenziele** — „Hartmoore-Inverter deaktivieren", „Knoten lokalisieren und zurücksetzen". Sie kommen aus demselben Protokoll und wechseln mit, sobald du eines geschafft hast |
@@ -272,7 +272,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/serverstatus-gruen.png" width="22" alt=""> **Serverstatus** | Eigener Reiter: **Läuft Star Citizen gerade?** Zeigt, was CIG auf seiner Statusseite meldet — die drei Systeme und die Meldungen der letzten zwei Monate im Volltext. Frischt sich jede Minute selbst auf. Die Zustände bleiben im Wortlaut von CIG; die Angaben sind von Hand gepflegt, keine Messung |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Geänderte Spielwerte** | Eigener Reiter: **was ein Spiel-Patch an Werten verändert hat** — Schiffe, Waffen, Quantum-Antriebe, Komponenten, Feld für Feld mit altem und neuem Wert. Gestiegen grün, gefallen rot. Die Quelle hebt nur die letzten zehn Patches auf; was du einmal geholt hast, bleibt bei dir. |
 | <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **Neu im Spiel** | Eigener Filter in der Liste: **nur das, was mit dem aktuellen Patch dazukam**. Jeder Bauplan trägt die Spielversion, in der es ihn zuerst gab; beim nächsten Patch rücken die neuen nach und die alten fallen aus dem Filter — der Stempel bleibt. Ein Auswahlfeld **Patch** zeigt zusätzlich jeden früheren Patch und erweitert sich von allein |
-| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Merkliste** | Klick auf den Stern in der Liste — taucht der Bauplan auf, wird er auffällig gemeldet und **verschwindet danach von selbst** von der Merkliste |
+| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Merkliste** | Klick auf den Stern in der Liste — taucht der Bauplan auf, wird er auffällig gemeldet und **auf der Merkliste abgehakt** — so zeigt der Fortschritt, wie weit du mit deinen gemerkten Bauplänen bist |
 | <img src="assets/symbole/22/kuerzel-gruen.png" width="22" alt=""> **Klasse · Size · Grade** | Kompakt-Kürzel `Klasse/Size/Grade` je Bauplan, z. B. `M/1/A` (Military · Size 1 · Grade A) |
 | <img src="assets/symbole/22/ton-gruen.png" width="22" alt=""> **Signalton** | Kurzer Ton bei jedem Neuzugang — du musst nicht aufs Fenster schauen |
 | <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Immer im Vordergrund** | Randloses, leicht durchscheinendes Overlay über dem Spiel |
@@ -470,7 +470,7 @@ Dasselbe funktioniert über **zwei Rechner**, wenn beide denselben Cloud- oder N
 
 Wartest du auf einen ganz bestimmten Bauplan, klick in der Bauplan-Liste auf den **Stern** neben seinem Namen. Über das Suchfeld findest du ihn in Sekunden, und der Filter **beobachtet** zeigt dir, worauf du gerade wartest.
 
-Taucht ein beobachteter Bauplan auf, meldet ihn der Watcher auffällig in Gold mit einem Stern und eigenem Signalton — und **nimmt ihn danach von selbst von der Merkliste**. Was du hast, muss dort nicht mehr stehen.
+Taucht ein beobachteter Bauplan auf, meldet ihn der Watcher auffällig in Gold mit einem Stern und eigenem Signalton — und **hakt ihn auf der Merkliste ab**. Er bleibt dort stehen, damit der Bauplan-Fortschritt „Nur Merkliste“ ihn mitzählt; über den Stern nimmst du ihn wieder herunter.
 
 <details>
 <summary>Für Fortgeschrittene: Muster statt Namen</summary>

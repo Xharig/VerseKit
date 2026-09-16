@@ -20,8 +20,21 @@
 Die Merkliste — Baupläne, auf die man wartet.
 
 Trägt man einen Bauplan hier ein, meldet der Watcher ihn **auffällig**, sobald
-er auftaucht: gold statt grün, mit Stern. Danach fliegt er von selbst wieder
-raus, denn eine Merkliste voller längst erledigter Wünsche ist keine.
+er auftaucht: gold statt grün, mit Stern.
+
+⭐⭐ **Danach bleibt er stehen — als erledigt** (seit 16.09.2026). Bis dahin
+flog ein freigeschalteter Bauplan von selbst raus. Dann aber lässt sich kein
+Fortschritt über die Merkliste zeigen: Aeternitas26 (KRT) wünschte sich den
+Bauplan-Fortschritt „nur für die als Favoriten markierten Baupläne", und mit
+einer Liste, aus der alles Erreichte verschwindet, stünde der immer bei null.
+Entschieden am 16.09.2026: Erledigte bleiben, die Anzeige hakt sie ab (erledigt
+ist, was im Bestand steht — das wird nicht zusätzlich gespeichert).
+
+⚠ Das hebt die Regel vom 06.09.2026 auf („da wird einer beobachtet, den ich
+schon habe"): Ein gemerkter Bauplan, den man hat, steht jetzt **mit Haken**
+in der Liste, nicht als offen. **Eigene Beobachtungen mit Suchmuster** fliegen
+beim Fund weiter raus — sie stehen für „irgendein passendes Teil", nicht für
+einen Bauplan, und zählen im Fortschritt nicht mit.
 
 Gepflegt wird sie **im Fenster mit einem Klick** — niemand soll dafür eine
 Datei bearbeiten müssen. Die Datei (`watchlist.json`) bleibt trotzdem lesbar
@@ -205,43 +218,24 @@ def match(name, data=None):
 
 
 def fulfill(name):
-    """Einen erfüllten Wunsch austragen. Gibt den Titel zurück, wenn einer weg ist.
+    """Ein Wunsch ist erfüllt. Gibt den Titel zurück, auf den gewartet wurde.
 
-    Wird aufgerufen, sobald ein Bauplan im eigenen Bestand landet: Worauf man
-    gewartet hat und was man jetzt hat, gehört nicht mehr auf die Liste."""
+    Wird aufgerufen, sobald ein Bauplan im eigenen Bestand landet.
+
+    ⚠ **Ein angeklickter Name bleibt stehen** — er zählt ab jetzt als erledigt,
+    weil er im Bestand steht (siehe Modulkopf). **Nur Muster-Beobachtungen
+    fliegen raus**: Sie warten auf „ein passendes Teil", und das ist jetzt da.
+    """
     data = load()
     title = match(name, data)
     if not title:
         return None
-    save(remove(name, data))
-    return title
-
-
-def prune(owned_names):
-    """Merkposten austragen, die schon im Bestand stehen. Gibt die Anzahl zurück.
-
-    ⚠⚠⚠ **`fulfill()` greift nur beim FUND.** Wer einen Bauplan merkt, den er
-    längst hat — oder ihn zwischen zwei Programmstarts über eine andere Quelle
-    bekommt —, behält den Merkposten für immer. Am 06.09.2026 stand
-    `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste ein
-    Häkchen trug: *„da wird einer beobachtet, den ich schon habe."*
-
-    Eine Beobachtungsliste, auf der Erledigtes stehen bleibt, wird mit jeder
-    Woche unbrauchbarer — genau wie eine Aufgabenliste ohne Abhaken.
-
-    ⚠ Nur `namen` werden aufgeräumt, **nicht** die Muster-Einträge: Ein Muster
-    wie „Morozov" steht für mehrere Teile, von denen erst eines da sein kann.
-    """
-    data = load()
-    owned = {_norm(n) for n in (owned_names or ())}
-    if not owned:
-        return 0
-    kept = [n for n in data['namen'] if _norm(n) not in owned]
-    removed = len(data['namen']) - len(kept)
-    if removed:
-        data['namen'] = kept
+    key = _norm(name)
+    kept = [e for e in data['eintraege'] if not _pattern_matches(e, key)]
+    if len(kept) != len(data['eintraege']):
+        data['eintraege'] = kept
         save(data)
-    return removed
+    return title
 
 
 def all_entries(data=None):

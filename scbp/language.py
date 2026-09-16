@@ -203,8 +203,8 @@ TEXTS = {
                           'ein und klick auf den Stern.',
                           'You are not watching anything yet. Type a name above '
                           'and click the star.'),
-    'merk_erledigt':     ('%s ist da — von der Merkliste genommen.',
-                          '%s has arrived — removed from your watchlist.'),
+    'merk_erledigt':     ('%s ist da — auf der Merkliste abgehakt.',
+                          '%s has arrived — ticked off on your watchlist.'),
 
     # -- Einstellungen --
     'einstellungen':     ('Einstellungen', 'Settings'),
@@ -2007,6 +2007,16 @@ TEXTS = {
                           'The state of each area first — click one to see the categories inside. Clicking a category shows its blueprints.'),
     's_fo_von':        ('  von %d Bauplänen · %.0f %%',
                           '  of %d blueprints · %.0f %%'),
+    # ⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): Fortschritt nur für die
+    # gemerkten Baupläne.
+    's_fo_alle':       ('Alle Baupläne', 'All blueprints'),
+    's_fo_merk':       ('Nur Merkliste', 'Watchlist only'),
+    's_fo_merk_leer':  ('Auf deiner Merkliste steht noch kein Bauplan. Merke dir '
+                        'Baupläne in der Bauplan-Liste mit dem Stern, dann '
+                        'siehst du hier, wie weit du mit ihnen bist.',
+                        'There are no blueprints on your watchlist yet. Star '
+                        'blueprints in the blueprint list, and this shows how '
+                        'far along you are with them.'),
     's_al_autostart':  ('Autostart: %s', 'Autostart: %s'),
     's_an_vorne':      ('Immer im Vordergrund: %s', 'Always on top: %s'),
     's_an_zeilen':     ('Zeilen im Overlay: %s', 'Rows in the overlay: %s'),
@@ -2298,6 +2308,14 @@ TEXTS = {
                               'and the only way back was the sidebar, which lost '
                               'your search and your filter. Now there is a button '
                               'that takes you back.'),
+    's_dk_aeternitas_idee':  ('**Fortschritt nur für die Merkliste** — wie weit man '
+                              'mit den Bauplänen ist, die man wirklich haben will. '
+                              'Dafür bleiben Erledigte jetzt abgehakt auf der '
+                              'Merkliste stehen.',
+                              '**Progress for the watchlist only** — how far along '
+                              'you are with the blueprints you actually want. For '
+                              'that, finished ones now stay ticked off on the '
+                              'watchlist.'),
     's_dk_blackdog_idee':    ('**Anklickbares soll sich zeigen.** Der Hinweis, '
                               'dass man den Symbolen im Overlay nicht ansieht, '
                               'welche davon etwas tun — jetzt hellt sich jedes '

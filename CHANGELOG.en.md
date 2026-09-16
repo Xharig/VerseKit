@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Blueprint progress for your watchlist only.** At the top of the page pick
+  "All blueprints" or "Watchlist only" to see how far along you are with the
+  blueprints you have starred. Your choice is remembered.
+  Suggested by Aeternitas26 (KRT)
+
+### Improved
+
+- **Unlocked blueprints stay on your watchlist** and are ticked off there
+  instead of disappearing. You can still remove them with the star.
+
 ## v3.44.3 - 2026-09-16
 
 > **Contracts and blueprints show up in the overlay again.** Since v3.39.0 the

@@ -752,17 +752,10 @@ class Watcher(threading.Thread):
         except Exception as ausnahme:
             errors.record('watcher.bestand_angleichen', ausnahme)
         errors.trail('Overlay: Bestand am Katalog geprueft')
-        # ⚠⚠ **Merkposten austragen, die längst im Bestand stehen.**
-        # `_merkliste_erledigen` greift nur beim FUND — wer etwas merkt, das er
-        # schon hat, behält den Posten für immer. Gemeldet am 06.09.2026: „da
-        # wird einer beobachtet, den ich schon habe."
-        try:
-            _weg = watchlist.prune(
-                (self.bestand.get('bauplaene') or {}).keys())
-            if _weg:
-                errors.trail('Merkliste: %d erledigte Posten ausgetragen' % _weg)
-        except Exception as ausnahme:
-            errors.record('watcher.merkliste_aufraeumen', ausnahme)
+        # ⚠ Hier wurden bis zum 16.09.2026 gemerkte Baupläne ausgetragen, die
+        # schon im Bestand standen (`watchlist.prune`). Seit der Fortschritt
+        # „nur Merkliste" zählt, **bleiben Erledigte stehen** und werden in der
+        # Liste abgehakt — siehe Kopf von `scbp/watchlist.py`.
         # ⚠⚠⚠ **Ist der Bestand kleiner als je zuvor?** Dann stimmt etwas mit
         # dem ORT nicht — Bauplaene verschwinden nicht von selbst. Am
         # 06.09.2026 zeigte der Watcher nach einem Neustart 406 statt 413,
@@ -1846,10 +1839,10 @@ class Watcher(threading.Thread):
             self.q.put(('status', self._statuszeile()))
 
     def _merkliste_erledigen(self, name):
-        """Worauf gewartet wurde und was jetzt da ist, fliegt von der Merkliste.
+        """Worauf gewartet wurde und was jetzt da ist, wird auf der Merkliste abgehakt.
 
-        Eine Liste voller längst erfüllter Wünsche wäre keine Merkliste, sondern
-        ein Archiv. Der Watcher sagt einmal Bescheid, dann ist es erledigt."""
+        Der Watcher sagt einmal Bescheid. Der Eintrag bleibt stehen, damit der
+        Fortschritt „nur Merkliste" ihn mitzählt."""
         try:
             titel = watchlist.fulfill(name)
         except Exception:
