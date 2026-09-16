@@ -47,12 +47,12 @@ import time
 
 from . import pfade
 
-SPRACHEN = ('de', 'en')
-STANDARD = 'de'
+LANGUAGES = ('de', 'en')
+DEFAULT_LANG = 'de'
 
 # Alle Texte, beide Sprachen nebeneinander. Bewusst in einer Tabelle statt in
 # getrennten Dateien: So sieht man beim Nachtragen sofort, ob etwas fehlt.
-TEXTE = {
+TEXTS = {
     # -- Verwaltungsfenster --
     'titel_bauplaene':   ('VerseKit — Baupläne', 'VerseKit — Blueprints'),
     'bauplaene':         ('Baupläne', 'Blueprints'),
@@ -4977,40 +4977,40 @@ TEXTE = {
     'art_unbekannt':            ('Sonstiges', 'Other'),
 }
 
-_aktuell = [None]
+_current = [None]
 
 
-def systemsprache():
+def system_language():
     """Was das Betriebssystem sagt. Alles außer Deutsch gilt als Englisch."""
-    for quelle in (os.environ.get('SC_BP_SPRACHE'),
+    for source in (os.environ.get('SC_BP_SPRACHE'),
                    os.environ.get('LANG'), os.environ.get('LC_ALL')):
-        if quelle:
-            return 'de' if quelle.lower().startswith('de') else 'en'
+        if source:
+            return 'de' if source.lower().startswith('de') else 'en'
     try:
-        kennung = locale.getdefaultlocale()[0] or ''
+        ident = locale.getdefaultlocale()[0] or ''
     except Exception:
-        kennung = ''
-    return 'de' if kennung.lower().startswith('de') else 'en'
+        ident = ''
+    return 'de' if ident.lower().startswith('de') else 'en'
 
 
-def gewaehlt():
+def chosen():
     """Was der Nutzer eingestellt hat: 'de', 'en' oder 'auto'."""
-    wert = (pfade.einstellungen().get('sprache') or 'auto').strip().lower()
-    return wert if wert in SPRACHEN + ('auto',) else 'auto'
+    value = (pfade.einstellungen().get('sprache') or 'auto').strip().lower()
+    return value if value in LANGUAGES + ('auto',) else 'auto'
 
 
-def aktuelle():
+def current():
     """Die Sprache, in der gerade geschrieben wird."""
-    if _aktuell[0] is None:
-        wahl = gewaehlt()
-        _aktuell[0] = systemsprache() if wahl == 'auto' else wahl
-    return _aktuell[0]
+    if _current[0] is None:
+        choice = chosen()
+        _current[0] = system_language() if choice == 'auto' else choice
+    return _current[0]
 
 
-_zuhoerer = []
+_listeners = []
 
 
-def anmelden(rueckruf):
+def subscribe(callback):
     """Beim Sprachwechsel benachrichtigt werden.
 
     ⚠ Ein Fenster, das seine Texte **einmal** beim Bauen setzt, bleibt auf der
@@ -5020,8 +5020,8 @@ def anmelden(rueckruf):
     deutsche Melde-Leiste. Wer hier anmeldet, wird mitgezogen.
 
     Dasselbe Muster wie `autostart.register_display()`."""
-    if rueckruf not in _zuhoerer:
-        _zuhoerer.append(rueckruf)
+    if callback not in _listeners:
+        _listeners.append(callback)
 
 
 # Die Knopfbeschriftungen der System-Abfragen (`messagebox.askyesno`) kommen
@@ -5044,7 +5044,7 @@ _MSGCAT_DE = (('Yes', 'Ja'), ('No', 'Nein'), ('Cancel', 'Abbrechen'),
 _msgcat_widget = [None]
 
 
-def knoepfe_eindeutschen(widget):
+def localize_buttons(widget):
     """Tks Abfrage-Knöpfe auf die Programmsprache bringen.
 
     Braucht ein beliebiges Tk-Widget (für den Zugang zum Interpreter) und
@@ -5055,9 +5055,9 @@ def knoepfe_eindeutschen(widget):
         return
     _msgcat_widget[0] = widget
     try:
-        if aktuelle() == 'de':
-            for schluessel, wort in _MSGCAT_DE:
-                widget.tk.call('::msgcat::mcset', 'de', schluessel, wort)
+        if current() == 'de':
+            for key, word in _MSGCAT_DE:
+                widget.tk.call('::msgcat::mcset', 'de', key, word)
             widget.tk.call('::msgcat::mclocale', 'de')
         else:
             widget.tk.call('::msgcat::mclocale', 'en')
@@ -5067,30 +5067,30 @@ def knoepfe_eindeutschen(widget):
         pass
 
 
-def setzen(sprache):
+def set_language(lang):
     """Sprache für diesen Lauf umstellen (ohne die Einstellung zu ändern).
 
     Das Speichern macht das Einstellungsfenster; hier geht es nur darum, dass
     ein Umschalten sofort sichtbar wird, ohne das Programm neu zu starten."""
-    vorher = _aktuell[0]
-    if sprache in SPRACHEN:
-        _aktuell[0] = sprache
-    elif sprache == 'auto':
-        _aktuell[0] = systemsprache()
-    if _aktuell[0] == vorher:
+    before = _current[0]
+    if lang in LANGUAGES:
+        _current[0] = lang
+    elif lang == 'auto':
+        _current[0] = system_language()
+    if _current[0] == before:
         return
     # ⚠ Auch die Knöpfe der System-Abfragen mitziehen — sie haengen an Tks
     # eigener Tabelle und wuerden sonst in der vorigen Sprache stehen bleiben.
-    knoepfe_eindeutschen(_msgcat_widget[0])
-    for rueckruf in list(_zuhoerer):
+    localize_buttons(_msgcat_widget[0])
+    for callback in list(_listeners):
         try:
-            rueckruf()
-        except Exception as ausnahme:
+            callback()
+        except Exception as exc:
             # Ein Fenster, das sich nicht neu beschriften lässt, darf die
             # anderen nicht mitreißen — und stumm verschwinden soll es auch
             # nicht.
             from . import fehler                # lokal: sonst Zirkelbezug
-            fehler.merken('sprache.setzen', ausnahme)
+            fehler.merken('sprache.setzen', exc)
 
 
 # ---------------------------------------------------------------------------
@@ -5110,7 +5110,7 @@ def setzen(sprache):
 # dazu, steht sie so da, wie das Spiel sie nennt — immer noch besser als eine
 # geratene Übersetzung. Gemessen am Datenstand 4.10.0-live.12519617: 24
 # verschiedene Eigenschaften, alle 24 hier drin.
-EIGENSCHAFTEN = {
+PROPERTIES = {
     'armor_temperaturemin':            'Minimaltemperatur',
     'armor_temperaturemax':            'Maximaltemperatur',
     'armor_damagemitigation':          'Schadensminderung',
@@ -5138,30 +5138,30 @@ EIGENSCHAFTEN = {
 }
 
 
-def eigenschaft(name, schluessel=None):
+def property_name(name, key=None):
     """Der Name einer Rezept-Eigenschaft in der eingestellten Sprache.
 
     ⚠ Englisch bleibt englisch — dort ist der Name des Spiels der richtige.
     Übersetzt wird nur ins Deutsche, und nur was in der Tabelle steht.
     """
     try:
-        if aktuelle() != 'de':
+        if current() != 'de':
             return name
     except Exception:
         return name
-    return EIGENSCHAFTEN.get(schluessel) or name
+    return PROPERTIES.get(key) or name
 
 
-def t(schluessel, *werte):
+def t(key, *values):
     """Ein Text in der aktuellen Sprache, wahlweise mit eingesetzten Werten."""
-    eintrag = TEXTE.get(schluessel)
-    if not eintrag:
-        return schluessel                       # fehlt: fällt auf, stürzt nicht ab
-    text = eintrag[SPRACHEN.index(aktuelle())] or eintrag[0]
-    return (text % werte) if werte else text
+    entry = TEXTS.get(key)
+    if not entry:
+        return key                       # fehlt: fällt auf, stürzt nicht ab
+    text = entry[LANGUAGES.index(current())] or entry[0]
+    return (text % values) if values else text
 
 
-class Satz:
+class Phrase:
     """Ein Text, der erst **beim Anzeigen** in Sprache gegossen wird.
 
     ⚠ Der Unterschied zu `t()`: `t()` liefert einen fertigen Satz — wer den in
@@ -5181,31 +5181,31 @@ class Satz:
         Satz('m_erster_lauf', Zeitpunkt(aeltester))
     """
 
-    def __init__(self, schluessel, *werte):
-        self.schluessel = schluessel
-        self.werte = werte
+    def __init__(self, key, *values):
+        self.key = key
+        self.values = values
 
     def __str__(self):
         # Werte können selbst Träger sein (ein Zeitpunkt, ein zweiter Satz) —
         # die müssen in derselben Sprache aufgelöst werden, nicht in der von
         # vorhin.
-        werte = tuple(str(w) if isinstance(w, (Satz, Zeitpunkt, Kette)) else w
-                      for w in self.werte)
-        return t(self.schluessel, *werte)
+        values = tuple(str(w) if isinstance(w, (Phrase, Moment, Chain)) else w
+                      for w in self.values)
+        return t(self.key, *values)
 
     def __repr__(self):
-        return 'Satz(%r%s)' % (self.schluessel,
-                               ''.join(', %r' % w for w in self.werte))
+        return 'Satz(%r%s)' % (self.key,
+                               ''.join(', %r' % w for w in self.values))
 
-    def __eq__(self, andere):
+    def __eq__(self, other):
         # Damit sich ein Träger mit dem vergleichen lässt, was im Label steht.
-        return str(self) == str(andere)
+        return str(self) == str(other)
 
     def __hash__(self):
-        return hash((self.schluessel, self.werte))
+        return hash((self.key, self.values))
 
 
-class Zeitpunkt:
+class Moment:
     """Ein Datum, das seine **Schreibweise** erst beim Anzeigen wählt.
 
     ⚠ Nicht nur der Satz ist sprachabhängig, das Datum darin auch: Im
@@ -5213,65 +5213,65 @@ class Zeitpunkt:
     Datum in einem übersetzten Satz liest sich falsch — deshalb wandert hier
     der rohe Zeitstempel weiter, nicht die fertige Zeichenkette."""
 
-    def __init__(self, zeitstempel, schluessel='m_erster_datum'):
-        self.zeitstempel = zeitstempel
-        self.schluessel = schluessel
+    def __init__(self, timestamp, key='m_erster_datum'):
+        self.timestamp = timestamp
+        self.key = key
 
     def __str__(self):
-        return time.strftime(t(self.schluessel),
-                             time.localtime(self.zeitstempel))
+        return time.strftime(t(self.key),
+                             time.localtime(self.timestamp))
 
     def __repr__(self):
-        return 'Zeitpunkt(%r)' % (self.zeitstempel,)
+        return 'Zeitpunkt(%r)' % (self.timestamp,)
 
 
-class Kette:
+class Chain:
     """Mehrere Träger hintereinander, mit einem Trennzeichen dazwischen.
 
     Für die seltenen Fälle, in denen zwei eigenständige Sätze eine Zeile
     bilden („Version 3.0.0 verfügbar — Was ist neu"). Bewusst kein eigener
     Sprachschlüssel: Das Trennzeichen ist Satzzeichen, kein Text."""
 
-    def __init__(self, trenner, *teile):
-        self.trenner = trenner
-        self.teile = teile
+    def __init__(self, sep, *parts):
+        self.sep = sep
+        self.parts = parts
 
     def __str__(self):
-        return self.trenner.join(str(teil) for teil in self.teile)
+        return self.sep.join(str(part) for part in self.parts)
 
     def __repr__(self):
-        return 'Kette(%r, %s)' % (self.trenner,
-                                  ', '.join(repr(x) for x in self.teile))
+        return 'Kette(%r, %s)' % (self.sep,
+                                  ', '.join(repr(x) for x in self.parts))
 
 
-def verbinden(trenner, *teile):
+def join_parts(sep, *parts):
     """Kurzschreibweise für `Kette`."""
-    return Kette(trenner, *teile)
+    return Chain(sep, *parts)
 
 
-def auffrischbar(wert):
+def is_refreshable(value):
     """Ist das ein Träger, der sich beim Sprachwechsel neu auswerten lässt?
 
     Die Oberfläche fragt damit ab, ob eine bereits angezeigte Meldung
     mitgezogen werden kann — oder ob dort ein fertiger Text steht, den man
     besser stehen lässt, statt ihn zu erraten."""
-    return isinstance(wert, (Satz, Zeitpunkt, Kette))
+    return isinstance(value, (Phrase, Moment, Chain))
 
 
-def art(roh):
+def kind_label(raw):
     """Rohbegriff von scmdb -> Bezeichnung in der aktuellen Sprache."""
-    return t('art_%s' % roh) if ('art_%s' % roh) in TEXTE else (roh or t('art_unbekannt'))
+    return t('art_%s' % raw) if ('art_%s' % raw) in TEXTS else (raw or t('art_unbekannt'))
 
 
 if __name__ == '__main__':
-    print('Systemsprache:', systemsprache(), '· eingestellt:', gewaehlt(),
-          '· aktiv:', aktuelle())
-    luecken = [k for k, v in TEXTE.items() if len(v) != 2 or not all(v)]
-    print('Einträge:', len(TEXTE), '· unvollständig:', len(luecken))
-    for k in luecken:
+    print('Systemsprache:', system_language(), '· eingestellt:', chosen(),
+          '· aktiv:', current())
+    missing = [k for k, v in TEXTS.items() if len(v) != 2 or not all(v)]
+    print('Einträge:', len(TEXTS), '· unvollständig:', len(missing))
+    for k in missing:
         print('   fehlt:', k)
-    for s in SPRACHEN:
-        setzen(s)
+    for s in LANGUAGES:
+        set_language(s)
         print('\n[%s] %s | %s | %s' % (s, t('bauplaene'), t('filter_fehlt'),
                                        t('von_gesamt', 3, 714, 0)))
 
@@ -5293,7 +5293,7 @@ if __name__ == '__main__':
 # ⚠ **Nichts hineinschreiben, was nicht gemessen ist.** `vehicle.dimensions.x`
 # steht bewusst als „Abmessung (X)" darin und nicht als „Länge": Welche Achse
 # welche Kante ist, war nicht nachgeprüft. Lieber sperrig und richtig.
-PA_FELDER = {
+PA_FIELDS = {
     # Treibstoff — der ganze Block 4.10.0 (183 Schiffe)
     'precomputed.fuel.hydrogenCapacity':      ('Wasserstoff-Tank',
                                                'Hydrogen tank'),
@@ -5365,7 +5365,7 @@ PA_FELDER = {
 }
 
 
-def pa_feld(pfad):
+def pa_field(field_path):
     """Der lesbare Name eines Erkul-Feldpfads — oder der Pfad selbst.
 
     ⚠ Zweistufig: erst genau nachschlagen, dann mit weggelassenen Indizes.
@@ -5374,15 +5374,15 @@ def pa_feld(pfad):
     eigenen Eintrag, und beim nächsten Patch fiele die nächste durch.
     """
     import re
-    eintrag = PA_FELDER.get(pfad)
-    if eintrag is None:
-        eintrag = PA_FELDER.get(re.sub(r'\[\d+\]', '[]', pfad))
-    if eintrag is None:
-        return pfad
-    return eintrag[SPRACHEN.index(aktuelle())] or eintrag[0]
+    entry = PA_FIELDS.get(field_path)
+    if entry is None:
+        entry = PA_FIELDS.get(re.sub(r'\[\d+\]', '[]', field_path))
+    if entry is None:
+        return field_path
+    return entry[LANGUAGES.index(current())] or entry[0]
 
 
-def fenstertitel(text):
+def window_title(text):
     """Der Fenstertitel, bei der Testfassung mit Warnhinweis.
 
     Gesetzt wird das ueber die Umgebungsvariable `SC_BP_TESTFASSUNG` — das tut

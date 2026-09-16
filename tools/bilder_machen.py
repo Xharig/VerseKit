@@ -546,10 +546,10 @@ def overlay_bild(ziel, englisch=False):
     braucht ein laufendes Spiel, und ein leeres Overlay erklaert niemandem,
     wozu das Werkzeug gut ist.
     """
-    from scbp import sprache
+    from scbp import language
     import sc_bp_watcher
 
-    sprache.setzen('en' if englisch else 'de')
+    language.set_language('en' if englisch else 'de')
     # ⚠ **Keine eigene `tk.Tk()`.** `Overlay` legt selbst eine an und haelt sie
     # in `.root` — eine zweite waere genau der Fall, den Tk nicht vertraegt.
     overlay = sc_bp_watcher.Overlay()
@@ -669,10 +669,10 @@ def main():
     marken_loeschen()
 
     import tkinter as tk
-    from scbp import sprache
+    from scbp import language
     from scbp.main_window import MainWindow
 
-    sprache.setzen('en' if englisch else 'de')
+    language.set_language('en' if englisch else 'de')
 
     wurzel = tk.Tk()
     wurzel.withdraw()

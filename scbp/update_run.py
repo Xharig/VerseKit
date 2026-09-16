@@ -463,15 +463,15 @@ def evaluate(own_version):
 
 def message(result):
     """Der Satz für den Nutzer — als `Satz`, damit er beim Sprachwechsel mitzieht."""
-    from . import sprache
+    from . import language
     kind = result.get('art')
     if kind == 'fertig':
-        return sprache.Satz('up_erg_fertig', result.get('ziel'))
+        return language.Phrase('up_erg_fertig', result.get('ziel'))
     if kind == 'abgebrochen':
-        return sprache.Satz('up_erg_abgebrochen', result.get('eigen'))
+        return language.Phrase('up_erg_abgebrochen', result.get('eigen'))
     if kind == 'unklar':
-        return sprache.Satz('up_erg_unklar', result.get('ziel'))
-    return sprache.Satz('up_erg_fehler', result.get('ziel'),
+        return language.Phrase('up_erg_unklar', result.get('ziel'))
+    return language.Phrase('up_erg_fehler', result.get('ziel'),
                         result.get('code'))
 
 

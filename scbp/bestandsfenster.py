@@ -47,7 +47,7 @@ from . import watchlist as merk
 from . import icons
 from . import pfade
 from . import fields
-from .sprache import t, fenstertitel
+from .language import t, window_title
 
 BG      = '#10141c'
 FLAECHE = '#161c28'
@@ -304,7 +304,7 @@ class Bestandsfenster:
             self.root.configure(bg=BG)
         else:
             self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
-            self.root.title(fenstertitel(t('titel_bauplaene')))
+            self.root.title(window_title(t('titel_bauplaene')))
             self.root.configure(bg=BG)
             # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
             # `+x+y` überlässt die Platzierung dem Fenstermanager — und der

@@ -37,7 +37,7 @@ import tkinter as tk
 
 from . import report, collection as bestand_datei, fehler, catalog as katalog_modul
 from . import pfade, icons, fields
-from .sprache import t, pa_feld
+from .language import t, pa_field
 
 BG      = '#10141c'
 SURFACE = '#161c28'
@@ -1177,7 +1177,7 @@ def _strip_markup(text):
     """Die Auszeichnung aus einem Text nehmen — `**fett**` und Rueckstriche.
 
     ⚠ Tk-Labels können kein Mischformat — ein Label ist ganz fett oder gar
-    nicht. Die Sternchen in `sprache.py` markieren die Betonung fuer den
+    nicht. Die Sternchen in `language.py` markieren die Betonung fuer den
     Leser der Sprachdatei; auf dem Bildschirm haben sie nichts zu suchen.
 
     Die Danke-Seite entfernte sie schon, die Einstellungszeilen nicht: Auf
@@ -3657,14 +3657,14 @@ def _joysticks(fenster, rahmen):
     def _ausgeben(als_csv=False):
         """Die Belegung als Datei sichern — ohne Umweg über die Spielkonsole."""
         from . import file_picker
-        from .sprache import aktuelle
+        from .language import current
         endung = '.csv' if als_csv else '.xml'
         ziel = file_picker.save_file(
             t('s_js_ausgeben'),
             suggestion='actionmaps' + endung, extension=endung)
         if not ziel:
             return
-        erfolg, meldung = joysticks.export_file(ziel, aktuelle())
+        erfolg, meldung = joysticks.export_file(ziel, current())
         if erfolg:
             _notice(fenster, t('hf_joysticks'),
                                 t('s_js_ausgabe_ok', meldung))
@@ -4043,7 +4043,7 @@ def _joysticks(fenster, rahmen):
     zuletzt = {'stand': None}
 
     def _auffrischen(erzwingen=False):
-        from .sprache import aktuelle
+        from .language import current
         try:
             daten['vergleich'] = joysticks.compare()
             # Nummer → Produktname, damit in der Liste nicht `js1` steht.
@@ -4079,7 +4079,7 @@ def _joysticks(fenster, rahmen):
             # nach Sprache **und** Zustand der Quelldateien. Diese Seite muss
             # gar nichts mehr darüber wissen — und bekommt trotzdem immer den
             # richtigen Stand.
-            daten['namen'] = joysticks.labels(aktuelle())
+            daten['namen'] = joysticks.labels(current())
         except Exception as ausnahme:
             fehler.merken('seiten.joysticks_namen', ausnahme)
             daten['namen'] = {}
@@ -4107,7 +4107,7 @@ def _joysticks(fenster, rahmen):
         # die `kopf_zeichnen()` und `liste_zeichnen()` benutzen.
         #
         # ⚠ `erzwingen=True` für Aufrufer, die selbst etwas geändert haben.
-        stand = (aktuelle(),
+        stand = (current(),
                  repr(daten.get('vergleich')),
                  repr(daten.get('belegungen')),
                  repr(daten.get('namen')),
@@ -5740,7 +5740,7 @@ def _about(fenster, rahmen):
             fehler.merken('seiten.ueber.symbol', ausnahme)
     titel = tk.Frame(kopf, bg=SURFACE)
     titel.pack(side='left', fill='x', expand=True)
-    # ⚠ Produktname aus `sprache.py` — nie fest hier. Bei der Umbenennung zu
+    # ⚠ Produktname aus `language.py` — nie fest hier. Bei der Umbenennung zu
     # VerseKit (12.09.2026) stand er an vier Stellen hart im Code und wäre
     # teils alt geblieben.
     tk.Label(titel, text=t('hf_titel'), bg=SURFACE, fg=FG,
@@ -16593,7 +16593,7 @@ def _pc_short_path(pfad):
     ⚠ Vorher noch in der Feldtabelle nachsehen: Steht der volle Pfad dort, ist
     der deutsche Name besser als das abgeschnittene englische Ende.
     """
-    lesbar = pa_feld(pfad)
+    lesbar = pa_field(pfad)
     if lesbar != pfad:
         return lesbar
     letzte = pfad.split('.')[-1] if pfad else pfad
@@ -16650,7 +16650,7 @@ def _pc_field_row(fenster, eltern, feld):
     # ⚠ Über `sprache.pa_feld`, nicht der rohe Pfad. `precomputed.fuel.
     # hydrogenCapacity` ist ein CIG-Bezeichner und sagt einem Spieler nichts;
     # was nicht in der Tabelle steht, bleibt bewusst roh stehen.
-    tk.Label(zeile, text=pa_feld(feld['pfad']), bg=BG, fg=SUB,
+    tk.Label(zeile, text=pa_field(feld['pfad']), bg=BG, fg=SUB,
              font=fenster.f_small, anchor='w').pack(side='left')
     # ⚠ Drei Fälle, nicht einer. Fehlt `newValue`, hat der Patch das Feld
     # **weggenommen**; fehlt `oldValue`, ist es **dazugekommen**. Wer stumpf

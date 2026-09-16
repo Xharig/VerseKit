@@ -1384,8 +1384,8 @@ def spiel_starten():
         # ⚠ Dieser Grund landet über `s_sp_start_nein` sichtbar in der
         # Statuszeile — also übersetzen. `sprache` lokal holen: `pfade` wird
         # sehr früh geladen, ein Import oben wäre ein Zirkelbezug.
-        from . import sprache
-        return False, sprache.t('s_sp_kein_starter')
+        from . import language
+        return False, language.t('s_sp_kein_starter')
     try:
         import subprocess
         # Losgelöst starten: Der Watcher soll weiterlaufen und nicht am Spiel

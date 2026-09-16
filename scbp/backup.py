@@ -230,10 +230,10 @@ def _info_text(version, count):
     Wer die Datei in einem Jahr findet, soll ohne das Programm erkennen, was er
     da hat. Deshalb Klartext und keine Kennungen.
 
-    ⚠ Auch dieser Text gehört in `sprache.py`: Er landet beim Spieler, und ein
+    ⚠ Auch dieser Text gehört in `language.py`: Er landet beim Spieler, und ein
     englischer bekäme sonst eine deutsche Beilage in seiner eigenen Sicherung.
     """
-    from .sprache import t
+    from .language import t
     head = '%s\r\n\r\n' % MARKER
     return head + t('sich_datei_info', time.strftime('%d.%m.%Y %H:%M'),
                     version or '?', count).replace('\n', '\r\n') + '\r\n'
@@ -280,7 +280,7 @@ def restore(source):
     ok, count, _when = check(source)
     if not ok:
         # ⚠ Ein Kennwort, kein Satz: Was der Spieler liest, steht in
-        # `sprache.py`. Ein deutscher Satz an dieser Stelle waere in der
+        # `language.py`. Ein deutscher Satz an dieser Stelle waere in der
         # englischen Oberflaeche gelandet.
         return False, 'ungueltig', 0
 

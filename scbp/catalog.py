@@ -56,8 +56,8 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, patchhistory, pfade, sprache
-from .sprache import t
+from . import fehler, patchhistory, pfade, language
+from .language import t
 
 
 class Rejected(Exception):
@@ -270,7 +270,7 @@ def worthwhile_contracts(catalog_data, have):
 
 def kind_readable(raw):
     """Aus 'Char_Armor_Helmet' wird 'Helm' bzw. 'Helmet'."""
-    return sprache.art(KIND_MERGE.get(raw, raw))
+    return language.kind_label(KIND_MERGE.get(raw, raw))
 
 
 # Arten, die dasselbe meinen und deshalb eine Gruppe bilden.

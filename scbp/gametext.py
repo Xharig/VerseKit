@@ -50,7 +50,7 @@ import sys
 import tempfile
 
 from . import pfade
-from .sprache import t
+from .language import t
 
 # 7-Zip nur als letzter Strohhalm für altes Python. Es kann CIGs zstd meist
 # **nicht** — auf dem Testrechner scheiterte es mit „Headers Error". Der Eintrag

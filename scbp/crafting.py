@@ -84,7 +84,7 @@ import time
 
 from . import fehler, pfade
 from .catalog import OFF, fetch_file, _norm
-from .sprache import t
+from .language import t
 
 # Die Datei heißt beim Anbieter so; <build> ist die Spielversion.
 # Nur der Dateiname — welche Adresse benutzt wird, entscheidet
@@ -421,13 +421,13 @@ def classification():
 def _translated(prefix, value):
     """Den Anzeigenamen holen — oder den Rohwert, wenn er unbekannt ist.
 
-    Die Namen stehen in `sprache.py` unter `he_art_*` und `he_sub_*`. Fehlt
+    Die Namen stehen in `language.py` unter `he_art_*` und `he_sub_*`. Fehlt
     einer (neue Waffenart nach einem Patch), wird der englische Rohwert
     gezeigt: lieber `tachyon` als eine leere Zeile.
     """
-    from .sprache import TEXTE
+    from .language import TEXTS
     key = 'he_%s_%s' % (prefix, (value or '').lower())
-    if key in TEXTE:
+    if key in TEXTS:
         return t(key)
     return value or ''
 
@@ -844,7 +844,7 @@ def slots(name_or_tag):
 # Die Eigenschaften auf Deutsch
 # ---------------------------------------------------------------------------
 #
-# ⚠ **Die Tabelle steht in `sprache.py`**, wie jeder andere Oberflächentext
+# ⚠ **Die Tabelle steht in `language.py`**, wie jeder andere Oberflächentext
 # auch — Projektregel, und Prüfung 17 wacht darüber. Hier steht nur der Weg
 # dorthin, weil die Rezeptdaten hier zu Hause sind.
 
@@ -858,8 +858,8 @@ def property_name(name, key=None):
     (`contracts.INI_KEYS`). Über den englischen Namen zu gehen hieße:
     beim nächsten Patch fällt die Hälfte still auf Englisch zurück.
     """
-    from . import sprache
-    return sprache.eigenschaft(name, key)
+    from . import language
+    return language.property_name(name, key)
 
 
 def values_with_stock(name_or_tag, quality_per_material):

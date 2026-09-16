@@ -316,8 +316,8 @@ def _changelog_file():
     Deutsch lesen — sonst wäre die Zweisprachigkeit an der Stelle nur behauptet.
     Fehlt die eigene Sprache, gilt die andere: eine fremdsprachige Auskunft ist
     besser als gar keine."""
-    from . import sprache
-    names = (['CHANGELOG.md', 'CHANGELOG.en.md'] if sprache.aktuelle() == 'de'
+    from . import language
+    names = (['CHANGELOG.md', 'CHANGELOG.en.md'] if language.current() == 'de'
              else ['CHANGELOG.en.md', 'CHANGELOG.md'])
     folder = []
     if getattr(sys, 'frozen', False):        # PyInstaller legt Beigaben hierhin
@@ -835,18 +835,18 @@ def download(asset, progress=None, release=None):
     `einspielen()` niemals eine ungeprüfte Datei zu sehen, und es gibt keinen
     zweiten Weg, an dem man sie vorbeischleusen könnte.
     """
-    from . import sprache
+    from . import language
     url = asset.get('url')
     if not _url_ok(url):
         # ⚠ Der Text dieser Ausnahme landet über `str(fehler)` sichtbar
         # beim Nutzer (siehe `return False, str(fehler)` weiter unten).
-        raise ValueError(sprache.t('up_fremde_quelle'))
+        raise ValueError(language.t('up_fremde_quelle'))
 
     # ⚠ Die Prüfsummen kommen **vor** dem Herunterladen. Fehlen sie, ist der
     # Download umsonst — und 100 MB umsonst zu laden, um sie danach
     # wegzuwerfen, wäre unhöflich gegenüber jeder Leitung.
     if release is None:
-        raise ValueError(sprache.t('up_ohne_pruefung'))
+        raise ValueError(language.t('up_ohne_pruefung'))
     # ⚠⚠ **Kein Rückfallname für eine Sicherheitsentscheidung.** `geprueft=True`
     # gibt bei einem unbrauchbaren Asset-Namen `None` statt `update.bin`
     # zurück. Sonst könnte ein Anhang mit fremder Endung durchrutschen, sobald
@@ -854,7 +854,7 @@ def download(asset, progress=None, release=None):
     # Rückfall gehört an Anzeige- und Notpfade, nicht hierher.
     name = safe_filename(asset.get('name'), verified=True)
     if not name:
-        raise ValueError(sprache.t('up_fremde_datei') % (asset.get('name') or '?'))
+        raise ValueError(language.t('up_fremde_datei') % (asset.get('name') or '?'))
 
     table, reason = fetch_checksums(release)
     expected = table.get(name)
@@ -862,7 +862,7 @@ def download(asset, progress=None, release=None):
         # Vier Lagen, vier Sätze — „kein Netz" darf nicht wie „manipuliert"
         # klingen, „diese Fassung hat noch keine Prüfsummen" auch nicht, und
         # eine Summen-Datei von fremdem Server ist etwas anderes als gar keine.
-        raise ValueError(sprache.t({
+        raise ValueError(language.t({
             'netz': 'up_summen_netz',
             'fremd': 'up_summen_fremd',
         }.get(reason, 'up_keine_summen')))
@@ -903,7 +903,7 @@ def _discard(target):
 
 def _fetch_and_verify(url, target, expected, progress=None):
     """Herunterladen und die Summe abgleichen. Wirft bei jedem Zweifel."""
-    from . import sprache
+    from . import language
     req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
     with urllib.request.urlopen(req, timeout=120) as r, open(target, 'wb') as f:
         total = int(r.headers.get('Content-Length') or 0)
@@ -934,7 +934,7 @@ def _fetch_and_verify(url, target, expected, progress=None):
     # ⚠ Das Aufräumen macht der Aufrufer — er fängt **jede** Ausnahme von hier
     # ab, nicht nur die falsche Summe.
     if compute_checksum(target) != expected:
-        raise ValueError(sprache.t('up_summe_falsch'))
+        raise ValueError(language.t('up_summe_falsch'))
 
 
 # ⚠ Hier stand einmal ein Hilfsskript, das die laufende `.exe` selbst tauschte —
@@ -1060,8 +1060,8 @@ def install(new_file, target_version='', previous_version=''):
     # weil `APPIMAGE` auf ein anderes Programm zeigte.
     # ⚠⚠ Auch hier beide Namen — siehe `pfade.gehoert_uns()`.
     if not pfade.gehoert_uns(target):
-        from . import sprache
-        return False, sprache.t('up_fremde_datei', os.path.basename(target))
+        from . import language
+        return False, language.t('up_fremde_datei', os.path.basename(target))
     try:
         if kind == 'appimage':
             # Unter Linux darf die laufende Datei ersetzt werden, solange man sie
@@ -1074,9 +1074,9 @@ def install(new_file, target_version='', previous_version=''):
             # Sicherung nicht anlegen, wird auch nicht getauscht — ein Update
             # ohne Rückweg ist keins.
             if not _backup(target):
-                from . import sprache
+                from . import language
                 _discard(new_file)
-                return False, sprache.t('up_sicherung_nein')
+                return False, language.t('up_sicherung_nein')
             #
             # ⚠ `os.replace` schafft das nur **innerhalb eines Dateisystems**.
             # Deshalb wird gleich daneben geladen (siehe `_ablageort_fuer_update`).
@@ -1219,8 +1219,8 @@ def install(new_file, target_version='', previous_version=''):
         # Weg — und dann wird hier auch nichts gestartet.
         checksum = _CHECKED.get(os.path.abspath(new_file))
         if not checksum:
-            from . import sprache
-            return False, sprache.t('up_ohne_pruefung')
+            from . import language
+            return False, language.t('up_ohne_pruefung')
 
         # ⚠⚠ Wie der Helfer gestartet wird, steht an EINER Stelle
         # (`update_run.helfer_flags`) — der Selbsttest startet ihn genauso.

@@ -32,8 +32,8 @@ import tkinter as tk
 
 import re
 
-from . import updater, pfade, sprache
-from .sprache import t, fenstertitel
+from . import updater, pfade, language
+from .language import t, window_title
 
 BG      = '#10141c'
 SURFACE = '#161c28'
@@ -63,7 +63,7 @@ def language_part(text):
         return text
     german = m.group(1).strip()
     english = text[:m.start()].strip().rstrip('-').strip()
-    if sprache.aktuelle() == 'de':
+    if language.current() == 'de':
         return german or english
     return english or german
 
@@ -96,7 +96,7 @@ class VersionWindow:
         self.newer = updater.check(own_version)
 
         self.root = tk.Toplevel(parent) if parent else tk.Tk()
-        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('was_ist_neu')))
+        self.root.title(window_title(t('hf_titel') + ' — ' + t('was_ist_neu')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der

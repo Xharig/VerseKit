@@ -31,7 +31,7 @@ statt eines `t('schluessel')`.
 
 Rauschen wird ausgesiebt: reine Platzhalter (`%d / %d`), einzelne Zeichen
 (`▶`, `·`), Eigennamen und technische Schlüsselwörter. Was übrig bleibt, ist
-ein Satz, den ein Mensch liest — und der damit in `scbp/sprache.py` gehört.
+ein Satz, den ein Mensch liest — und der damit in `scbp/language.py` gehört.
 
 Benutzung:
 
@@ -233,7 +233,7 @@ def pruefe(pfad):
     #
     # Geschlossen wird die Lücke von der anderen Seite: `oberflaeche_pruefen.py`
     # baut das Fenster auf **Englisch** auf und sieht nach, ob ein sichtbarer
-    # Text wörtlich in der deutschen Spalte von `sprache.py` steht. Das braucht
+    # Text wörtlich in der deutschen Spalte von `language.py` steht. Das braucht
     # keine Heuristik und fand alle vier Stellen sofort.
     return sorted(funde)
 
@@ -262,7 +262,7 @@ def main(argumente):
 
     print('')
     if gesamt:
-        print('%d feste Texte. Sie gehören nach scbp/sprache.py und dann als' % gesamt)
+        print('%d feste Texte. Sie gehören nach scbp/language.py und dann als' % gesamt)
         print("t('schluessel') an ihre Stelle — sonst zeigt die englische")
         print('Oberfläche deutschen Text.')
         return 1

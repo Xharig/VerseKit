@@ -52,7 +52,7 @@ import threading
 import tkinter as tk
 
 from . import input_device, fehler, joysticks
-from .sprache import t
+from .language import t
 
 BG      = '#10141c'
 FLAECHE = '#161c28'
@@ -318,8 +318,8 @@ class BindingWindow:
 
 
 def _language():
-    from .sprache import aktuelle
+    from .language import current
     try:
-        return aktuelle()
+        return current()
     except Exception:
         return 'de'

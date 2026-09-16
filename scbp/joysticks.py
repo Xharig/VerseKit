@@ -694,7 +694,7 @@ def input_readable(input_device, kind=''):
     Zweisprachig ueber die Sprachdatei; was dort nicht steht, wird gross
     geschrieben durchgereicht, statt einen huebschen Namen zu erfinden.
     """
-    from .sprache import t
+    from .language import t
     if not input_device:
         return ''
     # Zusammengesetzte Eingaben: `ralt+y` → „Alt rechts + Y"

@@ -982,7 +982,7 @@ def protokoll_pruefen():
 def main():
     ordner, kopiert = ablage_vorbereiten()
     try:
-        from scbp import main_window, sprache
+        from scbp import main_window, language
 
         print('Abnahme — die Oberfläche wirklich bedienen')
         print('Echte Spieldaten übernommen: %d Dateien%s'
@@ -997,7 +997,7 @@ def main():
         print()
 
         print('1. Jede Seite auf Deutsch')
-        sprache.setzen('de')
+        language.set_language('de')
         hf = main_window.MainWindow(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
@@ -1019,14 +1019,14 @@ def main():
 
         print()
         print('5. Dieselben Seiten auf Englisch')
-        sprache.setzen('en')
+        language.set_language('en')
         hf = main_window.MainWindow(version='0.0.0-abnahme')
         hf.root.withdraw()
         try:
             seiten_pruefen(hf, 'en')
         finally:
             hf.root.destroy()
-            sprache.setzen('de')
+            language.set_language('de')
 
         print()
         print('6. Symbole')

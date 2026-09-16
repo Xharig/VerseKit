@@ -43,7 +43,7 @@ import re
 import time
 
 from . import contracts, pfade, phrases
-from .sprache import t, Satz, Zeitpunkt
+from .language import t, Phrase, Moment
 
 # Schiffskomponenten stehen im Log MIT Zusatz „(Klasse/Size/Grade)", z. B.
 # „7CA 'Nargun' (Civ/3/A)" — der Launcher-Schlüssel ist aber „7CA 'Nargun'".
@@ -360,12 +360,12 @@ def _check_gap(before, all_names):
     # 26.08.2026. Der `Satz` merkt sich Schlüssel und Werte und lässt sich beim
     # Sprachwechsel neu auswerten.
     if not all_names:
-        return {'luecke': True, 'grund': Satz('m_keine_logs')}
+        return {'luecke': True, 'grund': Phrase('m_keine_logs')}
     oldest = min((os.path.getmtime(p) for p in all_names
                      if os.path.exists(p)), default=0.0)
     if not before:
         return {'luecke': True,
-                'grund': Satz('m_erster_lauf', Zeitpunkt(oldest))}
+                'grund': Phrase('m_erster_lauf', Moment(oldest))}
     if oldest > before + 60:
         return {'luecke': True,
                 # ⚠ Auch das Datumsformat ist sprachabhängig: Im Englischen
@@ -373,8 +373,8 @@ def _check_gap(before, all_names):
                 # der rohe Zeitstempel weiter (`Zeitpunkt`) statt eines fertig
                 # formatierten Datums — sonst stünde in der englischen Meldung
                 # ein deutsches Datum.
-                'grund': Satz('m_luecke_logs',
-                              Zeitpunkt(before), Zeitpunkt(oldest))}
+                'grund': Phrase('m_luecke_logs',
+                              Moment(before), Moment(oldest))}
     return {'luecke': False, 'grund': ''}
 
 
