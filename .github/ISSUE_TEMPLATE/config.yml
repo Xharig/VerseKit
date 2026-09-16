@@ -1,0 +1,36 @@
+# Was GitHub auf der Seite "New issue" zeigt — zusätzlich zu den Vorlagen.
+#
+# ⚠⚠ Warum es diese Datei gibt (16.09.2026): Ein Nutzer wollte einen Absturz
+# melden, kam auf diese Seite und fand den Knopf ausgegraut — GitHub hatte
+# zeitweise eine automatische Sperre gesetzt. Auf der Seite stand kein anderer
+# Weg. Er kam nur durch, weil er den Entwickler ohnehin kannte; wer ihn nicht
+# kennt, hört an dieser Stelle auf. Die Links unten stehen genau dort, wo
+# jemand steht, der gerade nicht weiterkommt.
+#
+# ⚠ Leere Meldungen bleiben erlaubt (`true`). Wer sein Anliegen in keine
+# Vorlage pressen kann, soll trotzdem schreiben können — eine schlecht
+# einsortierte Meldung ist besser als keine.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Discord — Fragen, Hilfe und Fehler melden (ohne GitHub-Konto)
+    url: https://discord.gg/g2E7e6XxZC
+    about: >-
+      Im Forum "Fehler-Melden" bist du richtig. Dort brauchst du kein
+      GitHub-Konto und keine Anmeldung hier. Fragen und Wünsche ebenfalls.
+
+  - name: Discord — questions, help and bug reports (no GitHub account needed)
+    url: https://discord.gg/g2E7e6XxZC
+    about: >-
+      Use the "Fehler-Melden" forum. No GitHub account required, no sign-in
+      here. Questions and feature requests are welcome too.
+
+  # ⚠ Der Anker ist geprüft: Er zeigt auf die Überschrift "Beim Testen
+  # mithelfen". Wer hier etwas ändert, prüft ihn erneut — ein Link ins Leere
+  # ist schlimmer als keiner, weil er das Werkzeug kaputt aussehen lässt.
+  - name: Direkt aus dem Programm melden — der schnellste Weg
+    url: https://github.com/Xharig/VerseKit/blob/main/README.md#beim-testen-mithelfen
+    about: >-
+      Läuft VerseKit noch? Dann Info -> Fehler melden, roter Knopf. Der
+      Bericht geht fertig an den Entwickler, ganz ohne Formular - und ohne
+      Namen oder Pfade darin.
