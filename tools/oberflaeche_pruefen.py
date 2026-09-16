@@ -56,7 +56,7 @@ os.environ.setdefault('SC_BP_NO_NET', '1')
 from scbp import language                                  # noqa: E402
 from scbp.main_window import MainWindow                 # noqa: E402
 
-# ⚠⚠ **ALLE Seiten, die `scbp/seiten.py` kennt** — nicht nur die, die es beim
+# ⚠⚠ **ALLE Seiten, die `scbp/pages.py` kennt** — nicht nur die, die es beim
 # Bau dieser Pruefung schon gab. Bis 31.08.2026 fehlten hier sechs: die ganze
 # Werkstatt (`herstellung`, `bergbau`, `lager`) und der ganze Handel
 # (`verkauf`, `handelslager`). Die Pruefung meldete jahrelang "kein deutscher
@@ -79,7 +79,7 @@ SEITEN = ('liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
 def _alle_seiten_dabei():
     """Meldet Seiten, die es gibt, die hier aber nicht besucht werden.
 
-    Gefragt wird `seiten.page_ids()` — das Verzeichnis selbst, nicht seine
+    Gefragt wird `pages.page_ids()` — das Verzeichnis selbst, nicht seine
     Schreibweise.
 
     ⛔ Vorher stand hier eine Textsuche nach dem Block zwischen `bauer = {` und
@@ -89,8 +89,8 @@ def _alle_seiten_dabei():
     die ihren Gegenstand per Textmuster sucht, geht bei der naechsten
     Umbenennung still aus.
     """
-    from scbp import seiten
-    return [k for k in seiten.page_ids() if k not in SEITEN]
+    from scbp import pages
+    return [k for k in pages.page_ids() if k not in SEITEN]
 
 
 def _sollbestand():
@@ -230,7 +230,7 @@ def main():
         for text in sorted(marken):
             print('  · %s' % (text[:100] + ('…' if len(text) > 100 else '')))
         print('\n  → durch _ohne_marken() schicken, bevor der Text ins Label '
-              'geht (scbp/seiten.py).')
+              'geht (scbp/pages.py).')
     else:
         print('  keine Auszeichnung (** oder `) im sichtbaren Text')
 

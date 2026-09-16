@@ -104,7 +104,7 @@ class SettingsWindow:
             value=paths.setting_int('deckkraft_prozent', 93, 30, 100))
 
         if self.eingebettet:
-            return                     # die Bausteine holt sich `seiten.py`
+            return                     # die Bausteine holt sich `pages.py`
 
         self._header()
         # ⚠ Reihenfolge ist entscheidend: Der Fuß mit dem Speichern-Knopf wird
@@ -214,7 +214,7 @@ class SettingsWindow:
         self._relabel()
 
     def _colour_language_buttons(self):
-        # Im Hauptfenster zeichnet `seiten.py` die Sprachwahl selbst — dort gibt
+        # Im Hauptfenster zeichnet `pages.py` die Sprachwahl selbst — dort gibt
         # es diese Knöpfe gar nicht. Ohne die Prüfung stirbt der Sprachwechsel
         # mit einem Attributfehler, und zwar mitten im Umschalten.
         for wert, knopf in getattr(self, 'sprach_knoepfe', {}).items():

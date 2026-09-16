@@ -175,8 +175,8 @@ def classify(art='', tag='', unterart='', rezeptart=''):
     herum abfragt, bekommt bei einer ballistischen Gatling nur „Waffe".
 
     ⚠ Die Namen der Schlüsselwörter (`art`, `tag`, `unterart`, `rezeptart`)
-    bleiben vorerst deutsch: Die Aufrufer in `seiten.py` und
-    `bestandsfenster.py` rufen sie so, und die Dateien sind noch nicht an der
+    bleiben vorerst deutsch: Die Aufrufer in `pages.py` und
+    `collection_window.py` rufen sie so, und die Dateien sind noch nicht an der
     Reihe. Sie wandern mit, wenn ihre eigene Stufe drankommt.
     """
     hit = _from_tag(tag)

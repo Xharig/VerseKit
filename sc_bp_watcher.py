@@ -46,9 +46,9 @@ from scbp import icons
 from scbp import errors
 from scbp import notice
 from scbp import (
-    contracts, tray_icon, updater, assistent, autostart, places, prices,
+    contracts, tray_icon, updater, wizard, autostart, places, prices,
                   screen, overlay,
-                  collection as bestand_datei, bestandsfenster as bestandsfenster_modul,
+                  collection as bestand_datei, collection_window as bestandsfenster_modul,
                   settings_window, notice, injection,
                   catalog as katalog_modul, shops, logsource, watchlist,
                   paths, phrases, ships, gamebuild, titlebar, sound,
@@ -1949,7 +1949,7 @@ class Overlay:
         self.hotkey = hotkey_modul.Watch()
         _WURZEL[0] = self.root                    # damit signalton() klingeln kann
         # Damit der Knopf „Fensterlage zurücksetzen" das Overlay sofort in die Mitte
-        # setzen kann, ohne dass `seiten.py` das Hauptprogramm importieren müsste.
+        # setzen kann, ohne dass `pages.py` das Hauptprogramm importieren müsste.
         screen.OVERLAY[0] = self.root
         overlay.OVERLAY_WINDOW[0] = self.root
         # Merken, ob der Zeiger auf dem Overlay steht — das entscheidet, ob eine
@@ -3476,12 +3476,12 @@ class Overlay:
 
     def _auto_uebergeben(self, version):
         """Abtreten, damit der Helfer (Windows) bzw. die neue Datei (Linux) übernimmt."""
-        from scbp import seiten
+        from scbp import pages
         self.q.put(('hinweis', language.Phrase('up_auto_laeuft', version)))
         self._save_geo()
 
         class _Anzeige:
-            # `seiten._hand_over*` erwarten ein Fenster mit `root` und `say`.
+            # `pages._hand_over*` erwarten ein Fenster mit `root` und `say`.
             root = self.root
 
             @staticmethod
@@ -3489,9 +3489,9 @@ class Overlay:
                 self.q.put(('hinweis', text))
 
         if updater.packaging() == 'exe':
-            seiten._hand_over(_Anzeige)
+            pages._hand_over(_Anzeige)
         elif updater.restart():
-            seiten._hand_over_after_restart(_Anzeige)
+            pages._hand_over_after_restart(_Anzeige)
         else:
             self.q.put(('hinweis', language.Phrase('s_ub_neustart_nein')))
 
@@ -3877,7 +3877,7 @@ class Overlay:
 
     def einrichtung_erneut(self):
         """Den Assistenten noch einmal durchlaufen lassen."""
-        fertig, zeige_liste = assistent.start(self.root)
+        fertig, zeige_liste = wizard.start(self.root)
         if fertig and zeige_liste:
             self.liste_oeffnen()
 
@@ -4536,7 +4536,7 @@ class Overlay:
         Klappt es nicht, wird die Einstellung **zurückgenommen**. Ein
         gespeichertes „an", während in Wahrheit nichts durchgereicht wird, wäre
         das schlechteste von beidem — genauso hält es der Schalter in den
-        Einstellungen (`seiten._click_through_toggle`)."""
+        Einstellungen (`pages._click_through_toggle`)."""
         paths.set_setting('durchklickbar', True)
         if self.durchklick_anwenden():
             self._status_setzen(language.Phrase('ov_schloss_zu'))
@@ -5226,11 +5226,11 @@ if __name__ == '__main__':
     errors.trail('Tk-Wurzel steht')
 
     zeige_liste = False
-    if assistent.needed():
+    if wizard.needed():
         errors.trail('Assistent beginnt')
-        fertig, zeige_liste = assistent.start(eltern=wurzel)
+        fertig, zeige_liste = wizard.start(eltern=wurzel)
         errors.trail('Assistent fertig (Liste zeigen: %s)' % zeige_liste)
-        if not fertig and not assistent.is_configured():
+        if not fertig and not wizard.is_configured():
             # ⚠⚠ **Abbrechen beendet nur beim ECHTEN ersten Start.**
             # Bis rc44 beendete jeder Abbruch das Programm — und zwar
             # wortlos. Wer schon eingerichtet war und den unerwarteten

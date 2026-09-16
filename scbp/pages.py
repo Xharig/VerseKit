@@ -24,7 +24,7 @@ geht es um den **Rahmen** (Reiterleiste, Umschalten, Größe), hier um den
 **Inhalt**. So bleibt jede Datei überschaubar, und eine neue Seite ist eine
 Funktion, kein Eingriff in den Rahmen.
 
-Die großen Seiten leihen sich die vorhandenen Fenster: `bestandsfenster` und
+Die großen Seiten leihen sich die vorhandenen Fenster: `collection_window` und
 `settings_window` können seit v3.0.0 auch in einen übergebenen Rahmen
 zeichnen, statt ein eigenes Fenster aufzumachen.
 """
@@ -419,7 +419,7 @@ def _scroll_to_top(widget):
     while lauf is not None and leinwand is None:
         # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
         # (`_scroll_area`), die beiden eigenstaendigen Fenster
-        # `bestandsfenster.py` und `settings_window.py` weiterhin
+        # `collection_window.py` und `settings_window.py` weiterhin
         # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
         # und zwar lautlos, weil `getattr(..., None)` brav `None`
         # liefert und die Funktion einfach aussteigt.
@@ -467,7 +467,7 @@ def _keep_scroll(widget, action):
     while lauf is not None and leinwand is None:
         # ⚠ **BEIDE Namen.** Die Seiten setzen `canvas`
         # (`_scroll_area`), die beiden eigenstaendigen Fenster
-        # `bestandsfenster.py` und `settings_window.py` weiterhin
+        # `collection_window.py` und `settings_window.py` weiterhin
         # `leinwand`. Wer nur einen sucht, legt die Haelfte still —
         # und zwar lautlos, weil `getattr(..., None)` brav `None`
         # liefert und die Funktion einfach aussteigt.
@@ -1284,7 +1284,7 @@ def _setting_row(window, parent, caption, help_text, wide=False, top=False):
 # --------------------------------------------------------------------- Seiten
 def _blueprint_list(fenster, rahmen):
     """Die Bauplan-Liste — das vorhandene Fenster, eingebettet."""
-    from . import bestandsfenster
+    from . import collection_window
     # ⭐ Rückweg zum Hauptfenster — die Liste braucht ihn, um auf andere Seiten
     # zu springen (bisher ging der Weg nur andersherum, über `stock_page`).
     #
@@ -1292,7 +1292,7 @@ def _blueprint_list(fenster, rahmen):
     # die Liste bereits; wer den Rückweg erst hinterher setzt, hat beim ersten
     # Zeichnen keinen — und dann ist kein Name anklickbar, bis zufällig neu
     # gezeichnet wird. Genau das war der Fehler in v3.26.0 bis rc3.
-    fenster.stock_page = bestandsfenster.Bestandsfenster(rahmen=rahmen,
+    fenster.stock_page = collection_window.Bestandsfenster(rahmen=rahmen,
                                                             hauptfenster=fenster)
 
     # ⚠ Beim erneuten Aufrufen ohne Filter anfangen. Die Seite wird nur ein-
@@ -1331,7 +1331,7 @@ def _progress(fenster, rahmen):
         bestand = bestand_datei.load()
         katalog = katalog_modul.load()
     except Exception as ausnahme:
-        errors.record('seiten.fortschritt', ausnahme)
+        errors.record('pages.fortschritt', ausnahme)
         return
 
     # ⚠⚠⚠ **Sind es weniger Baupläne als je zuvor?** Dann steht das hier —
@@ -1423,7 +1423,7 @@ def _best_contracts(fenster, eltern, katalog, habe):
     try:
         lohnend = katalog_modul.worthwhile_contracts(katalog, habe)
     except Exception as ausnahme:
-        errors.record('seiten.lohnende_auftraege', ausnahme)
+        errors.record('pages.lohnende_auftraege', ausnahme)
         return
 
     # ⭐ Auf- und zuklappbar wie die Bereiche darüber — gewünscht am
@@ -1488,7 +1488,7 @@ def _best_contracts(fenster, eltern, katalog, habe):
     # dieselbe Lücke war im Bauplan-Fenster schon einmal gemeldet worden,
     # weshalb es `ort_text()` überhaupt gibt. Sie wurde dort geschlossen und
     # hier nicht.
-    from .bestandsfenster import ort_text
+    from .collection_window import ort_text
     for titel, fraktion, anzahl, uec, rang, wo in lohnend[:10]:
         zeile = tk.Frame(kasten, bg=SURFACE)
         zeile.pack(fill='x', padx=14, pady=3)
@@ -1960,7 +1960,7 @@ def _display(fenster, rahmen):
             try:
                 overlay.geometry(screen.centered(overlay, 440, 1000))
             except Exception as ausnahme:
-                errors.record('seiten.lage_weg', ausnahme)
+                errors.record('pages.lage_weg', ausnahme)
         fenster.say(t('s_an_lage_weg'))
 
     _button(fenster, ziel, t('s_zuruecksetzen'), lage_weg).pack()
@@ -2242,7 +2242,7 @@ def _start_command_field(fenster, innen):
         try:
             fenster.rebuild()
         except Exception as ausnahme:
-            errors.record('seiten.startbefehl.aufbauen', ausnahme)
+            errors.record('pages.startbefehl.aufbauen', ausnahme)
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(8, 0))
@@ -2304,7 +2304,7 @@ def _click_through_toggle(fenster):
         try:
             geklappt = overlay.set_click_through(wurzel, neu_wert)
         except Exception as ausnahme:
-            errors.record('seiten.durchklick', ausnahme)
+            errors.record('pages.durchklick', ausnahme)
             geklappt = False
     if neu_wert and not geklappt:
         fenster.say(t('ov_durchklick_geht_nicht'))
@@ -2331,7 +2331,7 @@ def _overlay_mode(fenster, wahl, kennung):
             else:
                 wurzel.deiconify()
         except Exception as ausnahme:
-            errors.record('seiten.overlay_modus', ausnahme)
+            errors.record('pages.overlay_modus', ausnahme)
     if kennung == 'popup':
         fenster.say(t('s_ov_popup_gleich'))
     else:
@@ -2382,7 +2382,7 @@ def _show_folder(pfad):
             subprocess.Popen(['xdg-open', pfad], env=clean_environment())
         return True
     except Exception as ausnahme:
-        errors.record('seiten.ordner_zeigen', ausnahme, pfad)
+        errors.record('pages.ordner_zeigen', ausnahme, pfad)
         return False
 
 
@@ -2405,7 +2405,7 @@ def _game(fenster, rahmen):
         try:
             lage = e.inj_state()
         except Exception as ausnahme:
-            errors.record('seiten.spiel.lage', ausnahme)
+            errors.record('pages.spiel.lage', ausnahme)
             return
         if not paths.setting_bool('inj_an', True):
             # ⚠ „Ausgeschaltet“ allein ist die halbe Wahrheit. Bleibt etwas in der
@@ -2488,7 +2488,7 @@ def _game(fenster, rahmen):
             elif not neu_wert and drin:
                 e._inj_remove()
         except Exception as ausnahme:
-            errors.record('seiten.inj_an_um', ausnahme)
+            errors.record('pages.inj_an_um', ausnahme)
         lage_zeigen()
         return neu_wert
 
@@ -2531,7 +2531,7 @@ def _game(fenster, rahmen):
                 e._inj_refresh()
                 lage_zeigen()
         except Exception as ausnahme:
-            errors.record('seiten.angaben_um', ausnahme)
+            errors.record('pages.angaben_um', ausnahme)
         return neu_wert
 
     from . import injection as _inj
@@ -2578,7 +2578,7 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     try:
         e._inj_switch(kennung)
     except Exception as ausnahme:
-        errors.record('seiten.spiel.quelle', ausnahme)
+        errors.record('pages.spiel.quelle', ausnahme)
         fenster.say(t('inj_fehler', ausnahme))
     danach()
 
@@ -2643,7 +2643,7 @@ def _collection(fenster, rahmen):
             fenster.say(t('s_be_geschrieben') % wieviele)
             _show_folder(export.archive_folder())
         except Exception as ausnahme:
-            errors.record('seiten.bestand.ablegen', ausnahme)
+            errors.record('pages.bestand.ablegen', ausnahme)
             fenster.say(t('s_be_schiefging'))
 
     def einzeln(art):
@@ -2665,7 +2665,7 @@ def _collection(fenster, rahmen):
             export.write(ziel, kind=art)
             fenster.say(t('s_be_gespeichert') % os.path.basename(ziel))
         except Exception as ausnahme:
-            errors.record('seiten.bestand.einzeln', ausnahme)
+            errors.record('pages.bestand.einzeln', ausnahme)
 
     _button(fenster, reihe, t('s_be_alle'), in_ablage,
            strong=True).pack(side='left')
@@ -2788,7 +2788,7 @@ def _collection(fenster, rahmen):
                     t('s_be_reset_zahlen') % (gesamt, bleibt, gesamt - bleibt),
                     frage)
         except Exception as ausnahme:
-            errors.record('seiten.bestand.reset_zahlen', ausnahme)
+            errors.record('pages.bestand.reset_zahlen', ausnahme)
 
         if not ask_yes_no(fenster.root, t('s_be_reset'), frage):
             return
@@ -2798,7 +2798,7 @@ def _collection(fenster, rahmen):
         # steht auch, warum „war schon weg" dazugehoert.
         stoerung = bestand_datei.reset()
         if stoerung is not None:
-            errors.record('seiten.bestand.zuruecksetzen', stoerung)
+            errors.record('pages.bestand.zuruecksetzen', stoerung)
             fenster.say(t('s_be_reset_fehler', stoerung))
             return
         fenster.say(t('s_be_reset_ok'))
@@ -3241,7 +3241,7 @@ def _contract_log(fenster, rahmen):
             except Exception as ausnahme:
                 # Ein fehlgeschlagenes Nachlesen darf die Seite nicht leer
                 # lassen — der gespeicherte Stand ist besser als nichts.
-                errors.record('seiten.auftragslog_nachlese', ausnahme)
+                errors.record('pages.auftragslog_nachlese', ausnahme)
                 return
             # ⚠ Zurück in den Oberflächen-Faden; und nur zeichnen, wenn es die
             # Seite noch gibt.
@@ -4034,7 +4034,7 @@ def _joysticks(fenster, rahmen):
                           previous=eintrag.get('eingabe', ''),
                           done=_auffrischen)
         except Exception as ausnahme:
-            errors.record('seiten.joysticks_belegen', ausnahme)
+            errors.record('pages.joysticks_belegen', ausnahme)
 
     def _bereich_suchen(aktion):
         """Zu welcher Gruppe gehört eine Aktion?
@@ -4055,7 +4055,7 @@ def _joysticks(fenster, rahmen):
         try:
             daten['belegungen'] = joysticks.view(nur['sicht'])
         except Exception as ausnahme:
-            errors.record('seiten.joysticks_sicht', ausnahme)
+            errors.record('pages.joysticks_sicht', ausnahme)
             daten['belegungen'] = {}
 
     # ⚠⚠ Der Fingerabdruck der zuletzt gezeichneten Lage — siehe unten.
@@ -4071,7 +4071,7 @@ def _joysticks(fenster, rahmen):
                 for z in (daten['vergleich'].get('zuordnung') or [])
                 if z.get('name')}
         except Exception as ausnahme:
-            errors.record('seiten.joysticks', ausnahme)
+            errors.record('pages.joysticks', ausnahme)
             daten['vergleich'] = {}
             daten['geraetenamen'] = {}
 
@@ -4100,7 +4100,7 @@ def _joysticks(fenster, rahmen):
             # richtigen Stand.
             daten['namen'] = joysticks.labels(current())
         except Exception as ausnahme:
-            errors.record('seiten.joysticks_namen', ausnahme)
+            errors.record('pages.joysticks_namen', ausnahme)
             daten['namen'] = {}
         _laden()
 
@@ -4183,7 +4183,7 @@ def _whats_new(fenster, rahmen):
         # Siehe `updater.protokoll_gebuendelt`.
         eintraege = updater.history_grouped()
     except Exception as ausnahme:
-        errors.record('seiten.wasistneu', ausnahme)
+        errors.record('pages.wasistneu', ausnahme)
         eintraege = []
 
     stand = {'art': 'alle'}
@@ -4439,7 +4439,7 @@ def _check_now(fenster):
             neuere = updater.check(fenster.version or '0.0.0',
                                               force=True)
         except Exception as ausnahme:
-            errors.record('seiten.jetzt_nachsehen', ausnahme)
+            errors.record('pages.jetzt_nachsehen', ausnahme)
             fenster.root.after(0, lambda: fenster.say(t('s_ub_sucht_fehler')))
             return
 
@@ -4510,7 +4510,7 @@ def _refresh_channels(fenster, kaesten, neu_zeichnen):
             # ist der Preis dafür, dass draufsteht, was drin ist.
             updater.check(fenster.version or '0.0.0', force=True)
         except Exception as ausnahme:
-            errors.record('seiten.kanaele_auffrischen', ausnahme)
+            errors.record('pages.kanaele_auffrischen', ausnahme)
             return
 
         def nachziehen():
@@ -4650,7 +4650,7 @@ def _in_tk(fenster, tat):
     except Exception as ausnahme:
         if not _TK_REPORTED[0]:
             _TK_REPORTED[0] = True
-            errors.record('seiten.im_tk', ausnahme)
+            errors.record('pages.im_tk', ausnahme)
         return False
 
 
@@ -4683,7 +4683,7 @@ def _hand_over_after_restart(fenster):
         try:
             fenster.root.after(0, melden)
         except Exception as ausnahme:
-            errors.record('seiten.nach_neustart', ausnahme)
+            errors.record('pages.nach_neustart', ausnahme)
 
     threading.Thread(target=pruefen, daemon=True).start()
 
@@ -4744,7 +4744,7 @@ def _fetch_version(fenster, mit_vorab):
     try:
         updater.check(fenster.version or '0.0.0')
     except Exception as ausnahme:
-        errors.record('seiten.fassung_holen.nachsehen', ausnahme)
+        errors.record('pages.fassung_holen.nachsehen', ausnahme)
     freigabe = updater.latest(mit_vorab)
     if not freigabe:
         fenster.say(t('s_ub_holen_keine'))
@@ -4870,7 +4870,7 @@ def _fetch_version(fenster, mit_vorab):
             _in_tk(fenster, _neustart)
         except Exception as ausnahme:
             grund = str(ausnahme)
-            errors.record('seiten.fassung_holen', ausnahme)
+            errors.record('pages.fassung_holen', ausnahme)
             _in_tk(fenster, lambda: fenster.say(t('update_fehler', grund)))
         finally:
             if not uebergeben:
@@ -5059,7 +5059,7 @@ def _server_status(fenster, rahmen):
             try:
                 lage = serverstatus.state(force=erzwingen)
             except Exception as ausnahme:
-                errors.record('seiten.serverstatus', ausnahme)
+                errors.record('pages.serverstatus', ausnahme)
                 lage = None
             try:
                 if lage is None:
@@ -5214,7 +5214,7 @@ def _load_notices(fenster, raum, quelle):
         try:
             liste = serverstatus.messages(2)
         except Exception as ausnahme:
-            errors.record('seiten.serverstatus_meldungen', ausnahme)
+            errors.record('pages.serverstatus_meldungen', ausnahme)
             liste = []
         fenster.root.after(0, lambda: einsetzen(liste))
 
@@ -5617,7 +5617,7 @@ def _thanks(fenster, rahmen):
             tk.Label(zeile, image=fenster._author_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 16))
         except Exception as ausnahme:
-            errors.record('seiten.danke.logo', ausnahme)
+            errors.record('pages.danke.logo', ausnahme)
     rechts = tk.Frame(zeile, bg=SURFACE)
     rechts.pack(side='left', fill='x', expand=True)
     tk.Label(rechts, text='Xharig', bg=SURFACE, fg=ACCENT, font=fenster.f_title,
@@ -5757,7 +5757,7 @@ def _about(fenster, rahmen):
             tk.Label(kopf, image=fenster._about_logo, bg=SURFACE).pack(
                 side='left', padx=(0, 14))
         except Exception as ausnahme:
-            errors.record('seiten.ueber.symbol', ausnahme)
+            errors.record('pages.ueber.symbol', ausnahme)
     titel = tk.Frame(kopf, bg=SURFACE)
     titel.pack(side='left', fill='x', expand=True)
     # ⚠ Produktname aus `language.py` — nie fest hier. Bei der Umbenennung zu
@@ -5912,7 +5912,7 @@ def _link(fenster, eltern, text, ziel, grund=None):
         try:
             geklappt = paths.open_in_browser(ziel)
         except Exception as ausnahme:
-            errors.record('seiten.adresse', ausnahme, ziel)
+            errors.record('pages.adresse', ausnahme, ziel)
             geklappt = False
         fenster.say(t('s_ub_auf') % ziel if geklappt else t('s_ub_auf_nein') % ziel)
 
@@ -6003,7 +6003,7 @@ def _detection(fenster, rahmen):
         saetze, woher = phrases.collect()
         gefunden = ' · '.join(str(x) for x in (saetze or [])) or '—'
     except Exception as ausnahme:
-        errors.record('seiten.erkennung.phrases', ausnahme)
+        errors.record('pages.erkennung.phrases', ausnahme)
     kasten = _card(ziel)
     _body_text(kasten, gefunden, fenster.f_small, color=FG,
                 bg=SURFACE, inset=24, fill='x', padx=12, pady=8)
@@ -6016,7 +6016,7 @@ def _detection(fenster, rahmen):
             katalog_modul.update()
             fenster.say(t('s_er_kat_da') % _count_catalog())
         except Exception as ausnahme:
-            errors.record('seiten.erkennung.katalog', ausnahme)
+            errors.record('pages.erkennung.katalog', ausnahme)
             fenster.say(t('s_er_kat_weg'))
 
     _button(fenster, ziel, t('s_er_kat_jetzt'), katalog_neu).pack()
@@ -6110,7 +6110,7 @@ def _diagnostics(fenster, rahmen):
     try:
         text = report.build(version=fenster.version, root=fenster.root)
     except Exception as ausnahme:
-        errors.record('seiten.diagnose', ausnahme)
+        errors.record('pages.diagnose', ausnahme)
 
     from .main_window import round_frame
     kasten = round_frame(innen, '#0c1017', LINE, radius=8, base_color=BG)
@@ -6136,7 +6136,7 @@ def _diagnostics(fenster, rahmen):
                                    root=fenster.root,
                                    message=meldung_text())
         except Exception as ausnahme:
-            errors.record('seiten.diagnose_melder', ausnahme)
+            errors.record('pages.diagnose_melder', ausnahme)
             return
         feld.configure(state='normal')
         feld.delete('1.0', 'end')
@@ -6236,7 +6236,7 @@ def _diagnostics(fenster, rahmen):
             try:
                 meldung_feld.delete('1.0', 'end')
             except Exception as ausnahme:
-                errors.record('seiten.diagnose_meldung_leeren', ausnahme)
+                errors.record('pages.diagnose_meldung_leeren', ausnahme)
 
     def melden():
         if report.open_issue(aktueller_bericht()):
@@ -6374,7 +6374,7 @@ def _crafting(fenster, rahmen):
         eintraege = herst_modul.with_collection(habe)
         sicher, gesamt, unklar = herst_modul.counts(habe)
     except Exception as ausnahme:
-        errors.record('seiten.herstellung', ausnahme)
+        errors.record('pages.herstellung', ausnahme)
         eintraege, sicher, gesamt, unklar = [], 0, 0, 0
 
     if not eintraege:
@@ -6435,7 +6435,7 @@ def _crafting(fenster, rahmen):
         ⚠⚠ **Nur wenn wirklich etwas gesetzt war.** Sonst baut jeder Wechsel
         auf die Herstellungs-Seite die 1597 Zeilen neu auf, ohne dass sich
         etwas ändert — dieselbe Bremse wie in der Bauplan-Liste
-        (`bestandsfenster._fein_leeren`), am 31.08.2026 gemessen und gemeldet.
+        (`collection_window._fein_leeren`), am 31.08.2026 gemessen und gemeldet.
         """
         # ⚠⚠ **Ein Sprung aus der Bauplan-Liste darf hier NICHT geleert
         # werden.** Beim ersten Mal wird die Seite frisch gebaut und nimmt den
@@ -6493,7 +6493,7 @@ def _crafting(fenster, rahmen):
         for _k, _v in (kat_daten.load().get('bauplaene') or {}).items():
             _kat_arten[herst_modul._key(_v.get('n') or '')] = _v.get('a') or ''
     except Exception as ausnahme:
-        errors.record('seiten.crafting.katalog', ausnahme)
+        errors.record('pages.crafting.katalog', ausnahme)
 
     _kat_merker = {}
 
@@ -6781,7 +6781,7 @@ def _to_contract(fenster, titel):
         # ⛔⛔ **Über `catalog.blueprints_for_contract`, nicht mit einem eigenen
         # Vergleich.** Hier stand ein wörtlicher Titelvergleich gegen
         # `q['auftrag']` — und derselbe noch einmal in
-        # `bestandsfenster.zum_auftrag()`. Beide trafen alles aus der eigenen
+        # `collection_window.zum_auftrag()`. Beide trafen alles aus der eigenen
         # Liste und **nichts** aus dem Spiel: In den Herkunftsdaten steht
         # `'Stop Rival Attack at [LOCATION]'`, im Spiel
         # `'Stop Rival Attack at Asteroiden Bergbaubasis'`. 55 Baupläne, und
@@ -6797,7 +6797,7 @@ def _to_contract(fenster, titel):
             return
         fenster.say(t('s_fo_lohnt_nichts'))
     except Exception as ausnahme:
-        errors.record('seiten.zum_auftrag', ausnahme)
+        errors.record('pages.zum_auftrag', ausnahme)
 
 
 def _to_kind(fenster, art):
@@ -6809,7 +6809,7 @@ def _to_kind(fenster, art):
             return
         fenster.say(t('s_fo_art_nichts') % art)
     except Exception as ausnahme:
-        errors.record('seiten.zur_art', ausnahme)
+        errors.record('pages.zur_art', ausnahme)
 
 
 def _to_blueprint(fenster, name):
@@ -6821,7 +6821,7 @@ def _to_blueprint(fenster, name):
             return
         fenster.say(t('s_he_woher_nichts'))
     except Exception as ausnahme:
-        errors.record('seiten.zum_bauplan', ausnahme)
+        errors.record('pages.zum_bauplan', ausnahme)
         fenster.say(t('s_he_woher_nichts'))
 
 
@@ -7177,7 +7177,7 @@ def _routes(fenster, rahmen):
             try:
                 routen_modul.fetch_all(progress=melden)
             except Exception as ausnahme:
-                errors.record('seiten.routes.alle_holen', ausnahme)
+                errors.record('pages.routes.alle_holen', ausnahme)
 
             def fertig():
                 zustand['laeuft'] = False
@@ -7458,7 +7458,7 @@ def _routes(fenster, rahmen):
             try:
                 routen_modul.fetch(kennung)
             except Exception as ausnahme:
-                errors.record('seiten.routes.holen', ausnahme)
+                errors.record('pages.routes.holen', ausnahme)
 
             def fertig():
                 zustand['laeuft'] = False
@@ -7657,7 +7657,7 @@ def _routes(fenster, rahmen):
             try:
                 schiff_modul.update()
             except Exception as ausnahme:
-                errors.record('seiten.routes.schiffe', ausnahme)
+                errors.record('pages.routes.schiffe', ausnahme)
 
             def fertig():
                 try:
@@ -7916,7 +7916,7 @@ def _shops(fenster, rahmen):
         try:
             katalog = laden_modul.catalog_items()
         except Exception as ausnahme:
-            errors.record('seiten.shops.catalog_items', ausnahme)
+            errors.record('pages.shops.catalog_items', ausnahme)
             katalog = []
         if katalog:
             raus = [{'name': x['name'], 'kennung': x['kennung'],
@@ -7941,12 +7941,12 @@ def _shops(fenster, rahmen):
                                  'hersteller': '', 'groesse': '',
                                  'klasse': '', 'guete': ''})
             except Exception as ausnahme:
-                errors.record('seiten.shops.schiffe', ausnahme)
+                errors.record('pages.shops.schiffe', ausnahme)
             return raus
         try:
             alle = [b for b in herst_modul.all_items() if b.get('entity')]
         except Exception as ausnahme:
-            errors.record('seiten.shops.teile', ausnahme)
+            errors.record('pages.shops.teile', ausnahme)
             return []
         return [{'name': b.get('name') or '', 'kennung': b.get('entity') or '',
                  'bereich': '', 'gruppe': _art_von(b)} for b in alle]
@@ -8238,7 +8238,7 @@ def _shops(fenster, rahmen):
                 # zugeordnet.
                 laden_modul.fetch(kennung, name)
             except Exception as ausnahme:
-                errors.record('seiten.shops.fetch', ausnahme)
+                errors.record('pages.shops.fetch', ausnahme)
 
             def fertig():
                 laeuft['ja'] = False
@@ -8470,14 +8470,14 @@ def _shops(fenster, rahmen):
             try:
                 laden_modul.fetch_catalog(progress=melden)
             except Exception as ausnahme:
-                errors.record('seiten.shops.katalog', ausnahme)
+                errors.record('pages.shops.katalog', ausnahme)
             # ⚠ Die Schiffsdaten gehören zum selben Aufwasch — ohne sie
             # fehlte der Bereich „Schiffe" in der Liste.
             try:
                 from . import ships as schiff_modul
                 schiff_modul.update()
             except Exception as ausnahme:
-                errors.record('seiten.shops.schiffe_holen', ausnahme)
+                errors.record('pages.shops.schiffe_holen', ausnahme)
 
             def fertig():
                 zustand_katalog['laeuft'] = False
@@ -8610,7 +8610,7 @@ def _shop_row(fenster, eltern, bauplan):
     try:
         kennung = herst_modul.entity_of(bauplan)
     except Exception as ausnahme:
-        errors.record('seiten.laden_zeile.kennung', ausnahme)
+        errors.record('pages.laden_zeile.kennung', ausnahme)
         return
     if not kennung:
         return
@@ -8639,7 +8639,7 @@ def _shop_row(fenster, eltern, bauplan):
             # CF-Repeatern). Siehe `scbp/shops.py`.
             shops.fetch(kennung, name=bauplan)
         except Exception as ausnahme:
-            errors.record('seiten.laden_zeile.holen', ausnahme)
+            errors.record('pages.laden_zeile.holen', ausnahme)
             return
         # ⚠ Zurück in den Oberflächen-Faden: Tk verträgt keine Zugriffe aus
         # einem fremden Thread. Und das Etikett kann inzwischen zerstört sein,
@@ -8669,7 +8669,7 @@ def _blueprint_specs(bauplan):
     auch keine; ein „–" an dieser Stelle wäre eine Angabe, die keine ist.
     """
     from . import catalog as kat_daten
-    from .bestandsfenster import GRAD_BUCHSTABE
+    from .collection_window import GRAD_BUCHSTABE
     eintrag = (kat_daten.load().get('bauplaene') or {}).get(
         paths.name_key(bauplan or ''))
     if not eintrag:
@@ -8731,7 +8731,7 @@ def _fetch_slots(widget, erzwingen=False, danach=None):
             from . import fleet as meine
             geholt = meine.fetch_missing() or 0
         except Exception as ausnahme:
-            errors.record('seiten.steckplaetze_nachziehen', ausnahme)
+            errors.record('pages.steckplaetze_nachziehen', ausnahme)
         if geholt and danach is not None:
             # ⚠ Zurück in den Oberflächen-Faden — Tk aus einem Thread heraus
             # anzufassen führt zu Abstürzen, die sich nicht nachstellen lassen.
@@ -9204,7 +9204,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                     try:
                         _p = preis_modul.price(rohstoff)
                     except Exception as ausnahme:
-                        errors.record('seiten.preis', ausnahme)
+                        errors.record('pages.preis', ausnahme)
                 if not _p:
                     preis_lbl.pack_forget()
                 else:
@@ -9409,7 +9409,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                     if _s.get('material') and _s.get('wirkungen'):
                         _wirksam.add(_s['material'])
             except Exception as ausnahme:
-                errors.record('seiten.wirksam', ausnahme)
+                errors.record('pages.wirksam', ausnahme)
                 _wirksam = set(alle_materialien)
 
             regler_zeilen = {}
@@ -9770,7 +9770,7 @@ def _salvage(fenster, rahmen):
             try:
                 teile, gefunden = _load_salvage(name)
             except Exception as ausnahme:
-                errors.record('seiten.bergung.holen', ausnahme)
+                errors.record('pages.bergung.holen', ausnahme)
                 teile, gefunden = [], ''
             def fertig():
                 try:
@@ -9885,7 +9885,7 @@ def _load_salvage(name):
             try:
                 shops.fetch(teil['ref'], name=teil['name'])
             except Exception as ausnahme:
-                errors.record('seiten.bergung.preis', ausnahme)
+                errors.record('pages.bergung.preis', ausnahme)
     return teile, treffer
 
 
@@ -9909,7 +9909,7 @@ def _mining(fenster, rahmen):
         orte = berg_modul.locations()
         erze = berg_modul.ores()
     except Exception as ausnahme:
-        errors.record('seiten.bergbau', ausnahme)
+        errors.record('pages.bergbau', ausnahme)
         orte, erze = [], []
 
     # ⚠⚠ **Vor der Abbruchbedingung.** Die Methodenempfehlung braucht KEINE
@@ -10030,7 +10030,7 @@ def _mining(fenster, rahmen):
         try:
             treffer = berg_modul.find_signature(input_device)
         except Exception as ausnahme:
-            errors.record('seiten.signatur', ausnahme)
+            errors.record('pages.signatur', ausnahme)
             return
         if not treffer:
             _body_text(sig_rahmen, t('s_bg_sig_nichts'), fenster.f_small,
@@ -10246,7 +10246,7 @@ def _refineries(fenster, rahmen):
     try:
         spalten, zeilen = berg_modul.refinery_matrix()
     except Exception as ausnahme:
-        errors.record('seiten.raffinerien', ausnahme)
+        errors.record('pages.raffinerien', ausnahme)
         spalten, zeilen = [], []
 
     if not spalten or not zeilen:
@@ -10435,7 +10435,7 @@ def _mining_ore(fenster, eltern, erz, offen, neu_zeichnen, geraet=''):
     try:
         raff = berg_modul.refineries_for(erz['name'])
     except Exception as ausnahme:
-        errors.record('seiten.raffinerie', ausnahme)
+        errors.record('pages.raffinerie', ausnahme)
         raff = []
     if raff:
         tk.Label(block, text=t('s_bg_raff_kopf'), bg='#0c1017', fg=FG,
@@ -11176,7 +11176,7 @@ def _hangar(fenster, rahmen):
             try:
                 geholt = meine.fetch_missing(daten['stand'])
             except Exception as ausnahme:
-                errors.record('seiten.hangar.nachziehen', ausnahme)
+                errors.record('pages.hangar.nachziehen', ausnahme)
                 return
             if not geholt:
                 return
@@ -11392,7 +11392,7 @@ def _asop(fenster, rahmen):
                 with open(pfad, encoding='utf-8', errors='ignore') as f:
                     return f.read().splitlines()
         except Exception as ausnahme:
-            errors.record('seiten._asop.ini', ausnahme)
+            errors.record('pages._asop.ini', ausnahme)
         return []
 
     def sichern():
@@ -11503,7 +11503,7 @@ def _asop(fenster, rahmen):
                 return
             ok, _anzahl, text = injection.refresh(pfad, sprachordner)
         except Exception as ausnahme:
-            errors.record('seiten._asop.einspielen', ausnahme)
+            errors.record('pages._asop.einspielen', ausnahme)
             ok, text = False, str(ausnahme)
         _sagen(t('s_as_steht') if ok else (t('s_as_schief') % text),
                ACCENT if ok else RED)
@@ -11825,7 +11825,7 @@ def _dismantle(fenster, rahmen):
             return sorted((e.get('basis') or '') for e in crafting.all_items()
                           if e.get('basis'))
         except Exception as ausnahme:
-            errors.record('seiten.zerlegen.namen', ausnahme)
+            errors.record('pages.zerlegen.namen', ausnahme)
             return []
 
     def zeigen(name=None):
@@ -12302,7 +12302,7 @@ def _fetch_buy_prices(posten, widget, neu_zeichnen):
                     shops.fetch(kennung, name=name or '')
                     geholt = True
             except Exception as ausnahme:
-                errors.record('seiten.einkauf.preis', ausnahme)
+                errors.record('pages.einkauf.preis', ausnahme)
         if geholt:
             try:
                 widget.after(0, neu_zeichnen)
@@ -12694,7 +12694,7 @@ def _fetch_cart_prices(liste, widget, neu_zeichnen):
                     shops.fetch(posten['ref'], name=posten.get('name') or '')
                     geholt = True
             except Exception as ausnahme:
-                errors.record('seiten.cart.preis', ausnahme)
+                errors.record('pages.cart.preis', ausnahme)
         if geholt:
             # ⚠ Zurück in den Oberflächen-Faden. Tk aus einem Thread heraus
             # anzufassen ist der Weg in Abstürze, die sich nicht nachstellen
@@ -12805,7 +12805,7 @@ def _lookup_part(kennung):
                                     'klasse': x.get('klasse') or ''})
                 for x in shops.catalog_items() if x.get('kennung'))
         except Exception as ausnahme:
-            errors.record('seiten.teil_nachschlagen', ausnahme)
+            errors.record('pages.teil_nachschlagen', ausnahme)
             _PART_INDEX[0] = {}
     return _PART_INDEX[0].get(kennung) or {}
 
@@ -13947,7 +13947,7 @@ def _storage(fenster, rahmen):
             meldung.configure(text=t('s_lg_gespeichert') % os.path.basename(ziel),
                               fg=SUB)
         except Exception as ausnahme:
-            errors.record('seiten.lager.ausgeben', ausnahme)
+            errors.record('pages.lager.ausgeben', ausnahme)
 
     def _einlesen():
         from . import file_picker
@@ -13958,7 +13958,7 @@ def _storage(fenster, rahmen):
             with open(quelle, encoding='utf-8') as f:
                 posten = lager.from_json(f.read())
         except Exception as ausnahme:
-            errors.record('seiten.lager.einlesen', ausnahme)
+            errors.record('pages.lager.einlesen', ausnahme)
             posten = None
         if posten is None:
             # ⚠ Nicht schweigen. Wer eine falsche Datei waehlt und nichts
@@ -14483,7 +14483,7 @@ def _selling(fenster, rahmen):
             try:
                 ok, grund = preisdaten.update(force=True)
             except Exception as ausnahme:
-                errors.record('seiten.verkauf_abruf', ausnahme)
+                errors.record('pages.verkauf_abruf', ausnahme)
                 ok, grund = False, 'netz'
 
             def melden():
@@ -15182,7 +15182,7 @@ def _trade_storage(fenster, rahmen):
             meldung['text'] = t('s_lg_gespeichert') % os.path.basename(ziel)
             meldung['farbe'] = SUB
         except Exception as ausnahme:
-            errors.record('seiten.handelslager.ausgeben', ausnahme)
+            errors.record('pages.handelslager.ausgeben', ausnahme)
             meldung['text'], meldung['farbe'] = t('s_hl_fehler'), RED
         neu_zeichnen()
 
@@ -15195,7 +15195,7 @@ def _trade_storage(fenster, rahmen):
             with open(quelle, encoding='utf-8') as f:
                 posten = lager.from_json(f.read())
         except Exception as ausnahme:
-            errors.record('seiten.handelslager.einlesen', ausnahme)
+            errors.record('pages.handelslager.einlesen', ausnahme)
             posten = None
         if posten is None:
             # ⚠ Nicht schweigen. Wer eine falsche Datei waehlt und nichts
@@ -15762,7 +15762,7 @@ def _axes(fenster, rahmen):
                      repr(_gs.sets()),
                      repr(wahl))
         except Exception as ausnahme:
-            errors.record('seiten.achsen_stand', ausnahme)
+            errors.record('pages.achsen_stand', ausnahme)
             stand = None
         if stand is not None and stand == zuletzt_achsen['stand']:
             return
@@ -17178,7 +17178,7 @@ def _patch_changes(fenster, rahmen):
             try:
                 neu = pa.sync()
             except Exception as ausnahme:
-                errors.record('seiten.patch_changes.sync', ausnahme)
+                errors.record('pages.patch_changes.sync', ausnahme)
                 neu = None
 
             # ⚠ Zurück in den Oberflächen-Faden — Tk verträgt keine Zugriffe

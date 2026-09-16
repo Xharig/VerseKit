@@ -36,7 +36,7 @@ ein Satz, den ein Mensch liest — und der damit in `scbp/language.py` gehört.
 Benutzung:
 
     python3 tools/texte_pruefen.py            # alle Oberflächen-Dateien
-    python3 tools/texte_pruefen.py scbp/seiten.py
+    python3 tools/texte_pruefen.py scbp/pages.py
 
 Rückgabe 0, wenn nichts gefunden wurde — damit taugt es für den Selbsttest.
 """

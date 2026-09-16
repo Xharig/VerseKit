@@ -199,7 +199,7 @@ LOCK_CALLBACK = [None]
 # eines ganzen Abends ersetzt.
 #
 # Das Overlay haengt seine Auskunft hier ein; `report.build()` fragt sie ab.
-# Ueber ein Modul, weil der Bericht aus `seiten.py` gebaut wird und von dort
+# Ueber ein Modul, weil der Bericht aus `pages.py` gebaut wird und von dort
 # das Overlay nicht erreichbar ist — derselbe Weg wie beim Schloss-Rueckruf.
 STATE_REPORT = [None]
 
