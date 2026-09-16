@@ -5775,7 +5775,8 @@ def _thanks(fenster, rahmen):
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
-            ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee'), ''),
+            ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
+             + t('s_dk_aeternitas_idee2'), ''),
             ('KynoTnis', 'ADI', '', t('s_dk_kynotnis_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
@@ -12124,57 +12125,64 @@ def _farm_list(fenster, rahmen):
                              anchor='w').pack(side='left')
 
     def _aufbauen():
-        werte = cart.farm_list(meine.load())
-        fehlt = werte.get('fehlt') or []
-        reicht = werte.get('vollstaendig') or []
-        anzahl = werte.get('posten') or 0
+        values = cart.farm_list(meine.load())
+        missing = values.get('fehlt') or []
+        sufficient = values.get('vollstaendig') or []
+        count = values.get('posten') or 0
 
-        _merkzettel_block(werte)
+        _merkzettel_block(values)
 
         # ⚠⚠ **Drei Lagen, drei Sätze** — dieselbe Falle wie überall hier:
         # „nichts geplant", „alles da" und „nichts zu tun" sehen im Code gleich
         # aus. Wer sie zusammenwirft, sagt jemandem ohne Plan, er sei fertig.
-        if not anzahl:
+        if not count:
             _body_text(koerper, t('s_fl_nichts_geplant'), fenster.f_small,
                         fill='x')
             return
 
-        tk.Label(koerper, text=t('s_fl_kopf').format(n=anzahl), bg=BG, fg=FG,
+        tk.Label(koerper, text=t('s_fl_kopf').format(n=count), bg=BG, fg=FG,
                  font=fenster.f_bold, anchor='w').pack(fill='x', pady=(0, 8))
 
-        if not fehlt:
+        if not missing:
             _body_text(koerper, t('s_fl_alles_da'), fenster.f_small,
                         color=ACCENT, fill='x')
         else:
-            for eintrag in fehlt:
-                _farm_row(fenster, koerper, eintrag, fehlend=True)
+            # ⭐ Wo es das Fehlende gibt — einmal für alle Zeilen gerechnet.
+            per_material, gathering = farm_locations(
+                [entry.get('rohstoff') or '' for entry in missing])
+            for entry in missing:
+                _farm_row(fenster, koerper, entry, fehlend=True,
+                          spots=per_material.get(entry.get('rohstoff') or ''))
+            _farm_gathering(fenster, koerper, gathering)
 
-        if reicht:
-            tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(reicht)),
+        if sufficient:
+            tk.Label(koerper, text=t('s_fl_reicht_kopf').format(n=len(sufficient)),
                      bg=BG, fg=SUB, font=fenster.f_small,
                      anchor='w').pack(fill='x', pady=(14, 4))
-            for eintrag in reicht:
-                _farm_row(fenster, koerper, eintrag, fehlend=False)
+            for entry in sufficient:
+                _farm_row(fenster, koerper, entry, fehlend=False)
 
         # ⚠ Was gar nicht gerechnet werden konnte, wird genannt — eine Liste,
         # der stillschweigend Posten fehlen, ist schlimmer als eine kurze.
-        ohne = werte.get('ohne_rezept') or []
-        if ohne:
+        without_recipe = values.get('ohne_rezept') or []
+        if without_recipe:
             _body_text(koerper,
-                        t('s_fl_ohne_rezept').format(n=len(ohne),
-                                                     teile=', '.join(ohne)),
+                        t('s_fl_ohne_rezept').format(n=len(without_recipe),
+                                                     teile=', '.join(without_recipe)),
                         fenster.f_small, color=GOLD, fill='x', pady=(12, 0))
 
     fenster.on_show['farmliste'] = neu_zeichnen
     _aufbauen()
 
 
-def _farm_row(fenster, eltern, eintrag, fehlend):
-    """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt."""
-    zeile = tk.Frame(eltern, bg=SURFACE)
-    zeile.pack(fill='x', pady=(0, 2))
+def _farm_row(fenster, eltern, eintrag, fehlend, spots=None):
+    """Ein Rohstoff: was gebraucht wird, was da ist, was fehlt — und wo es liegt."""
+    block = tk.Frame(eltern, bg=SURFACE)
+    block.pack(fill='x', pady=(0, 2))
+    row = tk.Frame(block, bg=SURFACE)
+    row.pack(fill='x')
 
-    tk.Label(zeile, text=eintrag.get('rohstoff') or '', bg=SURFACE,
+    tk.Label(row, text=eintrag.get('rohstoff') or '', bg=SURFACE,
              fg=FG if fehlend else SUB, font=fenster.f_small, anchor='w',
              width=24).pack(side='left', padx=(12, 0), pady=4)
 
@@ -12182,16 +12190,16 @@ def _farm_row(fenster, eltern, eintrag, fehlend):
     # man losfliegt. „Brauchst 4,4 · hast 0" daneben sagt, wie sie zustande
     # kommt; ohne sie wäre die Zahl eine Behauptung.
     if fehlend:
-        tk.Label(zeile, text=t('s_fl_fehlt').format(
+        tk.Label(row, text=t('s_fl_fehlt').format(
             menge=_number(eintrag.get('differenz'))),
             bg=SURFACE, fg=GOLD, font=fenster.f_small,
             anchor='e').pack(side='right', padx=(0, 12))
     else:
-        tk.Label(zeile, text=t('s_fl_genug'), bg=SURFACE, fg=ACCENT,
+        tk.Label(row, text=t('s_fl_genug'), bg=SURFACE, fg=ACCENT,
                  font=fenster.f_small, anchor='e').pack(side='right',
                                                         padx=(0, 12))
 
-    tk.Label(zeile, text=t('s_fl_stand').format(
+    tk.Label(row, text=t('s_fl_stand').format(
         braucht=_number(eintrag.get('benoetigt')),
         hat=_number(eintrag.get('vorhanden'))),
         bg=SURFACE, fg=SUB, font=fenster.f_small,
@@ -12201,13 +12209,127 @@ def _farm_row(fenster, eltern, eintrag, fehlend):
     # Stileron mit Q 100 im Lager hat und Q 500 braucht, soll das erfahren —
     # sonst sucht er im Lager nach etwas, das dort sichtbar liegt, und
     # versteht die Meldung nicht.
-    zu_gering = eintrag.get('zu_gering') or 0
-    if zu_gering:
-        tk.Label(zeile, text=t('s_fl_zu_gering').format(
-            menge=_number(zu_gering),
+    too_low = eintrag.get('zu_gering') or 0
+    if too_low:
+        tk.Label(row, text=t('s_fl_zu_gering').format(
+            menge=_number(too_low),
             guete=_number(eintrag.get('mindestguete'))),
             bg=SURFACE, fg=SUB, font=fenster.f_small,
             anchor='w').pack(side='left', padx=(10, 0))
+
+    # ⭐ **Wo es liegt** — die ergiebigsten Fundorte, ein Klick öffnet den
+    # Bergbau mit diesem Rohstoff (derselbe Sprung wie aus dem Rezept).
+    if spots:
+        spot_label = tk.Label(block, text=t('s_fl_fundorte') % _farm_spot_text(spots),
+                              bg=SURFACE, fg=ACCENT, font=fenster.f_small,
+                              anchor='w', justify='left', cursor='hand2',
+                              wraplength=700)
+        spot_label.pack(fill='x', padx=(24, 12), pady=(0, 4))
+
+        def to_mining(_event=None, name=eintrag.get('rohstoff') or ''):
+            fenster.mining_search = name
+            fenster.jump_to('bergbau')
+
+        spot_label.bind('<Button-1>', to_mining)
+
+
+def _farm_gathering(fenster, parent, gathering):
+    """„Wo du das meiste auf einmal findest" — Orte mit mehreren fehlenden Erzen.
+
+    ⭐ Die Antwort auf die Routenfrage: Wer drei Erze braucht, will wissen, wo
+    er zwei davon an einem Ort bekommt. Ein Klick öffnet den Bergbau mit dem
+    Ort in der Suche — dort steht, was es dort sonst noch gibt.
+    """
+    if not gathering:
+        return
+    tk.Label(parent, text=t('s_fl_sammel_kopf'), bg=BG, fg=FG,
+             font=fenster.f_bold, anchor='w').pack(fill='x', pady=(16, 2))
+    _body_text(parent, t('s_fl_sammel_hilfe'), fenster.f_small, fill='x')
+    for place, system, materials in gathering:
+        row = tk.Frame(parent, bg=SURFACE, cursor='hand2')
+        row.pack(fill='x', pady=(4, 0))
+        title = tk.Label(row, text='%s (%s)' % (place, system) if system else place,
+                         bg=SURFACE, fg=FG, font=fenster.f_small, anchor='w',
+                         cursor='hand2')
+        title.pack(side='left', padx=(12, 0), pady=4)
+        found = tk.Label(row, text=t('s_fl_sammel_zeile').format(
+                             n=len(materials), erze=', '.join(materials)),
+                         bg=SURFACE, fg=SUB, font=fenster.f_small, anchor='w',
+                         cursor='hand2')
+        found.pack(side='left', padx=(10, 12))
+
+        def to_place(_event=None, name=place):
+            fenster.mining_search = name
+            fenster.jump_to('bergbau')
+
+        for widget in (row, title, found):
+            widget.bind('<Button-1>', to_place)
+
+
+def farm_locations(needed, ores=None, per_ore=3, places=5):
+    """Wo die fehlenden Rohstoffe liegen — je Rohstoff und als Sammelorte.
+
+    ⭐⭐ Wunsch Aeternitas26 (KRT, 15.09.2026): „was ich farmen muss **und wo**
+    ich das am besten finde". Er führte dafür eine eigene Tabelle Erze ↔
+    Vorkommen, um seine Route zu planen — die Bergbau-Seite kannte die
+    Fundorte längst, die Farmliste wusste nur nichts davon.
+
+    `needed` sind Rohstoffnamen aus den Rezepten (`Titanium`), `ores` die Liste
+    aus `mining.ores()` (`Titanium (Ore)`); verglichen wird über
+    `mining.norm_material`, sonst findet sich nichts (siehe `locations_for`).
+
+    Gibt `(je_rohstoff, sammelorte)` zurück:
+
+    * `je_rohstoff`: `{Rohstoff: [(Ort, System, Anteil), …]}`, die ergiebigsten
+      zuerst, höchstens `per_ore`. Ein Rohstoff, der nirgends abzubauen ist,
+      fehlt darin — er ist dann nicht „unbekannt", sondern schlicht kein Erz.
+    * `sammelorte`: `[(Ort, System, [Rohstoffe])]` — nur Orte mit **mindestens
+      zwei** der fehlenden Rohstoffe, die mit den meisten zuerst, bei
+      Gleichstand der mit dem höheren Anteil. Ein Ort mit nur einem Erz ist
+      keine Route, das steht schon an der Zeile.
+
+    Frei von Tk, damit es sich prüfen lässt.
+    """
+    from . import mining
+    if ores is None:
+        try:
+            ores = mining.ores()
+        except Exception as exc:
+            errors.record('pages.farm_locations', exc)
+            ores = []
+    by_norm = {mining.norm_material(o.get('name') or ''): o for o in ores}
+    per_material = {}
+    collected = {}
+    for material in needed:
+        ore = by_norm.get(mining.norm_material(material))
+        if not ore:
+            continue
+        spots = ore.get('orte') or []
+        per_material[material] = [(s[0], s[1], s[3] if len(s) > 3 else 0.0)
+                                  for s in spots[:per_ore]]
+        for spot in spots:
+            share = spot[3] if len(spot) > 3 else 0.0
+            entry = collected.setdefault((spot[0], spot[1]), {})
+            entry[material] = share
+    gathering = [(place, system, sorted(found, key=str.lower))
+                 for (place, system), found in collected.items()
+                 if len(found) >= 2]
+    gathering.sort(key=lambda g: (-len(g[2]),
+                                  -sum(collected[(g[0], g[1])].values()),
+                                  g[0].lower()))
+    return per_material, gathering[:places]
+
+
+def _farm_spot_text(spots):
+    """„Ort (System) 25 % · Ort 12 %" — kurz genug für eine Zeile."""
+    parts = []
+    for place, system, share in spots:
+        percent = round((share or 0) * 100)
+        amount = (t('s_bg_anteil_wenig') if percent < 1
+                  else t('s_bg_anteil') % percent)
+        parts.append('%s (%s) %s' % (place, system, amount) if system
+                     else '%s %s' % (place, amount))
+    return ' · '.join(parts)
 
 
 def _number(value):

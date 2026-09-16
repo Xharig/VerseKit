@@ -22352,6 +22352,42 @@ def main():
     pruefe('if not drin or watched:' in _cw228,
            'ein erledigter gemerkter Bauplan behaelt seinen Stern')
 
+    # 229. „Was ich farmen muss" kennt die Fundorte (16.09.2026)
+    #
+    # Wunsch Aeternitas26 (KRT): was ich farmen muss UND wo — und wo ich
+    # mehrere Erze auf einmal bekomme. Die Rezepte sagen `Titanium`, der
+    # Bergbau `Titanium (Ore)`; ohne Angleichen findet sich nichts.
+    print()
+    print('229. Farmliste mit Fundorten')
+    _erze229 = [
+        {'name': 'Titanium (Ore)', 'orte': [
+            ('Ort A', 'Stanton', {'schiff'}, 0.30, 5),
+            ('Ort B', 'Pyro', {'schiff'}, 0.20, 4),
+            ('Ort C', 'Stanton', {'schiff'}, 0.10, 3),
+            ('Ort D', 'Stanton', {'schiff'}, 0.05, 2)]},
+        {'name': 'Gold (Ore)', 'orte': [
+            ('Ort B', 'Pyro', {'schiff'}, 0.40, 5),
+            ('Ort A', 'Stanton', {'schiff'}, 0.15, 3)]},
+        # ⚠ Ort A hat DREI der Erze, aber weniger Anteil als Ort B mit zwei —
+        # so zeigt sich, ob nach Anzahl sortiert wird und nicht nach Anteil.
+        {'name': 'Iron (Ore)', 'orte': [('Ort E', 'Nyx', {'fps'}, 0.50, 5),
+                                        ('Ort A', 'Stanton', {'schiff'}, 0.01, 1)]},
+    ]
+    _je229, _sammel229 = _pg228.farm_locations(
+        ['Titanium', 'Gold', 'Iron', 'Kein Erz'], _erze229)
+    pruefe([s[0] for s in _je229.get('Titanium', [])] == ['Ort A', 'Ort B', 'Ort C'],
+           'je Rohstoff die drei ergiebigsten Orte, trotz „(Ore)" im Namen (%r)'
+           % (_je229.get('Titanium'),))
+    pruefe('Kein Erz' not in _je229,
+           'was nirgends abzubauen ist, bekommt keine erfundenen Fundorte')
+    pruefe([(g[0], g[2]) for g in _sammel229]
+           == [('Ort A', ['Gold', 'Iron', 'Titanium']), ('Ort B', ['Gold', 'Titanium'])],
+           'Sammelorte: nur mit mindestens zwei Erzen, die meisten zuerst (%r)'
+           % (_sammel229,))
+    _q229 = _ast228.get_source_segment(_q228, _fns228['_farm_list'])
+    pruefe('farm_locations(' in _q229 and '_farm_gathering(' in _q229,
+           'die Farmliste zeigt Fundorte und Sammelorte an')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

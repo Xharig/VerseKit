@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **"What to farm" shows where to find it.** Each missing material
+  lists its richest locations, followed by the places where you get several
+  of them at once — for planning a route. A click opens Mining.
+  Suggested by Aeternitas26 (KRT)
+
 ## v3.45.0 - 2026-09-16
 
 > **How far along are you with the blueprints you actually want?** Blueprint

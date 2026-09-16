@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **„Was ich farmen muss" zeigt, wo es liegt.** Unter jedem fehlenden
+  Rohstoff stehen die ergiebigsten Fundorte, darunter die Orte, an denen du
+  mehrere davon auf einmal bekommst — für die Route. Ein Klick öffnet den
+  Bergbau. Angeregt von Aeternitas26 (KRT)
+
 ## v3.45.0 - 2026-09-16
 
 > **Wie weit bist du mit den Bauplänen, die du wirklich willst?** Der
