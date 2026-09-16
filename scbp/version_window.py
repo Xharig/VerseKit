@@ -198,8 +198,8 @@ class VersionWindow:
                     release=self.newer)
                 collapsed, bg_colour = updater.install(ziel)
                 self.root.after(0, lambda: self._outcome(collapsed, bg_colour))
-            except Exception as fehler:
-                notice_text = str(fehler)
+            except Exception as err:
+                notice_text = str(err)
                 self.root.after(0, lambda: self._outcome(False, notice_text))
 
         threading.Thread(target=arbeit, daemon=True).start()
@@ -224,8 +224,8 @@ class VersionWindow:
         try:
             self._restart_button()
         except Exception as ausnahme:
-            from . import fehler
-            fehler.merken('version_window.restart_button', ausnahme)
+            from . import errors
+            errors.record('version_window.restart_button', ausnahme)
 
     def _restart_button(self):
         """Aus „geladen" wird ein Knopf, der den Neustart auch ausführt."""

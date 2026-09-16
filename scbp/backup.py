@@ -52,7 +52,7 @@ import os
 import time
 import zipfile
 
-from . import fehler, paths
+from . import errors, paths
 
 # Die Kennung im Kopf der Datei — daran ist eine Sicherung dieses Programms zu
 # erkennen, auch wenn jemand sie umbenannt hat.
@@ -215,7 +215,7 @@ def write(target, version='', game_folder=None):
         os.replace(tmp, target)
         return True, target, len(files)
     except (OSError, zipfile.BadZipFile) as exc:
-        fehler.merken('backup.write', exc)
+        errors.record('backup.write', exc)
         try:
             if os.path.isfile(tmp):
                 os.remove(tmp)
@@ -261,7 +261,7 @@ def check(source):
                     break
             return True, len(names) - 1, when
     except (OSError, zipfile.BadZipFile, KeyError) as exc:
-        fehler.merken('backup.check', exc)
+        errors.record('backup.check', exc)
         return False, 0, ''
 
 
@@ -312,7 +312,7 @@ def restore(source):
                 with z.open(name) as src, open(target, 'wb') as dst:
                     dst.write(src.read())
     except (OSError, zipfile.BadZipFile) as exc:
-        fehler.merken('backup.restore', exc)
+        errors.record('backup.restore', exc)
         return False, str(exc), 0
 
     _clear_foreign_paths(root)
@@ -338,7 +338,7 @@ def bindings_in_archive(source):
                 elif rest.startswith('mappings/') and rest.endswith('.xml'):
                     profiles.append(os.path.basename(rest)[:-4])
     except (OSError, zipfile.BadZipFile) as exc:
-        fehler.merken('backup.bindings_in_archive', exc)
+        errors.record('backup.bindings_in_archive', exc)
         return False, []
     return active, sorted(profiles, key=str.lower)
 
@@ -409,7 +409,7 @@ def restore_bindings(source, with_active=False, game_folder=None):
                     dst.write(src.read())
                 written += 1
     except (OSError, zipfile.BadZipFile) as exc:
-        fehler.merken('backup.restore_bindings', exc)
+        errors.record('backup.restore_bindings', exc)
         return False, str(exc), written
     return True, fallback, written
 
@@ -457,4 +457,4 @@ def _clear_foreign_paths(root):
         if changed:
             paths.save_json(target, data)
     except Exception as exc:
-        fehler.merken('backup.clear_foreign_paths', exc)
+        errors.record('backup.clear_foreign_paths', exc)

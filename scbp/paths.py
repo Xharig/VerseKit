@@ -612,7 +612,7 @@ def _template():
 def _report_error(label, exc):
     """Einen Fehler ins Protokoll geben, ohne dabei selbst zu scheitern.
 
-    ⚠ Der Import steht **absichtlich** in der Funktion: `scbp/fehler.py`
+    ⚠ Der Import steht **absichtlich** in der Funktion: `scbp/errors.py`
     importiert seinerseits `paths`. Auf Modulebene wäre das ein Zirkelbezug und
     keines der beiden Module ließe sich mehr laden.
 
@@ -622,8 +622,8 @@ def _report_error(label, exc):
     darum geht es.
     """
     try:
-        from . import fehler
-        fehler.merken(label, exc)
+        from . import errors
+        errors.record(label, exc)
     except Exception:
         pass
 
@@ -678,7 +678,7 @@ def save_json(target, data, indent=1, sort_keys=False):
 
     ⚠ **Meldet nichts selbst.** Der Aufrufer weiss, unter welchem Namen der
     Fehler ins Protokoll gehört (`materials.save` gegen
-    `trade_cargo.save`) — und `paths` darf `fehler` nicht einbinden, das
+    `trade_cargo.save`) — und `paths` darf `errors` nicht einbinden, das
     gäbe einen Ringschluss. Bei einem Fehlschlag fliegt die Ausnahme; die
     Nebendatei ist dann schon weggeräumt.
     """
@@ -1660,7 +1660,7 @@ def _redact_secrets(text):
     Fehlerbericht landet in einem öffentlichen Issue. `absenden()` gibt den
     Grund eines gescheiterten Sendeversuchs bewusst nicht zurück, weil die
     Adresse geheim ist — schreibt die Ausnahme aber eine Zeile darüber mit
-    `fehler.merken()` ins Protokoll, und das Protokoll steht im Bericht.
+    `errors.record()` ins Protokoll, und das Protokoll steht im Bericht.
 
     Vier realistische Fehlerfälle durchgespielt: Drei sind harmlos (`urllib`
     nennt die Adresse nicht), einer nicht — jede Meldung, die eine Adresse

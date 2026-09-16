@@ -51,7 +51,7 @@ Aenderung ueberschreiben. Das Fenster sagt es, statt es vorauszusetzen.
 import threading
 import tkinter as tk
 
-from . import input_device, fehler, joysticks
+from . import input_device, errors, joysticks
 from .language import t
 
 BG      = '#10141c'
@@ -183,7 +183,7 @@ class BindingWindow:
             try:
                 match = input_device.wait(PATIENCE, stop_flag=lambda: not self._running)
             except Exception as ausnahme:
-                fehler.merken('binding_window.listen', ausnahme)
+                errors.record('binding_window.listen', ausnahme)
                 match = None
             if match and self._running:
                 try:
@@ -212,7 +212,7 @@ class BindingWindow:
                 if (z.get('kennung') or '').upper() == tag.upper():
                     return 'js%d' % z['nummer']
         except Exception as ausnahme:
-            fehler.merken('binding_window.mapping', ausnahme)
+            errors.record('binding_window.mapping', ausnahme)
         return ''
 
     def _taste(self, event):
@@ -314,7 +314,7 @@ class BindingWindow:
             try:
                 self.done()
             except Exception as ausnahme:
-                fehler.merken('binding_window.done', ausnahme)
+                errors.record('binding_window.done', ausnahme)
 
 
 def _language():

@@ -92,7 +92,7 @@ import unicodedata
 import urllib.request
 import zlib
 
-from . import fehler, uex
+from . import errors, uex
 from .catalog import OFF, USER_AGENT
 
 # Der Zweig, aus dem gelesen wird. PTU führt eigene Daten, die den Spieler auf
@@ -207,7 +207,7 @@ def _fetch(path, where):
         # erkul die Dateien schon gepackt ablegt statt sie zu übertragen.
         return json.loads(zlib.decompress(raw, -15).decode('utf-8'))
     except Exception as error:
-        fehler.merken('erkul.holen.' + where, error)
+        errors.record('erkul.holen.' + where, error)
         return None
 
 

@@ -99,8 +99,8 @@ def save(data):
         return True
     except OSError as exc:
         try:
-            from . import fehler
-            fehler.merken('watchlist.save', exc)
+            from . import errors
+            errors.record('watchlist.save', exc)
         except Exception:
             pass
         try:

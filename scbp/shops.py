@@ -488,12 +488,12 @@ def fetch(ident, name='', force=False):
     # künftige Stelle mit, die versehentlich einen Namen weiterreicht. Ein
     # falscher Aufruf soll gar nicht erst hinausgehen.
     if any(z.isspace() for z in ident) or '"' in ident:
-        # ⚠ `fehler` lokal importieren — auf Modulebene wäre es ein
-        # Zirkelbezug (`fehler.py` importiert selbst `paths`). Steht so in den
+        # ⚠ `errors` lokal importieren — auf Modulebene wäre es ein
+        # Zirkelbezug (`errors.py` importiert selbst `paths`). Steht so in den
         # Projektregeln; beim ersten Anlauf stand der Aufruf hier ohne jeden
         # Import und hätte beim ersten Auslösen einen `NameError` geworfen.
-        from . import fehler as _f
-        _f.merken('shops.fetch',
+        from . import errors as _f
+        _f.record('shops.fetch',
                   ValueError('keine Kennung, sondern ein Name: %r'
                              % ident[:60]))
         return False

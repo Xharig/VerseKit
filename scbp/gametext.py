@@ -182,8 +182,8 @@ def _set_language(sprache, spielordner):
         from . import translation
         translation.set_user_cfg(sprache, None, spielordner)
     except Exception as ausnahme:
-        from . import fehler
-        fehler.merken('gametext._set_language', ausnahme)
+        from . import errors
+        errors.record('gametext._set_language', ausnahme)
 
 
 def fetch(sprache='english', spielordner=None, fortschritt=None,

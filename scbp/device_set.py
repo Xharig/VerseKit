@@ -76,8 +76,8 @@ def _save(data):
     try:
         return bool(paths.save_json(paths.app_file(FILE), data))
     except Exception as ausnahme:
-        from . import fehler
-        fehler.merken('device_set.save', ausnahme)
+        from . import errors
+        errors.record('device_set.save', ausnahme)
         return False
 
 

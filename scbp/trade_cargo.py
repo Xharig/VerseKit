@@ -67,7 +67,7 @@ Seitenname `handelslager` in Reiterleiste und Symbolsatz. `calculate` und
 import json
 import os
 
-from . import fehler, paths
+from . import errors, paths
 
 FILE = 'handelslager.json'
 FORMAT = 1
@@ -118,7 +118,7 @@ def save(entries):
     try:
         return paths.save_json(target, {'format': FORMAT, 'posten': entries})
     except Exception as exc:
-        fehler.merken('trade_cargo.save', exc)
+        errors.record('trade_cargo.save', exc)
         return False
 
 

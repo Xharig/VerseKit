@@ -103,7 +103,7 @@ import json
 import os
 import time
 
-from . import erkul, fehler, paths
+from . import erkul, errors, paths
 
 FILE = 'bergung.json'
 FORMAT = 1
@@ -141,7 +141,7 @@ def load():
     except FileNotFoundError:
         pass
     except Exception as exc:
-        fehler.merken('salvage.load', exc)
+        errors.record('salvage.load', exc)
     return {'format': FORMAT, 'schiffe': {}}
 
 
@@ -155,7 +155,7 @@ def _save(data):
         os.replace(target + '.tmp', target)
         return True
     except Exception as exc:
-        fehler.merken('salvage.save', exc)
+        errors.record('salvage.save', exc)
         return False
 
 

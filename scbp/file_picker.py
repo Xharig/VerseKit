@@ -34,7 +34,7 @@ import shutil
 import subprocess
 import sys
 
-from . import fehler
+from . import errors
 
 # Wie lange ein Dialog offen stehen darf, bevor aufgegeben wird. Großzügig: Es
 # sitzt ein Mensch davor, der sucht.
@@ -85,14 +85,14 @@ def _try_helpers(commands, origin):
             done = subprocess.run(command, capture_output=True, text=True,
                                   timeout=PATIENCE, env=environment)
         except Exception as exc:
-            fehler.merken('%s:%s' % (origin, command[0]), exc)
+            errors.record('%s:%s' % (origin, command[0]), exc)
             continue
         chosen = (done.stdout or '').strip()
         if done.returncode == 0 and chosen:
             return chosen
         if done.returncode == 1:
             return ''                      # bewusst abgebrochen
-        fehler.merken('%s:%s' % (origin, command[0]),
+        errors.record('%s:%s' % (origin, command[0]),
                       RuntimeError('Code %s: %s' % (done.returncode,
                                                     (done.stderr or '')[:200])))
     return None

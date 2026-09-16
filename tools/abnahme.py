@@ -969,8 +969,8 @@ def protokoll_pruefen():
     nicht abstürzen. Nur steht danach ein Eintrag im Protokoll, den sonst erst
     der Nutzer in seinem Bericht sieht.
     """
-    from scbp import fehler as fehlermodul
-    eintraege = fehlermodul.letzte(20) or []
+    from scbp import errors as errors_module
+    eintraege = errors_module.latest(20) or []
     frisch = [e for e in eintraege
               if 'abnahme' not in str(e.get('stelle', '')).lower()]
     pruefe(not frisch,

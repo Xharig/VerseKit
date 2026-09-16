@@ -57,7 +57,7 @@ import json
 import os
 import re
 
-from . import fehler, paths
+from . import errors, paths
 
 FILE = 'spielzeit.json'
 FORMAT = 1
@@ -95,7 +95,7 @@ def load():
     except (OSError, ValueError):
         pass
     except Exception as ausnahme:
-        fehler.merken('playtime.load', ausnahme)
+        errors.record('playtime.load', ausnahme)
     return {'format': FORMAT, 'sitzungen': []}
 
 
@@ -116,7 +116,7 @@ def save(data):
         os.replace(vorlaeufig, ziel)
         return True
     except Exception as ausnahme:
-        fehler.merken('playtime.save', ausnahme)
+        errors.record('playtime.save', ausnahme)
         return False
 
 

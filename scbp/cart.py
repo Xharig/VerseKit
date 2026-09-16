@@ -85,7 +85,7 @@ Auskunft, die erkul als „1 shop · 1 stop" zeigt.
 
 import re
 
-from . import erkul, fehler
+from . import erkul, errors
 
 # Zustände eines ganzen Warenkorbs.
 NO_DATA = 'keine_daten'
@@ -310,7 +310,7 @@ def _craftable(kind, size):
                 'klasse': traits.get('c') or '',
             }
     except Exception as ausnahme:
-        fehler.merken('cart.craftable', ausnahme)
+        errors.record('cart.craftable', ausnahme)
     return result
 
 
@@ -568,7 +568,7 @@ def _blueprint_index():
             if ident:
                 result.setdefault(ident, b.get('basis') or b.get('name') or '')
     except Exception as ausnahme:
-        fehler.merken('cart.blueprint_index', ausnahme)
+        errors.record('cart.blueprint_index', ausnahme)
     return result
 
 
@@ -698,7 +698,7 @@ def craft_option(ref, index=None, name=''):
     try:
         rec = crafting.recipe(blueprint)
     except Exception as ausnahme:
-        fehler.merken('cart.craft_option.recipe', ausnahme)
+        errors.record('cart.craft_option.recipe', ausnahme)
         return blank
     if not rec or not rec.get('stufen'):
         return blank
@@ -964,7 +964,7 @@ def invoice(data=None):
             try:
                 places = alle_schiffe.buy_at(name)
             except Exception as ausnahme:
-                fehler.merken('cart.invoice.ship_price', ausnahme)
+                errors.record('cart.invoice.ship_price', ausnahme)
                 places = []
             if places:
                 # ⚠ `buy_at()` gibt eine **Liste** von Verkaufsstellen zurück,
@@ -1166,7 +1166,7 @@ def farm_list(data=None):
             try:
                 rec = crafting.recipe(blueprint)
             except Exception as ausnahme:
-                fehler.merken('cart.farm_list.recipe', ausnahme)
+                errors.record('cart.farm_list.recipe', ausnahme)
         if not rec or not rec.get('stufen'):
             without_recipe.append(p.get('name') or '')
             continue

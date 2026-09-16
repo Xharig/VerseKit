@@ -45,7 +45,7 @@ zur Laufzeit geholt, nie mitgeliefert (Lizenz siehe `crafting.py`). Abgelegt
 wird nur, was zu einem Bauplan gehört, mit aufgelösten Verweisen in die
 gemeinsamen Tabellen (`fireModesPools` usw.).
 """
-from . import fehler
+from . import errors
 from .language import t
 
 SOURCE = 'crafting_items-%s.json'
@@ -636,5 +636,5 @@ def table(blueprint, products, quality_of):
         mul, pips = combined(blueprint, quality_of)
         return rows(item, crafted(item, mul, pips))
     except Exception as exc:
-        fehler.merken('product_stats.table', exc)
+        errors.record('product_stats.table', exc)
         return []

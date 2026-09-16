@@ -64,7 +64,7 @@ import urllib.request
 
 from . import specs
 from . import asop as asop_modul
-from . import fehler, collection as bestand_datei
+from . import errors, collection as bestand_datei
 from . import catalog as katalog_modul
 from . import paths
 from .language import t
@@ -419,7 +419,7 @@ def discard_origtext():
                        'frisch': True, 'texte': {}}, f, ensure_ascii=False)
         return True
     except Exception as exc:
-        fehler.merken('injection.discard_origtext', exc)
+        errors.record('injection.discard_origtext', exc)
         return False
 
 
@@ -433,7 +433,7 @@ def save_origtext(texts_map, ini_path):
                        'texte': texts_map}, f, ensure_ascii=False)
         return True
     except Exception as exc:
-        fehler.merken('injection.save_origtext', exc)
+        errors.record('injection.save_origtext', exc)
         return False
 
 
@@ -710,7 +710,7 @@ def _name_table(lines, remove_only=False):
     try:
         return specs.build_table(lines)
     except Exception as exc:
-        fehler.merken('injection._name_table', exc)
+        errors.record('injection._name_table', exc)
         return {}
 
 
@@ -722,7 +722,7 @@ def _asop_table(lines):
     try:
         return asop_modul.build_table(lines)
     except Exception as exc:
-        fehler.merken('injection._asop_table', exc)
+        errors.record('injection._asop_table', exc)
         return {}
 
 
@@ -897,7 +897,7 @@ def _detail_lines(entry, present='', words=None, rep_table=None):
             if line and line.split(':')[0] not in plain:
                 out.append(_highlight(line))
         except Exception as exc:
-            fehler.merken('injection.ruf_zeile', exc)
+            errors.record('injection.ruf_zeile', exc)
 
     # ⚠⚠ **Lieber „keine Angaben" als gar nichts (06.09.2026).** 109 Auftraege
     # bekamen ueberhaupt keine Ruf-Zeile — die Quelle fuehrt fuer sie keine
@@ -1071,7 +1071,7 @@ def apply_scdl(ini_path, lang_code, stock=None):
         reputation.refresh(version)
         rep_table = reputation.load()
     except Exception as exc:
-        fehler.merken('injection.reputation', exc)
+        errors.record('injection.reputation', exc)
 
     title_by_key, text_by_key = {}, {}
     # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
@@ -1461,7 +1461,7 @@ def scdl_update_available(lang_code):
         with urllib.request.urlopen(req, timeout=60) as r:
             raw = json.loads(r.read().decode('utf-8'))
     except Exception as exc:
-        fehler.merken('injection.scdl_fetch', exc, filename)
+        errors.record('injection.scdl_fetch', exc, filename)
         return False, None
     new_id = (raw.get('_meta') or {}).get('version')
     if not raw.get('entries') or new_id == old:
@@ -1536,7 +1536,7 @@ def clean_leftover(new_path):
         # ⚠ Ein misslungenes Aufräumen darf den Wechsel nicht anhalten. Der
         # Spieler steht sonst ohne beides da: alte Quelle weg, neue nicht
         # eingerichtet.
-        fehler.merken('injection.clean_leftover', exc)
+        errors.record('injection.clean_leftover', exc)
         return None, 0
     return (old, count) if ok else (None, 0)
 
@@ -1609,7 +1609,7 @@ def _lang_order(fallback_lang=('english', 'german_(germany)')):
     try:
         language = translation.game_language()
     except Exception as exc:
-        fehler.merken('injection.spielsprache', exc)
+        errors.record('injection.spielsprache', exc)
         return order
     if not language:
         return order

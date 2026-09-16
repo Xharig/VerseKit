@@ -774,14 +774,14 @@ def main():
         print('12. Fehler werden mitgeschrieben')
         os.environ['SC_BP_HOME'] = os.path.join(basis, 'fehlerbuch')
         os.makedirs(os.environ['SC_BP_HOME'], exist_ok=True)
-        from scbp import fehler as fehlerbuch, report
-        importlib.reload(fehlerbuch)
+        from scbp import errors as errors_module, report
+        importlib.reload(errors_module)
 
-        fehlerbuch.leeren()
-        with fehlerbuch.gefangen('probe.stelle'):
+        errors_module.clear()
+        with errors_module.caught('probe.stelle'):
             raise ValueError('etwas ging schief in %s'
                              % os.path.expanduser('~/geheim/pfad'))
-        eintraege = fehlerbuch.letzte(1)
+        eintraege = errors_module.latest(1)
         pruefe(len(eintraege) == 1, 'ein gefangener Fehler wird festgehalten')
         pruefe(eintraege and eintraege[0].get('stelle') == 'probe.stelle',
                'die Stelle steht dabei')
@@ -795,10 +795,10 @@ def main():
         pruefe('<heim>' in roh, 'der Heimatpfad ist ersetzt')
 
         # Der Ringpuffer darf die Datei nicht wachsen lassen.
-        for i in range(fehlerbuch.HOECHSTENS + 12):
-            fehlerbuch.merken('probe.viele', ValueError('Nummer %d' % i))
-        pruefe(fehlerbuch.anzahl() == fehlerbuch.HOECHSTENS,
-               'es bleiben höchstens %d Einträge liegen' % fehlerbuch.HOECHSTENS)
+        for i in range(errors_module.MAX_ENTRIES + 12):
+            errors_module.record('probe.viele', ValueError('Nummer %d' % i))
+        pruefe(errors_module.count() == errors_module.MAX_ENTRIES,
+               'es bleiben höchstens %d Einträge liegen' % errors_module.MAX_ENTRIES)
 
         text = report.build(version='0.0.0-test')
         pruefe(bool(text) and 'VerseKit' in text, 'der Bericht wird gebaut')
@@ -857,11 +857,11 @@ def main():
         os.environ['SC_BP_HOME'] = sperr
         try:
             from scbp import paths as pf_sperr
-            fehlerbuch.leeren()
+            errors_module.clear()
             geschrieben = pf_sperr.set_setting('probe', 2)
             pruefe(not geschrieben,
                    'ein blockiertes Ziel meldet einen Fehlschlag')
-            stellen = [e.get('stelle') for e in fehlerbuch.letzte(3)]
+            stellen = [e.get('stelle') for e in errors_module.latest(3)]
             pruefe('paths.set_setting' in stellen,
                    'und der Grund steht im Fehlerprotokoll')
         finally:
@@ -886,8 +886,8 @@ def main():
                'kein Benutzername im Bericht')
         pruefe('Letzte Fehler' in text, 'die letzten Fehler stehen im Bericht')
 
-        fehlerbuch.leeren()
-        pruefe(fehlerbuch.anzahl() == 0, 'das Protokoll lässt sich leeren')
+        errors_module.clear()
+        pruefe(errors_module.count() == 0, 'das Protokoll lässt sich leeren')
 
         # ------------------------------------------------------------------ 13
         # Bestand einlesen. Wichtig ist vor allem, dass NICHTS verloren geht:
@@ -1439,10 +1439,10 @@ def main():
                             encoding='utf-8').read()
         block = quelle_start.split('def ablagesymbol_starten')[1].split('\n    def ')[0]
         for erwartet, wofuer in (
-                ("fehler.spur('Ablagesymbol: entfällt", 'nicht Windows'),
-                ("fehler.spur('Ablagesymbol: abgeschaltet", 'abgeschaltet'),
-                ("fehler.spur('Ablagesymbol: %s'", 'angelegt oder nicht'),
-                ("fehler.spur('Ablagesymbol: Fehler", 'Ausnahme')):
+                ("errors.trail('Ablagesymbol: entfällt", 'nicht Windows'),
+                ("errors.trail('Ablagesymbol: abgeschaltet", 'abgeschaltet'),
+                ("errors.trail('Ablagesymbol: %s'", 'angelegt oder nicht'),
+                ("errors.trail('Ablagesymbol: Fehler", 'Ausnahme')):
             pruefe(erwartet in block,
                    'Ablagesymbol meldet den Fall „%s"' % wofuer)
 
@@ -1558,12 +1558,12 @@ def main():
             quelle = open(datei, encoding='utf-8').read()
             baum = _ast.parse(quelle)
             weg = _docstrings(baum)
-            # Interne Protokolle (`fehler.merken`, `fehler.spur`) sind kein
+            # Interne Protokolle (`errors.record`, `errors.trail`) sind kein
             # Oberflächentext. Über den Baum ausschließen, nicht über die
             # Zeile: Ein Aufruf darf sich über mehrere Zeilen ziehen.
             for _k in _ast.walk(baum):
                 if (isinstance(_k, _ast.Call)
-                        and getattr(_k.func, 'attr', '') in ('merken', 'spur')):
+                        and getattr(_k.func, 'attr', '') in ('record', 'trail')):
                     for _teil in _ast.walk(_k):
                         if isinstance(_teil, _ast.Constant):
                             weg.add(id(_teil))
@@ -1589,7 +1589,7 @@ def main():
         _wurzelpfad = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         _zu_pruefen = [os.path.join(_wurzelpfad, 'sc_bp_watcher.py')]
         for _name in sorted(os.listdir(os.path.join(_wurzelpfad, 'scbp'))):
-            if _name.endswith('.py') and _name not in ('language.py', 'fehler.py'):
+            if _name.endswith('.py') and _name not in ('language.py', 'errors.py'):
                 _zu_pruefen.append(os.path.join(_wurzelpfad, 'scbp', _name))
 
         _treffer = []
@@ -1658,7 +1658,7 @@ def main():
         }
         _oberflaeche = ['sc_bp_watcher.py'] + [
             'scbp/' + _n for _n in sorted(os.listdir(os.path.join(_wurzelpfad, 'scbp')))
-            if _n.endswith('.py') and _n not in ('language.py', 'fehler.py')
+            if _n.endswith('.py') and _n not in ('language.py', 'errors.py')
             and ('scbp/' + _n) not in _AUSNAHME_DATEIEN]
         _saetze = []
         for _rel in _oberflaeche:
@@ -2138,7 +2138,7 @@ def main():
         # Zeilen — fuenf Klicks genuegten, und der Startverlauf war weg.
         # Ein rc74-Bericht zeigte keinen einzigen Startschritt mehr.
         import os as os26
-        from scbp import fehler as fe26
+        from scbp import errors as fe26
         from scbp import paths as pf26
 
         ordner26 = os.path.join(basis, 'spur26')
@@ -2146,21 +2146,21 @@ def main():
         alt_datei26 = pf26.app_file
         try:
             pf26.app_file = lambda name: os26.path.join(ordner26, name)
-            if hasattr(fe26.spur, '_offen'):
-                del fe26.spur._offen
+            if hasattr(fe26.trail, '_offen'):
+                del fe26.trail._offen
 
-            fe26.spur('Start, Version 3.0.0-test, testos')
-            fe26.spur('Tk-Wurzel steht')
+            fe26.trail('Start, Version 3.0.0-test, testos')
+            fe26.trail('Tk-Wurzel steht')
             # ⚠ Genau die Zeile, an der getrennt wird — nicht eine
             # nachgetippte Fassung davon. Bis rc42 stand hier
             # „Hauptschleife laeuft" ohne Umlaut; die Pruefung lief gruen,
             # obwohl das Programm etwas anderes schreibt.
-            fe26.spur(fe26.SPUR_GRENZE)
+            fe26.trail(fe26.TRAIL_BOUNDARY)
             for _ in range(40):
-                fe26.spur('Seite liste: bauen beginnt')
-                fe26.spur('Seite liste: steht')
+                fe26.trail('Seite liste: bauen beginnt')
+                fe26.trail('Seite liste: steht')
 
-            start26, seiten26 = fe26.spur_geteilt()
+            start26, seiten26 = fe26.split_trail()
             pruefe(len(start26) == 3,
                    'Start und Bedienung werden getrennt (%d Startzeilen)' % len(start26))
             # ⚠⚠ **Nur die eigenen Zeilen zaehlen.** Diese Pruefung schrieb
@@ -2189,8 +2189,8 @@ def main():
                            % (len(_fremd26), _fremd26[0][:50])))
 
             # Und jetzt der Punkt, der in rc74 fehlte.
-            fe26._spur_kuerzen(pf26.app_file(fe26.SPUR_DATEI))
-            start27, seiten27 = fe26.spur_geteilt()
+            fe26._trim_trail(pf26.app_file(fe26.TRAIL_FILE))
+            start27, seiten27 = fe26.split_trail()
             pruefe(len(start27) == 3,
                    'der Startverlauf ueberlebt das Kuerzen')
             # ⚠⚠ **Dieselbe Sporadik wie oben — hier war sie nur nicht behoben.**
@@ -2215,31 +2215,31 @@ def main():
             # trotzdem — sonst waere nicht zu erkennen, woher eine Abweichung
             # kaeme.
             _fremd27 = [z for z in seiten27 if 'Seite liste:' not in z]
-            pruefe(len(seiten27) == fe26.SPUR_REST,
+            pruefe(len(seiten27) == fe26.TRAIL_KEEP,
                    'gekuerzt wird nur der Bedienteil (%d Zeilen%s)'
                    % (len(seiten27),
                       '' if not _fremd27
                       else ', davon %d fremde' % len(_fremd27)))
 
             # Der Absturzfaenger legt einen vorigen Lauf beiseite.
-            with open(pf26.app_file(fe26.ABSTURZ_DATEI), 'w', encoding='utf-8') as f26:
+            with open(pf26.app_file(fe26.CRASH_FILE), 'w', encoding='utf-8') as f26:
                 f26.write('Current thread 0x0000 (most recent call first):\n')
-            pruefe(fe26.absturzfaenger(), 'der Absturzfaenger laesst sich setzen')
-            pruefe(len(fe26.letzter_absturz()) == 1,
+            pruefe(fe26.install_crash_handler(), 'der Absturzfaenger laesst sich setzen')
+            pruefe(len(fe26.last_crash()) == 1,
                    'der Abbruch des vorigen Laufs ist lesbar')
-            pruefe(fe26.absturz_abhaken() and not fe26.letzter_absturz(),
+            pruefe(fe26.clear_crash() and not fe26.last_crash(),
                    'und laesst sich abhaken')
         finally:
             pf26.app_file = alt_datei26
-            if hasattr(fe26.spur, '_offen'):
-                del fe26.spur._offen
+            if hasattr(fe26.trail, '_offen'):
+                del fe26.trail._offen
 
         # Beides muss auch wirklich im Bericht landen, sonst nuetzt es nichts.
         quelle26 = open(os.path.join(WURZEL, 'scbp', 'report.py'),
                         encoding='utf-8').read()
         pruefe("t('b_spur_seiten')" in quelle26,
                'der Bericht hat einen eigenen Abschnitt fuer die Seiten')
-        pruefe("fehler.letzter_absturz" in quelle26,
+        pruefe("errors.last_crash" in quelle26,
                'und einen fuer den harten Abbruch')
         pruefe("'Seite diagnose' in seiten[-1]" in quelle26,
                'die Diagnose-Seite selbst steht nicht als letzte Zeile drin')
@@ -2250,13 +2250,13 @@ def main():
         # gab es die mittlere nicht — ging beim zweiten Besuch etwas schief,
         # fehlte die Zeile GANZ statt zur Haelfte, und der Bericht verspricht,
         # dass die letzte Zeile ohne „steht" die ist, an der es hing.
-        pruefe(quelle26b.count("fehler.spur('Seite ") == 3,
+        pruefe(quelle26b.count("errors.trail('Seite ") == 3,
                'jeder Seitenwechsel schreibt zwei Zeilen (bauen bzw. zeigen, dann steht)')
         pruefe("Seite %s: zeigen" in quelle26b,
                'auch der zweite Besuch hinterlaesst eine Spur')
         quelle26c = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                          encoding='utf-8').read()
-        pruefe('fehler.absturzfaenger()' in quelle26c,
+        pruefe('errors.install_crash_handler()' in quelle26c,
                'der Faenger wird beim Start gesetzt')
 
         print()
@@ -7153,33 +7153,33 @@ def main():
     #      Bericht sie zusammen.
     print()
     print('72. Der Startverlauf im Bericht bleibt lesbar')
-    from scbp import fehler as _fh72
+    from scbp import errors as _fh72
     from scbp import report as _br72
 
     # a) Die Grenze muss die Zeile sein, die das Programm wirklich schreibt.
     _quelle72 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                      encoding='utf-8').read()
-    pruefe("fehler.spur('%s')" % _fh72.SPUR_GRENZE in _quelle72,
+    pruefe("errors.trail('%s')" % _fh72.TRAIL_BOUNDARY in _quelle72,
            'die Grenzzeile „%s" wird beim Start auch wirklich geschrieben'
-           % _fh72.SPUR_GRENZE)
+           % _fh72.TRAIL_BOUNDARY)
 
     # b) Ein Bedien-Ereignis nach der Grenze darf nicht im Start landen —
     #    auch dann nicht, wenn es nicht mit „Seite " anfaengt.
-    _echt72 = _fh72.letzte_spur
+    _echt72 = _fh72.last_trail
     try:
         _spur72 = ['05:10:00  Start, Version 9.9.9, test',
                    '05:10:01  Tk-Wurzel steht',
                    '05:10:02  Overlay wird gebaut',
                    '05:10:03  Overlay steht',
-                   '05:10:04  ' + _fh72.SPUR_GRENZE]
+                   '05:10:04  ' + _fh72.TRAIL_BOUNDARY]
         _spur72 += ['05:11:%02d  Liste: zeichnen beginnt' % _i
                     for _i in range(12)]
         _spur72 += ['05:12:00  Seite lager: zeigen']
-        _fh72.letzte_spur = lambda: _spur72
-        _start72, _bedien72 = _fh72.spur_geteilt()
+        _fh72.last_trail = lambda: _spur72
+        _start72, _bedien72 = _fh72.split_trail()
     finally:
-        _fh72.letzte_spur = _echt72
-    pruefe(len(_start72) == 5 and _start72[-1].endswith(_fh72.SPUR_GRENZE),
+        _fh72.last_trail = _echt72
+    pruefe(len(_start72) == 5 and _start72[-1].endswith(_fh72.TRAIL_BOUNDARY),
            'der Startverlauf endet an der Grenzzeile (%d Zeilen)'
            % len(_start72))
     pruefe(not [_z for _z in _start72 if 'Liste: zeichnen' in _z],
@@ -7196,7 +7196,7 @@ def main():
     # d) Und der Ausschnitt, den der Bericht zeigt, enthaelt den Start noch.
     _sichtbar72 = _br72._dense(_start72)[-12:]
     pruefe(any('Start, Version' in _z for _z in _sichtbar72)
-           and any(_fh72.SPUR_GRENZE in _z for _z in _sichtbar72),
+           and any(_fh72.TRAIL_BOUNDARY in _z for _z in _sichtbar72),
            'im sichtbaren Ausschnitt stehen erster und letzter Startschritt')
 
     # ------------------------------------------------------------------
@@ -12018,7 +12018,7 @@ def main():
     # ⚠⚠ **Gemessen am 05.09.2026, nicht vermutet.** `report.submit()` gibt
     # den Grund eines gescheiterten Sendeversuchs bewusst NICHT zurueck, weil
     # die Adresse geheim ist — eine Zeile darueber steht aber
-    # `fehler.merken('report.submit', ausnahme)`, und das Fehlerprotokoll
+    # `errors.record('report.submit', ausnahme)`, und das Fehlerprotokoll
     # steht im Bericht, und der Bericht landet in einem oeffentlichen Issue.
     #
     # Vier realistische Fehlerfaelle durchgespielt: drei harmlos (urllib nennt
@@ -16451,18 +16451,18 @@ def main():
         # Der Abruf scheiterte, es wurde nichts gemerkt — und weil nichts
         # gemerkt war, versuchte es die Seite sofort wieder. „Was noch fehlt"
         # blieb leer und lud endlos.
-        from scbp import shops as _ld172, fehler as _fe172
-        _fe172.leeren()
+        from scbp import shops as _ld172, errors as _fe172
+        _fe172.clear()
         pruefe(_ld172.fetch('CF-447 Rhino Repeater') is False,
                'ein NAME im Kennungsfeld wird nicht abgefragt')
         pruefe(_ld172.fetch('Teil "mit Anfuehrung"') is False,
                'auch Anfuehrungszeichen werden abgefangen')
-        pruefe(len(_fe172.letzte()) == 2,
+        pruefe(len(_fe172.latest()) == 2,
                'und beide landen im Fehlerprotokoll, statt still zu scheitern')
         # ⚠ Gegenprobe: Eine echte Kennung darf die Wache NICHT anfassen.
-        _fe172.leeren()
+        _fe172.clear()
         _ld172.fetch('94ea5bb5-0000-0000-0000-000000000000')
-        pruefe(len(_fe172.letzte()) == 0,
+        pruefe(len(_fe172.latest()) == 0,
                'Gegenprobe: eine echte Kennung wird durchgelassen')
 
         # Und der Merkzettel selbst repariert alte Eintraege beim Lesen.
@@ -21362,7 +21362,7 @@ def main():
     # platzieren, dann zeigen, Lage nachmessen und in den Startverlauf.
     pruefe('_zeiger_lage()' in _blk215 and 'fenster.withdraw()' in _blk215
            and 'fenster.deiconify()' in _blk215
-           and "fehler.spur('Ablagemen" in _blk215,
+           and "errors.trail('Ablagemen" in _blk215,
            'Zeiger von Windows, erst platzieren, dann zeigen, Lage in der Spur')
     pruefe('beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen)'
            in _q215w,
@@ -21823,8 +21823,8 @@ def main():
         print('  [–]    Raw-Input-Lauf nur unter Windows — hier nur der Aufbau')
 
     # b) Der Bericht nennt das Datum des Absturzes.
-    from scbp import fehler as _fe222, report as _rp222, paths as _pf222
-    _datei222 = _pf222.app_file(_fe222.ABSTURZ_VORIG)
+    from scbp import errors as _fe222, report as _rp222, paths as _pf222
+    _datei222 = _pf222.app_file(_fe222.CRASH_PREVIOUS)
     os.makedirs(os.path.dirname(_datei222), exist_ok=True)
     try:
         with open(_datei222, 'w', encoding='utf-8') as _f222:

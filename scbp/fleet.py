@@ -92,7 +92,7 @@ import json
 import os
 import re
 
-from . import erkul, fehler, paths
+from . import erkul, errors, paths
 
 FILE = 'hangar.json'
 FORMAT = 1
@@ -123,7 +123,7 @@ def load():
     except FileNotFoundError:
         pass
     except Exception as exc:
-        fehler.merken('fleet.load', exc)
+        errors.record('fleet.load', exc)
     return empty()
 
 
@@ -142,7 +142,7 @@ def save(data):
         os.replace(target + '.tmp', target)
         return True
     except Exception as exc:
-        fehler.merken('fleet.save', exc)
+        errors.record('fleet.save', exc)
         return False
 
 
@@ -774,13 +774,13 @@ def read(file_path):
         with open(file_path, encoding='utf-8-sig') as f:
             text = f.read()
     except Exception as exc:
-        fehler.merken('fleet.read', exc)
+        errors.record('fleet.read', exc)
         return [], str(exc)
     head = text.lstrip()[:1]
     try:
         entries = _from_json(text) if head == '[' else _from_csv(text)
     except Exception as exc:
-        fehler.merken('fleet.read.parse', exc)
+        errors.record('fleet.read.parse', exc)
         return [], str(exc)
     return entries, ''
 

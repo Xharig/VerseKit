@@ -56,7 +56,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import fehler, patchhistory, paths, language
+from . import errors, patchhistory, paths, language
 from .language import t
 
 
@@ -200,7 +200,7 @@ def blueprints_for_contract(catalog_data, title):
             return set()
         namen = (contracts.missions().get(schluessel) or {}).get('bp') or []
     except Exception as error:
-        fehler.merken('katalog.auftrag_aufloesen', error)
+        errors.record('katalog.auftrag_aufloesen', error)
         return set()
     # ⚠ Die Namen aus der Missionsliste sind Klartext, die Schlüssel hier sind
     # normalisiert — sonst findet sich nichts wieder.
@@ -330,17 +330,17 @@ def _fetch(url, timeout=TIMEOUT, tries=TRIES):
             req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode('utf-8'))
-        except urllib.error.HTTPError as fehler:
+        except urllib.error.HTTPError as err:
             # ⚠ 403 ist eine Absage, kein Wackelkontakt. Cloudflare weist
             # Abrufe ohne eigene Kennung ab; noch zweimal zu fragen kostet nur
             # Zeit und aendert nichts. Sofort raus, mit klarer Meldung.
-            if fehler.code == 403:
-                raise Rejected(t('m_abgewiesen')) from fehler
-            last = fehler
+            if err.code == 403:
+                raise Rejected(t('m_abgewiesen')) from err
+            last = err
             if attempt + 1 < tries:
                 time.sleep(2 * (attempt + 1))
-        except Exception as fehler:
-            last = fehler
+        except Exception as err:
+            last = err
             if attempt + 1 < tries:
                 time.sleep(2 * (attempt + 1))
     raise last
@@ -1049,12 +1049,12 @@ def update(progress=None):
             from . import crafting
             crafting.update(version, progress)
         except Exception as error:
-            fehler.merken('katalog.aktualisieren.crafting', error)
+            errors.record('katalog.aktualisieren.crafting', error)
         try:
             from . import mining
             mining.update(version, progress)
         except Exception as error:
-            fehler.merken('katalog.aktualisieren.bergbau', error)
+            errors.record('katalog.aktualisieren.bergbau', error)
 
         if not version or (version == present.get('version')
                            and present.get('format') == FORMAT):
@@ -1080,7 +1080,7 @@ def update(progress=None):
             from . import contracts
             contracts.forget()
         except Exception as error:
-            fehler.merken('katalog.vergessen', error)
+            errors.record('katalog.vergessen', error)
         return bool(count), count, version
     except Exception:
         return False, 0, ''
