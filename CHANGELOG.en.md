@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **The English installer showed two German lines.** "Start with Windows" and
+  the heading above it were hard-coded instead of following the chosen
+  language. Reported by KynoTnis (ADI)
+
 ## v3.42.2 - 2026-09-16
 
 > **A fresh install gets you in again.** The setup wizard broke off right at
