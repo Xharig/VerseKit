@@ -755,6 +755,25 @@ def _choice(window, parent, entries, active, action):
             c.itemconfigure(beschr, fill=ACCENT if an else SUB)
 
     reihe.select = setzen
+    # ⚠⚠ **`select_quiet` muss es geben, auch wenn es hier dasselbe tut.**
+    #
+    # Fünf Stellen rufen es auf einer `_choice`-Reihe auf (Overlay-Ecke,
+    # Bestandsfenster, Systemmenü). Bis zum 16.09.2026 gab es nur `select` —
+    # der Aufruf endete in `AttributeError: 'Frame' object has no attribute
+    # 'select_quiet'`.
+    #
+    # ⚠ **Vier der fünf Stellen stehen in `try/except` und haben den Fehler
+    # verschluckt**: Die Auswahl frischte sich dort nie auf, und niemand sah,
+    # warum. Sichtbar wurde es nur an der ungekapselten Overlay-Stelle, im
+    # Fehlerbericht eines Nutzers.
+    #
+    # **Warum dasselbe `setzen`:** Der Unterschied zwischen laut und leise
+    # entsteht in `main_window.choice`, wo `select` den Rückruf mit auslöst.
+    # Hier hängt der Rückruf am Klick (`c.bind`), `setzen` beschriftet also
+    # ohnehin nur. Beide Namen zeigen deshalb auf dieselbe Funktion — der
+    # Name bleibt trotzdem nötig, damit die Aufrufer nicht wissen müssen,
+    # welche der beiden `choice`-Fassungen sie gerade vor sich haben.
+    reihe.select_quiet = setzen
     return reihe
 
 
@@ -6277,6 +6296,20 @@ def _diagnostics(fenster, rahmen):
         _button(fenster, reihe, t('s_di_melden'), melden, strong=True),
         _button(fenster, reihe, t('s_di_kopieren'), kopieren),
     ])
+
+    # ⚠⚠ **Kein vierter Knopf** — siehe die Begründung oben. Stattdessen ein
+    # Satz, der auf den Discord-Knopf verweist, den die Seitenleiste ohnehin
+    # führt.
+    #
+    # **Warum er hier steht** (16.09.2026): Ein Nutzer wollte einen Absturz
+    # melden, fand auf GitHub den Knopf „New issue" ausgegraut — dort greift
+    # eine Anmeldepflicht, die von außen wie eine Sperre aussieht — und kam nur
+    # durch, weil er den Entwickler persönlich kannte. Wer ihn nicht kennt,
+    # hört an dieser Stelle auf. Der Weg über Discord braucht kein Konto bei
+    # GitHub, und genau das muss **auf dieser Seite** stehen, nicht nur in der
+    # Anleitung.
+    _body_text(innen, t('s_di_ohne_github'), fenster.f_small, color=SUB,
+               fill='x', pady=(8, 0))
 
     ziel = _setting_row(fenster, innen, t('s_di_mit'), t('s_di_mit_h'))
 

@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.42.4 - 2026-09-16
+
+> **Einen Fehler zu melden braucht kein GitHub-Konto — und das steht jetzt auch
+> da.** Auf der Seite „Fehler melden" war der Weg über GitHub der sichtbarste,
+> dabei kommt der rote Knopf ganz ohne Konto aus. Ein Satz mehr sagt das, und
+> nennt den Discord als zweiten Weg für alle, die lieber schreiben als klicken.
+
+### Verbessert
+
+- **Auf der Seite „Fehler melden" steht jetzt, dass beide Wege ohne
+  GitHub-Konto funktionieren.** Wer dort auf „GitHub Issue" klickt und nicht
+  angemeldet ist, sieht den Knopf ausgegraut — von außen sieht das aus wie eine
+  Sperre. Aufgefallen durch KynoTnis (ADI)
+
+### Behoben
+
+- **Nach dem Verschieben des Overlays stand in den Einstellungen weiter die
+  alte Ecke.** Wer das Overlay mit der Maus woandershin zieht, steht auf
+  „frei" — die Auswahl darüber hat das nicht mitbekommen. Betraf auch das
+  Zurücksetzen der Filter im Bauplan-Bestand und im Menü neben der Uhr
+
 ## v3.42.3 - 2026-09-16
 
 > **Der englische Installer spricht jetzt Englisch.** Zwei Zeilen standen fest

@@ -1952,6 +1952,16 @@ TEXTS = {
                             'No destination is built into this version.'),
     'm_bericht_weg':   ('keine Verbindung', 'no connection'),
     's_di_kopieren':   ('Angaben kopieren', 'Copy details'),
+    # ⚠ Nennt beide Wege, weil der eine ein GitHub-Konto voraussetzt und der
+    # andere nicht. Der Discord-Knopf sitzt unten in der Seitenleiste.
+    's_di_ohne_github': ('Kein GitHub-Konto? Der rote Knopf braucht keins — er '
+                         'schickt den Bericht direkt. Lieber schreiben statt '
+                         'klicken? Dann im Discord, das Zeichen unten in der '
+                         'Leiste. Beides wird gelesen.',
+                         'No GitHub account? The red button does not need one '
+                         '— it sends the report straight away. Prefer to write '
+                         'instead of click? Then use Discord, the icon at the '
+                         'bottom of the sidebar. Both are read.'),
     # ⚠ „Als Datei speichern …" und „Eigenen Ordner öffnen" sind am 05.09.2026
     # gestrichen worden — in über einem Jahr hat sie niemand benutzt. Beide
     # erzeugten Arbeit, statt sie abzunehmen: Wer den Bericht als Datei ablegt,
