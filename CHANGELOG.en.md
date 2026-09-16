@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+> **Your hangar stays current when you import.** If you upgraded a ship, the
+> next export shows only the new one. Plus an X in every search field, and the
+> warning when resetting your inventory shows the right numbers again.
+
+### New
+
+- **An X in the search field** clears what you typed — in "My Hangar" and in
+  every other picker. It appears as soon as there is text
+
+### Fixed
+
+- **After an upgrade the old ship stayed in the hangar.** A new export now
+  removes ships that are no longer in it and names them. Ships bought in game
+  stay
+- **The warning when resetting your inventory named too few blueprints that
+  come back.** Anything the SC Deutsch Launcher also knew counted as lost,
+  even though it is in your logs. Starter blueprints now count as well
+
 ## v3.46.1 - 2026-09-17
 
 > **Automatic updates no longer miss a new version.** If you had checked by

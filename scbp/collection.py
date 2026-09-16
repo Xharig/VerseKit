@@ -68,9 +68,19 @@ from . import errors, paths
 FILE_VERSION = 3
 
 # Rangfolge der Quellen: Ein Eintrag wird nur „aufgewertet", nie herabgestuft.
-# Sonst überschriebe eine spätere vorläufige Log-Zeile eine bereits vom
-# Launcher bestätigte Angabe.
-RANK = {'log': 1, 'nachlese': 1, 'start': 2, 'hand': 3, 'launcher': 4}
+#
+# ⚠ **Die Log ist die Quelle** (seit v3.0.0-rc95), deshalb steht sie oben.
+# Bis v3.46.1 war es umgekehrt: `launcher` hatte Rang 4 und überschrieb jeden
+# Log-Fund. Weil die Warnung beim Zurücksetzen aus diesem Feld rechnet, was
+# wiederkommt (`restorable()`), galt dort jeder Bauplan, den auch der Launcher
+# kannte, als verloren — die genannte Zahl war zu klein.
+#
+# Oben steht, was beim Neuaufbau von selbst zurückkommt (Log, Startbaupläne);
+# darunter, was nur der Spieler oder ein fremdes Werkzeug weiß.
+RANK = {'launcher': 1, 'import': 1, 'hand': 2, 'start': 3, 'log': 4, 'nachlese': 4}
+
+# Diese Quellen baut VerseKit nach dem Zurücksetzen selbst wieder auf.
+RESTORABLE = ('log', 'nachlese', 'start')
 
 
 def norm(s):
@@ -108,8 +118,8 @@ def _renew_keys(data):
 
     Treffen zwei alte Schlüssel auf denselben neuen, gewinnt der **ältere
     Fund**: Wann ein Bauplan zum ersten Mal auftauchte, ist die Angabe, die
-    zählt. Gibt es sie nicht, gewinnt der mit dem höheren Rang (Launcher
-    schlägt Log).
+    zählt. Gibt es sie nicht, gewinnt der mit dem höheren Rang (Log schlägt
+    Launcher).
     """
     old_bp = data.get('bauplaene') or {}
     new_bp, changed = {}, False
@@ -477,7 +487,7 @@ def add(data, name, source='log', when=None):
     """Einen Bauplan aufnehmen. Gibt True zurück, wenn er vorher nicht drin war.
 
     Ein schon bekannter Bauplan wird nicht doppelt angelegt; steht die neue
-    Quelle höher (z. B. `launcher` statt `log`), wird sie nachgetragen.
+    Quelle höher (z. B. `log` statt `launcher`), wird sie nachgetragen.
 
     ⚠ Der Name läuft vorher durch `catalog_name()` — siehe dort, warum.
     """
@@ -528,6 +538,15 @@ def by_source(data):
         q = e.get('quelle') or 'unbekannt'
         counter[q] = counter.get(q, 0) + 1
     return counter
+
+
+def restorable(data):
+    """Wie viele Baupläne nach dem Zurücksetzen von selbst wiederkommen.
+
+    Zählt nach `RESTORABLE`. Stimmt nur, weil `RANK` diese Quellen oben
+    führt — ein Bauplan aus Log UND Launcher heißt `log`."""
+    return sum(1 for e in data['bauplaene'].values()
+               if e.get('quelle') in RESTORABLE)
 
 
 if __name__ == '__main__':

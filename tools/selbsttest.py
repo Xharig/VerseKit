@@ -9266,9 +9266,9 @@ def main():
         _bd95.add(_stand95, 'Vom Launcher', 'nachlese')
     pruefe(_stand95['bauplaene'].keys() == _vorher95.keys(),
            'erneutes Einlesen legt nichts doppelt an')
-    pruefe(_stand95['bauplaene'][_bd95.norm('Vom Launcher')]['quelle']
-           == 'launcher',
-           'und stuft eine bessere Quelle nicht herunter')
+    pruefe(_stand95['bauplaene'][_bd95.norm('Aus dem Log')]['quelle']
+           == 'log',
+           'und stuft eine gleichrangige Quelle nicht um')
 
     # b) Die Farben. @ Geprueft wird der Aufruf, denn `danger=True` ist der
     #    einzige Unterschied — am fertigen Knopf ist er nur noch Pixel.
@@ -13051,8 +13051,7 @@ def main():
         _b130.save(_d130)
 
         _g130 = _b130.load()
-        _q130 = _b130.by_source(_g130)
-        _bleibt130 = _q130.get('log', 0) + _q130.get('nachlese', 0)
+        _bleibt130 = _b130.restorable(_g130)
         pruefe(len(_g130['bauplaene']) == 232,
                'die Lage ist nachgestellt (232 Bauplaene)')
         # ⚠ Nur was aus Protokollen stammt, kommt beim Neuaufbau zurueck —
@@ -13076,9 +13075,7 @@ def main():
             _b130.add(_d130b, 'Nur Log %d' % _i130, 'log')
         _b130.save(_d130b)
         _g130b = _b130.load()
-        _q130b = _b130.by_source(_g130b)
-        pruefe((_q130b.get('log', 0) + _q130b.get('nachlese', 0))
-               == len(_g130b['bauplaene']),
+        pruefe(_b130.restorable(_g130b) == len(_g130b['bauplaene']),
                'ein reiner Protokoll-Bestand verliert nichts')
 
         # Und die Anzeige muss die Zahlen wirklich benutzen.
@@ -21454,8 +21451,8 @@ def main():
                             'hkurz': 'AEGS', 'lti': True, 'warbond': False,
                             'paket': '', 'gekauft': '', 'preis': ''}],
                           data=_d216, save_now=False)
-    _neu216, _alt_n216 = _fl216.import_entries(_s216, data=_d216,
-                                               save_now=False)
+    _neu216, _alt_n216, _weg216 = _fl216.import_entries(_s216, data=_d216,
+                                                        save_now=False)
     _pulse216 = _fl216.find(_d216, 'Pulse', 'Mirai', hkurz='MRAI')
     pruefe(_neu216 == 4 and _alt_n216 == 2 and _pulse216['kurz'] == 'MRAI_Pulse'
            and _pulse216['versicherung'] == 120
@@ -22438,6 +22435,132 @@ def main():
            and _sw230.Overlay.SPIELENDE_TAKT_MS <= 20000,
            'Stille-Frist und Nachfrage-Takt erlauben ein Update binnen gut einer Minute '
            '(%d s still, %d s Takt)' % (_au230.EXIT_QUIET_S, _au230.GAME_POLL_S))
+
+    # 231. Die Log schlaegt den Launcher
+    #
+    # Bis v3.46.1 fuehrte `collection.RANK` den Launcher mit Rang 4 ganz oben.
+    # Ein Bauplan aus Log UND Launcher hiess damit `launcher` — und die Warnung
+    # beim Zuruecksetzen zaehlte ihn als verloren, obwohl er aus den
+    # Protokollen wiederkommt. Geprueft in BEIDEN Reihenfolgen: Kam der
+    # Launcher zuerst, muss die Log aufwerten; kam die Log zuerst, darf der
+    # Launcher nicht herabstufen.
+    print()
+    print('231. Die Log schlaegt den Launcher')
+    from scbp import collection as _c231
+    _d231 = _c231.empty()
+    _c231.add(_d231, 'Erst Launcher', 'launcher')
+    _c231.add(_d231, 'Erst Launcher', 'log')
+    _c231.add(_d231, 'Erst Log', 'nachlese')
+    _c231.add(_d231, 'Erst Log', 'launcher')
+    _c231.add(_d231, 'Nur Launcher', 'launcher')
+    _c231.add(_d231, 'Start und Hand', 'hand')
+    _c231.add(_d231, 'Start und Hand', 'start')
+    _quellen231 = {e['name']: e['quelle'] for e in _d231['bauplaene'].values()}
+    pruefe(_quellen231.get('Erst Launcher') == 'log',
+           'ein spaeterer Log-Fund wertet einen Launcher-Eintrag auf (%s)'
+           % _quellen231.get('Erst Launcher'))
+    pruefe(_quellen231.get('Erst Log') == 'nachlese',
+           'der Launcher stuft einen Log-Fund nicht herab (%s)'
+           % _quellen231.get('Erst Log'))
+    pruefe(_quellen231.get('Start und Hand') == 'start',
+           'ein Startbauplan schlaegt ein Haekchen von Hand (%s)'
+           % _quellen231.get('Start und Hand'))
+    pruefe(_c231.restorable(_d231) == 3,
+           'zurueck kommen genau die drei aus Log und Startdaten, nicht der '
+           'reine Launcher-Eintrag (%d)' % _c231.restorable(_d231))
+    _rang231 = _c231.RANK
+    pruefe(all(_rang231[q] > _rang231[r] for q in _c231.RESTORABLE
+               for r in ('launcher', 'import', 'hand')),
+           'jede Quelle, die wiederkommt, steht ueber Launcher, Import und Hand')
+
+    # 232. Ein Export ersetzt den Pledge-Hangar
+    #
+    # Am 17.09.2026: Prospector per Upgrade zur Sabre Raven EX gemacht, neuer
+    # CSV-Export eingelesen — die Raven kam dazu, die Prospector blieb. Der
+    # Import fuegte nur hinzu. Jetzt faellt ein Echtgeld-Schiff heraus, das im
+    # Export fehlt; ein im Spiel gekauftes bleibt, das kennt kein Export.
+    print()
+    print('232. Ein Export ersetzt den Pledge-Hangar')
+    from scbp import fleet as _fl232
+    _d232 = {'format': 1, 'schiffe': []}
+    _fl232.add(_d232, 'Prospector', 'MISC', origin=_fl232.PLEDGE, hkurz='MISC')
+    _fl232.add(_d232, 'Sabre', 'Aegis', origin=_fl232.PLEDGE, hkurz='AEGS')
+    _fl232.add(_d232, 'Cutlass Black', 'Drake', origin=_fl232.INGAME)
+    _export232 = [{'name': 'Sabre', 'hersteller': 'Aegis', 'hkurz': 'AEGS'},
+                  {'name': 'Sabre Raven EX', 'hersteller': 'Aegis',
+                   'hkurz': 'AEGS'}]
+    _neu232, _alt232, _weg232 = _fl232.import_entries(_export232, data=_d232,
+                                                      save_now=False)
+    _namen232 = sorted(s['name'] for s in _d232['schiffe'])
+    pruefe(_weg232 == ['Prospector'] and 'Prospector' not in _namen232,
+           'das umgebaute Schiff faellt heraus und wird genannt (%r)' % _weg232)
+    pruefe('Sabre Raven EX' in _namen232 and 'Sabre' in _namen232,
+           'das neue und das unveraenderte Schiff stehen da (%r)' % _namen232)
+    pruefe('Cutlass Black' in _namen232,
+           'ein im Spiel gekauftes Schiff bleibt, auch ohne Export')
+    pruefe((_neu232, _alt232) == (1, 1),
+           'neu und schon da stimmen weiter (%r, %r)' % (_neu232, _alt232))
+    # Ein leerer Export (falsche Datei) raeumt NICHT den ganzen Hangar ab.
+    _leer232 = _fl232.import_entries([], data=_d232, save_now=False)
+    pruefe(_leer232[2] == [] and len(_d232['schiffe']) == 3,
+           'eine leere Datei traegt nichts aus')
+    _q232 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8').read()
+    pruefe("t('s_hg_import_weg')" in _q232,
+           'die Meldung nach dem Einlesen nennt die ausgetragenen Schiffe')
+
+    # 233. Ein X im Suchfeld
+    #
+    # Gewuenscht am 17.09.2026 fuer „Mein Hangar": „ein X ins Suchfeld, ist
+    # intuitiver". Gebaut in `round_entry(clearable=True)`, eingeschaltet in
+    # `_combo_box` — damit steht es in JEDEM Auswahlfeld gleich. Geprueft am
+    # echten Feld, nicht am Quelltext: Ein X, das nie erscheint oder nichts
+    # leert, sieht im Code genauso aus wie eines, das geht.
+    print()
+    print('233. Ein X im Suchfeld')
+    import tkinter as _tk233
+    from scbp import main_window as _mw233
+    _w233 = _tk233.Tk()
+    try:
+        _w233.geometry('400x80+0+0')
+        _v233 = _tk233.StringVar(_w233)
+        _f233 = _mw233.round_entry(_w233, _v233, ('Segoe UI', 10), '#0c1017',
+                                   '#333333', '#9ce430', '#ffffff',
+                                   clearable=True)
+        _f233.holder.pack(fill='x')
+        _w233.update()
+        _lw233 = _f233.holder
+        _fenster233 = [i for i in _lw233.find_all()
+                       if _lw233.type(i) == 'window']
+        _kreuz_id233 = [i for i in _fenster233
+                        if _lw233.itemcget(i, 'window') != str(_f233)]
+
+        def _zustand233():
+            return _lw233.itemcget(_kreuz_id233[0], 'state') if _kreuz_id233 else '?'
+
+        pruefe(len(_kreuz_id233) == 1, 'im Feld steht ein X-Element')
+        pruefe(_zustand233() == 'hidden', 'leeres Feld: kein X (%s)' % _zustand233())
+        _v233.set('Prospector')
+        _w233.update()
+        pruefe(_zustand233() == 'normal', 'mit Text: X sichtbar (%s)' % _zustand233())
+        if _kreuz_id233:
+            _kreuz233 = _w233.nametowidget(_lw233.itemcget(_kreuz_id233[0], 'window'))
+            _kreuz233.event_generate('<Button-1>')
+            _w233.update()
+        pruefe(_v233.get() == '', 'ein Klick aufs X leert das Feld (%r)' % _v233.get())
+        pruefe(_zustand233() == 'hidden', 'und das X verschwindet wieder')
+        _ohne233 = _mw233.round_entry(_w233, _tk233.StringVar(_w233),
+                                      ('Segoe UI', 10), '#0c1017', '#333333',
+                                      '#9ce430', '#ffffff')
+        pruefe(len([i for i in _ohne233.holder.find_all()
+                    if _ohne233.holder.type(i) == 'window']) == 1,
+               'ohne clearable bleibt das Feld, wie es war')
+    finally:
+        _w233.destroy()
+    _q233 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8').read()
+    pruefe('clearable=True' in rumpf(_q233, '_combo_box'),
+           'jedes Auswahlfeld (_combo_box) bekommt das X')
 
     print()
     if fehler:
