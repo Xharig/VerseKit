@@ -2833,16 +2833,15 @@ def _collection(fenster, rahmen):
         # aber nicht, wie wenig das bei ihm war. Wer „232 → 3" liest, bricht
         # ab; wer nur einen Satz liest, klickt weiter.
         #
-        # ⚠ Gerechnet wird aus dem Bestand selbst: Was aus `log` oder
-        # `nachlese` stammt, kommt beim Neuaufbau zurück — alles andere
-        # (Launcher, Import, von Hand) nicht. Kein Durchlauf über 221
+        # ⚠ Gerechnet wird aus dem Bestand selbst: Was aus `log`, `nachlese`
+        # oder `start` stammt, kommt beim Neuaufbau zurück — alles andere
+        # (Launcher, Import, von Hand) nicht. Siehe `collection.restorable`. Kein Durchlauf über 221
         # Protokolle nötig, die Auskunft liegt schon da.
         frage = t('s_be_reset_frage')
         try:
             daten = bestand_datei.load()
             gesamt = len(daten.get('bauplaene') or {})
-            quellen = bestand_datei.by_source(daten)
-            bleibt = quellen.get('log', 0) + quellen.get('nachlese', 0)
+            bleibt = bestand_datei.restorable(daten)
             if gesamt:
                 frage = '%s\n\n%s' % (
                     t('s_be_reset_zahlen') % (gesamt, bleibt, gesamt - bleibt),
@@ -11004,8 +11003,12 @@ def _hangar(fenster, rahmen):
         elif not eintraege:
             meldung['text'], meldung['farbe'] = t('s_hg_import_leer'), RED
         else:
-            neu, alt = meine.import_entries(eintraege, daten['stand'])
-            meldung['text'] = t('s_hg_import_ok').format(neu=neu, alt=alt)
+            added, existing, removed = meine.import_entries(eintraege,
+                                                           daten['stand'])
+            meldung['text'] = t('s_hg_import_ok').format(neu=added, alt=existing)
+            if removed:
+                meldung['text'] += ' ' + t('s_hg_import_weg').format(
+                    anzahl=len(removed), namen=', '.join(removed))
             meldung['farbe'] = ACCENT
             _steckplaetze_holen(still=True)
         neu_zeichnen()
@@ -14290,8 +14293,10 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
     liste = tk.Frame(parent, bg=BG)
     offen = {'ja': False}
 
+    # ⭐ `clearable`: ein X im Feld leert die Suche — in jedem Auswahlfeld
+    # gleich, gewünscht am 17.09.2026 für „Mein Hangar".
     feld = round_entry(zeile, var, window.f_small, '#0c1017', LINE, ACCENT,
-                       FG)
+                       FG, clearable=True)
 
     # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
     # nach Systemschrift anders aussieht als die gezeichneten Symbole daneben.

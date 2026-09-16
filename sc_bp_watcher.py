@@ -1668,8 +1668,8 @@ class Watcher(threading.Thread):
         """Was der Launcher kennt, gehört auch in den eigenen Bestand.
 
         Kein „Import" im Sinne eines einmaligen Grundstocks (den macht das
-        Hilfsprogramm unter `tools/`), sondern laufender Betrieb: Er ist die
-        genauere Quelle, solange er da ist."""
+        Hilfsprogramm unter `tools/`), sondern laufender Betrieb. Rang 1: Ein
+        Log-Fund desselben Bauplans schlägt ihn."""
         neu = 0
         for k in keys:
             if bestand_datei.add(self.bestand, k, 'launcher'):
@@ -1681,9 +1681,9 @@ class Watcher(threading.Thread):
     def _startbauplaene_eintragen(self):
         """Die acht Startbaupläne in den Bestand — falls noch nicht drin.
 
-        Quelle `start` (Rang 2): höher als ein Log-Fund, niedriger als ein von
-        Hand gesetztes Häkchen oder der Launcher. Wer sie also selbst abgehakt
-        hat, behält seinen Eintrag."""
+        Quelle `start` (Rang 3): höher als ein von Hand gesetztes Häkchen oder
+        der Launcher, niedriger als ein Log-Fund — Startbaupläne kommen nach
+        dem Zurücksetzen von selbst wieder."""
         try:
             std = katalog_modul.starter_blueprints()
             if not std:

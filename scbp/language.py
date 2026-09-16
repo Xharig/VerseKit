@@ -1983,10 +1983,10 @@ TEXTS = {
     # ⚠⚠ Steht VOR der Warnung und nennt Zahlen: „Du hast 232. Zurück kommen
     # 3. Verloren gehen 229." Ein Satz ohne Zahlen wird überlesen, drei Zahlen
     # nicht.
-    's_be_reset_zahlen': ('Du hast %d Baupläne.\nAus deinen Protokollen kommen '
+    's_be_reset_zahlen': ('Du hast %d Baupläne.\nVon selbst kommen '
                           '%d zurück — %d gehen verloren.',
-                          'You have %d blueprints.\n%d come back from your '
-                          'logs — %d will be lost.'),
+                          'You have %d blueprints.\n%d come back on their '
+                          'own — %d will be lost.'),
     's_be_reset_frage': ('Dein Bauplan-Stand wird gelöscht und aus den vorhandenen Protokollen neu aufgebaut.\n\nWas älter ist als deine Protokolle, kommt nicht zurück. Fortfahren?',
                           'Your blueprint inventory will be deleted and rebuilt from the logs you still have.\n\nAnything older than your logs will not come back. Continue?'),
     's_be_reset_ok':   ('Bestand zurückgesetzt — beim nächsten Start neu gelesen',
@@ -3510,6 +3510,8 @@ TEXTS = {
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
+    's_hg_import_weg':   ('{anzahl} nicht mehr im Export, ausgetragen: {namen}.',
+                          '{anzahl} no longer in the export, removed: {namen}.'),
     's_hg_import_leer':  ('In der Datei stand kein einziges Schiff. Ist das der '
                           'JSON- oder CSV-Export der Hangar Extension oder des '
                           'Hangar XPLORer?',

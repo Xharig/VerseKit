@@ -444,7 +444,7 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
 
 
 def round_entry(parent, textvariable, font, bg, border, accent, fg,
-                width=None, placeholder=None, **kw):
+                width=None, placeholder=None, clearable=False, **kw):
     """Ein Eingabefeld mit runden Ecken — überall im Programm dasselbe.
 
     Das Feld selbst bleibt ein gewöhnliches `Entry` (nur so lässt sich tippen),
@@ -462,11 +462,19 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     „Menge". Deshalb ist die Kombination `hinweis=` ohne `textvariable`
     **verboten** und nicht etwa still wirkungslos: Ein stiller Ausfall wäre
     genau die Sorte Fehler, die erst beim Nutzer auffällt.
+
+    `clearable`: ein X **im Feld**, rechts, das den Text löscht — dasselbe wie
+    in der Bauplan-Liste. Es steht nur da, wenn etwas drinsteht; ein X an
+    einem leeren Feld tut nichts. Gewünscht am 17.09.2026 für die Suche in
+    „Mein Hangar": „ein X ins Suchfeld, ist intuitiver". Braucht ebenfalls eine
+    `textvariable`, über die es merkt, ob etwas drinsteht.
     """
     if placeholder and textvariable is None:
         raise ValueError('round_entry: `placeholder` braucht eine `textvariable` '
                          '— sonst liest `feld.get()` den Hinweistext als '
                          'Eingabe')
+    if clearable and textvariable is None:
+        raise ValueError('round_entry: `clearable` braucht eine `textvariable`')
     font = _as_font(font)
     radius = 8
     padding = 6
@@ -484,6 +492,15 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     if placeholder:
         fields.hint(field, textvariable, placeholder, normal=fg, grey=SUB)
 
+    cross = cross_id = None
+    if clearable:
+        cross = icons.line(canvas, 'schliessen', background=bg, font=font)
+        cross.configure(cursor='hand2', padx=4)
+        cross_id = canvas.create_window(0, height / 2.0, window=cross,
+                                        anchor='e', state='hidden')
+        cross.bind('<Button-1>', lambda e: textvariable.set(''))
+        notice.attach(cross, lambda: t('hinweis_suche_leeren'))
+
     def refresh(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand
         # längst zerstört ist — beim Seitenwechsel passiert genau das.
@@ -499,10 +516,20 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
             return
         try:
             canvas.coords(shape, *corners(1, 1, b - 1, height - 1, radius))
-            canvas.itemconfigure(window_id, width=b - (padding + 2) * 2)
+            room = b - (padding + 2) * 2
+            if cross is not None:
+                shown = bool(textvariable.get())
+                canvas.coords(cross_id, b - padding, height / 2.0)
+                canvas.itemconfigure(cross_id,
+                                     state='normal' if shown else 'hidden')
+                if shown:
+                    room -= cross.winfo_reqwidth()
+            canvas.itemconfigure(window_id, width=max(room, 10))
         except tk.TclError:
             pass
 
+    if cross is not None:
+        textvariable.trace_add('write', lambda *_: refresh())
     canvas.bind('<Configure>', refresh)
     canvas.bind('<Map>', refresh)
     if width:

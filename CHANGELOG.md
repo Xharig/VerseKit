@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+> **Dein Hangar bleibt beim Einlesen aktuell.** Wer ein Schiff per Upgrade
+> umgebaut hat, sieht nach dem nächsten Export nur noch das neue. Dazu ein X
+> in jedem Suchfeld, und die Warnung beim Zurücksetzen nennt wieder die
+> richtigen Zahlen.
+
+### Neu
+
+- **Ein X im Suchfeld** leert die Eingabe — in „Mein Hangar" und in jedem
+  anderen Auswahlfeld. Es erscheint, sobald etwas drinsteht
+
+### Behoben
+
+- **Nach einem Upgrade blieb das alte Schiff im Hangar.** Ein neuer Export
+  trägt jetzt Schiffe aus, die darin nicht mehr vorkommen, und nennt sie.
+  Im Spiel gekaufte Schiffe bleiben
+- **Die Warnung beim Zurücksetzen des Bestands nannte zu wenig Baupläne, die
+  wiederkommen.** Was auch der SC Deutsch Launcher kannte, zählte als
+  verloren, obwohl es in deinen Protokollen steht. Startbaupläne zählen jetzt
+  ebenfalls mit
+
 ## v3.46.1 - 2026-09-17
 
 > **Das automatische Update verpasst keine neue Version mehr.** Wer kurz vor

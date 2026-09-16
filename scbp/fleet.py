@@ -788,7 +788,14 @@ def read(file_path):
 def import_entries(entries, data=None, save_now=True):
     """Gelesene Einträge in den Hangar übernehmen.
 
-    Gibt `(neu, schon_da)` zurück.
+    Gibt `(neu, schon_da, ausgetragen)` zurück — `ausgetragen` sind die Namen.
+
+    ⚠ **Ein Export ist der ganze Pledge-Hangar, keine Ergänzung.** Bis v3.46.1
+    kam nur hinzu, was neu war. Wer ein Schiff per Upgrade umbaute, behielt
+    deshalb das alte im Hangar: Am 17.09.2026 stand nach einem Prospector ➔
+    Sabre Raven EX die Raven im neuen Export, die Prospector nicht mehr — in
+    VerseKit aber beide. Jetzt fällt ein Echtgeld-Schiff heraus, das im
+    Export fehlt. Im Spiel gekaufte (`INGAME`) bleiben: Die kennt kein Export.
     """
     data = data if data is not None else load()
     new = 0
@@ -800,9 +807,22 @@ def import_entries(entries, data=None, save_now=True):
                gekauft=e.get('gekauft'), preis=e.get('preis'),
                versicherung=e.get('versicherung')):
             new += 1
+    removed = []
+    if entries:
+        kept = []
+        for ship in (data.get('schiffe') or []):
+            in_export = any(_same_ship(ship, e.get('name'), e.get('hersteller'),
+                                       e.get('kurz'), e.get('hkurz'))
+                            for e in entries)
+            if ship.get('herkunft') == PLEDGE and not in_export:
+                removed.append(ship.get('name') or '')
+            else:
+                kept.append(ship)
+        if removed:
+            data['schiffe'] = kept
     if save_now:
         save(data)
-    return new, len(entries) - new
+    return new, len(entries) - new, removed
 
 
 def unknown(data=None):
