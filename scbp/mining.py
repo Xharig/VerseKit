@@ -70,7 +70,7 @@ import os
 from . import fehler, pfade
 from .catalog import OFF, fetch_file
 from .crafting import norm_material
-from .sprache import t
+from .language import t
 
 # Nur der Dateiname — siehe `catalog.fetch_file()`.
 SOURCE = 'mining_data-%s.json'

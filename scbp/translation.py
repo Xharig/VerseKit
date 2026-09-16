@@ -50,7 +50,7 @@ import urllib.request
 import zipfile
 
 from . import pfade
-from .sprache import t
+from .language import t
 
 NOTE_FILE = 'uebersetzung.json'
 USER_AGENT = 'SC-BP-Watcher (+https://github.com/Xharig/VerseKit)'

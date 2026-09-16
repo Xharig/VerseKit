@@ -67,7 +67,7 @@ from . import asop as asop_modul
 from . import fehler, collection as bestand_datei
 from . import catalog as katalog_modul
 from . import pfade
-from .sprache import t
+from .language import t
 
 # ---------------------------------------------------------------------------
 # Zweite, bessere Datenquelle: das SCDL-Team veröffentlicht seine aufbereiteten

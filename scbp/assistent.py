@@ -38,8 +38,8 @@ import tkinter as tk
 
 from . import fehler
 from . import collection as bestand_datei
-from . import logsource, pfade, sprache
-from .sprache import t, fenstertitel
+from . import logsource, pfade, language
+from .language import t, window_title
 
 BG      = '#10141c'
 FLAECHE = '#161c28'
@@ -81,7 +81,7 @@ class Wizard:
         self.gedeutet = None
 
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
-        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('assistent')))
+        self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
         self.root.configure(bg=BG)
         # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
         # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
@@ -157,7 +157,7 @@ class Wizard:
         self._paragraph(f, t('schritt_sprache_text'), FG, 11)
         reihe = tk.Frame(f, bg=BG)
         reihe.pack(fill='x', pady=(20, 0))
-        aktiv = sprache.gewaehlt()
+        aktiv = language.chosen()
         for wert, text in (('auto', t('sprache_auto')), ('de', 'Deutsch'),
                            ('en', 'English')):
             an = wert == aktiv
@@ -169,8 +169,8 @@ class Wizard:
 
     def _language(self, wert):
         pfade.einstellung_setzen('sprache', wert)
-        sprache.setzen(wert)
-        self.root.title(fenstertitel(t('hf_titel') + ' — ' + t('assistent')))
+        language.set_language(wert)
+        self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
         self._draw()
 
     # -------------------------------------------------- 2. Star Citizen

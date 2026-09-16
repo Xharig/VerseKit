@@ -53,7 +53,7 @@ einmal beim Bauen zeichnet, bekommt eine Kurve, die in der Ecke klebt.
 import tkinter as tk
 
 from . import curves
-from .sprache import t
+from .language import t
 
 BG      = '#10141c'
 FLAECHE = '#161c28'

@@ -590,18 +590,18 @@ def main():
             uebersprungen('Assistent-Durchlauf')
 
         print('\n7. Sprache')
-        from scbp import sprache
-        luecken = [k for k, v in sprache.TEXTE.items()
+        from scbp import language
+        luecken = [k for k, v in language.TEXTS.items()
                    if len(v) != 2 or not all(v)]
         pruefe(not luecken, 'jeder Text hat beide Sprachen (%d Einträge)'
-               % len(sprache.TEXTE))
+               % len(language.TEXTS))
         for k in luecken[:5]:
             print('         unvollständig:', k)
-        sprache.setzen('de'); deutsch = sprache.t('filter_fehlt')
-        sprache.setzen('en'); englisch = sprache.t('filter_fehlt')
+        language.set_language('de'); deutsch = language.t('filter_fehlt')
+        language.set_language('en'); englisch = language.t('filter_fehlt')
         pruefe(deutsch != englisch,
                'Umschalten wirkt (%s / %s)' % (deutsch, englisch))
-        pruefe(sprache.t('gibtesnicht') == 'gibtesnicht',
+        pruefe(language.t('gibtesnicht') == 'gibtesnicht',
                'fehlender Schlüssel stürzt nicht ab, sondern fällt auf')
         # Arten aus dem Katalog müssen alle eine Übersetzung haben — nach einem
         # SC-Patch können neue dazukommen, und dann steht sonst „Char_Armor_…"
@@ -610,12 +610,12 @@ def main():
         kat = catalog.load()
         if kat['bauplaene']:
             roh = {e.get('a') for e in kat['bauplaene'].values()}
-            offen = [r for r in roh if ('art_%s' % r) not in sprache.TEXTE]
+            offen = [r for r in roh if ('art_%s' % r) not in language.TEXTS]
             pruefe(not offen, 'alle %d Bauplan-Arten übersetzt %s'
                    % (len(roh), offen or ''))
         else:
             print('  [--]   Katalog nicht vorhanden, Arten nicht prüfbar')
-        sprache.setzen('de')
+        language.set_language('de')
 
         print('\n8. Spielsprache selbst erkennen')
         from scbp import phrases as ph
@@ -742,7 +742,7 @@ def main():
         #
         # Gefunden wurden dabei **drei** Doppelungen, eine davon Monate alt.
         import re as _re_dop
-        _sprachdatei = os.path.join(WURZEL, 'scbp', 'sprache.py')
+        _sprachdatei = os.path.join(WURZEL, 'scbp', 'language.py')
         with open(_sprachdatei, encoding='utf-8') as _f_dop:
             _roh_dop = _f_dop.read()
         _schluessel = _re_dop.findall(r"^    '([a-z0-9_]+)':", _roh_dop,
@@ -1061,9 +1061,9 @@ def main():
         if ANZEIGE:
             print()
             print('14b. Sprachwechsel im Hauptfenster')
-            from scbp import main_window, seiten as seitenmodul, sprache as spr
+            from scbp import main_window, seiten as seitenmodul, language as spr
             import tkinter as _tk
-            spr.setzen('de')
+            spr.set_language('de')
             hf = main_window.MainWindow(version='3.0.0')
             hf.root.withdraw()
             try:
@@ -1166,7 +1166,7 @@ def main():
                 pruefe(seitenmodul._settings_parts(hf).sprache_wahl.get() == 'en',
                        'und die Markierung steht darauf')
             finally:
-                spr.setzen('de')
+                spr.set_language('de')
                 hf.root.destroy()
         else:
             uebersprungen('Sprachwechsel im Hauptfenster')
@@ -1589,7 +1589,7 @@ def main():
         _wurzelpfad = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         _zu_pruefen = [os.path.join(_wurzelpfad, 'sc_bp_watcher.py')]
         for _name in sorted(os.listdir(os.path.join(_wurzelpfad, 'scbp'))):
-            if _name.endswith('.py') and _name not in ('sprache.py', 'fehler.py'):
+            if _name.endswith('.py') and _name not in ('language.py', 'fehler.py'):
                 _zu_pruefen.append(os.path.join(_wurzelpfad, 'scbp', _name))
 
         _treffer = []
@@ -1658,7 +1658,7 @@ def main():
         }
         _oberflaeche = ['sc_bp_watcher.py'] + [
             'scbp/' + _n for _n in sorted(os.listdir(os.path.join(_wurzelpfad, 'scbp')))
-            if _n.endswith('.py') and _n not in ('sprache.py', 'fehler.py')
+            if _n.endswith('.py') and _n not in ('language.py', 'fehler.py')
             and ('scbp/' + _n) not in _AUSNAHME_DATEIEN]
         _saetze = []
         for _rel in _oberflaeche:
@@ -1676,7 +1676,7 @@ def main():
                % len(_saetze))
 
         sys.path.insert(0, _wurzelpfad)
-        from scbp import sprache as _spr
+        from scbp import language as _spr
 
         # Der schärfste Test: jede Seite in **beiden** Sprachen wirklich
         # bauen. `sprache.t()` gibt bei einem fehlenden Schlüssel dessen
@@ -1703,10 +1703,10 @@ def main():
 
             _SEITEN = ('liste', 'fortschritt', 'allgemein', 'anzeige', 'pfade',
                        'gametext', 'bestand', 'wasistneu', 'ueber')
-            _vorher = _spr.aktuelle()
+            _vorher = _spr.current()
             _kaputt, _rohe = [], []
             for _kuerzel in ('de', 'en'):
-                _spr.setzen(_kuerzel)
+                _spr.set_language(_kuerzel)
                 _f = _hf.MainWindow(version='0.0.0-test')
                 _f.root.geometry('900x600+3000+3000')       # aus dem Blick
                 for _seite in _SEITEN:
@@ -1720,7 +1720,7 @@ def main():
                                                       type(_fehler).__name__))
                     _rahmen.destroy()
                 _f.root.destroy()
-            _spr.setzen(_vorher)
+            _spr.set_language(_vorher)
             if _kaputt:
                 print('       ' + '; '.join(_kaputt[:4]))
             pruefe(not _kaputt,
@@ -1745,7 +1745,7 @@ def main():
             # Tastendruck muss das Eingabefeld **dasselbe Objekt** sein.
             # Gegengeprüft mit eingebautem Fehler — schlägt dann an.
             _felder_kaputt = []
-            _spr.setzen('de')
+            _spr.set_language('de')
             _f = _hf.MainWindow(version='0.0.0-test')
             _f.root.geometry('900x600+3000+3000')
             for _seite in ('joysticks',):
@@ -1777,7 +1777,7 @@ def main():
                                                       type(_fehler).__name__))
                 _rahmen.destroy()
             _f.root.destroy()
-            _spr.setzen(_vorher)
+            _spr.set_language(_vorher)
             if _felder_kaputt:
                 print('       Suchfeld wird beim Tippen neu gebaut: %s'
                       % ', '.join(_felder_kaputt))
@@ -1786,7 +1786,7 @@ def main():
 
         # Und die Gegenrichtung: Ein Schlüssel, den es nur auf Deutsch gibt, ist
         # eine halbe Übersetzung — die wirkt schlechter als gar keine.
-        _halbe = [k for k, v in _spr.TEXTE.items()
+        _halbe = [k for k, v in _spr.TEXTS.items()
                   if not isinstance(v, tuple) or len(v) < 2 or not v[1]]
         if _halbe:
             print('       ohne englische Version: %s' % ', '.join(sorted(_halbe)[:6]))
@@ -1808,16 +1808,16 @@ def main():
         # Label merkt sich den Träger, `_neu_beschriften()` wertet ihn neu aus.
         print()
         print('18. Meldungen ziehen beim Sprachwechsel mit')
-        from scbp import sprache as spr18, logsource as lq18
+        from scbp import language as spr18, logsource as lq18
 
         # a) Die Quelle liefert einen Träger, keinen fertigen Satz.
         grund = lq18._check_gap(0.0, [__file__])['grund']
-        pruefe(spr18.auffrischbar(grund),
+        pruefe(spr18.is_refreshable(grund),
                'die Lücken-Meldung kommt als Träger, nicht als fertiger Text')
 
-        spr18.setzen('de'); deutsch = str(grund)
-        spr18.setzen('en'); englisch = str(grund)
-        spr18.setzen('de')
+        spr18.set_language('de'); deutsch = str(grund)
+        spr18.set_language('en'); englisch = str(grund)
+        spr18.set_language('de')
         pruefe(deutsch != englisch and 'First run' in englisch,
                'derselbe Träger spricht beide Sprachen')
         # Das Datum steckt mit drin: im Deutschen 22.08.2026, im Englischen
@@ -1828,7 +1828,7 @@ def main():
         # b) Am echten Fenster — nicht nur an der Datenschicht.
         if ANZEIGE:
             import tkinter as _tk18
-            spr18.setzen('de')
+            spr18.set_language('de')
             _wz = _tk18.Tk(); _wz.withdraw()
             ov18 = None
             try:
@@ -1836,7 +1836,7 @@ def main():
                 ov18 = _w18.Overlay(wurzel=_wz)
                 ov18.root.withdraw()
                 ov18.add_hinweis(grund)
-                ov18._status_setzen(spr18.Satz('katalog_holt'))
+                ov18._status_setzen(spr18.Phrase('katalog_holt'))
                 ov18.root.update()
 
                 def _zeilen():
@@ -1849,7 +1849,7 @@ def main():
 
                 vorher_h = _zeilen()
                 vorher_s = ov18.status.cget('text')
-                spr18.setzen('en')
+                spr18.set_language('en')
                 ov18.root.update()
                 nachher_h = _zeilen()
                 nachher_s = ov18.status.cget('text')
@@ -1860,7 +1860,7 @@ def main():
                 pruefe(vorher_s != nachher_s and 'Fetching' in nachher_s,
                        'die Statuszeile wird mit übersetzt')
             finally:
-                spr18.setzen('de')
+                spr18.set_language('de')
                 if ov18 is not None:
                     try:
                         ov18.root.destroy()
@@ -2632,7 +2632,7 @@ def main():
             pfad31 = os.path.join(WURZEL, 'assets', 'symbole', '18',
                                   name31 + '-gruen.png')
             pruefe(os.path.isfile(pfad31), 'Symbol %s liegt in 18 px vor' % name31)
-        from scbp import sprache as sp31
+        from scbp import language as sp31
         for schl31 in ('hinweis_schloss', 'ov_schloss_offen'):
             pruefe(bool(sp31.t(schl31)) and schl31 not in sp31.t(schl31),
                    'Text %s ist gesetzt, nicht der Schluesselname' % schl31)
@@ -3025,8 +3025,8 @@ def main():
             pruefe(os.path.isfile(pfad36),
                    'das Symbol %s liegt in Rot vor' % n36)
         # Und der Reiter heisst, was er tut.
-        from scbp import sprache as sp36
-        sp36.setzen('de')
+        from scbp import language as sp36
+        sp36.set_language('de')
         pruefe(sp36.t('hf_diagnose') == 'Fehler melden',
                'der Reiter heisst „Fehler melden“, nicht „Diagnose“')
 
@@ -3681,14 +3681,14 @@ def main():
            'und Einschalten trägt sie wieder ein')
     # ⚠ Der Hilfetext MUSS mitziehen, sonst behauptet er das Gegenteil des
     # Verhaltens — schlimmer als gar kein Hinweis.
-    from scbp import sprache as sp41
-    hilfe41 = sp41.TEXTE['s_sp_an_h']
+    from scbp import language as sp41
+    hilfe41 = sp41.TEXTS['s_sp_an_h']
     pruefe('entfernt vorhandene Angaben nicht' not in hilfe41[0],
            'der Hilfetext behauptet nicht mehr das Gegenteil (de)')
     pruefe('does not remove' not in hilfe41[1],
            'dasselbe auf Englisch')
     # ⚠ Und der Kasten muss den Rest zugeben, statt „nichts geschrieben“ zu sagen.
-    pruefe('s_sp_aus_rest' in sp41.TEXTE and 's_sp_aus_rest_h' in sp41.TEXTE,
+    pruefe('s_sp_aus_rest' in sp41.TEXTS and 's_sp_aus_rest_h' in sp41.TEXTS,
            'der Kasten kann sagen, dass noch Angaben im Spiel stehen')
     pruefe('s_sp_aus_rest' in se41,
            'und benutzt das auch')
@@ -3855,7 +3855,7 @@ def main():
     # ist es weg, und der Hinweg fuehrte allein ueber Einstellungen -> Overlay.
     # Ein Weg hin und her gehoert an dieselbe Stelle.
     import tempfile as _tf44
-    from scbp import pfade as pf44, sprache as sp44
+    from scbp import pfade as pf44, language as sp44
     import sc_bp_watcher as w44
     _q44 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
 
@@ -3873,7 +3873,7 @@ def main():
                                       encoding='utf-8').read(),
            'das Symbol dafuer gibt es')
     for _sl44 in ('hinweis_schloss_zu', 'ov_schloss_zu'):
-        _e44 = sp44.TEXTE.get(_sl44)
+        _e44 = sp44.TEXTS.get(_sl44)
         pruefe(bool(_e44) and len(_e44) == 2 and all(_e44),
                'Text %s steht in beiden Sprachen' % _sl44)
 
@@ -4282,8 +4282,8 @@ def main():
                     "'vorlaeufig'", "'confirm'"):
         pruefe(_rest46 not in _q46,
                'keine Spur mehr von %s im Programm' % _rest46)
-    from scbp import sprache as sp46
-    pruefe('vorlaeufig' not in sp46.TEXTE,
+    from scbp import language as sp46
+    pruefe('vorlaeufig' not in sp46.TEXTS,
            'und der Text „vorlaeufig" ist aus der Sprachdatei raus')
     # ⚠ Und die Anleitung darf die zwei Stufen nicht weiter versprechen — sonst
     #   sucht jemand einen gelben Punkt, den es nicht gibt.
@@ -4383,7 +4383,7 @@ def main():
     # und `aktuelle_fassung`. Von Hand ist das bei ueber 600 Eintraegen nicht zu
     # halten.
     import ast as _ast49
-    from scbp import sprache as _sp49
+    from scbp import language as _sp49
 
     _RUFER49 = ('t', 'Satz', 'text')
     _fehlend49 = []
@@ -4485,7 +4485,7 @@ def main():
                 else:
                     _moeglich49 = []
                 for _wert49 in _moeglich49:
-                    if _wert49 not in _sp49.TEXTE:
+                    if _wert49 not in _sp49.TEXTS:
                         _fehlend49.append('%s:%d  %s(%r)' % (
                             os.path.relpath(_pfad49, WURZEL), _kn49.lineno,
                             _ruf49, _wert49))
@@ -4608,10 +4608,10 @@ def main():
         _au51._missions, _au51._index, _au51._pattern_index = _alt51
 
     # e) Jeder Text der neuen Zeile muss in BEIDEN Sprachen dastehen.
-    from scbp import sprache as _sp51
+    from scbp import language as _sp51
     for _k51 in ('auftrag_zeile', 'auftrag_fehlt', 'auftrag_stand',
                  'auftrag_komplett'):
-        _w51 = _sp51.TEXTE.get(_k51)
+        _w51 = _sp51.TEXTS.get(_k51)
         pruefe(bool(_w51) and len(_w51) == 2 and all(_w51),
                'Text %s gibt es deutsch und englisch' % _k51)
 
@@ -4686,10 +4686,10 @@ def main():
         _w52b.update_idletasks()
         # ⚠ `s_lg_trotzdem` gibt es nicht mehr (der Ausweg ist entfallen).
         # Statt seiner der laengste verbliebene Lager-Knopf.
-        _lang = [_sp51.TEXTE[k][0] for k in
+        _lang = [_sp51.TEXTS[k][0] for k in
                  ('s_lg_speichern', 's_lg_abbrechen', 's_lg_posten_weg',
                   's_lg_eintragen')]
-        _lang += [_sp51.TEXTE[k][1] for k in
+        _lang += [_sp51.TEXTS[k][1] for k in
                   ('s_lg_speichern', 's_lg_posten_weg')]
         _eng52b = []
         for _txt in _lang:
@@ -4811,7 +4811,7 @@ def main():
     # Anzeigenamen: zweisprachig und mit Rueckfall auf den Rohwert
     for _k52e in ('he_art_weapons', 'he_art_armour', 'he_sub_ballistic',
                   'he_sub_laser', 'he_sub_combat', 'he_sub_stealth'):
-        _w52e = _sp51.TEXTE.get(_k52e)
+        _w52e = _sp51.TEXTS.get(_k52e)
         pruefe(bool(_w52e) and len(_w52e) == 2 and all(_w52e),
                'Anzeigename %s gibt es deutsch und englisch' % _k52e)
     pruefe(_he52e.subkind_name('gibtsnichtimmer') == 'gibtsnichtimmer',
@@ -4820,7 +4820,7 @@ def main():
                   'ff_alle_zustaende', 'ff_zustand_habe', 'ff_zustand_fehlt',
                   's_bg_alle_erze', 's_bg_alle_orte', 'merk_eigene',
                   'merk_wartet', 'merk_eigene_h'):
-        _w52e = _sp51.TEXTE.get(_k52e)
+        _w52e = _sp51.TEXTS.get(_k52e)
         pruefe(bool(_w52e) and len(_w52e) == 2 and all(_w52e),
                'Text %s gibt es deutsch und englisch' % _k52e)
 
@@ -4866,7 +4866,7 @@ def main():
                   'kat_unter_ballistic_gatling', 'kat_unter_scatter_gun',
                   'kat_unter_helm', 'kat_unter_magazin',
                   'ff_unterart_waehlen'):
-        _w52f = _sp51.TEXTE.get(_k52f)
+        _w52f = _sp51.TEXTS.get(_k52f)
         pruefe(bool(_w52f) and len(_w52f) == 2 and all(_w52f),
                'Text %s gibt es deutsch und englisch' % _k52f)
 
@@ -5038,7 +5038,7 @@ def main():
                   's_lg_abbau_schiff', 's_lg_posten_weg', 's_lg_posten_frage',
                   's_lg_leeren', 's_lg_leeren_frage', 's_lg_geleert',
                   'ff_alle_material', 'ff_material_reicht', 'ff_material_fehlt'):
-        _w52n = _sp51.TEXTE.get(_k52n)
+        _w52n = _sp51.TEXTS.get(_k52n)
         pruefe(bool(_w52n) and len(_w52n) == 2 and all(_w52n),
                'Text %s gibt es deutsch und englisch' % _k52n)
     # ⚠ Das Suchfeld im Lager erscheint nicht mehr erst ab fuenf Posten — wer
@@ -5380,14 +5380,14 @@ def main():
                  's_lg_rechnen', 's_lg_zu_wenig', 's_lg_alles_weg',
                  's_lg_name_fremd', 's_lg_keine_guete',
                  's_lg_berichtigt', 's_lg_zeile_klick', 's_lg_bearbeite'):
-        _w53 = _sp51.TEXTE.get(_k53)
+        _w53 = _sp51.TEXTS.get(_k53)
         pruefe(bool(_w53) and len(_w53) == 2 and all(_w53),
                'Text %s gibt es deutsch und englisch' % _k53)
     # Der Lagerort heisst Lagerort — „Fundort" gehoert zum Bergbau und hat
     # hier jemanden ratlos gemacht.
-    pruefe('Lagerort' in _sp51.TEXTE['s_lg_ort'][0],
+    pruefe('Lagerort' in _sp51.TEXTS['s_lg_ort'][0],
            'das Ortsfeld heisst Lagerort, nicht Fundort')
-    pruefe('freiwillig' not in _sp51.TEXTE['s_lg_qualitaet'][0],
+    pruefe('freiwillig' not in _sp51.TEXTS['s_lg_qualitaet'][0],
            'die Qualitaet ist nicht mehr als freiwillig ausgewiesen')
 
     # ------------------------------------------------------------------
@@ -5974,9 +5974,9 @@ def main():
            'die alte Regel „groesser als 1 ist gut" steht nicht mehr da')
     pruefe("w.get('absolut')" in _seiten62,
            'und unterscheidet Stueckzahl von Multiplikator')
-    from scbp import sprache as _sp62
+    from scbp import language as _sp62
     for _k62 in ('s_he_weniger_gut', 's_he_absolut', 's_he_absolut_null'):
-        _w62 = _sp62.TEXTE.get(_k62)
+        _w62 = _sp62.TEXTS.get(_k62)
         pruefe(bool(_w62) and len(_w62) == 2 and all(_w62),
                'Text %s gibt es deutsch und englisch' % _k62)
 
@@ -6030,11 +6030,11 @@ def main():
     _q63b = open(os.path.join(WURZEL, 'scbp', 'crafting.py'), encoding='utf-8').read()
     pruefe("'dismantle': raw.get('dismantle')" in _q63b,
            'dasselbe fuer die Zerlege-Sperrliste')
-    from scbp import sprache as _sp63
+    from scbp import language as _sp63
     for _k63 in ('s_bg_raff_kopf', 's_bg_raff_zeile', 's_bg_raff_egal',
                  's_bg_raff_spanne', 's_bg_raff_weitere', 's_he_prozent',
                  's_he_spanne', 's_he_zerlegen'):
-        _w63 = _sp63.TEXTE.get(_k63)
+        _w63 = _sp63.TEXTS.get(_k63)
         pruefe(bool(_w63) and len(_w63) == 2 and all(_w63),
                'Text %s gibt es deutsch und englisch' % _k63)
 
@@ -6133,10 +6133,10 @@ def main():
     _vor64 = _q64b.split('def sig_zeichnen')[0]
     pruefe('sig_feld = round_entry' in _vor64,
            'das Scan-Feld steht ausserhalb des Neuzeichnens (Cursor bleibt)')
-    from scbp import sprache as _sp64
+    from scbp import language as _sp64
     for _k64 in ('s_bg_sig_feld', 's_bg_sig_hilfe', 's_bg_sig_treffer',
                  's_bg_sig_nichts', 's_bg_sig_anzahl', 's_bg_sig_genau'):
-        _w64 = _sp64.TEXTE.get(_k64)
+        _w64 = _sp64.TEXTS.get(_k64)
         pruefe(bool(_w64) and len(_w64) == 2 and all(_w64),
                'Text %s gibt es deutsch und englisch' % _k64)
 
@@ -6171,7 +6171,7 @@ def main():
     #     die eingebaute Rueckfalltabelle. Am 01.09.2026 kostete das drei
     #     Suchlaeufe in einer 12-MB-Datei nach „Bauplan ueberchoo", das dort
     #     gar nicht stehen kann (Schweizerdeutsch, aus der Tabelle).
-    from scbp import report as _ber65, sprache as _sp65
+    from scbp import report as _ber65, language as _sp65
     _zeile65 = _ber65._game_language() or ''
     _eigene65, _ini65 = _ph65.measured()
     _rueck65 = [_p for _p in _liste65 if _p not in _eigene65 + _ini65]
@@ -6306,9 +6306,9 @@ def main():
     pruefe("t('s_he_kauf_q')" in _seiten66,
            'dazu der Satz, der die Regler einordnet')
 
-    from scbp import sprache as _sp66
+    from scbp import language as _sp66
     for _k66 in ('s_he_kaufen', 's_he_nur_abbau', 's_he_kauf_q'):
-        _w66 = _sp66.TEXTE.get(_k66)
+        _w66 = _sp66.TEXTS.get(_k66)
         pruefe(bool(_w66) and len(_w66) == 2 and all(_w66),
                'Text %s gibt es deutsch und englisch' % _k66)
 
@@ -6450,7 +6450,7 @@ def main():
                     return raus
 
                 _alle67 = ' | '.join(_texte67(_rahmen67, []))
-                from scbp import sprache as _sp67
+                from scbp import language as _sp67
                 pruefe(_sp67.t('s_he_regler_kopf') in _alle67,
                        'die Ueberschrift der Qualitaetsregler steht da')
                 pruefe('Q ' in _alle67 or '×' in _alle67,
@@ -6623,14 +6623,14 @@ def main():
                    'Unsinn (%r) ergibt None statt einer Zahl' % _unsinn68)
 
         # ---- Und der Hinweistext darf nicht wieder abstrakt werden ----
-        from scbp import sprache as _sp68
-        _hinweis68 = _sp68.TEXTE['s_lg_rechnen'][0]
+        from scbp import language as _sp68
+        _hinweis68 = _sp68.TEXTS['s_lg_rechnen'][0]
         pruefe('+3' in _hinweis68 and '-3' in _hinweis68,
                'der Hinweis nennt die Zeichen konkret')
         pruefe('abgebucht' not in _hinweis68,
                'und benutzt keine Buchhaltersprache mehr')
         for _k68 in ('s_lg_ergibt', 's_lg_ergibt_null', 's_lg_ergibt_minus'):
-            _w68t = _sp68.TEXTE.get(_k68)
+            _w68t = _sp68.TEXTS.get(_k68)
             pruefe(bool(_w68t) and len(_w68t) == 2 and all(_w68t),
                    'Text %s gibt es deutsch und englisch' % _k68)
     finally:
@@ -6781,11 +6781,11 @@ def main():
     # versprach also etwas, das es nicht mehr tut (30.08.2026 aufgefallen).
     # Wer eine Funktion entfernt, sucht nach ALLEN Stellen, die sie
     # beschreiben, nicht nur nach dem Knopf.
-    from scbp import sprache as _sp70
-    pruefe('s_lg_trotzdem' not in _sp70.TEXTE,
+    from scbp import language as _sp70
+    pruefe('s_lg_trotzdem' not in _sp70.TEXTS,
            'und keinen Text mehr dafuer')
     for _k70 in ('s_lg_unbekannt', 's_lg_name_fremd'):
-        _w70 = _sp70.TEXTE.get(_k70) or ('', '')
+        _w70 = _sp70.TEXTS.get(_k70) or ('', '')
         pruefe('trotzdem' not in _w70[0].lower()
                and 'still add' not in _w70[1].lower(),
                '%s verspricht keinen Ausweg mehr' % _k70)
@@ -9126,7 +9126,7 @@ def main():
            'Lesestands mehr in der Oberflaeche')
 
     # d) Und keine verwaisten Sprachschluessel zurueckgelassen.
-    _sp95 = open(os.path.join(WURZEL, 'scbp', 'sprache.py'),
+    _sp95 = open(os.path.join(WURZEL, 'scbp', 'language.py'),
                  encoding='utf-8').read()
     pruefe('s_er_alt' not in _sp95,
            'die Texte des entfernten Knopfes sind mitgegangen')
@@ -9178,7 +9178,7 @@ def main():
            'ohne Hauptfenster bleibt es bei der Leiste, ohne Fehler')
 
     # d) Der Dialog braucht seinen einen Knopf — und einen Text dafuer.
-    from scbp import sprache as _sp96
+    from scbp import language as _sp96
     pruefe(_sp96.t('e_ok') and _sp96.t('e_ok') != 'e_ok',
            'der Knopf des Bescheids hat einen Text')
     _hq96 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
@@ -9205,7 +9205,7 @@ def main():
     #    der es gebaut hat.
     print()
     print('97. Von der Herstellung zum Bauplan — und den Knopf auch finden')
-    from scbp import seiten as _se97, sprache as _sp97
+    from scbp import seiten as _se97, language as _sp97
 
     # a) Der Knopf erscheint nur, wo er hinfuehrt. ⚠ Der Katalog kennt 738
     #    Bauplaene, die Rezepte sind 1607 — ein Knopf auf eine leere Liste
@@ -9331,7 +9331,7 @@ def main():
     # Das VERHALTEN des Hinweises prueft Abschnitt 192 an einem **frischen**
     # Fenster — dieses hier wurde oben schon mehrfach umgeschaltet, und eine
     # Pruefung, die auf fremdem Zustand aufsetzt, misst nicht, was sie soll.
-    _pl97 = _sp97.TEXTE.get('s_bp_suche_platz') or ()
+    _pl97 = _sp97.TEXTS.get('s_bp_suche_platz') or ()
     pruefe(len(_pl97) == 2 and all(_pl97),
            'der Hinweis im Suchfeld steht in beiden Sprachen')
 
@@ -10209,7 +10209,7 @@ def main():
     # liegen im Wegwerf-Ordner nie. Eine Pruefung, die sich deshalb
     # ueberspringt, prueft nichts.
     from scbp import crafting as _he105
-    from scbp import sprache as _sp105
+    from scbp import language as _sp105
 
     _echt_alle105 = _he105.all_items
 
@@ -10264,7 +10264,7 @@ def main():
            % (_sicher105, len(_bestand105)))
 
     # Der Zusatz muss es in beiden Sprachen geben …
-    _txt105 = _sp105.TEXTE.get('s_he_dazu_unklar') or ('', '')
+    _txt105 = _sp105.TEXTS.get('s_he_dazu_unklar') or ('', '')
     pruefe(all(_txt105) and '%d' in _txt105[0] and '%d' in _txt105[1],
            'der Zusatztext steht deutsch und englisch bereit (%r)'
            % (_txt105[0],))
@@ -11935,7 +11935,7 @@ def main():
 
         # Die Zusicherung ueber ihren Text finden.
         _sicher120 = None
-        _gesucht120 = sprache.t('s_di_sicher')
+        _gesucht120 = language.t('s_di_sicher')
         for _w in _alle120:
             try:
                 if isinstance(_w, tk.Label) and _w.cget('text') == _gesucht120:
@@ -12251,12 +12251,12 @@ def main():
     # Die beiden Woerter muessen in die Spalte passen — sie ist 17 Zeichen
     # breit, und ein laengeres Wort stuende dort als Stumpf.
     for _k123 in ('s_al_laeuft', 's_al_offen'):
-        pruefe(_k123 in sprache.TEXTE, 'es gibt den Text %s' % _k123)
-        if _k123 in sprache.TEXTE:
+        pruefe(_k123 in language.TEXTS, 'es gibt den Text %s' % _k123)
+        if _k123 in language.TEXTS:
             for _sp123 in (0, 1):
-                pruefe(len(sprache.TEXTE[_k123][_sp123]) <= 17,
+                pruefe(len(language.TEXTS[_k123][_sp123]) <= 17,
                        '%s passt in die Spalte (%d Zeichen)'
-                       % (_k123, len(sprache.TEXTE[_k123][_sp123])))
+                       % (_k123, len(language.TEXTS[_k123][_sp123])))
 
     # Und die Anzeige muss die Unterscheidung wirklich benutzen — sonst steht
     # die Funktion da und keiner ruft sie.
@@ -12882,11 +12882,11 @@ def main():
         pruefe(_bleibt130 == 3,
                'aus den Protokollen kaemen 3 zurueck (%d)' % _bleibt130)
 
-        pruefe('s_be_reset_zahlen' in sprache.TEXTE,
+        pruefe('s_be_reset_zahlen' in language.TEXTS,
                'es gibt einen Text, der die Zahlen nennt')
-        if 's_be_reset_zahlen' in sprache.TEXTE:
+        if 's_be_reset_zahlen' in language.TEXTS:
             for _sp130 in (0, 1):
-                pruefe(sprache.TEXTE['s_be_reset_zahlen'][_sp130].count('%d')
+                pruefe(language.TEXTS['s_be_reset_zahlen'][_sp130].count('%d')
                        == 3,
                        'er nennt DREI Zahlen (haben, zurueck, verloren) [%d]'
                        % _sp130)
@@ -14797,24 +14797,24 @@ def main():
     print()
     print('153. Guete und Klasse stehen an der Teileauswahl')
     from scbp import seiten as _st153
-    from scbp import sprache as _sp153
+    from scbp import language as _sp153
 
-    _alt153 = _sp153.aktuelle()
+    _alt153 = _sp153.current()
     _vorher153 = _st153._PART_INDEX[0]
     _st153._PART_INDEX[0] = {
         'ref-tarn': {'guete': 'A', 'klasse': 'Stealth'},
         'ref-ohne': {'guete': '', 'klasse': ''},
     }
     try:
-        _sp153.setzen('de')
+        _sp153.set_language('de')
         pruefe(_st153._part_label({'guete': 'C', 'klasse': 'Industrial'})
                == 'C · Industrie',
                'Guete und Klasse stehen zusammen, Klasse uebersetzt')
-        _sp153.setzen('en')
+        _sp153.set_language('en')
         pruefe(_st153._part_label({'guete': 'C', 'klasse': 'Industrial'})
                == 'C · Industrial',
                '* und auf Englisch ebenso')
-        _sp153.setzen('de')
+        _sp153.set_language('de')
 
         # Nur die Kennung bekannt — so liegt es in der Steckplatz-Zeile vor.
         pruefe(_st153._part_label({'kennung': 'ref-tarn'})
@@ -14841,7 +14841,7 @@ def main():
                'Gegenprobe: die englische Klasse steht nicht im deutschen Text')
     finally:
         _st153._PART_INDEX[0] = _vorher153
-        _sp153.setzen(_alt153)
+        _sp153.set_language(_alt153)
 
     # ------------------------------------------------------------------
     # 155. Der Warenkorb-Knopf bleibt sichtbar, und der Ort steht einmal
@@ -15161,7 +15161,7 @@ def main():
     print()
     print('158. Guete als Buchstabe, Klasse nie geraten')
     from scbp import seiten as _st158
-    from scbp import sprache as _sp158
+    from scbp import language as _sp158
     from scbp import cart as _wk158
 
     pruefe(_wk158._grade_letter('2') == 'B',
@@ -15176,11 +15176,11 @@ def main():
     pruefe(_wk158._grade_letter('7') == '7',
            'Gegenprobe: ein unerwarteter Wert wird nicht verworfen')
 
-    _alt158 = _sp158.aktuelle()
+    _alt158 = _sp158.current()
     _vorher158 = _st158._PART_INDEX[0]
     _st158._PART_INDEX[0] = {}
     try:
-        _sp158.setzen('de')
+        _sp158.set_language('de')
         pruefe(_st158._part_label(
             {'guete': 'A', 'klasse': 'Military',
              'herkunft': _wk158.CRAFTABLE}) == 'A · Militär · nur über Bauplan',
@@ -15205,7 +15205,7 @@ def main():
                '* und ein nur kaufbares ebenso wenig')
     finally:
         _st158._PART_INDEX[0] = _vorher158
-        _sp158.setzen(_alt158)
+        _sp158.set_language(_alt158)
 
     # ------------------------------------------------------------------
     # 159. Abhaken, offene Posten und „fertig gefittet"
@@ -16821,7 +16821,7 @@ def main():
     # ⚠ Die Sternzeichen NICHT woertlich hinschreiben: Pruefung 144 durchsucht
     # den ganzen Aufruf, nicht nur den Ausgabetext — sonst schlaegt sie hier an.
     _sterne176 = (chr(0x2605), chr(0x2606))
-    _stern_text176 = _sp97.TEXTE.get('s_as_stern') or ()
+    _stern_text176 = _sp97.TEXTS.get('s_as_stern') or ()
     pruefe(len(_stern_text176) == 2
            and not any(z in x for x in _stern_text176 for z in _sterne176),
            'die Beschriftung malt kein Sternzeichen')
@@ -17669,7 +17669,7 @@ def main():
     import tempfile as _tf180
     import urllib.request as _ur180
     from scbp import updater as _ak180
-    from scbp import sprache as _sp180
+    from scbp import language as _sp180
 
     _ordner180 = _tf180.mkdtemp(prefix='pruefung180-')
     _echt_open180 = _ur180.urlopen
@@ -18187,12 +18187,12 @@ def main():
                'solange der Helfer die Sperre haelt, bleibt die Marke liegen')
         _ul182.release_lock()
         _ul182.evaluate('3.29.0')
-        from scbp import sprache as _sp184
+        from scbp import language as _sp184
         for _art184 in ('fertig', 'abgebrochen', 'fehler', 'unklar'):
             _s184 = _ul182.message({'art': _art184, 'ziel': '3.30.0',
                                     'eigen': '3.29.0', 'code': 3})
-            pruefe(_s184.schluessel in _sp184.TEXTE,
-                   'Meldung „%s" hat einen Text (%s)' % (_art184, _s184.schluessel))
+            pruefe(_s184.key in _sp184.TEXTS,
+                   'Meldung „%s" hat einen Text (%s)' % (_art184, _s184.key))
 
         print('\n185. Unter Windows uebergibt einspielen() an den Helfer — nur mit gepruefter Summe')
         from scbp import updater as _ak185
@@ -18586,10 +18586,10 @@ def main():
     #
     # ⚠ Bis zum 12.09.2026 las diese Pruefung den Quelltext von
     # desktop_entry.py. Als der Wert dort zu einem Platzhalter wurde (der Name
-    # kommt jetzt aus sprache.py), meldete sie '%s' vs 'VerseKit' — ein
+    # kommt jetzt aus language.py), meldete sie '%s' vs 'VerseKit' — ein
     # Fehlalarm. Dieselbe Schwaeche wie bei Pruefung 74 und 30: Form
     # gemessen, wo Wirkung zaehlt.
-    from scbp import sprache as _spr191, desktop_entry as _vk191
+    from scbp import language as _spr191, desktop_entry as _vk191
     # Der Text, den anlegen() schreiben WUERDE — ohne Dateisystem, damit die
     # Pruefung auch unter Windows laeuft (Regel: nichts stillschweigend
     # ueberspringen).
@@ -18860,7 +18860,7 @@ def main():
     #
     # ⭐ Geprueft wird die Wirkung am **frischen** Fenster: was im Feld steht,
     # und was die Filtervariable sieht. Nicht, welches Bauteil es gibt.
-    from scbp import bestandsfenster as _bf192, sprache as _sp192
+    from scbp import bestandsfenster as _bf192, language as _sp192
     _wz192 = _wurzel()
     _liste192 = _bf192.Bestandsfenster(_wz192)
     for _ in range(3):
@@ -20640,8 +20640,8 @@ def main():
               if _treffer208 else ''))
 
     # Und der Dank steht an allen DREI Stellen (Projektregel).
-    from scbp import sprache as _sp208
-    _w208t = _sp208.TEXTE.get('s_dk_blackdog_idee')
+    from scbp import language as _sp208
+    _w208t = _sp208.TEXTS.get('s_dk_blackdog_idee')
     pruefe(bool(_w208t) and len(_w208t) == 2 and all(_w208t),
            'Blackd0g84 steht mit Text auf der Danke-Seite, deutsch und englisch')
     _q208 = io.open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
@@ -20851,7 +20851,7 @@ def main():
         #    stehen — sonst prueft b) nur, dass nichts geknallt ist.
         _tr211.note('starstrings', 'probe')
         _fremd211()
-        _gt211._placed_by_us = lambda sprache: []
+        _gt211._placed_by_us = lambda lang: []
         _gt211.fetch('english', _spiel211, sprache_eintragen=False)
         pruefe(_inhalt211().startswith('Fremde'),
                'Gegenprobe: ohne die Regel bliebe StarStrings liegen')
@@ -20983,7 +20983,7 @@ def main():
     pruefe("'Star Citizen: Hangar Extension (AlyxOne)'" in _q213
            and 'HANGAR_EXT_PAGE' in _q213,
            'die Danke-Seite nennt die Hangar Extension mit Adresse')
-    from scbp import sprache as _sp213
+    from scbp import language as _sp213
     pruefe('Hangar Extension' in _sp213.t('s_hg_import_text'),
            'der Hangar-Hilfetext nennt die empfohlene Erweiterung')
 
@@ -21124,7 +21124,7 @@ def main():
     _zeile215 = _q215.split('def _hangar_row')[1].split('\ndef ')[0]
     pruefe("t('s_hg_beilage')" in _zeile215 and 'bundled_with' in _zeile215,
            'die Schiffszeile zeigt die Beilage ueber den Sprachschluessel')
-    from scbp import sprache as _sp215
+    from scbp import language as _sp215
     pruefe('{schiff}' in _sp215.t('s_hg_beilage'),
            'der Text nennt das Schiff, nicht nur „Beilage"')
     # Markenfarben: Ist `beim_menue` gesetzt, ruft ein Rechtsklick den
@@ -21262,7 +21262,7 @@ def main():
     pruefe("t('s_hg_vers_jahre')" in _z216 and "t('s_hg_vers_monate')" in _z216
            and 'monate % 12 == 0' in _z216,
            'die Schiffszeile zeigt „10 Jahre" bzw. „6 Monate Versicherung"')
-    from scbp import sprache as _sp216
+    from scbp import language as _sp216
     pruefe('CSV' in _sp216.t('s_hg_import_text')
            and 'CSV' in _sp216.t('s_hg_import_json'),
            'die Hilfetexte nennen den CSV-Export')
@@ -21293,7 +21293,7 @@ def main():
 
     # Alle Paare, die es im Programm ueberhaupt gibt.
     _paare217 = set()
-    for _w217 in _sp216.TEXTE.values():
+    for _w217 in _sp216.TEXTS.values():
         if isinstance(_w217, tuple) and len(_w217) == 2 \
                 and all(isinstance(x, str) for x in _w217):
             _paare217.add(_w217)

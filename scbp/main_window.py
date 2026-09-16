@@ -49,7 +49,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from . import screen, fehler, fields, notice, news, pfade, icons
-from .sprache import t, fenstertitel
+from .language import t, window_title
 
 BG      = '#10141c'
 SURFACE = '#161c28'
@@ -1702,7 +1702,7 @@ class MainWindow:
         # — man sah nur beim Bauen zu. Das `deiconify()` am Ende von `__init__`
         # gehoert untrennbar hierher.
         self.root.withdraw()
-        self.root.title(fenstertitel(t('hf_titel')))
+        self.root.title(window_title(t('hf_titel')))
         self.root.configure(bg=BG)
         # Start = die zuletzt eingestellte Groesse, sonst die Mindestgroesse —
         # mittig auf dem Hauptbildschirm. Mittig, damit das Fenster bei
@@ -3656,7 +3656,7 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
     Systemdialog kommt grau, in der Systemschrift und mit einem englischen
     „Cancel" daher — auf dem dunklen Grund des Programms ein Fremdkoerper, und
     ein Regelverstoss gleich doppelt: Jeder sichtbare Text gehoert nach
-    `sprache.py`, und gleiche Dinge sehen ueberall gleich aus.
+    `language.py`, und gleiche Dinge sehen ueberall gleich aus.
 
     Aufgebaut wie `frage_stellen()` — dieselben Farben, dieselbe Kante,
     dieselben Tasten (Eingabe = uebernehmen, Escape = abbrechen).

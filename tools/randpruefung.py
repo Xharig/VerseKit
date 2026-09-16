@@ -33,7 +33,7 @@ os.environ.setdefault('SC_BP_HOME', tempfile.mkdtemp(prefix='randpruefung-'))
 os.environ['SC_BP_NO_NET'] = '1'
 
 import tkinter as tk                                          # noqa: E402
-from scbp import main_window, seiten, sprache                # noqa: E402
+from scbp import main_window, seiten, language                # noqa: E402
 
 # ⛔⛔ **Keine feste Liste.** Hier standen bis zum 14.09.2026 elf Kennungen von
 # Hand — das Programm hatte längst **33**. Zweiundzwanzig Seiten wurden also
@@ -146,7 +146,7 @@ def _durchgehen(w, gefunden):
 
 
 def _eine_runde(groesse, kuerzel, treffer):
-    sprache.setzen(kuerzel)
+    language.set_language(kuerzel)
     fenster = main_window.MainWindow()
     fenster.root.geometry(groesse)
     fenster.root.update_idletasks()

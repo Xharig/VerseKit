@@ -170,8 +170,8 @@ def _ablage_vorbereiten():
 def main():
     ordner = _ablage_vorbereiten()
     try:
-        from scbp import cart, main_window, seiten, sprache
-        sprache.setzen('de')
+        from scbp import cart, main_window, seiten, language
+        language.set_language('de')
 
         print('Die Oberflaeche wirklich bedienen')
         print()

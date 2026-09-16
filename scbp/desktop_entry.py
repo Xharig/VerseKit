@@ -131,13 +131,13 @@ def desktop_content(befehl, symbol):
     rief — und das gibt dort „nur unter Linux" zurück. Eine Prüfung, die sich
     auf dem halben Bestand überspringt, prüft die Hälfte nicht.
 
-    ⚠ Name und Untertitel kommen aus `sprache.py` — dieselbe Quelle, aus der
+    ⚠ Name und Untertitel kommen aus `language.py` — dieselbe Quelle, aus der
     `beschriftung_nachziehen()` eine vorhandene Datei aktualisiert. Getrennt
     gepflegt wären sie nach dem ersten Wortwechsel auseinander.
     """
     # Lokal importiert, weil `sprache` selbst auf `pfade` aufsetzt.
-    from . import sprache
-    name = sprache.t('hf_titel')
+    from . import language
+    name = language.t('hf_titel')
     return (
         '[Desktop Entry]\n'
         'Type=Application\n'
@@ -150,8 +150,8 @@ def desktop_content(befehl, symbol):
         'Categories=Utility;Game;\n'
         'StartupWMClass=%s\n'
         'Keywords=Star Citizen;Blueprint;Bauplan;\n'
-        % (name, sprache.TEXTE['vk_untertitel'][0],
-           sprache.TEXTE['vk_untertitel'][1], befehl, symbol, name))
+        % (name, language.TEXTS['vk_untertitel'][0],
+           language.TEXTS['vk_untertitel'][1], befehl, symbol, name))
 
 
 def create():
@@ -229,12 +229,12 @@ def refresh_label():
     except OSError:
         return False
 
-    from . import sprache
-    name = sprache.t('hf_titel')
+    from . import language
+    name = language.t('hf_titel')
     neu = {
         'Name=': 'Name=%s\n' % name,
-        'Comment=': 'Comment=%s\n' % sprache.TEXTE['vk_untertitel'][0],
-        'Comment[en]=': 'Comment[en]=%s\n' % sprache.TEXTE['vk_untertitel'][1],
+        'Comment=': 'Comment=%s\n' % language.TEXTS['vk_untertitel'][0],
+        'Comment[en]=': 'Comment[en]=%s\n' % language.TEXTS['vk_untertitel'][1],
         'StartupWMClass=': 'StartupWMClass=%s\n' % name,
     }
     geaendert = False

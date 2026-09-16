@@ -428,7 +428,7 @@ def refinery_lines(text, unit='cscu'):
     alles um den Faktor 100 daneben, und die Herstellung rechnet mit Unsinn.
     """
     from . import crafting
-    from .sprache import t
+    from .language import t
     entries, errors = [], []
     factor = CSCU if unit == 'cscu' else 1.0
     for raw in (text or '').splitlines():

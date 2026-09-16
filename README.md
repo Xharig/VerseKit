@@ -533,7 +533,7 @@ Oben in `sc_bp_watcher.py` stehen weitere Konstanten — sie sind Vorgabewerte u
 | `CLASS_LETTER` | Kürzel je Klasse (M/S/I/C/K) | Military/Stealth/Industrial/Civilian/Competition |
 | `BG / FG / ACCENT / …` | Farben des Overlays | dunkel + Xharig-Grün |
 
-Die Formulierungen, an denen ein Bauplan im Log erkannt wird, stehen nicht mehr im Code, sondern in `scbp/sprache.py` beziehungsweise in deiner eigenen `phrasen.json`.
+Die Formulierungen, an denen ein Bauplan im Log erkannt wird, stehen in `scbp/phrases.py` beziehungsweise in deiner eigenen `phrasen.json`.
 
 </details>
 

@@ -49,7 +49,7 @@ Programmstart, und **Escape schließt immer**.
 import tkinter as tk
 
 from . import fov
-from .sprache import t
+from .language import t
 
 BG = '#10141c'
 FLAECHE = '#161c28'

@@ -12,12 +12,12 @@ Aufgefallen ist es erst auf einem Bildschirmfoto (gemeldet, 27.08.2026).
 **Der andere Weg.** Nicht den Code fragen, sondern das fertige Fenster: Sprache
 auf Englisch stellen, alle Seiten aufbauen, jeden sichtbaren Text einsammeln —
 und nachsehen, ob einer davon **wörtlich** in der deutschen Spalte von
-`sprache.py` steht. Ein solcher Text kann nur fest im Code stehen.
+`language.py` steht. Ein solcher Text kann nur fest im Code stehen.
 
 Das ist zielsicher, weil es nichts raten muss:
 
 * Keine Fehlalarme durch Bauplan-Namen, Pfade oder Zahlen — die stehen nicht in
-  `sprache.py`.
+  `language.py`.
 * Keine Fehlalarme durch Texte, die in beiden Sprachen gleich lauten — die
   werden vorher aussortiert.
 * Nachgemessen am 27.08.2026: 541 unterscheidbare Textpaare, **0** Beanstandungen
@@ -53,7 +53,7 @@ ausgabe.utf8()
 os.environ.setdefault('SC_BP_HOME', '/tmp/sc-bp-oberflaechenpruefung')
 os.environ.setdefault('SC_BP_NO_NET', '1')
 
-from scbp import sprache                                  # noqa: E402
+from scbp import language                                  # noqa: E402
 from scbp.main_window import MainWindow                 # noqa: E402
 
 # ⚠⚠ **ALLE Seiten, die `scbp/seiten.py` kennt** — nicht nur die, die es beim
@@ -100,7 +100,7 @@ def _sollbestand():
     („Discord", „Star Citizen"), darf in der englischen Oberfläche stehen.
     """
     tabelle = {}
-    for schluessel, paar in sprache.TEXTE.items():
+    for schluessel, paar in language.TEXTS.items():
         if (isinstance(paar, tuple) and len(paar) == 2
                 and all(isinstance(t, str) for t in paar)
                 and paar[0].strip() != paar[1].strip()):
@@ -110,7 +110,7 @@ def _sollbestand():
 
 def pruefe():
     tabelle = _sollbestand()
-    sprache.setzen('en')
+    language.set_language('en')
 
     wurzel = tk.Tk()
     wurzel.withdraw()
@@ -238,7 +238,7 @@ def main():
         print('\nKein deutscher Text in der englischen Oberfläche.')
         return 1 if (fehlend or marken or vergessen or kaputt) else 0
     print('\n%d deutsche Stelle(n) — sie stehen fest im Code statt in '
-          'sprache.py:' % len(treffer))
+          'language.py:' % len(treffer))
     for deutsch, (schluessel, englisch) in sorted(treffer.items()):
         print('  · "%s"  →  %s sagt "%s"' % (deutsch, schluessel, englisch))
     print('\nDie Stelle im Code suchen und durch t(\'schluessel\') ersetzen.')

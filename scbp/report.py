@@ -44,7 +44,7 @@ import sys
 from datetime import datetime
 
 from . import fehler, overlay, pfade
-from .sprache import t
+from .language import t
 
 
 def _safe(f, default='—'):
@@ -431,7 +431,7 @@ def _game_launcher():
     am 27.08.2026 zwei Stunden lang im Raum.
     """
     from . import pfade as paths_module
-    from . import sprache as language_module
+    from . import language as language_module
     launcher = paths_module.spielstarter()
     if not launcher:
         return language_module.t('b_starter_kein')
@@ -885,8 +885,8 @@ def _template_for_language():
     ins Leere laufen.
     """
     try:
-        from . import sprache
-        return 'bug.yml' if sprache.aktuelle() == 'en' else 'fehler.yml'
+        from . import language
+        return 'bug.yml' if language.current() == 'en' else 'fehler.yml'
     except Exception:
         return 'fehler.yml'
 

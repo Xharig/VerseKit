@@ -41,7 +41,7 @@ from tkinter import font as tkfont
 
 # Eigene Bausteine. Sie kapseln alles, was sich zwischen Windows und Linux
 # unterscheidet — der Rest dieser Datei muss das Betriebssystem nicht kennen.
-from scbp import sprache
+from scbp import language
 from scbp import icons
 from scbp import fehler
 from scbp import notice
@@ -793,7 +793,7 @@ class Watcher(threading.Thread):
         self.scmdb_next = time.time() + SCMDB_POLL_SEC
         if scmdb_aktualisieren():
             SCMDB, SCMDB_VERSION = load_scmdb()
-            self.q.put(('status', sprache.Satz('craftdaten_neu', SCMDB_VERSION,
+            self.q.put(('status', language.Phrase('craftdaten_neu', SCMDB_VERSION,
                                             len(SCMDB))))
 
     def _preise_tick(self):
@@ -873,10 +873,10 @@ class Watcher(threading.Thread):
             try:
                 gab_es_schon = bool(katalog_modul.load()['bauplaene'])
                 if not gab_es_schon:
-                    self.q.put(('status', sprache.Satz('katalog_holt')))
+                    self.q.put(('status', language.Phrase('katalog_holt')))
                 neu, anzahl, version = katalog_modul.update()
                 if neu:
-                    self.q.put(('status', sprache.Satz('katalog_geholt', anzahl, version)))
+                    self.q.put(('status', language.Phrase('katalog_geholt', anzahl, version)))
                 else:
                     # Nichts zu tun heißt: schon aktuell — oder kein Netz. Im
                     # zweiten Fall bald noch einmal versuchen statt sechs Stunden
@@ -997,7 +997,7 @@ class Watcher(threading.Thread):
             if da:
                 ok, meldung = translation.fetch(quelle)
                 if ok:
-                    self.q.put(('status', sprache.Satz('texte_erneuert', kennung)))
+                    self.q.put(('status', language.Phrase('texte_erneuert', kennung)))
                     neu_noetig = True
 
         # 2. Neue Vertragsdaten? Nach einem Patch geben Missionen anderes aus.
@@ -1005,7 +1005,7 @@ class Watcher(threading.Thread):
             da, kennung = injection.scdl_update_available(kuerzel)
             if da:
                 self.q.put(('status',
-                            sprache.Satz('bpdaten_erneuert', kennung)))
+                            language.Phrase('bpdaten_erneuert', kennung)))
                 neu_noetig = True
 
         # 3. Ist die Auszeichnung überhaupt noch drin? Ein Spiel-Patch ersetzt
@@ -1049,7 +1049,7 @@ class Watcher(threading.Thread):
         if neu_noetig and os.path.isfile(ziel):
             ok, anzahl, _meldung = injection.setup(ziel, sprache_ordner)
             if ok:
-                self.q.put(('status', sprache.Satz('inj_aktiv', anzahl)))
+                self.q.put(('status', language.Phrase('inj_aktiv', anzahl)))
                 # Erst nach dem Schreiben merken: Scheitert das Einrichten,
                 # soll es beim nächsten Durchlauf erneut versucht werden.
                 try:
@@ -1186,16 +1186,16 @@ class Watcher(threading.Thread):
         # zu holen? „23/54" beantwortet sie in einem Blick.
         hat = gesamt - len(fehlend)
         if not fehlend:
-            zusatz = sprache.Satz('auftrag_komplett', hat, gesamt)
+            zusatz = language.Phrase('auftrag_komplett', hat, gesamt)
         elif len(fehlend) == 1:
-            zusatz = sprache.Satz('auftrag_fehlt', hat, gesamt, fehlend[0])
+            zusatz = language.Phrase('auftrag_fehlt', hat, gesamt, fehlend[0])
         else:
             # ⚠ Ab zwei fehlenden werden KEINE Namen mehr genannt. Bei 31 von 54
             # wäre „darunter: Aufeis, Avalanche" eine Auswahl ohne Aussagewert —
             # sie sagt nichts darüber, ob der Auftrag sich lohnt, und kostet die
             # halbe Zeilenbreite. Die vollständige Liste steht im Spiel.
-            zusatz = sprache.Satz('auftrag_stand', hat, gesamt)
-        return '%s  →  %s' % (sprache.Satz('auftrag_zeile', rein), zusatz)
+            zusatz = language.Phrase('auftrag_stand', hat, gesamt)
+        return '%s  →  %s' % (language.Phrase('auftrag_zeile', rein), zusatz)
 
     def _auftraege_beim_start(self):
         """Was laut laufendem `Game.log` gerade offen ist.
@@ -1258,7 +1258,7 @@ class Watcher(threading.Thread):
             self._auftraege_gesehen.add(rein)
             self._auftrag_zeile_quelle[rein] = self._auftrag_vertraege.get(rein)
             self._offene_auftraege[rein] = (self._auftrag_zeile(titel, rein)
-                                            or sprache.Satz('auftrag_zeile', rein))
+                                            or language.Phrase('auftrag_zeile', rein))
         if self._offene_auftraege:
             self.q.put(('auftraege', self._auftragsstand()))
 
@@ -1404,7 +1404,7 @@ class Watcher(threading.Thread):
                 # Der blosse Titel ist noch keine Bauplan-Zusage — den darf
                 # die Anzeige auch dann führen, wenn der Katalog die Mission
                 # nicht kennt. Steht unten ein Ergebnis, wird er ersetzt.
-                self._offene_auftraege[rein] = sprache.Satz('auftrag_zeile', rein)
+                self._offene_auftraege[rein] = language.Phrase('auftrag_zeile', rein)
                 veraendert = True
             # ⚠⚠ **Ein nachgereichter Vertrag laesst die Zeile neu bauen.**
             #
@@ -1493,7 +1493,7 @@ class Watcher(threading.Thread):
             gefunden = phrases.find_self(namen, pfade.log_sicherungen())
             if gefunden and phrases.remember(gefunden):
                 self.tail.pattern = phrases.pattern()
-                self.q.put(('hinweis', sprache.Satz('sprache_erkannt', gefunden)))
+                self.q.put(('hinweis', language.Phrase('sprache_erkannt', gefunden)))
         except Exception:
             pass            # ohne Erkennung gilt die mitgelieferte Tabelle
 
@@ -1520,8 +1520,8 @@ class Watcher(threading.Thread):
             funde, bericht = logsource.read_all(phrases.pattern())
         except Exception as ausnahme:
             fehler.merken('watcher.neu_einlesen', ausnahme)
-            self.q.put(('bescheid', sprache.Satz('s_be_neu'),
-                        sprache.Satz('neu_gelesen_fehler')))
+            self.q.put(('bescheid', language.Phrase('s_be_neu'),
+                        language.Phrase('neu_gelesen_fehler')))
             return
         dazu = []
         for name, _zusatz in funde:
@@ -1546,8 +1546,8 @@ class Watcher(threading.Thread):
             fehler.merken('watcher.neu_einlesen_auftraege', ausnahme)
         # ⚠ Als Bescheid, nicht nur als Zeile: Wer diesen Lauf anstoesst,
         # wartet auf genau diese Zahl.
-        self.q.put(('bescheid', sprache.Satz('s_be_neu'),
-                    sprache.Satz('neu_gelesen',
+        self.q.put(('bescheid', language.Phrase('s_be_neu'),
+                    language.Phrase('neu_gelesen',
                                  bericht.get('dateien', 0), len(dazu),
                                  a_neu, a_ber)))
         # ⚠ Hier erst recht: Wer den Knopf drückt, will das Ergebnis sehen und
@@ -1604,7 +1604,7 @@ class Watcher(threading.Thread):
                 dazu.append(name)
         if dazu:
             self._bestand_sichern()
-            self.q.put(('status', sprache.Satz('nachgelesen', len(dazu),
+            self.q.put(('status', language.Phrase('nachgelesen', len(dazu),
                                             bericht['dateien'])))
             self._nachgelesenes_melden(dazu)
         if bericht.get('luecke') and bericht.get('grund'):
@@ -1642,7 +1642,7 @@ class Watcher(threading.Thread):
                     neu += 1
             if neu:
                 self._bestand_sichern()
-                self.q.put(('status', sprache.Satz('start_eingetragen', neu)))
+                self.q.put(('status', language.Phrase('start_eingetragen', neu)))
         except Exception:
             pass          # ein Fehler hier darf den Start nicht aufhalten
 
@@ -1660,11 +1660,11 @@ class Watcher(threading.Thread):
         frisch, ohne den Start aufzuhalten."""
         if SCMDB_AUS or katalog_modul.load()['bauplaene']:
             return
-        self.q.put(('status', sprache.Satz('katalog_holt')))
+        self.q.put(('status', language.Phrase('katalog_holt')))
         try:
             neu, anzahl, version = katalog_modul.update()
             if neu:
-                self.q.put(('status', sprache.Satz('katalog_geholt', anzahl, version)))
+                self.q.put(('status', language.Phrase('katalog_geholt', anzahl, version)))
                 self.kat_next = time.time() + SCMDB_POLL_SEC
             else:
                 # Kein Netz: bald noch einmal versuchen, statt sechs Stunden warten.
@@ -1790,7 +1790,7 @@ class Watcher(threading.Thread):
         except Exception:
             return
         if titel:
-            self.q.put(('hinweis', sprache.Satz('merk_erledigt', titel)))
+            self.q.put(('hinweis', language.Phrase('merk_erledigt', titel)))
 
     def _statuszeile(self):
         """Was unten im Fenster steht. Zeigt den **eigenen** Bestand — nicht mehr
@@ -1805,9 +1805,9 @@ class Watcher(threading.Thread):
         # zusammensetzen lassen. Der eingesetzte Baustein ist selbst ein `Satz`
         # und wird dabei mit übersetzt; nur die Uhrzeit bleibt eingefroren, und
         # das ist richtig — der Zeitpunkt der Meldung ändert sich nicht.
-        quelle = sprache.Satz('mit_launcher' if (HAT_LAUNCHER and self.known)
+        quelle = language.Phrase('mit_launcher' if (HAT_LAUNCHER and self.known)
                               else 'ohne_launcher')
-        return sprache.Satz('ueberwache', bestand_datei.count(self.bestand),
+        return language.Phrase('ueberwache', bestand_datei.count(self.bestand),
                             log_state, quelle, time.strftime('%H:%M:%S'))
 
     def stop(self):
@@ -1855,7 +1855,7 @@ class Overlay:
             if pfade.umzug_noetig():
                 anzahl = pfade.umziehen()
                 if anzahl:
-                    self.umzug_meldung = sprache.t('umzug_fertig', anzahl,
+                    self.umzug_meldung = language.t('umzug_fertig', anzahl,
                                                    pfade.app_ordner())
                     sys.stdout.write(self.umzug_meldung + '\n')
         except Exception as ausnahme:
@@ -1896,11 +1896,11 @@ class Overlay:
         overlay.OVERLAY_CONTROL[0] = self
         # Damit jeder festgehaltene Fehler weiß, aus welcher Version er stammt.
         fehler.VERSION[0] = __version__
-        # ⚠ Der Produktname steht NUR in `sprache.py` (`hf_titel`). Hier stand
+        # ⚠ Der Produktname steht NUR in `language.py` (`hf_titel`). Hier stand
         # er bis zum 12.09.2026 fest im Code — bei der Umbenennung zu VerseKit
         # zeigte das Hauptfenster deshalb den neuen Namen und das Overlay noch
         # den alten. Vom Prüfer gefunden, nicht vom Selbsttest.
-        self.root.title(sprache.t('hf_titel'))
+        self.root.title(language.t('hf_titel'))
         self.root.configure(bg=BG)
         self.root.overrideredirect(True)          # randloses Overlay
         self.root.attributes('-topmost', True)    # immer im Vordergrund
@@ -1962,13 +1962,13 @@ class Overlay:
         # niemand je gelesen hat. Dieselbe stille Sorte wie die toten
         # `getattr`-Namen, die Pruefung 195 findet.
         self._leiste_seite = 'top'
-        # ⚠ Produktname aus `sprache.py` — siehe `root.title()` oben.
+        # ⚠ Produktname aus `language.py` — siehe `root.title()` oben.
         titel_lbl = tk.Label(bar,
-                             text='● %s v%s' % (sprache.t('hf_titel'),
+                             text='● %s v%s' % (language.t('hf_titel'),
                                                 __version__), bg=BAR,
                              fg=ACCENT, font=self.f_title)
         titel_lbl.pack(side='left', padx=8)
-        notice.attach(titel_lbl, lambda: sprache.t('hinweis_ziehen'))
+        notice.attach(titel_lbl, lambda: language.t('hinweis_ziehen'))
 
         # ⚠ Alle Symbole kommen aus `scbp/icons.py` — fertige Bilder aus dem
         # Lucide-Satz, nicht mehr Schriftzeichen. Warum, steht dort ausführlich;
@@ -1982,7 +1982,7 @@ class Overlay:
         zu_lbl = icons.button(bar, 'schliessen', self.quit, fallback='X',
                                font=self.f_title)
         zu_lbl.pack(side='right', padx=8)
-        notice.attach(zu_lbl, lambda: sprache.t('hinweis_schliessen'))
+        notice.attach(zu_lbl, lambda: language.t('hinweis_schliessen'))
 
         # ⚠ Ein Radiergummi, kein Mülleimer. Der Knopf **löscht nichts** — er
         # räumt nur die angezeigten Meldungen weg, die Baupläne bleiben (siehe
@@ -1992,7 +1992,7 @@ class Overlay:
         leeren_lbl = icons.button(bar, 'leeren', self.clear,
                                    font=self.f_title)
         leeren_lbl.pack(side='right')
-        notice.attach(leeren_lbl, lambda: sprache.t('hinweis_leeren'))
+        notice.attach(leeren_lbl, lambda: language.t('hinweis_leeren'))
 
         # Einklappen: nur die Titelleiste bleibt stehen. Für alle mit **einem**
         # Bildschirm — dort liegt das Overlay zwangsläufig über dem Spiel, und
@@ -2025,7 +2025,7 @@ class Overlay:
                                              font=self.f_title)
             self.schloss_lbl.pack(side='right', padx=(0, 6))
             notice.attach(self.schloss_lbl,
-                              lambda: sprache.t('hinweis_schloss_zu'))
+                              lambda: language.t('hinweis_schloss_zu'))
 
         # ⚠ **Protokolle erneut einlesen** — der Knopf gehört hierher und nicht
         # nur in die Einstellungen. Der Fall, für den es ihn gibt, tritt genau
@@ -2037,7 +2037,7 @@ class Overlay:
                                           font=self.f_title)
         self.neulesen_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.neulesen_lbl,
-                          lambda: sprache.t('hinweis_neulesen'))
+                          lambda: language.t('hinweis_neulesen'))
 
         # Zwei Ansichten, ein Programm: die schmale Melde-Leiste bleibt, das
         # Verwaltungsfenster kommt auf Klick dazu.
@@ -2055,7 +2055,7 @@ class Overlay:
         self.liste_lbl = icons.button(bar, 'liste', self.liste_oeffnen,
                                        font=self.f_title)
         self.liste_lbl.pack(side='right', padx=(0, 6))
-        notice.attach(self.liste_lbl, lambda: sprache.t('hinweis_liste'))
+        notice.attach(self.liste_lbl, lambda: language.t('hinweis_liste'))
 
         # Das Zahnrad ist der direkte Griff in die Einstellungen. Bis v3.0.0 lag
         # daneben noch ein zweiter Knopf für den Einrichtungs-Assistenten — der
@@ -2068,7 +2068,7 @@ class Overlay:
                                        font=self.f_title)
         self.einst_lbl.pack(side='right', padx=(0, 6))
         notice.attach(self.einst_lbl,
-                          lambda: sprache.t('hinweis_einstellungen'))
+                          lambda: language.t('hinweis_einstellungen'))
 
         # ⚠ Der Startknopf gehört **hierher**, nicht auf eine Unterseite. Er saß
         # erst unter „Angaben im Spiel" — also dort, wo es um Auftragstexte
@@ -2093,7 +2093,7 @@ class Overlay:
             # der frühere Weg stellte danach `_status_text` wieder her — einen
             # Merker, der nie fortgeschrieben wird. Ein Bauplanfund war nach
             # einem Mausschlenker damit überschrieben.
-            notice.attach(self.start_lbl, lambda: sprache.t('s_sp_start'))
+            notice.attach(self.start_lbl, lambda: language.t('s_sp_start'))
 
         # ⚠ Eine Glocke statt des `ⓘ`. Ein „i" heisst „hier steht etwas", eine
         # Glocke heisst „fuer dich ist etwas da" — und genau darum geht es hier,
@@ -2116,7 +2116,7 @@ class Overlay:
         # Dasselbe für die Sprache: Wer in den Einstellungen auf Englisch
         # stellt, soll die Melde-Leiste **sofort** englisch sehen — nicht erst
         # nach einem Neustart, und nicht halb.
-        sprache.anmelden(self._neu_beschriften)
+        language.subscribe(self._neu_beschriften)
         for w in (bar, bar.winfo_children()[0]):
             w.bind('<Button-1>', self._drag_start)
             w.bind('<B1-Motion>', self._drag_move)
@@ -2125,7 +2125,7 @@ class Overlay:
             w.bind('<ButtonRelease-1>', self._verschoben)
 
         # --- Statuszeile ---
-        self._status_text = sprache.t('ov_starte')
+        self._status_text = language.t('ov_starte')
         # Woher der Text in der Statuszeile kam — solange dort der
         # Starttext steht, gibt es nichts aufzufrischen.
         self._status_quelle = None
@@ -2234,7 +2234,7 @@ class Overlay:
         self.root.bind('<Configure>', self._schloss_lage_folgen, add='+')
         self.root.bind('<Map>', self._schloss_lage_folgen, add='+')
         self.grip.bind('<ButtonRelease-1>', self._save_geo)   # Größe merken
-        notice.attach(self.grip, lambda: sprache.t('hinweis_groesse'))
+        notice.attach(self.grip, lambda: language.t('hinweis_groesse'))
 
         # Watcher starten
         # Version an die Bauplan-Liste durchreichen — sie landet im
@@ -2335,8 +2335,8 @@ class Overlay:
                 return
             pfade.einstellung_setzen('spiel_ordner', gewaehlt)
             _hf.show_result(
-                self.root, sprache.t('s_kn_titel'),
-                sprache.t('s_kn_umgestellt') % os.path.basename(gewaehlt))
+                self.root, language.t('s_kn_titel'),
+                language.t('s_kn_umgestellt') % os.path.basename(gewaehlt))
         except Exception as ausnahme:
             fehler.merken('watcher.kanal_pruefen', ausnahme)
 
@@ -2420,9 +2420,9 @@ class Overlay:
         """Star Citizen starten — über den Weg, den der Spieler ohnehin nutzt."""
         ok, grund = pfade.spiel_starten()
         if ok:
-            self._status_setzen(sprache.Satz('s_sp_start_lauft'))
+            self._status_setzen(language.Phrase('s_sp_start_lauft'))
         else:
-            self._status_setzen(sprache.Satz('s_sp_start_nein', grund))
+            self._status_setzen(language.Phrase('s_sp_start_nein', grund))
             fehler.merken('overlay.spiel_starten', OSError(str(grund)))
 
     def _ganz_beenden(self):
@@ -2483,7 +2483,7 @@ class Overlay:
         """Die Glocke heißt zweierlei — Versionsgeschichte, und bei Grün: „es
         gibt Neues"."""
         gruen = getattr(self.info_lbl, 'symbol_color', '') == icons.GREEN
-        return sprache.t('hinweis_neue_version' if gruen else 'hinweis_versionen')
+        return language.t('hinweis_neue_version' if gruen else 'hinweis_versionen')
 
     def _status_setzen(self, quelle):
         """Die Statuszeile setzen — und sich merken, **woher** der Text kam.
@@ -2497,12 +2497,12 @@ class Overlay:
         Ein fertiger Text (kein `Satz`) ist erlaubt — dann friert die Zeile in
         ihrer Sprache ein, statt falsch zu werden. `None` als Quelle sagt genau
         das: „hier gibt es nichts aufzufrischen"."""
-        self._status_quelle = quelle if sprache.auffrischbar(quelle) else None
+        self._status_quelle = quelle if language.is_refreshable(quelle) else None
         self.status.config(text=str(quelle))
 
     def _autostart_titel(self):
         """Wie der Schalter heißt — je nach System und **aktueller** Sprache."""
-        return sprache.t('autostart_win' if pfade.WINDOWS
+        return language.t('autostart_win' if pfade.WINDOWS
                          else 'autostart_linux')
 
     def _neu_beschriften(self):
@@ -2519,16 +2519,16 @@ class Overlay:
         aktuell."""
         try:
             if getattr(self, '_ph', None) and self._ph.winfo_exists():
-                self._ph.config(text=sprache.t('ov_warte'))
+                self._ph.config(text=language.t('ov_warte'))
             # Die Statuszeile: Steht dort noch der Starttext, wird der
             # erneuert. Steht dort eine echte Meldung, wird sie **nicht**
             # weggewischt — sondern in der neuen Sprache neu gesetzt, sofern
             # sie ihren Schlüssel mitgebracht hat.
             quelle = getattr(self, '_status_quelle', None)
             if self.status.cget('text') == self._status_text:
-                self._status_text = sprache.t('ov_starte')
+                self._status_text = language.t('ov_starte')
                 self.status.config(text=self._status_text)
-            elif sprache.auffrischbar(quelle):
+            elif language.is_refreshable(quelle):
                 self.status.config(text=str(quelle))
             # Und jede Hinweiszeile, die noch in der Liste steht. Gegangen wird
             # über die Widgets selbst: Was hinausgerollt ist, ist auch weg —
@@ -2536,7 +2536,7 @@ class Overlay:
             for zeile in self.list.pack_slaves():
                 for teil in zeile.winfo_children():
                     quelle = getattr(teil, '_quelle', None)
-                    if sprache.auffrischbar(quelle):
+                    if language.is_refreshable(quelle):
                         teil.config(text=str(quelle))
         except Exception as ausnahme:
             fehler.merken('overlay._neu_beschriften', ausnahme)
@@ -2817,7 +2817,7 @@ class Overlay:
             lb.config(wraplength=max(160, w - 40))
 
     def _placeholder(self):
-        self._ph = tk.Label(self.list, text=sprache.t('ov_warte'),
+        self._ph = tk.Label(self.list, text=language.t('ov_warte'),
                             bg=BG, fg=SUB, font=self.f_sub)
         self._ph.pack(anchor='w', padx=4, pady=6)
 
@@ -2836,7 +2836,7 @@ class Overlay:
         # wie ein Fund von eben — und wer gerade nichts freigeschaltet hat,
         # fragt sich, woher der kommt.
         if nachlese:
-            parts.append(sprache.t('nachlese_marke'))
+            parts.append(language.t('nachlese_marke'))
         return ' · '.join(parts)
 
     def add_new(self, key, art, meta, ts, nachlese=False):
@@ -2936,10 +2936,10 @@ class Overlay:
             self.auftragsleiste.pack_forget()
             return
 
-        kopf = tk.Label(self.auftragsleiste, text=sprache.t('ov_auftraege_kopf'),
+        kopf = tk.Label(self.auftragsleiste, text=language.t('ov_auftraege_kopf'),
                         bg=BG, fg=SUB, font=self.f_sub, anchor='w')
         kopf.pack(fill='x')
-        kopf._quelle = sprache.Satz('ov_auftraege_kopf')
+        kopf._quelle = language.Phrase('ov_auftraege_kopf')
 
         for eintrag in paare:
             rein, zeile = eintrag[0], eintrag[1]
@@ -2948,7 +2948,7 @@ class Overlay:
             z.pack(fill='x')
             lbl = tk.Label(z, text=str(zeile), bg=BG, fg=FG, font=self.f_sub,
                            anchor='w', justify='left')
-            if sprache.auffrischbar(zeile):
+            if language.is_refreshable(zeile):
                 lbl._quelle = zeile
             lbl.pack(side='left', fill='x', expand=True, anchor='w')
             # ⚠ In die Umbruchliste. Ohne das steht die Zeile in einer festen
@@ -2966,7 +2966,7 @@ class Overlay:
                                 font=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=rein: self._auftrag_ausblenden(r))
-            notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
+            notice.attach(weg, lambda: language.t('ov_auftrag_weg'))
             self._auftrag_zeilen.append(lbl)
             self._ziele_zeigen(ziele)
 
@@ -3001,10 +3001,10 @@ class Overlay:
         rest = len(ziele) - contracts.OBJECTIVES_MAX
         if rest > 0:
             mehr = tk.Label(self.auftragsleiste,
-                            text=sprache.t('ov_ziele_mehr', rest),
+                            text=language.t('ov_ziele_mehr', rest),
                             bg=BG, fg=SUB, font=self.f_sub, anchor='w')
             mehr.pack(fill='x', padx=(14, 0))
-            mehr._quelle = sprache.Satz('ov_ziele_mehr', rest)
+            mehr._quelle = language.Phrase('ov_ziele_mehr', rest)
 
     def _auftrag_ausblenden(self, rein):
         """Der Spieler nimmt einen Auftrag selbst aus der Anzeige."""
@@ -3068,7 +3068,7 @@ class Overlay:
         # Fenster, deutsche Zeile „Keine Log-Sicherungen gefunden".
         # Gemerkt wird am Widget selbst, nicht in einer eigenen Liste — sonst
         # bleiben beim Hinausrollen (`_trim`) Leichen zurück.
-        if sprache.auffrischbar(text):
+        if language.is_refreshable(text):
             lbl._quelle = text
         lbl.pack(side='left', fill='x', expand=True, anchor='w')
         self._wrap_labels.append(lbl)
@@ -3081,7 +3081,7 @@ class Overlay:
                                 font=self.f_sub)
             weg.pack(side='right', padx=(8, 2))
             weg.bind('<Button-1>', lambda _e, r=auftrag: self._auftrag_ausblenden(r))
-            notice.attach(weg, lambda: sprache.t('ov_auftrag_weg'))
+            notice.attach(weg, lambda: language.t('ov_auftrag_weg'))
         self._fit_width()
         if top:
             row.pack_configure(before=top[0])
@@ -3106,8 +3106,8 @@ class Overlay:
         # ⚠ Über `sprache.t`, nicht fest: Beide Schlüssel gab es längst
         # (`jetzt_craftbar`, `neu_craftbar`), benutzt hat sie niemand — die
         # Zeile blieb dadurch auch auf Englisch deutsch.
-        unten = (sprache.t('jetzt_craftbar', titel) if titel
-                 else sprache.t('neu_craftbar'))
+        unten = (language.t('jetzt_craftbar', titel) if titel
+                 else language.t('neu_craftbar'))
         # Titel aus der Beobachtungsliste können lang sein -> umbrechen statt abschneiden
         sub = tk.Label(txt, text=' · '.join(x for x in (unten, art, ts) if x), bg=BG,
                        fg=PROV if titel else CATA, font=self.f_sub, anchor='w', justify='left')
@@ -3257,14 +3257,14 @@ class Overlay:
             # ⚠ Zwei eigenständige Sätze in einer Zeile — als `Kette`, damit
             # auch diese Meldung beim Sprachwechsel mitzieht. Das Trennzeichen
             # ist Satzzeichen, kein Text, und braucht deshalb keinen Schlüssel.
-            self.q.put(('hinweis', sprache.verbinden(
-                ' — ', sprache.Satz('neue_version_da', neu['version']),
-                sprache.Satz('was_ist_neu'))))
+            self.q.put(('hinweis', language.join_parts(
+                ' — ', language.Phrase('neue_version_da', neu['version']),
+                language.Phrase('was_ist_neu'))))
         except Exception:
             pass
 
     def _hinweis_klappen(self):
-        return sprache.t('hinweis_ausklappen' if self.eingeklappt
+        return language.t('hinweis_ausklappen' if self.eingeklappt
                          else 'hinweis_einklappen')
 
     def umklappen(self):
@@ -3793,7 +3793,7 @@ class Overlay:
             fehler.merken('overlay.durchklick', ausnahme)
             geklappt = False
         if an and not geklappt:
-            self._status_setzen(sprache.Satz('ov_durchklick_geht_nicht'))
+            self._status_setzen(language.Phrase('ov_durchklick_geht_nicht'))
         # ⚠ Den Schiebeschalter auf der Seite „Anzeige" mitziehen, falls sie
         # gerade offen ist. Gemeldet am 02.09.2026: Wer das Durchreichen am
         # Schloss umlegte, sah dort weiter den alten Zustand — richtig wurde er
@@ -4039,7 +4039,7 @@ class Overlay:
             marke.pack(expand=True)
             self._schloss.bind('<Button-1>', lambda e: self._schloss_loesen())
             notice.attach(self._schloss,
-                              lambda: sprache.t('hinweis_schloss'))
+                              lambda: language.t('hinweis_schloss'))
             self._schloss.geometry('%dx%d+%d+%d' % (breite, hoehe, x, y))
             self._schloss.lift()
             # Und das Schloss darunter sagt jetzt dasselbe: zu und grün. Sichtbar
@@ -4243,7 +4243,7 @@ class Overlay:
         pfade.einstellung_setzen('durchklickbar', False)
         self._durchklick_war_an = True   # damit `durchklick_anwenden` es aufhebt
         self.durchklick_anwenden()
-        self._status_setzen(sprache.Satz('ov_schloss_offen'))
+        self._status_setzen(language.Phrase('ov_schloss_offen'))
 
     def _logs_neu_einlesen(self):
         """Klick auf den Knopf in der Leiste: alle Protokolle noch einmal lesen.
@@ -4251,9 +4251,9 @@ class Overlay:
         Die Arbeit macht der Watcher-Faden, hier wird nur gebeten. Läuft keiner,
         wird das gesagt, statt so zu tun als sei etwas passiert."""
         if overlay.request_rescan():
-            self._status_setzen(sprache.Satz('s_be_neu_los'))
+            self._status_setzen(language.Phrase('s_be_neu_los'))
         else:
-            self._status_setzen(sprache.Satz('s_be_neu_kein'))
+            self._status_setzen(language.Phrase('s_be_neu_kein'))
 
     def _schloss_zusperren(self):
         """Klick auf das offene Schloss in der Leiste: Klicks ab jetzt ins Spiel.
@@ -4268,7 +4268,7 @@ class Overlay:
         Einstellungen (`seiten._click_through_toggle`)."""
         pfade.einstellung_setzen('durchklickbar', True)
         if self.durchklick_anwenden():
-            self._status_setzen(sprache.Satz('ov_schloss_zu'))
+            self._status_setzen(language.Phrase('ov_schloss_zu'))
         else:
             pfade.einstellung_setzen('durchklickbar', False)
 
@@ -4358,7 +4358,7 @@ class Overlay:
                 self._anfasser.bind('<Button-1>',
                                     lambda e: self._popup_zeigen(wegen_maus=True))
                 notice.attach(self._anfasser,
-                                  lambda: sprache.t('hinweis_anfasser'))
+                                  lambda: language.t('hinweis_anfasser'))
             self._anfasser.geometry('%dx%d+%d+%d'
                                     % (self.ANFASSER_BREITE, self.ANFASSER_HOEHE,
                                        x, y))
@@ -4571,29 +4571,29 @@ class Overlay:
             return lambda: self.root.after(0, lambda: tat(*args))
 
         eintraege = [
-            (sprache.t('tray_zeigen'), im_tk(self.hervorholen)),
-            (sprache.t('tray_einstellungen'), im_tk(self.einstellungen_oeffnen)),
+            (language.t('tray_zeigen'), im_tk(self.hervorholen)),
+            (language.t('tray_einstellungen'), im_tk(self.einstellungen_oeffnen)),
             None,
         ]
         # ⚠ Wie der Knopf im Overlay: nur, wenn wirklich ein Startweg da ist.
         # Ein Menüpunkt, der nichts tut, ist schlimmer als keiner.
         if pfade.spielstarter():
-            eintraege.append((sprache.t('tray_launcher'),
+            eintraege.append((language.t('tray_launcher'),
                               im_tk(self._spiel_starten)))
         eintraege += [
-            (sprache.t('tray_uebersetzung'), im_tk(self._uebersetzung_erneuern)),
+            (language.t('tray_uebersetzung'), im_tk(self._uebersetzung_erneuern)),
             None,
-            (sprache.t('tray_discord'),
+            (language.t('tray_discord'),
              im_tk(self._adresse_oeffnen, DISCORD_URL, 'overlay.discord')),
-            (sprache.t('hf_kofi'),
+            (language.t('hf_kofi'),
              im_tk(self._adresse_oeffnen, KOFI_URL, 'overlay.kofi')),
             None,
             # Die Version als Auskunft UND als Weg: Der Klick öffnet die Seite
             # „Update & Über", dort steht die Update-Prüfung.
-            (sprache.t('tray_version', __version__),
+            (language.t('tray_version', __version__),
              im_tk(self.fenster_oeffnen, 'ueber')),
             None,
-            (sprache.t('tray_beenden'), im_tk(self._ganz_beenden)),
+            (language.t('tray_beenden'), im_tk(self._ganz_beenden)),
         ]
         return eintraege
 
@@ -4736,9 +4736,9 @@ class Overlay:
         import threading
         pfad, sprache_ordner, _quelle = injection.ini_file()
         if not pfad:
-            self._status_setzen(sprache.Satz('inj_fehler', 'global.ini'))
+            self._status_setzen(language.Phrase('inj_fehler', 'global.ini'))
             return
-        self._status_setzen(sprache.Satz('inj_laeuft'))
+        self._status_setzen(language.Phrase('inj_laeuft'))
 
         def arbeit():
             try:
@@ -4746,8 +4746,8 @@ class Overlay:
             except Exception as ausnahme:
                 ok, n, meldung = False, 0, str(ausnahme)
                 fehler.merken('overlay.uebersetzung_erneuern', ausnahme)
-            satz = (sprache.Satz('inj_aktiv', n) if ok
-                    else sprache.Satz('inj_fehler', meldung))
+            satz = (language.Phrase('inj_aktiv', n) if ok
+                    else language.Phrase('inj_fehler', meldung))
             self.root.after(0, lambda: self._status_setzen(satz))
 
         threading.Thread(target=arbeit, daemon=True).start()
@@ -4765,7 +4765,7 @@ class Overlay:
             fehler.merken(stelle, ausnahme, adresse)
             geklappt = False
         if not geklappt:
-            self._status_setzen(sprache.Satz('s_ub_auf_nein', adresse))
+            self._status_setzen(language.Phrase('s_ub_auf_nein', adresse))
 
     def hervorholen(self):
         """Von außen gerufen: Fenster her, egal in welchem Betrieb.
@@ -4809,9 +4809,9 @@ class Overlay:
                 beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen),
                 # ⚠ Produktname von hier, nicht aus dem Standardwert des
                 # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
-                titel=sprache.t('hf_titel'))
-            geklappt = self._ablage.start(sprache.t('tray_zeigen'),
-                                            sprache.t('tray_beenden'),
+                titel=language.t('hf_titel'))
+            geklappt = self._ablage.start(language.t('tray_zeigen'),
+                                            language.t('tray_beenden'),
                                             menue=self._ablage_menue())
             fehler.spur('Ablagesymbol: %s'
                         % ('steht' if geklappt else 'NICHT angelegt'))
@@ -4937,7 +4937,7 @@ if __name__ == '__main__':
     # Die Knöpfe der System-Abfragen auf die Programmsprache bringen. Muss nach
     # dem Tk-Start stehen und vor der ersten Abfrage — der Assistent kann schon
     # eine zeigen.
-    sprache.knoepfe_eindeutschen(wurzel)
+    language.localize_buttons(wurzel)
     fehler.spur('Tk-Wurzel steht')
 
     zeige_liste = False

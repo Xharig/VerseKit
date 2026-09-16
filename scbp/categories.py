@@ -54,7 +54,7 @@ der Vorsatz `art:` für Einzelgänger steht in gespeicherten Filtern.
 """
 import re
 
-from .sprache import t
+from .language import t
 
 # --- Die feinen Arten, wie sie im Tag der Rezeptdaten stehen ---------------
 # ⚠ Reihenfolge egal, aber die Schreibweise muss zum Tag passen; verglichen

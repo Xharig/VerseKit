@@ -42,9 +42,9 @@ import tkinter as tk
 from . import injection
 from . import pfade
 from . import gametext
-from . import sprache
+from . import language
 from . import translation
-from .sprache import t, fenstertitel
+from .language import t, window_title
 
 BG      = '#10141c'
 SURFACE = '#161c28'
@@ -75,7 +75,7 @@ class SettingsWindow:
             self.root.configure(bg=BG)
         else:
             self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
-            self.root.title(fenstertitel(t('titel_einstellungen')))
+            self.root.title(window_title(t('titel_einstellungen')))
             self.root.configure(bg=BG)
             # ⚠⚠ **Mit Position, nicht nur mit Größe.** Ein `geometry` ohne
             # `+x+y` überlässt die Platzierung dem Fenstermanager — und der
@@ -203,7 +203,7 @@ class SettingsWindow:
         wird trotzdem erst mit dem Knopf — sonst könnte man nichts ausprobieren,
         ohne es zu übernehmen."""
         self.sprache_wahl.set(wert)
-        sprache.setzen(wert)
+        language.set_language(wert)
         # ⚠ Seit v3.0.0 gibt es keinen Speichern-Knopf mehr — also muss die Wahl
         # hier festgehalten werden. Vorher wurde nur der laufende Betrieb
         # umgestellt: Die Oberfläche sprach Deutsch, die Markierung stand
