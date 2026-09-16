@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.44.2'
+__version__ = '3.44.3'
 
 
 def _mitgeliefert(name):
@@ -1195,7 +1195,7 @@ class Watcher(threading.Thread):
         """Was die Anzeige braucht: `(Schluessel, Zeile, Zwischenziele)`.
 
         ⚠⚠ **Die eine Stelle, die den Auftragsstand nach aussen gibt.** Vorher
-        stand `list(self._offene_contracts.items())` an vier Stellen im Code;
+        stand `list(self._offene_auftraege.items())` an vier Stellen im Code;
         eine davon zu vergessen hiesse, dass die Leiste je nach Anlass etwas
         anderes zeigt.
         """
@@ -1203,7 +1203,7 @@ class Watcher(threading.Thread):
         for kennung, rein in self._auftrag_missionen.items():
             zu_mission.setdefault(rein, kennung)
         return [(rein, zeile, self._ziele.open_for(zu_mission.get(rein)))
-                for rein, zeile in self._offene_contracts.items()]
+                for rein, zeile in self._offene_auftraege.items()]
 
     def auftrag_wegklicken(self, rein):
         """Einen Auftrag von Hand aus der Anzeige nehmen.
@@ -1217,7 +1217,7 @@ class Watcher(threading.Thread):
         Der Titel bleibt in `_auftraege_gesehen`, damit er nicht beim naechsten
         Log-Abschnitt wieder auftaucht.
         """
-        if self._offene_contracts.pop(rein, None) is not None:
+        if self._offene_auftraege.pop(rein, None) is not None:
             self.q.put(('auftraege', self._auftragsstand()))
         # Auch dann melden, wenn er in der Leiste schon weg war: Die Zeile in
         # der Liste kann trotzdem noch stehen, und genau die will man los.
@@ -1448,7 +1448,7 @@ class Watcher(threading.Thread):
                 # hat in v3.4.4 laufende Auftraege mitgerissen.
                 continue
             offen_jetzt.pop(weg, None)
-            if self._offene_contracts.pop(weg, None) is not None:
+            if self._offene_auftraege.pop(weg, None) is not None:
                 veraendert = True
             for kennung in [k for k, v in self._auftrag_missionen.items()
                             if v == weg]:
