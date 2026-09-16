@@ -5769,7 +5769,8 @@ def _thanks(fenster, rahmen):
             ('Horthy', 'KRT', t('s_dk_horthy_idee'), ''),
             ('Bushwick4712', 'KRT',
              t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2')
-             + '\n\n' + t('s_dk_bushwick_idee3'),
+             + '\n\n' + t('s_dk_bushwick_idee3')
+             + '\n\n' + t('s_dk_bushwick_idee4'),
              t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),

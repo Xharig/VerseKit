@@ -55,7 +55,15 @@ from . import paths
 # Wie oft nachgesehen wird. `updater.MIN_INTERVAL` passt dazu.
 CHECK_INTERVAL_S = 30 * 60
 # Solange ein Update auf das Ende des Spiels wartet: so oft nachsehen.
-GAME_POLL_S = 60
+# ⚠ 20 statt 60 Sekunden (17.09.2026) — Wunsch Bushwick4712 (KRT): das Update
+# gut eine Minute nach Spielende, nicht fünf. Die Prozessliste zu lesen kostet
+# unter Windows wenige Millisekunden.
+GAME_POLL_S = 20
+# Ist die Prozessliste lesbar und das Spiel NICHT darin, gilt es als beendet,
+# sobald die `Game.log` so lange still ist. Die kurze Frist fängt das Aufräumen
+# beim Beenden ab (Absturzmelder, letzte Zeilen). Nur ohne lesbare Prozessliste
+# gilt weiter die lange Frist aus `paths.GAME_IDLE_SEC` (fünf Minuten).
+EXIT_QUIET_S = 30
 # So alt muss eine Freigabe sein, bevor sie automatisch geholt wird.
 FRESH_WAIT_S = 10 * 60
 
@@ -162,11 +170,30 @@ def _linux_game_process(proc='/proc'):
     return False
 
 
+def _log_quiet_for():
+    """Sekunden seit dem letzten Schreiben der `Game.log` — oder None."""
+    try:
+        log_file = paths.game_log()
+        if not log_file:
+            return None
+        return time.time() - os.path.getmtime(log_file)
+    except Exception:
+        return None
+
+
 def game_running():
     """Läuft Star Citizen? Im Zweifel **ja**.
 
-    Ja, wenn der Prozess da ist **oder** das Log gerade geschrieben wird. Lässt
-    sich die Prozessliste nicht lesen, zählt das Log allein.
+    | Prozessliste | Entscheidung |
+    |---|---|
+    | Spiel darin | läuft |
+    | lesbar, Spiel **nicht** darin | läuft nur, wenn die Log in den letzten `EXIT_QUIET_S` geschrieben wurde |
+    | nicht lesbar | die Log allein, mit der langen Frist (`paths.game_running`) |
+
+    ⚠ Bis zum 17.09.2026 galt die lange Frist **immer**: Das Update kam frühestens
+    fünf Minuten nach Spielende, obwohl die Prozessliste längst sagte, dass das
+    Spiel zu ist. Gemessen am selben Abend: Spiel um 00:08:25 beendet, VerseKit
+    wartete bis 00:13:25 — und um 00:13:15 lief das Spiel schon wieder.
     """
     try:
         process = (_windows_game_process() if sys.platform == 'win32'
@@ -175,4 +202,7 @@ def game_running():
         process = None
     if process:
         return True
+    if process is False:
+        quiet = _log_quiet_for()
+        return quiet is not None and quiet < EXIT_QUIET_S
     return bool(paths.game_running())

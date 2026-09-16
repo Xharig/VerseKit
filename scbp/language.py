@@ -2289,6 +2289,10 @@ TEXTS = {
                               '**Reputation and cooldown in the contract texts** — '
                               'asked twice, persistently, until they were not just '
                               'there but actually noticeable.'),
+    's_dk_bushwick_idee4':   ('**Das Update gleich nach dem Spiel** — eine Minute '
+                              'nach dem Beenden statt fünf.',
+                              '**Updating right after the game** — one minute '
+                              'after quitting instead of five.'),
     's_dk_bushwick_bugs2':   ('Die Frage, was eine selbst gebaute **NDB-30** '
                               'wirklich besser kann. Die Herstellung zeigte '
                               'nur Faktoren je Material, aber nicht, was am '

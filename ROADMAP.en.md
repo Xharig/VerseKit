@@ -68,7 +68,7 @@ Four things are deliberate and will stay that way:
 | ✅ | **Device hub**: every input device in one place — the number Star Citizen gives it, the name the system knows it by, and whether it is plugged in right now; unplugged devices show up by themselves |
 | ✅ | **Verified updates**: every release ships its own checksum, and only a file that matches is installed — otherwise nothing, with a pointer to the manual download |
 | ✅ | **One-click update**: one click downloads, checks, installs and restarts the watcher by itself — on the next start it tells you how it went |
-| ✅ | **Automatic updates**: new versions arrive by themselves, right after you quit the game — never while Star Citizen is running; can be switched off |
+| ✅ | **Automatic updates**: new versions arrive by themselves, about a minute after you quit the game — never while Star Citizen is running; can be switched off |
 | ✅ | **Wishlist**: ships you are aiming for — with price, location and a loadout you can plan before you own the ship |
 | ✅ | **Still missing**: the bill across all ships — buy or build per slot, with grade and class on every part, total and shopping route; tick off what you fitted |
 | ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe |

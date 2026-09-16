@@ -73,7 +73,7 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Geräte-Hub**: alle Eingabegeräte an einem Ort — welche Nummer Star Citizen ihnen gibt, wie das System sie führt, und ob sie gerade angesteckt sind; abgezogene Geräte fallen von selbst auf |
 | ✅ | **Geprüfte Updates**: jedes Release bringt seine Prüfsumme mit, und eingespielt wird nur, was ihr entspricht — sonst gar nichts, mit Hinweis auf den Download von Hand |
 | ✅ | **Ein-Klick-Update**: ein Klick lädt, prüft, spielt ein und startet den Watcher von selbst neu — beim nächsten Start sagt er, was daraus wurde |
-| ✅ | **Automatisches Update**: neue Versionen kommen von selbst, gleich nach Spielende — nie, während Star Citizen läuft; abschaltbar |
+| ✅ | **Automatisches Update**: neue Versionen kommen von selbst, gut eine Minute nach Spielende — nie, während Star Citizen läuft; abschaltbar |
 
 ## Woran gearbeitet wird
 
