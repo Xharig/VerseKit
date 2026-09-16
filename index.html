@@ -210,15 +210,15 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     <h2 data-de="Sieh dir das Werkzeug an, bevor du es lädst"
         data-en="Look at the tool before you download it">Sieh dir das Werkzeug an, bevor du es lädst</h2>
     <p class="einleitung"
-       data-de="Klick dich links durch die Bereiche. Die Bilder zeigen das Programm mit Beispieldaten — so sieht es bei dir aus, wenn du es startest."
-       data-en="Click through the areas on the left. The pictures show the program with example data — that is what it looks like when you start it.">
-      Klick dich links durch die Bereiche. Die Bilder zeigen das Programm mit Beispieldaten — so sieht es bei dir aus, wenn du es startest.
+       data-de="Links steht die Seitenleiste wie im Programm — dieselben Gruppen, dieselbe Reihenfolge. Die Bilder zeigen das Werkzeug mit Beispieldaten."
+       data-en="On the left is the sidebar as it is in the program — same groups, same order. The pictures show the tool with example data.">
+      Links steht die Seitenleiste wie im Programm — dieselben Gruppen, dieselbe Reihenfolge. Die Bilder zeigen das Werkzeug mit Beispieldaten.
     </p>
 
     <div class="tour">
       <div class="reiter" id="reiter"></div>
       <div class="bild">
-        <img id="tourbild" src="assets/screenshot-liste.png" alt="">
+        <img id="tourbild" src="assets/screenshot-overlay.png" alt="">
         <div class="bu" id="tourtext"></div>
       </div>
     </div>
@@ -342,10 +342,19 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
 </footer>
 
 <script>
-/* Der Rundgang. Je Eintrag: Bilddatei, Beschriftung und Bildunterschrift
-   in beiden Sprachen. Die englischen Bilder heißen wie die deutschen,
-   nur mit "-en" vor der Endung — so erzeugt sie tools/bilder_machen.py. */
+/* Der Rundgang.
+   ⚠ Gruppen und Reihenfolge sind KEINE eigene Erfindung — sie stehen genau
+   so in `scbp/main_window.py` (die `_tab(...)`-Aufrufe je Gruppe). Wer dort
+   einen Reiter verschiebt oder umbenennt, zieht diese Liste mit.
+   Aufgenommen sind nur Bereiche, von denen es ein Bild gibt.
+   Die englischen Bilder heissen wie die deutschen, nur mit "-en" vor der
+   Endung — so erzeugt sie tools/bilder_machen.py. */
 var GRUPPEN = [
+  {de:"Overlay", en:"Overlay", eintraege:[
+    {bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
+     bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend — und auf Wunsch lässt es Mausklicks durch.",
+     ben:"The small window over the game: narrow, always on top, see-through — and it can let mouse clicks pass through."}
+  ]},
   {de:"Baupläne", en:"Blueprints", eintraege:[
     {bild:"screenshot-liste.png", de:"Bauplan-Liste", en:"Blueprint list",
      bde:"Alle Baupläne durchsuchen, nach Art gruppiert, mit fünf Filtern und Häkchen per Klick.",
@@ -355,10 +364,7 @@ var GRUPPEN = [
      ben:"Per type you see how far along you are — and what is missing to complete it."},
     {bild:"screenshot-auftragslog.png", de:"Aufträge & Protokoll", en:"Missions & log",
      bde:"Welchen Auftrag du wann gespielt hast und welcher Bauplan dabei herauskam.",
-     ben:"Which contract you played when, and which blueprint came out of it."},
-    {bild:"screenshot-bestand.png", de:"Bauplan-Bestand", en:"Blueprint inventory",
-     bde:"Dein eigener Bestand — auch ohne fremde Werkzeuge geführt und gesichert.",
-     ben:"Your own inventory — kept and backed up without any other tool."}
+     ben:"Which contract you played when, and which blueprint came out of it."}
   ]},
   {de:"Schiffe", en:"Ships", eintraege:[
     {bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
@@ -370,6 +376,28 @@ var GRUPPEN = [
     {bild:"screenshot-einkaufsliste.png", de:"Was noch fehlt", en:"Still missing",
      bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
      ben:"The bill across all your ships: buy or build, with a total and a shopping route."},
+    {bild:"screenshot-asop-ingame.jpg", de:"Schiffe benennen", en:"Rename ships",
+     bde:"Im Abrufterminal heißen deine Schiffe so, wie du sie nennst — statt „Anvil F7C-M Super Hornet Mk II“.",
+     ben:"In the ASOP terminal your ships are called what you call them — instead of “Anvil F7C-M Super Hornet Mk II”."}
+  ]},
+  {de:"Werkstatt", en:"Workshop", eintraege:[
+    {bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
+     bde:"Was du an Material hast, mit Güte und Lagerort — im Rezept steht dann, was fehlt.",
+     ben:"What material you have, with quality and location — the recipe then shows what is missing."},
+    {bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
+     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand — und ob du den Bauplan dafür hast.",
+     ben:"Ingredients, amounts and crafting time for every item — and whether you have the blueprint."},
+    {bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
+     bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
+     ben:"Type a material to see where it is found, or type a location to see what is there."},
+    {bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
+     bde:"Wo das fertige Teil im Regal steht und was es dort kostet — der günstigste Laden oben.",
+     ben:"Where the finished part sits on the shelf and what it costs — cheapest shop first."},
+    {bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
+     bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
+     ben:"Your storage measured against everything you want to build — across all items at once."}
+  ]},
+  {de:"Bergung", en:"Salvage", eintraege:[
     {bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
      bde:"Was ein Wrack ab Werk an Bord hat — und was die Teile im Laden wert sind.",
      ben:"What a wreck carries from the factory — and what those parts are worth in a shop."},
@@ -377,52 +405,41 @@ var GRUPPEN = [
      bde:"Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.",
      ben:"What the fabricator gives back, before you fire up the cutter."}
   ]},
-  {de:"Werkstatt", en:"Workshop", eintraege:[
-    {bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
-     bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand — und ob du den Bauplan dafür hast.",
-     ben:"Ingredients, amounts and crafting time for every item — and whether you have the blueprint."},
-    {bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
-     bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
-     ben:"Type a material to see where it is found, or type a location to see what is there."},
-    {bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
-     bde:"Was du an Material hast, mit Güte und Lagerort — im Rezept steht dann, was fehlt.",
-     ben:"What material you have, with quality and location — the recipe then shows what is missing."},
-    {bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
-     bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
-     ben:"Your storage measured against everything you want to build — across all items at once."}
-  ]},
   {de:"Handel", en:"Trading", eintraege:[
-    {bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
-     bde:"Wo das fertige Teil im Regal steht und was es dort kostet — der günstigste Laden oben.",
-     ben:"Where the finished part sits on the shelf and what it costs — cheapest shop first."},
-    {bild:"screenshot-verkauf.png", de:"Verkauf", en:"Selling",
-     bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt.",
-     ben:"Where to sell your cargo, sorted by how much a location takes at once."},
     {bild:"screenshot-handelslager.png", de:"Handelslager", en:"Cargo hold",
      bde:"Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Baumaterial.",
-     ben:"What you are carrying to sell — deliberately kept apart from building material."}
+     ben:"What you are carrying to sell — deliberately kept apart from building material."},
+    {bild:"screenshot-verkauf.png", de:"Verkauf", en:"Selling",
+     bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt.",
+     ben:"Where to sell your cargo, sorted by how much a location takes at once."}
   ]},
-  {de:"Im Spiel", en:"In game", eintraege:[
-    {bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
-     bde:"Schmal, immer im Vordergrund, durchscheinend — und auf Wunsch lässt es Mausklicks durch.",
-     ben:"Narrow, always on top, see-through — and it can let mouse clicks pass through."},
+  {de:"Einstellungen", en:"Settings", eintraege:[
+    {bild:"screenshot-allgemein.png", de:"Allgemein", en:"General",
+     bde:"Spielordner, Start mit Windows, Signalton — und der Einrichtungsassistent, jederzeit wiederholbar.",
+     ben:"Game folder, start with Windows, alert sound — and the setup assistant, repeatable at any time."},
+    {bild:"screenshot-anzeige.png", de:"Anzeige", en:"Display",
+     bde:"Durchsichtigkeit, Schriftgröße, Sprache der Oberfläche — deutsch oder englisch.",
+     ben:"Opacity, font size, interface language — German or English."},
     {bild:"screenshot-auftragstexte.png", de:"Texte im Spiel", en:"In-game text",
      bde:"VerseKit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen.",
      ben:"VerseKit writes into the contract texts which blueprints are included and which you lack."},
-    {bild:"screenshot-asop-ingame.jpg", de:"Schiffe benennen", en:"Rename ships",
-     bde:"Im Abrufterminal heißen deine Schiffe so, wie du sie nennst — statt „Anvil F7C-M Super Hornet Mk II“.",
-     ben:"In the ASOP terminal your ships are called what you call them — instead of “Anvil F7C-M Super Hornet Mk II”."}
-  ]},
-  {de:"Mehr", en:"More", eintraege:[
     {bild:"screenshot-blickwinkel.png", de:"FOV", en:"Field of view",
      bde:"Sitzt du richtig vor deinem Bildschirm? Breite mit einer Bankkarte messen, Abstand angeben, fertig.",
      ben:"Are you sitting right in front of your screen? Measure the width with a bank card, enter the distance, done."},
-    {bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
-     bde:"Läuft Star Citizen gerade? Was CIG meldet, frischt sich jede Minute selbst auf.",
-     ben:"Is Star Citizen up? What CIG reports, refreshing itself every minute."},
+    {bild:"screenshot-bestand.png", de:"Bauplan-Bestand", en:"Blueprint inventory",
+     bde:"Dein eigener Bestand — einlesen, sichern und wieder einspielen, auch ohne fremde Werkzeuge.",
+     ben:"Your own inventory — import it, back it up and restore it, without any other tool."}
+  ]},
+  {de:"Info", en:"Info", eintraege:[
     {bild:"screenshot-wasistneu.png", de:"Was ist neu", en:"What's new",
      bde:"Die Änderungen dieser und älterer Versionen — nachlesbar direkt im Programm.",
      ben:"The changes in this and older versions — readable right inside the program."},
+    {bild:"screenshot-ueber.png", de:"Update & Über", en:"Update & About",
+     bde:"Neue Version holen, Testfassungen ein- oder ausschalten, nachsehen wo die eigenen Dateien liegen.",
+     ben:"Fetch a new version, switch test builds on or off, see where your own files are kept."},
+    {bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
+     bde:"Läuft Star Citizen gerade? Was CIG meldet, frischt sich jede Minute selbst auf.",
+     ben:"Is Star Citizen up? What CIG reports, refreshing itself every minute."},
     {bild:"screenshot-danke.png", de:"Danke & Lizenzen", en:"Thanks & Licenses",
      bde:"Wer geholfen hat, steht im Programm. Wer einen Fehler meldet, wird namentlich genannt.",
      ben:"Everyone who helped is named in the program. Whoever reports a bug is named."}
