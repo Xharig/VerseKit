@@ -531,7 +531,7 @@ def needed():
 def start(eltern=None):
     """Assistent durchlaufen. Gibt (fertig, liste_zeigen) zurück."""
     a = Wizard(eltern)
-    fertig = a.durchlaufen()
+    fertig = a.run()
     return fertig, a.liste_zeigen
 
 

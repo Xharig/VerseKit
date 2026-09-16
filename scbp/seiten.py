@@ -5695,7 +5695,8 @@ def _thanks(fenster, rahmen):
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
-            ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), '')):
+            ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
+            ('KynoTnis', 'ADI', '', t('s_dk_kynotnis_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
