@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.42.1 - 2026-09-16
+
+> **Razor, Fury, Guardian and Pulse now appear only once in your hangar.** CIG
+> moved the four from MISC to Mirai — reading both exports showed them twice.
+> This cleans itself up on the next start.
+
 ### Fixed
 
 - **Razor, Fury, Guardian and Pulse appeared twice in the hangar** when one

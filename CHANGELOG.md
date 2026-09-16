@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.42.1 - 2026-09-16
+
+> **Razor, Fury, Guardian und Pulse stehen nur noch einmal im Hangar.** CIG hat
+> die vier von MISC zu Mirai verschoben — wer beide Exporte einliest, bekam sie
+> doppelt angezeigt. Beim nächsten Start räumt sich das von selbst auf.
+
 ### Behoben
 
 - **Razor, Fury, Guardian und Pulse standen doppelt im Hangar**, wenn der
