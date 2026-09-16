@@ -21330,11 +21330,15 @@ def main():
 
     # Die Seite darf nichts von aussen nachladen — kein CDN, keine Schriften,
     # keine Statistik. Sonst gehen die Adressen der Besucher an Dritte.
+    # ⚠ Die Liste erlaubt **Ziele von Links**, nicht Quellen zum Nachladen:
+    # Ein `href` holt nichts, solange niemand klickt — ein `src` schon beim
+    # Aufruf der Seite. Wer hier etwas einträgt, prüft, dass es ein `href` ist.
     _fremd217 = [u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"',
                                        _html217)
                  if not u.startswith(('https://github.com/Xharig/',
                                       'https://discord.gg/',
-                                      'https://ko-fi.com/'))]
+                                      'https://ko-fi.com/',
+                                      'https://robertsspaceindustries.com/'))]
     pruefe(not _fremd217,
            'die Seite laedt nichts von fremden Servern (%r)' % _fremd217)
 

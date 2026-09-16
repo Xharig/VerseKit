@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.42.2 - 2026-09-16
+
+> **Wer VerseKit neu installiert, kommt jetzt auch hinein.** Der
+> Einrichtungsassistent brach beim allerersten Start sofort ab — für eine
+> frische Installation war das Werkzeug damit unbenutzbar. Wer schon
+> eingerichtet war, hat davon nie etwas gemerkt.
+
+### Behoben
+
+- **Nach einer frischen Installation startete das Werkzeug nicht.** Der
+  Einrichtungsassistent brach mit einer Fehlermeldung ab, noch bevor das
+  Fenster erschien. Betroffen war ausschließlich der allererste Start — an
+  dieser Stelle kommt nur vorbei, wer noch nicht eingerichtet ist.
+  Gemeldet von KynoTnis (ADI)
+
 ## v3.42.1 - 2026-09-16
 
 > **Razor, Fury, Guardian und Pulse stehen nur noch einmal im Hangar.** CIG hat

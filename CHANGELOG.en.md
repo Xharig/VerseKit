@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.42.2 - 2026-09-16
+
+> **A fresh install gets you in again.** The setup wizard broke off right at
+> the very first start — which made the tool unusable for anyone installing it
+> new. If you were already set up, you never saw any of this.
+
+### Fixed
+
+- **The tool did not start after a fresh install.** The setup wizard broke off
+  with an error before the window even appeared. Only the very first start was
+  affected — nobody who is already set up ever passes that point.
+  Reported by KynoTnis (ADI)
+
 ## v3.42.1 - 2026-09-16
 
 > **Razor, Fury, Guardian and Pulse now appear only once in your hangar.** CIG

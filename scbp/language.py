@@ -2340,6 +2340,15 @@ TEXTS = {
                               'That the ship selection in “What\'s inside?” '
                               'collapsed as soon as you grabbed the scrollbar — '
                               'the mouse wheel worked, the scrollbar did not.'),
+    's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
+                              'nichts** — der Einrichtungsassistent brach sofort '
+                              'ab. Ein Fehler, den niemand sehen konnte, der '
+                              'schon eingerichtet war: Genau dieser eine Schritt '
+                              'läuft nur beim allerersten Start.',
+                              '**Nothing started after a fresh install** — the '
+                              'setup wizard broke off right away. A fault nobody '
+                              'who was already set up could ever see: that one '
+                              'step only runs on the very first launch.'),
     's_dk_horthy_idee':     ('**Das eigene Rohstoff-Lager** — eintragen statt rechnen, und'
                               'beim Herstellen zieht das Werkzeug die Zutaten ab.',
                               '**Your own resource stock** — enter it instead of doing the'
