@@ -2205,24 +2205,24 @@ class Bestandsfenster:
 
     def _zeile(self, eintrag, drin, eltern=None):
         name = eintrag['n']
-        zeile = tk.Frame(eltern if eltern is not None else self.inhalt,
+        row = tk.Frame(eltern if eltern is not None else self.inhalt,
                          bg=FLAECHE)
-        zeile.pack(fill='x', pady=1)
+        row.pack(fill='x', pady=1)
 
-        haken = icons.line(zeile, 'haken' if drin else 'offen',
+        check_icon = icons.line(row, 'haken' if drin else 'offen',
                               color=icons.GREEN if drin else icons.GREY,
                               background=FLAECHE, font=schrift(12))
-        haken.configure(cursor='hand2', padx=10, pady=6)
-        haken.pack(side='left')
-        haken.bind('<Button-1>', lambda e, n=name: self._umschalten(n))
-        icons.hover_group(haken)
+        check_icon.configure(cursor='hand2', padx=10, pady=6)
+        check_icon.pack(side='left')
+        check_icon.bind('<Button-1>', lambda e, n=name: self._umschalten(n))
+        icons.hover_group(check_icon)
 
-        mitte = tk.Frame(zeile, bg=FLAECHE)
-        mitte.pack(side='left', fill='x', expand=True)
-        name_lbl = tk.Label(mitte, text=name, bg=FLAECHE,
+        middle = tk.Frame(row, bg=FLAECHE)
+        middle.pack(side='left', fill='x', expand=True)
+        name_label = tk.Label(middle, text=name, bg=FLAECHE,
                             fg=FG if drin else SUB, font=schrift(11),
                             anchor='w')
-        name_lbl.pack(fill='x')
+        name_label.pack(fill='x')
 
         # ⭐ **Der Name führt zu den Zutaten** (07.09.2026). „Woher gibt es den
         # Bauplan" beantwortete bisher nur die eine Hälfte; „was brauche ich
@@ -2250,20 +2250,20 @@ class Bestandsfenster:
         # ihrem eigenen Hinweis — besser als eine Liste, in der gar nichts
         # geht.
         if getattr(self, 'hauptfenster', None) is not None:
-            grundfarbe = FG if drin else SUB
-            name_lbl.configure(cursor='hand2')
-            name_lbl.bind('<Button-1>', lambda e, n=name: self._zur_herstellung(n))
+            base_color = FG if drin else SUB
+            name_label.configure(cursor='hand2')
+            name_label.bind('<Button-1>', lambda e, n=name: self._zur_herstellung(n))
             # ⚠ Ohne Rückmeldung beim Überfahren sieht man einem Namen nicht
             # an, dass er mehr ist als Text. Der Zeiger allein verrät es erst,
             # wenn man schon darauf steht.
-            name_lbl.bind('<Enter>', lambda e, w=name_lbl: w.configure(fg=ACCENT))
-            name_lbl.bind('<Leave>',
-                          lambda e, w=name_lbl, f=grundfarbe: w.configure(fg=f))
-            notice.attach(name_lbl, lambda: t('hinweis_zutaten'))
+            name_label.bind('<Enter>', lambda e, w=name_label: w.configure(fg=ACCENT))
+            name_label.bind('<Leave>',
+                          lambda e, w=name_label, f=base_color: w.configure(fg=f))
+            notice.attach(name_label, lambda: t('hinweis_zutaten'))
 
-        unten = [t for t in (kuerzel(eintrag), eintrag.get('m')) if t]
-        if unten:
-            tk.Label(mitte, text=' · '.join(unten), bg=FLAECHE, fg=SUB,
+        details = [t for t in (kuerzel(eintrag), eintrag.get('m')) if t]
+        if details:
+            tk.Label(middle, text=' · '.join(details), bg=FLAECHE, fg=SUB,
                      font=schrift(9), anchor='w').pack(fill='x')
 
         if eintrag.get('q'):
@@ -2276,48 +2276,51 @@ class Bestandsfenster:
             # es einen Bauplan gibt, und das Symbol am rechten Rand hat ihm
             # nichts gesagt. Ein Symbol erklaert sich nur dem, der es gebaut
             # hat.
-            info = icons.tappable(zeile, symbol, background=FLAECHE,
+            source_button = icons.tappable(row, symbol, background=FLAECHE,
                                      text=t('hk_knopf'), font=schrift(10))
-            info.configure(cursor='hand2', padx=12, fg=ACCENT)
-            info.pack(side='right')
-            info.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
-            icons.hover_group(info)
-            notice.attach(info, lambda: t('hinweis_quellen'))
+            source_button.configure(cursor='hand2', padx=12, fg=ACCENT)
+            source_button.pack(side='right')
+            source_button.bind('<Button-1>', lambda e, n=name: self._herkunft_umschalten(n))
+            icons.hover_group(source_button)
+            notice.attach(source_button, lambda: t('hinweis_quellen'))
         elif eintrag.get('start'):
             # Startbaupläne: hat jeder von Anfang an, stehen in keinem Pool und
             # in keinem Log. Eigenes Zeichen, damit niemand nach einem Auftrag
             # sucht, den es nicht gibt.
-            std = icons.line(zeile, 'standard', color=icons.GREEN,
+            start_icon = icons.line(row, 'standard', color=icons.GREEN,
                                 background=FLAECHE, font=schrift(10))
-            std.configure(padx=12)
-            std.pack(side='right')
-            notice.attach(std, lambda: t('hinweis_startbauplan'))
+            start_icon.configure(padx=12)
+            start_icon.pack(side='right')
+            notice.attach(start_icon, lambda: t('hinweis_startbauplan'))
         else:
             # 59 Baupläne haben in den Daten keine Bezugsquelle — überwiegend
             # Event-Belohnungen („Purgatory Camo", „SecondWind"). Ohne Zeichen
             # sähe die Zeile aus, als hätte jemand vergessen, die Herkunft
             # einzutragen; mit ? steht da, was Sache ist: Es gibt keinen Auftrag,
             # über den man da herankommt.
-            leer = tk.Label(zeile, text='?', bg=FLAECHE, fg=SUB,
+            no_source_label = tk.Label(row, text='?', bg=FLAECHE, fg=SUB,
                             font=schrift(11), padx=12)
-            leer.pack(side='right')
-            notice.attach(leer, lambda: t('hinweis_ohne_quelle'))
+            no_source_label.pack(side='right')
+            notice.attach(no_source_label, lambda: t('hinweis_ohne_quelle'))
 
         # Stern: worauf man wartet, wird auffällig gemeldet, sobald es auftaucht.
-        # Bei schon vorhandenen Bauplänen wäre das sinnlos — dort kein Stern.
-        if not drin:
-            gemerkt = merk.contains(name)
+        # Bei schon vorhandenen Bauplänen wäre das Merken sinnlos — dort kein
+        # Stern. ⚠ **Außer er ist schon gemerkt** (16.09.2026): Seit Erledigte
+        # auf der Merkliste bleiben, ist der Stern der einzige Weg, so einen
+        # Eintrag wieder loszuwerden.
+        watched = merk.contains(name)
+        if not drin or watched:
             # Größer als der Rest: Der Stern ist das einzige Zeichen in der
             # Zeile, das man *trifft* statt liest — in Zeilenschrift war er zu
             # klein zum Klicken und ging neben dem Namen unter.
-            stern = icons.line(zeile, 'gemerkt',
-                                  color=icons.YELLOW if gemerkt else icons.GREY,
+            star = icons.line(row, 'gemerkt',
+                                  color=icons.YELLOW if watched else icons.GREY,
                                   background=FLAECHE, font=schrift(16))
-            stern.configure(cursor='hand2', padx=10)
-            stern.pack(side='right')
-            stern.bind('<Button-1>', lambda e, n=name: self._merken(n))
-            icons.hover_group(stern)
-            notice.attach(stern, lambda n=name: t('nicht_mehr_merken')
+            star.configure(cursor='hand2', padx=10)
+            star.pack(side='right')
+            star.bind('<Button-1>', lambda e, n=name: self._merken(n))
+            icons.hover_group(star)
+            notice.attach(star, lambda n=name: t('nicht_mehr_merken')
                               if merk.contains(n) else t('merken'))
 
 

@@ -1324,14 +1324,21 @@ def _progress(fenster, rahmen):
     ihrem Gesamtstand — und die Einzelheiten erst auf Klick. Eingeklappt zu
     starten ist Absicht: Der Überblick ist die Antwort auf „wie weit bin ich",
     die Kategorien sind die Antwort auf „und wo genau".
+
+    ⭐ **„Nur Merkliste"** (16.09.2026) — Wunsch Aeternitas26 (KRT): „gibt es
+    eine Möglichkeit, den Fortschritt nur für die als Favoriten markierten
+    Baupläne anzuzeigen?" Favoriten sind hier die Merkliste. Gezählt werden
+    nur **angeklickte** Baupläne; eigene Beobachtungen mit Suchmuster stehen
+    für kein bestimmtes Teil und haben deshalb keinen Fortschritt. Die Wahl
+    bleibt über den Neustart erhalten (`fortschritt_merkliste`).
     """
     _heading(fenster, rahmen, t('hf_fortschritt'), t('s_fo_lead'))
-    innen = _scroll_area(rahmen)
+    inner = _scroll_area(rahmen)
     try:
-        bestand = bestand_datei.load()
-        katalog = katalog_modul.load()
-    except Exception as ausnahme:
-        errors.record('pages.fortschritt', ausnahme)
+        stock = bestand_datei.load()
+        catalog = katalog_modul.load()
+    except Exception as exc:
+        errors.record('pages.fortschritt', exc)
         return
 
     # ⚠⚠⚠ **Sind es weniger Baupläne als je zuvor?** Dann steht das hier —
@@ -1345,70 +1352,123 @@ def _progress(fenster, rahmen):
     # ⚠ `shrinkage_state()` und nicht `check_shrinkage()`: Letzteres würde beim
     # Hinsehen den kleineren Stand als neuen Höchstwert festschreiben, und die
     # Meldung wäre nach einmal Ansehen für immer weg.
-    schwund = bestand_datei.shrinkage_state()
-    if schwund:
-        jetzt_da, hoechst, frueher = schwund
-        kasten = tk.Frame(innen, bg=SURFACE, highlightthickness=1,
-                          highlightbackground=GOLD)
-        kasten.pack(fill='x', pady=(0, 10))
-        tk.Label(kasten, text=t('s_schwund_titel'), bg=SURFACE, fg=GOLD,
+    shrinkage = bestand_datei.shrinkage_state()
+    if shrinkage:
+        present_now, highest, earlier = shrinkage
+        box = tk.Frame(inner, bg=SURFACE, highlightthickness=1,
+                       highlightbackground=GOLD)
+        box.pack(fill='x', pady=(0, 10))
+        tk.Label(box, text=t('s_schwund_titel'), bg=SURFACE, fg=GOLD,
                  font=fenster.f_bold).pack(anchor='w', padx=12, pady=(10, 2))
-        tk.Label(kasten, text=t('s_schwund_text') % (jetzt_da, hoechst),
+        tk.Label(box, text=t('s_schwund_text') % (present_now, highest),
                  bg=SURFACE, fg=FG, font=fenster.f_small, justify='left',
                  wraplength=720).pack(anchor='w', padx=12)
         # ⚠ Beide Pfade im Klartext — die Frage ist ja gerade „welcher Ordner
         # denn nun". Ohne sie ist die Meldung eine Feststellung ohne Ausweg.
-        for beschriftung, ort in ((t('s_schwund_wo'), frueher),
-                                  (t('s_schwund_jetzt'), paths.app_folder())):
-            if not ort:
+        for caption, place in ((t('s_schwund_wo'), earlier),
+                               (t('s_schwund_jetzt'), paths.app_folder())):
+            if not place:
                 continue
-            tk.Label(kasten, text=beschriftung, bg=SURFACE, fg=SUB,
+            tk.Label(box, text=caption, bg=SURFACE, fg=SUB,
                      font=fenster.f_small).pack(anchor='w', padx=12,
                                                 pady=(6, 0))
-            tk.Label(kasten, text=ort, bg=SURFACE, fg=ACCENT,
+            tk.Label(box, text=place, bg=SURFACE, fg=ACCENT,
                      font=fenster.f_small, justify='left',
                      wraplength=720).pack(anchor='w', padx=24)
-        tk.Label(kasten, text=t('s_schwund_tipp'), bg=SURFACE, fg=SUB,
+        tk.Label(box, text=t('s_schwund_tipp'), bg=SURFACE, fg=SUB,
                  font=fenster.f_small, justify='left',
                  wraplength=720).pack(anchor='w', padx=12, pady=(8, 10))
 
-    bp = katalog.get('bauplaene') or {}
-    habe = set(bestand.get('bauplaene') or {})
-    # Je Bereich: Liste von (Kategorie, gesamt, meine)
-    nach_bereich = {}
-    for schluessel, e in bp.items():
-        roh = katalog_modul.kind_id(e)
-        bereich = katalog_modul.top_group(roh)
-        art = katalog_modul.kind_readable(roh) if roh else '—'
-        zaehler = nach_bereich.setdefault(bereich, {})
-        gesamt, meine = zaehler.get(art, (0, 0))
-        zaehler[art] = (gesamt + 1, meine + (1 if schluessel in habe else 0))
+    blueprints = catalog.get('bauplaene') or {}
+    owned = set(stock.get('bauplaene') or {})
+    mode = ('merk' if paths.setting_bool(PROGRESS_WATCHLIST_SETTING, False)
+            else 'alle')
 
-    gesamt_alle = sum(g for z in nach_bereich.values() for g, _ in z.values()) or 1
-    meine_alle = sum(m for z in nach_bereich.values() for _, m in z.values())
+    # Die Auswahl steht fest oben, der Inhalt darunter wird bei jedem Wechsel
+    # neu gebaut — die Seite selbst wird nur einmal gebaut, ein Neubau beim
+    # Umschalten erreicht sie also nie.
+    choice_row = _choice(fenster, inner,
+                         [('alle', t('s_fo_alle')), ('merk', t('s_fo_merk'))],
+                         mode, lambda chosen: show(chosen))
+    choice_row.pack(anchor='w', pady=(0, 12))
+    content = tk.Frame(inner, bg=BG)
+    content.pack(fill='x')
 
-    kopf = tk.Frame(innen, bg=BG)
-    kopf.pack(fill='x', pady=(0, 4))
-    tk.Label(kopf, text=str(meine_alle), bg=BG, fg=ACCENT,
+    def show(chosen):
+        choice_row.select_quiet(chosen)
+        paths.set_setting(PROGRESS_WATCHLIST_SETTING, chosen == 'merk')
+        for child in content.winfo_children():
+            child.destroy()
+        _progress_content(fenster, content, catalog, blueprints, owned,
+                          chosen == 'merk')
+
+    _progress_content(fenster, content, catalog, blueprints, owned,
+                      mode == 'merk')
+
+
+# Einstellung: Zeigt „Bauplan-Fortschritt" nur die Merkliste?
+PROGRESS_WATCHLIST_SETTING = 'fortschritt_merkliste'
+
+
+def progress_counts(blueprints, owned, only_keys=None):
+    """Je Bereich und Kategorie: `(gesamt, meine)`.
+
+    `only_keys` schränkt auf diese Katalogschlüssel ein (die Merkliste) —
+    `None` heißt alle. Frei von Tk, damit es sich prüfen lässt.
+    """
+    by_area = {}
+    for key, entry in blueprints.items():
+        if only_keys is not None and key not in only_keys:
+            continue
+        raw = katalog_modul.kind_id(entry)
+        area = katalog_modul.top_group(raw)
+        kind = katalog_modul.kind_readable(raw) if raw else '—'
+        counter = by_area.setdefault(area, {})
+        total, mine = counter.get(kind, (0, 0))
+        counter[kind] = (total + 1, mine + (1 if key in owned else 0))
+    return by_area
+
+
+def _progress_content(fenster, parent, catalog, blueprints, owned, watchlist_only):
+    """Gesamtzahl, Balken, Bereiche — für alle Baupläne oder nur die Merkliste."""
+    only_keys = None
+    if watchlist_only:
+        from . import watchlist
+        watched = watchlist.names()
+        only_keys = {k for k in blueprints if k in watched}
+        if not only_keys:
+            _body_text(parent, t('s_fo_merk_leer'), fenster.f_small, fill='x')
+            return
+
+    by_area = progress_counts(blueprints, owned, only_keys)
+    total_all = sum(g for z in by_area.values() for g, _ in z.values()) or 1
+    mine_all = sum(m for z in by_area.values() for _, m in z.values())
+
+    head = tk.Frame(parent, bg=BG)
+    head.pack(fill='x', pady=(0, 4))
+    tk.Label(head, text=str(mine_all), bg=BG, fg=ACCENT,
              font=fenster.f_title).pack(side='left')
-    tk.Label(kopf, text=t('s_fo_von')
-             % (gesamt_alle, 100.0 * meine_alle / gesamt_alle),
+    tk.Label(head, text=t('s_fo_von') % (total_all, 100.0 * mine_all / total_all),
              bg=BG, fg=SUB, font=fenster.f_small).pack(side='left')
 
     from .main_window import round_bar
-    round_bar(innen, 9, meine_alle / float(gesamt_alle), BG, '#222b3b',
-               ACCENT).pack(fill='x', pady=(6, 18))
+    round_bar(parent, 9, mine_all / float(total_all), BG, '#222b3b',
+              ACCENT).pack(fill='x', pady=(6, 18))
 
-    for bereich in katalog_modul.TOP_GROUPS:
-        zaehler = nach_bereich.get(bereich)
-        if not zaehler:
+    for area in katalog_modul.TOP_GROUPS:
+        counter = by_area.get(area)
+        if not counter:
             continue
-        gesamt = sum(g for g, _ in zaehler.values())
-        meine = sum(m for _, m in zaehler.values())
-        _progress_section(fenster, innen, t('gruppe_' + bereich), gesamt,
-                             meine, zaehler)
+        total = sum(g for g, _ in counter.values())
+        mine = sum(m for _, m in counter.values())
+        _progress_section(fenster, parent, t('gruppe_' + area), total, mine,
+                          counter)
 
-    _best_contracts(fenster, innen, katalog, habe)
+    # ⚠ „Was bringt am meisten?" nur bei ALLEN Bauplänen: Es zählt fehlende
+    # Baupläne über den ganzen Katalog. Unter „Nur Merkliste" würde es Aufträge
+    # für Teile empfehlen, die man gar nicht will.
+    if not watchlist_only:
+        _best_contracts(fenster, parent, catalog, owned)
 
 
 def _best_contracts(fenster, eltern, katalog, habe):
@@ -5715,6 +5775,7 @@ def _thanks(fenster, rahmen):
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
+            ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee'), ''),
             ('KynoTnis', 'ADI', '', t('s_dk_kynotnis_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 

@@ -660,8 +660,10 @@ def main():
         pruefe(mk.match('ADP-mk4 Woodland Helmet') == 'Beispielsatz',
                'Muster von außen greifen weiter')
         pruefe(mk.fulfill('Wunschteil') == 'Wunschteil',
-               'erfüllter Wunsch wird ausgetragen')
-        pruefe(not mk.contains('Wunschteil'), 'und ist danach wirklich weg')
+               'ein erfüllter Wunsch wird gemeldet')
+        # ⚠ Seit 16.09.2026 bleibt er stehen — erledigt ist, was im Bestand
+        # steht (Fortschritt „nur Merkliste").
+        pruefe(mk.contains('Wunschteil'), 'und bleibt als erledigt auf der Liste')
         pruefe(mk.fulfill('Irgendwas anderes') is None,
                'was nie beobachtet wurde, ändert nichts')
 
@@ -7879,7 +7881,7 @@ def main():
 
     _q82b = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                  encoding='utf-8').read()
-    pruefe('_best_contracts(fenster, innen, katalog, habe)' in _q82b,
+    pruefe('_best_contracts(fenster, parent, catalog, owned)' in _q82b,
            'die Fortschritt-Seite zeigt es an')
 
     # ------------------------------------------------------------------
@@ -16340,14 +16342,15 @@ def main():
             _hs170.recipe = _echt_rez
 
     # ------------------------------------------------------------------
-    # 171. Erledigte Merkposten fliegen beim Start raus
+    # 171. Erledigte Merkposten BLEIBEN stehen (seit 16.09.2026)
     #
-    # ⚠⚠ **`fulfill()` greift nur beim FUND.** Wer einen Bauplan merkt, den
-    # er laengst hat, behaelt den Merkposten fuer immer. Am 06.09.2026 stand
-    # `H4-PBF Ammo Carrier` unter „beobachtet", obwohl er in derselben Liste
-    # ein Haekchen trug: „da wird einer beobachtet, den ich schon habe."
+    # Bis dahin trug der Start gemerkte Bauplaene aus, die schon im Bestand
+    # standen (`prune`, Meldung vom 06.09.2026). Seit „Bauplan-Fortschritt"
+    # die Merkliste zaehlen kann (Wunsch Aeternitas26), muss Erledigtes
+    # stehen bleiben — sonst stuende der Fortschritt immer bei null. Nur
+    # Muster-Beobachtungen fliegen beim Fund raus.
     print()
-    print('171. Erledigte Merkposten fliegen beim Start raus')
+    print('171. Erledigte Merkposten bleiben stehen')
     from scbp import watchlist as _mk171
 
     _heim171 = _tf166.mkdtemp(prefix='merk-')
@@ -16357,19 +16360,22 @@ def main():
         _mk171.save({'namen': ['Habe Ich', 'Fehlt Mir'],
                           'eintraege': [{'titel': 'Muster',
                                          'muster': ['morozov']}]})
-        _weg = _mk171.prune(['habe ich'])
-        pruefe(_weg == 1, 'genau ein erledigter Posten wird ausgetragen')
+        pruefe(_mk171.fulfill('Habe Ich') == 'Habe Ich',
+               'der Fund eines gemerkten Bauplans wird gemeldet')
         _jetzt = _mk171.load()
-        pruefe(_jetzt['namen'] == ['Fehlt Mir'],
-               'der noch fehlende bleibt stehen')
-        # ⚠ Muster bleiben unangetastet: „Morozov" steht fuer mehrere Teile,
-        # von denen erst eines da sein kann.
-        pruefe(len(_jetzt['eintraege']) == 1,
-               'Muster-Eintraege bleiben unberuehrt')
-        pruefe(_mk171.prune([]) == 0,
-               'Gegenprobe: ohne Bestand wird nichts ausgetragen')
-        pruefe(_mk171.prune(['gibtsnicht']) == 0,
-               'Gegenprobe: ein fremder Name traegt nichts aus')
+        pruefe(sorted(_jetzt['namen']) == ['Fehlt Mir', 'Habe Ich'],
+               'und der Name bleibt auf der Merkliste (%r)' % _jetzt['namen'])
+        pruefe(_mk171.fulfill('Morozov Helm') == 'Muster'
+               and not _mk171.load()['eintraege'],
+               'eine erfuellte Muster-Beobachtung fliegt weiter raus')
+        pruefe('prune' not in dir(_mk171),
+               'das Austragen beim Start gibt es nicht mehr')
+        import ast as _ast171
+        _baum171 = _ast171.parse(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                                      encoding='utf-8').read())
+        pruefe(not any(isinstance(k, _ast171.Attribute) and k.attr == 'prune'
+                       for k in _ast171.walk(_baum171)),
+               'und der Watcher ruft es auch nicht mehr')
 
     finally:
         if _alt171 is None:
@@ -22294,6 +22300,57 @@ def main():
         _stand227 = _a227
     pruefe(_stand227 == [('Auftrag A', 'Zeile A', [])],
            'der Auftragsstand fuer die Anzeige laesst sich bilden (%r)' % (_stand227,))
+
+    # 228. Bauplan-Fortschritt nur fuer die Merkliste (16.09.2026)
+    #
+    # Wunsch Aeternitas26 (KRT): den Fortschritt nur fuer die markierten
+    # Bauplaene sehen. Gezaehlt wird nur, was auf der Merkliste steht — und
+    # das Erledigte muss mitzaehlen (siehe 171).
+    print()
+    print('228. Fortschritt nur Merkliste')
+    from scbp import pages as _pg228
+    _bp228 = {
+        'rumpf a': {'n': 'Rumpf A', 'a': 'ShipModule'},
+        'rumpf b': {'n': 'Rumpf B', 'a': 'ShipModule'},
+        'helm c': {'n': 'Helm C', 'a': 'Armor'},
+    }
+    _habe228 = {'rumpf a', 'helm c'}
+    _alle228 = _pg228.progress_counts(_bp228, _habe228)
+    _merk228 = _pg228.progress_counts(_bp228, _habe228, {'rumpf a', 'rumpf b'})
+
+    def _summe228(z):
+        return (sum(g for b in z.values() for g, _ in b.values()),
+                sum(m for b in z.values() for _, m in b.values()))
+
+    pruefe(_summe228(_alle228) == (3, 2), 'alle: 2 von 3 (%r)' % (_summe228(_alle228),))
+    pruefe(_summe228(_merk228) == (2, 1),
+           'nur Merkliste: 1 von 2 — der erledigte zaehlt mit (%r)'
+           % (_summe228(_merk228),))
+    pruefe(_summe228(_pg228.progress_counts(_bp228, _habe228, set())) == (0, 0),
+           'eine leere Merkliste zaehlt nichts')
+    # Die Seite: Auswahl, gemerkte Wahl, „Was bringt am meisten" nur bei allen.
+    import ast as _ast228
+    _q228 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
+    _fns228 = {k.name: k for k in _ast228.parse(_q228).body
+               if isinstance(k, _ast228.FunctionDef)}
+
+    def _ruft228(name):
+        return {c.func.attr if isinstance(c.func, _ast228.Attribute)
+                else getattr(c.func, 'id', '')
+                for c in _ast228.walk(_fns228[name]) if isinstance(c, _ast228.Call)}
+
+    pruefe({'_choice', 'setting_bool', 'set_setting'} <= _ruft228('_progress'),
+           'die Seite hat eine Auswahl und merkt sich die Wahl')
+    _inhalt228 = _ast228.get_source_segment(_q228, _fns228['_progress_content'])
+    pruefe('if not watchlist_only:' in _inhalt228
+           and '_best_contracts' in _inhalt228.split('if not watchlist_only:')[-1],
+           '„Was bringt am meisten" nur bei allen Bauplaenen')
+    # Der Stern bleibt bei erledigten gemerkten Bauplaenen — sonst kaeme man
+    # nie wieder von der Merkliste herunter.
+    _cw228 = open(os.path.join(WURZEL, 'scbp', 'collection_window.py'),
+                  encoding='utf-8').read()
+    pruefe('if not drin or watched:' in _cw228,
+           'ein erledigter gemerkter Bauplan behaelt seinen Stern')
 
     print()
     if fehler:

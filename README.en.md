@@ -241,7 +241,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 |---|---|
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Instant** | Reads Star Citizen's `Game.log` → the blueprint is in the list **within seconds** |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Keyboard shortcut** | **Ctrl+Alt+B** brings the blueprint list to the front — from inside the full-screen game, no blind hunting for the window. Exactly that one combination is registered; nothing else is listened to |
-| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watching / new in game*, with progress. Tick items with one click |
+| <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Blueprint list** | Search everything, grouped by type, filters *all / owned / missing / watching / new in game*, with progress — for all blueprints or just your watchlist. Tick items with one click |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Where it drops** | The **"Where from?"** button shows faction, contract, required standing and payout — for **670 of 738** blueprints, sorted by the easiest route. From **Crafting** a button leads straight there: missing the blueprint, one click tells you which contract to run |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Contract accepted** | Accept a contract and you see right away whether blueprints are part of it — and **which of those you are still missing**. If the catalogue does not know the contract, it stays quiet rather than guessing |
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **What to do next** | Every running contract lists its **open objectives** underneath — "Disable the Hartmoore inverter", "Locate and reset the node". They come from the same log and move on as soon as you finish one |
@@ -269,7 +269,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/serverstatus-gruen.png" width="22" alt=""> **Server status** | A tab of its own: **is Star Citizen up?** Shows what CIG reports on its status page — all three systems plus the incidents of the last two months in full. Refreshes itself once a minute. States stay in CIG's own wording; the entries are maintained by hand, not measured |
 | <img src="assets/symbole/22/zeit-gruen.png" width="22" alt=""> **Changed game values** | Its own tab: **what a game patch changed about values** — ships, weapons, quantum drives, components, field by field with the old and the new value. Increased green, decreased red. The source only keeps the last ten patches; whatever you fetched once stays with you. |
 | <img src="assets/symbole/18/punkt-blau.png" width="22" alt=""> **New in game** | Its own filter in the list: **only what the current patch added**. Every blueprint carries the game version it first appeared in; when the next patch lands, the new ones move in and the old ones drop out of the filter — the stamp stays |
-| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Watchlist** | Click the star next to anything you are waiting for. When it shows up it is announced in gold — and **removed from the watchlist by itself** |
+| <img src="assets/symbole/18/gemerkt-gruen.png" width="22" alt=""> **Watchlist** | Click the star next to anything you are waiting for. When it shows up it is announced in gold — and **ticked off on the watchlist**, so the progress page shows how far along you are with your starred blueprints |
 | <img src="assets/symbole/22/kuerzel-gruen.png" width="22" alt=""> **Class · size · grade** | Compact tag `class/size/grade` per blueprint, e.g. `M/1/A` (Military · Size 1 · Grade A) |
 | <img src="assets/symbole/22/ton-gruen.png" width="22" alt=""> **Sound** | A short beep on every find — you don't have to watch the window |
 | <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Always on top** | Borderless, slightly translucent overlay above the game |
@@ -467,7 +467,7 @@ The same works across **two machines** if both use the same cloud or network fol
 
 Waiting for one particular blueprint? Click the **star** next to its name in the blueprint list. The search box finds it in seconds, and the **watching** filter shows what you're waiting for.
 
-When a watched blueprint appears, the watcher announces it in gold with a star and its own sound — and then **removes it from the watchlist by itself**. What you have doesn't need to be on there.
+When a watched blueprint appears, the watcher announces it in gold with a star and its own sound — and **ticks it off on the watchlist**. It stays there so the "Watchlist only" progress counts it; the star takes it off again.
 
 ## Settings
 

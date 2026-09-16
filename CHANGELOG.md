@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Neu
+
+- **Bauplan-Fortschritt nur für die Merkliste.** Oben auf der Seite wählst du
+  „Alle Baupläne" oder „Nur Merkliste" — dann siehst du, wie weit du mit den
+  Bauplänen bist, die du dir gemerkt hast. Die Wahl bleibt erhalten.
+  Angeregt von Aeternitas26 (KRT)
+
+### Verbessert
+
+- **Freigeschaltete Baupläne bleiben auf der Merkliste** und werden dort
+  abgehakt, statt zu verschwinden. Über den Stern lassen sie sich weiter von
+  der Merkliste nehmen.
+
 ## v3.44.3 - 2026-09-16
 
 > **Aufträge und Baupläne erscheinen wieder im Overlay.** Seit v3.39.0 konnte
