@@ -8,6 +8,42 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.43.0 - 2026-09-16
+
+> **Crafting now shows what you actually end up with.** At the top there is a
+> table with base value, crafted value and change — damage, DPS, shield
+> strength, cooling, armour values — calculated exactly like scmdb.net. What
+> each material contributes sits right next to its slider.
+> And after an update VerseKit shows up again where it was before.
+
+### New
+
+- **Product stats in crafting: base, crafted, change.** Fire rate, damage per
+  shot and DPS for weapons; integrity, shield, cooling, power output, quantum
+  drive, radar and tractor beam for ship components; damage resistance,
+  temperature and radiation for armour. The values follow the quality sliders.
+  Suggested by Bushwick4712 (KRT)
+
+### Improved
+
+- **A material's effect is shown next to its slider.** While dragging you see
+  straight away which property changes and by how much, instead of looking it
+  up in a list above.
+
+### Fixed
+
+- **Two materials improving the same property were not added up.** The effect
+  showed as two separate rows and the result was missing. They now add up the
+  way they do in game and on scmdb.net. Reported by Bushwick4712 (KRT)
+- **"You have" in a recipe ignored the selected quality.** Moving a slider above
+  the quality of your stock still showed the full amount. Now only stock that
+  reaches the selected quality counts — the rest is listed as "below Q …", and
+  "Crafted — deduct from stock" only takes those entries too.
+- **After an update VerseKit could not be seen.** It was running again, but the
+  overlay sat at an old position — with several monitors sometimes outside all
+  screens. The position is now remembered while moving, a position outside the
+  monitors is discarded, and the main window opens again after the update.
+
 ## v3.42.4 - 2026-09-16
 
 > **Reporting a bug needs no GitHub account — and now the page says so.** On the

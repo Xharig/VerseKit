@@ -5847,7 +5847,9 @@ def main():
     #    Material einen eigenen Regler bauen.
     _seiten61 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'),
                      encoding='utf-8').read()
-    pruefe('lager.check(stufe[\'zutaten\'], wie_viele)' in _seiten61,
+    # ⚠ Seit v3.43.0 geht die Liste durch `_zutaten_jetzt()` — dieselben
+    # Zutaten, nur mit der Reglerqualitaet als Mindestguete (Pruefung 67b).
+    pruefe('lager.check(_zutaten_jetzt(), wie_viele)' in _seiten61,
            'die Zutatenliste rechnet mit der eingegebenen Stueckzahl')
     pruefe("anzahl_var.trace_add('write', mengen_setzen)" in _seiten61,
            'und rechnet sofort neu, wenn man die Zahl aendert')
@@ -6456,55 +6458,229 @@ def main():
                 pruefe('Q ' in _alle67 or '×' in _alle67,
                        'und die Spannen-Angaben darunter')
 
-                # ⚠⚠ Und JEDE Spanne steht unter IHRER Zeile.
+                # ⚠⚠ Und JEDE Spanne steht unter IHRER Wirkung.
                 #
                 # Bis rc42 bekam das Spannen-Etikett den Behaelter eine Ebene
-                # hoeher als Elternteil. Es baute sich fehlerfrei auf, es stand
-                # auch alles da — nur sammelten sich alle Spannen am Ende des
-                # Blocks, waehrend die Werte oben blieben. Drei gleich
-                # aussehende Zeilen `Q 0-1000 · x0.9-1.1`, und keine sagte mehr,
-                # zu welchem Wert sie gehoert. Kein Absturz, keine Ausnahme —
-                # nur eine Anzeige, die nichts mehr aussagt.
+                # hoeher als Elternteil: Alle Spannen sammelten sich am Ende
+                # des Blocks, und keine sagte mehr, zu welchem Wert sie
+                # gehoert. Seit v3.43.0 steht die Wirkung rechts neben ihrem
+                # Regler in einem Raster — Name, Faktor, Prozent in einer
+                # Zeile, die Spanne in der Zeile darunter.
                 #
-                # Der Massstab ist deshalb die **Reihenfolge**: Im Behaelter der
-                # Wertezeilen muessen sich Zeile (Frame) und Spanne (Label)
-                # abwechseln.
-                def _ist_wertezeile67(w):
-                    # Eine Wertezeile ist ein Rahmen aus genau vier Etiketten:
-                    # Eigenschaft, Faktor, Prozent, Herkunft. Nichts sonst
-                    # darin — sonst waere es ein Behaelter, kein Zeile.
-                    kinder = w.winfo_children()
-                    return (w.winfo_class() == 'Frame' and len(kinder) == 4
-                            and all(_x.winfo_class() == 'Label'
-                                    for _x in kinder))
+                # Der Massstab ist deshalb die **Rasterzeile**: Jede Spanne
+                # (Etikett ueber drei Spalten) hat im SELBEN Behaelter genau
+                # eine Zeile hoeher einen Faktor in Spalte 1.
+                _verwaist67 = []
 
-                def _wertebehaelter67(w):
+                def _raster67(w):
                     for _k in w.winfo_children():
-                        if _ist_wertezeile67(_k):
-                            return _k.master
-                        _tiefer = _wertebehaelter67(_k)
-                        if _tiefer is not None:
-                            return _tiefer
-                    return None
+                        _info = {}
+                        try:
+                            if _k.winfo_manager() == 'grid':
+                                _info = _k.grid_info()
+                        except Exception:
+                            _info = {}
+                        if (_k.winfo_class() == 'Label'
+                                and str(_info.get('columnspan')) == '3'
+                                and str(_info.get('column')) == '0'):
+                            _r = int(_info['row'])
+                            _faktor = w.grid_slaves(row=_r - 1, column=1)
+                            if _faktor:
+                                _zaehler67.append(1)
+                            else:
+                                _verwaist67.append(str(_k.cget('text')))
+                        _raster67(_k)
 
-                _halter67 = _wertebehaelter67(_rahmen67)
-                pruefe(_halter67 is not None,
-                       'der Behaelter mit den Wertezeilen ist auffindbar')
-                if _halter67 is not None:
-                    _folge67 = [_s.winfo_class() for _s in _halter67.pack_slaves()]
-                    _zeilen67 = _folge67.count('Frame')
-                    _spannen67 = _folge67.count('Label')
-                    # Nach jeder Zeile genau ein Etikett — dann wechseln sich
-                    # Frame und Label ab, und keine Spanne ist verrutscht.
-                    _wechsel67 = _folge67[:2 * _zeilen67] == (
-                        ['Frame', 'Label'] * _zeilen67)
-                    pruefe(_zeilen67 > 0 and _wechsel67,
-                           'jede Spanne steht direkt unter ihrer Wertezeile '
-                           '(%d Zeilen, %d Spannen: %s)'
-                           % (_zeilen67, _spannen67,
-                              ' '.join(_folge67[:6]) or 'leer'))
+                _zaehler67 = []
+                _raster67(_rahmen67)
+                pruefe(len(_zaehler67) > 0 and not _verwaist67,
+                       'jede Spanne steht direkt unter ihrer Wirkung '
+                       '(%d zugeordnet, %d verwaist)'
+                       % (len(_zaehler67), len(_verwaist67)))
             finally:
                 _w67.destroy()
+
+    # ------------------------------------------------------------------
+    # 67b. Produkt-Tabelle und Lagerzeile folgen dem Regler
+    #
+    # ⚠⚠ Zwei Fehler vom 16.09.2026, beide in derselben Flaeche:
+    #
+    # 1. Es gab keine Produktwerte. Wer „Energie-Schaden +7,4 %" suchte, fand
+    #    nur zwei Faktorzeilen „× 1.042" und „× 1.032" und musste selbst
+    #    rechnen — oder zu scmdb.net wechseln. Jetzt steht oben eine Tabelle
+    #    Grundwert / Gebaut / Änderung, gerechnet wie auf scmdb.
+    # 2. Die Lagerzeile ignorierte den Regler. Titanium auf Q 685 geschoben,
+    #    im Lager nur Q 295–622 — und trotzdem „hast du: 13.938".
+    #
+    # ⚠ Eigene Daten, eigenes Lager — unabhaengig davon, was im Ablageordner
+    # liegt. Der Zug am Regler geht ueber denselben Rueckruf, den die Maus
+    # ausloest (`on_drag`), nicht ueber eine Abkuerzung.
+    print()
+    print('67b. Produkt-Tabelle und Lagerzeile folgen dem Regler')
+    import tkinter as _tk67b
+    import tkinter.font as _tkfont67b
+    from scbp import seiten as _se67b
+    from scbp import crafting as _he67b
+    from scbp import materials as _lg67b
+    from scbp import product_stats as _ps67b
+    from scbp import language as _sp67b
+
+    _daten67b = {
+        'format': _he67b.FORMAT, 'build': 'selbsttest67b',
+        'blueprints': [{
+            'tag': 'BP_TEST_67b', 'productName': 'Testkanone 67b',
+            'productEntityClass': 'uuid-67b', 'manufacturer': 'Behring',
+            'type': 'weapons', 'subtype': 'energy',
+            'tiers': [{'craftTimeSeconds': 60, 'slots': [
+                {'name': 'Frame',
+                 'options': [{'type': 'resource', 'quantity': 0.04,
+                              'minQuality': 0, 'resourceName': 'Iron'}],
+                 'modifiers': [{'startQuality': 0, 'endQuality': 1000,
+                                'modifierAtStart': 0.9, 'modifierAtEnd': 1.1,
+                                'propertyName': 'Impact Force',
+                                'propertyKey': 'weapon_damage'}]},
+                {'name': 'Wiring',
+                 'options': [{'type': 'resource', 'quantity': 0.02,
+                              'minQuality': 0, 'resourceName': 'Gold'}],
+                 'modifiers': [{'startQuality': 0, 'endQuality': 1000,
+                                'modifierAtStart': 0.9, 'modifierAtEnd': 1.1,
+                                'propertyName': 'Impact Force',
+                                'propertyKey': 'weapon_damage'}]}]}]}],
+        'dismantle': {'efficiency': 0.5, 'blacklistedResources': []},
+        'products': {'uuid-67b': {
+            'name': 'Testkanone 67b', 'itemType': 'weapon',
+            'cgItemType': 'WeaponGun', 'attachType': 'WeaponGun',
+            'manufacturer': 'Behring', 'mass': 10.0,
+            'fireModes': [{'name': 'Single', 'type': 'single',
+                           'fireRate': 600.0}],
+            'ammo': {'speed': 1000.0, 'lifetime': 1.0,
+                     'damage': {'energy': 10.0}}}}}
+
+    # a) Die Rechnung selbst: zwei Slots auf dieselbe Eigenschaft werden
+    #    ADDIERT (scmdb), nicht multipliziert. Bei Q 1000 und Q 1000:
+    #    1 + 0,1 + 0,1 = 1,2 -> DPS 100 -> 120. Multipliziert kaeme 121.
+    _tab67b = _ps67b.table(_daten67b['blueprints'][0], _daten67b['products'],
+                           lambda _m: 1000)
+    _dps67b = [z for z in _tab67b if z[0] == 'row' and z[6] == 'dps']
+    pruefe(_dps67b and _ps67b.formatted(_dps67b[0])[:3]
+           == ('100.0', '120.0', '+20.00 %'),
+           'zwei Materialien auf dieselbe Eigenschaft addieren sich '
+           '(DPS 100 -> 120, +20 %%: %s)'
+           % (str(_ps67b.formatted(_dps67b[0])[:3]) if _dps67b
+              else 'keine DPS-Zeile',))
+
+    _alt_load67b = _he67b.load
+    _alt_lager67b = _lg67b.load()
+    _w67b = _tk67b.Tk()
+    _w67b.withdraw()                     # ⚠ kein Fenster ins Bild schieben
+    try:
+        _he67b.load = lambda: _daten67b
+        _lg67b.save([{'material': 'Iron', 'menge': 5.0, 'qualitaet': 300,
+                      'ort': ''},
+                     {'material': 'Gold', 'menge': 1.0, 'qualitaet': 900,
+                      'ort': ''}])
+        _sf67b = _tkfont67b.Font(root=_w67b, family='TkDefaultFont', size=10)
+
+        class _Fenster67b:
+            f_base = f_small = f_item = f_bold = f_title = f_sub = _sf67b
+            on_show = {}
+            mining_search = ''
+
+            def open_page(self, _n):
+                pass
+
+            def say(self, *_a):
+                pass
+
+        _rahmen67b = _tk67b.Frame(_w67b)
+        _rahmen67b.pack(fill='both', expand=True)
+        _eintrag67b = {'name': 'Testkanone 67b', 'basis': 'Testkanone 67b',
+                       'tag': 'BP_TEST_67b', 'habe': True,
+                       'hersteller': 'Behring'}
+        _se67b._crafting_row(_Fenster67b(), _rahmen67b, _eintrag67b,
+                             {'name': 'Testkanone 67b'}, lambda: None)
+
+        def _texte67b(w, raus):
+            try:
+                raus.append(str(w.cget('text')))
+            except Exception:
+                pass
+            for _k in w.winfo_children():
+                _texte67b(_k, raus)
+            return raus
+
+        def _regler67b(w, raus):
+            if w.winfo_class() == 'Canvas' and hasattr(w, 'on_drag'):
+                raus.append(w)
+            for _k in w.winfo_children():
+                _regler67b(_k, raus)
+            return raus
+
+        _vorher67b = _texte67b(_rahmen67b, [])
+        # Start: Iron aus dem Lager (Q 300), Gold (Q 900).
+        # DPS: 1 + (0,96 - 1) + (1,08 - 1) = 1,04 -> 104.0
+        pruefe('DPS' in _vorher67b and '104.0' in _vorher67b,
+               'die Tabelle zeigt DPS mit dem Lagerstand (104.0)')
+        pruefe(_sp67b.t('s_lg_da') % 5.0 in _vorher67b,
+               'bei Q 300 zaehlt das Iron im Lager (hast du: 5)')
+
+        _alle_regler67b = _regler67b(_rahmen67b, [])
+        pruefe(len(_alle_regler67b) == 2, 'je Material ein Regler (%d)'
+               % len(_alle_regler67b))
+        if _alle_regler67b:
+            # Iron auf Q 685 — kein Posten erreicht das.
+            _alle_regler67b[0].on_drag(685)
+            _nachher67b = _texte67b(_rahmen67b, [])
+            pruefe(_sp67b.t('s_lg_da') % 5.0 not in _nachher67b,
+                   'nach dem Zug auf Q 685 steht NICHT mehr „hast du: 5"')
+            pruefe(_sp67b.t('s_lg_fehlt') % 0.04 in _nachher67b,
+                   'sondern „dir fehlt: 0.04"')
+            pruefe(_sp67b.t('s_lg_zu_schlecht') % (5.0, 685.0) in _nachher67b,
+                   'mit dem Hinweis, dass 5 SCU unter Q 685 liegen')
+            # DPS: 1 + 0,037 + 0,08 = 1,117 -> 111.7
+            pruefe('111.7' in _nachher67b,
+                   'und die Tabelle rechnet mit Q 685 weiter (DPS 111.7)')
+    finally:
+        _he67b.load = _alt_load67b
+        _lg67b.save(_alt_lager67b)
+        _w67b.destroy()
+
+    # ------------------------------------------------------------------
+    # 67c. Eine gemerkte Lage ausserhalb aller Monitore wird verworfen
+    #
+    # ⚠⚠ Am 16.09.2026 startete das Overlay nach einem Update bei Y = 2526 —
+    # bei drei Monitoren zwischen Y −1440 und +1152, also unter allen
+    # Bildschirmen. Die alte Schranke „bis zum Dreifachen der Bildschirmhoehe"
+    # liess das durch. Nachgestellt mit genau diesem Aufbau.
+    print()
+    print('67c. Gemerkte Fensterlage gegen die echten Monitore')
+    import tkinter as _tk67c
+    import sc_bp_watcher as _sw67c
+    from scbp import screen as _bs67c
+    _alt67c = _bs67c.detected_screens
+    _w67c = _tk67c.Tk()
+    _w67c.withdraw()
+    try:
+        _bs67c.detected_screens = lambda: [(0, 0, 4096, 1152),
+                                           (0, -1440, 4096, 1152),
+                                           (-1080, -487, 1080, 1920)]
+        for _geo67c, _soll67c, _was67c in (
+                ('538x349+1087+2526', '538x349', 'unter allen Monitoren'),
+                ('538x349+3656+-1439', '538x349+3656+-1439', 'oberer Monitor'),
+                ('538x349+-900+-400', '538x349+-900+-400', 'seitlicher Monitor'),
+                ('538x349+8+747', '538x349+8+747', 'Hauptmonitor')):
+            _ist67c = _sw67c.geometrie_pruefen(_geo67c, _w67c)
+            pruefe(_ist67c == _soll67c, '%s: %s -> %s' % (_was67c, _geo67c, _ist67c))
+        # Ohne erkannte Monitore bleibt die grobe Schranke — nichts wird
+        # verworfen, nur weil die Erkennung fehlt.
+        _bs67c.detected_screens = lambda: []
+        pruefe('+' in _sw67c.geometrie_pruefen('538x349+100+100', _w67c),
+               'ohne erkannte Monitore bleibt eine normale Lage erhalten')
+        pruefe(hasattr(_sw67c.Overlay, '_lage_merken_bald'),
+               'das Overlay merkt seine Lage schon beim Verschieben')
+    finally:
+        _bs67c.detected_screens = _alt67c
+        _w67c.destroy()
 
     # ⚠ Kein lokaler Name darf eine Funktion derselben Datei verdecken.
     # Statische Gegenprobe fuer genau diesen Fehler.

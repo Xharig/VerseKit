@@ -345,6 +345,8 @@ def slider(parent, minimum, maximum, value, on_drag, width=190, bg=None):
     c.bind('<B1-Motion>', drag)
     draw(value)
     c.draw = draw
+    # Für den Selbsttest: einen Zug nachstellen, ohne ein Fenster anzuzeigen.
+    c.on_drag = on_drag
     return c
 
 

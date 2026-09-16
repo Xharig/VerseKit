@@ -8,6 +8,45 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.43.0 - 2026-09-16
+
+> **Die Herstellung zeigt jetzt, was am Ende herauskommt.** Oben steht eine
+> Tabelle mit Grundwert, gebautem Wert und Änderung — Schaden, DPS,
+> Schildstärke, Kühlleistung, Rüstungswerte —, gerechnet genau wie auf
+> scmdb.net. Was jedes Material dazu beiträgt, steht rechts neben seinem Regler.
+> Und nach einem Update ist VerseKit wieder dort zu sehen, wo es vorher stand.
+
+### Neu
+
+- **Produktwerte in der Herstellung: Grundwert, gebaut, Änderung.** Für Waffen
+  mit Feuerrate, Schaden je Schuss und DPS, für Schiffskomponenten mit
+  Integrität, Schild, Kühlung, Leistung, Quantenantrieb, Radar und Traktorstrahl,
+  für Rüstung mit Schadensminderung, Temperatur und Strahlung. Die Werte folgen
+  den Qualitätsreglern. Angeregt von Bushwick4712 (KRT)
+
+### Verbessert
+
+- **Die Wirkung eines Materials steht rechts neben seinem Regler.** Beim Ziehen
+  sieht man direkt, welche Eigenschaft sich wie stark ändert, statt in einer
+  Liste darüber nachzusehen.
+
+### Behoben
+
+- **Zwei Materialien, die dieselbe Eigenschaft verbessern, wurden nicht
+  zusammengerechnet.** Die Wirkung stand als zwei getrennte Zeilen da, das
+  Ergebnis fehlte. Jetzt addieren sie sich wie im Spiel und auf scmdb.net.
+  Gemeldet von Bushwick4712 (KRT)
+- **„hast du" im Rezept beachtete die eingestellte Qualität nicht.** Wer den
+  Regler über die Qualität seines Lagers schob, las trotzdem die volle Menge.
+  Jetzt zählt nur, was die eingestellte Qualität erreicht — der Rest steht als
+  „unter Q …" daneben, und auch „Hergestellt — vom Lager abziehen" nimmt nur
+  solche Posten.
+- **Nach einem Update war VerseKit nicht zu sehen.** Es lief wieder, aber das
+  Overlay stand an einer alten Stelle — bei mehreren Monitoren auch mal
+  außerhalb aller Bildschirme. Die Lage wird jetzt schon beim Verschieben
+  gemerkt, eine Lage außerhalb der Monitore wird verworfen, und nach dem Update
+  geht das Hauptfenster wieder auf.
+
 ## v3.42.4 - 2026-09-16
 
 > **Einen Fehler zu melden braucht kein GitHub-Konto — und das steht jetzt auch

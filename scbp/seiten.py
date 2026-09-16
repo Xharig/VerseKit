@@ -5710,7 +5710,7 @@ def _thanks(fenster, rahmen):
             ('Bushwick4712', 'KRT',
              t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2')
              + '\n\n' + t('s_dk_bushwick_idee3'),
-             t('s_dk_bushwick_bugs')),
+             t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
@@ -8953,8 +8953,21 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
         # nicht mehr, und niemand merkt es.
         anzahl_var = tk.StringVar(value='1')
 
-        def hergestellt(_e=None, zutaten=stufe['zutaten'], lbl=rueck,
+        # ⚠⚠ **Die eingestellte Qualität gilt auch fürs Lager.** Bis v3.42.4
+        # zählte „hast du" jeden Posten ab der Mindestgüte des Rezepts — wer
+        # den Titanium-Regler auf Q 685 schob, las weiter „hast du: 13.938",
+        # obwohl kein einziger Posten Q 685 erreichte. Gemeldet am 16.09.2026.
+        # `gewaehlt` hält je Material den Reglerwert; die Regler weiter unten
+        # schreiben hinein, Lagerzeile und Abzug lesen daraus.
+        gewaehlt = {}
+
+        def _zutaten_jetzt(zutaten=stufe['zutaten'], wahl=gewaehlt):
+            return [(s, r, m, max(float(g or 0), float(wahl.get(r, 0))))
+                    for s, r, m, g in zutaten]
+
+        def hergestellt(_e=None, jetzt=_zutaten_jetzt, lbl=rueck,
                         var=anzahl_var):
+            zutaten = jetzt()
             wie_oft = lager.parse_number(var.get())
             # Unsinn im Feld heisst 1 — lieber einmal abziehen als gar nichts
             # tun und den Nutzer raten lassen, warum nichts passiert.
@@ -9140,7 +9153,7 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             wie_viele = lager.parse_number(anzahl_var.get())
             wie_viele = 1 if not wie_viele or wie_viele < 1 else int(wie_viele)
             neue_lage = {m: (br, da, f, zug, mq) for m, br, da, f, zug, mq
-                         in lager.check(stufe['zutaten'], wie_viele)}
+                         in lager.check(_zutaten_jetzt(), wie_viele)}
             for (rohstoff, menge, menge_lbl, lage_lbl, guete_lbl,
                  preis_lbl) in zutat_widgets:
                 noetig = (menge or 0) * wie_viele
@@ -9238,196 +9251,156 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             werte_kopf = tk.Label(block, text=t('s_he_werte'), bg='#0c1017',
                                   fg=FG, font=fenster.f_base, anchor='w')
             werte_kopf.pack(fill='x', padx=12, pady=(10, 2))
-            werte_rahmen = tk.Frame(block, bg='#0c1017')
-            werte_rahmen.pack(fill='x')
-            regler_lbl = tk.Label(block, text='', bg='#0c1017', fg=SUB,
-                                  font=fenster.f_small, anchor='w')
 
-            # ⚠⚠ **Die Zeilen werden EINMAL gebaut, danach nur beschriftet.**
-            #
-            # Vorher wurde bei jeder Reglerbewegung alles zerstört und neu
-            # aufgebaut — bei einem Regler heißt das: bei jedem Pixel. Das
-            # ruckelte und flackerte so stark, dass er nicht bedienbar war
-            # (gemeldet 29.08.2026). Tk-Widgets zu erzeugen ist teuer,
-            # `configure(text=…)` ist billig.
-            #
-            # Damit die Zeilenzahl feststeht, wird die Liste **immer** mit
-            # einer vollständigen Qualitätsvorgabe gebaut; welche Werte darin
-            # stehen, entscheidet erst `werte_setzen()`.
-            grundliste = herst_modul.values_with_stock(
-                eintrag['basis'], {m: 500.0 for m in alle_materialien})
-            zeilen_widgets = []
-            for w in grundliste:
-                wz = tk.Frame(werte_rahmen, bg='#0c1017')
-                wz.pack(fill='x', padx=12, pady=1)
-                # ⚠ Uebersetzt ueber den sprachneutralen Schluessel, nicht
-                # ueber den englischen Namen — siehe `crafting.property_name`.
-                tk.Label(wz, text=herst_modul.property_name(w['eigenschaft'],
-                                                          w.get('key')),
-                         bg='#0c1017', fg=SUB,
-                         font=fenster.f_small, width=22,
-                         anchor='w').pack(side='left')
-                # ⚠⚠ **Die feste Breite gilt nur für den Faktor.** Als die
-                # Prozentzahl in v3.3.0-rc37 dazukam, wurde sie in dasselbe
-                # Etikett geschrieben — und `width=9` schnitt sie ab: Auf dem
-                # Bildschirm stand „× 1.047  +4.(" statt „+4,70 %". Eine feste
-                # Breite ist eine Zusage über den Inhalt; wer Inhalt dazutut,
-                # muss sie anfassen.
-                faktor_lbl = tk.Label(wz, text='', bg='#0c1017', fg=ACCENT,
-                                      font=fenster.f_base, width=9,
-                                      anchor='w')
-                faktor_lbl.pack(side='left')
-                # Eigene Spalte fürs Prozent — so bleiben beide untereinander
-                # bündig, statt sich gegenseitig zu verschieben.
-                prozent_lbl = tk.Label(wz, text='', bg='#0c1017', fg=ACCENT,
-                                       font=fenster.f_base, width=10,
-                                       anchor='w')
-                prozent_lbl.pack(side='left', padx=(6, 0))
-                herkunft_lbl = tk.Label(wz, text='', bg='#0c1017', fg=SUB,
-                                        font=fenster.f_small, anchor='e')
-                herkunft_lbl.pack(side='right', padx=12)
-                # ⚠ Zweite Zeile darunter: die Spanne. Ein Faktor allein ist
-                # nicht einzuordnen — „× 0.867" sagt nicht, ob noch viel geht.
-                # Erst „×1.2–0.8" daneben macht klar, dass es schon zwei
-                # Drittel des Wegs sind. scmdb zeigt es aus demselben Grund.
-                #
-                # ⚠⚠ **In `werte_rahmen`, direkt hinter die eigene Zeile.**
-                # Bis rc42 stand hier `block` — der Behälter eine Ebene höher.
-                # Dadurch rutschten *alle* Spannen ans Ende des Blocks und
-                # standen dort als gleich aussehende Zeilen untereinander,
-                # während die Werte, zu denen sie gehören, weiter oben blieben.
-                # Auf dem Bildschirm war nicht mehr zu erkennen, welche Spanne
-                # zu welchem Wert gehört. Der Elternteil bestimmt hier die
-                # Zuordnung — nicht nur den Ort.
-                spanne_lbl = tk.Label(werte_rahmen, text='', bg='#0c1017',
-                                      fg=SUB, font=fenster.f_small, anchor='w')
-                spanne_lbl.pack(fill='x', padx=(46, 12))
-                zeilen_widgets.append((w, faktor_lbl, prozent_lbl,
-                                       herkunft_lbl, spanne_lbl))
-
-            leer_lbl = tk.Label(werte_rahmen, text='', bg='#0c1017', fg=SUB,
-                                font=fenster.f_small, anchor='w')
-
-            # ⚠⚠ **Je Material ein eigener Wert.** Bis v3.3.0-rc35 gab es
-            # EINEN Regler, der allen Zutaten dieselbe Qualität gab. Das ist
-            # praktisch nie die Wirklichkeit: „jedes Material hat man so gut
-            # wie nie in der gleichen Qualität da" (30.08.2026). Und weil jede
-            # Zutat eine ANDERE Eigenschaft anhebt, ist die eigentliche Frage
-            # ohnehin eine andere: „ich habe 500er Iron — was kommt raus, wenn
-            # ich 900er nähme, und was ändert sich dadurch am Riccite-Wert?"
-            # Mit einem gemeinsamen Regler liess sie sich gar nicht stellen.
-            #
             # `stand` hält die aktuelle Qualität je Material. Startwert ist
             # der eigene Lagerstand, sonst die Mitte.
-            stand = {m: float(qualitaeten.get(m, 500.0))
-                     for m in alle_materialien}
+            #
+            # ⚠ `stand` IST `gewaehlt` — dasselbe Wörterbuch, kein Abbild.
+            # Die Lagerzeile oben liest daraus; eine Kopie hieße, dass der
+            # Regler das Lager nie erreicht (genau der Fehler vom 16.09.2026).
+            stand = gewaehlt
+            stand.update({m: float(qualitaeten.get(m, 500.0))
+                          for m in alle_materialien})
             aus_lager = {m: (m in qualitaeten) for m in alle_materialien}
+            # ⚠ Über den Tag, nicht den Namen: „Main Powerplant" gibt es für
+            # Idris und Reclaimer, der Name fände immer nur das erste Rezept.
+            _bp_kennung = eintrag.get('tag') or eintrag['basis']
 
-            def werte_zeichnen():
-                """Nur die Zahlen austauschen — keine Widgets neu bauen."""
-                aktuell = {(w['eigenschaft'], w['material'], w['slot']): w
-                           for w in herst_modul.values_with_stock(
-                               eintrag['basis'], stand)}
-                gezeigt = 0
-                for (w0, faktor_lbl, prozent_lbl, herkunft_lbl,
-                     spanne_lbl) in zeilen_widgets:
-                    w = aktuell.get((w0['eigenschaft'], w0['material'],
-                                     w0['slot']))
-                    if not w:
-                        faktor_lbl.configure(text='')
-                        prozent_lbl.configure(text='')
-                        herkunft_lbl.configure(text='')
-                        spanne_lbl.configure(text='')
+            # ⭐⭐ **Die Produkt-Tabelle — Grundwert, gebaut, Änderung.**
+            #
+            # Bis v3.42.4 standen hier nur Faktoren je Material. Zwei
+            # Materialien auf dieselbe Eigenschaft ergaben zwei Zeilen
+            # „× 1.024", die Summe und das Ergebnis (DPS, Schildstärke,
+            # Kühlleistung) musste man selbst ausrechnen. Am 16.09.2026
+            # gemeldet, der Vergleich mit scmdb.net zeigte es sofort: dort steht
+            # oben die Tabelle, darunter die Regler. Gerechnet wird genau wie
+            # dort, siehe `scbp/product_stats.py`.
+            #
+            # ⚠ Gebaut wird EINMAL, danach nur beschriftet (Regler-Ruckeln,
+            # siehe unten). Welche Zeilen es gibt, hängt nur an den
+            # Grundwerten — die ändert kein Regler, also bleibt die Zahl der
+            # Zeilen fest.
+            from . import product_stats as _ps
+
+            def _q_von(mat):
+                return stand.get(mat)
+
+            tabellen_rahmen = tk.Frame(block, bg='#0c1017')
+            tabellen_rahmen.pack(fill='x', padx=12, pady=(2, 4))
+            tabelle = herst_modul.product_table(_bp_kennung, _q_von)
+            zellen = []
+            if any(z[0] == 'row' for z in tabelle):
+                for spalte, breite in ((1, 120), (2, 120), (3, 90)):
+                    tabellen_rahmen.grid_columnconfigure(spalte, minsize=breite)
+                tabellen_rahmen.grid_columnconfigure(0, weight=1)
+                zeile_nr = 0
+                for spalte, schluessel in enumerate(('s_ps_sp_wert',
+                                                     's_ps_sp_grund',
+                                                     's_ps_sp_gebaut',
+                                                     's_ps_sp_diff')):
+                    tk.Label(tabellen_rahmen, text=t(schluessel), bg='#0c1017',
+                             fg=SUB, font=fenster.f_small,
+                             anchor='w' if spalte == 0 else 'e').grid(
+                                 row=zeile_nr, column=spalte, sticky='ew')
+                zeile_nr += 1
+                for index, z in enumerate(tabelle):
+                    if z[0] == 'info':
+                        if z[1]:
+                            tk.Label(tabellen_rahmen, text=z[1], bg='#0c1017',
+                                     fg=GOLD, font=fenster.f_small,
+                                     anchor='w').grid(row=zeile_nr, column=0,
+                                                      columnspan=4, sticky='ew',
+                                                      pady=(2, 2))
+                            zeile_nr += 1
                         continue
-                    gezeigt += 1
-                    # ⚠⚠ **Die Farbe darf nicht an der Zahl haengen.** Bis
-                    # v3.3.0-rc35 galt „>= 1 ist gut". Bei Rueckstoss und
-                    # Quantum-Treibstoff ist WENIGER besser — dort stand der
-                    # bestmoegliche Wert (× 0.800) in der Warnfarbe und der
-                    # schlechteste (× 1.200) in Gruen. 852 von 6524
-                    # Modifikatoren im Spielstand 4.10.0 laufen so.
-                    if w.get('absolut'):
-                        # ⚠ Power Pips: eine Stueckzahl, kein Faktor. Bis
-                        # v3.3.0-rc35 stand hier „× -1.000" — ein
-                        # Multiplikator, den es nicht geben kann. 598 der 6524
-                        # Modifikatoren sind so gebaut (alle Kraftwerke).
-                        gut = w['faktor'] > 0
-                        text_wert = (t('s_he_absolut_null') if not w['faktor']
-                                     else t('s_he_absolut') % w['faktor'])
-                        farbe = (ACCENT if w['faktor'] > 0
-                                 else GOLD if w['faktor'] < 0 else SUB)
-                    else:
-                        gut = (w['faktor'] >= 1 if w.get('besser_hoch', True)
-                               else w['faktor'] <= 1)
-                        text_wert = t('s_he_faktor') % w['faktor']
-                        farbe = ACCENT if gut else GOLD
-                    faktor_lbl.configure(text=text_wert, fg=farbe)
-                    # ⚠ Prozent in die eigene Spalte. „× 0.867" muss man im
-                    # Kopf umrechnen, „−13,28 %" nicht — und genau das ist die
-                    # Zahl, die man mit anderem Material vergleicht.
-                    prozent_lbl.configure(
-                        text=('' if w.get('absolut')
-                              else t('s_he_prozent') % ((w['faktor'] - 1) * 100)),
-                        fg=farbe)
-                    herkunft = t('s_he_woher') % (w['material'], w['qualitaet'])
-                    if not w.get('besser_hoch', True):
-                        herkunft = '%s · %s' % (t('s_he_weniger_gut'), herkunft)
-                    herkunft_lbl.configure(text=herkunft)
-                    sp = w.get('spanne')
-                    if sp:
-                        q_von, q_bis, f_von, f_bis, basis = sp
-                        spanne_lbl.configure(
-                            text=(t('s_he_spanne')
-                                  % (q_von, q_bis, f_von, f_bis, round(basis))
-                                  if basis is not None else
-                                  t('s_he_spanne_ohne') % (q_von, q_bis, f_von, f_bis)))
-                    else:
-                        spanne_lbl.configure(text='')
-                if not gezeigt:
-                    leer_lbl.configure(text=t('s_he_kein_lager'))
-                    leer_lbl.pack(fill='x', padx=12)
-                else:
-                    leer_lbl.pack_forget()
+                    if z[0] == 'section':
+                        tk.Label(tabellen_rahmen, text=z[1], bg='#0c1017',
+                                 fg=GOLD, font=fenster.f_small,
+                                 anchor='w').grid(row=zeile_nr, column=0,
+                                                  columnspan=4, sticky='ew',
+                                                  pady=(6, 0))
+                        zeile_nr += 1
+                        continue
+                    # ⭐ DPS hervorgehoben — die Zahl, nach der gefragt wurde.
+                    hervor = z[6] == 'dps'
+                    schrift = fenster.f_base if hervor else fenster.f_small
+                    tk.Label(tabellen_rahmen, text=z[1], bg='#0c1017',
+                             fg=FG if hervor else SUB, font=schrift,
+                             anchor='w').grid(row=zeile_nr, column=0,
+                                              sticky='ew')
+                    grund_lbl = tk.Label(tabellen_rahmen, text='', bg='#0c1017',
+                                         fg=FG, font=schrift, anchor='e')
+                    grund_lbl.grid(row=zeile_nr, column=1, sticky='ew')
+                    gebaut_lbl = tk.Label(tabellen_rahmen, text='', bg='#0c1017',
+                                          fg=SUB, font=schrift, anchor='e')
+                    gebaut_lbl.grid(row=zeile_nr, column=2, sticky='ew')
+                    diff_lbl = tk.Label(tabellen_rahmen, text='', bg='#0c1017',
+                                        fg=SUB, font=fenster.f_small, anchor='e')
+                    diff_lbl.grid(row=zeile_nr, column=3, sticky='ew')
+                    zellen.append((index, grund_lbl, gebaut_lbl, diff_lbl))
+                    zeile_nr += 1
+            else:
+                # ⚠ Zwei verschiedene Gründe, zwei Sätze: Fehlen die Daten
+                # ganz, kommen sie mit dem nächsten Auffrischen. Fehlen sie
+                # nur für diesen Gegenstand (Magazine, manche Kleidung), gibt
+                # es schlicht keine — dann hilft kein Warten.
+                _hat_daten = bool(herst_modul.load().get('products'))
+                _body_text(tabellen_rahmen,
+                           t('s_ps_keine' if _hat_daten else 's_ps_nachladen'),
+                           fenster.f_small, fill='x', padx=0)
 
-                # Überschrift: „mit deinem Material" nur, solange nichts
-                # verstellt wurde. Sobald ein Regler von seinem Lagerwert
-                # abweicht, ist es ein Durchspielen und keine Aussage mehr.
-                verstellt = any(
-                    abs(stand[m] - float(qualitaeten.get(m, 500.0))) > 0.5
-                    or not aus_lager[m] for m in alle_materialien)
-                if not verstellt and qualitaeten:
-                    werte_kopf.configure(text=t('s_he_werte'))
-                else:
-                    werte_kopf.configure(text=t('s_he_werte_probe_je'))
+            _bewertung_farbe = {'good': ACCENT, 'bad': RED, 'neutral': SUB}
 
-            # --- Ein Regler je Material ---
+            def tabelle_zeichnen():
+                """Nur die Zahlen der Tabelle austauschen."""
+                if not zellen:
+                    return
+                neu = herst_modul.product_table(_bp_kennung, _q_von)
+                for index, grund_lbl, gebaut_lbl, diff_lbl in zellen:
+                    z = neu[index] if index < len(neu) else None
+                    if not z or z[0] != 'row':
+                        continue
+                    grund, gebaut, diff, bewertung = _ps.formatted(z)
+                    farbe = _bewertung_farbe[bewertung]
+                    grund_lbl.configure(text=grund)
+                    gebaut_lbl.configure(text=gebaut, fg=farbe)
+                    diff_lbl.configure(text=diff, fg=farbe)
+
+            grundliste = herst_modul.values_with_stock(
+                _bp_kennung, {m: 500.0 for m in alle_materialien})
+
+            # --- Ein Regler je Material, die Wirkung rechts daneben ---
             # Dieselbe Frage, die man sonst auf scmdb.net von Hand stellt:
             # „Und mit besserem Erz?" Nur dass hier der eigene Lagerstand der
             # Ausgangspunkt ist — je Material einzeln.
+            #
+            # ⚠⚠ **Je Material ein eigener Wert.** Bis v3.3.0-rc35 gab es
+            # EINEN Regler, der allen Zutaten dieselbe Qualität gab. Das ist
+            # praktisch nie die Wirklichkeit: „jedes Material hat man so gut
+            # wie nie in der gleichen Qualität da" (30.08.2026).
+            #
+            # ⭐ **Die Wirkung steht rechts neben ihrem Regler** (16.09.2026).
+            # Vorher stand sie in einer eigenen Liste darüber, mit „Titanium ·
+            # Q 685" am Zeilenende — man musste zwischen Regler und Liste hin
+            # und her lesen. Neben dem Regler sieht man beim Ziehen, was sich
+            # ändert, und der freie Platz rechts war ohnehin ungenutzt.
             from .main_window import slider as schieberegler
             tk.Label(block, text=t('s_he_regler_kopf'), bg='#0c1017', fg=FG,
                      font=fenster.f_base, anchor='w').pack(
                          fill='x', padx=12, pady=(10, 2))
             # ⭐ Der Satz, der die Regler erst einordnet: Wer kauft, landet
             # immer bei 500 — dem Nullpunkt. Alles darüber muss man selbst
-            # abbauen. Ohne diesen Hinweis sieht der Regler nach einer freien
-            # Wahl aus, die man am Terminal treffen könnte.
+            # abbauen.
             _body_text(block, t('s_he_kauf_q') % preis_modul.BUY_QUALITY,
                         fenster.f_small, fill='x')
 
             # ⚠⚠ **589 Rezept-Slots haben ein Material ohne jede
-            # Qualitaetswirkung** — Titanium in der BUL-H4 Armor etwa. Man
-            # zieht dort am Regler, und es passiert nichts, weil es keine Zeile
-            # dazu gibt. Am 30.08.2026 beim Testen aufgefallen.
-            #
-            # ⚠ Der Regler bleibt trotzdem, und zwar bedienbar — scmdb.net
-            # haelt es genauso: „so sieht der User, egal was er nimmt, es hat
-            # keine Auswirkung." Selbst ausprobieren ueberzeugt mehr als ein
-            # fehlendes Bedienelement, das wie ein Versehen aussieht. Dazu
-            # kommt nur der Hinweis, damit niemand den Fehler bei sich sucht.
+            # Qualitaetswirkung** — Titanium in der BUL-H4 Armor etwa. Der
+            # Regler bleibt trotzdem bedienbar (scmdb.net haelt es genauso),
+            # daneben steht, warum sich nichts tut.
             _wirksam = set()
             try:
-                for _s in (herst_modul.slots(eintrag['basis']) or []):
+                for _s in (herst_modul.slots(_bp_kennung) or []):
                     if _s.get('material') and _s.get('wirkungen'):
                         _wirksam.add(_s['material'])
             except Exception as ausnahme:
@@ -9435,12 +9408,13 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 _wirksam = set(alle_materialien)
 
             regler_zeilen = {}
+            zeilen_widgets = []
             for _mat in alle_materialien:
                 reihe_r = tk.Frame(block, bg='#0c1017')
-                reihe_r.pack(fill='x', padx=12, pady=2)
+                reihe_r.pack(fill='x', padx=12, pady=3)
                 tk.Label(reihe_r, text=_mat, bg='#0c1017', fg=ACCENT,
                          font=fenster.f_small, width=16, anchor='w').pack(
-                             side='left')
+                             side='left', anchor='n')
 
                 # ⚠ Der Wert MUSS neben dem Regler stehen. Ohne ihn zieht man
                 # blind und weiß nicht, welche Qualität man gerade
@@ -9464,20 +9438,119 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
 
                 _schieber = schieberegler(reihe_r, 0, 1000, int(stand[_mat]),
                                           gezogen, width=200, bg='#0c1017')
-                _schieber.pack(side='left')
-                _wert_lbl.pack(side='left', padx=(10, 0))
-                # Woher der Startwert kommt: eigener Lagerstand oder Mitte.
-                # ⚠ Bei einem Material ohne Wirkung ist die Herkunft der
-                # Qualitaet gleichgueltig — dort steht der Grund, warum sich
-                # beim Ziehen nichts tut.
+                _schieber.pack(side='left', anchor='n')
+                _wert_lbl.pack(side='left', anchor='n', padx=(10, 0))
                 _quelle_lbl = tk.Label(
                     reihe_r,
                     text=(t('s_he_ohne_wirkung') if _mat not in _wirksam
                           else t('s_he_regler_lager') if aus_lager[_mat]
                           else t('s_he_regler_ohne')),
                     bg='#0c1017', fg=SUB, font=fenster.f_small, anchor='w')
-                _quelle_lbl.pack(side='left', padx=(10, 0))
+                _quelle_lbl.pack(side='left', anchor='n', padx=(10, 0))
                 regler_zeilen[_mat] = (_wert_lbl, _quelle_lbl, _schieber)
+
+                # Rechts: jede Eigenschaft, die dieses Material verändert.
+                # ⚠ Ein Material kann in mehreren Slots stecken und mehrere
+                # Eigenschaften treffen — jede bekommt ihre eigene Zeile.
+                wirk_rahmen = tk.Frame(reihe_r, bg='#0c1017')
+                wirk_rahmen.pack(side='right', anchor='n')
+                _nr = 0
+                for w in grundliste:
+                    if w['material'] != _mat:
+                        continue
+                    # ⚠ Übersetzt über den sprachneutralen Schlüssel, nicht
+                    # über den englischen Namen — siehe `crafting.property_name`.
+                    tk.Label(wirk_rahmen,
+                             text=herst_modul.property_name(w['eigenschaft'],
+                                                            w.get('key')),
+                             bg='#0c1017', fg=SUB, font=fenster.f_small,
+                             anchor='e').grid(row=_nr, column=0, sticky='e',
+                                              padx=(0, 10))
+                    # ⚠⚠ Faktor und Prozent in EIGENEN Etiketten mit fester
+                    # Breite — in v3.3.0-rc37 schnitt ein gemeinsames Etikett
+                    # „+4,70 %" zu „+4.(" ab.
+                    faktor_lbl = tk.Label(wirk_rahmen, text='', bg='#0c1017',
+                                          fg=ACCENT, font=fenster.f_base,
+                                          width=9, anchor='e')
+                    faktor_lbl.grid(row=_nr, column=1, sticky='e')
+                    prozent_lbl = tk.Label(wirk_rahmen, text='', bg='#0c1017',
+                                           fg=ACCENT, font=fenster.f_base,
+                                           width=10, anchor='e')
+                    prozent_lbl.grid(row=_nr, column=2, sticky='e')
+                    # Darunter die Spanne: Ein Faktor allein ist nicht
+                    # einzuordnen — erst „×0.9–1.1" zeigt, wie viel noch geht.
+                    spanne_lbl = tk.Label(wirk_rahmen, text='', bg='#0c1017',
+                                          fg=SUB, font=fenster.f_small,
+                                          anchor='e')
+                    spanne_lbl.grid(row=_nr + 1, column=0, columnspan=3,
+                                    sticky='e')
+                    zeilen_widgets.append((w, faktor_lbl, prozent_lbl,
+                                           spanne_lbl))
+                    _nr += 2
+
+            def werte_zeichnen():
+                """Nur die Zahlen austauschen — keine Widgets neu bauen.
+
+                ⚠⚠ Vorher wurde bei jeder Reglerbewegung alles zerstört und
+                neu aufgebaut — bei einem Regler heißt das: bei jedem Pixel.
+                Das ruckelte so stark, dass er nicht bedienbar war (29.08.2026).
+                """
+                aktuell = {(w['eigenschaft'], w['material'], w['slot']): w
+                           for w in herst_modul.values_with_stock(
+                               _bp_kennung, stand)}
+                for w0, faktor_lbl, prozent_lbl, spanne_lbl in zeilen_widgets:
+                    w = aktuell.get((w0['eigenschaft'], w0['material'],
+                                     w0['slot']))
+                    if not w:
+                        faktor_lbl.configure(text='')
+                        prozent_lbl.configure(text='')
+                        spanne_lbl.configure(text='')
+                        continue
+                    # ⚠⚠ **Die Farbe darf nicht an der Zahl haengen.** Bei
+                    # Rueckstoss und Quantum-Treibstoff ist WENIGER besser.
+                    if w.get('absolut'):
+                        # ⚠ Power Pips: eine Stueckzahl, kein Faktor.
+                        text_wert = (t('s_he_absolut_null') if not w['faktor']
+                                     else t('s_he_absolut') % w['faktor'])
+                        farbe = (ACCENT if w['faktor'] > 0
+                                 else GOLD if w['faktor'] < 0 else SUB)
+                    else:
+                        gut = (w['faktor'] >= 1 if w.get('besser_hoch', True)
+                               else w['faktor'] <= 1)
+                        text_wert = t('s_he_faktor') % w['faktor']
+                        farbe = ACCENT if gut else GOLD
+                    faktor_lbl.configure(text=text_wert, fg=farbe)
+                    prozent_lbl.configure(
+                        text=('' if w.get('absolut')
+                              else t('s_he_prozent') % ((w['faktor'] - 1) * 100)),
+                        fg=farbe)
+                    sp = w.get('spanne')
+                    text_spanne = ''
+                    if sp:
+                        q_von, q_bis, f_von, f_bis, basis = sp
+                        text_spanne = (t('s_he_spanne')
+                                       % (q_von, q_bis, f_von, f_bis, round(basis))
+                                       if basis is not None else
+                                       t('s_he_spanne_ohne')
+                                       % (q_von, q_bis, f_von, f_bis))
+                    if not w.get('besser_hoch', True):
+                        text_spanne = '%s · %s' % (t('s_he_weniger_gut'),
+                                                   text_spanne)
+                    spanne_lbl.configure(text=text_spanne)
+
+                # Überschrift: „mit deinem Material" nur, solange nichts
+                # verstellt wurde. Sobald ein Regler von seinem Lagerwert
+                # abweicht, ist es ein Durchspielen und keine Aussage mehr.
+                verstellt = any(
+                    abs(stand[m] - float(qualitaeten.get(m, 500.0))) > 0.5
+                    or not aus_lager[m] for m in alle_materialien)
+                if not verstellt and qualitaeten:
+                    werte_kopf.configure(text=t('s_he_werte'))
+                else:
+                    werte_kopf.configure(text=t('s_he_werte_probe_je'))
+                tabelle_zeichnen()
+                # Die Lagerzeile oben hängt an denselben Qualitäten.
+                mengen_setzen()
 
             # Alles wieder auf den eigenen Lagerstand zurückstellen.
             zurueck = tk.Label(block, text=t('s_he_zurueck_lager'),

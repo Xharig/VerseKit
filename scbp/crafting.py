@@ -185,8 +185,11 @@ def update(build, progress=None):
     # ⚠ `dismantle` fehlt in Ablagen von vor v3.3.0 — dort wurden beim Sichern
     # nur die Bauplaene behalten. Fehlt der Abschnitt, wird einmal neu geholt;
     # danach ist er da und es passiert wieder nichts.
+    # ⚠ Dasselbe fuer `products` (ab v3.43.0): die Grundwerte der Produkte
+    # fuer die Tabelle „Grundwert → gebaut". Aeltere Ablagen holen einmal nach.
     if (raw_stand.get('build') == build and raw_stand.get('blueprints')
-            and raw_stand.get('dismantle') is not None):
+            and raw_stand.get('dismantle') is not None
+            and raw_stand.get('products')):
         return True, t('m_h_aktuell') % len(raw_stand['blueprints'])
     if progress:
         progress(t('z_laedt') % ('Herstellung', 4.1))
@@ -194,12 +197,23 @@ def update(build, progress=None):
     items = raw.get('blueprints') or []
     if not items:
         return False, t('m_h_leer')
+    # Die Grundwerte: eigener Abruf, eigenes `try`. Scheitert er, bleiben die
+    # Rezepte trotzdem nutzbar — nur die Tabelle fehlt, bis zum naechsten Mal.
+    from . import product_stats
+    products = {}
+    try:
+        if progress:
+            progress(t('z_laedt') % ('Herstellung', 1.3))
+        products = product_stats.compact(
+            fetch_file(product_stats.SOURCE % build), items)
+    except Exception as exc:
+        fehler.merken('crafting.update.products', exc)
     # ⚠ Nicht nur die Bauplaene sichern. Im selben Abruf steht, welche
     # Rohstoffe beim Zerlegen NICHT zurueckkommen (`dismantle`) — sechs
     # Stueck, darunter Lindinium und Quantainium. Das gehoert ans Rezept:
     # Ein Bauteil daraus ist eine Einbahnstrasse.
     _save({'format': FORMAT, 'build': build, 'blueprints': items,
-           'dismantle': raw.get('dismantle') or {}})
+           'dismantle': raw.get('dismantle') or {}, 'products': products})
     forget()
     return True, t('m_h_geladen') % len(items)
 
@@ -893,6 +907,22 @@ def values_with_stock(name_or_tag, quality_per_material):
                            # Was waere ueberhaupt erreichbar? Siehe `range_of`.
                            'spanne': range_of(w['mods'])})
     return result
+
+
+def product_table(name_or_tag, quality_of):
+    """Die Produkt-Tabelle „Grundwert → gebaut" — siehe `product_stats`.
+
+    ⚠ Lieber den **Tag** übergeben: „Main Powerplant" gibt es zweimal, der
+    Name fände nur das erste.
+    """
+    from . import product_stats
+    data = load()
+    wanted = (name_or_tag or '').strip().lower()
+    for b in data.get('blueprints') or []:
+        if wanted in ((b.get('tag') or '').lower(),
+                      (b.get('productName') or '').lower()):
+            return product_stats.table(b, data.get('products') or {}, quality_of)
+    return []
 
 
 def material_names():
