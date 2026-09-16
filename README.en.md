@@ -10,8 +10,8 @@
 
 <sub>Windows · Linux · no account, no cloud — installer on Windows, single file on Linux</sub>
 
-[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](../../releases)
-[![Downloads](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Downloads&color=5fa522)](../../releases)
+[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
+[![Downloads](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Downloads&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -19,7 +19,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%C2%B7%20Linux-0a4a7a)](#requirements)
 [![Star Citizen](https://img.shields.io/badge/Star%20Citizen-compatible-0a4a7a)](https://robertsspaceindustries.com/)
 
-[Deutsch](README.md) · **English**
+[Deutsch](https://github.com/Xharig/VerseKit/blob/main/README.md) · **English**
 
 </div>
 
@@ -27,9 +27,9 @@
 
 A small, borderless overlay that tells you **in real time** when a new blueprint drops — name, type and time. No account, no cloud. Runs on **Windows and Linux**.
 
-> 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](../../issues) — both are read.
+> 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
-> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](../../releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](../../issues) — that is exactly what they are for.
+> 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
 
 > ℹ️ **The SC Deutsch Launcher is no longer required.** The actual source is Star Citizen's own `Game.log` — every unlocked blueprint is written there in plain text. If the launcher is installed it is still used: it confirms finds and supplies German names. If it isn't (always the case on Linux), the watcher works anyway.
 
@@ -291,7 +291,7 @@ Nothing else. No Python, no account — and whether you install is your call (se
 
 ## Getting started
 
-1. Download the file for your system from the **[releases page](../../releases)**:
+1. Download the file for your system from the **[releases page](https://github.com/Xharig/VerseKit/releases)**:
 
    | System | File | What happens |
    |---|---|---|
@@ -321,7 +321,7 @@ Windows binaries will be signed by SignPath, and Windows will show the
 publisher name instead of "unknown publisher".
 
 Builds are produced exclusively by a public GitHub Actions workflow — see
-[SECURITY.en.md](SECURITY.en.md) for how releases are built and what the program
+[SECURITY.en.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.en.md) for how releases are built and what the program
 does and does not send.
 
 ### ⚠️ Windows says "Windows protected your PC"
@@ -336,13 +336,13 @@ This appears on the first launch, and it is **not a virus detection**:
 
 **If you would rather not take my word for it — you don't have to:**
 
-- The **source is open** ([here](../../)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+- The **source is open** ([here](https://github.com/Xharig/VerseKit)), and the file is not built by me but by **GitHub Actions** from exactly that source. The build is there to read: [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - Every file on the releases page carries its **SHA-256 checksum** — GitHub shows it directly
 - Upload it to **[VirusTotal](https://www.virustotal.com)** if you like. Individual scanners are known to flag PyInstaller executables; that is a classic false positive
 
 On **Linux** this message does not exist — the file just needs to be made executable once.
 
-> ℹ️ Verified against a real Star Citizen installation, with both a **German and an English** game client. Feedback from other machines is still welcome — different install locations, different screen setups, Windows. As an [issue](../../issues).
+> ℹ️ Verified against a real Star Citizen installation, with both a **German and an English** game client. Feedback from other machines is still welcome — different install locations, different screen setups, Windows. As an [issue](https://github.com/Xharig/VerseKit/issues).
 
 <details>
 <summary>Running from source (for the curious and for developers)</summary>
@@ -512,7 +512,7 @@ Found something? The quickest way is **Info → Report a problem**: there is a f
 holds everything needed to track a problem down and no personal information; you see
 all of it beforehand.
 
-Prefer to do it yourself? An [issue](../../issues) works just as well — the **GitHub
+Prefer to do it yourself? An [issue](https://github.com/Xharig/VerseKit/issues) works just as well — the **GitHub
 issue …** button on the same page fills the report in for you. Or the **Report a bug**
 forum on [Discord](https://discord.gg/g2E7e6XxZC), if a screenshot is quicker than a description.
 
@@ -530,7 +530,7 @@ forum on [Discord](https://discord.gg/g2E7e6XxZC), if a screenshot is quicker th
 >
 > **All of it** can be switched off with `SC_BP_NO_NET=1`. The one exception is the problem report — that only goes out when you press the button yourself, and you see the contents beforehand.
 
-Just pass on the file from the [releases page](../../releases) — the recipient needs neither Python nor a launcher, only Star Citizen.
+Just pass on the file from the [releases page](https://github.com/Xharig/VerseKit/releases) — the recipient needs neither Python nor a launcher, only Star Citizen.
 
 If you fork this project, please keep the credit in the footer or mention the original source.
 
@@ -564,11 +564,11 @@ VerseKit is an independent, unofficial companion tool with **no** official conne
 
 ## What's next
 
-Work continues — what exactly is not on a list. What a build brought you can read in [`CHANGELOG.en.md`](CHANGELOG.en.md) or right in the tool under **„What's new"**.
+Work continues — what exactly is not on a list. What a build brought you can read in [`CHANGELOG.en.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.en.md) or right in the tool under **„What's new"**.
 
 **Which version is being worked on right now** is in the changelog of the working branch: [CHANGELOG on `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.en.md). That is where finished but unreleased work collects — if you try a [test build](https://github.com/Xharig/VerseKit/releases), that is where you read what is in it. This page always shows the **released** version.
 
-Wishes and bug reports are welcome as an [issue](../../issues) or on [Discord](https://discord.gg/g2E7e6XxZC) — suggestions make it into the next build more reliably than mind reading.
+Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://discord.gg/g2E7e6XxZC) — suggestions make it into the next build more reliably than mind reading.
 
 ## Star Citizen Fan Content
 

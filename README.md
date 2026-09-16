@@ -10,8 +10,8 @@
 
 <sub>Windows · Linux · ohne Konto, ohne Cloud — Installer unter Windows, einzelne Datei unter Linux</sub>
 
-[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](../../releases)
-[![Heruntergeladen](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Heruntergeladen&color=5fa522)](../../releases)
+[![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
+[![Heruntergeladen](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Heruntergeladen&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-beitreten-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Kaffee%20spendieren-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -19,7 +19,7 @@
 [![System](https://img.shields.io/badge/System-Windows%20%C2%B7%20Linux-0a4a7a)](#voraussetzungen)
 [![Star Citizen](https://img.shields.io/badge/Star%20Citizen-kompatibel-0a4a7a)](https://robertsspaceindustries.com/)
 
-**Deutsch** · [English](README.en.md)
+**Deutsch** · [English](https://github.com/Xharig/VerseKit/blob/main/README.en.md)
 
 </div>
 
@@ -27,9 +27,9 @@
 
 Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald ein neuer Bauplan (Blueprint) dazukommt — inklusive Name, Art und Uhrzeit. Ohne Account, ohne Cloud. Läuft unter **Windows und Linux**.
 
-> 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](../../issues) auf — beides wird gelesen.
+> 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
-> 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](../../releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Info → Update & Über → „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](../../issues) auf — genau dafür sind sie da.
+> 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](https://github.com/Xharig/VerseKit/releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Info → Update & Über → „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — genau dafür sind sie da.
 
 > ℹ️ **Der SC Deutsch Launcher ist nicht mehr Voraussetzung.** Die eigentliche Quelle ist die `Game.log` von Star Citizen — dort steht jeder freigeschaltete Bauplan im Klartext. Ist der Launcher da, wird er weiter genutzt: Er liefert deutsche Bezeichnungen und meldet nach, was in den Protokollen nicht mehr steht. Ist er nicht da (unter Linux immer), läuft der Watcher trotzdem.
 
@@ -260,8 +260,8 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **Was ich farmen muss** | **Dein Lager gegen alles gerechnet, was du selbst bauen willst.** Über alle Posten zusammen, nicht Rezept für Rezept: Zwei Bauteile mit je 2 Iron bei 3 Iron im Lager — einzeln geprüft „reicht", zusammen fehlt eines. Erz mit zu geringer Güte zählt nicht als Bestand, wird aber genannt statt verschwiegen |
 | <img src="assets/symbole/22/sicherung-gruen.png" width="22" alt=""> **Was steckt drin?** | **Was ein Wrack ab Werk an Bord hat — und was es im Laden wert ist.** Schiff eintippen, und du siehst jedes verbaute Teil mit Ladenwert. ⚠ NPC-Wracks sind lootbar; Spielerschiffe werden unbrauchbar, sobald die Versicherung beansprucht wird — dann sind auch ausgebaute Teile wertlos. Der Hinweis steht **vor** jeder Zahl |
 | <img src="assets/symbole/22/zerlegen-gruen.png" width="22" alt=""> **Lohnt das Zerlegen?** | **Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.** 50 % der Materialien — aber **sechs Rohstoffe kommen nie wieder**, darunter Quantainium und Stileron. Bei den meisten Teilen ist mindestens einer davon dabei; wer nur deswegen zerlegt, hat umsonst geschleppt. Die Werte kommen aus den Spieldaten, nicht aus dem Programm |
-| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **Blickwinkel** | **Sitzt du richtig vor deinem Bildschirm?** Miss deine Bildschirmbreite mit einer Bankkarte aus (die ist genormt), gib deinen Sitzabstand an — und du bekommst den Blickwinkel, den dein Aufbau wirklich hergibt, samt Bewertung |
-| <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Läden** | **Wo steht das fertige Teil im Regal — und was kostet es dort?** Die Gegenrichtung zur Herstellung: Statt „was brauche ich zum Bauen" die Frage „lohnt der Aufwand überhaupt". **1.528 Teile aus 38 Warengruppen** — nicht nur Craftbares, sondern auch Raketen, Bomben, Munition und Waffenaufsätze, dazu **174 Schiffe zum Kaufen und Mieten**. An jeder Zeile stehen **Klasse, Größe, Güte und Hersteller**, und du filterst danach: So findest du den Quantenantrieb, der in dein Schiff passt, ohne die 44 Namen zu kennen. Teil anklicken, und du bekommst jeden Laden mit Preis, Ort und System — der günstigste oben, gebrauchte Ware mit ihrem Zustand. Was nirgends verkauft wird, taucht gar nicht erst auf |
+| <img src="assets/symbole/22/blickwinkel-gruen.png" width="22" alt=""> **FOV** | **Sitzt du richtig vor deinem Bildschirm?** Miss deine Bildschirmbreite mit einer Bankkarte aus (die ist genormt), gib deinen Sitzabstand an — und du bekommst den Blickwinkel, den dein Aufbau wirklich hergibt, samt Bewertung |
+| <img src="assets/symbole/22/laeden-gruen.png" width="22" alt=""> **Shops** | **Wo steht das fertige Teil im Regal — und was kostet es dort?** Die Gegenrichtung zur Herstellung: Statt „was brauche ich zum Bauen" die Frage „lohnt der Aufwand überhaupt". **1.528 Teile aus 38 Warengruppen** — nicht nur Craftbares, sondern auch Raketen, Bomben, Munition und Waffenaufsätze, dazu **174 Schiffe zum Kaufen und Mieten**. An jeder Zeile stehen **Klasse, Größe, Güte und Hersteller**, und du filterst danach: So findest du den Quantenantrieb, der in dein Schiff passt, ohne die 44 Namen zu kennen. Teil anklicken, und du bekommst jeden Laden mit Preis, Ort und System — der günstigste oben, gebrauchte Ware mit ihrem Zustand. Was nirgends verkauft wird, taucht gar nicht erst auf |
 | <img src="assets/symbole/22/routen-gruen.png" width="22" alt=""> **Routen** | **Handelsrouten mit echtem Gewinn statt einer Preisliste.** Sag, wo du stehst, wie viel Frachtraum du hast und wie viel Geld — und du bekommst die Fahrt samt Einkauf, Verkauf und dem, was am Ende übrig bleibt. Auf Wunsch über mehrere Stationen hintereinander, wahlweise auf den höchsten Gewinn oder den kürzesten Weg sortiert, auch als Rundreise zurück zum Start. Ein Knopf sucht die beste Route **im ganzen Verse**, ohne dass du einen Startort angibst. Dein Schiff kannst du auswählen, der Frachtraum kommt dann von selbst |
 | <img src="assets/symbole/22/joysticks-gruen.png" width="22" alt=""> **Steuerung** | **Was liegt auf welcher Taste — und umbelegen ohne ins Spiel zu wechseln.** Die komplette Belegung im Klartext („Schleudersitz" statt `v_eject`, in der Sprache des Werkzeugs), Joystick, Tastatur, Maus und Gamepad in einer durchsuchbaren Liste, umschaltbar zwischen *von mir geändert*, *alles* und *Werkseinstellung*. Zum **Neubelegen** eine Zeile anklicken und den Knopf drücken, den du meinst — die Nummer musst du nicht kennen, und ist die Eingabe schon vergeben, steht das vorher da. Dazu: welcher Stick welche Nummer hat und ob deine Belegung noch auf ein angeschlossenes Gerät zeigt. Funktioniert für **jedes** Gerät — es muss nichts vorher eingepflegt werden |
 | <img src="assets/symbole/22/einrichtung-gruen.png" width="22" alt=""> **Einrichtungsassistent** | Fünf Schritte beim ersten Start — und **jederzeit wiederholbar**, ohne sich durch Menüs zu klicken |
@@ -294,7 +294,7 @@ Sonst nichts. Kein Python, kein Konto — und ob du installieren willst, entsche
 
 ## Start
 
-1. Auf der **[Releases-Seite](../../releases)** die Datei für dein System herunterladen:
+1. Auf der **[Releases-Seite](https://github.com/Xharig/VerseKit/releases)** die Datei für dein System herunterladen:
 
    | System | Datei | Was passiert |
    |---|---|---|
@@ -325,7 +325,7 @@ von SignPath unterschrieben, und Windows zeigt statt „unbekannter
 Herausgeber" einen Namen an.
 
 Gebaut wird ausschließlich über einen öffentlichen GitHub-Actions-Ablauf —
-[SECURITY.md](SECURITY.md) beschreibt, wie eine Version entsteht und was das
+[SECURITY.md](https://github.com/Xharig/VerseKit/blob/main/SECURITY.md) beschreibt, wie eine Version entsteht und was das
 Programm sendet (und was nicht).
 
 ### ⚠️ Windows meldet „Der Computer wurde durch Windows geschützt"
@@ -340,13 +340,13 @@ Das kommt beim ersten Start, und es ist **kein Virenfund**:
 
 **Wenn du das nicht einfach glauben willst — musst du auch nicht:**
 
-- Der **Quellcode ist offen** ([hier](../../)), und die Datei wird nicht von mir gebaut, sondern von **GitHub Actions** aus genau diesem Quellcode. Wer will, kann den Bauvorgang nachlesen: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+- Der **Quellcode ist offen** ([hier](https://github.com/Xharig/VerseKit)), und die Datei wird nicht von mir gebaut, sondern von **GitHub Actions** aus genau diesem Quellcode. Wer will, kann den Bauvorgang nachlesen: [`.github/workflows/release.yml`](.github/workflows/release.yml)
 - Jede Datei auf der Releases-Seite trägt ihre **SHA-256-Prüfsumme** — GitHub zeigt sie direkt an
 - Lade sie bei **[VirusTotal](https://www.virustotal.com)** hoch, wenn du magst. Einzelne Prüfprogramme schlagen bei PyInstaller-Dateien gern mal an, das ist ein bekannter Fehlalarm-Klassiker
 
 Unter **Linux** gibt es diese Meldung nicht — dort muss die Datei nur einmal ausführbar gemacht werden.
 
-> ℹ️ Geprüft an einer echten Star-Citizen-Installation, mit **deutschem und englischem** Spiel-Client. Rückmeldungen von anderen Rechnern sind weiter willkommen — andere Installationsorte, andere Bildschirmaufbauten, Windows. Gern als [Issue](../../issues).
+> ℹ️ Geprüft an einer echten Star-Citizen-Installation, mit **deutschem und englischem** Spiel-Client. Rückmeldungen von anderen Rechnern sind weiter willkommen — andere Installationsorte, andere Bildschirmaufbauten, Windows. Gern als [Issue](https://github.com/Xharig/VerseKit/issues).
 
 <details>
 <summary>Aus dem Quellcode starten (für Neugierige und Entwickler)</summary>
@@ -556,7 +556,7 @@ Etwas gefunden? Der schnellste Weg ist **Info → Fehler melden**: Dort steht ei
 enthält alles, was zur Fehlersuche gebraucht wird, und keine persönlichen Angaben;
 du siehst ihn vorher vollständig.
 
-Lieber selbst? Ein [Issue](../../issues) geht genauso — der Knopf **GitHub Issue …** auf
+Lieber selbst? Ein [Issue](https://github.com/Xharig/VerseKit/issues) geht genauso — der Knopf **GitHub Issue …** auf
 derselben Seite legt den Bericht schon hinein. Oder das Forum **Fehler-Melden** im
 [Discord](https://discord.gg/g2E7e6XxZC), wenn ein Bildschirmfoto schneller geht als eine Beschreibung.
 
@@ -574,7 +574,7 @@ derselben Seite legt den Bericht schon hinein. Oder das Forum **Fehler-Melden** 
 >
 > **Alles davon** lässt sich mit `SC_BP_NO_NET=1` abschalten. Einzige Ausnahme ist der Fehlerbericht — der geht nur raus, wenn du selbst den Knopf drückst, und du siehst vorher, was drinsteht.
 
-Gib einfach die Datei von der [Releases-Seite](../../releases) weiter — der Empfänger braucht weder Python noch einen Launcher, nur Star Citizen.
+Gib einfach die Datei von der [Releases-Seite](https://github.com/Xharig/VerseKit/releases) weiter — der Empfänger braucht weder Python noch einen Launcher, nur Star Citizen.
 
 Wenn du das Projekt abzweigst, lass die Nennung im Fußbereich stehen oder nenne die ursprüngliche Quelle.
 
@@ -608,11 +608,11 @@ VerseKit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keine
 
 ## Was noch kommt
 
-Es wird weitergebaut — was genau, steht in keiner Liste. Was eine Version gebracht hat, liest du im [`CHANGELOG.md`](CHANGELOG.md) oder direkt im Werkzeug unter **„Was ist neu"**.
+Es wird weitergebaut — was genau, steht in keiner Liste. Was eine Version gebracht hat, liest du im [`CHANGELOG.md`](https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.md) oder direkt im Werkzeug unter **„Was ist neu"**.
 
 **An welcher Version gerade gearbeitet wird**, steht im Änderungsprotokoll des Arbeitszweigs: [CHANGELOG auf `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.md). Dort sammelt sich, was fertig gebaut, aber noch nicht veröffentlicht ist — wer eine [Testfassung](https://github.com/Xharig/VerseKit/releases) ausprobiert, liest dort nach, was drin ist. Diese Seite hier zeigt immer die **veröffentlichte** Version.
 
-Wünsche und Fehlermeldungen gern als [Issue](../../issues) oder im [Discord](https://discord.gg/g2E7e6XxZC) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
+Wünsche und Fehlermeldungen gern als [Issue](https://github.com/Xharig/VerseKit/issues) oder im [Discord](https://discord.gg/g2E7e6XxZC) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
 
 ## Star Citizen Fan Content
 
