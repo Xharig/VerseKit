@@ -22199,6 +22199,36 @@ def main():
     finally:
         _au225.game_running, _au225.enabled, _up225.check = _alt225
 
+    # 226. Das Suchfeld im Hangar filtert auch „Meine Schiffe" (16.09.2026)
+    print()
+    print('226. Hangar-Suche filtert die eigene Liste')
+    from scbp import seiten as _se226
+    _ikti226 = {'name': 'ATLS IKTI Akuma', 'hersteller': 'ARGO', 'hkurz': 'ARGO',
+                'paket': 'ATLS IKTI Akuma'}
+    _atls226 = {'name': 'A.T.L.S.', 'kurz': 'ARGO_A_T_L_S_'}
+    _f7_226 = {'name': 'F7C-M Super Hornet Mk II', 'hersteller': 'Anvil Aerospace',
+               'paket': 'Starter Pack mit ATLS'}
+    _m226 = _se226._hangar_matches
+    pruefe(_m226(_ikti226, 'Ikti'), 'ein Teilwort findet das Schiff')
+    pruefe(_m226(_ikti226, 'Argo ATLS IKTI'),
+           'der ausgewaehlte UEX-Name MIT Hersteller findet den Pledge-Namen ohne ihn')
+    pruefe(_m226(_atls226, 'ATLS') and _m226(_atls226, 'a.t.l.s.'),
+           'Punkte zaehlen nicht (ATLS = A.T.L.S.)')
+    pruefe(not _m226(_f7_226, 'ATLS'),
+           'das Pledge-Paket zaehlt nicht mit — sonst erscheint die F7C-M bei ATLS')
+    pruefe(not _m226(_ikti226, 'Arrow'), 'Fremdes wird ausgeblendet')
+    pruefe(_m226(_f7_226, '') and _m226(_f7_226, '   '),
+           'ein leeres Feld zeigt alles')
+    import ast as _ast226
+    _q226 = open(os.path.join(WURZEL, 'scbp', 'seiten.py'), encoding='utf-8').read()
+    _fn226 = next(k for k in _ast226.parse(_q226).body
+                  if isinstance(k, _ast226.FunctionDef) and k.name == '_hangar')
+    _ruft226 = {c.func.attr if isinstance(c.func, _ast226.Attribute) else
+                getattr(c.func, 'id', '') for c in _ast226.walk(_fn226)
+                if isinstance(c, _ast226.Call)}
+    pruefe('_hangar_matches' in _ruft226, 'die Liste wird wirklich gefiltert')
+    pruefe('trace_add' in _ruft226, 'und beim Tippen neu gezeichnet')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

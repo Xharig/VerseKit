@@ -11090,13 +11090,26 @@ def _hangar(fenster, rahmen):
         hinweis.configure(text=meldung['text'], fg=meldung['farbe'])
 
         stand = daten['stand']
-        schiffsliste = (stand.get('schiffe') or [])
-        tk.Label(liste_rahmen, text=t('s_hg_meine').format(n=len(schiffsliste)),
+        alle = (stand.get('schiffe') or [])
+        # ⭐ **Das Suchfeld oben filtert auch die eigene Liste** (16.09.2026).
+        # Vorher suchte es nur im Angebot zum Eintragen — wer „Ikti" tippte,
+        # sah darunter weiter alle 43 Schiffe und hielt die Suche für kaputt:
+        # *„natürlich muss man beim Suchen filtern"*.
+        suche = (schiff.get() or '').strip()
+        schiffsliste = [s for s in alle if _hangar_matches(s, suche)]
+        titel = (t('s_hg_meine_gefiltert').format(n=len(schiffsliste),
+                                                  alle=len(alle))
+                 if suche and alle else t('s_hg_meine').format(n=len(alle)))
+        tk.Label(liste_rahmen, text=titel,
                  bg=BG, fg=FG, font=fenster.f_bold,
                  anchor='w').pack(fill='x', pady=(0, 6))
 
-        if not schiffsliste:
+        if not alle:
             _body_text(liste_rahmen, t('s_hg_leer'), fenster.f_small, fill='x')
+            return
+        if not schiffsliste:
+            _body_text(liste_rahmen, t('s_hg_filter_leer').format(text=suche),
+                       fenster.f_small, fill='x')
             return
 
         version = erkul.game_version()
@@ -11116,6 +11129,33 @@ def _hangar(fenster, rahmen):
                         fenster.f_small, fill='x', pady=(10, 0))
 
     _liste_fuellen()
+
+    # Beim Tippen neu filtern — gebündelt: Jede Zeile der Liste ist ein
+    # ganzer Block mit aufklappbarer Ausstattung, und Tk rechnet für jedes
+    # gepackte Kind. Je Tastendruck neu bauen hieße bei 40 Schiffen spürbares
+    # Stocken.
+    filter_warte = {'id': None}
+
+    def _filter_bald(*_args):
+        if filter_warte['id']:
+            try:
+                liste_rahmen.after_cancel(filter_warte['id'])
+            except tk.TclError:
+                pass
+        try:
+            filter_warte['id'] = liste_rahmen.after(250, _filter_jetzt)
+        except tk.TclError:
+            pass
+
+    def _filter_jetzt():
+        filter_warte['id'] = None
+        try:
+            if liste_rahmen.winfo_exists():
+                _liste_fuellen()
+        except tk.TclError:
+            pass
+
+    schiff.trace_add('write', _filter_bald)
 
     # ⭐ **Fehlendes wird beim Öffnen nachgeholt, ohne dass jemand etwas
     # drücken muss.** Der Regelfall ist, dass nichts fehlt — dann kostet es
@@ -12341,6 +12381,32 @@ def _wish_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):
     # nirgends in „passt in dein Schiff" auf. Sonst würde das Werkzeug über
     # ein Schiff Auskunft geben, das dem Spieler gar nicht gehört.
     _cart_box(fenster, karte, eintrag, daten)
+
+
+def _hangar_matches(eintrag, suche):
+    """Passt ein eigenes Schiff zum Suchtext?
+
+    ⚠ **Jedes Wort für sich, über Name, Hersteller und Kurzname.** Die
+    Auswahlliste darüber führt die UEX-Schreibweise mit Hersteller
+    (`Argo ATLS IKTI`), der Hangar oft den Pledge-Namen ohne ihn (`ATLS IKTI
+    Akuma`, Hersteller `ARGO`). Ein Teiltext über den ganzen Namen fände das
+    eigene Schiff nach dem Auswählen nicht mehr — genau in dem Moment, in dem
+    man es sucht. Punkte und Bindestriche zählen nicht (`ATLS` = `A.T.L.S.`).
+    """
+    worte = [_squashed(w) for w in (suche or '').split()]
+    worte = [w for w in worte if w]
+    if not worte:
+        return True
+    # ⚠ Das Pledge-PAKET nicht: Es nennt alles, was mit im Kauf war — die
+    # F7C-M erschien sonst bei „ATLS", weil ihr Paket einen ATLS enthielt.
+    teile = [str(eintrag.get(f) or '') for f in _HANGAR_SUCHFELDER]
+    heuhaufen = _squashed(' '.join(teile))
+    return all(w in heuhaufen for w in worte)
+
+
+# Datenschluessel der Hangar-Eintraege, in denen `_hangar_matches` sucht —
+# keine Oberflaechentexte.
+_HANGAR_SUCHFELDER = ('name', 'hersteller', 'hkurz', 'kurz')
 
 
 def _hangar_row(fenster, eltern, eintrag, daten, meldung, neu_zeichnen):

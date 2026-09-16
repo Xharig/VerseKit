@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.44.2 - 2026-09-16
+
+> **Die Suche in „Mein Hangar" findet jetzt auch in deinen eigenen Schiffen.**
+> Tippst du oben etwas ein, bleibt darunter nur stehen, was passt — bei
+> vierzig Schiffen der schnellste Weg zu dem einen, das du suchst.
+
+### Verbessert
+
+- **Die Suche in „Mein Hangar" filtert jetzt auch deine Schiffe.** Wer oben
+  tippt oder ein Schiff auswählt, sieht darunter nur noch die passenden — etwa
+  bei „Ikti" nur den ATLS IKTI statt aller Schiffe.
+
 ## v3.44.1 - 2026-09-16
 
 > **Die deutsche Übersetzung bleibt jetzt eingeschaltet.** Fiel die
