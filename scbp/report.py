@@ -805,7 +805,7 @@ def build(version='', root=None, fehleranzahl=8, message=''):
     return '\n'.join(lines)
 
 
-def submit(text, version=''):
+def submit(text, version='', attachments=None):
     """Den Bericht an den eingebauten Kanal schicken. (Erfolg, Meldung).
 
     ⚠ **Der einzige Weg, der bei Nicht-Bastlern ankommt.** Kopieren und in
@@ -821,6 +821,9 @@ def submit(text, version=''):
     Als **Datei**, nicht als Nachricht: Discord nimmt höchstens 2000 Zeichen je
     Nachricht, ein Bericht ist regelmäßig länger. Eine angehängte `.txt` ist
     zudem das, was man lesen und aufheben kann.
+
+    `attachments`: weitere Dateien als (Name, Bytes, MIME-Typ) — etwa die
+    angelernten Scan-Bilder. ⚠ Nur mit ausdrücklicher Zustimmung übergeben.
     """
     from . import report_target
     target = report_target.target()
@@ -833,15 +836,7 @@ def submit(text, version=''):
     name = 'bericht-%s.txt' % datetime.now().strftime('%Y-%m-%d-%H%M')
     head = ('**Fehlerbericht** · %s' % (version or '?'))[:1900]
 
-    parts = []
-    for field, value in (('content', head),):
-        parts.append('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n'
-                     % (limit, field, value))
-    parts.append('--%s\r\nContent-Disposition: form-data; name="files[0]"; '
-                 'filename="%s"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s\r\n'
-                 % (limit, name, text))
-    parts.append('--%s--\r\n' % limit)
-    torso = ''.join(parts).encode('utf-8')
+    torso = multipart(limit, head, name, text, attachments)
 
     try:
         request = urllib.request.Request(
@@ -857,6 +852,23 @@ def submit(text, version=''):
         # ⚠ Den Grund NICHT durchreichen: In der Fehlermeldung einer
         # fehlgeschlagenen Anfrage steht die Adresse, und die ist geheim.
         return False, t('m_bericht_weg')
+
+
+def multipart(limit, head, name, text, attachments=None):
+    """Den Körper der Anfrage bauen — Bytes, damit auch Bilder hineinpassen."""
+    parts = [('--%s\r\nContent-Disposition: form-data; name="content"\r\n\r\n%s\r\n'
+              % (limit, head)).encode('utf-8'),
+             ('--%s\r\nContent-Disposition: form-data; name="files[0]"; '
+              'filename="%s"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n'
+              % (limit, name)).encode('utf-8') + text.encode('utf-8') + b'\r\n']
+    # Discord nimmt höchstens zehn Dateien je Nachricht.
+    for index, (file_name, data, mime) in enumerate((attachments or [])[:9], 1):
+        parts.append(('--%s\r\nContent-Disposition: form-data; name="files[%d]"; '
+                      'filename="%s"\r\nContent-Type: %s\r\n\r\n'
+                      % (limit, index, file_name, mime)).encode('utf-8')
+                     + data + b'\r\n')
+    parts.append(('--%s--\r\n' % limit).encode('utf-8'))
+    return b''.join(parts)
 
 
 def to_archive(text, root=None):

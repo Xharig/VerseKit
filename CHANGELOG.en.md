@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc5 - 2026-09-17
+
+> **You can aim through the scan window again, and your scan images can
+> go along with a bug report.**
+
+### Improved
+
+- **Scan window semi-transparent** — the cockpit stays visible and the
+  scanner can still be aimed
+- **Scan images in the bug report:** when sending, VerseKit asks whether
+  the taught scan images should go along — they help improve recognition
+  for everyone. Only on an explicit yes
+
 ## v3.49.0-rc4 - 2026-09-17
 
 > **When teaching, you see what arrived.**
