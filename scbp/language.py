@@ -4270,15 +4270,17 @@ TEXTS = {
     # bringe ich es?"
     # ⭐ Scan-Signatur: der Scanner zeigt eine Zahl, aber nicht, was
     # dahintersteckt. Genau die Luecke schliesst das Feld.
-    's_bg_sig_feld':     ('Scan-Wert vom Scanner', 'Scanner reading'),
-    's_bg_scan_kopf':    ('Signatur selbst ablesen', 'Read the signature automatically'),
-    's_bg_scan_h':       ('VerseKit liest die Zahl des Bergbau-Scanners vom Bildschirm, solange Star Citizen vorn ist, und zeigt im Overlay, was dahintersteckt. Dafür zeigst du einmal, wo die Zahl bei deinem Schiff steht. Nur Windows.',
-                          'VerseKit reads the mining scanner number from the screen while Star Citizen is in front and shows in the overlay what it means. Show once where the number sits in your ship. Windows only.'),
+    # ⚠ Neu formuliert am 17.09.2026: „Signatur selbst ablesen" las sich, als
+    # müsse der Spieler selbst ablesen — gemeint war das Gegenteil.
+    's_bg_sig_feld':     ('Signatur nachschlagen', 'Look up a signature'),
+    's_bg_scan_kopf':    ('Signatur automatisch erkennen', 'Recognise signatures automatically'),
+    's_bg_scan_h':       ('Beim Scannen liest VerseKit die Zahl vom Bildschirm und zeigt im Overlay, welches Erz es ist. Einmal einrichten: „Scan-Bereich festlegen" und das Fenster über die Zahl im Cockpit ziehen. Nur Windows.',
+                          'While you scan, VerseKit reads the number from the screen and shows the ore in the overlay. Set it up once: "Set scan area" and drag the window over the number in your cockpit. Windows only.'),
     's_bg_scan_bereich': ('Scan-Bereich festlegen', 'Set scan area'),
-    's_bg_scan_kein':    ('Noch kein Scan-Bereich festgelegt — ohne ihn liest VerseKit nichts.',
-                          'No scan area set yet — without it VerseKit reads nothing.'),
-    's_bg_scan_ok':      ('Scan-Bereich festgelegt: %d × %d Bildpunkte.', 'Scan area set: %d × %d pixels.'),
-    's_bg_scan_sagen':   ('Signatur ablesen: %s', 'Read signature: %s'),
+    's_bg_scan_kein':    ('Noch kein Scan-Bereich — ohne ihn wird nichts erkannt.',
+                          'No scan area yet — nothing is recognised without it.'),
+    's_bg_scan_ok':      ('Scan-Bereich gespeichert.', 'Scan area saved.'),
+    's_bg_scan_sagen':   ('Automatisch erkennen: %s', 'Recognise automatically: %s'),
     's_bg_scan_gelesen': ('Gelesen: %s', 'Read: %s'),
     'ov_signatur':       ('Signatur %s', 'Signature %s'),
     'scan_ziehen':       ('Über Symbol und Zahl ziehen', 'Drag over icon and number'),
@@ -4288,7 +4290,7 @@ TEXTS = {
     'scan_anlernen':     ('Anlernen', 'Teach'),
     'scan_uebernehmen':  ('Übernehmen', 'Save'),
     'scan_abbrechen':    ('Abbrechen', 'Cancel'),
-    'scan_gelernt':      ('Gelernt — %d neue Ziffernbilder.', 'Learned — %d new digit images.'),
+    'scan_gelernt':      ('Gelernt (%d Ziffern) — VerseKit erkennt deine Anzeige jetzt besser.', 'Learned (%d digits) — VerseKit now recognises your display better.'),
     'scan_grund_kein_text': ('Keine Zahl im Bereich', 'No number in the area'),
     'scan_grund_nicht_angelernt': ('Noch keine Ziffern angelernt', 'No digits learned yet'),
     'scan_grund_unsicher': ('Zahl gefunden, aber nicht sicher gelesen — tippe sie unten ein und lerne sie an',
@@ -4299,18 +4301,15 @@ TEXTS = {
     'scan_grund_bereich_ungueltig': ('Bereich zu klein oder zu groß', 'Area too small or too large'),
     'scan_grund_abgriff_fehlgeschlagen': ('Bildschirm konnte nicht gelesen werden', 'Could not read the screen'),
     'scan_grund_anlernen_leer': ('Erst die Zahl eintippen, die gerade zu sehen ist', 'Type the number you see first'),
-    'scan_grund_anlernen_anzahl': ('Die Ziffern im Bild passen nicht zur getippten Zahl — Bereich enger um die Zahl ziehen',
-                                   'The digits in the image do not match the typed number — draw the area tighter'),
+    'scan_grund_anlernen_anzahl': ('Im letzten Bild ließ sich die Zahl nicht sauber in Ziffern zerlegen. Einmal zurück ins Spiel, warten, bis die Zahl ruhig steht, dann nochmal „Anlernen".',
+                                   'The number in the last image could not be split into digits cleanly. Go back into the game, wait until the number is steady, then press "Teach" again.'),
     'scan_grund_anlernen_speichern': ('Anlernen konnte nicht gespeichert werden', 'Could not save what was learned'),
-    's_bg_sig_hilfe':    ('Der Scanner zeigt eine Zahl — hier steht, welches '
-                          'Erz dahintersteckt und aus wie vielen Brocken das '
-                          'Vorkommen besteht. „8600" für genau diesen Wert, '
-                          '„~8600" mit 10 % Spielraum, „12000-13000" für alles '
-                          'dazwischen.',
-                          'The scanner shows a number — this tells you which ore '
-                          'it is and how many rocks the deposit holds. "8600" for '
-                          'an exact match, "~8600" with 10 % tolerance, '
-                          '"12000-13000" for a range.'),
+    's_bg_sig_hilfe':    ('Zahl aus dem Bergbau-Scanner eintippen — darunter '
+                          'steht, welches Erz es ist und wie viele Brocken. '
+                          '„~8600" sucht mit 10 % Spielraum.',
+                          'Type the number from the mining scanner — below it '
+                          'shows which ore it is and how many rocks. "~8600" '
+                          'searches with 10 % tolerance.'),
     's_bg_sig_treffer':  ('%d× %s', '%d× %s'),
     's_bg_sig_nichts':   ('Kein Erz hat diese Signatur. Mit „~" davor wird mit '
                           '10 %% Spielraum gesucht.',

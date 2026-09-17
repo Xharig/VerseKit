@@ -10066,7 +10066,7 @@ def _signature_scanner(window, parent, signature_var):
     def show_area():
         region = signature_scan.region()
         if region:
-            area.configure(text=t('s_bg_scan_ok') % (region[2], region[3]), fg=SUB)
+            area.configure(text=t('s_bg_scan_ok'), fg=SUB)
         else:
             area.configure(text=t('s_bg_scan_kein'), fg=GOLD)
 
