@@ -8,6 +8,38 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc3 - 2026-09-17
+
+> **Clearer texts for the signature scanner.**
+
+### Improved
+
+- **Mining page:** "Recognise signatures automatically" instead of "read",
+  with shorter explanations of what the switch does and how to set it up
+
+## v3.49.0-rc3 - 2026-09-17
+
+> **The signature scanner copes with small HUD text**, and its texts are
+> clearer.
+
+### Improved
+
+- **Recognition with small text:** narrow digits and a faint comma are now
+  found. If VerseKit is still unsure at your resolution, teach the shown
+  number once — it works from then on
+
+### Fixed
+
+- **Teaching failed with "digits do not match"** — it now works with small
+  text, and if it fails the message says what to do
+- **Messages in the scan window were cut off**
+- **A white square in the preview** — the resize grip now sits below the
+  scan area instead of inside it
+- **A signature could be misread** (16,000 as 10,000) — a single uncertain
+  digit now prevents the display
+- **Mining page:** "Recognise signatures automatically" instead of "read",
+  with shorter explanations of what the switch does and how to set it up
+
 ## v3.49.0-rc2 - 2026-09-17
 
 > **The signature scanner now actually reads.** The first test version

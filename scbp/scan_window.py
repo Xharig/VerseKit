@@ -62,7 +62,8 @@ HOLE = '#010203'           # die Farbe, die Windows durchsichtig macht
 START_W, START_H = 220, 44
 MIN_W, MIN_H = 40, 14
 PREVIEW_MS = 400
-PANEL_W, PANEL_H = 360, 190
+PANEL_W, PANEL_H = 360, 250
+GRIP = 12
 PREVIEW_H = 60
 
 _open = [None]
@@ -166,12 +167,16 @@ class ScanWindow(object):
             widget.bind('<ButtonRelease-1>', self._drag_end)
 
         frame = tk.Frame(self.win, bg=ACCENT)
-        frame.pack(padx=2, pady=(0, 2))
+        frame.pack(padx=2)
         self.hole = tk.Frame(frame, bg=HOLE, width=START_W, height=START_H)
         self.hole.pack()
-        self.grip = tk.Frame(frame, bg=ACCENT, width=12, height=12,
+        # ⚠ Der Griff sitzt UNTER dem Loch, nicht darin: Im RC 2 lag er im
+        # Loch und wurde als weißes Quadrat mit abfotografiert.
+        edge = tk.Frame(frame, bg=ACCENT, height=GRIP)
+        edge.pack(fill='x')
+        self.grip = tk.Frame(edge, bg=BG, width=GRIP, height=GRIP,
                              cursor='size_nw_se')
-        self.grip.place(relx=1.0, rely=1.0, anchor='se')
+        self.grip.pack(side='right')
         self.grip.bind('<ButtonPress-1>', self._resize_start)
         self.grip.bind('<B1-Motion>', self._resize_move)
         self.grip.bind('<ButtonRelease-1>', self._drag_end)
@@ -204,7 +209,7 @@ class ScanWindow(object):
         self._link(buttons, t('scan_uebernehmen'), self._save, ACCENT).pack(side='left')
         self._link(buttons, t('scan_abbrechen'), self.close, SUB).pack(side='left', padx=12)
         self.note = tk.Label(panel, text='', bg=SURFACE, fg=SUB, font=font,
-                             anchor='nw', justify='left', height=2,
+                             anchor='nw', justify='left', height=4,
                              wraplength=PANEL_W - 12)
         self.note.pack(fill='x', padx=6, pady=(0, 4))
 

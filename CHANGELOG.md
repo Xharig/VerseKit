@@ -8,6 +8,38 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc3 - 2026-09-17
+
+> **Verständlichere Texte beim Signatur-Scanner.**
+
+### Verbessert
+
+- **Bergbau-Seite:** „Signatur automatisch erkennen" statt „selbst ablesen",
+  dazu kürzere Erklärungen, was der Schalter tut und wie man ihn einrichtet
+
+## v3.49.0-rc3 - 2026-09-17
+
+> **Der Signatur-Scanner kommt mit kleiner HUD-Schrift klar**, und die Texte
+> dazu sind verständlicher.
+
+### Verbessert
+
+- **Erkennung bei kleiner Schrift:** schmale Ziffern und ein blasses Komma
+  werden jetzt gefunden. Liest VerseKit bei deiner Auflösung noch unsicher,
+  einmal die angezeigte Zahl anlernen — danach klappt es
+
+### Behoben
+
+- **Anlernen scheiterte mit „Ziffern passen nicht"** — bei kleiner Schrift
+  klappt es jetzt, und schlägt es fehl, sagt die Meldung, was zu tun ist
+- **Meldungen im Scan-Fenster waren abgeschnitten**
+- **Ein weißes Quadrat in der Vorschau** — der Griff zum Größeziehen sitzt
+  jetzt unter dem Scan-Bereich statt darin
+- **Eine Signatur konnte falsch gelesen werden** (16,000 als 10,000) — eine
+  einzelne unsichere Ziffer verhindert jetzt die Anzeige
+- **Bergbau-Seite:** „Signatur automatisch erkennen" statt „selbst ablesen",
+  dazu kürzere Erklärungen, was der Schalter tut und wie man ihn einrichtet
+
 ## v3.49.0-rc2 - 2026-09-17
 
 > **Der Signatur-Scanner liest jetzt wirklich.** Die erste Testfassung erkannte

@@ -93,7 +93,10 @@ HOLE_PENALTY = 0.25
 # | 0,050 | 45 | 2 | 35 |
 MAX_DISTANCE = 0.34
 VALUE_MARGIN = 0.02
-MAX_DIGIT_DISTANCE = 0.30
+# Höchster Abstand EINER Ziffer. Abgestimmt am 17.09.2026 (82 Aufnahmen /
+# gezeichnete Ziffern, richtig/falsch): 0,30 → 74/2 · 42/2; **0,26 → 72/1 ·
+# 33/0**; 0,22 → 70/1 · 15/1. Ein höherer Vorsprung half nirgends.
+MAX_DIGIT_DISTANCE = 0.26
 
 # Welche Lochstruktur eine Ziffer haben MUSS — (Anzahl, Lage von oben).
 # ⚠ Am 10.09.2026 hatten fünf von acht angelernten „Sechsen" zwei Löcher: Achten
@@ -153,7 +156,9 @@ def thresholds(raster):
         for value in row:
             counts[value] += 1
     total = sum(counts)
-    found = [otsu(raster)]
+    base = otsu(raster)
+    found = [base]
+    top = base
     if total:
         for share in (0.97, 0.99, 0.995):
             limit, running = total * share, 0
@@ -161,7 +166,15 @@ def thresholds(raster):
                 running += counts[value]
                 if running >= limit:
                     found.append(value)
+                    top = max(top, value)
                     break
+        # ⚠⚠ **Stufen zwischen Otsu und dem Hellsten** (17.09.2026). Bei kleiner
+        # HUD-Schrift (Ziffern 5×11, Striche 1–2 Punkte) lagen alle Perzentile
+        # auf dem hellen Ortungssymbol (≈240), Otsu auf dem Pillengrund (≈128)
+        # — sauber getrennt standen die Ziffern erst bei 160–190, und genau
+        # dort gab es keine Schwelle.
+        for share in (0.25, 0.45, 0.65):
+            found.append(int(base + (top - base) * share))
     return sorted({v for v in found if 8 <= v <= 245})
 
 
@@ -241,8 +254,16 @@ def _separator_fits(chars):
     digit_h = _median([c[3] - c[1] + 1 for c in chars])
     digit_w = _median([c[2] - c[0] + 1 for c in chars])
     sep = chars[len(chars) - 4]
-    return ((sep[3] - sep[1] + 1) <= digit_h * 0.7
-            and (sep[2] - sep[0] + 1) <= max(2, digit_w * 0.7))
+    if ((sep[3] - sep[1] + 1) <= digit_h * 0.7
+            and (sep[2] - sep[0] + 1) <= max(2, digit_w * 0.7)):
+        return True
+    # ⚠ Das Komma ist blass und fällt bei höheren Schwellen weg. Dann bleibt
+    # seine **Lücke**: vor den letzten drei Ziffern deutlich breiter als
+    # zwischen den übrigen. Gemessen an „19,275": Lücke 4 gegen 0–1.
+    gaps = [chars[i + 1][0] - chars[i][2] - 1 for i in range(len(chars) - 1)]
+    before_last_three = gaps[-3]
+    others = gaps[:-3] + gaps[-2:]
+    return before_last_three >= max(2, 2 * max(others or [0]) + 1)
 
 
 def only_digits(chars):
@@ -430,10 +451,27 @@ def templates():
                 continue
             bucket = merged.setdefault(digit, [])
             for pattern in examples:
-                if isinstance(pattern, list) and len(pattern) == NORM_W * NORM_H \
-                        and pattern not in [p for p, _h in bucket]:
-                    bucket.append((pattern, holes(pattern)))
+                if isinstance(pattern, list) and len(pattern) == NORM_W * NORM_H:
+                    filled = fill(pattern)
+                    if filled not in [p for p, _h in bucket]:
+                        bucket.append((filled, holes(filled)))
     return merged
+
+
+def fill(pattern):
+    """Ein Muster auf seine Umrisse zuschneiden und aufs ganze Raster strecken."""
+    xs = [i % NORM_W for i in range(NORM_W * NORM_H) if pattern[i]]
+    if not xs:
+        return list(pattern)
+    ys = [i // NORM_W for i in range(NORM_W * NORM_H) if pattern[i]]
+    left, top = min(xs), min(ys)
+    width, height = max(xs) - left + 1, max(ys) - top + 1
+    result = [0] * (NORM_W * NORM_H)
+    for y in range(NORM_H):
+        source = (top + y * height // NORM_H) * NORM_W + left
+        for x in range(NORM_W):
+            result[y * NORM_W + x] = pattern[source + x * width // NORM_W]
+    return result
 
 
 def learned_digits():
@@ -488,13 +526,19 @@ def match_values(patterns, known, values):
     table = []
     size = float(NORM_W * NORM_H)
     for pattern in patterns:
-        own = holes(pattern)
+        # ⚠⚠ Verglichen wird **gestreckt** (`fill`): beide Seiten füllen das
+        # Raster. Unter Windows waren die Ziffern 5×11 statt 9×11 wie in den
+        # Linux-Aufnahmen, aus denen die Vorlagen stammen — mit erhaltenem
+        # Seitenverhältnis passte keine Vorlage (17.09.2026). An den 82
+        # Aufnahmen kostet das nichts (65 → 66 richtig, weiter 1 falsch).
+        filled = fill(pattern)
+        own = holes(filled)
         column = {}
         for digit, examples in known.items():
             if not examples:
                 continue
             column[digit] = min(
-                sum(1 for i in range(len(pattern)) if pattern[i] != example[i]) / size
+                sum(1 for i in range(len(filled)) if filled[i] != example[i]) / size
                 + (0.0 if _holes_match(own, example_holes) else HOLE_PENALTY)
                 for example, example_holes in examples)
         table.append(column)

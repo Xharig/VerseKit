@@ -23178,7 +23178,7 @@ def main():
     _vorl243 = json.load(open(os.path.join(WURZEL, 'daten', 'signatur-ziffern.json'),
                               encoding='utf-8'))['ziffern']
 
-    def _bild243(text, wahl=0, rausch=25, ohne=()):
+    def _bild243(text, wahl=0, rausch=25, ohne=(), schmal=1.0, blasses_komma=False):
         _r = [[18] * 200 for _ in range(40)]
         # Ortungssymbol: hoeher als die Ziffern, aber auf DERSELBEN Grundlinie
         # (Zeile 20) — so steht es im Spiel, und die Zeilensuche verlangt es.
@@ -23189,6 +23189,9 @@ def main():
         _x0 = 26
         for _i, _ch in enumerate(text):
             if _ch == ',':
+                if blasses_komma:          # nur die Luecke bleibt
+                    _x0 += 5
+                    continue
                 for _y in range(17, 23):
                     for _x in range(_x0, _x0 + 3):
                         _r[_y][_x] = 225
@@ -23199,7 +23202,7 @@ def main():
             _ys = [i // 16 for i in range(384) if _p[i]]
             _bx, _by = min(_xs), min(_ys)
             _bw, _bh = max(_xs) - _bx + 1, max(_ys) - _by + 1
-            _w = max(3, int(round(_bw * 13 / float(_bh))))
+            _w = max(2, int(round(_bw * 13 * schmal / float(_bh))))
             if _i not in ohne:
                 for _yy in range(13):
                     for _xx in range(_w):
@@ -23225,9 +23228,23 @@ def main():
                 _falsch243.append((_v, _erg['wert']))
     pruefe(not _falsch243, 'keine FALSCH gelesene Signatur (%r)' % _falsch243[:5])
     # Gezeichnete Ziffern sind nicht das Spiel: An 82 echten Aufnahmen vom
-    # 10.09.2026 las derselbe Kern am 17.09.2026 65 richtig, 1 falsch.
-    pruefe(_richtig243 >= 30, 'die meisten Signaturen werden gelesen (%d von 48)'
+    # 10.09.2026 las derselbe Kern am 17.09.2026 72 richtig, 1 falsch; hier
+    # zaehlt vor allem, dass NICHTS falsch gelesen wird (gemessen 28 von 48).
+    pruefe(_richtig243 >= 24, 'die meisten Signaturen werden gelesen (%d von 48)'
            % _richtig243)
+    # ⚠⚠ Schmale Schrift (unter Windows 5x11 statt 9x11) und ein Komma, das bei
+    # hoher Schwelle verschwindet — so am 17.09.2026 im Spiel gemessen.
+    _schmal243, _schmalfalsch243 = 0, []
+    for _v in _werte243[6:24]:
+        _erg = _ss243.read(_bild243('{:,}'.format(_v), schmal=0.6, blasses_komma=True),
+                           _bek243, _werte243)
+        if _erg['wert'] == _v:
+            _schmal243 += 1
+        elif _erg['wert'] is not None:
+            _schmalfalsch243.append((_v, _erg['wert']))
+    pruefe(not _schmalfalsch243 and _schmal243 >= 4,     # gemessen 5
+           'schmale Ziffern ohne sichtbares Komma: %d von 18 gelesen, falsch %r'
+           % (_schmal243, _schmalfalsch243))
     # Das Komma als Pruefstein: vier Ziffern ohne Komma kommen nicht aus dem HUD.
     pruefe(_ss243.read(_bild243('2400'), _bek243, _werte243)['wert'] is None,
            'vier Ziffern ohne Tausenderkomma werden verworfen')
@@ -23255,6 +23272,24 @@ def main():
         pruefe(not _ss243.plausible_template('8', _ss243.normalize(
             [[0] * 3 + [255] * 10 + [0] * 3 for _ in range(24)], (3, 0, 12, 23), 128)),
             'eine Vorlage ohne Loecher wird nie als Acht gelernt')
+        # ⚠⚠ Echte Bilder aus dem Spiel unter Windows (17.09.2026): kleine
+        # Schrift, blasses Komma, Griff im Bild. RC 2 lernte „2,000" nicht an
+        # („Ziffern passen nicht") und las „19,275" nie.
+        _echt243 = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                                               'signatur-windows-klein.json'),
+                                  encoding='utf-8'))['bilder']
+        _ew243 = sorted({v * n for v in (2000, 3000, 4000, 3170, 3585, 4270, 1920,
+                                         3855) for n in range(1, 8)})
+        pruefe(_ss243.learn(_echt243['2,000'], '2,000')[0]
+               and _ss243.read(_echt243['2,000'], None, _ew243)['wert'] == 2000,
+               'echtes Bild „2,000": anlernen klappt, danach wird es gelesen')
+        pruefe(_ss243.learn(_echt243['19,275#4'], '19,275')[0],
+               'echtes Bild „19,275": anlernen klappt')
+        _andere243 = [_ss243.read(_echt243[k], None, _ew243)['wert']
+                      for k in ('19,275#2', '19,275#5')]
+        pruefe(_andere243 == [19275, 19275],
+               'nach einmal Anlernen lesen auch die anderen Bilder richtig (%r)'
+               % _andere243)
         _ss243.set_region((100, 200, 240, 40))
         pruefe(_ss243.region() == (100, 200, 240, 40), 'der Scan-Bereich wird gemerkt')
         _ss243.set_region((1, 2, 3, 4))
