@@ -8,6 +8,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.50.1 - 2026-09-17
+
+> **Im Einrichtungsassistenten lassen sich Overlay-Verhalten und Schriftgröße
+> wieder auswählen.**
+
+### Behoben
+
+- **Einrichtungsassistent, Karte „Anzeige":** Bei „Wann das Overlay zu sehen
+  ist" und „Schriftgröße" fehlten die Knöpfe zum Auswählen
+
 ## v3.50.0 - 2026-09-17
 
 > **Der Einrichtungsassistent fragt jetzt die wichtigsten Einstellungen ab** —

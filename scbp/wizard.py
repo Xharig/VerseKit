@@ -211,10 +211,10 @@ class Wizard:
         """
         row = tk.Frame(parent, bg=BG)
         row.pack(fill='x', pady=(16, 0))
-        control = tk.Frame(row, bg=BG)
-        # Fest zuerst packen — sonst schiebt ein langer Hinweis den Schalter
-        # aus dem Fenster.
         if not below:
+            # Fest zuerst packen — sonst schiebt ein langer Hinweis den
+            # Schalter aus dem Fenster.
+            control = tk.Frame(row, bg=BG)
             control.pack(side='right', padx=(16, 0))
         text = tk.Frame(row, bg=BG)
         text.pack(side='left', fill='x', expand=True)
@@ -223,7 +223,14 @@ class Wizard:
         tk.Label(text, text=hint, bg=BG, fg=SUB, font=font(9), anchor='w',
                  justify='left', wraplength=400 if not below else 560).pack(fill='x')
         if below:
-            control.pack(in_=text, anchor='w', pady=(6, 0))
+            # ⚠⚠ **Im Textblock anlegen, nicht nur hineinpacken.** Bis v3.50.0
+            # war die Auswahlreihe ein Geschwister des Textblocks und wurde mit
+            # `pack(in_=text)` hineingesetzt. Tk zeichnet aber nach der
+            # Reihenfolge des Anlegens: Der später angelegte Textblock lag
+            # darüber, und Overlay-Modus und Schriftgröße standen als leere
+            # Lücke da — auswählen ließ sich nichts (gemeldet 17.09.2026).
+            control = tk.Frame(text, bg=BG)
+            control.pack(anchor='w', pady=(6, 0))
         return control
 
     def _choices(self, parent, key, options, active, on_choice):

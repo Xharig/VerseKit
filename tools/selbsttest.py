@@ -23653,12 +23653,29 @@ def main():
             # Jede Karte zeichnen und ihre Zeilen gleich bedienen — beim
             # naechsten Zeichnen ist sie abgebaut. Ohne Autostart: der schriebe
             # ins echte System.
-            _falsch244, _bedient244 = [], set()
+            _falsch244, _bedient244, _verdeckt244 = [], set(), []
+
+            def _kinder244(w):
+                for k in w.winfo_children():
+                    yield k
+                    yield from _kinder244(k)
+
             for _i244, _s244 in enumerate(_r244):
                 if _s244 not in ('anzeige', 'start', 'angaben'):
                     continue
                 _a244.schritt = _i244 + 1
                 _a244._draw()
+                # ⚠ Ein Widget, das in ein SPÄTER angelegtes Geschwister gepackt
+                # ist (`pack(in_=…)`), liegt darunter und ist unsichtbar — so
+                # standen Overlay-Modus und Schriftgröße in v3.50.0 als leere
+                # Lücke da, obwohl jede Zeile funktionierte.
+                for _w244 in _kinder244(_a244.buehne):
+                    try:
+                        _in244 = str(_w244.pack_info().get('in'))
+                    except Exception:
+                        continue
+                    if _in244 != str(_w244.master):
+                        _verdeckt244.append('%s:%s' % (_s244, _w244))
                 for _k244, _h244 in list(_a244.controls.items()):
                     if _k244 in _bedient244:
                         continue
@@ -23675,6 +23692,9 @@ def main():
                                    else _pa244.setting(_k244))
                         if _ist244 != _wahl244[_k244]:
                             _falsch244.append(_k244)
+            pruefe(not _verdeckt244,
+                   'kein Bedienelement liegt verdeckt unter einem Nachbarn (%r)'
+                   % _verdeckt244[:3])
             _fehlt244 = [k for k in _soll244 if k not in _a244.controls]
             pruefe(not _fehlt244,
                    'jede der wichtigsten Einstellungen hat eine Zeile (fehlt: %r)'
