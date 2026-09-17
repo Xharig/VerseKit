@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="VerseKit icon" width="128">
+<img src="assets/icon.png" alt="Verse-Kit icon" width="128">
 
-# VerseKit
+# Verse-Kit
 
 **Your Star Citizen toolkit — blueprints, contracts, crafting, trade and more, live while you play**
 
@@ -28,7 +28,7 @@
 
 A small, borderless overlay that tells you **in real time** when a new blueprint drops — name, type and time. No account, no cloud. Runs on **Windows and Linux**.
 
-> 🌐 **There is a website.** At **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
+> 🌐 **There is a website.** At **[xharig.github.io/Verse-Kit](https://xharig.github.io/VerseKit/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
 
 > 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
@@ -83,7 +83,7 @@ A new blueprint immediately raises the next question: **does this part even fit 
 </tr>
 <tr>
 <td colspan="2" valign="top" align="center">
-<img src="assets/screenshot-schiffe-benennen-en.png" alt="Ships named in VerseKit" width="100%"><br>
+<img src="assets/screenshot-schiffe-benennen-en.png" alt="Ships named in Verse-Kit" width="100%"><br>
 <sub><b>Rename ships</b> — type your own names and star the ones that should sort to the top; one click writes them into the game</sub>
 </td>
 </tr>
@@ -287,7 +287,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **What to do next** | Every running contract lists its **open objectives** underneath — "Disable the Hartmoore inverter", "Locate and reset the node". They come from the same log and move on as soon as you finish one |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Missions & log** | Which missions you played when, how often — and **which blueprint came out of it**. The answer to "which mission was it again that dropped the helmet?". It works the other way round too: search for a mission, click it, and you see what it gives. Already filled on first start: the game's kept logs reach back weeks. From then on it grows with you and stays, long after the game has dropped its own |
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Crafting** | For each of the **1,597** craftable items: the ingredients with amounts and the craft time — and whether you have the blueprint. **At the top, the product stats as base, crafted and change** — damage, DPS, shield, cooling, armour —, calculated like scmdb.net. Clicking a resource jumps to where it can be mined |
-| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Mining** | Both directions in one search: type a resource → its locations (Iron: 27). Type a location → what is found there (Daymar: 14 ores). Plus the **concentration** at every location — what share of the rocks there is that ore, from "barely any" to "almost all of it", with the list ordered by richness. A **"With what?"** selector separates ship, vehicle and hand mining, because the three see entirely different deposits. With a **refinery comparison** per ore (which station gives the best bonus — 18 percentage points apart for Bexalite) and the **scan signature** to recognise it in game. **On Windows VerseKit reads the signature by itself while scanning** and shows the ore in the overlay — switched on and off with the eye in the bar |
+| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Mining** | Both directions in one search: type a resource → its locations (Iron: 27). Type a location → what is found there (Daymar: 14 ores). Plus the **concentration** at every location — what share of the rocks there is that ore, from "barely any" to "almost all of it", with the list ordered by richness. A **"With what?"** selector separates ship, vehicle and hand mining, because the three see entirely different deposits. With a **refinery comparison** per ore (which station gives the best bonus — 18 percentage points apart for Bexalite) and the **scan signature** to recognise it in game. **On Windows Verse-Kit reads the signature by itself while scanning** and shows the ore in the overlay — switched on and off with the eye in the bar |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Which refining method?** | The terminal offers nine methods and shows a single line for each. Tell it what matters to you instead — **yield, cost or speed** — and it names the method. Two of the nine are never worth taking: another one beats them on every count, and the tool says so |
 | <img src="assets/symbole/22/raffinerie-gruen.png" width="22" alt=""> **Refineries** | **Which station makes the most of your ore — as one table.** One row per material, one column per refinery, and in each cell the bonus or penalty that station applies. Green is the best value in the row, red costs you yield; the system is shown above the columns, so you can see at a glance whether the better price is worth the trip. The other direction to "Which refining method?": that one picks the method, this one picks the station |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Material storage** | Enter what resources you have — **material, amount, quality, location**. Recipes then show what is missing, and a button subtracts the ingredients when you craft. **And because the recipes carry how material quality changes the item\'s values, you see what *your* material would produce** |
@@ -605,7 +605,7 @@ As a base for the blueprint details you can pick **[StarStrings](https://github.
 
 The interface symbols come from the **[Lucide](https://lucide.dev)** set (ISC licence) — all drawn on the same grid with the same stroke width, which is why they look identical on Windows, Linux and macOS. **Thanks** to the Lucide community! 🙏 The licence text ships with the tool (`assets/symbole/LIZENZ.txt`) and is shown under **Thanks & Licenses**.
 
-VerseKit is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
+Verse-Kit is an independent, unofficial companion tool with **no** official connection to the SC Deutsch Launcher or Cloud Imperium Games. All brand and project names belong to their respective owners.
 
 ## What's next
 
@@ -628,7 +628,7 @@ Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/Verse
 > companies. All content on this site not authored by its host or users are property of their
 > respective owners.
 
-VerseKit is an unofficial, non-commercial fan project for the *Star Citizen* community.
+Verse-Kit is an unofficial, non-commercial fan project for the *Star Citizen* community.
 It is **not affiliated with, endorsed, sponsored, or approved by** Cloud Imperium Rights LLC,
 Cloud Imperium Rights Ltd., or Roberts Space Industries.
 

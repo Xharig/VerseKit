@@ -14,7 +14,7 @@
 ; Installer NICHT an — weder beim Installieren noch beim Deinstallieren.
 ; Ein Bauplan-Bestand, den man über Monate sammelt, gehört nicht dem Programm.
 
-#define AppName "VerseKit"
+#define AppName "Verse-Kit"
 #define AppPublisher "Xharig"
 #define AppURL "https://github.com/Xharig/VerseKit"
 #ifndef AppVersion
@@ -228,6 +228,17 @@ Source: "..\dist\SC-BP-Watcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; `UsePreviousLanguage` (Standard `yes`) macht genau das unwahrscheinlich.
 Type: files; Name: "{autoprograms}\SC BP Watcher\SC BP Watcher.lnk"
 Type: files; Name: "{autoprograms}\SC BP Watcher\{cm:UninstallProgram,SC BP Watcher}.lnk"
+; ⚠⚠ Zweite Generation: Umbenennung „VerseKit" → „Verse-Kit" (17.09.2026).
+; Dieselbe Mechanik wie eine Klammer höher, nur eine Stufe jünger — wer von
+; v3.40.0 bis v3.51.0 installiert hat, trägt `VerseKit.lnk`. Ohne diese Zeilen
+; stünde `Verse-Kit.lnk` daneben, im Startmenü wie auf dem Desktop.
+;
+; ⚠ Auch hier steht der Name **ausgeschrieben** statt als `{#AppName}`:
+; Entfernt wird der Link der ALTEN Fassung. Zöge er mit, würde beim nächsten
+; Namenswechsel der falsche gelöscht.
+Type: files; Name: "{autoprograms}\VerseKit\VerseKit.lnk"
+Type: files; Name: "{autoprograms}\VerseKit\{cm:UninstallProgram,VerseKit}.lnk"
+Type: dirifempty; Name: "{autoprograms}\VerseKit"
 ; `dirifempty` räumt den alten Gruppenordner weg — und lässt ihn stehen,
 ; sobald noch irgendetwas darin liegt. Ein Nutzerinhalt überlebt das Update,
 ; der Preis ist ein übrig gebliebener Ordner. Richtige Richtung: nichts
@@ -243,6 +254,11 @@ Type: dirifempty; Name: "{autoprograms}\SC BP Watcher"
 ;
 ; ⭐ Die Regel dahinter: **Entfernt wird nur, wofür ein Ersatz gesichert ist.**
 Type: files; Name: "{autodesktop}\SC BP Watcher.lnk"; Tasks: desktopicon
+; Dasselbe für die Desktop-Verknüpfung der VerseKit-Generation. `Tasks:
+; desktopicon` steht auch hier: Entfernt wird nur, wofür der Ersatz unten
+; gesichert ist — sonst räumte ein Update den Desktop leer, wenn der Nutzer
+; sich die Verknüpfung selbst angelegt hat.
+Type: files; Name: "{autodesktop}\VerseKit.lnk"; Tasks: desktopicon
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\SC-BP-Watcher.exe"

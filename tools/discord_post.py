@@ -217,12 +217,12 @@ def bauen(tag, sprache='de'):
     vorspann = vorspann_aus(block)
     if vorspann:
         if sprache == 'de':
-            return ('## VerseKit %s ist da\n\n%s\n\n'
+            return ('## Verse-Kit %s ist da\n\n%s\n\n'
                     '**Herunterladen:** <%s>\n'
                     'Alle Änderungen im Einzelnen: '
                     '<%s/blob/main/CHANGELOG.md>'
                     % (tag, vorspann, holen, REPO))
-        return ('## VerseKit %s is out\n\n%s\n\n'
+        return ('## Verse-Kit %s is out\n\n%s\n\n'
                 '**Download:** <%s>\n'
                 'Every change in detail: <%s/blob/main/CHANGELOG.en.md>'
                 % (tag, vorspann, holen, REPO))
@@ -235,14 +235,14 @@ def bauen(tag, sprache='de'):
     nur_behoben = bool(re.search(r'(?m)^### (Behoben|Fixed)\s*$', block)) and \
         not re.search(r'(?m)^### (Neu|Added|Geändert|Changed)\s*$', block)
     if sprache == 'de':
-        kopf = '## VerseKit %s ist da' % tag
+        kopf = '## Verse-Kit %s ist da' % tag
         rest = (('Behoben in dieser Fassung:' if nur_behoben
                  else 'Was diese Version bringt:') if punkte else '')
         fuss = ('\n**Herunterladen:** <%s>\n'
                 'Fehler gefunden oder eine Frage? Ab damit in die passenden Kanäle — '
                 'hier bleibt es bei den Versionsmeldungen.' % holen)
     else:
-        kopf = '## VerseKit %s is out' % tag
+        kopf = '## Verse-Kit %s is out' % tag
         rest = (('Fixed in this build:' if nur_behoben
                  else 'What this version brings:') if punkte else '')
         fuss = ('\n**Download:** <%s>\n'
@@ -322,7 +322,7 @@ def bauen_zweisprachig(tag):
         ev = en_vor if ev is None else ev
         pd = de_pkt if punkte_de is None else punkte_de
         pe = en_pkt if punkte_en is None else punkte_en
-        text = '## VerseKit %s\n\n**Deutsch**\n' % tag
+        text = '## Verse-Kit %s\n\n**Deutsch**\n' % tag
         if dv:
             text += '%s\n' % dv
         for p in pd:

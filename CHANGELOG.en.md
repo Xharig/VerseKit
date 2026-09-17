@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+> [!important]
+> **From this version the tool is called “Verse-Kit”** — with a hyphen. On
+> Windows the Start menu and desktop entries are renamed during the update, and
+> the old shortcut is removed, so you will not end up with two. Your data,
+> settings and backups are untouched, and the download files are still called
+> `VerseKit-Setup.exe` and `VerseKit-x86_64.AppImage`.
+
+### Improved
+
+- **New name: “VerseKit” becomes “Verse-Kit”** — in the tool, on the project
+  page and throughout the documentation
+
 ## v3.51.0 - 2026-09-17
 
 > **Crafting now shows every ingredient.** What the game hands out as single

@@ -140,7 +140,7 @@ def _write(ziel, patches):
     daten = {
         'hinweis': ('Welcher Patch welche Baupläne gebracht hat. Nur die '
                     'Zugänge je Spielversion, nie der ganze Katalog.'),
-        'quelle': 'eigene Beobachtung von VerseKit',
+        'quelle': 'eigene Beobachtung von Verse-Kit',
         'weitergabe': True,
         'patches': patches,
     }

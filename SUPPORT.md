@@ -18,7 +18,7 @@ geht nichts im Hintergrund raus.
 **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**, Forum
 **Fehler-Melden**. Dafür brauchst du **kein GitHub-Konto**.
 
-Startet VerseKit gar nicht, kommst du an den Knopf aus Weg 1 nicht heran. Ein
+Startet Verse-Kit gar nicht, kommst du an den Knopf aus Weg 1 nicht heran. Ein
 Bildschirmfoto der Fehlermeldung reicht völlig — daraus lässt sich fast immer
 ablesen, woran es liegt.
 

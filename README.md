@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="VerseKit Icon" width="128">
+<img src="assets/icon.png" alt="Verse-Kit Icon" width="128">
 
-# VerseKit
+# Verse-Kit
 
 **Dein Werkzeugkasten für Star Citizen — Baupläne, Aufträge, Herstellung, Handel und mehr, live beim Spielen**
 
@@ -28,7 +28,7 @@
 
 Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald ein neuer Bauplan (Blueprint) dazukommt — inklusive Name, Art und Uhrzeit. Ohne Account, ohne Cloud. Läuft unter **Windows und Linux**.
 
-> 🌐 **Es gibt eine Webseite.** Auf **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
+> 🌐 **Es gibt eine Webseite.** Auf **[xharig.github.io/Verse-Kit](https://xharig.github.io/VerseKit/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
 
 > 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
@@ -288,7 +288,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/liste-gruen.png" width="22" alt=""> **Was gerade zu tun ist** | Unter jedem laufenden Auftrag stehen seine **offenen Zwischenziele** — „Hartmoore-Inverter deaktivieren", „Knoten lokalisieren und zurücksetzen". Sie kommen aus demselben Protokoll und wechseln mit, sobald du eines geschafft hast |
 | <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Aufträge & Protokoll** | Welche Aufträge du wann gespielt hast, wie oft — und **welcher Bauplan dabei herauskam**. Die Antwort auf „welcher Auftrag war das nochmal, bei dem der Helm kam?". Umgekehrt geht es auch: Auftrag suchen, anklicken, und du siehst, was er hergibt. Beim ersten Start schon gefüllt: Die aufgehobenen Protokolle des Spiels reichen Wochen zurück. Danach wächst es mit und bleibt, auch wenn das Spiel seine eigenen längst gelöscht hat |
 | <img src="assets/symbole/22/blitz-gruen.png" width="22" alt=""> **Herstellung** | Zu jedem der **1.597** herstellbaren Gegenstände die Zutaten mit Menge und die Herstellzeit — und ob du den Bauplan dafür hast. **Oben stehen die Produktwerte als Grundwert, gebauter Wert und Änderung** — Schaden, DPS, Schild, Kühlung, Rüstung —, gerechnet wie auf scmdb.net. Ein Klick auf einen Rohstoff springt zu seinen Fundorten |
-| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Bergbau** | Beide Richtungen in einer Suche: Rohstoff eintippen → seine Fundorte (Iron: 27 Orte). Ort eintippen → was es dort gibt (Daymar: 14 Erze). Dazu je Fundort die **Konzentration** — welcher Anteil der Brocken dort dieses Erz ist, von „kaum etwas" bis „fast nur das", und die Liste steht nach Ergiebigkeit. Ein Auswahlfeld **„Womit?"** trennt Schiff, Fahrzeug und Handabbau, denn die drei sehen völlig verschiedene Vorkommen. Mit **Raffinerie-Vergleich** je Erz (welche Station den besten Bonus gibt — bei Bexalite liegen 18 Prozentpunkte dazwischen) und der **Scan-Signatur** zum Wiedererkennen im Spiel. **Unter Windows liest VerseKit die Signatur beim Scannen selbst ab** und zeigt im Overlay, welches Erz es ist — ein- und ausschalten über das Auge in der Leiste |
+| <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Bergbau** | Beide Richtungen in einer Suche: Rohstoff eintippen → seine Fundorte (Iron: 27 Orte). Ort eintippen → was es dort gibt (Daymar: 14 Erze). Dazu je Fundort die **Konzentration** — welcher Anteil der Brocken dort dieses Erz ist, von „kaum etwas" bis „fast nur das", und die Liste steht nach Ergiebigkeit. Ein Auswahlfeld **„Womit?"** trennt Schiff, Fahrzeug und Handabbau, denn die drei sehen völlig verschiedene Vorkommen. Mit **Raffinerie-Vergleich** je Erz (welche Station den besten Bonus gibt — bei Bexalite liegen 18 Prozentpunkte dazwischen) und der **Scan-Signatur** zum Wiedererkennen im Spiel. **Unter Windows liest Verse-Kit die Signatur beim Scannen selbst ab** und zeigt im Overlay, welches Erz es ist — ein- und ausschalten über das Auge in der Leiste |
 | <img src="assets/symbole/22/herkunft-gruen.png" width="22" alt=""> **Welche Verarbeitungsmethode?** | Das Terminal bietet neun Methoden an und zeigt zu jeder nur eine Zeile. Sag stattdessen, was dir wichtig ist — **Ertrag, Kosten oder Geschwindigkeit** — und du bekommst die Methode dazu. Zwei der neun lohnen sich übrigens nie: Sie werden von einer anderen in jeder Hinsicht geschlagen, und das steht dann auch da |
 | <img src="assets/symbole/22/raffinerie-gruen.png" width="22" alt=""> **Raffinerien** | **Welche Station am meisten aus deinem Erz macht — als eine Tafel.** Eine Zeile je Material, eine Spalte je Raffinerie, und in jeder Zelle der Aufschlag oder Abschlag dieser Station. **Grün ist der beste Wert der Zeile, Rot kostet dich Ausbeute**; über den Spalten steht das System, damit du sofort siehst, ob sich der weitere Weg überhaupt lohnt. Die Gegenrichtung zu „Welche Verarbeitungsmethode?": Dort wählst du die Methode, hier die Station |
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Rohstofflager** | Trag ein, was du an Rohstoffen hast — **Material, Menge, Qualität, Lagerort**. Im Rezept steht dann, was fehlt, und ein Knopf zieht die Zutaten ab, wenn du etwas herstellst. **Und weil die Rezepte mittragen, wie die Materialqualität die Werte des Produkts verändert, siehst du, was mit *deinem* Material herauskäme** |
@@ -649,7 +649,7 @@ Als Grundlage für die Bauplan-Angaben lässt sich **[StarStrings](https://githu
 
 Die Symbole der Oberfläche stammen aus dem **[Lucide](https://lucide.dev)**-Satz (ISC-Lizenz) — alle auf demselben Raster mit gleicher Strichstärke gezeichnet, weshalb sie unter Windows, Linux und macOS gleich aussehen. **Danke** an die Lucide-Gemeinschaft! 🙏 Der Lizenztext liegt bei (`assets/symbole/LIZENZ.txt`) und steht im Werkzeug unter **Danke & Lizenzen**.
 
-VerseKit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keiner** offiziellen Verbindung zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle Marken- und Projektnamen gehören ihren jeweiligen Eigentümern.
+Verse-Kit ist ein eigenständiges, inoffizielles Zusatz-Tool und steht in **keiner** offiziellen Verbindung zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle Marken- und Projektnamen gehören ihren jeweiligen Eigentümern.
 
 ## Was noch kommt
 
@@ -672,7 +672,7 @@ Wünsche und Fehlermeldungen gern als [Issue](https://github.com/Xharig/VerseKit
 > companies. All content on this site not authored by its host or users are property of their
 > respective owners.
 
-VerseKit ist ein inoffizielles, nicht-kommerzielles Fan-Projekt für die
+Verse-Kit ist ein inoffizielles, nicht-kommerzielles Fan-Projekt für die
 Star-Citizen-Gemeinschaft. Es steht in **keiner Verbindung zu** Cloud Imperium Rights LLC,
 Cloud Imperium Rights Ltd. oder Roberts Space Industries und wird von ihnen weder unterstützt
 noch gebilligt.
