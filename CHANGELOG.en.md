@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.52.0 - 2026-09-17
+
+> **The tool is now called Verse-Kit.** Nothing else changes — the hyphen is
+> there because the address without it already belongs to someone else. Your
+> blueprints, settings and backups stay where they are, and the update runs
+> like any other.
+
 > [!important]
 > **From this version the tool is called “Verse-Kit”** — with a hyphen. On
 > Windows the Start menu and desktop entries are renamed during the update, and

@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.52.0 - 2026-09-17
+
+> **Das Werkzeug heißt jetzt Verse-Kit.** Mehr ändert sich nicht — der
+> Bindestrich kommt dazu, weil es die Adresse ohne ihn schon anderswo gibt.
+> Deine Baupläne, Einstellungen und Sicherungen bleiben, wo sie sind, und das
+> Update läuft wie jedes andere.
+
 > [!important]
 > **Das Werkzeug heißt ab dieser Fassung „Verse-Kit"** — mit Bindestrich. Beim
 > Update unter Windows heißt der Eintrag im Startmenü und auf dem Desktop neu;
