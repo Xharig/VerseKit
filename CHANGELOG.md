@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Leiste unten: Beim Einklappen sprang das Overlay nach oben.** Steht die
+  Leiste am unteren Rand und liegt das Fenster frei (ohne feste Ecke), bleibt
+  jetzt die **untere** Kante stehen — das Overlay klappt nach unten zu und
+  wieder auf, statt seine Leiste eine Fensterhöhe weiter oben abzusetzen
+
 ## v3.52.0 - 2026-09-17
 
 > **Das Werkzeug heißt jetzt Verse-Kit.** Mehr ändert sich nicht — der

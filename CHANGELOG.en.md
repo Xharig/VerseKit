@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Bar at the bottom: collapsing jumped the overlay upwards.** With the bar at
+  the bottom edge and the window placed freely (no fixed corner), the **bottom**
+  edge now stays put — the overlay collapses and expands downwards instead of
+  dropping its bar a whole window height higher up
+
 ## v3.52.0 - 2026-09-17
 
 > **The tool is now called Verse-Kit.** Nothing else changes — the hyphen is
