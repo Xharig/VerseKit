@@ -8,6 +8,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.50.1 - 2026-09-17
+
+> **Overlay behaviour and text size can be chosen in the setup assistant
+> again.**
+
+### Fixed
+
+- **Setup assistant, "Display" card:** the buttons to choose "When the
+  overlay is visible" and "Text size" were missing
+
 ## v3.50.0 - 2026-09-17
 
 > **The setup assistant now asks for the most important settings** — when the
