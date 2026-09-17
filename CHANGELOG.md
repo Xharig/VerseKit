@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+> [!important]
+> **Das Werkzeug heißt ab dieser Fassung „Verse-Kit"** — mit Bindestrich. Beim
+> Update unter Windows heißt der Eintrag im Startmenü und auf dem Desktop neu;
+> die alte Verknüpfung wird dabei entfernt, es bleibt also keine doppelte
+> zurück. Deine Daten, Einstellungen und Sicherungen bleiben unberührt, und die
+> Download-Dateien heißen weiterhin `VerseKit-Setup.exe` und
+> `VerseKit-x86_64.AppImage`.
+
+### Verbessert
+
+- **Neuer Name: aus „VerseKit" wird „Verse-Kit"** — im Programm, auf der
+  Projektseite und in der Anleitung
+
 ## v3.51.0 - 2026-09-17
 
 > **Die Herstellung zeigt jetzt alle Zutaten.** Was im Spiel als Stück

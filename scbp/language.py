@@ -54,7 +54,7 @@ DEFAULT_LANG = 'de'
 # getrennten Dateien: So sieht man beim Nachtragen sofort, ob etwas fehlt.
 TEXTS = {
     # -- Verwaltungsfenster --
-    'titel_bauplaene':   ('VerseKit — Baupläne', 'VerseKit — Blueprints'),
+    'titel_bauplaene':   ('Verse-Kit — Baupläne', 'Verse-Kit — Blueprints'),
     'bauplaene':         ('Baupläne', 'Blueprints'),
     'filter_alle':       ('alle', 'all'),
     'filter_habe':       ('habe ich', 'owned'),
@@ -504,8 +504,8 @@ TEXTS = {
     'hinweis_suche_leeren': ('Sucheingabe löschen', 'Clear the search'),
 
     # -- Einstellungsfenster --
-    'titel_einstellungen': ('VerseKit — Einstellungen',
-                            'VerseKit — Settings'),
+    'titel_einstellungen': ('Verse-Kit — Einstellungen',
+                            'Verse-Kit — Settings'),
     # ⚠ `einstellungen` steht schon weiter oben unter „Einstellungen" — der
     # zweite Eintrag war identisch und damit wirkungslos, aber er hätte beim
     # nächsten Ändern eine der beiden Stellen still übergangen.
@@ -828,7 +828,7 @@ TEXTS = {
     # Das Rechtsklick-Menü am Symbol neben der Uhr (Windows). Erweitert am
     # 15.09.2026 nach dem Vorbild des SC Deutsch Launchers — vorher gab es nur
     # „Fenster zeigen" und „Beenden".
-    'tray_zeigen':     ('VerseKit öffnen', 'Open VerseKit'),
+    'tray_zeigen':     ('Verse-Kit öffnen', 'Open Verse-Kit'),
     'tray_einstellungen': ('Einstellungen öffnen', 'Open settings'),
     'tray_launcher':   ('RSI Launcher starten', 'Launch RSI Launcher'),
     'tray_uebersetzung': ('Übersetzung prüfen und neu eintragen',
@@ -2518,12 +2518,12 @@ TEXTS = {
                               'nobody ever got to see, a window that no longer fit the '
                               'screen, and the withdrawn contract that came back after '
                               'every start.'),
-    's_dk_marken':     ('VerseKit ist ein eigenständiges, inoffizielles '
+    's_dk_marken':     ('Verse-Kit ist ein eigenständiges, inoffizielles '
                         'Zusatzwerkzeug und steht in keiner offiziellen Verbindung '
                         'zum SC Deutsch Launcher oder zu Cloud Imperium Games. Alle '
                         'Marken- und Projektnamen gehören ihren jeweiligen '
                         'Eigentümern.',
-                        'VerseKit is an independent, unofficial companion tool '
+                        'Verse-Kit is an independent, unofficial companion tool '
                         'with no official connection to the SC Deutsch Launcher or '
                         'Cloud Imperium Games. All trademarks and project names '
                         'belong to their respective owners.'),
@@ -2648,8 +2648,8 @@ TEXTS = {
                         'picked "Test version" above.'),
     'up_auto_wartet':  ('%s ist da und wird eingespielt, sobald Star Citizen zu ist.',
                         '%s is ready and will be installed once Star Citizen is closed.'),
-    'up_auto_laeuft':  ('%s wird automatisch eingespielt — VerseKit startet gleich neu.',
-                        'Installing %s automatically — VerseKit restarts in a moment.'),
+    'up_auto_laeuft':  ('%s wird automatisch eingespielt — Verse-Kit startet gleich neu.',
+                        'Installing %s automatically — Verse-Kit restarts in a moment.'),
     's_up_sofort':     ('Jetzt die neueste Version holen',
                         'Get the latest version now'),
     's_up_sofort_h':   ('Holt sofort, was es gerade gibt — auch eine Testversion. '
@@ -2694,8 +2694,8 @@ TEXTS = {
     # kopiert. Er MUSS der Oberflächensprache folgen: Die Diagnose-Seite
     # verspricht „Du siehst vorher genau, was du verschickst" — auf Englisch
     # gilt das nur, wenn der Block darüber auch englisch ist.
-    'b_kopf':          ('VerseKit %s · Bericht vom %s',
-                          'VerseKit %s · report from %s'),
+    'b_kopf':          ('Verse-Kit %s · Bericht vom %s',
+                          'Verse-Kit %s · report from %s'),
     'b_datum':         ('%d.%m.%Y, %H:%M', '%Y-%m-%d, %H:%M'),
     'b_system':        ('System', 'System'),
     'b_verpackung':    ('Verpackung', 'Packaging'),
@@ -3083,7 +3083,7 @@ TEXTS = {
     'ff_alle_treffer': ('alle %d Baupläne', 'all %d blueprints'),
 
     # --- Hauptfenster: Reiter und Rahmen (ab v3.0.0) ---
-    'hf_titel':          ('VerseKit', 'VerseKit'),
+    'hf_titel':          ('Verse-Kit', 'Verse-Kit'),
     # ⚠ Der Untertitel steht hier, weil ihn ZWEI Stellen brauchen:
     # `desktop_entry.create()` schreibt ihn in eine neue `.desktop`-Datei, und
     # `desktop_entry.refresh_label()` bringt eine vorhandene darauf.
@@ -4356,8 +4356,8 @@ TEXTS = {
     # müsse der Spieler selbst ablesen — gemeint war das Gegenteil.
     's_bg_sig_feld':     ('Signatur nachschlagen', 'Look up a signature'),
     's_bg_scan_kopf':    ('Signatur automatisch erkennen', 'Recognise signatures automatically'),
-    's_bg_scan_h':       ('Beim Scannen findet VerseKit die Zahl selbst im Bild und zeigt im Overlay, welches Erz es ist. Wird eine Zahl nicht erkannt: „Ziffern anlernen". Nur Windows.',
-                          'While you scan, VerseKit finds the number in the image and shows the ore in the overlay. If a number is not recognised: "Teach digits". Windows only.'),
+    's_bg_scan_h':       ('Beim Scannen findet Verse-Kit die Zahl selbst im Bild und zeigt im Overlay, welches Erz es ist. Wird eine Zahl nicht erkannt: „Ziffern anlernen". Nur Windows.',
+                          'While you scan, Verse-Kit finds the number in the image and shows the ore in the overlay. If a number is not recognised: "Teach digits". Windows only.'),
     's_bg_scan_bereich': ('Scan-Bereich festlegen', 'Set scan area'),
     's_bg_scan_kein':    ('Noch kein Scan-Bereich — ohne ihn wird nichts erkannt.',
                           'No scan area yet — nothing is recognised without it.'),
@@ -4368,15 +4368,15 @@ TEXTS = {
     'scan_ziehen':       ('Über Symbol und Zahl ziehen', 'Drag over icon and number'),
     'scan_titel':        ('Ziffern anlernen', 'Teach digits'),
     'hinweis_scanner_an': ('Signatur-Scanner an — klicken zum Ausschalten', 'Signature scanner on — click to switch off'),
-    'hinweis_scanner_aus': ('Signatur-Scanner aus — klicken, damit VerseKit beim Minen die Scan-Zahl erkennt',
-                            'Signature scanner off — click so VerseKit recognises the scan number while mining'),
+    'hinweis_scanner_aus': ('Signatur-Scanner aus — klicken, damit Verse-Kit beim Minen die Scan-Zahl erkennt',
+                            'Signature scanner off — click so Verse-Kit recognises the scan number while mining'),
     'scan_hinweis':      ('Scanne im Spiel einen Brocken. Das zuletzt gefundene Bild bleibt hier stehen — tippe die Zahl ein, die darauf zu sehen ist.',
                           'Scan a rock in the game. The last image found stays here — type the number shown on it.'),
     'scan_naechstes':    ('Nächstes Bild', 'Next image'),
     'scan_ordner':       ('Ordner öffnen', 'Open folder'),
     'scan_schliessen':   ('Schließen', 'Close'),
-    'scan_wache_aus':    ('Erst „Signatur automatisch erkennen" einschalten — dann sucht VerseKit die Zahl.',
-                          'Switch on "Recognise signatures automatically" first — then VerseKit looks for the number.'),
+    'scan_wache_aus':    ('Erst „Signatur automatisch erkennen" einschalten — dann sucht Verse-Kit die Zahl.',
+                          'Switch on "Recognise signatures automatically" first — then Verse-Kit looks for the number.'),
     'scan_warte':        ('Warte auf das nächste Bild — im Spiel scannen.', 'Waiting for the next image — scan in the game.'),
     'scan_gelesen':      ('Gelesen: %s', 'Read: %s'),
     's_bg_scan_anlernen': ('Ziffern anlernen', 'Teach digits'),
@@ -4387,14 +4387,14 @@ TEXTS = {
     'scan_anlernen':     ('Anlernen', 'Teach'),
     'scan_uebernehmen':  ('Übernehmen', 'Save'),
     'scan_abbrechen':    ('Abbrechen', 'Cancel'),
-    'scan_gelernt':      ('Gespeichert: %s. %d von %d Ziffern waren neu für VerseKit.',
-                          'Saved: %s. %d of %d digits were new to VerseKit.'),
-    'scan_gelernt_alle': ('Gespeichert: %s. Alle %d Ziffern kannte VerseKit schon — deine Anzeige wird gut erkannt.',
-                          'Saved: %s. VerseKit already knew all %d digits — your display is recognised well.'),
+    'scan_gelernt':      ('Gespeichert: %s. %d von %d Ziffern waren neu für Verse-Kit.',
+                          'Saved: %s. %d of %d digits were new to Verse-Kit.'),
+    'scan_gelernt_alle': ('Gespeichert: %s. Alle %d Ziffern kannte Verse-Kit schon — deine Anzeige wird gut erkannt.',
+                          'Saved: %s. Verse-Kit already knew all %d digits — your display is recognised well.'),
     'scan_gelernt_unklar': ('Nicht gespeichert, weil unklar: Stelle %s.', 'Not saved because unclear: position %s.'),
-    'scan_probe_ok':     ('Probe bestanden: VerseKit liest dieses Bild jetzt als %s.', 'Check passed: VerseKit now reads this image as %s.'),
-    'scan_probe_nein':   ('Probe: Dieses Bild liest VerseKit noch nicht sicher — mit einer weiteren Zahl anlernen.',
-                          'Check: VerseKit cannot read this image reliably yet — teach another number.'),
+    'scan_probe_ok':     ('Probe bestanden: Verse-Kit liest dieses Bild jetzt als %s.', 'Check passed: Verse-Kit now reads this image as %s.'),
+    'scan_probe_nein':   ('Probe: Dieses Bild liest Verse-Kit noch nicht sicher — mit einer weiteren Zahl anlernen.',
+                          'Check: Verse-Kit cannot read this image reliably yet — teach another number.'),
     'scan_grund_kein_text': ('Keine Zahl im Bereich', 'No number in the area'),
     'scan_grund_nicht_angelernt': ('Noch keine Ziffern angelernt', 'No digits learned yet'),
     'scan_grund_unsicher': ('Zahl gefunden, aber nicht sicher gelesen — tippe sie unten ein und lerne sie an',
@@ -5144,8 +5144,8 @@ TEXTS = {
                           'There is nothing to back up yet.'),
     'sich_fehler':       ('Sicherung fehlgeschlagen: %s',
                           'Backup failed: %s'),
-    'sich_ungueltig':    ('Das ist keine VerseKit-Sicherung.',
-                          'That is not a VerseKit backup.'),
+    'sich_ungueltig':    ('Das ist keine Verse-Kit-Sicherung.',
+                          'That is not a Verse-Kit backup.'),
     'sich_frage':        ('Sicherung vom %s mit %d Dateien einspielen?\n\n'
                           'Dein jetziger Stand wird dabei überschrieben — eine '
                           'Kopie davon wird vorher neben der Ablage abgelegt.\n\n'
@@ -5162,7 +5162,7 @@ TEXTS = {
                              'everything is in place.'),
     # Die Beilage IN der Sicherungsdatei — wer sie in einem Jahr findet, soll
     # ohne das Programm erkennen, was er da hat.
-    'sich_datei_info':   ('Erstellt am %s mit VerseKit %s.\n'
+    'sich_datei_info':   ('Erstellt am %s mit Verse-Kit %s.\n'
                           'Enthaelt %d Dateien: Bauplan-Bestand, Lager,\n'
                           'Auftrags-Protokoll, Merkliste und Einstellungen.\n'
                           '\n'
@@ -5170,7 +5170,7 @@ TEXTS = {
                           'klicken und diese Datei auswaehlen. Die Ordner\n'
                           'darin entsprechen dem Ablage-Ordner des Programms;\n'
                           'im Notfall reicht auch Entpacken von Hand.',
-                          'Created on %s with VerseKit %s.\n'
+                          'Created on %s with Verse-Kit %s.\n'
                           'Contains %d files: blueprint inventory, stock,\n'
                           'mission log, watchlist and settings.\n'
                           '\n'

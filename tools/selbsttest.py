@@ -804,7 +804,16 @@ def main():
                'es bleiben höchstens %d Einträge liegen' % errors_module.MAX_ENTRIES)
 
         text = report.build(version='0.0.0-test')
-        pruefe(bool(text) and 'VerseKit' in text, 'der Bericht wird gebaut')
+        # ⚠ Der Produktname kommt aus `language`, nicht aus dieser Zeile.
+        # Bis zur Umbenennung „VerseKit" → „Verse-Kit" (17.09.2026) stand er
+        # hier ausgeschrieben — die Pruefung ging rot, obwohl der Bericht in
+        # Ordnung war. Sie prueft jetzt die Eigenschaft („der Bericht nennt das
+        # Werkzeug beim Namen") statt einer Schreibweise und zieht beim
+        # naechsten Namenswechsel von selbst mit.
+        from scbp import language as _sp_bericht
+        pruefe(bool(text) and _sp_bericht.t('hf_titel') in text,
+               'der Bericht wird gebaut und nennt das Werkzeug (%r)'
+               % _sp_bericht.t('hf_titel'))
 
         # ⚠ Ein Schreibfehler darf nicht spurlos verschwinden. Bis zum
         # 26.08.2026 gab `einstellungen_schreiben` nur `False` zurück — und

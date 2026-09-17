@@ -215,7 +215,7 @@ class TrayIcon(object):
     # `sprache.t('hf_titel')`. Er wurde bei der Umbenennung (12.09.2026)
     # trotzdem mitgezogen — ein Standardwert mit altem Namen ist eine
     # Zeitbombe fuer den Fall, dass der Aufrufer ihn einmal weglaesst.
-    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='VerseKit',
+    def __init__(self, beim_zeigen=None, beim_beenden=None, titel='Verse-Kit',
                  beim_menue=None):
         self.beim_zeigen = beim_zeigen
         self.beim_beenden = beim_beenden

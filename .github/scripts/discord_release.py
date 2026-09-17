@@ -191,7 +191,7 @@ def bauen(tag):
         beschreibung = beschreibung[:MAX_BESCHREIBUNG - len(rest)] + rest
 
     einbettung = {
-        'title': ('VerseKit %s' % tag.lstrip('v'))[:MAX_TITEL],
+        'title': ('Verse-Kit %s' % tag.lstrip('v'))[:MAX_TITEL],
         'url': link,
         'description': beschreibung,
         'color': GOLD if vorab else GRUEN,

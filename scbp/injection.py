@@ -249,7 +249,7 @@ TEXTS = {
         'ab_rang':   'erst ab',
         'leere_stufen': ('Achtung: %d der %d Stufen dieses Auftrags geben '
                          'gar keine Baupläne.'),
-        'quelle':    'Angaben von scmdb.net · eingefügt von VerseKit',
+        'quelle':    'Angaben von scmdb.net · eingefügt von Verse-Kit',
         'trenner':   '.',
     },
     'en': {
@@ -271,7 +271,7 @@ TEXTS = {
         'ab_rang':   'needs',
         'leere_stufen': ('Note: %d of the %d tiers of this contract give no '
                          'blueprints at all.'),
-        'quelle':    'Data from scmdb.net · added by VerseKit',
+        'quelle':    'Data from scmdb.net · added by Verse-Kit',
         'trenner':   ',',
     },
 }
