@@ -111,6 +111,22 @@ def _fetch(url, raw=False):
 # halbe Stunde, obwohl die Ausnahme den Grund kannte.
 last_error = [None]
 
+# Kennung → Tag der Fassung (`JJJJ-MM-TT`), wie ihn die letzte Abfrage nannte.
+# Die Kennung selbst (`git-082b11db5e73`) sagt einem Spieler nichts; ob seine
+# Übersetzung aktuell ist, erkennt er am Datum.
+_version_dates = {}
+
+
+def _net_error(e):
+    """Den Netzfehler im Klartext merken."""
+    text = str(e)
+    if 'CERTIFICATE' in text.upper() or 'SSL' in text.upper():
+        last_error[0] = t('m_kein_zertifikat')
+    elif getattr(e, 'code', None) == 403 or '403' in text:
+        last_error[0] = t('m_abgewiesen')
+    else:
+        last_error[0] = text
+
 
 def latest(source):
     """Die neueste Version einer Quelle: (Kennung, Adresse, Größe) oder None.
@@ -128,34 +144,41 @@ def latest(source):
         try:
             commits = _fetch('https://api.github.com/repos/%s/commits?path=%s'
                              '&per_page=1' % (q['repo'], q['repo_datei']))
-            sha = (commits[0] or {}).get('sha') if commits else ''
-            if sha:
-                last_error[0] = None
-                return ('git-%s' % sha[:12],
-                        'https://raw.githubusercontent.com/%s/%s/%s'
-                        % (q['repo'], sha, q['repo_datei']), 0)
-        except Exception:
-            pass                  # Rückfall: das Release, wie bisher
+        except Exception as e:
+            # ⚠⚠ **Kein Rückfall aufs Release, wenn die Abfrage scheitert**
+            # (17.09.2026). Das Release trägt eine andere Kennung als die
+            # eingesetzte Repo-Datei — ein abgewiesener Abruf (GitHub-Limit)
+            # hätte als „neue Fassung" gegolten und die veraltete Datei aus dem
+            # Release über die aktuelle geschrieben.
+            _net_error(e)
+            return None
+        first = (commits[0] or {}) if isinstance(commits, list) and commits else {}
+        sha = first.get('sha') or ''
+        if sha:
+            last_error[0] = None
+            ident = 'git-%s' % sha[:12]
+            stamp = ((first.get('commit') or {}).get('committer') or {}).get('date')
+            if stamp:
+                _version_dates[ident] = stamp[:10]
+            return (ident, 'https://raw.githubusercontent.com/%s/%s/%s'
+                    % (q['repo'], sha, q['repo_datei']), 0)
+        # Datei im Repo nicht (mehr) gefunden: dann das Release, wie früher.
     try:
         r = _fetch('https://api.github.com/repos/%s/releases/latest' % q['repo'])
         last_error[0] = None
     except Exception as e:
         # Zertifikatsfehler eigens benennen — die Meldung von OpenSSL ist für
         # Nichttechniker unlesbar, die Ursache aber immer dieselbe.
-        text = str(e)
-        if 'CERTIFICATE' in text.upper() or 'SSL' in text.upper():
-            last_error[0] = t('m_kein_zertifikat')
-        elif getattr(e, 'code', None) == 403 or '403' in text:
-            # ⚠ Auch hier gilt: 403 ist eine Absage, kein Netzfehler. Bei
-            # GitHub ist es meist das Abruflimit, bei Cloudflare-Seiten der
-            # Bot-Schutz. Ohne eigene Meldung sucht man beim eigenen Anschluss.
-            last_error[0] = t('m_abgewiesen')
-        else:
-            last_error[0] = text
+        # ⚠ Auch 403 eigens: eine Absage, kein Netzfehler. Bei GitHub ist es
+        # meist das Abruflimit. Ohne eigene Meldung sucht man beim eigenen
+        # Anschluss.
+        _net_error(e)
         return None
     ident = r.get('tag_name') or ''
     if ident.lower() in ('latest', ''):
         ident = (r.get('published_at') or '')[:19]
+    if r.get('published_at'):
+        _version_dates[ident] = r['published_at'][:10]
     for a in r.get('assets') or []:
         if a.get('name') == q['datei']:
             return ident, a.get('browser_download_url'), a.get('size') or 0
@@ -183,8 +206,71 @@ def _note_write(d):
 
 def _note_set(source, ident):
     d = _note()
-    d[source] = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+    entry = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+    if _version_dates.get(ident):
+        entry['datum'] = _version_dates[ident]
+        # Frisch geholt heißt: eben nachgesehen, und es ist die neueste.
+        entry['geprueft'] = entry['stand']
+        entry['pruefung'] = 'aktuell'
+    d[source] = entry
     _note_write(d)
+
+
+def _record_check(source, result, ident=None):
+    """Festhalten, wann zuletzt nachgesehen wurde und mit welchem Ergebnis.
+
+    `result`: `aktuell`, `neu` oder `fehler`. Ist die eingesetzte Fassung die
+    neueste, wird ihr Datum nachgetragen — Installationen von vor v3.48.5
+    kennen es sonst nicht."""
+    d = _note()
+    entry = d.get(source)
+    if not isinstance(entry, dict):
+        return
+    entry['geprueft'] = time.strftime('%Y-%m-%d %H:%M')
+    entry['pruefung'] = result
+    if result == 'aktuell' and _version_dates.get(ident):
+        entry['datum'] = _version_dates[ident]
+    _note_write(d)
+
+
+def info(source):
+    """Der Vermerk einer Quelle als dict (leer, wenn keiner da ist)."""
+    entry = _note().get(source)
+    return dict(entry) if isinstance(entry, dict) else {}
+
+
+def _day(stamp, lang=None):
+    """`2026-09-16` → `16.09.2026` (deutsch) bzw. unverändert (englisch)."""
+    from . import language
+    lang = lang or language.current()
+    try:
+        y, m, d = stamp[:10].split('-')
+    except (ValueError, TypeError, AttributeError):
+        return ''
+    return '%s.%s.%s' % (d, m, y) if lang == 'de' else '%s-%s-%s' % (y, m, d)
+
+
+def status_text(source, lang=None, today=None):
+    """Für Spieler lesbar: Stand der Übersetzung und ob sie aktuell ist.
+
+    Beispiel: „Stand 16.09.2026 · aktuell, nachgesehen heute 04:52".
+    ⚠ Nie die Kennung (`git-082b11db5e73`) — daran erkennt niemand etwas."""
+    entry = info(source)
+    parts = []
+    if entry.get('datum'):
+        parts.append(t('s_sp_stand_vom') % _day(entry['datum'], lang))
+    checked = entry.get('geprueft') or ''
+    if checked:
+        today = today or time.strftime('%Y-%m-%d')
+        clock = checked[11:16]
+        when = (t('s_sp_heute') % clock if checked[:10] == today
+                else '%s %s' % (_day(checked, lang), clock))
+        result = entry.get('pruefung')
+        key = {'aktuell': 's_sp_ist_aktuell', 'neu': 's_sp_neuere_da',
+               'fehler': 's_sp_nicht_geprueft'}.get(result)
+        if key:
+            parts.append(t(key) % when)
+    return ' · '.join(parts)
 
 
 def forget_note(source):
@@ -221,8 +307,11 @@ def update_available(source):
     """(True, neue_Kennung), wenn es etwas Neueres gibt. Wirft nie."""
     fresh = latest(source)
     if not fresh:
+        _record_check(source, 'fehler')
         return False, None
-    return (fresh[0] != installed(source)), fresh[0]
+    newer = fresh[0] != installed(source)
+    _record_check(source, 'neu' if newer else 'aktuell', fresh[0])
+    return newer, fresh[0]
 
 
 # ------------------------------------------------------------ Installieren

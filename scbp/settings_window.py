@@ -521,10 +521,10 @@ class SettingsWindow:
         self._say(t('inj_laeuft'))
         self._continue()
         neu, kennung = translation.update_available(quelle)
-        stand = translation.installed(quelle)
+        stand = translation.status_text(quelle)
         teile = [t('inj_steht') if drin else t('inj_steht_nicht')]
         if stand:
-            teile.append(str(stand))
+            teile.append(stand)
         teile.append(t('inj_update_da', kennung) if neu else t('inj_aktuell'))
         self._say(' · '.join(teile))
 

@@ -2540,6 +2540,9 @@ def _game(fenster, rahmen):
     # Damit auch Aktionen im Einstellungsobjekt den Kasten auffrischen.
     e.lage_melder = lage_zeigen
     lage_zeigen()
+    # Der Hintergrund sieht alle paar Stunden nach neuen Übersetzungen — beim
+    # erneuten Öffnen soll „nachgesehen um …" den letzten Blick zeigen.
+    fenster.on_show['spiel'] = lage_zeigen
 
     # --- Textquelle ----------------------------------------------------------
     ziel = _setting_row(fenster, innen, t('s_sp_quelle'), t('s_sp_quelle_h'),

@@ -1762,5 +1762,6 @@ def status():
     path, _language, source = ini_file()
     exists = bool(path and os.path.isfile(path))
     inside = bool(exists and is_applied(path))
+    # `stand` ist für Spieler lesbar (Datum, aktuell?) — nie die Kennung.
     return {'datei': path, 'drin': inside, 'quelle': source,
-            'stand': translation.installed(source) if source else None}
+            'stand': translation.status_text(source) if source else None}
