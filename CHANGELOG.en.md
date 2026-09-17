@@ -8,6 +8,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.0 - 2026-09-17
+
 > **How far to the next rank?** The reputation menu now shows after every rank
 > how much reputation it starts at. Only the game server fills the bar — but you
 > see what comes next.

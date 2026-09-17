@@ -8,6 +8,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.0 - 2026-09-17
+
 > **Wie weit ist es bis zum nächsten Rang?** Im Reputationsmenü steht jetzt
 > hinter jedem Rang, ab wie viel Ruf er beginnt. Den Balken selbst füllt nur der
 > Spielserver — aber du siehst, was als Nächstes kommt.
