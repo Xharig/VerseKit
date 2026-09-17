@@ -82,6 +82,12 @@ A new blueprint immediately raises the next question: **does this part even fit 
 </td>
 </tr>
 <tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-schiffe-benennen-en.png" alt="Ships named in VerseKit" width="100%"><br>
+<sub><b>Rename ships</b> — type your own names and star the ones that should sort to the top; one click writes them into the game</sub>
+</td>
+</tr>
+<tr>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-wunschliste-en.png" alt="Wishlist with price and planned loadout" width="100%"><br>
 <sub><b>Wishlist</b> — what you are aiming for, with price and location; the loadout can be planned before you own the ship</sub>
@@ -124,6 +130,22 @@ The blueprint is the start. The workshop answers what comes after it: **what do 
 <sub><b>Mining</b> — type a resource and see where it sits; or enter the scanner reading and see what it found</sub>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-farmliste-en.png" alt="What to farm" width="100%"><br>
+<sub><b>What to farm</b> — the raw materials still missing for everything you plan to build, with where to find them</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-raffinerien-en.png" alt="Refineries" width="100%"><br>
+<sub><b>Refineries</b> — what each refinery makes of your ore: bonus and penalty per material</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-laeden-en.png" alt="Shops" width="100%"><br>
+<sub><b>Shops</b> — where a finished part is on the shelf and what it costs there</sub>
+</td>
+</tr>
 </table>
 
 ### Trading
@@ -139,6 +161,12 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-verkauf-en.png" alt="Selling tab with the best buyers" width="100%"><br>
 <sub><b>Selling</b> — the best buyers, sorted by how many of your goods a place takes</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-routen-en.png" alt="Trade routes" width="100%"><br>
+<sub><b>Routes</b> — say where you are and what fits in the hold; the best runs from there come out on top</sub>
 </td>
 </tr>
 </table>
@@ -192,7 +220,7 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 </table>
 
 <details>
-<summary>And the rest: General</summary>
+<summary>And the rest: General and FOV</summary>
 
 <table>
 <tr>
@@ -201,6 +229,18 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 <sub><b>General</b> — language, sound, autostart, menu entry</sub>
 </td>
 <td width="50%" valign="top" align="center">
+<img src="assets/screenshot-blickwinkel-en.png" alt="Field of view" width="100%"><br>
+<sub><b>FOV</b> — the field of view for your monitor, calculated instead of guessed</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-auftragslog-en.png" alt="Missions and log" width="100%"><br>
+<sub><b>Missions &amp; log</b> — which mission you played when, kept even after the game deletes its logs</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-patchaenderungen-en.png" alt="Changed game values" width="100%"><br>
+<sub><b>Changed game values</b> — what a patch changed on ships, weapons and components</sub>
 </td>
 </tr>
 </table>
