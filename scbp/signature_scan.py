@@ -695,6 +695,39 @@ def sample_folder():
                         SAMPLE_FOLDER)
 
 
+def samples():
+    """Die abgelegten Scan-Bilder (Dateinamen), älteste zuerst."""
+    folder = sample_folder()
+    try:
+        return sorted((f for f in os.listdir(folder) if f.endswith('.png')),
+                      key=lambda f: os.path.getmtime(os.path.join(folder, f)))
+    except OSError:
+        return []
+
+
+def sample_archive():
+    """Scan-Bilder und eigene Ziffernvorlagen als ZIP (Bytes) — oder None.
+
+    Für den Fehlerbericht: Bild + richtige Zahl im Dateinamen ist genau das,
+    woraus sich die Erkennung für alle verbessern lässt. Nichts Persönliches —
+    nur der Ausschnitt um die Zahl.
+    """
+    import io
+    import zipfile
+    from . import paths
+    names = samples()
+    if not names:
+        return None
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for name in names:
+            archive.write(os.path.join(sample_folder(), name), 'bilder/' + name)
+        own = paths.app_file(OWN_TEMPLATE_FILE)
+        if os.path.isfile(own):
+            archive.write(own, OWN_TEMPLATE_FILE)
+    return buffer.getvalue()
+
+
 def save_sample(raster, number):
     """Das angelernte Bild mit der richtigen Zahl ablegen.
 

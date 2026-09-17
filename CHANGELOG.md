@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc5 - 2026-09-17
+
+> **Durchs Scan-Fenster lässt sich wieder zielen, und deine Scan-Bilder
+> können beim Fehlerbericht mitgehen.**
+
+### Verbessert
+
+- **Scan-Fenster halbdurchsichtig** — das Cockpit bleibt sichtbar, der
+  Scanner lässt sich weiter ausrichten
+- **Scan-Bilder im Fehlerbericht:** Beim Absenden fragt VerseKit, ob die
+  angelernten Scan-Bilder mitgehen sollen — sie helfen, die Erkennung für
+  alle zu verbessern. Nur auf ausdrückliches Ja
+
 ## v3.49.0-rc4 - 2026-09-17
 
 > **Beim Anlernen siehst du, was angekommen ist.**

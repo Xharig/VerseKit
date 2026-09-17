@@ -65,6 +65,7 @@ MIN_W, MIN_H = 40, 14
 PREVIEW_MS = 400
 PANEL_W, PANEL_H = 360, 250
 GRIP = 12
+ALPHA = 0.6
 PREVIEW_H = 60
 
 _open = [None]
@@ -153,6 +154,10 @@ class ScanWindow(object):
         try:
             self.win.attributes('-topmost', True)
             self.win.attributes('-transparentcolor', HOLE)
+            # ⚠ Halbdurchsichtig (17.09.2026): Die Tafel verdeckte das Cockpit —
+            # „man sieht darunter nichts mehr, kann mit dem Scanner nicht mehr
+            # zielen". Das Loch bleibt ganz durchsichtig.
+            self.win.attributes('-alpha', ALPHA)
         except tk.TclError:
             pass
         font = ('Segoe UI', 9)

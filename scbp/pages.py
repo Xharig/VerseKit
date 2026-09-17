@@ -6406,9 +6406,23 @@ def _diagnostics(fenster, rahmen):
         if not ask_yes_no(fenster.root, t('s_di_ab_frage_t'),
                              t('s_di_ab_frage')):
             return
+        # ⭐ Angelernte Scan-Bilder auf Wunsch mitschicken (17.09.2026) — sie
+        # verbessern die Erkennung für alle. Eigene Rückfrage, nie still.
+        anhaenge = []
+        try:
+            from . import signature_scan
+            anzahl = len(signature_scan.samples())
+            if anzahl and ask_yes_no(fenster.root, t('s_di_ab_scan_t'),
+                                     t('s_di_ab_scan') % anzahl):
+                archiv = signature_scan.sample_archive()
+                if archiv:
+                    anhaenge.append(('scan-bilder.zip', archiv, 'application/zip'))
+        except Exception as ausnahme:
+            errors.record('pages.diagnose_scanbilder', ausnahme)
         fenster.say(t('s_di_ab_laeuft'))
         fenster.root.update_idletasks()
-        geklappt, grund = report.submit(aktueller_bericht(), fenster.version)
+        geklappt, grund = report.submit(aktueller_bericht(), fenster.version,
+                                        anhaenge)
         fenster.say(t('s_di_ab_ok') if geklappt
                       else t('s_di_ab_weg') % grund)
         # ⚠ **Nur bei Erfolg.** Scheitert das Senden — kein Netz, Dienst weg —,

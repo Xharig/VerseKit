@@ -23275,6 +23275,21 @@ def main():
                         'rb').read(8) == b'\x89PNG\r\n\x1a\n',
                'das angelernte Bild liegt mit der richtigen Zahl als PNG ab (%r)'
                % _proben243)
+        # Fuer den Discord-Bericht: Bilder + eigene Vorlagen als ZIP, als
+        # weitere Datei im selben Absenden.
+        import zipfile as _zip243, io as _io243
+        _arch243 = _ss243.sample_archive()
+        _namen243 = _zip243.ZipFile(_io243.BytesIO(_arch243)).namelist() if _arch243 else []
+        pruefe(any(n.startswith('bilder/3170_') for n in _namen243)
+               and _ss243.OWN_TEMPLATE_FILE in _namen243,
+               'Scan-Bilder und Vorlagen lassen sich als ZIP mitschicken (%r)' % _namen243)
+        from scbp import report as _rep243
+        _koerper243 = _rep243.multipart('GRENZE', 'kopf', 'b.txt', 'text',
+                                        [('scan-bilder.zip', _arch243 or b'', 'application/zip')])
+        pruefe(b'name="files[1]"; filename="scan-bilder.zip"' in _koerper243
+               and _koerper243.endswith(b'--GRENZE--\r\n')
+               and b'name="files[1]"' not in _rep243.multipart('GRENZE', 'kopf', 'b.txt', 'text'),
+               'der Bericht traegt die ZIP nur, wenn sie uebergeben wird')
         _ok243, _grund243, _ = _ss243.learn(_bild243('3,170'), '31,700')
         pruefe(not _ok243 and _grund243 == 'anlernen_anzahl',
                'falsche Stellenzahl wird NICHT angelernt, sondern abgelehnt')
