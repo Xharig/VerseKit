@@ -102,6 +102,8 @@ VALUE_MARGIN = 0.02
 # gezeichnete Ziffern, richtig/falsch): 0,30 → 74/2 · 42/2; **0,26 → 72/1 ·
 # 33/0**; 0,22 → 70/1 · 15/1. Ein höherer Vorsprung half nirgends.
 MAX_DIGIT_DISTANCE = 0.26
+# So viele selbst angelernte Bilder je Ziffer — die jüngsten bleiben.
+MAX_OWN_PER_DIGIT = 24
 
 # Welche Lochstruktur eine Ziffer haben MUSS — (Anzahl, Lage von oben).
 # ⚠ Am 10.09.2026 hatten fünf von acht angelernten „Sechsen" zwei Löcher: Achten
@@ -521,13 +523,8 @@ def _score_value(table, text):
     return total / len(text)
 
 
-def match_values(patterns, known, values):
-    """Den möglichen Wert wählen, der am besten passt.
-
-    Gibt (wert, mittlerer_abstand) oder (None, abstand).
-    """
-    if not patterns or not known or not values:
-        return None, 1.0
+def digit_table(patterns, known):
+    """Je Zeichen den Abstand zu jeder Ziffer — {ziffer: abstand} je Stelle."""
     table = []
     size = float(NORM_W * NORM_H)
     for pattern in patterns:
@@ -547,6 +544,17 @@ def match_values(patterns, known, values):
                 + (0.0 if _holes_match(own, example_holes) else HOLE_PENALTY)
                 for example, example_holes in examples)
         table.append(column)
+    return table
+
+
+def match_values(patterns, known, values):
+    """Den möglichen Wert wählen, der am besten passt.
+
+    Gibt (wert, mittlerer_abstand) oder (None, abstand).
+    """
+    if not patterns or not known or not values:
+        return None, 1.0
+    table = digit_table(patterns, known)
     scored = []
     for value in values:
         text = str(value)
@@ -646,18 +654,29 @@ def learn(raster, typed):
 
     path = paths.app_file(OWN_TEMPLATE_FILE)
     own = _read_templates(path)
+    columns = digit_table(patterns, templates())
     stats = {'erkannt': len(patterns), 'neu': 0, 'bekannt': 0, 'unklar': []}
     for position, (pattern, digit) in enumerate(zip(patterns, digits_typed), 1):
         if not plausible_template(digit, pattern):
             stats['unklar'].append(position)
             continue
-        bucket = own.setdefault(digit, [])
-        if pattern in bucket:
+        # ⚠⚠ **„Bekannt" heißt: VerseKit hätte diese Ziffer schon VOR dem
+        # Anlernen richtig gelesen** — beste Vorlage ist die getippte Ziffer,
+        # nah genug. Bitgleichheit taugte nicht: Bei kleiner Schrift sieht
+        # dieselbe Ziffer in jedem Abgriff anders aus, und beim zehnten „2,000"
+        # hieß es wieder „4 neu" („das Fenster lügt meine User an", 17.09.2026).
+        # Gespeichert wird trotzdem immer — mehr Beispiele, bessere Erkennung.
+        # Sind alle bekannt, weiß der Spieler: genug angelernt.
+        column = columns[position - 1]
+        best = min(column, key=column.get) if column else None
+        if best == digit and column[digit] <= MAX_DIGIT_DISTANCE:
             stats['bekannt'] += 1
         else:
-            bucket.append(pattern)
-            del bucket[:-12]            # die jüngsten zwölf je Ziffer
             stats['neu'] += 1
+        bucket = own.setdefault(digit, [])
+        if pattern not in bucket:
+            bucket.append(pattern)
+            bucket[:] = bucket[-MAX_OWN_PER_DIGIT:]
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path + '.tmp', 'w', encoding='utf-8') as f:
@@ -741,7 +760,12 @@ def save_sample(raster, number):
     folder = sample_folder()
     try:
         os.makedirs(folder, exist_ok=True)
-        name = '%s_%s.png' % (number, time.strftime('%Y%m%d-%H%M%S'))
+        # Millisekunden im Namen: zweimal in derselben Sekunde angelernt
+        # überschrieb sonst das erste Bild.
+        now = time.time()
+        name = '%s_%s-%03d.png' % (number, time.strftime('%Y%m%d-%H%M%S',
+                                                        time.localtime(now)),
+                                   int(now * 1000) % 1000)
         with open(os.path.join(folder, name), 'wb') as f:
             f.write(png_bytes(raster))
         files = sorted((f for f in os.listdir(folder) if f.endswith('.png')),

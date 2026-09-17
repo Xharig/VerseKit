@@ -23263,14 +23263,20 @@ def main():
     os.environ['SC_BP_HOME'] = _heim243
     try:
         _ok243, _grund243, _neu243 = _ss243.learn(_bild243('3,170'), '3,170')
-        pruefe(_ok243 and _neu243['neu'] >= 1 and _neu243['erkannt'] == 4
+        pruefe(_ok243 and _neu243['erkannt'] == 4
                and _neu243['neu'] + _neu243['bekannt'] + len(_neu243['unklar']) == 4
                and os.path.isfile(
             _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)),
             'anlernen legt eigene Vorlagen ab (%r, %r)' % (_grund243, _neu243))
+        # ⚠⚠ „Bekannt" = vorher schon richtig gelesen. Dasselbe Bild zweimal
+        # angelernt: beim zweiten Mal ist nichts mehr neu (vorher hiess es bei
+        # jedem Anlernen „4 neu gespeichert" — „das Fenster luegt").
+        _zweit243 = _ss243.learn(_bild243('3,170'), '3,170')[2]
+        pruefe(_zweit243.get('neu') == 0 and _zweit243.get('bekannt') == 4,
+               'zweimal dasselbe angelernt: alles bekannt (%r)' % _zweit243)
         _proben243 = os.listdir(_ss243.sample_folder()) if os.path.isdir(
             _ss243.sample_folder()) else []
-        pruefe(len(_proben243) == 1 and _proben243[0].startswith('3170_')
+        pruefe(len(_proben243) == 2 and all(p.startswith('3170_') for p in _proben243)
                and open(os.path.join(_ss243.sample_folder(), _proben243[0]),
                         'rb').read(8) == b'\x89PNG\r\n\x1a\n',
                'das angelernte Bild liegt mit der richtigen Zahl als PNG ab (%r)'
@@ -23382,6 +23388,19 @@ def main():
     _pq243 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe('_signature_scanner(' in rumpf(_pq243, '_mining'),
            'die Bergbau-Seite traegt Schalter und Scan-Bereich')
+    # ⚠ Geschlossenes Hauptfenster: die Seite meldet sich bei der Wache ab
+    # (sonst „bad window path name", Bericht vom 17.09.2026).
+    _ssc243 = rumpf(_pq243, '_signature_scanner')
+    pruefe(_ssc243.count('signature_watch.unlisten(read_value)') >= 2
+           and 'winfo_exists()' in _ssc243,
+           'die Bergbau-Seite meldet sich von der Wache ab, wenn ihr Fenster weg ist')
+    _sw243.listen(len)
+    _sw243.unlisten(len)
+    pruefe(len not in _sw243._listeners, 'abmelden nimmt den Hoerer wirklich heraus')
+    _ber243 = rumpf(open(os.path.join(WURZEL, 'scbp', 'report.py'),
+                         encoding='utf-8').read(), 'build')
+    pruefe("t('b_scanner')" in _ber243,
+           'der Fehlerbericht nennt den Stand des Signatur-Scanners')
     pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
                       encoding='utf-8').read(), 'start_if_enabled').count(
         'SETTING, False') == 1, 'der Scanner steht ab Werk auf Aus')
