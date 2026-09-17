@@ -5827,7 +5827,8 @@ def _thanks(fenster, rahmen):
              t('s_dk_bushwick_idee') + '\n\n' + t('s_dk_bushwick_idee2')
              + '\n\n' + t('s_dk_bushwick_idee3')
              + '\n\n' + t('s_dk_bushwick_idee4'),
-             t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')),
+             t('s_dk_bushwick_bugs') + '\n\n' + t('s_dk_bushwick_bugs2')
+             + '\n\n' + t('s_dk_bushwick_bugs3')),
             ('YoshimitsuDE', 'KRT', t('s_dk_yoshimitsu_idee'), ''),
             ('Zwaersch', 'KRT', t('s_dk_zwaersch_idee'),
              t('s_dk_zwaersch_bugs') + '\n\n' + t('s_dk_zwaersch_bugs2')),
@@ -5836,7 +5837,11 @@ def _thanks(fenster, rahmen):
              + t('s_dk_aeternitas_idee2'), ''),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
-            ('ryze', 'KRT', t('s_dk_ryze_idee'), '')):
+            ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
+            # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
+            # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
+            # Beitrag zum Werkzeug.
+            ('AlyxOne', '', t('s_dk_alyxone_idee'), '')):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -9318,9 +9323,16 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
             for (rohstoff, menge, menge_lbl, lage_lbl, guete_lbl,
                  preis_lbl) in zutat_widgets:
                 noetig = (menge or 0) * wie_viele
+                # ⚠⚠ **Nicht alles wird in SCU gemessen.** Elf Materialien
+                # sind Stückware (Hadanite, Dolivine, Sadaryx …) — dort steht
+                # „× 75", nicht „75 SCU". Welches wie zählt, steht in den
+                # Rezeptdaten; siehe `crafting.is_piece()`.
+                _stk = herst_modul.is_piece(rohstoff)
                 menge_lbl.configure(
-                    text=(t('s_he_menge') % noetig if wie_viele == 1
-                          else t('s_he_menge_n') % (noetig, menge, wie_viele)))
+                    text=(t('s_he_menge_stk' if _stk else 's_he_menge') % noetig
+                          if wie_viele == 1
+                          else t('s_he_menge_stk_n' if _stk else 's_he_menge_n')
+                          % (noetig, menge, wie_viele)))
                 _br, _da, _fehlt, _zu_gering, _mindestq = neue_lage.get(
                     rohstoff, (0, 0, 0, 0, 0))
                 if _fehlt > 0:
@@ -9342,8 +9354,10 @@ def _crafting_row(fenster, eltern, eintrag, offen, neu_zeichnen):
                 # fehlt 0,3" da, obwohl 12 SCU im Lager liegen — und niemand
                 # käme auf den Grund.
                 if _zu_gering > 0:
-                    guete_lbl.configure(text=t('s_lg_zu_schlecht')
-                                        % (round(_zu_gering, 3), _mindestq))
+                    guete_lbl.configure(
+                        text=t('s_lg_zu_schlecht_stk' if _stk
+                               else 's_lg_zu_schlecht')
+                        % (round(_zu_gering, 3), _mindestq))
                     guete_lbl.pack(side='right', padx=(0, 8))
                 else:
                     guete_lbl.pack_forget()
@@ -13731,7 +13745,24 @@ def _storage(fenster, rahmen):
     # neben dem Feld schaltet um; die Beschriftung sagt immer, was gerade gilt.
     cscu = [paths.setting('lager_einheit') == 'cscu']
 
+    def _stueckware():
+        """Zählt das gerade gewählte Material in Stück statt in SCU?
+
+        ⚠⚠ Elf Materialien tun das (Hadanite, Dolivine, Sadaryx …). Für sie
+        gibt es kein cSCU — siehe `s_lg_menge_stueck`.
+        """
+        try:
+            from . import crafting as _h_einheit
+            return _h_einheit.is_piece(material.get())
+        except Exception:
+            return False
+
     def _faktor():
+        # ⚠ Stückware nie umrechnen: 75 Hadanite sind 75, nicht 0,75. Das
+        # Kästchen ist dort ausgeblendet, sein gemerkter Wert bleibt aber
+        # stehen — ohne diese Abfrage schlüge er trotzdem durch.
+        if _stueckware():
+            return 1.0
         return lager.CSCU if cscu[0] else 1.0
 
     # Welche Zeile gerade zum Ändern offen ist. `None` heisst: neuer Posten.
@@ -13808,11 +13839,37 @@ def _storage(fenster, rahmen):
             # bekommt das zuletzt gepackte Element den übrigen Platz — und ein
             # Feld mit `expand=True` nimmt sich alles. Andersherum gepackt
             # schob es das Kästchen aus dem Fenster.
-            _checkbox(_mengenzeile, t('s_lg_cscu'), cscu, einheit_um,
-                       fenster.f_small).pack(side='right', padx=(10, 0))
+            _cscu_kasten = _checkbox(_mengenzeile, t('s_lg_cscu'), cscu,
+                                     einheit_um, fenster.f_small)
+            _cscu_kasten.pack(side='right', padx=(10, 0))
             f.holder.pack(side='left', fill='both', expand=True)
             if cscu[0]:
                 kopf_label.configure(text=t('s_lg_menge_cscu'))
+
+            def einheit_nachziehen(*_):
+                """Beschriftung und cSCU-Kästchen zum gewählten Material.
+
+                ⚠ Bei Stückware gibt es kein cSCU. Das Kästchen stehen zu
+                lassen hiesse: Man hakt es an, tippt 75 — und hat 0,75 im
+                Lager. Deshalb verschwindet es, statt wirkungslos dazustehen.
+
+                ⚠ Beim Wiedereinblenden zählt `before=`: Ohne die Angabe
+                landet es hinter dem Feld, das mit `expand=True` allen Platz
+                nimmt — und wäre aus dem Fenster geschoben (siehe oben).
+                """
+                if _stueckware():
+                    _cscu_kasten.pack_forget()
+                    mengen_beschriftung.configure(text=t('s_lg_menge_stueck'))
+                else:
+                    if not _cscu_kasten.winfo_manager():
+                        _cscu_kasten.pack(side='right', padx=(10, 0),
+                                          before=f.holder)
+                    mengen_beschriftung.configure(
+                        text=t('s_lg_menge_cscu') if cscu[0]
+                        else t('s_lg_menge'))
+                mengen_vorschau_zeigen()
+
+            material.trace_add('write', einheit_nachziehen)
             # ⭐⭐ **Die Vorschau ist die eigentliche Erklärung.** Wer beim
             # Tippen von „1.04+3" daneben „ergibt 4,04 SCU" liest, braucht
             # keinen Satz über Auf- und Abbuchen mehr.
