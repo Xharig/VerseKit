@@ -371,6 +371,49 @@ def _split_line(line):
 # Es stellt den Wortlaut wieder her, statt eine Einfügung herauszuschneiden.
 ORIGTEXT_FILE = 'injektion-urtext.json'
 
+# Merker im Urtext für eine Zeile, die es in der Grundlage NICHT gab und die
+# wir ergänzt haben (fehlende Schiffsnamen, siehe `_added_ship_names`). Beim
+# Zurücksetzen und vor jedem neuen Schreiben fällt eine so markierte Zeile weg.
+ADDED = '\x00versekit-ergaenzt'
+
+
+def _append_ship_names(new_lines, added_ships, own_ships, origtext_new):
+    """Die fehlenden Schiffsnamen hinten anhängen — mit eigenem Namen, wenn es
+    einen gibt — und als ergänzt merken. Gibt die Zahl der Zeilen zurück."""
+    for key, value in added_ships.items():
+        text = value
+        if key in own_ships:
+            own, star = own_ships[key]
+            text = asop_modul.display_name(value, own, star)
+        new_lines.append('%s=%s' % (key, text))
+        origtext_new[key] = ADDED
+    return len(added_ships)
+
+
+def _added_ship_names(ini_path, lines, origtext_old):
+    """Schiffsnamen aus der englischen Datei, die dieser Datei fehlen.
+
+    Gibt `{schluessel: englischer Name}` zurück — leer, wenn die Datei selbst
+    englisch ist oder es keine englische daneben gibt. Zeilen, die wir beim
+    letzten Mal selbst ergänzt haben, zählen dabei als fehlend: Sie werden
+    gleich weggeräumt und frisch geschrieben.
+    """
+    try:
+        folder = os.path.dirname(ini_path)
+        if os.path.basename(folder).lower() == 'english':
+            return {}
+        english = os.path.join(os.path.dirname(folder), 'english', 'global.ini')
+        if not os.path.isfile(english):
+            return {}
+        with open(english, encoding='utf-8', errors='ignore') as f:
+            reference = f.read().splitlines()
+        own = [line for line in lines
+               if origtext_old.get(line.split('=', 1)[0]) != ADDED]
+        return asop_modul.missing_names(own, reference)
+    except Exception as exc:
+        errors.record('injection._added_ship_names', exc)
+        return {}
+
 
 def _origtext_file():
     """Der ganze Inhalt der Merkdatei — leer, wenn es sie nicht gibt."""
@@ -1209,7 +1252,11 @@ def apply_scdl(ini_path, lang_code, stock=None):
     #
     # ⚠ Wer hier eine neue Art von Einfügung baut, baut sie an **beiden**
     # Stellen ein — oder er baut sie für die Hälfte der Nutzer gar nicht.
-    own_ships = _asop_table(lines)
+    # Fehlende Schiffsnamen aus der englischen Datei zählen mit, damit ein
+    # eigener Name auch an einem Schiff ankommt, das die Übersetzung noch nicht
+    # kennt (siehe `_added_ship_names`).
+    added_ships = _added_ship_names(ini_path, lines, origtext_old)
+    own_ships = _asop_table(lines + ['%s=%s' % kv for kv in added_ships.items()])
     # Ruf-Schwellen an den Rangnamen — ebenfalls in BEIDEN Schreibwegen.
     rank_suffix = _rank_table(lang_code)
 
@@ -1223,6 +1270,8 @@ def apply_scdl(ini_path, lang_code, stock=None):
         # Der Wortlaut ohne UNSERE Einfügung. Ein fremder Block (Launcher) kann
         # darin noch stehen — er wird gleich abgetrennt, aber nicht verworfen.
         orig = _strip_old(text, key, origtext_old, fallback)
+        if orig == ADDED:
+            continue              # von uns ergänzt — wird unten frisch geschrieben
         base_text, _foreign = _split_foreign_block(orig)
         clean = base_text
         touched = False
@@ -1282,6 +1331,7 @@ def apply_scdl(ini_path, lang_code, stock=None):
             # Nichts beigesteuert: dann bleibt auch der fremde Block, wo er war.
             clean = orig
         new.append('%s%s=%s' % (key, suffix, clean))
+    changed += _append_ship_names(new, added_ships, own_ships, origtext_new)
 
     try:
         # ⚠⚠ **`newline=''` ist Pflicht — sonst wird die ganze Datei umgeschrieben.**
@@ -1346,7 +1396,10 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     name_suffix = _name_table(lines, remove_only)
     # Eigene Schiffsnamen im Fleet Manager. Beim reinen Entfernen bleibt die
     # Tabelle leer — dann stellt der Urtext-Weg die Werksnamen wieder her.
-    own_ships = {} if remove_only else _asop_table(lines)
+    added_ships = {} if remove_only else _added_ship_names(ini_path, lines,
+                                                           origtext_old)
+    own_ships = {} if remove_only else _asop_table(
+        lines + ['%s=%s' % kv for kv in added_ships.items()])
     # Ruf-Schwellen an den Rangnamen — derselbe Einbau wie in `apply_scdl`.
     rank_suffix = _rank_table(_lang_code(language), remove_only)
 
@@ -1379,6 +1432,11 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             continue
         key, suffix, text = parts
         orig = _strip_old(text, key, origtext_old, fallback)
+        if orig == ADDED:
+            # Von uns ergänzt — fällt weg; ohne `remove_only` kommt sie unten
+            # frisch wieder dazu.
+            changed += 1
+            continue
         if orig != text:
             changed += 1
         clean = orig
@@ -1427,6 +1485,7 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
             else:
                 clean = orig
         new.append('%s%s=%s' % (key, suffix, clean))
+    changed += _append_ship_names(new, added_ships, own_ships, origtext_new)
 
     try:
         # ⚠⚠ **`newline=''` ist Pflicht — sonst wird die ganze Datei umgeschrieben.**

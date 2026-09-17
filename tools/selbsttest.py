@@ -22907,6 +22907,147 @@ def main():
            == {'vehicle_nameANVL_Paladin': ('Wachhund', False)},
            'und die Injektion bekommt den Namen fuer genau diesen Schluessel')
 
+    # 240. Die deutsche Uebersetzung kommt aus dem Repo, nicht vom Release
+    #
+    # Am 17.09.2026: Die Datei stand auf 29.08. — rjcncpt veroeffentlicht keine
+    # Releases mehr (neuestes 2026.09.08-LIVE), gepflegt wird `live/global.ini`
+    # im Repo. VerseKit fragte nur nach Releases und sah nie etwas Neues.
+    print()
+    print('240. Die deutsche Uebersetzung kommt aus dem Repo')
+    from scbp import translation as _tr240
+    _echt240 = _tr240._fetch
+    _abrufe240 = []
+
+    def _falsch240(url, raw=False):
+        _abrufe240.append(url)
+        if '/commits?' in url:
+            return [{'sha': '0123456789abcdef0123'}]
+        if url.startswith('https://raw.githubusercontent.com/'):
+            return b'Frontend_PU_Version=Test\nvehicle_NameAEGS_Sabre_Raven_EX=Aegis Sabre Raven EX\n'
+        raise AssertionError('unerwarteter Abruf: ' + url)
+    _tr240._fetch = _falsch240
+    _spiel240 = tempfile.mkdtemp(prefix='pruefung240-')
+    _heim240 = tempfile.mkdtemp(prefix='pruefung240h-')
+    _altheim240 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim240
+    try:
+        _neu240 = _tr240.latest('deutsch')
+        pruefe(_neu240 and _neu240[0] == 'git-0123456789ab'
+               and 'live/global.ini' in _neu240[1] and '0123456789abcdef0123' in _neu240[1],
+               'die Kennung ist der letzte Commit der Datei, geladen von genau diesem (%r)'
+               % (_neu240,))
+        pruefe(not any('/releases/' in u for u in _abrufe240),
+               'das Release wird gar nicht erst gefragt')
+        _ok240, _m240 = _tr240.fetch('deutsch', game_dir=_spiel240)
+        _ziel240 = _tr240.target_ini('german_(germany)', _spiel240)
+        pruefe(_ok240 and os.path.isfile(_ziel240)
+               and 'Sabre_Raven_EX' in open(_ziel240, encoding='utf-8').read(),
+               'die blanke global.ini wird eingesetzt (%s)' % _m240)
+        pruefe(_tr240.installed('deutsch') == 'git-0123456789ab',
+               'und als eingerichtet vermerkt — ein alter Release-Vermerk gilt damit als veraltet')
+
+        # Rueckfall: Commit-Abfrage scheitert -> Release wie bisher.
+        def _ohne_git240(url, raw=False):
+            if '/commits?' in url:
+                raise OSError('403')
+            if '/releases/latest' in url:
+                return {'tag_name': '2026.09.08-LIVE', 'assets': [
+                    {'name': 'StarCitizen.Deutsch.LIVE.zip',
+                     'browser_download_url': 'https://example.invalid/x.zip', 'size': 1}]}
+            raise AssertionError(url)
+        _tr240._fetch = _ohne_git240
+        pruefe((_tr240.latest('deutsch') or ('',))[0] == '2026.09.08-LIVE',
+               'faellt die Repo-Abfrage aus, bleibt das Release als Rueckfall')
+    finally:
+        _tr240._fetch = _echt240
+        if _altheim240 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim240
+        shutil.rmtree(_spiel240, ignore_errors=True)
+        shutil.rmtree(_heim240, ignore_errors=True)
+
+    # 241. Fehlende Schiffsnamen kommen aus der englischen Datei
+    #
+    # Am 17.09.2026 mit Bild aus dem Flottenmanager: `@vehicle_NameAEGS_Sabre_Raven_EX`
+    # in der deutschen Datei nicht vorhanden -> „Schiffe benennen" kuerzte den
+    # Namen und schrieb Stern und Name an die normale Sabre Raven.
+    print()
+    print('241. Fehlende Schiffsnamen kommen aus der englischen Datei')
+    from scbp import injection as _in241, asop as _as241
+    _heim241 = tempfile.mkdtemp(prefix='pruefung241-')
+    _altheim241 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim241
+    try:
+        _lok241 = os.path.join(_heim241, 'Localization')
+        _de241 = os.path.join(_lok241, 'german_(germany)', 'global.ini')
+        _en241 = os.path.join(_lok241, 'english', 'global.ini')
+        for _p241 in (_de241, _en241):
+            os.makedirs(os.path.dirname(_p241), exist_ok=True)
+        with open(_en241, 'w', encoding='utf-8', newline='') as f:
+            f.write('vehicle_NameAEGS_Sabre_Raven=Aegis Sabre Raven\n'
+                    'vehicle_NameAEGS_Sabre_Raven_EX=Aegis Sabre Raven EX\n'
+                    'vehicle_NameAEGS_Sabre_Raven_EX_short=Sabre Raven EX\n')
+        _grund241 = ('vehicle_NameAEGS_Sabre_Raven=Aegis Sabre Raven\n'
+                     'mission_desc_T=Ein Auftragstext von CIG.\n'
+                     'mission_title_T=Ein Auftrag\n')
+        with open(_de241, 'w', encoding='utf-8', newline='') as f:
+            f.write(_grund241)
+        _kat241 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag', 'bp': ['X']}}}
+
+        def _text241():
+            return open(_de241, encoding='utf-8').read()
+
+        # Die Zuordnung sieht den genauen Schluessel — nicht die gekuerzte Raven.
+        _zeilen241 = _grund241.splitlines()
+        _extra241 = _in241._added_ship_names(_de241, _zeilen241, {})
+        _zu241 = _as241.match_ships(
+            [{'name': 'Sabre Raven EX', 'kurz': '', 'hkurz': 'AEGS'}],
+            _as241.read_keys(_zeilen241 + ['%s=%s' % kv for kv in _extra241.items()]))
+        pruefe(_zu241[0]['schluessel'] == 'vehicle_NameAEGS_Sabre_Raven_EX',
+               'Sabre Raven EX findet ihren eigenen Schluessel (%r)' % _zu241[0]['schluessel'])
+
+        _as241.save(_as241.set_name(_as241.empty(),
+                                    'vehicle_NameAEGS_Sabre_Raven_EX', '', True))
+        _in241.apply_texts(_de241, 'german_(germany)', catalog_data=_kat241)
+        pruefe('vehicle_NameAEGS_Sabre_Raven_EX=*Aegis Sabre Raven EX\n' in _text241()
+               and 'vehicle_NameAEGS_Sabre_Raven_EX_short=Sabre Raven EX\n' in _text241(),
+               'der fehlende Name wird ergaenzt, samt Stern')
+        pruefe('vehicle_NameAEGS_Sabre_Raven=Aegis Sabre Raven\n' in _text241(),
+               'die normale Sabre Raven bleibt unangetastet')
+        _in241.apply_texts(_de241, 'german_(germany)', catalog_data=_kat241)
+        pruefe(_text241().count('vehicle_NameAEGS_Sabre_Raven_EX=') == 1,
+               'ein zweiter Lauf ergaenzt nicht doppelt')
+        _in241.apply_texts(_de241, 'german_(germany)', catalog_data=_kat241,
+                           remove_only=True)
+        pruefe('Sabre_Raven_EX' not in _text241(),
+               'Zuruecksetzen nimmt die ergaenzten Zeilen wieder heraus')
+        # ⚠ Und der SCDL-Weg — der bevorzugte. Die Gegenprobe hat gezeigt, dass
+        # eine Pruefung nur ueber `apply_texts` ihn gar nicht sieht.
+        _scdl241 = _in241.paths.app_file(_in241.SCDL_CACHE % 'de')
+        os.makedirs(os.path.dirname(_scdl241), exist_ok=True)
+        with open(_scdl241, 'w', encoding='utf-8') as _f:
+            json.dump({'entries': [{}]}, _f)
+        _in241.apply_scdl(_de241, 'de')
+        _in241.apply_scdl(_de241, 'de')
+        pruefe(_text241().count('vehicle_NameAEGS_Sabre_Raven_EX=') == 1
+               and 'vehicle_NameAEGS_Sabre_Raven_EX=*Aegis Sabre Raven EX\n' in _text241(),
+               'der SCDL-Weg ergaenzt ebenso, auch zweimal hintereinander nur einmal')
+        # Englisch selbst bekommt nichts ergaenzt.
+        pruefe(_in241._added_ship_names(_en241, [], {}) == {},
+               'die englische Datei ergaenzt sich nicht aus sich selbst')
+    finally:
+        if _altheim241 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim241
+        shutil.rmtree(_heim241, ignore_errors=True)
+    _qp241 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
+    pruefe('_added_ship_names(' in _qp241,
+           '„Schiffe benennen" sieht dieselben ergaenzten Namen')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
