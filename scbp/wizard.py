@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Der Einrichtungsassistent — vier Schritte, jederzeit wiederholbar.
+Der Einrichtungsassistent — jederzeit wiederholbar.
 
 Läuft beim ersten Start von allein und ist danach über einen Knopf erreichbar.
 Das ist Absicht: Wer sich mit Rechnern nicht auskennt, soll etwas nachstellen
@@ -27,7 +27,23 @@ Einstellungsfenster setzt voraus, dass man weiß, wonach man sucht.
     1. Sprache      zuerst, damit der Rest lesbar ist
     2. Star Citizen die eine Angabe, ohne die nichts geht
     3. Nachlesen    hier bekommt der Spieler seinen Bestand geschenkt
-    4. Fertig       was jetzt passiert, und wo die Liste steckt
+    4. Anzeige      Overlay-Verhalten, Schrift, Durchsichtigkeit, Spielzeit
+    5. Start        mit dem System starten, Symbol neben der Uhr
+    6. Angaben      was in die Texte des Spiels geschrieben wird
+    7. Texte        Übersetzung holen und die Angaben eintragen
+    8. Fertig       was jetzt passiert, und wo die Liste steckt
+
+⭐ **Die wichtigsten Einstellungen gehören in den Assistenten** (17.09.2026).
+Wer sie nur unter *Einstellungen* findet, lebt mit den Voreinstellungen — und
+erfährt nie, dass das Overlay auch nur bei einem Neuzugang aufblenden kann.
+Thematisch auf drei Karten verteilt, damit keine Seite eine Liste wird.
+
+⚠ **„Angaben" steht VOR „Texte".** Der Texte-Schritt trägt die Angaben gleich
+ein — mit den Schaltern, die davor gewählt wurden. Umgekehrt stünde nach dem
+Ausschalten schon etwas in der Datei.
+
+Ohne Spielordner fallen Nachlesen, Angaben und Texte weg; Anzeige und Start
+gelten auch dann.
 
 **Erst arbeitet das Programm, dann der Mensch.** Schritt 3 läuft von selbst und
 holt aus den aufgehobenen Logs alles, was noch da ist. Von Hand nachtragen soll
@@ -50,7 +66,9 @@ SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
 GELB    = '#d8a03a'
 
-STEPS = 5
+# Die Schriftstufen in der Reihenfolge, in der sie angeboten werden — dieselben
+# wie auf der Seite *Anzeige*.
+FONT_CHOICES = ('klein', 'normal', 'gross', 'sehrgross')
 
 
 def font(groesse, fett=False, unterstrichen=False):
@@ -79,6 +97,13 @@ class Wizard:
         self.nachlese_gelaufen = False
         self.schritt = 1
         self.gedeutet = None
+        self.ohne_spielordner = False
+        # Welche Einstellungen hier umgestellt wurden — `start()` zieht sie
+        # danach im laufenden Programm nach (`apply_changes`).
+        self.changed = set()
+        # Einstellungsschlüssel → Handgriff. Für den Selbsttest: So lässt sich
+        # jede Zeile bedienen, ohne ein Fenster anzuklicken.
+        self.controls = {}
 
         self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
         self.root.title(window_title(t('hf_titel') + ' — ' + t('assistent')))
@@ -92,8 +117,8 @@ class Wizard:
         # `center_over` setzt beides und fällt auf die reine Größe
         # zurück, wenn es kein Elternfenster gibt (eigenständiger Start).
         from .main_window import center_over
-        if eltern is None or not center_over(self.root, eltern, 640, 520):
-            self.root.geometry('640x520')
+        if eltern is None or not center_over(self.root, eltern, 640, 600):
+            self.root.geometry('640x600')
         self.root.protocol('WM_DELETE_WINDOW', self._cancel)
 
         self.kopf = tk.Frame(self.root, bg=BAR)
@@ -138,17 +163,193 @@ class Wizard:
                  anchor='w', justify='left', wraplength=560).pack(
                      fill='x', pady=(oben, 0))
 
+    def _order(self):
+        """Die Schritte, die gerade gelten — in dieser Reihenfolge.
+
+        ⚠ Eine Liste statt fester Nummern: Ohne Spielordner fallen drei
+        Schritte weg, und wo es weder Autostart noch ein Ablagesymbol gibt,
+        entfällt die Start-Karte. Mit festen Nummern stünde dort eine leere
+        Seite, und der Zähler „Schritt 5 von 8" löge.
+        """
+        steps = ['sprache', 'spiel']
+        if not self.ohne_spielordner:
+            steps.append('lesen')
+        steps.append('anzeige')
+        if self._start_possible():
+            steps.append('start')
+        if not self.ohne_spielordner:
+            steps += ['angaben', 'texte']
+        steps.append('fertig')
+        return steps
+
+    def _current(self):
+        steps = self._order()
+        return steps[min(self.schritt, len(steps)) - 1]
+
     def _draw(self):
         self._clear()
-        self.zaehler.configure(text=t('schritt_von', self.schritt, STEPS))
+        anzahl = len(self._order())
+        self.zaehler.configure(text=t('schritt_von', self.schritt, anzahl))
         self.zurueck.configure(fg=SUB if self.schritt > 1 else BG,
                                cursor='hand2' if self.schritt > 1 else '')
-        self.weiter.configure(text='  %s  ' % (t('fertig') if self.schritt == STEPS
+        self.weiter.configure(text='  %s  ' % (t('fertig') if self.schritt >= anzahl
                                                else t('weiter')),
                               bg=ACCENT, fg=BG, cursor='hand2')
-        {1: self._step_language, 2: self._step_game,
-         3: self._step_read, 4: self._step_texts,
-         5: self._step_done}[self.schritt]()
+        {'sprache': self._step_language, 'spiel': self._step_game,
+         'lesen': self._step_read, 'anzeige': self._step_display,
+         'start': self._step_startup, 'angaben': self._step_details,
+         'texte': self._step_texts, 'fertig': self._step_done}[self._current()]()
+
+    # ------------------------------------------------- Einstellungszeilen
+    def _row(self, parent, title, hint, below=False):
+        """Eine Einstellung: Name und kurzer Hinweis links, Bedienelement rechts.
+
+        ⚠ Schalter und Regler stehen **rechts**, wie auf den Einstellungsseiten
+        (Symmetrie). Nur Auswahlreihen (`below=True`) kommen darunter — sie sind
+        auf Englisch zu breit für den Platz daneben. Auch dann linksbündig: Ein
+        `pack()` ohne Anker säße mittig.
+        """
+        row = tk.Frame(parent, bg=BG)
+        row.pack(fill='x', pady=(16, 0))
+        control = tk.Frame(row, bg=BG)
+        # Fest zuerst packen — sonst schiebt ein langer Hinweis den Schalter
+        # aus dem Fenster.
+        if not below:
+            control.pack(side='right', padx=(16, 0))
+        text = tk.Frame(row, bg=BG)
+        text.pack(side='left', fill='x', expand=True)
+        tk.Label(text, text=title, bg=BG, fg=FG, font=font(11), anchor='w',
+                 justify='left').pack(fill='x')
+        tk.Label(text, text=hint, bg=BG, fg=SUB, font=font(9), anchor='w',
+                 justify='left', wraplength=400 if not below else 560).pack(fill='x')
+        if below:
+            control.pack(in_=text, anchor='w', pady=(6, 0))
+        return control
+
+    def _choices(self, parent, key, options, active, on_choice):
+        """Eine Reihe zum Auswählen — die gewählte leuchtet in der Markenfarbe."""
+        reihe = tk.Frame(parent, bg=BG)
+        reihe.pack(anchor='w')
+        knoepfe = {}
+
+        def zeichnen(wert):
+            for w, k in knoepfe.items():
+                an = w == wert
+                k.configure(bg=ACCENT if an else FLAECHE, fg=BG if an else FG)
+
+        def waehlen(wert):
+            on_choice(wert)
+            zeichnen(wert)
+
+        for wert, text in options:
+            k = tk.Label(reihe, text=' %s ' % text, font=font(10),
+                         cursor='hand2', padx=10, pady=5)
+            k.pack(side='left', padx=(0, 6))
+            k.bind('<Button-1>', lambda e, w=wert: waehlen(w))
+            knoepfe[wert] = k
+        zeichnen(active)
+        self.controls[key] = waehlen
+
+    def _switch(self, parent, key, default):
+        """Ein Schiebeschalter für eine Ja/Nein-Einstellung."""
+        from .main_window import toggle_switch
+
+        def umlegen():
+            return self._flip(key, default)
+
+        toggle_switch(parent, paths.setting_bool(key, default), umlegen).pack()
+        self.controls[key] = umlegen
+
+    def _set(self, key, value):
+        paths.set_setting(key, value)
+        self.changed.add(key)
+
+    def _flip(self, key, default):
+        new_value = not paths.setting_bool(key, default)
+        self._set(key, new_value)
+        return new_value
+
+    # ---------------------------------------------------------- 4. Anzeige
+    def _step_display(self):
+        self.titel.configure(text=t('schritt_anzeige'))
+        f = self._area()
+        self._paragraph(f, t('as_spaeter'), SUB, 10)
+
+        ziel = self._row(f, t('s_ov_modus'), t('as_modus_h'), below=True)
+        self._choices(ziel, 'overlay_modus',
+                      [('immer', t('s_ov_immer')), ('popup', t('s_ov_popup'))],
+                      paths.setting('overlay_modus') or 'immer',
+                      lambda k: self._set('overlay_modus', k))
+
+        ziel = self._row(f, t('hf_schrift'), t('as_schrift_h'), below=True)
+        self._choices(ziel, 'schriftgroesse',
+                      [(s, t('hf_s_' + s)) for s in FONT_CHOICES],
+                      paths.setting('schriftgroesse') or 'normal',
+                      lambda k: self._set('schriftgroesse', k))
+
+        ziel = self._row(f, t('e_deckkraft'), t('as_deckkraft_h'))
+        from .main_window import slider
+        wert = paths.setting_int('deckkraft_prozent', 93, 30, 100)
+        anzeige = tk.Label(ziel, text='%d %%' % wert, bg=BG, fg=ACCENT,
+                           font=font(9), width=5, anchor='e')
+
+        def deckkraft(w):
+            anzeige.configure(text='%d %%' % w)
+            self._set('deckkraft_prozent', int(w))
+            # Gleich am Overlay zeigen — man soll sehen, was man einstellt.
+            _apply_opacity()
+
+        slider(ziel, 30, 100, wert, deckkraft, width=150).pack(side='left')
+        anzeige.pack(side='left', padx=(6, 0))
+        self.controls['deckkraft_prozent'] = deckkraft
+
+        ziel = self._row(f, t('s_zeit'), t('as_zeit_h'))
+        self._switch(ziel, 'spielzeit_zeigen', False)
+
+    # ------------------------------------------------------------ 5. Start
+    @staticmethod
+    def _start_possible():
+        from . import autostart
+        return autostart.possible() or paths.WINDOWS
+
+    def _step_startup(self):
+        from . import autostart
+        self.titel.configure(text=t('schritt_start'))
+        f = self._area()
+        self._paragraph(f, t('as_spaeter'), SUB, 10)
+
+        if autostart.possible():
+            ziel = self._row(f, t('autostart_win') if paths.WINDOWS
+                             else t('autostart_linux'), t('as_autostart_h'))
+            from .main_window import toggle_switch
+
+            def autostart_um():
+                autostart.set_on(not autostart.is_on())
+                return autostart.is_on()
+
+            toggle_switch(ziel, autostart.is_on(), autostart_um).pack()
+            self.controls['autostart'] = autostart_um
+
+        # Das Ablagesymbol gibt es nur unter Windows. Unter Linux gar nicht
+        # erst zeigen — ein Schalter mit „nur Windows" daneben ist im
+        # Assistenten nur Rauschen.
+        if paths.WINDOWS:
+            ziel = self._row(f, t('s_tray'), t('as_tray_h'))
+            self._switch(ziel, 'tray', True)
+
+    # ---------------------------------------------------------- 6. Angaben
+    def _step_details(self):
+        from . import injection, rank_thresholds
+        self.titel.configure(text=t('schritt_angaben'))
+        f = self._area()
+        self._paragraph(f, t('as_angaben_text'), SUB, 10)
+        for key, title, hint in (
+                ('inj_an', 's_sp_an', 'as_inj_an_h'),
+                ('inj_auto', 's_sp_auto', 'as_inj_auto_h'),
+                (injection.SETTING_DETAILS, 's_sp_angaben', 'as_angaben_h'),
+                (rank_thresholds.SETTING, 's_sp_rang', 'as_rang_h')):
+            ziel = self._row(f, t(title), t(hint))
+            self._switch(ziel, key, True)
 
     # ------------------------------------------------------- 1. Sprache
     def _step_language(self):
@@ -226,7 +427,8 @@ class Wizard:
         """Weiter ohne Spielordner — bewusst und einmalig gemerkt."""
         self.ohne_spielordner = True
         paths.set_setting('einrichtung_ohne_spiel', True)
-        self.schritt = STEPS
+        # ⚠ Nicht gleich zum Ende: Anzeige und Start gelten auch ohne Spiel.
+        self.schritt = self._order().index('anzeige') + 1
         self._draw()
 
     def _choose(self):
@@ -365,6 +567,14 @@ class Wizard:
                 sprache_ordner = translation.SOURCES[quelle]['sprache']
                 ziel = translation.target_ini(sprache_ordner)
 
+            # ⚠ Wer eine Karte vorher „Angaben in die Auftragstexte schreiben"
+            # ausgeschaltet hat, bekommt nur die Übersetzung. Sonst stünde
+            # gleich nach dem Ausschalten doch etwas in der Datei.
+            if not paths.setting_bool('inj_an', True):
+                self.inj_meldung.configure(text=t('as_nur_uebersetzung'),
+                                           fg=ACCENT)
+                return
+
             ok, anzahl, meldung = injection.setup(
                 ziel, sprache_ordner,
                 progress=lambda x: (self.inj_meldung.configure(text=x),
@@ -378,7 +588,7 @@ class Wizard:
 
     # -------------------------------------------------------- 5. Fertig
     def _step_done(self):
-        if getattr(self, 'ohne_spielordner', False):
+        if self.ohne_spielordner:
             self._step_done_no_game()
             return
         self.titel.configure(text=t('schritt_fertig'))
@@ -454,11 +664,15 @@ class Wizard:
 
     # ------------------------------------------------------------ Steuerung
     def _next(self):
-        if self.schritt == 2 and not self.gedeutet:
-            return                                  # ohne Spielordner geht nichts
-        if self.schritt == 2:
+        if self._current() == 'spiel':
+            if not self.gedeutet:
+                return                              # ohne Spielordner geht nichts
             paths.set_setting('spiel_ordner', self.gedeutet)
-        if self.schritt >= STEPS:
+            # Wer erst „ohne Spiel" wählte und dann zurückkam, hat jetzt eins.
+            if self.ohne_spielordner:
+                self.ohne_spielordner = False
+                paths.set_setting('einrichtung_ohne_spiel', False)
+        if self.schritt >= len(self._order()):
             # ⚠ Hier wird festgehalten, dass die Einrichtung durch ist — und
             # zwar in einer eigenen Einstellung. Vorher galt die Datei
             # `logstand.json` als Beleg dafür; die ist aber der **Lesestand im
@@ -528,10 +742,73 @@ def needed():
     return not is_configured() or not paths.game_folder()
 
 
+def _overlay():
+    from . import overlay
+    return overlay.OVERLAY_CONTROL[0]
+
+
+def _apply_opacity():
+    """Die gespeicherte Durchsichtigkeit ans laufende Overlay geben."""
+    control = _overlay()
+    if control is None:
+        return
+    try:
+        control.root.attributes(
+            '-alpha', paths.setting_int('deckkraft_prozent', 93, 30, 100) / 100.0)
+    except Exception as exc:
+        errors.record('wizard.opacity', exc)
+
+
+def apply_changes(changed):
+    """Was im Assistenten umgestellt wurde, im laufenden Programm nachziehen.
+
+    ⚠ **Erst nach dem Schließen.** Eine neue Schriftgröße baut das große
+    Fenster neu auf (`MainWindow.rebuild` zerstört alle Kinder seiner Wurzel) —
+    und der Assistent ist eines davon, wenn er von dort geöffnet wurde.
+
+    Beim allerersten Start gibt es noch kein Overlay; es liest beim Aufbau
+    ohnehin, was gespeichert ist.
+    """
+    control = _overlay()
+    if not changed or control is None:
+        return
+    window = getattr(control, '_fenster', None)
+    if 'schriftgroesse' in changed:
+        stufe = paths.setting('schriftgroesse') or 'normal'
+        try:
+            if window is not None:
+                # Zieht über `on_font_change` auch das Overlay mit.
+                window.set_font_size(stufe)
+            else:
+                control.schriftgroesse_anwenden(stufe)
+        except Exception as exc:
+            errors.record('wizard.font_size', exc)
+    elif 'spielzeit_zeigen' in changed and window is not None:
+        # Die Kopfzeile wird einmal zusammengesetzt — ohne Neuaufbau bliebe
+        # die Wahl bis zum Neustart unsichtbar.
+        try:
+            window.root.after(60, window.rebuild)
+        except Exception as exc:
+            errors.record('wizard.play_time', exc)
+    if 'deckkraft_prozent' in changed:
+        _apply_opacity()
+    # Bei offenem Fenster greift der Modus beim Schließen (`_liste_zu`) —
+    # sonst verschwände das Overlay, während man noch davorsteht.
+    if 'overlay_modus' in changed and window is None:
+        try:
+            control.verhalten_anwenden()
+        except Exception as exc:
+            errors.record('wizard.overlay_mode', exc)
+
+
 def start(eltern=None):
-    """Assistent durchlaufen. Gibt (fertig, liste_zeigen) zurück."""
+    """Assistent durchlaufen. Gibt (fertig, liste_zeigen) zurück.
+
+    Auch abgebrochen wird nachgezogen: Jede Wahl ist beim Klick gespeichert.
+    """
     a = Wizard(eltern)
     fertig = a.run()
+    apply_changes(a.changed)
     return fertig, a.liste_zeigen
 
 

@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.49.1'
+__version__ = '3.50.0'
 
 
 def _mitgeliefert(name):
@@ -100,7 +100,18 @@ OVERRIDES_FILE = os.environ.get('SC_BP_OVERRIDES') or paths.app_file(
 POLL_SEC = paths.setting_int('pruefintervall_sekunden', 3, 1, 60)
 # Signalton bei einem Fund — manche wollen im Spiel keinen zusätzlichen Ton.
 TON_AN = paths.setting_bool('signalton', True)
-DECKKRAFT = paths.setting_int('deckkraft_prozent', 93, 30, 100)
+
+
+def deckkraft():
+    """Die eingestellte Durchsichtigkeit in Prozent — frisch gelesen.
+
+    ⚠ Bis 17.09.2026 eine Konstante, beim Laden der Datei gelesen. Der
+    Einrichtungsassistent läuft beim ersten Start aber **danach** — die dort
+    gewählte Durchsichtigkeit galt erst ab dem zweiten Start.
+    """
+    return paths.setting_int('deckkraft_prozent', 93, 30, 100)
+
+
 # So viele Neuzugänge bleiben im Overlay stehen, ältere rutschen heraus.
 #
 # ⚠ Zweierlei war hier falsch. Erstens war die Zahl **fest** — die Einstellung
@@ -2023,7 +2034,7 @@ class Overlay:
         # Durchsichtigkeit einstellbar (30–100 %). Wer nur **einen** Monitor hat,
         # legt das Overlay zwangsläufig übers Spiel — dann muss man hindurchsehen
         # können. 93 % bleibt der Standard, das ist auf zwei Bildschirmen richtig.
-        self.root.attributes('-alpha', DECKKRAFT / 100.0)
+        self.root.attributes('-alpha', deckkraft() / 100.0)
         self.root.geometry(startlage(self.root))
         # ⚠ Erst wenn alles gebaut ist, kennt die Kopfleiste ihre Breite —
         # deshalb ueber `after_idle` und nicht hier direkt.
@@ -4502,14 +4513,14 @@ class Overlay:
             self._schloss.attributes('-topmost', True)
             self._schloss.configure(bg=BAR, cursor='hand2')
             # ⚠ **Dieselbe Deckkraft wie das Overlay.** Ein Toplevel erbt sie
-            # nicht: `DECKKRAFT` wird auf `self.root` gesetzt, das Schloss lag
+            # nicht: `deckkraft()` wird auf `self.root` gesetzt, das Schloss lag
             # daneben und war voll deckend. Bei 93 % schien der Knopf in der
             # Leiste zu 93 % durch, das Schloss darüber zu 100 % — zwei
             # Schlösser mit verschiedener Sättigung übereinander, und schon der
             # kleinste Versatz sah aus wie zwei getrennte Symbole. Es soll
             # aussehen wie **ein** Schloss, das die Farbe wechselt.
             try:
-                self._schloss.attributes('-alpha', DECKKRAFT / 100.0)
+                self._schloss.attributes('-alpha', deckkraft() / 100.0)
             except tk.TclError:
                 pass
             # Dasselbe Bauteil wie in der Leiste — nur grün und geschlossen.

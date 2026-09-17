@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.50.0 - 2026-09-17
+
+> **The setup assistant now asks for the most important settings** — when the
+> overlay is visible, text size, opacity, autostart and what gets written into
+> the game. Neatly on three cards, and every choice takes effect right away.
+
+### New
+
+- **The setup assistant asks for the most important settings** — on three
+  cards: *Display* (when the overlay is visible, text size, opacity, play
+  time), *Startup* (start with Windows, icon next to the clock) and *Details
+  in the game* (mission texts, keep up to date, details on the item,
+  reputation thresholds). Your choice takes effect right away
+
+### Fixed
+
+- **Pressurized Ice** shows in the storage again that it is mined by ship,
+  and the refineries list their bonus for it
+- The opacity chosen in the first setup assistant applies right away, not
+  only from the second start
+
 ## v3.49.1 - 2026-09-17
 
 > **The hover effect works again with the "very large" text size.**

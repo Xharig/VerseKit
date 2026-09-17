@@ -578,12 +578,13 @@ def main():
             a = assi.Wizard()
             a.root.withdraw()
             titel = []
-            for _ in range(assi.STEPS):
+            _schritte6 = len(a._order())
+            for _ in range(_schritte6):
                 titel.append(a.titel.cget('text'))
                 if a.schritt == 2:
                     a.pfad.set(live)
                 a._next()
-            pruefe(len(set(titel)) == assi.STEPS,
+            pruefe(len(set(titel)) == _schritte6,
                    'Assistent hat %d unterschiedliche Schritte' % len(set(titel)))
             pruefe(assi.needed() is False, 'nach dem Durchlauf ist alles gesetzt')
         else:
@@ -3960,7 +3961,7 @@ def main():
         _versteckt44 = _rumpf44[_rumpf44.index('ANFASSER_BREITE + 4'):]
         pruefe('SCHLOSS_FEIN_X' not in _versteckt44,
                'und fasst den Aufblend-Betrieb nicht an')
-        pruefe('DECKKRAFT' in _rumpf44,
+        pruefe("attributes('-alpha', deckkraft()" in _rumpf44,
                'das Schloss traegt dieselbe Deckkraft wie das Overlay')
         pruefe('self._letzte_lage' in _rumpf44,
                'im Pop-up-Betrieb gilt die gemerkte Lage, nicht das '
@@ -23609,6 +23610,232 @@ def main():
     pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
                       encoding='utf-8').read(), 'start_if_enabled').count(
         'SETTING, False') == 1, 'der Scanner steht ab Werk auf Aus')
+
+    # 244. Der Assistent fragt die wichtigsten Einstellungen ab
+    # ⚠ Wunsch 17.09.2026: Overlay-Modus, Schrift, Durchsichtigkeit, Spielzeit,
+    # Autostart, Ablagesymbol und die vier Schalter der Texte im Spiel gehoeren
+    # in den Assistenten — thematisch auf Karten verteilt. Geprueft wird, dass
+    # jede Zeile da ist UND wirkt, dass „Angaben" vor „Texte" kommt, dass
+    # ausgeschaltete Angaben im Texte-Schritt nicht doch eingetragen werden,
+    # und dass die Wahl im laufenden Programm nachgezogen wird.
+    print('244. Der Assistent fragt die wichtigsten Einstellungen ab')
+    from scbp import wizard as _wz244, paths as _pa244, overlay as _ov244
+    from scbp import injection as _inj244, rank_thresholds as _rt244
+    from scbp import translation as _tr244, autostart as _as244
+    _heim244 = tempfile.mkdtemp(prefix='pruefung244-')
+    _alt244 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim244
+    _altov244 = _ov244.OVERLAY_CONTROL[0]
+    _altfetch244, _altziel244 = _tr244.fetch, _tr244.target_ini
+    _altsetup244 = _inj244.setup
+    try:
+        if ANZEIGE:
+            import tkinter as _tk244
+            _w244 = _tk244.Tk()
+            _w244.withdraw()
+            _a244 = _wz244.Wizard(_w244)
+            _a244.root.withdraw()
+            _r244 = _a244._order()
+            pruefe(all(s in _r244 for s in ('anzeige', 'angaben', 'texte'))
+                   and _r244.index('angaben') < _r244.index('texte'),
+                   'Anzeige- und Angaben-Karte im Ablauf, Angaben vor den Texten (%r)'
+                   % _r244)
+            _bool244 = dict([('spielzeit_zeigen', False), ('inj_an', True),
+                             ('inj_auto', True), (_inj244.SETTING_DETAILS, True),
+                             (_rt244.SETTING, True)])
+            if _pa244.WINDOWS:
+                _bool244['tray'] = True
+            _wahl244 = {'overlay_modus': 'popup', 'schriftgroesse': 'gross',
+                        'deckkraft_prozent': 55}
+            _soll244 = list(_wahl244) + list(_bool244)
+            if _as244.possible():
+                _soll244.append('autostart')
+            # Jede Karte zeichnen und ihre Zeilen gleich bedienen — beim
+            # naechsten Zeichnen ist sie abgebaut. Ohne Autostart: der schriebe
+            # ins echte System.
+            _falsch244, _bedient244 = [], set()
+            for _i244, _s244 in enumerate(_r244):
+                if _s244 not in ('anzeige', 'start', 'angaben'):
+                    continue
+                _a244.schritt = _i244 + 1
+                _a244._draw()
+                for _k244, _h244 in list(_a244.controls.items()):
+                    if _k244 in _bedient244:
+                        continue
+                    _bedient244.add(_k244)
+                    if _k244 in _bool244:
+                        _vor244 = _pa244.setting_bool(_k244, _bool244[_k244])
+                        _h244()
+                        if _pa244.setting_bool(_k244, _bool244[_k244]) == _vor244:
+                            _falsch244.append(_k244)
+                    elif _k244 in _wahl244:
+                        _h244(_wahl244[_k244])
+                        _ist244 = (_pa244.setting_int(_k244, 0)
+                                   if isinstance(_wahl244[_k244], int)
+                                   else _pa244.setting(_k244))
+                        if _ist244 != _wahl244[_k244]:
+                            _falsch244.append(_k244)
+            _fehlt244 = [k for k in _soll244 if k not in _a244.controls]
+            pruefe(not _fehlt244,
+                   'jede der wichtigsten Einstellungen hat eine Zeile (fehlt: %r)'
+                   % _fehlt244)
+            pruefe(not _falsch244 and {'overlay_modus', 'schriftgroesse',
+                                       'deckkraft_prozent'} <= _a244.changed,
+                   'jede Zeile speichert ihre Wahl und merkt sie zum Nachziehen '
+                   '(wirkungslos: %r)' % _falsch244)
+
+            # Ohne Spielordner: Anzeige bleibt, Nachlesen/Angaben/Texte fallen weg.
+            _a244.schritt = 2
+            _a244._without_game()
+            _r244b = _a244._order()
+            pruefe(_a244._current() == 'anzeige'
+                   and not {'lesen', 'angaben', 'texte'} & set(_r244b),
+                   'ohne Spielordner geht es zur Anzeige, ohne Spiel-Schritte (%r)'
+                   % _r244b)
+
+            # Angaben ausgeschaltet: der Texte-Schritt setzt nur die Uebersetzung.
+            _a244.ohne_spielordner = False
+            _a244.schritt = _a244._order().index('texte') + 1
+            _a244._draw()
+            _eingetragen244 = []
+            _tr244.fetch = lambda quelle, progress=None, game_dir=None: (True, 'ok')
+            _tr244.target_ini = lambda sprache, game_dir=None: os.path.join(
+                _heim244, 'global.ini')
+            _inj244.setup = lambda *a, **k: (_eingetragen244.append(a) or
+                                             (True, 1, ''))
+            _pa244.set_setting('inj_an', False)
+            _a244._fetch_texts('deutsch')
+            pruefe(not _eingetragen244,
+                   'Angaben aus: der Texte-Schritt traegt keine Angaben ein')
+            _pa244.set_setting('inj_an', True)
+            _a244._fetch_texts('deutsch')
+            pruefe(len(_eingetragen244) == 1,
+                   'Angaben an: der Texte-Schritt traegt sie ein')
+            _a244.root.destroy()
+            _w244.destroy()
+        else:
+            uebersprungen('Assistent: Einstellungs-Karten')
+
+        # Nachziehen im laufenden Programm — mit einem Stellvertreter-Overlay.
+        class _Ov244:
+            def __init__(self, fenster=None):
+                self.calls, self._fenster, self.root = [], fenster, self
+
+            def attributes(self, *args):
+                self.calls.append(('alpha', args[1]))
+
+            def schriftgroesse_anwenden(self, stufe):
+                self.calls.append(('schrift', stufe))
+
+            def verhalten_anwenden(self):
+                self.calls.append(('modus',))
+
+        class _Fe244:
+            def __init__(self):
+                self.calls, self.root = [], self
+
+            def set_font_size(self, stufe):
+                self.calls.append(('fenster_schrift', stufe))
+
+            def after(self, _ms, fn):
+                self.calls.append(('neuaufbau', fn))
+
+            def rebuild(self):
+                pass
+
+        _pa244.set_setting('schriftgroesse', 'gross')
+        _pa244.set_setting('deckkraft_prozent', 55)
+        _o244 = _Ov244()
+        _ov244.OVERLAY_CONTROL[0] = _o244
+        _wz244.apply_changes({'schriftgroesse', 'deckkraft_prozent', 'overlay_modus'})
+        pruefe(('schrift', 'gross') in _o244.calls and ('alpha', 0.55) in _o244.calls
+               and ('modus',) in _o244.calls,
+               'ohne offenes Fenster: Schrift, Durchsichtigkeit und Modus am Overlay '
+               'nachgezogen (%r)' % _o244.calls)
+        _f244 = _Fe244()
+        _o244 = _Ov244(_f244)
+        _ov244.OVERLAY_CONTROL[0] = _o244
+        _wz244.apply_changes({'schriftgroesse', 'overlay_modus'})
+        pruefe(_f244.calls == [('fenster_schrift', 'gross')]
+               and ('modus',) not in _o244.calls,
+               'offenes Fenster: Schrift ueber das Fenster, Modus erst beim Schliessen')
+        _f244 = _Fe244()
+        _ov244.OVERLAY_CONTROL[0] = _Ov244(_f244)
+        _wz244.apply_changes({'spielzeit_zeigen'})
+        pruefe([c[0] for c in _f244.calls] == ['neuaufbau'],
+               'Spielzeit an: das offene Fenster baut die Kopfzeile neu')
+        pruefe('apply_changes(a.changed)' in rumpf(
+            open(os.path.join(WURZEL, 'scbp', 'wizard.py'), encoding='utf-8').read(),
+            'start'), 'start() zieht die Wahl nach, auch nach einem Abbruch')
+        _q244 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
+        pruefe('DECKKRAFT' not in _q244
+               and "self.root.attributes('-alpha', deckkraft() / 100.0)" in _q244,
+               'das Overlay liest die Durchsichtigkeit beim Aufbau frisch — '
+               'die Wahl im ersten Assistenten gilt sofort')
+    finally:
+        _ov244.OVERLAY_CONTROL[0] = _altov244
+        _tr244.fetch, _tr244.target_ini = _altfetch244, _altziel244
+        _inj244.setup = _altsetup244
+        if _alt244 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt244
+        shutil.rmtree(_heim244, ignore_errors=True)
+
+    # 245. Eis hat drei Namen — Lager, Fundort und Raffinerie finden einander
+    # ⚠ Im Lager und in den Rezepten `Pressurized Ice`, an den Fundorten
+    # `Ice (Raw)`, im Raffinerie-Profil `Raw Ice`. Bis 17.09.2026 stand im Lager
+    # deshalb keine Abbauart und an jeder Raffinerie 0 % Bonus.
+    # Kleine Daten im Wegwerf-Ordner, nach dem Muster der echten Datei.
+    print('245. Eis hat drei Namen — Lager, Fundort und Raffinerie finden einander')
+    from scbp import mining as _mi245
+    _heim245 = tempfile.mkdtemp(prefix='pruefung245-')
+    _alt245 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim245
+    try:
+        _eis245, _eisen245 = 'e-eis', 'e-eisen'
+        with open(os.path.join(_heim245, _mi245.CACHE), 'w', encoding='utf-8') as _f245:
+            json.dump({
+                'format': _mi245.FORMAT, 'build': 'probe',
+                'elemente': {
+                    _eis245: {'name': 'Ice (Raw)', 'materialName': 'Pressurized Ice'},
+                    _eisen245: {'name': 'Iron (Ore)', 'materialName': 'Iron'}},
+                'compositions': {
+                    'c-eis': {'name': 'Raw Ice', 'parts': [
+                        {'elementGuid': _eis245, 'elementName': 'Ice (Raw)',
+                         'probability': 1.0, 'minPercent': 50, 'maxPercent': 100}]},
+                    'c-eisen': {'name': 'Iron', 'parts': [
+                        {'elementGuid': _eisen245, 'elementName': 'Iron (Ore)',
+                         'probability': 1.0, 'minPercent': 50, 'maxPercent': 100}]}},
+                'locations': [{'locationName': 'Probe', 'system': 'Nyx', 'groups': [
+                    {'groupName': 'SpaceShip_Mineables', 'groupProbability': 1.0,
+                     'deposits': [{'relativeProbability': 1.0, 'compositionGuid': 'c-eis'},
+                                  {'relativeProbability': 1.0, 'compositionGuid': 'c-eisen'}]}]}],
+                'refineryProfiles': {'p1': {'Raw Ice': 10, 'Iron': 5}},
+                'refineries': [{'name': 'Levski', 'system': 'Nyx', 'profileId': 'p1'}],
+            }, _f245)
+        pruefe(_mi245.mining_kinds('Pressurized Ice') == {'schiff'},
+               'Lager: Pressurized Ice wird mit dem Schiff abgebaut (%r)'
+               % _mi245.mining_kinds('Pressurized Ice'))
+        pruefe(bool(_mi245.locations_for('Pressurized Ice')),
+               'Pressurized Ice findet seine Fundorte')
+        _raff245 = _mi245.refineries_for('Pressurized Ice')
+        pruefe(_raff245 and _raff245[0][2] == 10,
+               'die Raffinerie nennt den Bonus fuer Eis (%r)' % _raff245)
+        pruefe(_mi245.mining_kinds('Iron') == {'schiff'}
+               and _mi245.refineries_for('Iron')[0][2] == 5
+               and _mi245.material_key('Iron') != _mi245.material_key('Pressurized Ice'),
+               'andere Rohstoffe bleiben unberuehrt und werden nicht zu Eis')
+        pruefe('mining.material_key(' in rumpf(
+            open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read(),
+            'farm_locations'),
+               'die Farm-Orte der Herstellung vergleichen ueber denselben Schluessel')
+    finally:
+        if _alt245 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt245
+        shutil.rmtree(_heim245, ignore_errors=True)
 
     print()
     if fehler:

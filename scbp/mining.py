@@ -127,6 +127,56 @@ def load():
         pass
     return EMPTY.copy()
 
+
+def material_key(name):
+    """Der Vergleichsschlüssel eines Rohstoffs — über alle drei Namen hinweg.
+
+    ⚠⚠ `norm_material()` allein reicht beim Eis nicht. Dieselbe Sache heißt
+    im Lager und in den Rezepten `Pressurized Ice`, an den Fundorten
+    `Ice (Raw)` und in den Raffinerie-Profilen `Raw Ice`. Der Vergleich fand
+    deshalb nichts: Im Lager stand keine Abbauart, obwohl Eis nur mit dem
+    Schiff abgebaut wird (gemeldet 17.09.2026).
+
+    Die Brücke steht in den Daten selbst: `materialName` am Rohstoff und die
+    Zusammensetzung, die nur aus diesem einen Rohstoff besteht. Nichts von Hand
+    gepflegt — kommt ein zweiter solcher Fall, greift er von selbst.
+    """
+    key = norm_material(name)
+    return _aliases().get(key, key)
+
+
+def _aliases():
+    data = load()
+    # Am geladenen Stand selbst festgemacht: `load()` gibt dasselbe Objekt
+    # zurück, solange die Datei unverändert ist.
+    if _alias_cache['stand'] is data:
+        return _alias_cache['daten']
+    elements = data.get('elemente') or {}
+    result = {}
+    by_guid = {}
+    for guid, e in elements.items():
+        material = e.get('materialName')
+        if not e.get('name') or not material:
+            continue
+        by_guid[guid] = norm_material(material)
+        if norm_material(e['name']) != by_guid[guid]:
+            result[norm_material(e['name'])] = by_guid[guid]
+    for comp in (data.get('compositions') or {}).values():
+        guids = {p.get('elementGuid') for p in comp.get('parts') or []}
+        if len(guids) != 1 or not comp.get('name'):
+            continue
+        material = by_guid.get(guids.pop())
+        key = norm_material(comp['name'])
+        # Nur ergänzen: Ein Name, der selbst ein Rohstoff ist, bleibt er.
+        if material and key != material and key not in by_guid.values():
+            result.setdefault(key, material)
+    _alias_cache['stand'], _alias_cache['daten'] = data, result
+    return result
+
+
+_alias_cache = {'stand': None, 'daten': None}
+
+
 def current_build():
     return load().get('build')
 
@@ -362,10 +412,10 @@ def mining_kinds(name):
     `schiff_selten` zählt als `schiff` — für die Frage „womit hole ich das?"
     macht die Seltenheit keinen Unterschied.
     """
-    wanted = norm_material(name)
+    wanted = material_key(name)
     kinds = set()
     for e in ores():
-        if norm_material(e.get('name')) != wanted:
+        if material_key(e.get('name')) != wanted:
             continue
         for entry in e.get('orte') or []:
             for kind in (entry[2] if len(entry) > 2 else ()):
@@ -655,18 +705,17 @@ def refineries_for(material):
     abdecken; wer sie in eine Zeile wirft, schreibt dort „Nyx, Pyro, Stanton"
     und beantwortet damit die Frage nicht, die jemand hat: wohin fliege ich?
     """
-    from .crafting import norm_material
     current = load()
     profiles = current.get('refineryProfiles') or {}
     if not profiles:
         return []
-    wanted = norm_material(material)
+    wanted = material_key(material)
     # Erst je Profil den Bonus bestimmen ...
     bonus_per_profile = {}
     for pid, values in profiles.items():
         bonus_per_profile[pid] = 0
         for mat, value in (values or {}).items():
-            if norm_material(mat) == wanted:
+            if material_key(mat) == wanted:
                 bonus_per_profile[pid] = value
                 break
     # ... dann die Stationen dazu buendeln.
@@ -691,8 +740,8 @@ def locations_for(material):
     ⚠ Die Baupläne sagen `Aslarite`, hier heißt es `Aslarite (Raw)` — deshalb
     über `norm_material()` vergleichen. Ohne das findet der Sprung aus dem
     Rezept **nichts** (gemessen: 0 von 26)."""
-    wanted = norm_material(material)
+    wanted = material_key(material)
     for e in ores():
-        if norm_material(e['name']) == wanted:
+        if material_key(e['name']) == wanted:
             return e
     return None

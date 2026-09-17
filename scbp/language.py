@@ -307,6 +307,54 @@ TEXTS = {
         'Star Citizen keeps logs of past play sessions. The watcher collects '
         'your existing blueprints from them — nothing to type in.'),
 
+    # Die Einstellungs-Karten im Assistenten. Die Namen der Einstellungen sind
+    # dieselben wie auf den Seiten — nur die Hinweise sind hier kürzer.
+    'schritt_anzeige':   ('Anzeige', 'Display'),
+    'schritt_start':     ('Programmstart', 'Startup'),
+    'schritt_angaben':   ('Angaben im Spiel', 'Details in the game'),
+    'as_spaeter':        ('Alles hier lässt sich später unter Einstellungen ändern.',
+                          'You can change all of this later in the settings.'),
+    'as_modus_h':        ('„Nur bei einem Neuzugang": Das Overlay blendet kurz auf, '
+                          'wenn ein Bauplan dazukommt.',
+                          '"Only on a new blueprint": the overlay pops up briefly '
+                          'when a blueprint arrives.'),
+    'as_schrift_h':      ('Schrift, Symbole und Knöpfe im ganzen Programm.',
+                          'Text, icons and buttons throughout the program.'),
+    'as_deckkraft_h':    ('100 % = blickdicht. Weniger, wenn das Overlay über dem '
+                          'Spiel liegt.',
+                          '100 % = opaque. Less if the overlay sits on top of the game.'),
+    'as_zeit_h':         ('Wie lange du gespielt hast, oben in der Kopfzeile.',
+                          'How long you have played, at the top of the window.'),
+    'as_autostart_h':    ('Dann läuft es schon, wenn du Star Citizen startest.',
+                          'Then it is already running when you start Star Citizen.'),
+    'as_tray_h':         ('Schließen versteckt das Fenster dort, statt das Programm '
+                          'zu beenden.',
+                          'Closing hides the window there instead of quitting.'),
+    'as_angaben_text':   ('Was das Programm in die Texte des Spiels schreibt. Im '
+                          'nächsten Schritt wird es eingetragen.',
+                          'What the program writes into the game\'s texts. The next '
+                          'step puts it in place.'),
+    'as_inj_an_h':       ('Welche Baupläne ein Auftrag ausschüttet — direkt im '
+                          'Auftragstext.',
+                          'Which blueprints a mission rewards — right in the mission '
+                          'text.'),
+    'as_inj_auto_h':     ('Jeder Spiel-Patch schreibt die Texte neu. So kommen die '
+                          'Angaben von selbst zurück.',
+                          'Every game patch rewrites the texts. This brings the '
+                          'details back on its own.'),
+    'as_angaben_h':      ('Klasse, Größe und Gütegrad hinter dem Namen, '
+                          'z. B. „Glacier (Mil/1/A)".',
+                          'Class, size and grade after the name, '
+                          'e.g. "Glacier (Mil/1/A)".'),
+    'as_rang_h':         ('Ab wie viel Ruf ein Rang beginnt — '
+                          '„Gildenmitglied [ab 10.000]".',
+                          'How much reputation a rank starts at — '
+                          '"Guild Member [10,000+]".'),
+    'as_nur_uebersetzung': ('Übersetzung eingesetzt. Bauplan-Angaben bleiben aus, '
+                            'wie eben gewählt.',
+                            'Translation in place. Blueprint notes stay off, as '
+                            'you just chose.'),
+
     'schritt_fertig':    ('Fertig', 'All set'),
     'schritt_fertig_text': (
         'Der Watcher läuft jetzt mit. Neue Baupläne erscheinen in der schmalen '

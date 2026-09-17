@@ -12516,11 +12516,11 @@ def farm_locations(needed, ores=None, per_ore=3, places=5):
         except Exception as exc:
             errors.record('pages.farm_locations', exc)
             ores = []
-    by_norm = {mining.norm_material(o.get('name') or ''): o for o in ores}
+    by_norm = {mining.material_key(o.get('name') or ''): o for o in ores}
     per_material = {}
     collected = {}
     for material in needed:
-        ore = by_norm.get(mining.norm_material(material))
+        ore = by_norm.get(mining.material_key(material))
         if not ore:
             continue
         spots = ore.get('orte') or []
