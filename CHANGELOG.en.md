@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc1 - 2026-09-17
+
+> **VerseKit reads the scan signature by itself.** Show once where the
+> mining number sits — from then on the overlay shows which ore is behind it
+> and how many chunks the deposit has. Test version, Windows only for now.
+
+### New
+
+- **Read the signature automatically** (mining page, off by default): While
+  Star Citizen is in front, VerseKit reads the mining scanner number and shows
+  signature, ore and chunk count in the overlay. Thanks to ryze
+- **Scan window:** drag it over the number and resize it, with a preview and
+  the value it reads. The position is remembered
+- **Teaching:** If VerseKit cannot read a number reliably, type the correct
+  one and teach it — it then recognises your display better
+
 ## v3.48.5 - 2026-09-17
 
 > **Updates arrive faster, and you can see how current your translation is.**

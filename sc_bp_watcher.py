@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.48.5'
+__version__ = '3.49.0-rc1'
 
 
 def _mitgeliefert(name):
@@ -2231,6 +2231,13 @@ class Overlay:
         self._auftrag_zeilen = []
         self.auftragsleiste = tk.Frame(self.root, bg=BG)
 
+        # --- Scan-Signatur ------------------------------------------------
+        # Eine Zeile, nur solange der Scanner eine Zahl zeigt (siehe
+        # `scbp/signature_watch.py`). Leer nimmt sie keinen Platz weg.
+        self.signaturleiste = tk.Label(self.root, text='', bg=BG, fg=ACCENT,
+                                       font=self.f_sub, anchor='w',
+                                       justify='left')
+
         # --- Liste (scrollbar) ---
         wrap = tk.Frame(self.root, bg=BG)
         wrap.pack(fill='both', expand=True, padx=6, pady=(0, 6))
@@ -3090,6 +3097,37 @@ class Overlay:
         self.auftragsleiste.pack(fill='x', padx=8, pady=(0, 2),
                                  before=self._listen_traeger)
 
+    def signatur_zeigen(self, value):
+        """Die gelesene Scan-Signatur samt Rohstoff zeigen — oder die Zeile leeren."""
+        try:
+            if value is None:
+                self.signaturleiste.pack_forget()
+                self.signaturleiste.configure(text='')
+                return
+            from scbp import scan_window
+            self.signaturleiste.configure(
+                text=language.t('ov_signatur') % scan_window.describe(value))
+            if self.signaturleiste not in self._wrap_labels:
+                self._wrap_labels.append(self.signaturleiste)
+            self.signaturleiste.pack(fill='x', padx=8, pady=(0, 2),
+                                     before=self._listen_traeger)
+        except Exception as ausnahme:
+            errors.record('overlay.signatur_zeigen', ausnahme)
+
+    def signaturwache_starten(self):
+        """Die Signatur-Wache anwerfen, wenn der Spieler sie eingeschaltet hat.
+
+        ⚠⚠ Nicht an der Bergbau-Seite aufhängen: Die wird erst beim ersten
+        Besuch gebaut — wer den Reiter nie öffnet, hätte sonst keinen Scanner,
+        obwohl der Schalter an steht (Lehre aus dem Entwurf vom 10.09.2026).
+        """
+        try:
+            from scbp import signature_watch
+            signature_watch.listen(lambda v: self.q.put(('signatur', v)))
+            signature_watch.start_if_enabled()
+        except Exception as ausnahme:
+            errors.record('overlay.signaturwache', ausnahme)
+
     def _ziele_zeigen(self, ziele):
         """Die Zwischenziele eines Auftrags — eingerueckt, eine Zeile je Ziel.
 
@@ -3262,6 +3300,8 @@ class Overlay:
                     self._bescheid_zeigen(msg[1], msg[2])
                 elif msg[0] == 'auftraege':
                     self.auftraege_zeigen(msg[1])
+                elif msg[0] == 'signatur':
+                    self.signatur_zeigen(msg[1])
                 elif msg[0] == 'auftrag_weg':
                     self.hinweis_entfernen(msg[1])
                 elif msg[0] == 'new':
@@ -5280,6 +5320,7 @@ class Overlay:
         self._update_ergebnis_melden()
         self._beschriftung_nachziehen()
         self.ablagesymbol_starten()
+        self.signaturwache_starten()
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
         # deshalb die Arbeit per `after` an Tk übergeben, nicht dort erledigen.
