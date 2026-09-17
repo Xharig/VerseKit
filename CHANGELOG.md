@@ -8,6 +8,33 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.2 - 2026-09-17
+
+> **Das Overlay bleibt im Bild.** Es wird nie mehr größer als dein
+> Bildschirm, die Ecken nehmen die Leiste mit, und „Fensterlage
+> zurücksetzen" setzt wirklich alles zurück. Dazu kommen Updates nach
+> Spielende wieder gleich, statt zehn Minuten zu warten.
+
+### Verbessert
+
+- **Die Ecke nimmt die Leiste mit:** Unten links und unten rechts hängen
+  die Leiste nach unten, oben links und oben rechts nach oben. Wer es
+  anders will, stellt die Leiste danach um
+- **„Fensterlage zurücksetzen" setzt alles zurück** — frei verschiebbar,
+  Leiste oben, Standardgröße mittig
+
+### Behoben
+
+- **Das Overlay konnte aus dem Bildschirm rutschen** — vor allem ein
+  großes in einer unteren Ecke. Die Leiste lag dann unter dem Rand, und
+  man bekam es nicht mehr zu fassen. Jetzt ist es nie größer als der
+  Bildschirm, beim Start, beim Ziehen, in jeder Ecke und beim
+  Zurücksetzen
+- **Die Standardgröße passte auf keinen Laptop** — auf kleinen
+  Bildschirmen wird sie jetzt passend kleiner
+- **Ein Update nach Spielende wartete bis zu zehn Minuten**, wenn die
+  Fassung kurz vorher erschienen war. Jetzt nur noch die Restzeit
+
 ## v3.48.1 - 2026-09-17
 
 > **Neues kommt jetzt auch ohne neuen Bauplan im Spiel an.** Nach einem Update
