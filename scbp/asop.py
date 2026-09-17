@@ -157,26 +157,34 @@ def _slim(text):
     return re.sub(r'[^a-z0-9]', '', (text or '').lower())
 
 
-def read_keys(zeilen):
+def read_keys(lines):
     """Aus den Zeilen der `global.ini` die Fahrzeugnamen holen.
 
     Gibt `{schluessel: wert}` für die **langen** Namen zurück. Die
     `…_short`-Fassungen bleiben draußen: Sie stehen im Fleet Manager nicht, und
     wer beide anfasst, hat den Namen zweimal zu pflegen.
+
+    ⚠⚠ **Groß- und Kleinschreibung des Anfangs zählt nicht** (17.09.2026).
+    CIG schreibt fünf Schiffe `vehicle_name…` statt `vehicle_Name…` — Carrack,
+    Carrack Expedition, Paladin, Starlancer MAX und TAC. Verglichen wurde
+    buchstabengenau, und diese fünf ließen sich nicht benennen: „In der
+    Sprachdatei nicht gefunden", gemeldet mit dem Paladin. Der Schlüssel selbst
+    bleibt, wie er in der Datei steht — nur so trifft die Injektion ihn wieder.
     """
-    tabelle = {}
-    for zeile in zeilen:
-        if not zeile.startswith(PREFIX) or '=' not in zeile:
+    table = {}
+    prefix = PREFIX.lower()
+    for line in lines:
+        if line[:len(PREFIX)].lower() != prefix or '=' not in line:
             continue
-        schluessel, wert = zeile.split('=', 1)
+        key, value = line.split('=', 1)
         # ⚠ Ein Schlüssel kann einen Zusatz tragen (`,P=…`). Der gehört nicht
         # zum Namen — `_split_line` in `injection.py` trennt ihn ebenso ab.
-        if ',' in schluessel:
+        if ',' in key:
             continue
-        if schluessel[len(PREFIX):].lower().endswith(SHORT_SUFFIX):
+        if key[len(PREFIX):].lower().endswith(SHORT_SUFFIX):
             continue
-        tabelle[schluessel] = wert.rstrip('\r\n')
-    return tabelle
+        table[key] = value.rstrip('\r\n')
+    return table
 
 
 def match_ships(schiffe, tabelle):

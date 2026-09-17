@@ -22879,6 +22879,34 @@ def main():
         _pf238.set_setting('overlay_ecke', 'frei')
         _pf238.set_setting('overlay_leiste', '')
 
+    # 239. Schiffe mit kleingeschriebenem `vehicle_name…` lassen sich benennen
+    #
+    # Am 17.09.2026 mit Bildschirmfoto: „Paladin — In der Sprachdatei nicht
+    # gefunden". CIG schreibt fuenf Schluessel mit kleinem n (Carrack, Carrack
+    # Expedition, Paladin, Starlancer MAX/TAC); gelesen wurde nur `vehicle_Name`.
+    print()
+    print('239. Schiffe mit kleingeschriebenem Schluessel lassen sich benennen')
+    from scbp import asop as _as239
+    _zeilen239 = ['vehicle_nameANVL_Paladin=Anvil Paladin',
+                  'vehicle_nameANVL_Paladin_short=Paladin',
+                  'vehicle_NameANVL_Hornet_F7CM=Anvil F7C-M Super Hornet Mk I']
+    _tab239 = _as239.read_keys(_zeilen239)
+    pruefe(_tab239.get('vehicle_nameANVL_Paladin') == 'Anvil Paladin',
+           'der kleingeschriebene Schluessel wird gelesen, so wie er dasteht (%r)'
+           % sorted(_tab239))
+    pruefe('vehicle_nameANVL_Paladin_short' not in _tab239,
+           'seine Kurzfassung bleibt weiter draussen')
+    _zu239 = _as239.match_ships([{'name': 'Paladin', 'kurz': 'ANVL_Paladin',
+                                  'hkurz': 'ANVL'}], _tab239)
+    pruefe(_zu239 and _zu239[0]['schluessel'] == 'vehicle_nameANVL_Paladin',
+           'das Hangar-Schiff „Paladin" findet ihn (%r)'
+           % (_zu239[0]['schluessel'] if _zu239 else None,))
+    _d239 = _as239.set_name(_as239.empty(), 'vehicle_nameANVL_Paladin',
+                            'Wachhund', False)
+    pruefe(_as239.build_table(_zeilen239, _d239)
+           == {'vehicle_nameANVL_Paladin': ('Wachhund', False)},
+           'und die Injektion bekommt den Namen fuer genau diesen Schluessel')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

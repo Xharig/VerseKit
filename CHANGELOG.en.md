@@ -8,6 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.3 - 2026-09-17
+
+> **Carrack, Paladin and Starlancer get their own names.** Five ships could
+> not be renamed under "Rename ships" — now they can.
+
+### Fixed
+
+- **Carrack, Carrack Expedition, Paladin, Starlancer MAX and TAC could not
+  be renamed** ("Not found in the language file"). The game writes their
+  names there slightly differently from every other ship
+
 ## v3.48.2 - 2026-09-17
 
 > **The overlay stays on screen.** It never grows larger than your
