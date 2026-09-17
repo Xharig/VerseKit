@@ -143,6 +143,16 @@ SEITEN = {
     'wasistneu':    'screenshot-wasistneu',
     'ueber':        'screenshot-ueber',
     'danke':        'screenshot-danke',
+    # ⭐ Seit 17.09.2026 jede Seite der Reiterleiste — „in jedem Fenster".
+    'asop':         'screenshot-schiffe-benennen',
+    'raffinerien':  'screenshot-raffinerien',
+    'routen':       'screenshot-routen',
+    # ⚠ NICHT `joysticks`: Die Seite liest die ECHTEN Spieldateien (Startprotokoll,
+    # actionmaps.xml), nicht die Wegwerf-Kopie — im Bild stünden die Geräte des
+    # Autors samt Hardware-Kennungen.
+    'patchaenderungen': 'screenshot-patchaenderungen',
+    # ⚠ NICHT `diagnose`: Der Bericht zeigt Melder-Namen, Bildschirm und die
+    # Pfade des Rechners, auf dem das Bild entsteht.
 }
 
 # ⚠⚠ **Das Overlay ist keine Seite.** Es ist ein eigenes Fenster einer eigenen
@@ -249,6 +259,103 @@ def _gefaehrliches_abschalten(ordner):
         pass
 
 
+def beispiel_daten():
+    """Erfundene Beispieldaten für JEDE Seite, die sonst leer bliebe.
+
+    ⭐ Wunsch 17.09.2026: „alle Bilder neu inkl. Beispieldaten in jedem
+    Fenster". Ein leerer Wunschzettel oder „Nichts zu besorgen" erklärt
+    niemandem, wozu eine Seite gut ist.
+
+    ⚠⚠ **Immer, nicht nur wenn die Hangar-Seite dran ist.** Bis 17.09.2026
+    wurde der Beispiel-Hangar nur gelegt, wenn `hangar` im Lauf stand — wer
+    nur `wunschliste` neu machte, bekam den ECHTEN Hangar aus der Kopie ins
+    Bild. Ebenso standen die eigenen Schiffsnamen (`asop.json`) auf
+    „Schiffe benennen".
+
+    Die Schiffe sind so gewählt, dass ihre Steckplätze schon im kopierten
+    erkul-Zwischenspeicher liegen — dann braucht es kein Netz, und „Was noch
+    fehlt" hat echte Plätze, in die Teile gelegt werden können.
+    """
+    import json
+    from scbp import fleet, cart, erkul, trade_cargo
+    heim = os.environ['SC_BP_HOME']
+
+    def schiff(name, hersteller, kurz, hkurz, herkunft, **mehr):
+        eintrag = {'name': name, 'hersteller': hersteller, 'kurz': kurz,
+                   'hkurz': hkurz, 'herkunft': herkunft, 'belegung': {}}
+        eintrag.update(mehr)
+        return eintrag
+
+    schiffe = [
+        schiff('Arrow', 'Anvil Aerospace', 'ANVL_Arrow', 'ANVL', 'pledge', lti=True),
+        schiff('Gladius', 'Aegis Dynamics', 'AEGS_Gladius', 'AEGS', 'ingame'),
+        schiff('Asgard', 'Anvil Aerospace', 'ANVL_Asgard', 'ANVL', 'pledge'),
+        schiff('C8R Pisces Rescue', 'Anvil Aerospace', 'ANVL_C8R_Pisces', 'ANVL',
+               'ingame'),
+    ]
+    wunsch = [
+        schiff('Eclipse', 'Aegis Dynamics', 'AEGS_Eclipse', 'AEGS', 'ingame'),
+        schiff('Dragonfly', 'Drake Interplanetary', 'DRAK_Dragonfly', 'DRAK',
+               'ingame'),
+    ]
+
+    # Ein paar Teile in die Plätze legen — gekauft und selbst gebaut, damit
+    # „Was noch fehlt" und „Was ich farmen muss" etwas zu rechnen haben.
+    erkul_schiffe = (erkul.load().get('schiffe') or {})
+    for eintrag, schluessel, wie in ((schiffe[1], 'aegsgladius', cart.BUY),
+                                     (schiffe[2], 'anvlasgard', cart.CRAFT),
+                                     (wunsch[0], 'aegseclipse', cart.BUY)):
+        slots = (erkul_schiffe.get(schluessel) or {}).get('slots') or []
+        gesetzt = set()
+        for platz in slots:
+            art = platz.get('art')
+            if art not in ('Cooler', 'Shield', 'PowerPlant') or art in gesetzt:
+                continue
+            werk = (platz.get('werk') or {}).get('name')
+            moeglich = [m for m in cart.choices(art, platz.get('groesse'))
+                        if m.get('name') != werk
+                        and (wie != cart.CRAFT or m.get('herkunft') != cart.BUYABLE)]
+            if moeglich:
+                m = moeglich[0]
+                cart.set_part(eintrag, platz['pfad'], m['kennung'], m['name'], wie)
+                gesetzt.add(art)
+
+    daten = {'format': fleet.FORMAT, 'schiffe': schiffe, 'wunsch': wunsch,
+             'merkzettel': [
+                 {'name': 'Aves Helmet', 'ref': '', 'anzahl': 1, 'weg': 'bauen'},
+                 {'name': 'FS-9 Magazine (75 cap)', 'ref': '', 'anzahl': 3,
+                  'weg': 'bauen'}]}
+    with open(os.path.join(heim, fleet.FILE), 'w', encoding='utf-8') as f:
+        json.dump(daten, f, ensure_ascii=False, indent=1)
+
+    # Eigene Schiffsnamen — erfunden, nicht die des Autors.
+    with open(os.path.join(heim, 'asop.json'), 'w', encoding='utf-8') as f:
+        from scbp import asop
+        json.dump({'format': asop.FORMAT, 'namen': {
+            'vehicle_NameANVL_Arrow': {'name': 'Kestrel', 'stern': True},
+            'vehicle_NameANVL_Asgard': {'name': 'Longhaul', 'stern': False}}},
+            f, ensure_ascii=False, indent=1)
+
+    # Ladung im Handelslager — Waren, die die kopierten Preisdaten kennen.
+    # ⚠ Die Schlüssel in `waren` sind kleingeschrieben — angezeigt und
+    # zugeordnet wird über den `name` darin („Agricium", nicht „agricium").
+    try:
+        with open(os.path.join(heim, 'preise.json'), encoding='utf-8') as f:
+            waren = json.load(f).get('waren') or {}
+    except Exception:
+        waren = {}
+    posten = []
+    for ware, menge, ort in (('Agricium', 24, 'Area 18'), ('Laranite', 12, 'Orison'),
+                             ('Medical Supplies', 8, 'Lorville')):
+        formen = waren.get(ware.lower()) or []
+        if any((x.get('name') or '') == ware for x in formen):
+            posten.append({'ware': ware, 'menge': float(menge), 'ort': ort,
+                           'gestohlen': False})
+    with open(os.path.join(heim, trade_cargo.FILE), 'w', encoding='utf-8') as f:
+        json.dump({'format': trade_cargo.FORMAT, 'posten': posten}, f,
+                  ensure_ascii=False, indent=1)
+
+
 def beispiel_hangar():
     """Einen **erfundenen** Hangar in die Wegwerf-Kopie legen.
 
@@ -318,6 +425,181 @@ def marken_loeschen():
             json.dump(stand, f)
     except Exception as ausnahme:
         print('  Hinweis: Marken liessen sich nicht abschalten (%s)' % ausnahme)
+
+
+# ------------------------------------------------ Handgriffe auf einer Seite
+# ⚠ Alles über die echte Oberfläche — tippen, klicken, auswählen —, nicht über
+# interne Variablen. So zeigt das Bild, was ein Spieler nach denselben
+# Handgriffen sieht.
+
+def _unter(knoten):
+    for kind in knoten.winfo_children():
+        yield kind
+        yield from _unter(kind)
+
+
+def _texte_von(w):
+    import tkinter as tk
+    try:
+        if isinstance(w, tk.Canvas):
+            return [w.itemcget(i, 'text') for i in w.find_all() if w.type(i) == 'text']
+        return [w.cget('text')]
+    except Exception:
+        return []
+
+
+def _warten(wurzel, sekunden=0.4):
+    """Die ECHTE Ereignisschleife kurz laufen lassen.
+
+    ⚠⚠ Nicht `update()` in einer Schleife: Seiten holen Daten in einem
+    Hintergrund-Faden und melden sich per `after()` zurück — das geht nur,
+    wenn `mainloop` läuft. Mit `update()` allein warf der Faden „main thread
+    is not in main loop", und „Was steckt drin?" blieb für immer bei
+    „Wird nachgeschlagen …" (17.09.2026).
+    """
+    wurzel.after(int(sekunden * 1000), wurzel.quit)
+    wurzel.mainloop()
+    wurzel.update_idletasks()
+
+
+def tippen(seite, text, nummer=0):
+    """In das `nummer`-te Eingabefeld der Seite tippen (Hinweis räumt sich)."""
+    import tkinter as tk
+    felder = [w for w in _unter(seite) if isinstance(w, tk.Entry)]
+    if len(felder) <= nummer:
+        return False
+    feld = felder[nummer]
+    feld.focus_set()
+    # Den grauen Hinweis räumen wie beim ersten Tastendruck — ein erzeugtes
+    # `<Key>` erreicht ein Fenster ausserhalb des Bildschirms nicht zuverlässig.
+    getattr(feld, 'hint_hide', lambda: None)()
+    feld.delete(0, 'end')
+    feld.insert(0, text)
+    return True
+
+
+def klicken(seite, text, genau=True):
+    """Das erste Bedienelement mit diesem Text anklicken."""
+    import tkinter as tk
+    for w in _unter(seite):
+        if not isinstance(w, (tk.Label, tk.Canvas)):
+            continue
+        for s in _texte_von(w):
+            if (s or '').strip() == text if genau else text in (s or ''):
+                w.event_generate('<Button-1>', x=3, y=3)
+                # ⚠ Der Klick kann die Zeile neu aufbauen (Aufklappen) — dann
+                # gibt es das Element fürs Loslassen schon nicht mehr.
+                try:
+                    if w.winfo_exists():
+                        w.event_generate('<ButtonRelease-1>', x=3, y=3)
+                except tk.TclError:
+                    pass
+                return True
+    return False
+
+
+def auswaehlen(seite, beschriftung, wert):
+    """In einem Auswahlfeld (`round_select`) mit dieser Beschriftung wählen."""
+    import tkinter as tk
+    for w in _unter(seite):
+        if isinstance(w, tk.Canvas) and getattr(w, 'select', None) \
+                and beschriftung in _texte_von(w):
+            w.select(wert)
+            return True
+    return False
+
+
+def rollen_zu(seite, textanfang):
+    """Die Rollfläche so stellen, dass das Element mit diesem Text oben steht."""
+    import tkinter as tk
+    ziel = None
+    for w in _unter(seite):
+        if any((s or '').startswith(textanfang) for s in _texte_von(w)):
+            ziel = w
+            break
+    if ziel is None:
+        return False
+    flaeche = ziel
+    while flaeche is not None and not (isinstance(flaeche, tk.Canvas)
+                                       and flaeche.cget('yscrollcommand')):
+        flaeche = flaeche.master
+    if flaeche is None:
+        return False
+    flaeche.update_idletasks()
+    region = flaeche.bbox('all')
+    if not region or region[3] <= 0:
+        return False
+    y = ziel.winfo_rooty() - flaeche.winfo_rooty() + flaeche.canvasy(0) - 12
+    flaeche.yview_moveto(max(0.0, y / float(region[3])))
+    return True
+
+
+def warten_bis_weg(seite, wurzel, text, hoechstens=25.0):
+    """Warten, bis kein Element mehr diesen Text zeigt (etwa „Wird nachgeschlagen")."""
+    ende = time.time() + hoechstens
+    while time.time() < ende:
+        _warten(wurzel, 0.5)
+        if not any(text in (s or '') for w in _unter(seite) for s in _texte_von(w)):
+            return True
+    return False
+
+
+def _t(schluessel, *a):
+    from scbp.language import t
+    return t(schluessel, *a)
+
+
+def vorbereiten(kennung, seite, wurzel):
+    """Die Seite so bedienen, dass das Bild zeigt, wozu sie gut ist."""
+    if kennung == 'hangar':
+        rollen_zu(seite, _t('s_hg_meine').split('(')[0].strip())
+    elif kennung == 'wunschliste':
+        rollen_zu(seite, _t('s_hg_wunsch_meine').split('(')[0].strip())
+    elif kennung == 'herstellung':
+        # ⚠ KEIN Klick: Der Sprung (`crafting_search`) klappt den Bauplan schon
+        # selbst auf — ein Klick klappte ihn wieder zu.
+        _warten(wurzel)
+    elif kennung == 'bergbau':
+        auswaehlen(seite, _t('s_bg_alle_erze'), 'Iron (Ore)')
+        _warten(wurzel)
+        rollen_zu(seite, _t('s_bg_suche'))
+    elif kennung == 'laeden':
+        tippen(seite, 'Aves')
+    elif kennung == 'bergung':
+        # ⚠ Ein Schiff, dessen Steckplätze im kopierten Zwischenspeicher liegen
+        # — ohne Netz stünde sonst nur „Wird nachgeschlagen …" im Bild.
+        tippen(seite, 'Ironclad')
+        _warten(wurzel)
+        klicken(seite, 'Drake Ironclad')
+        _warten(wurzel)
+        klicken(seite, _t('s_wr_nachsehen'))
+        warten_bis_weg(seite, wurzel, _t('s_wr_hole'))
+    elif kennung == 'zerlegen':
+        # ⚠ Ein Teilwort: Steht der volle Name im Feld, klappt die Liste gar
+        # nicht erst auf, und es gibt nichts anzuklicken.
+        tippen(seite, 'Aves Helm')
+        _warten(wurzel)
+        klicken(seite, 'Aves Helmet')
+        _warten(wurzel)
+        tippen(seite, 'Aves Helmet')          # voller Name: die Liste klappt zu
+    elif kennung == 'patchaenderungen':
+        klicken(seite, 'LIVE', genau=False)
+    elif kennung == 'routen':
+        # ⚠ „Area 18" mit Leerzeichen — so heisst der Ort in den Handelsdaten.
+        tippen(seite, 'Area 18')
+        _warten(wurzel)
+        klicken(seite, 'TDD', genau=False)
+        _warten(wurzel, 1.5)
+        rollen_zu(seite, 'TDD')
+    _warten(wurzel, 1.0)
+
+
+# Was vor dem Öffnen einer Seite gesetzt wird — Sprungziele, die die Seite
+# beim Aufbau liest (wie ein Klick aus der Bauplan-Liste).
+VOR_DEM_OEFFNEN = {
+    'herstellung': ('crafting_search', 'Aves Helmet'),
+    'bergbau': ('mining_search', 'Iron'),
+}
 
 
 def fenster_richten(fenster, wurzel):
@@ -663,9 +945,14 @@ def main():
     # die Sperre beim Import und behält sie danach. Wer die Reihenfolge dreht,
     # bekommt viermal „keine Steckplatz-Daten" ins Bild, also ausgerechnet das
     # Gegenteil dessen, was die Seite zeigen soll.
-    if 'hangar' in gewuenscht:
-        beispiel_hangar()
-    os.environ['SC_BP_NO_NET'] = '1'
+    # ⚠ Mit Netz, ausser `--offline`: „Was steckt drin?" und die Preise auf
+    # „Was noch fehlt" holen ihre Daten erst beim Aufruf — ohne Netz stand dort
+    # nur „Wird nachgeschlagen …" im Bild (17.09.2026).
+    if '--offline' in sys.argv:
+        os.environ['SC_BP_NO_NET'] = '1'
+    # ⚠ Immer und für jede Seite — siehe `beispiel_daten`. Die Beispielschiffe
+    # liegen im kopierten erkul-Zwischenspeicher, das Netz braucht es nicht.
+    beispiel_daten()
     marken_loeschen()
 
     import tkinter as tk
@@ -701,11 +988,16 @@ def main():
             # liefert brauchbare Bilder (siehe die Tabelle oben).
             fenster = MainWindow(wurzel, version=_version())
             fenster_richten(fenster, wurzel)
+            if kennung in VOR_DEM_OEFFNEN:
+                setattr(fenster, *VOR_DEM_OEFFNEN[kennung])
             fenster.open_page(kennung)
             for _ in range(12):
                 wurzel.update()
                 wurzel.update_idletasks()
             fenster_richten(fenster, wurzel)
+            seite = fenster.pages.get(kennung)
+            if seite is not None:
+                vorbereiten(kennung, seite, wurzel)
             puffer_leeren(fenster, wurzel)
             # Die Seiten holen ihre Daten ueber `after`-Rueckrufe nach — wer zu
             # frueh abgreift, fotografiert eine halbfertige Seite.

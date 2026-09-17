@@ -78,7 +78,13 @@ Ein neuer Bauplan wirft sofort die nächste Frage auf: **passt das Teil überhau
 <tr>
 <td colspan="2" valign="top" align="center">
 <img src="assets/screenshot-asop-ingame.jpg" alt="Der Flottenmanager im Spiel mit drei selbst benannten Schiffen" width="100%"><br>
-<sub><b>Schiffe benennen</b> — so sieht es <b>im Spiel</b> aus: eigene Namen im Abrufterminal statt der Werksnamen. Das Sternchen markiert nicht nur — weil der Flottenmanager alphabetisch sortiert, rutschen die markierten Schiffe nach oben</sub>
+<sub><b>Schiffe benennen</b> — so sieht es <b>im Spiel</b> aus: eigene Namen im Abrufterminal statt der Werksnamen. Der Stern markiert nicht nur — weil der Flottenmanager alphabetisch sortiert, rutschen die markierten Schiffe nach oben</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-schiffe-benennen.png" alt="Schiffe benennen im Werkzeug" width="100%"><br>
+<sub><b>Schiffe benennen</b> — eigene Namen eintippen und die Schiffe mit Stern markieren, die oben stehen sollen; ein Klick schreibt sie ins Spiel</sub>
 </td>
 </tr>
 <tr>
@@ -124,6 +130,22 @@ Der Bauplan ist der Anfang. Die Werkstatt beantwortet, was danach kommt: **was b
 <sub><b>Bergbau</b> — Rohstoff eintippen und sehen, wo er liegt; oder den Scan-Wert eingeben und sehen, was der Scanner da gefunden hat</sub>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-farmliste.png" alt="Was ich farmen muss" width="100%"><br>
+<sub><b>Was ich farmen muss</b> — welche Rohstoffe für alles Geplante noch fehlen, samt Fundorten</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-raffinerien.png" alt="Raffinerien" width="100%"><br>
+<sub><b>Raffinerien</b> — was jede Raffinerie aus deinem Erz macht: Aufschlag und Abschlag je Material</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-laeden.png" alt="Shops" width="100%"><br>
+<sub><b>Shops</b> — wo ein fertiges Teil im Regal steht und was es dort kostet</sub>
+</td>
+</tr>
 </table>
 
 ### Handel
@@ -139,6 +161,12 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-verkauf.png" alt="Verkauf mit den besten Ankaufsorten" width="100%"><br>
 <sub><b>Verkauf</b> — die besten Ankäufer, sortiert danach, wie viele deiner Waren ein Ort abnimmt</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top" align="center">
+<img src="assets/screenshot-routen.png" alt="Handelsrouten" width="100%"><br>
+<sub><b>Routen</b> — sagen, wo du stehst und was in den Laderaum passt; die lohnendsten Fahrten von dort stehen oben</sub>
 </td>
 </tr>
 </table>
@@ -189,10 +217,20 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 <sub><b>Serverstatus</b> — läuft Star Citizen gerade?</sub>
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-auftragslog.png" alt="Aufträge und Protokoll" width="100%"><br>
+<sub><b>Aufträge &amp; Protokoll</b> — welchen Auftrag du wann gespielt hast, auch wenn das Spiel die Protokolle längst gelöscht hat</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-patchaenderungen.png" alt="Geänderte Spielwerte" width="100%"><br>
+<sub><b>Geänderte Spielwerte</b> — was ein Patch an Schiffen, Waffen und Komponenten verändert hat</sub>
+</td>
+</tr>
 </table>
 
 <details>
-<summary>Und der Rest: Allgemein</summary>
+<summary>Und der Rest: Allgemein und FOV</summary>
 
 <table>
 <tr>
@@ -201,6 +239,8 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 <sub><b>Allgemein</b> — Sprache, Signalton, Autostart, Startmenü-Eintrag</sub>
 </td>
 <td width="50%" valign="top" align="center">
+<img src="assets/screenshot-blickwinkel.png" alt="Blickwinkel" width="100%"><br>
+<sub><b>FOV</b> — das Sichtfeld passend zu deinem Monitor, gerechnet statt geraten</sub>
 </td>
 </tr>
 </table>

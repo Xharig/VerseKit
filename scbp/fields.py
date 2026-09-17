@@ -199,4 +199,7 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
     field.bind('<FocusOut>', lambda _e: show(), add='+')
     variable.trace_add('write', on_variable)
     show()
+    # Für Werkzeuge, die die Oberfläche fernbedienen (Bildschirmfotos): den
+    # Hinweis räumen wie beim ersten Tastendruck.
+    field.hint_hide = hide
     return lambda: state['on']
