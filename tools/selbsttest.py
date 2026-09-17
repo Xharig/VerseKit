@@ -23263,9 +23263,18 @@ def main():
     os.environ['SC_BP_HOME'] = _heim243
     try:
         _ok243, _grund243, _neu243 = _ss243.learn(_bild243('3,170'), '3,170')
-        pruefe(_ok243 and _neu243 >= 1 and os.path.isfile(
+        pruefe(_ok243 and _neu243['neu'] >= 1 and _neu243['erkannt'] == 4
+               and _neu243['neu'] + _neu243['bekannt'] + len(_neu243['unklar']) == 4
+               and os.path.isfile(
             _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)),
             'anlernen legt eigene Vorlagen ab (%r, %r)' % (_grund243, _neu243))
+        _proben243 = os.listdir(_ss243.sample_folder()) if os.path.isdir(
+            _ss243.sample_folder()) else []
+        pruefe(len(_proben243) == 1 and _proben243[0].startswith('3170_')
+               and open(os.path.join(_ss243.sample_folder(), _proben243[0]),
+                        'rb').read(8) == b'\x89PNG\r\n\x1a\n',
+               'das angelernte Bild liegt mit der richtigen Zahl als PNG ab (%r)'
+               % _proben243)
         _ok243, _grund243, _ = _ss243.learn(_bild243('3,170'), '31,700')
         pruefe(not _ok243 and _grund243 == 'anlernen_anzahl',
                'falsche Stellenzahl wird NICHT angelernt, sondern abgelehnt')

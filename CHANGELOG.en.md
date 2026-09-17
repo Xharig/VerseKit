@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc4 - 2026-09-17
+
+> **When teaching, you see what arrived.**
+
+### Improved
+
+- **Teaching in the scan window:** the feedback names the taught number,
+  how many digits were in the image, newly saved or already known — and
+  checks right away whether VerseKit now reads the image correctly
+- **Taught images are kept:** the small crop around the number is saved
+  with the correct number (at most 200), so recognition can be improved
+  from them later
+
 ## v3.49.0-rc3 - 2026-09-17
 
 > **The signature scanner copes with small HUD text**, and its texts are
