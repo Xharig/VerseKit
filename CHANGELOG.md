@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.50.4 - 2026-09-17
+
+> **v3.50.3 startete nicht.** Wer sie geladen hat, bekam beim Start eine
+> Fehlermeldung. Diese Fassung behebt das.
+
+> [!important]
+> Hängst du auf v3.50.3 fest (Fehlerfenster beim Start)? Das automatische
+> Update kann dort nicht mehr laufen — lade v3.50.4 einmal von Hand herunter
+> und installiere sie über die alte.
+
+### Behoben
+
+- **Absturz beim Start** von v3.50.3 („name 'scmdb_of' is not defined")
+
 ## v3.50.3 - 2026-09-17
 
 > **Der Launcher ist raus aus Anzeige und Katalog.** Oben im Overlay steht

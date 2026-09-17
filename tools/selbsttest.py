@@ -24080,6 +24080,139 @@ def main():
            and 'launcher' not in _code248.lower(),
            'die Statuszeile nennt keinen Launcher mehr (%r)' % _zeilen248)
 
+    # 250. Das Programm startet MIT scmdb-Daten
+    # ⛔⛔ v3.50.3 starb bei jedem Nutzer mit scmdb-Zwischenspeicher sofort beim
+    # Start („NameError: name 'scmdb_of' is not defined") — ein Aufruf auf
+    # Modulebene stand vor der Funktion, die er brauchte. Der Selbsttest
+    # importierte das Programm nur in einem Wegwerf-Ordner OHNE scmdb-Daten;
+    # der Zweig lief nie. Deshalb hier ein frischer Prozess mit Daten.
+    print('250. Das Programm startet MIT scmdb-Daten')
+    import subprocess as _sp250
+    _heim250 = tempfile.mkdtemp(prefix='pruefung250-')
+    try:
+        with open(os.path.join(_heim250, 'scmdb-items.json'), 'w', encoding='utf-8') as _f250:
+            json.dump({'version': '9.9.9-LIVE.1', 'items': {
+                'probekanone': {'a': 'WeaponGun'},
+                'probehelm': {'a': 'Char_Armor_Helmet', 'sub': 'Heavy'}}}, _f250)
+        _env250 = dict(os.environ, SC_BP_HOME=_heim250, SC_BP_NO_NET='1',
+                       PYTHONIOENCODING='utf-8')
+        _lauf250 = _sp250.run(
+            [sys.executable, '-c',
+             'import sc_bp_watcher as w; print(len(w.SCMDB), sorted(set(w.TYPES.values())))'],
+            cwd=WURZEL, env=_env250, capture_output=True, text=True,
+            encoding='utf-8', errors='replace', timeout=120)
+        _letzte250 = (_lauf250.stderr.strip().splitlines() or [''])[-1]
+        pruefe(_lauf250.returncode == 0,
+               'das Programm laedt mit scmdb-Zwischenspeicher ohne Absturz (%s)'
+               % (_letzte250 or 'ok'))
+        pruefe("'Heavy Helmet'" in _lauf250.stdout and "'Ship Weapon'" in _lauf250.stdout,
+               'und sein Katalog kommt aus diesen Daten (%s)' % _lauf250.stdout.strip())
+    finally:
+        shutil.rmtree(_heim250, ignore_errors=True)
+
+    # 249. Bergbau: Auswahl im Feld klappt den Eintrag direkt auf
+    # ⭐ Wunsch 08.09.2026: „wenn man eine Auswahl trifft, machs so, dass das
+    # betreffende direkt aufgeklappt ist". Lag bis 17.09.2026 nur als
+    # Wegwerf-Skript vor. Drei Faelle: Ort gewaehlt -> aufgeklappt, Auswahl
+    # geloescht -> zu, Rohstoff gewaehlt -> Fundorte da.
+    # ⚠ Gezaehlt werden die ANTEILE („75 %"), nicht der Erzname — den zeigt die
+    # Kopfzeile auch zugeklappt. Der Hilfetext enthaelt ebenfalls ein „%",
+    # deshalb nur Beschriftungen der Form „Zahl %".
+    print('249. Bergbau: Auswahl im Feld klappt den Eintrag direkt auf')
+    import re as _re249
+    import tkinter as _tk249
+    from scbp import mining as _mi249, language as _sp249
+    from scbp.main_window import MainWindow as _MW249
+    _heim249 = tempfile.mkdtemp(prefix='pruefung249-')
+    _alt249 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim249
+    _w249 = None
+    try:
+        _sp249.set_language('de')
+
+        def _teil249(guid, name):
+            return {'elementGuid': guid, 'elementName': name, 'probability': 1.0,
+                    'minPercent': 50, 'maxPercent': 100}
+
+        with open(os.path.join(_heim249, _mi249.CACHE), 'w', encoding='utf-8') as _f249:
+            json.dump({
+                'format': _mi249.FORMAT, 'build': 'probe',
+                'elemente': {'e1': {'name': 'Probium (Ore)', 'materialName': 'Probium'},
+                             'e2': {'name': 'Testit (Raw)', 'materialName': 'Testit'}},
+                'compositions': {
+                    'c1': {'name': 'Probium', 'parts': [_teil249('e1', 'Probium (Ore)')]},
+                    'c2': {'name': 'Testit', 'parts': [_teil249('e2', 'Testit (Raw)')]}},
+                'locations': [
+                    {'locationName': 'Ort Alpha', 'system': 'Stanton', 'groups': [
+                        {'groupName': 'SpaceShip_Mineables', 'groupProbability': 1.0,
+                         'deposits': [{'relativeProbability': 3.0, 'compositionGuid': 'c1'},
+                                      {'relativeProbability': 1.0, 'compositionGuid': 'c2'}]}]},
+                    {'locationName': 'Ort Beta', 'system': 'Pyro', 'groups': [
+                        {'groupName': 'SpaceShip_Mineables', 'groupProbability': 1.0,
+                         'deposits': [{'relativeProbability': 1.0, 'compositionGuid': 'c1'}]}]}],
+                'refineryProfiles': {}, 'refineries': []}, _f249)
+
+        _w249 = _tk249.Tk()
+        _fe249 = _MW249(_w249, version='0.0.0-aufklapp', start_page='bergbau')
+
+        def _warte249():
+            for _ in range(5):
+                _fe249.root.update()
+
+        _warte249()
+        _seite249 = _fe249.pages.get('bergbau')
+
+        def _unter249(knoten):
+            for _k in knoten.winfo_children():
+                yield _k
+                yield from _unter249(_k)
+
+        def _anteile249():
+            return sorted(_x.cget('text') for _x in _unter249(_seite249)
+                          if isinstance(_x, _tk249.Label)
+                          and _re249.match(r'^\d+ %$', _x.cget('text') or ''))
+
+        def _feld249(beschriftung):
+            for _x in _unter249(_seite249):
+                if isinstance(_x, _tk249.Canvas) and getattr(_x, 'select', None):
+                    if beschriftung in [_x.itemcget(_i, 'text') for _i in _x.find_all()
+                                        if _x.type(_i) == 'text']:
+                        return _x
+            return None
+
+        _ort249 = _feld249(_sp249.t('s_bg_alle_orte'))
+        _erz249 = _feld249(_sp249.t('s_bg_alle_erze'))
+        pruefe(_seite249 is not None and _ort249 is not None and _erz249 is not None,
+               'die Bergbau-Seite hat ihre Auswahlfelder fuer Ort und Rohstoff')
+        pruefe(not _anteile249(), 'ohne Auswahl ist nichts aufgeklappt (%r)'
+               % _anteile249())
+        if _ort249 is not None and _erz249 is not None:
+            _ort249.select('Ort Alpha')
+            _warte249()
+            pruefe(_anteile249() == ['25 %', '75 %'],
+                   'Ort gewaehlt: der Ort ist aufgeklappt, seine Anteile stehen da (%r)'
+                   % _anteile249())
+            _ort249.select('')
+            _warte249()
+            pruefe(not _anteile249(),
+                   'Auswahl geloescht: wieder zugeklappt (%r)' % _anteile249())
+            _erz249.select('Probium (Ore)')
+            _warte249()
+            pruefe(bool(_anteile249()),
+                   'Rohstoff gewaehlt: seine Fundorte mit Anteil stehen da (%r)'
+                   % _anteile249())
+    finally:
+        try:
+            if _w249 is not None:
+                _w249.destroy()
+        except _tk249.TclError:
+            pass
+        if _alt249 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt249
+        shutil.rmtree(_heim249, ignore_errors=True)
+
     # Kein Eingabefeld am Baustein vorbei — sonst fehlt dort das X oder der
     # Hinweis landet wieder als Label darueber (wie bei „Schiffe benennen").
     import ast as _ast247

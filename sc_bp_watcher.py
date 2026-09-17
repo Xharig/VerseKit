@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.50.3'
+__version__ = '3.50.4'
 
 
 def _mitgeliefert(name):
@@ -495,10 +495,6 @@ def scmdb_aktualisieren():
 
 
 SCMDB, SCMDB_VERSION = load_scmdb()
-# Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog — auch wenn vorhin die
-# alte Launcher-Datei als Vorbelegung gegriffen hat (siehe `load_types`).
-if SCMDB or not TYPES:
-    TYPES = load_types()
 
 
 def scmdb_of(key):
@@ -512,6 +508,18 @@ def scmdb_of(key):
         if basis != key:
             e = SCMDB.get(_scmdb_key(basis))
     return e
+
+
+# Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog — auch wenn vorhin die
+# alte Launcher-Datei als Vorbelegung gegriffen hat (siehe `load_types`).
+# ⛔⛔ **ERST NACH `scmdb_of`** (17.09.2026). `load_types()` ruft `scmdb_art()`
+# und die `scmdb_of()`. Stand dieser Block davor, starb v3.50.3 bei JEDEM
+# Nutzer mit scmdb-Zwischenspeicher sofort beim Start mit
+# „NameError: name 'scmdb_of' is not defined". Der Selbsttest sah es nicht:
+# In seinem Wegwerf-Ordner gibt es keine scmdb-Daten, der Block lief nie.
+# Pruefung 250 startet das Programm deshalb MIT scmdb-Daten.
+if SCMDB or not TYPES:
+    TYPES = load_types()
 
 
 def _size_grade_class(key):

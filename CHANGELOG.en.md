@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.50.4 - 2026-09-17
+
+> **v3.50.3 did not start.** If you got it, you saw an error message on
+> start. This version fixes that.
+
+> [!important]
+> Stuck on v3.50.3 (error window on start)? The automatic update cannot run
+> there any more — download v3.50.4 once by hand and install it over the
+> old one.
+
+### Fixed
+
+- **Crash on start** in v3.50.3 ("name 'scmdb_of' is not defined")
+
 ## v3.50.3 - 2026-09-17
 
 > **The launcher is gone from the display and the catalogue.** The overlay
