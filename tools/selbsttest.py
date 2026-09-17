@@ -20816,6 +20816,29 @@ def main():
                    % (len(_ic208._STUFEN),
                       ' — NICHT bei: ' + ', '.join(_ohne208)
                       if _ohne208 else ''))
+            # ⚠⚠ **Und das Hover-BILD gibt es auch** (17.09.2026). Die Zeile
+            # darueber prueft nur die Rechnung — auf „sehr gross" ergab sie
+            # 34 px, gebaut waren aber nur Bilder bis 30 px. Beim Ueberfahren
+            # passierte dort gar nichts, und die Pruefung war gruen.
+            _fehlt208 = []
+            _merk208 = _ic208.level()
+            try:
+                for _s208 in _ic208._STUFEN:
+                    _ic208.set_level(_s208)
+                    for _groesse208, _namen208 in (
+                            (_ic208.BUTTON, _ic208.BUTTON_NAMES),
+                            (_ic208.LINE, _ic208.LINE_NAMES)):
+                        _px208 = _ic208.hover_px(_groesse208)
+                        for _n208 in _namen208:
+                            for _farbe208 in ('gruen', 'hell'):
+                                if not os.path.isfile(_ic208._bundled(
+                                        str(_px208), '%s-%s.png' % (_n208, _farbe208))):
+                                    _fehlt208.append('%s/%s/%d' % (_s208, _n208, _px208))
+            finally:
+                _ic208.set_level(_merk208)
+            pruefe(not _fehlt208,
+                   '  und das Hover-Bild liegt in jeder Stufe vor%s'
+                   % (' — FEHLT: ' + ', '.join(_fehlt208[:6]) if _fehlt208 else ''))
     finally:
         _f208.root.destroy()
 

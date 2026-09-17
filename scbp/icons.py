@@ -266,6 +266,10 @@ def _build(parent, name, sizes, action, color, background, fallback, text,
             except tk.TclError:
                 pass
         n = photo(w.symbol, gross if drauf else ruhe, farbe, w)
+        if n is None and drauf:
+            # ⚠ Fehlt das große Bild, wenigstens die Farbe wechseln — vorher
+            # passierte dann beim Überfahren gar nichts (17.09.2026, „sehr gross").
+            n = photo(w.symbol, ruhe, farbe, w)
         if n is not None:
             w.configure(image=n)
             w.image = n

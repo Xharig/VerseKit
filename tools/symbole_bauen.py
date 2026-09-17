@@ -332,7 +332,13 @@ for _tabelle, _satz in ((KNOPF_SYMBOLE, KNOPF), (ZEILEN_SYMBOLE, ZEILE),
                         (ANTIPPBAR_SYMBOLE, ANTIPPBAR)):
     for _n, _v in _tabelle.items():
         _vorlage, _groessen = SYMBOLE.get(_n, (_v, set()))
-        SYMBOLE[_n] = (_vorlage, _groessen | set(_satz.values()))
+        # ⚠⚠ **Plus die Hover-Größe der obersten Stufe** (17.09.2026). Beim
+        # Überfahren zeigt `icons.show()` das Symbol eine Stufe größer; auf
+        # „sehr gross" gibt es keine nächste, dort sind es +4 px. Diese Bilder
+        # (Knöpfe: 34 px) wurden nie gebaut — auf „sehr gross" passierte beim
+        # Überfahren deshalb gar nichts, nicht einmal der Farbwechsel.
+        SYMBOLE[_n] = (_vorlage, _groessen | set(_satz.values())
+                       | {max(_satz.values()) + 4})
 
 
 # ------------------------------------------------------------------ SVG lesen

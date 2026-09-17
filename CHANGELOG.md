@@ -8,6 +8,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.1 - 2026-09-17
+
+> **Der Hover-Effekt funktioniert wieder bei der Schriftgröße „sehr groß".**
+
+### Behoben
+
+- **Bei „sehr groß" reagierten Symbole nicht auf die Maus** — im Overlay und
+  im ganzen Einstellungsfenster wurden sie beim Überfahren weder größer noch
+  grün
+
 ## v3.49.0 - 2026-09-17
 
 > **VerseKit liest beim Minen die Scan-Signatur selbst ab.** Im Overlay steht
