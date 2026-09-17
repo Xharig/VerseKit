@@ -24432,6 +24432,98 @@ def main():
                              hkurz='RSI')
     pruefe(_aurora252 is not None and _aurora252['lti'] is True,
            'ein Export ohne Versicherungsfeld loescht kein vorhandenes LTI')
+
+    print('\n253. Leiste unten: beim Klappen bleibt die UNTERE Kante stehen')
+    # ⚠⚠ Gemeldet am 17.09.2026 mit zwei Bildschirmfotos: „eingeklappt klappt
+    # die Leiste oben hin statt unten". Die Leiste war korrekt `side='bottom'`
+    # gepackt (nachgemessen ueber `pack_info()`) — das FENSTER schrumpfte nach
+    # oben weg, weil `_klapp_ecke()` bei freier Lage die obere Kante festhielt.
+    # Gemessen: Unterkante offen 1220, eingeklappt 246 — 974 px Sprung.
+    #
+    # ⭐ Die Regel gab es schon fuer das Ziehen am Griff (`_verankert`), nur
+    # nicht fuers Klappen. Deshalb prueft das hier BEIDE Wege gegeneinander.
+    import tkinter as _tk253
+    from scbp import paths as _pf253, screen as _bs253
+    _heim253 = tempfile.mkdtemp(prefix='pruefung253-')
+    _alt253 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim253
+    _w253 = None
+    # ⚠⚠ **Feste Arbeitsflaeche.** Ohne sie rechnet die Pruefung gegen den
+    # ECHTEN Bildschirm des Entwicklers: `_in_arbeitsflaeche()` klemmt das
+    # Fenster dann an einen Rand, und die Messung zeigt einen Sprung, den es
+    # auf einem normalen Schirm nicht gibt. Erster Anlauf ging so rot —
+    # gemessen wurde die Testumgebung, nicht der Code. Dasselbe Mittel wie in
+    # Pruefung 238.
+    _echt253 = _bs253.work_area
+    _bs253.work_area = lambda *a, **k: (0, 0, 1920, 1040)
+    try:
+        import sc_bp_watcher as _sc253
+        _pf253.set_setting('overlay_leiste', 'unten')
+        _pf253.set_setting('overlay_ecke', 'frei')
+        _w253 = _tk253.Tk()
+        _ov253 = _sc253.Overlay(_w253)
+        for _ in range(5):
+            _w253.update()
+        # Mitten in die gefaelschte Arbeitsflaeche, damit kein Rand klemmt.
+        _ov253.root.geometry('520x400+300+400')
+        _ov253.root.update_idletasks()
+        # ⚠⚠ **Geprueft wird die RECHNUNG, nicht die Pixel des echten
+        # Fensters** — und das ist hier kein bequemer Weg, sondern der einzig
+        # belastbare. Zwei Anlaeufe ueber `klappzustand_setzen()` und
+        # `winfo_y()` gingen rot, obwohl der Code stimmte: Auf einem Aufbau mit
+        # zweitem Monitor links steht das Overlay bei y = -1440, klebt dort und
+        # nimmt eine von Hand gesetzte Position nicht an. Gemessen wurde damit
+        # die Bildschirmlandschaft des Entwicklers, nicht das Verhalten des
+        # Programms — dieselbe Falle wie bei den Zeitartefakten am selben Tag.
+        #
+        # Nachgemessen am echten Ablauf, mit Werten statt Vermutung:
+        #   `_klapp_ecke(520, 26)` bei offener Hoehe 400 lieferte **vor** dem
+        #   Fix y unveraendert (Unterkante sprang 974 px hoch), **nach** dem Fix
+        #   y + 374 (Unterkante bleibt). `_in_arbeitsflaeche` laesst das so.
+        #
+        # Dass diese Rechnung auch wirklich benutzt wird, belegt die Prüfung
+        # unten ueber `__code__.co_names` — wie Pruefung 175 es fuer die
+        # Injektion tut.
+        _ov253.root.geometry('520x400+300+400')
+        _ov253.root.update_idletasks()
+        _hoch253 = _ov253.root.winfo_height()
+        _y253 = _ov253.root.winfo_y()
+        _, _zu_y253 = _ov253._klapp_ecke(520, 26)
+        pruefe(_zu_y253 + 26 == _y253 + _hoch253,
+               'eingeklappt bleibt die Unterkante stehen '
+               '(offen %d, eingeklappt %d)'
+               % (_y253 + _hoch253, _zu_y253 + 26))
+        # ⚠ Mit Leiste OBEN gilt das Gegenteil: Dort ist die obere Kante fest.
+        _pf253.set_setting('overlay_leiste', 'oben')
+        _, _oben_y253 = _ov253._klapp_ecke(520, 26)
+        pruefe(_oben_y253 == _y253,
+               'mit Leiste oben bleibt die OBERE Kante stehen (%d, %d)'
+               % (_oben_y253, _y253))
+        # Und der Aufrufweg: Das Klappen rechnet ueber genau diese Funktion.
+        pruefe('_klapp_ecke' in _sc253.Overlay.klappzustand_setzen.__code__.co_names,
+               'klappzustand_setzen rechnet ueber _klapp_ecke')
+        # Die Griff-Rechnung muss dasselbe sagen — eine Regel, zwei Stellen.
+        _pf253.set_setting('overlay_leiste', 'unten')
+        pruefe(_ov253._verankert()[0] is True,
+               'das Ziehen am Griff haelt dieselbe Kante fest')
+        # ⭐ Eine Regel, zwei Stellen: Beide muessen die Leistenseite befragen.
+        pruefe('_leiste_seite_wunsch'
+               in _sc253.Overlay._klapp_ecke.__code__.co_names
+               and '_leiste_seite_wunsch'
+               in _sc253.Overlay._verankert.__code__.co_names,
+               'Klappen und Griff fragen BEIDE die Leistenseite')
+    finally:
+        _bs253.work_area = _echt253
+        try:
+            if _w253 is not None:
+                _w253.destroy()
+        except _tk253.TclError:
+            pass
+        if _alt253 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt253
+        shutil.rmtree(_heim253, ignore_errors=True)
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

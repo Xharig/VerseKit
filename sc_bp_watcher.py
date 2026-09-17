@@ -3904,6 +3904,25 @@ class Overlay:
         try:
             ecke = paths.setting('overlay_ecke') or 'frei'
             if ecke not in self.ECKEN or ecke == 'frei':
+                # ⚠⚠ **Sitzt die Leiste unten, ist die UNTERE Kante die feste.**
+                # Ohne diese Zeile bleibt beim Klappen die obere Kante stehen,
+                # das Fenster schrumpft nach oben weg — und die unten
+                # verankerte Leiste springt mit. Gemessen am 17.09.2026 bei
+                # freier Lage: Unterkante 1220 offen, 246 eingeklappt, also
+                # **974 px nach oben**. Gemeldet mit zwei Bildschirmfotos:
+                # „eingeklappt klappt die Leiste oben hin statt unten".
+                #
+                # ⭐ Die Regel gab es schon — in `_feste_kante()` fuer das
+                # Ziehen am Griff (`ecke.startswith('unten') or
+                # _leiste_seite_wunsch() == 'bottom'`). Sie stand nur an EINER
+                # der beiden Stellen, die dasselbe entscheiden. Genau das
+                # Muster aus den Projektregeln: Wer eine Stelle repariert,
+                # sucht die zweite.
+                #
+                # ⚠ Bei gesetzter Ecke passiert das nicht — dort rechnet die
+                # Ecke die Lage ohnehin neu (unten: `sy + sh - hoehe - rand`).
+                if self._leiste_seite_wunsch() == 'bottom':
+                    y += self.root.winfo_height() - hoehe
                 return x, y
             # ⚠⚠ **Arbeitsflaeche, nicht die volle Bildschirmflaeche.** Unten
             # liegt unter Windows die Taskleiste. Wurde das Overlay an den
