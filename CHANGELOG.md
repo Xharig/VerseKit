@@ -8,6 +8,34 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc7 - 2026-09-17
+
+> **Der Signatur-Scanner findet die Zahl selbst — egal, wo sie gerade
+> steht.** Kein Scan-Bereich mehr, ein Auge in der Overlay-Leiste zum
+> Ein- und Ausschalten, und Anlernen ohne Hetze.
+
+### Neu
+
+- **Auge in der Overlay-Leiste:** Signatur-Scanner mit einem Klick an
+  (grün) oder aus (grau)
+
+### Verbessert
+
+- **Die Scan-Zahl wird im Bild gesucht** — sie wandert mit dem gescannten
+  Brocken, ein fester Bereich traf sie nur zufällig. Den Scan-Bereich
+  festzulegen entfällt
+- **Anlernen ohne Lotto:** Das Fenster „Ziffern anlernen" zeigt das zuletzt
+  gefundene Bild stehend, bis „Nächstes Bild" ein neues holt
+- **Fehlerbericht absenden:** ein Haken statt zweier Rückfragen — mit
+  Haken gehen Bericht und angelernte Scan-Bilder zusammen raus
+- **Verklebte Ziffern** werden an der dunkelsten Stelle getrennt statt
+  stur in der Mitte
+
+### Behoben
+
+- **Eine 6 konnte als 0 gelesen werden** (16,960 als 10,800)
+- **Eine offene 4 ließ sich nicht anlernen** („Stelle unklar")
+
 ## v3.49.0-rc6 - 2026-09-17
 
 > **Ehrlichere Rückmeldung beim Anlernen, und der Fehlerbericht kennt den

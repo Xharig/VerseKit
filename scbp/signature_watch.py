@@ -35,7 +35,7 @@ import threading
 import time
 
 SETTING = 'signatur_wache'
-INTERVAL_S = 0.4
+INTERVAL_S = 0.5
 CLEAR_S = 4.0
 VOTES = 3
 NEEDED = 2
@@ -43,7 +43,8 @@ RELOAD_S = 60.0          # Vorlagen und Wertemenge so oft neu laden
 
 _lock = threading.Lock()
 _listeners = []
-_state = {'thread': None, 'stop': None, 'shown': None, 'last_frame': None}
+_state = {'thread': None, 'stop': None, 'shown': None, 'last_frame': None,
+          'reload': False}
 
 
 def listen(callback):
@@ -79,6 +80,11 @@ def last_frame():
     Gibt (raster, zeitpunkt) oder None.
     """
     return _state['last_frame']
+
+
+def reload_templates():
+    """Nach dem Anlernen: Vorlagen beim nächsten Takt neu laden, nicht erst in 60 s."""
+    _state['reload'] = True
 
 
 def running():
@@ -128,7 +134,9 @@ def step(grab, read, foreground, region, history, now, last_seen):
     raster = grab(*region)
     result = read(raster)
     if result.get('ziffern'):
-        _state['last_frame'] = (raster, now)
+        # Der Ausschnitt um die Pille (bei der Suche `bild`), dazu der gelesene
+        # Wert — das Anlern-Fenster zeigt genau dieses Bild, stehend.
+        _state['last_frame'] = (result.get('bild') or raster, now, result.get('wert'))
     history.append(result.get('wert'))
     del history[:-VOTES]
     value = result.get('wert')
@@ -150,15 +158,23 @@ def _loop(stop_event):
     while not stop_event.is_set():
         started = time.time()
         try:
-            if started - cache['at'] > RELOAD_S:
+            if started - cache['at'] > RELOAD_S or _state['reload']:
+                _state['reload'] = False
                 cache.update(at=started, known=signature_scan.templates(),
                              values=signature_scan.possible_values())
-            cache['region'] = signature_scan.region()
+            # ⚠⚠ Gesucht wird in der Bildmitte des Spielfensters, nicht in
+            # einem festen Bereich — die Pille wandert mit dem Brocken.
+            area = None
+            game = screen_grab.game_rect()
+            if game:
+                fx, fy, fw, fh = signature_scan.SEARCH_AREA
+                area = (game[0] + int(game[2] * fx), game[1] + int(game[3] * fy),
+                        int(game[2] * fw), int(game[3] * fh))
             value, last_seen = step(
-                screen_grab.grab,
-                lambda r: signature_scan.read(r, cache['known'], cache['values']),
-                screen_grab.foreground_is_game, cache['region'], history,
-                started, last_seen)
+                lambda left, top, w, h: (screen_grab.grab_raw(left, top, w, h), w, h),
+                lambda b: signature_scan.search(b[0], b[1], b[2],
+                                                cache['known'], cache['values']),
+                lambda: True, area, history, started, last_seen)
             if value is not False:
                 _publish(value)
             failures = 0

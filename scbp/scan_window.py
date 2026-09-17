@@ -43,8 +43,6 @@ nicht. Dort wird es gebaut, sobald der Abgriff über das Portal steht.
 """
 import base64
 import struct
-import threading
-import time
 import tkinter as tk
 import zlib
 
@@ -133,96 +131,70 @@ def png_data(raster, zoom=1):
 
 
 class ScanWindow(object):
-    """Ein einziges Scan-Fenster zur Zeit — ein zweiter Aufruf holt es nach vorn."""
+    """Das Anlern-Fenster — ein einziges zur Zeit.
+
+    ⚠⚠ **Umgebaut am 17.09.2026.** Vorher zog der Spieler ein Fenster über die
+    Zahl, und das Fenster las live. Zwei Gründe, warum das nicht trug:
+    **die Pille wandert mit dem gescannten Brocken** (ein fester Bereich traf nur
+    zufällig), und der gelesene Wert **stand oft unter einer Sekunde** da —
+    „Lotto spielen, ob man beim Speichern die Zahl noch trifft".
+
+    Jetzt sucht die Wache die Pille selbst (`signature_scan.search`), und dieses
+    Fenster zeigt das zuletzt gefundene Bild **stehend**. Erst „Nächstes Bild"
+    holt ein neues. So bleibt Zeit, die Zahl in Ruhe einzutippen.
+    """
 
     def __init__(self, master, on_saved=None):
         self.master = master
         self.on_saved = on_saved
         self.raster = None
+        self.frame_time = None
         self.preview_image = None
         self.last_error = None
-        self.drag = None
-        # ⚠⚠ Abgreifen und Lesen laufen in einem **eigenen Faden**. Im RC 1
-        # lagen sie im Tk-Faden: 150 ms je Lesung, und das Fenster ruckelte
-        # beim Ziehen. Getauscht wird nur über diese zwei Felder.
-        self.rect = None             # physisch, gesetzt vom Tk-Faden
-        self.latest = None           # (raster, ergebnis) vom Lese-Faden
-        self.stop = threading.Event()
         self.win = tk.Toplevel(master)
-        self.win.overrideredirect(True)
-        self.win.configure(bg=ACCENT)
+        self.win.title(t('scan_titel'))
+        self.win.configure(bg=SURFACE)
+        self.win.resizable(False, False)
         try:
             self.win.attributes('-topmost', True)
-            self.win.attributes('-transparentcolor', HOLE)
-            # ⚠ Halbdurchsichtig (17.09.2026): Die Tafel verdeckte das Cockpit —
-            # „man sieht darunter nichts mehr, kann mit dem Scanner nicht mehr
-            # zielen". Das Loch bleibt ganz durchsichtig.
-            self.win.attributes('-alpha', ALPHA)
         except tk.TclError:
             pass
         font = ('Segoe UI', 9)
+        width = PANEL_W - 12
 
-        bar = tk.Frame(self.win, bg=ACCENT, cursor='fleur')
-        bar.pack(fill='x')
-        self.bar_label = tk.Label(bar, text=t('scan_ziehen'), bg=ACCENT, fg=BG,
-                                  font=(font[0], font[1], 'bold'), anchor='w')
-        self.bar_label.pack(side='left', fill='x', expand=True, padx=4)
-        for widget in (bar, self.bar_label):
-            widget.bind('<ButtonPress-1>', self._drag_start)
-            widget.bind('<B1-Motion>', self._drag_move)
-            widget.bind('<ButtonRelease-1>', self._drag_end)
-
-        frame = tk.Frame(self.win, bg=ACCENT)
-        frame.pack(padx=2)
-        self.hole = tk.Frame(frame, bg=HOLE, width=START_W, height=START_H)
-        self.hole.pack()
-        # ⚠ Der Griff sitzt UNTER dem Loch, nicht darin: Im RC 2 lag er im
-        # Loch und wurde als weißes Quadrat mit abfotografiert.
-        edge = tk.Frame(frame, bg=ACCENT, height=GRIP)
-        edge.pack(fill='x')
-        self.grip = tk.Frame(edge, bg=BG, width=GRIP, height=GRIP,
-                             cursor='size_nw_se')
-        self.grip.pack(side='right')
-        self.grip.bind('<ButtonPress-1>', self._resize_start)
-        self.grip.bind('<B1-Motion>', self._resize_move)
-        self.grip.bind('<ButtonRelease-1>', self._drag_end)
-
-        # ⚠⚠ **Feste Größe.** Im RC 1 wuchs und schrumpfte das Fenster mit
-        # jeder Meldung („springt"), weil die Tafel sich nach dem Text richtete.
-        panel = tk.Frame(self.win, bg=SURFACE, width=PANEL_W, height=PANEL_H)
-        panel.pack_propagate(False)
-        panel.pack()
-        self.result = tk.Label(panel, text='', bg=SURFACE, fg=FG, font=font,
+        tk.Label(self.win, text=t('scan_hinweis'), bg=SURFACE, fg=SUB, font=font,
+                 anchor='w', justify='left', wraplength=width
+                 ).pack(fill='x', padx=6, pady=(6, 2))
+        self.result = tk.Label(self.win, text='', bg=SURFACE, fg=FG, font=font,
                                anchor='nw', justify='left', height=2,
-                               wraplength=PANEL_W - 12)
-        self.result.pack(fill='x', padx=6, pady=(4, 0))
-        self.blank = tk.PhotoImage(width=PANEL_W - 12, height=PREVIEW_H)
-        self.preview = tk.Label(panel, bg=BG, image=self.blank, anchor='w',
-                                width=PANEL_W - 12, height=PREVIEW_H)
-        self.preview.pack(padx=6, pady=2, anchor='w')
+                               wraplength=width)
+        self.result.pack(fill='x', padx=6)
+        self.blank = tk.PhotoImage(width=width, height=PREVIEW_H)
+        self.preview = tk.Label(self.win, bg=BG, image=self.blank,
+                                width=width, height=PREVIEW_H)
+        self.preview.pack(padx=6, pady=2)
 
-        learn = tk.Frame(panel, bg=SURFACE)
+        learn = tk.Frame(self.win, bg=SURFACE)
         learn.pack(fill='x', padx=6, pady=2)
         tk.Label(learn, text=t('scan_richtig'), bg=SURFACE, fg=SUB,
                  font=font).pack(side='left')
         self.typed = tk.Entry(learn, width=9, bg=BG, fg=FG, insertbackground=FG,
                               relief='flat', font=font)
         self.typed.pack(side='left', padx=4)
-        self._link(learn, t('scan_anlernen'), self._learn).pack(side='left')
+        self.typed.bind('<Return>', lambda _e: self._learn())
+        self._link(learn, t('scan_anlernen'), self._learn, ACCENT).pack(side='left')
 
-        buttons = tk.Frame(panel, bg=SURFACE)
-        buttons.pack(fill='x', padx=6, pady=(2, 6))
-        self._link(buttons, t('scan_uebernehmen'), self._save, ACCENT).pack(side='left')
-        self._link(buttons, t('scan_abbrechen'), self.close, SUB).pack(side='left', padx=12)
-        self.note = tk.Label(panel, text='', bg=SURFACE, fg=SUB, font=font,
+        buttons = tk.Frame(self.win, bg=SURFACE)
+        buttons.pack(fill='x', padx=6, pady=(2, 2))
+        self._link(buttons, t('scan_naechstes'), self._next).pack(side='left')
+        self._link(buttons, t('scan_schliessen'), self.close, SUB).pack(side='left', padx=12)
+        self.note = tk.Label(self.win, text='', bg=SURFACE, fg=SUB, font=font,
                              anchor='nw', justify='left', height=4,
-                             wraplength=PANEL_W - 12)
-        self.note.pack(fill='x', padx=6, pady=(0, 4))
+                             wraplength=width)
+        self.note.pack(fill='x', padx=6, pady=(0, 6))
 
-        self._place()
+        self.win.protocol('WM_DELETE_WINDOW', self.close)
         self.win.bind('<Escape>', lambda _e: self.close())
-        threading.Thread(target=self._reader, daemon=True,
-                         name='scan-fenster').start()
         self._tick()
 
     @staticmethod
@@ -232,126 +204,66 @@ class ScanWindow(object):
         label.bind('<Button-1>', lambda _e: action())
         return label
 
-    # --- Lage -------------------------------------------------------------
-
-    def _place(self):
-        """Das Loch dorthin legen, wo der gemerkte Bereich liegt.
-
-        ⚠ Gemerkt ist **physisch**, Tk rechnet **logisch** — umgerechnet wird
-        allein über `screen_grab.to_logical`.
-        """
-        saved = signature_scan.region()
-        self.win.update_idletasks()
-        if saved:
-            left, top, width, height = screen_grab.to_logical(saved)
-            self.hole.configure(width=max(MIN_W, width), height=max(MIN_H, height))
-            self.win.update_idletasks()
-            offset_x = self.hole.winfo_rootx() - self.win.winfo_rootx()
-            offset_y = self.hole.winfo_rooty() - self.win.winfo_rooty()
-            self.win.geometry('+%d+%d' % (left - offset_x, top - offset_y))
-        else:
-            width = self.master.winfo_screenwidth()
-            height = self.master.winfo_screenheight()
-            self.win.geometry('+%d+%d' % (width // 2 - START_W // 2, height // 3))
-
-    def _drag_start(self, event):
-        self.drag = (event.x_root - self.win.winfo_rootx(),
-                     event.y_root - self.win.winfo_rooty())
-
-    def _drag_end(self, _event=None):
-        self.drag = None
-
-    def _drag_move(self, event):
-        if self.drag and len(self.drag) == 2:
-            self.win.geometry('+%d+%d' % (event.x_root - self.drag[0],
-                                          event.y_root - self.drag[1]))
-
-    def _resize_start(self, event):
-        self.drag = (event.x_root, event.y_root,
-                     self.hole.winfo_width(), self.hole.winfo_height())
-
-    def _resize_move(self, event):
-        if self.drag and len(self.drag) == 4:
-            self.hole.configure(
-                width=max(MIN_W, self.drag[2] + event.x_root - self.drag[0]),
-                height=max(MIN_H, self.drag[3] + event.y_root - self.drag[1]))
-
-    # --- Lesen, Anlernen, Übernehmen --------------------------------------
-
-    def _reader(self):
-        """Lese-Faden: holt den Bereich hinter dem Loch und liest ihn."""
-        while not self.stop.is_set():
-            started = time.time()
-            rect = self.rect
-            try:
-                if rect:
-                    raster = screen_grab.grab(*rect)
-                    self.latest = (raster, signature_scan.read(raster), None)
-            except screen_grab.GrabError as exc:
-                self.latest = (None, None, exc.reason)
-            except Exception as exc:
-                if str(exc) != self.last_error:
-                    self.last_error = str(exc)
-                    errors.record('scan_window.reader', exc)
-            self.stop.wait(max(0.05, PREVIEW_MS / 1000.0 - (time.time() - started)))
-
     def _tick(self):
-        """Tk-Faden: Lage weitergeben, letztes Ergebnis zeigen."""
+        """Ein neues Bild übernehmen — aber nur, solange keins steht."""
         try:
             if not self.win.winfo_exists():
                 return
         except tk.TclError:
             return
         try:
-            # Während des Ziehens nicht lesen — das Bild zeigt sonst den Weg.
-            self.rect = None if self.drag else screen_grab.widget_rect(self.hole)
-            latest, self.latest = self.latest, None
-            if latest is not None:
-                raster, found, reason = latest
-                if reason:
-                    self.result.configure(text=t('scan_grund_' + reason), fg=RED)
-                elif found['ziffern'] or self.raster is None:
-                    # ⚠⚠ **Nur ein Bild MIT Zahl ersetzt das angezeigte.** Wer das
-                    # Fenster anklickt, holt es nach vorn — Star Citizen schaltet
-                    # dann den Scanner ab, und die Zahl ist weg (Einwand vom
-                    # 17.09.2026: „so kann das ja gar nicht klappen"). Stehen
-                    # bleibt deshalb das letzte Bild, in dem eine Zahl stand;
-                    # Anlernen und Übernehmen beziehen sich darauf.
-                    self.raster = raster
-                    if found['wert'] is not None:
-                        self.result.configure(text=describe(found['wert']), fg=ACCENT)
-                        self.bar_label.configure(text='{:,}'.format(found['wert']))
-                    elif found['ziffern']:
-                        self.result.configure(text=t('scan_grund_unsicher'), fg=SUB)
-                        self.bar_label.configure(text=t('scan_ziehen'))
-                    else:
-                        self.result.configure(text=t('scan_zurueck_ins_spiel'), fg=SUB)
-                    self.preview_image = tk.PhotoImage(
-                        data=png_data(fit_preview(raster, PANEL_W - 12, PREVIEW_H)))
-                    self.preview.configure(image=self.preview_image)
+            from . import signature_watch
+            if not signature_watch.running():
+                self.result.configure(text=t('scan_wache_aus'), fg=GOLD)
+            elif self.raster is None:
+                frame = signature_watch.last_frame()
+                if frame and frame[1] != self.frame_time:
+                    self._show(frame)
+                elif not frame:
+                    self.result.configure(text=t('scan_warte'), fg=SUB)
         except Exception as exc:
-            # ⚠ Einmal je Fehlerart, nicht alle 0,4 s.
             if str(exc) != self.last_error:
                 self.last_error = str(exc)
                 errors.record('scan_window.tick', exc)
-        self.win.after(PREVIEW_MS // 2, self._tick)
+        self.win.after(PREVIEW_MS, self._tick)
+
+    def _show(self, frame):
+        raster, stamp, value = frame[0], frame[1], (frame[2] if len(frame) > 2 else None)
+        self.raster, self.frame_time = raster, stamp
+        if value is not None:
+            self.result.configure(text=t('scan_gelesen') % describe(value), fg=ACCENT)
+        else:
+            self.result.configure(text=t('scan_grund_unsicher'), fg=GOLD)
+        self.preview_image = tk.PhotoImage(
+            data=png_data(fit_preview(raster, PANEL_W - 12, PREVIEW_H)))
+        self.preview.configure(image=self.preview_image)
+
+    def _next(self):
+        """Das stehende Bild freigeben — das nächste gefundene wird gezeigt."""
+        self.raster = None
+        self.note.configure(text='')
+        self.result.configure(text=t('scan_warte'), fg=SUB)
+        self.preview.configure(image=self.blank)
 
     def _learn(self):
         if not self.raster:
+            self.note.configure(text=t('scan_warte'), fg=SUB)
             return
         typed = self.typed.get()
         ok, reason, stats = signature_scan.learn(self.raster, typed)
         if not ok:
             self.note.configure(text=t('scan_grund_' + reason), fg=RED)
             return
-        # ⭐ Sagen, WAS angelernt wurde — und gleich die Probe am selben Bild:
-        # Liest VerseKit jetzt, was getippt wurde? Nur daran sieht der Spieler,
-        # dass das Richtige angekommen ist.
-        digits = ''.join(c for c in typed if c.isdigit())
-        number = '{:,}'.format(int(digits))
+        try:
+            from . import signature_watch
+            signature_watch.reload_templates()
+        except Exception:
+            pass
         # ⭐ „Neu" heißt: VerseKit hätte diese Ziffer vorher NICHT richtig
         # gelesen (siehe `signature_scan.learn`). Sind alle bekannt, weiß der
         # Spieler: genug angelernt. Gespeichert wird in jedem Fall.
+        digits = ''.join(c for c in typed if c.isdigit())
+        number = '{:,}'.format(int(digits))
         if stats['neu'] == 0 and not stats['unklar']:
             lines = [t('scan_gelernt_alle') % (number, stats['erkannt'])]
         else:
@@ -369,21 +281,7 @@ class ScanWindow(object):
         self.note.configure(text='\n'.join(lines), fg=color)
         self.typed.delete(0, 'end')
 
-    def _save(self):
-        rect = screen_grab.widget_rect(self.hole)
-        if not rect:
-            self.note.configure(text=t('scan_grund_bereich_ungueltig'), fg=RED)
-            return
-        signature_scan.set_region(rect)
-        if self.on_saved:
-            try:
-                self.on_saved(rect)
-            except Exception as exc:
-                errors.record('scan_window.on_saved', exc)
-        self.close()
-
     def close(self):
-        self.stop.set()
         _open[0] = None
         try:
             self.win.destroy()

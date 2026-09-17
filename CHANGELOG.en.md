@@ -8,6 +8,33 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc7 - 2026-09-17
+
+> **The signature scanner finds the number by itself — wherever it is.**
+> No scan area any more, an eye in the overlay bar to switch it on and off,
+> and teaching without rushing.
+
+### New
+
+- **Eye in the overlay bar:** signature scanner on (green) or off (grey)
+  with one click
+
+### Improved
+
+- **The scan number is searched in the image** — it moves with the scanned
+  rock, a fixed area only hit it by chance. Setting a scan area is gone
+- **Teaching without guessing:** the "Teach digits" window keeps the last
+  image found until "Next image" fetches a new one
+- **Sending a bug report:** one tick box instead of two confirmations —
+  with it ticked, report and taught scan images go out together
+- **Merged digits** are split at the darkest column instead of blindly in
+  the middle
+
+### Fixed
+
+- **A 6 could be read as 0** (16,960 as 10,800)
+- **An open 4 could not be taught** ("position unclear")
+
 ## v3.49.0-rc6 - 2026-09-17
 
 > **More honest feedback when teaching, and the bug report knows the
