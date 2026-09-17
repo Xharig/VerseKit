@@ -8,6 +8,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc8 - 2026-09-17
+
+> **Auge und Schalter zeigen denselben Stand.**
+
+### Behoben
+
+- **Auge in der Overlay-Leiste und „Signatur automatisch erkennen" liefen
+  auseinander** — wurde das Auge grau, blieb der Schalter auf der
+  Bergbau-Seite auf an (und umgekehrt). Beide folgen jetzt einander
+
 ## v3.49.0-rc7 - 2026-09-17
 
 > **Der Signatur-Scanner findet die Zahl selbst — egal, wo sie gerade

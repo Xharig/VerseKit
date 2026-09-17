@@ -10088,17 +10088,25 @@ def _signature_scanner(window, parent, signature_var):
     row = _setting_row(window, parent, t('s_bg_scan_kopf'), t('s_bg_scan_h'))
 
     def toggle():
-        new_value = not paths.setting_bool(signature_watch.SETTING, False)
-        paths.set_setting(signature_watch.SETTING, new_value)
-        if new_value:
-            signature_watch.start()
-        else:
-            signature_watch.stop()
+        # ⚠ Über `set_enabled` — derselbe Weg wie das Auge in der Overlay-Leiste,
+        # damit beide Anzeigen denselben Stand zeigen.
+        new_value = signature_watch.set_enabled(
+            not paths.setting_bool(signature_watch.SETTING, False))
         window.say(t('s_bg_scan_sagen') % (t('e_an') if new_value else t('e_aus')))
         return new_value
 
-    toggle_switch(row, paths.setting_bool(signature_watch.SETTING, False),
-                  toggle).pack()
+    switch = toggle_switch(row, paths.setting_bool(signature_watch.SETTING, False),
+                           toggle)
+    switch.pack()
+
+    def follow(on):
+        # Schaltet das Auge um, zieht der Schalter hier nach. Ist die Seite
+        # zu, wirft `draw` — dann meldet `set_enabled` die Anzeige ab.
+        if not switch.winfo_exists():
+            raise tk.TclError('Seite geschlossen')
+        switch.draw(on)
+
+    signature_watch.on_switch(follow)
 
     line = tk.Frame(parent, bg=BG)
     line.pack(fill='x', pady=(0, 10))

@@ -114,6 +114,39 @@ def stop():
         _publish(None)
 
 
+_switch_listeners = []
+
+
+def on_switch(callback):
+    """`callback(an)` nach jedem Umschalten — für alle Anzeigen des Schalters."""
+    if callback not in _switch_listeners:
+        _switch_listeners.append(callback)
+
+
+def set_enabled(on):
+    """Den Scanner ein- oder ausschalten — der EINE Weg dafür.
+
+    ⚠⚠ Es gibt zwei Schalter für dieselbe Sache: das Auge in der Overlay-Leiste
+    und „Signatur automatisch erkennen" auf der Bergbau-Seite. Bis zum
+    17.09.2026 schaltete jeder für sich; das Auge wurde grau, der Schalter auf
+    der Seite blieb auf „an" („wieso sind die wieder nicht synchron?"). Jetzt
+    gehen beide hier durch, und jede Anzeige meldet sich über `on_switch`.
+    """
+    from . import paths
+    paths.set_setting(SETTING, bool(on))
+    if on:
+        start()
+    else:
+        stop()
+    for callback in list(_switch_listeners):
+        try:
+            callback(bool(on))
+        except Exception:
+            # Eine Anzeige, deren Fenster zu ist, fliegt heraus.
+            _switch_listeners.remove(callback)
+    return bool(on)
+
+
 def start_if_enabled():
     from . import paths
     if paths.setting_bool(SETTING, False):

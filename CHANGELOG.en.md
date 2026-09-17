@@ -8,6 +8,16 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc8 - 2026-09-17
+
+> **Eye and switch show the same state.**
+
+### Fixed
+
+- **The eye in the overlay bar and "Recognise signatures automatically"
+  drifted apart** — when the eye turned grey, the switch on the mining
+  page stayed on (and vice versa). Both now follow each other
+
 ## v3.49.0-rc7 - 2026-09-17
 
 > **The signature scanner finds the number by itself — wherever it is.**

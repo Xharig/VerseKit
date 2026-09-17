@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.49.0-rc7'
+__version__ = '3.49.0-rc8'
 
 
 def _mitgeliefert(name):
@@ -2152,6 +2152,8 @@ class Overlay:
                 self.scan_lbl.pack(side='right', padx=(0, 6))
                 notice.attach(self.scan_lbl, self._hinweis_scanner)
                 self._scanner_faerben()
+                from scbp import signature_watch as _watch
+                _watch.on_switch(lambda _an: self._scanner_faerben())
         except Exception as ausnahme:
             errors.record('overlay.scan_knopf', ausnahme)
 
@@ -3133,13 +3135,8 @@ class Overlay:
         """Scanner an/aus — derselbe Schalter wie auf der Bergbau-Seite."""
         try:
             from scbp import signature_watch
-            an = not paths.setting_bool(signature_watch.SETTING, False)
-            paths.set_setting(signature_watch.SETTING, an)
-            if an:
-                signature_watch.start()
-            else:
-                signature_watch.stop()
-            self._scanner_faerben()
+            an = signature_watch.set_enabled(
+                not paths.setting_bool(signature_watch.SETTING, False))
             self._status_setzen(language.Phrase(
                 's_bg_scan_sagen', language.t('e_an') if an else language.t('e_aus')))
         except Exception as ausnahme:
