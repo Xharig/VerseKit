@@ -5859,7 +5859,7 @@ def _thanks(fenster, rahmen):
              + t('s_dk_aeternitas_idee2'), ''),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
-            ('ryze', '', t('s_dk_ryze_idee'), '')):
+            ('ryze', 'KRT', t('s_dk_ryze_idee'), '')):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
