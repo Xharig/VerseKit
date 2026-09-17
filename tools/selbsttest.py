@@ -23500,11 +23500,41 @@ def main():
            'der Fehlerbericht nennt den Stand des Signatur-Scanners')
     # Das Auge in der Overlay-Leiste schaltet den Scanner (17.09.2026).
     pruefe("icons.button(bar, 'signatur', self._scanner_umschalten" in _swq243
-           and 'signature_watch.start()' in methode(_swq243, 'Overlay', '_scanner_umschalten')
-           and 'signature_watch.stop()' in methode(_swq243, 'Overlay', '_scanner_umschalten')
+           and 'signature_watch.set_enabled(' in methode(_swq243, 'Overlay', '_scanner_umschalten')
            and "'signatur'" in open(os.path.join(WURZEL, 'scbp', 'icons.py'),
                                     encoding='utf-8').read(),
            'das Auge in der Overlay-Leiste schaltet den Signatur-Scanner')
+    # ⚠⚠ Auge und Schalter auf der Bergbau-Seite zeigen DENSELBEN Stand: beide
+    # schalten ueber `set_enabled`, beide Anzeigen melden sich ueber `on_switch`
+    # („mach ich das Auge grau, bleibt der Button auf an", 17.09.2026).
+    pruefe('signature_watch.set_enabled(' in _ssc243
+           and 'signature_watch.on_switch(' in _ssc243
+           and "paths.set_setting(signature_watch.SETTING" not in _ssc243
+           and '_watch.on_switch(' in _swq243,
+           'Auge und Bergbau-Schalter schalten ueber denselben Weg und folgen einander')
+    _heim243c = tempfile.mkdtemp(prefix='pruefung243c-')
+    _alt243c = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim243c
+    _gesehen243 = []
+    _alte_start243, _alte_stop243 = _sw243.start, _sw243.stop
+    try:
+        _sw243.start = lambda: True           # kein Faden im Pruefling
+        _sw243.stop = lambda: None
+        _sw243.on_switch(_gesehen243.append)
+        _sw243.set_enabled(True)
+        _sw243.set_enabled(False)
+        pruefe(_gesehen243 == [True, False]
+               and not _pa243.setting_bool(_sw243.SETTING, True),
+               'set_enabled meldet jeden Wechsel an alle Anzeigen (%r)' % _gesehen243)
+    finally:
+        _sw243.start, _sw243.stop = _alte_start243, _alte_stop243
+        if _gesehen243.append in _sw243._switch_listeners:
+            _sw243._switch_listeners.remove(_gesehen243.append)
+        if _alt243c is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt243c
+        shutil.rmtree(_heim243c, ignore_errors=True)
     # Absenden: EIN Haken statt zweier Rueckfrage-Fenster; ohne Haken nichts.
     _dia243 = rumpf(_pq243, '_diagnosis') if 'def _diagnosis(' in _pq243 else _pq243
     _ab243 = _dia243[_dia243.find('def absenden():'):_dia243.find('def absenden():') + 2500]
