@@ -8,6 +8,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.1 - 2026-09-17
+
+> **The hover effect works again with the "very large" text size.**
+
+### Fixed
+
+- **With "very large", icons did not react to the mouse** — in the overlay
+  and the whole settings window they neither grew nor turned green on hover
+
 ## v3.49.0 - 2026-09-17
 
 > **VerseKit reads the scan signature by itself while you mine.** The overlay
