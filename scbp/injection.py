@@ -726,6 +726,27 @@ def _asop_table(lines):
         return {}
 
 
+def _rank_table(lang_code, remove_only=False):
+    """Tabelle *Rang-Schlüssel → ` [ab 10.000]`* — oder leer.
+
+    Holt die Schwellen bei Bedarf (einmal je Spielversion, siehe
+    `rank_thresholds`). Ein Fehler hier darf die übrige Injektion nicht
+    aufhalten: Ohne Ruf-Stufen stehen die Bauplan-Angaben trotzdem da."""
+    if remove_only:
+        return {}
+    try:
+        from . import rank_thresholds, gamebuild
+        try:
+            version = gamebuild.live() or ''
+        except Exception:
+            version = ''
+        rank_thresholds.refresh(version)
+        return rank_thresholds.build_table(lang_code)
+    except Exception as exc:
+        errors.record('injection._rank_table', exc)
+        return {}
+
+
 def _name_with_detail(text, tag):
     """Den Zusatz an einen Namen hängen — vorhandene Klammer vorher abschneiden.
 
@@ -1189,6 +1210,8 @@ def apply_scdl(ini_path, lang_code, stock=None):
     # ⚠ Wer hier eine neue Art von Einfügung baut, baut sie an **beiden**
     # Stellen ein — oder er baut sie für die Hälfte der Nutzer gar nicht.
     own_ships = _asop_table(lines)
+    # Ruf-Schwellen an den Rangnamen — ebenfalls in BEIDEN Schreibwegen.
+    rank_suffix = _rank_table(lang_code)
 
     new = []
     for line in lines:
@@ -1206,6 +1229,10 @@ def apply_scdl(ini_path, lang_code, stock=None):
         if key in own_ships:
             own, star = own_ships[key]
             clean = asop_modul.display_name(base_text, own, star)
+            touched = clean != base_text
+        elif key in rank_suffix:
+            from . import rank_thresholds
+            clean = rank_thresholds.with_suffix(base_text, rank_suffix[key])
             touched = clean != base_text
         elif key in name_suffix:
             clean = _name_with_detail(base_text, name_suffix[key])
@@ -1320,6 +1347,8 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     # Eigene Schiffsnamen im Fleet Manager. Beim reinen Entfernen bleibt die
     # Tabelle leer — dann stellt der Urtext-Weg die Werksnamen wieder her.
     own_ships = {} if remove_only else _asop_table(lines)
+    # Ruf-Schwellen an den Rangnamen — derselbe Einbau wie in `apply_scdl`.
+    rank_suffix = _rank_table(_lang_code(language), remove_only)
 
     # ⚠ Eine Mission hat im Spiel **mehr** Beschreibungen, als der Katalog
     # kennt. Gemessen am 28.08.2026: `Covalex_HaulCargo_SingleToMulti` führt
@@ -1366,6 +1395,10 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
                 # Stern.
                 own, star = own_ships[key]
                 clean = asop_modul.display_name(base_text, own, star)
+                touched = clean != base_text
+            elif key in rank_suffix:
+                from . import rank_thresholds
+                clean = rank_thresholds.with_suffix(base_text, rank_suffix[key])
                 touched = clean != base_text
             elif key in name_suffix:
                 clean = _name_with_detail(base_text, name_suffix[key])

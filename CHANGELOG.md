@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+> **Wie weit ist es bis zum nächsten Rang?** Im Reputationsmenü steht jetzt
+> hinter jedem Rang, ab wie viel Ruf er beginnt. Den Balken selbst füllt nur der
+> Spielserver — aber du siehst, was als Nächstes kommt.
+
+### Neu
+
+- **Ruf-Stufen an den Rängen:** „Gildenmitglied [ab 10.000]", „Auftragnehmer
+  Senior [ab 5.800]" — für Kopfgeldjäger, Auftragnehmer, Transport, Sicherheit,
+  Techniker, Battaglia und Wikelo. Die Zahlen kommen aus den Spieldateien und
+  werden je Patch neu geholt. Abschaltbar unter „Texte im Spiel". Angeregt von
+  KynoTnis (ADI)
+
+### Verbessert
+
+- **Das Klemmbrett ist aus dem Overlay verschwunden.** Es tat fast dasselbe wie
+  das Zahnrad daneben. Die Bauplan-Liste erreichst du über das Zahnrad, sie steht
+  im großen Fenster links
+
 ## v3.47.0 - 2026-09-17
 
 > **Dein Hangar bleibt beim Einlesen aktuell.** Wer ein Schiff per Upgrade

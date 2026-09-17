@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+> **How far to the next rank?** The reputation menu now shows after every rank
+> how much reputation it starts at. Only the game server fills the bar — but you
+> see what comes next.
+
+### New
+
+- **Reputation thresholds on ranks:** "Guild Member [10,000+]", "Sr. Contractor
+  [5,800+]" — for bounty hunters, contractors, hauling, security, technicians,
+  Battaglia and Wikelo. The numbers come from the game files and are fetched
+  again for every patch. Can be switched off under "In-game text". Suggested by
+  KynoTnis (ADI)
+
+### Improved
+
+- **The clipboard is gone from the overlay.** It did almost the same as the gear
+  next to it. You reach the blueprint list through the gear, it sits on the left
+  of the main window
+
 ## v3.47.0 - 2026-09-17
 
 > **Your hangar stays current when you import.** If you upgraded a ship, the

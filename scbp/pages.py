@@ -2599,6 +2599,31 @@ def _game(fenster, rahmen):
                     paths.setting_bool(_inj.SETTING_DETAILS, True),
                     angaben_um).pack()
 
+    # --- Ruf-Stufen an den Rangnamen -------------------------------------------
+    # „Gildenmitglied [ab 10.000]" im Reputationsmenü. Gleich gebaut wie der
+    # Schalter darüber: Umlegen schreibt sofort neu, wenn etwas drinsteht.
+    # Gewünscht von KynoTnis (ADI), 16.09.2026.
+    row = _setting_row(fenster, innen, t('s_sp_rang'), t('s_sp_rang_h'))
+
+    def toggle_ranks():
+        from . import injection as injection_module, rank_thresholds
+        new_value = not paths.setting_bool(rank_thresholds.SETTING, True)
+        paths.set_setting(rank_thresholds.SETTING, new_value)
+        fenster.say(t('s_sp_rang_sagen')
+                    % (t('e_an') if new_value else t('e_aus')))
+        try:
+            if (paths.setting_bool('inj_an', True)
+                    and injection_module.status().get('drin')):
+                e._inj_refresh()
+                lage_zeigen()
+        except Exception as exc:
+            errors.record('pages.toggle_ranks', exc)
+        return new_value
+
+    from . import rank_thresholds as _ranks
+    toggle_switch(row, paths.setting_bool(_ranks.SETTING, True),
+                  toggle_ranks).pack()
+
     ziel = _setting_row(fenster, innen, t('s_sp_hand'), t('s_sp_hand_h'), wide=True)
     reihe = tk.Frame(ziel, bg=BG)
     reihe.pack()
@@ -5708,6 +5733,10 @@ def _thanks(fenster, rahmen):
     # benutzt, nennt sie — sie stand bis rc40 nirgends.
     _credit_box(fenster, innen, 'UEX Corp',
                t('s_dk_keine_lizenz'), t('s_dk_uex'), 'https://uexcorp.space')
+    # ⚠ Seit v3.48.0 kommen die Ruf-Stufen der Ränge von hier.
+    _credit_box(fenster, innen, 'scunpacked-data (Star Citizen Wiki)',
+               t('s_dk_keine_lizenz'), t('s_dk_scunpacked'),
+               'https://github.com/StarCitizenWiki/scunpacked-data')
     # ⚠ Seit v3.19.0 kommen die Steckplätze der Schiffe von hier. Wer eine
     # Quelle benutzt, nennt sie — und zwar bevor jemand danach fragt.
     _credit_box(fenster, innen, 'erkul.games',
@@ -5777,7 +5806,8 @@ def _thanks(fenster, rahmen):
             ('Blackd0g84', 'KRT', t('s_dk_blackdog_idee'), ''),
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), ''),
-            ('KynoTnis', 'ADI', '', t('s_dk_kynotnis_bugs'))):
+            ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
+             t('s_dk_kynotnis_bugs'))):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
