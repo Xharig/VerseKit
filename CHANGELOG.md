@@ -8,6 +8,28 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.50.0 - 2026-09-17
+
+> **Der Einrichtungsassistent fragt jetzt die wichtigsten Einstellungen ab** —
+> wann das Overlay zu sehen ist, Schriftgröße, Durchsichtigkeit, Autostart und
+> was ins Spiel geschrieben wird. Übersichtlich auf drei Karten, und jede Wahl
+> wirkt sofort.
+
+### Neu
+
+- **Der Einrichtungsassistent fragt die wichtigsten Einstellungen ab** — auf
+  drei Karten: *Anzeige* (wann das Overlay zu sehen ist, Schriftgröße,
+  Durchsichtigkeit, Spielzeit), *Programmstart* (mit Windows starten, Symbol
+  neben der Uhr) und *Angaben im Spiel* (Auftragstexte, selbst aktuell halten,
+  Angaben am Gegenstand, Ruf-Stufen). Die Wahl wirkt sofort
+
+### Behoben
+
+- **Pressurized Ice** zeigt im Lager wieder, dass es mit dem Schiff abgebaut
+  wird, und die Raffinerien nennen ihren Bonus dafür
+- Die im ersten Assistenten gewählte Durchsichtigkeit gilt sofort, nicht erst
+  ab dem zweiten Start
+
 ## v3.49.1 - 2026-09-17
 
 > **Der Hover-Effekt funktioniert wieder bei der Schriftgröße „sehr groß".**
