@@ -8,6 +8,37 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0 - 2026-09-17
+
+> **VerseKit liest beim Minen die Scan-Signatur selbst ab.** Im Overlay steht
+> sofort, welches Erz dahintersteckt und aus wie vielen Brocken das Vorkommen
+> besteht — kein Abtippen mehr. Ein Auge in der Overlay-Leiste schaltet es
+> ein und aus. Vorerst unter Windows; Linux folgt.
+
+### Neu
+
+- **Signatur automatisch erkennen** (Auge in der Overlay-Leiste oder
+  Bergbau-Seite, ab Werk aus): Solange Star Citizen vorn ist, findet
+  VerseKit die Scan-Zahl im Bild und zeigt im Overlay Signatur, Erz und
+  Brockenzahl. Danke an ryze
+- **Ziffern anlernen:** Wird eine Zahl nicht erkannt, zeigt das Fenster das
+  zuletzt gefundene Bild stehend — Zahl eintippen, fertig. Die Rückmeldung
+  sagt, ob VerseKit die Ziffern schon kannte und ob es das Bild jetzt liest
+- **Ordner öffnen** zu den angelernten Bildern
+- **Scan-Bilder im Fehlerbericht:** Mit einem Haken unter „Absenden" gehen
+  Bericht und angelernte Bilder zusammen raus und helfen, die Erkennung für
+  alle zu verbessern. Der Haken wird gemerkt
+
+### Verbessert
+
+- **Fehlerbericht** nennt den Stand des Signatur-Scanners
+- **Bergbau-Seite:** „Signatur nachschlagen" mit kürzerer Erklärung
+
+### Behoben
+
+- **Nach dem Schließen des Hauptfensters** konnten Fehler „bad window path
+  name" auftreten
+
 ## v3.49.0-rc9 - 2026-09-17
 
 > **Keine erfundenen Signaturen mehr, und die angelernten Bilder sind mit
