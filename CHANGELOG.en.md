@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.52.1 - 2026-09-17
+
+> **The overlay stays where it is when you collapse it.** With the bar at the
+> bottom, it used to reappear a whole window height further up after
+> collapsing. Now it collapses and expands downwards.
+
 ### Fixed
 
 - **Bar at the bottom: collapsing jumped the overlay upwards.** With the bar at
