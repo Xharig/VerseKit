@@ -22767,12 +22767,27 @@ def main():
     from datetime import datetime as _dt237, timezone as _tz237
     _pub237 = _dt237(2026, 9, 17, 1, 8, 29, tzinfo=_tz237.utc).timestamp()
     _rel237 = {'zeit': '2026-09-17T01:08:29Z'}
-    pruefe(_au237.wait_left(_rel237, _pub237 + 570) == 30,
-           'nach 9 1/2 Minuten fehlen noch 30 Sekunden (%r)'
-           % _au237.wait_left(_rel237, _pub237 + 570))
-    pruefe(_au237.wait_left(_rel237, _pub237 + 600) == 0
-           and _au237.ripe(_rel237, _pub237 + 600),
-           'nach zehn Minuten ist sie reif')
+    _frist237 = _au237.FRESH_WAIT_S
+    pruefe(_au237.wait_left(_rel237, _pub237 + _frist237 - 30) == 30,
+           '30 Sekunden vor Ablauf der Frist fehlen noch 30 Sekunden (%r)'
+           % _au237.wait_left(_rel237, _pub237 + _frist237 - 30))
+    pruefe(_au237.wait_left(_rel237, _pub237 + _frist237) == 0
+           and _au237.ripe(_rel237, _pub237 + _frist237),
+           'mit Ablauf der Frist ist sie reif')
+    # ⚠⚠ Der Takt selbst: mehrfach gewuenscht „30 Minuten ist zu lang",
+    # entschieden 17.09.2026 auf 10 Minuten. Die drei Stellen muessen
+    # zusammenpassen, sonst liefert der Zwischenspeicher den alten Stand.
+    import sc_bp_watcher as _sw237
+    from scbp import updater as _up237
+    pruefe(_au237.CHECK_INTERVAL_S <= 10 * 60,
+           'nach neuen Versionen wird mindestens alle 10 Minuten gesehen (%d s)'
+           % _au237.CHECK_INTERVAL_S)
+    pruefe(_sw237.Overlay.VERSION_TAKT == _au237.CHECK_INTERVAL_S * 1000
+           and _up237.MIN_INTERVAL <= _au237.CHECK_INTERVAL_S,
+           'Takt, Zwischenspeicher und Auto-Update haben dasselbe Mass')
+    pruefe(_au237.FRESH_WAIT_S <= 3 * 60,
+           'eine frische Freigabe wartet hoechstens drei Minuten (%d s)'
+           % _au237.FRESH_WAIT_S)
     pruefe(_au237.wait_left({}, _pub237) == 0,
            'ohne Datum gilt sie als reif')
     _q237 = methode(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
@@ -22946,10 +22961,12 @@ def main():
         pruefe(_tr240.installed('deutsch') == 'git-0123456789ab',
                'und als eingerichtet vermerkt — ein alter Release-Vermerk gilt damit als veraltet')
 
-        # Rueckfall: Commit-Abfrage scheitert -> Release wie bisher.
+        # Rueckfall aufs Release NUR, wenn das Repo die Datei nicht kennt.
+        # ⚠ Scheitert die Abfrage selbst (403), gibt es keinen Rueckfall — das
+        # Release ist aelter und galte sonst als „neue Fassung" (siehe 242).
         def _ohne_git240(url, raw=False):
             if '/commits?' in url:
-                raise OSError('403')
+                return []
             if '/releases/latest' in url:
                 return {'tag_name': '2026.09.08-LIVE', 'assets': [
                     {'name': 'StarCitizen.Deutsch.LIVE.zip',
@@ -22957,7 +22974,7 @@ def main():
             raise AssertionError(url)
         _tr240._fetch = _ohne_git240
         pruefe((_tr240.latest('deutsch') or ('',))[0] == '2026.09.08-LIVE',
-               'faellt die Repo-Abfrage aus, bleibt das Release als Rueckfall')
+               'kennt das Repo die Datei nicht, bleibt das Release als Rueckfall')
     finally:
         _tr240._fetch = _echt240
         if _altheim240 is None:
@@ -23047,6 +23064,108 @@ def main():
     _qp241 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
     pruefe('_added_ship_names(' in _qp241,
            '„Schiffe benennen" sieht dieselben ergaenzten Namen')
+
+    # 242. Der Spieler erkennt, ob seine Uebersetzung aktuell ist
+    # ⚠ Vorher stand nur `git-082b11db5e73` auf der Seite — daran erkennt
+    # niemand etwas. Jetzt: Datum der Fassung und wann zuletzt nachgesehen
+    # wurde, mit Ergebnis. Dazu: Scheitert die Abfrage der Repo-Datei, darf
+    # NICHT das (veraltete) Release als „neue Fassung" gelten.
+    print('242. Der Spieler erkennt, ob seine Uebersetzung aktuell ist')
+    from scbp import translation as _tr242
+    _heim242 = tempfile.mkdtemp(prefix='pruefung242-')
+    _altheim242 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim242
+    _altfetch242 = _tr242._fetch
+    _abrufe242 = []
+    _antwort242 = {}
+
+    def _fetch242(url, raw=False):
+        _abrufe242.append(url)
+        for _teil, _wert in _antwort242.items():
+            if _teil in url:
+                if isinstance(_wert, Exception):
+                    raise _wert
+                return _wert
+        raise OSError('unerwarteter Abruf: %s' % url)
+
+    def _commit242(sha, datum):
+        return [{'sha': sha, 'commit': {'committer': {'date': datum}}}]
+
+    try:
+        _tr242._fetch = _fetch242
+        _tr242._version_dates.clear()
+        _antwort242.clear()
+        _antwort242['/commits?'] = _commit242('a' * 40, '2026-09-16T21:04:00Z')
+        _neu242 = _tr242.latest('deutsch')
+        _tr242._note_set('deutsch', _neu242[0])
+        _txt242 = _tr242.status_text('deutsch', lang='de')
+        pruefe('16.09.2026' in _txt242 and 'git-' not in _txt242,
+               'frisch geholt: Datum der Fassung statt Kennung (%r)' % _txt242)
+        pruefe(_tr242.info('deutsch').get('pruefung') == 'aktuell',
+               'frisch geholt gilt als aktuell')
+
+        _da242, _ = _tr242.update_available('deutsch')
+        _txt242 = _tr242.status_text('deutsch', lang='de')
+        pruefe(not _da242 and _tr242.info('deutsch').get('pruefung') == 'aktuell'
+               and _tr242.info('deutsch').get('geprueft'),
+               'gleiche Fassung: als aktuell und mit Zeitpunkt vermerkt')
+        pruefe(_txt242.count(' · ') == 1,
+               'Anzeige nennt Stand UND Ergebnis der Pruefung (%r)' % _txt242)
+
+        _antwort242['/commits?'] = _commit242('b' * 40, '2026-09-18T08:00:00Z')
+        _da242, _ = _tr242.update_available('deutsch')
+        pruefe(_da242 and _tr242.info('deutsch').get('pruefung') == 'neu',
+               'neuere Fassung: als „neu" vermerkt')
+
+        # Abruf abgewiesen: kein Rueckfall aufs Release.
+        _antwort242.clear()
+        _antwort242['/commits?'] = OSError('HTTP Error 403: rate limit')
+        _antwort242['/releases/latest'] = {
+            'tag_name': '2026.09.08-LIVE', 'published_at': '2026-09-08T10:00:00Z',
+            'assets': [{'name': 'StarCitizen.Deutsch.LIVE.zip',
+                        'browser_download_url': 'https://x/alt.zip', 'size': 1}]}
+        del _abrufe242[:]
+        _da242, _ = _tr242.update_available('deutsch')
+        pruefe(not _da242
+               and not any('/releases/' in _u for _u in _abrufe242),
+               'abgewiesene Abfrage holt NICHT das veraltete Release (%r)' % _abrufe242)
+        pruefe(_tr242.info('deutsch').get('pruefung') == 'fehler',
+               'abgewiesene Abfrage steht als „konnte nicht nachsehen" da')
+
+        # Alte Installation ohne Datum: das Nachsehen traegt es nach.
+        _tr242._version_dates.clear()
+        _tr242._note_write({'deutsch': {'kennung': 'git-' + 'c' * 12,
+                                        'stand': '2026-09-17 03:00'}})
+        _antwort242.clear()
+        _antwort242['/commits?'] = _commit242('c' * 40, '2026-09-16T21:04:00Z')
+        _tr242.update_available('deutsch')
+        pruefe(_tr242.info('deutsch').get('datum') == '2026-09-16',
+               'Installation von vorher bekommt ihr Datum beim Nachsehen')
+
+        # StarStrings: Datum aus dem Release.
+        _antwort242.clear()
+        _antwort242['/releases/latest'] = {
+            'tag_name': 'latest', 'published_at': '2026-09-16T19:48:42Z',
+            'assets': [{'name': 'StarStrings-LIVE.zip',
+                        'browser_download_url': 'https://x/ss.zip', 'size': 1}]}
+        _ss242 = _tr242.latest('starstrings')
+        _tr242._note_set('starstrings', _ss242[0])
+        _txt242 = _tr242.status_text('starstrings', lang='de')
+        pruefe('16.09.2026' in _txt242,
+               'StarStrings zeigt ebenso das Datum (%r)' % _txt242)
+    finally:
+        _tr242._fetch = _altfetch242
+        _tr242._version_dates.clear()
+        if _altheim242 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim242
+        shutil.rmtree(_heim242, ignore_errors=True)
+    _inj242 = rumpf(open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                         encoding='utf-8').read(), 'status')
+    pruefe('translation.status_text(' in _inj242
+           and 'translation.installed(source) if' not in _inj242,
+           'die Seite „Texte im Spiel" zeigt den lesbaren Stand, nicht die Kennung')
 
     print()
     if fehler:

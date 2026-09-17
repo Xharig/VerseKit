@@ -83,10 +83,10 @@ CACHE = 'versionen.json'
 # Eine Stunde ist der Kompromiss: Beim Starten wird praktisch immer nachgesehen,
 # im Dauerbetrieb bleibt es bei ein paar Abfragen am Tag.
 #
-# ⚠ Seit dem automatischen Update (16.09.2026) eine halbe Stunde — im Takt von
-# `auto_update.CHECK_INTERVAL_S`. Das sind höchstens 48 Anfragen am Tag, weit
-# unter GitHubs 60 je Stunde ohne Anmeldung.
-MIN_INTERVAL = 1800
+# ⚠ Seit dem automatischen Update (16.09.2026) im Takt von
+# `auto_update.CHECK_INTERVAL_S` — seit 17.09.2026 zehn Minuten, also höchstens
+# 6 Anfragen je Stunde, weit unter GitHubs 60 ohne Anmeldung.
+MIN_INTERVAL = 600
 OFF = os.environ.get('SC_BP_NO_NET', '') not in ('', '0')
 ALLOWED_HOSTS = ('github.com', 'objects.githubusercontent.com')
 

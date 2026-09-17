@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.5 - 2026-09-17
+
+> **Updates arrive faster, and you can see how current your translation is.**
+> VerseKit now checks for a new version every 10 minutes. Instead of an ID,
+> "Texts in game" shows the date of your translation and whether it was up to
+> date at the last check.
+
+### Improved
+
+- **Updates arrive faster:** VerseKit checks every 10 minutes instead of 30,
+  and a fresh version is fetched after 2 minutes instead of 10
+- **"Texts in game" shows whether the translation is current** — with the
+  date of the version and when it was last checked, for the German
+  translation as well as StarStrings
+
+### Fixed
+
+- **A rejected request could downgrade the German translation** — the older
+  file from the last release would have replaced the current one. The
+  existing file now stays in place
+
 ## v3.48.4 - 2026-09-17
 
 > **The German translation is current again.** VerseKit fetched it from a

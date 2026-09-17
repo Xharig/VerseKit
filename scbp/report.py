@@ -475,7 +475,11 @@ def _injection_state():
                  if paths.setting_bool('inj_auto', True)
                  else t('b_inj_hand'))
     if lage['quelle']:
-        parts.append('%s %s' % (lage['quelle'], lage['stand'] or ''))
+        # Für den Bericht beides: die Kennung (eindeutig) und den lesbaren Stand.
+        from . import translation
+        parts.append('%s %s %s' % (lage['quelle'],
+                                   translation.installed(lage['quelle']) or '',
+                                   lage['stand'] or ''))
     # ⭐⭐ **Welche Sprachdatei — und welche das Spiel wirklich lädt.**
     #
     # Es gibt `english/global.ini` und `german_(germany)/global.ini`, und der

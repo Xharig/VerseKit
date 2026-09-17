@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.5 - 2026-09-17
+
+> **Updates kommen schneller, und du siehst, wie aktuell deine Übersetzung ist.**
+> VerseKit sieht jetzt alle 10 Minuten nach einer neuen Fassung. Unter
+> „Texte im Spiel" steht statt einer Kennung, von wann die Übersetzung ist und
+> ob sie beim letzten Nachsehen aktuell war.
+
+### Verbessert
+
+- **Updates kommen schneller:** VerseKit sieht alle 10 Minuten statt alle
+  30 nach, eine frische Fassung wird nach 2 statt 10 Minuten geholt
+- **„Texte im Spiel" zeigt, ob die Übersetzung aktuell ist** — mit dem Datum
+  der Fassung und wann zuletzt nachgesehen wurde, für die deutsche
+  Übersetzung wie für StarStrings
+
+### Behoben
+
+- **Ein abgewiesener Abruf konnte die deutsche Übersetzung zurückstufen** —
+  statt der aktuellen Datei wäre die ältere aus der letzten Veröffentlichung
+  eingesetzt worden. Jetzt bleibt die vorhandene stehen
+
 ## v3.48.4 - 2026-09-17
 
 > **Die deutsche Übersetzung ist wieder aktuell.** VerseKit holte sie aus

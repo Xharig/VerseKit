@@ -24,7 +24,7 @@ wurden: Ein behobener Fehler soll alle erreichen, ohne dass jemand klickt.
 
 | Frage | Antwort |
 |---|---|
-| Wie oft? | alle 30 Minuten nachsehen |
+| Wie oft? | alle 10 Minuten nachsehen (bis 17.09.2026: 30) |
 | Für wen? | für alle, abschaltbar (`update_automatisch`, Standard an) |
 | Testversionen? | ja, wenn „Auch Testversionen" an ist — das regelt `updater.check` |
 | Während Star Citizen läuft? | **nein** — erst, wenn das Spiel zu ist |
@@ -53,7 +53,10 @@ from datetime import datetime, timezone
 from . import paths
 
 # Wie oft nachgesehen wird. `updater.MIN_INTERVAL` passt dazu.
-CHECK_INTERVAL_S = 30 * 60
+# ⚠⚠ 10 statt 30 Minuten (17.09.2026). Mehrfach gewünscht, „30 Minuten ist zu
+# lang" — und mehrfach nur an Einzelfällen nachgebessert, statt den Takt selbst
+# zu ändern. 6 Abfragen je Stunde bleiben weit unter GitHubs 60 ohne Anmeldung.
+CHECK_INTERVAL_S = 10 * 60
 # Solange ein Update auf das Ende des Spiels wartet: so oft nachsehen.
 # ⚠ 20 statt 60 Sekunden (17.09.2026) — Wunsch Bushwick4712 (KRT): das Update
 # gut eine Minute nach Spielende, nicht fünf. Die Prozessliste zu lesen kostet
@@ -65,7 +68,10 @@ GAME_POLL_S = 20
 # gilt weiter die lange Frist aus `paths.GAME_IDLE_SEC` (fünf Minuten).
 EXIT_QUIET_S = 30
 # So alt muss eine Freigabe sein, bevor sie automatisch geholt wird.
-FRESH_WAIT_S = 10 * 60
+# ⚠ 2 statt 10 Minuten (17.09.2026): Der langsame Abruf direkt nach dem
+# Veröffentlichen dauerte gemessen rund drei Minuten und war nach kurzer Zeit
+# vorbei; zehn Minuten Wartezeit standen dazu in keinem Verhältnis.
+FRESH_WAIT_S = 2 * 60
 
 SETTING = 'update_automatisch'
 

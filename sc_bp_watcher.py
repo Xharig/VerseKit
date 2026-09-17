@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.48.4'
+__version__ = '3.48.5'
 
 
 def _mitgeliefert(name):
@@ -1092,7 +1092,9 @@ class Watcher(threading.Thread):
             if da:
                 ok, meldung = translation.fetch(quelle)
                 if ok:
-                    self.q.put(('status', language.Phrase('texte_erneuert', kennung)))
+                    self.q.put(('status', language.Phrase(
+                        'texte_erneuert',
+                        translation.status_text(quelle) or kennung)))
                     neu_noetig = True
 
         # 2. Neue Vertragsdaten? Nach einem Patch geben Missionen anderes aus.
@@ -3320,9 +3322,10 @@ class Overlay:
     # selbst hat ihren eigenen Zwischenspeicher, hier geht es nur darum, dass
     # überhaupt jemand fragt.
     #
-    # ⚠ Seit dem automatischen Update (16.09.2026) alle 30 Minuten — gleich
-    # `auto_update.CHECK_INTERVAL_S` und `updater.MIN_INTERVAL`.
-    VERSION_TAKT = 30 * 60 * 1000
+    # ⚠ Seit dem automatischen Update (16.09.2026) im Takt von
+    # `auto_update.CHECK_INTERVAL_S` und `updater.MIN_INTERVAL` — seit
+    # 17.09.2026 alle 10 Minuten statt 30.
+    VERSION_TAKT = 10 * 60 * 1000
 
     # Wie lange nach einem erzwungenen Nachsehen beim Spielende kein weiteres
     # erzwungen wird. Stürzt das Spiel in Schleife ab, fragte VerseKit sonst
