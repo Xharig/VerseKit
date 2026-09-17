@@ -257,7 +257,7 @@ def _write_pointer(pointer_path, value):
         temp = pointer_path + '.tmp'
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump({'ablage_ordner': value}, f, ensure_ascii=False, indent=2)
-        os.replace(temp, pointer_path)
+        replace_file(temp, pointer_path)
         return True
     except Exception:
         return False
@@ -662,6 +662,31 @@ def setting(name):
     return os.path.expanduser(value) if value else None
 
 
+def replace_file(source, target, attempts=10, pause=0.05):
+    """`os.replace` — mit kurzem Nachfassen, wenn Windows die Datei sperrt.
+
+    ⚠⚠ Unter Windows schlägt das Umbenennen mit `PermissionError` fehl,
+    solange ein anderer Prozess die Zieldatei offen hat — typisch ist der
+    Virenscanner, der eine eben geschriebene Datei prüft. Das dauert
+    Millisekunden. Ohne Nachfassen ging die Einstellung still verloren: Am
+    17.09.2026 fiel der Bau von v3.50.0 zweimal hintereinander an einer
+    jeweils ANDEREN Prüfung, die eine Einstellung schreibt und gleich wieder
+    liest. Beim Spieler hätte genau dasselbe eine Wahl verschluckt.
+
+    Nur `PermissionError` wird wiederholt — alles andere (Platte voll, Ordner
+    weg) wird durch Warten nicht besser und fliegt sofort.
+    """
+    import time
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(pause)
+
+
 def save_json(target, data, indent=1, sort_keys=False):
     """JSON schreiben — ohne Halbfertiges und mit Vorgängerfassung.
 
@@ -701,7 +726,7 @@ def save_json(target, data, indent=1, sort_keys=False):
                 # Kein Grund abzubrechen: Die Vorgängerfassung ist der Gürtel,
                 # das atomare Schreiben der Hosenträger. Einer genügt.
                 pass
-        os.replace(temp, target)
+        replace_file(temp, target)
         return True
     except Exception:
         try:
@@ -753,7 +778,7 @@ def _set_storage_folder(value):
         os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(existing, f, ensure_ascii=False, indent=2)
-        os.replace(temp, target)
+        replace_file(temp, target)
         # ⚠⚠ **Immer beide schreiben** (siehe `_zweitzeiger`). Wuerde nur der
         # sichtbare gepflegt, waere die Zweitschrift nach der ersten Umstellung
         # veraltet — und wenn sie dann einspringt, landet der Spieler in einem
@@ -783,7 +808,7 @@ def set_setting(name, value):
     try:
         with open(temp, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(temp, target)
+        replace_file(temp, target)
         return True
     except OSError as exc:
         # ⚠ Niemand prüft den Rückgabewert dieser Funktion — geprüft am

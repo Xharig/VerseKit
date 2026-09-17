@@ -23837,6 +23837,55 @@ def main():
             os.environ['SC_BP_HOME'] = _alt245
         shutil.rmtree(_heim245, ignore_errors=True)
 
+    # 246. Eine kurz gesperrte Einstellungsdatei verschluckt keine Wahl
+    # ⚠ Unter Windows sperrt z. B. der Virenscanner eine eben geschriebene
+    # Datei fuer Millisekunden; `os.replace` wirft dann PermissionError. Der
+    # Bau von v3.50.0 fiel so zweimal an wechselnden Prüfungen.
+    print('246. Eine kurz gesperrte Einstellungsdatei verschluckt keine Wahl')
+    from scbp import paths as _pa246
+    _heim246 = tempfile.mkdtemp(prefix='pruefung246-')
+    _alt246 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim246
+    _echt246 = os.replace
+    _sperre246 = {'rest': 0}
+
+    def _replace246(a, b):
+        if _sperre246['rest'] > 0:
+            _sperre246['rest'] -= 1
+            raise PermissionError(13, 'gesperrt')
+        return _echt246(a, b)
+
+    try:
+        _pa246.set_setting('overlay_ecke', 'unten-rechts')
+        os.replace = _replace246
+        _sperre246['rest'] = 3
+        _ok246 = _pa246.set_setting('overlay_ecke', 'frei')
+        os.replace = _echt246
+        pruefe(_ok246 and _pa246.setting('overlay_ecke') == 'frei',
+               'dreimal gesperrt: die Einstellung kommt trotzdem an (%r)'
+               % _pa246.setting('overlay_ecke'))
+        _voll246 = []
+        os.replace = lambda a, b: (_voll246.append(1),
+                                   (_ for _ in ()).throw(OSError(28, 'voll')))
+        try:
+            _pa246.replace_file(os.path.join(_heim246, 'x'), os.path.join(_heim246, 'y'))
+        except OSError:
+            pass
+        os.replace = _echt246
+        pruefe(len(_voll246) == 1,
+               'andere Fehler (Platte voll) werden nicht wiederholt (%d Versuche)'
+               % len(_voll246))
+        _q246 = open(os.path.join(WURZEL, 'scbp', 'paths.py'), encoding='utf-8').read()
+        pruefe('os.replace(temp, target)' not in _q246,
+               'Einstellungen und JSON-Ablagen benennen ueber replace_file um')
+    finally:
+        os.replace = _echt246
+        if _alt246 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt246
+        shutil.rmtree(_heim246, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

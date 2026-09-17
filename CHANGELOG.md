@@ -29,6 +29,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   wird, und die Raffinerien nennen ihren Bonus dafür
 - Die im ersten Assistenten gewählte Durchsichtigkeit gilt sofort, nicht erst
   ab dem zweiten Start
+- Unter Windows konnte eine Einstellung verloren gehen, wenn die Datei im
+  selben Moment kurz gesperrt war (etwa vom Virenscanner)
 
 ## v3.49.1 - 2026-09-17
 
