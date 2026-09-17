@@ -28,6 +28,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   and the refineries list their bonus for it
 - The opacity chosen in the first setup assistant applies right away, not
   only from the second start
+- On Windows a setting could get lost if the file was briefly locked at that
+  moment (for example by the virus scanner)
 
 ## v3.49.1 - 2026-09-17
 
