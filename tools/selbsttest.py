@@ -22681,6 +22681,80 @@ def main():
     pruefe('rank_thresholds.SETTING' in _q234 and "t('s_sp_rang')" in _q234,
            'die Seite „Texte im Spiel" hat den Schalter')
 
+    # 235. Die Fehlermarken in `injection` nennen eine echte Funktion
+    #
+    # In `scbp/injection.py` folgt jede Marke der Form `injection.<funktion>`.
+    # Drei trugen nach der Umbenennung (P4) noch alte Namen —
+    # `injection.ruf_zeile`, `.reputation`, `.spielsprache` — und zeigten im
+    # Fehlerbericht auf Stellen, die niemand findet. Behoben 17.09.2026.
+    #
+    # ⚠ Bewusst NUR dieses Modul: Im uebrigen Projekt sind 196 von 274 Marken
+    # absichtlich Bereichsnamen (`overlay.schloss`), keine Funktionsnamen —
+    # dort waere die Regel falsch.
+    print()
+    print('235. Fehlermarken in injection nennen eine echte Funktion')
+    import ast as _ast235
+    _baum235 = _ast235.parse(open(os.path.join(WURZEL, 'scbp', 'injection.py'),
+                                  encoding='utf-8').read())
+    _funktionen235 = {n.name for n in _ast235.walk(_baum235)
+                      if isinstance(n, _ast235.FunctionDef)}
+    _marken235, _tot235 = 0, []
+    for _k235 in _ast235.walk(_baum235):
+        if (isinstance(_k235, _ast235.Call)
+                and getattr(_k235.func, 'attr', '') in ('record', 'caught')
+                and _k235.args and isinstance(_k235.args[0], _ast235.Constant)
+                and isinstance(_k235.args[0].value, str)
+                and _k235.args[0].value.startswith('injection.')):
+            _marken235 += 1
+            if _k235.args[0].value.split('.')[1] not in _funktionen235:
+                _tot235.append('%s (Zeile %d)' % (_k235.args[0].value,
+                                                  _k235.lineno))
+    pruefe(_marken235 > 0 and not _tot235,
+           'jede der %d Marken nennt eine vorhandene Funktion%s'
+           % (_marken235, ' — nicht: ' + ', '.join(_tot235) if _tot235 else ''))
+
+    # 236. Ein Update schreibt die Texte im Spiel neu
+    #
+    # Am 17.09.2026 mit Bildschirmfoto: Nach v3.48.0 standen im Reputationsmenue
+    # keine Ruf-Stufen. Die `global.ini` war zuletzt VOR dem Release geschrieben
+    # worden — neu eingespielt wurde nur bei neuem Bauplan, Patch oder fehlender
+    # Einfuegung, nie wegen einer neuen VerseKit-Fassung. Die Marke traegt
+    # deshalb jetzt die Fassung mit.
+    print()
+    print('236. Ein Update schreibt die Texte im Spiel neu')
+    import sc_bp_watcher as _sw236
+    import ast as _ast236
+    _alt236 = _sw236.__version__
+    _st236 = _sw236.injection.stock_mark
+    try:
+        _sw236.injection.stock_mark = lambda stock=None: '5-abc'
+        _m1_236 = _sw236.Watcher._inj_mark()
+        _sw236.__version__ = '99.0.0'
+        _m2_236 = _sw236.Watcher._inj_mark()
+    finally:
+        _sw236.__version__ = _alt236
+        _sw236.injection.stock_mark = _st236
+    pruefe(_m1_236 != _m2_236,
+           'eine neue Fassung ergibt eine andere Marke (%s / %s)'
+           % (_m1_236, _m2_236))
+    pruefe(_m1_236.startswith('5-abc'),
+           'der Bestand steckt weiter in der Marke')
+    # Und alle Stellen, die vergleichen oder merken, nehmen DIESE Marke.
+    _baum236 = _ast236.parse(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                                  encoding='utf-8').read())
+    _direkt236 = []
+    for _f236 in _ast236.walk(_baum236):
+        if (isinstance(_f236, _ast236.FunctionDef)
+                and _f236.name != '_inj_mark'):
+            for _k236 in _ast236.walk(_f236):
+                if (isinstance(_k236, _ast236.Attribute)
+                        and _k236.attr == 'stock_mark'):
+                    _direkt236.append('%s (Zeile %d)' % (_f236.name,
+                                                         _k236.lineno))
+    pruefe(not _direkt236,
+           'keine Stelle im Watcher fragt die Bestandsmarke ohne Fassung ab%s'
+           % (' — noch: ' + ', '.join(_direkt236) if _direkt236 else ''))
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

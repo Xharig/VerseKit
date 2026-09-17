@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.1 - 2026-09-17
+
+> **Neues kommt jetzt auch ohne neuen Bauplan im Spiel an.** Nach einem Update
+> schrieb VerseKit die Texte im Spiel nicht neu — die Ruf-Stufen aus v3.48.0
+> blieben deshalb unsichtbar. Jetzt passiert das beim ersten Start nach dem
+> Update von selbst.
+
+### Behoben
+
+- **Die Ruf-Stufen aus v3.48.0 erschienen nicht im Spiel.** Neue Angaben kamen
+  erst an, wenn ein Bauplan dazukam oder ein Patch die Textdatei ersetzte. Nach
+  jedem Update werden die Texte jetzt einmal neu geschrieben — danach das Spiel
+  einmal neu starten
+
 ## v3.48.0 - 2026-09-17
 
 > **Wie weit ist es bis zum nächsten Rang?** Im Reputationsmenü steht jetzt
