@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.52.1 - 2026-09-17
+
+> **Das Overlay bleibt beim Einklappen, wo es ist.** Wer die Leiste unten hat,
+> sah sie nach dem Zuklappen plötzlich eine Fensterhöhe weiter oben. Jetzt
+> klappt es nach unten zu und wieder auf.
+
 ### Behoben
 
 - **Leiste unten: Beim Einklappen sprang das Overlay nach oben.** Steht die
