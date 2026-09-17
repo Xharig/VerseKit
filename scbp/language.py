@@ -2412,8 +2412,8 @@ TEXTS = {
                               '**Reputation thresholds on ranks** — the '
                               'reputation menu now shows how much reputation '
                               'a rank starts at.'),
-    's_dk_ryze_idee':        ('**Signatur selbst ablesen** — danke!',
-                              '**Reading the scan signature** — thank you!'),
+    's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
+                              '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '
