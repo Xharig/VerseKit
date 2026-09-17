@@ -4838,7 +4838,7 @@ TEXTS = {
     # ein Bau-Lauf gestorben (Pruefung 144). Das Sternchen selbst steht in
     # `asop.STAR` und geht in die Sprachdatei des Spiels, nicht in die
     # Oberflaeche.
-    's_as_stern':        ('Sternchen', 'Star'),
+    's_as_stern':        ('Stern', 'Star'),
     # ⚠ Diese drei sagen, ob der Name wirklich im Spiel steht. Ohne sie sieht
     # die Seite genauso aus, ob geschrieben wurde oder nicht — der Fehler von
     # v3.28.0: eingetragen, gespeichert, und im Flottenmanager stand weiter der

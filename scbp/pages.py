@@ -36,7 +36,7 @@ import time
 import tkinter as tk
 
 from . import report, collection as bestand_datei, errors, catalog as katalog_modul
-from . import paths, icons, fields
+from . import paths, icons
 from .language import t, pa_field
 
 BG      = '#10141c'
@@ -501,33 +501,10 @@ def _keep_scroll(widget, action):
         pass
 
 
-def _search_clear(window, holder, var):
-    """Ein × neben dem Suchfeld, das den Text wegnimmt.
-
-    ⚠ Es erscheint nur, wenn wirklich etwas im Feld steht. Ein Kreuz an einem
-    leeren Feld sieht aus wie ein Knopf, der nichts tut.
-
-    Warum es das braucht: Wer „titan" gesucht hat und danach die ganze Liste
-    sehen will, musste den Text von Hand markieren und löschen — und wer den
-    Suchbegriff übersieht, hält die kurze Liste für den ganzen Bestand.
-    """
-    from . import notice
-    kreuz = tk.Label(holder, text='\u00d7', bg=BG, fg=SUB,
-                     font=window.f_base, cursor='hand2')
-    notice.attach(kreuz, lambda: t('s_suche_leeren'))
-    kreuz.bind('<Button-1>', lambda _e: var.set(''))
-    kreuz.bind('<Enter>', lambda _e: kreuz.configure(fg=ACCENT))
-    kreuz.bind('<Leave>', lambda _e: kreuz.configure(fg=SUB))
-
-    def nachziehen(*_):
-        if var.get().strip():
-            kreuz.pack(side='right', padx=(6, 2))
-        else:
-            kreuz.pack_forget()
-
-    var.trace_add('write', nachziehen)
-    nachziehen()
-    return kreuz
+# ⚠ Hier stand bis 17.09.2026 `_search_clear` — ein × NEBEN dem Suchfeld, als
+# Schriftzeichen. Das X sitzt seitdem in jedem Feld selbst (`round_entry`,
+# ab Werk `clearable=True`). Zwei Arten X auf verschiedenen Seiten waren
+# genau das, was die Regel „Gleiches sieht gleich aus" verbietet.
 
 
 def _filter_bar(window, parent, fields, on_change, state):
@@ -6619,7 +6596,6 @@ def _crafting(fenster, rahmen):
     suchfeld.holder.pack(fill='x', pady=(4, 12))
     # ⚠ Gleiches Bedienelement wie beim Bergbau. Zwei Suchfelder, die sich
     # unterschiedlich verhalten, sind schlimmer als eines ohne Kreuz.
-    _search_clear(fenster, ziel_suche, suche_var)
     def _herst_frisch():
         """Beim erneuten Aufrufen ohne Filter anfangen.
 
@@ -7062,12 +7038,11 @@ def _routes(fenster, rahmen):
     # Auswahlfeld bei ‚Wo stehst du gerade' bei Routen."
     ortzeile = tk.Frame(kopf, bg=BG)
     ortzeile.pack(fill='x')
-    ortfeld = tk.Entry(ortzeile, textvariable=ortsuche, font=fenster.f_base,
-                       bg=SURFACE, fg=FG, insertbackground=FG, relief='flat',
-                       highlightthickness=1, highlightbackground=LINE,
-                       highlightcolor=ACCENT)
-    ortfeld.pack(side='left', fill='x', expand=True, ipady=5)
-    fields.hint(ortfeld, ortsuche, t('s_rt_wo_platz'), normal=FG, grey=SUB)
+    # ⚠ Über `round_entry` — damit auch hier das X im Feld sitzt (Standard).
+    from .main_window import round_entry as _feld_rund
+    ortfeld = _feld_rund(ortzeile, ortsuche, fenster.f_base, SURFACE, LINE,
+                         ACCENT, FG, placeholder=t('s_rt_wo_platz'))
+    ortfeld.holder.pack(side='left', fill='x', expand=True)
     # ⚠⚠ **Nicht gepackt, solange leer.** Ein geleerter Rahmen behält seine
     # Höhe — gemessen 920 px bei null Kindern. Am 05.09.2026 im Routen-Reiter
     # gemeldet: „Oben entsteht mega viel Leerraum, ich scrolle, um nichts zu
@@ -7133,15 +7108,11 @@ def _routes(fenster, rahmen):
         spalte.pack(side='left', padx=(0, 18))
         tk.Label(spalte, text=beschriftung, bg=BG, fg=SUB,
                  font=fenster.f_small, anchor='w').pack(fill='x')
-        zahlfeld = tk.Entry(spalte, textvariable=var, font=fenster.f_base,
-                            width=breite, bg=SURFACE, fg=FG,
-                            insertbackground=FG, relief='flat',
-                            highlightthickness=1, highlightbackground=LINE,
-                            highlightcolor=ACCENT)
-        zahlfeld.pack(ipady=4)
         # ⚠ Der Hinweis nennt ein BEISPIEL, nicht die Beschriftung darüber —
         # „Frachtraum (SCU)" zweimal zu sagen hilft niemandem.
-        fields.hint(zahlfeld, var, beispiel, normal=FG, grey=SUB)
+        zahlfeld = _feld_rund(spalte, var, fenster.f_base, SURFACE, LINE,
+                              ACCENT, FG, width=breite, placeholder=beispiel)
+        zahlfeld.holder.pack(anchor='w')
 
     # ⭐⭐ **Schiff wählen statt Zahl tippen — als Suchfeld, nicht als Fenster.**
     #
@@ -7158,14 +7129,10 @@ def _routes(fenster, rahmen):
     tk.Label(schiff_rahmen, text=t('s_rt_schiff'), bg=BG, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
     schiffsuche = tk.StringVar()
-    schifffeld = tk.Entry(schiff_rahmen, textvariable=schiffsuche,
-                          font=fenster.f_base, bg=SURFACE, fg=FG,
-                          insertbackground=FG, relief='flat',
-                          highlightthickness=1, highlightbackground=LINE,
-                          highlightcolor=ACCENT)
-    schifffeld.pack(fill='x', ipady=5)
-    fields.hint(schifffeld, schiffsuche, t('s_rt_schiff_platz'),
-                   normal=FG, grey=SUB)
+    schifffeld = _feld_rund(schiff_rahmen, schiffsuche, fenster.f_base,
+                            SURFACE, LINE, ACCENT, FG,
+                            placeholder=t('s_rt_schiff_platz'))
+    schifffeld.holder.pack(fill='x')
     # ⭐⭐ **Eine Werft-Auswahl neben dem Suchfeld.** Am 05.09.2026: „Dropdown
     # hast du mir für Schiffe unter Routen versprochen — Spieler kennen ja
     # nicht alle Schiffe und deren SCU-Kapazität." Richtig: Ein Suchfeld, das
@@ -8031,12 +7998,10 @@ def _shops(fenster, rahmen):
 
     such_rahmen = tk.Frame(kopf, bg=BG)
     such_rahmen.pack(fill='x', padx=24, pady=(4, 0))
-    feld = tk.Entry(such_rahmen, textvariable=suche, font=fenster.f_base,
-                    bg=SURFACE, fg=FG, insertbackground=FG, relief='flat',
-                    highlightthickness=1, highlightbackground=LINE,
-                    highlightcolor=ACCENT)
-    feld.pack(fill='x', ipady=5)
-    fields.hint(feld, suche, t('s_ld_suche_platz'), normal=FG, grey=SUB)
+    from .main_window import round_entry as _feld_rund
+    feld = _feld_rund(such_rahmen, suche, fenster.f_base, SURFACE, LINE,
+                      ACCENT, FG, placeholder=t('s_ld_suche_platz'))
+    feld.holder.pack(fill='x')
 
     # ⭐⭐ **Dieselbe Filterleiste wie in der Bauplan-Liste.** Vorher stand hier
     # nur ein leeres Suchfeld — wer nicht wusste, wonach er suchen soll, sah
@@ -10207,7 +10172,6 @@ def _mining(fenster, rahmen):
     feld = round_entry(ziel_suche, suche_var, fenster.f_small, '#0c1017',
                        LINE, ACCENT, FG)
     feld.holder.pack(fill='x', pady=(4, 12))
-    _search_clear(fenster, ziel_suche, suche_var)
 
     # ⚠ Dieselben Auswahlfelder wie auf den anderen Seiten. Tippen bleibt
     # möglich — aber wer die 38 Rohstoffe oder 48 Orte nicht auswendig kann,
@@ -10328,7 +10292,6 @@ def _mining(fenster, rahmen):
                              side='right', padx=(8, 0))
 
     sig_var.trace_add('write', sig_zeichnen)
-    _search_clear(fenster, ziel_sig, sig_var)
     _signature_scanner(fenster, innen, sig_var)
 
     liste_rahmen = tk.Frame(innen, bg=BG)
@@ -11628,25 +11591,14 @@ def _asop(fenster, rahmen):
     such_zeile = tk.Frame(kopf, bg=BG)
     such_zeile.pack(fill='x', padx=24, pady=(0, 6))
     from .main_window import round_entry as _rundes_feld_such
+    # ⚠⚠ Der Hinweis steht IM Feld (`placeholder`), nicht als Label darüber.
+    # Bis 17.09.2026 lag hier ein Label auf dem Feld und fing jeden Klick ab —
+    # hineinklicken ging nur rechts hinter dem Text (gemeldet mit Bild). Genau
+    # das Muster, das `fields.py` seit dem 12.09.2026 verbietet.
     such_feld = _rundes_feld_such(such_zeile, suche, fenster.f_small,
-                                  '#0c1017', LINE, ACCENT, FG)
+                                  '#0c1017', LINE, ACCENT, FG,
+                                  placeholder=t('s_as_suche'))
     such_feld.holder.pack(side='left', fill='x', expand=True)
-    _search_clear(fenster, such_zeile, suche)
-
-    such_platz = tk.Label(such_feld, text=t('s_as_suche'), bg='#0c1017',
-                          fg=SUB, font=fenster.f_small, anchor='w')
-
-    def such_platz_zeigen(*_):
-        try:
-            if suche.get():
-                such_platz.place_forget()
-            else:
-                such_platz.place(x=1, rely=0.5, anchor='w')
-        except tk.TclError:
-            pass
-
-    such_platz.bind('<Button-1>', lambda _e: such_feld.focus_set())
-    such_platz_zeigen()
 
     meldung = tk.Label(kopf, text='', bg=BG, fg=SUB, font=fenster.f_small,
                        anchor='w', justify='left')
@@ -11852,7 +11804,7 @@ def _asop(fenster, rahmen):
                 inset=48, pady=(6, 0))
     liste = tk.Frame(innen, bg=BG)
 
-    suche.trace_add('write', lambda *_: (such_platz_zeigen(), _zeichnen()))
+    suche.trace_add('write', lambda *_: _zeichnen())
     fenster.on_show['asop'] = _fuellen
     _fuellen()
 
@@ -14326,7 +14278,6 @@ def _storage(fenster, rahmen):
     _such_feld = _rf_suche(_such_zeile, filter_var, fenster.f_small,
                            '#0c1017', LINE, ACCENT, FG)
     _such_feld.holder.pack(side='left', fill='x', expand=True)
-    _search_clear(fenster, _such_zeile, filter_var)
 
     liste_rahmen.pack(fill='both', expand=True, pady=(6, 0))
 
@@ -14510,14 +14461,13 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
 
     # ⭐ `clearable`: ein X im Feld leert die Suche — in jedem Auswahlfeld
     # gleich, gewünscht am 17.09.2026 für „Mein Hangar".
+    # ⚠⚠ **Feste Regel: Der Pfeil sitzt IM Feld und sieht aus wie bei
+    # `round_select`** (dasselbe ▾). Bis 17.09.2026 stand hier ein Chevron ›
+    # als eigenes Bauteil neben dem Feld — auf „Bergbau" also zwei Sorten
+    # Auswahlfeld untereinander. Siehe `round_entry(dropdown=True)`.
     feld = round_entry(zeile, var, window.f_small, '#0c1017', LINE, ACCENT,
-                       FG, clearable=True)
-
-    # ⚠ Dasselbe Klapp-Symbol wie überall sonst — nicht ein Textpfeil, der je
-    # nach Systemschrift anders aussieht als die gezeichneten Symbole daneben.
-    pfeil = icons.line(zeile, 'aufklappen', background=BG,
-                          font=window.f_small)
-    pfeil.configure(cursor='hand2')
+                       FG, clearable=True, dropdown=True)
+    pfeil = feld.trailing
 
     def _leeren():
         for w in liste.winfo_children():
@@ -14540,11 +14490,9 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
         # Steht genau der gewählte Eintrag im Feld, ist nichts mehr zu suchen.
         if text and any(text == e.lower() for e in alle) and not offen['ja']:
             liste.pack_forget()
-            pfeil.swap_symbol('aufklappen')
             return
         if not text and not offen['ja']:
             liste.pack_forget()
-            pfeil.swap_symbol('aufklappen')
             return
         # ⚠⚠ **Punkte und Bindestriche zaehlen beim Suchen nicht.** Wer „ATLS"
         # tippt, meint „A.T.L.S." — und umgekehrt. Ohne diese Zeile findet das
@@ -14562,7 +14510,6 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
             return len(schlank) > 1 and bei and schlank in _squashed(bei)
 
         treffer = [e for e in alle if _passt(e)] if text else list(alle)
-        pfeil.swap_symbol('zuklappen' if offen['ja'] else 'aufklappen')
         if not treffer:
             liste.pack(fill='x', pady=(4, 0))
             tk.Label(liste, text=empty_text or t('s_vk_nichts_gefunden'),
@@ -14684,12 +14631,6 @@ def _combo_box(window, parent, var, get_entries, at_most=10,
 
     pfeil.bind('<Button-1>', umschalten)
 
-    # ⚠ **Erst den Pfeil packen, dann das Feld.** In `tkinter` bekommt das
-    # zuletzt gepackte Element den übrigen Platz, und ein Feld mit
-    # `expand=True` nimmt sich alles — andersherum schöbe es den Pfeil aus dem
-    # Fenster. Genau der Fehler, der im Werkstatt-Lager beim cSCU-Kästchen
-    # schon einmal auftrat.
-    pfeil.pack(side='right')
     feld.holder.pack(side='left', fill='both', expand=True)
 
     # ⭐⭐ **Ein Klick ins Feld klappt die Liste auf.** Am 05.09.2026 gemeldet:
@@ -15052,16 +14993,14 @@ def _selling(fenster, rahmen):
                      font=fenster.f_small, padx=8, pady=3).pack(side='left')
 
             var = tk.StringVar(value=str(eigene_mengen.get(name) or ''))
-            feld = tk.Entry(marke, textvariable=var, width=5,
-                            font=fenster.f_small, bg='#0c1017', fg=FG,
-                            insertbackground=FG, relief='flat',
-                            highlightthickness=1, highlightbackground=LINE,
-                            highlightcolor=ACCENT, justify='right')
-            feld.pack(side='left', pady=3)
             # ⚠ Nur ein Wort: Das Feld ist fünf Zeichen breit. Ein
             # abgeschnittener Hinweis wäre schlimmer als keiner — und die
             # Einheit steht ohnehin als Etikett daneben.
-            fields.hint(feld, var, t('s_pl_menge'), normal=FG, grey=SUB)
+            from .main_window import round_entry as _feld_rund
+            feld = _feld_rund(marke, var, fenster.f_small, '#0c1017', LINE,
+                              ACCENT, FG, width=5, justify='right',
+                              placeholder=t('s_pl_menge'))
+            feld.holder.pack(side='left', pady=3)
             tk.Label(marke, text=t('s_vk_scu_kurz'), bg=SURFACE, fg=SUB,
                      font=fenster.f_small, padx=4).pack(side='left')
 
@@ -15902,16 +15841,15 @@ def _view_angle(fenster, rahmen):
                  font=fenster.f_small, anchor='w').pack(fill='x')
         if abstand_mm:
             zustand['abstand'].set('%g' % round(abstand_mm / 10.0, 1))
-        feld = tk.Entry(zeile, textvariable=zustand['abstand'], width=6,
-                        bg=SURFACE, fg=FG, insertbackground=FG,
-                        font=fenster.f_base, relief='flat', justify='right')
-        feld.pack(side='right', padx=(16, 0), ipady=3)
         # ⚠ An diesem Feld hängt schon ein `<FocusOut>`, das den Wert
         # speichert. Das verträgt sich: `_abstand_merken` steigt bei leerem
         # Text aus (`float('')` wirft), und genau leer ist die Variable,
         # solange der Hinweis steht.
-        fields.hint(feld, zustand['abstand'], t('s_pl_abstand'),
-                       normal=FG, grey=SUB)
+        from .main_window import round_entry as _feld_rund
+        feld = _feld_rund(zeile, zustand['abstand'], fenster.f_base, SURFACE,
+                          LINE, ACCENT, FG, width=6, justify='right',
+                          placeholder=t('s_pl_abstand'))
+        feld.holder.pack(side='right', padx=(16, 0))
         feld.bind('<Return>', _abstand_merken)
         # ⚠⚠ `add='+'` ist hier PFLICHT. Ohne das ersetzt diese Bindung die,
         # die `fields.hint()` gerade gesetzt hat — und der Hinweis kommt
@@ -16668,11 +16606,10 @@ def _axes(fenster, rahmen):
         neu = tk.Frame(eltern, bg=BG)
         neu.pack(fill='x', pady=(12, 0))
         name = tk.StringVar()
-        feld = tk.Entry(neu, textvariable=name, bg=SURFACE, fg=FG,
-                        insertbackground=FG, font=fenster.f_small,
-                        relief='flat', width=22)
-        fields.hint(feld, name, t('s_pl_satzname'), normal=FG, grey=SUB)
-        feld.pack(side='left', ipady=4, padx=(0, 8))
+        from .main_window import round_entry as _feld_rund
+        feld = _feld_rund(neu, name, fenster.f_small, SURFACE, LINE, ACCENT,
+                          FG, width=22, placeholder=t('s_pl_satzname'))
+        feld.holder.pack(side='left', padx=(0, 8))
 
         def _sichern():
             ok, meldung, wieviele = device_set.save(name.get())

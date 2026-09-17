@@ -132,11 +132,36 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
         finally:
             state['lock'] = False
 
+    def park(_event=None):
+        """Solange der Hinweis steht, gehört die Schreibmarke an den Anfang.
+
+        ⚠⚠ Der Hinweis ist echter Text im Feld — ein Klick setzte die
+        Schreibmarke deshalb mitten hinein („Auftragsname o|der Ort"), und man
+        konnte ihn markieren. Das sah aus, als stünde dort etwas, das man erst
+        löschen muss (gemeldet 17.09.2026, Bilder von fünf Suchfeldern).
+
+        Über `after_idle`: Die eigene Bindung läuft VOR der Klassenbindung des
+        Feldes, und die setzt die Marke erst danach an die Klickstelle.
+        """
+        def now():
+            if not state['on']:
+                return
+            try:
+                field.selection_clear()
+                field.icursor(0)
+            except tk.TclError:
+                pass                  # Feld schon zerstoert
+        try:
+            field.after_idle(now)
+        except tk.TclError:
+            pass
+
     def on_key(event):
         # ⚠ Erst pruefen, DANN durchlassen: Diese Bindung laeuft vor der
         # Klassenbindung, die das Zeichen einsetzt. Wer hier nicht raeumt,
         # bekommt das Zeichen mitten in den Hinweistext geschrieben.
         if event.keysym in _SILENT_KEYS:
+            park()                    # Pfeiltasten wandern nicht in den Hinweis
             return None
         hide()
         return None
@@ -168,6 +193,9 @@ def hint(field, variable, text, normal=NORMAL, grey=GREY):
             show()
 
     field.bind('<Key>', on_key, add='+')
+    for sequence in ('<Button-1>', '<B1-Motion>', '<ButtonRelease-1>',
+                     '<Double-Button-1>', '<Triple-Button-1>', '<FocusIn>'):
+        field.bind(sequence, park, add='+')
     field.bind('<FocusOut>', lambda _e: show(), add='+')
     variable.trace_add('write', on_variable)
     show()
