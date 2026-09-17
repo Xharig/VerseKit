@@ -165,10 +165,20 @@ def grab(left, top, width, height):
 
     Wirft `GrabError`, wenn es nicht geht.
     """
+    return to_gray(grab_raw(left, top, width, height), int(width), int(height))
+
+
+def grab_raw(left, top, width, height):
+    """Den Ausschnitt als BGRA-Bytes holen (oben beginnend).
+
+    ⚠ Für große Flächen (die Suche nach der Pille) — die Umrechnung in eine
+    Zeilenliste kostet in Python 0,7 s für 3072×1007 (gemessen 17.09.2026).
+    Die Suche arbeitet deshalb auf den Bytes, umgerechnet wird nur der Fund.
+    """
     if not supported():
         raise GrabError('nicht_unterstuetzt')
     width, height = int(width), int(height)
-    if width <= 0 or height <= 0 or width * height > 4000000:
+    if width <= 0 or height <= 0 or width * height > 16000000:
         raise GrabError('bereich_ungueltig')
     user32 = ctypes.windll.user32
     gdi32 = ctypes.windll.gdi32
@@ -219,7 +229,48 @@ def grab(left, top, width, height):
             if memory:
                 gdi32.DeleteDC(memory)
             user32.ReleaseDC(None, screen)
-    return to_gray(raw, width, height)
+    return raw
+
+
+def gray_crop(raw, width, box):
+    """Aus BGRA-Bytes einen Ausschnitt (links, oben, breite, höhe) als Raster."""
+    left, top, crop_w, crop_h = box
+    rows = []
+    for y in range(top, top + crop_h):
+        start = (y * width + left) * 4
+        line = raw[start:start + crop_w * 4]
+        rows.append([max(line[i], line[i + 1], line[i + 2])
+                     for i in range(0, crop_w * 4, 4)])
+    return rows
+
+
+def game_rect():
+    """Die Fläche des Star-Citizen-Fensters in physischen Punkten — oder None.
+
+    Nur, wenn das Spiel vorn ist. Gemessen in einem eigenen Faden-Zustand
+    (DPI-bewusst), wie der Abgriff selbst.
+    """
+    if not supported() or not foreground_is_game():
+        return None
+    try:
+        user32 = ctypes.windll.user32
+        user32.GetForegroundWindow.restype = ctypes.c_void_p
+        hwnd = user32.GetForegroundWindow()
+
+        class RECT(ctypes.Structure):
+            _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long),
+                        ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
+        rect = RECT()
+        user32.GetWindowRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(RECT)]
+        with _Aware():
+            if not user32.GetWindowRect(ctypes.c_void_p(hwnd), ctypes.byref(rect)):
+                return None
+        width, height = rect.right - rect.left, rect.bottom - rect.top
+        if width < 200 or height < 200:
+            return None
+        return rect.left, rect.top, width, height
+    except Exception:
+        return None
 
 
 def to_gray(raw, width, height):

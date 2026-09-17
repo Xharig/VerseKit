@@ -178,6 +178,9 @@ KNOPF_SYMBOLE = {
     'serverstatus': 'server',
     'ordner':       'folder',
     'erkennung':    'scan-search',
+    # Signatur-Scanner an/aus in der Overlay-Leiste (17.09.2026). `scan-eye`,
+    # nicht `eye` — das Auge trägt schon der Blickwinkel.
+    'signatur':     'scan-eye',
     # ⚠ `gamepad-2` und nicht `joystick`: Lucide fuehrt keinen Joystick, und
     # der Reiter meint ohnehin alle Eingabegeraete — Sticks, Pedale, Gamepads.
     'joysticks':    'gamepad-2',

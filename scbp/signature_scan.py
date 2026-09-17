@@ -89,6 +89,7 @@ REGION_SETTING = 'signatur_bereich'
 # Aufschlag auf den Abstand, wenn die Löcher nicht zusammenpassen. Kein harter
 # Ausschluss: Bei einem verrauschten Zeichen kann ein Loch zulaufen.
 HOLE_PENALTY = 0.25
+HOLE_POSITION_TOLERANCE = 0.12      # siehe `_holes_match`
 
 # Schlechtester mittlerer Abstand, der noch als gelesen gilt, und der Vorsprung
 # vor dem zweitbesten Wert. Gemessen am 10.09.2026 gegen 82 Bilder:
@@ -114,7 +115,9 @@ MIN_CHARS = 3
 
 REQUIRED_HOLES = {
     '0': (1, 0.5), '1': (0, None), '2': (0, None), '3': (0, None),
-    '4': (1, None), '5': (0, None), '6': (1, 0.65), '7': (0, None),
+    # ⚠ Die 4 darf offen sein: Bei kleiner Schrift schließt sich ihr Dreieck
+    # nicht — „15,420" wurde am 17.09.2026 mit „Stelle 3 unklar" abgelehnt.
+    '4': ((0, 1), None), '5': (0, None), '6': (1, 0.65), '7': (0, None),
     '8': (2, None), '9': (1, 0.32),
 }
 
@@ -224,8 +227,21 @@ def _median(values):
     return ordered[len(ordered) // 2] if ordered else 0
 
 
-def split_merged(boxes):
-    """Zusammengeflossene Ziffern wieder auftrennen — Ziffern sind gleich breit.
+def split_merged(boxes, raster=None, threshold=None):
+    """Zusammengeflossene Ziffern wieder auftrennen.
+
+    ⚠⚠ **Geschnitten wird an der dunkelsten Spalte, nicht stur gleichmäßig**
+    (17.09.2026). Bei kleiner Schrift (5×11) kleben Ziffern oft zusammen; die
+    gleichmäßige Teilung schnitt eine Spalte daneben, jede Ziffer sah dann in
+    jedem Abgriff anders aus. Gesucht wird jetzt nahe der erwarteten Stelle die
+    Spalte mit den wenigsten hellen Punkten. Ohne Bild (`raster`) bleibt es bei
+    der gleichmäßigen Teilung.
+
+    ⚠ Gemessen am 17.09.2026 (82 Aufnahmen · Windows-Bilder, je mit den
+    übrigen angelernt): gleichmäßig 72/1 · 14/1, **dunkelste Spalte 72/1 ·
+    15/1**. Nicht übernommen: Zuschnitt auf die Umrisse (+1 richtig, aber +1
+    falsch) und die Einzelbreite aus den schmalen Flächen (82 Aufnahmen: 39
+    statt 72 richtig).
 
     ⚠ Das Komma bleibt unangetastet: Es ist schmaler als eine Ziffer, nie breiter.
     """
@@ -238,14 +254,30 @@ def split_merged(boxes):
     for box in boxes:
         wide = box[2] - box[0] + 1
         parts = int(round(wide / float(single)))
-        if parts >= 2 and wide >= single * 1.65:
-            step = wide // parts
-            for i in range(parts):
-                left = box[0] + i * step
-                right = box[2] if i == parts - 1 else box[0] + (i + 1) * step - 1
-                result.append((left, box[1], right, box[3]))
-        else:
+        if not (parts >= 2 and wide >= single * 1.65):
             result.append(box)
+            continue
+        cuts = []
+        if raster is not None and threshold is not None:
+            columns = [sum(1 for y in range(box[1], box[3] + 1)
+                           if raster[y][x] > threshold)
+                       for x in range(box[0], box[2] + 1)]
+            reach = max(1, single // 3)
+            for i in range(1, parts):
+                expected = i * wide // parts
+                window = range(max(1, expected - reach),
+                               min(wide - 1, expected + reach + 1))
+                if window:
+                    cuts.append(min(window, key=lambda c: (columns[c],
+                                                           abs(c - expected))))
+        else:
+            cuts = [i * wide // parts for i in range(1, parts)]
+        edges = [0] + sorted(set(cuts)) + [wide]
+        for i in range(len(edges) - 1):
+            left, right = box[0] + edges[i], box[0] + edges[i + 1] - 1
+            if right < left:
+                continue
+            result.append((left, box[1], right, box[3]))
     return result
 
 
@@ -281,7 +313,7 @@ def only_digits(chars):
     return [c for c in chars if (c[3] - c[1] + 1) > middle * 0.7]
 
 
-def digit_rows(boxes, width=None):
+def digit_rows(boxes, width=None, raster=None, threshold=None):
     """Die Zeichenreihe der Signatur finden — als Kandidatenliste.
 
     Übernommen aus dem Entwurf vom 09./10.09.2026 (`zeichenreihe_finden`), dort
@@ -342,7 +374,7 @@ def digit_rows(boxes, width=None):
             start += 1
         if start == 0 or start >= len(ordered):
             continue
-        rest = split_merged(ordered[start:])
+        rest = split_merged(ordered[start:], raster, threshold)
         if len(rest) < MIN_CHARS or not _separator_fits(rest):
             continue
         if width:
@@ -412,11 +444,19 @@ def holes(pattern):
 
 
 def _holes_match(a, b):
+    """Gleiche Lochstruktur? Anzahl gleich und Lage nah genug.
+
+    ⚠⚠ **Toleranz 0,12, nicht 0,20** (17.09.2026). Das Loch der 6 liegt bei
+    kleiner Schrift um 0,69, das der 0 bei 0,50 — mit 0,20 galten beide als
+    gleich, und aus 16,960 wurde 10,800, aus 16,000 wurde 10,000. Gemessen
+    (Windows-Bilder · 82 Aufnahmen, richtig/falsch): 0,20 → 17/2 · 72/1;
+    0,14 und 0,10 → **17/0** · 72/1.
+    """
     if a[0] != b[0]:
         return False
     if a[1] is None or b[1] is None:
         return True
-    return abs(a[1] - b[1]) <= 0.2
+    return abs(a[1] - b[1]) <= HOLE_POSITION_TOLERANCE
 
 
 def plausible_template(digit, pattern):
@@ -425,7 +465,8 @@ def plausible_template(digit, pattern):
     if required is None:
         return False
     actual = holes(pattern)
-    if actual[0] != required[0]:
+    if actual[0] not in (required[0] if isinstance(required[0], tuple)
+                         else (required[0],)):
         return False
     if required[1] is None or actual[1] is None:
         return True
@@ -597,7 +638,8 @@ def read(raster, known=None, values=None):
     best = None
     fallback = None
     for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold), len(raster[0])):
+        for digits in digit_rows(components(raster, threshold), len(raster[0]),
+                                 raster, threshold):
             if fallback is None or len(digits) > len(fallback[1]):
                 fallback = (threshold, digits)
             if not known:
@@ -617,6 +659,90 @@ def read(raster, known=None, values=None):
         result['grund'] = ('nicht_angelernt' if not known
                            else 'keine_werte' if not values else 'unsicher')
     return result
+
+
+# --------------------------------------------------------------------------
+# Die Pille im Spielbild suchen
+# --------------------------------------------------------------------------
+
+# ⚠⚠ **Die Pille wandert mit dem gescannten Brocken** (17.09.2026, Bildschirm-
+# fotos: mal mittig, mal weit oben rechts). Ein fester Scan-Bereich kann deshalb
+# nicht tragen — gesucht wird in der Bildmitte des Spielfensters, als Anteil
+# (links, oben, breite, höhe).
+SEARCH_AREA = (0.2, 0.1, 0.6, 0.75)
+_CELL = 8
+_BRIGHT = bytes((35 if v >= 165 else 46) for v in range(256))   # '#' / '.'
+
+
+def pill_candidates(raw, width, height):
+    """Wo könnte eine Pille stehen? Kästen (links, oben, breite, höhe), mittigste zuerst.
+
+    ⚠ Arbeitet auf den BGRA-Bytes mit C-schnellen Operationen (`translate`,
+    `re`): Eine Umrechnung von 3072×1080 in eine Zeilenliste kostet 0,7 s,
+    diese Suche 25 ms (gemessen 17.09.2026). Gesucht werden Nester aus kurzen
+    hellen Strichen in Zahlengröße; ob es wirklich eine Signatur ist,
+    entscheidet danach `read` — Chat und Beschriftungen fallen dort heraus.
+    """
+    import re
+    span = re.compile(rb'#{1,14}')
+    mask = raw[1::4].translate(_BRIGHT)          # grüner Kanal: weiße Schrift
+    cells = {}
+    for y in range(0, height, 2):
+        row = mask[y * width:(y + 1) * width]
+        for match in span.finditer(row):
+            key = (y // _CELL, match.start() // _CELL)
+            cells[key] = cells.get(key, 0) + match.end() - match.start()
+    hot = {key for key, count in cells.items() if count >= 5}
+    seen, found = set(), []
+    for start in hot:
+        if start in seen:
+            continue
+        stack, group = [start], []
+        seen.add(start)
+        while stack:
+            cy, cx = stack.pop()
+            group.append((cy, cx))
+            for dy in (-1, 0, 1):
+                for dx in (-2, -1, 0, 1, 2):
+                    near = (cy + dy, cx + dx)
+                    if near in hot and near not in seen:
+                        seen.add(near)
+                        stack.append(near)
+        ys = [c[0] for c in group]
+        xs = [c[1] for c in group]
+        w = (max(xs) - min(xs) + 1) * _CELL
+        h = (max(ys) - min(ys) + 1) * _CELL
+        if 32 <= w <= 320 and 8 <= h <= 40:
+            left = max(0, min(xs) * _CELL - 28)
+            top = max(0, min(ys) * _CELL - 10)
+            box = (left, top, min(width - left, w + 56), min(height - top, h + 20))
+            distance = abs(left + w / 2.0 - width / 2.0) + abs(top + h / 2.0 - height / 2.0)
+            found.append((distance, box))
+    found.sort()
+    return [box for _distance, box in found]
+
+
+def search(raw, width, height, known=None, values=None, limit=12):
+    """Die Pille in einem großen Ausschnitt finden und lesen.
+
+    Gibt das dict von `read`, dazu `bild` (der Ausschnitt um die Pille, fürs
+    Anlernen) und `kasten`. Ohne Wert: der erste Kandidat mit Ziffernreihe.
+    """
+    from .screen_grab import gray_crop
+    known = templates() if known is None else known
+    values = possible_values() if values is None else values
+    first_with_digits = None
+    for box in pill_candidates(raw, width, height)[:limit]:
+        crop = gray_crop(raw, width, box)
+        result = read(crop, known, values)
+        result['bild'], result['kasten'] = crop, box
+        if result['wert'] is not None:
+            return result
+        if result['ziffern'] and first_with_digits is None:
+            first_with_digits = result
+    return first_with_digits or {'wert': None, 'grund': 'kein_text', 'abstand': 1.0,
+                                 'ziffern': [], 'schwelle': None, 'bild': None,
+                                 'kasten': None}
 
 
 def learn(raster, typed):
@@ -641,7 +767,8 @@ def learn(raster, typed):
         return False, 'anlernen_leer', {}
     candidates = []
     for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold), len(raster[0])):
+        for digits in digit_rows(components(raster, threshold), len(raster[0]),
+                                 raster, threshold):
             if len(digits) == len(digits_typed):
                 patterns = [normalize(raster, b, threshold) for b in digits]
                 fitting = sum(1 for p, d in zip(patterns, digits_typed)

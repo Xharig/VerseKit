@@ -23317,9 +23317,54 @@ def main():
                'echtes Bild „19,275": anlernen klappt')
         _andere243 = [_ss243.read(_echt243[k], None, _ew243)['wert']
                       for k in ('19,275#2', '19,275#5')]
-        pruefe(_andere243 == [19275, 19275],
-               'nach einmal Anlernen lesen auch die anderen Bilder richtig (%r)'
+        # Nach EINEM Anlernen: mindestens eins richtig, keins falsch (schweigen
+        # ist erlaubt — seit der strengeren Lochpruefung schweigt eins).
+        pruefe(19275 in _andere243 and set(_andere243) <= {19275, None},
+               'nach einmal Anlernen: andere Bilder richtig oder still, nie falsch (%r)'
                % _andere243)
+        # ⚠⚠ Alle echten Windows-Bilder, dreigeteilt: mit zwei Dritteln
+        # anlernen, das dritte lesen. NICHTS darf falsch herauskommen — vor dem
+        # 17.09.2026 wurde hier 16,960 als 10,800 gelesen (Loch der 6 galt als
+        # Loch der 0), und die Ziffern wurden stur gleichmaessig getrennt.
+        _schluessel243 = sorted(_echt243)
+        _alle_werte243 = sorted(set(_ew243) | {int(k.split('#')[0].replace(',', ''))
+                                               for k in _schluessel243}
+                                | set(_ss243.possible_values()))
+        _kr243, _kf243 = 0, []
+        for _teil in range(3):
+            _eigen243 = _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)
+            if os.path.exists(_eigen243):
+                os.remove(_eigen243)
+            for _i, _k in enumerate(_schluessel243):
+                if _i % 3 != _teil:
+                    _ss243.learn(_echt243[_k], _k.split('#')[0])
+            _vorl3 = _ss243.templates()
+            for _i, _k in enumerate(_schluessel243):
+                if _i % 3 == _teil:
+                    _w = _ss243.read(_echt243[_k], _vorl3, _alle_werte243)['wert']
+                    _soll = int(_k.split('#')[0].replace(',', ''))
+                    if _w == _soll:
+                        _kr243 += 1
+                    elif _w is not None:
+                        _kf243.append((_soll, _w))
+        pruefe(not _kf243, 'echte Windows-Bilder: nichts falsch gelesen (%r)' % _kf243)
+        pruefe(_kr243 >= 14, 'echte Windows-Bilder: %d von %d gelesen (gemessen 17)'
+               % (_kr243, len(_schluessel243)))
+        # Direkt: Das Loch der 6 (gemessen 0,69) ist nicht das der 0 (0,50).
+        pruefe(not _ss243._holes_match((1, 0.69), (1, 0.5))
+               and _ss243._holes_match((1, 0.69), (1, 0.65)),
+               'Lochlage trennt 6 von 0, laesst aber 6 als 6 durch')
+        # Direkt: Verklebte Ziffern werden an der dunklen Spalte getrennt, nicht
+        # stur in der Mitte. Flaeche 11 breit, dunkle Spalte bei 6 (Mitte waere 5).
+        _kl243 = [[0] * 30 for _ in range(8)]
+        for _y in range(8):
+            for _x in (list(range(0, 5)) + list(range(8, 14)) + list(range(15, 19))
+                       + list(range(22, 27))):
+                _kl243[_y][_x] = 200
+        _teile243 = _ss243.split_merged([(0, 0, 4, 7), (8, 0, 18, 7), (22, 0, 26, 7)],
+                                        _kl243, 100)
+        pruefe(_teile243[1:3] == [(8, 0, 13, 7), (14, 0, 18, 7)],
+               'verklebte Ziffern: Schnitt an der dunklen Spalte (%r)' % _teile243)
         _ss243.set_region((100, 200, 240, 40))
         pruefe(_ss243.region() == (100, 200, 240, 40), 'der Scan-Bereich wird gemerkt')
         _ss243.set_region((1, 2, 3, 4))
@@ -23372,14 +23417,66 @@ def main():
            == (100, 40, 220, 44)
            and _sg243.to_physical((100, 40, 220, 44), 1.25) == (125, 50, 275, 55),
            'logisch und physisch rechnen sauber hin und zurueck')
+    # ⚠⚠ Die Pille wandert mit dem gescannten Brocken (17.09.2026) — die Wache
+    # SUCHT sie in der Bildmitte, statt einen festen Bereich zu lesen.
     _swin243 = open(os.path.join(WURZEL, 'scbp', 'scan_window.py'),
                     encoding='utf-8').read()
-    pruefe('_Aware' not in _swin243 and 'window_rect' not in _swin243
-           and 'screen_grab.grab(' in methode(_swin243, 'ScanWindow', '_reader')
-           and 'screen_grab.grab(' not in methode(_swin243, 'ScanWindow', '_tick'),
-           'das Scan-Fenster greift im eigenen Faden ab, nie im Tk-Faden')
-    pruefe('screen_grab.to_logical(' in methode(_swin243, 'ScanWindow', '_place'),
-           'der gemerkte Bereich wird fuer Tk nach logisch umgerechnet')
+    pruefe('_Aware' not in _swin243 and 'screen_grab.grab' not in _swin243
+           and 'self.raster is None' in methode(_swin243, 'ScanWindow', '_tick'),
+           'das Anlern-Fenster greift nicht selbst ab und haelt sein Bild fest')
+    _loop243 = rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
+                          encoding='utf-8').read(), '_loop')
+    pruefe('signature_scan.search(' in _loop243 and 'region()' not in _loop243
+           and 'game_rect()' in _loop243,
+           'die Wache sucht in der Bildmitte des Spielfensters, nicht im festen Bereich')
+    # Suche an einem grossen Bild: echte Pille irgendwo eingesetzt, dazu
+    # heller Fliesstext (wie der Chat) — gefunden wird die Pille.
+    _heim243b = tempfile.mkdtemp(prefix='pruefung243b-')
+    _alt243b = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim243b
+    try:
+        _echt243b = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                                                'signatur-windows-klein.json'),
+                                   encoding='utf-8'))['bilder']
+        # Angelernt wird alles — geprueft wird hier das FINDEN im grossen Bild.
+        for _k in sorted(_echt243b):
+            _ss243.learn(_echt243b[_k], _k.split('#')[0])
+        # Eine 4 ohne geschlossenes Dreieck ist bei kleiner Schrift normal.
+        _vier243 = [0] * (_ss243.NORM_W * _ss243.NORM_H)
+        for _y in range(24):
+            _vier243[_y * 16 + 11] = 1
+        for _x in range(0, 16):
+            _vier243[15 * 16 + _x] = 1
+        pruefe(_ss243.plausible_template('4', _vier243),
+               'eine offene 4 darf angelernt werden (Loch nicht Pflicht)')
+        _pille243 = _echt243b['2,000']
+        _gw, _gh = 1600, 700
+        _roh243 = bytearray(b'\x10\x10\x10\xff' * (_gw * _gh))
+        for _y, _zeile in enumerate(_pille243):
+            for _x, _v in enumerate(_zeile):
+                _p = ((420 + _y) * _gw + 1100 + _x) * 4
+                _roh243[_p:_p + 3] = bytes((_v, _v, _v))
+        for _y in range(200, 211):                    # „Chat": lange helle Zeile
+            for _x in range(100, 700):
+                if (_x // 7) % 2 == 0:
+                    _p = (_y * _gw + _x) * 4
+                    _roh243[_p:_p + 3] = b'\xe6\xe6\xe6'
+        _fund243 = _ss243.search(bytes(_roh243), _gw, _gh, None,
+                                 [2000, 3000, 4000, 6000, 8000, 12000, 21350])
+        pruefe(_fund243['wert'] == 2000 and _fund243['kasten']
+               and abs(_fund243['kasten'][0] - 1100) < 60
+               and abs(_fund243['kasten'][1] - 420) < 40,
+               'die Suche findet die Pille im grossen Bild (%r, %r)'
+               % (_fund243['wert'], _fund243['kasten']))
+        _leer243 = _ss243.search(bytes(b'\x10\x10\x10\xff' * (_gw * _gh)), _gw, _gh,
+                                 None, _ew243)
+        pruefe(_leer243['wert'] is None, 'ohne Pille findet die Suche nichts')
+    finally:
+        if _alt243b is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt243b
+        shutil.rmtree(_heim243b, ignore_errors=True)
 
     # Verdrahtung: die Wache startet mit dem Overlay, nicht mit der Seite.
     _swq243 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
@@ -23401,6 +23498,19 @@ def main():
                          encoding='utf-8').read(), 'build')
     pruefe("t('b_scanner')" in _ber243,
            'der Fehlerbericht nennt den Stand des Signatur-Scanners')
+    # Das Auge in der Overlay-Leiste schaltet den Scanner (17.09.2026).
+    pruefe("icons.button(bar, 'signatur', self._scanner_umschalten" in _swq243
+           and 'signature_watch.start()' in methode(_swq243, 'Overlay', '_scanner_umschalten')
+           and 'signature_watch.stop()' in methode(_swq243, 'Overlay', '_scanner_umschalten')
+           and "'signatur'" in open(os.path.join(WURZEL, 'scbp', 'icons.py'),
+                                    encoding='utf-8').read(),
+           'das Auge in der Overlay-Leiste schaltet den Signatur-Scanner')
+    # Absenden: EIN Haken statt zweier Rueckfrage-Fenster; ohne Haken nichts.
+    _dia243 = rumpf(_pq243, '_diagnosis') if 'def _diagnosis(' in _pq243 else _pq243
+    _ab243 = _dia243[_dia243.find('def absenden():'):_dia243.find('def absenden():') + 2500]
+    pruefe("if not bestaetigt['an']:" in _ab243 and 'ask_yes_no' not in _ab243
+           and 'sample_archive()' in _ab243,
+           'Absenden: ohne Haken nichts, mit Haken Bericht und Scan-Bilder, keine Rueckfrage')
     pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
                       encoding='utf-8').read(), 'start_if_enabled').count(
         'SETTING, False') == 1, 'der Scanner steht ab Werk auf Aus')

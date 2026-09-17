@@ -553,7 +553,7 @@ BUTTON_NAMES = (
     'starten', 'glocke', 'liste', 'einstellungen', 'einklappen', 'ausklappen',
     'leeren', 'schliessen', 'ziehgriff', 'fortschritt', 'anzeige',
     'auftragstexte', 'bestand', 'wasistneu', 'ueber', 'serverstatus', 'ordner',
-    'erkennung', 'joysticks', 'achsen', 'blickwinkel', 'diagnose',
+    'erkennung', 'joysticks', 'achsen', 'blickwinkel', 'diagnose', 'signatur',
     'einrichtung', 'neustart',
     'herunterladen',
     'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen', 'zeit', 'hangar',

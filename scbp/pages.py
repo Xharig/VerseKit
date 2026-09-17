@@ -6391,34 +6391,40 @@ def _diagnostics(fenster, rahmen):
             fenster.say(t('s_di_kopiert'))
             _meldung_verbraucht()
 
+    bestaetigt = {'an': False}
+
     def absenden():
-        """Auf Knopfdruck an den Entwickler — mit vorheriger Rückfrage.
+        """Auf Knopfdruck an den Entwickler — nach einem Haken, ohne Rückfrage.
 
         ⚠ Der Weg für alle, die nicht basteln wollen. Kopieren und in Discord
         einfügen scheitert daran, dass der Bericht zu lang ist und man wissen
         muss, wohin damit. Gemeldet am 28.08.2026: „ich will nicht jedem eine
         Stunde erklären, wie ich zu dem Bericht komme."
 
-        Gefragt wird trotzdem: Etwas ins Netz zu schicken, ohne dass jemand
-        zugestimmt hat, macht dieses Werkzeug nicht.
+        ⚠⚠ **Zustimmung per Haken, nicht per Rückfrage-Fenster** (17.09.2026):
+        Erst ein Fenster, dann ein zweites für die Scan-Bilder, die Knöpfe an
+        verschiedenen Stellen — „nicht einfach in der Bedienung". Im Bericht
+        und in den Bildern steckt nichts Heikles (Namen und Pfade sind
+        herausgenommen, die Bilder zeigen nur die Zahl). Ohne Haken wird nichts
+        gesendet; der Knopf sagt dann, was fehlt.
         """
-        from .main_window import ask_yes_no
-        if not ask_yes_no(fenster.root, t('s_di_ab_frage_t'),
-                             t('s_di_ab_frage')):
+        if not bestaetigt['an']:
+            fenster.say(t('s_di_erst_bestaetigen'))
             return
-        # ⭐ Angelernte Scan-Bilder auf Wunsch mitschicken (17.09.2026) — sie
-        # verbessern die Erkennung für alle. Eigene Rückfrage, nie still.
-        anhaenge = []
+        anzahl = 0
         try:
             from . import signature_scan
             anzahl = len(signature_scan.samples())
-            if anzahl and ask_yes_no(fenster.root, t('s_di_ab_scan_t'),
-                                     t('s_di_ab_scan') % anzahl):
+        except Exception as ausnahme:
+            errors.record('pages.diagnose_scanbilder', ausnahme)
+        anhaenge = []
+        if anzahl:
+            try:
                 archiv = signature_scan.sample_archive()
                 if archiv:
                     anhaenge.append(('scan-bilder.zip', archiv, 'application/zip'))
-        except Exception as ausnahme:
-            errors.record('pages.diagnose_scanbilder', ausnahme)
+            except Exception as ausnahme:
+                errors.record('pages.diagnose_scanbilder', ausnahme)
         fenster.say(t('s_di_ab_laeuft'))
         fenster.root.update_idletasks()
         geklappt, grund = report.submit(aktueller_bericht(), fenster.version,
@@ -6456,6 +6462,30 @@ def _diagnostics(fenster, rahmen):
         _button(fenster, reihe, t('s_di_melden'), melden, strong=True),
         _button(fenster, reihe, t('s_di_kopieren'), kopieren),
     ])
+
+    # ⭐ EIN Haken als Zustimmung, direkt unter „Absenden" — statt zweier
+    # Rückfrage-Fenster (17.09.2026: „2 mal ein Fenster zu klicken … an 2
+    # unterschiedlichen Stellen … nicht einfach in der Bedienung"). Gibt es
+    # angelernte Scan-Bilder, nennt der Haken sie mit, und sie gehen mit.
+    from .main_window import toggle_switch as _toggle
+    try:
+        from . import signature_scan as _scan_module
+        _anzahl_scan = len(_scan_module.samples())
+    except Exception:
+        _anzahl_scan = 0
+    zustimmung = tk.Frame(reihe.master, bg=BG)
+    zustimmung.pack(fill='x', pady=(6, 0))
+
+    def zustimmung_umlegen():
+        bestaetigt['an'] = not bestaetigt['an']
+        return bestaetigt['an']
+
+    _toggle(zustimmung, False, zustimmung_umlegen).pack(side='left')
+    tk.Label(zustimmung,
+             text=(t('s_di_zustimmung_bilder') % _anzahl_scan if _anzahl_scan
+                   else t('s_di_zustimmung')),
+             bg=BG, fg=FG, font=fenster.f_small, anchor='w', justify='left'
+             ).pack(side='left', padx=8)
 
     # ⚠⚠ **Kein vierter Knopf** — siehe die Begründung oben. Stattdessen ein
     # Satz, der auf den Discord-Knopf verweist, den die Seitenleiste ohnehin
@@ -10062,8 +10092,6 @@ def _signature_scanner(window, parent, signature_var):
         paths.set_setting(signature_watch.SETTING, new_value)
         if new_value:
             signature_watch.start()
-            if not signature_scan.region():
-                scan_window.open_window(window.root, on_saved=lambda _r: show_area())
         else:
             signature_watch.stop()
         window.say(t('s_bg_scan_sagen') % (t('e_an') if new_value else t('e_aus')))
@@ -10077,17 +10105,15 @@ def _signature_scanner(window, parent, signature_var):
     area = tk.Label(line, text='', bg=BG, fg=SUB, font=window.f_small,
                     anchor='w', justify='left')
 
+    # ⚠ Kein Scan-Bereich mehr (17.09.2026): Die Pille wandert mit dem
+    # gescannten Brocken, VerseKit sucht sie selbst. Der Knopf öffnet nur noch
+    # das Anlern-Fenster.
     def show_area():
-        region = signature_scan.region()
-        if region:
-            area.configure(text=t('s_bg_scan_ok'), fg=SUB)
-        else:
-            area.configure(text=t('s_bg_scan_kein'), fg=GOLD)
+        count = len(signature_scan.samples())
+        area.configure(text=t('s_bg_scan_bilder') % count if count else '', fg=SUB)
 
-    _button(window, line, t('s_bg_scan_bereich'),
-            lambda: scan_window.open_window(window.root,
-                                            on_saved=lambda _r: show_area())
-            ).pack(side='left')
+    _button(window, line, t('s_bg_scan_anlernen'),
+            lambda: scan_window.open_window(window.root)).pack(side='left')
     area.pack(side='left', fill='x', expand=True, padx=10)
     show_area()
 

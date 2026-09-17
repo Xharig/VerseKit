@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.49.0-rc6'
+__version__ = '3.49.0-rc7'
 
 
 def _mitgeliefert(name):
@@ -2140,6 +2140,21 @@ class Overlay:
         notice.attach(self.neulesen_lbl,
                           lambda: language.t('hinweis_neulesen'))
 
+        # ⭐ Signatur-Scanner an/aus direkt in der Leiste (17.09.2026, Wunsch
+        # beim Minen): an zum Minen, aus danach — dafür soll niemand ins große
+        # Fenster. Grün = sucht, grau = aus. Nur wo abgegriffen werden kann.
+        self.scan_lbl = None
+        try:
+            from scbp import screen_grab as _screen_grab
+            if _screen_grab.supported():
+                self.scan_lbl = icons.button(bar, 'signatur', self._scanner_umschalten,
+                                             font=self.f_title)
+                self.scan_lbl.pack(side='right', padx=(0, 6))
+                notice.attach(self.scan_lbl, self._hinweis_scanner)
+                self._scanner_faerben()
+        except Exception as ausnahme:
+            errors.record('overlay.scan_knopf', ausnahme)
+
         # ⚠ Hier stand bis v3.47.0 ein Klemmbrett, das das grosse Fenster auf
         # der Bauplan-Liste oeffnete. Am 17.09.2026 entfernt: Es tat fast
         # dasselbe wie das Zahnrad daneben, und die Leiste soll Platz fuer die
@@ -3113,6 +3128,35 @@ class Overlay:
                                      before=self._listen_traeger)
         except Exception as ausnahme:
             errors.record('overlay.signatur_zeigen', ausnahme)
+
+    def _scanner_umschalten(self):
+        """Scanner an/aus — derselbe Schalter wie auf der Bergbau-Seite."""
+        try:
+            from scbp import signature_watch
+            an = not paths.setting_bool(signature_watch.SETTING, False)
+            paths.set_setting(signature_watch.SETTING, an)
+            if an:
+                signature_watch.start()
+            else:
+                signature_watch.stop()
+            self._scanner_faerben()
+            self._status_setzen(language.Phrase(
+                's_bg_scan_sagen', language.t('e_an') if an else language.t('e_aus')))
+        except Exception as ausnahme:
+            errors.record('overlay.scanner_umschalten', ausnahme)
+
+    def _scanner_faerben(self):
+        if not getattr(self, 'scan_lbl', None):
+            return
+        from scbp import signature_watch
+        an = paths.setting_bool(signature_watch.SETTING, False)
+        self.scan_lbl.recolor(icons.GREEN if an else icons.GREY)
+
+    def _hinweis_scanner(self):
+        from scbp import signature_watch
+        return language.t('hinweis_scanner_an'
+                          if paths.setting_bool(signature_watch.SETTING, False)
+                          else 'hinweis_scanner_aus')
 
     def signaturwache_starten(self):
         """Die Signatur-Wache anwerfen, wenn der Spieler sie eingeschaltet hat.
