@@ -4295,6 +4295,7 @@ TEXTS = {
     'scan_hinweis':      ('Scanne im Spiel einen Brocken. Das zuletzt gefundene Bild bleibt hier stehen — tippe die Zahl ein, die darauf zu sehen ist.',
                           'Scan a rock in the game. The last image found stays here — type the number shown on it.'),
     'scan_naechstes':    ('Nächstes Bild', 'Next image'),
+    'scan_ordner':       ('Ordner öffnen', 'Open folder'),
     'scan_schliessen':   ('Schließen', 'Close'),
     'scan_wache_aus':    ('Erst „Signatur automatisch erkennen" einschalten — dann sucht VerseKit die Zahl.',
                           'Switch on "Recognise signatures automatically" first — then VerseKit looks for the number.'),

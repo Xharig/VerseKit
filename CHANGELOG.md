@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc9 - 2026-09-17
+
+> **Keine erfundenen Signaturen mehr, und die angelernten Bilder sind mit
+> einem Klick zu finden.**
+
+### Neu
+
+- **„Ordner öffnen"** im Fenster „Ziffern anlernen" und auf der
+  Bergbau-Seite — dort liegen die angelernten Scan-Bilder
+
+### Behoben
+
+- **Eine Zahl, die keinem bekannten Vorkommen entspricht, wurde als
+  ähnliche bekannte angezeigt** (1,700 als 7,200). Jetzt steht die
+  gelesene Zahl da, ohne Erz
+- **Ein Tippfehler beim Anlernen konnte eine falsche Ziffer speichern**
+  (eine 6 als 0) — solche Ziffern werden jetzt als unklar abgelehnt
+
 ## v3.49.0-rc8 - 2026-09-17
 
 > **Auge und Schalter zeigen denselben Stand.**

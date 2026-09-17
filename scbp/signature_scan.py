@@ -113,12 +113,19 @@ MAX_OWN_PER_DIGIT = 24
 # verwechseln, und eine Signatur unter 100 gibt es nicht.
 MIN_CHARS = 3
 
+# ⚠⚠ Die Lagen sind an echten Bildern gemessen (17.09.2026, 54 Windows-Bilder,
+# Lage des Lochs von oben): 9 → 0,35–0,37 · 0 → 0,45–0,55 · 6 → 0,62–0,73.
+# Vorher standen hier die Linux-Werte (9: 0,32, 6: 0,65) mit Toleranz 0,22 —
+# damit ging eine 6 als 0 durch, und Tippfehler beim Anlernen („8000" auf
+# einem 8,600-Bild) speicherten Sechsen als Nullen.
+LEARN_HOLE_TOLERANCE = 0.07
+
 REQUIRED_HOLES = {
     '0': (1, 0.5), '1': (0, None), '2': (0, None), '3': (0, None),
     # ⚠ Die 4 darf offen sein: Bei kleiner Schrift schließt sich ihr Dreieck
     # nicht — „15,420" wurde am 17.09.2026 mit „Stelle 3 unklar" abgelehnt.
-    '4': ((0, 1), None), '5': (0, None), '6': (1, 0.65), '7': (0, None),
-    '8': (2, None), '9': (1, 0.32),
+    '4': ((0, 1), None), '5': (0, None), '6': (1, 0.68), '7': (0, None),
+    '8': (2, None), '9': (1, 0.35),
 }
 
 
@@ -470,7 +477,8 @@ def plausible_template(digit, pattern):
         return False
     if required[1] is None or actual[1] is None:
         return True
-    return abs(actual[1] - required[1]) <= 0.22
+    # ⚠ Siehe `LEARN_HOLE_TOLERANCE` — gemessene Lagen, keine Überlappung.
+    return abs(actual[1] - required[1]) <= LEARN_HOLE_TOLERANCE
 
 
 # --------------------------------------------------------------------------
@@ -612,7 +620,42 @@ def match_values(patterns, known, values):
         return None, best
     if len(scored) > 1 and scored[1][0] - best < VALUE_MARGIN:
         return None, best
+    # ⚠⚠ **Nicht einrasten, wenn die Ziffern sicher etwas anderes sagen**
+    # (17.09.2026). Das Einrasten auf mögliche Werte schützt vor einer falsch
+    # gelesenen Ziffer — erzeugt aber eine falsche Zahl, sobald im Spiel ein
+    # Wert steht, den die Bergbaudaten nicht kennen: „1,700" (kein bekanntes
+    # Vorkommen) wurde als „7,200" gelesen, obwohl jede Ziffer sicher erkannt war.
+    free = free_reading(table)
+    if free is not None and free != value:
+        return (free if FREE_WINS else None), best
     return value, best
+
+
+# Was tun, wenn die sicher gelesenen Ziffern einen anderen Wert ergeben als der
+# eingerastete? True: die gelesene Zahl zeigen (ohne Erz), False: schweigen.
+# Gemessen 17.09.2026 (54 echte Windows-Bilder, je 3-fach geteilt angelernt ·
+# 82 Aufnahmen): ohne Freilesung 40/1 · 72/1 (1,700 als 7,200); **Vorsprung
+# 0,06 → 41/0 · 72/1**; 0,04 → 41/0 · 71/2. Eine zusätzliche Regel „nicht
+# einrasten, wenn eine Stelle deutlich besser zu einer anderen Ziffer passt"
+# änderte nichts und ist wieder heraus.
+FREE_WINS = True
+# Vorsprung der besten Ziffer vor der zweitbesten, damit sie als sicher gilt.
+FREE_MARGIN = 0.06
+
+
+def free_reading(table):
+    """Die Zahl Ziffer für Ziffer — nur wenn JEDE Ziffer sicher ist, sonst None."""
+    digits = []
+    for column in table:
+        ranked = sorted((distance, digit) for digit, distance in column.items())
+        if not ranked or ranked[0][0] > MAX_DIGIT_DISTANCE:
+            return None
+        if len(ranked) > 1 and ranked[1][0] - ranked[0][0] < FREE_MARGIN:
+            return None
+        digits.append(ranked[0][1])
+    if not digits or digits[0] == '0':
+        return None
+    return int(''.join(digits))
 
 
 def read(raster, known=None, values=None):

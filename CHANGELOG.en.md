@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc9 - 2026-09-17
+
+> **No more made-up signatures, and the taught images are one click
+> away.**
+
+### New
+
+- **"Open folder"** in the "Teach digits" window and on the mining page —
+  that is where the taught scan images are
+
+### Fixed
+
+- **A number that matches no known deposit was shown as a similar known
+  one** (1,700 as 7,200). The number read is now shown, without an ore
+- **A typo while teaching could save a wrong digit** (a 6 as 0) — such
+  digits are now rejected as unclear
+
 ## v3.49.0-rc8 - 2026-09-17
 
 > **Eye and switch show the same state.**

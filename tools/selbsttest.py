@@ -23348,8 +23348,38 @@ def main():
                     elif _w is not None:
                         _kf243.append((_soll, _w))
         pruefe(not _kf243, 'echte Windows-Bilder: nichts falsch gelesen (%r)' % _kf243)
-        pruefe(_kr243 >= 14, 'echte Windows-Bilder: %d von %d gelesen (gemessen 17)'
+        pruefe(_kr243 >= len(_schluessel243) // 2,
+               'echte Windows-Bilder: %d von %d gelesen (gemessen 41 von 54)'
                % (_kr243, len(_schluessel243)))
+        # ⚠⚠ Ein Wert, den die Bergbaudaten NICHT kennen, darf nicht auf einen
+        # anderen einrasten: „1,700" wurde am 17.09.2026 als „7,200" gelesen.
+        _eigen243 = _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)
+        if os.path.exists(_eigen243):
+            os.remove(_eigen243)
+        for _k in _schluessel243:
+            if not _k.startswith('1,700'):
+                _ss243.learn(_echt243[_k], _k.split('#')[0])
+        _ohne1700 = [v for v in _alle_werte243 if v != 1700]
+        _w1700 = [_ss243.read(_echt243[_k], None, _ohne1700)['wert']
+                  for _k in _schluessel243 if _k.startswith('1,700')]
+        pruefe(_w1700 and all(_w in (1700, None) for _w in _w1700),
+               'ein unbekannter Wert (1,700) rastet nicht auf einen anderen ein (%r)' % _w1700)
+        # Direkt nachgestellt: Die Ziffern sagen sicher „1700", der einzige
+        # moegliche Wert ist 7200 — und passt fuer sich noch unter die Grenzen.
+        _alte_tafel243 = _ss243.digit_table
+        try:
+            _ss243.digit_table = lambda _p, _k: [
+                {'1': 0.05, '7': 0.20}, {'7': 0.05, '2': 0.20},
+                {'0': 0.02, '8': 0.30}, {'0': 0.02, '8': 0.30}]
+            _gerastet243 = _ss243.match_values([[0]] * 4, {'1': [([0], (0, None))]}, [7200])
+        finally:
+            _ss243.digit_table = _alte_tafel243
+        pruefe(_gerastet243[0] == 1700,
+               'sicher gelesene 1,700 rastet nicht auf 7,200 ein (%r)' % (_gerastet243,))
+        pruefe(_ss243.free_reading([{'1': 0.05, '7': 0.3}, {'7': 0.04, '1': 0.3},
+                                    {'0': 0.02, '8': 0.3}, {'0': 0.03, '6': 0.3}]) == 1700
+               and _ss243.free_reading([{'1': 0.05, '7': 0.07}]) is None,
+               'Freilesung: nur mit sicherem Vorsprung jeder Ziffer')
         # Direkt: Das Loch der 6 (gemessen 0,69) ist nicht das der 0 (0,50).
         pruefe(not _ss243._holes_match((1, 0.69), (1, 0.5))
                and _ss243._holes_match((1, 0.69), (1, 0.65)),
@@ -23421,6 +23451,14 @@ def main():
     # SUCHT sie in der Bildmitte, statt einen festen Bereich zu lesen.
     _swin243 = open(os.path.join(WURZEL, 'scbp', 'scan_window.py'),
                     encoding='utf-8').read()
+    # „Ordner öffnen" im Anlern-Fenster und auf der Bergbau-Seite — geprueft
+    # wird nur die Verdrahtung, ein Pruefllauf oeffnet NICHTS.
+    pruefe("t('scan_ordner'), open_sample_folder" in _swin243
+           and 'scan_window.open_sample_folder' in rumpf(
+               open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read(),
+               '_signature_scanner')
+           and 'signature_scan.sample_folder()' in rumpf(_swin243, 'open_sample_folder'),
+           '„Ordner öffnen" fuehrt zu den angelernten Bildern')
     pruefe('_Aware' not in _swin243 and 'screen_grab.grab' not in _swin243
            and 'self.raster is None' in methode(_swin243, 'ScanWindow', '_tick'),
            'das Anlern-Fenster greift nicht selbst ab und haelt sein Bild fest')
