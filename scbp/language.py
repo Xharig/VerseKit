@@ -2368,6 +2368,19 @@ TEXTS = {
                               'actually does better. Crafting only showed a '
                               'factor per material, not the damage and DPS you '
                               'end up with — now both are in a table.'),
+    # ⚠ „Ich sehe nicht das Hadanite, was man braucht" — ein Fund an EINEM
+    # Bauplan, der eine Luecke in 255 aufdeckte. Der Dank benennt das, ohne
+    # daraus eine Fehlergeschichte zu machen.
+    's_dk_bushwick_bugs3':   ('Und das **fehlende Hadanite** am Attrition-5: '
+                              'Zutaten, die im Spiel als Stück gesammelt werden '
+                              '— Hadanite, Dolivine, Sadaryx und acht weitere — '
+                              'standen in keiner Zutatenliste. Ein Fund an einem '
+                              'Bauplan, der in 255 steckte.',
+                              'And the **missing Hadanite** on the Attrition-5: '
+                              'ingredients the game hands out as single pieces — '
+                              'Hadanite, Dolivine, Sadaryx and eight more — were '
+                              'in no ingredient list at all. One find on one '
+                              'blueprint that sat in 255.'),
     's_dk_bushwick_idee3':   ('**Der Rückweg nach einem Seitensprung** — wer in '
                               'der Bauplan-Liste einen Eintrag anklickt, landet '
                               'in der Herstellung und kam von dort nur über die '
@@ -2460,6 +2473,17 @@ TEXTS = {
                               'a rank starts at.'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
+    # ⚠ Er steht weiter oben schon als **Werkzeug** (Hangar Extension). Hier
+    # steht er als Mensch: Das Versicherungsfeld hat er gebaut und sein Muster
+    # vorab herausgegeben, damit der Import am ersten Tag damit umgehen kann.
+    's_dk_alyxone_idee':     ('**Die Versicherung im JSON-Export** — er hat das '
+                              'Feld in seiner Hangar Extension gebaut und sein '
+                              'Muster vorab herausgegeben, damit der Import es '
+                              'vom ersten Tag an lesen kann. Danke!',
+                              '**Insurance in the JSON export** — he built the '
+                              'field into his Hangar Extension and shared his '
+                              'sample up front, so the import could read it '
+                              'from day one. Thank you!'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '
@@ -3575,11 +3599,13 @@ TEXTS = {
     # 06.09.2026 fehlten der CSV-Fassung drei Schiffe, die in der JSON standen.
     # Gelesen werden beide — empfohlen wird nur eines.
     's_hg_import_json':  ('Am besten beide Dateien nacheinander: Die JSON bringt '
-                          'die Paketzugehörigkeit, die CSV die Versicherung '
-                          '(LTI oder Laufzeit). Doppelt wird dabei nichts.',
+                          'Paketzugehörigkeit und Versicherung (LTI oder '
+                          'Laufzeit), die CSV dazu Kaufdatum und Preis. Doppelt '
+                          'wird dabei nichts.',
                           'Best import both files one after the other: the JSON '
-                          'brings the bundle relations, the CSV the insurance '
-                          '(LTI or duration). Nothing gets duplicated.'),
+                          'brings the bundle relations and the insurance (LTI or '
+                          'duration), the CSV adds purchase date and price. '
+                          'Nothing gets duplicated.'),
     's_hg_import_knopf': ('Exportdatei wählen …', 'Choose export file …'),
     's_hg_import_ok':    ('{neu} Schiffe übernommen, {alt} waren schon da.',
                           '{neu} ships added, {alt} were already there.'),
@@ -4158,6 +4184,12 @@ TEXTS = {
     # rechnet. Ein Kaestchen daneben schaltet um — stuende dort dauerhaft
     # „(SCU)", waere jede cSCU-Eingabe stillschweigend hundertfach zu gross.
     's_lg_menge_cscu':   ('Menge (cSCU)', 'Amount (cSCU)'),
+    # ⚠⚠ **Edelsteine haben keine SCU.** Hadanite, Dolivine, Sadaryx und acht
+    # weitere werden im Spiel als Stueck aufgesammelt; die Rezepte fordern
+    # „75", nicht „0,75 SCU". Stuende hier weiter „(SCU)" und waere das
+    # cSCU-Kaestchen angehakt, landeten 75 Steine als **0,75** im Lager — ohne
+    # eine Zeile Meldung. Das Kaestchen verschwindet deshalb bei Stueckware.
+    's_lg_menge_stueck': ('Menge (Stück)', 'Amount (qty)'),
     # Die Einheit selbst heisst in beiden Sprachen gleich — sie steht
     # trotzdem hier, weil jeder sichtbare Text durch `t()` laeuft.
     's_lg_cscu':         ('cSCU', 'cSCU'),
@@ -4583,6 +4615,15 @@ TEXTS = {
     's_lg_fehlt_paar':   ('%s (%g)', '%s (%g)'),
     # Die Mengen in der Zutatenliste, wenn mehr als ein Stueck gebaut wird.
     's_he_menge_n':      ('%g SCU  (%g × %d)', '%g SCU  (%g × %d)'),
+    # ⚠⚠ **Edelsteine werden GEZAEHLT, nicht gemessen.** Elf Materialien
+    # stehen in den Rezepten als Stueckzahl (Hadanite 75, Dolivine 30 …), nicht
+    # in SCU. „75 SCU Hadanite" waere eine Menge, die es im Spiel nicht gibt —
+    # und die niemand mit seinem Inventar vergleichen koennte. Welches Material
+    # wie zaehlt, sagt `crafting.is_piece()`; geraten wird nichts.
+    's_he_menge_stk':    ('× %g', '× %g'),
+    's_he_menge_stk_n':  ('× %g  (%g × %d)', '× %g  (%g × %d)'),
+    's_lg_zu_schlecht_stk': ('× %g da, aber unter Q %g',
+                             '× %g on hand, but below Q %g'),
     's_he_regler_kopf':  ('Qualität durchspielen — je Material einzeln',
                           'Try qualities — one per material'),
     's_he_regler_lager': ('aus deinem Lager', 'from your stock'),

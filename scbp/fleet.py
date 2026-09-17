@@ -42,7 +42,7 @@ eingetragen hat und dessen Spiel von 78 spricht, dem fehlt etwas.
 
 | Weg | bringt | bringt **nicht** |
 |---|---|---|
-| Import aus der **Star Citizen: Hangar Extension** (AlyxOne), JSON | alle Echtgeld-Schiffe samt Hersteller, Code und Paketzugehörigkeit | im Spiel gekaufte Schiffe; LTI, Versicherungsdauer, Preis |
+| Import aus der **Star Citizen: Hangar Extension** (AlyxOne), JSON | alle Echtgeld-Schiffe samt Hersteller, Code, Paketzugehörigkeit und **Versicherung** (`"LTI"` oder `"120MI"`) | im Spiel gekaufte Schiffe; Preis und Kaufdatum |
 | dieselbe Erweiterung, **CSV** (Komplett-Export) | Schiffe samt **LTI oder Versicherungsdauer in Monaten** (`versicherung`), Paketname, Datum, Preis | im Spiel gekaufte Schiffe; Schiffskürzel |
 | Import aus **Star Citizen Hangar XPLORer** (dolkensp) | alle Echtgeld-Pledges samt LTI und Paketname | im Spiel gekaufte Schiffe |
 | **Von Hand** eintragen | alles Übrige | — |
@@ -422,9 +422,9 @@ _IMPORT_KEYS = ('kurz', 'hkurz', 'lti', 'warbond', 'paket', 'gekauft', 'preis',
 def _fill(entry, **rest):
     """Fehlende Angaben nachtragen, vorhandene nicht anrühren.
 
-    ⚠ `lti` wird nur **gesetzt**, nie zurückgenommen: Die Hangar Extension
-    liefert bis zu ihrem Oktober-Update kein LTI und meldet überall `False` —
-    das darf ein LTI aus dem XPLORer-Import nicht löschen.
+    ⚠ `lti` wird nur **gesetzt**, nie zurückgenommen: Ältere Exporte der
+    Hangar Extension kennen das Feld `insurance` noch nicht und melden überall
+    `False` — das darf ein LTI aus dem XPLORer-Import nicht löschen.
     """
     changed = False
     for key in _IMPORT_KEYS:
@@ -527,6 +527,48 @@ def remove(data, name, manufacturer=''):
 
 # ---------------------------------------------------------------- Import
 
+_EXT_INSURANCE = re.compile(r'^\s*(\d+)\s*(?:mi|mo|months?)?\s*$',
+                            re.IGNORECASE)
+
+
+def _extension_insurance(entry):
+    """Die Versicherung aus dem JSON der Hangar Extension → `(lti, monate)`.
+
+    Sie steht in **einem** Feld, im selben Zuschnitt, den der Webhangar zeigt:
+    `"insurance": "LTI"` oder `"insurance": "120MI"` — Dauer in Monaten.
+
+    ⚠ **`"0MI"` ist keine Versicherung von null Monaten, sondern gar keine
+    Angabe.** Das ist der Rückfallwert der Erweiterung für Pledges, die die
+    Information nicht führen (Autor der Erweiterung, 17.09.2026) — er landet
+    deshalb wie ein fehlendes Feld.
+
+    ⚠ **Fehlt das Feld, gibt es keine Angabe** — kein LTI, keine Dauer. Die
+    Schiffszeile bleibt dann ohne Versicherung, statt „keine" zu behaupten.
+
+    ⚠ Ein Zwischenstand der Erweiterung führte zwei Felder (`insurance` als
+    Wahrheitswert, `insuranceMonths` als Zahl). Beide werden weiter gelesen —
+    wer einen Export von damals noch hat, soll ihn nicht neu ziehen müssen.
+    """
+    value = entry.get('insurance')
+    lti = False
+    months = 0
+    if isinstance(value, bool):
+        lti = value
+    elif isinstance(value, str):
+        text = value.strip()
+        if text.lower() == 'lti':
+            lti = True
+        else:
+            match = _EXT_INSURANCE.match(text)
+            if match:
+                months = int(match.group(1))
+    try:
+        months = max(months, int(entry.get('insuranceMonths') or 0))
+    except (TypeError, ValueError):
+        pass
+    return lti, months
+
+
 def _hangar_extension_entry(entry):
     """Ein Schiff aus dem JSON der **Star Citizen: Hangar Extension** (AlyxOne).
 
@@ -537,6 +579,7 @@ def _hangar_extension_entry(entry):
                           "shortName": "ARGO"},
          "code": "ARGO_ATLS", "matrix": "ATLS", "name": "ATLS",
          "focus": "Cargo", "status": "Flight-Ready",
+         "insurance": "LTI",                   # oder „120MI", wenn vorhanden
          "includedWith": "Idris-P"}            # nur bei Paket-Beilagen
 
     ⚠ `name` vor `matrix` — dieselbe Regel wie beim XPLORer (`name` vor
@@ -544,23 +587,26 @@ def _hangar_extension_entry(entry):
     Ausführung, wie der Store sie führt („L22-AlphaWolf"). Gemessen am Export
     vom 15.09.2026: 43 Schiffe, genau ein Unterschied.
 
-    ⚠ **Keine Pledge-Angaben.** LTI, Warbond, Kaufdatum und Preis stehen nur
-    im CSV-Export der Erweiterung — der JSON führt Schiffe und Fahrzeuge samt
-    ihrer Beziehungen. `includedWith` nennt das Paket, mit dem ein Schiff kam
-    (die MPUV Personnel der Idris-P); das ist die Angabe, die beim XPLORer
-    `pledge_name` heißt, und landet deshalb unter `paket`.
+    ⚠ **Warbond, Kaufdatum und Preis stehen nur im CSV-Export** — der JSON
+    führt Schiffe und Fahrzeuge samt ihrer Beziehungen, dazu die Versicherung
+    (siehe `_extension_insurance`). `includedWith` nennt das Paket, mit dem ein
+    Schiff kam (die MPUV Personnel der Idris-P); das ist die Angabe, die beim
+    XPLORer `pledge_name` heißt, und landet deshalb unter `paket`.
     """
     maker = entry.get('manufacturer') or {}
     name = (entry.get('name') or entry.get('matrix') or '').strip()
     if not name:
         return None
+    lti, months = _extension_insurance(entry)
     return {
         'name': name,
         'hersteller': (maker.get('name') or '').strip(),
         'kurz': (entry.get('code') or '').strip(),
         'hkurz': (maker.get('code') or maker.get('shortName') or '').strip(),
-        'lti': False,
+        'lti': lti,
         'warbond': False,
+        # Monate nur ohne LTI — LTI ist die Dauer (wie beim CSV).
+        'versicherung': (months if months and not lti else None),
         'paket': (entry.get('includedWith') or '').strip(),
         'gekauft': '',
         'preis': '',
@@ -576,7 +622,7 @@ def _from_json(text):
     |---|---|---|
     | Eintrag | flach: `name`, `ship_name`, `manufacturer_name`, `manufacturer_code`, `ship_code`, `lti`, `pledge_*` | `name`, `matrix`, `code`, `manufacturer` als **Wörterbuch** |
     | Umfang | Schiffe **und** Ausrüstung, Farben, Anzüge (`entity_type`) | nur Schiffe und Fahrzeuge |
-    | Pledge-Angaben | LTI, Warbond, Paket, Datum, Preis | keine (siehe `_hangar_extension_entry`) |
+    | Pledge-Angaben | LTI, Warbond, Paket, Datum, Preis | Versicherung und Paket — kein Warbond, Datum, Preis (siehe `_hangar_extension_entry`) |
 
     Erkannt wird **je Eintrag** am Wörterbuch `manufacturer` — kein Werkzeug
     schreibt das Feld des anderen. Beide dürfen weiter eingelesen werden: Wer

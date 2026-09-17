@@ -24213,6 +24213,112 @@ def main():
             os.environ['SC_BP_HOME'] = _alt249
         shutil.rmtree(_heim249, ignore_errors=True)
 
+    # 251. Keine Zutat faellt unter den Tisch — egal welchen Typ sie hat
+    # ⛔⛔ Bis zum 17.09.2026 las `crafting._ingredients()` nur Optionen mit
+    # `type="resource"`. Die zweite Sorte — `type="item"` mit **`itemName`**,
+    # die gesammelten Edelsteine — verschwand **spurlos**: keine Zeile, keine
+    # Luecke, kein Hinweis. Beim Attrition-5 Repeater fehlte so das Hadanite
+    # (gemeldet von Bushwick4712), insgesamt 298 Zutaten in 255 Bauplaenen.
+    #
+    # ⚠ **Gezaehlt wird nicht die 298.** Eine Zahl geht rot, sobald CIG etwas
+    # hinzufuegt, und gruen, obwohl ein NEUER Typ durchfaellt. Nachgewiesen
+    # wird die Eigenschaft: **jeder Slot mit einer Option ergibt eine Zutat.**
+    # Damit schlaegt die Pruefung auch bei einem Typ an, den es heute noch
+    # nicht gibt.
+    #
+    # ⚠ Die Rezeptdaten liegen nicht im Repo (4,1 MB, CC BY-NC-ND) — die
+    # Pruefung legt sich deshalb selbst welche hin, mit beiden Typen darin.
+    print('251. Keine Zutat faellt unter den Tisch')
+    from scbp import crafting as _he251
+    _heim251 = tempfile.mkdtemp(prefix='pruefung251-')
+    _alt251 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim251
+    try:
+        _rezepte251 = {
+            'format': _he251.FORMAT, 'build': 'probe-251', 'dismantle': {},
+            'products': {}, 'blueprints': [{
+                'tag': 'BP_CRAFT_PROBE_251', 'productName': 'Probestueck',
+                'manufacturer': 'Probe', 'type': 'weapons', 'subtype': 'laser',
+                'productEntityClass': 'e251', 'tiers': [{
+                    'craftTimeSeconds': 60, 'slots': [
+                        {'name': 'Rahmen', 'modifiers': [],
+                         'options': [{'type': 'resource', 'quantity': 3.5,
+                                      'minQuality': 1,
+                                      'resourceName': 'Probium'}]},
+                        {'name': 'Emitter',
+                         'modifiers': [{'propertyName': 'Impact Force',
+                                        'propertyKey': 'probe_wucht',
+                                        'startQuality': 0, 'endQuality': 1000,
+                                        'modifierAtStart': 0.95,
+                                        'modifierAtEnd': 1.05}],
+                         'options': [{'type': 'item', 'quantity': 75,
+                                      'minQuality': 1,
+                                      'itemName': 'Probestein'}]}]}]}]}
+        with open(os.path.join(_heim251, _he251.CACHE), 'w',
+                  encoding='utf-8') as _f251:
+            json.dump(_rezepte251, _f251)
+
+        # Die Eigenschaft: so viele Zutaten wie Slots mit Optionen.
+        _fehlend251 = []
+        for _bp251 in _he251.load().get('blueprints') or []:
+            for _t251 in _bp251.get('tiers') or []:
+                _mit251 = [_s251 for _s251 in (_t251.get('slots') or [])
+                           if _s251.get('options')]
+                _raus251 = _he251._ingredients(_t251)
+                if len(_raus251) != len(_mit251):
+                    _namen251 = {_z251[0] for _z251 in _raus251}
+                    _fehlend251 += ['%s/%s' % (_bp251.get('tag'),
+                                               _s251.get('name'))
+                                    for _s251 in _mit251
+                                    if (_s251.get('name') or '') not in _namen251]
+        pruefe(not _fehlend251,
+               'jeder belegte Slot ergibt eine Zutat (verloren: %r)'
+               % sorted(_fehlend251))
+
+        _zutaten251 = (_he251.recipe('BP_CRAFT_PROBE_251')
+                       or {}).get('stufen', [{}])[0].get('zutaten') or []
+        pruefe([_z251[1] for _z251 in _zutaten251] == ['Probium', 'Probestein'],
+               'beide Typen stehen im Rezept, in der Reihenfolge der Slots (%r)'
+               % [_z251[1] for _z251 in _zutaten251])
+
+        # Und der Qualitaetsregler dazu: ohne Material kein Slot-Eintrag.
+        _slots251 = _he251.slots('BP_CRAFT_PROBE_251') or []
+        pruefe(all(_s251.get('material') for _s251 in _slots251)
+               and len(_slots251) == 2,
+               'jeder Slot traegt sein Material, auch der item-Slot (%r)'
+               % [(_s251.get('slot'), _s251.get('material'))
+                  for _s251 in _slots251])
+        _wirkung251 = [_s251 for _s251 in _slots251
+                       if _s251.get('material') == 'Probestein']
+        pruefe(bool(_wirkung251) and bool(_wirkung251[0].get('wirkungen')),
+               'und seine Qualitaetswirkung haengt daran (%r)'
+               % [_w251.get('eigenschaft')
+                  for _w251 in (_wirkung251[0].get('wirkungen') if _wirkung251
+                                else [])])
+
+        # ⚠ Die Einheit kommt aus den Daten, nicht aus dem Namen: `item` zaehlt
+        # in Stueck, `resource` misst in SCU. Ohne das stuende „75 SCU" da.
+        pruefe(_he251.is_piece('Probestein')
+               and not _he251.is_piece('Probium'),
+               'Stueckware wird als solche erkannt (Probestein %s, Probium %s)'
+               % (_he251.is_piece('Probestein'), _he251.is_piece('Probium')))
+        pruefe('Probestein' in _he251.material_names()
+               and _he251.blueprints_with('Probestein') == ['Probestueck'],
+               'und sie ist ueber ihren Namen auffindbar (%r)'
+               % _he251.blueprints_with('Probestein'))
+    finally:
+        if _alt251 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt251
+        _he251._cached['stand'] = None
+        _he251._raw_cache['stand'] = None
+        _he251._raw_cache['daten'] = None
+        _he251._raw_cache['geprueft'] = 0.0
+        _he251._piece_names['stand'] = None
+        _he251.forget()
+        shutil.rmtree(_heim251, ignore_errors=True)
+
     # Kein Eingabefeld am Baustein vorbei — sonst fehlt dort das X oder der
     # Hinweis landet wieder als Label darueber (wie bei „Schiffe benennen").
     import ast as _ast247
@@ -24241,6 +24347,82 @@ def main():
                                                        _n247.lineno, _fn247.name))
     pruefe(not _roh247,
            'jedes Eingabefeld laeuft ueber round_entry (roh: %r)' % sorted(set(_roh247)))
+
+    print('\n252. Das JSON der Hangar Extension bringt die Versicherung')
+    # Ein Feld, im Zuschnitt des Webhangars („AEGIS SABRE RAVEN | 2MI"):
+    # `"insurance": "LTI"` oder `"insurance": "<int>MI"`. Fehlt es, gibt es
+    # keine Angabe — dann steht die Zeile ohne Versicherung da.
+    #
+    # Die ersten zwei Eintraege sind das Muster, das der Autor der Erweiterung
+    # am 17.09.2026 aus seiner Storefassung gegeben hat — Feld fuer Feld, nicht
+    # geraten. Die uebrigen decken die Randfaelle ab.
+    from scbp import fleet as _fl252
+    _json252 = json.dumps([
+        {'manufacturer': {'code': 'AEGS', 'name': 'Aegis Dynamics',
+                          'shortName': 'Aegis'},
+         'code': 'AEGS_Sabre_Raven', 'matrix': 'Sabre Raven',
+         'focus': 'Interdiction', 'status': 'Flight-Ready',
+         'insurance': '2MI', 'name': 'Sabre Raven'},
+        {'manufacturer': {'code': 'AEGS', 'name': 'Aegis Dynamics',
+                          'shortName': 'Aegis'},
+         'code': 'AEGS_Sabre_Raven_EX', 'matrix': 'Sabre Raven EX',
+         'focus': 'Medium Fighter', 'status': 'Flight-Ready',
+         'insurance': 'LTI', 'name': 'Sabre Raven EX'},
+        {'manufacturer': {'code': 'RSI', 'name': 'Roberts Space Industries'},
+         'code': 'RSI_Aurora_MR', 'name': 'Aurora MR'},
+        # „0MI" ist der Rueckfallwert der Erweiterung fuer Pledges ohne
+        # Versicherungsangabe — keine Versicherung von null Monaten.
+        {'manufacturer': {'code': 'GRIN', 'name': 'Greycat Industrial',
+                          'shortName': 'Greycat'},
+         'code': 'GRIN_PTV', 'matrix': 'PTV', 'focus': 'Passenger',
+         'status': 'Flight-Ready', 'insurance': '0MI', 'name': 'PTV'},
+        # Der Zwischenstand der Erweiterung: zwei Felder statt einem.
+        {'manufacturer': {'code': 'ARGO', 'name': 'Argo Astronautics'},
+         'code': 'ARGO_ATLS', 'name': 'ATLS', 'insurance': False,
+         'insuranceMonths': 120},
+    ])
+    # ⚠ Zugriff ueber `get`: Fehlt ein Schiff, soll die Pruefung es BENENNEN
+    # und nicht den ganzen Lauf mit einem KeyError abbrechen.
+    _n252 = {s['name']: s for s in _fl252._from_json(_json252)}
+
+    def _v252(name, feld):
+        return (_n252.get(name) or {}).get(feld)
+
+    pruefe(sorted(_n252) == ['ATLS', 'Aurora MR', 'PTV', 'Sabre Raven',
+                             'Sabre Raven EX'],
+           'alle fuenf werden gelesen, Raven und Raven EX bleiben zwei (%r)'
+           % sorted(_n252))
+    pruefe(_v252('Sabre Raven', 'versicherung') == 2
+           and _v252('Sabre Raven', 'lti') is False,
+           '„2MI" wird zu 2 Monaten ohne LTI (%r)'
+           % _v252('Sabre Raven', 'versicherung'))
+    pruefe(_v252('Sabre Raven EX', 'lti') is True
+           and _v252('Sabre Raven EX', 'versicherung') is None,
+           '„LTI" ist die Dauer selbst — kein Monatswert daneben')
+    pruefe(_v252('Aurora MR', 'lti') is False
+           and _v252('Aurora MR', 'versicherung') is None,
+           'ohne das Feld bleibt die Zeile ohne Versicherungsangabe (%r)'
+           % _v252('Aurora MR', 'versicherung'))
+    pruefe(_v252('PTV', 'lti') is False
+           and _v252('PTV', 'versicherung') is None,
+           '„0MI" ist keine Angabe, keine Versicherung von null Monaten (%r)'
+           % _v252('PTV', 'versicherung'))
+    pruefe(_v252('ATLS', 'versicherung') == 120,
+           'der aeltere Export mit `insuranceMonths` wird weiter gelesen (%r)'
+           % _v252('ATLS', 'versicherung'))
+    # ⚠ Ein Export ohne Versicherungsfeld darf ein LTI aus einem frueheren
+    # Import nicht loeschen (`_fill` setzt `lti` nur, nimmt es nie zurueck).
+    _d252 = {'format': 1, 'schiffe': []}
+    _fl252.import_entries([{'name': 'Aurora MR', 'kurz': 'RSI_Aurora_MR',
+                            'hersteller': 'Roberts Space Industries',
+                            'hkurz': 'RSI', 'lti': True}],
+                          data=_d252, save_now=False)
+    _fl252.import_entries(_fl252._from_json(_json252), data=_d252,
+                          save_now=False)
+    _aurora252 = _fl252.find(_d252, 'Aurora MR', 'Roberts Space Industries',
+                             hkurz='RSI')
+    pruefe(_aurora252 is not None and _aurora252['lti'] is True,
+           'ein Export ohne Versicherungsfeld loescht kein vorhandenes LTI')
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

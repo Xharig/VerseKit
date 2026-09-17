@@ -8,6 +8,34 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.51.0 - 2026-09-17
+
+> **Die Herstellung zeigt jetzt alle Zutaten.** Was im Spiel als Stück
+> gesammelt wird — Hadanite, Dolivine, Sadaryx und acht weitere — fehlte in den
+> Zutatenlisten von 255 Bauplänen, samt Qualitätsregler. Dazu bringt der
+> JSON-Export der Hangar Extension jetzt die Versicherung mit: Eine Datei reicht
+> für Paket und Versicherung.
+
+### Verbessert
+
+- **Der JSON-Export der Hangar Extension bringt jetzt auch die Versicherung** —
+  LTI oder Laufzeit in Monaten, genau wie der Webhangar sie zeigt. Eine Datei
+  reicht damit für Paketzugehörigkeit und Versicherung. Ältere Exportdateien
+  werden weiterhin gelesen
+
+### Behoben
+
+- **Fehlende Zutaten in der Herstellung** — was im Spiel als Stück gesammelt
+  wird (Hadanite, Dolivine, Sadaryx, Aphorite, Beradom, Glacosite, Janalite,
+  Feynmaline, Carinite, Saldynium, Yormandi Eye), stand in keiner Zutatenliste.
+  Betroffen waren 255 Baupläne. Gemeldet von Bushwick4712 (KRT)
+- **Der Qualitätsregler fehlte für diese Materialien mit** — damit fehlte auch
+  ihr Anteil in der Tabelle „Grundwert → gebaut"
+- **„Was kann ich aus Sadaryx herstellen?"** beantwortete das Werkzeug mit
+  „nichts" — es sind 37 Baupläne
+- **Lager:** Bei Stückware heißt das Mengenfeld jetzt „Menge (Stück)" und das
+  cSCU-Kästchen verschwindet. Angehakt wurden aus 75 Hadanite sonst 0,75
+
 ## v3.50.4 - 2026-09-17
 
 > **v3.50.3 startete nicht.** Wer sie geladen hat, bekam beim Start eine

@@ -8,6 +8,34 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.51.0 - 2026-09-17
+
+> **Crafting now shows every ingredient.** What the game hands out as single
+> pieces — Hadanite, Dolivine, Sadaryx and eight more — was missing from the
+> ingredient lists of 255 blueprints, quality slider included. And the Hangar
+> Extension's JSON export now carries the insurance: one file covers both
+> bundle and insurance.
+
+### Improved
+
+- **The Hangar Extension's JSON export now carries the insurance as well** —
+  LTI or the duration in months, exactly as the web hangar shows it. One file
+  now covers both bundle relations and insurance. Older export files are still
+  read
+
+### Fixed
+
+- **Missing ingredients in crafting** — anything the game hands out as single
+  pieces (Hadanite, Dolivine, Sadaryx, Aphorite, Beradom, Glacosite, Janalite,
+  Feynmaline, Carinite, Saldynium, Yormandi Eye) appeared in no ingredient list.
+  255 blueprints were affected. Reported by Bushwick4712 (KRT)
+- **The quality slider was missing for those materials too** — and with it
+  their share of the “base value → built” table
+- **“What can I craft from Sadaryx?”** was answered with “nothing” — it is 37
+  blueprints
+- **Stock:** for piece goods the amount field now reads “Amount (qty)” and the
+  cSCU box disappears. Ticked, 75 Hadanite used to end up as 0.75
+
 ## v3.50.4 - 2026-09-17
 
 > **v3.50.3 did not start.** If you got it, you saw an error message on

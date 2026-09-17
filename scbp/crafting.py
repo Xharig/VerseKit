@@ -53,6 +53,26 @@ die lädt der Katalog ohnehin schon, siehe `catalog.py`.
           options[]        type="resource", resourceName="Iron",
                            quantity=0.3, minQuality=0
 
+⚠⚠ **Es gibt ZWEI Arten von Zutat, und die zweite hat einen anderen
+Schlüssel.** Neben `type="resource"` mit `resourceName` steht
+`type="item"` mit **`itemName`** — die von Hand gesammelten Edelsteine:
+
+    options[]  type="item", itemName="Hadanite", quantity=75, minQuality=1
+
+Bis zum 17.09.2026 las diese Datei nur `resource`. Die `item`-Zutaten fielen
+damit **spurlos** aus jeder Zutatenliste — gemeldet von Bushwick4712: „ich sehe
+nicht das Hadanite, was man braucht". Gemessen an Build 4.10.1-live.12660092:
+**298 Zutaten in 255 Bauplänen**, dazu 376 Qualitätswirkungen und elf
+Materialien (Hadanite, Dolivine, Sadaryx, Aphorite, Beradom, Glacosite,
+Janalite, Feynmaline, Carinite, Saldynium, Yormandi Eye). Wer eine neue Stelle
+über die Rezepte schreibt, nimmt **beide** Schlüssel — dafür gibt es
+`_option_material()`.
+
+⚠ **Die Menge bedeutet dabei etwas anderes.** Bei `resource` sind es SCU
+(0,01 bis 15, mit Nachkommastellen), bei `item` **Stückzahlen** (1 bis 495,
+immer ganzzahlig). scmdb schreibt sie deshalb als „×75" statt „75 SCU" —
+`is_piece()` sagt, welche Einheit gilt.
+
 Die Struktur sieht mehrere `tiers` je Bauplan vor. **Gemessen an Build
 4.10.0-live.12519617 hat aber keiner mehr als einen** (0 von 1607) — hier steht
 bewusst keine Warnung vor einem Fall, den es nicht gibt. Gelesen werden trotzdem
@@ -235,14 +255,31 @@ def norm_material(name):
     return short.replace('aluminium', 'aluminum')
 
 
+def _option_material(option):
+    """Der Rohstoff einer Option — egal ob `resource` oder `item`.
+
+    ⚠⚠ **Die einzige Stelle, die beide Schlüssel kennt.** `resourceName` bei
+    Erzen, `itemName` bei den gesammelten Edelsteinen. Wer nur den ersten
+    liest, verliert 298 Zutaten, ohne dass irgendwo eine Lücke zu sehen wäre —
+    genau das war bis zum 17.09.2026 der Fall. Siehe Modulkopf.
+    """
+    return (option or {}).get('resourceName') or (option or {}).get('itemName') or ''
+
+
 def _ingredients(tier):
-    """Die Zutaten einer Ausbaustufe: [(Slot, Rohstoff, Menge, Mindestgüte)]."""
+    """Die Zutaten einer Ausbaustufe: [(Slot, Rohstoff, Menge, Mindestgüte)].
+
+    ⚠ Die Menge ist bei Erzen SCU, bei Edelsteinen eine **Stückzahl** —
+    siehe `is_piece()`. Gerechnet wird mit beiden gleich; nur die Einheit in
+    der Anzeige unterscheidet sich.
+    """
     result = []
     for slot in tier.get('slots') or []:
         for o in slot.get('options') or []:
-            if o.get('type') == 'resource' and o.get('resourceName'):
+            material = _option_material(o)
+            if material:
                 result.append((slot.get('name') or '',
-                               o['resourceName'],
+                               material,
                                o.get('quantity') or 0,
                                o.get('minQuality') or 0))
     return result
@@ -832,8 +869,12 @@ def slots(name_or_tag):
             for s in t_.get('slots') or []:
                 material = amount = quality = None
                 for o in s.get('options') or []:
-                    if o.get('type') == 'resource' and o.get('resourceName'):
-                        material = o['resourceName']
+                    # ⚠ **Die zweite Stelle mit demselben Griff.** Wer hier nur
+                    # `resourceName` liest, verliert nicht die Zutat, sondern
+                    # den ganzen **Qualitätsregler** dazu — 376 Wirkungen an
+                    # 298 Slots. Siehe `_option_material()`.
+                    if _option_material(o):
+                        material = _option_material(o)
                         amount = o.get('quantity') or 0
                         quality = o.get('minQuality') or 0
                         break
@@ -931,8 +972,9 @@ def material_names():
     ⚠ **Damit niemand raten oder tippen muss.** Ein freies Textfeld für einen
     Namen, der exakt passen muss, ist eine stille Fehlerquelle: Wer „Aslerite"
     schreibt, bekommt nie einen Treffer und erfährt auch nicht, warum. Gemessen
-    am 29.08.2026 sind es **26** Materialien — eine Liste, die in jede Auswahl
-    passt.
+    an Build 4.10.1 sind es **37** Materialien — 26 Erze und elf Edelsteine, die
+    bis zum 17.09.2026 fehlten (siehe Modulkopf). Eine Liste, die in jede
+    Auswahl passt.
     """
     names = set()
     for b in load().get('blueprints') or []:
@@ -943,6 +985,46 @@ def material_names():
     return sorted(names, key=lambda x: x.lower())
 
 
+# Welche Materialien werden gezählt statt gemessen? Einmal gebaut, Schlüssel
+# ist der Formatstand der Rezeptdaten — wie bei `_entity_ids`.
+_piece_names = {'stand': None, 'namen': set()}
+
+
+def piece_materials():
+    """Die Materialien, die in **Stück** zählen — nicht in SCU.
+
+    ⚠ **Die Einheit steht in den Rezeptdaten, sie wird nicht am Namen geraten.**
+    `type="item"` heißt Stückzahl (ganzzahlig, 1 bis 495), `type="resource"`
+    heißt SCU (0,01 bis 15). Beide Listen überschneiden sich nicht.
+
+    Zurück kommen **angeglichene** Namen (`norm_material`), damit auch ein
+    Lagerposten `Saldynium` zum Rezept-Namen `Saldynium (Ore)` passt.
+    """
+    build_now = current_build()
+    if _piece_names['stand'] != build_now:
+        found = set()
+        for b in load().get('blueprints') or []:
+            for t_ in b.get('tiers') or []:
+                for s in t_.get('slots') or []:
+                    for o in s.get('options') or []:
+                        if o.get('type') == 'item' and o.get('itemName'):
+                            found.add(norm_material(o['itemName']))
+        _piece_names['stand'], _piece_names['namen'] = build_now, found
+    return _piece_names['namen']
+
+
+def is_piece(material):
+    """Wird dieses Material gezählt (× 75) statt gemessen (3.74 SCU)?
+
+    ⚠ Ohne diese Unterscheidung stünde bei Hadanite „75 SCU" — eine Menge, die
+    es nicht gibt, und die niemand mit dem eigenen Inventar vergleichen kann.
+    scmdb schreibt aus demselben Grund „×75".
+
+    Bei unbekanntem Namen `False`: SCU ist der Regelfall (26 von 37).
+    """
+    return norm_material(material) in piece_materials()
+
+
 def storable():
     """**Alles**, was im Lager stehen darf — die abschliessende Liste.
 
@@ -950,9 +1032,15 @@ def storable():
 
     | Quelle | Anzahl | wofür |
     |---|---|---|
-    | Rezept-Materialien | 26 | was zum Herstellen gebraucht wird |
+    | Rezept-Materialien | 37 | was zum Herstellen gebraucht wird (26 Erze + 11 Edelsteine) |
     | Mineralien aus den Bergbaudaten | 39 | auch was (noch) in keinem Rezept steht |
     | Pflanzen (`Harvestables`) | 13 | von Hand geerntet, mit Qualität |
+
+    ⚠ Die **Gesamtzahl bleibt 52** — die elf Edelsteine standen schon über die
+    Bergbaudaten drin, nur eben ohne Rezept dahinter. Was sich ändert: Sie
+    kommen jetzt aus der Rezept-Schreibweise, und damit heißt Saldynium in der
+    Liste `Saldynium (Ore)` wie im Rezept. Ein vorhandener Posten `Saldynium`
+    wird über `norm_material()` weiterhin gefunden und weitergezählt.
 
     ⚠⚠ **Diese Liste ist eine Zusage, keine Empfehlung.** Was nicht darin
     steht, lässt sich nicht eintragen — auch nicht „trotzdem". Der Grund ist
@@ -1087,9 +1175,16 @@ def blueprints_with(material):
     „Was kann ich aus Sadaryx herstellen? Meine User werden es nie erfahren."
 
     ⚠ Eine **leere Liste ist auch eine Antwort**, und zwar oft die richtige:
-    26 der 52 einlagerbaren Namen kommen in keinem einzigen Rezept vor — alle
-    13 Pflanzen und 13 Mineralien, darunter Sadaryx. Das muss dastehen, statt
-    dass jemand weitersucht.
+    **15** der 52 einlagerbaren Namen kommen in keinem einzigen Rezept vor —
+    die Pflanzen und ein paar Mineralien. Das muss dastehen, statt dass jemand
+    weitersucht.
+
+    ⚠⚠ **Bis zum 17.09.2026 waren es 26 — und Sadaryx stand fälschlich
+    darunter.** Die Frage von damals („Was kann ich aus Sadaryx herstellen?")
+    galt als beantwortet, blieb es aber nicht: Sadaryx ist eine `item`-Zutat,
+    und die fielen aus `_ingredients()` heraus. Die Antwort war ein sauber
+    gebautes „nichts" über einer Lücke — heute sind es 37 Baupläne. Siehe
+    Modulkopf.
     """
     global _by_material
     if not _by_material:
