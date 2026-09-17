@@ -2097,23 +2097,12 @@ class Overlay:
         notice.attach(self.neulesen_lbl,
                           lambda: language.t('hinweis_neulesen'))
 
-        # Zwei Ansichten, ein Programm: die schmale Melde-Leiste bleibt, das
-        # Verwaltungsfenster kommt auf Klick dazu.
-        # ⚠ Ein Klemmbrett statt der drei Striche. Drei Striche heissen
-        # „irgendeine Liste", ein Klemmbrett heisst „deine gesammelten Sachen".
-        # Beim Vergleich mit dem SC-Deutsch-Launcher (26.08.2026):
-        # „dieses klemmbrett für die BP ist auch besser."
-        #
-        # ⚠ Der Knopf bleibt, obwohl er auf den ersten Blick dasselbe tut wie das
-        # Zahnrad daneben. Tut er nicht: Beide öffnen dasselbe Fenster, aber auf
-        # **verschiedenen Seiten** — hier die Bauplan-Liste, dort die
-        # Einstellungen. Am 27.08.2026 stand er kurz vor dem Rauswurf, weil
-        # genau das täuscht. Ohne ihn führte der Weg zur Hauptsache des
-        # Programms über die Einstellungen und einen Reiterwechsel.
-        self.liste_lbl = icons.button(bar, 'liste', self.liste_oeffnen,
-                                       font=self.f_title)
-        self.liste_lbl.pack(side='right', padx=(0, 6))
-        notice.attach(self.liste_lbl, lambda: language.t('hinweis_liste'))
+        # ⚠ Hier stand bis v3.47.0 ein Klemmbrett, das das grosse Fenster auf
+        # der Bauplan-Liste oeffnete. Am 17.09.2026 entfernt: Es tat fast
+        # dasselbe wie das Zahnrad daneben, und die Leiste soll Platz fuer die
+        # Mining-Knoepfe bekommen. Die Liste bleibt ueber das grosse Fenster
+        # erreichbar (Reiter „Bauplan-Liste"), `liste_oeffnen` nutzen weiter
+        # der Einrichtungsassistent und der Klick auf eine Fundmeldung.
 
         # Das Zahnrad ist der direkte Griff in die Einstellungen. Bis v3.0.0 lag
         # daneben noch ein zweiter Knopf für den Einrichtungs-Assistenten — der

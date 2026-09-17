@@ -22562,6 +22562,125 @@ def main():
     pruefe('clearable=True' in rumpf(_q233, '_combo_box'),
            'jedes Auswahlfeld (_combo_box) bekommt das X')
 
+    # 234. Ruf-Stufen an den Rangnamen
+    #
+    # Gewuenscht von KynoTnis (ADI), 16.09.2026: Im Reputationsmenue steht nur
+    # ein Balken. „Gildenmitglied [ab 10.000]" macht ihn lesbar. Geprueft wird
+    # an einer echten Wegwerf-`global.ini` ueber BEIDE Schreibwege (die Lehre
+    # aus Pruefung 175), dazu Zuruecksetzen, zweiter Lauf und Schalter — und
+    # dass unplausible Rohdaten KEINE Zahl ergeben.
+    print()
+    print('234. Ruf-Stufen an den Rangnamen')
+    import tempfile as _tf234
+    from scbp import rank_thresholds as _rt234, injection as _in234
+    from scbp import paths as _pf234
+
+    # a) Rohdaten -> Tabelle. Ein Minimalbeispiel im Aufbau der Spieldateien.
+    def _roh234(stufen):
+        return {'Reputation': {'Context': {'PrimaryScope': {
+            'ScopeName': 'Wikelo',
+            'Standings': [{'Name': n, 'MinReputation': v} for n, v in stufen]}}}}
+    _datei234 = _rt234.RANKS['wikelo'][0]
+    _gut234 = _rt234.prepare({_datei234: _roh234(
+        [('Wolf', 999), ('Nothing', 0), ('Armour', 340)])})
+    pruefe(_gut234 == {'RepStanding_Barter_Rank0_Name': 0,
+                       'RepStanding_Barter_Rank1_Name': 340,
+                       'RepStanding_Barter_Rank2_Name': 999},
+           'die Stufen werden ueber ihren Namen zugeordnet, nicht ueber die '
+           'Reihenfolge in der Datei (%r)' % (_gut234,))
+    pruefe(_rt234.prepare({_datei234: _roh234(
+        [('Wolf', 200), ('Nothing', 0), ('Armour', 340)])}) == {},
+           'steigen die Schwellen nicht an, bekommt die Gruppe keine Zahl')
+    pruefe(_rt234.prepare({_datei234: _roh234(
+        [('Nothing', 0), ('Armour', 340)])}) == {},
+           'fehlt eine Stufe, bekommt die Gruppe keine Zahl')
+    pruefe(_rt234.suffix(10000, 'de') == ' [ab 10.000]'
+           and _rt234.suffix(10000, 'en') == ' [10,000+]',
+           'die Zahl steht in der Schreibweise der Sprache')
+    _unsicher234 = {k for _d, _s, r in _rt234.RANKS.values() for k, _n in r}
+    pruefe('RepScope_Contractor_Rank0' not in _unsicher234
+           and not any('NotEligible' in k for k in _unsicher234),
+           'die zwei unbelegten Schluessel stehen nicht in der Zuordnung')
+
+    # b) Die echten Schreibwege.
+    _heim234 = _tf234.mkdtemp(prefix='pruefung234-')
+    _altheim234 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim234
+    try:
+        _ini234 = os.path.join(_heim234, 'Localization', 'english', 'global.ini')
+        os.makedirs(os.path.dirname(_ini234), exist_ok=True)
+
+        def _frisch234():
+            with open(_ini234, 'w', encoding='utf-8', newline='') as f:
+                f.write('RepStanding_Bounty_MidLevel_Name=Guild Member\n'
+                        'mg_battaglia_RepScope_Rank0=Prospective Associate\n'
+                        'RepScope_Contractor_Rank0=Applicant\n'
+                        'mission_desc_T=Ein Auftragstext von CIG.\n'
+                        'mission_title_T=Ein Auftrag\n')
+
+        def _text234():
+            return open(_ini234, encoding='utf-8').read()
+
+        _rt234.save({'version': '', 'stufen': {
+            'RepStanding_Bounty_MidLevel_Name': 10000,
+            'mg_battaglia_RepScope_Rank0': 0}})
+        _kat234 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                       'titel_key': 'mission_title_T',
+                                       'name': 'Testauftrag',
+                                       'bp': ['Testbauplan']}}}
+        _soll234 = 'RepStanding_Bounty_MidLevel_Name=Guild Member [10,000+]\n'
+
+        _frisch234()
+        _ok234, _, _m234 = _in234.apply_texts(_ini234, 'english',
+                                              catalog_data=_kat234)
+        pruefe(_ok234 and _soll234 in _text234(),
+               'der Rueckfallweg schreibt die Schwelle an den Rang (%s)' % _m234)
+        pruefe('mg_battaglia_RepScope_Rank0=Prospective Associate\n' in _text234(),
+               'die Einstiegsstufe (0) bekommt keine Zahl')
+        pruefe('RepScope_Contractor_Rank0=Applicant\n' in _text234(),
+               'ein unbelegter Rang bleibt unangetastet')
+        _in234.apply_texts(_ini234, 'english', catalog_data=_kat234)
+        pruefe(_text234().count('[10,000+]') == 1,
+               'ein zweiter Lauf schreibt die Zahl nicht doppelt')
+        _in234.apply_texts(_ini234, 'english', catalog_data=_kat234,
+                           remove_only=True)
+        pruefe('RepStanding_Bounty_MidLevel_Name=Guild Member\n' in _text234(),
+               'Zuruecksetzen bringt den Rangnamen ohne Zahl zurueck')
+
+        _scdl234 = _in234.paths.app_file(_in234.SCDL_CACHE % 'en')
+        os.makedirs(os.path.dirname(_scdl234), exist_ok=True)
+        with open(_scdl234, 'w', encoding='utf-8') as _f:
+            json.dump({'entries': [{}]}, _f)
+        _frisch234()
+        _ok234b, _, _m234b = _in234.apply_scdl(_ini234, 'en')
+        pruefe(_ok234b and _soll234 in _text234(),
+               'der SCDL-Weg schreibt sie ebenso (%s)' % _m234b)
+
+        with open(_in234.paths.app_file(_in234.SCDL_CACHE % 'de'), 'w',
+                  encoding='utf-8') as _f:
+            json.dump({'entries': [{}]}, _f)
+        _frisch234()
+        _in234.apply_scdl(_ini234, 'de')
+        pruefe('Guild Member [ab 10.000]' in _text234(),
+               'auf Deutsch steht „ab" davor')
+
+        _pf234.set_setting(_rt234.SETTING, False)
+        _frisch234()
+        _in234.apply_scdl(_ini234, 'en')
+        pruefe('[10,000+]' not in _text234(),
+               'abgeschaltet steht keine Zahl am Rang')
+        _pf234.set_setting(_rt234.SETTING, True)
+    finally:
+        if _altheim234 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim234
+        shutil.rmtree(_heim234, ignore_errors=True)
+    _q234 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                 encoding='utf-8').read()
+    pruefe('rank_thresholds.SETTING' in _q234 and "t('s_sp_rang')" in _q234,
+           'die Seite „Texte im Spiel" hat den Schalter')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

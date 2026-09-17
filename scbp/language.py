@@ -313,10 +313,11 @@ TEXTS = {
         'Leiste, sobald du sie im Spiel freischaltest.',
         'The watcher is running. New blueprints appear in the narrow bar as soon '
         'as you unlock them in the game.'),
-    'tipp_liste':        ('Über das Klemmbrett in der Titelleiste öffnest du '
-                          'jederzeit die Bauplan-Liste.',
-                          'The clipboard in the title bar opens the blueprint '
-                          'list at any time.'),
+    'tipp_liste':        ('Über das Zahnrad in der Titelleiste öffnest du '
+                          'jederzeit das große Fenster — dort steht links die '
+                          'Bauplan-Liste.',
+                          'The gear in the title bar opens the main window at '
+                          'any time — the blueprint list is on the left.'),
     'tipp_erneut':       ('Diese Einrichtung kannst du jederzeit wiederholen — '
                           'du musst dich durch keine Menüs klicken.',
                           'You can run this setup again at any time — no need to '
@@ -424,8 +425,6 @@ TEXTS = {
     'hinweis_schliessen': ('Watcher beenden', 'Quit the watcher'),
     'hinweis_leeren':    ('Angezeigte Meldungen wegräumen — die Baupläne bleiben',
                           'Clear the messages shown — your blueprints stay'),
-    'hinweis_liste':     ('Alle Baupläne: suchen, filtern, abhaken',
-                          'All blueprints: search, filter, tick off'),
     'hinweis_assistent': ('Einrichtung noch einmal durchgehen',
                           'Run through setup again'),
     'hinweis_versionen': ('Was ist neu — die Versionsgeschichte',
@@ -1830,6 +1829,10 @@ TEXTS = {
     's_sp_angaben_h':  ('Schreibt Klasse, Größe und Gütegrad hinter den Namen — bei Raketen stattdessen den Suchkopf (IR, EM, CS). Damit steht am Traktorstrahl „Glacier (Mil/1/A)" statt nur „Glacier", ohne dass man die Beschreibung aufklappen muss. Die Angaben stammen aus der Textdatei des Spiels selbst.',
                           'Adds class, size and grade after the name — for missiles the seeker type instead (IR, EM, CS). The tractor beam then shows „Glacier (Mil/1/A)" rather than just „Glacier", with no need to expand the description. The details come from the game\'s own text file.'),
     's_sp_angaben_sagen': ('Angaben am Gegenstand: %s', 'Details on the item: %s'),
+    's_sp_rang':       ('Ruf-Stufen an den Rängen', 'Reputation thresholds on ranks'),
+    's_sp_rang_h':     ('Schreibt im Reputationsmenü hinter jeden Rang, ab wie viel Ruf er beginnt — „Gildenmitglied [ab 10.000]". Den Füllstand des Balkens kennt nur der Spielserver; mit den Stufen siehst du trotzdem, was als Nächstes kommt. Die Zahlen stammen aus den Spieldateien und werden je Patch neu geholt.',
+                          'Adds to every rank in the reputation menu how much reputation it starts at — „Guild Member [10,000+]". Only the game server knows how full the bar is; with the thresholds you still see what comes next. The numbers come from the game files and are fetched again for every patch.'),
+    's_sp_rang_sagen': ('Ruf-Stufen an den Rängen: %s', 'Reputation thresholds on ranks: %s'),
     's_sp_hand':       ('Von Hand', 'By hand'),
     's_sp_hand_h':     ('Alles Eingefügte steht zwischen Marken und lässt sich auf den Buchstaben genau wieder entfernen.',
                           'Everything inserted sits between markers and can be removed again to the letter.'),
@@ -2137,6 +2140,14 @@ TEXTS = {
                         'a price next to every missing ingredient — or says it '
                         'cannot be bought at all. A data project maintained by '
                         'players. Fetched at most once a day.'),
+    's_dk_scunpacked': ('Ab wie viel Ruf ein Rang beginnt — für die Zahlen im '
+                        'Reputationsmenü. Die Spieldateien, je Patch entpackt '
+                        'und frei zugänglich gemacht. Abgerufen wird einmal je '
+                        'Spielversion.',
+                        'How much reputation a rank starts at — for the numbers '
+                        'in the reputation menu. The game files, unpacked for '
+                        'every patch and made freely available. Fetched once per '
+                        'game version.'),
     's_dk_ss':         ('Aufgeräumte englische Spieltexte — eine der Grundlagen, '
                         'in die die Bauplan-Angaben geschrieben werden können.',
                         'Cleaned-up English game text — one of the bases the '
@@ -2387,6 +2398,11 @@ TEXTS = {
                               'That the ship selection in “What\'s inside?” '
                               'collapsed as soon as you grabbed the scrollbar — '
                               'the mouse wheel worked, the scrollbar did not.'),
+    's_dk_kynotnis_idee':    ('**Ruf-Stufen an den Rängen** — im Reputationsmenü '
+                              'steht jetzt, ab wie viel Ruf ein Rang beginnt.',
+                              '**Reputation thresholds on ranks** — the '
+                              'reputation menu now shows how much reputation '
+                              'a rank starts at.'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '
