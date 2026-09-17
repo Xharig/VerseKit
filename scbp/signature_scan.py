@@ -93,10 +93,15 @@ HOLE_PENALTY = 0.25
 # | 0,050 | 45 | 2 | 35 |
 MAX_DISTANCE = 0.34
 VALUE_MARGIN = 0.02
+MAX_DIGIT_DISTANCE = 0.30
 
 # Welche Lochstruktur eine Ziffer haben MUSS — (Anzahl, Lage von oben).
 # ⚠ Am 10.09.2026 hatten fünf von acht angelernten „Sechsen" zwei Löcher: Achten
 # in der falschen Zeile. Dieser Prüfstein hält solche Vorlagen fern.
+# Mindestens so viele Zeichen — weniger wären zu leicht mit Rauschen zu
+# verwechseln, und eine Signatur unter 100 gibt es nicht.
+MIN_CHARS = 3
+
 REQUIRED_HOLES = {
     '0': (1, 0.5), '1': (0, None), '2': (0, None), '3': (0, None),
     '4': (1, None), '5': (0, None), '6': (1, 0.65), '7': (0, None),
@@ -140,8 +145,8 @@ def thresholds(raster):
 
     ⚠⚠ Otsu allein reicht nicht: Vor einem hellen Asteroiden rutscht die
     Schwelle ab, und die Ziffern verschmelzen mit dem Geröll (09.09.2026
-    gemessen). Die Ziffern sind aber heller als jeder Fels — hohe Perzentile
-    treffen genau sie.
+    gemessen). Die Ziffern belegen nur wenige Punkte des Ausschnitts — hohe
+    Perzentile treffen genau sie.
     """
     counts = [0] * 256
     for row in raster:
@@ -150,7 +155,7 @@ def thresholds(raster):
     total = sum(counts)
     found = [otsu(raster)]
     if total:
-        for share in (0.80, 0.90, 0.95):
+        for share in (0.97, 0.99, 0.995):
             limit, running = total * share, 0
             for value in range(256):
                 running += counts[value]
@@ -187,10 +192,8 @@ def components(raster, threshold):
                                 and raster[ny][nx] > threshold:
                             seen[ny][nx] = 1
                             stack.append((nx, ny))
-            # Einzelne Punkte sind Rauschen. ⚠ Nicht strenger: Das Komma misst
-            # bei 1080p kaum drei Punkte — fällt es heraus, wird jede Zahl ab
-            # Tausend verworfen (siehe `digit_rows`).
-            if (right - left) + (bottom - top) >= 2:
+            # Einzelne helle Punkte sind Bildrauschen, keine Ziffer.
+            if (right - left) >= 1 and (bottom - top) >= 3:
                 boxes.append((left, top, right, bottom))
     boxes.sort()
     return boxes
@@ -202,7 +205,10 @@ def _median(values):
 
 
 def split_merged(boxes):
-    """Zusammengeflossene Ziffern wieder auftrennen — Ziffern sind gleich breit."""
+    """Zusammengeflossene Ziffern wieder auftrennen — Ziffern sind gleich breit.
+
+    ⚠ Das Komma bleibt unangetastet: Es ist schmaler als eine Ziffer, nie breiter.
+    """
     if len(boxes) < 2:
         return list(boxes)
     single = _median([b[2] - b[0] + 1 for b in boxes])
@@ -223,67 +229,101 @@ def split_merged(boxes):
     return result
 
 
-def digit_rows(boxes):
-    """Kandidaten für die Ziffernreihe — je Kandidat die Ziffernflächen.
+def _separator_fits(chars):
+    """Steht an drittletzter Stelle ein Trennzeichen (ab vier Zeichen)?
 
-    Eine Reihe: Unterkanten auf einer Linie, dicht beieinander. Davor darf das
-    Ortungssymbol stehen (höher als eine Ziffer, oft in zwei Teile zerfallen),
-    dazwischen das Tausenderkomma (flacher) — beide fliegen heraus. Gewertet
-    wird am Ende gegen die Werte, nicht hier.
+    ⚠⚠ Star Citizen setzt ab Tausend immer eines, drei Stellen von hinten —
+    schmal und flach, wo die Ziffern gleich hoch sind. Zufälliges Geröll hat
+    dieses Muster nicht.
     """
+    if len(chars) < 4:
+        return True
+    digit_h = _median([c[3] - c[1] + 1 for c in chars])
+    digit_w = _median([c[2] - c[0] + 1 for c in chars])
+    sep = chars[len(chars) - 4]
+    return ((sep[3] - sep[1] + 1) <= digit_h * 0.7
+            and (sep[2] - sep[0] + 1) <= max(2, digit_w * 0.7))
+
+
+def only_digits(chars):
+    """Das Trennzeichen heraus — erkannt an der Größe, nicht an der Stelle."""
+    if len(chars) < 2:
+        return list(chars)
+    middle = _median([c[3] - c[1] + 1 for c in chars])
+    return [c for c in chars if (c[3] - c[1] + 1) > middle * 0.7]
+
+
+def digit_rows(boxes, width=None):
+    """Die Zeichenreihe der Signatur finden — als Kandidatenliste.
+
+    Übernommen aus dem Entwurf vom 09./10.09.2026 (`zeichenreihe_finden`), dort
+    gegen 82 Aufnahmen vermessen; auf aufgezogenen Ausschnitten derselben
+    Aufnahmen am 17.09.2026: 66 richtig, 1 falsch. ⚠ Eine eigene, vereinfachte
+    Suche schaffte auf denselben Bildern nur 25 richtig bei 7 falschen — nicht
+    wieder „vereinfachen", ohne gegen die Aufnahmen zu messen.
+
+    Gesucht: ähnlich hohe Flächen auf einer Grundlinie, **angeführt vom
+    Ortungssymbol** (das von links abgeschnitten wird), dicht beieinander, mit
+    dem Trennzeichen an der richtigen Stelle. Gibt die Ziffernflächen (ohne
+    Trennzeichen) der Reihe, deren Mitte der Ausschnittmitte am nächsten ist.
+    """
+    if not boxes:
+        return []
     rows = []
     for box in sorted(boxes, key=lambda b: b[3]):
         height = box[3] - box[1] + 1
         for row in rows:
             base = sum(b[3] for b in row) / float(len(row))
             mean_h = sum(b[3] - b[1] + 1 for b in row) / float(len(row))
+            # Die untere Grenze muss das Komma durchlassen (3x5 gegen 9x11).
             if abs(box[3] - base) <= max(2, mean_h * 0.45) \
-                    and 0.3 <= height / mean_h <= 2.5:
+                    and 0.3 <= height / mean_h <= 2.2:
                 row.append(box)
                 break
         else:
             rows.append([box])
 
-    candidates = []
+    best, best_distance = [], None
     for row in rows:
-        ordered = sorted(row)
-        # Nach Lücken trennen: mehr als zwei Zeichenhöhen Abstand gehört nicht
-        # mehr zur selben Zahl.
-        tall = _median([b[3] - b[1] + 1 for b in ordered])
-        groups = [[ordered[0]]]
+        if len(row) < MIN_CHARS + 1:            # Ortungssymbol zählt mit
+            continue
+        ordered = sorted(row, key=lambda b: b[0])
+        middle = _median([b[3] - b[1] + 1 for b in ordered])
+        ordered = [b for b in ordered
+                   if 0.3 <= (b[3] - b[1] + 1) / float(middle) <= 1.9]
+        if len(ordered) < MIN_CHARS + 1:
+            continue
+        # Zeichen einer Zahl stehen dicht — getrennt an Lücken > 2 Zeichenhöhen.
+        bundles = [[ordered[0]]]
         for box in ordered[1:]:
-            if box[0] - groups[-1][-1][2] > max(6, tall * 2.0):
-                groups.append([box])
+            if box[0] - bundles[-1][-1][2] > max(6, middle * 2.0):
+                bundles.append([box])
             else:
-                groups[-1].append(box)
-        for group in groups:
-            heights = [b[3] - b[1] + 1 for b in group]
-            # Ziffernhöhe: die häufigste größere Höhe. Das Symbol ist höher,
-            # das Komma flacher — der Median der Gruppe trifft die Ziffern,
-            # solange die Zahl mindestens drei Stellen hat.
-            digit_h = _median(heights)
-            digits = [b for b in group
-                      if 0.8 <= (b[3] - b[1] + 1) / float(digit_h) <= 1.2]
-            digits = split_merged(digits)
-            if not 2 <= len(digits) <= 7:
-                continue
-            # ⚠⚠ **Das Tausenderkomma als Prüfstein.** Star Citizen schreibt ab
-            # Tausend immer eines, und es sitzt drei Stellen von hinten. Fällt
-            # eine Ziffer der Erkennung zum Opfer, wird aus „12,000" sonst ein
-            # gültiges „2,000" — eine falsche Zahl, die richtig aussieht.
-            base = _median([d[3] for d in digits])
-            commas = [b for b in group
-                      if (b[3] - b[1] + 1) < digit_h * 0.7
-                      and b[3] >= base - digit_h * 0.2
-                      and digits[0][0] < b[0] < digits[-1][0]]
-            if commas:
-                after = sum(1 for d in digits if d[0] > commas[-1][0])
-                if after != 3 or len(commas) > 1:
-                    continue
-            elif len(digits) >= 4:
-                continue
-            candidates.append(digits)
-    return candidates
+                bundles[-1].append(box)
+        ordered = max(bundles, key=len)
+        if len(ordered) < MIN_CHARS + 1:
+            continue
+        # Ziffern sind gleich hoch: von links abschneiden, was diese Höhe nicht
+        # hat — das sind die Teile des Ortungssymbols. Nichts abzuschneiden
+        # heißt: kein Symbol, keine Signatur.
+        digit_h = _median([b[3] - b[1] + 1 for b in ordered])
+        start = 0
+        while start < len(ordered):
+            if 0.85 <= (ordered[start][3] - ordered[start][1] + 1) / float(digit_h) <= 1.15:
+                break
+            start += 1
+        if start == 0 or start >= len(ordered):
+            continue
+        rest = split_merged(ordered[start:])
+        if len(rest) < MIN_CHARS or not _separator_fits(rest):
+            continue
+        if width:
+            distance = abs((rest[0][0] + rest[-1][2]) / 2.0 - width / 2.0)
+            if best_distance is None or distance < best_distance:
+                best, best_distance = rest, distance
+        elif len(rest) > len(best):
+            best = rest
+    return [only_digits(best)] if best else []
 
 
 def normalize(raster, box, threshold):
@@ -424,12 +464,17 @@ def possible_values():
 
 
 def _score_value(table, text):
-    total = 0.0
+    total, worst = 0.0, 0.0
     for column, digit in zip(table, text):
         distance = column.get(digit)
         if distance is None:
             return None
         total += distance
+        worst = max(worst, distance)
+    # ⚠ Der Mittelwert allein versteckt eine einzelne falsche Ziffer: Aus
+    # „3,400" wurde „3,000", weil drei gute Ziffern die Vier überstimmten.
+    if worst > MAX_DIGIT_DISTANCE:
+        return None
     return total / len(text)
 
 
@@ -495,7 +540,7 @@ def read(raster, known=None, values=None):
     best = None
     fallback = None
     for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold)):
+        for digits in digit_rows(components(raster, threshold), len(raster[0])):
             if fallback is None or len(digits) > len(fallback[1]):
                 fallback = (threshold, digits)
             if not known:
@@ -532,7 +577,7 @@ def learn(raster, typed):
         return False, 'anlernen_leer', 0
     candidates = []
     for threshold in thresholds(raster):
-        for digits in digit_rows(components(raster, threshold)):
+        for digits in digit_rows(components(raster, threshold), len(raster[0])):
             if len(digits) == len(digits_typed):
                 patterns = [normalize(raster, b, threshold) for b in digits]
                 fitting = sum(1 for p, d in zip(patterns, digits_typed)

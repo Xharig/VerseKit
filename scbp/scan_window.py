@@ -42,7 +42,11 @@ Fenster steht.
 nicht. Dort wird es gebaut, sobald der Abgriff über das Portal steht.
 """
 import base64
+import struct
+import threading
+import time
 import tkinter as tk
+import zlib
 
 from . import errors, screen_grab, signature_scan
 from .language import t
@@ -58,6 +62,8 @@ HOLE = '#010203'           # die Farbe, die Windows durchsichtig macht
 START_W, START_H = 220, 44
 MIN_W, MIN_H = 40, 14
 PREVIEW_MS = 400
+PANEL_W, PANEL_H = 360, 190
+PREVIEW_H = 60
 
 _open = [None]
 
@@ -78,19 +84,49 @@ def describe(value):
     return '%s → %s' % (number, ' · '.join(parts))
 
 
-def _pgm(raster, zoom):
-    """Graustufenraster → PGM-Daten für `tk.PhotoImage` (vergrößert)."""
+def fit_preview(raster, width, height):
+    """Den Ausschnitt so vergrößern oder ausdünnen, dass er in die Vorschau passt."""
+    rows = len(raster)
+    cols = len(raster[0]) if rows else 0
+    if not rows or not cols:
+        return [[0]]
+    zoom = max(1, min(4, width // cols, height // rows))
+    if zoom > 1:
+        return [[v for v in row for _ in range(zoom)]
+                for row in raster for _ in range(zoom)]
+    step = max(1, -(-cols // width), -(-rows // height))
+    return [row[::step] for row in raster[::step]]
+
+
+def png_data(raster, zoom=1):
+    """Graustufenraster → PNG als Base64 für `tk.PhotoImage(data=…)`.
+
+    ⚠ PNG, nicht PGM: Tk nimmt PGM über `data=` nicht an („couldn't recognize
+    image data") — im RC 1 schrieb das die Vorschau alle 0,4 s ins
+    Fehlerprotokoll, und sie blieb leer.
+    """
     height = len(raster)
     width = len(raster[0]) if height else 0
-    body = bytearray()
+    raw = bytearray()
     for row in raster:
         line = bytearray()
         for value in row:
-            line.extend(bytes((value,)) * zoom)
+            line.extend(bytes((max(0, min(255, int(value))),)) * zoom)
         for _ in range(zoom):
-            body.extend(line)
-    header = ('P5 %d %d 255\n' % (width * zoom, height * zoom)).encode('ascii')
-    return base64.b64encode(header + bytes(body))
+            raw.append(0)
+            raw.extend(line)
+
+    def chunk(kind, body):
+        block = kind + body
+        return (struct.pack('>I', len(body)) + block
+                + struct.pack('>I', zlib.crc32(block) & 0xFFFFFFFF))
+
+    png = (b'\x89PNG\r\n\x1a\n'
+           + chunk(b'IHDR', struct.pack('>IIBBBBB', width * zoom, height * zoom,
+                                        8, 0, 0, 0, 0))
+           + chunk(b'IDAT', zlib.compress(bytes(raw), 6))
+           + chunk(b'IEND', b''))
+    return base64.b64encode(png)
 
 
 class ScanWindow(object):
@@ -101,7 +137,14 @@ class ScanWindow(object):
         self.on_saved = on_saved
         self.raster = None
         self.preview_image = None
+        self.last_error = None
         self.drag = None
+        # ⚠⚠ Abgreifen und Lesen laufen in einem **eigenen Faden**. Im RC 1
+        # lagen sie im Tk-Faden: 150 ms je Lesung, und das Fenster ruckelte
+        # beim Ziehen. Getauscht wird nur über diese zwei Felder.
+        self.rect = None             # physisch, gesetzt vom Tk-Faden
+        self.latest = None           # (raster, ergebnis) vom Lese-Faden
+        self.stop = threading.Event()
         self.win = tk.Toplevel(master)
         self.win.overrideredirect(True)
         self.win.configure(bg=ACCENT)
@@ -120,6 +163,7 @@ class ScanWindow(object):
         for widget in (bar, self.bar_label):
             widget.bind('<ButtonPress-1>', self._drag_start)
             widget.bind('<B1-Motion>', self._drag_move)
+            widget.bind('<ButtonRelease-1>', self._drag_end)
 
         frame = tk.Frame(self.win, bg=ACCENT)
         frame.pack(padx=2, pady=(0, 2))
@@ -130,13 +174,20 @@ class ScanWindow(object):
         self.grip.place(relx=1.0, rely=1.0, anchor='se')
         self.grip.bind('<ButtonPress-1>', self._resize_start)
         self.grip.bind('<B1-Motion>', self._resize_move)
+        self.grip.bind('<ButtonRelease-1>', self._drag_end)
 
-        panel = tk.Frame(self.win, bg=SURFACE)
-        panel.pack(fill='x')
+        # ⚠⚠ **Feste Größe.** Im RC 1 wuchs und schrumpfte das Fenster mit
+        # jeder Meldung („springt"), weil die Tafel sich nach dem Text richtete.
+        panel = tk.Frame(self.win, bg=SURFACE, width=PANEL_W, height=PANEL_H)
+        panel.pack_propagate(False)
+        panel.pack()
         self.result = tk.Label(panel, text='', bg=SURFACE, fg=FG, font=font,
-                               anchor='w', justify='left')
+                               anchor='nw', justify='left', height=2,
+                               wraplength=PANEL_W - 12)
         self.result.pack(fill='x', padx=6, pady=(4, 0))
-        self.preview = tk.Label(panel, bg=SURFACE)
+        self.blank = tk.PhotoImage(width=PANEL_W - 12, height=PREVIEW_H)
+        self.preview = tk.Label(panel, bg=BG, image=self.blank, anchor='w',
+                                width=PANEL_W - 12, height=PREVIEW_H)
         self.preview.pack(padx=6, pady=2, anchor='w')
 
         learn = tk.Frame(panel, bg=SURFACE)
@@ -153,11 +204,14 @@ class ScanWindow(object):
         self._link(buttons, t('scan_uebernehmen'), self._save, ACCENT).pack(side='left')
         self._link(buttons, t('scan_abbrechen'), self.close, SUB).pack(side='left', padx=12)
         self.note = tk.Label(panel, text='', bg=SURFACE, fg=SUB, font=font,
-                             anchor='w', justify='left', wraplength=260)
+                             anchor='nw', justify='left', height=2,
+                             wraplength=PANEL_W - 12)
         self.note.pack(fill='x', padx=6, pady=(0, 4))
 
         self._place()
         self.win.bind('<Escape>', lambda _e: self.close())
+        threading.Thread(target=self._reader, daemon=True,
+                         name='scan-fenster').start()
         self._tick()
 
     @staticmethod
@@ -169,31 +223,21 @@ class ScanWindow(object):
 
     # --- Lage -------------------------------------------------------------
 
-    def _scale(self):
-        """Physische Punkte je Tk-Punkt (125 % → 1,25)."""
-        rect = screen_grab.window_rect(self.hole)
-        width = self.hole.winfo_width()
-        if rect and width > 1:
-            return rect[2] / float(width)
-        return 1.0
-
     def _place(self):
+        """Das Loch dorthin legen, wo der gemerkte Bereich liegt.
+
+        ⚠ Gemerkt ist **physisch**, Tk rechnet **logisch** — umgerechnet wird
+        allein über `screen_grab.to_logical`.
+        """
         saved = signature_scan.region()
         self.win.update_idletasks()
         if saved:
-            # Gemerkt ist physisch; Tk rechnet logisch.
-            self.hole.configure(width=START_W, height=START_H)
-            self.win.geometry('+%d+%d' % (self.master.winfo_screenwidth() // 2,
-                                          self.master.winfo_screenheight() // 3))
-            self.win.update_idletasks()
-            scale = self._scale()
-            self.hole.configure(width=max(MIN_W, int(saved[2] / scale)),
-                                height=max(MIN_H, int(saved[3] / scale)))
+            left, top, width, height = screen_grab.to_logical(saved)
+            self.hole.configure(width=max(MIN_W, width), height=max(MIN_H, height))
             self.win.update_idletasks()
             offset_x = self.hole.winfo_rootx() - self.win.winfo_rootx()
             offset_y = self.hole.winfo_rooty() - self.win.winfo_rooty()
-            self.win.geometry('+%d+%d' % (int(saved[0] / scale) - offset_x,
-                                          int(saved[1] / scale) - offset_y))
+            self.win.geometry('+%d+%d' % (left - offset_x, top - offset_y))
         else:
             width = self.master.winfo_screenwidth()
             height = self.master.winfo_screenheight()
@@ -203,8 +247,11 @@ class ScanWindow(object):
         self.drag = (event.x_root - self.win.winfo_rootx(),
                      event.y_root - self.win.winfo_rooty())
 
+    def _drag_end(self, _event=None):
+        self.drag = None
+
     def _drag_move(self, event):
-        if self.drag:
+        if self.drag and len(self.drag) == 2:
             self.win.geometry('+%d+%d' % (event.x_root - self.drag[0],
                                           event.y_root - self.drag[1]))
 
@@ -220,31 +267,63 @@ class ScanWindow(object):
 
     # --- Lesen, Anlernen, Übernehmen --------------------------------------
 
+    def _reader(self):
+        """Lese-Faden: holt den Bereich hinter dem Loch und liest ihn."""
+        while not self.stop.is_set():
+            started = time.time()
+            rect = self.rect
+            try:
+                if rect:
+                    raster = screen_grab.grab(*rect)
+                    self.latest = (raster, signature_scan.read(raster), None)
+            except screen_grab.GrabError as exc:
+                self.latest = (None, None, exc.reason)
+            except Exception as exc:
+                if str(exc) != self.last_error:
+                    self.last_error = str(exc)
+                    errors.record('scan_window.reader', exc)
+            self.stop.wait(max(0.05, PREVIEW_MS / 1000.0 - (time.time() - started)))
+
     def _tick(self):
-        if not self.win.winfo_exists():
+        """Tk-Faden: Lage weitergeben, letztes Ergebnis zeigen."""
+        try:
+            if not self.win.winfo_exists():
+                return
+        except tk.TclError:
             return
         try:
-            rect = screen_grab.window_rect(self.hole)
-            if rect:
-                self.raster = screen_grab.grab(*rect)
-                found = signature_scan.read(self.raster)
-                if found['wert'] is not None:
-                    self.result.configure(text=describe(found['wert']), fg=ACCENT)
-                    self.bar_label.configure(text='{:,}'.format(found['wert']))
-                else:
-                    self.result.configure(
-                        text=t('scan_grund_' + (found['grund'] or 'kein_text')),
-                        fg=SUB)
-                    self.bar_label.configure(text=t('scan_ziehen'))
-                zoom = max(1, min(3, 240 // max(1, rect[2])))
-                self.preview_image = tk.PhotoImage(data=_pgm(self.raster, zoom),
-                                                   format='PPM')
-                self.preview.configure(image=self.preview_image)
-        except screen_grab.GrabError as exc:
-            self.result.configure(text=t('scan_grund_' + exc.reason), fg=RED)
+            # Während des Ziehens nicht lesen — das Bild zeigt sonst den Weg.
+            self.rect = None if self.drag else screen_grab.widget_rect(self.hole)
+            latest, self.latest = self.latest, None
+            if latest is not None:
+                raster, found, reason = latest
+                if reason:
+                    self.result.configure(text=t('scan_grund_' + reason), fg=RED)
+                elif found['ziffern'] or self.raster is None:
+                    # ⚠⚠ **Nur ein Bild MIT Zahl ersetzt das angezeigte.** Wer das
+                    # Fenster anklickt, holt es nach vorn — Star Citizen schaltet
+                    # dann den Scanner ab, und die Zahl ist weg (Einwand vom
+                    # 17.09.2026: „so kann das ja gar nicht klappen"). Stehen
+                    # bleibt deshalb das letzte Bild, in dem eine Zahl stand;
+                    # Anlernen und Übernehmen beziehen sich darauf.
+                    self.raster = raster
+                    if found['wert'] is not None:
+                        self.result.configure(text=describe(found['wert']), fg=ACCENT)
+                        self.bar_label.configure(text='{:,}'.format(found['wert']))
+                    elif found['ziffern']:
+                        self.result.configure(text=t('scan_grund_unsicher'), fg=SUB)
+                        self.bar_label.configure(text=t('scan_ziehen'))
+                    else:
+                        self.result.configure(text=t('scan_zurueck_ins_spiel'), fg=SUB)
+                    self.preview_image = tk.PhotoImage(
+                        data=png_data(fit_preview(raster, PANEL_W - 12, PREVIEW_H)))
+                    self.preview.configure(image=self.preview_image)
         except Exception as exc:
-            errors.record('scan_window.tick', exc)
-        self.win.after(PREVIEW_MS, self._tick)
+            # ⚠ Einmal je Fehlerart, nicht alle 0,4 s.
+            if str(exc) != self.last_error:
+                self.last_error = str(exc)
+                errors.record('scan_window.tick', exc)
+        self.win.after(PREVIEW_MS // 2, self._tick)
 
     def _learn(self):
         if not self.raster:
@@ -257,7 +336,7 @@ class ScanWindow(object):
             self.note.configure(text=t('scan_grund_' + reason), fg=RED)
 
     def _save(self):
-        rect = screen_grab.window_rect(self.hole)
+        rect = screen_grab.widget_rect(self.hole)
         if not rect:
             self.note.configure(text=t('scan_grund_bereich_ungueltig'), fg=RED)
             return
@@ -270,6 +349,7 @@ class ScanWindow(object):
         self.close()
 
     def close(self):
+        self.stop.set()
         _open[0] = None
         try:
             self.win.destroy()

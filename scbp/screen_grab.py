@@ -29,8 +29,8 @@ DPI-Kennung; Windows rechnet ihm bei 125 % alles herunter. Ein Abgriff in dieser
 Rechnung liefert ein **gestauchtes, verwaschenes** Bild — bei Ziffern von neun
 Punkten Breite ist das das Ende jeder Erkennung. Deshalb schaltet der
 abgreifende Faden sich für die Dauer des Aufrufs auf „DPI-bewusst"
-(`SetThreadDpiAwarenessContext`), und die Lage des Scan-Fensters wird in
-**derselben** Rechnung gelesen (`window_rect`).
+(`SetThreadDpiAwarenessContext`) — ⚠ nur in Arbeitsfäden, nie im Tk-Faden
+(siehe `dpi_scale`).
 
 ⚠ **Das Scan-Fenster selbst fotografiert sich nicht mit.** Es ist ein
 geschichtetes Fenster (`-transparentcolor`), und `BitBlt` ohne `CAPTUREBLT`
@@ -43,6 +43,7 @@ gegen den dunklen Grund ein Drittel seines Abstands.
 """
 import ctypes
 import sys
+import threading
 
 # Kennung für „pro Bildschirm DPI-bewusst, Fassung 2" (Windows 10 1703+).
 _PER_MONITOR_AWARE_V2 = -4
@@ -87,11 +88,6 @@ class _Aware(object):
         return False
 
 
-class _RECT(ctypes.Structure):
-    _fields_ = [('left', ctypes.c_long), ('top', ctypes.c_long),
-                ('right', ctypes.c_long), ('bottom', ctypes.c_long)]
-
-
 class _BITMAPINFOHEADER(ctypes.Structure):
     _fields_ = [('biSize', ctypes.c_uint32), ('biWidth', ctypes.c_int32),
                 ('biHeight', ctypes.c_int32), ('biPlanes', ctypes.c_uint16),
@@ -104,31 +100,62 @@ class _BITMAPINFOHEADER(ctypes.Structure):
                 ('biClrImportant', ctypes.c_uint32)]
 
 
-def window_rect(widget):
-    """Die Innenfläche eines Tk-Fensters in **physischen** Bildschirmpunkten.
+_scale_cache = []
 
-    Gibt (links, oben, breite, höhe) oder None.
+
+def dpi_scale():
+    """Physische Bildpunkte je logischem Punkt (125 % → 1,25), einmal gemessen.
+
+    ⚠⚠ **In einem eigenen Faden gemessen, nie im Tk-Faden.** Im RC 1 schaltete
+    das Scan-Fenster den Tk-Faden selbst auf „DPI-bewusst", um die Lage zu
+    lesen — die gemischten Rechnungen ließen das Fenster beim Ziehen springen
+    und nach dem Speichern unten rechts versetzt wieder aufgehen (gemeldet
+    17.09.2026). Jetzt rechnet Tk nur logisch, und umgerechnet wird an genau
+    einer Stelle mit diesem Faktor.
     """
-    if not supported():
-        return None
+    if _scale_cache:
+        return _scale_cache[0]
+    result = [1.0]
+
+    def measure():
+        try:
+            user32 = ctypes.windll.user32
+            logical = user32.GetSystemMetrics(0)
+            with _Aware():
+                physical = user32.GetSystemMetrics(0)
+            if logical > 0 and physical > 0:
+                result[0] = physical / float(logical)
+        except Exception:
+            pass
+
+    if supported():
+        worker = threading.Thread(target=measure, daemon=True)
+        worker.start()
+        worker.join(2.0)
+    _scale_cache.append(result[0])
+    return result[0]
+
+
+def to_physical(rect, scale=None):
+    """(links, oben, breite, höhe) von logisch (Tk) nach physisch."""
+    scale = dpi_scale() if scale is None else scale
+    return tuple(int(round(v * scale)) for v in rect)
+
+
+def to_logical(rect, scale=None):
+    """(links, oben, breite, höhe) von physisch nach logisch (Tk)."""
+    scale = dpi_scale() if scale is None else scale
+    return tuple(int(round(v / scale)) for v in rect)
+
+
+def widget_rect(widget):
+    """Die Fläche eines Tk-Elements in **physischen** Punkten — oder None."""
     try:
-        user32 = ctypes.windll.user32
-        hwnd = int(widget.winfo_id())
-        with _Aware():
-            rect = _RECT()
-            user32.GetClientRect.argtypes = [ctypes.c_void_p,
-                                             ctypes.POINTER(_RECT)]
-            if not user32.GetClientRect(ctypes.c_void_p(hwnd),
-                                        ctypes.byref(rect)):
-                return None
-            origin = (ctypes.c_long * 2)(0, 0)
-            user32.ClientToScreen.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-            if not user32.ClientToScreen(ctypes.c_void_p(hwnd), origin):
-                return None
-        width, height = rect.right - rect.left, rect.bottom - rect.top
-        if width <= 0 or height <= 0:
+        width, height = widget.winfo_width(), widget.winfo_height()
+        if width <= 1 or height <= 1:
             return None
-        return int(origin[0]), int(origin[1]), int(width), int(height)
+        return to_physical((widget.winfo_rootx(), widget.winfo_rooty(),
+                            width, height))
     except Exception:
         return None
 

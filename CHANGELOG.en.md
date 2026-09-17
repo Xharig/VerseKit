@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc2 - 2026-09-17
+
+> **The signature scanner now actually reads.** The first test version
+> recognised hardly any number, and the scan window jumped. Both are fixed.
+
+### Fixed
+
+- **Signatures were hardly recognised** — recognition is now much more
+  reliable and would rather report nothing than a wrong number
+- **The scan window jumped while dragging** and reopened somewhere else
+  after saving
+- **The scan window kept growing and shrinking**
+- **The preview stayed empty**
+- **Clicking the scan window made the number disappear** — the last image
+  with a number now stays, for teaching and saving
+
 ## v3.49.0-rc1 - 2026-09-17
 
 > **VerseKit reads the scan signature by itself.** Show once where the

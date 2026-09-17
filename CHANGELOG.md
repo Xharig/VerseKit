@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc2 - 2026-09-17
+
+> **Der Signatur-Scanner liest jetzt wirklich.** Die erste Testfassung erkannte
+> kaum eine Zahl, und das Scan-Fenster sprang. Beides ist behoben.
+
+### Behoben
+
+- **Signaturen wurden kaum erkannt** — die Erkennung ist jetzt deutlich
+  zuverlässiger und meldet lieber nichts als eine falsche Zahl
+- **Das Scan-Fenster sprang beim Ziehen** und ging nach dem Übernehmen
+  an anderer Stelle wieder auf
+- **Das Scan-Fenster wurde ständig größer und kleiner**
+- **Die Vorschau blieb leer**
+- **Anklicken des Scan-Fensters ließ die Zahl verschwinden** — das letzte
+  Bild mit Zahl bleibt jetzt stehen, zum Anlernen und Übernehmen
+
 ## v3.49.0-rc1 - 2026-09-17
 
 > **VerseKit liest die Scan-Signatur selbst ab.** Einmal zeigen, wo beim
