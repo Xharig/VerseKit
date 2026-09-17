@@ -349,8 +349,13 @@ class ScanWindow(object):
         # dass das Richtige angekommen ist.
         digits = ''.join(c for c in typed if c.isdigit())
         number = '{:,}'.format(int(digits))
-        lines = [t('scan_gelernt') % (number, stats['erkannt'], stats['neu'],
-                                      stats['bekannt'])]
+        # ⭐ „Neu" heißt: VerseKit hätte diese Ziffer vorher NICHT richtig
+        # gelesen (siehe `signature_scan.learn`). Sind alle bekannt, weiß der
+        # Spieler: genug angelernt. Gespeichert wird in jedem Fall.
+        if stats['neu'] == 0 and not stats['unklar']:
+            lines = [t('scan_gelernt_alle') % (number, stats['erkannt'])]
+        else:
+            lines = [t('scan_gelernt') % (number, stats['neu'], stats['erkannt'])]
         if stats['unklar']:
             lines.append(t('scan_gelernt_unklar')
                          % ', '.join(str(p) for p in stats['unklar']))

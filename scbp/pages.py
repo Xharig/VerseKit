@@ -10097,14 +10097,20 @@ def _signature_scanner(window, parent, signature_var):
             return
 
         def put():
+            # ⚠⚠ Die Seite gehört zu EINEM Hauptfenster. Wurde es geschlossen,
+            # schrieb die Wache weiter in die tote Seite — acht „bad window
+            # path name" im Bericht vom 17.09.2026. Dann abmelden.
             try:
+                if not parent.winfo_exists():
+                    signature_watch.unlisten(read_value)
+                    return
                 signature_var.set('{:,}'.format(value).replace(',', '.'))
             except tk.TclError:
-                pass
+                signature_watch.unlisten(read_value)
         try:
             window.root.after(0, put)
         except Exception:
-            pass
+            signature_watch.unlisten(read_value)
 
     signature_watch.listen(read_value)
 

@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc6 - 2026-09-17
+
+> **Ehrlichere Rückmeldung beim Anlernen, und der Fehlerbericht kennt den
+> Signatur-Scanner.**
+
+### Verbessert
+
+- **Fehlerbericht:** eine Zeile zum Signatur-Scanner — an oder aus,
+  Bereich, Angelerntes, zuletzt gelesene Zahl
+
+### Behoben
+
+- **Anlernen meldete jedes Mal „neu gespeichert"**, auch beim zehnten Mal
+  dieselbe Zahl. Jetzt zählt als bekannt, was VerseKit schon vorher richtig
+  las — sind alle Ziffern bekannt, sagt die Meldung das
+- **Fehler nach dem Schließen des Hauptfensters** — die Bergbau-Seite
+  bekam weiter gelesene Signaturen und meldete „bad window path name"
+
 ## v3.49.0-rc5 - 2026-09-17
 
 > **Durchs Scan-Fenster lässt sich wieder zielen, und deine Scan-Bilder

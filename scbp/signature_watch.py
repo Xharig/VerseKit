@@ -53,6 +53,12 @@ def listen(callback):
             _listeners.append(callback)
 
 
+def unlisten(callback):
+    with _lock:
+        if callback in _listeners:
+            _listeners.remove(callback)
+
+
 def _publish(value):
     _state['shown'] = value
     for callback in list(_listeners):

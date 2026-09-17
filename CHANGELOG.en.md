@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0-rc6 - 2026-09-17
+
+> **More honest feedback when teaching, and the bug report knows the
+> signature scanner.**
+
+### Improved
+
+- **Bug report:** a line about the signature scanner — on or off, area,
+  what was taught, last number read
+
+### Fixed
+
+- **Teaching reported "newly saved" every time**, even the tenth time for
+  the same number. Known now means VerseKit already read it correctly —
+  when all digits are known, the message says so
+- **Errors after closing the main window** — the mining page kept
+  receiving signatures and reported "bad window path name"
+
 ## v3.49.0-rc5 - 2026-09-17
 
 > **You can aim through the scan window again, and your scan images can
