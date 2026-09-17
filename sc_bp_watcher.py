@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.50.2'
+__version__ = '3.50.3'
 
 
 def _mitgeliefert(name):
@@ -222,17 +222,42 @@ def load_keys():
 def load_types():
     """Was im Spiel überhaupt craftbar ist: Name -> Art.
 
-    Erste Wahl ist die Launcher-Datei (deutsche Bezeichnungen, gepflegt). Fehlt
-    der Launcher — unter Linux immer —, treten die scmdb-Craftdaten an ihre
-    Stelle. Ohne diesen Rückfall wäre die Katalog-Wache dort tot, dabei liegen
-    die Daten längst im Zwischenspeicher."""
+    ⚠⚠ **Erste Wahl sind die scmdb-Craftdaten** (seit 17.09.2026). Vorher kam
+    zuerst die Launcher-Datei `bp_item_types.json` — die steht aber seit dem
+    26.08.2026 still: Wer den alten Ordner noch auf der Platte hatte, bekam
+    einen eingefrorenen Katalog, und neue Baupläne eines Patches fehlten. Die
+    Launcher-Datei bleibt nur Rückfall, solange die scmdb-Daten noch nicht
+    geladen sind.
+
+    ⚠ Die Art kommt über `scmdb_art()` — die Einträge heißen `a`, nicht `art`.
+    Der alte Rückfall las `art`/`attachType`, fand nichts und schrieb überall
+    „—" hinein; weil „—" nicht `None` ist, sprang `art_of()` auch nie auf
+    `scmdb_art()` zurück."""
+    if SCMDB:
+        return {name: (scmdb_art(name) or '—') for name in SCMDB}
     try:
         with open(TYPE_FILE, encoding='utf-8') as f:
             return json.load(f)
     except Exception:
-        pass
-    return {name: (eintrag.get('art') or eintrag.get('attachType') or '—')
-            for name, eintrag in (SCMDB or {}).items()} if SCMDB else {}
+        return {}
+
+
+def catalog_new(jetzt, bekannt):
+    """Was im Katalog neu craftbar ist — oder None: „nur Basis setzen".
+
+    None beim ersten Lauf (nichts bekannt) **und** wenn sich die Schreibweise
+    der Namen geändert hat: Deckt der gemerkte Stand weniger als die Hälfte
+    des jetzigen ab, stammt er aus einer anderen Quelle.
+
+    ⚠⚠ Genau das passiert beim Umstieg von der Launcher-Datei auf die
+    scmdb-Daten (17.09.2026) — die schreiben die Namen anders
+    (`probekanone` statt `Probe Kanone`). Ohne diese Grenze meldete der erste
+    Abgleich nach dem Update jeden der rund 700 Baupläne als „neu craftbar".
+    """
+    jetzt = set(jetzt)
+    if not bekannt or len(jetzt & set(bekannt)) * 2 < len(jetzt):
+        return None
+    return sorted(jetzt - set(bekannt))
 
 
 # Die Merkliste steckt in `scbp/watchlist.py` — sie wird im Fenster per Klick
@@ -470,9 +495,9 @@ def scmdb_aktualisieren():
 
 
 SCMDB, SCMDB_VERSION = load_scmdb()
-# Jetzt, wo die scmdb-Daten stehen, kann der Katalog auch ohne Launcher gefüllt
-# werden — vorhin war er es nur, wenn die Launcher-Datei da war.
-if not TYPES:
+# Jetzt, wo die scmdb-Daten stehen, gilt ihr Katalog — auch wenn vorhin die
+# alte Launcher-Datei als Vorbelegung gegriffen hat (siehe `load_types`).
+if SCMDB or not TYPES:
     TYPES = load_types()
 
 
@@ -1170,14 +1195,14 @@ class Watcher(threading.Thread):
     def _catalog_tick(self):
         """Prüft, ob der Craftbar-Katalog gewachsen ist. Der Vergleichsstand überlebt
         Neustarts (CAT_SEEN), sonst käme nach jedem Programmstart alles doppelt."""
-        try:
-            marke = os.path.getmtime(TYPE_FILE)
-        except OSError:
-            # Kein Launcher: Dann ist die Spielversion der scmdb-Daten die Marke.
-            # Sie ändert sich genau dann, wenn ein Patch neue Baupläne bringt —
-            # also genau dann, wenn nachgesehen werden muss.
-            marke = SCMDB_VERSION or None
-            if marke is None:
+        # Die Marke ist die Spielversion der scmdb-Daten — sie ändert sich genau
+        # dann, wenn ein Patch neue Baupläne bringt. Die Launcher-Datei zählt
+        # nur noch, wenn es (noch) keine scmdb-Daten gibt; siehe `load_types`.
+        marke = SCMDB_VERSION or None
+        if marke is None:
+            try:
+                marke = os.path.getmtime(TYPE_FILE)
+            except OSError:
                 return
         if marke == self.cat_mtime:
             return
@@ -1190,10 +1215,10 @@ class Watcher(threading.Thread):
                 bekannt = set(json.load(f).get('namen', []))
         except Exception:
             bekannt = set()
-        if not bekannt:                       # erster Lauf: nur Basis setzen, nichts melden
+        neu = catalog_new(jetzt, bekannt)
+        if neu is None:                       # erster Lauf: nur Basis setzen, nichts melden
             self._save_catalog(jetzt)
             return
-        neu = sorted(n for n in jetzt if n not in bekannt)
         if not neu:
             self._save_catalog(jetzt)
             return
@@ -1917,10 +1942,12 @@ class Watcher(threading.Thread):
         # zusammensetzen lassen. Der eingesetzte Baustein ist selbst ein `Satz`
         # und wird dabei mit übersetzt; nur die Uhrzeit bleibt eingefroren, und
         # das ist richtig — der Zeitpunkt der Meldung ändert sich nicht.
-        quelle = language.Phrase('mit_launcher' if (HAT_LAUNCHER and self.known)
-                              else 'ohne_launcher')
+        # ⚠ Kein „mit Launcher" / „ohne Launcher" mehr (17.09.2026). Die Quelle
+        # ist seit Langem die Game.log; der Launcher liefert nichts Neues mehr.
+        # Stand dort „mit Launcher", nur weil sein alter Ordner noch auf der
+        # Platte lag — eine Angabe, die „schon ewig nicht mehr stimmt".
         return language.Phrase('ueberwache', bestand_datei.count(self.bestand),
-                            log_state, quelle, time.strftime('%H:%M:%S'))
+                            log_state, time.strftime('%H:%M:%S'))
 
     def stop(self):
         self.running = False

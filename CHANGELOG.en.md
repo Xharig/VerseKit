@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.50.3 - 2026-09-17
+
+> **The launcher is gone from the display and the catalogue.** The overlay
+> no longer says "with launcher", and which blueprints exist comes from the
+> current crafting data instead of the old launcher file.
+
+### Fixed
+
+- **Overlay:** "with launcher" in the header is gone — it had not been true
+  for a long time
+- **Catalogue:** new blueprints from a patch come from the current crafting
+  data, no longer from the frozen launcher file
+
 ## v3.50.2 - 2026-09-17
 
 > **Input fields now work the same everywhere:** an X to clear every field,
