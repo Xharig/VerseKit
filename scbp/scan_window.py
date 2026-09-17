@@ -187,7 +187,8 @@ class ScanWindow(object):
         buttons = tk.Frame(self.win, bg=SURFACE)
         buttons.pack(fill='x', padx=6, pady=(2, 2))
         self._link(buttons, t('scan_naechstes'), self._next).pack(side='left')
-        self._link(buttons, t('scan_schliessen'), self.close, SUB).pack(side='left', padx=12)
+        self._link(buttons, t('scan_ordner'), open_sample_folder, SUB).pack(side='left', padx=12)
+        self._link(buttons, t('scan_schliessen'), self.close, SUB).pack(side='left')
         self.note = tk.Label(self.win, text='', bg=SURFACE, fg=SUB, font=font,
                              anchor='nw', justify='left', height=4,
                              wraplength=width)
@@ -287,6 +288,19 @@ class ScanWindow(object):
             self.win.destroy()
         except tk.TclError:
             pass
+
+
+def open_sample_folder():
+    """Den Ordner mit den angelernten Bildern öffnen (17.09.2026: „wo findet ein
+    User die gespeicherten Signaturen und Bilder?" — vorher nirgends)."""
+    import os
+    folder = signature_scan.sample_folder()
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except OSError:
+        pass
+    from .pages import _show_folder
+    return _show_folder(folder)
 
 
 def open_window(master, on_saved=None):

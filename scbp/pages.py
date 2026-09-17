@@ -10122,6 +10122,8 @@ def _signature_scanner(window, parent, signature_var):
 
     _button(window, line, t('s_bg_scan_anlernen'),
             lambda: scan_window.open_window(window.root)).pack(side='left')
+    _button(window, line, t('scan_ordner'),
+            scan_window.open_sample_folder).pack(side='left', padx=(8, 0))
     area.pack(side='left', fill='x', expand=True, padx=10)
     show_area()
 
