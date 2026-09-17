@@ -23576,6 +23576,10 @@ def main():
     # Absenden: EIN Haken statt zweier Rueckfrage-Fenster; ohne Haken nichts.
     _dia243 = rumpf(_pq243, '_diagnosis') if 'def _diagnosis(' in _pq243 else _pq243
     _ab243 = _dia243[_dia243.find('def absenden():'):_dia243.find('def absenden():') + 2500]
+    # Der Haken wird gemerkt, sobald er einmal gesetzt ist (17.09.2026).
+    pruefe("bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}" in _pq243
+           and 'paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt' in _pq243,
+           'die Zustimmung zum Absenden wird gemerkt')
     pruefe("if not bestaetigt['an']:" in _ab243 and 'ask_yes_no' not in _ab243
            and 'sample_archive()' in _ab243,
            'Absenden: ohne Haken nichts, mit Haken Bericht und Scan-Bilder, keine Rueckfrage')

@@ -47,6 +47,9 @@ SUB     = '#8b98a5'
 ACCENT  = '#9ce430'
 LINE   = '#232c3d'
 GOLD    = '#e8c353'
+
+# Zustimmung zum Absenden von Bericht und Scan-Bildern — gemerkt (17.09.2026).
+BERICHT_ZUSTIMMUNG = 'bericht_senden_bestaetigt'
 RED     = '#e05252'
 # Fuer Zustaende, die schiefgingen, ohne eine Stoerung zu sein (abgebrochen,
 # fehlgeschlagen). Gedaempft gegenueber `ROT`, das den echten Fehlern gehoert.
@@ -6391,7 +6394,9 @@ def _diagnostics(fenster, rahmen):
             fenster.say(t('s_di_kopiert'))
             _meldung_verbraucht()
 
-    bestaetigt = {'an': False}
+    # ⚠ Gemerkt, sobald der Spieler den Haken einmal setzt (17.09.2026) — wer
+    # Bilder und Berichte schicken will, soll das nicht jedes Mal neu bestätigen.
+    bestaetigt = {'an': paths.setting_bool(BERICHT_ZUSTIMMUNG, False)}
 
     def absenden():
         """Auf Knopfdruck an den Entwickler — nach einem Haken, ohne Rückfrage.
@@ -6478,9 +6483,10 @@ def _diagnostics(fenster, rahmen):
 
     def zustimmung_umlegen():
         bestaetigt['an'] = not bestaetigt['an']
+        paths.set_setting(BERICHT_ZUSTIMMUNG, bestaetigt['an'])
         return bestaetigt['an']
 
-    _toggle(zustimmung, False, zustimmung_umlegen).pack(side='left')
+    _toggle(zustimmung, bestaetigt['an'], zustimmung_umlegen).pack(side='left')
     tk.Label(zustimmung,
              text=(t('s_di_zustimmung_bilder') % _anzahl_scan if _anzahl_scan
                    else t('s_di_zustimmung')),

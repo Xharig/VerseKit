@@ -8,6 +8,36 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.49.0 - 2026-09-17
+
+> **VerseKit reads the scan signature by itself while you mine.** The overlay
+> shows right away which ore it is and how many rocks the deposit has — no
+> more typing. An eye in the overlay bar switches it on and off. Windows for
+> now; Linux follows.
+
+### New
+
+- **Recognise signatures automatically** (eye in the overlay bar or the
+  mining page, off by default): while Star Citizen is in front, VerseKit
+  finds the scan number in the image and shows signature, ore and rock count
+  in the overlay. Thanks to ryze
+- **Teach digits:** if a number is not recognised, the window keeps the last
+  image found — type the number, done. The feedback says whether VerseKit
+  already knew the digits and whether it now reads the image
+- **Open folder** to the taught images
+- **Scan images in the bug report:** with one tick box below "Send", report
+  and taught images go out together and help improve recognition for
+  everyone. The tick box is remembered
+
+### Improved
+
+- **Bug report** shows the state of the signature scanner
+- **Mining page:** "Look up a signature" with a shorter explanation
+
+### Fixed
+
+- **After closing the main window** "bad window path name" errors could occur
+
 ## v3.49.0-rc9 - 2026-09-17
 
 > **No more made-up signatures, and the taught images are one click

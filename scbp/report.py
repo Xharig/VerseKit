@@ -691,17 +691,16 @@ def build(version='', root=None, fehleranzahl=8, message=''):
 
     def _scanner_line():
         # ⭐ Ohne diese Zeile sagt ein Bericht zum Signatur-Scanner nichts:
-        # an/aus, Bereich, wie viel angelernt ist, was zuletzt gelesen wurde.
+        # an/aus, wie viel angelernt ist, was zuletzt gelesen wurde. (Den
+        # Scan-Bereich gibt es seit rc7 nicht mehr — die Pille wird gesucht.)
         from . import paths as paths_module, screen_grab, signature_scan, signature_watch
         if not screen_grab.supported():
             return t('b_scan_nicht')
-        region = signature_scan.region()
         own = signature_scan._read_templates(
             paths_module.app_file(signature_scan.OWN_TEMPLATE_FILE))
         return t('b_scan') % (
             t('e_an') if paths_module.setting_bool(signature_watch.SETTING, False)
             else t('e_aus'),
-            ('%d×%d' % (region[2], region[3])) if region else '—',
             sum(len(v) for v in own.values()), len(own),
             len(signature_scan.samples()),
             signature_watch.shown() or '—',
