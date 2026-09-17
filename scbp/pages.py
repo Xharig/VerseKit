@@ -11531,7 +11531,15 @@ def _asop(fenster, rahmen):
             pfad, _sprachordner, _quelle = injection.ini_file()
             if pfad and os.path.isfile(pfad):
                 with open(pfad, encoding='utf-8', errors='ignore') as f:
-                    return f.read().splitlines()
+                    lines = f.read().splitlines()
+                # ⚠ Dieselben ergänzten Schiffsnamen wie beim Einspielen
+                # (17.09.2026): Kennt die Übersetzung ein Schiff noch nicht,
+                # steht es hier trotzdem mit seinem genauen Schlüssel da —
+                # sonst kürzte die Zuordnung den Namen und traf ein ANDERES
+                # Fahrzeug (Sabre Raven EX → Sabre Raven).
+                extra = injection._added_ship_names(
+                    pfad, lines, injection.load_origtext())
+                return lines + ['%s=%s' % kv for kv in extra.items()]
         except Exception as ausnahme:
             errors.record('pages._asop.ini', ausnahme)
         return []

@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.4 - 2026-09-17
+
+> **Die deutsche Übersetzung ist wieder aktuell.** VerseKit holte sie aus
+> einer Quelle, die seit Anfang September nicht mehr nachgezogen wird — neue
+> Schiffe standen im Flottenmanager als `@vehicle_Name…`. Jetzt kommt sie vom
+> aktuellen Stand, und was ihr trotzdem noch fehlt, wird englisch ergänzt.
+
+### Behoben
+
+- **Die deutsche Übersetzung blieb auf einem alten Stand stehen.** VerseKit
+  sah nur nach fertigen Veröffentlichungen, die Übersetzung wird aber
+  laufend im Projekt selbst gepflegt. Jetzt kommt jede neue Fassung beim
+  nächsten Start an
+- **Neue Schiffe erschienen als `@vehicle_Name…`**, solange die Übersetzung
+  sie noch nicht kannte. Ihr englischer Name wird jetzt ergänzt — beim
+  Zurücksetzen wieder entfernt
+- **„Schiffe benennen" traf bei solchen Schiffen ein ähnliches anderes** —
+  ein Stern für die Sabre Raven EX landete an der Sabre Raven. Jetzt findet
+  jedes Schiff seinen eigenen Eintrag
+
 ## v3.48.3 - 2026-09-17
 
 > **Carrack, Paladin und Starlancer bekommen eigene Namen.** Fünf Schiffe

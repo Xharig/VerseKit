@@ -187,6 +187,37 @@ def read_keys(lines):
     return table
 
 
+def missing_names(lines, reference_lines):
+    """Fahrzeugnamen, die die Referenz (englische Datei) kennt, `lines` nicht.
+
+    Gibt `{schluessel: wert}` zurück — lange Namen UND `…_short`, in der
+    Reihenfolge der Referenz. Verglichen wird der Schlüssel ohne Rücksicht auf
+    Groß-/Kleinschreibung; ein Stern vorn (unser eigener, falls die englische
+    Datei früher einmal das Ziel war) wird abgeschnitten.
+
+    ⚠⚠ **Wozu** (17.09.2026). Eine Übersetzung hinkt dem Patch hinterher:
+    Kennt sie ein neues Schiff nicht, zeigt der Flottenmanager
+    `@vehicle_NameAEGS_Sabre_Raven_EX`. Schlimmer: „Schiffe benennen" fand den
+    Schlüssel nicht, kürzte den Namen und landete bei einem ANDEREN Fahrzeug
+    („Sabre Raven EX" → „Sabre Raven"). Mit dem englischen Namen ergänzt, gibt
+    es den genauen Schlüssel, und nichts muss geraten werden.
+    """
+    present = set()
+    prefix = PREFIX.lower()
+    for line in lines:
+        if line[:len(PREFIX)].lower() == prefix and '=' in line:
+            present.add(line.split('=', 1)[0].split(',', 1)[0].lower())
+    result = {}
+    for line in reference_lines:
+        if line[:len(PREFIX)].lower() != prefix or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        if ',' in key or key.lower() in present or key in result:
+            continue
+        result[key] = value.rstrip('\r\n').lstrip(STAR)
+    return result
+
+
 def match_ships(schiffe, tabelle):
     """Zu jedem Schiff den passenden `vehicle_Name`-Schlüssel suchen.
 

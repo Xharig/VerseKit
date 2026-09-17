@@ -61,6 +61,14 @@ TIMEOUT = 60
 SOURCES = {
     'deutsch': {
         'repo':     'rjcncpt/StarCitizen-Deutsch-INI',
+        # ⚠⚠ **Die Datei im Repo, nicht das Release** (17.09.2026). rjcncpt
+        # veröffentlicht neue Stände nicht mehr als Release: Das neueste war
+        # `2026.09.08-LIVE` mit Textstand 29.08., während `live/global.ini` im
+        # Repo am 16.09. für Patch 4.10.1 nachgezogen war. VerseKit fragte nur
+        # nach Releases, sah „nichts Neues" — und im Flottenmanager stand
+        # `@vehicle_NameAEGS_Sabre_Raven_EX`, weil der alten Datei die neuen
+        # Schiffe fehlten. Das Release bleibt als Rückfall (`datei`).
+        'repo_datei': 'live/global.ini',
         'datei':    'StarCitizen.Deutsch.LIVE.zip',
         'sprache':  'german_(germany)',
         'ton':      'english',
@@ -113,6 +121,21 @@ def latest(source):
     q = SOURCES.get(source)
     if not q:
         return None
+    if q.get('repo_datei'):
+        # Kennung = der letzte Commit, der genau diese Datei geändert hat.
+        # Die Adresse zeigt auf DIESEN Commit, nicht auf `main` — sonst könnte
+        # zwischen Nachsehen und Laden eine andere Fassung kommen, als vermerkt.
+        try:
+            commits = _fetch('https://api.github.com/repos/%s/commits?path=%s'
+                             '&per_page=1' % (q['repo'], q['repo_datei']))
+            sha = (commits[0] or {}).get('sha') if commits else ''
+            if sha:
+                last_error[0] = None
+                return ('git-%s' % sha[:12],
+                        'https://raw.githubusercontent.com/%s/%s/%s'
+                        % (q['repo'], sha, q['repo_datei']), 0)
+        except Exception:
+            pass                  # Rückfall: das Release, wie bisher
     try:
         r = _fetch('https://api.github.com/repos/%s/releases/latest' % q['repo'])
         last_error[0] = None
@@ -332,7 +355,11 @@ def fetch(source, progress=None, game_dir=None):
     except Exception as e:
         return False, 'Download fehlgeschlagen: %s' % e
 
-    ini = _ini_from_zip(content, q['sprache'])
+    # Die Repo-Datei kommt als blanke `global.ini`, das Release als Archiv.
+    if content[:2] == b'PK':
+        ini = _ini_from_zip(content, q['sprache'])
+    else:
+        ini = content if b'\nvehicle_' in content[:20000000] else None
     if not ini:
         return False, t('m_keine_ini_archiv')
 

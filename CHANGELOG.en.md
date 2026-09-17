@@ -8,6 +8,25 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.4 - 2026-09-17
+
+> **The German translation is current again.** VerseKit fetched it from a
+> source that has not been updated since early September — new ships showed
+> up as `@vehicle_Name…` in the fleet manager. It now comes from the current
+> state, and anything it still lacks is filled in in English.
+
+### Fixed
+
+- **The German translation got stuck on an old state.** VerseKit only looked
+  for finished releases, but the translation is maintained continuously in
+  the project itself. Every new version now arrives on the next start
+- **New ships showed up as `@vehicle_Name…`** while the translation did not
+  know them yet. Their English name is now filled in — and removed again on
+  reset
+- **"Rename ships" hit a similar but different ship for those** — a star for
+  the Sabre Raven EX landed on the Sabre Raven. Every ship now finds its own
+  entry
+
 ## v3.48.3 - 2026-09-17
 
 > **Carrack, Paladin and Starlancer get their own names.** Five ships could
