@@ -83,21 +83,35 @@ def enabled():
             and paths.setting_bool(SETTING, True))
 
 
-def ripe(release, now=None):
-    """Ist die Freigabe alt genug, um sie zu holen?
+def wait_left(release, now=None):
+    """Wie viele Sekunden die Freigabe noch reifen muss — 0, wenn sie reif ist.
 
     Ohne Datum (alte Zwischenspeicher kennen nur den Tag) gilt sie als reif —
     lieber holen als nie.
+
+    ⚠⚠ **Die Restzeit, nicht die ganze Frist** (17.09.2026). Vorher wurde bei
+    einer zu frischen Freigabe stets volle `FRESH_WAIT_S` später erneut
+    gefragt — und dieser geplante Termin sperrte das Nachsehen beim
+    Spielende. Gemessen: v3.48.0 um 03:08:29 erschienen, der Takt um ~03:18
+    fand sie 9½ Minuten alt und plante 03:28; das Spiel ging um 03:19 zu, die
+    Spielende-Wache fand die Fassung, durfte wegen des Termins aber nichts
+    tun. Das Update musste von Hand eingespielt werden.
     """
     stamp = (release or {}).get('zeit') or ''
     if not stamp:
-        return True
+        return 0
     try:
         published = datetime.strptime(stamp, '%Y-%m-%dT%H:%M:%SZ').replace(
             tzinfo=timezone.utc).timestamp()
     except ValueError:
-        return True
-    return ((now if now is not None else time.time()) - published) >= FRESH_WAIT_S
+        return 0
+    age = (now if now is not None else time.time()) - published
+    return max(0, int(FRESH_WAIT_S - age + 0.999))
+
+
+def ripe(release, now=None):
+    """Ist die Freigabe alt genug, um sie zu holen? Siehe `wait_left`."""
+    return wait_left(release, now) == 0
 
 
 # ------------------------------------------------------------ Läuft das Spiel?

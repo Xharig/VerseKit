@@ -22755,6 +22755,130 @@ def main():
            'keine Stelle im Watcher fragt die Bestandsmarke ohne Fassung ab%s'
            % (' — noch: ' + ', '.join(_direkt236) if _direkt236 else ''))
 
+    # 237. Eine zu frische Freigabe wartet nur die RESTZEIT
+    #
+    # Am 17.09.2026: v3.48.0 um 03:08:29 erschienen, der 30-Minuten-Takt fand
+    # sie 9 1/2 Minuten alt und plante volle zehn Minuten spaeter nachzusehen.
+    # Das Spiel ging um 03:19 zu; die Spielende-Wache fand die Fassung, durfte
+    # wegen des geplanten Termins aber nichts tun — Update von Hand.
+    print()
+    print('237. Eine zu frische Freigabe wartet nur die Restzeit')
+    from scbp import auto_update as _au237
+    from datetime import datetime as _dt237, timezone as _tz237
+    _pub237 = _dt237(2026, 9, 17, 1, 8, 29, tzinfo=_tz237.utc).timestamp()
+    _rel237 = {'zeit': '2026-09-17T01:08:29Z'}
+    pruefe(_au237.wait_left(_rel237, _pub237 + 570) == 30,
+           'nach 9 1/2 Minuten fehlen noch 30 Sekunden (%r)'
+           % _au237.wait_left(_rel237, _pub237 + 570))
+    pruefe(_au237.wait_left(_rel237, _pub237 + 600) == 0
+           and _au237.ripe(_rel237, _pub237 + 600),
+           'nach zehn Minuten ist sie reif')
+    pruefe(_au237.wait_left({}, _pub237) == 0,
+           'ohne Datum gilt sie als reif')
+    _q237 = methode(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                         encoding='utf-8').read(), 'Overlay', '_auto_update')
+    pruefe('wait_left(' in _q237 and 'spaeter(auto_update.FRESH_WAIT_S)' not in _q237,
+           'das automatische Update plant mit der Restzeit, nicht der ganzen Frist')
+
+    # 238. Das Overlay bleibt im Bildschirm
+    #
+    # Am 17.09.2026 mit Bildschirmfotos: Ein 1000 px hohes Overlay rutschte nach
+    # „Unten rechts" aus dem Bild, die Leiste — der Griff zum Verschieben — lag
+    # darunter. Die Standardgroesse 440x1000 passt dazu auf keinen Laptop.
+    # Gewuenscht: „die Groesse begrenzen, dass das bei niemandem passieren kann."
+    print()
+    print('238. Das Overlay bleibt im Bildschirm')
+    import sc_bp_watcher as _w238
+    from scbp import screen as _bs238, paths as _pf238
+
+    class _Ov238:
+        ECKEN = _w238.Overlay.ECKEN
+        root = None
+        _in_arbeitsflaeche = _w238.Overlay._in_arbeitsflaeche
+
+    _echt238 = _bs238.work_area
+    _bs238.work_area = lambda *_a, **_k: (0, 0, 4096, 1104)
+    _o238 = _Ov238()
+    try:
+        _pf238.set_setting('overlay_ecke', 'unten-rechts')
+        # Lage fuer eine kleine Hoehe gerechnet, Fenster aber 1000 hoch.
+        _b238, _h238, _x238, _y238 = _o238._in_arbeitsflaeche(440, 1000, 3648, 950)
+        pruefe(_y238 + _h238 <= 1104 and _x238 + _b238 <= 4096,
+               'eine Ecke haelt das Fenster ganz im Bild (%dx%d+%d+%d)'
+               % (_b238, _h238, _x238, _y238))
+        _b238, _h238, _x238, _y238 = _o238._in_arbeitsflaeche(440, 1500, 3648, 8)
+        pruefe(_h238 <= 1104 - 16 and _y238 >= 0 and _y238 + _h238 <= 1104,
+               'ist es hoeher als der Schirm, wird es kleiner statt hinauszuragen (%d)'
+               % _h238)
+        _pf238.set_setting('overlay_ecke', 'frei')
+        _b238, _h238, _x238, _y238 = _o238._in_arbeitsflaeche(440, 1500, -900, 300)
+        pruefe(_h238 <= 1104 - 16 and (_x238, _y238) == (-900, 300),
+               '„frei" begrenzt die Groesse, laesst die Lage aber stehen')
+        # Standardlage und gemerkte Lage auf einem kleinen Schirm.
+        _bs238.work_area = lambda *_a, **_k: (0, 0, 1366, 728)
+        _b238, _h238 = _w238.groesse_begrenzen(None, 440, 1000)
+        pruefe(_h238 <= 728 - 16,
+               'die Standardgroesse passt auch auf einen Laptop (%d)' % _h238)
+    finally:
+        _bs238.work_area = _echt238
+        _pf238.set_setting('overlay_ecke', 'frei')
+    _qw238 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
+    for _weg238 in ('ecke_anwenden', 'klappzustand_setzen'):
+        pruefe('_in_arbeitsflaeche(' in methode(_qw238, 'Overlay', _weg238),
+               '%s begrenzt nach der Eckrechnung' % _weg238)
+    pruefe('groesse_begrenzen(' in rumpf(_qw238, 'standardlage')
+           and 'groesse_begrenzen(' in rumpf(_qw238, 'startlage'),
+           'Standardlage und Startlage begrenzen die Groesse')
+    pruefe('max_hoehe' in methode(_qw238, 'Overlay', '_resize'),
+           'auch das Ziehen am Griff endet am Bildschirmrand')
+    pruefe('self.hoehe_offen = self.root.winfo_height()'
+           in methode(_qw238, 'Overlay', '_lage_merken'),
+           'die offene Groesse folgt dem, was von Hand gezogen wurde')
+    # d) Zuruecksetzen setzt ALLES zurueck — Ecke, Leiste, begrenzte Groesse.
+    _qp238 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
+    _anz238 = rumpf(_qp238, '_display')
+    pruefe("set_setting('overlay_ecke', 'frei')" in _anz238
+           and "set_setting('overlay_leiste', 'oben')" in _anz238
+           and 'reset_position()' in _anz238,
+           'Fensterlage zuruecksetzen stellt Ecke und Leiste mit zurueck')
+    pruefe('import sc_bp_watcher' not in _qp238.replace(
+               'NICHT über `import sc_bp_watcher`', ''),
+           'pages.py laedt das Hauptprogramm nicht ein zweites Mal')
+    pruefe('standardlage(' in methode(_qw238, 'Overlay', 'reset_position'),
+           'das Overlay setzt sich dabei auf die begrenzte Standardlage')
+
+    # c) Die Ecke nimmt die Leiste mit — ueber die echte Funktion der Seite.
+    from scbp import pages as _p238, overlay as _ol238
+
+    class _Wahl238:
+        gewaehlt = None
+        def select(self, k): self.gewaehlt = k
+        def select_quiet(self, k): self.gewaehlt = k
+
+    class _Fenster238:
+        pass
+    _f238 = _Fenster238()
+    _f238._overlay_bar_choice = _Wahl238()
+    _alt238 = _ol238.OVERLAY_CONTROL[0]
+    _ol238.OVERLAY_CONTROL[0] = None
+    try:
+        _pf238.set_setting('overlay_leiste', 'oben')
+        _p238._overlay_corner(_f238, _Wahl238(), 'unten-rechts')
+        pruefe(_pf238.setting('overlay_leiste') == 'unten'
+               and _f238._overlay_bar_choice.gewaehlt == 'unten',
+               'eine untere Ecke haengt die Leiste nach unten und zeigt es an')
+        _p238._overlay_corner(_f238, _Wahl238(), 'oben-links')
+        pruefe(_pf238.setting('overlay_leiste') == 'oben',
+               'eine obere Ecke haengt sie nach oben')
+        _pf238.set_setting('overlay_leiste', 'unten')
+        _p238._overlay_corner(_f238, _Wahl238(), 'frei')
+        pruefe(_pf238.setting('overlay_leiste') == 'unten',
+               '„frei" laesst die Leiste, wo sie ist')
+    finally:
+        _ol238.OVERLAY_CONTROL[0] = _alt238
+        _pf238.set_setting('overlay_ecke', 'frei')
+        _pf238.set_setting('overlay_leiste', '')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

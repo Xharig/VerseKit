@@ -1826,6 +1826,9 @@ def _display(fenster, rahmen):
                  paths.setting('overlay_ecke') or 'frei',
                  lambda k: _overlay_corner(fenster, ecke, k))
     ecke.pack()
+    # Für „Fensterlage zurücksetzen": Die Auswahl muss den Rückweg auf „frei"
+    # zeigen.
+    fenster._overlay_corner_choice = ecke
     # ⭐ Zieht jemand das Overlay mit der Hand woandershin, hebt es die Ecke
     # selbst auf (`Overlay._verschoben`) — diese Liste muss das sehen, sonst
     # steht hier weiter „unten links", waehrend das Fenster woanders sitzt.
@@ -1846,6 +1849,8 @@ def _display(fenster, rahmen):
                    paths.setting('overlay_leiste') or 'oben',
                    lambda k: _overlay_bar(fenster, leiste, k))
     leiste.pack()
+    # Die Ecke setzt die Leiste mit — die Auswahl hier muss das zeigen.
+    fenster._overlay_bar_choice = leiste
 
     _hotkey_field(fenster, innen)
 
@@ -2003,27 +2008,54 @@ def _display(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_lage'),
                  t('s_lage_h'))
 
-    def lage_weg():
+    def reset_position():
         # Die gemerkte Lage wegwerfen reicht nicht: Ohne Positionsangabe stellt Tk
         # das Fenster nach `+0+0`, und bei einem hochkant stehenden Monitor links
         # außen liegt dort gar kein Bild — der Knopf hätte das Overlay also wieder
         # dorthin geschickt, wo man es sucht. Deshalb wird aktiv die Standardlage
         # gesetzt: mittig auf dem Hauptbildschirm. Wie viele Bildschirme jemand hat,
         # wissen wir nicht; die Mitte des Hauptbildschirms passt überall.
+        #
+        # ⚠⚠ **Zurücksetzen heißt ALLES zurück** (17.09.2026: „drücke
+        # ich zurücksetzen, erwarte ich doch auch, dass es wirklich
+        # zurückgesetzt wird"). Bis dahin blieben Ecke und Leiste stehen: Ein
+        # Overlay mit Leiste unten und fester Ecke sprang danach wieder dorthin,
+        # wo es vorher unerreichbar war. Und die Größe war fest 440×1000 — auf
+        # einem Laptop höher als der Bildschirm (siehe `groesse_begrenzen`).
         from . import screen
+        from . import overlay as overlay_module
         try:
             os.remove(paths.app_file('watcher.json'))
         except OSError:
             pass
-        overlay = screen.OVERLAY[0]
-        if overlay is not None:
-            try:
-                overlay.geometry(screen.centered(overlay, 440, 1000))
-            except Exception as ausnahme:
-                errors.record('pages.lage_weg', ausnahme)
+        paths.set_setting('overlay_ecke', 'frei')
+        paths.set_setting('overlay_leiste', 'oben')
+        for name, value in (('_overlay_corner_choice', 'frei'),
+                            ('_overlay_bar_choice', 'oben')):
+            choice = getattr(fenster, name, None)
+            if choice is not None:
+                try:
+                    choice.select_quiet(value)
+                except Exception:
+                    pass
+        # ⚠ Über das Overlay selbst, NICHT über `import sc_bp_watcher`: In der
+        # `.exe` heißt das Hauptprogramm `__main__`, ein Import lüde es ein
+        # zweites Mal.
+        control = overlay_module.OVERLAY_CONTROL[0]
+        window = screen.OVERLAY[0]
+        try:
+            if control is not None and hasattr(control, 'reset_position'):
+                control.reset_position()
+            elif window is not None:
+                width, height = 440, 1000
+                _sx, _sy, sb, sh = screen.work_area(window, 0, 0)
+                window.geometry(screen.centered(window, min(width, sb - 16),
+                                                min(height, sh - 16)))
+        except Exception as exc:
+            errors.record('pages.reset_position', exc)
         fenster.say(t('s_an_lage_weg'))
 
-    _button(fenster, ziel, t('s_zuruecksetzen'), lage_weg).pack()
+    _button(fenster, ziel, t('s_zuruecksetzen'), reset_position).pack()
 
 
 def _folders(fenster, rahmen):
@@ -2193,6 +2225,19 @@ def _overlay_corner(fenster, wahl, kennung):
         wahl.select(kennung)
     except Exception:
         pass
+    # ⭐ Die Ecke nimmt die Leiste mit (17.09.2026: „unten rechts sollte
+    # die Leiste auch nach unten setzen, hat man oben eingestellt, bleibt sie
+    # oben"). Eine untere Ecke hängt die Leiste nach unten, eine obere nach
+    # oben — danach lässt sie sich weiter von Hand umstellen.
+    if kennung.startswith(('oben', 'unten')):
+        seite = 'unten' if kennung.startswith('unten') else 'oben'
+        paths.set_setting('overlay_leiste', seite)
+        leiste_wahl = getattr(fenster, '_overlay_bar_choice', None)
+        if leiste_wahl is not None:
+            try:
+                leiste_wahl.select_quiet(seite)
+            except Exception:
+                pass
     from . import overlay as ov
     steuerung = ov.OVERLAY_CONTROL[0]
     if steuerung is not None and hasattr(steuerung, 'ecke_anwenden'):

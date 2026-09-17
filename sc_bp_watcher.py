@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.48.1'
+__version__ = '3.48.2'
 
 
 def _mitgeliefert(name):
@@ -619,7 +619,28 @@ def standardlage(root):
     """
     m = GEOM_RE.match(DEFAULT_GEOM or '')
     breite, hoehe = (int(m.group(1)), int(m.group(2))) if m else (440, 1000)
+    breite, hoehe = groesse_begrenzen(root, breite, hoehe)
     return screen.centered(root, breite, hoehe)
+
+
+def groesse_begrenzen(root, width, height, x=None, y=None):
+    """Breite und Höhe auf die Arbeitsfläche des Bildschirms begrenzen.
+
+    ⚠⚠ Die Standardgröße ist 440×1000. Auf jedem Bildschirm mit weniger als
+    rund 1016 Pixeln nutzbarer Höhe — jedem Laptop mit 768 oder 900 — lag die
+    Leiste damit schon beim ersten Start außerhalb, und „Fensterlage
+    zurücksetzen" setzte genau diese Größe wieder. Am 17.09.2026 dazu: „die
+    Größe begrenzen, dass das bei niemandem passieren kann." Gemessen wird
+    der Schirm unter (x, y), ohne Lage der Hauptschirm.
+    """
+    try:
+        if x is None or y is None:
+            sx, sy, sb, sh = screen.work_area(root, 0, 0)
+        else:
+            sx, sy, sb, sh = screen.work_area(root, x, y)
+        return max(1, min(width, sb - 16)), max(1, min(height, sh - 16))
+    except Exception:
+        return width, height
 
 
 def startlage(root):
@@ -636,6 +657,13 @@ def startlage(root):
     geprueft = geometrie_pruefen(gemerkt, root)
     if '+' not in geprueft:
         return standardlage(root)
+    # ⚠ Auch eine gemerkte Lage kann zu groß sein — gemerkt auf einem höheren
+    # Bildschirm oder vor der Größenbegrenzung. Siehe `groesse_begrenzen`.
+    m = GEOM_RE.match(geprueft)
+    if m and m.group(3) is not None:
+        b, h, x, y = (int(z) for z in m.groups())
+        b, h = groesse_begrenzen(root, b, h, x, y)
+        return '%dx%d+%d+%d' % (b, h, x, y)
     return geprueft
 
 
@@ -2866,12 +2894,24 @@ class Overlay:
         else:
             breite = max(self._mindestbreite(), zeiger_x - x0)
             neu_x = x0
+        # ⚠ Nie größer als der Bildschirm, auf dem das Overlay steht
+        # (17.09.2026) — sonst liegt die Leiste, der Griff zum Verschieben,
+        # irgendwo außerhalb. Siehe `_in_arbeitsflaeche`.
+        try:
+            _sx, _sy, sb, sh = screen.work_area(self.root, x0, y0)
+            max_breite, max_hoehe = sb - 16, sh - 16
+        except Exception:
+            max_breite = max_hoehe = 100000
+        if rechts:
+            breite = min(max_breite, breite)
+            neu_x = rechte_kante - breite
         if unten:
-            hoehe = max(160, untere_kante - zeiger_y)
+            hoehe = min(max_hoehe, max(160, untere_kante - zeiger_y))
             neu_y = untere_kante - hoehe
         else:
-            hoehe = max(160, zeiger_y - y0)
+            hoehe = min(max_hoehe, max(160, zeiger_y - y0))
             neu_y = y0
+        breite = min(max_breite, breite)
         self.root.geometry('%dx%d+%d+%d' % (breite, hoehe, neu_x, neu_y))
 
     # ---- Liste ----
@@ -3422,9 +3462,11 @@ class Overlay:
             self.root.after(sekunden * 1000,
                             lambda: self._auto_update(neu, erneut=True))
 
-        if not auto_update.ripe(neu):
-            # Gerade erst veröffentlicht — nach der Wartezeit noch einmal.
-            spaeter(auto_update.FRESH_WAIT_S)
+        rest = auto_update.wait_left(neu)
+        if rest:
+            # Gerade erst veröffentlicht — nach der RESTZEIT noch einmal, nicht
+            # nach der ganzen Frist (siehe `auto_update.wait_left`).
+            spaeter(rest)
             return
         self._auto_laeuft = True
         version = neu.get('version') or ''
@@ -3585,6 +3627,7 @@ class Overlay:
             # laesst Tk neu rechnen, und was danach gesetzt wird, gilt.
             self._leiste_ausrichten()
             x, y = self._klapp_ecke(breite, hoehe)
+            breite, hoehe, x, y = self._in_arbeitsflaeche(breite, hoehe, x, y)
             self.root.geometry('%dx%d+%d+%d' % (breite, hoehe, x, y))
             self.klapp_lbl.swap_symbol('aufklappen' if zu
                                           else 'einklappen')
@@ -3757,6 +3800,70 @@ class Overlay:
             errors.record('overlay.klapp_ecke', ausnahme)
             return x, y
 
+    def reset_position(self):
+        """„Fensterlage zurücksetzen": Standardgröße, mittig, Leiste oben.
+
+        Die Einstellungen (`overlay_ecke` = frei, `overlay_leiste` = oben)
+        setzt die Seite vorher; hier wird das Fenster danach gerichtet.
+        Größe über `standardlage` — also auf den Bildschirm begrenzt.
+        """
+        try:
+            geometry = standardlage(self.root)
+            self._leiste_ausrichten()
+            match = GEOM_RE.match(geometry)
+            if match:
+                self.breite_offen = int(match.group(1))
+                self.hoehe_offen = int(match.group(2))
+            if self.eingeklappt:
+                self.klappzustand_setzen(False)
+            self.root.geometry(geometry)
+            self._grip_nachziehen()
+            self._schloss_nachziehen()
+            if self.anzeigeart == 'popup':
+                self._letzte_lage = geometry
+                self._anfasser_zeigen()
+        except Exception as exc:
+            errors.record('overlay.reset_position', exc)
+
+    def _in_arbeitsflaeche(self, width, height, x, y):
+        """Ein Overlay in einer Ecke vollständig auf seinen Bildschirm holen.
+
+        Gibt `(breite, hoehe, x, y)` zurück. Passt das Fenster nicht, wird es
+        **kleiner** gemacht statt über den Rand geschoben.
+
+        | Ecke | Größe | Lage |
+        |---|---|---|
+        | eine der vier | höchstens die Arbeitsfläche | ganz im Bild |
+        | frei verschiebbar | höchstens die Arbeitsfläche | unangetastet — dort darf jemand es absichtlich über zwei Monitore legen |
+
+        ⚠ Die Größe wird IMMER begrenzt (17.09.2026: „die Größe
+        begrenzen, dass das bei niemandem passieren kann"). Ein Overlay, das
+        höher ist als der Bildschirm, hat an irgendeiner Stelle seine Leiste
+        außerhalb — und die Leiste ist der Griff zum Verschieben.
+
+        ⚠⚠ Gemeldet am 17.09.2026 mit zwei Bildschirmfotos: Das Overlay (440×1000
+        auf einer Arbeitsfläche von 1104 Pixeln Höhe) rutschte nach „Unten
+        rechts" aus dem Bild, sichtbar blieben zwei Zeilen — die Leiste unten
+        lag unter dem Rand und damit der einzige Griff zum Verschieben. Die
+        Eckrechnung selbst ist richtig (unsichtbar nachgestellt); eine Lage und
+        eine Größe aus verschiedenen Ständen reichen aber, um das Fenster
+        hinauszuschieben (siehe `hoehe_offen`). Diese Grenze gilt deshalb nach
+        JEDER Eckrechnung, ganz gleich woher die Zahlen kamen.
+        """
+        try:
+            sx, sy, sb, sh = screen.work_area(self.root, x, y)
+            rand = 8
+            width = max(1, min(width, sb - 2 * rand))
+            height = max(1, min(height, sh - 2 * rand))
+            ecke = paths.setting('overlay_ecke') or 'frei'
+            if ecke in self.ECKEN and ecke != 'frei':
+                x = max(sx, min(x, sx + sb - width - rand))
+                y = max(sy, min(y, sy + sh - height - rand))
+            return int(width), int(height), int(x), int(y)
+        except Exception as exc:
+            errors.record('overlay._in_arbeitsflaeche', exc)
+            return width, height, x, y
+
     def ecke_anwenden(self):
         """Von der Einstellungsseite gerufen: die Ecke sofort uebernehmen."""
         try:
@@ -3767,7 +3874,10 @@ class Overlay:
             self.root.update_idletasks()
             b, h = self.root.winfo_width(), self.root.winfo_height()
             x, y = self._klapp_ecke(b, h)
+            b, h, x, y = self._in_arbeitsflaeche(b, h, x, y)
             self.root.geometry('%dx%d+%d+%d' % (b, h, x, y))
+            if not self.eingeklappt:
+                self.hoehe_offen, self.breite_offen = h, b
             # ⚠ Ohne diese Zeile bleibt das Schloss in der ALTEN Ecke stehen,
             # waehrend das Overlay in die neue wandert. Es ist ein eigenes
             # Fenster (siehe `_schloss_anwenden`) und folgt nicht von selbst.
@@ -3979,6 +4089,14 @@ class Overlay:
                     or self.root.winfo_width() < 50):
                 return
             save_geometry(self._current_geom())
+            # ⚠⚠ Die offene Größe folgt dem, was der Nutzer gezogen hat
+            # (17.09.2026). Bis dahin wurde sie nur beim Start und beim
+            # Einklappen gemerkt — wer das Overlay danach größer oder kleiner
+            # zog, bekam beim nächsten Anwenden der Ecke die ALTE Größe an eine
+            # für die neue gerechnete Stelle. Siehe `_in_arbeitsflaeche`.
+            if not self.eingeklappt:
+                self.hoehe_offen = self.root.winfo_height()
+                self.breite_offen = self.root.winfo_width()
         except Exception as ausnahme:
             errors.record('overlay.lage_merken', ausnahme)
 

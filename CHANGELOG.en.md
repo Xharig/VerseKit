@@ -8,6 +8,32 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.2 - 2026-09-17
+
+> **The overlay stays on screen.** It never grows larger than your
+> screen, the corners take the bar with them, and "Reset window position"
+> really resets everything. Updates after quitting the game arrive right
+> away again instead of waiting ten minutes.
+
+### Improved
+
+- **The corner takes the bar with it:** bottom left and bottom right put
+  the bar at the bottom, top left and top right at the top. If you want it
+  otherwise, switch the bar afterwards
+- **"Reset window position" resets everything** — free to move, bar at
+  the top, default size centred
+
+### Fixed
+
+- **The overlay could slide off the screen** — especially a large one in a
+  bottom corner. The bar then sat below the edge and it could no longer be
+  grabbed. It is now never larger than the screen: at start, when dragging,
+  in every corner and when resetting
+- **The default size did not fit any laptop** — on small screens it now
+  shrinks to fit
+- **An update after quitting the game waited up to ten minutes** if the
+  build had come out shortly before. Now it only waits the remaining time
+
 ## v3.48.1 - 2026-09-17
 
 > **New details now reach the game without a new blueprint.** After an update
