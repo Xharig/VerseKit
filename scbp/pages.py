@@ -5855,7 +5855,8 @@ def _thanks(fenster, rahmen):
             ('Aeternitas26', 'KRT', t('s_dk_aeternitas_idee') + '\n\n'
              + t('s_dk_aeternitas_idee2'), ''),
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
-             t('s_dk_kynotnis_bugs'))):
+             t('s_dk_kynotnis_bugs')),
+            ('ryze', '', t('s_dk_ryze_idee'), '')):
         _contributor(fenster, innen, name, gruppe, idee, funde)
 
     # --- Marken ---
@@ -10029,6 +10030,71 @@ def _load_salvage(name):
     return teile, treffer
 
 
+def _signature_scanner(window, parent, signature_var):
+    """Schalter und Scan-Bereich für das Ablesen der Signatur (nur Windows).
+
+    ⚠ Der Schalter ist zugleich die Zustimmung zum Bildabgriff — Standard aus.
+    ⚠ Gestartet wird die Wache NICHT hier, sondern beim Programmstart
+    (`Overlay.run`) — eine Seite wird erst beim ersten Besuch gebaut.
+    """
+    from . import scan_window, signature_scan, signature_watch
+    from .main_window import toggle_switch
+    if not scan_window.available():
+        return
+    row = _setting_row(window, parent, t('s_bg_scan_kopf'), t('s_bg_scan_h'))
+
+    def toggle():
+        new_value = not paths.setting_bool(signature_watch.SETTING, False)
+        paths.set_setting(signature_watch.SETTING, new_value)
+        if new_value:
+            signature_watch.start()
+            if not signature_scan.region():
+                scan_window.open_window(window.root, on_saved=lambda _r: show_area())
+        else:
+            signature_watch.stop()
+        window.say(t('s_bg_scan_sagen') % (t('e_an') if new_value else t('e_aus')))
+        return new_value
+
+    toggle_switch(row, paths.setting_bool(signature_watch.SETTING, False),
+                  toggle).pack()
+
+    line = tk.Frame(parent, bg=BG)
+    line.pack(fill='x', pady=(0, 10))
+    area = tk.Label(line, text='', bg=BG, fg=SUB, font=window.f_small,
+                    anchor='w', justify='left')
+
+    def show_area():
+        region = signature_scan.region()
+        if region:
+            area.configure(text=t('s_bg_scan_ok') % (region[2], region[3]), fg=SUB)
+        else:
+            area.configure(text=t('s_bg_scan_kein'), fg=GOLD)
+
+    _button(window, line, t('s_bg_scan_bereich'),
+            lambda: scan_window.open_window(window.root,
+                                            on_saved=lambda _r: show_area())
+            ).pack(side='left')
+    area.pack(side='left', fill='x', expand=True, padx=10)
+    show_area()
+
+    def read_value(value):
+        # ⚠ Kommt aus dem Wach-Faden — Tk nur über `after` anfassen.
+        if value is None:
+            return
+
+        def put():
+            try:
+                signature_var.set('{:,}'.format(value).replace(',', '.'))
+            except tk.TclError:
+                pass
+        try:
+            window.root.after(0, put)
+        except Exception:
+            pass
+
+    signature_watch.listen(read_value)
+
+
 def _mining(fenster, rahmen):
     """Wo welches Erz abzubauen ist — **beide** Richtungen in einer Suche.
 
@@ -10201,6 +10267,7 @@ def _mining(fenster, rahmen):
 
     sig_var.trace_add('write', sig_zeichnen)
     _search_clear(fenster, ziel_sig, sig_var)
+    _signature_scanner(fenster, innen, sig_var)
 
     liste_rahmen = tk.Frame(innen, bg=BG)
     liste_rahmen.pack(fill='both', expand=True)

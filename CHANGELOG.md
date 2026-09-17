@@ -8,6 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc1 - 2026-09-17
+
+> **VerseKit liest die Scan-Signatur selbst ab.** Einmal zeigen, wo beim
+> Bergbau die Zahl steht — danach steht im Overlay, welches Erz dahintersteckt
+> und aus wie vielen Brocken das Vorkommen besteht. Testfassung, vorerst nur
+> unter Windows.
+
+### Neu
+
+- **Signatur selbst ablesen** (Bergbau-Seite, ab Werk aus): Solange Star
+  Citizen vorn ist, liest VerseKit die Zahl des Bergbau-Scanners und zeigt im
+  Overlay Signatur, Erz und Brockenzahl. Danke an ryze
+- **Scan-Fenster:** über die Zahl ziehen und in der Größe anpassen, mit
+  Vorschau und gelesenem Wert. Die Lage wird gemerkt
+- **Anlernen:** Liest VerseKit eine Zahl nicht sicher, die richtige eintippen
+  und anlernen — danach erkennt es deine Anzeige besser
+
 ## v3.48.5 - 2026-09-17
 
 > **Updates kommen schneller, und du siehst, wie aktuell deine Übersetzung ist.**

@@ -2408,6 +2408,8 @@ TEXTS = {
                               '**Reputation thresholds on ranks** — the '
                               'reputation menu now shows how much reputation '
                               'a rank starts at.'),
+    's_dk_ryze_idee':        ('**Signatur selbst ablesen** — danke!',
+                              '**Reading the scan signature** — thank you!'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '
@@ -4269,6 +4271,35 @@ TEXTS = {
     # ⭐ Scan-Signatur: der Scanner zeigt eine Zahl, aber nicht, was
     # dahintersteckt. Genau die Luecke schliesst das Feld.
     's_bg_sig_feld':     ('Scan-Wert vom Scanner', 'Scanner reading'),
+    's_bg_scan_kopf':    ('Signatur selbst ablesen', 'Read the signature automatically'),
+    's_bg_scan_h':       ('VerseKit liest die Zahl des Bergbau-Scanners vom Bildschirm, solange Star Citizen vorn ist, und zeigt im Overlay, was dahintersteckt. Dafür zeigst du einmal, wo die Zahl bei deinem Schiff steht. Nur Windows.',
+                          'VerseKit reads the mining scanner number from the screen while Star Citizen is in front and shows in the overlay what it means. Show once where the number sits in your ship. Windows only.'),
+    's_bg_scan_bereich': ('Scan-Bereich festlegen', 'Set scan area'),
+    's_bg_scan_kein':    ('Noch kein Scan-Bereich festgelegt — ohne ihn liest VerseKit nichts.',
+                          'No scan area set yet — without it VerseKit reads nothing.'),
+    's_bg_scan_ok':      ('Scan-Bereich festgelegt: %d × %d Bildpunkte.', 'Scan area set: %d × %d pixels.'),
+    's_bg_scan_sagen':   ('Signatur ablesen: %s', 'Read signature: %s'),
+    's_bg_scan_gelesen': ('Gelesen: %s', 'Read: %s'),
+    'ov_signatur':       ('Signatur %s', 'Signature %s'),
+    'scan_ziehen':       ('Über die Zahl ziehen', 'Drag over the number'),
+    'scan_richtig':      ('Richtige Zahl:', 'Correct number:'),
+    'scan_anlernen':     ('Anlernen', 'Teach'),
+    'scan_uebernehmen':  ('Übernehmen', 'Save'),
+    'scan_abbrechen':    ('Abbrechen', 'Cancel'),
+    'scan_gelernt':      ('Gelernt — %d neue Ziffernbilder.', 'Learned — %d new digit images.'),
+    'scan_grund_kein_text': ('Keine Zahl im Bereich', 'No number in the area'),
+    'scan_grund_nicht_angelernt': ('Noch keine Ziffern angelernt', 'No digits learned yet'),
+    'scan_grund_unsicher': ('Zahl gefunden, aber nicht sicher gelesen — tippe sie unten ein und lerne sie an',
+                            'Number found but not read reliably — type it below and teach it'),
+    'scan_grund_keine_werte': ('Bergbaudaten fehlen noch — einmal die Bergbau-Seite öffnen',
+                               'Mining data missing — open the mining page once'),
+    'scan_grund_nicht_unterstuetzt': ('Auf diesem System noch nicht möglich', 'Not possible on this system yet'),
+    'scan_grund_bereich_ungueltig': ('Bereich zu klein oder zu groß', 'Area too small or too large'),
+    'scan_grund_abgriff_fehlgeschlagen': ('Bildschirm konnte nicht gelesen werden', 'Could not read the screen'),
+    'scan_grund_anlernen_leer': ('Erst die Zahl eintippen, die gerade zu sehen ist', 'Type the number you see first'),
+    'scan_grund_anlernen_anzahl': ('Die Ziffern im Bild passen nicht zur getippten Zahl — Bereich enger um die Zahl ziehen',
+                                   'The digits in the image do not match the typed number — draw the area tighter'),
+    'scan_grund_anlernen_speichern': ('Anlernen konnte nicht gespeichert werden', 'Could not save what was learned'),
     's_bg_sig_hilfe':    ('Der Scanner zeigt eine Zahl — hier steht, welches '
                           'Erz dahintersteckt und aus wie vielen Brocken das '
                           'Vorkommen besteht. „8600" für genau diesen Wert, '

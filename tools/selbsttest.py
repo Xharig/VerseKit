@@ -23167,6 +23167,146 @@ def main():
            and 'translation.installed(source) if' not in _inj242,
            'die Seite „Texte im Spiel" zeigt den lesbaren Stand, nicht die Kennung')
 
+    # 243. Scan-Signatur: lesen, verwerfen, anlernen, abstimmen
+    # ⚠⚠ Eine falsche Signatur ist schlimmer als keine: Sie sieht richtig aus,
+    # und niemand prueft sie nach. Geprueft wird deshalb vor allem, dass nichts
+    # FALSCHES herauskommt — gegen Ziffern, die aus den mitgelieferten
+    # Vorlagen gezeichnet werden (kein Bildschirm, kein Spiel).
+    print('243. Scan-Signatur: lesen, verwerfen, anlernen, abstimmen')
+    from scbp import signature_scan as _ss243, signature_watch as _sw243
+    from scbp import screen_grab as _sg243, paths as _pa243
+    _vorl243 = json.load(open(os.path.join(WURZEL, 'daten', 'signatur-ziffern.json'),
+                              encoding='utf-8'))['ziffern']
+
+    def _bild243(text, wahl=0, rausch=25, ohne=()):
+        _r = [[18] * 200 for _ in range(40)]
+        for _y in range(6, 30):                     # Ortungssymbol, hoeher
+            for _x in range(4, 18):
+                if (_x - 11) ** 2 / 49.0 + (_y - 16) ** 2 / 110.0 <= 1:
+                    _r[_y][_x] = 230
+        _x0 = 26
+        for _i, _ch in enumerate(text):
+            if _ch == ',':
+                for _y in range(17, 23):
+                    for _x in range(_x0, _x0 + 3):
+                        _r[_y][_x] = 225
+                _x0 += 5
+                continue
+            _p = _vorl243[_ch][wahl % len(_vorl243[_ch])]
+            _xs = [i % 16 for i in range(384) if _p[i]]
+            _ys = [i // 16 for i in range(384) if _p[i]]
+            _bx, _by = min(_xs), min(_ys)
+            _bw, _bh = max(_xs) - _bx + 1, max(_ys) - _by + 1
+            _w = max(3, int(round(_bw * 13 / float(_bh))))
+            if _i not in ohne:
+                for _yy in range(13):
+                    for _xx in range(_w):
+                        if _p[(_by + _yy * _bh // 13) * 16 + _bx + _xx * _bw // _w]:
+                            _r[8 + _yy][_x0 + _xx] = 225
+            _x0 += _w + 2
+        import random as _rnd243
+        _z = _rnd243.Random(7)
+        for _ in range(rausch):
+            _r[_z.randrange(40)][_z.randrange(200)] = _z.randrange(256)
+        return _r
+
+    _bek243 = _ss243.templates()
+    _werte243 = sorted({v * n for v in (3170, 3000, 4000, 2000, 1920, 3585, 1200)
+                        for n in range(1, 7)})
+    _richtig243, _falsch243 = 0, []
+    for _v in _werte243[:24]:
+        for _wahl in (0, 1):
+            _erg = _ss243.read(_bild243('{:,}'.format(_v), _wahl), _bek243, _werte243)
+            if _erg['wert'] == _v:
+                _richtig243 += 1
+            elif _erg['wert'] is not None:
+                _falsch243.append((_v, _erg['wert']))
+    pruefe(not _falsch243, 'keine FALSCH gelesene Signatur (%r)' % _falsch243[:5])
+    pruefe(_richtig243 >= 38, 'die meisten Signaturen werden gelesen (%d von 48)'
+           % _richtig243)
+    # Das Komma als Pruefstein: vier Ziffern ohne Komma kommen nicht aus dem HUD.
+    pruefe(_ss243.read(_bild243('2400'), _bek243, _werte243)['wert'] is None,
+           'vier Ziffern ohne Tausenderkomma werden verworfen')
+    # Faellt eine Ziffer weg, darf daraus kein anderer gueltiger Wert werden.
+    _weg243 = _ss243.read(_bild243('12,000', ohne=(0,)), _bek243, _werte243 + [2000])
+    pruefe(_weg243['wert'] in (None, 2000) and
+           _ss243.read(_bild243('12,000'), _bek243, _werte243)['wert'] in (None, 12000),
+           'eine verschluckte Ziffer liest nie einen dritten Wert')
+    pruefe(_ss243.read(_bild243('3,000'), {}, _werte243)['grund'] == 'nicht_angelernt',
+           'ohne Vorlagen: „nicht angelernt", keine Zahl')
+    pruefe(_ss243.read([[15] * 120 for _ in range(30)], _bek243, _werte243)['grund']
+           == 'kein_text', 'leerer Ausschnitt: „keine Zahl"')
+
+    _heim243 = tempfile.mkdtemp(prefix='pruefung243-')
+    _altheim243 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim243
+    try:
+        _ok243, _grund243, _neu243 = _ss243.learn(_bild243('3,170'), '3,170')
+        pruefe(_ok243 and _neu243 >= 1 and os.path.isfile(
+            _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)),
+            'anlernen legt eigene Vorlagen ab (%r, %r)' % (_grund243, _neu243))
+        _ok243, _grund243, _ = _ss243.learn(_bild243('3,170'), '31,700')
+        pruefe(not _ok243 and _grund243 == 'anlernen_anzahl',
+               'falsche Stellenzahl wird NICHT angelernt, sondern abgelehnt')
+        pruefe(not _ss243.plausible_template('8', _ss243.normalize(
+            [[0] * 3 + [255] * 10 + [0] * 3 for _ in range(24)], (3, 0, 12, 23), 128)),
+            'eine Vorlage ohne Loecher wird nie als Acht gelernt')
+        _ss243.set_region((100, 200, 240, 40))
+        pruefe(_ss243.region() == (100, 200, 240, 40), 'der Scan-Bereich wird gemerkt')
+        _ss243.set_region((1, 2, 3, 4))
+        pruefe(_ss243.region() is None, 'ein winziger Bereich gilt nicht')
+    finally:
+        if _altheim243 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _altheim243
+        shutil.rmtree(_heim243, ignore_errors=True)
+
+    # Die Wache: zwei gleiche aus drei, leeren erst nach der Frist, nie ohne Spiel.
+    _sw243._state['shown'] = None
+    _gegriffen243 = []
+    _folge243 = iter([12680, None, 12680, 12680, None, None, None, None])
+
+    def _lies243(_r):
+        return {'wert': next(_folge243), 'ziffern': []}
+
+    def _greif243(*_a):
+        _gegriffen243.append(_a)
+        return [[0]]
+
+    _verlauf243, _zuletzt243, _gemeldet243 = [], 0.0, []
+    for _t in (0.0, 0.4, 0.8, 1.2, 1.6, 2.0, 4.0, 6.0):
+        _m, _zuletzt243 = _sw243.step(_greif243, _lies243, lambda: True,
+                                      (0, 0, 10, 10), _verlauf243, _t, _zuletzt243)
+        if _m is not False:
+            _sw243._state['shown'] = _m
+            _gemeldet243.append((_t, _m))
+    pruefe(_gemeldet243[:1] == [(0.8, 12680)],
+           'gemeldet erst bei der zweiten gleichen Lesung (%r)' % _gemeldet243)
+    pruefe(len(_gemeldet243) == 2 and _gemeldet243[1][1] is None
+           and _gemeldet243[1][0] > 1.2 + _sw243.CLEAR_S - 0.01,
+           'geleert erst nach %.0f s ohne Zahl (%r)' % (_sw243.CLEAR_S, _gemeldet243))
+    del _gegriffen243[:]
+    _sw243.step(_greif243, _lies243, lambda: False, (0, 0, 10, 10), [], 9.0, 9.0)
+    pruefe(not _gegriffen243, 'ohne Star Citizen im Vordergrund wird nichts abgegriffen')
+    _sw243._state['shown'] = None
+    try:
+        _sg243.grab(0, 0, 0, 10)
+        pruefe(False, 'ein leerer Bereich wirft GrabError')
+    except _sg243.GrabError:
+        pruefe(True, 'ein leerer Bereich wirft GrabError')
+
+    # Verdrahtung: die Wache startet mit dem Overlay, nicht mit der Seite.
+    _swq243 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'), encoding='utf-8').read()
+    pruefe('self.signaturwache_starten()' in methode(_swq243, 'Overlay', 'run'),
+           'die Signatur-Wache startet beim Programmstart')
+    _pq243 = open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read()
+    pruefe('_signature_scanner(' in rumpf(_pq243, '_mining'),
+           'die Bergbau-Seite traegt Schalter und Scan-Bereich')
+    pruefe(rumpf(open(os.path.join(WURZEL, 'scbp', 'signature_watch.py'),
+                      encoding='utf-8').read(), 'start_if_enabled').count(
+        'SETTING, False') == 1, 'der Scanner steht ab Werk auf Aus')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
