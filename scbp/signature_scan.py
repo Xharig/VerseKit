@@ -72,11 +72,16 @@ aus `language.py`.
 """
 import json
 import os
+import struct
+import time
+import zlib
 
 # Die Vorlagen werden vor dem Vergleich auf diese feste Größe gebracht. Damit
 # spielt es keine Rolle, ob die Zahl auf 1080p oder auf einem Ultrawide steht.
 NORM_W, NORM_H = 16, 24
 
+SAMPLE_FOLDER = 'signatur-bilder'
+SAMPLE_LIMIT = 200
 TEMPLATE_FILE = 'signatur-ziffern.json'          # mitgeliefert, `daten/`
 OWN_TEMPLATE_FILE = 'signatur-ziffern-eigene.json'  # selbst angelernt
 REGION_SETTING = 'signatur_bereich'
@@ -609,7 +614,14 @@ def read(raster, known=None, values=None):
 def learn(raster, typed):
     """Den Ausschnitt als die getippte Zahl anlernen.
 
-    Gibt (erfolg, kennwort, neu_gelernt).
+    Gibt (erfolg, kennwort, bilanz). `bilanz` sagt dem Spieler, was geschah:
+    `erkannt` (Ziffern im Bild), `neu` (neu gespeichert), `bekannt` (dieses
+    Ziffernbild gab es schon), `unklar` (Stellen, 1-basiert, die nicht wie ihre
+    Ziffer aussahen und deshalb NICHT gespeichert wurden).
+
+    ⚠ Bis 17.09.2026 stand dort nur die Zahl der neuen Bilder: „Gelernt (4
+    Ziffern)" bei einer fünfstelligen Zahl — und niemand wusste, ob das Richtige
+    angekommen war.
 
     ⚠ Passt die Zahl der gefundenen Ziffern nicht zur getippten Zahl, wird
     NICHT geraten — eine falsch zugeordnete Vorlage vergiftet jede spätere
@@ -618,7 +630,7 @@ def learn(raster, typed):
     from . import paths
     digits_typed = [c for c in str(typed) if c.isdigit()]
     if len(digits_typed) < 2:
-        return False, 'anlernen_leer', 0
+        return False, 'anlernen_leer', {}
     candidates = []
     for threshold in thresholds(raster):
         for digits in digit_rows(components(raster, threshold), len(raster[0])):
@@ -628,29 +640,84 @@ def learn(raster, typed):
                               if plausible_template(d, p))
                 candidates.append((fitting, patterns))
     if not candidates:
-        return False, 'anlernen_anzahl', 0
+        return False, 'anlernen_anzahl', {}
     candidates.sort(key=lambda c: -c[0])
     patterns = candidates[0][1]
 
     path = paths.app_file(OWN_TEMPLATE_FILE)
     own = _read_templates(path)
-    added = 0
-    for pattern, digit in zip(patterns, digits_typed):
+    stats = {'erkannt': len(patterns), 'neu': 0, 'bekannt': 0, 'unklar': []}
+    for position, (pattern, digit) in enumerate(zip(patterns, digits_typed), 1):
         if not plausible_template(digit, pattern):
+            stats['unklar'].append(position)
             continue
         bucket = own.setdefault(digit, [])
-        if pattern not in bucket:
+        if pattern in bucket:
+            stats['bekannt'] += 1
+        else:
             bucket.append(pattern)
             del bucket[:-12]            # die jüngsten zwölf je Ziffer
-            added += 1
+            stats['neu'] += 1
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path + '.tmp', 'w', encoding='utf-8') as f:
             json.dump({'format': 1, 'raster': [NORM_W, NORM_H], 'ziffern': own}, f)
         os.replace(path + '.tmp', path)
     except OSError:
-        return False, 'anlernen_speichern', 0
-    return True, None, added
+        return False, 'anlernen_speichern', {}
+    save_sample(raster, ''.join(digits_typed))
+    return True, None, stats
+
+
+def png_bytes(raster):
+    """Graustufenraster als PNG (reine Standardbibliothek)."""
+    height = len(raster)
+    width = len(raster[0]) if height else 0
+    raw = bytearray()
+    for row in raster:
+        raw.append(0)
+        raw.extend(max(0, min(255, int(v))) for v in row)
+
+    def chunk(kind, body):
+        block = kind + body
+        return (struct.pack('>I', len(body)) + block
+                + struct.pack('>I', zlib.crc32(block) & 0xFFFFFFFF))
+
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 0, 0, 0, 0))
+            + chunk(b'IDAT', zlib.compress(bytes(raw), 6))
+            + chunk(b'IEND', b''))
+
+
+def sample_folder():
+    from . import paths
+    return os.path.join(os.path.dirname(paths.app_file(OWN_TEMPLATE_FILE)),
+                        SAMPLE_FOLDER)
+
+
+def save_sample(raster, number):
+    """Das angelernte Bild mit der richtigen Zahl ablegen.
+
+    ⭐⭐ **Bild + richtige Antwort ist das Wertvollste für die Erkennung.** Aus
+    genau solchen Paaren (82 Aufnahmen vom 10.09., Live-Bilder vom 17.09.2026)
+    wurde der Kern vermessen und verbessert. Die Ziffernvorlagen allein sagen
+    nicht, woran eine Lesung scheiterte. Name `<zahl>_<zeit>.png`, höchstens
+    `SAMPLE_LIMIT`, die ältesten gehen zuerst. Nur der Ausschnitt um die Zahl —
+    nichts vom übrigen Bildschirm.
+    """
+    folder = sample_folder()
+    try:
+        os.makedirs(folder, exist_ok=True)
+        name = '%s_%s.png' % (number, time.strftime('%Y%m%d-%H%M%S'))
+        with open(os.path.join(folder, name), 'wb') as f:
+            f.write(png_bytes(raster))
+        files = sorted((f for f in os.listdir(folder) if f.endswith('.png')),
+                       key=lambda f: os.path.getmtime(os.path.join(folder, f)))
+        for old in files[:-SAMPLE_LIMIT]:
+            os.remove(os.path.join(folder, old))
+        return True
+    except OSError:
+        return False
 
 
 # --------------------------------------------------------------------------

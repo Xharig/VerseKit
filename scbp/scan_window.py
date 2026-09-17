@@ -57,6 +57,7 @@ FG = '#e6edf3'
 SUB = '#8b98a5'
 ACCENT = '#9ce430'
 RED = '#e05252'
+GOLD = '#e8c353'
 HOLE = '#010203'           # die Farbe, die Windows durchsichtig macht
 
 START_W, START_H = 220, 44
@@ -333,12 +334,30 @@ class ScanWindow(object):
     def _learn(self):
         if not self.raster:
             return
-        ok, reason, added = signature_scan.learn(self.raster, self.typed.get())
-        if ok:
-            self.note.configure(text=t('scan_gelernt') % added, fg=ACCENT)
-            self.typed.delete(0, 'end')
-        else:
+        typed = self.typed.get()
+        ok, reason, stats = signature_scan.learn(self.raster, typed)
+        if not ok:
             self.note.configure(text=t('scan_grund_' + reason), fg=RED)
+            return
+        # ⭐ Sagen, WAS angelernt wurde — und gleich die Probe am selben Bild:
+        # Liest VerseKit jetzt, was getippt wurde? Nur daran sieht der Spieler,
+        # dass das Richtige angekommen ist.
+        digits = ''.join(c for c in typed if c.isdigit())
+        number = '{:,}'.format(int(digits))
+        lines = [t('scan_gelernt') % (number, stats['erkannt'], stats['neu'],
+                                      stats['bekannt'])]
+        if stats['unklar']:
+            lines.append(t('scan_gelernt_unklar')
+                         % ', '.join(str(p) for p in stats['unklar']))
+        check = signature_scan.read(self.raster)['wert']
+        if check is not None and str(check) == digits:
+            lines.append(t('scan_probe_ok') % number)
+            color = ACCENT
+        else:
+            lines.append(t('scan_probe_nein'))
+            color = GOLD
+        self.note.configure(text='\n'.join(lines), fg=color)
+        self.typed.delete(0, 'end')
 
     def _save(self):
         rect = screen_grab.widget_rect(self.hole)

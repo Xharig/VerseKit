@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.49.0-rc4 - 2026-09-17
+
+> **Beim Anlernen siehst du, was angekommen ist.**
+
+### Verbessert
+
+- **Anlernen im Scan-Fenster:** Die Rückmeldung nennt die angelernte Zahl,
+  wie viele Ziffern im Bild waren, neu gespeichert wurden oder schon bekannt
+  waren — und prüft gleich, ob VerseKit das Bild jetzt richtig liest
+- **Angelernte Bilder bleiben erhalten:** der kleine Ausschnitt um die Zahl
+  wird mit der richtigen Zahl gespeichert (höchstens 200), damit sich die
+  Erkennung später daran verbessern lässt
+
 ## v3.49.0-rc3 - 2026-09-17
 
 > **Der Signatur-Scanner kommt mit kleiner HUD-Schrift klar**, und die Texte
