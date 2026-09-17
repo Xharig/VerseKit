@@ -8,6 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.48.3 - 2026-09-17
+
+> **Carrack, Paladin und Starlancer bekommen eigene Namen.** Fünf Schiffe
+> ließen sich unter „Schiffe benennen" nicht benennen — jetzt geht es.
+
+### Behoben
+
+- **Carrack, Carrack Expedition, Paladin, Starlancer MAX und TAC ließen
+  sich nicht benennen** („In der Sprachdatei nicht gefunden"). Das Spiel
+  schreibt ihre Namen dort etwas anders als bei allen übrigen Schiffen
+
 ## v3.48.2 - 2026-09-17
 
 > **Das Overlay bleibt im Bild.** Es wird nie mehr größer als dein
