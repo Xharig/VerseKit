@@ -918,7 +918,7 @@ def _detail_lines(entry, present='', words=None, rep_table=None):
             if line and line.split(':')[0] not in plain:
                 out.append(_highlight(line))
         except Exception as exc:
-            errors.record('injection.ruf_zeile', exc)
+            errors.record('injection._detail_lines', exc)
 
     # ⚠⚠ **Lieber „keine Angaben" als gar nichts (06.09.2026).** 109 Auftraege
     # bekamen ueberhaupt keine Ruf-Zeile — die Quelle fuehrt fuer sie keine
@@ -1092,7 +1092,7 @@ def apply_scdl(ini_path, lang_code, stock=None):
         reputation.refresh(version)
         rep_table = reputation.load()
     except Exception as exc:
-        errors.record('injection.reputation', exc)
+        errors.record('injection.apply_scdl', exc)
 
     title_by_key, text_by_key = {}, {}
     # ⚠⚠ **Auftraege OHNE eigenen Beschreibungstext bekommen die Angaben
@@ -1642,7 +1642,7 @@ def _lang_order(fallback_lang=('english', 'german_(germany)')):
     try:
         language = translation.game_language()
     except Exception as exc:
-        errors.record('injection.spielsprache', exc)
+        errors.record('injection._lang_order', exc)
         return order
     if not language:
         return order

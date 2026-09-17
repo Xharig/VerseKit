@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.48.1 - 2026-09-17
+
+> **New details now reach the game without a new blueprint.** After an update
+> VerseKit did not rewrite the in-game texts — so the reputation thresholds from
+> v3.48.0 stayed invisible. Now that happens on its own the first time it starts
+> after the update.
+
+### Fixed
+
+- **The reputation thresholds from v3.48.0 did not show up in the game.** New
+  details only arrived once a blueprint was added or a patch replaced the text
+  file. The in-game texts are now rewritten once after every update — restart the
+  game once afterwards
+
 ## v3.48.0 - 2026-09-17
 
 > **How far to the next rank?** The reputation menu now shows after every rank

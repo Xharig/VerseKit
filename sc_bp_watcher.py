@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.48.0'
+__version__ = '3.48.1'
 
 
 def _mitgeliefert(name):
@@ -1005,9 +1005,22 @@ class Watcher(threading.Thread):
         machen. Gemeldet wird sie im Sechs-Stunden-Lauf, dort stört sie nicht.
         """
         try:
-            return injection.stock_mark() != paths.setting('inj_bestand')
+            return self._inj_mark() != paths.setting('inj_bestand')
         except Exception:
             return False
+
+    @staticmethod
+    def _inj_mark():
+        """Was sich seit dem letzten Einspielen geändert haben kann: der eigene
+        Bestand **und die VerseKit-Fassung**.
+
+        ⚠⚠ Die Fassung gehört dazu (17.09.2026). Vorher schrieb ein Update die
+        Texte im Spiel nicht neu — eine neue Art von Zusatz kam erst an, wenn
+        zufällig ein Bauplan dazukam oder ein Patch die Datei ersetzte. Die
+        Ruf-Stufen aus v3.48.0 standen deshalb nach dem Update nicht in der
+        `global.ini`, gemessen an der Datei: zuletzt geschrieben vor dem Release.
+        Einmal neu schreiben je Update kostet ein paar Sekunden."""
+        return '%s@%s' % (injection.stock_mark(), __version__)
 
     def _texte_abgleichen(self, quelle, nur_bestand=False):
         """Der eigentliche Abgleich. Meldet nur, wenn sich etwas geändert hat.
@@ -1094,7 +1107,7 @@ class Watcher(threading.Thread):
         marke = None
         if not neu_noetig:
             try:
-                marke = injection.stock_mark()
+                marke = self._inj_mark()
                 if marke != paths.setting('inj_bestand'):
                     neu_noetig = True
             except Exception as ausnahme:
@@ -1108,7 +1121,7 @@ class Watcher(threading.Thread):
                 # soll es beim nächsten Durchlauf erneut versucht werden.
                 try:
                     paths.set_setting(
-                        'inj_bestand', marke or injection.stock_mark())
+                        'inj_bestand', marke or self._inj_mark())
                 except Exception as ausnahme:
                     errors.record('watcher.inj_marke_merken', ausnahme)
 
