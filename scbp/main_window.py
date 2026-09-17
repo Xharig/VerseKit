@@ -443,8 +443,14 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
     return inner
 
 
+# Der Aufklapp-Pfeil JEDES Auswahlfelds — `round_select` und `round_entry(
+# dropdown=True)` teilen ihn, damit beide Arten gleich aussehen.
+DROPDOWN_ARROW = '▾'
+
+
 def round_entry(parent, textvariable, font, bg, border, accent, fg,
-                width=None, placeholder=None, clearable=False, **kw):
+                width=None, placeholder=None, clearable=True, dropdown=False,
+                **kw):
     """Ein Eingabefeld mit runden Ecken — überall im Programm dasselbe.
 
     Das Feld selbst bleibt ein gewöhnliches `Entry` (nur so lässt sich tippen),
@@ -468,13 +474,30 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     einem leeren Feld tut nichts. Gewünscht am 17.09.2026 für die Suche in
     „Mein Hangar": „ein X ins Suchfeld, ist intuitiver". Braucht ebenfalls eine
     `textvariable`, über die es merkt, ob etwas drinsteht.
+
+    `dropdown`: der Aufklapp-Pfeil einer Auswahlliste, **immer** ganz rechts
+    im Feld. Er liegt danach als `feld.trailing` bereit, der Aufrufer bindet
+    den Klick. Das X rückt links daneben.
+
+    ⚠⚠ **Feste Regel (17.09.2026): Der Pfeil sitzt IM Feld und sieht aus wie
+    bei `round_select`** — dasselbe ▾, dieselbe gedämpfte Farbe. Bis dahin
+    stand ein Chevron › als eigenes Bauteil **neben** dem Rahmen, und zwei
+    Arten Auswahlfeld lagen auf derselben Seite („Alle Orte ▾" und daneben
+    ein Feld mit › außen). Das Zeichen ist bewusst dasselbe wie in
+    `round_select` und kein Bild aus dem Symbolsatz: Gleiches muss gleich
+    aussehen, und dort steht es seit jeher so.
     """
     if placeholder and textvariable is None:
         raise ValueError('round_entry: `placeholder` braucht eine `textvariable` '
                          '— sonst liest `feld.get()` den Hinweistext als '
                          'Eingabe')
-    if clearable and textvariable is None:
-        raise ValueError('round_entry: `clearable` braucht eine `textvariable`')
+    # ⚠⚠ **Das X gehört in JEDES Eingabefeld** (feste Regel, 17.09.2026: „das
+    # X soll auch Standard sein, in allen Eingabefeldern"). Deshalb steht es
+    # ab Werk an, und ein Feld ohne eigene Variable bekommt eine: Nur über sie
+    # merkt das X, ob etwas drinsteht. `feld.get()`/`insert()` wirken wie
+    # vorher — die Variable spiegelt nur den Inhalt.
+    if textvariable is None:
+        textvariable = tk.StringVar(master=parent)
     font = _as_font(font)
     radius = 8
     padding = 6
@@ -501,6 +524,12 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
         cross.bind('<Button-1>', lambda e: textvariable.set(''))
         notice.attach(cross, lambda: t('hinweis_suche_leeren'))
 
+    end = end_id = None
+    if dropdown:
+        end = tk.Label(canvas, text=DROPDOWN_ARROW, bg=bg, fg=SUB, font=font,
+                       cursor='hand2', padx=4, bd=0)
+        end_id = canvas.create_window(0, height / 2.0, window=end, anchor='e')
+
     def refresh(_=None):
         # ⚠ Der Rückruf aus `after(0, …)` kann drankommen, wenn die Leinwand
         # längst zerstört ist — beim Seitenwechsel passiert genau das.
@@ -517,9 +546,14 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
         try:
             canvas.coords(shape, *corners(1, 1, b - 1, height - 1, radius))
             room = b - (padding + 2) * 2
+            right = b - padding
+            if end is not None:
+                canvas.coords(end_id, right, height / 2.0)
+                room -= end.winfo_reqwidth()
+                right -= end.winfo_reqwidth()
             if cross is not None:
                 shown = bool(textvariable.get())
-                canvas.coords(cross_id, b - padding, height / 2.0)
+                canvas.coords(cross_id, right, height / 2.0)
                 canvas.itemconfigure(cross_id,
                                      state='normal' if shown else 'hidden')
                 if shown:
@@ -535,8 +569,13 @@ def round_entry(parent, textvariable, font, bg, border, accent, fg,
     if width:
         # Feste Breite: so viele Ziffern plus Luft. Ohne das zieht `fill='x'`
         # der Zeile das Feld über die halbe Seite.
-        canvas.configure(width=font.measure('0') * width + padding * 4)
+        # ⚠ Plus Platz fürs X — sonst schneidet es in einem schmalen Zahlenfeld
+        # genau die Ziffern ab, die man gerade getippt hat.
+        extra = cross.winfo_reqwidth() if cross is not None else 0
+        canvas.configure(width=font.measure('0') * width + padding * 4 + extra)
     field.holder = canvas
+    field.trailing = end
+    field.cross, field.cross_id = cross, cross_id
     canvas.after(0, refresh)
     field.bind('<FocusIn>',
               lambda e: canvas.itemconfigure(shape, outline=accent), add='+')
@@ -1356,7 +1395,7 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
     text_id = c.create_text(11, height / 2.0,
                             text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
-    pfeil = c.create_text(width - 12, height / 2.0, text='▾', fill=SUB,
+    pfeil = c.create_text(width - 12, height / 2.0, text=DROPDOWN_ARROW, fill=SUB,
                           font=s, anchor='e')
     c.is_button = True          # die Randprüfung soll ihn messen
 
@@ -3752,11 +3791,10 @@ def ask_text(parent, title, text, preset='', yes_text=None, no_text=None,
                          fg=SUB, font=font_small, anchor='w').pack(
                              fill='x', pady=(2, 3))
 
-        field = tk.Entry(rahmen, textvariable=value, font=font_field,
-                        bg=SURFACE, fg=FG, insertbackground=FG,
-                        relief='flat', highlightthickness=1,
-                        highlightbackground=BORDER, highlightcolor=ACCENT)
-        field.pack(fill='x', pady=(14, 0), ipady=5)
+        # Über `round_entry` wie jedes Feld — mit dem X darin (Standard).
+        field = round_entry(rahmen, value, font_field, SURFACE, BORDER, ACCENT,
+                            FG)
+        field.holder.pack(fill='x', pady=(14, 0))
 
         answer = {'wert': None}
 

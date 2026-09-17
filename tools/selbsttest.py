@@ -4771,8 +4771,14 @@ def main():
         for _seite in ('bergbau', 'herstellung'):
             pruefe("on_show['%s']" % _seite in _qu52d,
                    'Seite %s meldet sich fuers erneute Anzeigen an' % _seite)
-        pruefe(_qu52d.count('_search_clear(') >= 3,
-               'beide Suchfelder haben ein Kreuz zum Leeren')
+        # ⚠ Seit 17.09.2026 sitzt das X in JEDEM Feld (`round_entry`, ab Werk
+        # an) — nicht mehr als eigenes Zeichen daneben (`_search_clear`).
+        import inspect as _insp52d
+        from scbp.main_window import round_entry as _re52d
+        pruefe(_insp52d.signature(_re52d).parameters['clearable'].default is True
+               and 'clearable=False' not in _qu52d
+               and 'def _search_clear' not in _qu52d,
+               'beide Suchfelder haben ein Kreuz zum Leeren — im Feld')
         # Und der Rueckruf muss auch wirklich leeren.
         _leer52d = []
         for _seite, _ruf in _f52d.on_show.items():
@@ -22573,12 +22579,19 @@ def main():
             _w233.update()
         pruefe(_v233.get() == '', 'ein Klick aufs X leert das Feld (%r)' % _v233.get())
         pruefe(_zustand233() == 'hidden', 'und das X verschwindet wieder')
+        # ⚠ Seit 17.09.2026 ist das X Standard in JEDEM Feld — ab Werk an.
+        # Abschalten geht weiterhin ausdruecklich (`clearable=False`).
         _ohne233 = _mw233.round_entry(_w233, _tk233.StringVar(_w233),
                                       ('Segoe UI', 10), '#0c1017', '#333333',
                                       '#9ce430', '#ffffff')
-        pruefe(len([i for i in _ohne233.holder.find_all()
-                    if _ohne233.holder.type(i) == 'window']) == 1,
-               'ohne clearable bleibt das Feld, wie es war')
+        pruefe(_ohne233.cross is not None,
+               'ohne Angabe hat das Feld sein X (Standard)')
+        _aus233 = _mw233.round_entry(_w233, _tk233.StringVar(_w233),
+                                     ('Segoe UI', 10), '#0c1017', '#333333',
+                                     '#9ce430', '#ffffff', clearable=False)
+        pruefe(len([i for i in _aus233.holder.find_all()
+                    if _aus233.holder.type(i) == 'window']) == 1,
+               'mit clearable=False bleibt das Feld ohne X')
     finally:
         _w233.destroy()
     _q233 = open(os.path.join(WURZEL, 'scbp', 'pages.py'),
@@ -23906,6 +23919,142 @@ def main():
             os.environ['SC_BP_HOME'] = _alt246
         shutil.rmtree(_heim246, ignore_errors=True)
 
+    # 247. Eingabefelder im Hausstil: Hinweis nicht anklickbar, Pfeil im Feld
+    # ⚠ Beides gilt als Standard fuer das ganze Werkzeug (17.09.2026) — deshalb
+    # am gemeinsamen Baustein geprueft, nicht an einer Seite:
+    #   * Steht der graue Hinweis im Feld, landet ein Klick NICHT mitten darin;
+    #     die Schreibmarke steht am Anfang, nichts ist markiert.
+    #   * Der Aufklapp-Pfeil einer Auswahlliste sitzt IM Feld, nicht daneben.
+    print('247. Eingabefelder im Hausstil: Hinweis nicht anklickbar, Pfeil im Feld')
+    import tkinter as tk247
+    import tkinter.font as tkf247
+    from scbp import pages as _se247
+    from scbp.main_window import round_entry as _re247
+    _w247 = _wurzel()
+    try:
+        _w247.deiconify()
+        _w247.geometry('600x300')
+        _sch247 = tkf247.Font(root=_w247, family='TkDefaultFont', size=9)
+        _var247 = tk247.StringVar(master=_w247)
+        _f247 = _re247(_w247, _var247, _sch247, '#0c1017', '#333', '#9ce430',
+                       '#fff', placeholder='Auftragsname oder Ort')
+        _f247.holder.pack(fill='x')
+        _w247.update()
+        _f247.icursor(9)
+        _f247.event_generate('<Button-1>', x=60, y=5)
+        _f247.event_generate('<ButtonRelease-1>', x=60, y=5)
+        _w247.update()
+        pruefe(_f247.index('insert') == 0 and not _f247.selection_present(),
+               'Klick in den Hinweis: Schreibmarke am Anfang, nichts markiert (%d)'
+               % _f247.index('insert'))
+        _f247.event_generate('<Right>')
+        _w247.update()
+        pruefe(_f247.index('insert') == 0,
+               'Pfeiltasten wandern nicht in den Hinweis hinein')
+        _var247.set('Carrack')
+        _w247.update()
+        _f247.icursor(3)
+        _f247.event_generate('<Button-1>', x=60, y=5)
+        _w247.update()
+        pruefe(_var247.get() == 'Carrack' and _f247.index('insert') != 0,
+               'Gegenprobe: in echtem Text bleibt die Schreibmarke, wo man klickt')
+
+        class _Fenster247:
+            f_base = f_bold = f_small = f_title = f_icon = _sch247
+
+        _block247 = tk247.Frame(_w247)
+        _block247.pack(fill='x')
+        _zeile247, _liste247, _ = _se247._combo_box(
+            _Fenster247(), _block247, tk247.StringVar(master=_w247),
+            lambda: ['Aegis Avenger Titan'])
+        _zeile247.pack(fill='x')
+        _w247.update()
+        _felder247 = [w for w in _zeile247.winfo_children()
+                      if isinstance(w, tk247.Canvas)]
+        _draussen247 = [w for w in _zeile247.winfo_children()
+                        if not isinstance(w, tk247.Canvas)]
+        from scbp import main_window as _mw247
+        _pfeil247 = [w for w in (_felder247[0].winfo_children() if _felder247 else [])
+                     if isinstance(w, tk247.Label)
+                     and w.cget('text') == _mw247.DROPDOWN_ARROW]
+        pruefe(len(_felder247) == 1 and not _draussen247 and _pfeil247,
+               'der Aufklapp-Pfeil sitzt im Feld, nichts steht daneben (%r)'
+               % [str(w) for w in _draussen247])
+        # Dasselbe Zeichen wie die festen Auswahlfelder („Alle Orte ▾").
+        _sel247 = _mw247.round_select(_w247, [('', 'Alle Orte')], '',
+                                      lambda _v: None, _sch247)
+        _sel_texte247 = [_sel247.itemcget(i, 'text')
+                         for i in _sel247.find_all()
+                         if _sel247.type(i) == 'text']
+        pruefe(_mw247.DROPDOWN_ARROW in _sel_texte247,
+               'Auswahlliste und festes Auswahlfeld tragen denselben Pfeil (%r)'
+               % _sel_texte247)
+
+        if _pfeil247:
+            _p247 = _pfeil247[0]
+            _box247 = _felder247[0]
+            pruefe(_p247.winfo_x() + _p247.winfo_width() <= _box247.winfo_width()
+                   and _p247.winfo_x() > _box247.winfo_width() / 2,
+                   'und zwar am rechten Rand innerhalb des Rahmens (%d+%d von %d)'
+                   % (_p247.winfo_x(), _p247.winfo_width(), _box247.winfo_width()))
+            _p247.event_generate('<Button-1>', x=2, y=2)
+            _w247.update()
+            pruefe(_liste247.winfo_manager() == 'pack',
+                   'ein Klick auf den Pfeil klappt die Liste auf')
+
+        # Das X gehoert in JEDES Feld — auch in eines ohne eigene Variable.
+        _nackt247 = _re247(_w247, None, _sch247, '#0c1017', '#333', '#9ce430',
+                           '#fff', width=6)
+        _nackt247.holder.pack()
+        _w247.update()
+        _vorher247 = (_nackt247.cross is not None and
+                      _nackt247.holder.itemcget(_nackt247.cross_id, 'state'))
+        _nackt247.insert(0, '12')
+        _w247.update()
+        pruefe(_nackt247.cross is not None and _vorher247 == 'hidden'
+               and _nackt247.holder.itemcget(_nackt247.cross_id, 'state') == 'normal',
+               'auch ein Feld ohne Variable zeigt das X, sobald etwas drinsteht')
+        # ⚠ Nur klicken, wenn es das X gibt — sonst stirbt der ganze Lauf
+        # und die Pruefungen dahinter laufen nie (so in der Gegenprobe erlebt).
+        if _nackt247.cross is not None:
+            _nackt247.cross.event_generate('<Button-1>', x=2, y=2)
+            _w247.update()
+        pruefe(_nackt247.get() == '', 'ein Klick aufs X leert das Feld')
+
+    finally:
+        try:
+            _w247.destroy()
+        except tk247.TclError:
+            pass
+
+    # Kein Eingabefeld am Baustein vorbei — sonst fehlt dort das X oder der
+    # Hinweis landet wieder als Label darueber (wie bei „Schiffe benennen").
+    import ast as _ast247
+    import glob
+    _erlaubt247 = {
+        ('main_window.py', 'round_entry'): 'der Baustein selbst',
+        ('collection_window.py', '_werkzeugleiste'):
+            'Bauplan-Liste: X und Hinweis im selben Kasten, eigener Aufbau',
+    }
+    _roh247 = []
+    for _pfad247 in (glob.glob(os.path.join(WURZEL, 'scbp', '*.py'))
+                     + [os.path.join(WURZEL, 'sc_bp_watcher.py')]):
+        _baum247 = _ast247.parse(open(_pfad247, encoding='utf-8').read())
+        for _fn247 in _ast247.walk(_baum247):
+            if not isinstance(_fn247, (_ast247.FunctionDef, _ast247.AsyncFunctionDef)):
+                continue
+            for _n247 in _ast247.walk(_fn247):
+                if (isinstance(_n247, _ast247.Call)
+                        and isinstance(_n247.func, _ast247.Attribute)
+                        and _n247.func.attr == 'Entry'
+                        and isinstance(_n247.func.value, _ast247.Name)
+                        and _n247.func.value.id in ('tk', 'tkinter')):
+                    _schluessel247 = (os.path.basename(_pfad247), _fn247.name)
+                    if _schluessel247 not in _erlaubt247:
+                        _roh247.append('%s:%d (%s)' % (_schluessel247[0],
+                                                       _n247.lineno, _fn247.name))
+    pruefe(not _roh247,
+           'jedes Eingabefeld laeuft ueber round_entry (roh: %r)' % sorted(set(_roh247)))
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

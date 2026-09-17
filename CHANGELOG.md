@@ -8,6 +8,28 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.50.2 - 2026-09-17
+
+> **Eingabefelder bedienen sich jetzt überall gleich:** ein X zum Leeren in
+> jedem Feld, der Aufklapp-Pfeil im Feld, und ein Klick auf den grauen
+> Hinweis landet am Anfang statt mitten im Text.
+
+### Verbessert
+
+- **Suchfelder:** Ein Klick auf den grauen Hinweistext setzt die Schreibmarke
+  an den Anfang, statt mitten in den Hinweis
+- **Auswahllisten** (z. B. Schiff eintragen in „Mein Hangar"): Der Pfeil zum
+  Aufklappen sitzt jetzt im Feld und sieht aus wie bei den übrigen
+  Auswahlfeldern
+- **Jedes Eingabefeld hat ein X zum Leeren** — im Feld, sobald etwas
+  drinsteht, auch bei „Schiffe benennen", Routen und Shops
+- „Sternchen" heißt jetzt „Stern"
+
+### Behoben
+
+- **Schiffe benennen:** In das Suchfeld ließ sich nur rechts hinter dem
+  Hinweistext klicken
+
 ## v3.50.1 - 2026-09-17
 
 > **Im Einrichtungsassistenten lassen sich Overlay-Verhalten und Schriftgröße

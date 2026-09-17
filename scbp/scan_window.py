@@ -178,9 +178,11 @@ class ScanWindow(object):
         learn.pack(fill='x', padx=6, pady=2)
         tk.Label(learn, text=t('scan_richtig'), bg=SURFACE, fg=SUB,
                  font=font).pack(side='left')
-        self.typed = tk.Entry(learn, width=9, bg=BG, fg=FG, insertbackground=FG,
-                              relief='flat', font=font)
-        self.typed.pack(side='left', padx=4)
+        # Über `round_entry` wie jedes Feld — mit dem X darin (Standard).
+        from .main_window import round_entry
+        self.typed = round_entry(learn, None, font, BG, '#2a3345', ACCENT, FG,
+                                 width=9)
+        self.typed.holder.pack(side='left', padx=4)
         self.typed.bind('<Return>', lambda _e: self._learn())
         self._link(learn, t('scan_anlernen'), self._learn, ACCENT).pack(side='left')
 

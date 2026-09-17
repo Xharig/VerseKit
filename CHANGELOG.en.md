@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.50.2 - 2026-09-17
+
+> **Input fields now work the same everywhere:** an X to clear every field,
+> the drop-down arrow inside the field, and clicking the grey hint puts the
+> cursor at the start instead of into the text.
+
+### Improved
+
+- **Search fields:** clicking the grey hint text puts the cursor at the start
+  instead of into the middle of the hint
+- **Selection lists** (e.g. adding a ship in "My hangar"): the arrow to open
+  the list now sits inside the field and looks like the other selection
+  fields
+- **Every input field has an X to clear it** — inside the field as soon as
+  something is in it, also in "Name ships", routes and shops
+
+### Fixed
+
+- **Name ships:** the search field could only be clicked to the right of the
+  hint text
+
 ## v3.50.1 - 2026-09-17
 
 > **Overlay behaviour and text size can be chosen in the setup assistant
