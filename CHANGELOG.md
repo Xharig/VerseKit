@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.50.3 - 2026-09-17
+
+> **Der Launcher ist raus aus Anzeige und Katalog.** Oben im Overlay steht
+> nicht mehr „mit Launcher", und welche Baupläne es gibt, kommt aus den
+> aktuellen Craftdaten statt aus der alten Launcher-Datei.
+
+### Behoben
+
+- **Overlay:** „mit Launcher" in der Kopfzeile ist weg — die Angabe stimmte
+  seit Langem nicht mehr
+- **Katalog:** Neue Baupläne eines Patches kommen aus den aktuellen
+  Craftdaten, nicht mehr aus der stillstehenden Launcher-Datei
+
 ## v3.50.2 - 2026-09-17
 
 > **Eingabefelder bedienen sich jetzt überall gleich:** ein X zum Leeren in

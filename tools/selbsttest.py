@@ -24027,6 +24027,59 @@ def main():
         except tk247.TclError:
             pass
 
+    # 248. Der Launcher ist keine Quelle mehr — weder im Katalog noch in der Anzeige
+    # ⚠ Die Launcher-Datei steht seit 26.08.2026 still. `load_types()` nahm sie
+    # trotzdem zuerst, und die Statuszeile schrieb „mit Launcher", sobald ihr
+    # alter Ordner noch auf der Platte lag.
+    print('248. Der Launcher ist keine Quelle mehr — weder im Katalog noch in der Anzeige')
+    import sc_bp_watcher as _sw248
+    from scbp import language as _sp248
+    _alt248 = (_sw248.SCMDB, _sw248.TYPE_FILE)
+    _dir248 = tempfile.mkdtemp(prefix='pruefung248-')
+    try:
+        _datei248 = os.path.join(_dir248, 'bp_item_types.json')
+        with open(_datei248, 'w', encoding='utf-8') as _f248:
+            json.dump({'alter launcher-eintrag': 'Cooler'}, _f248)
+        _sw248.TYPE_FILE = _datei248
+        _sw248.SCMDB = {_sw248._scmdb_key('Probe Kanone'): {'a': 'WeaponGun'}}
+        _typen248 = _sw248.load_types()
+        pruefe('alter launcher-eintrag' not in _typen248
+               and set(_typen248.values()) == {'Ship Weapon'},
+               'mit scmdb-Daten gilt deren Katalog, nicht die Launcher-Datei (%r)'
+               % _typen248)
+        _sw248.SCMDB = {}
+        pruefe(_sw248.load_types() == {'alter launcher-eintrag': 'Cooler'},
+               'ohne scmdb-Daten bleibt die Launcher-Datei als Rueckfall')
+        # Quellenwechsel: andere Schreibweise darf keine Neu-Flut ausloesen.
+        _alt_namen248 = ['Bauplan %d' % _i for _i in range(700)]
+        _neu_namen248 = ['bauplan%d' % _i for _i in range(700)]
+        pruefe(_sw248.catalog_new(_neu_namen248, _alt_namen248) is None,
+               'Wechsel der Namensschreibweise setzt nur die Basis, meldet nichts neu')
+        pruefe(_sw248.catalog_new(_neu_namen248 + ['bauplan-neu'], _neu_namen248)
+               == ['bauplan-neu'],
+               'Gegenprobe: ein echter Zugang wird weiter gemeldet')
+        pruefe(_sw248.catalog_new(['a'], []) is None,
+               'erster Lauf setzt nur die Basis')
+        pruefe('catalog_new(' in methode(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                                              encoding='utf-8').read(),
+                                         'Watcher', '_catalog_tick'),
+               'die Katalog-Wache nutzt diese Grenze')
+    finally:
+        _sw248.SCMDB, _sw248.TYPE_FILE = _alt248
+        shutil.rmtree(_dir248, ignore_errors=True)
+    _zeilen248 = []
+    for _spr248 in ('de', 'en'):
+        _sp248.set_language(_spr248)
+        _zeilen248.append(_sp248.t('ueberwache', 426, '✓', '13:00:42'))
+    _sp248.set_language('de')
+    # Im Code der Methode (ohne Docstring und Kommentare) kein Launcher-Bezug.
+    _code248 = methode(open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                            encoding='utf-8').read(), 'Watcher', '_statuszeile')
+    _code248 = '\n'.join(_z.split('#')[0] for _z in _code248.split('"""')[-1].splitlines())
+    pruefe(not any('aunch' in _z for _z in _zeilen248)
+           and 'launcher' not in _code248.lower(),
+           'die Statuszeile nennt keinen Launcher mehr (%r)' % _zeilen248)
+
     # Kein Eingabefeld am Baustein vorbei — sonst fehlt dort das X oder der
     # Hinweis landet wieder als Label darueber (wie bei „Schiffe benennen").
     import ast as _ast247

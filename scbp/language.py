@@ -405,12 +405,10 @@ TEXTS = {
                           'You have the latest version.'),
 
     # -- Statuszeilen und Meldungen --
-    'ueberwache':        ('%d Baupläne · Log %s · %s · geprüft %s',
-                          '%d blueprints · log %s · %s · checked %s'),
-    'mit_launcher':      ('mit Launcher', 'with launcher'),
+    'ueberwache':        ('%d Baupläne · Log %s · geprüft %s',
+                          '%d blueprints · log %s · checked %s'),
     'craftdaten_neu':    ('scmdb-Craftdaten aktualisiert (%s, %d Gegenst\u00e4nde)',
                           'scmdb crafting data updated (%s, %d items)'),
-    'ohne_launcher':     ('ohne Launcher', 'no launcher'),
     # ⚠ Vier Zahlen, weil der Lauf zwei Dinge tut: Baupläne nachtragen und das
     # Auftrags-Protokoll neu bewerten. Bis 06.09.2026 stand hier nur die
     # Bauplan-Zahl — der Lauf hieß „Protokolle erneut einlesen" und räumte
