@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **New app icon.** Instead of the scope ring, a character now sits inside the
+  ring. It shows up everywhere: program window, taskbar, start menu, installer,
+  project page and READMEs. Designed by **AlyxOne**.
+
 ### Fixed
 
 - **Linux (AppImage):** the application menu still showed the old name “VerseKit”

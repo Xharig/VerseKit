@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Neues Programmsymbol.** Statt des Scope-Rings steht jetzt eine Figur im
+  Ring. Sie erscheint überall: Programmfenster, Taskleiste, Startmenü,
+  Installer, Projektseite und READMEs. Entwurf von **AlyxOne**.
+
 ### Behoben
 
 - **Linux (AppImage):** Im Anwendungsmenü stand noch der alte Name „VerseKit"

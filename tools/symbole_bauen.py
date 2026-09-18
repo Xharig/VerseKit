@@ -28,7 +28,7 @@ an der System-Bibliothek *cairo*. Die ist unter Windows ein Ärgernis (fehlende
 DLLs) — und der Autor soll dieses Skript auf **jedem** seiner drei Rechner selbst
 laufen lassen können, ohne vorher etwas zu installieren. Deshalb liest es die
 Pfade selbst und malt mit Pillow, das ohnehin schon Bau-Werkzeug ist
-(`make_icon.py`).
+(`tools/make_icon_from_art.py`).
 
 **Wie gemalt wird.** Jeder Strich wird in eine dichte Punktkette aufgelöst und
 mit einem Kreis je Punkt gestempelt. Das ergibt runde Enden und runde Ecken
