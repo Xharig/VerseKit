@@ -8,6 +8,10 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Linux (AppImage):** the application menu still showed the old name “VerseKit”
+
 ## v3.52.1 - 2026-09-17
 
 > **The overlay stays where it is when you collapse it.** With the bar at the

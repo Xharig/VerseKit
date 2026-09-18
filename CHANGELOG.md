@@ -8,6 +8,10 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Linux (AppImage):** Im Anwendungsmenü stand noch der alte Name „VerseKit"
+
 ## v3.52.1 - 2026-09-17
 
 > **Das Overlay bleibt beim Einklappen, wo es ist.** Wer die Leiste unten hat,
