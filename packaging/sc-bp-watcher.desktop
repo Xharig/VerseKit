@@ -9,3 +9,7 @@ Exec=SC-BP-Watcher
 Icon=sc-bp-watcher
 Categories=Game;Utility;
 Terminal=false
+# ⚠ Die Fensterklasse, an der die Arbeitsumgebung das laufende Fenster dieser
+# Verknuepfung zuordnet — NICHT der Anzeigename. Muss mit `paths.WM_CLASS`
+# uebereinstimmen; hier fehlte der Eintrag ganz (ergaenzt 18.09.2026).
+StartupWMClass=Versekit

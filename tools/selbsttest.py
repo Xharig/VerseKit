@@ -18797,10 +18797,26 @@ def main():
 
     # (Die AppImage-Pruefung steckt jetzt im Anker-Katalog oben.)
 
-    # ⭐ Der einzige unsichtbare Anker, der MITWECHSELN muss: StartupWMClass
-    # haengt am Fenstertitel. Laufen sie auseinander, ordnet der Desktop das
-    # Fenster der Verknuepfung nicht mehr zu — das Programm erscheint als
-    # zweites Symbol in der Leiste.
+    # ⛔⛔ **HIER STAND DAS GEGENTEIL — widerlegt am 18.09.2026 durch Messung.**
+    #
+    # Der Satz lautete: „Der einzige unsichtbare Anker, der MITWECHSELN muss:
+    # StartupWMClass haengt am Fenstertitel." Diese Pruefung erzwang genau das
+    # (`StartupWMClass == hf_titel`) — und bewachte damit einen Zustand, der
+    # nie funktioniert hat.
+    #
+    # `xprop WM_CLASS` am laufenden v3.52.1 unter KDE/Wayland:
+    #
+    #     Wurzelfenster (Overlay)  ("tk #2",     "Tk")
+    #     Hauptfenster (Toplevel)  ("!toplevel", "Toplevel")
+    #
+    # Kein Fenster hiess „Verse-Kit". Linux vergleicht nicht mit dem Titel,
+    # sondern mit der **Fensterklasse** — die setzt Tk aus `className=`
+    # (Wurzel) bzw. `class_=` (Toplevel), sonst heisst sie `Tk`/`Toplevel`.
+    # Die alte Regel stammte aus der Umbenennung vom 12.09.2026, war am
+    # Quelltext abgeleitet und nie an einem Fenster gemessen.
+    #
+    # ⭐ Richtig ist: **`Name` wechselt mit, `StartupWMClass` bleibt** — es
+    # gehoert zu den Ankern wie `AppId` und `OWN_FILENAMES`.
     # ⭐ Die WIRKUNG pruefen, nicht den Quelltext: anlegen() in einem
     # Wegwerf-Ordner laufen lassen und die ERZEUGTE Datei lesen.
     #
@@ -18820,12 +18836,14 @@ def main():
             _k191, _v191 = _z191.split('=', 1)
             _felder191[_k191] = _v191.strip()
     _titel191 = _spr191.t('hf_titel').strip()
-    pruefe(_felder191.get('Name') == _titel191
-           and _felder191.get('StartupWMClass') == _titel191,
-           'die .desktop traegt ueberall den Fenstertitel'
-           ' (Name=%r, StartupWMClass=%r, Titel=%r)'
-           % (_felder191.get('Name'), _felder191.get('StartupWMClass'),
-              _titel191))
+    from scbp import paths as _pf191
+    pruefe(_felder191.get('Name') == _titel191,
+           'die .desktop traegt den Fenstertitel als Name (Name=%r, Titel=%r)'
+           % (_felder191.get('Name'), _titel191))
+    pruefe(_felder191.get('StartupWMClass') == _pf191.WM_CLASS,
+           'und als StartupWMClass die FENSTERKLASSE, nicht den Titel'
+           ' (StartupWMClass=%r, WM_CLASS=%r)'
+           % (_felder191.get('StartupWMClass'), _pf191.WM_CLASS))
     # Und die Anker in derselben Datei: Symbol und Dateiname bleiben alt.
     pruefe(_felder191.get('Icon') == 'sc-bp-watcher',
            'die .desktop behaelt ihren Symbolnamen (%r)'
@@ -18850,6 +18868,56 @@ def main():
            and _pack191.get('Exec') == 'SC-BP-Watcher',
            'und behaelt Symbol und Programmdatei (%r, %r)'
            % (_pack191.get('Icon'), _pack191.get('Exec')))
+    # ⚠ In dieser Datei fehlte `StartupWMClass` bis zum 18.09.2026 ganz — das
+    # AppImage-Menuelement konnte sein Fenster also nie zuordnen.
+    pruefe(_pack191.get('StartupWMClass') == _pf191.WM_CLASS,
+           'und traegt dieselbe Fensterklasse wie die erzeugte (%r)'
+           % _pack191.get('StartupWMClass'))
+
+    # ⭐⭐ Die WIRKUNG, nicht die Form: Traegt ein Fenster, wie das Programm es
+    # baut, diese Klasse wirklich? Ohne diese Probe stuende nur fest, dass
+    # ueberall derselbe Text steht — nicht, dass Tk ihn annimmt. (`class_`
+    # laesst sich nachtraeglich NICHT setzen; ein falsch geschriebener Wert
+    # faellt sonst erst dem Nutzer auf.)
+    #
+    # ⛔⛔ **Und BEIDE Wege messen, nicht nur einen.** Tk normalisiert
+    # `className=` (Wurzel) auf „erster Buchstabe gross, Rest klein", nimmt
+    # `class_=` (Toplevel) aber woertlich. Von 'VerseKit' bleibt an der Wurzel
+    # 'Versekit' uebrig — Overlay und Hauptfenster haetten dann
+    # VERSCHIEDENE Klassen, und `StartupWMClass` kann nur eine treffen.
+    # Genau so war der erste Anlauf dieser Korrektur am 18.09.2026 gebaut;
+    # aufgefallen ist es nur, weil nachgemessen wurde statt angenommen.
+    import tkinter as _tk191
+    _wz191 = _tk191.Tk(className=_pf191.WM_CLASS)
+    _wz191.withdraw()
+    try:
+        _top191 = _tk191.Toplevel(_wz191, class_=_pf191.WM_CLASS)
+        _wurzelklasse191 = _wz191.winfo_class()
+        _zweigklasse191 = _top191.winfo_class()
+        pruefe(_zweigklasse191 == _pf191.WM_CLASS,
+               'ein Fenster wie MainWindow es baut traegt die Klasse %r (ist: %r)'
+               % (_pf191.WM_CLASS, _zweigklasse191))
+        pruefe(_wurzelklasse191 == _pf191.WM_CLASS,
+               'und die Wurzel (das Overlay) ueberlebt Tks Normalisierung'
+               ' unveraendert (%r -> %r)'
+               % (_pf191.WM_CLASS, _wurzelklasse191))
+        pruefe(_wurzelklasse191 == _zweigklasse191,
+               'beide Fenster tragen DIESELBE Klasse (%r / %r)'
+               % (_wurzelklasse191, _zweigklasse191))
+    finally:
+        _wz191.destroy()
+
+    # Und die beiden Stellen, die sie setzen — faellt eine weg, traegt das
+    # Fenster wieder `Tk` bzw. `Toplevel`, und die .desktop zeigt ins Leere.
+    for _datei191b, _text191b, _warum191b in [
+        ('sc_bp_watcher.py', 'tk.Tk(className=paths.WM_CLASS)',
+         'die Wurzel (das Overlay) bekommt die Klasse mit'),
+        ('scbp/main_window.py', 'tk.Toplevel(eltern, class_=paths.WM_CLASS)',
+         'das Hauptfenster bekommt die Klasse mit'),
+    ]:
+        _q191b = open(os.path.join(WURZEL, _datei191b), encoding='utf-8').read()
+        pruefe(_text191b in _q191b,
+               '%s: %s' % (_datei191b.split('/')[-1], _warum191b))
 
     # ⭐⭐ Das Aufraeumen der ALTEN Verknuepfungen (installer.iss)
     #
