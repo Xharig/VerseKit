@@ -11,6 +11,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 ### Fixed
 
 - **Linux (AppImage):** the application menu still showed the old name “VerseKit”
+- **Linux:** the running window is now matched to its menu entry. Before this,
+  Verse-Kit appeared in the taskbar as a second icon — without a name and
+  without its program icon — and pinning it did not help.
 
 ## v3.52.1 - 2026-09-17
 

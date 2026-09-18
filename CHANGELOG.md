@@ -11,6 +11,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 ### Behoben
 
 - **Linux (AppImage):** Im Anwendungsmenü stand noch der alte Name „VerseKit"
+- **Linux:** Das laufende Fenster wird jetzt dem Menüeintrag zugeordnet. Vorher
+  erschien Verse-Kit in der Leiste als zweites Symbol — ohne Namen und ohne
+  Programmsymbol —, und Anheften half nicht.
 
 ## v3.52.1 - 2026-09-17
 

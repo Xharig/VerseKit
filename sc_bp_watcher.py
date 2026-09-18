@@ -5492,7 +5492,10 @@ if __name__ == '__main__':
     # vor diesem Aufruf entsteht — weiterhin die helle Leiste des Systems.
     # Unter Linux tut der Aufruf nichts und kostet nichts.
     titlebar.install()
-    wurzel = tk.Tk()
+    # ⚠ `className` setzt die Fensterklasse, an der die Arbeitsumgebung das
+    # Fenster unserer Verknuepfung zuordnet. Ohne sie heisst die Wurzel `Tk`
+    # und faellt aus der Zuordnung — siehe `paths.WM_CLASS`.
+    wurzel = tk.Tk(className=paths.WM_CLASS)
     wurzel.withdraw()
     # Die Knöpfe der System-Abfragen auf die Programmsprache bringen. Muss nach
     # dem Tk-Start stehen und vor der ersten Abfrage — der Assistent kann schon

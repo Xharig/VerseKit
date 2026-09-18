@@ -134,9 +134,14 @@ def desktop_content(befehl, symbol):
     ⚠ Name und Untertitel kommen aus `language.py` — dieselbe Quelle, aus der
     `beschriftung_nachziehen()` eine vorhandene Datei aktualisiert. Getrennt
     gepflegt wären sie nach dem ersten Wortwechsel auseinander.
+
+    ⛔ **`StartupWMClass` ist NICHT der Anzeigename** (korrigiert 18.09.2026).
+    Es ist die Fensterklasse, mit der die Arbeitsumgebung vergleicht — siehe
+    `paths.WM_CLASS`. Bis dahin stand hier `name`, und weil kein Fenster je so
+    hieß, war der Eintrag in jeder Fassung wirkungslos.
     """
     # Lokal importiert, weil `sprache` selbst auf `paths` aufsetzt.
-    from . import language
+    from . import language, paths
     name = language.t('hf_titel')
     return (
         '[Desktop Entry]\n'
@@ -151,7 +156,8 @@ def desktop_content(befehl, symbol):
         'StartupWMClass=%s\n'
         'Keywords=Star Citizen;Blueprint;Bauplan;\n'
         % (name, language.TEXTS['vk_untertitel'][0],
-           language.TEXTS['vk_untertitel'][1], befehl, symbol, name))
+           language.TEXTS['vk_untertitel'][1], befehl, symbol,
+           paths.WM_CLASS))
 
 
 def create():
@@ -229,13 +235,16 @@ def refresh_label():
     except OSError:
         return False
 
-    from . import language
+    from . import language, paths
     name = language.t('hf_titel')
     neu = {
         'Name=': 'Name=%s\n' % name,
         'Comment=': 'Comment=%s\n' % language.TEXTS['vk_untertitel'][0],
         'Comment[en]=': 'Comment[en]=%s\n' % language.TEXTS['vk_untertitel'][1],
-        'StartupWMClass=': 'StartupWMClass=%s\n' % name,
+        # ⛔ Die Fensterklasse, NICHT der Anzeigename (korrigiert 18.09.2026).
+        # Bestandsnutzer tragen hier noch „Verse-Kit" bzw. „VerseKit" — diese
+        # Zeile zieht beides auf den Wert nach, den die Fenster wirklich haben.
+        'StartupWMClass=': 'StartupWMClass=%s\n' % paths.WM_CLASS,
     }
     geaendert = False
     for i, zeile in enumerate(zeilen):

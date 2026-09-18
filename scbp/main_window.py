@@ -1761,7 +1761,11 @@ class MainWindow:
         # weiter unten, nur mit schlimmerer Wirkung. Eine Seite meldet ihren
         # offenen Auftrag hier an; `schliessen()` arbeitet ihn ab.
         self.before_close = []
-        self.root = tk.Toplevel(eltern) if eltern else tk.Tk()
+        # ⚠ `class_` / `className` setzen die Fensterklasse — ohne sie heisst
+        # dieses Fenster `Toplevel` und die Arbeitsumgebung ordnet es der
+        # Verknuepfung nicht zu. Siehe `paths.WM_CLASS`.
+        self.root = (tk.Toplevel(eltern, class_=paths.WM_CLASS) if eltern
+                     else tk.Tk(className=paths.WM_CLASS))
         # ⚠⚠ **Erst bauen, dann zeigen.** Ein `Toplevel` steht ab der Erzeugung
         # auf dem Bildschirm — Reiterleiste, Fusszeile und die erste Seite
         # entstehen also VOR den Augen des Nutzers. Gemeldet als „braucht eine

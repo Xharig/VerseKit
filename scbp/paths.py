@@ -129,6 +129,49 @@ SUBFOLDERS = {
 FOLDER_NAME = 'SC BP Watcher'
 SETTINGS_FILE = 'einstellungen.json'
 
+# ⚠⚠⚠ Die Fensterklasse — ein Anker, der NICHT mitwandert (18.09.2026).
+#
+# Daran erkennt die Arbeitsumgebung, dass ein Fenster zu unserer `.desktop`
+# gehört (`StartupWMClass=`). Stimmen beide nicht überein, erscheint das
+# Programm als **zweites Symbol** in der Leiste, ohne Namen und ohne Symbol.
+#
+# ⛔ **Das ist NICHT der Anzeigename.** Bis zum 18.09.2026 schrieb
+# `desktop_entry` hier `hf_titel` hinein, also „Verse-Kit", und Prüfung 191
+# erzwang genau das. Am laufenden Programm gemessen (`xprop WM_CLASS`):
+#
+#     Wurzelfenster (Overlay)  ("tk #2",     "Tk")
+#     Hauptfenster (Toplevel)  ("!toplevel", "Toplevel")
+#
+# Weder das eine noch das andere war „Verse-Kit" — der Eintrag konnte also nie
+# greifen, in keiner Fassung. Die Regel „StartupWMClass = Fenstertitel" stammt
+# aus der Umbenennung vom 12.09.2026, war am Quelltext abgeleitet und nie
+# gemessen. Linux vergleicht mit der **Fensterklasse**, und die setzt Tk aus
+# `className=` (Wurzel) bzw. `class_=` (Toplevel) — sonst heißt sie schlicht
+# `Tk` bzw. `Toplevel`.
+#
+# Deshalb gilt hier derselbe Grundsatz wie bei `AppId` und `OWN_FILENAMES`:
+# **Was der Nutzer SIEHT, wechselt. Was ihn WIEDERFINDET, bleibt.**
+#
+# ⛔⛔ **Die Schreibweise ist NICHT frei wählbar — gemessen am 18.09.2026.**
+# Tk behandelt die beiden Wege verschieden: `className=` (Wurzel) wird auf
+# „erster Buchstabe groß, Rest klein" normalisiert, `class_=` (Toplevel) wird
+# **wörtlich** übernommen. Unter Xvfb durchgemessen:
+#
+#     className=       Wurzel        Toplevel(class_=)   gleich?
+#     'VerseKit'       'Versekit'    'VerseKit'          NEIN
+#     'Versekit'       'Versekit'    'Versekit'          ja
+#     'versekit'       'Versekit'    'versekit'          NEIN
+#     'VERSEKIT'       'Versekit'    'VERSEKIT'          NEIN
+#
+# Nur `'Versekit'` überlebt beide Wege unverändert. Jede andere Schreibweise
+# gäbe Overlay und Hauptfenster **verschiedene** Klassen — und ein
+# `StartupWMClass` kann nur eine davon treffen. Der naheliegende Dateiname-Stamm
+# `VerseKit` wäre also genau wieder in die alte Falle gelaufen, nur leiser.
+#
+# ⚠ Wer ein neues eigenständiges Fenster baut, gibt ihm diese Klasse mit —
+# sonst trägt es wieder `Toplevel` und fällt aus der Zuordnung.
+WM_CLASS = 'Versekit'
+
 # ⚠⚠⚠ Die Dateinamen, unter denen eine Datei UNS gehört — beide dauerhaft.
 #
 # Steht hier, weil **drei** Stellen sie brauchen und sie nie auseinanderlaufen
