@@ -8,18 +8,30 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.0 - 2026-09-18
+
+> **Verse-Kit hat ein neues Gesicht.** Statt des Zielrings schaut jetzt eine
+> kleine Figur aus dem Ring — in der Taskleiste, im Startmenü und überall
+> sonst. Unter Linux findet das Fenster außerdem endlich zu seinem
+> Menüeintrag zurück: Bisher stand es als namenloses zweites Symbol daneben,
+> und Anheften half nicht.
+
 ### Verbessert
 
-- **Neues Programmsymbol.** Statt des Scope-Rings steht jetzt eine Figur im
-  Ring. Sie erscheint überall: Programmfenster, Taskleiste, Startmenü,
-  Installer, Projektseite und READMEs. Entwurf von **AlyxOne**.
+- **Neues Programmsymbol.** Es erscheint überall: Programmfenster, Taskleiste,
+  Startmenü, Installer, Projektseite und READMEs. In kleinen Größen wird eine
+  vereinfachte Fassung gezeigt, damit die Figur erkennbar bleibt
 
 ### Behoben
 
-- **Linux (AppImage):** Im Anwendungsmenü stand noch der alte Name „VerseKit"
 - **Linux:** Das laufende Fenster wird jetzt dem Menüeintrag zugeordnet. Vorher
   erschien Verse-Kit in der Leiste als zweites Symbol — ohne Namen und ohne
-  Programmsymbol —, und Anheften half nicht.
+  Programmsymbol —, und Anheften half nicht
+- **Linux (AppImage):** Im Anwendungsmenü stand noch der alte Name „VerseKit"
+
+### Dank
+
+- **AlyxOne** — für den Entwurf des neuen Programmsymbols
 
 ## v3.52.1 - 2026-09-17
 
