@@ -24524,6 +24524,124 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _alt253
         shutil.rmtree(_heim253, ignore_errors=True)
+
+    print('\n254. „Zum Farmen vormerken" wirklich druecken')
+    # ⚠⚠ Bisher prueften wir nur `fleet.notepad_add()` (Pruefung „ein
+    # Gegenstand laesst sich vormerken"). Ob der KNOPF das tut, ob danach
+    # „Vorgemerkt ✓" daneben steht und ob die Farmliste den Eintrag zeigt,
+    # prueft nur, wer klickt — die Lehre vom 06.09.2026, die `durchklicken.py`
+    # und `abnahme.py` begruendet hat.
+    #
+    # Drei Stolpersteine, alle beim ersten Anlauf am 17.09.2026 getroffen:
+    #   * Ohne Rezeptdaten gibt es keinen Bauplan — ein Minimal-Cache wird
+    #     hier selbst angelegt (Muster aus Pruefung 251), kein Abruf.
+    #   * Der Knopf ist eine LEINWAND mit gezeichnetem Text; `cget('text')`
+    #     findet ihn nicht, nur die Text-Elemente der Leinwand.
+    #   * Der Sprung (`crafting_search`) klappt den Bauplan selbst auf — nicht
+    #     zusaetzlich klicken, das klappte ihn wieder zu. Und gewartet wird mit
+    #     der ECHTEN `mainloop`, nicht mit `update()` (siehe
+    #     `tools/bilder_machen.py`, `_warten`).
+    import tkinter as _tk254
+    from scbp import crafting as _he254, fleet as _fl254
+    from scbp import language as _sp254
+    from scbp.main_window import MainWindow as _MW254
+    _heim254 = tempfile.mkdtemp(prefix='pruefung254-')
+    _alt254 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim254
+    _name254 = 'Probestueck254'
+    _w254 = None
+    # ⚠ `crafting` haelt die Rezepte im Modul fest — sonst saehe diese Pruefung
+    # die Daten einer frueheren (251), und eine spaetere saehe unsere.
+    _he254._cached['stand'] = None
+    _he254._raw_cache['stand'] = None
+    try:
+        _sp254.set_language('de')
+        with open(os.path.join(_heim254, _he254.CACHE), 'w',
+                  encoding='utf-8') as _f254:
+            json.dump({
+                'format': _he254.FORMAT, 'build': 'probe-254', 'dismantle': {},
+                'products': {}, 'blueprints': [{
+                    'tag': 'BP_CRAFT_PROBE_254', 'productName': _name254,
+                    'manufacturer': 'Probe', 'type': 'weapons',
+                    'subtype': 'laser', 'productEntityClass': 'e254',
+                    'tiers': [{'craftTimeSeconds': 60, 'slots': [
+                        {'name': 'Rahmen', 'modifiers': [],
+                         'options': [{'type': 'resource', 'quantity': 3,
+                                      'minQuality': 1,
+                                      'resourceName': 'Probium'}]}]}]}]},
+                _f254)
+
+        def _warte254(sekunden=0.6):
+            _fe254.root.after(int(sekunden * 1000), _fe254.root.quit)
+            _fe254.root.mainloop()
+            _fe254.root.update_idletasks()
+
+        def _unter254(knoten):
+            for _k in knoten.winfo_children():
+                yield _k
+                yield from _unter254(_k)
+
+        def _knopf254(text):
+            for _x in _unter254(_fe254.root):
+                if isinstance(_x, _tk254.Canvas) and _x.winfo_manager():
+                    for _i in _x.find_all():
+                        if (_x.type(_i) == 'text'
+                                and _x.itemcget(_i, 'text') == text):
+                            return _x
+            return None
+
+        # ⚠⚠ **Nur die EINE Seite durchsuchen, nicht das ganze Fenster.**
+        # Seiten werden einmal gebaut und danach nur ein- und ausgeblendet —
+        # die Herstellung bleibt also eingehaengt, waehrend die Farmliste
+        # offen ist. Der erste Anlauf suchte im ganzen Fenster und fand den
+        # Bauplannamen auf der versteckten Herstellungsseite: Die Gegenprobe
+        # (Knopf speichert nichts) liess „die Farmliste zeigt ihn an" GRUEN.
+        def _beschriftungen254(seite):
+            wurzel = _fe254.pages.get(seite)
+            if wurzel is None:
+                return []
+            return [str(_x.cget('text')) for _x in _unter254(wurzel)
+                    if _x.winfo_manager() and 'text' in _x.keys()]
+
+        _w254 = _tk254.Tk()
+        _fe254 = _MW254(_w254, version='0.0.0-vormerken')
+        _fe254.crafting_search = _name254
+        _fe254.open_page('herstellung')
+        _warte254(1.0)
+
+        _k254 = _knopf254(_sp254.t('s_mz_knopf'))
+        pruefe(_k254 is not None,
+               'der Knopf steht am aufgeklappten Bauplan')
+        pruefe(not _fl254.notepad_contains(_fl254.load(), _name254),
+               'vorher steht der Bauplan nicht auf der Farmliste')
+        if _k254 is not None:
+            _k254.event_generate('<Button-1>')
+            _warte254(0.3)
+        pruefe(_fl254.notepad_contains(_fl254.load(), _name254),
+               'nach dem Klick ist er vorgemerkt (gespeichert)')
+        pruefe(_sp254.t('s_mz_drauf') in _beschriftungen254('herstellung'),
+               'und neben dem Knopf steht die Rueckmeldung')
+
+        _fe254.open_page('farmliste')
+        _warte254(1.0)
+        _farm254 = _beschriftungen254('farmliste')
+        pruefe(bool(_farm254)
+               and any(_name254 in _b for _b in _farm254),
+               'die Farmliste zeigt ihn an (%d Beschriftungen auf der Seite)'
+               % len(_farm254))
+    finally:
+        try:
+            if _w254 is not None:
+                _w254.destroy()
+        except _tk254.TclError:
+            pass
+        _he254._cached['stand'] = None
+        _he254._raw_cache['stand'] = None
+        if _alt254 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt254
+        shutil.rmtree(_heim254, ignore_errors=True)
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
