@@ -2479,14 +2479,15 @@ TEXTS = {
     's_dk_alyxone_idee':     ('**Die Versicherung im JSON-Export** — er hat das '
                               'Feld in seiner Hangar Extension gebaut und sein '
                               'Muster vorab herausgegeben, damit der Import es '
-                              'vom ersten Tag an lesen kann. Und **der Entwurf '
-                              'fuer das neue Programmsymbol** stammt ebenfalls '
-                              'von ihm. Danke!',
+                              'vom ersten Tag an lesen kann. Und **die Idee '
+                              'zum neuen Programmsymbol** kam ebenfalls von '
+                              'ihm — dem Werkzeug ein Gesicht zu geben. Danke!',
                               '**Insurance in the JSON export** — he built the '
                               'field into his Hangar Extension and shared his '
                               'sample up front, so the import could read it '
-                              'from day one. He also **designed the new app '
-                              'icon**. Thank you!'),
+                              'from day one. **The idea for the new app icon** '
+                              'came from him as well — giving the tool a face. '
+                              'Thank you!'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '
                               'ab. Ein Fehler, den niemand sehen konnte, der '

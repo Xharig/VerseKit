@@ -31,7 +31,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Thanks
 
-- **AlyxOne** — for designing the new app icon
+- **AlyxOne** — for the nudge towards the new app icon. The idea of giving the
+  tool a face came from him
 
 ## v3.52.1 - 2026-09-17
 
