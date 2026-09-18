@@ -8,6 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.1 - 2026-09-18
+
+> **Eine Richtigstellung auf der Danke-Seite.** Dort stand, AlyxOne habe das
+> neue Programmsymbol entworfen — richtig ist: Die Idee kam von ihm,
+> gezeichnet und gebaut wurde es hier. Sonst ändert sich nichts.
+
+### Behoben
+
+- **Danke-Seite:** AlyxOne war als Gestalter des neuen Programmsymbols
+  genannt. Von ihm stammen Anstoß und Idee, dem Werkzeug ein Gesicht zu geben
+
 ## v3.53.0 - 2026-09-18
 
 > **Verse-Kit hat ein neues Gesicht.** Statt des Zielrings schaut jetzt eine

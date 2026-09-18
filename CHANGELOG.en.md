@@ -8,6 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.1 - 2026-09-18
+
+> **A correction on the thanks page.** It said AlyxOne had designed the new app
+> icon — what is true: the idea came from him, the drawing and the building
+> happened here. Nothing else changes.
+
+### Fixed
+
+- **Thanks page:** AlyxOne was credited as the designer of the new app icon.
+  What came from him is the nudge and the idea of giving the tool a face
+
 ## v3.53.0 - 2026-09-18
 
 > **Verse-Kit has a new face.** Instead of the scope ring, a little character
