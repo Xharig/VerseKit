@@ -18832,6 +18832,24 @@ def main():
            % _felder191.get('Icon'))
     pruefe(_vk191.FILENAME == 'sc-bp-watcher.desktop',
            'die .desktop behaelt ihren Dateinamen (%r)' % _vk191.FILENAME)
+    # ⚠⚠ **Es gibt ZWEI .desktop-Dateien** — die selbst erzeugte oben und die
+    # mitgelieferte im AppImage (`packaging/`). Bei der Umbenennung zu
+    # „Verse-Kit" (17.09.2026) wurde nur die erste mitgezogen; die zweite
+    # hiess noch am 18.09. `Name=VerseKit`, weil keine Pruefung sie ansah.
+    _pack191 = {}
+    with open(os.path.join(WURZEL, 'packaging', 'sc-bp-watcher.desktop'),
+              encoding='utf-8') as _f191:
+        for _z191 in _f191:
+            if '=' in _z191 and not _z191.lstrip().startswith('#'):
+                _k191, _v191 = _z191.split('=', 1)
+                _pack191.setdefault(_k191.strip(), _v191.strip())
+    pruefe(_pack191.get('Name') == _titel191,
+           'auch die .desktop im AppImage traegt den Anzeigenamen (%r)'
+           % _pack191.get('Name'))
+    pruefe(_pack191.get('Icon') == 'sc-bp-watcher'
+           and _pack191.get('Exec') == 'SC-BP-Watcher',
+           'und behaelt Symbol und Programmdatei (%r, %r)'
+           % (_pack191.get('Icon'), _pack191.get('Exec')))
 
     # ⭐⭐ Das Aufraeumen der ALTEN Verknuepfungen (installer.iss)
     #
