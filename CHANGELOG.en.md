@@ -8,18 +8,30 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.0 - 2026-09-18
+
+> **Verse-Kit has a new face.** Instead of the scope ring, a little character
+> now looks out of the ring — in the taskbar, in the start menu and everywhere
+> else. On Linux the window also finally finds its way back to its menu entry:
+> until now it sat next to it as a nameless second icon, and pinning it did not
+> help.
+
 ### Improved
 
-- **New app icon.** Instead of the scope ring, a character now sits inside the
-  ring. It shows up everywhere: program window, taskbar, start menu, installer,
-  project page and READMEs. Designed by **AlyxOne**.
+- **New app icon.** It shows up everywhere: program window, taskbar, start
+  menu, installer, project page and READMEs. At small sizes a simplified
+  version is used so the character stays recognisable
 
 ### Fixed
 
-- **Linux (AppImage):** the application menu still showed the old name “VerseKit”
 - **Linux:** the running window is now matched to its menu entry. Before this,
   Verse-Kit appeared in the taskbar as a second icon — without a name and
-  without its program icon — and pinning it did not help.
+  without its program icon — and pinning it did not help
+- **Linux (AppImage):** the application menu still showed the old name “VerseKit”
+
+### Thanks
+
+- **AlyxOne** — for designing the new app icon
 
 ## v3.52.1 - 2026-09-17
 
