@@ -31,7 +31,8 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Dank
 
-- **AlyxOne** — für den Entwurf des neuen Programmsymbols
+- **AlyxOne** — für den Anstoß zum neuen Programmsymbol. Die Idee, dem
+  Werkzeug ein Gesicht zu geben, kam von ihm
 
 ## v3.52.1 - 2026-09-17
 
