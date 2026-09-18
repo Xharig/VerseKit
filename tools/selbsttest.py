@@ -24728,6 +24728,40 @@ def main():
         else:
             os.environ['SC_BP_HOME'] = _alt254
         shutil.rmtree(_heim254, ignore_errors=True)
+
+    print('\n255. Die Discord-Meldung holt das AKTUELLE Symbol')
+    # ⭐ Discord laedt Bilder ueber einen eigenen Zwischenspeicher und merkt
+    # sie sich **je URL**. Stand dort immer dieselbe Adresse, zeigte die
+    # Ankuendigung von v3.53.0 noch das Symbol von vor dem Wechsel — obwohl
+    # auf GitHub laengst das neue lag. Fuer den Leser sah es aus, als waere
+    # das Update nicht angekommen.
+    #
+    # Geprueft wird die **Eigenschaft**, nicht der Wortlaut: Zwei Fassungen
+    # muessen zwei verschiedene URLs ergeben. Wer den Zusatz wieder entfernt
+    # oder ihn an etwas haengt, das sich nicht aendert, faellt hier durch.
+    # ⛔ **Nicht im Quelltext nach `logo_url(tag)` suchen** — der Name steht
+    # dort auch in der Funktionsdefinition, die Suche geht also selbst dann
+    # durch, wenn die Karte wieder eine feste Adresse einsetzt. Genau so ist
+    # der erste Anlauf dieser Pruefung am 18.09.2026 durch die eigene
+    # Gegenprobe gefallen. Geprueft wird deshalb die **gebaute Karte**.
+    sys.path.insert(0, os.path.join(WURZEL, '.github', 'scripts'))
+    import discord_release as _dr255
+
+    def _bild255(tag):
+        karte = _dr255.bauen(tag)
+        return karte['embeds'][0]['thumbnail']['url']
+
+    _a255 = _bild255('v3.53.0')
+    _b255 = _bild255('v3.54.0')
+    pruefe(_a255 != _b255,
+           'zwei Fassungen ergeben in der Karte zwei verschiedene Bild-Adressen'
+           ' (%r / %r)' % (_a255, _b255))
+    pruefe('3.53.0' in _a255 and '3.54.0' in _b255,
+           'die Fassungsnummer steht wirklich in der Adresse (%r)' % _a255)
+    pruefe(_a255.split('?')[0].endswith('/assets/icon.png'),
+           'und es bleibt das Programmsymbol aus dem Repo (%r)'
+           % _a255.split('?')[0])
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

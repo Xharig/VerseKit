@@ -39,7 +39,20 @@ import release_text                                          # noqa: E402
 REPO = 'Xharig/VerseKit'
 GRUEN = 0x9ce430          # Xharig-Neongrün für dunklen Grund
 GOLD = 0xd8a03a           # Testfassungen
-LOGO = ('https://raw.githubusercontent.com/%s/main/assets/icon.png' % REPO)
+# ⚠⚠ **Die Fassungsnummer gehoert in die URL** (gemessen 18.09.2026).
+#
+# Discord laedt Bilder nicht direkt, sondern ueber einen eigenen Zwischen-
+# speicher — und der merkt sich das Ergebnis **je URL**. Da hier immer
+# dieselbe Adresse stand (`main/assets/icon.png`), lieferte er beim Release
+# v3.53.0 noch das Symbol von vor dem Wechsel, obwohl auf GitHub laengst das
+# neue lag (per `curl` gegengeprueft: Pruefsumme gleich der lokalen Datei).
+# Fuer den Leser sah es aus, als waere das Update nicht angekommen.
+#
+# Mit `?v=<tag>` ist die Adresse bei jeder Fassung neu, der Zwischenspeicher
+# hat dafuer nichts liegen und holt frisch. GitHub ignoriert den Zusatz.
+def logo_url(tag):
+    return ('https://raw.githubusercontent.com/%s/main/assets/icon.png?v=%s'
+            % (REPO, tag.lstrip('v')))
 
 # Discord-Grenzen. Wer sie reißt, bekommt keine Fehlermeldung, sondern eine
 # abgeschnittene Karte — deshalb lieber selbst kürzen.
@@ -195,7 +208,7 @@ def bauen(tag):
         'url': link,
         'description': beschreibung,
         'color': GOLD if vorab else GRUEN,
-        'thumbnail': {'url': LOGO},
+        'thumbnail': {'url': logo_url(tag)},
         'footer': {'text': (
             'Testfassung · läuft normal, ist aber weniger lange erprobt'
             if vorab else 'Fertige Version')},
