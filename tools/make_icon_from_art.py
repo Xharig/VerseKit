@@ -19,8 +19,12 @@
 """
 Baut `icon.ico` (und eine PNG-Vorschau) aus `assets/icon-source.png`.
 
-Gegenstück zu `make_icon.py`, das das Icon rechnerisch zeichnet — dieses Skript
-nimmt stattdessen eine fertige Bildvorlage.
+⚠ **Das ist seit 18.09.2026 der einzige Weg.** Vorher gab es daneben
+`make_icon.py`, das ein eigenes Symbol rechnerisch zeichnete (Scope-Ring mit
+Punkt). Mit dem Figuren-Logo ist dieses Motiv weg — und ein Skript, das bei
+jedem Aufruf `icon.ico` und `assets/icon.png` mit dem alten Symbol
+überschreibt, ist eine Falle, keine Alternative. Es wurde entfernt; über die
+Git-Historie ist es jederzeit wieder da.
 
 Zwei Kniffe, damit das Icon auch klein noch etwas taugt:
 
@@ -43,14 +47,24 @@ import argparse
 import os
 import sys
 
+# ⚠ Ohne das bricht die Ausgabe unter Windows an jedem Zeichen, das cp1252
+# nicht kennt — hier steckt eines im Docstring. Prüfung 173 wacht darüber.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ausgabe                                                 # noqa: E402
+ausgabe.utf8()
+
 try:
     from PIL import Image
 except ImportError:
     print('FEHLER: Pillow fehlt.  pip install pillow')
     sys.exit(2)
 
+# ⭐ Bis 48 statt bis 32 (18.09.2026): Mit dem Figuren-Logo sind bei 48 Pixeln
+# die HUD-Flächen neben der Figur nur noch Matsch. Genau 48 ist die Größe der
+# Desktop-Symbole und vieler Dock-Leisten — dort zählt die Figur, nicht das
+# Beiwerk. Ab 64 ist wieder Platz für das ganze Motiv.
 # Ab dieser Kantenlänge gilt die normale Beschneidung; darunter wird zugezoomt.
-KLEIN_BIS = 32
+KLEIN_BIS = 48
 KLEIN_ZOOM = 0.86        # so viel vom Motiv bleibt bei den kleinen Größen übrig
 GROESSEN = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 

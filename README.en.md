@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon.png" alt="Verse-Kit icon" width="128">
+<img src="assets/icon.png" alt="Verse-Kit icon" width="200">
 
 # Verse-Kit
 
