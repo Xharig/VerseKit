@@ -11,7 +11,9 @@
    Verse-Kit — Projektseite
    Marke: Neon #9ce430 auf dunklem Grund, Akzent nie flächig.
    Alles liegt im Repo: keine fremden Schriften, keine CDNs,
-   keine Statistik. Nichts wird nachgeladen, nichts wird gesammelt.
+   keine Statistik. Nichts wird gesammelt. Einzige Abfrage: die
+   Downloadzahl bei api.github.com — derselbe Anbieter, der die
+   Seite ausliefert. Schlaegt sie fehl, bleibt die Zeile einfach weg.
    --------------------------------------------------------------- */
 :root{
   --neon:#9ce430;
@@ -85,6 +87,8 @@ header{
 .knopf.leer{color:var(--neon)}
 .knopf.leer:hover{background:rgba(156,228,48,.10);text-decoration:none}
 .hero .klein{margin-top:18px;font-size:15px;color:var(--text-leise)}
+.hero .zahl{margin:26px 0 0;font-size:16px;color:var(--text-leise);letter-spacing:.5px}
+.hero .zahl strong{color:var(--neon);font-size:26px;font-weight:800;margin-right:6px}
 
 /* ---------- Abschnitte ---------- */
 section{padding:66px 0;position:relative}
@@ -203,6 +207,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
        data-en="Free and open source under GPL-3.0. Download one file, run it, done.">
       Kostenlos und quelloffen unter GPL-3.0. Eine Datei laden, starten, fertig.
     </p>
+    <p class="zahl" id="downloads" hidden><strong id="downloads-zahl"></strong>Downloads</p>
   </div>
 </div>
 
@@ -505,8 +510,45 @@ function sprache(s){
   for (var i = 0; i < texte.length; i++){
     texte[i].textContent = texte[i].getAttribute("data-" + s);
   }
+  zahlZeigen();
   bauen();
 }
+
+/* Downloadzahl: Summe aller Release-Dateien aller Versionen — dieselbe Zahl,
+   die der Discord-Kanal zeigt. Ueber 100 Releases → alle Seiten lesen.
+   Zehn Minuten im sessionStorage, damit Blaettern nicht jedes Mal fragt
+   (GitHub erlaubt 60 Abfragen je Stunde und Besucher). */
+var downloads = null;
+
+function zahlZeigen(){
+  if (downloads === null) return;
+  document.getElementById("downloads-zahl").textContent =
+    downloads.toLocaleString(sprLage === "de" ? "de-DE" : "en-US");
+  document.getElementById("downloads").hidden = false;
+}
+
+function zahlHolen(seite, summe){
+  fetch("https://api.github.com/repos/Xharig/VerseKit/releases?per_page=100&page=" + seite)
+    .then(function(r){ if (!r.ok) throw r.status; return r.json(); })
+    .then(function(liste){
+      for (var i = 0; i < liste.length; i++){
+        for (var k = 0; k < liste[i].assets.length; k++){
+          summe += liste[i].assets[k].download_count;
+        }
+      }
+      if (liste.length === 100) return zahlHolen(seite + 1, summe);
+      downloads = summe;
+      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, t:Date.now()})); } catch (e) {}
+      zahlZeigen();
+    })
+    .catch(function(){});
+}
+
+try {
+  var gemerkt = JSON.parse(sessionStorage.getItem("vk-downloads") || "null");
+  if (gemerkt && Date.now() - gemerkt.t < 600000) downloads = gemerkt.n;
+} catch (e) {}
+if (downloads === null) zahlHolen(1, 0); else zahlZeigen();
 
 bauen();
 </script>
