@@ -11,7 +11,7 @@
 <sub>Windows · Linux · no account, no cloud — installer on Windows, single file on Linux</sub>
 
 [![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
-[![Downloads](https://img.shields.io/github/downloads/Xharig/VerseKit/total?label=Downloads&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
+[![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads)](https://github.com/Xharig/VerseKit/releases)
 [![Website](https://img.shields.io/badge/Website-take%20the%20tour-5fa522)](https://xharig.github.io/VerseKit/)
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)

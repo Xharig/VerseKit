@@ -1,0 +1,56 @@
+# Zaehlt die Downloads ALLER Releases fuer das Abzeichen in den READMEs.
+#
+# Warum es das braucht: shields.io liest bei `github/downloads/.../total` nur
+# die erste Seite der Releases (100 Stueck). Seit es mehr als 100 gibt, zeigte
+# das Abzeichen zu wenig (19.09.2026: 783 statt 981).
+#
+# Der Ablauf schreibt die Summe nach `downloads.json` auf dem eigenen Zweig
+# `zaehler` — nicht nach main, damit weder die Projektseite neu gebaut wird
+# noch die Historie von main waechst. Die READMEs lesen die Datei ueber das
+# Endpunkt-Abzeichen von shields.io. Geschrieben wird nur, wenn sich die Zahl
+# geaendert hat.
+#
+# Dieselbe Summe zeigt die Projektseite (`index.html`, fragt im Browser) —
+# wer die Zaehlweise aendert, aendert beide Stellen.
+#
+# ⚠ GitHub schaltet Zeitplaene in oeffentlichen Repos nach 60 Tagen ohne
+# Aktivitaet ab. Steht das Abzeichen still: Actions -> "Downloads zaehlen"
+# -> Enable workflow.
+
+name: Downloads zaehlen
+
+on:
+  schedule:
+    - cron: '17 * * * *'      # stuendlich, bewusst nicht zur vollen Stunde
+  workflow_dispatch:
+
+permissions:
+  contents: write             # noetig, um downloads.json zu schreiben
+
+jobs:
+  zaehlen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summe bilden und bei Aenderung schreiben
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          summe=$(gh api --paginate "repos/$REPO/releases?per_page=100" \
+                    --jq '.[].assets[].download_count' | awk '{s+=$1} END {print s+0}')
+          echo "Downloads gesamt: $summe"
+          inhalt=$(printf '{"schemaVersion":1,"label":"Downloads","message":"%s","color":"5fa522"}' "$summe")
+          alt=$(gh api "repos/$REPO/contents/downloads.json?ref=zaehler" 2>/dev/null || echo '{}')
+          sha=$(echo "$alt" | jq -r '.sha // empty')
+          bisher=$(echo "$alt" | jq -r '.content // empty' | base64 -d 2>/dev/null || true)
+          if [ "$bisher" = "$inhalt" ]; then
+            echo "Unveraendert, nichts zu schreiben."
+            exit 0
+          fi
+          gh api -X PUT "repos/$REPO/contents/downloads.json" \
+            -f branch=zaehler \
+            -f message="Downloads: $summe" \
+            -f content="$(printf '%s' "$inhalt" | base64 -w0)" \
+            ${sha:+-f sha=$sha} > /dev/null
+          echo "Geschrieben: $summe"
