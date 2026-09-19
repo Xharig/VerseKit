@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Windows Start menu:** After the update to Verse-Kit, a second, old
+  "SC BP Watcher" entry could remain in the "VerseKit" folder. The update now
+  removes it.
+
 ## v3.53.1 - 2026-09-18
 
 > **A correction on the thanks page.** It said AlyxOne had designed the new app

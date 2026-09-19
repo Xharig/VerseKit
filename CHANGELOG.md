@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Windows-Startmenü:** Nach dem Update auf Verse-Kit konnte ein zweiter,
+  alter Eintrag „SC BP Watcher" im Ordner „VerseKit" stehen bleiben. Das
+  Update räumt ihn jetzt weg.
+
 ## v3.53.1 - 2026-09-18
 
 > **Eine Richtigstellung auf der Danke-Seite.** Dort stand, AlyxOne habe das
