@@ -8,8 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.2 - 2026-09-19
+
+> **AlyxOne steht wieder richtig auf der Danke-Seite.** Die Richtigstellung in
+> v3.53.1 war selbst falsch: Konzept und ursprünglicher Entwurf des neuen
+> Programmsymbols stammen von AlyxOne, die aktuelle grafische Umsetzung wurde
+> hier erstellt. Dazu räumt das Update einen doppelten Startmenü-Eintrag weg.
+
 ### Behoben
 
+- **Danke-Seite:** AlyxOne war seit v3.53.1 nur noch als Ideengeber des neuen
+  Programmsymbols genannt. Konzept und ursprünglicher Entwurf stammen von ihm
 - **Windows-Startmenü:** Nach dem Update auf Verse-Kit konnte ein zweiter,
   alter Eintrag „SC BP Watcher" im Ordner „VerseKit" stehen bleiben. Das
   Update räumt ihn jetzt weg.
