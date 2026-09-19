@@ -19035,23 +19035,25 @@ def main():
                       else ' — Loeschen hat %r' % (_loeschen191[_alt191]
                                                    or 'keine')))
 
-    def _aufraeumen191(inhalt, regeln=None):
+    def _aufraeumen191(inhalt, regeln=None, gruppe=None):
         """Was von `inhalt` uebrig bleibt — nach Innos Regeln.
 
         `inhalt` ist eine Liste aus (Name, ist_ordner), `regeln` eine Liste
         aus (Art, Name); ohne Angabe die echten aus `installer.iss`.
+        `gruppe` ist der Startmenue-Ordner, ohne Angabe der aelteste.
         Rueckgabe: (Rest, Ordner_verschwindet).
         """
         regeln = _unsere191 if regeln is None else regeln
+        gruppe = _gruppe191 if gruppe is None else gruppe
         rest = list(inhalt)
         leeren = False
         for art, name in regeln:
             if art == 'dirifempty':
-                leeren = leeren or name == _gruppe191
+                leeren = leeren or name == gruppe
                 continue
-            if not name.startswith(_gruppe191 + '\\'):
+            if not name.startswith(gruppe + '\\'):
                 continue                     # zeigt nicht IN den Ordner
-            muster = name[len(_gruppe191) + 1:].lower()
+            muster = name[len(gruppe) + 1:].lower()
             behalten = []
             for eintrag, ist_ordner in rest:
                 treffer = _fn191.fnmatchcase(eintrag.lower(), muster)
@@ -19157,6 +19159,36 @@ def main():
            'Gegenprobe der Pruefung (F05b): mit Platzhalter WAERE die eigene'
            ' Verknuepfung des Nutzers weg — Fall 6 belegt also etwas'
            ' (Rest: %r)' % [n for n, _d in _rest191])
+
+    # ⭐⭐ Fall 8 — die Mischform, an einer echten Installation gefunden
+    # (19.09.2026): Ordner „VerseKit", die Links darin heissen noch
+    # „SC BP Watcher". Keine Regel traf das, `dirifempty` liess den Ordner
+    # stehen — nach dem Update auf Verse-Kit standen zwei Eintraege im
+    # Startmenue. Geprueft wird der ECHTE Zustand gegen die ECHTEN Regeln.
+    _gruppe_vk191 = r'{autoprograms}\VerseKit'
+    _regeln_vk191 = [(_a191, _n191) for _a191, _n191, _t191 in _regeln191
+                     if _n191 == _gruppe_vk191
+                     or _n191.startswith(_gruppe_vk191 + '\\')]
+    for _sp191, _uebers191, _entf191 in (
+            ('deutsch', r'\1 entfernen', _de191),
+            ('englisch', r'Uninstall \1', _en191)):
+        _rest191, _weg191 = _aufraeumen191(
+            [_unser_link191, _entf191],
+            regeln=_sprachig191(_regeln_vk191, _uebers191),
+            gruppe=_gruppe_vk191)
+        pruefe(not _rest191 and _weg191,
+               'Mischform (%s): Ordner VerseKit mit SC-BP-Watcher-Links'
+               ' verschwindet beim Update (Rest: %r, Ordner weg: %s)'
+               % (_sp191, [n for n, _d in _rest191], _weg191))
+    # Gegenprobe: auch hier ueberlebt Fremdes, der Ordner bleibt dann stehen.
+    _rest191, _weg191 = _aufraeumen191(
+        [_unser_link191, _de191, _eigen191],
+        regeln=_sprachig191(_regeln_vk191, r'\1 entfernen'),
+        gruppe=_gruppe_vk191)
+    pruefe([n for n, _d in _rest191] == [_eigen191[0]] and not _weg191,
+           'Mischform-Gegenprobe: die eigene Verknuepfung des Nutzers'
+           ' ueberlebt, der Ordner bleibt (Rest: %r)'
+           % [n for n, _d in _rest191])
     # ------------------------------------ Hinweis IM Eingabefeld (192)
     print('\n192. Der Hinweis steht IM Feld, nicht darueber')
     # ⚠⚠ Bis zum 12.09.2026 lag ein `tk.Label` ueber dem Suchfeld. Es sah

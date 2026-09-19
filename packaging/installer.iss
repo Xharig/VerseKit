@@ -238,6 +238,14 @@ Type: files; Name: "{autoprograms}\SC BP Watcher\{cm:UninstallProgram,SC BP Watc
 ; Namenswechsel der falsche gelöscht.
 Type: files; Name: "{autoprograms}\VerseKit\VerseKit.lnk"
 Type: files; Name: "{autoprograms}\VerseKit\{cm:UninstallProgram,VerseKit}.lnk"
+; ⚠⚠ Die Mischform: Ordner „VerseKit", Links darin noch „SC BP Watcher".
+; An einer echten Installation gefunden (19.09.2026, Links vom 13.09.) — nach
+; dem Update auf Verse-Kit standen dadurch ZWEI Einträge im Startmenü, weil
+; keine der Zeilen oben diese Kombination trifft und `dirifempty` den Ordner
+; deshalb stehen ließ. Wie sie entstand, ist nicht belegt; dass es sie gibt,
+; schon. Exakte Namen wie überall hier, kein Platzhalter.
+Type: files; Name: "{autoprograms}\VerseKit\SC BP Watcher.lnk"
+Type: files; Name: "{autoprograms}\VerseKit\{cm:UninstallProgram,SC BP Watcher}.lnk"
 Type: dirifempty; Name: "{autoprograms}\VerseKit"
 ; `dirifempty` räumt den alten Gruppenordner weg — und lässt ihn stehen,
 ; sobald noch irgendetwas darin liegt. Ein Nutzerinhalt überlebt das Update,
