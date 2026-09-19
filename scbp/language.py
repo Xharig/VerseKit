@@ -2476,17 +2476,22 @@ TEXTS = {
     # ⚠ Er steht weiter oben schon als **Werkzeug** (Hangar Extension). Hier
     # steht er als Mensch: Das Versicherungsfeld hat er gebaut und sein Muster
     # vorab herausgegeben, damit der Import am ersten Tag damit umgehen kann.
+    # ⚠⚠ Programmsymbol: Konzept UND ursprünglicher Entwurf sind von ihm, hier
+    # entstand nur die grafische Umsetzung — sein Wortlaut vom 19.09.2026. Die
+    # Fassung „nur die Idee" (v3.53.1) war falsch und hat ihn herabgesetzt.
     's_dk_alyxone_idee':     ('**Die Versicherung im JSON-Export** — er hat das '
                               'Feld in seiner Hangar Extension gebaut und sein '
                               'Muster vorab herausgegeben, damit der Import es '
-                              'vom ersten Tag an lesen kann. Und **die Idee '
-                              'zum neuen Programmsymbol** kam ebenfalls von '
-                              'ihm — dem Werkzeug ein Gesicht zu geben. Danke!',
+                              'vom ersten Tag an lesen kann. Und **das neue '
+                              'Programmsymbol**: Konzept und ursprünglicher '
+                              'Entwurf stammen von ihm, die aktuelle grafische '
+                              'Umsetzung wurde hier erstellt. Danke!',
                               '**Insurance in the JSON export** — he built the '
                               'field into his Hangar Extension and shared his '
                               'sample up front, so the import could read it '
-                              'from day one. **The idea for the new app icon** '
-                              'came from him as well — giving the tool a face. '
+                              'from day one. And **the new app icon**: the '
+                              'concept and the original design are his, the '
+                              'current graphic implementation was made here. '
                               'Thank you!'),
     's_dk_kynotnis_bugs':    ('**Nach einer frischen Installation startete gar '
                               'nichts** — der Einrichtungsassistent brach sofort '

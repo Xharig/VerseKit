@@ -8,8 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.2 - 2026-09-19
+
+> **AlyxOne is credited correctly on the thanks page again.** The correction in
+> v3.53.1 was itself wrong: the concept and the original design of the new app
+> icon are by AlyxOne, the current graphic implementation was made here. The
+> update also removes a duplicate Start menu entry.
+
 ### Fixed
 
+- **Thanks page:** since v3.53.1 AlyxOne was only named as the one with the
+  idea for the new app icon. The concept and the original design are his
 - **Windows Start menu:** After the update to Verse-Kit, a second, old
   "SC BP Watcher" entry could remain in the "VerseKit" folder. The update now
   removes it.
