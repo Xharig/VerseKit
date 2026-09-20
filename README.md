@@ -68,6 +68,8 @@ Der Watcher schreibt in die Auftragstexte des Spiels, **welche** Baupläne ein A
 
 Ein neuer Bauplan wirft sofort die nächste Frage auf: **passt das Teil überhaupt in eines meiner Schiffe?** Dafür muss das Werkzeug wissen, was in deinem Hangar steht — das Spiel schreibt es nirgends auf.
 
+> **So kommt dein Hangar ins Werkzeug:** Die Browser-Erweiterung **Star Citizen: Hangar Extension** von AlyxOne setzt auf deiner Pledge-Seite Export-Knöpfe — für [Firefox](https://addons.mozilla.org/de/firefox/addon/star-citizen-hangar-extension/), [Chrome](https://chromewebstore.google.com/detail/star-citizen-hangar-exten/jeoidbfcbdplammndhpflojejmpkjcfm) und [Edge](https://microsoftedge.microsoft.com/addons/detail/star-citizen-hangar-exte/agahppbhmogalnjlaolmjbbemlcjbioe). Lade dort **beide** Dateien herunter und wähle sie unter **Meine Schiffe → „Aus dem Pledge-Store holen"** nacheinander aus: Die JSON bringt Paketzugehörigkeit und Versicherung, die CSV dazu Kaufdatum und Preis — doppelt wird nichts. Im Spiel gekaufte Schiffe kennt kein Export; die trägst du von Hand ein.
+
 <table>
 <tr>
 <td colspan="2" valign="top" align="center">
