@@ -7327,6 +7327,73 @@ def main():
            'jedes Modul mit Netzabruf kennt den Schalter (%s)'
            % (', '.join(_offen74) or 'alle'))
 
+    # ⛔⛔ **Die Suche oben misst die FORM, nicht die Wirkung** — und das reicht
+    # nicht. Ihr genuegt ein Kommentar oder ein unbenutzter Import; eine
+    # entfernte Netzsperre bliebe unentdeckt. Am 12.09.2026 als F03 abgegrenzt
+    # („bestehende Luecke, nicht von P4"), am 20.09.2026 nachgeholt: Ab hier
+    # wird **gemessen**, ob wirklich kein Abruf hinausgeht.
+    #
+    # ⚠⚠ Die Falle gehoert an `urllib.request.urlopen`, NICHT an das Modul.
+    # Die Module rufen qualifiziert (`urllib.request.urlopen(req, …)`) — ein
+    # `modul.urlopen = falle` geht ins Leere. Genau so lief der erste Anlauf:
+    # acht Module, null Abrufe, und die Null war geschenkt, weil die Falle nie
+    # installiert war. Deshalb prueft sie sich hier zuerst selbst.
+    import urllib.request as _ur74
+
+    _raus74 = []
+
+    def _falle74(*a, **k):
+        ziel = a[0] if a else '?'
+        _raus74.append(str(getattr(ziel, 'full_url', ziel))[:90])
+        raise AssertionError('urlopen trotz SC_BP_NO_NET=1')
+
+    _echt74 = _ur74.urlopen
+    try:
+        _ur74.urlopen = _falle74
+        try:
+            _ur74.urlopen('https://example.invalid/')
+            _greift74 = False
+        except AssertionError:
+            _greift74 = True
+        _raus74.clear()
+        pruefe(_greift74, 'die Falle selbst greift — sonst beweist der Rest nichts')
+
+        from scbp import (catalog as _kat74, crafting as _cr74,
+                          erkul as _ek74, mining as _mi74,
+                          rank_thresholds as _rt74, reputation as _rp74,
+                          serverstatus as _ss74, translation as _tr74,
+                          uex as _ux74, updater as _up74)
+
+        # Die Wege, die im Betrieb gegangen werden. Bei den drei privaten
+        # (`_fetch`) sitzt die Sperre genau dort — sie sind die Engstelle,
+        # durch die jeder Weg des Moduls laeuft.
+        _wege74 = (
+            ('catalog.update', lambda: _kat74.update(None)),
+            ('crafting.update', lambda: _cr74.update('4.10.0', None)),
+            ('mining.update', lambda: _mi74.update('4.10.0', None)),
+            ('erkul._fetch', lambda: _ek74._fetch('/probe', 'probe')),
+            ('rank_thresholds.refresh', lambda: _rt74.refresh('4.10.0')),
+            ('reputation.refresh', lambda: _rp74.refresh('4.10.0')),
+            ('serverstatus._fetch', lambda: _ss74._fetch('/probe', None)),
+            ('translation._fetch',
+             lambda: _tr74._fetch('https://example.invalid/x', True)),
+            ('uex.fetch', lambda: _ux74.fetch('https://example.invalid/x', 'probe')),
+            ('updater.check', lambda: _up74.check('1.0.0', force=True)),
+        )
+        for _name74b, _ruf74 in _wege74:
+            _vor74 = len(_raus74)
+            try:
+                _ruf74()
+            except AssertionError:
+                pass          # die Falle — wird unten gezaehlt
+            except Exception:
+                pass          # fehlende Testdaten sind hier egal
+            pruefe(len(_raus74) == _vor74,
+                   '%s geht bei gesetzter Sperre NICHT ins Netz (%s)'
+                   % (_name74b, _raus74[_vor74:] or 'kein Abruf'))
+    finally:
+        _ur74.urlopen = _echt74
+
     # ------------------------------------------------------------------
     # 75. Verweise gehen ueber EINEN Weg — und der wäscht die Umgebung
     #
