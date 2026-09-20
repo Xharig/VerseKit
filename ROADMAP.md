@@ -82,17 +82,6 @@ Ohne Zeitplan und ohne feste Reihenfolge — Stand der Dinge steht im [`CHANGELO
 
 Was als Nächstes kommt, ergibt sich aus den Rückmeldungen. Das Werkzeug ist täglich im Einsatz, und die meisten Änderungen haben als Nachricht von jemandem angefangen.
 
-## Verhältnis zum SC Deutsch Launcher
-
-**Wahlfreiheit, nicht Ersatz.**
-
-Hier stand lange, ein selbst geführter Bestand sei zwangsläufig ungenau, weil er nur „ab heute" fortgeschrieben werden könne. Zwei Messungen haben das widerlegt:
-
-- Der Watcher liest beim Start die **aufgehobenen Logs** nach. Ohne laufenden Watcher gespielt zu haben, reißt also kein Loch, solange Star Citizen die Sicherung noch hat. Bleibt doch eine Lücke, wird sie **gesagt** statt verschwiegen.
-- Der Launcher selbst zählt **zu niedrig**: Ihm fehlt die P4-AR Rifle, obwohl sie im Fabricator als „im Besitz" steht. Startbaupläne wurden nie „erhalten" und stehen in keinem Log. Seine Zahl ist eine Untergrenze, kein Bestand.
-
-Der Launcher bleibt trotzdem nützlich: Er bestätigt Funde und pflegt einen Katalog mit deutschen Bezeichnungen. Ist er da, wird er genutzt. Ist er nicht da — unter Linux immer —, läuft der Watcher trotzdem.
-
 ## Mitreden
 
 Wünsche, Fehlermeldungen und Ideen gern als [Issue](../../issues).

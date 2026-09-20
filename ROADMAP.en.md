@@ -82,17 +82,6 @@ No schedule and no fixed order — the state of things is in [`CHANGELOG.en.md`]
 
 What comes next follows from what people report. The tool is in daily use, and most changes started as someone's message.
 
-## Relationship to the SC Deutsch Launcher
-
-**Freedom of choice, not replacement.**
-
-This page used to argue that a self-kept inventory is necessarily inaccurate because it could only be filled "from today on". Two measurements disproved that:
-
-- The watcher reads the **stored logs** on start. Having played without it running does not tear a hole, as long as Star Citizen still has the backup. If a gap remains anyway, it is **stated** rather than hidden.
-- The launcher itself counts **too low**: it is missing the P4-AR Rifle although the Fabricator lists it as owned. Starter blueprints were never "received" and appear in no log. Its number is a lower bound, not an inventory.
-
-The launcher remains useful all the same: it confirms finds and maintains a catalogue with German names. If it is there, it is used. If it is not — always the case on Linux — the watcher works anyway.
-
 ## Getting involved
 
 Wishes, bug reports and ideas are welcome as an [issue](../../issues).
