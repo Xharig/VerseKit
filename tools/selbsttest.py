@@ -24794,6 +24794,69 @@ def main():
            'und es bleibt das Programmsymbol aus dem Repo (%r)'
            % _a255.split('?')[0])
 
+    print('\n256. Der Joystick-Platz kommt aus der Registry, nicht vom Treiber')
+    # ⛔⛔ `joyGetDevCapsW` hat am 12.09.2026 ein Windows mit HOTAS-Aufbau hart
+    # heruntergerissen (`0xc0000374`, Heap-Beschaedigung). Aus der
+    # Geraeteabfrage ist der Aufruf seit v3.43.1 raus — in `_windows_wait`
+    # stand er bis zum 20.09.2026 **immer noch**. Genau der Fall, vor dem die
+    # Projektregel warnt: dasselbe wird an zwei Stellen ausgewertet, repariert
+    # wurde eine.
+    #
+    # ⚠ Geprueft wird die **Auswertung**, nicht die Registry — deshalb ist
+    # `_slots_from_values` von der Abfrage getrennt. So laeuft die Pruefung
+    # auch unter Linux, wo es `winreg` gar nicht gibt.
+    from scbp import input_device as _ein256
+
+    _werte256 = [('Joystick1OEMName', 'VID_3344&PID_03F3'),
+                 ('Joystick2OEMName', 'VID_3344&PID_43F4'),
+                 ('Joystick3OEMName', 'VID_3344&PID_01F8'),
+                 # Muss uebergangen werden: andere Werte im selben Schluessel
+                 ('Joystick1Configuration', '1 0 128 17 32 0 0 0'),
+                 ('Joystick2OEMName', 'VID_DEAD&PID_BEEF'),   # spaeter, gilt nicht
+                 ('OEMName', 'VID_3344&PID_03F3'),            # ohne Platznummer
+                 ('Joystick4OEMName', 'Irgendein Text')]      # kein VID/PID
+    _karte256 = _ein256._slots_from_values(_werte256)
+
+    # a) Der Versatz. ⚠⚠ **Das ist der Kern der Pruefung**: Die Registry zaehlt
+    #    ab 1, `winmm` ab 0. Am 20.09.2026 an drei VIRPIL-Geraeten gemessen —
+    #    Platz 0 trug `VID_3344&PID_03F3` und hiess dort `Joystick1OEMName`.
+    #    Wer den Versatz herausnimmt, ordnet jede Belegung dem falschen Stick
+    #    zu, und **auffallen wuerde das niemandem**.
+    #    Gegenprobe am 20.09.2026: `- 1` entfernt → diese Zeile wird rot.
+    pruefe(_karte256.get(0) == _ein256.ident_from_ids(0x3344, 0x03F3),
+           'Joystick1 aus der Registry landet auf winmm-Platz 0 (%r)'
+           % _karte256.get(0))
+    pruefe(_karte256.get(2) == _ein256.ident_from_ids(0x3344, 0x01F8),
+           'und Joystick3 auf Platz 2 (%r)' % _karte256.get(2))
+
+    # b) Nichts erfinden: Zeilen ohne Platznummer oder ohne VID/PID fallen raus.
+    pruefe(set(_karte256) == {0, 1, 2},
+           'nur echte Platz-Zeilen kommen durch (%r)' % sorted(_karte256))
+
+    # c) Der erste Fund gilt — ein zweiter Treiber ueberschreibt ihn nicht.
+    pruefe(_karte256.get(1) == _ein256.ident_from_ids(0x3344, 0x43F4),
+           'ein spaeterer Eintrag ueberschreibt den Platz nicht (%r)'
+           % _karte256.get(1))
+
+    # d) Leere Eingabe ergibt leere Karte — der Aufrufer faellt dann auf
+    #    „nur ein Geraet" zurueck und sonst auf die Eingabe von Hand.
+    pruefe(_ein256._slots_from_values([]) == {},
+           'ohne Registry-Werte wird nichts geraten')
+
+    # e) ⛔ Die Wache gegen den Rueckfall. **Nicht per Textsuche** — der Name
+    #    steht in den Docstrings des Moduls, die Herleitung soll dort auch
+    #    bleiben. Eine Textsuche ginge deshalb immer durch. Gesucht wird der
+    #    **Aufruf** im Syntaxbaum.
+    import ast as _ast256
+    _quelle256 = open(os.path.join(WURZEL, 'scbp', 'input_device.py'),
+                      encoding='utf-8').read()
+    _rufe256 = [k for k in _ast256.walk(_ast256.parse(_quelle256))
+                if isinstance(k, _ast256.Attribute)
+                and k.attr in ('joyGetDevCaps', 'joyGetDevCapsW')]
+    pruefe(not _rufe256,
+           'kein joyGetDevCaps* mehr im Modul — auch nicht neu dazugekommen'
+           ' (%d Fundstellen)' % len(_rufe256))
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

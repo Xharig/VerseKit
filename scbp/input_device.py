@@ -390,35 +390,128 @@ def _axis_name(number):
     return AXES[number] if 0 <= number < len(AXES) else ''
 
 
+# „Joystick3OEMName" -> Platz 3. ⚠ Die Registry zaehlt ab **1**, `winmm` ab
+# **0** — der Versatz ist gemessen, nicht aus der Konvention geschlossen (siehe
+# `_winmm_index_map`).
+_SLOT_NAME = re.compile(r'^Joystick(\d+)OEMName$', re.I)
+# Der Wert dahinter: „VID_3344&PID_03F3".
+_SLOT_IDS = re.compile(r'^VID_([0-9A-F]{4})&PID_([0-9A-F]{4})$', re.I)
+
+# Wo Windows die Zuordnung Platz -> Geraet fuehrt. Darunter liegt je ein
+# Schluessel pro Treiber (`DINPUT.DLL`), darin `CurrentJoystickSettings`.
+_JOYSTICK_KEY = r'System\CurrentControlSet\Control\MediaResources\Joystick'
+
+
+def _slots_from_values(pairs):
+    """Aus den Registry-Werten die Zuordnung `{platz: kennung}` bauen.
+
+    `pairs` ist eine Folge von `(name, wert)`, wie `winreg.EnumValue` sie
+    liefert — etwa `('Joystick1OEMName', 'VID_3344&PID_03F3')`.
+
+    ⚠ Bewusst **getrennt** von der Registry-Abfrage: So laesst sich die
+    Auswertung auf jedem System pruefen, auch dort, wo es `winreg` gar nicht
+    gibt. Die Abfrage selbst holt nur die Rohwerte.
+
+    ⚠ **Registry ab 1, `winmm` ab 0** — der Versatz ist gemessen, siehe
+    `_winmm_index_map`.
+    """
+    out = {}
+    for name, value in pairs:
+        slot = _SLOT_NAME.match(name or '')
+        if not slot or not isinstance(value, str):
+            continue
+        ids = _SLOT_IDS.match(value.strip())
+        if not ids:
+            continue
+        number = int(slot.group(1)) - 1
+        if number < 0:
+            continue
+        # Mehrere Treiber koennen denselben Platz fuehren — der erste Fund
+        # gilt, spaetere ueberschreiben ihn nicht.
+        out.setdefault(number, ident_from_ids(int(ids.group(1), 16),
+                                              int(ids.group(2), 16)))
+    return out
+
+
+def _winmm_index_map():
+    """Welcher `winmm`-Platz gehoert zu welcher Geraete-Kennung?
+
+    Liefert `{platz: kennung}`, im Zweifel ein leeres Woerterbuch.
+
+    ⛔⛔ **Das ersetzt `joyGetDevCapsW`** (20.09.2026). Frueher stand die Frage
+    an den Treiber: `joyGetDevCapsW` liefert `wMid`/`wPid` und damit die
+    Kennung. Genau dieser Aufruf hat am 12.09.2026 ein Windows mit
+    HOTAS-Aufbau hart heruntergerissen (`0xc0000374`, Heap-Beschaedigung) —
+    aus der Geraeteabfrage ist er deshalb seit v3.43.1 raus, hier stand er bis
+    heute noch. Die Registry beantwortet dieselbe Frage, ohne einen
+    Joystick-Treiber anzusprechen.
+
+    ⚠ **Der Versatz ist gemessen** (20.09.2026, drei VIRPIL-Geraete): Platz 0
+    trug `VID_3344&PID_03F3` und stand in der Registry als `Joystick1OEMName`,
+    Platz 1 als `Joystick2OEMName`, Platz 2 als `Joystick3OEMName`. Drei von
+    drei, keine Abweichung. **Registry ab 1, `winmm` ab 0.**
+
+    ⚠ Liefert die Registry nichts — fremder Treiber, andere Windows-Fassung —,
+    bleibt das Ergebnis leer. Der Aufrufer faellt dann auf „nur ein Geraet
+    angeschlossen" zurueck und sonst auf die Eingabe von Hand. Geraten wird
+    nicht: Eine falsche Kennung schreibt die Belegung am Ende dem falschen
+    Stick zu, und das faellt keinem auf.
+    """
+    if not WINDOWS:
+        return {}
+    try:
+        import winreg
+    except Exception:
+        return {}
+
+    out = {}
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _JOYSTICK_KEY) as root:
+            drivers = []
+            index = 0
+            while True:
+                try:
+                    drivers.append(winreg.EnumKey(root, index))
+                except OSError:
+                    break
+                index += 1
+    except OSError:
+        return {}
+
+    pairs = []
+    for driver in drivers:
+        path = '%s\\%s\\CurrentJoystickSettings' % (_JOYSTICK_KEY, driver)
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+                index = 0
+                while True:
+                    try:
+                        name, value, _kind = winreg.EnumValue(key, index)
+                    except OSError:
+                        break
+                    index += 1
+                    pairs.append((name, value))
+        except OSError:
+            continue
+    out.update(_slots_from_values(pairs))
+    return out
+
+
 def _windows_wait(duration, stop_flag=None):
     """Auf den ersten Knopfdruck warten (Windows, ueber `winmm`).
 
     ⚠️ **Ungetestet** — siehe Kopf des Moduls. Bei jedem Fehler kommt `None`
     zurueck, damit die Oberflaeche auf die Eingabe von Hand umschalten kann.
+
+    ⛔ **Kein `joyGetDevCapsW`** — die Kennung kommt aus `_winmm_index_map()`,
+    die Belegtpruefung aus `joyGetPosEx`, der ohnehin gleich danach laeuft und
+    nie im Absturzpfad war.
     """
     try:
         import ctypes
         from ctypes import wintypes
     except Exception:
         return None
-
-    class JOYCAPS(ctypes.Structure):
-        _fields_ = [('wMid', wintypes.WORD), ('wPid', wintypes.WORD),
-                    ('szPname', wintypes.WCHAR * 32),
-                    ('wXmin', wintypes.UINT), ('wXmax', wintypes.UINT),
-                    ('wYmin', wintypes.UINT), ('wYmax', wintypes.UINT),
-                    ('wZmin', wintypes.UINT), ('wZmax', wintypes.UINT),
-                    ('wNumButtons', wintypes.UINT),
-                    ('wPeriodMin', wintypes.UINT),
-                    ('wPeriodMax', wintypes.UINT),
-                    ('wRmin', wintypes.UINT), ('wRmax', wintypes.UINT),
-                    ('wUmin', wintypes.UINT), ('wUmax', wintypes.UINT),
-                    ('wVmin', wintypes.UINT), ('wVmax', wintypes.UINT),
-                    ('wCaps', wintypes.UINT),
-                    ('wMaxAxes', wintypes.UINT), ('wNumAxes', wintypes.UINT),
-                    ('wMaxButtons', wintypes.UINT),
-                    ('szRegKey', wintypes.WCHAR * 32),
-                    ('szOEMVxD', wintypes.WCHAR * 260)]
 
     class JOYINFOEX(ctypes.Structure):
         _fields_ = [('dwSize', wintypes.DWORD), ('dwFlags', wintypes.DWORD),
@@ -436,39 +529,42 @@ def _windows_wait(duration, stop_flag=None):
         # geraten durch (siehe `_windows_devices`).
         winmm.joyGetNumDevs.argtypes = []
         winmm.joyGetNumDevs.restype = wintypes.UINT
-        winmm.joyGetDevCapsW.argtypes = [ctypes.c_size_t, ctypes.c_void_p,
-                                         wintypes.UINT]
-        winmm.joyGetDevCapsW.restype = wintypes.UINT
         winmm.joyGetPosEx.argtypes = [wintypes.UINT, ctypes.c_void_p]
         winmm.joyGetPosEx.restype = wintypes.UINT
         count = winmm.joyGetNumDevs()
         if not count:
             return None
-        # `winmm` nennt jeden HID-Stick „Microsoft-PC-Joysticktreiber"; den
-        # echten Namen kennt die Raw-Input-Liste, verbunden über die Kennung.
-        real_names = {d['kennung']: d['name'] for d in _windows_devices()
-                      if d.get('name')}
-        devices = {}
-        for i in range(count):
-            caps = JOYCAPS()
-            if winmm.joyGetDevCapsW(i, ctypes.byref(caps),
-                                    ctypes.sizeof(caps)) != 0:
-                continue
-            ident = ident_from_ids(caps.wMid, caps.wPid)
-            devices[i] = {'name': real_names.get(ident) or caps.szPname,
-                          'kennung': ident}
-        if not devices:
-            return None
+
+        # `winmm` nennt jeden HID-Stick „Microsoft-PC-Joysticktreiber" — der
+        # echte Name kommt aus der Raw-Input-Liste, verbunden ueber die Kennung.
+        known = {d['kennung']: d.get('name', '') for d in _windows_devices()
+                 if d.get('kennung')}
+        by_slot = _winmm_index_map()
+        if not by_slot and len(known) == 1:
+            # Ohne Registry-Eintrag ist die Zuordnung nur dann eindeutig, wenn
+            # ueberhaupt nur ein Geraet angeschlossen ist. Bei mehreren wird
+            # nicht geraten — dann bleibt `devices` leer und die Oberflaeche
+            # schaltet auf die Eingabe von Hand um.
+            by_slot = dict.fromkeys(range(count), next(iter(known)))
 
         # Ausgangszustand merken, damit ein bereits gehaltener Knopf nicht
         # sofort als Druck gilt — das Gegenstueck zum Init-Bit unter Linux.
+        # `joyGetPosEx` sagt im selben Zug, ob der Platz ueberhaupt belegt ist.
+        devices = {}
         before = {}
-        for i in devices:
+        for i in range(count):
+            ident = by_slot.get(i)
+            if not ident:
+                continue
             info = JOYINFOEX()
             info.dwSize = ctypes.sizeof(info)
             info.dwFlags = 0x000000FF                 # JOY_RETURNALL
-            if winmm.joyGetPosEx(i, ctypes.byref(info)) == 0:
-                before[i] = info.dwButtons
+            if winmm.joyGetPosEx(i, ctypes.byref(info)) != 0:
+                continue
+            devices[i] = {'name': known.get(ident, ''), 'kennung': ident}
+            before[i] = info.dwButtons
+        if not devices:
+            return None
 
         end_time = time.time() + duration
         while time.time() < end_time:
