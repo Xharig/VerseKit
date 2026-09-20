@@ -17173,8 +17173,14 @@ def main():
                               r'https?://[^\s"\']+', _re178.IGNORECASE)
     # Womit eine geladene Datei benutzt wird — ab hier ist eine Pruefung zu
     # spaet. `chmod +x` zaehlt mit: Wer ausfuehrbar macht, will ausfuehren.
+    #
+    # ⭐ **Lücke 2 geschlossen (20.09.2026):** Ein geladenes Skript braucht kein
+    # `chmod +x`, wenn es ueber seinen Interpreter laeuft — `python werkzeug.py`
+    # fuehrt genauso fremden Code aus. Verlangt wird ein Argument mit Endung,
+    # damit `python3 -m pip …` nicht faelschlich anschlaegt.
     _nutzt178 = _re178.compile(r'\bchmod\s+\+x\b|(?:^|\s)\./|'
-                               r'\b(?:bash|sh|source)\s+\S')
+                               r'\b(?:bash|sh|source)\s+\S|'
+                               r'\b(?:python[0-9.]*|node|perl|ruby)\s+[^\s|;&]+\.\w+')
     _prueft178 = _re178.compile(r'\b(?:sha256sum|shasum|sha512sum)\b')
     # Endet ein Token so, ist es kein Paketname, sondern ein Schalter oder
     # eine Datei — `-r anforderungen.txt` etwa.
@@ -17210,26 +17216,41 @@ def main():
                         continue
                     if '==' not in wort:
                         raus.append('Paket ohne feste Version: %s' % wort)
-            if _holt178.search(blank):
+            _holt_hier178 = _holt178.search(blank)
+            if _holt_hier178:
                 # ⚠⚠ **Die Reihenfolge ist der ganze Punkt.** Eine Pruefsumme
                 # hinter `chmod +x` oder hinter dem Aufruf ist wertlos — die
                 # fremde Datei lief dann schon. Geprueft wird deshalb nicht
                 # „steht irgendwo eine Pruefung", sondern „steht sie VOR der
                 # ersten Benutzung".
                 #
-                # Gesucht wird bis zum naechsten Schritt (`- name:`/`- uses:`)
+                # ⭐ **Lücke 1 geschlossen (20.09.2026):** Zuerst wird die
+                # **eigene** Zeile ab dem Download abgesucht. `wget … &&
+                # chmod +x … && ./…` steht in einer einzigen Zeile — die Suche
+                # ab der naechsten sah davon nichts und meldete „sauber".
+                # Ort ist deshalb ein Paar (Zeile, Spalte); so laesst sich
+                # innerhalb einer Zeile genauso vergleichen wie ueber mehrere.
+                #
+                # Danach weiter bis zum naechsten Schritt (`- name:`/`- uses:`)
                 # oder hoechstens 40 Zeilen weit; darueber hinaus waere es ein
                 # anderer Zusammenhang.
                 wo_prueft = None
                 wo_nutzt = None
+                _ab178 = _holt_hier178.end()
+                _t178 = _prueft178.search(blank, _ab178)
+                if _t178:
+                    wo_prueft = (nr, _t178.start())
+                _t178 = _nutzt178.search(blank, _ab178)
+                if _t178:
+                    wo_nutzt = (nr, _t178.start())
                 for weiter in range(nr + 1, min(nr + 41, len(zeilen))):
                     folge = zeilen[weiter].strip()
                     if folge.startswith('- name:') or folge.startswith('- uses:'):
                         break
                     if wo_prueft is None and _prueft178.search(folge):
-                        wo_prueft = weiter
+                        wo_prueft = (weiter, 0)
                     if wo_nutzt is None and _nutzt178.search(folge):
-                        wo_nutzt = weiter
+                        wo_nutzt = (weiter, 0)
                 if wo_prueft is None:
                     raus.append('Datei geladen, aber nicht geprueft: %s' % blank)
                 elif wo_nutzt is not None and wo_nutzt < wo_prueft:
@@ -17284,6 +17305,25 @@ def main():
                                 '          ./werkzeug.AppImage bauen\n'
                                 '          echo "abc  werkzeug.AppImage" '
                                 '| sha256sum -c -\n'),
+        # ⭐⭐ Die beiden Luecken aus dem Review vom 10.09.2026, geschlossen am
+        # 20.09.2026.
+        #
+        # ⚠⚠ **Beide Faelle tragen eine Pruefsumme — und genau darauf kommt es
+        # an.** Der erste Entwurf liess sie weg; damit schlug die ALTE Regel
+        # „Datei geladen, aber nicht geprueft" an, und beide Gegenproben waren
+        # auch ohne die Reparatur gruen. Sie haetten also nur bewiesen, dass
+        # irgendeine Regel greift — nicht die neue. Aufgefallen ist das erst,
+        # weil die Reparatur zur Probe zurueckgenommen wurde.
+        ('alles in EINER Zeile', '      - run: |\n'
+                                 '          wget -q https://x/w.AppImage '
+                                 '&& chmod +x w.AppImage && ./w.AppImage\n'
+                                 '          echo "abc  w.AppImage" '
+                                 '| sha256sum -c -\n'),
+        ('geladenes Skript ueber den Interpreter',
+         '      - run: |\n'
+         '          wget -q https://x/einrichten.py\n'
+         '          python3 einrichten.py --jetzt\n'
+         '          echo "def  einrichten.py" | sha256sum -c -\n'),
     ]
     for _was178, _quelle178 in _boese178:
         pruefe(bool(_maengel178(_quelle178)),
@@ -17299,7 +17339,18 @@ def main():
                '          wget -q https://x/runtime-x86_64\n'
                '          echo "def  runtime-x86_64" | sha256sum -c -\n'
                '          ./werkzeug.AppImage --runtime-file runtime-x86_64\n'
-               '      - run: pip install "pyflakes==3.4.0"\n')
+               '      - run: pip install "pyflakes==3.4.0"\n'
+               # ⭐ Dieselben zwei Formen, aber ABGESICHERT — sonst waere nur
+               # belegt, dass die neue Strenge anschlaegt, nicht dass sie
+               # richtig trennt. Einzeiler mit Pruefung VOR der Benutzung …
+               '      - run: wget -q https://x/w.AppImage '
+               '&& echo "abc  w.AppImage" | sha256sum -c - '
+               '&& chmod +x w.AppImage && ./w.AppImage\n'
+               # … und ein geladenes Skript, das vor dem Interpreter geprueft wird.
+               '      - run: |\n'
+               '          wget -q https://x/einrichten.py\n'
+               '          echo "def  einrichten.py" | sha256sum -c -\n'
+               '          python3 einrichten.py --jetzt\n')
     pruefe(not _maengel178(_gut178),
            'und laesst den abgesicherten Fall in Ruhe (%s)'
            % ('; '.join(_maengel178(_gut178)) or 'sauber'))
