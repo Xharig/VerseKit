@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.5 - 2026-09-20
+
+> **Schiffe heißen wieder, wie sie heißen.** Wer ein Schiff besitzt, das die
+> eigene Sprachdatei noch nicht kennt, sah im Abrufterminal `@vehicle_Name…`
+> statt „Aegis Sabre Raven EX". Verse-Kit ergänzte solche Namen bisher nur
+> dann, wenn zufällig eine englische Sprachdatei danebenlag — und die hat fast
+> niemand. Jetzt holt es sie aus dem Spiel selbst.
+
+### Behoben
+
+- **Im Abrufterminal standen Schiffe als `@vehicle_Name…`** statt mit ihrem
+  Namen. Die Ergänzung fehlender Schiffsnamen brauchte bisher eine englische
+  Sprachdatei im Spielordner; ohne sie tat sie **gar nichts**. Sie nimmt jetzt
+  die Originaltexte aus dem Spiel, die jede Installation mitbringt.
+  Gemeldet von Bushwick4712 (KRT)
+
 ## v3.53.4 - 2026-09-20
 
 > **Baupläne heißen wieder, wie sie heißen.** Wer eine Sprache spielt, für die
@@ -23,11 +39,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` statt „Marlin". Kann Star Citizen
   einen Namen nicht übersetzen, schreibt es den Schlüssel in die Meldung; im
   Bestand blieb er dann stehen. Er wird jetzt aufgelöst, bevor der Bauplan
-  dort landet. Gemeldet von Bushwick4712 (KRT)
+  dort landet
 - **Auch ohne Übersetzung gibt es lesbare Namen.** Die Originaltexte liegen in
   jeder Installation im Spiel selbst — von dort holt sich Verse-Kit einmalig
   die Namen, wenn es sie sonst nirgends findet. Am Spiel wird dabei **nichts**
-  verändert. Gemeldet von Bushwick4712 (KRT)
+  verändert
 
 ## v3.53.3 - 2026-09-20
 

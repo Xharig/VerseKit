@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.5 - 2026-09-20
+
+> **Ships are called what they are called again.** If you own a ship your own
+> language file does not know yet, the ASOP terminal showed `@vehicle_Name…`
+> instead of “Aegis Sabre Raven EX”. Verse-Kit only filled such names in when
+> an English language file happened to sit next to it — and almost nobody has
+> one. It now takes them from the game itself.
+
+### Fixed
+
+- **The ASOP terminal listed ships as `@vehicle_Name…`** instead of their
+  name. Filling in missing ship names required an English language file in the
+  game folder; without it, nothing happened at all. It now uses the original
+  texts that ship with every installation.
+  Reported by Bushwick4712 (KRT)
+
 ## v3.53.4 - 2026-09-20
 
 > **Blueprints are called what they are called again.** If you play a language
@@ -23,11 +39,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` instead of “Marlin”. When Star
   Citizen cannot translate a name, it writes the key into the notification, and
   there it stayed. It is now resolved before the blueprint reaches your
-  inventory. Reported by Bushwick4712 (KRT)
+  inventory
 - **Readable names even without a translation.** The original texts ship with
   every installation inside the game itself — Verse-Kit takes the names from
   there once, if it finds them nowhere else. Nothing in the game is changed by
-  this. Reported by Bushwick4712 (KRT)
+  this
 
 ## v3.53.3 - 2026-09-20
 

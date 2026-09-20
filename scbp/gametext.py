@@ -242,6 +242,34 @@ def save_names(daten):
     return len(namen)
 
 
+# Ein Archiv-Versuch je Programmlauf — nicht je Aufrufer und nicht je Name.
+# ⚠ Der Riegel steht **hier**, weil es inzwischen zwei Aufrufer gibt: die
+# Bauplannamen (`phrases`) und die Schiffsnamen (`injection`). Läge er bei
+# einem von beiden, läse der andere das Archiv ein zweites Mal — genau die
+# Doppelpflege, vor der die Projektregel warnt.
+_ARCHIVE_TRIED = [False]
+
+
+def names_or_fetch():
+    """Die Originalnamen — abgelegt, sonst einmalig aus der `Data.p4k`.
+
+    Das ist der Weg für alle, die weder eine gepflegte Übersetzung noch eine
+    entpackte englische `global.ini` haben. Am Spiel wird dabei **nichts**
+    verändert: kein Schreiben, kein `g_language`.
+    """
+    namen = saved_names()
+    if namen:
+        return namen
+    if _ARCHIVE_TRIED[0]:
+        return {}
+    _ARCHIVE_TRIED[0] = True
+    daten, _meldung = read_from_archive('english')
+    if not daten:
+        return {}
+    save_names(daten)
+    return saved_names()
+
+
 def saved_names():
     """Die abgelegten Originalnamen — leer, wenn es sie (noch) nicht gibt."""
     try:

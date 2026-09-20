@@ -25159,23 +25159,79 @@ def main():
     # c) ⚠ Der Riegel: EIN Versuch je Programmlauf, nicht einer je Name.
     #    Ohne ihn laese ein Log-Abschnitt mit drei unbekannten Namen dreimal
     #    dasselbe 144-GB-Archiv.
-    from scbp import phrases as _ph259
     _zaehler259 = [0]
-    _alt259 = (_gt259.read_from_archive, list(_ph259._ARCHIVE_TRIED))
+    _alt259 = (_gt259.read_from_archive, _gt259.saved_names,
+               list(_gt259._ARCHIVE_TRIED))
     try:
         def _zaehlen259(*a, **k):
             _zaehler259[0] += 1
             return None, 'kein Archiv im Prueflauf'
         _gt259.read_from_archive = _zaehlen259
-        _ph259._ARCHIVE_TRIED[0] = False
-        _ph259._archive_names_once()
-        _ph259._archive_names_once()
-        _ph259._archive_names_once()
+        _gt259.saved_names = lambda: {}
+        _gt259._ARCHIVE_TRIED[0] = False
+        _gt259.names_or_fetch()
+        _gt259.names_or_fetch()
+        _gt259.names_or_fetch()
         pruefe(_zaehler259[0] == 1,
                'drei Anlaeufe lesen das Archiv genau EINMAL (%d)' % _zaehler259[0])
     finally:
         _gt259.read_from_archive = _alt259[0]
-        _ph259._ARCHIVE_TRIED[0] = _alt259[1][0]
+        _gt259.saved_names = _alt259[1]
+        _gt259._ARCHIVE_TRIED[0] = _alt259[2][0]
+
+    # d) ⚠⚠ **Der Riegel gehoert zu `gametext`, nicht zu einem Aufrufer.** Es
+    #    gibt ZWEI: die Bauplannamen (`phrases`) und die Schiffsnamen
+    #    (`injection`). Laege er bei einem, laese der andere das Archiv ein
+    #    zweites Mal. Geprueft per Syntaxbaum, nicht per Textsuche.
+    import ast as _ast259
+    for _datei259, _erwartet259 in (('phrases.py', True), ('injection.py', True)):
+        _q259 = open(os.path.join(WURZEL, 'scbp', _datei259),
+                     encoding='utf-8').read()
+        _rufe259 = [k for k in _ast259.walk(_ast259.parse(_q259))
+                    if isinstance(k, _ast259.Attribute)
+                    and k.attr == 'names_or_fetch']
+        pruefe(bool(_rufe259) == _erwartet259,
+               '%s holt die Originalnamen ueber die gemeinsame Stelle'
+               % _datei259)
+
+    # e) ⚠⚠ **Der Fall, mit dem alles anfing: die SCHIFFSNAMEN im ASOP.**
+    #    Gemeldet mit einem Bild des Flottenmanagers, in dem eine Zeile
+    #    `@vehicle_NameAEGS_Sabre_Raven_EX` hiess. Ohne englische `global.ini`
+    #    daneben gab `_added_ship_names()` frueher **leer** zurueck — und die
+    #    Zeile blieb, wie sie war.
+    #
+    #    ⛔ Geprueft wird `_added_ship_names()` selbst, NICHT `missing_names()`.
+    #    Der erste Entwurf dieser Pruefung rief die Hilfsfunktion direkt und
+    #    waere auch dann gruen geblieben, wenn der neue Zweig in
+    #    `_added_ship_names` gar nicht existierte.
+    from scbp import injection as _inj259
+    _dir259b = tempfile.mkdtemp(prefix='pruefung259b-')
+    _altg259 = _gt259.names_or_fetch
+    try:
+        # Eine deutsche Sprachdatei OHNE englische daneben — Bushwicks Lage.
+        _de259 = os.path.join(_dir259b, 'german_(germany)')
+        os.makedirs(_de259)
+        _ini259b = os.path.join(_de259, 'global.ini')
+        open(_ini259b, 'w', encoding='utf-8').close()
+        pruefe(not os.path.isfile(os.path.join(_dir259b, 'english',
+                                               'global.ini')),
+               'Vorbedingung: es liegt KEINE englische global.ini daneben')
+
+        _gt259.names_or_fetch = lambda: {
+            'vehicle_NameAEGS_Sabre_Raven_EX': 'Aegis Sabre Raven EX',
+            'vehicle_NameAEGS_Sabre_Raven_EX_short': 'Sabre Raven EX',
+            'vehicle_NameAEGS_Sabre': 'Aegis Sabre'}
+        _eigen259 = ['vehicle_NameAEGS_Sabre=Aegis Sabre']
+        _fehlt259 = _inj259._added_ship_names(_ini259b, _eigen259, {})
+        pruefe(_fehlt259.get('vehicle_NameAEGS_Sabre_Raven_EX')
+               == 'Aegis Sabre Raven EX',
+               'das fehlende Schiff wird aus den Originalnamen ergaenzt (%d'
+               ' Namen)' % len(_fehlt259))
+        pruefe('vehicle_NameAEGS_Sabre' not in _fehlt259,
+               'und ein vorhandenes wird nicht angefasst')
+    finally:
+        _gt259.names_or_fetch = _altg259
+        shutil.rmtree(_dir259b, ignore_errors=True)
 
     print()
     if fehler:
