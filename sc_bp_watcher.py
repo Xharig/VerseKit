@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.53.3'
+__version__ = '3.53.4'
 
 
 def _mitgeliefert(name):
