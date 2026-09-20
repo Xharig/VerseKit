@@ -104,7 +104,13 @@ def _names_from_text(text, pattern):
     for m in pattern.finditer(text):
         for value in m.groups():
             if value:
-                out.append(split_names(value))
+                name, extra = split_names(value)
+                # ⚠⚠ **Hier, nicht erst beim Anzeigen.** Konnte das Spiel den
+                # Namen nicht übersetzen, steht in der Meldung der rohe
+                # Schlüssel (`@Nozzle_…_Name`) — und der wäre im Bestand der
+                # Schlüssel des Eintrags, also für immer drin. Siehe
+                # `phrases.resolve_key`.
+                out.append((phrases.resolve_key(name), extra))
                 break
     return out
 
