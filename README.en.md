@@ -441,10 +441,10 @@ What the coloured dots mean:
 
 1. **On start** the tool goes through the stored logs of earlier sessions (`logbackups/`) and quietly adds everything it finds to your inventory — nothing is lost if you played without the watcher running. Those blueprints are **not** reported as new. If the stored logs don't reach far enough back, the watcher says so as an <img src="assets/symbole/16/hinweiszeile-grau.png" width="16" alt=""> line instead of passing off an incomplete list as complete.
 2. **In the background** the **`Game.log`** is read — every 3 seconds, adjustable. *(The wording of the blueprint message depends on your game language — the watcher works it out by itself, see below.)* When the game writes `Added notification "Blueprint Received: <name>: "` on unlock, the blueprint is in the list **immediately** (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) and in your inventory.
-   - **If the SC Deutsch Launcher is installed as well**, it fills in the details (German names) and reports anything the log missed. There is no intermediate stage: what the `Game.log` says is what the game did — there is nothing to confirm.
+   - **If the SC Deutsch Launcher is installed as well**, it reports anything the log missed. There is no intermediate stage: what the `Game.log` says is what the game did — there is nothing to confirm.
 3. Every new line is inserted at the top (name · type · `M/1/A` · time) and a short sound plays.
    - **Once a minute** the craftable catalogue is checked. If it grew, CIG made something **newly craftable** with a patch → a blue line. This has nothing to do with your own unlocks.
-4. **Type, size, grade and class** come from scmdb.net's crafting data and from the bundled game data. If the SC Deutsch Launcher is present, its maintained catalogue takes precedence (German names). Above all of it are your own corrections from `bp-overrides.json`.
+4. **Type, size, grade and class** come from scmdb.net's crafting data and from the bundled game data. Above all of it are your own corrections from `bp-overrides.json`.
 5. **Your inventory** grows along and stays in `bestand.json` — with a note where each blueprint came from (log, catch-up, launcher).
 
 > **Why read the log directly?** The SC Deutsch Launcher reads the same file but only exports its own every few minutes. Measured on 2026-07-30: unlock in game **21:23:49** → launcher export **21:26:24** = **2.5 minutes** of delay. Reading it yourself gets you there in seconds — with nobody in between.
@@ -454,7 +454,7 @@ Files watched:
 ```text
 …\StarCitizen\LIVE\Game.log                 (the game — the actual source)
 …\StarCitizen\LIVE\logbackups\              (earlier sessions, read on start)
-…\sc-deutsch-launcher\blueprints\           (optional: German names, fills gaps)
+…\sc-deutsch-launcher\blueprints\           (optional: reports what the log missed)
 ```
 
 Its own files (inventory, settings, cache) live here:
