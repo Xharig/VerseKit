@@ -8,6 +8,14 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.3 - 2026-09-20
+
+> **Rebinding a joystick button on Windows no longer puts anything at risk.**
+> While waiting for the button press, Verse-Kit asked the joystick driver which
+> device was attached — and that single call could end the program without
+> warning. Setups with several sticks were hit most often, which is exactly the
+> group with the most buttons to bind. Windows itself now provides the answer.
+
 ### Fixed
 
 - **Key binding on Windows:** While waiting for a button press, the tool asked
