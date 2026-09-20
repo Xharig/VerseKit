@@ -8,6 +8,15 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.3 - 2026-09-20
+
+> **Wer unter Windows eine Joystick-Taste neu belegt, riskiert dabei nichts
+> mehr.** Beim Warten auf den Knopfdruck fragte Verse-Kit den Joystick-Treiber,
+> welches Gerät da überhaupt hängt — und dieser eine Aufruf konnte das Programm
+> ohne Vorwarnung beenden. Am ehesten traf es Aufbauten mit mehreren Sticks,
+> also genau die Leute, die am meisten zu belegen haben. Die Angabe kommt jetzt
+> von Windows selbst.
+
 ### Behoben
 
 - **Tastenbelegung unter Windows:** Beim Warten auf einen Knopfdruck fragte das
