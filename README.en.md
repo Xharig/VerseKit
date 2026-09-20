@@ -68,6 +68,8 @@ The watcher writes into the game's mission text **which** blueprints a contract 
 
 A new blueprint immediately raises the next question: **does this part even fit any of my ships?** For that the tool has to know what is in your hangar — the game records it nowhere.
 
+> **How your hangar gets into the tool:** the browser add-on **Star Citizen: Hangar Extension** by AlyxOne adds export buttons to your pledge page — for [Firefox](https://addons.mozilla.org/en-US/firefox/addon/star-citizen-hangar-extension/), [Chrome](https://chromewebstore.google.com/detail/star-citizen-hangar-exten/jeoidbfcbdplammndhpflojejmpkjcfm) and [Edge](https://microsoftedge.microsoft.com/addons/detail/star-citizen-hangar-exte/agahppbhmogalnjlaolmjbbemlcjbioe). Download **both** files there and pick them one after the other under **My ships → “Import from the pledge store”**: the JSON brings the bundle relations and the insurance, the CSV adds purchase date and price — nothing gets duplicated. No export knows about ships bought in-game; you add those by hand.
+
 <table>
 <tr>
 <td colspan="2" valign="top" align="center">
