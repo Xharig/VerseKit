@@ -226,15 +226,50 @@ def _lookup_key(key):
                             return text
         except OSError:
             continue
-    # ⭐ Letzte Quelle: die Originalnamen aus der `Data.p4k`, falls sie einmal
-    # gelesen wurden. Sie sind der einzige Weg für alle, die weder eine
-    # gepflegte Übersetzung noch eine entpackte englische `global.ini` haben —
-    # und das ist der Normalfall (gemeldet 20.09.2026, `inj_quelle=original`).
+    # ⭐ Letzte Quelle: die Originalnamen aus der `Data.p4k`. Sie sind der
+    # einzige Weg für alle, die weder eine gepflegte Übersetzung noch eine
+    # entpackte englische `global.ini` haben — und das ist der Normalfall
+    # (gemeldet 20.09.2026, `inj_quelle=original`).
     try:
         from . import gametext
-        return gametext.saved_names().get(key)
+        namen = gametext.saved_names()
+        if not namen:
+            namen = _archive_names_once()
+        return namen.get(key)
     except Exception:
         return None
+
+
+# Ein Versuch je Programmlauf — nicht je Name. Ohne den Riegel läse ein
+# Log-Abschnitt mit drei unbekannten Namen dreimal dasselbe Archiv.
+_ARCHIVE_TRIED = [False]
+
+
+def _archive_names_once():
+    """Die Originalnamen einmalig aus der `Data.p4k` holen und ablegen.
+
+    ⚠⚠ **Bestandsnutzer gehen nie wieder durch die Einrichtung.** Genau sie
+    sind aber betroffen: Wer das Werkzeug seit Monaten benutzt, hat den
+    Assistenten einmal gesehen und danach nie wieder (`einrichtung_fertig`).
+    Deshalb holt sich das Werkzeug die Namen beim ersten unauflösbaren
+    Schlüssel selbst, statt eine Hinweiszeile zu setzen, die niemand liest.
+
+    ⚠ Gemessen an einer echten Installation (4.10.1): **1,0 s** für 10 MB aus
+    einem 144-GB-Archiv. Der frühere Verdacht „das dauert Minuten" war eine
+    Rechnung über 1,3 Mio Verzeichniseinträge, keine Messung. Auf einer
+    langsamen Platte kann der erste, kalte Zugriff länger dauern — deshalb
+    läuft der Aufruf dort, wo auch die Log-Auswertung läuft (eigener Faden),
+    und **nicht** in der Oberfläche.
+    """
+    if _ARCHIVE_TRIED[0]:
+        return {}
+    _ARCHIVE_TRIED[0] = True
+    from . import gametext
+    daten, _meldung = gametext.read_from_archive('english')
+    if not daten:
+        return {}
+    gametext.save_names(daten)
+    return gametext.saved_names()
 
 
 def _readable(key):

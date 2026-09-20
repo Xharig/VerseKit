@@ -25126,6 +25126,57 @@ def main():
         _ph258._KEY_CACHE.update(_alt258[1])
         shutil.rmtree(_dir258, ignore_errors=True)
 
+    print('\n259. Die Originalnamen aus der Data.p4k')
+    # Teil 2 zum Fall vom 20.09.2026: Wer weder eine gepflegte Uebersetzung
+    # noch eine entpackte englische `global.ini` hat, bekommt sonst keinen
+    # Namen. Die englische Datei liegt in JEDER Installation im Archiv.
+    from scbp import gametext as _gt259
+
+    # a) ⚠⚠ Der Filter. Gefiltert wird auf `name` IRGENDWO im Schluessel —
+    #    Fahrzeuge heissen `vehicle_NameAEGS_…`, tragen es also in der MITTE.
+    #    Ein Filter auf die Endung `_Name` haette ausgerechnet die Schiffe
+    #    verfehlt, also genau den Fall, mit dem die Sache anfing.
+    _roh259 = ('Nozzle_FuelGiver_GRIN_NozzleSecure_Name=Marlin\n'
+               'vehicle_NameAEGS_Sabre_Raven_EX=*Aegis Sabre Raven EX\n'
+               'vehicle_NameAEGS_Sabre_Raven_EX_short,P=Sabre Raven EX\n'
+               'mission_briefing_long=Ein langer Missionstext\n'
+               'kaputte zeile ohne gleichheitszeichen\n')
+    _namen259 = _gt259.names_from_ini(_roh259)
+    pruefe(_namen259.get('Nozzle_FuelGiver_GRIN_NozzleSecure_Name') == 'Marlin',
+           'ein Gegenstandsname kommt durch')
+    pruefe(_namen259.get('vehicle_NameAEGS_Sabre_Raven_EX')
+           == 'Aegis Sabre Raven EX',
+           'ein Schiffsname mit „Name" in der MITTE auch — und ohne Sternmarke')
+    pruefe(_namen259.get('vehicle_NameAEGS_Sabre_Raven_EX_short') == 'Sabre Raven EX',
+           'das `,P` gehoert nicht zum Schluessel')
+    pruefe('mission_briefing_long' not in _namen259,
+           'Missionstexte bleiben draussen (sonst waeren es 10 MB statt 1)')
+
+    # b) Auch aus Bytes lesbar — so kommt es aus dem Archiv.
+    pruefe(_gt259.names_from_ini(_roh259.encode('utf-8'))== _namen259,
+           'Bytes und Text ergeben dasselbe')
+
+    # c) ⚠ Der Riegel: EIN Versuch je Programmlauf, nicht einer je Name.
+    #    Ohne ihn laese ein Log-Abschnitt mit drei unbekannten Namen dreimal
+    #    dasselbe 144-GB-Archiv.
+    from scbp import phrases as _ph259
+    _zaehler259 = [0]
+    _alt259 = (_gt259.read_from_archive, list(_ph259._ARCHIVE_TRIED))
+    try:
+        def _zaehlen259(*a, **k):
+            _zaehler259[0] += 1
+            return None, 'kein Archiv im Prueflauf'
+        _gt259.read_from_archive = _zaehlen259
+        _ph259._ARCHIVE_TRIED[0] = False
+        _ph259._archive_names_once()
+        _ph259._archive_names_once()
+        _ph259._archive_names_once()
+        pruefe(_zaehler259[0] == 1,
+               'drei Anlaeufe lesen das Archiv genau EINMAL (%d)' % _zaehler259[0])
+    finally:
+        _gt259.read_from_archive = _alt259[0]
+        _ph259._ARCHIVE_TRIED[0] = _alt259[1][0]
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

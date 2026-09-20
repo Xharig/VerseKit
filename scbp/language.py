@@ -2340,13 +2340,17 @@ TEXTS = {
                               'and cooldown in the mission text**: the figures '
                               'were in the data but appeared nowhere in game.'),
     's_dk_bushwick_bugs':    ('Dazu, dass ein frisch erhaltener Bauplan nicht sofort in '
-                              'der Liste stand, und dass das Auftrags-Protokoll '
-                              'beim ersten Öffnen nicht auffrischte. Und die '
+                              'der Liste stand, dass das Auftrags-Protokoll '
+                              'beim ersten Öffnen nicht auffrischte, und dass '
+                              'Baupläne mit einem rohen Textschlüssel statt '
+                              'ihrem Namen im Bestand landeten. Und die '
                               'Idee, im Fehlerbericht ein Feld für die Meldung '
                               'einzubauen.',
                               'Plus a freshly received blueprint not showing up '
-                              'in the list right away, and the mission log not '
-                              'refreshing the first time you opened it. And the '
+                              'in the list right away, the mission log not '
+                              'refreshing the first time you opened it, and '
+                              'blueprints ending up in the inventory with a raw '
+                              'text key instead of their name. And the '
                               'idea of a field for your message in the error '
                               'report.'),
     's_dk_bushwick_idee2':   ('**Rufpunkte und Abklingzeit in den Auftragstexten** '

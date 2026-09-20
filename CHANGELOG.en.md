@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.53.4 - 2026-09-20
+
+> **Blueprints are called what they are called again.** If you play a language
+> for which Star Citizen has not translated a name yet, you got the bare text
+> key instead of “Marlin” — and because the name *is* the key in your
+> inventory, it stayed there for good. That is over, and readable names now
+> work without an installed translation too: the original texts ship with the
+> game itself.
+
+### Fixed
+
+- **Blueprints sat in the inventory with a raw text key** — as
+  `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` instead of “Marlin”. When Star
+  Citizen cannot translate a name, it writes the key into the notification, and
+  there it stayed. It is now resolved before the blueprint reaches your
+  inventory. Reported by Bushwick4712 (KRT)
+- **Readable names even without a translation.** The original texts ship with
+  every installation inside the game itself — Verse-Kit takes the names from
+  there once, if it finds them nowhere else. Nothing in the game is changed by
+  this. Reported by Bushwick4712 (KRT)
+
 ## v3.53.3 - 2026-09-20
 
 > **Rebinding a joystick button on Windows no longer puts anything at risk.**

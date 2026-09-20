@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.53.4 - 2026-09-20
+
+> **Baupläne heißen wieder, wie sie heißen.** Wer eine Sprache spielt, für die
+> Star Citizen einen Namen noch nicht übersetzt hat, bekam statt „Marlin" den
+> nackten Textschlüssel zu sehen — und weil im Bestand der Name der Schlüssel
+> ist, blieb er dort für immer stehen. Das ist vorbei, und lesbare Namen gibt
+> es jetzt auch ohne installierte Übersetzung: Die Originaltexte liegen im
+> Spiel selbst.
+
+### Behoben
+
+- **Baupläne standen mit rohem Textschlüssel im Bestand** — als
+  `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` statt „Marlin". Kann Star Citizen
+  einen Namen nicht übersetzen, schreibt es den Schlüssel in die Meldung; im
+  Bestand blieb er dann stehen. Er wird jetzt aufgelöst, bevor der Bauplan
+  dort landet. Gemeldet von Bushwick4712 (KRT)
+- **Auch ohne Übersetzung gibt es lesbare Namen.** Die Originaltexte liegen in
+  jeder Installation im Spiel selbst — von dort holt sich Verse-Kit einmalig
+  die Namen, wenn es sie sonst nirgends findet. Am Spiel wird dabei **nichts**
+  verändert. Gemeldet von Bushwick4712 (KRT)
+
 ## v3.53.3 - 2026-09-20
 
 > **Wer unter Windows eine Joystick-Taste neu belegt, riskiert dabei nichts
