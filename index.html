@@ -148,6 +148,10 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .datei h3{margin:8px 0 4px;font-size:22px;font-weight:800}
 .datei code{color:var(--neon);font-size:14px;word-break:break-all}
 .datei .knopf{margin-top:16px}
+/* Zeile unter den beiden Knoepfen: Fassungsnummer wird nachgetragen, sobald
+   GitHub geantwortet hat — bleibt sie aus, steht dort einfach nichts. */
+.laden .fassung{color:var(--text-leise);font-size:15px;margin:0 0 22px}
+.laden .fassung strong{color:var(--neon);margin-right:6px}
 
 /* ---------- Fuß ---------- */
 footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
@@ -300,17 +304,24 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
         <div class="sys">Windows</div>
         <h3 data-de="Installer" data-en="Installer">Installer</h3>
         <code>VerseKit-Setup.exe</code>
-        <a class="knopf voll" href="https://github.com/Xharig/VerseKit/releases/latest"
-           data-de="Zur neuesten Version" data-en="Latest release">Zur neuesten Version</a>
+        <a class="knopf voll" href="https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-Setup.exe"
+           data-de="Herunterladen" data-en="Download">Herunterladen</a>
       </div>
       <div class="datei">
         <div class="sys">Linux</div>
         <h3 data-de="Einzelne Datei" data-en="Single file">Einzelne Datei</h3>
         <code>VerseKit-x86_64.AppImage</code>
-        <a class="knopf voll" href="https://github.com/Xharig/VerseKit/releases/latest"
-           data-de="Zur neuesten Version" data-en="Latest release">Zur neuesten Version</a>
+        <a class="knopf voll" href="https://github.com/Xharig/VerseKit/releases/latest/download/VerseKit-x86_64.AppImage"
+           data-de="Herunterladen" data-en="Download">Herunterladen</a>
       </div>
     </div>
+
+    <p class="fassung">
+      <span data-de="Die Knöpfe laden immer die neueste Fassung." data-en="The buttons always download the latest version.">Die Knöpfe laden immer die neueste Fassung.</span>
+      <strong id="fassung"></strong>
+      <a href="https://github.com/Xharig/VerseKit/releases"
+         data-de="Alle Fassungen ansehen" data-en="See all versions">Alle Fassungen ansehen</a>
+    </p>
 
     <p class="hinweis"
        data-de="Beim ersten Start meldet Windows „Der Computer wurde durch Windows geschützt“ — das passiert bei jedem Programm ohne teures Zertifikat. Auf „Weitere Informationen“ klicken, dann auf „Trotzdem ausführen“. Die Anleitung im Verzeichnis erklärt es mit Bildern."
@@ -519,6 +530,7 @@ function sprache(s){
    Zehn Minuten im sessionStorage, damit Blaettern nicht jedes Mal fragt
    (GitHub erlaubt 60 Abfragen je Stunde und Besucher). */
 var downloads = null;
+var fassung = null;      // Nummer der neuesten fertigen Fassung, z. B. "v3.53.2"
 
 function zahlZeigen(){
   if (downloads === null) return;
@@ -532,13 +544,19 @@ function zahlHolen(seite, summe){
     .then(function(r){ if (!r.ok) throw r.status; return r.json(); })
     .then(function(liste){
       for (var i = 0; i < liste.length; i++){
+        /* Die Liste kommt neueste zuerst. Testfassungen (-rc) ueberspringen —
+           die Knoepfe laden ebenfalls nur fertige Fassungen. */
+        if (fassung === null && !liste[i].prerelease && !liste[i].draft){
+          fassung = liste[i].tag_name;
+          document.getElementById("fassung").textContent = fassung;
+        }
         for (var k = 0; k < liste[i].assets.length; k++){
           summe += liste[i].assets[k].download_count;
         }
       }
       if (liste.length === 100) return zahlHolen(seite + 1, summe);
       downloads = summe;
-      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, t:Date.now()})); } catch (e) {}
+      try { sessionStorage.setItem("vk-downloads", JSON.stringify({n:summe, v:fassung, t:Date.now()})); } catch (e) {}
       zahlZeigen();
     })
     .catch(function(){});
@@ -546,7 +564,13 @@ function zahlHolen(seite, summe){
 
 try {
   var gemerkt = JSON.parse(sessionStorage.getItem("vk-downloads") || "null");
-  if (gemerkt && Date.now() - gemerkt.t < 600000) downloads = gemerkt.n;
+  if (gemerkt && Date.now() - gemerkt.t < 600000){
+    downloads = gemerkt.n;
+    if (gemerkt.v){
+      fassung = gemerkt.v;
+      document.getElementById("fassung").textContent = fassung;
+    }
+  }
 } catch (e) {}
 if (downloads === null) zahlHolen(1, 0); else zahlZeigen();
 
