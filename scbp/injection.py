@@ -403,10 +403,23 @@ def _added_ship_names(ini_path, lines, origtext_old):
         if os.path.basename(folder).lower() == 'english':
             return {}
         english = os.path.join(os.path.dirname(folder), 'english', 'global.ini')
-        if not os.path.isfile(english):
+        if os.path.isfile(english):
+            with open(english, encoding='utf-8', errors='ignore') as f:
+                reference = f.read().splitlines()
+        else:
+            # ⭐⭐ **Keine englische Datei daneben — und das ist der Normalfall**
+            # (20.09.2026). Sie entsteht nur, wenn jemand StarStrings oder
+            # „Originaltexte" eingerichtet hat; wer bei einer Übersetzung
+            # bleibt, hat sie nie. Bis hierher hiess das: gar keine Ergaenzung,
+            # und im Flottenmanager stand weiter `@vehicle_Name…`.
+            #
+            # Die Originaltexte liegen in JEDER Installation in der
+            # `Data.p4k` — von dort, ohne am Spiel etwas zu veraendern.
+            from . import gametext
+            namen = gametext.names_or_fetch()
+            reference = ['%s=%s' % (k, v) for k, v in namen.items()]
+        if not reference:
             return {}
-        with open(english, encoding='utf-8', errors='ignore') as f:
-            reference = f.read().splitlines()
         own = [line for line in lines
                if origtext_old.get(line.split('=', 1)[0]) != ADDED]
         return asop_modul.missing_names(own, reference)
