@@ -8,6 +8,14 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Behoben
+
+- **Tastenbelegung unter Windows:** Beim Warten auf einen Knopfdruck fragte das
+  Programm den Joystick-Treiber nach der Geräte-Kennung. Dieser Aufruf konnte
+  das Programm hart beenden — auf Rechnern mit mehreren Joysticks am ehesten.
+  Die Kennung kommt jetzt aus Windows selbst, der Treiber wird dafür nicht mehr
+  angesprochen
+
 ## v3.53.2 - 2026-09-19
 
 > **AlyxOne steht wieder richtig auf der Danke-Seite.** Die Richtigstellung in

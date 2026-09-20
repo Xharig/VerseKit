@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Fixed
+
+- **Key binding on Windows:** While waiting for a button press, the tool asked
+  the joystick driver for the device identifier. That call could terminate the
+  program outright — most likely on machines with several joysticks. The
+  identifier now comes from Windows itself; the driver is no longer involved
+
 ## v3.53.2 - 2026-09-19
 
 > **AlyxOne is credited correctly on the thanks page again.** The correction in
