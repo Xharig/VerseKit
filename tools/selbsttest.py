@@ -25075,6 +25075,57 @@ def main():
         (_ct257.missions, _ct257.contract_definitions,
          _ct257._index, _ct257._pattern_index) = _alt257
 
+    print('\n258. Ein unuebersetzter Bauplanname kommt nicht in den Bestand')
+    # ⚠⚠ Gemeldet am 20.09.2026 (Bushwick4712, v3.53.3): Drei Bauplaene standen
+    # als `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` im Bestand. Konnte das
+    # Spiel den Namen nicht uebersetzen, schreibt es den rohen Schluessel in
+    # die Meldung — und im Bestand IST der Name der Schluessel. Die Zeile im
+    # Flottenmanager heilt, sobald die Uebersetzung nachzieht; ein so
+    # gespeicherter Bauplan nicht, er stuende beim naechsten Fund doppelt da.
+    #
+    # ⚠ Geprueft wird die **Wirkung** am echten Weg (`_names_from_text`), nicht
+    # nur die Hilfsfunktion.
+    from scbp import phrases as _ph258, logsource as _ls258
+
+    _alt258 = (_ph258._ini_files, dict(_ph258._KEY_CACHE))
+    _dir258 = tempfile.mkdtemp(prefix='pruefung258-')
+    try:
+        _ini258 = os.path.join(_dir258, 'global.ini')
+        with open(_ini258, 'w', encoding='utf-8') as _f258:
+            _f258.write('Nozzle_FuelGiver_GRIN_NozzleSecure_Name=Marlin\n')
+            # Ein Stern vorn ist eine fremde Marke und gehoert nicht zum Namen.
+            _f258.write('vehicle_NameAEGS_Sabre_Raven_EX=*Aegis Sabre Raven EX\n')
+        _ph258._ini_files = lambda: [_ini258]
+        _ph258._KEY_CACHE.clear()
+
+        pruefe(_ph258.resolve_key('@Nozzle_FuelGiver_GRIN_NozzleSecure_Name')
+               == 'Marlin',
+               'der Schluessel wird in der global.ini nachgeschlagen')
+        pruefe(_ph258.resolve_key('@vehicle_NameAEGS_Sabre_Raven_EX')
+               == 'Aegis Sabre Raven EX',
+               'und eine fremde Sternmarke bleibt nicht am Namen haengen')
+        # ⚠ Kein Fund heisst NICHT wegwerfen: Der Bauplan ist echt, wer ihn
+        # freigeschaltet hat, soll ihn im Bestand finden.
+        pruefe(_ph258.resolve_key('@Etwas_Ganz_Neues_Name') == 'Etwas Ganz Neues',
+               'ein unbekannter Schluessel wird lesbar statt verworfen (%r)'
+               % _ph258.resolve_key('@Etwas_Ganz_Neues_Name'))
+        pruefe(_ph258.resolve_key('Attrition-5 Repeater') == 'Attrition-5 Repeater',
+               'ein normaler Name wird nicht angefasst')
+
+        # Die Wirkung: derselbe Weg, den das Log nimmt.
+        _muster258 = _ph258.pattern(['Bauplan erhalten'])
+        _zeile258 = ('<SHUDEvent_OnNotification> Added notification '
+                     '"Bauplan erhalten: '
+                     '@Nozzle_FuelGiver_GRIN_NozzleSecure_Name: "')
+        _raus258 = _ls258._names_from_text(_zeile258, _muster258)
+        pruefe(_raus258 and _raus258[0][0] == 'Marlin',
+               'und aus der Log-Zeile kommt der lesbare Name (%r)' % (_raus258,))
+    finally:
+        _ph258._ini_files = _alt258[0]
+        _ph258._KEY_CACHE.clear()
+        _ph258._KEY_CACHE.update(_alt258[1])
+        shutil.rmtree(_dir258, ignore_errors=True)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

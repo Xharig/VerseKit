@@ -97,6 +97,19 @@ FRAME = r'Added notification "(?:%s):\s*(.+?)\s*:\s*"'
 # einer unbekannten Sprache lautet — siehe `selbst_finden()`.
 FRAME_OPEN = re.compile(r'Added notification "([^":]{3,60}):\s*(.+?)\s*:\s*"')
 
+# ⚠⚠ **Ein Name, den das Spiel nicht übersetzen konnte** — Star Citizen
+# schreibt dann den rohen Textschlüssel mit `@` davor, auch in die
+# Bauplan-Meldung. Gemeldet am 20.09.2026 (Bushwick4712, v3.53.3): Drei
+# Baupläne standen als `@Nozzle_FuelGiver_GRIN_NozzleSecure_Name` im Bestand —
+# **dauerhaft**, denn der Name IST dort der Schlüssel. Die Zeile im
+# Flottenmanager heilt von selbst, sobald die Übersetzung nachzieht; ein
+# einmal so gespeicherter Bauplan nicht.
+UNRESOLVED = re.compile(r'^@([A-Za-z0-9_]+)$')
+
+# Aufgelöste Schlüssel — ein Fund kostet einen Dateidurchlauf, der kommt nicht
+# zweimal.
+_KEY_CACHE = {}
+
 
 def _ini_files():
     """Alle entpackten `global.ini` der Installation (kann leer sein)."""
@@ -188,6 +201,73 @@ def _read_ini(path):
     except OSError:
         return None
     return None
+
+
+def _lookup_key(key):
+    """Den Text zu einem Schlüssel aus den vorhandenen `global.ini` — oder None.
+
+    Durchsucht alle entpackten Sprachdateien der Installation, die deutsche
+    wie die englische: Fehlt der Eintrag in der einen, steht er vielleicht in
+    der anderen. Ein englischer Name ist allemal besser als ein roher
+    Schlüssel.
+    """
+    needle = key.lower() + '='
+    short = key.lower() + ',p='
+    for path in _ini_files():
+        try:
+            with open(path, encoding='utf-8-sig', errors='ignore') as f:
+                for line in f:
+                    low = line[:len(key) + 3].lower()
+                    if low.startswith(needle) or low.startswith(short):
+                        # Ein Stern vorn ist eine fremde Marke (StarStrings,
+                        # SC Deutsch Launcher) — er gehört nicht zum Namen.
+                        text = line.split('=', 1)[1].strip().lstrip('*').strip()
+                        if text:
+                            return text
+        except OSError:
+            continue
+    return None
+
+
+def _readable(key):
+    """Aus einem Schlüssel einen lesbaren Namen bauen — der letzte Ausweg.
+
+    `Nozzle_FuelGiver_GRIN_NozzleSecure_Name` → `Nozzle FuelGiver GRIN
+    NozzleSecure`. Kein schöner Name, aber einer, den ein Mensch vorlesen
+    kann — und vor allem keiner, der wie ein Programmfehler aussieht.
+    """
+    text = key
+    for tail in ('_Name', '_name', '_Title', '_title'):
+        if text.endswith(tail):
+            text = text[:-len(tail)]
+            break
+    return text.replace('_', ' ').strip() or key
+
+
+def resolve_key(name):
+    """Einen unaufgelösten Textschlüssel in einen lesbaren Namen wandeln.
+
+    Alles andere kommt unverändert zurück — die Funktion darf an **jedem**
+    Namen vorbeilaufen, ohne etwas anzufassen.
+
+    ⚠⚠ **Warum das beim EINLESEN passiert und nicht erst beim Anzeigen:** Der
+    Name ist im Bestand der Schlüssel. Was einmal als `@…_Name` gespeichert
+    wurde, bleibt es auch dann, wenn die Übersetzung später nachzieht — und
+    würde beim nächsten Fund als **zweiter** Eintrag danebenstehen.
+
+    ⚠ Findet sich nichts, wird der Schlüssel lesbar gemacht statt verworfen.
+    Der Bauplan ist ja echt: Wer ihn freigeschaltet hat, soll ihn im Bestand
+    finden, auch wenn CIG den Text noch nicht übersetzt hat.
+    """
+    if not name:
+        return name
+    match = UNRESOLVED.match(name.strip())
+    if not match:
+        return name
+    key = match.group(1)
+    if key not in _KEY_CACHE:
+        _KEY_CACHE[key] = _lookup_key(key) or _readable(key)
+    return _KEY_CACHE[key]
 
 
 def _own():
