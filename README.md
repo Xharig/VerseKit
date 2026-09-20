@@ -444,10 +444,10 @@ Was die Farbpunkte in der Liste bedeuten:
 
 1. **Beim Start** sieht das Tool die aufgehobenen Logs vergangener Sitzungen durch (`logbackups/`) und übernimmt alles Gefundene still in deinen Bestand — wer ohne laufenden Watcher gespielt hat, verliert nichts. Diese Baupläne werden **nicht** als neu gemeldet. Reichen die Sicherungen nicht weit genug zurück, sagt der Watcher das als <img src="assets/symbole/16/hinweiszeile-grau.png" width="16" alt="">-Zeile, statt eine unvollständige Liste als vollständig auszugeben.
 2. **Im Hintergrund** (eigener Thread) wird die **`Game.log`** gelesen — alle 3 Sekunden, einstellbar. Schreibt das Spiel beim Freischalten `Added notification "Bauplan erhalten: <Name>: "`, steht der Bauplan **sofort** in der Liste (<img src="assets/symbole/16/bestaetigt-gruen.png" width="16" alt="">) und im Bestand.
-   - **Ist zusätzlich der SC Deutsch Launcher installiert**, ergänzt er die Angaben (deutsche Bezeichnungen) und meldet nach, was im Log fehlte. Eine Zwischenstufe gibt es nicht: Was in der `Game.log` steht, steht im Spiel — da ist nichts zu bestätigen.
+   - **Ist zusätzlich der SC Deutsch Launcher installiert**, meldet er nach, was im Log fehlte. Eine Zwischenstufe gibt es nicht: Was in der `Game.log` steht, steht im Spiel — da ist nichts zu bestätigen.
 3. Jede neue Zeile wird oben eingefügt (Name · Art · `M/1/A` · Uhrzeit) und ein kurzer Ton gespielt.
    - **Einmal pro Minute** wird der Craftbar-Katalog geprüft. Ist er gewachsen, hat CIG mit einem Patch etwas **neu craftbar** gemacht → eine blaue Zeile. Das hat nichts mit deinem Freischalt-Stand zu tun. Der Vergleichsstand liegt als `catalog-seen.json` im eigenen Ordner und überlebt Neustarts; beim allerersten Start wird nur die Basis gesetzt.
-4. **Art, Größe, Gütegrad und Klasse** kommen aus den Craftdaten von scmdb.net und aus den mitgelieferten Spieldaten. Ist der SC Deutsch Launcher da, hat sein gepflegter Katalog Vorrang (deutsche Bezeichnungen). Über allem stehen deine eigenen Korrekturen aus `bp-overrides.json`.
+4. **Art, Größe, Gütegrad und Klasse** kommen aus den Craftdaten von scmdb.net und aus den mitgelieferten Spieldaten. Über allem stehen deine eigenen Korrekturen aus `bp-overrides.json`.
 5. **Dein Bestand** wächst dabei mit und bleibt in `bestand.json` erhalten — mit Vermerk, woher jeder Bauplan stammt (Log, Nachlese, Launcher). Das ist die Liste „welche habe ich", die bisher allein vom Launcher kam.
 
 > **Warum direkt aus der Log?** Der SC Deutsch Launcher liest dieselbe Datei, exportiert seine eigene aber nur alle paar Minuten. Gemessen am 30.07.2026: Freischaltung im Spiel **21:23:49** → Launcher-Export **21:26:24** = **2,5 Minuten** Verzug. Wer selbst mitliest, ist in Sekunden dran — und braucht dafür niemanden dazwischen.
@@ -457,7 +457,7 @@ Was die Farbpunkte in der Liste bedeuten:
 ```text
 …\StarCitizen\LIVE\Game.log                 (Spiel — die eigentliche Quelle)
 …\StarCitizen\LIVE\logbackups\             (frühere Sitzungen, beim Start nachgelesen)
-…\sc-deutsch-launcher\blueprints\           (optional: deutsche Namen, füllt Lücken)
+…\sc-deutsch-launcher\blueprints\           (optional: meldet nach, was im Log fehlte)
 ```
 
 Eigene Dateien (Bestand, Einstellungen, Zwischenspeicher) liegen hier:
