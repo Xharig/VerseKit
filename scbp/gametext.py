@@ -43,10 +43,10 @@ Warum eigener Code und kein Fremdwerkzeug:
   `zstandard`/`pyzstd` versucht, sonst 7-Zip als letzter Strohhalm.
 """
 import io
+import json
 import os
 import struct
 import subprocess
-import sys
 import tempfile
 
 from . import paths
@@ -186,6 +186,116 @@ def _set_language(sprache, spielordner):
         errors.record('gametext._set_language', ausnahme)
 
 
+# Wo die Originalnamen liegen, nachdem sie einmal aus dem Archiv gelesen
+# wurden. ⚠ **Nicht die ganze Datei** — gemessen am Stand 4.10.1: 90.437
+# Zeilen und 10,5 MB insgesamt, davon 21.598 Zeilen mit `name` im Schlüssel
+# und 1,0 MB. Der Rest sind Missionstexte, Tooltips und Untertitel, die hier
+# niemand nachschlägt.
+NAMES_FILE = 'namen-original.json'
+
+
+def names_from_ini(daten):
+    """Aus dem Inhalt einer `global.ini` die Namenszeilen — `{schlüssel: text}`.
+
+    ⚠ Gefiltert wird auf `name` **irgendwo** im Schlüssel, nicht auf die
+    Endung `_Name`: Fahrzeuge heißen `vehicle_NameAEGS_Sabre_Raven_EX`, tragen
+    es also **in der Mitte**. Ein Filter auf die Endung hätte ausgerechnet die
+    Schiffe verfehlt — den Fall, mit dem die Sache angefangen hat.
+    """
+    out = {}
+    if isinstance(daten, bytes):
+        daten = daten.decode('utf-8-sig', 'ignore')
+    for line in daten.splitlines():
+        sep = line.find('=')
+        if sep < 1:
+            continue
+        key = line[:sep]
+        if 'name' not in key.lower():
+            continue
+        # `schluessel,P=Text` — das `,P` gehört nicht zum Schlüssel.
+        key = key.split(',', 1)[0]
+        # Ein Stern vorn ist eine fremde Marke, kein Namensbestandteil.
+        text = line[sep + 1:].strip().lstrip('*').strip()
+        if text and key not in out:
+            out[key] = text
+    return out
+
+
+def save_names(daten):
+    """Die Namen aus einer gelesenen `global.ini` dauerhaft ablegen.
+
+    Gibt die Anzahl zurück, 0 bei Misserfolg. Geschrieben wird atomar — eine
+    halb geschriebene Datei wäre schlimmer als keine.
+    """
+    namen = names_from_ini(daten)
+    if not namen:
+        return 0
+    ziel = paths.app_file(NAMES_FILE)
+    try:
+        with open(ziel + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(namen, f, ensure_ascii=False)
+        os.replace(ziel + '.tmp', ziel)
+    except OSError as exc:
+        from . import errors
+        errors.record('gametext.save_names', exc)
+        return 0
+    return len(namen)
+
+
+def saved_names():
+    """Die abgelegten Originalnamen — leer, wenn es sie (noch) nicht gibt."""
+    try:
+        with open(paths.app_file(NAMES_FILE), encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def read_from_archive(sprache='english', spielordner=None, fortschritt=None):
+    """Die `global.ini` einer Sprache aus dem Archiv **lesen** — sonst nichts.
+
+    Gibt `(daten, meldung)` zurück; `daten` ist `None`, wenn es nicht geklappt
+    hat. Geschrieben wird hier **nichts**: keine Datei ins Spiel, kein
+    `g_language` in die `user.cfg`, keine verworfenen Originaltexte.
+
+    ⚠⚠ **Warum getrennt von `fetch()`** (20.09.2026): Wer nur einen Namen
+    nachschlagen will, darf dem Spieler nicht die Spielsprache umstellen.
+    `fetch()` tut genau das — und das ist dort auch richtig, denn dort hat er
+    es angefordert. Beide gehen jetzt über **diesen** Lesevorgang; zwei eigene
+    Schleifen über dasselbe Archiv wären die Art von Doppelpflege, an der hier
+    schon einmal die Hälfte der Nutzer vorbeigelaufen ist.
+    """
+    def melde(text):
+        if fortschritt:
+            fortschritt(text)
+
+    archiv = p4k_path(spielordner)
+    if not archiv:
+        return None, t('m_kein_p4k')
+    melde(t('z_originaltexte'))
+    try:
+        groesse = os.path.getsize(archiv)
+        with open(archiv, 'rb') as f:
+            cd, _anzahl = read_directory(f, groesse)
+            treffer = find_entry(cd, archive_path(sprache))
+            if not treffer:
+                return None, t('m_keine_ini_archiv')
+            methode, cs, rs, off = treffer
+            roh = fetch_block(f, off, cs)
+        # unpack_zstd gibt (Daten, benutztes Verfahren) zurück
+        if methode == 100:
+            daten, weg = unpack_zstd(roh, rs)
+            melde(t('z_entpackt') % weg)
+        else:
+            daten = roh
+        if not daten:
+            return None, 'Entpacken fehlgeschlagen'
+        return daten, '%.1f MB' % (len(daten) / 1048576.0)
+    except Exception as e:
+        return None, str(e)
+
+
 def fetch(sprache='english', spielordner=None, fortschritt=None,
           sprache_eintragen=True):
     """Die `global.ini` einer Sprache aus dem Archiv holen. (Erfolg, Meldung).
@@ -239,24 +349,10 @@ def fetch(sprache='english', spielordner=None, fortschritt=None,
             _set_language(sprache, spielordner)
         return True, 'vorhandene Datei behalten'
 
-    melde(t('z_originaltexte'))
+    daten, meldung = read_from_archive(sprache, spielordner, fortschritt)
+    if daten is None:
+        return False, meldung
     try:
-        groesse = os.path.getsize(archiv)
-        with open(archiv, 'rb') as f:
-            cd, _anzahl = read_directory(f, groesse)
-            treffer = find_entry(cd, archive_path(sprache))
-            if not treffer:
-                return False, t('m_keine_ini_archiv')
-            methode, cs, rs, off = treffer
-            roh = fetch_block(f, off, cs)
-        # entpacke_zstd gibt (Daten, benutztes Verfahren) zurück
-        if methode == 100:
-            daten, weg = unpack_zstd(roh, rs)
-            melde(t('z_entpackt') % weg)
-        else:
-            daten = roh
-        if not daten:
-            return False, 'Entpacken fehlgeschlagen'
         os.makedirs(os.path.dirname(ziel), exist_ok=True)
         with open(ziel + '.tmp', 'wb') as f:
             f.write(daten)

@@ -226,7 +226,15 @@ def _lookup_key(key):
                             return text
         except OSError:
             continue
-    return None
+    # ⭐ Letzte Quelle: die Originalnamen aus der `Data.p4k`, falls sie einmal
+    # gelesen wurden. Sie sind der einzige Weg für alle, die weder eine
+    # gepflegte Übersetzung noch eine entpackte englische `global.ini` haben —
+    # und das ist der Normalfall (gemeldet 20.09.2026, `inj_quelle=original`).
+    try:
+        from . import gametext
+        return gametext.saved_names().get(key)
+    except Exception:
+        return None
 
 
 def _readable(key):
