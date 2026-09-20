@@ -24857,6 +24857,106 @@ def main():
            'kein joyGetDevCaps* mehr im Modul — auch nicht neu dazugekommen'
            ' (%d Fundstellen)' % len(_rufe256))
 
+    print('\n257. Der nachgereichte Vertrag baut die Auftragszeile neu')
+    # ⚠⚠ Das Spiel meldet „geteilt" und „angenommen" Sekunden auseinander. Die
+    # geteilte Meldung traegt die Nullkennung und findet nie einen Vertrag —
+    # die Zeile entsteht ueber den Titelweg, mit der ueber alle Regionen
+    # zusammengefassten Zahl. Liegen beide Meldungen im selben Abschnitt,
+    # faellt das nicht auf; liegen sie in ZWEI, bliebe die grobe Zahl fuer
+    # immer stehen.
+    #
+    # ⛔⛔ **Warum diese Pruefung den Watcher wirklich baut.** Der Randfall war
+    # seit dem 13.09.2026 als offen notiert: „begruendet, aber nicht geprueft".
+    # Die drei Pruefungen, die es vorher gab (58d, 89h), suchen **Zeichenketten
+    # im Quelltext** (`'mission_events' in _ab58`). So eine Suche geht auch
+    # dann durch, wenn die Zeile nie ersetzt wird. Hier laeuft stattdessen ein
+    # echter `Watcher` ueber zwei Abschnitte, und gemessen wird die **Zahl in
+    # der Zeile**.
+    #
+    # ⚠ Der Nachweis haengt daran, dass die beiden Wege VERSCHIEDENE Zahlen
+    # liefern (Titelweg 4, Vertragsweg 2). Beim ersten Anlauf stand hier ein
+    # frei erfundener Titel — `key_for` gab `None`, der Titelweg lieferte gar
+    # keine Zeile, und Abschnitt 1 war leer. Die Pruefung haette „in
+    # Abschnitt 2 kam eine Zeile" gemeldet und damit NICHTS belegt.
+    import queue as _qu257
+    from scbp import contracts as _ct257
+    import sc_bp_watcher as _sw257
+
+    _titel257 = 'Testauftrag Verteidigung'
+    _key257 = 'Pruef257_Verteidigung_Title'
+    _mid257 = 'aaaaaaaa-1111-2222-3333-444444444444'
+    _vertrag257 = 'bbbbbbbb-5555-6666-7777-888888888888'
+
+    # Zustand sichern — sonst sehen spaetere Pruefungen diese Testdaten.
+    _alt257 = (_ct257.missions, _ct257.contract_definitions,
+               _ct257._index, _ct257._pattern_index)
+    try:
+        _ct257.missions = lambda: {
+            _key257: {'bp': ['bp eins', 'bp zwei', 'bp drei', 'bp vier']}}
+        _ct257.contract_definitions = lambda: {
+            _vertrag257: {'bp': ['bp eins', 'bp zwei']}}
+        # Die Titel->Schluessel-Zuordnung baut `_build_index()` sonst aus der
+        # `global.ini` des Spiels — die gibt es im Pruef lauf nicht. Deshalb
+        # wird ihr ERGEBNIS hingelegt; `key_for` selbst bleibt unangetastet.
+        _ct257._index = {_titel257.lower(): _key257}
+        _ct257._pattern_index = []
+
+        pruefe(_ct257.check(_titel257, lambda n: False) == (4, ['bp eins', 'bp zwei', 'bp drei', 'bp vier']),
+               'Vorbedingung: der Titelweg zaehlt 4')
+        pruefe(_ct257.check(_titel257, lambda n: False,
+                            contract_id=_vertrag257)[0] == 2,
+               'Vorbedingung: der Vertragsweg zaehlt 2 — die Wege sind unterscheidbar')
+
+        _q257 = _qu257.Queue()
+        _w257 = _sw257.Watcher(_q257)
+        _w257.bestand = {'bauplaene': {}}
+
+        def _abschnitt257(mit_vertrag):
+            """Einen Log-Abschnitt durchlaufen lassen."""
+            _w257.tail.objective_events = []
+            _w257.tail.mission_events = [(True, _titel257, _mid257, None)]
+            _w257.tail.mission_contracts = ({_mid257: _vertrag257}
+                                            if mit_vertrag else {})
+            _w257._auftraege_melden()
+
+        def _zeilen257():
+            raus = []
+            while True:
+                try:
+                    eintrag = _q257.get_nowait()
+                except _qu257.Empty:
+                    return raus
+                if eintrag[0] == 'hinweis':
+                    raus.append(str(eintrag[1]))
+
+        # Abschnitt 1: Annahme OHNE Vertrag — so kommt die geteilte Meldung an.
+        _abschnitt257(mit_vertrag=False)
+        _erste257 = _zeilen257()
+        pruefe(len(_erste257) == 1 and '0/4' in _erste257[0],
+               'Abschnitt 1 ohne Vertrag: die grobe Zahl aus dem Titelweg (%r)'
+               % (_erste257,))
+
+        # Abschnitt 2: derselbe Auftrag, jetzt MIT Vertrag.
+        _abschnitt257(mit_vertrag=True)
+        _zweite257 = _zeilen257()
+        # ⚠ Das ist die Prüfung. Ohne den Quellen-Vergleich in
+        # `_auftraege_melden` bleibt diese Liste LEER und die 0/4 steht fuer
+        # immer. Gegenprobe am 20.09.2026 genau so gefahren.
+        pruefe(len(_zweite257) == 1 and '0/2' in _zweite257[0],
+               'Abschnitt 2 mit Vertrag: die Zeile wird NEU gebaut, mit der'
+               ' feinen Zahl (%r)' % (_zweite257,))
+        pruefe(_w257._auftrag_zeile_quelle.get(_titel257) == _vertrag257,
+               'und die Quelle der Zeile ist jetzt der Vertrag')
+
+        # Dritter Abschnitt, nichts Neues: Jetzt MUSS geschwiegen werden —
+        # sonst meldete jeder Log-Abschnitt denselben Auftrag erneut.
+        _abschnitt257(mit_vertrag=True)
+        pruefe(_zeilen257() == [],
+               'ein weiterer Abschnitt mit derselben Quelle meldet nichts mehr')
+    finally:
+        (_ct257.missions, _ct257.contract_definitions,
+         _ct257._index, _ct257._pattern_index) = _alt257
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
