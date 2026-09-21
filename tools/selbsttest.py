@@ -23457,7 +23457,17 @@ def main():
     print('243. Scan-Signatur: lesen, verwerfen, anlernen, abstimmen')
     from scbp import signature_scan as _ss243, signature_watch as _sw243
     from scbp import screen_grab as _sg243, paths as _pa243
-    _vorl243 = json.load(open(os.path.join(WURZEL, 'daten', 'signatur-ziffern.json'),
+    # ⚠⚠ **Eigener Ziffernsatz fuer die gezeichneten Bilder, nicht die
+    # Beilage** (21.09.2026). Bis dahin zeichnete dieser Abschnitt seine
+    # Ziffern AUS `daten/signatur-ziffern.json` und las sie GEGEN dieselbe
+    # Datei — gemessen wurde damit die Selbstaehnlichkeit der Beilage, nicht
+    # die Logik (Komma, Abstimmung, Verwerfen). Als die Beilage gegen echte
+    # Aufnahmen getauscht wurde, fielen schlagartig drei Pruefungen um,
+    # obwohl an echten Bildern alles besser wurde (9 → 45 von 58).
+    # Die Beilage wird jetzt dort geprueft, wo sie hingehoert: an echten
+    # Aufnahmen („ab Werk werden … Bilder gelesen").
+    _vorl243 = json.load(open(os.path.join(WURZEL, 'tools', 'pruefdaten',
+                                           'signatur-ziffern-gezeichnet.json'),
                               encoding='utf-8'))['ziffern']
 
     def _bild243(text, wahl=0, rausch=25, ohne=(), schmal=1.0, blasses_komma=False):
@@ -23497,7 +23507,18 @@ def main():
             _r[_z.randrange(40)][_z.randrange(200)] = _z.randrange(256)
         return _r
 
-    _bek243 = _ss243.templates()
+    # Gelesen wird gegen denselben Satz, aus dem gezeichnet wurde — sonst
+    # prueft dieser Abschnitt wieder die Datenqualitaet statt der Logik.
+    _bek243 = {}
+    for _d243, _muster243 in _vorl243.items():
+        if _d243 not in _ss243.REQUIRED_HOLES:
+            continue
+        _eimer243 = []
+        for _p243 in _muster243:
+            _g243 = _ss243.fill(_p243)
+            if _g243 not in [_a for _a, _h in _eimer243]:
+                _eimer243.append((_g243, _ss243.holes(_g243)))
+        _bek243[_d243] = _eimer243
     _werte243 = sorted({v * n for v in (3170, 3000, 4000, 2000, 1920, 3585, 1200)
                         for n in range(1, 7)})
     _richtig243, _falsch243 = 0, []
@@ -23671,6 +23692,13 @@ def main():
         pruefe(not _ss243.plausible_template('8', _ss243.normalize(
             [[0] * 3 + [255] * 10 + [0] * 3 for _ in range(24)], (3, 0, 12, 23), 128)),
             'eine Vorlage ohne Loecher wird nie als Acht gelernt')
+        _bundled243 = _pa243.bundled_file
+
+        def _ohne_beilage243(name):
+            if name == _ss243.TEMPLATE_FILE:
+                return os.path.join(_heim243, 'gibt-es-nicht.json')
+            return _bundled243(name)
+
         # ⚠⚠ Echte Bilder aus dem Spiel unter Windows (17.09.2026): kleine
         # Schrift, blasses Komma, Griff im Bild. RC 2 lernte „2,000" nicht an
         # („Ziffern passen nicht") und las „19,275" nie.
@@ -23691,6 +23719,21 @@ def main():
         pruefe(19275 in _andere243 and set(_andere243) <= {19275, None},
                'nach einmal Anlernen: andere Bilder richtig oder still, nie falsch (%r)'
                % _andere243)
+        # ⚠⚠⚠ **Der dreigeteilte Lauf misst OHNE die Beilage.** Seit dem
+        # 21.09.2026 stecken in `daten/signatur-ziffern.json` Muster aus
+        # **denselben Aufnahmen** wie dieser Pruefsatz. Mit ihr gemessen waere
+        # der Lauf gegen die eigenen Trainingsdaten gerichtet: immer gruen,
+        # ohne noch etwas nachzuweisen. Was die Beilage taugt, wird weiter
+        # unten getrennt geprueft („ab Werk werden … Bilder gelesen").
+        # ⚠ Nur DIESER Lauf. Die Pruefungen davor („nach einmal Anlernen …")
+        # bilden den Nutzerfall ab, und der Nutzer HAT die Beilage — ohne sie
+        # gemessen fielen sie faelschlich um.
+        _pa243.bundled_file = _ohne_beilage243
+        _eigen243 = _pa243.app_file(_ss243.OWN_TEMPLATE_FILE)
+        if os.path.exists(_eigen243):
+            os.remove(_eigen243)
+        pruefe(not _ss243.templates(),
+               'Vorbedingung: fuer den dreigeteilten Lauf ist die Beilage weg')
         # ⚠⚠ Alle echten Windows-Bilder, dreigeteilt: mit zwei Dritteln
         # anlernen, das dritte lesen. NICHTS darf falsch herauskommen — vor dem
         # 17.09.2026 wurde hier 16,960 als 10,800 gelesen (Loch der 6 galt als
@@ -23754,6 +23797,40 @@ def main():
                and _ss243._holes_match((1, 0.69), (1, 0.65)),
                'Lochlage trennt 6 von 0, laesst aber 6 als 6 durch')
 
+        # ⭐⭐ **Was die Beilage taugt — mit ihr, ohne irgendetwas Angelerntes.**
+        # Bis zum 21.09.2026 stammten die mitgelieferten Vorlagen aus dem
+        # Linux-Entwurf und trafen die Windows-Schrift kaum: 9 von 58 Bildern.
+        # Ein Spieler, der nichts anlernt, sah also so gut wie nie eine Zahl —
+        # und „lern es dir selbst an" ist keine Auslieferung.
+        _pa243.bundled_file = _bundled243          # Beilage wieder da
+        if os.path.exists(_eigen243):
+            os.remove(_eigen243)
+        _beilage243 = _ss243.templates()
+        _fehlend243 = [d for d in '0123456789' if len(_beilage243.get(d, ())) < 4]
+        pruefe(not _fehlend243,
+               'die Beilage hat zu JEDER Ziffer mehrere Muster (duenn: %r)'
+               % _fehlend243)
+        _abwerk243, _abwerkfalsch243 = 0, []
+        for _k in _schluessel243:
+            _soll = int(_k.split('#')[0].replace(',', ''))
+            _w = _ss243.read(_echt243[_k], _beilage243, _alle_werte243)['wert']
+            if _w == _soll:
+                _abwerk243 += 1
+            elif _w is not None:
+                _abwerkfalsch243.append((_soll, _w))
+        pruefe(not _abwerkfalsch243,
+               'ab Werk wird nichts FALSCH gelesen (%r)' % _abwerkfalsch243)
+        # ⚠ Die Schwelle ist bewusst weit unter dem gemessenen Wert (45 von
+        # 58): Sie soll den Absturz melden, wenn jemand die Beilage gegen eine
+        # untaugliche tauscht — nicht bei jeder Zehntelverbesserung rot werden.
+        # ⚠⚠ **Und sie ist kein Guetenachweis.** Diese Bilder stammen aus
+        # derselben Quelle wie die Muster in der Beilage; der ehrliche Wert
+        # steht an fremden Aufnahmen und liegt deutlich tiefer.
+        pruefe(_abwerk243 >= 30,
+               'ab Werk werden %d von %d Bildern gelesen, ohne Anlernen '
+               '(gemessen 45, vor dem 21.09.2026 waren es 9)'
+               % (_abwerk243, len(_schluessel243)))
+
         # ⚠⚠ **Ein einzelner Bildpunkt darf die Erkennung nicht stilllegen**
         # (21.09.2026). Im HUD schnuerte eine Punktreihe die obere Oeffnung
         # einer Null ab; sie zaehlte zwei Loecher, bekam den Aufschlag von 0,25
@@ -23814,6 +23891,13 @@ def main():
         _ss243.set_region((1, 2, 3, 4))
         pruefe(_ss243.region() is None, 'ein winziger Bereich gilt nicht')
     finally:
+        # ⚠ Auch die untergeschobene `bundled_file` zuruecknehmen — bricht der
+        # Abschnitt ab, liefe der ganze Rest des Laufs ohne Beilage weiter und
+        # meldete Fehler, die es nicht gibt.
+        try:
+            _pa243.bundled_file = _bundled243
+        except NameError:
+            pass
         if _altheim243 is None:
             os.environ.pop('SC_BP_HOME', None)
         else:

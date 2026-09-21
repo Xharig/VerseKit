@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.54.1'
+__version__ = '3.55.0'
 
 
 def _mitgeliefert(name):
@@ -2190,9 +2190,23 @@ class Overlay:
         # beim Minen): an zum Minen, aus danach — dafür soll niemand ins große
         # Fenster. Grün = sucht, grau = aus. Nur wo abgegriffen werden kann.
         self.scan_lbl = None
+        self.anlern_lbl = None
         try:
             from scbp import screen_grab as _screen_grab
             if _screen_grab.supported():
+                # ⭐⭐ **Anlernen gehört in die Leiste, nicht auf eine
+                # Unterseite** (21.09.2026). Solange die mitgelieferten
+                # Vorlagen nicht jede HUD-Schriftgröße treffen, muss jeder
+                # Spieler nachlernen können — und wer gerade mint, hat das
+                # große Fenster nicht offen. Derselbe Grund wie beim
+                # Startknopf: „wenn Leute den suchen müssen, ist er falsch
+                # platziert."
+                self.anlern_lbl = icons.button(bar, 'anlernen',
+                                               self._anlernen_oeffnen,
+                                               font=self.f_title)
+                self.anlern_lbl.pack(side='right', padx=(0, 6))
+                notice.attach(self.anlern_lbl,
+                              lambda: language.t('hinweis_anlernen'))
                 self.scan_lbl = icons.button(bar, 'signatur', self._scanner_umschalten,
                                              font=self.f_title)
                 self.scan_lbl.pack(side='right', padx=(0, 6))
@@ -3176,6 +3190,22 @@ class Overlay:
                                      before=self._listen_traeger)
         except Exception as ausnahme:
             errors.record('overlay.signatur_zeigen', ausnahme)
+
+    def _anlernen_oeffnen(self):
+        """Das Anlern-Fenster direkt aus der Overlay-Leiste.
+
+        ⚠ Der Scanner wird dabei **mit eingeschaltet**, wenn er aus war: Das
+        Fenster zeigt das zuletzt gefundene Bild, und ohne laufende Wache gibt
+        es keins. Wer hier klickt, will anlernen — ihn erst einen zweiten
+        Schalter suchen zu lassen wäre eine Falle.
+        """
+        try:
+            from scbp import scan_window, signature_watch
+            if not paths.setting_bool(signature_watch.SETTING, False):
+                signature_watch.set_enabled(True)
+            scan_window.open_window(self.root)
+        except Exception as ausnahme:
+            errors.record('overlay.anlernen', ausnahme)
 
     def _scanner_umschalten(self):
         """Scanner an/aus — derselbe Schalter wie auf der Bergbau-Seite."""
