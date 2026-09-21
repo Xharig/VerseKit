@@ -25449,6 +25449,65 @@ def main():
         _gt259.names_or_fetch = _altg259
         shutil.rmtree(_dir259b, ignore_errors=True)
 
+    # ------------------------------------------------------------------
+    print('\n260. Der neueste Changelog-Block hat genau drei Abschnitte')
+    # ⚠⚠ **Ein Regelwiderspruch, der mehrere Releases lang Zeit gekostet hat.**
+    # Die Release-Checkliste verlangte einen Abschnitt „Dank" / „Thanks", die
+    # Regel zwei Absaetze darueber verbot einen vierten Abschnitt. Beide
+    # klangen gleich verbindlich; entschieden wurde am 21.09.2026 fuer DREI
+    # Abschnitte — der Dank lebt als „Gemeldet von …" am Punkt und auf der
+    # Danke-Seite im Programm.
+    #
+    # ⚠ Warum es auffallen MUSS: `updater.points_by_kind()` setzt die Art nur
+    # um, wenn die Ueberschrift eines der Stichwoerter traegt — sonst bleibt
+    # die vorherige stehen. Ein `### Dank` nach „Behoben" erscheint im Fenster
+    # „Was ist neu" also als **Fehlerbehebung**, ganz vorn als **Neuerung**.
+    #
+    # ⚠ Geprueft wird NUR der oberste Block. Die 25 deutschen und 26
+    # englischen Alt-Bloecke bleiben bewusst stehen (Entscheidung 21.09.2026:
+    # alte Versionen liest kaum jemand nach, 51 Stellen umzubauen waere Risiko
+    # ohne Nutzen).
+    from scbp import updater as _up260
+    _ERLAUBT260 = {
+        'CHANGELOG.md': ('neu', 'verbessert', 'behoben'),
+        'CHANGELOG.en.md': ('new', 'improved', 'fixed'),
+    }
+    for _datei260, _erlaubt260 in sorted(_ERLAUBT260.items()):
+        _text260 = open(os.path.join(WURZEL, _datei260), encoding='utf-8').read()
+        # Der oberste veroeffentlichte Block — „Unveroeffentlicht"/„Unreleased"
+        # ueberspringen, der ist beim Sammeln absichtlich leer.
+        _bloecke260 = re.split(r'(?m)^## ', _text260)[1:]
+        _block260 = None
+        for _b260 in _bloecke260:
+            if _b260.lower().startswith(('v', '[')):
+                _block260 = _b260
+                break
+        pruefe(_block260 is not None,
+               '%s: ein veroeffentlichter Block ist auffindbar' % _datei260)
+        if _block260 is None:
+            continue
+        _kopf260 = _block260.split('\n', 1)[0].strip()
+        _ueber260 = re.findall(r'(?m)^### +(.+?)\s*$', _block260)
+        _fremd260 = [u for u in _ueber260 if u.strip().lower() not in _erlaubt260]
+        pruefe(not _fremd260,
+               '%s (%s): keine fremde Ueberschrift (%r)'
+               % (_datei260, _kopf260, _fremd260))
+    # ⚠⚠ Und die Wache selbst muss zuschnappen — sonst misst sie nichts und
+    # sieht trotzdem gruen aus. Ein nachgestellter Block mit „Dank" MUSS
+    # auffallen, und der Nachweis, dass er im Fenster falsch landet.
+    _probe260 = '## v9.9.9 - 2026-01-01\n\n### Behoben\n\n- Etwas\n\n### Dank\n\n- Jemand\n'
+    _fremd_probe260 = [u for u in re.findall(r'(?m)^### +(.+?)\s*$', _probe260)
+                       if u.strip().lower() not in ('neu', 'verbessert', 'behoben')]
+    pruefe(_fremd_probe260 == ['Dank'],
+           'Gegenprobe: ein Dank-Abschnitt wuerde auffallen (%r)' % _fremd_probe260)
+    _arten260 = [a for a, _t in _up260.points_by_kind(_probe260)]
+    pruefe(_arten260 == ['fix', 'fix'],
+           'und er landete im Fenster unter „Behoben", nicht als Dank (%r)'
+           % _arten260)
+    pruefe([a for a, _t in _up260.points_by_kind(
+        '### Dank\n\n- Jemand\n')] == ['neu'],
+        'ganz vorn stuende er sogar als Neuerung da')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
