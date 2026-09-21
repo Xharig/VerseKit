@@ -4393,6 +4393,10 @@ TEXTS = {
     'scan_ziehen':       ('Über Symbol und Zahl ziehen', 'Drag over icon and number'),
     'scan_titel':        ('Ziffern anlernen', 'Teach digits'),
     'hinweis_scanner_an': ('Signatur-Scanner an — klicken zum Ausschalten', 'Signature scanner on — click to switch off'),
+    # ⚠ Gelbes Auge: eingeschaltet, aber es liest niemand. Der Satz nennt den
+    # Ausweg, statt nur einen Zustand festzustellen — siehe `_scanner_faerben`.
+    'hinweis_scanner_tot': ('Signatur-Scanner ist an, liest aber nicht — Verse-Kit einmal neu starten',
+                            'Signature scanner is on but not reading — restart Verse-Kit once'),
     'hinweis_scanner_aus': ('Signatur-Scanner aus — klicken, damit Verse-Kit beim Minen die Scan-Zahl erkennt',
                             'Signature scanner off — click so Verse-Kit recognises the scan number while mining'),
     'scan_hinweis':      ('Scanne im Spiel einen Brocken. Das zuletzt gefundene Bild bleibt hier stehen — tippe die Zahl ein, die darauf zu sehen ist.',
@@ -4842,6 +4846,11 @@ TEXTS = {
     'b_scan':            ('%s · %d eigene Ziffernbilder (%d Ziffern) · %d Scan-Bilder · zuletzt %s · Skalierung %s',
                           '%s · %d own digit images (%d digits) · %d scan images · last %s · scale %s'),
     'b_scan_nicht':      ('auf diesem System noch nicht verfügbar', 'not available on this system yet'),
+    # ⭐ Der Schalter sagt nicht, ob die Wache wirklich liest — siehe
+    # `signature_watch.running()`. Genau diese Unterscheidung fehlte in der
+    # Nacht zum 21.09.2026 und kostete eine ganze Fehlersuche.
+    'b_scan_laeuft':     ('an, Wache liest', 'on, watch is reading'),
+    'b_scan_tot':        ('an, aber die Wache liest NICHT', 'on, but the watch is NOT reading'),
     'b_n_bauplaene_kurz': ('%d Baupläne · Stand %s', '%d blueprints · build %s'),
     'b_n_orte':          ('%d Orte · Stand %s', '%d locations · build %s'),
     'b_nicht_geladen':   ('noch nicht geladen', 'not loaded yet'),

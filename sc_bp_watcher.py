@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.54.0'
+__version__ = '3.54.1'
 
 
 def _mitgeliefert(name):
@@ -3189,17 +3189,48 @@ class Overlay:
             errors.record('overlay.scanner_umschalten', ausnahme)
 
     def _scanner_faerben(self):
+        """Grün = liest · Gelb = eingeschaltet, liest aber nicht · Grau = aus.
+
+        ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 färbte
+        sich das Auge allein nach der Einstellung. Scheitert der Wach-Faden
+        oder stirbt er, blieb es **grün** — und der Spieler sucht den Fehler
+        bei der Erkennung, während in Wahrheit niemand mehr liest. Genau so
+        lief die Fehlersuche in der Nacht zum 21.09.2026: Weder das Auge noch
+        der Fehlerbericht konnten die Frage „liest sie überhaupt?" beantworten.
+        """
         if not getattr(self, 'scan_lbl', None):
             return
         from scbp import signature_watch
         an = paths.setting_bool(signature_watch.SETTING, False)
-        self.scan_lbl.recolor(icons.GREEN if an else icons.GREY)
+        if not an:
+            farbe = icons.GREY
+        else:
+            farbe = icons.GREEN if signature_watch.running() else icons.YELLOW
+        if farbe != getattr(self, '_scan_farbe', None):
+            self._scan_farbe = farbe
+            self.scan_lbl.recolor(farbe)
+
+    def _scanner_nachsehen(self):
+        """Regelmäßig prüfen, ob die Wache noch lebt.
+
+        ⚠ Einmal beim Umschalten zu färben genügt nicht: Direkt nach `start()`
+        lebt der Faden immer. Interessant sind die Fälle **danach** — er ist
+        nie angelaufen oder unterwegs gestorben.
+        """
+        self._scan_takt = getattr(self, '_scan_takt', 0) + 1
+        if self._scan_takt >= 10:          # bei 300 ms Takt: alle 3 Sekunden
+            self._scan_takt = 0
+            try:
+                self._scanner_faerben()
+            except Exception as ausnahme:
+                errors.record('overlay.scanner_nachsehen', ausnahme)
 
     def _hinweis_scanner(self):
         from scbp import signature_watch
-        return language.t('hinweis_scanner_an'
-                          if paths.setting_bool(signature_watch.SETTING, False)
-                          else 'hinweis_scanner_aus')
+        if not paths.setting_bool(signature_watch.SETTING, False):
+            return language.t('hinweis_scanner_aus')
+        return language.t('hinweis_scanner_an' if signature_watch.running()
+                          else 'hinweis_scanner_tot')
 
     def signaturwache_starten(self):
         """Die Signatur-Wache anwerfen, wenn der Spieler sie eingeschaltet hat.
@@ -3400,6 +3431,7 @@ class Overlay:
         except queue.Empty:
             pass
         self._hotkey_nachsehen()
+        self._scanner_nachsehen()
         self.root.after(300, self._poll_queue)
 
     def _bescheid_zeigen(self, titel, text):

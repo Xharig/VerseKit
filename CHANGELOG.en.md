@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.54.1 - 2026-09-21
+
+> **The eye on the overlay now tells the truth.** It lit up green as soon as the
+> signature scanner was switched on — even when nothing was actually reading any
+> more. If you wondered why no number showed up, there was no way to tell the
+> two apart. Green now means: really reading.
+
+### Fixed
+
+- **The eye in the overlay bar showed the switch, not the operation.** It stayed
+  green even when the scanner had stopped reading. It now says what is really
+  going on: green = reading · yellow = switched on but not reading (restart
+  once) · grey = off
+- **The error report could not answer that question either** — it only said
+  "on", which is the setting. It now states whether anything is actually being
+  read
+
 ## v3.54.0 - 2026-09-21
 
 > **On some machines the signature scanner never showed a number** — and a
