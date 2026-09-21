@@ -8,6 +8,29 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.54.0 - 2026-09-21
+
+> **On some machines the signature scanner never showed a number** — and a
+> single pixel was to blame. It split the opening of a zero in two, so a
+> perfectly recognised digit suddenly counted as uncertain, and all that was
+> left was an empty line in the overlay. If you gave up on the scanner because
+> of this, give it a second chance.
+
+### Improved
+
+- **Scan images sent along with a report carry the reporter's name** — in the
+  archive's file name and in the folder inside it. They all used to be called
+  the same, and in a downloads folder there was no telling whose images these
+  were
+
+### Fixed
+
+- **On some machines the signature scanner never showed a number.** A single
+  bright pixel could pinch off the opening of a digit — it then counted two
+  holes instead of one and dropped out as uncertain. Nothing readable was left,
+  and teaching it did not help either, because the same check rejected the
+  digit there as well. Reported by F_i_r_e (KRT)
+
 ## v3.53.5 - 2026-09-20
 
 > **Ships are called what they are called again.** If you own a ship your own

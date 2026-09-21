@@ -5838,6 +5838,7 @@ def _thanks(fenster, rahmen):
             ('KynoTnis', 'ADI', t('s_dk_kynotnis_idee'),
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
+            ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.
@@ -6409,7 +6410,10 @@ def _diagnostics(fenster, rahmen):
             try:
                 archiv = signature_scan.sample_archive()
                 if archiv:
-                    anhaenge.append(('scan-bilder.zip', archiv, 'application/zip'))
+                    # ⭐ Der Dateiname trägt den Melder, sonst heißen im
+                    # Download-Ordner alle Archive gleich (21.09.2026).
+                    anhaenge.append((signature_scan.archive_name(), archiv,
+                                     'application/zip'))
             except Exception as ausnahme:
                 errors.record('pages.diagnose_scanbilder', ausnahme)
         fenster.say(t('s_di_ab_laeuft'))

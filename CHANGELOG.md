@@ -8,6 +8,28 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.54.0 - 2026-09-21
+
+> **Der Signatur-Scanner zeigte auf manchen Rechnern nie eine Zahl** — und
+> schuld daran war ein einzelner Bildpunkt. Er teilte die Öffnung einer Null in
+> zwei Hälften, und damit galt eine tadellos erkannte Ziffer plötzlich als
+> unsicher; übrig blieb eine leere Zeile im Overlay. Wer den Scanner deshalb
+> aufgegeben hat, darf ihm eine zweite Chance geben.
+
+### Verbessert
+
+- **Die mitgeschickten Scan-Bilder tragen den Namen des Melders** — im
+  Dateinamen des Archivs und im Ordner darin. Vorher hießen alle gleich, und im
+  Download-Ordner war nicht mehr zu erkennen, wessen Bilder das sind
+
+### Behoben
+
+- **Der Signatur-Scanner zeigte auf manchen Rechnern nie eine Zahl.** Ein
+  einzelner heller Bildpunkt konnte die Öffnung einer Ziffer abschnüren — sie
+  zählte dann zwei Löcher statt einem und fiel als unsicher heraus. Damit blieb
+  kein lesbarer Wert mehr übrig, und Anlernen half nicht weiter, weil dieselbe
+  Prüfung die Ziffer auch dort ablehnte. Gemeldet von F_i_r_e (KRT)
+
 ## v3.53.5 - 2026-09-20
 
 > **Schiffe heißen wieder, wie sie heißen.** Wer ein Schiff besitzt, das die

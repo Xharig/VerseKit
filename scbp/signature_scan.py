@@ -91,6 +91,22 @@ REGION_SETTING = 'signatur_bereich'
 HOLE_PENALTY = 0.25
 HOLE_POSITION_TOLERANCE = 0.12      # siehe `_holes_match`
 
+# ⚠⚠ **Wie viele Punkte eine geschlossene Fläche mindestens hat, damit sie als
+# Loch zählt.** Vorher standen hier 3 — und daran scheiterte am 21.09.2026 die
+# ganze Erkennung auf einem Rechner: In „3,400" schnürte EIN heller Bildpunkt
+# die obere Öffnung der Null ab. Damit zählte sie zwei Löcher statt einem, bekam
+# den Aufschlag von 0,25 auf ihren sonst tadellosen Abstand von 0,09 — und 0,34
+# liegt über `MAX_DIGIT_DISTANCE`. Die Ziffer fiel heraus, kein möglicher Wert
+# blieb übrig, und auch die Freilesung schwieg (dieselbe Grenze). Dieselbe
+# Prüfung lehnte die Null beim Anlernen ab, er konnte es sich also nicht
+# wegtrainieren.
+#
+# Gemessen (58 Windows-Bilder dreigeteilt · fünf gemeldete Bilder): 3 Punkte →
+# 46/58 und 0 von 5; **8 Punkte → 47/58 und 2 von 5**, beide Male nichts falsch.
+# Den Aufschlag zu senken war der naheliegende, aber falsche Weg: 0,20 las 6,740
+# als 8,740, 0,15 und 0,12 lasen 16,960 als 16,860.
+MIN_HOLE = 8
+
 # Schlechtester mittlerer Abstand, der noch als gelesen gilt, und der Vorsprung
 # vor dem zweitbesten Wert. Gemessen am 10.09.2026 gegen 82 Bilder:
 # | Vorsprung | richtig | falsch | schweigt |
@@ -415,6 +431,9 @@ def holes(pattern):
 
     ⚠⚠ Das Merkmal, das Null von Acht trennt: Am 10.09.2026 gingen 60 von 63
     Fehlschlägen auf genau diese Verwechslung zurück.
+
+    ⚠⚠ Flächen unter `MIN_HOLE` Punkten zählen nicht mit — ein einzelner heller
+    Punkt kann eine Öffnung abschnüren und aus einer Null eine Acht machen.
     """
     width, height = NORM_W, NORM_H
     seen = [[False] * width for _ in range(height)]
@@ -443,7 +462,8 @@ def holes(pattern):
                             and not seen[ny][nx] and not pattern[ny * width + nx]:
                         seen[ny][nx] = True
                         inner.append((nx, ny))
-            if len(ys) >= 3:
+            # ⚠ Zu klein, um ein Loch zu sein — siehe `MIN_HOLE`.
+            if len(ys) >= MIN_HOLE:
                 found.append(sum(ys) / float(len(ys)) / height)
     if not found:
         return (0, None)
@@ -894,12 +914,37 @@ def samples():
         return []
 
 
+def reporter_folder():
+    """Der eingetragene Melder-Name, tauglich als Ordner- und Dateiname.
+
+    ⭐ **Ohne ihn weiß niemand, wessen Bilder das sind** (21.09.2026). Mehrere
+    Archive liegen nebeneinander im Download-Ordner und heißen alle gleich; wer
+    sie auspackt, bekommt jedes Mal denselben Ordner `bilder`. Der Name ist
+    freiwillig eingetragen und geht ohnehin oben im Bericht mit — hier kommt
+    nichts dazu, was nicht schon mitgeschickt würde. Ist keiner eingetragen,
+    bleibt es beim alten Aufbau.
+    """
+    from . import paths
+    raw = (paths.setting('melder_name') or '').strip()
+    clean = ''.join(c if (c.isalnum() or c in '-_. ') else '_' for c in raw)
+    return clean.strip(' ._')[:40]
+
+
+def archive_name():
+    """Wie die ZIP heißen soll — mit dem Melder darin, wenn er einen angab."""
+    who = reporter_folder()
+    return 'scan-bilder-%s.zip' % who if who else 'scan-bilder.zip'
+
+
 def sample_archive():
     """Scan-Bilder und eigene Ziffernvorlagen als ZIP (Bytes) — oder None.
 
     Für den Fehlerbericht: Bild + richtige Zahl im Dateinamen ist genau das,
     woraus sich die Erkennung für alle verbessern lässt. Nichts Persönliches —
     nur der Ausschnitt um die Zahl.
+
+    Alles liegt unter dem Melder-Namen, sofern einer eingetragen ist (siehe
+    `reporter_folder`).
     """
     import io
     import zipfile
@@ -907,13 +952,16 @@ def sample_archive():
     names = samples()
     if not names:
         return None
+    who = reporter_folder()
+    root = who + '/' if who else ''
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
         for name in names:
-            archive.write(os.path.join(sample_folder(), name), 'bilder/' + name)
+            archive.write(os.path.join(sample_folder(), name),
+                          root + 'bilder/' + name)
         own = paths.app_file(OWN_TEMPLATE_FILE)
         if os.path.isfile(own):
-            archive.write(own, OWN_TEMPLATE_FILE)
+            archive.write(own, root + OWN_TEMPLATE_FILE)
     return buffer.getvalue()
 
 
