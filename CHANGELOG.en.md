@@ -8,6 +8,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **A hard crash in the error report names its version** — like the error
+  list below it. If it comes from an older version, the report says so
+
 ## v3.55.0 - 2026-09-21
 
 > **The signature scanner can now read out of the box.** Verse-Kit used to ship

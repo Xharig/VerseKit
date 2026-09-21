@@ -8,6 +8,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Ein harter Abbruch im Fehlerbericht nennt seine Fassung** — wie die
+  Fehlerliste darunter. Stammt er aus einer älteren Version, steht das dabei
+
 ## v3.55.0 - 2026-09-21
 
 > **Der Signatur-Scanner kann jetzt ab Werk lesen.** Bisher brachte Verse-Kit

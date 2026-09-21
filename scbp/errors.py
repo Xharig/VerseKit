@@ -223,12 +223,23 @@ def split_trail():
 CRASH_FILE = 'absturz.txt'
 CRASH_PREVIOUS = 'absturz-letzter.txt'
 
+# Die Fassung, die zur jeweiligen Absturzdatei gehört — eine eigene Datei
+# daneben, weil `faulthandler` in die Absturzdatei schreibt und eine Kopfzeile
+# dort jeden sauberen Lauf wie einen Absturz aussehen ließe (Größe > 0).
+#
+# ⚠ Wozu: Die Absturzdatei überlebt beliebig viele Updates. Am 21.09.2026
+# stand im Bericht aus 3.55.0 ein Abbruch vom 12.09. — aus einer Fassung vor
+# 3.43, deren Ursache längst ausgebaut war. Erkennbar war das nur an alten
+# Dateinamen im Aufrufweg; die Fehlerliste darunter trägt ihre Fassung längst.
+CRASH_VERSION_FILE = 'absturz-fassung.txt'
+CRASH_VERSION_PREVIOUS = 'absturz-letzter-fassung.txt'
+
 # Der offene Schreibkanal, in den `faulthandler` schreibt. Er muss den ganzen
 # Lauf offen bleiben — deshalb steht er hier und nicht in einer Funktion.
 _CRASH_STREAM = [None]
 
 
-def install_crash_handler():
+def install_crash_handler(version=''):
     """Einen harten Abbruch festhalten — dort, wo kein `except` mehr greift.
 
     ⚠ Wozu, obwohl es `install_hooks` schon gibt: Die drei Haken dort fangen
@@ -245,10 +256,15 @@ def install_crash_handler():
     `faulthandler` schreibt beim Signal den C-nahen Aufrufweg aller Fäden in
     eine Datei — die einzige Spur, die ein solcher Abbruch hinterlässt. Beim
     nächsten Start wird sie zur Seite gelegt und landet im Bericht.
+
+    `version` ist die laufende Fassung. Sie wird neben die Absturzdatei
+    geschrieben und wandert mit ihr zur Seite — siehe `CRASH_VERSION_FILE`.
     """
     try:
         current = paths.app_file(CRASH_FILE)
         previous = paths.app_file(CRASH_PREVIOUS)
+        version_current = paths.app_file(CRASH_VERSION_FILE)
+        version_previous = paths.app_file(CRASH_VERSION_PREVIOUS)
         # Was vom letzten Lauf noch drinsteht, ist ein Absturz — beiseitelegen,
         # damit der Bericht ihn zeigen kann, auch wenn dieser Lauf sauber ist.
         try:
@@ -256,8 +272,20 @@ def install_crash_handler():
                 if os.path.isfile(previous):
                     os.remove(previous)
                 os.replace(current, previous)
+                # ⚠ Die Fassung geht MIT — und fehlt sie (Lauf vor dieser
+                # Änderung), fliegt die alte weg, sonst stünde am neuen Abbruch
+                # die Fassung des vorigen.
+                if os.path.isfile(version_current):
+                    os.replace(version_current, version_previous)
+                elif os.path.isfile(version_previous):
+                    os.remove(version_previous)
             elif os.path.isfile(current):
                 os.remove(current)
+        except OSError:
+            pass
+        try:
+            with open(version_current, 'w', encoding='utf-8') as f:
+                f.write(version or '')
         except OSError:
             pass
         stream = open(current, 'w', encoding='utf-8')
@@ -292,13 +320,30 @@ def crash_time():
         return None
 
 
+def crash_version():
+    """Mit welcher Fassung der festgehaltene Abbruch geschah — '' wenn unbekannt.
+
+    Unbekannt ist sie bei jedem Abbruch aus einer Fassung, die sie noch nicht
+    mitschrieb. Das ist eine Feststellung, kein Urteil über den Abbruch.
+    """
+    try:
+        with open(paths.app_file(CRASH_VERSION_PREVIOUS), encoding='utf-8') as f:
+            return f.read().strip()
+    except Exception:
+        return ''
+
+
 def clear_crash():
     """Den festgehaltenen Abbruch wegräumen — er ist gemeldet und erledigt."""
     try:
         os.remove(paths.app_file(CRASH_PREVIOUS))
-        return True
     except Exception:
         return False
+    try:
+        os.remove(paths.app_file(CRASH_VERSION_PREVIOUS))
+    except OSError:
+        pass
+    return True
 
 
 def record(label, exc=None, note=''):

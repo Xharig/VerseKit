@@ -2241,6 +2241,60 @@ def main():
                    'der Abbruch des vorigen Laufs ist lesbar')
             pruefe(fe26.clear_crash() and not fe26.last_crash(),
                    'und laesst sich abhaken')
+
+            # ⚠ Der Abbruch traegt seine Fassung (21.09.2026). Durchgespielt
+            # ueber zwei echte Starts: Lauf A in 9.9.1 stuerzt ab, Lauf B in
+            # 9.9.2 legt ihn beiseite. Der Bericht muss 9.9.1 nennen — nicht
+            # die laufende Fassung — und den Alt-Vermerk tragen.
+            import faulthandler as fh26
+            from scbp import report as rp26, language as sp26
+
+            def _neustart26(fassung):
+                """Einen Programmstart nachstellen, ohne offene Griffe zu
+                hinterlassen — unter Windows liesse sich die Datei sonst
+                nicht beiseitelegen."""
+                fh26.disable()
+                if fe26._CRASH_STREAM[0]:
+                    fe26._CRASH_STREAM[0].close()
+                return fe26.install_crash_handler(fassung)
+
+            _neustart26('9.9.1')
+            fe26._CRASH_STREAM[0].write(
+                'Current thread 0x0001 (most recent call first):\n')
+            fe26._CRASH_STREAM[0].flush()
+            _neustart26('9.9.2')
+            pruefe(fe26.crash_version() == '9.9.1',
+                   'der Abbruch behaelt die Fassung, in der er geschah (%r)'
+                   % fe26.crash_version())
+            _kopf26 = [z for z in rp26.build(version='9.9.2').splitlines()
+                       if sp26.t('b_absturz').split('%s')[0] in z]
+            pruefe(bool(_kopf26) and (sp26.t('b_absturz_fassung') % '9.9.1')
+                   in _kopf26[0] and sp26.t('b_fehler_alt') in _kopf26[0],
+                   'der Bericht nennt sie im Kopf, mit Alt-Vermerk: %r'
+                   % (_kopf26[0] if _kopf26 else None))
+
+            # Ein sauberer Lauf darf die Fassung des Abbruchs nicht ersetzen.
+            _neustart26('9.9.3')
+            pruefe(fe26.crash_version() == '9.9.1',
+                   'ein sauberer Lauf laesst die Fassung stehen (%r)'
+                   % fe26.crash_version())
+
+            # Abbruch aus einer Fassung, die noch nichts mitschrieb: keine
+            # Fassung, und NICHT die des vorigen Abbruchs.
+            os26.remove(pf26.app_file(fe26.CRASH_VERSION_FILE))
+            fe26._CRASH_STREAM[0].write(
+                'Current thread 0x0002 (most recent call first):\n')
+            fe26._CRASH_STREAM[0].flush()
+            _neustart26('9.9.4')
+            pruefe(fe26.crash_version() == '',
+                   'ohne mitgeschriebene Fassung bleibt sie leer (%r)'
+                   % fe26.crash_version())
+            _kopf26 = [z for z in rp26.build(version='9.9.4').splitlines()
+                       if sp26.t('b_absturz_ohne_fassung') in z]
+            pruefe(bool(_kopf26),
+                   'und der Bericht sagt, dass sie nicht festgehalten ist')
+            pruefe(fe26.clear_crash() and fe26.crash_version() == '',
+                   'Abhaken raeumt die Fassung mit weg')
         finally:
             pf26.app_file = alt_datei26
             if hasattr(fe26.trail, '_offen'):
@@ -2268,8 +2322,8 @@ def main():
                'auch der zweite Besuch hinterlaesst eine Spur')
         quelle26c = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                          encoding='utf-8').read()
-        pruefe('errors.install_crash_handler()' in quelle26c,
-               'der Faenger wird beim Start gesetzt')
+        pruefe('errors.install_crash_handler(__version__)' in quelle26c,
+               'der Faenger wird beim Start gesetzt, mit der laufenden Fassung')
 
         print()
         print('27. Angaben am Gegenstand: Kuerzel aus der Beschreibung')
