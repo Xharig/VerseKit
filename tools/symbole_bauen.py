@@ -181,6 +181,11 @@ KNOPF_SYMBOLE = {
     # Signatur-Scanner an/aus in der Overlay-Leiste (17.09.2026). `scan-eye`,
     # nicht `eye` — das Auge trägt schon der Blickwinkel.
     'signatur':     'scan-eye',
+    # ⭐ Signatur anlernen, direkt in der Overlay-Leiste (21.09.2026). Ein
+    # Doktorhut, kein zweites Lupensymbol: `scan-search` trägt schon der
+    # Reiter „Erkennung", und zwei fast gleiche Zeichen nebeneinander sind
+    # schlimmer als gar keins.
+    'anlernen':     'graduation-cap',
     # ⚠ `gamepad-2` und nicht `joystick`: Lucide fuehrt keinen Joystick, und
     # der Reiter meint ohnehin alle Eingabegeraete — Sticks, Pedale, Gamepads.
     'joysticks':    'gamepad-2',

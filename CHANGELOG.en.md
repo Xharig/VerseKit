@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.55.0 - 2026-09-21
+
+> **The signature scanner can now read out of the box.** Verse-Kit used to ship
+> digit templates that barely matched the game's HUD font — if you did not teach
+> it by hand, you almost never saw a number. The templates have been replaced:
+> real captures from the game instead of an old draft. And if you do need to
+> teach it, the button for that now sits right in the overlay bar.
+
+### New
+
+- **Teaching straight from the overlay bar** — a graduation cap next to the eye.
+  If you notice while mining that a number is not recognised, you no longer have
+  to go to the main window. The scanner switches itself on if it was off
+
+### Improved
+
+- **The bundled digit templates now come from the game.** They used to come from
+  an early draft and barely matched the in-game font: out of 58 real captures,
+  **9** were read when nothing had been taught. It is now **45** — at the same
+  file size and the same speed
+
 ## v3.54.1 - 2026-09-21
 
 > **The eye on the overlay now tells the truth.** It lit up green as soon as the

@@ -8,6 +8,29 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.55.0 - 2026-09-21
+
+> **Der Signatur-Scanner kann jetzt ab Werk lesen.** Bisher brachte Verse-Kit
+> Ziffernvorlagen mit, die kaum zur HUD-Schrift im Spiel passten — wer nichts
+> von Hand anlernte, sah so gut wie nie eine Zahl. Die Vorlagen sind
+> ausgetauscht: aus echten Aufnahmen aus dem Spiel statt aus einem alten
+> Entwurf. Und falls doch nachgelernt werden muss, steht der Knopf dafür jetzt
+> direkt in der Overlay-Leiste.
+
+### Neu
+
+- **Anlernen direkt aus der Overlay-Leiste** — ein Doktorhut neben dem Auge.
+  Wer beim Minen merkt, dass eine Zahl nicht erkannt wird, muss dafür nicht
+  mehr ins große Fenster. Der Scanner schaltet sich dabei mit ein, falls er
+  aus war
+
+### Verbessert
+
+- **Die mitgelieferten Ziffernvorlagen kommen aus dem Spiel.** Vorher stammten
+  sie aus einem frühen Entwurf und trafen die Schrift im Spiel kaum: Von 58
+  echten Aufnahmen wurden **9** gelesen, wenn niemand etwas anlernte. Jetzt
+  sind es **45** — bei gleicher Dateigröße und gleicher Geschwindigkeit
+
 ## v3.54.1 - 2026-09-21
 
 > **Das Auge am Overlay sagt jetzt die Wahrheit.** Es leuchtete grün, sobald der

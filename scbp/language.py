@@ -4397,6 +4397,8 @@ TEXTS = {
     # Ausweg, statt nur einen Zustand festzustellen — siehe `_scanner_faerben`.
     'hinweis_scanner_tot': ('Signatur-Scanner ist an, liest aber nicht — Verse-Kit einmal neu starten',
                             'Signature scanner is on but not reading — restart Verse-Kit once'),
+    'hinweis_anlernen':  ('Signatur anlernen — zeigt das zuletzt gescannte Bild, du tippst die Zahl dazu',
+                          'Teach a signature — shows the last scanned image, you type the number for it'),
     'hinweis_scanner_aus': ('Signatur-Scanner aus — klicken, damit Verse-Kit beim Minen die Scan-Zahl erkennt',
                             'Signature scanner off — click so Verse-Kit recognises the scan number while mining'),
     'scan_hinweis':      ('Scanne im Spiel einen Brocken. Das zuletzt gefundene Bild bleibt hier stehen — tippe die Zahl ein, die darauf zu sehen ist.',
