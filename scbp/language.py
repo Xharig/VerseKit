@@ -2477,6 +2477,18 @@ TEXTS = {
                               'a rank starts at.'),
     's_dk_ryze_idee':        ('**Signatur automatisch erkennen** — inspiriert von seinem Mining-Sidecar. Danke!',
                               '**Recognising signatures automatically** — inspired by his mining sidecar. Thank you!'),
+    's_dk_fire_bugs':        ('**Der Signatur-Scanner zeigte bei ihm nie etwas an** — '
+                              'und er hat die gescannten Bilder gleich mitgeschickt. '
+                              'Darin stand die Ursache: Ein einzelner heller Bildpunkt '
+                              'teilte die Öffnung einer Null in zwei, und damit galt '
+                              'eine tadellos erkannte Ziffer als unsicher. Ohne seine '
+                              'Bilder wäre das nicht zu finden gewesen.',
+                              '**The signature scanner never showed him anything** — '
+                              'and he sent his scanned images along with the report. '
+                              'The cause was in them: a single bright pixel split the '
+                              'opening of a zero in two, so a perfectly recognised '
+                              'digit counted as uncertain. Without his images this '
+                              'would not have been found.'),
     # ⚠ Er steht weiter oben schon als **Werkzeug** (Hangar Extension). Hier
     # steht er als Mensch: Das Versicherungsfeld hat er gebaut und sein Muster
     # vorab herausgegeben, damit der Import am ersten Tag damit umgehen kann.

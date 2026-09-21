@@ -23569,8 +23569,32 @@ def main():
         _arch243 = _ss243.sample_archive()
         _namen243 = _zip243.ZipFile(_io243.BytesIO(_arch243)).namelist() if _arch243 else []
         pruefe(any(n.startswith('bilder/3170_') for n in _namen243)
-               and _ss243.OWN_TEMPLATE_FILE in _namen243,
+               and _ss243.OWN_TEMPLATE_FILE in _namen243
+               and _ss243.archive_name() == 'scan-bilder.zip',
                'Scan-Bilder und Vorlagen lassen sich als ZIP mitschicken (%r)' % _namen243)
+        # ⭐ **Steht ein Melder-Name da, tragen ZIP und Ordner ihn** (21.09.2026):
+        # „sonst weiss ich im Download-Ordner nicht, wem die Bilder gehoeren."
+        # Alles Unbrauchbare im Dateinamen wird ersetzt, der Name selbst geht
+        # ohnehin oben im Bericht mit.
+        _pa243.set_setting('melder_name', 'F_i_r_e/KRT')
+        try:
+            _mit243 = _zip243.ZipFile(_io243.BytesIO(_ss243.sample_archive())).namelist()
+            pruefe(_ss243.archive_name() == 'scan-bilder-F_i_r_e_KRT.zip'
+                   and all(n.startswith('F_i_r_e_KRT/') for n in _mit243)
+                   and any(n.endswith('.png') for n in _mit243)
+                   and 'F_i_r_e_KRT/' + _ss243.OWN_TEMPLATE_FILE in _mit243,
+                   'mit Melder-Namen: ZIP und Ordner tragen ihn (%s, %r)'
+                   % (_ss243.archive_name(), _mit243))
+            pruefe(_ss243.reporter_folder() == 'F_i_r_e_KRT'
+                   and not any(c in _ss243.reporter_folder() for c in '/\\:'),
+                   'aus dem Melder-Namen wird nie ein Pfad')
+        finally:
+            _pa243.set_setting('melder_name', None)
+        pruefe(_ss243.archive_name() == 'scan-bilder.zip'
+               and all(n.startswith(('bilder/', _ss243.OWN_TEMPLATE_FILE))
+                       for n in _zip243.ZipFile(
+                           _io243.BytesIO(_ss243.sample_archive())).namelist()),
+               'ohne Melder-Namen bleibt es beim alten Aufbau')
         from scbp import report as _rep243
         _koerper243 = _rep243.multipart('GRENZE', 'kopf', 'b.txt', 'text',
                                         [('scan-bilder.zip', _arch243 or b'', 'application/zip')])
@@ -23578,6 +23602,11 @@ def main():
                and _koerper243.endswith(b'--GRENZE--\r\n')
                and b'name="files[1]"' not in _rep243.multipart('GRENZE', 'kopf', 'b.txt', 'text'),
                'der Bericht traegt die ZIP nur, wenn sie uebergeben wird')
+        # Und der Knopf schickt den Namen wirklich mit, statt ihn nur zu bauen.
+        pruefe("append((signature_scan.archive_name()" in rumpf(
+            open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read(),
+            '_diagnostics'),
+            'der Absende-Knopf nimmt den Namen mit dem Melder darin')
         _ok243, _grund243, _ = _ss243.learn(_bild243('3,170'), '31,700')
         pruefe(not _ok243 and _grund243 == 'anlernen_anzahl',
                'falsche Stellenzahl wird NICHT angelernt, sondern abgelehnt')
@@ -23666,6 +23695,51 @@ def main():
         pruefe(not _ss243._holes_match((1, 0.69), (1, 0.5))
                and _ss243._holes_match((1, 0.69), (1, 0.65)),
                'Lochlage trennt 6 von 0, laesst aber 6 als 6 durch')
+
+        # ⚠⚠ **Ein einzelner Bildpunkt darf die Erkennung nicht stilllegen**
+        # (21.09.2026). Im HUD schnuerte eine Punktreihe die obere Oeffnung
+        # einer Null ab; sie zaehlte zwei Loecher, bekam den Aufschlag von 0,25
+        # auf ihren Abstand von 0,09 — und 0,34 liegt ueber MAX_DIGIT_DISTANCE.
+        # Damit fiel die Ziffer heraus, kein moeglicher Wert blieb uebrig, und
+        # die Freilesung schwieg mit. Auf dem Rechner des Melders wurde
+        # dadurch NIE eine Signatur angezeigt, und Anlernen half nicht: Dieselbe
+        # Pruefung lehnte die Null auch dort ab.
+        def _null243(abgeschnuert):
+            _m = [0] * (_ss243.NORM_W * _ss243.NORM_H)
+            for _y in range(_ss243.NORM_H):
+                for _x in range(_ss243.NORM_W):
+                    if ((1 <= _y <= 3 or 20 <= _y <= 22) and 2 <= _x <= 13) \
+                            or (4 <= _y <= 19 and (2 <= _x <= 4 or 11 <= _x <= 13)):
+                        _m[_y * _ss243.NORM_W + _x] = 1
+            if abgeschnuert:
+                # Sechs Punkte bleiben oben uebrig — genau der gemeldete Fall.
+                for _x in (8, 9, 10):
+                    _m[4 * _ss243.NORM_W + _x] = _m[5 * _ss243.NORM_W + _x] = 1
+                for _x in range(5, 11):
+                    _m[6 * _ss243.NORM_W + _x] = 1
+            return _m
+        _sauber243 = _ss243.holes(_null243(False))
+        _eng243 = _ss243.holes(_null243(True))
+        pruefe(_sauber243[0] == 1 and _eng243[0] == 1
+               and abs(_eng243[1] - _sauber243[1]) <= _ss243.HOLE_POSITION_TOLERANCE
+               and _ss243.plausible_template('0', _null243(True)),
+               'eine abgeschnuerte Null bleibt eine Null, kein zweites Loch (%r/%r)'
+               % (_sauber243, _eng243))
+        # Gegenprobe: Die echten zwei Loecher der Acht bleiben zwei — die
+        # Mindestgroesse darf das Merkmal nicht wegraeumen, an dem am
+        # 10.09.2026 60 von 63 Fehlschlaegen hingen.
+        _acht243 = [0] * (_ss243.NORM_W * _ss243.NORM_H)
+        for _y in range(_ss243.NORM_H):
+            for _x in range(_ss243.NORM_W):
+                if ((1 <= _y <= 3 or 10 <= _y <= 12 or 20 <= _y <= 22)
+                        and 2 <= _x <= 13) \
+                        or ((4 <= _y <= 9 or 13 <= _y <= 19)
+                            and (2 <= _x <= 4 or 11 <= _x <= 13)):
+                    _acht243[_y * _ss243.NORM_W + _x] = 1
+        pruefe(_ss243.holes(_acht243)[0] == 2
+               and _ss243.plausible_template('8', _acht243)
+               and 3 < _ss243.MIN_HOLE < 16,
+               'die Acht behaelt ihre zwei Loecher (%r)' % (_ss243.holes(_acht243),))
         # Direkt: Verklebte Ziffern werden an der dunklen Spalte getrennt, nicht
         # stur in der Mitte. Flaeche 11 breit, dunkle Spalte bei 6 (Mitte waere 5).
         _kl243 = [[0] * 30 for _ in range(8)]
