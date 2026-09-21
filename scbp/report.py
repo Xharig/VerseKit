@@ -693,14 +693,24 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # ⭐ Ohne diese Zeile sagt ein Bericht zum Signatur-Scanner nichts:
         # an/aus, wie viel angelernt ist, was zuletzt gelesen wurde. (Den
         # Scan-Bereich gibt es seit rc7 nicht mehr — die Pille wird gesucht.)
+        #
+        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 stand
+        # hier nur „an" — also die Einstellung. Ob der Wach-Faden überhaupt
+        # lebt, war weder im Bericht noch am Overlay abzulesen; eine Meldung
+        # „zeigt nichts mehr an" war damit nicht zu beantworten, obwohl genau
+        # diese eine Auskunft sie entschieden hätte.
         from . import paths as paths_module, screen_grab, signature_scan, signature_watch
         if not screen_grab.supported():
             return t('b_scan_nicht')
         own = signature_scan._read_templates(
             paths_module.app_file(signature_scan.OWN_TEMPLATE_FILE))
+        if not paths_module.setting_bool(signature_watch.SETTING, False):
+            state = t('e_aus')
+        else:
+            state = t('b_scan_laeuft' if signature_watch.running()
+                      else 'b_scan_tot')
         return t('b_scan') % (
-            t('e_an') if paths_module.setting_bool(signature_watch.SETTING, False)
-            else t('e_aus'),
+            state,
             sum(len(v) for v in own.values()), len(own),
             len(signature_scan.samples()),
             signature_watch.shown() or '—',

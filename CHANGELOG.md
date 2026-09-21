@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.54.1 - 2026-09-21
+
+> **Das Auge am Overlay sagt jetzt die Wahrheit.** Es leuchtete grün, sobald der
+> Signatur-Scanner eingeschaltet war — auch dann, wenn in Wahrheit niemand mehr
+> mitlas. Wer sich fragte, warum keine Zahl mehr erscheint, konnte beides nicht
+> auseinanderhalten. Grün heißt ab jetzt: liest wirklich mit.
+
+### Behoben
+
+- **Das Auge in der Overlay-Leiste zeigte den Schalter statt des Betriebs.** Es
+  blieb grün, auch wenn der Scanner gar nichts mehr las. Jetzt sagt es, was
+  wirklich los ist: grün = liest mit · gelb = eingeschaltet, liest aber nicht
+  (einmal neu starten) · grau = aus
+- **Der Fehlerbericht konnte dieselbe Frage nicht beantworten** — dort stand nur
+  „an", also die Einstellung. Er nennt jetzt, ob wirklich gelesen wird
+
 ## v3.54.0 - 2026-09-21
 
 > **Der Signatur-Scanner zeigte auf manchen Rechnern nie eine Zahl** — und

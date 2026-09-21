@@ -23607,6 +23607,64 @@ def main():
             open(os.path.join(WURZEL, 'scbp', 'pages.py'), encoding='utf-8').read(),
             '_diagnostics'),
             'der Absende-Knopf nimmt den Namen mit dem Melder darin')
+
+        # ⚠⚠ **Der Schalter ist nicht der Betrieb.** Bis zum 21.09.2026 stand
+        # im Bericht nur „an" — die Einstellung. Ob der Wach-Faden lebt, war
+        # nirgends abzulesen, und eine Meldung „zeigt nichts mehr an" damit
+        # nicht zu beantworten. Gemessen wird die WIRKUNG am fertigen Bericht,
+        # nicht ein Wort im Quelltext.
+        from scbp import signature_watch as _sw243
+        from scbp.language import t as _t243
+        _altschalter243 = _pa243.setting(_sw243.SETTING)
+        _altfaden243 = _sw243._state.get('thread')
+        try:
+            _pa243.set_setting(_sw243.SETTING, True)
+
+            class _ToterFaden243(object):
+                @staticmethod
+                def is_alive():
+                    return False
+
+            _sw243._state['thread'] = _ToterFaden243()
+            _tot243 = _rep243.build(version='0.0.0-test')
+
+            class _LebenderFaden243(object):
+                @staticmethod
+                def is_alive():
+                    return True
+
+            _sw243._state['thread'] = _LebenderFaden243()
+            _lebt243 = _rep243.build(version='0.0.0-test')
+            _pa243.set_setting(_sw243.SETTING, False)
+            _sw243._state['thread'] = None
+            _aus243 = _rep243.build(version='0.0.0-test')
+        finally:
+            _pa243.set_setting(_sw243.SETTING, _altschalter243)
+            _sw243._state['thread'] = _altfaden243
+        if not _sg243.supported():
+            print('  [–]    Bericht-Zustand nur dort, wo abgegriffen werden kann')
+        else:
+            pruefe(_t243('b_scan_tot') in _tot243
+                   and _t243('b_scan_laeuft') not in _tot243,
+                   'Bericht: eingeschaltet, aber toter Faden heisst „liest NICHT"')
+            pruefe(_t243('b_scan_laeuft') in _lebt243
+                   and _t243('b_scan_tot') not in _lebt243,
+                   'Bericht: lebender Faden heisst „liest"')
+            pruefe(_t243('b_scan_laeuft') not in _aus243
+                   and _t243('b_scan_tot') not in _aus243,
+                   'Bericht: ausgeschaltet nennt gar keinen Betrieb')
+        # Und das Auge am Overlay fragt dasselbe — sonst zeigen Bericht und
+        # Anzeige wieder Verschiedenes (drei Farben: an/liest, an/tot, aus).
+        _ov243 = open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                      encoding='utf-8').read()
+        _faerben243 = methode(_ov243, 'Overlay', '_scanner_faerben')
+        pruefe('signature_watch.running()' in _faerben243
+               and 'icons.YELLOW' in _faerben243 and 'icons.GREY' in _faerben243
+               and 'icons.GREEN' in _faerben243,
+               'das Auge kennt drei Zustaende und fragt den Betrieb, nicht den Schalter')
+        pruefe('_scanner_nachsehen()' in methode(_ov243, 'Overlay', '_poll_queue')
+               and 'running()' in methode(_ov243, 'Overlay', '_hinweis_scanner'),
+               'der Zustand wird laufend nachgesehen, und der Hinweis sagt dasselbe')
         _ok243, _grund243, _ = _ss243.learn(_bild243('3,170'), '31,700')
         pruefe(not _ok243 and _grund243 == 'anlernen_anzahl',
                'falsche Stellenzahl wird NICHT angelernt, sondern abgelehnt')
