@@ -729,6 +729,9 @@ TEXTS = {
                           'Pages opened last (the last line without "ready" is where it hung)'),
     'b_absturz':       ('Harter Abbruch, festgehalten am %s — das Programm wurde mitten im Befehl beendet',
                           'Hard crash, recorded on %s — the program was killed mid-instruction'),
+    'b_absturz_fassung': ('Fassung %s', 'version %s'),
+    'b_absturz_ohne_fassung': ('Fassung nicht festgehalten — prüfen, ob es ihn noch gibt',
+                               'version not recorded — check whether it still occurs'),
     # ⚠⚠ **Nur feststellen, nicht bewerten.** Bis 05.09.2026 stand hier
     # „vermutlich längst behoben". Das ist eine Behauptung, und sie kann
     # falsch sein: Wer lange kein Update gemacht hat, meldet aus einer alten

@@ -773,8 +773,20 @@ def build(version='', root=None, fehleranzahl=8, message=''):
         # ⚠ Mit Datum: Die Datei überlebt beliebig viele saubere Läufe. Der
         # Vermerk stellt fest, wann — er urteilt nicht, ob es noch zutrifft.
         wann = _safe(errors.crash_time, None)
+        # ⚠ Und mit Fassung, genau wie die Fehlerliste darunter — derselbe
+        # Vermerk, dieselbe Regel: feststellen, nicht urteilen. Ohne sie stand
+        # am 21.09.2026 ein Abbruch aus einer Fassung vor 3.43 in einem Bericht
+        # aus 3.55.0, und nichts im Kopf verriet das.
+        crash_version = _safe(errors.crash_version, '')
+        if not crash_version:
+            version_note = t('b_absturz_ohne_fassung')
+        else:
+            version_note = t('b_absturz_fassung') % crash_version
+            if version and crash_version != version:
+                version_note += '  ' + t('b_fehler_alt')
         lines.append(t('b_absturz') % (
-            datetime.fromtimestamp(wann).strftime(t('b_datum')) if wann else '—'))
+            datetime.fromtimestamp(wann).strftime(t('b_datum')) if wann else '—')
+            + ' · ' + version_note)
         for entry in _crash_brief(crash, 14):
             lines.append('  ' + entry)
         if len(crash) > 14:

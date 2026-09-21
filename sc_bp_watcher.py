@@ -5547,7 +5547,7 @@ if __name__ == '__main__':
     # `please_show()` wieder, und die legt sonst die Absturzspur der laufenden
     # beiseite. Ab dieser Zeile ist ein harter Abbruch nachlesbar — ein SIGSEGV
     # aus Tk hinterlässt sonst nichts, was man melden könnte.
-    errors.install_crash_handler()
+    errors.install_crash_handler(__version__)
     errors.VERSION[0] = __version__
     errors.trail('Start, Version %s, %s' % (__version__, sys.platform))
     # ⚠⚠ **Vor dem ersten Fenster.** Sonst haette die Wurzel — und alles, was
