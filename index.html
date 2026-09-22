@@ -157,10 +157,21 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 /* Die Texte kommen aus CHANGELOG.md / CHANGELOG.en.md im selben Repo — die
    Seite liegt auf demselben Server, eine zweite Kopie gibt es nicht. */
 .verlauf-leiste{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+/* Eigenes Kreuz zum Leeren: Das eingebaute zeigen nur Chrome und Safari,
+   Firefox gar keins (gemeldet 22.09.2026). Das eingebaute wird deshalb
+   ausgeblendet, damit es in Chrome nicht doppelt dasteht. */
+.suchfeld{position:relative;flex:1 1 260px;display:flex}
 .verlauf-leiste input[type=search]{
-  flex:1 1 260px;background:var(--flaeche);border:1px solid var(--rand);
-  border-radius:8px;color:var(--text);font:inherit;font-size:16px;padding:10px 14px;
+  flex:1;background:var(--flaeche);border:1px solid var(--rand);
+  border-radius:8px;color:var(--text);font:inherit;font-size:16px;padding:10px 44px 10px 14px;
 }
+.verlauf-leiste input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.suchfeld .leeren{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;border:0;border-radius:6px;background:none;
+  color:var(--text-leise);font-size:22px;line-height:1;cursor:pointer;
+}
+.suchfeld .leeren:hover{color:var(--neon);background:#1c1c1c}
 .verlauf-leiste input[type=search]:focus{outline:none;border-color:var(--neon)}
 .verlauf-leiste label{color:var(--text-leise);font-size:15px;cursor:pointer;user-select:none}
 .verlauf-leiste input[type=checkbox]{accent-color:var(--neon);margin-right:6px}
@@ -393,8 +404,13 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
     </p>
 
     <div class="verlauf-leiste">
-      <input type="search" id="verlauf-suche" oninput="verlaufZeigen()"
-             placeholder="Suchen, z. B. Hangar oder 3.50" aria-label="Suchen">
+      <div class="suchfeld">
+        <input type="search" id="verlauf-suche" oninput="verlaufZeigen()"
+               onkeydown="if(event.key==='Escape')sucheLeeren()"
+               placeholder="Suchen, z. B. Hangar oder 3.50" aria-label="Suchen">
+        <button type="button" class="leeren" id="verlauf-leeren" hidden
+                onclick="sucheLeeren()" aria-label="Suche leeren" title="Suche leeren">×</button>
+      </div>
       <label><input type="checkbox" id="verlauf-test" onchange="verlaufZeigen()"><span
         data-de="Testfassungen zeigen" data-en="Show test builds">Testfassungen zeigen</span></label>
     </div>
@@ -792,6 +808,9 @@ function verlaufLaden(){
   document.getElementById("verlauf-suche").placeholder =
     sprLage === "de" ? "Suchen, z. B. Hangar oder 3.50" : "Search, e.g. hangar or 3.50";
   document.getElementById("verlauf-suche").setAttribute("aria-label", sprLage === "de" ? "Suchen" : "Search");
+  var leeren = document.getElementById("verlauf-leeren");
+  leeren.title = sprLage === "de" ? "Suche leeren" : "Clear search";
+  leeren.setAttribute("aria-label", leeren.title);
   if (verlaufDaten[sprLage]){ verlaufGeladen = sprLage; verlaufZeigen(); return; }
   var spr = sprLage;
   document.getElementById("verlauf-zahl").textContent = spr === "de" ? "Wird geladen …" : "Loading …";
@@ -810,14 +829,24 @@ function verlaufLaden(){
     });
 }
 
+function sucheLeeren(){
+  var feld = document.getElementById("verlauf-suche");
+  feld.value = "";
+  verlaufZeigen();
+  feld.focus();
+}
+
 function verlaufZeigen(){
+  var feld = document.getElementById("verlauf-suche");
+  document.getElementById("verlauf-leeren").hidden = !feld.value;
   var alle = verlaufDaten[sprLage];
   if (!alle) return;
-  var suche = document.getElementById("verlauf-suche").value.trim().toLowerCase();
+  var suche = feld.value.trim().toLowerCase();
   var mitTest = document.getElementById("verlauf-test").checked;
-  var treffer = [];
+  var treffer = [], sichtbar = 0;
   for (var i = 0; i < alle.length; i++){
     if (alle[i].test && !mitTest) continue;
+    sichtbar++;            // Grundmenge fuer „X von Y" — ohne ausgeblendete Testfassungen
     if (suche && alle[i].roh.indexOf(suche) < 0) continue;
     treffer.push(alle[i]);
   }
@@ -848,9 +877,9 @@ function verlaufZeigen(){
     ziel.appendChild(kasten);
   }
   var zahl = sprLage === "de"
-    ? (suche ? treffer.length + " von " + alle.length + " Versionen passen"
+    ? (suche ? treffer.length + " von " + sichtbar + " Versionen passen"
              : "Zeigt " + zeigen.length + " von " + treffer.length + " Versionen")
-    : (suche ? treffer.length + " of " + alle.length + " versions match"
+    : (suche ? treffer.length + " of " + sichtbar + " versions match"
              : "Showing " + zeigen.length + " of " + treffer.length + " versions");
   document.getElementById("verlauf-zahl").textContent = zahl;
   document.getElementById("verlauf-mehr").hidden = !!suche || zeigen.length >= treffer.length;
