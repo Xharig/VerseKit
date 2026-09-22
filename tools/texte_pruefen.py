@@ -99,7 +99,10 @@ KEINE_TEXTE = (
 # Lizenzkürzel, Adressen. Bleibt nach ihrem Abzug nichts übrig, ist die Zeile
 # kein zu übersetzender Satz.
 UNVERAENDERLICH = re.compile(
-    r'(https?://\S+|(?:www\.|github\.com/)\S+|SC BP Watcher|GPL-[\d.]+-only'
+    # `\S+\.github\.io/` ist die Projektseite auf GitHub Pages — seit v3.55.1
+    # auf „Danke & Lizenzen" verlinkt, und eine Adresse übersetzt man nicht.
+    r'(https?://\S+|(?:www\.|github\.com/|\S+\.github\.io/)\S+'
+    r'|SC BP Watcher|GPL-[\d.]+-only'
     r'|Xharig(?:-1)?|scmdb\.net|KRT Profit Basetool)', re.I)
 
 
