@@ -8,8 +8,17 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.55.1 - 2026-09-22
+
+> **Zwei kleine Verbesserungen.** Die Webseite mit dem Rundgang durch alle
+> Bereiche ist jetzt direkt aus dem Programm erreichbar, und der Fehlerbericht
+> sagt bei einem Absturz dazu, aus welcher Version er stammt.
+
 ### Verbessert
 
+- **Die Webseite ist auf „Danke & Lizenzen" verlinkt** — als erster Link unter
+  dem Namen, GitHub mit dem Quellcode steht darunter. Auf der Webseite findet
+  man sich schneller zurecht
 - **Ein harter Abbruch im Fehlerbericht nennt seine Fassung** — wie die
   Fehlerliste darunter. Stammt er aus einer älteren Version, steht das dabei
 

@@ -8,8 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.55.1 - 2026-09-22
+
+> **Two small improvements.** The website with its tour of every area can now
+> be reached straight from the program, and after a crash the error report says
+> which version it came from.
+
 ### Improved
 
+- **The website is linked on "Thanks & Licenses"** — as the first link under
+  the name, with GitHub and the source code below it. The website is easier to
+  find your way around
 - **A hard crash in the error report names its version** — like the error
   list below it. If it comes from an older version, the report says so
 
