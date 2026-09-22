@@ -28,7 +28,7 @@
 
 A small, borderless overlay that tells you **in real time** when a new blueprint drops — name, type and time. No account, no cloud. Runs on **Windows and Linux**.
 
-> 🌐 **There is a website.** At **[xharig.github.io/Verse-Kit](https://xharig.github.io/VerseKit/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
+> 🌐 **There is a website.** At **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
 
 > 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
