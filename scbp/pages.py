@@ -5737,6 +5737,11 @@ def _thanks(fenster, rahmen):
     tk.Label(rechts, text='%s %s · GPL-3.0-only'
              % (t('hf_titel'), fenster.version or ''), bg=SURFACE, fg=SUB,
              font=fenster.f_small, anchor='w').pack(fill='x')
+    # Die Projektseite zuerst: Spieler finden sich dort schneller zurecht als
+    # auf GitHub. GitHub bleibt darunter — dort liegt der Quellcode, den die
+    # GPL-Zeile oben verspricht.
+    _link(fenster, rechts, 'xharig.github.io/VerseKit',
+             'https://xharig.github.io/VerseKit/')
     _link(fenster, rechts, 'github.com/Xharig/VerseKit',
              'https://github.com/Xharig/VerseKit')
     _body_text(innen, t('s_dk_selbst_h'), fenster.f_small, fill='x',
