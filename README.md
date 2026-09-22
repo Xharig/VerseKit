@@ -28,7 +28,7 @@
 
 Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald ein neuer Bauplan (Blueprint) dazukommt — inklusive Name, Art und Uhrzeit. Ohne Account, ohne Cloud. Läuft unter **Windows und Linux**.
 
-> 🌐 **Es gibt eine Webseite.** Auf **[xharig.github.io/Verse-Kit](https://xharig.github.io/VerseKit/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
+> 🌐 **Es gibt eine Webseite.** Auf **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
 
 > 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
