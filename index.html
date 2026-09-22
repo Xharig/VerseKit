@@ -153,6 +153,56 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 .laden .fassung{color:var(--text-leise);font-size:15px;margin:0 0 22px}
 .laden .fassung strong{color:var(--neon);margin-right:6px}
 
+/* ---------- Änderungen ---------- */
+/* Die Texte kommen aus CHANGELOG.md / CHANGELOG.en.md im selben Repo — die
+   Seite liegt auf demselben Server, eine zweite Kopie gibt es nicht. */
+.verlauf-leiste{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.verlauf-leiste input[type=search]{
+  flex:1 1 260px;background:var(--flaeche);border:1px solid var(--rand);
+  border-radius:8px;color:var(--text);font:inherit;font-size:16px;padding:10px 14px;
+}
+.verlauf-leiste input[type=search]:focus{outline:none;border-color:var(--neon)}
+.verlauf-leiste label{color:var(--text-leise);font-size:15px;cursor:pointer;user-select:none}
+.verlauf-leiste input[type=checkbox]{accent-color:var(--neon);margin-right:6px}
+.verlauf-zahl{color:var(--text-leise);font-size:14px;margin:0 0 12px}
+.version{
+  background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
+  margin-bottom:10px;
+}
+.version summary{
+  cursor:pointer;padding:14px 20px;display:flex;gap:14px;align-items:baseline;
+  list-style:none;
+}
+.version summary::-webkit-details-marker{display:none}
+.version summary::before{content:"▸";color:var(--neon);width:12px}
+.version[open] summary::before{content:"▾"}
+.version .nummer{font-weight:800;font-size:18px;color:var(--text)}
+.version .datum{color:var(--text-leise);font-size:15px}
+.version .test{
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;
+  color:var(--text-leise);border:1px solid var(--rand);border-radius:999px;padding:1px 9px;
+}
+.version .inhalt{padding:0 22px 18px 46px;font-size:16px}
+.version .inhalt h4{
+  margin:18px 0 6px;font-size:12px;letter-spacing:4px;text-transform:uppercase;
+  color:var(--neon-tief);
+}
+.version .inhalt ul{margin:0;padding-left:20px}
+.version .inhalt li{margin:6px 0}
+.version .inhalt p{margin:8px 0}
+.version .inhalt code{
+  background:#1c1c1c;border:1px solid var(--rand);border-radius:4px;
+  padding:0 5px;font-size:14px;
+}
+.version .vorspann{color:var(--text);border-left:2px solid var(--neon);padding-left:14px;margin:4px 0 6px}
+.version .kasten{border:1px solid var(--rand);border-radius:8px;padding:4px 14px;margin:10px 0;background:#101010}
+.verlauf-mehr{margin-top:8px}
+.verlauf-mehr button{
+  background:none;border:2px solid var(--neon);color:var(--neon);border-radius:8px;
+  font:inherit;font-weight:700;padding:10px 22px;cursor:pointer;
+}
+.verlauf-mehr button:hover{background:rgba(156,228,48,.10)}
+
 /* ---------- Fuß ---------- */
 footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
 .fusslinks{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-bottom:26px}
@@ -178,6 +228,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a class="weg" href="#tour" data-de="Ansehen" data-en="Take a look">Ansehen</a>
       <a class="weg" href="#merkmale" data-de="Was es kann" data-en="What it does">Was es kann</a>
       <a href="#laden" data-de="Herunterladen" data-en="Download">Herunterladen</a>
+      <a class="weg" href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <div class="sprache">
         <button id="knopf-de" class="an" onclick="sprache('de')">DE</button>
         <button id="knopf-en" onclick="sprache('en')">EN</button>
@@ -331,6 +382,31 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
   </div>
 </section>
 
+<section id="aenderungen">
+  <div class="mitte">
+    <div class="label" data-de="Verlauf" data-en="History">Verlauf</div>
+    <h2 data-de="Was sich geändert hat" data-en="What has changed">Was sich geändert hat</h2>
+    <p class="einleitung"
+       data-de="Jede Version seit der ersten, mit allem, was neu, besser oder behoben ist — dieselben Texte, die das Programm unter „Was ist neu“ zeigt."
+       data-en="Every version since the first, with everything that is new, improved or fixed — the same texts the program shows under “What’s new”.">
+      Jede Version seit der ersten, mit allem, was neu, besser oder behoben ist — dieselben Texte, die das Programm unter „Was ist neu“ zeigt.
+    </p>
+
+    <div class="verlauf-leiste">
+      <input type="search" id="verlauf-suche" oninput="verlaufZeigen()"
+             placeholder="Suchen, z. B. Hangar oder 3.50" aria-label="Suchen">
+      <label><input type="checkbox" id="verlauf-test" onchange="verlaufZeigen()"><span
+        data-de="Testfassungen zeigen" data-en="Show test builds">Testfassungen zeigen</span></label>
+    </div>
+    <p class="verlauf-zahl" id="verlauf-zahl"></p>
+    <div id="verlauf"></div>
+    <div class="verlauf-mehr" id="verlauf-mehr" hidden>
+      <button onclick="verlaufAlle=true;verlaufZeigen()"
+              data-de="Ältere Versionen anzeigen" data-en="Show older versions">Ältere Versionen anzeigen</button>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="mitte">
     <div class="fusslinks">
@@ -338,8 +414,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <a href="https://discord.gg/g2E7e6XxZC">Discord</a>
       <a href="https://github.com/Xharig/VerseKit/blob/main/README.md"
          data-de="Anleitung" data-en="Readme">Anleitung</a>
-      <a href="https://github.com/Xharig/VerseKit/blob/main/CHANGELOG.md"
-         data-de="Änderungen" data-en="Changelog">Änderungen</a>
+      <a href="#aenderungen" data-de="Änderungen" data-en="Changelog">Änderungen</a>
       <a href="https://github.com/Xharig/VerseKit/issues"
          data-de="Fehler melden" data-en="Report a bug">Fehler melden</a>
       <a href="https://ko-fi.com/xharig">Ko-fi</a>
@@ -523,6 +598,7 @@ function sprache(s){
   }
   zahlZeigen();
   bauen();
+  verlaufLaden();
 }
 
 /* Downloadzahl: Summe aller Release-Dateien aller Versionen — dieselbe Zahl,
@@ -574,7 +650,214 @@ try {
 } catch (e) {}
 if (downloads === null) zahlHolen(1, 0); else zahlZeigen();
 
+/* Der Verlauf.
+   ⚠ Es gibt KEINE Kopie der Changelogs auf dieser Seite. Gelesen werden
+   CHANGELOG.md (deutsch) und CHANGELOG.en.md (englisch) aus dem Repo — GitHub
+   Pages liefert sie vom selben Server aus wie diese Seite, es geht also
+   nichts an Dritte. Eine abgeschriebene Liste waere die zweite Wahrheit und
+   veraltete still beim naechsten Release.
+   ⚠ Der Umwandler kennt nur, was die Changelogs wirklich benutzen:
+   "## Version", "### Abschnitt", Aufzaehlungen (zwei Ebenen), "> " als
+   Vorspann, "> [!important]" als Kasten, **fett**, `Code` und [Links](...).
+   Alles wird VOR dem Einsetzen maskiert — kein Text aus der Datei wird je
+   als HTML ausgefuehrt. */
+var VERLAUF_DATEI = {de:"CHANGELOG.md", en:"CHANGELOG.en.md"};
+var VERLAUF_ERSTE = 15;          // so viele Versionen stehen sofort da
+var verlaufDaten = {};           // Sprache -> Liste der Versionen
+var verlaufAlle = false;
+var verlaufGeladen = null;
+
+function maske(s){
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+}
+
+function zeile(s){
+  var t = maske(s);
+  t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Fett darf Kursives enthalten: „**Eigener Bereich *Schiffe***" (v3.19.0-rc2)
+  t = t.replace(/\*\*((?:[^*]|\*[^*]+\*)+)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/\*([^*\s][^*]*)\*/g, "<em>$1</em>");
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function(_, text, ziel){
+    // Nur echte Adressen und Verweise auf Dateien im Repo — kein "javascript:".
+    if (/^https:\/\//.test(ziel)) return '<a href="' + ziel + '">' + text + "</a>";
+    if (/^[\w.\/#-]+$/.test(ziel))
+      return '<a href="https://github.com/Xharig/VerseKit/blob/main/' + ziel + '">' + text + "</a>";
+    return text;
+  });
+  return t;
+}
+
+function umwandeln(zeilen){
+  var html = "", absatz = [], liste = null, zitat = null;
+
+  function absatzEnde(){
+    if (absatz.length) html += "<p>" + zeile(absatz.join(" ")) + "</p>";
+    absatz = [];
+  }
+  function listeEnde(){
+    if (!liste) return;
+    html += "<ul>";
+    for (var i = 0; i < liste.length; i++){
+      html += "<li>" + zeile(liste[i].text.join(" "));
+      if (liste[i].unter.length){
+        html += "<ul>";
+        for (var k = 0; k < liste[i].unter.length; k++)
+          html += "<li>" + zeile(liste[i].unter[k].join(" ")) + "</li>";
+        html += "</ul>";
+      }
+      html += "</li>";
+    }
+    html += "</ul>";
+    liste = null;
+  }
+  function zitatEnde(){
+    if (!zitat) return;
+    var teile = [], jetzt = [];
+    for (var i = 0; i < zitat.zeilen.length; i++){
+      if (zitat.zeilen[i] === "") { if (jetzt.length) teile.push(jetzt); jetzt = []; }
+      else jetzt.push(zitat.zeilen[i]);
+    }
+    if (jetzt.length) teile.push(jetzt);
+    var innen = "";
+    for (var t = 0; t < teile.length; t++) innen += "<p>" + zeile(teile[t].join(" ")) + "</p>";
+    html += '<div class="' + (zitat.kasten ? "kasten" : "vorspann") + '">' + innen + "</div>";
+    zitat = null;
+  }
+  function allesEnde(){ absatzEnde(); listeEnde(); zitatEnde(); }
+
+  for (var n = 0; n < zeilen.length; n++){
+    var z = zeilen[n];
+    if (/^>/.test(z)){
+      absatzEnde(); listeEnde();
+      var rest = z.replace(/^> ?/, "");
+      if (/^\[!\w+\]/.test(rest)){
+        zitatEnde();
+        zitat = {kasten:true, zeilen:[]};
+        rest = rest.replace(/^\[!\w+\]\s*/, "");
+        if (rest) zitat.zeilen.push(rest);
+        continue;
+      }
+      if (!zitat) zitat = {kasten:false, zeilen:[]};
+      zitat.zeilen.push(rest.trim());
+      continue;
+    }
+    zitatEnde();
+    if (/^### /.test(z)){ allesEnde(); html += "<h4>" + zeile(z.slice(4)) + "</h4>"; continue; }
+    if (/^- /.test(z)){
+      absatzEnde();
+      if (!liste) liste = [];
+      liste.push({text:[z.slice(2)], unter:[]});
+      continue;
+    }
+    if (/^\s{2,}- /.test(z) && liste){
+      liste[liste.length - 1].unter.push([z.replace(/^\s+- /, "")]);
+      continue;
+    }
+    if (/^\s+\S/.test(z) && liste){
+      // Fortsetzung des letzten Punkts (oder Unterpunkts)
+      var letzter = liste[liste.length - 1];
+      var ziel = letzter.unter.length ? letzter.unter[letzter.unter.length - 1] : letzter.text;
+      ziel.push(z.trim());
+      continue;
+    }
+    if (z.trim() === ""){ absatzEnde(); continue; }
+    listeEnde();
+    absatz.push(z.trim());
+  }
+  allesEnde();
+  return html;
+}
+
+function zerlegen(text){
+  var bloecke = text.split(/\n(?=## )/), liste = [];
+  for (var i = 0; i < bloecke.length; i++){
+    var kopf = bloecke[i].split("\n", 1)[0];
+    var m = /^## (v[\w.\-]+)\s*-\s*(\d{4})-(\d{2})-(\d{2})/.exec(kopf);
+    if (!m) continue;      // Titel der Datei und "Unveroeffentlicht" fallen weg
+    liste.push({
+      nummer: m[1],
+      datum: sprLage === "de" ? m[4] + "." + m[3] + "." + m[2] : m[2] + "-" + m[3] + "-" + m[4],
+      test: /-(rc|beta|alpha|dev)/.test(m[1]),
+      roh: bloecke[i].toLowerCase(),
+      zeilen: bloecke[i].split("\n").slice(1),
+      html: null
+    });
+  }
+  return liste;
+}
+
+function verlaufLaden(){
+  if (verlaufGeladen === sprLage) return;
+  document.getElementById("verlauf-suche").placeholder =
+    sprLage === "de" ? "Suchen, z. B. Hangar oder 3.50" : "Search, e.g. hangar or 3.50";
+  document.getElementById("verlauf-suche").setAttribute("aria-label", sprLage === "de" ? "Suchen" : "Search");
+  if (verlaufDaten[sprLage]){ verlaufGeladen = sprLage; verlaufZeigen(); return; }
+  var spr = sprLage;
+  document.getElementById("verlauf-zahl").textContent = spr === "de" ? "Wird geladen …" : "Loading …";
+  fetch(VERLAUF_DATEI[spr])
+    .then(function(r){ if (!r.ok) throw r.status; return r.text(); })
+    .then(function(text){
+      verlaufDaten[spr] = zerlegen(text);
+      if (spr === sprLage){ verlaufGeladen = spr; verlaufZeigen(); }
+    })
+    .catch(function(){
+      // Ohne Datei bleibt der Weg zu GitHub — die Seite bricht nicht.
+      document.getElementById("verlauf-zahl").innerHTML =
+        (spr === "de" ? "Der Verlauf ließ sich nicht laden. " : "The history could not be loaded. ") +
+        '<a href="https://github.com/Xharig/VerseKit/blob/main/' + VERLAUF_DATEI[spr] + '">' +
+        (spr === "de" ? "Auf GitHub lesen" : "Read it on GitHub") + "</a>";
+    });
+}
+
+function verlaufZeigen(){
+  var alle = verlaufDaten[sprLage];
+  if (!alle) return;
+  var suche = document.getElementById("verlauf-suche").value.trim().toLowerCase();
+  var mitTest = document.getElementById("verlauf-test").checked;
+  var treffer = [];
+  for (var i = 0; i < alle.length; i++){
+    if (alle[i].test && !mitTest) continue;
+    if (suche && alle[i].roh.indexOf(suche) < 0) continue;
+    treffer.push(alle[i]);
+  }
+  // Beim Suchen stehen alle Treffer da, sonst erst die neuesten.
+  var zeigen = (suche || verlaufAlle) ? treffer : treffer.slice(0, VERLAUF_ERSTE);
+  var ziel = document.getElementById("verlauf");
+  ziel.innerHTML = "";
+  for (var k = 0; k < zeigen.length; k++){
+    var v = zeigen[k];
+    var kasten = document.createElement("details");
+    kasten.className = "version";
+    var kopf = document.createElement("summary");
+    kopf.innerHTML = '<span class="nummer">' + maske(v.nummer) + '</span><span class="datum">' +
+      v.datum + "</span>" + (v.test ? '<span class="test">' + (sprLage === "de" ? "Testfassung" : "Test build") + "</span>" : "");
+    kasten.appendChild(kopf);
+    var inhalt = document.createElement("div");
+    inhalt.className = "inhalt";
+    kasten.appendChild(inhalt);
+    // Erst beim Aufklappen umwandeln — 290 Versionen auf einmal braucht niemand.
+    kasten.addEventListener("toggle", (function(v, inhalt){
+      return function(){
+        if (!this.open || inhalt.innerHTML) return;
+        if (v.html === null) v.html = umwandeln(v.zeilen);
+        inhalt.innerHTML = v.html;
+      };
+    })(v, inhalt));
+    if (k === 0 && !suche) kasten.open = true;
+    ziel.appendChild(kasten);
+  }
+  var zahl = sprLage === "de"
+    ? (suche ? treffer.length + " von " + alle.length + " Versionen passen"
+             : "Zeigt " + zeigen.length + " von " + treffer.length + " Versionen")
+    : (suche ? treffer.length + " of " + alle.length + " versions match"
+             : "Showing " + zeigen.length + " of " + treffer.length + " versions");
+  document.getElementById("verlauf-zahl").textContent = zahl;
+  document.getElementById("verlauf-mehr").hidden = !!suche || zeigen.length >= treffer.length;
+}
+
 bauen();
+verlaufLaden();
 </script>
 
 </body>
