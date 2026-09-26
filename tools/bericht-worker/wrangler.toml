@@ -5,6 +5,13 @@ name = "versekit-bericht"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 
+# Eigene Adresse. Die workers.dev-Adresse bleibt ausdrücklich an: Ältere
+# Programmfassungen schicken ihre Berichte weiter dorthin.
+workers_dev = true
+routes = [
+  { pattern = "bericht.xharig.com", custom_domain = true }
+]
+
 # Höchstens 3 Berichte je Absender-Adresse und Minute. Die Bindung zählt je
 # Standort ungefähr, nicht bis aufs Stück — für eine Spam-Bremse genügt das.
 [[ratelimits]]
