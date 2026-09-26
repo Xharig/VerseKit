@@ -25816,6 +25816,7 @@ def main():
 
     _pruefung_265()
     _pruefung_266()
+    _pruefung_267()
 
     print()
     if fehler:
@@ -26014,6 +26015,193 @@ def _pruefung_266():
                'ohne Rezept: Eintrag bleibt, nur ohne Tag')
     finally:
         _cr.all_items = old
+
+
+def _pruefung_267():
+    """267. Abgleich mit dem Basetool: Format nach Vertrag, Regeln hart."""
+    print('\n267. Basetool-Abgleich (ohne Netz): Vertragsformat und Regeln')
+    # Das Basetool hat sein Austauschformat festgelegt (Exchange API v1,
+    # krt-profit/basetool#2080) und liegt unter tools/basetool-vertrag/.
+    # Geprueft wird hier nur, was ohne Server geht: dass VerseKit genau dieses
+    # Format schreibt, und dass die Abgleich-Regeln halten.
+    import json as _js
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    try:
+        import schema_pruefen as _sp
+    finally:
+        sys.path.pop(0)
+    from scbp import exchange_sync as _xs, paths as _pa
+
+    # ⚠⚠ Erst muss sich der Pruefer beweisen — an gelucs eigenen Beispielen.
+    # Jede gueltige Datei muss durchgehen, jede ungueltige haengen bleiben.
+    # Ein Pruefer, der alles durchwinkt, machte jede Zeile darunter wertlos.
+    _bsp = _sp.check_examples()
+    _falsch = [p for p, soll, f in _bsp if (soll == 'valid') == bool(f)]
+    _arten = {soll for _p, soll, _f in _bsp}
+    pruefe(len(_bsp) >= 90 and _arten == {'valid', 'invalid'} and not _falsch,
+           'der Formatpruefer beurteilt alle %d Beispiele des Basetools richtig'
+           ' (falsch: %r)' % (len(_bsp), _falsch[:3]))
+
+    def _bestand(eintraege):
+        return {'bauplaene': {_pa.name_key(n): {'name': n, 'quelle': q,
+                                                'zeit': '2026-09-26 14:05:00'}
+                              for n, q in eintraege}}
+
+    _tags = {_pa.name_key('Eindeutig'): 'BP_CRAFT_EIN'}
+    _roh = [('Eindeutig', 'log'), ('Handarbeit', 'hand'),
+            ('Importiert', 'import'), ('Startplan', 'start'),
+            ('Nachgelesen', 'nachlese')]
+    _lokal = _xs.local_blueprints(_bestand(_roh), _tags)
+
+    # Offline-Datei fuer den Import im Browser
+    _datei = _xs.blueprint_file(_bestand(_roh), _tags, '3.57.3')
+    pruefe(not _sp.check(_datei, 'blueprint-draft'),
+           'die Offline-Datei entspricht dem Vertrag (%r)'
+           % _sp.check(_datei, 'blueprint-draft')[:3])
+    _namen = [i['ref']['name'] for i in _datei['items']]
+    pruefe('Startplan' not in _namen and len(_namen) == 4,
+           'Startbauplaene stehen nicht in der Datei (%r)' % _namen)
+    _text = _js.dumps(_datei).lower()
+    pruefe(not any(w in _text for w in ('handle', 'spieler', 'player', 'pfad',
+                                        'path', 'ordner', 'folder')),
+           'die Datei traegt keinen Spielernamen und keinen Pfad')
+    _eindeutig = [i for i in _datei['items']
+                  if i['ref']['name'] == 'Eindeutig'][0]
+    pruefe(_eindeutig['ref'].get('scRecord') == 'BP_CRAFT_EIN'
+           and _eindeutig['provenance']['source'] == 'log',
+           'Tag und Herkunft landen im Vertragsfeld (%r)' % _eindeutig)
+    pruefe(_xs.iso_utc('2026-09-26 14:05:00')
+           == __import__('time').strftime(
+               '%Y-%m-%dT%H:%M:%SZ', __import__('time').gmtime(
+                   __import__('time').mktime(__import__('time').strptime(
+                       '2026-09-26 14:05:00', '%Y-%m-%d %H:%M:%S')))),
+           'die Ortszeit wird wirklich nach UTC umgerechnet')
+
+    # Erster Abgleich gegen ein leeres Basetool: nur hinzufuegen
+    _plan = _xs.plan_blueprints(_lokal, [], [], _xs.empty_state())
+    pruefe(sorted(_plan['add']) == sorted(k for k, e in _lokal.items()
+                                          if e['source'] != 'start')
+           and not _plan['remove'] and not _plan['conflicts'],
+           'erster Abgleich schickt alles ausser Startbauplaenen, entfernt nichts')
+    _sets = _xs.build_change_sets(_plan, _lokal)
+    _fehl = [f for s, _t in _sets
+             for f in _sp.check(s, 'change-set--blueprintChangeSet')]
+    pruefe(_sets and not _fehl,
+           'die Sendung entspricht dem Vertrag (%r)' % _fehl[:3])
+
+    # Das Basetool hat alles; gemerkter Stand verknuepft
+    def _srv(key, name, tag=None, default=False):
+        ref = {'name': name}
+        if tag:
+            ref['scRecord'] = tag.lower()          # scmdb schreibt klein
+        return {'key': key, 'ref': ref, 'isDefault': default}
+    _server = [_srv('k-ein', 'Eindeutig', 'BP_CRAFT_EIN'),
+               _srv('k-hand', 'Handarbeit'), _srv('k-imp', 'Importiert'),
+               _srv('k-start', 'Startplan', default=True),
+               _srv('k-nach', 'Nachgelesen')]
+    _plan = _xs.plan_blueprints(_lokal, _server, [], _xs.empty_state())
+    pruefe(not _plan['add'] and _plan['links'].get(_pa.name_key('Eindeutig'))
+           == 'k-ein',
+           'schon vorhandene werden gefunden — der Tag auch in anderer '
+           'Schreibweise')
+    _stand = _xs.next_state(_xs.empty_state(), _plan, [], 'c-1')
+
+    # ⚠⚠ Regel 1: Aus Fehlen wird nie geloescht — weder hier noch dort.
+    _weniger = {k: e for k, e in _lokal.items()
+                if e['name'] != 'Handarbeit'}
+    _plan = _xs.plan_blueprints(_weniger, _server, [], _stand)
+    pruefe(not _plan['remove'],
+           'fehlt ein Bauplan hier, wird er beim Basetool NICHT entfernt')
+    pruefe([i['key'] for i in _plan['from_server']] == ['k-hand'],
+           'er wird stattdessen vom Basetool zurueckgeholt (%r)'
+           % [i['key'] for i in _plan['from_server']])
+    _ohne = [s for s in _server if s['key'] != 'k-hand']
+    _plan = _xs.plan_blueprints(_lokal, _ohne, [], _stand)
+    pruefe(not _plan['remove']
+           and (_pa.name_key('Handarbeit'), 'missing') in _plan['conflicts']
+           and _pa.name_key('Handarbeit') not in _plan['add'],
+           'fehlt er beim Basetool ohne Loeschmarke: Konflikt, kein stilles '
+           'Wiederhochladen (%r)' % _plan['conflicts'])
+
+    # Ausdruecklich hier abgehakt -> beim Basetool entfernen
+    _stand2 = dict(_stand, pending_removals=[_pa.name_key('Handarbeit')])
+    _plan = _xs.plan_blueprints(_weniger, _server, [], _stand2)
+    pruefe(_plan['remove'] == [(_pa.name_key('Handarbeit'), 'k-hand')],
+           'hier abgehakt: wird beim Basetool entfernt (%r)' % _plan['remove'])
+    _st3 = dict(_stand, pending_removals=[_pa.name_key('Startplan')])
+    _plan3 = _xs.plan_blueprints(
+        {k: e for k, e in _lokal.items() if e['name'] != 'Startplan'},
+        _server, [], _st3)
+    pruefe(not _plan3['remove'],
+           'ein Startbauplan wird beim Basetool nie entfernt')
+    _sets = _xs.build_change_sets(_plan, _weniger)
+    _fehl = [f for s, _t in _sets
+             for f in _sp.check(s, 'change-set--blueprintChangeSet')]
+    pruefe(len(_sets) == 1 and _sets[0][0]['ops'][0]['op'] == 'remove'
+           and not _fehl,
+           'die Entfernen-Sendung entspricht dem Vertrag (%r)' % _fehl[:3])
+    _neu = _xs.next_state(_stand2, _plan, ['k-hand'], 'c-2')
+    pruefe(not _neu['pending_removals'] and 'k-hand' in _neu['own_removed_keys'],
+           'nach dem Senden ist die Entfernung erledigt und als eigene gemerkt')
+
+    # ⚠⚠ Regel 2: Woanders entfernt -> Konflikt, nicht still zurueck
+    def _stein(key, kanal):
+        return {'key': key, 'removedAt': '2026-09-26T12:00:00Z',
+                'removedBy': {'channel': kanal}}
+    _ohne = [s for s in _server if s['key'] != 'k-imp']
+    _plan = _xs.plan_blueprints(_lokal, _ohne, [_stein('k-imp', 'web')],
+                                _stand)
+    pruefe((_pa.name_key('Importiert'), 'removed_elsewhere') in _plan['conflicts']
+           and _pa.name_key('Importiert') not in _plan['add'],
+           'im Basetool geloescht: Konflikt, kein erneutes Hinzufuegen (%r)'
+           % _plan['conflicts'])
+    _sets = _xs.build_change_sets(_plan, _lokal,
+                                  override=[_pa.name_key('Importiert')])
+    _ops = [o for s, _t in _sets for o in s['ops']]
+    pruefe(len(_ops) == 1 and _ops[0].get('override') is True
+           and not _sp.check(_sets[0][0], 'change-set--blueprintChangeSet'),
+           'erst mit Zustimmung geht er mit override erneut hinaus')
+    _eigen = dict(_stand, own_removed_keys=['k-imp'])
+    _plan = _xs.plan_blueprints(_lokal, _ohne,
+                                [_stein('k-imp', 'client')], _eigen)
+    pruefe(not _plan['conflicts'],
+           'die eigene Loeschmarke ist kein Konflikt (%r)' % _plan['conflicts'])
+
+    # Antwort des Servers deuten
+    _ergebnis = {'dryRun': False, 'applied': 1, 'unchanged': 0,
+                 'notApplied': 2, 'cursor': 'c-9',
+                 'results': [{'index': 1, 'result': 'rejected',
+                              'reason': 'REMOVED_ELSEWHERE'},
+                             {'index': 2, 'result': 'unmatched',
+                              'reason': 'UNMATCHED'}]}
+    pruefe(not _sp.check(_ergebnis, 'change-result'),
+           'die nachgebaute Antwort entspricht selbst dem Vertrag')
+    _gelesen = _xs.read_result(_ergebnis, ['a', 'b', 'c'])
+    pruefe(_gelesen['conflicts'] == ['b'] and _gelesen['unmatched'] == ['c']
+           and _gelesen['cursor'] == 'c-9',
+           'REMOVED_ELSEWHERE wird zum Konflikt, UNMATCHED bleibt lokal (%r)'
+           % _gelesen)
+
+    # Hoechstens 500 Anweisungen je Sendung
+    _viel = {'bp%04d' % i: {'name': 'Bauplan %04d' % i, 'tag': None,
+                            'source': 'log', 'time': None}
+             for i in range(1201)}
+    _sets = _xs.build_change_sets(
+        _xs.plan_blueprints(_viel, [], [], _xs.empty_state()), _viel)
+    pruefe([len(s['ops']) for s, _t in _sets] == [500, 500, 201]
+           and all(not _sp.check(s, 'change-set--blueprintChangeSet')
+                   for s, _t in _sets),
+           '1201 Bauplaene gehen in drei gueltigen Sendungen hinaus (%r)'
+           % [len(s['ops']) for s, _t in _sets])
+
+    # gelucs Feld-Beispiel laesst sich zusammensetzen
+    with open(os.path.join(_sp.EXAMPLES, 'page--blueprintPage', 'valid',
+                           'feed.json'), encoding='utf-8') as _f:
+        _seite = _js.load(_f)
+    _eintr, _steine, _cur = _xs.merge_pages([_seite])
+    pruefe([e['key'] for e in _eintr] == ['k1']
+           and [s['key'] for s in _steine] == ['k2'] and _cur == 'c-18',
+           'eine Feedseite des Basetools wird richtig gelesen')
 
 
 def _wurzel():

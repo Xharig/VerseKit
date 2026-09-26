@@ -1,0 +1,9 @@
+{
+  "ops": [
+    {
+      "op": "remove",
+      "shipId": "s-1",
+      "version": 4
+    }
+  ]
+}

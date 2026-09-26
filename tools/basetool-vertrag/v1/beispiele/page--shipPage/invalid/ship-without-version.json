@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "shipId": "s-1",
+      "shipType": {
+        "name": "Ursa Rover"
+      },
+      "name": "x",
+      "insurance": {
+        "kind": "LTI"
+      },
+      "fitted": false
+    }
+  ],
+  "removed": [],
+  "hasMore": false
+}

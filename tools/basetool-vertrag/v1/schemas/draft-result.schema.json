@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/draft-result.schema.json",
+  "title": "Draft result",
+  "description": "The single-use handoff the client opens in the browser.",
+  "type": "object",
+  "properties": {
+    "frontendUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "handoffId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Single-use; treat as a secret."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "REFINERY",
+        "BLUEPRINT"
+      ]
+    }
+  },
+  "required": [
+    "frontendUrl",
+    "handoffId",
+    "kind"
+  ]
+}

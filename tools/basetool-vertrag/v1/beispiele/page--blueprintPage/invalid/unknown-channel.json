@@ -1,0 +1,13 @@
+{
+  "items": [],
+  "hasMore": false,
+  "removed": [
+    {
+      "key": "k2",
+      "removedAt": "2026-09-26T12:00:00Z",
+      "removedBy": {
+        "channel": "discord"
+      }
+    }
+  ]
+}

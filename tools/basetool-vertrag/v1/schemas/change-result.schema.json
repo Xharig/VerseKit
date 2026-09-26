@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/change-result.schema.json",
+  "title": "Change result",
+  "description": "The compact outcome of a change set (at most 32 KiB): counts, and per-op detail only for ops that were not applied.",
+  "type": "object",
+  "properties": {
+    "dryRun": {
+      "type": "boolean"
+    },
+    "applied": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unchanged": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notApplied": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "results": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "opId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "unchanged",
+              "unmatched",
+              "ambiguous",
+              "rejected"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+          }
+        },
+        "required": [
+          "index",
+          "result"
+        ]
+      }
+    },
+    "detachedFromMissions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "offersReduced": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "offersRemoved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Feed position after this change."
+    },
+    "warnings": {
+      "$ref": "#/$defs/warnings"
+    }
+  },
+  "required": [
+    "dryRun",
+    "applied",
+    "unchanged",
+    "notApplied",
+    "results"
+  ],
+  "$defs": {
+    "warnings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "pointer": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "JSON Pointer into the request."
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+          }
+        },
+        "required": [
+          "pointer",
+          "code"
+        ]
+      }
+    }
+  }
+}

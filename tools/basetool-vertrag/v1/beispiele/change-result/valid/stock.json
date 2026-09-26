@@ -1,0 +1,23 @@
+{
+  "dryRun": false,
+  "applied": 3,
+  "unchanged": 1,
+  "notApplied": 1,
+  "results": [
+    {
+      "index": 4,
+      "opId": "x",
+      "result": "rejected",
+      "reason": "VERSION_CONFLICT"
+    }
+  ],
+  "offersReduced": 1,
+  "offersRemoved": 0,
+  "cursor": "c-17",
+  "warnings": [
+    {
+      "pointer": "/ops/0/colour",
+      "code": "UNKNOWN_FIELD"
+    }
+  ]
+}

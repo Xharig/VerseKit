@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/problem.schema.json",
+  "title": "Problem",
+  "description": "RFC 9457 problem details with a stable code from the exchange error registry.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 400,
+      "maximum": 599
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "instance": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "correlationId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "retryAfterSeconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confirmationUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Where the member confirms a staged mass change."
+    },
+    "errors": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "pointer": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "pointer"
+        ]
+      }
+    }
+  },
+  "required": [
+    "status",
+    "code"
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/item-ref.schema.json",
+  "title": "Item reference",
+  "description": "Identifies a catalogue entry — a blueprint product, an item, a material or a ship type. The server resolves the first field it can, in the order bt, scRecord, scGuid, uexId, locKey, name.",
+  "type": "object",
+  "properties": {
+    "bt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The Basetool's own key. Always wins when present."
+    },
+    "scRecord": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "DataForge record name (scmdb `tag`), compared case-insensitively. Not unique in the catalogue, so it can resolve `ambiguous`."
+    },
+    "scGuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Game entity GUID, matched against blueprint records and output items; duplicates resolve `ambiguous`."
+    },
+    "uexId": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "UEX id of the entry."
+    },
+    "locKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^@\\s]+$",
+      "description": "The name key from the game's global.ini, without the leading @. Language-independent."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Display name as the game shows it."
+    },
+    "nameLocale": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "description": "Language of `name`, e.g. `en` or `de-DE`. Defaults to `en`."
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "bt"
+      ]
+    },
+    {
+      "required": [
+        "scRecord"
+      ]
+    },
+    {
+      "required": [
+        "scGuid"
+      ]
+    },
+    {
+      "required": [
+        "uexId"
+      ]
+    },
+    {
+      "required": [
+        "locKey"
+      ]
+    },
+    {
+      "required": [
+        "name"
+      ]
+    }
+  ],
+  "dependentRequired": {
+    "nameLocale": [
+      "name"
+    ]
+  }
+}

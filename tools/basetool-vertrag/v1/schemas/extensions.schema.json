@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/extensions.schema.json",
+  "title": "Extensions",
+  "description": "Namespaced client extensions. Keys are reverse-DNS identifiers; the Basetool never interprets an extension unless it is registered.",
+  "type": "object",
+  "propertyNames": {
+    "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+$",
+    "maxLength": 100
+  },
+  "additionalProperties": {
+    "type": "object"
+  },
+  "maxProperties": 10
+}

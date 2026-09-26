@@ -1,0 +1,28 @@
+{
+  "ops": [
+    {
+      "op": "set-quantity",
+      "material": {
+        "bt": "c3b1e0c2-8a4e-4f64-9a51-2b9f5c7e0a11",
+        "name": "Laranite"
+      },
+      "location": {
+        "name": "Area18",
+        "uex": {
+          "kind": "CITY",
+          "id": 4
+        }
+      },
+      "quality": 712,
+      "stolen": false,
+      "quantity": {
+        "amount": 20,
+        "unit": "SCU"
+      },
+      "expectedQuantity": {
+        "amount": 12.5,
+        "unit": "SCU"
+      }
+    }
+  ]
+}

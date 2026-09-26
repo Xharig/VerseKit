@@ -1,0 +1,5 @@
+{
+  "status": 409,
+  "code": "MASS_CHANGE_CONFIRMATION_REQUIRED",
+  "confirmationUrl": "https://profit-base.online/connected-apps/confirm/abc"
+}

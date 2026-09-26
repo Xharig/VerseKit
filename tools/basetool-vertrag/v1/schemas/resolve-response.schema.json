@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/resolve-response.schema.json",
+  "title": "Resolve response",
+  "description": "One result per requested reference, in request order.",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "ambiguous",
+              "unmatched"
+            ]
+          },
+          "ref": {
+            "$ref": "item-ref.schema.json",
+            "description": "The resolved entry, with `bt` and `name`."
+          },
+          "candidates": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "item-ref.schema.json"
+            }
+          }
+        },
+        "required": [
+          "index",
+          "status"
+        ]
+      }
+    },
+    "warnings": {
+      "$ref": "change-result.schema.json#/$defs/warnings"
+    }
+  },
+  "required": [
+    "results"
+  ]
+}

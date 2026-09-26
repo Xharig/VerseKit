@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "name": "Area18",
+      "uex": {
+        "kind": "CITY",
+        "id": 4
+      }
+    },
+    {
+      "name": "Seraphim Station"
+    }
+  ]
+}

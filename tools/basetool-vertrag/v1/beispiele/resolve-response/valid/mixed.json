@@ -1,0 +1,30 @@
+{
+  "results": [
+    {
+      "index": 0,
+      "status": "resolved",
+      "ref": {
+        "bt": "bp-cf-337-panther-repeater",
+        "name": "CF-337 Panther Repeater"
+      }
+    },
+    {
+      "index": 1,
+      "status": "ambiguous",
+      "candidates": [
+        {
+          "bt": "a",
+          "name": "A"
+        },
+        {
+          "bt": "b",
+          "name": "B"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "status": "unmatched"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "key": "k2",
+  "ref": {
+    "bt": "bp-cf-337-panther-repeater",
+    "name": "CF-337 Panther Repeater"
+  },
+  "isDefault": false,
+  "acquiredAt": "2026-09-26T12:00:00Z",
+  "provenance": {
+    "source": "log",
+    "observedAt": "2026-09-26T12:00:00Z"
+  },
+  "note": null
+}

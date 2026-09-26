@@ -1,0 +1,8 @@
+{
+  "name": "Arclight Pistol",
+  "extensions": {
+    "io.github.xharig.versekit": {
+      "quelle": "log"
+    }
+  }
+}

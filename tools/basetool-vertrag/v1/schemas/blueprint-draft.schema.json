@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/blueprint-draft.schema.json",
+  "title": "Blueprint draft",
+  "description": "Blueprints to stage for review in the browser; nothing is written until the member confirms.",
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "format": {
+      "const": "basetool.blueprints"
+    },
+    "items": {
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "$ref": "item-ref.schema.json"
+          },
+          "acquiredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC 3339 timestamp in UTC."
+          },
+          "provenance": {
+            "$ref": "provenance.schema.json"
+          }
+        },
+        "required": [
+          "ref"
+        ]
+      }
+    }
+  }
+}

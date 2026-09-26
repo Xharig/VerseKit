@@ -1,0 +1,21 @@
+{
+  "shipId": "s-1",
+  "externalId": "vk-7",
+  "version": 3,
+  "shipType": {
+    "bt": "st-ursa",
+    "name": "Ursa Rover"
+  },
+  "name": "Bärchen",
+  "insurance": {
+    "kind": "LTI"
+  },
+  "fitted": true,
+  "location": {
+    "name": "Area18",
+    "uex": {
+      "kind": "CITY",
+      "id": 4
+    }
+  }
+}

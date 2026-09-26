@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/change-set.schema.json",
+  "title": "Change set",
+  "description": "A batch of at most 500 ops against one resource, sent with an Idempotency-Key.",
+  "type": "object",
+  "properties": {
+    "ops": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500
+    },
+    "dryRun": {
+      "type": "boolean",
+      "default": false
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "ops"
+  ],
+  "$defs": {
+    "blueprintChangeSet": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/blueprintOp"
+          }
+        }
+      }
+    },
+    "stockChangeSet": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/stockOp"
+          }
+        }
+      }
+    },
+    "shipChangeSet": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "ops": {
+          "items": {
+            "$ref": "#/$defs/shipOp"
+          }
+        }
+      }
+    },
+    "blueprintOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "add"
+            },
+            "ref": {
+              "$ref": "item-ref.schema.json"
+            },
+            "acquiredAt": {
+              "type": "string",
+              "format": "date-time",
+              "description": "RFC 3339 timestamp in UTC."
+            },
+            "provenance": {
+              "$ref": "provenance.schema.json"
+            },
+            "override": {
+              "type": "boolean",
+              "description": "Re-add an entry removed elsewhere; only after asking the member."
+            }
+          },
+          "required": [
+            "op",
+            "ref"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "remove"
+            },
+            "key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+            },
+            "ref": {
+              "$ref": "item-ref.schema.json"
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "anyOf": [
+            {
+              "required": [
+                "key"
+              ]
+            },
+            {
+              "required": [
+                "ref"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stockOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "set-quantity"
+            },
+            "material": {
+              "$ref": "item-ref.schema.json"
+            },
+            "location": {
+              "$ref": "location-ref.schema.json"
+            },
+            "quality": {
+              "$ref": "quality.schema.json"
+            },
+            "stolen": {
+              "type": "boolean"
+            },
+            "quantity": {
+              "$ref": "quantity.schema.json"
+            },
+            "expectedQuantity": {
+              "$ref": "quantity.schema.json",
+              "description": "The amount the client last saw; 0 for a new lot. A difference answers VERSION_CONFLICT."
+            },
+            "override": {
+              "type": "boolean",
+              "description": "Re-add a lot removed elsewhere; only after asking the member."
+            }
+          },
+          "required": [
+            "op",
+            "material",
+            "location",
+            "quality",
+            "stolen",
+            "quantity",
+            "expectedQuantity"
+          ]
+        }
+      ]
+    },
+    "shipOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "link"
+            },
+            "externalId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "shipId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+            }
+          },
+          "required": [
+            "op",
+            "externalId",
+            "shipId"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "upsert"
+            },
+            "externalId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "shipId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "shipType": {
+              "$ref": "item-ref.schema.json"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "insurance": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "LTI",
+                    "MONTHS"
+                  ]
+                },
+                "months": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 120
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "MONTHS"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "months"
+                ]
+              }
+            },
+            "location": {
+              "$ref": "location-ref.schema.json"
+            },
+            "fitted": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "op",
+            "externalId",
+            "shipType",
+            "name",
+            "insurance"
+          ],
+          "dependentRequired": {
+            "shipId": [
+              "version"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Echoed in the result."
+            },
+            "op": {
+              "const": "remove"
+            },
+            "shipId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "op",
+            "shipId",
+            "version"
+          ]
+        }
+      ]
+    }
+  }
+}

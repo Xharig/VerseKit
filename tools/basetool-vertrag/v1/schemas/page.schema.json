@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/page.schema.json",
+  "title": "Page",
+  "description": "A snapshot page or a change-feed page of one resource.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 1000
+    },
+    "removed": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "tombstone.schema.json"
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "hasMore": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "items",
+    "removed",
+    "hasMore"
+  ],
+  "$defs": {
+    "blueprintPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "blueprint.schema.json"
+          }
+        }
+      }
+    },
+    "stockPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "stock-lot.schema.json"
+          }
+        }
+      }
+    },
+    "shipPage": {
+      "allOf": [
+        {
+          "$ref": "#"
+        }
+      ],
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "ship.schema.json"
+          }
+        }
+      }
+    }
+  }
+}

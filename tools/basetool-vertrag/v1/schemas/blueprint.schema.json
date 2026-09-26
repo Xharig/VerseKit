@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/blueprint.schema.json",
+  "title": "Blueprint",
+  "description": "One product in the member's blueprint set.",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "ref": {
+      "$ref": "item-ref.schema.json"
+    },
+    "acquiredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC."
+    },
+    "provenance": {
+      "$ref": "provenance.schema.json"
+    },
+    "isDefault": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Granted to every member by default; cannot be removed."
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000,
+      "readOnly": true,
+      "description": "The member's note. Read-only in v1."
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "key",
+    "ref",
+    "isDefault"
+  ]
+}
