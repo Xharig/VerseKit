@@ -25562,6 +25562,144 @@ def main():
         '### Dank\n\n- Jemand\n')] == ['neu'],
         'ganz vorn stuende er sogar als Neuerung da')
 
+    # ------------------------------------------------------------------
+    print('\n261. Der Guetegrad kommt aus dem Spiel, nicht aus scmdb')
+    # ⚠⚠ scmdb fuehrt Draug, Elsen und Pelerous als Grade A — CIGs eigene
+    # Sprachdatei sagt C, B und C (gemessen an 4.10.1, 26.09.2026). Die Liste
+    # nahm den Grad ungefiltert von scmdb; die Rangfolge „Spiel vor scmdb"
+    # galt nur im Overlay und auch dort nur mit Launcher.
+    #
+    # Geprueft wird die WIRKUNG an beiden Wegen: der gebaute Katalog
+    # (`catalog.build`) und der Zwischenspeicher des Overlays
+    # (`scmdb_aktualisieren`). Netz und Archiv werden untergeschoben.
+    from scbp import catalog as _kat261, gametext as _gt261
+    _ini261 = '\n'.join((
+        'item_NameRADR_BLTR_S01_Pelerous=Pelerous',
+        'item_DescRADR_BLTR_S01_Pelerous=Item Type: Radar\\nManufacturer: Blue '
+        'Triangle Inc.\\nSize: 1\\nGrade: C\\nClass: Stealth\\n\\nText',
+        # Ein fremder Zusatz am Namen darf die Zuordnung nicht verhindern.
+        'item_NameCOOL_WCPR_S03_Elsen=Elsen (Civ/3/B)',
+        'item_DescCOOL_WCPR_S03_Elsen=Item Type: Cooler\\nSize: 3\\nGrade: B'
+        '\\nClass: Civilian',
+        'item_NameHELM_PROBE=Helm Probe',
+        'item_DescHELM_PROBE=Item Type: Helmet\\nGrade: C',
+        # Zwei Grade unter einem Namen: CIG ist sich selbst nicht einig.
+        'item_NameDOPP_1=Doppelt',
+        'item_DescDOPP_1=Grade: A\\nClass: Military',
+        'item_NameDOPP_2=Doppelt',
+        'item_DescDOPP_2=Grade: C\\nClass: Military',
+        'item_NameSOND_1=Sonder',
+        'item_DescSOND_1=Grade: Bespoke\\nClass: Civilian',
+    ))
+    _g261 = _kat261.grades_from_ini(_ini261.encode('utf-8'))
+    pruefe(_g261.get(_kat261._norm('Pelerous')) == 3,
+           'Pelerous: Grade C laut Spiel (%r)' % _g261.get(_kat261._norm('Pelerous')))
+    pruefe(_g261.get(_kat261._norm('Elsen')) == 2,
+           'Elsen: Grade B, auch mit Zusatz am Namen')
+    pruefe(_kat261._norm('Doppelt') not in _g261,
+           'ein Name mit zwei verschiedenen Graden faellt heraus')
+    pruefe(_kat261._norm('Sonder') not in _g261,
+           '„Bespoke" ist kein Grad')
+
+    _items261 = {'items': [
+        {'name': 'Pelerous', 'attachType': 'Radar', 'size': 1, 'grade': 1,
+         'componentClass': 'Stealth'},
+        {'name': 'Elsen', 'attachType': 'Cooler', 'size': 3, 'grade': 1,
+         'componentClass': 'Civilian'},
+        {'name': 'Helm Probe', 'attachType': 'Char_Armor_Helmet', 'grade': 1},
+    ]}
+    _merged261 = {'blueprintPools': {'p1': {'name': 'BP_REWARDS_Probe',
+        'blueprints': [{'name': 'Pelerous'}, {'name': 'Elsen'},
+                       {'name': 'Helm Probe'}]}}, 'contracts': []}
+
+    def _fetch261(url, **_kw):
+        if 'crafting_items' in url:
+            return json.loads(json.dumps(_items261))
+        if 'merged' in url:
+            return json.loads(json.dumps(_merged261))
+        return {'blueprints': []}
+
+    _cache261 = _kat261.paths.app_file(_kat261.CACHE)
+    _vorher261 = (open(_cache261, 'rb').read()
+                  if os.path.exists(_cache261) else None)
+    _alt_fetch261 = _kat261._fetch
+    _alt_arch261 = _gt261.read_from_archive
+    _alt_grade261 = _kat261._GAME_GRADES[0]
+    try:
+        _kat261._fetch = _fetch261
+        _gt261.read_from_archive = lambda *a, **k: (_ini261.encode('utf-8'), '')
+        _kat261._GAME_GRADES[0] = None
+        _kat261.build(version='9.9.9-live.261')
+        _bp261 = _kat261.load()['bauplaene']
+        pruefe(_bp261[_kat261._norm('Pelerous')].get('g') == 3,
+               'Katalog: Pelerous steht als C da (%r)'
+               % _bp261[_kat261._norm('Pelerous')].get('g'))
+        pruefe(_bp261[_kat261._norm('Elsen')].get('g') == 2,
+               'Katalog: Elsen steht als B da')
+        pruefe(_bp261[_kat261._norm('Helm Probe')].get('g') == 1,
+               'Katalog: ein Helm bekommt keinen Grad aus dem Spiel')
+        # ⚠ Gegenprobe: Ohne Spieldaten bleibt scmdb stehen — der Katalog
+        # kommt also wirklich aus der Korrektur, nicht aus der Probe selbst.
+        _gt261.read_from_archive = lambda *a, **k: (None, 'kein Archiv')
+        _kat261._GAME_GRADES[0] = None
+        _kat261.build(version='9.9.9-live.261')
+        pruefe(_kat261.load()['bauplaene'][_kat261._norm('Pelerous')].get('g') == 1,
+               'Gegenprobe: ohne Spiel gilt weiter scmdb (A)')
+        pruefe(_kat261.FORMAT >= 4,
+               'die Aufbau-Nummer ist hochgezaehlt, sonst kaeme es bei '
+               'niemandem an')
+
+        # Der zweite Weg: der Zwischenspeicher des Overlays.
+        import sc_bp_watcher as _w261
+        _gt261.read_from_archive = lambda *a, **k: (_ini261.encode('utf-8'), '')
+        _kat261._GAME_GRADES[0] = None
+        _scache261 = _w261.SCMDB_CACHE
+        _svorher261 = (open(_scache261, 'rb').read()
+                       if os.path.exists(_scache261) else None)
+        _alt_hole261 = _w261._scmdb_hole
+        _alt_aus261 = _w261.SCMDB_AUS
+        try:
+            _w261.SCMDB_AUS = False
+            _w261._scmdb_hole = lambda url, timeout=0: (
+                [{'version': '9.9.9-live.261'}] if url.endswith('versions.json')
+                else json.loads(json.dumps(_items261)))
+            pruefe(_w261.scmdb_aktualisieren() is True,
+                   'Overlay: der Zwischenspeicher wird neu gebaut')
+            _si261 = json.load(open(_scache261, encoding='utf-8'))['items']
+            pruefe(_si261[_w261._scmdb_key('Pelerous')]['g'] == 3,
+                   'Overlay: Pelerous steht als C da')
+            pruefe(_si261[_w261._scmdb_key('Helm Probe')]['g'] == 1,
+                   'Overlay: der Helm bleibt unberuehrt')
+            # Gleiche Spielversion, alter Aufbau -> muss trotzdem neu bauen.
+            _alt261 = json.load(open(_scache261, encoding='utf-8'))
+            _alt261.pop('format', None)
+            json.dump(_alt261, open(_scache261, 'w', encoding='utf-8'))
+            pruefe(_w261.scmdb_aktualisieren() is True,
+                   'Overlay: ein Zwischenspeicher ohne Aufbau-Nummer wird erneuert')
+            pruefe(_w261.scmdb_aktualisieren() is False,
+                   'und danach nicht bei jedem Lauf erneut')
+        finally:
+            _w261._scmdb_hole = _alt_hole261
+            _w261.SCMDB_AUS = _alt_aus261
+            if _svorher261 is None:
+                try:
+                    os.remove(_scache261)
+                except OSError:
+                    pass
+            else:
+                open(_scache261, 'wb').write(_svorher261)
+    finally:
+        _kat261._fetch = _alt_fetch261
+        _gt261.read_from_archive = _alt_arch261
+        _kat261._GAME_GRADES[0] = _alt_grade261
+        if _vorher261 is None:
+            try:
+                os.remove(_cache261)
+            except OSError:
+                pass
+        else:
+            open(_cache261, 'wb').write(_vorher261)
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

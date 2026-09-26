@@ -106,7 +106,11 @@ CACHE = 'katalog-cache.json'
 # eigenen Bauplanliste und seinem System. Ohne Hochzählen behielte jeder
 # vorhandene Katalog die zusammengefasste Liste, und die Regionsanzeige wäre
 # für Bestandsnutzer bis zum nächsten Patch unsichtbar.
-FORMAT = 3
+#
+# 4 (26.09.2026): Der Gütegrad kommt aus CIGs eigener Sprachdatei, scmdb nur
+# noch als Rückfall (siehe `game_grades()`). Ohne Hochzählen stünden Draug,
+# Elsen und Pelerous bei jedem Bestandsnutzer weiter als „A" da.
+FORMAT = 4
 # ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
 # alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
 USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
@@ -412,6 +416,87 @@ def _values(raw_items):
                 'm': e.get('manufacturer'),
             })
     return values_
+
+
+_GRADE_NUMBER = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
+
+# Ein Lesevorgang je Programmlauf — Katalog und Overlay fragen beide.
+_GAME_GRADES = [None]
+
+
+def grades_from_ini(data):
+    """Vergleichsname -> Gütegrad als Zahl (1 = A … 4 = D), aus einer `global.ini`.
+
+    Zugeordnet über den Schlüsselstamm: `item_DescRADR_BLTR_S01_Pelerous`
+    gehört zu `item_NameRADR_BLTR_S01_Pelerous`. Ein Name, unter dem das Spiel
+    **verschiedene** Grade führt, fällt heraus — dann weiß es CIG selbst nicht
+    eindeutig, und scmdb bleibt stehen.
+    """
+    from . import specs
+    if isinstance(data, bytes):
+        data = data.decode('utf-8-sig', 'ignore')
+    descriptions, names = {}, {}
+    for line in (data or '').splitlines():
+        sep = line.find('=')
+        if sep < 1:
+            continue
+        key = line[:sep].split(',', 1)[0].lower()
+        if key.startswith('item_desc'):
+            descriptions[key[9:]] = line[sep + 1:]
+        elif key.startswith('item_name'):
+            names[key[9:]] = line[sep + 1:].strip().lstrip('*').strip()
+    found = {}
+    for stem, name in names.items():
+        grade = specs.grade_from_description(descriptions.get(stem))
+        if grade and name:
+            found.setdefault(_norm(specs.strip_tag(name)), set()).add(grade)
+    return {key: _GRADE_NUMBER[next(iter(grades))]
+            for key, grades in found.items() if len(grades) == 1}
+
+
+def game_grades():
+    """Die Gütegrade laut Spiel — `{Vergleichsname: 1–4}`, leer ohne Spiel.
+
+    ⚠⚠ **scmdb liegt beim Gütegrad nachweislich daneben.** Gegen CIGs
+    englische Sprachdatei verglichen (4.10.1, 26.09.2026): Von 305
+    Schiffskomponenten weichen drei ab — Draug (scmdb A, Spiel C), Elsen
+    (A statt B) und Pelerous (A statt C). Elsen ist seit August bekannt und
+    bei scmdb bis heute nicht behoben. Deshalb gilt: **Spiel vor scmdb.**
+
+    Gelesen wird die **Originaldatei aus der `Data.p4k`**, nicht eine lose
+    `global.ini` im Spielordner — die kann von einem anderen Werkzeug
+    bearbeitet sein. Hersteller und Klasse bleiben bei scmdb: Dort schreibt
+    CIG selbst uneinheitlich („RSI" neben „Roberts Space Industries",
+    „Lighting Power Ltd.").
+    """
+    if _GAME_GRADES[0] is None:
+        grades = {}
+        try:
+            from . import gametext
+            data, _message = gametext.read_from_archive('english')
+            if data:
+                grades = grades_from_ini(data)
+        except Exception as error:
+            errors.record('catalog.game_grades', error)
+        _GAME_GRADES[0] = grades
+    return _GAME_GRADES[0]
+
+
+def apply_game_grades(values_, grades):
+    """Die Gütegrade des Spiels über die von scmdb legen — nur bei echten
+    Schiffskomponenten (`c` gesetzt). Gibt die Zahl der Änderungen zurück.
+
+    ⚠ scmdb vergibt einen Grad an **jeden** Gegenstand, auch an Helme. Ohne
+    diese Schranke käme über die Sprachdatei nichts Falsches dazu — aber ein
+    Grad, der vorher bewusst nicht angezeigt wurde, bekäme plötzlich Gewicht.
+    """
+    changed = 0
+    for key, entry in values_.items():
+        grade = grades.get(key)
+        if grade and entry.get('c') and entry.get('g') != grade:
+            entry['g'] = grade
+            changed += 1
+    return changed
 
 
 # So viele Annahmeorte werden genannt. Mehr hilft niemandem: Wer den Auftrag
@@ -807,6 +892,7 @@ def build(version=None, progress=None, from_file=None):
 
     report(t('z_werte'))
     values_ = _values(_fetch('%s/crafting_items-%s.json' % (BASE, version)))
+    apply_game_grades(values_, game_grades())
 
     if from_file:                       # nur für Entwicklung und Selbsttest
         report(t('z_herkunft_datei') % os.path.basename(from_file))
