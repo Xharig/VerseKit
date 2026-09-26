@@ -8,6 +8,11 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+### Verbessert
+
+- **Im Task-Manager heißt das Programm jetzt „Verse-Kit"** statt
+  „SC-BP-Watcher" (Windows)
+
 ## v3.55.2 - 2026-09-26
 
 > **Drei Schiffsteile stehen jetzt mit dem richtigen Gütegrad da.** Die

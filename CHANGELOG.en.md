@@ -8,6 +8,11 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### Improved
+
+- **Task Manager now shows the program as "Verse-Kit"** instead of
+  "SC-BP-Watcher" (Windows)
+
 ## v3.55.2 - 2026-09-26
 
 > **Three ship components now show the right grade.** The Draug and Elsen
