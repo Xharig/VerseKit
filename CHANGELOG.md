@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.55.2 - 2026-09-26
+
+> **Drei Schiffsteile stehen jetzt mit dem richtigen Gütegrad da.** Die
+> Kühler Draug und Elsen und das Radar Pelerous wurden als Grade A geführt,
+> im Spiel sind sie C, B und C. Den Gütegrad liest Verse-Kit jetzt direkt aus
+> den Daten des Spiels, die Online-Datenbank springt nur noch ein, wo das
+> Spiel nichts sagt.
+
+### Behoben
+
+- **Falscher Gütegrad bei Draug, Elsen und Pelerous** — in der Bauplan-Liste,
+  im Overlay und in der Schiffsausstattung. Der Katalog wird beim nächsten
+  Start einmal neu aufgebaut
+
 ## v3.55.1 - 2026-09-22
 
 > **Zwei kleine Verbesserungen.** Die Webseite mit dem Rundgang durch alle
