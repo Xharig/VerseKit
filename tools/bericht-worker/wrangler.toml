@@ -1,0 +1,13 @@
+# Cloudflare Worker: Weiterleitung der Verse-Kit-Fehlerberichte an Discord.
+# Einrichten: siehe README.md daneben. Der Webhook kommt NIE hier hinein,
+# sondern als Geheimnis:  npx wrangler secret put DISCORD_WEBHOOK
+name = "versekit-bericht"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Höchstens 3 Berichte je Absender-Adresse und Minute. Die Bindung zählt je
+# Standort ungefähr, nicht bis aufs Stück — für eine Spam-Bremse genügt das.
+[[ratelimits]]
+name = "LIMIT"
+namespace_id = "1001"
+simple = { limit = 3, period = 60 }
