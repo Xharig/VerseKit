@@ -8,6 +8,24 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.57.4 - 2026-09-26
+
+> **Times are right now when exchanging with the Basetool.** The time you got
+> a blueprint arrives there correctly — and comes back correctly when you
+> import — no longer shifted by two hours.
+
+### Improved
+
+- **Discord button** — goes through xharig.com/discord, so it keeps working
+  even if the invite ever changes
+
+### Fixed
+
+- **Blueprint times in the Basetool export** — they were off by your time
+  zone (two hours in summer)
+- **Times when importing a Basetool file** — shifted the same way, now
+  converted correctly
+
 ## v3.57.3 - 2026-09-26
 
 > **Verse-Kit now has its own address: versekit.xharig.com.** That is where

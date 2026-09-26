@@ -62,6 +62,7 @@ Schlüssel `name` und `zeit` der Einträge, die Schlüssel `neu`, `schon_da`,
 `unbekannt` und `gesamt` der Vorschau und der Quellwert `'import'`, der im
 Bestand jedes Nutzers steht.
 """
+import calendar
 import json
 import os
 import re
@@ -149,14 +150,33 @@ def detect(data):
     return None
 
 
+_ZONED = re.compile(r'^(\d{4}-\d{2}-\d{2})[Tt ](\d{2}:\d{2}:\d{2})(?:\.\d+)?'
+                    r'(?:([Zz])|([+-])(\d{2}):?(\d{2}))$')
+
+
 def _time_from(value):
-    """Einen Zeitwert in unsere Schreibweise bringen — oder nichts."""
+    """Einen Zeitwert in unsere Schreibweise (Ortszeit) bringen — oder nichts.
+
+    ⚠⚠ **Eine Zeit mit `Z` oder `+02:00` ist KEINE Ortszeit.** Bis v3.57.3
+    wurde das `Z` einfach abgeschnitten — eine Basetool-Datei (`receivedAt`
+    in UTC) landete damit im Sommer zwei Stunden zu früh im Bestand. Jetzt
+    wird mit Zone umgerechnet; ohne Zone bleibt der Wert, wie er ist."""
     try:
         if isinstance(value, (int, float)) and value > 0:
             return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(value))
         if isinstance(value, str) and value.strip():
-            raw = value.strip().replace('Z', '').replace('T', ' ')
-            return raw[:19]
+            text = value.strip()
+            zoned = _ZONED.match(text)
+            if zoned:
+                day, clock, utc, sign, hours, minutes = zoned.groups()
+                stamp = calendar.timegm(time.strptime(
+                    day + ' ' + clock, '%Y-%m-%d %H:%M:%S'))
+                if not utc:
+                    offset = int(hours) * 3600 + int(minutes) * 60
+                    stamp -= offset if sign == '+' else -offset
+                return time.strftime('%Y-%m-%d %H:%M:%S',
+                                     time.localtime(stamp))
+            return text.replace('T', ' ')[:19]
     except Exception:
         pass
     return None

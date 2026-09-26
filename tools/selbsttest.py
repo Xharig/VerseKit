@@ -25817,6 +25817,7 @@ def main():
     _pruefung_265()
     _pruefung_266()
     _pruefung_267()
+    _pruefung_268()
 
     print()
     if fehler:
@@ -26202,6 +26203,41 @@ def _pruefung_267():
     pruefe([e['key'] for e in _eintr] == ['k1']
            and [s['key'] for s in _steine] == ['k2'] and _cur == 'c-18',
            'eine Feedseite des Basetools wird richtig gelesen')
+
+
+def _pruefung_268():
+    """268. Zeiten beim Export nach UTC, beim Import zurück in Ortszeit."""
+    print('\n268. Export und Import rechnen die Zeitzone wirklich um')
+    # ⚠⚠ Der Bestand haelt ORTSZEIT. Bis v3.57.3 haengte der Basetool-Export
+    # nur ein `Z` an, und der Import schnitt es wieder ab — beides lag im
+    # Sommer zwei Stunden daneben, und weil sich die Fehler gegenseitig
+    # aufhoben, fiel es beim Rundlauf nie auf.
+    import time as _ti
+    from scbp import export as _ex, importer as _im
+    _ort = '2026-09-26 14:05:00'
+    _utc = _ti.strftime('%Y-%m-%dT%H:%M:%SZ', _ti.gmtime(_ti.mktime(
+        _ti.strptime(_ort, '%Y-%m-%d %H:%M:%S'))))
+    pruefe(_ex._iso(_ort) == _utc,
+           'der Export schreibt UTC (%r statt %r)' % (_ex._iso(_ort), _utc))
+    pruefe(_im._time_from(_ex._iso(_ort)) == _ort,
+           'Export und Import zusammen ergeben wieder die Ortszeit')
+    # ⚠ Diese Zeile greift auch auf einem Rechner in UTC (Bau-Laeufer): Eine
+    # Zeit mit +02:00 muss zwei Stunden frueher in UTC liegen, egal wo.
+    _erwartet = _ti.strftime('%Y-%m-%d %H:%M:%S', _ti.localtime(
+        __import__('calendar').timegm(_ti.strptime('2026-09-26 10:05:00',
+                                                   '%Y-%m-%d %H:%M:%S'))))
+    pruefe(_im._time_from('2026-09-26T12:05:00+02:00') == _erwartet,
+           'eine Zeit mit Zonenangabe wird umgerechnet (%r statt %r)'
+           % (_im._time_from('2026-09-26T12:05:00+02:00'), _erwartet))
+    pruefe(_im._time_from('2026-08-02T01:49:03.322Z') == _ti.strftime(
+        '%Y-%m-%d %H:%M:%S', _ti.localtime(__import__('calendar').timegm(
+            _ti.strptime('2026-08-02 01:49:03', '%Y-%m-%d %H:%M:%S')))),
+           'die Basetool-Zeit mit Nachkommastellen und Z wird umgerechnet')
+    pruefe(_im._time_from('2026-08-02 01:49:03') == '2026-08-02 01:49:03',
+           'eine Zeit ohne Zone bleibt, wie sie ist')
+    from scbp import main_window as _mw
+    pruefe(_mw.DISCORD_URL == 'https://xharig.com/discord',
+           'der Discord-Knopf geht ueber die eigene Kurzadresse')
 
 
 def _wurzel():

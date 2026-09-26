@@ -1179,7 +1179,9 @@ KOFI_URL = 'https://ko-fi.com/xharig'
 # ⚠ Die dauerhafte Einladung (`CODE_OF_CONDUCT.md` nennt dieselbe). Ein Link,
 # der irgendwann abläuft, führt Leute auf eine Fehlerseite und niemand merkt
 # es. Steht hier einmal — Seitenleiste und Symbol neben der Uhr nutzen ihn.
-DISCORD_URL = 'https://discord.gg/g2E7e6XxZC'
+# Seit v3.57.4 über die eigene Kurzadresse: Läuft die Einladung doch einmal ab,
+# wird sie nur in der Weiterleitung getauscht, und jede Programmfassung stimmt.
+DISCORD_URL = 'https://xharig.com/discord'
 
 
 def coffee_glyph(canvas, x, middle, height, color):
