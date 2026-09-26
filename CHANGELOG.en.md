@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.55.2 - 2026-09-26
+
+> **Three ship components now show the right grade.** The Draug and Elsen
+> coolers and the Pelerous radar were listed as grade A — in the game they are
+> C, B and C. Verse-Kit now reads the grade straight from the game's own data;
+> the online database only fills in where the game says nothing.
+
+### Fixed
+
+- **Wrong grade for Draug, Elsen and Pelerous** — in the blueprint list, the
+  overlay and the ship loadout. The catalog is rebuilt once on the next start
+
 ## v3.55.1 - 2026-09-22
 
 > **Two small improvements.** The website with its tour of every area can now
