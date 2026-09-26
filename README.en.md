@@ -12,7 +12,7 @@
 
 [![Version](https://img.shields.io/github/v/release/Xharig/VerseKit?include_prereleases&label=Version&color=5fa522)](https://github.com/Xharig/VerseKit/releases)
 [![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads)](https://github.com/Xharig/VerseKit/releases)
-[![Website](https://img.shields.io/badge/Website-take%20the%20tour-5fa522)](https://xharig.github.io/VerseKit/)
+[![Website](https://img.shields.io/badge/Website-take%20the%20tour-5fa522)](https://versekit.xharig.com/)
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
@@ -28,7 +28,7 @@
 
 A small, borderless overlay that tells you **in real time** when a new blueprint drops — name, type and time. No account, no cloud. Runs on **Windows and Linux**.
 
-> 🌐 **There is a website.** At **[xharig.github.io/VerseKit](https://xharig.github.io/VerseKit/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
+> 🌐 **There is a website.** At **[versekit.xharig.com](https://versekit.xharig.com/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
 
 > 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
