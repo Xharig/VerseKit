@@ -26167,6 +26167,24 @@ def _pruefung_267():
                                 [_stein('k-imp', 'client')], _eigen)
     pruefe(not _plan['conflicts'],
            'die eigene Loeschmarke ist kein Konflikt (%r)' % _plan['conflicts'])
+    # Mit der Installationskennung (krt-profit/basetool#2118) genau: Dieselbe
+    # Installation ist kein Konflikt, VerseKit auf dem ZWEITEN Rechner schon —
+    # dort hat das Mitglied ja bewusst etwas entfernt.
+    def _stein_von(inst):
+        s = _stein('k-imp', 'client')
+        s['removedBy'].update(clientId='versekit', installationId=inst)
+        return s
+    _mit_id = dict(_stand, installation_id='inst-a')
+    _plan = _xs.plan_blueprints(_lokal, _ohne, [_stein_von('inst-a')], _mit_id)
+    pruefe(not _plan['conflicts'],
+           'Loeschmarke dieser Installation: kein Konflikt (%r)'
+           % _plan['conflicts'])
+    _plan = _xs.plan_blueprints(_lokal, _ohne, [_stein_von('inst-b')], _mit_id)
+    pruefe((_pa.name_key('Importiert'), 'removed_elsewhere') in _plan['conflicts'],
+           'Loeschmarke von VerseKit auf einem anderen Rechner: Konflikt (%r)'
+           % _plan['conflicts'])
+    pruefe(_xs.next_state(_mit_id, _plan, [], 'c-3')['installation_id']
+           == 'inst-a', 'die Installationskennung bleibt im Stand erhalten')
 
     # Antwort des Servers deuten
     _ergebnis = {'dryRun': False, 'applied': 1, 'unchanged': 0,

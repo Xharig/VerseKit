@@ -49,11 +49,14 @@ der Netzseite::
     {'cursor': None,            # Position im Änderungsfeed des Servers
      'links': {},               # Bestandsschlüssel -> Schlüssel beim Basetool
      'pending_removals': [],    # hier abgehakt, beim Basetool noch zu entfernen
-     'own_removed_keys': []}    # Basetool-Schlüssel, die WIR entfernt haben
+     'own_removed_keys': [],    # Basetool-Schlüssel, die WIR entfernt haben
+     'installation_id': None}   # unsere Kennung laut Basetool, sobald bekannt
 
-`own_removed_keys` ist nötig, weil der Änderungsfeed zwar sagt, dass ein
-Programm etwas entfernt hat, VerseKit aber (noch) nicht erfährt, welche
-Installation es selbst ist. Was wir selbst weggeschickt haben, wissen wir.
+Eine Löschmarke ist unsere eigene, wenn ihr `removedBy.installationId` unsere
+`installation_id` ist — die liefert das Basetool in der Antwort auf
+`POST /me/installation` und im Service-Dokument (krt-profit/basetool#2118,
+auf unsere Frage hin). Solange sie fehlt, hilft `own_removed_keys`: Was wir
+selbst weggeschickt haben, wissen wir. greluc hat beides als gültig bestätigt.
 """
 import time
 import uuid
@@ -80,7 +83,16 @@ NEVER_SENT = ('start',)
 
 def empty_state():
     return {'cursor': None, 'links': {}, 'pending_removals': [],
-            'own_removed_keys': []}
+            'own_removed_keys': [], 'installation_id': None}
+
+
+def _own_stone(stone, own_keys, installation_id):
+    """Hat VerseKit selbst — genau diese Installation — den Eintrag entfernt?"""
+    if stone.get('key') in own_keys:
+        return True
+    removed_by = stone.get('removedBy') or {}
+    return bool(installation_id) and (
+        removed_by.get('installationId') == installation_id)
 
 
 def iso_utc(local_time):
@@ -224,11 +236,17 @@ def plan_blueprints(local, server_items, tombstones, state):
     linked_back = {server_key: local_key
                    for local_key, server_key in links.items()}
 
+    # ⚠ Eigene Löschmarken zählen auch für die Regel „fehlt ohne Marke"
+    # darunter — sonst meldete eine per Kennung erkannte eigene Entfernung
+    # dort doch noch einen Konflikt (so beim ersten Lauf der Prüfung passiert).
+    own |= {stone.get('key') for stone in tombstones
+            if _own_stone(stone, own, state.get('installation_id'))}
     conflicts = {}
     for stone in tombstones:
         local_key = linked_back.get(stone.get('key'))
         if (local_key in local and local_key not in pending
-                and stone.get('key') not in own):
+                and not _own_stone(stone, own,
+                                   state.get('installation_id'))):
             conflicts[local_key] = 'removed_elsewhere'
     for local_key, server_key in links.items():
         if (local_key in local and local_key not in pending
@@ -338,6 +356,7 @@ def next_state(state, plan, sent_removals, cursor):
     `sent_removals`: die Basetool-Schlüssel, die wir entfernt haben."""
     done = {local_key for local_key, _s in plan['remove']}
     return {'cursor': cursor,
+            'installation_id': state.get('installation_id'),
             'links': dict(plan['links']),
             'pending_removals': sorted(set(state.get('pending_removals') or ())
                                        - done),
