@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.57.1 - 2026-09-26
+
+> **Verse-Kit und das Profit Basetool rücken zusammen.** Der Bauplan-Export
+> trägt jetzt die eindeutige Kennung jedes Bauplans mit, damit das Basetool
+> ihn sicher zuordnet — auch wenn Namen abweichen. Und das Basetool bekommt
+> seinen Platz auf der Danke-Seite.
+
+### Verbessert
+
+- **Bauplan-Export fürs Profit Basetool genauer** — jeder Bauplan trägt jetzt
+  seine Kennung aus den Spieldaten mit, wo sie eindeutig ist. Das Basetool
+  ordnet darüber sicher zu, auch wenn der Name abweicht. Vorschlag von greluc
+  (KRT)
+- **Das Profit Basetool steht auf der Danke-Seite** — bei den Werkzeugen, von
+  denen Verse-Kit etwas übernommen hat
+
 ## v3.57.0 - 2026-09-26
 
 > **Zweitaccount? Kein Problem mehr.** Wer mehrere Accounts auf einem

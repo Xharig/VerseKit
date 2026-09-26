@@ -47,6 +47,7 @@ import time
 
 from . import collection as collection_file
 from . import catalog as catalog_module
+from . import paths
 
 # ⚠⚠ Das Feld `werkzeug` in einer eigenen Exportdatei — daran erkennt
 # `importer.detect()` unsere Dateien wieder.
@@ -77,15 +78,51 @@ def _iso(time_string):
         return None
 
 
-def for_basetool(collection=None):
-    """Die Struktur, die `profit-base.online` beim Import erwartet."""
+def _unique_tags():
+    """Bauplanname (klein) -> Tag — nur, wo der Name EINDEUTIG ist.
+
+    ⚠⚠ Anders als `_scmdb_tags()`: Dort gewinnt bei einem mehrdeutigen Namen
+    der erste Tag. Das Basetool prüft den Tag aber **vor** dem Namen und
+    springt bei einem Treffer sofort auf dieses Produkt (REQ-INV-019 im
+    Basetool). Ein geratener Tag landete also sicher beim falschen Teil —
+    etwa beim Kraftwerk der Idris statt dem der Reclaimer, die gleich heißen.
+    Ohne Tag nimmt das Basetool den Namen, wie bisher: lieber das als ein
+    sicherer Fehlgriff."""
+    seen = {}
+    try:
+        from . import crafting
+        for r in crafting.all_items():
+            # ⚠ Über die Vergleichsform, nicht `lower()`: Sonst fallen
+            # `7MA "Lorica"` (Bestand) und `7MA 'Lorica'` (scmdb) auseinander,
+            # ebenso „(16 Schuss)" und „(16 cap)" bei Magazinen.
+            base = paths.name_key(r.get('basis') or '')
+            tag = (r.get('tag') or '').strip()
+            if base and tag:
+                seen.setdefault(base, set()).add(tag)
+    except Exception:
+        return {}
+    return {name: next(iter(tags)) for name, tags in seen.items()
+            if len(tags) == 1}
+
+
+def for_basetool(collection=None, tags=None):
+    """Die Struktur, die `profit-base.online` beim Import erwartet.
+
+    ⭐ Seit v3.57.1 mit `tag` (die DataForge-Kennung, `BP_CRAFT_…`), wo er
+    eindeutig ist. Das Basetool ordnet darüber genauer zu als über den Namen
+    und fällt ohne Treffer auf den Namen zurück — ein fehlender Tag schadet
+    nie. Angeregt von greluc (KRT) in seinem Plan für den Austausch."""
     data = collection if collection is not None else collection_file.load()
+    table = _unique_tags() if tags is None else tags
     entries = []
     for key, e in sorted((data.get('bauplaene') or {}).items()):
         name = (e.get('name') or '').strip()
         if not name:
             continue                     # leere Namen fliegen beim Import raus
         entry = {'productName': name}
+        tag = table.get(paths.name_key(name))
+        if tag:
+            entry['tag'] = tag
         time_text = _iso(e.get('zeit'))
         if time_text:
             entry['receivedAt'] = time_text
