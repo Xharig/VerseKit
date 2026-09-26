@@ -8,12 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.57.0 - 2026-09-26
+
+> **Zweitaccount? Kein Problem mehr.** Wer mehrere Accounts auf einem
+> Rechner spielt, bekam bisher deren Baupläne alle in einen Bestand. Jetzt
+> zählt Verse-Kit nur die Protokolle des eigenen Accounts — und was schon
+> hereingerutscht ist, lässt sich unter *Erkennung* mit einem Klick
+> aufräumen.
+
 ### Neu
 
 - **Mehrere Accounts auf einem Rechner** — Baupläne zählen nur noch aus den
   Protokollen des eigenen Accounts. Wer auch einen Zweitaccount spielt, bekommt
   dessen Baupläne nicht mehr in den Bestand. Festgelegt wird der Account mit
-  den meisten Protokollen; umstellen lässt er sich unter *Erkennung*
+  den meisten Protokollen; umstellen lässt er sich unter *Erkennung*. Idee
+  aus dem SC-Extractor von greluc (KRT)
 - **Baupläne anderer Accounts aufräumen** — ebenfalls unter *Erkennung*: Was
   schon hereingerutscht ist und nur in Protokollen eines anderen Accounts
   steht, lässt sich nach Rückfrage aus dem Bestand nehmen. Von Hand abgehakte
