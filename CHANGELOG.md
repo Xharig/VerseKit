@@ -8,6 +8,19 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.57.3 - 2026-09-26
+
+> **Verse-Kit hat jetzt eine eigene Adresse: versekit.xharig.com.** Die
+> Webseite ist dort zu finden, und Fehlerberichte laufen über
+> bericht.xharig.com. Alte Links leiten von selbst weiter.
+
+### Verbessert
+
+- **Eigene Adresse für die Webseite** — „Danke & Lizenzen" verlinkt jetzt
+  versekit.xharig.com. Die bisherige Adresse leitet weiter
+- **Fehlerberichte über die eigene Adresse** — „Absenden" schickt an
+  bericht.xharig.com; ältere Versionen senden weiter wie gewohnt
+
 ## v3.57.2 - 2026-09-26
 
 > **Der Knopf „Absenden" funktioniert wieder.** Fehlerberichte gehen jetzt

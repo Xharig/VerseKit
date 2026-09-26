@@ -5764,8 +5764,8 @@ def _thanks(fenster, rahmen):
     # Die Projektseite zuerst: Spieler finden sich dort schneller zurecht als
     # auf GitHub. GitHub bleibt darunter — dort liegt der Quellcode, den die
     # GPL-Zeile oben verspricht.
-    _link(fenster, rechts, 'xharig.github.io/VerseKit',
-             'https://xharig.github.io/VerseKit/')
+    _link(fenster, rechts, 'versekit.xharig.com',
+             'https://versekit.xharig.com/')
     _link(fenster, rechts, 'github.com/Xharig/VerseKit',
              'https://github.com/Xharig/VerseKit')
     _body_text(innen, t('s_dk_selbst_h'), fenster.f_small, fill='x',

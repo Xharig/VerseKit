@@ -39,12 +39,16 @@ Adresse hier ist **kein Geheimnis** — sie darf im Quelltext stehen, und genau
 deshalb braucht der Bau nichts mehr einzusetzen. Muss der Webhook getauscht
 werden, geschieht das beim Worker, ohne neue Version.
 
+Seit v3.57.3 unter der eigenen Adresse `bericht.xharig.com`. Die frühere
+`versekit-bericht.xharig.workers.dev` bleibt beim Worker eingeschaltet —
+ältere Fassungen schicken weiter dorthin.
+
 ⚠ **Nie auf einem Heimserver.** Die Weiterleitung muss aus dem Internet
 erreichbar sein; ein eigener Dienst zu Hause hieße, das Heimnetz zu öffnen.
 """
 
 # Die öffentliche Adresse der Weiterleitung.
-RELAY = 'https://versekit-bericht.xharig.workers.dev/bericht'
+RELAY = 'https://bericht.xharig.com/bericht'
 
 
 def target():
