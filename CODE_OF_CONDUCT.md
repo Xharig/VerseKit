@@ -28,7 +28,7 @@ Videospiel — niemand wird dafür bezahlt, und alle machen es in ihrer Freizeit
 ## Etwas melden
 
 Wenn sich jemand so verhält, wende dich über ein GitHub-Issue oder auf Discord
-an die Projektleitung: https://discord.gg/g2E7e6XxZC
+an die Projektleitung: https://xharig.com/discord
 
 Kommentare können bearbeitet, ausgeblendet oder gelöscht werden, und Konten,
 die sich nicht an diese Regeln halten, können gesperrt werden.

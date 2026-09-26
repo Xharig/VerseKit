@@ -16,7 +16,7 @@ nothing is sent in the background.
 
 ## 2. The tool does not start → Discord
 
-**[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**, forum
+**[xharig.com/discord](https://xharig.com/discord)**, forum
 **Fehler-Melden**. **No GitHub account needed.**
 
 If Verse-Kit does not start at all, you cannot reach the button from way 1. A

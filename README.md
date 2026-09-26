@@ -14,7 +14,7 @@
 [![Heruntergeladen](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Heruntergeladen)](https://github.com/Xharig/VerseKit/releases)
 [![Webseite](https://img.shields.io/badge/Webseite-Rundgang%20ansehen-5fa522)](https://versekit.xharig.com/)
 [![Lizenz](https://img.shields.io/badge/Lizenz-GPL--3.0-5fa522)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-beitreten-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
+[![Discord](https://img.shields.io/badge/Discord-beitreten-5fa522?logo=discord&logoColor=white)](https://xharig.com/discord)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Kaffee%20spendieren-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-0a4a7a?logo=python&logoColor=white)](https://www.python.org/)
 [![System](https://img.shields.io/badge/System-Windows%20%C2%B7%20Linux-0a4a7a)](#voraussetzungen)
@@ -30,7 +30,7 @@ Ein kleines, randloses Overlay, das beim Spielen **in Echtzeit** meldet, sobald 
 
 > 🌐 **Es gibt eine Webseite.** Auf **[versekit.xharig.com](https://versekit.xharig.com/)** klickst du dich durch alle Bereiche und siehst, wie das Werkzeug aussieht — bevor du etwas herunterlädst. Deutsch und Englisch.
 
-> 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
+> 💬 **Es gibt einen Discord.** Fragen, Hilfe bei Problemen, neue Versionen und ein Forum für Fehler und Wünsche: **[xharig.com/discord](https://xharig.com/discord)**. Wer lieber hier bleibt, macht ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — beides wird gelesen.
 
 > 🧪 **Testversionen ausprobieren.** Vor jeder Veröffentlichung gibt es **Vorabversionen** (`-rc`) unter [Releases](https://github.com/Xharig/VerseKit/releases) — dort steht bei jeder, was sie bringt und was sich seit der vorigen geändert hat. Als Update angeboten werden sie **nur, wenn du** unter **Info → Update & Über → „Auch Testversionen"** einschaltest — alle anderen bekommen nur fertige Versionen. Wer eine ausprobiert und etwas findet, macht bitte ein [Issue](https://github.com/Xharig/VerseKit/issues) auf — genau dafür sind sie da.
 
@@ -602,7 +602,7 @@ du siehst ihn vorher vollständig.
 
 Lieber selbst? Ein [Issue](https://github.com/Xharig/VerseKit/issues) geht genauso — der Knopf **GitHub Issue …** auf
 derselben Seite legt den Bericht schon hinein. Oder das Forum **Fehler-Melden** im
-[Discord](https://discord.gg/g2E7e6XxZC), wenn ein Bildschirmfoto schneller geht als eine Beschreibung.
+[Discord](https://xharig.com/discord), wenn ein Bildschirmfoto schneller geht als eine Beschreibung.
 
 ## Weitergeben
 
@@ -659,7 +659,7 @@ Es wird weitergebaut — was genau, steht in keiner Liste. Was eine Version gebr
 
 **An welcher Version gerade gearbeitet wird**, steht im Änderungsprotokoll des Arbeitszweigs: [CHANGELOG auf `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.md). Dort sammelt sich, was fertig gebaut, aber noch nicht veröffentlicht ist — wer eine [Testfassung](https://github.com/Xharig/VerseKit/releases) ausprobiert, liest dort nach, was drin ist. Diese Seite hier zeigt immer die **veröffentlichte** Version.
 
-Wünsche und Fehlermeldungen gern als [Issue](https://github.com/Xharig/VerseKit/issues) oder im [Discord](https://discord.gg/g2E7e6XxZC) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
+Wünsche und Fehlermeldungen gern als [Issue](https://github.com/Xharig/VerseKit/issues) oder im [Discord](https://xharig.com/discord) — Vorschläge landen eher im nächsten Bau als Gedankenlesen.
 
 ## Star Citizen Fan Content
 
