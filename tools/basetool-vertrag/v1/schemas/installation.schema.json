@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/installation.schema.json",
+  "title": "Installation",
+  "description": "The label a client gives this installation, and what the server knows of it.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "pattern": "^[\\p{L}\\p{N}._-][\\p{L}\\p{N} ._-]{0,39}$",
+      "description": "At most 40 characters of letters, digits, space, `-`, `_` and `.`; not starting with a space. Never a host name."
+    },
+    "firstSeenAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC.",
+      "readOnly": true
+    },
+    "lastSeenAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC.",
+      "readOnly": true
+    }
+  },
+  "required": [
+    "label"
+  ]
+}

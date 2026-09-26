@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/tombstone.schema.json",
+  "title": "Tombstone",
+  "description": "A removal in the change feed, kept 90 days, naming who removed the entry.",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "removedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC."
+    },
+    "removedBy": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "web",
+            "app",
+            "client",
+            "system"
+          ]
+        },
+        "clientId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "installationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The removing installation, when a client removed it."
+        }
+      },
+      "required": [
+        "channel"
+      ]
+    }
+  },
+  "required": [
+    "key",
+    "removedAt",
+    "removedBy"
+  ]
+}

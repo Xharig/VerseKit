@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/service-document.schema.json",
+  "title": "Service document",
+  "description": "What this token may do and what the server expects.",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^exchange\\.[a-z.]+$"
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "batchMaxOps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requestsPerMinute": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "writesPerDay": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "batchMaxOps"
+      ]
+    },
+    "deprecations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "sunset": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC 3339 timestamp in UTC."
+          },
+          "link": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "feature"
+        ]
+      }
+    },
+    "docsUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "minClientVersion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32
+    }
+  },
+  "required": [
+    "apiVersion",
+    "capabilities",
+    "limits",
+    "docsUrl"
+  ]
+}

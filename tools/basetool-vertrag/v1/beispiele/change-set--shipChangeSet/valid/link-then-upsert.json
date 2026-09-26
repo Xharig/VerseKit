@@ -1,0 +1,20 @@
+{
+  "ops": [
+    {
+      "op": "link",
+      "externalId": "vk-7",
+      "shipId": "s-1"
+    },
+    {
+      "op": "upsert",
+      "externalId": "vk-8",
+      "shipType": {
+        "name": "Ursa Rover"
+      },
+      "name": "Neu",
+      "insurance": {
+        "kind": "LTI"
+      }
+    }
+  ]
+}

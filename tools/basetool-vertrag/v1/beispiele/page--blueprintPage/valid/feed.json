@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "key": "k1",
+      "ref": {
+        "bt": "bp-cf-337-panther-repeater",
+        "name": "CF-337 Panther Repeater"
+      },
+      "isDefault": false
+    }
+  ],
+  "removed": [
+    {
+      "key": "k2",
+      "removedAt": "2026-09-26T12:00:00Z",
+      "removedBy": {
+        "channel": "client",
+        "clientId": "versekit",
+        "installationId": "i-1"
+      }
+    }
+  ],
+  "nextCursor": "c-18",
+  "hasMore": false
+}

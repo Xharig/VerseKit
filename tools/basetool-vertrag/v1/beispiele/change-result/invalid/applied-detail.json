@@ -1,0 +1,12 @@
+{
+  "dryRun": false,
+  "applied": 1,
+  "unchanged": 0,
+  "notApplied": 0,
+  "results": [
+    {
+      "index": 0,
+      "result": "applied"
+    }
+  ]
+}

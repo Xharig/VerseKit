@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/location-ref.schema.json",
+  "title": "Location reference",
+  "description": "A Lager location, resolved against the Basetool's location list: first by its UEX link, then by the exact name. A place without a Lager location is `LOCATION_UNKNOWN`.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "uex": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "CITY",
+            "SPACE_STATION"
+          ]
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ]
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "required": [
+        "uex"
+      ]
+    }
+  ]
+}

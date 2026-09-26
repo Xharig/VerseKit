@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/location-list.schema.json",
+  "title": "Location list",
+  "description": "The Lager's non-hidden locations.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "location.schema.json"
+      }
+    }
+  },
+  "required": [
+    "items"
+  ]
+}

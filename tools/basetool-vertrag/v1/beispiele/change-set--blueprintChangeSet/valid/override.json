@@ -1,0 +1,13 @@
+{
+  "ops": [
+    {
+      "op": "add",
+      "ref": {
+        "bt": "bp-cf-337-panther-repeater",
+        "name": "CF-337 Panther Repeater"
+      },
+      "override": true
+    }
+  ],
+  "dryRun": true
+}

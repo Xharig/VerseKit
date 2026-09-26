@@ -1,0 +1,16 @@
+{
+  "apiVersion": "1.0",
+  "capabilities": [
+    "exchange.connect",
+    "exchange.blueprints.read",
+    "exchange.blueprints.write"
+  ],
+  "limits": {
+    "batchMaxOps": 500,
+    "requestsPerMinute": 60,
+    "writesPerDay": 2000
+  },
+  "deprecations": [],
+  "docsUrl": "https://krt-profit.github.io/basetool/exchange/",
+  "minClientVersion": "3.60.0"
+}

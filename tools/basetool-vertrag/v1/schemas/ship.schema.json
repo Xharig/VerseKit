@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/ship.schema.json",
+  "title": "Ship",
+  "description": "One of the member's own ships. Purchase data is never exchanged.",
+  "type": "object",
+  "properties": {
+    "shipId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque identifier issued by the Basetool. Clients store and echo it, never parse it."
+    },
+    "externalId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The client's id for this ship, once linked."
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "shipType": {
+      "$ref": "item-ref.schema.json"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "insurance": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "LTI",
+            "MONTHS"
+          ]
+        },
+        "months": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "MONTHS"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "months"
+        ]
+      }
+    },
+    "location": {
+      "$ref": "location-ref.schema.json"
+    },
+    "fitted": {
+      "type": "boolean"
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "shipId",
+    "version",
+    "shipType",
+    "name",
+    "insurance",
+    "fitted"
+  ]
+}

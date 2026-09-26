@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/envelope.schema.json",
+  "title": "Offline-file envelope",
+  "description": "The wrapper of an offline exchange file. It carries no handle, player, source folder or file path.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+    },
+    "formatVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "generator": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC."
+    },
+    "items": {
+      "type": "array"
+    },
+    "extensions": {
+      "$ref": "extensions.schema.json"
+    }
+  },
+  "required": [
+    "format",
+    "formatVersion",
+    "items"
+  ]
+}

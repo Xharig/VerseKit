@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/account-check-request.schema.json",
+  "title": "Account check request",
+  "description": "An RSI handle the client saw in the game log.",
+  "type": "object",
+  "properties": {
+    "handle": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{3,60}$"
+    }
+  },
+  "required": [
+    "handle"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "key": "lot-2",
+  "material": {
+    "bt": "m-2",
+    "name": "Medical Supplies"
+  },
+  "materialKind": {
+    "type": "NO_REFINE",
+    "commodity": true
+  },
+  "location": {
+    "name": "Area18",
+    "uex": {
+      "kind": "CITY",
+      "id": 4
+    }
+  },
+  "quality": 0,
+  "stolen": true,
+  "quantity": {
+    "amount": 32,
+    "unit": "SCU"
+  }
+}

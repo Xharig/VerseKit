@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/resolve-request.schema.json",
+  "title": "Resolve request",
+  "description": "Item references to resolve to Basetool keys.",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "BLUEPRINT",
+        "ITEM",
+        "MATERIAL",
+        "SHIP_TYPE"
+      ]
+    },
+    "refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "$ref": "item-ref.schema.json"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "refs"
+  ]
+}

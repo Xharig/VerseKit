@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/quantity.schema.json",
+  "title": "Quantity",
+  "description": "An amount with its unit. SCU amounts carry at most three decimals; PIECE amounts are whole.",
+  "type": "object",
+  "properties": {
+    "amount": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "SCU",
+        "PIECE"
+      ]
+    }
+  },
+  "required": [
+    "amount",
+    "unit"
+  ],
+  "if": {
+    "properties": {
+      "unit": {
+        "const": "PIECE"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "amount": {
+        "type": "integer"
+      }
+    }
+  }
+}

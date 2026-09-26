@@ -1,0 +1,7 @@
+{
+  "type": "https://krt-profit.github.io/basetool/exchange/errors#VERSION_CONFLICT",
+  "title": "Version conflict",
+  "status": 409,
+  "code": "VERSION_CONFLICT",
+  "correlationId": "5b0c"
+}

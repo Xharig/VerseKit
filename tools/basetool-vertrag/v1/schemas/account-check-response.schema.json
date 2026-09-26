@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/account-check-response.schema.json",
+  "title": "Account check response",
+  "description": "Whether the handle belongs to the signed-in member. The stored handle is never returned.",
+  "type": "object",
+  "properties": {
+    "result": {
+      "type": "string",
+      "enum": [
+        "match",
+        "mismatch",
+        "unknown"
+      ]
+    }
+  },
+  "required": [
+    "result"
+  ]
+}

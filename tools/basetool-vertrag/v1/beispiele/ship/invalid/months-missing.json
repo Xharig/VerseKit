@@ -1,0 +1,12 @@
+{
+  "shipId": "s-2",
+  "version": 0,
+  "shipType": {
+    "name": "Cutlass Black"
+  },
+  "name": "Black",
+  "insurance": {
+    "kind": "MONTHS"
+  },
+  "fitted": false
+}

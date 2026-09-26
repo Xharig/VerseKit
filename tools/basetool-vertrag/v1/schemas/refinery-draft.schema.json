@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/refinery-draft.schema.json",
+  "title": "Refinery draft",
+  "description": "Refinery work orders read from screenshots, staged for review in the browser. The SC Extractor's existing refinery-extract format (ADR-0008).",
+  "type": "object",
+  "properties": {
+    "clientLanguage": {
+      "type": "string",
+      "maxLength": 16,
+      "minLength": 0
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 100,
+      "minLength": 0
+    },
+    "orders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/order"
+      },
+      "maxItems": 5,
+      "minItems": 0
+    },
+    "schemaVersion": {
+      "type": "integer"
+    },
+    "tool": {
+      "type": "string",
+      "maxLength": 100,
+      "minLength": 0
+    },
+    "toolVersion": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 0
+    }
+  },
+  "required": [
+    "orders",
+    "schemaVersion"
+  ],
+  "$defs": {
+    "order": {
+      "type": "object",
+      "properties": {
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expenses": {
+          "type": "number",
+          "maximum": 1000000000.0,
+          "minimum": 0
+        },
+        "goods": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/good"
+          },
+          "maxItems": 100,
+          "minItems": 0
+        },
+        "layoutConfidence": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "panelType": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 0
+        },
+        "quoted": {
+          "type": "boolean"
+        },
+        "rawInManifestTotal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rawLocationName": {
+          "type": "string",
+          "maxLength": 255,
+          "minLength": 0
+        },
+        "rawMethodName": {
+          "type": "string",
+          "maxLength": 255,
+          "minLength": 0
+        },
+        "rawToRefineTotal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceImages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/image"
+          },
+          "maxItems": 50,
+          "minItems": 0
+        },
+        "totalYieldScu": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "goods",
+        "panelType",
+        "sourceImages"
+      ]
+    },
+    "good": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0
+        },
+        "inputQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outputQuantity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quality": {
+          "type": "integer"
+        },
+        "rawMaterialName": {
+          "type": "string",
+          "maxLength": 255,
+          "minLength": 0
+        },
+        "refine": {
+          "type": "boolean"
+        },
+        "rowIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceImage": {
+          "type": "string",
+          "maxLength": 255,
+          "minLength": 0
+        }
+      },
+      "required": [
+        "inputQuantity",
+        "rawMaterialName",
+        "refine"
+      ]
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "cropMode": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 0
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "minLength": 0
+        },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  }
+}

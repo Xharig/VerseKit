@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ingest.profit-base.online/exchange/v1/schemas/org-demand.schema.json",
+  "title": "Org demand",
+  "description": "Anonymised open demand of the units the member belongs to. Carries no names and no free text.",
+  "type": "object",
+  "properties": {
+    "materials": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "material": {
+            "$ref": "item-ref.schema.json"
+          },
+          "rawRefs": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "item-ref.schema.json"
+            },
+            "description": "Raw ores that refine into this material; possibly empty."
+          },
+          "minQuality": {
+            "$ref": "quality.schema.json"
+          },
+          "openQuantity": {
+            "$ref": "quantity.schema.json"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "material-order",
+              "item-order"
+            ],
+            "description": "Whether the line comes from a material order or from what an item order resolves to — never count item demand twice."
+          }
+        },
+        "required": [
+          "material",
+          "rawRefs",
+          "minQuality",
+          "openQuantity",
+          "source"
+        ]
+      }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "$ref": "item-ref.schema.json"
+          },
+          "openQuantity": {
+            "$ref": "quantity.schema.json"
+          },
+          "craftableByMe": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "item",
+          "openQuantity",
+          "craftableByMe"
+        ]
+      }
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp in UTC."
+    }
+  },
+  "required": [
+    "materials",
+    "items",
+    "updatedAt"
+  ]
+}

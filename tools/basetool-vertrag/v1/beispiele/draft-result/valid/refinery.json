@@ -1,0 +1,5 @@
+{
+  "frontendUrl": "https://profit-base.online/refinery-orders/create?handoff=abc",
+  "handoffId": "abc",
+  "kind": "REFINERY"
+}
