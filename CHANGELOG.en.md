@@ -8,6 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.57.2 - 2026-09-26
+
+> **The "Send" button works again.** Error reports now go through a
+> dedicated, protected relay instead of straight to Discord. If you are on an
+> older version, you get the update automatically as usual.
+
+### Fixed
+
+- **Error reports go through a dedicated relay** — "Send" no longer posts the
+  report straight to Discord. The previous target address was inside the
+  program file and could be read out; it has been switched off. If you send
+  twice in quick succession, you now read "please try again in a minute"
+  instead of "no connection"
+
 ## v3.57.1 - 2026-09-26
 
 > **Verse-Kit and the Profit Basetool move closer together.** The blueprint

@@ -20,6 +20,7 @@ const HEAD_RE = /^\*\*Fehlerbericht\*\* · (\d{1,3}\.\d{1,3}\.\d{1,3}(?:-rc\d{1,
 const REPORT_NAME_RE = /^bericht-\d{4}-\d{2}-\d{2}-\d{4}\.txt$/;
 const REPORT_START = 'Verse-Kit ';
 const ALLOWED_TYPES = ['text/plain', 'image/png', 'image/jpeg', 'application/zip'];
+const WEBHOOK_RE = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
 
 function answer(status, text) {
   return new Response(text, {
@@ -73,7 +74,11 @@ export default {
     const url = new URL(request.url);
     if (url.pathname !== '/bericht') return answer(404, 'nicht hier');
     if (request.method !== 'POST') return answer(405, 'nur POST');
-    if (!env.DISCORD_WEBHOOK) return answer(503, 'nicht eingerichtet');
+    // ⚠ Nicht nur „gesetzt", sondern „sieht aus wie ein Discord-Webhook".
+    // Am 26.09.2026 stand im Geheimnis ein einzelnes Steuerzeichen (\u0016 —
+    // Strg+V, das die Eingabeabfrage nicht als Einfügen verstand). Der Worker
+    // stürzte daran bei jedem Bericht ab (Fehler 1101), statt zu sagen, was fehlt.
+    if (!WEBHOOK_RE.test(env.DISCORD_WEBHOOK || '')) return answer(503, 'nicht eingerichtet');
 
     // Menge begrenzen — je Absender-Adresse. Die Grenze selbst steht in
     // wrangler.toml (Rate-Limiting-Bindung). Fehlt sie, wird abgelehnt:

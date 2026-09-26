@@ -8,6 +8,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.57.2 - 2026-09-26
+
+> **Der Knopf „Absenden" funktioniert wieder.** Fehlerberichte gehen jetzt
+> über eine eigene, abgesicherte Weiterleitung statt direkt an Discord. Wer
+> eine ältere Version hat, bekommt das Update wie gewohnt von selbst.
+
+### Behoben
+
+- **Fehlerberichte laufen über eine eigene Weiterleitung** — „Absenden" schickt
+  den Bericht nicht mehr direkt an Discord. Die bisherige Zieladresse steckte
+  in der Programmdatei und ließ sich auslesen; sie ist abgeschaltet. Wer zweimal
+  schnell hintereinander sendet, liest jetzt „bitte in einer Minute noch
+  einmal" statt „keine Verbindung"
+
 ## v3.57.1 - 2026-09-26
 
 > **Verse-Kit und das Profit Basetool rücken zusammen.** Der Bauplan-Export
