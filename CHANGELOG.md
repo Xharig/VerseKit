@@ -8,6 +8,13 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.56.0 - 2026-09-26
+
+> **Verse-Kit ist jetzt dort, wo man es sucht.** Unter Windows holst du das
+> Overlay mit Alt+Tab aus dem Spiel nach vorn, statt es mit der Maus zu
+> suchen, und es hat ein Symbol in der Taskleiste. Im Task-Manager steht es
+> oben bei den Apps und heißt auch dort Verse-Kit.
+
 ### Verbessert
 
 - **Im Task-Manager heißt das Programm jetzt „Verse-Kit"** statt
