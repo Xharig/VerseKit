@@ -25854,6 +25854,8 @@ def main():
         _w264.destroy()
         _dh264.summary, _dh264.suggestions, _dh264.Watchdog = _alt264
 
+    _pruefung_265()
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
@@ -25905,6 +25907,118 @@ def _versionierte_dateien(wurzel, endungen=('.py', '.md', '.yml')):
             if n.endswith(endungen):
                 raus.append(os.path.relpath(os.path.join(ordner, n), wurzel))
     return raus
+
+
+def _pruefung_265():
+    """265. Baupläne zählen nur vom eigenen Account."""
+    print('\n265. Baupläne zählen nur vom eigenen Account')
+    # ⚠⚠ Wer zwei Accounts auf einem Rechner spielt, hat beider Protokolle in
+    # `logbackups/`. Bis v3.56 landeten die Baupläne des zweiten still im
+    # eigenen Bestand. Geprüft wird die WIRKUNG an allen drei Wegen —
+    # Nachlesen, Mitlesen, Entfernen — mit einer eigenen Installation, in der
+    # zwei Accounts gespielt haben.
+    import queue as _qu
+    from scbp import logsource as _lq, paths as _pf
+    from scbp import collection as _bd
+    import sc_bp_watcher as _sw
+
+    def zeilen(account, bps):
+        out = ['<2026-09-26T08:00:00.000Z> [Notice] <Legacy login response> '
+               '[CIG-net] User Login Success - Handle[%s] - Time[1] '
+               '[Team_GameServices][Login]\n' % account] if account else []
+        for bp in bps:
+            out.append('<2026-09-26T08:10:00.000Z> [Notice] '
+                       '<SHUDEvent_OnNotification> Added notification '
+                       '"Received Blueprint: %s: " [7] to queue. New queue '
+                       'size: 1, MissionId: [], ObjectiveId: [] '
+                       '[Team_CoreGameplayFeatures][Missions][Comms]\n' % bp)
+        return out
+
+    basis = tempfile.mkdtemp(prefix='sc-bp-265-')
+    live = os.path.join(basis, 'LIVE')
+    os.makedirs(os.path.join(live, 'logbackups'))
+    for name, acc, bps in (('Game Build(1) 01.log', 'Haupt', ['Alpha', 'Beide']),
+                           ('Game Build(1) 02.log', 'Haupt', ['Gamma']),
+                           ('Game Build(1) 03.log', 'Zweit', ['Zweitding', 'Beide'])):
+        with open(os.path.join(live, 'logbackups', name), 'w',
+                  encoding='utf-8') as f:
+            f.writelines(zeilen(acc, bps))
+    with open(os.path.join(live, 'Game.log'), 'w', encoding='utf-8') as f:
+        f.writelines(zeilen('Zweit', ['Laufend-Zweit']))
+    env_before = os.environ.get('SC_INSTALL_DIR')
+    setting_before = _pf.setting(_lq.ACCOUNT_SETTING)
+    try:
+        os.environ['SC_INSTALL_DIR'] = live
+        _pf.set_setting(_lq.ACCOUNT_SETTING, '')
+        _lq._OWN_TRIED[0] = 0.0
+        pruefe(_lq.account_from_text(
+            '... - name Haupt - state STATE_CURRENT [Team]') == 'Haupt',
+            'Account aus der Charakterzeile erkannt')
+        pruefe(_lq.account_from_text('nickname="Mitspieler" playerGEID=1')
+               is None,
+               'eine Verbindungszeile (nickname) zählt NICHT als Anmeldung')
+        counts = _lq.accounts_in_logs()
+        pruefe(counts == {'Haupt': 2, 'Zweit': 2},
+               'beide Accounts gezählt (%r)' % counts)
+        # Gleichstand 2:2 — dann entscheidet das Alphabet, aber FEST.
+        own = _lq.own_account()
+        pruefe(own == 'Haupt', 'eigener Account festgelegt (%r)' % own)
+        pruefe(_pf.setting(_lq.ACCOUNT_SETTING) == 'Haupt',
+               'und in der Einstellung gemerkt')
+        finds, report_ = _lq.read_backlog(_lq.ReadState(), only_new=False)
+        names = sorted(n for n, _z in finds)
+        pruefe(names == ['Alpha', 'Beide', 'Gamma'],
+               'Nachlese: nur Baupläne des eigenen Accounts (%r)' % names)
+        pruefe(report_.get('fremd') == 2,
+               'Nachlese: zwei fremde Protokolle übersprungen (%r)'
+               % report_.get('fremd'))
+        foreign = _lq.foreign_only_blueprints()
+        pruefe(foreign == ['Laufend-Zweit', 'Zweitding'],
+               'Aufräumen schlägt nur vor, was NUR der andere hat (%r)'
+               % foreign)
+        # Mitlesen: die laufende Log gehört dem Zweitaccount. Gegenprobe
+        # der Falle zuerst — dieselbe Datei MUSS für „alle" etwas liefern,
+        # sonst wäre die leere Liste unten geschenkt.
+        _pf.set_setting(_lq.ACCOUNT_SETTING, _lq.ALL_ACCOUNTS)
+        tail = _lq.LogTail(_lq.ReadState())
+        tail._locate()
+        tail.offset = 0
+        pruefe([n for n, _z in tail.new_names()] == ['Laufend-Zweit'],
+               'Vorbedingung: für „alle" meldet das Mitlesen den Fund')
+        _pf.set_setting(_lq.ACCOUNT_SETTING, 'Haupt')
+        tail = _lq.LogTail(_lq.ReadState())
+        tail._locate()
+        tail.offset = 0
+        pruefe(tail.new_names() == [],
+               'Mitlesen: Baupläne des Zweitaccounts werden nicht gemeldet')
+        # Umstellen auf den Zweitaccount — und auf „alle".
+        _pf.set_setting(_lq.ACCOUNT_SETTING, 'Zweit')
+        names = sorted(n for n, _z in _lq.read_all()[0])
+        pruefe(names == ['Beide', 'Laufend-Zweit', 'Zweitding'],
+               'umgestellt: jetzt zählt der andere (%r)' % names)
+        _pf.set_setting(_lq.ACCOUNT_SETTING, _lq.ALL_ACCOUNTS)
+        pruefe(len(_lq.read_all()[0]) == 5, '„alle Accounts": alles zählt')
+        # Entfernen — nur über den Watcher, nur was aus einem Protokoll kam.
+        w = _sw.Watcher(_qu.Queue())
+        w.bestand = _bd.empty()
+        _bd.add(w.bestand, 'Zweitding', 'nachlese')
+        _bd.add(w.bestand, 'Laufend-Zweit', 'hand')
+        _bd.add(w.bestand, 'Alpha', 'log')
+        w.remove_foreign(['Zweitding', 'Laufend-Zweit'])
+        w._remove_foreign_now()
+        pruefe(not _bd.contains(w.bestand, 'Zweitding'),
+               'Entfernen: der fremde Protokoll-Fund ist weg')
+        pruefe(_bd.contains(w.bestand, 'Laufend-Zweit'),
+               'Entfernen: ein von Hand abgehakter bleibt')
+        pruefe(_bd.contains(w.bestand, 'Alpha'),
+               'Entfernen: der Rest bleibt unberührt')
+    finally:
+        if env_before is None:
+            os.environ.pop('SC_INSTALL_DIR', None)
+        else:
+            os.environ['SC_INSTALL_DIR'] = env_before
+        _pf.set_setting(_lq.ACCOUNT_SETTING, setting_before or '')
+        shutil.rmtree(basis, ignore_errors=True)
 
 
 def _wurzel():

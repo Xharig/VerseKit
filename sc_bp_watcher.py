@@ -872,6 +872,7 @@ class Watcher(threading.Thread):
             self.schwund = None
             errors.record('watcher.schwund_pruefen', ausnahme)
         self._neu_einlesen = False            # Auftrag von außen, siehe unten
+        self._entfernen = []                  # dito: Baupläne fremder Accounts
         self.running = True
         self.cat_next = 0.0     # nächster Katalog-Check (Zeitstempel)
         self.cat_mtime = None   # letzter gesehener Änderungszeitpunkt der Katalogdatei
@@ -1671,6 +1672,31 @@ class Watcher(threading.Thread):
         zwei Stellen denselben Bestand an."""
         self._neu_einlesen = True
 
+    def remove_foreign(self, names):
+        """Von außen gerufen: diese Baupläne beim nächsten Takt entfernen.
+
+        ⚠ Aus demselben Grund wie beim Neu-Einlesen nur ein Merker: Der
+        Bestand wird ausschließlich in diesem Faden geschrieben. Entfernte die
+        Seite selbst, schriebe der Faden beim nächsten Fund seinen alten Stand
+        zurück — und die Baupläne wären wieder da."""
+        self._entfernen = list(self._entfernen) + list(names)
+
+    def _remove_foreign_now(self):
+        names, self._entfernen = self._entfernen, []
+        removed = []
+        for name in names:
+            entry = self.bestand['bauplaene'].get(bestand_datei.norm(name))
+            # ⚠ Nur, was aus einem PROTOKOLL kam. Von Hand abgehakt, vom
+            # Launcher oder Import übernommen oder ein Startbauplan hat mit
+            # dem fremden Account nichts zu tun.
+            if entry and entry.get('quelle') in ('log', 'nachlese'):
+                if bestand_datei.remove(self.bestand, name):
+                    removed.append(name)
+        if removed:
+            self._bestand_sichern()
+            self.seen = set(bestand_datei.keys(self.bestand))
+        self.q.put(('status', language.Phrase('s_er_fremd_ok', len(removed))))
+
     def _alles_neu_einlesen(self):
         """Alle Protokolle noch einmal durchsehen, auch die schon bekannten.
 
@@ -1878,6 +1904,7 @@ class Watcher(threading.Thread):
         #    als „neu" gemeldet.
         self.seen = set(bestand_datei.keys(self.bestand))
         overlay.RESCAN_CALLBACK[0] = self.neu_einlesen_anstossen
+        overlay.REMOVE_CALLBACK[0] = self.remove_foreign
         self.tail.new_names()          # Lesestand der Game.log setzen/fortführen
         # ⚠ Was dieser Aufruf an Auftragsereignissen aufgesammelt hat, ist
         # Vergangenheit — es steht in der Log, die gleich ohnehin ganz gelesen
@@ -1898,6 +1925,8 @@ class Watcher(threading.Thread):
             if self._neu_einlesen:
                 self._neu_einlesen = False
                 self._alles_neu_einlesen()
+            if self._entfernen:
+                self._remove_foreign_now()
 
             # 0) Werte-Daten und Bauplan-Katalog frisch halten
             #    (selten, nur bei neuer Spielversion)

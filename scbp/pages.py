@@ -6177,6 +6177,8 @@ def _detection(fenster, rahmen):
 
     _button(fenster, ziel, t('s_er_kat_jetzt'), katalog_neu).pack()
 
+    _account_rows(fenster, innen)
+
     # ⚠⚠ **Hier stand bis v3.5.1 ein zweiter „Protokolle neu lesen"-Knopf.**
     # Er loeschte `logstand.json` und wirkte erst **beim naechsten Start**.
     # Unter „Bestand" gibt es denselben Auftrag als „Protokolle erneut
@@ -6191,6 +6193,116 @@ def _detection(fenster, rahmen):
     #
     # ⚠ Zwei Knoepfe fuer eine Sache sind schlimmer als einer: Wer den
     # schwaecheren erwischt, glaubt, das Werkzeug koenne es nicht.
+
+
+def _account_rows(window, inner):
+    """Eigener Account und das Aufräumen fremder Baupläne (ab v3.57.0).
+
+    ⭐ Wer zwei Accounts auf einem Rechner spielt, hat beider Protokolle in
+    `logbackups/`. Gezählt wird nur der eigene (`logsource.own_account`);
+    hier lässt er sich umstellen, und was vorher schon hereingerutscht ist,
+    lässt sich entfernen — nach Rückfrage, weil ein Rest Unsicherheit bleibt
+    (siehe `logsource.foreign_only_blueprints`).
+    """
+    from . import collection as stock_file, logsource, overlay, paths
+    from .main_window import round_select
+    target = _setting_row(window, inner, t('s_er_acc'), t('s_er_acc_h'))
+    counts, own = {}, None
+    try:
+        counts = logsource.accounts_in_logs()
+        own = logsource.own_account()
+    except Exception as error:
+        errors.record('pages.erkennung.accounts', error)
+
+    foreign_target = _setting_row(window, inner, t('s_er_fremd'),
+                                  t('s_er_fremd_h'), wide=True)
+    info = tk.Label(foreign_target, text=t('s_er_fremd_sucht'), bg=BG, fg=SUB,
+                    font=window.f_small, anchor='w', justify='left',
+                    wraplength=560)
+    info.pack(fill='x', pady=(6, 0))
+    button_slot = tk.Frame(foreign_target, bg=BG)
+    button_slot.pack(anchor='w', pady=(6, 0))
+
+    def show(affected):
+        for child in button_slot.winfo_children():
+            child.destroy()
+        if not affected:
+            info.configure(text=t('s_er_fremd_keine'))
+            return
+        preview = ', '.join(affected[:8]) + (' …' if len(affected) > 8 else '')
+        info.configure(text=t('s_er_fremd_n') % (len(affected), preview))
+
+        def remove():
+            listing = '\n'.join('· ' + n for n in affected[:25])
+            if len(affected) > 25:
+                listing += '\n…'
+            if not _ask(window, t('s_er_fremd'),
+                        t('s_er_fremd_frage') % (len(affected), listing)):
+                return
+            if overlay.request_remove(affected):
+                for child in button_slot.winfo_children():
+                    child.destroy()
+                info.configure(text=t('s_er_fremd_sucht'))
+                # Der Watcher arbeitet im nächsten Takt — danach neu zählen.
+                info.after(8000, search)
+
+        _button(window, button_slot, t('s_er_fremd_weg'), remove,
+                danger=True).pack(side='left')
+
+    def search():
+        """Im Hintergrund: 180 Protokolle ganz zu lesen dauert Sekunden."""
+        try:
+            if not info.winfo_exists():
+                return
+        except Exception:
+            return
+        info.configure(text=t('s_er_fremd_sucht'))
+
+        def work():
+            affected = []
+            try:
+                names = logsource.foreign_only_blueprints()
+                entries = stock_file.load().get('bauplaene') or {}
+                # Nur, was aus einem Protokoll kam — dasselbe Maß wie beim
+                # Entfernen im Watcher (`_remove_foreign_now`).
+                affected = [n for n in names
+                            if (entries.get(stock_file.norm(n)) or {})
+                            .get('quelle') in ('log', 'nachlese')]
+            except Exception as error:
+                errors.record('pages.erkennung.fremd', error)
+            try:
+                if info.winfo_exists():
+                    info.after(0, lambda: show(affected))
+            except Exception:
+                pass
+
+        threading.Thread(target=work, daemon=True).start()
+
+    if counts or own:
+        chosen = own or logsource.ALL_ACCOUNTS
+        names = set(counts)
+        if own and own != logsource.ALL_ACCOUNTS:
+            names.add(own)
+        entries = [(logsource.ALL_ACCOUNTS, t('s_er_acc_alle'))]
+        entries += [(a, t('s_er_acc_n') % (a, counts.get(a, 0)))
+                    for a in sorted(names, key=str.lower)]
+
+        def choose(value):
+            if value == (paths.setting(logsource.ACCOUNT_SETTING) or ''):
+                return
+            paths.set_setting(logsource.ACCOUNT_SETTING, value)
+            label = (t('s_er_acc_alle') if value == logsource.ALL_ACCOUNTS
+                     else value)
+            window.say(t('s_er_acc_sagen') % label)
+            overlay.account_changed()
+            search()
+
+        round_select(target, entries, chosen, choose, window.f_small).pack()
+    else:
+        tk.Label(target, text=t('s_er_acc_keiner'), bg=BG, fg=SUB,
+                 font=window.f_small, wraplength=260,
+                 justify='left').pack()
+    search()
 
 
 def _diagnostics(fenster, rahmen):
