@@ -25855,6 +25855,7 @@ def main():
         _dh264.summary, _dh264.suggestions, _dh264.Watchdog = _alt264
 
     _pruefung_265()
+    _pruefung_266()
 
     print()
     if fehler:
@@ -26019,6 +26020,40 @@ def _pruefung_265():
             os.environ['SC_INSTALL_DIR'] = env_before
         _pf.set_setting(_lq.ACCOUNT_SETTING, setting_before or '')
         shutil.rmtree(basis, ignore_errors=True)
+
+
+def _pruefung_266():
+    """266. Der Basetool-Export trägt den Tag — aber nur, wo er eindeutig ist."""
+    print('\n266. Basetool-Export: Tag nur, wo der Name eindeutig ist')
+    # ⚠⚠ Das Basetool prüft den Tag VOR dem Namen und springt bei einem
+    # Treffer sofort auf dieses Produkt. Ein geratener Tag bei einem
+    # mehrdeutigen Namen landete sicher beim falschen Teil. Rezeptdaten und
+    # Bestand werden untergeschoben — kein Netz, keine Nutzerdatei.
+    from scbp import crafting as _cr, export as _ex, collection as _bd
+    fake = [
+        {'basis': 'BroadSpec', 'name': 'BroadSpec (S1)', 'tag': 'BP_CRAFT_A_S1'},
+        {'basis': 'BroadSpec', 'name': 'BroadSpec (S2)', 'tag': 'BP_CRAFT_A_S2'},
+        {'basis': "7MA 'Lorica'", 'name': "7MA 'Lorica'", 'tag': 'BP_CRAFT_LORICA'},
+        {'basis': 'Eindeutig', 'name': 'Eindeutig', 'tag': 'BP_CRAFT_EIN'},
+    ]
+    old = _cr.all_items
+    try:
+        _cr.all_items = lambda: [dict(x) for x in fake]
+        stock = _bd.empty()
+        for n in ('BroadSpec', '7MA "Lorica"', 'Eindeutig', 'Ohne Rezept'):
+            _bd.add(stock, n, 'log')
+        rows = {e['productName']: e for e in _ex.for_basetool(stock)['blueprints']}
+        pruefe(rows['Eindeutig'].get('tag') == 'BP_CRAFT_EIN',
+               'ein eindeutiger Name bekommt seinen Tag')
+        pruefe('tag' not in rows['BroadSpec'],
+               'ein mehrdeutiger Name bekommt KEINEN Tag (%r)'
+               % rows['BroadSpec'].get('tag'))
+        pruefe(rows['7MA "Lorica"'].get('tag') == 'BP_CRAFT_LORICA',
+               'andere Anführungszeichen hindern die Zuordnung nicht')
+        pruefe('tag' not in rows['Ohne Rezept'] and len(rows) == 4,
+               'ohne Rezept: Eintrag bleibt, nur ohne Tag')
+    finally:
+        _cr.all_items = old
 
 
 def _wurzel():

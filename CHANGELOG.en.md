@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.57.1 - 2026-09-26
+
+> **Verse-Kit and the Profit Basetool move closer together.** The blueprint
+> export now carries each blueprint's unique key, so the Basetool matches it
+> reliably — even when names differ. And the Basetool gets its place on the
+> thanks page.
+
+### Improved
+
+- **More accurate blueprint export for the Profit Basetool** — every blueprint
+  now carries its game-data key where it is unique. The Basetool matches it
+  reliably even when the name differs. Suggested by greluc (KRT)
+- **The Profit Basetool is on the thanks page** — among the tools Verse-Kit
+  took something from
+
 ## v3.57.0 - 2026-09-26
 
 > **Second account? No problem anymore.** If you play several accounts on

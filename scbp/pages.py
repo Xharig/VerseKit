@@ -5806,6 +5806,12 @@ def _thanks(fenster, rahmen):
                'MIT', t('s_dk_hangarext'), HANGAR_EXT_PAGE)
     _credit_box(fenster, innen, 'Star Citizen Hangar XPLORer (dolkensp)',
                'MIT', t('s_dk_xplorer'), XPLORER_PAGE)
+    # ⭐ Seit v3.57.1: Der Bauplan-Export folgt dem Format des Basetools, und
+    # die Zuordnung der Protokolle zum Account (v3.57.0) stammt aus dessen
+    # SC-Extractor. Verlinkt wird das öffentliche Repository — die Seite
+    # selbst verlangt eine Anmeldung und hilft niemandem von außen.
+    _credit_box(fenster, innen, 'Profit Basetool (greluc)', 'GPL-3.0',
+               t('s_dk_basetool'), 'https://github.com/krt-profit/basetool')
     # StarStrings hat KEINE Lizenzangabe - kein LICENSE im Repo, nichts in
     # der readme, GitHub meldet keine (geprueft 29.08.2026). Hier stand
     # 'CC BY-NC-SA 4.0'. Das war geraten, vermutlich von scmdb uebernommen,

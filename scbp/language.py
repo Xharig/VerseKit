@@ -2277,6 +2277,14 @@ TEXTS = {
                         'Hangar-Export — ihre Dateien werden weiterhin gelesen.',
                         'The original browser add-on for the hangar export — '
                         'its files are still read.'),
+    's_dk_basetool':   ('Die Verwaltung für Lager, Aufträge und Baupläne einer '
+                        'Star-Citizen-Organisation. Der Bauplan-Export von '
+                        'Verse-Kit ist in ihrem Format, und dass jede Log ihrem '
+                        'Account zugeordnet wird, stammt aus ihrem SC-Extractor.',
+                        'The storage, order and blueprint management of a Star '
+                        'Citizen organisation. Verse-Kit\'s blueprint export '
+                        'uses its format, and assigning every log to its '
+                        'account comes from its SC Extractor.'),
     's_dk_tester':     ('Tester', 'tester'),
     's_dk_leute':      ('Und Danke an', 'And thanks to'),
     's_dk_leute_h':    ('Wer einen Fehler findet oder einen guten Vorschlag macht, '
