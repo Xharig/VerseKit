@@ -63,18 +63,24 @@ TOOL_NAME = 'VerseKit'
 
 
 def _iso(time_string):
-    """„2026-08-24 07:57:59" -> „2026-08-24T07:57:59Z" oder None.
+    """„2026-08-24 07:57:59" (Ortszeit) -> „2026-08-24T05:57:59Z" oder None.
 
     Der Bestand hält die Zeit in lesbarer Form; das Basetool erwartet ISO 8601.
     Lässt sich der Wert nicht deuten, wird das Feld **weggelassen** — laut
     Format ist es optional, und ein erfundener Zeitpunkt wäre schlechter als
-    gar keiner."""
+    gar keiner.
+
+    ⚠⚠ **Der Bestand hält ORTSZEIT, das `Z` heißt UTC.** Bis v3.57.3 wurde
+    das `Z` nur angehängt — jede Zeit lag damit um die Zeitzone daneben (im
+    Sommer zwei Stunden). Jetzt wird wirklich umgerechnet; der Import rechnet
+    spiegelbildlich zurück (`importer._time_from`)."""
     if not time_string:
         return None
     try:
-        t = time.strptime(str(time_string), '%Y-%m-%d %H:%M:%S')
-        return time.strftime('%Y-%m-%dT%H:%M:%SZ', t)
-    except (ValueError, TypeError):
+        stamp = time.mktime(time.strptime(str(time_string),
+                                          '%Y-%m-%d %H:%M:%S'))
+        return time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(stamp))
+    except (ValueError, TypeError, OverflowError):
         return None
 
 

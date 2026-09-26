@@ -8,6 +8,24 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.57.4 - 2026-09-26
+
+> **Die Zeiten stimmen jetzt auch beim Austausch mit dem Basetool.** Wann du
+> einen Bauplan bekommen hast, landet dort und beim Einlesen wieder hier zur
+> richtigen Uhrzeit, nicht mehr zwei Stunden verschoben.
+
+### Verbessert
+
+- **Discord-Knopf** — führt über xharig.com/discord und bleibt damit auch
+  gültig, falls sich die Einladung einmal ändert
+
+### Behoben
+
+- **Bauplan-Zeiten im Basetool-Export** — sie lagen um die Zeitzone daneben
+  (im Sommer zwei Stunden)
+- **Zeiten beim Einlesen einer Basetool-Datei** — genauso verschoben, jetzt
+  richtig umgerechnet
+
 ## v3.57.3 - 2026-09-26
 
 > **Verse-Kit hat jetzt eine eigene Adresse: versekit.xharig.com.** Die
