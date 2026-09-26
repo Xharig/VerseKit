@@ -8,6 +8,17 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+### New
+
+- **Several accounts on one computer** — blueprints now only count from your
+  own account's logs. If you also play a second account, its blueprints no
+  longer end up in your collection. The account with the most logs is chosen;
+  you can change it under *Detection*
+- **Clean up other accounts' blueprints** — also under *Detection*: anything
+  that already slipped in and only appears in another account's logs can be
+  removed from your collection after a confirmation. Blueprints you ticked by
+  hand stay
+
 ## v3.56.1 - 2026-09-26
 
 > **The device list on the Controls page fits its row again.** On Windows

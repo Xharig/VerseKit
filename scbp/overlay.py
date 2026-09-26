@@ -283,6 +283,31 @@ CORNER_DISPLAY = [None]
 # älteren Stand — die neu gefundenen Baupläne wären wieder weg. Es gibt genau
 # einen Ort, an dem der Bestand angefasst wird, und das bleibt so.
 RESCAN_CALLBACK = [None]
+def account_changed():
+    """Der eigene Account wurde umgestellt (Seite „Erkennung").
+
+    ⚠ Das ist KEIN zweiter „Protokolle neu einlesen"-Knopf — den gibt es
+    bewusst nur einmal (Prüfung 95c). Es ist die Folge einer Einstellung:
+    Zählt ein anderer Account, müssen seine Protokolle gelesen werden, sonst
+    stünde der Bestand bis zum nächsten Programmstart auf dem alten Stand."""
+    return request_rescan()
+
+
+# Dasselbe fürs Entfernen von Bauplänen fremder Accounts (Seite „Erkennung").
+REMOVE_CALLBACK = [None]
+
+
+def request_remove(names):
+    """Bitten, diese Baupläne aus dem Bestand zu nehmen. Gibt zurück, ob
+    jemand zugehört hat — siehe `request_rescan`."""
+    ruf = REMOVE_CALLBACK[0]
+    if ruf is None:
+        return False
+    try:
+        ruf(names)
+        return True
+    except Exception:
+        return False
 
 
 def request_rescan():

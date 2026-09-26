@@ -115,6 +115,147 @@ def _names_from_text(text, pattern):
     return out
 
 
+# ------------------------------------------------------------------ Account
+# ⭐⭐ **Wem gehört eine Log?** (ab v3.57.0)
+#
+# Wer zwei Accounts auf einem Rechner spielt, hat die Protokolle BEIDER in
+# `logbackups/` liegen — und bis hierher landeten die Baupläne des zweiten
+# still im eigenen Bestand. Das Spiel schreibt beim Anmelden, wer es ist:
+#
+#   <Legacy login response> [CIG-net] User Login Success - Handle[Xharig] - …
+#   <AccountLoginCharacterStatus_Character> Character: … - name Xharig - state STATE_CURRENT
+#
+# Beides steht in den ersten ~50 KB. Die `nickname="…"`-Zeilen werden bewusst
+# NICHT genommen — in Verbindungszeilen können auch Mitspieler stehen.
+#
+# Die Idee stammt aus dem SC-Extractor des Profit Basetools (greluc, KRT,
+# GPL-3.0), der seine Protokolle genauso zuordnet.
+ACCOUNT_RES = (
+    re.compile(r'User Login Success - Handle\[([^\]\r\n]+)\]'),
+    re.compile(r' - name (\S+) - state STATE_CURRENT'),
+)
+# So weit wird am Dateianfang nach der Anmeldung gesucht. Sie steht nach
+# ~50 KB; die Grenze ist großzügig, damit ein langsamer Start sie nicht
+# verpasst, und begrenzt, damit 180 Sicherungen in Sekundenbruchteilen
+# durch sind.
+ACCOUNT_HEAD = 16 * 1024 * 1024
+# Einstellung: der eigene Account. `*` heißt „alle Accounts zählen".
+ACCOUNT_SETTING = 'eigener_account'
+ALL_ACCOUNTS = '*'
+_OWN_TRIED = [0.0]
+
+
+def account_from_text(text):
+    """Der Account aus einem Textabschnitt — oder None."""
+    for rx in ACCOUNT_RES:
+        m = rx.search(text)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def account_of_file(filename):
+    """Der Account, zu dem eine Log gehört — oder None (noch nicht angemeldet,
+    unlesbar). Gelesen wird nur der Anfang."""
+    try:
+        with open(filename, 'rb') as f:
+            read = 0
+            rest = b''
+            while read < ACCOUNT_HEAD:
+                block = f.read(BLOCK)
+                if not block:
+                    break
+                read += len(block)
+                text = (rest + block).decode('utf-8', 'ignore')
+                found = account_from_text(text)
+                if found:
+                    return found
+                rest = block[-400:]          # eine Zeile über die Blockgrenze
+    except OSError:
+        pass
+    return None
+
+
+def _all_log_files():
+    files = list(paths.log_backups())
+    active = _safe_game_log()
+    if active:
+        files.append(active)
+    return files
+
+
+def accounts_in_logs(files=None):
+    """{Account: Anzahl Protokolle} über alle Sicherungen und die laufende Log."""
+    counts = {}
+    for filename in (files if files is not None else _all_log_files()):
+        found = account_of_file(filename)
+        if found:
+            counts[found] = counts.get(found, 0) + 1
+    return counts
+
+
+def own_account(files=None):
+    """Der eigene Account — `None`, wenn noch keiner zu erkennen ist,
+    `ALL_ACCOUNTS`, wenn alle zählen sollen.
+
+    ⚠ **Beim ersten Mal wird festgelegt, nicht jedes Mal neu geraten.** Genommen
+    wird der Account mit den **meisten** Protokollen — nicht der der neuesten
+    Log: Wer beim ersten Start gerade den Zweitaccount spielt, bekäme sonst
+    dessen Bestand. Danach steht er in der Einstellung und ändert sich nur,
+    wenn der Spieler ihn umstellt (Seite „Erkennung")."""
+    chosen = (paths.setting(ACCOUNT_SETTING) or '').strip()
+    if chosen:
+        return chosen
+    # ⚠ Das Mitlesen fragt alle paar Sekunden. Ist noch kein Account zu
+    # erkennen (frische Installation, nie angemeldet), würde jede Frage alle
+    # Sicherungen anfassen — deshalb höchstens alle fünf Minuten suchen.
+    if time.time() - _OWN_TRIED[0] < 300:
+        return None
+    _OWN_TRIED[0] = time.time()
+    counts = accounts_in_logs(files)
+    if not counts:
+        return None
+    best = max(sorted(counts), key=lambda a: counts[a])
+    paths.set_setting(ACCOUNT_SETTING, best)
+    return best
+
+
+def counts_for(own, account):
+    """Zählt ein Protokoll dieses Accounts? Unbekannt zählt — lieber einen
+    Bauplan zu viel als einen verlorenen."""
+    if not own or own == ALL_ACCOUNTS or not account:
+        return True
+    return account.lower() == own.lower()
+
+
+def foreign_only_blueprints(pattern=None, own=None):
+    """Baupläne, die NUR in Protokollen anderer Accounts stehen.
+
+    Grundlage für „aufräumen": Was auch der eigene Account je bekam, bleibt
+    unangetastet. ⚠ Ein Rest Unsicherheit bleibt — ist die eigene Log von
+    damals schon weggeräumt, sieht der Bauplan hier fremd aus. Deshalb schlägt
+    diese Funktion nur vor; entfernt wird erst nach Rückfrage."""
+    pattern = pattern or phrases.pattern()
+    own = own or own_account()
+    if not own or own == ALL_ACCOUNTS:
+        return []
+    mine, foreign = set(), {}
+    for filename in _all_log_files():
+        account = account_of_file(filename)
+        try:
+            finds = _read_file(filename, pattern)
+        except Exception:
+            continue
+        for name, _extra in finds:
+            key = name.lower().strip()
+            if counts_for(own, account):
+                mine.add(key)
+            else:
+                foreign.setdefault(key, name)
+    return sorted((n for k, n in foreign.items() if k not in mine),
+                  key=str.lower)
+
+
 # ------------------------------------------------------------------ Lesestand
 class ReadState:
     """Merkt sich, was schon gelesen wurde — über Programmneustarts hinweg."""
@@ -157,12 +298,15 @@ class ReadState:
         except OSError:
             return False
 
-    def remember(self, filename):
+    def remember(self, filename, account=None):
         try:
-            self.data['sicherungen'][os.path.basename(filename)] = {
+            entry = {
                 'groesse': os.path.getsize(filename),
                 'mtime': os.path.getmtime(filename),
             }
+            if account:
+                entry['account'] = account
+            self.data['sicherungen'][os.path.basename(filename)] = entry
             self.data['letzte_sitzung'] = max(
                 self.data.get('letzte_sitzung', 0.0), os.path.getmtime(filename))
         except OSError:
@@ -204,12 +348,23 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
     before = state.data.get('letzte_sitzung', 0.0)
     report = {'dateien': 0, 'uebersprungen': 0, 'gefunden': 0,
                'vorhanden': len(all_names), 'luecke': False, 'grund': '',
-               'laufende': False, 'unlesbar': 0}
+               'laufende': False, 'unlesbar': 0, 'fremd': 0}
+    active = _safe_game_log() if incl_running else None
+    own = own_account(all_names + ([active] if active else []))
 
     match, seen = [], set()
     for filename in all_names:
         if only_new and state.knows(filename):
             report['uebersprungen'] += 1
+            continue
+        # ⭐ Protokolle eines anderen Accounts zählen nicht — siehe oben.
+        # Gemerkt werden sie trotzdem, sonst würden sie bei jedem Start neu
+        # angefasst. Stellt der Spieler den Account um, liest „Protokolle
+        # erneut einlesen" ohnehin alles wieder.
+        account = account_of_file(filename)
+        if not counts_for(own, account):
+            report['fremd'] += 1
+            state.remember(filename, account)
             continue
         # ⚠ Eine einzige Datei darf den ganzen Lauf nicht kippen. `_lies_datei`
         # faengt `OSError` selbst ab — alles andere (unerwartete Ausnahme beim
@@ -232,7 +387,7 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
                 continue
             seen.add(key)
             match.append((name, extra))
-        state.remember(filename)
+        state.remember(filename, account)
         report['dateien'] += 1
 
     # Die laufende Game.log gehört mit dazu, wenn sie noch nie gelesen wurde:
@@ -243,7 +398,6 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
         # ⚠ Auch dieser Teil darf den Lauf nicht kippen — er steht NACH der
         # Schleife, also haette eine Ausnahme hier ausgerechnet die eben
         # gelesenen Sicherungen um ihren Eintrag gebracht.
-        active = _safe_game_log()
         # ⚠ **Immer lesen, nicht nur beim allerersten Mal.** Hier stand
         # `if aktiv and stand.aktiv_holen(aktiv) is None:` — die laufende Datei
         # wurde also übersprungen, sobald sie einmal gelesen war. Das trifft
@@ -261,7 +415,9 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
         # Die Datei ganz zu lesen kostet bei 12 MB den Bruchteil einer Sekunde —
         # die Nachlese geht ohnehin über 149 Sicherungen. Doppelte fängt der
         # Bestand ab, der prüft jeden Namen.
-        if active:
+        if active and not counts_for(own, account_of_file(active)):
+            report['fremd'] += 1
+        elif active:
             try:
                 for name, extra in _read_file(active, pattern):
                     key = name.lower().strip()
@@ -272,6 +428,7 @@ def read_backlog(state=None, pattern=None, only_new=True, incl_running=True):
                 report['laufende'] = True
             except Exception:
                 report['unlesbar'] += 1
+        if active:
             try:
                 state.set_active(active, os.path.getsize(active))
             except OSError:
@@ -430,11 +587,16 @@ class LogTail:
         # Gewertet wird in `contracts.Objectives`, damit Start und laufender Betrieb
         # nicht wieder eigene Rechenwege bekommen.
         self.objective_events = []
+        # ⭐ Wem die laufende Log gehört — None, solange sich im Spiel noch
+        # niemand angemeldet hat. Baupläne eines fremden Accounts werden nicht
+        # gemeldet (siehe `account_from_text`).
+        self.account = None
 
     def _locate(self):
         p = paths.game_log()
         if p and p != self.path:
             self.path = p
+            self.account = account_of_file(p)
             remembered = self.state.get_active(p)
             try:
                 size = os.path.getsize(p)
@@ -493,6 +655,7 @@ class LogTail:
             size = os.path.getsize(self.path)
             if size < self.offset:          # Log rotiert -> neue Spielsitzung
                 self.offset = 0
+                self.account = None         # neue Sitzung, neue Anmeldung
             if size == self.offset:
                 return []
             with open(self.path, 'rb') as f:
@@ -525,6 +688,14 @@ class LogTail:
         # braucht niemand die Ziele, und das Suchen waere reine Arbeit.
         self.objective_events = (contracts.objective_events_from_text(text)
                                 if self.mission_pattern else [])
+        if self.account is None:
+            self.account = account_from_text(text)
+        # ⚠ Nur die BAUPLÄNE werden für einen fremden Account unterdrückt.
+        # Aufträge bleiben: Wer gerade den Zweitaccount spielt, will dessen
+        # laufende Aufträge im Overlay sehen — die gehören nicht in den
+        # Bestand, sondern zur Sitzung.
+        if not counts_for(own_account(), self.account):
+            return []
         return _names_from_text(text, self.pattern)
 
     def _sort_events(self, text):
