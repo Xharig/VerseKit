@@ -93,11 +93,6 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      # Die Adresse, an die ein Fehlerbericht auf Knopfdruck geht. Sie steht
-      # NICHT im Quelltext — wer sie hat, kann in den Kanal schreiben. Hier
-      # wird sie aus dem Secret in die Datei geschrieben, die dann mitgebaut
-      # wird. Fehlt das Secret, bleibt sie leer und der Knopf erscheint gar
-      # nicht erst (`report_target.available()`).
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
@@ -133,26 +128,6 @@ jobs:
 
       - name: Selbsttest
         run: python tools/selbsttest.py
-
-      - name: Berichtsziel einsetzen
-        shell: bash
-        run: |
-          # ⚠ Nur die eine Zeile ersetzen, die Datei NICHT neu schreiben.
-          # Sonst fehlt in der gebauten Fassung alles andere — etwa die
-          # Umgebungsvariable `SC_BP_BERICHT_ZIEL`, mit der sich der Weg aus
-          # dem Quellcode heraus prüfen lässt. Zwei Fassungen derselben Datei,
-          # die auseinanderlaufen, sind genau die Sorte Fehler, die niemand
-          # sucht.
-          python - <<'PYEOF'
-          import io
-          p = 'scbp/report_target.py'
-          t = io.open(p, encoding='utf-8').read()
-          alt = "WEBHOOK = ''"
-          neu = "WEBHOOK = '${{ secrets.BERICHT_WEBHOOK }}'"
-          assert alt in t, 'Platzhalter nicht gefunden'
-          io.open(p, 'w', encoding='utf-8').write(t.replace(alt, neu, 1))
-          print('Ziel eingesetzt:', 'ja' if len(neu) > len(alt) else 'leer')
-          PYEOF
 
       # Ohne diese Angaben zeigt der Task-Manager den Dateinamen
       # „SC-BP-Watcher" statt „Verse-Kit" — und das unter Hintergrundprozessen.
@@ -274,26 +249,6 @@ jobs:
         # sonst nicht gibt. Ohne ihn wuerden die Fenster-Pruefungen still
         # uebersprungen — geprueft werden soll aber alles.
         run: xvfb-run -a python3 tools/selbsttest.py
-
-      - name: Berichtsziel einsetzen
-        shell: bash
-        run: |
-          # ⚠ Nur die eine Zeile ersetzen, die Datei NICHT neu schreiben.
-          # Sonst fehlt in der gebauten Fassung alles andere — etwa die
-          # Umgebungsvariable `SC_BP_BERICHT_ZIEL`, mit der sich der Weg aus
-          # dem Quellcode heraus prüfen lässt. Zwei Fassungen derselben Datei,
-          # die auseinanderlaufen, sind genau die Sorte Fehler, die niemand
-          # sucht.
-          python3 - <<'PYEOF'
-          import io
-          p = 'scbp/report_target.py'
-          t = io.open(p, encoding='utf-8').read()
-          alt = "WEBHOOK = ''"
-          neu = "WEBHOOK = '${{ secrets.BERICHT_WEBHOOK }}'"
-          assert alt in t, 'Platzhalter nicht gefunden'
-          io.open(p, 'w', encoding='utf-8').write(t.replace(alt, neu, 1))
-          print('Ziel eingesetzt:', 'ja' if len(neu) > len(alt) else 'leer')
-          PYEOF
 
       - name: Binaerdatei bauen
         run: >

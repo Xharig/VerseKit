@@ -331,6 +331,8 @@ def main():
     os.environ['SC_INSTALL_DIR'] = live
     os.environ['SC_BP_HOME'] = os.path.join(basis, 'eigene')
     os.environ['SC_BP_NO_NET'] = '1'
+    # ⚠⚠ Kein Prueflauf schickt je einen Fehlerbericht hinaus (Pruefung 34).
+    os.environ['SC_BP_BERICHT_ZIEL'] = 'aus'
     # Leer heisst ausdruecklich 'kein Launcher' - nur zu loeschen reicht
     # nicht: dann sucht paths.py weiter und findet womoeglich einen
     # echten Launcher-Stand auf einer eingehaengten Windows-Platte.
@@ -2880,10 +2882,29 @@ def main():
         # steckt unter „Fortgeschritten", er ist zu lang fuer eine Nachricht,
         # und man muss wissen, wohin damit.
         from scbp import report_target as bz34, report as be34
-        pruefe(bz34.target() == '',
-               'im Repo steht KEINE Adresse — sie ist ein Geheimnis')
-        pruefe(not bz34.available(),
-               'ohne Adresse meldet available() sauber False')
+        # ⭐⭐ Seit v3.57.2 geht der Bericht an eine eigene Weiterleitung
+        # (Cloudflare Worker), nicht mehr direkt an Discord. Bis dahin setzte
+        # der Bau die Webhook-Adresse aus einem Secret ein — und damit stand
+        # sie in jeder veroeffentlichten `.exe`, fuer jeden auslesbar.
+        _env34 = os.environ.get('SC_BP_BERICHT_ZIEL')
+        try:
+            os.environ.pop('SC_BP_BERICHT_ZIEL', None)
+            pruefe(bz34.target() == bz34.RELAY
+                   and bz34.RELAY.startswith('https://'),
+                   'ohne Vorgabe geht der Bericht an die Weiterleitung')
+            pruefe(bz34.available(), 'und der Knopf kann senden')
+            pruefe('discord' not in bz34.RELAY.lower(),
+                   'die eingebaute Adresse ist KEIN Discord-Webhook')
+        finally:
+            if _env34 is None:
+                os.environ.pop('SC_BP_BERICHT_ZIEL', None)
+            else:
+                os.environ['SC_BP_BERICHT_ZIEL'] = _env34
+        # ⚠⚠ Ein Prueflauf sendet NIE. `main()` setzt dafuer
+        # SC_BP_BERICHT_ZIEL=aus — hier wird geprueft, dass das auch greift.
+        pruefe(os.environ.get('SC_BP_BERICHT_ZIEL') == 'aus'
+               and not bz34.available(),
+               'im Prueflauf ist das Senden abgeschaltet')
         # ⚠ Der Knopf wird trotzdem GEZEIGT — er sagt beim Druecken, was fehlt.
         # Ihn auszublenden traf nur den Quellcode, also den Entwickler selbst:
         # „nicht mal ICH finde den" (28.08.2026). Ein fehlender Knopf sieht aus
@@ -2896,124 +2917,58 @@ def main():
         ok34, grund34 = be34.submit('Probe', '3.0.0-test')
         pruefe(ok34 is False, 'ohne Ziel wird nichts gesendet')
         pruefe('http' not in grund34.lower(),
-               'und die Meldung verraet die Adresse nicht')
-        # ⚠ Der Bau MUSS die Datei ersetzen — sonst hat niemand den Knopf.
+               'und die Meldung verraet keine Adresse')
+
+        # 429 von der Weiterleitung: eine Meldung, die sagt, was zu tun ist.
+        # Die Falle schnappt zuerst selbst zu (Vorbedingung) — sonst waere
+        # jede Aussage darunter geschenkt.
+        import urllib.request as _ur34
+        import urllib.error as _ue34
+        _alt_open34 = _ur34.urlopen
+        _rufe34 = []
+
+        def _falle34(*_a, **_k):
+            _rufe34.append(1)
+            raise _ue34.HTTPError(bz34.RELAY, 429, 'Too Many Requests', {}, None)
+        try:
+            _ur34.urlopen = _falle34
+            os.environ['SC_BP_BERICHT_ZIEL'] = 'https://example.invalid/bericht'
+            ok34b, grund34b = be34.submit('Probe', '3.0.0-test')
+        finally:
+            _ur34.urlopen = _alt_open34
+            os.environ['SC_BP_BERICHT_ZIEL'] = 'aus'
+        pruefe(len(_rufe34) == 1, 'Vorbedingung: die Falle wurde getroffen')
+        pruefe(ok34b is False and grund34b == be34.t('m_bericht_zuviel'),
+               'bei 429 sagt der Knopf „zu viele Berichte", nicht „keine '
+               'Verbindung" (%r)' % grund34b)
+
+        # ⚠⚠ Der Bau setzt NICHTS mehr ein — sonst stuende wieder ein
+        # Geheimnis in der fertigen Datei.
         yml34 = open(os.path.join(WURZEL, '.github', 'workflows',
                                   'release.yml'), encoding='utf-8').read()
-        pruefe(yml34.count('scbp/report_target.py') >= 2,
-               'Windows UND Linux setzen das Ziel beim Bau ein')
-        pruefe('BERICHT_WEBHOOK' in yml34,
-               'und zwar aus dem Secret, nicht aus dem Quelltext')
+        pruefe('BERICHT_WEBHOOK' not in yml34
+               and 'report_target' not in yml34,
+               'der Bau setzt kein Berichtsziel mehr ein')
 
-        # ⚠⚠ **Die Ersetzung muss die ZUWEISUNG treffen, nicht irgendeinen Text.**
-        # Der Bau ersetzt das erste Vorkommen der leeren Zuweisung. Stand sie
-        # am 11.09.2026 als Beispiel im Docstring — ueber der echten Zeile —,
-        # landete das Secret im Kommentar, die Adresse blieb leer, der Knopf
-        # war in jeder gebauten Fassung tot. Der Bau blieb dabei gruen: Seine
-        # Pruefzeile fragt nur, ob der Text vorkommt.
-        #
-        # ⚠⚠ **Und es wird der ECHTE Bau-Schritt ausgefuehrt, nicht nachgebaut.**
-        # Die erste Fassung dieser Pruefung stellte die Ersetzung selbst nach.
-        # Der Pruefer wies darauf hin: Aendert jemand den Schritt in
-        # release.yml, bliebe sie gruen und pruefte etwas, das gar nicht mehr
-        # laeuft. Deshalb werden jetzt die beiden Python-Bloecke aus der
-        # Ablaufdatei herausgeloest und an einer Wegwerf-Kopie ausgefuehrt —
-        # genau der Code, der beim Bau laeuft, nur mit einer Probe-Adresse
-        # statt des Secrets.
-        import tempfile as _tf34
-        import textwrap as _tw34
-        _rt34 = open(os.path.join(WURZEL, 'scbp', 'report_target.py'),
-                     encoding='utf-8').read()
-        _platz34 = "WEBHOOK = " + "''"
-        _probe34 = 'https://example.invalid/bauprobe'
-
-        def _zaehlen34(text):
-            """Wie oft steht die leere Zuweisung im Text — egal wo."""
-            return text.count(_platz34)
-
-        pruefe(_zaehlen34(_rt34) == 1,
-               'die leere Zuweisung steht genau EINMAL im Modul (%d Mal)'
-               % _zaehlen34(_rt34))
-        # Gegenprobe zur Zaehlung: Der Fehler vom 11.09.2026 — die Zeile steht
-        # zusaetzlich im Text — muss hier auffallen, UNABHAENGIG davon, wie
-        # der Bau ersetzt.
-        pruefe(_zaehlen34('# Beispiel: ' + _platz34 + '\n' + _rt34) != 1,
-               'Gegenprobe: eine zweite leere Zuweisung im Text wird erkannt')
-
-        # ⚠ An der Heredoc-Marke ALLEIN aufteilen, nicht samt Interpreter:
-        #   Windows ruft `python - <<'PYEOF'`, Linux `python3 - <<'PYEOF'`.
-        #   Die erste Fassung suchte `python - <<'PYEOF'`, fand nur den
-        #   Windows-Block — und der Linux-Schritt waere stillschweigend
-        #   ungeprueft geblieben. Aufgefallen nur durch die Zaehlpruefung
-        #   darunter.
-        _bloecke34 = [b.split('PYEOF', 1)[0]
-                      for b in yml34.split("<<'PYEOF'")[1:]
-                      if 'scbp/report_target.py' in b.split('PYEOF', 1)[0]]
-        pruefe(len(_bloecke34) == 2,
-               'release.yml hat den Ersetzungsschritt fuer beide Systeme (%d)'
-               % len(_bloecke34))
-
-        def _bau_ausfuehren34(modultext, block):
-            """Den echten Bau-Schritt an einer Kopie laufen lassen.
-
-            Gibt zurueck, was danach in WEBHOOK steht."""
-            ordner = _tf34.mkdtemp(prefix='pruefung34-')
-            vorher = os.getcwd()
-            try:
-                os.makedirs(os.path.join(ordner, 'scbp'))
-                ziel = os.path.join(ordner, 'scbp', 'report_target.py')
-                with open(ziel, 'w', encoding='utf-8') as f:
-                    f.write(modultext)
-                os.chdir(ordner)       # der Schritt arbeitet mit relativem Pfad
-                code = _tw34.dedent(block).replace(
-                    '${{ secrets.BERICHT_WEBHOOK }}', _probe34)
-                try:
-                    exec(compile(code, 'release.yml:Berichtsziel', 'exec'), {})
-                except AssertionError:
-                    # Der Bau-Schritt bricht ab („Platzhalter nicht gefunden").
-                    # Das ist ein Fehlschlag, kein Ergebnis — `None` faellt in
-                    # der Pruefung darunter sofort auf. Ein zeilenverankerter
-                    # Bau tut genau das, wenn die Zeile nur im Kommentar steht.
-                    return None
-                ns = {}
-                exec(compile(open(ziel, encoding='utf-8').read(),
-                             'report_target_nach_dem_bau', 'exec'), ns)
-                return ns.get('WEBHOOK')
-            finally:
-                os.chdir(vorher)
-                shutil.rmtree(ordner, ignore_errors=True)
-
-        for _i34, _b34 in enumerate(_bloecke34, 1):
-            pruefe(_bau_ausfuehren34(_rt34, _b34) == _probe34,
-                   'der echte Bau-Schritt %d trifft die Zuweisung' % _i34)
-        # ⚠⚠ **Gegenprobe — und warum sie NICHT am Kommentar-Fall haengt.**
-        # Die erste Fassung liess den echten Schritt auf einen Text laufen, in
-        # dem die leere Zeile zusaetzlich als Kommentar davorstand, und
-        # verlangte, dass er daran SCHEITERT. Damit war die heutige Schwaeche
-        # des Bau-Schritts (er ersetzt das erste Vorkommen) als Sollverhalten
-        # festgeschrieben: Wuerde der Bau spaeter richtig — zeilenverankert —
-        # ersetzen, waere diese Gegenprobe rot geworden und haette genau die
-        # angekuendigte Verbesserung blockiert. Der Pruefer hat es gesehen.
-        #
-        # Jetzt fehlt im Text die ECHTE Zuweisung, die leere Zeile steht nur
-        # als Kommentar da. Daraus darf ein richtiger Bau nie eine gueltige
-        # Adresse machen — egal ob er das erste Vorkommen ersetzt (dann landet
-        # sie im Kommentar) oder nur die Zeile am Zeilenanfang (dann bricht er
-        # ab). In beiden Faellen muss die Pruefung oben rot werden.
-        if _bloecke34:
-            _ohne34 = _rt34.replace(_platz34, '# ' + _platz34, 1)
-            pruefe(_bau_ausfuehren34(_ohne34, _bloecke34[0]) != _probe34,
-                   'Gegenprobe: ohne echte Zuweisung meldet die Pruefung den '
-                   'Fehler')
-        # Die Adresse darf nirgends im Repo stehen.
-        for _wo34, _unter34, _dateien34 in os.walk(os.path.join(WURZEL, 'scbp')):
-            for _d34 in _dateien34:
-                if not _d34.endswith('.py'):
-                    continue
-                _inh34 = open(os.path.join(_wo34, _d34),
-                              encoding='utf-8', errors='ignore').read()
-                pruefe('discord.com/api/webhooks' not in _inh34,
-                       'keine Webhook-Adresse in scbp/%s' % _d34)
+        # ⚠⚠ Und eine echte Webhook-Adresse steht NIRGENDS im Repo. Gesucht
+        # wird nach der Form echter Adressen (lange Kennung + langes Token),
+        # damit erfundene Beispiele in Pruefungen nicht anschlagen.
+        _hook34 = re.compile(r'discord(?:app)?\.com/api/webhooks/\d{17,20}/[\w-]{50,}')
+        pruefe(_hook34.search('https://discord.com/api/webhooks/'  # privacy-ok: erfundene Adressform fuer die Gegenprobe
+                              + '1' * 19 + '/' + 'a' * 68) is not None,
+               'Gegenprobe: eine echte Adressform wird erkannt')
+        _funde34 = []
+        for _rel34 in _versionierte_dateien(
+                WURZEL, ('.py', '.md', '.yml', '.js', '.mjs', '.toml',
+                         '.json', '.txt', '.iss')):
+            _voll34 = os.path.join(WURZEL, _rel34)
+            if not os.path.exists(_voll34):
+                continue
+            with open(_voll34, encoding='utf-8', errors='ignore') as _fh34:
+                if _hook34.search(_fh34.read()):
+                    _funde34.append(_rel34)
+        pruefe(not _funde34,
+               'keine Webhook-Adresse im Repo (%s)' % ', '.join(_funde34))
 
         print()
         print('35. Ein Textfeld rollt sich selbst, nicht die Seite dahinter')

@@ -2033,6 +2033,8 @@ TEXTS = {
     'm_bericht_kein_ziel': ('In dieser Fassung ist kein Ziel eingebaut.',
                             'No destination is built into this version.'),
     'm_bericht_weg':   ('keine Verbindung', 'no connection'),
+    'm_bericht_zuviel': ('zu viele Berichte in kurzer Zeit — bitte in einer Minute noch einmal',
+                          'too many reports in a short time — please try again in a minute'),
     's_di_kopieren':   ('Angaben kopieren', 'Copy details'),
     # ⚠ Nennt beide Wege, weil der eine ein GitHub-Konto voraussetzt und der
     # andere nicht. Der Discord-Knopf sitzt unten in der Seitenleiste.

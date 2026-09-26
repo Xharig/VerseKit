@@ -890,8 +890,13 @@ def submit(text, version='', attachments=None):
             return False, 'HTTP %s' % answer.status
     except Exception as exception:
         errors.record('report.submit', exception)
-        # ⚠ Den Grund NICHT durchreichen: In der Fehlermeldung einer
-        # fehlgeschlagenen Anfrage steht die Adresse, und die ist geheim.
+        # ⭐ Die Weiterleitung bremst die Menge je Absender (seit v3.57.2).
+        # Wer zweimal schnell hintereinander drückt, soll hören, dass er nur
+        # kurz warten muss — nicht, dass keine Verbindung besteht.
+        if getattr(exception, 'code', None) == 429:
+            return False, t('m_bericht_zuviel')
+        # ⚠ Den Grund sonst NICHT durchreichen: In der Fehlermeldung einer
+        # fehlgeschlagenen Anfrage kann die Adresse stehen.
         return False, t('m_bericht_weg')
 
 

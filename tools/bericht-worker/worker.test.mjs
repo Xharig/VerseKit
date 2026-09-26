@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from './worker.js';
 
-const HOOK = 'https://discord.invalid/api/webhooks/1/geheim';
+const HOOK = 'https://discord.com/api/webhooks/123456/geheimer-teil_ABC';  // privacy-ok: erfundene Adresse, nur fuer den Test
 
 function report({ head = '**Fehlerbericht** · 3.57.1',
                   name = 'bericht-2026-09-26-1500.txt',
@@ -102,7 +102,7 @@ test('Antworten nennen die Webhook-Adresse nie', async () => {
   const r = await worker.fetch(report(), env());
   const text = await r.text();
   assert.equal(r.status, 502);
-  assert.ok(!text.includes('discord.invalid'));
+  assert.ok(!text.includes('geheimer-teil'));
 });
 
 test('andere Pfade und GET: nichts', async () => {
@@ -111,5 +111,13 @@ test('andere Pfade und GET: nichts', async () => {
   const b = await worker.fetch(new Request('https://w.example/bericht'), env());
   assert.equal(a.status, 404);
   assert.equal(b.status, 405);
+  assert.equal(calls.length, 0);
+});
+
+test('kaputtes Geheimnis (Steuerzeichen) stürzt nicht ab, sondern meldet 503', async () => {
+  const calls = trap();
+  const r = await worker.fetch(report(), { DISCORD_WEBHOOK: '',
+    LIMIT: { limit: async () => ({ success: true }) } });
+  assert.equal(r.status, 503);
   assert.equal(calls.length, 0);
 });

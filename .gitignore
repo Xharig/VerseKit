@@ -34,3 +34,5 @@ CLAUDE.md
 # genau verkehrt herum. `tools/privacy_scan.py` prueft als Erstes, dass diese
 # Zeile hier steht, und verweigert sonst den Dienst.
 .sperrliste
+tools/bericht-worker/.wrangler/
+tools/bericht-worker/node_modules/
