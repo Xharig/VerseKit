@@ -8,6 +8,13 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.56.0 - 2026-09-26
+
+> **Verse-Kit is now where you'd look for it.** On Windows, Alt+Tab brings
+> the overlay to the front from inside the game instead of hunting for it
+> with the mouse, and it has a taskbar icon. Task Manager lists it at the
+> top under Apps, and calls it Verse-Kit there too.
+
 ### Improved
 
 - **Task Manager now shows the program as "Verse-Kit"** instead of
