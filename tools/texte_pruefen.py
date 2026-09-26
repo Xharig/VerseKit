@@ -101,7 +101,9 @@ KEINE_TEXTE = (
 UNVERAENDERLICH = re.compile(
     # `\S+\.github\.io/` ist die Projektseite auf GitHub Pages — seit v3.55.1
     # auf „Danke & Lizenzen" verlinkt, und eine Adresse übersetzt man nicht.
+    # Seit v3.57.3 steht dort die eigene Adresse `versekit.xharig.com`.
     r'(https?://\S+|(?:www\.|github\.com/|\S+\.github\.io/)\S+'
+    r'|[\w-]+\.xharig\.com\b'
     r'|SC BP Watcher|GPL-[\d.]+-only'
     r'|Xharig(?:-1)?|scmdb\.net|KRT Profit Basetool)', re.I)
 

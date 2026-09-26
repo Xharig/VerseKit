@@ -2895,6 +2895,10 @@ def main():
             pruefe(bz34.available(), 'und der Knopf kann senden')
             pruefe('discord' not in bz34.RELAY.lower(),
                    'die eingebaute Adresse ist KEIN Discord-Webhook')
+            # Seit v3.57.3 die eigene Domain statt workers.dev: Die
+            # workers.dev-Adresse haengt am Konto-Namen, die eigene nicht.
+            pruefe(bz34.RELAY.startswith('https://bericht.xharig.com/'),
+                   'die Weiterleitung laeuft ueber die eigene Domain')
         finally:
             if _env34 is None:
                 os.environ.pop('SC_BP_BERICHT_ZIEL', None)

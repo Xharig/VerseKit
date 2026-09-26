@@ -8,6 +8,19 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.57.3 - 2026-09-26
+
+> **Verse-Kit now has its own address: versekit.xharig.com.** That is where
+> the website lives, and error reports go through bericht.xharig.com. Old
+> links redirect on their own.
+
+### Improved
+
+- **Own address for the website** — "Thanks & Licenses" now links to
+  versekit.xharig.com. The previous address redirects there
+- **Error reports via the own address** — "Send" posts to bericht.xharig.com;
+  older versions keep sending as before
+
 ## v3.57.2 - 2026-09-26
 
 > **The "Send" button works again.** Error reports now go through a
