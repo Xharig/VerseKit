@@ -154,10 +154,16 @@ jobs:
           print('Ziel eingesetzt:', 'ja' if len(neu) > len(alt) else 'leer')
           PYEOF
 
+      # Ohne diese Angaben zeigt der Task-Manager den Dateinamen
+      # „SC-BP-Watcher" statt „Verse-Kit" — und das unter Hintergrundprozessen.
+      - name: Versionsangaben schreiben
+        run: python .github/scripts/versionsinfo.py build/versionsinfo.txt
+
       - name: EXE bauen
         run: >
           python -m PyInstaller --noconfirm --onefile --windowed
           --name "SC-BP-Watcher" --icon "icon.ico"
+          --version-file "build/versionsinfo.txt"
           --add-data "CHANGELOG.en.md;." --add-data "CHANGELOG.md;."
           --add-data "assets/icon.png;assets" --add-data "assets/xharig.png;assets" --add-data "icon.ico;."
           --add-data "assets/symbole;assets/symbole"

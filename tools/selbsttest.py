@@ -25700,6 +25700,49 @@ def main():
         else:
             open(_cache261, 'wb').write(_vorher261)
 
+    print('\n262. Die .exe traegt den Produktnamen (Task-Manager)')
+    # Ohne Versionsangaben zeigt der Task-Manager den Dateinamen — und der
+    # heisst wegen des Selbst-Updates weiter `SC-BP-Watcher.exe`. Nach der
+    # Umbenennung zu Verse-Kit suchte dort niemand mehr nach dem alten Namen.
+    # Geprueft wird dreierlei: Der Bau ruft das Skript VOR der .exe auf und
+    # gibt PyInstaller genau die geschriebene Datei; die Beschreibung ist
+    # `hf_titel` (der Name steht nur dort); und eine Vorabfassung ergibt eine
+    # reine Zahlenfolge — sonst bricht der Bau ab wie einst beim Installer.
+    _wf262 = open(os.path.join(_wurzelpfad, '.github', 'workflows',
+                               'release.yml'), encoding='utf-8').read()
+    _schreibt262 = _wf262.find('name: Versionsangaben schreiben')
+    _baut262 = _wf262.find('name: EXE bauen')
+    pruefe(0 <= _schreibt262 < _baut262,
+           'die Versionsangaben entstehen VOR dem EXE-Bau')
+    _ruf262 = re.search(r'versionsinfo\.py\s+(\S+)',
+                        _wf262[_schreibt262:_baut262])
+    _bau262 = _wf262[_baut262:_wf262.find('\n      - ', _baut262 + 1)]
+    _datei262 = re.search(r'--version-file\s+"?([^"\s]+)', _bau262)
+    pruefe(bool(_ruf262 and _datei262)
+           and _ruf262.group(1) == _datei262.group(1),
+           'PyInstaller bekommt genau die geschriebene Datei (%s / %s)'
+           % (_ruf262 and _ruf262.group(1), _datei262 and _datei262.group(1)))
+
+    sys.path.insert(0, os.path.join(_wurzelpfad, '.github', 'scripts'))
+    try:
+        import versionsinfo as _vi262
+    finally:
+        sys.path.pop(0)
+    from scbp import language as _spr262
+    _name262 = _spr262.TEXTS['hf_titel'][0]
+    _txt262 = _vi262.inhalt('3.56.1-rc2', _name262)
+    pruefe("StringStruct('FileDescription', %r)" % _name262 in _txt262,
+           'die Beschreibung ist der Produktname aus language.py (%s)'
+           % _name262)
+    # ⚠ Absichtlich x.y.**1**: Mit „3.56.0-rc1" blieb die Gegenprobe gruen,
+    #   weil die aufgefuellte Null zufaellig zur verlorenen Null passte.
+    pruefe(_vi262.zahlen('3.56.1-rc2') == (3, 56, 1, 0)
+           and _vi262.zahlen('3.55.2') == (3, 55, 2, 0),
+           'eine Vorabfassung ergibt eine reine Zahlenfolge (%r)'
+           % (_vi262.zahlen('3.56.1-rc2'),))
+    pruefe("StringStruct('ProductVersion', '3.56.1-rc2')" in _txt262,
+           'angezeigt wird trotzdem die volle Bezeichnung')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
