@@ -27,7 +27,7 @@ nobody is paid, and everybody here is doing this in their spare time.
 ## Reporting
 
 If someone behaves this way, contact the maintainer via a GitHub issue or
-on Discord: https://discord.gg/g2E7e6XxZC
+on Discord: https://xharig.com/discord
 
 The maintainer may edit, hide, or delete comments, and may block accounts
 that do not follow these rules.

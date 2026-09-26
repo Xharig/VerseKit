@@ -14,13 +14,13 @@ blank_issues_enabled: true
 
 contact_links:
   - name: Discord — Fragen, Hilfe und Fehler melden (ohne GitHub-Konto)
-    url: https://discord.gg/g2E7e6XxZC
+    url: https://xharig.com/discord
     about: >-
       Im Forum "Fehler-Melden" bist du richtig. Dort brauchst du kein
       GitHub-Konto und keine Anmeldung hier. Fragen und Wünsche ebenfalls.
 
   - name: Discord — questions, help and bug reports (no GitHub account needed)
-    url: https://discord.gg/g2E7e6XxZC
+    url: https://xharig.com/discord
     about: >-
       Use the "Fehler-Melden" forum. No GitHub account required, no sign-in
       here. Questions and feature requests are welcome too.

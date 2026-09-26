@@ -14,7 +14,7 @@
 [![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FXharig%2FVerseKit%2Fzaehler%2Fdownloads.json&label=Downloads)](https://github.com/Xharig/VerseKit/releases)
 [![Website](https://img.shields.io/badge/Website-take%20the%20tour-5fa522)](https://versekit.xharig.com/)
 [![License](https://img.shields.io/badge/License-GPL--3.0-5fa522)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://discord.gg/g2E7e6XxZC)
+[![Discord](https://img.shields.io/badge/Discord-join-5fa522?logo=discord&logoColor=white)](https://xharig.com/discord)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-buy%20me%20a%20coffee-5fa522?logo=kofi&logoColor=white)](https://ko-fi.com/xharig)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-0a4a7a?logo=python&logoColor=white)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%C2%B7%20Linux-0a4a7a)](#requirements)
@@ -30,7 +30,7 @@ A small, borderless overlay that tells you **in real time** when a new blueprint
 
 > 🌐 **There is a website.** At **[versekit.xharig.com](https://versekit.xharig.com/)** you can click through every area and see what the tool looks like — before you download anything. German and English.
 
-> 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[discord.gg/g2E7e6XxZC](https://discord.gg/g2E7e6XxZC)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
+> 💬 **There is a Discord.** Questions, help with problems, new releases and a forum for bugs and wishes: **[xharig.com/discord](https://xharig.com/discord)**. If you would rather stay here, open an [issue](https://github.com/Xharig/VerseKit/issues) — both are read.
 
 > 🧪 **Trying a test build.** Before every release there are **pre-releases** (`-rc`) under [Releases](https://github.com/Xharig/VerseKit/releases) — each one says what it brings and what changed since the previous one. They are offered as an update **only if you** switch on **Info → Update & About → "Offer test versions too"** — everyone else only gets finished versions. If you try one and find something, please open an [issue](https://github.com/Xharig/VerseKit/issues) — that is exactly what they are for.
 
@@ -558,7 +558,7 @@ all of it beforehand.
 
 Prefer to do it yourself? An [issue](https://github.com/Xharig/VerseKit/issues) works just as well — the **GitHub
 issue …** button on the same page fills the report in for you. Or the **Report a bug**
-forum on [Discord](https://discord.gg/g2E7e6XxZC), if a screenshot is quicker than a description.
+forum on [Discord](https://xharig.com/discord), if a screenshot is quicker than a description.
 
 ## Passing it on
 
@@ -615,7 +615,7 @@ Work continues — what exactly is not on a list. What a build brought you can r
 
 **Which version is being worked on right now** is in the changelog of the working branch: [CHANGELOG on `arbeit`](https://github.com/Xharig/VerseKit/blob/arbeit/CHANGELOG.en.md). That is where finished but unreleased work collects — if you try a [test build](https://github.com/Xharig/VerseKit/releases), that is where you read what is in it. This page always shows the **released** version.
 
-Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://discord.gg/g2E7e6XxZC) — suggestions make it into the next build more reliably than mind reading.
+Wishes and bug reports are welcome as an [issue](https://github.com/Xharig/VerseKit/issues) or on [Discord](https://xharig.com/discord) — suggestions make it into the next build more reliably than mind reading.
 
 ## Star Citizen Fan Content
 
