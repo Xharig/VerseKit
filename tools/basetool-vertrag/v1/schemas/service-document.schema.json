@@ -17,6 +17,13 @@
         "pattern": "^exchange\\.[a-z.]+$"
       }
     },
+    "installationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "readOnly": true,
+      "description": "Opaque id of the installation this token's DPoP key belongs to, the value a tombstone carries in `removedBy.installationId`."
+    },
     "limits": {
       "type": "object",
       "properties": {

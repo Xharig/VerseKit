@@ -10,6 +10,13 @@
       "pattern": "^[\\p{L}\\p{N}._-][\\p{L}\\p{N} ._-]{0,39}$",
       "description": "At most 40 characters of letters, digits, space, `-`, `_` and `.`; not starting with a space. Never a host name."
     },
+    "installationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "readOnly": true,
+      "description": "Opaque, server-assigned id of this installation; the value a tombstone carries in `removedBy.installationId`. Not the DPoP key thumbprint. Ignored on input."
+    },
     "firstSeenAt": {
       "type": "string",
       "format": "date-time",
