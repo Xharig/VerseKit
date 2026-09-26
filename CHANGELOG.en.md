@@ -8,12 +8,20 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.57.0 - 2026-09-26
+
+> **Second account? No problem anymore.** If you play several accounts on
+> one computer, their blueprints all used to end up in one collection. Now
+> Verse-Kit only counts your own account's logs — and anything that already
+> slipped in can be cleaned up with one click under *Detection*.
+
 ### New
 
 - **Several accounts on one computer** — blueprints now only count from your
   own account's logs. If you also play a second account, its blueprints no
   longer end up in your collection. The account with the most logs is chosen;
-  you can change it under *Detection*
+  you can change it under *Detection*. Idea from the SC Extractor by
+  greluc (KRT)
 - **Clean up other accounts' blueprints** — also under *Detection*: anything
   that already slipped in and only appears in another account's logs can be
   removed from your collection after a confirmation. Blueprints you ticked by

@@ -2347,6 +2347,16 @@ TEXTS = {
                               'server.'),
     # ⚠ Ein Geschenk, kein Fund — und trotzdem hierhin. Wer ein kostenloses
     # Werkzeug testet UND dem Autor etwas schenkt, gehört genannt.
+    's_dk_greluc_idee':      ('**Baupläne nur vom eigenen Account** — sein '
+                              'SC-Extractor ordnet jede Log ihrem Account zu. '
+                              'Die Idee hat Verse-Kit übernommen: Wer zwei '
+                              'Accounts auf einem Rechner spielt, bekommt die '
+                              'Baupläne des anderen nicht mehr mit.',
+                              '**Blueprints from your own account only** — his '
+                              'SC Extractor assigns every log to its account. '
+                              'Verse-Kit took over the idea: if you play two '
+                              'accounts on one computer, you no longer get the '
+                              'other one\'s blueprints.'),
     's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
                               'den Laderaum passt, und das Werkzeug rechnet, '
                               'womit sich die nächste Fahrt lohnt.',
