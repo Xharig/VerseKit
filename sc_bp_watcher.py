@@ -455,6 +455,21 @@ def load_scmdb():
         return {}, ''
 
 
+# Aufbau-Nummer des Zwischenspeichers — wie `catalog.FORMAT`. 2 (26.09.2026):
+# Gütegrad aus dem Spiel. Ohne sie behielte jeder den alten Stand bis zum
+# nächsten Patch.
+SCMDB_FORMAT = 2
+
+
+def _scmdb_format():
+    """Aufbau-Nummer des vorhandenen Zwischenspeichers (1 = vor dem Feld)."""
+    try:
+        with open(SCMDB_CACHE, encoding='utf-8') as f:
+            return json.load(f).get('format', 1)
+    except Exception:
+        return None
+
+
 def scmdb_aktualisieren():
     """Holt die Craftdaten, wenn eine neue Spielversion da ist. Gibt True zurück,
     wenn der Zwischenspeicher erneuert wurde. Wirft nie — ohne Netz bleibt der
@@ -468,26 +483,36 @@ def scmdb_aktualisieren():
         if not live:
             return False
         version = live.get('version') or ''
-        if not version or version == load_scmdb()[1]:
+        if not version or (version == load_scmdb()[1]
+                           and _scmdb_format() == SCMDB_FORMAT):
             return False          # schon aktuell
         roh = _scmdb_hole('%s/crafting_items-%s.json' % (SCMDB_BASE, version))
+        # ⚠ Der Gütegrad kommt aus dem Spiel, scmdb nur als Rückfall — dieselbe
+        # Regel wie im Bauplan-Katalog (`catalog.game_grades`). Sonst sagt die
+        # Liste „C" und das Overlay „A" zum selben Kühler.
+        from scbp import catalog as _catalog
+        spiel_grade = _catalog.game_grades()
         items = {}
         for e in roh.get('items', []):
             name = e.get('name')
             if not name:
                 continue
+            grade = e.get('grade')
+            if e.get('componentClass'):
+                grade = spiel_grade.get(_catalog._norm(name)) or grade
             items.setdefault(_scmdb_key(name), {
                 'n': name,
                 'a': e.get('attachType') or e.get('cgItemType'),
                 'sub': e.get('attachSubType'),   # Heavy/Medium/Light bei Rüstung
                 's': e.get('size'),
-                'g': e.get('grade'),
+                'g': grade,
                 'c': e.get('componentClass'),
                 'm': e.get('manufacturer'),
             })
         os.makedirs(APP_DIR, exist_ok=True)
         with open(SCMDB_CACHE, 'w', encoding='utf-8') as f:
-            json.dump({'version': version, 'geholt': time.strftime('%Y-%m-%d %H:%M'),
+            json.dump({'version': version, 'format': SCMDB_FORMAT,
+                       'geholt': time.strftime('%Y-%m-%d %H:%M'),
                        'items': items}, f, ensure_ascii=False)
         return True
     except Exception:

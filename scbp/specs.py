@@ -196,6 +196,11 @@ def _grade(value):
     return short if short in ('A', 'B', 'C', 'D') else None
 
 
+def grade_from_description(text):
+    """Nur der Gütegrad einer Beschreibung — `'A'` … `'D'` oder None."""
+    return _grade(_field(text, 'guete')) if text else None
+
+
 def from_description(text):
     """Das Kürzel für einen Gegenstand — oder None, wenn es sich nicht lohnt.
 
