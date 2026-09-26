@@ -95,6 +95,52 @@ def _windows_click_through(fenster, an):
         return False
 
 
+def show_as_app(window):
+    """Das Overlay als App führen statt als Werkzeugfenster (nur Windows).
+
+    Ein rahmenloses Tk-Fenster (`overrideredirect`) ist unter Windows ein
+    Werkzeugfenster: keine Taskleiste, kein Alt+Tab, und im Task-Manager steht
+    das Programm unter den **Hintergrundprozessen** statt oben bei den Apps —
+    dort, wo jeder ein Programm sucht, das er gerade gestartet hat. Aus dem
+    Spiel kam man nur mit der Maus heran.
+
+    Mit `WS_EX_APPWINDOW` statt `WS_EX_TOOLWINDOW` reicht Alt+Tab. Aussehen,
+    Vordergrund und Durchklicken bleiben, wie sie sind.
+
+    ⚠ **Gemessen, bevor es eingebaut wurde (26.09.2026):** Das Aufblenden im
+    Pop-up-Betrieb (`deiconify` + `lift` + `-topmost`) nimmt dem Spiel auch als
+    App-Fenster **keinen Fokus** — auch dann nicht, wenn das Overlay zuletzt
+    selbst vorn war. Die Gegenprobe mit absichtlichem `focus_force()` wurde
+    erkannt. Wer hier einmal `focus_force` o. ä. ergänzt, reißt dem Spieler
+    mitten im Flug die Tastatur weg.
+
+    ⚠ Windows übernimmt den geänderten Stil erst nach Verstecken und Zeigen;
+    ein Fenster, das noch nicht zu sehen ist, übernimmt ihn beim ersten Zeigen.
+    """
+    if not WINDOWS:
+        return False
+    try:
+        window.update_idletasks()
+        handle = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
+        GWL_EXSTYLE = -20
+        WS_EX_TOOLWINDOW = 0x00000080
+        WS_EX_APPWINDOW = 0x00040000
+        get = getattr(ctypes.windll.user32, 'GetWindowLongPtrW',
+                      ctypes.windll.user32.GetWindowLongW)
+        put = getattr(ctypes.windll.user32, 'SetWindowLongPtrW',
+                      ctypes.windll.user32.SetWindowLongW)
+        visible = window.winfo_viewable()
+        if visible:
+            window.withdraw()
+        style = get(handle, GWL_EXSTYLE)
+        put(handle, GWL_EXSTYLE, (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW)
+        if visible:
+            window.deiconify()
+        return True
+    except Exception:
+        return False
+
+
 def _x11_click_through(fenster, an):
     """Die Eingabe-Region auf leer setzen — dann fällt jeder Klick hindurch.
 

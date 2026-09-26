@@ -25743,6 +25743,54 @@ def main():
     pruefe("StringStruct('ProductVersion', '3.56.1-rc2')" in _txt262,
            'angezeigt wird trotzdem die volle Bezeichnung')
 
+    print('\n263. Das Overlay ist eine App, kein Werkzeugfenster (Windows)')
+    # Als Werkzeugfenster fehlte es in Taskleiste und Alt+Tab, und der
+    # Task-Manager fuehrte es unter „Hintergrundprozesse". Gemessen am
+    # 26.09.2026: Als App-Fenster nimmt das Aufblenden dem Spiel KEINEN Fokus —
+    # das gilt aber nur, solange `_popup_zeigen` sich nicht selbst nach vorn
+    # holt. Genau das haelt die zweite Pruefung fest.
+    _src263 = open(os.path.join(_wurzelpfad, 'sc_bp_watcher.py'),
+                   encoding='utf-8').read()
+    _init263 = methode(_src263, 'Overlay', '__init__')
+    _ov263 = _init263.find('self.root.overrideredirect(True)')
+    _app263 = _init263.find('overlay.show_as_app(self.root)')
+    pruefe(0 <= _ov263 < _app263,
+           'das Overlay wird NACH overrideredirect zur App (%d / %d)'
+           % (_ov263, _app263))
+    _zeig263 = methode(_src263, 'Overlay', '_popup_zeigen')
+    _klau263 = [w for w in ('focus_force', 'focus_set', 'SetForegroundWindow',
+                            'grab_set') if w in _zeig263]
+    pruefe(bool(_zeig263) and not _klau263,
+           'das Aufblenden holt sich keinen Fokus (%s)'
+           % (', '.join(_klau263) or 'nichts gefunden'))
+    from scbp import overlay as _ovl263
+    if _ovl263.WINDOWS:
+        import ctypes as _ct263
+        import tkinter as _tk263
+        _w263 = _tk263.Tk()
+        try:
+            _w263.withdraw()
+            _w263.overrideredirect(True)
+            _w263.update_idletasks()
+            _h263 = (_ct263.windll.user32.GetParent(_w263.winfo_id())
+                     or _w263.winfo_id())
+            _hol263 = _ct263.windll.user32.GetWindowLongW
+            pruefe(bool(_hol263(_h263, -20) & 0x80),
+                   'Vorbedingung: rahmenlos ist unter Windows ein Werkzeugfenster')
+            pruefe(_ovl263.show_as_app(_w263) is True,
+                   'show_as_app meldet Erfolg')
+            _st263 = _hol263(_h263, -20)
+            pruefe(not (_st263 & 0x80) and bool(_st263 & 0x40000),
+                   'danach App-Fenster statt Werkzeugfenster (Stil 0x%X)'
+                   % _st263)
+            pruefe(not _w263.winfo_viewable(),
+                   'ein verstecktes Fenster bleibt dabei versteckt')
+        finally:
+            _w263.destroy()
+    else:
+        pruefe(_ovl263.show_as_app(None) is False,
+               'ausserhalb von Windows tut show_as_app nichts')
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))

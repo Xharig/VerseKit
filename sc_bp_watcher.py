@@ -2096,6 +2096,9 @@ class Overlay:
         # können. 93 % bleibt der Standard, das ist auf zwei Bildschirmen richtig.
         self.root.attributes('-alpha', deckkraft() / 100.0)
         self.root.geometry(startlage(self.root))
+        # Taskleiste, Alt+Tab und „Apps" im Task-Manager statt Werkzeugfenster
+        # — nimmt dem Spiel keinen Fokus, siehe `overlay.show_as_app`.
+        overlay.show_as_app(self.root)
         # ⚠ Erst wenn alles gebaut ist, kennt die Kopfleiste ihre Breite —
         # deshalb ueber `after_idle` und nicht hier direkt.
         self.root.after_idle(self._mindestgroesse_setzen)
