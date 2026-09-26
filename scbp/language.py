@@ -1280,6 +1280,8 @@ TEXTS = {
                           'Star Citizen gives it. The two almost never match — '
                           'the system counts differently from the game.'),
     's_gh_bereit':     ('bereit', 'ready'),
+    # Gekürzter Windows-Gerätepfad: Hersteller- und Gerätenummer.
+    's_gh_vidpid':     ('VID {} · PID {}', 'VID {} · PID {}'),
     's_gh_ohne_nummer': ('ohne Nummer', 'no number'),
     's_gh_abgesteckt': ('nicht angesteckt', 'not connected'),
     's_gh_unbekannt':  ('dem Spiel unbekannt', 'unknown to the game'),

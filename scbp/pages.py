@@ -3381,6 +3381,25 @@ def _contract_log(fenster, rahmen):
     _auffrischen()
 
 
+def _system_path_label(path):
+    """Der Systempfad eines Geräts so, wie er in eine Zeile passt.
+
+    Unter Linux ist er kurz (`/dev/input/js0`) und bleibt, wie er ist. Unter
+    Windows ist er der volle Gerätepfad (`\\\\?\\HID#VID_3344&PID_43F5&…#{…}`),
+    über 100 Zeichen lang — er schob den Zustand „bereit" am Zeilenende aus
+    dem Bild (`randpruefung`, 26.09.2026: +19 px bei 1100×842) und überlagerte
+    den Gerätenamen. Wiedererkennbar sind daran nur Hersteller- und
+    Gerätenummer; der Rest ist für den Spieler Rauschen.
+    """
+    if not path:
+        return '—'
+    import re
+    m = re.search(r'VID_([0-9A-F]{4}).*?PID_([0-9A-F]{4})', path, re.I)
+    if m:
+        return t('s_gh_vidpid').format(m.group(1).upper(), m.group(2).upper())
+    return path if len(path) <= 24 else path[:22] + '…'
+
+
 def _device_hub(fenster, eltern):
     """Alle Eingabegeräte an einem Ort — mit laufender Überwachung.
 
@@ -3463,20 +3482,25 @@ def _device_hub(fenster, eltern):
             # hat. Der Systempfad steht daneben, damit man beide auseinander
             # halten kann — genau daran scheitern sonst alle Anleitungen.
             nummer = ('js%d' % geraet['nummer']) if geraet['nummer'] else '—'
+            # ⚠ Reihenfolge = Vorrang. Tk nimmt bei Platzmangel dem ZULETZT
+            # gepackten Element den Platz weg. Also erst, was nie fehlen darf
+            # (Nummer, Zustand), dann der Pfad, zuletzt der dehnbare Name.
+            # Bis 26.09.2026 stand der Zustand hinter dem Pfad — und „bereit"
+            # wurde bei langen Windows-Pfaden abgeschnitten.
             tk.Label(zeile, text=nummer, bg=SURFACE,
                      fg=ACCENT if geraet['nummer'] else SUB,
                      font=fenster.f_bold, width=5,
                      anchor='w', padx=8).pack(side='left', pady=6)
-            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=SURFACE,
-                     fg=FG, font=fenster.f_small,
-                     anchor='w').pack(side='left', fill='x', expand=True)
-            tk.Label(zeile, text=geraet['systempfad'] or '—', bg=SURFACE,
-                     fg=SUB, font=fenster.f_small,
-                     anchor='e', padx=10).pack(side='right')
             tk.Label(zeile, text=t('s_gh_' + geraet['zustand']), bg=SURFACE,
                      fg=farben.get(geraet['zustand'], SUB),
                      font=fenster.f_small, anchor='e',
                      padx=10).pack(side='right')
+            tk.Label(zeile, text=_system_path_label(geraet['systempfad']),
+                     bg=SURFACE, fg=SUB, font=fenster.f_small,
+                     anchor='e', padx=10).pack(side='right')
+            tk.Label(zeile, text=geraet['name'] or geraet['kurz'], bg=SURFACE,
+                     fg=FG, font=fenster.f_small,
+                     anchor='w').pack(side='left', fill='x', expand=True)
 
         # Ein Satz zur Lage — und nur dann einer, wenn er etwas sagt.
         if ueberblick['alles_gut']:

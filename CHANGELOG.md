@@ -8,6 +8,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.56.1 - 2026-09-26
+
+> **Die Geräteliste auf der Seite Steuerung passt wieder in die Zeile.**
+> Unter Windows schob die lange Gerätekennung den Zustand „bereit" aus dem
+> Bild und lag über dem Gerätenamen. Jetzt steht dort kurz Hersteller- und
+> Gerätenummer, und der Zustand bleibt immer sichtbar.
+
+### Behoben
+
+- **Steuerung: lange Gerätekennung schnitt „bereit" ab** und überlagerte den
+  Gerätenamen (Windows)
+
 ## v3.56.0 - 2026-09-26
 
 > **Verse-Kit ist jetzt dort, wo man es sucht.** Unter Windows holst du das

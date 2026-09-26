@@ -8,6 +8,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.56.1 - 2026-09-26
+
+> **The device list on the Controls page fits its row again.** On Windows
+> the long device ID pushed the "ready" status out of view and ran over the
+> device name. It now shows the short vendor and product number, and the
+> status always stays visible.
+
+### Fixed
+
+- **Controls: a long device ID cut off "ready"** and ran over the device
+  name (Windows)
+
 ## v3.56.0 - 2026-09-26
 
 > **Verse-Kit is now where you'd look for it.** On Windows, Alt+Tab brings

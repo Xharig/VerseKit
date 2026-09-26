@@ -25791,6 +25791,69 @@ def main():
         pruefe(_ovl263.show_as_app(None) is False,
                'ausserhalb von Windows tut show_as_app nichts')
 
+    print('\n264. Geraeteliste: langer Windows-Pfad schneidet nichts ab')
+    # Unter Windows ist der Systempfad ueber 100 Zeichen lang
+    # (`\\?\HID#VID_…&PID_…#…{GUID}`). Er schob den Zustand „bereit" um 19 px
+    # aus der Zeile (randpruefung, 26.09.2026) — gesehen nur auf einem Rechner
+    # mit echtem Stick, also nie im Selbsttest. Hier wird die Zeile mit einem
+    # solchen Pfad in eine ENGE Tafel gebaut und nachgemessen.
+    from scbp import pages as _pg264, device_hub as _dh264
+    import tkinter as _tk264
+    import tkinter.font as _tf264
+    _pfad264 = ('\\\\?\\HID#VID_3344&PID_43F5&MI_00#8&2a1b3c4d&0&0000#'
+                '{4d1e55b2-f16f-11cf-88cb-001111000030}')
+    _kurz264 = _pg264._system_path_label(_pfad264)
+    pruefe('3344' in _kurz264 and '43F5' in _kurz264 and len(_kurz264) < 30,
+           'der Windows-Pfad wird auf Hersteller und Geraet gekuerzt (%s)'
+           % _kurz264)
+    pruefe(_pg264._system_path_label('/dev/input/js0') == '/dev/input/js0',
+           'ein Linux-Pfad bleibt, wie er ist')
+    pruefe(_pg264._system_path_label('') == '—', 'kein Pfad ergibt „—"')
+
+    _alt264 = (_dh264.summary, _dh264.suggestions, _dh264.Watchdog)
+
+    class _Wache264:
+        def check(self, *a, **k):
+            return [], []
+    _dh264.summary = lambda *a, **k: {'alles_gut': True, 'geraete': [{
+        'kennung': 'X', 'kurz': 'X', 'nummer': 1, 'zustand': _dh264.READY,
+        'name': 'RIGHT VPC Stick WarBRD-D', 'systempfad': _pfad264}]}
+    _dh264.suggestions = lambda *a, **k: []
+    _dh264.Watchdog = _Wache264
+    # ⚠ Zwei Breiten, weil es zwei Reparaturen sind. Bei 640 px faellt nur der
+    # ungekuerzte Pfad auf. Die REIHENFOLGE (Zustand vor Pfad gepackt) greift
+    # erst, wenn es wirklich eng wird — die erste Fassung dieser Pruefung hatte
+    # nur 640 px und blieb gruen, als die Reihenfolge zurueckgedreht wurde.
+    _w264 = _tk264.Tk()
+    try:
+        _sch264 = _tf264.Font(root=_w264, size=10)
+
+        class _Fenster264:
+            f_base = f_bold = f_small = f_title = f_icon = _sch264
+        for _breite264 in (640, 230):
+            _w264.geometry('%dx300' % _breite264)
+            _rahmen264 = _tk264.Frame(_w264)
+            _rahmen264.pack(fill='x')
+            _pg264._device_hub(_Fenster264(), _rahmen264)
+            _w264.update_idletasks()
+            _w264.update()
+            _zust264 = [w for tafel in _rahmen264.winfo_children()
+                        for zeile in tafel.winfo_children()
+                        for w in zeile.winfo_children()
+                        if isinstance(w, _tk264.Label)
+                        and w.cget('text') == _pg264.t('s_gh_bereit')]
+            pruefe(len(_zust264) == 1, 'die Zustandszeile ist gebaut (%d)'
+                   % len(_zust264))
+            for _z264 in _zust264:
+                pruefe(_z264.winfo_width() >= _z264.winfo_reqwidth(),
+                       '„bereit" bekommt bei %d px seine volle Breite '
+                       '(%d von %d px)' % (_breite264, _z264.winfo_width(),
+                                           _z264.winfo_reqwidth()))
+            _rahmen264.destroy()
+    finally:
+        _w264.destroy()
+        _dh264.summary, _dh264.suggestions, _dh264.Watchdog = _alt264
+
     print()
     if fehler:
         print('%d von %d Prüfungen fehlgeschlagen:' % (len(fehler), geprueft[0]))
