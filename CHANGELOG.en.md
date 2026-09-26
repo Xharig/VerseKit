@@ -12,6 +12,9 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **Task Manager now shows the program as "Verse-Kit"** instead of
   "SC-BP-Watcher" (Windows)
+- **The overlay can now be reached with Alt+Tab** and has a taskbar icon;
+  Task Manager lists it under Apps. It still doesn't take focus away from
+  the game when it pops up (Windows)
 
 ## v3.55.2 - 2026-09-26
 
