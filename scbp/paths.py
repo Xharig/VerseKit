@@ -1446,7 +1446,16 @@ def _start_command(starter):
 
 
 def start_game():
-    """Star Citizen starten. Gibt (True, '') oder (False, Grund) zurück."""
+    """Star Citizen starten. Gibt (True, '') oder (False, Grund) zurück.
+
+    ⭐ Seit v3.58.0-rc4 mit den Startprogrammen (`start_programs`): Ein
+    Eintrag „RSI Launcher überspringen" tritt an die Stelle des Launchers,
+    Einträge „mit dem RSI Launcher" starten nach ihm. Lokal geladen — `paths`
+    wird sehr früh importiert."""
+    from . import start_programs
+    instead = start_programs.replacement()
+    if instead:
+        return start_programs.launch(instead, delay=False)
     starter = game_starter()
     if not starter:
         # ⚠ Dieser Grund landet über `s_sp_start_nein` sichtbar in der
@@ -1465,6 +1474,7 @@ def start_game():
             extra['start_new_session'] = True
         subprocess.Popen(_start_command(starter), stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, **extra)
+        start_programs.on_launcher()
         return True, ''
     except Exception as exc:
         return False, str(exc)

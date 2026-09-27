@@ -113,9 +113,11 @@ def _builders():
     """
     # ⚠ Hier geladen, nicht oben im Modul: `stats_pages` holt sich seine
     # Bausteine aus diesem Modul und wäre sonst ein Zirkelbezug.
-    from . import stats_pages
+    from . import stats_pages, settings_pages
     return {
         **stats_pages.builders(),
+        **settings_pages.builders(),
+        'darstellung': _appearance,
         'liste':       _blueprint_list,
         'fortschritt': _progress,
         'auftragslog': _contract_log,
@@ -1694,16 +1696,10 @@ def _general(fenster, rahmen):
     _heading(fenster, rahmen, t('hf_allgemein'),
                   t('s_allg_lead'))
     innen = _scroll_area(rahmen)
-    e = _settings_parts(fenster)
 
-    ziel = _setting_row(fenster, innen, t('e_sprache'), t('s_sprache_h'),
-                 wide=True)
-    wahl = _choice(fenster, ziel,
-                 [('auto', t('sprache_auto')), ('de', 'Deutsch'), ('en', 'English')],
-                 paths.settings().get('sprache') or 'auto',
-                 lambda k: (wahl.select(k), e._choose_language(k)))
-    wahl.pack()
-
+    # ⚠ Die Sprache steht seit v3.58.0-rc4 unter „Darstellung" (Gliederung
+    # vom 27.09.2026): Sie ändert, wie das Programm aussieht, nicht, wie es
+    # sich verhält. „Allgemein" ist das Programmverhalten.
     ziel = _setting_row(fenster, innen, t('e_ton'),
                  t('s_ton_h'))
 
@@ -1772,11 +1768,95 @@ def _general(fenster, rahmen):
         tk.Label(ziel, text=t('s_nur_win'), bg=BG, fg=SUB,
                  font=fenster.f_small).pack()
 
+    # Dieselbe Einstellung wie auf „Statistik → Auswertung" — hier, weil sie
+    # das Programmverhalten beim Start betrifft (Gliederung vom 27.09.2026).
+    from . import play_stats
+    ziel = _setting_row(fenster, innen, t('s_sa_auto'), t('s_sa_auto_h'))
+
+    def stats_auto_flip():
+        new_value = not play_stats.auto_enabled()
+        paths.set_setting(play_stats.AUTO_SETTING, new_value)
+        fenster.say('%s: %s' % (t('s_sa_auto'),
+                                t('e_an') if new_value else t('e_aus')))
+        return new_value
+
+    toggle_switch(ziel, play_stats.auto_enabled(), stats_auto_flip).pack()
+
+
+def _language_row(window, inner):
+    """Sprache der Oberfläche — seit rc4 auf „Darstellung"."""
+    from . import paths
+    parts = _settings_parts(window)
+    target = _setting_row(window, inner, t('e_sprache'), t('s_sprache_h'),
+                          wide=True)
+    choice = _choice(window, target,
+                     [('auto', t('sprache_auto')), ('de', 'Deutsch'),
+                      ('en', 'English')],
+                     paths.settings().get('sprache') or 'auto',
+                     lambda k: (choice.select(k), parts._choose_language(k)))
+    choice.pack()
+
+
+def _appearance(window, frame):
+    """Darstellung: Sprache und Größe (Gliederung vom 27.09.2026).
+
+    Wie beim SC Deutsch Launcher „Größe, Farben, Sprache" — die Farbschemata
+    kommen hierher, sobald es sie gibt."""
+    _heading(window, frame, t('hf_darstellung'), t('s_da_lead'))
+    inner = _scroll_area(frame)
+    _language_row(window, inner)
+    _font_size_row(window, inner)
+
+
+def _font_size_row(window, inner):
+    """Schriftgröße des ganzen Programms — seit rc4 auf „Darstellung".
+
+    Stand vorher auf „Anzeige" zwischen lauter Overlay-Einstellungen, wirkt
+    aber auf jedes Fenster."""
+    from . import paths
+    target = _setting_row(window, inner, t('hf_schrift'), t('hf_schrift_hilfe'),
+                 wide=True)
+    # ⭐⭐ **„Sehr groß" ist seit 14.09.2026 wieder dabei** — und die Geschichte
+    # dazu gehört hierher, weil sie zeigt, wann ein festgeschriebener Rückbau
+    # überprüft werden muss.
+    #
+    # **Warum es raus war (30.08.2026):** Die Stufe vergrösserte Schrift,
+    # Symbole und Knöpfe so weit, dass die daraus folgende **Mindesthöhe
+    # grösser wurde als ein Bildschirm** — bei zwei übereinander stehenden
+    # Monitoren lief das Fenster in den zweiten hinein. Eine Einstellung, die
+    # das Fenster unbrauchbar macht, gehört nicht angeboten. Das war richtig.
+    #
+    # **Warum es zurück ist:** Nachgemessen am 14.09.2026 beträgt die
+    # Mindestgrösse dort **1215 × 380 px** — auch nachdem alle 33 Seiten
+    # gebaut sind. Sie passt damit auf jeden üblichen Bildschirm. Der Grund
+    # für den Rückbau hat sich erledigt, ohne dass es jemandem aufgefallen
+    # wäre: Die Mindesthöhe hängt seit der `minsize()`-Reparatur nicht mehr
+    # an der Schriftstufe.
+    #
+    # ⚠⚠ **Ein festgeschriebener Rückbau ist ein Zeitstempel, keine
+    # Wahrheit.** Genau dieselbe Lehre wie beim Titelleisten-Umbau, der nach
+    # vier Anläufen als unmöglich galt und danach im ersten gelang.
+    #
+    # **Und der Anlass war kein technischer:** Bomb20 und Haldjas wollten die
+    # Stufe zurück — sie lesen den Text sonst schlecht. Eine Einstellung, die
+    # niemandem schadet und zwei Leuten das Lesen ermöglicht, wird angeboten.
+    choice = _choice(window, target,
+                 [(s, t('hf_s_' + s))
+                  for s in ('klein', 'normal', 'gross', 'sehrgross')],
+                 paths.setting('schriftgroesse') or 'normal',
+                 # ⚠ Nur noch der eine Aufruf. `set_font_size()` baut
+                 # das Fenster neu auf — damit zeichnet sich die Wahl selbst
+                 # richtig, und die Rückmeldung kommt von dort, nach dem
+                 # Aufbau. Das frühere `choice.select(k)` und `say()` hier
+                 # liefen beide ins Leere, sobald neu gezeichnet wurde.
+                 lambda k: window.set_font_size(k))
+    choice.pack()
+
 
 def _display(fenster, rahmen):
     from . import paths
     from .main_window import toggle_switch
-    _heading(fenster, rahmen, t('hf_anzeige'),
+    _heading(fenster, rahmen, t('hf_overlay'),
                   t('s_anz_lead'))
     innen = _scroll_area(rahmen)
     e = _settings_parts(fenster)
@@ -1886,44 +1966,6 @@ def _display(fenster, rahmen):
         # schlimmer als gar keiner.
         tk.Label(ziel, text=t('s_ov_durch_nein'), bg=BG, fg=SUB,
                  font=fenster.f_small, anchor='w', justify='left').pack(fill='x')
-
-    ziel = _setting_row(fenster, innen, t('hf_schrift'), t('hf_schrift_hilfe'),
-                 wide=True)
-    # ⭐⭐ **„Sehr groß" ist seit 14.09.2026 wieder dabei** — und die Geschichte
-    # dazu gehört hierher, weil sie zeigt, wann ein festgeschriebener Rückbau
-    # überprüft werden muss.
-    #
-    # **Warum es raus war (30.08.2026):** Die Stufe vergrösserte Schrift,
-    # Symbole und Knöpfe so weit, dass die daraus folgende **Mindesthöhe
-    # grösser wurde als ein Bildschirm** — bei zwei übereinander stehenden
-    # Monitoren lief das Fenster in den zweiten hinein. Eine Einstellung, die
-    # das Fenster unbrauchbar macht, gehört nicht angeboten. Das war richtig.
-    #
-    # **Warum es zurück ist:** Nachgemessen am 14.09.2026 beträgt die
-    # Mindestgrösse dort **1215 × 380 px** — auch nachdem alle 33 Seiten
-    # gebaut sind. Sie passt damit auf jeden üblichen Bildschirm. Der Grund
-    # für den Rückbau hat sich erledigt, ohne dass es jemandem aufgefallen
-    # wäre: Die Mindesthöhe hängt seit der `minsize()`-Reparatur nicht mehr
-    # an der Schriftstufe.
-    #
-    # ⚠⚠ **Ein festgeschriebener Rückbau ist ein Zeitstempel, keine
-    # Wahrheit.** Genau dieselbe Lehre wie beim Titelleisten-Umbau, der nach
-    # vier Anläufen als unmöglich galt und danach im ersten gelang.
-    #
-    # **Und der Anlass war kein technischer:** Bomb20 und Haldjas wollten die
-    # Stufe zurück — sie lesen den Text sonst schlecht. Eine Einstellung, die
-    # niemandem schadet und zwei Leuten das Lesen ermöglicht, wird angeboten.
-    wahl = _choice(fenster, ziel,
-                 [(s, t('hf_s_' + s))
-                  for s in ('klein', 'normal', 'gross', 'sehrgross')],
-                 paths.setting('schriftgroesse') or 'normal',
-                 # ⚠ Nur noch der eine Aufruf. `set_font_size()` baut
-                 # das Fenster neu auf — damit zeichnet sich die Wahl selbst
-                 # richtig, und die Rückmeldung kommt von dort, nach dem
-                 # Aufbau. Das frühere `wahl.select(k)` und `say()` hier
-                 # liefen beide ins Leere, sobald neu gezeichnet wurde.
-                 lambda k: fenster.set_font_size(k))
-    wahl.pack()
 
     ziel = _setting_row(fenster, innen, t('e_deckkraft'),
                  t('s_deck_h'))
@@ -2116,6 +2158,38 @@ def _folders(fenster, rahmen):
               platzhalter=t('s_or_leer'))
 
     _start_command_field(fenster, innen)
+    _channel_states(fenster, innen)
+
+
+# Blase je Kanal: Befund -> (Textschlüssel, Farbe).
+CHANNEL_STATES = {'ok': ('s_uc_ok', ACCENT),
+                  'ohne_sprache': ('s_uc_ohne_sprache', GOLD),
+                  'ohne_datei': ('s_uc_ohne_datei', GOLD),
+                  'keine': ('s_uc_keine', SUB)}
+
+
+def _channel_states(window, inner):
+    """Spielkanäle mit Zustand der `user.cfg` (Vorbild SC Deutsch Launcher).
+
+    ⚠ Die Blasen stehen untereinander, nicht in einer Reihe: Mit fünf
+    Kanälen und englischen Texten liefe eine Reihe aus dem Fenster — genau
+    die abgeschnittenen Kästen, die beim Vorbild stören."""
+    from . import usercfg
+    from .main_window import badge
+    tk.Label(inner, text=t('s_uc_kanaele'), bg=BG, fg=FG, font=window.f_bold,
+             anchor='w').pack(fill='x', pady=(20, 0))
+    _body_text(inner, t('s_uc_kanaele_h'), window.f_small, fill='x')
+    channels = usercfg.installed_channels()
+    if not channels:
+        _body_text(inner, t('s_uc_keine_kanaele'), window.f_small,
+                   pady=(6, 0))
+        return
+    for name, folder, _installed in channels:
+        key, color = CHANNEL_STATES[usercfg.status(folder)]
+        row = tk.Frame(inner, bg=BG)
+        row.pack(fill='x', pady=(6, 0))
+        badge(row, '%s: %s' % (name, t(key)), color, window.f_small,
+              bg=BG).pack(side='left')
 
 
 def _move_storage(fenster, ablage, ziel):
@@ -2669,6 +2743,99 @@ def _game(fenster, rahmen):
            danger=True).pack(side='left')
 
     _status(fenster, innen, '!', t('s_sp_warn'), t('s_sp_warn_h'), color=GOLD)
+    _user_cfg_section(fenster, innen)
+
+
+def _user_cfg_section(window, inner):
+    """Die `user.cfg` je Kanal: eigene Zeilen bearbeiten, ganze Datei sehen.
+
+    ⭐ Wunsch vom 27.09.2026 (Vorbild SC Deutsch Launcher, dort mit
+    abgeschnittenen Kästen fester Größe). Hier deshalb: **untereinander statt
+    nebeneinander**, und die Kästen wachsen mit der Zeilenzahl bis zu einer
+    Grenze — erst darüber rollen sie."""
+    from . import usercfg
+    channels = [c for c in usercfg.installed_channels() if c[2]]
+    tk.Label(inner, text=t('s_uc_titel'), bg=BG, fg=FG, font=window.f_title,
+             anchor='w').pack(fill='x', pady=(24, 2))
+    _body_text(inner, t('s_uc_lead'), window.f_small, fill='x')
+    if not channels:
+        _body_text(inner, t('s_uc_keine_kanaele'), window.f_small,
+                   pady=(6, 0))
+        return
+    state = {'folder': channels[0][1]}
+    area = tk.Frame(inner, bg=BG)
+
+    def text_box(parent, editable):
+        box = tk.Frame(parent, bg=LINE, padx=1, pady=1)
+        box.pack(fill='x', pady=(4, 0))
+        field = tk.Text(box, bg='#0c1017', fg=FG if editable else SUB,
+                        insertbackground=FG, relief='flat', wrap='none',
+                        font=('Consolas', 10) if sys.platform.startswith('win')
+                        else ('DejaVu Sans Mono', 10), height=6,
+                        padx=8, pady=6, highlightthickness=0)
+        roll = tk.Scrollbar(box, orient='vertical', command=field.yview)
+        field.configure(yscrollcommand=roll.set)
+        field.pack(side='left', fill='both', expand=True)
+        return field, roll
+
+    def fill(field, roll, text):
+        field.configure(state='normal')
+        field.delete('1.0', 'end')
+        field.insert('1.0', text)
+        lines = max(1, text.count('\n') + 1)
+        # Mitwachsen bis 18 Zeilen, erst darüber rollen.
+        field.configure(height=max(4, min(18, lines)))
+        if lines > 18:
+            roll.pack(side='right', fill='y')
+        else:
+            roll.pack_forget()
+
+    def show():
+        for child in area.winfo_children():
+            child.destroy()
+        folder = state['folder']
+        text = usercfg.read(folder)
+        tk.Label(area, text=t('s_uc_eigene'), bg=BG, fg=FG,
+                 font=window.f_bold, anchor='w').pack(fill='x', pady=(12, 0))
+        _body_text(area, t('s_uc_eigene_h'), window.f_small, fill='x')
+        own, own_roll = text_box(area, True)
+        fill(own, own_roll, '\n'.join(usercfg.own_lines(text)))
+        buttons = tk.Frame(area, bg=BG)
+        buttons.pack(fill='x', pady=(6, 0))
+
+        def save():
+            lines = own.get('1.0', 'end').splitlines()
+            ok, bad = usercfg.write_own(folder, lines)
+            if bad:
+                window.say(t('s_uc_fehler') % ', '.join(
+                    str(number) for number, _line in bad[:5]))
+                return
+            window.say(t('s_uc_gespeichert') if ok else t('s_uc_nicht'))
+            show()
+
+        _button(window, buttons, t('s_uc_speichern'), save,
+                strong=True).pack(side='left')
+        _button(window, buttons, t('s_uc_neu'), show).pack(
+            side='left', padx=(8, 0))
+        tk.Label(area, text=t('s_uc_ganz'), bg=BG, fg=FG, font=window.f_bold,
+                 anchor='w').pack(fill='x', pady=(16, 0))
+        _body_text(area, t('s_uc_ganz_h') % os.path.join(folder, usercfg.FILE),
+                   window.f_small, fill='x')
+        whole, whole_roll = text_box(area, False)
+        fill(whole, whole_roll,
+             text if text is not None else t('s_uc_keine_datei'))
+        whole.configure(state='disabled')
+
+    if len(channels) > 1:
+        target = _setting_row(window, inner, t('s_uc_kanal'), '', wide=True)
+        choice = _choice(window, target,
+                         [(folder, name) for name, folder, _i in channels],
+                         state['folder'],
+                         lambda k: (choice.select(k),
+                                    state.update(folder=k), show()))
+        choice.pack()
+    area.pack(fill='x')
+    show()
 
 
 # Welche Beschriftung zu welcher Quelle gehört — für den Zustandskasten.
@@ -2700,10 +2867,43 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     danach()
 
 
+def _backup_section(window, inner):
+    """Sicherung und Einrichtung — oben auf „Sichern & Zurücksetzen".
+
+    Dieselben Wege wie der Knopf „Sicherung" in der Titelleiste und
+    „Einrichtung starten" — hier stehen sie dort, wo man sie beim
+    Rechnerwechsel sucht (Gliederung vom 27.09.2026)."""
+    from . import file_picker, backup
+    tk.Label(inner, text=t('s_si_sicherung'), bg=BG, fg=FG,
+             font=window.f_title, anchor='w').pack(fill='x', pady=(0, 2))
+    _body_text(inner, t('sich_lead'), window.f_small, fill='x',
+               pady=(0, 8))
+    row = tk.Frame(inner, bg=BG)
+    row.pack(fill='x')
+    _button(window, row, t('sich_schreiben'),
+            lambda: window._backup_write(file_picker, backup),
+            strong=True).pack(side='left')
+    _button(window, row, t('sich_lesen'),
+            lambda: window._backup_read(file_picker, backup)).pack(
+                side='left', padx=(8, 0))
+    target = _setting_row(window, inner, t('s_si_einrichtung'),
+                          t('s_si_einrichtung_h'))
+    _button(window, target, t('hf_einrichtung'), window._open_wizard).pack()
+    tk.Frame(inner, bg=LINE, height=1).pack(fill='x', pady=(20, 16))
+
+
 def _collection(fenster, rahmen):
+    """Sichern & Zurücksetzen (bis rc3: „Bauplan-Bestand").
+
+    ⚠ Die Kennung bleibt `bestand` — sie steckt in „Neu"-Marken und
+    Sprüngen. Das Zurücksetzen steht weiter ganz unten, rot und mit
+    Rückfrage: Die Seite ist seit der Gliederung vom 27.09.2026 nicht mehr
+    hinter „Für Fortgeschrittene" versteckt, wo sie hing, weil sie früher
+    im Vorbeigehen angeklickt wurde."""
     from . import export, importer
-    _heading(fenster, rahmen, t('hf_bestand'), t('s_be_lead'))
+    _heading(fenster, rahmen, t('hf_sichern'), t('s_si_lead'))
     innen = _scroll_area(rahmen)
+    _backup_section(fenster, innen)
 
     anzahl = _count_collection()
     tk.Label(innen, text=t('s_be_aus'), bg=BG, fg=FG,
@@ -15976,7 +16176,7 @@ def _view_angle(fenster, rahmen):
             _notice(fenster, t('hf_blickwinkel'),
                                    t('s_fv_kein_vollbild'))
             return
-        fov_modul.remember(mm_je_pixel=mm_je_pixel, pixelbreite=bildschirm_px)
+        fov_modul.remember(mm_per_px=mm_je_pixel, width_px=bildschirm_px)
         breite = fov_modul.screen_width_mm(bildschirm_px, mm_je_pixel)
         _notice(fenster, 
             t('hf_blickwinkel'),
@@ -16011,7 +16211,7 @@ def _view_angle(fenster, rahmen):
         except ValueError:
             return
         if zentimeter > 0:
-            fov_modul.remember(abstand_mm=zentimeter * 10.0)
+            fov_modul.remember(distance_mm=zentimeter * 10.0)
         _auffrischen()
 
     def _auffrischen():

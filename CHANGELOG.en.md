@@ -8,6 +8,39 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc4 - 2026-09-27
+
+> **The settings are sorted anew.** Everything about the overlay is now in
+> one place, language and size under "Appearance", the paths and your
+> user.cfg are no longer hidden. New: hide sections you do not need, and
+> have other programs start along with the game.
+
+### New
+
+- **Modules** — ships, workshop, salvage and trading can be hidden from the
+  sidebar. Nothing is deleted
+- **Startup programs** — start other programs with the RSI Launcher, once
+  Star Citizen runs, or instead of the launcher; optionally close them again
+  when the game ends
+- **user.cfg** — on the "Game" page: edit your own lines and view the whole
+  file, per game channel. Before the first change the old file is backed up
+- **Game channels** — "Installation & paths" shows every installation and
+  whether its user.cfg is complete
+
+### Improved
+
+- **Settings reorganised** — General, Overlay, Appearance, Installation &
+  paths, Game, FOV, Controls, Axes & curves, Modules, Startup programs,
+  Backup & reset. Only detection is left behind "For advanced users"
+- **Backup & reset** — backup, setup and the blueprint inventory in one
+  place
+- **"Evaluate automatically"** for the statistics can also be switched
+  under "General"
+
+### Fixed
+
+- **FOV** — the calibration and the seating distance were not saved
+
 ## v3.58.0-rc3 - 2026-09-27
 
 > **Quantum travel with names.** Instead of keys like "rs_ext_pyro6_leo" you

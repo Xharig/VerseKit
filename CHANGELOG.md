@@ -8,6 +8,41 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc4 - 2026-09-27
+
+> **Die Einstellungen sind neu sortiert.** Alles zum Overlay steht jetzt
+> beisammen, Sprache und Größe unter „Darstellung", die Pfade und deine
+> user.cfg sind nicht mehr versteckt. Neu: Bereiche, die du nicht brauchst,
+> blendest du aus, und weitere Programme starten auf Wunsch mit dem Spiel.
+
+### Neu
+
+- **Module** — Schiffe, Werkstatt, Bergung und Handel lassen sich aus der
+  Seitenleiste ausblenden. Es wird nichts gelöscht
+- **Startprogramme** — weitere Programme mit dem RSI Launcher, sobald Star
+  Citizen läuft, oder statt des Launchers starten; auf Wunsch beim
+  Spielende wieder beenden
+- **user.cfg** — auf der Seite „Spiel": eigene Zeilen bearbeiten, die ganze
+  Datei nachsehen, je Spielkanal. Vor der ersten Änderung wird die alte
+  Datei gesichert
+- **Spielkanäle** — „Installation & Pfade" zeigt jede Installation und ob
+  ihre user.cfg vollständig ist
+
+### Verbessert
+
+- **Einstellungen neu gegliedert** — Allgemein, Overlay, Darstellung,
+  Installation & Pfade, Spiel, FOV, Steuerung, Achsen & Kurven, Module,
+  Startprogramme, Sichern & Zurücksetzen. Hinter „Für Fortgeschrittene"
+  steht nur noch die Erkennung
+- **Sichern & Zurücksetzen** — Sicherung, Einrichtung und der
+  Bauplan-Bestand an einer Stelle
+- **„Automatisch auswerten"** der Statistik lässt sich auch unter
+  „Allgemein" schalten
+
+### Behoben
+
+- **FOV** — die Kalibrierung und der Sitzabstand wurden nicht gespeichert
+
 ## v3.58.0-rc3 - 2026-09-27
 
 > **Quantenreisen mit Namen.** Statt Kürzeln wie „rs_ext_pyro6_leo" stehen

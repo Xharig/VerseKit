@@ -57,6 +57,9 @@ NEW_SINCE = {
     'statistik_auftraege': '3.58.0',
     'statistik_quantum': '3.58.0',
     'statistik_stabil': '3.58.0',
+    'darstellung': '3.58.0',   # Einstellungen neu gegliedert (rc4)
+    'module':      '3.58.0',
+    'startprogramme': '3.58.0',
     'asop':        '3.28.0',   # eigene Schiffsnamen im Fleet Manager
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0

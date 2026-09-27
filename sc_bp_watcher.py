@@ -59,7 +59,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0-rc3'
+__version__ = '3.58.0-rc4'
 
 
 def _mitgeliefert(name):
@@ -3613,6 +3613,15 @@ class Overlay:
                 if vorher and not laeuft:
                     self.root.after(
                         0, lambda: self._nach_version_sehen(spielende=True))
+                # Startprogramme (v3.58.0-rc4): „sobald SC läuft" beim Wechsel
+                # auf laufend, „wieder beenden" beim Wechsel auf aus. Auch der
+                # erste Blick zählt — läuft das Spiel schon beim Start von
+                # VerseKit, starten die Einträge einmal.
+                from scbp import start_programs
+                if laeuft and not vorher:
+                    start_programs.on_game_started()
+                elif vorher and not laeuft:
+                    start_programs.on_game_ended()
             except Exception as ausnahme:
                 errors.record('overlay.spielende_wache', ausnahme)
             finally:

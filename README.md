@@ -186,17 +186,17 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-auftragstexte.png" alt="Einstellungen für die Auftragstexte" width="100%"><br>
-<sub><b>Texte im Spiel</b> — Textquelle wählen, ein- und ausschalten</sub>
+<sub><b>Spiel</b> — Textquelle wählen, ein- und ausschalten, die user.cfg ansehen</sub>
 </td>
 </tr>
 <tr>
 <td valign="top" align="center">
-<img src="assets/screenshot-bestand.png" alt="Bestand ausgeben und einlesen" width="100%"><br>
-<sub><b>Bestand</b> — ausgeben fürs Basetool, oder einen vorhandenen einlesen</sub>
+<img src="assets/screenshot-bestand.png" alt="Sichern und zurücksetzen" width="100%"><br>
+<sub><b>Sichern & Zurücksetzen</b> — Sicherung, Bestand fürs Basetool ausgeben oder einlesen</sub>
 </td>
 <td valign="top" align="center">
-<img src="assets/screenshot-anzeige.png" alt="Anzeige-Einstellungen" width="100%"><br>
-<sub><b>Anzeige</b> — Aufblend-Betrieb, Klicks durchreichen, Schriftgröße</sub>
+<img src="assets/screenshot-anzeige.png" alt="Overlay-Einstellungen" width="100%"><br>
+<sub><b>Overlay</b> — Aufblend-Betrieb, Klicks durchreichen, Durchsichtigkeit</sub>
 </td>
 </tr>
 <tr>
@@ -251,7 +251,7 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 
 ### Was Totzone, Sättigung und Empfindlichkeit bewirken
 
-Unter **Für Fortgeschrittene → Achsen & Kurven** lässt sich einstellen, wie scharf jede Stick-Achse reagiert. Drei Werte, und jeder verbiegt die Kurve anders:
+Unter **Einstellungen → Achsen & Kurven** lässt sich einstellen, wie scharf jede Stick-Achse reagiert. Drei Werte, und jeder verbiegt die Kurve anders:
 
 <img src="assets/erklaerung-kurve.png" alt="Vier Kurven: ohne Einstellung, mit Totzone, mit Sättigung, mit Empfindlichkeit" width="100%">
 
@@ -299,7 +299,7 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/verkauf-gruen.png" width="22" alt=""> **Verkauf** | Wo du deine Ware los wirst und was sie **je SCU** bringt — für **mehrere Waren auf einmal**. Sortiert wird nicht nach dem höchsten Preis, sondern danach, **wie viele deiner Waren ein Ort abnimmt**: 100 SCU Gold, 40 Copper und 25 Iron bringen an einem Ort 3.533.000 aUEC, verteilt auf drei Orte 3.566.000 — ein Prozent mehr für zwei zusätzliche Anflüge. Ist die Ladung als gestohlen markiert, blendet der Reiter auf die 15 Terminals ein, die keine Fragen stellen |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Mein Hangar** | **Welche Schiffe dir gehören — und ob ein Bauplan überhaupt hineinpasst.** Deinen Hangar holst du in einem Zug aus dem Pledge-Store: Die Browser-Erweiterung [Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W) legt ihn dir als Datei hin, der Watcher liest sie — JSON **und** CSV, mit LTI oder Versicherungslaufzeit je Schiff (der ältere [Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) wird weiterhin gelesen). Im Spiel gekaufte Schiffe trägst du daneben von Hand ein — jedes Schiff behält, woher es kommt. Danach steht in der Herstellung unter jedem Bauplan, **in welche deiner Schiffe das Teil passt** und in wie viele Steckplätze. Die Steckplatz-Daten kommen von [erkul.games](https://erkul.games) und liegen auf deinem Rechner; geholt wird nur, was du wirklich im Hangar hast, und nur einmal je Spiel-Patch |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Schiffe benennen** | **Deine Schiffe heißen im Abrufterminal (ASOP) so, wie du sie nennst.** Statt „Anvil F7C-M Super Hornet Mk II" steht dort, was du eingetragen hast — und ein Sternchen davor markiert eines, ohne es umzutaufen. Die Liste kommt aus deinem Hangar, du musst nichts suchen. ⚠ Ein Name gehört zum **Muster**, nicht zum einzelnen Schiff: Zwei gleiche Hornets bekommen denselben Namen; Abwandlungen wie F7C, F7C-M, Mk I und Mk II lassen sich unterscheiden. Der Werksname kommt jederzeit zeichengenau zurück |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Ruf-Stufen** | **Im Reputationsmenü steht hinter jedem Rang, ab wie viel Ruf er beginnt** — „Gildenmitglied [ab 10.000]". Den Balken füllt nur der Spielserver, aber du siehst, was als Nächstes kommt: Kopfgeldjäger, Auftragnehmer, Transport, Sicherheit, Techniker, Battaglia und Wikelo. Abschaltbar unter „Texte im Spiel" |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Ruf-Stufen** | **Im Reputationsmenü steht hinter jedem Rang, ab wie viel Ruf er beginnt** — „Gildenmitglied [ab 10.000]". Den Balken füllt nur der Spielserver, aber du siehst, was als Nächstes kommt: Kopfgeldjäger, Auftragnehmer, Transport, Sicherheit, Techniker, Battaglia und Wikelo. Abschaltbar unter „Spiel" |
 | <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wunschliste** | **Was du dir vornimmst — mit Preis, Ort und der Ausstattung, die du schon vorher planen kannst.** Trag ein Schiff ein, und daneben steht, was es im Spiel kostet und wo es verkauft wird. Die Ausstattung lässt sich planen, **bevor** du das Schiff besitzt — genau dann, wenn die Summe noch eine Entscheidung ist und keine Quittung. Was hier steht, taucht nirgends bei „passt in dein Schiff" auf: Ein Wunsch ist kein Besitz |
 | <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Was noch fehlt** | **Die Rechnung über alle deine Schiffe.** Leg je Steckplatz fest, was dort sitzen soll — an jedem Teil stehen **Güte und Klasse** („A · Militär · nur über Bauplan"), damit du auf einen Zweck hin bauen kannst, ohne 1.500 Namen auswendig zu kennen. Auch **militärische Teile** sind dabei: Die gibt es in keinem Laden, nur über Baupläne. Je Posten wählst du **kaufen oder selbst herstellen**, und darunter steht die Summe samt Einkaufsroute mit möglichst wenigen Stopps. Was du eingebaut hast, hakst du ab — es fällt aus der Liste und aus der Summe |
 | <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **Was ich farmen muss** | **Dein Lager gegen alles gerechnet, was du selbst bauen willst.** Über alle Posten zusammen, nicht Rezept für Rezept: Zwei Bauteile mit je 2 Iron bei 3 Iron im Lager — einzeln geprüft „reicht", zusammen fehlt eines. Erz mit zu geringer Güte zählt nicht als Bestand, wird aber genannt statt verschwiegen. Zu jedem fehlenden Rohstoff stehen die **ergiebigsten Fundorte** dabei, dazu die Orte, an denen du **mehrere auf einmal** bekommst |
@@ -501,7 +501,7 @@ In `spiel_ordner` gehört der Ordner, in dem die `Game.log` liegt (meist `LIVE`)
 
 Wer denselben Rechner mal unter Windows und mal unter Linux startet, führt sonst **zwei getrennte Bauplan-Bestände** — und merkt es nicht. Jedes System liest die Spiel-Logs, die es gerade sieht, und schreibt in seinen eigenen Ordner unter *Dokumente*. Erst Monate später fällt auf, dass auf der einen Seite Baupläne fehlen.
 
-**Die Lösung ist eine Einstellung, kein Abgleich:** Leg den Ordner für deine Daten auf eine Platte, die **beide Systeme sehen**, und stell ihn in beiden Systemen auf denselben Pfad — unter *Einstellungen → Pfade → Ordner für deine Daten*. Linux liest NTFS, eine gemeinsame Datenplatte reicht also aus.
+**Die Lösung ist eine Einstellung, kein Abgleich:** Leg den Ordner für deine Daten auf eine Platte, die **beide Systeme sehen**, und stell ihn in beiden Systemen auf denselben Pfad — unter *Einstellungen → Installation & Pfade → Ordner für deine Daten*. Linux liest NTFS, eine gemeinsame Datenplatte reicht also aus.
 
 Danach gibt es nur **einen** Bestand. Es wird nichts kopiert und nichts abgeglichen, also kann auch nichts auseinanderlaufen oder sich überschreiben.
 

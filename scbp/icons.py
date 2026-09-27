@@ -564,7 +564,8 @@ BUTTON_NAMES = (
     'zurueck', 'ausblenden', 'sicherung', 'laeden', 'routen', 'zeit', 'hangar',
     'wunschliste', 'farmliste', 'zerlegen', 'einkaufsliste', 'raffinerie',
     'statistik', 'st_auswertung', 'st_schiffe', 'st_auftraege', 'st_quantum',
-    'st_stabil',
+    'st_stabil', 'overlay', 'darstellung', 'module', 'startprogramme',
+    'sichern',
     # Der Ziehgriff in vier Richtungen — er zeigt dorthin, wohin sich das
     # Fenster ziehen laesst (siehe `Overlay.GRIFF_SYMBOLE`).
     'ziehen_ol', 'ziehen_or', 'ziehen_ul', 'ziehen_ur',

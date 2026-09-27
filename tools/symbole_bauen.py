@@ -186,6 +186,17 @@ KNOPF_SYMBOLE = {
     'st_quantum':   'orbit',
     # Herzschlagkurve: läuft es rund oder nicht. `stethoscope` hat Diagnose.
     'st_stabil':    'activity',
+    # --- Einstellungen, neu gegliedert (v3.58.0-rc4) ---
+    # Ein Fenster mit Kopfleiste — das Overlay. `monitor` bleibt beim alten
+    # Namen `anzeige` für die Anleitung.
+    'overlay':      'app-window',
+    'darstellung':  'palette',
+    'module':       'puzzle',
+    # Ein Abspielkreis, nicht `rocket` (das ist der Startknopf des Spiels).
+    'startprogramme': 'circle-play',
+    # Kiste mit Pfeil — nicht `shield-check`, das trägt die Sicherung in der
+    # Titelleiste, und zwei Dinge dürfen nicht dasselbe Bild haben.
+    'sichern':      'archive-restore',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',

@@ -2355,24 +2355,42 @@ class MainWindow:
                   g_stat)
         self._tab('statistik_stabil', 'st_stabil', t('hf_st_stabil'), g_stat)
 
+        # ⭐⭐ **Neu gegliedert in v3.58.0-rc4** (27.09.2026, nach dem
+        # Vorbild des SC Deutsch Launchers): *„User melden, dass sie einiges
+        # suchen müssten, weil es nicht nachvollziehbar genug sei."* Vorher
+        # steckten die Overlay-Einstellungen unter „Anzeige", die Pfade unter
+        # „Für Fortgeschrittene", und die `user.cfg` war nirgends zu sehen.
+        #
+        # Die Reihenfolge geht vom Programm zum Spiel: wie VerseKit sich
+        # verhält → wie es aussieht → wo das Spiel liegt → was im Spiel
+        # eingestellt wird → was mit dem Spiel startet → Sichern.
+        #
+        # ⚠ Die Kennungen bleiben (`anzeige` heißt jetzt „Overlay", `bestand`
+        # „Sichern & Zurücksetzen") — sie stecken in „Neu"-Marken, Sprüngen und
+        # Prüfungen. Umbenannt ist nur, was man liest.
         g_einst = self._group(t('hf_gruppe_einst'), 'einstellungen')
         self._tab('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
-        self._tab('anzeige', 'anzeige', t('hf_anzeige'), g_einst)
+        self._tab('anzeige', 'overlay', t('hf_overlay'), g_einst)
+        self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
+        self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
         self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
-        # ⚠ Unter „Einstellungen" und nicht bei den Bauplänen: Die Seite sagt,
-        # wie der eigene Aufbau aussieht — welcher Stick welche Nummer hat und
-        # was darauf liegt. Das ist dieselbe Sorte Frage wie „welcher Ordner,
-        # welche Sprache", nur für die Steuerung.
-        self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
-        # ⚠ Direkt darunter, weil es dieselbe Sache aus der anderen Richtung
-        # ist: „Joysticks" sagt, WELCHER Stick welche Nummer hat und was
-        # darauf liegt — „Achsen & Kurven" sagt, WIE die Achse reagiert. Im
-        # Spiel stehen die beiden Fragen ebenfalls an zwei Stellen.
-        # ⚠ „Achsen & Kurven" steht NICHT hier, sondern unter „Für
-        # Fortgeschrittene" — Begründung dort. „Blickwinkel" bleibt offen:
-        # Es schreibt nichts und kann nichts kaputtmachen.
         self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
                      g_einst)
+        # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und
+        # wie die Achse reagiert — dieselbe Sache aus zwei Richtungen.
+        self._tab('joysticks', 'joysticks', t('hf_joysticks'), g_einst)
+        # ⚠ „Achsen & Kurven" stand bis rc3 hinter „Für Fortgeschrittene",
+        # weil die Seite in die `actionmaps.xml` schreibt und einmal im
+        # Vorbeigehen funktionierende Werte überschrieben wurden. Seit der
+        # Gliederung vom 27.09.2026 offen neben „Steuerung" — die Seite trägt
+        # ihre Warnungen selbst.
+        self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
+        self._tab('module', 'module', t('hf_module'), g_einst)
+        self._tab('startprogramme', 'startprogramme',
+                  t('hf_startprogramme'), g_einst)
+        # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
+        # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
+        self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
 
         # „Was ist neu" und „Über" stellen nichts ein — sie erzählen etwas.
         # Unter der Überschrift „Einstellungen" waren sie falsch einsortiert.
@@ -2415,6 +2433,7 @@ class MainWindow:
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
         # Zugeklappt: nur „Was ist neu", „Update & Über", „Fehler melden".
         self._apply_pins('info')
+        self._apply_modules()
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
         # es sucht, findet es; wer es nicht kennt, wird nicht erschlagen.
@@ -2507,7 +2526,9 @@ class MainWindow:
         # tut, wäre schlimmer als keiner.
         try:
             from . import paths as paths_module
-            hat_starter = bool(paths_module.game_starter())
+            from . import start_programs
+            hat_starter = bool(paths_module.game_starter()
+                               or start_programs.replacement())
         except Exception:
             hat_starter = False
         if hat_starter:
@@ -2620,6 +2641,20 @@ class MainWindow:
     # Gruppe da, in ihrer gewohnten Reihenfolge.
     ALWAYS_OPEN = ()
     PINNED_TABS = {'info': ('wasistneu', 'ueber', 'diagnose')}
+
+    def _apply_modules(self):
+        """Ausgeschaltete Module aus der Leiste nehmen (v3.58.0-rc4).
+
+        ⚠ Nur ausblenden: Die Gruppe wird gebaut wie immer und dann nicht
+        gepackt. So bleibt alles, was an ihren Reitern hängt (Neu-Marken,
+        Sprünge), unverändert — und Einschalten ist ein Neuaufbau, kein
+        Sonderweg."""
+        from . import modules
+        for group in modules.SWITCHABLE:
+            g = self.groups.get(group)
+            if g and not modules.enabled(group):
+                g['kopf'].pack_forget()
+                g['inhalt'].pack_forget()
 
     def _group_setting(self, kennung):
         """Unter welchem Namen der Klappzustand einer Gruppe gemerkt wird.
@@ -2995,45 +3030,11 @@ class MainWindow:
         if self.advanced_open:
             self.collapse_body.pack(fill='x')
             if not self.collapse_body.winfo_children():
-                # Pfade liegen hier unten, seit die Erkennung sie selbst
-                # findet: Spielordner und Launcher werden gesucht, und wer doch
-                # nachhelfen muss, wird vom Einrichtungsassistenten geführt —
-                # der erklärt, was die Seite nur als Felder zeigt. Ein Reiter,
-                # den fast niemand braucht, steht oben nur im Weg.
-                self._tab('ordner', 'ordner', t('hf_ordner'), self.collapse_body)
+                # ⚠ Seit der Gliederung vom 27.09.2026 steht hier nur noch die
+                # Erkennung. Pfade, Bestand (jetzt „Sichern & Zurücksetzen")
+                # und „Achsen & Kurven" sind in die offene Gruppe gezogen —
+                # die frühere Begründung fürs Verstecken steht dort.
                 self._tab('erkennung', 'erkennung', t('hf_erkennung'), self.collapse_body)
-                # ⚠ **Bauplan-Bestand gehört hierher, nicht in die offene
-                # Liste.** Die Seite schreibt am eigenen Bestand — einlesen,
-                # überschreiben, zurücksetzen. Am 30.08.2026 hat sie genau
-                # deshalb schon einen Fehler ausgelöst: Sie stand zwischen
-                # „Anzeige" und „Texte im Spiel", also zwischen lauter
-                # harmlosen Seiten, und wurde nebenbei angeklickt.
-                #
-                # Hinter dem zugeklappten „Für Fortgeschrittene" ist sie
-                # weiterhin erreichbar, aber nicht mehr im Vorbeigehen.
-                self._tab('bestand', 'bestand', t('hf_bestand'),
-                             self.collapse_body)
-                # ⚠ **„Achsen & Kurven" aus demselben Grund wie der Bestand.**
-                # Die Seite schreibt in die `actionmaps.xml` — die Datei, an
-                # der die komplette Steuerung des Spielers hängt. Wer nicht
-                # weiß, was Sättigung ist, macht sich damit den Stick
-                # unbrauchbar.
-                #
-                # Sie stand zuerst offen zwischen „Steuerung" und
-                # „Blickwinkel" — und genau das ist prompt passiert: Ein
-                # Hinweis, der wie ein Fehler aussieht, wird weggeklickt, und
-                # dabei überschreibt man sich funktionierende Werte. Das ist
-                # kein Vorwurf an irgendwen, sondern der Normalfall: Was oben
-                # steht und dringend aussieht, wird angefasst.
-                #
-                # ⚠ **„Blickwinkel" bleibt dagegen oben.** Die Seite schreibt
-                # **nichts** — sie liest, rechnet und nennt eine Zahl, die der
-                # Spieler selbst im Spiel einträgt. Kein Risiko, und der
-                # Nutzen ist sofort verständlich. Das Kriterium ist nicht,
-                # wie fachlich etwas wirkt, sondern ob es etwas kaputtmachen
-                # kann.
-                self._tab('achsen', 'achsen', t('hf_achsen'),
-                             self.collapse_body)
             self.collapse_button.configure(text=t('hf_fortgeschritten'))
         else:
             self.collapse_body.pack_forget()
@@ -3070,6 +3071,14 @@ class MainWindow:
         # nächsten Seite beschäftigt war. Gemeldet am 02.09.2026 als „bauplan
         # langsam", nachdem die linke Leiste bereits schnell war.
         self._remember_action()
+        # ⭐ Module (rc4): Eine Seite, deren Gruppe ausgeschaltet ist, wird
+        # nicht still gezeigt — der Sprung landet auf „Module" und sagt, was
+        # aus ist. Sonst stünde man auf einer Seite ohne Eintrag in der Leiste.
+        from . import modules
+        if kennung in modules.hidden_pages():
+            group = modules.group_of(kennung)
+            self.say(t('s_mo_aus_hinweis') % t(modules.LABELS[group]))
+            kennung = 'module'
         # ⚠ **Die Gruppe des Reiters muss offen sein.** Sonst steht man auf
         # einer Seite, deren Eintrag in der Leiste gar nicht zu sehen ist — das
         # sieht nach einem Fehler aus, und der Weg zurück ist nicht zu finden.

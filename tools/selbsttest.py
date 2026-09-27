@@ -8363,16 +8363,37 @@ def main():
     pruefe(hasattr(_fenster85, 'collapse_arrow'),
            'und traegt denselben Klapp-Pfeil wie die Gruppen')
 
-    # ⚠ **Bauplan-Bestand steht NICHT in der offenen Liste.** Die Seite
-    # schreibt am eigenen Bestand; sie stand zwischen harmlosen Einstellungen
-    # und wurde im Vorbeigehen angeklickt (30.08.2026).
-    pruefe('bestand' not in _fenster85.buttons,
-           'Bauplan-Bestand liegt hinter „Fuer Fortgeschrittene"')
+    # ⚠ **Umgedreht am 27.09.2026 (Gliederung der Einstellungen, rc4).** Hier
+    # stand bis rc3: „Bauplan-Bestand steht NICHT in der offenen Liste" — die
+    # Seite schreibt am eigenen Bestand und wurde am 30.08.2026 im
+    # Vorbeigehen angeklickt, als sie zwischen harmlosen Einstellungen stand.
+    # Jetzt heisst sie „Sichern & Zurücksetzen" und steht offen — der Schutz
+    # ist ein anderer, und DEN prueft diese Stelle: Sie steht als LETZTER
+    # Reiter der Gruppe, nicht mehr zwischen harmlosen Seiten, und das
+    # Zurücksetzen darauf ist rot und fragt nach.
+    _reihe85 = [k for z in _fenster85.groups['einstellungen']['inhalt']
+                .pack_slaves()
+                for k, teile in _fenster85.buttons.items() if teile[0] is z]
+    pruefe(_reihe85 and _reihe85[-1] == 'bestand',
+           '„Sichern & Zuruecksetzen" ist der letzte Reiter der Einstellungen '
+           '(%r)' % _reihe85[-3:])
+    # ⚠ Eigener Name: `_q85` gehoert weiter unten der Quelle von
+    # `main_window.py` — im ersten Anlauf hier ueberschrieben, und die
+    # Pruefung zur Mindesthoehe las ploetzlich `pages.py`.
+    _qseiten85 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                         encoding='utf-8').read()
+    pruefe("t('s_zuruecksetzen'), zuruecksetzen, danger=True)" in _qseiten85
+           and "ask_yes_no(fenster.root, t('s_be_reset'), frage)"
+           in _qseiten85,
+           'das Zuruecksetzen ist rot und fragt nach')
+    # Hinter „Für Fortgeschrittene" liegt seitdem nur noch die Erkennung.
+    pruefe('erkennung' not in _fenster85.buttons,
+           'die Erkennung liegt hinter „Fuer Fortgeschrittene"')
     _fenster85._collapse_toggle()
     for _ in range(4):
         _wurzel85.update()
         _wurzel85.update_idletasks()
-    pruefe('bestand' in _fenster85.buttons,
+    pruefe('erkennung' in _fenster85.buttons,
            'und ist nach dem Aufklappen da')
 
     # ⚠⚠ **Umgedreht am 31.08.2026.** Hier stand bis v3.5.1 das Gegenteil:
@@ -21229,6 +21250,43 @@ def main():
                     _schuld209.append('%s:%d %s(%s=…)'
                                       % (_d209.replace(os.sep, '/'),
                                          _k209.lineno, _name209, _kw209.arg))
+    # ⚠⚠ **Zweiter Durchgang: Aufrufe ueber einen Modulnamen** (27.09.2026).
+    # Der erste uebergeht jeden Namen, den es mehrfach gibt — so blieb
+    # `fov_modul.remember(mm_je_pixel=…)` zwei Wochen unentdeckt, weil es
+    # `remember` auch in `logsource` und `phrases` gibt. Die FOV-Seite
+    # speicherte seit dem 14.09.2026 weder Kalibrierung noch Sitzabstand.
+    # Ruft eine Datei `modul.name(…)` und ist `modul` ein Import aus `scbp`,
+    # steht fest, welche Funktion gemeint ist — dann wird auch geprueft.
+    _modsig209 = {}
+    for _d209 in _dateien209:
+        _modname209 = os.path.splitext(os.path.basename(_d209))[0]
+        for _k209 in _ast209.parse(_quellen209[_d209]).body:
+            if isinstance(_k209, _ast209.FunctionDef):
+                _modsig209[(_modname209, _k209.name)] = _parameter209(_k209)
+    for _d209 in _dateien209:
+        _baum209 = _ast209.parse(_quellen209[_d209])
+        _alias209 = {}
+        for _k209 in _ast209.walk(_baum209):
+            if isinstance(_k209, _ast209.ImportFrom) and (
+                    _k209.level >= 1 or (_k209.module or '') == 'scbp'):
+                for _n209 in _k209.names:
+                    _alias209[_n209.asname or _n209.name] = _n209.name
+        for _k209 in _ast209.walk(_baum209):
+            if not (isinstance(_k209, _ast209.Call)
+                    and isinstance(_k209.func, _ast209.Attribute)
+                    and isinstance(_k209.func.value, _ast209.Name)):
+                continue
+            _mod209 = _alias209.get(_k209.func.value.id)
+            _sig_m209 = _modsig209.get((_mod209, _k209.func.attr))
+            if not _sig_m209 or _sig_m209[1]:
+                continue
+            for _kw209 in _k209.keywords:
+                if _kw209.arg and _kw209.arg not in _sig_m209[0]:
+                    _eintrag209 = '%s:%d %s(%s=…)' % (
+                        _d209.replace(os.sep, '/'), _k209.lineno,
+                        _k209.func.attr, _kw209.arg)
+                    if _eintrag209 not in _schuld209:
+                        _schuld209.append(_eintrag209)
     # ⚠ `baum.write(encoding=…)` ist ElementTree, nicht `backup.write` —
     # gleicher Name, fremde Funktion. Die Pruefung kann das nicht wissen,
     # deshalb steht diese eine Namensgleichheit hier ausdruecklich drin.
@@ -25836,6 +25894,7 @@ def main():
     _pruefung_268()
     _pruefung_269()
     _pruefung_270()
+    _pruefung_271()
 
     print()
     if fehler:
@@ -26610,6 +26669,156 @@ def _pruefung_270():
         else:
             os.environ['SC_BP_HOME'] = heim_alt
         shutil.rmtree(ordner, ignore_errors=True)
+
+
+def _pruefung_271():
+    """271. Einstellungen neu gegliedert: Module, Startprogramme, user.cfg."""
+    print('\n271. Module, Startprogramme und user.cfg (Gliederung rc4)')
+    import tempfile as _tf271
+    import tkinter as _tk271
+    from scbp import (modules as _mo271, start_programs as _sp271,
+                      usercfg as _uc271, paths as _pa271,
+                      main_window as _mw271)
+    ordner = _tf271.mkdtemp(prefix='einst271-')
+    heim_alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(ordner, 'daten')
+    _alt_popen = _sp271._popen
+    try:
+        # --- user.cfg: eigene Zeilen, Sprachzeilen bleiben, Sicherung einmal
+        kanal = os.path.join(ordner, 'LIVE')
+        os.makedirs(kanal)
+        with open(os.path.join(kanal, 'user.cfg'), 'w', encoding='utf-8') as f:
+            f.write('r_DisplayInfo = 3\ng_language = german_(germany)\n'
+                    'g_languageAudio = english\n')
+        pruefe(_uc271.own_lines(_uc271.read(kanal)) == ['r_DisplayInfo = 3'],
+               'die Sprachzeilen stehen nicht unter „Eigene Zeilen"')
+        ok, bad = _uc271.write_own(kanal, ['sys_MaxFPS = 120',
+                                           'g_language = english'])
+        text = _uc271.read(kanal)
+        pruefe(ok and 'sys_MaxFPS = 120' in text
+               and 'g_language = german_(germany)' in text
+               and 'g_language = english' not in text
+               and 'r_DisplayInfo' not in text,
+               'eigene Zeilen werden geschrieben, die Sprachzeilen bleiben '
+               'von VerseKit (%r)' % text)
+        sich = os.path.join(kanal, _uc271.BACKUP)
+        pruefe(os.path.isfile(sich) and 'r_DisplayInfo = 3'
+               in open(sich, encoding='utf-8').read(),
+               'vor der ersten Aenderung wird die alte Datei gesichert')
+        _uc271.write_own(kanal, ['cl_fov = 90'])
+        pruefe('r_DisplayInfo = 3' in open(sich, encoding='utf-8').read(),
+               'die Sicherung wird danach nie ueberschrieben')
+        vorher = _uc271.read(kanal)
+        ok, bad = _uc271.write_own(kanal, ['cl_fov = 80', 'kaputt ohne gleich'])
+        pruefe(not ok and bad == [(2, 'kaputt ohne gleich')]
+               and _uc271.read(kanal) == vorher,
+               'mit einer ungueltigen Zeile wird nichts geschrieben (%r)' % bad)
+
+        # --- Startprogramme: der einzige Weg nach draussen ist abgefangen
+        gestartet = []
+        _sp271._popen = lambda cmd, cwd: gestartet.append(cmd) or _Proz271()
+        _sp271._popen(['falle'], None)
+        pruefe(gestartet == [['falle']], 'die Falle schnappt (Selbstpruefung)')
+        del gestartet[:]
+        programm = os.path.join(ordner, 'werkzeug.exe')
+        open(programm, 'w').close()
+        _sp271.save([
+            dict(_sp271.new_entry(), name='A', datei=programm,
+                 argumente='--leise -x', wann='launcher'),
+            dict(_sp271.new_entry(), name='B', datei=programm, wann='spiel',
+                 beenden=True),
+            dict(_sp271.new_entry(), name='C', datei=programm, wann='launcher',
+                 an=False)])
+        _sp271.on_launcher()
+        pruefe(gestartet == [[programm, '--leise', '-x']],
+               'mit dem Launcher startet nur der eingeschaltete Eintrag, mit '
+               'seinen Argumenten (%r)' % gestartet)
+        del gestartet[:]
+        _sp271.on_game_started()
+        pruefe(len(gestartet) == 1 and len(_sp271._RUNNING) == 1,
+               '„sobald SC laeuft" startet und merkt sich, was beendet wird')
+        _proz = _sp271._RUNNING[0]
+        _sp271.on_game_ended()
+        pruefe(_proz.beendet and not _sp271._RUNNING,
+               'beim Spielende wird es wieder beendet')
+        _pa271.set_setting(_sp271.SETTING_ON, False)
+        del gestartet[:]
+        _sp271.on_launcher()
+        _sp271.on_game_started()
+        pruefe(not gestartet, 'mit dem Hauptschalter aus startet nichts')
+        _pa271.set_setting(_sp271.SETTING_ON, True)
+        # „RSI Launcher ueberspringen": `start_game` nimmt den Eintrag
+        _sp271.save([dict(_sp271.new_entry(), name='E', datei=programm,
+                          wann='ersetzt')])
+        del gestartet[:]
+        ok, _grund = _pa271.start_game()
+        pruefe(ok and gestartet == [[programm]],
+               'ein Eintrag „ersetzt" startet statt des RSI Launchers (%r)'
+               % gestartet)
+        _sp271.save([])
+
+        # --- Module: Gruppen und Seiten passen zur Leiste; aus = ausgeblendet
+        _w271 = _wurzel()
+        try:
+            _w271.deiconify()
+            _w271.geometry('1200x900')
+            _f271 = _mw271.MainWindow(_w271, version='0.0.0-pruefung')
+            _w271.update_idletasks()
+            _abw271 = {}
+            for gruppe, seiten in _mo271.SWITCHABLE.items():
+                ist = tuple(k for z in _f271.groups[gruppe]['inhalt']
+                            .winfo_children()
+                            for k, teile in _f271.buttons.items()
+                            if teile[0] is z)
+                if ist != seiten:
+                    _abw271[gruppe] = ist
+            pruefe(not _abw271, 'die Module kennen genau die Reiter der '
+                   'Leiste (%r)' % _abw271)
+            pruefe(all(g not in _mo271.SWITCHABLE for g in
+                       ('bauplaene', 'statistiken', 'einstellungen', 'info')),
+                   'Baupläne, Statistik, Einstellungen, Info sind nicht '
+                   'abschaltbar')
+            _w271.destroy()
+            _mo271.set_enabled('handel', False)
+            _w271 = _wurzel()
+            _w271.deiconify()
+            _w271.geometry('1200x900')
+            _f271 = _mw271.MainWindow(_w271, version='0.0.0-pruefung')
+            _w271.update_idletasks()
+            _g271 = _f271.groups['handel']
+            pruefe(not _g271['kopf'].winfo_manager()
+                   and not _g271['inhalt'].winfo_manager(),
+                   'eine ausgeschaltete Gruppe steht nicht in der Leiste')
+            _f271.open_page('verkauf')
+            _w271.update_idletasks()
+            pruefe(_f271.current == 'module',
+                   'ein Sprung auf eine ausgeblendete Seite landet auf '
+                   '„Module" (%r)' % _f271.current)
+        finally:
+            _mo271.set_enabled('handel', True)
+            try:
+                _w271.destroy()
+            except _tk271.TclError:
+                pass
+    finally:
+        _sp271._popen = _alt_popen
+        del _sp271._RUNNING[:]
+        if heim_alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = heim_alt
+        shutil.rmtree(ordner, ignore_errors=True)
+
+
+class _Proz271:
+    """Ein Platzhalter-Prozess für Prüfung 271 — startet nichts."""
+    beendet = False
+
+    def poll(self):
+        return None
+
+    def terminate(self):
+        self.beendet = True
 
 def _wurzel():
     """Ein unsichtbares Fenster, nur um die Bildschirmgröße erfragen zu können."""

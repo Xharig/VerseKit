@@ -186,17 +186,17 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 </td>
 <td width="50%" valign="top" align="center">
 <img src="assets/screenshot-auftragstexte-en.png" alt="Mission text settings" width="100%"><br>
-<sub><b>In-game text</b> — pick a text source, switch it on and off</sub>
+<sub><b>Game</b> — pick a text source, switch it on and off, view the user.cfg</sub>
 </td>
 </tr>
 <tr>
 <td valign="top" align="center">
-<img src="assets/screenshot-bestand-en.png" alt="Export and import your inventory" width="100%"><br>
-<sub><b>Inventory</b> — export for the basetool, or import an existing one</sub>
+<img src="assets/screenshot-bestand-en.png" alt="Backup and reset" width="100%"><br>
+<sub><b>Backup & reset</b> — backup, export your inventory for the basetool or import one</sub>
 </td>
 <td valign="top" align="center">
-<img src="assets/screenshot-anzeige-en.png" alt="Display settings" width="100%"><br>
-<sub><b>Display</b> — pop-up mode, click-through, font size</sub>
+<img src="assets/screenshot-anzeige-en.png" alt="Overlay settings" width="100%"><br>
+<sub><b>Overlay</b> — pop-up mode, click-through, opacity</sub>
 </td>
 </tr>
 <tr>
@@ -251,7 +251,7 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 
 ### What dead zone, saturation and sensitivity do
 
-Under **Advanced → Axes & curves** you can set how sharply each stick axis responds. Three values, each bending the curve differently:
+Under **Settings → Axes & curves** you can set how sharply each stick axis responds. Three values, each bending the curve differently:
 
 <img src="assets/erklaerung-kurve-en.png" alt="Four curves: nothing set, with dead zone, with saturation, with sensitivity" width="100%">
 
@@ -296,7 +296,7 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/bestand-gruen.png" width="22" alt=""> **Prices** | What a material costs at the terminal and what it sells for — the numbers come from **[UEX Corp](https://uexcorp.space/)** and refresh daily. That way crafting answers not only "what am I missing" but also "what will it cost me". Without a connection the column simply stays empty |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **My hangar** | **Which ships you own — and whether a blueprint even fits in one.** You can pull your hangar out of the pledge store in one go: the browser add-on [Star Citizen: Hangar Extension](https://robertsspaceindustries.com/community-hub/post/star-citizen-hangar-extension-browser-add-on-7xzYDnJDV6c2W) puts it into a file, and the watcher reads it — JSON **and** CSV, with LTI or insurance duration per ship (the older [Hangar XPLORer](https://github.com/dolkensp/HangarXPLOR) is still read as well). Ships bought in-game go in by hand right next to it — every ship remembers where it came from. After that, crafting shows under every blueprint **which of your ships the part fits** and how many slots it has there. Slot data comes from [erkul.games](https://erkul.games) and stays on your machine; only what you actually have in your hangar is fetched, and only once per game patch |
 | <img src="assets/symbole/22/hangar-gruen.png" width="22" alt=""> **Rename ships** | **Your ships are called what you call them at the retrieval terminal (ASOP).** Instead of "Anvil F7C-M Super Hornet Mk II" it shows what you entered — and a star in front marks one without renaming it. The list comes from your hangar, so there is nothing to search. ⚠ A name belongs to the **model**, not to the individual ship: two identical Hornets get the same name; variants like F7C, F7C-M, Mk I and Mk II can be told apart. The factory name comes back character for character at any time |
-| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Reputation thresholds** | **The reputation menu shows after every rank how much reputation it starts at** — "Guild Member [10,000+]". Only the game server fills the bar, but you see what comes next: bounty hunters, contractors, hauling, security, technicians, Battaglia and Wikelo. Can be switched off under "In-game text" |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **Reputation thresholds** | **The reputation menu shows after every rank how much reputation it starts at** — "Guild Member [10,000+]". Only the game server fills the bar, but you see what comes next: bounty hunters, contractors, hauling, security, technicians, Battaglia and Wikelo. Can be switched off under "Game" |
 | <img src="assets/symbole/22/wunschliste-gruen.png" width="22" alt=""> **Wishlist** | **What you are aiming for — with price, location and a loadout you can plan in advance.** Add a ship and see what it costs in game and where it is sold. The loadout can be planned **before** you own it — while the total is still a decision, not a receipt. Nothing here shows up under "fits your ship": a wish is not a possession |
 | <img src="assets/symbole/22/einkaufsliste-gruen.png" width="22" alt=""> **Still missing** | **The bill across all your ships.** Set what belongs in each slot — every part shows **grade and class** ("A · Military · blueprint only") so you can build towards a purpose without knowing 1,500 names. **Military parts** are included: no shop sells them, only blueprints. Per item you choose **buy or build**, and below stands the total with a shopping route of as few stops as possible. Tick off what you fitted — it leaves the list and the total |
 | <img src="assets/symbole/22/farmliste-gruen.png" width="22" alt=""> **What to farm** | **Your stock weighed against everything you want to build.** Across all items at once, not recipe by recipe: two parts needing 2 Iron each with 3 Iron in stock — checked individually both say "enough", together one is missing. Ore below the required quality does not count as stock but is named rather than passed over. Each missing material shows its **richest locations**, plus the places where you get **several at once** |
@@ -498,7 +498,7 @@ If Star Citizen (or the SC Deutsch Launcher) isn't in one of the usual places, y
 
 If you boot the same machine into Windows sometimes and Linux other times, you otherwise keep **two separate blueprint inventories** — without noticing. Each system reads the game logs it can see and writes into its own folder under *Documents*. You only find out months later, when blueprints are missing on one side.
 
-**The fix is a setting, not a sync:** put the folder for your data on a disk **both systems can see**, and point both systems at the same path — under *Settings → Paths → Folder for your data*. Linux reads NTFS, so a shared data drive is enough.
+**The fix is a setting, not a sync:** put the folder for your data on a disk **both systems can see**, and point both systems at the same path — under *Settings → Installation & paths → Folder for your data*. Linux reads NTFS, so a shared data drive is enough.
 
 After that there is only **one** inventory. Nothing is copied and nothing is synced, so nothing can drift apart or overwrite anything.
 
