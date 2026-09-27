@@ -61,6 +61,11 @@ _SET_COLORS = {
     'grau':  TEXT_COLOR,
     'gruen': '#9ce430',   # die Markenfarbe
     'orange': '#e77e23',  # KRT-Schema (Hausfarbe laut Design-System)
+    # Die Akzente der Schemata aus rc8 — gleiche Werte wie in `theme.py`.
+    'cyan': '#38d6f5',
+    'violett': '#a78bfa',
+    'glut': '#ff5a4f',
+    'kontrast': '#ffd400',
     'hell':  theme.FG,
     'gelb':  '#e3b341',
     'blau':  '#4a9eff',

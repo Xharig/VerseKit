@@ -8,6 +8,23 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc8 - 2026-09-27
+
+> **Vier neue Farbschemata** und runde Overlay-Ecken jetzt in jedem Schema.
+
+### Neu
+
+- **Farbschemata „Eis (Cyan)", „Nebel (Violett)", „Glut (Rot)" und „Hoher
+  Kontrast"** unter „Darstellung" — jeweils mit eigenen Symbolen in der
+  Akzentfarbe. Bei „Glut" sind Warnungen gelb-orange statt rot, „Hoher
+  Kontrast" zeigt Weiß und kräftiges Gelb auf Schwarz
+
+### Verbessert
+
+- **Runde Overlay-Ecken auch in „KRT (Orange)"** — die Kästen darin bleiben
+  eckig mit orangen Eckwinkeln
+- Die Vorschau der Farbschemata steht in Reihen zu drei
+
 ## v3.58.0-rc7 - 2026-09-27
 
 > **Runde Ecken am Overlay, orange Zwischenüberschriften in „KRT" und

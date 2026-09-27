@@ -25901,6 +25901,7 @@ def main():
     _pruefung_271()
     _pruefung_272()
     _pruefung_273()
+    _pruefung_274()
 
     print()
     if fehler:
@@ -26980,15 +26981,14 @@ def _pruefung_273():
     from scbp import theme as _th273, overlay as _ov273, pages as _pg273
     from scbp import stats_pages as _sp273, language as _la273
 
-    # --- Runde Ecken: nur im runden Schema, und nur nach dem Einblenden
-    _alt_sq273 = _th273.SQUARE
-    try:
-        _th273.SQUARE = True
-        pruefe(_ov273.round_corners(object()) is False,
-               'im eckigen Schema bleibt das Overlay eckig (und fasst das '
-               'Fenster gar nicht an)')
-    finally:
-        _th273.SQUARE = _alt_sq273
+    # --- Runde Ecken: in JEDEM Schema (rc8, Rueckmeldung am Release), und
+    # nur nach dem Einblenden
+    import inspect as _in273
+    pruefe('SQUARE' not in _in273.getsource(_ov273.round_corners)
+           .split('"""')[-1],
+           'das Overlay wird auch im eckigen KRT-Schema rund')
+    pruefe(_ov273.round_corners(object()) is False,
+           'ein Fenster ohne Rahmen bringt keinen Absturz, nur „nicht rund"')
     _q273 = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
                     encoding='utf-8').read()
     _an273 = _q273.find('overlay.show_as_app(self.root)')
@@ -27116,6 +27116,98 @@ def _pruefung_273():
                and 'k.image = flagge' in _qd273,
                '%s zeigt dieselben Flaggen (und haelt das Bild fest)'
                % _d273)
+
+
+def _pruefung_274():
+    """274. Die vier Schemata aus rc8: vollstaendig, lesbar, mit Symbolen."""
+    print('\n274. Eis, Nebel, Glut, Hoher Kontrast — vollstaendig, lesbar, '
+          'eigener Symbolsatz')
+    import tkinter as _tk274
+    from scbp import theme as _th274, icons as _ic274, pages as _pg274
+    from scbp import language as _la274
+    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
+    import symbole_bauen as _sb274
+
+    def _lum274(farbe):
+        farbe = farbe.lstrip('#')
+        teile = [int(farbe[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+        teile = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4
+                 for x in teile]
+        return 0.2126 * teile[0] + 0.7152 * teile[1] + 0.0722 * teile[2]
+
+    def _kontrast274(a, b):
+        hell, dunkel = sorted([_lum274(a), _lum274(b)], reverse=True)
+        return (hell + 0.05) / (dunkel + 0.05)
+
+    pruefe(all(k in _th274.SCHEMES
+               for k in ('eis', 'nebel', 'glut', 'kontrast')),
+           'die vier neuen Schemata sind waehlbar')
+    _schluessel274 = set(_th274.SCHEMES['original'])
+    _ordner274 = os.path.join(WURZEL, 'assets', 'symbole')
+    for _n274, _s274 in _th274.SCHEMES.items():
+        pruefe(set(_s274) == _schluessel274,
+               '%s kennt dieselben Werte wie das Original' % _n274)
+        pruefe(_s274['label'] in _la274.TEXTS,
+               '%s hat einen Namen in beiden Sprachen' % _n274)
+        # Lesbarkeit nach WCAG: Fliesstext mindestens 4,5 : 1.
+        _werte274 = {
+            'Schrift/Grund': (_kontrast274(_s274['fg'], _s274['bg']), 7.0),
+            'Nebenschrift/Grund': (_kontrast274(_s274['sub'], _s274['bg']),
+                                   4.5),
+            'Nebenschrift/Flaeche': (_kontrast274(_s274['sub'],
+                                                  _s274['surface']), 4.5),
+            'Akzent/Grund': (_kontrast274(_s274['accent'], _s274['bg']), 4.5),
+            'Fehlerfarbe/Grund': (_kontrast274(_s274['red'], _s274['bg']),
+                                  4.5),
+        }
+        _zu_schwach274 = ['%s %.1f' % (k, v) for k, (v, mindest)
+                          in _werte274.items() if v < mindest]
+        pruefe(not _zu_schwach274, '%s ist lesbar (%r)'
+               % (_n274, _zu_schwach274))
+        # Symbolsatz: Farbe passt zum Akzent, jedes Bild ist da.
+        _satz274 = _s274['icon_set']
+        pruefe(_ic274._SET_COLORS.get(_satz274) == _s274['accent']
+               and _sb274.FARBEN.get(_satz274) == _s274['accent'],
+               '%s: Symbolsatz „%s" hat die Akzentfarbe' % (_n274, _satz274))
+        _fehlt274 = []
+        for _gr274 in os.listdir(_ordner274):
+            _pf274 = os.path.join(_ordner274, _gr274)
+            if not os.path.isdir(_pf274):
+                continue
+            for _d274 in os.listdir(_pf274):
+                if _d274.endswith('-gruen.png') and not os.path.exists(
+                        os.path.join(_pf274, _d274.replace(
+                            '-gruen.png', '-%s.png' % _satz274))):
+                    _fehlt274.append('%s/%s' % (_gr274, _d274))
+        pruefe(not _fehlt274, '%s: zu jedem Symbol gibt es das Bild im '
+               'eigenen Satz (%r)' % (_n274, _fehlt274[:3]))
+    # „Glut": Rot ist der Akzent, also darf die Fehlerfarbe nicht rot sein.
+    _gl274 = _th274.SCHEMES['glut']
+    pruefe(_gl274['red'] != _gl274['accent']
+           and int(_gl274['red'][3:5], 16) > 0x80,
+           '„Glut" hat eine gelb-orange Fehlerfarbe, nicht den Akzent')
+    _hk274 = _th274.SCHEMES['kontrast']
+    pruefe(_kontrast274(_hk274['sub'], _hk274['bg']) >= 7.0
+           and _kontrast274(_hk274['line'], _hk274['bg']) >= 3.0,
+           '„Hoher Kontrast" haelt auch Nebenschrift und Linien kraeftig')
+
+    # Die Vorschaukarten passen auf die Seite (sechs nebeneinander waren
+    # ueber 1000 px).
+    _w274 = _tk274.Tk()
+    try:
+        import tkinter.font as _tf274
+        _fe274 = type('F', (), {})()
+        _fe274.f_small = _tf274.Font(_w274, family='Segoe UI', size=9)
+        _fe274.say = lambda *_a: None
+        _karten274 = _pg274._scheme_cards(_fe274, _w274, 'original',
+                                         lambda _n: None)
+        _karten274.pack()
+        _w274.update()
+        pruefe(_karten274.winfo_reqwidth() < 700,
+               'die Schema-Vorschau steht in Reihen zu drei (%d px)'
+               % _karten274.winfo_reqwidth())
+    finally:
+        _w274.destroy()
 
 
 def _wurzel():

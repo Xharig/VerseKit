@@ -1948,9 +1948,13 @@ def _scheme_cards(window, parent, active, action):
     row = tk.Frame(parent, bg=BG)
     cards = {}
     width, height = 170, 78
-    for name, scheme in theme.SCHEMES.items():
+    # ⚠ Drei je Reihe, nicht alle nebeneinander: Seit rc8 gibt es sechs
+    # Schemata — nebeneinander wären das über 1000 px, mehr als die Seite hat.
+    per_row = 3
+    for index, (name, scheme) in enumerate(theme.SCHEMES.items()):
         box = tk.Frame(row, bg=BG)
-        box.pack(side='left', padx=(0, 12))
+        box.grid(row=index // per_row, column=index % per_row, sticky='w',
+                 padx=(0, 12), pady=(0, 10))
         c = tk.Canvas(box, width=width, height=height, bg=BG,
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack()

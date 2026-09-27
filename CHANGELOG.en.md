@@ -8,6 +8,23 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc8 - 2026-09-27
+
+> **Four new colour schemes** and rounded overlay corners in every scheme.
+
+### New
+
+- **Colour schemes "Ice (cyan)", "Nebula (violet)", "Ember (red)" and "High
+  contrast"** under "Appearance" — each with its own symbols in the accent
+  colour. In "Ember" warnings are yellow-orange instead of red, "High
+  contrast" shows white and strong yellow on black
+
+### Improved
+
+- **Rounded overlay corners in "KRT (orange)" too** — the boxes inside stay
+  square with orange corner marks
+- The colour scheme preview is laid out in rows of three
+
 ## v3.58.0-rc7 - 2026-09-27
 
 > **Rounded corners on the overlay, orange section headings in "KRT" and

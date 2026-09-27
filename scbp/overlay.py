@@ -116,12 +116,14 @@ def round_corners(window):
     ⚠ **Ob Windows die Rundung auch bei halbdurchsichtigem Overlay zeichnet,
     ist im Prüflauf nicht zu sehen** — der darf kein Fenster auf den
     Bildschirm bringen. Belegt wird es am Release, beim Test am Bildschirm.
-    Im Schema „KRT" bleibt das Overlay eckig: Dort ist Eckigkeit das Merkmal.
+
+    ⚠ **In jedem Schema, auch „KRT" (seit rc8).** In rc7 blieb das Overlay im
+    eckigen KRT-Schema eckig — gedacht als Merkmal des Designs. Am Release
+    kam die Rückmeldung: *„das Overlay hast du aber vergessen, die Ecken
+    abzurunden"* (27.09.2026). Rund ist nur der Fensterumriss; die Kästen
+    darin bleiben im KRT-Schema eckig mit orangen Eckwinkeln.
     """
     if not WINDOWS:
-        return False
-    from . import theme
-    if theme.SQUARE:
         return False
     try:
         window.update_idletasks()

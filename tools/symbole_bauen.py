@@ -115,6 +115,11 @@ FARBEN = {
     'grau':  '#8b98a5',      # SUB    — der Normalzustand
     'gruen': '#9ce430',      # ACCENT — Update da, Schalter an, Reiter gewählt
     'orange': '#e77e23',     # ACCENT im Schema „KRT" — Hausfarbe (v3.58.0-rc5)
+    # Die Akzente der vier Schemata aus v3.58.0-rc8 (`scbp/theme.py`).
+    'cyan':     '#38d6f5',   # „Eis"
+    'violett':  '#a78bfa',   # „Nebel"
+    'glut':     '#ff5a4f',   # „Glut"
+    'kontrast': '#ffd400',   # „Hoher Kontrast"
     'hell':  '#e6edf3',      # FG     — Mauszeiger darüber
     # Die beiden Zustandsfarben der Bauplanzeilen. Ohne sie müsste ein gelber
     # Punkt grün gemalt werden, und die Zeile verlöre ihre Aussage.
