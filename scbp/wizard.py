@@ -523,11 +523,16 @@ class Wizard:
         self.inj_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
                                     anchor='w', justify='left', wraplength=560)
 
-        for schluessel, quelle in (('inj_quelle_de', 'deutsch'),
-                                   ('inj_quelle_ss', 'starstrings'),
-                                   ('inj_quelle_orig', 'original')):
+        # Die Flagge zeigt die Spielsprache, die dabei herauskommt.
+        from .pages import _flag
+        for schluessel, quelle, land in (('inj_quelle_de', 'deutsch', 'de'),
+                                         ('inj_quelle_ss', 'starstrings', 'gb'),
+                                         ('inj_quelle_orig', 'original', 'gb')):
+            flagge = _flag(land, master=f)
             k = tk.Label(f, text='  %s  ' % t(schluessel), bg=FLAECHE, fg=FG,
-                         font=font(11), cursor='hand2', padx=10, pady=8)
+                         font=font(11), cursor='hand2', padx=10, pady=8,
+                         image=flagge or '', compound='left')
+            k.image = flagge        # sonst räumt Python das Bild weg
             k.pack(anchor='w', pady=(14 if schluessel.endswith('_de') else 6, 0))
             k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
 

@@ -168,6 +168,37 @@ def build(fenster, kennung, rahmen):
 
 
 # ------------------------------------------------------------------ Bausteine
+def style_headings(window, root_widget):
+    """Schema „KRT": jede Zwischenüberschrift orange und in Großbuchstaben.
+
+    ⭐ Zentral statt an jeder der rund 17 Stellen (rc7): Nach dem Aufbau einer
+    Seite wird jede Beschriftung in Titelschrift, die auf dem Seitengrund in
+    der normalen Textfarbe steht, umgefärbt. Kachelwerte (andere Fläche,
+    Akzentfarbe) und die Seitenüberschrift (schon orange) bleiben, wie sie
+    sind. Im Original-Schema tut die Funktion nichts.
+
+    ⚠ Seiten, die ihren Inhalt später neu zeichnen (Statistik), rufen sie
+    nach jedem Neuzeichnen noch einmal."""
+    if not theme.ACCENT_HEADINGS:
+        return
+    title_font = str(window.f_title)
+    stack = [root_widget]
+    while stack:
+        widget = stack.pop()
+        try:
+            stack.extend(widget.winfo_children())
+            if (isinstance(widget, tk.Label)
+                    and str(widget.cget('font')) == title_font
+                    and str(widget.cget('bg')).lower() == BG.lower()
+                    and str(widget.cget('fg')).lower() == FG.lower()):
+                # Erst in eine Variable: `text=…cget('text')` hielte
+                # `texte_pruefen` fuer festen Oberflaechentext.
+                gross = theme.heading(widget.cget('text'))
+                widget.configure(fg=ACCENT, text=gross)
+        except tk.TclError:
+            continue
+
+
 def _heading(window, frame, title, lead=''):
     # Schema „KRT": Überschriften orange und in Großbuchstaben.
     tk.Label(frame, text=theme.heading(title), bg=BG,
@@ -888,7 +919,20 @@ def _wrap_self(label):
             breite = label.winfo_width()
             if breite <= 40:
                 return
-            neu = breite - 4
+            # ⚠ `wraplength` gilt für den Text, `winfo_width` für das ganze
+            # Label — die Polsterung links und rechts steckt mit drin. Ohne
+            # sie abzuziehen, wünschte sich „Bergbau-Regler" (padx=8) 153 px
+            # und bekam 148 (randpruefung, 27.09.2026).
+            #
+            # ⚠⚠ Genau die Polsterung abziehen, nicht mehr: Ein Label ohne
+            # `expand` bekommt seine Wunschbreite, und jeder Pixel Abschlag
+            # macht es beim nächsten `<Configure>` wieder schmaler — bis es
+            # ein Wort je Zeile zeigt. So passt der Text genau hinein, und die
+            # Breite bleibt stehen.
+            rand = 2 * sum(label.winfo_pixels(label.cget(option) or 0)
+                           for option in ('padx', 'borderwidth',
+                                          'highlightthickness'))
+            neu = breite - rand
             if int(label.cget('wraplength') or 0) != neu:
                 label.configure(wraplength=neu, justify='left')
         except tk.TclError:
@@ -1812,7 +1856,7 @@ def _general(fenster, rahmen):
     toggle_switch(ziel, play_stats.auto_enabled(), stats_auto_flip).pack()
 
 
-def _flag(code):
+def _flag(code, master=None):
     """Eine Flagge in Zeilengröße — oder None, wenn das Bild fehlt.
 
     ⚠ **Die einzige Ausnahme neben Discord und Ko-fi** von der Regel „Symbole
@@ -1827,7 +1871,11 @@ def _flag(code):
     name = '%s-%d.png' % (code, size)
     path = _bundled(os.path.join('assets', 'flaggen', name))
     try:
-        return tk.PhotoImage(file=path) if os.path.isfile(path) else None
+        # ⚠ `master` bei Fenstern mit eigenem Tk (Assistent): Sonst landet das
+        # Bild im ersten Tk des Prozesses, und das Label meldet
+        # „image pyimage… doesn't exist".
+        return (tk.PhotoImage(file=path, master=master)
+                if os.path.isfile(path) else None)
     except tk.TclError:
         return None
 
@@ -2780,8 +2828,11 @@ def _game(fenster, rahmen):
     ziel = _setting_row(fenster, innen, t('s_sp_quelle'), t('s_sp_quelle_h'),
                  wide=True)
     wahl = _choice(fenster, ziel,
-                 [('deutsch', t('s_sp_q_de')), ('starstrings', t('s_sp_q_ss')),
-                  ('original', t('s_sp_q_or'))],
+                 # Die Flagge zeigt die Spielsprache, die dabei herauskommt —
+                 # StarStrings und die Originaltexte sind beide Englisch.
+                 [('deutsch', t('s_sp_q_de'), _flag('de')),
+                  ('starstrings', t('s_sp_q_ss'), _flag('gb')),
+                  ('original', t('s_sp_q_or'), _flag('gb'))],
                  paths.setting('inj_quelle') or '',
                  lambda k: _choose_source(fenster, e, wahl, k, lage_zeigen))
     wahl.pack()
@@ -3111,20 +3162,25 @@ def _collection(fenster, rahmen):
                               ('voll', t('s_be_voll'), t('s_be_voll_h'))):
         z = tk.Frame(karte, bg=SURFACE)
         z.pack(fill='x', padx=16, pady=5)
+        # ⚠ `a=art` als Vorgabewert, nicht `art` direkt. Ein Lambda merkt sich
+        # die **Variable**, nicht ihren Wert — ohne diese Zeile hätten alle drei
+        # Knöpfe am Ende der Schleife auf „voll" gezeigt und dreimal dasselbe
+        # gespeichert.
+        # ⚠ Der Knopf zuerst: `pack` quetscht, was zuletzt kommt — bei der
+        # größten Schrift fehlten ihm 15 px (randpruefung, 27.09.2026).
+        _button(fenster, z, t('s_be_speichern_kurz'),
+               lambda a=art: einzeln(a)).pack(side='right')
         # ⚠ Die Breite trägt den LÄNGSTEN Namen — „Baupläne DB · Star Citizen
         # Deutsch". Ein Label mit zu kleiner `width` wächst über sie hinaus
         # und schiebt die Spalte daneben nach rechts: Dann steht „413
         # Baupläne" in jeder Zeile woanders.
         tk.Label(z, text=name, bg=SURFACE, fg=FG, font=fenster.f_small,
                  width=34, anchor='w').pack(side='left')
-        tk.Label(z, text=wofuer, bg=SURFACE, fg=SUB,
-                 font=fenster.f_small).pack(side='left')
-        # ⚠ `a=art` als Vorgabewert, nicht `art` direkt. Ein Lambda merkt sich
-        # die **Variable**, nicht ihren Wert — ohne diese Zeile hätten alle drei
-        # Knöpfe am Ende der Schleife auf „voll" gezeigt und dreimal dasselbe
-        # gespeichert.
-        _button(fenster, z, t('s_be_speichern_kurz'),
-               lambda a=art: einzeln(a)).pack(side='right')
+        _wofuer_lbl = tk.Label(z, text=wofuer, bg=SURFACE, fg=SUB,
+                               font=fenster.f_small, anchor='w',
+                               justify='left')
+        _wofuer_lbl.pack(side='left', fill='x', expand=True)
+        _wrap_self(_wofuer_lbl)
 
     reihe = tk.Frame(innen, bg=BG)
     reihe.pack(fill='x', pady=(12, 0))
@@ -6023,6 +6079,9 @@ def _credit_box(fenster, eltern, name, lizenz, was, adresse=None):
         link = tk.Label(kasten, text=adresse, bg=SURFACE, fg=ACCENT,
                         font=fenster.f_small, anchor='w', cursor='hand2')
         link.pack(fill='x', padx=16, pady=(0, 12))
+        # Lange Adressen (der Hub-Beitrag der Hangar-Erweiterung) brechen um,
+        # statt das Fenster auf 1236 px aufzudrücken (randpruefung, 27.09.2026).
+        _wrap(link, inset=32)
 
         def oeffnen(_=None):
             if not paths.open_in_browser(adresse):
@@ -11115,9 +11174,13 @@ def _refineries(fenster, rahmen):
             _kurz = t('s_bg_raff_weitere') % (_kurz, len(namen) - 1)
         tk.Label(z, text=_kurz, bg=BG, fg=FG, font=fenster.f_small,
                  anchor='w', width=16).pack(side='left', padx=(12, 0))
-        tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
-                 font=fenster.f_small, anchor='w').pack(side='left',
-                                                        fill='x', expand=True)
+        # Umbrechen: Bei der größten Schrift brauchte die Pyro-Liste 749 px
+        # und bekam 682 (randpruefung, 27.09.2026).
+        _namen_lbl = tk.Label(z, text=', '.join(namen), bg=BG, fg=SUB,
+                              font=fenster.f_small, anchor='w',
+                              justify='left')
+        _namen_lbl.pack(side='left', fill='x', expand=True)
+        _wrap_self(_namen_lbl)
 
     _body_text(innen, t('s_rf_quelle'), fenster.f_small, fill='x',
                pady=(12, 0))
@@ -14279,6 +14342,17 @@ def _storage(fenster, rahmen):
     # neben dem Feld schaltet um; die Beschriftung sagt immer, was gerade gilt.
     cscu = [paths.setting('lager_einheit') == 'cscu']
 
+    def _einheit(name=None):
+        """„Stück" oder „SCU" für die Meldungen (rc7) — zum gewählten oder
+        zum genannten Material."""
+        try:
+            from . import crafting as _h_einheit
+            stueck = _h_einheit.is_piece(name if name is not None
+                                         else material.get())
+        except Exception:
+            stueck = False
+        return t('s_lg_stueck') if stueck else 'SCU'
+
     def _stueckware():
         """Zählt das gerade gewählte Material in Stück statt in SCU?
 
@@ -14450,12 +14524,14 @@ def _storage(fenster, rahmen):
             mengen_vorschau.pack_forget()
             return
         if wert < 0:
-            mengen_vorschau.configure(text=t('s_lg_ergibt_minus') % vorher,
+            mengen_vorschau.configure(text=t('s_lg_ergibt_minus')
+                                      % (vorher, _einheit()),
                                       fg=GOLD)
         elif wert == 0:
             mengen_vorschau.configure(text=t('s_lg_ergibt_null'), fg=GOLD)
         else:
-            mengen_vorschau.configure(text=t('s_lg_ergibt') % round(wert, 3),
+            mengen_vorschau.configure(text=t('s_lg_ergibt')
+                                      % (round(wert, 3), _einheit()),
                                       fg=ACCENT)
         mengen_vorschau.pack(fill='x', pady=(4, 0))
 
@@ -14529,8 +14605,9 @@ def _storage(fenster, rahmen):
                 pfeil = ' ▾' if sortier['ab'] else ' ▴'
             lbl = tk.Label(kopf, text=t(textkey) + pfeil, bg=BG,
                            fg=(ACCENT if sortier['nach'] == schluessel else SUB),
-                           font=fenster.f_small, width=breite, anchor=anker_,
-                           cursor='hand2')
+                           font=fenster.f_small,
+                           width=0 if schluessel == SPALTEN[-1][0] else breite,
+                           anchor=anker_, cursor='hand2')
             lbl.pack(side='left', padx=(0, 8))
             lbl.bind('<Button-1>', lambda _e, k=schluessel: sortieren(k))
 
@@ -14599,9 +14676,18 @@ def _storage(fenster, rahmen):
                     (q_txt, SPALTEN[2], SUB, fenster.f_small),
                     (abbau_txt, SPALTEN[3], SUB, fenster.f_small),
                     (ort_txt, SPALTEN[4], SUB, fenster.f_small)):
+                letzte = _k == SPALTEN[-1][0]
                 lbl = tk.Label(z, text=wert, bg=z_bg, fg=farbe, font=schrift,
-                               width=breite, anchor=anker_, cursor='hand2')
-                lbl.pack(side='left', padx=(0, 8))
+                               width=0 if letzte else breite, anchor=anker_,
+                               justify='left', cursor='hand2')
+                if letzte:
+                    # ⚠ Die letzte Spalte (Ort) nimmt den Rest und bricht um,
+                    # statt feste Zeichen zu fordern: Bei der größten Schrift
+                    # bekam „Levski" 103 von 198 px (randpruefung, 27.09.2026).
+                    lbl.pack(side='left', padx=(0, 8), fill='x', expand=True)
+                    _wrap_self(lbl)
+                else:
+                    lbl.pack(side='left', padx=(0, 8))
                 spalten_labels.append(lbl)
 
             # Die ganze Zeile oeffnet den Posten zum Berichtigen. ⚠ Auch jedes
@@ -14658,7 +14744,8 @@ def _storage(fenster, rahmen):
         p_ = alle[nummer]
         if not ask_yes_no(fenster.root, t('s_lg_posten_frage_t'),
                              t('s_lg_posten_frage') % (p_.get('material') or '?',
-                                                       float(p_.get('menge') or 0))):
+                                                       float(p_.get('menge') or 0),
+                                                       _einheit(p_.get('material') or ''))):
             return
         _keep_scroll(innen, lambda: (lager.remove(nummer),
                                            verwerfen(), zeichnen()))
@@ -14751,7 +14838,8 @@ def _storage(fenster, rahmen):
             if neu_wert < 0:
                 # ⚠ Nicht stillschweigend auf 0 setzen. Wer sich um eine Ziffer
                 # vertippt, soll den Bestand sehen, nicht ihn verlieren.
-                meldung.configure(text=t('s_lg_zu_wenig') % vorher, fg=GOLD)
+                meldung.configure(text=t('s_lg_zu_wenig')
+                                  % (vorher, _einheit()), fg=GOLD)
                 return
             if neu_wert == 0 and nr is not None:
                 # Alles abgegeben — dann hat der Posten keinen Zweck mehr.
@@ -14803,10 +14891,10 @@ def _storage(fenster, rahmen):
         wert = round(wert * _faktor(), 4)
         if bearbeitung['nummer'] is None:
             lager.add(name, wert, q, ort.get())
-            hinweis = t('s_lg_eingetragen') % (name, wert)
+            hinweis = t('s_lg_eingetragen') % (name, wert, _einheit(name))
         else:
             lager.change(bearbeitung['nummer'], name, wert, q, ort.get())
-            hinweis = t('s_lg_geaendert') % (name, wert)
+            hinweis = t('s_lg_geaendert') % (name, wert, _einheit(name))
             bearbeitung['nummer'] = None
         # ⚠ **Der Lagerort bleibt stehen.** Wer eine Raffinerie-Ausbeute
         # einträgt, trägt sechs Posten am selben Ort ein — ihn jedes Mal neu
@@ -15538,8 +15626,11 @@ def _selling(fenster, rahmen):
     # gewählte Ware". Es ist weg: Die Menge steht jetzt an der Marke der Ware
     # selbst (siehe `_chips`), und zwei Wege für dieselbe Sache waren genau
     # der Grund, warum sich die Zahlen gegenseitig überschrieben.
-    tk.Label(suchzeile, text=t('s_vk_menge_hinweis'), bg=BG, fg=SUB,
-             font=fenster.f_small, anchor='w').pack(fill='x', pady=(6, 0))
+    _menge_lbl = tk.Label(suchzeile, text=t('s_vk_menge_hinweis'), bg=BG,
+                          fg=SUB, font=fenster.f_small, anchor='w',
+                          justify='left')
+    _menge_lbl.pack(fill='x', pady=(6, 0))
+    _wrap(_menge_lbl)
 
     def kaestchen_um(an):
         nur_nqa[0] = an
@@ -16506,15 +16597,21 @@ def _view_angle(fenster, rahmen):
     def _wert_zeile(eltern, bezeichnung, wert, hilfe='', farbe=FG):
         zeile = tk.Frame(eltern, bg=BG)
         zeile.pack(fill='x', pady=(12, 0))
+        # ⚠ Der Wert zuerst: `pack` quetscht, was zuletzt kommt. Stand die
+        # Erklärung vorn, bekam „88 cm" bei der größten Schrift 5 von 70 px
+        # (randpruefung, 27.09.2026). Jetzt bricht die Erklärung um.
+        tk.Label(zeile, text=wert, bg=BG, fg=farbe, font=fenster.f_bold,
+                 anchor='e').pack(side='right', padx=(16, 0))
         links = tk.Frame(zeile, bg=BG)
         links.pack(side='left', fill='x', expand=True)
         tk.Label(links, text=bezeichnung, bg=BG, fg=FG, font=fenster.f_bold,
                  anchor='w').pack(fill='x')
         if hilfe:
-            tk.Label(links, text=hilfe, bg=BG, fg=SUB, font=fenster.f_small,
-                     anchor='w', justify='left').pack(fill='x')
-        tk.Label(zeile, text=wert, bg=BG, fg=farbe, font=fenster.f_bold,
-                 anchor='e').pack(side='right', padx=(16, 0))
+            _hilfe_lbl = tk.Label(links, text=hilfe, bg=BG, fg=SUB,
+                                  font=fenster.f_small, anchor='w',
+                                  justify='left')
+            _hilfe_lbl.pack(fill='x')
+            _wrap_self(_hilfe_lbl)
         tk.Frame(eltern, bg=LINE, height=1).pack(fill='x', pady=(12, 0))
 
     _auffrischen()
@@ -17199,7 +17296,9 @@ def _axes(fenster, rahmen):
         name = tk.StringVar()
         from .main_window import round_entry as _feld_rund
         feld = _feld_rund(neu, name, fenster.f_small, SURFACE, LINE, ACCENT,
-                          FG, width=22, placeholder=t('s_pl_satzname'))
+                          # 18 statt 22 Zeichen: Mit 22 ragte „Speichern"
+                          # bei der größten Schrift 15 px aus der Spalte.
+                          FG, width=18, placeholder=t('s_pl_satzname'))
         feld.holder.pack(side='left', padx=(0, 8))
 
         def _sichern():
@@ -17219,16 +17318,6 @@ def _axes(fenster, rahmen):
     def _satz_zeile(eltern, satz, device_set):
         zeile = tk.Frame(eltern, bg=SURFACE)
         zeile.pack(fill='x', pady=(6, 0))
-        links_teil = tk.Frame(zeile, bg=SURFACE)
-        links_teil.pack(side='left', fill='x', expand=True, padx=10, pady=8)
-        tk.Label(links_teil, text=satz['name'], bg=SURFACE, fg=FG,
-                 font=fenster.f_bold, anchor='w').pack(fill='x')
-        tk.Label(links_teil,
-                 text='%s  ·  %s' % (
-                     t('s_gs_geraete').format(len(satz.get('geraete') or {})),
-                     t('s_gs_stand').format(satz.get('stand', '—'))),
-                 bg=SURFACE, fg=SUB, font=fenster.f_small,
-                 anchor='w').pack(fill='x')
 
         def _anwenden(n=satz['name']):
             schreibt, fehlt = device_set.preview(n)
@@ -17263,6 +17352,23 @@ def _axes(fenster, rahmen):
                              cursor='hand2')
             knopf.pack(side='right', padx=(0, 8))
             knopf.bind('<Button-1>', lambda _e, f=tat: f())
+
+        # ⚠ Die Knöpfe zuerst, der Text danach: `pack` verteilt knappen Platz
+        # in Packreihenfolge, und was zuletzt kommt, wird gequetscht. Standen
+        # Name und Stand vorn, bekam „Löschen" 61 von 97 px (randpruefung,
+        # 27.09.2026). So bricht der Text um, und die Knöpfe bleiben ganz.
+        links_teil = tk.Frame(zeile, bg=SURFACE)
+        links_teil.pack(side='left', fill='x', expand=True, padx=10, pady=8)
+        for text, schrift, farbe in (
+                (satz['name'], fenster.f_bold, FG),
+                ('%s  ·  %s' % (
+                    t('s_gs_geraete').format(len(satz.get('geraete') or {})),
+                    t('s_gs_stand').format(satz.get('stand', '—'))),
+                 fenster.f_small, SUB)):
+            _zeilen_lbl = tk.Label(links_teil, text=text, bg=SURFACE, fg=farbe,
+                                   font=schrift, anchor='w', justify='left')
+            _zeilen_lbl.pack(fill='x')
+            _wrap_self(_zeilen_lbl)
 
     def _exponent_fuer(ueberblick, block, achse):
         """Der Exponent, der auf **dieser** physischen Achse gilt.

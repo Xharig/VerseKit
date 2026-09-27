@@ -8,6 +8,31 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc7 - 2026-09-27
+
+> **Rounded corners on the overlay, orange section headings in "KRT" and
+> nothing sticking out of the window at large font sizes any more.**
+
+### New
+
+- **Rounded corners on the overlay window** (Windows 11) in the "Verse-Kit
+  (original)" scheme; "KRT (orange)" stays square on purpose
+- **Flags at the text source** — German (rjcncpt), StarStrings and
+  "English (from the game)" show which language ends up in the game
+
+### Improved
+
+- **"KRT (orange)"** — the section headings on the pages are now orange
+  and in capitals too
+
+### Fixed
+
+- **Storage** — piece goods say "pcs" instead of "SCU" in the messages
+- **Statistics pages** pushed the window wider than set
+- **Large font (UHD 150 % and maximum)** — nothing sticks out of the window
+  any more on Axes, Storage, Selling, Refineries, Field of view, Inventory
+  and Thanks; long texts wrap
+
 ## v3.58.0-rc6 - 2026-09-27
 
 > **"KRT (orange)" follows the official design system**, and the language

@@ -95,6 +95,50 @@ def _windows_click_through(fenster, an):
         return False
 
 
+# Windows 11: `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE, ROUND)`.
+DWMWA_WINDOW_CORNER_PREFERENCE = 33
+DWMWCP_ROUND = 2
+
+
+def round_corners(window):
+    """Runde Ecken am Overlay — Windows 11 zeichnet sie selbst (v3.58.0-rc7).
+
+    Wunsch vom 27.09.2026: *„Das Overlay hat bisher scharfe Ecken, sähe das
+    nicht besser aus, wenn es abgerundet wäre?"* Ein rahmenloses Fenster
+    (`overrideredirect`) bekommt die Rundung von Windows 11 nicht von selbst;
+    mit dieser Einstellung schon — mit Kantenglättung, ohne Zusatzpaket.
+
+    ⚠ Unter Windows 10 kennt DWM die Einstellung nicht und meldet einen
+    Fehlerwert — dann bleibt es eckig, ohne Schaden. Linux: eckig (die
+    Rundung hängt dort am Fenstermanager). Gibt True zurück, wenn Windows die
+    Bitte angenommen hat (Rückgabe 0 = S_OK).
+
+    ⚠ **Ob Windows die Rundung auch bei halbdurchsichtigem Overlay zeichnet,
+    ist im Prüflauf nicht zu sehen** — der darf kein Fenster auf den
+    Bildschirm bringen. Belegt wird es am Release, beim Test am Bildschirm.
+    Im Schema „KRT" bleibt das Overlay eckig: Dort ist Eckigkeit das Merkmal.
+    """
+    if not WINDOWS:
+        return False
+    from . import theme
+    if theme.SQUARE:
+        return False
+    try:
+        window.update_idletasks()
+        # ⚠ Das Rahmenfenster, nicht `winfo_id()`: Am inneren Fenster lehnt DWM
+        # ab (0x80070006, ungültiges Handle) — gemessen am 27.09.2026. Und das
+        # Fenster muss schon stehen; versteckt gibt es den Rahmen noch nicht.
+        handle = (int(window.wm_frame(), 16)
+                  or ctypes.windll.user32.GetParent(window.winfo_id()))
+        preference = ctypes.c_int(DWMWCP_ROUND)
+        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            ctypes.c_void_p(handle), ctypes.c_uint(DWMWA_WINDOW_CORNER_PREFERENCE),
+            ctypes.byref(preference), ctypes.sizeof(preference))
+        return result == 0
+    except Exception:
+        return False
+
+
 def show_as_app(window):
     """Das Overlay als App führen statt als Werkzeugfenster (nur Windows).
 

@@ -3476,6 +3476,7 @@ class MainWindow:
         """Hier hängen die Seiten ein — geliefert von `pages.py`."""
         from . import pages
         pages.build(self, kennung, rahmen)
+        pages.style_headings(self, rahmen)
 
     # ⚠⚠ **So lange muss Ruhe sein, bevor im Hintergrund gebaut wird.**
     # Tk zeichnet einstraengig: Jede vorgebaute Seite haelt die Oberflaeche

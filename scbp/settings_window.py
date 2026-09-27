@@ -350,12 +350,15 @@ class SettingsWindow:
         # das Fenster erst breiter ziehen, um zu ahnen, dass es ihn gibt.
         wahl = tk.Frame(eltern, bg=BG)
         wahl.pack(fill='x', pady=(0, 8))
-        for schluessel, quelle in (('inj_quelle_de', 'deutsch'),
-                                   ('inj_quelle_ss', 'starstrings'),
-                                   ('inj_quelle_orig', 'original')):
+        from .pages import _flag
+        for schluessel, quelle, land in (('inj_quelle_de', 'deutsch', 'de'),
+                                         ('inj_quelle_ss', 'starstrings', 'gb'),
+                                         ('inj_quelle_orig', 'original', 'gb')):
+            flagge = _flag(land, master=wahl)
             k = tk.Label(wahl, text='  %s  ' % t(schluessel), bg=SURFACE, fg=FG,
                          font=font(10), cursor='hand2', padx=10, pady=7,
-                         anchor='w')
+                         anchor='w', image=flagge or '', compound='left')
+            k.image = flagge        # sonst räumt Python das Bild weg
             k.pack(fill='x', pady=(0, 4))
             k.bind('<Button-1>', lambda e, q=quelle: self._inj_switch(q))
         tk.Label(eltern, text=t('inj_fremd'), bg=BG, fg=SUB, font=font(9),

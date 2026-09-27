@@ -25900,6 +25900,7 @@ def main():
     _pruefung_270()
     _pruefung_271()
     _pruefung_272()
+    _pruefung_273()
 
     print()
     if fehler:
@@ -26967,6 +26968,155 @@ def _pruefung_272():
         else:
             os.environ['SC_BP_HOME'] = heim_alt
         shutil.rmtree(ordner, ignore_errors=True)
+
+
+def _pruefung_273():
+    """273. Runde Overlay-Ecken, KRT-Zwischenueberschriften, Lager-Einheit,
+    Ueberlaeufe (rc7)."""
+    print('\n273. Overlay-Ecken, orange Zwischenueberschriften, „Stueck" im '
+          'Lager, nichts drueckt das Fenster auf')
+    import types as _ty273
+    import tkinter as _tk273
+    from scbp import theme as _th273, overlay as _ov273, pages as _pg273
+    from scbp import stats_pages as _sp273, language as _la273
+
+    # --- Runde Ecken: nur im runden Schema, und nur nach dem Einblenden
+    _alt_sq273 = _th273.SQUARE
+    try:
+        _th273.SQUARE = True
+        pruefe(_ov273.round_corners(object()) is False,
+               'im eckigen Schema bleibt das Overlay eckig (und fasst das '
+               'Fenster gar nicht an)')
+    finally:
+        _th273.SQUARE = _alt_sq273
+    _q273 = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                    encoding='utf-8').read()
+    _an273 = _q273.find('overlay.show_as_app(self.root)')
+    _ru273 = _q273.find('overlay.round_corners(self.root)')
+    pruefe(_an273 >= 0 and _ru273 > _an273,
+           'die Ecken werden nach show_as_app gesetzt — vorher gibt es den '
+           'Rahmen des Fensters noch nicht')
+
+    # --- Lager: Stueckgut heisst „Stueck", nicht „SCU"
+    _sch273 = ('s_lg_posten_frage', 's_lg_eingetragen', 's_lg_geaendert',
+               's_lg_ergibt', 's_lg_ergibt_minus', 's_lg_zu_wenig')
+    _scu273 = [k for k in _sch273 for text in _la273.TEXTS[k]
+               if 'SCU' in text]
+    pruefe(not _scu273, 'keine Lager-Meldung schreibt „SCU" fest (%r)'
+           % _scu273)
+    pruefe(_la273.TEXTS.get('s_lg_stueck') == ('Stück', 'pcs'),
+           'die Einheit fuer Stueckgut hat beide Sprachen')
+
+    # --- Fenster fuer die Oberflaechen-Teile
+    _w273 = _tk273.Tk()
+    try:
+        _w273.geometry('900x600')
+        # Benannte Schriften wie im echten Fenster — ein Tupel kaeme als
+        # „{Segoe UI} 16 bold" zurueck und glieche nie `str(f_title)`.
+        import tkinter.font as _tf273
+        _fe273 = _ty273.SimpleNamespace(
+            f_title=_tf273.Font(_w273, family='Segoe UI', size=16,
+                                weight='bold'),
+            f_small=_tf273.Font(_w273, family='Segoe UI', size=9),
+            f_base=_tf273.Font(_w273, family='Segoe UI', size=10),
+            f_bold=_tf273.Font(_w273, family='Segoe UI', size=10,
+                               weight='bold'))
+        _r273 = _tk273.Frame(_w273, bg=_th273.BG)
+        _r273.pack(fill='both', expand=True)
+        _ue273 = _tk273.Label(_r273, text='Abschnitt', bg=_th273.BG,
+                              fg=_th273.FG, font=_fe273.f_title)
+        _ka273 = _tk273.Label(_r273, text='Kachel', bg=_th273.SURFACE,
+                              fg=_th273.FG, font=_fe273.f_title)
+        _kl273 = _tk273.Label(_r273, text='klein', bg=_th273.BG,
+                              fg=_th273.FG, font=_fe273.f_small)
+        for _l273 in (_ue273, _ka273, _kl273):
+            _l273.pack()
+        _alt_ah273 = _th273.ACCENT_HEADINGS
+        try:
+            _th273.ACCENT_HEADINGS = False
+            _pg273.style_headings(_fe273, _r273)
+            pruefe(_ue273.cget('text') == 'Abschnitt'
+                   and str(_ue273.cget('fg')).lower() == _th273.FG.lower(),
+                   'im Original-Schema bleiben Ueberschriften, wie sie sind')
+            _th273.ACCENT_HEADINGS = True
+            _pg273.style_headings(_fe273, _r273)
+            pruefe(str(_ue273.cget('fg')).lower() == _th273.ACCENT.lower()
+                   and _ue273.cget('text') == _th273.heading('Abschnitt'),
+                   'im KRT-Schema wird die Zwischenueberschrift orange '
+                   '(und gross, wenn das Schema es will)')
+            pruefe(_ka273.cget('text') == 'Kachel'
+                   and _kl273.cget('text') == 'klein',
+                   'Titelschrift auf anderer Flaeche und kleine Schrift '
+                   'bleiben unberuehrt')
+        finally:
+            _th273.ACCENT_HEADINGS = _alt_ah273
+
+        # ⚠ Drei Kacheln wuenschten sich je 378 px (Tk-Leinwand ab Werk
+        # 10 cm) und drueckten das Fenster von 1100 auf 1236 px auf.
+        _ks273 = _tk273.Frame(_w273, bg=_th273.BG)
+        _ks273.pack(fill='x')
+        _gr273 = _sp273.tiles(_fe273, _ks273, [
+            ('Eins', '1', 'unten'), ('Zwei', '2', ''), ('Drei', '3', '')],
+            columns=3)
+        _w273.update()
+        pruefe(_gr273.winfo_reqwidth() < 3 * 378,
+               'drei Kacheln fordern keine 3 x 378 px mehr (%d px)'
+               % _gr273.winfo_reqwidth())
+
+        # ⚠ `_wrap_self` an einem Label ohne `expand` darf nicht
+        # schrumpfen — jeder Abschlag ueber die Polsterung hinaus machte es
+        # beim naechsten <Configure> schmaler.
+        _z273 = _tk273.Frame(_w273)
+        _z273.pack(fill='x')
+        _ws273 = _tk273.Label(_z273, text='Umsehen links/rechts', padx=8,
+                              font=_fe273.f_small)
+        _ws273.pack(side='right')
+        _pg273._wrap_self(_ws273)
+        for _i273 in range(12):
+            _w273.update()
+        _br273 = _ws273.winfo_width()
+        for _i273 in range(12):
+            _w273.update()
+        pruefe(_br273 > 40 and _ws273.winfo_width() == _br273,
+               '_wrap_self bleibt bei einem Label ohne expand stehen '
+               '(%d -> %d px)' % (_br273, _ws273.winfo_width()))
+        # Eingeengt (fester Rahmen, 160 px): Ohne Abzug der Polsterung
+        # wuenschte sich „Bergbau-Regler" 153 px und bekam 148.
+        _en273 = _tk273.Frame(_w273, width=160, height=200)
+        _en273.pack_propagate(False)
+        _en273.pack(anchor='w')
+        _wp273 = _tk273.Label(_en273, padx=8, font=_fe273.f_small,
+                              text='Mining throttle and a few more words '
+                                   'that must wrap nicely', justify='left')
+        _wp273.pack(fill='x')
+        _pg273._wrap_self(_wp273)
+        for _i273 in range(12):
+            _w273.update()
+        pruefe(_wp273.winfo_reqwidth() <= _wp273.winfo_width(),
+               'und zieht die Polsterung ab — der Text passt hinein '
+               '(%d von %d px)' % (_wp273.winfo_reqwidth(),
+                                   _wp273.winfo_width()))
+    finally:
+        _w273.destroy()
+
+    # --- Flaggen auch an der Textquelle des Spiels
+    _qp273 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                     encoding='utf-8').read()
+    pruefe("('deutsch', t('s_sp_q_de'), _flag('de'))" in _qp273
+           and "('starstrings', t('s_sp_q_ss'), _flag('gb'))" in _qp273
+           and "('original', t('s_sp_q_or'), _flag('gb'))" in _qp273,
+           'Textquelle: Deutsch mit deutscher, StarStrings und Original mit '
+           'britischer Flagge')
+    for _d273 in ('settings_window.py', 'wizard.py'):
+        _qd273 = io.open(os.path.join(WURZEL, 'scbp', _d273),
+                         encoding='utf-8').read()
+        pruefe("('inj_quelle_de', 'deutsch', 'de')" in _qd273
+               and "('inj_quelle_ss', 'starstrings', 'gb')" in _qd273
+               and "('inj_quelle_orig', 'original', 'gb')" in _qd273
+               and 'k.image = flagge' in _qd273,
+               '%s zeigt dieselben Flaggen (und haelt das Bild fest)'
+               % _d273)
+
 
 def _wurzel():
     """Ein unsichtbares Fenster, nur um die Bildschirmgröße erfragen zu können."""

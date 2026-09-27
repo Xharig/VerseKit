@@ -8,6 +8,31 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc7 - 2026-09-27
+
+> **Runde Ecken am Overlay, orange Zwischenüberschriften in „KRT" und
+> nichts mehr, was bei großer Schrift aus dem Fenster ragt.**
+
+### Neu
+
+- **Runde Ecken am Overlay-Fenster** (Windows 11) im Schema „Verse-Kit
+  (Original)"; „KRT (Orange)" bleibt bewusst eckig
+- **Flaggen an der Textquelle** — Deutsch (rjcncpt), StarStrings und
+  „Englisch (aus dem Spiel)" zeigen, welche Sprache im Spiel herauskommt
+
+### Verbessert
+
+- **„KRT (Orange)"** — auch die Zwischenüberschriften der Seiten sind jetzt
+  orange und in Großbuchstaben
+
+### Behoben
+
+- **Lager** — Stückgut heißt in den Meldungen „Stück" statt „SCU"
+- **Statistik-Seiten** drückten das Fenster breiter auf, als eingestellt
+- **Große Schrift (UHD 150 % und Maximum)** — auf Achsen, Lager, Verkauf,
+  Raffinerien, Blickwinkel, Bestand und Danke ragt nichts mehr aus dem
+  Fenster; lange Texte brechen um
+
 ## v3.58.0-rc6 - 2026-09-27
 
 > **„KRT (Orange)" nach dem offiziellen Design-System**, und die Sprachwahl

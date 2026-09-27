@@ -666,8 +666,11 @@ TEXTS = {
     's_pl_spielordner':  ('…\\StarCitizen\\LIVE', '…\\StarCitizen\\LIVE'),
     's_lg_posten_weg':   ('Diesen Posten löschen', 'Delete this entry'),
     's_lg_posten_frage_t': ('Posten löschen?', 'Delete entry?'),
-    's_lg_posten_frage': ('%s (%g SCU) wird aus dem Lager genommen.',
-                          '%s (%g SCU) will be removed from your stock.'),
+    's_lg_posten_frage': ('%s (%g %s) wird aus dem Lager genommen.',
+                          '%s (%g %s) will be removed from your stock.'),
+    # Einheit für Stückware in den Lager-Meldungen (rc7) — vorher stand dort
+    # immer „SCU", auch bei 75 Hadanite.
+    's_lg_stueck':       ('Stück', 'pcs'),
     's_lg_leeren_frage_t': ('Wirklich das ganze Lager löschen?',
                             'Really clear the whole stock?'),
     's_lg_leeren_frage': ('%d Posten werden entfernt. Das lässt sich nicht '
@@ -1373,8 +1376,11 @@ TEXTS = {
                              'Swaps which stick has which number — the whole '
                              'set of bindings moves to the other device. Dead '
                              'zone and saturation stay where they are.'),
-    's_ac_tauschen':   ('Belegungen mit »{}« tauschen',
-                          'Swap bindings with “{}”'),
+    # Kurz, weil der Gerätename lang sein kann: Bei der größten Schrift ragte
+    # „Belegungen mit »…« tauschen" 38 px aus der Spalte (27.09.2026). Worum
+    # es geht, sagt die Überschrift darüber.
+    's_ac_tauschen':   ('Mit »{}« tauschen',
+                          'Swap with “{}”'),
     's_ac_tausch_frage': ('Die Belegungen von »{}« und »{}« über Kreuz '
                           'tauschen?\n\nWas auf dem einen lag, liegt danach '
                           'auf dem anderen. Getauscht wird nur, welches Gerät '
@@ -4282,7 +4288,7 @@ TEXTS = {
                           'An amount cannot be negative.'),
     's_lg_keine_menge':  ('Trag eine Menge ein, zum Beispiel 12,5',
                           'Enter an amount, for example 12.5'),
-    's_lg_eingetragen':  ('Eingetragen: %s · %g SCU', 'Added: %s · %g SCU'),
+    's_lg_eingetragen':  ('Eingetragen: %s · %g %s', 'Added: %s · %g %s'),
     's_lg_summe_eins':   ('%d Posten · 1 Rohstoff', '%d entries · 1 material'),
     's_lg_meinst_du':    ('Meintest du:', 'Did you mean:'),
     # ⚠⚠ Dieser Satz versprach bis v3.3.0-rc42 „Du kannst es trotzdem
@@ -4317,7 +4323,7 @@ TEXTS = {
                           'You are changing this entry: %s'),
     's_lg_speichern':    ('Änderung speichern', 'Save change'),
     's_lg_abbrechen':    ('Abbrechen', 'Cancel'),
-    's_lg_geaendert':    ('Geändert: %s · %g SCU', 'Changed: %s · %g SCU'),
+    's_lg_geaendert':    ('Geändert: %s · %g %s', 'Changed: %s · %g %s'),
     # Auf- und Abbuchen statt Kopfrechnen: Wer zwei SCU abgibt, soll „-2"
     # tippen koennen und nicht erst ausrechnen muessen, was uebrig bleibt.
     # ⚠⚠ Der alte Satz lautete „Menge überschreiben — oder +5 bzw. -2
@@ -4335,13 +4341,13 @@ TEXTS = {
                           'Type the new amount — or append: '
                           '»+3« adds 3, »-3« removes 3.'),
     # Die Vorschau neben dem Mengenfeld.
-    's_lg_ergibt':       ('ergibt %g SCU', 'makes %g SCU'),
+    's_lg_ergibt':       ('ergibt %g %s', 'makes %g %s'),
     's_lg_ergibt_null':  ('ergibt 0 — der Posten wird gelöscht',
                           'makes 0 — the entry will be removed'),
-    's_lg_ergibt_minus': ('mehr als vorhanden (%g SCU)',
-                          'more than you have (%g SCU)'),
-    's_lg_zu_wenig':     ('So viel ist nicht da. Vorhanden: %g SCU',
-                          'You do not have that much. Available: %g SCU'),
+    's_lg_ergibt_minus': ('mehr als vorhanden (%g %s)',
+                          'more than you have (%g %s)'),
+    's_lg_zu_wenig':     ('So viel ist nicht da. Vorhanden: %g %s',
+                          'You do not have that much. Available: %g %s'),
     's_lg_alles_weg':    ('%s ist aufgebraucht — der Posten ist weg.',
                           '%s is used up — the entry is gone.'),
     # ⚠ Der Name ist der Schluessel zwischen Lager und Rezept. Ein Vertipper

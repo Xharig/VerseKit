@@ -121,11 +121,18 @@ def tiles(window, parent, items, columns=2):
     for index, (title, value, below) in enumerate(items):
         row, column = divmod(index, columns)
         card = round_frame(grid, SURFACE, LINE, radius=8, base_color=BG)
+        # ⚠ Eine Tk-Leinwand wünscht sich ab Werk 10 cm Breite (378 px). Drei
+        # Kacheln mit `uniform` wollten damit 1164 px und drückten das ganze
+        # Fenster von 1100 auf 1236 px auf (randpruefung, 27.09.2026). Die
+        # Breite gibt hier das Raster vor, nicht die Leinwand.
+        card.canvas.configure(width=1)
         card.holder.grid(row=row, column=column, sticky='nsew',
                          padx=(0 if column == 0 else 5,
                                0 if column == columns - 1 else 5), pady=5)
-        tk.Label(card, text=title, bg=SURFACE, fg=SUB, font=window.f_small,
-                 anchor='w').pack(fill='x', padx=16, pady=(12, 0))
+        head = tk.Label(card, text=title, bg=SURFACE, fg=SUB,
+                        font=window.f_small, anchor='w', justify='left')
+        head.pack(fill='x', padx=16, pady=(12, 0))
+        _wrap(head, inset=32)
         tk.Label(card, text=value, bg=SURFACE, fg=ACCENT, font=window.f_title,
                  anchor='w').pack(fill='x', padx=16)
         if below:
@@ -229,6 +236,9 @@ def live_page(window, frame, page_id, title, lead, render, names=False):
         except Exception as exception:
             errors.record('stats_pages.%s' % page_id, exception)
             _body_text(holder, t('s_sx_nichts'), window.f_small, pady=(4, 8))
+        # Neu gezeichnet heißt neue Überschriften — im Schema „KRT" umfärben.
+        from .pages import style_headings
+        style_headings(window, holder)
 
     def refresh():
         def work():

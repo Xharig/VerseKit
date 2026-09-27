@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0-rc6'
+__version__ = '3.58.0-rc7'
 
 
 def _mitgeliefert(name):
@@ -2129,6 +2129,11 @@ class Overlay:
         # Taskleiste, Alt+Tab und „Apps" im Task-Manager statt Werkzeugfenster
         # — nimmt dem Spiel keinen Fokus, siehe `overlay.show_as_app`.
         overlay.show_as_app(self.root)
+        # Runde Ecken unter Windows 11 (rc7) — siehe `overlay.round_corners`.
+        # ⚠ Einmal sofort und einmal, wenn das Overlay sicher steht: Vor dem
+        # ersten Zeigen hat das Fenster noch keinen Rahmen, an dem DWM ansetzt.
+        overlay.round_corners(self.root)
+        self.root.after(500, lambda: overlay.round_corners(self.root))
         # ⚠ Erst wenn alles gebaut ist, kennt die Kopfleiste ihre Breite —
         # deshalb ueber `after_idle` und nicht hier direkt.
         self.root.after_idle(self._mindestgroesse_setzen)
