@@ -2870,6 +2870,8 @@ TEXTS = {
     'm_keine_ini':     ('global.ini nicht gefunden', 'global.ini not found'),
     'm_keine_missionen': ('Katalog kennt keine Missionen',
                           'the catalogue knows no missions'),
+    'm_katalog_holen':   ('Bauplan-Katalog wird geholt …',
+                          'Fetching the blueprint catalogue …'),
     'm_kein_p4k':      ('Data.p4k nicht gefunden', 'Data.p4k not found'),
     'm_keine_ini_archiv': ('global.ini im Archiv nicht gefunden',
                           'global.ini not found in the archive'),

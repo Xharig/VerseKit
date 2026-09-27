@@ -187,6 +187,85 @@ def show_as_app(window):
         return False
 
 
+WM_MOUSEACTIVATE = 0x0021
+MA_NOACTIVATE = 3
+# Die eingehängten Rückrufe müssen am Leben bleiben, solange das Fenster lebt —
+# räumt Python sie weg, springt Windows ins Leere.
+_NO_ACTIVATE = {}
+
+
+def never_activate(window):
+    """Ein Klick auf das Overlay nimmt dem Spiel nie den Fokus (nur Windows).
+
+    ⚠⚠ **Warum (v3.58.0-rc11).** Gemeldet am 27.09.2026 beim Spielen: *„immer
+    wieder geht der Fokus aus dem Spiel, vermutlich wenn die nicht sichtbare
+    Maus über das Overlay kommt."* Star Citizen versteckt den Zeiger, bewegt
+    ihn aber weiter. Steht er über dem Overlay, wenn geschossen oder geklickt
+    wird, aktiviert Windows das Overlay — und das Spiel verliert die Tastatur.
+    „Durchklickbar" hilft, macht das Overlay aber unbedienbar.
+
+    Windows fragt vor jedem Klick mit `WM_MOUSEACTIVATE`, ob das Fenster
+    aktiviert werden soll. **Tk antwortet selbst mit „ja"** — auch mit
+    `WS_EX_NOACTIVATE` (gemessen unter Tk 8.6 und 9.0: beide Male 1 =
+    aktivieren). Deshalb wird genau diese eine Nachricht hier abgefangen und
+    mit „nicht aktivieren" beantwortet; alles andere läuft unverändert an Tk
+    weiter. Am Rahmen eingehängt, gilt es auch für alles darin (Knöpfe,
+    Innenflächen fragen ihren Rahmen). Der Klick selbst kommt an — die Knöpfe
+    des Overlays funktionieren weiter, nur ohne Fokuswechsel.
+
+    ⚠ Das Overlay hat keine Eingabefelder und keine Tk-Menüs — nichts darin
+    braucht die Tastatur. Das Hauptfenster ist ein eigenes Fenster und bleibt
+    normal aktivierbar.
+    """
+    if not WINDOWS:
+        return False
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        lresult = ctypes.c_ssize_t
+        wndproc = ctypes.WINFUNCTYPE(lresult, wintypes.HWND, wintypes.UINT,
+                                     wintypes.WPARAM, wintypes.LPARAM)
+        user32.CallWindowProcW.restype = lresult
+        user32.CallWindowProcW.argtypes = [ctypes.c_void_p, wintypes.HWND,
+                                           wintypes.UINT, wintypes.WPARAM,
+                                           wintypes.LPARAM]
+        user32.SetWindowLongPtrW.restype = ctypes.c_void_p
+        user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int,
+                                             ctypes.c_void_p]
+        window.update_idletasks()
+        handle = (int(window.wm_frame(), 16)
+                  or user32.GetParent(window.winfo_id()))
+        if not handle or handle in _NO_ACTIVATE:
+            return bool(handle)
+        old = {}
+
+        def proc(hwnd, msg, wparam, lparam):
+            if msg == WM_MOUSEACTIVATE:
+                return MA_NOACTIVATE
+            return user32.CallWindowProcW(old['proc'], hwnd, msg, wparam,
+                                          lparam)
+
+        callback = wndproc(proc)
+        GWLP_WNDPROC = -4
+        old['proc'] = user32.SetWindowLongPtrW(
+            handle, GWLP_WNDPROC, ctypes.cast(callback, ctypes.c_void_p))
+        if not old['proc']:
+            return False
+        _NO_ACTIVATE[handle] = callback
+
+        # Das Schloss wird bei jeder Änderung neu gebaut: Beim Abbau den
+        # Eintrag freigeben, sonst sammeln sich die Rückrufe, und eine von
+        # Windows wiederverwendete Fensternummer gälte fälschlich als schon
+        # geschützt.
+        def forget(event):
+            if event.widget is window:
+                _NO_ACTIVATE.pop(handle, None)
+        window.bind('<Destroy>', forget, add='+')
+        return True
+    except Exception:
+        return False
+
+
 def _x11_click_through(fenster, an):
     """Die Eingabe-Region auf leer setzen — dann fällt jeder Klick hindurch.
 

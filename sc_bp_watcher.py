@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0-rc10'
+__version__ = '3.58.0-rc11'
 
 
 def _mitgeliefert(name):
@@ -2140,6 +2140,10 @@ class Overlay:
         # ersten Zeigen hat das Fenster noch keinen Rahmen, an dem DWM ansetzt.
         overlay.round_corners(self.root)
         self.root.after(500, lambda: overlay.round_corners(self.root))
+        # Ein Klick aufs Overlay nimmt dem Spiel nie den Fokus (rc11) — siehe
+        # `overlay.never_activate`. Nach `show_as_app`, das den Rahmen anlegt.
+        overlay.never_activate(self.root)
+        self.root.after(500, lambda: overlay.never_activate(self.root))
         # ⚠ Erst wenn alles gebaut ist, kennt die Kopfleiste ihre Breite —
         # deshalb ueber `after_idle` und nicht hier direkt.
         self.root.after_idle(self._mindestgroesse_setzen)
@@ -4707,6 +4711,10 @@ class Overlay:
             self._schloss = tk.Toplevel(self.root)
             self._schloss.overrideredirect(True)
             self._schloss.attributes('-topmost', True)
+            # Auch das Schloss nimmt dem Spiel nie den Fokus (rc11).
+            _sl = self._schloss
+            _sl.after(200, lambda: _sl.winfo_exists()
+                      and overlay.never_activate(_sl))
             self._schloss.configure(bg=BAR, cursor='hand2')
             # ⚠ **Dieselbe Deckkraft wie das Overlay.** Ein Toplevel erbt sie
             # nicht: `deckkraft()` wird auf `self.root` gesetzt, das Schloss lag
@@ -5035,6 +5043,10 @@ class Overlay:
                 self._anfasser = tk.Toplevel(self.root)
                 self._anfasser.overrideredirect(True)
                 self._anfasser.attributes('-topmost', True)
+                # Auch der Anfasser nimmt dem Spiel nie den Fokus (rc11).
+                _af = self._anfasser
+                _af.after(200, lambda: _af.winfo_exists()
+                          and overlay.never_activate(_af))
                 self._anfasser.configure(bg=ACCENT, cursor='hand2')
                 try:
                     self._anfasser.attributes('-alpha', 0.55)

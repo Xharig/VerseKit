@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc11 - 2026-09-27
+
+> **The overlay no longer steals focus from the game**, and the setup
+> assistant writes the blueprint details on a fresh install too.
+
+### Fixed
+
+- **Focus in the game** — if the invisible mouse pointer was over the overlay
+  while shooting or clicking, the keyboard jumped out of Star Citizen. Clicks
+  on the overlay (also on the lock and the grip) still work, but no longer
+  bring it to the front — without having to turn on "click-through"
+- **Setup assistant, "Blueprint details in the game"** — reported "the
+  catalogue knows no missions" on a fresh install, because the catalogue was
+  only fetched after setup. It now fetches it itself
+
 ## v3.58.0-rc10 - 2026-09-27
 
 > **Much faster:** the main window opens with about three quarters less work,

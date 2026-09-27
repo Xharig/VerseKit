@@ -1369,7 +1369,7 @@ def apply_scdl(ini_path, lang_code, stock=None):
 
 
 def apply_texts(ini_path, language, catalog_data=None, stock=None,
-               remove_only=False):
+               remove_only=False, progress=None):
     """Die Angaben in eine `global.ini` schreiben.
 
     Gibt (Erfolg, Anzahl geänderter Zeilen, Meldung) zurück. Die Datei wird
@@ -1378,8 +1378,24 @@ def apply_texts(ini_path, language, catalog_data=None, stock=None,
     if not ini_path or not os.path.isfile(ini_path):
         return False, 0, t('m_keine_ini')
 
-    catalog_data = catalog_data if catalog_data is not None else katalog_modul.load()
+    given = catalog_data is not None
+    catalog_data = catalog_data if given else katalog_modul.load()
     missions = catalog_data.get('missionen') or {}
+    if not missions and not remove_only and not given:
+        # ⚠⚠ **Bei einer frischen Installation ist der Katalog noch leer**
+        # (gemeldet am 27.09.2026 aus dem Einrichtungsassistenten: „Hat nicht
+        # geklappt: Katalog kennt keine Missionen"). Er wird sonst erst nach
+        # der Einrichtung geholt — hier aber gebraucht, sobald die
+        # SCDL-Vertragsdaten einmal nicht zu holen waren. Also jetzt holen,
+        # statt aufzugeben.
+        try:
+            if progress:
+                progress(t('m_katalog_holen'))
+            katalog_modul.update()
+            catalog_data = katalog_modul.load()
+            missions = catalog_data.get('missionen') or {}
+        except Exception as exc:
+            errors.record('injection.apply_texts', exc)
     if not missions and not remove_only:
         return False, 0, t('m_keine_missionen')
 
@@ -1537,7 +1553,7 @@ def setup(ini_path, language, progress=None, stock=None):
         ok, n, message = apply_scdl(ini_path, tag, stock)
         if ok:
             return ok, n, message
-    return apply_texts(ini_path, language, stock=stock)
+    return apply_texts(ini_path, language, stock=stock, progress=progress)
 
 
 def refresh(ini_path, language, progress=None, stock=None):

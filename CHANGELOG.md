@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc11 - 2026-09-27
+
+> **Das Overlay nimmt dem Spiel nicht mehr den Fokus**, und der
+> Einrichtungsassistent trägt die Bauplan-Angaben auch bei einer frischen
+> Installation ein.
+
+### Behoben
+
+- **Fokus im Spiel** — stand der unsichtbare Mauszeiger beim Schießen oder
+  Klicken über dem Overlay, sprang die Tastatur aus Star Citizen. Klicks aufs
+  Overlay (auch aufs Schloss und den Anfasser) funktionieren weiter, holen es
+  aber nicht mehr nach vorn — ohne dass du „durchklickbar" einschalten musst
+- **Einrichtungsassistent, „Bauplan-Angaben im Spiel"** — meldete bei einer
+  frischen Installation „Katalog kennt keine Missionen", weil der Katalog erst
+  nach der Einrichtung geholt wurde. Jetzt holt er ihn selbst
+
 ## v3.58.0-rc10 - 2026-09-27
 
 > **Deutlich schneller:** Das Hauptfenster öffnet mit rund drei Viertel

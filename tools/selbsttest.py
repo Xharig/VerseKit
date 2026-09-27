@@ -25907,6 +25907,8 @@ def main():
     _pruefung_275()
     _pruefung_276()
     _pruefung_277()
+    _pruefung_278()
+    _pruefung_279()
 
     print()
     if fehler:
@@ -27457,6 +27459,126 @@ def _pruefung_277():
             _w277.destroy()
         except _tk277.TclError:
             pass
+
+
+def _pruefung_278():
+    """278. Frische Installation: Bauplan-Angaben trotz leerem Katalog."""
+    print('\n278. Frische Installation: der Rueckfallweg holt den Katalog, '
+          'statt aufzugeben')
+    # ⚠ Gemeldet am 27.09.2026 aus dem Einrichtungsassistenten (Schritt 7,
+    # StarStrings gewählt): „Hat nicht geklappt: Katalog kennt keine
+    # Missionen". Der Katalog wird sonst erst nach der Einrichtung geholt.
+    import tempfile as _tf278
+    from scbp import injection as _in278
+    _heim278 = _tf278.mkdtemp(prefix='frisch278-')
+    _alt_home278 = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = _heim278
+    _alt_load278, _alt_update278 = (_in278.katalog_modul.load,
+                                    _in278.katalog_modul.update)
+    _stand278 = {'kat': {'missionen': {}}, 'geholt': 0, 'meldungen': []}
+    _voll278 = {'missionen': {'t': {'text_key': 'mission_desc_T',
+                                    'titel_key': 'mission_title_T',
+                                    'name': 'Testauftrag',
+                                    'bp': ['Testbauplan']}}}
+
+    def _update278(*_a, **_k):
+        _stand278['geholt'] += 1
+        _stand278['kat'] = _voll278
+        return True, 1, 'test'
+
+    try:
+        _in278.katalog_modul.load = lambda: _stand278['kat']
+        _in278.katalog_modul.update = _update278
+        _ini278 = os.path.join(_heim278, 'global.ini')
+        with open(_ini278, 'w', encoding='utf-8') as _f278:
+            _f278.write('mission_desc_T=Ein Auftragstext von CIG.\n'
+                        'mission_title_T=Ein Auftrag\n')
+        _ok278, _n278, _m278 = _in278.apply_texts(
+            _ini278, 'english',
+            progress=lambda x: _stand278['meldungen'].append(x))
+        pruefe(_ok278 and _stand278['geholt'] == 1,
+               'leerer Katalog wird einmal geholt, danach klappt es (%s)'
+               % _m278)
+        pruefe(_stand278['meldungen'],
+               'und der Spieler sieht, dass gerade geholt wird')
+        # Ein ausdrücklich übergebener Katalog wird NICHT ersetzt — die
+        # Prüfungen und der Entfernen-Weg verlassen sich darauf.
+        _stand278['geholt'] = 0
+        _ok2_278, _, _ = _in278.apply_texts(_ini278, 'english',
+                                            catalog_data={'missionen': {}})
+        pruefe(not _ok2_278 and _stand278['geholt'] == 0,
+               'ein uebergebener Katalog wird nicht heimlich nachgeholt')
+    finally:
+        _in278.katalog_modul.load = _alt_load278
+        _in278.katalog_modul.update = _alt_update278
+        if _alt_home278 is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = _alt_home278
+        shutil.rmtree(_heim278, ignore_errors=True)
+
+
+def _pruefung_279():
+    """279. Ein Klick aufs Overlay nimmt dem Spiel nie den Fokus (rc11)."""
+    print('\n279. Overlay: ein Klick aktiviert das Fenster nicht — das Spiel '
+          'behaelt den Fokus')
+    # ⚠ Gemeldet am 27.09.2026 beim Spielen: Der Fokus sprang immer wieder aus
+    # Star Citizen. Gemessen: Tk beantwortet WM_MOUSEACTIVATE selbst mit
+    # „aktivieren" (1), auch mit WS_EX_NOACTIVATE. Gefragt wird deshalb das
+    # echte Fenster, nicht der Stil.
+    from scbp import overlay as _ov279
+    _q279 = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                    encoding='utf-8').read()
+    _app279 = _q279.find('overlay.show_as_app(self.root)')
+    _nie279 = _q279.find('overlay.never_activate(self.root)')
+    pruefe(0 <= _app279 < _nie279,
+           'das Overlay wird nach show_as_app gegen Aktivieren geschuetzt')
+    pruefe('overlay.never_activate(_sl)' in _q279
+           and 'overlay.never_activate(_af)' in _q279,
+           'Schloss und Anfasser ebenso')
+    if sys.platform != 'win32':
+        pruefe(_ov279.never_activate(object()) is False,
+               'ausserhalb von Windows tut es nichts')
+        return
+    import ctypes as _ct279
+    from ctypes import wintypes as _wt279
+    import tkinter as _tk279
+    _u279 = _ct279.windll.user32
+    _u279.SendMessageW.restype = _ct279.c_ssize_t
+    _u279.SendMessageW.argtypes = [_wt279.HWND, _wt279.UINT, _wt279.WPARAM,
+                                   _wt279.LPARAM]
+    _w279 = _tk279.Tk()
+    try:
+        _w279.overrideredirect(True)
+        _w279.geometry('200x100+-4000+-4000')
+        _gedrueckt279 = []
+        _k279 = _tk279.Button(_w279, text='x',
+                              command=lambda: _gedrueckt279.append(1))
+        _k279.pack()
+        _w279.update()
+        _rahmen279 = int(_w279.wm_frame(), 16)
+        _lp279 = (0x0201 << 16) | 1
+
+        def _frage279(h):
+            return _u279.SendMessageW(h, _ov279.WM_MOUSEACTIVATE, _rahmen279,
+                                      _lp279)
+
+        pruefe(_frage279(_rahmen279) == 1,
+               'Gegenprobe: ohne Schutz aktiviert ein Klick das Fenster')
+        pruefe(_ov279.never_activate(_w279), 'der Schutz laesst sich setzen')
+        pruefe(_frage279(_rahmen279) == _ov279.MA_NOACTIVATE
+               and _frage279(_k279.winfo_id()) == _ov279.MA_NOACTIVATE,
+               'danach: Rahmen und Knopf darin sagen „nicht aktivieren"')
+        _k279.event_generate('<Enter>', x=3, y=3)
+        _w279.update()
+        _k279.event_generate('<ButtonPress-1>', x=3, y=3)
+        _k279.event_generate('<ButtonRelease-1>', x=3, y=3)
+        _w279.update()
+        pruefe(bool(_gedrueckt279), 'die Knoepfe reagieren weiter auf Klicks')
+    finally:
+        _w279.destroy()
+    pruefe(_rahmen279 not in _ov279._NO_ACTIVATE,
+           'beim Abbau wird der Eintrag freigegeben')
 
 
 def _wurzel():
