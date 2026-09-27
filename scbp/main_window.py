@@ -2958,6 +2958,11 @@ class MainWindow:
         # Rückmeldung (gemessen: Overlay 9 von 9, Reiterleiste 0 von 39).
         icons.hover_group(zeile, z)
         self.buttons[kennung] = (zeile, strich, z, b, marke_widget)
+        # Ein neu gebauter Reiter ist noch ungefärbt — sein gemerkter Zustand
+        # gilt nicht mehr (siehe `_recolor_tabs`), und die Leiste muss neu
+        # vermessen werden (siehe `_sidebar_width_update`).
+        getattr(self, '_tab_states', {}).pop(kennung, None)
+        self._sidebar_dirty = True
 
     def _sidebar_needed_height(self):
         """Wie viele Pixel Höhe die Seitenleiste für all ihre Einträge braucht.
@@ -2995,6 +3000,12 @@ class MainWindow:
         Skalierung traf das „Angaben im Spiel"; auf Englisch sind mehrere Einträge
         noch länger. Deshalb wird die Breite aus den Einträgen gemessen.
         """
+        # ⭐ Nur neu messen, wenn sich die Leiste geändert hat (rc9) — neuer
+        # Reiter, Neuaufbau, eine verschwundene Neu-Marke. Sonst stand hier bei
+        # jedem Seitenwechsel eine Vermessung aller Zeilen.
+        if (not getattr(self, '_sidebar_dirty', True)
+                and getattr(self, '_sidebar_needed', None)):
+            return self._sidebar_needed
         try:
             breiten = []
             for entry in self.buttons.values():
@@ -3007,10 +3018,19 @@ class MainWindow:
                 # Version und macht die Leiste zu knapp. Genau deshalb war „Angaben
                 # im Spiel" abgeschnitten, sobald die Seite offen war.
                 zusatz = 0
+                # ⭐ Je Text nur einmal messen (rc9): Das lief bei jedem
+                # Seitenwechsel für alle Reiter in zwei Schriften — 80
+                # Schriftvermessungen, obwohl sich Texte und Schriften nur bei
+                # einem Neuaufbau ändern (dort wird der Speicher geleert).
+                gemessen = getattr(self, '_sidebar_measured', None)
+                if gemessen is None:
+                    gemessen = self._sidebar_measured = {}
                 try:
                     text = beschriftung.cget('text')
-                    zusatz = max(0, self.f_bold.measure(text)
-                                 - self.f_base.measure(text))
+                    if text not in gemessen:
+                        gemessen[text] = max(0, self.f_bold.measure(text)
+                                             - self.f_base.measure(text))
+                    zusatz = gemessen[text]
                 except tk.TclError:
                     pass
                 breiten.append(zeile.winfo_reqwidth() + zusatz)
@@ -3018,6 +3038,11 @@ class MainWindow:
             # Pfeil daneben sitzt, ist die Zeile breiter als ihr Text.
             breiten.append(self.collapse_head.winfo_reqwidth())
             needed = max(SIDEBAR_WIDTH, max(breiten) + 12)
+            # Erst als sauber merken, wenn die Zeilen wirklich vermessen sind
+            # (vor dem ersten Zeichnen melden sie 1 px).
+            if max(breiten) > 40:
+                self._sidebar_dirty = False
+                self._sidebar_needed = needed
             if needed != self.sidebar_column.winfo_width():
                 self.sidebar_column.configure(width=needed)
                 self.sidebar_canvas.configure(width=needed)
@@ -3296,9 +3321,10 @@ class MainWindow:
                         pass
                 self.root.after(400, self._prebuild_pages)
         self._recolor_tabs()
-        # Der aktive Reiter wird fett — und fett ist breiter. Die Leiste muss
-        # deshalb bei jedem Wechsel nachmessen, sonst wird der längste Eintrag
-        # genau dann abgeschnitten, wenn man auf ihm steht.
+        # Der aktive Reiter wird fett — und fett ist breiter. Die Messung
+        # rechnet den fetten Zuschlag deshalb für JEDEN Reiter ein; ihr Ergebnis
+        # hängt nicht davon ab, welcher gerade gewählt ist, und bleibt gemerkt,
+        # bis sich die Leiste ändert (rc9, siehe `_sidebar_width_update`).
         self._sidebar_width_update()
 
         # Die „neu"-Marke hat ihren Zweck erfüllt, sobald man drin war.
@@ -3313,6 +3339,7 @@ class MainWindow:
                 # zu — also bei jedem Nutzer sofort.
                 zeile, strich, z, b, _ = entry
                 self.buttons[kennung] = (zeile, strich, z, b, None)
+                self._sidebar_dirty = True
 
     def jump_to(self, kennung):
         """Auf eine andere Seite springen — und den Rückweg anbieten.
@@ -3387,8 +3414,27 @@ class MainWindow:
             return False
 
     def _recolor_tabs(self):
+        # ⭐ Nur Reiter anfassen, deren Zustand sich geändert hat (rc9). Bis
+        # dahin wurden bei JEDEM Seitenwechsel alle rund 40 Reiter samt Symbol
+        # neu eingefärbt — 360 Tk-Aufrufe, obwohl sich nur zwei ändern (der
+        # alte und der neue). `tools/tempo_messen.py` zeigte das als Grundpreis
+        # von rund 560 Aufrufen je Wechsel, auch auf Seiten, die sonst nichts
+        # tun. Der Zustand ist alles, wovon das Aussehen abhängt: gewählt, und
+        # beim Fehler-Reiter, ob Fehler anstehen.
+        zustaende = getattr(self, '_tab_states', None)
+        if zustaende is None:
+            zustaende = self._tab_states = {}
+        fehler_da = None
         for kennung, (zeile, strich, z, b, badge) in self.buttons.items():
             an = (kennung == self.current)
+            rot_alarm = False
+            if kennung == 'diagnose':
+                if fehler_da is None:
+                    fehler_da = bool(self._errors_pending())
+                rot_alarm = fehler_da
+            if zustaende.get(kennung) == (an, rot_alarm):
+                continue
+            zustaende[kennung] = (an, rot_alarm)
             grund = theme.SELECTED if an else SURFACE
             for part in (zeile, z, b):
                 part.configure(bg=grund)
@@ -3410,7 +3456,7 @@ class MainWindow:
             # Der Strich darunter bleibt gruen, wenn die Seite offen ist —
             # sonst saehe die gewaehlte Seite aus wie eine Warnung.
             rot = (kennung == 'diagnose')
-            z.recolor(icons.RED if (rot and self._errors_pending())
+            z.recolor(icons.RED if rot_alarm
                       else (icons.LIGHT if an else icons.GREY))
             b.configure(fg=RED if rot else (FG if an else SUB),
                         font=self.f_bold if (an or rot) else self.f_base)
@@ -3485,6 +3531,9 @@ class MainWindow:
         for kind in self.root.winfo_children():
             kind.destroy()
         self.pages, self.drawn, self.buttons = {}, set(), {}
+        self._tab_states = {}
+        self._sidebar_measured = None
+        self._sidebar_dirty = True
         # ⚠ Mit zuruecksetzen: Sonst liefe der Vorbau nach einem Neuaufbau
         # (Sprache, Schriftgroesse) nie wieder an — die Seiten sind ja alle
         # weg, aber die Sperre stuende noch.

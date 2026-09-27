@@ -8,6 +8,21 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc10 - 2026-09-27
+
+> **Much faster:** the main window opens with about three quarters less work,
+> and every page switch costs only a fraction.
+
+### Improved
+
+- **First opening via the gear** — long texts were wrapped in about 70 rounds
+  until they fit; now in one
+- **Page switches** — the sidebar is no longer recoloured and re-measured
+  completely on every click
+- **Axes, Contract log, Detection** — game logs and language files are no
+  longer re-read on every visit; VerseKit remembers for good which account an
+  old backup belongs to
+
 ## v3.58.0-rc9 - 2026-09-27
 
 > **Faster, and moving the data folder now really takes everything along.**

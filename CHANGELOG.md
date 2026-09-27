@@ -8,6 +8,21 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc10 - 2026-09-27
+
+> **Deutlich schneller:** Das Hauptfenster öffnet mit rund drei Viertel
+> weniger Arbeit, und jeder Seitenwechsel kostet nur noch einen Bruchteil.
+
+### Verbessert
+
+- **Erstes Öffnen übers Zahnrad** — lange Texte wurden in rund 70 Runden
+  umgebrochen, bis sie passten; jetzt in einer
+- **Seitenwechsel** — die Seitenleiste wird nicht mehr bei jedem Klick komplett
+  neu eingefärbt und vermessen
+- **Achsen, Auftragslog, Erkennung** — Spielprotokolle und Sprachdateien werden
+  nicht mehr bei jedem Besuch neu gelesen; welcher Account zu einer alten
+  Sicherung gehört, merkt sich VerseKit dauerhaft
+
 ## v3.58.0-rc9 - 2026-09-27
 
 > **Schneller, und der Umzug des Datenordners nimmt jetzt wirklich alles

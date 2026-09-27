@@ -156,7 +156,85 @@ def account_from_text(text):
 
 def account_of_file(filename):
     """Der Account, zu dem eine Log gehört — oder None (noch nicht angemeldet,
-    unlesbar). Gelesen wird nur der Anfang."""
+    unlesbar). Gelesen wird nur der Anfang.
+
+    ⭐ Gemerkt je Datei und Stand (rc9): Die Seite „Erkennung" und der Abgleich
+    fremder Baupläne fragen das für alle rund 180 Sicherungen — bei jedem
+    Besuch neu, 0,64 s beim ersten Öffnen (gemessen mit
+    `tools/tempo_messen.py`). Eine Sicherung ändert sich nie; eine wachsende
+    `Game.log` ändert Größe und Zeit und wird dann neu gelesen."""
+    try:
+        info = os.stat(filename)
+        key = (filename, info.st_mtime_ns, info.st_size)
+    except OSError:
+        key = None
+    if key is not None and key in _ACCOUNT_CACHE:
+        return _ACCOUNT_CACHE[key]
+    # ⭐ Auch über den Neustart hinweg (rc9): Sicherungen stehen mit ihrem
+    # Account in `konten-je-log.json`. Beim ersten Öffnen nach dem Start
+    # müssen dann nur neue Protokolle gelesen werden, nicht alle 180.
+    stored = _stored_accounts()
+    if key is not None:
+        hit = stored.get(filename)
+        if hit and hit[0] == key[1] and hit[1] == key[2]:
+            _ACCOUNT_CACHE[key] = hit[2]
+            return hit[2]
+    found = _account_of_file(filename)
+    if key is not None:
+        if len(_ACCOUNT_CACHE) > 5000:
+            _ACCOUNT_CACHE.clear()
+        _ACCOUNT_CACHE[key] = found
+        # Nur Sicherungen dauerhaft merken — die laufende `Game.log` ändert
+        # sich ständig, ein Eintrag für sie wäre sofort veraltet.
+        if found and os.path.basename(filename).lower() != 'game.log':
+            stored[filename] = [key[1], key[2], found]
+            _UNSAVED[0] += 1
+            # Gebündelt schreiben: beim allerersten Lauf kämen sonst 180
+            # Schreibvorgänge zusammen. Was zwischen zwei Sicherungen verloren
+            # geht, wird beim nächsten Mal eben noch einmal gelesen.
+            if _UNSAVED[0] >= 40 or time.time() - _LAST_SAVE[0] > 5:
+                _save_accounts(stored)
+    return found
+
+
+_ACCOUNT_CACHE = {}
+ACCOUNTS_FILE = 'konten-je-log.json'
+_STORED = [None]
+
+
+def _stored_accounts():
+    """Die dauerhaft gemerkten Accounts je Sicherung — `{Pfad: [mtime_ns,
+    Größe, Account]}`. Fehlt oder klemmt die Datei, ist es ein leerer Speicher,
+    kein Fehler: Dann wird eben gelesen."""
+    if _STORED[0] is None:
+        try:
+            with open(paths.app_file(ACCOUNTS_FILE), encoding='utf-8') as f:
+                data = json.load(f)
+            _STORED[0] = data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            _STORED[0] = {}
+    return _STORED[0]
+
+
+_UNSAVED = [0]
+_LAST_SAVE = [0.0]
+
+
+def _save_accounts(stored):
+    _UNSAVED[0] = 0
+    _LAST_SAVE[0] = time.time()
+    try:
+        target = paths.app_file(ACCOUNTS_FILE)
+        temp = target + '.tmp'
+        with open(temp, 'w', encoding='utf-8') as f:
+            json.dump(stored, f, ensure_ascii=False)
+        paths.replace_file(temp, target)
+    except OSError:
+        pass                      # nur ein Zwischenspeicher — kein Schaden
+
+
+def _account_of_file(filename):
+    """Die eigentliche Suche hinter `account_of_file` — ohne Zwischenspeicher."""
     try:
         with open(filename, 'rb') as f:
             read = 0
@@ -191,6 +269,8 @@ def accounts_in_logs(files=None):
         found = account_of_file(filename)
         if found:
             counts[found] = counts.get(found, 0) + 1
+    if _UNSAVED[0]:
+        _save_accounts(_stored_accounts())     # den Rest des Durchlaufs sichern
     return counts
 
 
@@ -481,7 +561,34 @@ def read_all(pattern=None):
 
 
 def _read_file(filename, pattern):
-    """Eine ganze Logdatei blockweise durchsuchen."""
+    """Eine ganze Logdatei blockweise durchsuchen.
+
+    ⭐ Gemerkt je Datei, Stand und Suchmuster (rc9): Unveränderte Dateien
+    ergeben dasselbe — gelesen wurde die laufende `Game.log` trotzdem bei
+    jedem Besuch der Seite „Erkennung" ganz (siehe den Kommentar in
+    `catch_up`, warum ganz). Wächst sie, ändert sich der Stand, und sie wird
+    wieder ganz gelesen."""
+    try:
+        info = os.stat(filename)
+        key = (filename, info.st_mtime_ns, info.st_size,
+               getattr(pattern, 'pattern', pattern))
+    except (OSError, TypeError):
+        key = None
+    if key is not None and key in _READ_CACHE:
+        return list(_READ_CACHE[key])
+    found = _read_file_uncached(filename, pattern)
+    if key is not None:
+        if len(_READ_CACHE) > 1000:
+            _READ_CACHE.clear()
+        _READ_CACHE[key] = tuple(found)
+    return found
+
+
+_READ_CACHE = {}
+
+
+def _read_file_uncached(filename, pattern):
+    """Die eigentliche Suche hinter `_read_file` — ohne Zwischenspeicher."""
     found = []
     try:
         with open(filename, 'rb') as f:

@@ -462,10 +462,24 @@ def _reported_titles(log_path):
     `_close_expired()` stellt: Welche Auftraege nennt diese Sitzung,
     und darf ihr Schweigen etwas beweisen?
     """
+    start_pat, end_pat = contracts.start_pattern(), contracts.end_pattern()
+    # ⭐ Gemerkt je Datei und Stand (rc9): Ein altes Protokoll ändert sich nie,
+    # gelesen wurde es trotzdem bei jedem Besuch des Auftragslogs — zusammen
+    # der größte Posten dort (0,85 s beim ersten Öffnen, gemessen mit
+    # `tools/tempo_messen.py`). Wächst die laufende `Game.log`, ändern sich
+    # Größe und Zeit, und sie wird neu gelesen.
+    try:
+        info = os.stat(log_path)
+        cache_key = (log_path, info.st_mtime_ns, info.st_size,
+                     start_pat.pattern, end_pat.pattern)
+    except OSError:
+        cache_key = None
+    if cache_key is not None and cache_key in _REPORTED_CACHE:
+        reported, counts = _REPORTED_CACHE[cache_key]
+        return set(reported), counts
     reported = set()
     spawn = False
     first = last = None
-    start_pat, end_pat = contracts.start_pattern(), contracts.end_pattern()
     with open(log_path, encoding='utf-8', errors='replace') as f:
         for line in f:
             if not spawn and SPAWN_MARKER in line:
@@ -484,7 +498,15 @@ def _reported_titles(log_path):
     a, b = _seconds(first or ''), _seconds(last or '')
     if a and b:
         duration = b - a
-    return reported, (spawn and duration >= SESSION_COUNTS_SEC)
+    counts = spawn and duration >= SESSION_COUNTS_SEC
+    if cache_key is not None:
+        if len(_REPORTED_CACHE) > 1000:
+            _REPORTED_CACHE.clear()
+        _REPORTED_CACHE[cache_key] = (frozenset(reported), counts)
+    return reported, counts
+
+
+_REPORTED_CACHE = {}
 
 
 def _close_expired(pending, done, reported, session,

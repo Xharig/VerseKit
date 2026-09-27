@@ -3033,7 +3033,9 @@ def main():
         #     alles laeuft — und niemand naehme ihn noch ernst.
         quelle36 = open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
                         encoding='utf-8').read()
-        stelle36 = quelle36[quelle36.index('def _recolor_tabs'):][:2200]
+        # 4000 statt 2200: Seit rc9 steht vorn die Erklärung zum gemerkten
+        # Zustand der Reiter, und die geprüften Zeilen rückten nach hinten.
+        stelle36 = quelle36[quelle36.index('def _recolor_tabs'):][:4000]
         pruefe("rot = (kennung == 'diagnose')" in stelle36,
                'der Reiter diagnose wird gesondert behandelt')
         pruefe('_errors_pending()' in stelle36,
@@ -25904,6 +25906,7 @@ def main():
     _pruefung_274()
     _pruefung_275()
     _pruefung_276()
+    _pruefung_277()
 
     print()
     if fehler:
@@ -27389,6 +27392,71 @@ def _pruefung_276():
                     encoding='utf-8').read()
     pruefe('paths.remove_old_storage(alt, ziel)' in _q276,
            'der Umzug auf der Einstellungsseite raeumt den alten Ordner')
+
+
+def _pruefung_277():
+    """277. Tempo-Obergrenzen: Seitenwechsel und erstes Öffnen (rc9)."""
+    print('\n277. Tempo: Grundpreis je Seitenwechsel und erstes Oeffnen des '
+          'Hauptfensters bleiben klein')
+    # ⚠⚠ **Gezählt, nicht gestoppt.** Die Uhrzeit hängt davon ab, was sonst
+    # läuft — am 27.09.2026 belegte Star Citizen 65 % des Rechners, und jede
+    # Zeitmessung war wertlos. Tk-Aufrufe sind bei jedem Lauf gleich.
+    #
+    # Die Grenzen stammen aus der Messung mit `tools/tempo_messen.py`:
+    # Seitenwechsel vorher 568 Aufrufe (alle Reiter neu gefärbt und
+    # vermessen), danach 64; erstes Öffnen vorher rund 11 800 (Umbrüche gegen
+    # eine Fantasiebreite, 70 Runden), danach rund 3 000.
+    import tkinter as _tk277
+    from scbp import main_window as _mw277
+
+    class _Z277:
+        def __init__(self, echt):
+            self._echt = echt
+            self.n = 0
+
+        def call(self, *a):
+            self.n += 1
+            return self._echt.call(*a)
+
+        def __getattr__(self, name):
+            return getattr(self._echt, name)
+
+    _w277 = _tk277.Tk()
+    _w277.withdraw()
+    _z277 = _Z277(_w277.tk)
+    _w277.tk = _z277
+    try:
+        _f277 = _mw277.MainWindow(_w277)
+        _f277.root.geometry('1294x1284')
+        _f277.open_page('allgemein')
+        _w277.update()
+        _auf277 = _z277.n
+        pruefe(_auf277 < 6000,
+               'erstes Oeffnen: %d Tk-Aufrufe (Grenze 6000, vorher ~11 800)'
+               % _auf277)
+        for _s277 in ('bergung', 'herstellung', 'bergung', 'herstellung'):
+            _f277.open_page(_s277)
+            _w277.update()
+        _vor277 = _z277.n
+        _f277.open_page('bergung')
+        _w277.update()
+        _wechsel277 = _z277.n - _vor277
+        # 110, nicht 200: Wird allein die Leisten-Vermessung wieder bei
+        # jedem Wechsel fällig, sind es rund 143 — das muss auffallen.
+        pruefe(_wechsel277 < 110,
+               'Seitenwechsel auf eine gebaute Seite: %d Tk-Aufrufe (Grenze '
+               '110, vorher 568)' % _wechsel277)
+        _vor277 = _z277.n
+        _f277.close()
+        _w277.update()
+        pruefe(_z277.n - _vor277 < 100,
+               'Schliessen baut das Fenster in einem Zug ab (%d Aufrufe)'
+               % (_z277.n - _vor277))
+    finally:
+        try:
+            _w277.destroy()
+        except _tk277.TclError:
+            pass
 
 
 def _wurzel():

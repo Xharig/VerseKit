@@ -293,7 +293,18 @@ def _scroll_area(frame, inset=24, height=None):
     innen = tk.Frame(leinwand, bg=BG)
     innen.bind('<Configure>',
                lambda e: leinwand.configure(scrollregion=leinwand.bbox('all')))
-    fenster_id = leinwand.create_window((0, 0), window=innen, anchor='nw')
+    # ⚠⚠ **`width=1`, bis die Leinwand ihre echte Breite kennt** (rc9).
+    # Ohne Breite bekommt der Inhalt einer Leinwand seine WUNSCHbreite — und
+    # die ist, solange noch nichts umgebrochen ist, die der längsten
+    # Textzeile: 2340 px auf „Allgemein". Alle Umbrüche (`_wrap`) rechneten
+    # gegen diese Fantasiebreite und schrumpften die Fläche dann in rund 70
+    # Runden herunter — **7874 von rund 10 000 Tk-Aufrufen** beim ersten
+    # Öffnen des Hauptfensters (gemessen 27.09.2026, gemeldet als „bis das
+    # Fenster das erste Mal kommt, dauert es ewig"). Mit 1 px warten die
+    # Umbrüche (sie setzen erst ab 40 px ein) und rechnen einmal, sobald das
+    # `<Configure>` der Leinwand die richtige Breite bringt.
+    fenster_id = leinwand.create_window((0, 0), window=innen, anchor='nw',
+                                        width=1)
     leinwand.bind('<Configure>',
                   lambda e: leinwand.itemconfigure(fenster_id, width=e.width))
     leinwand.configure(yscrollcommand=balken.set)
@@ -956,7 +967,8 @@ def _wrap_self(label):
         except tk.TclError:
             pass
 
-    label.bind('<Configure>', nachziehen, add='+')
+    # Gebündelt — siehe `_bundled_idle`.
+    label.bind('<Configure>', _bundled_idle(label, nachziehen), add='+')
     label.after(0, nachziehen)
     return label
 
@@ -1018,21 +1030,55 @@ def _wrap(label, share=1.0, inset=0, reference=None, beside=None):
                             + _pixels(label, label.cget('highlightthickness')))
             except tk.TclError:
                 rand = 4
+            neu = max(160, int(breite * share) - inset - rand)
             try:
-                label.configure(wraplength=max(160, int(breite * share)
-                                               - inset - rand))
+                # ⚠⚠ **Nur schreiben, wenn sich der Wert ändert** (rc9). Jedes
+                # `configure` lässt Tk das Label neu vermessen, das meldet
+                # dem Elternrahmen ein `<Configure>` — und der ruft wieder
+                # hierher. Ohne diese Bremse liefen beim ersten Öffnen des
+                # Hauptfensters 900 Nachberechnungen für 11 Labels (gemessen
+                # 27.09.2026, „bis das Fenster das erste Mal kommt, dauert es
+                # ewig"). `_wrap_self` hatte die Bremse schon.
+                if int(label.cget('wraplength') or 0) != neu:
+                    label.configure(wraplength=neu)
             except tk.TclError:
                 pass          # zwischen Prüfung und Zugriff zerstört
 
-    ziel.bind('<Configure>', nachziehen, add='+')
+    gebuendelt = _bundled_idle(label, nachziehen)
+    ziel.bind('<Configure>', gebuendelt, add='+')
     # ⚠ `<Configure>` allein reicht nicht. Seiten werden gebaut, während sie
     # noch versteckt sind — dort meldet Tk Breite 1, und wenn beim späteren
     # Einblenden die Fenstergröße zufällig gleich bleibt, kommt nie ein
     # `<Configure>` mehr. Der Umbruch bliebe dann auf dem Notwert stehen.
     # `<Map>` feuert genau dann, wenn das Element wirklich sichtbar wird.
-    label.bind('<Map>', nachziehen, add='+')
+    label.bind('<Map>', gebuendelt, add='+')
     label.after(0, nachziehen)
     return label
+
+
+def _bundled_idle(widget, action):
+    """Einen Rückruf bündeln: viele Ereignisse, EIN Aufruf, sobald Tk ruht.
+
+    ⚠⚠ **Warum (rc9).** Die Umbrüche hängen am `<Configure>` des
+    Elternrahmens. Beim ersten Öffnen des Hauptfensters ändert sich dessen
+    Größe dutzendfach, bis alles steht — und jedes Mal rechneten alle Labels
+    neu: **7874 von rund 10 000 Tk-Aufrufen** beim Öffnen kamen aus
+    `nachziehen` (gemessen 27.09.2026). Gebündelt rechnet jedes Label einmal,
+    wenn die Größe feststeht."""
+    pending = [None]
+
+    def run():
+        pending[0] = None
+        action()
+
+    def schedule(_=None):
+        if pending[0] is not None:
+            return
+        try:
+            pending[0] = widget.after_idle(run)
+        except (tk.TclError, RuntimeError):
+            pending[0] = None
+    return schedule
 
 
 def _button_row(parent, buttons, gap=8):
@@ -16836,6 +16882,13 @@ def _axes(fenster, rahmen):
         ⚠ Dazu `device_set.sets()`: eine **eigene** Quelle (die Gerätesätze
         stehen woanders), und sie wird auf derselben Seite angezeigt.
         """
+        stand = _achsen_stand()
+        if stand is not None and stand == zuletzt_achsen['stand']:
+            return
+        _auffrischen()
+
+    def _achsen_stand():
+        """Der Fingerabdruck der Lage — siehe `_beim_zeigen`."""
         import hashlib
         from . import device_set as _gs
         from . import joysticks as _js
@@ -16862,10 +16915,7 @@ def _axes(fenster, rahmen):
         except Exception as ausnahme:
             errors.record('pages.achsen_stand', ausnahme)
             stand = None
-        if stand is not None and stand == zuletzt_achsen['stand']:
-            return
-        zuletzt_achsen['stand'] = stand
-        _auffrischen()
+        return stand
 
     def _auffrischen():
         """Neu zeichnen, ohne dass die Seite nach oben springt.
@@ -16877,6 +16927,12 @@ def _axes(fenster, rahmen):
         `_rollstelle_halten` gibt es im Projekt genau dafür.
         """
         _keep_scroll(inhalt, _neu_bauen)
+        # ⚠ Den Abdruck NACH dem Aufbau nehmen (rc9): `_neu_bauen` setzt beim
+        # ersten Mal die Vorauswahl in `wahl`, und Klicks auf der Seite ändern
+        # sie. Genommen vorher, passte der Abdruck beim nächsten Besuch nicht,
+        # und die Seite baute sich umsonst neu (0,47 s, gemessen mit
+        # `tools/tempo_messen.py`, 27.09.2026).
+        zuletzt_achsen['stand'] = _achsen_stand()
 
     def _neu_bauen():
         for kind in list(inhalt.winfo_children()):

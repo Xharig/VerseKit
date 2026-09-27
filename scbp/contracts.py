@@ -225,9 +225,24 @@ def _phrases_for(key, fallback):
     Sprachen, die wir nie gesehen haben. Sonst die mitgelieferte Tabelle.
     """
     key = (key,) if isinstance(key, str) else tuple(key)
+    # ⭐ Gemerkt, bis sich eine der Sprachdateien ändert (rc9). Jede
+    # `global.ini` hat rund 10 MB, und gelesen wurden sie alle bei jedem
+    # Aufruf — mehrmals je Besuch des Auftragslogs, zusammen rund 0,4 s
+    # (gemessen mit `tools/tempo_messen.py`, 27.09.2026).
+    files = _ini_files()
+    stamp = []
+    for path in files:
+        try:
+            info = os.stat(path)
+            stamp.append((path, info.st_mtime_ns, info.st_size))
+        except OSError:
+            stamp.append((path, None, None))
+    cache_key = (key, tuple(sorted(fallback)), tuple(stamp))
+    if cache_key in _PHRASES_CACHE:
+        return list(_PHRASES_CACHE[cache_key])
     prefixes = tuple(s + '=' for s in key)
     found = []
-    for path in _ini_files():
+    for path in files:
         try:
             with open(path, encoding='utf-8', errors='ignore') as f:
                 for line in f:
@@ -243,7 +258,16 @@ def _phrases_for(key, fallback):
         for p in candidates:
             if p not in found:
                 found.append(p)
+    # Klein halten: Nach einem Spiel-Patch sind die alten Einträge wertlos.
+    # ⚠ Nicht bei jedem Fehlgriff leeren — Anfang und Ende werden abwechselnd
+    # gefragt und würden sich sonst gegenseitig verdrängen.
+    if len(_PHRASES_CACHE) > 16:
+        _PHRASES_CACHE.clear()
+    _PHRASES_CACHE[cache_key] = tuple(found)
     return found
+
+
+_PHRASES_CACHE = {}
 
 
 def start_phrases():
