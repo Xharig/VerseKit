@@ -21857,7 +21857,7 @@ def main():
            'die Seite hat einen Rundgang, der sich pruefen laesst')
     _tour217 = _html217.split('var GRUPPEN = [')[1].split('\n];')[0]
     _grp217 = re.findall(r'\{de:"([^"]*)", en:"([^"]*)", eintraege:', _tour217)
-    _ein217 = re.findall(r'\{bild:"([^"]*)", de:"([^"]*)", en:"([^"]*)"',
+    _ein217 = re.findall(r'bild:"([^"]*)", de:"([^"]*)", en:"([^"]*)"',
                          _tour217)
     pruefe(len(_grp217) >= 7 and len(_ein217) >= 20,
            'der Rundgang hat Gruppen und Eintraege (%d / %d)'
@@ -21886,6 +21886,66 @@ def main():
     pruefe(not _fehlg217,
            'jede Gruppe der Seite heisst wie im Programm (unbekannt: %r)'
            % _fehlg217)
+
+    # ⭐⭐ **Und JEDER Reiter des Programms steht im Rundgang, in derselben
+    # Reihenfolge** (27.09.2026). Bis dahin prüfte 217 nur, dass die Namen
+    # stimmen — nicht, dass keiner fehlt. So fehlten nach v3.58.0 sechzehn
+    # Reiter, darunter die ganze Statistik-Gruppe, obwohl die Regel lautet:
+    # Die Seite zeigt das Werkzeug mit ALLEN Original-Reitern.
+    # Die Reiter kommen aus der Quelle (`self._tab('kennung'` in
+    # `main_window.py`, die Fortgeschrittenen-Reiter eingeschlossen), nicht
+    # aus einer abgeschriebenen Liste.
+    _mw217 = io.open(os.path.join(WURZEL, 'scbp', 'main_window.py'),
+                     encoding='utf-8').read()
+    _prog217 = ['overlay'] + re.findall(r"self\._tab\('([a-z_]+)'", _mw217)
+    # ⚠ „Für Fortgeschrittene" wird erst beim Aufklappen gebaut und steht
+    # deshalb im Quelltext ganz hinten — in der Leiste aber am Ende der
+    # Einstellungen. Dort gehören diese Reiter auch in die Reihenfolge.
+    _fort217 = re.findall(
+        r"self\._tab\('([a-z_]+)',(?:[^()]|\([^()]*\))*self\.collapse_body\)",
+        _mw217)
+    _einst217 = re.findall(
+        r"self\._tab\('([a-z_]+)',(?:[^()]|\([^()]*\))*g_einst\)", _mw217)
+    if _fort217 and _einst217:
+        _prog217 = [k for k in _prog217 if k not in _fort217]
+        _nach217 = _prog217.index(_einst217[-1]) + 1
+        _prog217[_nach217:_nach217] = _fort217
+    pruefe(bool(_fort217) and bool(_einst217),
+           'die Reiter unter „Für Fortgeschrittene" sind lesbar (%r)'
+           % _fort217)
+    _seite217 = re.findall(r'\{reiter:"([a-z_]+)", bild:', _tour217)
+    pruefe(len(_prog217) >= 40,
+           'die Reiter des Programms sind lesbar (%d)' % len(_prog217))
+    _fehltr217 = [k for k in _prog217 if k not in _seite217]
+    pruefe(not _fehltr217,
+           'jeder Reiter des Programms steht im Rundgang (fehlt: %r)'
+           % _fehltr217)
+    _zuviel217 = [k for k in _seite217 if k not in _prog217]
+    pruefe(not _zuviel217,
+           'der Rundgang zeigt keinen Reiter, den es nicht gibt (%r)'
+           % _zuviel217)
+    pruefe(len(_seite217) == len(_ein217),
+           'jeder Eintrag im Rundgang nennt seinen Reiter (%d von %d)'
+           % (len(_seite217), len(_ein217)))
+    pruefe([k for k in _seite217 if k in _prog217]
+           == [k for k in _prog217 if k in _seite217],
+           'der Rundgang hat die Reihenfolge des Programms')
+
+    # ⭐ Unter „Darstellung" zeigt die Seite jedes Farbschema einzeln
+    # (Wunsch vom 27.09.2026). Ein neues Schema in `theme.SCHEMES` ohne
+    # Eintrag oder ohne Bild fiele sonst nicht auf.
+    from scbp import theme as _th217
+    _fs217 = re.findall(r'\{schema:"([a-z]+)"', _html217)
+    pruefe(_fs217 == list(_th217.SCHEMES),
+           'die Seite zeigt jedes Farbschema, in der Reihenfolge des '
+           'Programms (%r)' % _fs217)
+    _fsohne217 = [n for k in _th217.SCHEMES
+                  for n in ('screenshot-farbschema-%s.png' % k,
+                            'screenshot-farbschema-%s-en.png' % k)
+                  if not os.path.exists(os.path.join(WURZEL, 'assets', n))]
+    pruefe(not _fsohne217,
+           'zu jedem Farbschema gibt es das Bild in beiden Sprachen '
+           '(fehlt: %r)' % _fsohne217)
 
     # ⭐ Und die Bilder muessen es beide Male geben — die Seite schaltet auf
     # Englisch um, indem sie `-en` vor die Endung setzt. Fehlt ein englisches

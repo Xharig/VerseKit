@@ -122,13 +122,26 @@ h2{font-size:34px;font-weight:800;margin:0 0 12px}
 }
 .bild img{border-radius:6px;width:100%}
 .bild .bu{color:var(--text-leise);font-size:15px;margin-top:12px;min-height:48px}
+/* Farbschemata unter „Darstellung“: ein Knopf je Schema, der Punkt zeigt Akzent auf Grund. */
+/* Festes Raster 3 + 3 (Telefon 2 + 2 + 2) — freies Umbrechen ergab 5 + 1. */
+.farben{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+@media (max-width:600px){.farben{grid-template-columns:repeat(2,1fr)}}
+.farben[hidden]{display:none}
+.farben button{display:flex;align-items:center;gap:9px;background:#141414;border:1px solid var(--rand);
+  color:var(--text);font:inherit;font-size:14px;padding:7px 14px 7px 10px;border-radius:999px;cursor:pointer}
+.farben button:hover{background:#1c1c1c}
+.farben button.an{border-color:var(--neon);color:var(--neon);font-weight:700}
+.farben .punkt{width:12px;height:12px;border-radius:50%;flex:none}
 .hinweis{
   margin-top:16px;font-size:14px;color:var(--text-leise);
   border-left:2px solid var(--rand);padding-left:12px;
 }
 
 /* ---------- Merkmale ---------- */
-.karten{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+/* Acht Karten: 4 + 4, sonst 2 × 4, am Telefon untereinander — nie 3 + 3 + 2. */
+.karten{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+@media (max-width:1000px){.karten{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:600px){.karten{grid-template-columns:1fr}}
 .karte{
   background:var(--flaeche);border:1px solid var(--rand);border-radius:10px;
   padding:22px;
@@ -224,7 +237,9 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
 @media (max-width:860px){
   .hero h1{font-size:40px}
   .tour{grid-template-columns:1fr}
-  .reiter{max-height:none}
+  /* 43 Reiter untereinander schöben das Bild weit nach unten — die Liste
+     rollt deshalb auch am Telefon in sich. */
+  .reiter{max-height:300px}
   .kopf nav a.weg{display:none}
 }
 </style>
@@ -293,6 +308,7 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
       <div class="bild">
         <img id="tourbild" src="assets/screenshot-overlay.png" alt="">
         <div class="bu" id="tourtext"></div>
+        <div class="farben" id="farben" hidden></div>
       </div>
     </div>
 
@@ -339,6 +355,18 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
         <p data-de="Läden, Verkaufsorte und Routen, die sagen, was am Ende übrig bleibt — nicht nur, was etwas kostet."
            data-en="Shops, sell locations and routes that tell you what is left at the end — not just what something costs.">
           Läden, Verkaufsorte und Routen, die sagen, was am Ende übrig bleibt — nicht nur, was etwas kostet.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Deine Statistik" data-en="Your statistics">Deine Statistik</h3>
+        <p data-de="Spielzeit, Schiffe, Aufträge, Quantensprünge und Abstürze — aus deinen Spielprotokollen gezählt, und sie bleiben, auch wenn das Spiel die Protokolle löscht."
+           data-en="Play time, ships, contracts, quantum jumps and crashes — counted from your game logs, and kept even after the game deletes them.">
+          Spielzeit, Schiffe, Aufträge, Quantensprünge und Abstürze — aus deinen Spielprotokollen gezählt, und sie bleiben, auch wenn das Spiel die Protokolle löscht.</p>
+      </div>
+      <div class="karte">
+        <h3 data-de="Dein Aussehen, deine Steuerung" data-en="Your look, your controls">Dein Aussehen, deine Steuerung</h3>
+        <p data-de="Sechs Farbschemata und stufenlose Größe. Dazu siehst du, welcher Stick welche Nummer hat, und stellst Totzone und Kurven ein."
+           data-en="Six colour schemes and any size you like. Plus: see which stick has which number, and set dead zones and curves.">
+          Sechs Farbschemata und stufenlose Größe. Dazu siehst du, welcher Stick welche Nummer hat, und stellst Totzone und Kurven ein.</p>
       </div>
       <div class="karte">
         <h3 data-de="Bleibt bei dir" data-en="Stays with you">Bleibt bei dir</h3>
@@ -462,103 +490,166 @@ footer{border-top:1px solid var(--rand);padding:50px 0 60px;text-align:center}
    Endung — so erzeugt sie tools/bilder_machen.py. */
 var GRUPPEN = [
   {de:"Overlay", en:"Overlay", eintraege:[
-    {bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
+    {reiter:"overlay", bild:"screenshot-overlay.png", de:"Overlay", en:"Overlay",
      bde:"Das kleine Fenster über dem Spiel: schmal, immer im Vordergrund, durchscheinend — und auf Wunsch lässt es Mausklicks durch.",
      ben:"The small window over the game: narrow, always on top, see-through — and it can let mouse clicks pass through."}
   ]},
   {de:"Baupläne", en:"Blueprints", eintraege:[
-    {bild:"screenshot-liste.png", de:"Bauplan-Liste", en:"Blueprint list",
+    {reiter:"liste", bild:"screenshot-liste.png", de:"Bauplan-Liste", en:"Blueprint list",
      bde:"Alle Baupläne durchsuchen, nach Art gruppiert, mit fünf Filtern und Häkchen per Klick.",
      ben:"Search every blueprint, grouped by type, with five filters and tick boxes."},
-    {bild:"screenshot-fortschritt.png", de:"Bauplan-Fortschritt", en:"Blueprint progress",
+    {reiter:"fortschritt", bild:"screenshot-fortschritt.png", de:"Bauplan-Fortschritt", en:"Blueprint progress",
      bde:"Je Art siehst du, wie weit du bist — und was dir bis zur Vollständigkeit fehlt.",
      ben:"Per type you see how far along you are — and what is missing to complete it."},
-    {bild:"screenshot-auftragslog.png", de:"Aufträge & Protokoll", en:"Missions & log",
+    {reiter:"auftragslog", bild:"screenshot-auftragslog.png", de:"Aufträge & Protokoll", en:"Missions & log",
      bde:"Welchen Auftrag du wann gespielt hast und welcher Bauplan dabei herauskam.",
      ben:"Which contract you played when, and which blueprint came out of it."}
   ]},
   {de:"Schiffe", en:"Ships", eintraege:[
-    {bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
+    {reiter:"hangar", bild:"screenshot-hangar.png", de:"Mein Hangar", en:"My hangar",
      bde:"Deine Flotte, in einem Zug aus dem Pledge-Store geholt — danach weiß das Werkzeug, was in welches Schiff passt.",
      ben:"Your fleet, pulled in from the pledge store in one go — after that the tool knows what fits into which ship."},
-    {bild:"screenshot-wunschliste.png", de:"Wunschliste", en:"Wishlist",
+    {reiter:"wunschliste", bild:"screenshot-wunschliste.png", de:"Wunschliste", en:"Wishlist",
      bde:"Was du dir vornimmst, mit Preis und Ort — die Ausstattung planst du, bevor du das Schiff hast.",
      ben:"What you are aiming for, with price and location — plan the loadout before you own the ship."},
-    {bild:"screenshot-einkaufsliste.png", de:"Was noch fehlt", en:"Still missing",
+    {reiter:"einkaufsliste", bild:"screenshot-einkaufsliste.png", de:"Was noch fehlt", en:"Still missing",
      bde:"Die Rechnung über alle Schiffe: kaufen oder selbst bauen, mit Summe und Einkaufsroute.",
      ben:"The bill across all your ships: buy or build, with a total and a shopping route."},
-    {bild:"screenshot-asop-ingame.jpg", de:"Schiffe benennen", en:"Rename ships",
+    {reiter:"asop", bild:"screenshot-asop-ingame.jpg", de:"Schiffe benennen", en:"Rename ships",
      bde:"Im Abrufterminal heißen deine Schiffe so, wie du sie nennst — statt „Anvil F7C-M Super Hornet Mk II“.",
      ben:"In the ASOP terminal your ships are called what you call them — instead of “Anvil F7C-M Super Hornet Mk II”."}
   ]},
   {de:"Werkstatt", en:"Workshop", eintraege:[
-    {bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
+    {reiter:"lager", bild:"screenshot-lager.png", de:"Rohstofflager", en:"Material storage",
      bde:"Was du an Material hast, mit Güte und Lagerort — im Rezept steht dann, was fehlt.",
      ben:"What material you have, with quality and location — the recipe then shows what is missing."},
-    {bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
+    {reiter:"herstellung", bild:"screenshot-herstellung.png", de:"Herstellung", en:"Crafting",
      bde:"Zutaten, Mengen und Herstellzeit zu jedem Gegenstand — und ob du den Bauplan dafür hast.",
      ben:"Ingredients, amounts and crafting time for every item — and whether you have the blueprint."},
-    {bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
+    {reiter:"bergbau", bild:"screenshot-bergbau.png", de:"Bergbau", en:"Mining",
      bde:"Rohstoff eintippen und die Fundorte sehen, oder den Ort eintippen und sehen, was es dort gibt.",
      ben:"Type a material to see where it is found, or type a location to see what is there."},
-    {bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
+    {reiter:"raffinerien", bild:"screenshot-raffinerien.png", de:"Raffinerien", en:"Refineries",
+     bde:"Was jede Raffinerie aus deinem Erz macht — Aufschlag und Abschlag je Material, der beste Ort grün.",
+     ben:"What every refinery makes of your ore — bonus and penalty per material, the best place in green."},
+    {reiter:"laeden", bild:"screenshot-laeden.png", de:"Shops", en:"Shops",
      bde:"Wo das fertige Teil im Regal steht und was es dort kostet — der günstigste Laden oben.",
      ben:"Where the finished part sits on the shelf and what it costs — cheapest shop first."},
-    {bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
+    {reiter:"farmliste", bild:"screenshot-farmliste.png", de:"Was ich farmen muss", en:"What to farm",
      bde:"Dein Lager gegen alles gerechnet, was du bauen willst — über alle Posten zusammen.",
      ben:"Your storage measured against everything you want to build — across all items at once."}
   ]},
   {de:"Bergung", en:"Salvage", eintraege:[
-    {bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
+    {reiter:"bergung", bild:"screenshot-bergung.png", de:"Was steckt drin?", en:"What's inside?",
      bde:"Was ein Wrack ab Werk an Bord hat — und was die Teile im Laden wert sind.",
      ben:"What a wreck carries from the factory — and what those parts are worth in a shop."},
-    {bild:"screenshot-zerlegen.png", de:"Lohnt das Zerlegen?", en:"Worth dismantling?",
+    {reiter:"zerlegen", bild:"screenshot-zerlegen.png", de:"Lohnt das Zerlegen?", en:"Worth dismantling?",
      bde:"Was der Fabricator zurückgibt, bevor du den Schneidbrenner ansetzt.",
      ben:"What the fabricator gives back, before you fire up the cutter."}
   ]},
   {de:"Handel", en:"Trading", eintraege:[
-    {bild:"screenshot-handelslager.png", de:"Handelslager", en:"Cargo hold",
+    {reiter:"handelslager", bild:"screenshot-handelslager.png", de:"Handelslager", en:"Cargo hold",
      bde:"Was du zum Verkauf im Laderaum hast — bewusst getrennt vom Baumaterial.",
      ben:"What you are carrying to sell — deliberately kept apart from building material."},
-    {bild:"screenshot-verkauf.png", de:"Verkauf", en:"Selling",
+    {reiter:"verkauf", bild:"screenshot-verkauf.png", de:"Verkauf", en:"Selling",
      bde:"Wo du deine Ware los wirst, sortiert danach, wie viel ein Ort auf einmal abnimmt.",
-     ben:"Where to sell your cargo, sorted by how much a location takes at once."}
+     ben:"Where to sell your cargo, sorted by how much a location takes at once."},
+    {reiter:"routen", bild:"screenshot-routen.png", de:"Routen", en:"Routes",
+     bde:"Sag, wo du stehst, wie viel reinpasst und was du ausgeben willst — dann rechnet Verse-Kit, welche Fahrt sich lohnt.",
+     ben:"Say where you are, how much fits and what you want to spend — Verse-Kit works out which run pays."}
   ]},
-  {de:"Einstellungen", en:"Settings", eintraege:[
-    {bild:"screenshot-allgemein.png", de:"Allgemein", en:"General",
-     bde:"Start mit Windows, Signalton, Symbol in der Ablage — wie sich Verse-Kit im Hintergrund verhält.",
-     ben:"Start with Windows, alert sound, tray icon — how Verse-Kit behaves in the background."},
-    {bild:"screenshot-anzeige.png", de:"Overlay", en:"Overlay",
-     bde:"Alles zum kleinen Fenster über dem Spiel: wann und wo es erscheint, wie durchsichtig es ist, ob Klicks durchgehen.",
-     ben:"Everything about the small window above the game: when and where it shows, how transparent it is, whether clicks pass through."},
-    {bild:"screenshot-auftragstexte.png", de:"Spiel", en:"Game",
-     bde:"Verse-Kit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen — und zeigt dir deine user.cfg.",
-     ben:"Verse-Kit writes into the contract texts which blueprints are included and which you lack — and shows you your user.cfg."},
-    {bild:"screenshot-blickwinkel.png", de:"FOV", en:"Field of view",
-     bde:"Sitzt du richtig vor deinem Bildschirm? Breite mit einer Bankkarte messen, Abstand angeben, fertig.",
-     ben:"Are you sitting right in front of your screen? Measure the width with a bank card, enter the distance, done."},
-    {bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
-     bde:"Alles sichern und zurückholen, deinen Bestand austauschen — auch ohne fremde Werkzeuge.",
-     ben:"Back up and restore everything, exchange your inventory — without any other tool."}
-  ]},
-  {de:"Info", en:"Info", eintraege:[
-    {bild:"screenshot-wasistneu.png", de:"Was ist neu", en:"What's new",
-     bde:"Die Änderungen dieser und älterer Versionen — nachlesbar direkt im Programm.",
-     ben:"The changes in this and older versions — readable right inside the program."},
-    {bild:"screenshot-statistik.png", de:"Statistik", en:"Statistics",
+  {de:"Statistik", en:"Statistics", eintraege:[
+    {reiter:"statistik_auswertung", bild:"screenshot-statistik-auswertung.png", de:"Auswertung", en:"Evaluation",
+     bde:"Hier entsteht die Statistik: Jedes Spielprotokoll wird einmal gelesen und festgehalten — auch wenn Star Citizen es später löscht.",
+     ben:"This is where the statistics come from: every game log is read once and kept — even after Star Citizen deletes it."},
+    {reiter:"statistik", bild:"screenshot-statistik.png", de:"Übersicht", en:"Overview",
      bde:"Spielzeit, Sitzungen, abgeschlossene Aufträge und Quantensprünge — und eine Wärmekarte, wann du spielst. Bleibt erhalten, auch wenn die Logs gelöscht werden.",
      ben:"Play time, sessions, completed contracts and quantum jumps — plus a heat map of when you play. Kept even when the logs are deleted."},
-    {bild:"screenshot-ueber.png", de:"Update & Über", en:"Update & About",
+    {reiter:"statistik_schiffe", bild:"screenshot-statistik-schiffe.png", de:"Schiffe & Ausrüstung", en:"Ships & equipment",
+     bde:"Womit du fliegst, was du verlierst und welche Waffen du trägst.",
+     ben:"What you fly, what you lose and which weapons you carry."},
+    {reiter:"statistik_auftraege", bild:"screenshot-statistik-auftraege.png", de:"Aufträge", en:"Contracts",
+     bde:"Wie deine Aufträge ausgingen — abgeschlossen, fehlgeschlagen, abgebrochen — und welche du am häufigsten spielst.",
+     ben:"How your contracts ended — completed, failed, abandoned — and which ones you play most."},
+    {reiter:"statistik_quantum", bild:"screenshot-statistik-quantum.png", de:"Quantenreisen", en:"Quantum travel",
+     bde:"Deine Quantensprünge: wohin du am häufigsten springst und wo deine Reisen beginnen.",
+     ben:"Your quantum jumps: where you travel most and where your trips begin."},
+    {reiter:"statistik_stabil", bild:"screenshot-statistik-stabil.png", de:"Stabilität", en:"Stability",
+     bde:"Wie deine Sitzungen endeten: sauber beendet, abgestürzt oder die Verbindung verloren — und warum.",
+     ben:"How your sessions ended: closed cleanly, crashed or disconnected — and why."}
+  ]},
+  {de:"Einstellungen", en:"Settings", eintraege:[
+    {reiter:"allgemein", bild:"screenshot-allgemein.png", de:"Allgemein", en:"General",
+     bde:"Start mit Windows, Signalton, Symbol in der Ablage — wie sich Verse-Kit im Hintergrund verhält.",
+     ben:"Start with Windows, alert sound, tray icon — how Verse-Kit behaves in the background."},
+    {reiter:"anzeige", bild:"screenshot-anzeige.png", de:"Overlay", en:"Overlay",
+     bde:"Alles zum kleinen Fenster über dem Spiel: wann und wo es erscheint, wie durchsichtig es ist, ob Klicks durchgehen.",
+     ben:"Everything about the small window above the game: when and where it shows, how transparent it is, whether clicks pass through."},
+    {reiter:"darstellung", bild:"screenshot-darstellung.png", de:"Darstellung", en:"Appearance",
+     bde:"Sechs Farbschemata, Schriftgröße stufenlos — so sieht Verse-Kit aus, wie du es magst.",
+     ben:"Six colour schemes, text size without steps — Verse-Kit looks the way you like it."},
+    {reiter:"ordner", bild:"screenshot-ordner.png", de:"Installation & Pfade", en:"Installation & paths",
+     bde:"Wo Star Citizen liegt und wohin Verse-Kit deine Daten schreibt. Beim Umziehen kommt alles mit.",
+     ben:"Where Star Citizen lives and where Verse-Kit keeps your data. Moving it takes everything along."},
+    {reiter:"spiel", bild:"screenshot-auftragstexte.png", de:"Spiel", en:"Game",
+     bde:"Verse-Kit schreibt in die Auftragstexte, welche Baupläne dabei sind und welche dir fehlen — und zeigt dir deine user.cfg.",
+     ben:"Verse-Kit writes into the contract texts which blueprints are included and which you lack — and shows you your user.cfg."},
+    {reiter:"blickwinkel", bild:"screenshot-blickwinkel.png", de:"FOV", en:"Field of view",
+     bde:"Sitzt du richtig vor deinem Bildschirm? Breite mit einer Bankkarte messen, Abstand angeben, fertig.",
+     ben:"Are you sitting right in front of your screen? Measure the width with a bank card, enter the distance, done."},
+    {reiter:"joysticks", bild:"screenshot-joysticks.png", de:"Steuerung", en:"Controls",
+     bde:"Welcher Stick welche Nummer hat, ob alle verbunden sind — und was auf welcher Taste liegt.",
+     ben:"Which stick has which number, whether all are connected — and what is bound to which button."},
+    {reiter:"achsen", bild:"screenshot-achsen.png", de:"Achsen & Kurven", en:"Axes & curves",
+     bde:"Totzone, Sättigung und Kurve je Achse — mit Vorschau, was davon im Spiel wirklich ankommt.",
+     ben:"Dead zone, saturation and curve per axis — with a preview of what actually reaches the game."},
+    {reiter:"module", bild:"screenshot-module.png", de:"Module", en:"Modules",
+     bde:"Blende ganze Bereiche aus, die du nicht brauchst. Gelöscht wird nichts.",
+     ben:"Hide whole sections you do not need. Nothing gets deleted."},
+    {reiter:"bestand", bild:"screenshot-bestand.png", de:"Sichern & Zurücksetzen", en:"Backup & reset",
+     bde:"Alles sichern und zurückholen, deinen Bestand austauschen — auch ohne fremde Werkzeuge.",
+     ben:"Back up and restore everything, exchange your inventory — without any other tool."},
+    {reiter:"erkennung", bild:"screenshot-erkennung.png", de:"Erkennung", en:"Detection",
+     bde:"Wie Verse-Kit einen neuen Bauplan erkennt — und welcher Account zählt, wenn mehrere auf einem Rechner spielen.",
+     ben:"How Verse-Kit spots a new blueprint — and which account counts when several play on one PC."},
+    {reiter:"startprogramme", bild:"screenshot-startprogramme.png", de:"Startprogramme", en:"Startup programs",
+     bde:"Startet weitere Programme mit Star Citizen — etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.",
+     ben:"Starts other programs along with Star Citizen — such as a voice tool or a controls utility."}
+  ]},
+  {de:"Info", en:"Info", eintraege:[
+    {reiter:"wasistneu", bild:"screenshot-wasistneu.png", de:"Was ist neu", en:"What's new",
+     bde:"Die Änderungen dieser und älterer Versionen — nachlesbar direkt im Programm.",
+     ben:"The changes in this and older versions — readable right inside the program."},
+    {reiter:"patchaenderungen", bild:"screenshot-patchaenderungen.png", de:"Geänderte Spielwerte", en:"Changed game values",
+     bde:"Was ein Spiel-Patch an Werten geändert hat — Schiffe, Waffen, Komponenten, Lackierungen.",
+     ben:"What a game patch changed in the numbers — ships, weapons, components, paints."},
+    {reiter:"ueber", bild:"screenshot-ueber.png", de:"Update & Über", en:"Update & About",
      bde:"Neue Version holen, Testfassungen ein- oder ausschalten, nachsehen wo die eigenen Dateien liegen.",
      ben:"Fetch a new version, switch test builds on or off, see where your own files are kept."},
-    {bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
+    {reiter:"serverstatus", bild:"screenshot-serverstatus.png", de:"Serverstatus", en:"Server status",
      bde:"Läuft Star Citizen gerade? Was CIG meldet, frischt sich jede Minute selbst auf.",
      ben:"Is Star Citizen up? What CIG reports, refreshing itself every minute."},
-    {bild:"screenshot-danke.png", de:"Danke & Lizenzen", en:"Thanks & Licenses",
+    {reiter:"diagnose", bild:"screenshot-diagnose.png", de:"Fehler melden", en:"Report a problem",
+     bde:"Klemmt etwas? Ein Klick schickt den Bericht — ohne Namen und Pfade, außer du trägst selbst einen Namen ein.",
+     ben:"Something stuck? One click sends the report — without names or paths, unless you enter a name yourself."},
+    {reiter:"danke", bild:"screenshot-danke.png", de:"Danke & Lizenzen", en:"Thanks & Licenses",
      bde:"Wer geholfen hat, steht im Programm. Wer einen Fehler meldet, wird namentlich genannt.",
      ben:"Everyone who helped is named in the program. Whoever reports a bug is named."}
   ]}
 ];
+
+/* Die Farbschemata aus `scbp/theme.py` (SCHEMES) — Namen wie im Programm,
+   Punkt in Akzentfarbe auf Grundfarbe. Bilder: tools/bilder_machen.py --schema=<kennung>.
+   Prüfung 217 hält fest, dass jedes Schema hier steht und seine Bilder hat. */
+var FARBSCHEMATA = [
+  {schema:"original", de:"Verse-Kit (Original)", en:"Verse-Kit (original)", akzent:"#9ce430", grund:"#10141c"},
+  {schema:"krt", de:"KRT (Orange)", en:"KRT (orange)", akzent:"#e77e23", grund:"#000000"},
+  {schema:"eis", de:"Eis (Cyan)", en:"Ice (cyan)", akzent:"#38d6f5", grund:"#0b1219"},
+  {schema:"nebel", de:"Nebel (Violett)", en:"Nebula (violet)", akzent:"#a78bfa", grund:"#131020"},
+  {schema:"glut", de:"Glut (Rot)", en:"Ember (red)", akzent:"#ff5a4f", grund:"#151515"},
+  {schema:"kontrast", de:"Hoher Kontrast", en:"High contrast", akzent:"#ffd400", grund:"#000000"}
+];
+var farbLage = "original";
 
 var sprLage = "de";
 var lage = 0;
@@ -595,6 +686,13 @@ function zeigen(i){
   if (sprLage === "en"){
     datei = datei.replace(/\.(png|jpg)$/, "-en.$1");
   }
+  // „Darstellung" zeigt das gewählte Farbschema, darunter die Auswahl.
+  var farben = document.getElementById("farben");
+  farben.hidden = (eintrag.reiter !== "darstellung");
+  if (eintrag.reiter === "darstellung"){
+    datei = "screenshot-farbschema-" + farbLage + (sprLage === "en" ? "-en" : "") + ".png";
+    farbenBauen();
+  }
   var bild = document.getElementById("tourbild");
   bild.src = "assets/" + datei;
   bild.alt = eintrag[sprLage];
@@ -603,6 +701,24 @@ function zeigen(i){
   var knoepfe = document.querySelectorAll("#reiter button");
   for (var k = 0; k < knoepfe.length; k++){
     knoepfe[k].className = (k === i) ? "an" : "";
+  }
+}
+
+function farbenBauen(){
+  var ziel = document.getElementById("farben");
+  ziel.innerHTML = "";
+  for (var f = 0; f < FARBSCHEMATA.length; f++){
+    var schema = FARBSCHEMATA[f];
+    var knopf = document.createElement("button");
+    knopf.className = (schema.schema === farbLage) ? "an" : "";
+    var punkt = document.createElement("span");
+    punkt.className = "punkt";
+    punkt.style.background = schema.akzent;
+    punkt.style.boxShadow = "0 0 0 3px " + schema.grund + ", 0 0 0 4px #555";
+    knopf.appendChild(punkt);
+    knopf.appendChild(document.createTextNode(schema[sprLage]));
+    knopf.onclick = (function(k){ return function(){ farbLage = k; zeigen(lage); }; })(schema.schema);
+    ziel.appendChild(knopf);
   }
 }
 

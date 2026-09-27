@@ -147,19 +147,26 @@ SEITEN = {
     'asop':         'screenshot-schiffe-benennen',
     'raffinerien':  'screenshot-raffinerien',
     'routen':       'screenshot-routen',
-    # ⚠ NICHT `joysticks`: Die Seite liest die ECHTEN Spieldateien (Startprotokoll,
-    # actionmaps.xml), nicht die Wegwerf-Kopie — im Bild stünden die Geräte des
-    # Autors samt Hardware-Kennungen.
     'patchaenderungen': 'screenshot-patchaenderungen',
     # ⚠ Erfundene Sitzungen, siehe `beispiel_statistik()` — die echten verrieten,
     # wann der Autor spielt.
     'statistik':    'screenshot-statistik',
     'darstellung':  'screenshot-darstellung',
-    # ⚠ Die übrigen Statistik-Seiten NICHT: „Aufträge" liest das kopierte
-    # Auftragsprotokoll mit echten Uhrzeiten, und die Webseite zeigt ohnehin
-    # nur die Übersicht. Wer sie ansehen will, trägt sie hier kurz ein.
-    # ⚠ NICHT `diagnose`: Der Bericht zeigt Melder-Namen, Bildschirm und die
-    # Pfade des Rechners, auf dem das Bild entsteht.
+    # ⭐⭐ **Seit 27.09.2026 wirklich JEDER Reiter** — die Webseite zeigt das
+    # Werkzeug mit allen Original-Reitern (Wunsch des Autors). Seiten, die
+    # sonst Echtes zeigten, bekommen erfundene Daten; siehe `beispiel_daten`.
+    'statistik_auswertung': 'screenshot-statistik-auswertung',
+    'statistik_schiffe':    'screenshot-statistik-schiffe',
+    'statistik_auftraege':  'screenshot-statistik-auftraege',
+    'statistik_quantum':    'screenshot-statistik-quantum',
+    'statistik_stabil':     'screenshot-statistik-stabil',
+    'ordner':       'screenshot-ordner',
+    'joysticks':    'screenshot-joysticks',
+    'achsen':       'screenshot-achsen',
+    'module':       'screenshot-module',
+    'erkennung':    'screenshot-erkennung',
+    'startprogramme': 'screenshot-startprogramme',
+    'diagnose':     'screenshot-diagnose',
 }
 
 # ⚠⚠ **Das Overlay ist keine Seite.** Es ist ein eigenes Fenster einer eigenen
@@ -259,6 +266,25 @@ def _gefaehrliches_abschalten(ordner):
         daten = {}
     daten['inj_auto'] = False
     daten['autostart'] = False
+    # Für die Bilder: kein Name im Bericht („Fehler melden"), und ein
+    # Beispiel-Eintrag unter „Startprogramme" statt einer leeren Liste. Er
+    # startet nichts — Startprogramme laufen nur beim Klick auf den Launcher.
+    daten['melder_name'] = ''
+    # ⚠⚠ **Immer „Original" — schon hier, beim Kopieren.** Bis 27.09.2026
+    # setzte erst `main()` das Schema, und das Overlay-Bild entsteht in einem
+    # EIGENEN Prozess (`--nur-overlay`), der diese Stelle nie erreichte: Die
+    # Webseite zeigte das Overlay im KRT-Orange des Autors statt in den
+    # Markenfarben. `--schema=` überschreibt das danach für „Darstellung".
+    daten['farbschema'] = 'original'
+    # Ebenso die Größe — fest, nicht die des Autors. ⚠ Bewusst „sehrgross":
+    # Die Webseite zeigt die Bilder auf rund 800 px verkleinert; mit der
+    # Grundstufe (100 %) war die Schrift dort nicht mehr lesbar (27.09.2026).
+    daten['schriftgroesse'] = 'sehrgross'
+    daten['startprogramme_an'] = True
+    daten['startprogramme'] = [{
+        'an': True, 'name': 'VoiceAttack',
+        'datei': 'C:\\Program Files\\VoiceAttack\\VoiceAttack.exe',
+        'argumente': '', 'wann': 'launcher', 'warten': 0, 'beenden': True}]
     try:
         with open(pfad, 'w', encoding='utf-8', newline='\n') as datei:
             json.dump(daten, datei, ensure_ascii=False, indent=1)
@@ -427,6 +453,156 @@ def beispiel_statistik(heim):
         json.dump({'format': play_stats.FORMAT, 'sitzungen': statistik,
                    'gelesen': gelesen, 'stand': int(heute)}, f,
                   ensure_ascii=False)
+    beispiel_auftragszeiten(spielzeit, zufall)
+
+
+def beispiel_auftragszeiten(spielzeit, zufall):
+    """Die Aufträge der Kopie in die erfundenen Sitzungen verlegen.
+
+    ⚠⚠ Die Namen bleiben (ein Auftragstitel verrät nichts), die **Uhrzeiten
+    nicht**: „Aufträge & Protokoll" und die Statistik-Seite „Aufträge" zeigten
+    sonst mit Datum und Uhrzeit, wann der Autor spielt. Jeder Auftrag landet
+    in einer der erfundenen Sitzungen, in derselben Reihenfolge wie vorher.
+    ⚠ Der Lesestand (`gelesen`) bleibt stehen — ohne ihn läse die Seite die
+    echten Logs nach und brächte die echten Zeiten zurück."""
+    import json
+    from scbp import mission_log
+    if not spielzeit:
+        return
+    pfad = mission_log.file_path()
+    try:
+        with open(pfad, encoding='utf-8') as f:
+            daten = json.load(f)
+    except Exception:
+        return
+    eintraege = sorted(daten.get('auftraege') or [],
+                       key=lambda e: e.get('wann') or '')
+    for nr, eintrag in enumerate(eintraege):
+        sitzung = spielzeit[nr * len(spielzeit) // len(eintraege)]
+        laenge = max(60, sitzung['bis'] - sitzung['von'])
+        beginn = sitzung['von'] + zufall.randint(0, laenge * 2 // 3)
+        ende = min(sitzung['bis'], beginn + zufall.randint(5, 40) * 60)
+        eintrag['wann'] = time.strftime('%Y-%m-%dT%H:%M:%S',
+                                        time.localtime(beginn))
+        if eintrag.get('bis'):
+            eintrag['bis'] = time.strftime('%Y-%m-%dT%H:%M:%S',
+                                           time.localtime(ende))
+        eintrag['quelle'] = 'Game.log'
+    # Wie gespeichert: neueste zuerst — die Liste zeigt die Dateireihenfolge.
+    daten['auftraege'] = eintraege[::-1]
+    with open(pfad, 'w', encoding='utf-8') as f:
+        json.dump(daten, f, ensure_ascii=False)
+
+
+# Erfundene Geräte für „Steuerung" und „Achsen & Kurven": gängige Modelle,
+# Kennung wie im Spiel (Produkt + Hersteller, dahinter die feste Endung).
+BEISPIEL_GERAETE = [('VKB-Sim Gladiator NXT EVO R', '0200231D'),
+                    ('VKB-Sim Gladiator NXT EVO L', '0201231D'),
+                    ('T-Rudder', 'B679044F'),
+                    ('VKB-Sim Gunfighter MCG', '0127231D'),
+                    ('Thrustmaster TWCS Throttle', 'B687044F')]
+
+
+def beispiel_steuerung(heim):
+    """Erfundene Geräte für „Steuerung" und „Achsen & Kurven".
+
+    ⚠⚠ **Nie die echten.** Beide Seiten lesen die Dateien des Spiels selbst
+    (Startprotokoll und `actionmaps.xml`), nicht die Wegwerf-Kopie — im Bild
+    stünden sonst die Geräte des Autors samt Kennungen. Die Belegung selbst
+    bleibt die echte (sie zeigt, wie die Seite arbeitet, und verrät nichts);
+    getauscht werden Name und Kennung jedes Geräts. Umgelenkt wird nur in
+    DIESEM Prozess, und nur zum Lesen: Die Seiten schreiben erst, wenn jemand
+    etwas einstellt."""
+    import re
+    from scbp import joysticks
+    try:
+        echt = joysticks.devices()
+        quelle = joysticks._actionmaps_path()
+        text = io_lesen(quelle) if quelle else ''
+    except Exception:
+        echt, text = [], ''
+    log = []
+    for nr, geraet in enumerate(echt[:len(BEISPIEL_GERAETE)]):
+        name, kennung = BEISPIEL_GERAETE[nr]
+        kennung += '-0000-0000-0000-504944564944'
+        text = re.sub(re.escape(geraet['kennung']), kennung, text, flags=re.I)
+        text = text.replace(geraet['name'], name)
+        log.append('<2026-09-01T18:00:00.000Z> - Connected joystick%d: %s  '
+                   '{%s}\n' % (geraet['platz'], name, kennung))
+    ziel = os.path.join(heim, 'beispiel-steuerung', 'actionmaps.xml')
+    os.makedirs(os.path.dirname(ziel), exist_ok=True)
+    with open(ziel, 'w', encoding='utf-8') as f:
+        f.write(text)
+    log_text = ''.join(log)
+    # ⚠ Die dritte Quelle: was JETZT angesteckt ist, fragt die Seite beim
+    # System ab (`input_device.devices`) — ohne diese Zeile stünden die echten
+    # Sticks als „dem Spiel unbekannt" unter den erfundenen.
+    from scbp import input_device
+    angesteckt = [{'pfad': '', 'name': g['name'], 'kennung': g['kennung']}
+                  for g in joysticks.devices_from_text(log_text)]
+    input_device.devices = lambda: list(angesteckt)
+    joysticks.all_actionmaps = lambda folder=None: [ziel] if text else []
+    joysticks.devices = \
+        lambda folder=None: joysticks.devices_from_text(log_text)
+    # Gespeicherte Profile tragen Namen, die der Autor vergeben hat.
+    joysticks.profiles = lambda folder=None: []
+
+
+def nachlesen_abschalten():
+    """Spielzeit und Statistik lesen während der Bilder NICHTS nach.
+
+    ⚠⚠ Am 27.09.2026 zeigte jedes Bild ab dem vierten die echte Spielzeit
+    (347 h statt der erfundenen 71 h): „Aufträge & Protokoll" liest beim
+    Öffnen die echten Spielprotokolle nach und schreibt dabei Spielzeit und
+    Statistik mit fort (`mission_log`, `_sz.catch_up`/`_st.startup_catch_up`).
+    Dazu zählt eine gerade laufende Sitzung mit, wenn der Autor spielt.
+    Umgelenkt wird nur in diesem Prozess."""
+    from scbp import playtime, play_stats
+    playtime.catch_up = lambda files: 0
+    playtime._running_span = lambda: None
+    play_stats.catch_up = lambda files: 0
+    play_stats.startup_catch_up = lambda files: 0
+    play_stats.rescan = lambda files=None: 0
+
+
+def beispiel_bericht():
+    """„Fehler melden" ohne den Bildschirm des Autors.
+
+    Der Name ist in der Kopie schon geleert (`beispiel_daten`); die Zeile
+    „Bildschirm" nennt sonst Auflösung und Aufbau des Rechners, auf dem das
+    Bild entsteht."""
+    from scbp import report
+    from scbp.language import t
+    report._screens = lambda root: t('b_skalierung') % (2560, 1440, 100)
+
+
+def leiste_zeigen(fenster, kennung, wurzel):
+    """Die Seitenleiste so rollen, dass der gewählte Reiter im Bild steht.
+
+    Ohne das zeigte jedes Bild die Leiste von oben — bei Reitern weiter unten
+    (Einstellungen, Info) sah man nicht, wo man ist."""
+    try:
+        if kennung in ('erkennung', 'startprogramme') \
+                and not fenster.advanced_open:
+            fenster._collapse_toggle()
+            for _ in range(6):
+                wurzel.update()
+        fenster._open_group_of_tab(kennung)
+        wurzel.update_idletasks()
+        knopf = (fenster.buttons.get(kennung) or (None,))[0]
+        leinwand = fenster.sidebar_canvas
+        if knopf is None:
+            return
+        innen = leinwand.nametowidget(
+            leinwand.itemcget(leinwand.find_all()[0], 'window'))
+        gesamt = max(1, innen.winfo_height())
+        lage = knopf.winfo_rooty() - innen.winfo_rooty()
+        oben = max(0, lage - leinwand.winfo_height() // 2)
+        leinwand.yview_moveto(oben / gesamt)
+        for _ in range(4):
+            wurzel.update()
+    except Exception as ausnahme:
+        print('         (Leiste nicht gerollt: %s)' % ausnahme)
 
 
 # Für die erfundene Statistik: gängige Schiffe, Waffen und Ziele unter ihren
@@ -1072,6 +1248,9 @@ def main():
     # ⚠ Immer und für jede Seite — siehe `beispiel_daten`. Die Beispielschiffe
     # liegen im kopierten erkul-Zwischenspeicher, das Netz braucht es nicht.
     beispiel_daten()
+    beispiel_steuerung(os.environ['SC_BP_HOME'])
+    beispiel_bericht()
+    nachlesen_abschalten()
     marken_loeschen()
 
     import tkinter as tk
@@ -1116,6 +1295,7 @@ def main():
                 wurzel.update()
                 wurzel.update_idletasks()
             fenster_richten(fenster, wurzel)
+            leiste_zeigen(fenster, kennung, wurzel)
             seite = fenster.pages.get(kennung)
             if seite is not None:
                 vorbereiten(kennung, seite, wurzel)
