@@ -8,6 +8,40 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.59.0 - 2026-09-27
+
+> **Deine Sprache, dein Kanal.** Ein neuer Reiter „Übersetzung" stellt die
+> Textdatei des Spiels je Kanal ein — LIVE mit Bauplan-Angaben, PTU & Co.
+> mit ihrer eigenen Fassung. Dazu kommen Französisch, Italienisch, Spanisch,
+> Portugiesisch, Türkisch und eine zweite deutsche Übersetzung, und wer eine
+> andere nutzen will, trägt einfach ihre Adresse ein.
+
+### Neu
+
+- **Reiter „Übersetzung"** unter Einstellungen — eine Karte je installiertem
+  Kanal (LIVE, PTU, EPTU …). Die Hauptinstallation bekommt Textdatei und
+  Bauplan-Angaben, jeder weitere Kanal nur die Textdatei, auf Wunsch auch
+  gar nichts. Neue Fassungen holt VerseKit für jeden Kanal selbst
+- **StarStrings fürs PTU** — die Testfassung von MrKraken für PTU & Co.
+- **Weitere Sprachen:** Français, Italiano, Español, Português und Türkçe
+  von Dymerz, Español von Thord82 (auch fürs PTU) und Deutsch von Dymerz
+  als zweite deutsche Quelle
+- **Eigene Adresse** — Link auf eine Zip-Datei oder `global.ini` eintragen,
+  VerseKit holt sie und hält sie aktuell. Eine GitHub-Dateiansicht wird
+  selbst in den Download umgewandelt; nur `https://`, und was keine
+  Textdatei des Spiels ist, wird abgelehnt
+
+### Verbessert
+
+- **„Spiel"** zeigt die gewählte Textquelle und führt mit einem Klick zur
+  Übersetzung
+- **„Danke & Lizenzen"** nennt Dymerz und Thord82
+
+### Behoben
+
+- Der Hintergrund frischte nach einem Quellenwechsel unter Umständen die
+  zuerst eingerichtete statt der gewählten Übersetzung auf
+
 ## v3.58.0 - 2026-09-27
 
 > **Deine Statistik, sechs Farbschemata und neu sortierte Einstellungen.**

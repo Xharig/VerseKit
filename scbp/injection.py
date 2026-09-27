@@ -1751,7 +1751,9 @@ def ini_file():
     """
     from . import translation
     chosen = paths.setting('inj_quelle')
-    order_list = ['deutsch', 'starstrings']
+    # Seit v3.59.0 alle Quellen samt eigener Adresse — die feste Liste
+    # `deutsch`, `starstrings` hätte eine französische Wahl übersehen.
+    order_list = list(translation.SOURCES) + [translation.CUSTOM]
     if chosen in order_list:
         order_list.remove(chosen)
         order_list.insert(0, chosen)
@@ -1772,7 +1774,7 @@ def ini_file():
                 return path, lang_folder, None
     for source in order_list:
         if translation.installed(source):
-            lang_folder = translation.SOURCES[source]['sprache']
+            lang_folder = translation.language_folder(source)
             return translation.target_ini(lang_folder), lang_folder, source
     # Nichts vermerkt: dann die Datei nehmen, die tatsächlich daliegt — aber in
     # der Reihenfolge, die das Spiel vorgibt. Hier stand `german_(germany)`

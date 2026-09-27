@@ -8,6 +8,40 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.59.0 - 2026-09-27
+
+> **Your language, your channel.** A new “Translation” tab sets the game's
+> text file per channel — LIVE with blueprint details, PTU & co. with their
+> own version. French, Italian, Spanish, Portuguese, Turkish and a second
+> German translation join in, and if you want another one, just enter its
+> address.
+
+### New
+
+- **“Translation” tab** under Settings — one card per installed channel
+  (LIVE, PTU, EPTU …). The main installation gets the text file and the
+  blueprint details, every other channel only the text file, or nothing at
+  all if you like. VerseKit fetches new versions for every channel itself
+- **StarStrings for PTU** — MrKraken's test version for PTU & co.
+- **More languages:** Français, Italiano, Español, Português and Türkçe by
+  Dymerz, Español by Thord82 (PTU too) and Deutsch by Dymerz as a second
+  German source
+- **Own address** — enter a link to a zip file or `global.ini`, VerseKit
+  fetches it and keeps it up to date. A GitHub file view is turned into the
+  download by itself; `https://` only, and anything that is not a game text
+  file is refused
+
+### Improved
+
+- **“Game”** shows the chosen text source and takes you to Translation with
+  one click
+- **“Thanks & Licenses”** names Dymerz and Thord82
+
+### Fixed
+
+- After switching sources, the background could refresh the first
+  translation ever set up instead of the chosen one
+
 ## v3.58.0 - 2026-09-27
 
 > **Your statistics, six colour schemes and re-sorted settings.** A section

@@ -420,7 +420,8 @@ def _placed_by_us(sprache):
     """
     from . import translation
     try:
-        return [q for q, d in translation.SOURCES.items()
-                if d.get('sprache') == sprache and translation.installed(q)]
+        return [q for q in list(translation.SOURCES) + [translation.CUSTOM]
+                if translation.language_folder(q) == sprache
+                and translation.installed(q)]
     except Exception:
         return []

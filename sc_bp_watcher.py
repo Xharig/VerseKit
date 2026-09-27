@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0'
+__version__ = '3.59.0-rc1'
 
 
 def _mitgeliefert(name):
@@ -1041,10 +1041,12 @@ class Watcher(threading.Thread):
         if not faellig and not bestand_neu:
             return
 
-        quelle = next((q for q in translation.SOURCES
-                       if translation.installed(q)), None)
+        quelle = self._aktive_quelle()
         eigene_texte = bool(translation.installed('original'))
-        if not quelle and not eigene_texte:
+        # ⭐ v3.59.0: Nebenkanäle (PTU …) mit eigener Textquelle halten sich
+        # auch dann aktuell, wenn die Hauptinstallation nichts gewählt hat.
+        kanaele = translation.channel_sources() if faellig else {}
+        if not quelle and not eigene_texte and not kanaele:
             return                      # nie eingerichtet — Finger weg
         # ⚠ Nur der Sechs-Stunden-Lauf schiebt seinen eigenen Termin. Täte das
         # auch der Bestands-Lauf, verschöbe jeder gefundene Bauplan die
@@ -1056,11 +1058,61 @@ class Watcher(threading.Thread):
 
         def arbeit():
             try:
-                self._texte_abgleichen(quelle, nur_bestand=not faellig)
+                if kanaele:
+                    self._kanaele_abgleichen(kanaele)
+                if quelle or eigene_texte:
+                    self._texte_abgleichen(quelle, nur_bestand=not faellig)
             finally:
                 self.texte_laeuft = False
 
         threading.Thread(target=arbeit, daemon=True).start()
+
+    @staticmethod
+    def _aktive_quelle():
+        """Die Textquelle der Hauptinstallation — die GEWÄHLTE, nicht die
+        erste eingerichtete.
+
+        ⚠ Bis v3.58.0 stand hier „die erste in `SOURCES`, die einen Vermerk
+        hat". Mit zwei Quellen fiel das kaum auf; mit elf (v3.59.0) hätte wer
+        einmal Deutsch und dann Französisch gewählt hatte, im Hintergrund
+        wieder die deutsche Datei aufgefrischt."""
+        alle = list(translation.SOURCES) + [translation.CUSTOM]
+        gewaehlt = paths.setting('inj_quelle')
+        if gewaehlt in alle and translation.installed(gewaehlt):
+            return gewaehlt
+        return next((q for q in alle if translation.installed(q)), None)
+
+    def _kanaele_abgleichen(self, kanaele):
+        """Die Nebenkanäle (PTU, EPTU …): neue Fassung da? Dann holen.
+
+        Nur die Textdatei — Bauplan-Angaben bekommt allein die
+        Hauptinstallation. „Original" braucht hier nichts: Die Texte liegen im
+        Kanal selbst und kommen mit jedem Patch."""
+        try:
+            from scbp import usercfg
+            ordner = {name: pfad for name, pfad, da
+                      in usercfg.installed_channels() if da}
+        except Exception as ausnahme:
+            errors.record('watcher.kanaele', ausnahme)
+            return
+        for kanal, quelle in kanaele.items():
+            if quelle == 'original' or kanal not in ordner:
+                continue
+            try:
+                if not translation.installed(quelle, kanal):
+                    continue
+                da, kennung = translation.update_available(quelle, kanal)
+                if not da:
+                    continue
+                ok, _meldung = translation.fetch(quelle, game_dir=ordner[kanal],
+                                                 channel=kanal)
+                if ok:
+                    self.q.put(('status', language.Phrase(
+                        'texte_erneuert', '%s · %s' % (
+                            kanal, translation.status_text(quelle, channel=kanal)
+                            or kennung))))
+            except Exception as ausnahme:
+                errors.record('watcher.kanaele', ausnahme)
 
     def _spielsprache_pruefen(self, quelle=None):
         """Steht die Sprache der gewählten Übersetzung in der `user.cfg`?
@@ -1074,18 +1126,20 @@ class Watcher(threading.Thread):
         """
         try:
             if quelle is None:
-                quelle = next((q for q in translation.SOURCES
-                               if translation.installed(q)), None)
+                # Über die Klasse, nicht `self`: Die Prüfung ruft diese
+                # Methode mit einem Ersatz-Objekt statt eines Watchers auf.
+                quelle = Watcher._aktive_quelle()
             if not quelle:
                 return False
-            sprache_ordner = translation.SOURCES[quelle]['sprache']
+            sprache_ordner = translation.language_folder(quelle)
             ziel = translation.target_ini(sprache_ordner)
             if not ziel or not os.path.isfile(ziel):
                 return False
             if translation.game_language() == sprache_ordner:
                 return False
             if not translation.set_user_cfg(
-                    sprache_ordner, translation.SOURCES[quelle].get('ton')):
+                    sprache_ordner,
+                    (translation.SOURCES.get(quelle) or {}).get('ton')):
                 return False
             self.q.put(('status', language.Phrase('spielsprache_repariert',
                                                   sprache_ordner)))
@@ -1129,7 +1183,7 @@ class Watcher(threading.Thread):
         mehrere Megabyte große `global.ini`. Für einen frisch gefundenen
         Bauplan ist keine davon nötig: Da steht schon fest, was zu tun ist.
         """
-        sprache_ordner = (translation.SOURCES[quelle]['sprache'] if quelle
+        sprache_ordner = (translation.language_folder(quelle) if quelle
                           else 'english')
         ziel = translation.target_ini(sprache_ordner)
         if not ziel:

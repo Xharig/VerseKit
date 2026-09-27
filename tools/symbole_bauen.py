@@ -200,6 +200,8 @@ KNOPF_SYMBOLE = {
     'module':       'puzzle',
     # Ein Abspielkreis, nicht `rocket` (das ist der Startknopf des Spiels).
     'startprogramme': 'circle-play',
+    # Zwei Schriftzeichen nebeneinander — der Reiter „Übersetzung" (v3.59.0).
+    'uebersetzung': 'languages',
     # Kiste mit Pfeil — nicht `shield-check`, das trägt die Sicherung in der
     # Titelleiste, und zwei Dinge dürfen nicht dasselbe Bild haben.
     'sichern':      'archive-restore',

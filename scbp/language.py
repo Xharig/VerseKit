@@ -1866,6 +1866,73 @@ TEXTS = {
     # benennen ist genau die Sorte Unterschied, die niemandem auffällt außer
     # dem, der sie sucht.
     's_sp_q_or':       ('Englisch (aus dem Spiel)', 'English (from the game)'),
+    # ⭐ v3.59.0: weitere Quellen. Die Sprache steht in ihrer eigenen Form
+    # (Français, Italiano …) — so findet jeder seine auf Anhieb, egal in
+    # welcher Sprache VerseKit selbst läuft.
+    's_sp_q_dymerz_de': ('Deutsch (Dymerz)', 'Deutsch (Dymerz)'),
+    's_sp_q_fr':       ('Français (Dymerz)', 'Français (Dymerz)'),
+    's_sp_q_it':       ('Italiano (Dymerz)', 'Italiano (Dymerz)'),
+    's_sp_q_es':       ('Español (Dymerz)', 'Español (Dymerz)'),
+    's_sp_q_es2':      ('Español (Thord82)', 'Español (Thord82)'),
+    's_sp_q_pt':       ('Português (Dymerz)', 'Português (Dymerz)'),
+    's_sp_q_tr':       ('Türkçe (Dymerz)', 'Türkçe (Dymerz)'),
+    's_sp_q_eigen':    ('Eigene Adresse', 'Own address'),
+    's_sp_quelle_jetzt': ('Gewählt: %s. Sprache und Kanäle (LIVE, PTU …) stellst du '
+                          'auf dem Reiter „Übersetzung" ein.',
+                          'Selected: %s. Language and channels (LIVE, PTU …) are set '
+                          'on the “Translation” tab.'),
+    's_sp_zur_uebersetzung': ('Zur Übersetzung', 'Go to Translation'),
+    's_tq_lead':       ('Welche Textdatei Star Citizen liest — je Kanal. Die '
+                        'Hauptinstallation bekommt dazu die Bauplan-Angaben.',
+                        'Which text file Star Citizen reads — per channel. The main '
+                        'installation also gets the blueprint details.'),
+    's_tq_haupt':      ('Hauptinstallation: Textdatei und Bauplan-Angaben.',
+                        'Main installation: text file and blueprint details.'),
+    's_tq_neben':      ('Nur die Textdatei — der Bauplan-Bestand gilt in diesem '
+                        'Kanal nicht, deshalb keine Bauplan-Angaben.',
+                        'Text file only — your blueprint collection does not apply '
+                        'in this channel, so no blueprint details.'),
+    's_tq_nichts':     ('Nicht anfassen', 'Leave alone'),
+    's_tq_nichts_gewaehlt': ('Noch keine Textquelle gewählt.',
+                             'No text source chosen yet.'),
+    's_tq_unberuehrt': ('%s: VerseKit lässt die Textdatei dort in Ruhe.',
+                        '%s: VerseKit leaves the text file alone there.'),
+    's_tq_fertig':     ('%s: %s', '%s: %s'),
+    's_tq_url_h':      ('Direkter Link auf eine Zip-Datei oder eine global.ini, nur '
+                        'https://. Eine Datei-Ansicht auf GitHub wird selbst in den '
+                        'Download umgewandelt.',
+                        'Direct link to a zip file or a global.ini, https:// only. A '
+                        'GitHub file view is turned into the download by itself.'),
+    's_tq_url_platz':  ('https://… (Zip oder global.ini)',
+                        'https://… (zip or global.ini)'),
+    's_tq_sprache_h':  ('In welchen Sprachordner des Spiels sie gehört. Bringt die '
+                        'Zip ihren Ordner selbst mit, gilt der.',
+                        'Which language folder of the game it belongs in. If the zip '
+                        'brings its own folder, that one wins.'),
+    's_tq_uebernehmen': ('Übernehmen und holen', 'Apply and fetch'),
+    's_tq_url_falsch': ('Die Adresse muss mit https:// beginnen.',
+                        'The address has to start with https://.'),
+    's_tq_pruefen':    ('Nach neuer Fassung sehen', 'Check for a new version'),
+    's_tq_nichts_zu_pruefen': ('Hier gibt es nichts nachzusehen — die Texte kommen '
+                               'aus dem Spiel selbst.',
+                               'Nothing to check here — the texts come from the game '
+                               'itself.'),
+    's_tq_kein_spiel': ('Kein Star Citizen gefunden. Den Ordner stellst du unter '
+                        '„Installation & Pfade" ein.',
+                        'No Star Citizen found. Set the folder under “Installation & '
+                        'paths”.'),
+    's_tq_warn':       ('Fremde Übersetzungen ersetzen die Textdatei ganz.',
+                        'Third-party translations replace the whole text file.'),
+    's_tq_warn_h':     ('Danach ist das ganze Spiel in dieser Sprache. Alle Quellen '
+                        'sind Projekte anderer Leute und werden beim Klick von deren '
+                        'Adresse geladen, nicht mitgeliefert — wer sie sind, steht '
+                        'unter „Danke & Lizenzen". Bei einer eigenen Adresse bist du '
+                        'selbst für den Inhalt verantwortlich.',
+                        'The whole game is then in that language. Every source is '
+                        'somebody else\'s project and is fetched from their address '
+                        'when you click, not shipped — who they are is listed under '
+                        '“Thanks & Licenses”. With your own address you are '
+                        'responsible for what it contains.'),
     's_sp_an':         ('Angaben in die Auftragstexte schreiben',
                           'Write the details into the mission text'),
     's_sp_an_h':       ('Aus lassen, wenn du gerade auf PTU spielst oder die Textdatei in Ruhe lassen willst. Ausschalten nimmt vorhandene Angaben gleich wieder heraus, Einschalten trägt sie neu ein — der Wortlaut des Spiels wird dabei buchstabengenau wiederhergestellt.',
@@ -2241,6 +2308,15 @@ TEXTS = {
                         'in die die Bauplan-Angaben geschrieben werden können.',
                         'Cleaned-up English game text — one of the bases the '
                         'blueprint details can be written into.'),
+    's_dk_dymerz':     ('Übersetzungen ins Französische, Italienische, Spanische, '
+                        'Portugiesische, Türkische und Deutsche — wählbar unter '
+                        '„Übersetzung".',
+                        'Translations into French, Italian, Spanish, Portuguese, '
+                        'Turkish and German — selectable under “Translation”.'),
+    's_dk_thord82':    ('Spanische Übersetzung für LIVE und PTU — wählbar unter '
+                        '„Übersetzung".',
+                        'Spanish translation for LIVE and PTU — selectable under '
+                        '“Translation”.'),
     's_dk_scdl':       ('War anfangs die einzige Datenquelle — ohne ihn gäbe es '
                         'dieses Projekt nicht. Ist er installiert, bestätigt er die '
                         'Funde und liefert die deutschen Bezeichnungen.',
@@ -2722,6 +2798,12 @@ TEXTS = {
     's_sp_start':      ('RSI Launcher starten', 'Launch RSI Launcher'),
     'm_keine_fassung': ('Keine Fassung zum Herunterladen gefunden.',
                         'No version found to download.'),
+    'm_keine_kanalfassung': ('Von dieser Quelle gibt es keine Fassung für %s.',
+                             'This source has no version for %s.'),
+    'm_keine_spieldatei': ('Unter der Adresse liegt keine Textdatei von Star Citizen '
+                           '(global.ini).',
+                           'The address does not point to a Star Citizen text file '
+                           '(global.ini).'),
     'aktuelle_fassung': ('Du hast die neueste Fassung.',
                          'You have the latest version.'),
     's_ub_taeglich':   ('Nach neuen Versionen sehen',
@@ -5084,6 +5166,7 @@ TEXTS = {
     # Anzeige, Bestand, Serverstatus …). Ein einzelner Anglizismus dazwischen
     # fällt auf, und Einheitlichkeit war der Grund für die ganze Überarbeitung.
     'hf_spiel':          ('Spiel', 'Game'),
+    'hf_uebersetzung':   ('Übersetzung', 'Translation'),
     # ⚠ Nicht nur „Bestand". Seit es „Mein Lager" gibt, verwechseln Leute die
     # beiden: Der eine Reiter fuehrt die Bauplaene, der andere die Rohstoffe.
     # Der Name nennt deshalb, worum es geht — und passt zu den Nachbarn

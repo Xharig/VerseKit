@@ -164,6 +164,7 @@ SEITEN = {
     'joysticks':    'screenshot-joysticks',
     'achsen':       'screenshot-achsen',
     'module':       'screenshot-module',
+    'uebersetzung': 'screenshot-uebersetzung',
     'erkennung':    'screenshot-erkennung',
     'startprogramme': 'screenshot-startprogramme',
     'diagnose':     'screenshot-diagnose',

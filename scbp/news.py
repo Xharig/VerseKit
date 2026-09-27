@@ -60,6 +60,7 @@ NEW_SINCE = {
     'darstellung': '3.58.0',   # Einstellungen neu gegliedert (rc4)
     'module':      '3.58.0',
     'startprogramme': '3.58.0',
+    'uebersetzung': '3.59.0',  # Textquelle je Kanal, weitere Sprachen
     'asop':        '3.28.0',   # eigene Schiffsnamen im Fleet Manager
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0

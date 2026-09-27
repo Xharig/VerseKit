@@ -75,6 +75,8 @@ SOURCES = {
         'name':     'Deutsche Übersetzung (rjcncpt)',
         'lizenz':   'CC-BY-NC-SA-4.0',
         'seite':    'https://github.com/rjcncpt/StarCitizen-Deutsch-INI',
+        'label':    's_sp_q_de',
+        'flagge':   'de',
     },
     'starstrings': {
         'repo':     'MrKraken/StarStrings',
@@ -84,8 +86,88 @@ SOURCES = {
         'name':     'StarStrings (aufgeräumte englische Texte)',
         'lizenz':   'siehe Projektseite',
         'seite':    'https://github.com/MrKraken/StarStrings',
+        'label':    's_sp_q_ss',
+        'flagge':   'gb',
+        # Die Testfassung hängt an einem eigenen Release (Vorabversion) —
+        # `releases/latest` liefert sie nie, deshalb der feste Tag.
+        'ptu':      {'tag': 'latest-ptu', 'datei': 'StarStrings-PTU.zip'},
+    },
+    # ⭐ Seit v3.59.0 (Wunsch vom 27.09.2026): weitere gepflegte Übersetzungen.
+    # Dymerz liefert je Sprache eine Zip mit einer blanken `global.ini`; seine
+    # PTU-Fassung ist veraltet (Juli 2026) und wird deshalb nicht angeboten.
+    # ⚠ Keine Lizenz angegeben — wie bei StarStrings: nichts mitliefern, nur
+    # auf Wunsch von der Adresse des Projekts laden, und auf „Danke & Lizenzen"
+    # nennen.
+    'dymerz_de': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'german_.germany.zip',
+        'sprache': 'german_(germany)', 'ton': 'english',
+        'name': 'Deutsch (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_dymerz_de', 'flagge': 'de',
+    },
+    'dymerz_fr': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'french_.france.zip',
+        'sprache': 'french_(france)', 'ton': 'english',
+        'name': 'Français (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_fr', 'flagge': 'fr',
+    },
+    'dymerz_it': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'italian_.italy.zip',
+        'sprache': 'italian_(italy)', 'ton': 'english',
+        'name': 'Italiano (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_it', 'flagge': 'it',
+    },
+    'dymerz_es': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'spanish_.spain.zip',
+        'sprache': 'spanish_(spain)', 'ton': 'english',
+        'name': 'Español (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_es', 'flagge': 'es',
+    },
+    # Eigenes Projekt, bringt LIVE **und** PTU in einer Zip mit (`LIVE/…`,
+    # `PTU/…`) — `teil` wählt den Ordner darin.
+    'thord82_es': {
+        'repo': 'Thord82/Star_citizen_ES', 'datei': 'Star_citizen_ES.zip',
+        'teil': 'LIVE/', 'sprache': 'spanish_(spain)', 'ton': 'english',
+        'name': 'Español (Thord82)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Thord82/Star_citizen_ES',
+        'label': 's_sp_q_es2', 'flagge': 'es',
+        'ptu': {'teil': 'PTU/'},
+    },
+    'dymerz_pt': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'portuguese_.brazil.zip',
+        'sprache': 'portuguese_(brazil)', 'ton': 'english',
+        'name': 'Português (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_pt', 'flagge': 'br',
+    },
+    'dymerz_tr': {
+        'repo': 'Dymerz/StarCitizen-Localization', 'datei': 'turkish_.turkey.zip',
+        'sprache': 'turkish_(turkey)', 'ton': 'english',
+        'name': 'Türkçe (Dymerz)', 'lizenz': 'siehe Projektseite',
+        'seite': 'https://github.com/Dymerz/StarCitizen-Localization',
+        'label': 's_sp_q_tr', 'flagge': 'tr',
     },
 }
+
+# ⭐ Die eigene Adresse (v3.59.0, wie SC Deutsch Launcher und SCLC): Der
+# Spieler trägt selbst ein, wo eine Übersetzung liegt. Keine Zeile in
+# `SOURCES` — Adresse und Sprachordner stehen je Kanal in den Einstellungen.
+CUSTOM = 'eigene'
+SETTING_CUSTOM = 'eigene_quelle'
+# Welche Quelle ein NICHT-Haupt-Kanal (PTU …) benutzt: {Kanal: Quelle}.
+SETTING_CHANNELS = 'kanal_quellen'
+# Kanäle, die die Testfassung einer Quelle bekommen. HOTFIX läuft wie LIVE.
+TEST_CHANNELS = ('PTU', 'EPTU', 'TECH-PREVIEW')
+# Die Sprachordner, die Star Citizen kennt — Auswahl für die eigene Adresse.
+GAME_LANGUAGES = ('english', 'german_(germany)', 'french_(france)',
+                  'italian_(italy)', 'spanish_(spain)', 'portuguese_(brazil)',
+                  'turkish_(turkey)', 'chinese_(simplified)',
+                  'korean_(south_korea)', 'japanese_(japan)', 'polish_(poland)')
+# Mehr als das lädt niemand als Textdatei (die echte hat rund 16 MB).
+CUSTOM_MAX_BYTES = 80 * 1048576
 
 
 def _fetch(url, raw=False):
@@ -128,15 +210,169 @@ def _net_error(e):
         last_error[0] = text
 
 
-def latest(source):
+# ------------------------------------------------------ Kanäle und Quellen
+# ⭐ Seit v3.59.0 kann jeder Kanal (LIVE, PTU …) eine eigene Textquelle haben.
+# `channel=None` heißt überall: die Hauptinstallation (der Spielordner aus
+# den Einstellungen), genau wie vor v3.59.0 — dort bleiben die Vermerke unter
+# dem blanken Quellennamen, damit bestehende Installationen nichts merken.
+# Ein Nebenkanal bekommt seine Vermerke unter `quelle@KANAL`.
+
+def _key(source, channel=None):
+    return source if not channel else '%s@%s' % (source, channel)
+
+
+def _custom_settings(channel=None):
+    """Adresse und Sprachordner der eigenen Quelle für einen Kanal.
+
+    ⚠ `paths.settings()`, nicht `paths.setting()`: Das Letzte liefert nur
+    Text und hält ein Wörterbuch für „nicht gesetzt"."""
+    all_settings = paths.settings().get(SETTING_CUSTOM)
+    if not isinstance(all_settings, dict):
+        return {}
+    entry = all_settings.get(channel or 'MAIN')
+    return dict(entry) if isinstance(entry, dict) else {}
+
+
+def set_custom(url, language_folder, channel=None):
+    """Die eigene Adresse für einen Kanal merken. Gibt die bereinigte Adresse
+    zurück — oder None, wenn sie nicht taugt (nur `https://`)."""
+    url = normalize_url(url)
+    if not url:
+        return None
+    all_settings = paths.settings().get(SETTING_CUSTOM)
+    all_settings = dict(all_settings) if isinstance(all_settings, dict) else {}
+    all_settings[channel or 'MAIN'] = {
+        'url': url,
+        'sprache': language_folder if language_folder in GAME_LANGUAGES
+        else 'english'}
+    paths.set_setting(SETTING_CUSTOM, all_settings)
+    return url
+
+
+def normalize_url(url):
+    """Aus einer eingefügten Adresse die zum Herunterladen machen.
+
+    Eine Datei-Ansicht auf GitHub (`github.com/…/blob/…`) liefert eine
+    Webseite, keine Datei — daraus wird die Rohfassung. ⚠ Nur `https://`:
+    Über eine offene Verbindung könnte unterwegs jemand eine andere Datei
+    unterschieben, und die landet im Spiel."""
+    url = (url or '').strip()
+    if not url.lower().startswith('https://'):
+        return None
+    marker = 'https://github.com/'
+    if url.startswith(marker) and '/blob/' in url:
+        owner_repo, _, rest = url[len(marker):].partition('/blob/')
+        url = 'https://raw.githubusercontent.com/%s/%s' % (owner_repo, rest)
+    return url
+
+
+def _spec(source, channel=None):
+    """Die Angaben einer Quelle für einen Kanal — oder None, wenn es für
+    diesen Kanal keine Fassung gibt (rjcncpt kennt kein PTU)."""
+    if source == CUSTOM:
+        custom = _custom_settings(channel)
+        if not custom.get('url'):
+            return None
+        return {'url': custom['url'], 'sprache': custom.get('sprache') or 'english',
+                'ton': None, 'name': t('s_sp_q_eigen'), 'label': 's_sp_q_eigen'}
+    q = SOURCES.get(source)
+    if not q:
+        return None
+    if channel in TEST_CHANNELS:
+        if not q.get('ptu'):
+            return None
+        merged = dict(q)
+        merged.update(q['ptu'])
+        return merged
+    return q
+
+
+def available(source, channel=None):
+    """Gibt es von dieser Quelle eine Fassung für den Kanal?"""
+    if source in ('original', CUSTOM):
+        return True
+    return _spec(source, channel) is not None
+
+
+def language_folder(source, channel=None):
+    """In welchen Sprachordner die Quelle schreibt (`french_(france)` …)."""
+    if source == 'original':
+        return 'english'
+    # Bei der eigenen Adresse gilt, wohin wirklich geschrieben wurde — das
+    # Archiv kann einen anderen Ordner vorgeben als die Auswahl im Fenster.
+    if source == CUSTOM and info(source, channel).get('sprache'):
+        return info(source, channel)['sprache']
+    spec = _spec(source, channel)
+    if spec:
+        return spec.get('sprache') or 'english'
+    # Die eigene Quelle ohne Adresse: was beim Einsetzen vermerkt wurde.
+    return info(source, channel).get('sprache') or 'english'
+
+
+def display_name(source):
+    """Der Name einer Quelle, wie der Spieler ihn liest."""
+    if source == CUSTOM:
+        return t('s_sp_q_eigen')
+    if source == 'original':
+        return t('s_sp_q_or')
+    q = SOURCES.get(source) or {}
+    return t(q['label']) if q.get('label') else q.get('name', source)
+
+
+def channel_sources():
+    """{Kanal: Quelle} der Nebenkanäle (PTU …), wie gewählt."""
+    value = paths.settings().get(SETTING_CHANNELS)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def set_channel_source(channel, source):
+    value = channel_sources()
+    if source:
+        value[channel] = source
+    else:
+        value.pop(channel, None)
+    paths.set_setting(SETTING_CHANNELS, value)
+
+
+def _custom_latest(spec):
+    """Kennung der Datei hinter der eigenen Adresse — ohne sie zu laden.
+
+    Gefragt wird nur nach dem Kopf (`HEAD`): ETag, Änderungsdatum oder Größe.
+    Liefert der Server nichts davon, gibt es keine Kennung — dann holt der
+    Hintergrund nicht alle sechs Stunden 16 MB auf Verdacht."""
+    from .catalog import OFF
+    if OFF:
+        raise OSError('Netzabrufe sind abgeschaltet (SC_BP_NO_NET)')
+    req = urllib.request.Request(spec['url'], method='HEAD',
+                                 headers={'User-Agent': USER_AGENT})
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+        head = r.headers
+    for field, prefix in (('ETag', 'etag'), ('Last-Modified', 'datum'),
+                          ('Content-Length', 'groesse')):
+        value = (head.get(field) or '').strip().strip('"')
+        if value:
+            return '%s:%s' % (prefix, value)
+    return None
+
+
+def latest(source, channel=None):
     """Die neueste Version einer Quelle: (Kennung, Adresse, Größe) oder None.
 
     Die Kennung ist der Release-Tag. Bei StarStrings heißt der Tag immer
     `latest` — dort taugt er nicht zum Vergleichen, deshalb wird zusätzlich
     das Veröffentlichungsdatum genommen."""
-    q = SOURCES.get(source)
+    q = _spec(source, channel)
     if not q:
+        last_error[0] = t('m_keine_kanalfassung') % (channel or 'LIVE')
         return None
+    if source == CUSTOM:
+        try:
+            ident = _custom_latest(q)
+            last_error[0] = None
+        except Exception as e:
+            _net_error(e)
+            return None
+        return ident, q['url'], 0
     if q.get('repo_datei'):
         # Kennung = der letzte Commit, der genau diese Datei geändert hat.
         # Die Adresse zeigt auf DIESEN Commit, nicht auf `main` — sonst könnte
@@ -164,7 +400,14 @@ def latest(source):
                     % (q['repo'], sha, q['repo_datei']), 0)
         # Datei im Repo nicht (mehr) gefunden: dann das Release, wie früher.
     try:
-        r = _fetch('https://api.github.com/repos/%s/releases/latest' % q['repo'])
+        # Ein fester Tag (StarStrings-PTU hängt an `latest-ptu`, einer
+        # Vorabversion) — `releases/latest` liefert Vorabversionen nie.
+        if q.get('tag'):
+            r = _fetch('https://api.github.com/repos/%s/releases/tags/%s'
+                       % (q['repo'], q['tag']))
+        else:
+            r = _fetch('https://api.github.com/repos/%s/releases/latest'
+                       % q['repo'])
         last_error[0] = None
     except Exception as e:
         # Zertifikatsfehler eigens benennen — die Meldung von OpenSSL ist für
@@ -175,7 +418,8 @@ def latest(source):
         _net_error(e)
         return None
     ident = r.get('tag_name') or ''
-    if ident.lower() in ('latest', ''):
+    # `latest-ptu` genauso: ein fester Name, der nie wechselt.
+    if ident.lower() in ('latest', '') or ident.lower().startswith('latest-'):
         ident = (r.get('published_at') or '')[:19]
     if r.get('published_at'):
         _version_dates[ident] = r['published_at'][:10]
@@ -204,9 +448,12 @@ def _note_write(d):
         pass
 
 
-def _note_set(source, ident):
+def _note_set(source, ident, language_folder=None):
+    """`source` ist der Vermerk-Schlüssel (`_key`), nicht nur der Name."""
     d = _note()
     entry = {'kennung': ident, 'stand': time.strftime('%Y-%m-%d %H:%M')}
+    if language_folder:
+        entry['sprache'] = language_folder
     if _version_dates.get(ident):
         entry['datum'] = _version_dates[ident]
         # Frisch geholt heißt: eben nachgesehen, und es ist die neueste.
@@ -233,9 +480,9 @@ def _record_check(source, result, ident=None):
     _note_write(d)
 
 
-def info(source):
+def info(source, channel=None):
     """Der Vermerk einer Quelle als dict (leer, wenn keiner da ist)."""
-    entry = _note().get(source)
+    entry = _note().get(_key(source, channel))
     return dict(entry) if isinstance(entry, dict) else {}
 
 
@@ -250,12 +497,12 @@ def _day(stamp, lang=None):
     return '%s.%s.%s' % (d, m, y) if lang == 'de' else '%s-%s-%s' % (y, m, d)
 
 
-def status_text(source, lang=None, today=None):
+def status_text(source, lang=None, today=None, channel=None):
     """Für Spieler lesbar: Stand der Übersetzung und ob sie aktuell ist.
 
     Beispiel: „Stand 16.09.2026 · aktuell, nachgesehen heute 04:52".
     ⚠ Nie die Kennung (`git-082b11db5e73`) — daran erkennt niemand etwas."""
-    entry = info(source)
+    entry = info(source, channel)
     parts = []
     if entry.get('datum'):
         parts.append(t('s_sp_stand_vom') % _day(entry['datum'], lang))
@@ -298,39 +545,78 @@ def note(source, ident):
     _note_set(source, ident)
 
 
-def installed(source):
+def installed(source, channel=None):
     """Welche Version liegt hier? Kennung oder None."""
-    return (_note().get(source) or {}).get('kennung')
+    return (_note().get(_key(source, channel)) or {}).get('kennung')
 
 
-def update_available(source):
+def update_available(source, channel=None):
     """(True, neue_Kennung), wenn es etwas Neueres gibt. Wirft nie."""
-    fresh = latest(source)
-    if not fresh:
-        _record_check(source, 'fehler')
+    try:
+        fresh = latest(source, channel)
+    except Exception as e:
+        _net_error(e)
+        fresh = None
+    key = _key(source, channel)
+    # ⚠ Die eigene Adresse ohne Kennung (der Server nennt weder ETag noch
+    # Datum noch Größe): Dann gibt es nichts zu vergleichen — nicht jedes Mal
+    # neu laden, sondern „nicht geprüft" melden.
+    if not fresh or not fresh[0]:
+        _record_check(key, 'fehler')
         return False, None
-    newer = fresh[0] != installed(source)
-    _record_check(source, 'neu' if newer else 'aktuell', fresh[0])
+    newer = fresh[0] != installed(source, channel)
+    _record_check(key, 'neu' if newer else 'aktuell', fresh[0])
     return newer, fresh[0]
 
 
 # ------------------------------------------------------------ Installieren
-def _ini_from_zip(content, sprache):
+def _ini_from_zip(content, sprache, part=None):
     """Die `global.ini` aus dem Archiv holen — egal wie der Ordner geschrieben ist.
 
     StarStrings packt nach `Data/…`, die deutsche Übersetzung nach `data/…`.
     Unter Windows ist das dasselbe, **unter Linux nicht** — dort wäre ein
     falsch geschriebener Ordner schlicht unsichtbar für das Spiel. Deshalb wird
-    hier nur auf den Dateinamen geachtet und der Zielpfad später selbst gebaut."""
+    hier nur auf den Dateinamen geachtet und der Zielpfad später selbst gebaut.
+
+    `part` beschränkt auf einen Ordner im Archiv (Thord82 packt `LIVE/…` und
+    `PTU/…` in dieselbe Zip). Gibt (Inhalt, Sprachordner laut Archiv) zurück;
+    der Sprachordner ist None, wenn die Datei ohne Ordner im Archiv liegt
+    (Dymerz)."""
     with zipfile.ZipFile(io.BytesIO(content)) as z:
-        for name in z.namelist():
+        names = [n for n in z.namelist()
+                 if n.replace('\\', '/').lower().split('/')[-1] == 'global.ini']
+        if part:
+            names = [n for n in names
+                     if n.replace('\\', '/').lower().startswith(part.lower())]
+        for name in names:
             parts = name.replace('\\', '/').lower().split('/')
-            if parts[-1] == 'global.ini' and sprache.lower() in parts:
-                return z.read(name)
-        for name in z.namelist():          # Rückfall: die einzige global.ini
-            if name.replace('\\', '/').lower().endswith('/global.ini'):
-                return z.read(name)
-    return None
+            if sprache and sprache.lower() in parts:
+                return z.read(name), sprache
+        if len(names) == 1:
+            parts = names[0].replace('\\', '/').split('/')
+            found = None
+            lowered = [x.lower() for x in parts]
+            if 'localization' in lowered:
+                i = lowered.index('localization')
+                if i + 1 < len(parts) - 1:
+                    found = parts[i + 1].lower()
+            return z.read(names[0]), found
+    return None, None
+
+
+def looks_like_global_ini(content):
+    """Ist das wirklich eine Textdatei des Spiels? (für die eigene Adresse)
+
+    ⚠ Wer eine Adresse einträgt, kann sich vertun — eine Webseite statt der
+    Datei, eine falsche Datei. Die landet sonst im Spiel und das Spiel zeigt
+    nur noch Schlüssel. Geprüft wird, was jede echte `global.ini` hat: viele
+    `schlüssel=text`-Zeilen und die Fahrzeugnamen."""
+    if not content or len(content) > CUSTOM_MAX_BYTES:
+        return False
+    head = content[:20000000]
+    if b'<html' in head[:2000].lower():
+        return False
+    return b'vehicle_' in head and head.count(b'=') > 5000
 
 
 def target_ini(sprache, game_dir=None):
@@ -424,16 +710,19 @@ def set_user_cfg(sprache, audio=None, game_dir=None):
         return False
 
 
-def fetch(source, progress=None, game_dir=None):
-    """Eine Quelle herunterladen und einsetzen. Gibt (Erfolg, Meldung) zurück."""
+def fetch(source, progress=None, game_dir=None, channel=None):
+    """Eine Quelle herunterladen und einsetzen. Gibt (Erfolg, Meldung) zurück.
+
+    `channel` und `game_dir` gehören zusammen: ein Nebenkanal (PTU …) und sein
+    Ordner. Ohne beides: die Hauptinstallation, wie vor v3.59.0."""
     def report(text):
         if progress:
             progress(text)
 
-    q = SOURCES.get(source)
+    q = _spec(source, channel)
     if not q:
-        return False, 'unbekannte Quelle'
-    fresh = latest(source)
+        return False, t('m_keine_kanalfassung') % (channel or 'LIVE')
+    fresh = latest(source, channel)
     if not fresh:
         return False, last_error[0] or t('m_keine_fassung')
     ident, address, byte_size = fresh
@@ -444,15 +733,29 @@ def fetch(source, progress=None, game_dir=None):
     except Exception as e:
         return False, 'Download fehlgeschlagen: %s' % e
 
+    sprache = q['sprache']
     # Die Repo-Datei kommt als blanke `global.ini`, das Release als Archiv.
     if content[:2] == b'PK':
-        ini = _ini_from_zip(content, q['sprache'])
+        try:
+            ini, from_archive = _ini_from_zip(content, sprache, q.get('teil'))
+        except zipfile.BadZipFile:
+            ini, from_archive = None, None
+        # Bei der eigenen Adresse sagt das Archiv selbst, welche Sprache es
+        # ist (`Data/Localization/french_(france)/global.ini`).
+        if source == CUSTOM and from_archive:
+            sprache = from_archive
     else:
         ini = content if b'\nvehicle_' in content[:20000000] else None
+    if source == CUSTOM and not (ini and looks_like_global_ini(ini)):
+        return False, t('m_keine_spieldatei')
     if not ini:
         return False, t('m_keine_ini_archiv')
+    if source == CUSTOM and not ident:
+        # Der Server nennt keine Kennung — dann ist der Inhalt die Kennung.
+        import hashlib
+        ident = 'inhalt:%s' % hashlib.sha256(ini).hexdigest()[:16]
 
-    target = target_ini(q['sprache'], game_dir)
+    target = target_ini(sprache, game_dir)
     if not target:
         return False, 'Star-Citizen-Ordner unbekannt'
 
@@ -465,8 +768,13 @@ def fetch(source, progress=None, game_dir=None):
     except OSError as e:
         return False, 'Schreiben fehlgeschlagen: %s' % e
 
-    set_user_cfg(q['sprache'], q['ton'], game_dir)
-    _note_set(source, ident)
+    set_user_cfg(sprache, q.get('ton'), game_dir)
+    _note_set(_key(source, channel), ident, sprache)
+    if channel:
+        # Ein Nebenkanal bekommt keine Bauplan-Angaben — die gemerkten
+        # Originaltexte gehören zur Hauptinstallation und bleiben.
+        return True, '%s (%s), %.1f MB' % (q['name'], channel,
+                                          len(ini) / 1048576.0)
     # ⚠ Hier liegt jetzt eine **fremde, unberührte** Datei. Die gemerkten
     # Originaltexte gehören zur alten und würden auf einen überholten Stand
     # zurückschreiben; zugleich wird vermerkt, dass in dieser Datei noch nie

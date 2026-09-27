@@ -2500,6 +2500,12 @@ class MainWindow:
         self._tab('darstellung', 'darstellung', t('hf_darstellung'), g_einst)
         self._tab('ordner', 'ordner', t('hf_ordner'), g_einst)
         self._tab('spiel', 'auftragstexte', t('hf_spiel'), g_einst)
+        # ⭐ v3.59.0: direkt unter „Spiel" — dort stehen die Bauplan-Angaben,
+        # hier, in welche Textdatei (und in welcher Sprache, je Kanal) sie
+        # geschrieben werden. Eigener Reiter, weil elf Quellen und eine Karte
+        # je Kanal die Seite „Spiel" gesprengt hätten.
+        self._tab('uebersetzung', 'uebersetzung', t('hf_uebersetzung'),
+                  g_einst)
         self._tab('blickwinkel', 'blickwinkel', t('hf_blickwinkel'),
                      g_einst)
         # Wie der eigene Aufbau aussieht (welcher Stick welche Nummer hat) und

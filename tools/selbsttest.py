@@ -1643,6 +1643,10 @@ def main():
             # Datenfeld der Übersetzungsquellen, nirgends angezeigt (geprüft)
             ('scbp/translation.py', 'Deutsche Übersetzung (rjcncpt)'),
             ('scbp/translation.py', 'StarStrings (aufgeräumte englische Texte)'),
+            # ⚠ Eigenname in der eigenen Sprache (v3.59.0): „Türkçe" heißt in
+            # jedem Fenster so, genau wie „Français" daneben — das „ü" macht
+            # es nicht zu einem deutschen Satz.
+            ('scbp/translation.py', 'Türkçe (Dymerz)'),
             # ⚠ **Ein Eigenname, kein Satz.** Die „Baupläne DB · Star Citizen
             # Deutsch" heißt auch im englischen Fenster so — genau wie „KRT
             # Profit Basetool" und „scmdb.net" daneben, die nur deshalb nicht
@@ -27169,11 +27173,22 @@ def _pruefung_273():
     # --- Flaggen auch an der Textquelle des Spiels
     _qp273 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                      encoding='utf-8').read()
-    pruefe("('deutsch', t('s_sp_q_de'), _flag('de'))" in _qp273
-           and "('starstrings', t('s_sp_q_ss'), _flag('gb'))" in _qp273
+    # ⭐ Seit v3.59.0 steht die Auswahl auf „Übersetzung" und kommt aus
+    # `translation.SOURCES` — geprüft wird deshalb die Eigenschaft: jede
+    # Quelle trägt eine Flagge, und das Bild dazu gibt es in jeder Größe.
+    from scbp import translation as _tr273
+    _ohne273 = [_k273 for _k273, _q273 in _tr273.SOURCES.items()
+                if not _q273.get('flagge') or not all(
+                    os.path.isfile(os.path.join(WURZEL, 'assets', 'flaggen',
+                                                '%s-%d.png' % (_q273['flagge'], _h273)))
+                    for _h273 in (12, 14, 16, 18))]
+    pruefe(not _ohne273
+           and _tr273.SOURCES['deutsch']['flagge'] == 'de'
+           and _tr273.SOURCES['starstrings']['flagge'] == 'gb'
+           and "_flag(spec.get('flagge'))" in _qp273
            and "('original', t('s_sp_q_or'), _flag('gb'))" in _qp273,
-           'Textquelle: Deutsch mit deutscher, StarStrings und Original mit '
-           'britischer Flagge')
+           'Textquelle: jede Quelle mit Flagge, Deutsch deutsch, StarStrings '
+           'und Original britisch (ohne: %r)' % _ohne273)
     for _d273 in ('settings_window.py', 'wizard.py'):
         _qd273 = io.open(os.path.join(WURZEL, 'scbp', _d273),
                          encoding='utf-8').read()

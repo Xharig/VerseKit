@@ -119,6 +119,7 @@ def _builders():
         **stats_pages.builders(),
         **settings_pages.builders(),
         'darstellung': _appearance,
+        'uebersetzung': _translation_page,
         'liste':       _blueprint_list,
         'fortschritt': _progress,
         'auftragslog': _contract_log,
@@ -2883,8 +2884,9 @@ def _game(fenster, rahmen):
         if lage['drin']:
             zusatz = []
             if lage['quelle']:
+                from . import translation as _tr
                 zusatz.append(t('s_sp_quelle_ist')
-                              % t(_SOURCE_LABELS.get(lage['quelle'], 's_sp_q_or')))
+                              % _tr.display_name(lage['quelle']))
             if lage['stand']:
                 zusatz.append(str(lage['stand']))
             _status(fenster, kasten, 'haken', t('s_sp_steht'), ' · '.join(zusatz))
@@ -2900,17 +2902,16 @@ def _game(fenster, rahmen):
     fenster.on_show['spiel'] = lage_zeigen
 
     # --- Textquelle ----------------------------------------------------------
-    ziel = _setting_row(fenster, innen, t('s_sp_quelle'), t('s_sp_quelle_h'),
-                 wide=True)
-    wahl = _choice(fenster, ziel,
-                 # Die Flagge zeigt die Spielsprache, die dabei herauskommt —
-                 # StarStrings und die Originaltexte sind beide Englisch.
-                 [('deutsch', t('s_sp_q_de'), _flag('de')),
-                  ('starstrings', t('s_sp_q_ss'), _flag('gb')),
-                  ('original', t('s_sp_q_or'), _flag('gb'))],
-                 paths.setting('inj_quelle') or '',
-                 lambda k: _choose_source(fenster, e, wahl, k, lage_zeigen))
-    wahl.pack()
+    # ⭐ Seit v3.59.0 auf dem eigenen Reiter „Übersetzung" — elf Quellen und
+    # eine Karte je Kanal passen nicht mehr in eine Zeile dieser Seite. Hier
+    # steht nur, was gewählt ist, und der Weg dorthin.
+    from . import translation as _tr
+    ziel = _setting_row(fenster, innen, t('s_sp_quelle'),
+                        t('s_sp_quelle_jetzt') % (
+                            _tr.display_name(paths.setting('inj_quelle'))
+                            if paths.setting('inj_quelle') else '—'))
+    _button(fenster, ziel, t('s_sp_zur_uebersetzung'),
+            lambda: fenster.jump_to('uebersetzung')).pack()
 
     ziel = _setting_row(fenster, innen, t('s_sp_auto'), t('s_sp_auto_h'))
 
@@ -3140,11 +3141,6 @@ def _user_cfg_section(window, inner):
     show()
 
 
-# Welche Beschriftung zu welcher Quelle gehört — für den Zustandskasten.
-_SOURCE_LABELS = {'deutsch': 's_sp_q_de', 'starstrings': 's_sp_q_ss',
-              'original': 's_sp_q_or'}
-
-
 def _choose_source(fenster, e, wahl, kennung, danach):
     """Eine Textquelle einrichten — das dauert, also erst ansagen.
 
@@ -3160,13 +3156,238 @@ def _choose_source(fenster, e, wahl, kennung, danach):
     # Programms rechnete mit der alten. Erst gilt, was gewählt wurde; ob es auch
     # eingerichtet werden konnte, sagt der Kasten darüber.
     paths.set_setting('inj_quelle', kennung)
-    fenster.say(t('s_sp_hole') % t(_SOURCE_LABELS.get(kennung, 's_sp_q_or')))
+    from . import translation
+    fenster.say(t('s_sp_hole') % translation.display_name(kennung))
     try:
         e._inj_switch(kennung)
     except Exception as ausnahme:
         errors.record('pages.spiel.quelle', ausnahme)
         fenster.say(t('inj_fehler', ausnahme))
     danach()
+
+
+def _choice_rows(window, parent, entries, active, action, per_row=3):
+    """Viele Möglichkeiten als `_choice`, in Reihen zu `per_row` — elf
+    Textquellen nebeneinander passten in kein Fenster. Die Reihen teilen sich
+    eine Auswahl: `select(k)` hebt genau einen Knopf über alle Reihen hervor."""
+    holder = tk.Frame(parent, bg=BG)
+    rows = []
+    for start in range(0, len(entries), per_row):
+        row = _choice(window, holder, entries[start:start + per_row], active,
+                      action)
+        row.pack(anchor='w', pady=(0, 6))
+        rows.append(row)
+
+    def select(key):
+        for row in rows:
+            row.select(key)
+
+    holder.select = select
+    holder.select_quiet = select
+    return holder
+
+
+def _translation_page(window, frame):
+    """Übersetzung — Textquelle je Kanal (v3.59.0).
+
+    ⭐ Wunsch vom 27.09.2026: *„Textquelle je Kanal bieten auch andere Tools,
+    also auf jeden Fall, da müssen wir nachziehen"* — dazu weitere Sprachen
+    und eine eigene Adresse wie beim SC Deutsch Launcher und SCLC. Eine Karte
+    je installiertem Kanal: Die Hauptinstallation (der Spielordner aus den
+    Einstellungen) bekommt die Textdatei **samt Bauplan-Angaben**, jeder
+    weitere Kanal (PTU …) nur die Textdatei — der Bauplan-Bestand gilt dort
+    nicht (`paths.SHARED_STOCK_CHANNELS`)."""
+    from . import paths, translation, usercfg
+    _heading(window, frame, t('hf_uebersetzung'), t('s_tq_lead'))
+    inner = _scroll_area(frame)
+    parts = _settings_parts(window)
+    area = tk.Frame(inner, bg=BG)
+    area.pack(fill='x')
+
+    def say(text):
+        window.say(text)
+        try:
+            window.root.update_idletasks()
+        except tk.TclError:
+            pass
+
+    def entries_for(channel):
+        """Welche Quellen es für den Kanal gibt — mit Flagge."""
+        result = []
+        for key, spec in translation.SOURCES.items():
+            if translation.available(key, channel):
+                result.append((key, translation.display_name(key),
+                               _flag(spec.get('flagge'))
+                               if spec.get('flagge') else None))
+        result.append(('original', t('s_sp_q_or'), _flag('gb')))
+        result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))
+        if channel:
+            # Ein Nebenkanal darf auch „unberührt" bleiben — dann fasst
+            # VerseKit seine Textdatei gar nicht an.
+            result.append(('', t('s_tq_nichts'), None))
+        return result
+
+    def fetch_side(channel, folder, source):
+        """Einen Nebenkanal (PTU …) auf eine Quelle stellen und holen."""
+        translation.set_channel_source(channel, source)
+        if not source:
+            say(t('s_tq_unberuehrt') % channel)
+            return
+        if source != 'original' and not parts._source_confirmed(source):
+            return
+        say(t('s_sp_hole') % translation.display_name(source))
+        try:
+            if source == 'original':
+                from . import gametext
+                ok, message = gametext.fetch('english', spielordner=folder,
+                                             fortschritt=say)
+                if ok:
+                    translation._note_set(translation._key('original', channel),
+                                          'Data.p4k', 'english')
+            else:
+                ok, message = translation.fetch(source, progress=say,
+                                                game_dir=folder,
+                                                channel=channel)
+        except Exception as exc:
+            errors.record('pages.uebersetzung.kanal', exc)
+            ok, message = False, str(exc)
+        say(t('s_tq_fertig') % (channel, message) if ok
+            else t('inj_fehler', message))
+
+    def card(channel_name, folder, main):
+        box = tk.Frame(area, bg=BG)
+        box.pack(fill='x', pady=(0, 18))
+        tk.Label(box, text=channel_name, bg=BG, fg=FG, font=window.f_title,
+                 anchor='w').pack(fill='x')
+        _body_text(box, t('s_tq_haupt') if main else t('s_tq_neben'),
+                   window.f_small, fill='x', pady=(0, 8))
+        channel = None if main else channel_name
+        if main:
+            chosen = paths.setting('inj_quelle') or ''
+        else:
+            chosen = translation.channel_sources().get(channel_name, '')
+        custom_box = tk.Frame(box, bg=BG)
+
+        def act(key):
+            choice.select(key)
+            if key == translation.CUSTOM:
+                # Erst die Adresse — geholt wird mit „Übernehmen".
+                show_custom(True)
+                return
+            show_custom(False)
+            if main:
+                _choose_source(window, parts, choice, key, lambda: None)
+            else:
+                fetch_side(channel_name, folder, key)
+            status()
+
+        choice = _choice_rows(window, box, entries_for(channel), chosen, act)
+        choice.pack(fill='x')
+        state_label = tk.Label(box, text='', bg=BG, fg=SUB,
+                               font=window.f_small, anchor='w',
+                               justify='left')
+        _wrap_self(state_label)
+
+        def status():
+            current = (paths.setting('inj_quelle') if main
+                       else translation.channel_sources().get(channel_name))
+            text = ''
+            if current:
+                text = translation.status_text(current, channel=channel)
+            state_label.configure(
+                text=('%s · %s' % (translation.display_name(current), text)
+                      if current and text
+                      else translation.display_name(current) if current
+                      else t('s_tq_nichts_gewaehlt') if main
+                      else t('s_tq_unberuehrt') % channel_name))
+
+        # --- eigene Adresse ---------------------------------------------
+        from .main_window import round_entry
+        custom = translation._custom_settings(channel)
+        _body_text(custom_box, t('s_tq_url_h'), window.f_small, fill='x',
+                   pady=(4, 4))
+        # ⚠ Mit eigener Variable: Ein Feld mit grauem Hinweis liest sonst den
+        # Hinweis als Eingabe (`round_entry` verweigert das deshalb).
+        url_value = tk.StringVar(value=custom.get('url') or '')
+        url_field = round_entry(custom_box, url_value, window.f_small,
+                                theme.FIELD, LINE, ACCENT, FG,
+                                placeholder=t('s_tq_url_platz'))
+        url_field.holder.pack(fill='x')
+        _body_text(custom_box, t('s_tq_sprache_h'), window.f_small, fill='x',
+                   pady=(8, 4))
+        language_state = {'value': custom.get('sprache') or 'english'}
+        language_choice = _choice_rows(
+            window, custom_box,
+            [(folder_name, folder_name) for folder_name in translation.GAME_LANGUAGES],
+            language_state['value'],
+            lambda k: (language_choice.select(k),
+                       language_state.update(value=k)), per_row=4)
+        language_choice.pack(fill='x')
+        buttons = tk.Frame(custom_box, bg=BG)
+        buttons.pack(fill='x', pady=(6, 0))
+
+        def take_over():
+            url = translation.set_custom(url_value.get(),
+                                         language_state['value'], channel)
+            if not url:
+                say(t('s_tq_url_falsch'))
+                return
+            if main:
+                _choose_source(window, parts, choice, translation.CUSTOM,
+                               lambda: None)
+            else:
+                fetch_side(channel_name, folder, translation.CUSTOM)
+            status()
+
+        _button(window, buttons, t('s_tq_uebernehmen'), take_over,
+                strong=True).pack(side='left')
+
+        def show_custom(visible):
+            if visible:
+                custom_box.pack(fill='x', pady=(4, 0), before=state_label)
+            else:
+                custom_box.pack_forget()
+
+        state_label.pack(fill='x', pady=(6, 0))
+        show_custom(chosen == translation.CUSTOM)
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill='x', pady=(8, 0))
+
+        def check():
+            current = (paths.setting('inj_quelle') if main
+                       else translation.channel_sources().get(channel_name))
+            if not current or current == 'original':
+                say(t('s_tq_nichts_zu_pruefen'))
+                return
+            say(t('inj_laeuft'))
+            newer, ident = translation.update_available(current, channel)
+            if newer:
+                if main:
+                    _choose_source(window, parts, choice, current, lambda: None)
+                else:
+                    fetch_side(channel_name, folder, current)
+            else:
+                say(t('inj_aktuell'))
+            status()
+
+        _button(window, row, t('s_tq_pruefen'), check).pack(side='left')
+        status()
+
+    main_folder = os.path.normcase(os.path.normpath(paths.game_folder() or ''))
+    channels = [(name, folder) for name, folder, present
+                in usercfg.installed_channels() if present]
+    main_name = next((name for name, folder in channels
+                      if os.path.normcase(os.path.normpath(folder))
+                      == main_folder), None)
+    if not channels and not main_folder:
+        _body_text(area, t('s_tq_kein_spiel'), window.f_small, fill='x')
+        return
+    card(main_name or os.path.basename(main_folder) or 'LIVE',
+         paths.game_folder(), True)
+    for name, folder in channels:
+        if name != main_name:
+            card(name, folder, False)
+    _status(window, inner, '!', t('s_tq_warn'), t('s_tq_warn_h'), color=GOLD)
 
 
 def _backup_section(window, inner):
@@ -6355,6 +6576,15 @@ def _thanks(fenster, rahmen):
     _credit_box(fenster, innen, 'StarStrings (MrKraken)',
                t('s_dk_keine_lizenz'),
                t('s_dk_ss'), 'https://starstrings.app')
+    # ⭐ Seit v3.59.0 wählbar unter „Übersetzung". Beide Projekte nennen keine
+    # Lizenz (geprüft 27.09.2026) — deshalb nichts mitgeliefert, nur auf
+    # Wunsch von ihrer Adresse geladen, und hier genannt.
+    _credit_box(fenster, innen, 'StarCitizen-Localization (Dymerz)',
+               t('s_dk_keine_lizenz'), t('s_dk_dymerz'),
+               'https://github.com/Dymerz/StarCitizen-Localization')
+    _credit_box(fenster, innen, 'Star_citizen_ES (Thord82)',
+               t('s_dk_keine_lizenz'), t('s_dk_thord82'),
+               'https://github.com/Thord82/Star_citizen_ES')
     _credit_box(fenster, innen, 'SC Deutsch Launcher', t('s_dk_freiwillig'),
                t('s_dk_scdl'), 'https://www.sc-deutsch-launcher.de/')
     # ⚠⚠ Die Übersetzung selbst hat einen eigenen Urheber und eine eigene

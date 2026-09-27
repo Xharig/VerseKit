@@ -390,7 +390,8 @@ class SettingsWindow:
         „Original" fragt nicht — das nimmt die Texte aus der eigenen
         Installation und ändert die Sprache nicht.
         """
-        if quelle in ('deutsch', 'starstrings') and not self._source_confirmed(quelle):
+        # Seit v3.59.0 jede fremde Quelle, nicht nur Deutsch und StarStrings.
+        if quelle != 'original' and not self._source_confirmed(quelle):
             return
         self._inj_switch_now(quelle)
 
@@ -405,8 +406,7 @@ class SettingsWindow:
             return True
 
         from .main_window import ask_yes_no
-        name = {'deutsch': t('s_sp_q_de'),
-                'starstrings': t('s_sp_q_ss')}.get(quelle, quelle)
+        name = translation.display_name(quelle)
         if not ask_yes_no(self.root, t('s_sp_warnung_titel'),
                              t('s_sp_warnung') % name):
             return False
@@ -438,7 +438,7 @@ class SettingsWindow:
                 if not ok:
                     self._say(t('inj_fehler', meldung), RED)
                     return
-                sprache_ordner = translation.SOURCES[quelle]['sprache']
+                sprache_ordner = translation.language_folder(quelle)
                 ziel = translation.target_ini(sprache_ordner)
             # ⚠⚠ **Erst die alte Datei zurücksetzen, dann die neue einrichten.**
             # Die Quellen schreiben in verschiedene Sprachordner; ohne das
