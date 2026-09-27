@@ -850,9 +850,12 @@ def scan_backlog():
     # Dieselben Protokolle für die Statistik — mit eigenem Lesestand, genau
     # wie die Spielzeit, und aus demselben Grund: Was hier gezählt ist, bleibt
     # in `statistik.json`, auch wenn die Logs später verschwinden.
+    # ⚠ Nur, wenn „Automatisch auswerten" an ist (ab Werk an, seit rc2
+    # abschaltbar) — die Weiche steckt in `startup_catch_up`. Die Spielzeit
+    # oben läuft davon unabhängig immer.
     try:
         from . import play_stats as _st
-        _st.catch_up(backups + ([running_log] if running_log else []))
+        _st.startup_catch_up(backups + ([running_log] if running_log else []))
     except Exception as exception:
         errors.record('mission_log.play_stats', exception)
 

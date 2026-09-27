@@ -2333,6 +2333,28 @@ class MainWindow:
         # „was soll ich überhaupt laden".
         self._tab('routen', 'routen', t('hf_routen'), g_handel)
 
+        # ⭐ **Eigene Gruppe seit v3.58.0-rc2** (27.09.2026). In rc1 war die
+        # Statistik ein Reiter unter „Info"; mit den Unterseiten nach dem
+        # Vorbild des SC Deutsch Launchers wurde daraus ein Bereich:
+        # *„als Extra Kategorie Statistik, und da als Reiter ausklappbar, und
+        # einen Extra Reiter an erster Stelle mit den Einstellungen."*
+        # ⚠ Die Auswertung zuerst — was man einstellt, steht vor dem, was
+        # man liest. Die Übersicht behält die Kennung `statistik`, damit ihre
+        # „Neu"-Marke und gespeicherte Sprünge dorthin weiter stimmen.
+        # ⚠ Aufträge hier nur zum Lesen; das Protokoll mit Suche bleibt bei den
+        # Bauplänen, wo man die Quelle der Baupläne sucht.
+        g_stat = self._group(t('hf_gruppe_statistik'), 'statistiken')
+        self._tab('statistik_auswertung', 'st_auswertung',
+                  t('hf_st_auswertung'), g_stat)
+        self._tab('statistik', 'statistik', t('hf_st_uebersicht'), g_stat)
+        self._tab('statistik_schiffe', 'st_schiffe', t('hf_st_schiffe'),
+                  g_stat)
+        self._tab('statistik_auftraege', 'st_auftraege', t('hf_st_auftraege'),
+                  g_stat)
+        self._tab('statistik_quantum', 'st_quantum', t('hf_st_quantum'),
+                  g_stat)
+        self._tab('statistik_stabil', 'st_stabil', t('hf_st_stabil'), g_stat)
+
         g_einst = self._group(t('hf_gruppe_einst'), 'einstellungen')
         self._tab('allgemein', 'einstellungen', t('hf_allgemein'), g_einst)
         self._tab('anzeige', 'anzeige', t('hf_anzeige'), g_einst)
@@ -2370,12 +2392,6 @@ class MainWindow:
         # Lucide-Vorlage in `tools/symbole_bauen.py`.
         self._tab('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
                      g_info)
-        # ⚠ Hier und nicht bei den Bauplänen: Die Seite erzählt, wie gespielt
-        # wird — Zeit, Aufträge, Sprünge —, sie stellt nichts ein und gehört zu
-        # keinem Bestand. Direkt unter den beiden „Was hat sich geändert"-
-        # Seiten, weil sie dieselbe Sorte Frage beantwortet: am Spieler statt
-        # am Werkzeug oder am Spiel.
-        self._tab('statistik', 'statistik', t('hf_statistik'), g_info)
         self._tab('ueber', 'ueber', t('hf_ueber'), g_info)
         # Direkt unter „Update & Über": Wer nicht ins Spiel kommt, sucht den
         # Fehler zuerst bei sich. Ein eigener Reiter beantwortet das, statt die
@@ -2502,6 +2518,41 @@ class MainWindow:
                 self._start_game, self.f_small,
                 SURFACE, ACCENT, ACCENT, BG, radius=8, padding=(12, 7))
             self.play_button.pack(fill='x')
+
+        self._community_mark()
+
+    def _community_mark(self):
+        """Das „Made by the Community"-Zeichen als Wasserzeichen im Fuß.
+
+        ⭐ Wunsch vom 27.09.2026, nach dem Vorbild des SC Deutsch Launchers.
+        Das Zeichen stammt aus dem offiziellen Fankit von CIG und ist genau
+        für Fan-Projekte gedacht; es sagt auf einen Blick, dass VerseKit kein
+        Werkzeug von CIG ist.
+
+        ⚠ Oberhalb der Knöpfe und **halb durchsichtig** (im Bild selbst, 45 %):
+        ein Wasserzeichen, kein Bedienelement — deshalb kein Mauszeiger, kein
+        Klick. Das Schwarz des Originals ist durchsichtig gemacht, sonst stünde
+        eine schwarze Scheibe auf der Leiste.
+
+        ⚠ Nur ganze Teiler (`subsample`): Tk kann Bilder nicht frei skalieren.
+        Das Bild ist 240 px groß; bei normaler Schrift wird es geviertelt,
+        bei großer gedrittelt — so wächst es mit der Oberfläche mit.
+
+        ⚠ Klein gehalten (rund 60 px): Jeder Pixel im Fuß fehlt der rollenden
+        Leiste darüber. Mit 80 px sah man bei 860 px Fensterhöhe zwei Reiter
+        weniger."""
+        png = _bundled(os.path.join('assets', 'made-by-the-community.png'))
+        if not png or not os.path.exists(png):
+            return
+        try:
+            full = tk.PhotoImage(file=png)
+            wanted = self.f_base.metrics('linespace') * 3.2
+            divisor = max(1, min(4, int(round(full.width() / wanted))))
+            self._community_image = full.subsample(divisor, divisor)
+            tk.Label(self.sidebar_foot, image=self._community_image,
+                     bg=SURFACE).pack(side='bottom', pady=(8, 2))
+        except Exception as exception:
+            errors.record('main_window.community_mark', exception)
 
     def _open_kofi(self):
         """Die Ko-fi-Seite im Browser aufmachen."""

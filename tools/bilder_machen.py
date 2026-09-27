@@ -154,6 +154,9 @@ SEITEN = {
     # ⚠ Erfundene Sitzungen, siehe `beispiel_statistik()` — die echten verrieten,
     # wann der Autor spielt.
     'statistik':    'screenshot-statistik',
+    # ⚠ Die übrigen Statistik-Seiten NICHT: „Aufträge" liest das kopierte
+    # Auftragsprotokoll mit echten Uhrzeiten, und die Webseite zeigt ohnehin
+    # nur die Übersicht. Wer sie ansehen will, trägt sie hier kurz ein.
     # ⚠ NICHT `diagnose`: Der Bericht zeigt Melder-Namen, Bildschirm und die
     # Pfade des Rechners, auf dem das Bild entsteht.
 }
@@ -385,17 +388,60 @@ def beispiel_statistik(heim):
         dauer = zufall.randint(45, 240 if wochenende else 170) * 60
         von, bis = int(beginn), int(beginn + dauer)
         spielzeit.append({'von': von, 'bis': bis})
+        # Seit rc2 auch die Felder der Unterseiten — ebenso erfunden.
+        absturz = zufall.random() < 0.04
         statistik[str(von)] = {
-            'von': von, 'bis': bis, 'sauber': True, 'account': '',
+            'von': von, 'bis': bis, 'sauber': not absturz, 'account': '',
             'auftraege': zufall.randint(0, 6),
             'fehlgeschlagen': zufall.randint(0, 1),
-            'spruenge': zufall.randint(1, 9)}
+            'abgebrochen': zufall.randint(0, 2),
+            'spruenge': zufall.randint(1, 9),
+            'schiffe': sorted(set(zufall.sample(BEISPIEL_SCHIFFE,
+                                                zufall.randint(1, 3)))),
+            'verloren': ([zufall.choice(BEISPIEL_SCHIFFE)]
+                         if zufall.random() < 0.2 else []),
+            'waffen': {platz: {zufall.choice(liste): 1}
+                       for platz, liste in BEISPIEL_WAFFEN.items()},
+            'zielwahlen': zufall.randint(2, 11),
+            'ziele': {zufall.choice(BEISPIEL_ZIELE): zufall.randint(1, 3)},
+            'absturz': absturz,
+            'abbrueche': {'Nub destroyed': zufall.randint(1, 4),
+                          'Remote Disconnect - Player requested disconnect':
+                              zufall.randint(0, 2)}}
     with open(os.path.join(heim, playtime.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': playtime.FORMAT, 'sitzungen': spielzeit,
                    'gelesen': {}}, f, ensure_ascii=False)
+    # ⚠⚠ **Die echten Logs als „schon gelesen" eintragen.** Die Seiten lesen
+    # beim Öffnen die laufende `Game.log` nach — der Spielordner steht in der
+    # kopierten Einstellung, und ohne diesen Eintrag landete eine ECHTE
+    # Sitzung zwischen den erfundenen im Bild.
+    gelesen = {}
+    for pfad in play_stats.log_files():
+        try:
+            gelesen[os.path.basename(pfad)] = os.path.getsize(pfad)
+        except OSError:
+            pass
     with open(os.path.join(heim, play_stats.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': play_stats.FORMAT, 'sitzungen': statistik,
-                   'gelesen': {}}, f, ensure_ascii=False)
+                   'gelesen': gelesen, 'stand': int(heute)}, f,
+                  ensure_ascii=False)
+
+
+# Für die erfundene Statistik: gängige Schiffe, Waffen und Ziele unter ihren
+# Spielschlüsseln, damit die Anzeigenamen wie im Programm aufgelöst werden.
+BEISPIEL_SCHIFFE = ['ANVL_Asgard', 'AEGS_Gladius', 'DRAK_Cutlass_Black',
+                    'MISC_Prospector', 'RSI_Constellation_Andromeda',
+                    'ORIG_300i']
+BEISPIEL_WAFFEN = {
+    'ruecken': ['behr_lmg_ballistic_01', 'klwe_rifle_energy_01',
+                'behr_rifle_ballistic_01'],
+    'seite': ['klwe_pistol_energy_01', 'crlf_medgun_01'],
+    'hand': ['klwe_rifle_energy_01', 'behr_lmg_ballistic_01',
+             'crlf_medgun_01'],
+}
+BEISPIEL_ZIELE = ['rs_ext_stan-hurston_l1', 'rs_ext_arccorp_leo',
+                  'rs_ext_microtech_leo', 'rs_ext_pyro3_leo',
+                  'NavPoint_Dynamic']
 
 
 def beispiel_hangar():

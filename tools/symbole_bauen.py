@@ -174,6 +174,18 @@ KNOPF_SYMBOLE = {
     # in der Leiste nicht auseinanderzuhalten. Linie über Säulen heißt
     # „Verlauf", und genau das zeigt die Statistik.
     'statistik':    'chart-no-axes-combined',
+    # --- Gruppe „Statistik" (v3.58.0-rc2) — jede Unterseite ihr eigenes Bild,
+    # keines doppelt mit einem anderen Reiter der Leiste ---
+    # Schieberegler, nicht `settings`: Das Zahnrad trägt schon „Allgemein".
+    'st_auswertung': 'sliders-horizontal',
+    # Abhebendes Flugzeug, nicht `plane`: Das trägt schon der Hangar.
+    'st_schiffe':   'plane-takeoff',
+    # Fadenkreuz wie beim Vorbild; `notebook-pen` trägt das Auftragsprotokoll.
+    'st_auftraege': 'crosshair',
+    # Umlaufbahn — ein Sprung von Punkt zu Punkt; `route` trägt der Handel.
+    'st_quantum':   'orbit',
+    # Herzschlagkurve: läuft es rund oder nicht. `stethoscope` hat Diagnose.
+    'st_stabil':    'activity',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',

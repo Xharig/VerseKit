@@ -8,6 +8,36 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc2 - 2026-09-27
+
+> **Statistics get their own section.** Next to the overview you now see
+> which ships you fly and lose the most, which weapons you carry, how your
+> contracts end, where you jump and how stable your game runs. All from your
+> own game logs.
+
+### New
+
+- **Own "Statistics" group** with six tabs: Evaluation, Overview, Ships &
+  equipment, Contracts, Quantum travel and Stability
+- **Evaluation** — shows when the statistics were last evaluated, with
+  "Evaluate now", "Evaluate everything again" and the switch "Evaluate
+  automatically" (on by default). This is also where you save them
+- **Ships & equipment** — most used and lost ships, back weapons and
+  sidearms, what you had in hand; with the names from the game
+- **Contracts** — completed, failed, abandoned, the most played and the
+  latest contracts
+- **Quantum travel** — destinations chosen, arrivals and the most chosen
+  destinations
+- **Stability** — sessions closed properly, crashes and disconnects by
+  reason
+- **"Made by the Community"** at the bottom of the sidebar
+
+### Improved
+
+- **Heat map** — the hours are now labelled every three hours
+- On first start VerseKit reads your existing game logs once more, so the
+  new pages are filled right away
+
 ## v3.58.0-rc1 - 2026-09-27
 
 > **New: your statistics.** A tab of its own shows how much, how often and

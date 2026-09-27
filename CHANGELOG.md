@@ -8,6 +8,35 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc2 - 2026-09-27
+
+> **Die Statistik bekommt ihren eigenen Bereich.** Neben der Übersicht
+> siehst du jetzt, welche Schiffe du am meisten fliegst und verlierst, welche
+> Waffen du trägst, wie deine Aufträge ausgehen, wohin du springst und wie
+> stabil dein Spiel läuft. Alles aus deinen eigenen Spielprotokollen.
+
+### Neu
+
+- **Eigene Gruppe „Statistik"** mit sechs Reitern: Auswertung, Übersicht,
+  Schiffe & Ausrüstung, Aufträge, Quantenreisen und Stabilität
+- **Auswertung** — zeigt, wann zuletzt ausgewertet wurde, mit „Jetzt
+  auswerten", „Alles neu auswerten" und dem Schalter „Automatisch auswerten"
+  (ab Werk an). Hier wird die Statistik auch gespeichert
+- **Schiffe & Ausrüstung** — meistgenutzte und verlorene Schiffe, Rücken-
+  und Seitenwaffen, was du in der Hand hattest; mit den Namen aus dem Spiel
+- **Aufträge** — abgeschlossen, fehlgeschlagen, abgebrochen, die häufigsten
+  und die letzten Aufträge
+- **Quantenreisen** — Zielwahlen, Ankünfte und die häufigsten Ziele
+- **Stabilität** — sauber beendete Sitzungen, Abstürze und
+  Verbindungsabbrüche nach Grund
+- **„Made by the Community"** unten in der Seitenleiste
+
+### Verbessert
+
+- **Wärmekarte** — die Uhrzeiten stehen jetzt alle drei Stunden da
+- Beim ersten Start liest VerseKit deine vorhandenen Spielprotokolle einmal
+  neu ein, damit die neuen Seiten gleich gefüllt sind
+
 ## v3.58.0-rc1 - 2026-09-27
 
 > **Neu: deine Statistik.** Ein eigener Reiter zeigt, wie viel, wie oft und

@@ -52,6 +52,11 @@ FILE = 'gesehen.json'
 # **eine Zeile ergänzen** — mehr ist nicht zu tun.
 NEW_SINCE = {
     'statistik':   '3.58.0',   # Spielzeit, Aufträge, Sprünge, Wärmekarte
+    'statistik_auswertung': '3.58.0',   # die Gruppe „Statistik" (rc2)
+    'statistik_schiffe': '3.58.0',
+    'statistik_auftraege': '3.58.0',
+    'statistik_quantum': '3.58.0',
+    'statistik_stabil': '3.58.0',
     'asop':        '3.28.0',   # eigene Schiffsnamen im Fleet Manager
     'patchaenderungen': '3.24.0',  # was ein Spiel-Patch an Werten geändert hat
     # Die Schiffs-Gruppe, alle drei aus v3.19.0

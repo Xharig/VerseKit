@@ -67,7 +67,9 @@ from scbp.main_window import MainWindow                 # noqa: E402
 # unten haelt das fest und schlaegt an, wenn eine fehlt.
 SEITEN = ('liste', 'fortschritt', 'auftragslog', 'allgemein', 'anzeige',
           'spiel', 'bestand',
-          'wasistneu', 'patchaenderungen', 'statistik', 'ueber',
+          'wasistneu', 'patchaenderungen', 'ueber',
+          'statistik_auswertung', 'statistik', 'statistik_schiffe',
+          'statistik_auftraege', 'statistik_quantum', 'statistik_stabil',
           'serverstatus', 'danke',
           'ordner', 'erkennung', 'diagnose',
           'joysticks', 'achsen', 'blickwinkel',

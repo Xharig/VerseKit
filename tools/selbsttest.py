@@ -12412,7 +12412,8 @@ def main():
     try:
         # ⚠ Der harte Fall: ein altes „zu" aus der Zeit, als Info frei
         # klappte. Es darf die Gruppe NICHT zuklappen — sonst saehe ein Teil
-        # der Nutzer den neuen Statistik-Reiter nie.
+        # der Nutzer die Reiter darin nie. (Der Statistik-Reiter, um den es
+        # hier in rc1 ging, hat seit rc2 eine eigene Gruppe.)
         _pf122.set_setting('gruppe_zu_info', 'ja')
         _pf122.set_setting('gruppe_zu_info_2', 'nein')
         _pf122.set_setting('gruppe_zu_werkstatt', 'ja')
@@ -12456,7 +12457,7 @@ def main():
                      for k, teile in _f122.buttons.items() if teile[0] is z]
         _soll122 = [k for z in _gi122['inhalt'].winfo_children()
                     for k, teile in _f122.buttons.items() if teile[0] is z]
-        pruefe(_offen122 == _soll122 and 'statistik' in _offen122,
+        pruefe(_offen122 == _soll122 and 'danke' in _offen122,
                'aufgeklappt wieder alle, in der alten Reihenfolge (%r)'
                % _offen122)
 
@@ -25834,6 +25835,7 @@ def main():
     _pruefung_267()
     _pruefung_268()
     _pruefung_269()
+    _pruefung_270()
 
     print()
     if fehler:
@@ -26394,6 +26396,174 @@ def _pruefung_269():
             os.environ['SC_BP_HOME'] = heim_alt
         shutil.rmtree(ordner, ignore_errors=True)
 
+
+
+def _pruefung_270():
+    """270. Statistik-Unterseiten: Schiffe, Waffen, Ziele, Stabilitaet."""
+    print('\n270. Statistik-Unterseiten zaehlen nur Eigenes und bleiben bei '
+          'Neuauswertung')
+    # Nachgebaut nach echten Zeilen (27.09.2026, 181 Protokolle). Geprueft
+    # wird ueber `catch_up`, den Weg, den Start und Seiten nehmen.
+    import tempfile as _tf270
+    import json as _js270
+    from scbp import play_stats as _ps, paths as _pa270
+    ordner = _tf270.mkdtemp(prefix='stat270-')
+    heim_alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(ordner, 'daten')
+    try:
+        z = '<2026-09-20T18:%02d:00.000Z> [Notice] '
+
+        def _waffe(minute, spieler, klasse, nummer, platz):
+            return (z % minute + '<AttachmentReceived> Player[%s] Attachment['
+                    '%s_%s, %s, %s] Status[persistent] Port[%s] Elapsed[1]'
+                    % (spieler, klasse, nummer, klasse, nummer, platz))
+        zeilen = [
+            '<2026-09-20T18:00:00.000Z> [Notice] <AccountLoginCharacter'
+            'Status_Character> Character: ... - name Xharig - state '
+            'STATE_CURRENT',
+            '<2026-09-20T18:01:00.000Z> OnClientSpawned',
+            # dieselbe Waffe zweimal gemeldet (Umziehen) -> einmal
+            _waffe(2, 'Xharig', 'behr_lmg_ballistic_01', '11', 'wep_stocked_2'),
+            _waffe(3, 'Xharig', 'behr_lmg_ballistic_01', '11', 'wep_stocked_2'),
+            _waffe(4, 'Xharig', 'klwe_pistol_energy_01', '12', 'wep_sidearm'),
+            # Platzhalter des Spiels -> keine Waffe
+            _waffe(5, 'Xharig', 'Default', '13', 'wep_stocked_3'),
+            # Waffe eines anderen Spielers -> nicht unsere
+            _waffe(6, 'Kumpel', 'behr_rifle_ballistic_01', '14', 'wep_sidearm'),
+            # Magazin -> kein Waffenplatz
+            _waffe(7, 'Xharig', 'behr_lmg_ballistic_01_mag', '15',
+                   'magazine_attach'),
+            z % 8 + "<Vehicle Control Flow> CVehicleMovementBase::ClearDriver: "
+            "Local client node [1] releasing control token for "
+            "'ANVL_Asgard_465232524500' [465232524500]",
+            z % 9 + "<Vehicle Control Flow> CVehicleMovementBase::ClearDriver: "
+            "Local client node [1] releasing control token for "
+            "'ANVL_Asgard_465232524501' [465232524501]",
+            z % 10 + "<[ActorState] Dead> [ACTOR STATE] Actor 'Xharig' [1] "
+            "ejected from zone 'AEGS_Sabre_465232524500' [2] to zone 'planet' "
+            "[3] due to previous zone being in a destroyed vehicle with "
+            "detached interior.",
+            z % 11 + "<[ActorState] Dead> [ACTOR STATE] Actor 'Kumpel' [9] "
+            "ejected from zone 'DRAK_Cutlass_Black_4652325' [2] to zone "
+            "'planet' [3] due to previous zone being in a destroyed vehicle",
+            z % 12 + '<Player Selected Quantum Target - Local> [ItemNavigation]'
+            ' | NOT AUTH | ANVL_Asgard_1[1]|CSCItemNavigation::'
+            'OnPlayerSelectedQuantumTarget|Player has selected point '
+            'LOC_rs_ext_pyro6_leo as their destination, routing locally',
+            z % 13 + '<Player Selected Quantum Target - Local> | Player has '
+            'selected point MISSION_QT_Quantum_Beacon_TSG_527546858025 as '
+            'their destination',
+            z % 14 + '<Player Selected Quantum Target - Local> | Player has '
+            'selected point MISSION_QT_Bounty_Beacon_530934870256 as their '
+            'destination',
+            z % 15 + '<Channel Disconnected> cause=30016 reason="Remote '
+            'Disconnect - Player requested disconnect" frame=1',
+            z % 16 + '<Channel Disconnected> cause=30010 reason="Nub '
+            'destroyed" frame=2',
+            'Cloud Imperium Games public crash handler taking over...',
+            z % 20 + '<SystemQuit> CSystem::Quit invoked',
+        ]
+        log = os.path.join(ordner, 'Game.log')
+        with open(log, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(zeilen) + '\n')
+
+        pruefe(_ps.catch_up([log]) == 1, 'die Sitzung wird erfasst')
+        e = list(_ps.load()['sitzungen'].values())[0]
+        pruefe(e.get('schiffe') == ['ANVL_Asgard'],
+               'ein Schiff zaehlt einmal je Sitzung, ohne Seriennummer (%r)'
+               % e.get('schiffe'))
+        pruefe(e.get('verloren') == ['AEGS_Sabre'],
+               'nur das eigene zerstoerte Schiff zaehlt als verloren (%r)'
+               % e.get('verloren'))
+        pruefe(e.get('waffen') == {'ruecken': {'behr_lmg_ballistic_01': 1},
+                                   'seite': {'klwe_pistol_energy_01': 1}},
+               'Waffen je Stueck, ohne Platzhalter, Magazin und fremde '
+               '(%r)' % e.get('waffen'))
+        pruefe(e.get('zielwahlen') == 3
+               and e.get('ziele') == {'rs_ext_pyro6_leo': 1, 'MISSION_QT': 2},
+               'Zielwahlen gezaehlt, Leuchtfeuer zusammengefasst (%r)'
+               % e.get('ziele'))
+        pruefe(e.get('absturz') is True and _ps.end_of(e) == 'absturz',
+               'ein Absturz schlaegt das spaetere Quit (%r)' % _ps.end_of(e))
+        pruefe(e.get('abbrueche') == {
+            'Remote Disconnect - Player requested disconnect': 1,
+            'Nub destroyed': 1}, 'Abbrueche nach Grund (%r)'
+               % e.get('abbrueche'))
+        st = _ps.stability('Xharig')
+        pruefe(st['absturz'] == 1 and st['sauber'] == 0
+               and st['abbrueche'] == 2,
+               'die Stabilitaet rechnet daraus (%r)'
+               % {k: st[k] for k in ('absturz', 'sauber', 'abbrueche')})
+
+        # ⚠⚠ Format 1 -> 2: gelesene Logs werden neu gelesen, eine Sitzung
+        # ohne Log behaelt ihre alten Zahlen.
+        daten = _ps.load()
+        daten['sitzungen']['1000'] = {'von': 1000, 'bis': 2000,
+                                      'account': '', 'auftraege': 7}
+        daten['format'] = 1
+        with open(_ps.path(), 'w', encoding='utf-8') as f:
+            _js270.dump(daten, f)
+        pruefe(_ps.load()['gelesen'] == {},
+               'ein altes Format verwirft den Lesestand')
+        _ps.catch_up([log])
+        nach = _ps.load()
+        pruefe(nach['format'] == _ps.FORMAT
+               and nach['sitzungen'].get('1000', {}).get('auftraege') == 7
+               and len(nach['sitzungen']) == 2,
+               'die Sitzung ohne Log bleibt beim Formatwechsel erhalten')
+
+        # „Alles neu auswerten" liest neu, verliert aber nichts
+        os.remove(log)
+        _ps.rescan([])
+        pruefe(len(_ps.load()['sitzungen']) == 2,
+               '„Alles neu auswerten" loescht keine Sitzung, deren Log weg ist')
+
+        # Automatik: ab Werk an, abschaltbar — und dann liest der Start nichts
+        pruefe(_ps.auto_enabled(), '„Automatisch auswerten" ist ab Werk an')
+        # ⚠⚠ Die Weiche steckt in `startup_catch_up` und wird DIREKT
+        # geprueft. Der erste Anlauf ging ueber `scan_backlog` — im Gesamtlauf
+        # haben fruehere Pruefungen dort Module neu geladen und Ordner
+        # verbogen, und die Falle hing am falschen Objekt: einzeln gruen,
+        # im Gesamtlauf rot (Zustand von vorher). Dass der Start die Weiche
+        # auch benutzt, haelt der Codeverweis darunter fest (wie Pruefung 175).
+        _gerufen = []
+        _alt_cu = _ps.catch_up
+        _ps.catch_up = lambda *a, **k: _gerufen.append(1) or 0
+        try:
+            _ps.catch_up([])
+            pruefe(_gerufen == [1], 'die Falle schnappt (Selbstpruefung)')
+            del _gerufen[:]
+            _ps.startup_catch_up([])
+            pruefe(_gerufen == [1], 'mit der Automatik liest der Start die '
+                   'Statistik (%r)' % _gerufen)
+            del _gerufen[:]
+            _pa270.set_setting(_ps.AUTO_SETTING, False)
+            pruefe(_ps.startup_catch_up([]) is None and not _gerufen,
+                   'mit „Automatisch auswerten" aus liest der Start keine '
+                   'Statistik')
+        finally:
+            _ps.catch_up = _alt_cu
+        # ⚠ Aus dem Syntaxbaum der DATEI, nicht aus dem geladenen Objekt:
+        # Fruehere Pruefungen ersetzen `mission_log.scan_backlog` im
+        # Gesamtlauf durch einen Platzhalter.
+        import ast as _ast270
+        with open(os.path.join(WURZEL, 'scbp', 'mission_log.py'),
+                  encoding='utf-8') as _f270:
+            _baum270 = _ast270.parse(_f270.read())
+        _namen270 = {n.attr for d in _baum270.body
+                     if isinstance(d, _ast270.FunctionDef)
+                     and d.name == 'scan_backlog'
+                     for n in _ast270.walk(d)
+                     if isinstance(n, _ast270.Attribute)}
+        pruefe('startup_catch_up' in _namen270,
+               'der Start (`scan_backlog`) geht ueber die Weiche, nicht '
+               'direkt an `catch_up`')
+    finally:
+        if heim_alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = heim_alt
+        shutil.rmtree(ordner, ignore_errors=True)
 
 def _wurzel():
     """Ein unsichtbares Fenster, nur um die Bildschirmgröße erfragen zu können."""
