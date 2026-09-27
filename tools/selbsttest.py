@@ -25902,6 +25902,7 @@ def main():
     _pruefung_272()
     _pruefung_273()
     _pruefung_274()
+    _pruefung_275()
 
     print()
     if fehler:
@@ -27221,6 +27222,61 @@ def _pruefung_274():
                % _karten274.winfo_reqwidth())
     finally:
         _w274.destroy()
+
+
+def _pruefung_275():
+    """275. Wer neu startet, beendet auch die alte Fassung (rc8)."""
+    print('\n275. Neustart: die alte Fassung geht auch — kein zweites Overlay')
+    import ast as _ast275
+    # ⚠ Am rc8 gemeldet: Nach „Jetzt neu starten" beim Farbschema lief das
+    # alte Overlay unter dem neuen weiter. `updater.restart()` startet nur die
+    # neue Fassung; beenden muss sich die alte selbst.
+    _uebergabe275 = ('_hand_over_after_restart', 'new_version_alive',
+                     '_hand_over')
+    _ohne275, _als_wert275 = [], []
+    for _d275 in ['sc_bp_watcher.py'] + [
+            os.path.join('scbp', n) for n in os.listdir(
+                os.path.join(WURZEL, 'scbp')) if n.endswith('.py')]:
+        if _d275.endswith('updater.py'):
+            continue
+        _baum275 = _ast275.parse(io.open(os.path.join(WURZEL, _d275),
+                                         encoding='utf-8').read())
+        _aufrufe275 = set()
+        for _k275 in _ast275.walk(_baum275):
+            if isinstance(_k275, _ast275.Call):
+                _aufrufe275.add(id(_k275.func))
+        for _f275 in _ast275.walk(_baum275):
+            if not isinstance(_f275, (_ast275.FunctionDef,
+                                      _ast275.AsyncFunctionDef)):
+                continue
+            _ruft275 = False
+            _gibt_ab275 = False
+            for _k275 in _ast275.walk(_f275):
+                if (isinstance(_k275, _ast275.Attribute)
+                        and _k275.attr == 'restart'
+                        and getattr(_k275.value, 'id', '') == 'updater'):
+                    if id(_k275) in _aufrufe275:
+                        _ruft275 = True
+                    else:
+                        _als_wert275.append('%s:%d' % (_d275, _k275.lineno))
+                if (isinstance(_k275, (_ast275.Attribute, _ast275.Name))
+                        and (getattr(_k275, 'attr', None)
+                             or getattr(_k275, 'id', None)) in _uebergabe275):
+                    _gibt_ab275 = True
+            if _ruft275 and not _gibt_ab275:
+                _ohne275.append('%s:%s' % (_d275, _f275.name))
+    # Eine aeussere Funktion, deren innere die Uebergabe macht, zaehlt mit:
+    # gemeldet wird nur die innerste, die restart ruft.
+    pruefe(not _als_wert275,
+           'updater.restart wird nie ungerufen als Knopf-Aktion uebergeben '
+           '(%r)' % _als_wert275)
+    pruefe(not _ohne275,
+           'jede Funktion, die neu startet, gibt danach an die neue Fassung '
+           'ab (%r)' % _ohne275)
+    _qp275 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                     encoding='utf-8').read()
+    pruefe('lambda: restart_and_hand_over(window)' in _qp275,
+           'der Knopf beim Farbschema nimmt den ganzen Weg')
 
 
 def _wurzel():

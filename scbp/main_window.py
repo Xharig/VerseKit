@@ -3702,10 +3702,14 @@ class MainWindow:
         # Der Spieler sieht seinen alten Stand und haelt das Einspielen fuer
         # gescheitert, waehrend die Dateien laengst da sind.
         def _neustart():
-            from . import updater
+            from . import updater, pages
             try:
                 if not updater.restart():
                     self.say(t('sich_neustart_selbst'))
+                    return
+                # ⚠ Und die alte Fassung beenden — `restart` startet nur die
+                # neue (siehe `pages.restart_and_hand_over`).
+                pages._hand_over_after_restart(self)
             except Exception as ausnahme:
                 errors.record('main_window.sicherung_neustart', ausnahme)
                 self.say(t('sich_neustart_selbst'))

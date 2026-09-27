@@ -1926,9 +1926,9 @@ def _scheme_row(window, inner):
         if name != theme.NAME:
             _body_text(restart, t('s_da_neustart'), window.f_small,
                        fill='x', pady=(8, 4))
-            from . import updater
             _button(window, restart, t('s_da_neustart_knopf'),
-                    updater.restart, strong=True).pack(anchor='w')
+                    lambda: restart_and_hand_over(window),
+                    strong=True).pack(anchor='w')
         window.say(t(theme.SCHEMES[name]['label']))
 
     choice = _scheme_cards(window, target,
@@ -5228,6 +5228,24 @@ def _in_tk(fenster, tat):
             _TK_REPORTED[0] = True
             errors.record('pages.im_tk', ausnahme)
         return False
+
+
+def restart_and_hand_over(fenster):
+    """Neu starten UND die alte Fassung beenden — der ganze Weg in einem.
+
+    ⚠⚠ `updater.restart()` startet nur die neue Fassung; gehen muss die alte
+    selbst. Der Knopf „Jetzt neu starten" beim Farbschema rief `restart`
+    allein auf — danach liefen **zwei** VerseKit, und das alte Overlay blieb
+    unter dem neuen stehen (gemeldet am rc8, 27.09.2026). Dasselbe beim
+    Neustart nach dem Einspielen einer Sicherung. Gibt True zurück, wenn der
+    Neustart angestoßen wurde."""
+    from . import updater
+    fenster.say(t('s_ub_startet_neu'))
+    if not updater.restart():
+        fenster.say(t('s_ub_neustart_nein'))
+        return False
+    _hand_over_after_restart(fenster)
+    return True
 
 
 def _hand_over_after_restart(fenster):
