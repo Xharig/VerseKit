@@ -2529,24 +2529,24 @@ class MainWindow:
         für Fan-Projekte gedacht; es sagt auf einen Blick, dass VerseKit kein
         Werkzeug von CIG ist.
 
-        ⚠ Oberhalb der Knöpfe und **halb durchsichtig** (im Bild selbst, 45 %):
-        ein Wasserzeichen, kein Bedienelement — deshalb kein Mauszeiger, kein
-        Klick. Das Schwarz des Originals ist durchsichtig gemacht, sonst stünde
-        eine schwarze Scheibe auf der Leiste.
+        ⚠ Oberhalb der Knöpfe, **rein weiß**: kein Bedienelement — deshalb
+        kein Mauszeiger, kein Klick. Das Schwarz des Originals ist durchsichtig
+        gemacht, sonst stünde eine schwarze Scheibe auf der Leiste. In rc2 war
+        es zusätzlich zu 45 % durchsichtig — grau auf Grau, „es ist eh nichts
+        richtig erkennbar" (27.09.2026).
 
         ⚠ Nur ganze Teiler (`subsample`): Tk kann Bilder nicht frei skalieren.
-        Das Bild ist 240 px groß; bei normaler Schrift wird es geviertelt,
-        bei großer gedrittelt — so wächst es mit der Oberfläche mit.
+        Das Bild ist 240 px groß; bei normaler Schrift wird es gedrittelt
+        (80 px), bei großer halbiert — so wächst es mit der Oberfläche mit.
 
-        ⚠ Klein gehalten (rund 60 px): Jeder Pixel im Fuß fehlt der rollenden
-        Leiste darüber. Mit 80 px sah man bei 860 px Fensterhöhe zwei Reiter
-        weniger."""
+        ⚠ Jeder Pixel im Fuß fehlt der rollenden Leiste darüber. rc2 hatte
+        deshalb 60 px — „etwas zu klein" (27.09.2026). Seitdem 80 px."""
         png = _bundled(os.path.join('assets', 'made-by-the-community.png'))
         if not png or not os.path.exists(png):
             return
         try:
             full = tk.PhotoImage(file=png)
-            wanted = self.f_base.metrics('linespace') * 3.2
+            wanted = self.f_base.metrics('linespace') * 4.5
             divisor = max(1, min(4, int(round(full.width() / wanted))))
             self._community_image = full.subsample(divisor, divisor)
             tk.Label(self.sidebar_foot, image=self._community_image,

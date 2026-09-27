@@ -44,7 +44,8 @@ from .language import t
 # Die Farben wie in `pages` — eine eigene Kopie wäre die nächste, die
 # auseinanderläuft. Deshalb über das Modul, nicht abgeschrieben.
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE, GOLD, RED, RED_PALE,
-                    _heading, _scroll_area, _body_text, _button, _setting_row)
+                    _heading, _scroll_area, _body_text, _button, _setting_row,
+                    _wrap)
 
 # Wie hoch eine Zeile der Wärmekarte ist — und wie viel Platz die
 # Wochentage links brauchen. Die Breite der Zellen rechnet sich aus der Seite.
@@ -128,8 +129,12 @@ def tiles(window, parent, items, columns=2):
         tk.Label(card, text=value, bg=SURFACE, fg=ACCENT, font=window.f_title,
                  anchor='w').pack(fill='x', padx=16)
         if below:
-            tk.Label(card, text=below, bg=SURFACE, fg=SUB, font=window.f_small,
-                     anchor='w').pack(fill='x', padx=16)
+            # ⚠ Umbrechen, nicht abschneiden: Bei drei Kacheln nebeneinander
+            # stand „Ziel im Quantenantrieb gewähl" (27.09.2026 gemeldet).
+            line = tk.Label(card, text=below, bg=SURFACE, fg=SUB,
+                            font=window.f_small, anchor='w', justify='left')
+            line.pack(fill='x', padx=16)
+            _wrap(line, inset=32)
         # Der untere Rand für sich — sonst hinge er an einer Zeile, die nicht
         # jede Kachel hat, und die Kacheln wären verschieden hoch gepolstert.
         tk.Frame(card, bg=SURFACE, height=12).pack(fill='x')
@@ -230,6 +235,7 @@ def live_page(window, frame, page_id, title, lead, render, names=False):
             try:
                 if names:
                     play_stats.load_names(fetch=True)
+                    play_stats.place_names(fetch=True)
                 if play_stats.auto_enabled():
                     game = paths.game_folder()
                     running = os.path.join(game, 'Game.log') if game else ''
@@ -536,15 +542,26 @@ def quantum_page(window, frame):
              '%s %%' % percent(data['spruenge'], data['zielwahlen']),
              t('s_sq_quote_u')),
         ], columns=3)
+        names = play_stats.place_names()
+
+        def place_label(key):
+            text_key, name = play_stats.place_parts(key, names)
+            if not text_key:
+                return name
+            return t(text_key) % name if '%s' in t(text_key) else t(text_key)
+
         section(window, holder, t('s_sq_ziele'))
-        bars(window, holder,
-             [(t(play_stats.PLACE_LABELS[p]) if p in play_stats.PLACE_LABELS
-               else p, c) for p, c in data['ziele']],
+        bars(window, holder, [(place_label(p), c) for p, c in data['ziele']],
+             unit=lambda n: t('s_sx_mal') % stats_count(n))
+        # Die Startpunkte stehen im Log im Klartext der Spielsprache — sie
+        # brauchen keine Übersetzung (wie beim SC Deutsch Launcher).
+        section(window, holder, t('s_sq_starts'))
+        bars(window, holder, data['starts'], color=GOLD,
              unit=lambda n: t('s_sx_mal') % stats_count(n))
         notes(window, holder, 's_sq_hinweis')
 
     live_page(window, frame, 'statistik_quantum', t('hf_st_quantum'),
-              t('s_sq_lead'), render)
+              t('s_sq_lead'), render, names=True)
 
 
 def stability_page(window, frame):

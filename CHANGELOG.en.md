@@ -8,6 +8,29 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc3 - 2026-09-27
+
+> **Quantum travel with names.** Instead of keys like "rs_ext_pyro6_leo" you
+> now see places you know — "Rest stop orbiting Terminus", "Levski", "Rest
+> stop at the Stanton – Magnus jump point". You also see where you jump from
+> most often.
+
+### New
+
+- **Most common starting points** on the "Quantum travel" page
+
+### Improved
+
+- **Quantum travel** — destinations are named like in the game: rest stops,
+  cities, planets and Lagrange points. Anything that follows no known
+  pattern still shows the way the game writes it
+- **Tiles** — long lines below a number wrap instead of being cut off
+- **"Update & About"** — "Check for new versions" and "Install updates
+  automatically" are now slide switches like everywhere else
+- **"Made by the Community"** — larger and pure white, easy to recognise
+- On first start VerseKit reads your game logs once more, so the starting
+  points are there right away
+
 ## v3.58.0-rc2 - 2026-09-27
 
 > **Statistics get their own section.** Next to the overview you now see

@@ -8,6 +8,29 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc3 - 2026-09-27
+
+> **Quantenreisen mit Namen.** Statt Kürzeln wie „rs_ext_pyro6_leo" stehen
+> jetzt Orte da, die man kennt — „Raststation im Orbit von Terminus",
+> „Levski", „Raststation am Sprungpunkt Stanton – Magnus". Dazu siehst du,
+> von wo du am häufigsten losspringst.
+
+### Neu
+
+- **Häufigste Startpunkte** auf der Seite „Quantenreisen"
+
+### Verbessert
+
+- **Quantenreisen** — Ziele heißen wie im Spiel: Raststationen, Städte,
+  Planeten und Lagrange-Punkte. Was keinem bekannten Muster folgt, steht
+  weiter so da, wie das Spiel es schreibt
+- **Kacheln** — lange Unterzeilen brechen um, statt abgeschnitten zu werden
+- **„Update & Über"** — „Nach neuen Versionen sehen" und „Updates
+  automatisch einspielen" sind jetzt Schiebeschalter wie überall sonst
+- **„Made by the Community"** — größer und rein weiß, gut erkennbar
+- Beim ersten Start liest VerseKit deine Spielprotokolle noch einmal ein,
+  damit die Startpunkte gleich da sind
+
 ## v3.58.0-rc2 - 2026-09-27
 
 > **Die Statistik bekommt ihren eigenen Bereich.** Neben der Übersicht

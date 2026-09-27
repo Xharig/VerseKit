@@ -6106,27 +6106,25 @@ def _underlined(schrift):
         return schrift
 
 
-def _switch(fenster, eltern, schluessel, standard):
-    """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf."""
+def _switch(window, parent, key, default):
+    """Ein An/Aus-Schalter, der sofort schreibt — es gibt keinen Speichern-Knopf.
+
+    ⚠ Seit v3.58.0-rc3 derselbe Schiebeschalter wie überall (`toggle_switch`).
+    Vorher stand hier ein Wort „an"/„aus" auf einem Kasten — die einzigen
+    zwei Schalter im Programm, die nicht wie Schalter aussahen (Seite „Update
+    & Über", gemeldet 27.09.2026)."""
     from . import paths
-    k = tk.Label(eltern, text='', bg=SURFACE, font=fenster.f_small,
-                 cursor='hand2', padx=10, pady=4)
-    k.pack()
+    from .main_window import toggle_switch
 
-    def zeichnen():
-        an = paths.setting_bool(schluessel, standard)
-        k.configure(text=' %s ' % (t('e_an') if an else t('e_aus')),
-                    fg=ACCENT if an else SUB)
+    def flip():
+        new_value = not paths.setting_bool(key, default)
+        paths.set_setting(key, new_value)
+        window.say(t('e_an') if new_value else t('e_aus'))
+        return new_value
 
-    def umschalten():
-        neu = not paths.setting_bool(schluessel, standard)
-        paths.set_setting(schluessel, neu)
-        zeichnen()
-        fenster.say(t('e_an') if neu else t('e_aus'))
-
-    k.bind('<Button-1>', lambda e: umschalten())
-    zeichnen()
-    return k
+    switch = toggle_switch(parent, paths.setting_bool(key, default), flip)
+    switch.pack()
+    return switch
 
 
 def _detection(fenster, rahmen):

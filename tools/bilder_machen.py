@@ -404,6 +404,7 @@ def beispiel_statistik(heim):
                        for platz, liste in BEISPIEL_WAFFEN.items()},
             'zielwahlen': zufall.randint(2, 11),
             'ziele': {zufall.choice(BEISPIEL_ZIELE): zufall.randint(1, 3)},
+            'starts': {zufall.choice(BEISPIEL_STARTS): zufall.randint(1, 3)},
             'absturz': absturz,
             'abbrueche': {'Nub destroyed': zufall.randint(1, 4),
                           'Remote Disconnect - Player requested disconnect':
@@ -439,9 +440,12 @@ BEISPIEL_WAFFEN = {
     'hand': ['klwe_rifle_energy_01', 'behr_lmg_ballistic_01',
              'crlf_medgun_01'],
 }
-BEISPIEL_ZIELE = ['rs_ext_stan-hurston_l1', 'rs_ext_arccorp_leo',
-                  'rs_ext_microtech_leo', 'rs_ext_pyro3_leo',
-                  'NavPoint_Dynamic']
+BEISPIEL_STARTS = ['Stanton-Gateway', 'microTech', 'Crusader', 'Pyro',
+                   'Baijini Point']
+# ⚠ Echte Schlüsselformen aus dem Log, sonst zeigt das Bild die Namensregeln
+# nicht (`play_stats.place_parts`).
+BEISPIEL_ZIELE = ['rs_ext_cru-leo1', 'rs_ext_pyro3_leo', 'levski_all-001',
+                  'RR_S4_L1', 'rs_ext_stan-pyro_jp1', 'NavPoint_Dynamic']
 
 
 def beispiel_hangar():

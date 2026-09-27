@@ -64,6 +64,7 @@ der Vorhaben-Notiz, falls das Spiel später ein Ereignis dafür schreibt.
 | Verlorene Schiffe | `<[ActorState] Dead> … Actor '<Name>' … ejected from zone '<Schiff>' … destroyed vehicle` |
 | Waffen | `<AttachmentReceived> Player[<Name>] Attachment[<Kennung>, <Klasse>, <Nummer>] … Port[wep_stocked_2\\|wep_sidearm\\|weapon_attach_hand_right]` |
 | Zielwahlen | `<Player Selected Quantum Target - Local> … selected point <Ort>` |
+| Startpunkte (Format 3, rc3) | die erste `<Calculate Route> … Projected Start Location is <Ort> for route` nach einer Zielwahl — im Klartext der Spielsprache |
 | Abstürze | `crash handler taking over` · `-- GPU CRASH` |
 | Verbindungsabbrüche | `<Channel Disconnected> … reason="…"` |
 
@@ -75,7 +76,7 @@ Sitzung. Sonst gewänne, wer am häufigsten den Server wechselt.
 Warten, bis man springt; eine Zahl daraus wäre keine Reisezeit. Gezählt werden
 Zielwahlen und Ankünfte.
 
-⚠ Beim Wechsel von Format 1 auf 2 wird jedes noch vorhandene Log **einmal neu
+⚠ Beim Wechsel auf ein neues Format (2 in rc2, 3 in rc3) wird jedes noch vorhandene Log **einmal neu
 gelesen** (der Lesestand wird verworfen). Sitzungen, deren Log schon weg ist,
 behalten ihre alten Zahlen — dort fehlen nur die neuen Felder.
 
@@ -94,7 +95,7 @@ import time
 from . import errors, paths
 
 FILE = 'statistik.json'
-FORMAT = 2
+FORMAT = 3
 
 # Automatisch auswerten (beim Start und beim Öffnen der Seiten). Ab Werk an.
 AUTO_SETTING = 'statistik_auto'
@@ -114,6 +115,9 @@ _ATTACHMENT = re.compile(r'<AttachmentReceived> Player\[([^\]]*)\] '
                          r'Port\[([^\]]*)\]')
 _TARGET = re.compile(r'<Player Selected Quantum Target - Local>.*?'
                      r'selected point (\S+)')
+# Der Startpunkt steht in der Zeile direkt NACH der Zielwahl (gemessen an
+# 181 Logs) — und anders als das Ziel im Klartext der Spielsprache.
+_START = re.compile(r'Projected Start Location is (.+?) for route')
 _DISCONNECT = re.compile(r'<Channel Disconnected>.*?reason="([^"]*)"')
 _CRASH = ('crash handler taking over', '-- GPU CRASH')
 # Nummer am Ende einer Kennung: `AEGS_Sabre_465232524500` -> `AEGS_Sabre`.
@@ -207,6 +211,8 @@ def read_log(log_path, account=None, spawn_mark=None):
     weapons = {}                  # Platz -> {Klasse: {Nummern}}
     targets = {}
     selections = 0
+    starts = {}
+    start_pending = False
     disconnects = {}
 
     def own(player):
@@ -254,8 +260,17 @@ def read_log(log_path, account=None, spawn_mark=None):
                     found = _TARGET.search(line)
                     if found:
                         selections += 1
+                        start_pending = True
                         place = place_key(found.group(1))
                         targets[place] = targets.get(place, 0) + 1
+                elif start_pending and '<Calculate Route>' in line:
+                    # ⚠ Nur die erste Routenberechnung nach der Zielwahl: Das
+                    # Spiel rechnet dieselbe Route oft mehrfach nach.
+                    found = _START.search(line)
+                    if found:
+                        start_pending = False
+                        start = found.group(1).strip()
+                        starts[start] = starts.get(start, 0) + 1
                 elif '<Channel Disconnected>' in line:
                     found = _DISCONNECT.search(line)
                     if found:
@@ -283,6 +298,7 @@ def read_log(log_path, account=None, spawn_mark=None):
                        for slot, found in weapons.items()},
             'zielwahlen': selections,
             'ziele': targets,
+            'starts': starts,
             'absturz': crashed,
             'abbrueche': disconnects}
 
@@ -315,7 +331,130 @@ def place_key(raw):
 MISSION_BEACON = 'MISSION_QT'
 PLACE_LABELS = {'NavPoint_Dynamic': 's_sq_p_wegpunkt',
                 'PartyMemberMarker': 's_sq_p_party',
-                MISSION_BEACON: 's_sq_p_auftrag'}
+                MISSION_BEACON: 's_sq_p_auftrag',
+                'ObjectContainer_RestStop': 's_sq_p_rast'}
+
+# ⭐ Lesbare Ziele (v3.58.0-rc3, Wunsch vom 27.09.2026: „da stehen noch
+# kryptische Namen"). Das Log nennt nur den Container eines Ortes. Einen
+# Anzeigenamen dafür gibt es weder in der `global.ini` noch im DataCore — die
+# Container liegen als `…/station/ser/reststop_ext/rs_ext_pyro6_leo.socpak`
+# im Archiv. Ihre **Namen folgen aber einem festen Muster**, und die Teile
+# davon (Planeten, Lagrange-Punkte, Systeme) stehen in der `global.ini`:
+#
+#     rs_ext_pyro6_leo        Raststation im Orbit von  pyro6  = Terminus
+#     rs_ext_cru-leo1         Raststation im Orbit von  cru    = Crusader
+#     rs_ext_pyro2_l4         Raststation bei           pyro2_l4 = PYR2 L4
+#     rs_ext_stan-magnus_jp1  Raststation am Sprungpunkt  Stanton – Magnus
+#     RR_S1_L2                Raststation bei           stanton1_l2 = HUR L2
+#     OOC_Stanton_2b_Daymar   der letzte Teil ist der Name: Daymar
+#
+# Gemessen an 399 Zielwahlen: So werden die häufigen Ziele lesbar; was keinem
+# Muster folgt (Bunker, Verstecke), bleibt, wie das Spiel es schreibt.
+PLACE_FILE = 'orte-original.json'
+# Welche Schlüssel der `global.ini` Orte benennen: Planeten, Monde, Punkte.
+_PLACE_INI_KEY = re.compile(r'^(stanton|pyro|nyx|magnus|castra)\d*[a-z]?'
+                            r'(_l\d)?$', re.I)
+# Kürzel der Stanton-Planeten in Raststationsnamen.
+_BODY_SHORT = {'hur': 'stanton1', 'cru': 'stanton2', 'arc': 'stanton3',
+               'mic': 'stanton4', 'stan': 'stanton'}
+# Städte und Stationen, deren Container keinem Muster folgen — Eigennamen
+# aus dem Spiel, in jeder Sprache gleich.
+CITY_NAMES = {'levski_all-001': 'Levski', 'grimhex_oc': 'GrimHEX',
+              'newbabbage_loc': 'New Babbage', 'orison_loc': 'Orison',
+              'area18_city_objectcontainer': 'Area 18',
+              'lorville_loc': 'Lorville'}
+_RS_ORBIT = re.compile(r'^rs_ext_([a-z]+\d*)[-_]leo\d*$')
+_RS_POINT = re.compile(r'^rs_ext_([a-z]+\d+)_(l\d)$')
+_RS_JUMP = re.compile(r'^rs_ext_([a-z]+)-([a-z]+)_jp\d*$')
+_RR_POINT = re.compile(r'^rr_s(\d)_(l\d)$')
+_OOC = re.compile(r'^ooc_.*_([A-Za-z][A-Za-z0-9]+)$', re.I)
+
+
+def place_names(fetch=False):
+    """Ortsnamen aus der `global.ini` — `{schlüssel_klein: name}`.
+
+    Einmal aus der `Data.p4k` gelesen (`fetch=True`, nur im Hintergrund) und
+    als kleine Datei abgelegt; danach ohne Archiv."""
+    target = paths.app_file(PLACE_FILE)
+    try:
+        with open(target, encoding='utf-8') as f:
+            found = json.load(f)
+        if isinstance(found, dict) and found:
+            return found
+    except (OSError, ValueError):
+        pass
+    if not fetch or _PLACES_TRIED[0]:
+        return {}
+    _PLACES_TRIED[0] = True
+    from . import gametext
+    try:
+        data, _message = gametext.read_from_archive('english')
+    except Exception as exception:
+        errors.record('play_stats.place_names', exception)
+        return {}
+    if not data:
+        return {}
+    text = data.decode('utf-8-sig', 'ignore') if isinstance(data, bytes) \
+        else data
+    found = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition('=')
+        key = key.split(',', 1)[0].strip()
+        if sep and _PLACE_INI_KEY.match(key) and value.strip():
+            found.setdefault(key.lower(), value.strip())
+    try:
+        with open(target + '.neu', 'w', encoding='utf-8') as f:
+            json.dump(found, f, ensure_ascii=False)
+        os.replace(target + '.neu', target)
+    except OSError as exception:
+        errors.record('play_stats.place_names', exception)
+    return found
+
+
+_PLACES_TRIED = [False]
+
+
+def place_parts(key, names=None):
+    """Ein Ziel lesbar machen -> `(textschlüssel oder None, name)`.
+
+    Mit Textschlüssel wird daraus z. B. „Raststation im Orbit von Terminus";
+    ohne steht der Name allein da. Die Worte kommen aus `language.py`, die
+    Namen aus der `global.ini`, damit hier nichts auf Deutsch festsitzt."""
+    names = place_names() if names is None else names
+    if key in PLACE_LABELS:
+        return PLACE_LABELS[key], ''
+    low = key.lower()
+
+    def body(short):
+        short = _BODY_SHORT.get(short, short)
+        return names.get(short) or short.capitalize()
+
+    if low in CITY_NAMES:
+        return None, CITY_NAMES[low]
+    found = _RS_ORBIT.match(low)
+    if found:
+        return 's_sq_o_orbit', body(found.group(1))
+    found = _RS_POINT.match(low)
+    if found:
+        return 's_sq_o_punkt', names.get('%s_%s' % found.groups()) \
+            or '%s %s' % (body(found.group(1)), found.group(2).upper())
+    found = _RS_JUMP.match(low)
+    if found:
+        # „Magnus System" heißt das System in der `global.ini` — im
+        # Sprungpunkt „Stanton – Magnus" wäre das Wort doppelt gemoppelt.
+        ends = [re.sub(r'\s+System$', '', body(part))
+                for part in found.groups()]
+        return 's_sq_o_sprung', '%s – %s' % tuple(ends)
+    found = _RR_POINT.match(low)
+    if found:
+        return 's_sq_o_punkt', names.get('stanton%s_%s' % found.groups()) \
+            or key
+    if low in names:
+        return None, names[low]
+    found = _OOC.match(key)
+    if found:
+        return None, found.group(1)
+    return None, key
 
 
 def catch_up(files):
@@ -552,13 +691,16 @@ def missions(own=None, recent=8):
 def quantum(own=None):
     """Quantenreisen: Zielwahlen, Ankünfte, häufigste Ziele."""
     sessions = _counted(own)
-    targets = {}
+    targets, starts = {}, {}
     for entry in sessions:
         for place, count in (entry.get('ziele') or {}).items():
             targets[place] = targets.get(place, 0) + count
+        for place, count in (entry.get('starts') or {}).items():
+            starts[place] = starts.get(place, 0) + count
     return {'spruenge': sum(e.get('spruenge', 0) for e in sessions),
             'zielwahlen': sum(e.get('zielwahlen', 0) for e in sessions),
-            'ziele': _top(targets, 6)}
+            'ziele': _top(targets, 6),
+            'starts': _top(starts, 6)}
 
 
 def stability(own=None, recent=8):

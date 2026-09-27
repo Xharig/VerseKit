@@ -26450,6 +26450,13 @@ def _pruefung_270():
             ' | NOT AUTH | ANVL_Asgard_1[1]|CSCItemNavigation::'
             'OnPlayerSelectedQuantumTarget|Player has selected point '
             'LOC_rs_ext_pyro6_leo as their destination, routing locally',
+            z % 12 + '<Calculate Route> | CSCItemNavigation::CalculateRoute|'
+            'Projected Start Location is Stanton-Gateway for route to '
+            'destination rs_ext_pyro6_leo',
+            # dieselbe Route noch einmal berechnet -> kein zweiter Start
+            z % 12 + '<Calculate Route> | CSCItemNavigation::CalculateRoute|'
+            'Projected Start Location is Stanton-Gateway for route to '
+            'destination rs_ext_pyro6_leo',
             z % 13 + '<Player Selected Quantum Target - Local> | Player has '
             'selected point MISSION_QT_Quantum_Beacon_TSG_527546858025 as '
             'their destination',
@@ -26483,6 +26490,28 @@ def _pruefung_270():
                and e.get('ziele') == {'rs_ext_pyro6_leo': 1, 'MISSION_QT': 2},
                'Zielwahlen gezaehlt, Leuchtfeuer zusammengefasst (%r)'
                % e.get('ziele'))
+        pruefe(e.get('starts') == {'Stanton-Gateway': 1},
+               'ein Startpunkt je Zielwahl, Nachberechnungen zaehlen nicht '
+               '(%r)' % e.get('starts'))
+        _orte = {'pyro6': 'Terminus', 'stanton2': 'Crusader',
+                 'pyro2_l4': 'PYR2 L4', 'stanton1_l2': 'HUR L2',
+                 'magnus': 'Magnus System', 'stanton': 'Stanton'}
+        _soll = {'rs_ext_pyro6_leo': ('s_sq_o_orbit', 'Terminus'),
+                 'rs_ext_cru-leo1': ('s_sq_o_orbit', 'Crusader'),
+                 'rs_ext_pyro2_l4': ('s_sq_o_punkt', 'PYR2 L4'),
+                 'rs_ext_stan-magnus_jp1': ('s_sq_o_sprung',
+                                            'Stanton – Magnus'),
+                 'RR_S1_L2': ('s_sq_o_punkt', 'HUR L2'),
+                 'levski_all-001': (None, 'Levski'),
+                 'OOC_Stanton_2b_Daymar': (None, 'Daymar'),
+                 'pyro6': (None, 'Terminus'),
+                 'NavPoint_Dynamic': ('s_sq_p_wegpunkt', ''),
+                 'ab_pyro_final_set_dungeon-001':
+                     (None, 'ab_pyro_final_set_dungeon-001')}
+        _falsch = {k: _ps.place_parts(k, _orte) for k in _soll
+                   if _ps.place_parts(k, _orte) != _soll[k]}
+        pruefe(not _falsch, 'Ziele werden nach Muster lesbar, Unbekanntes '
+               'bleibt roh (%r)' % _falsch)
         pruefe(e.get('absturz') is True and _ps.end_of(e) == 'absturz',
                'ein Absturz schlaegt das spaetere Quit (%r)' % _ps.end_of(e))
         pruefe(e.get('abbrueche') == {
@@ -26558,6 +26587,23 @@ def _pruefung_270():
         pruefe('startup_catch_up' in _namen270,
                'der Start (`scan_backlog`) geht ueber die Weiche, nicht '
                'direkt an `catch_up`')
+
+        # rc3: Die zwei Schalter auf „Update & Ueber" (`pages._switch`) sind
+        # echte Schiebeschalter — keine Schrift „an"/„aus" auf einem Kasten.
+        import tkinter as _tk270
+        from scbp import pages as _pg270
+        _w270 = _wurzel()
+        try:
+            class _Fenster270:
+                def say(self, *_a):
+                    pass
+            _s270 = _pg270._switch(_Fenster270(), _w270, 'pruef270', True)
+            pruefe(isinstance(_s270, _tk270.Canvas)
+                   and hasattr(_s270, 'draw'),
+                   'der Schalter auf „Update & Ueber" ist der Schiebeschalter '
+                   '(%s)' % type(_s270).__name__)
+        finally:
+            _w270.destroy()
     finally:
         if heim_alt is None:
             os.environ.pop('SC_BP_HOME', None)
