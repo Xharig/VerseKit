@@ -39,6 +39,9 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Behoben
 
+- **Neustart nach dem Farbwechsel** — die alte Fassung beendet sich jetzt
+  wirklich; vorher blieb ihr Overlay (und ihr Fenster) neben der neuen
+  stehen
 - Der Hintergrund frischte nach einem Quellenwechsel unter Umständen die
   zuerst eingerichtete statt der gewählten Übersetzung auf
 

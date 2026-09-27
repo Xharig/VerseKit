@@ -25973,6 +25973,7 @@ def main():
     _pruefung_277()
     _pruefung_278()
     _pruefung_279()
+    _pruefung_280()
 
     print()
     if fehler:
@@ -27654,6 +27655,88 @@ def _pruefung_279():
         _w279.destroy()
     pruefe(_rahmen279 not in _ov279._NO_ACTIVATE,
            'beim Abbau wird der Eintrag freigegeben')
+
+
+def _pruefung_280():
+    """280. Aus Nebenfäden fasst niemand Tk an — der Neustart tritt wirklich ab.
+
+    ⚠⚠ Gemeldet am v3.59.0-rc1 (27.09.2026), zum ZWEITEN Mal: Nach dem
+    Farbwechsel blieb das alte Overlay unter dem neuen stehen. v3.58.0 hatte es
+    „behoben" — aber der Prüf-Faden rief `root.after()`, und das wirft
+    `main thread is not in main loop`, sobald der Hauptfaden gerade nicht in
+    `mainloop()` steckt (Rückfrage, `update()`-Schleife, Abbau). Deshalb hier
+    genau diese Lage: echtes Tk, `update()`-Schleife, Nebenfaden."""
+    print('\n280. Nebenfaeden: Auftraege landen im Tk-Faden, Neustart tritt ab')
+    import threading as _th280
+    import time as _ti280
+    import tkinter as _tk280
+    from scbp import pages as _pg280, updater as _up280
+    _w280 = _tk280.Tk()
+    _w280.withdraw()
+    _f280 = type('F', (), {})()
+    _f280.root = _w280
+    _f280.say = lambda *_a: None
+    _erg280 = {}
+
+    def _drehen(sekunden):
+        _ende = _ti280.time() + sekunden
+        while _ti280.time() < _ende:
+            _w280.update()
+            _ti280.sleep(0.02)
+
+    _alt280 = (_up280.new_version_alive, _pg280._hand_over, _th280.Timer)
+    try:
+        # Gegenprobe: Der alte Weg scheitert in genau dieser Lage.
+        def _direkt():
+            try:
+                _w280.after(0, lambda: None)
+                _erg280['direkt'] = 'lief'
+            except RuntimeError as _e280:
+                _erg280['direkt'] = str(_e280)
+        _t280 = _th280.Thread(target=_direkt)
+        _t280.start()
+        _t280.join(5)
+        pruefe('main loop' in _erg280.get('direkt', ''),
+               'Gegenprobe: root.after aus einem Nebenfaden wirft hier '
+               '(%r)' % _erg280.get('direkt'))
+
+        _pg280._start_tk_poller(_w280)
+
+        def _ueber_warteschlange():
+            _pg280._in_tk(_f280, lambda: _erg280.__setitem__(
+                'faden', _th280.current_thread() is _th280.main_thread()))
+        _th280.Thread(target=_ueber_warteschlange).start()
+        _drehen(1.0)
+        pruefe(_erg280.get('faden') is True,
+               '_in_tk aus einem Nebenfaden: die Tat laeuft im Tk-Faden (%r)'
+               % _erg280.get('faden'))
+
+        # Der Neustart: neue Fassung lebt -> alte tritt ab, und das
+        # Sicherheitsnetz wird gespannt (hier nur gemerkt, nie ausgeloest).
+        _netz280 = []
+
+        class _Zeitgeber(object):
+            def __init__(self, sekunden, tat):
+                _netz280.append(sekunden)
+
+            def start(self):
+                pass
+
+        _up280.new_version_alive = lambda *a, **k: True
+        _pg280._hand_over = lambda f, *a, **k: _erg280.__setitem__(
+            'abgetreten', _th280.current_thread() is _th280.main_thread())
+        _th280.Timer = _Zeitgeber
+        _pg280._hand_over_after_restart(_f280)
+        _drehen(1.5)
+        pruefe(_erg280.get('abgetreten') is True,
+               'Neustart: die alte Fassung tritt ab, und zwar aus dem Tk-Faden '
+               '(%r)' % _erg280.get('abgetreten'))
+        pruefe(bool(_netz280),
+               'und das Sicherheitsnetz (hartes Ende) ist gespannt (%r)'
+               % _netz280)
+    finally:
+        (_up280.new_version_alive, _pg280._hand_over, _th280.Timer) = _alt280
+        _w280.destroy()
 
 
 def _wurzel():

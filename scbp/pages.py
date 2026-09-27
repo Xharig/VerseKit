@@ -163,6 +163,7 @@ def page_ids():
 
 def build(fenster, kennung, rahmen):
     """Eine Seite füllen. `fenster` ist das Hauptfenster (Schriften, Meldungen)."""
+    _start_tk_poller(fenster.root)
     bauer = _builders().get(kennung)
     if bauer:
         bauer(fenster, rahmen)
@@ -5491,6 +5492,52 @@ _READY = [None]
 
 _TK_REPORTED = [False]      # siehe unten: nur der erste wird gemerkt
 
+# ⭐⭐ **Aufträge aus Nebenfäden laufen über diese Warteschlange** (v3.59.0).
+#
+# Gemeldet am rc1, 27.09.2026: Nach dem Farbwechsel blieb das alte Overlay
+# stehen — schon zum zweiten Mal, obwohl v3.58.0 es „behoben" hatte. Im
+# Fehlerprotokoll stand `pages.nach_neustart: main thread is not in main
+# loop`. `root.after()` aus einem Nebenfaden geht nur, solange der Hauptfaden
+# gerade IN `mainloop()` steckt — nicht während einer Rückfrage, einer
+# `update()`-Schleife oder beim Abbau, und genau da liegt ein Neustart nach
+# dem Farbwechsel. Gemessen unter 3.12 und 3.14 gleich. Dieselbe Meldung
+# (`pages.im_tk`) steht im Protokoll schon seit v3.49.
+#
+# Deshalb fasst ein Nebenfaden Tk gar nicht mehr an: Er legt die Tat hier
+# ab, und der Tk-Faden holt sie alle 100 ms ab (`_start_tk_poller`, gestartet
+# beim Seitenaufbau — der läuft immer im Tk-Faden).
+import queue as _queue
+_TK_CALLS = _queue.Queue()
+_TK_POLLER = [None]
+
+
+def _start_tk_poller(root):
+    """Die Warteschlange im Tk-Faden abarbeiten — je Fenster einmal starten."""
+    if _TK_POLLER[0] is root:
+        return
+
+    def poll():
+        try:
+            while True:
+                tat = _TK_CALLS.get_nowait()
+                try:
+                    tat()
+                except Exception as ausnahme:
+                    errors.record('pages.im_tk.tat', ausnahme)
+        except _queue.Empty:
+            pass
+        try:
+            root.after(100, poll)
+        except (tk.TclError, RuntimeError):
+            if _TK_POLLER[0] is root:
+                _TK_POLLER[0] = None
+
+    try:
+        root.after(100, poll)
+        _TK_POLLER[0] = root
+    except (tk.TclError, RuntimeError) as ausnahme:
+        errors.record('pages.tk_poller', ausnahme)
+
 
 def _in_tk(fenster, tat):
     """Etwas im Tk-Faden erledigen — und daran nicht scheitern.
@@ -5512,6 +5559,10 @@ def _in_tk(fenster, tat):
     echte Fehler aus dem Protokoll verdrängt. Ein erwarteter Fehler, der die
     Diagnose unbrauchbar macht, ist schlimmer als keiner.
     """
+    if threading.current_thread() is not threading.main_thread():
+        # Aus einem Nebenfaden nie Tk anfassen — siehe `_TK_CALLS`.
+        _TK_CALLS.put(tat)
+        return True
     try:
         fenster.root.after(0, tat)
         return True
@@ -5553,8 +5604,19 @@ def _hand_over_after_restart(fenster):
     import threading
     from . import updater
 
+    # Im Tk-Faden starten, solange wir hier sind — der Prüf-Faden unten darf
+    # Tk nicht anfassen.
+    _start_tk_poller(fenster.root)
+
     def pruefen():
         lebt = updater.new_version_alive()
+        if lebt:
+            # ⚠⚠ **Das Sicherheitsnetz hängt an keinem Tk.** Läuft die neue
+            # Fassung, geht die alte in jedem Fall — auch wenn die Oberfläche
+            # gerade hängt oder das Fenster schon zu ist. `_hand_over` beendet
+            # vorher sauber; dieser Zeitgeber greift nur, wenn das ausbleibt.
+            threading.Timer(6.0, lambda: os._exit(0)).start()
+
         def melden():
             if lebt:
                 _hand_over(fenster)
@@ -5566,10 +5628,8 @@ def _hand_over_after_restart(fenster):
                 fenster.say(t('up_zurueckgerollt'))
             else:
                 fenster.say(t('s_ub_neustart_tot'))
-        try:
-            fenster.root.after(0, melden)
-        except Exception as ausnahme:
-            errors.record('pages.nach_neustart', ausnahme)
+        # Über die Warteschlange, nie `root.after` aus diesem Faden.
+        _TK_CALLS.put(melden)
 
     threading.Thread(target=pruefen, daemon=True).start()
 

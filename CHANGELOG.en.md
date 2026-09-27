@@ -39,6 +39,8 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ### Fixed
 
+- **Restart after changing the colour scheme** — the old instance now really
+  quits; before, its overlay (and window) stayed next to the new one
 - After switching sources, the background could refresh the first
   translation ever set up instead of the chosen one
 
