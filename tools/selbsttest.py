@@ -25903,6 +25903,7 @@ def main():
     _pruefung_273()
     _pruefung_274()
     _pruefung_275()
+    _pruefung_276()
 
     print()
     if fehler:
@@ -27277,6 +27278,117 @@ def _pruefung_275():
                      encoding='utf-8').read()
     pruefe('lambda: restart_and_hand_over(window)' in _qp275,
            'der Knopf beim Farbschema nimmt den ganzen Weg')
+
+
+def _pruefung_276():
+    """276. Ablage umziehen: alles mit, alter Ordner geraeumt, Handgezogenes
+    einsortiert (rc9)."""
+    print('\n276. Umzug nimmt ALLES mit, raeumt den alten Ordner, sortiert '
+          'Handgezogenes ein')
+    import shutil as _sh276
+    import tempfile as _tf276
+    from scbp import paths as _pa276
+
+    def _schreib276(pfad, inhalt='x'):
+        os.makedirs(os.path.dirname(pfad), exist_ok=True)
+        with open(pfad, 'w', encoding='utf-8') as _f276:
+            _f276.write(inhalt)
+
+    _von276 = _tf276.mkdtemp(prefix='sc-bp-umzug-alt-')
+    _nach276 = _tf276.mkdtemp(prefix='sc-bp-umzug-neu-')
+    try:
+        _eigene276 = {
+            os.path.join('Bauplaene', 'bestand.json'): '{"b": 1}',
+            os.path.join('Intern', 'signatur-stelle-bild-00.png'): 'PNG',
+            os.path.join('Intern', 'signatur-bilder', 'a.png'): 'PNG2',
+            os.path.join('Diagnose', 'fehler.json'): '[]',
+            os.path.join('Patches', 'notiz.md'): '# p',
+        }
+        for _rel276, _inh276 in _eigene276.items():
+            _schreib276(os.path.join(_von276, _rel276), _inh276)
+        # Flache Altlast oben, dazu Fremdes, das uns nicht gehoert.
+        _schreib276(os.path.join(_von276, 'watchlist.json'), '[]')
+        _schreib276(os.path.join(_von276, 'urlaub.pdf'), 'fremd')
+        _schreib276(os.path.join(_von276, 'Fotos', 'b.jpg'), 'fremd')
+
+        _kop276, _ueb276, _fehl276 = _pa276.move_storage(_von276, _nach276)
+        pruefe((_kop276, _fehl276) == (6, 0),
+               'alle eigenen Dateien kommen an, auch Bilder und Notizen '
+               '(bekam %s)' % ((_kop276, _ueb276, _fehl276),))
+        pruefe(all(os.path.isfile(os.path.join(_nach276, r))
+                   for r in _eigene276),
+               'mit ihrer Ordnerstruktur (Intern/signatur-bilder/a.png)')
+        pruefe(os.path.isfile(os.path.join(_nach276, 'Bauplaene',
+                                           'watchlist.json')),
+               'die flache Altlast oben kommt an ihren Platz')
+        pruefe(not os.path.exists(os.path.join(_nach276, 'urlaub.pdf'))
+               and not os.path.exists(os.path.join(_nach276, 'Fotos')),
+               'Fremdes kommt nicht mit')
+
+        # Nach dem Kopieren schreibt der Watcher weiter — am NEUEN Ort. Die
+        # alte Fassung darf dann nicht geloescht werden.
+        _schreib276(os.path.join(_nach276, 'Diagnose', 'fehler.json'),
+                    '[1]')
+        _weg276, _bleibt276 = _pa276.remove_old_storage(_von276, _nach276)
+        pruefe(_weg276 == 5 and _bleibt276 == [os.path.join('Diagnose',
+                                                           'fehler.json')],
+               'geraeumt wird nur, was am neuen Ort gleich liegt (%d weg, '
+               'bleibt %r)' % (_weg276, _bleibt276))
+        pruefe(os.path.isfile(os.path.join(_von276, 'urlaub.pdf'))
+               and os.path.isfile(os.path.join(_von276, 'Fotos', 'b.jpg')),
+               'Fremdes im alten Ordner bleibt liegen')
+        pruefe(not os.path.exists(os.path.join(_von276, 'Bauplaene'))
+               and not os.path.exists(os.path.join(_von276, 'Intern')),
+               'leere eigene Unterordner sind weg')
+        pruefe(os.path.isfile(os.path.join(_nach276, 'Bauplaene',
+                                           'bestand.json')),
+               'und der Bestand liegt weiter am neuen Ort')
+
+        # Ineinander liegende Ordner: nichts tun.
+        _innen276 = os.path.join(_nach276, 'unter')
+        pruefe(_pa276.move_storage(_nach276, _innen276) == (0, 0, 0)
+               and _pa276.remove_old_storage(_nach276, _innen276) == (0, []),
+               'ein Ziel im eigenen Ordner wird weder kopiert noch geraeumt')
+    finally:
+        _sh276.rmtree(_von276, ignore_errors=True)
+        _sh276.rmtree(_nach276, ignore_errors=True)
+
+    # --- Von Hand herübergezogen: so, wie es ein Nutzer macht
+    _abl276 = _tf276.mkdtemp(prefix='sc-bp-hand-')
+    try:
+        _schreib276(os.path.join(_abl276, 'Intern', 'watcher.json'), 'neu')
+        _schreib276(os.path.join(_abl276, 'bestand.json'), '{"lose": 1}')
+        _schreib276(os.path.join(_abl276, 'catalog-seen.json'), 'alt')
+        _schreib276(os.path.join(_abl276, 'Bauplaene', 'catalog-seen.json'),
+                    'aktuell')
+        _schreib276(os.path.join(_abl276, 'fremd.json'), 'fremd')
+        _schreib276(os.path.join(_abl276, 'SC BP Watcher', 'Intern',
+                                 'signatur-bilder', 'z.png'), 'PNG')
+        _anz276 = _pa276.tidy_storage(_abl276)
+        pruefe(os.path.isfile(os.path.join(_abl276, 'Bauplaene',
+                                           'bestand.json'))
+               and not os.path.exists(os.path.join(_abl276, 'bestand.json')),
+               'eine lose eigene Datei kommt an ihren Platz')
+        pruefe(os.path.isfile(os.path.join(_abl276, 'Intern',
+                                           'signatur-bilder', 'z.png'))
+               and not os.path.exists(os.path.join(_abl276, 'SC BP Watcher')),
+               'ein hineingezogener alter Ordner wird eingeordnet und '
+               'verschwindet')
+        with open(os.path.join(_abl276, 'Bauplaene', 'catalog-seen.json'),
+                  encoding='utf-8') as _f276:
+            pruefe(_f276.read() == 'aktuell'
+                   and os.path.isfile(os.path.join(_abl276,
+                                                   'catalog-seen.json')),
+               'eine Datei, die es am Platz schon gibt, wird nicht ersetzt')
+        pruefe(os.path.isfile(os.path.join(_abl276, 'fremd.json')),
+               'eine fremde lose Datei bleibt, wo sie ist')
+        pruefe(_anz276 == 2, 'zwei Dateien einsortiert (%d)' % _anz276)
+    finally:
+        _sh276.rmtree(_abl276, ignore_errors=True)
+    _q276 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                    encoding='utf-8').read()
+    pruefe('paths.remove_old_storage(alt, ziel)' in _q276,
+           'der Umzug auf der Einstellungsseite raeumt den alten Ordner')
 
 
 def _wurzel():

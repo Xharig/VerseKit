@@ -8,6 +8,25 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc9 - 2026-09-27
+
+> **Faster, and moving the data folder now really takes everything along.**
+
+### Improved
+
+- **Closing the main window** — disappears at once instead of standing for
+  about two seconds
+- **Ship naming** opens about three times as fast; Axes, Joysticks and
+  Detection no longer re-read the game logs on every visit
+- **Moving the data folder** — takes everything along (scan images too),
+  keeps the folder structure, checks every file and then clears the old
+  folder. Files dragged over by hand are sorted in by VerseKit at start
+
+### Fixed
+
+- **Restart after changing the colour scheme** left the old overlay
+  running — the old version now quits (also after restoring a backup)
+
 ## v3.58.0-rc8 - 2026-09-27
 
 > **Four new colour schemes** and rounded overlay corners in every scheme.

@@ -450,23 +450,60 @@ def migrate():
 # soll das behalten dürfen.
 MOVE_EXTENSIONS = ('.json', '.txt')
 
+# ⚠⚠ **Die Unterordner, die VerseKit selbst anlegt — ihr Inhalt gehört ganz
+# uns, egal welche Dateiart** (v3.58.0-rc9). Bis dahin kamen beim Umzug nur
+# `.json` und `.txt` mit: 136 Scan-Bilder (`Intern/*.png`) blieben im alten
+# Ordner, und jede Datei wurde nach ihrem Namen neu einsortiert, statt ihren
+# Platz zu behalten. Gemeldet am 27.09.2026: *„ich musste selber Daten rüber
+# schieben, und vermute, es fehlen noch welche"*.
+OWN_FOLDERS = ('Bauplaene', 'Einstellungen', 'Intern', 'Diagnose', 'Patches',
+               'export')
 
-def _storage_files(folder):
-    """Alle eigenen Dateien eines Ablage-Ordners, mit ihrem Unterordner.
 
-    Gibt Paare `(voller Pfad, Name)` zurück — **rekursiv**, weil die Ablage
-    seit v3.0.0 nach `Bauplaene/`, `Einstellungen/`, `Diagnose/` und `Intern/`
-    sortiert. Ein flacher Durchlauf fände dort **nichts** und meldete „nichts zu
-    tun", während der ganze Bestand danebenliegt.
+def _storage_items(folder):
+    """Alle eigenen Dateien eines Ablage-Ordners: `(voller Pfad, Zielpfad)`.
+
+    Der Zielpfad ist relativ zur Ablage. In den eigenen Unterordnern bleibt er,
+    wie er ist (Struktur samt Unterordnern). Lose Dateien oben — die flache
+    Ablage von vor v3.0.0 — kommen nach `SUBFOLDERS` an ihren Platz.
+
+    ⚠ Oben zählen nur `.json`/`.txt`: Wer seine Ablage in einen Ordner legt,
+    in dem noch anderes liegt, soll das behalten. In den eigenen Unterordnern
+    dagegen gilt alles — dort legt niemand sonst etwas ab.
     """
     result = []
     if not os.path.isdir(folder):
         return result
-    for root, _subdirs, files in os.walk(folder):
-        for name in files:
-            if name.endswith(MOVE_EXTENSIONS):
-                result.append((os.path.join(root, name), name))
+    for sub in OWN_FOLDERS:
+        base = os.path.join(folder, sub)
+        for root, _subdirs, files in os.walk(base):
+            for name in files:
+                if name.endswith('.tmp'):
+                    continue          # halb geschrieben, gleich wieder weg
+                full = os.path.join(root, name)
+                result.append((full, os.path.relpath(full, folder)))
+    try:
+        loose = sorted(os.listdir(folder))
+    except OSError:
+        loose = []
+    for name in loose:
+        full = os.path.join(folder, name)
+        if os.path.isfile(full) and name.endswith(MOVE_EXTENSIONS):
+            result.append((full, os.path.join(SUBFOLDERS.get(name, 'Intern'),
+                                              name)))
     return result
+
+
+def _storage_files(folder):
+    """Alle eigenen Dateien eines Ablage-Ordners: `(voller Pfad, Name)`.
+
+    ⚠ **Rekursiv**, weil die Ablage seit v3.0.0 nach `Bauplaene/`,
+    `Einstellungen/`, `Diagnose/` und `Intern/` sortiert. Ein flacher Durchlauf
+    fände dort **nichts** und meldete „nichts zu tun", während der ganze
+    Bestand danebenliegt. Welche Dateien zählen, sagt `_storage_items`.
+    """
+    return [(full, os.path.basename(full))
+            for full, _rel in _storage_items(folder)]
 
 
 def storage_status(target):
@@ -538,11 +575,12 @@ def move_storage(source_dir, target_dir):
     """
     import shutil
     copied = skipped = failed = 0
-    if not os.path.isdir(source_dir) or os.path.abspath(source_dir) == os.path.abspath(target_dir):
+    if (not os.path.isdir(source_dir)
+            or _nested(source_dir, target_dir)):
         return 0, 0, 0
-    for source, name in _storage_files(source_dir):
-        subfolder = SUBFOLDERS.get(name, 'Intern')
-        target = os.path.join(target_dir, subfolder, name)
+    for source, rel in _storage_items(source_dir):
+        name = os.path.basename(rel)
+        target = os.path.join(target_dir, rel)
         if os.path.exists(target):
             skipped += 1
             continue
@@ -564,6 +602,155 @@ def move_storage(source_dir, target_dir):
             continue
         copied += 1
     return copied, skipped, failed
+
+
+def _nested(a, b):
+    """Liegt einer der beiden Ordner im anderen (oder sind sie gleich)?
+
+    Dann wird weder kopiert noch geräumt: Ein Umzug in den eigenen Unterordner
+    kopierte sich selbst hinterher, und das Aufräumen träfe die neuen Daten."""
+    a = os.path.normcase(os.path.abspath(a))
+    b = os.path.normcase(os.path.abspath(b))
+    return a == b or a.startswith(b + os.sep) or b.startswith(a + os.sep)
+
+
+def remove_old_storage(source_dir, target_dir):
+    """Den alten Ablage-Ordner räumen — nur, was sicher am neuen Ort liegt.
+
+    Gibt `(entfernt, behalten)` zurück; `behalten` ist die Liste der Dateien,
+    die liegen bleiben mussten (relativ zum alten Ordner).
+
+    ⭐ **Seit v3.58.0-rc9 wird der alte Ordner geräumt** (Wunsch vom
+    27.09.2026: *„beim Umziehen muss der alte Ordner gelöscht werden"*). Zwei
+    Ordner mit scheinbar demselben Bestand verleiten dazu, im falschen
+    nachzusehen oder von Hand zu schieben — genau das ist passiert.
+
+    ⚠⚠ **Gelöscht wird eine Datei nur, wenn ihr Gegenstück am neuen Ort
+    dieselbe Prüfsumme hat.** Nicht „wurde kopiert", sondern „liegt dort
+    nachweislich gleich". Hat sie sich seit dem Kopieren geändert (der Watcher
+    schreibt im Hintergrund weiter), wird sie erst noch einmal kopiert und
+    geprüft. Was sich nicht belegen lässt, bleibt liegen.
+
+    ⚠ **Die Zeiger-Datei unter Dokumente bleibt** — aus ihr liest VerseKit beim
+    Start, wo die Ablage jetzt liegt. Sie wird auf dieses eine Feld gekürzt.
+    Fremde Dateien im alten Ordner bleiben ebenfalls; der Ordner selbst
+    verschwindet nur, wenn er danach leer ist.
+    """
+    import shutil
+    removed, kept = 0, []
+    if not os.path.isdir(source_dir) or _nested(source_dir, target_dir):
+        return 0, []
+    pointer = os.path.normcase(os.path.abspath(pointer_file()))
+    for source, rel in _storage_items(source_dir):
+        if os.path.normcase(os.path.abspath(source)) == pointer:
+            continue              # wird unten gekürzt, nicht gelöscht
+        target = os.path.join(target_dir, rel)
+        same = os.path.exists(target) and _checksum(source) == _checksum(target)
+        if not same and os.path.exists(target):
+            # Am Ziel liegt etwas ANDERES (ein Bestand vom zweiten Rechner, oder
+            # der Watcher hat dort schon weitergeschrieben). Dann gilt das Ziel,
+            # und die alte Fassung bleibt als Rückweg liegen.
+            kept.append(rel)
+            continue
+        if not same:
+            try:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                shutil.copy2(source, target)
+                same = _checksum(source) == _checksum(target)
+            except OSError as exc:
+                _report_error('paths.remove_old_storage.kopie', exc)
+        if not same:
+            kept.append(rel)
+            continue
+        try:
+            os.remove(source)
+            removed += 1
+        except OSError as exc:
+            # Unter Windows: Die Datei ist noch offen (etwa ein Protokoll).
+            _report_error('paths.remove_old_storage', exc)
+            kept.append(rel)
+    # Die Zeiger-Datei auf ihren Zweck kürzen: nur noch der Ort der Ablage.
+    if os.path.normcase(os.path.abspath(os.path.dirname(os.path.dirname(
+            pointer_file())))) == os.path.normcase(os.path.abspath(source_dir)):
+        _write_pointer(pointer_file(), target_dir)
+    # Leere Ordner von unten nach oben entfernen — nur in den eigenen
+    # Unterordnern und den alten Ordner selbst, nur leere, nie mit Inhalt.
+    for sub in OWN_FOLDERS:
+        for root, _subdirs, _files in os.walk(os.path.join(source_dir, sub),
+                                              topdown=False):
+            try:
+                os.rmdir(root)
+            except OSError:
+                pass              # nicht leer (Zeiger, Fremdes) — bleibt
+    try:
+        os.rmdir(source_dir)
+    except OSError:
+        pass
+    return removed, kept
+
+
+def tidy_storage(folder=None):
+    """Eigene Dateien, die lose oder verschachtelt liegen, an ihren Platz holen.
+
+    Gibt die Zahl der einsortierten Dateien zurück.
+
+    ⭐ **Warum (27.09.2026):** Nach einem Umzug, der nicht alles mitnahm, zog
+    der Tester die Dateien von Hand in den neuen Ordner — *„ich wusste nicht, welche
+    Daten wohin gehören, das würde sicher auch einem User so passieren"*. Dann
+    liegen sie oben statt in `Intern/`, oder der ganze alte Ordner steckt als
+    Unterordner im neuen. VerseKit fand sie dort nicht.
+
+    Zwei Fälle, beide beim Start:
+
+    | Lage | was geschieht |
+    |---|---|
+    | eigene Datei lose oben | nach `SUBFOLDERS` einsortiert |
+    | ein alter Ablage-Ordner steckt im neuen (hat selbst `Bauplaene/` o. ä.) | sein Inhalt kommt an dieselbe Stelle im neuen |
+
+    ⚠ **Es wird nur verschoben, wo am Ziel noch nichts liegt.** Liegt dort
+    schon eine Datei, ist sie die, mit der VerseKit arbeitet — die lose ist
+    dann eine ältere Abschrift und bleibt unangetastet liegen.
+    """
+    if os.environ.get('SC_BP_HOME') and folder is None:
+        return 0                  # Wegwerf-Ordner der Prüfungen: flach gewollt
+    import shutil
+    folder = folder or app_folder()
+    moved = 0
+    # ⚠ Lose oben nur, was VerseKit sicher als eigenes kennt (`SUBFOLDERS`):
+    # Liegt die Ablage in einem Ordner, der auch anderen gehört, bleiben
+    # deren `.json` unberührt.
+    sources = [(full, rel) for full, rel in _storage_items(folder)
+               if os.path.dirname(full) == folder
+               and os.path.basename(full) in SUBFOLDERS]
+    try:
+        inner = [os.path.join(folder, n) for n in os.listdir(folder)
+                 if n not in OWN_FOLDERS
+                 and os.path.isdir(os.path.join(folder, n))]
+    except OSError:
+        inner = []
+    nested = [sub for sub in inner
+              if any(os.path.isdir(os.path.join(sub, own))
+                     for own in OWN_FOLDERS)]
+    for sub in nested:
+        sources.extend(_storage_items(sub))
+    for source, rel in sources:
+        target = os.path.join(folder, rel)
+        if os.path.exists(target):
+            continue
+        try:
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.move(source, target)
+            moved += 1
+        except OSError as exc:
+            _report_error('paths.tidy_storage', exc)
+    # Leer gewordene verschachtelte Ablagen wegräumen — nur leere Ordner.
+    for sub in nested:
+        for root, _subdirs, _files in os.walk(sub, topdown=False):
+            try:
+                os.rmdir(root)
+            except OSError:
+                pass
+    return moved
 
 
 # ------------------------------------------------------- Selbst gesetzte Pfade
@@ -1559,6 +1746,32 @@ def log_backups(folder=None):
     folder = folder or game_folder()
     if not folder:
         return []
+    # ⭐ Zwischengespeichert, solange sich die Ordner nicht ändern (rc9): Die
+    # Liste wurde bei jedem Seitenwechsel mehrfach neu gebaut — 181 Dateien
+    # samt Änderungszeit, je rund 20 ms, auf Achsen allein dreimal pro Besuch.
+    # Die Änderungszeit eines Ordners springt, sobald dort eine Datei
+    # hinzukommt oder verschwindet — genau dann muss neu gezählt werden.
+    channels = _channel_siblings(folder)
+    key = [folder]
+    for channel_dir in channels:
+        try:
+            key.append(os.stat(os.path.join(channel_dir, 'logbackups'))
+                       .st_mtime_ns)
+        except OSError:
+            key.append(None)
+    key = tuple(key)
+    if _LOG_BACKUPS[0] == key:
+        return list(_LOG_BACKUPS[1])
+    hits = _list_log_backups(channels)
+    _LOG_BACKUPS[:] = [key, hits]
+    return list(hits)
+
+
+_LOG_BACKUPS = [None, []]
+
+
+def _list_log_backups(channels):
+    """Die eigentliche Suche hinter `log_backups` — ohne Zwischenspeicher."""
     # Bewusst alles nehmen, was dort liegt: Star Citizen hat die Benennung der
     # Sicherungen über die Jahre mehrfach geändert (mal `Game.log.<Datum>`, mal
     # mit Endung dahinter). Ein Muster auf `*.log` verpasst dann die Hälfte.
@@ -1566,7 +1779,7 @@ def log_backups(folder=None):
     skip_ext = ('.zip', '.7z', '.gz', '.rar', '.dmp', '.mdmp', '.png', '.jpg')
     hits = []
     seen = set()
-    for channel_dir in _channel_siblings(folder):
+    for channel_dir in channels:
         for p in glob.glob(os.path.join(channel_dir, 'logbackups', '*')):
             if not os.path.isfile(p) or p.lower().endswith(skip_ext):
                 continue

@@ -485,6 +485,24 @@ def _scroll_to_top(widget):
         pass
 
 
+def _files_stamp(*files):
+    """Ein Fingerabdruck mehrerer Dateien: Pfad, Änderungszeit, Größe.
+
+    ⭐ Für Seiten, die sich beim Anzeigen neu aufbauen (rc9): Stimmt der
+    Fingerabdruck mit dem vom letzten Aufbau überein, hat sich keine Quelle
+    geändert, und der Neuaufbau kann entfallen. Eine fehlende Datei zählt als
+    „fehlt" — taucht sie auf, ändert sich der Abdruck."""
+    stamp = []
+    for path in files:
+        try:
+            info = os.stat(path) if path else None
+            stamp.append((path, info.st_mtime_ns, info.st_size) if info
+                         else (path, None, None))
+        except OSError:
+            stamp.append((path, None, None))
+    return tuple(stamp)
+
+
 def _keep_scroll(widget, action):
     """Etwas neu zeichnen, ohne dass die Seite nach oben springt.
 
@@ -2488,7 +2506,14 @@ def _move_storage(fenster, ablage, ziel):
         fenster.say(t('s_ab_misslungen') % (misslungen, kopiert))
         return
     _set_storage(fenster, ablage, ziel)
-    fenster.say(t('s_ab_fertig') % (kopiert, paths.redact(alt)))
+    # ⭐ Seit rc9: den alten Ordner räumen — Datei für Datei nur, was am neuen
+    # Ort nachweislich gleich liegt (siehe `paths.remove_old_storage`).
+    _entfernt, behalten = paths.remove_old_storage(alt, ziel)
+    if behalten:
+        fenster.say(t('s_ab_fertig_rest') % (kopiert, len(behalten),
+                                            paths.redact(alt)))
+    else:
+        fenster.say(t('s_ab_fertig') % kopiert)
 
 
 def _set_storage(fenster, ablage, ziel):
@@ -12438,8 +12463,29 @@ def _asop(fenster, rahmen):
     liste = tk.Frame(innen, bg=BG)
 
     suche.trace_add('write', lambda *_: _zeichnen())
-    fenster.on_show['asop'] = _fuellen
-    _fuellen()
+
+    def _stand_der_quellen():
+        try:
+            pfad = injection.ini_file()[0]
+        except Exception:
+            pfad = None
+        return _files_stamp(pfad, paths.app_file(injection.ORIGTEXT_FILE),
+                            paths.app_file(meine.FILE),
+                            paths.app_file(asop_modul.FILE))
+
+    def _beim_zeigen():
+        # ⭐ Nur neu aufbauen, wenn sich eine Quelle geändert hat (rc9). Vorher
+        # las jeder Besuch die ganze Sprachdatei des Spiels und baute alle
+        # Zeilen neu — rund 850 ms, obwohl sich nichts geändert hatte
+        # (gemessen 27.09.2026: „das Programm ist etwas träger").
+        stempel = _stand_der_quellen()
+        if stempel == alles.get('stempel'):
+            return
+        alles['stempel'] = stempel
+        _fuellen()
+
+    fenster.on_show['asop'] = _beim_zeigen
+    _beim_zeigen()
 
 
 def _asop_row(fenster, eltern, e, daten, asop_modul, sichern):

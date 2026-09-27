@@ -428,6 +428,50 @@ def _corner_marks(canvas, width, bottom, length=10):
         canvas.create_line(*points, fill=ACCENT, width=2, tags='ecke')
 
 
+def fast_destroy(window):
+    """Ein Fenster samt Inhalt auf einen Schlag abbauen.
+
+    ⚠⚠ **Warum nicht einfach `destroy()` (rc9).** tkinter baut ein Fenster
+    von innen nach außen ab: jedes Element einzeln, mit einem eigenen
+    Tk-Aufruf — und nach jedem ordnet Tk den Elternrahmen neu an, der ja noch
+    steht. Beim Hauptfenster sind das rund 6500 Elemente: **2,2 Sekunden**,
+    in denen das Fenster sichtbar stehen bleibt (gemessen 27.09.2026 unter
+    Tk 9, gemeldet als *„selbst das Schließen dauert ewig"*).
+
+    Hier verschwindet es zuerst vom Bildschirm, dann räumt Tk das ganze
+    Fenster in einem Aufruf ab (ohne Zwischen-Neuanordnung), und zuletzt wird
+    auf Python-Seite nur noch die Buchhaltung erledigt: die registrierten
+    Rückrufe freigeben — genau das, was `Misc.destroy` tut.
+
+    Nur für `Toplevel`: Die Tk-Wurzel beendet beim Abbauen das Programm und
+    geht deshalb weiter den gewohnten Weg.
+    """
+    if not isinstance(window, tk.Toplevel):
+        window.destroy()
+        return
+    try:
+        window.withdraw()
+    except tk.TclError:
+        pass
+    try:
+        window.tk.call('destroy', window._w)
+    except tk.TclError:
+        pass
+
+    def forget(widget):
+        for child in list(widget.children.values()):
+            forget(child)
+        widget.children.clear()
+        tk.Misc.destroy(widget)      # nur die Rückrufe, kein Tk-Aufruf
+
+    forget(window)
+    try:
+        if window.master.children.get(window._name) is window:
+            del window.master.children[window._name]
+    except (AttributeError, KeyError):
+        pass
+
+
 def round_frame(parent, bg, border, radius=8, base_color=None):
     """Ein Kasten mit runden Ecken, in den beliebiger Inhalt kommt.
 
@@ -3778,7 +3822,7 @@ class MainWindow:
             if self.on_close:
                 self.on_close()
         finally:
-            self.root.destroy()
+            fast_destroy(self.root)
 
     def run(self):
         """Das Fenster zeigen und auf Eingaben warten.

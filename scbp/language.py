@@ -3614,13 +3614,17 @@ TEXTS = {
                               'Nothing can be written there — the folder stays '
                               'as it was. (%s)'),
     's_ab_mitnehmen':    ('Im bisherigen Ordner liegen %d Dateien: Bestand, '
-                          'Merkliste, Einstellungen. Sollen sie mitkommen?\n\n'
-                          'Der alte Ordner bleibt unangetastet liegen — nichts '
-                          'wird gelöscht.',
-                          'The current folder holds %d files: your blueprints, '
-                          'watchlist and settings. Take them along?\n\n'
-                          'The old folder is left untouched — nothing is '
-                          'deleted.'),
+                          'Merkliste, Einstellungen, Protokolle, Scan-Bilder. '
+                          'Sollen sie mitkommen?\n\n'
+                          'Alles wird umgezogen und am neuen Ort geprüft. Erst '
+                          'danach wird der alte Ordner geräumt — was sich nicht '
+                          'sicher prüfen lässt, bleibt dort liegen.',
+                          'The current folder holds %d files: blueprints, '
+                          'watchlist, settings, logs, scan images. Take them '
+                          'along?\n\n'
+                          'Everything is moved and checked at the new place. '
+                          'Only then is the old folder cleared — anything that '
+                          'cannot be checked safely stays there.'),
     's_ab_mitnehmen_ja': ('Mitnehmen', 'Take along'),
     's_ab_ohne':         ('Ohne Daten umstellen', 'Switch without data'),
     's_ab_belegt':       ('Dort liegen schon %d Dateien — offenbar eine Ablage '
@@ -3636,10 +3640,16 @@ TEXTS = {
                           'dem neuen Ordner.',
                           'Switched. After a restart the data in the new folder '
                           'applies.'),
-    's_ab_fertig':       ('%d Dateien mitgenommen. Nach einem Neustart gilt der '
-                          'neue Ordner; der alte bleibt unter %s liegen.',
-                          '%d files taken along. After a restart the new folder '
-                          'applies; the old one stays at %s.'),
+    's_ab_fertig':       ('%d Dateien umgezogen und geprüft, der alte Ordner ist '
+                          'geräumt. Nach einem Neustart gilt der neue Ordner.',
+                          '%d files moved and checked, the old folder is '
+                          'cleared. After a restart the new folder applies.'),
+    's_ab_fertig_rest':  ('%d Dateien umgezogen und geprüft. %d blieben im alten '
+                          'Ordner (in Benutzung oder am neuen Ort schon anders '
+                          'vorhanden): %s',
+                          '%d files moved and checked. %d stayed in the old '
+                          'folder (in use, or already different at the new '
+                          'place): %s'),
     's_ab_misslungen':   ('%d Dateien liessen sich nicht sicher kopieren (%d '
                           'gingen durch) — der Ordner wurde NICHT umgestellt. '
                           'Dein Bestand liegt unverändert am alten Ort.',

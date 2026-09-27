@@ -60,7 +60,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0-rc8'
+__version__ = '3.58.0-rc9'
 
 
 def _mitgeliefert(name):
@@ -2062,6 +2062,12 @@ class Overlay:
                     sys.stdout.write(self.umzug_meldung + '\n')
         except Exception as ausnahme:
             errors.record('start.umzug', ausnahme)
+        # Von Hand herübergezogene Dateien an ihren Platz holen (rc9) — siehe
+        # `paths.tidy_storage`. Vor dem ersten Lesen des Bestands.
+        try:
+            paths.tidy_storage()
+        except Exception as ausnahme:
+            errors.record('start.aufraeumen', ausnahme)
 
         # ⚠ **Nur eine einzige `tk.Tk()` im ganzen Programm.** Vorher legte der
         # Assistent eine eigene an, zerstörte sie am Ende — und hier entstand eine

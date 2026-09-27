@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc9 - 2026-09-27
+
+> **Schneller, und der Umzug des Datenordners nimmt jetzt wirklich alles
+> mit.**
+
+### Verbessert
+
+- **Schließen des Hauptfensters** — verschwindet sofort, statt rund zwei
+  Sekunden stehen zu bleiben
+- **Schiffe benennen** öffnet rund dreimal so schnell; Achsen, Joysticks und
+  Erkennung lesen die Spielprotokolle nicht mehr bei jedem Besuch neu
+- **Datenordner umziehen** — nimmt alles mit (auch Scan-Bilder), behält die
+  Ordnerstruktur, prüft jede Datei und räumt danach den alten Ordner.
+  Von Hand herübergezogene Dateien sortiert VerseKit beim Start selbst ein
+
+### Behoben
+
+- **Neustart nach dem Farbwechsel** ließ das alte Overlay stehen — jetzt
+  beendet sich die alte Fassung (auch nach dem Einspielen einer Sicherung)
+
 ## v3.58.0-rc8 - 2026-09-27
 
 > **Vier neue Farbschemata** und runde Overlay-Ecken jetzt in jedem Schema.
