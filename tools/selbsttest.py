@@ -27125,8 +27125,21 @@ def _pruefung_274():
     import tkinter as _tk274
     from scbp import theme as _th274, icons as _ic274, pages as _pg274
     from scbp import language as _la274
-    sys.path.insert(0, os.path.join(WURZEL, 'tools'))
-    import symbole_bauen as _sb274
+    # ⚠ `symbole_bauen` NICHT importieren: Es verlangt Pillow und beendet
+    # sonst den ganzen Lauf („Pillow fehlt") — auf dem Bau-Laeufer ist Pillow
+    # nicht installiert, rc8 scheiterte daran. Die Farbtabelle wird aus dem
+    # Syntaxbaum gelesen.
+    import ast as _ast274
+    _baum274 = _ast274.parse(io.open(
+        os.path.join(WURZEL, 'tools', 'symbole_bauen.py'),
+        encoding='utf-8').read())
+    _farben274 = {}
+    for _k274 in _ast274.walk(_baum274):
+        if (isinstance(_k274, _ast274.Assign)
+                and any(getattr(z, 'id', '') == 'FARBEN'
+                        for z in _k274.targets)):
+            _farben274 = _ast274.literal_eval(_k274.value)
+    _sb274 = type('SB', (), {'FARBEN': _farben274})
 
     def _lum274(farbe):
         farbe = farbe.lstrip('#')
