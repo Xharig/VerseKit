@@ -6410,7 +6410,9 @@ def _thanks(fenster, rahmen):
              t('s_dk_kynotnis_bugs')),
             ('ryze', 'KRT', t('s_dk_ryze_idee'), ''),
             ('F_i_r_e', 'KRT', '', t('s_dk_fire_bugs')),
-            ('greluc', 'KRT', t('s_dk_greluc_idee'), ''),
+            ('greluc', 'KRT', t('s_dk_greluc_idee') + '\n\n'
+             + t('s_dk_greluc_idee2'), ''),
+            ('Parsul', 'KRT', '', t('s_dk_parsul_bugs')),
             # ⚠ Ohne Gruppenblase — er tritt ohne Gruppe auf. Die Erweiterung
             # selbst steht oben unter den fremden Werkzeugen; hier zählt sein
             # Beitrag zum Werkzeug.

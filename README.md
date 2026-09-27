@@ -181,6 +181,16 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
+<img src="assets/screenshot-statistik.png" alt="Statistik" width="100%"><br>
+<sub><b>Statistik</b> — Spielzeit, Sitzungen, Aufträge, Quantensprünge und wann du spielst</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-darstellung.png" alt="Darstellung" width="100%"><br>
+<sub><b>Darstellung</b> — Farbschema mit Vorschau, Sprache, Größe der Oberfläche</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
 <img src="assets/screenshot-fortschritt.png" alt="Fortschritt nach Bereichen" width="100%"><br>
 <sub><b>Fortschritt</b> — je Bereich, Einzelheiten auf Klick</sub>
 </td>
@@ -248,6 +258,41 @@ Der Laderaum ist voll — und jetzt? **Wo werde ich die Ladung los, und was brin
 </table>
 
 </details>
+
+### Die Farbschemata
+
+Unter **Einstellungen → Darstellung** wählst du, wie VerseKit aussieht — das Overlay und alle Fenster. Die Wahl gilt nach einem Neustart, den der Knopf daneben gleich erledigt.
+
+<table>
+<tr>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-original.png" alt="Verse-Kit (Original)" width="100%"><br>
+<sub><b>Verse-Kit (Original)</b></sub>
+</td>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-krt.png" alt="KRT (Orange)" width="100%"><br>
+<sub><b>KRT (Orange)</b> — eckig, mit Eckwinkeln</sub>
+</td>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-eis.png" alt="Eis (Cyan)" width="100%"><br>
+<sub><b>Eis (Cyan)</b></sub>
+</td>
+</tr>
+<tr>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-nebel.png" alt="Nebel (Violett)" width="100%"><br>
+<sub><b>Nebel (Violett)</b></sub>
+</td>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-glut.png" alt="Glut (Rot)" width="100%"><br>
+<sub><b>Glut (Rot)</b> — Warnungen in Gelb-Orange</sub>
+</td>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-kontrast.png" alt="Hoher Kontrast" width="100%"><br>
+<sub><b>Hoher Kontrast</b> — Weiß und Gelb auf Schwarz</sub>
+</td>
+</tr>
+</table>
 
 ### Was Totzone, Sättigung und Empfindlichkeit bewirken
 
@@ -321,6 +366,11 @@ Dazu: Klasse, Größe und Gütegrad stehen direkt in der Zeile (`M/1/A`), die Ob
 | <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Immer im Vordergrund** | Randloses, leicht durchscheinendes Overlay über dem Spiel |
 | <img src="assets/symbole/22/schloss_auf-gruen.png" width="22" alt=""> **Klicks ins Spiel durchreichen** | Ein Klick auf das Schloss in der Leiste, und das Overlay lässt Mausklicks durch — es steht weiter im Bild, ist aber nicht mehr im Weg. Dasselbe Schloss wird dabei grün und holt es mit einem Klick wieder zurück, ohne Umweg über die Einstellungen |
 | <img src="assets/symbole/22/verschieben-gruen.png" width="22" alt=""> **Verschiebbar & skalierbar** | An der Titelleiste ziehen, Größe am Griff ◢ unten rechts — **Position & Größe werden gemerkt** |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Sechs Farbschemata** | Unter **„Darstellung"** mit kleiner Vorschau: **Verse-Kit (Original), KRT (Orange), Eis (Cyan), Nebel (Violett), Glut (Rot) und Hoher Kontrast** — jedes mit eigenen Symbolen, fürs Overlay und alle Fenster. Bilder siehe [unten](#die-farbschemata) |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Größe der Oberfläche** | Schrift, Symbole und Knöpfe **stufenlos** per Regler — oder die Voreinstellung für deinen Bildschirm: Auto, Full HD, WQHD, UHD (125 %), UHD (150 %) |
+| <img src="assets/symbole/22/module-gruen.png" width="22" alt=""> **Module** | Schiffe, Werkstatt, Bergung, Handel und Statistik lassen sich **aus der Seitenleiste ausblenden**, wenn du sie nicht brauchst. Es wird nichts gelöscht |
+| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Startprogramme** | Weitere Programme **mit dem RSI Launcher**, sobald Star Citizen läuft, oder **statt** des Launchers starten — auf Wunsch beim Spielende wieder beenden |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | Auf der Seite **„Spiel"**: was VerseKit einträgt, deine eigenen Zeilen und die ganze Datei, je Spielkanal. Vor der ersten Änderung wird die alte Datei gesichert |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **Deutsch und Englisch** | Oberfläche umschaltbar. Die Bauplan-Meldung im Log erkennt der Watcher **in jeder Spielsprache** — er findet die Formulierung selbst heraus |
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Hält sich selbst aktuell** | Sieht alle 10 Minuten nach einer neuen Version und spielt sie von selbst ein — **nie, während Star Citizen läuft**, dann wartet es, bis das Spiel zu ist. Abschaltbar. Mit „Was ist neu" zum Nachlesen, auch für ältere Versionen |
 | <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Nur lesend** | Liest die `Game.log` und, falls vorhanden, die Launcher-Dateien. **Eine Ausnahme, und die fragt vorher:** Auf Wunsch trägt der Watcher die Bauplan-Kennzeichnung in die `global.ini` ein — das lässt sich jederzeit wieder zurücknehmen, auch Text anderer Werkzeuge bleibt dabei erhalten |
@@ -572,7 +622,7 @@ Oben in `sc_bp_watcher.py` stehen weitere Konstanten — sie sind Vorgabewerte u
 | `CAT_POLL` | Prüf-Intervall für den Craftbar-Katalog (ändert sich nur bei Patches) | `60` |
 | `MAX_ROWS` | Höchstzahl Zeilen in der Melde-Liste (ältere fallen unten raus) | `200` |
 | `CLASS_LETTER` | Kürzel je Klasse (M/S/I/C/K) | Military/Stealth/Industrial/Civilian/Competition |
-| `BG / FG / ACCENT / …` | Farben des Overlays | dunkel + Xharig-Grün |
+| `SCHEMES` in `scbp/theme.py` | Alle Farben, je Farbschema — gewählt wird unter „Darstellung" | Verse-Kit (Original) |
 
 Die Formulierungen, an denen ein Bauplan im Log erkannt wird, stehen in `scbp/phrases.py` beziehungsweise in deiner eigenen `phrasen.json`.
 

@@ -8,239 +8,74 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
-## v3.58.0-rc11 - 2026-09-27
+## v3.58.0 - 2026-09-27
 
-> **The overlay no longer steals focus from the game**, and the setup
-> assistant writes the blueprint details on a fresh install too.
+> **Your statistics, six colour schemes and re-sorted settings.** A section
+> of its own shows how you play — ships, contracts, quantum travel,
+> stability. Under "Appearance" you now pick your colour scheme with a small
+> preview, "KRT (orange)" among them, and set the size steplessly. On top,
+> VerseKit is noticeably faster, and the overlay no longer steals focus from
+> the game.
+
+### New
+
+- **Statistics** — a group of its own with Evaluation, Overview, Ships &
+  equipment, Contracts, Quantum travel and Stability. Play time, sessions, a
+  heat map of when you play, most used and lost ships, weapons, how your
+  contracts end, most frequent destinations and starting points, crashes and
+  disconnects. All from your own game logs, your account only, and the
+  numbers stay even when the logs are deleted. Save as a file without
+  player names
+- **Six colour schemes** under "Appearance", with preview: Verse-Kit
+  (original), KRT (orange), Ice (cyan), Nebula (violet), Ember (red) and High
+  contrast — each with its own symbols. "KRT (orange)" follows the design
+  system of the Profit Basetool by **greluc**: square boxes with orange corner marks,
+  headings in capitals
+- **Interface size** — a slider, plus presets Auto, Full HD, WQHD,
+  UHD (125 %) and UHD (150 %)
+- **Modules** — Ships, Workshop, Salvage, Trading and Statistics can be
+  hidden from the sidebar. Nothing is deleted
+- **Start programs** — launch further programs with the RSI Launcher, once
+  Star Citizen runs, or instead of the launcher; optionally close them when
+  the game ends
+- **user.cfg** — on the "Game" page: edit your own lines, look at the whole
+  file, per game channel. The old file is backed up before the first change.
+  "Installation & paths" shows every installation and whether its user.cfg
+  is complete
+- **Flags** at the language choice and at the text source (German,
+  StarStrings, English from the game)
+- **Rounded corners on the overlay** (Windows 11)
+- **"Made by the Community"** at the bottom of the sidebar
+
+### Improved
+
+- **Settings re-sorted** — General, Overlay, Appearance, Installation &
+  paths, Game, FOV, Controls, Axes & curves, Modules, Start programs, Back up
+  & reset. Everything about the overlay is together, language and size under
+  "Appearance"
+- **Much faster** — the main window opens with about three quarters less
+  work, every page switch costs only a fraction, and closing is instant.
+  Game logs and language files are no longer re-read on every visit
+- **Moving the data folder** — now takes everything along (scan images too),
+  keeps the folder structure, checks every file and then clears the old
+  folder. Files dragged over by hand are sorted in at start
+- **Switches** — "Check for new versions" and "Install updates
+  automatically" are toggle switches like everywhere else
+- **"Info" can be collapsed again** — "What's new", "Update & about" and
+  "Report a problem" stay visible
+- **Large font** — nothing sticks out of the window on any page any more;
+  long texts wrap
 
 ### Fixed
 
 - **Focus in the game** — if the invisible mouse pointer was over the overlay
   while shooting or clicking, the keyboard jumped out of Star Citizen. Clicks
-  on the overlay (also on the lock and the grip) still work, but no longer
-  bring it to the front — without having to turn on "click-through"
-- **Setup assistant, "Blueprint details in the game"** — reported "the
-  catalogue knows no missions" on a fresh install, because the catalogue was
-  only fetched after setup. It now fetches it itself
-
-## v3.58.0-rc10 - 2026-09-27
-
-> **Much faster:** the main window opens with about three quarters less work,
-> and every page switch costs only a fraction.
-
-### Improved
-
-- **First opening via the gear** — long texts were wrapped in about 70 rounds
-  until they fit; now in one
-- **Page switches** — the sidebar is no longer recoloured and re-measured
-  completely on every click
-- **Axes, Contract log, Detection** — game logs and language files are no
-  longer re-read on every visit; VerseKit remembers for good which account an
-  old backup belongs to
-
-## v3.58.0-rc9 - 2026-09-27
-
-> **Faster, and moving the data folder now really takes everything along.**
-
-### Improved
-
-- **Closing the main window** — disappears at once instead of standing for
-  about two seconds
-- **Ship naming** opens about three times as fast; Axes, Joysticks and
-  Detection no longer re-read the game logs on every visit
-- **Moving the data folder** — takes everything along (scan images too),
-  keeps the folder structure, checks every file and then clears the old
-  folder. Files dragged over by hand are sorted in by VerseKit at start
-
-### Fixed
-
-- **Restart after changing the colour scheme** left the old overlay
-  running — the old version now quits (also after restoring a backup)
-
-## v3.58.0-rc8 - 2026-09-27
-
-> **Four new colour schemes** and rounded overlay corners in every scheme.
-
-### New
-
-- **Colour schemes "Ice (cyan)", "Nebula (violet)", "Ember (red)" and "High
-  contrast"** under "Appearance" — each with its own symbols in the accent
-  colour. In "Ember" warnings are yellow-orange instead of red, "High
-  contrast" shows white and strong yellow on black
-
-### Improved
-
-- **Rounded overlay corners in "KRT (orange)" too** — the boxes inside stay
-  square with orange corner marks
-- The colour scheme preview is laid out in rows of three
-
-## v3.58.0-rc7 - 2026-09-27
-
-> **Rounded corners on the overlay, orange section headings in "KRT" and
-> nothing sticking out of the window at large font sizes any more.**
-
-### New
-
-- **Rounded corners on the overlay window** (Windows 11) in the "Verse-Kit
-  (original)" scheme; "KRT (orange)" stays square on purpose
-- **Flags at the text source** — German (rjcncpt), StarStrings and
-  "English (from the game)" show which language ends up in the game
-
-### Improved
-
-- **"KRT (orange)"** — the section headings on the pages are now orange
-  and in capitals too
-
-### Fixed
-
+  on the overlay still work but no longer bring it to the front
+- **Setup assistant** — wrote no blueprint details on a fresh install ("the
+  catalogue knows no missions"). Found by **Parsul**
+- **Restart after changing the colour scheme** left the old overlay running
+- **FOV** — calibration and seating distance were not saved
 - **Storage** — piece goods say "pcs" instead of "SCU" in the messages
-- **Statistics pages** pushed the window wider than set
-- **Large font (UHD 150 % and maximum)** — nothing sticks out of the window
-  any more on Axes, Storage, Selling, Refineries, Field of view, Inventory
-  and Thanks; long texts wrap
-
-## v3.58.0-rc6 - 2026-09-27
-
-> **"KRT (orange)" follows the official design system**, and the language
-> choice shows flags.
-
-### New
-
-- **Flags** next to "Deutsch" and "English" in the language choice
-- **Statistics as a module** — can be hidden under "Modules"
-
-### Improved
-
-- **"KRT (orange)"** — colours from the design system of the Profit
-  Basetool: house colour, black background, buttons in capitals. The
-  selected tab and the scrollbars now follow the scheme too
-
-## v3.58.0-rc5 - 2026-09-27
-
-> **A second colour scheme and stepless size.** Under "Appearance" you now
-> choose between "Verse-Kit (original)" and "KRT (orange)" — with a small
-> preview. Set the size of the interface steplessly with a slider, or pick
-> the preset for your screen.
-
-### New
-
-- **Colour scheme "KRT (orange)"** — nearly black, orange as accent, square
-  boxes with orange corner marks and headings in capitals. Applies to every
-  window, the overlay included, after a restart
-- **Interface size** — slider with a percentage, plus presets Auto, Full HD,
-  WQHD, UHD (125 %) and UHD (150 %)
-
-### Improved
-
-- **Startup programs** now sit under "For advanced users"
-- **user.cfg** — now called "Your user.cfg", and the boxes scroll with the
-  program's own scrollbar instead of the system one
-
-## v3.58.0-rc4 - 2026-09-27
-
-> **The settings are sorted anew.** Everything about the overlay is now in
-> one place, language and size under "Appearance", the paths and your
-> user.cfg are no longer hidden. New: hide sections you do not need, and
-> have other programs start along with the game.
-
-### New
-
-- **Modules** — ships, workshop, salvage and trading can be hidden from the
-  sidebar. Nothing is deleted
-- **Startup programs** — start other programs with the RSI Launcher, once
-  Star Citizen runs, or instead of the launcher; optionally close them again
-  when the game ends
-- **user.cfg** — on the "Game" page: edit your own lines and view the whole
-  file, per game channel. Before the first change the old file is backed up
-- **Game channels** — "Installation & paths" shows every installation and
-  whether its user.cfg is complete
-
-### Improved
-
-- **Settings reorganised** — General, Overlay, Appearance, Installation &
-  paths, Game, FOV, Controls, Axes & curves, Modules, Startup programs,
-  Backup & reset. Only detection is left behind "For advanced users"
-- **Backup & reset** — backup, setup and the blueprint inventory in one
-  place
-- **"Evaluate automatically"** for the statistics can also be switched
-  under "General"
-
-### Fixed
-
-- **FOV** — the calibration and the seating distance were not saved
-
-## v3.58.0-rc3 - 2026-09-27
-
-> **Quantum travel with names.** Instead of keys like "rs_ext_pyro6_leo" you
-> now see places you know — "Rest stop orbiting Terminus", "Levski", "Rest
-> stop at the Stanton – Magnus jump point". You also see where you jump from
-> most often.
-
-### New
-
-- **Most common starting points** on the "Quantum travel" page
-
-### Improved
-
-- **Quantum travel** — destinations are named like in the game: rest stops,
-  cities, planets and Lagrange points. Anything that follows no known
-  pattern still shows the way the game writes it
-- **Tiles** — long lines below a number wrap instead of being cut off
-- **"Update & About"** — "Check for new versions" and "Install updates
-  automatically" are now slide switches like everywhere else
-- **"Made by the Community"** — larger and pure white, easy to recognise
-- On first start VerseKit reads your game logs once more, so the starting
-  points are there right away
-
-## v3.58.0-rc2 - 2026-09-27
-
-> **Statistics get their own section.** Next to the overview you now see
-> which ships you fly and lose the most, which weapons you carry, how your
-> contracts end, where you jump and how stable your game runs. All from your
-> own game logs.
-
-### New
-
-- **Own "Statistics" group** with six tabs: Evaluation, Overview, Ships &
-  equipment, Contracts, Quantum travel and Stability
-- **Evaluation** — shows when the statistics were last evaluated, with
-  "Evaluate now", "Evaluate everything again" and the switch "Evaluate
-  automatically" (on by default). This is also where you save them
-- **Ships & equipment** — most used and lost ships, back weapons and
-  sidearms, what you had in hand; with the names from the game
-- **Contracts** — completed, failed, abandoned, the most played and the
-  latest contracts
-- **Quantum travel** — destinations chosen, arrivals and the most chosen
-  destinations
-- **Stability** — sessions closed properly, crashes and disconnects by
-  reason
-- **"Made by the Community"** at the bottom of the sidebar
-
-### Improved
-
-- **Heat map** — the hours are now labelled every three hours
-- On first start VerseKit reads your existing game logs once more, so the
-  new pages are filled right away
-
-## v3.58.0-rc1 - 2026-09-27
-
-> **New: your statistics.** A tab of its own shows how much, how often and
-> when you play — play time, sessions, completed contracts, quantum jumps and
-> a heat map of your playing times. The numbers stay even when the game logs
-> are deleted.
-
-### New
-
-- **Statistics** (under "Info") — play time, sessions with average and
-  longest, completed and failed contracts, quantum jumps and a heat map by
-  weekday and hour. Only what is reliably in the log in every game language
-  is counted, and only your own account
-- **Save statistics** — as a file, without player names
-
-### Improved
-
-- **"Info" can be collapsed again** — "What's new", "Update & About" and
-  "Report a problem" always stay visible
 
 ## v3.57.4 - 2026-09-26
 

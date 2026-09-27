@@ -181,6 +181,16 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
+<img src="assets/screenshot-statistik-en.png" alt="Statistics" width="100%"><br>
+<sub><b>Statistics</b> — play time, sessions, contracts, quantum jumps and when you play</sub>
+</td>
+<td width="50%" valign="top" align="center">
+<img src="assets/screenshot-darstellung-en.png" alt="Appearance" width="100%"><br>
+<sub><b>Appearance</b> — colour scheme with preview, language, interface size</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
 <img src="assets/screenshot-fortschritt-en.png" alt="Progress by area" width="100%"><br>
 <sub><b>Progress</b> — per area, details on click</sub>
 </td>
@@ -248,6 +258,41 @@ Cargo hold full — now what? **Where do I offload it, and what does it pay per 
 </table>
 
 </details>
+
+### The colour schemes
+
+Under **Settings → Appearance** you choose how VerseKit looks — the overlay and every window. The choice applies after a restart, which the button next to it does for you.
+
+<table>
+<tr>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-original-en.png" alt="Verse-Kit (original)" width="100%"><br>
+<sub><b>Verse-Kit (original)</b></sub>
+</td>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-krt-en.png" alt="KRT (orange)" width="100%"><br>
+<sub><b>KRT (orange)</b> — square, with corner marks</sub>
+</td>
+<td width="33%" valign="top" align="center">
+<img src="assets/screenshot-farbschema-eis-en.png" alt="Ice (cyan)" width="100%"><br>
+<sub><b>Ice (cyan)</b></sub>
+</td>
+</tr>
+<tr>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-nebel-en.png" alt="Nebula (violet)" width="100%"><br>
+<sub><b>Nebula (violet)</b></sub>
+</td>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-glut-en.png" alt="Ember (red)" width="100%"><br>
+<sub><b>Ember (red)</b> — warnings in yellow-orange</sub>
+</td>
+<td valign="top" align="center">
+<img src="assets/screenshot-farbschema-kontrast-en.png" alt="High contrast" width="100%"><br>
+<sub><b>High contrast</b> — white and yellow on black</sub>
+</td>
+</tr>
+</table>
 
 ### What dead zone, saturation and sensitivity do
 
@@ -318,6 +363,11 @@ On top of that: class, size and grade are right there in the line (`M/1/A`), the
 | <img src="assets/symbole/22/vordergrund-gruen.png" width="22" alt=""> **Always on top** | Borderless, slightly translucent overlay above the game |
 | <img src="assets/symbole/22/schloss_auf-gruen.png" width="22" alt=""> **Pass clicks through** | One click on the lock in the bar and the overlay lets mouse clicks through — still in view, no longer in the way. The same lock turns green and brings it back with one click, with no detour through the settings |
 | <img src="assets/symbole/22/verschieben-gruen.png" width="22" alt=""> **Movable & resizable** | Drag the title bar, resize at the ◢ handle — **position and size are remembered** |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Six colour schemes** | Under **"Appearance"** with a small preview: **Verse-Kit (original), KRT (orange), Ice (cyan), Nebula (violet), Ember (red) and High contrast** — each with its own symbols, for the overlay and every window. Pictures [below](#the-colour-schemes) |
+| <img src="assets/symbole/22/darstellung-gruen.png" width="22" alt=""> **Interface size** | Text, symbols and buttons **steplessly** with a slider — or the preset for your screen: Auto, Full HD, WQHD, UHD (125 %), UHD (150 %) |
+| <img src="assets/symbole/22/module-gruen.png" width="22" alt=""> **Modules** | Ships, Workshop, Salvage, Trading and Statistics can be **hidden from the sidebar** if you don't need them. Nothing is deleted |
+| <img src="assets/symbole/22/startprogramme-gruen.png" width="22" alt=""> **Start programs** | Launch further programs **with the RSI Launcher**, once Star Citizen runs, or **instead** of the launcher — optionally close them when the game ends |
+| <img src="assets/symbole/22/auftragstexte-gruen.png" width="22" alt=""> **user.cfg** | On the **"Game"** page: what VerseKit writes, your own lines and the whole file, per game channel. The old file is backed up before the first change |
 | <img src="assets/symbole/22/sprachen-gruen.png" width="22" alt=""> **German and English** | Interface switchable; the in-game blueprint message is recognised in both languages |
 | <img src="assets/symbole/22/abhaken-gruen.png" width="22" alt=""> **Updates itself** | Checks for new versions every 10 minutes and installs them on its own — **never while Star Citizen is running**, it waits until the game is closed. Can be switched off. With „What's new" to read up on, including older releases |
 | <img src="assets/symbole/22/nurlesend-gruen.png" width="22" alt=""> **Read only** | Reads `Game.log` and, if present, the launcher files. **One exception, and it asks first:** on request the watcher writes the blueprint markers into `global.ini` — that can be undone at any time, and text from other tools is preserved |

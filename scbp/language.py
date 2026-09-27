@@ -2375,6 +2375,22 @@ TEXTS = {
                               'Verse-Kit took over the idea: if you play two '
                               'accounts on one computer, you no longer get the '
                               'other one\'s blueprints.'),
+    # Seit v3.58.0: das Schema „KRT (Orange)" folgt seinem Design-System.
+    's_dk_greluc_idee2':     ('**Das Farbschema „KRT (Orange)"** — Farben und Form '
+                              'folgen dem Design-System seines Profit Basetools.',
+                              '**The "KRT (orange)" colour scheme** — colours and '
+                              'shapes follow the design system of his Profit '
+                              'Basetool.'),
+    's_dk_parsul_bugs':      ('**Der Einrichtungsassistent trug bei einer frischen '
+                              'Installation keine Bauplan-Angaben ein** — „Katalog '
+                              'kennt keine Missionen", weil der Katalog erst nach '
+                              'der Einrichtung geholt wurde. Das sieht nur, wer '
+                              'VerseKit ganz neu aufsetzt.',
+                              '**The setup assistant wrote no blueprint details on '
+                              'a fresh install** — "the catalogue knows no '
+                              'missions", because the catalogue was only fetched '
+                              'after setup. Only visible when setting VerseKit up '
+                              'from scratch.'),
     's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
                               'den Laderaum passt, und das Werkzeug rechnet, '
                               'womit sich die nächste Fahrt lohnt.',

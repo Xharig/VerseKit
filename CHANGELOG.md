@@ -8,242 +8,76 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
-## v3.58.0-rc11 - 2026-09-27
+## v3.58.0 - 2026-09-27
 
-> **Das Overlay nimmt dem Spiel nicht mehr den Fokus**, und der
-> Einrichtungsassistent trägt die Bauplan-Angaben auch bei einer frischen
-> Installation ein.
-
-### Behoben
-
-- **Fokus im Spiel** — stand der unsichtbare Mauszeiger beim Schießen oder
-  Klicken über dem Overlay, sprang die Tastatur aus Star Citizen. Klicks aufs
-  Overlay (auch aufs Schloss und den Anfasser) funktionieren weiter, holen es
-  aber nicht mehr nach vorn — ohne dass du „durchklickbar" einschalten musst
-- **Einrichtungsassistent, „Bauplan-Angaben im Spiel"** — meldete bei einer
-  frischen Installation „Katalog kennt keine Missionen", weil der Katalog erst
-  nach der Einrichtung geholt wurde. Jetzt holt er ihn selbst
-
-## v3.58.0-rc10 - 2026-09-27
-
-> **Deutlich schneller:** Das Hauptfenster öffnet mit rund drei Viertel
-> weniger Arbeit, und jeder Seitenwechsel kostet nur noch einen Bruchteil.
-
-### Verbessert
-
-- **Erstes Öffnen übers Zahnrad** — lange Texte wurden in rund 70 Runden
-  umgebrochen, bis sie passten; jetzt in einer
-- **Seitenwechsel** — die Seitenleiste wird nicht mehr bei jedem Klick komplett
-  neu eingefärbt und vermessen
-- **Achsen, Auftragslog, Erkennung** — Spielprotokolle und Sprachdateien werden
-  nicht mehr bei jedem Besuch neu gelesen; welcher Account zu einer alten
-  Sicherung gehört, merkt sich VerseKit dauerhaft
-
-## v3.58.0-rc9 - 2026-09-27
-
-> **Schneller, und der Umzug des Datenordners nimmt jetzt wirklich alles
-> mit.**
-
-### Verbessert
-
-- **Schließen des Hauptfensters** — verschwindet sofort, statt rund zwei
-  Sekunden stehen zu bleiben
-- **Schiffe benennen** öffnet rund dreimal so schnell; Achsen, Joysticks und
-  Erkennung lesen die Spielprotokolle nicht mehr bei jedem Besuch neu
-- **Datenordner umziehen** — nimmt alles mit (auch Scan-Bilder), behält die
-  Ordnerstruktur, prüft jede Datei und räumt danach den alten Ordner.
-  Von Hand herübergezogene Dateien sortiert VerseKit beim Start selbst ein
-
-### Behoben
-
-- **Neustart nach dem Farbwechsel** ließ das alte Overlay stehen — jetzt
-  beendet sich die alte Fassung (auch nach dem Einspielen einer Sicherung)
-
-## v3.58.0-rc8 - 2026-09-27
-
-> **Vier neue Farbschemata** und runde Overlay-Ecken jetzt in jedem Schema.
+> **Deine Statistik, sechs Farbschemata und neu sortierte Einstellungen.**
+> Ein eigener Bereich zeigt, wie du spielst — Schiffe, Aufträge,
+> Quantenreisen, Stabilität. Unter „Darstellung" wählst du jetzt dein
+> Farbschema mit kleiner Vorschau, darunter „KRT (Orange)", und stellst die
+> Größe stufenlos ein. Dazu ist VerseKit spürbar schneller, und das Overlay
+> nimmt dem Spiel nicht mehr den Fokus.
 
 ### Neu
 
-- **Farbschemata „Eis (Cyan)", „Nebel (Violett)", „Glut (Rot)" und „Hoher
-  Kontrast"** unter „Darstellung" — jeweils mit eigenen Symbolen in der
-  Akzentfarbe. Bei „Glut" sind Warnungen gelb-orange statt rot, „Hoher
-  Kontrast" zeigt Weiß und kräftiges Gelb auf Schwarz
-
-### Verbessert
-
-- **Runde Overlay-Ecken auch in „KRT (Orange)"** — die Kästen darin bleiben
-  eckig mit orangen Eckwinkeln
-- Die Vorschau der Farbschemata steht in Reihen zu drei
-
-## v3.58.0-rc7 - 2026-09-27
-
-> **Runde Ecken am Overlay, orange Zwischenüberschriften in „KRT" und
-> nichts mehr, was bei großer Schrift aus dem Fenster ragt.**
-
-### Neu
-
-- **Runde Ecken am Overlay-Fenster** (Windows 11) im Schema „Verse-Kit
-  (Original)"; „KRT (Orange)" bleibt bewusst eckig
-- **Flaggen an der Textquelle** — Deutsch (rjcncpt), StarStrings und
-  „Englisch (aus dem Spiel)" zeigen, welche Sprache im Spiel herauskommt
-
-### Verbessert
-
-- **„KRT (Orange)"** — auch die Zwischenüberschriften der Seiten sind jetzt
-  orange und in Großbuchstaben
-
-### Behoben
-
-- **Lager** — Stückgut heißt in den Meldungen „Stück" statt „SCU"
-- **Statistik-Seiten** drückten das Fenster breiter auf, als eingestellt
-- **Große Schrift (UHD 150 % und Maximum)** — auf Achsen, Lager, Verkauf,
-  Raffinerien, Blickwinkel, Bestand und Danke ragt nichts mehr aus dem
-  Fenster; lange Texte brechen um
-
-## v3.58.0-rc6 - 2026-09-27
-
-> **„KRT (Orange)" nach dem offiziellen Design-System**, und die Sprachwahl
-> zeigt Flaggen.
-
-### Neu
-
-- **Flaggen** an „Deutsch" und „English" in der Sprachwahl
-- **Statistik als Modul** — lässt sich unter „Module" ausblenden
-
-### Verbessert
-
-- **„KRT (Orange)"** — Farben aus dem Design-System des Profit Basetools:
-  Hausfarbe, schwarzer Grund, Knöpfe in Großbuchstaben. Auch der gewählte
-  Reiter und die Rollbalken folgen jetzt dem Schema
-
-## v3.58.0-rc5 - 2026-09-27
-
-> **Ein zweites Farbschema und stufenlose Größe.** Unter „Darstellung"
-> wählst du jetzt zwischen „Verse-Kit (Original)" und „KRT (Orange)" — mit
-> kleiner Vorschau. Die Größe der Oberfläche stellst du mit einem Regler
-> stufenlos ein oder nimmst die Voreinstellung für deinen Bildschirm.
-
-### Neu
-
-- **Farbschema „KRT (Orange)"** — fast schwarz, Orange als Akzent, eckige
-  Kästen mit orangen Eckwinkeln und Überschriften in Großbuchstaben. Gilt
-  für alle Fenster, das Overlay eingeschlossen, und wirkt nach einem Neustart
-- **Größe der Oberfläche** — Schieberegler mit Prozentanzeige, dazu
-  Voreinstellungen Auto, Full HD, WQHD, UHD (125 %) und UHD (150 %)
-
-### Verbessert
-
-- **Startprogramme** stehen jetzt unter „Für Fortgeschrittene"
-- **user.cfg** — heißt „Eigene user.cfg", und die Kästen rollen mit dem
-  Rollbalken des Programms statt dem des Betriebssystems
-
-## v3.58.0-rc4 - 2026-09-27
-
-> **Die Einstellungen sind neu sortiert.** Alles zum Overlay steht jetzt
-> beisammen, Sprache und Größe unter „Darstellung", die Pfade und deine
-> user.cfg sind nicht mehr versteckt. Neu: Bereiche, die du nicht brauchst,
-> blendest du aus, und weitere Programme starten auf Wunsch mit dem Spiel.
-
-### Neu
-
-- **Module** — Schiffe, Werkstatt, Bergung und Handel lassen sich aus der
-  Seitenleiste ausblenden. Es wird nichts gelöscht
+- **Statistik** — eigene Gruppe mit Auswertung, Übersicht, Schiffe &
+  Ausrüstung, Aufträge, Quantenreisen und Stabilität. Spielzeit, Sitzungen,
+  eine Wärmekarte deiner Spielzeiten, meistgenutzte und verlorene Schiffe,
+  Waffen, Ausgang deiner Aufträge, häufigste Ziele und Startpunkte,
+  Abstürze und Verbindungsabbrüche. Alles aus deinen eigenen
+  Spielprotokollen, nur dein Account, und die Zahlen bleiben, auch wenn die
+  Protokolle gelöscht werden. Speichern als Datei ohne Spielernamen
+- **Sechs Farbschemata** unter „Darstellung", mit Vorschau: Verse-Kit
+  (Original), KRT (Orange), Eis (Cyan), Nebel (Violett), Glut (Rot) und
+  Hoher Kontrast — jedes mit eigenen Symbolen. „KRT (Orange)" folgt dem
+  Design-System des Profit Basetools von **greluc**: eckige Kästen mit orangen Eckwinkeln,
+  Überschriften in Großbuchstaben
+- **Größe der Oberfläche** — Schieberegler, dazu Voreinstellungen Auto,
+  Full HD, WQHD, UHD (125 %) und UHD (150 %)
+- **Module** — Schiffe, Werkstatt, Bergung, Handel und Statistik lassen sich
+  aus der Seitenleiste ausblenden. Es wird nichts gelöscht
 - **Startprogramme** — weitere Programme mit dem RSI Launcher, sobald Star
   Citizen läuft, oder statt des Launchers starten; auf Wunsch beim
   Spielende wieder beenden
 - **user.cfg** — auf der Seite „Spiel": eigene Zeilen bearbeiten, die ganze
   Datei nachsehen, je Spielkanal. Vor der ersten Änderung wird die alte
-  Datei gesichert
-- **Spielkanäle** — „Installation & Pfade" zeigt jede Installation und ob
+  Datei gesichert. „Installation & Pfade" zeigt jede Installation und ob
   ihre user.cfg vollständig ist
+- **Flaggen** an der Sprachwahl und an der Textquelle (Deutsch, StarStrings,
+  Englisch aus dem Spiel)
+- **Runde Ecken am Overlay** (Windows 11)
+- **„Made by the Community"** unten in der Seitenleiste
 
 ### Verbessert
 
 - **Einstellungen neu gegliedert** — Allgemein, Overlay, Darstellung,
   Installation & Pfade, Spiel, FOV, Steuerung, Achsen & Kurven, Module,
-  Startprogramme, Sichern & Zurücksetzen. Hinter „Für Fortgeschrittene"
-  steht nur noch die Erkennung
-- **Sichern & Zurücksetzen** — Sicherung, Einrichtung und der
-  Bauplan-Bestand an einer Stelle
-- **„Automatisch auswerten"** der Statistik lässt sich auch unter
-  „Allgemein" schalten
+  Startprogramme, Sichern & Zurücksetzen. Alles zum Overlay steht
+  beisammen, Sprache und Größe unter „Darstellung"
+- **Deutlich schneller** — das Hauptfenster öffnet mit rund drei Viertel
+  weniger Arbeit, jeder Seitenwechsel kostet nur noch einen Bruchteil, und
+  Schließen geht sofort. Spielprotokolle und Sprachdateien werden nicht mehr
+  bei jedem Besuch neu gelesen
+- **Datenordner umziehen** — nimmt jetzt alles mit (auch Scan-Bilder),
+  behält die Ordnerstruktur, prüft jede Datei und räumt danach den alten
+  Ordner. Von Hand herübergezogene Dateien sortiert VerseKit beim Start ein
+- **Schalter** — „Nach neuen Versionen sehen" und „Updates automatisch
+  einspielen" sind Schiebeschalter wie überall sonst
+- **„Info" lässt sich wieder zuklappen** — „Was ist neu", „Update & Über"
+  und „Fehler melden" bleiben dabei sichtbar
+- **Große Schrift** — auf keiner Seite ragt mehr etwas aus dem Fenster;
+  lange Texte brechen um
 
 ### Behoben
 
-- **FOV** — die Kalibrierung und der Sitzabstand wurden nicht gespeichert
-
-## v3.58.0-rc3 - 2026-09-27
-
-> **Quantenreisen mit Namen.** Statt Kürzeln wie „rs_ext_pyro6_leo" stehen
-> jetzt Orte da, die man kennt — „Raststation im Orbit von Terminus",
-> „Levski", „Raststation am Sprungpunkt Stanton – Magnus". Dazu siehst du,
-> von wo du am häufigsten losspringst.
-
-### Neu
-
-- **Häufigste Startpunkte** auf der Seite „Quantenreisen"
-
-### Verbessert
-
-- **Quantenreisen** — Ziele heißen wie im Spiel: Raststationen, Städte,
-  Planeten und Lagrange-Punkte. Was keinem bekannten Muster folgt, steht
-  weiter so da, wie das Spiel es schreibt
-- **Kacheln** — lange Unterzeilen brechen um, statt abgeschnitten zu werden
-- **„Update & Über"** — „Nach neuen Versionen sehen" und „Updates
-  automatisch einspielen" sind jetzt Schiebeschalter wie überall sonst
-- **„Made by the Community"** — größer und rein weiß, gut erkennbar
-- Beim ersten Start liest VerseKit deine Spielprotokolle noch einmal ein,
-  damit die Startpunkte gleich da sind
-
-## v3.58.0-rc2 - 2026-09-27
-
-> **Die Statistik bekommt ihren eigenen Bereich.** Neben der Übersicht
-> siehst du jetzt, welche Schiffe du am meisten fliegst und verlierst, welche
-> Waffen du trägst, wie deine Aufträge ausgehen, wohin du springst und wie
-> stabil dein Spiel läuft. Alles aus deinen eigenen Spielprotokollen.
-
-### Neu
-
-- **Eigene Gruppe „Statistik"** mit sechs Reitern: Auswertung, Übersicht,
-  Schiffe & Ausrüstung, Aufträge, Quantenreisen und Stabilität
-- **Auswertung** — zeigt, wann zuletzt ausgewertet wurde, mit „Jetzt
-  auswerten", „Alles neu auswerten" und dem Schalter „Automatisch auswerten"
-  (ab Werk an). Hier wird die Statistik auch gespeichert
-- **Schiffe & Ausrüstung** — meistgenutzte und verlorene Schiffe, Rücken-
-  und Seitenwaffen, was du in der Hand hattest; mit den Namen aus dem Spiel
-- **Aufträge** — abgeschlossen, fehlgeschlagen, abgebrochen, die häufigsten
-  und die letzten Aufträge
-- **Quantenreisen** — Zielwahlen, Ankünfte und die häufigsten Ziele
-- **Stabilität** — sauber beendete Sitzungen, Abstürze und
-  Verbindungsabbrüche nach Grund
-- **„Made by the Community"** unten in der Seitenleiste
-
-### Verbessert
-
-- **Wärmekarte** — die Uhrzeiten stehen jetzt alle drei Stunden da
-- Beim ersten Start liest VerseKit deine vorhandenen Spielprotokolle einmal
-  neu ein, damit die neuen Seiten gleich gefüllt sind
-
-## v3.58.0-rc1 - 2026-09-27
-
-> **Neu: deine Statistik.** Ein eigener Reiter zeigt, wie viel, wie oft und
-> wann du spielst — Spielzeit, Sitzungen, abgeschlossene Aufträge,
-> Quantensprünge und eine Wärmekarte deiner Spielzeiten. Die Zahlen bleiben
-> erhalten, auch wenn die Spielprotokolle gelöscht werden.
-
-### Neu
-
-- **Statistik** (unter „Info") — Spielzeit, Sitzungen mit Durchschnitt und
-  längster, abgeschlossene und fehlgeschlagene Aufträge, Quantensprünge und
-  eine Wärmekarte nach Wochentag und Uhrzeit. Gezählt wird nur, was in jeder
-  Spielsprache verlässlich im Log steht, und nur dein eigener Account
-- **Statistik speichern** — als Datei, ohne Spielernamen
-
-### Verbessert
-
-- **„Info" lässt sich wieder zuklappen** — „Was ist neu", „Update & Über"
-  und „Fehler melden" bleiben dabei immer sichtbar
+- **Fokus im Spiel** — stand der unsichtbare Mauszeiger beim Schießen oder
+  Klicken über dem Overlay, sprang die Tastatur aus Star Citizen. Klicks aufs
+  Overlay funktionieren weiter, holen es aber nicht mehr nach vorn
+- **Einrichtungsassistent** — trug bei einer frischen Installation keine
+  Bauplan-Angaben ein („Katalog kennt keine Missionen"). Gefunden von
+  **Parsul**
+- **Neustart nach dem Farbwechsel** ließ das alte Overlay stehen
+- **FOV** — Kalibrierung und Sitzabstand wurden nicht gespeichert
+- **Lager** — Stückgut heißt in den Meldungen „Stück" statt „SCU"
 
 ## v3.57.4 - 2026-09-26
 

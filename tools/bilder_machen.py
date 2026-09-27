@@ -1010,8 +1010,20 @@ def main():
 
         _tk_wurzel.Tk.__init__ = _mit_hundert_prozent
 
+    # ⭐ `--schema=<kennung>`: die Bilder in einem bestimmten Farbschema (seit
+    # v3.58.0, Wunsch vom 27.09.2026: „je ein Bild der unterschiedlichen
+    # Farben im Darstellungsfenster, damit die Leute sich die Farben schon
+    # anschauen können"). Ohne Seitenangabe entsteht nur „Darstellung", unter
+    # eigenem Namen `screenshot-farbschema-<kennung>` — die übrigen Bilder
+    # bleiben im gewohnten Schema.
+    schema = None
+    for a in sys.argv[1:]:
+        if a.startswith('--schema='):
+            schema = a.split('=', 1)[1]
     argumente = [a for a in sys.argv[1:] if not a.startswith('--')]
     englisch = '--en' in sys.argv
+    if schema and not argumente:
+        argumente = ['darstellung']
 
     # ⚠ Der eigene Prozess fuer das Overlay — siehe `OVERLAY_NAME`.
     if '--nur-overlay' in sys.argv:
@@ -1033,6 +1045,20 @@ def main():
         return 2
 
     os.environ['SC_BP_HOME'] = datenstand_kopieren()
+    # Das Schema steht in der Kopie, bevor irgendetwas die Farben liest —
+    # `theme` liest sie beim Import, danach wirkt eine Änderung nicht mehr.
+    # Ohne Angabe gilt immer „Original": Die Webseite zeigt das gewohnte
+    # Aussehen, egal welches Schema der Autor gerade selbst benutzt.
+    import json as _json
+    _pfad = os.path.join(os.environ['SC_BP_HOME'], 'einstellungen.json')
+    try:
+        with open(_pfad, encoding='utf-8') as _datei:
+            _daten = _json.load(_datei)
+    except Exception:
+        _daten = {}
+    _daten['farbschema'] = schema or 'original'
+    with open(_pfad, 'w', encoding='utf-8', newline='\n') as _datei:
+        _json.dump(_daten, _datei, ensure_ascii=False, indent=1)
     # ⚠⚠ **Der Beispiel-Hangar VOR `SC_BP_NO_NET`.** Er holt die Steckplätze
     # seiner vier Schiffe, und dafür braucht er das Netz — `catalog.OFF` liest
     # die Sperre beim Import und behält sie danach. Wer die Reihenfolge dreht,
@@ -1073,7 +1099,9 @@ def main():
     gemacht, misslungen = [], []
 
     for kennung in gewuenscht:
-        name = SEITEN[kennung] + ('-en' if englisch else '') + '.png'
+        grundname = (('screenshot-farbschema-%s' % schema) if schema
+                     else SEITEN[kennung])
+        name = grundname + ('-en' if englisch else '') + '.png'
         ziel = os.path.join(ziel_ordner, name)
         fenster = None
         try:
