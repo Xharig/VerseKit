@@ -38,7 +38,7 @@ Neustart. Die Seite „Darstellung" bietet ihn an.
 | Kennung | Name | Vorbild |
 |---|---|---|
 | `original` | Verse-Kit (Original) | die Markenfarbe `#9ce430` auf Nachtblau |
-| `krt` | KRT (Orange) | das Profit Basetool: fast schwarz, `#FF8000`, eckige Kästen mit orangen Eckwinkeln, Überschriften in Großbuchstaben |
+| `krt` | KRT (Orange) | das Design-System des Profit Basetools: Schwarz, Hausfarbe `#E77E23`, eckige Kästen mit orangen Eckwinkeln, Überschriften und Knöpfe in Großbuchstaben |
 """
 from . import paths
 
@@ -53,20 +53,33 @@ SCHEMES = {
         'gold': '#e8c353', 'red': '#e05252', 'red_pale': '#c98a8a',
         'yellow': '#d8a03a', 'accent_dark': '#1d2a14', 'hover': '#222b3b',
         'track': '#2b3547', 'track_on': '#2a3a1c', 'heat_low': '#1b2230',
+        'selected': '#1d2634', 'danger_fill': '#2a1414',
+        'scroll_groove': '#0b0e14', 'scroll_grip': '#5a6b85',
+        'scroll_grip_light': '#7d90ad',
         # Wie Kästen, Überschriften und Knöpfe gezeichnet werden.
         'square': False, 'upper_headings': False, 'accent_headings': False,
         'filled_buttons': False, 'icon_set': 'gruen',
     },
-    # ⭐ Entschieden am 27.09.2026: „wie beim Basetool". Farben aus der
-    # KRT-Palette (`--krt-*`), die Form vom Profit Basetool.
+    # ⭐ Entschieden am 27.09.2026: „wie beim Basetool". Die Werte stammen aus
+    # dem Design-System des Profit Basetools (`colors_and_type.css`, Stand
+    # 27.09.2026): Hausfarbe #E77E23, Seitengrund
+    # Schwarz, Flächen #141414, Haarlinien #282828, Text #D2D2D2, Ecken 0.
+    # Die Form ebenfalls von dort: `.hud-box` mit zwei 10-px-Eckwinkeln,
+    # Überschriften und Knöpfe in Großbuchstaben, Knöpfe orange gefüllt mit
+    # schwarzer Schrift.
     'krt': {
         'label': 's_da_krt',
-        'bg': '#0e0e0e', 'surface': '#1a1a1a', 'bar': '#141414',
-        'fg': '#e4e4e4', 'sub': '#969696', 'accent': '#ff8000',
-        'line': '#2e2e2e', 'line2': '#3a3a3a', 'field': '#080808',
-        'gold': '#f0c060', 'red': '#f04747', 'red_pale': '#d99090',
-        'yellow': '#e0a040', 'accent_dark': '#2e1a06', 'hover': '#242424',
-        'track': '#333333', 'track_on': '#4a2a08', 'heat_low': '#1c1c1c',
+        'bg': '#000000', 'surface': '#141414', 'bar': '#141414',
+        'fg': '#d2d2d2', 'sub': '#8a8a8a', 'accent': '#e77e23',
+        'line': '#282828', 'line2': '#282828', 'field': '#1c1c1c',
+        'gold': '#ffd23f', 'red': '#f2564b', 'red_pale': '#d98a82',
+        'yellow': '#eeb64b', 'accent_dark': '#c45c00', 'hover': '#282828',
+        'track': '#282828', 'track_on': '#5a2e08', 'heat_low': '#141414',
+        'selected': '#282828', 'danger_fill': '#2a0a0c',
+        # Rollbalken laut Design-System: Griff #646464, beim Überfahren
+        # #EEB64B (die helle Zierfarbe).
+        'scroll_groove': '#0a0a0a', 'scroll_grip': '#646464',
+        'scroll_grip_light': '#eeb64b',
         'square': True, 'upper_headings': True, 'accent_headings': True,
         'filled_buttons': True, 'icon_set': 'orange',
     },
@@ -104,6 +117,11 @@ HOVER = _S['hover']
 TRACK = _S['track']
 TRACK_ON = _S['track_on']
 HEAT_LOW = _S['heat_low']
+SELECTED = _S['selected']
+DANGER_FILL = _S['danger_fill']
+SCROLL_GROOVE = _S['scroll_groove']
+SCROLL_GRIP = _S['scroll_grip']
+SCROLL_GRIP_LIGHT = _S['scroll_grip_light']
 SQUARE = _S['square']
 UPPER_HEADINGS = _S['upper_headings']
 ACCENT_HEADINGS = _S['accent_headings']

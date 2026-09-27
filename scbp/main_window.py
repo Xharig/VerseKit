@@ -417,7 +417,7 @@ def corners(x1, y1, x2, y2, r):
             x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
 
 
-def _corner_marks(canvas, width, bottom, length=12):
+def _corner_marks(canvas, width, bottom, length=10):
     """Die orangen Eckwinkel des KRT-Schemas: oben links, unten rechts.
 
     Das Erkennungszeichen des Profit Basetools (Bild vom 27.09.2026)."""
@@ -995,7 +995,8 @@ def round_scrollbar(parent, canvas, bg=None, width=10, orient='vertical'):
     # 3,8 : 1. Dazu eine sichtbare Rille: Erst sie zeigt, dass es überhaupt
     # eine Bahn gibt, an der etwas entlangläuft — der Griff allein sieht aus
     # wie ein Strich.
-    groove_color, grip_color, grip_light = '#0b0e14', '#5a6b85', '#7d90ad'
+    groove_color, grip_color, grip_light = (theme.SCROLL_GROOVE, theme.SCROLL_GRIP,
+                                            theme.SCROLL_GRIP_LIGHT)
     r = width / 2.0
     quer = orient == 'horizontal'
 
@@ -3344,7 +3345,7 @@ class MainWindow:
     def _recolor_tabs(self):
         for kennung, (zeile, strich, z, b, badge) in self.buttons.items():
             an = (kennung == self.current)
-            grund = '#1d2634' if an else SURFACE
+            grund = theme.SELECTED if an else SURFACE
             for part in (zeile, z, b):
                 part.configure(bg=grund)
             if badge is not None:

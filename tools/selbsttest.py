@@ -26771,6 +26771,11 @@ def _pruefung_271():
             _w271.update_idletasks()
             _abw271 = {}
             for gruppe, seiten in _mo271.SWITCHABLE.items():
+                # ⚠ Eine Gruppe, die es in der Leiste nicht gibt, ist ein
+                # Befund — kein Absturz der Pruefung.
+                if gruppe not in _f271.groups:
+                    _abw271[gruppe] = 'fehlt in der Leiste'
+                    continue
                 ist = tuple(k for z in _f271.groups[gruppe]['inhalt']
                             .winfo_children()
                             for k, teile in _f271.buttons.items()
@@ -26780,9 +26785,10 @@ def _pruefung_271():
             pruefe(not _abw271, 'die Module kennen genau die Reiter der '
                    'Leiste (%r)' % _abw271)
             pruefe(all(g not in _mo271.SWITCHABLE for g in
-                       ('bauplaene', 'statistiken', 'einstellungen', 'info')),
-                   'Baupläne, Statistik, Einstellungen, Info sind nicht '
-                   'abschaltbar')
+                       ('bauplaene', 'einstellungen', 'info')),
+                   'Baupläne, Einstellungen, Info sind nicht abschaltbar')
+            pruefe('statistiken' in _mo271.SWITCHABLE,
+                   'die Statistik laesst sich ausblenden (seit 27.09.2026)')
             _w271.destroy()
             _mo271.set_enabled('handel', False)
             _w271 = _wurzel()
@@ -26848,7 +26854,7 @@ def _pruefung_272():
     pruefe(not _o272['square'] and _o272['icon_set'] == 'gruen',
            'und die alte Form: rund, gruene Symbole')
     _k272 = _th272.SCHEMES['krt']
-    pruefe(_k272['accent'] == '#ff8000' and _k272['square']
+    pruefe(_k272['accent'] == '#e77e23' and _k272['square']
            and _k272['upper_headings'] and _k272['icon_set'] == 'orange',
            '„KRT" ist orange, eckig, mit Grossbuchstaben')
     pruefe(set(_k272) == set(_o272),
@@ -26914,6 +26920,12 @@ def _pruefung_272():
                and len(set(zip(*[iter(_mw272.corners(1, 1, 50, 20, 6))] * 2)))
                == 4,
                'eckig ist ein Vieleck mit 24 Punkten und vier Ecken')
+        # Flaggen der Sprachwahl: Das Bild wird wirklich gefunden (im ersten
+        # Anlauf zeigte `icons._bundled` in `assets/symbole/` und die Flaggen
+        # fehlten still — ohne Fehler, nur ohne Bild).
+        from scbp import pages as _pg272
+        pruefe(all(_pg272._flag(k) is not None for k in ('de', 'gb')),
+               'die Flaggen der Sprachwahl werden gefunden')
         _rund272 = _mw272._round_rect(_c272, 1, 1, 50, 20, radius=6,
                                       keep_round=True)
         pruefe(_c272.itemcget(_rund272, 'smooth') not in ('0', 'false', ''),

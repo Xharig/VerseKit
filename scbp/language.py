@@ -2178,6 +2178,8 @@ TEXTS = {
     's_dk_dabei_h':    ('Steckt in der Programmdatei und läuft ohne Internet.',
                         'Part of the program file, works without an internet '
                         'connection.'),
+    's_dk_flaggen':    ('Die Flaggen an der Sprachwahl. © 2013 Panayiotis Lipiridis.',
+                        'The flags at the language choice. © 2013 Panayiotis Lipiridis.'),
     's_dk_symbole':    ('Alle Symbole der Oberfläche. Ein Satz, von denselben '
                         'Leuten gezeichnet — deshalb sehen sie überall gleich aus.',
                         'Every symbol in the interface. One set, drawn by the same '
@@ -5304,8 +5306,8 @@ TEXTS = {
     's_mo_lead':         ('Blende ganze Bereiche der Seitenleiste aus, die du nicht brauchst. Es wird nichts gelöscht — schaltest du einen Bereich wieder ein, ist alles noch da.',
                           'Hide whole sections of the sidebar you do not need. Nothing is deleted — turn a section back on and everything is still there.'),
     's_mo_enthaelt':     ('Enthält: %s', 'Contains: %s'),
-    's_mo_hinweis':      ('Baupläne, Statistik, Einstellungen und Info lassen sich nicht ausblenden: Sie sind der Kern von VerseKit und der Weg, einen Fehler zu melden.',
-                          'Blueprints, statistics, settings and info cannot be hidden: they are the core of VerseKit and the way to report a problem.'),
+    's_mo_hinweis':      ('Baupläne, Einstellungen und Info lassen sich nicht ausblenden: Sie sind der Kern von VerseKit und der Weg, einen Fehler zu melden. Ist die Statistik ausgeblendet, wertet VerseKit trotzdem weiter aus, solange „Automatisch auswerten" an ist — schaltest du sie wieder ein, fehlt nichts.',
+                          'Blueprints, settings and info cannot be hidden: they are the core of VerseKit and the way to report a problem. With statistics hidden, VerseKit keeps evaluating as long as "Evaluate automatically" is on — turn them back on and nothing is missing.'),
     's_mo_aus_hinweis':  ('„%s" ist ausgeschaltet — hier wieder einschalten.', '"%s" is turned off — turn it back on here.'),
     's_pg_lead':         ('Startet weitere Programme mit Star Citizen — etwa ein Sprachprogramm oder ein Werkzeug für die Steuerung.',
                           'Starts other programs along with Star Citizen — such as a voice program or a tool for your controls.'),

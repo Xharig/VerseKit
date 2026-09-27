@@ -60,7 +60,7 @@ TEXT_COLOR = theme.SUB
 _SET_COLORS = {
     'grau':  TEXT_COLOR,
     'gruen': '#9ce430',   # die Markenfarbe
-    'orange': '#ff8000',  # KRT-Schema
+    'orange': '#e77e23',  # KRT-Schema (Hausfarbe laut Design-System)
     'hell':  theme.FG,
     'gelb':  '#e3b341',
     'blau':  '#4a9eff',

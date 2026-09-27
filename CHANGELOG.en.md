@@ -8,6 +8,22 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc6 - 2026-09-27
+
+> **"KRT (orange)" follows the official design system**, and the language
+> choice shows flags.
+
+### New
+
+- **Flags** next to "Deutsch" and "English" in the language choice
+- **Statistics as a module** — can be hidden under "Modules"
+
+### Improved
+
+- **"KRT (orange)"** — colours from the design system of the Profit
+  Basetool: house colour, black background, buttons in capitals. The
+  selected tab and the scrollbars now follow the scheme too
+
 ## v3.58.0-rc5 - 2026-09-27
 
 > **A second colour scheme and stepless size.** Under "Appearance" you now

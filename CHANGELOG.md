@@ -8,6 +8,22 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc6 - 2026-09-27
+
+> **„KRT (Orange)" nach dem offiziellen Design-System**, und die Sprachwahl
+> zeigt Flaggen.
+
+### Neu
+
+- **Flaggen** an „Deutsch" und „English" in der Sprachwahl
+- **Statistik als Modul** — lässt sich unter „Module" ausblenden
+
+### Verbessert
+
+- **„KRT (Orange)"** — Farben aus dem Design-System des Profit Basetools:
+  Hausfarbe, schwarzer Grund, Knöpfe in Großbuchstaben. Auch der gewählte
+  Reiter und die Rollbalken folgen jetzt dem Schema
+
 ## v3.58.0-rc5 - 2026-09-27
 
 > **Ein zweites Farbschema und stufenlose Größe.** Unter „Darstellung"

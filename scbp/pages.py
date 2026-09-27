@@ -577,7 +577,7 @@ def _filter_bar(window, parent, fields, on_change, state):
     return zuruecksetzen, reihe, gebaut
 
 
-def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand):
+def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand, lead=0):
     """Sorgt dafür, dass eine Knopf-Leinwand ihren Text wirklich fasst.
 
     ⚠ **Einmal beim Bauen zu messen reicht nicht.** `schrift.measure()` sagt,
@@ -593,6 +593,10 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand):
     `flaeche` ist eine **Liste** mit der Kennung des Rahmens. Wächst die
     Leinwand, wird der Rahmen neu gezeichnet, sonst endet er mitten im Wort;
     die Liste hält die neue Kennung fest, damit die Farbwechsel weiter greifen.
+
+    `lead` ist der Platz links VOR dem Text (eine Flagge, seit rc5): Er
+    zählt zur Breite, und der Text wird rechts davon mittig gesetzt — sonst
+    schöbe das Nachmessen ihn über das Bild.
     """
     from .main_window import _round_rect
 
@@ -603,11 +607,11 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand):
             return
         if not kasten:
             return
-        noetig = (kasten[2] - kasten[0]) + 30
+        noetig = (kasten[2] - kasten[0]) + 30 + lead
         if noetig <= int(c['width']):
             return
         c.configure(width=noetig)
-        c.coords(beschriftung, noetig / 2.0, hoehe / 2.0)
+        c.coords(beschriftung, lead + (noetig - lead) / 2.0, hoehe / 2.0)
         c.delete(flaeche[0])
         flaeche[0] = _round_rect(c, 1, 1, noetig - 1, hoehe - 1, radius=5,
                                       fill=fuellung, outline=rand, width=1)
@@ -622,6 +626,9 @@ def _ensure_size(c, beschriftung, flaeche, hoehe, fuellung, rand):
 def _button(window, parent, text, action, strong=False, danger=False):
     """Ein Knopf im Stil der Vorschau — Rand, Farbe beim Überfahren."""
     from .main_window import _round_rect
+    # Schema „KRT": starke Knöpfe in Großbuchstaben (Design-System `.btn`).
+    if strong and not danger and theme.FILLED_BUTTONS:
+        text = text.upper()
     schrift = window.f_small
     hoehe = schrift.metrics('linespace') + 16
     breite = schrift.measure(text) + 30
@@ -647,7 +654,7 @@ def _button(window, parent, text, action, strong=False, danger=False):
     # sichtbar sein muss.
     beschriftung = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
                                  fill=farbe, font=schrift, anchor='center')
-    fuellung = ('#2a1414' if danger
+    fuellung = (theme.DANGER_FILL if danger
                 else (ACCENT if gefuellt
                       else (theme.ACCENT_DARK if strong else SURFACE)))
     flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
@@ -726,21 +733,30 @@ def _choice(window, parent, entries, active, action):
     reihe = tk.Frame(parent, bg=BG)
     knoepfe = {}
     schrift = window.f_small
-    for kennung, text in entries:
+    for eintrag in entries:
+        # ⭐ Ein drittes Feld ist ein Bild vor dem Text (die Flaggen der
+        # Sprachwahl, rc5) — `None` oder weggelassen heißt: nur Text.
+        kennung, text = eintrag[0], eintrag[1]
+        bild = eintrag[2] if len(eintrag) > 2 else None
+        vorlauf = (bild.width() + 6) if bild else 0
         an = (kennung == active)
         hoehe = schrift.metrics('linespace') + 14
-        breite = schrift.measure(text) + 26
+        breite = schrift.measure(text) + 26 + vorlauf
         c = tk.Canvas(reihe, width=breite, height=hoehe, bg=BG,
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack(side='left', padx=(0, 6))
         flaeche = [_round_rect(c, 1, 1, breite - 1, hoehe - 1, radius=5,
                                     fill=SURFACE, outline=ACCENT if an else LINE,
                                     width=1)]
-        beschr = c.create_text(breite / 2.0, hoehe / 2.0, text=text,
+        beschr = c.create_text(vorlauf + (breite - vorlauf) / 2.0,
+                               hoehe / 2.0, text=text,
                                fill=ACCENT if an else SUB, font=schrift)
+        if bild:
+            c.create_image(12, hoehe / 2.0, image=bild, anchor='w')
+            c.bild = bild          # Tk räumt Bilder ohne Verweis weg
         # Dieselbe Falle wie beim gewoehnlichen Knopf — siehe `_nachmessen`.
         _ensure_size(c, beschr, flaeche, hoehe, SURFACE,
-                      ACCENT if an else LINE)
+                      ACCENT if an else LINE, lead=vorlauf)
         c.teile = (flaeche, beschr)
         c.bind('<Button-1>', lambda e, k=kennung: action(k))
         c.is_button = True      # damit tools/randpruefung.py ihn prüft
@@ -1796,6 +1812,26 @@ def _general(fenster, rahmen):
     toggle_switch(ziel, play_stats.auto_enabled(), stats_auto_flip).pack()
 
 
+def _flag(code):
+    """Eine Flagge in Zeilengröße — oder None, wenn das Bild fehlt.
+
+    ⚠ **Die einzige Ausnahme neben Discord und Ko-fi** von der Regel „Symbole
+    nur aus dem Lucide-Satz" (Wunsch vom 27.09.2026): Lucide führt keine
+    Flaggen, Emoji sind verboten. Die Bilder stammen aus „flag-icons"
+    (MIT-Lizenz, Vorlage und Lizenz unter `tools/flaggen-vorlagen/`) und
+    liegen je Zeilengröße fertig unter `assets/flaggen/`."""
+    size = icons.LINE.get(icons.level(), 14)
+    from .main_window import _bundled
+    # Der Name in einer eigenen Zeile: Die Bau-Prüfung liest Dateinamen aus
+    # `_bundled(…)` und hielte das Muster sonst für eine Datei.
+    name = '%s-%d.png' % (code, size)
+    path = _bundled(os.path.join('assets', 'flaggen', name))
+    try:
+        return tk.PhotoImage(file=path) if os.path.isfile(path) else None
+    except tk.TclError:
+        return None
+
+
 def _language_row(window, inner):
     """Sprache der Oberfläche — seit rc4 auf „Darstellung"."""
     from . import paths
@@ -1803,8 +1839,9 @@ def _language_row(window, inner):
     target = _setting_row(window, inner, t('e_sprache'), t('s_sprache_h'),
                           wide=True)
     choice = _choice(window, target,
-                     [('auto', t('sprache_auto')), ('de', 'Deutsch'),
-                      ('en', 'English')],
+                     [('auto', t('sprache_auto')),
+                      ('de', 'Deutsch', _flag('de')),
+                      ('en', 'English', _flag('gb'))],
                      paths.settings().get('sprache') or 'auto',
                      lambda k: (choice.select(k), parts._choose_language(k)))
     choice.pack()
@@ -6121,6 +6158,10 @@ def _thanks(fenster, rahmen):
                 pady=(0, 10))
     _credit_box(fenster, innen, 'Lucide', 'ISC', t('s_dk_symbole'),
                'https://lucide.dev')
+    # Seit v3.58.0-rc6: die zwei Flaggen der Sprachwahl — die einzigen Bilder
+    # neben Lucide (Lizenztext unter `tools/flaggen-vorlagen/LICENSE`).
+    _credit_box(fenster, innen, 'flag-icons', 'MIT', t('s_dk_flaggen'),
+               'https://flagicons.lipis.dev')
 
     # --- Wird geladen, nicht mitgeliefert ---
     tk.Label(innen, text=t('s_dk_extern'), bg=BG, fg=FG, font=fenster.f_title,

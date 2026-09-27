@@ -26,9 +26,12 @@ braucht „Handel" nicht zu sehen.
 Einstellungen am 27.09.2026):
 
 1. **Ab Werk ist alles an.** Wer VerseKit neu hat, sieht alles, was es kann.
-2. **Baupläne, Statistik, Einstellungen und Info sind nie abschaltbar** — der
-   Kern des Werkzeugs und der Weg zum Fehlerbericht. Sie stehen deshalb gar
-   nicht in `SWITCHABLE`.
+2. **Baupläne, Einstellungen und Info sind nie abschaltbar** — der Kern des
+   Werkzeugs und der Weg zum Fehlerbericht. Sie stehen deshalb gar nicht in
+   `SWITCHABLE`. Die Statistik war es anfangs auch; seit dem 27.09.2026 lässt
+   sie sich ausblenden (*„wer das nicht will"*). Ausgewertet wird trotzdem
+   weiter, solange „Automatisch auswerten" an ist — sonst fehlten beim
+   Wiedereinschalten die Wochen dazwischen.
 3. **Ausblenden, nicht abschalten.** Es wird nichts gelöscht und nichts
    angehalten; die Daten bleiben, und schaltet man wieder ein, ist alles da.
 4. **Ein Sprung auf eine ausgeblendete Seite** (z. B. von der Bauplan-Liste
@@ -45,11 +48,15 @@ SWITCHABLE = {
                   'farmliste'),
     'bergung': ('bergung', 'zerlegen'),
     'handel': ('handelslager', 'verkauf', 'routen'),
+    'statistiken': ('statistik_auswertung', 'statistik', 'statistik_schiffe',
+                    'statistik_auftraege', 'statistik_quantum',
+                    'statistik_stabil'),
 }
 
 # Die Überschrift jeder Gruppe in der Leiste — dieselben Texte wie dort.
 LABELS = {'schiffe': 'hf_gruppe_schiffe', 'werkstatt': 'hf_gruppe_herst',
-          'bergung': 'hf_gruppe_bergung', 'handel': 'hf_gruppe_handel'}
+          'bergung': 'hf_gruppe_bergung', 'handel': 'hf_gruppe_handel',
+          'statistiken': 'hf_gruppe_statistik'}
 
 
 def _key(group):

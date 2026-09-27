@@ -94,7 +94,13 @@ _TAB_LABELS = {'hangar': 'hf_hangar', 'wunschliste': 'hf_wunschliste',
                'laeden': 'hf_laeden', 'farmliste': 'hf_farmliste',
                'bergung': 'hf_bergung', 'zerlegen': 'hf_zerlegen',
                'handelslager': 'hf_handelslager', 'verkauf': 'hf_verkauf',
-               'routen': 'hf_routen'}
+               'routen': 'hf_routen',
+               'statistik_auswertung': 'hf_st_auswertung',
+               'statistik': 'hf_st_uebersicht',
+               'statistik_schiffe': 'hf_st_schiffe',
+               'statistik_auftraege': 'hf_st_auftraege',
+               'statistik_quantum': 'hf_st_quantum',
+               'statistik_stabil': 'hf_st_stabil'}
 
 
 # ---------------------------------------------------------- Startprogramme

@@ -141,7 +141,7 @@ jobs:
           --version-file "build/versionsinfo.txt"
           --add-data "CHANGELOG.en.md;." --add-data "CHANGELOG.md;."
           --add-data "assets/icon.png;assets" --add-data "assets/xharig.png;assets" --add-data "assets/made-by-the-community.png;assets" --add-data "icon.ico;."
-          --add-data "assets/symbole;assets/symbole"
+          --add-data "assets/symbole;assets/symbole" --add-data "assets/flaggen;assets/flaggen"
           --add-data "daten;daten"
           sc_bp_watcher.py
 
@@ -256,7 +256,7 @@ jobs:
           --name "SC-BP-Watcher"
           --add-data "CHANGELOG.en.md:." --add-data "CHANGELOG.md:."
           --add-data "assets/icon.png:assets" --add-data "assets/xharig.png:assets" --add-data "assets/made-by-the-community.png:assets"
-          --add-data "assets/symbole:assets/symbole"
+          --add-data "assets/symbole:assets/symbole" --add-data "assets/flaggen:assets/flaggen"
           --add-data "daten:daten"
           sc_bp_watcher.py
 
