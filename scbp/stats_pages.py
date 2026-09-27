@@ -38,7 +38,7 @@ import threading
 import time
 import tkinter as tk
 
-from . import errors, paths
+from . import errors, paths, theme
 from .language import t
 
 # Die Farben wie in `pages` — eine eigene Kopie wäre die nächste, die
@@ -391,6 +391,10 @@ def overview(window, frame):
               t('s_sx_lead'), render)
 
 
+def _rgb(color):
+    return tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+
 def heatmap(window, parent, grid_values):
     """Wochentag × Stunde, je heller desto mehr Spielzeit."""
     days = t('s_sx_tage').split(',')
@@ -405,7 +409,8 @@ def heatmap(window, parent, grid_values):
         # ⚠ Wurzel statt linear: Sonst ist alles außer den zwei, drei
         # stärksten Stunden fast gleich dunkel, und die Karte sagt nichts.
         share = share ** 0.5
-        low, high = (0x1b, 0x22, 0x30), (0x9c, 0xe4, 0x30)
+        # Vom leeren Feld zur Akzentfarbe des Schemas (grün oder orange).
+        low, high = _rgb(theme.HEAT_LOW), _rgb(theme.ACCENT)
         parts = [int(a + (b - a) * share) for a, b in zip(low, high)]
         return '#%02x%02x%02x' % tuple(parts)
 

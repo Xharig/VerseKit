@@ -50,18 +50,19 @@ import tkinter.font as tkfont
 
 from . import screen, errors, fields, notice, news, paths, icons
 from .language import t, window_title
+from . import theme
 
-BG      = '#10141c'
-SURFACE = '#161c28'
-BAR     = '#1b2230'
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-BORDER   = '#232c3d'
-GOLD    = '#e8c353'
+BG      = theme.BG
+SURFACE = theme.SURFACE
+BAR     = theme.BAR
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+BORDER   = theme.LINE
+GOLD    = theme.GOLD
 # Rot ist hier kein Zustand, sondern ein Wegweiser: Der Reiter „Fehler
 # melden“ traegt es, damit ihn niemand suchen muss.
-RED     = '#e05252'
+RED     = theme.RED
 
 # Mindestgröße: Darunter bricht die Bedienung, und keine Layout-Regel hilft mehr.
 # Kleinste Größe, auf die sich das Fenster ziehen lässt — zugleich die Startgröße.
@@ -176,21 +177,72 @@ TRACKPAD_DIVISOR = 12
 # Stelle einzeln angefasst werden müsste.
 FONT_LEVELS = {'klein': 0, 'normal': 1, 'gross': 3, 'sehrgross': 5}
 
+# ⭐ Stufenlos seit v3.58.0-rc5 (Wunsch vom 27.09.2026, Vorbild SC Deutsch
+# Launcher): ein Regler in ganzen Punkten und Voreinstellungen je Bildschirm.
+# ⚠ Die Stufe `schriftgroesse` bleibt daneben bestehen — Symbole, Overlay und
+# Einrichtung lesen sie. Sie wird aus den Punkten zur NÄCHSTEN Stufe
+# abgeleitet, und `schrift_punkte` gilt nur, solange sie zu dieser Stufe passt:
+# Stellt die Einrichtung die Stufe um, zählt deren Wert, nicht ein alter Regler.
+FONT_POINTS = 'schrift_punkte'
+FONT_POINTS_RANGE = (0, 7)
+# Voreinstellung -> Punkte. `auto` rechnet aus der Bildschirmhöhe.
+FONT_PRESETS = (('auto', None), ('fullhd', 1), ('wqhd', 3), ('uhd125', 4),
+                ('uhd150', 6))
 
-def _round_rect(canvas, x1, y1, x2, y2, radius, **kw):
+
+def level_for_points(points):
+    """Die nächstliegende Stufe zu einer Punktzahl — bei Gleichstand größer."""
+    return min(FONT_LEVELS, key=lambda k: (abs(FONT_LEVELS[k] - points),
+                                           -FONT_LEVELS[k]))
+
+
+def font_points():
+    """Die eingestellte Größe in Punkten über „klein" (0 … 7)."""
+    level = paths.setting('schriftgroesse') or 'normal'
+    stored = paths.settings().get(FONT_POINTS)
+    if isinstance(stored, int) and not isinstance(stored, bool):
+        stored = max(FONT_POINTS_RANGE[0], min(FONT_POINTS_RANGE[1], stored))
+        if level_for_points(stored) == level:
+            return stored
+    return FONT_LEVELS.get(level, 1)
+
+
+def font_percent(points):
+    """Punkte als Prozent gegenüber „normal" (11 pt) — für die Anzeige."""
+    return int(round((10 + points) * 100.0 / 11))
+
+
+def auto_points(screen_height):
+    """Die Voreinstellung „Auto": aus der Bildschirmhöhe."""
+    if screen_height >= 2000:
+        return 6
+    if screen_height >= 1400:
+        return 3
+    return 1
+
+
+def _round_rect(canvas, x1, y1, x2, y2, radius, keep_round=False, **kw):
     """Ein Rechteck mit runden Ecken.
 
     Tk kennt so etwas nicht — aber ein Vieleck mit `smooth=True` rundet genau
     dort ab, wo Punkte dicht beieinander liegen. Deshalb sitzt an jeder Ecke ein
     Punktepaar im Abstand des Radius.
     """
+    # Schema „KRT": eckig wie beim Profit Basetool. ⚠ Weiter als
+    # Vieleck mit denselben 24 Punkten (Radius 0, ungeglättet) — viele Stellen
+    # schieben die Form später mit `corners()` nach, und die zählen darauf.
+    # Schalter und Regler bleiben rund (`keep_round`): eckig sähen sie falsch
+    # aus, und rund war ausdrücklich gewünscht.
+    square = theme.SQUARE and not keep_round
+    if square:
+        radius = 0
     points = [
         x1 + radius, y1, x2 - radius, y1, x2, y1,
         x2, y1 + radius, x2, y2 - radius, x2, y2,
         x2 - radius, y2, x1 + radius, y2, x1, y2,
         x1, y2 - radius, x1, y1 + radius, x1, y1,
     ]
-    return canvas.create_polygon(points, smooth=True, **kw)
+    return canvas.create_polygon(points, smooth=not square, **kw)
 
 
 def toggle_switch(parent, on, toggle, bg=None):
@@ -209,11 +261,11 @@ def toggle_switch(parent, on, toggle, bg=None):
     c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
     capsule = _round_rect(c, 2, 3, width - 2, height - 3, radius=9,
-                              fill='#2b3547', outline='')
+                              keep_round=True, fill=theme.TRACK, outline='')
     dot = c.create_oval(5, 6, 19, 20, fill=SUB, outline='')
 
     def draw(state):
-        c.itemconfigure(capsule, fill='#2a3a1c' if state else '#2b3547')
+        c.itemconfigure(capsule, fill=theme.TRACK_ON if state else theme.TRACK)
         c.itemconfigure(dot, fill=ACCENT if state else SUB)
         x = (width - 24) if state else 0
         c.coords(dot, 5 + x, 6, 19 + x, 20)
@@ -317,9 +369,9 @@ def slider(parent, minimum, maximum, value, on_drag, width=190, bg=None):
     c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
     y = height // 2
-    _round_rect(c, 0, y - 3, width, y + 3, radius=3,
-                     fill='#2b3547', outline='')
-    filled = _round_rect(c, 0, y - 3, 10, y + 3, radius=3,
+    _round_rect(c, 0, y - 3, width, y + 3, radius=3, keep_round=True,
+                     fill=theme.TRACK, outline='')
+    filled = _round_rect(c, 0, y - 3, 10, y + 3, radius=3, keep_round=True,
                                 fill=ACCENT, outline='')
     knob = c.create_oval(0, y - 8, 16, y + 8, fill=ACCENT, outline='')
 
@@ -357,8 +409,23 @@ def corners(x1, y1, x2, y2, r):
     Wird gebraucht, wenn ein schon gezeichnetes Rechteck seine Größe ändert:
     `create_polygon` legt die Punkte einmal fest, `coords` schiebt sie nach.
     """
+    # Im eckigen Schema Radius 0 — dieselben 24 Punkte, siehe `_round_rect`.
+    # ⚠ Schalter und Regler (`keep_round`) rufen `corners` nicht auf.
+    if theme.SQUARE:
+        r = 0
     return [x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2,
             x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
+
+
+def _corner_marks(canvas, width, bottom, length=12):
+    """Die orangen Eckwinkel des KRT-Schemas: oben links, unten rechts.
+
+    Das Erkennungszeichen des Profit Basetools (Bild vom 27.09.2026)."""
+    canvas.delete('ecke')
+    for points in ((1, length, 1, 1, length, 1),
+                   (width - 1 - length, bottom, width - 1, bottom,
+                    width - 1, bottom - length)):
+        canvas.create_line(*points, fill=ACCENT, width=2, tags='ecke')
 
 
 def round_frame(parent, bg, border, radius=8, base_color=None):
@@ -407,7 +474,9 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
     # Der ganze Radius, nicht die Hälfte: Bei halbem Einzug deckt der Inhalt
     # die obere Hälfte des Bogens ab, und im Kasten sitzt sichtbar eine zweite,
     # eckige Kante — das sah nach doppeltem Rahmen aus.
-    inset = radius
+    # ⚠ Im eckigen Schema drei Pixel: Dort liegen die orangen Eckwinkel, und
+    # der Inhalt darf sie nicht überdecken (er liegt immer über dem Gemalten).
+    inset = 3 if theme.SQUARE else radius
     window_id = canvas.create_window(inset, inset, window=inner,
                                         anchor='nw')
 
@@ -425,8 +494,10 @@ def round_frame(parent, bg, border, radius=8, base_color=None):
             return
         canvas.configure(height=height + inset * 2)
         canvas.itemconfigure(window_id, width=width - inset * 2)
-        canvas.coords(shape, *corners(1, 1, width - 1,
-                                     height + inset * 2 - 1, radius))
+        bottom = height + inset * 2 - 1
+        canvas.coords(shape, *corners(1, 1, width - 1, bottom, radius))
+        if theme.SQUARE:
+            _corner_marks(canvas, width, bottom)
 
     inner.bind('<Configure>', refresh)
     canvas.bind('<Configure>', refresh)
@@ -1393,7 +1464,7 @@ def round_select(parent, entries, selected, on_select, font, bg=None,
     c = tk.Canvas(parent, width=width, height=height, bg=bg,
                   highlightthickness=0, bd=0, cursor='hand2')
     shape = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
-                            fill='#0c1017', outline=BORDER, width=1)
+                            fill=theme.FIELD, outline=BORDER, width=1)
     text_id = c.create_text(11, height / 2.0,
                             text=_fitting(caption_for(selected)),
                             fill=FG, font=s, anchor='w')
@@ -1885,7 +1956,7 @@ class MainWindow:
 
     # ------------------------------------------------------------- Schriften
     def _build_fonts(self):
-        stufe = FONT_LEVELS.get(paths.setting('schriftgroesse') or 'normal', 1)
+        stufe = font_points()
         self.f_base  = tkfont.Font(family='Segoe UI', size=10 + stufe)
         self.f_bold   = tkfont.Font(family='Segoe UI', size=10 + stufe, weight='bold')
         self.f_small  = tkfont.Font(family='Segoe UI', size=9 + stufe)
@@ -1916,7 +1987,13 @@ class MainWindow:
         ⚠ Die Rückmeldung kommt **nach** dem Neuaufbau. Vorher gesagt, wäre sie
         sofort wieder weg: `rebuild()` zerstört auch die Fußzeile.
         """
-        n = FONT_LEVELS.get(stufe, 1)
+        # ⭐ Eine Zahl heißt Punkte (Regler, seit rc5), ein Wort eine Stufe.
+        if isinstance(stufe, int) and not isinstance(stufe, bool):
+            n = max(FONT_POINTS_RANGE[0], min(FONT_POINTS_RANGE[1], stufe))
+            stufe = level_for_points(n)
+        else:
+            n = FONT_LEVELS.get(stufe, 1)
+        paths.set_setting(FONT_POINTS, n)
         for schrift, grund in ((self.f_base, 10), (self.f_bold, 10),
                                (self.f_small, 9), (self.f_title, 12),
                                (self.f_icon, 13)):
@@ -1934,7 +2011,7 @@ class MainWindow:
         def nachziehen():
             try:
                 self.rebuild()
-                self.say('%s: %s' % (t('hf_schrift'), t('hf_s_' + stufe)))
+                self.say('%s: %d %%' % (t('hf_schrift'), font_percent(n)))
             except Exception as ausnahme:
                 errors.record('main_window.schriftgroesse_nachziehen',
                               ausnahme)
@@ -1988,6 +2065,10 @@ class MainWindow:
     def _titlebar(self):
         bar = tk.Frame(self.root, bg=BAR)
         bar.pack(side='top', fill='x')
+        # Schema „KRT": die orange Linie unter der Kopfleiste, wie
+        # beim Profit Basetool.
+        if theme.SQUARE:
+            tk.Frame(self.root, bg=ACCENT, height=2).pack(side='top', fill='x')
 
         # Das Programm-Icon gehört hierhin — dort sucht man es.
         self._icon_image = None
@@ -2386,8 +2467,6 @@ class MainWindow:
         # ihre Warnungen selbst.
         self._tab('achsen', 'achsen', t('hf_achsen'), g_einst)
         self._tab('module', 'module', t('hf_module'), g_einst)
-        self._tab('startprogramme', 'startprogramme',
-                  t('hf_startprogramme'), g_einst)
         # ⚠ Zuletzt, wie beim Vorbild: Sichern und Zurücksetzen ist der
         # seltene Fall, und das Zurücksetzen darauf steht rot ganz unten.
         self._tab('bestand', 'sichern', t('hf_sichern'), g_einst)
@@ -3035,6 +3114,11 @@ class MainWindow:
                 # und „Achsen & Kurven" sind in die offene Gruppe gezogen —
                 # die frühere Begründung fürs Verstecken steht dort.
                 self._tab('erkennung', 'erkennung', t('hf_erkennung'), self.collapse_body)
+                # ⚠ Hierher am 27.09.2026 (erst offen in rc4): Programme mit
+                # dem Spiel zu starten ist etwas für Fortgeschrittene — und
+                # führt aus, was man einträgt.
+                self._tab('startprogramme', 'startprogramme',
+                          t('hf_startprogramme'), self.collapse_body)
             self.collapse_button.configure(text=t('hf_fortgeschritten'))
         else:
             self.collapse_body.pack_forget()
@@ -3753,7 +3837,7 @@ def _dialog_button(parent, text, action, font, strong=False):
     c = tk.Canvas(parent, width=width, height=height, bg=BG,
                   highlightthickness=0, bd=0, cursor='hand2')
     surface = _round_rect(c, 1, 1, width - 1, height - 1, radius=5,
-                               fill='#1d2a14' if strong else SURFACE,
+                               fill=theme.ACCENT_DARK if strong else SURFACE,
                                outline=border, width=1)
     caption = c.create_text(width / 2.0, height / 2.0, text=text,
                                  fill=color, font=font, anchor='center')

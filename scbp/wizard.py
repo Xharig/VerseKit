@@ -56,15 +56,16 @@ from . import errors
 from . import collection as bestand_datei
 from . import logsource, paths, language
 from .language import t, window_title
+from . import theme
 
-BG      = '#10141c'
-FLAECHE = '#161c28'
-BAR     = '#1b2230'
-LINIE   = '#2a3345'   # Rand runder Kästen und Felder — überall dieselbe Linie
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-GELB    = '#d8a03a'
+BG      = theme.BG
+FLAECHE = theme.SURFACE
+BAR     = theme.BAR
+LINIE   = theme.LINE2   # Rand runder Kästen und Felder — überall dieselbe Linie
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+GELB    = theme.YELLOW
 
 # Die Schriftstufen in der Reihenfolge, in der sie angeboten werden — dieselben
 # wie auf der Seite *Anzeige*.

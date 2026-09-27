@@ -53,13 +53,14 @@ from scbp import (
                   catalog as katalog_modul, shops, logsource, watchlist,
                   paths, phrases, ships, gamebuild, titlebar, sound,
                   translation, selling, hotkey as hotkey_modul)
+from scbp import theme
 
 try:
     import winsound                      # nur Windows; unter Linux übernimmt tkinter
 except ImportError:
     winsound = None
 
-__version__ = '3.58.0-rc4'
+__version__ = '3.58.0-rc5'
 
 
 def _mitgeliefert(name):
@@ -200,11 +201,11 @@ SETTINGS_FILE = paths.app_file('watcher.json')
 # Farben (dunkles Overlay)
 # Xharig-Grün für dunklen Grund. Bis v1.5.0 stand hier noch #47aa42 — die alte
 # Markenfarbe von vor dem Logo-Wechsel. Zwei Grüntöne im selben Programm gehen nicht.
-BG, FG, ACCENT, SUB, BAR = '#10141c', '#e6edf3', '#9ce430', '#8b98a5', '#1b2230'
+BG, FG, ACCENT, SUB, BAR = theme.BG, theme.FG, theme.ACCENT, theme.SUB, theme.BAR
 # Für das Verbotszeichen an einer Auftragszeile — dieselbe Warnfarbe wie im
 # Hauptfenster, damit „hier wird etwas weggenommen" überall gleich aussieht.
 ROT = '#e05555'
-PROV = '#d8a03a'        # Gelb für „vorläufig" (aus der Game.log, noch nicht vom Launcher bestätigt)
+PROV = theme.YELLOW        # Gelb für „vorläufig" (aus der Game.log, noch nicht vom Launcher bestätigt)
 CATA = '#4aa3d8'        # Blau für „neu im Spiel craftbar" (Katalog-Zuwachs, kein eigener Fund)
 
 
@@ -2604,8 +2605,9 @@ class Overlay:
                      ('f_sub', 'Segoe UI', 7))
 
     def _stufe(self):
-        from scbp.main_window import FONT_LEVELS
-        return FONT_LEVELS.get(paths.setting('schriftgroesse') or 'normal', 1)
+        # Punkte statt Stufe (rc5) — dieselbe Größe wie im großen Fenster.
+        from scbp.main_window import font_points
+        return font_points()
 
     def _schriften_anlegen(self):
         n = self._stufe()
@@ -2619,8 +2621,9 @@ class Overlay:
         das die Schrift benutzt. Deshalb genügt es, die drei Objekte zu ändern,
         statt die Zeilen neu zu bauen.
         """
-        from scbp.main_window import FONT_LEVELS
-        n = FONT_LEVELS.get(stufe, self._stufe()) if stufe else self._stufe()
+        # ⚠ Die Punkte sind vor dem Aufruf gespeichert (`set_font_size`) —
+        # also daraus lesen, nicht aus der Stufe: Die ist nur die nächstliegende.
+        n = self._stufe()
         for (name, _, grund) in self.OVERLAY_GRUND:
             try:
                 getattr(self, name).configure(size=grund + n)

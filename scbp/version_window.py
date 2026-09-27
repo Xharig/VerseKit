@@ -34,14 +34,15 @@ import re
 
 from . import updater, paths, language
 from .language import t, window_title
+from . import theme
 
-BG      = '#10141c'
-SURFACE = '#161c28'
-BAR     = '#1b2230'
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-YELLOW    = '#d8a03a'
+BG      = theme.BG
+SURFACE = theme.SURFACE
+BAR     = theme.BAR
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+YELLOW    = theme.YELLOW
 
 
 def font(size, bold=False):

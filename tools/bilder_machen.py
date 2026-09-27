@@ -154,6 +154,7 @@ SEITEN = {
     # ⚠ Erfundene Sitzungen, siehe `beispiel_statistik()` — die echten verrieten,
     # wann der Autor spielt.
     'statistik':    'screenshot-statistik',
+    'darstellung':  'screenshot-darstellung',
     # ⚠ Die übrigen Statistik-Seiten NICHT: „Aufträge" liest das kopierte
     # Auftragsprotokoll mit echten Uhrzeiten, und die Webseite zeigt ohnehin
     # nur die Übersicht. Wer sie ansehen will, trägt sie hier kurz ein.

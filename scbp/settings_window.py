@@ -45,15 +45,16 @@ from . import gametext
 from . import language
 from . import translation
 from .language import t, window_title
+from . import theme
 
-BG      = '#10141c'
-SURFACE = '#161c28'
-BAR     = '#1b2230'
-LINE   = '#2a3345'   # Rand runder Kästen und Felder — überall dieselbe Linie
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-RED     = '#e05252'
+BG      = theme.BG
+SURFACE = theme.SURFACE
+BAR     = theme.BAR
+LINE   = theme.LINE2   # Rand runder Kästen und Felder — überall dieselbe Linie
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+RED     = theme.RED
 
 INTERVALL_MIN, INTERVALL_MAX = 1, 60
 

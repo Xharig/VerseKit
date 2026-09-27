@@ -8374,6 +8374,8 @@ def main():
     _reihe85 = [k for z in _fenster85.groups['einstellungen']['inhalt']
                 .pack_slaves()
                 for k, teile in _fenster85.buttons.items() if teile[0] is z]
+    pruefe('startprogramme' not in _fenster85.buttons,
+           '„Startprogramme" liegt hinter „Fuer Fortgeschrittene"')
     pruefe(_reihe85 and _reihe85[-1] == 'bestand',
            '„Sichern & Zuruecksetzen" ist der letzte Reiter der Einstellungen '
            '(%r)' % _reihe85[-3:])
@@ -8393,8 +8395,9 @@ def main():
     for _ in range(4):
         _wurzel85.update()
         _wurzel85.update_idletasks()
-    pruefe('erkennung' in _fenster85.buttons,
-           'und ist nach dem Aufklappen da')
+    pruefe('erkennung' in _fenster85.buttons
+           and 'startprogramme' in _fenster85.buttons,
+           'beide sind nach dem Aufklappen da')
 
     # ⚠⚠ **Umgedreht am 31.08.2026.** Hier stand bis v3.5.1 das Gegenteil:
     # „Protokolle erneut einlesen" MUSSTE rot sein. Das war falsch — der Knopf
@@ -9972,7 +9975,8 @@ def main():
     # ⚠ Der Name im Kasten: geprueft wird, dass er VOR den Zutaten steht.
     # Dahinter waere er wertlos — dann hat man ihn erst gefunden, wenn man
     # ihn nicht mehr braucht.
-    _kopf99 = _code99.find("text=eintrag['name'], bg='#0c1017'")
+    # ⚠ Seit rc5 steht dort `theme.FIELD` statt des Farbwerts (scbp/theme.py).
+    _kopf99 = _code99.find("text=eintrag['name'], bg=theme.FIELD")
     _zutat99 = _code99.find('rez = herst_modul.recipe')
     pruefe(_kopf99 > 0, 'der Name steht noch einmal ueber dem Rezept')
     pruefe(_kopf99 < _zutat99,
@@ -25895,6 +25899,7 @@ def main():
     _pruefung_269()
     _pruefung_270()
     _pruefung_271()
+    _pruefung_272()
 
     print()
     if fehler:
@@ -26819,6 +26824,137 @@ class _Proz271:
 
     def terminate(self):
         self.beendet = True
+
+
+def _pruefung_272():
+    """272. Farbschema und stufenlose Größe (rc5)."""
+    print('\n272. Farbschema „Original" unveraendert, KRT eckig; Groesse '
+          'in Punkten')
+    import tempfile as _tf272
+    import tkinter as _tk272
+    from scbp import theme as _th272, paths as _pa272, icons as _ic272
+    from scbp import main_window as _mw272
+    # --- „Original" traegt exakt die Werte von vor dem Umbau
+    _alt272 = {'bg': '#10141c', 'surface': '#161c28', 'bar': '#1b2230',
+               'fg': '#e6edf3', 'sub': '#8b98a5', 'accent': '#9ce430',
+               'line': '#232c3d', 'line2': '#2a3345', 'field': '#0c1017',
+               'gold': '#e8c353', 'red': '#e05252', 'red_pale': '#c98a8a',
+               'yellow': '#d8a03a', 'accent_dark': '#1d2a14',
+               'hover': '#222b3b', 'track': '#2b3547', 'track_on': '#2a3a1c'}
+    _o272 = _th272.SCHEMES['original']
+    _abw272 = {k: _o272[k] for k, v in _alt272.items() if _o272[k] != v}
+    pruefe(not _abw272, '„Verse-Kit (Original)" hat die alten Farben (%r)'
+           % _abw272)
+    pruefe(not _o272['square'] and _o272['icon_set'] == 'gruen',
+           'und die alte Form: rund, gruene Symbole')
+    _k272 = _th272.SCHEMES['krt']
+    pruefe(_k272['accent'] == '#ff8000' and _k272['square']
+           and _k272['upper_headings'] and _k272['icon_set'] == 'orange',
+           '„KRT" ist orange, eckig, mit Grossbuchstaben')
+    pruefe(set(_k272) == set(_o272),
+           'beide Schemata kennen dieselben Werte (keins faellt auf einen '
+           'fehlenden Schluessel)')
+    # Kein Farbwert des Originals steht mehr direkt im Programm
+    _rest272 = []
+    for _d272 in ['sc_bp_watcher.py'] + [
+            os.path.join('scbp', n) for n in os.listdir(
+                os.path.join(WURZEL, 'scbp'))
+            if n.endswith('.py') and n not in ('theme.py', 'notice.py',
+                                               'icons.py')]:
+        _q272 = io.open(os.path.join(WURZEL, _d272), encoding='utf-8').read()
+        for _wert272 in ('#9ce430', '#10141c', '#0c1017', '#161c28'):
+            if ("'%s'" % _wert272) in _q272.lower() or \
+                    ('"%s"' % _wert272) in _q272.lower():
+                _rest272.append('%s %s' % (_d272, _wert272))
+    pruefe(not _rest272, 'die Farben stehen nur noch in theme.py (%r)'
+           % _rest272[:4])
+    # Symbole: jeder gruene Satz hat seinen orangen
+    _ordner272 = os.path.join(WURZEL, 'assets', 'symbole')
+    _fehlt272 = []
+    for _gr272 in os.listdir(_ordner272):
+        _pfad272 = os.path.join(_ordner272, _gr272)
+        if not os.path.isdir(_pfad272):
+            continue
+        for _n272 in os.listdir(_pfad272):
+            if _n272.endswith('-gruen.png') and not os.path.exists(
+                    os.path.join(_pfad272, _n272.replace('-gruen.png',
+                                                         '-orange.png'))):
+                _fehlt272.append('%s/%s' % (_gr272, _n272))
+    pruefe(not _fehlt272, 'zu jedem gruenen Symbol gibt es das orange (%r)'
+           % _fehlt272[:3])
+    pruefe(_ic272.GREEN == _th272.ICON_SET,
+           'die Symbole nehmen den Satz des Schemas')
+    # ⚠ Kein Rollbalken des Betriebssystems (27.09.2026 an den user.cfg-
+    # Kaesten gemeldet): Er laesst sich nicht einfaerben und faellt in jedem
+    # Schema aus dem Bild. Standard ist `round_scrollbar`.
+    import ast as _ast272
+    _roh272 = []
+    for _d272 in ['sc_bp_watcher.py'] + [
+            os.path.join('scbp', n) for n in os.listdir(
+                os.path.join(WURZEL, 'scbp')) if n.endswith('.py')]:
+        _baum272 = _ast272.parse(io.open(os.path.join(WURZEL, _d272),
+                                         encoding='utf-8').read())
+        for _k272 in _ast272.walk(_baum272):
+            if (isinstance(_k272, _ast272.Call)
+                    and isinstance(_k272.func, _ast272.Attribute)
+                    and _k272.func.attr == 'Scrollbar'):
+                _roh272.append('%s:%d' % (_d272, _k272.lineno))
+    pruefe(not _roh272, 'kein tk.Scrollbar im Programm, nur round_scrollbar '
+           '(%r)' % _roh272)
+
+    # --- Eckig: dieselben 24 Punkte, nur Radius 0 (alle `coords` gehen weiter)
+    _alt_sq272 = _th272.SQUARE
+    _w272 = _wurzel()
+    try:
+        _c272 = _tk272.Canvas(_w272)
+        _th272.SQUARE = True
+        _r272 = _mw272._round_rect(_c272, 1, 1, 50, 20, radius=6)
+        pruefe(_c272.type(_r272) == 'polygon'
+               and len(_mw272.corners(1, 1, 50, 20, 6)) == 24
+               and len(set(zip(*[iter(_mw272.corners(1, 1, 50, 20, 6))] * 2)))
+               == 4,
+               'eckig ist ein Vieleck mit 24 Punkten und vier Ecken')
+        _rund272 = _mw272._round_rect(_c272, 1, 1, 50, 20, radius=6,
+                                      keep_round=True)
+        pruefe(_c272.itemcget(_rund272, 'smooth') not in ('0', 'false', ''),
+               'Schalter und Regler bleiben auch im eckigen Schema rund')
+        try:
+            _c272.coords(_r272, *_mw272.corners(1, 1, 80, 30, 6))
+            _zieht272 = True
+        except _tk272.TclError:
+            _zieht272 = False
+        pruefe(_zieht272, 'eine eckige Form laesst sich mit corners() '
+               'nachziehen')
+    finally:
+        _th272.SQUARE = _alt_sq272
+        _w272.destroy()
+
+    # --- Groesse in Punkten
+    pruefe([_mw272.level_for_points(n) for n in range(8)] ==
+           ['klein', 'normal', 'gross', 'gross', 'sehrgross', 'sehrgross',
+            'sehrgross', 'sehrgross'],
+           'jede Punktzahl hat ihre naechstliegende Stufe fuer die Symbole '
+           '(bei Gleichstand die groessere)')
+    ordner = _tf272.mkdtemp(prefix='gross272-')
+    heim_alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = ordner
+    try:
+        _pa272.set_setting('schriftgroesse', 'gross')
+        _pa272.set_setting(_mw272.FONT_POINTS, 2)
+        pruefe(_mw272.font_points() == 2, 'der Regler-Wert gilt, solange er '
+               'zur Stufe passt')
+        _pa272.set_setting('schriftgroesse', 'klein')
+        pruefe(_mw272.font_points() == 0, 'stellt die Einrichtung die Stufe '
+               'um, gilt deren Wert, nicht der alte Regler')
+        pruefe(_mw272.auto_points(1080) == 1 and _mw272.auto_points(1440) == 3
+               and _mw272.auto_points(2160) == 6,
+               '„Auto" waehlt nach der Bildschirmhoehe')
+    finally:
+        if heim_alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = heim_alt
+        shutil.rmtree(ordner, ignore_errors=True)
 
 def _wurzel():
     """Ein unsichtbares Fenster, nur um die Bildschirmgröße erfragen zu können."""

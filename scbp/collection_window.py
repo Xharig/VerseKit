@@ -48,15 +48,16 @@ from . import icons
 from . import paths
 from . import fields
 from .language import t, window_title
+from . import theme
 
-BG      = '#10141c'
-FLAECHE = '#161c28'
-BAR     = '#1b2230'
-LINIE   = '#2a3345'   # Rand runder Kästen und Felder — überall dieselbe Linie
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-GELB    = '#d8a03a'
+BG      = theme.BG
+FLAECHE = theme.SURFACE
+BAR     = theme.BAR
+LINIE   = theme.LINE2   # Rand runder Kästen und Felder — überall dieselbe Linie
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+GELB    = theme.YELLOW
 
 # Ab wie vielen Zeilen nur noch der Anfang gezeigt wird. 714 Zeilen einzeln zu
 # bauen dauert in tkinter spürbar lange, und niemand scrollt durch 714 Zeilen —
@@ -626,7 +627,7 @@ class Bestandsfenster:
             highlightcolor=ACCENT)
         self.zuruecksetzen_lbl.bind('<Button-1>', lambda e: self._alles_leeren())
         self.zuruecksetzen_lbl.bind(
-            '<Enter>', lambda e: self.zuruecksetzen_lbl.configure(bg='#1d2a14'))
+            '<Enter>', lambda e: self.zuruecksetzen_lbl.configure(bg=theme.ACCENT_DARK))
         self.zuruecksetzen_lbl.bind(
             '<Leave>', lambda e: self.zuruecksetzen_lbl.configure(bg=FLAECHE))
 
@@ -994,7 +995,7 @@ class Bestandsfenster:
                 z = tk.Label(
                     self.inhalt,
                     text=t('s_bp_auftrag_zeile') % (name, anzahl),
-                    bg='#1d2a14' if gewaehlt else FLAECHE,
+                    bg=theme.ACCENT_DARK if gewaehlt else FLAECHE,
                     fg=ACCENT if gewaehlt else FG,
                     font=schrift(10), anchor='w', cursor='hand2',
                     padx=10, pady=4)
@@ -1004,9 +1005,9 @@ class Bestandsfenster:
                 # ist schlimmer als keiner.
                 z.bind('<Button-1>', lambda _e, a_=name: self._auftrag_waehlen(a_))
                 z.bind('<Enter>', lambda _e, l=z, g=gewaehlt:
-                       l.configure(bg='#1d2a14' if g else BAR))
+                       l.configure(bg=theme.ACCENT_DARK if g else BAR))
                 z.bind('<Leave>', lambda _e, l=z, g=gewaehlt:
-                       l.configure(bg='#1d2a14' if g else FLAECHE))
+                       l.configure(bg=theme.ACCENT_DARK if g else FLAECHE))
             tk.Label(self.inhalt, text=t('s_bp_auftrag_klick'), bg=BG, fg=SUB,
                      font=schrift(9), anchor='w').pack(fill='x', pady=(4, 0))
             tk.Frame(self.inhalt, bg=BG, height=8).pack(fill='x')

@@ -114,6 +114,7 @@ ANTIPPBAR = {'klein': 14, 'normal': 16, 'gross': 18, 'sehrgross': 22}
 FARBEN = {
     'grau':  '#8b98a5',      # SUB    — der Normalzustand
     'gruen': '#9ce430',      # ACCENT — Update da, Schalter an, Reiter gewählt
+    'orange': '#ff8000',     # ACCENT im Schema „KRT" (v3.58.0-rc5)
     'hell':  '#e6edf3',      # FG     — Mauszeiger darüber
     # Die beiden Zustandsfarben der Bauplanzeilen. Ohne sie müsste ein gelber
     # Punkt grün gemalt werden, und die Zeile verlöre ihre Aussage.

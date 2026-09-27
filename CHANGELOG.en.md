@@ -8,6 +8,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc5 - 2026-09-27
+
+> **A second colour scheme and stepless size.** Under "Appearance" you now
+> choose between "Verse-Kit (original)" and "KRT (orange)" — with a small
+> preview. Set the size of the interface steplessly with a slider, or pick
+> the preset for your screen.
+
+### New
+
+- **Colour scheme "KRT (orange)"** — nearly black, orange as accent, square
+  boxes with orange corner marks and headings in capitals. Applies to every
+  window, the overlay included, after a restart
+- **Interface size** — slider with a percentage, plus presets Auto, Full HD,
+  WQHD, UHD (125 %) and UHD (150 %)
+
+### Improved
+
+- **Startup programs** now sit under "For advanced users"
+- **user.cfg** — now called "Your user.cfg", and the boxes scroll with the
+  program's own scrollbar instead of the system one
+
 ## v3.58.0-rc4 - 2026-09-27
 
 > **The settings are sorted anew.** Everything about the overlay is now in

@@ -54,15 +54,16 @@ import tkinter as tk
 
 from . import curves
 from .language import t
+from . import theme
 
-BG      = '#10141c'
-FLAECHE = '#161c28'
-FG      = '#e6edf3'
-SUB     = '#8b98a5'
-ACCENT  = '#9ce430'
-LINIE   = '#232c3d'
-GOLD    = '#e8c353'
-ROT     = '#e05252'
+BG      = theme.BG
+FLAECHE = theme.SURFACE
+FG      = theme.FG
+SUB     = theme.SUB
+ACCENT  = theme.ACCENT
+LINIE   = theme.LINE
+GOLD    = theme.GOLD
+ROT     = theme.RED
 
 # Wieviele Stützstellen der Streckenzug bekommt. Tk kennt keine Kurven; zu
 # wenige Punkte machen aus dem Knick an der Totzone eine sanfte Rundung — und

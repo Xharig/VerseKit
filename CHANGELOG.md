@@ -8,6 +8,27 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc5 - 2026-09-27
+
+> **Ein zweites Farbschema und stufenlose Größe.** Unter „Darstellung"
+> wählst du jetzt zwischen „Verse-Kit (Original)" und „KRT (Orange)" — mit
+> kleiner Vorschau. Die Größe der Oberfläche stellst du mit einem Regler
+> stufenlos ein oder nimmst die Voreinstellung für deinen Bildschirm.
+
+### Neu
+
+- **Farbschema „KRT (Orange)"** — fast schwarz, Orange als Akzent, eckige
+  Kästen mit orangen Eckwinkeln und Überschriften in Großbuchstaben. Gilt
+  für alle Fenster, das Overlay eingeschlossen, und wirkt nach einem Neustart
+- **Größe der Oberfläche** — Schieberegler mit Prozentanzeige, dazu
+  Voreinstellungen Auto, Full HD, WQHD, UHD (125 %) und UHD (150 %)
+
+### Verbessert
+
+- **Startprogramme** stehen jetzt unter „Für Fortgeschrittene"
+- **user.cfg** — heißt „Eigene user.cfg", und die Kästen rollen mit dem
+  Rollbalken des Programms statt dem des Betriebssystems
+
 ## v3.58.0-rc4 - 2026-09-27
 
 > **Die Einstellungen sind neu sortiert.** Alles zum Overlay steht jetzt

@@ -28,6 +28,7 @@ import tkinter as tk
 from .language import t
 from .pages import (BG, SURFACE, FG, SUB, ACCENT, LINE,
                     _heading, _scroll_area, _body_text, _button, _wrap)
+from . import theme
 
 
 def builders():
@@ -180,7 +181,7 @@ def _entry_card(window, parent, index, entry, store, redraw):
         # ⚠ Gelesen wird über die Variable, nie über `box.get()`: Steht der
         # graue Hinweis im Feld, lieferte `get()` ihn als Wert (`fields.hint`).
         variable = tk.StringVar(value=str(entry.get(key) or ''))
-        box = round_entry(row, variable, window.f_small, '#0c1017', LINE,
+        box = round_entry(row, variable, window.f_small, theme.FIELD, LINE,
                           ACCENT, FG, placeholder=placeholder or None)
         box.variable = variable
         box.holder.pack(side='left', fill='x', expand=True)

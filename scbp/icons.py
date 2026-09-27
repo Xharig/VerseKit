@@ -36,18 +36,21 @@ herauskam. Übersicht aller Symbole: siehe Projektnotizen.
 import os
 import sys
 import tkinter as tk
+from . import theme
 
 
 # Die drei Farben, in denen jedes Symbol vorliegt (siehe `symbole_bauen.py`).
 # Namen statt Farbwerten, damit der Code sagt, **was** gemeint ist:
 # `recolor(GREEN)` heißt „hervorheben", nicht „nimm #9ce430".
-GREY, GREEN, LIGHT = 'grau', 'gruen', 'hell'
+# ⚠ `GREEN` heißt „hervorgehoben" — welcher Bildsatz das ist, sagt das
+# Farbschema (`theme.ICON_SET`: grün im Original, orange bei KRT).
+GREY, GREEN, LIGHT = 'grau', theme.ICON_SET, 'hell'
 # Die beiden Zustandsfarben der Bauplanzeilen — Gelb heißt „aus der Game.log,
 # noch nicht vom Launcher bestätigt", Blau „neu im Spiel craftbar".
 YELLOW, BLUE = 'gelb', 'blau'
 # Die Schriftfarbe für Wörter, die **neben** einem Symbol stehen. Tk faerbt
 # Text sonst schwarz — auf dunklem Grund ist er damit unlesbar.
-TEXT_COLOR = '#8b98a5'
+TEXT_COLOR = theme.SUB
 
 # ⚠ **Nur für den Notnagel:** Was jeder Bildsatz als **echte** Farbe bedeutet.
 # Steht kein Bild zur Verfügung, wird ein Zeichen gezeichnet — und das braucht
@@ -57,7 +60,8 @@ TEXT_COLOR = '#8b98a5'
 _SET_COLORS = {
     'grau':  TEXT_COLOR,
     'gruen': '#9ce430',   # die Markenfarbe
-    'hell':  '#e6edf3',
+    'orange': '#ff8000',  # KRT-Schema
+    'hell':  theme.FG,
     'gelb':  '#e3b341',
     'blau':  '#4a9eff',
 }

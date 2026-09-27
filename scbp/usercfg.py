@@ -26,7 +26,7 @@ und ist."* VerseKit schreibt dort seit langem `g_language` (siehe
 ⚠⚠ **Die Sprachzeilen gehören VerseKit.** `g_language` und
 `g_languageAudio` setzt das Programm selbst, abhängig von der gewählten
 Textquelle, und prüft sie bei jedem Start (`_spielsprache_pruefen`). Wer sie
-unter „Eigene Zeilen" änderte, würde beim nächsten Start still überschrieben
+unter „Eigene user.cfg" änderte, würde beim nächsten Start still überschrieben
 — deshalb stehen sie dort nicht, und `write_own` fasst sie nie an.
 
 ⚠ **Vor der ersten Änderung eine Sicherung** (`user.cfg.versekit-vorher`):

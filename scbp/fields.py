@@ -66,12 +66,13 @@ beim Aufbau den Fokus bekommt (die Bauplan-Liste tut das), hätte man ihn nie
 gesehen.
 """
 import tkinter as tk
+from . import theme
 
 # Die Standardfarben der Oberfläche. Sie stehen absichtlich als Vorgabewerte
 # hier und nicht fest im Code: Neun Dateien führen ihre eigene Kopie von
 # `FG`/`SUB`, und dieser Baustein soll aus jeder davon benutzbar sein.
-NORMAL = '#e6edf3'
-GREY = '#8b98a5'
+NORMAL = theme.FG
+GREY = theme.SUB
 
 # Tasten, die den Hinweis NICHT vertreiben — sie ändern den Inhalt nicht.
 # ⚠ Ohne diese Liste verschwände der Hinweis schon beim Tabben oder beim

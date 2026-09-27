@@ -48,14 +48,15 @@ import zlib
 
 from . import errors, screen_grab, signature_scan
 from .language import t
+from . import theme
 
-BG = '#10141c'
-SURFACE = '#161c28'
-FG = '#e6edf3'
-SUB = '#8b98a5'
-ACCENT = '#9ce430'
-RED = '#e05252'
-GOLD = '#e8c353'
+BG = theme.BG
+SURFACE = theme.SURFACE
+FG = theme.FG
+SUB = theme.SUB
+ACCENT = theme.ACCENT
+RED = theme.RED
+GOLD = theme.GOLD
 HOLE = '#010203'           # die Farbe, die Windows durchsichtig macht
 
 START_W, START_H = 220, 44
@@ -180,7 +181,7 @@ class ScanWindow(object):
                  font=font).pack(side='left')
         # Über `round_entry` wie jedes Feld — mit dem X darin (Standard).
         from .main_window import round_entry
-        self.typed = round_entry(learn, None, font, BG, '#2a3345', ACCENT, FG,
+        self.typed = round_entry(learn, None, font, BG, theme.LINE2, ACCENT, FG,
                                  width=9)
         self.typed.holder.pack(side='left', padx=4)
         self.typed.bind('<Return>', lambda _e: self._learn())
