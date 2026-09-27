@@ -847,6 +847,14 @@ def scan_backlog():
         _sz.catch_up(backups + ([running_log] if running_log else []))
     except Exception as exception:
         errors.record('mission_log.playtime', exception)
+    # Dieselben Protokolle für die Statistik — mit eigenem Lesestand, genau
+    # wie die Spielzeit, und aus demselben Grund: Was hier gezählt ist, bleibt
+    # in `statistik.json`, auch wenn die Logs später verschwinden.
+    try:
+        from . import play_stats as _st
+        _st.catch_up(backups + ([running_log] if running_log else []))
+    except Exception as exception:
+        errors.record('mission_log.play_stats', exception)
 
     old = load()
 

@@ -8,6 +8,26 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.58.0-rc1 - 2026-09-27
+
+> **Neu: deine Statistik.** Ein eigener Reiter zeigt, wie viel, wie oft und
+> wann du spielst — Spielzeit, Sitzungen, abgeschlossene Aufträge,
+> Quantensprünge und eine Wärmekarte deiner Spielzeiten. Die Zahlen bleiben
+> erhalten, auch wenn die Spielprotokolle gelöscht werden.
+
+### Neu
+
+- **Statistik** (unter „Info") — Spielzeit, Sitzungen mit Durchschnitt und
+  längster, abgeschlossene und fehlgeschlagene Aufträge, Quantensprünge und
+  eine Wärmekarte nach Wochentag und Uhrzeit. Gezählt wird nur, was in jeder
+  Spielsprache verlässlich im Log steht, und nur dein eigener Account
+- **Statistik speichern** — als Datei, ohne Spielernamen
+
+### Verbessert
+
+- **„Info" lässt sich wieder zuklappen** — „Was ist neu", „Update & Über"
+  und „Fehler melden" bleiben dabei immer sichtbar
+
 ## v3.57.4 - 2026-09-26
 
 > **Die Zeiten stimmen jetzt auch beim Austausch mit dem Basetool.** Wann du

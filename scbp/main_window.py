@@ -2370,6 +2370,12 @@ class MainWindow:
         # Lucide-Vorlage in `tools/symbole_bauen.py`.
         self._tab('patchaenderungen', 'zeit', t('hf_patchaenderungen'),
                      g_info)
+        # ⚠ Hier und nicht bei den Bauplänen: Die Seite erzählt, wie gespielt
+        # wird — Zeit, Aufträge, Sprünge —, sie stellt nichts ein und gehört zu
+        # keinem Bestand. Direkt unter den beiden „Was hat sich geändert"-
+        # Seiten, weil sie dieselbe Sorte Frage beantwortet: am Spieler statt
+        # am Werkzeug oder am Spiel.
+        self._tab('statistik', 'statistik', t('hf_statistik'), g_info)
         self._tab('ueber', 'ueber', t('hf_ueber'), g_info)
         # Direkt unter „Update & Über": Wer nicht ins Spiel kommt, sucht den
         # Fehler zuerst bei sich. Ein eigener Reiter beantwortet das, statt die
@@ -2391,6 +2397,8 @@ class MainWindow:
         # ist mit Version, Katalogzahlen, Update-Kanal und Holen-Knopf schon
         # voll, und wem was gehört, hat mit Updates nichts zu tun.
         self._tab('danke', 'quellen', t('hf_danke'), g_info)
+        # Zugeklappt: nur „Was ist neu", „Update & Über", „Fehler melden".
+        self._apply_pins('info')
 
         # Fortgeschrittenes ist zugeklappt — sichtbar, aber nicht im Weg. Wer
         # es sucht, findet es; wer es nicht kennt, wird nicht erschlagen.
@@ -2550,7 +2558,49 @@ class MainWindow:
     # guten Grund — die Seitenleiste bestimmt die Mindesthöhe des Fensters,
     # und zugeklappte Gruppen sparen rund 400 px. Festgenagelt wird deshalb
     # nur, was im Notfall auffindbar bleiben muss.
-    ALWAYS_OPEN = ('info',)
+    #
+    # ⭐⭐ **Seit v3.58.0: Info klappt wieder — aber nicht ganz** (27.09.2026).
+    # Die Gruppe wuchs um „Statistik", und fest offen kostete sie bei jedem
+    # Platz. Der Wunsch: *„Info wieder einklappbar, außer Fehler melden,
+    # Update und Über, und Was ist neu, die sollen sichtbar bleiben, damit die
+    # niemand übersieht."* Damit bleibt der Grund von oben gewahrt — der Weg,
+    # ein Problem loszuwerden, lässt sich nicht wegklappen —, und der Rest
+    # gibt seinen Platz frei. Die Reiter hier stehen auch in zugeklappter
+    # Gruppe da, in ihrer gewohnten Reihenfolge.
+    ALWAYS_OPEN = ()
+    PINNED_TABS = {'info': ('wasistneu', 'ueber', 'diagnose')}
+
+    def _group_setting(self, kennung):
+        """Unter welchem Namen der Klappzustand einer Gruppe gemerkt wird.
+
+        ⚠ Für Info ein **neuer** Name: `gruppe_zu_info` stammt aus der Zeit vor
+        dem 05.09.2026, als Info frei klappte. Ein altes „zu" von damals hätte
+        die Gruppe jetzt schlagartig zugeklappt — ausgerechnet in der Fassung,
+        die dort einen neuen Reiter bringt."""
+        if kennung in self.PINNED_TABS:
+            return 'gruppe_zu_%s_2' % kennung
+        return 'gruppe_zu_%s' % kennung
+
+    def _apply_pins(self, kennung):
+        """In einer Gruppe mit festen Reitern zeigen, was zu sehen sein soll.
+
+        Offen: alle Reiter. Zu: nur die festen. ⚠ Neu gepackt wird in der
+        Reihenfolge, in der die Reiter angelegt wurden — ein bloßes
+        `pack()` hängte einen wieder eingeblendeten Reiter ans Ende."""
+        g = self.groups.get(kennung)
+        if not g:
+            return
+        fest = self.PINNED_TABS.get(kennung, ())
+        nach_zeile = {teile[0]: k for k, teile in self.buttons.items()}
+        try:
+            zeilen = [z for z in g['inhalt'].winfo_children() if z in nach_zeile]
+            for zeile in zeilen:
+                zeile.pack_forget()
+            for zeile in zeilen:
+                if g['offen'] or nach_zeile[zeile] in fest:
+                    zeile.pack(fill='x')
+        except tk.TclError:
+            pass
 
     def _group(self, text, kennung=None):
         """Eine Gruppenüberschrift — anklicken klappt ihre Reiter weg.
@@ -2578,7 +2628,7 @@ class MainWindow:
         # allen zu, die sie einmal zugeklappt hatten — also genau bei denen,
         # um die es hier geht.
         offen = fest or not paths.setting_bool(
-            'gruppe_zu_%s' % kennung, False)
+            self._group_setting(kennung), False)
 
         # ⚠ Kein Zeigefinger-Zeiger, wo es nichts zu klicken gibt: Ein Kopf,
         # der wie ein Knopf aussieht und nicht reagiert, wirkt kaputt.
@@ -2602,7 +2652,9 @@ class MainWindow:
         beschriftung.pack(side='left', fill='x', expand=True)
 
         inhalt = tk.Frame(self.sidebar, bg=SURFACE)
-        if offen:
+        # ⚠ Eine Gruppe mit festen Reitern bleibt immer gepackt — zugeklappt
+        # blendet `_apply_pins` nur die übrigen Reiter aus.
+        if offen or kennung in self.PINNED_TABS:
             inhalt.pack(fill='x')
 
         self.groups[kennung] = {'kopf': kopf, 'inhalt': inhalt,
@@ -2636,6 +2688,17 @@ class MainWindow:
         if neu_offen == g['offen']:
             return
         g['offen'] = neu_offen
+        if kennung in self.PINNED_TABS:
+            self._apply_pins(kennung)
+            try:
+                g['pfeil'].swap_symbol('zuklappen' if neu_offen
+                                       else 'aufklappen')
+            except tk.TclError:
+                pass
+            paths.set_setting(self._group_setting(kennung),
+                              'nein' if neu_offen else 'ja')
+            self.root.after(30, self._min_height_update)
+            return
         try:
             if neu_offen:
                 # ⚠ **Vor dem Klappteil einordnen, nicht ans Ende.** Ohne
@@ -2647,7 +2710,7 @@ class MainWindow:
                 g['inhalt'].pack_forget()
             g['pfeil'].swap_symbol('zuklappen' if neu_offen
                                        else 'aufklappen')
-            paths.set_setting('gruppe_zu_%s' % kennung,
+            paths.set_setting(self._group_setting(kennung),
                                      'nein' if neu_offen else 'ja')
         except tk.TclError:
             pass

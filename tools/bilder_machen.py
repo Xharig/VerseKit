@@ -151,6 +151,9 @@ SEITEN = {
     # actionmaps.xml), nicht die Wegwerf-Kopie — im Bild stünden die Geräte des
     # Autors samt Hardware-Kennungen.
     'patchaenderungen': 'screenshot-patchaenderungen',
+    # ⚠ Erfundene Sitzungen, siehe `beispiel_statistik()` — die echten verrieten,
+    # wann der Autor spielt.
+    'statistik':    'screenshot-statistik',
     # ⚠ NICHT `diagnose`: Der Bericht zeigt Melder-Namen, Bildschirm und die
     # Pfade des Rechners, auf dem das Bild entsteht.
 }
@@ -354,6 +357,45 @@ def beispiel_daten():
     with open(os.path.join(heim, trade_cargo.FILE), 'w', encoding='utf-8') as f:
         json.dump({'format': trade_cargo.FORMAT, 'posten': posten}, f,
                   ensure_ascii=False, indent=1)
+    beispiel_statistik(heim)
+
+
+def beispiel_statistik(heim):
+    """Erfundene Sitzungen für die Statistik (und die Spielzeit oben).
+
+    ⚠⚠ **Nie die echten.** Die Kopie trüge sonst die Spielzeit des Autors samt
+    Wärmekarte — wann er abends am Rechner sitzt — in ein öffentliches Bild.
+    Fester Startwert, damit jeder Lauf dasselbe Bild ergibt: abends unter der
+    Woche, nachmittags am Wochenende, über acht Wochen."""
+    import json
+    import random
+    import time as _ti
+    from scbp import playtime, play_stats
+    zufall = random.Random(7)
+    heute = _ti.mktime(_ti.strptime(_ti.strftime('%Y-%m-%d'), '%Y-%m-%d'))
+    spielzeit, statistik = [], {}
+    for tage_zurueck in range(56, 0, -1):
+        tag = heute - tage_zurueck * 86400
+        wochenende = _ti.localtime(tag).tm_wday >= 5
+        if zufall.random() > (0.8 if wochenende else 0.55):
+            continue
+        beginn = tag + (zufall.randint(13, 16) if wochenende
+                        else zufall.randint(18, 21)) * 3600 \
+            + zufall.randint(0, 59) * 60
+        dauer = zufall.randint(45, 240 if wochenende else 170) * 60
+        von, bis = int(beginn), int(beginn + dauer)
+        spielzeit.append({'von': von, 'bis': bis})
+        statistik[str(von)] = {
+            'von': von, 'bis': bis, 'sauber': True, 'account': '',
+            'auftraege': zufall.randint(0, 6),
+            'fehlgeschlagen': zufall.randint(0, 1),
+            'spruenge': zufall.randint(1, 9)}
+    with open(os.path.join(heim, playtime.FILE), 'w', encoding='utf-8') as f:
+        json.dump({'format': playtime.FORMAT, 'sitzungen': spielzeit,
+                   'gelesen': {}}, f, ensure_ascii=False)
+    with open(os.path.join(heim, play_stats.FILE), 'w', encoding='utf-8') as f:
+        json.dump({'format': play_stats.FORMAT, 'sitzungen': statistik,
+                   'gelesen': {}}, f, ensure_ascii=False)
 
 
 def beispiel_hangar():

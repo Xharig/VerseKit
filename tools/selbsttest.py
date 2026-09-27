@@ -12386,7 +12386,7 @@ def main():
                 _pf121.set_setting(_s121, _wert121)
 
     print()
-    print('122. „Info" laesst sich nicht zuklappen — dort steht Fehler melden')
+    print('122. „Info" klappt zu — Fehler melden, Update und Neues bleiben sichtbar')
     # ⚠⚠ **Gemeldet am 05.09.2026:** „Info sollte auch nicht einklappbar sein,
     # sonst blendet jemand Fehler melden aus, und findet es nicht mehr."
     #
@@ -12401,14 +12401,20 @@ def main():
     import tkinter as tk122
     from scbp import paths as _pf122, main_window as _hf122
 
-    _alt122 = {k: _pf122.setting('gruppe_zu_%s' % k)
-               for k in ('info', 'werkstatt')}
+    # ⭐⭐ **Seit v3.58.0 klappt Info wieder — nur nicht ganz** (27.09.2026):
+    # „Info wieder einklappbar, außer Fehler melden, Update und Über, und Was
+    # ist neu, die sollen sichtbar bleiben." Geprueft wird deshalb nicht mehr
+    # „Info bleibt offen", sondern die Eigenschaft, um die es damals ging:
+    # **Fehler melden ist nie weggeklappt** — und die beiden anderen auch nicht.
+    _alt122 = {k: _pf122.setting(k) for k in
+               ('gruppe_zu_info', 'gruppe_zu_info_2', 'gruppe_zu_werkstatt')}
     _w122 = _wurzel()
     try:
-        # ⚠ Der harte Fall: Jemand hatte die Gruppe FRUEHER zugeklappt. Genau
-        # bei dem muss sie jetzt wieder aufgehen — sonst hilft die Aenderung
-        # niemandem, den sie betrifft.
+        # ⚠ Der harte Fall: ein altes „zu" aus der Zeit, als Info frei
+        # klappte. Es darf die Gruppe NICHT zuklappen — sonst saehe ein Teil
+        # der Nutzer den neuen Statistik-Reiter nie.
         _pf122.set_setting('gruppe_zu_info', 'ja')
+        _pf122.set_setting('gruppe_zu_info_2', 'nein')
         _pf122.set_setting('gruppe_zu_werkstatt', 'ja')
 
         _w122.deiconify()
@@ -12416,34 +12422,43 @@ def main():
         _f122 = _hf122.MainWindow(_w122, version='0.0.0-pruefung')
         _w122.update_idletasks()
 
-        pruefe('info' in _hf122.MainWindow.ALWAYS_OPEN,
-               '„info" steht in der Liste der festen Gruppen')
-
         _gi122 = _f122.groups.get('info')
         _gw122 = _f122.groups.get('werkstatt')
         pruefe(bool(_gi122 and _gi122['offen']),
-               'Info steht offen, auch mit einem alten „zu" in den '
-               'Einstellungen')
+               'Info steht offen, auch mit einem alten „zu" von frueher')
         pruefe(bool(_gw122 and not _gw122['offen']),
                'eine gewoehnliche Gruppe bleibt dagegen zugeklappt')
-
         if _gi122:
-            pruefe(not _gi122['pfeil'].winfo_manager(),
-                   'Info zeigt keinen Klapp-Pfeil (ein Pfeil ist ein '
-                   'Versprechen)')
-            pruefe(not _gi122['kopf'].cget('cursor'),
-                   'und keinen Zeigefinger, wo nichts zu klicken ist')
+            pruefe(bool(_gi122['pfeil'].winfo_manager()),
+                   'Info hat wieder einen Klapp-Pfeil')
 
-        # ⚠ Der Riegel muss in `_group_toggle` sitzen, nicht nur an der Bindung:
-        # Die Funktion wird auch von `_open_group_of_tab` gerufen.
-        _f122._group_toggle('info')
-        _w122.update_idletasks()
-        pruefe(_f122.groups['info']['offen'],
-               'auch ein Aufruf von _group_toggle klappt Info nicht zu')
+        _fest122 = _hf122.MainWindow.PINNED_TABS.get('info', ())
+        pruefe(set(_fest122) == {'wasistneu', 'ueber', 'diagnose'},
+               'fest bleiben genau Was ist neu, Update & Ueber, Fehler melden '
+               '(%r)' % (_fest122,))
+
+        def _sichtbar122():
+            return {k for k, teile in _f122.buttons.items()
+                    if teile[0].master is _gi122['inhalt']
+                    and teile[0].winfo_manager()}
+
         _f122._group_toggle('info', auf=False)
         _w122.update_idletasks()
-        pruefe(_f122.groups['info']['offen'],
-               'und ein erzwungenes Zuklappen ebenso wenig')
+        _zu122 = _sichtbar122()
+        pruefe(_zu122 == {'wasistneu', 'ueber', 'diagnose'},
+               'zugeklappt stehen nur die drei festen Reiter da (%r)'
+               % sorted(_zu122))
+        pruefe(bool(_gi122['inhalt'].winfo_manager()),
+               'der Rahmen der Gruppe bleibt dafuer stehen')
+        _f122._group_toggle('info', auf=True)
+        _w122.update_idletasks()
+        _offen122 = [k for z in _gi122['inhalt'].pack_slaves()
+                     for k, teile in _f122.buttons.items() if teile[0] is z]
+        _soll122 = [k for z in _gi122['inhalt'].winfo_children()
+                    for k, teile in _f122.buttons.items() if teile[0] is z]
+        pruefe(_offen122 == _soll122 and 'statistik' in _offen122,
+               'aufgeklappt wieder alle, in der alten Reihenfolge (%r)'
+               % _offen122)
 
         # Gegenprobe: Die uebrigen lassen sich weiterhin klappen.
         _f122._group_toggle('werkstatt', auf=True)
@@ -12459,7 +12474,7 @@ def main():
             pass
         for _k122, _v122 in _alt122.items():
             if _v122 is not None:
-                _pf122.set_setting('gruppe_zu_%s' % _k122, _v122)
+                _pf122.set_setting(_k122, _v122)
 
     print()
     print('123. „laeuft" nur, solange das Spiel wirklich schreibt')
@@ -25818,6 +25833,7 @@ def main():
     _pruefung_266()
     _pruefung_267()
     _pruefung_268()
+    _pruefung_269()
 
     print()
     if fehler:
@@ -26256,6 +26272,127 @@ def _pruefung_268():
     from scbp import main_window as _mw
     pruefe(_mw.DISCORD_URL == 'https://xharig.com/discord',
            'der Discord-Knopf geht ueber die eigene Kurzadresse')
+
+
+def _pruefung_269():
+    """269. Statistik: nur Belegtes zählen, dauerhaft festhalten."""
+    print('\n269. Statistik: zaehlt Belegtes und behaelt es, auch ohne Logs')
+    # Nachgebaut nach echten Zeilen (27.09.2026, 181 Protokolle). Geprueft
+    # wird die WIRKUNG ueber `catch_up` und `summary`, den Weg, den Start und
+    # Seite nehmen — nicht `read_log` allein.
+    import tempfile as _tf269
+    import time as _ti269
+    import json as _js269
+    from scbp import play_stats as _ps, playtime as _pz, paths as _pa269
+    ordner = _tf269.mkdtemp(prefix='stat269-')
+    heim_alt = os.environ.get('SC_BP_HOME')
+    os.environ['SC_BP_HOME'] = os.path.join(ordner, 'daten')
+    try:
+        def _log(name, spieler, zeilen, tag='20'):
+            # ⚠ Jede Log braucht ihren EIGENEN Anfang: Die Statistik fuehrt
+            # Sitzungen ueber den Anfang (wie die Spielzeit). Zwei nachgebaute
+            # Logs mit derselben Startsekunde ueberschrieben sich im ersten
+            # Lauf — echte Sitzungen zweier Accounts beginnen nie gleichzeitig.
+            pfad = os.path.join(ordner, name)
+            kopf = ['<2026-09-%sT18:00:00.000Z> [Notice] <AccountLogin'
+                    'CharacterStatus_Character> Character: ... - name %s - '
+                    'state STATE_CURRENT' % (tag, spieler),
+                    '<2026-09-%sT18:01:00.000Z> OnClientSpawned' % tag]
+            with open(pfad, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(kopf + zeilen) + '\n')
+            return pfad
+
+        def _auftrag(zeit, kennung, spieler, art):
+            return ('<2026-09-20T%s.000Z> [Notice] <EndMission> Ending mission '
+                    'for player. MissionId[%s] Player[%s] PlayerId[1] '
+                    'CompletionType[%s] Reason[Mission Ended]'
+                    % (zeit, kennung, spieler, art))
+
+        sprung = ('<2026-09-20T%s.100Z> [Notice] <Quantum Drive Arrived - '
+                  'Arrived at Final Destination> [ItemNavigation][CL][1] | '
+                  'NOT AUTH | ANVL_Asgard_1[1]|CSCItemNavigation::'
+                  'OnQuantumDriveArrived|Quantum Drive has arrived')
+        a = _log('Game.log', 'Xharig', [
+            _auftrag('18:10:00', 'm1', 'Xharig', 'Complete'),
+            # dieselbe Meldung ein zweites Mal — zaehlt einmal
+            _auftrag('18:10:00', 'm1', 'Xharig', 'Complete'),
+            _auftrag('18:20:00', 'm2', 'Xharig', 'Fail'),
+            _auftrag('18:25:00', 'm3', 'Xharig', 'Abandon'),
+            # Auftrag eines Party-Mitglieds — nicht unserer
+            _auftrag('18:30:00', 'm4', 'Kumpel', 'Complete'),
+            sprung % '18:40:00', sprung % '18:50:00',
+            '<2026-09-20T20:00:00.000Z> [Notice] <SystemQuit> CSystem::Quit '
+            'invoked with - cause=30016'])
+        pruefe(_ps.catch_up([a]) == 1, 'eine Sitzung wird erfasst')
+        eintrag = list(_ps.load()['sitzungen'].values())[0]
+        pruefe(eintrag['auftraege'] == 1 and eintrag['fehlgeschlagen'] == 1,
+               'eigene Auftraege zaehlen einmal, abgebrochene und die der '
+               'Party nicht (%r)' % eintrag)
+        pruefe(eintrag['spruenge'] == 2 and eintrag['sauber'],
+               'Spruenge und sauberes Ende werden erkannt (%r)' % eintrag)
+        _gleich = _pz.span_from_log(a)
+        pruefe(_gleich and eintrag['von'] == _gleich[0],
+               'Sitzungsanfang wie bei der Spielzeit — sonst passt die '
+               'Waermekarte nicht zur Statistik')
+
+        # ⚠⚠ Die laufende Game.log wird beim naechsten Start umbenannt —
+        # das darf keine zweite Sitzung werden.
+        umbenannt = os.path.join(ordner, 'Game Build(1) 20 Sep 26 (18 00 00).log')
+        os.replace(a, umbenannt)
+        pruefe(_ps.catch_up([umbenannt]) == 0
+               and len(_ps.load()['sitzungen']) == 1,
+               'eine umbenannte Log ist keine neue Sitzung')
+
+        # ⚠⚠ Log geloescht -> die Zahlen bleiben
+        os.remove(umbenannt)
+        _pz.catch_up([])
+        pruefe(len(_ps.load()['sitzungen']) == 1
+               and os.path.isfile(_ps.path()),
+               'geloeschte Logs nehmen die Statistik nicht mit')
+        pruefe(_ps.path() == _pa269.app_file(_ps.FILE),
+               'die Statistik liegt im Datenordner (zieht mit um, steckt in '
+               'der Sicherung)')
+
+        # Fremder Account zaehlt nicht mit — wie bei den Bauplaenen
+        b = _log('Game Build(2).log', 'Zweitaccount', [
+            _auftrag('18:10:00', 'z1', 'Zweitaccount', 'Complete'),
+            sprung % '18:40:00',
+            '<2026-09-21T20:00:00.000Z> [Notice] <SystemQuit> x'], tag='21')
+        _ps.catch_up([b])
+        _pz_daten = {'format': _pz.FORMAT, 'sitzungen': [
+            {'von': e['von'], 'bis': e['bis']}
+            for e in _ps.load()['sitzungen'].values()]}
+        _pz.save(_pz_daten)
+        s = _ps.summary('Xharig')
+        pruefe(s['auftraege'] == 1 and s['spruenge'] == 2,
+               'der Zweitaccount zaehlt nicht mit (%r)'
+               % {k: s[k] for k in ('auftraege', 'spruenge')})
+        s_alle = _ps.summary('*')
+        pruefe(s_alle['auftraege'] == 2,
+               'mit „alle Accounts" zaehlt er mit')
+
+        # Waermekarte: ueber Stundengrenzen anteilig
+        beginn = _ti269.mktime((2026, 9, 21, 23, 30, 0, 0, 0, -1))
+        karte = _ps._heatmap([(int(beginn), int(beginn) + 3600)])
+        tag = _ti269.localtime(beginn).tm_wday
+        pruefe(karte[tag][23] == 1800 and karte[(tag + 1) % 7][0] == 1800,
+               'eine Sitzung ueber Mitternacht zaehlt anteilig in beide Tage '
+               '(%r / %r)' % (karte[tag][23], karte[(tag + 1) % 7][0]))
+
+        # Export: ohne Spielernamen
+        ziel = os.path.join(ordner, 'export.json')
+        pruefe(_ps.export(ziel, 'Xharig', '3.58.0'), 'der Export wird geschrieben')
+        with open(ziel, encoding='utf-8') as f:
+            text = f.read()
+        pruefe('Xharig' not in text and 'Zweitaccount' not in text
+               and _js269.loads(text).get('sitzungen'),
+               'der Export traegt keinen Spielernamen')
+    finally:
+        if heim_alt is None:
+            os.environ.pop('SC_BP_HOME', None)
+        else:
+            os.environ['SC_BP_HOME'] = heim_alt
+        shutil.rmtree(ordner, ignore_errors=True)
 
 
 def _wurzel():

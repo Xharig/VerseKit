@@ -8,6 +8,26 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.58.0-rc1 - 2026-09-27
+
+> **New: your statistics.** A tab of its own shows how much, how often and
+> when you play — play time, sessions, completed contracts, quantum jumps and
+> a heat map of your playing times. The numbers stay even when the game logs
+> are deleted.
+
+### New
+
+- **Statistics** (under "Info") — play time, sessions with average and
+  longest, completed and failed contracts, quantum jumps and a heat map by
+  weekday and hour. Only what is reliably in the log in every game language
+  is counted, and only your own account
+- **Save statistics** — as a file, without player names
+
+### Improved
+
+- **"Info" can be collapsed again** — "What's new", "Update & About" and
+  "Report a problem" always stay visible
+
 ## v3.57.4 - 2026-09-26
 
 > **Times are right now when exchanging with the Basetool.** The time you got

@@ -122,6 +122,7 @@ def _builders():
         'bestand':     _collection,
         'wasistneu':   _whats_new,
         'patchaenderungen': _patch_changes,
+        'statistik':   _play_stats,
         'ueber':       _about,
         'serverstatus': _server_status,
         'danke':       _thanks,
@@ -17775,3 +17776,183 @@ def _patch_changes(fenster, rahmen):
             _posten_zeigen()
 
     fenster.on_show['patchaenderungen'] = _beim_zeigen
+
+
+# Wie hoch eine Zeile der Wärmekarte ist — und wie viel Platz die
+# Wochentage links brauchen. Die Breite der Zellen rechnet sich aus der Seite.
+STATS_CELL_HEIGHT = 22
+STATS_DAY_WIDTH = 34
+
+
+def _stats_count(value):
+    """Ganze Zahl mit Tausenderpunkt (deutsch) bzw. -komma (englisch)."""
+    from .language import current
+    text = '{:,}'.format(int(value or 0))
+    return text.replace(',', '.') if current() == 'de' else text
+
+
+def _play_stats(fenster, rahmen):
+    """Statistik: wie viel, wie oft, wann gespielt wird — aus den eigenen Logs.
+
+    ⚠ **Erst zeigen, dann nachlesen.** Beim Öffnen steht sofort der gespeicherte
+    Stand aus `statistik.json` da; nur die laufende `Game.log` wird im
+    Hintergrund nachgelesen. Die alten Protokolle hat `mission_log.scan_backlog`
+    beim Start schon erledigt — hier noch einmal alle zu prüfen, hieße bei
+    jedem Öffnen 180 Dateigrößen abfragen, für nichts.
+
+    ⚠ Eine Zahl, die nicht aus dem Log belegt ist, steht hier nicht. Deshalb
+    keine Tode und keine Verletzungen — siehe `play_stats`.
+    """
+    from . import play_stats, playtime, logsource
+
+    _heading(fenster, rahmen, t('hf_statistik'), t('s_sx_lead'))
+    innen = _scroll_area(rahmen)
+    # ⚠ Der Speichern-Knopf kommt ÜBER die Zahlen — siehe `_server_status`:
+    # Unter der Wärmekarte läge er außerhalb des Bildes, und niemand rollt
+    # nach einem Knopf. Gepackt wird er deshalb vor dem Behälter (unten).
+    behaelter = tk.Frame(innen, bg=BG)
+
+    def _kachel(gitter, spalte, zeile, titel, wert, unter):
+        """Eine Kennzahl. Alle vier gleich gebaut, alle gleich breit."""
+        from .main_window import round_frame
+        karte = round_frame(gitter, SURFACE, LINE, radius=8, base_color=BG)
+        karte.holder.grid(row=zeile, column=spalte, sticky='nsew',
+                          padx=(0 if spalte == 0 else 5, 5 if spalte == 0
+                                else 0), pady=5)
+        tk.Label(karte, text=titel, bg=SURFACE, fg=SUB, font=fenster.f_small,
+                 anchor='w').pack(fill='x', padx=16, pady=(12, 0))
+        tk.Label(karte, text=wert, bg=SURFACE, fg=ACCENT, font=fenster.f_title,
+                 anchor='w').pack(fill='x', padx=16)
+        tk.Label(karte, text=unter, bg=SURFACE, fg=SUB, font=fenster.f_small,
+                 anchor='w').pack(fill='x', padx=16, pady=(0, 12))
+
+    def _waermekarte(eltern, karte_werte):
+        """Wochentag × Stunde, je heller desto mehr Spielzeit."""
+        tage = t('s_sx_tage').split(',')
+        # ⚠ Die Höhe der Stundenzeile aus der Schrift, nicht geschätzt: Mit
+        # festen 22 px war die Beschriftung unten im ersten Bild angeschnitten.
+        hoehe = 7 * STATS_CELL_HEIGHT + 4 \
+            + fenster.f_small.metrics('linespace') + 4
+        leinwand = tk.Canvas(eltern, bg=BG, highlightthickness=0,
+                             height=hoehe)
+        leinwand.pack(fill='x', pady=(4, 0))
+        hoechst = max((max(z) for z in karte_werte), default=0) or 1
+
+        def farbe(anteil):
+            # ⚠ Wurzel statt linear: Sonst ist alles außer den zwei, drei
+            # stärksten Stunden fast gleich dunkel, und die Karte sagt nichts.
+            anteil = anteil ** 0.5
+            von, bis = (0x1b, 0x22, 0x30), (0x9c, 0xe4, 0x30)
+            teile = [int(a + (b - a) * anteil) for a, b in zip(von, bis)]
+            return '#%02x%02x%02x' % tuple(teile)
+
+        def zeichnen(_e=None):
+            leinwand.delete('all')
+            # ⚠⚠ Die Spalte der Wochentage wird aus dem LÄNGSTEN Namen
+            # gemessen, bei jedem Zeichnen neu: Mit festen 34 px ragten „Mon"
+            # und „Wed" auf Englisch in die Karte hinein. Und gemessen wird
+            # erst hier, nicht beim Bauen — die Schriftbreite steht erst fest,
+            # wenn das Fenster da ist (Falle 1 der Projektregeln).
+            spalte = max([STATS_DAY_WIDTH] + [fenster.f_small.measure(n) + 10
+                                              for n in tage])
+            breite = max(leinwand.winfo_width(), spalte + 24 * 8)
+            zelle = (breite - spalte) / 24.0
+            for tag, zeile in enumerate(karte_werte):
+                y = tag * STATS_CELL_HEIGHT
+                leinwand.create_text(0, y + STATS_CELL_HEIGHT / 2, anchor='w',
+                                     text=tage[tag] if tag < len(tage) else '',
+                                     fill=SUB, font=fenster.f_small)
+                for stunde, sekunden in enumerate(zeile):
+                    x = spalte + stunde * zelle
+                    leinwand.create_rectangle(
+                        x + 1, y + 1, x + zelle - 1, y + STATS_CELL_HEIGHT - 1,
+                        width=0,
+                        fill=farbe(sekunden / hoechst) if sekunden else LINE)
+            for stunde in (0, 6, 12, 18):
+                leinwand.create_text(spalte + stunde * zelle,
+                                     7 * STATS_CELL_HEIGHT + 4, anchor='nw',
+                                     text='%02d' % stunde, fill=SUB,
+                                     font=fenster.f_small)
+
+        leinwand.bind('<Configure>', zeichnen)
+        zeichnen()
+
+    def zeigen():
+        for kind in behaelter.winfo_children():
+            kind.destroy()
+        try:
+            daten = play_stats.summary(logsource.own_account())
+        except Exception as ausnahme:
+            errors.record('pages.statistik', ausnahme)
+            _body_text(behaelter, t('s_sx_leer'), fenster.f_small, pady=(4, 8))
+            return
+        if not daten['spielzeit']:
+            _body_text(behaelter, t('s_sx_leer'), fenster.f_small, pady=(4, 8))
+            return
+
+        gitter = tk.Frame(behaelter, bg=BG)
+        gitter.pack(fill='x')
+        gitter.columnconfigure(0, weight=1, uniform='kachel')
+        gitter.columnconfigure(1, weight=1, uniform='kachel')
+        seit = ''
+        if daten['seit']:
+            from .translation import _day
+            seit = t('s_sx_seit') % _day(time.strftime(
+                '%Y-%m-%d', time.localtime(daten['seit'])))
+        _kachel(gitter, 0, 0, t('s_sx_spielzeit'),
+                playtime.as_text(daten['spielzeit']), seit)
+        _kachel(gitter, 1, 0, t('s_sx_sitzungen'),
+                _stats_count(daten['sitzungen']),
+                t('s_sx_schnitt') % (playtime.as_text(daten['schnitt']),
+                                     playtime.as_text(daten['laengste'])))
+        _kachel(gitter, 0, 1, t('s_sx_auftraege'),
+                _stats_count(daten['auftraege']),
+                t('s_sx_fehl') % _stats_count(daten['fehlgeschlagen']))
+        _kachel(gitter, 1, 1, t('s_sx_spruenge'),
+                _stats_count(daten['spruenge']),
+                t('s_sx_je') % _stats_count(
+                    round(daten['spruenge'] / daten['erfasst'])
+                    if daten['erfasst'] else 0))
+
+        tk.Label(behaelter, text=t('s_sx_wann'), bg=BG, fg=FG,
+                 font=fenster.f_title, anchor='w').pack(fill='x', pady=(20, 6))
+        _waermekarte(behaelter, daten['waermekarte'])
+        _body_text(behaelter, t('s_sx_hinweis'), fenster.f_small,
+                   pady=(16, 10))
+
+    def exportieren():
+        from . import file_picker, export
+        ziel = file_picker.save_file(
+            t('s_sx_export'),
+            suggestion='versekit-statistik-%s.json' % time.strftime('%Y-%m-%d'),
+            extension='.json', start=export.archive_folder())
+        if not ziel:
+            return
+        if play_stats.export(ziel, logsource.own_account(),
+                             getattr(fenster, 'version', '') or ''):
+            fenster.say(t('s_sx_exportiert') % os.path.basename(ziel))
+        else:
+            fenster.say(t('s_sx_export_fehler'))
+
+    def nachlesen():
+        """Nur die laufende Game.log — die übrigen sind beim Start gelesen."""
+        def arbeit():
+            try:
+                spiel = paths.game_folder()
+                laufend = os.path.join(spiel, 'Game.log') if spiel else ''
+                if laufend and os.path.isfile(laufend):
+                    play_stats.catch_up([laufend])
+            except Exception as ausnahme:
+                errors.record('pages.statistik.nachlesen', ausnahme)
+            try:
+                fenster.root.after(0, lambda: behaelter.winfo_exists()
+                                   and zeigen())
+            except (RuntimeError, tk.TclError):
+                pass            # Fenster ist weg — dann gibt es nichts zu zeigen
+        threading.Thread(target=arbeit, daemon=True).start()
+
+    _button(fenster, innen, t('s_sx_export'), exportieren).pack(
+        anchor='w', pady=(0, 10))
+    behaelter.pack(fill='x', pady=(0, 20))
+    zeigen()
+    fenster.on_show['statistik'] = nachlesen

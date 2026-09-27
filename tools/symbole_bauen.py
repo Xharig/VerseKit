@@ -170,6 +170,10 @@ KNOPF_SYMBOLE = {
     'ziehen_ur':    'arrow-down-right',
     # --- Seitenleiste und Titelknöpfe des großen Fensters ---
     'fortschritt':  'chart-column',
+    # ⚠ Nicht `chart-column` noch einmal: Zwei Reiter mit demselben Bild sind
+    # in der Leiste nicht auseinanderzuhalten. Linie über Säulen heißt
+    # „Verlauf", und genau das zeigt die Statistik.
+    'statistik':    'chart-no-axes-combined',
     'anzeige':      'monitor',
     'auftragstexte': 'message-square-text',
     'bestand':      'package',
