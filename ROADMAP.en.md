@@ -74,6 +74,8 @@ Four things are deliberate and will stay that way:
 | ✅ | **Six colour schemes** with preview — original, KRT (orange), Ice, Nebula, Ember, High contrast — and the **interface size** steplessly |
 | ✅ | **Settings re-sorted**, **modules** can be hidden, **start programs** with the game, the **user.cfg** visible and editable |
 | ✅ | **The overlay never steals focus from the game** — not even when the invisible mouse pointer is over it |
+| ✅ | **Translation per channel**: which text file Star Citizen reads — set separately for LIVE, PTU and TECH-PREVIEW, with the blueprint details on your main install |
+| ✅ | **Seven languages**: German, French, Italian, Spanish, Portuguese, Turkish and English — plus your **own URL** if you want to use a different translation |
 | ✅ | **Wishlist**: ships you are aiming for — with price, location and a loadout you can plan before you own the ship |
 | ✅ | **Still missing**: the bill across all ships — buy or build per slot, with grade and class on every part, total and shopping route; tick off what you fitted |
 | ✅ | **What to farm**: your stock weighed against everything you want to build — across all items at once, not recipe by recipe |

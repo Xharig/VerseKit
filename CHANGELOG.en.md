@@ -8,7 +8,7 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
-## v3.59.0 - 2026-09-27
+## v3.59.0 - 2026-09-28
 
 > **Your language, your channel.** A new “Translation” tab sets the game's
 > text file per channel — LIVE with blueprint details, PTU & co. with their

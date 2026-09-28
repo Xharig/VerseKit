@@ -79,6 +79,8 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Sechs Farbschemata** mit Vorschau — Original, KRT (Orange), Eis, Nebel, Glut, Hoher Kontrast — und die **Größe der Oberfläche** stufenlos |
 | ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar |
 | ✅ | **Das Overlay nimmt dem Spiel nie den Fokus** — auch nicht, wenn der unsichtbare Mauszeiger darüber steht |
+| ✅ | **Übersetzung je Kanal**: welche Textdatei Star Citizen liest — für LIVE, PTU und TECH-PREVIEW getrennt einstellbar, die Hauptinstallation dazu mit den Bauplan-Angaben |
+| ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst |
 
 ## Woran gearbeitet wird
 

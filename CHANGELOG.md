@@ -8,7 +8,7 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
-## v3.59.0 - 2026-09-27
+## v3.59.0 - 2026-09-28
 
 > **Deine Sprache, dein Kanal.** Ein neuer Reiter „Übersetzung" stellt die
 > Textdatei des Spiels je Kanal ein — LIVE mit Bauplan-Angaben, PTU & Co.
