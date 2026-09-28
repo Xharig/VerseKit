@@ -8,6 +8,12 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.61.1 - 2026-09-28
+
+> Two fixes for the Basetool sync: your material storage now arrives in the
+> Basetool in full, even with the same material in several qualities. And the
+> Basetool page stays visible when you click.
+
 ### Fixed
 
 - **Basetool: storage only partly arrived** — materials the Basetool treats as

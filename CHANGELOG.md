@@ -8,6 +8,12 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.61.1 - 2026-09-28
+
+> Zwei Nachbesserungen am Basetool-Abgleich: Das Rohstofflager kommt jetzt
+> vollständig im Basetool an, auch wenn du dasselbe Material in mehreren
+> Qualitäten hast. Und die Basetool-Seite bleibt beim Klicken sichtbar.
+
 ### Behoben
 
 - **Basetool: Lager kam nur teilweise an** — Rohstoffe, die das Basetool als
