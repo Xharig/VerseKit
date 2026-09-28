@@ -309,7 +309,12 @@ TEXTS = {
 
     # Die Einstellungs-Karten im Assistenten. Die Namen der Einstellungen sind
     # dieselben wie auf den Seiten — nur die Hinweise sind hier kürzer.
-    'schritt_anzeige':   ('Anzeige', 'Display'),
+    # ⚠ **„Darstellung", wie die Einstellungsseite** (28.09.2026). Der Schritt
+    # hieß „Anzeige", die Seite dahinter „Darstellung" — zwei Namen für
+    # dieselbe Sache, und wer in der Einrichtung etwas gesehen hat, sucht es
+    # später unter dem falschen Wort. Der Schlüssel bleibt `schritt_anzeige`:
+    # Er steht nur im Code, und ihn umzubenennen brächte nichts als Risiko.
+    'schritt_anzeige':   ('Darstellung', 'Appearance'),
     'schritt_start':     ('Programmstart', 'Startup'),
     'schritt_angaben':   ('Angaben im Spiel', 'Details in the game'),
     'as_spaeter':        ('Alles hier lässt sich später unter Einstellungen ändern.',
@@ -385,10 +390,21 @@ TEXTS = {
                           'Bauplan-Liste.',
                           'The gear in the title bar opens the main window at '
                           'any time — the blueprint list is on the left.'),
-    'tipp_erneut':       ('Diese Einrichtung kannst du jederzeit wiederholen — '
-                          'du musst dich durch keine Menüs klicken.',
-                          'You can run this setup again at any time — no need to '
-                          'dig through menus.'),
+    # ⚠⚠ **Hier stand „du musst dich durch keine Menüs klicken"** — und das war
+    # schlicht falsch (28.09.2026). Um die Einrichtung zu wiederholen, muss man
+    # sehr wohl klicken: oben in der Titelleiste auf „Einrichtung starten".
+    # Ein Versprechen, das das Werkzeug nicht hält, ist schlimmer als gar
+    # keines — es lässt den Nutzer suchen, was es nicht gibt. Jetzt steht
+    # stattdessen da, **wo** der Knopf ist.
+    'tipp_erneut':       ('Diese Einrichtung kannst du jederzeit wiederholen: '
+                          'oben in der Titelleiste steht „Einrichtung '
+                          'starten". Hier stehen nur die wichtigsten '
+                          'Einstellungen — alles Weitere findest du im großen '
+                          'Fenster unter „Einstellungen".',
+                          'You can run this setup again at any time: "Run '
+                          'setup" is up in the title bar. Only the essentials '
+                          'are here — everything else lives in the main window '
+                          'under "Settings".'),
 
     # -- Neue Versionen --
     'was_ist_neu':       ('Was ist neu', 'What\'s new'),

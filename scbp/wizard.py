@@ -140,6 +140,7 @@ class Wizard:
 
         fuss = tk.Frame(self.root, bg=BAR)
         fuss.pack(fill='x', side='bottom')
+        self.fuss = fuss            # `_fit_window` braucht seine Wunschhöhe
         self.zurueck = tk.Label(fuss, text=t('zurueck'), bg=BAR, fg=SUB,
                                 font=font(10), cursor='hand2', padx=16, pady=13)
         self.zurueck.pack(side='left')
@@ -204,6 +205,67 @@ class Wizard:
          'lesen': self._step_read, 'anzeige': self._step_display,
          'start': self._step_startup, 'angaben': self._step_details,
          'texte': self._step_texts, 'fertig': self._step_done}[self._current()]()
+        self._fit_window()
+
+    # ------------------------------------------------------------ Größe
+    # Kleiner wird das Fenster nie — darunter wirkt es zusammengedrückt, und
+    # die kurzen Schritte (Sprache, Fertig) sollen nicht winzig aufspringen.
+    MIN_SIZE = (640, 600)
+
+    def _fit_window(self):
+        """Das Fenster auf den Schritt einstellen, der gerade gezeichnet wurde.
+
+        ⚠⚠ **Feste 640 × 600 reichen nicht mehr** (28.09.2026). Der Schritt
+        „Bauplan-Angaben" zeigt seit dieser Fassung vierzehn Übersetzungen und
+        darunter das Feld für die eigene Adresse — das Feld lag **unterhalb des
+        Fensterrands**, und man kam nur daran, indem man das Fenster größer
+        zog. Gemeldet mit dem einzig richtigen Maßstab: *„das findet niemand und
+        wird denken, es sei kaputt, und holt sich ein anderes Tool, was nicht
+        kaputt ist."*
+
+        Ein Assistent, bei dem man am Fensterrahmen ziehen muss, um an ein
+        Eingabefeld zu kommen, ist kaputt — auch wenn jede einzelne Zeile
+        funktioniert.
+
+        Deshalb wird nach jedem Zeichnen **gemessen**, nicht geraten: Kopf, Fuß
+        und der Platzbedarf der Bühne ergeben die Höhe. So wächst das Fenster
+        mit jedem künftigen Schritt von selbst mit, und niemand muss daran
+        denken.
+
+        ⚠ Nach oben begrenzt der Bildschirm — ein Fenster, das darüber
+        hinausragt, hat denselben Fehler nur andersherum. Passt es dann immer
+        noch nicht, bleibt es beim Bildschirmmaß; das ist selten und immer noch
+        besser als ein abgeschnittener Rand ohne Grenze.
+
+        ⚠ `minsize()` zieht mit — Tk setzt eine kleinere `geometry()` sonst
+        schlicht nicht durch. Dieselbe Falle hat das Overlay schon einmal
+        außerhalb des Bildschirms landen lassen.
+        """
+        try:
+            self.root.update_idletasks()
+            breite = max(self.MIN_SIZE[0],
+                         self.buehne.winfo_reqwidth(),
+                         self.kopf.winfo_reqwidth())
+            # ⚠⚠ **Nur Wunschmaße addieren, nie mit der aktuellen Größe
+            # mischen.** Der erste Anlauf rechnete die Fußhöhe als
+            # `root.winfo_height() - buehne - kopf` — und die Bühne trug beim
+            # Messen noch die Größe des **vorigen** Schritts. Nach einem hohen
+            # Schritt blieb das Fenster hoch, und „Fertig" stand in einer
+            # halbleeren Fläche. Drei Wunschmaße, mehr braucht es nicht.
+            hoehe = max(self.MIN_SIZE[1],
+                        self.kopf.winfo_reqheight()
+                        + self.buehne.winfo_reqheight()
+                        + self.fuss.winfo_reqheight())
+            # Platz für Fensterrahmen und Leisten lassen, nicht bis an die Kante.
+            breite = min(breite, self.root.winfo_screenwidth() - 80)
+            hoehe = min(hoehe, self.root.winfo_screenheight() - 120)
+            if (breite, hoehe) != (self.root.winfo_width(),
+                                   self.root.winfo_height()):
+                self.root.minsize(min(breite, self.MIN_SIZE[0]),
+                                  min(hoehe, self.MIN_SIZE[1]))
+                self.root.geometry('%dx%d' % (breite, hoehe))
+        except tk.TclError:
+            pass                    # Fenster schon zu
 
     # ------------------------------------------------- Einstellungszeilen
     def _row(self, parent, title, hint, below=False):
@@ -605,6 +667,12 @@ class Wizard:
         # in einer Spalte sprengen das Fenster des Assistenten.
         from . import translation
         from .pages import _flag
+        # ⚠⚠ **Die Wahl muss man sehen** (28.09.2026): *„beim Anklicken wird das
+        # Ausgewählte nicht hervorgehoben, so weiß niemand, was er gewählt
+        # hat."* Der Reiter „Übersetzung" hebt die aktive Quelle seit jeher
+        # hervor — hier fiel es erst auf, als aus drei Knöpfen vierzehn wurden.
+        # Bei dreien ahnt man noch, was man angeklickt hat; bei vierzehn nicht.
+        self._quellknoepfe = {}
         erste = True
         for gruppe in translation.grouped_sources():
             reihe = tk.Frame(f, bg=BG)
@@ -621,6 +689,10 @@ class Wizard:
                 k.image = flagge    # sonst räumt Python das Bild weg
                 k.pack(side='left', padx=(0, 6))
                 k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
+                self._quellknoepfe[quelle] = k
+        # Was schon gewählt ist, steht beim Öffnen hervorgehoben da — wer den
+        # Assistenten ein zweites Mal durchläuft, sieht seine eigene Wahl.
+        self._quelle_hervorheben(paths.setting('inj_quelle') or '')
 
         # ⭐ **Die eigene Adresse gehört auch hierher** (28.09.2026). Sie gibt es
         # seit v3.59.0 unter „Übersetzung" — im Assistenten fehlte sie, und wer
@@ -638,12 +710,18 @@ class Wizard:
                 eigene_kasten.pack_forget()
             else:
                 eigene_kasten.pack(fill='x', pady=(8, 0))
+                self._quelle_hervorheben(translation.CUSTOM)
+            # ⚠ Das Fenster muss **mitwachsen**: Klappt der Kasten auf, liegt
+            # das Eingabefeld sonst unter dem Fensterrand — genau der Fall, für
+            # den es `_fit_window` gibt.
+            self._fit_window()
 
         eigene_knopf = tk.Label(f, text='  %s  ' % t('s_sp_q_eigen'),
                                 bg=FLAECHE, fg=FG, font=font(11),
                                 cursor='hand2', padx=10, pady=8)
         eigene_knopf.pack(anchor='w', pady=(10, 0))
         eigene_knopf.bind('<Button-1>', eigene_zeigen)
+        self._quellknoepfe[translation.CUSTOM] = eigene_knopf
 
         from .main_window import round_entry
         self._paragraph(eigene_kasten, t('s_tq_url_h'), SUB, 9)
@@ -684,6 +762,7 @@ class Wizard:
                           padx=10, pady=8)
         nichts.pack(anchor='w', pady=(14, 0))
         nichts.bind('<Button-1>', lambda e: self._skip_texts())
+        self._quellknoepfe[''] = nichts
 
         self._paragraph(f, t('inj_fremd'), SUB, 9, oben=16)
         self.inj_meldung.pack(fill='x', pady=(14, 0))
@@ -697,10 +776,26 @@ class Wizard:
         gemeldet hat. Hier ist das Nichtstun die Wahrheit, und die bleibt
         unverändert stehen.
         """
+        self._quelle_hervorheben('')
         self.inj_meldung.configure(text=t('inj_nichts_ok'), fg=ACCENT)
+
+    def _quelle_hervorheben(self, quelle):
+        """Die gewählte Textquelle sichtbar machen — wie im Reiter.
+
+        ⚠ Auch die **eigene Adresse** und „Nicht anfassen" gehören dazu: Sie
+        sind Wahlmöglichkeiten wie die anderen, nur ohne Flagge.
+        """
+        for name, knopf in (getattr(self, '_quellknoepfe', None) or {}).items():
+            an = name == quelle
+            try:
+                knopf.configure(bg=ACCENT if an else FLAECHE,
+                                fg=BG if an else FG)
+            except tk.TclError:
+                pass                # Seite schon abgebaut
 
     def _fetch_texts(self, quelle):
         """Herunterladen, einsetzen, Bauplan-Angaben eintragen — in einem Zug."""
+        self._quelle_hervorheben(quelle)
         from . import injection, gametext, translation
         # ⚠ Die Wahl **vor** dem Einrichten merken — genau wie auf der
         # Einstellungsseite. Fehlte das hier, holte der Assistent zwar die Texte,

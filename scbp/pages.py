@@ -2012,19 +2012,29 @@ def _scheme_row(window, inner):
     restart.pack(fill='x')
 
 
-def _scheme_cards(window, parent, active, action):
+def _scheme_cards(window, parent, active, action, compact=False):
     """Je Schema eine kleine Vorschau in SEINEN Farben (Vorbild SCDL).
 
     Gezeichnet werden Kopfleiste, zwei Zeilen und ein Akzentbalken — keine
     Symbole, also keine Ausnahme von der Regel „nichts selbst malen": Es ist
     eine Abbildung des Fensters, kein Bedienzeichen. Der Haken der gewählten
-    Karte kommt aus dem Symbolsatz."""
+    Karte kommt aus dem Symbolsatz.
+
+    ⭐ **`compact` für den Einrichtungsassistenten** (28.09.2026). Dort standen
+    die sechs Schemata zuerst als reine Textknöpfe in einer Reihe — „Hoher
+    Kontrast" wurde abgeschnitten, und vor allem: *„niemand weiß, was er wählen
+    soll, wenn er nicht sieht, wie es aussieht."* Genau dafür gibt es diese
+    Vorschau; sie gehört an beide Stellen, nicht nur in die Einstellungen.
+
+    Kompakt heißt kleiner und alle sechs in **einer** Reihe: Das Fenster des
+    Assistenten ist 640 px breit, und zwei Reihen à 78 px hätten die Seite
+    über den Rand geschoben."""
     row = tk.Frame(parent, bg=BG)
     cards = {}
-    width, height = 170, 78
     # ⚠ Drei je Reihe, nicht alle nebeneinander: Seit rc8 gibt es sechs
     # Schemata — nebeneinander wären das über 1000 px, mehr als die Seite hat.
-    per_row = 3
+    width, height = (88, 46) if compact else (170, 78)
+    per_row = len(theme.SCHEMES) if compact else 3
     for index, (name, scheme) in enumerate(theme.SCHEMES.items()):
         box = tk.Frame(row, bg=BG)
         box.grid(row=index // per_row, column=index % per_row, sticky='w',
@@ -2032,20 +2042,29 @@ def _scheme_cards(window, parent, active, action):
         c = tk.Canvas(box, width=width, height=height, bg=BG,
                       highlightthickness=0, bd=0, cursor='hand2')
         c.pack()
+        # ⚠ Alle Innenmaße als Bruchteil der Höhe — sonst zeichnet die
+        # kompakte Karte dieselben Balken wie die große und läuft über.
+        f = height / 78.0
+
+        def _y(wert, _f=f):
+            return int(round(wert * _f))
+
         c.create_rectangle(2, 2, width - 2, height - 2, fill=scheme['bg'],
                            outline=scheme['line'], width=2, tags='rand')
-        c.create_rectangle(4, 4, width - 4, 18, fill=scheme['bar'],
+        c.create_rectangle(4, 4, width - 4, _y(18), fill=scheme['bar'],
                            outline='')
-        c.create_oval(10, 8, 16, 14, fill=scheme['accent'], outline='')
-        c.create_rectangle(12, 28, width - 12, 34, fill=scheme['surface'],
-                           outline='')
-        c.create_rectangle(12, 40, width - 50, 46, fill=scheme['surface'],
-                           outline='')
-        c.create_rectangle(12, 56, width - 30, 64, fill=scheme['accent'],
-                           outline='')
+        c.create_oval(_y(10), _y(8), _y(16), _y(14), fill=scheme['accent'],
+                      outline='')
+        c.create_rectangle(_y(12), _y(28), width - _y(12), _y(34),
+                           fill=scheme['surface'], outline='')
+        c.create_rectangle(_y(12), _y(40), width - _y(50) if not compact
+                           else width - _y(34), _y(46),
+                           fill=scheme['surface'], outline='')
+        c.create_rectangle(_y(12), _y(56), width - _y(30), _y(64),
+                           fill=scheme['accent'], outline='')
         if scheme['square']:
-            c.create_line(6, 30, 6, 24, 12, 24, fill=scheme['accent'],
-                          width=2)
+            c.create_line(6, _y(30), 6, _y(24), _y(12), _y(24),
+                          fill=scheme['accent'], width=2)
         label_row = tk.Frame(box, bg=BG)
         label_row.pack(pady=(4, 0))
         mark = icons.line(label_row, 'haken', color=icons.GREEN,

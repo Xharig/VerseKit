@@ -28525,6 +28525,45 @@ def _pruefung_288():
                '%s nennt keine Quelle beim Namen (sonst: %s)'
                % (_fn288, _fest288 or '—'))
 
+    from scbp import language as _la288
+
+    # ⚠⚠ **Kein Versprechen, das das Werkzeug nicht hält** (28.09.2026).
+    # Der Schlussschritt sagte „du musst dich durch keine Menüs klicken" —
+    # und um die Einrichtung zu wiederholen, muss man genau das: oben in der
+    # Titelleiste auf „Einrichtung starten". Wer einem Satz glaubt, der nicht
+    # stimmt, sucht danach etwas, das es nicht gibt.
+    #
+    # Geprüft wird die Eigenschaft: Wo der Hinweis auf die Wiederholung steht,
+    # muss auch stehen, WO der Knopf ist — sein Name kommt aus derselben
+    # Textsammlung und kann nicht auseinanderlaufen.
+    _knopf288 = _la288.TEXTS['hf_einrichtung']
+    for _i288, _sprache288 in enumerate(('deutsch', 'englisch')):
+        _satz288 = _la288.TEXTS['tipp_erneut'][_i288]
+        pruefe(_knopf288[_i288] in _satz288,
+               'der Hinweis auf die Wiederholung nennt den Knopf „%s" (%s)'
+               % (_knopf288[_i288], _sprache288))
+        pruefe('keine Menüs' not in _satz288
+               and 'no need to dig' not in _satz288,
+               'und verspricht nicht, dass es ohne Klicken geht (%s)'
+               % _sprache288)
+        # ⭐ Und er sagt, dass hier NICHT alles steht — der Assistent führt
+        # bewusst nur die wichtigsten Einstellungen. Wer das nicht weiß, sucht
+        # den Rest später vergebens im Assistenten.
+        _hinweis288 = _la288.TEXTS['hf_gruppe_einst'][_i288]
+        pruefe(_hinweis288 in _satz288,
+               'und verweist für alles Weitere auf „%s" (%s)'
+               % (_hinweis288, _sprache288))
+
+    # ⭐ Und die Namen: Ein Schritt im Assistenten heißt wie die Seite, auf der
+    # dasselbe später steht. Der Schritt hieß „Anzeige", die Seite
+    # „Darstellung" — wer in der Einrichtung etwas gesehen hat, sucht es danach
+    # unter dem falschen Wort (gemeldet 28.09.2026).
+    for _schritt288, _seite288 in (('schritt_anzeige', 'hf_darstellung'),):
+        pruefe(_la288.TEXTS[_schritt288] == _la288.TEXTS[_seite288],
+               'der Schritt „%s" heißt wie die Seite dahinter (%r / %r)'
+               % (_la288.TEXTS[_schritt288][0], _la288.TEXTS[_schritt288],
+                  _la288.TEXTS[_seite288]))
+
 
 def _wurzel():
     """Ein unsichtbares Fenster, nur um die Bildschirmgröße erfragen zu können."""

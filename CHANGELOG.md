@@ -48,6 +48,20 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Die Größenauswahl in der Einrichtung** hieß noch „Klein / Normal / Groß /
   Sehr groß", während die Einstellungen längst „Auto / Full HD / WQHD / UHD"
   anbieten — zwei Namen für dieselbe Sache
+- **Die Einrichtung passt sich jetzt ihrem Inhalt an.** Sie war auf eine feste
+  Größe eingestellt; das Feld für die eigene Adresse lag dadurch unterhalb des
+  Fensterrands, und man kam nur daran, indem man das Fenster größer zog
+- **Die Farbschemata zeigen in der Einrichtung ihre Vorschau** — vorher nur
+  Namen, von denen einer auch noch abgeschnitten war. Niemand kann wählen, was
+  er nicht sieht
+- **Die gewählte Textquelle wird hervorgehoben.** Bei drei Knöpfen ahnte man
+  noch, was man angeklickt hatte, bei vierzehn nicht mehr
+- Der Schritt hieß **„Anzeige"**, die Einstellungsseite dahinter
+  **„Darstellung"** — jetzt beides gleich
+- **Ein Versprechen zurückgenommen:** Zum Schluss stand „du musst dich durch
+  keine Menüs klicken". Das stimmte nicht — jetzt steht dort, wo der Knopf für
+  die Wiederholung ist und dass in der Einrichtung nur die wichtigsten
+  Einstellungen stehen
 - Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
   — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
   einmal neu geholt
