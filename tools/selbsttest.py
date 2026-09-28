@@ -21495,8 +21495,10 @@ def main():
                   'tray_version', 'tray_beenden'):
         pruefe("'%s'" % _k212 in _blk212,
                'das Menue neben der Uhr hat den Punkt %s' % _k212)
-    pruefe('root.after(0' in _blk212,
-           'jeder Punkt ruft ueber `after` in den Tk-Faden zurueck')
+    # ⚠ Seit 28.09.2026 über `_im_tk` statt `root.after(0, …)` — `after` aus
+    # einem fremden Faden warf `main thread is not in main loop` (Prüfung 292).
+    pruefe('self._im_tk(' in _blk212 and 'root.after(0' not in _blk212,
+           'jeder Punkt ruft ueber `_im_tk` in den Tk-Faden zurueck')
 
     print('\n213. Der Hangar-Import liest die Hangar Extension UND den XPLORer')
     # ⚠ Seit 15.09.2026 die empfohlene Erweiterung: AlyxOnes Fork des XPLORer
@@ -21752,9 +21754,9 @@ def main():
            and 'fenster.deiconify()' in _blk215
            and "errors.trail('Ablagemen" in _blk215,
            'Zeiger von Windows, erst platzieren, dann zeigen, Lage in der Spur')
-    pruefe('beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen)'
+    pruefe('beim_menue=lambda: self._im_tk(self._ablage_menue_zeigen)'
            in _q215w,
-           'das Symbol ruft das Tk-Menue ueber `after` in den Tk-Faden')
+           'das Symbol ruft das Tk-Menue ueber `_im_tk` in den Tk-Faden')
 
     print('\n216. Das CSV der Hangar Extension bringt die Versicherungsdauer')
     # Der Komplett-Export der Erweiterung: eine Zeile je Pledge-Inhalt, die
@@ -22413,6 +22415,11 @@ def main():
             _save_geo = lambda self: None
             def _auto_uebergeben(self, version):
                 _merk223['uebergeben'].append(version)
+
+            # Wie `after(0, …)` oben: sofort ausführen. Im Programm geht es
+            # über die Schlange in den Tk-Faden (siehe Prüfung 292).
+            def _im_tk(self, tat):
+                tat()
         _Ov223._auto_update = _sw223.Overlay._auto_update
         _up223.packaging = lambda: 'exe'
         _up223.matching_asset = lambda rel, kind=None: {'name': 'VerseKit-Setup.exe'}
@@ -22573,6 +22580,9 @@ def main():
 
         def _auto_update(self, neu, erneut=False):
             self.auto.append(neu)
+
+        def _im_tk(self, tat):
+            tat()               # wie `after(0, …)` oben, siehe Prüfung 292
 
     _spiel225 = [True]
     _fragen225 = []
@@ -26037,6 +26047,7 @@ def main():
     _pruefung_289()
     _pruefung_290()
     _pruefung_291()
+    _pruefung_292()
 
     print()
     if fehler:
@@ -29380,6 +29391,54 @@ def _pruefung_291():
     finally:
         if _alt is not None:
             os.environ['SC_BP_SECRETS'] = _alt
+
+
+def _pruefung_292():
+    """292. Kein Nebenfaden im Overlay ruft `after` — Tk nur über `_im_tk`.
+
+    ⚠⚠ Gemeldet am 28.09.2026 im eigenen Fehlerbericht: `RuntimeError: main
+    thread is not in main loop`, alle zehn Minuten. Das Nachsehen nach neuen
+    Versionen lief im Nebenfaden und rief `root.after(0, …)` — immer dann,
+    wenn es eine neue Fassung GEFUNDEN hatte. Update-Hinweis und
+    automatisches Update kamen nie an.
+
+    Geprüft wird per Syntaxbaum: Jede Funktion, die in `sc_bp_watcher.py` als
+    `threading.Thread(target=…)` startet, enthält keinen Aufruf von `.after(`
+    (auch nicht in ihren inneren Funktionen und Lambdas)."""
+    print('\n292. Nebenfäden im Overlay fassen Tk nicht an')
+    import ast as _ast292
+    _quelle = io.open(os.path.join(WURZEL, 'sc_bp_watcher.py'),
+                      encoding='utf-8').read()
+    _baum = _ast292.parse(_quelle)
+    _funde, _ziele = [], 0
+    for _aussen in _ast292.walk(_baum):
+        if not isinstance(_aussen, (_ast292.FunctionDef,
+                                    _ast292.AsyncFunctionDef)):
+            continue
+        _innere = {k.name: k for k in _aussen.body
+                   if isinstance(k, _ast292.FunctionDef)}
+        for _aufruf in _ast292.walk(_aussen):
+            if not (isinstance(_aufruf, _ast292.Call)
+                    and getattr(_aufruf.func, 'attr', '') == 'Thread'):
+                continue
+            for _kw in _aufruf.keywords:
+                if _kw.arg != 'target' or not isinstance(_kw.value,
+                                                         _ast292.Name):
+                    continue
+                _ziel = _innere.get(_kw.value.id)
+                if _ziel is None:
+                    continue
+                _ziele += 1
+                for _k in _ast292.walk(_ziel):
+                    if (isinstance(_k, _ast292.Call)
+                            and getattr(_k.func, 'attr', '') == 'after'):
+                        _funde.append('%s.%s:%d' % (_aussen.name, _ziel.name,
+                                                    _k.lineno))
+    pruefe(_ziele >= 5,
+           'die Nebenfäden des Overlays sind gefunden (%d)' % _ziele)
+    pruefe(not _funde,
+           'keiner ruft `after` aus dem Nebenfaden (%s)'
+           % (', '.join(_funde) or 'keiner'))
 
 
 if __name__ == '__main__':

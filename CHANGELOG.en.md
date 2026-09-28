@@ -32,33 +32,27 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   for PTU and friends. It says up front what that costs: with no text file,
   Verse-Kit writes **no blueprint details** into the game, because that is
   exactly where they go. Blueprints are still detected and counted
-
 - **The setup assistant offers every translation** — three out of fourteen
-  before. Plus your **own URL**, the **colour scheme** and the question of
-  **which blueprints count**: all things you would otherwise only find by
-  digging through the settings
+  before. Plus your **own URL**, the **colour scheme with a preview** and the
+  question of **which blueprints count**: all things you would otherwise only
+  find by digging through the settings
+- **Setup sizes itself to its content** and highlights the chosen text source
+- The catalogue now also carries the blueprints with no known source — with
+  type, size, grade and manufacturer. It is fetched once on first start
 
 ### Fixed
 
-- The toggle for blueprints with no known source could not be switched in
-  `-rc1`
+- **The update notice and the automatic update sometimes never arrived** — when
+  Verse-Kit found a new version in the background, the check stopped before it
+  could report it
 - **The size choice during setup** still said "Small / Normal / Large / Very
   large", while the settings had long offered "Auto / Full HD / WQHD / UHD" —
   two names for the same thing
-- **Setup now sizes itself to its content.** It had a fixed size, which left
-  the field for your own URL below the window edge — the only way to reach it
-  was to drag the window larger
-- **The colour schemes show their preview during setup** — names only before,
-  and one of them was cut off. Nobody can choose what they cannot see
-- **The chosen text source is highlighted.** With three buttons you could still
-  guess what you had clicked; with fourteen you cannot
 - The step was called **"Display"**, the settings page behind it
   **"Appearance"** — both the same now
 - **A promise withdrawn:** the final step said "no need to dig through menus".
   That was not true — it now says where the button for running setup again is,
   and that setup only covers the essentials
-- The catalogue now also carries the blueprints with no known source — with
-  type, size, grade and manufacturer. It is fetched once on first start
 
 ## v3.59.1 - 2026-09-28
 

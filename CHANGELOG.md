@@ -35,36 +35,30 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   Textdatei trägt Verse-Kit **keine Bauplan-Angaben** ins Spiel ein, weil sie
   genau dort hineingeschrieben werden. Erkannt und gezählt werden die
   Baupläne weiterhin
-
 - **Der Einrichtungsassistent bietet alle Übersetzungen an** — bisher drei von
-  vierzehn. Dazu die **eigene Adresse**, das **Farbschema** und die Frage,
-  **welche Baupläne zählen** sollen: alles Dinge, die man sonst erst findet,
-  wenn man die Einstellungen durchsucht
+  vierzehn. Dazu die **eigene Adresse**, das **Farbschema mit Vorschau** und
+  die Frage, **welche Baupläne zählen** sollen: alles Dinge, die man sonst erst
+  findet, wenn man die Einstellungen durchsucht
+- **Die Einrichtung passt sich ihrem Inhalt an** und hebt die gewählte
+  Textquelle hervor
+- Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
+  — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
+  einmal neu geholt
 
 ### Behoben
 
-- Der Schalter für Baupläne ohne bekannten Weg ließ sich in `-rc1` nicht
-  umlegen
+- **Update-Hinweis und automatisches Update kamen manchmal nicht an** — fand
+  Verse-Kit im Hintergrund eine neue Fassung, brach das Nachsehen ab, bevor es
+  sie melden konnte
 - **Die Größenauswahl in der Einrichtung** hieß noch „Klein / Normal / Groß /
   Sehr groß", während die Einstellungen längst „Auto / Full HD / WQHD / UHD"
   anbieten — zwei Namen für dieselbe Sache
-- **Die Einrichtung passt sich jetzt ihrem Inhalt an.** Sie war auf eine feste
-  Größe eingestellt; das Feld für die eigene Adresse lag dadurch unterhalb des
-  Fensterrands, und man kam nur daran, indem man das Fenster größer zog
-- **Die Farbschemata zeigen in der Einrichtung ihre Vorschau** — vorher nur
-  Namen, von denen einer auch noch abgeschnitten war. Niemand kann wählen, was
-  er nicht sieht
-- **Die gewählte Textquelle wird hervorgehoben.** Bei drei Knöpfen ahnte man
-  noch, was man angeklickt hatte, bei vierzehn nicht mehr
 - Der Schritt hieß **„Anzeige"**, die Einstellungsseite dahinter
   **„Darstellung"** — jetzt beides gleich
 - **Ein Versprechen zurückgenommen:** Zum Schluss stand „du musst dich durch
   keine Menüs klicken". Das stimmte nicht — jetzt steht dort, wo der Knopf für
   die Wiederholung ist und dass in der Einrichtung nur die wichtigsten
   Einstellungen stehen
-- Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
-  — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
-  einmal neu geholt
 
 ## v3.59.1 - 2026-09-28
 

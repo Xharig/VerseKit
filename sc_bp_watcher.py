@@ -61,7 +61,7 @@ try:
 except ImportError:
     winsound = None
 
-__version__ = '3.60.0-rc7'
+__version__ = '3.60.0'
 
 
 def _mitgeliefert(name):
@@ -3595,6 +3595,18 @@ class Overlay:
             old.destroy()
             self.count -= 1
 
+    def _im_tk(self, tat):
+        """Etwas aus einem Nebenfaden im Tk-Faden erledigen lassen.
+
+        ⚠⚠ **Nie `root.after` aus einem Nebenfaden** (gemeldet am 28.09.2026 im
+        eigenen Bericht: `RuntimeError: main thread is not in main loop`, alle
+        zehn Minuten). Genau dort rief das Nachsehen nach neuen Versionen
+        `root.after(0, …)` — und immer, wenn es eine neue Fassung GEFUNDEN
+        hatte, starb der Faden an dieser Zeile. Update-Hinweis und
+        automatisches Update kamen dann nie an. Die Schlange dagegen ist
+        fadenfest, und `_poll_queue` arbeitet sie im Tk-Faden ab."""
+        self.q.put(('tk', tat))
+
     # ---- Queue vom Watcher abarbeiten ----
     def _poll_queue(self):
         try:
@@ -3625,6 +3637,12 @@ class Overlay:
                     self._liste_nachziehen()
                 elif msg[0] == 'catalog':
                     self.add_catalog(msg[1], msg[2], msg[3], msg[4])
+                elif msg[0] == 'tk':
+                    # Ein Auftrag aus einem Nebenfaden — siehe `_im_tk`.
+                    try:
+                        msg[1]()
+                    except Exception as ausnahme:
+                        errors.record('overlay.im_tk', ausnahme)
         except queue.Empty:
             pass
         self._hotkey_nachsehen()
@@ -3721,8 +3739,8 @@ class Overlay:
                 vorher = getattr(self, '_spiel_lief', None)
                 self._spiel_lief = laeuft
                 if vorher and not laeuft:
-                    self.root.after(
-                        0, lambda: self._nach_version_sehen(spielende=True))
+                    self._im_tk(
+                        lambda: self._nach_version_sehen(spielende=True))
                 # Startprogramme (v3.58.0-rc4): „sobald SC läuft" beim Wechsel
                 # auf laufend, „wieder beenden" beim Wechsel auf aus. Auch der
                 # erste Blick zählt — läuft das Spiel schon beim Start von
@@ -3799,8 +3817,8 @@ class Overlay:
             except Exception:
                 return
             if neu:
-                self.root.after(0, lambda: self._version_melden(neu))
-                self.root.after(0, lambda: self._auto_update(neu))
+                self._im_tk(lambda: self._version_melden(neu))
+                self._im_tk(lambda: self._auto_update(neu))
         threading.Thread(target=arbeit, daemon=True).start()
 
     def _auto_update(self, neu, erneut=False):
@@ -3872,7 +3890,7 @@ class Overlay:
                         return
                     uebergeben = True
                     errors.trail('Auto-Update: %s wird eingespielt' % version)
-                    self.root.after(0, lambda: self._auto_uebergeben(version))
+                    self._im_tk(lambda: self._auto_uebergeben(version))
                 finally:
                     if not uebergeben:
                         update_run.release_lock()
@@ -3884,11 +3902,7 @@ class Overlay:
                     # Sofort vormerken, nicht erst im Tk-Faden — sonst schlüpft
                     # ein Takt in die Lücke und startet eine zweite Schleife.
                     self._auto_geplant = True
-                    try:
-                        self.root.after(0, lambda: spaeter(
-                            auto_update.GAME_POLL_S))
-                    except Exception:
-                        pass
+                    self._im_tk(lambda: spaeter(auto_update.GAME_POLL_S))
         threading.Thread(target=arbeit, daemon=True).start()
 
     def _auto_uebergeben(self, version):
@@ -5351,15 +5365,16 @@ class Overlay:
 
         ⚠ Nach dem Vorbild des SC Deutsch Launchers (Wunsch vom 15.09.2026):
         Bis dahin standen dort nur „Fenster zeigen" und „Beenden". Jeder Punkt
-        ruft über `root.after(0, …)` in den Tk-Faden zurück — das Menü läuft im
-        Faden des Symbols, und Tk verträgt keine fremden Fäden.
+        ruft über `_im_tk` in den Tk-Faden zurück — das Menü läuft im Faden
+        des Symbols, und Tk verträgt keine fremden Fäden (auch `root.after`
+        nicht, siehe `_im_tk`).
 
         Die Texte kommen aus `sprache`; das Symbol-Modul kennt sie nicht.
         """
         from scbp.main_window import DISCORD_URL, KOFI_URL
 
         def im_tk(tat, *args):
-            return lambda: self.root.after(0, lambda: tat(*args))
+            return lambda: self._im_tk(lambda: tat(*args))
 
         eintraege = [
             (language.t('tray_zeigen'), im_tk(self.hervorholen)),
@@ -5539,7 +5554,7 @@ class Overlay:
                 errors.record('overlay.uebersetzung_erneuern', ausnahme)
             satz = (language.Phrase('inj_aktiv', n) if ok
                     else language.Phrase('inj_fehler', meldung))
-            self.root.after(0, lambda: self._status_setzen(satz))
+            self._im_tk(lambda: self._status_setzen(satz))
 
         threading.Thread(target=arbeit, daemon=True).start()
 
@@ -5594,10 +5609,10 @@ class Overlay:
             return
         try:
             self._ablage = tray_icon.TrayIcon(
-                beim_zeigen=lambda: self.root.after(0, self.hervorholen),
-                beim_beenden=lambda: self.root.after(0, self._ganz_beenden),
+                beim_zeigen=lambda: self._im_tk(self.hervorholen),
+                beim_beenden=lambda: self._im_tk(self._ganz_beenden),
                 # Das Menü zeichnet der Watcher selbst, in den Markenfarben.
-                beim_menue=lambda: self.root.after(0, self._ablage_menue_zeigen),
+                beim_menue=lambda: self._im_tk(self._ablage_menue_zeigen),
                 # ⚠ Produktname von hier, nicht aus dem Standardwert des
                 # Moduls: `tray_icon` soll nicht von `sprache` abhängen.
                 titel=language.t('hf_titel'))
@@ -5683,9 +5698,8 @@ class Overlay:
         self.signaturwache_starten()
         # Ein zweiter Start soll das vorhandene Fenster hervorholen, statt eine
         # zweite Version zu öffnen. Der Rückruf kommt aus einem eigenen Faden —
-        # deshalb die Arbeit per `after` an Tk übergeben, nicht dort erledigen.
-        overlay.start_watchdog(
-            lambda: self.root.after(0, self.hervorholen))
+        # deshalb die Arbeit über `_im_tk` an Tk übergeben, nicht dort erledigen.
+        overlay.start_watchdog(lambda: self._im_tk(self.hervorholen))
         self.hotkey_anmelden()
         self.root.mainloop()
 
