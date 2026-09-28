@@ -3178,14 +3178,33 @@ def _choose_source(fenster, e, wahl, kennung, danach):
 def _choice_rows(window, parent, entries, active, action, per_row=3):
     """Viele Möglichkeiten als `_choice`, in Reihen zu `per_row` — elf
     Textquellen nebeneinander passten in kein Fenster. Die Reihen teilen sich
-    eine Auswahl: `select(k)` hebt genau einen Knopf über alle Reihen hervor."""
+    eine Auswahl: `select(k)` hebt genau einen Knopf über alle Reihen hervor.
+
+    ⭐ **Ein `None` in der Liste bricht die Reihe um** (28.09.2026). Damit
+    lassen sich Gruppen bilden, die zusammengehören — bei den Textquellen
+    stehen so alle deutschen in der ersten Reihe, die englischen in der
+    zweiten und die übrigen Sprachen danach. Ohne das lief die Reihenfolge
+    stur in Dreierschritten durch, und „Deutsch (Dymerz)" landete neben
+    „Français". Wunsch von Choopa, bestätigt am 28.09.2026.
+
+    Eine Gruppe mit mehr als `per_row` Einträgen wird innerhalb weiter
+    umgebrochen — die Gruppe bleibt trotzdem zusammen.
+    """
     holder = tk.Frame(parent, bg=BG)
     rows = []
-    for start in range(0, len(entries), per_row):
-        row = _choice(window, holder, entries[start:start + per_row], active,
-                      action)
-        row.pack(anchor='w', pady=(0, 6))
-        rows.append(row)
+    gruppen = [[]]
+    for eintrag in entries:
+        if eintrag is None:
+            if gruppen[-1]:
+                gruppen.append([])
+            continue
+        gruppen[-1].append(eintrag)
+    for gruppe in gruppen:
+        for start in range(0, len(gruppe), per_row):
+            row = _choice(window, holder, gruppe[start:start + per_row],
+                          active, action)
+            row.pack(anchor='w', pady=(0, 6))
+            rows.append(row)
 
     def select(key):
         for row in rows:
@@ -3221,14 +3240,48 @@ def _translation_page(window, frame):
             pass
 
     def entries_for(channel):
-        """Welche Quellen es für den Kanal gibt — mit Flagge."""
-        result = []
+        """Welche Quellen es für den Kanal gibt — mit Flagge, nach Sprache
+        gruppiert.
+
+        ⭐ **Erst alle deutschen, dann alle englischen, dann die übrigen**
+        (Wunsch vom 28.09.2026). Vorher lief die Liste in der Reihenfolge des
+        Wörterbuchs durch und wurde stur alle drei Knöpfe umgebrochen — dann
+        stand „Deutsch (Dymerz)" neben „Français", obwohl es neben „Deutsch
+        (rjcncpt)" gehört. Ein `None` trennt die Gruppen (`_choice_rows`).
+
+        ⚠ Die Reihenfolge **innerhalb** einer Gruppe bleibt die aus
+        `SOURCES` — dort steht die gepflegteste Quelle je Sprache vorn.
+        """
+        # Eine Gruppe je Sprache — zwei Übersetzungen derselben Sprache
+        # gehören nebeneinander, nicht auseinandergerissen.
+        nach_sprache = {}
         for key, spec in translation.SOURCES.items():
-            if translation.available(key, channel):
-                result.append((key, translation.display_name(key),
-                               _flag(spec.get('flagge'))
-                               if spec.get('flagge') else None))
-        result.append(('original', t('s_sp_q_or'), _flag('gb')))
+            if not translation.available(key, channel):
+                continue
+            eintrag = (key, translation.display_name(key),
+                       _flag(spec.get('flagge'))
+                       if spec.get('flagge') else None)
+            nach_sprache.setdefault(spec.get('sprache') or '', []).append(eintrag)
+        # Das Originalenglisch aus dem Spiel gehört zu den englischen.
+        nach_sprache.setdefault('english', []).append(
+            ('original', t('s_sp_q_or'), _flag('gb')))
+
+        # ⭐ Deutsch zuerst, dann Englisch, danach die übrigen **alphabetisch** —
+        # eine feste Reihenfolge, die sich nicht ändert, wenn eine Quelle
+        # dazukommt. Vorher hing sie an der Reihenfolge im Wörterbuch, und eine
+        # neue Zeile in `SOURCES` verschob die halbe Seite.
+        def rang(sprache):
+            if sprache.startswith('german'):
+                return (0, sprache)
+            if sprache.startswith('english'):
+                return (1, sprache)
+            return (2, sprache)
+
+        result = []
+        for sprache in sorted(nach_sprache, key=rang):
+            result.extend(nach_sprache[sprache])
+            result.append(None)              # Reihenumbruch je Sprache
+
         result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))
         if channel:
             # Ein Nebenkanal darf auch „unberührt" bleiben — dann fasst
@@ -6653,6 +6706,15 @@ def _thanks(fenster, rahmen):
     _credit_box(fenster, innen, 'Star_citizen_ES (Thord82)',
                t('s_dk_keine_lizenz'), t('s_dk_thord82'),
                'https://github.com/Thord82/Star_citizen_ES')
+    # ⭐ Seit v3.60.0: Der Entwickler des SC Launch Configurator hat seine
+    # Übersetzungen ausdrücklich freigegeben (28.09.2026). Sein Werkzeug steht
+    # weiter unten unter den Werkzeugen anderer — hier zählt die Sprachquelle.
+    # ⚠ Der Titel ist der **Eigenname**, kein beschreibender Satz — sonst steht
+    # dort auf Englisch ein deutsches Wort („Luftwerft-Übersetzungen"), und
+    # `oberflaeche_pruefen` schlägt zu Recht an.
+    _credit_box(fenster, innen, 'SC Launch Configurator (Luftwerft)',
+               t('s_dk_keine_lizenz'), t('s_dk_luftwerft'),
+               'https://www.luftwerft.com/')
     _credit_box(fenster, innen, 'SC Deutsch Launcher', t('s_dk_freiwillig'),
                t('s_dk_scdl'), 'https://www.sc-deutsch-launcher.de/')
     # ⚠⚠ Die Übersetzung selbst hat einen eigenen Urheber und eine eigene
@@ -6962,6 +7024,7 @@ def _switch(window, parent, key, default):
 
 def _detection(fenster, rahmen):
     from . import catalog as katalog_modul, paths, phrases
+    from .main_window import toggle_switch
     _heading(fenster, rahmen, t('hf_erkennung'), t('s_er_lead'))
     innen = _scroll_area(rahmen)
 
@@ -7018,6 +7081,25 @@ def _detection(fenster, rahmen):
             fenster.say(t('s_er_kat_weg'))
 
     _button(fenster, ziel, t('s_er_kat_jetzt'), katalog_neu).pack()
+
+    # ⭐ Baupläne ohne bekannten Weg — Vorschlag von Choopa (28.09.2026).
+    #
+    # ⛔ Standard **aus**: Der Fortschritt bleibt damit die Zahl, die
+    # Bestandsnutzer kennen. Wer umschaltet, sieht statt 738 alle 1591 — und
+    # sein Prozentsatz fällt entsprechend. Deshalb steht in der Beschreibung,
+    # was mit der Zahl passiert, bevor jemand klickt.
+    #
+    # ⚠ Der Schalter wirkt beim nächsten Laden des Katalogs (`catalog.load()`),
+    # nicht mitten in einer offenen Seite — deshalb die Ansage in der Statuszeile.
+    ziel = _setting_row(fenster, innen, t('s_er_alle'), t('s_er_alle_h'))
+
+    def alle_um(an):
+        paths.set_setting(katalog_modul.SETTING_ALL, bool(an))
+        fenster.say(t('s_er_alle_hin') if an else t('s_er_alle_weg'))
+
+    toggle_switch(ziel,
+                  paths.setting_bool(katalog_modul.SETTING_ALL, False),
+                  alle_um).pack()
 
     _account_rows(fenster, innen)
 

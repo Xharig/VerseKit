@@ -25978,6 +25978,8 @@ def main():
     _pruefung_282()
     _pruefung_283()
     _pruefung_284()
+    _pruefung_285()
+    _pruefung_286()
 
     print()
     if fehler:
@@ -28118,6 +28120,176 @@ def _pruefung_284():
         _naechste284 = min(_mw284.COMMUNITY_SIZES, key=lambda s: abs(s - _g284))
         pruefe(_naechste284 == _erwartet284,
                'Wunsch %d px -> Stufe %d px' % (_g284, _naechste284))
+
+
+def _pruefung_285():
+    """285. Baupläne ohne bekannten Weg: standardmäßig aus, auf Wunsch dabei.
+
+    ⭐ Vorschlag von Choopa (28.09.2026): „einen Toggle zu setzen in den
+    Settings — dann kann man die selber ein- und ausblenden."
+
+    Drei Dinge müssen stimmen, und jedes einzeln:
+      1. **Standard aus.** Der Fortschritt bleibt die Zahl, die
+         Bestandsnutzer kennen — ein Update darf sie nicht still verdoppeln.
+      2. **Gefiltert wird in `load()`**, nicht an den 88 Lesestellen. Sonst
+         zählt der nächste neue Bereich anders als der Rest.
+      3. **Kein Patch-Zugang.** Die Einträge gab es längst; sie standen nur
+         nicht im Katalog. Ohne diese Regel meldete der erste Lauf nach dem
+         Update 853 Baupläne als „neu craftbar geworden".
+    """
+    print('\n285. Bauplaene ohne bekannten Weg: Standard aus, Schalter wirkt')
+    import json as _js285
+    import tempfile as _tmp285
+    from scbp import catalog as _kat285, paths as _pf285
+
+    _ordner285 = _tmp285.mkdtemp(prefix='sc-bp-katalog-')
+    _alt285 = _pf285.app_folder
+    try:
+        _pf285.app_folder = lambda *_a, **_k: _ordner285
+        _katalog285 = {
+            'version': '4.0.0', 'format': _kat285.FORMAT,
+            'geholt': '2026-09-28 00:00',
+            'bauplaene': {
+                'mit weg': {'n': 'Mit Weg', 'q': [{'auftrag': 'x'}]},
+                'aus topf': {'n': 'Aus Topf', 'topf': 'Irgendein Topf'},
+                'startbauplan': {'n': 'Startbauplan', 'start': True},
+                'ohne weg': {'n': 'Ohne Weg', 'ohne_weg': True},
+                'ohne weg zwei': {'n': 'Ohne Weg Zwei', 'ohne_weg': True},
+            },
+            'missionen': {}, 'vertraege': {},
+        }
+        with io.open(_pf285.app_file(_kat285.CACHE), 'w',
+                     encoding='utf-8') as _f285:
+            _js285.dump(_katalog285, _f285, ensure_ascii=False)
+
+        # 1. Ohne Einstellung: die beiden ohne Weg bleiben draussen.
+        _d285 = _kat285.load()
+        pruefe(len(_d285['bauplaene']) == 3,
+               'Standard AUS: nur die mit Weg (%d von 5)'
+               % len(_d285['bauplaene']))
+        pruefe(not any(e.get('ohne_weg')
+                       for e in _d285['bauplaene'].values()),
+               'und keiner davon traegt ohne_weg')
+
+        # 2. Eingeschaltet sind alle da.
+        _pf285.set_setting(_kat285.SETTING_ALL, True)
+        _d285 = _kat285.load()
+        pruefe(len(_d285['bauplaene']) == 5,
+               'Schalter AN: alle fuenf (%d)' % len(_d285['bauplaene']))
+
+        # 3. Und wieder aus — der Weg zurueck muss auch gehen.
+        _pf285.set_setting(_kat285.SETTING_ALL, False)
+        pruefe(len(_kat285.load()['bauplaene']) == 3,
+               'wieder AUS: zurueck auf drei')
+    finally:
+        _pf285.app_folder = _alt285
+        shutil.rmtree(_ordner285, ignore_errors=True)
+
+    # ⭐ Der Filter gehoert in load() — eine Stelle, nicht 88. Ueber den
+    # Syntaxbaum, damit ein Kommentar mit dem Wort nicht mitzaehlt.
+    import ast as _ast285
+    _quelle285 = io.open(os.path.join(WURZEL, 'scbp', 'catalog.py'),
+                         encoding='utf-8').read()
+    _baum285 = _ast285.parse(_quelle285)
+    _in_load285 = False
+    for _k285 in _ast285.walk(_baum285):
+        if isinstance(_k285, _ast285.FunctionDef) and _k285.name == 'load':
+            for _n285 in _ast285.walk(_k285):
+                if (isinstance(_n285, _ast285.Constant)
+                        and _n285.value == 'ohne_weg'):
+                    _in_load285 = True
+    pruefe(_in_load285, 'gefiltert wird in catalog.load()')
+
+    # Und der Patch-Zugang laesst sie aus — sonst gaelten 853 als „neu".
+    _fn285 = None
+    for _k285 in _ast285.walk(_baum285):
+        if isinstance(_k285, _ast285.FunctionDef) and _k285.name == 'build':
+            _fn285 = _k285
+    pruefe(_fn285 is not None, 'build() gefunden')
+    if _fn285 is not None:
+        _zuweisung285 = None
+        for _n285 in _ast285.walk(_fn285):
+            if (isinstance(_n285, _ast285.Assign) and _n285.targets
+                    and isinstance(_n285.targets[0], _ast285.Name)
+                    and _n285.targets[0].id == 'access'):
+                _zuweisung285 = _n285
+        pruefe(_zuweisung285 is not None, 'die Zugangsliste wird gebildet')
+        if _zuweisung285 is not None:
+            _texte285 = {n.value for n in _ast285.walk(_zuweisung285)
+                         if isinstance(n, _ast285.Constant)}
+            pruefe('ohne_weg' in _texte285,
+                   'und laesst Bauplaene ohne bekannten Weg aus')
+
+    # Das FORMAT muss hochgezaehlt sein, sonst behaelt jeder seinen alten
+    # Katalog — und der kennt die neuen Eintraege gar nicht.
+    pruefe(_kat285.FORMAT >= 5,
+           'FORMAT ist hochgezaehlt (%d)' % _kat285.FORMAT)
+
+
+def _pruefung_286():
+    """286. Textquellen: erst alle deutschen, dann die englischen, dann der Rest.
+
+    ⭐ Wunsch vom 28.09.2026. Vorher lief die Liste in der Reihenfolge des
+    Wörterbuchs durch und wurde stur alle drei Knöpfe umgebrochen — „Deutsch
+    (Dymerz)" stand dadurch neben „Français" statt neben „Deutsch (rjcncpt)".
+
+    Geprüft wird die Gruppierung an den echten Quellen und der Umbruch an
+    `_choice_rows` — ein `None` muss eine neue Reihe beginnen, sonst wäre die
+    Sortierung zwar richtig, sähe aber aus wie vorher.
+    """
+    print('\n286. Textquellen: deutsche Reihe, englische Reihe, Rest')
+    import tkinter as _tk286
+    from scbp import pages as _pg286, translation as _tr286
+
+    _deutsch286 = [k for k, s in _tr286.SOURCES.items()
+                   if (s.get('sprache') or '').startswith('german')]
+    _englisch286 = [k for k, s in _tr286.SOURCES.items()
+                    if (s.get('sprache') or '').startswith('english')]
+    pruefe(len(_deutsch286) >= 2,
+           'es gibt mehr als eine deutsche Quelle (%d) — sonst pruefte die '
+           'Gruppierung nichts' % len(_deutsch286))
+    pruefe(bool(_englisch286), 'und mindestens eine englische')
+
+    # Der Umbruch: `None` beginnt eine neue Reihe, und kein Knopf geht verloren.
+    _root286 = _tk286.Tk()
+    _root286.withdraw()
+    try:
+        _fenster286 = type('F', (), {})()
+        _fenster286.root = _root286
+        import tkinter.font as _tf286
+        _fenster286.f_base = _tf286.Font(root=_root286)
+        _fenster286.f_small = _fenster286.f_base
+        _eintraege286 = [('a', 'A', None), ('b', 'B', None), None,
+                         ('c', 'C', None), None,
+                         ('d', 'D', None), ('e', 'E', None), ('f', 'F', None),
+                         ('g', 'G', None)]
+        _halter286 = _pg286._choice_rows(_fenster286, _root286, _eintraege286,
+                                         'a', lambda *_a: None)
+        _reihen286 = _halter286.winfo_children()
+        # Gruppen: [a b] [c] [d e f] [g]  ->  vier Reihen bei per_row=3
+        pruefe(len(_reihen286) == 4,
+               'vier Reihen aus vier Gruppen (%d)' % len(_reihen286))
+        pruefe(not _pg286._choice_rows(_fenster286, _root286, [None, None],
+                                       None, lambda *_a: None
+                                       ).winfo_children(),
+               'nur Trenner ergeben keine leere Reihe')
+    finally:
+        _root286.destroy()
+
+    # Und die Seite selbst gruppiert wirklich nach Sprache.
+    import ast as _ast286
+    _quelle286 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                         encoding='utf-8').read()
+    _baum286 = _ast286.parse(_quelle286)
+    _gefunden286 = False
+    for _k286 in _ast286.walk(_baum286):
+        if (isinstance(_k286, _ast286.FunctionDef)
+                and _k286.name == 'entries_for'):
+            _texte286 = {n.value for n in _ast286.walk(_k286)
+                         if isinstance(n, _ast286.Constant)}
+            _gefunden286 = 'german' in _texte286 and 'english' in _texte286
+    pruefe(_gefunden286,
+           'entries_for sortiert nach Sprache (german/english zuerst)')
 
 
 def _wurzel():

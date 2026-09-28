@@ -407,8 +407,15 @@ class SettingsWindow:
 
         from .main_window import ask_yes_no
         name = translation.display_name(quelle)
-        if not ask_yes_no(self.root, t('s_sp_warnung_titel'),
-                             t('s_sp_warnung') % name):
+        frage = t('s_sp_warnung') % name
+        # ⭐ Manche Quelle bringt ihren eigenen Hinweis mit — der Entwickler des
+        # SC Launch Configurator hat ihn für seine Übersetzungen ausdrücklich
+        # erbeten (28.09.2026): Sie sind noch im Aufbau. Das gehört **vor** den
+        # Wechsel, nicht in eine Fußnote danach.
+        eigener = (translation.SOURCES.get(quelle) or {}).get('hinweis')
+        if eigener:
+            frage += '\n\n' + t(eigener)
+        if not ask_yes_no(self.root, t('s_sp_warnung_titel'), frage):
             return False
         neu = [x for x in gemerkt.split(',') if x] + [quelle]
         paths.set_setting('inj_bestaetigt', ','.join(neu))

@@ -152,6 +152,51 @@ SOURCES = {
     },
 }
 
+# ---------------------------------------------------------------- Luftwerft
+#
+# ⭐ **Die Übersetzungen des SC Launch Configurator** (Luftwerft), ausdrücklich
+# freigegeben von ihrem Entwickler Choopa am 28.09.2026: *„Kannst auch unsere
+# Sprach-URLs gerne mit bei Dir aufnehmen, wenn Du willst."*
+#
+# ⚠ **Sein eigener Hinweis gehört dazu** — er hat ihn selbst erbeten: *„mach
+# einen Hinweis mit rein, dass da noch viel zu polieren ist. Die Quali von SCDL
+# haben wir noch bei weitem nicht erreicht."* Genau deshalb trägt jede dieser
+# Quellen `hinweis`; die Rückfrage vor dem Umstellen zeigt ihn an. Wer eine
+# fremde Übersetzung einsetzt, soll vorher wissen, worauf er sich einlässt.
+#
+# ⚠ Hier steht **kein Repo und kein Release**, sondern die Datei direkt: Die
+# Dateien liegen nicht auf GitHub, sondern auf dem eigenen Server. Sie bauen
+# sich dort aus den CIG-Patches automatisch neu auf — es gibt also keine
+# Fassungsnummer zum Vergleichen, die Kennung kommt über HEAD/ETag wie bei
+# einer eigenen Adresse.
+_LUFTWERFT = 'https://www.luftwerft.com/download/resources/localizations'
+
+for _kennung, _ordner, _anzeige, _flagge, _textschluessel in (
+        ('luftwerft_de', 'german_(germany)',  'Deutsch (Luftwerft)',  'de',
+         's_sp_q_lw_de'),
+        ('luftwerft_en', 'english',           'English (Luftwerft)',  'gb',
+         's_sp_q_lw_en'),
+        ('luftwerft_fr', 'french_(france)',   'Français (Luftwerft)', 'fr',
+         's_sp_q_lw_fr'),
+        ('luftwerft_it', 'italian_(italy)',   'Italiano (Luftwerft)', 'it',
+         's_sp_q_lw_it'),
+        ('luftwerft_es', 'spanish_(spain)',   'Español (Luftwerft)',  'es',
+         's_sp_q_lw_es')):
+    SOURCES[_kennung] = {
+        'url':      '%s/LIVE/%s/global.ini' % (_LUFTWERFT, _ordner),
+        'sprache':  _ordner,
+        # Kein eigener Ton — die Sprachausgabe bleibt, wie sie ist.
+        'ton':      'english' if _ordner != 'english' else None,
+        'name':     _anzeige,
+        'lizenz':   'siehe Projektseite',
+        'seite':    'https://www.luftwerft.com/',
+        'label':    _textschluessel,
+        'flagge':   _flagge,
+        'hinweis':  's_sp_hinweis_luftwerft',
+        'ptu': {'url': '%s/PTU/%s/global.ini' % (_LUFTWERFT, _ordner)},
+    }
+del _kennung, _ordner, _anzeige, _flagge, _textschluessel
+
 # ⭐ Die eigene Adresse (v3.59.0, wie SC Deutsch Launcher und SCLC): Der
 # Spieler trägt selbst ein, wo eine Übersetzung liegt. Keine Zeile in
 # `SOURCES` — Adresse und Sprachordner stehen je Kanal in den Einstellungen.

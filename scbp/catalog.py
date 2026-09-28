@@ -110,7 +110,17 @@ CACHE = 'katalog-cache.json'
 # 4 (26.09.2026): Der Gütegrad kommt aus CIGs eigener Sprachdatei, scmdb nur
 # noch als Rückfall (siehe `game_grades()`). Ohne Hochzählen stünden Draug,
 # Elsen und Pelerous bei jedem Bestandsnutzer weiter als „A" da.
-FORMAT = 4
+#
+# 5 (28.09.2026): Auch Baupläne **ohne bekannten Weg** stehen jetzt im Katalog
+# (`ohne_weg`) — 853 zu vorher 738. Ohne Hochzählen bliebe der Schalter „Auch
+# Baupläne ohne bekannten Weg" bei jedem Bestandsnutzer wirkungslos, denn sein
+# Katalog kennt diese Einträge gar nicht. Anlass: Choopa (28.09.2026).
+FORMAT = 5
+
+# Einstellung: Sollen Baupläne ohne bekannten Weg mitgezählt und angezeigt
+# werden? ⛔ Standard **aus** — der Fortschritt bleibt damit die Zahl, die
+# Bestandsnutzer kennen (738), und wer mehr sehen will, schaltet es ein.
+SETTING_ALL = 'alle_bauplaene'
 # ⚠ Geht an scmdb und UEX. Nennt BEIDE Namen — Krovax hat die Nutzung dem
 # alten Namen gegenüber freigegeben; wer danach filtert, erkennt uns weiter.
 USER_AGENT = ('VerseKit/2.0 (ehemals SC-BP-Watcher) '
@@ -402,12 +412,23 @@ def _norm(s):
 
 
 def _values(raw_items):
-    """Name -> Art, Größe, Gütegrad, Klasse, Hersteller."""
+    """Name -> Art, Größe, Gütegrad, Klasse, Hersteller.
+
+    ⚠ `_name` trägt den Namen in seiner **Schreibweise aus dem Spiel** mit —
+    der Schlüssel ist die Vergleichsform und taugt nicht zum Anzeigen
+    („a03 'canuto' sniper rifle"). Gebraucht wird er seit dem 28.09.2026 für
+    die Baupläne ohne bekannten Weg: Sie kommen nur aus dieser Datei, es gibt
+    also keine zweite Stelle, die ihren Namen kennt.
+
+    ⛔ Unterstrich-Schlüssel sind **innerlich** und gehören nicht in den
+    Katalog-Eintrag. Wer `values_` einmischt, filtert sie heraus.
+    """
     values_ = {}
     for e in raw_items.get('items', []):
         name = e.get('name')
         if name:
             values_.setdefault(_norm(name), {
+                '_name': name,
                 'a': e.get('attachType') or e.get('cgItemType'),
                 'sub': e.get('attachSubType'),
                 's': e.get('size'),
@@ -916,7 +937,11 @@ def build(version=None, progress=None, from_file=None):
     for name in sorted(names):
         k = _norm(name)
         entry = {'n': name}
-        entry.update({s: w for s, w in (values_.get(k) or {}).items() if w})
+        # ⛔ `_name` und alles andere mit Unterstrich ist innerlich (siehe
+        # `_values`) — der Name steht hier schon als `n` und in der besseren
+        # Schreibweise aus dem Belohnungs-Topf.
+        entry.update({s: w for s, w in (values_.get(k) or {}).items()
+                      if w and not s.startswith('_')})
         q = sources.get(k)
         if q:
             entry['q'] = q
@@ -940,6 +965,27 @@ def build(version=None, progress=None, from_file=None):
                 entry['a'] = e['a']
             blueprints[k] = entry
 
+    # ---- Und alles Übrige, was das Spiel überhaupt herstellen lässt ----
+    #
+    # ⭐ Vorschlag von Choopa (28.09.2026): „einen Toggle zu setzen in den
+    # Settings — dann kann man die selber ein- und ausblenden."
+    #
+    # Bis hierher steht im Katalog nur, was ein Belohnungs-Topf ausschüttet
+    # (738). `crafting_items` kennt aber **alle** herstellbaren Gegenstände
+    # (1591) — die Datei wird oben ohnehin schon geholt, es ist also keine
+    # neue Quelle, sondern dieselbe vollständiger ausgewertet.
+    #
+    # Die Übrigen sind nicht „weg", sie haben nur keinen bekannten Weg: teils
+    # über Kioske zu bekommen, teils aus Events, teils noch keiner Mission
+    # zugeordnet. Sie tragen `ohne_weg` und bleiben **standardmäßig
+    # unsichtbar** (siehe `SETTING_ALL` und `load()`).
+    for k, w in values_.items():
+        if k in blueprints:
+            continue
+        entry = {'n': w.get('_name') or k, 'ohne_weg': True}
+        entry.update({s: v for s, v in w.items() if v and not s.startswith('_')})
+        blueprints[k] = entry
+
     # ---- Was hat dieser Patch gebracht? ----
     #
     # Verglichen wird gegen **alle je gesehenen** Baupläne, nicht gegen den
@@ -960,7 +1006,19 @@ def build(version=None, progress=None, from_file=None):
     # steht, war vor diesem Lauf im Spiel.
     known = _baseline()
     if known:
-        access = [e['n'] for k, e in blueprints.items() if k not in known]
+        # ⚠⚠ **Baupläne ohne bekannten Weg sind kein Patch-Zugang** (28.09.2026).
+        # Mit FORMAT 5 kamen 853 Einträge dazu, die es längst gab — sie standen
+        # nur nie im Katalog. Ohne diese Bedingung meldete der erste Lauf nach
+        # dem Update sie alle als „neu craftbar geworden", und die Seite
+        # *Geänderte Spielwerte* wäre für jeden Bestandsnutzer unbrauchbar.
+        # Dieselbe Falle wie beim allerersten Katalogbau, eine Ebene höher.
+        #
+        # ⭐ Die Bedingung bleibt dauerhaft, nicht nur für diesen einen Lauf —
+        # und sie ist dabei die genauere Aussage: Ein Bauplan ist dann neu für
+        # den Spieler, wenn es einen **Weg** zu ihm gibt. Bekommt einer später
+        # einen, verliert er `ohne_weg` und wird genau dann gemeldet.
+        access = [e['n'] for k, e in blueprints.items()
+                  if k not in known and not e.get('ohne_weg')]
         if access:
             patchhistory.record(version, access)
     patchhistory.set_seen(known | set(blueprints))
@@ -1013,6 +1071,18 @@ def load():
             # genau das Verhalten bis v3.32.4, also kein Rueckschritt.
             d.setdefault('vertraege', {})
             d['bauplaene'] = _align_keys(d['bauplaene'])
+            # ⭐ Baupläne ohne bekannten Weg nur auf Wunsch (Choopa,
+            # 28.09.2026). **Hier** gefiltert und nirgends sonst: Am Katalog
+            # hängen 88 Lesestellen — Liste, Fortschritt, Overlay, Suche,
+            # Herstellung. Jede einzeln zu filtern hieße, beim nächsten neuen
+            # Bereich eine zu vergessen, und dann zählte er anders als der Rest.
+            #
+            # ⛔ Der **Bestand** des Spielers läuft nicht hier durch
+            # (`collection.py`, eigene Datei) — ein Bauplan, den er besitzt,
+            # verschwindet also nie, auch wenn der Katalog ihn ausblendet.
+            if not paths.setting_bool(SETTING_ALL, False):
+                d['bauplaene'] = {k: e for k, e in d['bauplaene'].items()
+                                  if not e.get('ohne_weg')}
             return d
     except Exception:
         pass

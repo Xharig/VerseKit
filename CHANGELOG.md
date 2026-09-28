@@ -8,6 +8,32 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unveröffentlicht
 
+## v3.60.0 - 2026-09-28
+
+> **Du entscheidest, was als „alle Baupläne" gilt.** Star Citizen kann rund
+> 1.600 Dinge herstellen — über Aufträge zu bekommen sind davon 738. Der Rest
+> kommt aus Kiosken, aus Events oder hängt an gar keiner Mission. Bisher hat
+> Verse-Kit diesen Rest gar nicht erst geführt; jetzt kannst du ihn dazuschalten.
+
+### Neu
+
+- **„Auch Baupläne ohne bekannten Weg"** unter *Erkennung* — eingeschaltet
+  stehen alle **1.591** in Liste und Fortschritt statt 738. **Ab Werk aus**,
+  damit dein Fortschritt die Zahl bleibt, die du kennst. Vorschlag von Choopa
+- **Fünf weitere Übersetzungen vom SC Launch Configurator** (Luftwerft) —
+  Deutsch, Englisch, Français, Italiano und Español, für LIVE und PTU, von
+  seinem Entwickler für die Nutzung hier freigegeben. Sie kommen mit seinem
+  eigenen Hinweis: Da wird noch gefeilt
+
+### Verbessert
+
+- **Die Textquellen stehen nach Sprache gruppiert** — alle deutschen in der
+  ersten Reihe, alle englischen in der zweiten, jede weitere Sprache in einer
+  eigenen
+- Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
+  — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
+  einmal neu geholt
+
 ## v3.59.1 - 2026-09-28
 
 > **Zwei Sachen, die ein Blick von außen gefunden hat.** Im

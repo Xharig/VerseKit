@@ -1874,6 +1874,24 @@ TEXTS = {
     's_sp_q_it':       ('Italiano (Dymerz)', 'Italiano (Dymerz)'),
     's_sp_q_es':       ('Español (Dymerz)', 'Español (Dymerz)'),
     's_sp_q_es2':      ('Español (Thord82)', 'Español (Thord82)'),
+    # Die Übersetzungen des SC Launch Configurator (Luftwerft), freigegeben von
+    # ihrem Entwickler am 28.09.2026.
+    's_sp_q_lw_de':    ('Deutsch (Luftwerft)', 'Deutsch (Luftwerft)'),
+    's_sp_q_lw_en':    ('English (Luftwerft)', 'English (Luftwerft)'),
+    's_sp_q_lw_fr':    ('Français (Luftwerft)', 'Français (Luftwerft)'),
+    's_sp_q_lw_it':    ('Italiano (Luftwerft)', 'Italiano (Luftwerft)'),
+    's_sp_q_lw_es':    ('Español (Luftwerft)', 'Español (Luftwerft)'),
+    # ⚠ Der Wortlaut folgt dem, was der Entwickler selbst gesagt hat — er hat
+    # diesen Hinweis erbeten, statt ihn sich ersparen zu lassen.
+    's_sp_hinweis_luftwerft':
+                       ('Hinweis des Entwicklers: An dieser Übersetzung wird '
+                        'noch gearbeitet. Sie entsteht weitgehend automatisch '
+                        'aus den Spieldaten und erreicht die Qualität der '
+                        'deutschen Übersetzung von rjcncpt noch nicht.',
+                        'Note from its developer: this translation is still '
+                        'being polished. It is generated largely automatically '
+                        'from the game data and does not yet reach the quality '
+                        'of rjcncpt\'s German translation.'),
     's_sp_q_pt':       ('Português (Dymerz)', 'Português (Dymerz)'),
     's_sp_q_tr':       ('Türkçe (Dymerz)', 'Türkçe (Dymerz)'),
     's_sp_q_eigen':    ('Eigene Adresse', 'Own address'),
@@ -2063,6 +2081,28 @@ TEXTS = {
                           'Catalogue refreshed: %s blueprints'),
     's_er_kat_weg':    ('Katalog holen ging nicht', 'Could not fetch catalogue'),
     's_er_kat_jetzt':  ('Jetzt neu holen', 'Fetch again now'),
+    # ⭐ Vorschlag von Choopa (28.09.2026). ⚠ Der Text sagt ausdrücklich, was
+    # mit der Fortschrittszahl passiert — wer 738 gewohnt ist und plötzlich
+    # 1591 sieht, hält es sonst für einen Fehler.
+    's_er_alle':       ('Auch Baupläne ohne bekannten Weg',
+                        'Include blueprints with no known source'),
+    's_er_alle_h':     ('Das Spiel kann viel mehr herstellen, als über Aufträge '
+                        'zu bekommen ist — einiges gibt es an Kiosken, aus '
+                        'Events oder ist noch keiner Mission zugeordnet. '
+                        'Eingeschaltet stehen sie in Liste und Fortschritt mit '
+                        'drin, und die Gesamtzahl steigt entsprechend; dein '
+                        'Prozentsatz fällt dadurch, ohne dass du etwas '
+                        'verloren hättest.',
+                        'The game can craft far more than contracts hand out — '
+                        'some comes from kiosks, from events, or is not tied to '
+                        'a mission yet. Switched on, these appear in the list '
+                        'and in your progress, and the total rises accordingly; '
+                        'your percentage drops without you having lost '
+                        'anything.'),
+    's_er_alle_hin':   ('Baupläne ohne bekannten Weg zählen jetzt mit.',
+                        'Blueprints with no known source now count.'),
+    's_er_alle_weg':   ('Baupläne ohne bekannten Weg bleiben ausgeblendet.',
+                        'Blueprints with no known source stay hidden.'),
     's_er_acc':        ('Eigener Account', 'Your account'),
     's_er_acc_h':      ('Baupläne zählen nur aus den Protokollen dieses Accounts. Wer mehrere Accounts auf einem Rechner spielt, bekommt sonst die Baupläne des anderen mit.',
                           'Blueprints only count from this account\'s logs. If you play several accounts on one computer, you would otherwise get the other one\'s blueprints too.'),
@@ -2317,6 +2357,16 @@ TEXTS = {
                         '„Übersetzung".',
                         'Spanish translation for LIVE and PTU — selectable under '
                         '“Translation”.'),
+    's_dk_luftwerft':  ('Deutsch, Englisch, Français, Italiano und Español für '
+                        'LIVE und PTU, vom Entwickler des SC Launch '
+                        'Configurator freigegeben — wählbar unter '
+                        '„Übersetzung". Sie entstehen weitgehend automatisch '
+                        'aus den Spieldaten und werden weiter verfeinert.',
+                        'German, English, French, Italian and Spanish for LIVE '
+                        'and PTU, released by the developer of the SC Launch '
+                        'Configurator — selectable under “Translation”. They '
+                        'are generated largely automatically from the game '
+                        'data and are still being refined.'),
     's_dk_scdl':       ('War anfangs die einzige Datenquelle — ohne ihn gäbe es '
                         'dieses Projekt nicht. Ist er installiert, bestätigt er die '
                         'Funde und liefert die deutschen Bezeichnungen.',
@@ -2467,15 +2517,23 @@ TEXTS = {
                               'missions", because the catalogue was only fetched '
                               'after setup. Only visible when setting VerseKit up '
                               'from scratch.'),
-    's_dk_choopa_idee':      ('**„Nicht anfassen" im Einrichtungsassistenten** — '
-                              'er nutzt die Übersetzungen eines anderen Werkzeugs '
-                              'und fragte, was er tun soll, wenn er keine davon '
-                              'will. Weiterklicken tat schon immer genau das; '
-                              'jetzt steht es auch als Knopf da.',
-                              '**"Leave alone" in the setup assistant** — he uses '
-                              'another tool\'s translations and asked what to do '
-                              'if he wants none of these. Clicking on always did '
-                              'exactly that; now there is a button saying so.'),
+    's_dk_choopa_idee':      ('Entwickler des **SC Launch Configurator** — er hat '
+                              'seine Übersetzungen für dieses Werkzeug '
+                              'freigegeben. Dazu drei Anstöße an einem '
+                              'Nachmittag: **„Nicht anfassen"** im '
+                              'Einrichtungsassistenten (weiterklicken tat das '
+                              'schon immer, nur sah man es nicht), das '
+                              '**unscharfe Gemeinschafts-Zeichen** bei hoher '
+                              'Skalierung, und der Schalter für **Baupläne ohne '
+                              'bekannten Weg**.',
+                              'Developer of the **SC Launch Configurator** — he '
+                              'released his translations for use in this tool. '
+                              'Plus three nudges in one afternoon: **"Leave '
+                              'alone"** in the setup assistant (clicking on '
+                              'always did that, you just could not see it), the '
+                              '**blurry community mark** at higher scaling, and '
+                              'the toggle for **blueprints with no known '
+                              'source**.'),
     's_dk_yoshimitsu_idee':  ('**Handelsrouten** — sag, wo du stehst und was in '
                               'den Laderaum passt, und das Werkzeug rechnet, '
                               'womit sich die nächste Fahrt lohnt.',

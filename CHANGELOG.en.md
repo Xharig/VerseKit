@@ -8,6 +8,29 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 ## Unreleased
 
+## v3.60.0 - 2026-09-28
+
+> **You decide what counts as "all blueprints".** Star Citizen can craft around
+> 1,600 things — 738 of those are handed out by contracts. The rest comes from
+> kiosks, from events, or is tied to no mission at all. Verse-Kit did not even
+> list that rest until now; you can switch it on.
+
+### New
+
+- **"Include blueprints with no known source"** under *Detection* — switched on,
+  all **1,591** appear in the list and in your progress instead of 738. **Off by
+  default**, so your progress stays the number you know. Suggested by Choopa
+- **Five more translations from the SC Launch Configurator** (Luftwerft) —
+  German, English, French, Italian and Spanish, for LIVE and PTU, released for
+  use here by its developer. They come with his own note: still being polished
+
+### Improved
+
+- **The translation sources are grouped by language** — all German in the first
+  row, all English in the second, every other language in a row of its own
+- The catalogue now also carries the blueprints with no known source — with
+  type, size, grade and manufacturer. It is fetched once on first start
+
 ## v3.59.1 - 2026-09-28
 
 > **Two things a fresh pair of eyes found.** The setup assistant offered three
