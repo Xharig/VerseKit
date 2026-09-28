@@ -25980,6 +25980,7 @@ def main():
     _pruefung_284()
     _pruefung_285()
     _pruefung_286()
+    _pruefung_287()
 
     print()
     if fehler:
@@ -28225,6 +28226,56 @@ def _pruefung_285():
     pruefe(_kat285.FORMAT >= 5,
            'FORMAT ist hochgezaehlt (%d)' % _kat285.FORMAT)
 
+    # ⚠⚠ **Und die Verdrahtung — die Luecke, durch die es ausgeliefert wurde.**
+    # Diese Pruefung mass bis zum 28.09.2026 nur `load()`. Der Schalter in der
+    # Oberflaeche war dabei falsch angeschlossen (Rueckruf mit Parameter statt
+    # ohne, ohne Rueckgabe) und tat gar nichts — gemeldet mit „den Schalter
+    # kann ich nicht einschalten", nachdem das rc schon draussen war.
+    #
+    # `toggle_switch` ruft `toggle()` **ohne Argument** und zeichnet nach
+    # `bool(toggle())`. Ein Rueckruf mit Pflichtparameter wirft einen
+    # TypeError, den die Fehler-Haken schlucken; einer ohne Rueckgabe faellt
+    # nach jedem Klick optisch auf „aus" zurueck. Beides sieht aus wie ein
+    # kaputter Schalter und ist am Quelltext nicht zu sehen.
+    #
+    # Geprueft wird deshalb **jeder** Schalter im Programm, nicht nur der neue.
+    import inspect as _in285
+    _quelle285b = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                          encoding='utf-8').read()
+    _baum285b = _ast285.parse(_quelle285b)
+    _funktionen285 = {}
+    for _k285 in _ast285.walk(_baum285b):
+        if isinstance(_k285, _ast285.FunctionDef):
+            _funktionen285.setdefault(_k285.name, []).append(_k285)
+
+    _namen285 = []
+    for _k285 in _ast285.walk(_baum285b):
+        if (isinstance(_k285, _ast285.Call)
+                and isinstance(_k285.func, _ast285.Name)
+                and _k285.func.id == 'toggle_switch'
+                and len(_k285.args) >= 3
+                and isinstance(_k285.args[2], _ast285.Name)):
+            _namen285.append(_k285.args[2].id)
+    pruefe(len(_namen285) >= 3,
+           'es werden mehrere Schalter geprueft (%d)' % len(_namen285))
+
+    _kaputt285 = []
+    for _name285 in _namen285:
+        for _fn285b in _funktionen285.get(_name285, []):
+            _args285 = _fn285b.args
+            _pflicht285 = (len(_args285.args) + len(_args285.posonlyargs)
+                           - len(_args285.defaults))
+            _gibt285 = any(isinstance(_n, _ast285.Return) and _n.value
+                           is not None for _n in _ast285.walk(_fn285b))
+            if _pflicht285 or not _gibt285:
+                _kaputt285.append('%s (Zeile %d, %d Pflichtargumente, '
+                                  'Rueckgabe %s)'
+                                  % (_name285, _fn285b.lineno, _pflicht285,
+                                     'ja' if _gibt285 else 'NEIN'))
+    pruefe(not _kaputt285,
+           'jeder Schalter-Rueckruf ist ohne Argument aufrufbar und gibt den '
+           'Zustand zurueck (sonst: %s)' % ('; '.join(_kaputt285) or '—'))
+
 
 def _pruefung_286():
     """286. Textquellen: erst alle deutschen, dann die englischen, dann der Rest.
@@ -28290,6 +28341,82 @@ def _pruefung_286():
             _gefunden286 = 'german' in _texte286 and 'english' in _texte286
     pruefe(_gefunden286,
            'entries_for sortiert nach Sprache (german/english zuerst)')
+
+
+def _pruefung_287():
+    """287. „Nicht anfassen" gibt es an JEDEM Kanal — mit der Folge dabei.
+
+    ⚠⚠ Gemeldet am 28.09.2026: Der Knopf stand nur an den Nebenkanälen. An der
+    Hauptinstallation gab es keinen sichtbaren Weg, VerseKit die Textdatei in
+    Ruhe lassen zu lassen — obwohl der Zustand „keine Textquelle gewählt"
+    längst vorgesehen war. Dieselbe Form wie im Einrichtungsassistenten: ein
+    Weg, den es gibt und den niemand sieht.
+
+    ⚠ Und die Folge muss **vorher** dastehen: Ohne Textdatei trägt der Watcher
+    keine Bauplan-Angaben ins Spiel ein. Wer das erst im Spiel merkt, sucht an
+    der falschen Stelle.
+    """
+    print('\n287. „Nicht anfassen": an jedem Kanal, mit genannter Folge')
+    from scbp import language as _la287
+
+    for _schluessel287 in ('s_tq_nichts_warnung', 's_tq_nichts_ok',
+                           's_tq_nichts_gewaehlt', 'inj_nichts_ok'):
+        _w287 = _la287.TEXTS.get(_schluessel287)
+        pruefe(bool(_w287) and len(_w287) == 2 and all(_w287),
+               '%s steht in beiden Sprachen' % _schluessel287)
+
+    # ⭐ Die Folge, nicht nur die Beruhigung: Jeder dieser Texte muss die
+    # Bauplan-Angaben erwähnen — sonst steht dort nur „es passiert nichts".
+    for _schluessel287 in ('s_tq_nichts_warnung', 's_tq_nichts_ok',
+                           's_tq_nichts_gewaehlt', 'inj_nichts_ok'):
+        _de287, _en287 = _la287.TEXTS[_schluessel287]
+        pruefe('Bauplan-Angaben' in _de287,
+               '%s nennt die Folge (deutsch)' % _schluessel287)
+        pruefe('blueprint details' in _en287.lower(),
+               '%s nennt die Folge (englisch)' % _schluessel287)
+
+    # Der Knopf haengt nicht mehr an `if channel` — geprueft ueber den
+    # Syntaxbaum, damit ein Kommentar mit dem Wort nicht mitzaehlt.
+    import ast as _ast287
+    _quelle287 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
+                         encoding='utf-8').read()
+    _baum287 = _ast287.parse(_quelle287)
+    _fn287 = None
+    for _k287 in _ast287.walk(_baum287):
+        if (isinstance(_k287, _ast287.FunctionDef)
+                and _k287.name == 'entries_for'):
+            _fn287 = _k287
+    pruefe(_fn287 is not None, 'entries_for gefunden')
+    if _fn287 is None:
+        return
+
+    # Der Anhaenge-Aufruf mit `s_tq_nichts` darf in KEINEM `if` stehen.
+    _bedingt287 = []
+    for _k287 in _ast287.walk(_fn287):
+        if not isinstance(_k287, _ast287.If):
+            continue
+        for _n287 in _ast287.walk(_k287):
+            if (isinstance(_n287, _ast287.Constant)
+                    and _n287.value == 's_tq_nichts'):
+                _bedingt287.append(_k287.lineno)
+    pruefe(not _bedingt287,
+           '„Nicht anfassen" haengt an keiner Bedingung (sonst Zeile(n) %s)'
+           % (_bedingt287 or '—'))
+    _alle287 = {n.value for n in _ast287.walk(_fn287)
+                if isinstance(n, _ast287.Constant)}
+    pruefe('s_tq_nichts' in _alle287,
+           'und steht ueberhaupt in der Liste')
+
+    # An der Hauptinstallation wird vorher gefragt, nicht still umgestellt.
+    _card287 = None
+    for _k287 in _ast287.walk(_baum287):
+        if isinstance(_k287, _ast287.FunctionDef) and _k287.name == 'act':
+            _texte287 = {n.value for n in _ast287.walk(_k287)
+                         if isinstance(n, _ast287.Constant)}
+            if 's_tq_nichts_warnung' in _texte287:
+                _card287 = _k287
+    pruefe(_card287 is not None,
+           'die Hauptinstallation fragt vor dem Abschalten nach')
 
 
 def _wurzel():

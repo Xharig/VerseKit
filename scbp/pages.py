@@ -3283,10 +3283,18 @@ def _translation_page(window, frame):
             result.append(None)              # Reihenumbruch je Sprache
 
         result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))
-        if channel:
-            # Ein Nebenkanal darf auch „unberührt" bleiben — dann fasst
-            # VerseKit seine Textdatei gar nicht an.
-            result.append(('', t('s_tq_nichts'), None))
+        # ⚠⚠ **„Nicht anfassen" gibt es für JEDEN Kanal, auch die
+        # Hauptinstallation** (28.09.2026). Bis dahin stand der Knopf nur an
+        # den Nebenkanälen — an LIVE gab es keinen sichtbaren Weg, VerseKit
+        # die Textdatei in Ruhe lassen zu lassen, obwohl der Zustand „noch
+        # keine Textquelle gewählt" längst vorgesehen war
+        # (`s_tq_nichts_gewaehlt`). Wieder ein Weg, den es gab und den
+        # niemand sehen konnte — wie im Einrichtungsassistenten.
+        #
+        # ⚠ An der Hauptinstallation hat die Wahl eine Folge, die man kennen
+        # muss: **Ohne Textdatei keine Bauplan-Angaben im Spiel.** Deshalb
+        # fragt `act()` dort nach, statt es still zu tun.
+        result.append(('', t('s_tq_nichts'), None))
         return result
 
     def fetch_side(channel, folder, source):
@@ -3337,7 +3345,19 @@ def _translation_page(window, frame):
                 show_custom(True)
                 return
             show_custom(False)
-            if main:
+            if main and not key:
+                # ⚠⚠ **Ohne Textdatei keine Bauplan-Angaben.** Der Watcher
+                # schreibt sie in die `global.ini`; gibt es keine, gibt es
+                # nichts zu beschriften. Das muss vorher klar sein — sonst
+                # sucht jemand den Fehler später im Spiel.
+                from .main_window import ask_yes_no
+                if not ask_yes_no(window.root, t('s_tq_nichts'),
+                                  t('s_tq_nichts_warnung')):
+                    choice.select(paths.setting('inj_quelle') or '')
+                    return
+                paths.set_setting('inj_quelle', '')
+                say(t('s_tq_nichts_ok'))
+            elif main:
                 _choose_source(window, parts, choice, key, lambda: None)
             else:
                 fetch_side(channel_name, folder, key)
@@ -7093,9 +7113,21 @@ def _detection(fenster, rahmen):
     # nicht mitten in einer offenen Seite — deshalb die Ansage in der Statuszeile.
     ziel = _setting_row(fenster, innen, t('s_er_alle'), t('s_er_alle_h'))
 
-    def alle_um(an):
-        paths.set_setting(katalog_modul.SETTING_ALL, bool(an))
-        fenster.say(t('s_er_alle_hin') if an else t('s_er_alle_weg'))
+    # ⚠⚠ **`toggle_switch` ruft OHNE Argument und will den neuen Zustand
+    # zurück** (siehe seinen Docstring). Eine Funktion mit Parameter läuft in
+    # einen TypeError, den die Fehler-Haken schlucken — der Schalter sieht
+    # dann aus wie kaputt und schreibt nichts. Genau so am 28.09.2026
+    # ausgeliefert und sofort gemeldet: „den Schalter kann ich nicht
+    # einschalten."
+    def alle_um():
+        neu = not paths.setting_bool(katalog_modul.SETTING_ALL, False)
+        paths.set_setting(katalog_modul.SETTING_ALL, neu)
+        fenster.say(t('s_er_alle_hin') if neu else t('s_er_alle_weg'))
+        # ⚠ Der Katalog wird beim **Laden** gefiltert. Ohne Neuaufbau bliebe
+        # die Seite stehen, und Liste wie Fortschritt zeigten weiter die alte
+        # Zahl — dieselbe Falle wie bei „Spielzeit zeigen".
+        fenster.root.after(60, fenster.rebuild)
+        return neu
 
     toggle_switch(ziel,
                   paths.setting_bool(katalog_modul.SETTING_ALL, False),

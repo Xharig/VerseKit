@@ -1911,8 +1911,41 @@ TEXTS = {
                         'Text file only — your blueprint collection does not apply '
                         'in this channel, so no blueprint details.'),
     's_tq_nichts':     ('Nicht anfassen', 'Leave alone'),
-    's_tq_nichts_gewaehlt': ('Noch keine Textquelle gewählt.',
-                             'No text source chosen yet.'),
+    's_tq_nichts_gewaehlt': ('Keine Textquelle gewählt — ohne sie trägt '
+                             'Verse-Kit auch keine Bauplan-Angaben ins Spiel '
+                             'ein.',
+                             'No text source chosen — without one, Verse-Kit '
+                             'writes no blueprint details into the game '
+                             'either.'),
+    # ⚠ Die Folge steht VOR der Entscheidung, nicht danach. Wer hier „Ja"
+    # sagt, soll nicht später im Spiel nach fehlenden Angaben suchen.
+    's_tq_nichts_warnung': ('Verse-Kit lässt die Textdatei deiner '
+                            'Hauptinstallation dann in Ruhe.\n\n'
+                            'Damit entfallen auch die Bauplan-Angaben im '
+                            'Spiel: Sie werden in genau diese Datei '
+                            'geschrieben, und ohne sie gibt es nichts zu '
+                            'beschriften — keine Kästchen an den '
+                            'Auftragstexten, keine Klasse, Größe und Güte am '
+                            'Gegenstand, keine Ruf-Stufen an den Rängen.\n\n'
+                            'Alles andere arbeitet weiter: Die Baupläne '
+                            'werden weiterhin erkannt und gezählt.\n\n'
+                            'Später wieder einschalten kannst du es hier '
+                            'jederzeit.',
+                            'Verse-Kit will then leave your main install\'s '
+                            'text file alone.\n\n'
+                            'That also drops the blueprint details in the '
+                            'game: they are written into exactly this file, '
+                            'and with no file there is nothing to annotate — '
+                            'no boxes on contract texts, no class, size and '
+                            'grade on the item, no reputation tiers on the '
+                            'ranks.\n\n'
+                            'Everything else carries on: blueprints are still '
+                            'detected and counted.\n\n'
+                            'You can switch it back on here at any time.'),
+    's_tq_nichts_ok':      ('Verse-Kit lässt die Textdatei in Ruhe. '
+                            'Bauplan-Angaben im Spiel gibt es damit nicht.',
+                            'Verse-Kit leaves the text file alone. No '
+                            'blueprint details in the game.'),
     's_tq_unberuehrt': ('%s: VerseKit lässt die Textdatei dort in Ruhe.',
                         '%s: VerseKit leaves the text file alone there.'),
     's_tq_fertig':     ('%s: %s', '%s: %s'),
@@ -5760,11 +5793,20 @@ TEXTS = {
     # (`s_tq_nichts`), damit dieselbe Sache überall gleich heißt.
     'inj_quelle_nichts': ('Nicht anfassen — keine Übersetzung laden',
                           'Leave alone — do not load a translation'),
-    'inj_nichts_ok':     ('Bleibt, wie es ist. An deiner Spielinstallation wird '
-                          'nichts verändert — du kannst das später unter '
-                          '„Übersetzung" jederzeit nachholen.',
-                          'Left as it is. Nothing about your game install is '
-                          'changed — you can do this later at any time under '
+    # ⚠ Auch hier gehört die Folge dazu, nicht nur die Beruhigung: Ohne
+    # Textdatei trägt der Watcher keine Bauplan-Angaben ein. Wer das erst im
+    # Spiel merkt, sucht den Fehler an der falschen Stelle.
+    'inj_nichts_ok':     ('Bleibt, wie es ist — an deiner Spielinstallation '
+                          'wird nichts verändert. Damit gibt es allerdings '
+                          'auch keine Bauplan-Angaben im Spiel: Sie werden in '
+                          'die Textdatei geschrieben. Die Baupläne selbst '
+                          'werden weiterhin erkannt und gezählt. Nachholen '
+                          'kannst du es später unter „Übersetzung".',
+                          'Left as it is — nothing about your game install is '
+                          'changed. That does mean no blueprint details in the '
+                          'game: they are written into the text file. The '
+                          'blueprints themselves are still detected and '
+                          'counted. You can do this later under '
                           '"Translation".'),
     'inj_laeuft':        ('wird eingerichtet …', 'setting up …'),
     'inj_fehler':        ('Hat nicht geklappt: %s', 'Did not work: %s'),

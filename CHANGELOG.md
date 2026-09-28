@@ -30,6 +30,16 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
 - **Die Textquellen stehen nach Sprache gruppiert** — alle deutschen in der
   ersten Reihe, alle englischen in der zweiten, jede weitere Sprache in einer
   eigenen
+- **„Nicht anfassen" gibt es jetzt auch für die Hauptinstallation** — bisher
+  nur für PTU & Co. Dabei steht vorher klar da, was daran hängt: Ohne
+  Textdatei trägt Verse-Kit **keine Bauplan-Angaben** ins Spiel ein, weil sie
+  genau dort hineingeschrieben werden. Erkannt und gezählt werden die
+  Baupläne weiterhin
+
+### Behoben
+
+- Der Schalter für Baupläne ohne bekannten Weg ließ sich in `-rc1` nicht
+  umlegen
 - Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
   — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
   einmal neu geholt

@@ -28,6 +28,15 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
 
 - **The translation sources are grouped by language** — all German in the first
   row, all English in the second, every other language in a row of its own
+- **"Leave alone" is now available for the main install too** — previously only
+  for PTU and friends. It says up front what that costs: with no text file,
+  Verse-Kit writes **no blueprint details** into the game, because that is
+  exactly where they go. Blueprints are still detected and counted
+
+### Fixed
+
+- The toggle for blueprints with no known source could not be switched in
+  `-rc1`
 - The catalogue now also carries the blueprints with no known source — with
   type, size, grade and manufacturer. It is fetched once on first start
 
