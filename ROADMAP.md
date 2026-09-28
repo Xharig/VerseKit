@@ -80,7 +80,8 @@ Vier Dinge sind Absicht und bleiben so:
 | ✅ | **Einstellungen neu gegliedert**, **Module** ausblendbar, **Startprogramme** mit dem Spiel, die **user.cfg** sichtbar und bearbeitbar |
 | ✅ | **Das Overlay nimmt dem Spiel nie den Fokus** — auch nicht, wenn der unsichtbare Mauszeiger darüber steht |
 | ✅ | **Übersetzung je Kanal**: welche Textdatei Star Citizen liest — für LIVE, PTU und TECH-PREVIEW getrennt einstellbar, die Hauptinstallation dazu mit den Bauplan-Angaben |
-| ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst |
+| ✅ | **Sieben Sprachen**: Deutsch, Français, Italiano, Español, Português, Türkçe und Englisch — dazu eine **eigene Adresse**, wenn du eine andere Übersetzung nutzen willst; oder **gar keine**, dann bleibt die Textdatei unberührt |
+| ✅ | **Alle Baupläne oder nur die erspielbaren**: Das Spiel kann rund 1.600 Dinge herstellen, über Aufträge zu bekommen sind 738 — ein Schalter entscheidet, was in Liste und Fortschritt zählt |
 
 ## Woran gearbeitet wird
 

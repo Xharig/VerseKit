@@ -36,10 +36,18 @@ Das Projekt nutzt SemVer: `MAJOR.MINOR.PATCH`.
   genau dort hineingeschrieben werden. Erkannt und gezählt werden die
   Baupläne weiterhin
 
+- **Der Einrichtungsassistent bietet alle Übersetzungen an** — bisher drei von
+  vierzehn. Dazu die **eigene Adresse**, das **Farbschema** und die Frage,
+  **welche Baupläne zählen** sollen: alles Dinge, die man sonst erst findet,
+  wenn man die Einstellungen durchsucht
+
 ### Behoben
 
 - Der Schalter für Baupläne ohne bekannten Weg ließ sich in `-rc1` nicht
   umlegen
+- **Die Größenauswahl in der Einrichtung** hieß noch „Klein / Normal / Groß /
+  Sehr groß", während die Einstellungen längst „Auto / Full HD / WQHD / UHD"
+  anbieten — zwei Namen für dieselbe Sache
 - Der Katalog führt jetzt auch die Baupläne mit, zu denen kein Weg bekannt ist
   — mit Art, Größe, Güte und Hersteller. Er wird dafür beim ersten Start
   einmal neu geholt

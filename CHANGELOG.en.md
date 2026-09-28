@@ -33,10 +33,18 @@ The project follows SemVer: `MAJOR.MINOR.PATCH`.
   Verse-Kit writes **no blueprint details** into the game, because that is
   exactly where they go. Blueprints are still detected and counted
 
+- **The setup assistant offers every translation** — three out of fourteen
+  before. Plus your **own URL**, the **colour scheme** and the question of
+  **which blueprints count**: all things you would otherwise only find by
+  digging through the settings
+
 ### Fixed
 
 - The toggle for blueprints with no known source could not be switched in
   `-rc1`
+- **The size choice during setup** still said "Small / Normal / Large / Very
+  large", while the settings had long offered "Auto / Full HD / WQHD / UHD" —
+  two names for the same thing
 - The catalogue now also carries the blueprints with no known source — with
   type, size, grade and manufacturer. It is fetched once on first start
 

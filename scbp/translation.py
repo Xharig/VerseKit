@@ -354,6 +354,41 @@ def language_folder(source, channel=None):
     return info(source, channel).get('sprache') or 'english'
 
 
+def grouped_sources(channel=None, with_original=True):
+    """Die wählbaren Quellen, **nach Sprache gruppiert** — eine Liste je Sprache.
+
+    ⚠⚠ **Die eine Stelle, die die Reihenfolge festlegt** (28.09.2026). Vorher
+    baute sich der Reiter „Übersetzung" seine Liste aus `SOURCES`, während der
+    Einrichtungsassistent **drei fest verdrahtete Zeilen** hatte. Folge: Jede
+    neue Quelle erschien im Reiter und im Assistenten nie — bei v3.60.0 kannte
+    er 2 von 14, und niemandem fiel es auf, weil nichts kaputtging.
+
+    Wer eine Quelle ergänzt, ergänzt **eine** Zeile in `SOURCES`. Beide
+    Ansichten ziehen von hier.
+
+    Reihenfolge: erst Deutsch, dann Englisch, danach die übrigen Sprachen
+    alphabetisch (Wunsch vom 28.09.2026) — innerhalb einer Sprache die
+    Reihenfolge aus `SOURCES`, dort steht die gepflegteste Quelle vorn.
+    """
+    by_language = {}
+    for key, spec in SOURCES.items():
+        if not available(key, channel):
+            continue
+        by_language.setdefault(spec.get('sprache') or '', []).append(key)
+    if with_original:
+        # Das Originalenglisch aus dem Spiel gehört zu den englischen.
+        by_language.setdefault('english', []).append('original')
+
+    def rank(language):
+        if language.startswith('german'):
+            return (0, language)
+        if language.startswith('english'):
+            return (1, language)
+        return (2, language)
+
+    return [by_language[language] for language in sorted(by_language, key=rank)]
+
+
 def display_name(source):
     """Der Name einer Quelle, wie der Spieler ihn liest."""
     if source == CUSTOM:

@@ -67,9 +67,13 @@ SUB     = theme.SUB
 ACCENT  = theme.ACCENT
 GELB    = theme.YELLOW
 
-# Die Schriftstufen in der Reihenfolge, in der sie angeboten werden — dieselben
-# wie auf der Seite *Anzeige*.
-FONT_CHOICES = ('klein', 'normal', 'gross', 'sehrgross')
+# ⛔ **Hier standen die Schriftstufen `klein/normal/gross/sehrgross`** — seit
+# dem 28.09.2026 nicht mehr. Der Assistent bietet dieselben Voreinstellungen an
+# wie die Seite *Darstellung* (`main_window.FONT_PRESETS`: Auto, Full HD, WQHD,
+# UHD 125 %, UHD 150 %). Zwei Namen für dieselbe Sache waren genau das, was die
+# Symmetrie-Regel verhindern soll. Die Stufen selbst gibt es weiter — sie sind
+# nur kein Auswahlmenü mehr, sondern das Ergebnis der Punktzahl
+# (`main_window.level_for_points`).
 
 
 def font(groesse, fett=False, unterstrichen=False):
@@ -289,11 +293,42 @@ class Wizard:
                       paths.setting('overlay_modus') or 'immer',
                       lambda k: self._set('overlay_modus', k))
 
+        # ⚠⚠ **Dieselben Voreinstellungen wie unter „Darstellung"** (28.09.2026).
+        # Hier standen noch die alten vier Stufen „Klein / Normal / Groß / Sehr
+        # groß" (`FONT_CHOICES`), während die Einstellungsseite seit v3.58.0
+        # **Auto / Full HD / WQHD / UHD 125 % / UHD 150 %** anbietet und einen
+        # stufenlosen Regler dazu. Zwei Namen für dieselbe Sache, je nachdem wo
+        # man hinsieht — genau das, was die Symmetrie-Regel verhindern soll.
+        #
+        # ⚠ `set_font_size` wirkt **sofort** auf das ganze Fenster, also auch
+        # auf den Assistenten selbst. Das ist hier erwünscht: Man sieht beim
+        # Klicken, was man wählt.
+        from .main_window import FONT_PRESETS, auto_points
         ziel = self._row(f, t('hf_schrift'), t('as_schrift_h'), below=True)
-        self._choices(ziel, 'schriftgroesse',
-                      [(s, t('hf_s_' + s)) for s in FONT_CHOICES],
-                      paths.setting('schriftgroesse') or 'normal',
-                      lambda k: self._set('schriftgroesse', k))
+
+        def groesse(name):
+            punkte = dict(FONT_PRESETS).get(name)
+            if punkte is None:
+                punkte = auto_points(self.root.winfo_screenheight())
+            paths.set_setting('schrift_voreinstellung', name)
+            fenster = getattr(self, 'hauptfenster', None)
+            if fenster is not None and hasattr(fenster, 'set_font_size'):
+                fenster.set_font_size(punkte)
+            else:
+                # Noch kein Hauptfenster (allererster Start) — dann nur merken;
+                # gebaut wird es gleich danach ohnehin mit dieser Größe.
+                from .main_window import FONT_POINTS, level_for_points
+                paths.set_setting(FONT_POINTS, punkte)
+                paths.set_setting('schriftgroesse', level_for_points(punkte))
+            # ⚠ `schriftgroesse` ist der Schluessel, den `start()` nachzieht
+            # (`apply_changes`) — nicht die Voreinstellung. Ohne diese Zeile
+            # bliebe die Wahl bis zum naechsten Programmstart wirkungslos.
+            self.changed.add('schriftgroesse')
+
+        self._choices(ziel, 'schrift_voreinstellung',
+                      [(name, t('s_gr_' + name)) for name, _wert in FONT_PRESETS],
+                      paths.settings().get('schrift_voreinstellung') or '',
+                      groesse)
 
         ziel = self._row(f, t('e_deckkraft'), t('as_deckkraft_h'))
         from .main_window import slider
@@ -313,6 +348,40 @@ class Wizard:
 
         ziel = self._row(f, t('s_zeit'), t('as_zeit_h'))
         self._switch(ziel, 'spielzeit_zeigen', False)
+
+        # ⭐ Farbschema (28.09.2026). Es gibt sechs seit v3.58.0 — wer den
+        # Assistenten durchläuft, hat sie bis dahin nie gesehen und findet sie
+        # erst, wenn er die Einstellungen durchsucht.
+        #
+        # ⚠ Nur merken, nicht umfärben: Jedes Fenster hält die Farben als
+        # Konstanten; ein halb umgefärbtes Programm wäre schlimmer als ein
+        # ehrlicher Neustart (siehe `pages._appearance_page`). Beim ersten
+        # Start stört das nicht — danach wird ohnehin neu gestartet.
+        from . import theme as theme_modul
+        ziel = self._row(f, t('s_da_schema'), t('as_schema_h'), below=True)
+        self._choices(
+            ziel, theme_modul.SETTING,
+            [(name, t(scheme['label']))
+             for name, scheme in theme_modul.SCHEMES.items()],
+            paths.setting(theme_modul.SETTING) or theme_modul.DEFAULT,
+            theme_modul.choose)
+
+        # ⭐ Welche Baupläne zählen (28.09.2026, Wunsch: „Abfrage welche BP man
+        # sehen will, alle oder nur erspielbare?"). Die Einstellung gibt es
+        # seit v3.60.0 unter *Erkennung* — hier wird sie einmal bewusst
+        # entschieden, statt sie zu finden.
+        #
+        # ⚠ Als zwei benannte Knöpfe statt als Schalter: „Nur erspielbare" und
+        # „Alle herstellbaren" sagen beide, was sie bedeuten. Ein Schalter
+        # hieße „an/aus" von etwas, das man erst lesen muss.
+        from . import catalog as katalog_modul
+        ziel = self._row(f, t('as_umfang'), t('as_umfang_h'), below=True)
+        self._choices(
+            ziel, katalog_modul.SETTING_ALL,
+            [('nur', t('as_umfang_nur')), ('alle', t('as_umfang_alle'))],
+            'alle' if paths.setting_bool(katalog_modul.SETTING_ALL, False)
+            else 'nur',
+            lambda k: self._set(katalog_modul.SETTING_ALL, k == 'alle'))
 
     # ------------------------------------------------------------ 5. Start
     @staticmethod
@@ -523,18 +592,83 @@ class Wizard:
         self.inj_meldung = tk.Label(f, text='', bg=BG, fg=SUB, font=font(10),
                                     anchor='w', justify='left', wraplength=560)
 
-        # Die Flagge zeigt die Spielsprache, die dabei herauskommt.
+        # ⚠⚠ **Die Quellen kommen aus `translation.grouped_sources()`** — hier
+        # standen bis zum 28.09.2026 **drei fest verdrahtete Zeilen**
+        # (`deutsch`, `starstrings`, `original`). Der Reiter „Übersetzung" baute
+        # seine Liste dagegen aus `SOURCES`, und so lief beides auseinander:
+        # Bei v3.60.0 kannte der Assistent **2 von 14** Quellen. Aufgefallen ist
+        # es nur, weil jemand hinsah — kaputt war nichts, es fehlte bloß.
+        #
+        # Eine neue Übersetzung braucht jetzt genau **eine** Zeile in `SOURCES`.
+        #
+        # ⚠ Eine Reihe je Sprache, nicht alles untereinander: Vierzehn Knöpfe
+        # in einer Spalte sprengen das Fenster des Assistenten.
+        from . import translation
         from .pages import _flag
-        for schluessel, quelle, land in (('inj_quelle_de', 'deutsch', 'de'),
-                                         ('inj_quelle_ss', 'starstrings', 'gb'),
-                                         ('inj_quelle_orig', 'original', 'gb')):
-            flagge = _flag(land, master=f)
-            k = tk.Label(f, text='  %s  ' % t(schluessel), bg=FLAECHE, fg=FG,
-                         font=font(11), cursor='hand2', padx=10, pady=8,
-                         image=flagge or '', compound='left')
-            k.image = flagge        # sonst räumt Python das Bild weg
-            k.pack(anchor='w', pady=(14 if schluessel.endswith('_de') else 6, 0))
-            k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
+        erste = True
+        for gruppe in translation.grouped_sources():
+            reihe = tk.Frame(f, bg=BG)
+            reihe.pack(anchor='w', pady=(14 if erste else 6, 0))
+            erste = False
+            for quelle in gruppe:
+                land = ('gb' if quelle == 'original'
+                        else (translation.SOURCES.get(quelle) or {}).get('flagge'))
+                flagge = _flag(land, master=f) if land else None
+                k = tk.Label(reihe, text='  %s  ' % translation.display_name(quelle),
+                             bg=FLAECHE, fg=FG, font=font(11), cursor='hand2',
+                             padx=10, pady=8, image=flagge or '',
+                             compound='left')
+                k.image = flagge    # sonst räumt Python das Bild weg
+                k.pack(side='left', padx=(0, 6))
+                k.bind('<Button-1>', lambda e, q=quelle: self._fetch_texts(q))
+
+        # ⭐ **Die eigene Adresse gehört auch hierher** (28.09.2026). Sie gibt es
+        # seit v3.59.0 unter „Übersetzung" — im Assistenten fehlte sie, und wer
+        # eine andere Übersetzung nutzt, hatte hier keinen Weg außer „Nicht
+        # anfassen" und später selbst suchen.
+        #
+        # ⚠ Das Feld liegt eingeklappt darunter: Ein Eingabefeld, das immer
+        # offen steht, sieht aus wie eine Pflichtangabe.
+        eigene_kasten = tk.Frame(f, bg=BG)
+        self.eigene_url = tk.StringVar(
+            value=(translation._custom_settings(None).get('url') or ''))
+
+        def eigene_zeigen(_=None):
+            if eigene_kasten.winfo_ismapped():
+                eigene_kasten.pack_forget()
+            else:
+                eigene_kasten.pack(fill='x', pady=(8, 0))
+
+        eigene_knopf = tk.Label(f, text='  %s  ' % t('s_sp_q_eigen'),
+                                bg=FLAECHE, fg=FG, font=font(11),
+                                cursor='hand2', padx=10, pady=8)
+        eigene_knopf.pack(anchor='w', pady=(10, 0))
+        eigene_knopf.bind('<Button-1>', eigene_zeigen)
+
+        from .main_window import round_entry
+        self._paragraph(eigene_kasten, t('s_tq_url_h'), SUB, 9)
+        zeile_url = tk.Frame(eigene_kasten, bg=BG)
+        zeile_url.pack(fill='x', pady=(4, 0))
+        feld_url = round_entry(zeile_url, self.eigene_url, mono(10), FLAECHE,
+                               LINIE, ACCENT, FG,
+                               placeholder=t('s_tq_url_platz'))
+        feld_url.holder.pack(side='left', fill='x', expand=True, padx=(0, 8))
+
+        def eigene_uebernehmen(_=None):
+            # ⚠ Die Sprache steht hier nicht zur Wahl — im Assistenten wäre
+            # eine zweite Auswahl zu viel. `set_custom` nimmt Englisch als
+            # Standard; unter „Übersetzung" lässt sich beides ändern.
+            adresse = translation.set_custom(self.eigene_url.get(), 'english')
+            if not adresse:
+                self.inj_meldung.configure(text=t('s_tq_url_falsch'), fg=GELB)
+                return
+            self._fetch_texts(translation.CUSTOM)
+
+        knopf_url = tk.Label(zeile_url, text=' %s ' % t('s_tq_uebernehmen'),
+                             bg=BAR, fg=FG, font=font(10), cursor='hand2',
+                             padx=8, pady=6)
+        knopf_url.pack(side='right')
+        knopf_url.bind('<Button-1>', eigene_uebernehmen)
 
         # ⚠⚠ Der vierte Weg braucht einen Knopf, sonst gibt es ihn nicht.
         # Der Docstring oben nennt ihn seit jeher („Drei Wege plus ‚jetzt

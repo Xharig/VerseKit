@@ -3252,34 +3252,18 @@ def _translation_page(window, frame):
         ⚠ Die Reihenfolge **innerhalb** einer Gruppe bleibt die aus
         `SOURCES` — dort steht die gepflegteste Quelle je Sprache vorn.
         """
-        # Eine Gruppe je Sprache — zwei Übersetzungen derselben Sprache
-        # gehören nebeneinander, nicht auseinandergerissen.
-        nach_sprache = {}
-        for key, spec in translation.SOURCES.items():
-            if not translation.available(key, channel):
-                continue
-            eintrag = (key, translation.display_name(key),
-                       _flag(spec.get('flagge'))
-                       if spec.get('flagge') else None)
-            nach_sprache.setdefault(spec.get('sprache') or '', []).append(eintrag)
-        # Das Originalenglisch aus dem Spiel gehört zu den englischen.
-        nach_sprache.setdefault('english', []).append(
-            ('original', t('s_sp_q_or'), _flag('gb')))
-
-        # ⭐ Deutsch zuerst, dann Englisch, danach die übrigen **alphabetisch** —
-        # eine feste Reihenfolge, die sich nicht ändert, wenn eine Quelle
-        # dazukommt. Vorher hing sie an der Reihenfolge im Wörterbuch, und eine
-        # neue Zeile in `SOURCES` verschob die halbe Seite.
-        def rang(sprache):
-            if sprache.startswith('german'):
-                return (0, sprache)
-            if sprache.startswith('english'):
-                return (1, sprache)
-            return (2, sprache)
-
+        # ⭐ Die Reihenfolge kommt aus `translation.grouped_sources()` — der
+        # **einen** Stelle, die sie festlegt. Der Einrichtungsassistent liest
+        # dieselbe Funktion; so kann keine Quelle mehr nur an einer der beiden
+        # Stellen auftauchen (siehe den Kasten dort).
         result = []
-        for sprache in sorted(nach_sprache, key=rang):
-            result.extend(nach_sprache[sprache])
+        for gruppe in translation.grouped_sources(channel):
+            for key in gruppe:
+                flagge = (translation.SOURCES.get(key) or {}).get('flagge')
+                if key == 'original':
+                    flagge = 'gb'
+                result.append((key, translation.display_name(key),
+                               _flag(flagge) if flagge else None))
             result.append(None)              # Reihenumbruch je Sprache
 
         result.append((translation.CUSTOM, t('s_sp_q_eigen'), None))

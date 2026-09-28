@@ -342,25 +342,38 @@ class SettingsWindow:
                                  wraplength=600)
         self.inj_lage_lbl.pack(fill='x', pady=(0, 8))
 
-        # Quelle wechseln — dieselben drei Wege wie im Einrichtungsassistenten.
+        # Quelle wechseln — dieselben Wege wie im Einrichtungsassistenten.
         # Wer sich später umentscheidet (etwa vom deutschen auf den englischen
         # Client), soll dafür nicht den Assistenten suchen müssen.
-        # Untereinander, nicht nebeneinander: Zu dritt nebeneinander passte der
-        # letzte nicht mehr ins Fenster und war schlicht unsichtbar — man musste
-        # das Fenster erst breiter ziehen, um zu ahnen, dass es ihn gibt.
+        #
+        # ⚠⚠ **Die dritte Stelle mit derselben Liste** — hier standen bis zum
+        # 28.09.2026 ebenfalls die drei fest verdrahteten Zeilen. Assistent,
+        # Reiter „Übersetzung" und dieses Fenster hatten je eine eigene
+        # Vorstellung davon, was es gibt; nur der Reiter wuchs mit `SOURCES`
+        # mit. Alle drei ziehen jetzt aus `translation.grouped_sources()`.
+        #
+        # ⚠ Eine Reihe je Sprache statt alles untereinander: Zu dritt
+        # nebeneinander passte früher der letzte nicht ins Fenster — nach
+        # Sprachen gruppiert stehen höchstens drei in einer Reihe, und
+        # untereinander wären es bei vierzehn Quellen vierzehn Zeilen.
         wahl = tk.Frame(eltern, bg=BG)
         wahl.pack(fill='x', pady=(0, 8))
         from .pages import _flag
-        for schluessel, quelle, land in (('inj_quelle_de', 'deutsch', 'de'),
-                                         ('inj_quelle_ss', 'starstrings', 'gb'),
-                                         ('inj_quelle_orig', 'original', 'gb')):
-            flagge = _flag(land, master=wahl)
-            k = tk.Label(wahl, text='  %s  ' % t(schluessel), bg=SURFACE, fg=FG,
-                         font=font(10), cursor='hand2', padx=10, pady=7,
-                         anchor='w', image=flagge or '', compound='left')
-            k.image = flagge        # sonst räumt Python das Bild weg
-            k.pack(fill='x', pady=(0, 4))
-            k.bind('<Button-1>', lambda e, q=quelle: self._inj_switch(q))
+        for gruppe in translation.grouped_sources():
+            reihe_q = tk.Frame(wahl, bg=BG)
+            reihe_q.pack(fill='x', pady=(0, 4))
+            for quelle in gruppe:
+                land = ('gb' if quelle == 'original'
+                        else (translation.SOURCES.get(quelle) or {}).get('flagge'))
+                flagge = _flag(land, master=reihe_q) if land else None
+                k = tk.Label(reihe_q,
+                             text='  %s  ' % translation.display_name(quelle),
+                             bg=SURFACE, fg=FG, font=font(10), cursor='hand2',
+                             padx=10, pady=7, anchor='w',
+                             image=flagge or '', compound='left')
+                k.image = flagge    # sonst räumt Python das Bild weg
+                k.pack(side='left', padx=(0, 4))
+                k.bind('<Button-1>', lambda e, q=quelle: self._inj_switch(q))
         tk.Label(eltern, text=t('inj_fremd'), bg=BG, fg=SUB, font=font(9),
                  anchor='w', justify='left', wraplength=600).pack(fill='x',
                                                                   pady=(0, 10))

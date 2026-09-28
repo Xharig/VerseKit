@@ -7264,7 +7264,11 @@ def main():
         _ka73.vergessen() if hasattr(_ka73, 'vergessen') else None
         _he73.forget()
         try:
-            _bp73 = (_ka73.load().get('bauplaene') or {})
+            # ⚠ `unreachable=False`: Die Anleitung nennt die **erspielbaren**
+            # („670 der 738"). Ohne das haengt die Pruefung an der Einstellung
+            # des Entwicklers und meldet bei ihm eine andere Zahl als bei
+            # jedem anderen (28.09.2026).
+            _bp73 = (_ka73.load(unreachable=False).get('bauplaene') or {})
         except Exception:
             _bp73 = {}
         _gezeigt73 = []
@@ -24277,7 +24281,13 @@ def main():
                              (_rt244.SETTING, True)])
             if _pa244.WINDOWS:
                 _bool244['tray'] = True
-            _wahl244 = {'overlay_modus': 'popup', 'schriftgroesse': 'gross',
+            # ⚠ `schrift_voreinstellung` statt `schriftgroesse` (28.09.2026):
+            # Der Assistent bietet dieselben Voreinstellungen an wie die Seite
+            # *Darstellung* (Auto, Full HD, WQHD …), nicht mehr die alten vier
+            # Stufen. Gesetzt wird `schriftgroesse` weiterhin — aber als
+            # Ergebnis der Punktzahl, nicht als Auswahl.
+            _wahl244 = {'overlay_modus': 'popup',
+                        'schrift_voreinstellung': 'fullhd',
                         'deckkraft_prozent': 55}
             _soll244 = list(_wahl244) + list(_bool244)
             if _as244.possible():
@@ -24333,6 +24343,8 @@ def main():
                    % _fehlt244)
             pruefe(not _falsch244 and {'overlay_modus', 'schriftgroesse',
                                        'deckkraft_prozent'} <= _a244.changed,
+                   # `schriftgroesse` steht hier weiterhin: Es ist der
+                   # Schluessel, den `start()` nachzieht.
                    'jede Zeile speichert ihre Wahl und merkt sie zum Nachziehen '
                    '(wirkungslos: %r)' % _falsch244)
 
@@ -25981,6 +25993,7 @@ def main():
     _pruefung_285()
     _pruefung_286()
     _pruefung_287()
+    _pruefung_288()
 
     print()
     if fehler:
@@ -27193,16 +27206,23 @@ def _pruefung_273():
     pruefe(not _ohne273
            and _tr273.SOURCES['deutsch']['flagge'] == 'de'
            and _tr273.SOURCES['starstrings']['flagge'] == 'gb'
-           and "_flag(spec.get('flagge'))" in _qp273
-           and "('original', t('s_sp_q_or'), _flag('gb'))" in _qp273,
+           and "_flag(flagge) if flagge else None" in _qp273,
            'Textquelle: jede Quelle mit Flagge, Deutsch deutsch, StarStrings '
            'und Original britisch (ohne: %r)' % _ohne273)
+    # ⚠⚠ **Hier stand bis zum 28.09.2026 die Verdrahtung als Vorschrift**: Die
+    # Pruefung verlangte woertlich die drei Zeilen `('inj_quelle_de',
+    # 'deutsch', 'de')` usw. in `settings_window.py` und `wizard.py`. Damit hat
+    # sie den Fehler nicht gefunden, sondern **festgeschrieben** — jede neue
+    # Sprache erschien im Reiter und an diesen beiden Stellen nie.
+    #
+    # Geprueft wird jetzt die Eigenschaft: Beide holen die Liste aus
+    # `grouped_sources()`, nennen keine Quelle beim Namen und halten das Bild
+    # fest. Siehe Pruefung 288.
     for _d273 in ('settings_window.py', 'wizard.py'):
         _qd273 = io.open(os.path.join(WURZEL, 'scbp', _d273),
                          encoding='utf-8').read()
-        pruefe("('inj_quelle_de', 'deutsch', 'de')" in _qd273
-               and "('inj_quelle_ss', 'starstrings', 'gb')" in _qd273
-               and "('inj_quelle_orig', 'original', 'gb')" in _qd273
+        pruefe('grouped_sources()' in _qd273
+               and "('inj_quelle_de', 'deutsch', 'de')" not in _qd273
                and 'k.image = flagge' in _qd273,
                '%s zeigt dieselben Flaggen (und haelt das Bild fest)'
                % _d273)
@@ -27989,12 +28009,24 @@ def _pruefung_283():
         _a283._paragraph = lambda *_a, **_k: None
         _a283._step_texts()
 
-        # Anklickbar ist, was auf <Button-1> hoert.
-        _klickbar283 = [w for w in _flaeche283.winfo_children()
-                        if w.bind('<Button-1>')]
-        pruefe(len(_klickbar283) == 4,
-               'vier waehlbare Wege statt drei (gefunden: %d)'
-               % len(_klickbar283))
+        # Anklickbar ist, was auf <Button-1> hoert — seit dem 28.09.2026 auch
+        # eine Ebene tiefer: Die Quellen stehen in einer Reihe je Sprache.
+        def _klickbare283(behaelter):
+            gefunden = []
+            for w in behaelter.winfo_children():
+                if w.bind('<Button-1>'):
+                    gefunden.append(w)
+                gefunden.extend(_klickbare283(w))
+            return gefunden
+
+        _klickbar283 = _klickbare283(_flaeche283)
+        from scbp import translation as _tr283
+        _quellen283 = sum(len(g) for g in _tr283.grouped_sources())
+        # Jede Quelle, dazu „Nicht anfassen" und „Eigene Adresse".
+        pruefe(len(_klickbar283) >= _quellen283 + 2,
+               'jede Quelle plus „Nicht anfassen" und „Eigene Adresse" '
+               '(%d Knoepfe bei %d Quellen)'
+               % (len(_klickbar283), _quellen283))
 
         # Der vierte ist der neue — und er darf NICHTS schreiben.
         _gesetzt283 = []
@@ -28332,15 +28364,20 @@ def _pruefung_286():
     _quelle286 = io.open(os.path.join(WURZEL, 'scbp', 'pages.py'),
                          encoding='utf-8').read()
     _baum286 = _ast286.parse(_quelle286)
+    # ⚠ Die Sortierung steckt seit dem 28.09.2026 in
+    # `translation.grouped_sources()` — der einen Stelle, aus der Assistent,
+    # Einstellungsfenster und Reiter sie holen (Pruefung 288).
+    _baum286t = _ast286.parse(io.open(
+        os.path.join(WURZEL, 'scbp', 'translation.py'), encoding='utf-8').read())
     _gefunden286 = False
-    for _k286 in _ast286.walk(_baum286):
+    for _k286 in _ast286.walk(_baum286t):
         if (isinstance(_k286, _ast286.FunctionDef)
-                and _k286.name == 'entries_for'):
+                and _k286.name == 'grouped_sources'):
             _texte286 = {n.value for n in _ast286.walk(_k286)
                          if isinstance(n, _ast286.Constant)}
             _gefunden286 = 'german' in _texte286 and 'english' in _texte286
     pruefe(_gefunden286,
-           'entries_for sortiert nach Sprache (german/english zuerst)')
+           'grouped_sources sortiert nach Sprache (german/english zuerst)')
 
 
 def _pruefung_287():
@@ -28417,6 +28454,76 @@ def _pruefung_287():
                 _card287 = _k287
     pruefe(_card287 is not None,
            'die Hauptinstallation fragt vor dem Abschalten nach')
+
+
+def _pruefung_288():
+    """288. Assistent und Reiter bieten dieselben Textquellen an.
+
+    ⚠⚠ Gemeldet am 28.09.2026: Im Einrichtungsassistenten standen **drei**
+    Sprachen zur Wahl, im Reiter „Übersetzung" vierzehn. Der Assistent hatte
+    seine Liste fest verdrahtet (`deutsch`, `starstrings`, `original`), der
+    Reiter baute sie aus `SOURCES` — jede neue Quelle landete nur an einer der
+    beiden Stellen. Bei v3.60.0 kannte der Assistent **2 von 14**.
+
+    Aufgefallen ist es nur, weil jemand hinsah: Kaputt war nichts, es fehlte
+    bloß. Die richtige Frage dazu lautet „tritt das bei jeder neuen Sprache
+    wieder auf?", und die Antwort soll ab jetzt „nein" sein. Deshalb prüft das
+    hier die **Struktur**, nicht die Zahl: Alle Ansichten müssen durch
+    `translation.grouped_sources()` gehen.
+    """
+    print('\n288. Assistent und Reiter: dieselben Textquellen')
+    import ast as _ast288
+    from scbp import translation as _tr288
+
+    _gruppen288 = _tr288.grouped_sources()
+    _flach288 = [k for g in _gruppen288 for k in g]
+    pruefe(len(_flach288) == len(_tr288.SOURCES) + 1,
+           'grouped_sources kennt alle Quellen plus „Original" (%d von %d)'
+           % (len(_flach288), len(_tr288.SOURCES) + 1))
+    pruefe(len(set(_flach288)) == len(_flach288),
+           'und jede genau einmal')
+
+    # Deutsch zuerst, Englisch danach — die feste Reihenfolge.
+    def _sprache288(schluessel):
+        if schluessel == 'original':
+            return 'english'
+        return (_tr288.SOURCES.get(schluessel) or {}).get('sprache') or ''
+    pruefe(_sprache288(_gruppen288[0][0]).startswith('german'),
+           'die erste Reihe ist deutsch')
+    pruefe(len(_gruppen288) > 1
+           and _sprache288(_gruppen288[1][0]).startswith('english'),
+           'die zweite Reihe ist englisch')
+    for _g288 in _gruppen288:
+        pruefe(len({_sprache288(k) for k in _g288}) == 1,
+               'Reihe „%s" hat nur eine Sprache'
+               % _tr288.display_name(_g288[0]))
+
+    # ⭐ Der Kern: KEINE der beiden Seiten baut sich eine eigene Liste.
+    for _datei288, _fn288 in (('scbp/wizard.py', '_step_texts'),
+                              ('scbp/pages.py', 'entries_for')):
+        _baum288 = _ast288.parse(io.open(os.path.join(WURZEL, _datei288),
+                                         encoding='utf-8').read())
+        _ziel288 = None
+        for _k288 in _ast288.walk(_baum288):
+            if (isinstance(_k288, _ast288.FunctionDef)
+                    and _k288.name == _fn288):
+                _ziel288 = _k288
+        pruefe(_ziel288 is not None, '%s: %s gefunden' % (_datei288, _fn288))
+        if _ziel288 is None:
+            continue
+        _rufe288 = {n.func.attr for n in _ast288.walk(_ziel288)
+                    if isinstance(n, _ast288.Call)
+                    and isinstance(n.func, _ast288.Attribute)}
+        pruefe('grouped_sources' in _rufe288,
+               '%s holt die Quellen aus grouped_sources()' % _fn288)
+        # Gegenprobe-tauglich: eine fest eingetippte Quellkennung faellt auf.
+        _texte288 = {n.value for n in _ast288.walk(_ziel288)
+                     if isinstance(n, _ast288.Constant)
+                     and isinstance(n.value, str)}
+        _fest288 = sorted(_texte288 & set(_tr288.SOURCES))
+        pruefe(not _fest288,
+               '%s nennt keine Quelle beim Namen (sonst: %s)'
+               % (_fn288, _fest288 or '—'))
 
 
 def _wurzel():

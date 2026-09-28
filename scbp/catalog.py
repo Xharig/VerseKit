@@ -1044,8 +1044,18 @@ def build(version=None, progress=None, from_file=None):
 
 
 # ------------------------------------------------------------------ Lesen
-def load():
+def load(unreachable=None):
     """Der eigene Katalog von der Platte. Fehlt er, ist er leer.
+
+    ⚠⚠ **`unreachable` ist für alles, was NICHT die Anzeige ist** (28.09.2026).
+    Ohne Angabe entscheidet die Einstellung des Spielers, ob Baupläne ohne
+    bekannten Weg dabei sind — richtig für Liste, Fortschritt und Overlay.
+
+    Falsch ist es überall dort, wo eine **feste** Zahl gemeint ist: Prüfung 73
+    hält die Zahlen in der Anleitung („670 der 738") gegen die Daten, und die
+    hing danach plötzlich daran, was der Entwickler bei sich eingestellt hat —
+    bei ihm 1591, bei jedem anderen 738, und die Anleitung konnte nie für
+    beide stimmen. `unreachable=False` erzwingt die erspielbaren, `True` alle.
 
     ⚠ **Die Schlüssel werden beim Laden neu gebildet.** Ein Katalog auf der
     Platte kann Monate alt sein und mit einer früheren Fassung von
@@ -1080,7 +1090,9 @@ def load():
             # ⛔ Der **Bestand** des Spielers läuft nicht hier durch
             # (`collection.py`, eigene Datei) — ein Bauplan, den er besitzt,
             # verschwindet also nie, auch wenn der Katalog ihn ausblendet.
-            if not paths.setting_bool(SETTING_ALL, False):
+            mit = (paths.setting_bool(SETTING_ALL, False)
+                   if unreachable is None else bool(unreachable))
+            if not mit:
                 d['bauplaene'] = {k: e for k, e in d['bauplaene'].items()
                                   if not e.get('ohne_weg')}
             return d

@@ -325,6 +325,25 @@ TEXTS = {
                           '100 % = opaque. Less if the overlay sits on top of the game.'),
     'as_zeit_h':         ('Wie lange du gespielt hast, oben in der Kopfzeile.',
                           'How long you have played, at the top of the window.'),
+    # Farbschema und Bauplan-Umfang in der Einrichtung (28.09.2026): zwei
+    # Grundentscheidungen, die man einmal trifft und danach selten anfasst —
+    # und die man sonst erst findet, wenn man die Einstellungen durchsucht.
+    'as_schema_h':       ('Wirkt beim nächsten Start. Später jederzeit unter '
+                          '„Darstellung" änderbar.',
+                          'Takes effect at the next start. Changeable any time '
+                          'later under “Appearance”.'),
+    'as_umfang':         ('Welche Baupläne zählen',
+                          'Which blueprints count'),
+    'as_umfang_h':       ('Star Citizen kann rund 1.600 Dinge herstellen — über '
+                          'Aufträge zu bekommen ist ein knappes Drittel davon. '
+                          'Der Rest kommt aus Kiosken, aus Events oder hängt an '
+                          'keiner Mission.',
+                          'Star Citizen can craft around 1,600 things — barely a '
+                          'third of those are handed out by contracts. The rest '
+                          'comes from kiosks, from events, or is tied to no '
+                          'mission.'),
+    'as_umfang_nur':     ('Nur erspielbare', 'Obtainable only'),
+    'as_umfang_alle':    ('Alle herstellbaren', 'Everything craftable'),
     'as_autostart_h':    ('Dann läuft es schon, wenn du Star Citizen startest.',
                           'Then it is already running when you start Star Citizen.'),
     'as_tray_h':         ('Schließen versteckt das Fenster dort, statt das Programm '
